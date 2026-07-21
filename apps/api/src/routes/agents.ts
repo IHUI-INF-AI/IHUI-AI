@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { randomUUID, randomBytes } from 'crypto'
+import { randomUUID, randomBytes, createHmac, timingSafeEqual } from 'crypto'
 import { eq, and, desc, sql, inArray, gte } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
@@ -145,6 +145,12 @@ const updateNeedTaskSchema = z.object({
 
 export const agentsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+    // 2026-07-21 安全审计加固:/callback/* 走 HMAC 签名校验,不走 JWT 鉴权
+    // 原因:Coze / 第三方 webhook 由对方服务器回调,无 JWT 凭据,必须按签名验证身份
+    const url = request.url.split('?')[0] ?? request.url
+    if (url.startsWith('/api/callback/') || url.startsWith('/cozeZhsApi/agents/callback/coze')) {
+      return // 跳过 requireAuth,由路由内部 verifyHmacSignature 处理
+    }
     if (!(await requireAuth(request, reply))) return
   })
 
@@ -1337,6 +1343,32 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/callback/coze', async (request, reply) => {
+    // 2026-07-21 安全审计加固:Coze webhook 必须校验 HMAC 签名,严禁任何人
+    // POST 任意 payload 篡改智能体发布状态。签名头:X-Signature / X-Timestamp,
+    // 签名串:HMAC-SHA256(timestamp + '.' + rawBody, runtimeWebhookSecret)
+    const sigHeader = request.headers['x-signature']
+    const tsHeader = request.headers['x-timestamp']
+    if (typeof sigHeader !== 'string' || typeof tsHeader !== 'string') {
+      return reply
+        .status(401)
+        .send({ code: 401, message: 'webhook 缺少 X-Signature 或 X-Timestamp 头' })
+    }
+    // 时间戳防重放:5 分钟窗口外拒绝
+    const tsNum = Number(tsHeader)
+    if (!Number.isFinite(tsNum) || Math.abs(Date.now() - tsNum) > 5 * 60 * 1000) {
+      return reply.status(401).send({ code: 401, message: 'webhook 时间戳越界或非法' })
+    }
+    const rawBody = JSON.stringify(request.body ?? {})
+    const expected = createHmac('sha256', runtimeWebhookSecret)
+      .update(`${tsHeader}.${rawBody}`)
+      .digest('hex')
+    const a = Buffer.from(expected, 'hex')
+    const b = Buffer.from(sigHeader, 'hex')
+    if (a.length !== b.length || a.length === 0 || !timingSafeEqual(a, b)) {
+      request.log.warn({ ip: request.ip }, 'Coze webhook 签名验证失败')
+      return reply.status(401).send({ code: 401, message: 'webhook 签名验证失败' })
+    }
+
     const parsed = cozeCallbackSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, '回调数据格式错误'))
@@ -1657,9 +1689,34 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 10. POST /cozeZhsApi/agents/config/webhook-secret - 真实写入运行时变量
-  let runtimeWebhookSecret = process.env.COZE_WEBHOOK_SECRET ?? 'your_webhook_secret_here'
+  // 2026-07-21 安全审计加固:
+  // 1. 移除弱默认 'your_webhook_secret_here' — 攻击者可枚举 → 必须强制配置
+  // 2. POST 端点要求 admin 权限 — 防止普通用户篡改运行时密钥绕过 webhook 验签
+  let runtimeWebhookSecret = process.env.COZE_WEBHOOK_SECRET ?? ''
+  if (!runtimeWebhookSecret && process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'CRITICAL: COZE_WEBHOOK_SECRET 未配置,生产环境禁止使用默认值,系统拒绝启动以防 webhook 伪造',
+    )
+  }
+  if (!runtimeWebhookSecret) {
+    // DEV 环境:自动生成运行时密钥(进程级,不持久化)
+    runtimeWebhookSecret = randomBytes(32).toString('hex')
+    console.warn(
+      `[agents] COZE_WEBHOOK_SECRET 未配置,DEV 自动生成进程级密钥(重启失效): ${runtimeWebhookSecret.slice(0, 8)}...${runtimeWebhookSecret.slice(-4)}`,
+    )
+  }
+  // 启动期生成,运行期可能被 POST /config/webhook-secret 修改
+  let runtimeWebhookSecretOverridden = false
+  // 注意:此 POST 端点也受 preHandler 鉴权(除 /callback/* 外),
+  // 此处额外要求 admin 角色 (roleId >= 1)
   server.post('/cozeZhsApi/agents/config/webhook-secret', async (request, reply) => {
     try {
+      // 2026-07-21 安全审计加固:仅 admin 可改运行时 webhook 密钥
+      // 防止普通用户伪造 webhook 验签(可任意改密钥绕过验签,或制造 401 风暴)
+      const roleId = (request as unknown as { jwtPayload?: { roleId?: number } }).jwtPayload?.roleId ?? 0
+      if (roleId < 1) {
+        return reply.status(403).send(error(403, '仅管理员可修改 webhook 密钥'))
+      }
       const parsed = z
         .object({
           secret: z.string().min(8, '密钥至少 8 位').max(128),
@@ -1669,6 +1726,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       runtimeWebhookSecret = parsed.data.secret
+      runtimeWebhookSecretOverridden = true
       return reply.send(
         success({
           isConfigured: true,
@@ -1684,12 +1742,20 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // 11. GET /cozeZhsApi/agents/config/webhook-secret - 真实读取
   server.get('/cozeZhsApi/agents/config/webhook-secret', async (_request, reply) => {
-    const isConfigured = runtimeWebhookSecret && runtimeWebhookSecret !== 'your_webhook_secret_here'
+    // 2026-07-21 安全审计加固:用 runtimeWebhookSecret 实际值判断,
+    // 移除对已废弃的 'your_webhook_secret_here' 默认值的对比
+    const isConfigured = Boolean(runtimeWebhookSecret)
     const preview = isConfigured
       ? `${runtimeWebhookSecret.slice(0, 8)}...${runtimeWebhookSecret.slice(-4)}`
       : '未配置'
     return reply.send(
-      success({ isConfigured, secretPreview: preview, verificationEnabled: isConfigured }),
+      success({
+        isConfigured,
+        secretPreview: preview,
+        verificationEnabled: isConfigured,
+        // 标识运行时密钥是否被 POST 修改(用于提示用户重启后会失效)
+        isOverridden: runtimeWebhookSecretOverridden,
+      }),
     )
   })
 
@@ -1745,7 +1811,13 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       const secret = runtimeWebhookSecret
       const message = ts ? `${ts}.${payload}` : payload
       const expected = crypto.createHmac('sha256', secret).update(message).digest('hex')
-      const isValid = expected === signature
+      // 2026-07-21 安全审计加固:用 timingSafeEqual 做常量时间字符串比较,
+      // 防止 CWE-208 时序攻击通过响应时间差异逐字节爆破签名
+      // (虽然此端点只读不接收实际生产流量,仍按最佳实践修复)
+      const a = Buffer.from(expected, 'hex')
+      const b = Buffer.from(signature, 'hex')
+      const isValid =
+        a.length === b.length && a.length > 0 && crypto.timingSafeEqual(a, b)
       return reply.send(
         success({
           isValid,
