@@ -145,38 +145,38 @@ export default function ExamResultPage() {
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-md border bg-muted/30 p-3 text-center">
-            <div className="text-xs text-muted-foreground">答对</div>
+            <div className="text-xs text-muted-foreground">{t('result.correct')}</div>
             <div className="mt-1 text-lg font-semibold text-emerald-600">{result.correctCount}</div>
           </div>
           <div className="rounded-md border bg-muted/30 p-3 text-center">
-            <div className="text-xs text-muted-foreground">答错</div>
+            <div className="text-xs text-muted-foreground">{t('result.wrong')}</div>
             <div className="mt-1 text-lg font-semibold text-destructive">{result.wrongCount}</div>
           </div>
           <div className="rounded-md border bg-muted/30 p-3 text-center">
-            <div className="text-xs text-muted-foreground">未答</div>
+            <div className="text-xs text-muted-foreground">{t('result.unanswered')}</div>
             <div className="mt-1 text-lg font-semibold">{result.unansweredCount}</div>
           </div>
           <div className="rounded-md border bg-muted/30 p-3 text-center">
-            <div className="text-xs text-muted-foreground">用时</div>
+            <div className="text-xs text-muted-foreground">{t('result.duration')}</div>
             <div className="mt-1 flex items-center justify-center gap-1 text-lg font-semibold">
               <Clock className="h-3.5 w-3.5" />
-              {result.duration}分
+              {t('result.minutes', { n: result.duration })}
             </div>
           </div>
         </CardContent>
         <CardContent className="pt-0">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Award className="h-3.5 w-3.5" />
-            提交时间：{fmt(result.submittedAt)}
+            {t('result.submittedAt', { time: fmt(result.submittedAt) })}
           </div>
         </CardContent>
       </Card>
 
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold">答题详情</h2>
+        <h2 className="text-lg font-semibold">{t('result.detailsTitle')}</h2>
         {result.details.length === 0 ? (
           <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-            暂无答题详情
+            {t('result.detailsEmpty')}
           </div>
         ) : (
           <div className="space-y-2">
@@ -196,7 +196,7 @@ export default function ExamResultPage() {
                         </p>
                         <div className="grid gap-1 text-xs">
                           <div className="flex items-start gap-1">
-                            <span className="shrink-0 text-muted-foreground">你的答案：</span>
+                            <span className="shrink-0 text-muted-foreground">{t('result.yourAnswer')}</span>
                             <span
                               className={cn(
                                 'break-words',
@@ -208,7 +208,7 @@ export default function ExamResultPage() {
                           </div>
                           {!d.isCorrect && (
                             <div className="flex items-start gap-1">
-                              <span className="shrink-0 text-muted-foreground">正确答案：</span>
+                              <span className="shrink-0 text-muted-foreground">{t('result.correctAnswer')}</span>
                               <span className="break-words text-emerald-600">
                                 {normalizeAnswer(d.correctAnswer)}
                               </span>
@@ -216,7 +216,7 @@ export default function ExamResultPage() {
                           )}
                           {d.analysis && (
                             <div className="flex items-start gap-1">
-                              <span className="shrink-0 text-muted-foreground">解析：</span>
+                              <span className="shrink-0 text-muted-foreground">{t('result.analysis')}</span>
                               <span className="break-words text-muted-foreground">
                                 {d.analysis}
                               </span>
@@ -226,7 +226,7 @@ export default function ExamResultPage() {
                       </div>
                     </div>
                     <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                      {d.score}分
+                      {t('result.points', { n: d.score })}
                     </span>
                   </div>
                 </CardContent>

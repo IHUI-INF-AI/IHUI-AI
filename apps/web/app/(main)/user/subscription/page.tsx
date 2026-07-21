@@ -27,12 +27,10 @@ import {
   SelectValue,
 } from '@ihui/ui'
 
-const renewSchema = z.object({
-  planId: z.string().min(1, '请选择订阅方案'),
-  paymentMethod: z.enum(['wechat', 'alipay']),
-})
-
-type RenewValues = z.infer<typeof renewSchema>
+type RenewValues = {
+  planId: string
+  paymentMethod: 'wechat' | 'alipay'
+}
 
 interface SubscriptionPlan {
   id: string
@@ -65,6 +63,15 @@ function formatPrice(cents: number): string {
 export default function SubscriptionPage() {
   const t = useTranslations('user')
   const qc = useQueryClient()
+
+  const renewSchema = React.useMemo(
+    () =>
+      z.object({
+        planId: z.string().min(1, t('subscription.planRequired')),
+        paymentMethod: z.enum(['wechat', 'alipay']),
+      }),
+    [t],
+  )
 
   const { data: status, isLoading } = useQuery({
     queryKey: ['payments', 'subscription', 'status'],
@@ -110,12 +117,12 @@ export default function SubscriptionPage() {
   const isVip = status?.isVip ?? false
 
   const handleSign = async () => {
-    if (!planId) return toast.error('请先选择订阅方案')
+    if (!planId) return toast.error(t('subscription.pleaseSelectPlan'))
     try {
       const res = await signContract.mutateAsync({ planId })
       if (res.signUrl) window.location.href = res.signUrl
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : '开通自动续费失败')
+      toast.error(err instanceof Error ? err.message : t('subscription.openAutoRenewFailed'))
     }
   }
 
@@ -243,34 +250,36 @@ export default function SubscriptionPage() {
           {/* 自动续费管理 */}
           <Card id="auto-renew-manager">
             <CardHeader>
-              <CardTitle className="text-base">自动续费管理</CardTitle>
+              <CardTitle className="text-base">{t('subscription.autoRenewManageTitle')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {sub.data?.autoRenew ? (
                 <div className="flex items-center justify-between gap-3">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium">已开通自动续费</p>
+                    <p className="text-sm font-medium">{t('subscription.autoRenewOpened')}</p>
                     <p className="text-xs text-muted-foreground">
-                      下次扣款：
+                      {t('subscription.nextCharge')}
                       {sub.data.contract?.nextChargeTime
                         ? formatDate(sub.data.contract.nextChargeTime)
                         : '-'}
                     </p>
                   </div>
                   <Button variant="outline" size="sm" asChild>
-                    <a href="#contracts">管理</a>
+                    <a href="#contracts">{t('subscription.manage')}</a>
                   </Button>
                 </div>
               ) : (
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm text-muted-foreground">未开通自动续费</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t('subscription.autoRenewClosed')}
+                  </p>
                   <Button
                     size="sm"
                     onClick={handleSign}
                     disabled={signContract.isPending || !planId}
                   >
                     {signContract.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    开通自动续费
+                    {t('subscription.openAutoRenew')}
                   </Button>
                 </div>
               )}

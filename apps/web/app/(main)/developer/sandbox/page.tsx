@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { toast } from 'sonner'
+import { useTranslations } from 'next-intl'
 import { FlaskConical, Send, Loader2, Plus, X } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -33,6 +34,7 @@ const METHOD_CLASS: Record<Method, string> = {
 }
 
 export default function SandboxPage() {
+  const t = useTranslations('developerSandboxPage')
   const [method, setMethod] = React.useState<Method>('GET')
   const [url, setUrl] = React.useState('/api/developer/sandbox')
   const [headers, setHeaders] = React.useState<HeaderRow[]>([{ key: '', value: '' }])
@@ -74,9 +76,9 @@ export default function SandboxPage() {
         duration,
         body: r.success ? r.data : { error: r.error },
       })
-      if (!r.success) toast.error(r.error ?? '请求失败')
+      if (!r.success) toast.error(r.error ?? t('requestFailed'))
     } catch (e) {
-      setError(e instanceof Error ? e.message : '请求异常')
+      setError(e instanceof Error ? e.message : t('requestError'))
     } finally {
       setLoading(false)
     }
@@ -87,9 +89,9 @@ export default function SandboxPage() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <FlaskConical className="h-5 w-5 text-primary" />
-          沙箱测试
+          {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">在线调用 API 验证请求与响应</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <Card>
@@ -121,16 +123,16 @@ export default function SandboxPage() {
               ) : (
                 <Send className="h-4 w-4" />
               )}
-              发送
+              {t('send')}
             </Button>
           </div>
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label className="text-sm">请求头</Label>
+              <Label className="text-sm">{t('requestHeaders')}</Label>
               <Button size="sm" variant="ghost" onClick={addHeader}>
                 <Plus className="h-3.5 w-3.5" />
-                添加
+                {t('add')}
               </Button>
             </div>
             <div className="space-y-1.5">
@@ -139,13 +141,13 @@ export default function SandboxPage() {
                   <Input
                     value={h.key}
                     onChange={(e) => updateHeader(i, 'key', e.target.value)}
-                    placeholder="Header 名"
+                    placeholder={t('headerNamePlaceholder')}
                     className="flex-1"
                   />
                   <Input
                     value={h.value}
                     onChange={(e) => updateHeader(i, 'value', e.target.value)}
-                    placeholder="Header 值"
+                    placeholder={t('headerValuePlaceholder')}
                     className="flex-1"
                   />
                   <Button
@@ -163,7 +165,7 @@ export default function SandboxPage() {
 
           {['POST', 'PUT', 'PATCH'].includes(method) && (
             <div className="space-y-1">
-              <Label className="text-sm">请求体</Label>
+              <Label className="text-sm">{t('requestBody')}</Label>
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
@@ -197,7 +199,7 @@ export default function SandboxPage() {
               <span className="text-xs text-muted-foreground">{resp.duration}ms</span>
             </div>
             <div>
-              <p className="mb-1.5 text-sm font-semibold">响应体</p>
+              <p className="mb-1.5 text-sm font-semibold">{t('responseBody')}</p>
               <pre className="max-h-80 overflow-auto rounded-md bg-muted/50 p-3 text-xs">
                 <code>{JSON.stringify(resp.body, null, 2)}</code>
               </pre>

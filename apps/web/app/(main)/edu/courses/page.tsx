@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { BookOpen, Search, Loader2, ChevronLeft, ChevronRight, PlayCircle } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -43,6 +44,7 @@ const STATUS_STYLE: Record<string, string> = {
 
 export default function EduCoursesPage() {
   const router = useRouter()
+  const t = useTranslations('eduCoursesPage')
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [page, setPage] = React.useState(1)
@@ -76,9 +78,9 @@ export default function EduCoursesPage() {
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <BookOpen className="h-7 w-7 text-primary" />
-          我的课程
+          {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">管理已报名的全部课程</p>
+        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <div className="relative w-full max-w-xs">
@@ -86,23 +88,23 @@ export default function EduCoursesPage() {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="搜索课程..."
+          placeholder={t('searchPlaceholder')}
           className="h-9 pl-8"
-          aria-label="搜索课程"
+          aria-label={t('searchAriaLabel')}
         />
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : error ? (
         <Alert variant="danger" description={(error as Error).message} />
       ) : courses.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
           <PlayCircle className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">暂无课程</p>
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -134,10 +136,10 @@ export default function EduCoursesPage() {
                     )}
                   >
                     {c.status === 'completed'
-                      ? '已完成'
+                      ? t('statusCompleted')
                       : c.status === 'in_progress'
-                        ? '进行中'
-                        : '未开始'}
+                        ? t('statusInProgress')
+                        : t('statusNotStarted')}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">{c.instructor}</p>
@@ -147,7 +149,7 @@ export default function EduCoursesPage() {
                     style={{ width: `${c.progress}%` }}
                   />
                 </div>
-                <span className="text-xs text-muted-foreground">进度 {c.progress}%</span>
+                <span className="text-xs text-muted-foreground">{t('progress', { n: c.progress })}</span>
               </CardContent>
             </Card>
           ))}
@@ -156,7 +158,7 @@ export default function EduCoursesPage() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">共 {total} 条</span>
+          <span className="text-sm text-muted-foreground">{t('total', { n: total })}</span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
