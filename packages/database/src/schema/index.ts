@@ -140,6 +140,8 @@ export * from './clawdbot.js'
 export * from './llm-call-logs.js'
 export * from './wechat-pay-contracts.js'
 export * from './knowledge-rag.js'
+// 知识图谱(2026-07-21 新增,G5 任务:LLM NER 抽取 + 关系存储 + 前端可视化)
+export * from './knowledge-graph.js'
 export * from './crew.js'
 export * from './oauth-private-keys.js'
 export * from './search-contents.js'
@@ -161,3 +163,5 @@ export * from './self-media.js'
 export * from './publish-platform.js'
 // 搜索热词表(2026-07-20 补建,迁移报告 P0 缺失项)
 export * from './search-hot-words.js'
+// 用户自定义 AI 对话框技能(2026-07-21 新增,AI 对话框 Skill 库统一面板支撑)
+export * from './user-chat-skills.js'
