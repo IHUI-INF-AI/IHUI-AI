@@ -5,7 +5,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile.api-new
+      dockerfile: Dockerfile.api
     image: ihui-api:latest
     container_name: ihui-api
     restart: unless-stopped
@@ -61,7 +61,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: Dockerfile.api-new
+      dockerfile: Dockerfile.api
     image: ihui-api:latest
     container_name: ihui-worker
     restart: unless-stopped
@@ -109,7 +109,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: Dockerfile.web-new
+      dockerfile: Dockerfile.web
     image: ihui-web:latest
     container_name: ihui-web
     restart: unless-stopped
