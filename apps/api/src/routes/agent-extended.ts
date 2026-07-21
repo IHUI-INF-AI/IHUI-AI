@@ -15,6 +15,7 @@ import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { syncAgentBuyToSettlement } from '../services/settlement-service.js'
 import { calculateAgentPermission } from '../services/agent-service.js'
 import { getConversationHistory } from '../services/context-manager-service.js'
+import { generateOrderNumber } from '../utils/crypto-random.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -852,14 +853,9 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   server.get('/buy/order/generate', async (request, reply) => {
     const { agentId, userId } = optionalAgentIdUserIdQuery.parse(request.query)
     const now = new Date()
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const ts =
-      `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
-      `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
-    const random = Math.floor(Math.random() * 1000000)
-      .toString()
-      .padStart(6, '0')
-    const orderNo = `BUY${ts}${random}`
+    // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成订单号
+    // 风险:Math.random 可预测 → 攻击者可枚举其他用户订单号 → 订单查询/支付绕过
+    const orderNo = generateOrderNumber('BUY')
     return reply.send(success({ orderNo, generatedAt: now, agentId, userId }))
   })
 
@@ -1395,16 +1391,9 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
   })
   server.post('/developer/generate-order-no', async (_req, reply) => {
-    const now = new Date()
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const ts =
-      `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
-      `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
-    const random = Math.floor(Math.random() * 1000000)
-      .toString()
-      .padStart(6, '0')
-    const orderNo = `DEV${ts}${random}`
-    return reply.send(success({ orderNo, generatedAt: now }))
+    // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成开发者订单号
+    const orderNo = generateOrderNumber('DEV')
+    return reply.send(success({ orderNo, generatedAt: new Date() }))
   })
 
   // -------------------------------------------------------------------------

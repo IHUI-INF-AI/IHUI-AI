@@ -4,6 +4,7 @@
  * 任务调度、执行、结果收集。
  */
 import { EventEmitter } from 'node:events'
+import { randomBytes } from 'node:crypto'
 import { logger } from './logger.js'
 import { getToolExecutor, type ToolContext } from './tools.js'
 import { evaluateSafeCondition } from './safe-condition.js'
@@ -70,7 +71,9 @@ export class TaskExecutor extends EventEmitter {
     parentTaskId?: string
   }): Task {
     const task: Task = {
-      id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成任务 ID
+      // 风险:Math.random 可预测 → 攻击者可枚举其他用户的任务 ID
+      id: `task_${Date.now()}_${randomBytes(4).toString('hex')}`,
       name: params.name,
       description: params.description,
       type: params.type ?? 'sequential',

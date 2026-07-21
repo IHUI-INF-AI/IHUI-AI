@@ -87,3 +87,68 @@ export function generateCertificateNumber(): string {
   }
   return `CERT-${ymd}-${rand}`
 }
+
+/**
+ * 生成订单号 (用于支付/订单业务)
+ *
+ * 格式: PREFIX-YYYYMMDDHHMMSS-XXXXXX
+ * 例: BUY-20260721183045-7K9M2P
+ * 6 字符 base36 = log2(36^6) ≈ 31 位熵
+ * 防暴力枚举:配合限流(单用户 1 次/秒)+ DB unique 约束足够
+ *
+ * 2026-07-21 安全审计加固:原实现 Math.random() 6 位数字可被预测
+ * → 攻击者可枚举其他用户订单号 → 订单查询/支付绕过风险
+ *
+ * @param prefix 业务前缀,例: BUY/DEV/PAY/ORD
+ */
+export function generateOrderNumber(prefix: string): string {
+  const now = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const ts =
+    now.getFullYear().toString() +
+    pad(now.getMonth() + 1) +
+    pad(now.getDate()) +
+    pad(now.getHours()) +
+    pad(now.getMinutes()) +
+    pad(now.getSeconds())
+  // 6 字符大写 + 数字(去除易混淆字符 I L O 0 1)
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+  const bytes = randomBytes(6)
+  let rand = ''
+  for (let i = 0; i < 6; i++) {
+    rand += chars[bytes[i]! % chars.length]
+  }
+  return `${prefix}${ts}${rand}`
+}
+
+/**
+ * 生成通用 ID (用于事件/任务/作业等内部追踪 ID)
+ *
+ * 格式: PREFIX-YYYYMMDDHHMMSS-XXXXXXXX (8 字符 base36)
+ * 8 字符 base36 = log2(36^8) ≈ 41 位熵
+ * 防碰撞 + 弱猜测保护足够,实际唯一性由 DB unique 约束或 ID 索引保证
+ *
+ * 2026-07-21 安全审计加固:替换 Math.random() 用于 ID 生成,
+ * 原实现可预测 → 攻击者可枚举其他用户的事件/任务 ID
+ *
+ * @param prefix 业务前缀,例: evt/task/job
+ */
+export function generateTrackingId(prefix: string): string {
+  const now = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const ts =
+    now.getFullYear().toString() +
+    pad(now.getMonth() + 1) +
+    pad(now.getDate()) +
+    pad(now.getHours()) +
+    pad(now.getMinutes()) +
+    pad(now.getSeconds())
+  // 8 字符大写 + 数字(去除易混淆字符 I L O 0 1)
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+  const bytes = randomBytes(8)
+  let rand = ''
+  for (let i = 0; i < 8; i++) {
+    rand += chars[bytes[i]! % chars.length]
+  }
+  return `${prefix}-${ts}-${rand}`
+}
