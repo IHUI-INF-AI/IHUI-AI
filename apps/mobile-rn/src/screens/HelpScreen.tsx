@@ -27,7 +27,7 @@ export function HelpScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/help/faq`)
+      const resp = await fetch(`${API_BASE_URL}/api/help/articles`)
       if (!resp.ok) throw new Error('http')
       const data = (await resp.json()) as { data?: HelpItem[] }
       setItems(data.data ?? [])
@@ -84,7 +84,9 @@ export function HelpScreen() {
               style={styles.question}
               onPress={() => setExpandedId(expandedId === item.id ? null : item.id)}
             >
-              <Text style={styles.questionText} numberOfLines={2}>{item.question}</Text>
+              <Text style={styles.questionText} numberOfLines={2}>
+                {item.question}
+              </Text>
               <Text style={styles.toggle}>{expandedId === item.id ? '−' : '+'}</Text>
             </TouchableOpacity>
             {expandedId === item.id ? <Text style={styles.answerText}>{item.answer}</Text> : null}
@@ -97,7 +99,13 @@ export function HelpScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
   backText: { fontSize: 14, color: '#374151' },
   title: { fontSize: 18, fontWeight: '600', color: '#111827' },
   errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
