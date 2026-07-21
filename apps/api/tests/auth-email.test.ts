@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, vi } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
 // Mock config:全部零值,确保 sendEmail 走 stub 通道(不实际发邮件)
 vi.mock('../src/config/index.js', () => ({

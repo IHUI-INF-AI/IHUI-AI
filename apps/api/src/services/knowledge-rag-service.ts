@@ -65,22 +65,6 @@ async function getEmbedding(text: string): Promise<number[] | null> {
   }
 }
 
-function cosineSimilarity(a: number[], b: number[]): number {
-  if (!a || !b || a.length !== b.length || a.length === 0) return 0
-  let dot = 0
-  let normA = 0
-  let normB = 0
-  for (let i = 0; i < a.length; i++) {
-    const av = a[i] ?? 0
-    const bv = b[i] ?? 0
-    dot += av * bv
-    normA += av * av
-    normB += bv * bv
-  }
-  if (normA === 0 || normB === 0) return 0
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB))
-}
-
 const WORD_RE = /[\w\u4e00-\u9fff]+/g
 function keywordScore(query: string, content: string): number {
   const qSet = new Set(query.toLowerCase().match(WORD_RE) ?? [])

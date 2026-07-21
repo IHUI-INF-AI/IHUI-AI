@@ -467,7 +467,7 @@ function PluginCardActions({
   // 未登录:不显示操作按钮(前端隐藏,后端兜底鉴权)
   if (!isAuthenticated) return null
   return (
-    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+    <div className="flex items-center gap-1">
       <button
         type="button"
         onClick={(e) => {

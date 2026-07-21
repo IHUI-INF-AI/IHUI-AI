@@ -53,10 +53,12 @@ export function DictTypeDialog({
     schema: dictTypeSchema,
     defaultValues,
   })
+  // defaultValues 用 ref:避免加入 deps 后父组件传入新对象引用导致表单被反复重置
+  const defaultValuesRef = React.useRef(defaultValues)
+  defaultValuesRef.current = defaultValues
   React.useEffect(() => {
-    form.reset(defaultValues)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing?.id, open])
+    form.reset(defaultValuesRef.current)
+  }, [editing?.id, open, form])
 
   const nameErr = form.formState.errors.name?.message
   const codeErr = form.formState.errors.code?.message
@@ -148,10 +150,12 @@ export function DictItemDialog({
     schema: dictItemSchema,
     defaultValues,
   })
+  // defaultValues 用 ref:避免加入 deps 后父组件传入新对象引用导致表单被反复重置
+  const defaultValuesRef = React.useRef(defaultValues)
+  defaultValuesRef.current = defaultValues
   React.useEffect(() => {
-    form.reset(defaultValues)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing?.id, open])
+    form.reset(defaultValuesRef.current)
+  }, [editing?.id, open, form])
 
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>
@@ -253,68 +257,6 @@ export function DictItemDialog({
             <textarea
               id="di-remark"
               {...form.register('remark')}
-              rows={2}
-              className={textareaClass}
-              placeholder={t('dict.remarkPlaceholder')}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="di-dictType">{t('dict.fieldDictType')}</Label>
-            <Input
-              id="di-dictType"
-              value={form.dictType}
-              onChange={(e) => onFormChange({ ...form, dictType: e.target.value })}
-              placeholder="order_status"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="di-listClass">{t('dict.fieldListClass')}</Label>
-              <Select
-                value={form.listClass}
-                onValueChange={(v) => onFormChange({ ...form, listClass: v as ListClass })}
-              >
-                <SelectTrigger id="di-listClass">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LIST_CLASS_OPTIONS.map((opt) => (
-                    <SelectItem key={opt} value={opt}>
-                      {t(`dict.listClass_${opt}`)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="di-status">{t('dict.fieldStatus')}</Label>
-              <div className="flex h-9 items-center gap-2">
-                <Switch
-                  id="di-status"
-                  checked={form.status === 1}
-                  onCheckedChange={(checked) => onFormChange({ ...form, status: checked ? 1 : 0 })}
-                />
-                <span className="text-sm text-muted-foreground">
-                  {form.status === 1 ? t('dict.statusEnabled') : t('dict.statusDisabled')}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="di-cssClass">{t('dict.fieldCssClass')}</Label>
-            <Input
-              id="di-cssClass"
-              value={form.cssClass}
-              onChange={(e) => onFormChange({ ...form, cssClass: e.target.value })}
-              placeholder="custom-class"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="di-remark">{t('dict.fieldRemark')}</Label>
-            <textarea
-              id="di-remark"
-              value={form.remark}
-              onChange={(e) => onFormChange({ ...form, remark: e.target.value })}
               rows={2}
               className={textareaClass}
               placeholder={t('dict.remarkPlaceholder')}
