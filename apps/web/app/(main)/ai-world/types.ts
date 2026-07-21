@@ -30,6 +30,9 @@ export interface AiWorldItem {
   metadata: Record<string, unknown> | null
   viewCount: number
   likeCount: number
+  trendingScore: number | null
+  trendingMetrics: Record<string, unknown> | null
+  trendingUpdatedAt: string | null
 }
 
 export interface PaginatedItems {
@@ -50,4 +53,37 @@ export interface AiWorldHotApp {
   id: string
   name: string
   href: string
+}
+
+export type LeaderboardId =
+  | 'lmsys'
+  | 'opencompass'
+  | 'hf-open-llm'
+  | 'superclue'
+  | 'artificial-analysis'
+
+export interface AiWorldRanking {
+  id: string
+  leaderboard: LeaderboardId
+  category: string
+  rank: number
+  modelName: string
+  provider: string | null
+  score: string | null
+  scores: Record<string, unknown> | null
+  metadata: Record<string, unknown> | null
+  publishedAt: string | null
+  fetchedAt: string | null
+}
+
+export interface PaginatedRankings {
+  items: AiWorldRanking[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface LeaderboardInfo {
+  leaderboard: LeaderboardId
+  categories: string[]
 }
