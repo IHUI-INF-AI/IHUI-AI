@@ -21,7 +21,19 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
     server,
     QUEUE_NAMES.aiCallback,
     async (job: Job<AICallbackJobData>) => {
-      const { conversationId, userId, messageId, content, tokens, metadata } = job.data
+      const {
+        conversationId,
+        userId,
+        messageId,
+        content,
+        tokens,
+        model,
+        provider,
+        promptTokens,
+        completionTokens,
+        idempotencyKey,
+        metadata,
+      } = job.data
 
       let savedMessage
       if (messageId) {
@@ -60,6 +72,45 @@ export function startAiCallbackWorker(server: FastifyInstance): Worker {
           tokens: tokens,
           metadata,
         })
+      }
+
+      // G3: LLM 扣费链路接通 - 集中扣费 + 记成本联动
+      // 设计:消息持久化成功后才扣费;扣费失败不 rethrow(避免 BullMQ 重试导致重复扣费,idempotencyKey 兜底)
+      if (tokens && tokens > 0 && userId) {
+        try {
+          // 1. 记成本到 ai_cost_records(纯审计,不扣余额,失败不阻塞扣费)
+          if (model) {
+            try {
+              await server.aiCost.record({
+                userId,
+                model,
+                provider: provider ?? 'unknown',
+                promptTokens: promptTokens ?? 0,
+                completionTokens: completionTokens ?? 0,
+                totalTokens: tokens,
+                requestType: 'chat',
+              })
+            } catch (err) {
+              server.log.warn({ err, userId, model }, 'recordAiCost failed (non-blocking)')
+            }
+          }
+          // 2. 扣用户 token 余额(联动,带幂等键防重试重复扣)
+          const result = await server.tokenBalance.deductTokens(
+            userId,
+            tokens,
+            `llm_chat:${model ?? 'unknown'}`,
+            idempotencyKey,
+          )
+          if (!result.success) {
+            server.log.warn(
+              { userId, tokens, model, remaining: result.remaining },
+              'token balance insufficient, message persisted but not charged',
+            )
+          }
+        } catch (e) {
+          server.log.error({ err: e, userId, tokens, model }, 'deductTokens/recordAiCost failed')
+          // 不 rethrow:避免 BullMQ 重试导致重复扣费(idempotencyKey 兜底)
+        }
       }
 
       // WebSocket 多端同步推送
