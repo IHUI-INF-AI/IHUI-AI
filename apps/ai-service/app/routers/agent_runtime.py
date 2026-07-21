@@ -4,12 +4,14 @@
 /execute/stream 由 LangGraph StateGraph(plan → execute → summarize)驱动 SSE 事件流。
 """
 
+import asyncio
 import json
+import logging
 import os
 import time
 import uuid
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -17,6 +19,7 @@ from app.core.config import settings
 from app.services.agent_graph import AgentState, get_agent_graph
 
 router = APIRouter(prefix="/agent-runtime", tags=["agent-runtime"])
+logger = logging.getLogger(__name__)
 
 
 # ============ 数据模型(对齐 packages/types/src/agent-runtime.ts)============
@@ -151,7 +154,7 @@ async def execute(req: ExecuteRequest) -> ExecuteResponse:
 
 
 @router.post("/execute/stream")
-async def execute_stream(req: ExecuteRequest) -> StreamingResponse:
+async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResponse:
     """SSE 流式执行 — LangGraph plan → execute → summarize 真实驱动。"""
     session = _get_or_create_session(req.sessionId, req.botId or "default")
     session.messages.append(SessionMessage(role="user", content=req.message))
@@ -179,6 +182,9 @@ async def execute_stream(req: ExecuteRequest) -> StreamingResponse:
             }
 
             async for event in graph.astream(initial_state):
+                if await request.is_disconnected():
+                    logger.info("agent_runtime SSE client disconnected, stopping stream")
+                    break
                 for node_name, node_output in event.items():
                     if not isinstance(node_output, dict):
                         continue
@@ -212,6 +218,9 @@ async def execute_stream(req: ExecuteRequest) -> StreamingResponse:
                             f"event: error\ndata: "
                             f"{json.dumps({'message': node_output['error']})}\n\n"
                         )
+        except asyncio.CancelledError:
+            logger.info("agent_runtime SSE cancelled by client disconnect")
+            raise
         except Exception as e:
             session.status = "failed"
             _save_session_redis(session)
@@ -220,7 +229,11 @@ async def execute_stream(req: ExecuteRequest) -> StreamingResponse:
                 f"{json.dumps({'message': f'graph execution failed: {e}'})}\n\n"
             )
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/{session_id}/status")
