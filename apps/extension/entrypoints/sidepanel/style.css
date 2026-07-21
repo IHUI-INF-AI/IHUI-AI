@@ -121,6 +121,16 @@ textarea:focus {
   font-size: 12px;
 }
 
+.notice-banner {
+  background: var(--primary-bg, #f0f9ff);
+  color: var(--primary, #0369a1);
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--primary, #0369a1);
+  margin: 8px 0;
+  font-size: 12px;
+}
+
 /* ============== Sidepanel Layout ============== */
 .sidepanel-layout {
   display: flex;
