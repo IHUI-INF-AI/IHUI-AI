@@ -5,6 +5,8 @@
 
 import * as path from 'node:path';
 import * as readline from 'node:readline';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { createSession, saveSession, repairSessionHistory, type Session, type ChatMessage } from './session.js';
@@ -76,6 +78,14 @@ import {
   formatTranscribeResult,
 } from '../voice/index.js';
 import { PromptQueue, type PromptQueueItem } from '../prompt-queue.js';
+
+/** 多段式 REPL prompt 构造器:[workspace] model ❯ 颜色分层,workspace dim/模型 cyan/箭头 green */
+function buildReplPrompt(modelId: string, workspacePath: string): string {
+  const ws = chalk.dim(`[${path.basename(workspacePath)}]`);
+  const model = chalk.cyan(modelId);
+  const arrow = chalk.green('❯');
+  return `${ws} ${model} ${arrow} `;
+}
 
 export interface ReplOptions {
   modelId: string;
@@ -159,26 +169,28 @@ export function formatContextStats(
   }
 
   const lines: string[] = [];
-  lines.push(chalk.cyan('📊 上下文用量:'));
-  lines.push(`  消息数: ${history.length}`);
-  lines.push(`  Token 估算: ${tokens} / ${maxTokens} (${pctStr}%)`);
-  lines.push(`  ${bar} ${pctStr}%`);
-  lines.push(`  压缩阈值: ${maxTokens} (达 85% 自动压缩到 60%)`);
+  lines.push(chalk.cyan('╭─ 📊 上下文用量'));
+  lines.push(chalk.cyan('│'));
+  lines.push(`│  消息数: ${chalk.bold(String(history.length))}`);
+  lines.push(`│  Token 估算: ${tokens} / ${maxTokens} (${pctStr}%)`);
+  lines.push(`│  ${bar} ${pctStr}%`);
+  lines.push(`│  压缩阈值: ${maxTokens} (达 85% 自动压缩到 60%)`);
 
   if (opts !== undefined) {
-    lines.push('');
-    lines.push('附加状态:');
     const planFirst = opts.planFirst ?? false;
     const planApproved = opts.planApproved ?? false;
-    const planState = planFirst ? (planApproved ? 'on (approved)' : 'on (pending)') : 'off';
-    lines.push(`  Plan Mode: ${planState}`);
+    const planState = planFirst ? (planApproved ? chalk.green('on (approved)') : chalk.yellow('on (pending)')) : chalk.dim('off');
+    lines.push(chalk.cyan('│'));
+    lines.push(chalk.cyan('├─ 附加状态'));
+    lines.push(`│  Plan Mode: ${planState}`);
     if (opts.skills !== undefined) {
-      lines.push(`  Skills: ${opts.skills} 个`);
+      lines.push(`│  Skills: ${opts.skills} 个`);
     }
     if (opts.memoryCount !== undefined) {
-      lines.push(`  Memory: ${opts.memoryCount} 条`);
+      lines.push(`│  Memory: ${opts.memoryCount} 条`);
     }
   }
+  lines.push(chalk.cyan('╰─'));
 
   return lines.join('\n');
 }
@@ -480,8 +492,37 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     sessionId: state.session?.id ?? opts.sessionId,
   };
 
-  console.info(chalk.cyan(`\n🤖 IHUI AI (模型: ${opts.modelId}, 工作区: ${opts.workspacePath})\n`));
-  console.info(chalk.dim('输入消息开始对话, /help 查看命令, /exit 退出\n'));
+  // IHUI AI 品牌 banner — ansi_shadow 字母 art,外框 + 系统信息行,与 web icon 同源品牌色
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  let version = '1.0.0';
+  try {
+    const pkgRaw = readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf-8');
+    version = (JSON.parse(pkgRaw) as { version?: string }).version ?? '1.0.0';
+  } catch {
+    // 静默回退到默认版本号
+  }
+  const bannerLines = [
+    '██╗██╗  ██╗██╗   ██╗██╗     █████╗ ██╗',
+    '██║██║  ██║██║   ██║██║    ██╔══██╗██║',
+    '██║███████║██║   ██║██║    ███████║██║',
+    '██║██╔══██║██║   ██║██║    ██╔══██║██║',
+    '██║██║  ██║╚██████╔╝██║    ██║  ██║██║',
+    '╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝    ╚═╝  ╚═╝╚═╝',
+  ];
+  const bannerWidth = bannerLines[0]!.length;
+  const horizontalLine = '─'.repeat(bannerWidth + 4);
+  console.info('');
+  console.info(chalk.cyan(`┌${horizontalLine}┐`));
+  for (const line of bannerLines) {
+    console.info(chalk.cyan(`│  ${line}  │`));
+  }
+  console.info(chalk.cyan(`└${horizontalLine}┘`));
+  const workspaceName = path.basename(opts.workspacePath);
+  const sysInfo = `  v${version}  ·  模型 ${opts.modelId}  ·  ${workspaceName}`;
+  const hintLine = `  ${opts.workspacePath}`;
+  console.info(chalk.dim(sysInfo));
+  console.info(chalk.dim(hintLine));
+  console.info(chalk.dim('  /help 查看命令 · /exit 退出 · 直接输入开始对话\n'));
 
   // P2-2 公告系统:启用时异步拉取最新公告 + 显示未读横幅(失败静默,不阻塞 REPL)
   if (settings.announcements?.enabled === true) {
@@ -502,10 +543,11 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     })();
   }
 
+  // 多段式 prompt:[workspace] model ❯ 颜色分层,workspace dim/模型 cyan/箭头 green
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    prompt: chalk.green('> '),
+    prompt: buildReplPrompt(opts.modelId, opts.workspacePath),
   });
 
   const startResult = runSessionStartHooks(hooksConfig, sessionHookCtx);
@@ -580,12 +622,19 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
           status: 'completed',
           cwd: opts.workspacePath,
         });
-        console.info(chalk.dim(`session saved: ${stateId}`));
+        const msgCount = state.history.length;
+        console.info(chalk.dim(`  · session ${stateId.slice(0, 8)} · ${msgCount} 条消息`));
       }
     } catch {
       // 静默失败:session 保存失败不影响退出
     }
-    console.info(chalk.dim('\n再见 👋\n'));
+    // 退出 banner:分隔条 + 品牌 + 消息计数,告别单行 emoji
+    const sepW = 40;
+    console.info('');
+    console.info(chalk.cyan('─'.repeat(sepW)));
+    console.info(chalk.cyan('  IHUI AI · 会话已保存'));
+    console.info(chalk.dim('─'.repeat(sepW)));
+    console.info(chalk.dim('  再见 👋\n'));
     process.exit(0);
   });
 }
@@ -637,14 +686,17 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         if (list.length === 0) {
           console.info(chalk.dim('暂无 sessions(退出 REPL 时自动保存)'));
         } else {
-          console.info(chalk.cyan(`\n历史 sessions(${list.length} 条,显示前 10):`));
-          for (const s of list.slice(0, 10)) {
-            const time = new Date(s.updatedAt).toLocaleString();
+          const top = list.slice(0, 10);
+          console.info(chalk.cyan(`\n╭─ 历史 sessions · ${list.length} 条(显示前 ${top.length})`));
+          console.info(chalk.cyan('│'));
+          for (const s of top) {
+            const time = new Date(s.updatedAt).toLocaleString('zh-CN', { hour12: false });
             const loaded = loadSessionState(s.id);
             const msgCount = loaded?.messages?.length ?? 0;
-            console.info(`  ${chalk.bold(s.id)}  ${chalk.dim(time)}  [${s.status}]  ${msgCount} 条消息`);
+            const statusIcon = s.status === 'completed' ? chalk.green('●') : chalk.yellow('●');
+            console.info(`│  ${chalk.bold(s.id.slice(0, 8))}  ${statusIcon} ${chalk.dim(time)}  ${chalk.cyan(`${msgCount}条`)}`);
           }
-          console.info(chalk.dim('  /sessions resume <id> 恢复指定 session'));
+          console.info(chalk.cyan('╰─ /sessions resume <id> 恢复指定 session'));
           console.info('');
         }
       }
@@ -658,9 +710,11 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
           state.session.modelId = args[0]!;
           saveSession(state.session);
         }
+        rl.setPrompt(buildReplPrompt(state.opts.modelId, state.opts.workspacePath));
         console.info(chalk.green(`模型已切换为: ${args[0]}`));
       } else {
         await interactiveModelSelect(state);
+        rl.setPrompt(buildReplPrompt(state.opts.modelId, state.opts.workspacePath));
       }
       break;
 
@@ -672,10 +726,13 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       const { listTools } = await import('../tools/index.js');
       const { BUILTIN_TOOLS } = await import('../tools/builtins.js');
       const tools = listTools().length > 0 ? listTools() : BUILTIN_TOOLS;
-      console.info(chalk.cyan(`\n可用工具 (${tools.length}):`));
+      console.info(chalk.cyan(`\n╭─ 可用工具 · ${tools.length} 项`));
+      const nameWidth = Math.max(...tools.map((t) => t.name.length), 8);
       for (const t of tools) {
-        console.info(`  ${chalk.cyan(t.name)} — ${t.description}`);
+        const name = chalk.cyan(t.name.padEnd(nameWidth));
+        console.info(`│  ${name}  ${chalk.dim(t.description)}`);
       }
+      console.info(chalk.cyan('╰─ 工具权限:--tools / --disallowed-tools 控制'));
       console.info('');
       break;
     }
@@ -692,10 +749,14 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       if (state.skills.length === 0) {
         console.info(chalk.dim('暂无 skills(可在 .ihui/skills/*.md 或 ~/.ihui/skills/*.md 创建)'));
       } else {
-        console.info(chalk.cyan(`\n已加载 ${state.skills.length} 个 skill:`));
+        console.info(chalk.cyan(`\n╭─ 已加载 skills · ${state.skills.length} 项`));
+        const nameWidth = Math.max(...state.skills.map((s) => s.name.length), 8);
         for (const s of state.skills) {
-          console.info(`  ${chalk.bold(s.name)} — ${chalk.dim(s.description)}`);
+          const name = chalk.bold(s.name.padEnd(nameWidth));
+          console.info(`│  ${name}  ${chalk.dim(s.description)}`);
+          console.info(`│  ${' '.repeat(nameWidth)}  ${chalk.dim(`↳ ${s.source}`)}`);
         }
+        console.info(chalk.cyan('╰─ /skill <name> 查看详情'));
         console.info('');
       }
       break;
@@ -712,10 +773,14 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         console.info(chalk.yellow(`未找到 skill: ${name}(/skills 查看可用列表)`));
         break;
       }
-      console.info(chalk.cyan(`\n# ${skill.name}`));
-      console.info(chalk.dim(`来源: ${skill.source}`));
-      console.info(chalk.dim(`描述: ${skill.description}\n`));
+      console.info(chalk.cyan(`\n╭─ ${chalk.bold(skill.name)}`));
+      console.info(chalk.cyan('│'));
+      console.info(`│  ${chalk.dim('来源:')} ${chalk.magenta(skill.source)}`);
+      console.info(`│  ${chalk.dim('描述:')} ${skill.description}`);
+      console.info(chalk.cyan('│'));
+      console.info(chalk.cyan('├─ 内容 ' + '─'.repeat(40)));
       console.info(skill.body);
+      console.info(chalk.cyan('╰─'));
       console.info('');
       break;
     }
@@ -734,11 +799,15 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         if (entries.length === 0) {
           console.info(chalk.dim('暂无 memory 条目(/memory add <text> 添加)'));
         } else {
-          console.info(chalk.cyan(`\n已加载 ${entries.length} 条 memory:`));
+          const globalCount = entries.filter((e) => e.source === 'global').length;
+          const projCount = entries.length - globalCount;
+          console.info(chalk.cyan(`\n╭─ memory · ${entries.length} 条(全局 ${globalCount} · 项目 ${projCount})`));
           for (const e of entries) {
-            const tag = e.source === 'global' ? '🌐' : '📁';
-            console.info(`  ${tag} [${e.category}] ${e.text}`);
+            const tag = e.source === 'global' ? chalk.magenta('🌐') : chalk.cyan('📁');
+            const cat = chalk.dim(`[${e.category}]`);
+            console.info(`│  ${tag} ${cat} ${e.text}`);
           }
+          console.info(chalk.cyan('╰─ /memory search <关键词> 检索'));
           console.info('');
         }
       } else if (sub === 'add') {
@@ -777,14 +846,17 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         if (results.length === 0) {
           console.info(chalk.dim(`  未找到匹配 "${query}" 的 memory`));
         } else {
-          console.info(chalk.cyan(`  找到 ${results.length} 条匹配(hybrid search):`));
+          console.info(chalk.cyan(`\n╭─ memory 检索 · ${results.length} 条匹配 "${query}"`));
           for (const r of results) {
-            const tag = r.source === 'global' ? '🌐' : '📁';
+            const tag = r.source === 'global' ? chalk.magenta('🌐') : chalk.cyan('📁');
+            const cat = chalk.dim(`[${r.category}]`);
             const scoreStr = r.matchedBy === 'substring-fallback'
-              ? ''
-              : ` (score: ${r.score.toFixed(3)}, ${r.matchedBy})`;
-            console.info(`  ${tag} [${r.category}] ${r.text}${scoreStr}`);
+              ? chalk.dim(' (substring)')
+              : chalk.yellow(` (score ${r.score.toFixed(3)}, ${r.matchedBy})`);
+            console.info(`│  ${tag} ${cat} ${r.text}${scoreStr}`);
           }
+          console.info(chalk.cyan('╰─'));
+          console.info('');
         }
       } else {
         console.info(chalk.yellow('用法: /memory [on|off|show|add <text>|clear|search <关键词>]'));
@@ -816,12 +888,26 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         } else {
           const inProgress = todos.filter((t) => t.status === 'in_progress').length;
           const completed = todos.filter((t) => t.status === 'completed').length;
-          console.info(chalk.cyan(`\n📋 Todo 清单 (${todos.length} 项, ${inProgress} 进行中, ${completed} 已完成):`));
-          const icons: Record<string, string> = { pending: '⏳', in_progress: '🚧', completed: '✅' };
-          const priIcons: Record<string, string> = { high: '🔴', medium: '🟡', low: '🟢' };
+          const pending = todos.length - inProgress - completed;
+          console.info(chalk.cyan(`\n╭─ Todo 清单 · ${todos.length} 项`));
+          console.info(chalk.dim(`│  ${pending} pending · ${inProgress} 进行 · ${completed} 完成`));
+          console.info(chalk.cyan('│'));
+          const statusIcon: Record<string, string> = {
+            pending: chalk.dim('○'),
+            in_progress: chalk.yellow('◐'),
+            completed: chalk.green('●'),
+          };
+          const priColor: Record<string, (s: string) => string> = {
+            high: chalk.red,
+            medium: chalk.yellow,
+            low: chalk.green,
+          };
           for (const t of todos) {
-            console.info(`  ${icons[t.status]} ${priIcons[t.priority]} [${t.id}] ${t.content}`);
+            const icon = statusIcon[t.status] ?? chalk.dim('○');
+            const pri = priColor[t.priority]?.(`[${t.priority}]`) ?? chalk.dim(`[${t.priority}]`);
+            console.info(`│  ${icon} ${pri} ${chalk.bold(`#${t.id}`)} ${t.content}`);
           }
+          console.info(chalk.cyan('╰─'));
           console.info('');
         }
       } else {
@@ -897,13 +983,26 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
           const m = state.history[i]!;
           const planMatch = m.content.match(/```plan\n([\s\S]*?)```/);
           if (planMatch) {
-            console.info(chalk.dim(`\n最近的 Plan (来自消息 #${i + 1}):`));
-            console.info(planMatch[1]?.trim() ?? '');
+            console.info(chalk.cyan(`\n╭─ 最近的 Plan (来自消息 #${i + 1})`));
+            console.info(chalk.cyan('│'));
+            const planContent = (planMatch[1] ?? '').trim();
+            for (const planLine of planContent.split('\n')) {
+              console.info(`│  ${planLine}`);
+            }
+            console.info(chalk.cyan('╰─'));
+            console.info('');
             break;
           }
         }
       } else {
-        console.info(chalk.dim('用法:/plan on|off|approve|reject|edit|show'));
+        console.info(chalk.cyan('\n╭─ /plan 用法'));
+        console.info(`│  ${chalk.bold('/plan on')}       启用 plan mode`);
+        console.info(`│  ${chalk.bold('/plan off')}      关闭`);
+        console.info(`│  ${chalk.bold('/plan approve')}  批准当前 plan`);
+        console.info(`│  ${chalk.bold('/plan reject')}   拒绝并要求重新规划`);
+        console.info(`│  ${chalk.bold('/plan show')}     显示最近的 plan`);
+        console.info(chalk.cyan('╰─'));
+        console.info('');
       }
       break;
     }
@@ -1028,11 +1127,16 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         if (list.length === 0) {
           console.info(chalk.dim('当前无后台任务'));
         } else {
-          console.info(chalk.cyan(`\n后台任务(${list.length} 个):`));
+          const running = list.filter((t) => t.status === 'running').length;
+          const exited = list.filter((t) => t.status === 'exited').length;
+          console.info(chalk.cyan(`\n╭─ 后台任务 · ${list.length} 个(${chalk.green(`${running} running`)} · ${chalk.dim(`${exited} exited`)})`));
           for (const t of list) {
             const icon = t.status === 'running' ? chalk.green('●') : t.status === 'exited' ? chalk.dim('●') : chalk.red('●');
-            console.info(`  ${icon} ${t.id}  [${t.status}]  ${t.command.slice(0, 50)}  exit=${t.exitCode ?? '-'}`);
+            const cmd = t.command.length > 50 ? `${t.command.slice(0, 50)}…` : t.command;
+            const exitStr = t.exitCode !== null ? chalk.dim(` exit=${t.exitCode}`) : '';
+            console.info(`│  ${icon} ${chalk.bold(t.id)}  ${chalk.dim(`[${t.status}]`)}  ${chalk.cyan(cmd)}${exitStr}`);
           }
+          console.info(chalk.cyan('╰─ /bg out <id> 查看输出 · /bg wait <id> 等待 · /bg kill <id> 终止'));
           console.info('');
         }
       } else if (sub === 'out') {
@@ -1041,10 +1145,14 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         if (!id) { console.info(chalk.red('缺少 task_id')); break; }
         const output = getTaskOutput(id, tail);
         if (!output) { console.info(chalk.red(`任务 ${id} 不存在`)); break; }
-        console.info(chalk.cyan(`任务 ${output.id}  状态: ${output.status}  exit: ${output.exitCode ?? '-'}`));
+        console.info(chalk.cyan(`\n╭─ 任务 ${output.id}`));
+        console.info(`│  ${chalk.dim('状态:')} ${output.status}  ${chalk.dim('exit:')} ${output.exitCode ?? '-'}`);
+        if (output.stdout) console.info(chalk.cyan('├─ stdout ────────────'));
         if (output.stdout) console.info(output.stdout.trimEnd());
-        if (output.stderr) console.info(chalk.yellow(`[stderr] ${output.stderr.trimEnd()}`));
+        if (output.stderr) console.info(chalk.yellow('├─ stderr ────────────'));
+        if (output.stderr) console.info(chalk.yellow(output.stderr.trimEnd()));
         if (output.truncated) console.info(chalk.dim('[输出被截断]'));
+        console.info(chalk.cyan('╰─'));
       } else if (sub === 'wait') {
         const id = args[1] ?? '';
         const timeoutMs = args[2] ? Number(args[2]) : 30_000;
@@ -1092,11 +1200,14 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         if (list.length === 0) {
           console.info(chalk.dim('当前无 loop 任务'));
         } else {
-          console.info(chalk.cyan(`\nLoop 任务(${list.length} 个):`));
+          console.info(chalk.cyan(`\n╭─ Loop 任务 · ${list.length} 个`));
           for (const l of list) {
-            console.info(`  ${l.id}  每 ${l.intervalMs}ms  运行 ${l.runCount} 次  上次: ${l.lastRunAt ?? '-'}`);
-            console.info(chalk.dim(`    命令: ${l.command.slice(0, 60)}`));
+            const cmd = l.command.length > 60 ? `${l.command.slice(0, 60)}…` : l.command;
+            console.info(`│  ${chalk.bold(l.id)}  ${chalk.cyan(`每 ${l.intervalMs}ms`)}  ${chalk.dim(`运行 ${l.runCount} 次`)}`);
+            console.info(`│  ${' '.repeat(l.id.length)}  ${chalk.dim(`↳ ${cmd}`)}`);
+            if (l.lastRunAt) console.info(`│  ${' '.repeat(l.id.length)}  ${chalk.dim(`上次: ${l.lastRunAt}`)}`);
           }
+          console.info(chalk.cyan('╰─ /loop stop <id> 停止 · /loop clear 全部停止'));
           console.info('');
         }
       } else if (sub === 'stop') {
@@ -1172,11 +1283,17 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       break;
 
     default: {
-      console.info(chalk.yellow(`未知命令: /${cmd}, /help 查看可用命令`));
+      console.info(chalk.yellow(`\n✗ 未知命令: /${cmd}`));
       const suggestions = suggestSlashCommands(cmd);
       if (suggestions.length > 0) {
-        console.info(chalk.dim(`  你是否想用: ${suggestions.map((s) => `/${s.name}`).join(', ')}?`));
+        console.info(chalk.dim(`  ↳ 你是否想用:`));
+        for (const s of suggestions) {
+          console.info(`    ${chalk.cyan(`/${s.name.padEnd(12)}`)}  ${chalk.dim(s.description)}`);
+        }
+      } else {
+        console.info(chalk.dim('  ↳ /help 查看所有可用命令'));
       }
+      console.info('');
       break;
     }
   }
@@ -1262,8 +1379,15 @@ async function handleAnnouncements(args: string[], state: ReplState): Promise<vo
       return;
     }
     const seen = loadSeenIds(seenPath);
-    console.info(formatAnnouncements(list, seen, { showOnlyUnread: onlyUnread }));
-    console.info(chalk.dim('\n  /announcements read <序号>  标记已读'));
+    const unread = countUnread(list, seen);
+    console.info(chalk.cyan(`\n╭─ 公告 · ${list.length} 条(${unread} 未读${onlyUnread ? ' · 仅显示未读' : ''})`));
+    console.info(chalk.cyan('│'));
+    const formatted = formatAnnouncements(list, seen, { showOnlyUnread: onlyUnread });
+    for (const line of formatted.split('\n')) {
+      console.info(`│  ${line}`);
+    }
+    console.info(chalk.cyan('╰─'));
+    console.info(chalk.dim('  /announcements read <序号>  标记已读'));
     console.info(chalk.dim('  /announcements read-all      全部标记已读'));
     console.info(chalk.dim('  /announcements refresh        强制刷新缓存'));
     console.info('');
@@ -1275,11 +1399,16 @@ async function handleAnnouncements(args: string[], state: ReplState): Promise<vo
 function handleMcpList(): void {
   const config = loadMcpConfig();
   if (config.servers.length > 0) {
-    console.info(chalk.cyan('\n本地 MCP 服务器配置 (~/.ihui/mcp.json):'));
+    console.info(chalk.cyan(`\n╭─ MCP 服务器 · ${config.servers.length} 个(~/.ihui/mcp.json)`));
+    const nameWidth = Math.max(...config.servers.map((s) => s.name.length), 8);
     for (const s of config.servers) {
       const argStr = s.args && s.args.length > 0 ? ' ' + s.args.join(' ') : '';
-      console.info(`  ${chalk.bold(s.name)}: ${s.command ?? ''}${argStr}`);
+      const cmd = `${s.command ?? ''}${argStr}`;
+      const cmdDisplay = cmd.length > 60 ? `${cmd.slice(0, 60)}…` : cmd;
+      console.info(`│  ${chalk.bold(s.name.padEnd(nameWidth))}  ${chalk.cyan(cmdDisplay)}`);
     }
+    console.info(chalk.cyan('╰─'));
+    console.info('');
   } else {
     console.info(chalk.dim('\n本地无 MCP 服务器配置'));
   }
@@ -1391,23 +1520,25 @@ function handleQueue(args: string[], state: ReplState): void {
       console.info(chalk.dim('队列为空(/queue <prompt> 排队新提示词)'));
       return;
     }
-    console.info(chalk.cyan(`\n提示词队列(${items.length} 项, ${pending.length} pending, ${running.length} running, ${done.length} done):`));
+    console.info(chalk.cyan(`\n╭─ 提示词队列 · ${items.length} 项(${pending.length} pending · ${running.length} running · ${done.length} done)`));
     for (const it of items) {
       const statusLabel = formatQueueStatus(it);
-      const preview = it.prompt.length > 50 ? `${it.prompt.slice(0, 50)}...` : it.prompt;
-      console.info(`  ${chalk.bold(it.id)}  ${statusLabel}  ${chalk.dim(preview)}`);
+      const preview = it.prompt.length > 50 ? `${it.prompt.slice(0, 50)}…` : it.prompt;
+      console.info(`│  ${chalk.bold(it.id)}  ${statusLabel}  ${chalk.dim(preview)}`);
     }
-    console.info(chalk.dim('  /queue <prompt> 排队 | /queue rm <id> 取消 | /queue clear 清空'));
+    console.info(chalk.cyan('╰─ /queue <prompt> 排队 | /queue rm <id> 取消 | /queue clear 清空'));
     console.info('');
     return;
   }
   if (sub === 'help') {
-    console.info(chalk.cyan('\n/queue 用法:'));
-    console.info(chalk.dim('  /queue <prompt>   排队新提示词(agent 完成后自动执行)'));
-    console.info(chalk.dim('  /queue            显示队列'));
-    console.info(chalk.dim('  /queue list       显示队列(同上)'));
-    console.info(chalk.dim('  /queue rm <id>    取消指定 id 的 pending 项'));
-    console.info(chalk.dim('  /queue clear      清空所有 pending 项'));
+    console.info(chalk.cyan('\n╭─ /queue 用法'));
+    console.info(chalk.cyan('│'));
+    console.info(`│  ${chalk.bold('/queue <prompt>')}   排队新提示词(agent 完成后自动执行)`);
+    console.info(`│  ${chalk.bold('/queue')}            显示队列`);
+    console.info(`│  ${chalk.bold('/queue list')}       显示队列(同上)`);
+    console.info(`│  ${chalk.bold('/queue rm <id>')}    取消指定 id 的 pending 项`);
+    console.info(`│  ${chalk.bold('/queue clear')}      清空所有 pending 项`);
+    console.info(chalk.cyan('╰─'));
     console.info('');
     return;
   }
@@ -1469,12 +1600,14 @@ async function handleCheckpoint(state: ReplState, args: string[]): Promise<void>
       console.info(chalk.dim('暂无检查点'));
       return;
     }
-    console.info(chalk.cyan(`\n检查点 (会话: ${state.session?.id ?? '-'}):`));
+    console.info(chalk.cyan(`\n╭─ 检查点 · ${list.length} 个(会话 ${state.session?.id?.slice(0, 8) ?? '-'})`));
     for (const m of list) {
-      const time = new Date(m.createdAt).toLocaleString();
+      const time = new Date(m.createdAt).toLocaleString('zh-CN', { hour12: false });
       const fc = Object.keys(m.files).length;
-      console.info(`  ${chalk.bold(m.id)}  ${chalk.dim(time)}  ${m.reason}  ${fc} 文件`);
+      const reasonTag = m.reason === 'manual_repl' ? chalk.cyan('[manual]') : chalk.dim(`[${m.reason}]`);
+      console.info(`│  ${chalk.bold(m.id.slice(0, 12))}  ${chalk.dim(time)}  ${reasonTag}  ${chalk.cyan(`${fc} 文件`)}`);
     }
+    console.info(chalk.cyan('╰─ /rollback <id> 回滚 · /diff <id> 查看差异'));
     console.info('');
     return;
   }
@@ -1525,11 +1658,16 @@ function handleDiff(state: ReplState, args: string[]): void {
     console.info(chalk.dim('无差异'));
     return;
   }
-  console.info(chalk.cyan('\n差异:'));
+  const mod = entries.filter((e) => e.status === 'modified').length;
+  const add = entries.filter((e) => e.status === 'added').length;
+  const del = entries.filter((e) => e.status === 'removed').length;
+  console.info(chalk.cyan(`\n╭─ 差异 · ${entries.length} 项(${chalk.yellow(`M ${mod}`)} · ${chalk.green(`+ ${add}`)} · ${chalk.red(`- ${del}`)})`));
   for (const e of entries) {
     const icon = e.status === 'modified' ? chalk.yellow('M') : e.status === 'added' ? chalk.green('+') : chalk.red('-');
-    console.info(`  ${icon} ${e.path}`);
+    console.info(`│  ${icon} ${e.path}`);
   }
+  console.info(chalk.cyan('╰─'));
+  console.info('');
 }
 
 async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise<void> {
@@ -1599,11 +1737,18 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
   state.aborted = false;
   state.agentRunning = true;
 
+  // 启动行:在 LLM 首 token 到达前给用户视觉反馈,避免静默等待
+  const promptPreview = prompt.length > 60 ? `${prompt.slice(0, 60)}…` : prompt;
+  console.info(chalk.cyan(`\n▶ ${state.opts.modelId}  ·  ${chalk.dim(promptPreview)}`));
+
   // P2-2 恢复 drain 机制:从 InterjectionBuffer 弹出所有 pending,供 runToolLoop 循环内注入
   // 替代原 `() => []` 禁用代码:agent 循环内每轮调一次 drain,interjection 内容追加到 messages
   const drainInterjections = createDrainInterjections(state.interjectionBuffer);
 
   try {
+    // 工具调用追踪:记录每个工具的起始时间,用于卡片显示耗时
+    const toolStartTime = new Map<string, number>();
+    let toolCallCount = 0;
     const result = await runToolLoop({
       modelId: state.opts.modelId,
       messages,
@@ -1617,10 +1762,25 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       plugins: state.pluginRegistry,
       drainInterjections,
       onDelta: (delta) => { process.stdout.write(delta); },
-      onToolCall: (name, args) => console.info(chalk.cyan(`\n  🔧 ${name} ${JSON.stringify(args)}`)),
+      onToolCall: (name, args) => {
+        toolCallCount++;
+        const callId = `call-${toolCallCount}`;
+        toolStartTime.set(callId, Date.now());
+        const argStr = Object.keys(args).length > 0 ? JSON.stringify(args) : chalk.dim('(无参数)');
+        const argDisplay = argStr.length > 100 ? `${argStr.slice(0, 100)}…` : argStr;
+        console.info(chalk.cyan(`\n  ┌─ 🔧 ${chalk.bold(name)} ${chalk.dim(`#${toolCallCount}`)}`));
+        console.info(chalk.cyan(`  │  ${chalk.dim('参数:')} ${argDisplay}`));
+      },
       onToolResult: (_name, success, output) => {
-        const icon = success ? '✓' : '✗';
-        console.info(chalk.dim(`  ${icon} ${output.slice(0, 200)}`));
+        const callId = `call-${toolCallCount}`;
+        const startTime = toolStartTime.get(callId);
+        const durationMs = startTime ? Date.now() - startTime : 0;
+        const durationStr = durationMs > 0 ? chalk.dim(` ${durationMs}ms`) : '';
+        const icon = success ? chalk.green('✓') : chalk.red('✗');
+        const statusLabel = success ? chalk.green('成功') : chalk.red('失败');
+        const outDisplay = output.length > 200 ? `${output.slice(0, 200)}…` : output;
+        console.info(chalk.cyan(`  │  ${icon} ${chalk.dim('结果:')} ${outDisplay.replace(/\n/g, '\n  │  ')}`));
+        console.info(chalk.cyan(`  └─ ${statusLabel}${durationStr} ${chalk.dim('────')}`));
       },
       onError: (err) => console.error(chalk.red(`\n❌ ${err}`)),
     });
@@ -1636,8 +1796,20 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
     }
     const u = result.usage;
     const cost = u.estimatedCostUsd > 0 ? `$${u.estimatedCostUsd.toFixed(4)}` : 'plan 套餐';
-    console.info(chalk.green(`\n\n✨ 完成 (${result.iterations} 轮, ${result.stopReason})`));
-    console.info(chalk.dim(`📊 tokens: ${u.totalTokens} (prompt ${u.promptTokens} + completion ${u.completionTokens}) — ${cost}\n`));
+    // 完成统计:分隔条 + 三段统计(轮次 / tokens / 成本)
+    const sepWidth = 50;
+    console.info(chalk.dim('\n' + '─'.repeat(sepWidth)));
+    console.info(chalk.green(`✨ 完成 · ${result.stopReason}`));
+    const statsLine = [
+      `${chalk.bold('轮次')} ${result.iterations}`,
+      `${chalk.bold('tokens')} ${u.totalTokens}`,
+      `${chalk.bold('成本')} ${cost}`,
+    ].join(chalk.dim('  │  '));
+    console.info(`  ${statsLine}`);
+    if (u.promptTokens > 0 || u.completionTokens > 0) {
+      console.info(chalk.dim(`  prompt ${u.promptTokens} + completion ${u.completionTokens}`));
+    }
+    console.info(chalk.dim('─'.repeat(sepWidth) + '\n'));
   } finally {
     // P2-2 确保无论成功/失败/中止都清理 abort 状态,避免泄漏到下次 sendToAgent
     state.agentRunning = false;
