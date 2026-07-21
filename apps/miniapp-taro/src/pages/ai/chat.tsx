@@ -9,7 +9,7 @@ import {
   getAgentDetail,
   getAgentList,
 } from '@/api'
-import { formatSSEError } from '@ihui/api-client'
+import { formatSSEError, getModelContextCapacity, formatTokenCount } from '@ihui/api-client'
 import {
   type ModelItem,
   InputArea,
@@ -158,6 +158,8 @@ export default function ChatPage() {
             model: currentModel || undefined,
             agentId: activeAgentId || undefined,
             materialContent: selectedMaterial?.content || undefined,
+            // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,后端压缩后通过 SSE 回调提示用户
+            contextLimit: currentModel ? getModelContextCapacity(currentModel) : 0,
           },
           (delta) => {
             setMessages((prev) =>
@@ -180,6 +182,14 @@ export default function ChatPage() {
             if (meta.sessionId) setSessionId(meta.sessionId)
           },
           controller.signal,
+          (info) => {
+            // 后端自动压缩完成,toast 提示用户(对标 CLI /compact 命令的可见性)
+            Taro.showToast({
+              title: `上下文已压缩 ${formatTokenCount(info.tokensBefore)} → ${formatTokenCount(info.tokensAfter)}`,
+              icon: 'none',
+              duration: 2500,
+            })
+          },
         )
       } catch (e) {
         if ((e as Error)?.name !== 'AbortError') {
