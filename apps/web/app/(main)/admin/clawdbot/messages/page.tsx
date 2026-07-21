@@ -8,7 +8,13 @@ import { cn } from '@/lib/utils'
 import { Button, Input } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
 
-interface MessageItem {
+/**
+ * clawdbot 会话消息(管理后台审计视图)。
+ * 与 @ihui/types 的 MessageItem(私信列表项)语义不同 —— 此处是 clawdbot 业务消息
+ * 含 sessionId / role / intent / timestamp 字段,非通用私信字段。
+ * 命名为 ClawdbotMessageItem 避免与 @ihui/types MessageItem 命名冲突。
+ */
+interface ClawdbotMessageItem {
   id: string
   sessionId: string
   role: string
@@ -17,16 +23,16 @@ interface MessageItem {
   timestamp: number
 }
 
-type MessagesData = { list: MessageItem[] } | MessageItem[]
+type MessagesData = { list: ClawdbotMessageItem[] } | ClawdbotMessageItem[]
 
 export default function ClawdbotMessagesPage() {
   const locale = useLocale()
-  const [messages, setMessages] = React.useState<MessageItem[]>([])
+  const [messages, setMessages] = React.useState<ClawdbotMessageItem[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [keyword, setKeyword] = React.useState('')
   const [intentFilter, setIntentFilter] = React.useState('')
-  const [selected, setSelected] = React.useState<MessageItem | null>(null)
+  const [selected, setSelected] = React.useState<ClawdbotMessageItem | null>(null)
   const timeFmt = new Intl.DateTimeFormat(locale, {
     month: '2-digit',
     day: '2-digit',

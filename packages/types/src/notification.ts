@@ -98,7 +98,8 @@ export interface NotificationItem {
   id: string
   type: string
   title: string
-  content: string
+  /** content 可选:后端返回时必填,前端从 WS 推送构造时可能为 undefined */
+  content?: string
   isRead: boolean
   createdAt: string
   link?: string
