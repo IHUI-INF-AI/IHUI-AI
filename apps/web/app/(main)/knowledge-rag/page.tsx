@@ -4,10 +4,11 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
-import { BookMarked, Search, FileText, Loader2, Settings } from 'lucide-react'
+import { BookMarked, Search, FileText, Loader2, Settings, Upload } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardHeader, CardTitle, CardContent, CardFooter, Input } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, CardFooter, Input, Button } from '@ihui/ui'
+import { UploadDialog } from './UploadDialog'
 
 interface DocSummary {
   id: number
@@ -39,6 +40,7 @@ export default function KnowledgeRagPage() {
   const locale = useLocale()
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
+  const [uploadOpen, setUploadOpen] = React.useState(false)
 
   React.useEffect(() => {
     const tm = setTimeout(() => setDebounced(search), 300)
@@ -96,13 +98,19 @@ export default function KnowledgeRagPage() {
           </div>
           <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <Link
-          href="/knowledge-rag/manage"
-          className="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-sm transition-colors hover:bg-accent"
-        >
-          <Settings className="h-4 w-4" />
-          <span>{t('manage')}</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => setUploadOpen(true)}>
+            <Upload className="mr-1.5 h-4 w-4" />
+            <span>{t('upload')}</span>
+          </Button>
+          <Link
+            href="/knowledge-rag/manage"
+            className="inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-sm transition-colors hover:bg-accent"
+          >
+            <Settings className="h-4 w-4" />
+            <span>{t('manage')}</span>
+          </Link>
+        </div>
       </header>
 
       <div className="relative w-full max-w-md">
@@ -184,6 +192,8 @@ export default function KnowledgeRagPage() {
           ))}
         </div>
       )}
+
+      <UploadDialog open={uploadOpen} onOpenChange={setUploadOpen} />
     </div>
   )
 }
