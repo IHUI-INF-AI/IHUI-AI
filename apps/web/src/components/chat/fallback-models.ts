@@ -257,6 +257,35 @@ export const FALLBACK_MODELS: FallbackModel[] = [
   { value: 'tii/falcon3-10b-instruct', label: 'Falcon3 10B Instruct', vendor: 'tii' },
   { value: 'liquid/lfm-40b', label: 'Liquid LFM 40B MoE', vendor: 'liquid' },
   { value: 'ai2/olmo-2-1124-7b-instruct', label: 'OLMo 2 7B Instruct', vendor: 'ai2' },
+
+  // === 2026-07 新模型(2026-07 收录) ===
+  // OpenAI 5.6 系列(3 个分工变体)+ GPT-Red 研究预览
+  { value: 'gpt-5.6-sol', label: 'GPT-5.6 Sol (OpenAI 旗舰通用)', vendor: 'openai' },
+  { value: 'gpt-5.6-terra', label: 'GPT-5.6 Terra (OpenAI 多模态)', vendor: 'openai' },
+  { value: 'gpt-5.6-luna', label: 'GPT-5.6 Luna (OpenAI 代码专精)', vendor: 'openai' },
+  { value: 'gpt-red', label: 'GPT-Red (OpenAI 推理研究预览)', vendor: 'openai' },
+  // Anthropic 新一代
+  { value: 'claude-sonnet-5', label: 'Claude Sonnet 5 (Anthropic 新旗舰)', vendor: 'anthropic' },
+  { value: 'claude-opus-4.8', label: 'Claude Opus 4.8 (Anthropic 深度推理)', vendor: 'anthropic' },
+  // Google Gemini 3.5
+  { value: 'gemini-3.5-pro', label: 'Gemini 3.5 Pro (Google 多模态旗舰)', vendor: 'google' },
+  // xAI Grok 4.5
+  { value: 'grok-4.5', label: 'Grok 4.5 (xAI 实时增强)', vendor: 'xai' },
+  // DeepSeek V4 系列
+  { value: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro (国产开源旗舰)', vendor: 'deepseek' },
+  { value: 'deepseek-v4-flash', label: 'DeepSeek V4 Flash (国产开源快版)', vendor: 'deepseek' },
+  // 智谱 GLM-5.2
+  { value: 'glm-5.2', label: 'GLM-5.2 (智谱清言新一代)', vendor: 'zhipu' },
+  // Qwen3.7 Max
+  { value: 'qwen3.7-max', label: 'Qwen3.7 Max (阿里通义千问旗舰)', vendor: 'qwen' },
+  // 腾讯混元 3 代
+  { value: 'hunyuan-hy3', label: 'Hunyuan Hy3 (腾讯混元 3 代)', vendor: 'hunyuan' },
+  // Moonshot Kimi K3 长上下文旗舰
+  { value: 'kimi-k3', label: 'Kimi K3 (Moonshot 长上下文旗舰)', vendor: 'moonshot' },
+  // 国内新增 3 家新势力
+  { value: 'ornith-1.0', label: 'Ornith 1.0 (国产新势力)', vendor: 'ornith' },
+  { value: 'codebrain-1', label: 'CodeBrain-1 (代码专精模型)', vendor: 'codebrain' },
+  { value: 'mai-thinking-1', label: 'MAI-Thinking-1 (深度推理模型)', vendor: 'mai' },
 ]
 
 /** 厂商代码 → 中英文显示名(用于下拉菜单分组标题) */
@@ -340,5 +369,9 @@ export const VENDOR_LABEL: Record<string, string> = {
   sensenova: '商汤',
   skywork: '天工',
   internlm: '书生 InternLM',
+  // 2026-07 新增国内新势力厂商
+  ornith: 'Ornith',
+  codebrain: 'CodeBrain',
+  mai: 'MAI',
   other: '其他',
 }
