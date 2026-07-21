@@ -478,6 +478,7 @@ export { isAlipayPayConfigured }
 // 密钥留空时降级为 mock 模式（DEV）。
 // ============================================================================
 
+const FEISHU_APP_TOKEN_URL = 'https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal'
 const FEISHU_OAUTH_URL = 'https://open.feishu.cn/open-apis/authen/v1/oidc/access_token'
 const FEISHU_USER_INFO_URL = 'https://open.feishu.cn/open-apis/authen/v1/user_info'
 
@@ -493,37 +494,89 @@ export function isFeishuConfigured(): boolean {
   return Boolean(env.FEISHU_APP_ID && env.FEISHU_APP_SECRET)
 }
 
-/** 用授权码 code 换 user_access_token（飞书 OIDC） */
+/**
+ * 用 client_id + client_secret 换取 app_access_token(飞书应用身份令牌)。
+ * 飞书 OIDC v2 /authen/v1/oidc/access_token 端点要求请求头
+ * `Authorization: Bearer <app_access_token>`,否则返回 20014(校验 app_access_token 失败)。
+ *
+ * 2026-07-21 修复:前一轮实现直接用 client_id+secret 调 OIDC 端点(v1 协议,飞书已废弃),
+ * 实际扫码后报 20014。本次按 OIDC v2 三步链路重写:
+ *   1. app_id + app_secret → /auth/v3/app_access_token/internal → app_access_token
+ *   2. app_access_token + code + redirect_uri → /authen/v1/oidc/access_token → user_access_token
+ *   3. user_access_token → /authen/v1/user_info → 用户信息
+ */
+async function getFeishuAppAccessToken(): Promise<string> {
+  const resp = await fetch(FEISHU_APP_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    body: JSON.stringify({
+      app_id: env.FEISHU_APP_ID ?? '',
+      app_secret: env.FEISHU_APP_SECRET ?? '',
+    }),
+  })
+  if (!resp.ok) throw new Error(`Feishu app_access_token exchange failed: ${resp.status}`)
+  const body = (await resp.json()) as {
+    code?: number
+    msg?: string
+    app_access_token?: string
+  }
+  if (body.code !== 0 || !body.app_access_token) {
+    throw new Error(
+      `Feishu app_access_token error: ${body.msg ?? body.code ?? 'no app_access_token'}`,
+    )
+  }
+  return body.app_access_token
+}
+
+/**
+ * 用授权码 code 换 user_access_token(飞书 OIDC v2)。
+ * 必须先调 getFeishuAppAccessToken() 拿 app_access_token,
+ * 再带 Authorization: Bearer <app_access_token> 头调 OIDC 端点。
+ *
+ * 飞书 OIDC v2 响应结构是嵌套的 data.access_token,不是顶层 access_token。
+ */
 export async function getFeishuAccessToken(code: string): Promise<{
   accessToken: string
   refreshToken?: string
   expiresIn?: number
 }> {
+  const appAccessToken = await getFeishuAppAccessToken()
+  const redirectUri =
+    env.FEISHU_REDIRECT_URI ?? 'http://localhost:3000/callback?platform=feishu'
   const resp = await fetch(FEISHU_OAUTH_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      Authorization: `Bearer ${appAccessToken}`,
+    },
     body: JSON.stringify({
       grant_type: 'authorization_code',
-      client_id: env.FEISHU_APP_ID ?? '',
-      client_secret: env.FEISHU_APP_SECRET ?? '',
       code,
+      redirect_uri: redirectUri,
     }),
   })
   if (!resp.ok) throw new Error(`Feishu token exchange failed: ${resp.status}`)
   const body = (await resp.json()) as {
     code?: number
     msg?: string
-    access_token?: string
-    refresh_token?: string
-    expires_in?: number
+    data?: {
+      access_token?: string
+      refresh_token?: string
+      expires_in?: number
+      token_type?: string
+    }
   }
-  if (body.code !== 0 || !body.access_token) {
-    throw new Error(`Feishu OAuth error: ${body.msg ?? body.code ?? 'no access_token'}`)
+  if (body.code !== 0) {
+    throw new Error(`Feishu OAuth error: ${body.msg ?? body.code ?? 'failed'}`)
+  }
+  const data = body.data ?? {}
+  if (!data.access_token) {
+    throw new Error('Feishu OAuth error: no access_token in data')
   }
   return {
-    accessToken: body.access_token,
-    refreshToken: body.refresh_token,
-    expiresIn: body.expires_in,
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresIn: data.expires_in,
   }
 }
 
