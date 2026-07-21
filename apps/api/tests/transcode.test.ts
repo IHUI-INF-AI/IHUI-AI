@@ -76,12 +76,9 @@ describe('transcode routes', () => {
     await server.close()
   })
 
-  it('GET /api/transcode/health 公开端点返回 200 + ffmpegAvailable=false', async () => {
+  it('GET /api/transcode/health 未登录返回 401(2026-07-21 第十轮加固:转码 API 全部需 admin)', async () => {
     const res = await server.inject({ method: 'GET', url: '/api/transcode/health' })
-    expect(res.statusCode).toBe(200)
-    const body = JSON.parse(res.body)
-    expect(body.code).toBe(0)
-    expect(body.data.ffmpegAvailable).toBe(false)
+    expect(res.statusCode).toBe(401)
   })
 
   it('POST /api/transcode/jobs 未登录返回 401', async () => {
