@@ -257,10 +257,16 @@ export const adminReportRoutes: FastifyPluginAsync = async (server) => {
       sections: def.sections(data),
       generatedAt: new Date(),
     })
-    return reply
-      .header('Content-Type', 'application/pdf')
-      .header('Content-Disposition', `attachment; filename="${type}-${startDate}-${endDate}.pdf"`)
-      .send(pdfResult.buffer)
+    // 透出降级状态给前端(monitoring/ fetch 客户端可读 X-PDF-Stub + X-PDF-Error)
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${type}-${startDate}-${endDate}.pdf"`,
+      'X-PDF-Stub': String(pdfResult.stub),
+    }
+    if (pdfResult.error) {
+      headers['X-PDF-Error'] = pdfResult.error
+    }
+    return reply.headers(headers).send(pdfResult.buffer)
   })
 
   // GET /reports/scheduled - 列出定时报表配置（桩，无 DB 表）

@@ -341,10 +341,18 @@ export async function sendStudentReport(
     sections: flattenReportToSections(data),
     generatedAt: new Date(),
   });
-  return reply
-    .header('Content-Type', 'application/pdf')
-    .header('Content-Disposition', `attachment; filename="student-report-${userId.slice(0, 8)}.pdf"`)
-    .send(pdfResult.buffer);
+  // 透出降级状态给前端(浏览器 fetch 拉取时可读 /monitoring/ 可采集)
+  // X-PDF-Stub: 'true' = 降级 PDF(库缺失或异常),'false' = 真实 PDF
+  // X-PDF-Error: 当 stub=true 时附错误原因(可空,生产监控用)
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `attachment; filename="student-report-${userId.slice(0, 8)}.pdf"`,
+    'X-PDF-Stub': String(pdfResult.stub),
+  };
+  if (pdfResult.error) {
+    headers['X-PDF-Error'] = pdfResult.error;
+  }
+  return reply.headers(headers).send(pdfResult.buffer);
 }
 
 // =============================================================================
