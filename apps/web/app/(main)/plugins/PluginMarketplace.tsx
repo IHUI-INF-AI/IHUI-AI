@@ -85,7 +85,7 @@ export function PluginMarketplace() {
     return [...project, ...market]
   }, [])
 
-  // 分类选项 + 计数
+  // 分类选项 + 计数(按热度排序:浏览器控制 / 电脑控制 / 视频创作 / 开发部署 排前面)
   const categories = React.useMemo<CategoryOption[]>(() => {
     const counts: Record<string, number> = {
       all: allPlugins.length,
@@ -93,32 +93,55 @@ export function PluginMarketplace() {
       market: MARKET_PLUGINS.length,
       installed: 0,
       pinned: 0,
+      browser: 0,
+      computer: 0,
+      video: 0,
+      devops: 0,
       mcp: 0,
       agent: 0,
-      workflow: 0,
-      tool: 0,
-      model: 0,
+      search: 0,
+      data: 0,
       ide: 0,
+      workflow: 0,
+      design: 0,
+      productivity: 0,
+      communication: 0,
+      security: 0,
+      model: 0,
+      market_cat: 0,
+      tool: 0,
       knowledge: 0,
       creation: 0,
     }
     for (const p of allPlugins) {
-      counts[p.category] = (counts[p.category] ?? 0) + 1
+      // 'market' category 计入 market_cat 避免与 source='market' 冲突
+      const catKey = p.category === 'market' ? 'market_cat' : p.category
+      counts[catKey] = (counts[catKey] ?? 0) + 1
       if (plugins.isInstalled(p.id)) counts.installed = (counts.installed ?? 0) + 1
       if (plugins.isPinned(p.id)) counts.pinned = (counts.pinned ?? 0) + 1
     }
     return [
       { key: 'all' as Filter, label: t('catAll'), count: counts.all ?? 0 },
+      { key: 'browser' as Filter, label: t('catBrowser'), count: counts.browser ?? 0 },
+      { key: 'computer' as Filter, label: t('catComputer'), count: counts.computer ?? 0 },
+      { key: 'video' as Filter, label: t('catVideo'), count: counts.video ?? 0 },
+      { key: 'devops' as Filter, label: t('catDevops'), count: counts.devops ?? 0 },
       { key: 'builtin' as Filter, label: t('catBuiltin'), count: counts.builtin ?? 0 },
       { key: 'market' as Filter, label: t('catMarket'), count: counts.market ?? 0 },
       { key: 'installed' as Filter, label: t('catInstalled'), count: counts.installed ?? 0 },
       { key: 'pinned' as Filter, label: t('catPinned'), count: counts.pinned ?? 0 },
       { key: 'mcp' as Filter, label: t('catMcp'), count: counts.mcp ?? 0 },
       { key: 'agent' as Filter, label: t('catAgent'), count: counts.agent ?? 0 },
-      { key: 'workflow' as Filter, label: t('catWorkflow'), count: counts.workflow ?? 0 },
-      { key: 'tool' as Filter, label: t('catTool'), count: counts.tool ?? 0 },
-      { key: 'model' as Filter, label: t('catModel'), count: counts.model ?? 0 },
+      { key: 'search' as Filter, label: t('catSearch'), count: counts.search ?? 0 },
+      { key: 'data' as Filter, label: t('catData'), count: counts.data ?? 0 },
       { key: 'ide' as Filter, label: t('catIde'), count: counts.ide ?? 0 },
+      { key: 'workflow' as Filter, label: t('catWorkflow'), count: counts.workflow ?? 0 },
+      { key: 'design' as Filter, label: t('catDesign'), count: counts.design ?? 0 },
+      { key: 'productivity' as Filter, label: t('catProductivity'), count: counts.productivity ?? 0 },
+      { key: 'communication' as Filter, label: t('catCommunication'), count: counts.communication ?? 0 },
+      { key: 'security' as Filter, label: t('catSecurity'), count: counts.security ?? 0 },
+      { key: 'model' as Filter, label: t('catModel'), count: counts.model ?? 0 },
+      { key: 'tool' as Filter, label: t('catTool'), count: counts.tool ?? 0 },
       { key: 'knowledge' as Filter, label: t('catKnowledge'), count: counts.knowledge ?? 0 },
       { key: 'creation' as Filter, label: t('catCreation'), count: counts.creation ?? 0 },
     ].filter((c) => (c.count ?? 0) > 0 || c.key === 'all')
