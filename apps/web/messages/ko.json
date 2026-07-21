@@ -1307,6 +1307,71 @@
     "wechatArticleDesc": "모위 그린 레이아웃 + 22항목 검증 + 임시 보관함 푸시",
     "kouboScript": "나레이션 대본",
     "kouboScriptDesc": "매일 8편 더우인 나레이션 대본 + 이중 문턱 검증",
+    "skillLibrary": {
+      "title": "Skill 라이브러리",
+      "create": "새로 만들기",
+      "tabAll": "전체",
+      "tabTemplate": "템플릿",
+      "tabSlash": "명령",
+      "tabSelfMedia": "셀프미디어",
+      "tabCustom": "커스텀",
+      "tabOpenclaw": "OpenClaw",
+      "tabMcp": "MCP",
+      "searchPlaceholder": "Skill 검색…",
+      "loading": "불러오는 중…",
+      "sectionBuiltin": "기본 제공",
+      "sectionCustom": "내 커스텀",
+      "empty": "Skill 없음",
+      "emptyCustom": "커스텀 Skill이 없습니다. 오른쪽 위 +로 만들기",
+      "loginRequired": "커스텀 Skill을 관리하려면 로그인하세요",
+      "confirmDelete": "이 Skill을 삭제할까요?",
+      "errorLoad": "Skill 불러오기 실패",
+      "errorSave": "저장 실패",
+      "errorDelete": "삭제 실패",
+      "createTitle": "새 Skill",
+      "editTitle": "Skill 편집",
+      "namePlaceholder": "이름",
+      "promptPlaceholder": "프롬프트 템플릿 내용",
+      "category": "분류",
+      "scenario": "시나리오",
+      "cancel": "취소",
+      "save": "저장",
+      "saving": "저장 중…",
+      "edit": "편집",
+      "delete": "삭제",
+      "disable": "비활성화",
+      "enable": "활성화",
+      "disabled": "비활성",
+      "noContent": "(내용 없음)",
+      "scenarioWriting": "글쓰기",
+      "scenarioCoding": "코딩",
+      "scenarioMedia": "미디어",
+      "scenarioTool": "도구",
+      "scenarioCustom": "기타",
+      "builtin": {
+        "tplSummary": "작업 요약",
+        "tplSummaryDesc": "핵심 정보 추출 및 구조화된 결론 출력",
+        "tplSummaryTemplate": "위의 작업 내용을 요약하고 핵심 정보를 추출해 주세요:",
+        "tplTranslate": "영어로 번역",
+        "tplTranslateDesc": "지정된 텍스트를 영어로 번역",
+        "tplTranslateTemplate": "다음 내용을 영어로 번역해 주세요:",
+        "tplExplain": "개념 설명",
+        "tplExplainDesc": "개념을 쉬운 언어로 설명",
+        "tplExplainTemplate": "다음 개념을 자세히 설명해 주세요:",
+        "tplCode": "코드 생성",
+        "tplCodeDesc": "요구사항에 따라 주석 포함 코드 생성",
+        "tplCodeTemplate": "다음 기능을 주석과 함께 코드로 구현해 주세요:",
+        "tplPolish": "텍스트 다듬기",
+        "tplPolishDesc": "전문성과 유창성 향상",
+        "tplPolishTemplate": "다음 텍스트를 더 전문적이고 유창하게 다듬어 주세요:",
+        "wechatArticle": "위챗 공식계정 글",
+        "wechatArticleDesc": "모위 그린 레이아웃 + 22항목 검증 + 임시 보관함 푸시",
+        "wechatArticleTemplate": "위챗 공식계정 글을 생성해 주세요. 요구사항:\n1. 주제:\n2. 요약:\n3. 하이라이트 마커(금구 카드 / 팁 블록 / 인용 / 코드 블록 / 소제목)\n4. 이미지 제안:\ncontent-engine 파이프라인을 실행하세요(모위 그린 테마 + 22항목 자체 검증 + 임시 보관함 푸시).",
+        "kouboScript": "나레이션 대본",
+        "kouboScriptDesc": "매일 8편 더우인 나레이션 대본 + 이중 문턱 검증",
+        "kouboScriptTemplate": "오늘의 더우인 나레이션 대본 8편을 생성해 주세요. 요구사항:\n1. 날짜: MMDD\n2. 주제 방향:\n3. 이중 문턱 검증(모호성 압축 / 교차 대본 어휘 / 전량 검증 / 어병 / 핫토픽 커버리지)\nkoubo-workflow 파이프라인을 실행하세요(제약 우선 작성법)."
+      }
+    },
     "tpl": {
       "email": {
         "name": "이메일 작성",
@@ -27663,9 +27728,63 @@
     "free": "무료"
   },
   "oauthSetupPage": {
-    "title": "OAuth 凭据配置向导",
-    "subtitle": "应用内交互式引导,帮你一步步获取第三方登录平台的真实凭据",
-    "honestTitle": "🤖 AI 不能替你注册账号",
-    "honestBody": "5 个平台(GitHub/Google/飞书/支付宝/Apple)的账号注册需要你的真人信息(邮箱/手机/身份证/营业执照/付费信用卡),AI 无法代替你操作。但本向导会引导你每一步,跟着点就不会迷路。建议从 GitHub 开始(3 分钟,免费)。"
+    "title": "OAuth 자격 증명 마법사",
+    "subtitle": "앱 내 단계별 안내로 타사 로그인 플랫폼의 실제 자격 증명을 손쉽게 받으세요",
+    "honestTitle": "🤖 AI는 회원 가입을 대신할 수 없습니다",
+    "honestBody": "5개 플랫폼(GitHub/Google/Feishu/Alipay/Apple) 가입에는 본인의 실명 정보(이메일/휴대폰/신분증/사업자등록증/유료 신용카드)가 필요해 AI가 대신할 수 없습니다. 본 마법사는 모든 단계를 안내하며, GitHub부터 시작하는 것을 권장합니다(3분, 무료)."
+  },
+  "knowledgeRag": {
+    "list": {
+      "title": "지식 베이스 RAG",
+      "subtitle": "RAG 지식 문서 탐색 및 검색",
+      "searchPlaceholder": "RAG 문서 검색...",
+      "empty": "문서가 없습니다",
+      "loading": "로드 중...",
+      "manage": "관리",
+      "chunkCount": "청크 {count}개",
+      "sourceType": {
+        "text": "텍스트",
+        "file": "파일",
+        "url": "URL"
+      },
+      "search": {
+        "empty": "검색 결과가 없습니다"
+      }
+    },
+    "detail": {
+      "backToList": "목록으로",
+      "sourceType": "소스 유형",
+      "chunkCount": "청크 수",
+      "createdAt": "생성 시간",
+      "viewChunks": "청크 보기",
+      "related": "관련 문서",
+      "relatedEmpty": "관련 문서가 없습니다",
+      "loading": "로드 중...",
+      "notFound": "문서를 찾을 수 없습니다"
+    },
+    "chunks": {
+      "backToDetail": "상세로",
+      "totalCount": "총 {count}개 청크",
+      "showMore": "펼치기",
+      "showLess": "접기",
+      "chunkIndex": "청크 {index}",
+      "charCount": "{count}자",
+      "empty": "청크가 없습니다",
+      "loading": "로드 중...",
+      "notFound": "문서를 찾을 수 없습니다"
+    },
+    "manage": {
+      "title": "RAG 지식 베이스 관리",
+      "subtitle": "RAG 문서 일괄 관리",
+      "selectAll": "전체 선택",
+      "batchDelete": "일괄 삭제",
+      "deleteConfirm": "{count}개 문서를 삭제하시겠습니까?",
+      "deleteSuccess": "삭제되었습니다",
+      "partialFailed": "{failed}개 문서 삭제 실패",
+      "singleDelete": "삭제",
+      "chunkCount": "청크 {count}개",
+      "loading": "로드 중...",
+      "empty": "문서가 없습니다"
+    }
   }
 }
