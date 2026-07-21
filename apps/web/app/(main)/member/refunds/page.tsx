@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { RotateCcw, Loader2, Clock, CheckCircle, XCircle, Wallet } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -20,19 +20,17 @@ interface RefundItem {
   reason?: string | null
 }
 
-const STATUS_CONFIG: Record<RefundStatus, { icon: typeof Clock; cls: string; label: string }> = {
+const STATUS_CONFIG: Record<RefundStatus, { icon: typeof Clock; cls: string }> = {
   pending: {
     icon: Clock,
     cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
-    label: '审核中',
   },
   approved: {
     icon: CheckCircle,
     cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
-    label: '已通过',
   },
-  rejected: { icon: XCircle, cls: 'bg-red-500/10 text-red-600 dark:text-red-500', label: '已拒绝' },
-  completed: { icon: Wallet, cls: 'bg-primary/10 text-primary', label: '已完成' },
+  rejected: { icon: XCircle, cls: 'bg-red-500/10 text-red-600 dark:text-red-500' },
+  completed: { icon: Wallet, cls: 'bg-primary/10 text-primary' },
 }
 
 async function api<T>(url: string): Promise<T> {
@@ -42,6 +40,7 @@ async function api<T>(url: string): Promise<T> {
 }
 
 export default function MemberRefundsPage() {
+  const t = useTranslations('memberRefundsPage')
   const locale = useLocale()
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'refunds'],
@@ -69,9 +68,9 @@ export default function MemberRefundsPage() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <RotateCcw className="h-5 w-5 text-primary" />
-          退款记录
+          {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">查看你的退款申请与处理进度</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
@@ -79,12 +78,12 @@ export default function MemberRefundsPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
           <RotateCcw className="h-8 w-8 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">暂无退款记录</p>
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -103,7 +102,7 @@ export default function MemberRefundsPage() {
                       )}
                     >
                       <StatusIcon className="h-3 w-3" />
-                      {sc.label}
+                      {t(`status.${item.status}`)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -115,7 +114,7 @@ export default function MemberRefundsPage() {
                     </span>
                   </div>
                   {item.reason && (
-                    <p className="truncate text-xs text-muted-foreground">原因:{item.reason}</p>
+                    <p className="truncate text-xs text-muted-foreground">{t('reason', { reason: item.reason })}</p>
                   )}
                 </CardContent>
               </Card>

@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Edit, Loader2 } from 'lucide-react'
 
@@ -13,6 +14,7 @@ export default function KBEditByIdPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const qc = useQueryClient()
+  const t = useTranslations('kbEditPage')
 
   const [form, setForm] = React.useState<KBForm>(EMPTY_KB_FORM)
   const [tagInput, setTagInput] = React.useState('')
@@ -73,8 +75,8 @@ export default function KBEditByIdPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
-    if (!form.title.trim()) return setErr('请输入标题')
-    if (!form.content.trim()) return setErr('请输入内容')
+    if (!form.title.trim()) return setErr(t('titleRequired'))
+    if (!form.content.trim()) return setErr(t('contentRequired'))
     saveMut.mutate()
   }
 
@@ -82,7 +84,7 @@ export default function KBEditByIdPage() {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
 
@@ -94,10 +96,10 @@ export default function KBEditByIdPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回列表
+          {t('backToList')}
         </Link>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {(error as Error)?.message ?? '文章不存在'}
+          {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
     )
@@ -107,9 +109,9 @@ export default function KBEditByIdPage() {
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Edit className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">编辑文章</h1>
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h1>
         </div>
-        <p className="text-sm text-muted-foreground">修改知识库文章内容</p>
+        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Link
@@ -117,7 +119,7 @@ export default function KBEditByIdPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回文章
+        {t('backToArticle')}
       </Link>
 
       <KBArticleForm
@@ -126,7 +128,7 @@ export default function KBEditByIdPage() {
         tagInput={tagInput}
         err={err}
         submitting={saveMut.isPending}
-        submitLabel="保存"
+        submitLabel={t('submitLabel')}
         onFormChange={setForm}
         onTagInputChange={setTagInput}
         onAddTag={addTag}

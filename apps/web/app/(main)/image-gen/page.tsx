@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Image from 'next/image'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, ImageIcon, Sparkles, Download } from 'lucide-react'
 
@@ -24,6 +25,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 const SIZES = ['1024x1024', '1024x1792', '1792x1024']
 
 export default function ImageGenPage() {
+  const t = useTranslations('imageGenPage')
   const [prompt, setPrompt] = React.useState('')
   const [size, setSize] = React.useState(SIZES[0])
   const [result, setResult] = React.useState<GenResult | null>(null)
@@ -42,7 +44,7 @@ export default function ImageGenPage() {
     },
     onSuccess: (data) => {
       setResult(data)
-      toast.success('生成成功')
+      toast.success(t('success'))
     },
     onError: (e: Error) => {
       setErr(e.message)
@@ -55,7 +57,7 @@ export default function ImageGenPage() {
     setErr(null)
     setResult(null)
     if (!prompt.trim()) {
-      setErr('请输入提示词')
+      setErr(t('promptRequired'))
       return
     }
     genMut.mutate()
@@ -78,28 +80,28 @@ export default function ImageGenPage() {
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <ImageIcon className="h-6 w-6 text-primary" />
-          AI 图片生成
+          {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">输入提示词生成图片</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <form onSubmit={submit} className="space-y-4">
         <Card>
           <CardContent className="space-y-4 p-6">
             <div className="space-y-2">
-              <Label htmlFor="ig-prompt">提示词</Label>
+              <Label htmlFor="ig-prompt">{t('promptLabel')}</Label>
               <textarea
                 id="ig-prompt"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="描述你想生成的图片..."
+                placeholder={t('promptPlaceholder')}
                 rows={4}
                 className={inputClass}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="ig-size">尺寸</Label>
+              <Label htmlFor="ig-size">{t('sizeLabel')}</Label>
               <select
                 id="ig-size"
                 value={size}
@@ -125,7 +127,7 @@ export default function ImageGenPage() {
             ) : (
               <Sparkles className="mr-2 h-4 w-4" />
             )}
-            {genMut.isPending ? '生成中...' : '生成图片'}
+            {genMut.isPending ? t('generating') : t('generate')}
           </Button>
         </div>
       </form>
@@ -149,7 +151,7 @@ export default function ImageGenPage() {
             <div className="flex justify-end">
               <Button size="sm" variant="outline" onClick={download}>
                 <Download className="mr-1.5 h-4 w-4" />
-                下载
+                {t('download')}
               </Button>
             </div>
           </CardContent>

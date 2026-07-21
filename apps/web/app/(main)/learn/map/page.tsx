@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import {
   Map as MapIcon,
   Loader2,
@@ -41,6 +42,7 @@ async function api<T>(url: string): Promise<T> {
 }
 
 export default function LearnMapPage() {
+  const t = useTranslations('learnMapPage')
   const { data, isLoading, error } = useQuery({
     queryKey: ['learn', 'map'],
     queryFn: () => api<MapData>('/api/learn/map'),
@@ -54,10 +56,10 @@ export default function LearnMapPage() {
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
           <MapIcon className="h-7 w-7 text-primary" />
-          {data?.title ?? '学习地图'}
+          {data?.title ?? t('defaultTitle')}
         </h1>
         <p className="text-sm text-muted-foreground">
-          {data?.description ?? '规划你的学习路径，循序渐进掌握知识点'}
+          {data?.description ?? t('defaultDesc')}
         </p>
       </header>
 
@@ -67,7 +69,7 @@ export default function LearnMapPage() {
             <TrendingUp className="h-6 w-6 text-primary" />
           </div>
           <div className="flex-1">
-            <div className="text-sm text-muted-foreground">总体进度</div>
+            <div className="text-sm text-muted-foreground">{t('totalProgress')}</div>
             <div className="mt-1 flex items-center gap-3">
               <div className="h-2 flex-1 overflow-hidden rounded bg-muted">
                 <div
@@ -84,7 +86,7 @@ export default function LearnMapPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : error ? (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
@@ -93,7 +95,7 @@ export default function LearnMapPage() {
       ) : nodes.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
           <MapIcon className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">暂无学习路径</p>
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -126,10 +128,10 @@ export default function LearnMapPage() {
                   </div>
                   <div className="flex-1 space-y-0.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">第 {idx + 1} 阶段</span>
+                      <span className="text-xs text-muted-foreground">{t('stageN', { n: idx + 1 })}</span>
                       {isCompleted && (
                         <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600">
-                          已完成
+                          {t('completed')}
                         </span>
                       )}
                     </div>
@@ -151,7 +153,7 @@ export default function LearnMapPage() {
                       />
                     </div>
                     <span className="text-xs text-muted-foreground">
-                      {node.completedLessons} / {node.totalLessons} 课时
+                      {t('lessonsProgress', { completed: node.completedLessons, total: node.totalLessons })}
                     </span>
                   </div>
                   {!isLocked && (
@@ -159,7 +161,7 @@ export default function LearnMapPage() {
                       href={`/learn/${node.id}`}
                       className="inline-flex items-center gap-1 text-sm text-primary transition-colors hover:text-primary/80"
                     >
-                      {isCompleted ? '复习' : '继续学习'}
+                      {isCompleted ? t('review') : t('continueLearning')}
                       <ArrowRight className="h-3.5 w-3.5" />
                     </Link>
                   )}
