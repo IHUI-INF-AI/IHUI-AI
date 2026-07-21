@@ -1,0 +1,11 @@
+# Traefik 静态配置(已通过 docker-compose command 行配置)
+# 此文件保留为占位,实际配置在 docker-compose.yml 的 command 中
+# 保留此文件用于未来扩展(如 access log 持久化、metrics 暴露等)
+log:
+  level: INFO
+  format: json
+
+accessLog:
+  format: json
+  fields:
+    defaultMode: keep

@@ -561,6 +561,7 @@
 - 视觉验证截图(4 状态):
   - 暗色 + Page 6:24 张方块白色背景全品牌可见
   - light + Page 6:同样 24 张方块白色背景全品牌可见
+
   - 暗色 + Page 3:5 场景卡(痛点红/收益绿)独立成页
   - 暗色 + Page 4:8 ROI 卡 4×2 网格
   - 暗色 + Page 5:8 行对比表 1 页装下
@@ -664,4 +665,71 @@
 ---
 
 <!-- 已归档(2026-07-21):Page 6 修复内容偏上布局(commit 514f866),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-21_page-6-fix.md -->
+
+---
+
+### SaaS 托管服务架构(2026-07-21)— P0 阶段 1:多租户基础设施 PoC
+
+**触发**:用户要求"想给客户做 SaaS 托管服务时,可以在 docker-compose.yml 顶层加一层多租户路由 + 独立 customer 部署目录,那你就去开发好"。
+
+**三阶段交付**(按工程量分阶段,本会话仅完成 P0 阶段 1):
+
+| 阶段 | 范围 | 工作量 | 状态 |
+|---|---|---|---|
+| **P0 阶段 1(本次)** | Traefik 多租户路由 + 通配符证书 + 客户编排 + 创建/销毁脚本 + 1 个示例客户 PoC | 0.5-1 天 | 🚧 进行中 |
+| **P1 阶段 2(下次会话)** | 租户管理后台(web/admin 端扩展) + 资源监控 + 资源配额 + 证书自动续期 | 3-5 天 | ⏳ 待启动 |
+| **P2 阶段 3(后续)** | 用量采集 + 套餐定价 + 账单生成 + 微信/支付宝集成 + 客户自助账单页 | 2-4 周 | ⏳ 待启动 |
+
+**架构决策**(用户已确认 3 选 1):
+
+1. **路由方式**:子域名路由(`{slug}.{BASE_DOMAIN}`,如 `demo.example.com`)
+2. **隔离粒度**:每租户独立 docker-compose(重隔离,故障/攻击互不影响)
+3. **交付范围**:完整版含计费(分 P0/P1/P2 三阶段交付,本次只做 P0 阶段 1 基础设施)
+
+**P0 阶段 1 详细任务清单**:
+
+**目标**:跑通 1 个示例客户,支持创建/查询/销毁三个核心运维动作,基础设施层可独立运行。
+
+**改动文件清单**(11 个全新文件 + 1 个修改):
+
+1. `deploy/saas/docker-compose.yml`:Traefik v3 + 共享网络 `ihui-saas`
+2. `deploy/saas/traefik/traefik.yml`:Traefik 静态配置(API + Dashboard + 证书存储 + entryPoints 80/443)
+3. `deploy/saas/traefik/dynamic/customers.yml.template`:动态路由模板(SNI 路由到租户 backend)
+4. `deploy/saas/.env.example`:环境变量样例(`BASE_DOMAIN` / `ACME_EMAIL` / `DNS_PROVIDER` / `LETSENCRYPT_ENV`)
+5. `deploy/saas/templates/customer/.env.template`:租户环境变量模板(子域名/管理员账号/AI 配额)
+6. `deploy/saas/templates/customer/docker-compose.yml`:租户独立 docker-compose(db + redis + api + web + ai-service 5 服务)
+7. `deploy/saas/templates/customer/init-db.sql`:租户数据库初始化
+8. `deploy/saas/scripts/create-customer.sh`:创建租户
+9. `deploy/saas/scripts/destroy-customer.sh`:销毁租户
+10. `deploy/saas/scripts/list-customers.sh`:列出所有租户
+11. `deploy/saas/README.md`:运维手册
+12. `docker-compose.yml`:ai-service 已加 `ports: ['8000:8000']`(前置改动,本次随任务一起提交)
+
+**验收硬性指标**(按 AGENTS.md §8):
+
+- `docker compose -f deploy/saas/docker-compose.yml config` exit 0
+- `bash -n deploy/saas/scripts/*.sh` exit 0
+- `cd deploy/saas && cp .env.example .env && docker compose up -d` exit 0
+- `./scripts/create-customer.sh demo` exit 0
+- `docker compose -f customers/demo/docker-compose.yml ps` 所有 5 服务 Up
+- `curl -k https://demo.127.0.0.1.nip.io:8443/` HTTP 200
+- `./scripts/list-customers.sh` 显示 demo 租户
+- `./scripts/destroy-customer.sh demo` exit 0
+- browser_use 验证:访问子域名截图 + 读 `document.title` 含 "IHUI" 字样
+
+**硬约束**:
+
+- 仅修改/新增 `deploy/saas/` 目录 + `docker-compose.yml` (ai-service ports 行)
+- 不动 web/api/ai-service 业务代码(8 端隔离)
+- 客户名 slug 仅允许小写字母数字横线,长度 3-20
+- 真实部署用 Let's Encrypt DNS-01 + 阿里云 DNS provider(可换 Cloudflare)
+- 本地 PoC 用 nip.io 动态 DNS + 自签证书(浏览器需信任或加 `-k`)
+
+**已知边界**(本阶段**不**包含):
+
+- ❌ 资源监控(阶段 2)
+- ❌ 租户管理后台(阶段 2,需 web/admin 端扩展)
+- ❌ 用量采集 + 计费(阶段 3,需 api 端扩展)
+- ❌ 支付集成(阶段 3,需 web + api + 数据库 3 端联动)
+
 
