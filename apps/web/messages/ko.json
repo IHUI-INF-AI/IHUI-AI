@@ -402,6 +402,7 @@
     "publishPlatform": "게시 플랫폼",
     "selfMediaKoubo": "나레이션 대본",
     "selfMediaAutomation": "자동화",
+    "pluginMarket": "플러그인 마켓",
     "downloadIOS": "ｉＯＳ",
     "downloadAndroidApk": "Ａｎｄｒｏｉｄ ＡＰＫ",
     "downloadWechatMiniApp": "WeChat 미니 프로그램",
@@ -14749,6 +14750,17 @@
     "documentContentMinLength": "문서내용까지10",
     "metadataFormatError": "Data오류，입력해 주세요유효 JSON"
   },
+  "plugins": {
+    "title": "플러그인 마켓",
+    "subtitle": "본 프로젝트 내장 플러그인과 인기 AI 플러그인 마켓 탐색",
+    "sectionProject": "본 프로젝트 설정 플러그인",
+    "sectionProjectDesc": "플랫폼에 통합된 내장 플러그인 기능, 카드 클릭 시 기능으로 이동",
+    "sectionMarket": "인기 플러그인 스크립트 마켓",
+    "sectionMarketDesc": "전 세계 주요 AI 플러그인 / 스크립트 / MCP 마켓, 클릭 시 공식 사이트로",
+    "open": "진입",
+    "visit": "공식 사이트",
+    "total": "총 {count}개"
+  },
   "aiWorld": {
     "empty": "콘텐츠 없음",
     "loading": "로딩 중...",
@@ -27786,5 +27798,21 @@
       "loading": "로드 중...",
       "empty": "문서가 없습니다"
     }
+  },
+  "knowledgeGraph": {
+    "title": "지식 그래프",
+    "buildSection": "텍스트에서 그래프 구축",
+    "placeholder": "텍스트를 붙여넣으면 시스템이 개체와 관계를 추출합니다...",
+    "buildButton": "추출 및 구축",
+    "clearButton": "그래프 비우기",
+    "graphSection": "그래프 시각화",
+    "emptyState": "데이터가 없습니다. 위에 텍스트를 입력하고 \"추출 및 구축\"을 클릭하세요",
+    "stats": "총 {entities} 개 개체 / {relations} 개 관계",
+    "legendHint": "팁: 노드에 마우스를 올리면 관련 엣지가 강조됩니다. 노드 크기 = 출현 빈도, 엣지 굵기 = 관계 가중치",
+    "graphAriaLabel": "지식 그래프 시각화",
+    "frequencyLabel": "{count}회 출현",
+    "charCount": "문자 {count}",
+    "feedbackBuildSuccess": "{entities} 개 개체, {relations} 개 관계 추출 완료",
+    "feedbackClearSuccess": "그래프가 비워졌습니다"
   }
 }
