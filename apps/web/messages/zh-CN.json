@@ -25991,55 +25991,402 @@
     }
   },
   "memberSettingsPage": {
-    "loading": "加载中…",
+    "loading": "加载中...",
     "title": "会员设置",
-    "description": "管理你的通知和隐私偏好",
+    "description": "管理你的通知偏好与隐私设置",
     "notifTitle": "通知偏好",
     "notif": {
-      "orderUpdates": "订单更新",
-      "promotions": "优惠活动",
-      "points": "积分变动",
-      "newsletter": "订阅邮件"
+      "orderUpdates": "订单状态更新",
+      "promotions": "促销与优惠活动",
+      "points": "积分变动提醒",
+      "newsletter": "订阅电子简报"
     },
     "privacyTitle": "隐私设置",
     "privacy": {
-      "showProfile": "公开个人资料",
-      "showActivity": "显示我的活动",
-      "allowInvites": "允许他人邀请"
+      "showProfile": "公开个人主页",
+      "showActivity": "展示最近活动",
+      "allowInvites": "允许他人邀请我"
     },
     "saveBtn": "保存设置",
     "saved": "已保存"
   },
   "memberDashboardPage": {
-    "defaultLevel": "默认等级",
+    "defaultLevel": "普通会员",
     "title": "会员中心",
-    "description": "管理你的会员等级、积分、优惠券和订单",
-    "expireAt": "到期时间",
-    "renew": "续费",
+    "description": "一站式管理你的会员权益、订单、积分与优惠",
+    "expireAt": "会员有效期至:",
+    "renew": "立即续费",
     "recentOrders": "最近订单",
     "viewAll": "查看全部",
-    "loading": "加载中…",
-    "empty": "暂无数据"
+    "loading": "加载中...",
+    "empty": "暂无订单记录",
+    "stats": {
+      "level": "会员等级",
+      "points": "可用积分",
+      "coupon": "优惠券",
+      "orders": "订单总数"
+    }
   },
   "developerHomePage": {
-    "statCalls": "API 调用",
+    "statCalls": "调用次数(本月)",
     "statApiKeys": "API 密钥",
     "statWebhook": "Webhook",
     "statMonthFee": "本月费用",
     "qeApiDocsLabel": "API 文档",
-    "qeApiDocsDesc": "查看完整 API 接口与示例",
-    "qeSandboxLabel": "在线沙盒",
-    "qeSandboxDesc": "无需安装即可调试 API",
+    "qeApiDocsDesc": "查阅接口说明",
+    "qeSandboxLabel": "沙箱测试",
+    "qeSandboxDesc": "在线调用 API",
     "qeLogsLabel": "调用日志",
-    "qeLogsDesc": "查看历史请求与错误",
+    "qeLogsDesc": "查看请求记录",
     "qeVersionsLabel": "版本管理",
-    "qeVersionsDesc": "管理 API 版本与下线计划",
-    "title": "开发者中心",
-    "subtitle": "管理你的 API 密钥、Webhook 和用量",
+    "qeVersionsDesc": "API 版本状态",
+    "title": "开发者概览",
+    "subtitle": "查看 API 使用情况与开发者资源",
     "currentPlan": "当前套餐",
     "quotaUsage": "配额使用",
-    "upgrade": "升级套餐",
-    "quickEntries": "快捷入口",
-    "loading": "加载中…"
+    "upgrade": "升级",
+    "quickEntries": "快速入口",
+    "loading": "加载中..."
+  },
+  "memberInvitationsPage": {
+    "title": "邀请记录",
+    "description": "邀请好友注册,双方均可获得奖励",
+    "generate": "生成邀请",
+    "codesTitle": "我的邀请码",
+    "loading": "加载中...",
+    "codesEmpty": "暂无邀请码,点击右上角生成",
+    "rewards": "邀请人 +{inviter} · 被邀请人 +{invitee}",
+    "expiresAt": "到期时间:",
+    "copied": "已复制",
+    "copyCode": "复制邀请码",
+    "inviteesTitle": "已邀请用户",
+    "inviteesEmpty": "还没有邀请到任何用户",
+    "columns": {
+      "user": "用户",
+      "registeredAt": "注册时间",
+      "reward": "奖励"
+    },
+    "status": {
+      "unused": "可用",
+      "expired": "已过期",
+      "used": "已使用"
+    }
+  },
+  "memberPointsPage": {
+    "title": "积分中心",
+    "description": "查看积分余额、明细与兑换好礼",
+    "summary": {
+      "current": "当前积分",
+      "earned": "累计获取",
+      "spent": "累计消耗"
+    },
+    "txTitle": "积分明细",
+    "loading": "加载中...",
+    "txEmpty": "暂无积分记录",
+    "redeemTitle": "积分兑换",
+    "redeemEmpty": "暂无可兑换商品",
+    "pointsUnit": "{n} 积分",
+    "redeemBtn": "立即兑换"
+  },
+  "eduExamPage": {
+    "loading": "加载中...",
+    "backToList": "返回考试列表",
+    "notExists": "考试不存在",
+    "noQuestions": "暂无题目",
+    "duration": "{n} 分钟",
+    "answeredProgress": "已答 {answered} / {total}",
+    "questionProgress": "第 {current} 题 / 共 {total} 题",
+    "single": "单选",
+    "multiple": "多选",
+    "prevQuestion": "上一题",
+    "nextQuestion": "下一题",
+    "submit": "提交考试"
+  },
+  "aiWorldEditPage": {
+    "toastUpdated": "更新成功",
+    "errNameRequired": "请输入名称",
+    "loading": "加载中...",
+    "back": "返回",
+    "title": "编辑 AI 世界项目",
+    "subtitle": "修改项目信息",
+    "nameLabel": "名称",
+    "namePlaceholder": "请输入项目名称",
+    "descLabel": "描述",
+    "descPlaceholder": "请输入项目描述",
+    "categoryLabel": "分类",
+    "noCategory": "不选择分类",
+    "coverLabel": "封面链接",
+    "coverPlaceholder": "请输入封面图片 URL",
+    "configLabel": "配置",
+    "configPlaceholder": "JSON 配置(可选)",
+    "cancel": "取消",
+    "submitting": "提交中...",
+    "save": "保存"
+  },
+  "aiWorldCreatePage": {
+    "toastCreated": "创建成功",
+    "errNameRequired": "请输入名称",
+    "back": "返回",
+    "title": "创建 AI 世界项目",
+    "subtitle": "填写以下信息创建新的 AI 世界项目",
+    "nameLabel": "名称",
+    "namePlaceholder": "请输入项目名称",
+    "descLabel": "描述",
+    "descPlaceholder": "请输入项目描述",
+    "categoryLabel": "分类",
+    "noCategory": "不选择分类",
+    "coverLabel": "封面链接",
+    "coverPlaceholder": "请输入封面图片 URL",
+    "configLabel": "配置",
+    "configPlaceholder": "JSON 配置(可选)",
+    "cancel": "取消",
+    "submitting": "提交中...",
+    "create": "创建"
+  },
+  "developerBillingPage": {
+    "title": "账单",
+    "subtitle": "查看账单记录与付款方式",
+    "paymentMethods": "付款方式",
+    "toastContactSupport": "请联系客服添加",
+    "add": "添加",
+    "noPaymentMethods": "暂无付款方式",
+    "default": "默认",
+    "payType": {
+      "alipay": "支付宝",
+      "wechat": "微信支付",
+      "card": "银行卡"
+    },
+    "toastInvoiceGenerating": "发票生成中,请稍后",
+    "billRecords": "账单记录",
+    "loading": "加载中...",
+    "noBills": "暂无账单记录",
+    "status": {
+      "paid": "已支付",
+      "pending": "待支付",
+      "failed": "失败"
+    },
+    "invoice": "发票"
+  },
+  "developerApiDocsPage": {
+    "title": "API 文档",
+    "subtitle": "查阅开放平台接口说明与调用示例",
+    "searchPlaceholder": "搜索接口路径或名称...",
+    "toastCopied": "已复制路径",
+    "toastCopyFailed": "复制失败",
+    "loading": "加载中...",
+    "noDocs": "暂无 API 文档",
+    "requestParams": "请求参数",
+    "colName": "参数名",
+    "colType": "类型",
+    "colRequired": "必填",
+    "colDesc": "说明",
+    "yes": "是",
+    "no": "否",
+    "responseExample": "响应示例"
+  },
+  "memberExamSignUpPage": {
+    "title": "我的考试报名",
+    "description": "查看已报名的考试并管理报名状态",
+    "loading": "加载中...",
+    "empty": "暂无报名记录",
+    "cancelBtn": "取消报名",
+    "cancelConfirm": "确认取消该考试报名?",
+    "cancelSuccess": "已取消报名",
+    "cancelFailed": "取消失败",
+    "total": "共 {n} 条",
+    "status": {
+      "pending": "待考",
+      "attended": "已考",
+      "canceled": "已取消",
+      "unknown": "未知"
+    },
+    "columns": {
+      "examName": "考试名称",
+      "signedAt": "报名时间",
+      "examTime": "考试时间",
+      "status": "状态",
+      "action": "操作"
+    }
+  },
+  "eduExamResultPage": {
+    "loading": "加载中...",
+    "backToList": "返回考试列表",
+    "notExists": "结果不存在",
+    "passed": "恭喜通过",
+    "failed": "未通过",
+    "correct": "答对",
+    "wrong": "答错",
+    "duration": "用时",
+    "minutes": "{n} 分钟",
+    "submittedAt": "提交时间：{time}",
+    "detail": "答题详情",
+    "score": "{n} 分",
+    "yourAnswer": "你的答案：{answer}",
+    "correctAnswer": "正确答案：{answer}",
+    "totalScore": "{score} / {total} 分",
+    "backList": "返回列表",
+    "retry": "重新考试"
+  },
+  "learnBuyConfirmPage": {
+    "missingCourse": "缺少课程信息",
+    "missingCourseParam": "缺少课程参数",
+    "title": "确认订单",
+    "loadFailed": "加载失败",
+    "courseNotFound": "课程不存在",
+    "productInfo": "商品信息",
+    "instructor": "讲师：{name}",
+    "lessonCount": "{n} 课时",
+    "couponCode": "优惠码",
+    "couponPlaceholder": "输入优惠码（可选）",
+    "payMethod": "支付方式",
+    "wechatPay": "微信支付",
+    "alipay": "支付宝",
+    "originalPrice": "原价",
+    "discount": "优惠",
+    "actualPay": "实付",
+    "confirmPurchase": "确认购买",
+    "freeCourseNoNeed": "免费课程无需购买"
+  },
+  "learnTopicPage": {
+    "loading": "加载中...",
+    "backToList": "返回专题列表",
+    "notExists": "专题不存在",
+    "premiumTopic": "高级专题",
+    "courseTopic": "课程专题",
+    "premiumTip": "包含企业/部门定制内容,可能涉及付费。",
+    "courseTip": "由运营精选的课程组合,免费学习。",
+    "lessonCount": "{n} 门课程",
+    "learnCount": "{n} 人学",
+    "free": "免费",
+    "includes": "包含课程",
+    "noLessons": "暂无课程"
+  },
+  "learnRatePage": {
+    "loading": "加载中...",
+    "backToCourse": "返回课程",
+    "loadFailed": "加载失败",
+    "title": "课程评价",
+    "formTitle": "我要评价",
+    "rating": "评分",
+    "starAriaLabel": "{n}星",
+    "ratingValue": "{rating} / 5",
+    "contentLabel": "评价内容",
+    "contentPlaceholder": "请输入您对本课程的评价...",
+    "submit": "提交评价",
+    "allRates": "全部评价 ({n})",
+    "noRates": "暂无评价，快来发表第一条评价吧",
+    "anonymous": "匿名用户"
+  },
+  "modelsBillingPage": {
+    "consumeTrend": "+{n}% vs 上月",
+    "rechargeCount": "累计 {n} 次充值",
+    "packages": {
+      "starter": {
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
+      },
+      "pro": {
+        "features": [
+          "15M tokens 额度",
+          "全部模型可用",
+          "20 个 API 令牌",
+          "优先技术支持",
+          "调用日志 90 天"
+        ]
+      },
+      "enterprise": {
+        "features": [
+          "200M tokens 额度",
+          "专属模型通道",
+          "无限 API 令牌",
+          "专属客户经理",
+          "调用日志永久",
+          "SLA 99.95%"
+        ]
+      }
+    }
+  },
+  "n8nAgentsPage": {
+    "metaDescription": "N8N 工作流集成：自动化编排 AI agent，含客服机器人、内容审核、数据同步等。",
+    "subtitle": "N8N 工作流集成 - 通过 N8N 自动化编排 AI agent",
+    "cardTitle": "N8N 工作流集成",
+    "totalBadge": "共 {n} 个 Agent",
+    "activeBadge": "{n} 运行中",
+    "cardDescription": "通过 N8N 自动化编排 AI agent，串联客服、审核、同步、报表与告警等场景，实现端到端流程自动化。",
+    "createButton": "创建新 Agent",
+    "lastRunLabel": "最后执行",
+    "runCountLabel": "执行次数",
+    "agents": {
+      "customer-service": {
+        "name": "客服机器人",
+        "description": "自动回复用户咨询，依据知识库匹配答案并支持人工转接。"
+      },
+      "content-moderation": {
+        "name": "内容审核",
+        "description": "自动审核 UGC 内容，识别违规文本/图片并触发处置流程。"
+      },
+      "data-sync": {
+        "name": "数据同步",
+        "description": "定期同步外部数据源至本地数据库，支持增量与全量同步。"
+      },
+      "report-generation": {
+        "name": "报表生成",
+        "description": "每日生成业务报表并推送到指定渠道，含邮件、IM 与对象存储。"
+      },
+      "alert-notify": {
+        "name": "告警通知",
+        "description": "监控异常指标并自动通知值班人员，支持多级升级策略。"
+      }
+    }
+  },
+  "agentsMyPage": {
+    "statusFilters": {
+      "all": "全部",
+      "pending": "待审核",
+      "published": "已发布",
+      "rejected": "已拒绝",
+      "offline": "已下线"
+    },
+    "back": "返回",
+    "title": "我的智能体",
+    "subtitle": "管理你创建的智能体",
+    "create": "创建",
+    "loading": "加载中...",
+    "empty": "暂无智能体",
+    "noDescription": "暂无描述",
+    "free": "免费"
+  },
+  "businessCardPage": {
+    "title": "电子名片",
+    "subtitle": "管理我的名片与收藏",
+    "create": "新建",
+    "myCards": "我的名片",
+    "loading": "加载中...",
+    "emptyMine": "还没有名片，点击「新建」创建",
+    "share": "分享",
+    "edit": "编辑",
+    "delete": "删除",
+    "favorites": "收藏名片",
+    "viewAll": "查看全部",
+    "emptyFavorites": "暂无收藏名片"
+  },
+  "developerSubscriptionPage": {
+    "title": "订阅管理",
+    "subtitle": "管理当前套餐与续费升级",
+    "loading": "加载中...",
+    "currentPlan": "当前套餐",
+    "month": "月",
+    "renew": "续费",
+    "expireTime": "到期时间：",
+    "quotaUsage": "配额使用",
+    "upgradePlans": "可升级套餐",
+    "current": "当前",
+    "upgrade": "升级",
+    "renewSuccess": "续费成功",
+    "upgradeSuccess": "套餐已升级"
   }
 }
