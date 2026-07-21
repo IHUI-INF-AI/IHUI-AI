@@ -5,6 +5,7 @@
  */
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
+import { generateCompactId } from '../../utils/crypto-random.js'
 
 export interface AsrRequest {
   audio: Buffer
@@ -69,7 +70,8 @@ export class VoiceService extends EventEmitter {
 
   async enrollVoiceprint(userId: string, _audio: Buffer): Promise<Voiceprint> {
     const voiceprint: Voiceprint = {
-      id: `vp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成声纹 ID
+      id: generateCompactId('vp'),
       userId,
       embedding: [],
       createdAt: Date.now(),
@@ -80,7 +82,10 @@ export class VoiceService extends EventEmitter {
     return voiceprint
   }
 
-  async verifyVoiceprint(userId: string, _audio: Buffer): Promise<{ matched: boolean; confidence: number; voiceprintId?: string }> {
+  async verifyVoiceprint(
+    userId: string,
+    _audio: Buffer,
+  ): Promise<{ matched: boolean; confidence: number; voiceprintId?: string }> {
     const userVoiceprints = Array.from(this.voiceprints.values()).filter((v) => v.userId === userId)
     if (userVoiceprints.length === 0) {
       return { matched: false, confidence: 0 }
