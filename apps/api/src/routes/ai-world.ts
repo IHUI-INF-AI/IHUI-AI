@@ -10,7 +10,7 @@ import {
   listAiWorldItems,
   type ItemKind,
 } from '../db/ai-world-queries.js'
-import { syncAllSources } from '../jobs/ai-world-sync.js'
+import { syncAllSources, getSourceStats } from '../jobs/ai-world-sync.js'
 import { success } from '../utils/response.js'
 
 const ListQuerySchema = z.object({
@@ -153,17 +153,27 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(toItemDTO([item][0]!)))
   })
 
-  // GET /ai-world/sync/logs — 同步日志(最近 20 条)
+  // GET /ai-world/sync/logs — 同步日志(最近 20 条)+ 信源统计
   server.get('/ai-world/sync/logs', async (_request, reply) => {
-    const logs = await findRecentSyncLogs(20)
-    return reply.send(success(logs))
+    const [logs, stats] = await Promise.all([findRecentSyncLogs(20), Promise.resolve(getSourceStats())])
+    return reply.send(success({ logs, stats }))
   })
 
   // POST /ai-world/sync — 手动触发同步(admin)
   server.post('/ai-world/sync', async (_request, reply) => {
     const results = await syncAllSources()
     const ok = results.filter((r) => r.status === 'success').length
+    const partial = results.filter((r) => r.status === 'partial').length
     const fail = results.filter((r) => r.status === 'failed').length
-    return reply.send(success({ total: results.length, success: ok, failed: fail, results }))
+    const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
+    return reply.send(success({
+      total: results.length,
+      success: ok,
+      partial,
+      failed: fail,
+      totalItems,
+      stats: getSourceStats(),
+      results,
+    }))
   })
 }
