@@ -2,6 +2,7 @@
 
 import { Bot } from 'lucide-react'
 import Image from 'next/image'
+import { useTranslations } from 'next-intl'
 import { AnswerArea } from './AnswerArea'
 import { BottomBar } from './BottomBar'
 import { formatTokens } from './helpers'
@@ -9,6 +10,7 @@ import { formatDate } from '@/lib/date-utils'
 import type { ShareContentProps } from './types'
 
 export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
+  const t = useTranslations('shareContentPage')
   const { modelName, modelIcon, question, answer, tokenCost, createdAt } = shareData
 
   return (
@@ -18,7 +20,7 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
         {modelIcon ? (
           <Image
             src={modelIcon}
-            alt="模型图标"
+            alt={t('modelIconAlt')}
             width={32}
             height={32}
             className="mr-2.5 h-8 w-8 rounded object-cover"
@@ -28,7 +30,7 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
             <Bot className="h-5 w-5 text-muted-foreground" />
           </div>
         )}
-        <span className="text-base font-semibold text-foreground">{modelName || 'AI智能对话'}</span>
+        <span className="text-base font-semibold text-foreground">{modelName || t('defaultModelName')}</span>
       </header>
 
       {/* 对话内容 */}
@@ -48,9 +50,9 @@ export function ShareContent({ shareData, copy, copied }: ShareContentProps) {
 
           {/* 底部信息 */}
           <div className="mt-4 flex items-center gap-4 border-t border-border pt-3 text-xs text-muted-foreground/70">
-            <span>智汇 AI 生成</span>
+            <span>{t('aiGenerated')}</span>
             {typeof tokenCost === 'number' && tokenCost > 0 && (
-              <span>消耗智汇值：{formatTokens(tokenCost)}</span>
+              <span>{t('tokenCostLabel', { cost: formatTokens(tokenCost) })}</span>
             )}
             {createdAt && <span>{formatDate(createdAt)}</span>}
           </div>
