@@ -5,8 +5,14 @@ export const phoneSchema = z
   .min(1, 'auth.invalidPhone')
   .regex(/^1[3-9]\d{9}$/, 'auth.invalidPhone')
 
+/** 通用账号:手机号 / 邮箱 / 用户名 */
+export const accountSchema = z
+  .string()
+  .min(3, 'auth.invalidAccount')
+  .max(72, 'auth.invalidAccount')
+
 export const loginSchema = z.object({
-  phone: phoneSchema,
+  account: accountSchema,
   password: z.string().min(6, 'auth.invalidPassword'),
 })
 
