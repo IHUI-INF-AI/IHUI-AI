@@ -148,10 +148,25 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
     const id = (req.params as { id: string }).id
     try {
       const result = await crewOrchestrator.executeSession(id)
+      // G7: 集中扣费(幂等键 crew:<sessionId>,重复执行不重复扣)
+      if (result.success && result.usage && result.usage.totalTokens > 0 && result.userId) {
+        try {
+          await server.tokenBalance.deductTokens(
+            result.userId,
+            result.usage.totalTokens,
+            `crew_session:${id}`,
+            `crew:${id}`,
+          )
+        } catch (e) {
+          req.log.error({ err: e }, '[crew] 扣费失败(不阻塞响应)')
+        }
+      }
       if (!result.success) {
         return reply.status(400).send(error(400, result.error ?? '执行失败'))
       }
-      return reply.send(success({ runId: id, result: result.result }))
+      return reply.send(
+        success({ runId: id, result: result.result, usage: result.usage }),
+      )
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '执行失败'))
@@ -202,6 +217,19 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
     try {
       for await (const evt of crewOrchestrator.executeSessionStreaming(id)) {
         send(evt.type, evt)
+        // G7: complete 事件集中扣费(幂等键 crew:<sessionId>,重连不重复扣)
+        if (evt.type === 'complete' && evt.usage && evt.usage.totalTokens > 0 && evt.userId) {
+          try {
+            await server.tokenBalance.deductTokens(
+              evt.userId,
+              evt.usage.totalTokens,
+              `crew_session:${id}`,
+              `crew:${id}`,
+            )
+          } catch (e) {
+            req.log.error({ err: e }, '[crew] 流式扣费失败(不阻塞)')
+          }
+        }
         if (evt.type === 'complete' || evt.type === 'error') break
       }
     } catch (e) {
