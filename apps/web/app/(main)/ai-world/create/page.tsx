@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
@@ -26,6 +27,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export default function AiWorldCreatePage() {
+  const t = useTranslations('aiWorldCreatePage')
   const router = useRouter()
 
   const [form, setForm] = React.useState({
@@ -57,7 +59,7 @@ export default function AiWorldCreatePage() {
       })
     },
     onSuccess: () => {
-      toast.success('创建成功')
+      toast.success(t('toastCreated'))
       router.push('/ai-world')
     },
     onError: (e: Error) => setErr(e.message),
@@ -71,7 +73,7 @@ export default function AiWorldCreatePage() {
     e.preventDefault()
     setErr(null)
     if (!form.name.trim()) {
-      setErr('请输入名称')
+      setErr(t('errNameRequired'))
       return
     }
     createMut.mutate()
@@ -85,12 +87,12 @@ export default function AiWorldCreatePage() {
     <div className="mx-auto w-full max-w-2xl space-y-6">
       <Button variant="ghost" size="sm" onClick={() => router.push('/ai-world')}>
         <ArrowLeft className="h-4 w-4" />
-        返回
+        {t('back')}
       </Button>
 
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">创建 AI 世界项目</h1>
-        <p className="mt-1 text-sm text-muted-foreground">填写以下信息创建新的 AI 世界项目</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <form onSubmit={submit} className="space-y-4">
@@ -98,38 +100,38 @@ export default function AiWorldCreatePage() {
           <CardContent className="space-y-4 p-6">
             <div className="space-y-2">
               <Label htmlFor="aw-name">
-                名称 <span className="text-destructive">*</span>
+                {t('nameLabel')} <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="aw-name"
                 value={form.name}
                 onChange={(e) => update('name', e.target.value)}
-                placeholder="请输入项目名称"
+                placeholder={t('namePlaceholder')}
                 maxLength={100}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="aw-desc">描述</Label>
+              <Label htmlFor="aw-desc">{t('descLabel')}</Label>
               <textarea
                 id="aw-desc"
                 value={form.description}
                 onChange={(e) => update('description', e.target.value)}
-                placeholder="请输入项目描述"
+                placeholder={t('descPlaceholder')}
                 rows={4}
                 className={inputClass}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="aw-cat">分类</Label>
+              <Label htmlFor="aw-cat">{t('categoryLabel')}</Label>
               <select
                 id="aw-cat"
                 value={form.categoryId}
                 onChange={(e) => update('categoryId', e.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                <option value="">不选择分类</option>
+                <option value="">{t('noCategory')}</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -139,22 +141,22 @@ export default function AiWorldCreatePage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="aw-cover">封面链接</Label>
+              <Label htmlFor="aw-cover">{t('coverLabel')}</Label>
               <Input
                 id="aw-cover"
                 value={form.coverImage}
                 onChange={(e) => update('coverImage', e.target.value)}
-                placeholder="请输入封面图片 URL"
+                placeholder={t('coverPlaceholder')}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="aw-config">配置</Label>
+              <Label htmlFor="aw-config">{t('configLabel')}</Label>
               <textarea
                 id="aw-config"
                 value={form.config}
                 onChange={(e) => update('config', e.target.value)}
-                placeholder="JSON 配置(可选)"
+                placeholder={t('configPlaceholder')}
                 rows={3}
                 className={`${inputClass} font-mono`}
               />
@@ -171,11 +173,11 @@ export default function AiWorldCreatePage() {
             onClick={() => router.push('/ai-world')}
             disabled={createMut.isPending}
           >
-            取消
+            {t('cancel')}
           </Button>
           <Button type="submit" disabled={createMut.isPending}>
             {createMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {createMut.isPending ? '提交中...' : '创建'}
+            {createMut.isPending ? t('submitting') : t('create')}
           </Button>
         </div>
       </form>

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import {
   BarChart,
   Key,
@@ -39,6 +39,7 @@ async function api<T>(url: string): Promise<T> {
 }
 
 export default function DeveloperHomePage() {
+  const t = useTranslations('developerHomePage')
   const locale = useLocale()
   const summaryQ = useQuery({
     queryKey: ['developer', 'summary'],
@@ -51,7 +52,7 @@ export default function DeveloperHomePage() {
 
   const stats = [
     {
-      label: '调用次数(本月)',
+      label: t('statCalls'),
       value: summary.callCount ?? 0,
       icon: BarChart,
       href: '/developer/logs',
@@ -59,7 +60,7 @@ export default function DeveloperHomePage() {
       fmt: (v: number | string) => numFmt.format(Number(v)),
     },
     {
-      label: 'API 密钥',
+      label: t('statApiKeys'),
       value: summary.keyCount ?? 0,
       icon: Key,
       href: '/developer/keys',
@@ -67,7 +68,7 @@ export default function DeveloperHomePage() {
       fmt: (v: number | string) => numFmt.format(Number(v)),
     },
     {
-      label: 'Webhook',
+      label: t('statWebhook'),
       value: summary.webhookCount ?? 0,
       icon: Webhook,
       href: '/developer/webhooks',
@@ -75,7 +76,7 @@ export default function DeveloperHomePage() {
       fmt: (v: number | string) => numFmt.format(Number(v)),
     },
     {
-      label: '本月费用',
+      label: t('statMonthFee'),
       value: summary.monthFee ?? 0,
       icon: CreditCard,
       href: '/developer/billing',
@@ -85,17 +86,17 @@ export default function DeveloperHomePage() {
   ]
 
   const quickEntries = [
-    { label: 'API 文档', desc: '查阅接口说明', href: '/developer/api-docs', icon: Code },
-    { label: '沙箱测试', desc: '在线调用 API', href: '/developer/sandbox', icon: FlaskConical },
-    { label: '调用日志', desc: '查看请求记录', href: '/developer/logs', icon: FileText },
-    { label: '版本管理', desc: 'API 版本状态', href: '/developer/versions', icon: GitBranch },
+    { label: t('qeApiDocsLabel'), desc: t('qeApiDocsDesc'), href: '/developer/api-docs', icon: Code },
+    { label: t('qeSandboxLabel'), desc: t('qeSandboxDesc'), href: '/developer/sandbox', icon: FlaskConical },
+    { label: t('qeLogsLabel'), desc: t('qeLogsDesc'), href: '/developer/logs', icon: FileText },
+    { label: t('qeVersionsLabel'), desc: t('qeVersionsDesc'), href: '/developer/versions', icon: GitBranch },
   ]
 
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold tracking-tight">开发者概览</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">查看 API 使用情况与开发者资源</p>
+        <h1 className="text-xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {summaryQ.error && <Alert variant="danger" description={(summaryQ.error as Error).message} />}
@@ -124,12 +125,12 @@ export default function DeveloperHomePage() {
         <Card>
           <CardContent className="flex items-center justify-between p-4">
             <div>
-              <p className="text-xs text-muted-foreground">当前套餐</p>
+              <p className="text-xs text-muted-foreground">{t('currentPlan')}</p>
               <p className="mt-0.5 text-sm font-semibold">{summary.planName}</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="text-xs text-muted-foreground">配额使用</p>
+                <p className="text-xs text-muted-foreground">{t('quotaUsage')}</p>
                 <p className="text-sm font-medium">
                   {numFmt.format(summary.quotaUsed ?? 0)} / {numFmt.format(summary.quotaTotal ?? 0)}
                 </p>
@@ -138,7 +139,7 @@ export default function DeveloperHomePage() {
                 href="/developer/subscription"
                 className="rounded-md bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
               >
-                升级
+                {t('upgrade')}
               </Link>
             </div>
           </CardContent>
@@ -147,7 +148,7 @@ export default function DeveloperHomePage() {
 
       <Card>
         <CardContent className="p-0">
-          <div className="border-b px-4 py-2.5 text-sm font-semibold">快速入口</div>
+          <div className="border-b px-4 py-2.5 text-sm font-semibold">{t('quickEntries')}</div>
           <div className="grid grid-cols-2 gap-px bg-border/40 lg:grid-cols-4">
             {quickEntries.map((q) => {
               const Icon = q.icon
@@ -170,7 +171,7 @@ export default function DeveloperHomePage() {
       {summaryQ.isLoading && (
         <div className="flex items-center justify-center py-6 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       )}
     </div>
