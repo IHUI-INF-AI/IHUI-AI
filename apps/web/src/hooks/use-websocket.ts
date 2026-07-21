@@ -2,11 +2,21 @@
 
 import { createWebSocketHook } from '@/hooks/create-websocket-hook'
 import { isWSNotification } from '@ihui/api-client'
-import type { WSNotification, AIResponseNotification } from '@ihui/types'
+import type {
+  WSNotification,
+  AIResponseNotification,
+  AIQuestionNotification,
+  AIQuestionAnsweredNotification,
+} from '@ihui/types'
 
 // 类型 re-export(向后兼容:web 内部组件已从 @/hooks/use-websocket 导入这些类型)
-export type { WSNotification, AIResponseNotification }
-export { isAIResponse } from '@ihui/types'
+export type {
+  WSNotification,
+  AIResponseNotification,
+  AIQuestionNotification,
+  AIQuestionAnsweredNotification,
+}
+export { isAIResponse, isAIQuestion, isAIQuestionAnswered } from '@ihui/types'
 
 /**
  * WebSocket 通知客户端。
