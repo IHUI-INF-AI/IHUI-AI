@@ -4,12 +4,13 @@ import {
   varchar,
   text,
   boolean,
+  integer,
   timestamp,
   jsonb,
   unique,
   type AnyPgColumn,
-} from 'drizzle-orm/pg-core';
-import { users } from './users.js';
+} from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * 评论表。
@@ -33,7 +34,7 @@ export const comments = pgTable('comments', {
   isDeleted: boolean('is_deleted').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
 /**
  * 评论点赞表。
@@ -54,13 +55,14 @@ export const commentLikes = pgTable(
   (t) => ({
     commentLikeUnique: unique().on(t.commentId, t.userId),
   }),
-);
+)
 
 /**
  * 用户反馈表。
  * - type: 'bug' | 'feature' | 'improvement' | 'other'。
  * - status: 'pending' | 'reviewing' | 'resolved' | 'closed'。
  * - priority: 'low' | 'medium' | 'high'。
+ * - rating: 0-5 用户对处理结果的评价（0=未评价）。
  */
 export const feedbacks = pgTable('feedbacks', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -74,13 +76,14 @@ export const feedbacks = pgTable('feedbacks', {
   status: varchar('status', { length: 32 }).default('pending').notNull(),
   priority: varchar('priority', { length: 16 }).default('medium').notNull(),
   adminReply: text('admin_reply'),
+  rating: integer('rating').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+})
 
-export type Comment = typeof comments.$inferSelect;
-export type NewComment = typeof comments.$inferInsert;
-export type CommentLike = typeof commentLikes.$inferSelect;
-export type NewCommentLike = typeof commentLikes.$inferInsert;
-export type Feedback = typeof feedbacks.$inferSelect;
-export type NewFeedback = typeof feedbacks.$inferInsert;
+export type Comment = typeof comments.$inferSelect
+export type NewComment = typeof comments.$inferInsert
+export type CommentLike = typeof commentLikes.$inferSelect
+export type NewCommentLike = typeof commentLikes.$inferInsert
+export type Feedback = typeof feedbacks.$inferSelect
+export type NewFeedback = typeof feedbacks.$inferInsert
