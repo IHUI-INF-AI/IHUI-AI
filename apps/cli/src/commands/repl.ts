@@ -81,6 +81,35 @@ import {
   formatTranscribeResult,
 } from '../voice/index.js';
 import { PromptQueue, type PromptQueueItem } from '../prompt-queue.js';
+import { fetchModels, type LlmModel } from '@ihui/api-client';
+
+// 兜底模型清单(网络故障时使用,与 desktop/extension/mobile-rn 三端保持一致)
+const FALLBACK_MODELS: LlmModel[] = [
+  { id: 'stepfun/step-3.7-flash', name: 'Step 3.7 Flash', provider: 'stepfun', context_length: 8192, input_price: 0 },
+  { id: 'openai/gpt-4o-mini', name: 'GPT-4o mini', provider: 'openai', context_length: 128000, input_price: 0 },
+  { id: 'anthropic/claude-3.5-haiku', name: 'Claude 3.5 Haiku', provider: 'anthropic', context_length: 200000, input_price: 0 },
+  // 2026-07-22 新增免费 / 试用 credits provider 兜底(参考 cheahjs/free-llm-api-resources)
+  { id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', name: 'Llama 3.3 70B Fast (Cloudflare 免费)', provider: 'cloudflare_workers_ai', context_length: 128000, input_price: 0 },
+  { id: 'nvidia/llama-3.1-nemotron-70b-instruct', name: 'Llama 3.1 Nemotron 70B (NVIDIA NIM 免费)', provider: 'nvidia_nim', context_length: 128000, input_price: 0 },
+  { id: 'github/gpt-4o', name: 'GPT-4o (GitHub Models 免费)', provider: 'github_models', context_length: 128000, input_price: 0 },
+  { id: 'vercel/auto', name: 'Vercel AI Gateway Auto', provider: 'vercel_ai_gateway', context_length: 128000, input_price: 0 },
+  { id: 'opencode/big-pickle-stealth', name: 'Big Pickle Stealth (OpenCode Zen 免费)', provider: 'opencode_zen', context_length: 256000, input_price: 0 },
+  { id: 'modal/labcompute/qwen2.5-72b', name: 'Qwen2.5 72B (Modal 试用 credits)', provider: 'modal', context_length: 32768, input_price: 0 },
+  { id: 'inferencenet/meta-llama/Llama-3.3-70B-Instruct', name: 'Llama 3.3 70B (Inference.net 试用 credits)', provider: 'inferencenet', context_length: 128000, input_price: 0 },
+  { id: 'nlpcloud/finetuned-llama-3-70b', name: 'Finetuned Llama 3 70B (NLP Cloud 试用 credits)', provider: 'nlpcloud', context_length: 32768, input_price: 0 },
+  { id: 'scaleway/mistral-small-3.2-24b-instruct-2506', name: 'Mistral Small 3.2 24B (Scaleway 免费)', provider: 'scaleway', context_length: 128000, input_price: 0 },
+  { id: 'alibaba-intl/qwen-max', name: 'Qwen Max (Alibaba Intl 免费)', provider: 'alibaba_intl', context_length: 131072, input_price: 0 },
+];
+
+/** 拉取可用模型列表(失败时回退 FALLBACK_MODELS)— 与 desktop/extension/mobile-rn 三端一致 */
+async function loadAvailableModels(): Promise<LlmModel[]> {
+  try {
+    const res = await fetchModels();
+    return res?.models?.length ? res.models : FALLBACK_MODELS;
+  } catch {
+    return FALLBACK_MODELS;
+  }
+}
 
 /** 多段式 REPL prompt 构造器:[workspace] model ❯ 颜色分层,workspace dim/模型 cyan/箭头 green */
 function buildReplPrompt(modelId: string, workspacePath: string): string {
@@ -723,6 +752,10 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       }
       break;
 
+    case 'models':
+      await handleModelsList(state);
+      break;
+
     case 'workspace':
       console.info(`工作区: ${state.opts.workspacePath}`);
       break;
@@ -1306,12 +1339,20 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
 
 async function interactiveModelSelect(state: ReplState): Promise<void> {
   try {
+    const models = await loadAvailableModels();
+    const choices = models.map((m) => ({
+      name: `${m.name || m.id}  ${chalk.dim(`[${m.provider}]`)}`,
+      value: m.id,
+      short: m.id,
+    }));
     const answers = await inquirer.prompt([
       {
-        type: 'input',
+        type: 'list',
         name: 'model',
-        message: '输入模型 ID:',
+        message: '选择模型:',
+        choices,
         default: state.opts.modelId,
+        pageSize: 15,
       },
     ]);
     state.opts.modelId = answers.model;
@@ -1323,6 +1364,30 @@ async function interactiveModelSelect(state: ReplState): Promise<void> {
   } catch {
     console.info(chalk.dim('请使用 /model <id> 指定模型'));
   }
+}
+
+/** /models 命令:列出所有可用模型(从后端拉取,FALLBACK 兜底)— 与其他端模型列表展示对齐 */
+async function handleModelsList(state: ReplState): Promise<void> {
+  const models = await loadAvailableModels();
+  console.info(chalk.cyan(`\n📋 可用模型(${models.length} 个):`));
+  const byProvider = new Map<string, LlmModel[]>();
+  for (const m of models) {
+    const list = byProvider.get(m.provider) ?? [];
+    list.push(m);
+    byProvider.set(m.provider, list);
+  }
+  const providers = [...byProvider.keys()].sort();
+  for (const p of providers) {
+    const list = byProvider.get(p)!;
+    console.info(chalk.magenta(`\n  ${p} · ${list.length} 个`));
+    for (const m of list) {
+      const current = m.id === state.opts.modelId ? chalk.green(' ✓') : '';
+      const ctx = chalk.dim(` (${(m.context_length / 1000).toFixed(0)}k)`);
+      console.info(`    ${chalk.bold(m.name || m.id)}${ctx}${current}`);
+      if (m.name && m.id !== m.name) console.info(chalk.dim(`      id: ${m.id}`));
+    }
+  }
+  console.info('');
 }
 
 async function handleInit(state: ReplState): Promise<void> {
