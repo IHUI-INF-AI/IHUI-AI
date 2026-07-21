@@ -157,6 +157,41 @@ if (skipPush) {
   process.exit(1)
 }
 
+// ─── 3.5 commit 内容校验(防止多 agent 污染事故,2026-07-21 立) ──
+// 如果设置了 AGENT_SCOPE 环境变量(本 agent 声明的范围),校验
+// 最新 commit 的所有文件是否都在该范围内,越界则中止 push。
+// 配合 scripts/safe-commit.mjs 使用(后者保证 commit 内容干净,
+// 此处 push-guard 兜底防止 safe-commit 被绕过)。
+const agentScope = process.env.AGENT_SCOPE
+if (agentScope) {
+  const scopeDirs = agentScope
+    .split(/[\s,]+/)
+    .map((s) => s.trim().replace(/\\/g, '/').replace(/\/$/, ''))
+    .filter(Boolean)
+  const committedRaw = run('git show --name-only --pretty=format: HEAD', { allowFail: true })
+  const committedFiles = committedRaw
+    ? committedRaw.split('\n').filter(Boolean).map((f) => f.replace(/\\/g, '/'))
+    : []
+  const outOfScope = committedFiles.filter((f) => {
+    return !scopeDirs.some((scope) => f.startsWith(scope + '/') || f === scope)
+  })
+  if (outOfScope.length > 0) {
+    log('err', `HEAD commit 包含 ${C.red}${outOfScope.length}${C.reset} 个非本 agent 范围文件:`)
+    for (const f of outOfScope.slice(0, 5)) console.log(`     ${C.red}× ${f}${C.reset}`)
+    if (outOfScope.length > 5) console.log(`     ${C.dim}... 等 ${outOfScope.length - 5} 个${C.reset}`)
+    log('err', `AGENT_SCOPE=${C.yellow}{${agentScope}}${C.reset}`)
+    log('err', `这是污染事故! 中止 push, 建议:`)
+    log('err', `  1. git reset HEAD~1 撤销最近 commit`)
+    log('err', `  2. 用 node scripts/safe-commit.mjs -m "..." -- <自己的文件> 重新提交`)
+    log('err', `  3. 或设置 AGENT_SCOPE_OVERRIDE=1 强制推送(需在 message 显式标注 [cross-domain])`)
+    if (process.env.AGENT_SCOPE_OVERRIDE !== '1') {
+      process.exit(1)
+    }
+    log('warn', `⚠️  AGENT_SCOPE_OVERRIDE=1 已设置, 强制推送(请确认 commit 内容合法)`)
+  }
+  log('ok', `commit 内容在 AGENT_SCOPE 范围内(${C.cyan}${committedFiles.length}${C.reset} 文件)`)
+}
+
 // ─── 4. 执行 push(实时输出,失败立即退出) ──────────────────────
 log('info', `执行 git push origin ${branch} ...`)
 
