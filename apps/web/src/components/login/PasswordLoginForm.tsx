@@ -46,7 +46,7 @@ export function PasswordLoginForm({
     formState: { errors },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { phone: '', password: '' },
+    defaultValues: { account: '', password: '' },
   })
 
   React.useEffect(() => {
@@ -54,7 +54,7 @@ export function PasswordLoginForm({
   }, [active])
 
   const resolveError = (key: string) => {
-    if (key === 'auth.invalidPhone') return t('invalidPhone')
+    if (key === 'auth.invalidAccount') return t('invalidAccount')
     if (key === 'auth.invalidPassword') return t('invalidPassword')
     return key
   }
@@ -74,7 +74,7 @@ export function PasswordLoginForm({
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account: values.phone, password: values.password }),
+        body: JSON.stringify({ account: values.account, password: values.password }),
       })
       const json = (await res.json()) as {
         code: number
@@ -103,17 +103,17 @@ export function PasswordLoginForm({
     <form onSubmit={handleSubmit(onPasswordSubmit)} className="space-y-4 pt-2">
       {serverError && <Alert variant="danger" description={serverError} />}
       <div className="space-y-1.5">
-        <Label htmlFor="phone">{t('phone')}</Label>
+        <Label htmlFor="account">{t('account')}</Label>
         <Input
-          id="phone"
-          type="tel"
-          autoComplete="tel"
-          placeholder={t('phonePlaceholder')}
+          id="account"
+          type="text"
+          autoComplete="username"
+          placeholder={t('accountPlaceholder')}
           className="h-10"
-          {...register('phone')}
+          {...register('account')}
         />
-        {errors.phone && (
-          <p className="text-xs text-destructive">{resolveError(errors.phone.message!)}</p>
+        {errors.account && (
+          <p className="text-xs text-destructive">{resolveError(errors.account.message!)}</p>
         )}
       </div>
       <div className="space-y-1.5">

@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
+import QRCode from 'qrcode'
 import {
   signAccessToken,
   signRefreshToken,
@@ -100,6 +101,25 @@ import {
 
 const ACCESS_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60 // 7d
 const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60 // 30d
+
+// QR 扫码登录会话内存存储(ticket → 会话)。生产环境应迁移 Redis。
+interface QrSession {
+  ticket: string
+  status: 'pending' | 'scanned' | 'confirming' | 'success' | 'expired' | 'failed'
+  token?: string
+  userId?: string
+  createdAt: number
+  expiresAt: number
+}
+const qrStore = new Map<string, QrSession>()
+const QR_TTL_MS = 5 * 60 * 1000 // 5 分钟有效
+
+function cleanupExpiredQr(): void {
+  const now = Date.now()
+  for (const [ticket, s] of qrStore) {
+    if (s.expiresAt < now && s.status !== 'success') qrStore.delete(ticket)
+  }
+}
 
 async function buildTokenPair(user: {
   id: string
@@ -1812,6 +1832,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       'wechat',
       'feishu',
       'github',
+      'alipay',
     ]),
   })
   const platformCallbackBody = z.object({
@@ -2003,6 +2024,28 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
             }),
           )
         }
+        case 'alipay': {
+          // 支付宝使用 auth_code → access_token 模式(与 Google/微信一致,但需在请求体
+          // 用 auth_code 字段而非 code 字段——前端 ThirdPartyLoginButtons 已做区分)。
+          // 这里兼容两种字段名以提升韧性。
+          const alipayAuthCode =
+            (request.body as { auth_code?: string }).auth_code ?? code
+          if (!isAlipayLoginConfigured())
+            return reply.status(400).send(error(400, '支付宝 OAuth 未配置 (ALIPAY_APP_ID/ALIPAY_PRIVATE_KEY 缺失)'))
+          const token = await exchangeAlipayCode(alipayAuthCode)
+          let info: { nick?: string; avatar?: string } = {}
+          try {
+            const user = await getAlipayUserInfo(token.accessToken)
+            info = { nick: user.nick, avatar: user.avatar }
+          } catch {
+            // user.info.share 失败不影响主流程,用 user_id 兜底
+          }
+          openId = token.userId
+          unionId = token.unionId
+          nickname = info.nick || `支付宝用户${token.userId.slice(-4)}`
+          avatar = info.avatar
+          break
+        }
       }
     } catch (e) {
       return reply
@@ -2100,10 +2143,77 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ userId: user.id, ...tokens, tokenType: 'Bearer' }))
   })
 
-  // 二维码登录 token 生成
-  server.get('/auth/qr/generate', async (_request, reply) => {
-    const qrToken = randomBytes(32).toString('base64url')
-    return reply.send(success({ qrToken, expiresIn: 300 }))
+  // 二维码登录:生成 ticket + dataURL 二维码图片(扫码后跳转到 /qr-confirm 确认)
+  server.get('/auth/qr/generate', async (request, reply) => {
+    cleanupExpiredQr()
+    const ticket = randomBytes(32).toString('base64url')
+    const now = Date.now()
+    qrStore.set(ticket, {
+      ticket,
+      status: 'pending',
+      createdAt: now,
+      expiresAt: now + QR_TTL_MS,
+    })
+    // 二维码内容 = 扫码确认页 URL(用户扫码后访问该页面点"确认登录")
+    const origin = `${request.protocol}://${request.hostname}`
+    const confirmUrl = `${origin}/qr-confirm?ticket=${ticket}`
+    let qrCodeUrl = ''
+    try {
+      qrCodeUrl = await QRCode.toDataURL(confirmUrl, { width: 240, margin: 1 })
+    } catch (e) {
+      request.log.error({ err: e }, '生成二维码失败')
+    }
+    return reply.send(success({ ticket, qrCodeUrl, expiresIn: QR_TTL_MS / 1000 }))
+  })
+
+  // 二维码登录:轮询扫码状态
+  server.get('/auth/qr/status', async (request, reply) => {
+    const { ticket } = z.object({ ticket: z.string().min(1) }).parse(request.query)
+    const session = qrStore.get(ticket)
+    if (!session) {
+      return reply.status(404).send(error(404, '二维码不存在或已过期'))
+    }
+    if (session.expiresAt < Date.now() && session.status !== 'success') {
+      session.status = 'expired'
+    }
+    return reply.send(
+      success({
+        status: session.status,
+        token: session.token,
+        userId: session.userId,
+      }),
+    )
+  })
+
+  // 二维码登录:扫码确认(扫码端访问 /qr-confirm 页面后调用)
+  server.post('/auth/qr/confirm', async (request, reply) => {
+    const { ticket } = z.object({ ticket: z.string().min(1) }).parse(request.query)
+    const session = qrStore.get(ticket)
+    if (!session || session.expiresAt < Date.now()) {
+      return reply.status(404).send(error(404, '二维码不存在或已过期'))
+    }
+    if (session.status === 'success') {
+      return reply.send(success({ confirmed: true, message: '已确认,请返回原页面' }))
+    }
+    // 创建/获取扫码登录专用 demo 用户(username=qr-demo)
+    // 生产环境应替换为 OAuth 授权(微信/钉钉/飞书等)获取真实用户身份
+    let user = await findUserByUsername('qr-demo')
+    if (!user) {
+      user = await createUser({
+        username: 'qr-demo',
+        nickname: '扫码登录用户',
+        roleId: 0,
+        status: 1,
+      } as any)
+    }
+    if (user.status !== 1) {
+      return reply.status(403).send(error(403, '账号已被禁用'))
+    }
+    const tokens = await buildTokenPair(user)
+    session.status = 'success'
+    session.token = tokens.accessToken
+    session.userId = user.id
+    return reply.send(success({ confirmed: true, message: '已确认,请返回原页面' }))
   })
 
   // 双因素认证（2FA）桩：返回禁用状态，避免前端设置页 404
