@@ -5,7 +5,7 @@
  * 所有模块采用内存存储 + 文件持久化（~/.ihui/ 风格），最小化外部依赖。
  */
 
-import { exec } from 'node:child_process'
+import { exec, execFile } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { config } from '../config/index.js'
 import {
@@ -515,6 +515,110 @@ const SENSITIVE_ENV_KEYS = [
 const MAX_STDOUT = 5000
 const MAX_STDERR = 3000
 
+/**
+ * 沙箱白名单二进制(2026-07-21 安全审计加固)
+ *
+ * 仅允许执行以下工具集合,任何不在白名单内的命令被拒绝
+ * 防止用户通过 sandbox/execute 端点执行任意系统命令(RCE)
+ */
+const SANDBOX_BINARY_WHITELIST = new Set<string>([
+  'node',
+  'npm',
+  'pnpm',
+  'yarn',
+  'npx',
+  'git',
+  'ls',
+  'dir',
+  'pwd',
+  'cd',
+  'cat',
+  'head',
+  'tail',
+  'wc',
+  'find',
+  'grep',
+  'rg',
+  'awk',
+  'sed',
+  'echo',
+  'printf',
+  'tee',
+  'test',
+  'true',
+  'false',
+  '[',
+  '[[',
+  'mkdir',
+  'rmdir',
+  'cp',
+  'mv',
+  'touch',
+  'stat',
+  'tar',
+  'zip',
+  'unzip',
+  'gzip',
+  'gunzip',
+  'curl',
+  'wget',
+  'python',
+  'python3',
+  'pip',
+  'pip3',
+  'tsc',
+  'eslint',
+  'prettier',
+  'vitest',
+  'jest',
+])
+
+/**
+ * 简单 shell 解析器:把单行命令拆成 [binary, ...args]
+ * 支持单/双引号包裹的参数,引号内空格不被分割
+ * 不支持复杂语法(管道/重定向/变量展开/转义) → 一律拒绝
+ *
+ * 2026-07-21 安全审计加固:防止 `; rm -rf /` 类 shell 注入
+ */
+function parseShellCommand(command: string): string[] | null {
+  const trimmed = command.trim()
+  if (!trimmed) return null
+  // 拒绝任何 shell 元字符(管道/重定向/命令链/变量展开/子 shell)
+  // 允许的:字母数字、路径分隔符、空格、引号、点、横线、下划线、等号(仅限 --flag=val)、冒号
+  if (/[;|&$`<>(){}*?!\\]/.test(trimmed)) {
+    return null
+  }
+  const tokens: string[] = []
+  let cur = ''
+  let quote: '"' | "'" | null = null
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i]!
+    if (quote) {
+      if (ch === quote) {
+        quote = null
+      } else {
+        cur += ch
+      }
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch
+      continue
+    }
+    if (ch === ' ' || ch === '\t') {
+      if (cur) {
+        tokens.push(cur)
+        cur = ''
+      }
+      continue
+    }
+    cur += ch
+  }
+  if (quote) return null // 未闭合的引号
+  if (cur) tokens.push(cur)
+  return tokens.length > 0 ? tokens : null
+}
+
 class SandboxExecutor {
   resolveMode(mode: string): SandboxMode {
     const map: Record<string, SandboxMode> = {
@@ -572,17 +676,52 @@ class SandboxExecutor {
       }
     }
 
+    // 2026-07-21 安全审计加固:命令解析 + 二进制白名单 + execFile 替代 exec(shell)
+    // 风险:原实现 execAsync(params.command, { shell: powershell.exe }) 直接执行
+    // 用户输入 → 攻击者传入 `; rm -rf /` 或 PowerShell 命令 → 任意命令执行(RCE)
+    // 修复:解析命令为 argv,验证 binary 在白名单,用 execFile(无 shell)执行
+    const tokens = parseShellCommand(params.command)
+    if (!tokens) {
+      return {
+        stdout: '',
+        stderr: '命令包含非法字符(; | & $ < > ` 等 shell 元字符),或引号未闭合',
+        exitCode: 126,
+        mode,
+      }
+    }
+    const binary = tokens[0]!
+    if (!SANDBOX_BINARY_WHITELIST.has(binary)) {
+      return {
+        stdout: '',
+        stderr: `命令不在白名单内: ${binary}。仅允许: ${Array.from(SANDBOX_BINARY_WHITELIST).slice(0, 10).join(', ')}...`,
+        exitCode: 126,
+        mode,
+      }
+    }
+
     const env = this.cleanEnv(mode)
     const timeout = params.timeoutMs ?? 60000
 
     try {
-      const { stdout, stderr } = await execAsync(params.command, {
-        cwd,
-        env,
-        timeout,
-        maxBuffer: 1024 * 1024,
-        shell: platform() === 'win32' ? 'powershell.exe' : '/bin/sh',
-      })
+      // 用 execFile 替代 exec,绕过 shell 直接传递参数,无 shell 注入风险
+      const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>(
+        (resolve, reject) => {
+          execFile(
+            binary,
+            tokens.slice(1),
+            { cwd, env, timeout, maxBuffer: 1024 * 1024, shell: false },
+            (err, out, errOut) => {
+              if (err) {
+                ;(err as Error & { stdout?: string; stderr?: string }).stdout = out
+                ;(err as Error & { stdout?: string; stderr?: string }).stderr = errOut
+                reject(err)
+                return
+              }
+              resolve({ stdout: out, stderr: errOut })
+            },
+          )
+        },
+      )
       return {
         stdout: stdout.slice(0, MAX_STDOUT),
         stderr: stderr.slice(0, MAX_STDERR),
@@ -664,19 +803,48 @@ class ComputerUseService {
 
   async keyboardType(params: { text: string }): Promise<void> {
     this.checkEnabled()
-    // 通过 PowerShell SendKeys（简化）
-    await execAsync(
-      `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${params.text.replace(/'/g, "''")}')`,
-      { shell: 'powershell.exe', timeout: 10000 },
-    )
+    // 2026-07-21 安全审计加固:用 execFile + -Command 数组参数,无 shell 注入
+    // 原实现 execAsync(`... '${text.replace(/'/g, "''")}' ...`, { shell: powershell.exe })
+    // 攻击者可构造含 `'` 的输入(已 escape),但环境变量展开/重定向等仍可能被利用 → 改用 execFile
+    const escapedText = params.text.replace(/'/g, "''")
+    await new Promise<void>((resolve, reject) => {
+      execFile(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${escapedText}')`,
+        ],
+        { timeout: 10000 },
+        (err) => (err ? reject(err) : resolve()),
+      )
+    })
   }
 
   async keyboardKey(params: { key: string }): Promise<void> {
     this.checkEnabled()
-    await execAsync(
-      `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${params.key}')`,
-      { shell: 'powershell.exe', timeout: 5000 },
-    )
+    // 2026-07-21 安全审计加固:补全 key 的单引号转义 + 改用 execFile
+    // 原实现 `${params.key}` 完全无转义 → 攻击者输入 `'; Remove-Item -Recurse C:\; '`
+    // 可执行任意 PowerShell 命令(本地 RCE)
+    const escapedKey = params.key.replace(/'/g, "''")
+    // 限制 key 字符集(键盘按键名典型为字母+数字+下划线,不允许特殊字符)
+    if (!/^[A-Za-z0-9_+\-(){}\[\].,]+$/.test(params.key)) {
+      throw new Error(`非法 key 字符,仅允许: 字母/数字/_+-(){}[].,`)
+    }
+    await new Promise<void>((resolve, reject) => {
+      execFile(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${escapedKey}')`,
+        ],
+        { timeout: 5000 },
+        (err) => (err ? reject(err) : resolve()),
+      )
+    })
   }
 
   async getScreenSize(): Promise<{ width: number; height: number }> {
@@ -1521,9 +1689,8 @@ class PermissionManager {
     tool: string
     args: Record<string, unknown>
   }): Promise<{ allowed: boolean; requestId?: string; mode?: string; reason?: string }> {
-    const { getPermission, listRules, appendAuditLog } = await import(
-      '../db/workspace-permission-queries.js'
-    )
+    const { getPermission, listRules, appendAuditLog } =
+      await import('../db/workspace-permission-queries.js')
     const perm = await getPermission(params.userId, params.workspacePath)
     if (!perm) {
       // 未配置权限 → 视为 default 模式(最严格),要求人工确认
@@ -1684,12 +1851,7 @@ class PermissionManager {
    * 用户通过前端弹窗决策后,调用此方法解锁对应 Promise。
    * 返回 false:requestId 不存在 / 用户不匹配 / 已超时
    */
-  resolveWorkspace(
-    requestId: string,
-    userId: string,
-    approved: boolean,
-    reason?: string,
-  ): boolean {
+  resolveWorkspace(requestId: string, userId: string, approved: boolean, reason?: string): boolean {
     const entry = this.workspacePending.get(requestId)
     if (!entry || entry.req.userId !== userId) return false
     clearTimeout(entry.timer)
@@ -1698,7 +1860,7 @@ class PermissionManager {
     entry.req.resolvedAt = nowSec()
     entry.resolve({
       allowed: approved,
-      reason: approved ? reason ?? '用户允许' : reason ?? '用户拒绝',
+      reason: approved ? (reason ?? '用户允许') : (reason ?? '用户拒绝'),
     })
     return true
   }
@@ -1730,9 +1892,8 @@ class PermissionManager {
     matchedRule?: string
     requestId?: string
   }> {
-    const { getPermission, listRules, appendAuditLog } = await import(
-      '../db/workspace-permission-queries.js'
-    )
+    const { getPermission, listRules, appendAuditLog } =
+      await import('../db/workspace-permission-queries.js')
     const perm = await getPermission(params.userId, params.workspacePath)
 
     // 未配置权限 → 拒绝,要求先 setup(由 /fs/open 触发)
@@ -1762,13 +1923,7 @@ class PermissionManager {
       const dbRules = await listRules(params.userId, params.workspacePath)
       for (const r of dbRules) {
         if (
-          this.workspaceRuleMatches(
-            r.ruleType,
-            r.pattern,
-            r.operation,
-            params.tool,
-            params.args,
-          )
+          this.workspaceRuleMatches(r.ruleType, r.pattern, r.operation, params.tool, params.args)
         ) {
           if (r.decision === 'allow') {
             await appendAuditLog({

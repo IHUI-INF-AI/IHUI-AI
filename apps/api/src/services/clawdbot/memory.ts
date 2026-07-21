@@ -5,6 +5,7 @@
  */
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
+import { generateCompactId } from '../../utils/crypto-random.js'
 
 export type MemoryType = 'short_term' | 'long_term' | 'working' | 'episodic'
 
@@ -38,7 +39,8 @@ export class MemoryService extends EventEmitter {
   store(item: Omit<MemoryItem, 'id' | 'createdAt' | 'lastAccessedAt' | 'accessCount'>): MemoryItem {
     const memory: MemoryItem = {
       ...item,
-      id: `mem_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成记忆 ID
+      id: generateCompactId('mem'),
       createdAt: Date.now(),
       lastAccessedAt: Date.now(),
       accessCount: 0,
@@ -68,8 +70,10 @@ export class MemoryService extends EventEmitter {
   search(query: MemoryQuery): MemoryItem[] {
     let results = Array.from(this.memories.values())
     if (query.type) results = results.filter((m) => m.type === query.type)
-    if (query.minImportance !== undefined) results = results.filter((m) => m.importance >= query.minImportance!)
-    if (query.tags?.length) results = results.filter((m) => query.tags!.some((t) => m.tags?.includes(t)))
+    if (query.minImportance !== undefined)
+      results = results.filter((m) => m.importance >= query.minImportance!)
+    if (query.tags?.length)
+      results = results.filter((m) => query.tags!.some((t) => m.tags?.includes(t)))
     if (query.keyword) {
       const kw = query.keyword.toLowerCase()
       results = results.filter((m) => m.content.toLowerCase().includes(kw))
