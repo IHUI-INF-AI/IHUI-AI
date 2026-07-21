@@ -7772,7 +7772,15 @@
       "enableAutoRenew": "開啟自動續費",
       "disableAutoRenew": "關閉自動續費",
       "success": "續費請求已發起",
-      "error": "提交失敗"
+      "error": "提交失敗",
+      "pleaseSelectPlan": "請選擇訂閱方案",
+      "openAutoRenewFailed": "開通自動續費失敗",
+      "autoRenewManageTitle": "自動續費管理",
+      "autoRenewOpened": "已開通自動續費",
+      "nextCharge": "下次扣款日",
+      "manage": "管理",
+      "autoRenewClosed": "已關閉自動續費",
+      "openAutoRenew": "開通自動續費"
     },
     "articles": {
       "title": "我的文章",

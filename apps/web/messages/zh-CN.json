@@ -7772,7 +7772,15 @@
       "enableAutoRenew": "开启自动续费",
       "disableAutoRenew": "关闭自动续费",
       "success": "续费请求已发起",
-      "error": "提交失败"
+      "error": "提交失败",
+      "pleaseSelectPlan": "请选择订阅方案",
+      "openAutoRenewFailed": "开通自动续费失败",
+      "autoRenewManageTitle": "自动续费管理",
+      "autoRenewOpened": "已开通自动续费",
+      "nextCharge": "下次扣款日",
+      "manage": "管理",
+      "autoRenewClosed": "已关闭自动续费",
+      "openAutoRenew": "开通自动续费"
     },
     "articles": {
       "title": "我的文章",

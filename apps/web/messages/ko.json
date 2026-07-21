@@ -7772,7 +7772,15 @@
       "alipay": "알리페이",
       "renewNow": "지금 갱신",
       "openNow": "지금 가입",
-      "days": "일"
+      "days": "일",
+      "pleaseSelectPlan": "구독 플랜을 선택해 주세요",
+      "openAutoRenewFailed": "자동 갱신 활성화 실패",
+      "autoRenewManageTitle": "자동 갱신 관리",
+      "autoRenewOpened": "자동 갱신이 활성화되었습니다",
+      "nextCharge": "다음 결제일",
+      "manage": "관리",
+      "autoRenewClosed": "자동 갱신이 비활성화되었습니다",
+      "openAutoRenew": "자동 갱신 활성화"
     },
     "articles": {
       "title": "내 글",
