@@ -4,7 +4,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 const mocks = vi.hoisted(() => {
   const mockLimit = vi.fn(() => [])
   const mockWhere = vi.fn(() => ({ limit: mockLimit }))
-  const mockFrom = vi.fn(() => ({ where: mockWhere }))
+  // mockFrom 同时暴露 where + limit,支持 select().from().limit() 和 select().from().where().limit()
+  const mockFrom = vi.fn(() => ({ where: mockWhere, limit: mockLimit }))
   const mockSelect = vi.fn(() => ({ from: mockFrom }))
 
   const mockOnConflictDoNothing = vi.fn(() => undefined)
@@ -34,7 +35,7 @@ vi.mock('@ihui/database', () => ({
 }))
 
 // Import after mocks are in place
-import { AI_WORLD_CATEGORIES, syncAllSources, type FetchedItem } from '../ai-world-sync.js'
+import { AI_WORLD_CATEGORIES, syncAllSources, getSourceStats, type FetchedItem } from '../ai-world-sync.js'
 
 describe('AI World Sync — 数据完整性', () => {
   it('AI_WORLD_CATEGORIES 应有 12 个分类', () => {
@@ -69,6 +70,24 @@ describe('AI World Sync — 数据完整性', () => {
   })
 })
 
+describe('AI World Sync — 信源数量(深度打磨后)', () => {
+  it('getSourceStats 应返回国内外全覆盖的信源数量', () => {
+    const stats = getSourceStats()
+    // RSS: 12 国外官方 + 8 国外媒体 + 10 国内媒体 = 30
+    expect(stats.rss).toBeGreaterThanOrEqual(30)
+    // arXiv 分类:6
+    expect(stats.arxiv).toBeGreaterThanOrEqual(6)
+    // GitHub topics:12
+    expect(stats.github).toBeGreaterThanOrEqual(12)
+    // AI Apps:35+
+    expect(stats.apps).toBeGreaterThanOrEqual(35)
+    // AI Tools:35+
+    expect(stats.tools).toBeGreaterThanOrEqual(35)
+    // 总源数:30 + 1(arxiv) + 1(hf papers) + 12(github topics) + 35 + 35 = 114+
+    expect(stats.total).toBeGreaterThanOrEqual(100)
+  })
+})
+
 describe('AI World Sync — 同步主流程', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -78,8 +97,9 @@ describe('AI World Sync — 同步主流程', () => {
     vi.restoreAllMocks()
   })
 
-  it('syncAllSources 应返回 SyncSourceResult[] 数组(每项含 source/kind/status/itemCount)', async () => {
+  it('syncAllSources 应返回 SyncSourceResult[] 数组,支持 success/partial/failed 三态', async () => {
     const originalFetch = globalThis.fetch
+    // mock fetch 返回空数据(不阻塞流程,所有源走 success 但 itemCount=0)
     globalThis.fetch = vi.fn(async () =>
       new Response(JSON.stringify({ items: [] }), {
         status: 200,
@@ -94,13 +114,36 @@ describe('AI World Sync — 同步主流程', () => {
       for (const r of results) {
         expect(r).toHaveProperty('source')
         expect(r).toHaveProperty('kind')
-        expect(['success', 'failed']).toContain(r.status)
+        expect(['success', 'failed', 'partial']).toContain(r.status)
         expect(typeof r.itemCount).toBe('number')
       }
     } finally {
       globalThis.fetch = originalFetch
     }
-  }, 60000)
+  }, 120000)
+
+  it('syncAllSources 应覆盖所有 kind 类型(news/paper/project/tool/app)', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ items: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    ) as unknown as typeof fetch
+
+    try {
+      const results = await syncAllSources()
+      const kinds = new Set(results.map((r) => r.kind))
+      // 至少覆盖 4 种 kind(app/tool/news/paper/project)
+      expect(kinds.size).toBeGreaterThanOrEqual(4)
+      expect(kinds.has('news')).toBe(true)
+      expect(kinds.has('paper')).toBe(true)
+      expect(kinds.has('app')).toBe(true)
+      expect(kinds.has('tool')).toBe(true)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  }, 120000)
 })
 
 describe('AI World Sync — FetchedItem 类型契约', () => {
@@ -128,5 +171,16 @@ describe('AI World Sync — FetchedItem 类型契约', () => {
       }
       expect(item.kind).toBe(kind)
     }
+  })
+
+  it('FetchedItem 支持可选 categorySlug 用于分类自动关联', () => {
+    const item: FetchedItem = {
+      kind: 'app',
+      source: 'chatgpt',
+      sourceUrl: 'https://chat.openai.com',
+      title: 'ChatGPT',
+      categorySlug: 'chat',
+    }
+    expect(item.categorySlug).toBe('chat')
   })
 })
