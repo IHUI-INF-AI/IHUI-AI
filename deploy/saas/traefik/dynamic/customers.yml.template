@@ -1,0 +1,31 @@
+# Traefik 动态配置目录
+# 客户租户的动态路由由 create-customer.sh 脚本生成
+# 此目录会被 Traefik 监听(providers.file.watch=true),新增/修改 .yml 自动生效
+#
+# 典型客户路由配置示例(由 create-customer.sh 生成):
+
+# routers:
+#   customer-demo-web:
+#     rule: "Host(`demo.${BASE_DOMAIN}`)"
+#     service: customer-demo-web
+#     entryPoints:
+#       - websecure
+#     tls:
+#       certResolver: letsencrypt
+#   customer-demo-api:
+#     rule: "Host(`demo.${BASE_DOMAIN}`) && PathPrefix(`/api`)"
+#     service: customer-demo-api
+#     entryPoints:
+#       - websecure
+#     tls:
+#       certResolver: letsencrypt
+#
+# services:
+#   customer-demo-web:
+#     loadBalancer:
+#       servers:
+#         - url: "http://customer-demo-web:3000"
+#   customer-demo-api:
+#     loadBalancer:
+#       servers:
+#         - url: "http://customer-demo-api:8080"
