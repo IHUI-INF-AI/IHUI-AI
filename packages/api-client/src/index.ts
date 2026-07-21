@@ -18,6 +18,13 @@ export type {
 } from './client.js'
 export { ApiError, isNotFound, isErrorCode } from './api-error.js'
 
+// 模型上下文容量映射(跨端共享:web/desktop/extension/mobile-rn/miniapp-taro)
+export {
+  DEFAULT_CONTEXT_CAPACITY,
+  getModelContextCapacity,
+  formatTokenCount,
+} from './model-context-capacity.js'
+
 export { CircuitBreaker, CircuitOpenError, serverPreset, clientPreset } from './circuit-breaker.js'
 export type { CircuitState, CircuitBreakerOptions, CircuitBreakerStats } from './circuit-breaker.js'
 export { eduApi, buildQs } from './utils.js'
