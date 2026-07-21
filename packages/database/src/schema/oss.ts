@@ -25,7 +25,7 @@ export const ossDrivers = pgTable(
     // 驱动类型: local/aliyun-oss/tencent-cos/qiniu/s3 等
     driver: varchar('driver', { length: 32 }).notNull(),
     credentials: jsonb('credentials'),
-    config: jsonb('config'),
+    config: jsonb('config').default({}),
     isEnabled: boolean('is_enabled').default(false).notNull(),
     isDefault: boolean('is_default').default(false).notNull(),
     sort: integer('sort').default(0).notNull(),

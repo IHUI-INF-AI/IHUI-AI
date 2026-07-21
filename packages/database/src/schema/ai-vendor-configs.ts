@@ -37,7 +37,7 @@ export const aiVendorConfigs = pgTable(
     isEnabled: boolean('is_enabled').default(true).notNull(),
     priority: integer('priority').default(0).notNull(),
     rateLimit: integer('rate_limit').default(100),
-    configJson: jsonb('config_json'),
+    configJson: jsonb('config_json').default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

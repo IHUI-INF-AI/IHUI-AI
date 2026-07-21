@@ -12,7 +12,7 @@ export const auditLogs = pgTable('audit_logs', {
   action: varchar('action', { length: 32 }).notNull(),
   resourceType: varchar('resource_type', { length: 64 }),
   resourceId: varchar('resource_id', { length: 64 }),
-  details: jsonb('details'),
+  details: jsonb('details').default({}),
   ip: varchar('ip', { length: 64 }),
   userAgent: varchar('user_agent', { length: 512 }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -28,7 +28,7 @@ export const searchHistory = pgTable('search_history', {
     .references(() => users.id, { onDelete: 'cascade' })
     .notNull(),
   query: varchar('query', { length: 255 }).notNull(),
-  filters: jsonb('filters'),
+  filters: jsonb('filters').default({}),
   resultsCount: integer('results_count').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
