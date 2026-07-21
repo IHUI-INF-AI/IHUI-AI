@@ -15,6 +15,7 @@
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
+import { randomBytes } from 'node:crypto'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 
@@ -37,11 +38,11 @@ interface CallbackLogEntry {
 }
 
 const store = new Map<string, CallbackLogEntry>()
-let counter = 0
 
+// 2026-07-21 安全审计第十轮加固:用 CSPRNG 生成 callback log id
+// 替代 Date.now() + counter(toString(36))(后者可预测,攻击者可伪造 ID 重放/覆盖日志)
 function genId(): string {
-  counter += 1
-  return `cbl_${Date.now().toString(36)}_${counter.toString(36)}`
+  return `cbl_${Date.now().toString(36)}_${randomBytes(8).toString('hex')}`
 }
 
 function serialize(e: CallbackLogEntry, withBody = false) {
@@ -123,10 +124,10 @@ function recordCallback(
 ): CallbackLogEntry {
   const start = Date.now()
   const bodyStr = request.body ? JSON.stringify(request.body) : ''
-  const ip =
-    (request.ip as string | undefined) ??
-    (request.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ??
-    null
+  // 2026-07-21 安全审计第十轮加固:不再手工读 X-Forwarded-For
+  // request.ip 已经过 trustProxy 验证,等同于真实客户端 IP(或最后可信代理 IP)
+  // 手工读 X-Forwarded-For 会被攻击者伪造任意 IP 污染回调日志
+  const ip = request.ip ?? null
   const entry: CallbackLogEntry = {
     id: genId(),
     bizType,
