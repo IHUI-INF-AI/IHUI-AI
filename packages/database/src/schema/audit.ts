@@ -4,11 +4,11 @@ import { users } from './users.js';
 /**
  * 操作审计日志表。
  * 由 plugins/audit.ts 的 onResponse 钩子异步写入，记录所有 POST/PATCH/PUT/DELETE 写请求。
- * user_id 可空（用于未鉴权的写操作或系统操作）；用户删除时级联删除其审计记录。
+ * user_id 可空（用于未鉴权的写操作或系统操作）；用户删除时保留审计记录，userId 置 NULL。
  */
 export const auditLogs = pgTable('audit_logs', {
   id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
   action: varchar('action', { length: 32 }).notNull(),
   resourceType: varchar('resource_type', { length: 64 }),
   resourceId: varchar('resource_id', { length: 64 }),
