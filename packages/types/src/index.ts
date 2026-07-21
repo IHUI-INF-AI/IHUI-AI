@@ -22,3 +22,8 @@ export * from './api-contracts.js'
 // 显式 re-export 保持向后兼容;workspace 版本(kebab-case:accept-edits/bypass-permissions)
 // 通过 @ihui/types/workspace subpath 访问。
 export { type PermissionMode, type PermissionDecision } from './agent-runtime.js'
+
+// 旧架构迁移补齐类型 (2026-07-22)
+// 来源: git commit 3ee96cf09 旧架构 client/src/api/* 中存在但新架构未独立导出的类型
+// 路由功能已迁移连通,本文件将 28 组类型定义集中到共享类型层供跨端引用
+export * from './legacy-migration.js'
