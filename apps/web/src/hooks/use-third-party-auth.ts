@@ -16,6 +16,7 @@ import {
   saveOAuthState,
   validateOAuthState,
 } from '@/lib/oauth-utils'
+import { buildAuthSubdomainStartUrl, isAuthSubdomainHost } from '@/lib/auth-domains'
 import { useToast } from '@/hooks/use-toast'
 import type {
   GoogleIdConfiguration,
@@ -65,6 +66,10 @@ const BOUND_ACCOUNTS_PATH = '/api/user/third-party-accounts'
  * 不能用 `process.env[key]` 动态访问。所以这里直接引用 `process.env.NEXT_PUBLIC_DEMO_MODE`。
  */
 export function isDemoMode(): boolean {
+  // 🛡️ 生产环境硬性约束:无论 env 怎么设,都强制关闭 demo 模式
+  // 防止开发者忘记关 demo 导致生产环境任何人点登录按钮都绕过真实授权直接登录
+  if (process.env.NODE_ENV === 'production') return false
+
   // 直接字面量引用,让 Next.js 编译器静态替换
   const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE
   if (demoMode === 'true') {
@@ -254,6 +259,30 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
           throw new Error(`${displayName}登录未启用`)
         }
 
+        // 演示模式：跳转到本地 Mock 授权页,完整模拟 OAuth 流程
+        // 用户在 mock 页点"授权" → 跳回 /callback?code=mock_xxx&state=xxx
+        // callback handler 识别 mock_ 前缀 → 直接本地登录
+        if (isDemoMode()) {
+          const state = generateState()
+          saveOAuthState(platform, state)
+          const redirectUri = `/callback?platform=${platform}`
+          const appName = encodeURIComponent('IHUI-AI')
+          const mockUrl = `/oauth/mock/${platform}?state=${encodeURIComponent(state)}&redirect_uri=${encodeURIComponent(redirectUri)}&app_name=${appName}`
+          window.location.href = mockUrl
+          return true
+        }
+
+        // 分域 SSO (2026-07-21):若当前在主域(aizhs.top 或 localhost),先 302 跳到
+        // 认证子域 bsm.aizhs.top/sso/auth?platform=xxx&return_to=...,
+        // 由该子域薄页调用本函数发起 OAuth,回调时写跨域 Cookie + 307 跳回主域。
+        // 已经在认证子域内:直接走原 OAuth 流程。
+        if (typeof window !== 'undefined' && !isAuthSubdomainHost()) {
+          const returnTo = `${window.location.origin}${window.location.pathname}${window.location.search}`
+          const crossDomainUrl = buildAuthSubdomainStartUrl(platform, returnTo)
+          window.location.href = crossDomainUrl
+          return true
+        }
+
         // 初始化登录状态
         initLoginState(platform)
 
@@ -261,11 +290,10 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
         const state = generateState()
         saveOAuthState(platform, state)
 
-        // 演示模式或配置完整 → 直接构造厂商授权 URL
+        // 配置完整 → 直接构造厂商授权 URL(真实 OAuth 流程)
         const validation = validatePlatformConfig(platform)
         const canDirectRedirect =
-          isDemoMode() ||
-          (validation.valid && !!config.authUrl && !!(config.clientId || config.appId))
+          validation.valid && !!config.authUrl && !!(config.clientId || config.appId)
 
         if (canDirectRedirect && config.authUrl) {
           const params: Record<string, string> = {
