@@ -14,10 +14,22 @@ import {
   FileText,
   CalendarClock,
   XCircle,
+  Download,
+  FileSpreadsheet,
+  FileJson,
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button } from '@ihui/ui'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
+import { toast } from 'sonner'
+import { useReportGenerator } from '@/hooks/use-report-generator'
 
 interface Report {
   lessons: { total: number; completed: number; inProgress: number; avgProgress: number }
@@ -33,6 +45,7 @@ async function api<T>(url: string): Promise<T> {
 
 export default function StudentCenterPage() {
   const t = useTranslations('student')
+  const { exportReport, generating } = useReportGenerator()
 
   const {
     data: report,
@@ -42,6 +55,15 @@ export default function StudentCenterPage() {
     queryKey: ['student', 'report'],
     queryFn: () => api<Report>('/api/edu/my-report'),
   })
+
+  const handleExport = async (format: 'pdf' | 'excel' | 'json') => {
+    const result = await exportReport({ format })
+    if (result) {
+      toast.success(t('exportSuccess'))
+    } else {
+      toast.error(t('exportError'))
+    }
+  }
 
   const lessons = report?.lessons
   const exams = report?.exams
@@ -58,12 +80,40 @@ export default function StudentCenterPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <header className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
-          <BarChart3 className="h-7 w-7 text-primary" />
-          {t('title')}
-        </h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+      <header className="flex items-center justify-between space-y-1">
+        <div className="space-y-1">
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
+            <BarChart3 className="h-7 w-7 text-primary" />
+            {t('title')}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" disabled={generating}>
+              {generating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              {generating ? t('exporting') : t('exportReport')}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleExport('pdf')}>
+              <FileText className="mr-2 h-4 w-4" />
+              {t('exportPdf')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport('excel')}>
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              {t('exportExcel')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport('json')}>
+              <FileJson className="mr-2 h-4 w-4" />
+              {t('exportJson')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </header>
 
       {isLoading ? (
