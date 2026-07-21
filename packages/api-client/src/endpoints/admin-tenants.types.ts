@@ -33,6 +33,8 @@ export interface Backup {
   timestamp: string
   mtime: string
   size: string
+  /** P1-2.2b: 实际字节数(KB),用于前端排序与统计 */
+  sizeKb: number
   age: string
   fileCount: number
 }
@@ -57,6 +59,13 @@ export interface TenantCreateResult {
 export interface TenantActionResult {
   status: string
   slug: string
+  output?: string
+}
+
+export interface BackupDeleteResult {
+  status: 'deleted'
+  slug: string
+  timestamp: string
   output?: string
 }
 
