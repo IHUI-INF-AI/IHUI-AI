@@ -23,6 +23,8 @@ import {
 import { fetchApi } from '@/lib/api'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label, Switch } from '@ihui/ui'
 import { useToast } from '@/hooks/use-toast'
+import { useAiPanelStore } from '@/stores/ai-panel'
+import { useChat } from '@/hooks/use-chat'
 
 /** 自动化工作示例模板(2026-07-22 新增,展示 6 个典型场景) */
 interface AutomationExample {
@@ -141,10 +143,22 @@ export default function AutomationPage() {
   const [triggeringId, setTriggeringId] = React.useState<string | null>(null)
   const [togglingId, setTogglingId] = React.useState<string | null>(null)
 
-  /** 点击示例卡片:toast 提示 + 滚动到任务列表 */
-  const handleUseExample = (name: string) => {
+  /** 点击示例卡片:打开 AI 对话面板注入"创建 XXX 自动化任务"消息(2026-07-22 升级)
+   *  原方案只 toast + 滚动,无实际填充。现改为对接 AI 对话面板:
+   *  - 打开 AI 对话面板
+   *  - 注入按 exampleId 定制的创建指令(name + desc + schedule + output)
+   *  - AI 引导用户完成自动化任务配置(比手动填表单更智能) */
+  const openAiPanel = useAiPanelStore((s) => s.openPanel)
+  const { sendMessage } = useChat()
+  const handleUseExample = (ex: AutomationExample) => {
+    openAiPanel()
+    const name = t(ex.nameKey)
+    const desc = t(ex.descKey)
+    const schedule = t(ex.scheduleKey)
+    const output = t(ex.outputKey)
+    const prompt = t('exampleInvokePrompt', { name, desc, schedule, output })
+    void sendMessage(prompt)
     toast.info(t('templateLoaded', { name }))
-    tasksRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   const loadAll = React.useCallback(async () => {
@@ -311,7 +325,7 @@ export default function AutomationPage() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => handleUseExample(t(ex.nameKey))}
+                    onClick={() => handleUseExample(ex)}
                     className="mt-auto h-7 text-xs"
                   >
                     {t('useRefTemplate')}
