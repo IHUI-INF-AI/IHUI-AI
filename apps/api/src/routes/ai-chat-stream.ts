@@ -85,8 +85,12 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     })
 
     // 首事件:修复通知 / 压缩通知 / resumed 通知等
+    // 若该流绑定到某个 agent(opts.agentId),在 chunk 顶层注入 agentId,
+    // 前端可据此把通知分流到对应 subagent 卡片;缺失时降级为单 agent 模式
     for (const evt of extraFirstEvents) {
-      raw.write(`data: ${JSON.stringify({ [evt.key]: evt.payload })}\n\n`)
+      const chunk: Record<string, unknown> = { [evt.key]: evt.payload }
+      if (opts.agentId) chunk.agentId = opts.agentId
+      raw.write(`data: ${JSON.stringify(chunk)}\n\n`)
     }
 
     const controller = new AbortController()
@@ -120,9 +124,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
 
       if (!resp.ok || !resp.body) {
         const errText = await resp.text().catch(() => '')
-        raw.write(
-          `data: ${JSON.stringify({ error: `upstream ${resp.status}: ${errText.slice(0, 200)}` })}\n\n`,
-        )
+        const errChunk: Record<string, unknown> = {
+          error: `upstream ${resp.status}: ${errText.slice(0, 200)}`,
+        }
+        if (opts.agentId) errChunk.agentId = opts.agentId
+        raw.write(`data: ${JSON.stringify(errChunk)}\n\n`)
         return
       }
 
@@ -134,7 +140,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       }
     } catch (e) {
       const msg = (e as Error).name === 'AbortError' ? '客户端断开' : (e as Error).message
-      raw.write(`data: ${JSON.stringify({ error: msg })}\n\n`)
+      const errChunk: Record<string, unknown> = { error: msg }
+      if (opts.agentId) errChunk.agentId = opts.agentId
+      raw.write(`data: ${JSON.stringify(errChunk)}\n\n`)
     } finally {
       request.raw.off('close', onClose)
       raw.end()
