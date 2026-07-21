@@ -1,6 +1,13 @@
 import type { SForm } from './types'
 
-export const EMPTY: SForm = { nickname: '', phone: '', email: '', level: '1', status: 1 }
+export const EMPTY: SForm = {
+  nickname: '',
+  phone: '',
+  email: '',
+  password: '',
+  level: '1',
+  status: 1,
+}
 
 export const PAGE_SIZE = 10
 
