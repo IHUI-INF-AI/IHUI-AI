@@ -173,6 +173,9 @@ import { pluginsRoutes } from './routes/plugins.js'
 // AI 自动控制路由(2026-07-22 立,跨端:ai-service ↔ api ↔ extension/desktop)
 import { agentControlRoutes } from './routes/agent-control.js'
 
+// 浏览器降级路由(2026-07-22 立,P1 WorkPanel iframe 降级:截图 + 探测)
+import { browserRoutes } from './routes/browser.js'
+
 // R68 补建：M-64 ask 模块扩展端点
 import { askExtendedRoutes } from './routes/ask-extended.js'
 // admin/asks 管理后台问答端点
@@ -849,6 +852,9 @@ function registerRoutes(server: FastifyInstance) {
 
   // AI 自动控制路由(2026-07-22 立,4端点:POST /capability + POST /execute + POST /result + GET /status)
   server.register(agentControlRoutes, { prefix: '/api/agent-control' })
+
+  // 浏览器降级路由(2026-07-22 立,P1 WorkPanel iframe 降级:POST /screenshot + POST /probe)
+  server.register(browserRoutes, { prefix: '/api/browser' })
 
   // ===== R68 补建：M-64 ask 模块扩展端点 =====
   // M-64: ask 扩展（12端点：回答编辑/删除+点赞+收藏+评论+分类CRUD+树+统计）

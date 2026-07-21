@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
+import { probeEmbed, takeScreenshot } from '@ihui/api-client'
+
 import { createPersistConfig } from './persist-helpers'
 
 /** 工作展示区默认宽度(右侧面板) */
@@ -73,6 +75,8 @@ interface WorkPanelState {
   closePanel: () => void
   toggle: () => void
   navigate: (url: string, source?: 'user' | 'ai-tool' | 'markdown-link') => void
+  /** 启动 URL 加载(主动探测嵌入能力 + 截图降级) */
+  loadUrl: (url: string) => void
   back: () => void
   forward: () => void
   reload: () => void
@@ -144,13 +148,56 @@ export const useWorkPanelStore = create<WorkPanelState>()(
           error: undefined,
           lastSource: source,
         })
+        get().loadUrl(url)
+      },
+
+      // P1-3:主动探测嵌入能力,不可嵌入直接走截图模式
+      // 浏览器对 X-Frame-Options/CSP frame-ancestors 拦截的站点不触发 iframe onError,
+      // 必须主动调后端 probeEmbed 预判
+      loadUrl: (url) => {
+        void (async () => {
+          let canEmbed = true
+          try {
+            const probe = await probeEmbed(url)
+            if (probe.success && probe.data) {
+              canEmbed = probe.data.canEmbed
+            }
+          } catch {
+            // 探测失败 → 默认尝试 iframe(保留 onFailed 兜底)
+          }
+
+          if (canEmbed) {
+            // 可嵌入 → 保持 iframe 模式,等 iframe onLoad 触发 onLoaded
+            return
+          }
+
+          // 不可嵌入 → 直接走截图模式(不等 iframe 静默失败)
+          const result = await takeScreenshot({
+            url,
+            width: 1280,
+            height: 720,
+            fullPage: false,
+            waitUntil: 'load',
+            timeout: 15000,
+          })
+          if (result.success && result.data?.screenshot) {
+            get().setScreenshot(result.data.screenshot, result.data.title)
+          } else {
+            set({
+              isLoading: false,
+              status: 'failed',
+              mode: 'external',
+              error: result.error || '截图失败,该网站禁止嵌入',
+            })
+          }
+        })()
       },
 
       back: () => {
         const { history, historyIndex } = get()
         if (historyIndex <= 0) return
         const newIndex = historyIndex - 1
-        const url = history[newIndex]
+        const url = history[newIndex]!
         set({
           url,
           addressInput: url,
@@ -160,13 +207,14 @@ export const useWorkPanelStore = create<WorkPanelState>()(
           isLoading: true,
           screenshot: undefined,
         })
+        get().loadUrl(url)
       },
 
       forward: () => {
         const { history, historyIndex } = get()
         if (historyIndex >= history.length - 1) return
         const newIndex = historyIndex + 1
-        const url = history[newIndex]
+        const url = history[newIndex]!
         set({
           url,
           addressInput: url,
@@ -176,6 +224,7 @@ export const useWorkPanelStore = create<WorkPanelState>()(
           isLoading: true,
           screenshot: undefined,
         })
+        get().loadUrl(url)
       },
 
       reload: () => {
@@ -188,6 +237,7 @@ export const useWorkPanelStore = create<WorkPanelState>()(
           screenshot: undefined,
           error: undefined,
         })
+        get().loadUrl(url)
       },
 
       stop: () => set({ isLoading: false, status: 'idle' }),
@@ -201,13 +251,42 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         set({ isLoading: false, status: 'loaded', error: undefined }),
 
       onFailed: (error) => {
-        // P0:iframe 失败降级到 external(P1 接入 Playwright 截图)
-        set({
-          isLoading: false,
-          status: 'failed',
-          mode: 'external',
-          error: error ?? '该网站禁止嵌入',
-        })
+        // P1:iframe 失败 → 自动调后端 Playwright 截图(降级到 screenshot 模式)
+        // 截图成功 → setScreenshot();失败 → 降级到 external 模式
+        const { url } = get()
+        // 保留 loading 状态(截图期间仍显示 loading)
+        set({ status: 'loading', isLoading: true, error: undefined })
+
+        // 异步触发截图降级(不阻塞当前调用栈)
+        void (async () => {
+          if (!url) {
+            set({
+              isLoading: false,
+              status: 'failed',
+              mode: 'external',
+              error: error ?? '该网站禁止嵌入',
+            })
+            return
+          }
+          const result = await takeScreenshot({
+            url,
+            width: 1280,
+            height: 720,
+            fullPage: false,
+            waitUntil: 'load',
+            timeout: 15000,
+          })
+          if (result.success && result.data?.screenshot) {
+            get().setScreenshot(result.data.screenshot, result.data.title)
+          } else {
+            set({
+              isLoading: false,
+              status: 'failed',
+              mode: 'external',
+              error: result.error || error || '截图失败,该网站禁止嵌入',
+            })
+          }
+        })()
       },
 
       setScreenshot: (screenshot, title) =>
