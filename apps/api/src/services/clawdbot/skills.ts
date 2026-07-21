@@ -6,6 +6,7 @@
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
 import { getToolExecutor, type ToolContext } from './tools.js'
+import { evaluateSafeCondition } from './safe-condition.js'
 
 export interface SkillDefinition {
   name: string
@@ -63,7 +64,11 @@ export class SkillManager extends EventEmitter {
     return this.list().filter((s) => s.category === category)
   }
 
-  async execute(name: string, initialParams: Record<string, unknown>, context?: ToolContext): Promise<SkillExecutionResult> {
+  async execute(
+    name: string,
+    initialParams: Record<string, unknown>,
+    context?: ToolContext,
+  ): Promise<SkillExecutionResult> {
     const skill = this.skills.get(name)
     if (!skill) throw new Error(`Skill "${name}" not found`)
     if (!skill.enabled) throw new Error(`Skill "${name}" is disabled`)
@@ -81,9 +86,20 @@ export class SkillManager extends EventEmitter {
       if (step.toolName) {
         const params = this.resolveParams(step.toolParams ?? {}, outputs)
         const result = await toolExecutor.execute(step.toolName, params, context)
-        stepResults.push({ stepId: step.id, success: result.success, output: result.output, error: result.error })
+        stepResults.push({
+          stepId: step.id,
+          success: result.success,
+          output: result.output,
+          error: result.error,
+        })
         if (!result.success) {
-          return { skillName: name, success: false, outputs, stepResults, duration: Date.now() - start }
+          return {
+            skillName: name,
+            success: false,
+            outputs,
+            stepResults,
+            duration: Date.now() - start,
+          }
         }
         if (step.outputKey) outputs[step.outputKey] = result.output
       }
@@ -94,20 +110,24 @@ export class SkillManager extends EventEmitter {
   }
 
   private evaluateCondition(condition: string, context: Record<string, unknown>): boolean {
-    try {
-      const fn = new Function('ctx', `with(ctx){return ${condition}}`)
-      return !!fn(context)
-    } catch {
-      return false
-    }
+    // 2026-07-21 安全审计加固:用 safe-condition 替代 new Function 防止 RCE
+    return evaluateSafeCondition(condition, context)
   }
 
-  private resolveParams(params: Record<string, unknown>, context: Record<string, unknown>): Record<string, unknown> {
+  private resolveParams(
+    params: Record<string, unknown>,
+    context: Record<string, unknown>,
+  ): Record<string, unknown> {
     const resolved: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(params)) {
       if (typeof value === 'string' && value.startsWith('${') && value.endsWith('}')) {
         const path = value.slice(2, -1)
-        resolved[key] = path.split('.').reduce<unknown>((obj: unknown, k: string) => (obj as Record<string, unknown>)?.[k], context)
+        resolved[key] = path
+          .split('.')
+          .reduce<unknown>(
+            (obj: unknown, k: string) => (obj as Record<string, unknown>)?.[k],
+            context,
+          )
       } else {
         resolved[key] = value
       }

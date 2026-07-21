@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 
 /**
  * 视频签名 URL 服务。
@@ -9,13 +9,30 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
  * 附在 URL query 上:`?uid=...&rid=...&exp=...&sig=...`。
  *
  * 验证时同样 payload 重新计算 HMAC,与 sig 用 timingSafeEqual 比对。
+ *
+ * 安全加固(2026-07-21):移除硬编码默认 secret,生产环境强制要求 ≥32 字符随机密钥。
  */
 
-const DEFAULT_SECRET = 'ihui-video-sign-secret-change-me'
 const DEFAULT_TTL_SECONDS = 3600
+let devEphemeralSecret: string | null = null
+
+function getDevEphemeralSecret(): string {
+  if (!devEphemeralSecret) devEphemeralSecret = randomBytes(32).toString('hex')
+  return devEphemeralSecret
+}
 
 function getSecret(): string {
-  return process.env.VIDEO_SIGN_SECRET ?? DEFAULT_SECRET
+  const env = process.env.VIDEO_SIGN_SECRET
+  if (process.env.NODE_ENV === 'production') {
+    if (!env || env.length < 32 || env === 'ihui-video-sign-secret-change-me') {
+      throw new Error(
+        'VIDEO_SIGN_SECRET 未配置或强度不足(生产环境必须 ≥32 字符随机字符串),请在 .env 中配置后重启。',
+      )
+    }
+    return env
+  }
+  // 开发/测试环境:未配置时使用进程内临时密钥(仅限本地,重启后失效)
+  return env && env.length >= 32 ? env : getDevEphemeralSecret()
 }
 
 export function getDefaultTtlSeconds(): number {
