@@ -847,3 +847,171 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     opts.onError?.(message)
   }
 }
+
+// ==================== SSE 流式对话 ====================
+
+export interface StreamChatOptions {
+  model: string
+  messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
+  signal?: AbortSignal
+  onDelta: (delta: string) => void
+  onError?: (error: string) => void
+  onDone?: () => void
+  onReasoning?: (delta: string) => void
+  metadata?: { conversationId?: string; userId?: string; messageId?: string }
+  temperature?: number
+  topP?: number
+  topK?: number
+  maxTokens?: number
+  stop?: string[]
+}
+
+export function parseStreamLine(line: string): string | null {
+  if (!line || line.startsWith(':')) return null
+  let data = line
+  if (line.startsWith('data:')) {
+    data = line.slice(5).replace(/^\s/, '')
+  } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+    return null
+  }
+  if (data === '[DONE]') return null
+  // Vercel AI SDK data-stream protocol: `TYPE:JSON`（type 0 = 文本 token，其他类型目前忽略）
+  const proto = data.match(/^(\d+):(.*)$/s)
+  if (proto?.[1] !== undefined) {
+    if (proto[1] === '0') {
+      try {
+        const parsed = JSON.parse(proto[2]!)
+        if (typeof parsed === 'string') return parsed
+      } catch {
+        /* fallthrough */
+      }
+    }
+    return null
+  }
+  try {
+    const json = JSON.parse(data)
+    if (json?.type === 'error' && typeof json?.message === 'string') {
+      const e = new Error(json.message)
+      e.name = 'SSEError'
+      throw e
+    }
+    if (json?.error === true && typeof json?.error_message === 'string') {
+      const e = new Error(json.error_message)
+      e.name = 'SSEError'
+      throw e
+    }
+    if (json?.type === 'reasoning') return null
+    const choice = json?.choices?.[0]
+    const delta =
+      choice?.delta?.content ??
+      choice?.message?.content ??
+      json?.content ??
+      json?.delta ??
+      json?.text
+    return typeof delta === 'string' ? delta : null
+  } catch (e) {
+    if (e instanceof SyntaxError) return data
+    throw e
+  }
+}
+
+export function parseStreamLineReasoning(line: string): string | null {
+  if (!line || line.startsWith(':')) return null
+  let data = line
+  if (line.startsWith('data:')) {
+    data = line.slice(5).replace(/^\s/, '')
+  } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+    return null
+  }
+  if (data === '[DONE]') return null
+  try {
+    const json = JSON.parse(data)
+    if (json?.type === 'error' && typeof json?.message === 'string') {
+      const e = new Error(json.message)
+      e.name = 'SSEError'
+      throw e
+    }
+    if (json?.error === true && typeof json?.error_message === 'string') {
+      const e = new Error(json.error_message)
+      e.name = 'SSEError'
+      throw e
+    }
+    if (json?.type === 'reasoning' && typeof json?.content === 'string') return json.content
+    const choice = json?.choices?.[0]
+    const reasoning =
+      choice?.delta?.reasoning_content ?? choice?.message?.reasoning_content ?? json?.reasoning
+    return typeof reasoning === 'string' ? reasoning : null
+  } catch (e) {
+    if (e instanceof SyntaxError) return null
+    throw e
+  }
+}
+
+export async function streamChat(opts: StreamChatOptions): Promise<void> {
+  const token = tokenProvider.getToken()
+  const url = normalizeUrl('/ai/chat/stream')
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Accept: 'text/event-stream',
+  }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const body: Record<string, unknown> = { model: opts.model, messages: opts.messages }
+  if (opts.metadata) body.metadata = opts.metadata
+  if (opts.temperature !== undefined) body.temperature = opts.temperature
+  if (opts.topP !== undefined) body.topP = opts.topP
+  if (opts.topK !== undefined) body.topK = opts.topK
+  if (opts.maxTokens !== undefined) body.maxTokens = opts.maxTokens
+  if (opts.stop !== undefined) body.stop = opts.stop
+
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: opts.signal,
+    })
+    if (!resp.ok || !resp.body) {
+      const text = await resp.text().catch(() => '')
+      throw new Error(text || `请求失败（${resp.status}）`)
+    }
+
+    const reader = resp.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    const hasReasoning = typeof opts.onReasoning === 'function'
+
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      let nl: number
+      while ((nl = buffer.indexOf('\n')) !== -1) {
+        const line = buffer.slice(0, nl).replace(/\r$/, '')
+        buffer = buffer.slice(nl + 1)
+        const delta = parseStreamLine(line)
+        if (delta) opts.onDelta(delta)
+        if (hasReasoning) {
+          const r = parseStreamLineReasoning(line)
+          if (r) opts.onReasoning!(r)
+        }
+      }
+    }
+    if (buffer.trim()) {
+      const delta = parseStreamLine(buffer)
+      if (delta) opts.onDelta(delta)
+      if (hasReasoning) {
+        const r = parseStreamLineReasoning(buffer)
+        if (r) opts.onReasoning!(r)
+      }
+    }
+    opts.onDone?.()
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      opts.onDone?.()
+      return
+    }
+    const message = err instanceof Error ? err.message : '网络异常'
+    opts.onError?.(message)
+  }
+}
