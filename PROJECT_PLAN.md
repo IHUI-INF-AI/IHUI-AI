@@ -88,6 +88,69 @@
 
 ---
 
+### [x] ✅(2026-07-22) G1 认证安全加固:oauth-keys RSA/EC 真实密钥生成 + /rotate 事务(平台独占:仅 api,/goal 模式单轮完成)
+
+**触发**:全项目骨架审计发现 oauth-keys.ts P0-5(RSA/EC 私钥生成 `placeholder-${keyType}-${Date.now()}` 字符串入库,认证后门)+ P0-6(/rotate 旧密钥置 0 + 新密钥 insert 无事务,insert 失败导致签名链断)。
+
+**范围**:仅 `apps/api/src/routes/oauth-keys.ts`
+- P0-5:`placeholderKey` 函数 → `generateKeyPair`,用 `crypto.generateKeyPairSync` 生成真实 RSA(2048)/EC(P-256)密钥对(HMAC 保持现有 CSPRNG)
+- P0-6:`/rotate` 路由的 update + insert 包进 `db.transaction`
+
+**验证标准**:
+- `pnpm --filter @ihui/api typecheck` 退出码 0
+- Grep 验证 oauth-keys.ts 无 `placeholder-` 字符串
+- 密钥生成返回真实 PEM 格式(以 `-----BEGIN PRIVATE KEY-----` 开头,非 placeholder)
+
+**约束**:不改 oauthPrivateKeys 表结构;不改 API 契约;不改其他路由
+
+**完成证据**:
+- 修改文件:`apps/api/src/routes/oauth-keys.ts`(import 加 generateKeyPairSync + placeholderKey→generateKeyPair + /rotate 加 db.transaction)
+- typecheck:oauth-keys.ts 无错误(项目整体退出码 2 因其他 agent 代码:chat-models/clawdbot/exam 等,非本任务范围)
+- Grep:oauth-keys.ts `placeholder-` 0 匹配 ✅
+- 代码确认:RSA→PKCS#8 PEM / EC→PKCS#8 PEM / HMAC→CSPRNG 不变 / /rotate 行 112-122 tx.update+tx.insert 在 db.transaction 内
+
+---
+
+### [ ] G2 计费资金安全核心:wallet/finance 充值漏洞 + token_flows 幂等 + 事务(平台独占:仅 api+database,待启动)
+
+**触发**:审计发现 P0-1(/wallet/recharge 直接加余额无需支付)+ P0-2(/finance/margin/recharge outTradeNo 不验证)+ P0-4(token_flows 无幂等键)+ P0-9(wallet/fund 多表写入无事务)。
+
+**范围**:`apps/api/src/routes/{wallet,finance}.ts` + `packages/database/src/schema/wallet.ts` + `apps/api/src/db/commission-queries.ts`
+
+---
+
+### [ ] G3 LLM 扣费链路接通:ai-callback-worker 补 calculateCost→deductTokens→recordAiCost(平台独占:仅 api,待启动)
+
+**触发**:审计发现 P0-3(LLM 调用完全不扣费,ai-callback-worker 断链)。
+
+**范围**:`apps/api/src/workers/ai-callback-worker.ts` + `apps/api/src/services/token-balance-service.ts` + `apps/api/src/services/ai-cost-service.ts`
+
+---
+
+### [ ] G4 智能体编排异常处理:conversation 顶层 catch + SSE 断连检测 + sse_buffer 接入(平台独占:仅 ai-service,待启动)
+
+**触发**:审计发现 P0-7(conversation.chat 无顶层 try-catch + 不检查 LLM error)+ P0-8(SSE 4 端点无断连检测)+ P1-7(openai_provider 静默丢 token)+ P1-8(sse_buffer 死代码)。
+
+**范围**:`apps/ai-service/app/services/conversation.py` + `apps/ai-service/app/routers/{llm,agent_runtime}.py` + `apps/ai-service/app/providers/openai_provider.py` + `apps/ai-service/app/utils/sse_buffer.py`
+
+---
+
+### [ ] G5 数据库 FK 与审计字段补齐:agent_tasks FK + audit_logs SET NULL + updated_by(平台独占:仅 database,待启动)
+
+**触发**:审计发现 P0-10(agent_tasks.agentId/ruleId 缺 FK)+ audit_logs.userId ON DELETE CASCADE 丢审计 + 关键表缺 updated_by。
+
+**范围**:`packages/database/src/schema/{agent-tasks,audit,billing,agent-billings}.ts` + 新增 migration
+
+---
+
+### [ ] G6 jsonb 预留字段填充:ai_vendor_configs/certificate/oss/workflow 等(平台独占:仅 api+database,待启动)
+
+**触发**:审计发现 26 个 jsonb 字段 0 业务写入路径。
+
+**范围**:`packages/database/src/schema/*.ts` + `apps/api/src/routes/*.ts`(对应模块)
+
+---
+
 ### [x] ✅(2026-07-22) 多端流式 agentId 分流"最后一公里"接通(api token chunk 注入 + api-client onAgentDelta + chat store subAgentActivities + use-chat 分流 + UI 数据源接通)
 
 **触发**:上一轮交付报告 P0 建议"在 use-chat.ts 的 onDelta 回调中,识别带 agentId 的 chunk,按 agent 累加到 SubAgentActivity.streamingContent"。用户指示"继续按你的建议去做执行,要求完美细致完整毫无遗漏 直到没有任何后续建议可给到我为止"。
