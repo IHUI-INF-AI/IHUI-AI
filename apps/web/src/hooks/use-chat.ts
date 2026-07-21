@@ -205,6 +205,7 @@ export function useChat(): UseChatReturn {
 
       store.setStreaming(true)
       store.setError(null)
+      store.resetSubAgentActivities()
 
       const controller = new AbortController()
       abortRef.current = controller
@@ -268,6 +269,10 @@ export function useChat(): UseChatReturn {
             firstTokenReceived = true
             useChatStore.getState().appendToMessage(assistantId, delta)
           },
+          onAgentDelta: (_agentId, delta) => {
+            firstTokenReceived = true
+            useChatStore.getState().appendToAgentStream(_agentId, delta)
+          },
           onReasoning: (delta) => {
             useChatStore.getState().appendReasoningToMessage(assistantId, delta)
           },
@@ -316,6 +321,7 @@ export function useChat(): UseChatReturn {
         clearTimeout(timeoutId)
         abortRef.current = null
         useChatStore.getState().setStreaming(false)
+        useChatStore.getState().markAllAgentStreamsDone()
       }
     },
     [router, queryClient],
@@ -350,6 +356,7 @@ export function useChat(): UseChatReturn {
 
     store.setStreaming(true)
     store.setError(null)
+    store.resetSubAgentActivities()
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -379,6 +386,10 @@ export function useChat(): UseChatReturn {
         onDelta: (delta) => {
           firstTokenReceived = true
           useChatStore.getState().appendToMessage(assistantId, delta)
+        },
+        onAgentDelta: (agentId, delta) => {
+          firstTokenReceived = true
+          useChatStore.getState().appendToAgentStream(agentId, delta)
         },
         onReasoning: (delta) => {
           useChatStore.getState().appendReasoningToMessage(assistantId, delta)
@@ -426,6 +437,7 @@ export function useChat(): UseChatReturn {
       clearTimeout(timeoutId)
       abortRef.current = null
       useChatStore.getState().setStreaming(false)
+      useChatStore.getState().markAllAgentStreamsDone()
     }
   }, [])
 
