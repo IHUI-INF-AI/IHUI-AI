@@ -251,20 +251,67 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         })
 
                 if openai_tools:
-                    complete_result = await llm_gateway.complete(
-                        messages, model=req.model, owner_uuid=owner_uuid,
-                        tools=openai_tools, tool_choice="auto",
-                    )
-                    # complete() 错误检查
-                    if complete_result.get("error"):
-                        err_evt = {"type": "error", "message": complete_result.get("error_message", "LLM 调用失败")}
-                        yield f"event: error\ndata: {json.dumps(err_evt, ensure_ascii=False)}\n\n"
-                        return
+                    # ===== 多轮 tool loop(2026-07-22 升级,支持 AI 连续操作:截图→分析→点击→再截图)=====
+                    # 每轮:complete(tools) → 执行 tool_calls → 回灌结果
+                    # 直到 LLM 不再决策 tool_calls 或达到 max_iterations → 归一化 → astream 生成最终回复
+                    max_iterations = 3
+                    for _tool_iter in range(max_iterations):
+                        complete_result = await llm_gateway.complete(
+                            messages, model=req.model, owner_uuid=owner_uuid,
+                            tools=openai_tools, tool_choice="auto",
+                        )
+                        # complete() 错误检查
+                        if complete_result.get("error"):
+                            err_evt = {"type": "error", "message": complete_result.get("error_message", "LLM 调用失败")}
+                            yield f"event: error\ndata: {json.dumps(err_evt, ensure_ascii=False)}\n\n"
+                            return
 
-                    tool_calls_raw = complete_result.get("tool_calls") or []
+                        tool_calls_raw = complete_result.get("tool_calls") or []
 
-                    if tool_calls_raw:
-                        # 有 tool_calls:执行工具 + 回灌结果,然后继续走 astream
+                        # 无 tool_calls:LLM 不再需要工具
+                        if not tool_calls_raw:
+                            # 第 0 轮就无 tool_calls:LLM 直接回复了 content,推送后 return(不走 astream)
+                            if _tool_iter == 0:
+                                content = complete_result.get("content", "") or ""
+                                clean_text, questions = question_parser.feed(content)
+                                for q in questions:
+                                    q_event = {"type": "question", "question": q.to_dict()}
+                                    yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                                if clean_text:
+                                    chunk_event = {"type": "chunk", "content": clean_text}
+                                    accumulated["content"] += clean_text
+                                    yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                                leftover, leftover_qs = question_parser.flush()
+                                if leftover:
+                                    chunk_event = {"type": "chunk", "content": leftover}
+                                    accumulated["content"] += leftover
+                                    yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                                for q in leftover_qs:
+                                    q_event = {"type": "question", "question": q.to_dict()}
+                                    yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                                accumulated["model"] = complete_result.get("model", req.model)
+                                accumulated["usage"] = complete_result.get("usage", {})
+                                accumulated["stub"] = complete_result.get("stub", False)
+                                done_event = {
+                                    "type": "done",
+                                    "model": accumulated["model"],
+                                    "usage": accumulated["usage"],
+                                    "stub": accumulated["stub"],
+                                }
+                                if req.metadata:
+                                    done_event["metadata"] = req.metadata
+                                yield f"event: done\ndata: {json.dumps(done_event, ensure_ascii=False)}\n\n"
+                                has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
+                                if has_association and not accumulated.get("error") and not await request.is_disconnected():
+                                    url = req.callback_url or f"{settings.api_service_url}/api/ai/callback"
+                                    task = asyncio.create_task(_fire_callback(url, accumulated, req.metadata))
+                                    _pending_callbacks.add(task)
+                                    task.add_done_callback(_pending_callbacks.discard)
+                                return
+                            # _tool_iter > 0:已有 tool 结果在 messages 中,跳出循环走 astream
+                            break
+
+                        # 有 tool_calls:执行工具 + 回灌结果(下方的代码会继续处理)
                         messages.append({
                             "role": "assistant",
                             "content": complete_result.get("content", "") or "",
@@ -286,6 +333,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "toolCallId": tc.get("id", ""),
                                 "toolName": tool_name,
                                 "args": args,
+                                "iteration": _tool_iter + 1,
                             }
                             yield f"event: tool-call-start\ndata: {json.dumps(tc_start, ensure_ascii=False)}\n\n"
 
@@ -312,6 +360,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "args": args,
                                 "result": exec_result,
                                 "isError": not ok,
+                                "iteration": _tool_iter + 1,
                             }
                             yield f"event: tool-result\ndata: {json.dumps(tc_result_evt, ensure_ascii=False)}\n\n"
 
@@ -398,67 +447,31 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 task.add_done_callback(_pending_callbacks.discard)
                             return
 
-                        # 有成功的 tool:把 tool 角色消息转为 user 消息(避免被 astream 内部 repair_messages 过滤)
-                        normalized_msgs: list[dict[str, Any]] = []
-                        for m in messages:
-                            if m.get("role") == "tool":
-                                normalized_msgs.append({
-                                    "role": "user",
-                                    "content": f"[Tool Result: {m.get('name', 'unknown')}]\n{m.get('content', '')}",
-                                })
-                            elif m.get("role") == "assistant" and m.get("tool_calls"):
-                                content = m.get("content", "") or ""
-                                if not content:
-                                    tool_names = [tc.get("function", {}).get("name", "") for tc in m.get("tool_calls", [])]
-                                    content = f"[I called tools: {', '.join(tool_names)}]"
-                                normalized_msgs.append({
-                                    "role": "assistant",
-                                    "content": content,
-                                })
-                            else:
-                                normalized_msgs.append(m)
-                        messages[:] = normalized_msgs  # 切片赋值:修改原列表,避免创建本地变量
-                        # 继续走 astream(用归一化后的 messages,不带 tools)
-                    else:
-                        # 无 tool_calls:LLM 直接回复,推送 content + done,跳过 astream
-                        content = complete_result.get("content", "") or ""
-                        clean_text, questions = question_parser.feed(content)
-                        for q in questions:
-                            q_event = {"type": "question", "question": q.to_dict()}
-                            yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
-                        if clean_text:
-                            chunk_event = {"type": "chunk", "content": clean_text}
-                            accumulated["content"] += clean_text
-                            yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
-                        # flush question_parser 残留
-                        leftover, leftover_qs = question_parser.flush()
-                        if leftover:
-                            chunk_event = {"type": "chunk", "content": leftover}
-                            accumulated["content"] += leftover
-                            yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
-                        for q in leftover_qs:
-                            q_event = {"type": "question", "question": q.to_dict()}
-                            yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
-                        accumulated["model"] = complete_result.get("model", req.model)
-                        accumulated["usage"] = complete_result.get("usage", {})
-                        accumulated["stub"] = complete_result.get("stub", False)
-                        done_event = {
-                            "type": "done",
-                            "model": accumulated["model"],
-                            "usage": accumulated["usage"],
-                            "stub": accumulated["stub"],
-                        }
-                        if req.metadata:
-                            done_event["metadata"] = req.metadata
-                        yield f"event: done\ndata: {json.dumps(done_event, ensure_ascii=False)}\n\n"
-                        # 跳过 astream — 执行 callback 后 return
-                        has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
-                        if has_association and not accumulated.get("error") and not await request.is_disconnected():
-                            url = req.callback_url or f"{settings.api_service_url}/api/ai/callback"
-                            task = asyncio.create_task(_fire_callback(url, accumulated, req.metadata))
-                            _pending_callbacks.add(task)
-                            task.add_done_callback(_pending_callbacks.discard)
-                        return
+                        # 有成功的 tool:继续下一轮循环(下一轮 complete 会带 tools,让 LLM 决定是否需要更多操作)
+                        # 注意:不在这里归一化 messages,因为下一轮 complete() 需要原生 tool 角色
+
+                    # 循环结束(无 tool_calls 或达到 max_iterations)
+                    # 归一化 messages:把 tool 角色消息转为 user 消息(避免被 astream 内部 repair_messages 过滤)
+                    normalized_msgs: list[dict[str, Any]] = []
+                    for m in messages:
+                        if m.get("role") == "tool":
+                            normalized_msgs.append({
+                                "role": "user",
+                                "content": f"[Tool Result: {m.get('name', 'unknown')}]\n{m.get('content', '')}",
+                            })
+                        elif m.get("role") == "assistant" and m.get("tool_calls"):
+                            content = m.get("content", "") or ""
+                            if not content:
+                                tool_names = [tc.get("function", {}).get("name", "") for tc in m.get("tool_calls", [])]
+                                content = f"[I called tools: {', '.join(tool_names)}]"
+                            normalized_msgs.append({
+                                "role": "assistant",
+                                "content": content,
+                            })
+                        else:
+                            normalized_msgs.append(m)
+                    messages[:] = normalized_msgs  # 切片赋值:修改原列表,避免创建本地变量
+                    # 继续走 astream(用归一化后的 messages,不带 tools)
 
             async for event in llm_gateway.astream(messages, model=req.model, owner_uuid=owner_uuid):
                 if await request.is_disconnected():
