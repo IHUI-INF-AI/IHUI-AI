@@ -4,7 +4,8 @@ import { repairMessages } from '@ihui/types'
 import { compressContextIfNeeded, type ChatMessage } from '@ihui/context-compaction'
 import { config } from '../config/index.js'
 import { authenticate } from '../plugins/auth.js'
-import { error } from '../utils/response.js'
+import { error, success } from '../utils/response.js'
+import { createMessage, patchConversationMetadata } from '../db/chat-queries.js'
 
 const chatStreamSchema = z.object({
   messages: z
@@ -187,20 +188,31 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       }
     }
 
-    return streamToClient(request, reply, finalMessages, {
-      sessionId,
-      resolvedModel,
-      agentId,
-      materialContent,
-      workspacePath,
-      contextLimit,
-      metadata,
-    }, extraFirstEvents)
+    return streamToClient(
+      request,
+      reply,
+      finalMessages,
+      {
+        sessionId,
+        resolvedModel,
+        agentId,
+        materialContent,
+        workspacePath,
+        contextLimit,
+        metadata,
+      },
+      extraFirstEvents,
+    )
   })
 
   // POST /chat/answer — 用户回答 AI 主动提问,继续生成(不中断对话)
   // 前端收到 SSE question 事件 → 弹窗让用户选择/输入 → 提交答案到本接口
   // 后端把 answer 作为新 user 消息追加到 messages 末尾,然后调用 ai-service 继续流式生成
+  //
+  // P2 多端同步增强(2026-07-21):
+  // 1. 持久化 answer 到 chat_messages(role: user, metadata: { questionId, isAnswer: true })
+  // 2. 清除原 assistant 消息 metadata.pendingQuestion(标记已回答)
+  // 3. WS 广播 chat_question_answered 通知其他端关闭弹窗
   server.post('/chat/answer', async (request, reply) => {
     const parsed = chatAnswerSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -220,12 +232,63 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       answer,
     } = parsed.data
     const resolvedModel = model ?? modelId
+    const userId = metadata?.userId ?? request.userId
+    const conversationId = metadata?.conversationId
+
+    // P2 多端同步:持久化 answer + 清挂起 + WS 广播(fire-and-forget,不阻塞 SSE 流)
+    // 失败仅打日志,不影响续流(参考 persistMessageSafe 的容错策略)
+    if (conversationId && userId) {
+      void (async () => {
+        try {
+          // 1. 持久化 answer 为 user 消息(metadata 标记 questionId + isAnswer,便于后续查询关联)
+          const savedAnswer = await createMessage({
+            conversationId,
+            role: 'user',
+            content: answer,
+            metadata: { questionId, isAnswer: true },
+          })
+
+          // 2. 清除 conversation.metadata.pendingQuestion(对话级挂起状态,标记已回答)
+          //    用 merge 模式,不覆盖 conversation.metadata 的其他 key
+          await patchConversationMetadata(conversationId, userId, {
+            pendingQuestion: null,
+            answeredQuestionId: questionId,
+          })
+
+          // 3. WS 广播 chat_question_answered 通知其他端关闭弹窗
+          //    pushNotification 已支持 Redis Pub/Sub 多实例,所有端都会收到
+          try {
+            const push = (
+              server as unknown as {
+                pushNotification?: (userId: string, payload: unknown) => void
+              }
+            ).pushNotification
+            // 3a. 推送 chat_message 让其他端看到用户回答(与 POST /conversations/:id/messages 同模式)
+            push?.(userId, {
+              type: 'chat_message',
+              conversationId,
+              message: savedAnswer,
+            })
+            // 3b. 推送 chat_question_answered 让其他端关闭弹窗
+            push?.(userId, {
+              type: 'chat_question_answered',
+              conversationId,
+              questionId,
+            })
+          } catch {
+            /* 推送失败不阻塞 */
+          }
+        } catch (e) {
+          request.log.error(
+            { err: e, questionId, conversationId },
+            'chat/answer persistence failed',
+          )
+        }
+      })()
+    }
 
     // 把用户答案作为新 user 消息追加到 messages 末尾(在 repair 之前,让 repair 统一处理)
-    const messagesWithAnswer = [
-      ...rawMessages,
-      { role: 'user' as const, content: answer },
-    ]
+    const messagesWithAnswer = [...rawMessages, { role: 'user' as const, content: answer }]
 
     const { repaired: messages, removed: repairRemoved } = repairMessages(messagesWithAnswer)
 
@@ -255,14 +318,78 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       }
     }
 
-    return streamToClient(request, reply, finalMessages, {
-      sessionId,
-      resolvedModel,
-      agentId,
-      materialContent,
-      workspacePath,
-      contextLimit,
-      metadata,
-    }, extraFirstEvents)
+    return streamToClient(
+      request,
+      reply,
+      finalMessages,
+      {
+        sessionId,
+        resolvedModel,
+        agentId,
+        materialContent,
+        workspacePath,
+        contextLimit,
+        metadata,
+      },
+      extraFirstEvents,
+    )
+  })
+
+  // POST /chat/questions — 持久化 AI 主动提问挂起状态 + WS 广播到多端
+  // 前端收到 SSE question 事件时主动调用本端点,把挂起状态写入 chat_conversations.metadata.pendingQuestion
+  // 其他端通过 WS ai_question 事件收到后 setPendingQuestion 弹窗,实现多端同步
+  //
+  // 设计权衡(2026-07-21):
+  // - 不改 ai-service _fire_callback 链路(避免侵入式修改 Python 端 + ai-callback worker)
+  // - 前端是 SSE question 事件的唯一消费者,由前端主动持久化是单一来源
+  // - 用 conversation.metadata 而非 message.metadata,因为前端 onQuestion 时 assistantMessageId
+  //   是前端 UUID(占位),DB id 要等 ai-callback 完成后才落地,无法立即持久化到 message.metadata
+  // - 缺点:用户 A 关闭浏览器前未调本端点 → 挂起状态不持久化(罕见场景,可接受)
+  // - 优点:架构简单,不改 ai-service + ai-callback 链路,工作量最小
+  const questionSchema = z.object({
+    conversationId: z.string().min(1),
+    questionId: z.string().min(1),
+    prompt: z.string().min(1),
+    options: z.array(z.object({ id: z.string(), label: z.string() })).default([]),
+    allowCustom: z.boolean().default(false),
+    allowMultiple: z.boolean().default(false),
+  })
+
+  server.post('/chat/questions', async (request, reply) => {
+    const parsed = questionSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { conversationId, questionId, prompt, options, allowCustom, allowMultiple } = parsed.data
+    const userId = request.userId
+    if (!userId) {
+      return reply.status(401).send(error(401, '未登录'))
+    }
+
+    // 1. 把 pendingQuestion 写入 conversation.metadata(merge 模式,不覆盖其他 key)
+    //    若对话不存在或不属于该用户 → 返回 404(前端降级为仅本地弹窗,不影响主流程)
+    const updated = await patchConversationMetadata(conversationId, userId, {
+      pendingQuestion: { questionId, prompt, options, allowCustom, allowMultiple },
+    })
+    if (!updated) {
+      return reply.status(404).send(error(404, '对话不存在或无权限'))
+    }
+
+    // 2. WS 广播 ai_question 通知其他端弹窗(pushNotification 支持 Redis Pub/Sub 多实例)
+    try {
+      ;(
+        server as unknown as {
+          pushNotification?: (userId: string, payload: unknown) => void
+        }
+      ).pushNotification?.(userId, {
+        type: 'ai_question',
+        conversationId,
+        question: { questionId, prompt, options, allowCustom, allowMultiple },
+      })
+    } catch {
+      /* 推送失败不阻塞 */
+    }
+
+    return reply.send(success({ ok: true, persisted: true }))
   })
 }
