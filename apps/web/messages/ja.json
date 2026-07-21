@@ -2701,6 +2701,54 @@
           "actions": "操作"
         },
         "download": "バックアップをダウンロード"
+      },
+      "certificates": {
+        "title": "証明書ステータス",
+        "subtitle": "Traefik acme.json をスキャンし、すべてのテナント証明書の残存有効期間を表示",
+        "refresh": "更新",
+        "back": "テナント一覧へ戻る",
+        "empty": "証明書レコードがありません",
+        "acmeMissing": "acme.json が見つかりません:{path}。Traefik データボリュームが管理ノードにマウントされているか確認してください。",
+        "generatedAt": "スキャン日時:{time}",
+        "stats": {
+          "total": "証明書総数",
+          "healthy": "正常",
+          "warning": "まもなく期限切れ",
+          "critical": "緊急",
+          "expired": "期限切れ"
+        },
+        "status": {
+          "healthy": "正常",
+          "warning": "まもなく期限切れ",
+          "critical": "緊急",
+          "expired": "期限切れ"
+        },
+        "source": {
+          "letsencrypt": "Let's Encrypt",
+          "selfSigned": "自己署名",
+          "custom": "カスタム"
+        },
+        "issuer": "発行者",
+        "subject": "主体",
+        "notBefore": "有効開始",
+        "notAfter": "有効終了",
+        "daysUntilExpiry": "残存日数",
+        "fingerprint": "フィンガープリント",
+        "sans": "SAN:{sans}",
+        "days": {
+          "remaining": "{days} 日",
+          "today": "本日期限切れ",
+          "expired": "{days} 日前期限切れ"
+        }
+      },
+      "quota": {
+        "title": "リソースクォータ",
+        "placeholder": "プレースホルダー",
+        "unavailable": "クォータデータを取得できません",
+        "apiCalls": "API 呼び出し",
+        "aiTokens": "AI トークン",
+        "storage": "ストレージ",
+        "unlimited": "無制限"
       }
     },
     "users": {
