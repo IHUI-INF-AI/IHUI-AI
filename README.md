@@ -243,7 +243,7 @@
 | **数据库**           | **338+ 表 + 120+ 迁移** + 100 schema 文件 + Drizzle ORM + RLS + 租户路由                     | 单库 PostgreSQL 15,schema 隔离  |
 | **API 规模**         | ~1135 端点(api 1080 + ai-service 55)+ 12 WebSocket + 95+ 路由文件                            | 远超源项目 331 端点             |
 | **业务覆盖**         | 15 大模块 / 50+ 子功能 / **200+ Web 页面**                                                   | 一个平台覆盖所有 AI 应用场景    |
-| **共享包**           | 13 packages(auth/database/types/ui/i18n/sdk/api-client/context-compaction 等)                | 跨端类型安全 + 复用             |
+| **共享包**           | 12 packages(auth/database/types/ui/sdk/api-client/context-compaction 等)                      | 跨端类型安全 + 复用             |
 | **性能保障**         | Knip 未使用代码 + Lighthouse CI + Locust 压测                                                | 性能预算 + 容量预估             |
 | **部署成熟度**       | Docker Compose(14 服务)+ 蓝绿 + Nginx upstream + 证书续期 cron                               | 生产级运维                      |
 
@@ -434,7 +434,6 @@ IHUI-AI/
 │   ├── context-compaction/  # @ihui/context-compaction (上下文压缩)
 │   ├── database/            # @ihui/database (Drizzle, 338+ 表, 120+ 迁移, RLS, 租户路由)
 │   ├── eslint-config/       # @ihui/eslint-config
-│   ├── i18n/                # @ihui/i18n (5 语言 + brand-glossary)
 │   ├── sdk/                 # @ihui/sdk (自动生成)
 │   ├── tsconfig/            # @ihui/tsconfig
 │   ├── types/               # @ihui/types

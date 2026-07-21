@@ -243,7 +243,7 @@
 | **데이터베이스**            | **338+ 테이블 + 120+ 마이그레이션** + 100 schema 파일 + Drizzle ORM + RLS + 테넌트 라우팅       | 단일 DB PostgreSQL 15, schema 격리                 |
 | **API 규모**                | ~1135 엔드포인트(api 1080 + ai-service 55) + 12 WebSocket + 95+ 라우트 파일                     | 원본 프로젝트 331 엔드포인트 대비 대폭 확장        |
 | **비즈니스 커버리지**       | 15대 모듈 / 50+ 서브 기능 / **200+ Web 페이지**                                                 | 하나의 플랫폼이 모든 AI 애플리케이션 시나리오 커버 |
-| **공유 패키지**             | 13 packages(auth/database/types/ui/i18n/sdk/api-client/context-compaction 등)                   | 크로스 플랫폼 타입 안전 + 재사용                   |
+| **공유 패키지**             | 12 packages(auth/database/types/ui/sdk/api-client/context-compaction 등)                        | 크로스 플랫폼 타입 안전 + 재사용                   |
 | **성능 보장**               | Knip 미사용 코드 + Lighthouse CI + Locust 부하 테스트                                           | 성능 예산 + 용량 추정                              |
 | **배포 성숙도**             | Docker Compose(14 서비스) + 블루그린 + Nginx upstream + 인증서 갱신 cron                        | 프로덕션급 운영                                    |
 
@@ -434,7 +434,6 @@ IHUI-AI/
 │   ├── context-compaction/  # @ihui/context-compaction (컨텍스트 압축)
 │   ├── database/            # @ihui/database (Drizzle, 338+ 테이블, 120+ 마이그레이션, RLS, 테넌트 라우팅)
 │   ├── eslint-config/       # @ihui/eslint-config
-│   ├── i18n/                # @ihui/i18n (5개 언어 + brand-glossary)
 │   ├── sdk/                 # @ihui/sdk (자동 생성)
 │   ├── tsconfig/            # @ihui/tsconfig
 │   ├── types/               # @ihui/types
