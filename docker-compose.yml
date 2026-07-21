@@ -176,9 +176,9 @@ services:
       retries: 3
       start_period: 20s
 
-  # PostgreSQL 数据库
+  # PostgreSQL 数据库(启用 pgvector 扩展,支撑 RAG 知识库语义检索)
   db:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15-alpine
     container_name: ihui-db
     restart: unless-stopped
     environment:
