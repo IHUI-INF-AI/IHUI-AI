@@ -89,6 +89,8 @@ import {
   UserPlus,
   ClipboardList,
   Circle as CircleIcon,
+  Network,
+  Database,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
@@ -387,6 +389,8 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/asks', labelKey: 'asks', icon: MessageSquare },
       { href: '/circles', labelKey: 'circles', icon: Users },
       { href: '/knowledge-base', labelKey: 'knowledgeBase', icon: BookOpen },
+      { href: '/knowledge-rag', labelKey: 'knowledgeRag', icon: Database },
+      { href: '/knowledge-graph', labelKey: 'knowledgeGraph', icon: Network },
       { href: '/resources', labelKey: 'resources', icon: Package },
       { href: '/news', labelKey: 'news', icon: Newspaper },
       { href: '/announcements', labelKey: 'announcements', icon: Megaphone },
