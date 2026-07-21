@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { ArrowLeft, Star, Loader2, MessageSquare } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -33,6 +34,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export default function CourseRatePage() {
+  const t = useTranslations('learnRatePage')
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const qc = useQueryClient()
@@ -71,7 +73,7 @@ export default function CourseRatePage() {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
 
@@ -84,10 +86,10 @@ export default function CourseRatePage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回课程
+          {t('backToCourse')}
         </button>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {(error as Error)?.message ?? '加载失败'}
+          {(error as Error)?.message ?? t('loadFailed')}
         </div>
       </div>
     )
@@ -99,23 +101,23 @@ export default function CourseRatePage() {
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回课程
+        {t('backToCourse')}
       </Link>
 
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <Star className="h-6 w-6 text-primary" />
-        课程评价
+        {t('title')}
       </h1>
 
       {/* 评价表单 */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">我要评价</CardTitle>
+          <CardTitle className="text-lg">{t('formTitle')}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-2">
-              <span className="text-sm font-medium">评分</span>
+              <span className="text-sm font-medium">{t('rating')}</span>
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button
@@ -125,7 +127,7 @@ export default function CourseRatePage() {
                     onMouseEnter={() => setHoverRating(n)}
                     onMouseLeave={() => setHoverRating(0)}
                     className="p-1"
-                    aria-label={`${n}星`}
+                    aria-label={t('starAriaLabel', { n })}
                   >
                     <Star
                       className={`h-6 w-6 transition-colors ${
@@ -136,18 +138,20 @@ export default function CourseRatePage() {
                     />
                   </button>
                 ))}
-                <span className="ml-2 text-sm text-muted-foreground">{rating} / 5</span>
+                <span className="ml-2 text-sm text-muted-foreground">
+                  {t('ratingValue', { rating })}
+                </span>
               </div>
             </div>
             <div className="space-y-2">
               <label htmlFor="rate-content" className="text-sm font-medium">
-                评价内容
+                {t('contentLabel')}
               </label>
               <textarea
                 id="rate-content"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="请输入您对本课程的评价..."
+                placeholder={t('contentPlaceholder')}
                 rows={4}
                 className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               />
@@ -157,7 +161,7 @@ export default function CourseRatePage() {
             )}
             <Button type="submit" disabled={submitMut.isPending || !content.trim()}>
               {submitMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              提交评价
+              {t('submit')}
             </Button>
           </form>
         </CardContent>
@@ -165,16 +169,16 @@ export default function CourseRatePage() {
 
       {/* 评价列表 */}
       <div className="space-y-3">
-        <h2 className="text-lg font-semibold">全部评价 ({list.length})</h2>
+        <h2 className="text-lg font-semibold">{t('allRates', { n: list.length })}</h2>
         {list.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
             <MessageSquare className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">暂无评价，快来发表第一条评价吧</p>
+            <p className="text-sm text-muted-foreground">{t('noRates')}</p>
           </div>
         ) : (
           <div className="space-y-3">
             {list.map((item) => {
-              const name = item.user?.nickname ?? item.userName ?? '匿名用户'
+              const name = item.user?.nickname ?? item.userName ?? t('anonymous')
               const avatar = item.user?.avatar ?? item.userAvatar
               const time = formatDate(item.createdAt ?? item.createTime ?? '')
               return (

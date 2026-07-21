@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Crown, Coins, Ticket, ShoppingBag, Loader2, ArrowRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -36,6 +36,7 @@ async function api<T>(url: string): Promise<T> {
 }
 
 export default function MemberDashboardPage() {
+  const t = useTranslations('memberDashboardPage')
   const locale = useLocale()
   const summaryQ = useQuery({
     queryKey: ['member', 'summary'],
@@ -61,28 +62,28 @@ export default function MemberDashboardPage() {
 
   const stats = [
     {
-      label: '会员等级',
-      value: summary.levelName ?? '普通会员',
+      labelKey: 'level' as const,
+      value: summary.levelName ?? t('defaultLevel'),
       icon: Crown,
       href: '/member/benefits',
       cls: 'text-amber-600 dark:text-amber-400',
     },
     {
-      label: '可用积分',
+      labelKey: 'points' as const,
       value: summary.points ?? 0,
       icon: Coins,
       href: '/member/points',
       cls: 'text-emerald-600 dark:text-emerald-400',
     },
     {
-      label: '优惠券',
+      labelKey: 'coupon' as const,
       value: summary.couponCount ?? 0,
       icon: Ticket,
       href: '/member/coupons',
       cls: 'text-primary',
     },
     {
-      label: '订单总数',
+      labelKey: 'orders' as const,
       value: summary.orderCount ?? 0,
       icon: ShoppingBag,
       href: '/member/orders',
@@ -93,10 +94,8 @@ export default function MemberDashboardPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold tracking-tight">会员中心</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          一站式管理你的会员权益、订单、积分与优惠
-        </p>
+        <h1 className="text-xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('description')}</p>
       </div>
 
       {summaryQ.error && <Alert variant="danger" description={(summaryQ.error as Error).message} />}
@@ -106,7 +105,7 @@ export default function MemberDashboardPage() {
           const Icon = s.icon
           return (
             <Link
-              key={s.label}
+              key={s.labelKey}
               href={s.href}
               className="group rounded-lg border bg-card p-3 transition-colors hover:bg-accent"
             >
@@ -115,7 +114,7 @@ export default function MemberDashboardPage() {
                 <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
               </div>
               <p className="mt-2 truncate text-lg font-semibold">{s.value}</p>
-              <p className="text-xs text-muted-foreground">{s.label}</p>
+              <p className="text-xs text-muted-foreground">{t(`stats.${s.labelKey}`)}</p>
             </Link>
           )
         })}
@@ -125,7 +124,7 @@ export default function MemberDashboardPage() {
         <Card className="border-amber-500/30 bg-amber-50/40 dark:bg-amber-950/10">
           <CardContent className="flex items-center justify-between p-3 text-sm">
             <span className="text-muted-foreground">
-              会员有效期至:{' '}
+              {t('expireAt')}{' '}
               <span className="font-medium text-foreground">
                 {dateFmt.format(new Date(summary.expireAt))}
               </span>
@@ -134,7 +133,7 @@ export default function MemberDashboardPage() {
               href="/member/upgrade"
               className="text-amber-600 hover:underline dark:text-amber-400"
             >
-              立即续费
+              {t('renew')}
             </Link>
           </CardContent>
         </Card>
@@ -143,22 +142,22 @@ export default function MemberDashboardPage() {
       <Card>
         <CardContent className="p-0">
           <div className="flex items-center justify-between border-b px-4 py-2.5">
-            <h2 className="text-sm font-semibold">最近订单</h2>
+            <h2 className="text-sm font-semibold">{t('recentOrders')}</h2>
             <Link
               href="/member/orders"
               className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground"
             >
-              查看全部
+              {t('viewAll')}
               <ArrowRight className="ml-0.5 h-3 w-3" />
             </Link>
           </div>
           {ordersQ.isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              加载中...
+              {t('loading')}
             </div>
           ) : orders.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">暂无订单记录</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
           ) : (
             <ul className="divide-y">
               {orders.map((o) => (
