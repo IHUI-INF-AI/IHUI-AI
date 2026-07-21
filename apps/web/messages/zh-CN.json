@@ -537,7 +537,13 @@
       "community": "社区圈子",
       "resource": "资源中心",
       "developer": "开发者中心"
-    }
+    },
+    "adminGroupLabel": "管理",
+    "eduGroup": "AI教育",
+    "contentGroup": "内容",
+    "tradeGroup": "交易",
+    "personalGroup": "个人",
+    "developerGroup": "开发者"
   },
   "auth": {
     "loginTitle": "欢迎回来",
@@ -1143,7 +1149,8 @@
       "noTarget": "未选择",
       "itemCount": "{count, plural, =0 {无文件夹} =1 {1 个文件夹} other {{count} 个文件夹}}",
       "itemCountFiltered": "显示 {filtered} / {total} 个",
-      "shortcutsHint": "↑↓ 浏览 · Enter 打开/进入 · Backspace 返回上级"
+      "shortcutsHint": "↑↓ 浏览 · Enter 打开/进入 · Backspace 返回上级",
+      "rowOpenHint": "打开"
     },
     "permission": {
       "title": "工作区访问权限",
@@ -1791,7 +1798,18 @@
       "stripe": "Stripe",
       "usdc": "USDC",
       "payNow": "立即支付",
-      "processing": "处理中..."
+      "processing": "处理中...",
+      "paySuccess": "支付成功",
+      "payIncomplete": "支付未完成",
+      "payTimeout": "支付超时,请重试",
+      "orderClosed": "订单已关闭",
+      "payConfigNotReady": "支付配置未就绪",
+      "contactAdmin": "请联系管理员",
+      "methodNotSupported": "支付方式不支持",
+      "wechatScanTitle": "微信扫码支付",
+      "wechatScanDesc": "请使用微信扫描下方二维码,支付完成后自动跳转",
+      "wechatQrAlt": "微信支付二维码",
+      "loading": "加载中..."
     }
   },
   "admin": {
@@ -9649,7 +9667,15 @@
       "noTemplate": "该厂商暂无预置模板,请到「设置 → LLM 配置」手动添加",
       "securityHint": "API Key 使用 AES-256-GCM 加密存储,仅本账号可见,不会明文落库或传输到第三方。",
       "fullConfigHint": "如需修改上下文长度 / 备注 / 自定义 Base URL,请前往",
-      "openFullConfig": "完整配置页 →"
+      "openFullConfig": "完整配置页 →",
+      "errSelectPlatform": "请选择平台",
+      "errApiKeyRequired": "请填写 API Key",
+      "errModelIdRequired": "请填写模型 ID",
+      "errNoTemplate": "该厂商无预置模板",
+      "defaultConfigName": "我的配置",
+      "official": "官方",
+      "cancel": "取消",
+      "testDuration": "耗时 {ms}ms"
     },
     "providers": {
       "openai": "OpenAI",
@@ -9880,7 +9906,11 @@
       "resetFilters": "重置筛选",
       "configureKey": "配置 API Key",
       "updateKey": "更新 Key",
-      "configureKeyHint": "该模型需要先配置 API Key 才能使用,点此一键配置。"
+      "configureKeyHint": "该模型需要先配置 API Key 才能使用,点此一键配置。",
+      "ariaLabel": {
+        "addFavorite": "收藏模型",
+        "removeFavorite": "取消收藏"
+      }
     },
     "aiNews": {
       "title": "2026-07 AI 资讯",
@@ -13830,26 +13860,66 @@
     "downloadToView": "下载查看"
   },
   "commandPalette": {
-    "placeholder": "输入命令搜索...",
-    "escToAbort": "按 ESC 关闭",
-    "enter": "回车",
-    "navigate": "导航",
-    "execute": "执行",
-    "systemReady": "系统就绪",
-    "cpuOptimized": "性能优化",
+    "searchPlaceholder": "搜索命令...",
     "noResults": "未找到匹配的命令",
-    "systemInternal": "系统内部",
+    "keyboardHint": "↑↓ 选择 · Enter 执行",
+    "resultCount": "{count} 个结果",
     "commands": {
-      "home": "返回首页",
-      "store": "AI应用商店",
-      "plaza": "需求广场",
-      "learnAI": "学习AI",
-      "community": "AI创作社区",
-      "docs": "技术文档",
-      "about": "关于我们",
-      "darkMode": "切换暗色模式",
-      "aiAssistant": "打开AI助手",
-      "backToTop": "返回顶部"
+      "chat": {
+        "label": "AI 对话",
+        "description": "开始新的 AI 对话",
+        "keywords": [
+          "AI",
+          "对话",
+          "聊天",
+          "chat"
+        ]
+      },
+      "drama": {
+        "label": "AI 短剧",
+        "description": "创作 AI 短剧内容",
+        "keywords": [
+          "短剧",
+          "视频",
+          "drama"
+        ]
+      },
+      "search": {
+        "label": "搜索",
+        "description": "搜索内容、用户、标签",
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ]
+      },
+      "ai-world": {
+        "label": "AI 世界",
+        "description": "探索 AI 世界",
+        "keywords": [
+          "AI世界",
+          "探索",
+          "world"
+        ]
+      },
+      "profile": {
+        "label": "个人中心",
+        "description": "查看个人主页",
+        "keywords": [
+          "个人",
+          "主页",
+          "profile"
+        ]
+      },
+      "settings": {
+        "label": "设置",
+        "description": "修改应用偏好设置",
+        "keywords": [
+          "设置",
+          "偏好",
+          "settings"
+        ]
+      }
     }
   },
   "routes": {
@@ -26758,5 +26828,253 @@
     "yuan": "元",
     "minSpend": "满 {amount} 可用",
     "validUntil": "有效期至:{date}"
+  },
+  "answerArea": {
+    "thinking": {
+      "title": "思考过程",
+      "collapse": "收起",
+      "expand": "展开"
+    },
+    "image": {
+      "alt": "图片 {index}",
+      "previewAlt": "图片 {index} 预览",
+      "close": "关闭",
+      "prev": "上一张",
+      "next": "下一张"
+    },
+    "audio": {
+      "playFailed": "音频播放失败",
+      "pause": "暂停",
+      "play": "播放"
+    }
+  },
+  "agentRuntimePanel": {
+    "title": "Agent 执行",
+    "clear": "清空",
+    "plan": "执行计划",
+    "permissionDecision": "权限决策：{decision}",
+    "permissionMeta": "工具：{tool} · 等级：{level} · 模式：{mode}",
+    "unknownTool": "未知",
+    "defaultLevel": "读取",
+    "output": "输出",
+    "error": "错误",
+    "cancelledTitle": "任务已取消",
+    "cancelledBody": "已停止当前执行。如需继续，请修改输入后再次执行。",
+    "emptyState": "输入任务，开始 Agent 执行",
+    "placeholder": "输入任务...",
+    "stop": "停止",
+    "execute": "执行"
+  },
+  "musicGenerator": {
+    "title": "音乐生成",
+    "generate": "生成音乐",
+    "genreLabel": "风格",
+    "durationLabel": "时长",
+    "download": "下载",
+    "placeholder": "描述要生成的音乐...",
+    "genre": {
+      "pop": "流行",
+      "classical": "古典",
+      "electronic": "电子",
+      "jazz": "爵士",
+      "rock": "摇滚"
+    },
+    "duration": {
+      "15": "15 秒",
+      "30": "30 秒",
+      "60": "60 秒"
+    }
+  },
+  "cronEditor": {
+    "title": "Cron 表达式编辑器",
+    "everyField": "每{field}",
+    "stepPrefix": "每",
+    "specificPlaceholder": "{min}-{max}, 逗号分隔",
+    "recentRuns": "最近 5 次执行",
+    "field": {
+      "minute": "分钟",
+      "hour": "小时",
+      "day": "日",
+      "month": "月",
+      "weekday": "周"
+    },
+    "mode": {
+      "every": "每",
+      "step": "步长",
+      "range": "范围",
+      "specific": "指定"
+    }
+  },
+  "videoGenerator": {
+    "title": "视频生成",
+    "generate": "生成视频",
+    "providerLabel": "服务商",
+    "durationLabel": "时长",
+    "download": "下载",
+    "placeholder": "描述要生成的视频...",
+    "provider": {
+      "qwen": "通义千问",
+      "kling": "可灵",
+      "one-click": "一键生成"
+    },
+    "duration": {
+      "5": "5 秒",
+      "10": "10 秒",
+      "30": "30 秒"
+    }
+  },
+  "ticketDetailDialog": {
+    "statusPrefix": "状态：",
+    "priorityPrefix": "优先级：",
+    "descriptionLabel": "问题描述",
+    "commentsLabel": "沟通记录",
+    "noComments": "暂无回复",
+    "adminRole": "客服",
+    "userRole": "我",
+    "replyLabel": "补充回复",
+    "replyPlaceholder": "输入补充内容...",
+    "send": "发送",
+    "myRating": "我的评价",
+    "serviceRating": "服务评价",
+    "ratingCommentPlaceholder": "评价备注（可选）",
+    "submitRating": "提交评价",
+    "status": {
+      "pending": "待处理",
+      "open": "处理中",
+      "resolved": "已解决",
+      "closed": "已关闭",
+      "rejected": "已驳回"
+    },
+    "priority": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "urgent": "紧急"
+    }
+  },
+  "memberSubscriptionPage": {
+    "title": "订阅管理",
+    "subtitle": "管理当前订阅，续费或取消",
+    "loading": "加载中...",
+    "noSubscription": "你还没有订阅任何会员计划",
+    "subscribeNow": "立即订阅",
+    "subscriptionAmount": "订阅金额",
+    "autoRenew": "自动续费",
+    "autoRenewOn": "已开启",
+    "autoRenewOff": "未开启",
+    "renewNow": "立即续费",
+    "cancelSubscription": "取消订阅",
+    "status": {
+      "active": "生效中",
+      "cancelled": "已取消",
+      "expired": "已过期"
+    }
+  },
+  "resourcesEditPage": {
+    "loading": "加载中...",
+    "backToList": "返回资源列表",
+    "editTitle": "编辑资源",
+    "createTitle": "发布资源",
+    "errTitleRequired": "请输入标题",
+    "errTypeRequired": "请选择资源类型",
+    "errProductIdRequired": "请输入产品 ID",
+    "errIntroductionRequired": "请输入资源简介",
+    "errCategoryRequired": "请至少选择一个分类"
+  },
+  "toolsPdfSplitPage": {
+    "title": "PDF 拆分",
+    "description": "将一个 PDF 按页码范围、固定页数或书签拆分为多个文件",
+    "uploadLabel": "点击或拖拽一个 PDF 文件到此处上传",
+    "removeFile": "移除",
+    "modeLabel": "拆分模式",
+    "mode": {
+      "range": "按页码范围",
+      "every": "每 N 页一份",
+      "bookmarks": "按书签"
+    },
+    "rangesLabel": "页码范围（用逗号分隔，例如 1-3,5,7-10）",
+    "everyLabel": "每份页数",
+    "bookmarksHint": "将按 PDF 内置书签（一级）自动拆分为多个文件。",
+    "submit": "拆分",
+    "submitting": "拆分中...",
+    "resultHint": "拆分完成，结果已打包为 ZIP："
+  },
+  "supportNewTicketForm": {
+    "errTitleMin": "标题至少 2 个字符",
+    "errDescMin": "描述至少 10 个字符",
+    "titleLabel": "标题",
+    "titlePlaceholder": "简述您的问题",
+    "categoryLabel": "分类",
+    "categoryPlaceholder": "选择分类",
+    "priorityLabel": "优先级",
+    "priority": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "urgent": "紧急"
+    },
+    "descLabel": "问题描述",
+    "descPlaceholder": "请详细描述您遇到的问题（至少 10 个字符）",
+    "cancel": "取消",
+    "submit": "提交工单"
+  },
+  "h5SharePage": {
+    "loading": "加载中...",
+    "errorDefault": "分享链接无效或已失效",
+    "retry": "重试",
+    "copyFail": "复制失败,请手动复制",
+    "shareTitleWithUser": "{user} 的分享",
+    "shareTitleDefault": "智汇AI 分享",
+    "wechatShareTip": "请点击右上角···选择\"分享给朋友\"或复制链接发送",
+    "questionLabel": "问题",
+    "thinkingLabel": "思考过程",
+    "answerLabel": "回答",
+    "imageAlt": "图片 {n}",
+    "contentAlt": "内容 {n}",
+    "copied": "已复制",
+    "copyLink": "复制链接",
+    "wechatShare": "微信分享"
+  },
+  "contactPage": {
+    "badge": "联系我们",
+    "title": "与我们取得联系",
+    "subtitle": "商务合作、课程咨询、企业服务定制,欢迎随时联系我们。我们的团队会在 24 小时内回复。",
+    "loading": "加载中...",
+    "addressTitle": "公司地址",
+    "merchantIdLabel": "微信支付商户号",
+    "ctaTitle": "立即加入智汇 AI 社区",
+    "ctaSubtitle": "早鸟价 ¥6000/人/年,限 18 席。一对一 AI 顾问咨询,不满意全额退款。",
+    "ctaJoin": "立即加入",
+    "ctaLearnMore": "了解更多"
+  },
+  "kbArticleForm": {
+    "articleInfo": "文章信息",
+    "titleLabel": "标题",
+    "titlePlaceholder": "输入文章标题",
+    "summaryLabel": "摘要",
+    "summaryPlaceholder": "一句话描述文章内容",
+    "categoryLabel": "分类",
+    "categoryPlaceholder": "选择分类",
+    "tagsLabel": "标签",
+    "contentLabel": "正文(Markdown)",
+    "contentPlaceholder": "支持 Markdown 语法...",
+    "cancel": "取消",
+    "publish": "发布"
+  },
+  "securityAuditPage": {
+    "title": "安全审计",
+    "subtitle": "查看账户安全相关事件（已脱敏）",
+    "loading": "加载中...",
+    "empty": "暂无安全事件",
+    "colType": "类型",
+    "colDesc": "描述",
+    "colIp": "IP",
+    "colTime": "时间",
+    "type": {
+      "login": "登录记录",
+      "permission": "权限变更",
+      "sensitive": "敏感操作",
+      "other": "其他"
+    }
   }
 }

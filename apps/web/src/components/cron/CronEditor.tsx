@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Clock } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '@ihui/ui'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { getNextRuns, describeCron } from './cron-parser'
 
@@ -11,7 +12,6 @@ type FieldKey = 'minute' | 'hour' | 'day' | 'month' | 'weekday'
 
 interface FieldConfig {
   key: FieldKey
-  label: string
   min: number
   max: number
 }
@@ -24,19 +24,13 @@ interface FieldState {
 }
 
 const FIELDS: FieldConfig[] = [
-  { key: 'minute', label: '分钟', min: 0, max: 59 },
-  { key: 'hour', label: '小时', min: 0, max: 23 },
-  { key: 'day', label: '日', min: 1, max: 31 },
-  { key: 'month', label: '月', min: 1, max: 12 },
-  { key: 'weekday', label: '周', min: 0, max: 6 },
+  { key: 'minute', min: 0, max: 59 },
+  { key: 'hour', min: 0, max: 23 },
+  { key: 'day', min: 1, max: 31 },
+  { key: 'month', min: 1, max: 12 },
+  { key: 'weekday', min: 0, max: 6 },
 ]
 const MODES: Mode[] = ['every', 'step', 'range', 'specific']
-const MODE_LABEL: Record<Mode, string> = {
-  every: '每',
-  step: '步长',
-  range: '范围',
-  specific: '指定',
-}
 
 function defaultState(cfg: FieldConfig): FieldState {
   return { mode: 'every', step: 2, rangeStart: cfg.min, rangeEnd: cfg.max, specific: [cfg.min] }
@@ -110,6 +104,7 @@ interface CronEditorProps {
 }
 
 export function CronEditor({ value, onChange }: CronEditorProps) {
+  const t = useTranslations('cronEditor')
   const [fields, setFields] = React.useState<Record<FieldKey, FieldState>>(() =>
     parseValue(value ?? '0 9 * * 1-5'),
   )
@@ -159,15 +154,16 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Clock className="h-4 w-4 text-primary" />
-          Cron 表达式编辑器
+          {t('title')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-1">
         {FIELDS.map((cfg) => {
           const f = fields[cfg.key]
+          const fieldLabel = t(`field.${cfg.key}`)
           return (
             <div key={cfg.key} className="flex items-center gap-3 py-1.5">
-              <Label className="w-9 shrink-0 text-xs text-muted-foreground">{cfg.label}</Label>
+              <Label className="w-9 shrink-0 text-xs text-muted-foreground">{fieldLabel}</Label>
               <div className="flex gap-1">
                 {MODES.map((mode) => (
                   <Button
@@ -180,15 +176,15 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
                     )}
                     onClick={() => update(cfg.key, { mode })}
                   >
-                    {MODE_LABEL[mode]}
+                    {t(`mode.${mode}`)}
                   </Button>
                 ))}
               </div>
               <div className="flex flex-1 items-center gap-2 text-xs text-muted-foreground">
-                {f.mode === 'every' && <span>每{cfg.label}</span>}
+                {f.mode === 'every' && <span>{t('everyField', { field: fieldLabel })}</span>}
                 {f.mode === 'step' && (
                   <>
-                    每
+                    {t('stepPrefix')}
                     <Input
                       type="number"
                       className="h-7 w-14 text-xs"
@@ -199,7 +195,7 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
                         update(cfg.key, { step: clamp(parseInt(e.target.value, 10), 1, cfg.max) })
                       }
                     />
-                    {cfg.label}
+                    {fieldLabel}
                   </>
                 )}
                 {f.mode === 'range' && (
@@ -229,13 +225,13 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
                         })
                       }
                     />
-                    {cfg.label}
+                    {fieldLabel}
                   </>
                 )}
                 {f.mode === 'specific' && (
                   <Input
                     className="h-7 flex-1 text-xs"
-                    placeholder={`${cfg.min}-${cfg.max}, 逗号分隔`}
+                    placeholder={t('specificPlaceholder', { min: cfg.min, max: cfg.max })}
                     value={f.specific.join(',')}
                     onChange={(e) =>
                       update(cfg.key, {
@@ -263,7 +259,7 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
           </div>
           {runs.length > 0 && (
             <div className="mt-2">
-              <p className="mb-1 text-xs text-muted-foreground">最近 5 次执行</p>
+              <p className="mb-1 text-xs text-muted-foreground">{t('recentRuns')}</p>
               <ul className="grid grid-cols-1 gap-0.5 text-xs sm:grid-cols-2">
                 {runs.map((d, i) => (
                   <li key={i} className="inline-flex items-center gap-1">
