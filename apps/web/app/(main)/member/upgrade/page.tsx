@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Crown, Check, Loader2, ArrowUp, Sparkles } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -38,6 +38,7 @@ const formatCNY = (cents: number) =>
 
 export default function MemberUpgradePage() {
   const locale = useLocale()
+  const t = useTranslations('memberUpgradePage')
 
   const levelsQ = useQuery({
     queryKey: ['member', 'upgrade-levels'],
@@ -68,19 +69,19 @@ export default function MemberUpgradePage() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <ArrowUp className="h-5 w-5 text-primary" />
-          会员升级
+          {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">选择适合你的会员等级,解锁更多权益</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {myVip && (
         <Card className="border-amber-500/40 bg-amber-50/40 dark:bg-amber-950/10">
           <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
             <div>
-              <p className="text-xs text-muted-foreground">当前等级</p>
+              <p className="text-xs text-muted-foreground">{t('currentLevel')}</p>
               <p className="flex items-center gap-1.5 font-semibold">
                 <Crown className="h-4 w-4 text-amber-500" />
-                {myVip.levelName ?? '会员'}
+                {myVip.levelName ?? t('member')}
                 <span
                   className={cn(
                     'rounded-md px-2 py-0.5 text-xs',
@@ -89,12 +90,12 @@ export default function MemberUpgradePage() {
                       : 'bg-muted text-muted-foreground',
                   )}
                 >
-                  {myVip.status === 1 ? '生效中' : '已过期'}
+                  {myVip.status === 1 ? t('statusActive') : t('statusExpired')}
                 </span>
               </p>
             </div>
             <p className="text-xs text-muted-foreground">
-              到期:{dateFmt.format(new Date(myVip.endTime))}
+              {t('expiresAt')}:{dateFmt.format(new Date(myVip.endTime))}
             </p>
           </CardContent>
         </Card>
@@ -105,12 +106,12 @@ export default function MemberUpgradePage() {
       {levelsQ.isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : levels.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
           <Crown className="h-8 w-8 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">暂无可选会员等级</p>
+          <p className="text-sm text-muted-foreground">{t('noLevels')}</p>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 lg:items-start">
@@ -129,7 +130,7 @@ export default function MemberUpgradePage() {
                 {isPopular && (
                   <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-md bg-amber-500 px-2.5 py-0.5 text-xs font-medium text-white shadow">
                     <Sparkles className="mr-1 inline h-2.5 w-2.5" />
-                    推荐
+                    {t('popular')}
                   </span>
                 )}
                 <CardHeader className="p-4 pb-2">
@@ -138,7 +139,7 @@ export default function MemberUpgradePage() {
                 <CardContent className="flex flex-1 flex-col p-4 pt-0">
                   <div className="mb-3 flex items-baseline gap-1">
                     <span className="text-2xl font-bold">{formatCNY(level.price)}</span>
-                    <span className="text-xs text-muted-foreground">/{level.durationDays}天</span>
+                    <span className="text-xs text-muted-foreground">/{level.durationDays}{t('days')}</span>
                   </div>
                   {benefits.length > 0 && (
                     <ul className="mb-3 space-y-1.5 text-sm">
@@ -153,7 +154,7 @@ export default function MemberUpgradePage() {
                   <div className="mt-auto pt-2">
                     {isCurrent ? (
                       <Button variant="outline" className="w-full" disabled>
-                        当前等级
+                        {t('currentLevelBtn')}
                       </Button>
                     ) : (
                       <Button
@@ -162,7 +163,7 @@ export default function MemberUpgradePage() {
                         variant={isPopular ? 'default' : 'outline'}
                       >
                         <Link href={`/vip/details?levelId=${level.id}`}>
-                          {myVip && level.levelValue > myVip.levelValue ? '立即升级' : '立即订阅'}
+                          {myVip && level.levelValue > myVip.levelValue ? t('upgradeNow') : t('subscribeNow')}
                         </Link>
                       </Button>
                     )}

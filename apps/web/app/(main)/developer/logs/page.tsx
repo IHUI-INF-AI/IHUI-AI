@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { FileText, Loader2, ChevronDown, ChevronRight, Search } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -35,10 +35,10 @@ async function api<T>(url: string): Promise<T> {
 }
 
 const STATUS_FILTERS = [
-  { key: 'all', label: '全部' },
-  { key: '2xx', label: '2xx 成功' },
-  { key: '4xx', label: '4xx 客户端错误' },
-  { key: '5xx', label: '5xx 服务端错误' },
+  { key: 'all' },
+  { key: '2xx' },
+  { key: '4xx' },
+  { key: '5xx' },
 ] as const
 
 const METHOD_CLASS: Record<string, string> = {
@@ -51,6 +51,7 @@ const METHOD_CLASS: Record<string, string> = {
 
 export default function LogsPage() {
   const locale = useLocale()
+  const t = useTranslations('developerLogsPage')
   const [statusFilter, setStatusFilter] = React.useState<string>('all')
   const [keyword, setKeyword] = React.useState('')
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({})
@@ -88,9 +89,9 @@ export default function LogsPage() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <FileText className="h-5 w-5 text-primary" />
-          调用日志
+          {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">查看 API 请求记录与响应详情</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
@@ -104,7 +105,7 @@ export default function LogsPage() {
               variant={statusFilter === f.key ? 'default' : 'outline'}
               onClick={() => setStatusFilter(f.key)}
             >
-              {f.label}
+              {t(`statusFilter.${f.key}`)}
             </Button>
           ))}
         </div>
@@ -113,7 +114,7 @@ export default function LogsPage() {
           <Input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="搜索路径..."
+            placeholder={t('searchPlaceholder')}
             className="h-8 w-48 pl-8 text-xs"
           />
         </div>
@@ -124,10 +125,10 @@ export default function LogsPage() {
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              加载中...
+              {t('loading')}
             </div>
           ) : list.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">暂无调用日志</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">{t('empty')}</p>
           ) : (
             <div className="divide-y">
               {list.map((log) => (
@@ -155,11 +156,13 @@ export default function LogsPage() {
                   </button>
                   {expanded[log.id] && (
                     <div className="space-y-2 border-t bg-muted/30 px-4 py-3 text-xs">
-                      {log.keyName && <p className="text-muted-foreground">密钥: {log.keyName}</p>}
+                      {log.keyName && (
+                        <p className="text-muted-foreground">{t('keyValue', { value: log.keyName })}</p>
+                      )}
                       {log.ip && <p className="text-muted-foreground">IP: {log.ip}</p>}
                       {log.request && (
                         <div>
-                          <p className="mb-1 font-semibold">请求体</p>
+                          <p className="mb-1 font-semibold">{t('requestBody')}</p>
                           <pre className="overflow-x-auto rounded bg-card p-2">
                             <code>{log.request}</code>
                           </pre>
@@ -167,7 +170,7 @@ export default function LogsPage() {
                       )}
                       {log.response && (
                         <div>
-                          <p className="mb-1 font-semibold">响应体</p>
+                          <p className="mb-1 font-semibold">{t('responseBody')}</p>
                           <pre className="overflow-x-auto rounded bg-card p-2">
                             <code>{log.response}</code>
                           </pre>
