@@ -79,6 +79,7 @@
 4. 生产环境 aizhs.top 走 nginx,本地 dev 时通过隧道接管,需要时手动切换 Cloudflare DNS 记录
 
 **OAuth 跨域流程**:
+
 1. 主域用户点"钉钉" → `useThirdPartyAuth.startLogin` 302 到 `bsm.aizhs.top/sso/auth?platform=dingtalk&return_to=...`
 2. 子域薄页挂载时调用 `startLogin('dingtalk')` → 走厂商跳转(redirect_uri = `bsm.aizhs.top/callback?platform=dingtalk`)
 3. 钉钉回调到 `bsm.aizhs.top/callback?code=xxx` → `OAuthCallbackHandler` 调后端换 token + setAuthCookie(domain=.aizhs.top)
@@ -86,11 +87,13 @@
 5. 主域 `useAuthBootstrap` 读 cookie → `/auth/profile` → 自动登录态恢复
 
 **安全**:
+
 - 认证子域只放白名单路径,主域全功能不受影响
 - Cookie 域 `.aizhs.top` + SameSite=Lax + Secure(https 自动)
 - 子域薄页校验:非认证子域 → 跳回主域;platform 非法 → 跳回主域
 
 **自验**:
+
 - typecheck `pnpm --filter @ihui/web typecheck` 0 错误
 - i18n 5 文件 JSON.parse VALID + 4 键 parity
 - zh-TW 无简体字残留(opencc 守门)
@@ -98,6 +101,7 @@
 - 浏览器渲染验证(等 dev server 启动后)
 
 **硬约束**:
+
 - 改动文件仅限本任务清单
 - commit message: `feat(auth): 分域 SSO 架构 — 主域 aizhs.top + 认证子域 bsm.aizhs.top`
 - 跨端:仅 web 端(API 与 ai-service 不变)
@@ -118,6 +122,7 @@
 ---
 
 <!-- 已归档(2026-07-21):内容分组:文章/图片/视频一键自动发布平台(已完成 ✅ 2026-07-20)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-21_i18n-batch-archive.md -->
+
 ### M-65 首页落地营销内容全面优化(2026-07-20)
 
 **触发**:用户要求"首页的落地营销内容请你全面深度思考分析我们的项目的能力 优势 亮点 并且深度分析如何更好的营销 然后去调整优化页面内容 一定要做到极致 完美"。
@@ -221,11 +226,11 @@
 
 **三阶段交付**(按工程量分阶段,本会话仅完成 P0 阶段 1):
 
-| 阶段 | 范围 | 工作量 | 状态 |
-|---|---|---|---|
-| **P0 阶段 1(本次)** | Traefik 多租户路由 + 通配符证书 + 客户编排 + 创建/销毁脚本 + 1 个示例客户 PoC | 0.5-1 天 | 🚧 进行中 |
-| **P1 阶段 2(下次会话)** | 租户管理后台(web/admin 端扩展) + 资源监控 + 资源配额 + 证书自动续期 | 3-5 天 | ⏳ 待启动 |
-| **P2 阶段 3(后续)** | 用量采集 + 套餐定价 + 账单生成 + 微信/支付宝集成 + 客户自助账单页 | 2-4 周 | ⏳ 待启动 |
+| 阶段                    | 范围                                                                          | 工作量   | 状态      |
+| ----------------------- | ----------------------------------------------------------------------------- | -------- | --------- |
+| **P0 阶段 1(本次)**     | Traefik 多租户路由 + 通配符证书 + 客户编排 + 创建/销毁脚本 + 1 个示例客户 PoC | 0.5-1 天 | 🚧 进行中 |
+| **P1 阶段 2(下次会话)** | 租户管理后台(web/admin 端扩展) + 资源监控 + 资源配额 + 证书自动续期           | 3-5 天   | ⏳ 待启动 |
+| **P2 阶段 3(后续)**     | 用量采集 + 套餐定价 + 账单生成 + 微信/支付宝集成 + 客户自助账单页             | 2-4 周   | ⏳ 待启动 |
 
 **架构决策**(用户已确认 3 选 1):
 
@@ -295,6 +300,7 @@
 #### [x] ✅(2026-07-21) P1:一键导出学习报告全链路(后端 + 前端打通)
 
 **后端**(`apps/api/src/routes/edu-public.ts`):
+
 - [x] ✅ 新增 `POST /edu/my-report/export` 端点(学员本人,只需登录鉴权,非 admin)
 - [x] ✅ 支持 `format: 'pdf' | 'excel' | 'json'`(复用 `pdf-service.ts` 的 `generateReportPDF` + `excel-export-service.ts` 的 `exportToExcel`)
 - [x] ✅ 支持 `dateRange?: { start, end }` 过滤
@@ -304,12 +310,14 @@
 - [x] ✅ `apps/api/src/services/pdf-service.ts` 修 WritableBuffer 异步 bug(继承 stream.Writable + await 'finish' 事件)
 
 **前端**:
+
 - [x] ✅ `apps/web/src/hooks/use-report-generator.ts` 改为通用下载 Hook(支持 blob 响应 + 浏览器触发下载)
 - [x] ✅ `apps/web/app/(main)/student/page.tsx` 学员中心顶部加"导出学习报告"按钮(下拉:PDF / Excel / JSON)
 - [x] ✅ `apps/web/app/(main)/admin/edu/reports/memberstudy/page.tsx` admin 端加导出按钮(支持按 userId 导出单个学员报告)
 - [x] ✅ 5 语言 i18n parity(zh-CN / zh-TW / en / ja / ko 各加 6 keys:exportReport/exporting/exportPdf/exportExcel/exportJson/exportError)
 
 **验证**:
+
 - [x] ✅ `pnpm --filter @ihui/api typecheck` exit 0(本任务文件全绿)
 - [x] ✅ `pnpm --filter @ihui/web typecheck` exit 0(本任务文件全绿;edu/dashboard/page.tsx 的 `tc` typo 是其他 agent 引入,非本任务范围)
 - [x] ✅ curl 实际下载验证:admin GET json/excel/pdf 3 格式 + student POST json/excel/pdf 3 格式 = 6 个测试全 200
@@ -323,22 +331,26 @@
 #### [ ] P2:每日学习日志 + 多格式附件
 
 **数据库**(`packages/database/src/schema/edu-extended.ts`):
+
 - [ ] `edu_notes` 表新增 `attachments jsonb` 字段(数组:[{ url, name, type, size }])
 - [ ] `edu_offline_records` 表新增 `attachments jsonb` 字段
 - [ ] `pnpm --filter @ihui/database drizzle-kit generate` 生成 migration
 
 **后端**:
+
 - [ ] `apps/api/src/routes/edu-public.ts` `POST /edu/notes` + `PUT /edu/notes/:id` 接收 attachments
 - [ ] `POST /edu/offline-records` + `PUT /edu/offline-records/:id` 接收 attachments
 - [ ] Zod schema 校验 attachments 结构(每项必须有 url + name + type + size)
 
 **前端**:
+
 - [ ] `apps/web/app/(main)/student/notes/NoteDialog.tsx` 加 ImageUpload 组件(复用 `@/components/form/ImageUpload.tsx`,支持 image/audio/video MIME)
 - [ ] `apps/web/app/(main)/student/offline-records/OfflineRecordDialog.tsx` 同上
 - [ ] 修 `ImageUpload` 默认 `uploadUrl` BUG(`/api/files/upload` 不存在,改为 `/api/files/upload/form`)
 - [ ] 5 语言 i18n parity(附件上传相关文案)
 
 **验证**:
+
 - [ ] `pnpm --filter @ihui/database drizzle-kit generate` exit 0 + migration 文件正确
 - [ ] `pnpm --filter @ihui/api typecheck` exit 0
 - [ ] `pnpm --filter @ihui/web typecheck` exit 0
@@ -351,6 +363,103 @@
 - [ ] `apps/web/src/hooks/use-ai-report.ts`:调用 `/api/ai-ext/reports` 后端不存在 + 前端 0 引用 → 删除
 - [ ] `apps/web/src/hooks/use-report-generator.ts`:P1 任务中改造为通用下载 Hook,从孤儿代码变为实际使用
 - [ ] grep 验证 3 个 Hook 删除/改造后无残留引用
+
+---
+
+## 飞书 OAuth 扫码登录接入 + 生产环境配置(2026-07-21 立,平台独占)
+
+**触发**:用户反馈"扫码登录后显示 state 参数什么什么的失败",同时问"生产环境上线配置这个东西怎么配置 详细告诉我"。
+
+### [x] ✅(2026-07-21) 修复飞书 OIDC v2 协议实现 bug(用户扫码后报 20014)
+
+- **根因**:`apps/api/src/services/oauth-providers.ts` getFeishuAccessToken 实现不完整
+  - 缺步骤 1:没调 `/auth/v3/app_access_token/internal` 拿 app_access_token
+  - 缺步骤 2:调 `/authen/v1/oidc/access_token` 时没传 `Authorization: Bearer <app_access_token>` 头
+  - 缺步骤 3:body 没传 `redirect_uri`(飞书 OIDC v2 必传)
+  - 响应解析错误:飞书 v2 成功响应是 `data.access_token` 嵌套,不是 `body.access_token`
+- **修复**:`oauth-providers.ts:501-599` 重写 getFeishuAccessToken + 新增 getFeishuAppAccessToken
+- **配套**:`apps/api/.env` 新增 `FEISHU_REDIRECT_URI=http://localhost:3000/callback?platform=feishu`
+- **验证**:
+  - curl 直接调飞书 `/auth/v3/app_access_token/internal` 返回 `code:0, msg:"ok"`,凭据有效
+  - curl 调本项目 `/api/auth/feishu/callback` 传假 code,错误从 20014(协议错)变为 20003(code 无效),证明协议修复成功
+  - browser_use 实测 `/sso/auth?platform=feishu` → 自动跳转到 `https://accounts.feishu.cn/accounts/auth_login/oauth2/authorize?...`,页面标题"飞书授权",显示"智汇AI社区"应用授权页 ✅
+
+### [x] ✅(2026-07-21) 生成生产环境配置文件(平台独占,部署配置不涉业务代码)
+
+- [x] ✅ `apps/web/.env.production` 新建(基于 .env.local 真实凭据,redirect_uri 改为 `https://bsm.aizhs.top/callback?platform=xxx`)
+- [x] ✅ `deploy/nginx/conf.d/bsm-subdomain.conf` 新建(bsm.aizhs.top 认证子域 nginx 配置,只代理 web,/api/ 显式 307 跳主域)
+- [x] ✅ `.env.production`(根目录)补充分域 SSO + 飞书 OAuth 变量(COOKIE_DOMAIN / FEISHU_APP_ID / FEISHU_APP_SECRET / FEISHU_REDIRECT_URI)
+- [x] ✅ `.env.production.example`(根目录)补充分域 SSO + 飞书 OAuth 变量示例
+- [x] ✅ `apps/web/.env.production.example` 补充分域 SSO 变量示例(NEXT_PUBLIC_AUTH_SUBDOMAIN / NEXT_PUBLIC_MAIN_DOMAIN / NEXT_PUBLIC_COOKIE_DOMAIN)
+
+### [ ] 用户需手动完成的生产上线操作清单
+
+**1. DNS 解析**(域名服务商后台,如阿里云/Cloudflare):
+
+- 加 A 记录:`@` → 服务器 IP
+- 加 A 记录:`bsm` → 服务器 IP(认证子域)
+
+**2. SSL 证书**(服务器上跑 certbot):
+
+```bash
+certbot --nginx -d aizhs.top -d www.aizhs.top -d bsm.aizhs.top
+```
+
+**3. 飞书开发者后台**(https://open.feishu.cn/app/cli_a9de15cbb8399bc8):
+
+- 「安全设置 → 重定向 URL」白名单加两条:
+  - `http://localhost:3000/callback?platform=feishu`(本地开发)
+  - `https://bsm.aizhs.top/callback?platform=feishu`(生产)
+- 「应用功能 → 网页」开关打开
+- 「应用发布 → 版本管理与发布」创建版本 + 申请发布 + 管理员审核通过
+
+**4. 其他第三方后台**(redirect_uri 改成 bsm 子域):
+
+- 微信开放平台:加 `https://bsm.aizhs.top/callback?platform=wechat`
+- 钉钉开发者后台:加 `https://bsm.aizhs.top/callback?platform=dingtalk`
+- 企业微信后台:加 `https://bsm.aizhs.top/callback?platform=enterpriseWechat`
+- GitHub OAuth App:加 `https://bsm.aizhs.top/callback?platform=github`
+- Google Cloud Console:加 `https://bsm.aizhs.top/google/callback`
+
+**5. 服务器部署**:
+
+```bash
+# 拉代码
+cd /opt/ihui
+git pull origin main
+
+# 数据库迁移
+pnpm --filter @ihui/api db:migrate
+
+# build 前端(读取 apps/web/.env.production 编译进产物)
+pnpm --filter @ihui/web build
+
+# 启动(web 3000 + api 8080,Blue 环境)
+NODE_ENV=production pnpm --filter @ihui/web start &
+NODE_ENV=production pnpm --filter @ihui/api start &
+
+# Nginx 配置(主域 + 子域)
+cp deploy/nginx/nginx-blue-green.conf /etc/nginx/conf.d/
+cp deploy/nginx/conf.d/bsm-subdomain.conf /etc/nginx/conf.d/
+nginx -t && nginx -s reload
+```
+
+**6. 验证清单**:
+
+| 验证项   | 命令/操作                                 | 期望             |
+| -------- | ----------------------------------------- | ---------------- |
+| DNS      | `nslookup bsm.aizhs.top`                  | 返回服务器 IP    |
+| HTTPS    | 浏览器访问 `https://aizhs.top`            | 锁标志正常       |
+| 主域首页 | `curl https://aizhs.top/`                 | 200 OK           |
+| 子域可达 | `curl https://bsm.aizhs.top/nginx-health` | 200 ok           |
+| API 健康 | `curl https://aizhs.top/api/health`       | `{"code":0,...}` |
+| 飞书扫码 | 主域点登录 → 飞书登录 → 扫码              | 跳回主域已登录   |
+
+### [ ] 用户实际扫码登录验证(需用户手机飞书 App 扫码,agent 无法代劳)
+
+- 协议链路已修通(curl 20014→20003 + browser_use 跳转飞书授权页 PASS)
+- 只差用户用手机飞书 App 扫码完成最后一步授权
+- 如果还失败,排查:浏览器地址栏 URL + F12 Network `/api/auth/feishu/callback` 响应 body
 
 ---
 
@@ -372,16 +481,16 @@
 
 **Mock 平台配置检查结论**:
 
-| 平台 | 凭据类型 | 跳转目标 | 验证结果 |
-| ---- | -------- | -------- | -------- |
-| apple | placeholder(`dev_apple_placeholder_client_id`) | `/oauth/mock/apple` | ✅ |
-| alipay | placeholder(`dev_alipay_placeholder_app_id`) | `/oauth/mock/alipay` | ✅ |
-| google | 真凭据 | `accounts.google.com` | ✅ |
-| github | 真凭据 | `github.com` | ✅ |
-| feishu | 真凭据 | `passport.feishu.cn` / `accounts.feishu.cn` | ✅ |
-| wechat | 真凭据 | `open.weixin.qq.com` / `open.work.weixin.qq.com` | ✅ |
-| dingtalk | 真凭据 | `login.dingtalk.com` | ✅ |
-| enterpriseWechat | 真凭据 | `open.work.weixin.qq.com` | ✅ |
+| 平台             | 凭据类型                                       | 跳转目标                                         | 验证结果 |
+| ---------------- | ---------------------------------------------- | ------------------------------------------------ | -------- |
+| apple            | placeholder(`dev_apple_placeholder_client_id`) | `/oauth/mock/apple`                              | ✅       |
+| alipay           | placeholder(`dev_alipay_placeholder_app_id`)   | `/oauth/mock/alipay`                             | ✅       |
+| google           | 真凭据                                         | `accounts.google.com`                            | ✅       |
+| github           | 真凭据                                         | `github.com`                                     | ✅       |
+| feishu           | 真凭据                                         | `passport.feishu.cn` / `accounts.feishu.cn`      | ✅       |
+| wechat           | 真凭据                                         | `open.weixin.qq.com` / `open.work.weixin.qq.com` | ✅       |
+| dingtalk         | 真凭据                                         | `login.dingtalk.com`                             | ✅       |
+| enterpriseWechat | 真凭据                                         | `open.work.weixin.qq.com`                        | ✅       |
 
 `/api/auth/oauth-status` 返回 8 平台状态(true/false 与凭据配置匹配)。
 
@@ -481,3 +590,81 @@
 
 ---
 
+## 架构迁移完整性深度审计(2026-07-21)
+
+**状态**:✅ 已完成(审计任务,只读未改代码)
+
+**触发**:用户 `/goal` 指令 — "深度查看比对分析在本项目未改架构前的 git 仓库所有的代码 还有 d 盘历史项目是否整合迁移百分百 一个个代码分析 所有文件都要比对是否有完整的对应代码实现 不可以有任何遗漏缺失 不可以以 PROJECT_PLAN.md 历史进度记录为依据 要重新全部分析"。
+
+**审计基准**:
+
+- 历史架构前最后 commit:`3ee96cf09`(2026-07-08,Vue 3 + Python FastAPI + Java)
+- 架构变更 commit:`092528c4f`(2026-07-09,迁移到 TS Monorepo)
+- D 盘历史项目:`D:\历史项目存档\code\` 下 6 个子项目(edu / edu client / edu server / ihui-ai-admin-frontend / ljd-交接文件 / zhs_app-ZZ)
+
+**审计方法**:6 个 subagent 并行 + 1 个验证 subagent,从零开始,不引用 PROJECT_PLAN.md。覆盖维度:前端 / 后端 / 数据库 / 移动端 / AI 服务层 / D 盘历史项目 / 样式 / 交互 / 接口连通。
+
+**规模对照**:
+
+| 维度                                                                                       | 历史文件数 | 当前文件数 |
+| ------------------------------------------------------------------------------------------ | ---------- | ---------- |
+| git 仓库架构前(commit 3ee96cf09)                                                           | 15844      | —          |
+| D 盘历史项目                                                                               | 1.4 万+    | —          |
+| 当前 apps/web + apps/api + apps/ai-service + apps/miniapp-taro + apps/mobile-rn + packages | —          | ~5000+     |
+
+**迁移完整性总览**:
+
+| 模块           | 完整迁移率                                                        | 真实遗漏                                                        |
+| -------------- | ----------------------------------------------------------------- | --------------------------------------------------------------- |
+| 前端 views     | 96%                                                               | 3 页面(AICommunity / AgenticAIPage / AgenticDashboard 部分功能) |
+| 后端 API       | 92%                                                               | 5 端点(ai-feed × 4 + feedback × 1)                              |
+| 数据库 schema  | 97.7%(7 张疑似遗漏表实地验证为通用表替代,误判)                    | 0                                                               |
+| 移动端 miniapp | 95%(4 页面误判,3 已迁移 + 1 业务等价)                             | 0                                                               |
+| AI 服务层      | 88-95%                                                            | 15 个 bug186-202 高级分布式模式(可能未启用,需确认)              |
+| D 盘历史项目   | 99.7%(chat_room_socket 误判,实际已迁移到 ws-chat + Redis Pub/Sub) | 0                                                               |
+| **整体加权**   | **~95%**                                                          | **8 项**                                                        |
+
+**真实遗漏清单(8 项,已实地验证)**:
+
+### 前端页面遗漏(3 项)
+
+- [ ] P1 `AICommunity.vue` 社区互动功能(关注/热门创作者/动态帖子)— i18n `aiCommunity` 命名空间键完整保留(zh-CN.json L14751-14850)但 `useTranslations('aiCommunity')` 在 apps/web 中无任何匹配;需产品确认是否保留路线图,保留则补到 `agents/[id]/page.tsx` Tab,废弃则删除 i18n 孤儿键
+- [ ] P1 `AgenticAIPage.vue` Swarm 创建表单(`createSwarm / coordination / maxIterations / autoOptimize` 字段)— 当前无等价实现;需产品确认 Swarm 编排功能是否仍在路线图
+- [ ] P1 `AgenticDashboard.vue` 的 `AgenticTaskCreator` + `AgenticComponentGenerator` + activeSwarms 列表 — 当前 `agents/[id]/page.tsx` 仅迁移了 `AgentSwarmMonitor`;TaskCreator 与 ComponentGenerator 完全未找到等价实现
+
+### API 端点遗漏(5 项,服务层已有,只需补路由 + handler)
+
+- [ ] P0 `GET /ai-feed/notifications` — 趋势爆发通知轮询
+- [ ] P0 `GET /ai-feed/image-proxy` — 图片代理防盗链
+- [ ] P0 `POST /ai-feed/trend` — 手动触发趋势计算(管理员)
+- [ ] P0 `PUT /ai-feed/sources/:source_id` — 更新数据源配置(管理员)
+- [ ] P0 `POST /feedback/:fid/rate` — 用户对反馈处理结果评价
+
+**误判遗漏清单(11 项,实地验证已迁移,无需补)**:
+
+| 原审计遗漏                                                                                                             | 验证结果  | 实际对应                                                                                   |
+| ---------------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------ |
+| 7 张 DB 表(ai_about_us / ai_contact / ai_news / ai_user_feedback / ai_file_storage / edu_lecturer / edu_reply_comment) | ✅ 已迁移 | 通用表替代(docs / feedbacks / newsArticles / files / comments + tLecturer / liveLecturers) |
+| chat_room_socket.py(Room 群聊)                                                                                         | ✅ 已迁移 | `ws-chat.ts` + `ws/live-chat.ts`(Redis Pub/Sub 架构)                                       |
+| miniapp dev_enter / EarningsStatisticsCard / withdrawal 3 页面                                                         | ✅ 已迁移 | dev-enter/n8n-model + DistributionStats + distribution/withdraw + developer/withdrawal     |
+| AIManagement.vue / AITeam.vue                                                                                          | ✅ 已迁移 | agents/page.tsx + agent-manager.tsx + agents/categories/[id]                               |
+
+**AI 服务层 bug186-202 系列(15 个未迁移,需确认是否启用)**:
+
+- bug186_tcc / bug189_idempotent_msg / bug190_ordered / bug191_comp_scheduler / bug192_retry_comp / bug193_backoff_comp(TCC 与补偿事务)
+- bug194_cdc / bug195_binlog / bug196_shadow(CDC / binlog / 影子库)
+- bug173_singleflight / bug175_redis_sentinel / bug176_geo_router / bug177_replication / bug178_consistency_window / bug201_async_lookup / bug202_dual_write(分布式高级模式)
+
+→ 这些在生产环境可能未启用 Kafka / CDC / 影子库,建议在 PROJECT_PLAN.md 显式标注"平台独占-未启用"豁免,如启用则逐个补写到 `apps/api/src/utils/`。
+
+**commit 8ed8b259f 的 25 文件补写验证**:✅ 25/25 全部存在(webrtc-voice / luyala / ws-broadcast / outbound / ai-video-compose / legacy-langchain / rewarded-video-ad 7 路由 + member/exam 2 + admin/articles 4 + admin/edu/reports 4 + admin/edu/learn 2 + admin/invoices 4 + miniapp utils/pay + VerifyCodeModal 2)。
+
+**commit a08bac989 的 14 项端点补建验证**:✅ 14/14 全部落地(实际涉及 40 个端点:oauth-keys 5 + agents 6 + exam 11 + asks 9 + resource 1 + user 5 + order 1 + notifications 1 + auth 1)。
+
+**审计结论**:项目架构迁移整体完整度约 95%,**未达到 100% 完整**;真实遗漏 8 项(3 前端页面 + 5 API 端点)已锁定,核心主链路(AI 对话/认证/社区/教育/考试/课程/直播/支付/管理后台/移动端 8 端)已 100% 迁移并运行。
+
+**跨端范围**:全端审计只读,无代码改动,无需 commit/push。
+
+**审计证据**:本审计的 6 份 subagent 报告 + 1 份验证报告在对话上下文中;git 历史文件清单已写入 `.trae-cn/tmp/3ee96cf09-files.txt`(835KB,已 gitignore)作审计证据保留。
+
+---
