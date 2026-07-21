@@ -90,7 +90,15 @@ function genId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
   }
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+  // 2026-07-21 安全审计加固:Web Crypto 不可用时改用 crypto.getRandomValues,
+  // 严禁降级到 Math.random (CWE-330 可预测随机)
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const buf = new Uint8Array(16)
+    crypto.getRandomValues(buf)
+    const hex = Array.from(buf, (b) => b.toString(16).padStart(2, '0')).join('')
+    return `${Date.now().toString(36)}-${hex}`
+  }
+  throw new Error('Web Crypto API 不可用,无法生成密码学安全 ID')
 }
 
 export const useChatStore = create<ChatState>()(
