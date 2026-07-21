@@ -38,6 +38,10 @@ export const searchContents = pgTable(
     likeCount: integer('like_count').default(0).notNull(),
     /** 评论量(冗余) */
     commentCount: integer('comment_count').default(0).notNull(),
+    /** ES 索引时间(可选,记录最近一次写入 ES 成功的时间戳,未索引为 null) */
+    esIndexedAt: timestamp('es_indexed_at', { withTimezone: true }),
+    /** ES 索引状态:pending(待索引) / indexed(已索引) / failed(索引失败) */
+    esIndexStatus: varchar('es_index_status', { length: 20 }).default('pending'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

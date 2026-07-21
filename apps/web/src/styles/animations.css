@@ -2927,7 +2927,11 @@
   }
 }
 .animate-marquee {
-  animation: marquee-scroll 28s linear infinite;
+  /* 2026-07-21 用户反馈"两个跑马灯移动速度有点慢,快一些":
+     原 28s → 12s,速度提升约 2.3×,既保留"流光"质感又不至于让人等。
+     (主行/legacy 行的图标宽度差异较大,统一 12s 周期 + translateX(-50%)
+     无缝循环仍稳定。) */
+  animation: marquee-scroll 12s linear infinite;
 }
 
 /* 营销首页:Hero 轮播底部进度条 */
