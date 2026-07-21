@@ -379,7 +379,10 @@ export function AISidePanel() {
     >
       <aside
         aria-label={tc('title')}
-        className="flex h-full flex-col overflow-hidden rounded-xl bg-shell-panel"
+        // 2026-07-21 移除 bg-shell-panel:深色背景下默认滚动条轨道会透出深色,
+        // 改为透明让 aside 继承 work-area 背景,统一视觉;hover-scroll 已隐藏滚动条,
+        // 此处不再有"容器背景色透出滚动条"的违和感
+        className="flex h-full flex-col overflow-hidden rounded-xl"
       >
         {/* 标题栏 */}
         <header
