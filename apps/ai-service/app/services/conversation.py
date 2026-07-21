@@ -109,6 +109,30 @@ class ConversationService:
             "git_operations": ["git", "提交", "commit", "diff", "log", "branch"],
             "run_command": ["运行", "命令", "run", "exec", "command"],
             "db_query": ["数据库", "查询", "sql", "select", "database", "query"],
+            # AI 浏览器控制(12 browser tools)
+            "browser_screenshot": ["浏览器截图", "网页截图", "browser screenshot", "截屏"],
+            "browser_click_element": ["点击元素", "点击按钮", "browser click", "click element"],
+            "browser_type_text": ["浏览器输入", "网页输入", "browser type", "type text"],
+            "browser_scroll": ["浏览器滚动", "网页滚动", "browser scroll", "scroll page"],
+            "browser_navigate": ["打开网页", "导航到", "browser navigate", "goto url"],
+            "browser_extract_dom": ["提取网页", "提取dom", "browser extract", "extract dom"],
+            "browser_wait_for_element": ["等待元素", "browser wait", "wait element"],
+            "browser_get_attribute": ["获取属性", "browser get attribute", "get attribute"],
+            "browser_hover": ["悬停", "browser hover", "hover element"],
+            "browser_select_option": ["选择选项", "browser select", "select option"],
+            "browser_switch_tab": ["切换标签", "browser switch tab", "switch tab"],
+            "browser_close_tab": ["关闭标签", "browser close tab", "close tab"],
+            # AI 电脑控制(10 computer tools)
+            "computer_screenshot_screen": ["电脑截图", "屏幕截图", "screen screenshot", "desktop screenshot"],
+            "computer_mouse_move": ["鼠标移动", "mouse move", "move mouse"],
+            "computer_mouse_click": ["鼠标点击", "mouse click", "click mouse"],
+            "computer_keyboard_type": ["键盘输入", "keyboard type", "type keyboard"],
+            "computer_mouse_scroll": ["鼠标滚动", "mouse scroll", "scroll mouse"],
+            "computer_keyboard_press": ["按键", "keyboard press", "press key"],
+            "computer_keyboard_hotkey": ["快捷键", "hotkey", "keyboard hotkey", "组合键"],
+            "computer_active_window": ["活动窗口", "active window", "current window"],
+            "computer_clipboard_get": ["读取剪贴板", "clipboard get", "paste clipboard"],
+            "computer_clipboard_set": ["设置剪贴板", "clipboard set", "copy clipboard"],
         }
 
     # =========================================================================
@@ -183,6 +207,19 @@ class ConversationService:
             # 4. 加载历史上下文
             history = await memory_store.get(sid, limit=20)
             messages: list[dict[str, Any]] = []
+            # 工具结果诚实报告指令:防止 LLM 在 tool 失败时幻觉"已完成"
+            if tools:
+                messages.append({
+                    "role": "system",
+                    "content": (
+                        "你是一个能调用工具的 AI 助手。调用工具后,务必检查返回结果中的 ok 字段:\n"
+                        "- ok=true:工具执行成功,可以告诉用户已完成\n"
+                        "- ok=false:工具执行失败,必须如实告知用户失败原因(包括 errorCode/error 字段),"
+                        "禁止声称已完成或成功\n"
+                        "常见失败场景:TARGET_NOT_CONNECTED(浏览器扩展/桌面端未连接)、TIMEOUT(执行超时)、"
+                        "SELECTOR_NOT_FOUND(元素未找到)。遇到这些错误时,引导用户检查对应端是否已启动。"
+                    ),
+                })
             for m in history[:-1]:  # 排除最后一条刚加入的 user
                 role = m.get("role")
                 content = m.get("content", "")
@@ -288,13 +325,50 @@ class ConversationService:
                         )
                     trace.append(tool_trace)
 
-                    # 把工具结果回灌
+                    # 把工具结果回灌 — 失败时显式标注,防止 LLM 幻觉"已完成"
+                    result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
+                    if not ok:
+                        err_detail = exec_result.get("error") or exec_result.get("message") or "unknown error"
+                        err_code = exec_result.get("errorCode", "UNKNOWN")
+                        # 嵌入 result.result 兼容 agent_control 返回格式
+                        inner = exec_result.get("result", {})
+                        if isinstance(inner, dict) and inner.get("errorCode"):
+                            err_code = inner.get("errorCode", err_code)
+                            err_detail = inner.get("error", err_detail)
+                        result_json = (
+                            f"TOOL EXECUTION FAILED. errorCode={err_code}. error={err_detail}. "
+                            f"You MUST tell the user the tool failed and suggest checking if the browser extension / desktop app is running. "
+                            f"Do NOT claim success. Raw result: {result_json}"
+                        )
                     messages.append({
                         "role": "tool",
                         "tool_call_id": tc.get("id", ""),
                         "name": tool_name,
-                        "content": json.dumps(exec_result, ensure_ascii=False)[:4000],
+                        "content": result_json,
                     })
+
+                # 5.3.1 全部 tool 失败时直接构造失败响应,不让 LLM 总结(防止幻觉"已完成")
+                round_calls = tool_calls[-len(tool_calls_raw):] if tool_calls_raw else []
+                if round_calls and all(not tc.ok for tc in round_calls):
+                    failed_details = []
+                    for tc in round_calls:
+                        inner = tc.result.get("result", {})
+                        err_code = inner.get("errorCode", tc.result.get("errorCode", "UNKNOWN")) if isinstance(inner, dict) else "UNKNOWN"
+                        err_msg = inner.get("error", tc.result.get("error", "unknown")) if isinstance(inner, dict) else "unknown"
+                        failed_details.append(f"- {tc.tool}: {err_code} — {err_msg}")
+                    final_response = (
+                        f"工具执行失败,未能完成您的请求:\n" + "\n".join(failed_details) + "\n\n"
+                        "可能的原因:\n"
+                        "- TARGET_NOT_CONNECTED:浏览器扩展或桌面端未启动,请确保对应端已打开并登录\n"
+                        "- TIMEOUT:操作超时,请稍后重试\n"
+                        "- SELECTOR_NOT_FOUND:页面元素未找到,请检查选择器是否正确\n"
+                    )
+                    trace.append({
+                        "node": "all_tools_failed",
+                        "failed_count": len(round_calls),
+                        "skipped_llm_summarize": True,
+                    })
+                    break
 
                 # 5.4 最后一轮不再继续
                 if it == max_iterations - 1:

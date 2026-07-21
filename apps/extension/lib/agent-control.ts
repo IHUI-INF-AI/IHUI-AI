@@ -109,6 +109,19 @@ function domClick(params: Record<string, unknown>): DomActionResult {
   return { success: true, data: { clicked: true, selector } }
 }
 
+/** React/Vue 受控组件需要通过原型链 setter 修改 value,直接赋值 el.value 不会触发 onChange */
+function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+  const proto = el instanceof HTMLTextAreaElement
+    ? HTMLTextAreaElement.prototype
+    : HTMLInputElement.prototype
+  const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set
+  if (setter) {
+    setter.call(el, value)
+  } else {
+    el.value = value
+  }
+}
+
 async function domType(params: Record<string, unknown>): Promise<DomActionResult> {
   const selector = params.selector as string
   const text = params.text as string
@@ -117,11 +130,11 @@ async function domType(params: Record<string, unknown>): Promise<DomActionResult
   const clear = params.clear !== false
   const delay = (params.delay as number) ?? 0
   if (clear) {
-    el.value = ''
+    setNativeValue(el, '')
     el.dispatchEvent(new InputEvent('input', { bubbles: true }))
   }
   for (const char of text) {
-    el.value += char
+    setNativeValue(el, el.value + char)
     el.dispatchEvent(new InputEvent('input', { bubbles: true, data: char }))
     if (delay > 0) await new Promise((r) => setTimeout(r, delay))
   }
@@ -154,13 +167,16 @@ function domExtract(params: Record<string, unknown>): DomActionResult {
   const attributes = (params.attributes as string[]) ?? ['text', 'href', 'src', 'value']
   const maxNodes = (params.maxNodes as number) ?? 100
   let elements: Element[]
+  let truncated = false
   if (!selector) {
-    elements = Array.from(document.querySelectorAll('body *'))
+    // 无 selector 时只扫描语义元素,避免 body * 在大页面上返回上万节点
+    elements = Array.from(document.querySelectorAll('a, button, input, textarea, select, [role="button"], [role="link"], [role="menuitem"], h1, h2, h3, [data-testid]'))
   } else if (selector === 'all') {
     elements = Array.from(document.querySelectorAll('*'))
   } else {
     elements = Array.from(document.querySelectorAll(selector))
   }
+  if (elements.length > maxNodes) truncated = true
   const nodes = elements.slice(0, maxNodes).map((el) => {
     const node: Record<string, unknown> = { tag: el.tagName.toLowerCase() }
     for (const attr of attributes) {
@@ -172,7 +188,15 @@ function domExtract(params: Record<string, unknown>): DomActionResult {
     }
     return node
   })
-  return { success: true, data: { dom: nodes, count: nodes.length } }
+  return {
+    success: true,
+    data: {
+      dom: nodes,
+      count: nodes.length,
+      totalMatched: elements.length,
+      ...(truncated ? { warning: `truncated from ${elements.length} to ${maxNodes} nodes` } : {}),
+    },
+  }
 }
 
 async function domWaitForElement(params: Record<string, unknown>): Promise<DomActionResult> {
@@ -286,11 +310,19 @@ async function doBackgroundAction(
 }
 
 async function bgScreenshot(params: Record<string, unknown>): Promise<DomActionResult> {
-  const area = (params.area as 'viewport' | 'fullpage' | 'element') ?? 'viewport'
-  // captureVisibleTab only captures current viewport
+  const requestedArea = (params.area as 'viewport' | 'fullpage' | 'element') ?? 'viewport'
+  // captureVisibleTab only captures current viewport — fullpage/element 降级为 viewport
   const dataUrl = await chrome.tabs.captureVisibleTab({ format: 'png' })
   const base64 = dataUrl.replace(/^data:image\/png;base64,/, '')
-  return { success: true, data: { screenshot: base64, area } }
+  const degraded = requestedArea !== 'viewport'
+  return {
+    success: true,
+    data: {
+      screenshot: base64,
+      area: 'viewport',
+      ...(degraded ? { warning: `requested ${requestedArea} but only viewport captured (chrome.tabs.captureVisibleTab limitation)` } : {}),
+    },
+  }
 }
 
 async function bgNavigate(params: Record<string, unknown>): Promise<DomActionResult> {
