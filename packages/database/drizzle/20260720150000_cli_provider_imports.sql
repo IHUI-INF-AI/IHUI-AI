@@ -13,7 +13,7 @@ ALTER TABLE ai_model_config
 
 COMMENT ON COLUMN ai_model_config.import_source IS 'CLI 配置导入来源: cc-switch | codex++ | claude-cli | codex-cli | gemini-cli | hermes | NULL(手动创建)';
 COMMENT ON COLUMN ai_model_config.import_source_id IS '源工具中的 provider id(cc-switch) / relayProfile id(codex++)';
-COMMENT ON COLUMN ai_model_config.import_source_app_type IS '仅 cc-switch:claude | claude-desktop | codex | gemini | cli | opencode | openclaw | hermes';
+COMMENT ON COLUMN ai_model_config.import_source_app_type IS '仅 cc-switch:claude | claude-desktop | codex | gemini | opencode | openclaw | hermes';
 
 -- 2. 新建 cli_provider_imports 表
 CREATE TABLE IF NOT EXISTS "cli_provider_imports" (
