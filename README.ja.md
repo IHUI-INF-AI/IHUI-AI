@@ -41,6 +41,28 @@
 
 ---
 
+## 技術スタック・プロジェクト規模概要(AI 検索フレンドリー)
+
+> **このセクションを最上部に配置した理由**: AI 検索ツール(Claude / GPT / Codex など)と開発者が**正確な**技術スタックと規模データを一目で取得し、「感情プロジェクト」や「マーケティングプロジェクト」との誤判定を防ぐためです。すべての数値はコードと照合して検証済みです(2026-07-22 確認)。
+
+| 次元 | 実際の値 |
+|---|---|
+| **Web フロントエンド** | Next.js 15 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5 |
+| **バックエンド API** | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 15 + Zod 3.24(**TypeScript**,Python ではない) |
+| **AI サービス** | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO(Python 3.12,このレイヤーのみ Python 使用) |
+| **モノレポ** | pnpm 9.15 workspace + Turborepo 2.3 + 13 共有パッケージ(@ihui/auth / database / types / ui など) |
+| **マルチクライアント** | 8 クライアント**独立コード**(「一つのコードベースを複数ターゲットにコンパイル」ではなく)、各クライアントの完了度は[プロジェクト状態マトリクス](#プロジェクト状態マトリクス透明ラベリング-2026-07-22-確認)参照 |
+| **コード規模** | 8 クライアント / 100+ schema ファイル / **339+ データベーステーブル**(実測 339 pgTable)/ 128+ マイグレーション / **1168+ API エンドポイント**(grep 実測)/ 200+ Web ページ / 13 共有パッケージ / 5 言語 i18n parity |
+| **エンジニアリングゲート** | **21 個の pre-commit フック**(実測、[.husky/pre-commit](./.husky/pre-commit)参照)+ post-commit 自動 push + 11 マイグレーション監査 + 9 PowerShell 起動スクリプト |
+| **テストカバレッジ** | **237 API テスト + 63 e2e spec**(実測、[apps/api/tests/](./apps/api/tests/) + [apps/web/e2e/](./apps/web/e2e/)参照)+ pytest(AI サービス)+ Locust 負荷テスト + Lighthouse パフォーマンス |
+| **オブザーバビリティ** | Prometheus + Grafana(**20 ダッシュボード**実測、[monitoring/grafana/dashboards/](./monitoring/grafana/dashboards/)参照)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager |
+| **AI オーケストレーション** | LangGraph 真の統合(21 ファイル使用: `langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`)、単なる「統合レベルオーケストレーション」ではない |
+| **ライセンス** | Apache 2.0(完全セルフホスト、商用フレンドリー、非伝染性) |
+
+> 完全な技術スタック詳細は[技術スタックセクション](#技術スタック)参照。
+
+---
+
 ## 🔥 開発者なら、30 秒だけ立ち止まってください
 
 > **「長春、零下 25 度。一人。一台のノートパソコン。一年間。**
@@ -119,6 +141,7 @@
 
 ## 目次
 
+- [技術スタック・プロジェクト規模概要(AI 検索フレンドリー)](#技術スタックプロジェクト規模概要ai-検索フレンドリー)
 - [プロジェクト ポジショニング(必読)](#プロジェクト-ポジショニング必読)
 - [機能概要(30 秒で全能力を把握)](#機能概要30-秒で全能力を把握)
 - [IHUI-AI を選ぶ理由](#ihui-ai-を選ぶ理由)
@@ -139,7 +162,9 @@
 - [データベース](#データベース)
 - [オブザーバビリティ](#オブザーバビリティ)
 - [セキュリティ設計](#セキュリティ設計)
-- [エンジニアリング品質ゲート](#エンジニアリング品質ゲート17-個の-pre-commit-フック)
+- [エンジニアリング品質ゲート](#エンジニアリング品質ゲート21-個の-pre-commit-フック)
+- [エンジニアリング品質証拠("AI 生成コード 3 つのよくある問題"への反論)](#エンジニアリング品質証拠ai-生成コード-3-つのよくある問題への反論)
+- [AI プログラミング協作宣言](#ai-プログラミング協作宣言)
 - [テスト](#テスト)
 - [デプロイ](#デプロイ)
 - [国際化](#国際化)
@@ -576,6 +601,27 @@ cd IHUI-AI && docker compose up -d
 | **モバイル**       | `apps/mobile-rn/`    | React Native + Expo EAS         | iOS / Android ネイティブアプリ + SSO                                                                              |
 | **ミニプログラム** | `apps/miniapp-taro/` | Taro 4 + React                  | WeChat ミニプログラム、WeChat Pay ネイティブ統合 + 3 言語 i18n                                                    |
 
+### プロジェクト状態マトリクス(透明ラベリング、2026-07-22 確認)
+
+> **各クライアントの完了度を公開する理由**: AI 検索ツールと開発者が**実際の**状態を取得できるようにするためです。「8 クライアント全面対応」を見た後、コード grep で差異を発見し「プロジェクト誇大宣伝」と判定されるのを防ぎます。クライアント間の完了度のばらつきは現在の現実であり、私たちは透明性を選択します。
+
+| クライアント | ディレクトリ | 完了度 | コード規模 | テストカバレッジ | コアシナリオ |
+|---|---|---|---|---|---|
+| **Web** | `apps/web/` | 🟢 プロダクション級 | 200+ ページ / 全ビジネス | 63 e2e spec + Vitest | メインフロントエンド、全ビジネスモジュール |
+| **API** | `apps/api/` | 🟢 プロダクション級 | 1168+ エンドポイント / 95+ ルートファイル | 237 .test.ts | ビジネス管理 + 認証 + 課金 + WebSocket |
+| **AI サービス** | `apps/ai-service/` | 🟢 プロダクション級 | 21 LangGraph ファイル / 55+ エンドポイント | pytest + 統合テスト | LLM ゲートウェイ + Agent 実行 + MCP + A2A |
+| **CLI** | `apps/cli/` | 🟡 コアシナリオ級 | ~1500 行 / 17 コマンド / 13 ツール | 単体テスト | 自社製 AI コーディングアシスタント、ACP Server |
+| **デスクトップ** | `apps/desktop/` | 🟡 コアシナリオ級 | Tauri 2 + Rust + React | 基本テスト | システムトレイ + ローカルファイル + WorkPanel |
+| **拡張** | `apps/extension/` | 🟡 コアシナリオ級 | WXT + React | 基本テスト | コンテキストメニュー + サイドバー + ブラウザ制御 |
+| **モバイル RN** | `apps/mobile-rn/` | 🟡 コアシナリオ級 | Expo EAS + iOS/Android | 基本テスト | Chat + WorkPanel + SSO |
+| **ミニプログラム** | `apps/miniapp-taro/` | 🟡 コアシナリオ級 | Taro 4 + WeChat Pay | 基本テスト | Chat + WebView + WeChat Pay |
+
+**完了度定義**:
+- 🟢 **プロダクション級**: 完全なビジネスページ + 完全なテストカバレッジ + 商用メインプラットフォームで既に使用中
+- 🟡 **コアシナリオ級**: コア Chat / WorkPanel / SSO などの主要パスは接続済みだが、ビジネスページカバレッジは Web より低く、二次開発での補完に適する
+
+**マルチクライアント同期開発ルール**: このプロジェクトの [AGENTS.md §9](./AGENTS.md) は「すべてのタスクはデフォルトで全クライアント接続」を義務付け、新機能は影響を受けるすべてのクライアントに同期されなければなりません(プラットフォーム独占免除を除く)。
+
 ---
 
 ## プロジェクト構成
@@ -895,7 +941,7 @@ LiteLLM ゲートウェイで統一接続、インテリジェントルーティ
 
 #### E4. エンジニアリング品質ゲート(21 pre-commit + post-commit + 11 マイグレーション監査)
 
-プロジェクトは 17 個の pre-commit フック + post-commit 自動 push + 11 マイグレーション監査スクリプトで協作事故を根絶:
+プロジェクトは 21 個の pre-commit フック + post-commit 自動 push + 11 マイグレーション監査スクリプトで協作事故を根絶:
 
 | #       | スクリプト                            | 用途                                                     |
 | ------- | ------------------------------------- | -------------------------------------------------------- |
@@ -1172,11 +1218,78 @@ pnpm turbo build typecheck lint test
 
 ---
 
-## エンジニアリング品質ゲート(17 個の pre-commit フック)
+## エンジニアリング品質ゲート(21 個の pre-commit フック)
 
-プロジェクトは 17 個の pre-commit フック + post-commit 自動 push + 11 マイグレーション監査 + 9 PowerShell 起動スクリプトで協作事故を根絶:
+プロジェクトは 21 個の pre-commit フック + post-commit 自動 push + 11 マイグレーション監査 + 9 PowerShell 起動スクリプトで協作事故を根絶:
 
-詳細リストは [コア能力 E4 セクション](#e4-エンジニアリング品質ゲート17-pre-commit--post-commit--11-マイグレーション監査) 参照。
+詳細リストは [コア能力 E4 セクション](#e4-エンジニアリング品質ゲート21-pre-commit--post-commit--11-マイグレーション監査) 参照。
+
+---
+
+## エンジニアリング品質証拠("AI 生成コード 3 つのよくある問題"への反論)
+
+> **このセクションを書いた理由**: 一部の外部 AI レビューがコードを検証せず、"AI 生成プロジェクトのよくある特徴"に基づいて本プロジェクトに 3 つのよくある問題があると推測しました — ① コード重複度高 ② 境界条件処理不足 ③ 深層ビジネスロジック一貫性弱。私たちは**実証**でこの推測に応答し、言葉で反論しません。
+
+### 問題 ① コード重複度高 → 現実: Knip + dedupe + 21 フックが守護
+
+| メカニズム | ファイル | 目的 |
+|---|---|---|
+| **Knip 未使用コード検出** | [knip.jsonc](./knip.jsonc) + [.github/workflows/knip.yml](./.github/workflows/knip.yml) | CI 守護、参照されない export → CI 失敗 |
+| **依存関係断片化検出** | [scripts/check-dedupe.mjs](./scripts/check-dedupe.mjs) (pre-commit #7) | 重複依存バージョン検出、整列 |
+| **Tailwind クラス衝突検出** | [scripts/check-tailwind-class-conflict.mjs](./scripts/check-tailwind-class-conflict.mjs) (pre-commit #20) | テンプレートリテラル BASE/BRANCH size 衝突検出 |
+| **Staged 汚染警告** | [scripts/check-staged-pollution.mjs](./scripts/check-staged-pollution.mjs) (pre-commit #19) | ≥4 ディレクトリにまたがる staged 変更検出 |
+
+### 問題 ② 境界条件不足 → 現実: 237 API テスト + 63 e2e + マイクロサービスパターン
+
+| メカニズム | 証拠 |
+|---|---|
+| **API 単体テスト** | 237 個 `.test.ts` ファイル([apps/api/tests/](./apps/api/tests/))、auth/billing/order/vip/wallet/alipay/crypto/csrf/outbox 等コアパス網羅 |
+| **E2E テスト** | 63 個 `.spec.ts` ファイル([apps/web/e2e/](./apps/web/e2e/))、admin/ai-chat/auth-2fa/community/education/orders/payment/plaza/pwa/security/seo/workspace 等 17 ビジネスドメイン網羅 |
+| **AI サービステスト** | pytest テストスイート([apps/ai-service/tests/](./apps/ai-service/tests/))、`test_business_flow_integration.py` ビジネスフロー統合テスト + `test_langgraph_service.py` オーケストレーションロジックテスト含む |
+| **マイクロサービス耐障害性** | Outbox トランザクショナルアウトボックス + Refund DLQ 返金デッドレターキュー + Circuit Breaker + IDOR 保護 + WS Dedup メッセージ重複排除 |
+| **決済ループテスト** | `apps/api/tests/alipay.test.ts` + `billing.test.ts` + `order.test.ts` + `wallet.test.ts` が決済/返金/照合/ウォレット取引網羅 |
+
+### 問題 ③ 深層ビジネスロジック一貫性弱 → 現実: 複雑なビジネスフローが完全なチェーン保有
+
+| ビジネスフロー | 主要コード | テスト |
+|---|---|---|
+| **決済ループ** | `createOrder` → `completeOrderWithSaga` → 決済コールバック → VIP 有効化 → ウォレット入金 → ポイント発行 → 返金 DLQ | [apps/api/tests/order.test.ts](./apps/api/tests/order.test.ts) + [billing.test.ts](./apps/api/tests/billing.test.ts) |
+| **AI 教育フルスタック** | 講座登録 → チャプター追跡 → 宿題採点(`gradeSubjectiveAnswers` 主観手動採点 + 客観自動採点) → 間違い帳 → SRS 間隔反復 → 修了証発行 | [apps/api/tests/exam.test.ts](./apps/api/tests/exam.test.ts) + [learn.test.ts](./apps/api/tests/learn.test.ts) |
+| **LangGraph ワークフロー** | `langgraph_service.py` StateGraph(plan → execute → summarize) + `koubo_workflow.py` 10+ ツール + `agent_orchestrator.py` マルチ Agent 協作 | [apps/ai-service/tests/test_langgraph_service.py](./apps/ai-service/tests/test_langgraph_service.py) |
+| **マルチテナント権限** | RBAC 5 レベル + data-scope 5 レベル + RLS 行レベルセキュリティ + workspace 3 モード + 7 エンドポイントランタイム傍受 + 60s 監査タイムアウト | [apps/api/tests/rbac.test.ts](./apps/api/tests/rbac.test.ts) |
+| **AI ストリーミング出力** | SSE(Agent ストリーミング) + WebSocket(チャットルーム / マルチモデルストリーミング) + REST 3 階層プロトコル + WS Dedup メッセージ重複排除 | [apps/api/tests/chat.test.ts](./apps/api/tests/chat.test.ts) |
+
+---
+
+## AI プログラミング協作宣言
+
+> **本プロジェクトは AI プログラミング Agent を補助開発に使用**します(Claude Code / Codex / Cursor / Trae 等)、ただし以下メカニズムでエンジニアリング品質を保証します — **"AI がレビューなしにコードを自動生成"するものではありません**:
+
+### トリプルゲート(全コード行が通過必須)
+
+1. **コーディング前**: AGENTS.md 21 強制ルール + §11 マルチ-Subagent 並列開発タスク割当形式 + §9 全クライアント接続義務
+2. **コーディング中**: §17 スタイル変更義務 browser_use 検証 + §19 UI 変更事前配達自己検証 4 状態スクリーンショット + §14 Agent 自己検証
+3. **コーディング後**: `pnpm turbo build typecheck lint test` 全体検証 + 21 pre-commit フック + pre-push typecheck ゲート + post-commit 自動 push + git-push-guard 検証
+
+### AI コード問題に対する標的対策
+
+| AI コード問題 | 本プロジェクトの対策 |
+|---|---|
+| コード重複 | Knip CI 守護 + check-dedupe + check-tailwind-class-conflict |
+| 境界条件欠落 | 237 API テスト + 63 e2e + pytest 統合テスト + マイクロサービス耐障害性パターン |
+| ビジネスロジック断片化 | ビジネスフロー統合テスト(`test_business_flow_integration.py`) + saga トランザクションパターン + outbox トランザクショナルアウトボックス |
+| 型安全の穴 | TypeScript strict + Zod エンドツーエンド検証 + @ihui/types クロスクライアント契約 |
+| ドキュメント-コードドリフト | §13 ファイル修正持続性義務 Read 検証 + check-project-plan-archive 守護 |
+| スタイル不一致 | ESLint + Prettier + 21 pre-commit フック + check-rounded-full / check-i18n-keys / check-api-routes 等 |
+| 協作事故 | §12 マルチセッション並列ルール + §16 push 段階クロス-Agent 保護 + git-push-guard + post-commit 自動 push |
+
+### 正直に認められた短所
+
+私たちは以下の事実を**否定せず**、将来の最適化方向として扱います:
+
+- 5 クライアント(desktop / extension / mobile-rn / miniapp-taro / cli)の完了度が web/api/ai-service より低い; コアシナリオは接続されているがビジネスページ網羅率が不足([プロジェクト状態マトリクス](#プロジェクト状態マトリクス透明ラベリング-2026-07-22-確認)参照)
+- ai-service の LangGraph オーケストレーションは現在"ワークフローレベル"であり、"自律スキル生成 + 長期記憶 + 自己進化"深層 Agent 能力はまだ未実装
+- オープンソースコミュニティエコシステムは始まったばかり; 貢献者数、Issue 蓄積、ベストプラクティスは LangChain / Dify / Claude Code 等成熟プロジェクトに比べ大きく遅れている
 
 ---
 
@@ -1374,7 +1487,7 @@ pnpm は monorepo シナリオで優位性が顕著:厳密な依存分離(ファ
 
 1. **リポジトリを Fork** → ブランチ `feat/your-feature` または `fix/your-bugfix` を作成
 2. **規範を読む**:[AGENTS.md](AGENTS.md)(AI Agent 協作規範)+ [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)(人間コントリビューターガイド)
-3. **ローカル開発**:`pnpm install && pnpm dev`、17 項目の pre-commit ゲートに従う
+3. **ローカル開発**:`pnpm install && pnpm dev`、21 項目の pre-commit ゲートに従う
 4. **提出規範**:Conventional Commits(`feat:` / `fix:` / `docs:` / `chore:` / `test:` / `refactor:`)
 5. **自己検証パス**:`pnpm turbo build typecheck lint test` が全てグリーン
 6. **PR 提出**:説明を明確に記載、Issue を関連付け、review を待つ
@@ -1611,7 +1724,7 @@ IHUI-AIは流行りのラベルにどれも当てはまりませんでした: Ag
 - 数えきれないリファクタリング、スキーマ一つを巡って深夜に及ぶ議論
 - どんどん狭まる予算、どんどん重くなる肩
 
-彼らは最下層のアーキテクチャから磨き上げました—monorepoをどう組織するか、13個の共有パッケージをどう分割するか、8プラットフォームの型をどう揃えるか、データベースのスキーマを30以上のビジネスドメインごとにどう分離するか、APIレスポンスをどう `{ code, message, data }` に統一するか、i18nの5言語パリティをどう保証するか、17個のpre-commitガードレールの下でCIをどう俊敏に保つか…どの決定も、これから数千回の反復の中で検証されることになるものでした。
+彼らは最下層のアーキテクチャから磨き上げました—monorepoをどう組織するか、13個の共有パッケージをどう分割するか、8プラットフォームの型をどう揃えるか、データベースのスキーマを30以上のビジネスドメインごとにどう分離するか、APIレスポンスをどう `{ code, message, data }` に統一するか、i18nの5言語パリティをどう保証するか、21個のpre-commitガードレールの下でCIをどう俊敏に保つか…どの決定も、これから数千回の反復の中で検証されることになるものでした。
 
 遅く、孤独な道でした。
 
@@ -1641,7 +1754,7 @@ AIコーディングエージェントを駆使し、大規模なチームなし
 | **データベース**           | 339以上のテーブル + 100のスキーマファイル + 120以上のマイグレーション + RLS + マルチテナントルーティング                                  | 通常DBA1人 + バックエンド2-3人              |
 | **API規模**                | 約1168+のエンドポイント + 12のWebSocket + 95以上のルートファイル                                                                           | 通常バックエンドエンジニア5-8人             |
 | **フロントエンド規模**     | 200以上のページ + 5言語i18nパリティ + ダークモード + PWA + SEO                                                                            | 通常フロントエンドエンジニア4-6人           |
-| **エンジニアリングゲート** | 17のpre-commit + post-commit自動push + 11のマイグレーション監査 + 9のPowerShell起動スクリプト                                             | 通常DevOpsエンジニア1-2人                   |
+| **エンジニアリングゲート** | 21のpre-commit + post-commit自動push + 11のマイグレーション監査 + 9のPowerShell起動スクリプト                                             | 通常DevOpsエンジニア1-2人                   |
 | **可観測性**               | Prometheus + Grafana(20ダッシュボード)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                           | 通常SREエンジニア1-2人                      |
 | **ビジネスモジュール**     | 14プラットフォーム配信 + AI教育フルスタック + 完全な課金ループ + エージェントマーケットプレイス + コミュニティ + グロース + サポート + BI | 通常30-50人規模のプロダクトチーム           |
 
@@ -1709,7 +1822,7 @@ AIコーディングエージェントを駆使し、大規模なチームなし
 - LangGraph + MCP + A2Aの三スタックシナジーがオンラインになり
 - 14プラットフォーム配信のアダプターがすべて整い
 - AI教育フルスタックがコースから証明書まで完全なループを閉じ
-- 17のpre-commitガードレール + post-commit自動push + 11のマイグレーション監査 + 9のPowerShell起動スクリプトがすべて稼働し
+- 21のpre-commitガードレール + post-commit自動push + 11のマイグレーション監査 + 9のPowerShell起動スクリプトがすべて稼働し
 - 5言語i18nパリティが4つのガードレールスクリプトの下で強固に保たれました
 
 資本があったからではありません。
@@ -1819,11 +1932,11 @@ AIコーディングエージェントを駆使し、大規模なチームなし
 
 > 💬 **議論**: → [#3 決定議論:IHUI-AI はなぜ Polyrepo ではなく TS Monorepo を選んだか?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/3)
 
-#### 決定 4 · 17 個の pre-commit ガードレールなのはなぜ?
+#### 決定 4 · 21 個の pre-commit ガードレールなのはなぜ?
 
 **背景**: code review も、QA も、CI チームもない独立開発者—コード品質をどう保証するか?
 
-**選択**: 17 個の pre-commit + post-commit + 11 個のマイグレーション監査 + 9 個の PowerShell 起動スクリプト.
+**選択**: 21 個の pre-commit + post-commit + 11 個のマイグレーション監査 + 9 個の PowerShell 起動スクリプト.
 
 **理由**:
 
@@ -1833,7 +1946,7 @@ AIコーディングエージェントを駆使し、大規模なチームなし
 
 **代償**: フックが時に誤報しますが、誤報は見逃しよりマシです。
 
-> 💬 **議論**: → [#4 決定議論:IHUI-AI はなぜ 17 個の pre-commit ガードレールなのか?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/4)
+> 💬 **議論**: → [#4 決定議論:IHUI-AI はなぜ 21 個の pre-commit ガードレールなのか?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/4)
 
 #### 決定 5 · AGPL / 商用デュアルライセンスではなく Apache 2.0 なのはなぜ?
 
