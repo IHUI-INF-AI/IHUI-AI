@@ -46,31 +46,39 @@ export function DistributionScreen() {
   const [error, setError] = useState('')
   const [withdrawing, setWithdrawing] = useState(false)
 
-  const load = useCallback(async (refresh = false) => {
-    if (refresh) setRefreshing(true)
-    else setLoading(true)
-    setError('')
-    const resp = await fetch(`${API_BASE_URL}/api/distribution/info`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-    if (!resp.ok) {
-      setError(t('distribution.loadFailed'))
+  const load = useCallback(
+    async (refresh = false) => {
+      if (refresh) setRefreshing(true)
+      else setLoading(true)
+      setError('')
+      const resp = await fetch(`${API_BASE_URL}/api/distribution/overview`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!resp.ok) {
+        setError(t('distribution.loadFailed'))
+        setLoading(false)
+        setRefreshing(false)
+        return
+      }
+      const data = (await resp.json()) as { data?: DistributionInfo }
+      setInfo(data.data ?? null)
       setLoading(false)
       setRefreshing(false)
-      return
-    }
-    const data = (await resp.json()) as { data?: DistributionInfo }
-    setInfo(data.data ?? null)
-    setLoading(false)
-    setRefreshing(false)
-  }, [token, t])
+    },
+    [token, t],
+  )
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   const handleWithdraw = async () => {
     if (!info) return
     if (info.pending < info.withdrawMin) {
-      Alert.alert(t('distribution.withdrawFailed'), t('distribution.withdrawMin', { amount: info.withdrawMin }))
+      Alert.alert(
+        t('distribution.withdrawFailed'),
+        t('distribution.withdrawMin', { amount: info.withdrawMin }),
+      )
       return
     }
     setWithdrawing(true)
@@ -131,7 +139,9 @@ export function DistributionScreen() {
               </View>
               <View style={styles.commissionBox}>
                 <Text style={styles.commissionLabel}>{t('distribution.commissionRate')}</Text>
-                <Text style={styles.commissionValue}>{(info.commissionRate * 100).toFixed(1)}%</Text>
+                <Text style={styles.commissionValue}>
+                  {(info.commissionRate * 100).toFixed(1)}%
+                </Text>
               </View>
             </View>
           </View>
@@ -152,7 +162,10 @@ export function DistributionScreen() {
               </View>
             </View>
             <TouchableOpacity
-              style={[styles.withdrawBtn, info.pending < info.withdrawMin && styles.withdrawBtnDisabled]}
+              style={[
+                styles.withdrawBtn,
+                info.pending < info.withdrawMin && styles.withdrawBtnDisabled,
+              ]}
               onPress={handleWithdraw}
               disabled={info.pending < info.withdrawMin || withdrawing}
             >
@@ -174,7 +187,9 @@ export function DistributionScreen() {
             ) : (
               info.products.map((item) => (
                 <View key={item.id} style={styles.productCard}>
-                  <Text style={styles.productTitle} numberOfLines={1}>{item.title}</Text>
+                  <Text style={styles.productTitle} numberOfLines={1}>
+                    {item.title}
+                  </Text>
                   <View style={styles.productMeta}>
                     <Text style={styles.productPrice}>¥{item.salePrice}</Text>
                     <Text style={styles.productCommission}>
@@ -219,24 +234,63 @@ const styles = StyleSheet.create({
   commissionBox: { alignItems: 'flex-end' },
   commissionLabel: { fontSize: 11, color: '#065F46' },
   commissionValue: { marginTop: 4, fontSize: 18, fontWeight: '700', color: PRIMARY },
-  earningsCard: { marginHorizontal: 16, marginTop: 12, padding: 16, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB' },
+  earningsCard: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
   earningsRow: { flexDirection: 'row', justifyContent: 'space-between' },
   earningsItem: { alignItems: 'center', flex: 1 },
   earningsValue: { fontSize: 20, fontWeight: '700', color: '#111827' },
   pendingValue: { color: PRIMARY },
   earningsLabel: { marginTop: 4, fontSize: 11, color: '#9CA3AF' },
-  withdrawBtn: { marginTop: 14, paddingVertical: 10, borderRadius: 8, backgroundColor: PRIMARY, alignItems: 'center' },
+  withdrawBtn: {
+    marginTop: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+    alignItems: 'center',
+  },
   withdrawBtnDisabled: { backgroundColor: '#E5E7EB' },
   withdrawBtnText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
   withdrawHint: { marginTop: 8, fontSize: 11, color: '#9CA3AF', textAlign: 'center' },
-  sectionTitle: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, fontSize: 15, fontWeight: '600', color: '#111827' },
+  sectionTitle: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+  },
   productsList: { marginHorizontal: 16, marginBottom: 24 },
-  productCard: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 8, backgroundColor: '#FFFFFF' },
+  productCard: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 8,
+    backgroundColor: '#FFFFFF',
+  },
   productTitle: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  productMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, gap: 8, flexWrap: 'wrap' },
+  productMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    gap: 8,
+    flexWrap: 'wrap',
+  },
   productPrice: { fontSize: 13, fontWeight: '600', color: PRIMARY },
   productCommission: { fontSize: 11, color: '#6B7280' },
   productSales: { fontSize: 11, color: '#9CA3AF' },
-  retryBtn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
+  retryBtn: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+  },
   retryBtnText: { color: '#FFFFFF', fontSize: 13 },
 })
