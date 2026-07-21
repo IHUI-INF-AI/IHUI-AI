@@ -10,14 +10,20 @@ import { X, Plus } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
-import { useWebSocket, type WSNotification, isAIResponse } from '@/hooks/use-websocket'
+import {
+  useWebSocket,
+  type WSNotification,
+  isAIResponse,
+  isAIQuestion,
+  isAIQuestionAnswered,
+} from '@/hooks/use-websocket'
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
 import { QuestionDialog } from '@/components/chat/question-dialog'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
 import { Tooltip } from '@/components/feedback'
-import { useChatStore, type ChatMessage } from '@/stores/chat'
+import { useChatStore, type ChatMessage, type PendingQuestion } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getConversation, getMessages } from '@/lib/chat-api'
 import { fetchApi } from '@/lib/api'
@@ -111,13 +117,45 @@ export function AISidePanel() {
     }
   }, [open, width])
 
-  // WebSocket ai_response 多端同步
+  // WebSocket 多端同步:统一处理 ai_response / ai_question / chat_question_answered 三种事件
+  // - ai_response:其他端 AI 回复 → append/replace assistant 消息(原有逻辑)
+  // - ai_question:其他端 AI 主动提问 → setPendingQuestion 弹窗(P2 新增)
+  // - chat_question_answered:其他端用户已回答 → clearPendingQuestion 关闭弹窗(P2 新增)
   React.useEffect(() => {
     if (!lastMessage || lastMessage === lastWsRef.current) return
     lastWsRef.current = lastMessage
+    const currentConv = useChatStore.getState().conversationId
+
+    // P2 多端同步:AI 主动提问(其他端收到 ai_question → 弹窗)
+    if (isAIQuestion(lastMessage)) {
+      const { conversationId, question } = lastMessage.data
+      // 仅处理当前会话的事件(其他会话的提问不弹窗,避免干扰)
+      if (conversationId && currentConv && conversationId !== currentConv) return
+      useChatStore.getState().setPendingQuestion({
+        questionId: question.questionId,
+        prompt: question.prompt,
+        options: question.options,
+        allowCustom: question.allowCustom,
+        allowMultiple: question.allowMultiple,
+      })
+      return
+    }
+
+    // P2 多端同步:AI 提问已回答(其他端收到 chat_question_answered → 关闭弹窗)
+    if (isAIQuestionAnswered(lastMessage)) {
+      const { conversationId, questionId } = lastMessage.data
+      if (conversationId && currentConv && conversationId !== currentConv) return
+      const pending = useChatStore.getState().pendingQuestion
+      // 仅关闭匹配 questionId 的弹窗(避免误关其他提问)
+      if (pending && pending.questionId === questionId) {
+        useChatStore.getState().clearPendingQuestion()
+      }
+      return
+    }
+
+    // AI 回复多端同步(原有逻辑)
     if (!isAIResponse(lastMessage)) return
     const { conversationId, message, clientMessageId } = lastMessage.data
-    const currentConv = useChatStore.getState().conversationId
     if (conversationId && currentConv && conversationId !== currentConv) return
 
     if (message) {
@@ -182,16 +220,32 @@ export function AISidePanel() {
           }))
           useChatStore.setState({ messages: hydrated, error: null })
           setConversationTitle(convRes.data.conversation.title || null)
+
+          // P2 多端同步:从 conversation.metadata.pendingQuestion 恢复挂起状态
+          // 场景:用户 A 在 web 提问后刷新页面 / 切换会话再切回 / 在其他端打开同一会话
+          // 后端 /chat/questions 已把 pendingQuestion 写入 conversation.metadata(merge 模式)
+          // 这里读取并还原弹窗,让用户能继续回答(不丢失挂起态)
+          const meta = convRes.data.conversation.metadata as {
+            pendingQuestion?: PendingQuestion | null
+          } | null
+          if (meta?.pendingQuestion) {
+            useChatStore.getState().setPendingQuestion(meta.pendingQuestion)
+          } else {
+            // 无挂起提问时清空(避免上一会话的弹窗残留)
+            useChatStore.getState().clearPendingQuestion()
+          }
         } else {
           setConversationId(null)
           useChatStore.setState({ messages: [], error: null })
           setConversationTitle(null)
+          useChatStore.getState().clearPendingQuestion()
         }
       } catch {
         if (!cancelled) {
           setConversationId(null)
           useChatStore.setState({ messages: [], error: null })
           setConversationTitle(null)
+          useChatStore.getState().clearPendingQuestion()
         }
       } finally {
         if (!cancelled) setLoadingHistory(false)
@@ -416,11 +470,7 @@ export function AISidePanel() {
         />
 
         {/* AI 主动提问弹窗:挂起对话,等用户回答后续流 */}
-        <QuestionDialog
-          question={pendingQuestion}
-          onSubmit={sendAnswer}
-          onSkip={skipQuestion}
-        />
+        <QuestionDialog question={pendingQuestion} onSubmit={sendAnswer} onSkip={skipQuestion} />
       </aside>
       {/* 右侧拖拽手柄:外层 8px 命中区 right-[-4px] 居中跨越 aside 右边缘(左右各 4px),
         内层 0.5px 线 left-[calc(50%-0.25px)] -translate-x-1/2 居中在命中区中心,与 aside 右边缘重合。
