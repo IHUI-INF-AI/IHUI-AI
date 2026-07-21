@@ -1323,6 +1323,16 @@
     },
     "hideReasoning": "隱藏推理過程",
     "showReasoning": "顯示推理過程",
+    "question": {
+      "title": "AI 需要你的回答",
+      "subtitle": "請回答以下問題,對話將繼續生成",
+      "submit": "提交回答",
+      "skip": "跳過提問",
+      "customPlaceholder": "或輸入自訂回答...",
+      "selectHint": "選擇一項繼續",
+      "multiSelectHint": "可多選,完成後點擊提交",
+      "selectedCount": "已選 {count} 項"
+    },
     "vendors": {
       "openai": "OpenAI",
       "anthropic": "Anthropic",
