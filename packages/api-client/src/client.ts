@@ -250,6 +250,14 @@ export interface StreamChatOptions {
     removedCount: number
     usageRatio: number
   }) => void
+  /** AI 主动提问回调:LLM 在流中输出 [[ASK_USER:JSON]] 标记时触发,前端弹窗让用户回答 */
+  onQuestion?: (question: {
+    questionId: string
+    prompt: string
+    options: Array<{ id: string; label: string }>
+    allowCustom: boolean
+    allowMultiple: boolean
+  }) => void
   metadata?: { conversationId?: string; userId?: string; messageId?: string }
   temperature?: number
   topP?: number
@@ -263,6 +271,11 @@ export interface StreamChatOptions {
   /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩(跨端统一)。
    * 由 use-chat.ts 调 getModelContextCapacity(model) 取得,后端不传则不压缩。 */
   contextLimit?: number
+  /** SSE 端点路径(默认 /ai/chat/stream)。
+   * 用户回答 AI 主动提问后续流走 /ai/chat/answer,需配合 extraBody 传 questionId + answer。 */
+  path?: string
+  /** 透传到请求 body 的额外字段(如 /chat/answer 的 questionId / answer)。 */
+  extraBody?: Record<string, unknown>
 }
 
 export function parseStreamLine(line: string): string | null {
@@ -674,7 +687,7 @@ function detectSafetyViolation(message: string, errorCode?: string): string | nu
 
 export async function streamChat(opts: StreamChatOptions): Promise<void> {
   const token = tokenProvider.getToken()
-  const url = normalizeUrl('/ai/chat/stream')
+  const url = normalizeUrl(opts.path ?? '/ai/chat/stream')
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'text/event-stream',
@@ -690,6 +703,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   if (opts.stop !== undefined) body.stop = opts.stop
   if (opts.workspacePath) body.workspacePath = opts.workspacePath
   if (opts.contextLimit !== undefined) body.contextLimit = opts.contextLimit
+  if (opts.extraBody) Object.assign(body, opts.extraBody)
 
   try {
     const resp = await fetch(url, {
@@ -734,6 +748,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     let buffer = ''
     const hasReasoning = typeof opts.onReasoning === 'function'
     const hasCompaction = typeof opts.onCompaction === 'function'
+    const hasQuestion = typeof opts.onQuestion === 'function'
 
     const tryParseCompaction = (line: string): void => {
       if (!hasCompaction) return
@@ -760,6 +775,40 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
     }
 
+    const tryParseQuestion = (line: string): void => {
+      if (!hasQuestion) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data)
+        if (json?.type === 'question' && json?.question?.questionId) {
+          const q = json.question
+          opts.onQuestion!({
+            questionId: String(q.questionId),
+            prompt: String(q.prompt ?? ''),
+            options: Array.isArray(q.options)
+              ? q.options
+                  .filter((o: unknown) => o && typeof o === 'object' && 'id' in o && 'label' in o)
+                  .map((o: { id: unknown; label: unknown }) => ({
+                    id: String(o.id),
+                    label: String(o.label),
+                  }))
+              : [],
+            allowCustom: q.allowCustom !== false,
+            allowMultiple: q.allowMultiple === true,
+          })
+        }
+      } catch {
+        /* 非 JSON 或非 question 事件忽略 */
+      }
+    }
+
     for (;;) {
       const { done, value } = await reader.read()
       if (done) break
@@ -769,6 +818,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         const line = buffer.slice(0, nl).replace(/\r$/, '')
         buffer = buffer.slice(nl + 1)
         tryParseCompaction(line)
+        tryParseQuestion(line)
         const delta = parseStreamLine(line)
         if (delta) opts.onDelta(delta)
         if (hasReasoning) {
@@ -779,6 +829,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     }
     if (buffer.trim()) {
       tryParseCompaction(buffer)
+      tryParseQuestion(buffer)
       const delta = parseStreamLine(buffer)
       if (delta) opts.onDelta(delta)
       if (hasReasoning) {
