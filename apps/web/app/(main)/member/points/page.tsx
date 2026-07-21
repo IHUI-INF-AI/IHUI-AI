@@ -121,9 +121,12 @@ export default function MemberPointsPage() {
             ) : txs.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">{t('txEmpty')}</p>
             ) : (
-              <ul className="divide-y">
+              <ul className="space-y-1">
                 {txs.slice(0, 20).map((tx) => (
-                  <li key={tx.id} className="flex items-center gap-3 px-4 py-2.5">
+                  <li
+                    key={tx.id}
+                    className="flex items-center gap-3 rounded-md px-4 py-2.5 transition-colors hover:bg-muted/50"
+                  >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm">{tx.reason}</p>
                       <p className="text-xs text-muted-foreground">
