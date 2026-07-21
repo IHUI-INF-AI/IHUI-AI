@@ -1946,6 +1946,7 @@
       "visitTracking": "访问追踪",
       "examMarking": "考试批阅",
       "saasTenants": "租户管理",
+      "saasCertificates": "证书状态",
       "group": {
         "operation": "运营管理",
         "moderation": "内容审核",
