@@ -63,6 +63,45 @@ services:
       - traefik.http.routers.traefik-dashboard.tls=true
       - traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt
 
+  # IHUI-AI SaaS Admin API — 客户生命周期管理(端口 8081 仅 localhost 暴露)
+  admin-api:
+    build:
+      context: ./admin-api
+      dockerfile: Dockerfile
+    image: ihui-saas-admin-api:latest
+    container_name: ihui-saas-admin-api
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - HOST=127.0.0.1
+      - PORT=8081
+      - LOG_LEVEL=${ADMIN_API_LOG_LEVEL:-info}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-}
+      - CORS_ORIGIN=${ADMIN_CORS_ORIGIN:-http://localhost:3000}
+    ports:
+      # 仅绑 localhost,不暴露公网
+      - '127.0.0.1:8081:8081'
+    volumes:
+      # Docker socket(需要 RW 以管理客户容器)
+      - /var/run/docker.sock:/var/run/docker.sock
+      # 客户管理脚本 + 客户数据(只读,运行时生成)
+      - ./scripts:/app/scripts:ro
+      - ./customers:/app/customers:rw
+      - ./backups:/app/backups:rw
+      - ./.credentials:/app/.credentials:ro
+      - ./templates:/app/templates:ro
+    networks:
+      - ihui-saas-net
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8081/admin/api/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      traefik:
+        condition: service_healthy
+
 networks:
   ihui-saas-net:
     name: ihui-saas-net
