@@ -10,6 +10,7 @@ import { fetchApi } from '@/lib/api'
 import { Alert } from '@/components/feedback'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { emailSchema, type TokenResult } from './login-schemas'
+import { OtpInput } from './OtpInput'
 
 interface EmailCodeLoginFormProps {
   active: boolean
@@ -95,7 +96,7 @@ export function EmailCodeLoginForm({
       setEmailErr(t('invalidEmail'))
       return
     }
-    if (!emailCode.trim()) {
+    if (emailCode.length !== 6) {
       setEmailErr(t('enterCode'))
       return
     }
@@ -142,23 +143,25 @@ export function EmailCodeLoginForm({
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="email-code">{t('code')}</Label>
-        <div className="flex gap-2">
-          <Input
-            id="email-code"
-            placeholder={t('codePlaceholder')}
-            className="h-10 flex-1"
+        <Label>{t('code')}</Label>
+        <div className="flex items-center gap-2">
+          <OtpInput
             value={emailCode}
-            onChange={(e) => setEmailCode(e.target.value)}
+            onChange={setEmailCode}
+            disabled={emailSubmitting}
+            aria-label={t('code')}
+            className="flex-1"
           />
           <Button
             type="button"
             variant="outline"
-            className="h-10 shrink-0"
+            className="h-11 shrink-0 px-3 text-sm"
             disabled={sendingEmail || emailCountdown > 0}
             onClick={onSendEmailCode}
           >
-            {emailCountdown > 0 ? t('resendCode', { seconds: emailCountdown }) : t('sendEmailCode')}
+            {emailCountdown > 0
+              ? t('resendCode', { seconds: emailCountdown })
+              : t('getVerificationCode')}
           </Button>
         </div>
       </div>
