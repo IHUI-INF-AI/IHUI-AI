@@ -165,6 +165,15 @@ export const HIGHLIGHT_MODEL_IDS = new Set<string>([
 export const FALLBACK_MODELS: Model[] = [
   // === OpenAI(7 个) ===
   {
+    id: 'openrouter/auto',
+    name: 'model.openrouter-auto.name',
+    provider: 'meta',
+    description: 'model.openrouter-auto.description',
+    contextLength: 128000,
+    inputPrice: 0,
+    features: ['Free', 'Auto-Route', 'Multi-Provider'],
+  },
+  {
     id: 'gpt-4o',
     name: 'GPT-4o',
     provider: 'openai',
