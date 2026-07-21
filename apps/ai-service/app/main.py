@@ -8,13 +8,23 @@ ASGI 拓扑:
 - 根 ASGI app = socketio.ASGIApp(sio, other_asgi_app=fastapi_app)
   /socket.io/* → sio,其余 → fastapi_app(含中间件栈)
 """
+import asyncio
 import logging
 import os
+import sys
 from contextlib import asynccontextmanager
+
+# Windows + asyncio 强制使用 ProactorEventLoop(支持 subprocess_exec)
+# 否则 Playwright 启动 Chromium 会报 NotImplementedError(2026-07-22 立)
+# Python 3.8+ 在 Windows 默认就是 ProactorEventLoop,但某些 ASGI 框架
+# (如 python-socketio)可能改 EventLoop policy,这里强制确保
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 import socketio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app import __version__
@@ -25,6 +35,8 @@ from app.core.schema_check import check_schema, log_report
 from app.routers import a2a, agent_runtime, agents, health, llm, mcp, personas, tools, voice_stt
 from app.routers import self_media
 from app.routers import publish
+from app.routers import opencompass
+from app.routers import screenshot
 from app.routers.legacy import router as legacy_router
 from app.sio import sio
 from app.sio.handlers import register_handlers
@@ -73,11 +85,17 @@ async def lifespan(app: FastAPI):
     from app.services.publish.scheduler import publish_scheduler
     publish_scheduler.start()
 
+    # 截图服务(Playwright)按需启动,不在 lifespan 启动时初始化(避免 Chromium 占用)
+    # 首次截图请求时懒加载,退出时 shutdown() 清理
+
     yield
     shutdown_telemetry()
 
     await publish_scheduler.stop()
     await self_media_scheduler.stop()
+    # 关闭 Playwright 单例(避免 Chromium 进程泄漏)
+    from app.services.screenshot_service import shutdown as screenshot_shutdown
+    await screenshot_shutdown()
     shutdown_telemetry()
 
 
@@ -105,6 +123,15 @@ def create_app() -> FastAPI:
     # OpenTelemetry 追踪中间件（未配置 OTEL_EXPORTER_OTLP_ENDPOINT 时降级为 no-op）
     setup_telemetry(app)
 
+    # 全局异常兜底:未捕获的 Exception 返回 500 JSON(避免 ASGI 默认 HTML 错误页)
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request, exc):
+        logger.exception("Unhandled exception: %s", exc)
+        return JSONResponse(
+            status_code=500,
+            content={"code": 500, "message": "服务内部错误", "data": None},
+        )
+
     # 注册路由(路由器自带 /llm /mcp /agents /a2a /tools 前缀,统一加 /api)
     app.include_router(health.router, tags=["health"])
     app.include_router(llm.router, prefix="/api", tags=["llm"])
@@ -119,6 +146,10 @@ def create_app() -> FastAPI:
     app.include_router(self_media.router, prefix="/api", tags=["self-media"])
     # 多平台一键发布(14 平台 + AES-256-GCM 凭证加密 + 调度器,2026-07-20 新增)
     app.include_router(publish.router, prefix="/api", tags=["publish"])
+    # OpenCompass 排行榜抓取(Playwright 渲染,2026-07-22 新增,供 api ai-world-sync 调用)
+    app.include_router(opencompass.router, prefix="/api", tags=["opencompass"])
+    # 截图服务(Playwright headless,2026-07-22 新增,WorkPanel iframe 降级)
+    app.include_router(screenshot.router, prefix="/api", tags=["screenshot"])
     # v1 业务流路由(对话/智能体/RAG,2026-07-20 新增)
     app.include_router(api_v1_router, prefix="/api/v1", tags=["v1"])
     app.include_router(legacy_router)

@@ -176,11 +176,24 @@ P2 AI 工具调用深度联动(5 修改文件):
 
 ---
 
-### [ ] G4 智能体编排异常处理:conversation 顶层 catch + SSE 断连检测 + sse_buffer 接入(平台独占:仅 ai-service,待启动)
+### [x] ✅(2026-07-22) G4 智能体编排异常处理:conversation 顶层 catch + SSE 断连检测 + openai_provider token 兜底(平台独占:仅 ai-service,已完成)
 
-**触发**:审计发现 P0-7(conversation.chat 无顶层 try-catch + 不检查 LLM error)+ P0-8(SSE 4 端点无断连检测)+ P1-7(openai_provider 静默丢 token)+ P1-8(sse_buffer 死代码)。
+**触发**:审计发现 P0-7(conversation.chat 无顶层 try-catch + 不检查 LLM error)+ P0-8(SSE 端点无断连检测)+ P1-7(openai_provider 静默丢 token)。
 
-**范围**:`apps/ai-service/app/services/conversation.py` + `apps/ai-service/app/routers/{llm,agent_runtime}.py` + `apps/ai-service/app/providers/openai_provider.py` + `apps/ai-service/app/utils/sse_buffer.py`
+**范围**:`apps/ai-service/app/services/conversation.py` + `apps/ai-service/app/routers/{llm,agent_runtime}.py` + `apps/ai-service/app/providers/openai_provider.py` + `apps/ai-service/app/main.py`
+
+**完成证据**:
+- conversation.py(P0-7):chat 方法加顶层 try-except(先 `except asyncio.CancelledError: raise` 再 `except Exception`),LLM 调用后检查 `result.get("error")` 设 `[LLM 调用失败]` + break,summarize 检查 error,工具失败 trace 记 `_tool_error`
+- llm.py(P0-8):`/llm/complete/stream` 签名加 `request: Request`,gen() 循环内 `is_disconnected()` 检测,`except asyncio.CancelledError: raise` 单独捕获,callback 前检查断连
+- agent_runtime.py(P0-8):`/execute/stream` 签名加 `request: Request`,event_stream() 循环内断连检测,CancelledError 单独捕获不误置 session.status,补 SSE headers(Cache-Control/Connection/X-Accel-Buffering)
+- openai_provider.py(P1-7):非流式 usage 缺失 logger.warning,流式加 `_done_yielded` 标志 + 循环结束兜底 yield 空 usage done,坏 chunk JSONDecodeError 从静默改 logger.warning
+- main.py:注册全局 `@app.exception_handler(Exception)` 兜底,返回 500 JSON `{code:500, message:"服务内部错误", data:None}`
+- py_compile 5 文件 exit 0 ✅
+
+**遗留(P1/P2,非本任务范围)**:
+- P1:agents.py 已有 request:Request 但缺 is_disconnected 检测(次要,3 端点行为不一致)
+- P1:sse_buffer 仅覆盖 agents.py,llm.py/agent_runtime.py 未接入断线重连(P1-8 覆盖不全)
+- P2:llm_gateway.py usage 序列化异常静默吞(pass 未日志化)
 
 ---
 
