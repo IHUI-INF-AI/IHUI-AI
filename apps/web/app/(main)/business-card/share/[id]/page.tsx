@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
@@ -53,6 +54,7 @@ const TPL_STYLES: Record<string, string> = {
 export default function CardSharePage() {
   const { id } = useParams<{ id: string }>()
   const qc = useQueryClient()
+  const t = useTranslations('businessCardSharePage')
   const [copied, setCopied] = React.useState(false)
 
   const {
@@ -111,7 +113,7 @@ export default function CardSharePage() {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
 
@@ -123,10 +125,10 @@ export default function CardSharePage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回列表
+          {t('backToList')}
         </Link>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {(error as Error)?.message ?? '名片不存在'}
+          {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
     )
@@ -140,7 +142,7 @@ export default function CardSharePage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回列表
+        {t('backToList')}
       </Link>
 
       <div className={cn('rounded-xl p-6 shadow-sm', TPL_STYLES[tpl] ?? TPL_STYLES.minimal)}>
@@ -205,7 +207,7 @@ export default function CardSharePage() {
             <div className="rounded-lg border p-2">
               <Image
                 src={qrUrl}
-                alt="二维码"
+                alt={t('qrAlt')}
                 width={128}
                 height={128}
                 className="h-32 w-32"
@@ -214,7 +216,7 @@ export default function CardSharePage() {
             </div>
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
               <QrCode className="h-3 w-3" />
-              扫码查看名片
+              {t('scanTip')}
             </span>
           </div>
           <div className="flex flex-col gap-2">
@@ -224,11 +226,11 @@ export default function CardSharePage() {
               ) : (
                 <Copy className="mr-2 h-4 w-4" />
               )}
-              {copied ? '已复制' : '复制链接'}
+              {copied ? t('copied') : t('copyLink')}
             </Button>
             <Button variant="outline" onClick={downloadCard} className="justify-start">
               <Download className="mr-2 h-4 w-4" />
-              下载 vCard
+              {t('downloadVcard')}
             </Button>
             <Button
               variant="outline"
@@ -237,7 +239,7 @@ export default function CardSharePage() {
               className="justify-start"
             >
               <Star className="mr-2 h-4 w-4" />
-              {favMut.isPending ? '处理中...' : '收藏名片'}
+              {favMut.isPending ? t('processing') : t('favoriteCard')}
             </Button>
           </div>
         </CardContent>
