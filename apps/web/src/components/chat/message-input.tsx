@@ -450,15 +450,15 @@ export function MessageInput({
                   点击后弹出 SkillLibrary 弹窗,选中后填充模板到 textarea。
                   替代了原先单独的 SelfMediaSkillPicker(已并入此弹窗的 self-media tab)。 */}
               {isStreaming ? (
-                <Tooltip content={t('skillLibrary')}>
+                <Tooltip content={t('skillLibrary.title')}>
                   <button
                     type="button"
                     disabled
-                    aria-label={t('skillLibrary')}
+                    aria-label={t('skillLibrary.title')}
                     className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/50"
                   >
                     <Sparkles className="h-3.5 w-3.5" />
-                    <span>{t('skillLibrary')}</span>
+                    <span>{t('skillLibrary.title')}</span>
                   </button>
                 </Tooltip>
               ) : (
@@ -466,18 +466,18 @@ export function MessageInput({
                   content={<SkillLibrary onSelect={fillInput} onClose={() => {}} />}
                   position="bottom"
                   trigger="click"
-                  tooltip={t('skillLibrary')}
+                  tooltip={t('skillLibrary.title')}
                 >
                   <button
                     type="button"
-                    aria-label={t('skillLibrary')}
+                    aria-label={t('skillLibrary.title')}
                     className={cn(
                       'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all',
                       'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:-translate-y-px',
                     )}
                   >
                     <Sparkles className="h-3.5 w-3.5" />
-                    <span>{t('skillLibrary')}</span>
+                    <span>{t('skillLibrary.title')}</span>
                   </button>
                 </Popover>
               )}
