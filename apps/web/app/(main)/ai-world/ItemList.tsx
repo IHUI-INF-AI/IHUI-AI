@@ -19,12 +19,13 @@ interface Props {
   emptyHint?: string
 }
 
-type OrderKey = 'latest' | 'hot' | 'published'
+type OrderKey = 'latest' | 'hot' | 'published' | 'trending'
 
 const ORDER_OPTIONS: Array<{ key: OrderKey; label: string }> = [
   { key: 'latest', label: '最新' },
   { key: 'hot', label: '热门' },
   { key: 'published', label: '发布时间' },
+  { key: 'trending', label: '热度榜' },
 ]
 
 export function ItemList({
