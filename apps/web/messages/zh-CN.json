@@ -1945,6 +1945,7 @@
       "messageOverview": "消息概览",
       "visitTracking": "访问追踪",
       "examMarking": "考试批阅",
+      "saasTenants": "租户管理",
       "group": {
         "operation": "运营管理",
         "moderation": "内容审核",
@@ -1956,7 +1957,8 @@
         "support": "客服工单",
         "community": "社区圈子",
         "resource": "资源中心",
-        "developer": "开发者中心"
+        "developer": "开发者中心",
+        "saas": "SaaS 部署"
       }
     },
     "refund": {
@@ -2595,6 +2597,62 @@
       "totalProjects": "总项目数",
       "todayRevenue": "今日营收",
       "activeSessions": "活跃会话"
+    },
+    "saas": {
+      "title": "租户管理",
+      "subtitle": "管理 SaaS 客户租户生命周期",
+      "createTenant": "创建租户",
+      "creating": "创建中...",
+      "search": "搜索",
+      "searchPlaceholder": "搜索租户标识...",
+      "filterState": "状态筛选",
+      "stateAll": "全部",
+      "stateActive": "运行中",
+      "statePaused": "已暂停",
+      "stateCreating": "创建中",
+      "stateNotFound": "不存在",
+      "total": "共 {total} 个",
+      "empty": "暂无租户,点击右上角\"创建租户\"开始",
+      "table": {
+        "slug": "租户标识",
+        "domain": "访问域名",
+        "state": "状态",
+        "containers": "容器",
+        "memory": "内存",
+        "cpu": "CPU",
+        "stateChangedAt": "状态变更",
+        "actions": "操作"
+      },
+      "action": {
+        "detail": "查看详情",
+        "pause": "暂停",
+        "resume": "恢复",
+        "backup": "备份",
+        "destroy": "销毁"
+      },
+      "confirm": {
+        "pauseTitle": "暂停租户 {slug}",
+        "pauseHint": "暂停后该租户的所有容器将停止运行,但数据保留。可随时恢复。",
+        "resumeTitle": "恢复租户 {slug}",
+        "resumeHint": "恢复后该租户的容器将重新启动,域名解析保持不变。",
+        "backupTitle": "备份租户 {slug}",
+        "backupHint": "立即创建一份数据快照备份,操作期间服务可正常使用。",
+        "destroyTitle": "销毁租户 {slug}",
+        "destroyHint": "此操作不可撤销!租户的所有数据、容器、备份将全部清除,请谨慎操作。",
+        "destroyInputHint": "请输入租户标识 \"{slug}\" 以确认销毁",
+        "cancel": "取消",
+        "confirm": "确认"
+      },
+      "form": {
+        "slug": "租户标识",
+        "slugHint": "3-20 位小写字母、数字、短横线,创建后不可修改",
+        "memory": "内存限制",
+        "cpu": "CPU 限制",
+        "plan": "套餐",
+        "planFree": "免费版",
+        "planPro": "专业版",
+        "planEnterprise": "企业版"
+      }
     },
     "users": {
       "title": "用户管理",
