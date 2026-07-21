@@ -98,7 +98,13 @@ export interface UseChatReturn {
   currentModel: string
   isStreaming: boolean
   error: string | null
+  /** 当前挂起的 AI 提问;非 null 时弹窗阻塞输入 */
+  pendingQuestion: ReturnType<typeof useChatStore.getState>['pendingQuestion']
   sendMessage: (content: string) => Promise<void>
+  /** 用户回答 AI 主动提问,触发 /chat/answer 续流 */
+  sendAnswer: (answer: string) => Promise<void>
+  /** 跳过当前挂起的提问(不续流,允许用户继续发新消息) */
+  skipQuestion: () => void
   stop: () => void
   clearMessages: () => void
   setModel: (model: string) => void
@@ -213,6 +219,17 @@ export function useChat(): UseChatReturn {
               description: `${formatTokenCount(info.tokensBefore)} → ${formatTokenCount(info.tokensAfter)}(移除 ${info.removedCount} 条历史)`,
             })
           },
+          onQuestion: (q) => {
+            // AI 主动提问:挂起对话,弹窗阻塞输入,等用户回答后 sendAnswer 续流
+            useChatStore.getState().setPendingQuestion({
+              questionId: q.questionId,
+              prompt: q.prompt,
+              options: q.options,
+              allowCustom: q.allowCustom,
+              allowMultiple: q.allowMultiple,
+              assistantMessageId: assistantId,
+            })
+          },
           onDelta: (delta) => {
             firstTokenReceived = true
             useChatStore.getState().appendToMessage(assistantId, delta)
@@ -274,6 +291,119 @@ export function useChat(): UseChatReturn {
     abortRef.current?.abort()
   }, [])
 
+  // 用户回答 AI 主动提问:调 /chat/answer 续流,不中断对话
+  // 后端会把 answer 作为新 user 消息 append 到 messages 末尾,继续生成
+  const sendAnswer = React.useCallback(async (answer: string) => {
+    const trimmed = answer.trim()
+    if (!trimmed) return
+    const store = useChatStore.getState()
+    const pending = store.pendingQuestion
+    if (!pending || store.isStreaming) return
+
+    // 立即关闭弹窗,避免重复提交
+    store.clearPendingQuestion()
+
+    const model = store.currentModel
+
+    // 历史消息(不含 answer,后端 /chat/answer 自动 append answer 到末尾)
+    const history = store.messages
+      .filter((m) => !m.error && (m.role === 'user' || m.role === 'assistant') && m.content)
+      .map((m) => ({ role: m.role, content: m.content }))
+
+    // UI 上把 answer 显示为 user 消息(让用户看到自己回答了什么)
+    store.addMessage({ role: 'user', content: trimmed, model })
+    const assistantId = store.addMessage({ role: 'assistant', content: '', model })
+
+    store.setStreaming(true)
+    store.setError(null)
+
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    let firstTokenReceived = false
+    const timeoutId = setTimeout(() => {
+      if (!firstTokenReceived) controller.abort()
+    }, 15000)
+
+    const userId = useAuthStore.getState().user?.id ?? ''
+    const workspacePath = useAiPanelStore.getState().activeWorkspace?.path
+
+    try {
+      await streamChat({
+        model,
+        messages: history,
+        path: '/ai/chat/answer',
+        extraBody: { questionId: pending.questionId, answer: trimmed },
+        signal: controller.signal,
+        metadata: {
+          conversationId: store.conversationId ?? undefined,
+          userId,
+          messageId: assistantId,
+        },
+        workspacePath,
+        contextLimit: getModelContextCapacity(model),
+        onDelta: (delta) => {
+          firstTokenReceived = true
+          useChatStore.getState().appendToMessage(assistantId, delta)
+        },
+        onReasoning: (delta) => {
+          useChatStore.getState().appendReasoningToMessage(assistantId, delta)
+        },
+        onError: (errMsg) => {
+          const formatted = formatSSEError(errMsg)
+          useChatStore.getState().setMessageError(assistantId, formatted.message)
+          useChatStore.getState().setError(formatted.message)
+          if (formatted.severity === 'auth') {
+            useLoginDialogStore.getState().open('login')
+          }
+          const toastDesc =
+            formatted.severity === 'auth' ? formatted.message : formatted.rawMessage
+          if (formatted.severity === 'ratelimit') {
+            toast.warning(formatted.title, { description: toastDesc })
+          } else if (formatted.severity === 'safety') {
+            toast.warning(formatted.title, { description: formatted.message })
+          } else {
+            toast.error(formatted.title, { description: toastDesc })
+          }
+        },
+      })
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        if (!firstTokenReceived) {
+          const formatted = formatSSEError(
+            err,
+            'AI 响应超时(15 秒内未收到任何内容),请稍后重试',
+          )
+          useChatStore.getState().setMessageError(assistantId, formatted.message)
+          useChatStore.getState().setError(formatted.message)
+        }
+      } else {
+        const formatted = formatSSEError(err)
+        useChatStore.getState().setMessageError(assistantId, formatted.message)
+        useChatStore.getState().setError(formatted.message)
+        if (formatted.severity === 'auth') {
+          useLoginDialogStore.getState().open('login')
+        }
+        if (formatted.severity === 'ratelimit' || formatted.severity === 'safety') {
+          toast.warning(formatted.title, { description: formatted.message })
+        } else if (formatted.severity === 'network') {
+          toast.error(formatted.title, { description: formatted.message })
+        } else {
+          toast.error(formatted.title, { description: formatted.rawMessage })
+        }
+      }
+    } finally {
+      clearTimeout(timeoutId)
+      abortRef.current = null
+      useChatStore.getState().setStreaming(false)
+    }
+  }, [])
+
+  // 跳过当前挂起的提问:不续流 LLM,允许用户继续发新消息
+  const skipQuestion = React.useCallback(() => {
+    useChatStore.getState().clearPendingQuestion()
+  }, [])
+
   // 组件卸载时中止进行中的流式请求,避免后台僵尸请求
   React.useEffect(() => {
     return () => {
@@ -283,13 +413,17 @@ export function useChat(): UseChatReturn {
 
   const clearMessages = useChatStore((s) => s.clearMessages)
   const setModel = useChatStore((s) => s.setModel)
+  const pendingQuestion = useChatStore((s) => s.pendingQuestion)
 
   return {
     messages,
     currentModel,
     isStreaming,
     error,
+    pendingQuestion,
     sendMessage,
+    sendAnswer,
+    skipQuestion,
     stop,
     clearMessages,
     setModel,

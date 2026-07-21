@@ -1323,6 +1323,16 @@
     },
     "hideReasoning": "추론 숨기기",
     "showReasoning": "추론 표시",
+    "question": {
+      "title": "AI가 답변을 기다립니다",
+      "subtitle": "질문에 답하면 대화가 계속 진행됩니다",
+      "submit": "답변 제출",
+      "skip": "건너뛰기",
+      "customPlaceholder": "또는 직접 입력...",
+      "selectHint": "하나를 선택하세요",
+      "multiSelectHint": "여러 개 선택 후 제출을 누르세요",
+      "selectedCount": "{count}개 선택됨"
+    },
     "vendors": {
       "openai": "오픈ＡＩ",
       "anthropic": "안트로픽",
