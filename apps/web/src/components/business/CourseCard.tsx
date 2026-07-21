@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { User, Clock, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ProgressBar } from '@/components/common'
@@ -17,6 +18,8 @@ interface CourseCardProps {
   duration?: string
   tags?: string[]
   onClick?: () => void
+  /** 渲染为 Next.js Link,启用客户端导航 + 右键新窗口 + 中键打开 */
+  href?: string
   className?: string
 }
 
@@ -31,25 +34,18 @@ function CourseCardImpl({
   duration,
   tags,
   onClick,
+  href,
   className,
 }: CourseCardProps) {
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onClick?.()
-        }
-      }}
-      className={cn(
-        'group overflow-hidden rounded-xl border bg-card text-card-foreground shadow transition-all hover:shadow-lg',
-        onClick && 'cursor-pointer',
-        className,
-      )}
-    >
+  const interactive = Boolean(href ?? onClick)
+  const baseClass = cn(
+    'group block overflow-hidden rounded-xl border bg-card text-card-foreground shadow transition-all hover:shadow-lg',
+    interactive && 'cursor-pointer',
+    className,
+  )
+
+  const inner = (
+    <>
       <div className="relative aspect-video overflow-hidden bg-muted">
         {cover ? (
           <Image
@@ -111,6 +107,31 @@ function CourseCardImpl({
           </div>
         )}
       </div>
+    </>
+  )
+
+  if (href) {
+    return (
+      <Link href={href} className={baseClass}>
+        {inner}
+      </Link>
+    )
+  }
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick?.()
+        }
+      }}
+      className={baseClass}
+    >
+      {inner}
     </div>
   )
 }
