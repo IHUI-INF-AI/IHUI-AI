@@ -3,16 +3,17 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { Wrench, AppWindow, Newspaper, FileText, Github, Sparkles } from 'lucide-react'
+import { Wrench, AppWindow, Newspaper, FileText, Github, Sparkles, Trophy } from 'lucide-react'
 
 import { fetchAiWorld } from './helpers'
 import { ItemList } from './ItemList'
 import { CategorySidebar } from './CategorySidebar'
 import { AiChatSection } from './AiChatSection'
 import { HotAppsCard } from './HotAppsCard'
+import { RankingTable } from './RankingTable'
 import type { ItemKind } from './types'
 
-type TabKey = 'tools' | 'apps' | 'news' | 'papers' | 'projects' | 'ai'
+type TabKey = 'tools' | 'apps' | 'news' | 'papers' | 'projects' | 'rankings' | 'ai'
 
 interface TabDef {
   key: TabKey
@@ -29,6 +30,7 @@ const TABS: TabDef[] = [
   { key: 'news', label: '资讯', icon: Newspaper, kind: 'news', layout: 'list', hasSidebar: false },
   { key: 'papers', label: '论文', icon: FileText, kind: 'paper', layout: 'list', hasSidebar: false },
   { key: 'projects', label: '项目', icon: Github, kind: 'project', layout: 'list', hasSidebar: false },
+  { key: 'rankings', label: '模型排行', icon: Trophy, layout: 'list', hasSidebar: false },
   { key: 'ai', label: 'AI 对话', icon: Sparkles, layout: 'list', hasSidebar: false },
 ]
 
@@ -92,6 +94,8 @@ export default function AiWorldPage() {
       {/* 主内容区 */}
       {activeTab === 'ai' ? (
         <AiChatSection open={aiOpen} onToggle={() => setAiOpen((v) => !v)} />
+      ) : activeTab === 'rankings' ? (
+        <RankingTable />
       ) : activeTabDef.hasSidebar ? (
         <div className="grid gap-4 lg:grid-cols-[200px_1fr]">
           <aside className="rounded-lg border bg-card p-2">
