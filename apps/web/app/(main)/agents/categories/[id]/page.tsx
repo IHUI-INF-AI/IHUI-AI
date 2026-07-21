@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, ArrowLeft, Tag, Calendar, CreditCard, Sparkles } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -51,6 +51,7 @@ async function api<T>(url: string): Promise<T> {
 export default function AgentCategoryDetailPage() {
   const params = useParams<{ id: string }>()
   const locale = useLocale()
+  const t = useTranslations('agentsCategoriesPage')
 
   const {
     data: category,
@@ -87,7 +88,7 @@ export default function AgentCategoryDetailPage() {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
   }
@@ -100,10 +101,10 @@ export default function AgentCategoryDetailPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回
+          {t('back')}
         </Link>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {(error as Error)?.message ?? '分类不存在'}
+          {(error as Error)?.message ?? t('notExists')}
         </div>
       </div>
     )
@@ -116,7 +117,7 @@ export default function AgentCategoryDetailPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回
+        {t('back')}
       </Link>
 
       <Card>
@@ -140,12 +141,12 @@ export default function AgentCategoryDetailPage() {
                       : 'bg-muted text-muted-foreground',
                   )}
                 >
-                  {category.status === '1' ? '启用' : '禁用'}
+                  {t(category.status === '1' ? 'status.enabled' : 'status.disabled')}
                 </span>
                 {category.isPaid && (
                   <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-amber-600 dark:text-amber-500">
                     <CreditCard className="h-3 w-3" />
-                    付费分类
+                    {t('paidCategory')}
                   </span>
                 )}
                 <span className="inline-flex items-center gap-1">
@@ -166,15 +167,15 @@ export default function AgentCategoryDetailPage() {
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">分类下智能体</h2>
-          <span className="text-sm text-muted-foreground">共 {agentsData?.total ?? 0} 个</span>
+          <h2 className="text-lg font-semibold">{t('agentsTitle')}</h2>
+          <span className="text-sm text-muted-foreground">{t('total', { count: agentsData?.total ?? 0 })}</span>
         </div>
 
         {agentsData ? (
           agents.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
               <Sparkles className="h-8 w-8 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">该分类下暂无智能体</p>
+              <p className="text-sm text-muted-foreground">{t('emptyAgents')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -203,7 +204,7 @@ export default function AgentCategoryDetailPage() {
                         {agent.name}
                       </h3>
                       <p className="line-clamp-2 text-xs text-muted-foreground">
-                        {agent.description ?? '暂无描述'}
+                        {agent.description ?? t('noDescription')}
                       </p>
                       <div className="flex items-center gap-2 pt-1">
                         <span
@@ -214,7 +215,7 @@ export default function AgentCategoryDetailPage() {
                               : 'text-primary',
                           )}
                         >
-                          {agent.isFree ? '免费' : `¥${agent.price}`}
+                          {agent.isFree ? t('free') : `¥${agent.price}`}
                         </span>
                       </div>
                     </div>
@@ -226,7 +227,7 @@ export default function AgentCategoryDetailPage() {
         ) : (
           <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            加载智能体...
+            {t('loadingAgents')}
           </div>
         )}
       </div>

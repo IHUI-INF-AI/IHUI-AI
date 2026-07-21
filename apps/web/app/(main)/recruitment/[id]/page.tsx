@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import {
   Loader2,
   ArrowLeft,
@@ -47,6 +47,7 @@ async function api<T>(url: string): Promise<T> {
 export default function RecruitmentDetailPage() {
   const params = useParams<{ id: string }>()
   const locale = useLocale()
+  const t = useTranslations('recruitmentDetailPage')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['recruitment', params.id],
@@ -68,7 +69,7 @@ export default function RecruitmentDetailPage() {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
   }
@@ -81,10 +82,10 @@ export default function RecruitmentDetailPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回
+          {t('back')}
         </Link>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {(error as Error)?.message ?? '岗位不存在'}
+          {(error as Error)?.message ?? t('notExist')}
         </div>
       </div>
     )
@@ -103,13 +104,13 @@ export default function RecruitmentDetailPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回
+        {t('back')}
       </Link>
 
       <header className="space-y-3">
         <div className="inline-flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm text-primary">
           <Target className="h-4 w-4" />
-          {data.subtitle ?? '岗位详情'}
+          {data.subtitle ?? t('defaultSubtitle')}
         </div>
         <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{data.title}</h1>
         <p className="text-sm text-muted-foreground md:text-base">{data.description}</p>
@@ -147,7 +148,7 @@ export default function RecruitmentDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Target className="h-5 w-5 text-primary" />
-              岗位要求
+              {t('requirementsTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -172,7 +173,7 @@ export default function RecruitmentDetailPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">暂无要求</p>
+              <p className="text-sm text-muted-foreground">{t('emptyRequirements')}</p>
             )}
           </CardContent>
         </Card>
@@ -181,7 +182,7 @@ export default function RecruitmentDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Award className="h-5 w-5 text-amber-500" />
-              专属权益
+              {t('benefitsTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -198,7 +199,7 @@ export default function RecruitmentDetailPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">暂无权益</p>
+              <p className="text-sm text-muted-foreground">{t('emptyBenefits')}</p>
             )}
           </CardContent>
         </Card>
@@ -208,19 +209,19 @@ export default function RecruitmentDetailPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <UserCheck className="h-5 w-5 text-muted-foreground" />
-            申请人列表
+            {t('applicantsTitle')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center gap-2 py-10">
             <Users className="h-8 w-8 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">暂无申请人数据</p>
+            <p className="text-sm text-muted-foreground">{t('emptyApplicants')}</p>
           </div>
         </CardContent>
       </Card>
 
       <div className="text-center text-xs text-muted-foreground">
-        发布时间：{dateFmt.format(new Date())}
+        {t('publishTime', { date: dateFmt.format(new Date()) })}
       </div>
     </div>
   )

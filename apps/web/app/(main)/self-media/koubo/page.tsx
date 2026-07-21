@@ -92,10 +92,10 @@ export default function KouboPage() {
           setFilePath(r.data.outputPath)
         }
       } else {
-        setResult({ ok: false, error: r.error || 'request failed' })
+        setResult({ ok: false, error: r.error || t('requestFailed') })
       }
     } catch (e) {
-      setResult({ ok: false, error: e instanceof Error ? e.message : 'network error' })
+      setResult({ ok: false, error: e instanceof Error ? e.message : t('networkError') })
     } finally {
       setRunning(null)
     }
@@ -136,14 +136,18 @@ export default function KouboPage() {
             ok: r1.data.ok && r2.data.ok,
           })
         } else {
-          setResult({ ...r1.data, ok: false, error: 'validate 失败:' + (r2.error || '未知错误') })
+          setResult({
+            ...r1.data,
+            ok: false,
+            error: t('validateFailedPrefix') + (r2.error || t('unknownError')),
+          })
         }
       } else {
-        setResult({ ...r1.data, error: 'generate 未返回 outputPath,无法继续 validate' })
+        setResult({ ...r1.data, error: t('noOutputPathError') })
       }
       void loadHistory()
     } catch (e) {
-      setResult({ ok: false, error: e instanceof Error ? e.message : 'network error' })
+      setResult({ ok: false, error: e instanceof Error ? e.message : t('networkError') })
     } finally {
       setRunning(null)
     }
@@ -162,7 +166,7 @@ export default function KouboPage() {
   const downloadAllArticles = () => {
     if (!result?.articles?.length) return
     const text = result.articles
-      .map((a) => `# 第 ${a.index} 篇\n\n${a.content}\n\n---\n`)
+      .map((a) => `# ${t('articleNumber', { n: a.index })}\n\n${a.content}\n\n---\n`)
       .join('\n')
     const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -215,7 +219,7 @@ export default function KouboPage() {
               />
               {result?.outputPath && (
                 <p className="text-xs text-muted-foreground">
-                  最新输出: <code className="rounded bg-muted px-1">{result.outputPath}</code>
+                  {t('latestOutput')} <code className="rounded bg-muted px-1">{result.outputPath}</code>
                 </p>
               )}
             </div>
@@ -262,13 +266,11 @@ export default function KouboPage() {
                 ) : (
                   <Wand2 className="h-4 w-4" />
                 )}
-                一键流水线
+                {t('pipeline')}
               </Button>
             </div>
             {running === 'all' && (
-              <p className="text-xs text-muted-foreground">
-                正在执行 8 篇口播稿生成 + 双门禁验证,预计 5-10 分钟,请勿离开页面...
-              </p>
+              <p className="text-xs text-muted-foreground">{t('pipelineRunning')}</p>
             )}
           </CardContent>
         </Card>
@@ -286,7 +288,7 @@ export default function KouboPage() {
                     className="h-7 px-2 text-xs"
                   >
                     <Copy className="h-3 w-3" />
-                    下载全部
+                    {t('downloadAll')}
                   </Button>
                 )}
               </CardTitle>
@@ -301,8 +303,10 @@ export default function KouboPage() {
               >
                 {result.ok ? '✅ ' + t('runSuccess') : '❌ ' + t('runFailed')}
                 {typeof result.returncode === 'number' && ` (rc=${result.returncode})`}
-                {typeof result.duration_ms === 'number' && ` · ${result.duration_ms} ms`}
-                {result.articlesCount !== undefined && ` · ${result.articlesCount} 篇`}
+                {typeof result.duration_ms === 'number' &&
+                  ` · ${result.duration_ms} ${t('msUnit')}`}
+                {result.articlesCount !== undefined &&
+                  ` · ${result.articlesCount} ${t('articleUnit')}`}
               </div>
               {result.guide && (
                 <p className="rounded-md bg-muted px-2 py-1.5 text-xs text-muted-foreground">
@@ -322,7 +326,9 @@ export default function KouboPage() {
                       className="rounded-md border border-border bg-background p-3"
                     >
                       <div className="mb-2 flex items-center justify-between">
-                        <h4 className="text-xs font-semibold">第 {a.index} 篇</h4>
+                        <h4 className="text-xs font-semibold">
+                          {t('articleNumber', { n: a.index })}
+                        </h4>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -332,12 +338,12 @@ export default function KouboPage() {
                           {copiedIdx === a.index ? (
                             <>
                               <Check className="h-3 w-3" />
-                              已复制
+                              {t('copied')}
                             </>
                           ) : (
                             <>
                               <Copy className="h-3 w-3" />
-                              复制
+                              {t('copy')}
                             </>
                           )}
                         </Button>
@@ -387,7 +393,7 @@ export default function KouboPage() {
                   type="button"
                   onClick={() => applyHistory(h)}
                   className="block w-full cursor-pointer rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  title="点击复用此条历史参数"
+                  title={t('historyItemHint')}
                 >
                   <div className="truncate font-medium">{h.title}</div>
                   <div className="mt-0.5 flex items-center gap-1.5 text-muted-foreground">

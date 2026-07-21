@@ -46,12 +46,12 @@ export default function CirclePostPage() {
     mutationFn: async () => {
       setFormError(null)
       if (!circleId) {
-        setFormError('请选择圈子')
-        throw new Error('请选择圈子')
+        setFormError(t('post.errorCircleRequired'))
+        throw new Error(t('post.errorCircleRequired'))
       }
       if (!title.trim() || !content.trim()) {
-        setFormError('标题和内容不能为空')
-        throw new Error('标题和内容不能为空')
+        setFormError(t('post.errorTitleContentRequired'))
+        throw new Error(t('post.errorTitleContentRequired'))
       }
       return api<{ post: { id: string } }>(`/api/circles/${circleId}/posts`, {
         method: 'POST',
@@ -84,32 +84,32 @@ export default function CirclePostPage() {
       <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">发帖</CardTitle>
+          <CardTitle className="text-lg">{t('post.cardTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <Select
-            label="选择圈子"
+            label={t('post.selectCircle')}
             options={circleOptions}
             value={circleId}
             onChange={(v) => setCircleId(v as string)}
-            placeholder="请选择圈子"
+            placeholder={t('post.selectCirclePlaceholder')}
           />
           <Input
-            label="标题"
+            label={t('post.titleLabel')}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="请输入帖子标题"
+            placeholder={t('post.titlePlaceholder')}
             maxLength={200}
           />
           <Textarea
-            label="内容"
+            label={t('post.contentLabel')}
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="请输入帖子内容"
+            placeholder={t('post.contentPlaceholder')}
             rows={8}
           />
           <div className="space-y-1.5">
-            <span className="text-sm font-medium leading-none">图片</span>
+            <span className="text-sm font-medium leading-none">{t('post.images')}</span>
             <ImageUpload
               value={images}
               onChange={(v) => setImages(v as string[])}
