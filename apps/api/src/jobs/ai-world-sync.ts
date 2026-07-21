@@ -479,7 +479,7 @@ async function callLlm(prompt: string, content: string, timeoutMs = 15000): Prom
     }, timeoutMs)
     if (!res.ok) {
       if (!llmErrorLogged) {
-        console.warn(`[ai-world-sync] LLM 调用失败 status=${res.status}(后续静默)`)
+        logger.warn(`[ai-world-sync] LLM 调用失败 status=${res.status}(后续静默)`)
         llmErrorLogged = true
       }
       return null
@@ -778,14 +778,14 @@ export function startAiWorldSyncScheduler(): void {
       const partial = results.filter((r) => r.status === 'partial').length
       const fail = results.filter((r) => r.status === 'failed').length
       const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
-      console.log(`[ai-world-sync] done: ${ok} success, ${partial} partial, ${fail} failed, ${totalItems} items`)
+      logger.info(`[ai-world-sync] done: ${ok} success, ${partial} partial, ${fail} failed, ${totalItems} items`)
     } catch (err) {
       logger.error('[ai-world-sync] fatal:', { error: err })
     }
   }, {
     timezone: 'Asia/Shanghai',
   })
-  console.log('[ai-world-sync] scheduler started (cron: 0 0,12 * * * Asia/Shanghai)')
+  logger.info('[ai-world-sync] scheduler started (cron: 0 0,12 * * * Asia/Shanghai)')
 }
 
 /** 停止定时任务 */
@@ -805,7 +805,7 @@ export function stopAiWorldSyncScheduler(): void {
 //   Artificial Analysis: https://artificialanalysis.ai/models — Next.js RSC 数据 ⚠️
 //   OpenCompass: 网站 JS 渲染无公开 API → 降级空 ❌
 //   SuperCLUE: 网站 JS 渲染无公开 API → 降级空 ❌
-// 设计原则:每个抓取器独立失败不阻塞,返回空数组 + console.warn
+// 设计原则:每个抓取器独立失败不阻塞,返回空数组 + logger.warn
 
 const LEADERBOARD_USER_AGENT = 'Mozilla/5.0 (compatible; IHUI-AI/1.0 AI-World-Sync)'
 
@@ -866,7 +866,7 @@ async function fetchLMSYSArena(): Promise<LeaderboardEntry[]> {
     const $ = cheerio.load(html)
     const rows = extractTableRows($, 200) // LMArena 有 672 行,取前 200
     if (rows.length === 0) {
-      console.warn('[ai-world-sync] LMArena leaderboard no table rows, skip')
+      logger.warn('[ai-world-sync] LMArena leaderboard no table rows, skip')
       return []
     }
     const entries: LeaderboardEntry[] = []
@@ -916,22 +916,89 @@ async function fetchLMSYSArena(): Promise<LeaderboardEntry[]> {
         })
       }
     })
-    console.log(`[ai-world-sync] LMArena fetched ${entries.length} entries from ${rows.length} rows`)
+    logger.info(`[ai-world-sync] LMArena fetched ${entries.length} entries from ${rows.length} rows`)
     return entries
   } catch (err) {
-    console.warn('[ai-world-sync] LMArena leaderboard error:', err instanceof Error ? err.message : err)
+    logger.warn('[ai-world-sync] LMArena leaderboard error:', { error: err instanceof Error ? err.message : err })
     return []
   }
 }
 
 /**
  * 抓 OpenCompass 司南(中文榜单)
- * 数据源调研:opencompass.org.cn/leaderboard-llm 是 Vue SPA,JS 渲染,无公开 API
- * 降级:返回空数组,不阻塞其他榜单
+ * 数据源:https://rank.opencompass.org.cn/leaderboard/llm — Vue SPA,JS 渲染
+ * 后端 API 受 nginx WAF 保护返回 405,无法直接 HTTP 抓取
+ * 方案:调用 ai-service 的 /api/opencompass/scrape 端点(Playwright headless 渲染)
+ * 失败降级:返回空数组,不阻塞其他榜单
+ * 2026-07-22 立:从降级空改为 Playwright 渲染抓取,生产可用
  */
 async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
-  console.warn('[ai-world-sync] OpenCompass 网站 JS 渲染无公开 API,暂不可用(降级空)')
-  return []
+  const baseUrl = process.env.AI_SERVICE_URL
+  if (!baseUrl) {
+    logger.warn('[ai-world-sync] AI_SERVICE_URL 未配置,OpenCompass 跳过')
+    return []
+  }
+  try {
+    const res = await fetchWithTimeout(
+      `${baseUrl}/api/opencompass/scrape`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      },
+      60000, // Playwright 渲染较慢,60s 超时
+    )
+    if (!res.ok) {
+      logger.warn(`[ai-world-sync] OpenCompass scrape HTTP ${res.status}, skip`)
+      return []
+    }
+    const json = (await res.json()) as {
+      code: number
+      message: string
+      data?: {
+        entries?: Array<{
+          leaderboard: string
+          category: string
+          rank: number
+          modelName: string
+          provider?: string | null
+          score?: string | null
+          scores?: Record<string, unknown> | null
+          publishedAt?: string | null
+        }>
+        captured_at?: number
+        url?: string
+        headers?: string[]
+      }
+    }
+    if (json.code !== 0 || !json.data?.entries) {
+      logger.warn(`[ai-world-sync] OpenCompass scrape failed: ${json.message}`)
+      return []
+    }
+    const fallbackDate = json.data.captured_at ? new Date(json.data.captured_at) : new Date()
+    const entries: LeaderboardEntry[] = json.data.entries.map((e) => {
+      let publishedAt = fallbackDate
+      if (e.publishedAt) {
+        const parsed = new Date(e.publishedAt)
+        if (!Number.isNaN(parsed.getTime())) publishedAt = parsed
+      }
+      return {
+        leaderboard: 'opencompass',
+        category: e.category || 'overall',
+        rank: e.rank,
+        modelName: e.modelName,
+        provider: e.provider ?? undefined,
+        score: e.score ?? undefined,
+        scores: e.scores ?? undefined,
+        publishedAt,
+      }
+    })
+    logger.info(`[ai-world-sync] OpenCompass fetched ${entries.length} entries (Playwright render)`)
+    return entries
+  } catch (err) {
+    logger.warn('[ai-world-sync] OpenCompass scrape error:', { error: err instanceof Error ? err.message : err })
+    return []
+  }
 }
 
 /**
@@ -952,7 +1019,7 @@ async function fetchHFOpenLLM(): Promise<LeaderboardEntry[]> {
       30000,
     )
     if (!res.ok) {
-      console.warn(`[ai-world-sync] HF Hub models API HTTP ${res.status}, skip`)
+      logger.warn(`[ai-world-sync] HF Hub models API HTTP ${res.status}, skip`)
       return []
     }
     const data = (await res.json()) as Array<{
@@ -981,10 +1048,10 @@ async function fetchHFOpenLLM(): Promise<LeaderboardEntry[]> {
         },
         publishedAt: m.lastModified ? new Date(m.lastModified) : now,
       }))
-    console.log(`[ai-world-sync] HF Hub models fetched ${entries.length} entries (top by downloads, text-generation)`)
+    logger.info(`[ai-world-sync] HF Hub models fetched ${entries.length} entries (top by downloads, text-generation)`)
     return entries
   } catch (err) {
-    console.warn('[ai-world-sync] HF Hub models API error:', err instanceof Error ? err.message : err)
+    logger.warn('[ai-world-sync] HF Hub models API error:', { error: err instanceof Error ? err.message : err })
     return []
   }
 }
@@ -1005,14 +1072,14 @@ async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
       30000,
     )
     if (!res.ok) {
-      console.warn(`[ai-world-sync] SuperCLUE HTTP ${res.status}, skip`)
+      logger.warn(`[ai-world-sync] SuperCLUE HTTP ${res.status}, skip`)
       return []
     }
     const html = await res.text()
     // 提取 window.gradio_config = {...} JSON
     const configMatch = html.match(/window\.gradio_config\s*=\s*(\{[\s\S]*?\});\s*<\/script>/)
     if (!configMatch || !configMatch[1]) {
-      console.warn('[ai-world-sync] SuperCLUE gradio_config not found in HTML, skip')
+      logger.warn('[ai-world-sync] SuperCLUE gradio_config not found in HTML, skip')
       return []
     }
     const config = JSON.parse(configMatch[1]) as {
@@ -1030,7 +1097,7 @@ async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
     // 取第一个 dataframe(总排行榜)
     const firstDf = config.components?.find((c) => c.type === 'dataframe' && c.props?.value?.data?.length)
     if (!firstDf || !firstDf.props?.value?.data) {
-      console.warn('[ai-world-sync] SuperCLUE no dataframe with data found, skip')
+      logger.warn('[ai-world-sync] SuperCLUE no dataframe with data found, skip')
       return []
     }
     const dfValue = firstDf.props.value
@@ -1088,10 +1155,10 @@ async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
       return bScore - aScore
     })
     const topEntries = entries.slice(0, 50).map((entry, idx) => ({ ...entry, rank: idx + 1 }))
-    console.log(`[ai-world-sync] SuperCLUE fetched ${topEntries.length} entries from ${rows.length} total rows`)
+    logger.info(`[ai-world-sync] SuperCLUE fetched ${topEntries.length} entries from ${rows.length} total rows`)
     return topEntries
   } catch (err) {
-    console.warn('[ai-world-sync] SuperCLUE leaderboard error:', err instanceof Error ? err.message : err)
+    logger.warn('[ai-world-sync] SuperCLUE leaderboard error:', { error: err instanceof Error ? err.message : err })
     return []
   }
 }
@@ -1110,7 +1177,7 @@ async function fetchArtificialAnalysis(): Promise<LeaderboardEntry[]> {
       30000,
     )
     if (!res.ok) {
-      console.warn(`[ai-world-sync] Artificial Analysis HTTP ${res.status}, skip`)
+      logger.warn(`[ai-world-sync] Artificial Analysis HTTP ${res.status}, skip`)
       return []
     }
     const html = await res.text()
@@ -1175,10 +1242,10 @@ async function fetchArtificialAnalysis(): Promise<LeaderboardEntry[]> {
       ...entry,
       rank: idx + 1,
     }))
-    console.log(`[ai-world-sync] Artificial Analysis fetched ${topEntries.length} entries`)
+    logger.info(`[ai-world-sync] Artificial Analysis fetched ${topEntries.length} entries`)
     return topEntries
   } catch (err) {
-    console.warn('[ai-world-sync] Artificial Analysis error:', err instanceof Error ? err.message : err)
+    logger.warn('[ai-world-sync] Artificial Analysis error:', { error: err instanceof Error ? err.message : err })
     return []
   }
 }
@@ -1235,9 +1302,9 @@ async function upsertRanking(entry: LeaderboardEntry): Promise<'inserted' | 'upd
     await db.insert(aiWorldRankings).values(payload).onConflictDoNothing()
     return 'inserted'
   } catch (err) {
-    console.warn(
+    logger.warn(
       `[ai-world-sync] upsertRanking ${entry.leaderboard}/${entry.modelName} error:`,
-      err instanceof Error ? err.message : err,
+      { error: err instanceof Error ? err.message : err },
     )
     return 'error'
   }
@@ -1316,12 +1383,12 @@ async function fetchGithubRepoMetrics(owner: string, repo: string): Promise<{
       if (res.status === 403) {
         const remaining = res.headers.get('X-RateLimit-Remaining')
         if (remaining === '0') {
-          console.warn(`[ai-world-sync] GitHub API rate limit exceeded (配置 GITHUB_TOKEN 环境变量可提升到 5000/h)`)
+          logger.warn(`[ai-world-sync] GitHub API rate limit exceeded (配置 GITHUB_TOKEN 环境变量可提升到 5000/h)`)
         } else {
-          console.warn(`[ai-world-sync] github repo ${owner}/${repo} HTTP 403, skip`)
+          logger.warn(`[ai-world-sync] github repo ${owner}/${repo} HTTP 403, skip`)
         }
       } else {
-        console.warn(`[ai-world-sync] github repo ${owner}/${repo} HTTP ${res.status}, skip`)
+        logger.warn(`[ai-world-sync] github repo ${owner}/${repo} HTTP ${res.status}, skip`)
       }
       return null
     }
@@ -1340,7 +1407,7 @@ async function fetchGithubRepoMetrics(owner: string, repo: string): Promise<{
       openIssues: data.open_issues_count ?? 0,
     }
   } catch (err) {
-    console.warn(`[ai-world-sync] github repo ${owner}/${repo} error:`, err instanceof Error ? err.message : err)
+    logger.warn(`[ai-world-sync] github repo ${owner}/${repo} error:`, { error: err instanceof Error ? err.message : err })
     return null
   }
 }
@@ -1479,14 +1546,14 @@ export function startRankingScheduler(): void {
       const ok = results.filter((r) => r.status === 'success').length
       const fail = results.filter((r) => r.status === 'failed').length
       const items = results.reduce((sum, r) => sum + r.itemCount, 0)
-      console.log(`[ai-world-sync] ranking done: ${ok} success, ${fail} failed, ${items} items`)
+      logger.info(`[ai-world-sync] ranking done: ${ok} success, ${fail} failed, ${items} items`)
     } catch (err) {
-      console.error('[ai-world-sync] ranking fatal:', err)
+      logger.error('[ai-world-sync] ranking fatal:', { error: err })
     }
   }, {
     timezone: 'Asia/Shanghai',
   })
-  console.log('[ai-world-sync] ranking scheduler started (cron: 0 6 * * * Asia/Shanghai)')
+  logger.info('[ai-world-sync] ranking scheduler started (cron: 0 6 * * * Asia/Shanghai)')
 }
 
 /** 停止模型排行榜定时任务 */
@@ -1506,14 +1573,14 @@ export function startTrendingScheduler(): void {
       const ok = results.filter((r) => r.status === 'success').length
       const fail = results.filter((r) => r.status === 'failed').length
       const items = results.reduce((sum, r) => sum + r.itemCount, 0)
-      console.log(`[ai-world-sync] trending done: ${ok} success, ${fail} failed, ${items} items`)
+      logger.info(`[ai-world-sync] trending done: ${ok} success, ${fail} failed, ${items} items`)
     } catch (err) {
-      console.error('[ai-world-sync] trending fatal:', err)
+      logger.error('[ai-world-sync] trending fatal:', { error: err })
     }
   }, {
     timezone: 'Asia/Shanghai',
   })
-  console.log('[ai-world-sync] trending scheduler started (cron: 0 */4 * * * Asia/Shanghai)')
+  logger.info('[ai-world-sync] trending scheduler started (cron: 0 */4 * * * Asia/Shanghai)')
 }
 
 /** 停止热度更新定时任务 */
@@ -1609,7 +1676,7 @@ const isCli = process.argv[1]?.endsWith('ai-world-sync.ts') || process.argv[1]?.
 if (isCli && process.argv.includes('--rankings-only')) {
   ;(async () => {
     try {
-      console.log('[ai-world-sync] rankings-only start (5 leaderboards + GitHub trending, no DB writes)')
+      logger.info('[ai-world-sync] rankings-only start (5 leaderboards + GitHub trending, no DB writes)')
       const startTime = Date.now()
       // 5 大排行榜
       for (const { source, fn } of RANKING_FETCHERS) {
@@ -1617,77 +1684,77 @@ if (isCli && process.argv.includes('--rankings-only')) {
         try {
           const entries = await fn()
           const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
-          console.log(`  ✓ ${source}: ${entries.length} entries (${elapsed}s)`)
+          logger.info(`  ✓ ${source}: ${entries.length} entries (${elapsed}s)`)
           // 打印前 3 条样本
           for (const e of entries.slice(0, 3)) {
-            console.log(`      - rank=${e.rank} ${e.provider ? `[${e.provider}] ` : ''}${e.modelName} score=${e.score ?? '-'} cat=${e.category}`)
+            logger.info(`      - rank=${e.rank} ${e.provider ? `[${e.provider}] ` : ''}${e.modelName} score=${e.score ?? '-'} cat=${e.category}`)
           }
         } catch (err) {
           const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
-          console.log(`  ✗ ${source}: error (${elapsed}s) ${err instanceof Error ? err.message : err}`)
+          logger.info(`  ✗ ${source}: error (${elapsed}s) ${err instanceof Error ? err.message : err}`)
         }
       }
       // GitHub 仓库热度(前 5 个样本)
-      console.log('[ai-world-sync] GitHub repo metrics (first 5):')
+      logger.info('[ai-world-sync] GitHub repo metrics (first 5):')
       for (const repoInfo of AI_REPOS_GITHUB.slice(0, 5)) {
         const t0 = Date.now()
         try {
           const m = await fetchGithubRepoMetrics(repoInfo.owner, repoInfo.repo)
           const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
           if (m) {
-            console.log(`  ✓ ${repoInfo.source}: stars=${m.stars} forks=${m.forks} (${elapsed}s)`)
+            logger.info(`  ✓ ${repoInfo.source}: stars=${m.stars} forks=${m.forks} (${elapsed}s)`)
           } else {
-            console.log(`  - ${repoInfo.source}: no metrics (${elapsed}s)`)
+            logger.info(`  - ${repoInfo.source}: no metrics (${elapsed}s)`)
           }
         } catch (err) {
           const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
-          console.log(`  ✗ ${repoInfo.source}: error (${elapsed}s) ${err instanceof Error ? err.message : err}`)
+          logger.info(`  ✗ ${repoInfo.source}: error (${elapsed}s) ${err instanceof Error ? err.message : err}`)
         }
       }
-      console.log(`[ai-world-sync] rankings-only done in ${((Date.now() - startTime) / 1000).toFixed(1)}s`)
+      logger.info(`[ai-world-sync] rankings-only done in ${((Date.now() - startTime) / 1000).toFixed(1)}s`)
       process.exit(0)
     } catch (err) {
-      console.error('[ai-world-sync] rankings-only fatal:', err)
+      logger.error('[ai-world-sync] rankings-only fatal:', { error: err })
       process.exit(1)
     }
   })()
 } else if (isCli && process.argv.includes('--dry-run')) {
   ;(async () => {
     try {
-      console.log('[ai-world-sync] dry-run start (no DB writes)')
+      logger.info('[ai-world-sync] dry-run start (no DB writes)')
       const stats = getSourceStats()
-      console.log(`[ai-world-sync] sources: rss=${stats.rss} arxiv=${stats.arxiv} github=${stats.github} apps=${stats.apps} tools=${stats.tools} rankings=${stats.rankings} trending=${stats.trending} total=${stats.total}`)
+      logger.info(`[ai-world-sync] sources: rss=${stats.rss} arxiv=${stats.arxiv} github=${stats.github} apps=${stats.apps} tools=${stats.tools} rankings=${stats.rankings} trending=${stats.trending} total=${stats.total}`)
       const results = await runDryRun()
       const totalEstimated = results.reduce((sum, r) => sum + r.estimatedItems, 0)
       const failed = results.filter((r) => r.error).length
-      console.log(`[ai-world-sync] dry-run done: ${results.length} sources, ${totalEstimated} estimated items, ${failed} errors`)
+      logger.info(`[ai-world-sync] dry-run done: ${results.length} sources, ${totalEstimated} estimated items, ${failed} errors`)
       for (const r of results) {
-        console.log(`  - ${r.source} (${r.kind}): ${r.estimatedItems} items${r.error ? ` err=${r.error}` : ''}`)
+        logger.info(`  - ${r.source} (${r.kind}): ${r.estimatedItems} items${r.error ? ` err=${r.error}` : ''}`)
       }
       process.exit(0)
     } catch (err) {
-      console.error('[ai-world-sync] dry-run fatal:', err)
+      logger.error('[ai-world-sync] dry-run fatal:', { error: err })
       process.exit(1)
     }
   })()
 } else if (isCli && process.argv.includes('--run-once')) {
   ;(async () => {
     try {
-      console.log('[ai-world-sync] run-once start')
+      logger.info('[ai-world-sync] run-once start')
       const stats = getSourceStats()
-      console.log(`[ai-world-sync] sources: rss=${stats.rss} arxiv=${stats.arxiv} github=${stats.github} apps=${stats.apps} tools=${stats.tools} rankings=${stats.rankings} trending=${stats.trending} total=${stats.total}`)
+      logger.info(`[ai-world-sync] sources: rss=${stats.rss} arxiv=${stats.arxiv} github=${stats.github} apps=${stats.apps} tools=${stats.tools} rankings=${stats.rankings} trending=${stats.trending} total=${stats.total}`)
       const results = await syncAllSources()
       const ok = results.filter((r) => r.status === 'success').length
       const partial = results.filter((r) => r.status === 'partial').length
       const fail = results.filter((r) => r.status === 'failed').length
       const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
-      console.log(`[ai-world-sync] run-once done: ${ok} success, ${partial} partial, ${fail} failed, ${totalItems} items`)
+      logger.info(`[ai-world-sync] run-once done: ${ok} success, ${partial} partial, ${fail} failed, ${totalItems} items`)
       for (const r of results) {
-        console.log(`  - ${r.source} (${r.kind}): ${r.status} items=${r.itemCount}${r.error ? ` err=${r.error}` : ''}`)
+        logger.info(`  - ${r.source} (${r.kind}): ${r.status} items=${r.itemCount}${r.error ? ` err=${r.error}` : ''}`)
       }
       process.exit(0)
     } catch (err) {
-      console.error('[ai-world-sync] run-once fatal:', err)
+      logger.error('[ai-world-sync] run-once fatal:', { error: err })
       process.exit(1)
     }
   })()
