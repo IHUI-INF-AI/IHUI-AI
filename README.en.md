@@ -243,7 +243,7 @@ Fundraising can fail, but open source doesn't.
 | **Database**                     | **338+ tables + 120+ migrations** + 100 schema files + Drizzle ORM + RLS + tenant routing          | Single PostgreSQL 15 database, schema isolation                  |
 | **API Scale**                    | ~1135 endpoints (api 1080 + ai-service 55) + 12 WebSocket + 95+ route files                        | Far exceeds source project's 331 endpoints                       |
 | **Business Coverage**            | 15 major modules / 50+ sub-features / **200+ Web pages**                                           | One platform covers all AI application scenarios                 |
-| **Shared Packages**              | 13 packages (auth/database/types/ui/i18n/sdk/api-client/context-compaction etc.)                   | Cross-platform type safety + reuse                               |
+| **Shared Packages**              | 12 packages (auth/database/types/ui/sdk/api-client/context-compaction etc.)                        | Cross-platform type safety + reuse                               |
 | **Performance Assurance**        | Knip unused code + Lighthouse CI + Locust load testing                                             | Performance budget + capacity planning                           |
 | **Deployment Maturity**          | Docker Compose (14 services) + blue-green + Nginx upstream + cert renewal cron                     | Production-grade ops                                             |
 
@@ -434,7 +434,6 @@ IHUI-AI/
 │   ├── context-compaction/  # @ihui/context-compaction (context compression)
 │   ├── database/            # @ihui/database (Drizzle, 338+ tables, 120+ migrations, RLS, tenant routing)
 │   ├── eslint-config/       # @ihui/eslint-config
-│   ├── i18n/                # @ihui/i18n (5 languages + brand-glossary)
 │   ├── sdk/                 # @ihui/sdk (auto-generated)
 │   ├── tsconfig/            # @ihui/tsconfig
 │   ├── types/               # @ihui/types
