@@ -607,3 +607,351 @@ export async function translateTitles(limit = 50): Promise<LlmBatchResult> {
     details: `翻译 ${processed} 条（共 ${pending.length} 条待翻译）`,
   }
 }
+
+// =============================================================================
+// 7. 趋势爆发通知（轮询用）
+// =============================================================================
+
+export interface TrendNotificationItem {
+  id: string
+  title: string
+  url: string | null
+  coverUrl: string | null
+  sourceCode: string
+  currentHot: number | null
+  currentRank: number | null
+  trendTag: string | null
+  trendGrowthPct: number | null
+  lastSeenAt: Date
+}
+
+/**
+ * 查询近期 trendTag=rising 且 trendGrowthPct >= minGrowth 的条目。
+ *
+ * 前端每 60 秒轮询一次此端点，有新条目时通过 ElNotification 推送。
+ * 替代 socket.io 的轻量实时推送方案（与旧架构 server/app/api/v1/ai_feed/routes.py 一致）。
+ */
+export async function getTrendNotifications(
+  hours: number,
+  minGrowth: number,
+  limit: number,
+): Promise<{ list: TrendNotificationItem[]; total: number }> {
+  const since = new Date()
+  since.setHours(since.getHours() - hours)
+
+  const list = await db
+    .select({
+      id: aiFeedHotItem.id,
+      title: aiFeedHotItem.title,
+      url: aiFeedHotItem.url,
+      coverUrl: aiFeedHotItem.coverUrl,
+      sourceCode: aiFeedHotItem.sourceCode,
+      currentHot: aiFeedHotItem.currentHot,
+      currentRank: aiFeedHotItem.currentRank,
+      trendTag: aiFeedHotItem.trendTag,
+      trendGrowthPct: aiFeedHotItem.trendGrowthPct,
+      lastSeenAt: aiFeedHotItem.lastSeenAt,
+    })
+    .from(aiFeedHotItem)
+    .where(
+      and(
+        eq(aiFeedHotItem.trendTag, 'rising'),
+        gte(aiFeedHotItem.trendGrowthPct, minGrowth),
+        gte(aiFeedHotItem.lastSeenAt, since),
+      ),
+    )
+    .orderBy(desc(aiFeedHotItem.trendGrowthPct))
+    .limit(limit)
+
+  return { list, total: list.length }
+}
+
+// =============================================================================
+// 8. 图片代理（防盗链）
+// =============================================================================
+
+/**
+ * 代理图片请求，绕过 Referer 防盗链，返回图片二进制 + Content-Type。
+ *
+ * 用于前端 <img> 标签的 src，避免 403 Forbidden。
+ * 与旧架构 server/app/api/v1/ai_feed/routes.py 的 image_proxy 一致。
+ *
+ * 安全防护(2026-07-21 安全审计加固):
+ * - 拒绝内网 / loopback / link-local / 私有 IP 段(SSRF 防护)
+ * - 域名白名单(只允许已知图床域名)
+ * - 端口白名单(只允许 80/443)
+ * - 响应体大小限制(防止内存耗尽)
+ * - Content-Type 白名单(只允许 image/*)
+ */
+const ALLOWED_IMAGE_HOSTNAMES = new Set([
+  'aizhs.top',
+  'www.aizhs.top',
+  'api.dicebear.com',
+  'lh3.googleusercontent.com',
+  'avatars.githubusercontent.com',
+  'platform-lookaside.fbsbx.com',
+  // 第三方资讯源常用图床
+  'p3-search.byteimg.com',
+  'p1-search.byteimg.com',
+  'p6-search.byteimg.com',
+  'img.zcool.cn',
+  'pic.imgdb.cn',
+  'image-cdn.huxiucdn.com',
+  'nimg.ws.126.net',
+  'img1.doubanio.com',
+  'img2.doubanio.com',
+  'img3.doubanio.com',
+  'wx1.sinaimg.cn',
+  'wx2.sinaimg.cn',
+  'wx3.sinaimg.cn',
+  'wx4.sinaimg.cn',
+  'n.sinaimg.cn',
+])
+
+/** 私有/内网/loopback/link-local IP 检测(Node 的 net.isIP 解析后判定) */
+function isPrivateOrReservedIp(hostname: string): boolean {
+  const lower = hostname.toLowerCase()
+  // IPv4 字符串直接判定
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(lower)) {
+    const parts = lower.split('.').map(Number)
+    if (parts.length !== 4 || parts.some((p) => p < 0 || p > 255)) return true
+    const [a, b] = parts as [number, number, number, number]
+    // 0.0.0.0/8
+    if (a === 0) return true
+    // 10.0.0.0/8
+    if (a === 10) return true
+    // 127.0.0.0/8 loopback
+    if (a === 127) return true
+    // 169.254.0.0/16 link-local(含云元数据 169.254.169.254)
+    if (a === 169 && b === 254) return true
+    // 172.16.0.0/12
+    if (a === 172 && b >= 16 && b <= 31) return true
+    // 192.168.0.0/16
+    if (a === 192 && b === 168) return true
+    // 100.64.0.0/10 CGN
+    if (a === 100 && b >= 64 && b <= 127) return true
+    // 224.0.0.0/4 multicast
+    if (a >= 224 && a <= 239) return true
+    return false
+  }
+  // IPv6 简化判定
+  if (lower.includes(':')) {
+    // ::1 loopback / :: unspecified / fc00::/7 unique-local / fe80::/10 link-local
+    if (lower === '::1' || lower === '::') return true
+    if (lower.startsWith('fc') || lower.startsWith('fd')) return true
+    if (
+      lower.startsWith('fe80:') ||
+      lower.startsWith('fe8') ||
+      lower.startsWith('fe9') ||
+      lower.startsWith('fea') ||
+      lower.startsWith('feb')
+    )
+      return true
+    return false
+  }
+  // 主机名形式:localhost + 常见内部域名
+  if (
+    lower === 'localhost' ||
+    lower.endsWith('.localhost') ||
+    lower.endsWith('.local') ||
+    lower.endsWith('.internal')
+  ) {
+    return true
+  }
+  return false
+}
+
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024 // 20MB 上限
+
+export async function proxyImage(url: string): Promise<{
+  buffer: Buffer
+  contentType: string
+}> {
+  if (!/^https?:\/\//i.test(url)) {
+    throw new Error('无效的图片 URL')
+  }
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new Error('无效的图片 URL')
+  }
+  // 1) 协议白名单(http/https)
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error('仅支持 http/https 协议')
+  }
+  // 2) 端口白名单(默认 80/443 + 显式 80/443)
+  const port = parsed.port ? Number(parsed.port) : parsed.protocol === 'https:' ? 443 : 80
+  if (port !== 80 && port !== 443) {
+    throw new Error('仅支持 80/443 端口')
+  }
+  // 3) 私有/内网 IP 阻断(防 SSRF)
+  if (isPrivateOrReservedIp(parsed.hostname)) {
+    throw new Error('禁止访问内网/私有 IP')
+  }
+  // 4) 域名白名单(只放行已知图床;若要支持自定义,需在 ALLOWED_IMAGE_HOSTNAMES 添加)
+  const host = parsed.hostname.toLowerCase()
+  if (!ALLOWED_IMAGE_HOSTNAMES.has(host) && !host.endsWith('.aizhs.top')) {
+    throw new Error('域名不在图片代理白名单中')
+  }
+  const referer = `${parsed.protocol}//${parsed.host}`
+  const res = await fetchWithTimeout(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      Referer: referer,
+    },
+  })
+  if (!res.ok) throw new Error(`图片获取失败: HTTP ${res.status}`)
+  // 5) Content-Type 白名单
+  const contentType = res.headers.get('content-type') ?? ''
+  if (!/^image\//i.test(contentType)) {
+    throw new Error('响应内容不是图片')
+  }
+  // 6) 响应体大小限制(防止 OOM / 慢攻击)
+  const contentLength = res.headers.get('content-length')
+  if (contentLength && Number(contentLength) > MAX_IMAGE_BYTES) {
+    throw new Error(`图片过大(>${MAX_IMAGE_BYTES / 1024 / 1024}MB)`)
+  }
+  const arrayBuffer = await res.arrayBuffer()
+  if (arrayBuffer.byteLength > MAX_IMAGE_BYTES) {
+    throw new Error(`图片过大(>${MAX_IMAGE_BYTES / 1024 / 1024}MB)`)
+  }
+  const buffer = Buffer.from(arrayBuffer)
+  return { buffer, contentType }
+}
+
+// =============================================================================
+// 9. 手动触发趋势信号计算
+// =============================================================================
+
+/**
+ * 手动触发趋势信号计算（管理员）。
+ *
+ * 遍历近 30 天有快照的条目，计算 7/14 天窗口的增长率与排名变化，
+ * upsert 到 ai_feed_trend_signal 表，并同步 hot_item 的 trendTag（7 天窗口优先）。
+ *
+ * 与旧架构 server/app/services/ai_feed_service.py 的 compute_trend_signals 对齐。
+ */
+export async function computeTrendSignals(): Promise<{ processedItems: number }> {
+  const windows = [7, 14]
+  let count = 0
+
+  for (const windowDays of windows) {
+    const since = new Date()
+    since.setDate(since.getDate() - windowDays)
+
+    const snapshots = await db
+      .select()
+      .from(aiFeedSnapshot)
+      .where(gte(aiFeedSnapshot.snapshotDate, since.toISOString().slice(0, 10)))
+
+    const byItem = new Map<string, typeof snapshots>()
+    for (const s of snapshots) {
+      if (!s.itemId) continue
+      const arr = byItem.get(s.itemId)
+      if (arr) arr.push(s)
+      else byItem.set(s.itemId, [s])
+    }
+
+    for (const [itemId, arr] of byItem) {
+      if (arr.length < 2) continue
+      const sorted = [...arr].sort((a, b) => a.snapshotDate.localeCompare(b.snapshotDate))
+      const first = sorted[0]!
+      const last = sorted[sorted.length - 1]!
+      const firstHot = Number(first.hotValue ?? 0)
+      const lastHot = Number(last.hotValue ?? 0)
+      const growthPct = firstHot > 0 ? ((lastHot - firstHot) / firstHot) * 100 : null
+      const rankDelta = last.rank !== null && first.rank !== null ? first.rank - last.rank : null
+
+      let trendTag = 'stable'
+      if (growthPct !== null) {
+        if (growthPct >= 15) trendTag = 'rising'
+        else if (growthPct <= -15) trendTag = 'cooling'
+      }
+
+      await db
+        .insert(aiFeedTrendSignal)
+        .values({
+          itemId,
+          sourceCode: last.sourceCode,
+          platformItemId: last.platformItemId,
+          windowDays,
+          growthPct,
+          rankDelta,
+          hotThen: firstHot || null,
+          emaHot: lastHot || null,
+          trendTag,
+          snapshotCount: arr.length,
+        })
+        .onConflictDoUpdate({
+          target: [aiFeedTrendSignal.itemId, aiFeedTrendSignal.windowDays],
+          set: {
+            growthPct,
+            rankDelta,
+            hotThen: firstHot || null,
+            emaHot: lastHot || null,
+            trendTag,
+            snapshotCount: arr.length,
+            updatedAt: new Date(),
+          },
+        })
+
+      if (windowDays === 7) {
+        await db
+          .update(aiFeedHotItem)
+          .set({
+            trendTag,
+            trendGrowthPct: growthPct,
+            updatedAt: new Date(),
+          })
+          .where(eq(aiFeedHotItem.id, itemId))
+      }
+      count++
+    }
+  }
+
+  return { processedItems: count }
+}
+
+// =============================================================================
+// 10. 更新数据源配置
+// =============================================================================
+
+export interface UpdateSourcePatch {
+  enabled?: boolean
+  sortOrder?: number
+  fetchIntervalMinutes?: number
+  sourceName?: string
+  description?: string
+  category?: string
+  color?: string
+  icon?: string
+}
+
+/**
+ * 更新数据源配置（启用/停用/排序/采集间隔等，管理员）。
+ *
+ * 与旧架构 server/app/api/v1/ai_feed/routes.py 的 PUT /sources/{source_id} 一致。
+ */
+export async function updateSource(
+  sourceId: string,
+  patch: UpdateSourcePatch,
+): Promise<AiFeedSource | undefined> {
+  const set: Record<string, unknown> = { updatedAt: new Date() }
+  if (patch.enabled !== undefined) set.enabled = patch.enabled
+  if (patch.sortOrder !== undefined) set.sortOrder = patch.sortOrder
+  if (patch.fetchIntervalMinutes !== undefined)
+    set.fetchIntervalMinutes = patch.fetchIntervalMinutes
+  if (patch.sourceName !== undefined) set.sourceName = patch.sourceName
+  if (patch.description !== undefined) set.description = patch.description
+  if (patch.category !== undefined) set.category = patch.category
+  if (patch.color !== undefined) set.color = patch.color
+  if (patch.icon !== undefined) set.icon = patch.icon
+
+  const rows = await db
+    .update(aiFeedSource)
+    .set(set)
+    .where(eq(aiFeedSource.id, sourceId))
+    .returning()
+  return rows[0]
+}
