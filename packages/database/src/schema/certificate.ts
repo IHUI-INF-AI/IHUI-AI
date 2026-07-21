@@ -23,7 +23,7 @@ export const certificateTemplates = pgTable(
     name: varchar('name', { length: 200 }).notNull(),
     description: text('description'),
     backgroundImage: varchar('background_image', { length: 512 }),
-    templateConfig: jsonb('template_config'), // { title, subtitle, signature, fields: [{key, label, x, y}] }
+    templateConfig: jsonb('template_config').default({}), // { title, subtitle, signature, fields: [{key, label, x, y}] }
     awardingOrganization: text('awarding_organization'), // 颁发机构
     awarderName: text('awarder_name'), // 颁发人姓名
     awardConditions: text('award_conditions'), // 获奖条件
