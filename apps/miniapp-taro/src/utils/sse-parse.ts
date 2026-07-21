@@ -1,11 +1,19 @@
 export interface SSEEvent {
-  type: 'chunk' | 'done' | 'error' | 'reasoning' | 'meta'
+  type: 'chunk' | 'done' | 'error' | 'reasoning' | 'meta' | 'compaction'
   content?: string
   sessionId?: string
   /** 错误码(对齐 @ihui/api-client SSEErrorInfo 字段) */
   code?: number
   errorCode?: string
   retryAfter?: number
+  /** 上下文自动压缩事件字段(对齐后端 SSE compaction 事件) */
+  compaction?: {
+    triggered: true
+    tokensBefore: number
+    tokensAfter: number
+    removedCount: number
+    usageRatio: number
+  }
 }
 
 function applyErrorMeta(evt: SSEEvent, json: Record<string, unknown>): void {
@@ -97,6 +105,20 @@ function parseLine(line: string): SSEEvent | null {
     }
     if (typeof json?.sessionId === 'string') {
       return { type: 'meta', sessionId: json.sessionId }
+    }
+    // 上下文自动压缩事件(跨端统一 88% 阈值触发,后端 SSE 首事件)
+    const compaction = json?.compaction as Record<string, unknown> | undefined
+    if (compaction && compaction.triggered === true) {
+      return {
+        type: 'compaction',
+        compaction: {
+          triggered: true,
+          tokensBefore: Number(compaction.tokensBefore ?? 0),
+          tokensAfter: Number(compaction.tokensAfter ?? 0),
+          removedCount: Number(compaction.removedCount ?? 0),
+          usageRatio: Number(compaction.usageRatio ?? 0),
+        },
+      }
     }
     return null
   } catch {

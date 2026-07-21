@@ -53,4 +53,19 @@ describe('parseSSEChunk miniapp-taro SSE 错误码透传', () => {
     expect(events[0]?.type).toBe('chunk')
     expect(events[0]?.content).toBe('hello')
   })
+
+  it('compaction 事件解析(跨端统一 88% 阈值触发)', () => {
+    const { events } = parseSSEChunk(
+      'data: {"compaction":{"triggered":true,"tokensBefore":12905,"tokensAfter":3817,"removedCount":94,"usageRatio":1.613}}\n',
+    )
+    expect(events).toHaveLength(1)
+    const e = events[0] as SSEEvent
+    expect(e.type).toBe('compaction')
+    expect(e.compaction).toBeDefined()
+    expect(e.compaction?.triggered).toBe(true)
+    expect(e.compaction?.tokensBefore).toBe(12905)
+    expect(e.compaction?.tokensAfter).toBe(3817)
+    expect(e.compaction?.removedCount).toBe(94)
+    expect(e.compaction?.usageRatio).toBeCloseTo(1.613)
+  })
 })
