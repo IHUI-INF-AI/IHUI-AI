@@ -194,9 +194,15 @@ export default function MemberInvitationsPage() {
                   <th className="px-3 py-2 font-medium">{t('columns.reward')}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y">
-                {invitees.map((u) => (
-                  <tr key={u.invitationId} className="transition-colors hover:bg-accent/50">
+              <tbody>
+                {invitees.map((u, i) => (
+                  <tr
+                    key={u.invitationId}
+                    className={cn(
+                      'transition-colors hover:bg-accent/50',
+                      i % 2 === 1 && 'bg-muted/20',
+                    )}
+                  >
                     <td className="px-3 py-2 font-medium">
                       {u.inviteeNickname ?? u.inviteeEmail ?? '-'}
                     </td>

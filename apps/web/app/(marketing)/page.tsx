@@ -9,7 +9,9 @@ import { PageIndicator } from '@/components/marketing/PageIndicator'
 import { ScrollDownButton } from '@/components/marketing/ScrollDownButton'
 import { BrandMarquee } from '@/components/marketing/BrandMarquee'
 import { HomeFeatureGrid } from '@/components/marketing/HomeFeatureGrid'
-import { HomeScenarioGrid } from '@/components/marketing/HomeScenarioGrid'
+import { HomeScenarios } from '@/components/marketing/HomeScenarios'
+import { HomeRoi } from '@/components/marketing/HomeRoi'
+import { HomeComparison } from '@/components/marketing/HomeComparison'
 import { HomePage3Magazine } from '@/components/marketing/HomePage3Magazine'
 import { HomePage4Pricing } from '@/components/marketing/HomePage4Pricing'
 import { TypewriterHeroSection } from '@/components/marketing/TypewriterHero'
@@ -20,25 +22,30 @@ import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
  * 首页(/)
  *
  * 营销落地页 + 工作台入口合一:
- * - 全屏分页滚动 5 页(2026-07-20 升级:新增 Page 3 决策者场景 + ROI + 竞品对比):
+ * - 全屏分页滚动 7 页(2026-07-21 升级:Page 3 拆 3 页,解决"内容太拥挤"反馈):
  *   1) Hero + 6 Benefits + 通知跑马灯
  *   2) 5 Features + 4 Advantages(原 Page 2)
- *   3) 5 Scenarios + 8 ROI + 8 行竞品对比表(2026-07-20 新增,解决用户"功能不全/优势不明"反馈)
- *   4) Pricing 4 卡 + BrandMarquee + 4 Stats(原 Page 3)
- *   5) Magazine 新闻 grid + Footer(原 Page 4)
+ *   3) 5 Scenarios(2026-07-21 从原 Page 3 拆出)
+ *   4) 8 ROI(2026-07-21 从原 Page 3 拆出)
+ *   5) 8 行竞品对比表(2026-07-21 从原 Page 3 拆出)
+ *   6) Pricing 4 卡 + BrandMarquee + 4 Stats(原 Page 4)
+ *   7) Magazine 新闻 grid + Footer(原 Page 5)
  *
- * 2026-07-20 升级(从 4 页扩为 5 页,深度营销):
- * - 新增 Page 3:5 大决策者场景 + 8 项可量化 ROI + 8 行 vs Claude Code/Cursor/ChatGPT 对比
- * - 让决策者一眼看到场景化价值主张 + 量化收益 + 竞品全维度超越
- * - 解决用户反馈"功能不全 不细致 优势没说明白 没有让人想使用的冲动"
+ * 2026-07-21 升级(从 5 页扩为 7 页,降低单页密度):
+ * - 拆分原 Page 3(5 Scenarios + 8 ROI + 8 行对比表)为 3 个独立 snap section
+ * - 解决用户反馈"内容太拥挤了,再分个页面出来,为什么要这么做"
+ * - 每页信息密度降低 30-40%,字号 / 间距 / 行高全部放大一档,移动端阅读更舒服
  */
 const BENEFITS_KEYS = ['benefit1', 'benefit2', 'benefit3', 'benefit4', 'benefit5', 'benefit6']
 
-const TOTAL_PAGES = 5
+const TOTAL_PAGES = 7
 
 export default function HomePage() {
   const t = useTranslations('marketing')
   const te = useTranslations('enterprise')
+  // 2026-07-21 新增:tr / tc 用于 Page 4 (ROI) / Page 5 (Comparison) 的 aria-label
+  const tr = useTranslations('marketing.roi')
+  const tc = useTranslations('marketing.comparison')
 
   const { section, scrollTo, next } = useFullPageScroll(TOTAL_PAGES)
 
@@ -144,10 +151,10 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Page 3: 5 Scenarios + 8 ROI + 8 行竞品对比表(2026-07-20 新增)
-            - 解决用户反馈"功能不全 不细致 优势没说明白 没有让人想使用的冲动"
-            - 让决策者一眼看到场景化价值主张 + 量化收益 + 竞品全维度超越
-            - 三段式紧凑布局:5 场景(5 列)+ 8 ROI(4 列 x 2 行)+ 对比表(8 行 5 列) */}
+        {/* Page 3: 5 Scenarios(2026-07-21 从原 Page 3 拆出,降密度)
+            - 解决用户反馈"内容太拥挤了 再分个页面出来"
+            - 单页只装 5 张场景卡,字号 / padding / 描述行数全部放大一档
+            - 痛点 → 解决 → 收益 三段式,每段都更醒目可读 */}
         <section
           id="home-page-3"
           className="flex snap-start flex-col"
@@ -156,18 +163,49 @@ export default function HomePage() {
         >
           <div className="flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
             <div className="w-full">
-              <HomeScenarioGrid />
+              <HomeScenarios />
             </div>
           </div>
         </section>
 
-        {/* Page 4: 4 定价卡 + 品牌跑马灯 + CTA + 4 Stat 数据条
-            - 2026-07-20 重构(从原 Page 5+6 合并 + 加 4 stat 数据):
-              Pricing 4 卡 (flex-1) + 4 stat 横向条 (固定) + BrandMarquee (固定) + CTA (固定)
-              四段式 flex-col justify-between 撑满 ~100vh
-            - 消除原 39% (pricing) + 70% (brand+cta) 浪费 = 合并后内容更充实 */}
+        {/* Page 4: 8 ROI(2026-07-21 从原 Page 3 拆出,降密度)
+            - 8 张可量化 ROI 卡片独立成页,公式行 / 描述行都可读
+            - 让决策者专注"省多少钱 / 提多少效" */}
         <section
           id="home-page-4"
+          className="flex snap-start flex-col"
+          style={{ minHeight: 'calc(100vh - 1rem)' }}
+          aria-label={tr('title', { fallback: 'ROI' })}
+        >
+          <div className="flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
+            <div className="w-full">
+              <HomeRoi />
+            </div>
+          </div>
+        </section>
+
+        {/* Page 5: 8 行竞品对比表(2026-07-21 从原 Page 3 拆出,降密度)
+            - 8 行 vs Claude Code/Cursor/ChatGPT 对比独立成页
+            - 表头 / 单元格 padding 全部加大,行高更舒服 */}
+        <section
+          id="home-page-5"
+          className="flex snap-start flex-col"
+          style={{ minHeight: 'calc(100vh - 1rem)' }}
+          aria-label={tc('title', { fallback: 'Comparison' })}
+        >
+          <div className="flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
+            <div className="w-full">
+              <HomeComparison />
+            </div>
+          </div>
+        </section>
+
+        {/* Page 6: 4 定价卡 + 品牌跑马灯 + 4 Stat 数据条
+            - 2026-07-21 重新编号(原 Page 4 → Page 6):
+              Pricing 4 卡 (flex-1) + 4 stat 横向条 (固定) + BrandMarquee (固定)
+              四段式 flex-col justify-between 撑满 ~100vh */}
+        <section
+          id="home-page-6"
           className="snap-start"
           style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={t('pricing.title', { fallback: 'Pricing' })}
@@ -215,7 +253,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Page 5: Magazine 新闻 + Footer
+        {/* Page 7: Magazine 新闻 + Footer
             - 2026-07-20 改(自适应 v3):section min-h 视口高度,flex flex-col,snap-start。
             - magazine 加回 flex-1 min-h-0:让 magazine 撑开 = 视口 - footer 自然高度。
             - HomePage3Magazine 内部已改 flex-1 flex-col(2026-07-20),让 Card / grid
@@ -223,7 +261,7 @@ export default function HomePage() {
               彻底消除"暂无内容"卡片下方 200+px 大空隙。
             - footer 高度完全由内容决定 (~180-200px),不再被 section flex 强制拉伸。 */}
         <section
-          id="home-page-5"
+          id="home-page-7"
           className="flex min-h-[calc(100vh-1rem)] snap-start flex-col"
           aria-label={t('magazine.title', { fallback: 'News' })}
         >
