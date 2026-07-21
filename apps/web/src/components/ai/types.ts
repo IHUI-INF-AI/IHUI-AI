@@ -89,6 +89,10 @@ export interface SubAgentActivity {
   status: AgentStatus
   currentStep: string
   completedSteps: SubAgentStep[]
+  /** 流式 token 累积内容(上层按 agentId 分流后填入);缺失表示该 agent 无 token 流 */
+  streamingContent?: string
+  /** 流式是否结束:true=已完成,false/undefined=进行中 */
+  streamingDone?: boolean
 }
 
 /** Swarm 数据 */
