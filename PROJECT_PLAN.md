@@ -109,35 +109,7 @@
 
 ---
 
-### 管理端 AI 成本监控补全(2026-07-21)— P1 阶段
-
-**触发**:用户提问"本项目有没有完整的管理端功能 用户监测系统 看到有多少人用 情况如何 访问哪些页面 用了哪些功能 用了多少token之类的所有功能"。
-
-**调研结论**:
-- ✅ 已有页面:`/admin/dashboard-stat`(总览)、`/admin/user-stat`(用户)、`/admin/visit-tracking`(访问)、`/admin/online-users`(在线)
-- ❌ 缺失:AI 成本总览(Token 用量/单次成本/缓存命中率/按模型/按日)
-
-**已完成(本任务 3 件)**:
-
-1. **核查 LLM 出口 hook 完整性** — `apps/api/src/routes/ai-user-model-chat.ts` 已接入 `recordAiCost`(L113 附近 import + LLM 调用后 fire-and-forget `.catch` 记录),Token 用量数据会自动落库,补全监控数据源
-2. **新增 `/admin/ai-cost` 总览页** — 后端 `apps/api/src/plugins/ai-cost.ts` 已提供 `GET /api/admin/ai/cost/dashboard?startDate=&endDate=`,前端新增 `apps/web/app/(main)/admin/ai-cost/page.tsx`(Card 4 指标 + 按模型 Top10 + 按日 Top10 + 时间范围 1/7/30 天)+ `AdminNav` 加 `aiCost: Coins` 入口
-3. **5 语言 i18n parity** — `apps/web/messages/{zh-CN,en,zh-TW,ko,ja}.json` 各自新增 `aiCost` nav 标签 + 页面 19 键,title/subtitle/empty/cacheHitRate/range1d/7d/30d 等
-
-**待完成**:
-- 端到端验证 4 个核心监控页(`/admin/dashboard-stat` + `/admin/user-stat` + `/admin/visit-tracking` + `/admin/ai-cost`)— `pnpm dev` + browser_use 截图 + DOM 读数
-- typecheck + 5 语言 i18n 守门(2b/2c/2d/2e + check-i18n-keys.mjs)
-- commit + push + git-push-guard 守门
-
-**变更文件清单**:
-- `apps/api/src/routes/ai-user-model-chat.ts`(接入 recordAiCost)
-- `apps/web/app/(main)/admin/ai-cost/page.tsx`(新)
-- `apps/web/src/components/layout/AdminNav.tsx`(加 aiCost 入口)
-- `apps/web/messages/zh-CN.json` / `en.json` / `zh-TW.json` / `ko.json` / `ja.json`
-
-**硬约束**:
-- 改动文件仅限本任务清单
-- commit message: `feat(admin): AI 成本监控总览 + recordAiCost 接入用户模型聊天`
-- 跨端:仅 web + api(ai-service 不变,desktop/extension/mobile-rn/miniapp-taro/cli 平台独占豁免,不涉及业务改动)
+<!-- 已归档(2026-07-21):管理端 AI 成本监控补全(已完成 ✅ 2026-07-21)— P1 阶段(recordAiCost 接入 + AdminNav AI 成本入口 + i18n 5 语言 + server-docs fix-forward + recordAiCost import 修复),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-21_admin-ai-cost.md -->
 
 ---
 
