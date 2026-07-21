@@ -644,6 +644,20 @@ class LLMGateway:
             reasoning = getattr(response.choices[0].message, "reasoning_content", None)
             if reasoning:
                 result["reasoning"] = reasoning
+            # 提取 tool_calls(OpenAI function calling 格式)
+            raw_tool_calls = getattr(response.choices[0].message, "tool_calls", None)
+            if raw_tool_calls:
+                result["tool_calls"] = [
+                    {
+                        "id": getattr(tc, "id", ""),
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments or "",
+                        },
+                    }
+                    for tc in raw_tool_calls
+                ]
             return result
         except Exception as e:
             safe_msg = str(e)
