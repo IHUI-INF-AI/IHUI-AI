@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "description": "check-api-routes.mjs 已知豁免清单。每条豁免必须附 reason + addedAt,便于审计。",
+  "addedAt": "2026-07-21",
+  "addedBy": "sync-audit-agent",
+  "ignorePatterns": [
+    {
+      "method": "GET",
+      "pathPattern": "/api/v1/admin/stats/dashboard",
+      "reason": "admin 占位页面 demo 数据兜底,后端 /api/v1/admin/* 待实装 (14 处 admin v1 占位之一)",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "PUT",
+      "pathPattern": "/api/v1/admin/sys/menu/:param/audit",
+      "reason": "admin 占位页面,后端 /api/v1/admin/* 待实装",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "/api/v1/admin/oss/config",
+      "reason": "admin 占位页面,后端 /api/v1/admin/* 待实装",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "/api/v1/admin/monitor/redis",
+      "reason": "admin 占位页面,后端 /api/v1/admin/* 待实装",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "/api/v1/admin/resource/products",
+      "reason": "admin 占位页面,后端 /api/v1/admin/* 待实装",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "/api/v1/admin/resource/tags",
+      "reason": "admin 占位页面,后端 /api/v1/admin/* 待实装",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "/api/v1/admin/stats/revenue",
+      "reason": "admin 占位页面,后端 /api/v1/admin/* 待实装",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "PUT",
+      "pathPattern": "/api/v1/admin/security/sensitive-words/:param/audit",
+      "reason": "admin 占位页面,后端 /api/v1/admin/* 待实装",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "PUT",
+      "pathPattern": "/api/v1/admin/promotions/signin-rules/:param",
+      "reason": "admin 占位页面,后端 /api/v1/admin/* 待实装",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "PUT",
+      "pathPattern": "/api/v1/admin/support/tickets/:param/status",
+      "reason": "admin 占位页面,后端 /api/v1/admin/* 待实装",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "POST",
+      "pathPattern": "/api/v1/admin/support/tickets/:param/reply",
+      "reason": "admin 占位页面,后端 /api/v1/admin/* 待实装",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "/api/v1/admin/support/tickets/:param/replies",
+      "reason": "admin 占位页面,后端 /api/v1/admin/* 待实装",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "/api/v1/admin/stats/users",
+      "reason": "admin 占位页面,后端 /api/v1/admin/* 待实装",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "PUT",
+      "pathPattern": "/api/v1/admin/finance/withdrawal/:param/audit",
+      "reason": "admin 占位页面,后端 /api/v1/admin/* 待实装",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "ANY",
+      "pathPattern": "/api/self-media/koubo/generate",
+      "reason": "守门脚本 method 推断 bug:调用处 run('generate','/api/...') 无同行 method,实际 method='POST' 在 run 函数体内 (apps/web/app/(main)/self-media/koubo/page.tsx:84),后端已注册 POST /api/self-media/koubo/generate (self-media-routes.ts:130),非真 404",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "ANY",
+      "pathPattern": "/api/self-media/koubo/validate",
+      "reason": "守门脚本 method 推断 bug:同上,实际 method='POST',后端已注册 POST /api/self-media/koubo/validate (self-media-routes.ts:134)",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "ANY",
+      "pathPattern": "/api/self-media/wechat/generate",
+      "reason": "守门脚本 method 推断 bug:path 出现在 SELF_MEDIA_SLASH_MAP 对象字面量 (use-chat.ts:23),实际调用 fetchApi(cfg.endpoint, { method: 'POST' }) (use-chat.ts:86),后端已注册 POST /api/self-media/wechat/generate (self-media-routes.ts:110)",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "/api/ai/tasks/:param",
+      "reason": "image-gen-qwen.tsx:58 查询 dashscope 任务状态,后端 /api/ai/tasks/:taskId 待实装 (需代理到 ai-service)",
+      "addedAt": "2026-07-21"
+    }
+  ]
+}
