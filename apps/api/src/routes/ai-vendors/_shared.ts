@@ -3,7 +3,6 @@
  */
 import { createHmac, createHash } from 'node:crypto'
 import type { FastifyRequest, FastifyReply, FastifyPluginAsync } from 'fastify'
-import { authenticate } from '../../plugins/auth.js'
 import { error } from '../../utils/response.js'
 import { z } from 'zod'
 import { generateTrackingId } from '../../utils/crypto-random.js'
@@ -58,17 +57,7 @@ export const jimengBody = z.object({
   seed: z.number().optional(),
 })
 
-export async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-}
+export { checkAuth as requireAuth } from '../../plugins/auth.js'
 
 export async function fetchWithTimeout(
   url: string,
