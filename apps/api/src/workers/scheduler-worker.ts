@@ -30,6 +30,12 @@ import {
   refreshWechatToken,
   refreshDingTalkToken,
 } from '../services/token-refresh-service.js'
+import {
+  collectAllSources,
+  processLlmBatch,
+  translateTitles,
+  computeTrendSignals,
+} from '../services/ai-feed-service.js'
 
 /**
  * 启动定时任务 Worker（消费 scheduler 队列的 repeatable jobs）。
@@ -393,6 +399,54 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               /* 指标采集失败不影响业务 */
             }
             return result
+          }
+          case 'ai-feed-collect': {
+            const result = await collectAllSources()
+            server.log.info(
+              {
+                fetchedSources: result.fetchedSources,
+                totalItems: result.totalItems,
+                detailsCount: result.details.length,
+              },
+              'ai-feed-collect done',
+            )
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
+          }
+          case 'ai-feed-process': {
+            // 三个子任务并行执行,各自独立 catch 防止一个失败拖垮全部
+            const [llmRes, transRes, trendRes] = await Promise.all([
+              processLlmBatch(100).catch((err) => {
+                server.log.error({ err }, 'processLlmBatch failed in ai-feed-process')
+                return { processedItems: 0, details: String(err) }
+              }),
+              translateTitles(50).catch((err) => {
+                server.log.error({ err }, 'translateTitles failed in ai-feed-process')
+                return { processedItems: 0, details: String(err) }
+              }),
+              computeTrendSignals().catch((err) => {
+                server.log.error({ err }, 'computeTrendSignals failed in ai-feed-process')
+                return { processedItems: 0 }
+              }),
+            ])
+            server.log.info(
+              {
+                llmProcessed: llmRes.processedItems,
+                translated: transRes.processedItems,
+                trendItems: trendRes.processedItems,
+              },
+              'ai-feed-process done',
+            )
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return { llm: llmRes, translate: transRes, trend: trendRes }
           }
           default:
             server.log.warn({ jobName: name }, 'unknown scheduled job')
