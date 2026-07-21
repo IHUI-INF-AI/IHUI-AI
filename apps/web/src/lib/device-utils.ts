@@ -10,6 +10,23 @@ import type { ApiResult } from '@ihui/types'
 
 import { fetchApi } from '@/lib/api'
 
+/**
+ * 密码学安全随机 hex(浏览器端 Web Crypto API,无 Math.random 降级)
+ * 2026-07-21 加固:防止 CWE-330 可预测随机漏洞,用于 deviceId 生成
+ */
+function randomHex(bytes: number): string {
+  if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
+    throw new Error('Web Crypto API 不可用,拒绝降级到 Math.random()')
+  }
+  const buf = new Uint8Array(bytes)
+  crypto.getRandomValues(buf)
+  let hex = ''
+  for (let i = 0; i < bytes; i++) {
+    hex += (buf[i] ?? 0).toString(16).padStart(2, '0')
+  }
+  return hex
+}
+
 /* ------------------------------------------------------------------ */
 /* 设备信息（deviceService）                                           */
 /* ------------------------------------------------------------------ */
@@ -132,7 +149,7 @@ function generateDeviceId(): string {
   try {
     let id = window.localStorage.getItem(DEVICE_ID_KEY)
     if (!id) {
-      id = `dev_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+      id = `dev_${Date.now()}_${randomHex(8)}`
       window.localStorage.setItem(DEVICE_ID_KEY, id)
     }
     return id
