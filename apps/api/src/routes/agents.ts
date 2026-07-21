@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { randomUUID, randomBytes } from 'crypto'
 import { eq, and, desc, sql, inArray, gte } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { db, dbRead } from '../db/index.js'
 import {
@@ -1963,6 +1964,62 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     ])
     return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
   })
+
+  // 7. POST /agents/heat/generate - 手动触发热度统计计算(admin 权限)
+  // 权重:点赞=1, 分享=3, 收藏=2, 使用=1
+  // 若 agents 表无 heat_score 字段,跳过更新只返回计算结果
+  server.post(
+    '/agents/heat/generate',
+    { preHandler: requireAdmin },
+    async (_request, reply) => {
+      const weights = { like: 1, share: 3, collect: 2, usage: 1 }
+
+      const agentRows = await dbRead
+        .select({
+          agentId: agents.agentId,
+          likeCount: agents.likeCount,
+          shareCount: agents.shareCount,
+          collectCount: agents.collectCount,
+          usageCount: agents.usageCount,
+        })
+        .from(agents)
+        .where(eq(agents.status, 'published'))
+
+      const heatScores = agentRows.map((a) => ({
+        agentId: a.agentId,
+        heatScore:
+          a.likeCount * weights.like +
+          a.shareCount * weights.share +
+          a.collectCount * weights.collect +
+          a.usageCount * weights.usage,
+      }))
+
+      // 尝试批量更新 agents.heat_score 字段(表无此字段则跳过)
+      let updated = 0
+      if (heatScores.length > 0) {
+        try {
+          for (const hs of heatScores) {
+            await db.execute(
+              sql`UPDATE agents SET heat_score = ${hs.heatScore} WHERE agent_id = ${hs.agentId}`,
+            )
+            updated++
+          }
+        } catch {
+          // 表无 heat_score 字段,跳过更新
+          updated = 0
+        }
+      }
+
+      return reply.send(
+        success({
+          updated,
+          generated_at: new Date().toISOString(),
+          totalAgents: heatScores.length,
+          weights,
+        }),
+      )
+    },
+  )
 
   // 6. GET /:agentId/details - 智能体详情 (含统计信息)
   // 注意: 必须放在 /agents/health 等静态路由之后, 避免参数路由拦截静态路径
