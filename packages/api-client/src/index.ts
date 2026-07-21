@@ -73,6 +73,8 @@ export * from './endpoints/community.js'
 export * from './endpoints/course.js'
 export * from './endpoints/crew.js'
 export * from './endpoints/developer.js'
+// 浏览器降级端点(2026-07-22 立,P1 WorkPanel iframe 降级)
+export * from './endpoints/browser.js'
 export {
   type CommissionOverview,
   type InviteInfo,
