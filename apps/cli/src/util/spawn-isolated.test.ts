@@ -1,6 +1,5 @@
 /**
  * spawn-isolated 模块单元测试。
- * 对标 cli-mermaid/src/subprocess.rs::tests 的核心场景。
  */
 
 import { describe, it, expect } from 'vitest'
