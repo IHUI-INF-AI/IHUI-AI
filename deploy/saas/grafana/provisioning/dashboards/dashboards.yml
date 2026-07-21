@@ -1,0 +1,14 @@
+# Grafana dashboards 自动加载配置(P1-2.3)
+apiVersion: 1
+
+providers:
+  - name: 'ihui-saas'
+    orgId: 1
+    folder: 'SaaS'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
