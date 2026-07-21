@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, ArrowLeft, Users, Crown, Calendar, ChevronRight } from 'lucide-react'
 import Image from 'next/image'
 
@@ -55,6 +55,7 @@ function findInTree(nodes: TreeNode[], id: string): TreeNode | null {
 export default function DistributionTeamDetailPage() {
   const params = useParams<{ id: string }>()
   const locale = useLocale()
+  const t = useTranslations('distributionTeamDetailPage')
 
   const {
     data: usersData,
@@ -85,14 +86,14 @@ export default function DistributionTeamDetailPage() {
   const member = usersData?.list.find((u) => u.id === params.id) ?? null
   const treeNode = treeData ? findInTree(treeData.tree, params.id) : null
   const subordinates = treeNode?.children ?? []
-  const displayName = member?.nickname || member?.username || '团队成员'
+  const displayName = member?.nickname || member?.username || t('defaultName')
   const initials = (displayName || 'U')[0]?.toUpperCase()
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
   }
@@ -105,10 +106,10 @@ export default function DistributionTeamDetailPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回
+          {t('back')}
         </Link>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {(error as Error)?.message ?? '团队成员不存在'}
+          {(error as Error)?.message ?? t('notExist')}
         </div>
       </div>
     )
@@ -121,7 +122,7 @@ export default function DistributionTeamDetailPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回
+        {t('back')}
       </Link>
 
       <Card>
@@ -148,7 +149,7 @@ export default function DistributionTeamDetailPage() {
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
-                  加入时间：{fmt(member.createdAt)}
+                  {t('joinedAt', { time: fmt(member.createdAt) })}
                 </span>
               </div>
             </div>
@@ -156,14 +157,14 @@ export default function DistributionTeamDetailPage() {
 
           <div className="grid grid-cols-2 gap-3 border-t pt-4">
             <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">下级人数</div>
+              <div className="text-xs text-muted-foreground">{t('subordinateCount')}</div>
               <div className="flex items-center gap-1 text-lg font-bold">
                 <Users className="h-4 w-4 text-primary" />
                 {subordinates.length}
               </div>
             </div>
             <div className="space-y-1">
-              <div className="text-xs text-muted-foreground">团队层级</div>
+              <div className="text-xs text-muted-foreground">{t('teamLevel')}</div>
               <div className="flex items-center gap-1 text-lg font-bold">
                 <Crown className="h-4 w-4 text-amber-500" />L{(treeNode?.level ?? 1) + 1}
               </div>
@@ -174,14 +175,14 @@ export default function DistributionTeamDetailPage() {
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">直属下级</h2>
-          <span className="text-sm text-muted-foreground">共 {subordinates.length} 人</span>
+          <h2 className="text-lg font-semibold">{t('directSubordinates')}</h2>
+          <span className="text-sm text-muted-foreground">{t('totalCount', { count: subordinates.length })}</span>
         </div>
 
         {subordinates.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12">
             <Users className="h-8 w-8 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">暂无下级成员</p>
+            <p className="text-sm text-muted-foreground">{t('noSubordinates')}</p>
           </div>
         ) : (
           <div className="overflow-hidden rounded-lg border">

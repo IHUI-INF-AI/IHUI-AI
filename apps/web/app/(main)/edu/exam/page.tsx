@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { FileCheck, Clock, ListChecks, Target, Loader2, ArrowRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -34,6 +35,7 @@ async function api<T>(url: string): Promise<T> {
 }
 
 export default function EduExamPage() {
+  const t = useTranslations('eduExamListPage')
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'exams'],
     queryFn: () => api<ExamsData>('/api/edu/exam'),
@@ -46,22 +48,22 @@ export default function EduExamPage() {
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <FileCheck className="h-7 w-7 text-primary" />
-          在线考试
+          {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">参加考试并查看成绩</p>
+        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : error ? (
         <Alert variant="danger" description={(error as Error).message} />
       ) : exams.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
           <FileCheck className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">暂无考试</p>
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -79,7 +81,7 @@ export default function EduExamPage() {
                           : 'bg-muted text-muted-foreground',
                       )}
                     >
-                      {(exam.bestScore ?? 0) >= exam.passScore ? '已通过' : '未通过'}
+                      {(exam.bestScore ?? 0) >= exam.passScore ? t('passed') : t('notPassed')}
                     </span>
                   )}
                 </div>
@@ -91,27 +93,27 @@ export default function EduExamPage() {
                 <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <ListChecks className="h-3.5 w-3.5" />
-                    {exam.questionCount} 题
+                    {t('questionCount', { n: exam.questionCount })}
                   </span>
                   <span className="flex items-center gap-1">
                     <Target className="h-3.5 w-3.5" />
-                    满分 {exam.totalScore}
+                    {t('totalScore', { n: exam.totalScore })}
                   </span>
                   <span className="flex items-center gap-1">
                     <Target className="h-3.5 w-3.5" />
-                    及格 {exam.passScore}
+                    {t('passScore', { n: exam.passScore })}
                   </span>
                   <span className="flex items-center gap-1">
                     <Clock className="h-3.5 w-3.5" />
-                    {exam.duration} 分钟
+                    {t('duration', { n: exam.duration })}
                   </span>
                 </div>
                 {exam.bestScore !== undefined && (
-                  <p className="text-xs text-muted-foreground">最高分：{exam.bestScore}</p>
+                  <p className="text-xs text-muted-foreground">{t('bestScore', { n: exam.bestScore })}</p>
                 )}
                 <Button asChild size="sm" className="w-full">
                   <Link href={`/edu/exam/${exam.id}`}>
-                    {exam.attempted ? '再次考试' : '开始考试'}
+                    {exam.attempted ? t('retake') : t('start')}
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
