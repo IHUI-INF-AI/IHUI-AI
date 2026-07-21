@@ -43,7 +43,9 @@ export class PairingService extends EventEmitter {
   }): PairingRequest {
     const code = this.generateCode()
     const request: PairingRequest = {
-      id: `pr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      // 2026-07-21 安全审计加固:用 CSPRNG (generateCompactId) 替换 Math.random
+      // 原实现可预测 → 攻击者枚举 pending 配对请求 → 取消劫持他人配对流程
+      id: generateCompactId('pr'),
       code,
       userId: params.userId,
       deviceId: params.deviceId,
