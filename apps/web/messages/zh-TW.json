@@ -1483,6 +1483,20 @@
       "next": "下一頁",
       "pageInfo": "第 {page}/{totalPages} 頁",
       "total": "共 {total} 條"
+    },
+    "result": {
+      "correct": "答對",
+      "wrong": "答錯",
+      "unanswered": "未答",
+      "duration": "用時",
+      "minutes": "{n}分",
+      "submittedAt": "提交時間：{time}",
+      "detailsTitle": "答題詳情",
+      "detailsEmpty": "暫無答題詳情",
+      "yourAnswer": "你的答案：",
+      "correctAnswer": "正確答案：",
+      "analysis": "解析：",
+      "points": "{n}分"
     }
   },
   "circles": {
@@ -1491,7 +1505,19 @@
     "loading": "加載中...",
     "empty": "暫無圈子",
     "memberCount": "{count} 成員",
-    "postCount": "{count} 帖子"
+    "postCount": "{count} 帖子",
+    "post": {
+      "cardTitle": "發帖",
+      "selectCircle": "選擇圈子",
+      "selectCirclePlaceholder": "請選擇圈子",
+      "titleLabel": "標題",
+      "titlePlaceholder": "請輸入帖子標題",
+      "contentLabel": "內容",
+      "contentPlaceholder": "請輸入帖子內容",
+      "images": "圖片",
+      "errorCircleRequired": "請選擇圈子",
+      "errorTitleContentRequired": "標題和內容不能為空"
+    }
   },
   "plaza": {
     "title": "社區廣場",
@@ -7773,13 +7799,13 @@
       "disableAutoRenew": "關閉自動續費",
       "success": "續費請求已發起",
       "error": "提交失敗",
-      "pleaseSelectPlan": "請選擇訂閱方案",
+      "pleaseSelectPlan": "請先選擇訂閱方案",
       "openAutoRenewFailed": "開通自動續費失敗",
       "autoRenewManageTitle": "自動續費管理",
       "autoRenewOpened": "已開通自動續費",
-      "nextCharge": "下次扣款日",
+      "nextCharge": "下次扣款:",
       "manage": "管理",
-      "autoRenewClosed": "已關閉自動續費",
+      "autoRenewClosed": "未開通自動續費",
       "openAutoRenew": "開通自動續費"
     },
     "articles": {
@@ -7913,11 +7939,55 @@
       "runSuccess": "執行成功",
       "runFailed": "執行失敗",
       "historyTitle": "歷史記錄",
-      "historyEmpty": "暫無發布記錄"
+      "historyEmpty": "暫無發布記錄",
+      "pipeline": "一鍵流水線",
+      "pipelineRunning": "正在執行 8 篇口播稿生成 + 雙門禁驗證,預計 5-10 分鐘,請勿離開頁面...",
+      "downloadAll": "下載全部",
+      "copied": "已複製",
+      "copy": "複製",
+      "articleNumber": "第 {n} 篇",
+      "articleUnit": "篇",
+      "msUnit": "ms",
+      "historyItemHint": "點擊復用此條歷史參數",
+      "validateFailedPrefix": "validate 失敗:",
+      "unknownError": "未知錯誤",
+      "noOutputPathError": "generate 未返回 outputPath,無法繼續 validate",
+      "latestOutput": "最新輸出:",
+      "requestFailed": "請求失敗",
+      "networkError": "網路錯誤"
     },
     "automationPage": {
       "historyTitle": "執行歷史",
-      "historyEmpty": "暫無執行記錄"
+      "historyEmpty": "暫無執行記錄",
+      "running": "執行中",
+      "toggleAriaLabel": "啟用/禁用任務",
+      "executionTime": "執行時間",
+      "runMode": "執行模式",
+      "modeDryRun": "dry-run(不推送)",
+      "modeProduction": "正式(實際推送)",
+      "titleTemplate": "標題模板",
+      "notConfigured": "(未設定)",
+      "status": "狀態",
+      "enabled": "已啟用",
+      "disabled": "已禁用",
+      "lastRun": "最近一次",
+      "hourLabel": "小時 (0-23)",
+      "minuteLabel": "分鐘 (0-59)",
+      "dryRunLabel": "dry-run 模式(不實際推送草稿箱)",
+      "titleTemplateLabel": "標題模板(可用 {date} 佔位符替換為 MMDD)",
+      "titleTemplatePlaceholder": "如:今日 AI 資訊 {date}",
+      "cancel": "取消",
+      "save": "儲存",
+      "triggerNow": "立即觸發",
+      "configure": "設定",
+      "enable": "啟用",
+      "disable": "禁用",
+      "schedulerNoteTitle": "排程器說明",
+      "note1": "定時任務在 ai-service 啟動時自動掛載,每 60 秒輪詢一次。",
+      "note2": "所有任務預設 dry-run 模式,不會真的推送微信草稿箱,需手動觸發或在設定中關閉 dry-run。",
+      "note3": "任務執行歷史保留最近 30 條(記憶體),服務重啟後清空。",
+      "note4": "時區:東八區(Asia/Shanghai)。",
+      "note5": "服務重啟後,任務開關會重置為環境變數 <code>SELF_MEDIA_CRON_ENABLED</code>(預設 false)的值;執行時透過本頁面啟用的狀態不會持久化到磁碟。"
     }
   },
   "publish": {
@@ -26457,5 +26527,224 @@
     "upgrade": "升級",
     "renewSuccess": "續費成功",
     "upgradeSuccess": "套餐已升級"
+  },
+  "agentsCategoriesPage": {
+    "loading": "載入中...",
+    "back": "返回",
+    "notExists": "分類不存在",
+    "status": {
+      "enabled": "啟用",
+      "disabled": "禁用"
+    },
+    "paidCategory": "付費分類",
+    "agentsTitle": "分類下智能體",
+    "total": "共 {count} 個",
+    "emptyAgents": "該分類下暫無智能體",
+    "noDescription": "暫無描述",
+    "free": "免費",
+    "loadingAgents": "載入智能體..."
+  },
+  "aiWorldSharePage": {
+    "linkCopied": "連結已複製",
+    "copyFailed": "複製失敗",
+    "loading": "載入中...",
+    "back": "返回",
+    "notExists": "項目不存在",
+    "title": "分享項目",
+    "subtitle": "分享這個 AI 世界項目給他人",
+    "viewCount": "{count} 次瀏覽",
+    "shareLink": "分享連結",
+    "copied": "已複製",
+    "copy": "複製",
+    "scanShare": "掃碼分享"
+  },
+  "chatSettingsPage": {
+    "saved": "設定已儲存",
+    "errorTempRange": "溫度需在 0-2 之間",
+    "errorMaxTokensRange": "max_tokens 需在 1-32768 之間",
+    "back": "返回",
+    "title": "聊天設定",
+    "subtitle": "設定模型參數和系統提示詞",
+    "model": "模型",
+    "temperature": "溫度 (0-2)",
+    "maxTokens": "max_tokens",
+    "systemPrompt": "系統提示詞",
+    "systemPromptPlaceholder": "設定助手的行為和角色...",
+    "cancel": "取消",
+    "saving": "儲存中...",
+    "save": "儲存"
+  },
+  "developerLogsPage": {
+    "title": "調用日誌",
+    "subtitle": "查看 API 請求記錄與響應詳情",
+    "statusFilter": {
+      "all": "全部",
+      "2xx": "2xx 成功",
+      "4xx": "4xx 客戶端錯誤",
+      "5xx": "5xx 服務端錯誤"
+    },
+    "searchPlaceholder": "搜尋路徑...",
+    "loading": "載入中...",
+    "empty": "暫無調用日誌",
+    "keyValue": "密鑰: {value}",
+    "requestBody": "請求體",
+    "responseBody": "響應體"
+  },
+  "eduCertificatesPage": {
+    "loading": "載入中...",
+    "backToList": "返回證書列表",
+    "notFound": "證書不存在",
+    "downloadFailed": "下載失敗（{status}）",
+    "certificateNo": "證書編號：{no}",
+    "status": {
+      "valid": "有效",
+      "revoked": "已撤銷"
+    },
+    "completed": "已完成",
+    "issuanceText": "學習並通過考核，特發此證",
+    "issuedAt": "頒發日期：{date}",
+    "print": "列印",
+    "download": "下載證書"
+  },
+  "eduCourseLearnPage": {
+    "loading": "載入中...",
+    "backToDetail": "返回課程詳情",
+    "loadFailed": "載入失敗",
+    "notes": "學習筆記",
+    "noteLabel": "記錄本節重點",
+    "notePlaceholder": "輸入筆記內容...",
+    "saveNote": "儲存筆記",
+    "sections": "章節目錄",
+    "qa": "問答",
+    "qaPlaceholder": "提問...",
+    "qaEmpty": "暫無問答"
+  },
+  "eduProgressPage": {
+    "title": "學習進度",
+    "subtitle": "追蹤你的學習成長軌跡",
+    "loading": "載入中...",
+    "weeklyHours": "本週學習時長",
+    "categoryProgress": "分類進度",
+    "noData": "暫無資料",
+    "recentMilestones": "近期成就",
+    "noMilestones": "暫無成就",
+    "stats": {
+      "totalStudy": "累計學習",
+      "enrolled": "已報課程",
+      "completed": "已完成",
+      "avgProgress": "平均進度"
+    }
+  },
+  "memberUpgradePage": {
+    "title": "會員升級",
+    "subtitle": "選擇適合你的會員等級,解鎖更多權益",
+    "currentLevel": "目前等級",
+    "member": "會員",
+    "statusActive": "生效中",
+    "statusExpired": "已過期",
+    "expiresAt": "到期",
+    "loading": "載入中...",
+    "noLevels": "暫無可選會員等級",
+    "popular": "推薦",
+    "days": "天",
+    "currentLevelBtn": "目前等級",
+    "upgradeNow": "立即升級",
+    "subscribeNow": "立即訂閱"
+  },
+  "recruitmentDetailPage": {
+    "loading": "載入中...",
+    "back": "返回",
+    "notExist": "崗位不存在",
+    "defaultSubtitle": "崗位詳情",
+    "requirementsTitle": "崗位要求",
+    "emptyRequirements": "暫無要求",
+    "benefitsTitle": "專屬權益",
+    "emptyBenefits": "暫無權益",
+    "applicantsTitle": "申請人列表",
+    "emptyApplicants": "暫無申請人資料",
+    "publishTime": "發布時間:{date}"
+  },
+  "developerSandboxPage": {
+    "title": "沙箱測試",
+    "subtitle": "線上呼叫 API 驗證請求與回應",
+    "send": "傳送",
+    "requestHeaders": "請求標頭",
+    "add": "新增",
+    "headerNamePlaceholder": "Header 名",
+    "headerValuePlaceholder": "Header 值",
+    "requestBody": "請求主體",
+    "responseBody": "回應主體",
+    "requestFailed": "請求失敗",
+    "requestError": "請求異常"
+  },
+  "developerVersionsPage": {
+    "title": "API 版本管理",
+    "subtitle": "檢視 API 版本狀態與廢棄時間表",
+    "loading": "載入中...",
+    "empty": "暫無版本資訊",
+    "releasedAt": "發佈於 {date}",
+    "deprecateTime": "廢棄時間:",
+    "sunsetTime": "下線時間:",
+    "status": {
+      "stable": "穩定",
+      "beta": "測試版",
+      "deprecated": "已廢棄",
+      "sunset": "已下線"
+    }
+  },
+  "distributionTeamDetailPage": {
+    "defaultName": "團隊成員",
+    "loading": "載入中...",
+    "back": "返回",
+    "notExist": "團隊成員不存在",
+    "joinedAt": "加入時間:{time}",
+    "subordinateCount": "下級人數",
+    "teamLevel": "團隊層級",
+    "directSubordinates": "直屬下級",
+    "totalCount": "共 {count} 人",
+    "noSubordinates": "暫無下級成員"
+  },
+  "eduCoursesPage": {
+    "title": "我的課程",
+    "subtitle": "管理已報名的全部課程",
+    "searchPlaceholder": "搜尋課程...",
+    "searchAriaLabel": "搜尋課程",
+    "loading": "載入中...",
+    "empty": "暫無課程",
+    "statusCompleted": "已完成",
+    "statusInProgress": "進行中",
+    "statusNotStarted": "未開始",
+    "progress": "進度 {n}%",
+    "total": "共 {n} 條"
+  },
+  "eduExamListPage": {
+    "title": "線上考試",
+    "subtitle": "參加考試並查看成績",
+    "loading": "載入中...",
+    "empty": "暫無考試",
+    "passed": "已通過",
+    "notPassed": "未通過",
+    "questionCount": "{n} 題",
+    "totalScore": "滿分 {n}",
+    "passScore": "及格 {n}",
+    "duration": "{n} 分鐘",
+    "bestScore": "最高分:{n}",
+    "retake": "再次考試",
+    "start": "開始考試"
+  },
+  "memberCouponsPage": {
+    "title": "優惠券",
+    "subtitle": "管理你的優惠券,下單時自動可用",
+    "tab": {
+      "unused": "未使用",
+      "used": "已使用",
+      "expired": "已過期"
+    },
+    "loading": "載入中...",
+    "empty": "暫無優惠券",
+    "discount": "折扣",
+    "yuan": "元",
+    "minSpend": "滿 {amount} 可用",
+    "validUntil": "有效期至:{date}"
   }
 }
