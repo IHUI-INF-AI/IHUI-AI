@@ -1,11 +1,39 @@
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
-import type { AiWorldData } from './types'
+import type { AiWorldData, AiCategory, PaginatedItems, ItemKind } from './types'
 
-export async function fetchAiWorld(): Promise<AiWorldData> {
-  const res = await fetchApi<AiWorldData>('/api/ai-world')
+async function api<T>(url: string): Promise<T> {
+  const res = await fetchApi<T>(url)
   if (!res.success) throw new Error(res.error)
   return res.data
+}
+
+export async function fetchAiWorld(): Promise<AiWorldData> {
+  return api<AiWorldData>('/api/ai-world')
+}
+
+export async function fetchAiWorldCategories(): Promise<AiCategory[]> {
+  return api<AiCategory[]>('/api/ai-world/categories')
+}
+
+export interface FetchItemsParams {
+  kind: ItemKind
+  category?: string
+  limit?: number
+  offset?: number
+  search?: string
+  order?: 'latest' | 'hot' | 'published'
+}
+
+export async function fetchAiWorldItems(params: FetchItemsParams): Promise<PaginatedItems> {
+  const qs = new URLSearchParams()
+  if (params.category) qs.set('category', params.category)
+  if (params.limit) qs.set('limit', String(params.limit))
+  if (params.offset) qs.set('offset', String(params.offset))
+  if (params.search) qs.set('search', params.search)
+  if (params.order) qs.set('order', params.order)
+  const suffix = qs.toString()
+  return api<PaginatedItems>(`/api/ai-world/${params.kind}s${suffix ? `?${suffix}` : ''}`)
 }
 
 /**
