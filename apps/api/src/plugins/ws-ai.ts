@@ -106,10 +106,13 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
           send(socket, { event: 'error', msg: '已暂停,请先发送 continue' })
           return
         }
+        // 多 agent 多路复用:透传客户端 agentId,start/delta/done 携带该字段,
+        // 前端据此把 chunk 分流到对应 subagent 卡片;缺失时降级为单 agent 模式
+        const streamAgentId = msg.agentId as string | undefined
 
         controller?.abort()
         controller = new AbortController()
-        send(socket, { event: 'start', ts: Date.now() })
+        send(socket, { event: 'start', ts: Date.now(), agentId: streamAgentId })
 
         try {
           const resp = await fetch(`${config.AI_SERVICE_URL}/agent/stream`, {
@@ -132,17 +135,17 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             const lines = buffer.split('\n')
             buffer = lines.pop() ?? ''
             for (const line of lines) {
-              if (line.trim()) send(socket, { event: 'delta', raw: line })
+              if (line.trim()) send(socket, { event: 'delta', raw: line, agentId: streamAgentId })
             }
           }
-          if (buffer.trim()) send(socket, { event: 'delta', raw: buffer })
+          if (buffer.trim()) send(socket, { event: 'delta', raw: buffer, agentId: streamAgentId })
         } catch (e) {
           // interrupt/cancel 触发的 AbortError 已发送对应事件,此处不重复报错
           if ((e as Error).name !== 'AbortError') {
             send(socket, { event: 'error', msg: (e as Error).message })
           }
         } finally {
-          send(socket, { event: 'done' })
+          send(socket, { event: 'done', agentId: streamAgentId })
           controller = null
         }
       })
@@ -414,11 +417,13 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
               try {
                 const ev = JSON.parse(jsonStr) as Record<string, unknown>
                 const evType = ev.type as string | undefined
+                const evAgentId = ev.agentId as string | undefined
                 if (evType === 'chunk' && typeof ev.content === 'string') {
                   accumulated += ev.content
                   send(socket, {
                     event: 'capability.delta',
                     content: ev.content,
+                    agentId: evAgentId,
                     data: { content: ev.content },
                   })
                 } else if (evType === 'done') {
@@ -427,12 +432,14 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
                     model: ev.model,
                     usage: ev.usage,
                     stub: ev.stub,
+                    agentId: evAgentId,
                     data: { fullContent: accumulated },
                   })
                 } else if (evType === 'error') {
                   send(socket, {
                     event: 'capability.error',
                     message: (ev.message as string) ?? 'unknown',
+                    agentId: evAgentId,
                     data: { error: ev.message },
                   })
                 }
@@ -548,12 +555,14 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
                 try {
                   const ev = JSON.parse(jsonStr) as Record<string, unknown>
                   const evType = ev.type as string | undefined
+                  const evAgentId = ev.agentId as string | undefined
                   if (evType === 'chunk' && typeof ev.content === 'string') {
                     accumulated += ev.content
                     send(socket, {
                       event: 'capability.delta',
                       provider,
                       content: ev.content,
+                      agentId: evAgentId,
                       data: { content: ev.content },
                     })
                   } else if (evType === 'done') {
@@ -563,6 +572,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
                       model: ev.model,
                       usage: ev.usage,
                       stub: ev.stub,
+                      agentId: evAgentId,
                       data: { fullContent: accumulated },
                     })
                   } else if (evType === 'error') {
@@ -570,6 +580,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
                       event: 'capability.error',
                       provider,
                       message: (ev.message as string) ?? 'unknown',
+                      agentId: evAgentId,
                       data: { error: ev.message },
                     })
                   }
