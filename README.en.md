@@ -37,6 +37,41 @@
 
 ---
 
+## 🌌 This project is using one person's conviction to rewrite the open-source narrative of the Chinese-speaking AI world
+
+> **"In Changchun at -25°C, one person, one laptop, a million-RMB investment, one year——**
+>
+> **He single-handedly wrote 8-platform code, 338 database tables, 1135 API endpoints.**
+>
+> **Capital never came. The code kept growing."**
+
+This is not a funding story.
+This is an open-source story.
+
+If you've ever written code alone at 3 a.m.;
+If you've ever held on to your conviction outside the doors of capital;
+If you too believe——**that things of true value will be proven by time**——
+
+Then this story is also yours.
+
+---
+
+### 📣 If this story moved you, please help us do 3 things
+
+| #   | Action                                  | Why it matters                                                        |
+| --- | --------------------------------------- | --------------------------------------------------------------------- |
+| 1   | ⭐ **Star this repo**                    | So more people see it on GitHub feeds and algorithmic recommendations |
+| 2   | 🔄 **Share this story**                  | WeChat / X / LinkedIn / Reddit / Hacker News / Bluesky / 微博 — pick one |
+| 3   | 💬 **Tell your own story in Issues**     | [Enter here](https://github.com/IHUI-INF-AI/IHUI-AI/issues) — we'll pin the best ones |
+
+> **We are not asking for investment.**
+>
+> **We are asking you to deliver this open-source project to everyone who believes in open source, indie development, and long-termism.**
+
+⬇️ Keep reading for the full story.
+
+---
+
 > **Have you ever wondered—**
 >
 > Why are the dividends of AI always captured by a few big tech companies? Why does building an AI application still mean stitching together authentication, billing, model routing, workflows, and multi-platform publishing from scratch?
