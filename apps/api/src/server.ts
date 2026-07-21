@@ -210,6 +210,8 @@ import { adminContentOpsRoutes } from './routes/admin-content-routes.js'
 import { adminAuthEduRoutes } from './routes/admin-auth-edu-routes.js'
 // 监控/统计路由（19 个真实聚合端点，替代空桩）
 import { adminMonitoringRoutes } from './routes/admin-monitoring-routes.js'
+// 插件市场统计(2026-07-22 新增,热度/安装量/点击量监测)
+import { adminPluginStatsRoutes } from './routes/admin-plugin-stats.js'
 // 商城路由（10 个端点，替代空桩）
 import { adminShopRoutes } from './routes/admin-shop-routes.js'
 // 发票抬头路由（4 个端点，替代空桩）
@@ -902,6 +904,7 @@ function registerRoutes(server: FastifyInstance) {
   server.register(adminContentOpsRoutes, { prefix: '/api/admin' })
   server.register(adminAuthEduRoutes, { prefix: '/api/admin' })
   server.register(adminMonitoringRoutes, { prefix: '/api/admin' })
+  server.register(adminPluginStatsRoutes, { prefix: '/api/admin/plugins' })
   server.register(adminShopRoutes, { prefix: '/api/admin' })
   server.register(adminInvoicesRoutes, { prefix: '/api/admin' })
 
