@@ -25991,55 +25991,402 @@
     }
   },
   "memberSettingsPage": {
-    "loading": "Loading…",
+    "loading": "Loading...",
     "title": "Member Settings",
-    "description": "Manage your notification and privacy preferences",
+    "description": "Manage your notification preferences and privacy settings",
     "notifTitle": "Notification Preferences",
     "notif": {
-      "orderUpdates": "Order Updates",
-      "promotions": "Promotions",
-      "points": "Points Activity",
-      "newsletter": "Newsletter"
+      "orderUpdates": "Order status updates",
+      "promotions": "Promotions and offers",
+      "points": "Points change reminders",
+      "newsletter": "Subscribe to newsletter"
     },
     "privacyTitle": "Privacy Settings",
     "privacy": {
-      "showProfile": "Show Profile Publicly",
-      "showActivity": "Show My Activity",
-      "allowInvites": "Allow Invitations"
+      "showProfile": "Public profile page",
+      "showActivity": "Show recent activity",
+      "allowInvites": "Allow others to invite me"
     },
     "saveBtn": "Save Settings",
     "saved": "Saved"
   },
   "memberDashboardPage": {
-    "defaultLevel": "Default Level",
+    "defaultLevel": "Regular Member",
     "title": "Member Center",
-    "description": "Manage your membership level, points, coupons and orders",
-    "expireAt": "Expires At",
-    "renew": "Renew",
+    "description": "Manage your membership benefits, orders, points and coupons in one place",
+    "expireAt": "Membership valid until:",
+    "renew": "Renew Now",
     "recentOrders": "Recent Orders",
     "viewAll": "View All",
-    "loading": "Loading…",
-    "empty": "No data"
+    "loading": "Loading...",
+    "empty": "No order records",
+    "stats": {
+      "level": "Membership Level",
+      "points": "Available Points",
+      "coupon": "Coupons",
+      "orders": "Total Orders"
+    }
   },
   "developerHomePage": {
-    "statCalls": "API Calls",
+    "statCalls": "Calls (This Month)",
     "statApiKeys": "API Keys",
-    "statWebhook": "Webhooks",
-    "statMonthFee": "This Month",
+    "statWebhook": "Webhook",
+    "statMonthFee": "This Month Fee",
     "qeApiDocsLabel": "API Docs",
-    "qeApiDocsDesc": "Full API reference and examples",
+    "qeApiDocsDesc": "View API documentation",
     "qeSandboxLabel": "Sandbox",
-    "qeSandboxDesc": "Test API without installing",
+    "qeSandboxDesc": "Call API online",
     "qeLogsLabel": "Call Logs",
-    "qeLogsDesc": "View history requests and errors",
-    "qeVersionsLabel": "Versions",
-    "qeVersionsDesc": "Manage versions and deprecations",
-    "title": "Developer Center",
-    "subtitle": "Manage your API keys, webhooks and usage",
+    "qeLogsDesc": "View request records",
+    "qeVersionsLabel": "Version Management",
+    "qeVersionsDesc": "API version status",
+    "title": "Developer Overview",
+    "subtitle": "View API usage and developer resources",
     "currentPlan": "Current Plan",
     "quotaUsage": "Quota Usage",
     "upgrade": "Upgrade",
     "quickEntries": "Quick Entries",
-    "loading": "Loading…"
+    "loading": "Loading..."
+  },
+  "memberInvitationsPage": {
+    "title": "Invitations",
+    "description": "Invite friends to sign up and both of you will receive rewards",
+    "generate": "Generate Invitation",
+    "codesTitle": "My Invitation Codes",
+    "loading": "Loading...",
+    "codesEmpty": "No invitation codes yet, click the top-right button to generate",
+    "rewards": "Inviter +{inviter} · Invitee +{invitee}",
+    "expiresAt": "Expires at:",
+    "copied": "Copied",
+    "copyCode": "Copy Code",
+    "inviteesTitle": "Invited Users",
+    "inviteesEmpty": "No invited users yet",
+    "columns": {
+      "user": "User",
+      "registeredAt": "Registered At",
+      "reward": "Reward"
+    },
+    "status": {
+      "unused": "Available",
+      "expired": "Expired",
+      "used": "Used"
+    }
+  },
+  "memberPointsPage": {
+    "title": "Points Center",
+    "description": "View points balance, details and redeem gifts",
+    "summary": {
+      "current": "Current Points",
+      "earned": "Total Earned",
+      "spent": "Total Spent"
+    },
+    "txTitle": "Points Details",
+    "loading": "Loading...",
+    "txEmpty": "No points records",
+    "redeemTitle": "Points Redemption",
+    "redeemEmpty": "No items available for redemption",
+    "pointsUnit": "{n} points",
+    "redeemBtn": "Redeem Now"
+  },
+  "eduExamPage": {
+    "loading": "Loading...",
+    "backToList": "Back to exam list",
+    "notExists": "Exam not found",
+    "noQuestions": "No questions available",
+    "duration": "{n} min",
+    "answeredProgress": "Answered {answered} / {total}",
+    "questionProgress": "Question {current} / {total}",
+    "single": "Single choice",
+    "multiple": "Multiple choice",
+    "prevQuestion": "Previous",
+    "nextQuestion": "Next",
+    "submit": "Submit exam"
+  },
+  "aiWorldEditPage": {
+    "toastUpdated": "Updated successfully",
+    "errNameRequired": "Please enter a name",
+    "loading": "Loading...",
+    "back": "Back",
+    "title": "Edit AI World Project",
+    "subtitle": "Modify project information",
+    "nameLabel": "Name",
+    "namePlaceholder": "Enter project name",
+    "descLabel": "Description",
+    "descPlaceholder": "Enter project description",
+    "categoryLabel": "Category",
+    "noCategory": "No category",
+    "coverLabel": "Cover URL",
+    "coverPlaceholder": "Enter cover image URL",
+    "configLabel": "Config",
+    "configPlaceholder": "JSON config (optional)",
+    "cancel": "Cancel",
+    "submitting": "Submitting...",
+    "save": "Save"
+  },
+  "aiWorldCreatePage": {
+    "toastCreated": "Created successfully",
+    "errNameRequired": "Please enter a name",
+    "back": "Back",
+    "title": "Create AI World Project",
+    "subtitle": "Fill in the information below to create a new AI world project",
+    "nameLabel": "Name",
+    "namePlaceholder": "Enter project name",
+    "descLabel": "Description",
+    "descPlaceholder": "Enter project description",
+    "categoryLabel": "Category",
+    "noCategory": "No category",
+    "coverLabel": "Cover URL",
+    "coverPlaceholder": "Enter cover image URL",
+    "configLabel": "Config",
+    "configPlaceholder": "JSON config (optional)",
+    "cancel": "Cancel",
+    "submitting": "Submitting...",
+    "create": "Create"
+  },
+  "developerBillingPage": {
+    "title": "Bills",
+    "subtitle": "View billing records and payment methods",
+    "paymentMethods": "Payment Methods",
+    "toastContactSupport": "Please contact customer service to add",
+    "add": "Add",
+    "noPaymentMethods": "No payment methods",
+    "default": "Default",
+    "payType": {
+      "alipay": "Alipay",
+      "wechat": "WeChat Pay",
+      "card": "Bank Card"
+    },
+    "toastInvoiceGenerating": "Invoice is being generated, please wait",
+    "billRecords": "Bill Records",
+    "loading": "Loading...",
+    "noBills": "No bill records",
+    "status": {
+      "paid": "Paid",
+      "pending": "Pending",
+      "failed": "Failed"
+    },
+    "invoice": "Invoice"
+  },
+  "developerApiDocsPage": {
+    "title": "API Docs",
+    "subtitle": "View open platform API documentation and examples",
+    "searchPlaceholder": "Search API path or name...",
+    "toastCopied": "Path copied",
+    "toastCopyFailed": "Copy failed",
+    "loading": "Loading...",
+    "noDocs": "No API docs",
+    "requestParams": "Request Parameters",
+    "colName": "Name",
+    "colType": "Type",
+    "colRequired": "Required",
+    "colDesc": "Description",
+    "yes": "Yes",
+    "no": "No",
+    "responseExample": "Response Example"
+  },
+  "memberExamSignUpPage": {
+    "title": "My Exam Sign-ups",
+    "description": "View registered exams and manage sign-up status",
+    "loading": "Loading...",
+    "empty": "No sign-up records",
+    "cancelBtn": "Cancel Sign-up",
+    "cancelConfirm": "Confirm canceling this exam sign-up?",
+    "cancelSuccess": "Sign-up canceled",
+    "cancelFailed": "Failed to cancel",
+    "total": "Total {n} records",
+    "status": {
+      "pending": "Pending",
+      "attended": "Attended",
+      "canceled": "Canceled",
+      "unknown": "Unknown"
+    },
+    "columns": {
+      "examName": "Exam Name",
+      "signedAt": "Signed At",
+      "examTime": "Exam Time",
+      "status": "Status",
+      "action": "Action"
+    }
+  },
+  "eduExamResultPage": {
+    "loading": "Loading...",
+    "backToList": "Back to exam list",
+    "notExists": "Result not found",
+    "passed": "Congratulations, passed!",
+    "failed": "Not passed",
+    "correct": "Correct",
+    "wrong": "Wrong",
+    "duration": "Duration",
+    "minutes": "{n} min",
+    "submittedAt": "Submitted: {time}",
+    "detail": "Answer Details",
+    "score": "{n} pts",
+    "yourAnswer": "Your answer: {answer}",
+    "correctAnswer": "Correct answer: {answer}",
+    "totalScore": "{score} / {total} pts",
+    "backList": "Back to list",
+    "retry": "Retry exam"
+  },
+  "learnBuyConfirmPage": {
+    "missingCourse": "Missing course information",
+    "missingCourseParam": "Missing course parameter",
+    "title": "Confirm Order",
+    "loadFailed": "Failed to load",
+    "courseNotFound": "Course not found",
+    "productInfo": "Product Information",
+    "instructor": "Instructor: {name}",
+    "lessonCount": "{n} lessons",
+    "couponCode": "Coupon Code",
+    "couponPlaceholder": "Enter coupon code (optional)",
+    "payMethod": "Payment Method",
+    "wechatPay": "WeChat Pay",
+    "alipay": "Alipay",
+    "originalPrice": "Original Price",
+    "discount": "Discount",
+    "actualPay": "Actual Pay",
+    "confirmPurchase": "Confirm Purchase",
+    "freeCourseNoNeed": "Free courses do not require purchase"
+  },
+  "learnTopicPage": {
+    "loading": "Loading...",
+    "backToList": "Back to topic list",
+    "notExists": "Topic not found",
+    "premiumTopic": "Premium Topic",
+    "courseTopic": "Course Topic",
+    "premiumTip": "Includes enterprise/department customized content, may require payment.",
+    "courseTip": "A curated course collection by operations, free to learn.",
+    "lessonCount": "{n} courses",
+    "learnCount": "{n} learners",
+    "free": "Free",
+    "includes": "Included Courses",
+    "noLessons": "No courses yet"
+  },
+  "learnRatePage": {
+    "loading": "Loading...",
+    "backToCourse": "Back to course",
+    "loadFailed": "Failed to load",
+    "title": "Course Reviews",
+    "formTitle": "Write a Review",
+    "rating": "Rating",
+    "starAriaLabel": "{n} star",
+    "ratingValue": "{rating} / 5",
+    "contentLabel": "Review Content",
+    "contentPlaceholder": "Please enter your review for this course...",
+    "submit": "Submit Review",
+    "allRates": "All Reviews ({n})",
+    "noRates": "No reviews yet. Be the first to share your thoughts!",
+    "anonymous": "Anonymous"
+  },
+  "modelsBillingPage": {
+    "consumeTrend": "+{n}% vs last month",
+    "rechargeCount": "Total {n} recharges",
+    "packages": {
+      "starter": {
+        "features": [
+          "1M tokens quota",
+          "Basic models available",
+          "5 API tokens",
+          "Community support"
+        ]
+      },
+      "pro": {
+        "features": [
+          "15M tokens quota",
+          "All models available",
+          "20 API tokens",
+          "Priority support",
+          "90-day call logs"
+        ]
+      },
+      "enterprise": {
+        "features": [
+          "200M tokens quota",
+          "Dedicated model channel",
+          "Unlimited API tokens",
+          "Dedicated account manager",
+          "Permanent call logs",
+          "SLA 99.95%"
+        ]
+      }
+    }
+  },
+  "n8nAgentsPage": {
+    "metaDescription": "N8N workflow integration: orchestrate AI agents automatically, including customer service bot, content moderation, data sync, etc.",
+    "subtitle": "N8N workflow integration - orchestrate AI agents automatically via N8N",
+    "cardTitle": "N8N Workflow Integration",
+    "totalBadge": "{n} Agents total",
+    "activeBadge": "{n} running",
+    "cardDescription": "Orchestrate AI agents automatically via N8N, connecting customer service, moderation, sync, reporting, and alerting scenarios to achieve end-to-end workflow automation.",
+    "createButton": "Create new Agent",
+    "lastRunLabel": "Last run",
+    "runCountLabel": "Run count",
+    "agents": {
+      "customer-service": {
+        "name": "Customer Service Bot",
+        "description": "Automatically replies to user inquiries, matches answers based on knowledge base, and supports human handoff."
+      },
+      "content-moderation": {
+        "name": "Content Moderation",
+        "description": "Automatically moderates UGC content, detects inappropriate text/images, and triggers handling workflows."
+      },
+      "data-sync": {
+        "name": "Data Sync",
+        "description": "Periodically syncs external data sources to local database, supporting incremental and full sync."
+      },
+      "report-generation": {
+        "name": "Report Generation",
+        "description": "Generates daily business reports and pushes to specified channels, including email, IM, and object storage."
+      },
+      "alert-notify": {
+        "name": "Alert Notification",
+        "description": "Monitors abnormal metrics and auto-notifies on-call personnel, supporting multi-level escalation strategies."
+      }
+    }
+  },
+  "agentsMyPage": {
+    "statusFilters": {
+      "all": "All",
+      "pending": "Pending",
+      "published": "Published",
+      "rejected": "Rejected",
+      "offline": "Offline"
+    },
+    "back": "Back",
+    "title": "My Agents",
+    "subtitle": "Manage agents you created",
+    "create": "Create",
+    "loading": "Loading...",
+    "empty": "No agents yet",
+    "noDescription": "No description",
+    "free": "Free"
+  },
+  "businessCardPage": {
+    "title": "Digital Business Card",
+    "subtitle": "Manage my cards and favorites",
+    "create": "Create",
+    "myCards": "My Cards",
+    "loading": "Loading...",
+    "emptyMine": "No cards yet. Click \"Create\" to add one.",
+    "share": "Share",
+    "edit": "Edit",
+    "delete": "Delete",
+    "favorites": "Favorite Cards",
+    "viewAll": "View all",
+    "emptyFavorites": "No favorite cards yet"
+  },
+  "developerSubscriptionPage": {
+    "title": "Subscription",
+    "subtitle": "Manage current plan, renewal, and upgrades",
+    "loading": "Loading...",
+    "currentPlan": "Current plan",
+    "month": "month",
+    "renew": "Renew",
+    "expireTime": "Expires:",
+    "quotaUsage": "Quota usage",
+    "upgradePlans": "Available upgrades",
+    "current": "Current",
+    "upgrade": "Upgrade",
+    "renewSuccess": "Renewal successful",
+    "upgradeSuccess": "Plan upgraded"
   }
 }
