@@ -11228,7 +11228,13 @@
     "prev": "へ",
     "next": "へ",
     "loading": "読み込み中...",
-    "page": "ページ"
+    "page": "ページ",
+    "exportReport": "学習レポートをエクスポート",
+    "exporting": "エクスポート中...",
+    "exportPdf": "PDF をエクスポート",
+    "exportExcel": "Excel をエクスポート",
+    "exportJson": "JSON をエクスポート",
+    "exportError": "エクスポートに失敗しました。後で再試行してください"
   },
   "notes": {
     "title": "APIテスト",
@@ -26197,10 +26203,10 @@
     "subtitle": "学習データと最近の進捗を表示",
     "loading": "読み込み中...",
     "stats": {
-      "studyHours": "学習時間",
-      "inProgressCourses": "進行中コース",
+      "totalCourses": "登録コース",
+      "completedCourses": "完了コース",
       "passedExams": "合格した試験",
-      "avgProgress": "平均進捗"
+      "totalCerts": "証明書数"
     },
     "coursesCard": {
       "title": "コース",
@@ -26491,7 +26497,8 @@
     "learnCount": "{n} 人が学習",
     "free": "無料",
     "includes": "含まれるコース",
-    "noLessons": "コースがありません"
+    "noLessons": "コースがありません",
+    "premiumLoadFailed": "プレミアム講座の読み込みに失敗しました。後でもう一度お試しください"
   },
   "learnRatePage": {
     "loading": "読み込み中...",
@@ -26728,6 +26735,15 @@
       "avgProgress": "平均進捗"
     }
   },
+  "eduSchedulePage": {
+    "title": "時間割",
+    "subtitle": "今週の授業スケジュール",
+    "loading": "読み込み中...",
+    "empty": "今週の授業はありません",
+    "today": "今日",
+    "noClass": "授業なし",
+    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+  },
   "memberUpgradePage": {
     "title": "会員アップグレード",
     "subtitle": "あなたに適した会員レベルを選び、より多くの特典をアンロック",
@@ -26824,6 +26840,14 @@
     "bestScore": "最高点:{n}",
     "retake": "再受験",
     "start": "試験を開始"
+  },
+  "eduNotesPage": {
+    "title": "学習ノート",
+    "subtitle": "学習の気付きを記録・振り返り",
+    "searchPlaceholder": "ノートを検索...",
+    "loading": "読み込み中...",
+    "empty": "ノートはありません",
+    "generalNote": "一般ノート"
   },
   "memberCouponsPage": {
     "title": "クーポン",
@@ -27106,6 +27130,34 @@
       "thirdParty": "サードパーティ"
     }
   },
+  "oauthMockPage": {
+    "title": "{platform} 認証",
+    "subtitle": "IHUI-AI にログイン",
+    "permissionsTitle": "アプリは以下の権限を要求します",
+    "permissionNickname": "ニックネーム",
+    "permissionAvatar": "プロフィール画像",
+    "permissionEmail": "メールアドレス",
+    "appRequesting": "アプリ {app} があなたのアカウントでログインを要求しています",
+    "demoNotice": "現在ローカルデモモードです(実際の {platform} OAuth 認証情報は未設定)。「承認」をクリックすると、{platform} にリクエストを送信せずにログインフローをシミュレートします。",
+    "authorize": "承認してログイン",
+    "cancel": "キャンセル",
+    "platforms": {
+      "google": "Google",
+      "apple": "Apple",
+      "dingtalk": "DingTalk",
+      "enterpriseWechat": "WeCom",
+      "wechat": "WeChat",
+      "feishu": "Feishu",
+      "github": "GitHub",
+      "alipay": "Alipay"
+    }
+  },
+  "oauthSetupPage": {
+    "title": "OAuth 認証情報セットアップウィザード",
+    "subtitle": "サードパーティログインプラットフォームの実際の OAuth 認証情報を取得するためのアプリ内インタラクティブガイド",
+    "honestTitle": "🤖 AIはあなたの代わりにアカウント登録できません",
+    "honestBody": "5 つのプラットフォーム(GitHub/Google/Feishu/Alipay/Apple)のアカウント登録にはあなたの個人情報(メール/電話/身分証/営業許可証/有料クレジットカード)が必要で、AI は代われません。ただし、このウィザードが各ステップを案内するので迷うことはありません。GitHub から始めることをおすすめします(3 分、無料)。"
+  },
   "agentsStatsPage": {
     "back": "戻る",
     "title": "エージェント統計",
@@ -27262,7 +27314,13 @@
     "share": "共有",
     "danmuTitle": "コメントインタラクション",
     "danmuPlaceholder": "コメントを送信...",
-    "me": "私"
+    "me": "私",
+    "mockDanmu1Name": "張さん",
+    "mockDanmu1Content": "先生の説明は分かりやすい",
+    "mockDanmu2Name": "李さん",
+    "mockDanmu2Content": "この知識ポイントがやっと分かった",
+    "mockDanmu3Name": "王さん",
+    "mockDanmu3Content": "次回の配信を楽しみにしています"
   },
   "memberAddressFormPage": {
     "recipient": "お受取人",
