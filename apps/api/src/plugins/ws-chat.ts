@@ -7,6 +7,7 @@ import { authenticate } from './auth.js'
 import { wsAuth } from './ws-helpers.js'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
+import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -512,6 +513,22 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
   })
 
   // 应用关闭时清理订阅连接
+  getWsAutoRecoveryManager().setFastify(server)
+  getWsAutoRecoveryManager().registerPlugin('ws-chat', {
+    getConnections: () => {
+      const m = new Map<string, WebSocket | Set<WebSocket>>()
+      for (const [roomId, members] of rooms) {
+        const sockets = new Set<WebSocket>()
+        for (const mem of members) sockets.add(mem.socket)
+        m.set(roomId, sockets)
+      }
+      return m
+    },
+    removeConnection: async (roomId) => {
+      rooms.delete(roomId)
+    },
+  })
+
   server.addHook('onClose', async () => {
     if (subscriber) {
       try {

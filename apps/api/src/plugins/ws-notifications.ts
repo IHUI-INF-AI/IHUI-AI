@@ -4,6 +4,7 @@ import fp from 'fastify-plugin'
 import IORedis, { type Redis } from 'ioredis'
 import { wsAuth } from './ws-helpers.js'
 import { config } from '../config/index.js'
+import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -229,6 +230,19 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
         updateWsConnectionGauges()
       })
     })()
+  })
+
+  getWsAutoRecoveryManager().setFastify(server)
+  getWsAutoRecoveryManager().registerPlugin('ws-notifications', {
+    getConnections: () => connections as unknown as Map<string, WebSocket | Set<WebSocket>>,
+    removeConnection: async (userId) => {
+      const conns = connections.get(userId)
+      if (conns) {
+        wsConnectionCount -= conns.size
+        connections.delete(userId)
+        updateWsConnectionGauges()
+      }
+    },
   })
 
   // 应用关闭时清理订阅连接
