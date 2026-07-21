@@ -23,8 +23,10 @@ import { and, eq } from 'drizzle-orm'
 import {
   aiWorldCategories,
   aiWorldItems,
+  aiWorldRankings,
   aiWorldSyncLog,
   type NewAiWorldItem,
+  type NewAiWorldRanking,
 } from '@ihui/database'
 
 import { db } from '../db/index.js'
@@ -50,12 +52,27 @@ export interface FetchedItem {
 
 export interface SyncSourceResult {
   source: string
-  kind: ItemKind
+  kind: ItemKind | 'ranking' | 'trending'
   status: 'success' | 'failed' | 'partial'
   itemCount: number
   error?: string
   startedAt: Date
   finishedAt?: Date
+}
+
+// ===== 模型排行榜类型定义(2026-07-22 新增,5 大权威榜单) =====
+
+export type LeaderboardId = 'lmsys' | 'opencompass' | 'hf-open-llm' | 'superclue' | 'artificial-analysis'
+
+export interface LeaderboardEntry {
+  leaderboard: LeaderboardId
+  category: string // 'overall' | 'coding' | 'math' | 'reasoning' | 'chinese' | 'english' | 'multiturn' | 'hard-prompts'
+  rank: number
+  modelName: string
+  provider?: string
+  score?: string
+  scores?: Record<string, unknown> // {elo, ci_lower, ci_upper, votes, organization, license}
+  publishedAt?: Date
 }
 
 // ===== 数据源配置 =====
@@ -213,6 +230,20 @@ const AI_TOOLS: Array<{ source: string; name: string; url: string; category: str
   { source: 'litellm', name: 'LiteLLM', url: 'https://github.com/BerriAI/litellm', category: 'framework' },
   { source: 'jan', name: 'Jan', url: 'https://jan.ai', category: 'framework' },
   { source: 'gpt4all', name: 'GPT4All', url: 'https://gpt4all.io', category: 'framework' },
+]
+
+// ===== AI 仓库 GitHub 映射(为有 GitHub 仓库的工具/APP 抓 stars/forks,2026-07-22 新增) =====
+// 从 AI_TOOLS + AI_APPS 中筛选 url 含 'github.com' 的项,提取 owner/repo
+const AI_REPOS_GITHUB: Array<{ source: string; kind: ItemKind; owner: string; repo: string }> = [
+  { source: 'comfyui', kind: 'tool', owner: 'comfyanonymous', repo: 'ComfyUI' },
+  { source: 'automatic1111', kind: 'tool', owner: 'AUTOMATIC1111', repo: 'stable-diffusion-webui' },
+  { source: 'autogen', kind: 'tool', owner: 'microsoft', repo: 'autogen' },
+  { source: 'dspy', kind: 'tool', owner: 'stanfordnlp', repo: 'dspy' },
+  { source: 'semantic-kernel', kind: 'tool', owner: 'microsoft', repo: 'semantic-kernel' },
+  { source: 'vllm', kind: 'tool', owner: 'vllm-project', repo: 'vllm' },
+  { source: 'litellm', kind: 'tool', owner: 'BerriAI', repo: 'litellm' },
+  // copilot-docs 为 GitHub 官方文档仓库,可反映 Copilot 受关注度(可选)
+  { source: 'copilot', kind: 'app', owner: 'github', repo: 'copilot-docs' },
 ]
 
 // AI World 自定义分类(借鉴 ai-bot.cn 结构但重命名,不抄 slug)
@@ -705,18 +736,29 @@ export async function syncAllSources(): Promise<SyncSourceResult[]> {
     results.push(...batchResults)
   }
 
+  // 7. 模型排行榜(5 大权威榜单,2026-07-22 新增)
+  results.push(...await syncRankings())
+  // 8. 热度更新(GitHub stars/forks + LLM 综合分,2026-07-22 新增)
+  results.push(...await syncTrendingMetrics())
+
   return results
 }
 
-/** 统计信源数量(供 /sync/logs 接口展示) */
-export function getSourceStats(): { rss: number; arxiv: number; github: number; apps: number; tools: number; total: number } {
+/** 统计信源数量(供 /sync/logs 接口展示,2026-07-22 扩充 rankings + trending) */
+export function getSourceStats(): { rss: number; arxiv: number; github: number; apps: number; tools: number; rankings: number; trending: number; total: number } {
+  // rankings:5 大权威榜单(lmsys / opencompass / hf-open-llm / superclue / artificial-analysis)
+  const rankingsCount = 5
+  // trending:有 GitHub 仓库的 AI 工具/APP 数量
+  const trendingCount = AI_REPOS_GITHUB.length
   return {
     rss: RSS_FEEDS.length,
     arxiv: ARXIV_CATEGORIES.length,
     github: GITHUB_TOPICS.length,
     apps: AI_APPS.length,
     tools: AI_TOOLS.length,
-    total: RSS_FEEDS.length + 1 + 1 + GITHUB_TOPICS.length + AI_APPS.length + AI_TOOLS.length,
+    rankings: rankingsCount,
+    trending: trendingCount,
+    total: RSS_FEEDS.length + 1 + 1 + GITHUB_TOPICS.length + AI_APPS.length + AI_TOOLS.length + rankingsCount + trendingCount,
   }
 }
 
@@ -753,16 +795,694 @@ export function stopAiWorldSyncScheduler(): void {
   }
 }
 
-// ===== CLI 入口(--run-once 手动触发) =====
+// ===== 模型排行榜抓取器(2026-07-22 新增,5 大权威榜单) =====
+//
+// 5 个榜单页面多数为 JS 动态渲染(Gradio / React),cheerio 静态解析可能拿不到表格。
+// 设计原则:尽力解析 table tbody tr;拿不到数据返回空数组,console.warn 提示但不 throw,
+// 不阻塞其他榜单。每个榜单至少尝试 overall 分类 top 20。
 
-// 检测 CLI 调用:tsx apps/api/src/jobs/ai-world-sync.ts --run-once
+const LEADERBOARD_USER_AGENT = 'Mozilla/5.0 (compatible; IHUI-AI/1.0 AI-World-Sync)'
+
+/** 从 HTML 表格行提取数据,返回字符串二维数组(每行一个 cells 数组) */
+function extractTableRows($: cheerio.CheerioAPI, maxRows = 30): string[][] {
+  const rows: string[][] = []
+  // 多种选择器兜底:标准 table / Gradio table / 自定义 class
+  const selectors = [
+    'table tbody tr',
+    'table thead + tbody tr',
+    '.table tbody tr',
+    '[class*="leaderboard"] table tbody tr',
+    '[class*="table"] tbody tr',
+  ]
+  for (const sel of selectors) {
+    $(sel).each((_, tr) => {
+      const cells: string[] = []
+      $(tr).find('td').each((_, td) => {
+        cells.push($(td).text().trim())
+      })
+      if (cells.length >= 2) rows.push(cells)
+    })
+    if (rows.length > 0) break
+  }
+  return rows.slice(0, maxRows)
+}
+
+/** 解析 rank:优先取首列数字,失败则按顺序递增 */
+function parseRank(cells: string[], fallbackIndex: number): number {
+  const raw = cells[0] ?? ''
+  const cleaned = raw.replace(/[#\s]/g, '')
+  const n = parseInt(cleaned, 10)
+  return Number.isFinite(n) && n > 0 ? n : fallbackIndex + 1
+}
+
+/** 抓 LMSYS Chatbot Arena(HuggingFace Spaces,综合 Elo 榜) */
+async function fetchLMSYSArena(): Promise<LeaderboardEntry[]> {
+  try {
+    const res = await fetchWithTimeout(
+      'https://huggingface.co/spaces/lmsys/chatbot-arena-leaderboard',
+      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT } },
+      20000,
+    )
+    if (!res.ok) {
+      console.warn(`[ai-world-sync] LMSYS leaderboard HTTP ${res.status}, skip`)
+      return []
+    }
+    const html = await res.text()
+    const $ = cheerio.load(html)
+    const rows = extractTableRows($, 30)
+    const entries: LeaderboardEntry[] = []
+    rows.forEach((cells, idx) => {
+      // LMSYS 表格列:rank / model / elo / ci_lower / ci_upper / votes / ...
+      const modelName = (cells[1] ?? '').trim()
+      if (!modelName) return
+      const rank = parseRank(cells, idx)
+      const eloStr = (cells[2] ?? '').trim()
+      const elo = parseFloat(eloStr)
+      const votesStr = cells[5] ?? cells[4] ?? ''
+      const votes = parseInt(votesStr.replace(/[^\d]/g, ''), 10)
+      entries.push({
+        leaderboard: 'lmsys',
+        category: 'overall',
+        rank,
+        modelName: modelName.slice(0, 200),
+        provider: undefined,
+        score: eloStr || undefined,
+        scores: {
+          ...(Number.isFinite(elo) ? { elo } : {}),
+          ...(Number.isFinite(votes) ? { votes } : {}),
+        },
+        publishedAt: new Date(),
+      })
+    })
+    if (entries.length === 0) {
+      console.warn('[ai-world-sync] LMSYS leaderboard no table rows (likely JS-rendered Gradio), skip')
+    }
+    return entries.slice(0, 30)
+  } catch (err) {
+    console.warn('[ai-world-sync] LMSYS leaderboard error:', err instanceof Error ? err.message : err)
+    return []
+  }
+}
+
+/** 抓 OpenCompass 司南(中文榜单) */
+async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
+  try {
+    const res = await fetchWithTimeout(
+      'https://opencompass.org.cn/leaderboard-llm',
+      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT } },
+      20000,
+    )
+    if (!res.ok) {
+      console.warn(`[ai-world-sync] OpenCompass leaderboard HTTP ${res.status}, skip`)
+      return []
+    }
+    const html = await res.text()
+    const $ = cheerio.load(html)
+    const rows = extractTableRows($, 30)
+    const entries: LeaderboardEntry[] = []
+    rows.forEach((cells, idx) => {
+      // OpenCompass 列:排名 / 模型 / 综合得分 / ...
+      const modelName = (cells[1] ?? '').trim()
+      if (!modelName) return
+      const rank = parseRank(cells, idx)
+      const scoreStr = (cells[2] ?? '').trim()
+      entries.push({
+        leaderboard: 'opencompass',
+        category: 'overall',
+        rank,
+        modelName: modelName.slice(0, 200),
+        score: scoreStr || undefined,
+        scores: { score: parseFloat(scoreStr) || undefined },
+        publishedAt: new Date(),
+      })
+    })
+    if (entries.length === 0) {
+      console.warn('[ai-world-sync] OpenCompass leaderboard no table rows (likely JS-rendered), skip')
+    }
+    return entries.slice(0, 30)
+  } catch (err) {
+    console.warn('[ai-world-sync] OpenCompass leaderboard error:', err instanceof Error ? err.message : err)
+    return []
+  }
+}
+
+/** 抓 HuggingFace Open LLM Leaderboard(开源模型综合) */
+async function fetchHFOpenLLM(): Promise<LeaderboardEntry[]> {
+  try {
+    const res = await fetchWithTimeout(
+      'https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard',
+      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT } },
+      20000,
+    )
+    if (!res.ok) {
+      console.warn(`[ai-world-sync] HF Open LLM leaderboard HTTP ${res.status}, skip`)
+      return []
+    }
+    const html = await res.text()
+    const $ = cheerio.load(html)
+    const rows = extractTableRows($, 30)
+    const entries: LeaderboardEntry[] = []
+    rows.forEach((cells, idx) => {
+      // HF Open LLM 列:rank / model / avg_score / ...
+      const modelName = (cells[1] ?? '').trim()
+      if (!modelName) return
+      const rank = parseRank(cells, idx)
+      const avgStr = (cells[2] ?? '').trim()
+      entries.push({
+        leaderboard: 'hf-open-llm',
+        category: 'overall',
+        rank,
+        modelName: modelName.slice(0, 200),
+        score: avgStr || undefined,
+        scores: { avgScore: parseFloat(avgStr) || undefined },
+        publishedAt: new Date(),
+      })
+    })
+    if (entries.length === 0) {
+      console.warn('[ai-world-sync] HF Open LLM leaderboard no table rows (likely JS-rendered Gradio), skip')
+    }
+    return entries.slice(0, 30)
+  } catch (err) {
+    console.warn('[ai-world-sync] HF Open LLM leaderboard error:', err instanceof Error ? err.message : err)
+    return []
+  }
+}
+
+/** 抓 SuperCLUE(中文综合榜) */
+async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
+  try {
+    const res = await fetchWithTimeout(
+      'https://www.superclueai.com/',
+      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT } },
+      20000,
+    )
+    if (!res.ok) {
+      console.warn(`[ai-world-sync] SuperCLUE leaderboard HTTP ${res.status}, skip`)
+      return []
+    }
+    const html = await res.text()
+    const $ = cheerio.load(html)
+    const rows = extractTableRows($, 30)
+    const entries: LeaderboardEntry[] = []
+    rows.forEach((cells, idx) => {
+      const modelName = (cells[1] ?? '').trim()
+      if (!modelName) return
+      const rank = parseRank(cells, idx)
+      const scoreStr = (cells[2] ?? '').trim()
+      entries.push({
+        leaderboard: 'superclue',
+        category: 'overall',
+        rank,
+        modelName: modelName.slice(0, 200),
+        score: scoreStr || undefined,
+        scores: { score: parseFloat(scoreStr) || undefined },
+        publishedAt: new Date(),
+      })
+    })
+    if (entries.length === 0) {
+      console.warn('[ai-world-sync] SuperCLUE leaderboard no table rows (likely JS-rendered), skip')
+    }
+    return entries.slice(0, 30)
+  } catch (err) {
+    console.warn('[ai-world-sync] SuperCLUE leaderboard error:', err instanceof Error ? err.message : err)
+    return []
+  }
+}
+
+/** 抓 Artificial Analysis(综合性能榜) */
+async function fetchArtificialAnalysis(): Promise<LeaderboardEntry[]> {
+  try {
+    const res = await fetchWithTimeout(
+      'https://artificialanalysis.ai/leaderboards',
+      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT } },
+      20000,
+    )
+    if (!res.ok) {
+      console.warn(`[ai-world-sync] Artificial Analysis leaderboard HTTP ${res.status}, skip`)
+      return []
+    }
+    const html = await res.text()
+    const $ = cheerio.load(html)
+    const rows = extractTableRows($, 30)
+    const entries: LeaderboardEntry[] = []
+    rows.forEach((cells, idx) => {
+      const modelName = (cells[1] ?? '').trim()
+      if (!modelName) return
+      const rank = parseRank(cells, idx)
+      const scoreStr = (cells[2] ?? '').trim()
+      entries.push({
+        leaderboard: 'artificial-analysis',
+        category: 'overall',
+        rank,
+        modelName: modelName.slice(0, 200),
+        score: scoreStr || undefined,
+        scores: { score: parseFloat(scoreStr) || undefined },
+        publishedAt: new Date(),
+      })
+    })
+    if (entries.length === 0) {
+      console.warn('[ai-world-sync] Artificial Analysis leaderboard no table rows (likely JS-rendered), skip')
+    }
+    return entries.slice(0, 30)
+  } catch (err) {
+    console.warn('[ai-world-sync] Artificial Analysis leaderboard error:', err instanceof Error ? err.message : err)
+    return []
+  }
+}
+
+/** 排行榜抓取器注册表(dry-run + syncRankings 共用) */
+const RANKING_FETCHERS: Array<{ source: string; fn: () => Promise<LeaderboardEntry[]> }> = [
+  { source: 'lmsys', fn: fetchLMSYSArena },
+  { source: 'opencompass', fn: fetchOpenCompass },
+  { source: 'hf-open-llm', fn: fetchHFOpenLLM },
+  { source: 'superclue', fn: fetchSuperCLUE },
+  { source: 'artificial-analysis', fn: fetchArtificialAnalysis },
+]
+
+/** upsert 单个排行榜条目(leaderboard+category+modelName 唯一) */
+async function upsertRanking(entry: LeaderboardEntry): Promise<'inserted' | 'updated' | 'error'> {
+  try {
+    const existing = await db
+      .select({ id: aiWorldRankings.id })
+      .from(aiWorldRankings)
+      .where(and(
+        eq(aiWorldRankings.leaderboard, entry.leaderboard),
+        eq(aiWorldRankings.category, entry.category),
+        eq(aiWorldRankings.modelName, entry.modelName),
+      ))
+      .limit(1)
+    const now = new Date()
+    if (existing.length > 0) {
+      await db
+        .update(aiWorldRankings)
+        .set({
+          rank: entry.rank,
+          provider: entry.provider,
+          score: entry.score,
+          scores: entry.scores,
+          publishedAt: entry.publishedAt,
+          fetchedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(aiWorldRankings.id, existing[0]!.id))
+      return 'updated'
+    }
+    const payload: NewAiWorldRanking = {
+      leaderboard: entry.leaderboard,
+      category: entry.category,
+      rank: entry.rank,
+      modelName: entry.modelName.slice(0, 200),
+      provider: entry.provider,
+      score: entry.score,
+      scores: entry.scores,
+      metadata: {},
+      publishedAt: entry.publishedAt,
+      fetchedAt: now,
+    }
+    await db.insert(aiWorldRankings).values(payload).onConflictDoNothing()
+    return 'inserted'
+  } catch (err) {
+    console.warn(
+      `[ai-world-sync] upsertRanking ${entry.leaderboard}/${entry.modelName} error:`,
+      err instanceof Error ? err.message : err,
+    )
+    return 'error'
+  }
+}
+
+/** 同步所有模型排行榜(5 大权威榜单),返回 SyncSourceResult[],写 aiWorldSyncLog(kind='ranking') */
+export async function syncRankings(): Promise<SyncSourceResult[]> {
+  const results: SyncSourceResult[] = []
+  for (const { source, fn } of RANKING_FETCHERS) {
+    const startedAt = new Date()
+    try {
+      const entries = await fn()
+      let successCount = 0
+      for (const entry of entries) {
+        const r = await upsertRanking(entry)
+        if (r === 'inserted' || r === 'updated') successCount++
+      }
+      // 空数据视为 success(页面 JS 渲染拿不到表格,不算失败,只记录提示)
+      const status: SyncSourceResult['status'] = entries.length === 0 || successCount > 0 ? 'success' : 'failed'
+      const result: SyncSourceResult = {
+        source,
+        kind: 'ranking',
+        status,
+        itemCount: successCount,
+        startedAt,
+        finishedAt: new Date(),
+        error: entries.length === 0 ? 'no table rows (page may be JS-rendered)' : undefined,
+      }
+      await writeSyncLog(result)
+      results.push(result)
+    } catch (err) {
+      const result: SyncSourceResult = {
+        source,
+        kind: 'ranking',
+        status: 'failed',
+        itemCount: 0,
+        startedAt,
+        finishedAt: new Date(),
+        error: err instanceof Error ? err.message : String(err),
+      }
+      await writeSyncLog(result)
+      results.push(result)
+    }
+  }
+  return results
+}
+
+// ===== GitHub 仓库热度指标抓取(2026-07-22 新增) =====
+
+/** 抓单个 GitHub 仓库的 stars/forks/watchers/subscribers/openIssues,失败返回 null */
+async function fetchGithubRepoMetrics(owner: string, repo: string): Promise<{
+  stars: number
+  forks: number
+  watchers: number
+  subscribers: number
+  openIssues: number
+} | null> {
+  try {
+    const res = await fetchWithTimeout(
+      `https://api.github.com/repos/${owner}/${repo}`,
+      {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'IHUI-AI/1.0 AI-World-Sync',
+        },
+      },
+      15000,
+    )
+    if (!res.ok) {
+      console.warn(`[ai-world-sync] github repo ${owner}/${repo} HTTP ${res.status}, skip`)
+      return null
+    }
+    const data = (await res.json()) as {
+      stargazers_count?: number
+      forks_count?: number
+      watchers_count?: number
+      subscribers_count?: number
+      open_issues_count?: number
+    }
+    return {
+      stars: data.stargazers_count ?? 0,
+      forks: data.forks_count ?? 0,
+      watchers: data.watchers_count ?? 0,
+      subscribers: data.subscribers_count ?? 0,
+      openIssues: data.open_issues_count ?? 0,
+    }
+  } catch (err) {
+    console.warn(`[ai-world-sync] github repo ${owner}/${repo} error:`, err instanceof Error ? err.message : err)
+    return null
+  }
+}
+
+/** 纯计算降级热度分(stars + forks → 0-100),LLM 不可用时用 */
+function computeTrendingScoreFallback(stars: number, forks: number): number {
+  const score = Math.log10(stars + 1) * 10 + Math.log10(forks + 1) * 5
+  return Math.min(100, Math.max(0, Math.round(score)))
+}
+
+/**
+ * 同步所有 AI 仓库的热度数据(GitHub stars/forks + LLM 综合分 0-100)
+ * 流程:遍历 AI_REPOS_GITHUB → fetchGithubRepoMetrics → 更新 aiWorldItems 的
+ * trendingScore/trendingMetrics/trendingUpdatedAt → 写 aiWorldSyncLog(kind='trending')
+ * 小批量并行(每批 5 个)避免 GitHub rate limit
+ */
+export async function syncTrendingMetrics(): Promise<SyncSourceResult[]> {
+  const results: SyncSourceResult[] = []
+  const BATCH_SIZE = 5
+  for (let i = 0; i < AI_REPOS_GITHUB.length; i += BATCH_SIZE) {
+    const batch = AI_REPOS_GITHUB.slice(i, i + BATCH_SIZE)
+    const batchResults = await Promise.all(
+      batch.map(async (repoInfo) => {
+        const startedAt = new Date()
+        const metrics = await fetchGithubRepoMetrics(repoInfo.owner, repoInfo.repo)
+        if (!metrics) {
+          const result: SyncSourceResult = {
+            source: repoInfo.source,
+            kind: 'trending',
+            status: 'failed',
+            itemCount: 0,
+            startedAt,
+            finishedAt: new Date(),
+            error: `github ${repoInfo.owner}/${repoInfo.repo} fetch failed`,
+          }
+          await writeSyncLog(result)
+          return result
+        }
+        try {
+          // 通过 source + kind 匹配 aiWorldItems,拿 viewCount 用于 LLM 综合分
+          const existing = await db
+            .select({ id: aiWorldItems.id, viewCount: aiWorldItems.viewCount })
+            .from(aiWorldItems)
+            .where(and(eq(aiWorldItems.source, repoInfo.source), eq(aiWorldItems.kind, repoInfo.kind)))
+            .limit(1)
+          if (existing.length === 0) {
+            const result: SyncSourceResult = {
+              source: repoInfo.source,
+              kind: 'trending',
+              status: 'success',
+              itemCount: 0,
+              startedAt,
+              finishedAt: new Date(),
+              error: 'no matching aiWorldItems row (item not synced yet)',
+            }
+            await writeSyncLog(result)
+            return result
+          }
+          const itemId = existing[0]!.id
+          const viewCount = existing[0]!.viewCount ?? 0
+
+          // LLM 综合分(失败降级用纯计算公式)
+          const llmScore = await callLlm(
+            '根据以下数据综合给出该 AI 工具的热度分(0-100 整数,只返回数字):',
+            `stars=${metrics.stars}, forks=${metrics.forks}, viewCount=${viewCount}`,
+            10000,
+          )
+          let trendingScore: number
+          if (llmScore) {
+            const parsed = parseInt(llmScore.replace(/\D/g, ''), 10)
+            trendingScore = Number.isFinite(parsed) && parsed >= 0 && parsed <= 100
+              ? parsed
+              : computeTrendingScoreFallback(metrics.stars, metrics.forks)
+          } else {
+            trendingScore = computeTrendingScoreFallback(metrics.stars, metrics.forks)
+          }
+
+          const now = new Date()
+          await db
+            .update(aiWorldItems)
+            .set({
+              trendingScore,
+              trendingMetrics: {
+                githubStars: metrics.stars,
+                githubForks: metrics.forks,
+                githubWatchers: metrics.watchers,
+                githubSubscribers: metrics.subscribers,
+                githubOpenIssues: metrics.openIssues,
+              },
+              trendingUpdatedAt: now,
+              updatedAt: now,
+            })
+            .where(eq(aiWorldItems.id, itemId))
+
+          const result: SyncSourceResult = {
+            source: repoInfo.source,
+            kind: 'trending',
+            status: 'success',
+            itemCount: 1,
+            startedAt,
+            finishedAt: new Date(),
+          }
+          await writeSyncLog(result)
+          return result
+        } catch (err) {
+          const result: SyncSourceResult = {
+            source: repoInfo.source,
+            kind: 'trending',
+            status: 'failed',
+            itemCount: 0,
+            startedAt,
+            finishedAt: new Date(),
+            error: err instanceof Error ? err.message : String(err),
+          }
+          await writeSyncLog(result)
+          return result
+        }
+      }),
+    )
+    results.push(...batchResults)
+  }
+  return results
+}
+
+// ===== 独立调度器(排行 + 热度,2026-07-22 新增) =====
+
+let rankingScheduledTask: ScheduledTask | null = null
+let trendingScheduledTask: ScheduledTask | null = null
+
+/** 启动模型排行榜定时任务(每日 6 点,模型榜单更新慢) */
+export function startRankingScheduler(): void {
+  if (rankingScheduledTask) return
+  rankingScheduledTask = cron.schedule('0 6 * * *', async () => {
+    try {
+      const results = await syncRankings()
+      const ok = results.filter((r) => r.status === 'success').length
+      const fail = results.filter((r) => r.status === 'failed').length
+      const items = results.reduce((sum, r) => sum + r.itemCount, 0)
+      console.log(`[ai-world-sync] ranking done: ${ok} success, ${fail} failed, ${items} items`)
+    } catch (err) {
+      console.error('[ai-world-sync] ranking fatal:', err)
+    }
+  }, {
+    timezone: 'Asia/Shanghai',
+  })
+  console.log('[ai-world-sync] ranking scheduler started (cron: 0 6 * * * Asia/Shanghai)')
+}
+
+/** 停止模型排行榜定时任务 */
+export function stopRankingScheduler(): void {
+  if (rankingScheduledTask) {
+    rankingScheduledTask.stop()
+    rankingScheduledTask = null
+  }
+}
+
+/** 启动热度更新定时任务(每 4 小时) */
+export function startTrendingScheduler(): void {
+  if (trendingScheduledTask) return
+  trendingScheduledTask = cron.schedule('0 */4 * * *', async () => {
+    try {
+      const results = await syncTrendingMetrics()
+      const ok = results.filter((r) => r.status === 'success').length
+      const fail = results.filter((r) => r.status === 'failed').length
+      const items = results.reduce((sum, r) => sum + r.itemCount, 0)
+      console.log(`[ai-world-sync] trending done: ${ok} success, ${fail} failed, ${items} items`)
+    } catch (err) {
+      console.error('[ai-world-sync] trending fatal:', err)
+    }
+  }, {
+    timezone: 'Asia/Shanghai',
+  })
+  console.log('[ai-world-sync] trending scheduler started (cron: 0 */4 * * * Asia/Shanghai)')
+}
+
+/** 停止热度更新定时任务 */
+export function stopTrendingScheduler(): void {
+  if (trendingScheduledTask) {
+    trendingScheduledTask.stop()
+    trendingScheduledTask = null
+  }
+}
+
+// ===== Dry-run 模式(只调 fetcher 不写库,2026-07-22 新增) =====
+
+/**
+ * 跑所有 fetcher,只统计预计条目数,不写库(不调 upsertItem / upsertRanking / db.update)
+ * 用于上线前验证抓取链路连通性 + 各源数据量预估
+ */
+export async function runDryRun(): Promise<Array<{ source: string; kind: string; estimatedItems: number; error?: string }>> {
+  const results: Array<{ source: string; kind: string; estimatedItems: number; error?: string }> = []
+
+  // RSS(30 源)
+  for (const feed of RSS_FEEDS) {
+    try {
+      const items = await fetchRssFeed(feed)
+      results.push({ source: feed.source, kind: 'rss', estimatedItems: items.length })
+    } catch (err) {
+      results.push({ source: feed.source, kind: 'rss', estimatedItems: 0, error: err instanceof Error ? err.message : String(err) })
+    }
+  }
+  // arXiv
+  try {
+    const items = await fetchArxivPapers()
+    results.push({ source: 'arxiv', kind: 'paper', estimatedItems: items.length })
+  } catch (err) {
+    results.push({ source: 'arxiv', kind: 'paper', estimatedItems: 0, error: err instanceof Error ? err.message : String(err) })
+  }
+  // HF Papers
+  try {
+    const items = await fetchHuggingfacePapers()
+    results.push({ source: 'huggingface-papers', kind: 'paper', estimatedItems: items.length })
+  } catch (err) {
+    results.push({ source: 'huggingface-papers', kind: 'paper', estimatedItems: 0, error: err instanceof Error ? err.message : String(err) })
+  }
+  // GitHub Trending
+  try {
+    const items = await fetchGithubTrending()
+    results.push({ source: 'github', kind: 'project', estimatedItems: items.length })
+  } catch (err) {
+    results.push({ source: 'github', kind: 'project', estimatedItems: 0, error: err instanceof Error ? err.message : String(err) })
+  }
+  // AI Apps(35+)
+  for (const entry of AI_APPS) {
+    try {
+      const item = await fetchSiteMeta(entry, 'app')
+      results.push({ source: entry.source, kind: 'app', estimatedItems: item ? 1 : 0 })
+    } catch (err) {
+      results.push({ source: entry.source, kind: 'app', estimatedItems: 0, error: err instanceof Error ? err.message : String(err) })
+    }
+  }
+  // AI Tools(35+)
+  for (const entry of AI_TOOLS) {
+    try {
+      const item = await fetchSiteMeta(entry, 'tool')
+      results.push({ source: entry.source, kind: 'tool', estimatedItems: item ? 1 : 0 })
+    } catch (err) {
+      results.push({ source: entry.source, kind: 'tool', estimatedItems: 0, error: err instanceof Error ? err.message : String(err) })
+    }
+  }
+  // 5 大排行榜
+  for (const { source, fn } of RANKING_FETCHERS) {
+    try {
+      const entries = await fn()
+      results.push({ source, kind: 'ranking', estimatedItems: entries.length })
+    } catch (err) {
+      results.push({ source, kind: 'ranking', estimatedItems: 0, error: err instanceof Error ? err.message : String(err) })
+    }
+  }
+  // GitHub 仓库热度
+  for (const repoInfo of AI_REPOS_GITHUB) {
+    try {
+      const metrics = await fetchGithubRepoMetrics(repoInfo.owner, repoInfo.repo)
+      results.push({ source: repoInfo.source, kind: 'trending', estimatedItems: metrics ? 1 : 0 })
+    } catch (err) {
+      results.push({ source: repoInfo.source, kind: 'trending', estimatedItems: 0, error: err instanceof Error ? err.message : String(err) })
+    }
+  }
+  return results
+}
+
+// ===== CLI 入口(--run-once 手动触发 / --dry-run 预估条目数不写库) =====
+
+// 检测 CLI 调用:tsx apps/api/src/jobs/ai-world-sync.ts --run-once | --dry-run
 const isCli = process.argv[1]?.endsWith('ai-world-sync.ts') || process.argv[1]?.endsWith('ai-world-sync.js')
-if (isCli && process.argv.includes('--run-once')) {
+if (isCli && process.argv.includes('--dry-run')) {
+  ;(async () => {
+    try {
+      console.log('[ai-world-sync] dry-run start (no DB writes)')
+      const stats = getSourceStats()
+      console.log(`[ai-world-sync] sources: rss=${stats.rss} arxiv=${stats.arxiv} github=${stats.github} apps=${stats.apps} tools=${stats.tools} rankings=${stats.rankings} trending=${stats.trending} total=${stats.total}`)
+      const results = await runDryRun()
+      const totalEstimated = results.reduce((sum, r) => sum + r.estimatedItems, 0)
+      const failed = results.filter((r) => r.error).length
+      console.log(`[ai-world-sync] dry-run done: ${results.length} sources, ${totalEstimated} estimated items, ${failed} errors`)
+      for (const r of results) {
+        console.log(`  - ${r.source} (${r.kind}): ${r.estimatedItems} items${r.error ? ` err=${r.error}` : ''}`)
+      }
+      process.exit(0)
+    } catch (err) {
+      console.error('[ai-world-sync] dry-run fatal:', err)
+      process.exit(1)
+    }
+  })()
+} else if (isCli && process.argv.includes('--run-once')) {
   ;(async () => {
     try {
       console.log('[ai-world-sync] run-once start')
       const stats = getSourceStats()
-      console.log(`[ai-world-sync] sources: rss=${stats.rss} arxiv=${stats.arxiv} github=${stats.github} apps=${stats.apps} tools=${stats.tools} total=${stats.total}`)
+      console.log(`[ai-world-sync] sources: rss=${stats.rss} arxiv=${stats.arxiv} github=${stats.github} apps=${stats.apps} tools=${stats.tools} rankings=${stats.rankings} trending=${stats.trending} total=${stats.total}`)
       const results = await syncAllSources()
       const ok = results.filter((r) => r.status === 'success').length
       const partial = results.filter((r) => r.status === 'partial').length
