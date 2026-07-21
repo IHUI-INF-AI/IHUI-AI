@@ -423,6 +423,8 @@
     "mainNav": "메인 내비게이션",
     "pluginMarket": "플러그인 마켓",
     "knowledgeBase": "지식 베이스",
+    "knowledgeRag": "RAG 지식 베이스",
+    "knowledgeGraph": "지식 그래프",
     "announcements": "공지사항",
     "overview": "개요",
     "enterprise": "기업 서비스",
