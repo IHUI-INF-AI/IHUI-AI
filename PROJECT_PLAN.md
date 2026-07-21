@@ -733,6 +733,8 @@ nginx -t && nginx -s reload
 
 **审计证据**:本审计的 6 份 subagent 报告 + 1 份验证报告在对话上下文中;git 历史文件清单已写入 `.trae-cn/tmp/3ee96cf09-files.txt`(835KB,已 gitignore)作审计证据保留。
 
+**收尾清理(2026-07-21)**:迁移过程产生的 28 个临时文件已删除(27 个 `hist-*` Vue/TS 历史快照共 191,784 字节 + `commit-msg-migration-audit.txt` 1,249 字节,功能已 1:1 复刻到当前代码);`.trae-cn/tmp/3ee96cf09-files.txt`(835,704 字节)按上方"审计证据保留"说明继续保留。迁移完整性任务 100% 收尾,无后续建议。
+
 ---
 
 ## PDF 学习报告真实内容生成(2026-07-21)— P1 任务(P0 链路补全)
