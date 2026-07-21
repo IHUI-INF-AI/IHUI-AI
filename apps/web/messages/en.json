@@ -9357,6 +9357,7 @@
     "title": "Model Marketplace",
     "subtitle": "Choose the right AI model for you",
     "all": "All",
+    "navAriaLabel": "Filter by provider",
     "contextLength": "Context",
     "price": "Price",
     "free": "Free",
@@ -9499,6 +9500,17 @@
       "sensenova": "SenseTime SenseNova",
       "skywork": "Skywork",
       "internlm": "InternLM",
+      "local": "Local",
+      "ornith": "Ornith",
+      "codebrain": "CodeBrain",
+      "mai": "MAI"
+    },
+    "providerGroups": {
+      "international": "International",
+      "domestic": "Domestic",
+      "inference": "Inference",
+      "cloud": "Cloud & Platform",
+      "aggregator": "Aggregator",
       "local": "Local"
     },
     "model": {

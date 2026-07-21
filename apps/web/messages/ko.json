@@ -9357,6 +9357,7 @@
     "title": "모델 마켓",
     "subtitle": "포괄적인의개발문서및API참조",
     "all": "모든",
+    "navAriaLabel": "공급사별 필터",
     "contextLength": "컨텍스트:",
     "price": "가격",
     "free": "무료",
@@ -9499,6 +9500,17 @@
       "sensenova": "센스타임",
       "skywork": "스카이워크",
       "internlm": "인턴LM",
+      "local": "로컬",
+      "ornith": "Ornith",
+      "codebrain": "CodeBrain",
+      "mai": "ＭＡＩ"
+    },
+    "providerGroups": {
+      "international": "해외 제조사",
+      "domestic": "국내 제조사",
+      "inference": "추론 플랫폼",
+      "cloud": "클라우드 & 플랫폼",
+      "aggregator": "집계 라우터",
       "local": "로컬"
     },
     "model": {
