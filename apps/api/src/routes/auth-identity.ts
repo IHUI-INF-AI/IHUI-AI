@@ -1,27 +1,11 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, and, desc, sql, or, ilike } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { userAuthInfo } from '@ihui/database'
-
-// =============================================================================
-// 鉴权辅助
-// =============================================================================
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-  return true
-}
 
 // =============================================================================
 // Zod schemas
@@ -66,7 +50,7 @@ export const authIdentityRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /auth/realname/submit - 提交实名认证
   server.post('/auth/realname/submit', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
 
     const parsed = submitBodySchema.safeParse(request.body)
@@ -126,7 +110,7 @@ export const authIdentityRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /auth/realname/my - 查询我的认证状态
   server.get('/auth/realname/my', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
 
     const rows = await db
