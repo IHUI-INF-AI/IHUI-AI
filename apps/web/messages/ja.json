@@ -1323,6 +1323,16 @@
     },
     "hideReasoning": "推論過程を非表示",
     "showReasoning": "推論過程を表示",
+    "question": {
+      "title": "AIが回答を待っています",
+      "subtitle": "質問に答えると会話が続きます",
+      "submit": "回答を送信",
+      "skip": "質問をスキップ",
+      "customPlaceholder": "または自由入力...",
+      "selectHint": "一つ選んで続行",
+      "multiSelectHint": "複数選択可、終わったら送信",
+      "selectedCount": "{count}件選択中"
+    },
     "vendors": {
       "openai": "オープンＡＩ",
       "anthropic": "アンソロピック",
