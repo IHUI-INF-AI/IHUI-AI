@@ -8,6 +8,7 @@ import { Loader2, Bell, Heart, Star, MessageSquare, Users, Mail } from 'lucide-r
 import { fetchApi } from '@/lib/api'
 import { Avatar } from '@/components/data'
 import { cn } from '@/lib/utils'
+import type { NotificationItem } from '@ihui/types'
 
 type MessageType = 'notice' | 'like' | 'favorite' | 'comment' | 'fans' | 'private-letter'
 
@@ -35,16 +36,6 @@ const TYPE_ICON: Record<MessageType, React.ComponentType<{ className?: string }>
   comment: MessageSquare,
   fans: Users,
   'private-letter': Mail,
-}
-
-interface NotificationItem {
-  id: string
-  type: string
-  title: string
-  content: string
-  isRead: boolean
-  createdAt: string
-  link?: string
 }
 
 interface Conversation {
@@ -105,7 +96,7 @@ export default function MessageTypePage() {
       return (res.list ?? []).map((n): UnifiedItem => ({
         id: n.id,
         title: n.title,
-        content: n.content,
+        content: n.content ?? '',
         avatar: null,
         isRead: n.isRead,
         createdAt: n.createdAt,
