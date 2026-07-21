@@ -2701,6 +2701,54 @@
           "actions": "Actions"
         },
         "download": "Download"
+      },
+      "certificates": {
+        "title": "Certificates",
+        "subtitle": "Scan Traefik acme.json and show the remaining validity period for all tenant certificates",
+        "refresh": "Refresh",
+        "back": "Back to Tenants",
+        "empty": "No certificate records",
+        "acmeMissing": "acme.json not found: {path}. Please ensure the Traefik data volume is mounted to the admin node.",
+        "generatedAt": "Scanned at: {time}",
+        "stats": {
+          "total": "Total",
+          "healthy": "Healthy",
+          "warning": "Expiring",
+          "critical": "Critical",
+          "expired": "Expired"
+        },
+        "status": {
+          "healthy": "Healthy",
+          "warning": "Expiring",
+          "critical": "Critical",
+          "expired": "Expired"
+        },
+        "source": {
+          "letsencrypt": "Let's Encrypt",
+          "selfSigned": "Self-signed",
+          "custom": "Custom"
+        },
+        "issuer": "Issuer",
+        "subject": "Subject",
+        "notBefore": "Valid From",
+        "notAfter": "Valid To",
+        "daysUntilExpiry": "Days Left",
+        "fingerprint": "Fingerprint",
+        "sans": "SAN: {sans}",
+        "days": {
+          "remaining": "{days} days",
+          "today": "Expires today",
+          "expired": "Expired {days} days ago"
+        }
+      },
+      "quota": {
+        "title": "Resource Quota",
+        "placeholder": "Placeholder",
+        "unavailable": "Quota data unavailable",
+        "apiCalls": "API Calls",
+        "aiTokens": "AI Tokens",
+        "storage": "Storage",
+        "unlimited": "Unlimited"
       }
     },
     "users": {
