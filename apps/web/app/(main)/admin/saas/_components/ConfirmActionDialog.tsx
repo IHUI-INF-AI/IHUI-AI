@@ -24,7 +24,8 @@ interface ConfirmActionDialogProps {
   confirmText?: string
   cancelText?: string
   variant?: 'default' | 'destructive'
-  requireInput?: string // 销毁模式:用户必须输入相同 slug 才解锁
+  requireInput?: string // 二次确认模式:用户必须输入相同字符串才解锁
+  requireInputHint?: string // 覆盖默认提示文本(默认 "请输入 \"{value}\" 以确认")
   pending?: boolean
   onConfirm: () => void
 }
@@ -38,6 +39,7 @@ export function ConfirmActionDialog({
   cancelText,
   variant = 'default',
   requireInput,
+  requireInputHint,
   pending = false,
   onConfirm,
 }: ConfirmActionDialogProps) {
@@ -48,6 +50,8 @@ export function ConfirmActionDialog({
   }, [open])
   const canConfirm = !requireInput || input === requireInput
   const isDestructive = variant === 'destructive'
+  const hintText =
+    requireInputHint ?? t('confirm.confirmInputHint', { value: requireInput ?? '' })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -58,9 +62,7 @@ export function ConfirmActionDialog({
         </DialogHeader>
         {requireInput ? (
           <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground">
-              {t('confirm.destroyInputHint', { slug: requireInput })}
-            </p>
+            <p className="text-xs text-muted-foreground">{hintText}</p>
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}

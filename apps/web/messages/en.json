@@ -2640,6 +2640,7 @@
         "destroyTitle": "Destroy tenant {slug}",
         "destroyHint": "This action is irreversible! All data, containers and backups will be permanently deleted.",
         "destroyInputHint": "Type the slug \"{slug}\" to confirm destruction",
+        "confirmInputHint": "Type \"{value}\" to confirm",
         "cancel": "Cancel",
         "confirm": "Confirm"
       },
@@ -2652,6 +2653,54 @@
         "planFree": "Free",
         "planPro": "Pro",
         "planEnterprise": "Enterprise"
+      },
+      "detail": {
+        "back": "Back to tenants",
+        "status": "Status",
+        "statusHint": "Changed at {time}",
+        "containers": "Containers",
+        "containersHint": "Running / Total",
+        "resources": "Resource Limits",
+        "resourcesHint": "Memory + CPU quota",
+        "memory": "Memory",
+        "cpu": "CPU",
+        "domain": "Domain",
+        "domainHint": "User-facing URL",
+        "shortcuts": "Shortcuts",
+        "manageBackups": "Manage Backups"
+      },
+      "backups": {
+        "title": "Backups of {slug}",
+        "subtitle": "Manage all backups of this tenant. Restore or delete supported.",
+        "createNow": "Backup Now",
+        "createTitle": "Backup {slug} now",
+        "createHint": "Create a data snapshot now. The service remains available during the operation.",
+        "restoreTitle": "Restore from {timestamp}",
+        "restoreHint": "This will overwrite current data with the backup. Please verify the timestamp.",
+        "restoreInputHint": "Type the timestamp \"{timestamp}\" to confirm restore",
+        "deleteTitle": "Delete backup {timestamp}",
+        "deleteHint": "This action is irreversible! The backup file will be permanently deleted.",
+        "deleteInputHint": "Type the timestamp \"{timestamp}\" to confirm delete",
+        "restore": "Restore",
+        "delete": "Delete",
+        "stats": {
+          "total": "Total Backups",
+          "totalSize": "Total Size",
+          "avg": "Avg {size} / backup",
+          "latest": "Latest Backup",
+          "empty": "No backups"
+        },
+        "listTitle": "Backup List",
+        "empty": "No backups. Click \"Backup Now\" to create one.",
+        "table": {
+          "timestamp": "Timestamp",
+          "size": "Size",
+          "files": "Files",
+          "createdAt": "Created At",
+          "age": "Age",
+          "actions": "Actions"
+        },
+        "download": "Download"
       }
     },
     "users": {
@@ -26820,7 +26869,15 @@
     "empty": "No classes this week",
     "today": "Today",
     "noClass": "No class",
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "memberUpgradePage": {
     "title": "Membership upgrade",
