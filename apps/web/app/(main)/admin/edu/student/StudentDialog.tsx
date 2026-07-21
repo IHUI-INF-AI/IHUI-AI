@@ -63,6 +63,18 @@ export function StudentDialog({
               onChange={(e) => onFormChange({ nickname: e.target.value })}
             />
           </div>
+          {!editing && (
+            <div className="space-y-2">
+              <Label htmlFor="s-pwd">{t('fieldPassword')}</Label>
+              <Input
+                id="s-pwd"
+                type="password"
+                placeholder={t('fieldPasswordPlaceholder')}
+                value={form.password}
+                onChange={(e) => onFormChange({ password: e.target.value })}
+              />
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="s-phone">{t('fieldPhone')}</Label>

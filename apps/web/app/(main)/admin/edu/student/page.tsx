@@ -41,27 +41,36 @@ export default function EduStudentPage() {
     queryKey: ['edu', 'student', debounced, levelFilter, page],
     queryFn: () =>
       eduApi<PageData<Student>>(
-        `/api/admin/users${buildQs({ page, pageSize: PAGE_SIZE, search: debounced, role: 'student', level: levelFilter === 'all' ? '' : levelFilter })}`,
+        `/api/admin/users${buildQs({ page, pageSize: PAGE_SIZE, search: debounced, role: 0, level: levelFilter === 'all' ? '' : levelFilter })}`,
       ),
   })
 
   const saveMut = useMutation({
     mutationFn: () => {
-      const body = {
+      const base = {
         nickname: form.nickname.trim(),
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
-        level: Number(form.level),
-        status: form.status,
       }
-      if (editing)
+      if (editing) {
+        // 编辑:不支持改密码(stub PUT /admin/users/:id strict 模式),密码修改走单独端点
         return eduApi(`/api/admin/users/${editing.id}`, {
           method: 'PUT',
-          body: JSON.stringify(body),
+          body: JSON.stringify({
+            ...base,
+            level: Number(form.level),
+            status: form.status,
+          }),
         })
+      }
       return eduApi(`/api/admin/users`, {
         method: 'POST',
-        body: JSON.stringify({ ...body, role: 'student' }),
+        body: JSON.stringify({
+          ...base,
+          password: form.password || '123456',
+          roleId: 0,
+          status: form.status,
+        }),
       })
     },
     onSuccess: () => {
@@ -92,6 +101,7 @@ export default function EduStudentPage() {
       nickname: s.nickname ?? '',
       phone: s.phone ?? '',
       email: s.email ?? '',
+      password: '',
       level: String(s.level),
       status: s.status,
     })
