@@ -3,6 +3,7 @@ import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import QRCode from 'qrcode'
+import { generateShortCode } from '../utils/crypto-random.js'
 import {
   signAccessToken,
   signRefreshToken,
@@ -397,19 +398,15 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         google: isGoogleConfigured(),
         apple: Boolean(
           process.env.APPLE_CLIENT_ID &&
-            process.env.APPLE_TEAM_ID &&
-            process.env.APPLE_KEY_ID &&
-            process.env.APPLE_PRIVATE_KEY,
+          process.env.APPLE_TEAM_ID &&
+          process.env.APPLE_KEY_ID &&
+          process.env.APPLE_PRIVATE_KEY,
         ),
         dingtalk: isDingtalkConfigured(),
         enterpriseWechat: isWecomConfigured(),
-        wechat: Boolean(
-          process.env.WECHAT_APP_ID && process.env.WECHAT_APP_SECRET,
-        ),
+        wechat: Boolean(process.env.WECHAT_APP_ID && process.env.WECHAT_APP_SECRET),
         feishu: isFeishuConfigured(),
-        github: Boolean(
-          process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET,
-        ),
+        github: Boolean(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET),
         alipay: isAlipayLoginConfigured(),
       }),
     )
@@ -1120,7 +1117,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const app = await findOAuthAppByClientId(parsed.data.client_id)
     if (!app || app.isActive !== 1) return reply.status(404).send(error(404, '应用不存在或已禁用'))
     const deviceCode = randomBytes(16).toString('hex')
-    const userCode = Math.random().toString(36).slice(2, 8).toUpperCase()
+    // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成设备授权 userCode,
+    // userCode 可预测 -> 攻击者可劫持 OAuth 设备授权流程
+    const userCode = generateShortCode(6)
     deviceCodeStore.set(deviceCode, {
       userCode,
       clientId: parsed.data.client_id,
@@ -2054,10 +2053,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           // 支付宝使用 auth_code → access_token 模式(与 Google/微信一致,但需在请求体
           // 用 auth_code 字段而非 code 字段——前端 ThirdPartyLoginButtons 已做区分)。
           // 这里兼容两种字段名以提升韧性。
-          const alipayAuthCode =
-            (request.body as { auth_code?: string }).auth_code ?? code
+          const alipayAuthCode = (request.body as { auth_code?: string }).auth_code ?? code
           if (!isAlipayLoginConfigured())
-            return reply.status(400).send(error(400, '支付宝 OAuth 未配置 (ALIPAY_APP_ID/ALIPAY_PRIVATE_KEY 缺失)'))
+            return reply
+              .status(400)
+              .send(error(400, '支付宝 OAuth 未配置 (ALIPAY_APP_ID/ALIPAY_PRIVATE_KEY 缺失)'))
           const token = await exchangeAlipayCode(alipayAuthCode)
           let info: { nick?: string; avatar?: string } = {}
           try {
