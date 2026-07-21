@@ -4,6 +4,7 @@ import fp from 'fastify-plugin'
 import IORedis, { type Redis } from 'ioredis'
 import { wsAuth } from './ws-helpers.js'
 import { config } from '../config/index.js'
+import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 
 /**
  * WebSocket IM 消息推送插件(多实例版本,使用 Redis Pub/Sub)。
@@ -103,6 +104,14 @@ const wsMessagesPlugin: FastifyPluginAsync = async (server) => {
         }
       })
     })()
+  })
+
+  getWsAutoRecoveryManager().setFastify(server)
+  getWsAutoRecoveryManager().registerPlugin('ws-messages', {
+    getConnections: () => connections as unknown as Map<string, WebSocket | Set<WebSocket>>,
+    removeConnection: async (userId) => {
+      connections.delete(userId)
+    },
   })
 
   server.addHook('onClose', async () => {

@@ -18,6 +18,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
 import { wsAuth } from './ws-helpers.js'
+import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -60,6 +61,14 @@ const wsBroadcastPlugin: FastifyPluginAsync = async (server) => {
         if (conns.size === 0) connections.delete(userId)
       }
     })
+  })
+
+  getWsAutoRecoveryManager().setFastify(server)
+  getWsAutoRecoveryManager().registerPlugin('ws-broadcast', {
+    getConnections: () => connections as unknown as Map<string, WebSocket | Set<WebSocket>>,
+    removeConnection: async (userId) => {
+      connections.delete(userId)
+    },
   })
 }
 
