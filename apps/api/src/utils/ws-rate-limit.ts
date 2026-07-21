@@ -17,6 +17,7 @@
  */
 
 import IORedis, { type Redis } from 'ioredis'
+import { randomBytes } from 'node:crypto'
 import { config } from '../config/index.js'
 import { logger } from './logger.js'
 
@@ -84,8 +85,10 @@ export async function checkWsRateLimit(userId: string, roomId: string): Promise<
   const key = rateKey(userId, roomId)
   const now = Date.now()
   const windowStart = now - WINDOW_MS
-  // 同毫秒内多消息：追加随机后缀保证 member 唯一
-  const member = `${now}:${Math.random().toString(36).slice(2, 10)}`
+  // 同毫秒内多消息:追加 CSPRNG 随机后缀保证 member 唯一
+  // 2026-07-21 安全审计加固:用 randomBytes 替代 Math.random,
+  // 防止 CWE-330 可预测随机漏洞(限流键可被预测 → 绕过限流)
+  const member = `${now}:${randomBytes(4).toString('hex')}`
   try {
     const redis = getRedis()
     const pipe = redis.pipeline()
