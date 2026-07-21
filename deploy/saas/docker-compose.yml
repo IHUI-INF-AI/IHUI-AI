@@ -1,0 +1,73 @@
+# IHUI-AI SaaS 托管平台 — 顶层编排
+# 仅运行 Traefik 反向代理 + 证书管理,所有客户业务容器由 templates/customer/ 模板独立编排
+# 用法:
+#   cp .env.example .env && 编辑 .env
+#   docker compose up -d
+#   ./scripts/create-customer.sh demo
+#   ./scripts/list-customers.sh
+#   ./scripts/destroy-customer.sh demo
+
+services:
+  # Traefik v3 — 多租户 SNI 路由 + 通配符证书
+  traefik:
+    image: traefik:v3.1
+    container_name: ihui-saas-traefik
+    restart: unless-stopped
+    command:
+      # 启用 API + Dashboard(8080)
+      - --api.dashboard=true
+      - --api.insecure=false
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=ihui-saas-net
+      # 动态配置文件目录
+      - --providers.file.directory=/dynamic
+      - --providers.file.watch=true
+      # entryPoints
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entryPoint.to=websecure
+      - --entrypoints.web.http.redirections.entryPoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      # ACME 通配符证书(DNS-01 挑战)
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=${DNS_PROVIDER}
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.delaybeforecheck=30
+      # staging/production 切换
+      - --certificatesresolvers.letsencrypt.acme.caserver=https://acme-${LETSENCRYPT_ENV:-staging}.letsencrypt.org/directory
+      # 日志
+      - --accesslog=true
+      - --accesslog.filters.statuscodes=400-599
+      - --log.level=INFO
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/dynamic:/dynamic:ro
+      - saas_letsencrypt:/letsencrypt
+    networks:
+      - ihui-saas-net
+    healthcheck:
+      test: ['CMD', 'traefik', 'healthcheck']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    labels:
+      # Traefik 自身 Dashboard(走独立子域名 admin)
+      - traefik.enable=true
+      - traefik.http.routers.traefik-dashboard.rule=Host(`${ADMIN_DOMAIN}`)
+      - traefik.http.routers.traefik-dashboard.service=api@internal
+      - traefik.http.routers.traefik-dashboard.entrypoints=websecure
+      - traefik.http.routers.traefik-dashboard.tls=true
+      - traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt
+
+networks:
+  ihui-saas-net:
+    name: ihui-saas-net
+    driver: bridge
+
+volumes:
+  saas_letsencrypt:
+    name: ihui-saas-letsencrypt
