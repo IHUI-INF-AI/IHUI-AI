@@ -42,7 +42,7 @@
 
 ---
 
-### [ ] AI 对话内嵌浏览器工作展示区(右侧固定面板 + 全 8 端同步 + Playwright 降级 + AI 深度联动,2026-07-22 立)
+### [x] ✅(2026-07-22) AI 对话内嵌浏览器工作展示区 P0+P2(右侧固定面板 + 全 8 端同步 + AI 深度联动已完成,Playwright 降级待 P1)
 
 **触发**:用户要求"AI 对话框需要调用浏览器时右侧工作展示区切换为内置 chrome 浏览器,或点击网址时也直接在项目内打开"。经深度探讨确认方案:右侧固定面板 + 全 8 端同步 + 后端 Playwright 截图降级 + AI 工具调用深度联动。
 
@@ -85,6 +85,30 @@
 - P1: 后端 Playwright 截图流(apps/ai-service + apps/api + Web iframe 降级)
 - P2: AI 工具调用联动(browser_navigate 自动打开 + ToolCallCard 增强 + 地址栏交互)
 - P3: 多 Tab + 历史 + 收藏(后续阶段)
+
+**P0+P2 完成证据**(2026-07-22):
+
+P0 基础设施(11 新建 + 4 修改文件):
+- packages/types: 新建 work-panel.ts(15+ 跨端契约类型),导出到 index.ts
+- packages/ui: 新建 resizable.tsx(ResizableHandle)+ webview-frame.tsx(iframe/screenshot/external 三模式)+ work-panel.tsx(工具栏+Tab栏+内容区),导出到 index.ts
+- apps/web: 新建 stores/work-panel.ts(Zustand persist)+ components/work-panel/web-work-panel.tsx;改造 GlobalShell.tsx 右侧接入;修改 markdown-stream.tsx URL 左键拦截(Ctrl/中键保留新标签页)
+- apps/desktop: stores/work-panel.ts(useSyncExternalStore)+ DesktopWorkPanel.tsx(Tauri WebView2 + shell.open);App.tsx 接入
+- apps/mobile-rn: WorkPanel.tsx(react-native-webview)+ RootNavigator 路由
+- apps/extension: entrypoints/browser-tab.ts(WXT browser.tabs.create)
+- apps/miniapp-taro: pages/webview/index.tsx(Taro web-view + navigateToWebView)
+
+P2 AI 工具调用深度联动(5 修改文件):
+- packages/api-client: client.ts 加 onToolCall 回调 + ToolCallEvent 类型(解析 Vercel AI SDK type 2/7 + 自定义 tool_result 事件);index.ts 导出
+- apps/web stores/chat.ts: 加 addToolCall + updateToolCall 方法
+- apps/web hooks/use-chat.ts: createToolCallHandler 工厂(BROWSER_TOOL_NAMES 8 工具命中即 openPanel);两处 streamChat 调用注入 onToolCall
+- apps/web components/ai/tool-call-card.tsx: extractUrl 从 args/result 提取 URL,canOpenInWorkPanel + "在工作展示区打开" 按钮
+
+**验证证据**:
+- packages/types + packages/ui + packages/api-client build exit 0
+- apps/web typecheck 本任务文件 0 错误(14 个预存错误属其他 agent)
+- apps/desktop typecheck exit 0
+- browser_use P0 验证 6 项全 PASS:store.openPanel 触发成功、panelExists=true、iframeExists=true(src=example.com)、地址栏 value 同步、工具栏按钮 title=[后退/前进/刷新/在外部浏览器打开/关闭面板]、dark mode 生效、hover class 确认、控制台无 WorkPanel 错误
+- browser_use P2 验证 7 项全 PASS:source=ai-tool 自动打开(bing.com)、source=markdown-link 自动打开(github.com)、地址栏 input 同步、back/forward 历史栈正确、dark mode 生效、控制台无 WorkPanel 错误
 
 ---
 

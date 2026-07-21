@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
 import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
+import { useWorkPanelStore } from '@/stores/work-panel'
 // 语法高亮主题(对象常量,体积小,可静态导入;同时导入 dark/light 两份,运行时按主题切换)
 // P2 中期增强:亮色模式用 oneLight,暗色模式用 oneDark(此前固定 oneDark,亮色模式下代码块偏暗)
 import { oneDark, oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -85,7 +86,13 @@ function parseInline(text: string, keyPrefix: string): React.ReactNode[] {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary underline underline-offset-2"
+              className="text-primary underline underline-offset-2 hover:text-primary/80"
+              onClick={(e) => {
+                // 左键无修饰键:在右侧工作展示区打开(Ctrl/Cmd/Shift/中键保留默认新标签页行为)
+                if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return
+                e.preventDefault()
+                useWorkPanelStore.getState().openPanel({ url: href, source: 'markdown-link' })
+              }}
             >
               {linkMatch[1]}
             </a>,
