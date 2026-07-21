@@ -5,6 +5,7 @@
  * 端点(注册前缀 /api/knowledge):
  * - GET  /health                健康检查
  * - POST /ingest                纯文本入库 (返回切片数)
+ * - POST /upload                多格式文件入库 (PDF / DOCX / MD / Text / HTML)
  * - POST /search                语义检索
  * - POST /rag-context           生成 RAG 上下文文本
  * - GET  /docs                  文档列表
@@ -18,6 +19,8 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import { knowledgeRagService } from '../services/knowledge-rag-service.js'
+import { UnsupportedFormatError, FileTooLargeError } from '../services/document-parser.js'
+import { authenticate } from '../plugins/auth.js'
 
 const ingestSchema = z.object({
   ownerUuid: z.string().min(1),
@@ -214,6 +217,70 @@ export const knowledgeRagRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '批量删除失败'))
+    }
+  })
+
+  // POST /upload - 多格式文件入库 (PDF / DOCX / MD / Text / HTML)
+  // multipart/form-data:
+  //   file: 必填,单文件 (PDF / DOCX / Markdown / 纯文本 / HTML),≤20MB
+  //   title: 可选,默认用 filename 去扩展名
+  //   collectionName: 可选,默认 'default'
+  // 鉴权:登录用户 (authenticate 失败 → 401)
+  server.post('/upload', async (req, reply) => {
+    // 1) 鉴权
+    let authUser: string | undefined
+    try {
+      const payload = await authenticate(req)
+      authUser = payload.userId
+    } catch {
+      return reply.status(401).send(error(401, '未登录'))
+    }
+    if (!authUser) return reply.status(401).send(error(401, '未登录'))
+
+    // 2) 解析 multipart 单文件
+    const data = await req.file().catch(() => null)
+    if (!data) {
+      return reply.status(400).send(error(400, '缺少 file 字段'))
+    }
+    const buffer = await data.toBuffer()
+    // 3) 读取可选 form 字段
+    const titleField = data.fields?.title
+    const collectionField = data.fields?.collectionName
+    const formTitle = Array.isArray(titleField) ? titleField[0] : titleField
+    const formCollection = Array.isArray(collectionField) ? collectionField[0] : collectionField
+    const titleRaw =
+      formTitle && typeof formTitle === 'object' && 'value' in formTitle
+        ? (formTitle as { value: string }).value
+        : ''
+    const collectionRaw =
+      formCollection && typeof formCollection === 'object' && 'value' in formCollection
+        ? (formCollection as { value: string }).value
+        : ''
+
+    const filename = data.filename ?? 'untitled'
+    const title = (titleRaw && titleRaw.trim()) || filename.replace(/\.[^.]+$/, '') || 'untitled'
+    const collectionName = (collectionRaw && collectionRaw.trim()) || 'default'
+
+    // 4) 解析 + 入库
+    try {
+      const result = await knowledgeRagService.ingestFile({
+        ownerUuid: authUser,
+        title,
+        buffer,
+        mimeType: data.mimetype ?? 'application/octet-stream',
+        filename,
+        collectionName,
+      })
+      return reply.send(success({ ...result, filename, mimeType: data.mimetype ?? '' }))
+    } catch (e) {
+      if (e instanceof UnsupportedFormatError) {
+        return reply.status(400).send(error(400, e.message))
+      }
+      if (e instanceof FileTooLargeError) {
+        return reply.status(400).send(error(400, e.message))
+      }
+      req.log.error(e)
+      return reply.status(500).send(error(500, '文件入库失败'))
     }
   })
 }
