@@ -37,38 +37,66 @@
 
 ---
 
-## 🌌 This project is using one person's conviction to rewrite the open-source narrative of the Chinese-speaking AI world
+## 🔥 If you're a developer, give us 30 seconds
 
-> **"In Changchun at -25°C, one person, one laptop, a million-RMB investment, one year——**
+> **"Changchun, -25°C. One person. One laptop. One year.**
 >
-> **He single-handedly wrote 8-platform code, 338 database tables, 1135 API endpoints.**
+> **8-platform code · 338 database tables · 1135 API endpoints.**
 >
-> **Capital never came. The code kept growing."**
+> **Capital never came. But the code kept growing."**
 
 This is not a funding story.
-This is an open-source story.
+**This is an open-source story.**
 
-If you've ever written code alone at 3 a.m.;
-If you've ever held on to your conviction outside the doors of capital;
+If you've ever written code alone at 3 a.m.——
+If you've ever been rejected by capital, but still believed you were doing the right thing——
 If you too believe——**that things of true value will be proven by time**——
 
-Then this story is also yours.
+Then the next line is for you:
 
 ---
 
-### 📣 If this story moved you, please help us do 3 things
+### 💎 Share these two lines, and you're sharing your own conviction
 
-| #   | Action                                  | Why it matters                                                        |
-| --- | --------------------------------------- | --------------------------------------------------------------------- |
-| 1   | ⭐ **Star this repo**                    | So more people see it on GitHub feeds and algorithmic recommendations |
-| 2   | 🔄 **Share this story**                  | WeChat / X / LinkedIn / Reddit / Hacker News / Bluesky / 微博 — pick one |
-| 3   | 💬 **Tell your own story in Issues**     | [Enter here](https://github.com/IHUI-INF-AI/IHUI-AI/issues) — we'll pin the best ones |
+```
+Capital can be late, but code doesn't lie.
+Fundraising can fail, but open source doesn't.
+```
 
-> **We are not asking for investment.**
+**This is not asking for shares.**
+**It's an invitation to turn your moment of resonance into a public stance.**
+
+---
+
+### 🚀 3 actions, 30 seconds, to let this story be seen
+
+| #   | Action                                  | What you'll get                                                      |
+| --- | --------------------------------------- | ------------------------------------------------------------------- |
+| 1   | ⭐ **Star this repo**                    | It'll appear on your GitHub timeline, visible to your followers     |
+| 2   | 📲 **Copy the 2 lines above to your feed** | See images below — you'll be "the first to bring this story to your friends" |
+| 3   | 💬 **Write your own story in Issues**     | [Enter here](https://github.com/IHUI-INF-AI/IHUI-AI/issues) — we'll pin the best ones for the world to see |
+
+---
+
+### 🖼️ Images ready for you (save & share directly)
+
+| Image | Use as | Path |
+| ----- | ------ | ---- |
+| 🏢 Changchun base, real photo | Feed header / Weibo | `apps/web/public/images/story/changchun-winter-2024.jpg` |
+| 🌃 Late-night coding · one lamp | X / Zhihu / middle of article | `apps/web/public/images/story/late-night-coding.jpg` |
+
+---
+
+> **⚠️ If you're reading this——**
 >
-> **We are asking you to deliver this open-source project to everyone who believes in open source, indie development, and long-termism.**
+> Then you're already part of this story.
+>
+> There are 7 million developers in China.
+> 99% of them don't know this story yet.
+>
+> **Are you willing to be the 1% who carries this story out?**
 
-⬇️ Keep reading for the full story.
+⬇️ Keep reading for the full story and technical decisions.
 
 ---
 
