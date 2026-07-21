@@ -21,6 +21,7 @@ import { searchContents } from '@ihui/database'
 import { eq, sql, desc, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { getSearchEsService, type SearchTable } from '../services/search-es-service.js'
 
 // =============================================================================
 // Zod schemas
@@ -348,9 +349,19 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ id: parsed.data.id, deleted: true }))
   })
 
-  // ===== D 盘 search 微服务 P0 补齐端点（迁移自 cloud-learning-search-service） =====
+  // ===== D 盘 search 微服务 P0 补齐端点(迁移自 cloud-learning-search-service) =====
+
+  // topicType → SearchTable 映射(lesson 不在 ES 大数据量表范围,走 PG)
+  const TOPIC_TYPE_TO_SEARCH_TABLE: Record<string, SearchTable> = {
+    article: 'articles',
+    news: 'news',
+    question: 'asks',
+    resource: 'resources',
+  }
 
   // GET /search/public-api/content - 公开内容搜索(查 search_contents 表)
+  // ES 优先路径:大数据量表(articles/news/resources/asks)启用 ES 索引,
+  // 未配置 ES 或查询失败时降级到 PostgreSQL 兜底(下方原 PG 查询逻辑保留不删)
   server.get('/search/public-api/content', async (request, reply) => {
     const q = z
       .object({
@@ -361,16 +372,46 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
       })
       .safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, 'keyword 必填'))
-    const offset = (q.data.page - 1) * q.data.pageSize
-    const conditions = [sql`${searchContents.searchText} ILIKE ${'%' + q.data.keyword + '%'}`]
-    if (q.data.topicType) conditions.push(eq(searchContents.topicType, q.data.topicType))
+    const { keyword, topicType, page, pageSize } = q.data
+
+    // ES 优先:仅对 articles/news/resources/asks 4 类启用 ES(lesson 不在范围)
+    const esService = getSearchEsService()
+    const esTable = topicType ? TOPIC_TYPE_TO_SEARCH_TABLE[topicType] : 'all'
+    if (esService.isEsConfigured() && esTable) {
+      try {
+        const result = await esService.search({
+          query: keyword,
+          table: esTable,
+          page,
+          pageSize,
+        })
+        return reply.send(
+          success({
+            list: result.results,
+            total: result.total,
+            page,
+            pageSize,
+            keyword,
+            source: result.source,
+            took_ms: result.took_ms,
+          }),
+        )
+      } catch {
+        // ES 查询失败 → 降级到下方 PostgreSQL 兜底
+      }
+    }
+
+    // PostgreSQL 兜底(原逻辑保留:对 lesson 或 ES 不可用时生效)
+    const offset = (page - 1) * pageSize
+    const conditions = [sql`${searchContents.searchText} ILIKE ${'%' + keyword + '%'}`]
+    if (topicType) conditions.push(eq(searchContents.topicType, topicType))
     const where = and(...conditions)
     const list = await db
       .select()
       .from(searchContents)
       .where(where)
       .orderBy(desc(searchContents.viewCount))
-      .limit(q.data.pageSize)
+      .limit(pageSize)
       .offset(offset)
     const [countRow] = await db
       .select({ count: sql<number>`count(*)::int` })
@@ -380,9 +421,9 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
       success({
         list,
         total: countRow?.count ?? 0,
-        page: q.data.page,
-        pageSize: q.data.pageSize,
-        keyword: q.data.keyword,
+        page,
+        pageSize,
+        keyword,
       }),
     )
   })
@@ -459,5 +500,48 @@ export const searchRoutes: FastifyPluginAsync = async (server) => {
       .where(conditions[0]!)
       .returning({ id: searchContents.id })
     return reply.send(success({ deleted: deleted.length, ids: deleted.map((d) => d.id) }))
+  })
+
+  // ===== P2-1: ElasticSearch 索引管理端点(admin 权限) =====
+
+  // GET /search/status - 返回 ES 启用状态 + 索引文档数
+  server.get('/search/status', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const esService = getSearchEsService()
+    const configured = esService.isEsConfigured()
+    const enabled = esService.isEsEnabled()
+    const indexCount = enabled ? await esService.getIndexCount() : 0
+    return reply.send(
+      success({
+        configured,
+        enabled,
+        indexName: process.env.ELASTICSEARCH_INDEX ?? 'ihui-search-contents',
+        indexCount,
+        message: enabled
+          ? 'ElasticSearch 已启用,搜索走 ES 优先路径'
+          : configured
+            ? 'ElasticSearch 已配置但客户端未就绪(降级到 PostgreSQL)'
+            : 'ElasticSearch 未配置(使用 PostgreSQL 全文检索)',
+      }),
+    )
+  })
+
+  // POST /search/reindex - 触发 ES 全量重建索引(从 PostgreSQL 拉所有 search_contents 写入 ES)
+  server.post('/search/reindex', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const esService = getSearchEsService()
+    if (!esService.isEsConfigured()) {
+      return reply
+        .status(400)
+        .send(error(400, 'ElasticSearch 未配置(ELASTICSEARCH_URL 未设置),无法重建索引'))
+    }
+    try {
+      const result = await esService.reindexAll()
+      return reply.send(success(result))
+    } catch (e) {
+      return reply.status(500).send(error(500, `重建索引失败: ${(e as Error).message}`))
+    }
   })
 }
