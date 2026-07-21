@@ -116,6 +116,7 @@ import { useAnalytics } from '@/hooks/use-analytics'
 import { DOWNLOADS, isExternalDownloadHref } from '@/lib/downloads'
 import { ADMIN_NAV_GROUPS, type AdminNavGroup } from '@/components/layout/AdminNav'
 import { useAdminRouters } from '@/hooks/use-admin-routers'
+import { DevToolsTrigger } from '@/components/dev/DevToolsTrigger'
 
 interface NavItem {
   href: string
@@ -706,6 +707,11 @@ function SidebarActions({ collapsed }: { collapsed: boolean }) {
           {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
         </Button>
       </Tooltip>
+      {/* 开发者工具 — 替代 Next.js 默认左下角 N 圆圈 (2026-07-21)
+          - 始终显示按钮,避免遮挡
+          - Modal 内按 hostname 自动识别 dev/prod,生产态只显示说明不暴露任何工具
+          - 详见 DevToolsTrigger.tsx */}
+      <DevToolsTrigger collapsed={collapsed} />
     </div>
   )
 }
