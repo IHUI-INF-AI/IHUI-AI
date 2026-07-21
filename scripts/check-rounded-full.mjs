@@ -96,6 +96,16 @@ function isExempt(line) {
     if (smallSize && bothDims && noLargeContainer) return true
     // w-0.5 / h-0.5 极窄装饰条(2px,语音波形等)
     if (/\b(?:w|h)-0\.5\b/.test(trimmed)) return true
+    // 竖向装饰指示器(分页指示器 active 胶囊):width <= 8px 且 height >= 12px
+    // 例: PageIndicator active 态 h-4 w-1.5 (16x6)、h-5 w-2 (20x8)
+    // 规则来源:用户 2026-07-20 v5 明确要求"竖向胶囊",不视作违规
+    if (
+      /\bw-(?:0\.5|1|1\.5|2)\b/.test(trimmed) &&
+      /\bh-(?:3|3\.5|4|4\.5|5)\b/.test(trimmed) &&
+      noLargeContainer
+    ) {
+      return true
+    }
   }
 
   // 豁免 6: 未读红点底(bg-red-500 + 小尺寸 + px-1 或绝对定位 -top/-right)
