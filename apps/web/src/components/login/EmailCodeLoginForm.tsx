@@ -128,7 +128,18 @@ export function EmailCodeLoginForm({
   }
 
   return (
-    <form onSubmit={onEmailSubmit} className="space-y-4 pt-2">
+    <form
+      onSubmit={onEmailSubmit}
+      onKeyDown={(e) => {
+        // 协议未勾选时,提交按钮被 disabled,浏览器默认 Enter 不触发表单 submit。
+        // 在 form 层级拦截 Enter,直接打开协议通知窗(2026-07-21 立)。
+        if (e.key === 'Enter' && !agreed) {
+          e.preventDefault()
+          onRequireAgree?.()
+        }
+      }}
+      className="space-y-4 pt-2"
+    >
       {emailErr && <Alert variant="danger" description={emailErr} />}
       <div className="space-y-1.5">
         <Label htmlFor="email">{t('email')}</Label>

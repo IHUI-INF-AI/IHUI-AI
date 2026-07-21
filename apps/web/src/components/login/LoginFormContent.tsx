@@ -10,6 +10,7 @@ import { QrCodeLogin } from './QrCodeLogin'
 import { PasswordLoginForm } from './PasswordLoginForm'
 import { EmailCodeLoginForm } from './EmailCodeLoginForm'
 import { PhoneCodeLoginForm } from './PhoneCodeLoginForm'
+import { AgreementNoticeDialog } from './AgreementNoticeDialog'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 
 type LoginTab = 'email' | 'phone' | 'password' | 'qr'
@@ -25,6 +26,26 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
   const [tab, setTab] = React.useState<LoginTab>('email')
   const [agreed, setAgreed] = React.useState(false)
   const [showAgreeErr, setShowAgreeErr] = React.useState(false)
+  const [noticeOpen, setNoticeOpen] = React.useState(false)
+
+  // 协议未勾选 → 改为弹出精美通知窗(2026-07-21 立,3 步 Enter 键盘流)
+  // 第 1 步 Enter:触发此回调 → 打开通知窗(Agree 按钮自动聚焦)
+  // 第 2 步 Enter:弹窗内 Agree 按钮激活 → setAgreed(true) + 关闭通知窗
+  // 第 3 步 Enter:表单 onSubmit → agreed=true 走真实登录
+  const handleRequireAgree = React.useCallback(() => {
+    setShowAgreeErr(true)
+    setNoticeOpen(true)
+  }, [])
+
+  const handleNoticeAgree = React.useCallback(() => {
+    setAgreed(true)
+    setShowAgreeErr(false)
+    setNoticeOpen(false)
+  }, [])
+
+  const handleNoticeCancel = React.useCallback(() => {
+    setNoticeOpen(false)
+  }, [])
 
   const handleSuccess = () => {
     onSuccess?.()
@@ -51,7 +72,7 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
               setAgreed(v)
               if (v) setShowAgreeErr(false)
             }}
-            onRequireAgree={() => setShowAgreeErr(true)}
+            onRequireAgree={handleRequireAgree}
             showAgreeErr={showAgreeErr}
           />
         </TabsContent>
@@ -65,7 +86,7 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
               setAgreed(v)
               if (v) setShowAgreeErr(false)
             }}
-            onRequireAgree={() => setShowAgreeErr(true)}
+            onRequireAgree={handleRequireAgree}
             showAgreeErr={showAgreeErr}
           />
         </TabsContent>
@@ -79,7 +100,7 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
               setAgreed(v)
               if (v) setShowAgreeErr(false)
             }}
-            onRequireAgree={() => setShowAgreeErr(true)}
+            onRequireAgree={handleRequireAgree}
             showAgreeErr={showAgreeErr}
           />
         </TabsContent>
@@ -101,6 +122,12 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
           {t('registerNow')}
         </button>
       </p>
+
+      <AgreementNoticeDialog
+        open={noticeOpen}
+        onAgree={handleNoticeAgree}
+        onCancel={handleNoticeCancel}
+      />
     </div>
   )
 }
