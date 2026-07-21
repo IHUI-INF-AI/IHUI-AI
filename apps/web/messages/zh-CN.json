@@ -9687,6 +9687,57 @@
       },
       "gemini-2-flash": {
         "description": "超长上下文多模态"
+      },
+      "gpt-5.6-sol": {
+        "description": "OpenAI 2026-07 旗舰通用模型,1M 上下文"
+      },
+      "gpt-5.6-terra": {
+        "description": "OpenAI 多模态旗舰,擅长视觉理解"
+      },
+      "gpt-5.6-luna": {
+        "description": "OpenAI 代码专精模型"
+      },
+      "gpt-red": {
+        "description": "OpenAI 推理研究预览版"
+      },
+      "claude-sonnet-5": {
+        "description": "Anthropic 2026-07 新一代旗舰,深度推理"
+      },
+      "claude-opus-4.8": {
+        "description": "Anthropic 顶级深度推理模型"
+      },
+      "gemini-3.5-pro": {
+        "description": "Google 多模态旗舰,2M 上下文"
+      },
+      "grok-4.5": {
+        "description": "xAI 实时增强推理模型"
+      },
+      "deepseek-v4-pro": {
+        "description": "DeepSeek V4 开源旗舰"
+      },
+      "deepseek-v4-flash": {
+        "description": "DeepSeek V4 快速经济版"
+      },
+      "glm-5.2": {
+        "description": "智谱清言新一代旗舰,中文优化"
+      },
+      "qwen3.7-max": {
+        "description": "阿里通义千问 3.7 旗舰"
+      },
+      "hunyuan-hy3": {
+        "description": "腾讯混元第三代,中文深度优化"
+      },
+      "kimi-k3": {
+        "description": "月之暗面 2M 长上下文旗舰"
+      },
+      "ornith-1.0": {
+        "description": "国产新势力通用模型"
+      },
+      "codebrain-1": {
+        "description": "国产代码专精模型"
+      },
+      "mai-thinking-1": {
+        "description": "国产深度推理模型"
       }
     },
     "nav": {

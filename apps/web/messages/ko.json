@@ -9503,6 +9503,57 @@
       },
       "gemini-2-flash": {
         "description": "초장문 컨텍스트 멀티모달"
+      },
+      "gpt-5.6-sol": {
+        "description": "OpenAI 2026-07 플래그십 범용 모델, 1M 컨텍스트"
+      },
+      "gpt-5.6-terra": {
+        "description": "OpenAI 멀티모달 플래그십, 비전 특화"
+      },
+      "gpt-5.6-luna": {
+        "description": "OpenAI 코드 특화 모델"
+      },
+      "gpt-red": {
+        "description": "OpenAI 추론 연구 프리뷰"
+      },
+      "claude-sonnet-5": {
+        "description": "Anthropic 2026-07 신세대 플래그십, 심층 추론"
+      },
+      "claude-opus-4.8": {
+        "description": "Anthropic 최고 수준 심층 추론 모델"
+      },
+      "gemini-3.5-pro": {
+        "description": "Google 멀티모달 플래그십, 2M 컨텍스트"
+      },
+      "grok-4.5": {
+        "description": "xAI 실시간 강화 추론 모델"
+      },
+      "deepseek-v4-pro": {
+        "description": "DeepSeek V4 오픈소스 플래그십"
+      },
+      "deepseek-v4-flash": {
+        "description": "DeepSeek V4 고속 경제형"
+      },
+      "glm-5.2": {
+        "description": "즈푸 칭언 신세대 플래그십, 중국어 최적화"
+      },
+      "qwen3.7-max": {
+        "description": "알리바바 통이치엔원 3.7 플래그십"
+      },
+      "hunyuan-hy3": {
+        "description": "텐센트 혼위안 3세대, 중국어 심층 최적화"
+      },
+      "kimi-k3": {
+        "description": "월즈다크면 2M 장문 컨텍스트 플래그십"
+      },
+      "ornith-1.0": {
+        "description": "국산 신세대 범용 모델"
+      },
+      "codebrain-1": {
+        "description": "국산 코드 특화 모델"
+      },
+      "mai-thinking-1": {
+        "description": "국산 심층 추론 모델"
       }
     },
     "nav": {
