@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 import { createPersistConfig } from './persist-helpers'
+import type { SubAgentActivity } from '@/components/ai/types'
 
 export type ChatRole = 'user' | 'assistant' | 'system'
 
@@ -68,6 +69,9 @@ interface ChatState {
   draftInput: string | null
   /** AI 主动提问挂起态:非 null 表示有未回答的提问,前端弹窗阻塞输入,等待用户回答后调 /chat/answer 续流 */
   pendingQuestion: PendingQuestion | null
+  /** Sub-agent 活动列表(多 agent 多路复用:SSE chunk 带 agentId 时按 agent 分流累加)。
+   * 不持久化(每次新对话 resetSubAgentActivities 清空)。 */
+  subAgentActivities: SubAgentActivity[]
 
   setModel: (model: string) => void
   addMessage: (msg: Pick<ChatMessage, 'role' | 'content' | 'model'>) => string
@@ -84,6 +88,12 @@ interface ChatState {
   setPendingQuestion: (q: PendingQuestion | null) => void
   /** 清空挂起的提问(用户回答后或续流开始时调用) */
   clearPendingQuestion: () => void
+  /** 追加 token 到指定 sub-agent 的流式内容;agentId 不存在时自动创建新活动条目 */
+  appendToAgentStream: (agentId: string, delta: string, name?: string) => void
+  /** 标记所有 sub-agent 流式结束(stream 结束时调用,UI 切换为已完成态) */
+  markAllAgentStreamsDone: () => void
+  /** 清空所有 sub-agent 活动(新对话开始时调用) */
+  resetSubAgentActivities: () => void
 }
 
 function genId(): string {
@@ -111,6 +121,7 @@ export const useChatStore = create<ChatState>()(
       conversationId: null,
       draftInput: null,
       pendingQuestion: null,
+      subAgentActivities: [],
 
       setModel: (model) => set({ currentModel: model }),
 
@@ -160,6 +171,48 @@ export const useChatStore = create<ChatState>()(
       setPendingQuestion: (q) => set({ pendingQuestion: q }),
 
       clearPendingQuestion: () => set({ pendingQuestion: null }),
+
+      appendToAgentStream: (agentId, delta, name) =>
+        set((s) => {
+          const existing = s.subAgentActivities.find((a) => a.agentId === agentId)
+          if (existing) {
+            return {
+              subAgentActivities: s.subAgentActivities.map((a) =>
+                a.agentId === agentId
+                  ? {
+                      ...a,
+                      streamingContent: (a.streamingContent || '') + delta,
+                      streamingDone: false,
+                    }
+                  : a,
+              ),
+            }
+          }
+          const newActivity: SubAgentActivity = {
+            agentId,
+            name: name || `Agent ${agentId.slice(0, 8)}`,
+            type: 'worker',
+            status: 'running',
+            currentStep: 'Generating…',
+            completedSteps: [],
+            streamingContent: delta,
+            streamingDone: false,
+          }
+          return { subAgentActivities: [...s.subAgentActivities, newActivity] }
+        }),
+
+      markAllAgentStreamsDone: () =>
+        set((s) => ({
+          subAgentActivities: s.subAgentActivities.map((a) => ({
+            ...a,
+            streamingDone: true,
+            status: a.status === 'running' || a.status === 'thinking' ? 'completed' : a.status,
+            currentStep:
+              a.status === 'running' || a.status === 'thinking' ? '' : a.currentStep,
+          })),
+        })),
+
+      resetSubAgentActivities: () => set({ subAgentActivities: [] }),
     }),
     createPersistConfig<ChatState>('ihui-chat', (s) => ({
       currentModel: s.currentModel,

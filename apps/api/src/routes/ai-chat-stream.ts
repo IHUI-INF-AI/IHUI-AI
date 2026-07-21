@@ -132,12 +132,44 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         return
       }
 
+      // 逐行注入 agentId:ai-service 返回的 token chunk 默认不带 agentId,
+      // 这里对 JSON 格式的 data: 行注入顶层 agentId,让前端能按 agentId 分流到 subagent 卡片。
+      // Vercel AI SDK `0:"token"` 格式无法注入(协议限制),透传原样。
       const reader = resp.body.getReader()
+      const decoder = new TextDecoder()
+      let streamBuffer = ''
       for (;;) {
         const { done, value } = await reader.read()
         if (done) break
-        raw.write(value)
+        streamBuffer += decoder.decode(value, { stream: true })
+        let nl: number
+        while ((nl = streamBuffer.indexOf('\n')) !== -1) {
+          const line = streamBuffer.slice(0, nl).replace(/\r$/, '')
+          streamBuffer = streamBuffer.slice(nl + 1)
+          if (
+            opts.agentId &&
+            line.startsWith('data:') &&
+            !line.startsWith('data: [DONE]')
+          ) {
+            const data = line.slice(5).replace(/^\s/, '')
+            // 仅对 JSON 对象注入;Vercel AI SDK `0:"..."` / 纯文本透传
+            if (data && data !== '[DONE]' && data.startsWith('{')) {
+              try {
+                const json = JSON.parse(data) as Record<string, unknown>
+                if (typeof json === 'object' && json !== null && !json.agentId) {
+                  json.agentId = opts.agentId
+                  raw.write(`data: ${JSON.stringify(json)}\n`)
+                  continue
+                }
+              } catch {
+                /* 非 JSON,透传 */
+              }
+            }
+          }
+          raw.write(line + '\n')
+        }
       }
+      if (streamBuffer) raw.write(streamBuffer)
     } catch (e) {
       const msg = (e as Error).name === 'AbortError' ? '客户端断开' : (e as Error).message
       const errChunk: Record<string, unknown> = { error: msg }
