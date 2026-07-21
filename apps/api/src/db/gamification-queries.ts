@@ -1,5 +1,6 @@
 import { eq, and, desc, asc, gte, lt, sql } from 'drizzle-orm';
 import { db } from './index.js';
+import { shiftDate } from '../utils/checkin-helpers.js';
 import {
   userPoints,
   pointTransactions,
@@ -423,20 +424,6 @@ export async function findLeaderboard(limit = 100): Promise<LeaderboardRow[]> {
 // =============================================================================
 // 日期辅助
 // =============================================================================
-
-/** 日期偏移：传入 'YYYY-MM-DD'，返回偏移 deltaDays 天后的 'YYYY-MM-DD'。 */
-export function shiftDate(dateStr: string, deltaDays: number): string {
-  const d = new Date(dateStr + 'T00:00:00Z');
-  d.setUTCDate(d.getUTCDate() + deltaDays);
-  return d.toISOString().slice(0, 10);
-}
-
-/** 当前东八区日期的 'YYYY-MM-DD'（签到以用户本地日期为准）。 */
-export function todayString(): string {
-  const now = new Date();
-  const shanghai = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-  return shanghai.toISOString().slice(0, 10);
-}
 
 /** 由 'YYYY-MM' 计算下个月月初的 'YYYY-MM-DD'。 */
 function nextMonthStart(yearMonth: string): string {

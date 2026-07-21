@@ -1,6 +1,6 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
   findPublishedLiveCategories,
@@ -185,18 +185,6 @@ const tencentStreamQuery = z.object({
 function parseTime(v: string | null | undefined): Date | null {
   if (!v) return null
   return new Date(v)
-}
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
 }
 
 function deriveLiveStatus(isLive: boolean, isPublished: boolean): 'upcoming' | 'living' | 'ended' {
@@ -450,7 +438,7 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /live/subscriptions - 当前用户订阅的频道列表（需登录）
   server.get('/live/subscriptions', { schema: { response: R } }, async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
     const list = await findUserSubscriptions(userId)
     return reply.send(success({ list }))
@@ -483,7 +471,7 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /live/:id/subscribe - 订阅直播频道
   server.post('/live/:id/subscribe', { schema: { response: R } }, async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -495,7 +483,7 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /live/:id/subscribe - 取消订阅
   server.delete('/live/:id/subscribe', { schema: { response: R } }, async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
