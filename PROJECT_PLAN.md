@@ -77,7 +77,7 @@
 
 ---
 
-### [x] ✅(2026-07-22) AI 对话内嵌浏览器工作展示区 P0+P2(右侧固定面板 + 全 8 端同步 + AI 深度联动已完成,Playwright 降级待 P1)
+### [x] ✅(2026-07-22) AI 对话内嵌浏览器工作展示区 P0+P1+P2+P3(全 4 阶段完成:8 端同步 + Playwright 截图降级 + AI 深度联动 + 多 Tab 收藏)
 
 **触发**:用户要求"AI 对话框需要调用浏览器时右侧工作展示区切换为内置 chrome 浏览器,或点击网址时也直接在项目内打开"。经深度探讨确认方案:右侧固定面板 + 全 8 端同步 + 后端 Playwright 截图降级 + AI 工具调用深度联动。
 
@@ -144,6 +144,21 @@ P2 AI 工具调用深度联动(5 修改文件):
 - apps/desktop typecheck exit 0
 - browser_use P0 验证 6 项全 PASS:store.openPanel 触发成功、panelExists=true、iframeExists=true(src=example.com)、地址栏 value 同步、工具栏按钮 title=[后退/前进/刷新/在外部浏览器打开/关闭面板]、dark mode 生效、hover class 确认、控制台无 WorkPanel 错误
 - browser_use P2 验证 7 项全 PASS:source=ai-tool 自动打开(bing.com)、source=markdown-link 自动打开(github.com)、地址栏 input 同步、back/forward 历史栈正确、dark mode 生效、控制台无 WorkPanel 错误
+
+**P1 后端截图流完成证据**(commit `5fb61b7`,2026-07-22):
+- ai-service screenshot_service.py 重构为 sync_playwright + run_in_executor,根治 Windows SelectorEventLoop 导致的 NotImplementedError;保留 async _get_browser 向后兼容 opencompass_scrape
+- ai-service screenshot.py router(probe + take 端点)
+- api browser.ts 转发路由(api 3001 -> ai-service 8000,snake -> camel)+ server.ts 注册 browserRoutes
+- web work-panel.ts loadUrl 主动探测降级(navigate 调 probeEmbed 预判,不可嵌入直接走 takeScreenshot)
+- api-client browser.ts endpoint(probeEmbed + takeScreenshot)+ client.ts agentTools 联动
+- 验证:ai-service 启动成功;probe google.com can_embed=false;screenshot example.com 13388 base64;typecheck web+api+api-client 全绿
+
+**P3 多 Tab + 收藏完成证据**(2026-07-22):
+- web work-panel.ts store 从单 Tab 扁平字段重构为 tabs 数组 + activeTabId + favorites + recentUrls(persist 持久化,清除 screenshot 体积)
+- packages/ui work-panel.tsx 新增收藏按钮(Star 图标,amber-500 已收藏色)+ isFavorite/onToggleFavorite props
+- web web-work-panel.tsx 适配多 Tab(用 selector 读取 active tab + Tab 栏交互 + 收藏切换)
+- 平台独占豁免:desktop/mobile-rn/miniapp-taro/extension 保持单 Tab(各端独立 store,屏幕限制不适合多 Tab)
+- 验证:web typecheck exit 0;browser_use store 逻辑 PASS(openPanel 创建 tab、newTab/closeTab/setActiveTab 正常、addFavorite/removeFavorite 正常、WorkPanel DOM panelExists=true、WebViewFrame status/mode 正确)
 
 ---
 
