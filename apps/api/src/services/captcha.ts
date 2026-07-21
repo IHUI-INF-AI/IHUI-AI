@@ -4,7 +4,7 @@
  * 主存储 Redis（code-store 复用），fallback 到 DB captchas 表。
  */
 
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import { env } from 'node:process';
 
 const CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -32,18 +32,33 @@ export function generateCaptchaCode(): string {
  * 生成验证码图片（base64 PNG）。
  * 简化实现：用 SVG 生成文字图片，转 base64 data URI。
  * 生产可替换为 sharp/svg-captcha，此处保持零依赖。
+ *
+ * 2026-07-21 安全审计加固:噪点坐标/颜色/旋转角度统一改用 CSPRNG
+ * (虽然仅影响视觉,但消除 CWE-330 可预测随机残留,保持代码基线一致)
  */
 export function generateCaptchaImage(code: string): string {
+  const rand = randomBytes(64);
+  let offset = 0;
   // SVG 图片，4 位字符，120x40，带噪点
   const chars = code.split('');
   const noise = Array.from({ length: 10 }, () => {
-    const x = Math.floor(Math.random() * 120);
-    const y = Math.floor(Math.random() * 40);
-    return `<circle cx="${x}" cy="${y}" r="1" fill="#${Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0')}" opacity="0.4"/>`;
-  }).join('');  const text = chars
+    const x = randomInt(0, 120);
+    const y = randomInt(0, 40);
+    const colorBytes = rand.subarray(offset, offset + 3);
+    offset = (offset + 3) % rand.length;
+    const color = `00000${(colorBytes[0]! * 0x010101 & 0xffffff).toString(16)}`.slice(-6);
+    return `<circle cx="${x}" cy="${y}" r="1" fill="#${color}" opacity="0.4"/>`;
+  }).join('');
+  const text = chars
     .map(
-      (c, i) =>
-        `<text x="${15 + i * 28}" y="28" font-size="24" font-family="monospace" fill="#${Math.floor(Math.random() * 0x666666 + 0x333333).toString(16).padStart(6, '0')}" transform="rotate(${Math.floor(Math.random() * 20 - 10)} ${15 + i * 28} 20)">${c}</text>`,
+      (c, i) => {
+        const colorBytes = rand.subarray(offset, offset + 3);
+        offset = (offset + 3) % rand.length;
+        const colorValue = 0x333333 + (colorBytes[0]! * 0x333 & 0x666666);
+        const color = `00000${colorValue.toString(16)}`.slice(-6);
+        const rotate = randomInt(-10, 11);
+        return `<text x="${15 + i * 28}" y="28" font-size="24" font-family="monospace" fill="#${color}" transform="rotate(${rotate} ${15 + i * 28} 20)">${c}</text>`;
+      },
     )
     .join('');
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="40">${noise}${text}</svg>`;
