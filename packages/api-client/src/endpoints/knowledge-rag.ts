@@ -139,6 +139,34 @@ export async function deleteKnowledgeDoc(
   return res.data
 }
 
+/** 多格式文件入库(POST /upload, multipart/form-data)
+ *
+ * 支持 PDF / DOCX / Markdown / Text / HTML(≤ 20MB)。
+ *
+ * 必须在登录态下调用(后端从 cookie / Authorization header 取 userId)。
+ * 前端建议:fetchApi 注入的 token provider 会自动带 Authorization。
+ */
+export async function uploadKnowledgeDoc(
+  file: File | Blob,
+  opts?: { title?: string; collectionName?: string; filename?: string },
+): Promise<{ docId: number; chunkCount: number; filename: string; mimeType: string }> {
+  const form = new FormData()
+  form.append('file', file, opts?.filename ?? (file instanceof File ? file.name : 'upload'))
+  if (opts?.title) form.append('title', opts.title)
+  if (opts?.collectionName) form.append('collectionName', opts.collectionName)
+  const res = await fetchApi<{
+    docId: number
+    chunkCount: number
+    filename: string
+    mimeType: string
+  }>('/api/knowledge/upload', {
+    method: 'POST',
+    body: form,
+  })
+  if (!res.success) throw new Error(res.error || '文件入库失败')
+  return res.data
+}
+
 /** 批量删除文档 */
 export async function batchDeleteKnowledgeDocs(
   docIds: number[],
