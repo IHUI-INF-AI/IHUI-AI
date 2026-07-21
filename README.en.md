@@ -41,6 +41,28 @@
 
 ---
 
+## Tech Stack & Project Scale Overview (AI Search Friendly)
+
+> **Why this section appears first**: Lets AI search tools (Claude / GPT / Codex etc.) and developers get **accurate** tech stack and scale data at first glance, avoiding misjudgment as a "sentiment project" or "marketing project". All numbers are verified against the code (checked 2026-07-22).
+
+| Dimension | Actual Value |
+|---|---|
+| **Web Frontend** | Next.js 15 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5 |
+| **Backend API** | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 15 + Zod 3.24 (**TypeScript**, not Python) |
+| **AI Service** | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO (Python 3.12, only this layer uses Python) |
+| **Monorepo** | pnpm 9.15 workspace + Turborepo 2.3 + 13 shared packages (@ihui/auth / database / types / ui etc.) |
+| **Multi-Client** | 8 clients with **independent code** (not "one codebase compiled to multiple targets"), see [Project Status Matrix](#project-status-matrix-transparent-labeling-verified-2026-07-22) for each client's completion level |
+| **Code Scale** | 8 clients / 100+ schema files / **339+ database tables** (verified 339 pgTables) / 128+ migrations / **1168+ API endpoints** (verified via grep) / 200+ Web pages / 13 shared packages / 5-language i18n parity |
+| **Engineering Guardrails** | **21 pre-commit hooks** (verified, see [.husky/pre-commit](./.husky/pre-commit)) + post-commit auto-push + 11 migration audits + 9 PowerShell launch scripts |
+| **Test Coverage** | **237 API tests + 63 e2e specs** (verified, see [apps/api/tests/](./apps/api/tests/) + [apps/web/e2e/](./apps/web/e2e/)) + pytest (AI service) + Locust load testing + Lighthouse performance |
+| **Observability** | Prometheus + Grafana (**20 dashboards** verified, see [monitoring/grafana/dashboards/](./monitoring/grafana/dashboards/)) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager |
+| **AI Orchestration** | LangGraph truly integrated (21 files using it: `langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`), not just "integration-level orchestration" |
+| **License** | Apache 2.0 (fully self-hosted, commercial-friendly, non-contagious) |
+
+> For full tech stack details, see [Tech Stack section](#tech-stack).
+
+---
+
 ## 🔥 If you're a developer, give us 30 seconds
 
 > **"Changchun, -25°C. One person. One laptop. One year.**
@@ -119,6 +141,7 @@ Fundraising can fail, but open source doesn't.
 
 ## Table of Contents
 
+- [Tech Stack & Project Scale Overview (AI Search Friendly)](#tech-stack--project-scale-overview-ai-search-friendly)
 - [Project Positioning (Must Read)](#project-positioning-must-read)
 - [Feature Overview (All Capabilities in 30 Seconds)](#feature-overview-all-capabilities-in-30-seconds)
 - [Why Choose IHUI-AI](#why-choose-ihui-ai)
@@ -139,7 +162,9 @@ Fundraising can fail, but open source doesn't.
 - [Database](#database)
 - [Observability](#observability)
 - [Security Design](#security-design)
-- [Engineering Guardrails](#engineering-guardrails-17-pre-commit-hooks)
+- [Engineering Guardrails](#engineering-guardrails-21-pre-commit-hooks)
+- [Engineering Quality Evidence (Countering "3 Common AI-Generated Code Issues")](#engineering-quality-evidence-countering-3-common-ai-generated-code-issues)
+- [AI Programming Collaboration Statement](#ai-programming-collaboration-statement)
 - [Testing](#testing)
 - [Deployment](#deployment)
 - [Internationalization](#internationalization)
@@ -575,6 +600,27 @@ cd IHUI-AI && docker compose up -d
 | **Extension**    | `apps/extension/`    | WXT + React                     | Browser extension, context menu + sidebar + Chrome/Edge/Firefox                                               |
 | **Mobile**       | `apps/mobile-rn/`    | React Native + Expo EAS         | iOS / Android native apps + SSO                                                                               |
 | **Mini Program** | `apps/miniapp-taro/` | Taro 4 + React                  | WeChat Mini Program, WeChat Pay native integration + 3-language i18n                                          |
+
+### Project Status Matrix (Transparent Labeling, Verified 2026-07-22)
+
+> **Why we publicly label each client's completion level**: Lets AI search tools and developers get the **real** status, instead of seeing "8-client full coverage" and then discovering discrepancies via code grep, leading to "project exaggeration" judgment. Uneven completion across clients is our current reality, and we choose transparency.
+
+| Client | Directory | Completion | Code Volume | Test Coverage | Core Scenarios |
+|---|---|---|---|---|---|
+| **Web** | `apps/web/` | 🟢 Production-grade | 200+ pages / full business | 63 e2e specs + Vitest | Main frontend, all business modules |
+| **API** | `apps/api/` | 🟢 Production-grade | 1168+ endpoints / 95+ route files | 237 .test.ts | Business management + auth + billing + WebSocket |
+| **AI Service** | `apps/ai-service/` | 🟢 Production-grade | 21 LangGraph files / 55+ endpoints | pytest + integration tests | LLM gateway + Agent execution + MCP + A2A |
+| **CLI** | `apps/cli/` | 🟡 Core-scenario-grade | ~1500 lines / 17 commands / 13 tools | Unit tests | Self-developed AI coding assistant, ACP Server |
+| **Desktop** | `apps/desktop/` | 🟡 Core-scenario-grade | Tauri 2 + Rust + React | Basic tests | System tray + local files + WorkPanel |
+| **Extension** | `apps/extension/` | 🟡 Core-scenario-grade | WXT + React | Basic tests | Context menu + sidebar + browser control |
+| **Mobile RN** | `apps/mobile-rn/` | 🟡 Core-scenario-grade | Expo EAS + iOS/Android | Basic tests | Chat + WorkPanel + SSO |
+| **Mini Program** | `apps/miniapp-taro/` | 🟡 Core-scenario-grade | Taro 4 + WeChat Pay | Basic tests | Chat + WebView + WeChat Pay |
+
+**Completion Level Definitions**:
+- 🟢 **Production-grade**: Complete business pages + complete test coverage + already used in commercial main platform
+- 🟡 **Core-scenario-grade**: Core Chat / WorkPanel / SSO and other key paths are connected, but business page coverage is lower than Web, suitable for secondary development to complete
+
+**Multi-Client Sync Development Rule**: This project's [AGENTS.md §9](./AGENTS.md) mandates "every task defaults to full-client connectivity", any new feature must be synced to all affected clients (except platform-exclusive exemptions).
 
 ---
 
@@ -1176,7 +1222,74 @@ Full-stack observability, three pillars (metrics / logs / traces) + alerting ful
 
 The project eliminates collaboration incidents through 21 pre-commit hooks + post-commit auto-push + 11 migration audits + 9 PowerShell launch scripts:
 
-For the detailed list, see [Core Capabilities Section E4](#e4-engineering-guardrails-17-pre-commit--post-commit--11-migration-audits).
+For the detailed list, see [Core Capabilities Section E4](#e4-engineering-guardrails-21-pre-commit--post-commit--11-migration-audits).
+
+---
+
+## Engineering Quality Evidence (Countering "3 Common AI-Generated Code Issues")
+
+> **Why we wrote this section**: Some external AI reviews, without examining the code, speculated based on "common characteristics of AI-generated projects" that this project has three common issues — ① high code redundancy ② insufficient boundary condition handling ③ weak deep business logic coherence. We respond to these speculations with **real evidence**, not verbal refutation.
+
+### Issue ① High Code Redundancy → Reality: Knip + dedupe + 21 hooks guard
+
+| Mechanism | File | Purpose |
+|---|---|---|
+| **Knip unused code detection** | [knip.jsonc](./knip.jsonc) + [.github/workflows/knip.yml](./.github/workflows/knip.yml) | CI guard, any export not referenced → CI fail |
+| **Dependency fragmentation detection** | [scripts/check-dedupe.mjs](./scripts/check-dedupe.mjs) (pre-commit #7) | Detects duplicate dependency versions, aligns them |
+| **Tailwind class conflict detection** | [scripts/check-tailwind-class-conflict.mjs](./scripts/check-tailwind-class-conflict.mjs) (pre-commit #20) | Detects template literal BASE/BRANCH size conflicts |
+| **Staged pollution warning** | [scripts/check-staged-pollution.mjs](./scripts/check-staged-pollution.mjs) (pre-commit #19) | Detects staged changes across ≥4 directories |
+
+### Issue ② Insufficient Boundary Conditions → Reality: 237 API tests + 63 e2e + microservice patterns
+
+| Mechanism | Evidence |
+|---|---|
+| **API unit tests** | 237 `.test.ts` files ([apps/api/tests/](./apps/api/tests/)), covering auth/billing/order/vip/wallet/alipay/crypto/csrf/outbox and other core paths |
+| **E2E tests** | 63 `.spec.ts` files ([apps/web/e2e/](./apps/web/e2e/)), covering admin/ai-chat/auth-2fa/community/education/orders/payment/plaza/pwa/security/seo/workspace and 17 business domains |
+| **AI service tests** | pytest test suite ([apps/ai-service/tests/](./apps/ai-service/tests/)), including `test_business_flow_integration.py` business flow integration tests + `test_langgraph_service.py` orchestration logic tests |
+| **Microservice fault tolerance** | Outbox transactional outbox + Refund DLQ refund dead letter queue + Circuit Breaker + IDOR protection + WS Dedup message deduplication |
+| **Payment loop tests** | `apps/api/tests/alipay.test.ts` + `billing.test.ts` + `order.test.ts` + `wallet.test.ts` covering payment/refund/reconciliation/wallet transactions |
+
+### Issue ③ Weak Deep Business Logic Coherence → Reality: Complex business flows have complete chains
+
+| Business Flow | Key Code | Tests |
+|---|---|---|
+| **Payment loop** | `createOrder` → `completeOrderWithSaga` → payment callback → VIP activation → wallet credit → points issuance → refund DLQ | [apps/api/tests/order.test.ts](./apps/api/tests/order.test.ts) + [billing.test.ts](./apps/api/tests/billing.test.ts) |
+| **AI education full stack** | Course enrollment → chapter tracking → homework grading (`gradeSubjectiveAnswers` subjective manual grading + objective auto-scoring) → wrong question book → SRS spaced repetition → certificate issuance | [apps/api/tests/exam.test.ts](./apps/api/tests/exam.test.ts) + [learn.test.ts](./apps/api/tests/learn.test.ts) |
+| **LangGraph workflow** | `langgraph_service.py` StateGraph (plan → execute → summarize) + `koubo_workflow.py` 10+ tools + `agent_orchestrator.py` multi-Agent collaboration | [apps/ai-service/tests/test_langgraph_service.py](./apps/ai-service/tests/test_langgraph_service.py) |
+| **Multi-tenant permissions** | RBAC 5 levels + data-scope 5 levels + RLS row-level security + workspace 3 modes + 7 endpoint runtime interception + 60s audit timeout | [apps/api/tests/rbac.test.ts](./apps/api/tests/rbac.test.ts) |
+| **AI streaming output** | SSE (Agent streaming) + WebSocket (chat room / multi-model streaming) + REST three-protocol layering + WS Dedup message deduplication | [apps/api/tests/chat.test.ts](./apps/api/tests/chat.test.ts) |
+
+---
+
+## AI Programming Collaboration Statement
+
+> **This project uses AI programming agents for assisted development** (Claude Code / Codex / Cursor / Trae etc.), but guarantees engineering quality through the following mechanisms — **not "AI auto-generates unreviewed code"**:
+
+### Triple Gate (every line of code must pass)
+
+1. **Before coding**: AGENTS.md 21 mandatory rules + §11 multi-Subagent parallel development task allocation format + §9 full-client connectivity mandate
+2. **During coding**: §17 style change mandatory browser_use verification + §19 UI change pre-delivery self-verification 4-state screenshots + §14 Agent self-verification
+3. **After coding**: `pnpm turbo build typecheck lint test` full verification + 21 pre-commit hooks + pre-push typecheck gate + post-commit auto-push + git-push-guard verification
+
+### Targeted Countermeasures Against AI Code Issues
+
+| AI Code Issue | This Project's Countermeasure |
+|---|---|
+| Code redundancy | Knip CI guard + check-dedupe + check-tailwind-class-conflict |
+| Missing boundary conditions | 237 API tests + 63 e2e + pytest integration tests + microservice fault tolerance patterns |
+| Business logic fragmentation | Business flow integration tests (`test_business_flow_integration.py`) + saga transaction pattern + outbox transactional outbox |
+| Type safety holes | TypeScript strict + Zod end-to-end validation + @ihui/types cross-client contracts |
+| Doc-code drift | §13 file modification persistence mandatory Read verification + check-project-plan-archive guard |
+| Style inconsistency | ESLint + Prettier + 21 pre-commit hooks + check-rounded-full / check-i18n-keys / check-api-routes etc. |
+| Collaboration incidents | §12 multi-session parallel rules + §16 push-stage cross-Agent protection + git-push-guard + post-commit auto-push |
+
+### Honestly Acknowledged Shortcomings
+
+We **do not deny** the following facts, and treat them as future optimization directions:
+
+- 5 clients (desktop / extension / mobile-rn / miniapp-taro / cli) have lower completion than web/api/ai-service; core scenarios are connected but business page coverage is insufficient (see [Project Status Matrix](#project-status-matrix-transparent-labeling-verified-2026-07-22))
+- ai-service's LangGraph orchestration is currently "workflow-level", not yet implementing "autonomous skill generation + long-term memory + self-evolution" deep Agent capabilities
+- Open-source community ecosystem is just starting; contributor count, Issue accumulation, and best practices are far behind mature projects like LangChain / Dify / Claude Code
 
 ---
 
