@@ -246,23 +246,59 @@ async function fetchRssXml(url: string, sourceCode: string): Promise<FetchedFeed
   }))
 }
 
-async function callLlm(prompt: string, content: string): Promise<string | null> {
+async function callLlm(
+  prompt: string,
+  content: string,
+  options: { maxTokens?: number; temperature?: number } = {},
+): Promise<string | null> {
   const baseUrl = env.AI_SERVICE_URL
   if (!baseUrl) return null
   try {
-    const res = await fetchWithTimeout(`${baseUrl}/llm/complete`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, content }),
-    })
-    if (!res.ok) {
-      logger.warn(`LLM 调用失败 status=${res.status}`, { url: `${baseUrl}/llm/complete` })
+    // LLM 调用单独用 90 秒超时(StepFun step-3.7-flash 推理模型 ~25s/条,
+    // fetchWithTimeout 的 10s 对 LLM 不够,需独立更长超时)
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 90_000)
+    try {
+      const body: Record<string, unknown> = {
+        messages: [
+          { role: 'system', content: prompt },
+          { role: 'user', content },
+        ],
+      }
+      // max_tokens 限制输出长度(分类任务只需 ~20 token,防止 LLM 生成 HTML/长文)
+      if (options.maxTokens !== undefined) body.max_tokens = options.maxTokens
+      // temperature=0 确定性输出(分类任务不需要创造性)
+      if (options.temperature !== undefined) body.temperature = options.temperature
+      const res = await fetch(`${baseUrl}/api/llm/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      })
+      if (!res.ok) {
+        logger.warn(`LLM 调用失败 status=${res.status}`, { url: `${baseUrl}/api/llm/complete` })
+        return null
+      }
+    // ai-service /llm/complete 返回 {content, model, usage, stub, error?, error_message?}
+    const json = (await res.json()) as {
+      content?: string
+      error?: boolean
+      error_message?: string
+      stub?: boolean
+    }
+    if (json.error) {
+      logger.warn(`LLM 调用返回错误: ${json.error_message ?? 'unknown'}`)
       return null
     }
-    const json = (await res.json()) as { data?: { content?: string } | string; content?: string }
-    const text =
-      typeof json.data === 'string' ? json.data : (json.data?.content ?? json.content ?? '')
+    if (json.stub) {
+      logger.warn(`LLM stub 模式返回(无真实 API key),跳过`)
+      return null
+    }
+    const text = json.content ?? ''
     return text.trim() || null
+    } finally {
+      clearTimeout(timer)
+    }
   } catch (e) {
     logger.warn(`LLM 调用异常: ${(e as Error).message}`)
     return null
@@ -590,8 +626,39 @@ export async function collectAllSources(): Promise<CollectResult> {
 // 5. LLM 分类摘要（手动触发）
 // =============================================================================
 
-const CATEGORY_PROMPT =
-  '请对以下资讯标题进行分类,仅返回以下类别之一:ai-models(AI 模型发布/升级)、ai-products(AI 产品/应用/工具上线)、industry(AI 行业动态/融资/收购/政策)、paper(AI 论文/研究/学术)、tip(AI 技巧/教程/最佳实践)。仅返回类别名称,不要解释。'
+const CATEGORY_PROMPT = `你是 AI 资讯分类器。只返回一个类别名,不要任何其他内容(不要解释、不要 HTML、不要 markdown、不要标点)。
+
+类别:
+- ai-models:AI 模型发布/升级/评测(GPT/Claude/Gemini/Llama/Qwen 等模型本身)
+- ai-products:AI 产品/应用/工具/GitHub 项目/Agent 平台
+- industry:行业动态/融资/收购/政策/市场/非 AI 科技新闻
+- paper:学术论文/arXiv/研究
+- tip:技巧/教程/how-to/最佳实践
+
+规则:
+1. 信源 arxiv* → paper
+2. 信源 github-trending → ai-products(除非仓库名含 model/llm → ai-models)
+3. 非 AI 主题 → industry
+4. 模糊 → industry
+
+示例:
+信源: arxiv-cs-ai
+标题: Attention Is All You Need
+paper
+
+信源: github-trending
+标题: microsoft/Ontology-Playground
+ai-products
+
+信源: hackernews
+标题: OpenAI 发布 GPT-5
+ai-models
+
+信源: techcrunch-ai
+标题: Anthropic 完成 10 亿美元融资
+industry
+
+只返回一个类别名。`
 
 /**
  * 手动触发 LLM 分类与摘要批处理。
@@ -611,8 +678,21 @@ export async function processLlmBatch(limit = 100): Promise<LlmBatchResult> {
   for (const item of pending) {
     // 优先调用 LLM 做分类，失败回退到关键词规则
     let category: string
-    const llmResult = await callLlm(CATEGORY_PROMPT, item.title)
-    if (llmResult && isValidCategory(llmResult)) {
+    // 把 sourceCode 拼到 content 里,让 LLM 看到信源信息以便正确分类(arxiv→paper 等)
+    const llmContent = `信源: ${item.sourceCode}\n标题: ${item.title}`
+    // 不传 max_tokens:StepFun step-3.7-flash 是推理模型,reasoning 字段会消耗大量 token
+    // (实测 ~760 token),限制 max_tokens=20/200 会导致 reasoning 未完成 content 为空。
+    // 不限制时,content 是 markdown 文档(含 "### Classification result: paper" 等),
+    // 由 extractCategory 正则提取类别名。
+    // temperature=0 确定性输出
+    const llmResult = await callLlm(CATEGORY_PROMPT, llmContent, {
+      temperature: 0,
+    })
+    // 后处理:先尝试正则提取(防御 LLM 输出非类别内容,如被 markdown 包裹)
+    const extracted = llmResult ? extractCategory(llmResult) : null
+    if (extracted) {
+      category = extracted
+    } else if (llmResult && isValidCategory(llmResult)) {
       category = llmResult.toLowerCase()
     } else {
       category = inferCategoryByTitle(item.title, item.sourceCode)
@@ -640,6 +720,17 @@ const VALID_CATEGORIES = new Set(['ai-models', 'ai-products', 'industry', 'paper
 
 function isValidCategory(value: string): boolean {
   return VALID_CATEGORIES.has(value.trim().toLowerCase())
+}
+
+/**
+ * 从 LLM 输出中提取类别名(正则匹配,防御 LLM 输出非类别内容)。
+ *
+ * 即使 LLM 返回 markdown 包裹(如 "paper" 或 "类别: paper")或被 HTML 包裹,
+ * 也能提取到第一个匹配的类别名。匹配不到返回 null。
+ */
+function extractCategory(llmOutput: string): string | null {
+  const match = llmOutput.match(/\b(ai-models|ai-products|industry|paper|tip)\b/i)
+  return match?.[1]?.toLowerCase() ?? null
 }
 
 /** 基于标题关键词的简单规则分类（LLM 不可用时的降级实现）。与 aihot 6 类对齐(5 类 + 默认)。 */

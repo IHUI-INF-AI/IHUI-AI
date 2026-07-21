@@ -2,7 +2,7 @@
  * P1-2.2: SaaS Admin API 代理 Route Handler
  * 透传 5 个 HTTP 方法到 admin-api
  */
-import { type NextRequest, NextResponse } from 'next/server'
+import type { NextRequest, NextResponse } from 'next/server'
 
 import { forwardToAdminApi, type HttpMethod } from '@/lib/saas-admin-proxy'
 
