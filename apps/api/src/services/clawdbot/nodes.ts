@@ -5,8 +5,10 @@
  */
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
+import { evaluateSafeCondition } from './safe-condition.js'
 
-export type NodeType = 'start' | 'end' | 'action' | 'condition' | 'loop' | 'parallel' | 'delay' | 'webhook' | 'ai'
+export type NodeType =
+  'start' | 'end' | 'action' | 'condition' | 'loop' | 'parallel' | 'delay' | 'webhook' | 'ai'
 
 export interface NodeDefinition {
   id: string
@@ -73,7 +75,11 @@ export class NodeExecutor extends EventEmitter {
       case 'end':
         break
       case 'condition':
-        const matched = node.branches?.find((b) => this.evaluateCondition(b.condition, context.outputs))
+        // 2026-07-21 安全审计加固:传递完整 context(含 inputs/outputs/...)，
+        // 让 condition 能用 `outputs.x > 5` / `inputs.y === 1` 形式引用字段
+        const matched = node.branches?.find((b) =>
+          this.evaluateCondition(b.condition, context as unknown as Record<string, unknown>),
+        )
         nextNodes = matched ? [matched.next] : (node.next ?? [])
         break
       case 'loop':
@@ -106,12 +112,8 @@ export class NodeExecutor extends EventEmitter {
   }
 
   private evaluateCondition(condition: string, context: Record<string, unknown>): boolean {
-    try {
-      const fn = new Function('ctx', `with(ctx){return ${condition}}`)
-      return !!fn(context)
-    } catch {
-      return false
-    }
+    // 2026-07-21 安全审计加固:用 safe-condition 替代 new Function 防止 RCE
+    return evaluateSafeCondition(condition, context)
   }
 
   getStats() {
