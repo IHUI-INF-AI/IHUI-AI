@@ -1483,6 +1483,20 @@
       "next": "次へ",
       "pageInfo": "{page}/{totalPages} ページ",
       "total": "全 {total} 件"
+    },
+    "result": {
+      "correct": "正解",
+      "wrong": "不正解",
+      "unanswered": "未回答",
+      "duration": "所要時間",
+      "minutes": "{n}分",
+      "submittedAt": "提出時間：{time}",
+      "detailsTitle": "回答詳細",
+      "detailsEmpty": "回答詳細がありません",
+      "yourAnswer": "あなたの回答：",
+      "correctAnswer": "正解：",
+      "analysis": "解説：",
+      "points": "{n}点"
     }
   },
   "circles": {
@@ -1491,7 +1505,19 @@
     "loading": "読み込み中...",
     "empty": "サークルなし",
     "memberCount": "{count}メンバー",
-    "postCount": "{count}の"
+    "postCount": "{count}の",
+    "post": {
+      "cardTitle": "新規投稿",
+      "selectCircle": "サークルを選択",
+      "selectCirclePlaceholder": "サークルを選択してください",
+      "titleLabel": "タイトル",
+      "titlePlaceholder": "投稿タイトルを入力",
+      "contentLabel": "内容",
+      "contentPlaceholder": "投稿内容を入力",
+      "images": "画像",
+      "errorCircleRequired": "サークルを選択してください",
+      "errorTitleContentRequired": "タイトルと内容は必須です"
+    }
   },
   "plaza": {
     "title": "APIテスト",
@@ -7773,13 +7799,13 @@
       "renewNow": "すぐ",
       "openNow": "すぐ",
       "days": "日",
-      "pleaseSelectPlan": "サブスクリプションプランを選択してください",
-      "openAutoRenewFailed": "自動更新の開始に失敗しました",
+      "pleaseSelectPlan": "まずサブスクリプションプランを選択してください",
+      "openAutoRenewFailed": "自動更新の有効化に失敗しました",
       "autoRenewManageTitle": "自動更新管理",
-      "autoRenewOpened": "自動更新が有効になりました",
-      "nextCharge": "次回の請求日",
+      "autoRenewOpened": "自動更新が有効です",
+      "nextCharge": "次回引き落とし:",
       "manage": "管理",
-      "autoRenewClosed": "自動更新が無効になりました",
+      "autoRenewClosed": "自動更新は無効です",
       "openAutoRenew": "自動更新を有効化"
     },
     "articles": {
@@ -12048,11 +12074,55 @@
       "runSuccess": "実行成功",
       "runFailed": "実行失敗",
       "historyTitle": "履歴記録",
-      "historyEmpty": "公開記録なし"
+      "historyEmpty": "公開記録なし",
+      "pipeline": "ワンクリックパイプライン",
+      "pipelineRunning": "8本の口述原稿を生成 + ダブルゲート検証を実行中、5〜10分かかります。ページから離れないでください...",
+      "downloadAll": "すべてダウンロード",
+      "copied": "コピー済み",
+      "copy": "コピー",
+      "articleNumber": "第 {n} 本",
+      "articleUnit": "本",
+      "msUnit": "ms",
+      "historyItemHint": "この履歴のパラメータを再利用",
+      "validateFailedPrefix": "validate 失敗:",
+      "unknownError": "不明なエラー",
+      "noOutputPathError": "generate が outputPath を返しません、validate を続行できません",
+      "latestOutput": "最新の出力:",
+      "requestFailed": "リクエスト失敗",
+      "networkError": "ネットワークエラー"
     },
     "automationPage": {
       "historyTitle": "実行履歴",
-      "historyEmpty": "実行記録なし"
+      "historyEmpty": "実行記録なし",
+      "running": "実行中",
+      "toggleAriaLabel": "タスクを有効化/無効化",
+      "executionTime": "実行時間",
+      "runMode": "実行モード",
+      "modeDryRun": "dry-run(プッシュなし)",
+      "modeProduction": "本番(実際にプッシュ)",
+      "titleTemplate": "タイトルテンプレート",
+      "notConfigured": "(未設定)",
+      "status": "ステータス",
+      "enabled": "有効",
+      "disabled": "無効",
+      "lastRun": "直近の実行",
+      "hourLabel": "時間 (0-23)",
+      "minuteLabel": "分 (0-59)",
+      "dryRunLabel": "dry-run モード(実際には下書きにプッシュしません)",
+      "titleTemplateLabel": "タイトルテンプレート({date} プレースホルダーを使用、MMDD に置換)",
+      "titleTemplatePlaceholder": "例:今日の AI ニュース {date}",
+      "cancel": "キャンセル",
+      "save": "保存",
+      "triggerNow": "今すぐトリガー",
+      "configure": "設定",
+      "enable": "有効化",
+      "disable": "無効化",
+      "schedulerNoteTitle": "スケジューラの説明",
+      "note1": "定期タスクは ai-service 起動時に自動的にマウントされ、60 秒ごとにポーリングします。",
+      "note2": "すべてのタスクはデフォルトで dry-run モードであり、WeChat の下書きに実際にプッシュしません。手動でトリガーするか、設定で dry-run をオフにしてください。",
+      "note3": "タスク実行履歴は直近 30 件(メモリ内)を保持し、サービス再起動後にクリアされます。",
+      "note4": "タイムゾーン:東 8 区(Asia/Shanghai)。",
+      "note5": "サービス再起動後、タスクスイッチは環境変数 <code>SELF_MEDIA_CRON_ENABLED</code>(デフォルト false)の値にリセットされます。本ページから有効化した実行時の状態はディスクに永続化されません。"
     }
   },
   "publish": {
@@ -26457,5 +26527,224 @@
     "upgrade": "アップグレード",
     "renewSuccess": "更新が成功しました",
     "upgradeSuccess": "プランをアップグレードしました"
+  },
+  "agentsCategoriesPage": {
+    "loading": "読み込み中...",
+    "back": "戻る",
+    "notExists": "カテゴリが存在しません",
+    "status": {
+      "enabled": "有効",
+      "disabled": "無効"
+    },
+    "paidCategory": "有料カテゴリ",
+    "agentsTitle": "カテゴリ内のエージェント",
+    "total": "全 {count} 件",
+    "emptyAgents": "このカテゴリにはエージェントがまだありません",
+    "noDescription": "説明なし",
+    "free": "無料",
+    "loadingAgents": "エージェントを読み込み中..."
+  },
+  "aiWorldSharePage": {
+    "linkCopied": "リンクをコピーしました",
+    "copyFailed": "コピーに失敗しました",
+    "loading": "読み込み中...",
+    "back": "戻る",
+    "notExists": "プロジェクトが存在しません",
+    "title": "プロジェクトを共有",
+    "subtitle": "この AI ワールドプロジェクトを他の人と共有",
+    "viewCount": "{count} 回閲覧",
+    "shareLink": "共有リンク",
+    "copied": "コピー済み",
+    "copy": "コピー",
+    "scanShare": "スキャンして共有"
+  },
+  "chatSettingsPage": {
+    "saved": "設定を保存しました",
+    "errorTempRange": "温度は 0-2 の間である必要があります",
+    "errorMaxTokensRange": "max_tokens は 1-32768 の間である必要があります",
+    "back": "戻る",
+    "title": "チャット設定",
+    "subtitle": "モデルパラメータとシステムプロンプトを設定",
+    "model": "モデル",
+    "temperature": "温度 (0-2)",
+    "maxTokens": "max_tokens",
+    "systemPrompt": "システムプロンプト",
+    "systemPromptPlaceholder": "アシスタントの動作と役割を設定...",
+    "cancel": "キャンセル",
+    "saving": "保存中...",
+    "save": "保存"
+  },
+  "developerLogsPage": {
+    "title": "API呼び出しログ",
+    "subtitle": "APIリクエスト記録とレスポンス詳細を表示",
+    "statusFilter": {
+      "all": "すべて",
+      "2xx": "2xx 成功",
+      "4xx": "4xx クライアントエラー",
+      "5xx": "5xx サーバーエラー"
+    },
+    "searchPlaceholder": "パスを検索...",
+    "loading": "読み込み中...",
+    "empty": "呼び出しログがありません",
+    "keyValue": "キー: {value}",
+    "requestBody": "リクエストボディ",
+    "responseBody": "レスポンスボディ"
+  },
+  "eduCertificatesPage": {
+    "loading": "読み込み中...",
+    "backToList": "証明書一覧に戻る",
+    "notFound": "証明書が見つかりません",
+    "downloadFailed": "ダウンロード失敗（{status}）",
+    "certificateNo": "証明書番号：{no}",
+    "status": {
+      "valid": "有効",
+      "revoked": "失効済み"
+    },
+    "completed": "完了",
+    "issuanceText": "学習および評価に合格したため、本証明書を授与します",
+    "issuedAt": "発行日：{date}",
+    "print": "印刷",
+    "download": "証明書をダウンロード"
+  },
+  "eduCourseLearnPage": {
+    "loading": "読み込み中...",
+    "backToDetail": "コース詳細に戻る",
+    "loadFailed": "読み込みに失敗しました",
+    "notes": "学習ノート",
+    "noteLabel": "このセクションのポイントを記録",
+    "notePlaceholder": "ノート内容を入力...",
+    "saveNote": "ノートを保存",
+    "sections": "セクション目次",
+    "qa": "Q&A",
+    "qaPlaceholder": "質問する...",
+    "qaEmpty": "質問はまだありません"
+  },
+  "eduProgressPage": {
+    "title": "学習進捗",
+    "subtitle": "学習の成長軌跡を追跡",
+    "loading": "読み込み中...",
+    "weeklyHours": "今週の学習時間",
+    "categoryProgress": "カテゴリー別進捗",
+    "noData": "データがありません",
+    "recentMilestones": "最近のマイルストーン",
+    "noMilestones": "マイルストーンがありません",
+    "stats": {
+      "totalStudy": "累計学習",
+      "enrolled": "受講コース",
+      "completed": "完了",
+      "avgProgress": "平均進捗"
+    }
+  },
+  "memberUpgradePage": {
+    "title": "会員アップグレード",
+    "subtitle": "あなたに適した会員レベルを選び、より多くの特典をアンロック",
+    "currentLevel": "現在のレベル",
+    "member": "会員",
+    "statusActive": "有効",
+    "statusExpired": "期限切れ",
+    "expiresAt": "有効期限",
+    "loading": "読み込み中...",
+    "noLevels": "選択可能な会員レベルがありません",
+    "popular": "おすすめ",
+    "days": "日",
+    "currentLevelBtn": "現在のレベル",
+    "upgradeNow": "今すぐアップグレード",
+    "subscribeNow": "今すぐ購読"
+  },
+  "recruitmentDetailPage": {
+    "loading": "読み込み中...",
+    "back": "戻る",
+    "notExist": "ポジションが存在しません",
+    "defaultSubtitle": "ポジション詳細",
+    "requirementsTitle": "応募要件",
+    "emptyRequirements": "要件はありません",
+    "benefitsTitle": "専属特典",
+    "emptyBenefits": "特典はありません",
+    "applicantsTitle": "応募者一覧",
+    "emptyApplicants": "応募者データはありません",
+    "publishTime": "公開日:{date}"
+  },
+  "developerSandboxPage": {
+    "title": "サンドボックステスト",
+    "subtitle": "APIをオンラインで呼び出してリクエストとレスポンスを検証",
+    "send": "送信",
+    "requestHeaders": "リクエストヘッダー",
+    "add": "追加",
+    "headerNamePlaceholder": "ヘッダー名",
+    "headerValuePlaceholder": "ヘッダー値",
+    "requestBody": "リクエストボディ",
+    "responseBody": "レスポンスボディ",
+    "requestFailed": "リクエスト失敗",
+    "requestError": "リクエストエラー"
+  },
+  "developerVersionsPage": {
+    "title": "API バージョン管理",
+    "subtitle": "APIバージョンの状態と廃止スケジュールを表示",
+    "loading": "読み込み中...",
+    "empty": "バージョン情報はありません",
+    "releasedAt": "公開日 {date}",
+    "deprecateTime": "廃止日時:",
+    "sunsetTime": "提供終了日時:",
+    "status": {
+      "stable": "安定",
+      "beta": "ベータ",
+      "deprecated": "廃止予定",
+      "sunset": "提供終了"
+    }
+  },
+  "distributionTeamDetailPage": {
+    "defaultName": "チームメンバー",
+    "loading": "読み込み中...",
+    "back": "戻る",
+    "notExist": "チームメンバーが存在しません",
+    "joinedAt": "参加日時:{time}",
+    "subordinateCount": "下位人数",
+    "teamLevel": "チーム階層",
+    "directSubordinates": "直属の下位",
+    "totalCount": "計 {count} 人",
+    "noSubordinates": "下位メンバーはいません"
+  },
+  "eduCoursesPage": {
+    "title": "マイコース",
+    "subtitle": "受講済みの全コースを管理",
+    "searchPlaceholder": "コースを検索...",
+    "searchAriaLabel": "コースを検索",
+    "loading": "読み込み中...",
+    "empty": "コースがありません",
+    "statusCompleted": "完了",
+    "statusInProgress": "受講中",
+    "statusNotStarted": "未開始",
+    "progress": "進捗 {n}%",
+    "total": "全 {n} 件"
+  },
+  "eduExamListPage": {
+    "title": "オンライン試験",
+    "subtitle": "試験を受験して成績を確認",
+    "loading": "読み込み中...",
+    "empty": "試験がありません",
+    "passed": "合格",
+    "notPassed": "不合格",
+    "questionCount": "{n} 問",
+    "totalScore": "満点 {n}",
+    "passScore": "合格点 {n}",
+    "duration": "{n} 分",
+    "bestScore": "最高点:{n}",
+    "retake": "再受験",
+    "start": "試験を開始"
+  },
+  "memberCouponsPage": {
+    "title": "クーポン",
+    "subtitle": "クーポンを管理、注文時に自動適用",
+    "tab": {
+      "unused": "未使用",
+      "used": "使用済み",
+      "expired": "期限切れ"
+    },
+    "loading": "読み込み中...",
+    "empty": "クーポンがありません",
+    "discount": "割引",
+    "yuan": "元",
+    "minSpend": "最低利用額 {amount}",
+    "validUntil": "有効期限:{date}"
   }
 }

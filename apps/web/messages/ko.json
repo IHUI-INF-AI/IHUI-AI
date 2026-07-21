@@ -1483,6 +1483,20 @@
       "next": "다음",
       "pageInfo": "{page}/{totalPages} 페이지",
       "total": "총 {total}개"
+    },
+    "result": {
+      "correct": "정답",
+      "wrong": "오답",
+      "unanswered": "미응답",
+      "duration": "소요 시간",
+      "minutes": "{n}분",
+      "submittedAt": "제출 시간: {time}",
+      "detailsTitle": "응답 상세",
+      "detailsEmpty": "응답 상세 없음",
+      "yourAnswer": "사용자 답변:",
+      "correctAnswer": "정답:",
+      "analysis": "해설:",
+      "points": "{n}점"
     }
   },
   "circles": {
@@ -1491,7 +1505,19 @@
     "loading": "로딩 중...",
     "empty": "서클 없음",
     "memberCount": "{count}명 회원",
-    "postCount": "{count}개 게시물"
+    "postCount": "{count}개 게시물",
+    "post": {
+      "cardTitle": "새 게시물",
+      "selectCircle": "서클 선택",
+      "selectCirclePlaceholder": "서클을 선택해 주세요",
+      "titleLabel": "제목",
+      "titlePlaceholder": "게시물 제목을 입력하세요",
+      "contentLabel": "내용",
+      "contentPlaceholder": "게시물 내용을 입력하세요",
+      "images": "이미지",
+      "errorCircleRequired": "서클을 선택해 주세요",
+      "errorTitleContentRequired": "제목과 내용은 필수입니다"
+    }
   },
   "plaza": {
     "title": "AI인마음페이스테스트",
@@ -7773,13 +7799,13 @@
       "renewNow": "지금 갱신",
       "openNow": "지금 가입",
       "days": "일",
-      "pleaseSelectPlan": "구독 플랜을 선택해 주세요",
+      "pleaseSelectPlan": "먼저 구독 플랜을 선택해 주세요",
       "openAutoRenewFailed": "자동 갱신 활성화 실패",
       "autoRenewManageTitle": "자동 갱신 관리",
-      "autoRenewOpened": "자동 갱신이 활성화되었습니다",
-      "nextCharge": "다음 결제일",
+      "autoRenewOpened": "자동 갱신 활성화됨",
+      "nextCharge": "다음 결제:",
       "manage": "관리",
-      "autoRenewClosed": "자동 갱신이 비활성화되었습니다",
+      "autoRenewClosed": "자동 갱신 미활성화",
       "openAutoRenew": "자동 갱신 활성화"
     },
     "articles": {
@@ -12048,11 +12074,55 @@
       "runSuccess": "실행 성공",
       "runFailed": "실행 실패",
       "historyTitle": "히스토리 기록",
-      "historyEmpty": "게시 기록 없음"
+      "historyEmpty": "게시 기록 없음",
+      "pipeline": "원클릭 파이프라인",
+      "pipelineRunning": "8개의 음성 대본 생성 + 이중 게이트 검증을 실행 중입니다. 5-10분 소요 예상, 페이지를 벗어나지 마세요...",
+      "downloadAll": "전체 다운로드",
+      "copied": "복사됨",
+      "copy": "복사",
+      "articleNumber": "제 {n} 편",
+      "articleUnit": "편",
+      "msUnit": "ms",
+      "historyItemHint": "이 기록의 매개변수 재사용",
+      "validateFailedPrefix": "validate 실패: ",
+      "unknownError": "알 수 없는 오류",
+      "noOutputPathError": "generate가 outputPath를 반환하지 않아 validate를 계속할 수 없습니다",
+      "latestOutput": "최신 출력:",
+      "requestFailed": "요청 실패",
+      "networkError": "네트워크 오류"
     },
     "automationPage": {
       "historyTitle": "실행 히스토리",
-      "historyEmpty": "실행 기록 없음"
+      "historyEmpty": "실행 기록 없음",
+      "running": "실행 중",
+      "toggleAriaLabel": "작업 활성화/비활성화",
+      "executionTime": "실행 시간",
+      "runMode": "실행 모드",
+      "modeDryRun": "dry-run(푸시 안 함)",
+      "modeProduction": "프로덕션(실제 푸시)",
+      "titleTemplate": "제목 템플릿",
+      "notConfigured": "(미설정)",
+      "status": "상태",
+      "enabled": "활성화됨",
+      "disabled": "비활성화됨",
+      "lastRun": "최근 실행",
+      "hourLabel": "시간 (0-23)",
+      "minuteLabel": "분 (0-59)",
+      "dryRunLabel": "dry-run 모드(실제로 임시 보관함에 푸시하지 않음)",
+      "titleTemplateLabel": "제목 템플릿({date} 자리 표시자 사용, MMDD로 대체)",
+      "titleTemplatePlaceholder": "예: 오늘의 AI 뉴스 {date}",
+      "cancel": "취소",
+      "save": "저장",
+      "triggerNow": "즉시 트리거",
+      "configure": "설정",
+      "enable": "활성화",
+      "disable": "비활성화",
+      "schedulerNoteTitle": "스케줄러 안내",
+      "note1": "예약 작업은 ai-service 시작 시 자동으로 마운트되며, 60초마다 폴링합니다.",
+      "note2": "모든 작업은 기본적으로 dry-run 모드이며, WeChat 임시 보관함에 실제로 푸시하지 않습니다. 수동으로 트리거하거나 설정에서 dry-run을 꺼야 합니다.",
+      "note3": "작업 실행 기록은 최근 30개(메모리 내)를 보관하며, 서비스 재시작 후 비워집니다.",
+      "note4": "시간대: 동 8구(Asia/Shanghai).",
+      "note5": "서비스 재시작 후, 작업 스위치는 환경 변수 <code>SELF_MEDIA_CRON_ENABLED</code>(기본 false)의 값으로 재설정됩니다. 이 페이지에서 런타임에 활성화한 상태는 디스크에 영속화되지 않습니다."
     }
   },
   "publish": {
@@ -26457,5 +26527,224 @@
     "upgrade": "업그레이드",
     "renewSuccess": "갱신 성공",
     "upgradeSuccess": "플랜이 업그레이드되었습니다"
+  },
+  "agentsCategoriesPage": {
+    "loading": "로딩 중...",
+    "back": "뒤로",
+    "notExists": "카테고리가 존재하지 않습니다",
+    "status": {
+      "enabled": "활성화",
+      "disabled": "비활성화"
+    },
+    "paidCategory": "유료 카테고리",
+    "agentsTitle": "카테고리 내 에이전트",
+    "total": "총 {count}개",
+    "emptyAgents": "이 카테고리에 에이전트가 아직 없습니다",
+    "noDescription": "설명 없음",
+    "free": "무료",
+    "loadingAgents": "에이전트 로딩 중..."
+  },
+  "aiWorldSharePage": {
+    "linkCopied": "링크가 복사되었습니다",
+    "copyFailed": "복사 실패",
+    "loading": "로딩 중...",
+    "back": "뒤로",
+    "notExists": "프로젝트가 존재하지 않습니다",
+    "title": "프로젝트 공유",
+    "subtitle": "이 AI 월드 프로젝트를 다른 사람과 공유하세요",
+    "viewCount": "{count}회 조회",
+    "shareLink": "공유 링크",
+    "copied": "복사됨",
+    "copy": "복사",
+    "scanShare": "스캔하여 공유"
+  },
+  "chatSettingsPage": {
+    "saved": "설정이 저장되었습니다",
+    "errorTempRange": "온도는 0-2 사이여야 합니다",
+    "errorMaxTokensRange": "max_tokens는 1-32768 사이여야 합니다",
+    "back": "뒤로",
+    "title": "채팅 설정",
+    "subtitle": "모델 매개변수 및 시스템 프롬프트 구성",
+    "model": "모델",
+    "temperature": "온도 (0-2)",
+    "maxTokens": "max_tokens",
+    "systemPrompt": "시스템 프롬프트",
+    "systemPromptPlaceholder": "어시스턴트의 동작과 역할을 설정...",
+    "cancel": "취소",
+    "saving": "저장 중...",
+    "save": "저장"
+  },
+  "developerLogsPage": {
+    "title": "API 호출 로그",
+    "subtitle": "API 요청 기록 및 응답 세부정보 보기",
+    "statusFilter": {
+      "all": "전체",
+      "2xx": "2xx 성공",
+      "4xx": "4xx 클라이언트 오류",
+      "5xx": "5xx 서버 오류"
+    },
+    "searchPlaceholder": "경로 검색...",
+    "loading": "로딩 중...",
+    "empty": "호출 로그가 없습니다",
+    "keyValue": "키: {value}",
+    "requestBody": "요청 본문",
+    "responseBody": "응답 본문"
+  },
+  "eduCertificatesPage": {
+    "loading": "불러오는 중...",
+    "backToList": "자격증 목록으로 돌아가기",
+    "notFound": "자격증이 존재하지 않습니다",
+    "downloadFailed": "다운로드 실패({status})",
+    "certificateNo": "자격증 번호: {no}",
+    "status": {
+      "valid": "유효",
+      "revoked": "취소됨"
+    },
+    "completed": "이수 완료",
+    "issuanceText": "학습 및 평가를 통과하여 본 증서를 수여합니다",
+    "issuedAt": "발급일: {date}",
+    "print": "인쇄",
+    "download": "자격증 다운로드"
+  },
+  "eduCourseLearnPage": {
+    "loading": "불러오는 중...",
+    "backToDetail": "강의 상세로 돌아가기",
+    "loadFailed": "불러오기 실패",
+    "notes": "학습 노트",
+    "noteLabel": "이번 섹션의 핵심 기록",
+    "notePlaceholder": "노트 내용 입력...",
+    "saveNote": "노트 저장",
+    "sections": "섹션 목차",
+    "qa": "Q&A",
+    "qaPlaceholder": "질문하기...",
+    "qaEmpty": "질문이 없습니다"
+  },
+  "eduProgressPage": {
+    "title": "학습 진도",
+    "subtitle": "학습 성장 궤적 추적",
+    "loading": "불러오는 중...",
+    "weeklyHours": "이번 주 학습 시간",
+    "categoryProgress": "카테고리별 진도",
+    "noData": "데이터 없음",
+    "recentMilestones": "최근 마일스톤",
+    "noMilestones": "마일스톤 없음",
+    "stats": {
+      "totalStudy": "누적 학습",
+      "enrolled": "수강 강의",
+      "completed": "완료",
+      "avgProgress": "평균 진도"
+    }
+  },
+  "memberUpgradePage": {
+    "title": "멤버십 업그레이드",
+    "subtitle": "적합한 멤버십 등급을 선택하고 더 많은 혜택을 잠금해제하세요",
+    "currentLevel": "현재 등급",
+    "member": "멤버",
+    "statusActive": "활성 중",
+    "statusExpired": "만료됨",
+    "expiresAt": "만료",
+    "loading": "불러오는 중...",
+    "noLevels": "선택 가능한 멤버십 등급이 없습니다",
+    "popular": "추천",
+    "days": "일",
+    "currentLevelBtn": "현재 등급",
+    "upgradeNow": "지금 업그레이드",
+    "subscribeNow": "지금 구독"
+  },
+  "recruitmentDetailPage": {
+    "loading": "로딩 중...",
+    "back": "뒤로",
+    "notExist": "채용 포지션이 존재하지 않습니다",
+    "defaultSubtitle": "포지션 상세",
+    "requirementsTitle": "포지션 요구사항",
+    "emptyRequirements": "요구사항이 없습니다",
+    "benefitsTitle": "전용 혜택",
+    "emptyBenefits": "혜택이 없습니다",
+    "applicantsTitle": "지원자 목록",
+    "emptyApplicants": "지원자 데이터가 없습니다",
+    "publishTime": "게시 시간: {date}"
+  },
+  "developerSandboxPage": {
+    "title": "샌드박스 테스트",
+    "subtitle": "API를 온라인으로 호출하여 요청과 응답을 검증",
+    "send": "전송",
+    "requestHeaders": "요청 헤더",
+    "add": "추가",
+    "headerNamePlaceholder": "헤더 이름",
+    "headerValuePlaceholder": "헤더 값",
+    "requestBody": "요청 본문",
+    "responseBody": "응답 본문",
+    "requestFailed": "요청 실패",
+    "requestError": "요청 오류"
+  },
+  "developerVersionsPage": {
+    "title": "API 버전 관리",
+    "subtitle": "API 버전 상태와 폐기 일정 보기",
+    "loading": "로딩 중...",
+    "empty": "버전 정보가 없습니다",
+    "releasedAt": "게시일 {date}",
+    "deprecateTime": "폐기 시간:",
+    "sunsetTime": "서비스 종료 시간:",
+    "status": {
+      "stable": "안정",
+      "beta": "베타",
+      "deprecated": "폐기됨",
+      "sunset": "서비스 종료"
+    }
+  },
+  "distributionTeamDetailPage": {
+    "defaultName": "팀 멤버",
+    "loading": "로딩 중...",
+    "back": "뒤로",
+    "notExist": "팀 멤버가 존재하지 않습니다",
+    "joinedAt": "가입 시간: {time}",
+    "subordinateCount": "하위 인원",
+    "teamLevel": "팀 레벨",
+    "directSubordinates": "직속 하위",
+    "totalCount": "총 {count}명",
+    "noSubordinates": "하위 멤버가 없습니다"
+  },
+  "eduCoursesPage": {
+    "title": "내 강의",
+    "subtitle": "수강 신청한 모든 강의 관리",
+    "searchPlaceholder": "강의 검색...",
+    "searchAriaLabel": "강의 검색",
+    "loading": "로딩 중...",
+    "empty": "강의가 없습니다",
+    "statusCompleted": "완료",
+    "statusInProgress": "진행 중",
+    "statusNotStarted": "시작 전",
+    "progress": "진행률 {n}%",
+    "total": "총 {n}건"
+  },
+  "eduExamListPage": {
+    "title": "온라인 시험",
+    "subtitle": "시험 응시 및 성적 조회",
+    "loading": "로딩 중...",
+    "empty": "시험이 없습니다",
+    "passed": "합격",
+    "notPassed": "불합격",
+    "questionCount": "{n}문제",
+    "totalScore": "만점 {n}",
+    "passScore": "합격점 {n}",
+    "duration": "{n}분",
+    "bestScore": "최고점: {n}",
+    "retake": "재응시",
+    "start": "시험 시작"
+  },
+  "memberCouponsPage": {
+    "title": "쿠폰",
+    "subtitle": "쿠폰을 관리하세요, 주문 시 자동 적용",
+    "tab": {
+      "unused": "미사용",
+      "used": "사용됨",
+      "expired": "만료됨"
+    },
+    "loading": "로딩 중...",
+    "empty": "쿠폰이 없습니다",
+    "discount": "할인",
+    "yuan": "위안",
+    "minSpend": "최소 {amount} 이상",
+    "validUntil": "유효 기간: {date}"
   }
 }
