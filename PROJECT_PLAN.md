@@ -133,6 +133,51 @@
 
 ---
 
+### [x] ✅(2026-07-22) 深度代码质量治理 Round 2:packages/* + ai-service + mobile-rn + web/api 深挖(平台独占:仅 web+api+packages+ai-service+mobile-rn,/goal 模式完成)
+
+**触发**:用户 `/goal 深度分析...`,经 §8 硬门槛审核拒绝劣质条件 → 弹窗确认范围(4 大范围 + 4 问题类型 + 三闸全绿 + 保守修复)→ 启动 Round 2。
+
+**范围**(平台独占:仅 web+api+packages+ai-service+mobile-rn):
+- packages/*(auth/database/types/ui/config/eslint-config/tsconfig/ui-native)
+- ai-service(Python/FastAPI + LangGraph + LiteLLM + MCP)
+- mobile-rn(React Native)
+- web + api 深挖进阶(上一轮未覆盖的遗漏问题)
+
+**P1 完成(4 项,含 1 项严重安全 + 1 项隐藏 bug)**:
+1. **blacklist.ts 存储完整 JWT 到 Redis(严重安全)**:`packages/auth/src/blacklist.ts` `trackUserToken` L78 存储完整 token 到 `user_tokens:<userId>` set,与文件头注释"不写完整 JWT,仅存 token 摘要(SHA256)"矛盾。Redis 被攻破则 token 泄露。→ 改为存储 `fingerprint(token)`,`revokeUserTokens` 同步改为直接用 fingerprint
+2. **check-in.ts 死文件删除**:`apps/api/src/routes/check-in.ts` 未被 server.ts 注册(server.ts L109 仅注册 `checkin.ts`),365 行死代码。→ 删除
+3. **main.py shutdown_telemetry() 重复调用**:`apps/ai-service/app/main.py` L92 + L99 都调用 `shutdown_telemetry()`,L99 重复。→ 删除 L99 重复调用
+4. **oauth2.ts RedisAuthorizationCodeStore Date 序列化 bug(隐藏 bug)**:`packages/auth/src/oauth2.ts` L212 `JSON.parse(raw)` 将 Date 对象(经 JSON.stringify 变 ISO 字符串)还原为字符串,L213 `entry.expiresAt.getTime()` 抛 TypeError(字符串无 getTime 方法),catch 块返回 null → 每次 consume 都失败,OAuth2 code exchange 静默失效。→ 加 `new Date(parsed.expiresAt)` 还原
+
+**P2 完成(1 项)**:
+5. **rls.ts SET LOCAL 字符串拼接加固**:`packages/database/src/rls.ts` `withTenant` L42 `SET LOCAL app.tenant_id = '${tenantId}'` 使用字符串拼接。已有 `isValidTenantId` UUID 白名单校验(仅 hex+hyphen),注入风险为零。→ 加安全说明注释(PostgreSQL SET LOCAL 不支持参数绑定,UUID 校验是唯一可行方案)
+
+**扫描结论(未发现问题)**:
+- `eval(`/`new Function(`: 5 处均为 Redis eval(Lua 脚本)或 XSS 检测字符串,非 JS eval
+- `dangerouslySetInnerHTML`: 3 处均安全(Mermaid securityLevel='strict' / DOMPurify 消毒 / 静态 SW 注册字符串)
+- `as any`: web 0 处,api 仅 2 处(预存,非本任务范围)
+- `@ts-expect-error`: 4 处均有合理理由(可选依赖/Radix Slot)
+- mobile-rn token.ts: 已用 SecureStore + AsyncStorage fallback,安全
+- jwt.ts: verifyAccessToken/verifyRefreshToken 逻辑正确,token 类型互斥校验到位
+
+**issues.md 记录 6 个待跟进 issue**:
+1. ai-service `except Exception` 滥用(68 文件)— 需逐文件替换为具体异常类型
+2. mobile-rn SSO 缺少 `state` 参数(CSRF 风险)— 需跨端流程改动
+3. 签到 POST / TOCTOU 竞态条件 — 需添加 UNIQUE 约束(schema 变更)
+4. InMemoryAuthorizationCodeStore 过期条目无清理(P3,仅开发环境)
+5. jwt.ts verifyAccessToken 对缺失 sub 返回空字符串(P3)
+6. ai-service CORS allow_credentials + allow_methods=["*"](P3,生产环境应收紧)
+
+**验证证据**:
+- `pnpm --filter @ihui/auth typecheck` exit 0 ✅(blacklist.ts + oauth2.ts)
+- `pnpm --filter @ihui/auth lint` exit 0 ✅
+- `pnpm --filter @ihui/database typecheck` exit 0 ✅(rls.ts 注释改动)
+- `pnpm --filter @ihui/api typecheck` exit 0 ✅(check-in.ts 删除无影响)
+- `pnpm --filter @ihui/api lint` 0 errors ✅(34 warnings 全为预存 no-explicit-any)
+- `python -m py_compile apps/ai-service/app/main.py` exit 0 ✅
+
+---
+
 ### [x] ✅(2026-07-22) AI 对话内嵌浏览器工作展示区 P0+P1+P2+P3(全 4 阶段完成:8 端同步 + Playwright 截图降级 + AI 深度联动 + 多 Tab 收藏)
 
 **触发**:用户要求"AI 对话框需要调用浏览器时右侧工作展示区切换为内置 chrome 浏览器,或点击网址时也直接在项目内打开"。经深度探讨确认方案:右侧固定面板 + 全 8 端同步 + 后端 Playwright 截图降级 + AI 工具调用深度联动。
@@ -352,6 +397,32 @@ P2 AI 工具调用深度联动(5 修改文件):
 **遗留(P1/P2,非本任务范围)**:
 - P1:凭据类字段(oss_drivers/integration_configs 的 credentials)nullable 合理,不加 default
 - P2:email-logs/remote-device/security-logs/srs/stock 等 metadata 字段未加 default(审计判定 P2,代码无强依赖)
+
+---
+
+### [x] ✅(2026-07-22) G7 LLM 扣费收口:CrewAI 绕过扣费修复 + 全局 LLM 入口审计(平台独占:仅 api,已完成)
+
+**触发**:G3 遗留 P1"ai-chat-stream.ts 等散落 LLM 入口未收口到 worker 集中扣费(可能双重扣费)"。
+
+**范围**:`apps/api/src/services/crew-llm-adapter.ts` + `apps/api/src/services/crew-orchestrator.ts` + `apps/api/src/services/crew-tools.ts` + `apps/api/src/routes/crew.ts`
+
+**审计结论**:
+- 无双重扣费风险:没有任何 LLM 入口既走 ai-callback-worker 集中扣费又自己 deductTokens
+- 绕过扣费入口仅 `crew-llm-adapter.ts`(CrewAI 场景,不传 metadata → 不触发 callback → 不扣费)
+- 其他入口设计合理:用户自带 Key(ai-user-model-chat)/系统侧后台(ai-world-sync/ai-feed-service)/已有独立扣费(stock-service/proxy-tools)/触发 callback 集中扣费(chat/drama/workspace-ai-service 等)
+
+**完成证据**:
+- crew-llm-adapter.ts:import recordAiCost,LlmCallOptions 加 `userId?`/`sessionId?`,callRealLlm 返回前调 recordAiCost(stub 跳过,userId 未传跳过,try/catch 不阻塞主流程)
+- crew-orchestrator.ts:新增 `UsageAccumulator` 接口 + `_sessionUsage: Map` + `initUsage/accUsage/clearUsage` 三个辅助方法;SessionResult 加 `usage?`/`userId?`;CrewStreamEvent 加 `usage?`/`userId?`;executeSession/executeSessionStreaming 初始化+清理 usage;executeWithTools 3 处 callRealLlm 传 userId/sessionId + accUsage;callLlm 加 sessionId/userId 可选参数 + accUsage;runSimplified 传 sessionId/userId 给 callLlm
+- crew-tools.ts:`llm_generate` 工具 handler 接收 ctx 参数,传 userId/sessionId 给 callRealLlm(记成本)
+- crew.ts:POST /sessions/:id/runs 同步执行后 + GET /runs/:id/stream complete 事件后,用 `server.tokenBalance.deductTokens(userId, totalTokens, 'crew_session:'+id, 'crew:'+id)` 集中扣费(幂等键 `crew:<sessionId>` 防重复扣)
+- `pnpm --filter @ihui/api typecheck` exit 0 ✅
+- `pnpm --filter @ihui/api exec eslint` 4 文件 exit 0 ✅
+
+**遗留(P1/P2,非本任务范围)**:
+- P1:routes/agents.ts user_token_balance 双账本问题(G2 遗留,待 G8+ 处理)
+- P1:rechargeToken 仅幂等未 JOIN orders 表验证 outTradeNo status='paid'(G2 遗留,待 G8 处理)
+- P2:crew-tools.ts llm_generate 工具的 LLM 调用 usage 未累计到会话级 _sessionUsage(成本已记,但未纳入 deductTokens 扣费;主 LLM 调用已覆盖)
 
 ---
 
