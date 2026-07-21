@@ -10,6 +10,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { generateCompactId } from '../utils/crypto-random.js'
 
 interface OutboundCampaign {
   id: string
@@ -28,8 +29,10 @@ interface OutboundCampaign {
 
 const campaignStore = new Map<string, OutboundCampaign>()
 
+// 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成外呼活动 ID
+// 风险:可预测活动 ID → 攻击者枚举其他用户/团队外呼活动 → 越权访问/数据泄露
 function genId(prefix: string): string {
-  return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+  return generateCompactId(prefix)
 }
 
 async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
@@ -91,7 +94,9 @@ export const outboundRoutes: FastifyPluginAsync = async (server) => {
     list.sort((a, b) => b.createdAt - a.createdAt)
     const start = (query.page - 1) * query.pageSize
     const paged = list.slice(start, start + query.pageSize)
-    return reply.send(success({ list: paged, total: list.length, page: query.page, pageSize: query.pageSize }))
+    return reply.send(
+      success({ list: paged, total: list.length, page: query.page, pageSize: query.pageSize }),
+    )
   })
 
   // POST /campaign/:id/start — 启动外呼
@@ -99,7 +104,8 @@ export const outboundRoutes: FastifyPluginAsync = async (server) => {
     const { id } = idParam.parse(request.params)
     const campaign = campaignStore.get(id)
     if (!campaign) return reply.status(404).send(error(404, '任务不存在'))
-    if (campaign.userId !== request.userId) return reply.status(403).send(error(403, '无权操作该任务'))
+    if (campaign.userId !== request.userId)
+      return reply.status(403).send(error(403, '无权操作该任务'))
     if (campaign.status === 'running') {
       return reply.status(400).send(error(400, '任务已在运行中'))
     }
@@ -117,7 +123,8 @@ export const outboundRoutes: FastifyPluginAsync = async (server) => {
     const { id } = idParam.parse(request.params)
     const campaign = campaignStore.get(id)
     if (!campaign) return reply.status(404).send(error(404, '任务不存在'))
-    if (campaign.userId !== request.userId) return reply.status(403).send(error(403, '无权操作该任务'))
+    if (campaign.userId !== request.userId)
+      return reply.status(403).send(error(403, '无权操作该任务'))
     if (campaign.status !== 'running') {
       return reply.status(400).send(error(400, `任务当前状态: ${campaign.status},无法停止`))
     }
@@ -131,7 +138,8 @@ export const outboundRoutes: FastifyPluginAsync = async (server) => {
     const { id } = idParam.parse(request.params)
     const campaign = campaignStore.get(id)
     if (!campaign) return reply.status(404).send(error(404, '任务不存在'))
-    if (campaign.userId !== request.userId) return reply.status(403).send(error(403, '无权访问该任务'))
+    if (campaign.userId !== request.userId)
+      return reply.status(403).send(error(403, '无权访问该任务'))
     return reply.send(
       success({
         id: campaign.id,
@@ -141,8 +149,7 @@ export const outboundRoutes: FastifyPluginAsync = async (server) => {
         answeredCalls: campaign.answeredCalls,
         failedCalls: campaign.failedCalls,
         pendingCalls: campaign.totalCalls - campaign.answeredCalls - campaign.failedCalls,
-        answerRate:
-          campaign.totalCalls === 0 ? 0 : campaign.answeredCalls / campaign.totalCalls,
+        answerRate: campaign.totalCalls === 0 ? 0 : campaign.answeredCalls / campaign.totalCalls,
         durationMs: campaign.startedAt ? Date.now() - campaign.startedAt : 0,
       }),
     )

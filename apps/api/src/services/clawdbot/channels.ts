@@ -5,8 +5,10 @@
  */
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
+import { generateCompactId } from '../../utils/crypto-random.js'
 
-export type ChannelType = 'web' | 'wechat' | 'dingtalk' | 'feishu' | 'slack' | 'telegram' | 'api' | 'custom'
+export type ChannelType =
+  'web' | 'wechat' | 'dingtalk' | 'feishu' | 'slack' | 'telegram' | 'api' | 'custom'
 
 export interface ChannelConfig {
   id: string
@@ -58,10 +60,14 @@ export class ChannelManager extends EventEmitter {
   receiveMessage(message: Omit<ChannelMessage, 'id' | 'timestamp'>): ChannelMessage {
     const fullMessage: ChannelMessage = {
       ...message,
-      id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成消息 ID
+      id: generateCompactId('msg'),
       timestamp: Date.now(),
     }
-    logger.debug({ channelId: message.channelId, userId: message.userId }, '[Channels] Message received')
+    logger.debug(
+      { channelId: message.channelId, userId: message.userId },
+      '[Channels] Message received',
+    )
     this.emit('message', fullMessage)
     return fullMessage
   }
