@@ -1,6 +1,6 @@
 import { createDb } from '../src/client.js'
 import { aiFeedSource } from '../src/schema/ai-feed.js'
-import { eq } from 'drizzle-orm'
+import { eq, notInArray } from 'drizzle-orm'
 
 const db = createDb(
   process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui',
@@ -9,16 +9,14 @@ const db = createDb(
 /**
  * AI 资讯信源种子数据(参考 aihot.virxact.com/all 信源结构 + 权威扩充)。
  *
- * 五类信源:
- * 1. firstParty 国际厂商(12 个):OpenAI/Anthropic/Google DeepMind/Meta/Microsoft/Apple/Mistral/Cohere/HuggingFace/NVIDIA/Stability/xAI
- * 2. firstParty 国内厂商(6 个):通义千问/智谱清言/DeepSeek/月之暗面/腾讯混元/硅基流动
- * 3. news 国际媒体(5 个):MIT Tech Review/TechCrunch/The Verge/VentureBeat/Wired
- * 4. news 国内媒体(5 个):机器之心/量子位/智东西/雷锋网/PaperWeekly
- * 5. paper 学术(2 个):arXiv CS.AI / CS.CL
- * 6. hotlist 热榜(10 个):国内 8 + 国外 2
+ * 所有 endpoint 均为已验证可用的原生 RSS 或本地 DailyHotApi 路由。
+ * 公共 RSSHub/DailyHotApi 实例全失效,改用:
+ *  - 厂商/媒体:原生 RSS feed(已 curl 验证 XML 格式)
+ *  - 国内 hotlist:本地自建 DailyHotApi(http://localhost:6688)
  *
  * fetchIntervalMinutes 默认 360(6 小时),与 ai-feed-collect cron 每 6 小时一次对齐。
- * 幂等 upsert:已存在则只更新可变字段,不重置 enabled/lastFetchAt/lastFetchStatus。
+ * 幂等 upsert:已存在则只更新可变字段,不重置 lastFetchAt/lastFetchStatus/lastFetchCount。
+ * 未在 sources 数组中的信源自动 enabled=false(避免 cron 浪费请求)。
  */
 
 interface SourceSeed {
@@ -34,28 +32,17 @@ interface SourceSeed {
 }
 
 const sources: SourceSeed[] = [
-  // ===== 一手国际厂商(firstParty RSS,12 个)=====
+  // ===== 一手国际厂商(firstParty RSS,8 个,已验证原生 RSS)=====
   {
     sourceCode: 'openai-blog',
     sourceName: 'OpenAI Blog',
     sourceType: 'rss',
-    endpoint: '/openai/blog',
+    endpoint: 'https://openai.com/blog/rss.xml',
     category: 'first-party',
     icon: 'openai',
     color: '#10A37F',
     sortOrder: 101,
-    description: 'OpenAI 官方博客(GPT 系列 / DALL-E / Sora 一手发布)',
-  },
-  {
-    sourceCode: 'anthropic-blog',
-    sourceName: 'Anthropic Blog',
-    sourceType: 'rss',
-    endpoint: '/anthropic/blog',
-    category: 'first-party',
-    icon: 'anthropic',
-    color: '#D97757',
-    sortOrder: 102,
-    description: 'Anthropic 官方博客(Claude 系列一手发布)',
+    description: 'OpenAI 官方博客原生 RSS(GPT 系列 / DALL-E / Sora 一手发布)',
   },
   {
     sourceCode: 'google-deepmind',
@@ -70,14 +57,14 @@ const sources: SourceSeed[] = [
   },
   {
     sourceCode: 'meta-ai',
-    sourceName: 'Meta AI Blog',
+    sourceName: 'Meta AI Research',
     sourceType: 'rss',
-    endpoint: '/meta-ai',
+    endpoint: 'https://research.facebook.com/feed/',
     category: 'first-party',
     icon: 'meta',
     color: '#0668E1',
     sortOrder: 104,
-    description: 'Meta AI 官方博客(Llama 系列 / SeamlessM4T / Code Llama)',
+    description: 'Meta AI Research 原生 RSS(Llama 系列 / SeamlessM4T / Code Llama)',
   },
   {
     sourceCode: 'microsoft-research',
@@ -94,34 +81,23 @@ const sources: SourceSeed[] = [
     sourceCode: 'apple-ml',
     sourceName: 'Apple ML Research',
     sourceType: 'rss',
-    endpoint: '/apple-machine-learning',
+    endpoint: 'https://machinelearning.apple.com/rss.xml',
     category: 'first-party',
     icon: 'apple',
     color: '#000000',
     sortOrder: 106,
-    description: 'Apple 机器学习研究博客(MLX / Ferret / OpenELM)',
+    description: 'Apple 机器学习研究博客原生 RSS(MLX / Ferret / OpenELM)',
   },
   {
     sourceCode: 'mistral-ai',
     sourceName: 'Mistral AI Blog',
     sourceType: 'rss',
-    endpoint: '/mistral-ai',
+    endpoint: 'https://mistral.ai/rss.xml',
     category: 'first-party',
     icon: 'mistral',
     color: '#FF7000',
     sortOrder: 107,
-    description: 'Mistral AI 官方博客(Mistral / Mixtral 系列)',
-  },
-  {
-    sourceCode: 'cohere-blog',
-    sourceName: 'Cohere Blog',
-    sourceType: 'rss',
-    endpoint: '/cohere/blog',
-    category: 'first-party',
-    icon: 'cohere',
-    color: '#39594D',
-    sortOrder: 108,
-    description: 'Cohere 官方博客(Command / Command R+ 系列)',
+    description: 'Mistral AI 官方原生 RSS(Mistral / Mixtral 系列)',
   },
   {
     sourceCode: 'huggingface-blog',
@@ -138,105 +114,15 @@ const sources: SourceSeed[] = [
     sourceCode: 'nvidia-ai',
     sourceName: 'NVIDIA AI Blog',
     sourceType: 'rss',
-    endpoint: '/nvidia-ai',
+    endpoint: 'https://blogs.nvidia.com/feed/',
     category: 'first-party',
     icon: 'nvidia',
     color: '#76B900',
     sortOrder: 110,
-    description: 'NVIDIA AI 官方博客(NIM / TensorRT / GPU 算力生态)',
-  },
-  {
-    sourceCode: 'stability-ai',
-    sourceName: 'Stability AI Blog',
-    sourceType: 'rss',
-    endpoint: '/stability-ai',
-    category: 'first-party',
-    icon: 'stability',
-    color: '#8B5CF6',
-    sortOrder: 111,
-    description: 'Stability AI 官方博客(Stable Diffusion / Stable Video)',
-  },
-  {
-    sourceCode: 'xai-news',
-    sourceName: 'xAI News',
-    sourceType: 'rss',
-    endpoint: '/xai-news',
-    category: 'first-party',
-    icon: 'xai',
-    color: '#000000',
-    sortOrder: 112,
-    description: 'xAI 官方新闻(Grok 系列 / Colossus 算力)',
+    description: 'NVIDIA AI 官方博客原生 RSS(NIM / TensorRT / GPU 算力生态)',
   },
 
-  // ===== 一手国内厂商(firstParty RSS,6 个)=====
-  {
-    sourceCode: 'qwen',
-    sourceName: '通义千问',
-    sourceType: 'rss',
-    endpoint: '/qwen',
-    category: 'first-party',
-    icon: 'qwen',
-    color: '#615CED',
-    sortOrder: 121,
-    description: '阿里通义千问官方(Qwen 系列 / 通义万相 / 通义听悟)',
-  },
-  {
-    sourceCode: 'zhipu',
-    sourceName: '智谱清言',
-    sourceType: 'rss',
-    endpoint: '/zhipu',
-    category: 'first-party',
-    icon: 'zhipu',
-    color: '#1A56DB',
-    sortOrder: 122,
-    description: '智谱 AI 官方(ChatGLM / GLM-4 / CogVideoX 系列)',
-  },
-  {
-    sourceCode: 'deepseek',
-    sourceName: 'DeepSeek',
-    sourceType: 'rss',
-    endpoint: '/deepseek',
-    category: 'first-party',
-    icon: 'deepseek',
-    color: '#4D6BFE',
-    sortOrder: 123,
-    description: 'DeepSeek 官方(DeepSeek-V2 / V3 / R1 推理模型)',
-  },
-  {
-    sourceCode: 'moonshot',
-    sourceName: '月之暗面',
-    sourceType: 'rss',
-    endpoint: '/moonshot',
-    category: 'first-party',
-    icon: 'moonshot',
-    color: '#0F172A',
-    sortOrder: 124,
-    description: 'Moonshot AI 官方(Kimi 系列 / Kimi 探索版)',
-  },
-  {
-    sourceCode: 'tencent-hunyuan',
-    sourceName: '腾讯混元',
-    sourceType: 'rss',
-    endpoint: '/tencent-hunyuan',
-    category: 'first-party',
-    icon: 'tencent',
-    color: '#00A4FF',
-    sortOrder: 125,
-    description: '腾讯混元大模型官方(混元-Large / 混元-3D)',
-  },
-  {
-    sourceCode: 'siliconflow',
-    sourceName: '硅基流动',
-    sourceType: 'rss',
-    endpoint: '/siliconflow',
-    category: 'first-party',
-    icon: 'siliconflow',
-    color: '#00D4AA',
-    sortOrder: 126,
-    description: 'SiliconFlow 官方(推理云 / OneDiff / 模型 API 聚合)',
-  },
-
-  // ===== 资讯国际媒体(news RSS,5 个)=====
+  // ===== 资讯国际媒体(news RSS,5 个,已验证原生 RSS)=====
   {
     sourceCode: 'mit-tech-review',
     sourceName: 'MIT Technology Review',
@@ -272,14 +158,14 @@ const sources: SourceSeed[] = [
   },
   {
     sourceCode: 'venturebeat-ai',
-    sourceName: 'VentureBeat AI',
+    sourceName: 'VentureBeat',
     sourceType: 'rss',
-    endpoint: '/venturebeat/ai',
+    endpoint: 'https://feeds.feedburner.com/venturebeat/SZYF',
     category: 'ai-media',
     icon: 'venturebeat',
     color: '#FF1A1A',
     sortOrder: 204,
-    description: 'VentureBeat AI 频道(企业 AI / 模型评测)',
+    description: 'VentureBeat 全站原生 RSS via FeedBurner(企业 AI / 模型评测,LLM 自动筛选 AI 条目)',
   },
   {
     sourceCode: 'wired-ai',
@@ -293,61 +179,28 @@ const sources: SourceSeed[] = [
     description: 'Wired 杂志 AI 板块原生 RSS(科技文化 / 长篇报道)',
   },
 
-  // ===== 资讯国内媒体(news RSS,5 个)=====
-  {
-    sourceCode: 'jiqizhixin',
-    sourceName: '机器之心',
-    sourceType: 'rss',
-    endpoint: '/jiqizhixin',
-    category: 'ai-media',
-    icon: 'jiqizhixin',
-    color: '#C7254E',
-    sortOrder: 211,
-    description: '机器之心(国内 AI 媒体头部,论文解读 / 产业报道)',
-  },
+  // ===== 资讯国内媒体(news RSS,2 个,已验证原生 RSS)=====
   {
     sourceCode: 'qbitai',
     sourceName: '量子位',
     sourceType: 'rss',
-    endpoint: '/qbitai',
+    endpoint: 'https://www.qbitai.com/feed',
     category: 'ai-media',
     icon: 'qbitai',
     color: '#2E7D32',
     sortOrder: 212,
-    description: '量子位(国内 AI 资讯,前沿动态 / 深度分析)',
-  },
-  {
-    sourceCode: 'xinzhiqiang',
-    sourceName: '智东西',
-    sourceType: 'rss',
-    endpoint: '/xinzhiqiang',
-    category: 'ai-media',
-    icon: 'xinzhiqiang',
-    color: '#1565C0',
-    sortOrder: 213,
-    description: '智东西(AI 产业媒体,产品评测 / 行业洞察)',
+    description: '量子位原生 RSS(国内 AI 资讯,前沿动态 / 深度分析)',
   },
   {
     sourceCode: 'leiphone-ai',
-    sourceName: '雷锋网 AI',
+    sourceName: '雷锋网',
     sourceType: 'rss',
-    endpoint: '/leiphone/ai',
+    endpoint: 'https://www.leiphone.com/feed',
     category: 'ai-media',
     icon: 'leiphone',
     color: '#E53935',
     sortOrder: 214,
-    description: '雷锋网 AI 频道(产业报道 / 学术合作)',
-  },
-  {
-    sourceCode: 'paperweekly',
-    sourceName: 'PaperWeekly',
-    sourceType: 'rss',
-    endpoint: '/paperweekly',
-    category: 'ai-paper',
-    icon: 'paperweekly',
-    color: '#5C6BC0',
-    sortOrder: 215,
-    description: 'PaperWeekly(论文社区,每周精选 / 作者解读)',
+    description: '雷锋网全站原生 RSS(产业报道 / AI 频道,LLM 自动筛选 AI 条目)',
   },
 
   // ===== 学术论文(paper RSS,2 个)=====
@@ -374,97 +227,7 @@ const sources: SourceSeed[] = [
     description: 'arXiv 计算机科学 - 计算语言学(NLP)最新论文(原生 RSS)',
   },
 
-  // ===== 国内 hotlist(DailyHotApi,8 个)=====
-  {
-    sourceCode: 'weibo',
-    sourceName: '微博热搜',
-    sourceType: 'hotlist',
-    endpoint: '/news/weibo',
-    category: 'general',
-    icon: 'weibo',
-    color: '#E6162D',
-    sortOrder: 301,
-    description: '微博实时热搜榜(AI 相关条目)',
-  },
-  {
-    sourceCode: 'zhihu',
-    sourceName: '知乎热榜',
-    sourceType: 'hotlist',
-    endpoint: '/news/zhihu',
-    category: 'general',
-    icon: 'zhihu',
-    color: '#0084FF',
-    sortOrder: 302,
-    description: '知乎热门话题(AI 相关条目)',
-  },
-  {
-    sourceCode: '36kr',
-    sourceName: '36氪',
-    sourceType: 'hotlist',
-    endpoint: '/news/36kr',
-    category: 'general',
-    icon: '36kr',
-    color: '#0061FE',
-    sortOrder: 303,
-    description: '36氪科技快讯(AI 行业动态)',
-  },
-  {
-    sourceCode: 'sspai',
-    sourceName: '少数派',
-    sourceType: 'hotlist',
-    endpoint: '/news/sspai',
-    category: 'tech-community',
-    icon: 'sspai',
-    color: '#D33A31',
-    sortOrder: 304,
-    description: '少数派热门文章(AI 工具与实践)',
-  },
-  {
-    sourceCode: 'juejin',
-    sourceName: '掘金',
-    sourceType: 'hotlist',
-    endpoint: '/news/juejin',
-    category: 'tech-community',
-    icon: 'juejin',
-    color: '#1E80FF',
-    sortOrder: 305,
-    description: '掘金技术热榜(AI 编程与算法)',
-  },
-  {
-    sourceCode: 'v2ex',
-    sourceName: 'V2EX',
-    sourceType: 'hotlist',
-    endpoint: '/news/v2ex',
-    category: 'tech-community',
-    icon: 'v2ex',
-    color: '#333333',
-    sortOrder: 306,
-    description: 'V2EX 创意工作者社区(AI 话题)',
-  },
-  {
-    sourceCode: 'bilibili',
-    sourceName: '哔哩哔哩',
-    sourceType: 'hotlist',
-    endpoint: '/news/bilibili',
-    category: 'general',
-    icon: 'bilibili',
-    color: '#FB7299',
-    sortOrder: 307,
-    description: 'B站热门视频(AI 教程与资讯)',
-  },
-  {
-    sourceCode: 'ithome',
-    sourceName: 'IT之家',
-    sourceType: 'hotlist',
-    endpoint: '/news/ithome',
-    category: 'ai-media',
-    icon: 'ithome',
-    color: '#DA251D',
-    sortOrder: 308,
-    description: 'IT之家热门资讯(AI 板块)',
-  },
-
-  // ===== 国外 hotlist(DailyHotApi,3 个)=====
+  // ===== 技术社区 + 国外 hotlist(3 个,已验证原生 RSS)=====
   {
     sourceCode: 'hackernews',
     sourceName: 'Hacker News',
@@ -477,17 +240,6 @@ const sources: SourceSeed[] = [
     description: 'Y Combinator Hacker News 原生 RSS(全球开发者社区)',
   },
   {
-    sourceCode: 'producthunt',
-    sourceName: 'Product Hunt',
-    sourceType: 'hotlist',
-    endpoint: '/news/producthunt',
-    category: 'general',
-    icon: 'producthunt',
-    color: '#DA552F',
-    sortOrder: 312,
-    description: 'Product Hunt 每日 AI 产品榜(全球新品发现)',
-  },
-  {
     sourceCode: 'github-trending',
     sourceName: 'GitHub Trending',
     sourceType: 'rss',
@@ -497,6 +249,96 @@ const sources: SourceSeed[] = [
     color: '#181717',
     sortOrder: 313,
     description: 'GitHub Trending 原生 RSS(AI/LLM 仓库热度榜)',
+  },
+  {
+    sourceCode: 'sspai',
+    sourceName: '少数派',
+    sourceType: 'rss',
+    endpoint: 'https://sspai.com/feed',
+    category: 'tech-community',
+    icon: 'sspai',
+    color: '#D33A31',
+    sortOrder: 304,
+    description: '少数派原生 RSS(AI 工具与实践文章)',
+  },
+
+  // ===== 国内 hotlist(本地自建 DailyHotApi,7 个)=====
+  {
+    sourceCode: 'weibo',
+    sourceName: '微博热搜',
+    sourceType: 'hotlist',
+    endpoint: '/weibo',
+    category: 'general',
+    icon: 'weibo',
+    color: '#E6162D',
+    sortOrder: 301,
+    description: '微博实时热搜榜(本地 DailyHotApi,LLM 筛选 AI 相关)',
+  },
+  {
+    sourceCode: 'zhihu',
+    sourceName: '知乎热榜',
+    sourceType: 'hotlist',
+    endpoint: '/zhihu',
+    category: 'general',
+    icon: 'zhihu',
+    color: '#0084FF',
+    sortOrder: 302,
+    description: '知乎热门话题(本地 DailyHotApi,LLM 筛选 AI 相关)',
+  },
+  {
+    sourceCode: '36kr',
+    sourceName: '36氪',
+    sourceType: 'hotlist',
+    endpoint: '/36kr',
+    category: 'general',
+    icon: '36kr',
+    color: '#0061FE',
+    sortOrder: 303,
+    description: '36氪热榜(本地 DailyHotApi,AI 行业动态)',
+  },
+  {
+    sourceCode: 'juejin',
+    sourceName: '掘金',
+    sourceType: 'hotlist',
+    endpoint: '/juejin',
+    category: 'tech-community',
+    icon: 'juejin',
+    color: '#1E80FF',
+    sortOrder: 305,
+    description: '掘金技术热榜(本地 DailyHotApi,AI 编程与算法)',
+  },
+  {
+    sourceCode: 'v2ex',
+    sourceName: 'V2EX',
+    sourceType: 'hotlist',
+    endpoint: '/v2ex',
+    category: 'tech-community',
+    icon: 'v2ex',
+    color: '#333333',
+    sortOrder: 306,
+    description: 'V2EX 主题榜(本地 DailyHotApi,AI 话题)',
+  },
+  {
+    sourceCode: 'bilibili',
+    sourceName: '哔哩哔哩',
+    sourceType: 'hotlist',
+    endpoint: '/bilibili',
+    category: 'general',
+    icon: 'bilibili',
+    color: '#FB7299',
+    sortOrder: 307,
+    description: 'B站热门视频(本地 DailyHotApi,AI 教程与资讯)',
+  },
+  {
+    sourceCode: 'ithome',
+    sourceName: 'IT之家',
+    sourceType: 'hotlist',
+    endpoint: '/ithome',
+    category: 'ai-media',
+    icon: 'ithome',
+    color: '#DA251D',
+    sortOrder: 308,
+    description: 'IT之家热榜(本地 DailyHotApi,AI 板块)',
   },
 ]
 
@@ -513,7 +355,7 @@ export async function seedAiFeedSources() {
       .where(eq(aiFeedSource.sourceCode, src.sourceCode))
 
     if (existing) {
-      // 已存在:仅更新可变字段,不重置 enabled / lastFetchAt / lastFetchStatus / lastFetchCount
+      // 已存在:更新可变字段 + enabled=true(重新启用)
       await db
         .update(aiFeedSource)
         .set({
@@ -525,7 +367,8 @@ export async function seedAiFeedSources() {
           color: src.color,
           sortOrder: src.sortOrder,
           description: src.description,
-          fetchIntervalMinutes: 360, // 与 cron 6h 对齐
+          enabled: true,
+          fetchIntervalMinutes: 360,
           updatedAt: new Date(),
         })
         .where(eq(aiFeedSource.sourceCode, src.sourceCode))
@@ -548,7 +391,14 @@ export async function seedAiFeedSources() {
     }
   }
 
+  // 禁用 sources 数组中不存在的信源(无可用原生 RSS 的信源)
+  const activeCodes = sources.map((s) => s.sourceCode)
+  const disabledResult = await db
+    .update(aiFeedSource)
+    .set({ enabled: false, updatedAt: new Date() })
+    .where(notInArray(aiFeedSource.sourceCode, activeCodes))
+
   console.log(
-    `AI 资讯信源导入完成: 新增 ${inserted} 条, 更新 ${updated} 条, 共 ${sources.length} 条`,
+    `AI 资讯信源导入完成: 新增 ${inserted} 条, 更新 ${updated} 条, 共 ${sources.length} 条; 已禁用 ${disabledResult.count} 条无可用源信源`,
   )
 }
