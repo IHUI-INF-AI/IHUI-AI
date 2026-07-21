@@ -9,7 +9,7 @@ export const analyticsEvents = pgTable(
     id: serial('id').primaryKey(),
     userId: uuid('user_id'),
     event: varchar('event', { length: 100 }).notNull(),
-    properties: jsonb('properties'),
+    properties: jsonb('properties').default({}),
     ip: varchar('ip', { length: 45 }),
     userAgent: text('user_agent'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
