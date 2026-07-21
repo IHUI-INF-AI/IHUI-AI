@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Star, Send } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import {
   Button,
@@ -14,7 +15,7 @@ import {
   DialogDescription,
 } from '@ihui/ui'
 import { cn } from '@/lib/utils'
-import { api, STATUS_LABEL, STATUS_BADGE, PRIORITY_LABEL, textareaClass } from './helpers'
+import { api, STATUS_BADGE, textareaClass } from './helpers'
 import type { Ticket, Comment, Rating } from './types'
 import { formatDate } from '@/lib/date-utils'
 
@@ -27,6 +28,7 @@ export function TicketDetailDialog({
   open: boolean
   onOpenChange: (o: boolean) => void
 }) {
+  const t = useTranslations('ticketDetailDialog')
   const qc = useQueryClient()
   const [reply, setReply] = React.useState('')
   const [rating, setRating] = React.useState(5)
@@ -81,16 +83,16 @@ export function TicketDetailDialog({
             <span className="font-mono text-xs text-muted-foreground">{ticket.ticketNo}</span>
           </DialogTitle>
           <DialogDescription>
-            状态：
+            {t('statusPrefix')}
             <span
               className={cn(
                 'ml-1 inline-flex rounded-md px-2 py-0.5 text-xs font-medium',
                 STATUS_BADGE[ticket.status],
               )}
             >
-              {STATUS_LABEL[ticket.status]}
+              {t(`status.${ticket.status}`)}
             </span>
-            <span className="ml-2">优先级：{PRIORITY_LABEL[ticket.priority]}</span>
+            <span className="ml-2">{t('priorityPrefix')}{t(`priority.${ticket.priority}`)}</span>
           </DialogDescription>
         </DialogHeader>
 
@@ -102,14 +104,14 @@ export function TicketDetailDialog({
           )}
 
           <div className="rounded-md bg-muted/40 px-3 py-2 text-sm">
-            <div className="mb-1 text-xs font-medium text-muted-foreground">问题描述</div>
+            <div className="mb-1 text-xs font-medium text-muted-foreground">{t('descriptionLabel')}</div>
             <p className="whitespace-pre-wrap">{ticket.description}</p>
           </div>
 
           <div className="space-y-2">
-            <div className="text-sm font-medium">沟通记录</div>
+            <div className="text-sm font-medium">{t('commentsLabel')}</div>
             {comments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">暂无回复</p>
+              <p className="text-sm text-muted-foreground">{t('noComments')}</p>
             ) : (
               <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border p-2">
                 {comments.map((c) => (
@@ -121,7 +123,7 @@ export function TicketDetailDialog({
                     )}
                   >
                     <div className="mb-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="font-medium">{c.isAdmin ? '客服' : '我'}</span>
+                      <span className="font-medium">{c.isAdmin ? t('adminRole') : t('userRole')}</span>
                       <span>{formatDate(c.createdAt)}</span>
                     </div>
                     <p className="whitespace-pre-wrap">{c.content}</p>
@@ -132,14 +134,14 @@ export function TicketDetailDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="user-reply">补充回复</Label>
+            <Label htmlFor="user-reply">{t('replyLabel')}</Label>
             <textarea
               id="user-reply"
               value={reply}
               onChange={(e) => setReply(e.target.value)}
               rows={3}
               className={textareaClass}
-              placeholder="输入补充内容..."
+              placeholder={t('replyPlaceholder')}
             />
             <div className="flex justify-end">
               <Button
@@ -155,7 +157,7 @@ export function TicketDetailDialog({
                 ) : (
                   <Send className="mr-1 h-4 w-4" />
                 )}
-                发送
+                {t('send')}
               </Button>
             </div>
           </div>
@@ -164,7 +166,7 @@ export function TicketDetailDialog({
             <div className="rounded-md border px-3 py-2">
               <div className="mb-1 flex items-center gap-1 text-sm font-medium">
                 <Star className="h-4 w-4 text-amber-500" />
-                我的评价
+                {t('myRating')}
               </div>
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((n) => (
@@ -187,7 +189,7 @@ export function TicketDetailDialog({
             <div className="space-y-2 rounded-md border px-3 py-2">
               <div className="flex items-center gap-1 text-sm font-medium">
                 <Star className="h-4 w-4 text-amber-500" />
-                服务评价
+                {t('serviceRating')}
               </div>
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((n) => (
@@ -208,7 +210,7 @@ export function TicketDetailDialog({
                 onChange={(e) => setRatingComment(e.target.value)}
                 rows={2}
                 className={textareaClass}
-                placeholder="评价备注（可选）"
+                placeholder={t('ratingCommentPlaceholder')}
               />
               <div className="flex justify-end">
                 <Button
@@ -220,7 +222,7 @@ export function TicketDetailDialog({
                   }}
                 >
                   {ratingMut.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                  提交评价
+                  {t('submitRating')}
                 </Button>
               </div>
             </div>

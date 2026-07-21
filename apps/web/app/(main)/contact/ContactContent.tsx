@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Mail, Phone, MapPin, Globe, MessageCircle, Sparkles, Loader2 } from 'lucide-react'
 import { Button } from '@ihui/ui'
 import { fetchApi } from '@/lib/api'
@@ -76,6 +77,7 @@ export function ContactContent({
   fallbackContacts: ContactItem[]
   fallbackCompany: CompanyInfo
 }): React.JSX.Element {
+  const t = useTranslations('contactPage')
   const { data, isLoading } = useQuery({
     queryKey: ['contact'],
     queryFn: fetchContacts,
@@ -91,11 +93,11 @@ export function ContactContent({
       <section className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
-          联系我们
+          {t('badge')}
         </div>
-        <h1 className="text-3xl font-bold tracking-tight md:text-5xl">与我们取得联系</h1>
+        <h1 className="text-3xl font-bold tracking-tight md:text-5xl">{t('title')}</h1>
         <p className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
-          商务合作、课程咨询、企业服务定制,欢迎随时联系我们。我们的团队会在 24 小时内回复。
+          {t('subtitle')}
         </p>
       </section>
 
@@ -104,7 +106,7 @@ export function ContactContent({
         {isLoading && (
           <div className="col-span-full flex items-center justify-center py-12 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            加载中...
+            {t('loading')}
           </div>
         )}
         {!isLoading &&
@@ -135,10 +137,12 @@ export function ContactContent({
             <MapPin className="h-5 w-5 text-primary" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-lg font-semibold">公司地址</h2>
+            <h2 className="text-lg font-semibold">{t('addressTitle')}</h2>
             <p className="text-sm text-muted-foreground">{company.name}</p>
             {company.merchantId && (
-              <p className="text-sm text-muted-foreground">微信支付商户号:{company.merchantId}</p>
+              <p className="text-sm text-muted-foreground">
+                {t('merchantIdLabel')}:{company.merchantId}
+              </p>
             )}
             {company.address && <p className="text-sm text-muted-foreground">{company.address}</p>}
           </div>
@@ -147,16 +151,16 @@ export function ContactContent({
 
       {/* CTA */}
       <section className="mt-12 rounded-2xl border bg-primary/5 p-8 text-center md:p-12">
-        <h2 className="text-2xl font-bold tracking-tight md:text-3xl">立即加入智汇 AI 社区</h2>
+        <h2 className="text-2xl font-bold tracking-tight md:text-3xl">{t('ctaTitle')}</h2>
         <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground md:text-base">
-          早鸟价 ¥6000/人/年,限 18 席。一对一 AI 顾问咨询,不满意全额退款。
+          {t('ctaSubtitle')}
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <Button size="lg" asChild>
-            <Link href="/support?source=contact">立即加入</Link>
+            <Link href="/support?source=contact">{t('ctaJoin')}</Link>
           </Button>
           <Button size="lg" variant="outline" asChild>
-            <Link href="/about">了解更多</Link>
+            <Link href="/about">{t('ctaLearnMore')}</Link>
           </Button>
         </div>
       </section>

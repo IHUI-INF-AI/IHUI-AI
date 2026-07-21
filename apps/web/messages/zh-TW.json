@@ -537,7 +537,13 @@
       "community": "社區圈子",
       "resource": "資源中心",
       "developer": "開發者中心"
-    }
+    },
+    "adminGroupLabel": "管理",
+    "eduGroup": "AI教育",
+    "contentGroup": "內容",
+    "tradeGroup": "交易",
+    "personalGroup": "個人",
+    "developerGroup": "開發者"
   },
   "auth": {
     "loginTitle": "歡迎回來",
@@ -1143,7 +1149,8 @@
       "noTarget": "未選擇",
       "itemCount": "{count, plural, =0 {無文件夾} =1 {1 個文件夾} other {{count} 個文件夾}}",
       "itemCountFiltered": "顯示 {filtered} / {total} 個",
-      "shortcutsHint": "↑↓ 瀏覽 · Enter 打開/進入 · Backspace 返回上層"
+      "shortcutsHint": "↑↓ 瀏覽 · Enter 打開/進入 · Backspace 返回上層",
+      "rowOpenHint": "開啟"
     },
     "permission": {
       "title": "工作區訪問權限",
@@ -1791,7 +1798,18 @@
       "stripe": "Stripe",
       "usdc": "USDC",
       "payNow": "立即支付",
-      "processing": "處理中..."
+      "processing": "處理中...",
+      "paySuccess": "支付成功",
+      "payIncomplete": "支付未完成",
+      "payTimeout": "支付超時,請重試",
+      "orderClosed": "訂單已關閉",
+      "payConfigNotReady": "支付設定未就緒",
+      "contactAdmin": "請聯繫管理員",
+      "methodNotSupported": "支付方式不支援",
+      "wechatScanTitle": "微信掃碼支付",
+      "wechatScanDesc": "請使用微信掃描下方二維碼,支付完成後自動跳轉",
+      "wechatQrAlt": "微信支付二維碼",
+      "loading": "載入中..."
     }
   },
   "admin": {
@@ -9649,7 +9667,15 @@
       "noTemplate": "該廠商暫無預置範本,請到「設定 → LLM 配置」手動新增",
       "securityHint": "API Key 使用 AES-256-GCM 加密儲存,僅本帳號可見,不會明文落庫或傳輸到第三方。",
       "fullConfigHint": "如需修改上下文長度 / 備註 / 自訂 Base URL,請前往",
-      "openFullConfig": "完整配置頁 →"
+      "openFullConfig": "完整配置頁 →",
+      "errSelectPlatform": "請選擇平臺",
+      "errApiKeyRequired": "請填寫 API Key",
+      "errModelIdRequired": "請填寫模型 ID",
+      "errNoTemplate": "該廠商無預置模板",
+      "defaultConfigName": "我的設定",
+      "official": "官方",
+      "cancel": "取消",
+      "testDuration": "耗時 {ms}ms"
     },
     "providers": {
       "openai": "OpenAI",
@@ -9880,7 +9906,11 @@
       "resetFilters": "重設篩選",
       "configureKey": "配置 API Key",
       "updateKey": "更新 Key",
-      "configureKeyHint": "該模型需先配置 API Key 才能使用,點此一鍵配置。"
+      "configureKeyHint": "該模型需先配置 API Key 才能使用,點此一鍵配置。",
+      "ariaLabel": {
+        "addFavorite": "收藏模型",
+        "removeFavorite": "取消收藏"
+      }
     },
     "aiNews": {
       "title": "2026-07 AI 資訊",
@@ -13830,26 +13860,66 @@
     "downloadToView": "下載查看"
   },
   "commandPalette": {
-    "placeholder": "輸入命令搜尋...",
-    "escToAbort": "按 ESC 關閉",
-    "enter": "回車",
-    "navigate": "導航",
-    "execute": "執行",
-    "systemReady": "系統就緒",
-    "cpuOptimized": "性能優化",
-    "noResults": "未找到匹配的命令",
-    "systemInternal": "系統內部",
+    "searchPlaceholder": "搜尋指令...",
+    "noResults": "未找到匹配的指令",
+    "keyboardHint": "↑↓ 選擇 · Enter 執行",
+    "resultCount": "{count} 個結果",
     "commands": {
-      "home": "返回首頁",
-      "store": "AI應用商店",
-      "plaza": "需求廣場",
-      "learnAI": "學習AI",
-      "community": "AI創作社區",
-      "docs": "技術文檔",
-      "about": "關於我們",
-      "darkMode": "切換暗色模式",
-      "aiAssistant": "打開AI助手",
-      "backToTop": "返回頂部"
+      "chat": {
+        "label": "AI 對話",
+        "description": "開始新的 AI 對話",
+        "keywords": [
+          "AI",
+          "對話",
+          "聊天",
+          "chat"
+        ]
+      },
+      "drama": {
+        "label": "AI 短劇",
+        "description": "創作 AI 短劇內容",
+        "keywords": [
+          "短劇",
+          "影片",
+          "drama"
+        ]
+      },
+      "search": {
+        "label": "搜尋",
+        "description": "搜尋內容、用戶、標籤",
+        "keywords": [
+          "搜尋",
+          "尋找",
+          "search"
+        ]
+      },
+      "ai-world": {
+        "label": "AI 世界",
+        "description": "探索 AI 世界",
+        "keywords": [
+          "AI世界",
+          "探索",
+          "world"
+        ]
+      },
+      "profile": {
+        "label": "個人中心",
+        "description": "查看個人主頁",
+        "keywords": [
+          "個人",
+          "主頁",
+          "profile"
+        ]
+      },
+      "settings": {
+        "label": "設定",
+        "description": "修改應用偏好設定",
+        "keywords": [
+          "設定",
+          "偏好",
+          "settings"
+        ]
+      }
     }
   },
   "routes": {
@@ -26758,5 +26828,253 @@
     "yuan": "元",
     "minSpend": "滿 {amount} 可用",
     "validUntil": "有效期至:{date}"
+  },
+  "answerArea": {
+    "thinking": {
+      "title": "思考過程",
+      "collapse": "收起",
+      "expand": "展開"
+    },
+    "image": {
+      "alt": "圖片 {index}",
+      "previewAlt": "圖片 {index} 預覽",
+      "close": "關閉",
+      "prev": "上一張",
+      "next": "下一張"
+    },
+    "audio": {
+      "playFailed": "音頻播放失敗",
+      "pause": "暫停",
+      "play": "播放"
+    }
+  },
+  "agentRuntimePanel": {
+    "title": "Agent 執行",
+    "clear": "清空",
+    "plan": "執行計劃",
+    "permissionDecision": "權限決策：{decision}",
+    "permissionMeta": "工具：{tool} · 等級：{level} · 模式：{mode}",
+    "unknownTool": "未知",
+    "defaultLevel": "讀取",
+    "output": "輸出",
+    "error": "錯誤",
+    "cancelledTitle": "任務已取消",
+    "cancelledBody": "已停止目前執行。如需繼續，請修改輸入後再次執行。",
+    "emptyState": "輸入任務，開始 Agent 執行",
+    "placeholder": "輸入任務...",
+    "stop": "停止",
+    "execute": "執行"
+  },
+  "musicGenerator": {
+    "title": "音樂生成",
+    "generate": "生成音樂",
+    "genreLabel": "風格",
+    "durationLabel": "時長",
+    "download": "下載",
+    "placeholder": "描述要生成的音樂...",
+    "genre": {
+      "pop": "流行",
+      "classical": "古典",
+      "electronic": "電子",
+      "jazz": "爵士",
+      "rock": "搖滾"
+    },
+    "duration": {
+      "15": "15 秒",
+      "30": "30 秒",
+      "60": "60 秒"
+    }
+  },
+  "cronEditor": {
+    "title": "Cron 表達式編輯器",
+    "everyField": "每{field}",
+    "stepPrefix": "每",
+    "specificPlaceholder": "{min}-{max}, 逗號分隔",
+    "recentRuns": "最近 5 次執行",
+    "field": {
+      "minute": "分鐘",
+      "hour": "小時",
+      "day": "日",
+      "month": "月",
+      "weekday": "週"
+    },
+    "mode": {
+      "every": "每",
+      "step": "步長",
+      "range": "範圍",
+      "specific": "指定"
+    }
+  },
+  "videoGenerator": {
+    "title": "影片生成",
+    "generate": "生成影片",
+    "providerLabel": "服務商",
+    "durationLabel": "時長",
+    "download": "下載",
+    "placeholder": "描述要生成的影片...",
+    "provider": {
+      "qwen": "通義千問",
+      "kling": "可靈",
+      "one-click": "一鍵生成"
+    },
+    "duration": {
+      "5": "5 秒",
+      "10": "10 秒",
+      "30": "30 秒"
+    }
+  },
+  "ticketDetailDialog": {
+    "statusPrefix": "狀態：",
+    "priorityPrefix": "優先級：",
+    "descriptionLabel": "問題描述",
+    "commentsLabel": "溝通記錄",
+    "noComments": "暫無回覆",
+    "adminRole": "客服",
+    "userRole": "我",
+    "replyLabel": "補充回覆",
+    "replyPlaceholder": "輸入補充內容...",
+    "send": "傳送",
+    "myRating": "我的評價",
+    "serviceRating": "服務評價",
+    "ratingCommentPlaceholder": "評價備註（可選）",
+    "submitRating": "提交評價",
+    "status": {
+      "pending": "待處理",
+      "open": "處理中",
+      "resolved": "已解決",
+      "closed": "已關閉",
+      "rejected": "已駁回"
+    },
+    "priority": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "urgent": "緊急"
+    }
+  },
+  "memberSubscriptionPage": {
+    "title": "訂閱管理",
+    "subtitle": "管理目前訂閱，續費或取消",
+    "loading": "載入中...",
+    "noSubscription": "您尚未訂閱任何會員方案",
+    "subscribeNow": "立即訂閱",
+    "subscriptionAmount": "訂閱金額",
+    "autoRenew": "自動續費",
+    "autoRenewOn": "已開啟",
+    "autoRenewOff": "未開啟",
+    "renewNow": "立即續費",
+    "cancelSubscription": "取消訂閱",
+    "status": {
+      "active": "生效中",
+      "cancelled": "已取消",
+      "expired": "已過期"
+    }
+  },
+  "resourcesEditPage": {
+    "loading": "載入中...",
+    "backToList": "返回資源列表",
+    "editTitle": "編輯資源",
+    "createTitle": "發布資源",
+    "errTitleRequired": "請輸入標題",
+    "errTypeRequired": "請選擇資源類型",
+    "errProductIdRequired": "請輸入產品 ID",
+    "errIntroductionRequired": "請輸入資源簡介",
+    "errCategoryRequired": "請至少選擇一個分類"
+  },
+  "toolsPdfSplitPage": {
+    "title": "PDF 拆分",
+    "description": "將一個 PDF 按頁碼範圍、固定頁數或書籤拆分為多個檔案",
+    "uploadLabel": "點擊或拖拽一個 PDF 檔案到此處上傳",
+    "removeFile": "移除",
+    "modeLabel": "拆分模式",
+    "mode": {
+      "range": "按頁碼範圍",
+      "every": "每 N 頁一份",
+      "bookmarks": "按書籤"
+    },
+    "rangesLabel": "頁碼範圍（用逗號分隔，例如 1-3,5,7-10）",
+    "everyLabel": "每份頁數",
+    "bookmarksHint": "將按 PDF 內建書籤（一級）自動拆分為多個檔案。",
+    "submit": "拆分",
+    "submitting": "拆分中...",
+    "resultHint": "拆分完成，結果已打包為 ZIP："
+  },
+  "supportNewTicketForm": {
+    "errTitleMin": "標題至少 2 個字元",
+    "errDescMin": "描述至少 10 個字元",
+    "titleLabel": "標題",
+    "titlePlaceholder": "簡述您的問題",
+    "categoryLabel": "分類",
+    "categoryPlaceholder": "選擇分類",
+    "priorityLabel": "優先級",
+    "priority": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "urgent": "緊急"
+    },
+    "descLabel": "問題描述",
+    "descPlaceholder": "請詳細描述您遇到的問題（至少 10 個字元）",
+    "cancel": "取消",
+    "submit": "提交工單"
+  },
+  "h5SharePage": {
+    "loading": "載入中...",
+    "errorDefault": "分享連結無效或已失效",
+    "retry": "重試",
+    "copyFail": "複製失敗,請手動複製",
+    "shareTitleWithUser": "{user} 的分享",
+    "shareTitleDefault": "智匯AI 分享",
+    "wechatShareTip": "請點擊右上角···選擇\"分享給朋友\"或複製連結發送",
+    "questionLabel": "問題",
+    "thinkingLabel": "思考過程",
+    "answerLabel": "回答",
+    "imageAlt": "圖片 {n}",
+    "contentAlt": "內容 {n}",
+    "copied": "已複製",
+    "copyLink": "複製連結",
+    "wechatShare": "微信分享"
+  },
+  "contactPage": {
+    "badge": "聯繫我們",
+    "title": "與我們取得聯繫",
+    "subtitle": "商務合作、課程諮詢、企業服務定製,歡迎隨時聯繫我們。我們的團隊會在 24 小時內回覆。",
+    "loading": "載入中...",
+    "addressTitle": "公司地址",
+    "merchantIdLabel": "微信支付商戶號",
+    "ctaTitle": "立即加入智匯 AI 社群",
+    "ctaSubtitle": "早鳥價 ¥6000/人/年,限 18 席。一對一 AI 顧問諮詢,不滿意全額退款。",
+    "ctaJoin": "立即加入",
+    "ctaLearnMore": "瞭解更多"
+  },
+  "kbArticleForm": {
+    "articleInfo": "文章資訊",
+    "titleLabel": "標題",
+    "titlePlaceholder": "輸入文章標題",
+    "summaryLabel": "摘要",
+    "summaryPlaceholder": "一句話描述文章內容",
+    "categoryLabel": "分類",
+    "categoryPlaceholder": "選擇分類",
+    "tagsLabel": "標籤",
+    "contentLabel": "正文(Markdown)",
+    "contentPlaceholder": "支援 Markdown 語法...",
+    "cancel": "取消",
+    "publish": "發布"
+  },
+  "securityAuditPage": {
+    "title": "安全審計",
+    "subtitle": "查看帳戶安全相關事件（已脫敏）",
+    "loading": "載入中...",
+    "empty": "暫無安全事件",
+    "colType": "類型",
+    "colDesc": "描述",
+    "colIp": "IP",
+    "colTime": "時間",
+    "type": {
+      "login": "登入記錄",
+      "permission": "權限變更",
+      "sensitive": "敏感操作",
+      "other": "其他"
+    }
   }
 }

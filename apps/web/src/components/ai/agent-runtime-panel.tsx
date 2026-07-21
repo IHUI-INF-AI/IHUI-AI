@@ -12,6 +12,7 @@ import {
   Shield,
   Ban,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { executeAgentRuntimeStream } from '@ihui/api-client'
 
@@ -31,6 +32,7 @@ interface PermissionEvent {
 }
 
 export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
+  const t = useTranslations('agentRuntimePanel')
   const [status, setStatus] = React.useState<AgentStatus>('idle')
   const [input, setInput] = React.useState('')
   const [sessionId, setSessionId] = React.useState<string | null>(null)
@@ -111,7 +113,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
           <Bot className="h-4 w-4" />
         </div>
-        <span className="text-sm font-semibold">Agent Runtime</span>
+        <span className="text-sm font-semibold">{t('title')}</span>
         {sessionId && (
           <span
             data-testid="session-id"
@@ -140,7 +142,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
           disabled={status === 'running'}
           className="rounded-md px-2 py-1 text-xs transition-colors hover:bg-accent disabled:opacity-40"
         >
-          清空
+          {t('clear')}
         </button>
       </header>
 
@@ -149,7 +151,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
           <section className="mb-3 rounded-md border border-border bg-muted/30 p-3">
             <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <FileText className="h-3 w-3" />
-              执行计划
+              {t('plan')}
             </div>
             <pre className="whitespace-pre-wrap text-xs leading-relaxed">{plan}</pre>
           </section>
@@ -159,18 +161,21 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
           <section className="mb-3 rounded-md border border-yellow-300 bg-yellow-50 p-3 dark:border-yellow-700 dark:bg-yellow-950/30">
             <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium">
               <Shield className="h-3 w-3" />
-              权限决策:{permission.decision}
+              {t('permissionDecision', { decision: permission.decision })}
             </div>
             <div className="text-xs text-muted-foreground">
-              工具:{permission.toolName ?? 'unknown'} · 等级:
-              {permission.dangerLevel ?? 'read'} · 模式:{permission.mode}
+              {t('permissionMeta', {
+                tool: permission.toolName ?? t('unknownTool'),
+                level: permission.dangerLevel ?? t('defaultLevel'),
+                mode: permission.mode,
+              })}
             </div>
           </section>
         )}
 
         {output && (
           <section className="mb-3">
-            <div className="mb-1.5 text-xs font-medium text-muted-foreground">输出</div>
+            <div className="mb-1.5 text-xs font-medium text-muted-foreground">{t('output')}</div>
             <div className="whitespace-pre-wrap text-sm leading-relaxed">{output}</div>
           </section>
         )}
@@ -179,7 +184,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
           <section className="mb-3 rounded-md border border-red-300 bg-red-50 p-3 dark:border-red-700 dark:bg-red-950/30">
             <div className="flex items-center gap-1.5 text-xs font-medium text-red-700 dark:text-red-400">
               <AlertCircle className="h-3 w-3" />
-              错误
+              {t('error')}
             </div>
             <div className="mt-1 text-xs">{error}</div>
           </section>
@@ -193,17 +198,17 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
           >
             <div className="flex items-center gap-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">
               <Ban className="h-3 w-3" />
-              任务已取消
+              {t('cancelledTitle')}
             </div>
             <div className="mt-1 text-xs text-muted-foreground">
-              已停止当前执行。如需继续,请修改输入后再次执行。
+              {t('cancelledBody')}
             </div>
           </section>
         )}
 
         {!plan && !output && !error && !permission && status !== 'cancelled' && (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            输入任务,开始 Agent 执行
+            {t('emptyState')}
           </div>
         )}
       </div>
@@ -219,7 +224,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
                 void handleSend()
               }
             }}
-            placeholder="输入任务..."
+            placeholder={t('placeholder')}
             disabled={status === 'running'}
             rows={2}
             className="min-w-0 flex-1 resize-none rounded-md border border-border bg-background px-2.5 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
@@ -231,7 +236,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
               className="inline-flex h-9 items-center gap-1 rounded-md bg-red-500 px-3 text-xs font-medium text-white transition-colors hover:bg-red-600"
             >
               <Square className="h-3.5 w-3.5" />
-              停止
+              {t('stop')}
             </button>
           ) : (
             <button
@@ -241,7 +246,7 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
               className="inline-flex h-9 items-center gap-1 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
             >
               <Play className="h-3.5 w-3.5" />
-              执行
+              {t('execute')}
             </button>
           )}
         </div>

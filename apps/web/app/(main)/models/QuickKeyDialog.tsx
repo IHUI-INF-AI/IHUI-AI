@@ -125,9 +125,9 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
   // 临时测试
   const previewMut = useMutation({
     mutationFn: () => {
-      if (!templateCode) throw new Error('请选择平台')
-      if (!apiKey.trim()) throw new Error('请填写 API Key')
-      if (!modelId.trim()) throw new Error('请填写模型 ID')
+      if (!templateCode) throw new Error(t('quickKey.errSelectPlatform'))
+      if (!apiKey.trim()) throw new Error(t('quickKey.errApiKeyRequired'))
+      if (!modelId.trim()) throw new Error(t('quickKey.errModelIdRequired'))
       return previewTest({
         templateCode,
         apiKey: apiKey.trim(),
@@ -136,7 +136,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
     },
     onSuccess: (res) => {
       toast.success(res.message || t('quickKey.testSuccess'), {
-        description: `耗时 ${res.responseMs ?? 0}ms${res.modelEcho ? ` · ${res.modelEcho}` : ''}`,
+        description: `${t('quickKey.testDuration', { ms: res.responseMs ?? 0 })}${res.modelEcho ? ` · ${res.modelEcho}` : ''}`,
         icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,
       })
     },
@@ -151,10 +151,10 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
   // 保存(创建或更新)
   const saveMut = useMutation({
     mutationFn: async () => {
-      if (!templateCode) throw new Error('该厂商无预置模板')
-      if (!apiKey.trim()) throw new Error('请填写 API Key')
-      if (!modelId.trim()) throw new Error('请填写模型 ID')
-      const name = tpl?.name ?? model?.name ?? '我的配置'
+      if (!templateCode) throw new Error(t('quickKey.errNoTemplate'))
+      if (!apiKey.trim()) throw new Error(t('quickKey.errApiKeyRequired'))
+      if (!modelId.trim()) throw new Error(t('quickKey.errModelIdRequired'))
+      const name = tpl?.name ?? model?.name ?? t('quickKey.defaultConfigName')
       const contextLength = tpl?.defaultContextLength ?? 32000
       // 简化:这里只支持 create;update 走 /settings/llm 完整编辑流
       return createConfig({
@@ -235,7 +235,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
                     <code className="font-mono">{tpl.apiFormat}</code>
                     {tpl.isOfficial && (
                       <span className="rounded bg-emerald-100 px-1 py-0.5 text-[9px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
-                        官方
+                        {t('quickKey.official')}
                       </span>
                     )}
                   </div>
@@ -348,7 +348,7 @@ export function QuickKeyDialog({ model, open, onOpenChange, onSaved }: Props) {
             onClick={() => onOpenChange(false)}
             disabled={saveMut.isPending || previewMut.isPending}
           >
-            取消
+            {t('quickKey.cancel')}
           </Button>
           {!isMissingTemplate && (
             <Button
