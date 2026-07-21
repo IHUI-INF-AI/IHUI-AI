@@ -16,7 +16,11 @@ import {
   saveOAuthState,
   validateOAuthState,
 } from '@/lib/oauth-utils'
-import { buildAuthSubdomainStartUrl, isAuthSubdomainHost } from '@/lib/auth-domains'
+import {
+  buildAuthSubdomainStartUrl,
+  isAuthSubdomainHost,
+  isMainDomainHost,
+} from '@/lib/auth-domains'
 import { useToast } from '@/hooks/use-toast'
 import type {
   GoogleIdConfiguration,
@@ -49,6 +53,19 @@ const MAX_RETRY = 5
 /** OAuth 回调后端入口（按平台） */
 function callbackPath(platform: ThirdPartyPlatform): string {
   return `/api/auth/${platform}/callback`
+}
+
+/**
+ * 判断平台是否配置了真实凭据(非 placeholder)。
+ * 用于 demo 模式下区分:有真凭据走真 OAuth,无真凭据走本地 mock。
+ * placeholder 命名约定:dev_xxx_placeholder_xxx
+ */
+function hasRealCredentials(platform: ThirdPartyPlatform): boolean {
+  const config = getPlatformConfig(platform)
+  const id = config.clientId || config.appId || ''
+  if (!id) return false
+  if (id.startsWith('dev_') && id.includes('placeholder')) return false
+  return true
 }
 
 /** 绑定账号后端入口 */
@@ -259,10 +276,11 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
           throw new Error(`${displayName}登录未启用`)
         }
 
-        // 演示模式：跳转到本地 Mock 授权页,完整模拟 OAuth 流程
+        // 演示模式 + 无真实凭据:跳转到本地 Mock 授权页,完整模拟 OAuth 流程
         // 用户在 mock 页点"授权" → 跳回 /callback?code=mock_xxx&state=xxx
         // callback handler 识别 mock_ 前缀 → 直接本地登录
-        if (isDemoMode()) {
+        // 有真实凭据(Google/GitHub/微信/钉钉/企业微信等)时跳过 mock,走真 OAuth 流程
+        if (isDemoMode() && !hasRealCredentials(platform)) {
           const state = generateState()
           saveOAuthState(platform, state)
           const redirectUri = `/callback?platform=${platform}`
@@ -272,11 +290,12 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
           return true
         }
 
-        // 分域 SSO (2026-07-21):若当前在主域(aizhs.top 或 localhost),先 302 跳到
-        // 认证子域 bsm.aizhs.top/sso/auth?platform=xxx&return_to=...,
+        // 分域 SSO (2026-07-21):仅在生产主域(aizhs.top)上启用,
+        // 主域用户点登录 → 302 跳到 bsm.aizhs.top/sso/auth?platform=xxx,
         // 由该子域薄页调用本函数发起 OAuth,回调时写跨域 Cookie + 307 跳回主域。
-        // 已经在认证子域内:直接走原 OAuth 流程。
-        if (typeof window !== 'undefined' && !isAuthSubdomainHost()) {
+        // ⚠️ 本地开发(localhost / 127.0.0.1)跳过分域 SSO,直接走本地 OAuth 流程,
+        // 否则跳到线上 bsm.aizhs.top(那里是另一个部署,本地代码改动不生效)
+        if (typeof window !== 'undefined' && !isAuthSubdomainHost() && isMainDomainHost()) {
           const returnTo = `${window.location.origin}${window.location.pathname}${window.location.search}`
           const crossDomainUrl = buildAuthSubdomainStartUrl(platform, returnTo)
           window.location.href = crossDomainUrl
