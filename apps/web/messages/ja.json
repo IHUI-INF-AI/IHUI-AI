@@ -3486,6 +3486,8 @@
         "fieldNickname": "ニックネーム",
         "fieldPhone": "携帯",
         "fieldEmail": "メール",
+        "fieldPassword": "パスワード",
+        "fieldPasswordPlaceholder": "空欄でデフォルト 123456",
         "fieldLevel": "レベル",
         "fieldStatus": "ステータス",
         "cancel": "キャンセル",
@@ -11240,7 +11242,13 @@
     "exportPdf": "PDF をエクスポート",
     "exportExcel": "Excel をエクスポート",
     "exportJson": "JSON をエクスポート",
-    "exportError": "エクスポートに失敗しました。後で再試行してください"
+    "exportError": "エクスポートに失敗しました。後で再試行してください",
+    "exportSuccess": "エクスポート成功"
+  },
+  "attachments": {
+    "placeholder": "クリックまたはドラッグで添付ファイルをアップロード",
+    "uploading": "アップロード中...",
+    "remove": "削除"
   },
   "notes": {
     "title": "APIテスト",
@@ -11255,7 +11263,8 @@
     "isPublic": "公開",
     "save": "保存",
     "cancel": "キャンセル",
-    "deleteConfirm": "これ？"
+    "deleteConfirm": "これ？",
+    "attachmentsField": "添付ファイル"
   },
   "offlineRecords": {
     "title": "APIテスト",
@@ -11272,7 +11281,8 @@
     "occurredAtField": "日付",
     "save": "保存",
     "cancel": "キャンセル",
-    "deleteConfirm": "を"
+    "deleteConfirm": "を",
+    "attachmentsField": "添付ファイル"
   },
   "papers": {
     "title": "APIテスト",
@@ -11350,6 +11360,9 @@
     "tabBackground": "バックグラウンド",
     "tabPermission": "権限",
     "tabRuntime": "Agent 実行",
+    "tabCommunity": "コミュニティ",
+    "tabAgentic": "Swarm",
+    "tabDashboard": "ダッシュボード",
     "viewPermissionExample": "を",
     "vipExclusive": "VIP専用",
     "vipPermissionDenied": "このエージェントはVIP専用です。VIPに登録してください。",

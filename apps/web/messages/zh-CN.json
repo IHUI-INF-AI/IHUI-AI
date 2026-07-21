@@ -3486,6 +3486,8 @@
         "fieldNickname": "昵称",
         "fieldPhone": "手机",
         "fieldEmail": "邮箱",
+        "fieldPassword": "密码",
+        "fieldPasswordPlaceholder": "留空默认 123456",
         "fieldLevel": "等级",
         "fieldStatus": "状态",
         "cancel": "取消",
@@ -11488,7 +11490,13 @@
     "exportPdf": "导出 PDF",
     "exportExcel": "导出 Excel",
     "exportJson": "导出 JSON",
-    "exportError": "导出失败,请稍后重试"
+    "exportError": "导出失败,请稍后重试",
+    "exportSuccess": "导出成功"
+  },
+  "attachments": {
+    "placeholder": "点击或拖拽上传附件",
+    "uploading": "上传中...",
+    "remove": "移除"
   },
   "notes": {
     "title": "我的笔记",
@@ -11503,7 +11511,8 @@
     "isPublic": "公开",
     "save": "保存",
     "cancel": "取消",
-    "deleteConfirm": "确定删除此笔记？"
+    "deleteConfirm": "确定删除此笔记？",
+    "attachmentsField": "附件"
   },
   "offlineRecords": {
     "title": "线下学习记录",
@@ -11520,7 +11529,8 @@
     "occurredAtField": "日期",
     "save": "保存",
     "cancel": "取消",
-    "deleteConfirm": "确定删除？"
+    "deleteConfirm": "确定删除？",
+    "attachmentsField": "附件"
   },
   "papers": {
     "title": "我的论文",
@@ -11598,6 +11608,9 @@
     "tabBackground": "后台",
     "tabPermission": "权限",
     "tabRuntime": "Agent 执行",
+    "tabCommunity": "社区",
+    "tabAgentic": "Swarm",
+    "tabDashboard": "控制台",
     "viewPermissionExample": "查看权限确认示例",
     "vipExclusive": "VIP 专享",
     "vipPermissionDenied": "该智能体为 VIP 专享,请开通 VIP 后使用",

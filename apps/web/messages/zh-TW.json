@@ -3486,6 +3486,8 @@
         "fieldNickname": "暱稱",
         "fieldPhone": "手機",
         "fieldEmail": "郵箱",
+        "fieldPassword": "密碼",
+        "fieldPasswordPlaceholder": "留空預設 123456",
         "fieldLevel": "等級",
         "fieldStatus": "狀態",
         "cancel": "取消",
@@ -11488,7 +11490,13 @@
     "exportPdf": "匯出 PDF",
     "exportExcel": "匯出 Excel",
     "exportJson": "匯出 JSON",
-    "exportError": "匯出失敗,請稍後重試"
+    "exportError": "匯出失敗,請稍後重試",
+    "exportSuccess": "匯出成功"
+  },
+  "attachments": {
+    "placeholder": "點擊或拖曳上傳附件",
+    "uploading": "上傳中...",
+    "remove": "移除"
   },
   "notes": {
     "title": "我的筆記",
@@ -11503,7 +11511,8 @@
     "isPublic": "公開",
     "save": "儲存",
     "cancel": "取消",
-    "deleteConfirm": "確定刪除此筆記？"
+    "deleteConfirm": "確定刪除此筆記？",
+    "attachmentsField": "附件"
   },
   "offlineRecords": {
     "title": "線下學習記錄",
@@ -11520,7 +11529,8 @@
     "occurredAtField": "日期",
     "save": "儲存",
     "cancel": "取消",
-    "deleteConfirm": "確定刪除？"
+    "deleteConfirm": "確定刪除？",
+    "attachmentsField": "附件"
   },
   "papers": {
     "title": "我的論文",
@@ -11598,6 +11608,9 @@
     "tabBackground": "後臺",
     "tabPermission": "權限",
     "tabRuntime": "Agent 執行",
+    "tabCommunity": "社群",
+    "tabAgentic": "Swarm",
+    "tabDashboard": "控制台",
     "viewPermissionExample": "查看權限確認示例",
     "vipExclusive": "VIP 專享",
     "vipPermissionDenied": "該智能體為 VIP 專享,請開通 VIP 後使用",

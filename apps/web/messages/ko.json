@@ -3486,6 +3486,8 @@
         "fieldNickname": "닉네임",
         "fieldPhone": "전화",
         "fieldEmail": "이메일",
+        "fieldPassword": "비밀번호",
+        "fieldPasswordPlaceholder": "비워두면 기본 123456",
         "fieldLevel": "레벨",
         "fieldStatus": "상태",
         "cancel": "취소",
@@ -11240,7 +11242,13 @@
     "exportPdf": "PDF 내보내기",
     "exportExcel": "Excel 내보내기",
     "exportJson": "JSON 내보내기",
-    "exportError": "내보내기 실패, 잠시 후 다시 시도하세요"
+    "exportError": "내보내기 실패, 잠시 후 다시 시도하세요",
+    "exportSuccess": "내보내기 성공"
+  },
+  "attachments": {
+    "placeholder": "클릭하거나 드래그하여 첨부파일을 업로드하세요",
+    "uploading": "업로드 중...",
+    "remove": "제거"
   },
   "notes": {
     "title": "AI인마음페이스테스트",
@@ -11255,7 +11263,8 @@
     "isPublic": "공개",
     "save": "저장",
     "cancel": "취소",
-    "deleteConfirm": "이 항목을 삭제하시겠습니까?"
+    "deleteConfirm": "이 항목을 삭제하시겠습니까?",
+    "attachmentsField": "첨부파일"
   },
   "offlineRecords": {
     "title": "AI인마음페이스테스트",
@@ -11272,7 +11281,8 @@
     "occurredAtField": "날짜",
     "save": "저장",
     "cancel": "취소",
-    "deleteConfirm": "삭제 확인"
+    "deleteConfirm": "삭제 확인",
+    "attachmentsField": "첨부파일"
   },
   "papers": {
     "title": "AI인마음페이스테스트",
@@ -11350,6 +11360,9 @@
     "tabBackground": "백그라운드",
     "tabPermission": "권한",
     "tabRuntime": "Agent 실행",
+    "tabCommunity": "커뮤니티",
+    "tabAgentic": "Swarm",
+    "tabDashboard": "대시보드",
     "viewPermissionExample": "권한 확인 예시 보기",
     "vipExclusive": "VIP 전용",
     "vipPermissionDenied": "VIP 전용 에이전트입니다. VIP를 구독하세요.",

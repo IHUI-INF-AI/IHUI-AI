@@ -3486,6 +3486,8 @@
         "fieldNickname": "Nickname",
         "fieldPhone": "Phone",
         "fieldEmail": "Email",
+        "fieldPassword": "Password",
+        "fieldPasswordPlaceholder": "Leave empty for default 123456",
         "fieldLevel": "Level",
         "fieldStatus": "Status",
         "cancel": "Cancel",
@@ -11240,7 +11242,13 @@
     "exportPdf": "Export PDF",
     "exportExcel": "Export Excel",
     "exportJson": "Export JSON",
-    "exportError": "Export failed, please retry later"
+    "exportError": "Export failed, please retry later",
+    "exportSuccess": "Export successful"
+  },
+  "attachments": {
+    "placeholder": "Click or drag to upload attachments",
+    "uploading": "Uploading...",
+    "remove": "Remove"
   },
   "notes": {
     "title": "My Notes",
@@ -11255,7 +11263,8 @@
     "isPublic": "Public",
     "save": "Save",
     "cancel": "Cancel",
-    "deleteConfirm": "Delete this note?"
+    "deleteConfirm": "Delete this note?",
+    "attachmentsField": "Attachments"
   },
   "offlineRecords": {
     "title": "Offline Learning Records",
@@ -11272,7 +11281,8 @@
     "occurredAtField": "Date",
     "save": "Save",
     "cancel": "Cancel",
-    "deleteConfirm": "Delete this record?"
+    "deleteConfirm": "Delete this record?",
+    "attachmentsField": "Attachments"
   },
   "papers": {
     "title": "My Papers",
@@ -11350,6 +11360,9 @@
     "tabBackground": "Background",
     "tabPermission": "Permission",
     "tabRuntime": "Agent Runtime",
+    "tabCommunity": "Community",
+    "tabAgentic": "Swarm",
+    "tabDashboard": "Dashboard",
     "viewPermissionExample": "View Permission Example",
     "vipExclusive": "VIP Exclusive",
     "vipPermissionDenied": "This agent is VIP-only. Please subscribe to VIP to use it.",

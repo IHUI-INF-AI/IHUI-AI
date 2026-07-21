@@ -21,6 +21,9 @@ import { AgentSwarmMonitor } from '@/components/ai/agent-swarm-monitor'
 import { PermissionConfirmDialog } from '@/components/ai/permission-confirm-dialog'
 import { CheckpointHistoryPanel } from '@/components/ai/checkpoint-history-panel'
 import { AgentRuntimePanel } from '@/components/ai/agent-runtime-panel'
+import { SwarmCreatorPanel } from '@/components/ai/swarm-creator-panel'
+import { CommunityFeedPanel } from '@/components/ai/community-feed-panel'
+import { AgenticDashboardPanel } from '@/components/ai/agentic-dashboard-panel'
 import { getAgentPermission } from '@ihui/api-client'
 
 interface Agent {
@@ -256,6 +259,9 @@ export default function AgentDetailPage() {
               <TabsTrigger value="background">{t('tabBackground')}</TabsTrigger>
               <TabsTrigger value="permission">{t('tabPermission')}</TabsTrigger>
               <TabsTrigger value="runtime">{t('tabRuntime')}</TabsTrigger>
+              <TabsTrigger value="community">{t('tabCommunity')}</TabsTrigger>
+              <TabsTrigger value="agentic">{t('tabAgentic')}</TabsTrigger>
+              <TabsTrigger value="dashboard">{t('tabDashboard')}</TabsTrigger>
             </TabsList>
             <TabsContent value="progress" className="space-y-4">
               <AgentProgressPanel steps={[]} />
@@ -286,6 +292,15 @@ export default function AgentDetailPage() {
               <div className="h-[calc(100dvh-13rem)] overflow-hidden rounded-lg border">
                 <AgentRuntimePanel />
               </div>
+            </TabsContent>
+            <TabsContent value="community" className="space-y-4">
+              <CommunityFeedPanel />
+            </TabsContent>
+            <TabsContent value="agentic" className="space-y-4">
+              <SwarmCreatorPanel />
+            </TabsContent>
+            <TabsContent value="dashboard" className="space-y-4">
+              <AgenticDashboardPanel />
             </TabsContent>
           </Tabs>
         </>
