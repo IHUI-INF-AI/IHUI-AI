@@ -25991,55 +25991,402 @@
     }
   },
   "memberSettingsPage": {
-    "loading": "載入中…",
+    "loading": "載入中...",
     "title": "會員設定",
-    "description": "管理你的通知和隱私偏好",
+    "description": "管理你的通知偏好與隱私設定",
     "notifTitle": "通知偏好",
     "notif": {
-      "orderUpdates": "訂單更新",
-      "promotions": "優惠活動",
-      "points": "積分變動",
-      "newsletter": "訂閱郵件"
+      "orderUpdates": "訂單狀態更新",
+      "promotions": "促銷與優惠活動",
+      "points": "積分變動提醒",
+      "newsletter": "訂閱電子簡報"
     },
     "privacyTitle": "隱私設定",
     "privacy": {
-      "showProfile": "公開個人資料",
-      "showActivity": "顯示我的活動",
-      "allowInvites": "允許他人邀請"
+      "showProfile": "公開個人主頁",
+      "showActivity": "展示最近活動",
+      "allowInvites": "允許他人邀請我"
     },
     "saveBtn": "儲存設定",
     "saved": "已儲存"
   },
   "memberDashboardPage": {
-    "defaultLevel": "預設等級",
+    "defaultLevel": "普通會員",
     "title": "會員中心",
-    "description": "管理你的會員等級、積分、優惠券和訂單",
-    "expireAt": "到期時間",
-    "renew": "續費",
+    "description": "一站式管理你的會員權益、訂單、積分與優惠",
+    "expireAt": "會員有效期至:",
+    "renew": "立即續費",
     "recentOrders": "最近訂單",
     "viewAll": "查看全部",
-    "loading": "載入中…",
-    "empty": "暫無資料"
+    "loading": "載入中...",
+    "empty": "暫無訂單記錄",
+    "stats": {
+      "level": "會員等級",
+      "points": "可用積分",
+      "coupon": "優惠券",
+      "orders": "訂單總數"
+    }
   },
   "developerHomePage": {
-    "statCalls": "API 呼叫",
+    "statCalls": "呼叫次數(本月)",
     "statApiKeys": "API 金鑰",
     "statWebhook": "Webhook",
     "statMonthFee": "本月費用",
     "qeApiDocsLabel": "API 文件",
-    "qeApiDocsDesc": "檢視完整 API 介面與範例",
-    "qeSandboxLabel": "線上沙盒",
-    "qeSandboxDesc": "無需安裝即可調試 API",
+    "qeApiDocsDesc": "檢視介面說明",
+    "qeSandboxLabel": "沙箱測試",
+    "qeSandboxDesc": "線上呼叫 API",
     "qeLogsLabel": "呼叫日誌",
-    "qeLogsDesc": "檢視歷史請求與錯誤",
+    "qeLogsDesc": "檢視請求紀錄",
     "qeVersionsLabel": "版本管理",
-    "qeVersionsDesc": "管理 API 版本與下線計畫",
-    "title": "開發者中心",
-    "subtitle": "管理你的 API 金鑰、Webhook 和用量",
+    "qeVersionsDesc": "API 版本狀態",
+    "title": "開發者概覽",
+    "subtitle": "檢視 API 使用情況與開發者資源",
     "currentPlan": "目前方案",
     "quotaUsage": "配額使用",
-    "upgrade": "升級方案",
-    "quickEntries": "快捷入口",
-    "loading": "載入中…"
+    "upgrade": "升級",
+    "quickEntries": "快速入口",
+    "loading": "載入中..."
+  },
+  "memberInvitationsPage": {
+    "title": "邀請記錄",
+    "description": "邀請好友註冊,雙方均可獲得獎勵",
+    "generate": "生成邀請",
+    "codesTitle": "我的邀請碼",
+    "loading": "載入中...",
+    "codesEmpty": "暫無邀請碼,點擊右上角生成",
+    "rewards": "邀請人 +{inviter} · 被邀請人 +{invitee}",
+    "expiresAt": "到期時間:",
+    "copied": "已複製",
+    "copyCode": "複製邀請碼",
+    "inviteesTitle": "已邀請用戶",
+    "inviteesEmpty": "還沒有邀請到任何用戶",
+    "columns": {
+      "user": "用戶",
+      "registeredAt": "註冊時間",
+      "reward": "獎勵"
+    },
+    "status": {
+      "unused": "可用",
+      "expired": "已過期",
+      "used": "已使用"
+    }
+  },
+  "memberPointsPage": {
+    "title": "積分中心",
+    "description": "查看積分餘額、明細與兌換好禮",
+    "summary": {
+      "current": "當前積分",
+      "earned": "累計獲取",
+      "spent": "累計消耗"
+    },
+    "txTitle": "積分明細",
+    "loading": "載入中...",
+    "txEmpty": "暫無積分記錄",
+    "redeemTitle": "積分兌換",
+    "redeemEmpty": "暫無可兌換商品",
+    "pointsUnit": "{n} 積分",
+    "redeemBtn": "立即兌換"
+  },
+  "eduExamPage": {
+    "loading": "載入中...",
+    "backToList": "返回考試列表",
+    "notExists": "考試不存在",
+    "noQuestions": "暫無題目",
+    "duration": "{n} 分鐘",
+    "answeredProgress": "已答 {answered} / {total}",
+    "questionProgress": "第 {current} 題 / 共 {total} 題",
+    "single": "單選",
+    "multiple": "多選",
+    "prevQuestion": "上一題",
+    "nextQuestion": "下一題",
+    "submit": "提交考試"
+  },
+  "aiWorldEditPage": {
+    "toastUpdated": "更新成功",
+    "errNameRequired": "請輸入名稱",
+    "loading": "載入中...",
+    "back": "返回",
+    "title": "編輯 AI 世界專案",
+    "subtitle": "修改專案資訊",
+    "nameLabel": "名稱",
+    "namePlaceholder": "請輸入專案名稱",
+    "descLabel": "描述",
+    "descPlaceholder": "請輸入專案描述",
+    "categoryLabel": "分類",
+    "noCategory": "不選擇分類",
+    "coverLabel": "封面連結",
+    "coverPlaceholder": "請輸入封面圖片 URL",
+    "configLabel": "設定",
+    "configPlaceholder": "JSON 設定(可選)",
+    "cancel": "取消",
+    "submitting": "提交中...",
+    "save": "儲存"
+  },
+  "aiWorldCreatePage": {
+    "toastCreated": "建立成功",
+    "errNameRequired": "請輸入名稱",
+    "back": "返回",
+    "title": "建立 AI 世界專案",
+    "subtitle": "填寫以下資訊建立新的 AI 世界專案",
+    "nameLabel": "名稱",
+    "namePlaceholder": "請輸入專案名稱",
+    "descLabel": "描述",
+    "descPlaceholder": "請輸入專案描述",
+    "categoryLabel": "分類",
+    "noCategory": "不選擇分類",
+    "coverLabel": "封面連結",
+    "coverPlaceholder": "請輸入封面圖片 URL",
+    "configLabel": "設定",
+    "configPlaceholder": "JSON 設定(可選)",
+    "cancel": "取消",
+    "submitting": "提交中...",
+    "create": "建立"
+  },
+  "developerBillingPage": {
+    "title": "帳單",
+    "subtitle": "檢視帳單紀錄與付款方式",
+    "paymentMethods": "付款方式",
+    "toastContactSupport": "請聯絡客服新增",
+    "add": "新增",
+    "noPaymentMethods": "暫無付款方式",
+    "default": "預設",
+    "payType": {
+      "alipay": "支付寶",
+      "wechat": "微信支付",
+      "card": "銀行卡"
+    },
+    "toastInvoiceGenerating": "發票產生中,請稍後",
+    "billRecords": "帳單紀錄",
+    "loading": "載入中...",
+    "noBills": "暫無帳單紀錄",
+    "status": {
+      "paid": "已付款",
+      "pending": "待付款",
+      "failed": "失敗"
+    },
+    "invoice": "發票"
+  },
+  "developerApiDocsPage": {
+    "title": "API 文件",
+    "subtitle": "檢視開放平臺介面說明與呼叫範例",
+    "searchPlaceholder": "搜尋介面路徑或名稱...",
+    "toastCopied": "已複製路徑",
+    "toastCopyFailed": "複製失敗",
+    "loading": "載入中...",
+    "noDocs": "暫無 API 文件",
+    "requestParams": "請求參數",
+    "colName": "參數名",
+    "colType": "類型",
+    "colRequired": "必填",
+    "colDesc": "說明",
+    "yes": "是",
+    "no": "否",
+    "responseExample": "回應範例"
+  },
+  "memberExamSignUpPage": {
+    "title": "我的考試報名",
+    "description": "查看已報名的考試並管理報名狀態",
+    "loading": "載入中...",
+    "empty": "暫無報名記錄",
+    "cancelBtn": "取消報名",
+    "cancelConfirm": "確認取消該考試報名?",
+    "cancelSuccess": "已取消報名",
+    "cancelFailed": "取消失敗",
+    "total": "共 {n} 條",
+    "status": {
+      "pending": "待考",
+      "attended": "已考",
+      "canceled": "已取消",
+      "unknown": "未知"
+    },
+    "columns": {
+      "examName": "考試名稱",
+      "signedAt": "報名時間",
+      "examTime": "考試時間",
+      "status": "狀態",
+      "action": "操作"
+    }
+  },
+  "eduExamResultPage": {
+    "loading": "載入中...",
+    "backToList": "返回考試列表",
+    "notExists": "結果不存在",
+    "passed": "恭喜通過",
+    "failed": "未通過",
+    "correct": "答對",
+    "wrong": "答錯",
+    "duration": "用時",
+    "minutes": "{n} 分鐘",
+    "submittedAt": "提交時間：{time}",
+    "detail": "答題詳情",
+    "score": "{n} 分",
+    "yourAnswer": "你的答案：{answer}",
+    "correctAnswer": "正確答案：{answer}",
+    "totalScore": "{score} / {total} 分",
+    "backList": "返回列表",
+    "retry": "重新考試"
+  },
+  "learnBuyConfirmPage": {
+    "missingCourse": "缺少課程資訊",
+    "missingCourseParam": "缺少課程參數",
+    "title": "確認訂單",
+    "loadFailed": "載入失敗",
+    "courseNotFound": "課程不存在",
+    "productInfo": "商品資訊",
+    "instructor": "講師：{name}",
+    "lessonCount": "{n} 課時",
+    "couponCode": "優惠碼",
+    "couponPlaceholder": "輸入優惠碼（可選）",
+    "payMethod": "支付方式",
+    "wechatPay": "微信支付",
+    "alipay": "支付寶",
+    "originalPrice": "原價",
+    "discount": "優惠",
+    "actualPay": "實付",
+    "confirmPurchase": "確認購買",
+    "freeCourseNoNeed": "免費課程無需購買"
+  },
+  "learnTopicPage": {
+    "loading": "載入中...",
+    "backToList": "返回專題列表",
+    "notExists": "專題不存在",
+    "premiumTopic": "高級專題",
+    "courseTopic": "課程專題",
+    "premiumTip": "包含企業/部門定製內容,可能涉及付費。",
+    "courseTip": "由運營精選的課程組合,免費學習。",
+    "lessonCount": "{n} 門課程",
+    "learnCount": "{n} 人學",
+    "free": "免費",
+    "includes": "包含課程",
+    "noLessons": "暫無課程"
+  },
+  "learnRatePage": {
+    "loading": "載入中...",
+    "backToCourse": "返回課程",
+    "loadFailed": "載入失敗",
+    "title": "課程評價",
+    "formTitle": "我要評價",
+    "rating": "評分",
+    "starAriaLabel": "{n}星",
+    "ratingValue": "{rating} / 5",
+    "contentLabel": "評價內容",
+    "contentPlaceholder": "請輸入您對本課程的評價...",
+    "submit": "提交評價",
+    "allRates": "全部評價 ({n})",
+    "noRates": "暫無評價，快來發表第一條評價吧",
+    "anonymous": "匿名用戶"
+  },
+  "modelsBillingPage": {
+    "consumeTrend": "+{n}% vs 上月",
+    "rechargeCount": "累計 {n} 次充值",
+    "packages": {
+      "starter": {
+        "features": [
+          "1M tokens 額度",
+          "基礎模型可用",
+          "5 個 API 令牌",
+          "社群支援"
+        ]
+      },
+      "pro": {
+        "features": [
+          "15M tokens 額度",
+          "全部模型可用",
+          "20 個 API 令牌",
+          "優先技術支援",
+          "呼叫日誌 90 天"
+        ]
+      },
+      "enterprise": {
+        "features": [
+          "200M tokens 額度",
+          "專屬模型通道",
+          "無限 API 令牌",
+          "專屬客戶經理",
+          "呼叫日誌永久",
+          "SLA 99.95%"
+        ]
+      }
+    }
+  },
+  "n8nAgentsPage": {
+    "metaDescription": "N8N 工作流程整合：自動化編排 AI agent，含客服機器人、內容審核、數據同步等。",
+    "subtitle": "N8N 工作流程整合 - 透過 N8N 自動化編排 AI agent",
+    "cardTitle": "N8N 工作流程整合",
+    "totalBadge": "共 {n} 個 Agent",
+    "activeBadge": "{n} 執行中",
+    "cardDescription": "透過 N8N 自動化編排 AI agent，串聯客服、審核、同步、報表與告警等場景，實現端到端流程自動化。",
+    "createButton": "建立新 Agent",
+    "lastRunLabel": "最後執行",
+    "runCountLabel": "執行次數",
+    "agents": {
+      "customer-service": {
+        "name": "客服機器人",
+        "description": "自動回覆使用者諮詢，依據知識庫匹配答案並支援人工轉接。"
+      },
+      "content-moderation": {
+        "name": "內容審核",
+        "description": "自動審核 UGC 內容，識別違規文字/圖片並觸發處置流程。"
+      },
+      "data-sync": {
+        "name": "數據同步",
+        "description": "定期同步外部數據源至本地數據庫，支援增量與全量同步。"
+      },
+      "report-generation": {
+        "name": "報表產生",
+        "description": "每日產生業務報表並推送到指定管道，含郵件、IM 與物件儲存。"
+      },
+      "alert-notify": {
+        "name": "告警通知",
+        "description": "監控異常指標並自動通知值班人員，支援多級升級策略。"
+      }
+    }
+  },
+  "agentsMyPage": {
+    "statusFilters": {
+      "all": "全部",
+      "pending": "待審核",
+      "published": "已發佈",
+      "rejected": "已拒絕",
+      "offline": "已下線"
+    },
+    "back": "返回",
+    "title": "我的智能體",
+    "subtitle": "管理你建立的智能體",
+    "create": "建立",
+    "loading": "載入中...",
+    "empty": "暫無智能體",
+    "noDescription": "暫無描述",
+    "free": "免費"
+  },
+  "businessCardPage": {
+    "title": "電子名片",
+    "subtitle": "管理我的名片與收藏",
+    "create": "新建",
+    "myCards": "我的名片",
+    "loading": "載入中...",
+    "emptyMine": "還沒有名片，點擊「新建」建立",
+    "share": "分享",
+    "edit": "編輯",
+    "delete": "刪除",
+    "favorites": "收藏名片",
+    "viewAll": "查看全部",
+    "emptyFavorites": "暫無收藏名片"
+  },
+  "developerSubscriptionPage": {
+    "title": "訂閱管理",
+    "subtitle": "管理目前套餐與續費升級",
+    "loading": "載入中...",
+    "currentPlan": "目前套餐",
+    "month": "月",
+    "renew": "續費",
+    "expireTime": "到期時間：",
+    "quotaUsage": "配額使用",
+    "upgradePlans": "可升級套餐",
+    "current": "目前",
+    "upgrade": "升級",
+    "renewSuccess": "續費成功",
+    "upgradeSuccess": "套餐已升級"
   }
 }

@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Code, Loader2, Search, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -47,6 +48,7 @@ const METHOD_CLASS: Record<string, string> = {
 }
 
 export default function ApiDocsPage() {
+  const t = useTranslations('developerApiDocsPage')
   const [keyword, setKeyword] = React.useState('')
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
 
@@ -84,8 +86,8 @@ export default function ApiDocsPage() {
 
   function copyPath(path: string) {
     navigator.clipboard?.writeText(path).then(
-      () => toast.success('已复制路径'),
-      () => toast.error('复制失败'),
+      () => toast.success(t('toastCopied')),
+      () => toast.error(t('toastCopyFailed')),
     )
   }
 
@@ -94,9 +96,9 @@ export default function ApiDocsPage() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <Code className="h-5 w-5 text-primary" />
-          API 文档
+          {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">查阅开放平台接口说明与调用示例</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
@@ -106,7 +108,7 @@ export default function ApiDocsPage() {
         <Input
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          placeholder="搜索接口路径或名称..."
+          placeholder={t('searchPlaceholder')}
           className="pl-9"
         />
       </div>
@@ -114,10 +116,10 @@ export default function ApiDocsPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : filtered.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">暂无 API 文档</p>
+        <p className="py-8 text-center text-sm text-muted-foreground">{t('noDocs')}</p>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
           <aside className="space-y-3 lg:max-h-[70vh] lg:overflow-y-auto lg:pr-2">
@@ -180,15 +182,15 @@ export default function ApiDocsPage() {
 
                 {selected.params && selected.params.length > 0 && (
                   <div>
-                    <p className="mb-1.5 text-sm font-semibold">请求参数</p>
+                    <p className="mb-1.5 text-sm font-semibold">{t('requestParams')}</p>
                     <div className="overflow-hidden rounded-md border">
                       <table className="w-full text-xs">
                         <thead className="bg-muted/50">
                           <tr>
-                            <th className="px-2 py-1.5 text-left font-medium">参数名</th>
-                            <th className="px-2 py-1.5 text-left font-medium">类型</th>
-                            <th className="px-2 py-1.5 text-left font-medium">必填</th>
-                            <th className="px-2 py-1.5 text-left font-medium">说明</th>
+                            <th className="px-2 py-1.5 text-left font-medium">{t('colName')}</th>
+                            <th className="px-2 py-1.5 text-left font-medium">{t('colType')}</th>
+                            <th className="px-2 py-1.5 text-left font-medium">{t('colRequired')}</th>
+                            <th className="px-2 py-1.5 text-left font-medium">{t('colDesc')}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y">
@@ -198,9 +200,9 @@ export default function ApiDocsPage() {
                               <td className="px-2 py-1.5 text-muted-foreground">{p.type}</td>
                               <td className="px-2 py-1.5">
                                 {p.required ? (
-                                  <span className="text-rose-600 dark:text-rose-400">是</span>
+                                  <span className="text-rose-600 dark:text-rose-400">{t('yes')}</span>
                                 ) : (
-                                  <span className="text-muted-foreground">否</span>
+                                  <span className="text-muted-foreground">{t('no')}</span>
                                 )}
                               </td>
                               <td className="px-2 py-1.5 text-muted-foreground">
@@ -216,7 +218,7 @@ export default function ApiDocsPage() {
 
                 {selected.responseExample && (
                   <div>
-                    <p className="mb-1.5 text-sm font-semibold">响应示例</p>
+                    <p className="mb-1.5 text-sm font-semibold">{t('responseExample')}</p>
                     <pre className="overflow-x-auto rounded-md bg-muted/50 p-3 text-xs">
                       <code>{selected.responseExample}</code>
                     </pre>

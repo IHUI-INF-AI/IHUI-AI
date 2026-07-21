@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Settings, Loader2, Bell, Shield, Save } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -35,6 +36,9 @@ const DEFAULT_PRIVACY: PrivacyPrefs = {
   allowInvites: true,
 }
 
+const NOTIF_KEYS = ['orderUpdates', 'promotions', 'points', 'newsletter'] as const
+const PRIVACY_KEYS = ['showProfile', 'showActivity', 'allowInvites'] as const
+
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
   if (!r.success) throw new Error(r.error)
@@ -62,6 +66,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 }
 
 export default function MemberSettingsPage() {
+  const t = useTranslations('memberSettingsPage')
   const [notif, setNotif] = React.useState<NotificationPrefs>(DEFAULT_NOTIF)
   const [privacy, setPrivacy] = React.useState<PrivacyPrefs>(DEFAULT_PRIVACY)
   const [loaded, setLoaded] = React.useState(false)
@@ -90,7 +95,7 @@ export default function MemberSettingsPage() {
     return (
       <div className="flex items-center justify-center py-12 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
   }
@@ -100,27 +105,22 @@ export default function MemberSettingsPage() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <Settings className="h-5 w-5 text-primary" />
-          会员设置
+          {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">管理你的通知偏好与隐私设置</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('description')}</p>
       </div>
 
       <Card>
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center gap-2 border-b pb-2 text-sm font-semibold">
             <Bell className="h-4 w-4" />
-            通知偏好
+            {t('notifTitle')}
           </div>
-          {(
-            [
-              ['orderUpdates', '订单状态更新'],
-              ['promotions', '促销与优惠活动'],
-              ['points', '积分变动提醒'],
-              ['newsletter', '订阅电子简报'],
-            ] as const
-          ).map(([key, label]) => (
+          {NOTIF_KEYS.map((key) => (
             <div key={key} className="flex items-center justify-between">
-              <Label className="text-sm font-normal text-muted-foreground">{label}</Label>
+              <Label className="text-sm font-normal text-muted-foreground">
+                {t(`notif.${key}`)}
+              </Label>
               <Toggle checked={notif[key]} onChange={(v) => setNotif({ ...notif, [key]: v })} />
             </div>
           ))}
@@ -131,17 +131,13 @@ export default function MemberSettingsPage() {
         <CardContent className="space-y-3 p-4">
           <div className="flex items-center gap-2 border-b pb-2 text-sm font-semibold">
             <Shield className="h-4 w-4" />
-            隐私设置
+            {t('privacyTitle')}
           </div>
-          {(
-            [
-              ['showProfile', '公开个人主页'],
-              ['showActivity', '展示最近活动'],
-              ['allowInvites', '允许他人邀请我'],
-            ] as const
-          ).map(([key, label]) => (
+          {PRIVACY_KEYS.map((key) => (
             <div key={key} className="flex items-center justify-between">
-              <Label className="text-sm font-normal text-muted-foreground">{label}</Label>
+              <Label className="text-sm font-normal text-muted-foreground">
+                {t(`privacy.${key}`)}
+              </Label>
               <Toggle
                 checked={privacy[key]}
                 onChange={(v) => setPrivacy({ ...privacy, [key]: v })}
@@ -158,10 +154,10 @@ export default function MemberSettingsPage() {
           ) : (
             <Save className="h-4 w-4" />
           )}
-          保存设置
+          {t('saveBtn')}
         </Button>
         {saveMut.isSuccess && (
-          <span className="text-xs text-emerald-600 dark:text-emerald-500">已保存</span>
+          <span className="text-xs text-emerald-600 dark:text-emerald-500">{t('saved')}</span>
         )}
       </div>
 

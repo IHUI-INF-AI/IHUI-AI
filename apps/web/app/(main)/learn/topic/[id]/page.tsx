@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import {
   ArrowLeft,
   Layers,
@@ -29,6 +30,7 @@ import {
 import { fetchPremiumLessons, loadTopic, type TopicLesson } from '../helpers'
 
 export default function LearnTopicDetailPage() {
+  const t = useTranslations('learnTopicPage')
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const { data, isLoading, error } = useQuery({
@@ -52,7 +54,7 @@ export default function LearnTopicDetailPage() {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
 
@@ -65,10 +67,10 @@ export default function LearnTopicDetailPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回专题列表
+          {t('backToList')}
         </button>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {(error as Error)?.message ?? '专题不存在'}
+          {(error as Error)?.message ?? t('notExists')}
         </div>
       </div>
     )
@@ -86,7 +88,7 @@ export default function LearnTopicDetailPage() {
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回专题列表
+        {t('backToList')}
       </Link>
 
       {/* 专题信息 */}
@@ -103,25 +105,23 @@ export default function LearnTopicDetailPage() {
                 <TooltipTrigger asChild>
                   <span
                     className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-medium shadow-sm backdrop-blur-sm"
-                    aria-label={source === 'premium' ? '高级专题' : '课程专题'}
+                    aria-label={source === 'premium' ? t('premiumTopic') : t('courseTopic')}
                   >
                     {source === 'premium' ? (
                       <span className="inline-flex items-center gap-1 rounded-md border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300">
                         <Sparkles className="h-3 w-3" />
-                        高级专题
+                        {t('premiumTopic')}
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-md border-sky-500/40 bg-sky-500/15 text-sky-700 dark:text-sky-300">
                         <Info className="h-3 w-3" />
-                        课程专题
+                        {t('courseTopic')}
                       </span>
                     )}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs text-left leading-relaxed">
-                  {source === 'premium'
-                    ? '包含企业/部门定制内容,可能涉及付费。'
-                    : '由运营精选的课程组合,免费学习。'}
+                  {source === 'premium' ? t('premiumTip') : t('courseTip')}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -134,17 +134,17 @@ export default function LearnTopicDetailPage() {
             <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
                 <BookOpen className="h-4 w-4" />
-                {topic.lessonIds?.length ?? lessons.length} 门课程
+                {t('lessonCount', { n: topic.lessonIds?.length ?? lessons.length })}
               </span>
               {typeof topic.learnNum === 'number' && (
                 <span className="flex items-center gap-1">
                   <Users className="h-4 w-4" />
-                  {topic.learnNum} 人学
+                  {t('learnCount', { n: topic.learnNum })}
                 </span>
               )}
               {typeof priceNum === 'number' && (
                 <span className={priceNum > 0 ? 'font-medium text-primary' : 'text-emerald-600'}>
-                  {priceNum > 0 ? `￥${priceNum}` : '免费'}
+                  {priceNum > 0 ? `￥${priceNum}` : t('free')}
                 </span>
               )}
             </div>
@@ -154,11 +154,11 @@ export default function LearnTopicDetailPage() {
 
       {/* 包含的课程列表 */}
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">包含课程</h2>
+        <h2 className="text-lg font-semibold">{t('includes')}</h2>
         {lessons.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
             <PlayCircle className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">暂无课程</p>
+            <p className="text-sm text-muted-foreground">{t('noLessons')}</p>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -188,7 +188,7 @@ export default function LearnTopicDetailPage() {
                             lesson.price > 0 ? 'font-medium text-primary' : 'text-emerald-600'
                           }
                         >
-                          {lesson.price > 0 ? `￥${lesson.price}` : '免费'}
+                          {lesson.price > 0 ? `￥${lesson.price}` : t('free')}
                         </span>
                       )}
                     </CardContent>
