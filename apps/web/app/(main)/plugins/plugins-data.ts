@@ -100,6 +100,14 @@ export interface MarketPlugin {
   category: PluginCategory
   free?: boolean
   official?: boolean
+  /**
+   * 调用模式(2026-07-22 新增,用户需求:插件内置可在平台内调用,不跳转外部)
+   * - 'dialog'(默认):点击后打开 AI 对话面板,注入"使用该插件"消息,由 AI 调用对应工具完成
+   * - 'external':纯外部参考链接,点击后新窗口跳转(仅极少数无法内置化的插件)
+   *
+   * 默认所有插件都是 'dialog',让用户在平台内直接调用,而不是被甩到外部平台。
+   */
+  invokeMode?: 'dialog' | 'external'
 }
 
 /** 本项目已集成的插件能力(24 项,对应 (main) 路由组下已有页面) */
