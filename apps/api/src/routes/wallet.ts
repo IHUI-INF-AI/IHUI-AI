@@ -70,50 +70,19 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  // POST /recharge
+  // POST /recharge - P0-1 修复:不直接加余额,只创建订单号返回
+  // 余额增加只能通过 payment-gateway.ts 支付回调调 rechargeToken(带幂等保护)
   server.post('/recharge', async (request, reply) => {
-    const userId = request.userId!
     const parsed = rechargeSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { amount } = parsed.data
-
-    const [margin] = await db
-      .select()
-      .from(userMargins)
-      .where(eq(userMargins.userId, userId))
-      .limit(1)
-    const currentBalance = margin?.tokenQuantity ?? 0
-    const newBalance = currentBalance + amount
-
-    if (margin) {
-      await db
-        .update(userMargins)
-        .set({ tokenQuantity: newBalance, updatedAt: new Date() })
-        .where(eq(userMargins.userId, userId))
-    } else {
-      await db.insert(userMargins).values({ userId, tokenQuantity: newBalance, frozenQuantity: 0 })
-    }
-
-    const [flow] = await db
-      .insert(tokenFlows)
-      .values({
-        userId,
-        opType: 0,
-        quantity: amount,
-        balanceAfter: newBalance,
-        remark: `充值 ${amount} tokens`,
-      })
-      .returning()
-
-    // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成充值订单号
-    // 原实现 4 位数字熵仅 10^4 = 13 位,数秒内可暴力枚举其他用户充值订单 → 支付绕过/IDOR
     const orderNo = generateOrderNumber('RC')
-    return reply.status(201).send(success({ orderNo, flow }))
+    // 不 update userMargins,不 insert tokenFlows!余额增加只能走支付回调
+    return reply.status(201).send(success({ orderNo, payUrl: undefined }))
   })
 
-  // POST /withdraw
+  // POST /withdraw - P0-9 修复:冻结余额 + 记录流水用事务保证原子性
   server.post('/withdraw', async (request, reply) => {
     const userId = request.userId!
     const parsed = withdrawSchema.safeParse(request.body)
@@ -121,38 +90,41 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { amount, account, accountType } = parsed.data
-
-    const [margin] = await db
-      .select()
-      .from(userMargins)
-      .where(eq(userMargins.userId, userId))
-      .limit(1)
-    const balance = margin?.tokenQuantity ?? 0
-    const frozen = margin?.frozenQuantity ?? 0
-    const available = balance - frozen
-
-    if (available < amount) {
-      return reply.status(400).send(error(400, '可用余额不足'))
+    try {
+      const result = await db.transaction(async (tx) => {
+        const [margin] = await tx
+          .select()
+          .from(userMargins)
+          .where(eq(userMargins.userId, userId))
+          .limit(1)
+        const balance = margin?.tokenQuantity ?? 0
+        const frozen = margin?.frozenQuantity ?? 0
+        const available = balance - frozen
+        if (available < amount) {
+          throw Object.assign(new Error('可用余额不足'), { statusCode: 400 })
+        }
+        if (margin) {
+          await tx
+            .update(userMargins)
+            .set({ frozenQuantity: margin.frozenQuantity + amount, updatedAt: new Date() })
+            .where(eq(userMargins.userId, userId))
+        } else {
+          await tx.insert(userMargins).values({ userId, tokenQuantity: 0, frozenQuantity: amount })
+        }
+        await tx.insert(tokenFlows).values({
+          userId,
+          opType: 1,
+          quantity: -amount,
+          balanceAfter: balance - amount,
+          remark: `提现到 ${accountType}(${account})`,
+        })
+        return { success: true }
+      })
+      return reply.status(201).send(success(result))
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
+      return reply.status(statusCode).send(error(statusCode, (e as Error).message))
     }
-
-    if (margin) {
-      await db
-        .update(userMargins)
-        .set({ frozenQuantity: margin.frozenQuantity + amount, updatedAt: new Date() })
-        .where(eq(userMargins.userId, userId))
-    } else {
-      await db.insert(userMargins).values({ userId, tokenQuantity: 0, frozenQuantity: amount })
-    }
-
-    await db.insert(tokenFlows).values({
-      userId,
-      opType: 1,
-      quantity: -amount,
-      balanceAfter: balance - amount,
-      remark: `提现到 ${accountType}(${account})`,
-    })
-
-    return reply.status(201).send(success({ success: true }))
   })
 
   // GET /withdraw/records
