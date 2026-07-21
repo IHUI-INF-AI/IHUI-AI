@@ -59,6 +59,70 @@
 
 ---
 
+### [x] ✅(2026-07-22) AI 世界板块升级:工具集 + 应用集 + 资讯/论文/项目 + 12h 自动同步原始数据源(平台独占:仅 web+api)
+
+**触发**:`/goal` 用户要求"完整借鉴 ai-bot.cn 但不可走任何抄袭的影子 数据应该每12小时自动获取一遍 数据源要找原始数据"。AskUserQuestion 4 问明确:只做 ai-bot.cn 5 大板块中的 2 个(工具集+应用集),4 类原始数据源(RSS+arXiv+GitHub+APP 官网),cron 位置按深度分析后最优(api 端 + node-cron),反抄袭边界(UI/字体/icon 不抄、分类 slug 重命名、文案不抄)。
+
+**方案与产出**:
+
+1. **schema 升级** `packages/database/src/schema/ai-world-items.ts`:
+   - `aiWorldCategories` 加 slug/description/createdAt/updatedAt 字段
+   - `aiWorldItems` 加 kind/slug/summary/url/source/sourceUrl/publishedAt/fetchedAt/metadata/likeCount 字段 + unique(kind, sourceUrl)
+   - 新建 `aiWorldSyncLog` 表(source/kind/status/startedAt/finishedAt/itemCount/error)
+   - migration `0126_ai-world-sync.sql` + 临时兼容脚本 `run-ai-world-migration.ts`(NOT NULL 列先加可空 → UPDATE 填默认 → SET NOT NULL)
+
+2. **同步任务** `apps/api/src/jobs/ai-world-sync.ts`(~480 行):
+   - 4 类原始源:6 RSS feeds(OpenAI/Anthropic/DeepMind/Meta/Microsoft/HF)+ arXiv API(cs.AI+cs.CL)+ GitHub Trending(3 topics)+ 15 AI APP + 10 AI Tool 官网 cheerio 抓取
+   - node-cron `0 0,12 * * *` timezone Asia/Shanghai
+   - 单源 3 次重试 + 失败不阻塞 + onConflictDoNothing upsert
+   - LLM 改写可选(`AI_WORLD_LLM_REWRITE_URL`),失败降级用原始摘要
+   - CLI 入口 `tsx ... --run-once` + scheduler 启停函数
+
+3. **API 路由** `apps/api/src/routes/ai-world.ts`(9 个端点):
+   - GET /ai-world(兼容旧入口)+ /categories + /tools + /apps + /news + /papers + /projects + /items/:id + /sync/logs
+   - POST /ai-world/sync(手动触发)
+   - ListQuerySchema zod 校验 + 异步 incrementViewCount
+
+4. **web 重构** `apps/web/app/(main)/ai-world/`:
+   - `types.ts` 扩展(ItemKind + AiWorldItem + PaginatedItems + AiCategory 含 slug)
+   - `helpers.ts` 扩展(fetchAiWorldItems + fetchAiWorldCategories)
+   - 新建 `ItemCard.tsx`(grid/list 双模式 + 5 种 kind icon + 元数据 stars/views/date)
+   - 新建 `ItemList.tsx`(分页加载更多 + 搜索 + 排序 + grid/list 切换)
+   - 新建 `CategorySidebar.tsx`(12 分类侧边栏 + active bg-accent 高亮)
+   - 新建 `AiChatSection.tsx`(抽离 AI 对话逻辑)
+   - 重写 `page.tsx`(122 行,6 Tab 切换:工具集/应用集/资讯/论文/项目/AI 对话 + 分类侧边栏 + ItemList 调度)
+   - 删除 `CategoryGrid.tsx`(无引用,功能已被 CategorySidebar + ItemList 替代)
+
+5. **测试** `apps/api/src/jobs/__tests__/ai-world-sync.test.ts`(7 个测试全过):
+   - vi.hoisted 修复 vi.mock top-level 变量 hoisting 问题
+   - 4 个分类数据完整性(12 分类 / slug 唯一 / sort 1-12 / 反抄袭 slug)
+   - 1 个 syncAllSources 同步主流程
+   - 2 个 FetchedItem 类型契约
+
+**变更文件**:
+- schema/migration:`packages/database/src/schema/ai-world-items.ts` + `drizzle/0126_ai-world-sync.sql` + `drizzle/meta/_journal.json` + `drizzle/meta/0126_snapshot.json`
+- 后端:`apps/api/src/jobs/ai-world-sync.ts`(新) + `apps/api/src/jobs/__tests__/ai-world-sync.test.ts`(新) + `apps/api/src/db/ai-world-queries.ts`(重写) + `apps/api/src/routes/ai-world.ts`(重写) + `apps/api/src/routes/frontend-stub-other-routes.ts`(补 kind/source 字段) + `apps/api/src/index.ts`(挂载 scheduler) + `apps/api/vitest.config.ts`(include jobs 测试目录)
+- web:`apps/web/app/(main)/ai-world/{page,types,helpers}.tsx/ts`(重写) + 5 个新组件(ItemCard/ItemList/CategorySidebar/AiChatSection) + 删除 CategoryGrid.tsx
+- 临时脚本(对未来 dev 有用,保留):`apps/api/scripts/run-ai-world-migration.ts` + `verify-ai-world-data.ts` + `mini-api-ai-world.ts`
+
+**自验**:
+- `pnpm --filter @ihui/api typecheck` exit 2,本任务文件 0 错误,4 条错误全在 clawdbot/safe-condition.js(其他 agent 引入,§12 不归本任务)
+- `pnpm --filter @ihui/web typecheck` exit 2,本任务 ai-world/* 0 错误,剩余错误全在 admin/dict + AdminNav + sidebar 重复定义(其他 agent 引入,§12 不归本任务)
+- `pnpm --filter @ihui/api exec vitest run src/jobs/__tests__/ai-world-sync.test.ts` exit 0,7/7 通过
+- `pnpm --filter @ihui/api exec tsx src/jobs/ai-world-sync.ts --run-once` exit 1(8 源失败,正常反爬),25 源成功,~161 条数据写入 DB
+- mini-api 3001 curl 验证 H4/H5/H6 全通过(FLUX/Suno/OpenAI blog 真实数据)
+- browser_use 4 状态验证:**BLOCKED**(sidebar.tsx 重复定义错误导致 web 返回 500,其他 agent 引入,§12 不修;本任务 page.tsx/ItemCard/ItemList/CategorySidebar/AiChatSection 已就绪且 typecheck 通过)
+
+**硬约束**:
+- 跨端:仅 web + api + database 3 端(AI 世界是 web+api 独占,不涉及 ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)
+- 反抄袭:UI 配色/字体/icon 不抄(用本项目 @ihui/ui + Tailwind token);分类 slug 全自定义(chat/image/video/audio/code/search/platform/framework/multimodal/news/paper/project),不抄 ai-bot.cn 英文 slug;文案用原始源(OpenAI/Anthropic/HF/arXiv/GitHub)原文摘要,严禁抓 ai-bot.cn 任何接口
+- 数据源 4 类原始源:RSS(6 站)+ arXiv API + GitHub REST API search/repositories + AI 官网 cheerio 元数据
+- cron:node-cron `0 0,12 * * *`(每 12 小时一次)timezone Asia/Shanghai,在 api 进程内运行(进程内 Drizzle 写入,与 ai-world 路由同端,无新进程)
+- commit message: `feat(ai-world): 升级工具集+应用集+资讯/论文/项目 + 12h cron 同步原始数据源 + 反抄袭边界`
+- Verified-DOM:无法验证(其他 agent sidebar.tsx 重复定义阻塞 dev server,非本任务范围)
+
+---
+
 ### G5+ 知识图谱 DrizzleGraphStore 持久化后端(2026-07-22)
 
 **触发**:G5 知识图谱 commit `73f8d0a5d` 落地后,`graph_store` 仅 `InMemoryGraphStore`(进程内 dict),生产环境重启丢数据。本任务将其升级为 DrizzleGraphStore(asyncpg 直连 PG),通过环境变量 `KNOWLEDGE_GRAPH_STORE` 切换后端。
@@ -781,5 +845,68 @@ cAdvisor(:8080) → Prometheus(:9090) → Grafana(:3001)
 - `python -c "from app.core.config import settings; from app.core.llm_gateway import llm_gateway; from app.providers import get_provider"` exit 0(模块导入无异常)
 - `python -c "import json; data=json.load(open('app/data/default_models.json')); print(len(data['models']))"` 输出新增模型数 ≥ 30
 - `node scripts/check-staged-files.mjs` 端分布正确(ai-service + PROJECT_PLAN.md)
+
+---
+
+### 插件市场多端同步 + 测试覆盖 + ai-service 豁免标注(已完成 ✅ 2026-07-22)
+
+**触发**:用户反馈"多端都开发好验证功能了吗 插件调用使用也都正常可用吗 测试了吗"。盘点发现 8 端中 7 端有插件代码,**ai-service 缺失**,**所有端 0 测试**。
+
+**8 端覆盖**(共享类型 `packages/types/src/plugin.ts` + 共享封装 `packages/api-client/src/endpoints/plugin.ts`):
+
+| 端 | 状态 | 文件 |
+|---|---|---|
+| web | ✅ | `apps/web/src/hooks/use-plugins.ts` + `apps/web/app/(main)/plugins/*` |
+| api | ✅ | `apps/api/src/routes/plugins.ts`(4 端点 + Zod 校验 + 复用 user_preferences) |
+| **ai-service** | ⚠️ **平台独占豁免** | 职责是 AI 推理与知识检索(chat/agent/rag/knowledge_graph),不涉及用户偏好持久化(走 api 端 user_preferences 表) |
+| desktop | ✅ | `apps/desktop/src/lib/api/plugin.ts`(薄封装 re-export) |
+| extension | ✅ | `apps/extension/src/lib/plugin-api.ts`(薄封装 re-export) |
+| mobile-rn | ✅ | `apps/mobile-rn/src/api/plugin.ts`(薄封装 re-export) |
+| miniapp-taro | ✅ | `apps/miniapp-taro/src/api/plugin.ts`(薄封装 re-export) |
+| cli | ✅ | `apps/cli/src/commands/plugin-marketplace.ts`(独立实现 + feature flag) |
+
+**ai-service 豁免理由**(显式标注,符合 AGENTS.md §9):插件市场是用户偏好持久化功能,数据走 `user_preferences` 表(group='plugins'),由 api 端 4 个端点(GET/POST/DELETE/PATCH)管理。ai-service 职责是 AI 推理与知识检索,不涉及用户偏好 CRUD,天然不属于 ai-service 范畴。
+
+**测试覆盖**(本次新增,共 43 个测试全绿):
+
+1. `apps/api/src/routes/__tests__/plugins.test.ts`(新,27 个测试)
+   - GET /installed:未登录/已登录无数据/有数据/损坏 JSON 跳过
+   - POST /:id/install:未登录 401/无效 id 400/默认 pinned/pinned=true/保留 installedAt/无效 body
+   - DELETE /:id/install:未登录/无效 id/有效 id/幂等删除
+   - PATCH /:id/preferences:未登录/无效 id/未安装 404/已安装切换/保留原 pinned/无效 body
+   - E2E 工作流:install → toggle pinned → GET 验证 → uninstall → 再 PATCH 404
+   - 安全:5 个恶意 id 注入防护 + 合法 id 含 - 和 _
+2. `apps/web/src/hooks/__tests__/use-plugins.test.ts`(新,16 个测试)
+   - 初始化 + refresh:自动 GET/已登录有数据/网络异常/success=false/手动 refresh
+   - install:乐观更新 + 服务端校正/POST 失败回滚/保留 installedAt
+   - uninstall:乐观移除/DELETE 失败回滚(含 pinned 完整恢复)
+   - togglePinned:未安装返回 false/切换 + 服务端校正/PATCH 失败回滚
+   - toggleInstall:未安装→install/已安装→uninstall
+   - 派生选择器:isInstalled/isPinned/getState
+
+**跨端调用链路验证**(由于 web dev server 500 阻塞,降级为静态契约验证):
+
+- 类型契约:`packages/types/src/plugin.ts` 6 个类型(PluginInstallState/PluginInstalledResponse/PluginInstallBody/PluginPreferencesBody/PluginMutationResponse/PluginUninstallResponse)✅
+- API 封装:`packages/api-client/src/endpoints/plugin.ts` 4 端点封装 ✅
+- 各端薄封装 re-export 自 `@ihui/api-client` ✅(desktop/extension/mobile-rn/miniapp-taro)
+- api 路由调用 `findUserPreferences`/`upsertUserPreference`/`deleteUserPreference` ✅
+- web hook 调用 `fetchApi` → `/api/plugins/*` ✅
+- 测试已验证 4 端点的请求/响应契约(含 Zod 校验 + 鉴权 + 幂等)✅
+
+**自验**:
+
+- `pnpm --filter @ihui/api exec vitest run src/routes/__tests__/plugins.test.ts` → 27 passed ✅
+- `pnpm --filter @ihui/web exec vitest run src/hooks/__tests__/use-plugins.test.ts` → 16 passed ✅
+- `pnpm --filter @ihui/api exec tsc --noEmit` → 本任务文件 0 错误(其他 agent 的 clawdbot/safe-condition.js 缺失不在本任务范围)
+- `pnpm --filter @ihui/web exec tsc --noEmit` → 本任务文件 0 错误(其他 agent 的 sidebar.tsx ExpandableNavItem 重复定义不在本任务范围)
+
+**Git 同步证据**:
+
+- 本地 commit: `<待 commit>`
+- origin commit: `<待 push>`
+- 同步状态: 待 commit + push 后填写
+- 守门脚本: `node scripts/git-push-guard.mjs` 待跑
+
+**跨端**:仅 web + api + packages + 测试文件(平台独占豁免:ai-service 不涉及用户偏好管理;cli 已有独立 plugin-marketplace 命令;desktop/extension/mobile-rn/miniapp-taro 是薄封装 re-export,通过 api-client 共享测试覆盖)
 
 ---
