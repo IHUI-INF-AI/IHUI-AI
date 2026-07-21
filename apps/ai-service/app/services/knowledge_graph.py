@@ -1,4 +1,4 @@
-"""知识图谱服务(G5 - 2026-07-21)。
+"""知识图谱服务(G5 - 2026-07-21,G5+ 2026-07-22 加 DrizzleGraphStore 持久化)。
 
 提供:
 - LLM NER 实体抽取(从一段文本抽取实体 + 关系)
@@ -10,15 +10,33 @@
 - 实体去重:(owner_uuid, name, type) 唯一约束
 - 关系去重:(owner_uuid, source, target, type) 唯一约束
 - 频次累加:同一实体被多次抽取时 frequency + 1,doc_ids 累加
+- 关系权重:同一 (source, target, type) 边被多次抽取时 weight + 1
+
+存储后端(由环境变量 `KNOWLEDGE_GRAPH_STORE` 决定):
+- `memory` (默认): InMemoryGraphStore,进程内 dict,dev/test 场景
+- `drizzle`:      DrizzleGraphStore,用 asyncpg 直连 PG,生产场景(进程重启不丢)
+- 未知值: 启动时打 warning 强制回退到 memory,避免运行时崩溃
+
+所有后端通过 `GraphStore` Protocol 暴露异步方法,API 路由统一 `await` 调用,
+便于在不同后端之间无缝切换且未来可加新后端(CosmosDB / Neo4j 等)。
 """
 
 from __future__ import annotations
 
 import json
+import logging
+import os
 import re
-from typing import Any
+from datetime import datetime, timezone
+from decimal import Decimal
+from typing import Any, Protocol
 
+import asyncpg
+
+from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
+
+logger = logging.getLogger(__name__)
 
 # 实体类型白名单
 _ENTITY_TYPES = (
@@ -216,9 +234,83 @@ class KnowledgeGraphService:
 knowledge_graph_service = KnowledgeGraphService()
 
 
-# 内存数据存储(测试 / dev 环境无 DB 时的 fallback)
+# =============================================================================
+# 存储层(G5+ 2026-07-22:加 DrizzleGraphStore 持久化后端)
+# =============================================================================
+
+
+class GraphStore(Protocol):
+    """知识图谱存储统一接口(Protocol,Python 3.8+ 结构化子类型)。
+
+    所有方法必须为 async,以便上层 API 路由统一 `await` 调用。
+    InMemoryGraphStore 内部用 sync 实现但通过 `_async_*` 包装或 thin async wrapper
+    保持接口一致;DrizzleGraphStore 用 asyncpg 原生 async。
+    """
+
+    async def upsert_entity(
+        self,
+        owner_uuid: str,
+        name: str,
+        entity_type: str,
+        description: str | None = None,
+        doc_id: int | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def upsert_relation(
+        self,
+        owner_uuid: str,
+        source_entity_id: int,
+        target_entity_id: int,
+        relation_type: str,
+        description: str | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def get_graph(self, owner_uuid: str) -> dict[str, Any]: ...
+
+    async def clear(self, owner_uuid: str | None = None) -> None: ...
+
+
+def _entity_to_dict(row: asyncpg.Record) -> dict[str, Any]:
+    """把 asyncpg 行(实体表)转成 dict,统一字段命名(snake_case → API 期望的命名)。
+
+    API 期望字段:id / owner_uuid / name / type / description / frequency / doc_ids
+    """
+    return {
+        "id": row["id"],
+        "owner_uuid": row["owner_uuid"],
+        "name": row["name"],
+        "type": row["type"],
+        "description": row["description"],
+        "frequency": row["frequency"],
+        "doc_ids": list(row["doc_ids"]) if row["doc_ids"] else [],
+    }
+
+
+def _relation_to_dict(row: asyncpg.Record) -> dict[str, Any]:
+    """把 asyncpg 行(关系表)转成 dict,统一字段命名。
+
+    API 期望字段:id / owner_uuid / source_entity_id / target_entity_id /
+    relation_type / description / weight
+    """
+    weight = row["weight"]
+    if isinstance(weight, Decimal):
+        weight = float(weight)
+    return {
+        "id": row["id"],
+        "owner_uuid": row["owner_uuid"],
+        "source_entity_id": row["source_entity_id"],
+        "target_entity_id": row["target_entity_id"],
+        "relation_type": row["relation_type"],
+        "description": row["description"],
+        "weight": weight,
+    }
+
+
 class InMemoryGraphStore:
-    """内存版图谱存储,用于 dev/test 场景,生产用 DB。"""
+    """内存版图谱存储,用于 dev/test 场景,生产用 DrizzleGraphStore。
+
+    所有方法保持 async 接口(虽然内部是同步),与 GraphStore Protocol 一致。
+    """
 
     def __init__(self) -> None:
         self.entities: dict[tuple[str, str, str], dict[str, Any]] = {}
@@ -226,7 +318,7 @@ class InMemoryGraphStore:
         self._next_entity_id = 1
         self._next_relation_id = 1
 
-    def upsert_entity(
+    async def upsert_entity(
         self,
         owner_uuid: str,
         name: str,
@@ -254,7 +346,7 @@ class InMemoryGraphStore:
         self.entities[key] = entity
         return entity
 
-    def upsert_relation(
+    async def upsert_relation(
         self,
         owner_uuid: str,
         source_entity_id: int,
@@ -280,12 +372,12 @@ class InMemoryGraphStore:
         self.relations[key] = relation
         return relation
 
-    def get_graph(self, owner_uuid: str) -> dict[str, Any]:
+    async def get_graph(self, owner_uuid: str) -> dict[str, Any]:
         entities = [e for e in self.entities.values() if e["owner_uuid"] == owner_uuid]
         relations = [r for r in self.relations.values() if r["owner_uuid"] == owner_uuid]
         return {"entities": entities, "relations": relations}
 
-    def clear(self, owner_uuid: str | None = None) -> None:
+    async def clear(self, owner_uuid: str | None = None) -> None:
         if owner_uuid is None:
             self.entities.clear()
             self.relations.clear()
@@ -300,5 +392,327 @@ class InMemoryGraphStore:
             }
 
 
-# 全局单例(内存版;DB 接入前使用)
-graph_store = InMemoryGraphStore()
+class DrizzleGraphStore:
+    """基于 asyncpg 直连 PostgreSQL 的图谱存储(生产环境)。
+
+    复用 `packages/database/drizzle/0125_knowledge_graph.sql` 创建的两张表:
+    - zhs_knowledge_entity   (实体表)
+    - zhs_knowledge_relation (关系表)
+
+    设计:
+    - 单例 asyncpg pool,所有方法复用同一连接池(性能 + 连接数控制)
+    - upsert_entity:先 SELECT,存在则 frequency+1 + doc_ids 累加;不存在则 INSERT
+    - upsert_relation:先 SELECT,存在则 weight+1;不存在则 INSERT
+    - get_graph:按 owner_uuid 过滤查询节点 + 边
+    - clear:按 owner_uuid DELETE,owner_uuid=None 时全表清空(仅 admin 用)
+    - 所有方法在 DB 不可达时抛 RuntimeError,上层 API 路由捕获并返回 500
+    """
+
+    def __init__(self) -> None:
+        if not settings.database_url:
+            raise ValueError("DATABASE_URL 未配置,无法初始化 DrizzleGraphStore")
+        self._dsn = settings.database_url
+        self._pool: asyncpg.Pool | None = None
+
+    async def _get_pool(self) -> asyncpg.Pool:
+        """懒加载 asyncpg pool,首次访问时创建,后续复用。"""
+        if self._pool is None:
+            self._pool = await asyncpg.create_pool(
+                dsn=self._dsn,
+                min_size=1,
+                max_size=5,
+                command_timeout=10,
+            )
+        return self._pool
+
+    async def close(self) -> None:
+        """关闭 pool(应用关闭时调用,释放连接)。"""
+        if self._pool is not None:
+            await self._pool.close()
+            self._pool = None
+
+    async def upsert_entity(
+        self,
+        owner_uuid: str,
+        name: str,
+        entity_type: str,
+        description: str | None = None,
+        doc_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Upsert 实体:存在则 frequency+1 + doc_ids 累加,不存在则 INSERT。
+
+        唯一约束 (owner_uuid, name, type) 保证并发安全,即使两个请求同时插入,
+        第二个会被 unique violation 触发,本方法捕获后回退到 SELECT 路径。
+        """
+        pool = await self._get_pool()
+        now = datetime.now(timezone.utc)
+
+        async with pool.acquire() as conn:
+            # 1. 先查现有实体
+            existing = await conn.fetchrow(
+                """
+                SELECT id, owner_uuid, name, type, description, frequency, doc_ids
+                FROM zhs_knowledge_entity
+                WHERE owner_uuid = $1 AND name = $2 AND type = $3
+                """,
+                owner_uuid,
+                name,
+                entity_type,
+            )
+
+            if existing is not None:
+                # 2. 更新 frequency + doc_ids(JSONB 数组追加)
+                new_doc_ids = list(existing["doc_ids"]) if existing["doc_ids"] else []
+                if doc_id is not None and doc_id not in new_doc_ids:
+                    new_doc_ids.append(doc_id)
+                row = await conn.fetchrow(
+                    """
+                    UPDATE zhs_knowledge_entity
+                    SET frequency = frequency + 1,
+                        doc_ids = $2::jsonb,
+                        updated_at = $3
+                    WHERE id = $1
+                    RETURNING id, owner_uuid, name, type, description, frequency, doc_ids
+                    """,
+                    existing["id"],
+                    json.dumps(new_doc_ids),
+                    now,
+                )
+            else:
+                # 3. 插入新实体
+                initial_doc_ids = [doc_id] if doc_id is not None else []
+                try:
+                    row = await conn.fetchrow(
+                        """
+                        INSERT INTO zhs_knowledge_entity
+                            (owner_uuid, name, type, description, frequency, doc_ids, created_at, updated_at)
+                        VALUES ($1, $2, $3, $4, 1, $5::jsonb, $6, $6)
+                        RETURNING id, owner_uuid, name, type, description, frequency, doc_ids
+                        """,
+                        owner_uuid,
+                        name,
+                        entity_type,
+                        description,
+                        json.dumps(initial_doc_ids),
+                        now,
+                    )
+                except asyncpg.UniqueViolationError:
+                    # 并发竞争:另一请求同时插入,降级到 SELECT 路径
+                    row = await conn.fetchrow(
+                        """
+                        SELECT id, owner_uuid, name, type, description, frequency, doc_ids
+                        FROM zhs_knowledge_entity
+                        WHERE owner_uuid = $1 AND name = $2 AND type = $3
+                        """,
+                        owner_uuid,
+                        name,
+                        entity_type,
+                    )
+                    if row is None:
+                        raise RuntimeError(
+                            f"upsert_entity 并发竞争后仍找不到实体: "
+                            f"owner={owner_uuid} name={name} type={entity_type}"
+                        )
+                    # 重新走更新路径
+                    new_doc_ids = list(row["doc_ids"]) if row["doc_ids"] else []
+                    if doc_id is not None and doc_id not in new_doc_ids:
+                        new_doc_ids.append(doc_id)
+                    row = await conn.fetchrow(
+                        """
+                        UPDATE zhs_knowledge_entity
+                        SET frequency = frequency + 1,
+                            doc_ids = $2::jsonb,
+                            updated_at = $3
+                        WHERE id = $1
+                        RETURNING id, owner_uuid, name, type, description, frequency, doc_ids
+                        """,
+                        row["id"],
+                        json.dumps(new_doc_ids),
+                        now,
+                    )
+
+        assert row is not None
+        return _entity_to_dict(row)
+
+    async def upsert_relation(
+        self,
+        owner_uuid: str,
+        source_entity_id: int,
+        target_entity_id: int,
+        relation_type: str,
+        description: str | None = None,
+    ) -> dict[str, Any]:
+        """Upsert 关系:存在则 weight+1,不存在则 INSERT。
+
+        唯一约束 (owner_uuid, source_entity_id, target_entity_id, relation_type)
+        保证并发安全,UniqueViolation 走并发降级路径。
+        """
+        pool = await self._get_pool()
+        now = datetime.now(timezone.utc)
+
+        async with pool.acquire() as conn:
+            existing = await conn.fetchrow(
+                """
+                SELECT id, owner_uuid, source_entity_id, target_entity_id,
+                       relation_type, description, weight
+                FROM zhs_knowledge_relation
+                WHERE owner_uuid = $1
+                  AND source_entity_id = $2
+                  AND target_entity_id = $3
+                  AND relation_type = $4
+                """,
+                owner_uuid,
+                source_entity_id,
+                target_entity_id,
+                relation_type,
+            )
+
+            if existing is not None:
+                row = await conn.fetchrow(
+                    """
+                    UPDATE zhs_knowledge_relation
+                    SET weight = weight + 1,
+                        updated_at = $2
+                    WHERE id = $1
+                    RETURNING id, owner_uuid, source_entity_id, target_entity_id,
+                              relation_type, description, weight
+                    """,
+                    existing["id"],
+                    now,
+                )
+            else:
+                try:
+                    row = await conn.fetchrow(
+                        """
+                        INSERT INTO zhs_knowledge_relation
+                            (owner_uuid, source_entity_id, target_entity_id,
+                             relation_type, description, weight, created_at, updated_at)
+                        VALUES ($1, $2, $3, $4, $5, 1, $6, $6)
+                        RETURNING id, owner_uuid, source_entity_id, target_entity_id,
+                                  relation_type, description, weight
+                        """,
+                        owner_uuid,
+                        source_entity_id,
+                        target_entity_id,
+                        relation_type,
+                        description,
+                        now,
+                    )
+                except asyncpg.UniqueViolationError:
+                    # 并发降级
+                    row = await conn.fetchrow(
+                        """
+                        SELECT id, owner_uuid, source_entity_id, target_entity_id,
+                               relation_type, description, weight
+                        FROM zhs_knowledge_relation
+                        WHERE owner_uuid = $1
+                          AND source_entity_id = $2
+                          AND target_entity_id = $3
+                          AND relation_type = $4
+                        """,
+                        owner_uuid,
+                        source_entity_id,
+                        target_entity_id,
+                        relation_type,
+                    )
+                    if row is None:
+                        raise RuntimeError(
+                            f"upsert_relation 并发竞争后仍找不到关系: "
+                            f"owner={owner_uuid} src={source_entity_id} "
+                            f"tgt={target_entity_id} type={relation_type}"
+                        )
+                    row = await conn.fetchrow(
+                        """
+                        UPDATE zhs_knowledge_relation
+                        SET weight = weight + 1,
+                            updated_at = $2
+                        WHERE id = $1
+                        RETURNING id, owner_uuid, source_entity_id, target_entity_id,
+                                  relation_type, description, weight
+                        """,
+                        row["id"],
+                        now,
+                    )
+
+        assert row is not None
+        return _relation_to_dict(row)
+
+    async def get_graph(self, owner_uuid: str) -> dict[str, Any]:
+        """查询某 owner 的图谱数据(节点 + 边)。"""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            entity_rows = await conn.fetch(
+                """
+                SELECT id, owner_uuid, name, type, description, frequency, doc_ids
+                FROM zhs_knowledge_entity
+                WHERE owner_uuid = $1
+                ORDER BY id ASC
+                """,
+                owner_uuid,
+            )
+            relation_rows = await conn.fetch(
+                """
+                SELECT id, owner_uuid, source_entity_id, target_entity_id,
+                       relation_type, description, weight
+                FROM zhs_knowledge_relation
+                WHERE owner_uuid = $1
+                ORDER BY id ASC
+                """,
+                owner_uuid,
+            )
+        return {
+            "entities": [_entity_to_dict(r) for r in entity_rows],
+            "relations": [_relation_to_dict(r) for r in relation_rows],
+        }
+
+    async def clear(self, owner_uuid: str | None = None) -> None:
+        """清除图谱数据。
+
+        - owner_uuid 给定:只删该 owner 的实体 + 关系
+        - owner_uuid=None:全表清空(危险,仅 admin 场景使用,生产应禁用)
+        """
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            if owner_uuid is None:
+                # 全表清空:先 relations 再 entities(无外键约束,但按依赖顺序更清晰)
+                await conn.execute("TRUNCATE zhs_knowledge_relation")
+                await conn.execute("TRUNCATE zhs_knowledge_entity RESTART IDENTITY")
+            else:
+                await conn.execute(
+                    "DELETE FROM zhs_knowledge_relation WHERE owner_uuid = $1",
+                    owner_uuid,
+                )
+                await conn.execute(
+                    "DELETE FROM zhs_knowledge_entity WHERE owner_uuid = $1",
+                    owner_uuid,
+                )
+
+
+# =============================================================================
+# 全局 graph_store 工厂(根据环境变量选择后端)
+# =============================================================================
+
+
+def _create_graph_store() -> GraphStore:
+    """根据环境变量 `KNOWLEDGE_GRAPH_STORE` 选择后端。"""
+    backend = os.getenv("KNOWLEDGE_GRAPH_STORE", "memory").lower()
+    if backend == "drizzle":
+        try:
+            store: GraphStore = DrizzleGraphStore()
+            logger.info("知识图谱存储后端: DrizzleGraphStore (生产模式,asyncpg 直连 PG)")
+            return store
+        except Exception as e:
+            logger.warning(
+                f"DrizzleGraphStore 初始化失败,回退到 InMemoryGraphStore: {e}"
+            )
+            return InMemoryGraphStore()
+    if backend != "memory":
+        logger.warning(
+            f"未知的知识图谱存储后端 {backend!r},使用默认内存模式 "
+            f"(合法值: 'memory' | 'drizzle')"
+        )
+    return InMemoryGraphStore()
+
+
+# 全局单例(API 路由和 build 流程统一引用)
+graph_store: GraphStore = _create_graph_store()
