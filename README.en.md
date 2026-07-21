@@ -1287,9 +1287,11 @@ For the complete task plan and historical archive, see [PROJECT_PLAN.md](PROJECT
 </p>
 <p align="center"><sub>📍 Jilin Aizhihui Artificial Intelligence Technology Co., Ltd. · Physical Base · No. 107 Yueda Road, High-tech Zone, Changchun · AI Talent Incubation Base (photo: 2026-07)</sub></p>
 
-<!-- Image placeholder (for future additions): -->
-<!-- - apps/web/public/images/story/late-night-coding.jpg — late-night code screenshot, or the desk under a lamp -->
-<!-- Once the photo is in place, remove the HTML comment above and insert <p align="center"><img src="..." width="600"/></p> in the corresponding section -->
+<!-- Image: Late-night coding · A lamp and code still growing (Pexels free no-watermark library, Free License) -->
+<p align="center">
+  <img src="apps/web/public/images/story/late-night-coding.jpg" width="600" alt="3 AM · A lamp, a laptop, code still growing" />
+</p>
+<p align="center"><sub>📍 3:17 AM · A lamp, a laptop, code still growing (Image: Pexels · Free License)</sub></p>
 
 ### Prologue · A Question Asked Again and Again
 
@@ -1534,6 +1536,8 @@ Here are 5 technical decisions that get asked again and again.
 
 **Cost**: Steep learning curve, but once learned, every new workflow becomes a templated copy.
 
+> 💬 **Discussion**: → [#1 Decision Discussion: Why IHUI-AI Chose LangGraph, not AutoGen / CrewAI?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/1)
+
 #### Decision 2 · Why Drizzle ORM, not Prisma?
 
 **Background**: The mainstream TypeScript ORMs are Prisma and Drizzle.
@@ -1551,6 +1555,8 @@ Here are 5 technical decisions that get asked again and again.
 
 **Cost**: Smaller ecosystem than Prisma, but sufficient.
 
+> 💬 **Discussion**: → [#2 Decision Discussion: Why IHUI-AI Chose Drizzle ORM, not Prisma?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/2)
+
 #### Decision 3 · Why a TS Monorepo, not Polyrepo?
 
 **Background**: For 8 platforms of code (Web / API / AI / CLI / Desktop / Extension / Mobile / Miniapp), monorepo vs polyrepo is a life-or-death decision.
@@ -1567,6 +1573,8 @@ Here are 5 technical decisions that get asked again and again.
 
 **Cost**: Monorepo configuration is complex, but once set up, it's once and for all.
 
+> 💬 **Discussion**: → [#3 Decision Discussion: Why IHUI-AI Chose TS Monorepo, not Polyrepo?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/3)
+
 #### Decision 4 · Why 17 pre-commit guardrails?
 
 **Background**: An independent developer with no code review, no QA, no CI team—how to guarantee code quality?
@@ -1580,6 +1588,8 @@ Here are 5 technical decisions that get asked again and again.
 - **Machines replace DevOps**: 9 PowerShell startup scripts turn "start the project" from "can't remember 8 commands" into "1 command"
 
 **Cost**: Hooks occasionally false-positive, but better to false-positive than to miss.
+
+> 💬 **Discussion**: → [#4 Decision Discussion: Why IHUI-AI Has 17 pre-commit Guardrails?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/4)
 
 #### Decision 5 · Why Apache 2.0, not AGPL / commercial dual-license?
 
@@ -1596,6 +1606,8 @@ Here are 5 technical decisions that get asked again and again.
 - **The real moat is community**: Open code + active community > closed code + dead community
 
 **Cost**: Others can fork and sell closed-source, but such forks usually have no community and don't survive long.
+
+> 💬 **Discussion**: → [#5 Decision Discussion: Why IHUI-AI Sticks with Apache 2.0, not AGPL / Dual-License?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/5)
 
 ---
 

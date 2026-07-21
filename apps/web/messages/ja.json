@@ -9357,6 +9357,7 @@
     "title": "モデルマーケット",
     "subtitle": "のなドキュメントとAPIリファレンス",
     "all": "て",
+    "navAriaLabel": "プロバイダーでフィルター",
     "contextLength": "コンテキスト：",
     "price": "価格",
     "free": "無料",
@@ -9499,6 +9500,17 @@
       "sensenova": "SenseNova",
       "skywork": "スカイワーク",
       "internlm": "ＩｎｔｅｒｎＬＭ",
+      "local": "ローカル",
+      "ornith": "Ornith",
+      "codebrain": "CodeBrain",
+      "mai": "ＭＡＩ"
+    },
+    "providerGroups": {
+      "international": "海外メーカー",
+      "domestic": "国内メーカー",
+      "inference": "推論プラットフォーム",
+      "cloud": "クラウド & プラットフォーム",
+      "aggregator": "集約ルーター",
       "local": "ローカル"
     },
     "model": {
