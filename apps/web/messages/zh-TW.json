@@ -8390,6 +8390,30 @@
       "publishFailedBody": "任務「{title}」發布失敗:{error}"
     }
   },
+  "certificate": {
+    "download": {
+      "title": "我的證書",
+      "subtitle": "查看並下載您已獲得的證書",
+      "loading": "加載中...",
+      "download": "下載證書",
+      "print": "列印為 PDF",
+      "printPdf": "列印為 PDF",
+      "noCertificates": "暫無證書",
+      "certNo": "證書編號",
+      "issueTime": "頒發時間",
+      "template": "證書模板",
+      "holder": "持有人",
+      "status": "狀態",
+      "statusValid": "有效",
+      "statusRevoked": "已撤銷",
+      "issuingOrg": "頒發機構",
+      "downloadSuccess": "證書下載成功",
+      "allowPopup": "請允許彈出窗口以列印證書",
+      "error": "下載失敗",
+      "printError": "列印失敗",
+      "certText": "茲證明 {name} 通過相關考核，特發此證。"
+    }
+  },
   "settings": {
     "title": "設置",
     "subtitle": "管理您的偏好設置",
