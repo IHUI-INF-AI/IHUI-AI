@@ -2011,6 +2011,7 @@
       "notificationDispatch": "ターゲット",
       "messageOverview": "メッセージ概覧",
       "visitTracking": "訪問追跡",
+      "pluginsStats": "プラグイン監視",
       "examMarking": "試験採点",
       "saasTenants": "テナント管理",
       "group": {
