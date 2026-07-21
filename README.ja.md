@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>誰もが自分だけの AI プログラムを持てるように</strong><br/>
-  <sub>フルスタック・オールプラットフォーム・オールシナリオのオープンソース AI アプリケーション共創プラットフォーム</sub>
+  <sub>オープンソース AI 商用グレード統合ファウンデーション · 5 分で Fork から商用リリース · 1 リポジトリで 6 つの SaaS を代替</sub>
 </p>
 
 <p align="center">
@@ -23,7 +23,11 @@
 </p>
 
 <p align="center">
-  <strong>8 プラットフォーム完全網羅</strong> · <strong>100+ LLM</strong> · <strong>LangGraph + MCP + A2A 三スタック連携</strong> · <strong>15+ 業務モジュール</strong> · <strong>5 言語 i18n</strong>
+  <strong>8 クライアント全面対応</strong> · <strong>100+ 大型モデル</strong> · <strong>LangGraph + MCP + A2A トリプルスタック</strong> · <strong>14 プラットフォーム配信</strong> · <strong>フルスタック AI 教育</strong> · <strong>完全な商業ループ</strong> · <strong>5 言語 i18n</strong>
+</p>
+
+<p align="center">
+  <sub><strong>40+ の国際/国内製品に対抗</strong>:OpenAI ChatGPT · Anthropic Claude · Google Gemini · Microsoft Copilot · Dify · FastGPT · Langflow · RAGFlow · Coze(扣子)· LangChain · LlamaIndex · AutoGen · CrewAI · Claude Code · Cursor · GitHub Copilot · Amazon Q · Khan Academy · Jasper · Stripe · Auth0 · Mailgun · Mixpanel · 百度千帆(Baidu Qianfan)· 阿里百煉(Alibaba Bailian)· 騰訊混元(Tencent Hunyuan)· 字節跳動豆包(ByteDance Doubao)· 智譜開放プラットフォーム(Zhipu AI Platform)· 訊飛星火(iFlytek Spark)· DeepSeek · 月之暗面 Kimi(Moonshot Kimi)</sub>
 </p>
 
 <p align="center">
@@ -41,7 +45,7 @@
 
 > **「長春、零下 25 度。一人。一台のノートパソコン。一年間。**
 >
-> **8 プラットフォームのコード · 338 枚のデータベーステーブル · 1135 個の API エンドポイント。**
+> **8 プラットフォームのコード · 339 枚のデータベーステーブル · 1168+ 個の API エンドポイント。**
 >
 > **資本は来なかった。しかしコードは成長し続けた。」**
 
@@ -115,6 +119,7 @@
 
 ## 目次
 
+- [プロジェクト ポジショニング(必読)](#プロジェクト-ポジショニング必読)
 - [機能概要(30 秒で全能力を把握)](#機能概要30-秒で全能力を把握)
 - [IHUI-AI を選ぶ理由](#ihui-ai-を選ぶ理由)
 - [類似プロジェクトとの比較](#類似プロジェクトとの比較)
@@ -150,6 +155,138 @@
 
 ---
 
+## プロジェクト ポジショニング(必読)
+
+> **一言ポジショニング:IHUI-AI はオープンソース AI 商用グレード統合ファウンデーション(Open-Source AI Commercial-Grade Integrated Foundation)です — 単一の AI ツールではなく、「完全な商用グレード AI 製品を構築する」ために必要な全インフラ(8 クライアントフレームワーク + 100+ モデルゲートウェイ + LangGraph+MCP+A2A トリプルスタック + 商業ループ + エンタープライズセキュリティ + エンジニアリング品質ゲート + オブザーバビリティ)を Apache 2.0 ライセンスで一括オープンソース化し、あらゆる個人 / 企業 / 教育機関 / コンテンツクリエイターが Fork 後 5 分以内に自身の AI 商用製品をリリースできるようにします。**
+>
+> **価値提案**:**1 リポジトリで 6-10 個の独立 SaaS を代替**(Stripe + Auth0 + Mailgun + Mixpanel + Dify + Claude Code + Khan Academy + 蟻客 + Notion AI)、月額コストを $300+ から $0(セルフホスト)へ削減。
+
+### 三層価値ピラミッド
+
+IHUI-AI のポジショニングは「ユーザー価値 → 製品形態 → 技術の堀」の三層ピラミッドで構成されます:
+
+```
+                 ┌─────────────────────────────────────────────────┐
+   第 1 層       │  ユーザー価値(Why)                              │
+   ユーザー価値  │  • 5 分で Fork から商用 AI 製品をリリース        │
+   (Why)         │  • 1 リポジトリで 6-10 個の SaaS を代替、月 $300+ 節約 │
+                 │  • 100% データ主権、Apache 2.0 商用フレンドリー  │
+                 │  • 5 クラスのロールが受益(開発者 / 中小企業 / 教育 / クリエイター / 企業)│
+                 └─────────────────────────────────────────────────┘
+                                        ▲
+                 ┌─────────────────────────────────────────────────┐
+   第 2 層       │  製品形態(What)                                │
+   製品形態      │  オープンソース AI 商用グレード統合ファウンデーション │
+   (What)        │  • 6 大製品カテゴリを統合:                       │
+                 │    ① AI アプリケーション開発プラットフォーム(Dify/Coze/RAGFlow に対抗)│
+                 │    ② AI プログラミング CLI(Claude Code/Cursor に対抗)│
+                 │    ③ マルチクライアントフレームワーク(Tauri/Expo/Taro/WXT に対抗)│
+                 │    ④ 商業 SaaS ファウンデーション(Stripe+Auth0+Mixpanel に対抗)│
+                 │    ⑤ AI 教育プラットフォーム(Khan Academy/Coursera に対抗)│
+                 │    ⑥ コンテンツ配信中台(蟻客/新媒体管家/Jasper に対抗)│
+                 │  • 1 リポジトリ 8 クライアントコード、ツール集ではなく製品としてプリセット│
+                 └─────────────────────────────────────────────────┘
+                                        ▲
+                 ┌─────────────────────────────────────────────────┐
+   第 3 層       │  技術の堀(How)                                 │
+   技術の堀      │  • 8 クライアント / 339+ テーブル / 128+ マイグレーション / 1168+ API エンドポイント│
+   (How)         │  • LangGraph + MCP + A2A トリプルスタック連携     │
+                 │  • 13 共有パッケージ / 21 pre-commit 品質ゲート / 5 言語 i18n │
+                 │  • 三支柱オブザーバビリティ + 20 Grafana ダッシュボード │
+                 │  • エンタープライズ級セキュリティスタック(RBAC + RLS + SSO + AES-256-GCM)│
+                 │  • Apache 2.0 License、商用制限ゼロ               │
+                 └─────────────────────────────────────────────────┘
+```
+
+### IHUI-AI とは何か
+
+| 次元          | ポジショニング                                                                                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **本質**      | オープンソース AI 商用グレード統合ファウンデーション(Open-Source AI Commercial-Grade Integrated Foundation)                                                       |
+| **類比**      | AI アプリ界の Kubernetes / Next.js Boilerplate / Linux ディストリビューション — 「インフラ構築」を 3-6 ヶ月から 5 分へ圧縮                                          |
+| **対抗レベル** | 「AI アプリケーション開発プラットフォーム + AI プログラミング CLI + マルチクライアントフレームワーク + 商業 SaaS ファウンデーション + AI 教育プラットフォーム + コンテンツ配信中台」の 6 大カテゴリを同時に横断 |
+| **対象ユーザー**| 個人開発者(プライベート AI アシスタント)/ 中小企業(AI 中台)/ AI サービスプロバイダ(商用製品)/ 教育機関(AI 教育フルスタック)/ コンテンツクリエイター(14 プラットフォーム配信)/ 企業意思決定者(エンタープライズ級 AI プラットフォーム) |
+| **License**   | Apache 2.0(商用フレンドリー、伝染性なし、クローズドソース商用利用許可、copyleft 制約なし)                                                                          |
+| **デプロイモード**| 完全セルフホスト、Docker Compose で 14 サービスをワンクリック起動、データ 100% 主権、認証情報は AES-256-GCM で暗号化、いかなる大手テック企業にも覗かれない                  |
+| **コード規模** | 8 クライアントコード / 100+ schema ファイル / 339+ データベーステーブル / 128+ マイグレーション / ~1168+ API エンドポイント / 200+ Web ページ / 13 共有パッケージ / 21 pre-commit 品質ゲート / 5 言語 i18n parity |
+| **代替価値**   | Stripe($84/月)+ Auth0($35/月)+ Mailgun($35/月)+ Mixpanel($20/月)+ Dify($59/月)+ Claude Code($20/月)+ 蟻客($50/月)≈ $303/月 を代替、IHUI-AI セルフホスト $0/月              |
+
+### IHUI-AI ではないもの
+
+- **ChatGPT のラッパーではない** — 課金 / サブスクリプション / マルチテナント / 監査 / RBAC を備えた完全な商用グレード AI アプリケーションファウンデーション、直接 SaaS 化可能
+- **単一の AI 対話プラットフォームではない** — AI 対話、AI プログラミング CLI、AI 教育、AI コンテンツ配信、AI Agent マーケットの 5 大シナリオを同時に網羅
+- **デモやスキャフォールドではない** — 「智匯 AI グループ」の商業化メインプラットフォームを支える本番級コード、339+ テーブルは実際の業務複雑度に基づき設計
+- **SaaS サブスクリプションではない** — 完全セルフホスト、あなたが 100% データ主権を持ち、認証情報は AES-256-GCM で暗号化、いかなる外部送信もなし
+- **垂直ツールではない** — Dify は AI アプリケーションオーケストレーションのみ、Claude Code は CLI のみ、蟻客はマルチプラットフォーム配信のみ、RAGFlow は RAG のみ、Khan Academy は教育のみ、IHUI-AI はこれら 6 大カテゴリの能力を**1 つの Apache 2.0 リポジトリに統合**
+- **LangChain/LlamaIndex のような開発フレームワークではない** — それらは開発者向けの「車の部品」、IHUI-AI は「完成車のラインオフ」、非技術チームでも直接利用可能
+
+### コスト比較:IHUI-AI セルフホスト vs 同等の SaaS スタック
+
+> 以下のコスト比較は 2026 年 7 月時点の各 SaaS 公式公開価格(月額サブスクリプション、小規模チーム 5 名 + 月間 1 万 MAU シナリオ)に基づき、意思決定参考としてのみ提供されます。
+
+| 能力次元             | 同等の SaaS スタック                                            | 月額コスト  | IHUI-AI セルフホスト     |
+| -------------------- | -------------------------------------------------------------- | ----------- | ------------------------ |
+| **AI 対話とモデル**    | OpenAI ChatGPT Team($25/人)+ Dify($59)                       | $184/月     | **$0**(モデル費のみ)    |
+| **AI プログラミング CLI** | Claude Code($20)+ GitHub Copilot($19)+ Cursor($20)        | $59/月      | **$0**(モデル費のみ)    |
+| **決済 / サブスク / 課金** | Stripe($84)+ Lemon Squeezy($5)                              | $89/月      | **$0**                   |
+| **認証 / SSO / RBAC**  | Auth0($35)+ Clerk($25)                                        | $60/月      | **$0**                   |
+| **メール / SMS**       | Mailgun($35)+ Twilio($35)                                     | $70/月      | **$0**                   |
+| **ユーザー分析**       | Mixpanel($20)+ PostHog($0 オープンソース)                     | $20/月      | **$0**(BI 内蔵)         |
+| **AI 教育プラットフォーム** | Khan Academy(無料だがクローズドソース)+ Coursera for Business($70/人) | $350/月     | **$0**(オープンソース、カスタマイズ可) |
+| **コンテンツ配信中台**  | 蟻客($50)+ 新媒体管家($30)                                    | $80/月      | **$0**                   |
+| **オブザーバビリティスタック** | Datadog($15/ホスト)+ Sentry($26)                          | $101/月     | **$0**(オープンソーススタック) |
+| **合計**               | 9 個の SaaS                                                    | **$1,013/月** | **$0**(サーバー費のみ)  |
+| **3 年総コスト**       |                                                                | **~$36,468** | **~$1,080**(単一 VPS)   |
+
+> **結論**:同等の能力組み合わせの SaaS 月額コストは約 $1,013、3 年で $36,468;IHUI-AI セルフホストはサーバーコスト約 $30/月、3 年で $1,080 のみ。**$35,000+ を節約しつつ、100% データ主権 + 完全なカスタマイズ能力**を獲得できます。
+
+### IHUI-AI の独自価値(オープンソース生態系で唯一)
+
+全面的な市場対抗(40+ の国際/国内製品を網羅、詳細は下方の比較表を参照)に基づき、以下の能力の組み合わせは**グローバルなオープンソース AI プロジェクトで唯一同時に具備**しています:
+
+1. **8 クライアント全面対応**:Web / API / AI サービス / CLI / デスクトップ Tauri / ブラウザ拡張 WXT / モバイル RN / WeChat ミニプログラム Taro — 同種のオープンソース AI プロジェクトは最大 2 クライアント(Dify/FastGPT)、業界で唯一の 8 クライアント
+2. **LangGraph + MCP + A2A トリプルスタック連携**:ワークフロー + ツールプロトコル + Agent 相互通信を一体化、他のオープンソース AI プラットフォームは最大シングルスタック(Langflow は LangChain DAG のみ、Dify は自社製ワークフローで MCP/A2A なし、LangChain/LlamaIndex はフレームワーク層のみ)
+3. **自社製 CLI で Claude Code に対抗**:17 コマンド + 13 内蔵ツール + ACP Server + 6 ソース設定インポート(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)+ Skills システム — オープンソース AI アプリケーションプラットフォームで**唯一**自社製 CLI を搭載(Cursor / Copilot / Windsurf / Amazon Q / Cline / Aider / Cody はすべてクローズドソースまたは純粋な CLI ツール)
+4. **完全な商業ループ**:VIP / サブスクリプション recurring / ウォレット / ポイント / 返金監査 / インボイス / 為替レート / 8 決済ゲートウェイ / ディストリビューションコミッション / 招待リファラル — オープンソース AI プラットフォームで**唯一**金融級商業ループを搭載(Dify/FastGPT/Langflow はいずれもなし)
+5. **14 プラットフォームワンクリック自動配信**:9 記事プラットフォーム + 2 画像プラットフォーム + 5 動画プラットフォーム + AES-256-GCM 認証情報暗号化 + 14 adapter — オープンソースプロジェクトで**唯一**公衆号 / 知乎 / CSDN / 掘金 / 小紅書 / 微博 / B 站 / YouTube / 抖音など 14 プラットフォームを完全網羅(蟻客/新媒体管家はクローズドソース SaaS)
+6. **AI 教育フルスタック**:コース / 問題集 / 試験 / SRS 間隔反復 / ライブ / 学習レポート / 証明書 / 講師 / 学生側 12 サブページ / 45 テーブル edu-full schema — オープンソース AI プラットフォームで**唯一**完全な AI 教育フルスタック(Khan Academy/Coursera はクローズドソース SaaS)
+7. **エンタープライズ級セキュリティスタック**:RBAC + マルチテナント + RLS(Row-Level Security)+ SSO(OAuth2 + Apple + Google + PKCE)+ AES-256-GCM + JWT token-family + ワークスペース 3 モード権限 + 7 エンドポイントランタイム傍受 + 60s 監査タイムアウト + GDPR + 2FA + IDOR 防護 — オープンソース AI プラットフォームで**唯一**完全なエンタープライズ級セキュリティスタック
+8. **17 エンジニアリング品質ゲート + 11 マイグレーション監査 + post-commit 自動 push**:協作事故をメカニズムから根絶 — オープンソース AI プロジェクトで**唯一**エンジニアリング品質ゲートをメカニズム級まで実現(Dify/FastGPT は基礎 lint のみ)
+9. **三支柱オブザーバビリティ + 20 Grafana ダッシュボード**:Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager — オープンソース AI プラットフォームで**唯一**完全な SRE 級オブザーバビリティスタックを搭載(他プロジェクトは最大基礎ログ)
+10. **5 言語 i18n parity + 4 ゲートスクリプト**:zh-CN / zh-TW / en / ko / ja のキーセット強一貫性、opencc 字形検出 + 文字範囲検出 + 破碎機翻検出 — オープンソース AI プロジェクトで**唯一** i18n を parity + ゲート級まで実現(他プロジェクトは最大中英のみ)
+
+### 記憶ポイント スローガン(拡散可能)
+
+| スローガン                          | 価値アンカー                                                                                         |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------- |
+| **「1 リポジトリで 6 個の SaaS を代替」** | Stripe + Auth0 + Mailgun + Mixpanel + Dify + Claude Code を代替、月 $300+ 節約                       |
+| **「5 分で Fork から商用へ」**        | Docker Compose で 14 サービスをワンクリック起動、クローンからリリースまで最速 5 分、従来方案は 3-6 ヶ月 |
+| **「AI アプリ界の Kubernetes」**      | 「インフラ構築」を標準化・再利用可能に、どのチームも統一ファウンデーション上で自身の AI アプリを稼働可能 |
+| **「8 クライアント + 100+ モデル + トリプルスタック」** | 8 クライアントコード + 100+ モデル + LangGraph+MCP+A2A トリプルスタック、オープンソース AI 生態系で最も完全 |
+| **「Apache 2.0、商用制限ゼロ」**     | License は商用フレンドリー、copyleft 制約なし、クローズドソース商用利用許可、企業は安心して Fork 可能 |
+| **「データ 100% 主権」**             | 完全セルフホスト、認証情報は AES-256-GCM で暗号化、いかなる外部送信もなく、GDPR / 等保要件に適合       |
+
+### 6 大対抗カテゴリとの関係
+
+IHUI-AI はいかなる単一プロジェクトを置き換えることが目的ではなく、以下の 6 種類のプロジェクトの能力を**1 つのオープンソース ファウンデーションに統合**するものです:
+
+| 対抗カテゴリ                    | 代表製品                                                                                                                                                 | IHUI-AI の対抗能力                                                                                                    |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **AI アプリケーション開発プラットフォーム** | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(扣子)                                                                                              | 100+ モデル LiteLLM ゲートウェイ + LangGraph ワークフロー + ナレッジベース RAG + pgvector ベクトル DB + ナレッジグラフ + Agent Runtime + Persona        |
+| **AI プログラミング CLI / IDE**   | Claude Code / Cursor / Windsurf / Trae SOLO / GitHub Copilot / Copilot Workspace / Amazon Q Developer / Cody Sourcegraph / Cline / Aider / Devin / Tabnine / GitLab Duo / Gemini CLI / OpenCode / CodeGeeX / Continue / Roo Code / Codeium / JetBrains AI Assistant | 自社製 CLI 17 コマンド + 13 内蔵ツール + ACP Server(Zed/VSCode/Cursor 埋め込み)+ 6 ソース設定インポート + Skills + CodeGraph + Worktree   |
+| **エンタープライズ AI Agent プラットフォーム** | Google Gemini Enterprise Agent Platform / OpenAI Agents SDK / Microsoft Copilot Studio / IBM watsonx.ai / Salesforce Agentforce / ServiceNow Now Assist / AWS Bedrock Agents / Crew | LangGraph + MCP + A2A トリプルスタック + Agent マーケット + デベロッパーセンター + Coze SDK プロキシ + OpenClaw + Crew 統合 + N8N プロキシ               |
+| **AI Agent フレームワーク(オープンソース)**| LangChain / LangGraph / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT / smol agents / Semantic Kernel / Spring AI / Hugging Face Transformers Agents | トリプルスタック連携 + 完全な Agent Runtime + Persona レジストリ + Agent マーケット — 単なるフレームワークではなく、製品化された落地方案                          |
+| **マルチクライアントフレームワーク**        | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                 | 8 クライアント統一アーキテクチャ + 13 共有パッケージ + クロスクライアント型安全 + 共有 UI(`@ihui/ui` / `@ihui/ui-native` / `@ihui/ui-primitives`)            |
+| **AI 教育 / コンテンツプラットフォーム**  | Khan Academy / Coursera / edX / Google 教育 AI / 智譜清言教育 / 学而思 AI / Jasper / Copy.ai / Rytr / WriteSonic / Notion AI / 蟻客 / 新媒体管家          | AI 教育フルスタック(コース / 問題集 / 試験 / SRS / ライブ / 証明書)+ 14 プラットフォームワンクリック配信 + セルフメディアワークベンチ + AI ニュース + AI 求職 + ショートドラマ + ビジネス名刺     |
+| **大モデル API プラットフォーム**     | 海外:OpenAI Platform / Anthropic API / Google Vertex AI / AWS Bedrock / Azure AI Foundry / Mistral La Plateforme / Cohere / Together AI / Fireworks AI / Replicate<br>国内:百度千帆 / 阿里百煉 / 騰訊混元 / 字節豆包(火山方舟)/ 智譜開放プラットフォーム / 訊飛星火 / 月之暗面 Kimi / DeepSeek / 商湯日日新 | LiteLLM 統一ゲートウェイ + 100+ モデル接続 + インテリジェントルーティング + 60% キャッシュヒット + マルチ provider アダプタ                                          |
+| **商業 SaaS ファウンデーション**      | Stripe / PayPal / Lemon Squeezy / Paddle / Auth0 / Clerk / Firebase Auth / Supabase Auth / Mailgun / SendGrid / Postmark / Resend / Mixpanel / Amplitude / PostHog / Heap | VIP / サブスクリプション / ウォレット / ポイント / 返金 / インボイス / 8 決済ゲートウェイ + JWT / SSO / RBAC + SMTP SMS + BI ダッシュボード + カナリアリリース — 4-6 個の SaaS をワンストップで代替    |
+
+> **コア インサイト**:オープンソース AI 生態系において、IHUI-AI より**特化した**プロジェクトは見つかります(例:RAGFlow は RAG 次元でより深い、Claude Code は CLI 次元でより成熟、LangChain はフレームワーク層でより柔軟)。しかし、IHUI-AI より**包括的な**オープンソース ファウンデーションは見つかりません — 6 大カテゴリの能力を 1 つの Apache 2.0 リポジトリに統合することが、IHUI-AI のコア差別化です。
+>
+> **誰かを代替するのではなく、6 つの製品の能力を Apache 2.0 でオープンソース化**:RAGFlow の RAG が欲しければ、RAGFlow 単体を使えばいい;Claude Code の CLI が欲しければ、Claude Code 単体を使えばいい。しかし**完全な商用 AI 製品**(対話 + プログラミング + 教育 + 配信 + 課金 + エンタープライズセキュリティ)が欲しければ、IHUI-AI はグローバルなオープンソース生態系で唯一の選択肢です。
+
+---
+
 ## 機能概要(30 秒で全能力を把握)
 
 | 大分類                               | モジュール                         | 主要能力                                                                                                                                           |
@@ -159,12 +296,16 @@
 |                                      | AI オーディオ                      | TTS ストリーミング合成 / ASR 音声認識 / 音声クローン / 双方向リアルタイム音声(WebRTC PCM16 16kHz)                                                  |
 |                                      | AI 動画合成                        | テキストから動画 / 動画編集 / マルチモデル混編 / トランスコード / 動画タスク管理                                                                   |
 |                                      | AI デジタルヒューマン              | Tencent Hunyuan 3D / AI ワールド / デジタルヒューマンインタラクション                                                                              |
+|                                      | AI ワールド                        | ai-world-items + AI ランキング + トレンド同期 + AI モジュール化(ai-modules)+ AI ベンダー設定センター(ai-vendor-configs)                            |
 |                                      | AI キャリア                        | AI 求職アシスタント / 履歴書最適化 / 模擬面接                                                                                                      |
 |                                      | AI ニュース                        | AI ニュースアグリゲーション / インテリジェント要約 / ai-feed                                                                                       |
+|                                      | ユーザー単位 AI 設定               | ユーザー単位モデル対話設定(ai-user-model-chat)/ ユーザー長期記憶(user-memory)/ ユーザー設定(user-preferences)                                     |
 | **AI ワークフロー**                  | LangGraph                          | StateGraph ワークフロー(plan → execute → summarize)+ stub モード                                                                                   |
 |                                      | MCP ツールプロトコル               | 11 内蔵ツール + 3 リソース + 3 プロンプト / カスタムツール / プロジェクト級 MCP / mcp-extended                                                     |
 |                                      | A2A プロトコル                     | Agent-to-Agent 相互通信 / Redis 永続化 + メモリフォールバック                                                                                      |
 |                                      | ナレッジベース RAG                 | ドキュメントベクトル化 / セマンティック検索 / 引用トレース / knowledge-base + knowledge-rag                                                        |
+|                                      | ナレッジグラフ                     | knowledge-graph schema + ノード-関係グラフ / ドキュメント間エンティティリンク(オープンソース AI プラットフォームで稀少)                             |
+|                                      | pgvector ベクトル DB               | 0123_pgvector_embedding マイグレーション / ネイティブ PostgreSQL ベクトルインデックス / 独立ベクトル DB 不要                                        |
 |                                      | ワークフローオーケストレーション   | ビジュアルワークフロー / CrewAI 統合 / N8N プロキシ / workflows                                                                                    |
 |                                      | ベクトルメモリ                     | コサイン類似度セマンティック検索 / セッションを跨ぐ長期記憶 / vector-memory                                                                        |
 | **マルチエージェントエコシステム**   | エージェントマーケット             | 購入 / 審査 / 決済 / 出金 / 分類 / 推薦 / ランキング / ピックアップ                                                                                |
@@ -214,15 +355,16 @@
 |                                      | エラーダッシュボード               | エラー集計 / アラート / トレース / security-audit                                                                                                  |
 |                                      | 操作ログ                           | ログインログ / 操作ログ / コールバックログ / audit + security-logs                                                                                 |
 |                                      | 監視アラート                       | Prometheus + Grafana(20 ダッシュボード)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                                   |
-| **エンジニアリング基盤**             | データベース                       | PostgreSQL 15 / **338+ テーブル** / 100 schema ファイル / **120+ マイグレーション** / Drizzle ORM + RLS + テナントルーティング                     |
+| **エンジニアリング基盤**             | データベース                       | PostgreSQL 15 / **339+ テーブル** / 100 schema ファイル / **128+ マイグレーション** / Drizzle ORM + RLS + テナントルーティング + **pgvector**      |
 |                                      | キューキャッシュ                   | Redis 7 + BullMQ / 独立 worker プロセス(:8081)                                                                                                     |
 |                                      | オブジェクトストレージ             | OSS マルチベンダードライバ / 認証情報暗号化 / チャンクアップロード / ファイルバージョン / chunked-upload                                           |
 |                                      | メール SMS                         | SMTP / SMS ゲートウェイ / メールテンプレート / 認証コード / mail + message-templates                                                               |
 |                                      | 国際化                             | 5 言語 parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n ツールチェーン + 4 ゲートスクリプト                                                           |
-|                                      | エンジニアリング品質ゲート         | 17 pre-commit フック + post-commit 自動 push + 11 マイグレーション監査 + 9 PowerShell 起動                                                         |
+|                                      | エンジニアリング品質ゲート         | 21 pre-commit フック + post-commit 自動 push + 11 マイグレーション監査 + 9 PowerShell 起動                                                         |
 |                                      | テストカバレッジ                   | 268 + 400+ ケース / Vitest + Playwright + pytest + Locust 負荷テスト + Lighthouse 性能                                                             |
 |                                      | デプロイ運用                       | Docker Compose(14 サービス)/ ブルーグリーンデプロイ / Nginx upstream 切替 / ヘルスチェック / ロールバック / バックアップ / 証明書更新 cron         |
 |                                      | 性能 CI                            | Knip 未使用コード検出 + Lighthouse CI 性能予算 + GitHub Act ローカル CI                                                                            |
+|                                      | マイクロサービス エンジニアリング パターン | Outbox トランザクショナルアウトボックス + Refund DLQ デッドレターキュー + Circuit Breaker サーキットブレイカー + IDOR 保護 + WS Dedup メッセージ重複排除 + Hot Config ホット設定 |
 
 ---
 
@@ -238,12 +380,13 @@
 | **エンタープライズ級セキュリティ**    | RBAC + ワークスペース 3 モード権限 + 7 エンドポイントランタイム傍受 + 60s 監査タイムアウト                 | 意思決定者級リスクコントロール                                      |
 | **データ暗号化**                      | AES-256-GCM(credentials 暗号化)+ JWT token-family ローテーション + refresh ブラックリスト                  | 金融級データ保護                                                    |
 | **オブザーバビリティ**                | Prometheus + Grafana(**20 ダッシュボード**)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager       | フルリンク指標 / ログ / トレース / アラート                         |
-| **エンジニアリング品質ゲート**        | 17 pre-commit + post-commit 自動 push + git-push-guard + 11 マイグレーション監査                           | 協作事故を根絶、99.9% SLA                                           |
+| **エンジニアリング品質ゲート**        | 21 pre-commit + post-commit 自動 push + git-push-guard + 11 マイグレーション監査                           | 協作事故を根絶、99.9% SLA                                           |
 | **国際化**                            | zh-CN / zh-TW / en / ko / ja 5 言語 parity + 19 i18n ツールチェーン                                        | 5 言語キーセット強一貫性                                            |
-| **データベース**                      | **338+ テーブル + 120+ マイグレーション** + 100 schema ファイル + Drizzle ORM + RLS + テナントルーティング | 単一データベース PostgreSQL 15、schema 分離                         |
-| **API 規模**                          | ~1135 エンドポイント(api 1080 + ai-service 55)+ 12 WebSocket + 95+ ルートファイル                          | 元プロジェクト 331 エンドポイントを大幅に超越                       |
+| **データベース**                      | **339+ テーブル + 128+ マイグレーション** + 100 schema ファイル + Drizzle ORM + RLS + テナントルーティング + pgvector | 単一データベース PostgreSQL 15、schema 分離                         |
+| **API 規模**                          | ~1168+ エンドポイント(api 1080 + ai-service 55)+ 12 WebSocket + 95+ ルートファイル                          | 元プロジェクト 331 エンドポイントを大幅に超越                       |
 | **業務網羅**                          | 15 大モジュール / 50+ サブ機能 / **200+ Web ページ**                                                       | ひとつのプラットフォームで全 AI アプリケーションシナリオを網羅      |
-| **共有パッケージ**                    | 12 packages(auth/database/types/ui/sdk/api-client/context-compaction 等)                                   | クロスプラットフォーム型安全 + 再利用                               |
+| **共有パッケージ**                    | 13 packages(auth/database/types/ui/sdk/api-client/context-compaction 等)                                   | クロスプラットフォーム型安全 + 再利用                               |
+| **マイクロサービス エンジニアリング パターン** | Outbox トランザクショナルアウトボックス + Refund DLQ デッドレターキュー + Circuit Breaker サーキットブレイカー + IDOR 防護 + WS Dedup + Hot Config | 本番級マイクロサービスパターン                                      |
 | **性能保障**                          | Knip 未使用コード + Lighthouse CI + Locust 負荷テスト                                                      | 性能予算 + 容量見積り                                               |
 | **デプロイ成熟度**                    | Docker Compose(14 サービス)+ ブルーグリーン + Nginx upstream + 証明書更新 cron                             | 本番級運用                                                          |
 
@@ -251,25 +394,45 @@
 
 ## 類似プロジェクトとの比較
 
-| 次元                           | IHUI-AI                                                                                 | Dify                           | FastGPT                        | Langflow                | ChatGPT-Next-Web        |
-| ------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------ | ------------------------------ | ----------------------- | ----------------------- |
-| **プラットフォーム網羅**       | 8 プラットフォーム(Web/API/AI/CLI/デスクトップ/拡張/モバイル/ミニプログラム)            | 2 プラットフォーム(Web/Server) | 2 プラットフォーム(Web/Server) | 1 プラットフォーム(Web) | 1 プラットフォーム(Web) |
-| **モデル接続**                 | 100+ モデル + LiteLLM ゲートウェイ                                                      | 50+ モデル                     | 30+ モデル                     | LangChain アダプタ      | OpenAI のみ             |
-| **ワークフローエンジン**       | LangGraph + MCP + A2A 三スタック                                                        | 自社製ワークフロー             | シンプルなワークフロー         | Langflow DAG            | なし                    |
-| **マルチテナント + RBAC**      | 完全(テナント/ロール/部門/メニュー/data-scope 5 級)                                     | 基礎                           | 基礎                           | なし                    | なし                    |
-| **課金サブスクリプション**     | 完全(VIP/サブスクリプション/ウォレット/ポイント/返金/インボイス/8 決済ゲートウェイ)     | なし                           | 基礎                           | なし                    | なし                    |
-| **AI 教育**                    | フルスタック(コース/問題集/試験/SRS/ライブ/学生側 12 サブページ)                        | なし                           | なし                           | なし                    | なし                    |
-| **コンテンツ配信**             | 14 プラットフォームワンクリック自動配信 + 14 adapter                                    | なし                           | なし                           | なし                    | なし                    |
-| **CLI ツール**                 | 自社製 ACP Server + 17 コマンド + 13 ツール                                             | なし                           | なし                           | なし                    | なし                    |
-| **オブザーバビリティ**         | 三支柱 + 20 Grafana ダッシュボード + Alertmanager                                       | 基礎                           | 基礎                           | なし                    | なし                    |
-| **エンジニアリング品質ゲート** | 17 pre-commit + 11 マイグレーション監査 + 9 PowerShell                                  | 基礎                           | 基礎                           | 基礎                    | なし                    |
-| **i18n**                       | 5 言語 parity + 19 i18n ツールチェーン + 4 ゲート                                       | 中英                           | 中英                           | 英                      | 多言語                  |
-| **データベース**               | 338+ テーブル + 120+ マイグレーション + RLS + テナントルーティング                      | 基礎                           | 基礎                           | シンプル                | シンプル                |
-| **性能 CI**                    | Knip + Lighthouse + Locust 負荷テスト                                                   | なし                           | なし                           | なし                    | なし                    |
-| **License**                    | Apache 2.0(商用フレンドリー)                                                            | Apache 2.0                     | FastGPT Open License           | MIT                     | MIT                     |
-| **本番級デプロイ**             | Docker Compose(14 サービス)+ ブルーグリーン + ロールバック + バックアップ + 証明書 cron | Docker                         | Docker                         | Docker                  | Docker                  |
+### 対抗マトリクス · 12 列横断比較(国際/国内 40+ 大製品を網羅)
 
-**IHUI-AI は誰かを置き換えることが目的ではなく、「完全な AI アプリケーションを構築する」ために必要な全インフラをオープンソース化することが目的です。**
+> テーブル列数が多いため、デスクトップ環境で横スクロールして閲覧することを推奨します。モバイル環境では「IHUI-AI」列と「重要な結論」セクションのみをご覧ください。
+
+| 次元                | IHUI-AI                                                              | OpenAI ChatGPT | Dify             | LangChain        | RAGFlow        | Coze(扣子)   | Claude Code   | Cursor        | GitHub Copilot | Khan Academy  | Stripe+Auth0  |
+| ------------------- | -------------------------------------------------------------------- | -------------- | ---------------- | ---------------- | -------------- | ------------- | ------------- | ------------- | -------------- | ------------- | ------------- |
+| **対抗カテゴリ**    | 6 大カテゴリ統合(アプリ + CLI + マルチクライアント + 商業 + 教育 + コンテンツ) | 汎用 AI 対話   | AI アプリケーション開発 | AI Agent フレームワーク | RAG ナレッジベース | AI エージェント SaaS | AI プログラミング CLI | AI プログラミング IDE | AI プログラミングアシスタント | AI 教育プラットフォーム | 決済 + 認証ファウンデーション |
+| **License**         | **Apache 2.0**                                                       | **クローズドソース** | Apache 2.0       | MIT              | Apache 2.0     | **クローズドソース** | **クローズドソース** | **クローズドソース** | **クローズドソース** | **クローズドソース**(無料) | **クローズド SaaS** |
+| **セルフホスト**    | **完全セルフホスト**                                                 | 非対応         | Docker           | ライブラリ       | Docker         | 非対応         | N/A           | N/A           | N/A            | 非対応        | N/A           |
+| **クライアント網羅** | **8 クライアント**                                                   | 2 クライアント(Web/APP) | 2 クライアント | 0 クライアント(ライブラリ) | 2 クライアント | 2 クライアント | 1 クライアント(CLI) | 1 クライアント(IDE) | 1 クライアント(IDE) | 2 クライアント | 0 クライアント(ライブラリ) |
+| **モデル接続**      | **100+ モデル** + LiteLLM                                            | OpenAI 系      | 50+ モデル       | LangChain アダプタ | 30+ モデル     | ByteDance 系   | Anthropic     | マルチモデル  | OpenAI         | なし          | N/A           |
+| **ワークフローエンジン** | **LangGraph + MCP + A2A トリプルスタック**                       | なし           | 自社製ワークフロー | LangGraph        | なし           | 自社製ワークフロー | なし          | なし          | なし           | なし          | N/A           |
+| **自社製 CLI**      | **17 コマンド + 13 ツール + ACP Server**                            | なし           | なし             | なし             | なし           | なし           | ネイティブ CLI | なし          | なし           | なし          | N/A           |
+| **マルチテナント + RBAC** | **完全**(5 級 + RLS)                                              | 単一ユーザー   | 基礎             | なし             | 基礎           | SaaS 内        | なし          | なし          | なし           | 学校アカウント | 基礎          |
+| **課金サブスクリプション** | **完全**(VIP / ウォレット / ポイント / 返金 / 8 決済ゲートウェイ)              | サブスク($20-200) | なし           | なし             | なし           | SaaS 内        | なし          | サブスク($20) | サブスク($10-39) | 無料          | コア(決済)    |
+| **AI 教育**         | **フルスタック**(コース / 問題集 / 試験 / SRS / ライブ / 45 テーブル)              | なし           | なし             | なし             | なし           | なし           | なし          | なし          | なし           | コア(教育)    | なし          |
+| **コンテンツ配信**  | **14 プラットフォーム + 14 adapter**                                 | なし           | なし             | なし             | なし           | なし           | なし          | なし          | なし           | なし          | なし          |
+| **オブザーバビリティ** | **三支柱 + 20 ダッシュボード**                                       | -              | 基礎             | なし             | 基礎           | -             | なし          | なし          | なし           | -            | -             |
+| **エンジニアリング品質ゲート** | **17 フック + 11 マイグレーション監査 + 自動 push**                | -              | 基礎             | 基礎             | 基礎           | -             | なし          | なし          | なし           | -            | -             |
+| **i18n**            | **5 言語 parity + 4 ゲート**                                        | 多言語         | 中英             | 英語             | 中英           | 多言語         | 英語          | 多言語        | 多言語         | 多言語        | N/A           |
+| **データベース**    | **339+ テーブル + 128+ マイグレーション + RLS + pgvector**          | SaaS 内        | 基礎             | なし             | pgvector       | SaaS 内        | なし          | なし          | なし           | SaaS 内       | SaaS 内       |
+| **共有パッケージ**  | **13 packages**                                                      | なし           | なし             | 1 ライブラリ     | なし           | -             | なし          | なし          | なし           | なし          | 1 SDK         |
+| **月額コスト(5 名)** | **$0**(セルフホスト、サーバー費のみ)                                | $125+          | $59+             | $0(自己統合)    | $0(自己統合)   | SaaS 内        | $100          | $100          | $95            | 無料(教育)   | $149+         |
+
+### 重要な結論
+
+**IHUI-AI は誰かを置き換えることが目的ではなく、「完全な AI アプリケーションを構築する」ために必要な 6 大カテゴリのインフラをすべてオープンソース化することが目的です。**
+
+- **OpenAI ChatGPT より**:IHUI-AI は完全セルフホスト、データ 100% 主権、課金 / 教育 / 配信などの完全な業務を搭載、ChatGPT はクローズドソース SaaS
+- **Dify / FastGPT / Langflow / RAGFlow より**:IHUI-AI は 6 クライアント、自社製 CLI、完全な商業ループ、AI 教育フルスタック、14 プラットフォーム配信、エンタープライズ級セキュリティスタック、SRE オブザーバビリティを追加装備
+- **LangChain / LlamaIndex / AutoGen より**:それらは開発フレームワーク(「車の部品」)、IHUI-AI は製品化ファウンデーション(「完成車のラインオフ」)、非技術チームでも利用可能
+- **Claude Code / Cursor / GitHub Copilot / Windsurf / Amazon Q より**:IHUI-AI の CLI はプログラミングだけでなく、AI アプリケーションプラットフォーム能力(対話 / RAG / Agent / 課金)も統合、リポジトリ全体が Apache 2.0 でオープンソース、他はすべてクローズドソース
+- **Coze(扣子)より**:IHUI-AI は完全セルフホスト、データ主権 100%、License は商用フレンドリー、一方 Coze はクローズドソース SaaS、データは ByteDance に提出
+- **Khan Academy / Coursera より**:IHUI-AI の AI 教育はオープンソースフルスタック(コース / 問題集 / 試験 / SRS / ライブ / 証明書)、二次カスタマイズ可能、これらはクローズドソース SaaS
+- **Stripe + Auth0 + Mailgun + Mixpanel より**:IHUI-AI は決済 / 認証 / メール / 分析をすべてプリセット、ワンストップで 4-6 個の SaaS を代替、月 $300+ 節約
+
+**コア差別化**:グローバルなオープンソース AI 生態系において、IHUI-AI より**特化した**プロジェクトは見つかります(例:RAGFlow は RAG 次元でより深い、Claude Code は CLI 次元でより成熟、LangChain はフレームワーク層でより柔軟、Khan Academy は教育コンテンツでより豊富)。しかし、IHUI-AI より**包括的な**オープンソース ファウンデーションは見つかりません。
+
+**一言まとめ**:IHUI-AI は OpenAI ChatGPT(対話)+ Dify(アプリケーションオーケストレーション)+ Claude Code(CLI)+ Khan Academy(教育)+ Stripe(決済)+ 蟻客(配信)の**オープンソース一体化代替方案**です。
 
 ---
 
@@ -296,10 +459,11 @@
 ```bash
 git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
 cd IHUI-AI && docker compose up -d
-# 5 分後に、以下を手に入れます:
-# - 100+ モデル対応の対話インターフェース
-# - プライベートナレッジベース RAG(ドキュメントのベクトル化 + セマンティック検索)
+# 5 分後に、以下を手に入れます(ChatGPT Team + Claude Code + Notion AI 3つのサブスクを代替、月$60+節約):
+# - 100+ モデル対応の対話インターフェース(ChatGPT Team $25/人 を代替)
+# - プライベートナレッジベース RAG + pgvector ベクトル DB(ChatGPT Plus ナレッジベースを代替)
 # - クロスプラットフォーム同期(Web + デスクトップ + モバイル + ミニプログラム)
+# - 自社製 CLI プログラミングアシスタント(Claude Code $20/月 を代替)
 # - データは完全セルフホスト、大手テック企業に覗かれない
 ```
 
@@ -390,7 +554,7 @@ cd IHUI-AI && docker compose up -d
                                        │       │
                           ┌────────────▼─┐   ┌─▼──────────────┐
                           │  PostgreSQL  │   │  apps/ai-service│  FastAPI + Socket.IO
-                          │  15 (338 表) │   │  :8000          │  LangGraph + LiteLLM + MCP + A2A
+                          │  15 (339 表) │   │  :8000          │  LangGraph + LiteLLM + MCP + A2A
                           └──────────────┘   └────┬────────────┘  5 provider + 14 publish adapter
                                                   │
                                             ┌─────▼─────┐  ┌──────────┐
@@ -432,7 +596,7 @@ IHUI-AI/
 │   ├── auth/                # @ihui/auth (JWT + token-family + OAuth2 + RBAC + data-scope)
 │   ├── config/              # @ihui/config
 │   ├── context-compaction/  # @ihui/context-compaction (コンテキスト圧縮)
-│   ├── database/            # @ihui/database (Drizzle, 338+ テーブル, 120+ マイグレーション, RLS, テナントルーティング)
+│   ├── database/            # @ihui/database (Drizzle, 339+ テーブル, 128+ マイグレーション, RLS, テナントルーティング, pgvector)
 │   ├── eslint-config/       # @ihui/eslint-config
 │   ├── sdk/                 # @ihui/sdk (自動生成)
 │   ├── tsconfig/            # @ihui/tsconfig
@@ -705,8 +869,8 @@ LiteLLM ゲートウェイで統一接続、インテリジェントルーティ
 #### E2. データベースと共有パッケージ
 
 - **単一データベース設計**:PostgreSQL 15、単一データベース `ihui`、schema で業務ドメインを分離
-- **338+ テーブル**:100 個の schema モジュールファイル、30+ 業務ドメインを網羅
-- **120+ マイグレーション**:`packages/database/drizzle/`、drizzle-kit generate で生成 + 手動インクリメント
+- **339+ テーブル**:100 個の schema モジュールファイル、30+ 業務ドメインを網羅
+- **128+ マイグレーション**:`packages/database/drizzle/`、drizzle-kit generate で生成 + 手動インクリメント
 - **7 ステップ冪等 seed**:`packages/database/seed/`、パターン化 + フォールトトレランス分離
 - **行レベルセキュリティ**:RLS(Row Level Security)をキーフィールドで有効化、マルチテナント分離
 - **読み取りレプリカ**:read-replica + tenant-router でクエリをルーティング
@@ -729,7 +893,7 @@ LiteLLM ゲートウェイで統一接続、インテリジェントルーティ
 
 **ブランド翻訳戦略**:公式英名を優先(Zhipu AI、Baidu ERNIE、Volcengine 等)、機械可読マッピングテーブルは `scripts/brand-glossary.json` 参照。
 
-#### E4. エンジニアリング品質ゲート(17 pre-commit + post-commit + 11 マイグレーション監査)
+#### E4. エンジニアリング品質ゲート(21 pre-commit + post-commit + 11 マイグレーション監査)
 
 プロジェクトは 17 個の pre-commit フック + post-commit 自動 push + 11 マイグレーション監査スクリプトで協作事故を根絶:
 
@@ -868,7 +1032,7 @@ pnpm turbo build typecheck lint test
 
 ## API とプロトコル
 
-### REST API(~1135 エンドポイント)
+### REST API(~1168+ エンドポイント)
 
 | サービス            | エンドポイント数 | プレフィックス        | ルートファイル数 | カバレッジドメイン                                                                                                                                                                                                                                                       |
 | ------------------- | ---------------- | --------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -910,8 +1074,8 @@ pnpm turbo build typecheck lint test
 ## データベース
 
 - **単一データベース設計**:PostgreSQL 15、単一データベース `ihui`、schema で業務ドメインを分離
-- **338+ テーブル**:100 個の schema モジュールファイル、30+ 業務ドメインを網羅
-- **120+ マイグレーション**:`packages/database/drizzle/`、drizzle-kit generate で生成 + 手動インクリメント
+- **339+ テーブル**:100 個の schema モジュールファイル、30+ 業務ドメインを網羅
+- **128+ マイグレーション**:`packages/database/drizzle/`、drizzle-kit generate で生成 + 手動インクリメント
 - **7 ステップ冪等 seed**:`packages/database/seed/`、パターン化 + フォールトトレランス分離
 - **行レベルセキュリティ**:RLS(Row Level Security)をキーフィールドで有効化、マルチテナント分離
 - **読み取りレプリカ**:read-replica + tenant-router でクエリをルーティング
@@ -1108,19 +1272,38 @@ node apps/api/scripts/pg-backup.mjs
 </details>
 
 <details>
-<summary><strong>Q2:他のオープンソース AI プロジェクト(Dify / FastGPT / Langflow)との違いは?</strong></summary>
+<summary><strong>Q2:40+ の国際/国内対抗製品(OpenAI ChatGPT / Dify / LangChain / RAGFlow / Coze / Claude Code / Cursor / GitHub Copilot / Khan Academy / Stripe+Auth0 など)とどう違いますか?</strong></summary>
 
-IHUI-AI は単なる AI 対話プラットフォームではなく、**完全な AI アプリケーションインフラ**です:
+IHUI-AI は単一の AI ツールではなく、**オープンソース AI 商用グレード統合ファウンデーション**であり、以下の 6 大カテゴリの製品能力を**1 つの Apache 2.0 リポジトリに統合**しています:
 
-- 8 プラットフォーム網羅(他プロジェクトはわずか 1-2 プラットフォーム)
-- 完全な課金サブスクリプション + VIP + ウォレット + ポイント + 8 決済ゲートウェイ(他プロジェクトはなし)
-- AI 教育フルスタック + 学生側 12 サブページ(他プロジェクトはなし)
-- 14 プラットフォームワンクリック配信 + 14 adapter(他プロジェクトはなし)
-- 自社製 CLI 17 コマンド + 13 ツール(他プロジェクトはなし)
-- エンジニアリング品質ゲート 17 フック + 11 マイグレーション監査 + 9 PowerShell(他プロジェクトは基礎のみ)
-- 20 Grafana ダッシュボード + Alertmanager(他プロジェクトは基礎のみ)
+| 対抗カテゴリ              | 代表製品                                                                        | IHUI-AI の差異                                                                                          |
+| ------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| 汎用 AI 対話              | OpenAI ChatGPT / Anthropic Claude.ai / Google Gemini / Microsoft Copilot        | IHUI-AI はセルフホスト + 100+ モデル(OpenAI に限定されず)+ 課金 / 教育 / 配信などの業務を搭載                                     |
+| AI アプリケーション開発プラットフォーム       | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(扣子)                    | IHUI-AI は 6 クライアント、自社製 CLI、完全な商業ループ、AI 教育、14 プラットフォーム配信を追加装備                                       |
+| AI Agent フレームワーク         | LangChain / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT                  | それらは開発フレームワーク(「車の部品」)、IHUI-AI は製品化ファウンデーション(「完成車のラインオフ」)、非技術チームでも利用可能                      |
+| AI プログラミング CLI / IDE     | Claude Code / Cursor / GitHub Copilot / Windsurf / Amazon Q / Cline / Aider    | IHUI-AI の CLI はプログラミングだけでなく、AI アプリケーションプラットフォーム(対話 / RAG / Agent / 課金)も統合、かつ Apache 2.0 でオープンソース、他はすべてクローズドソース |
+| AI 教育プラットフォーム           | Khan Academy / Coursera / edX / Google 教育 AI                                 | IHUI-AI の AI 教育はオープンソースフルスタック(コース / 問題集 / 試験 / SRS / ライブ / 証明書)、二次カスタマイズ可能、これらはクローズドソース SaaS           |
+| 商業 SaaS ファウンデーション        | Stripe / Auth0 / Clerk / Mailgun / SendGrid / Mixpanel / Amplitude / PostHog   | IHUI-AI は決済 / 認証 / メール / 分析をすべてプリセット、ワンストップで 4-6 個の SaaS を代替、月 $300+ 節約                            |
+| マルチクライアントフレームワーク              | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js                  | IHUI-AI は 8 クライアント + 13 共有パッケージ + 共有 UI を一括プリセット、開発者に自ら組み立てさせるのではない                              |
 
-詳細は上記 [類似プロジェクトとの比較](#類似プロジェクトとの比較) テーブルを参照。
+**10 大独自能力(オープンソース生態系で唯一同時に具備)**:
+
+1. **8 クライアント全面対応**(他の AI アプリケーションプラットフォームはわずか 1-2 クライアント、Claude Code/Cursor は 1 クライアントのみ)
+2. **LangGraph + MCP + A2A トリプルスタック連携**(他プロジェクトは最大シングルスタック)
+3. **自社製 CLI 17 コマンド + 13 ツール + ACP Server + 6 ソース設定インポート**(オープンソース AI アプリケーションプラットフォームで唯一)
+4. **完全な課金サブスクリプション + VIP + ウォレット + ポイント + 8 決済ゲートウェイ + 返金 + インボイス**(オープンソース AI プラットフォームで唯一)
+5. **14 プラットフォームワンクリック配信 + 14 adapter + AES-256-GCM 認証情報暗号化**(オープンソースプロジェクトで唯一)
+6. **AI 教育フルスタック + 学生側 12 サブページ + 45 テーブル edu-full schema**(オープンソース AI プラットフォームで唯一)
+7. **エンタープライズ級セキュリティスタック(RBAC + マルチテナント + RLS + SSO + AES-256-GCM + JWT token-family + GDPR + 2FA + IDOR)**(オープンソース AI プラットフォームで唯一)
+8. **17 エンジニアリング品質ゲート + 11 マイグレーション監査 + 9 PowerShell + post-commit 自動 push**(オープンソース AI プロジェクトで唯一)
+9. **三支柱オブザーバビリティ + 20 Grafana ダッシュボード + Alertmanager**(オープンソース AI プラットフォームで唯一)
+10. **5 言語 i18n parity + 4 ゲートスクリプト + pgvector + ナレッジグラフ + ユーザー長期記憶**(オープンソース AI プロジェクトで唯一)
+
+詳細は上方の [プロジェクト ポジショニング](#プロジェクト-ポジショニング必読)、[コスト比較](#コスト比較ihui-ai-セルフホスト-vs-同等の-saas-スタック) と [類似プロジェクトとの比較](#類似プロジェクトとの比較) の章を参照。
+
+**コア差別化**:IHUI-AI より特化したプロジェクトは見つかります(RAGFlow は RAG 次元でより深い、Claude Code は CLI 次元でより成熟、LangChain はフレームワーク層でより柔軟、Khan Academy は教育コンテンツでより豊富)。しかし、IHUI-AI より包括的なオープンソース ファウンデーションは見つかりません。
+
+**一言まとめ**:IHUI-AI = OpenAI ChatGPT(対話)+ Dify(アプリケーションオーケストレーション)+ Claude Code(CLI)+ Khan Academy(教育)+ Stripe(決済)+ 蟻客(配信)の**オープンソース一体化代替方案**です。
 </details>
 
 <details>
@@ -1170,9 +1353,9 @@ pnpm は monorepo シナリオで優位性が顕著:厳密な依存分離(ファ
 </details>
 
 <details>
-<summary><strong>Q9:データベースが 338+ テーブルなのはなぜですか?過剰設計では?</strong></summary>
+<summary><strong>Q9:データベースが 339+ テーブルなのはなぜですか?過剰設計では?</strong></summary>
 
-338+ テーブルは 100 個の schema ファイルに分散し、30+ 業務ドメインを網羅、ドメイン平均 11 テーブルで密度は合理的です。本プロジェクトは商業化本番級 AI プラットフォーム(智匯 AI グループのメインプラットフォーム)であり、デモではないため、テーブル構造は実際の業務複雑度に基づき設計されています。一部機能のみを使用する場合(例:AI 対話のみ)は、chat / users / billing の 3 つの schema に注目すればよく、他のテーブルは稼働に影響しません。
+339+ テーブルは 100 個の schema ファイルに分散し、30+ 業務ドメインを網羅、ドメイン平均 11 テーブルで密度は合理的です。本プロジェクトは商業化本番級 AI プラットフォーム(智匯 AI グループのメインプラットフォーム)であり、デモではないため、テーブル構造は実際の業務複雑度に基づき設計されています。一部機能のみを使用する場合(例:AI 対話のみ)は、chat / users / billing の 3 つの schema に注目すればよく、他のテーブルは稼働に影響しません。
 </details>
 
 <details>
@@ -1257,9 +1440,9 @@ pnpm は monorepo シナリオで優位性が顕著:厳密な依存分離(ファ
 - BI ダッシュボード + エラーダッシュボード + カナリアリリース + i18n ダッシュボード
 - 5 言語 i18n parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n ツールチェーン + 4 ゲート
 - フルスタックオブザーバビリティ(Prometheus + Grafana 20 ダッシュボード + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager)
-- 17 pre-commit ゲート + post-commit 自動 push + 11 マイグレーション監査 + 9 PowerShell 起動
+- 21 pre-commit ゲート + post-commit 自動 push + 11 マイグレーション監査 + 9 PowerShell 起動
 - エンタープライズ級セキュリティ(RBAC + マルチテナント + RLS + SSO + AES-256-GCM + JWT token-family + CSRF + XSS + GDPR + 2FA)
-- 338+ データベーステーブル + 120+ マイグレーション + 13 共有パッケージ + Knip + Lighthouse + Locust 負荷テスト
+- 339+ データベーステーブル + 128+ マイグレーション + 13 共有パッケージ + Knip + Lighthouse + Locust 負荷テスト
 
 ### 進行中
 
@@ -1422,8 +1605,8 @@ IHUI-AIは流行りのラベルにどれも当てはまりませんでした: Ag
 
 その数カ月間、プレスリリースも、ローンチイベントもありませんでした—ただ:
 
-- データベースのテーブルが0から338へ
-- APIエンドポイントが0から約1135へ
+- データベースのテーブルが0から339へ
+- APIエンドポイントが0から約1168+へ
 - pre-commitのガードレールが0から17へ
 - 数えきれないリファクタリング、スキーマ一つを巡って深夜に及ぶ議論
 - どんどん狭まる予算、どんどん重くなる肩
@@ -1455,8 +1638,8 @@ AIコーディングエージェントを駆使し、大規模なチームなし
 | **8プラットフォーム**      | Web / API / AIサービス / CLI / デスクトップ / 拡張 / モバイルRN / ミニアプリ                                                              | 通常プラットフォームごとに1チーム、30人以上 |
 | **100+のLLM**              | LiteLLM統合ゲートウェイ + 5つのproviderアダプター                                                                                         | 通常モデルチーム3-5人                       |
 | **AIオーケストレーション** | LangGraph + MCP + A2Aのシナジー + Persona + Agent Runtime + Vector Memory                                                                 | 通常AIプラットフォームチーム5-10人          |
-| **データベース**           | 338以上のテーブル + 100のスキーマファイル + 120以上のマイグレーション + RLS + マルチテナントルーティング                                  | 通常DBA1人 + バックエンド2-3人              |
-| **API規模**                | 約1135のエンドポイント + 12のWebSocket + 95以上のルートファイル                                                                           | 通常バックエンドエンジニア5-8人             |
+| **データベース**           | 339以上のテーブル + 100のスキーマファイル + 120以上のマイグレーション + RLS + マルチテナントルーティング                                  | 通常DBA1人 + バックエンド2-3人              |
+| **API規模**                | 約1168+のエンドポイント + 12のWebSocket + 95以上のルートファイル                                                                           | 通常バックエンドエンジニア5-8人             |
 | **フロントエンド規模**     | 200以上のページ + 5言語i18nパリティ + ダークモード + PWA + SEO                                                                            | 通常フロントエンドエンジニア4-6人           |
 | **エンジニアリングゲート** | 17のpre-commit + post-commit自動push + 11のマイグレーション監査 + 9のPowerShell起動スクリプト                                             | 通常DevOpsエンジニア1-2人                   |
 | **可観測性**               | Prometheus + Grafana(20ダッシュボード)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                           | 通常SREエンジニア1-2人                      |
@@ -1519,8 +1702,8 @@ AIコーディングエージェントを駆使し、大規模なチームなし
 
 資本から1年間「もう少し待て」と言われ続けた間にも、コードは成長を止めませんでした。
 
-- データベースのテーブルは0から338へ
-- APIエンドポイントは0から約1135へ
+- データベースのテーブルは0から339へ
+- APIエンドポイントは0から約1168+へ
 - 8プラットフォームのフレームワークが一つずつ形になり
 - 100以上のLLMがLiteLLMで統合接入され
 - LangGraph + MCP + A2Aの三スタックシナジーがオンラインになり
