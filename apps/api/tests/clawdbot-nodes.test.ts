@@ -83,8 +83,8 @@ describe('clawdbot NodeExecutor 节点系统', () => {
         name: 'N1',
         config: {},
         branches: [
-          { condition: 'ctx.x > 5', next: 'n_high' },
-          { condition: 'ctx.x <= 5', next: 'n_low' },
+          { condition: 'outputs.x > 5', next: 'n_high' },
+          { condition: 'outputs.x <= 5', next: 'n_low' },
         ],
       })
       const r = await exec.execute('n1', ctx({ outputs: { x: 10 } as never }))

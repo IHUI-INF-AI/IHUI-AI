@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, ilike, isNull, isNotNull } from 'drizzle-orm'
+import { eq, and, desc, sql, ilike, isNull, isNotNull, inArray } from 'drizzle-orm'
 import { db } from './index.js'
 import { skills, type Skill } from '@ihui/database'
 
@@ -223,7 +223,9 @@ export async function deleteSkillsByAuthorAndSlugs(
       and(
         eq(skills.authorId, authorId),
         isNull(skills.deletedAt),
-        sql`${skills.slug} = ANY(${sql.raw(`ARRAY[${slugs.map((s) => `'${s.replace(/'/g, "''")}'`).join(',')}]::text[]`)})`,
+        // 2026-07-21 安全审计加固:用 Drizzle 参数化 inArray 替代 sql.raw 字符串拼接,
+        // 消除 SQL 注入隐患(slug 是 z.string() 任意字符串)
+        inArray(skills.slug, slugs),
       ),
     )
     .returning({ id: skills.id })
