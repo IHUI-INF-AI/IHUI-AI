@@ -1,7 +1,12 @@
 import { View, Text, WebView } from '@tarojs/components'
-import { useRouter } from '@tarojs/taro'
+import { navigateTo, useRouter } from '@tarojs/taro'
 import { useI18n } from '@/i18n'
 import './index.css'
+
+/** 导航到 webview 页面并加载指定 URL */
+export function navigateToWebView(url: string): void {
+  navigateTo({ url: `/pages/webview/index?url=${encodeURIComponent(url)}` })
+}
 
 export default function WebviewIndex() {
   const { t } = useI18n()
