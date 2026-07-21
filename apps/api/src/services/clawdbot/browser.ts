@@ -6,6 +6,7 @@
  */
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
+import { generateCompactId } from '../../utils/crypto-random.js'
 
 export interface BrowserPage {
   id: string
@@ -41,7 +42,10 @@ export interface ScrapeResult {
 export class BrowserAutomation extends EventEmitter {
   private pages = new Map<string, BrowserPage>()
 
-  async navigate(url: string, options?: { headers?: Record<string, string>; timeout?: number }): Promise<BrowserPage> {
+  async navigate(
+    url: string,
+    options?: { headers?: Record<string, string>; timeout?: number },
+  ): Promise<BrowserPage> {
     const start = Date.now()
     logger.info({ url }, '[Browser] Navigating')
     try {
@@ -52,7 +56,8 @@ export class BrowserAutomation extends EventEmitter {
       const content = await response.text()
       const title = content.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]
       const page: BrowserPage = {
-        id: `page_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成页面 ID
+        id: generateCompactId('page'),
         url,
         title,
         content,
@@ -94,8 +99,13 @@ export class BrowserAutomation extends EventEmitter {
     return result
   }
 
-  async fillForm(options: FormFillOptions): Promise<{ success: boolean; submitted: boolean; result?: string; error?: string }> {
-    logger.info({ url: options.url, fieldCount: Object.keys(options.fields).length }, '[Browser] Form fill')
+  async fillForm(
+    options: FormFillOptions,
+  ): Promise<{ success: boolean; submitted: boolean; result?: string; error?: string }> {
+    logger.info(
+      { url: options.url, fieldCount: Object.keys(options.fields).length },
+      '[Browser] Form fill',
+    )
     try {
       // 降级模式：使用 fetch 发送表单数据
       const response = await fetch(options.url, {
@@ -123,7 +133,11 @@ export class BrowserAutomation extends EventEmitter {
     return this.pages.delete(id)
   }
 
-  private extractBySelector(html: string, selector: string, _attribute?: string): string | string[] {
+  private extractBySelector(
+    html: string,
+    selector: string,
+    _attribute?: string,
+  ): string | string[] {
     // 简化的选择器解析：支持标签名和 class/id 基础匹配
     if (selector.startsWith('#')) {
       const id = selector.slice(1)

@@ -60,7 +60,7 @@ describe('clawdbot VoiceService 语音服务', () => {
   describe('enrollVoiceprint 声纹注册', () => {
     it('创建声纹并存储', async () => {
       const v = await svc.enrollVoiceprint('u1', Buffer.from('x'))
-      expect(v.id).toMatch(/^vp_\d+_/)
+      expect(v.id).toMatch(/^vp_[a-z0-9]+$/)
       expect(v.userId).toBe('u1')
       expect(v.embedding).toEqual([])
       expect(v.createdAt).toBeGreaterThan(0)
