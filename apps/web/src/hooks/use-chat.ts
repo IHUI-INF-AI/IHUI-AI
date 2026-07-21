@@ -7,9 +7,11 @@ import { toast } from 'sonner'
 import { streamChat, formatSSEError } from '@ihui/api-client'
 
 import { useChatStore } from '@/stores/chat'
+import type { ToolCall } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
+import { useWorkPanelStore } from '@/stores/work-panel'
 import { createConversation, sendMessage as persistMessage, persistQuestion } from '@/lib/chat-api'
 import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
@@ -18,6 +20,10 @@ import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-c
 // 斜杠命令 → 自媒体 skill 直调映射(避免走 LLM chat 流,直接调 skill API)
 // /wechat-article <title>  → POST /api/self-media/wechat/generate {title, dryRun:true}
 // /koubo-script <MMDD>     → POST /api/self-media/koubo/generate {date, dryRun:true}
+// /auto-task <taskId> <HH:MM> [titleTemplate]  → POST /api/self-media/automation/tasks/:taskId/config
+//   taskId: wechat_daily | koubo_daily(仅这 2 个内置任务可配置)
+//   时间格式: HH:MM(24 小时制),默认 09:00
+//   titleTemplate: 可选,仅 wechat_daily 用,支持 {date} 占位符
 const SELF_MEDIA_SLASH_MAP = {
   '/wechat-article': {
     endpoint: '/api/self-media/wechat/generate',
@@ -68,11 +74,65 @@ const SELF_MEDIA_SLASH_MAP = {
   },
 } as const
 
+/** /auto-task 斜杠命令:配置自媒体自动化定时任务(2026-07-22 新增)
+ *  格式:/auto-task <taskId> <HH:MM> [titleTemplate]
+ *  示例:/auto-task wechat_daily 09:00
+ *        /auto-task koubo_daily 08:00
+ *  说明:直接调 /api/self-media/automation/tasks/:taskId/config,不走 LLM chat 流 */
+async function tryHandleAutoTaskSlash(
+  text: string,
+  onResult: (assistantContent: string) => void,
+): Promise<boolean> {
+  const trimmed = text.trim()
+  if (trimmed !== '/auto-task' && !trimmed.startsWith('/auto-task ') && !trimmed.startsWith('/auto-task\n')) {
+    return false
+  }
+  const rest = trimmed.slice('/auto-task'.length).trim()
+  const [taskIdRaw, timeRaw, ...titleParts] = rest.split(/\s+/)
+  const taskId = taskIdRaw === 'koubo_daily' ? 'koubo_daily' : 'wechat_daily'
+  const [h, m] = (timeRaw || '09:00').split(':').map(Number)
+  const hour = typeof h === 'number' && Number.isFinite(h) && h >= 0 && h <= 23 ? h : 9
+  const minute = typeof m === 'number' && Number.isFinite(m) && m >= 0 && m <= 59 ? m : 0
+  const titleTemplate = titleParts.join(' ') || undefined
+  try {
+    const r = await fetchApi<any>(`/api/self-media/automation/tasks/${encodeURIComponent(taskId)}/config`, {
+      method: 'POST',
+      body: JSON.stringify({
+        hour,
+        minute,
+        dry_run: true,
+        enabled: true,
+        ...(titleTemplate ? { title_template: titleTemplate } : {}),
+      }),
+    })
+    if (!r.success) {
+      onResult(`❌ 自动化任务配置失败: ${r.error || '未知错误'}`)
+      return true
+    }
+    const d = r.data || {}
+    const lines = [
+      `### 自动化任务配置 ✅`,
+      `- 任务 ID: ${taskId}`,
+      `- 执行时间: 每天 ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
+      `- dry-run: ${d.dry_run ? '是' : '否'}`,
+      `- 已启用: ${d.enabled ? '是' : '否'}`,
+    ]
+    if (titleTemplate) lines.push(`- 标题模板: ${titleTemplate}`)
+    lines.push(`\n请在自动化任务页面查看详情,点击"立即触发"可测试运行。`)
+    onResult(lines.join('\n'))
+  } catch (e: any) {
+    onResult(`❌ /auto-task 调用失败: ${e?.message || String(e)}`)
+  }
+  return true
+}
+
 async function tryHandleSelfMediaSlash(
   text: string,
   onResult: (assistantContent: string) => void,
 ): Promise<boolean> {
   // 返回 true 表示命中斜杠命令(已调 skill),false 表示走原 chat 流程
+  // 优先检查 /auto-task(独立处理,因 endpoint 含路径参数)
+  if (await tryHandleAutoTaskSlash(text, onResult)) return true
   const trimmed = text.trim()
   const matched = Object.keys(SELF_MEDIA_SLASH_MAP).find(
     (cmd) => trimmed === cmd || trimmed.startsWith(cmd + ' ') || trimmed.startsWith(cmd + '\n'),
@@ -91,6 +151,96 @@ async function tryHandleSelfMediaSlash(
     onResult(`❌ ${matched} 调用失败: ${e?.message || String(e)}`)
   }
   return true
+}
+
+/** 浏览器类工具:命中即自动在右侧 WorkPanel 打开 URL(2026-07-22 立,P2 联动) */
+const BROWSER_TOOL_NAMES = new Set([
+  'browser_navigate',
+  'browser_click',
+  'browser_extract',
+  'browser_screenshot',
+  'web_search',
+  'fetch-url',
+  'fetch_url',
+  'web_fetch',
+])
+
+/** 从 tool args/result 提取 URL(与 tool-call-card.tsx extractUrl 逻辑一致) */
+function extractToolUrl(
+  args?: Record<string, unknown>,
+  result?: unknown,
+): string | null {
+  if (args) {
+    const fromArgs =
+      (args.url as string) ||
+      (args.href as string) ||
+      (args.link as string) ||
+      (args.target as string)
+    if (typeof fromArgs === 'string' && /^https?:\/\//i.test(fromArgs)) return fromArgs
+  }
+  if (typeof result === 'string') {
+    const match = result.match(/https?:\/\/[^\s"'<>]+/i)
+    if (match) return match[0]
+  } else if (result && typeof result === 'object') {
+    const obj = result as Record<string, unknown>
+    const fromResult =
+      (obj.url as string) || (obj.href as string) || (obj.link as string)
+    if (typeof fromResult === 'string' && /^https?:\/\//i.test(fromResult)) return fromResult
+  }
+  if (Array.isArray(result)) {
+    const first = result.find((r) => {
+      if (typeof r === 'object' && r !== null) {
+        const u = (r as Record<string, unknown>).url
+        return typeof u === 'string' && /^https?:\/\//i.test(u)
+      }
+      return false
+    })
+    if (first) return (first as Record<string, unknown>).url as string
+  }
+  return null
+}
+
+/** onToolCall 工厂:绑定 assistantMessageId,生成统一 handler 给 streamChat 用 */
+function createToolCallHandler(assistantMessageId: string) {
+  return (event: {
+    type: 'tool-call-start' | 'tool-result'
+    toolCallId: string
+    toolName: string
+    args?: Record<string, unknown>
+    result?: unknown
+    isError?: boolean
+  }) => {
+    if (event.type === 'tool-call-start') {
+      useChatStore.getState().addToolCall(assistantMessageId, {
+        id: event.toolCallId,
+        toolName: event.toolName,
+        args: event.args ?? {},
+        status: 'running',
+      })
+      // browser_navigate 类工具:args 含 url 时立即打开 WorkPanel(无需等 result)
+      if (BROWSER_TOOL_NAMES.has(event.toolName) && event.args) {
+        const url = extractToolUrl(event.args)
+        if (url) {
+          useWorkPanelStore.getState().openPanel({ url, source: 'ai-tool' })
+        }
+      }
+    } else {
+      // tool-result
+      const updates: Partial<ToolCall> = {
+        status: event.isError ? 'error' : 'success',
+        result: event.result,
+      }
+      if (event.args) updates.args = event.args
+      useChatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, updates)
+
+      // tool-result 含 URL:延迟打开(仅当之前 args 没 url 时,result 含 url 的场景)
+      if (!BROWSER_TOOL_NAMES.has(event.toolName)) return
+      const url = extractToolUrl(event.args, event.result)
+      if (url) {
+        useWorkPanelStore.getState().openPanel({ url, source: 'ai-tool' })
+      }
+    }
+  }
 }
 
 export interface UseChatReturn {
@@ -392,25 +542,10 @@ export function useChat(): UseChatReturn {
           useChatStore.getState().appendToAgentStream(agentId, delta)
         },
         onReasoning: (delta) => {
-          useChatStore.getState().appendReasoningToMessage(assistantId, delta)
-        },
-        onError: (errMsg) => {
-          const formatted = formatSSEError(errMsg)
-          useChatStore.getState().setMessageError(assistantId, formatted.message)
-          useChatStore.getState().setError(formatted.message)
-          if (formatted.severity === 'auth') {
-            useLoginDialogStore.getState().open('login')
-          }
-          const toastDesc = formatted.severity === 'auth' ? formatted.message : formatted.rawMessage
-          if (formatted.severity === 'ratelimit') {
-            toast.warning(formatted.title, { description: toastDesc })
-          } else if (formatted.severity === 'safety') {
-            toast.warning(formatted.title, { description: formatted.message })
-          } else {
-            toast.error(formatted.title, { description: toastDesc })
-          }
-        },
-      })
+            useChatStore.getState().appendReasoningToMessage(assistantId, delta)
+          },
+          onToolCall: createToolCallHandler(assistantId),
+          onError: (errMsg) => {
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         if (!firstTokenReceived) {
