@@ -44,7 +44,7 @@ export default function LiveDetailPage() {
   const locale = useLocale()
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['live', 'channel', id],
+    queryKey: ['live', 'channel', id, 'detail'],
     queryFn: () => api<ChannelResp>(`/api/live/channels/${id}`),
   })
 
