@@ -95,8 +95,13 @@ async function tryHandleAutoTaskSlash(
   const minute = typeof m === 'number' && Number.isFinite(m) && m >= 0 && m <= 59 ? m : 0
   const titleTemplate = titleParts.join(' ') || undefined
   try {
-    const r = await fetchApi<any>(`/api/self-media/automation/tasks/${encodeURIComponent(taskId)}/config`, {
+    const token = useAuthStore.getState().token
+    const resp = await fetch(`/api/self-media/automation/tasks/${encodeURIComponent(taskId)}/config`, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({
         hour,
         minute,
@@ -105,17 +110,18 @@ async function tryHandleAutoTaskSlash(
         ...(titleTemplate ? { title_template: titleTemplate } : {}),
       }),
     })
-    if (!r.success) {
-      onResult(`❌ 自动化任务配置失败: ${r.error || '未知错误'}`)
+    const d = await resp.json().catch(() => ({}))
+    if (!resp.ok || !d.ok) {
+      onResult(`❌ 自动化任务配置失败: ${d.message || d.error || `HTTP ${resp.status}`}`)
       return true
     }
-    const d = r.data || {}
+    const cfg = d.config || {}
     const lines = [
       `### 自动化任务配置 ✅`,
       `- 任务 ID: ${taskId}`,
       `- 执行时间: 每天 ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
-      `- dry-run: ${d.dry_run ? '是' : '否'}`,
-      `- 已启用: ${d.enabled ? '是' : '否'}`,
+      `- dry-run: ${cfg.dry_run ? '是' : '否'}`,
+      `- 已启用: ${cfg.enabled ? '是' : '否'}`,
     ]
     if (titleTemplate) lines.push(`- 标题模板: ${titleTemplate}`)
     lines.push(`\n请在自动化任务页面查看详情,点击"立即触发"可测试运行。`)
