@@ -1430,7 +1430,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const eventId = `evt_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+      // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成测试事件 ID
+      // 风险:Math.random 可预测 → 测试回调事件可被猜测/重放
+      const eventId = `evt_test_${Date.now()}_${randomBytes(4).toString('hex')}`
       const payload = {
         event_id: eventId,
         event_type: parsed.data.event_type,
@@ -1968,58 +1970,54 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // 7. POST /agents/heat/generate - 手动触发热度统计计算(admin 权限)
   // 权重:点赞=1, 分享=3, 收藏=2, 使用=1
   // 若 agents 表无 heat_score 字段,跳过更新只返回计算结果
-  server.post(
-    '/agents/heat/generate',
-    { preHandler: requireAdmin },
-    async (_request, reply) => {
-      const weights = { like: 1, share: 3, collect: 2, usage: 1 }
+  server.post('/agents/heat/generate', { preHandler: requireAdmin }, async (_request, reply) => {
+    const weights = { like: 1, share: 3, collect: 2, usage: 1 }
 
-      const agentRows = await dbRead
-        .select({
-          agentId: agents.agentId,
-          likeCount: agents.likeCount,
-          shareCount: agents.shareCount,
-          collectCount: agents.collectCount,
-          usageCount: agents.usageCount,
-        })
-        .from(agents)
-        .where(eq(agents.status, 'published'))
+    const agentRows = await dbRead
+      .select({
+        agentId: agents.agentId,
+        likeCount: agents.likeCount,
+        shareCount: agents.shareCount,
+        collectCount: agents.collectCount,
+        usageCount: agents.usageCount,
+      })
+      .from(agents)
+      .where(eq(agents.status, 'published'))
 
-      const heatScores = agentRows.map((a) => ({
-        agentId: a.agentId,
-        heatScore:
-          a.likeCount * weights.like +
-          a.shareCount * weights.share +
-          a.collectCount * weights.collect +
-          a.usageCount * weights.usage,
-      }))
+    const heatScores = agentRows.map((a) => ({
+      agentId: a.agentId,
+      heatScore:
+        a.likeCount * weights.like +
+        a.shareCount * weights.share +
+        a.collectCount * weights.collect +
+        a.usageCount * weights.usage,
+    }))
 
-      // 尝试批量更新 agents.heat_score 字段(表无此字段则跳过)
-      let updated = 0
-      if (heatScores.length > 0) {
-        try {
-          for (const hs of heatScores) {
-            await db.execute(
-              sql`UPDATE agents SET heat_score = ${hs.heatScore} WHERE agent_id = ${hs.agentId}`,
-            )
-            updated++
-          }
-        } catch {
-          // 表无 heat_score 字段,跳过更新
-          updated = 0
+    // 尝试批量更新 agents.heat_score 字段(表无此字段则跳过)
+    let updated = 0
+    if (heatScores.length > 0) {
+      try {
+        for (const hs of heatScores) {
+          await db.execute(
+            sql`UPDATE agents SET heat_score = ${hs.heatScore} WHERE agent_id = ${hs.agentId}`,
+          )
+          updated++
         }
+      } catch {
+        // 表无 heat_score 字段,跳过更新
+        updated = 0
       }
+    }
 
-      return reply.send(
-        success({
-          updated,
-          generated_at: new Date().toISOString(),
-          totalAgents: heatScores.length,
-          weights,
-        }),
-      )
-    },
-  )
+    return reply.send(
+      success({
+        updated,
+        generated_at: new Date().toISOString(),
+        totalAgents: heatScores.length,
+        weights,
+      }),
+    )
+  })
 
   // 6. GET /:agentId/details - 智能体详情 (含统计信息)
   // 注意: 必须放在 /agents/health 等静态路由之后, 避免参数路由拦截静态路径
