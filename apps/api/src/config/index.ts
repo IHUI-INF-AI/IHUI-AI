@@ -111,6 +111,18 @@ const envSchema = z.object({
   WX_PAY_COURSE_NOTIFY_URL: optionalUrl(''),
   WX_ANDROID_NOTIFY_URL: optionalUrl(''),
 
+  // 信任代理配置(2026-07-21 安全审计第十轮加固)
+  // 严禁 `trustProxy: true` 一刀切 — 任意客户端可伪造 X-Forwarded-For 头绕过 IP 限流/IP 拉黑
+  // 生产环境必须显式列出可信代理 IP/CIDR(逗号分隔),如:
+  //   TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+  // 留空 = 不信任任何代理(直接用 socket remoteAddress,安全但反向代理场景 IP 全部一样)
+  // 开发环境默认信任 127.0.0.1(本地起 nginx/cloudflared 时可识别真实 IP)
+  TRUSTED_PROXIES: z.string().default('127.0.0.1,::1'),
+
+  // Swagger / OpenAPI 文档(2026-07-21 安全审计第十轮加固)
+  // 生产环境必须 SWAGGER_ENABLED=true 才暴露 /docs 路由,默认 false(避免未授权 schema 泄露)
+  SWAGGER_ENABLED: z.coerce.boolean().default(false),
+
   API_LOG_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
   API_LOG_ENABLED: z.coerce.boolean().default(true),
   API_LOG_BATCH_SIZE: z.coerce.number().int().min(1).default(100),

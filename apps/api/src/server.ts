@@ -31,6 +31,7 @@ import { searchRoutes } from './routes/search.js'
 import { auditRoutes } from './routes/audit.js'
 import { chatRoutes } from './routes/chat.js'
 import { chatModelRoutes } from './routes/chat-models.js'
+import { chatSkillsRoutes } from './routes/chat-skills.js'
 import { teamRoutes } from './routes/teams.js'
 import { rbacRoutes } from './routes/rbac.js'
 import { workflowRoutes } from './routes/workflows.js'
@@ -260,6 +261,7 @@ import { categorySyncRoutes } from './routes/category-sync.js'
 
 import { setFastify } from './utils/logger.js'
 import { isAppError } from './errors/index.js'
+import { config } from './config/index.js'
 import authPlugin from './plugins/auth.js'
 import rlsContextPlugin from './plugins/rls-context.js'
 import auditPlugin from './plugins/audit.js'
@@ -349,7 +351,15 @@ function errorHandler(error: FastifyError, _request: FastifyRequest, reply: Fast
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({
     logger: loggerConfig,
-    trustProxy: true,
+    // 2026-07-21 安全审计第十轮加固:严禁 trustProxy: true
+    // 必须显式列出可信代理 IP/CIDR,否则任意客户端可伪造 X-Forwarded-For
+    // 头绕过 IP 限流 / 登录失败计数 / IP 拉黑
+    // 反向代理场景:运维按实际 nginx / cdn / cloudflared 出口 IP 填入 TRUSTED_PROXIES
+    trustProxy: config.TRUSTED_PROXIES
+      ? config.TRUSTED_PROXIES.split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : false,
     bodyLimit: 1048576 * 10,
   })
 
@@ -385,12 +395,18 @@ async function registerPlugins(server: FastifyInstance) {
     timeWindow: '1 minute',
   })
   await server.register(underPressure, { maxEventLoopDelay: 1000 })
-  await server.register(swagger, {
-    openapi: {
-      info: { title: 'IHUI AI API', version: '1.0.0' },
-    },
-  })
-  await server.register(swaggerUi, { routePrefix: '/docs' })
+  // 2026-07-21 安全审计第十轮加固:Swagger / OpenAPI 文档仅在显式启用时暴露
+  // 原因:Swagger 暴露全部 API 路由 + schema + 参数 + 返回类型,等同内部 API 文档
+  // 攻击者可基于此快速枚举端点构造攻击载荷(尤其 admin 路由)
+  // 生产环境必须 SWAGGER_ENABLED=true 才挂载 /docs(默认 false)
+  if (config.SWAGGER_ENABLED) {
+    await server.register(swagger, {
+      openapi: {
+        info: { title: 'IHUI AI API', version: '1.0.0' },
+      },
+    })
+    await server.register(swaggerUi, { routePrefix: '/docs' })
+  }
 
   // multipart 插件：文件上传支持（限制单文件 100MB）
   await server.register(multipart, {
@@ -525,6 +541,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(chatRoutes, { prefix: '/api/chat' })
   // Chat 多模型直连:deepseek/deepseek_ws/kling/multi/qwen/qwen_omni/zhipu/history/coze
   server.register(chatModelRoutes, { prefix: '/api/chat' })
+  // 用户自定义 AI 对话框技能(2026-07-21 新增,Skill 库统一面板支撑):GET/POST/PATCH/DELETE /api/chat/skills
+  server.register(chatSkillsRoutes, { prefix: '/api/chat/skills' })
   // RBAC: /api/roles /api/permissions /api/users/:id/roles /api/admin/rbac/check
   server.register(rbacRoutes, { prefix: '/api' })
   server.register(workflowRoutes, { prefix: '/api' })
