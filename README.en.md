@@ -1281,10 +1281,15 @@ For the complete task plan and historical archive, see [PROJECT_PLAN.md](PROJECT
 > _This is not a piece of marketing copy. This is a true story—written in sweat, persistence, and conviction._
 > _No filters, no packaging—just the rawest conviction of a single developer in the age of AI._
 
-<!-- Image placeholders (drop 1-2 real photos here for emotional impact): -->
-<!-- - apps/web/public/images/story/changchun-winter-2024.jpg — Changchun winter night 2024, or a corner of the office -->
+<!-- Image: Jilin Aizhihui Artificial Intelligence Technology Co., Ltd. · Physical Base (No. 107 Yueda Road, High-tech Zone, Changchun · AI Talent Incubation Base) -->
+<p align="center">
+  <img src="apps/web/public/images/story/changchun-winter-2024.jpg" width="600" alt="Jilin Aizhihui AI Technology Co., Ltd. · No. 107 Yueda Road, High-tech Zone, Changchun · AI Talent Incubation Base" />
+</p>
+<p align="center"><sub>📍 Jilin Aizhihui Artificial Intelligence Technology Co., Ltd. · Physical Base · No. 107 Yueda Road, High-tech Zone, Changchun · AI Talent Incubation Base (photo: 2026-07)</sub></p>
+
+<!-- Image placeholder (for future additions): -->
 <!-- - apps/web/public/images/story/late-night-coding.jpg — late-night code screenshot, or the desk under a lamp -->
-<!-- Once photos are in place, remove the HTML comment above and insert <p align="center"><img src="..." width="600"/></p> in the corresponding section -->
+<!-- Once the photo is in place, remove the HTML comment above and insert <p align="center"><img src="..." width="600"/></p> in the corresponding section -->
 
 ### Prologue · A Question Asked Again and Again
 

@@ -1281,8 +1281,13 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 > _这不是一份商业宣传,这是一段真实的、带着汗水与执念的创业故事。_
 > _没有滤镜,没有包装,只有一个独立开发者在 AI 时代里最真实的执念。_
 
-<!-- 配图位(可放置 1-2 张实拍照片增强情感冲击): -->
-<!-- - apps/web/public/images/story/changchun-winter-2024.jpg — 长春 2024 年冬夜景或办公室一隅 -->
+<!-- 配图:吉林省爱智汇人工智能科技有限公司 · 线下基地(长春高新区越达路 107 号人工智能人才孵化基地) -->
+<p align="center">
+  <img src="apps/web/public/images/story/changchun-winter-2024.jpg" width="600" alt="吉林省爱智汇人工智能科技有限公司 · 长春高新区越达路 107 号人工智能人才孵化基地" />
+</p>
+<p align="center"><sub>📍 吉林省爱智汇人工智能科技有限公司 · 线下基地 · 长春高新区越达路 107 号人工智能人才孵化基地(2026-07 实拍)</sub></p>
+
+<!-- 配图位(后续可追加): -->
 <!-- - apps/web/public/images/story/late-night-coding.jpg — 凌晨代码截图或台灯下的工作台 -->
 <!-- 照片到位后,把上方 HTML 注释删除,在下方对应段落插入 <p align="center"><img src="..." width="600"/></p> 即可 -->
 
