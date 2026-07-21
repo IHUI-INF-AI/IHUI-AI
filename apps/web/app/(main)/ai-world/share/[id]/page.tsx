@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, ArrowLeft, Share2, Copy, Eye, Calendar, Sparkles } from 'lucide-react'
 import Image from 'next/image'
@@ -30,6 +30,7 @@ async function api<T>(url: string): Promise<T> {
 export default function AiWorldSharePage() {
   const params = useParams<{ id: string }>()
   const locale = useLocale()
+  const t = useTranslations('aiWorldSharePage')
   const [copied, setCopied] = React.useState(false)
 
   const {
@@ -61,17 +62,17 @@ export default function AiWorldSharePage() {
       .writeText(shareUrl)
       .then(() => {
         setCopied(true)
-        toast.success('链接已复制')
+        toast.success(t('linkCopied'))
         setTimeout(() => setCopied(false), 2000)
       })
-      .catch(() => toast.error('复制失败'))
+      .catch(() => toast.error(t('copyFailed')))
   }
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
   }
@@ -84,10 +85,10 @@ export default function AiWorldSharePage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回
+          {t('back')}
         </Link>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {(error as Error)?.message ?? '项目不存在'}
+          {(error as Error)?.message ?? t('notExists')}
         </div>
       </div>
     )
@@ -100,15 +101,15 @@ export default function AiWorldSharePage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回
+        {t('back')}
       </Link>
 
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Share2 className="h-6 w-6 text-primary" />
-          分享项目
+          {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">分享这个 AI 世界项目给他人</p>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <Card className="overflow-hidden">
@@ -126,7 +127,7 @@ export default function AiWorldSharePage() {
           <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1">
               <Eye className="h-3 w-3" />
-              {world.viewCount} 次浏览
+              {t('viewCount', { count: world.viewCount })}
             </span>
             <span className="inline-flex items-center gap-1">
               <Calendar className="h-3 w-3" />
@@ -144,7 +145,7 @@ export default function AiWorldSharePage() {
       <Card>
         <CardContent className="space-y-4 p-5">
           <div className="space-y-2">
-            <p className="text-sm font-medium">分享链接</p>
+            <p className="text-sm font-medium">{t('shareLink')}</p>
             <div className="flex items-center gap-2">
               <input
                 readOnly
@@ -153,7 +154,7 @@ export default function AiWorldSharePage() {
               />
               <Button size="sm" onClick={copyLink}>
                 <Copy className="mr-1.5 h-4 w-4" />
-                {copied ? '已复制' : '复制'}
+                {copied ? t('copied') : t('copy')}
               </Button>
             </div>
           </div>
@@ -162,7 +163,7 @@ export default function AiWorldSharePage() {
             <div className="flex h-32 w-32 items-center justify-center rounded-lg bg-muted">
               <Share2 className="h-12 w-12 text-muted-foreground/40" />
             </div>
-            <p className="text-xs text-muted-foreground">扫码分享</p>
+            <p className="text-xs text-muted-foreground">{t('scanShare')}</p>
           </div>
         </CardContent>
       </Card>
