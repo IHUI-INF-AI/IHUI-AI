@@ -402,6 +402,7 @@
     "publishPlatform": "公開プラットフォーム",
     "selfMediaKoubo": "ナレーション原稿",
     "selfMediaAutomation": "自動化",
+    "pluginMarket": "プラグイン市場",
     "downloadIOS": "ｉＯＳ",
     "downloadAndroidApk": "Ａｎｄｒｏｉｄ ＡＰＫ",
     "downloadWechatMiniApp": "WeChat ミニプログラム",
@@ -14750,6 +14751,17 @@
     "documentContentMinLength": "ドキュメントまで10",
     "metadataFormatError": "Dataエラー，してくださいのJSON"
   },
+  "plugins": {
+    "title": "プラグイン市場",
+    "subtitle": "本プロジェクト内蔵プラグインとネット上の人気 AI プラグイン市場を探索",
+    "sectionProject": "本プロジェクト設定済みプラグイン",
+    "sectionProjectDesc": "プラットフォームに統合された内蔵プラグイン機能、カードをクリックして機能へ",
+    "sectionMarket": "人気プラグインスクリプト市場",
+    "sectionMarketDesc": "ネット上の主要 AI プラグイン / スクリプト / MCP 市場、クリックして公式サイトへ",
+    "open": "進入",
+    "visit": "公式サイトへ",
+    "total": "全 {count} 個"
+  },
   "aiWorld": {
     "empty": "なしコンテンツ，",
     "loading": "読み込み中...",
@@ -27787,5 +27799,21 @@
       "loading": "読み込み中...",
       "empty": "文書がありません"
     }
+  },
+  "knowledgeGraph": {
+    "title": "ナレッジグラフ",
+    "buildSection": "テキストからグラフを構築",
+    "placeholder": "テキストを貼り付けると、エンティティとリレーションが抽出されます...",
+    "buildButton": "抽出して構築",
+    "clearButton": "グラフをクリア",
+    "graphSection": "グラフ可視化",
+    "emptyState": "データがありません。上のテキストを入力して「抽出して構築」をクリックしてください",
+    "stats": "{entities} エンティティ / {relations} リレーション",
+    "legendHint": "ヒント:ノードにホバーすると関連エッジがハイライトされます。ノードサイズ = 出現頻度、エッジ太さ = 重み",
+    "graphAriaLabel": "ナレッジグラフ可視化",
+    "frequencyLabel": "{count} 回出現",
+    "charCount": "{count} 文字",
+    "feedbackBuildSuccess": "{entities} 個のエンティティと {relations} 個のリレーションを抽出しました",
+    "feedbackClearSuccess": "グラフをクリアしました"
   }
 }
