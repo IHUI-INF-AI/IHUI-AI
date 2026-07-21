@@ -6,18 +6,20 @@ import { fetchApi } from '@/lib/api'
 import type { PluginInstallState } from '@ihui/types'
 
 /**
- * 插件市场前端状态管理 Hook(2026-07-22 立)
+ * 插件市场前端状态管理 Hook(2026-07-22 立,2026-07-22 增 click 埋点)
  *
  * 设计:
  *  - 本地 state + fetchApi(与 use-distribution.ts 风格一致,401 自动弹登录弹窗)
  *  - 乐观更新:操作前先更新本地 state,失败回滚
  *  - 未登录时 isAuthenticated=false,前端隐藏操作按钮
+ *  - click 埋点:用户点击市场卡片外链时调用,fire-and-forget(不阻塞跳转)
  *
  * 数据流:
  *  - GET /api/plugins/installed → states (Record<pluginId, PluginInstallState>)
  *  - POST /api/plugins/:id/install → 安装/启用(可选 pinned)
  *  - DELETE /api/plugins/:id/install → 卸载/禁用
  *  - PATCH /api/plugins/:id/preferences → 切换 pinned
+ *  - POST /api/plugins/:id/click → 埋点(游客可触发)
  */
 
 export interface UsePluginsReturn {
@@ -32,6 +34,8 @@ export interface UsePluginsReturn {
   togglePinned: (pluginId: string) => Promise<boolean>
   /** 切换安装态(已安装→卸载,未安装→安装) */
   toggleInstall: (pluginId: string) => Promise<boolean>
+  /** 埋点:用户点击市场卡片外链(fire-and-forget,不阻塞跳转) */
+  recordClick: (pluginId: string) => void
   /** 获取单个插件状态(未安装返回 null) */
   getState: (pluginId: string) => PluginInstallState | null
   /** 是否已安装 */
@@ -172,6 +176,16 @@ export function usePlugins(): UsePluginsReturn {
     [states],
   )
 
+  // 埋点:用户点击市场卡片外链。fire-and-forget,不阻塞跳转,失败静默。
+  const recordClick = React.useCallback((pluginId: string) => {
+    void fetchApi<{ recorded: true }>(
+      `/api/plugins/${encodeURIComponent(pluginId)}/click`,
+      { method: 'POST' },
+    ).catch(() => {
+      // 静默失败:埋点不能阻塞用户跳转
+    })
+  }, [])
+
   return {
     states,
     isAuthenticated,
@@ -180,6 +194,7 @@ export function usePlugins(): UsePluginsReturn {
     uninstall,
     togglePinned,
     toggleInstall,
+    recordClick,
     getState,
     isInstalled,
     isPinned,
