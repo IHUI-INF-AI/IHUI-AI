@@ -1705,6 +1705,47 @@ export function Sidebar({
           )}
         </div>
 
+        {/* 插件市场按钮(2026-07-22 新增,位于"新建任务"按钮正下方)
+            - 视觉与"新建任务"按钮成对:同 bg-foreground/10 + text-foreground 灰底风格
+            - active 态(/plugins 路由命中):bg-foreground/20 锁定为 hover 色,提示"正在该页面"
+            - 折叠态:36×36 正方形图标按钮,与"新建任务"折叠态对齐
+            - 与新建任务按钮共用 BTN_NEW_CONVERSATION_CLASS(h-9 + gap-2 + translateY 对齐) */}
+        <div className={cn('mb-1', collapsed && 'flex justify-center')}>
+          {collapsed ? (
+            <Tooltip content={t('pluginMarket')} side="right">
+              <Link
+                href="/plugins"
+                onClick={onCloseMobile}
+                aria-label={t('pluginMarket')}
+                aria-current={pathname.startsWith('/plugins') ? 'page' : undefined}
+                className={cn(
+                  'flex h-9 w-9 items-center justify-center rounded-md text-foreground transition-colors',
+                  pathname.startsWith('/plugins')
+                    ? 'bg-foreground/20'
+                    : 'bg-foreground/10 hover:bg-foreground/20',
+                )}
+              >
+                <Package className="h-4 w-4" />
+              </Link>
+            </Tooltip>
+          ) : (
+            <Link
+              href="/plugins"
+              onClick={onCloseMobile}
+              aria-current={pathname.startsWith('/plugins') ? 'page' : undefined}
+              className={cn(
+                BTN_NEW_CONVERSATION_CLASS,
+                pathname.startsWith('/plugins')
+                  ? 'bg-foreground/20 text-foreground'
+                  : 'bg-foreground/10 text-foreground hover:bg-foreground/20',
+              )}
+            >
+              <Package className="h-4 w-4 shrink-0" />
+              <span className="truncate">{t('pluginMarket')}</span>
+            </Link>
+          )}
+        </div>
+
         {/* 侧边栏任务列表卡片(展开态显示) */}
         <SidebarChatHistory collapsed={collapsed} />
 
