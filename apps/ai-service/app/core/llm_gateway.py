@@ -168,6 +168,18 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     "ai2/": "ai2",
     "upstage/": "upstage",
     "hyperbolic/": "hyperbolic",
+    # 2026-07-22 接入:免费 / 试用 credits provider(参考 cheahjs/free-llm-api-resources)
+    "cloudflare/": "cloudflare_workers_ai",
+    "@cf/": "cloudflare_workers_ai",
+    "nvidia/": "nvidia_nim",
+    "github/": "github_models",
+    "vercel/": "vercel_ai_gateway",
+    "opencode/": "opencode_zen",
+    "modal/": "modal",
+    "inferencenet/": "inferencenet",
+    "nlpcloud/": "nlpcloud",
+    "scaleway/": "scaleway",
+    "alibaba-intl/": "alibaba_intl",
 }
 
 
@@ -408,6 +420,17 @@ class LLMGateway:
             "PPIO_API_KEY", "SILICONCLOUD_API_KEY", "MODELSCOPE_API_KEY",
             "NEBIUS_API_KEY", "FEATHERLESS_API_KEY", "PARASAIL_API_KEY",
             "OPENWEBUI_API_KEY", "LMSTUDIO_API_KEY",
+            # 2026-07-22 接入:免费 / 试用 credits provider(参考 cheahjs/free-llm-api-resources)
+            "CLOUDFLARE_API_TOKEN",  # Workers AI(需配合 CLOUDFLARE_ACCOUNT_ID)
+            "NVIDIA_API_KEY",  # NIM
+            "GITHUB_TOKEN",  # GitHub Models
+            "VERCEL_AI_GATEWAY_KEY",  # Vercel AI Gateway
+            "OPENCODE_ZEN_KEY",  # OpenCode Zen
+            "MODAL_API_KEY",  # Modal
+            "INFERENCE_NET_API_KEY",  # Inference.net
+            "NLP_CLOUD_API_KEY",  # NLP Cloud
+            "SCALEWAY_API_KEY",  # Scaleway
+            "ALIBABA_INTL_API_KEY",  # Alibaba Cloud International Model Studio
         ]
         return not any(os.environ.get(k) for k in vendor_env_keys)
 
@@ -448,6 +471,41 @@ class LLMGateway:
             return os.environ.get("AZURE_API_KEY") or None, os.environ.get("AZURE_API_BASE") or None, model
         if m.startswith("bedrock/"):
             return os.environ.get("AWS_ACCESS_KEY_ID") or None, None, model
+        # 2026-07-22 接入:免费 / 试用 credits provider(均为 OpenAI 兼容,走 LiteLLM openai/{model} 路径)
+        # Cloudflare Workers AI:模型 ID 以 @cf/ 开头,API base 含 account_id
+        if m.startswith(("cloudflare/", "@cf/")):
+            real_model = model.split("/", 1)[1] if m.startswith("cloudflare/") else model
+            if not settings.cloudflare_api_token or not settings.cloudflare_account_id:
+                return None, None, real_model
+            base = f"https://api.cloudflare.com/client/v4/accounts/{settings.cloudflare_account_id}/ai/v1"
+            return settings.cloudflare_api_token, base, f"openai/{real_model}"
+        if m.startswith("nvidia/"):
+            real_model = model.split("/", 1)[1]
+            return settings.nvidia_api_key or None, "https://integrate.api.nvidia.com/v1", f"openai/{real_model}"
+        if m.startswith("github/"):
+            real_model = model.split("/", 1)[1]
+            return settings.github_token or None, "https://models.inference.ai.azure.com", f"openai/{real_model}"
+        if m.startswith("vercel/"):
+            real_model = model.split("/", 1)[1]
+            return settings.vercel_ai_gateway_key or None, "https://ai-gateway.vercel.sh/v1", f"openai/{real_model}"
+        if m.startswith("opencode/"):
+            real_model = model.split("/", 1)[1]
+            return settings.opencode_zen_key or None, "https://opencode.ai/zen/v1", f"openai/{real_model}"
+        if m.startswith("modal/"):
+            real_model = model.split("/", 1)[1]
+            return settings.modal_api_key or None, "https://modal.com/v1", f"openai/{real_model}"
+        if m.startswith("inferencenet/"):
+            real_model = model.split("/", 1)[1]
+            return settings.inference_net_api_key or None, "https://api.inference.net/v1", f"openai/{real_model}"
+        if m.startswith("nlpcloud/"):
+            real_model = model.split("/", 1)[1]
+            return settings.nlp_cloud_api_key or None, "https://api.nlpcloud.io/v1", f"openai/{real_model}"
+        if m.startswith("scaleway/"):
+            real_model = model.split("/", 1)[1]
+            return settings.scaleway_api_key or None, "https://api.scaleway.ai/ai-platform/v1", f"openai/{real_model}"
+        if m.startswith("alibaba-intl/"):
+            real_model = model.split("/", 1)[1]
+            return settings.alibaba_intl_api_key or None, "https://bailian-intl.alibabacloud.com/compatible-mode/v1", f"openai/{real_model}"
         return settings.openai_api_key or None, None, model
 
     async def _get_provider(
