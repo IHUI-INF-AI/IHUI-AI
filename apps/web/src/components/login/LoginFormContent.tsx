@@ -36,10 +36,18 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
     <div className="space-y-4">
       <Tabs value={tab} onValueChange={(v) => setTab(v as LoginTab)}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="email">{t('emailLogin')}</TabsTrigger>
-          <TabsTrigger value="phone">{t('phoneCodeLogin')}</TabsTrigger>
-          <TabsTrigger value="password">{t('passwordLogin')}</TabsTrigger>
-          <TabsTrigger value="qr">{t('qrLogin')}</TabsTrigger>
+          <TabsTrigger value="email" data-testid="login-tab-email">
+            {t('emailLogin')}
+          </TabsTrigger>
+          <TabsTrigger value="phone" data-testid="login-tab-phone">
+            {t('phoneCodeLogin')}
+          </TabsTrigger>
+          <TabsTrigger value="password" data-testid="login-tab-password">
+            {t('passwordLogin')}
+          </TabsTrigger>
+          <TabsTrigger value="qr" data-testid="login-tab-qr">
+            {t('qrLogin')}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="email">
