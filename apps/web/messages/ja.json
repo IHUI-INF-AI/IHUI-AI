@@ -14152,22 +14152,22 @@
       "sqlite": "SQLite"
     },
     "promos": {
-      "promo1": "プロモート 1",
-      "promo2": "プロモート 2",
-      "promo3": "プロモート 3",
-      "promo4": "プロモート 4",
-      "promo5": "プロモート 5",
-      "promo6": "プロモート 6",
-      "promo7": "プロモート 7",
-      "promo8": "プロモート 8",
-      "promo11": "プロモート 11",
-      "promo12": "プロモート 12",
-      "promo14": "プロモート 14",
-      "promo15": "プロモート 15",
-      "promo17": "プロモート 17",
+      "xiaohongshu": "小紅書",
+      "douyin": "抖音",
+      "wechatChannels": "WeChat Channels",
+      "kuaishou": "快手",
+      "wechat": "WeChat",
+      "qq": "QQ",
+      "bilibili": "Bilibili",
+      "youtube": "YouTube",
       "x": "X",
       "facebook": "Facebook",
-      "github": "GitHub"
+      "baidu": "Baidu",
+      "weibo": "Weibo",
+      "telegram": "Telegram",
+      "google": "Google",
+      "github": "GitHub",
+      "reddit": "Reddit"
     }
   },
   "agentCategory": {

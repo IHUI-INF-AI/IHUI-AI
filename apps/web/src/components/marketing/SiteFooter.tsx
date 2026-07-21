@@ -43,8 +43,15 @@ import { Tooltip } from '@/components/feedback'
  * - v3:Dialog 弹窗替换页面跳转(用户要求"弹窗窗口 而不是完整页面")。
  */
 
-// 合并 4 类生态平台 → 1 个 section(消除 3 个子标题节省 ~60px 垂直空间)
-const ECOSYSTEM: readonly Icon[] = [...SUPPORTED, ...MODELS, ...PAYMENTS, ...DATABASES]
+// 生态合作 4 类分组(2026-07-21 v8 恢复 4 类布局,响应式 grid 自适应屏幕宽度)
+// - 移动端:grid-cols-2(2 列,4 类分 2 行)
+// - 桌面端:md:grid-cols-4(4 列,4 类一行)
+const ECOSYSTEM_GROUPS: readonly { titleKey: string; items: readonly Icon[] }[] = [
+  { titleKey: 'supportedPlatforms', items: SUPPORTED },
+  { titleKey: 'models', items: MODELS },
+  { titleKey: 'paymentPlatforms', items: PAYMENTS },
+  { titleKey: 'cloudDatabases', items: DATABASES },
+]
 
 // 排版原子 — v6 进一步压缩
 // - section title: text-[10px](从 text-xs 减 2px) + uppercase 风格更克制
@@ -226,48 +233,76 @@ export function SiteFooter({ className }: { className?: string }) {
       className={`border-t bg-card/50 px-4 py-1 md:px-8 md:py-1.5${className ? ` ${className}` : ''}`}
     >
       <div className="flex w-full flex-col gap-1">
-        {/* Row 1: 3 栏精简 grid
-            - v6 gap-2(从 gap-3 再省 4px 横向)
-            - md:items-start 让 3 栏顶部对齐,生态合作栏不会把其他栏撑高
-            - 中栏比例 1.5(给 20 个 icons 更多空间),边栏 1 */}
+        {/* Row 1: 3 栏布局(v8 — 2026-07-21 恢复 4 类分组 + 响应式 + 压空白)
+            - 栏 1: 公司信息(顶) + 4 个 Dialog 按钮(底) — flex justify-between 消除空白
+            - 栏 2: 生态合作 4 类分组 — grid-cols-2 md:grid-cols-4 响应式自适应屏幕宽度
+            - 栏 3: 官方推广 + QR(不变) */}
         <div className="grid gap-2 md:grid-cols-[1fr_1.5fr_1fr] md:items-start">
-          {/* 栏 1: 公司信息(精简)
-              - v6 标题 text-xs(从 text-sm 减 2px)
-              - 文本 text-[10px](从 text-xs 减 2px)更克制 */}
-          <div className="space-y-0.5">
-            <h3 className="text-xs font-semibold">{t('companyName')}</h3>
-            <p className="text-[10px] leading-snug text-muted-foreground">
-              {t('addressLine1')}
-              <br />
-              {t('addressLine2')}
-            </p>
-            <p className="text-[10px] leading-snug text-muted-foreground">
-              {t('companyContact')} · {t('companyEmail')}
-            </p>
+          {/* 栏 1: 公司信息(顶) + 4 个 Dialog 按钮(底)
+              - v8: flex flex-col justify-between 让按钮沉底,消除公司信息下方空白
+              - 公司信息用 space-y-0.5,按钮用 flex flex-wrap gap-x-2 */}
+          <div className="flex flex-col justify-between gap-1">
+            <div className="space-y-0.5">
+              <h3 className="text-xs font-semibold">{t('companyName')}</h3>
+              <p className="text-[10px] leading-snug text-muted-foreground">
+                {t('addressLine1')}
+                <br />
+                {t('addressLine2')}
+              </p>
+              <p className="text-[10px] leading-snug text-muted-foreground">
+                {t('companyContact')} · {t('companyEmail')}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+              <Link
+                href="/about"
+                className={FOOTER_BTN}
+                onClick={() => {
+                  if (typeof window !== 'undefined') window.scrollTo(0, 0)
+                }}
+              >
+                {t('aboutUs')}
+              </Link>
+              <button type="button" onClick={() => dlg.open('user')} className={FOOTER_BTN}>
+                {tRoutes('userAgreement')}
+              </button>
+              <button type="button" onClick={() => dlg.open('privacy')} className={FOOTER_BTN}>
+                {tRoutes('privacyPolicy')}
+              </button>
+              <button type="button" onClick={() => dlg.open('contact')} className={FOOTER_BTN}>
+                {t('contactUs')}
+              </button>
+            </div>
           </div>
 
-          {/* 栏 2: 生态合作(单 section,4 类 20 icons 合并)
-              - v6 icon 缩小到 h-6 w-6(从 h-7 w-7 减 4px)
-              - gap-1(从 gap-1.5 减 2px),密度更紧 */}
+          {/* 栏 2: 生态合作 4 类分组(v8 恢复 4 类布局,响应式自适应)
+              - grid-cols-2(移动端 2 列)+ md:grid-cols-4(桌面端 4 列)
+              - 每组带子标题(text-[10px]),icons 用 flex flex-wrap gap-1 */}
           <div className="space-y-0.5">
             <h4 className={SECTION_TITLE}>{t('ecosystem')}</h4>
-            <div className="flex flex-wrap gap-1">
-              {ECOSYSTEM.map((p) => (
-                <PlatformIcon
-                  key={p.nameKey}
-                  name={t(p.nameKey)}
-                  src={p.src}
-                  mono={p.mono}
-                  {...(p.href ? { href: p.href } : {})}
-                />
+            <div className="grid grid-cols-2 gap-1 md:grid-cols-4">
+              {ECOSYSTEM_GROUPS.map((g) => (
+                <div key={g.titleKey} className="space-y-0.5">
+                  <h5 className="text-[10px] font-medium text-foreground/50">{t(g.titleKey)}</h5>
+                  <div className="flex flex-wrap gap-1">
+                    {g.items.map((p) => (
+                      <PlatformIcon
+                        key={p.nameKey}
+                        name={t(p.nameKey)}
+                        src={p.src}
+                        mono={p.mono}
+                        {...(p.href ? { href: p.href } : {})}
+                      />
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
 
-          {/* 栏 3: 官方推广 + QR
-              - v6 QR 缩小到 h-14 w-14(从 h-16 w-16 减 8px)
-              - gap-1.5(从 gap-2 减 2px)
-              - pt-0.5(从 pt-1 减 2px) */}
+          {/* 栏 3: 官方推广 + QR(不变)
+              - v6 QR 缩小到 h-14 w-14
+              - gap-1.5 + pt-0.5 */}
           <div className="space-y-0.5">
             <h4 className={SECTION_TITLE}>{t('officialPromotion')}</h4>
             <div className="flex flex-wrap gap-1">
@@ -289,47 +324,21 @@ export function SiteFooter({ className }: { className?: string }) {
           </div>
         </div>
 
-        {/* Row 2: 3 个 Dialog + 1 个 /about Link + ICP 版权
-            2026-07-20 v6.1 调整(用户反馈"你删的 Link 在哪里访问"):
-            - /help 和 /feedback 在 sidebar 已有入口(帮助+帮助中心 / 反馈+意见反馈),
-              确认可点击 → 维持删除。
-            - /about 页面存在但 sidebar 没有"关于我们"入口,是营销页用户访问
-              "关于智汇 AI" 的唯一通道 → 恢复 1 个 Link,与 3 个 Dialog 并列。
-            - 整体保持 4 个交互项 + ICP+版权,无重复冗余。 */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-0.5 text-[11px] text-muted-foreground">
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
-            <Link
-              href="/about"
-              className={FOOTER_BTN}
-              onClick={() => {
-                if (typeof window !== 'undefined') window.scrollTo(0, 0)
-              }}
-            >
-              {t('aboutUs')}
-            </Link>
-            <button type="button" onClick={() => dlg.open('user')} className={FOOTER_BTN}>
-              {tRoutes('userAgreement')}
-            </button>
-            <button type="button" onClick={() => dlg.open('privacy')} className={FOOTER_BTN}>
-              {tRoutes('privacyPolicy')}
-            </button>
-            <button type="button" onClick={() => dlg.open('contact')} className={FOOTER_BTN}>
-              {t('contactUs')}
-            </button>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <img
-              src="/footer/erweima/footer-icon-1.png"
-              alt={t('icp')}
-              width={12}
-              height={12}
-              className="h-3 w-3 object-contain"
-              {...IMG_EAGER}
-            />
-            <span>{t('icp')}</span>
-            <span className="text-border">·</span>
-            <span>{t('copyright')}</span>
-          </div>
+        {/* Row 2: ICP + 版权居中(v8 简化 — 按钮已移到栏 1 底部,消除空白)
+            - justify-center 居中显示
+            - 只保留 ICP 图标 + ICP 文字 + 版权 */}
+        <div className="flex flex-wrap items-center justify-center gap-1.5 border-t pt-0.5 text-[11px] text-muted-foreground">
+          <img
+            src="/footer/erweima/footer-icon-1.png"
+            alt={t('icp')}
+            width={12}
+            height={12}
+            className="h-3 w-3 object-contain"
+            {...IMG_EAGER}
+          />
+          <span>{t('icp')}</span>
+          <span className="text-border">·</span>
+          <span>{t('copyright')}</span>
         </div>
       </div>
 
