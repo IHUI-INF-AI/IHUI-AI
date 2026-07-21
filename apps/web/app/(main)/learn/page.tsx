@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -61,7 +60,6 @@ function fetchLessons(params: {
 
 export default function LearnPage() {
   const t = useTranslations('learn')
-  const router = useRouter()
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [categoryId, setCategoryId] = React.useState('all')
@@ -168,7 +166,7 @@ export default function LearnPage() {
               cover={lesson.coverImage ?? undefined}
               instructor={lesson.instructor}
               price={lesson.price > 0 ? `¥${lesson.price}` : t('free')}
-              onClick={() => router.push(`/learn/${lesson.id}`)}
+              href={`/learn/${lesson.id}`}
             />
           ))}
         </div>
