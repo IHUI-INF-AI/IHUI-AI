@@ -23,6 +23,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
+import { generateTrackingId } from '../utils/crypto-random.js'
 
 const PREFIX = '/tencent/hunyuan3d'
 
@@ -110,7 +111,7 @@ interface TencentQueryResponse {
 async function queryTencentJob(jobId: string): Promise<TencentQueryResponse | null> {
   const hasTencentConfig = Boolean(process.env.TENCENT_SECRET_ID && process.env.TENCENT_SECRET_KEY)
   if (!hasTencentConfig) return null
-  if (jobId.startsWith('stub_')) return null
+  if (jobId.startsWith('stub-')) return null
 
   try {
     const { authStrategyFactory } = await import('../services/vendor-auth-strategies.js')
@@ -169,7 +170,9 @@ export const tencentHunyuan3dRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const jobIdStub = `stub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+      // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成任务 ID
+      // 风险:Math.random 可预测 → 攻击者可枚举其他用户的 3D 任务 ID
+      const jobIdStub = generateTrackingId('stub')
       activeJobs.set(jobIdStub, {
         user_uuid: parsed.data.user_uuid,
         prompt: parsed.data.Prompt,
@@ -336,7 +339,7 @@ export const tencentHunyuan3dRoutes: FastifyPluginAsync = async (server) => {
       const hasTencentConfig = Boolean(
         process.env.TENCENT_SECRET_ID && process.env.TENCENT_SECRET_KEY,
       )
-      const isStubJobId = parsed.data.JobId.startsWith('stub_')
+      const isStubJobId = parsed.data.JobId.startsWith('stub-')
       const tencentAttempted = hasTencentConfig && !isStubJobId
 
       return reply.send(

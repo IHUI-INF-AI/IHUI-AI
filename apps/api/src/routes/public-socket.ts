@@ -26,6 +26,7 @@ import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
 import { isSystemAdminUser } from '../db/queries.js'
+import { generateTrackingId } from '../utils/crypto-random.js'
 
 // =============================================================================
 // 内存存储(进程级,G 盘架构下共享此单实例)
@@ -61,7 +62,9 @@ const MAX_HISTORY = 10_000
 
 function pushEvent(evt: Omit<BroadcastEvent, 'id' | 'createdAt'>): void {
   eventHistory.push({
-    id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成广播事件 ID
+    // 风险:Math.random 可预测 → 攻击者可枚举其他用户的广播事件 ID
+    id: generateTrackingId('evt'),
     createdAt: new Date(),
     ...evt,
   })
@@ -346,42 +349,42 @@ export const publicSocketRoutes: FastifyPluginAsync = async (server) => {
     const parsed = registerSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      const { userId, modelId, chatId, remoteAddress } = parsed.data
-      const compositeKey = `${userId}:${modelId}:${chatId}`
-      const now = new Date()
-      let conns = activeConnections.get(userId)
-      if (!conns) {
-        conns = []
-        activeConnections.set(userId, conns)
-      }
-      // 上限检查
-      if (conns.length >= broadcastConfig.maxConnectionsPerUser) {
-        return reply
-          .status(429)
-          .send(
-            error(
-              429,
-              `用户连接数已达上限 ${broadcastConfig.maxConnectionsPerUser},请关闭旧连接后重试`,
-            ),
-          )
-      }
-      const conn: ConnectionInfo = {
-        userId,
-        connectedAt: now,
-        remoteAddress: remoteAddress ?? 'unknown',
-        compositeKey,
-        sentCount: 0,
-        lastHeartbeatAt: now,
-      }
-      conns.push(conn)
-      pushEvent({
-        event: 'register',
-        userId,
-        compositeKey,
-        payload: { modelId, chatId },
-        status: 'success',
-      })
-      return reply.status(201).send(success({ compositeKey, connectionId: conns.length - 1 }))
+    const { userId, modelId, chatId, remoteAddress } = parsed.data
+    const compositeKey = `${userId}:${modelId}:${chatId}`
+    const now = new Date()
+    let conns = activeConnections.get(userId)
+    if (!conns) {
+      conns = []
+      activeConnections.set(userId, conns)
+    }
+    // 上限检查
+    if (conns.length >= broadcastConfig.maxConnectionsPerUser) {
+      return reply
+        .status(429)
+        .send(
+          error(
+            429,
+            `用户连接数已达上限 ${broadcastConfig.maxConnectionsPerUser},请关闭旧连接后重试`,
+          ),
+        )
+    }
+    const conn: ConnectionInfo = {
+      userId,
+      connectedAt: now,
+      remoteAddress: remoteAddress ?? 'unknown',
+      compositeKey,
+      sentCount: 0,
+      lastHeartbeatAt: now,
+    }
+    conns.push(conn)
+    pushEvent({
+      event: 'register',
+      userId,
+      compositeKey,
+      payload: { modelId, chatId },
+      status: 'success',
+    })
+    return reply.status(201).send(success({ compositeKey, connectionId: conns.length - 1 }))
   })
 }
 
