@@ -80,6 +80,7 @@
 - [Documentation Navigation](#documentation-navigation)
 - [Roadmap](#roadmap)
 - [Contact Us](#contact-us)
+- [Our Story · The Birth of ZhihuiAI](#our-story--the-birth-of-zhihuiai)
 - [Open Source Co-Build Vision](#open-source-co-build-vision)
 - [License](#license)
 - [Acknowledgements](#acknowledgements)
@@ -1272,6 +1273,258 @@ For the complete task plan and historical archive, see [PROJECT_PLAN.md](PROJECT
 | PR Contribution     | https://github.com/IHUI-INF-AI/IHUI-AI/pulls  |
 
 > For partnership inquiries, enterprise integration, or technical exchange, please scan the WeChat QR code above or email lizong@aizhs.top. We will reply within 24 hours.
+
+---
+
+## Our Story · The Birth of ZhihuiAI
+
+> _This is not a piece of marketing copy. This is a true story—written in sweat, persistence, and conviction._
+> _No filters, no packaging—just the rawest conviction of a single developer in the age of AI._
+
+<!-- Image placeholders (drop 1-2 real photos here for emotional impact): -->
+<!-- - apps/web/public/images/story/changchun-winter-2024.jpg — Changchun winter night 2024, or a corner of the office -->
+<!-- - apps/web/public/images/story/late-night-coding.jpg — late-night code screenshot, or the desk under a lamp -->
+<!-- Once photos are in place, remove the HTML comment above and insert <p align="center"><img src="..." width="600"/></p> in the corresponding section -->
+
+### Prologue · A Question Asked Again and Again
+
+In every conversation—with investors, partners, even friends—Li Chunchuan would be asked the same question:
+
+> **"Why are you doing this?"**
+
+Not for a stable job—he could have chosen a safer path.
+Not for the hype—the AI startup winter of 2025 was far harsher than the headlines suggested.
+Not for overnight wealth—an open-source project isn't about profit in the first place.
+
+He did it for one reason, a conviction so simple it borders on the naive:
+
+> **"AI shouldn't be just a game for a few big tech companies and capital players. Everyone deserves to own their own AI program."**
+
+It sounds like a slogan. But at minus 25 degrees Celsius in a Changchun winter, in the small hours when the heating has gone quiet, after being politely declined by the Nth investor—it was the only thing that kept one person writing another thousand lines of code.
+
+This is the story of how that conviction was, slowly, poured into shape by time and sweat.
+
+---
+
+### Chapter 1 · The Beginning: Changchun, December 2024
+
+December 2, 2024. Chaoyang District, Changchun, Jilin Province. An unremarkable day.
+
+On the map of Chinese AI startups, the year's narrative had already been told many times: companies in Beijing, Shenzhen, Hangzhou, and Shanghai taking turns in the spotlight, with tens of millions of dollars in funding, celebrity teams stepping down from big tech, and giants placing strategic bets. Changchun—a heavy-industry city in northeast China—was almost a forgotten coordinate in the AI wave.
+
+But it was here, in a city where winter drops to minus 25 degrees, that **Jilin Aizhihui Artificial Intelligence Technology Co., Ltd.** was officially registered.
+
+The address was modest: No. 107 Yueda Road, High-tech Zone, Changchun—the AI Talent Incubation Base.
+The registered capital was modest: 1 million RMB.
+The team was modest: a small group of AI enthusiasts who had gathered spontaneously. No celebrity backgrounds. No billion-yuan track records.
+The founder was modest too: **Li Chunchuan**—a serial entrepreneur and a veteran AI practitioner. He isn't a PhD from a top school, nor a former Big Tech VP. He is simply someone who has walked the AI road for a long time, seen a few things clearly, and decided to turn those things into code.
+
+What he saw was simple:
+
+- **The dividends of AI are being captured by a few big tech companies and capital players.**
+- Ordinary people, SMEs, educational institutions, and content creators are still reinventing the wheel.
+- Integrating one LLM, building one workflow, shipping one commercial AI product—the cost remains prohibitively high.
+- And the excellent open-source projects out there—Dify, FastGPT, Langflow—each cover only one facet of an AI application. **Nobody has open-sourced a complete, commercial-grade AI application infrastructure.**
+
+> **"What if, one day, everyone could own their own AI program?"**
+
+That thought, in Changchun in December 2024, was finally set alight.
+
+---
+
+### Chapter 2 · Early 2025: A Million-Yuan Foundation, Painfully Laid
+
+In January 2025, the project officially began. Codename: **IHUI-AI**.
+
+At first, it was a small team of AI enthusiasts who had come together on their own—from different cities, different backgrounds. Some had built business systems, some had done model fine-tuning, some had architected frontends. Their only common ground was a refusal to accept that AI would be monopolized by a few, and a desire to leave something of genuine value to the open-source ecosystem.
+
+It was a time that was extraordinarily plain—and extraordinarily expensive.
+
+**An investment of over a million RMB**, almost entirely self-raised by the founder and patched together by the team. By that point, China's AI primary market had already begun to cool. According to IT Juzi, the number of AI financing events in China in Q1 2025 fell by more than 30% year-over-year, valuations of early-stage projects were sharply corrected, and institutions had virtually stopped betting on projects that were "non-celebrity teams in non-celebrity tracks."
+
+IHUI-AI fit none of the fashionable labels: not an Agent framework, not a RAG middleware, not a vertical SaaS. It was a **complete, cross-platform, commercial-grade AI application base**—and that fact alone made fundraising exceptionally difficult. Investors would ask: "What's your moat? Why won't a Big Tech company build this? Why won't Dify build this?"
+
+Li Chunchuan's answer was always the same:
+
+> **"Because Big Tech will never fully open-source billing, subscriptions, VIP tiers, wallets, points, refunds, invoices, and 8 payment gateways. Dify will never build out all 8 platforms—CLI, desktop, extension, mobile, miniapp. Someone has to do this, so it might as well be us."**
+
+This answer wasn't sexy. It wasn't story-shaped. It wouldn't make an investor slap the table in excitement at a partner meeting.
+
+But it was real.
+
+In those months, there were no press releases, no launch events—only:
+
+- Database tables growing from 0 to 338
+- API endpoints growing from 0 to ~1135
+- Pre-commit guardrails growing from 0 to 17
+- Countless refactors, countless arguments about whether a schema was right, lasting into the small hours
+- An ever-tighter budget, ever-heavier shoulders
+
+They polished the architecture from the ground up—how to organize the monorepo, how to carve out 13 shared packages, how to align types across 8 platforms, how to isolate database schemas by 30+ business domains, how to unify the API response format into `{ code, message, data }`, how to guarantee i18n parity across 5 languages, how to keep CI agile under 17 pre-commit guardrails… Every decision would be tested thousands of times in the iterations to come.
+
+It was a slow, lonely road.
+
+But it had one payoff: **the cost of going slow was an architecture that would hold.**
+
+When the project accelerated in the second half of 2025, everyone discovered that the foundation laid in the first half meant every new line of code could stand on its own.
+
+---
+
+### Chapter 3 · Second Half of 2025: One Person, Still Writing
+
+By the second half of 2025, money was tight, the team had shifted, and challenges kept coming.
+
+When most people would have chosen to "pause the project and wait for funding to come through," Li Chunchuan chose a different path:
+
+**Keep writing. Alone.**
+
+Fortunately, the AI era had given him a weapon: **Vibe Coding**.
+
+With AI coding agents, without a large team, he single-handedly delivered:
+
+| Dimension             | One Person's Output                                                                                                              | Typical Team Size for Similar Projects  |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| **8 Platforms**       | Web / API / AI Service / CLI / Desktop / Extension / Mobile RN / Miniapp                                                         | Usually 1 team per platform, 30+ people |
+| **100+ LLMs**         | LiteLLM unified gateway + 5 provider adapters                                                                                    | Usually a model team of 3-5             |
+| **AI Orchestration**  | LangGraph + MCP + A2A synergy + Persona + Agent Runtime + Vector Memory                                                          | Usually an AI platform team of 5-10     |
+| **Database**          | 338+ tables + 100 schema files + 120+ migrations + RLS + multi-tenant routing                                                    | Usually 1 DBA + 2-3 backend engineers   |
+| **API Scale**         | ~1135 endpoints + 12 WebSocket + 95+ route files                                                                                 | Usually 5-8 backend engineers           |
+| **Frontend Scale**    | 200+ pages + 5-language i18n parity + dark mode + PWA + SEO                                                                      | Usually 4-6 frontend engineers          |
+| **Engineering Gates** | 17 pre-commit + post-commit auto-push + 11 migration audits + 9 PowerShell startup scripts                                       | Usually 1-2 DevOps engineers            |
+| **Observability**     | Prometheus + Grafana (20 dashboards) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                   | Usually 1-2 SRE engineers               |
+| **Business Modules**  | 14-platform publishing + AI education full-stack + complete billing loop + agent marketplace + community + growth + support + BI | Usually a 30-50 person product team     |
+
+**This isn't a miracle. It isn't hyperbole.**
+
+It is what actually happened in the AI era of 2025: **a single developer with conviction, powered by AI, delivered what would normally require a 30-person team a full year to build.**
+
+Of course, the cost was real: countless 3 AM commits, countless rollbacks after AI generated wrong code, countless nights arguing with an AI agent over a schema design until dawn broke.
+
+> 3:17 AM, Changchun.
+>
+> Outside, minus 25 degrees. Snow ticking against the glass.
+> Inside, a single desk lamp, a cup of coffee gone cold, line after line of code still growing.
+>
+> On the next monitor, an AI agent has just produced the implementation
+> for the next endpoint—
+> imperfect, but moving forward.
+> Just like this project itself.
+
+This experience is, in itself, the best footnote to the Vibe Coding era:
+
+> **AI will not replace developers.**
+> **But developers who use AI will leave those who don't an entire era behind.**
+
+---
+
+### Chapter 4 · Capital Never Arrived
+
+This is where the story should have a "term sheet signed" moment.
+
+In reality, that moment never came.
+
+Over the past year, the founder kept seeking capital:
+
+- **Investment institutions**: From top-tier USD funds to local state capital, from AI-focused funds to generalist VCs—first meetings, pitches, due-diligence checklists, and the endless refrain of "let's discuss further"
+- **Strategic capital**: From cloud-vendor strategics to AI platform partners, from listed-company CVCs to upstream-and-downstream players—endless "great strategic synergy," followed by "but our fund's term is tight this round"
+- **Local funds and FAs**: From government guidance funds to industry FA referrals—endless intro meetings, endless "let's wait and see"
+
+**The money never arrived.**
+
+The media even reported that "AI Zhihui Community secured 20 million RMB in angel funding" (36Kr, 2025)—but the truth is, that money was never wired. The account balance still only covered a few months. Salaries were still barely maintained. Every commit was silently accompanied by a calculation of next month's cash flow.
+
+In China's AI startup scene, there's an unflattering word for this state: **"running naked"**—running without a safety net.
+
+Many times, he thought about giving up.
+
+Many times, at 3 or 4 AM in Changchun, the screen was the only thing still lit in the room. Outside, minus 20 degrees. Inside, a lamp and lines of code still growing. The phone held a few unanswered WeChat messages from investors—not blocked, just "no conclusion yet."
+
+But he didn't stop.
+
+Because he believed one thing:
+
+> **Truly valuable things will be proven by time.**
+
+---
+
+### Chapter 5 · But the Code Kept Growing
+
+Through a year of being told "let's wait" by capital, the code didn't stop growing.
+
+- Database tables grew from 0 to 338
+- API endpoints grew from 0 to ~1135
+- The 8-platform framework took shape, one by one
+- 100+ LLMs were unified via LiteLLM
+- LangGraph + MCP + A2A three-stack synergy came online
+- 14-platform publish adapters were all in place
+- AI education full-stack closed the loop from courses to certificates
+- 17 pre-commit guardrails + post-commit auto-push + 11 migration audits + 9 PowerShell startup scripts all went live
+- 5-language i18n parity held strong under 4 guardrail scripts
+
+Not because there was capital.
+
+But because:
+
+- Every individual developer who wants a private AI assistant—without big tech spying on their data—deserves an out-of-the-box solution
+- Every educational institution that wants to reinvent teaching with AI but can't afford SaaS subscriptions deserves a complete AI education full-stack
+- Every indie developer who wants to build an AI startup but doesn't have a million RMB in seed capital deserves a production-grade base they can fork
+- Everyone who believes "AI should belong to everyone" deserves an open-source choice not defined by capital and monopoly
+
+**That is the reason we kept going.**
+
+---
+
+### Chapter 6 · To You, Reading This
+
+If you've read this far, we'd like to say a few things to you:
+
+**To developers** — Fork it. Modify it. Make it your own. Every commit you make is the best continuation of this story. We're not asking you to "contribute back." We want to see you build something even greater with it.
+
+**To educators** — Use it to build your AI course platform, so more students aren't left behind in the AI era. AI education shouldn't be a privilege of expensive SaaS. It should be as accessible as water and electricity.
+
+**To enterprise decision-makers** — Use it to build your enterprise AI middle platform instead of paying millions in annual subscriptions to closed-source platforms. RBAC + multi-tenancy + RLS + audit logs + AES-256-GCM encryption—the enterprise-grade security is already done for you.
+
+**To investors** — We are still looking for partners who truly understand open source, understand AI, and understand long-term value. If this story moved you, even for a second, please reach out ([lizong@aizhs.top](mailto:lizong@aizhs.top) / WeChat `ok502319984`). We don't lack stories. We don't lack code. We don't lack execution. We lack someone willing to walk the long road with us.
+
+**To content creators** — 14-platform one-click publishing + AES-256-GCM credential encryption is your content production line.
+
+**To the passing reader** — Please give this project a Star. Think of that small act as a beam of morning light to someone walking alone. In the open-source world, a Star isn't social currency—it's a signal that says "I see you."
+
+---
+
+### Epilogue · Three Lines We Won't Forget
+
+On the hardest nights of this project, three lines were written over and over on sticky notes, taped to the edge of the monitor:
+
+> **Capital can be late, but code doesn't lie.**
+>
+> **Fundraising can fail, but open source won't.**
+>
+> **One person's power may be limited, but an open-source project handed to the community will be rewritten by a thousand hands.**
+
+---
+
+### Story Continuation (Update Slot)
+
+> This section is reserved as a "story continuation slot," to be updated when the following milestones occur:
+>
+> - [ ] **Capital milestone**: First real strategic investment wired — we will record the investor, amount, and valuation here, along with the real feelings from the road
+> - [ ] **Community milestone**: First PR from a non-founding-team contributor merged — your name will be written into the story
+> - [ ] **Commercial milestone**: First case of a fork running in production and generating real commercial value — your story is our story
+> - [ ] **Education milestone**: First educational institution using IHUI-AI to build an AI education platform and formally teach — so every student has their own AI teacher
+> - [ ] **International milestone**: First long-term contributor whose native language isn't Chinese — so this conviction crosses languages
+>
+> **Continuation rule**: We don't delete the past, we only append new chapters. The honesty of this project begins with this section.
+>
+> _Last updated: 2026-07-21 · Initial story release_
+
+---
+
+> **AI shouldn't be monopolized. Everyone should own their own AI program.**
+>
+> **This is our story. And maybe, it's yours too.**
+>
+> **— ZhihuiAI · Li Chunchuan · Changchun**
 
 ---
 
