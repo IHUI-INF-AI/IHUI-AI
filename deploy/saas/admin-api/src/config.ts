@@ -55,7 +55,12 @@ if (!process.env.ADMIN_API_KEY) {
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
   config.ADMIN_API_KEY = generated;
+  // 2026-07-21 安全审计加固:严禁在 console 中明文打印生成的密钥
+  // 风险:若 stdout 被日志聚合系统 / 终端历史 / 监控面板捕获,
+  // 攻击者可读取完整 ADMIN_API_KEY 绕过所有 x-admin-api-key 鉴权
+  // 修复:仅输出首尾 4 字符指纹,完整密钥首次启动后由用户自行从生成的 .env 读取
+  const fingerprint = `${generated.slice(0, 4)}…${generated.slice(-4)}`;
   console.warn(`⚠️  ADMIN_API_KEY 未设置,自动生成(仅本次会话有效):`);
-  console.warn(`   ${generated}`);
-  console.warn(`   请将此值写入 deploy/saas/.env 持久化`);
+  console.warn(`   fingerprint: ${fingerprint}  (len=${generated.length})`);
+  console.warn(`   请将此值写入 deploy/saas/.env 持久化(查看生成值请用 'grep ADMIN_API_KEY .env')`);
 }
