@@ -2640,6 +2640,7 @@
         "destroyTitle": "テナント {slug} を破棄",
         "destroyHint": "この操作は元に戻せません！すべてのデータ、コンテナ、バックアップが完全に削除されます。",
         "destroyInputHint": "破棄を確認するには識別子「{slug}」を入力してください",
+        "confirmInputHint": "確認するには「{value}」を入力してください",
         "cancel": "キャンセル",
         "confirm": "確認"
       },
@@ -2652,6 +2653,54 @@
         "planFree": "無料版",
         "planPro": "プロ版",
         "planEnterprise": "エンタープライズ版"
+      },
+      "detail": {
+        "back": "テナント一覧に戻る",
+        "status": "状態",
+        "statusHint": "{time} に変更",
+        "containers": "コンテナ",
+        "containersHint": "稼働中 / 総数",
+        "resources": "リソース制限",
+        "resourcesHint": "メモリ + CPU クォータ",
+        "memory": "メモリ",
+        "cpu": "CPU",
+        "domain": "ドメイン",
+        "domainHint": "ユーザー向け URL",
+        "shortcuts": "ショートカット",
+        "manageBackups": "バックアップ管理"
+      },
+      "backups": {
+        "title": "{slug} のバックアップ",
+        "subtitle": "このテナントのすべてのバックアップを管理。復元と削除に対応。",
+        "createNow": "今すぐバックアップ",
+        "createTitle": "{slug} を今すぐバックアップ",
+        "createHint": "今すぐデータ スナップショットを作成します。操作中もサービスは利用可能です。",
+        "restoreTitle": "{timestamp} から復元",
+        "restoreHint": "バックアップで現在のデータを上書きします。タイムスタンプを確認してください。",
+        "restoreInputHint": "復元を確認するにはタイムスタンプ「{timestamp}」を入力してください",
+        "deleteTitle": "バックアップ {timestamp} を削除",
+        "deleteHint": "この操作は元に戻せません！バックアップ ファイルは完全に削除されます。",
+        "deleteInputHint": "削除を確認するにはタイムスタンプ「{timestamp}」を入力してください",
+        "restore": "復元",
+        "delete": "削除",
+        "stats": {
+          "total": "バックアップ総数",
+          "totalSize": "使用サイズ",
+          "avg": "平均 {size} / 件",
+          "latest": "最新バックアップ",
+          "empty": "バックアップなし"
+        },
+        "listTitle": "バックアップ一覧",
+        "empty": "バックアップがありません。右上の「今すぐバックアップ」をクリックして作成",
+        "table": {
+          "timestamp": "タイムスタンプ",
+          "size": "サイズ",
+          "files": "ファイル数",
+          "createdAt": "作成日時",
+          "age": "経過",
+          "actions": "操作"
+        },
+        "download": "バックアップをダウンロード"
       }
     },
     "users": {
@@ -26817,7 +26866,15 @@
     "empty": "今週の授業はありません",
     "today": "今日",
     "noClass": "授業なし",
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ]
   },
   "memberUpgradePage": {
     "title": "会員アップグレード",

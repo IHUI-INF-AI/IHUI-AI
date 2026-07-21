@@ -2640,6 +2640,7 @@
         "destroyTitle": "销毁租户 {slug}",
         "destroyHint": "此操作不可撤销!租户的所有数据、容器、备份将全部清除,请谨慎操作。",
         "destroyInputHint": "请输入租户标识 \"{slug}\" 以确认销毁",
+        "confirmInputHint": "请输入 \"{value}\" 以确认操作",
         "cancel": "取消",
         "confirm": "确认"
       },
@@ -2652,6 +2653,54 @@
         "planFree": "免费版",
         "planPro": "专业版",
         "planEnterprise": "企业版"
+      },
+      "detail": {
+        "back": "返回租户列表",
+        "status": "状态",
+        "statusHint": "状态变更于 {time}",
+        "containers": "容器",
+        "containersHint": "运行中 / 总数",
+        "resources": "资源限制",
+        "resourcesHint": "Memory + CPU 配额",
+        "memory": "内存",
+        "cpu": "CPU",
+        "domain": "访问域名",
+        "domainHint": "用户访问地址",
+        "shortcuts": "快捷操作",
+        "manageBackups": "管理备份"
+      },
+      "backups": {
+        "title": "{slug} 的备份",
+        "subtitle": "管理此租户的全部备份,支持恢复与删除",
+        "createNow": "立即备份",
+        "createTitle": "立即备份 {slug}",
+        "createHint": "立即创建一份数据快照备份,操作期间服务可正常使用。",
+        "restoreTitle": "从 {timestamp} 恢复",
+        "restoreHint": "此操作将使用备份覆盖当前数据,请确认时间戳正确。",
+        "restoreInputHint": "请输入时间戳 \"{timestamp}\" 以确认恢复",
+        "deleteTitle": "删除备份 {timestamp}",
+        "deleteHint": "此操作不可撤销!备份文件将永久删除,无法恢复。",
+        "deleteInputHint": "请输入时间戳 \"{timestamp}\" 以确认删除",
+        "restore": "恢复",
+        "delete": "删除",
+        "stats": {
+          "total": "备份总数",
+          "totalSize": "占用空间",
+          "avg": "平均 {size} / 份",
+          "latest": "最新备份",
+          "empty": "暂无备份"
+        },
+        "listTitle": "备份列表",
+        "empty": "暂无备份,点击右上角\"立即备份\"创建",
+        "table": {
+          "timestamp": "时间戳",
+          "size": "大小",
+          "files": "文件数",
+          "createdAt": "创建时间",
+          "age": "距今",
+          "actions": "操作"
+        },
+        "download": "下载备份"
       }
     },
     "users": {
@@ -26821,7 +26870,15 @@
     "empty": "本周暂无课程",
     "today": "今天",
     "noClass": "无课",
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ]
   },
   "memberUpgradePage": {
     "title": "会员升级",
