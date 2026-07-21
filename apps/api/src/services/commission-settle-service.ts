@@ -59,6 +59,8 @@ export async function calibrateCommissionSettlement(): Promise<CommissionSettleR
     try {
       // 构造 UserLike 和 OrderLike 对象
       // tokenQuantity 是可选字段，commission-service 内部会在需要时从其他表获取
+      // G5: orders.userId 改为 nullable(SET NULL),无 userId 的订单跳过佣金结算
+      if (!order.userId) continue
       const userLike: UserLike = { id: order.userId }
       const orderLike: OrderLike = {
         id: order.id,
