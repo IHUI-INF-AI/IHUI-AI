@@ -44,7 +44,7 @@ async function api<T>(url: string): Promise<T> {
 
 export default function LivePlayPage() {
   const { id } = useParams<{ id: string }>()
-  const t = useTranslations('live')
+  const t = useTranslations('livePlayPage')
   const locale = useLocale()
 
   const { data, isLoading, error } = useQuery({
@@ -79,7 +79,7 @@ export default function LivePlayPage() {
 
   const handleSendDanmu = () => {
     if (!newDanmu.trim()) return
-    setDanmuList((prev) => [...prev, { id: Date.now(), userName: '我', content: newDanmu.trim() }])
+    setDanmuList((prev) => [...prev, { id: Date.now(), userName: t('me'), content: newDanmu.trim() }])
     setNewDanmu('')
   }
 
@@ -145,7 +145,7 @@ export default function LivePlayPage() {
                   <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
                     <span>{channel.lecturerName || '—'}</span>
                     <span>·</span>
-                    <span>{channel.viewCount} 观看</span>
+                    <span>{t('viewCount', { n: channel.viewCount })}</span>
                     {channel.startTime && (
                       <>
                         <span>·</span>
@@ -160,7 +160,7 @@ export default function LivePlayPage() {
                   onClick={() => setSubscribed((v) => !v)}
                 >
                   <Bell className="mr-1 h-3.5 w-3.5" />
-                  {subscribed ? '已订阅' : '订阅'}
+                  {subscribed ? t('subscribed') : t('subscribe')}
                 </Button>
               </div>
               <div className="flex items-center gap-2">
@@ -174,7 +174,7 @@ export default function LivePlayPage() {
                 </Button>
                 <Button size="sm" variant="outline">
                   <Share2 className="mr-1 h-3.5 w-3.5" />
-                  分享
+                  {t('share')}
                 </Button>
               </div>
             </CardContent>
@@ -183,7 +183,7 @@ export default function LivePlayPage() {
 
         <Card className="flex h-[600px] flex-col">
           <div className="border-b px-4 py-3">
-            <h2 className="text-sm font-medium">弹幕互动</h2>
+            <h2 className="text-sm font-medium">{t('danmuTitle')}</h2>
           </div>
           <div ref={danmuRef} className="flex-1 space-y-2 overflow-y-auto p-4">
             {danmuList.map((d) => (
@@ -199,7 +199,7 @@ export default function LivePlayPage() {
                 value={newDanmu}
                 onChange={(e) => setNewDanmu(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSendDanmu()}
-                placeholder="发送弹幕..."
+                placeholder={t('danmuPlaceholder')}
                 className="flex-1"
               />
               <Button size="sm" onClick={handleSendDanmu} disabled={!newDanmu.trim()}>

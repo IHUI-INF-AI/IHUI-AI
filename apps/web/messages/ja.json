@@ -1761,7 +1761,12 @@
       "free": {
         "name": "無料版",
         "cta": "getStarted",
-        "features": ["10 AI chats per day", "Basic models", "1 project", "Community support"]
+        "features": [
+          "10 AI chats per day",
+          "Basic models",
+          "1 project",
+          "Community support"
+        ]
       },
       "pro": {
         "name": "プロフェッショナル",
@@ -8048,9 +8053,24 @@
     "planLifetimePrice": "¥999",
     "planFeatures": "プラン",
     "subscribe": "購読",
-    "planMonthlyFeatures": ["1000クレジット", "aiチャット", "コミュニティアクセス"],
-    "planYearlyFeatures": ["12000クレジット", "さなaiチャット", "サポート", "なし"],
-    "planLifetimeFeatures": ["クレジット", "ai", "サポート", "なし", "アクセス"],
+    "planMonthlyFeatures": [
+      "1000クレジット",
+      "aiチャット",
+      "コミュニティアクセス"
+    ],
+    "planYearlyFeatures": [
+      "12000クレジット",
+      "さなaiチャット",
+      "サポート",
+      "なし"
+    ],
+    "planLifetimeFeatures": [
+      "クレジット",
+      "ai",
+      "サポート",
+      "なし",
+      "アクセス"
+    ],
     "back": "戻る",
     "userCenter": "アカウント",
     "page": {
@@ -9567,29 +9587,11 @@
       "gemini-2-flash": {
         "description": "超長コンテキストマルチモーダル"
       },
-      "gpt-5.6-sol": {
-        "description": "OpenAI 2026-07 フラッグシップ汎用モデル、1M コンテキスト"
-      },
-      "gpt-5.6-terra": {
-        "description": "OpenAI マルチモーダルフラッグシップ、視覚特化"
-      },
-      "gpt-5.6-luna": {
-        "description": "OpenAI コード特化モデル"
-      },
       "gpt-red": {
         "description": "OpenAI 推論研究プレビュー版"
       },
       "claude-sonnet-5": {
         "description": "Anthropic 2026-07 新世代フラッグシップ、深層推論"
-      },
-      "claude-opus-4.8": {
-        "description": "Anthropic トップクラス深層推論モデル"
-      },
-      "gemini-3.5-pro": {
-        "description": "Google マルチモーダルフラッグシップ、2M コンテキスト"
-      },
-      "grok-4.5": {
-        "description": "xAI リアルタイム強化推論モデル"
       },
       "deepseek-v4-pro": {
         "description": "DeepSeek V4 オープンソースフラッグシップ"
@@ -9597,26 +9599,44 @@
       "deepseek-v4-flash": {
         "description": "DeepSeek V4 高速経済版"
       },
-      "glm-5.2": {
-        "description": "智譜清言新世代フラッグシップ、中国語最適化"
-      },
-      "qwen3.7-max": {
-        "description": "アリババ通義千問 3.7 フラッグシップ"
-      },
       "hunyuan-hy3": {
         "description": "テンセント混元第三代、中国語深層最適化"
       },
       "kimi-k3": {
         "description": "月之暗面 2M 長コンテキストフラッグシップ"
       },
-      "ornith-1.0": {
-        "description": "国産新勢力汎用モデル"
-      },
       "codebrain-1": {
         "description": "国産コード特化モデル"
       },
       "mai-thinking-1": {
         "description": "国産深層推論モデル"
+      },
+      "gpt-5-6-sol": {
+        "description": "OpenAI 2026-07 フラッグシップ汎用モデル、1M コンテキスト"
+      },
+      "gpt-5-6-terra": {
+        "description": "OpenAI マルチモーダルフラッグシップ、視覚特化"
+      },
+      "gpt-5-6-luna": {
+        "description": "OpenAI コード特化モデル"
+      },
+      "claude-opus-4-8": {
+        "description": "Anthropic トップクラス深層推論モデル"
+      },
+      "gemini-3-5-pro": {
+        "description": "Google マルチモーダルフラッグシップ、2M コンテキスト"
+      },
+      "grok-4-5": {
+        "description": "xAI リアルタイム強化推論モデル"
+      },
+      "glm-5-2": {
+        "description": "智譜清言新世代フラッグシップ、中国語最適化"
+      },
+      "qwen3-7-max": {
+        "description": "アリババ通義千問 3.7 フラッグシップ"
+      },
+      "ornith-1-0": {
+        "description": "国産新勢力汎用モデル"
       }
     },
     "nav": {
@@ -13762,32 +13782,53 @@
       "chat": {
         "label": "AIチャット",
         "description": "新しいAI会話を開始",
-        "keywords": ["AI", "チャット", "会話"]
+        "keywords": [
+          "AI",
+          "チャット",
+          "会話"
+        ]
       },
       "drama": {
         "label": "AIショートドラマ",
         "description": "AIショートドラマコンテンツを作成",
-        "keywords": ["短劇", "ドラマ", "動画"]
+        "keywords": [
+          "短劇",
+          "ドラマ",
+          "動画"
+        ]
       },
       "search": {
         "label": "検索",
         "description": "コンテンツ、ユーザー、タグを検索",
-        "keywords": ["検索", "探す", "search"]
+        "keywords": [
+          "検索",
+          "探す",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AIワールド",
         "description": "AIワールドを探索",
-        "keywords": ["AIワールド", "探索"]
+        "keywords": [
+          "AIワールド",
+          "探索"
+        ]
       },
       "profile": {
         "label": "プロフィール",
         "description": "プロフィールを表示",
-        "keywords": ["プロフィール", "個人"]
+        "keywords": [
+          "プロフィール",
+          "個人"
+        ]
       },
       "settings": {
         "label": "設定",
         "description": "アプリの設定を変更",
-        "keywords": ["設定", "環境設定"]
+        "keywords": [
+          "設定",
+          "環境設定"
+        ]
       }
     }
   },
@@ -17285,13 +17326,23 @@
       "title": "月度会員",
       "days": "30",
       "select": "選択",
-      "benefits": ["すべてコースコース", "コースコミュニティ", "3ai", "コース"]
+      "benefits": [
+        "すべてコースコース",
+        "コースコミュニティ",
+        "3ai",
+        "コース"
+      ]
     },
     "yearly": {
       "title": "年度会員",
       "days": "365",
       "select": "選択",
-      "benefits": ["すべてコースコース", "コースコミュニティ", "ai", "コース+"]
+      "benefits": [
+        "すべてコースコース",
+        "コースコミュニティ",
+        "ai",
+        "コース+"
+      ]
     },
     "monthlyMember": "月度会員",
     "yearlyMember": "年度会員"
@@ -21337,7 +21388,11 @@
       "label": "コアポジショニング",
       "title": "AI時代の企業合理的効率サービスと相互支援コミュニティ",
       "description": "IHUI AIコミュニティは、企業の意思決定者がAIと企業の関係を深く理解できるよう支援することに尽力しています。体系化されたコース、実践的な探求、コミュニティの相互支援を通じて、人機協同のスーパー組織を構築し、企業の合理的効率向上を実現します。",
-      "tags": ["人機協同", "合理的効率", "スーパー組織"]
+      "tags": [
+        "人機協同",
+        "合理的効率",
+        "スーパー組織"
+      ]
     },
     "modules": {
       "label": "三大サービスモジュール",
@@ -21347,19 +21402,31 @@
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ",
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"]
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ",
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"]
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI専門サービス",
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"]
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ]
         }
       ]
     },
@@ -21491,25 +21558,37 @@
           "tag": "Q1",
           "title": "効率的アシスタント",
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"]
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "スマートアドバイザー",
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"]
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ]
         },
         {
           "tag": "Q3",
           "title": "実行エキスパート",
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"]
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ]
         },
         {
           "tag": "Q4",
           "title": "オールラウンドエキスパート",
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"]
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ]
         }
       ]
     },
@@ -21533,12 +21612,29 @@
       ],
       "infoTitle": "情報世界",
       "infoBasicLabel": "初級情報世界",
-      "infoBasic": ["情報化", "IoT", "自動化"],
+      "infoBasic": [
+        "情報化",
+        "IoT",
+        "自動化"
+      ],
       "infoAdvancedLabel": "高度情報世界",
-      "infoAdvanced": ["知覚AI", "生成AI", "エージェントAI", "物理AI"],
+      "infoAdvanced": [
+        "知覚AI",
+        "生成AI",
+        "エージェントAI",
+        "物理AI"
+      ],
       "effectTitle": "AI化の効果",
-      "effectFlow": ["スーパー従業員", "スーパーチーム", "スーパープロダクト/サービス"],
-      "effectMetrics": ["コスト最適化", "効率向上", "体験アップグレード"]
+      "effectFlow": [
+        "スーパー従業員",
+        "スーパーチーム",
+        "スーパープロダクト/サービス"
+      ],
+      "effectMetrics": [
+        "コスト最適化",
+        "効率向上",
+        "体験アップグレード"
+      ]
     }
   },
   "drama": {
@@ -25711,7 +25807,15 @@
       "visitsHeader": "アクセス数",
       "ratioHeader": "比率"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ]
   },
   "pdfWatermarkPage": {
     "title": "PDF透かし",
@@ -25928,10 +26032,27 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "school": ["公立学校", "私立学校", "重点学校"],
-      "classLevel": ["普通クラス", "重点クラス"],
-      "difficulty": ["読書速度が遅い", "理解が困難", "語彙力不足", "作文が苦手"],
-      "obstacle": ["ゲーム依存", "注意力散漫", "先延ばし癖", "効率が低い"]
+      "school": [
+        "公立学校",
+        "私立学校",
+        "重点学校"
+      ],
+      "classLevel": [
+        "普通クラス",
+        "重点クラス"
+      ],
+      "difficulty": [
+        "読書速度が遅い",
+        "理解が困難",
+        "語彙力不足",
+        "作文が苦手"
+      ],
+      "obstacle": [
+        "ゲーム依存",
+        "注意力散漫",
+        "先延ばし癖",
+        "効率が低い"
+      ]
     },
     "submit": "指導を生成",
     "submitting": "AI 分析中...",
@@ -26964,16 +27085,16 @@
     }
   },
   "oAuthCallbackPage": {
-    "loading": "ログインを完了しています...",
-    "success": "ログイン成功,リダイレクトしています...",
+    "loading": "{provider}ログインを処理中...",
+    "success": "ログイン成功、間もなくリダイレクトします...",
     "failedTitle": "ログイン失敗",
     "backToLogin": "ログインに戻る",
     "error": {
-      "missingPlatform": "プラットフォームパラメータがありません",
-      "missingCode": "認証コードがありません",
-      "loginFailed": "ログインに失敗しました,再試行してください",
-      "emptyData": "レスポンスデータが空です",
-      "network": "ネットワークエラー,接続を確認してください"
+      "missingPlatform": "platform パラメータが不足しています。再度ログインを開始してください",
+      "missingCode": "認可コードパラメータが不足しています。再度ログインを開始してください",
+      "loginFailed": "ログイン失敗、後でもう一度お試しください",
+      "emptyData": "ログインの応答データが空です",
+      "network": "ネットワークエラー、接続を確認してください"
     },
     "provider": {
       "google": "Google",
@@ -26984,63 +27105,76 @@
   "agentsStatsPage": {
     "back": "戻る",
     "title": "エージェント統計",
-    "subtitle": "エージェントのパフォーマンス指標を確認",
-    "loading": "統計を読み込み中..."
+    "subtitle": "エージェント使用データ概覽",
+    "loading": "読み込み中...",
+    "stat": {
+      "totalAgents": "エージェント総数",
+      "published": "公開済み",
+      "pending": "審査中",
+      "totalCalls": "総呼び出し数",
+      "totalUsers": "利用ユーザー数",
+      "avgRating": "平均評価"
+    }
   },
   "videoTasksPage": {
-    "title": "動画生成タスク",
-    "description": "AI 動画生成タスクを管理",
+    "title": "即夢動画タスク",
+    "description": "文生動画タスクの進捗を確認、生成中タスクは5秒ごとに自動更新",
     "refresh": "更新",
-    "taskList": "タスク一覧",
-    "loading": "タスクを読み込み中...",
-    "empty": "タスクがありません",
-    "promptSummary": "プロンプト",
+    "taskList": "タスクリスト",
+    "loading": "読み込み中...",
+    "empty": "動画タスクはありません",
+    "promptSummary": "プロンプト概要",
     "status": "ステータス",
     "createdAt": "作成日時"
   },
   "asksEditFormPage": {
     "editTitle": "質問を編集",
-    "publishTitle": "質問を公開",
+    "publishTitle": "質問を投稿",
     "titleLabel": "タイトル",
-    "titlePlaceholder": "簡潔なタイトルを入力",
+    "titlePlaceholder": "質問のタイトルを入力してください",
     "contentLabel": "内容",
-    "contentPlaceholder": "質問の詳細を入力してください",
+    "contentPlaceholder": "質問の内容を詳しく記述してください",
     "tagsLabel": "タグ",
-    "tagsPlaceholder": "最大 5 つのタグを追加",
-    "saveButton": "保存",
-    "publishButton": "公開",
+    "tagsPlaceholder": "複数タグはカンマで区切ってください",
+    "saveButton": "変更を保存",
+    "publishButton": "質問を投稿",
     "cancel": "キャンセル"
   },
   "rankingPage": {
-    "title": "ランキング",
-    "subtitle": "トップ貢献者とクリエイター",
-    "loading": "ランキングを読み込み中...",
-    "empty": "ランキングデータなし",
+    "title": "総合ランキング",
+    "subtitle": "ユーザーのポイントとアクティブ度ランキングを表示",
+    "loading": "読み込み中...",
+    "empty": "ランキングデータがありません",
     "col": {
-      "rank": "順位",
+      "rank": "ランク",
       "user": "ユーザー",
-      "score": "スコア"
+      "score": "ポイント"
+    },
+    "range": {
+      "week": "週間",
+      "month": "月間",
+      "total": "累計"
     }
   },
   "recruitmentPage": {
-    "loading": "ポジションを読み込み中...",
-    "empty": "募集ポジションなし",
-    "defaultSubtitle": "チームに参加",
-    "requirementsTitle": "応募資格",
-    "emptyRequirements": "具体的な要件なし",
-    "benefitsTitle": "福利厚生",
-    "emptyBenefits": "福利厚生なし",
+    "loading": "読み込み中...",
+    "empty": "採用計画がありません",
+    "defaultSubtitle": "採用計画",
+    "requirementsTitle": "応募要件",
+    "emptyRequirements": "要件がありません",
+    "benefitsTitle": "専用特典",
+    "emptyBenefits": "特典がありません",
     "cta": {
-      "title": "参加しませんか?",
-      "subtitle": "履歴書とポートフォリオをお送りください",
-      "button": "今すぐ応募"
+      "title": "私たちと一緒に参加しませんか？",
+      "subtitle": "今すぐ申請してトレーダーになり、専用の成長パスを開始しましょう",
+      "button": "今すぐ申請"
     }
   },
   "shareContentPage": {
     "modelIconAlt": "モデルアイコン",
-    "defaultModelName": "AI モデル",
-    "aiGenerated": "AI 生成",
-    "tokenCostLabel": "トークン数"
+    "defaultModelName": "AIスマート会話",
+    "aiGenerated": "Zhihui AI 生成",
+    "tokenCostLabel": "Zhihui値消費：{cost}"
   },
   "businessCardSharePage": {
     "loading": "読み込み中...",
@@ -27048,22 +27182,22 @@
     "notFound": "名刺が見つかりません",
     "qrAlt": "QRコード",
     "scanTip": "スキャンして名刺を表示",
-    "copied": "コピー済み",
+    "copied": "コピーしました",
     "copyLink": "リンクをコピー",
     "downloadVcard": "vCardをダウンロード",
     "processing": "処理中...",
-    "favoriteCard": "名刺をお気に入りに追加"
+    "favoriteCard": "名刺をお気に入り"
   },
   "imageGenPage": {
     "success": "生成成功",
     "promptRequired": "プロンプトを入力してください",
     "title": "AI 画像生成",
-    "subtitle": "テキスト説明から画像を生成",
+    "subtitle": "プロンプトを入力して画像を生成",
     "promptLabel": "プロンプト",
-    "promptPlaceholder": "希望する画像を説明...",
+    "promptPlaceholder": "生成したい画像を説明...",
     "sizeLabel": "サイズ",
     "generating": "生成中...",
-    "generate": "生成",
+    "generate": "画像を生成",
     "download": "ダウンロード"
   },
   "kbEditPage": {
@@ -27073,20 +27207,107 @@
     "backToList": "リストに戻る",
     "notFound": "記事が見つかりません",
     "title": "記事を編集",
-    "subtitle": "記事内容を変更",
+    "subtitle": "ナレッジベース記事の内容を変更",
     "backToArticle": "記事に戻る",
     "submitLabel": "保存"
   },
   "learnMapPage": {
-    "defaultTitle": "学習パス",
-    "defaultDesc": "トピックを段階的にマスター",
-    "totalProgress": "全体の進捗",
+    "defaultTitle": "学習マップ",
+    "defaultDesc": "学習パスを計画し、段階的に知識ポイントを習得",
+    "totalProgress": "全体進捗",
     "loading": "読み込み中...",
-    "empty": "学習コンテンツなし",
-    "stageN": "ステージ {n}",
+    "empty": "学習パスがありません",
+    "stageN": "第 {n} 段階",
     "completed": "完了",
-    "lessonsProgress": "{completed}/{total} レッスン",
+    "lessonsProgress": "{completed} / {total} レッスン",
     "review": "復習",
-    "continueLearning": "続ける"
+    "continueLearning": "学習を続ける"
+  },
+  "modelsGroupsPage": {
+    "group": {
+      "1": {
+        "name": "デフォルトグループ",
+        "desc": "すべての新規ユーザーのデフォルトグループ"
+      },
+      "2": {
+        "name": "龍崗区数学グループ",
+        "desc": "龍崗区数学科教師専用グループ"
+      },
+      "3": {
+        "name": "高校英語グループ",
+        "desc": "高校英語教師専用グループ"
+      },
+      "4": {
+        "name": "AI 研修グループ",
+        "desc": "AI 教学研究チーム"
+      },
+      "5": {
+        "name": "管理者",
+        "desc": "システム管理者グループ"
+      }
+    }
+  },
+  "livePlayPage": {
+    "detailBack": "ライブに戻る",
+    "loading": "読み込み中...",
+    "notFound": "ライブが見つかりません",
+    "notLive": "ライブ配信はまだ開始されていません",
+    "viewCount": "{n} 視聴",
+    "subscribed": "購読済み",
+    "subscribe": "購読",
+    "share": "共有",
+    "danmuTitle": "コメントインタラクション",
+    "danmuPlaceholder": "コメントを送信...",
+    "me": "私"
+  },
+  "memberAddressFormPage": {
+    "recipient": "お受取人",
+    "phone": "電話番号",
+    "province": "省",
+    "city": "市",
+    "district": "区",
+    "detailAddress": "詳細住所",
+    "setDefault": "既定の住所に設定",
+    "save": "保存",
+    "cancel": "キャンセル"
+  },
+  "memberRefundsPage": {
+    "title": "返金記録",
+    "subtitle": "返金申請と処理状況を確認",
+    "loading": "読み込み中...",
+    "empty": "返金記録がありません",
+    "reason": "理由: {reason}",
+    "status": {
+      "pending": "審査中",
+      "approved": "承認済み",
+      "rejected": "却下",
+      "completed": "完了"
+    }
+  },
+  "modelsReferralPage": {
+    "title": "招待報酬",
+    "subtitle": "友人を招待して登録すると、双方に報酬が付与されます",
+    "link": {
+      "title": "私の招待リンク",
+      "tip": "専用の招待リンクを友人に共有",
+      "copy": "リンクをコピー",
+      "reward": "友人が登録し ¥10 以上消費すると、{amount} の報酬を獲得できます"
+    },
+    "stats": {
+      "invited": "招待済み",
+      "activated": "有効化済み",
+      "reward": "累計報酬"
+    },
+    "list": {
+      "title": "招待記録",
+      "user": "ユーザー",
+      "joined": "登録時間",
+      "reward": "報酬",
+      "status": "ステータス",
+      "statusLabels": {
+        "activated": "有効化済み",
+        "pending": "有効化待ち"
+      }
+    }
   }
 }
