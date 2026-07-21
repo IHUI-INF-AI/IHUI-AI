@@ -43,31 +43,36 @@ export function CheckInScreen() {
   const [error, setError] = useState('')
   const [signing, setSigning] = useState(false)
 
-  const load = useCallback(async (refresh = false) => {
-    if (refresh) setRefreshing(true)
-    else setLoading(true)
-    setError('')
-    const resp = await fetch(`${API_BASE_URL}/api/check-in`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-    if (!resp.ok) {
-      setError(t('checkIn.loadFailed'))
+  const load = useCallback(
+    async (refresh = false) => {
+      if (refresh) setRefreshing(true)
+      else setLoading(true)
+      setError('')
+      const resp = await fetch(`${API_BASE_URL}/api/checkin/today`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!resp.ok) {
+        setError(t('checkIn.loadFailed'))
+        setLoading(false)
+        setRefreshing(false)
+        return
+      }
+      const data = (await resp.json()) as { data?: CheckInInfo }
+      setInfo(data.data ?? null)
       setLoading(false)
       setRefreshing(false)
-      return
-    }
-    const data = (await resp.json()) as { data?: CheckInInfo }
-    setInfo(data.data ?? null)
-    setLoading(false)
-    setRefreshing(false)
-  }, [token, t])
+    },
+    [token, t],
+  )
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   const handleSign = async () => {
     if (!info || info.todaySigned) return
     setSigning(true)
-    const resp = await fetch(`${API_BASE_URL}/api/check-in/sign`, {
+    const resp = await fetch(`${API_BASE_URL}/api/checkin`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     })
@@ -148,10 +153,7 @@ export function CheckInScreen() {
           <Text style={styles.sectionTitle}>{t('checkIn.calendar')}</Text>
           <View style={styles.calendarGrid}>
             {info.calendar.map((day) => (
-              <View
-                key={day.date}
-                style={[styles.dayCell, day.signed && styles.dayCellSigned]}
-              >
+              <View key={day.date} style={[styles.dayCell, day.signed && styles.dayCellSigned]}>
                 <Text style={[styles.dayText, day.signed && styles.dayTextSigned]}>
                   {day.date.slice(-2)}
                 </Text>
@@ -179,7 +181,13 @@ const PRIMARY = '#10B981'
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', padding: 16 },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+  },
   emptyText: { fontSize: 12, color: '#9CA3AF', marginTop: 8 },
   errorText: { fontSize: 12, color: '#DC2626', marginTop: 4, textAlign: 'center' },
   header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
@@ -192,18 +200,46 @@ const styles = StyleSheet.create({
   summaryItem: { alignItems: 'center', flex: 1 },
   summaryValue: { fontSize: 22, fontWeight: '700', color: PRIMARY },
   summaryLabel: { marginTop: 4, fontSize: 11, color: '#065F46' },
-  signBtn: { marginTop: 14, paddingVertical: 12, borderRadius: 8, backgroundColor: PRIMARY, alignItems: 'center' },
+  signBtn: {
+    marginTop: 14,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+    alignItems: 'center',
+  },
   signedBtn: { backgroundColor: '#F3F4F6' },
   signBtnText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   signedBtnText: { color: '#9CA3AF' },
-  sectionTitle: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, fontSize: 15, fontWeight: '600', color: '#111827' },
+  sectionTitle: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+  },
   calendarGrid: { marginHorizontal: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  dayCell: { width: '13%', aspectRatio: 1, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  dayCell: {
+    width: '13%',
+    aspectRatio: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
   dayCellSigned: { backgroundColor: PRIMARY, borderColor: PRIMARY },
   dayText: { fontSize: 12, color: '#374151' },
   dayTextSigned: { color: '#FFFFFF' },
   dayReward: { fontSize: 10, color: '#9CA3AF', marginTop: 2 },
   dayCheck: { fontSize: 12, color: '#FFFFFF', marginTop: 2 },
-  retryBtn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
+  retryBtn: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+  },
   retryBtnText: { color: '#FFFFFF', fontSize: 13 },
 })

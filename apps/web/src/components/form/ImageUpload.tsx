@@ -34,7 +34,7 @@ export function ImageUpload({
   multiple = false,
   maxCount = 5,
   accept = 'image/*',
-  uploadUrl = '/api/files/upload',
+  uploadUrl = '/api/files/upload/form',
   className,
   placeholder = '点击或拖拽上传图片',
 }: ImageUploadProps) {
@@ -71,17 +71,22 @@ export function ImageUpload({
     [handleChange, values],
   )
 
-  // 解析响应 URL:沿用旧实现 { url: string } 期望值(@ihui/ui Upload 内部已支持
-  // {data.url} / {data.file.path} / {url} / {file.path} 多种格式,这里只显式
-  // 提供旧 endpoint 期望的 url 字段解析,避免误解析其他字段)
+  // 解析响应 URL:支持 /api/files/upload/form 返回 { data: { file: { id } } },
+  // 构造公开访问 URL `/uploads/<id>`(匹配 server.ts fastifyStatic prefix)
   const resolveUrl: NonNullable<UploadProps['resolveUrl']> = React.useCallback(
     (response) => {
       if (!response || typeof response !== 'object') return null
       const r = response as Record<string, unknown>
-      // 旧 endpoint:{ success: true, data: { url } } 或 { url }
+      // /api/files/upload/form 响应:{ success, data: { file: { id, name, ... } } }
       if (r.data && typeof r.data === 'object') {
         const d = r.data as Record<string, unknown>
         if (typeof d.url === 'string') return d.url
+        if (d.file && typeof d.file === 'object') {
+          const f = d.file as Record<string, unknown>
+          if (typeof f.id === 'string') return `/uploads/${f.id}`
+          if (typeof f.url === 'string') return f.url
+          if (typeof f.path === 'string') return f.path
+        }
       }
       if (typeof r.url === 'string') return r.url
       return null
