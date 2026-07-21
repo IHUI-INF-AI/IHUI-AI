@@ -14783,7 +14783,22 @@
     "official": "公式",
     "free": "無料",
     "open": "開く",
-    "visit": "公式サイト"
+    "visit": "公式サイト",
+    "catInstalled": "インストール済み",
+    "catPinned": "ピン留め",
+    "sortInstalled": "インストール順",
+    "loadingStates": "読み込み中...",
+    "loginRequired": "プラグイン管理にはログインが必要です",
+    "install": "有効化",
+    "uninstall": "無効化",
+    "pin": "ピン留め",
+    "unpin": "ピン解除",
+    "installedBadge": "有効",
+    "installed": "{name} を有効化しました",
+    "uninstalled": "{name} を無効化しました",
+    "pinned": "{name} をピン留めしました",
+    "unpinned": "{name} のピンを解除しました",
+    "mutationError": "操作に失敗しました。再試行してください"
   },
   "aiWorld": {
     "empty": "なしコンテンツ，",
@@ -25766,6 +25781,25 @@
       "pinned": "ピン",
       "empty": "記事がありません。ai-fresh-2026 seed を先に実行してください。"
     },
+    "feed": {
+      "label": "AI フィードタイムライン",
+      "title": "リアルタイム AI ニュースストリーム",
+      "subtitle": "17の国内外ソース集約、6時間ごとに自動収集",
+      "totalPrefix": "計 ",
+      "totalSuffix": "件",
+      "today": "今日",
+      "yesterday": "昨日",
+      "itemsUnit": "件",
+      "empty": "収集データがありません。最初の ai-feed-collect cron 実行を待っています。",
+      "categoryAll": "すべて",
+      "categoryHotspot": "ホットスポット",
+      "categoryAccount": "アカウント",
+      "categoryAnalysis": "分析",
+      "categoryCreation": "創作",
+      "categoryRetrieval": "検索",
+      "categoryTool": "ツール",
+      "categorySource": "ソース"
+    },
     "funding": {
       "label": "大型資金調達と買収",
       "title": "大型資金調達と買収",
@@ -27777,6 +27811,7 @@
       "empty": "文書がありません",
       "loading": "読み込み中...",
       "manage": "管理",
+      "upload": "アップロード",
       "chunkCount": "{count} チャンク",
       "sourceType": {
         "text": "テキスト",
@@ -27821,6 +27856,24 @@
       "chunkCount": "{count} チャンク",
       "loading": "読み込み中...",
       "empty": "文書がありません"
+    },
+    "upload": {
+      "title": "アップロード",
+      "subtitle": "PDF / DOCX / Markdown / テキスト / HTML 対応",
+      "modeFile": "ファイル",
+      "modeText": "テキスト",
+      "titleLabel": "タイトル(任意)",
+      "titlePlaceholder": "空欄の場合ファイル名を使用",
+      "fileLabel": "ファイル選択",
+      "fileHint": "PDF / DOCX / MD / TXT / HTML 対応、20MBまで",
+      "textLabel": "テキスト内容",
+      "textPlaceholder": "テキストを貼り付けまたは入力...",
+      "charCount": "{count} 文字",
+      "submit": "アップロード",
+      "noFile": "ファイルを選択してください",
+      "noText": "テキストを入力してください",
+      "defaultTitle": "無題ドキュメント",
+      "success": "取り込み成功、{count} チャンクを生成"
     }
   },
   "knowledgeGraph": {
