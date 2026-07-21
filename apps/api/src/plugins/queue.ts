@@ -48,6 +48,12 @@ export interface AICallbackJobData {
   messageId: string
   content: string
   tokens?: number
+  // G3 新增:LLM 扣费链路接通所需字段
+  model?: string
+  provider?: string
+  promptTokens?: number
+  completionTokens?: number
+  idempotencyKey?: string // 幂等键,防 BullMQ 重试重复扣费
   metadata?: Record<string, unknown>
 }
 
