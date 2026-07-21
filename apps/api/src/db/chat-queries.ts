@@ -133,6 +133,48 @@ export async function updateConversation(
   return row
 }
 
+/**
+ * 仅更新对话的 metadata 字段(merge 模式,不覆盖未传入的 key)。
+ * 用于 AI 主动提问挂起状态持久化:在 chat_conversations.metadata.pendingQuestion 写入/清除挂起状态。
+ *
+ * 设计权衡(2026-07-21):
+ * - 用 conversation.metadata 而非 message.metadata,因为前端 onQuestion 时 assistantMessageId
+ *   是前端 UUID(占位),DB id 要等 ai-callback 完成后才落地,无法立即持久化到 message.metadata
+ * - conversation.metadata 是对话级挂起状态,语义"该对话当前有未回答的提问"
+ * - 用户回答后 /chat/answer 清除 pendingQuestion(merge 模式,不动其他 key)
+ *
+ * 与 updateConversation 的区别:
+ * - updateConversation 是覆盖模式(metadata 整体替换)
+ * - patchConversationMetadata 是 merge 模式(只更新传入的 key,保留其他 key)
+ *
+ * userId 用于 ownership 校验,防止越权修改他人对话的 metadata。
+ * 返回更新后的对话;若对话不存在或不属于该用户则返回 undefined。
+ */
+export async function patchConversationMetadata(
+  id: string,
+  userId: string,
+  metadataMerge: Record<string, unknown>,
+): Promise<ChatConversation | undefined> {
+  // 先校验对话属于该用户(ownership check)
+  const existing = await db
+    .select({ metadata: chatConversations.metadata, userId: chatConversations.userId })
+    .from(chatConversations)
+    .where(eq(chatConversations.id, id))
+    .limit(1)
+  const row = existing[0]
+  if (!row || row.userId !== userId) return undefined
+
+  const existingMeta = (row.metadata as Record<string, unknown> | null) ?? {}
+  const mergedMetadata = { ...existingMeta, ...metadataMerge }
+
+  const updated = await db
+    .update(chatConversations)
+    .set({ metadata: mergedMetadata, updatedAt: new Date() })
+    .where(eq(chatConversations.id, id))
+    .returning()
+  return updated[0]
+}
+
 export async function deleteConversation(id: string): Promise<void> {
   await db.delete(chatConversations).where(eq(chatConversations.id, id))
 }
