@@ -1,10 +1,6 @@
 /**
  * Tool 调用入参校验器(P48-1)。
  *
- * 灵感来源:参考 cli-shell/src/session/parsers/tool_call_parser.rs
- * 的 schema validation 阶段(在 parse_arguments 后做类型/必填/枚举校验,
- * 失败时返回详细错误供 LLM 重试)。
- *
  * 简化策略(做减法):
  *   - 零新依赖(无 zod / ajv 等 npm 包,纯 TypeScript 类型守卫)
  *   - 不做完整 JSON Schema 草案支持,只覆盖 IHUI 内置 5 种 type + enum + required
