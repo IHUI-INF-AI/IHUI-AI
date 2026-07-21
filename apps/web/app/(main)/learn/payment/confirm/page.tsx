@@ -53,6 +53,22 @@ function PaymentConfirmContent() {
   )
   const [polling, setPolling] = React.useState(true)
 
+  // 已完成订单(从订单列表跳过来)直接进入终态,跳过轮询
+  const initialOrderStatus = order?.status
+  React.useEffect(() => {
+    if (!order) return
+    if (initialOrderStatus === 'paid' || initialOrderStatus === 'completed') {
+      setPayState('paid')
+      setPolling(false)
+    } else if (initialOrderStatus === 'failed') {
+      setPayState('failed')
+      setPolling(false)
+    } else if (initialOrderStatus === 'cancelled') {
+      setPayState('cancelled')
+      setPolling(false)
+    }
+  }, [order, initialOrderStatus])
+
   React.useEffect(() => {
     if (!orderNo || !polling) return
     let cancelled = false
