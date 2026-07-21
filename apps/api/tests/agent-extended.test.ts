@@ -213,7 +213,7 @@ describe('agent-extended routes — 路由层 mock 测试', () => {
       expect(res.statusCode).toBe(200)
       const body = res.json()
       expect(body.code).toBe(0)
-      expect(body.data.orderNo).toMatch(/^BUY\d{14}\d{6}$/)
+      expect(body.data.orderNo).toMatch(/^BUY\d{14}[2-9A-HJ-NP-Z]{6}$/)
       expect(body.data.generatedAt).toBeDefined()
     })
 
@@ -225,7 +225,8 @@ describe('agent-extended routes — 路由层 mock 测试', () => {
       expect(res.statusCode).toBe(200)
       const body = res.json()
       expect(body.code).toBe(0)
-      expect(body.data.orderNo).toMatch(/^DEV\d{14}\d{6}$/)
+      // 2026-07-21 安全审计加固:订单号用 CSPRNG 生成 6 字符 base36 (排除易混淆字符)
+      expect(body.data.orderNo).toMatch(/^DEV\d{14}[2-9A-HJ-NP-Z]{6}$/)
       expect(body.data.generatedAt).toBeDefined()
     })
 
