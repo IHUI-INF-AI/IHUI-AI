@@ -16,7 +16,13 @@ const paginationQuery = z.object({
 
 const createModelConfigSchema = z.object({
   name: z.string().min(1, '名称不能为空').max(64),
-  vendor: z.enum(['openai', 'anthropic', 'google', 'azure', 'custom']),
+  vendor: z.enum([
+    'openai', 'anthropic', 'google', 'azure', 'custom',
+    // 2026-07-22 新增免费 / 试用 credits provider(参考 cheahjs/free-llm-api-resources)
+    'cloudflare_workers_ai', 'nvidia_nim', 'github_models',
+    'vercel_ai_gateway', 'opencode_zen', 'modal', 'inferencenet',
+    'nlpcloud', 'scaleway', 'alibaba_intl',
+  ]),
   modelId: z.string().min(1, '模型 ID 不能为空').max(128),
   baseUrl: z.string().url('baseUrl 必须为合法 URL').optional(),
   apiKey: z.string().min(1, 'apiKey 不能为空').max(256),
