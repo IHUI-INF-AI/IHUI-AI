@@ -9,7 +9,7 @@
  * 协议:chrome.runtime.sendMessage({ type, payload, requestId })
  *      background 返回 { ok, data?, error? }
  */
-import type { ApiResult } from '@ihui/types'
+import type { ApiResult, AgentActionRequest } from '@ihui/types'
 
 // ===== Request types (sender -> background) =====
 
@@ -22,12 +22,20 @@ export type ExtMessage =
   | { type: 'tab.queryActive'; payload: undefined; requestId: string }
   | { type: 'sidePanel.open'; payload: { tabId?: number }; requestId: string }
   | { type: 'notification.broadcast'; payload: { notification: unknown }; requestId: string }
+  | { type: 'agent.action'; payload: AgentActionRequest; requestId: string }
 
 // ===== Response types (background -> sender) =====
 
 export type ExtResponse =
   | { ok: true; data: unknown; requestId: string }
   | { ok: false; error: string; requestId: string }
+
+// ===== Background → Content Script: forward agent DOM action =====
+
+export interface AgentDomForwardMessage {
+  type: 'agent.action.dom'
+  payload: AgentActionRequest
+}
 
 // ===== Payload types =====
 
