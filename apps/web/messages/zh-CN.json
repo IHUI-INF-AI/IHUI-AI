@@ -7975,7 +7975,11 @@
       "submitSchedule": "定时发布",
       "submitting": "提交中...",
       "submitSuccess": "任务已提交,正在发布",
-      "submitFailed": "提交失败"
+      "submitFailed": "提交失败",
+      "uploading": "上传中...",
+      "uploadSuccess": "已上传: {filename}",
+      "uploadFailed": "上传失败",
+      "uploadedHint": "文件已上传,可重新选择替换"
     },
     "history": {
       "title": "发布历史",
@@ -25855,6 +25859,135 @@
       "resultCol": "结果",
       "correctLabel": "正确",
       "wrongLabel": "错误"
+    }
+  },
+  "memberOrdersPage": {
+    "title": "我的订单",
+    "subtitle": "查看并管理你的全部订单",
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "cancelled": "已取消",
+      "refunded": "已退款",
+      "all": "全部"
+    },
+    "table": {
+      "orderNo": "订单号",
+      "product": "商品",
+      "amount": "金额",
+      "status": "状态",
+      "time": "时间",
+      "action": "操作"
+    },
+    "viewAction": "查看",
+    "loading": "加载中...",
+    "empty": "暂无订单记录",
+    "total": "共 {n} 条"
+  },
+  "learnPaymentConfirmPage": {
+    "missingOrderNo": "缺少订单号参数",
+    "loadingOrder": "加载订单中...",
+    "statusPaid": "支付成功",
+    "statusFailed": "支付失败",
+    "statusCancelled": "订单已取消",
+    "statusPending": "等待支付中...",
+    "descPaid": "订单已支付完成",
+    "descPending": "请在新窗口完成支付,系统将自动检测支付状态",
+    "descFailed": "请重新发起支付",
+    "fields": {
+      "orderNo": "订单号",
+      "product": "商品",
+      "payMethod": "支付方式",
+      "payAmount": "支付金额",
+      "createdAt": "下单时间",
+      "paidAt": "支付时间"
+    },
+    "actions": {
+      "backToLearn": "返回学习",
+      "viewOrders": "查看订单",
+      "cancelPolling": "取消轮询",
+      "repurchase": "重新购买"
+    }
+  },
+  "learnHomeworkPage": {
+    "title": "课程作业",
+    "loading": "加载中...",
+    "errorFallback": "加载失败",
+    "backToCourse": "返回课程",
+    "empty": "暂无作业",
+    "deadlineLabel": "截止时间:{deadline}",
+    "submitBtn": {
+      "submitted": "已提交",
+      "notSubmitted": "提交作业"
+    },
+    "status": {
+      "waitingApproval": "待批改",
+      "passApproval": "已通过",
+      "failApproval": "未通过",
+      "notSubmitted": "未提交",
+      "submitted": "已提交",
+      "unknown": "未知"
+    }
+  },
+  "contractManager": {
+    "title": "签约管理",
+    "empty": "暂无自动续费签约",
+    "planName": "连续包月订阅",
+    "fields": {
+      "nextCharge": "下次扣款",
+      "lastCharge": "上次扣款",
+      "chargeStatus": "扣款状态",
+      "signedAt": "签约时间"
+    },
+    "status": {
+      "pending": "签约中",
+      "active": "生效中",
+      "cancelled": "已解约",
+      "expired": "已过期"
+    },
+    "chargeStatus": {
+      "success": "成功",
+      "failed": "失败",
+      "processing": "处理中"
+    },
+    "actions": {
+      "cancel": "解约"
+    },
+    "cancelDialog": {
+      "title": "解约自动续费",
+      "content": "解约后将不再自动扣款,当前 VIP 权益持续到期满。确认解约?",
+      "confirmText": "确认解约",
+      "cancelText": "取消"
+    }
+  },
+  "eduDashboardPage": {
+    "title": "学习概览",
+    "subtitle": "查看你的学习数据与最近进度",
+    "loading": "加载中...",
+    "stats": {
+      "studyHours": "学习时长",
+      "inProgressCourses": "进行中课程",
+      "passedExams": "已通过考试",
+      "avgProgress": "平均进度"
+    },
+    "coursesCard": {
+      "title": "课程",
+      "total": "已报名",
+      "completed": "已完成"
+    },
+    "examsCard": {
+      "title": "考试与证书",
+      "totalExams": "考试总数",
+      "totalCerts": "证书数量"
+    },
+    "progressCard": {
+      "title": "完成率"
+    },
+    "recentSection": {
+      "title": "最近学习",
+      "viewAll": "查看全部",
+      "empty": "暂无学习记录",
+      "progressLabel": "进度 {n}%"
     }
   }
 }

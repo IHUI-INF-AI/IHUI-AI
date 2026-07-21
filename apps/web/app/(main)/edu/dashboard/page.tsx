@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import {
   Clock,
   BookOpen,
@@ -45,6 +45,7 @@ async function api<T>(url: string): Promise<T> {
 }
 
 export default function EduDashboardPage() {
+  const t = useTranslations('eduDashboardPage')
   const locale = useLocale()
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'dashboard'],
@@ -64,23 +65,23 @@ export default function EduDashboardPage() {
   }
 
   const stats = [
-    { label: '学习时长', value: `${data?.studyHours ?? 0}h`, icon: Clock },
-    { label: '进行中课程', value: data?.inProgressCourses ?? 0, icon: BookOpen },
-    { label: '已通过考试', value: data?.passedExams ?? 0, icon: Award },
-    { label: '平均进度', value: `${data?.avgProgress ?? 0}%`, icon: TrendingUp },
+    { label: t('stats.studyHours'), value: `${data?.studyHours ?? 0}h`, icon: Clock },
+    { label: t('stats.inProgressCourses'), value: data?.inProgressCourses ?? 0, icon: BookOpen },
+    { label: t('stats.passedExams'), value: data?.passedExams ?? 0, icon: Award },
+    { label: t('stats.avgProgress'), value: `${data?.avgProgress ?? 0}%`, icon: TrendingUp },
   ]
 
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">学习概览</h1>
-        <p className="text-sm text-muted-foreground">查看你的学习数据与最近进度</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : error ? (
         <Alert variant="danger" description={(error as Error).message} />
@@ -105,16 +106,16 @@ export default function EduDashboardPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <BookOpen className="h-4 w-4 text-primary" />
-                  课程
+                  {t('coursesCard.title')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">已报名</span>
+                  <span className="text-muted-foreground">{t('coursesCard.total')}</span>
                   <span className="font-medium">{data?.totalCourses ?? 0}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">已完成</span>
+                  <span className="text-muted-foreground">{t('coursesCard.completed')}</span>
                   <span className="font-medium text-emerald-600">
                     {data?.completedCourses ?? 0}
                   </span>
@@ -125,16 +126,16 @@ export default function EduDashboardPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <Award className="h-4 w-4 text-primary" />
-                  考试与证书
+                  {t('examsCard.title')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-1 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">考试总数</span>
+                  <span className="text-muted-foreground">{t('examsCard.totalExams')}</span>
                   <span className="font-medium">{data?.totalExams ?? 0}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">证书数量</span>
+                  <span className="text-muted-foreground">{t('examsCard.totalCerts')}</span>
                   <span className="font-medium">{data?.totalCerts ?? 0}</span>
                 </div>
               </CardContent>
@@ -143,7 +144,7 @@ export default function EduDashboardPage() {
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <BarChart3 className="h-4 w-4 text-primary" />
-                  完成率
+                  {t('progressCard.title')}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -160,19 +161,19 @@ export default function EduDashboardPage() {
 
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">最近学习</h2>
+              <h2 className="text-lg font-semibold">{t('recentSection.title')}</h2>
               <Link
                 href="/edu/courses"
                 className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
               >
-                查看全部
+                {t('recentSection.viewAll')}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
             {(data?.recentCourses ?? []).length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12">
                 <PlayCircle className="h-8 w-8 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">暂无学习记录</p>
+                <p className="text-sm text-muted-foreground">{t('recentSection.empty')}</p>
               </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -188,7 +189,7 @@ export default function EduDashboardPage() {
                           />
                         </div>
                         <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                          <span>进度 {c.progress}%</span>
+                          <span>{t('recentSection.progressLabel', { n: c.progress })}</span>
                           <span>{fmt(c.lastLearnAt)}</span>
                         </div>
                       </CardContent>
