@@ -138,14 +138,14 @@ describe('Admin Plugin Stats API', () => {
     expect(body.data).toHaveLength(2)
     expect(body.data[0].pluginId).toBe('playwright-mcp')
     expect(body.data[0].heat).toBe(250)
-    expect(mockTop).toHaveBeenCalledWith(20)
+    expect(mockTop).toHaveBeenCalledWith(7, 20)
   })
 
-  it('GET /stats/top?limit=50 透传 limit', async () => {
+  it('GET /stats/top?days=30&limit=50 透传 days + limit', async () => {
     mockTop.mockResolvedValueOnce([])
-    const res = await app.inject({ method: 'GET', url: '/api/admin/plugins/stats/top?limit=50' })
+    const res = await app.inject({ method: 'GET', url: '/api/admin/plugins/stats/top?days=30&limit=50' })
     expect(res.statusCode).toBe(200)
-    expect(mockTop).toHaveBeenCalledWith(50)
+    expect(mockTop).toHaveBeenCalledWith(30, 50)
   })
 
   it('GET /stats/top?limit=0 越界 → 400', async () => {
