@@ -504,11 +504,11 @@ nginx -t && nginx -s reload
 
 **P1 阶段 2 全量范围**(留待后续子集):
 
-| 子集                        | 范围                                                                           | 工作量 |
-| --------------------------- | ------------------------------------------------------------------------------ | ------ |
-| **P1-2.1 部署层管理(本次)** | 客户 pause/resume/backup/restore 脚本 + admin-api Fastify 服务 + 证书续期 cron | 1-2 天 |
-| P1-2.2 web/admin UI         | web/admin 端扩展(创建/暂停/删除/查看客户 UI)                                   | 3-5 天 |
-| P1-2.3 资源监控             | Prometheus + Grafana per-tenant dashboard                                      | 2-3 天 |
+| 子集                        | 范围                                                                           | 工作量 | 状态 |
+| --------------------------- | ------------------------------------------------------------------------------ | ------ | ---- |
+| **P1-2.1 部署层管理**       | 客户 pause/resume/backup/restore 脚本 + admin-api Fastify 服务 + 证书续期 cron | 1-2 天 | ✅   |
+| **P1-2.2 web/admin UI**     | web/admin 端扩展(创建/暂停/删除/查看客户 UI) + 详情页 + 备份 + 证书           | 3-5 天 | ✅   |
+| **P1-2.3 资源监控(本次)**   | Prometheus + cAdvisor + Grafana + 详情页 iframe + 横向对比页                   | 2-3 天 | ✅   |
 
 **P1-2.1 详细任务清单**:
 
@@ -587,7 +587,83 @@ nginx -t && nginx -s reload
 - `pnpm typecheck` admin-api 0 错误 ✅
 - 17 个新文件 + 4 个修改,commit `a400e8ff` ✅
 
-> > > > > > > 44e64367 (footer: 推广平台图片重命名为平台英文名 + 生态合作恢复 4 类分组布局)
+### SaaS 托管服务架构(2026-07-21)— P1 阶段 2.2:web/admin UI + 证书 + 资源监控
+
+**P1-2.2 / P1-2.3 完成情况**:
+
+| 子任务 | commit | 范围 |
+|---|---|---|
+| P1-2.2a 部署层管理后台 | `b5dff4ba` | 租户列表 + 创建/暂停/恢复/销毁 |
+| P1-2.2b 部署层详情页 + 备份管理 | `ebd29161b` | 详情页 + 备份列表/恢复/删除 |
+| P1-2.2c 证书状态监控 + 配额占位 | `346c72bf9` | acme.json 扫描 + 5 语言 i18n |
+| **P1-2.3 资源监控(本次)** | 待提交 | Prometheus + Grafana + 详情页 iframe + 横向对比页 |
+
+**P1-2.3 详细任务清单**:
+
+**目标**:在 P1-2.1 脚本 + P1-2.2 UI 基础上,接入 Prometheus + Grafana 实现 per-tenant 资源实时监控,并把 P1-2.2c 占位配额切换为真实数据。
+
+**架构**:
+
+```
+cAdvisor(:8080) → Prometheus(:9090) → Grafana(:3001)
+                                  ↓
+                  admin-api(:8081) 代理查询 + 配额端点替换
+                                  ↓
+              web 端 GrafanaFrame(iframe) + MetricsCard(实时数据)
+```
+
+**改动文件清单**:
+
+1. `deploy/saas/prometheus/prometheus.yml`:抓取 cAdvisor + admin-api
+2. `deploy/saas/grafana/provisioning/datasources/prometheus.yml`:数据源自动注册
+3. `deploy/saas/grafana/provisioning/dashboards/dashboards.yml`:Dashboard 自动加载(30s 扫描)
+4. `deploy/saas/grafana/dashboards/tenant-overview.json`:per-tenant 仪表板(8 panel,带 var-tenant 模板变量)
+5. `deploy/saas/grafana/dashboards/tenant-comparison.json`:多租户对比仪表板(2 panel,按 CPU 排序)
+6. `deploy/saas/admin-api/src/routes/metrics.ts`:3 个端点(quota / metrics / summary)
+7. `deploy/saas/admin-api/src/routes/customers.ts`:移除 quota 占位逻辑
+8. `deploy/saas/admin-api/src/index.ts`:注册 metricsRoutes(先于 customerRoutes)
+9. `deploy/saas/docker-compose.yml`:cadvisor + prometheus + grafana 3 个服务
+10. `deploy/saas/.env.example`:新增 GRAFANA_ADMIN_USER/PASSWORD + PROMETHEUS_RETENTION
+11. `apps/web/app/(main)/admin/saas/_components/GrafanaFrame.tsx`:iframe 包装组件(bare 模式 + 降级提示)
+12. `apps/web/app/(main)/admin/saas/_components/MetricsCard.tsx`:实时指标卡片(CPU/内存/网络,15s 轮询)
+13. `apps/web/app/(main)/admin/saas/[slug]/page.tsx`:嵌入 GrafanaFrame + MetricsCard + "租户对比"快捷入口
+14. `apps/web/app/(main)/admin/saas/metrics/page.tsx`:**新增** 横向对比页(Grafana 多租户图 + 排名表)
+15. `apps/web/src/components/layout/AdminNav.tsx`:新增 saasMetrics 导航项
+16. `packages/api-client/src/endpoints/admin-tenants.types.ts`:新增 CustomerMetrics / MetricsSummary 类型
+17. `packages/api-client/src/endpoints/admin-tenants.ts`:新增 adminGetCustomerMetrics / adminGetMetricsSummary
+18. `apps/web/src/hooks/use-saas-tenants.ts`:新增 useCustomerMetricsQuery / useMetricsSummaryQuery
+19. `apps/web/messages/{zh-CN,en,ja,ko,zh-TW}.json`:新增 admin.saas.metrics namespace(27 keys) + detail.compareTenants + nav.saasMetrics
+20. `deploy/saas/README.md`:新增"资源监控(P1 阶段 2.3)"章节 + 目录结构更新
+21. `PROJECT_PLAN.md`:追加 P1-2.3 任务条目(本任务)
+
+**admin-api 端点新增**(端口 8081):
+
+- `GET /admin/api/customers/:slug/quota` — 配额(从占位切换为 Prometheus,placeholder=false)
+- `GET /admin/api/customers/:slug/metrics` — 实时指标(CPU/内存/网络,2s 超时)
+- `GET /admin/api/metrics/summary` — 多租户横向对比(按 CPU 降序)
+
+**降级策略**:
+
+- `promQuery`:HTTP 非 200 / 超时 / 解析失败 → 返回 `null` 而非抛错
+- metrics.ts:三个核心指标全 `null` → 返回 `placeholder: true`,UI 仍可渲染
+- GrafanaFrame:容器未启动 → 显示"资源监控暂不可用"卡片,不影响其他功能
+
+**验收硬性指标**:
+
+- `pnpm --filter @ihui/web typecheck` 0 错误
+- i18n 5 文件 JSON.parse VALID + 27 keys parity
+- `docker compose -f deploy/saas/docker-compose.yml config` exit 0
+- `bash -n deploy/saas/scripts/*.sh` 全通过
+- 浏览器渲染:详情页 Grafana iframe 加载 + /admin/saas/metrics 排名表 + AdminNav 出现"资源监控"项
+
+**硬约束**:
+
+- 改动文件仅限本任务清单
+- 不动主 8 端业务代码
+- 数据不可达时必须降级,不能阻断 UI
+- Grafana iframe 必须在 client-only(mounted 后)渲染
+- iframe sandbox: `allow-same-origin allow-scripts allow-forms allow-popups`
+- commit message: `feat(saas): P1-2.3 资源监控 — Prometheus + Grafana per-tenant 实时图表`
 
 ---
 
