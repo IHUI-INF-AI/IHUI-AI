@@ -10,7 +10,6 @@ import { QrCodeLogin } from './QrCodeLogin'
 import { PasswordLoginForm } from './PasswordLoginForm'
 import { EmailCodeLoginForm } from './EmailCodeLoginForm'
 import { UsernameLoginForm } from './UsernameLoginForm'
-import { SdkQrLogin } from './SdkQrLogin'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 
 type LoginTab = 'password' | 'email' | 'username' | 'qr'
@@ -91,7 +90,6 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
       </Tabs>
 
       <ThirdPartyLoginButtons />
-      <SdkQrLogin />
 
       <p className="text-center text-sm text-muted-foreground">
         {t('noAccount')}{' '}
