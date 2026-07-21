@@ -7975,7 +7975,11 @@
       "submitSchedule": "定時發布",
       "submitting": "提交中...",
       "submitSuccess": "任務已提交,正在發布",
-      "submitFailed": "提交失敗"
+      "submitFailed": "提交失敗",
+      "uploading": "上傳中...",
+      "uploadSuccess": "已上傳: {filename}",
+      "uploadFailed": "上傳失敗",
+      "uploadedHint": "檔案已上傳,可重新選擇替換"
     },
     "history": {
       "title": "發布歷史",
@@ -25855,6 +25859,135 @@
       "resultCol": "結果",
       "correctLabel": "正確",
       "wrongLabel": "錯誤"
+    }
+  },
+  "memberOrdersPage": {
+    "title": "我的訂單",
+    "subtitle": "查看並管理你的全部訂單",
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "cancelled": "已取消",
+      "refunded": "已退款",
+      "all": "全部"
+    },
+    "table": {
+      "orderNo": "訂單號",
+      "product": "商品",
+      "amount": "金額",
+      "status": "狀態",
+      "time": "時間",
+      "action": "操作"
+    },
+    "viewAction": "查看",
+    "loading": "載入中...",
+    "empty": "暫無訂單記錄",
+    "total": "共 {n} 條"
+  },
+  "learnPaymentConfirmPage": {
+    "missingOrderNo": "缺少訂單號參數",
+    "loadingOrder": "載入訂單中...",
+    "statusPaid": "支付成功",
+    "statusFailed": "支付失敗",
+    "statusCancelled": "訂單已取消",
+    "statusPending": "等待支付中...",
+    "descPaid": "訂單已支付完成",
+    "descPending": "請在新視窗完成支付,系統將自動檢測支付狀態",
+    "descFailed": "請重新發起支付",
+    "fields": {
+      "orderNo": "訂單號",
+      "product": "商品",
+      "payMethod": "支付方式",
+      "payAmount": "支付金額",
+      "createdAt": "下單時間",
+      "paidAt": "支付時間"
+    },
+    "actions": {
+      "backToLearn": "返回學習",
+      "viewOrders": "查看訂單",
+      "cancelPolling": "取消輪詢",
+      "repurchase": "重新購買"
+    }
+  },
+  "learnHomeworkPage": {
+    "title": "課程作業",
+    "loading": "載入中...",
+    "errorFallback": "載入失敗",
+    "backToCourse": "返回課程",
+    "empty": "暫無作業",
+    "deadlineLabel": "截止時間:{deadline}",
+    "submitBtn": {
+      "submitted": "已提交",
+      "notSubmitted": "提交作業"
+    },
+    "status": {
+      "waitingApproval": "待批改",
+      "passApproval": "已通過",
+      "failApproval": "未通過",
+      "notSubmitted": "未提交",
+      "submitted": "已提交",
+      "unknown": "未知"
+    }
+  },
+  "contractManager": {
+    "title": "簽約管理",
+    "empty": "暫無自動續費簽約",
+    "planName": "連續包月訂閱",
+    "fields": {
+      "nextCharge": "下次扣款",
+      "lastCharge": "上次扣款",
+      "chargeStatus": "扣款狀態",
+      "signedAt": "簽約時間"
+    },
+    "status": {
+      "pending": "簽約中",
+      "active": "生效中",
+      "cancelled": "已解約",
+      "expired": "已過期"
+    },
+    "chargeStatus": {
+      "success": "成功",
+      "failed": "失敗",
+      "processing": "處理中"
+    },
+    "actions": {
+      "cancel": "解約"
+    },
+    "cancelDialog": {
+      "title": "解約自動續費",
+      "content": "解約後將不再自動扣款,目前 VIP 權益持續到期滿。確認解約?",
+      "confirmText": "確認解約",
+      "cancelText": "取消"
+    }
+  },
+  "eduDashboardPage": {
+    "title": "學習概覽",
+    "subtitle": "查看你的學習資料與最近進度",
+    "loading": "載入中...",
+    "stats": {
+      "studyHours": "學習時長",
+      "inProgressCourses": "進行中課程",
+      "passedExams": "已通過考試",
+      "avgProgress": "平均進度"
+    },
+    "coursesCard": {
+      "title": "課程",
+      "total": "已報名",
+      "completed": "已完成"
+    },
+    "examsCard": {
+      "title": "考試與證書",
+      "totalExams": "考試總數",
+      "totalCerts": "證書數量"
+    },
+    "progressCard": {
+      "title": "完成率"
+    },
+    "recentSection": {
+      "title": "最近學習",
+      "viewAll": "查看全部",
+      "empty": "暫無學習記錄",
+      "progressLabel": "進度 {n}%"
     }
   }
 }
