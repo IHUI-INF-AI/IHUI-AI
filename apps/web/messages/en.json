@@ -9503,6 +9503,57 @@
       },
       "gemini-2-flash": {
         "description": "Ultra-long context multimodal"
+      },
+      "gpt-5.6-sol": {
+        "description": "OpenAI 2026-07 flagship general model, 1M context"
+      },
+      "gpt-5.6-terra": {
+        "description": "OpenAI multimodal flagship, vision specialist"
+      },
+      "gpt-5.6-luna": {
+        "description": "OpenAI code-specialized model"
+      },
+      "gpt-red": {
+        "description": "OpenAI reasoning research preview"
+      },
+      "claude-sonnet-5": {
+        "description": "Anthropic 2026-07 new flagship, deep reasoning"
+      },
+      "claude-opus-4.8": {
+        "description": "Anthropic top-tier deep reasoning model"
+      },
+      "gemini-3.5-pro": {
+        "description": "Google multimodal flagship, 2M context"
+      },
+      "grok-4.5": {
+        "description": "xAI real-time enhanced reasoning model"
+      },
+      "deepseek-v4-pro": {
+        "description": "DeepSeek V4 open-source flagship"
+      },
+      "deepseek-v4-flash": {
+        "description": "DeepSeek V4 fast and affordable edition"
+      },
+      "glm-5.2": {
+        "description": "Zhipu Qingyan new-gen flagship, Chinese-optimized"
+      },
+      "qwen3.7-max": {
+        "description": "Alibaba Qwen 3.7 flagship"
+      },
+      "hunyuan-hy3": {
+        "description": "Tencent Hunyuan 3rd-gen, Chinese-optimized"
+      },
+      "kimi-k3": {
+        "description": "Moonshot 2M long-context flagship"
+      },
+      "ornith-1.0": {
+        "description": "Domestic emerging general model"
+      },
+      "codebrain-1": {
+        "description": "Domestic code-specialized model"
+      },
+      "mai-thinking-1": {
+        "description": "Domestic deep reasoning model"
       }
     },
     "nav": {
