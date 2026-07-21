@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 import { probeEmbed, takeScreenshot } from '@ihui/api-client'
+import type { WebViewMode, WebViewStatus, WorkPanelTab } from '@ihui/types'
 
 import { createPersistConfig } from './persist-helpers'
 
@@ -10,15 +11,28 @@ export const WORK_PANEL_DEFAULT_WIDTH = 480
 export const WORK_PANEL_MIN_WIDTH = 320
 export const WORK_PANEL_MAX_WIDTH = 900
 
-/** WebView 状态与模式(与 packages/ui/webview-frame 保持一致) */
-export type WebViewStatus =
-  | 'idle'
-  | 'loading'
-  | 'loaded'
-  | 'screenshot'
-  | 'failed'
-  | 'blocked'
-export type WebViewMode = 'iframe' | 'screenshot' | 'external'
+export type { WebViewStatus, WebViewMode }
+
+/** 最大 Tab 数量(超出自动关闭最旧) */
+const MAX_TABS = 5
+/** 最大最近访问记录数 */
+const MAX_RECENT_URLS = 30
+/** 最大收藏数 */
+const MAX_FAVORITES = 100
+
+/** 收藏项 */
+export interface FavoriteItem {
+  url: string
+  title: string
+  addedAt: number
+}
+
+/** 最近访问记录(全局历史) */
+export interface RecentUrlItem {
+  url: string
+  title: string
+  visitedAt: number
+}
 
 /** URL 安全白名单(与 markdown-stream.tsx 一致) */
 function isSafeUrl(href: string): boolean {
@@ -29,15 +43,56 @@ function isSafeUrl(href: string): boolean {
 function normalizeUrl(input: string): string {
   const trimmed = input.trim()
   if (!trimmed) return ''
-  // 已是 URL
   if (/^https?:\/\//i.test(trimmed)) return trimmed
   if (trimmed.startsWith('/')) return trimmed
-  // 看起来像域名(含点且无空格)
   if (/^[\w-]+(\.[\w-]+)+/.test(trimmed) && !/\s/.test(trimmed)) {
     return `https://${trimmed}`
   }
-  // 否则当作搜索词
   return `https://www.bing.com/search?q=${encodeURIComponent(trimmed)}`
+}
+
+/** 创建新 Tab */
+function createTab(url: string, title?: string): WorkPanelTab {
+  const now = Date.now()
+  return {
+    id: `tab-${now}-${Math.random().toString(36).slice(2, 8)}`,
+    type: 'browser',
+    title: title ?? url,
+    url,
+    history: [url],
+    historyIndex: 0,
+    state: {
+      status: 'loading',
+      url,
+      mode: 'iframe',
+    },
+    closable: true,
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
+/** 更新 active tab(不可变更新) */
+function patchActiveTab(
+  tabs: WorkPanelTab[],
+  activeTabId: string | null,
+  patch: (tab: WorkPanelTab) => Partial<WorkPanelTab>,
+): WorkPanelTab[] {
+  if (!activeTabId) return tabs
+  return tabs.map((t) =>
+    t.id === activeTabId ? { ...t, ...patch(t), updatedAt: Date.now() } : t,
+  )
+}
+
+/** 更新 active tab 的 state 字段 */
+function patchActiveTabState(
+  tabs: WorkPanelTab[],
+  activeTabId: string | null,
+  statePatch: Partial<WorkPanelTab['state']>,
+): WorkPanelTab[] {
+  return patchActiveTab(tabs, activeTabId, (tab) => ({
+    state: { ...tab.state, ...statePatch },
+  }))
 }
 
 interface WorkPanelState {
@@ -47,28 +102,18 @@ interface WorkPanelState {
   width: number
   /** 拖拽中标记 */
   isResizing: boolean
-  /** 当前 URL */
-  url: string
-  /** 地址栏输入值(实时输入,未提交) */
+  /** 地址栏输入值(全局,切换 tab 时同步为 active tab url) */
   addressInput: string
-  /** 历史栈 */
-  history: string[]
-  /** 当前历史索引(-1=无) */
-  historyIndex: number
-  /** 加载状态 */
-  status: WebViewStatus
-  /** 嵌入模式 */
-  mode: WebViewMode
-  /** 截图 base64(screenshot 模式) */
-  screenshot?: string
-  /** 页面标题 */
-  title?: string
-  /** 错误信息 */
-  error?: string
-  /** 是否加载中 */
-  isLoading: boolean
-  /** 打开来源(最后一次) */
-  lastSource?: 'user' | 'ai-tool' | 'markdown-link'
+
+  /** Tab 列表 */
+  tabs: WorkPanelTab[]
+  /** 当前激活 Tab ID */
+  activeTabId: string | null
+
+  /** 收藏夹 */
+  favorites: FavoriteItem[]
+  /** 最近访问记录(全局历史) */
+  recentUrls: RecentUrlItem[]
 
   // actions
   openPanel: (params?: { url?: string; source?: 'user' | 'ai-tool' | 'markdown-link' }) => void
@@ -81,6 +126,19 @@ interface WorkPanelState {
   forward: () => void
   reload: () => void
   stop: () => void
+
+  /** 新建 Tab(可带初始 URL) */
+  newTab: (url?: string) => void
+  /** 关闭 Tab */
+  closeTab: (tabId: string) => void
+  /** 切换激活 Tab */
+  setActiveTab: (tabId: string) => void
+
+  /** 添加收藏 */
+  addFavorite: (url: string, title: string) => void
+  /** 移除收藏 */
+  removeFavorite: (url: string) => void
+
   setWidth: (w: number) => void
   setResizing: (v: boolean) => void
   setAddressInput: (v: string) => void
@@ -88,19 +146,10 @@ interface WorkPanelState {
   onLoaded: () => void
   /** iframe 加载失败(触发降级) */
   onFailed: (error?: string) => void
-  /** 设置截图模式(P1 后端截图返回后调用) */
+  /** 设置截图模式 */
   setScreenshot: (screenshot: string, title?: string) => void
   /** 重置到 idle */
   reset: () => void
-}
-
-const idleState = {
-  status: 'idle' as WebViewStatus,
-  mode: 'iframe' as WebViewMode,
-  screenshot: undefined,
-  title: undefined,
-  error: undefined,
-  isLoading: false,
 }
 
 export const useWorkPanelStore = create<WorkPanelState>()(
@@ -109,11 +158,11 @@ export const useWorkPanelStore = create<WorkPanelState>()(
       open: false,
       width: WORK_PANEL_DEFAULT_WIDTH,
       isResizing: false,
-      url: '',
       addressInput: '',
-      history: [],
-      historyIndex: -1,
-      ...idleState,
+      tabs: [],
+      activeTabId: null,
+      favorites: [],
+      recentUrls: [],
 
       openPanel: (params) => {
         if (params?.url) {
@@ -126,27 +175,67 @@ export const useWorkPanelStore = create<WorkPanelState>()(
       toggle: () => set((s) => ({ open: !s.open })),
 
       navigate: (rawUrl, source = 'user') => {
+        void source // 保留参数兼容性(P3 MVP 不区分来源行为)
         const url = normalizeUrl(rawUrl)
         if (!url || !isSafeUrl(url)) {
-          set({ status: 'blocked', error: 'URL 不安全', mode: 'external' })
+          // 标记当前 tab 为 blocked(若有)
+          const { tabs, activeTabId } = get()
+          if (activeTabId) {
+            set({
+              open: true,
+              tabs: patchActiveTabState(tabs, activeTabId, {
+                status: 'blocked',
+                mode: 'external',
+                error: 'URL 不安全',
+              }),
+            })
+          }
           return
         }
-        const { history, historyIndex } = get()
-        // 截断前进栈
-        const newHistory = historyIndex < 0 ? [url] : [...history.slice(0, historyIndex + 1), url]
+
+        const { tabs, activeTabId, recentUrls } = get()
+
+        // 无 active tab → 新建 tab
+        if (!activeTabId || tabs.length === 0) {
+          const tab = createTab(url)
+          set({
+            open: true,
+            tabs: [tab],
+            activeTabId: tab.id,
+            addressInput: url,
+            recentUrls: [
+              { url, title: url, visitedAt: Date.now() },
+              ...recentUrls.filter((r) => r.url !== url),
+            ].slice(0, MAX_RECENT_URLS),
+          })
+          get().loadUrl(url)
+          return
+        }
+
+        // 更新 active tab:截断前进栈 + push url + state 重置
+        const newTabs = patchActiveTab(tabs, activeTabId, (tab) => {
+          const newHistory = [...tab.history.slice(0, tab.historyIndex + 1), url]
+          return {
+            url,
+            title: url,
+            history: newHistory,
+            historyIndex: newHistory.length - 1,
+            state: {
+              status: 'loading' as WebViewStatus,
+              url,
+              mode: 'iframe' as WebViewMode,
+            },
+          }
+        })
+
         set({
           open: true,
-          url,
+          tabs: newTabs,
           addressInput: url,
-          history: newHistory,
-          historyIndex: newHistory.length - 1,
-          status: 'loading',
-          mode: 'iframe',
-          isLoading: true,
-          screenshot: undefined,
-          title: undefined,
-          error: undefined,
-          lastSource: source,
+          recentUrls: [
+            { url, title: url, visitedAt: Date.now() },
+            ...recentUrls.filter((r) => r.url !== url),
+          ].slice(0, MAX_RECENT_URLS),
         })
         get().loadUrl(url)
       },
@@ -180,94 +269,217 @@ export const useWorkPanelStore = create<WorkPanelState>()(
             waitUntil: 'load',
             timeout: 15000,
           })
+
+          const { tabs, activeTabId } = get()
+          if (!activeTabId) return
+
           if (result.success && result.data?.screenshot) {
-            get().setScreenshot(result.data.screenshot, result.data.title)
+            set({
+              tabs: patchActiveTabState(tabs, activeTabId, {
+                status: 'screenshot',
+                mode: 'screenshot',
+                screenshot: result.data.screenshot,
+                title: result.data.title,
+                error: undefined,
+              }),
+            })
           } else {
             set({
-              isLoading: false,
-              status: 'failed',
-              mode: 'external',
-              error: result.error || '截图失败,该网站禁止嵌入',
+              tabs: patchActiveTabState(tabs, activeTabId, {
+                status: 'failed',
+                mode: 'external',
+                error: result.error || '截图失败,该网站禁止嵌入',
+              }),
             })
           }
         })()
       },
 
       back: () => {
-        const { history, historyIndex } = get()
-        if (historyIndex <= 0) return
-        const newIndex = historyIndex - 1
-        const url = history[newIndex]!
+        const { tabs, activeTabId } = get()
+        if (!activeTabId) return
+        const tab = tabs.find((t) => t.id === activeTabId)
+        if (!tab || tab.historyIndex <= 0) return
+        const newIndex = tab.historyIndex - 1
+        const url = tab.history[newIndex]!
         set({
-          url,
+          tabs: patchActiveTab(tabs, activeTabId, () => ({
+            url,
+            historyIndex: newIndex,
+            state: {
+              status: 'loading' as WebViewStatus,
+              url,
+              mode: 'iframe' as WebViewMode,
+            },
+          })),
           addressInput: url,
-          historyIndex: newIndex,
-          status: 'loading',
-          mode: 'iframe',
-          isLoading: true,
-          screenshot: undefined,
         })
         get().loadUrl(url)
       },
 
       forward: () => {
-        const { history, historyIndex } = get()
-        if (historyIndex >= history.length - 1) return
-        const newIndex = historyIndex + 1
-        const url = history[newIndex]!
+        const { tabs, activeTabId } = get()
+        if (!activeTabId) return
+        const tab = tabs.find((t) => t.id === activeTabId)
+        if (!tab || tab.historyIndex >= tab.history.length - 1) return
+        const newIndex = tab.historyIndex + 1
+        const url = tab.history[newIndex]!
         set({
-          url,
+          tabs: patchActiveTab(tabs, activeTabId, () => ({
+            url,
+            historyIndex: newIndex,
+            state: {
+              status: 'loading' as WebViewStatus,
+              url,
+              mode: 'iframe' as WebViewMode,
+            },
+          })),
           addressInput: url,
-          historyIndex: newIndex,
-          status: 'loading',
-          mode: 'iframe',
-          isLoading: true,
-          screenshot: undefined,
         })
         get().loadUrl(url)
       },
 
       reload: () => {
-        const { url } = get()
-        if (!url) return
+        const { tabs, activeTabId } = get()
+        if (!activeTabId) return
+        const tab = tabs.find((t) => t.id === activeTabId)
+        if (!tab || !tab.url) return
         set({
-          status: 'loading',
-          mode: 'iframe',
-          isLoading: true,
-          screenshot: undefined,
-          error: undefined,
+          tabs: patchActiveTabState(tabs, activeTabId, {
+            status: 'loading',
+            mode: 'iframe',
+            screenshot: undefined,
+            error: undefined,
+          }),
         })
-        get().loadUrl(url)
+        get().loadUrl(tab.url)
       },
 
-      stop: () => set({ isLoading: false, status: 'idle' }),
+      stop: () => {
+        const { tabs, activeTabId } = get()
+        if (!activeTabId) return
+        set({
+          tabs: patchActiveTabState(tabs, activeTabId, { status: 'idle' }),
+        })
+      },
+
+      newTab: (url) => {
+        const { tabs } = get()
+        const tabUrl = url ?? ''
+        const tab = createTab(tabUrl || 'about:blank')
+
+        // 超出上限 → 关闭最旧 tab
+        let newTabs = [...tabs, tab]
+        if (newTabs.length > MAX_TABS) {
+          newTabs = newTabs.slice(newTabs.length - MAX_TABS)
+        }
+
+        set({
+          open: true,
+          tabs: newTabs,
+          activeTabId: tab.id,
+          addressInput: tabUrl,
+        })
+
+        if (tabUrl) {
+          get().loadUrl(tabUrl)
+        }
+      },
+
+      closeTab: (tabId) => {
+        const { tabs, activeTabId } = get()
+        const idx = tabs.findIndex((t) => t.id === tabId)
+        if (idx < 0) return
+
+        const newTabs = tabs.filter((t) => t.id !== tabId)
+
+        // 关的是 active tab → 切换到相邻
+        let newActiveId = activeTabId
+        let newAddressInput = ''
+        if (activeTabId === tabId) {
+          if (newTabs.length === 0) {
+            newActiveId = null
+            newAddressInput = ''
+          } else {
+            // 优先切到右侧,无则左侧
+            const newIdx = Math.min(idx, newTabs.length - 1)
+            newActiveId = newTabs[newIdx]!.id
+            newAddressInput = newTabs[newIdx]!.url ?? ''
+          }
+        }
+
+        set({
+          tabs: newTabs,
+          activeTabId: newActiveId,
+          addressInput: newAddressInput,
+        })
+      },
+
+      setActiveTab: (tabId) => {
+        const { tabs } = get()
+        const tab = tabs.find((t) => t.id === tabId)
+        if (!tab) return
+        set({
+          activeTabId: tabId,
+          addressInput: tab.url ?? '',
+        })
+      },
+
+      addFavorite: (url, title) => {
+        const { favorites } = get()
+        if (favorites.some((f) => f.url === url)) return
+        set({
+          favorites: [{ url, title, addedAt: Date.now() }, ...favorites].slice(0, MAX_FAVORITES),
+        })
+      },
+
+      removeFavorite: (url) => {
+        set((s) => ({ favorites: s.favorites.filter((f) => f.url !== url) }))
+      },
 
       setWidth: (w) =>
         set({ width: Math.min(WORK_PANEL_MAX_WIDTH, Math.max(WORK_PANEL_MIN_WIDTH, w)) }),
       setResizing: (v) => set({ isResizing: v }),
       setAddressInput: (v) => set({ addressInput: v }),
 
-      onLoaded: () =>
-        set({ isLoading: false, status: 'loaded', error: undefined }),
+      onLoaded: () => {
+        const { tabs, activeTabId } = get()
+        if (!activeTabId) return
+        set({
+          tabs: patchActiveTabState(tabs, activeTabId, {
+            status: 'loaded',
+            error: undefined,
+          }),
+        })
+      },
 
       onFailed: (error) => {
-        // P1:iframe 失败 → 自动调后端 Playwright 截图(降级到 screenshot 模式)
-        // 截图成功 → setScreenshot();失败 → 降级到 external 模式
-        const { url } = get()
-        // 保留 loading 状态(截图期间仍显示 loading)
-        set({ status: 'loading', isLoading: true, error: undefined })
+        // iframe 失败 → 自动调后端 Playwright 截图(降级到 screenshot 模式)
+        const { tabs, activeTabId } = get()
+        if (!activeTabId) return
 
-        // 异步触发截图降级(不阻塞当前调用栈)
-        void (async () => {
-          if (!url) {
-            set({
-              isLoading: false,
+        const tab = tabs.find((t) => t.id === activeTabId)
+        if (!tab?.url) {
+          set({
+            tabs: patchActiveTabState(tabs, activeTabId, {
               status: 'failed',
               mode: 'external',
               error: error ?? '该网站禁止嵌入',
-            })
-            return
-          }
+            }),
+          })
+          return
+        }
+
+        // 保留 loading 状态(截图期间仍显示 loading)
+        set({
+          tabs: patchActiveTabState(tabs, activeTabId, {
+            status: 'loading',
+            error: undefined,
+          }),
+        })
+
+        const url = tab.url
+        void (async () => {
           const result = await takeScreenshot({
             url,
             width: 1280,
@@ -276,33 +488,67 @@ export const useWorkPanelStore = create<WorkPanelState>()(
             waitUntil: 'load',
             timeout: 15000,
           })
+
+          const { tabs: curTabs, activeTabId: curId } = get()
+          if (!curId) return
+
           if (result.success && result.data?.screenshot) {
-            get().setScreenshot(result.data.screenshot, result.data.title)
+            set({
+              tabs: patchActiveTabState(curTabs, curId, {
+                status: 'screenshot',
+                mode: 'screenshot',
+                screenshot: result.data.screenshot,
+                title: result.data.title,
+                error: undefined,
+              }),
+            })
           } else {
             set({
-              isLoading: false,
-              status: 'failed',
-              mode: 'external',
-              error: result.error || error || '截图失败,该网站禁止嵌入',
+              tabs: patchActiveTabState(curTabs, curId, {
+                status: 'failed',
+                mode: 'external',
+                error: result.error || error || '截图失败,该网站禁止嵌入',
+              }),
             })
           }
         })()
       },
 
-      setScreenshot: (screenshot, title) =>
+      setScreenshot: (screenshot, title) => {
+        const { tabs, activeTabId } = get()
+        if (!activeTabId) return
         set({
-          isLoading: false,
-          status: 'screenshot',
-          mode: 'screenshot',
-          screenshot,
-          title,
-        }),
+          tabs: patchActiveTabState(tabs, activeTabId, {
+            status: 'screenshot',
+            mode: 'screenshot',
+            screenshot,
+            title,
+          }),
+        })
+      },
 
-      reset: () => set({ ...idleState, url: '', addressInput: '', history: [], historyIndex: -1 }),
+      reset: () =>
+        set({
+          tabs: [],
+          activeTabId: null,
+          addressInput: '',
+        }),
     }),
     {
       ...createPersistConfig<WorkPanelState>('ihui-work-panel', (s) => ({
         width: s.width,
+        // 持久化 tabs 但清除 screenshot(体积大,需重新加载)
+        tabs: s.tabs.map((t) => ({
+          ...t,
+          state: {
+            ...t.state,
+            screenshot: undefined,
+            status: 'idle' as WebViewStatus,
+            progress: undefined,
+          },
+        })),
+        favorites: s.favorites,
+        recentUrls: s.recentUrls,
       })),
     },
   ),
