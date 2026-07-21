@@ -4,7 +4,7 @@
  * 端口: 8081(仅 localhost,不暴露公网)
  * 鉴权: X-Admin-API-Key + X-Admin-User(白名单)
  * 审计: 所有管理操作写入 JSON Lines 到 admin-api-audit.log(P1-2.2)
- * 端点: 见 ./routes/customers.ts + ./routes/auth.ts
+ * 端点: 见 ./routes/customers.ts + ./routes/auth.ts + ./routes/certificates.ts
  */
 
 import Fastify from 'fastify';
@@ -14,6 +14,7 @@ import { z } from 'zod';
 import { config, AUDIT_LOG_PATH } from './config.js';
 import { authRoutes } from './routes/auth.js';
 import { customerRoutes } from './routes/customers.js';
+import { certificateRoutes } from './routes/certificates.js';
 
 const app = Fastify({
   logger: {
@@ -71,6 +72,9 @@ await app.register(authRoutes);
 
 // 客户管理路由(/admin/api/customers/*)— 全部需要 X-Admin-API-Key
 await app.register(customerRoutes);
+
+// 证书管理路由(/admin/api/certificates/*)— P1-2.2c 扫描 Traefik acme.json
+await app.register(certificateRoutes);
 
 // 错误处理
 app.setErrorHandler((error, request, reply) => {
