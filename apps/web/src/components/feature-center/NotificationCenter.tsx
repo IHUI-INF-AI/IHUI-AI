@@ -70,7 +70,7 @@ export function NotificationCenter({
             暂无通知
           </div>
         ) : (
-          <div className="divide-y">
+          <div className="space-y-1">
             {items.map((item) => (
               <div
                 key={item.id}
