@@ -8,6 +8,8 @@ export * from './notification-channels.js'
 export * from './message-repair.js'
 export * from './agent-runtime.js'
 export * from './workspace.js'
+// 插件市场跨端类型契约(2026-07-22 立,复用 user_preferences 表)
+export * from './plugin.js'
 // 跨端 API 契约类型单一入口(纯类型 re-export,见 api-contracts.ts)
 // 通过 @ihui/types/api-contracts subpath 访问,避免与上方散落导出冲突。
 export * from './api-contracts.js'

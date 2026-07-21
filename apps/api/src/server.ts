@@ -167,6 +167,9 @@ import { aiImageEditRoutes } from './routes/ai-image-edit.js'
 // R68 补建：M-21 开放平台 Feature Center 后端路由
 import { featureCenterRoutes } from './routes/feature-center.js'
 
+// 插件市场后端路由(2026-07-22 立,复用 user_preferences 表,零迁移)
+import { pluginsRoutes } from './routes/plugins.js'
+
 // R68 补建：M-64 ask 模块扩展端点
 import { askExtendedRoutes } from './routes/ask-extended.js'
 // admin/asks 管理后台问答端点
@@ -835,6 +838,9 @@ function registerRoutes(server: FastifyInstance) {
   // ===== R68 补建：M-21 开放平台 Feature Center =====
   // M-21: Feature Center 后端路由（6端点）
   server.register(featureCenterRoutes, { prefix: '/api/feature-center' })
+
+  // 插件市场后端路由(2026-07-22 立,4端点:GET /installed + POST/DELETE /:id/install + PATCH /:id/preferences)
+  server.register(pluginsRoutes, { prefix: '/api/plugins' })
 
   // ===== R68 补建：M-64 ask 模块扩展端点 =====
   // M-64: ask 扩展（12端点：回答编辑/删除+点赞+收藏+评论+分类CRUD+树+统计）
