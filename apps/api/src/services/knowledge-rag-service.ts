@@ -20,6 +20,7 @@ import { desc, eq, and, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { knowledgeDoc, knowledgeChunk } from '@ihui/database'
 import { getEmbeddingProvider } from './embedding-provider.js'
+import { parseDocument } from './document-parser.js'
 
 /** 文本切片: 500 字符, 50 字符重叠, 优先在分隔符处断开 */
 function splitText(text: string, chunkSize = 500, overlap = 50): string[] {
@@ -155,6 +156,57 @@ class KnowledgeRagService {
     )
     await db.insert(knowledgeChunk).values(chunkRows)
     return chunks.length
+  }
+
+  /** 文件入库:解析多格式文件 → 走 ingestText 切片 + embedding
+   *
+   * 设计:
+   * - 复用 ingestText 全部逻辑(切片 / embedding / 入库),仅前置文件解析
+   * - 错误透传 UnsupportedFormatError / FileTooLargeError(由路由层转 400)
+   * - 解析后空文本 → 返回 0(与 ingestText 行为一致)
+   */
+  async ingestFile(opts: {
+    ownerUuid: string
+    title: string
+    buffer: Buffer
+    mimeType: string
+    filename: string
+    collectionName?: string
+  }): Promise<{ docId: number; chunkCount: number }> {
+    const { ownerUuid, title, buffer, mimeType, filename, collectionName = 'default' } = opts
+    const text = await parseDocument({ buffer, mimeType, filename })
+    if (!text || !text.trim()) {
+      return { docId: 0, chunkCount: 0 }
+    }
+    // sourceType 用 mimeType 简化值:pdf/docx/markdown/text/html
+    const sourceType = mimeType?.startsWith('application/pdf')
+      ? 'pdf'
+      : mimeType?.includes('wordprocessingml')
+        ? 'docx'
+        : mimeType === 'text/markdown'
+          ? 'markdown'
+          : mimeType === 'text/html'
+            ? 'html'
+            : 'file'
+
+    // 复用 ingestText 入库(切片 + embedding + 写入 knowledge_doc + knowledge_chunk)
+    const chunkCount = await this.ingestText({ ownerUuid, title, text, collectionName })
+    // 拿到刚插入的 docId(ingestText 已用 contentHash 唯一标识,但同名文件重新上传会创建新 doc)
+    const [latest] = await db
+      .select({ id: knowledgeDoc.id, sourceType: knowledgeDoc.sourceType })
+      .from(knowledgeDoc)
+      .where(and(eq(knowledgeDoc.ownerUuid, ownerUuid), eq(knowledgeDoc.title, title)))
+      .orderBy(desc(knowledgeDoc.createdAt))
+      .limit(1)
+    if (latest) {
+      // 覆盖 sourceType(text → file/具体类型),保持入库即所见即所得
+      await db
+        .update(knowledgeDoc)
+        .set({ sourceType, updatedAt: new Date() })
+        .where(eq(knowledgeDoc.id, latest.id))
+      return { docId: latest.id, chunkCount }
+    }
+    return { docId: 0, chunkCount }
   }
 
   /** 语义检索 (pgvector ANN)
