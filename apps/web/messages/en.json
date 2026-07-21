@@ -7772,7 +7772,15 @@
       "alipay": "Alipay",
       "renewNow": "Renew Now",
       "openNow": "Subscribe Now",
-      "days": "days"
+      "days": "days",
+      "pleaseSelectPlan": "Please select a subscription plan",
+      "openAutoRenewFailed": "Failed to open auto-renew",
+      "autoRenewManageTitle": "Auto-Renew Management",
+      "autoRenewOpened": "Auto-renew opened",
+      "nextCharge": "Next charge on",
+      "manage": "Manage",
+      "autoRenewClosed": "Auto-renew closed",
+      "openAutoRenew": "Open Auto-Renew"
     },
     "articles": {
       "title": "My Articles",
