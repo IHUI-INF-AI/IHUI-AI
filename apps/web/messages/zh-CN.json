@@ -1761,18 +1761,35 @@
       "free": {
         "name": "免费版",
         "cta": "开始使用",
-        "features": ["每日 10 次 AI 对话", "基础模型", "1 个项目", "社区支持"]
+        "features": [
+          "每日 10 次 AI 对话",
+          "基础模型",
+          "1 个项目",
+          "社区支持"
+        ]
       },
       "pro": {
         "name": "专业版",
         "cta": "立即升级",
-        "features": ["无限 AI 对话", "高级模型", "无限项目", "优先支持", "API 接入"]
+        "features": [
+          "无限 AI 对话",
+          "高级模型",
+          "无限项目",
+          "优先支持",
+          "API 接入"
+        ]
       },
       "enterprise": {
         "name": "企业版",
         "cta": "联系我们",
         "contactSales": "联系销售",
-        "features": ["专属部署", "团队管理", "SLA 保障", "定制开发", "培训支持"]
+        "features": [
+          "专属部署",
+          "团队管理",
+          "SLA 保障",
+          "定制开发",
+          "培训支持"
+        ]
       }
     },
     "checkout": {
@@ -8305,9 +8322,24 @@
     "planLifetimePrice": "¥999",
     "planFeatures": "套餐功能",
     "subscribe": "订阅",
-    "planMonthlyFeatures": ["每月 1000 积分", "基础 AI 对话", "社区访问"],
-    "planYearlyFeatures": ["每月 12000 积分", "高级 AI 对话", "优先客服", "去广告"],
-    "planLifetimeFeatures": ["无限积分", "全部 AI 功能", "专属客服", "去广告", "早期功能体验"],
+    "planMonthlyFeatures": [
+      "每月 1000 积分",
+      "基础 AI 对话",
+      "社区访问"
+    ],
+    "planYearlyFeatures": [
+      "每月 12000 积分",
+      "高级 AI 对话",
+      "优先客服",
+      "去广告"
+    ],
+    "planLifetimeFeatures": [
+      "无限积分",
+      "全部 AI 功能",
+      "专属客服",
+      "去广告",
+      "早期功能体验"
+    ],
     "avatarCurrent": "当前头像",
     "avatarUpload": "点击相机按钮选择图片",
     "avatarUploadBtn": "上传头像",
@@ -9783,29 +9815,11 @@
       "gemini-2-flash": {
         "description": "超长上下文多模态"
       },
-      "gpt-5.6-sol": {
-        "description": "OpenAI 2026-07 旗舰通用模型,1M 上下文"
-      },
-      "gpt-5.6-terra": {
-        "description": "OpenAI 多模态旗舰,擅长视觉理解"
-      },
-      "gpt-5.6-luna": {
-        "description": "OpenAI 代码专精模型"
-      },
       "gpt-red": {
         "description": "OpenAI 推理研究预览版"
       },
       "claude-sonnet-5": {
         "description": "Anthropic 2026-07 新一代旗舰,深度推理"
-      },
-      "claude-opus-4.8": {
-        "description": "Anthropic 顶级深度推理模型"
-      },
-      "gemini-3.5-pro": {
-        "description": "Google 多模态旗舰,2M 上下文"
-      },
-      "grok-4.5": {
-        "description": "xAI 实时增强推理模型"
       },
       "deepseek-v4-pro": {
         "description": "DeepSeek V4 开源旗舰"
@@ -9813,26 +9827,44 @@
       "deepseek-v4-flash": {
         "description": "DeepSeek V4 快速经济版"
       },
-      "glm-5.2": {
-        "description": "智谱清言新一代旗舰,中文优化"
-      },
-      "qwen3.7-max": {
-        "description": "阿里通义千问 3.7 旗舰"
-      },
       "hunyuan-hy3": {
         "description": "腾讯混元第三代,中文深度优化"
       },
       "kimi-k3": {
         "description": "月之暗面 2M 长上下文旗舰"
       },
-      "ornith-1.0": {
-        "description": "国产新势力通用模型"
-      },
       "codebrain-1": {
         "description": "国产代码专精模型"
       },
       "mai-thinking-1": {
         "description": "国产深度推理模型"
+      },
+      "gpt-5-6-sol": {
+        "description": "OpenAI 2026-07 旗舰通用模型,1M 上下文"
+      },
+      "gpt-5-6-terra": {
+        "description": "OpenAI 多模态旗舰,擅长视觉理解"
+      },
+      "gpt-5-6-luna": {
+        "description": "OpenAI 代码专精模型"
+      },
+      "claude-opus-4-8": {
+        "description": "Anthropic 顶级深度推理模型"
+      },
+      "gemini-3-5-pro": {
+        "description": "Google 多模态旗舰,2M 上下文"
+      },
+      "grok-4-5": {
+        "description": "xAI 实时增强推理模型"
+      },
+      "glm-5-2": {
+        "description": "智谱清言新一代旗舰,中文优化"
+      },
+      "qwen3-7-max": {
+        "description": "阿里通义千问 3.7 旗舰"
+      },
+      "ornith-1-0": {
+        "description": "国产新势力通用模型"
       }
     },
     "nav": {
@@ -13847,32 +13879,57 @@
       "chat": {
         "label": "AI 对话",
         "description": "开始新的 AI 对话",
-        "keywords": ["AI", "对话", "聊天", "chat"]
+        "keywords": [
+          "AI",
+          "对话",
+          "聊天",
+          "chat"
+        ]
       },
       "drama": {
         "label": "AI 短剧",
         "description": "创作 AI 短剧内容",
-        "keywords": ["短剧", "视频", "drama"]
+        "keywords": [
+          "短剧",
+          "视频",
+          "drama"
+        ]
       },
       "search": {
         "label": "搜索",
         "description": "搜索内容、用户、标签",
-        "keywords": ["搜索", "查找", "search"]
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 世界",
-        "keywords": ["AI世界", "探索", "world"]
+        "keywords": [
+          "AI世界",
+          "探索",
+          "world"
+        ]
       },
       "profile": {
         "label": "个人中心",
         "description": "查看个人主页",
-        "keywords": ["个人", "主页", "profile"]
+        "keywords": [
+          "个人",
+          "主页",
+          "profile"
+        ]
       },
       "settings": {
         "label": "设置",
         "description": "修改应用偏好设置",
-        "keywords": ["设置", "偏好", "settings"]
+        "keywords": [
+          "设置",
+          "偏好",
+          "settings"
+        ]
       }
     }
   },
@@ -17273,13 +17330,23 @@
       "title": "月度会员",
       "days": "30天",
       "select": "选择",
-      "benefits": ["全部课程免费学习", "专属学习社区", "每月3次AI答疑", "学习进度追踪"]
+      "benefits": [
+        "全部课程免费学习",
+        "专属学习社区",
+        "每月3次AI答疑",
+        "学习进度追踪"
+      ]
     },
     "yearly": {
       "title": "年度会员",
       "days": "365天",
       "select": "选择",
-      "benefits": ["全部课程免费学习", "专属学习社区", "无限AI答疑", "学习进度追踪+证书"]
+      "benefits": [
+        "全部课程免费学习",
+        "专属学习社区",
+        "无限AI答疑",
+        "学习进度追踪+证书"
+      ]
     },
     "monthlyMember": "月度会员",
     "yearlyMember": "年度会员"
@@ -21325,7 +21392,11 @@
       "label": "核心定位",
       "title": "AI时代企业理性效率服务与互助社群",
       "description": "智汇 AI社致力于帮助企业决策者深度理解AI与企业的关系,通过系统化的课程、实践探索和社群互助,构建人机协同的超级组织,实现企业的理性效率提升。",
-      "tags": ["人机协同", "理性效率", "超级组织"]
+      "tags": [
+        "人机协同",
+        "理性效率",
+        "超级组织"
+      ]
     },
     "modules": {
       "label": "三大服务模块",
@@ -21335,19 +21406,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"]
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "线上社群",
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"]
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI专业服务",
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"]
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ]
         }
       ]
     },
@@ -21479,25 +21562,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"]
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顾问",
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"]
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "执行专家",
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"]
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能专家",
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"]
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ]
         }
       ]
     },
@@ -21521,12 +21616,29 @@
       ],
       "infoTitle": "信息世界",
       "infoBasicLabel": "初级信息世界",
-      "infoBasic": ["信息化", "物联网", "自动化"],
+      "infoBasic": [
+        "信息化",
+        "物联网",
+        "自动化"
+      ],
       "infoAdvancedLabel": "高级信息世界",
-      "infoAdvanced": ["感知AI", "生成式AI", "智能体AI", "物理AI"],
+      "infoAdvanced": [
+        "感知AI",
+        "生成式AI",
+        "智能体AI",
+        "物理AI"
+      ],
       "effectTitle": "AI化效果",
-      "effectFlow": ["超级员工", "超级团队", "超级产品/服务"],
-      "effectMetrics": ["成本优化", "效率提升", "体验升级"]
+      "effectFlow": [
+        "超级员工",
+        "超级团队",
+        "超级产品/服务"
+      ],
+      "effectMetrics": [
+        "成本优化",
+        "效率提升",
+        "体验升级"
+      ]
     }
   },
   "drama": {
@@ -25699,7 +25811,15 @@
       "visitsHeader": "访问数",
       "ratioHeader": "占比"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ]
   },
   "pdfWatermarkPage": {
     "title": "PDF 水印",
@@ -25916,10 +26036,27 @@
       "targetPlaceholder": "如:重点高中、985大学"
     },
     "options": {
-      "school": ["公立学校", "私立学校", "重点学校"],
-      "classLevel": ["普通班", "重点班"],
-      "difficulty": ["阅读速度慢", "理解困难", "词汇量不足", "写作薄弱"],
-      "obstacle": ["游戏沉迷", "注意力分散", "拖延症", "效率低"]
+      "school": [
+        "公立学校",
+        "私立学校",
+        "重点学校"
+      ],
+      "classLevel": [
+        "普通班",
+        "重点班"
+      ],
+      "difficulty": [
+        "阅读速度慢",
+        "理解困难",
+        "词汇量不足",
+        "写作薄弱"
+      ],
+      "obstacle": [
+        "游戏沉迷",
+        "注意力分散",
+        "拖延症",
+        "效率低"
+      ]
     },
     "submit": "生成生涯指导",
     "submitting": "AI 分析中...",
@@ -26377,7 +26514,12 @@
     "rechargeCount": "累计 {n} 次充值",
     "packages": {
       "starter": {
-        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
       },
       "pro": {
         "features": [
@@ -26947,83 +27089,96 @@
     }
   },
   "oAuthCallbackPage": {
-    "loading": "正在完成登录...",
-    "success": "登录成功,正在跳转...",
+    "loading": "正在处理{provider}登录...",
+    "success": "登录成功,即将跳转...",
     "failedTitle": "登录失败",
     "backToLogin": "返回登录",
     "error": {
-      "missingPlatform": "缺少平台参数",
-      "missingCode": "缺少授权码",
-      "loginFailed": "登录失败,请重试",
-      "emptyData": "返回数据为空",
-      "network": "网络错误,请检查网络连接"
+      "missingPlatform": "缺少 platform 参数,请重新发起登录",
+      "missingCode": "缺少授权码参数,请重新发起登录",
+      "loginFailed": "登录失败,请稍后重试",
+      "emptyData": "登录返回数据为空",
+      "network": "网络错误,请检查连接"
     },
     "provider": {
-      "google": "谷歌",
-      "apple": "苹果",
+      "google": "Google",
+      "apple": "Apple",
       "thirdParty": "第三方"
     }
   },
   "agentsStatsPage": {
     "back": "返回",
     "title": "智能体统计",
-    "subtitle": "查看智能体表现指标",
-    "loading": "正在加载统计数据..."
+    "subtitle": "智能体使用数据概览",
+    "loading": "加载中...",
+    "stat": {
+      "totalAgents": "智能体总数",
+      "published": "已发布",
+      "pending": "待审核",
+      "totalCalls": "总调用数",
+      "totalUsers": "使用用户数",
+      "avgRating": "平均评分"
+    }
   },
   "videoTasksPage": {
-    "title": "视频生成任务",
-    "description": "管理您的 AI 视频生成任务",
+    "title": "即梦视频任务",
+    "description": "查看文生视频任务进度,生成中任务每 5 秒自动刷新",
     "refresh": "刷新",
     "taskList": "任务列表",
-    "loading": "正在加载任务...",
-    "empty": "暂无任务",
-    "promptSummary": "提示词",
+    "loading": "加载中...",
+    "empty": "暂无视频任务",
+    "promptSummary": "Prompt 摘要",
     "status": "状态",
     "createdAt": "创建时间"
   },
   "asksEditFormPage": {
-    "editTitle": "编辑提问",
-    "publishTitle": "发布提问",
+    "editTitle": "编辑问题",
+    "publishTitle": "发布问题",
     "titleLabel": "标题",
-    "titlePlaceholder": "请输入简洁的标题",
+    "titlePlaceholder": "请输入问题标题",
     "contentLabel": "内容",
     "contentPlaceholder": "请详细描述您的问题",
     "tagsLabel": "标签",
-    "tagsPlaceholder": "最多添加 5 个标签",
-    "saveButton": "保存",
-    "publishButton": "发布",
+    "tagsPlaceholder": "多个标签用逗号分隔",
+    "saveButton": "保存修改",
+    "publishButton": "发布问题",
     "cancel": "取消"
   },
   "rankingPage": {
-    "title": "排行榜",
-    "subtitle": "顶级贡献者和创作者",
-    "loading": "正在加载排行榜...",
+    "title": "综合排行榜",
+    "subtitle": "查看用户积分与活跃度排名",
+    "loading": "加载中...",
     "empty": "暂无排行数据",
     "col": {
       "rank": "排名",
       "user": "用户",
       "score": "积分"
+    },
+    "range": {
+      "week": "周榜",
+      "month": "月榜",
+      "total": "总榜"
     }
   },
   "recruitmentPage": {
-    "loading": "正在加载职位...",
-    "empty": "暂无招聘职位",
-    "defaultSubtitle": "加入我们",
-    "requirementsTitle": "职位要求",
-    "emptyRequirements": "无具体要求",
-    "benefitsTitle": "福利待遇",
-    "emptyBenefits": "暂无福利",
+    "loading": "加载中...",
+    "empty": "暂无招募计划",
+    "defaultSubtitle": "招募计划",
+    "requirementsTitle": "招募要求",
+    "emptyRequirements": "暂无要求",
+    "benefitsTitle": "专属权益",
+    "emptyBenefits": "暂无权益",
     "cta": {
-      "title": "准备加入?",
-      "subtitle": "请发送您的简历和作品集",
+      "title": "准备好加入我们了吗？",
+      "subtitle": "立即申请成为操盘手，开启专属成长路径",
       "button": "立即申请"
     }
   },
   "shareContentPage": {
     "modelIconAlt": "模型图标",
-    "defaultModelName": "AI 模型",
-    "aiGenerated": "AI 生成",
-    "tokenCostLabel": "Token 数"
+    "defaultModelName": "AI智能对话",
+    "aiGenerated": "智汇 AI 生成",
+    "tokenCostLabel": "消耗智汇值：{cost}"
   },
   "businessCardSharePage": {
     "loading": "加载中...",
@@ -27041,12 +27196,12 @@
     "success": "生成成功",
     "promptRequired": "请输入提示词",
     "title": "AI 图片生成",
-    "subtitle": "从文字描述生成图片",
+    "subtitle": "输入提示词生成图片",
     "promptLabel": "提示词",
-    "promptPlaceholder": "描述您想要的图片...",
+    "promptPlaceholder": "描述你想生成的图片...",
     "sizeLabel": "尺寸",
-    "generating": "正在生成...",
-    "generate": "生成",
+    "generating": "生成中...",
+    "generate": "生成图片",
     "download": "下载"
   },
   "kbEditPage": {
@@ -27056,20 +27211,107 @@
     "backToList": "返回列表",
     "notFound": "文章不存在",
     "title": "编辑文章",
-    "subtitle": "修改文章内容",
+    "subtitle": "修改知识库文章内容",
     "backToArticle": "返回文章",
     "submitLabel": "保存"
   },
   "learnMapPage": {
-    "defaultTitle": "学习路径",
-    "defaultDesc": "逐步掌握该主题",
-    "totalProgress": "总进度",
+    "defaultTitle": "学习地图",
+    "defaultDesc": "规划你的学习路径，循序渐进掌握知识点",
+    "totalProgress": "总体进度",
     "loading": "加载中...",
-    "empty": "暂无学习内容",
+    "empty": "暂无学习路径",
     "stageN": "第 {n} 阶段",
     "completed": "已完成",
-    "lessonsProgress": "已学 {completed}/{total} 课时",
+    "lessonsProgress": "{completed} / {total} 课时",
     "review": "复习",
     "continueLearning": "继续学习"
+  },
+  "modelsGroupsPage": {
+    "group": {
+      "1": {
+        "name": "默认分组",
+        "desc": "所有新用户默认所属分组"
+      },
+      "2": {
+        "name": "龙岗区数学组",
+        "desc": "龙岗区数学学科教师专用分组"
+      },
+      "3": {
+        "name": "高中英语组",
+        "desc": "高中英语教师专用分组"
+      },
+      "4": {
+        "name": "AI 教研组",
+        "desc": "AI 教学研究团队"
+      },
+      "5": {
+        "name": "管理员",
+        "desc": "系统管理员分组"
+      }
+    }
+  },
+  "livePlayPage": {
+    "detailBack": "返回直播",
+    "loading": "加载中...",
+    "notFound": "直播不存在",
+    "notLive": "尚未开始直播",
+    "viewCount": "{n} 观看",
+    "subscribed": "已订阅",
+    "subscribe": "订阅",
+    "share": "分享",
+    "danmuTitle": "弹幕互动",
+    "danmuPlaceholder": "发送弹幕...",
+    "me": "我"
+  },
+  "memberAddressFormPage": {
+    "recipient": "收货人",
+    "phone": "手机号",
+    "province": "省",
+    "city": "市",
+    "district": "区",
+    "detailAddress": "详细地址",
+    "setDefault": "设为默认地址",
+    "save": "保存",
+    "cancel": "取消"
+  },
+  "memberRefundsPage": {
+    "title": "退款记录",
+    "subtitle": "查看你的退款申请与处理进度",
+    "loading": "加载中...",
+    "empty": "暂无退款记录",
+    "reason": "原因: {reason}",
+    "status": {
+      "pending": "审核中",
+      "approved": "已通过",
+      "rejected": "已拒绝",
+      "completed": "已完成"
+    }
+  },
+  "modelsReferralPage": {
+    "title": "邀请奖励",
+    "subtitle": "邀请好友注册,双方均可获得奖励",
+    "link": {
+      "title": "我的邀请链接",
+      "tip": "分享您的专属邀请链接给好友",
+      "copy": "复制链接",
+      "reward": "好友注册并消费满 ¥10 后,您将获得 {amount} 奖励"
+    },
+    "stats": {
+      "invited": "已邀请",
+      "activated": "已激活",
+      "reward": "累计奖励"
+    },
+    "list": {
+      "title": "邀请记录",
+      "user": "用户",
+      "joined": "注册时间",
+      "reward": "奖励",
+      "status": "状态",
+      "statusLabels": {
+        "activated": "已激活",
+        "pending": "待激活"
+      }
+    }
   }
 }
