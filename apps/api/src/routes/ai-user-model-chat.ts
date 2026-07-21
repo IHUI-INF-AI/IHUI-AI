@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { eq, desc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
+import { recordAiCost } from '../plugins/ai-cost.js'
 import { success, error } from '../utils/response.js'
 import { zhsAiUserModelChatConfig, zhsAiUserModelChatHistory } from '@ihui/database'
 
