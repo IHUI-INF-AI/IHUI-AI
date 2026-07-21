@@ -466,6 +466,8 @@ export function MessageInput({
                   content={<SkillLibrary onSelect={fillInput} onClose={() => {}} />}
                   position="bottom"
                   trigger="click"
+                  portal
+                  align="start"
                   tooltip={t('skillLibrary.title')}
                 >
                   <button
