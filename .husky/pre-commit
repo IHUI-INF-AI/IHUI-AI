@@ -164,6 +164,12 @@ if (!run('🖱️  检查原生 title tooltip 违规...', 'node scripts/check-na
   process.exit(1)
 }
 
+// 19. Staged 污染预警 (warn-only, 2026-07-20 立)
+// 防止多 agent 并行时误把其他 agent 改动一起 commit (污染事故, AGENTS.md §16)
+// 启发式: staged > 10 文件 + 跨 ≥ 3 个一级子目录 → 打印警告 (不阻塞)
+// 配套工具: scripts/guard-push-other-agent-changes.mjs (白名单模式, 阻塞)
+run('⚠️  检查 staged 污染预警(warn-only)...', 'node scripts/check-staged-pollution.mjs')
+
 // 16. 条件 typecheck 闸门(仅 staged 涉及 apps/web 时跑 web typecheck)
 // 防止"commit 通过但 push 失败"的循环(f21dc473 commit 漏掉 import 的教训)
 // 只在 staged 文件涉及 apps/web 时跑,避免影响其他包的 commit 速度
