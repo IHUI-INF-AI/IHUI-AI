@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
 from ..core.context_compaction import compress_messages_if_needed
+from ..core.question_parser import QuestionStreamParser
 from ..services.project_memory import build_system_prompt
 
 router = APIRouter()
@@ -213,6 +214,9 @@ async def complete_stream(req: LLMCompleteRequest) -> StreamingResponse:
         messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
 
     async def gen():
+        # 提问标记解析器:检测 LLM 输出中的 [[ASK_USER:JSON]] 标记,转换为结构化 question 事件
+        # 标记本身从内容中剥离,不污染对话文本;跨 chunk 分片自动累积
+        question_parser = QuestionStreamParser()
         try:
             # 若发生压缩,通过 SSE 首事件通知调用方(对标 API 层的 compaction 事件)
             if compaction_info and compaction_info.get("compressed"):
@@ -221,10 +225,33 @@ async def complete_stream(req: LLMCompleteRequest) -> StreamingResponse:
                 event_type = event.get("type", "message")
                 # 累积内容用于回调
                 if event_type in ("chunk", "message"):
-                    accumulated["content"] += event.get("content", "")
+                    raw_content = event.get("content", "")
+                    # 喂入提问解析器,拿到剥离标记后的纯文本 + 提问列表
+                    clean_text, questions = question_parser.feed(raw_content)
+                    # 用纯文本替换原 content(标记不进对话文本)
+                    event["content"] = clean_text
+                    accumulated["content"] += clean_text
+                    # 先推送可能存在的提问事件(在 chunk 之前,让 UI 提前弹窗)
+                    for q in questions:
+                        q_event = {"type": "question", "question": q.to_dict()}
+                        yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                    # 仅当有纯文本时才推送 chunk(避免空 chunk)
+                    if clean_text:
+                        yield f"event: {event_type}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+                    continue
                 elif event_type == "reasoning":
                     accumulated["reasoning"] += event.get("content", "")
                 elif event_type == "done":
+                    # 流结束前 flush 解析器残留(不完整标记作为普通文本输出,不吞内容)
+                    leftover, leftover_qs = question_parser.flush()
+                    if leftover:
+                        # 残留文本作为最后一个 chunk 推送
+                        chunk_event = {"type": "chunk", "content": leftover}
+                        accumulated["content"] += leftover
+                        yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                    for q in leftover_qs:
+                        q_event = {"type": "question", "question": q.to_dict()}
+                        yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
                     accumulated["model"] = event.get("model", req.model)
                     accumulated["usage"] = event.get("usage")
                     accumulated["stub"] = event.get("stub", False)
