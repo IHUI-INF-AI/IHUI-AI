@@ -1707,7 +1707,12 @@
       "free": {
         "name": "무료",
         "cta": "getStarted",
-        "features": ["10 AI chats per day", "Basic models", "1 project", "Community support"]
+        "features": [
+          "10 AI chats per day",
+          "Basic models",
+          "1 project",
+          "Community support"
+        ]
       },
       "pro": {
         "name": "프로페셔널",
@@ -7975,8 +7980,17 @@
     "planLifetimePrice": "¥999",
     "planFeatures": "플랜 기능",
     "subscribe": "구독",
-    "planMonthlyFeatures": ["월 1000 크레딧", "기본 AI 채팅", "커뮤니티 접근"],
-    "planYearlyFeatures": ["월 12000 크레딧", "고급 AI 채팅", "우선 지원", "광고 없음"],
+    "planMonthlyFeatures": [
+      "월 1000 크레딧",
+      "기본 AI 채팅",
+      "커뮤니티 접근"
+    ],
+    "planYearlyFeatures": [
+      "월 12000 크레딧",
+      "고급 AI 채팅",
+      "우선 지원",
+      "광고 없음"
+    ],
     "planLifetimeFeatures": [
       "무제한 크레딧",
       "모든 AI 기능",
@@ -17080,13 +17094,23 @@
       "title": "청크월회원",
       "days": "30일",
       "select": "선택",
-      "benefits": ["전체코스관리무료학습", "학습 커뮤니티", "월3ai", "학습 진도"]
+      "benefits": [
+        "전체코스관리무료학습",
+        "학습 커뮤니티",
+        "월3ai",
+        "학습 진도"
+      ]
     },
     "yearly": {
       "title": "청크년회원",
       "days": "365일",
       "select": "선택",
-      "benefits": ["전체코스관리무료학습", "학습 커뮤니티", "없음ai", "학습 진도+인증서"]
+      "benefits": [
+        "전체코스관리무료학습",
+        "학습 커뮤니티",
+        "없음ai",
+        "학습 진도+인증서"
+      ]
     },
     "monthlyMember": "청크월회원",
     "yearlyMember": "청크년회원"
@@ -21132,7 +21156,11 @@
       "label": "핵심 포지셔닝",
       "title": "AI 시대 기업 합리적 효율 서비스 및 상호 지원 커뮤니티",
       "description": "IHUI AI 커뮤니티는 기업 의사결정자가 AI와 기업의 관계를 깊이 이해하도록 돕는 데 전념합니다. 체계적인 과정, 실천 탐구, 커뮤니티 상호 지원을 통해 인간-기계 협업 슈퍼 조직을 구축하고 기업의 합리적 효율 향상을 실현합니다.",
-      "tags": ["인간-기계 협업", "합리적 효율", "슈퍼 조직"]
+      "tags": [
+        "인간-기계 협업",
+        "합리적 효율",
+        "슈퍼 조직"
+      ]
     },
     "modules": {
       "label": "3대 서비스 모듈",
@@ -21142,19 +21170,31 @@
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티",
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"]
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티",
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"]
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI 전문 서비스",
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"]
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ]
         }
       ]
     },
@@ -21286,25 +21326,37 @@
           "tag": "Q1",
           "title": "효율적 어시스턴트",
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"]
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ]
         },
         {
           "tag": "Q2",
           "title": "스마트 어드바이저",
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"]
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ]
         },
         {
           "tag": "Q3",
           "title": "실행 전문가",
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"]
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ]
         },
         {
           "tag": "Q4",
           "title": "올라운드 전문가",
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"]
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ]
         }
       ]
     },
@@ -21328,12 +21380,29 @@
       ],
       "infoTitle": "정보 세계",
       "infoBasicLabel": "초급 정보 세계",
-      "infoBasic": ["정보화", "IoT", "자동화"],
+      "infoBasic": [
+        "정보화",
+        "IoT",
+        "자동화"
+      ],
       "infoAdvancedLabel": "고급 정보 세계",
-      "infoAdvanced": ["지각 AI", "생성형 AI", "에이전트 AI", "물리 AI"],
+      "infoAdvanced": [
+        "지각 AI",
+        "생성형 AI",
+        "에이전트 AI",
+        "물리 AI"
+      ],
       "effectTitle": "AI화 효과",
-      "effectFlow": ["슈퍼 직원", "슈퍼 팀", "슈퍼 제품/서비스"],
-      "effectMetrics": ["비용 최적화", "효율 향상", "경험 업그레이드"]
+      "effectFlow": [
+        "슈퍼 직원",
+        "슈퍼 팀",
+        "슈퍼 제품/서비스"
+      ],
+      "effectMetrics": [
+        "비용 최적화",
+        "효율 향상",
+        "경험 업그레이드"
+      ]
     }
   },
   "drama": {
@@ -25415,7 +25484,14 @@
       "originalPrice": "¥18000",
       "period": "/인/년",
       "desc": "선착순 18석 한정, 품절 시 정가로 복귀",
-      "features": ["연간 모든 강의 무료 참여", "이벤트 우선 참여", "커뮤니티 지원 무제한", "온라인 커뮤니티 전용 입장", "AI 어시스턴트 우선 체험", "불만족 전액 환불"],
+      "features": [
+        "연간 모든 강의 무료 참여",
+        "이벤트 우선 참여",
+        "커뮤니티 지원 무제한",
+        "온라인 커뮤니티 전용 입장",
+        "AI 어시스턴트 우선 체험",
+        "불만족 전액 환불"
+      ],
       "cta": "지금 참여"
     },
     "standard": {
@@ -25423,7 +25499,13 @@
       "price": "¥18000",
       "period": "/인/년",
       "desc": "얼리버드 품절 후 자동으로 이 요금제로 전환",
-      "features": ["연간 모든 강의 무료 참여", "이벤트 우선 참여", "커뮤니티 지원 무제한", "온라인 커뮤니티 전용 입장", "AI 어시스턴트 우선 체험"],
+      "features": [
+        "연간 모든 강의 무료 참여",
+        "이벤트 우선 참여",
+        "커뮤니티 지원 무제한",
+        "온라인 커뮤니티 전용 입장",
+        "AI 어시스턴트 우선 체험"
+      ],
       "cta": "자세히 보기"
     },
     "enterprise": {
@@ -25431,7 +25513,13 @@
       "price": "영업팀 문의",
       "period": "",
       "desc": "기업 의사결정자 팀을 위한 맞춤형 플랜",
-      "features": ["팀 다중 좌석 패키지", "1:1 AI 컨설팅", "기업 AI 문화 정착 지원", "전용 맞춤 강의", "프라이빗 폐쇄 행사"],
+      "features": [
+        "팀 다중 좌석 패키지",
+        "1:1 AI 컨설팅",
+        "기업 AI 문화 정착 지원",
+        "전용 맞춤 강의",
+        "프라이빗 폐쇄 행사"
+      ],
       "cta": "영업팀 문의"
     }
   },
@@ -25487,7 +25575,15 @@
       "visitsHeader": "방문수",
       "ratioHeader": "비율"
     },
-    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ]
   },
   "pdfWatermarkPage": {
     "title": "PDF 워터마크",
@@ -25539,14 +25635,226 @@
       "creative": "크리에이티브"
     },
     "fields": {
-      "name": { "label": "이름 *", "placeholder": "장산" },
-      "title": { "label": "직책", "placeholder": "프로덕트 매니저" },
-      "company": { "label": "회사", "placeholder": "XX 테크놀로지 주식회사" },
-      "phone": { "label": "전화", "placeholder": "13800138000" },
-      "email": { "label": "이메일", "placeholder": "zhangsan@example.com" },
-      "wechat": { "label": "WeChat", "placeholder": "zhangsan_wx" },
-      "address": { "label": "주소", "placeholder": "서울특별시 강남구..." },
-      "avatar": { "label": "아바타 URL", "placeholder": "https://..." }
+      "name": {
+        "label": "이름 *",
+        "placeholder": "장산"
+      },
+      "title": {
+        "label": "직책",
+        "placeholder": "프로덕트 매니저"
+      },
+      "company": {
+        "label": "회사",
+        "placeholder": "XX 테크놀로지 주식회사"
+      },
+      "phone": {
+        "label": "전화",
+        "placeholder": "13800138000"
+      },
+      "email": {
+        "label": "이메일",
+        "placeholder": "zhangsan@example.com"
+      },
+      "wechat": {
+        "label": "WeChat",
+        "placeholder": "zhangsan_wx"
+      },
+      "address": {
+        "label": "주소",
+        "placeholder": "서울특별시 강남구..."
+      },
+      "avatar": {
+        "label": "아바타 URL",
+        "placeholder": "https://..."
+      }
+    }
+  },
+  "refundDetailPage": {
+    "loading": "로딩 중...",
+    "back": "뒤로",
+    "title": "환불 상세",
+    "notFound": "환불 기록이 존재하지 않습니다",
+    "status": {
+      "pending": "심사 중",
+      "approved": "승인됨",
+      "rejected": "거절됨",
+      "completed": "완료됨"
+    },
+    "auditAction": {
+      "approve": "승인",
+      "reject": "거절"
+    },
+    "refundType": {
+      "original": "원래 결제 수단으로 환불"
+    },
+    "fields": {
+      "refundNo": "환불 번호",
+      "orderNo": "주문 번호",
+      "orderType": "주문 유형",
+      "refundAmount": "환불 금액",
+      "refundType": "환불 방식",
+      "applyTime": "신청 시간",
+      "processTime": "처리 시간",
+      "completeTime": "완료 시간",
+      "reason": "환불 사유",
+      "processMessage": "처리 설명",
+      "handleMessage": "처리 결과"
+    },
+    "auditRecords": "심사 기록"
+  },
+  "memberOrderDetailPage": {
+    "loading": "로딩 중...",
+    "back": "뒤로",
+    "title": "주문 상세",
+    "notFound": "주문이 존재하지 않습니다",
+    "status": {
+      "pending": "결제 대기",
+      "paid": "결제 완료",
+      "cancelled": "취소됨",
+      "refunded": "환불됨"
+    },
+    "fields": {
+      "orderNo": "주문 번호",
+      "product": "상품명",
+      "orderType": "주문 유형",
+      "quantity": "수량",
+      "createdAt": "생성 시간",
+      "payTime": "결제 시간",
+      "cancelTime": "취소 시간",
+      "refundTime": "환불 시간",
+      "payType": "결제 수단",
+      "remark": "비고",
+      "originalPrice": "원가",
+      "discount": "할인",
+      "payAmount": "결제 금액"
+    },
+    "actions": {
+      "pay": "결제하기",
+      "cancel": "주문 취소"
+    }
+  },
+  "resourceFormPage": {
+    "cardTitle": "리소스 정보",
+    "fields": {
+      "title": {
+        "label": "제목",
+        "placeholder": "리소스 제목을 입력하세요"
+      },
+      "intro": {
+        "label": "설명",
+        "placeholder": "리소스 설명을 입력하세요"
+      },
+      "cidList": {
+        "label": "카테고리(다중 선택, 쉼표로 구분된 ID)",
+        "placeholder": "예:uuid1, uuid2",
+        "available": "선택 가능한 카테고리"
+      },
+      "type": {
+        "label": "리소스 유형",
+        "placeholder": "리소스 유형을 선택하세요"
+      },
+      "productId": {
+        "label": "제품 ID",
+        "placeholder": "관련 제품 ID를 입력하세요"
+      },
+      "tagIdList": {
+        "label": "태그(다중 선택, 쉼표로 구분된 ID)",
+        "placeholder": "예:tag-id-1, tag-id-2"
+      },
+      "image": {
+        "label": "표시 이미지",
+        "placeholder": "표시 이미지 업로드"
+      },
+      "introduction": {
+        "label": "리소스 소개(리치 텍스트)",
+        "placeholder": "리소스 상세 소개를 입력하세요..."
+      },
+      "file": {
+        "label": "파일 업로드",
+        "uploading": "업로드 중...",
+        "select": "클릭하여 파일 업로드",
+        "removeLabel": "파일 제거"
+      }
+    },
+    "submit": {
+      "edit": "변경 사항 저장",
+      "create": "리소스 게시",
+      "cancel": "취소"
+    }
+  },
+  "aiCareerPage": {
+    "title": "AI 진로 지도",
+    "subtitle": "자녀의 학습 상황을 입력하면 AI가 맞춤형 진로 지도를 생성합니다",
+    "fields": {
+      "school": "자녀 재학 학교 유형",
+      "classLevel": "학급 전체 수준",
+      "scoreRange": "국어 및 영어 시험 점수 범위",
+      "scoreRangePlaceholder": "예:80-90점",
+      "languageDifficulty": "국어 및 영어 학습 어려움",
+      "scienceCharacteristics": "이과 특징",
+      "scienceCharacteristicsPlaceholder": "예:수학 우수, 물리 보통...",
+      "learningObstacle": "학습 장애 요인",
+      "hobbies": "취미",
+      "hobbiesPlaceholder": "예:프로그래밍, 그림, 음악",
+      "target": "진학 목표",
+      "targetPlaceholder": "예:명문 고등학교, 985대학"
+    },
+    "options": {
+      "school": [
+        "공립학교",
+        "사립학교",
+        "특목학교"
+      ],
+      "classLevel": [
+        "일반반",
+        "특별반"
+      ],
+      "difficulty": [
+        "읽기 속도 느림",
+        "이해困难",
+        "어휘 부족",
+        "작문 취약"
+      ],
+      "obstacle": [
+        "게임 중독",
+        "주의력 분산",
+        "미루기",
+        "효율 저하"
+      ]
+    },
+    "submit": "진로 지도 생성",
+    "submitting": "AI 분석 중...",
+    "result": {
+      "title": "AI 진로 지도 제안",
+      "failed": "AI 분석 실패"
+    }
+  },
+  "memberExamRecordPage": {
+    "title": "내 시험 기록",
+    "subtitle": "과거 시험 점수와 답안 상세 보기",
+    "loading": "로딩 중...",
+    "empty": "시험 기록이 없습니다",
+    "table": {
+      "examName": "시험명",
+      "examTime": "시험 시간",
+      "score": "점수",
+      "result": "결과",
+      "action": "작업"
+    },
+    "passed": "합격",
+    "failed": "불합격",
+    "total": "총 {n}건",
+    "viewDetail": "상세 보기",
+    "detail": {
+      "title": "시험 점수 상세",
+      "score": "점수",
+      "correct": "정답",
+      "wrong": "오답",
+      "unanswered": "미응답",
+      "question": "문제",
+      "resultCol": "결과",
+      "correctLabel": "정답",
+      "wrongLabel": "오답"
     }
   }
 }
