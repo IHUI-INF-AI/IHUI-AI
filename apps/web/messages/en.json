@@ -1707,7 +1707,12 @@
       "free": {
         "name": "Free",
         "cta": "Get Started",
-        "features": ["10 AI chats per day", "Basic models", "1 project", "Community support"]
+        "features": [
+          "10 AI chats per day",
+          "Basic models",
+          "1 project",
+          "Community support"
+        ]
       },
       "pro": {
         "name": "Pro",
@@ -7975,7 +7980,11 @@
     "planLifetimePrice": "$149.99",
     "planFeatures": "Plan Features",
     "subscribe": "Subscribe",
-    "planMonthlyFeatures": ["1000 credits/month", "Basic AI chat", "Community access"],
+    "planMonthlyFeatures": [
+      "1000 credits/month",
+      "Basic AI chat",
+      "Community access"
+    ],
     "planYearlyFeatures": [
       "12000 credits/month",
       "Advanced AI chat",
@@ -17085,7 +17094,12 @@
       "title": "MonthlyMember",
       "days": "30day",
       "select": "Sel",
-      "benefits": ["All Lessons Free Study", "Learning Community", "M3SubAI", "Learning Progress"]
+      "benefits": [
+        "All Lessons Free Study",
+        "Learning Community",
+        "M3SubAI",
+        "Learning Progress"
+      ]
     },
     "yearly": {
       "title": "YearlyMember",
@@ -21142,7 +21156,11 @@
       "label": "Core Positioning",
       "title": "Rational efficiency services and a mutual-aid community for enterprises in the AI era",
       "description": "IHUI AI Community is dedicated to helping enterprise decision-makers deeply understand the relationship between AI and enterprises. Through systematic courses, hands-on exploration, and community mutual aid, we build human-machine collaborative super organizations and achieve rational efficiency gains for enterprises.",
-      "tags": ["Human-Machine Collaboration", "Rational Efficiency", "Super Organization"]
+      "tags": [
+        "Human-Machine Collaboration",
+        "Rational Efficiency",
+        "Super Organization"
+      ]
     },
     "modules": {
       "label": "Three Service Modules",
@@ -21152,19 +21170,31 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"]
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"]
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ]
         }
       ]
     },
@@ -21296,25 +21326,37 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"]
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"]
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"]
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"]
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ]
         }
       ]
     },
@@ -21338,12 +21380,29 @@
       ],
       "infoTitle": "Information World",
       "infoBasicLabel": "Basic Information World",
-      "infoBasic": ["Informatization", "IoT", "Automation"],
+      "infoBasic": [
+        "Informatization",
+        "IoT",
+        "Automation"
+      ],
       "infoAdvancedLabel": "Advanced Information World",
-      "infoAdvanced": ["Perceptive AI", "Generative AI", "Agent AI", "Physical AI"],
+      "infoAdvanced": [
+        "Perceptive AI",
+        "Generative AI",
+        "Agent AI",
+        "Physical AI"
+      ],
       "effectTitle": "AI Transformation Effects",
-      "effectFlow": ["Super Employee", "Super Team", "Super Product/Service"],
-      "effectMetrics": ["Cost Optimization", "Efficiency Improvement", "Experience Upgrade"]
+      "effectFlow": [
+        "Super Employee",
+        "Super Team",
+        "Super Product/Service"
+      ],
+      "effectMetrics": [
+        "Cost Optimization",
+        "Efficiency Improvement",
+        "Experience Upgrade"
+      ]
     }
   },
   "drama": {
@@ -25425,7 +25484,14 @@
       "originalPrice": "¥18000",
       "period": "/person/year",
       "desc": "Limited to first 18 seats, regular price after sold out",
-      "features": ["Free access to all yearly courses", "Priority access to events", "Unlimited community support", "Online community exclusive entry", "Priority AI assistant experience", "Full refund if unsatisfied"],
+      "features": [
+        "Free access to all yearly courses",
+        "Priority access to events",
+        "Unlimited community support",
+        "Online community exclusive entry",
+        "Priority AI assistant experience",
+        "Full refund if unsatisfied"
+      ],
       "cta": "Join Now"
     },
     "standard": {
@@ -25433,7 +25499,13 @@
       "price": "¥18000",
       "period": "/person/year",
       "desc": "Automatically switches to this plan after early bird sold out",
-      "features": ["Free access to all yearly courses", "Priority access to events", "Unlimited community support", "Online community exclusive entry", "Priority AI assistant experience"],
+      "features": [
+        "Free access to all yearly courses",
+        "Priority access to events",
+        "Unlimited community support",
+        "Online community exclusive entry",
+        "Priority AI assistant experience"
+      ],
       "cta": "Learn More"
     },
     "enterprise": {
@@ -25441,7 +25513,13 @@
       "price": "Contact Sales",
       "period": "",
       "desc": "Customized plan for enterprise decision-maker teams",
-      "features": ["Team multi-seat package", "One-on-one AI consultant", "Enterprise AI culture implementation", "Custom courses", "Private closed-door events"],
+      "features": [
+        "Team multi-seat package",
+        "One-on-one AI consultant",
+        "Enterprise AI culture implementation",
+        "Custom courses",
+        "Private closed-door events"
+      ],
       "cta": "Contact Sales"
     }
   },
@@ -25497,7 +25575,15 @@
       "visitsHeader": "Visits",
       "ratioHeader": "Ratio"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "pdfWatermarkPage": {
     "title": "PDF Watermark",
@@ -25549,14 +25635,226 @@
       "creative": "Creative"
     },
     "fields": {
-      "name": { "label": "Name *", "placeholder": "Zhang San" },
-      "title": { "label": "Title", "placeholder": "Product Manager" },
-      "company": { "label": "Company", "placeholder": "XX Tech Co., Ltd." },
-      "phone": { "label": "Phone", "placeholder": "13800138000" },
-      "email": { "label": "Email", "placeholder": "zhangsan@example.com" },
-      "wechat": { "label": "WeChat", "placeholder": "zhangsan_wx" },
-      "address": { "label": "Address", "placeholder": "Chaoyang District, Beijing..." },
-      "avatar": { "label": "Avatar URL", "placeholder": "https://..." }
+      "name": {
+        "label": "Name *",
+        "placeholder": "Zhang San"
+      },
+      "title": {
+        "label": "Title",
+        "placeholder": "Product Manager"
+      },
+      "company": {
+        "label": "Company",
+        "placeholder": "XX Tech Co., Ltd."
+      },
+      "phone": {
+        "label": "Phone",
+        "placeholder": "13800138000"
+      },
+      "email": {
+        "label": "Email",
+        "placeholder": "zhangsan@example.com"
+      },
+      "wechat": {
+        "label": "WeChat",
+        "placeholder": "zhangsan_wx"
+      },
+      "address": {
+        "label": "Address",
+        "placeholder": "Chaoyang District, Beijing..."
+      },
+      "avatar": {
+        "label": "Avatar URL",
+        "placeholder": "https://..."
+      }
+    }
+  },
+  "refundDetailPage": {
+    "loading": "Loading...",
+    "back": "Back",
+    "title": "Refund Details",
+    "notFound": "Refund record not found",
+    "status": {
+      "pending": "Under Review",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "completed": "Completed"
+    },
+    "auditAction": {
+      "approve": "Approved",
+      "reject": "Rejected"
+    },
+    "refundType": {
+      "original": "Refund to Original Payment Method"
+    },
+    "fields": {
+      "refundNo": "Refund No.",
+      "orderNo": "Order No.",
+      "orderType": "Order Type",
+      "refundAmount": "Refund Amount",
+      "refundType": "Refund Method",
+      "applyTime": "Apply Time",
+      "processTime": "Process Time",
+      "completeTime": "Complete Time",
+      "reason": "Refund Reason",
+      "processMessage": "Process Note",
+      "handleMessage": "Handle Result"
+    },
+    "auditRecords": "Audit Records"
+  },
+  "memberOrderDetailPage": {
+    "loading": "Loading...",
+    "back": "Back",
+    "title": "Order Details",
+    "notFound": "Order not found",
+    "status": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "cancelled": "Cancelled",
+      "refunded": "Refunded"
+    },
+    "fields": {
+      "orderNo": "Order No.",
+      "product": "Product",
+      "orderType": "Order Type",
+      "quantity": "Quantity",
+      "createdAt": "Created At",
+      "payTime": "Pay Time",
+      "cancelTime": "Cancel Time",
+      "refundTime": "Refund Time",
+      "payType": "Payment Method",
+      "remark": "Remark",
+      "originalPrice": "Original Price",
+      "discount": "Discount",
+      "payAmount": "Amount Paid"
+    },
+    "actions": {
+      "pay": "Pay Now",
+      "cancel": "Cancel Order"
+    }
+  },
+  "resourceFormPage": {
+    "cardTitle": "Resource Info",
+    "fields": {
+      "title": {
+        "label": "Title",
+        "placeholder": "Enter resource title"
+      },
+      "intro": {
+        "label": "Description",
+        "placeholder": "Enter resource description"
+      },
+      "cidList": {
+        "label": "Categories (multi-select, comma-separated IDs)",
+        "placeholder": "e.g. uuid1, uuid2",
+        "available": "Available categories"
+      },
+      "type": {
+        "label": "Resource Type",
+        "placeholder": "Select resource type"
+      },
+      "productId": {
+        "label": "Product ID",
+        "placeholder": "Enter related product ID"
+      },
+      "tagIdList": {
+        "label": "Tags (multi-select, comma-separated IDs)",
+        "placeholder": "e.g. tag-id-1, tag-id-2"
+      },
+      "image": {
+        "label": "Display Image",
+        "placeholder": "Upload display image"
+      },
+      "introduction": {
+        "label": "Resource Intro (rich text)",
+        "placeholder": "Enter resource introduction..."
+      },
+      "file": {
+        "label": "File Upload",
+        "uploading": "Uploading...",
+        "select": "Click to upload file",
+        "removeLabel": "Remove file"
+      }
+    },
+    "submit": {
+      "edit": "Save Changes",
+      "create": "Publish Resource",
+      "cancel": "Cancel"
+    }
+  },
+  "aiCareerPage": {
+    "title": "AI Career Guidance",
+    "subtitle": "Fill in your child's learning profile, AI will generate personalized career guidance",
+    "fields": {
+      "school": "School Type",
+      "classLevel": "Class Level",
+      "scoreRange": "Chinese & English Score Range",
+      "scoreRangePlaceholder": "e.g. 80-90",
+      "languageDifficulty": "Language Learning Difficulty",
+      "scienceCharacteristics": "Science Strengths",
+      "scienceCharacteristicsPlaceholder": "e.g. Good at math, average at physics...",
+      "learningObstacle": "Learning Obstacles",
+      "hobbies": "Hobbies",
+      "hobbiesPlaceholder": "e.g. programming, painting, music",
+      "target": "Target School",
+      "targetPlaceholder": "e.g. Top high school, 985 university"
+    },
+    "options": {
+      "school": [
+        "Public School",
+        "Private School",
+        "Key School"
+      ],
+      "classLevel": [
+        "Regular Class",
+        "Key Class"
+      ],
+      "difficulty": [
+        "Slow Reading",
+        "Comprehension Difficulty",
+        "Limited Vocabulary",
+        "Weak Writing"
+      ],
+      "obstacle": [
+        "Gaming Addiction",
+        "Attention Deficit",
+        "Procrastination",
+        "Low Efficiency"
+      ]
+    },
+    "submit": "Generate Guidance",
+    "submitting": "AI analyzing...",
+    "result": {
+      "title": "AI Career Guidance",
+      "failed": "AI analysis failed"
+    }
+  },
+  "memberExamRecordPage": {
+    "title": "My Exam Records",
+    "subtitle": "View historical exam scores and answer details",
+    "loading": "Loading...",
+    "empty": "No exam records",
+    "table": {
+      "examName": "Exam",
+      "examTime": "Time",
+      "score": "Score",
+      "result": "Result",
+      "action": "Action"
+    },
+    "passed": "Pass",
+    "failed": "Fail",
+    "total": "{n} records",
+    "viewDetail": "View Detail",
+    "detail": {
+      "title": "Exam Score Details",
+      "score": "Score",
+      "correct": "Correct",
+      "wrong": "Wrong",
+      "unanswered": "Unanswered",
+      "question": "Question",
+      "resultCol": "Result",
+      "correctLabel": "Correct",
+      "wrongLabel": "Wrong"
     }
   }
 }

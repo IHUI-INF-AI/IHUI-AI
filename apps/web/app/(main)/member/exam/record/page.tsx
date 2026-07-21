@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import {
   Loader2,
   ChevronLeft,
@@ -37,6 +37,7 @@ const PAGE_SIZE = 10
 
 export default function MemberExamRecordPage() {
   const locale = useLocale()
+  const t = useTranslations('memberExamRecordPage')
   const [page, setPage] = React.useState(1)
   const [detailId, setDetailId] = React.useState<string | null>(null)
 
@@ -76,9 +77,9 @@ export default function MemberExamRecordPage() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <Award className="h-5 w-5 text-primary" />
-          我的考试记录
+          {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">查看历史考试成绩与答卷详情</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
@@ -86,23 +87,23 @@ export default function MemberExamRecordPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
           <Award className="h-8 w-8 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">暂无考试记录</p>
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">考试名称</th>
-                <th className="px-3 py-2 font-medium">考试时间</th>
-                <th className="px-3 py-2 text-right font-medium">得分</th>
-                <th className="px-3 py-2 font-medium">结果</th>
-                <th className="px-3 py-2 text-right font-medium">操作</th>
+                <th className="px-3 py-2 font-medium">{t('table.examName')}</th>
+                <th className="px-3 py-2 font-medium">{t('table.examTime')}</th>
+                <th className="px-3 py-2 text-right font-medium">{t('table.score')}</th>
+                <th className="px-3 py-2 font-medium">{t('table.result')}</th>
+                <th className="px-3 py-2 text-right font-medium">{t('table.action')}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -135,12 +136,12 @@ export default function MemberExamRecordPage() {
                         ) : (
                           <XCircle className="h-3 w-3" />
                         )}
-                        {passed ? '及格' : '不及格'}
+                        {passed ? t('passed') : t('failed')}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-right">
                       <Button variant="ghost" size="sm" onClick={() => setDetailId(r.id)}>
-                        查看详情
+                        {t('viewDetail')}
                       </Button>
                     </td>
                   </tr>
@@ -153,7 +154,7 @@ export default function MemberExamRecordPage() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">共 {total} 条</span>
+          <span className="text-xs text-muted-foreground">{t('total', { n: total })}</span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -183,13 +184,13 @@ export default function MemberExamRecordPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              考试成绩详情
+              {t('detail.title')}
             </DialogTitle>
           </DialogHeader>
           {detailQ.isLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              加载中...
+              {t('loading')}
             </div>
           ) : detailQ.error ? (
             <Alert variant="danger" description={(detailQ.error as Error).message} />
@@ -197,7 +198,7 @@ export default function MemberExamRecordPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-4 gap-3">
                 <div className="rounded-md bg-muted/40 px-3 py-2">
-                  <div className="text-xs text-muted-foreground">得分</div>
+                  <div className="text-xs text-muted-foreground">{t('detail.score')}</div>
                   <div className="mt-0.5 text-lg font-semibold">
                     {detail.score}
                     <span className="text-xs font-normal text-muted-foreground">
@@ -207,19 +208,19 @@ export default function MemberExamRecordPage() {
                   </div>
                 </div>
                 <div className="rounded-md bg-muted/40 px-3 py-2">
-                  <div className="text-xs text-muted-foreground">答对</div>
+                  <div className="text-xs text-muted-foreground">{t('detail.correct')}</div>
                   <div className="mt-0.5 text-lg font-semibold text-emerald-600">
                     {detail.correctCount}
                   </div>
                 </div>
                 <div className="rounded-md bg-muted/40 px-3 py-2">
-                  <div className="text-xs text-muted-foreground">答错</div>
+                  <div className="text-xs text-muted-foreground">{t('detail.wrong')}</div>
                   <div className="mt-0.5 text-lg font-semibold text-red-600">
                     {detail.wrongCount}
                   </div>
                 </div>
                 <div className="rounded-md bg-muted/40 px-3 py-2">
-                  <div className="text-xs text-muted-foreground">未答</div>
+                  <div className="text-xs text-muted-foreground">{t('detail.unanswered')}</div>
                   <div className="mt-0.5 text-lg font-semibold">{detail.unansweredCount}</div>
                 </div>
               </div>
@@ -227,9 +228,9 @@ export default function MemberExamRecordPage() {
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-muted/50 text-left text-xs text-muted-foreground">
                     <tr>
-                      <th className="px-3 py-2 font-medium">题目</th>
-                      <th className="px-3 py-2 font-medium">得分</th>
-                      <th className="px-3 py-2 font-medium">结果</th>
+                      <th className="px-3 py-2 font-medium">{t('detail.question')}</th>
+                      <th className="px-3 py-2 font-medium">{t('detail.score')}</th>
+                      <th className="px-3 py-2 font-medium">{t('detail.resultCol')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -246,7 +247,7 @@ export default function MemberExamRecordPage() {
                                 : 'bg-red-500/10 text-red-600',
                             )}
                           >
-                            {d.isCorrect ? '正确' : '错误'}
+                            {d.isCorrect ? t('detail.correctLabel') : t('detail.wrongLabel')}
                           </span>
                         </td>
                       </tr>
