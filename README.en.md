@@ -1509,18 +1509,130 @@ On the hardest nights of this project, three lines were written over and over on
 
 ---
 
+### Appendix · The Story Behind the Technical Decisions
+
+> *This part is written for developers. If you're not a technical reader, feel free to skip this chapter and go straight to "Story Continuation" and "Open Source Co-Build Vision."*
+> *If you are a technical reader, this chapter records 5 key architectural decisions IHUI-AI made in 2025—and the thinking behind them.*
+
+In the process of one person building 8 platforms with Vibe Coding, every technical choice carries a cost: **a wrong choice = all subsequent code must be rewritten; a right choice = subsequent code will naturally stand on its own.**
+
+Here are 5 technical decisions that get asked again and again.
+
+#### Decision 1 · Why LangGraph, not AutoGen / CrewAI?
+
+**Background**: For AI Agent orchestration frameworks, the mainstream options in 2024-2025 are LangGraph, AutoGen, CrewAI, and LlamaIndex Agents.
+
+**Choice**: LangGraph + MCP + A2A three-stack synergy.
+
+**Reasons**:
+
+- LangGraph's **state machine model** is better suited for complex business flows (billing, subscriptions, refunds—scenarios that require strict state transitions) than AutoGen's "multi-agent dialogue"
+- LangGraph's **graph visualization** lets a single person debug complex workflows (otherwise, when an agent call chain goes off the rails, you have no idea at which step)
+- LangGraph integrates deeply with the LangChain ecosystem, so integrating 100+ models is zero-cost
+- AutoGen is research-oriented, CrewAI is for simple task orchestration—neither is suitable for production-grade commercial applications
+- The MCP protocol lets Agents call external tools (file systems, databases, APIs), and A2A lets Agents talk to each other
+
+**Cost**: Steep learning curve, but once learned, every new workflow becomes a templated copy.
+
+#### Decision 2 · Why Drizzle ORM, not Prisma?
+
+**Background**: The mainstream TypeScript ORMs are Prisma and Drizzle.
+
+**Choice**: Drizzle ORM 0.38 + postgres-js.
+
+**Reasons**:
+
+- **TypeScript-native**: Drizzle schemas are TS files, so IDE completion, type inference, and refactoring work just like writing business code
+- **SQL-transparent**: Drizzle's query syntax is close to SQL, so you can directly see the SQL when debugging; Prisma's query DSL is a severe black box
+- **Controllable migrations**: Drizzle migrations are hand-written SQL, auditable; Prisma's migrate is auto-generated, a black box
+- **Performance**: Drizzle has no Prisma Client runtime overhead; queries compile directly to SQL
+- **Multi-tenancy**: Drizzle's schema isolation + RLS (Row-Level Security) work together for more flexible multi-tenant routing
+- Prisma still had schema drift issues in 2024; an independent developer without a DBA safety net must choose the option with the highest controllability
+
+**Cost**: Smaller ecosystem than Prisma, but sufficient.
+
+#### Decision 3 · Why a TS Monorepo, not Polyrepo?
+
+**Background**: For 8 platforms of code (Web / API / AI / CLI / Desktop / Extension / Mobile / Miniapp), monorepo vs polyrepo is a life-or-death decision.
+
+**Choice**: pnpm workspace + Turborepo + 13 shared packages.
+
+**Reasons**:
+
+- **Type alignment**: 8 platforms share `@ihui/types`, so changing one type immediately propagates to all 8, avoiding the "type drift hell" of polyrepo
+- **Atomic commits**: A cross-platform feature change can be done in one commit; polyrepo needs 8 PRs
+- **Dependency consistency**: pnpm workspace forces version consistency, avoiding "dependency fragmentation" of polyrepo
+- **CI caching**: Turborepo's remote cache lets a single developer enjoy the CI speed of a large team
+- **Shared UI**: `@ihui/ui` + `@ihui/ui-primitives` make 8-platform UI consistent, which polyrepo can't do
+
+**Cost**: Monorepo configuration is complex, but once set up, it's once and for all.
+
+#### Decision 4 · Why 17 pre-commit guardrails?
+
+**Background**: An independent developer with no code review, no QA, no CI team—how to guarantee code quality?
+
+**Choice**: 17 pre-commit + post-commit + 11 migration audits + 9 PowerShell startup scripts.
+
+**Reasons**:
+
+- **Machines replace humans for review**: 17 guardrails cover API key leaks, i18n key integrity, zh-TW simplified-Chinese residue, ko Chinese residue, ja residue, en broken machine translation, schema drift, stale dist, UTF-8 BOM, API route consistency, safeParse silent ignoring, dependency fragmentation, skipResponseSanitization, border-radius violations, delivery report consistency, cli integration, migration completeness, CSS color token nesting, native title tooltip, staged pollution warnings
+- **Machines replace humans for audit**: 11 migration audit scripts + post-commit auto-push hooks mechanistically eliminate "forgot to push after commit" collaboration accidents
+- **Machines replace DevOps**: 9 PowerShell startup scripts turn "start the project" from "can't remember 8 commands" into "1 command"
+
+**Cost**: Hooks occasionally false-positive, but better to false-positive than to miss.
+
+#### Decision 5 · Why Apache 2.0, not AGPL / commercial dual-license?
+
+**Background**: Open-source AI projects commonly use 3 licenses: Apache 2.0 (permissive), AGPL (strong copyleft), dual-license (community AGPL + paid commercial).
+
+**Choice**: Apache 2.0.
+
+**Reasons**:
+
+- **AGPL scares away enterprise users**: Enterprise legal teams run when they see AGPL, which violates the original intent of "let everyone own their own AI program"
+- **Dual-license means fragmentation**: Community and commercial editions split, violating "open source means equality"
+- **Apache 2.0 is the most permissive**: Enterprises can use, modify, and commercialize it closed-source, with only a copyright notice required
+- **Commercial loop via SaaS / private deployment**: You can make money without closing the source—through operations services, custom development, private deployment, not closed code
+- **The real moat is community**: Open code + active community > closed code + dead community
+
+**Cost**: Others can fork and sell closed-source, but such forks usually have no community and don't survive long.
+
+---
+
+> *These are the 5 key decisions. Behind each one is the cost weighed repeatedly by an independent developer at 3 AM.*
+> *If you disagree with any of them, feel free to discuss in an Issue—we're willing to be convinced.*
+
+---
+
 ### Story Continuation (Update Slot)
 
-> This section is reserved as a "story continuation slot," to be updated when the following milestones occur:
->
-> - [ ] **Capital milestone**: First real strategic investment wired — we will record the investor, amount, and valuation here, along with the real feelings from the road
-> - [ ] **Community milestone**: First PR from a non-founding-team contributor merged — your name will be written into the story
-> - [ ] **Commercial milestone**: First case of a fork running in production and generating real commercial value — your story is our story
-> - [ ] **Education milestone**: First educational institution using IHUI-AI to build an AI education platform and formally teach — so every student has their own AI teacher
-> - [ ] **International milestone**: First long-term contributor whose native language isn't Chinese — so this conviction crosses languages
->
+> This section is reserved as a "story continuation slot," to be updated when the following milestones occur.
 > **Continuation rule**: We don't delete the past, we only append new chapters. The honesty of this project begins with this section.
->
+
+#### Milestone Checklist
+
+- [ ] **Capital milestone**: First real strategic investment wired — we will record the investor, amount, and valuation here, along with the real feelings from the road
+- [ ] **Community milestone**: First PR from a non-founding-team contributor merged — your name will be written into the story
+- [ ] **Commercial milestone**: First case of a fork running in production and generating real commercial value — your story is our story
+- [ ] **Education milestone**: First educational institution using IHUI-AI to build an AI education platform and formally teach — so every student has their own AI teacher
+- [ ] **International milestone**: First long-term contributor whose native language isn't Chinese — so this conviction crosses languages
+
+#### Operations Checklist When a Milestone Is Reached (4 Steps)
+
+Whenever any of the above milestones is reached, execute these 4 steps:
+
+1. **Check the checkbox**: Change the corresponding `- [ ]` to `- [x] ✅ (YYYY-MM-DD reached)`
+2. **Append a new chapter**: Below the checklist, append a new subsection truthfully recording the milestone details (who, when, what, the feeling at the time)
+3. **Sync 4 languages**: Update `README.md` / `README.en.md` / `README.ko.md` / `README.ja.md` in sync (verifiable with `scripts/scan-i18n-zh-residue.mjs` + `scripts/check-i18n-broken-en.mjs` guardrail scripts)
+4. **commit + push**: Commit message prefix `docs(story):`, follow the full AGENTS.md §21 push flow (`git rev-parse HEAD` === `git rev-parse origin/<branch>`)
+
+#### Funding Milestone Narrative Rules (Honesty First)
+
+- **Don't erase past narrative**: The "capital never arrived," "20M RMB angel round reported but never wired," and similar content in this story chapter **must not be deleted**—they are long-term evidence of the project's honesty, and the most powerful "founder character" evidence in future financing due diligence
+- **Truthfully record new funding**: When the funding milestone is reached, clearly write the investor name, funding amount, valuation, and lead/follow structure in the new chapter, turning the historical reporting contrast into a "bitter-then-sweet" narrative arc
+- **No exaggeration, no concealment**: Sensitive information such as funding use, equity dilution ratio, and betting clauses may omit details appropriately, but fabrication or misleading is not allowed
+- **Timestamp**: Each new chapter ends with `_Last updated: YYYY-MM-DD · <milestone summary>_`
+
 > _Last updated: 2026-07-21 · Initial story release_
 
 ---
