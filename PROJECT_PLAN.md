@@ -389,5 +389,95 @@
 
 **跨端范围**:web only(平台独占豁免,e2e 测试只针对 web)
 
+### SaaS 托管服务架构(2026-07-21)— P1 阶段 2.1:部署层管理增强 + admin-api
+
+**触发**:用户"继续",按 P0/P1/P2 三阶段计划推进 P1 阶段 2(本次聚焦部署层子集,不建 web/admin UI)。
+
+**P1 阶段 2 全量范围**(留待后续子集):
+
+| 子集 | 范围 | 工作量 |
+|---|---|---|
+| **P1-2.1 部署层管理(本次)** | 客户 pause/resume/backup/restore 脚本 + admin-api Fastify 服务 + 证书续期 cron | 1-2 天 |
+| P1-2.2 web/admin UI | web/admin 端扩展(创建/暂停/删除/查看客户 UI) | 3-5 天 |
+| P1-2.3 资源监控 | Prometheus + Grafana per-tenant dashboard | 2-3 天 |
+
+**P1-2.1 详细任务清单**:
+
+**目标**:在 P0 阶段 1 基础上增强运维能力,提供程序化 API 接口 + 客户生命周期完整管理,不动主 8 端业务代码。
+
+**改动文件清单**(19 个全新文件 + 4 个修改):
+
+1. `deploy/saas/scripts/pause-customer.sh`:暂停客户(stop 容器 + 状态标记 `.state=paused`)
+2. `deploy/saas/scripts/resume-customer.sh`:恢复客户(start 容器 + 状态标记 `.state=active`)
+3. `deploy/saas/scripts/backup-customer.sh`:手动备份(备份 pgdata + .env + metadata.json,保留 7 个)
+4. `deploy/saas/scripts/restore-customer.sh`:从备份恢复(自动备份当前 + 恢复 + 重启)
+5. `deploy/saas/admin-api/package.json`:admin-api 依赖(Fastify 5 + pino + zod)
+6. `deploy/saas/admin-api/pnpm-lock.yaml`:依赖锁文件(Docker `--frozen-lockfile` 需要)
+7. `deploy/saas/admin-api/Dockerfile`:基于 node:20-alpine + docker-cli + git + bash
+8. `deploy/saas/admin-api/tsconfig.json`:TypeScript 严格模式 + ES2022
+9. `deploy/saas/admin-api/src/index.ts`:Fastify 入口 + 错误处理 + CORS
+10. `deploy/saas/admin-api/src/config.ts`:从 .env 加载配置 + 自动生成 ADMIN_API_KEY
+11. `deploy/saas/admin-api/src/routes/auth.ts`:X-Admin-API-Key 鉴权中间件
+12. `deploy/saas/admin-api/src/routes/customers.ts`:客户管理端点(7 个,委托给 Bash 脚本)
+13. `deploy/saas/cron/cert-renew.cron`:证书续期 cron(每周日 3:00 触发)
+14. `deploy/saas/cron/cert-renew.sh`:证书续期脚本(检查有效期 + 触发 Traefik 重签)
+15. `deploy/saas/docker-compose.yml`:增加 admin-api 服务(端口 8081 仅 localhost)
+16. `deploy/saas/.env.example`:补充 ADMIN_API_KEY 等管理 API 配置
+17. `deploy/saas/admin-api/.gitignore`:node_modules + .env 等
+18. `deploy/saas/README.md`:补充 P1 管理脚本 + admin-api 使用文档
+19. `PROJECT_PLAN.md`:追加 P1-2.1 任务条目(本任务)
+
+**admin-api 端点设计**(端口 8081,鉴权 X-Admin-API-Key):
+
+- `GET /admin/api/health` — 健康检查(免鉴权)
+- `GET /admin/api/auth/verify` — 验证 API key 状态
+- `GET /admin/api/customers` — 列出所有客户(含 state/容器状态/资源)
+- `GET /admin/api/customers/:slug` — 客户详情
+- `POST /admin/api/customers/:slug/pause` — 暂停
+- `POST /admin/api/customers/:slug/resume` — 恢复
+- `POST /admin/api/customers/:slug/backup` — 备份
+- `POST /admin/api/customers/:slug/restore` — 恢复(支持指定 timestamp)
+- `DELETE /admin/api/customers/:slug` — 销毁(委托 destroy-customer.sh)
+
+**客户状态持久化**:
+
+- `customers/<slug>/.state`:状态文件(active | paused)
+- `customers/<slug>/.state_changed_at`:状态变更时间戳
+- `customers/<slug>/.env`:包含 `CUSTOMER_DOMAIN`(从 .env 解析)
+- `customers/<slug>/docker-compose.yml`:包含 `memory`/`cpus` 资源限制(从 compose 解析)
+
+**验收硬性指标**(按 AGENTS.md §8):
+
+- `docker compose -f deploy/saas/docker-compose.yml config` exit 0
+- `bash -n deploy/saas/scripts/*.sh` exit 0(7 个脚本)
+- `pnpm install --prefer-offline --ignore-workspace` admin-api 成功
+- `pnpm typecheck` admin-api 0 错误(tsc --noEmit)
+- 容器构建 + 启动 `docker compose up -d admin-api`
+- `curl -H "X-Admin-API-Key: <key>" http://localhost:8081/admin/api/health` 200
+
+**硬约束**:
+
+- 仅修改/新增 `deploy/saas/` 目录 + `PROJECT_PLAN.md`
+- 不动 web/api/ai-service 业务代码(8 端隔离)
+- admin-api 不暴露公网(端口 8081 仅 127.0.0.1 绑定 + Traefik 不路由)
+- 客户状态变更通过 `customers/<slug>/.state` 文件持久化
+- 备份存储到 `deploy/saas/backups/<slug>/<timestamp>/`
+- 备份保留策略:自动保留最近 7 个 + 30 天前清理
+
+**已知边界**(本子集**不**包含):
+
+- ❌ web/admin UI(子集 2.2)
+- ❌ Prometheus + Grafana 资源监控(子集 2.3)
+- ❌ 用量采集 + 计费(阶段 3)
+- ❌ 支付集成(阶段 3)
+
+**已验证(2026-07-21)**:
+
+- `docker compose config` exit 0 ✅
+- `bash -n` 5 个新脚本全通过(pause/resume/backup/restore/cert-renew) ✅
+- `pnpm typecheck` admin-api 0 错误 ✅
+- 17 个新文件 + 4 个修改,commit `a400e8ff` ✅
+>>>>>>> 44e64367 (footer: 推广平台图片重命名为平台英文名 + 生态合作恢复 4 类分组布局)
+
 ---
 

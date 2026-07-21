@@ -14253,22 +14253,22 @@
       "sqlite": "SQLite"
     },
     "promos": {
-      "promo1": "推广平台 1",
-      "promo2": "推广平台 2",
-      "promo3": "推广平台 3",
-      "promo4": "推广平台 4",
-      "promo5": "推广平台 5",
-      "promo6": "推广平台 6",
-      "promo7": "推广平台 7",
-      "promo8": "推广平台 8",
-      "promo11": "推广平台 11",
-      "promo12": "推广平台 12",
-      "promo14": "推广平台 14",
-      "promo15": "推广平台 15",
-      "promo17": "推广平台 17",
+      "xiaohongshu": "小红书",
+      "douyin": "抖音",
+      "wechatChannels": "微信视频号",
+      "kuaishou": "快手",
+      "wechat": "微信",
+      "qq": "QQ",
+      "bilibili": "B站",
+      "youtube": "YouTube",
       "x": "X",
       "facebook": "Facebook",
-      "github": "GitHub"
+      "baidu": "百度",
+      "weibo": "微博",
+      "telegram": "Telegram",
+      "google": "Google",
+      "github": "GitHub",
+      "reddit": "Reddit"
     }
   },
   "agentCategory": {
