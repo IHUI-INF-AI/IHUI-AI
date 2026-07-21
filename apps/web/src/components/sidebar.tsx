@@ -333,7 +333,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [{ href: '/', labelKey: 'home', icon: Home }],
   },
   {
-    label: 'AI',
+    label: 'aiGroupLabel',
     items: [
       // /chat 路由已废弃:AI 任务是全局 docked 面板(挂载于 MainShell,与 Sidebar 同级),
       // 顶部"+"按钮(下方)即 toggle 面板的入口,不再放可点击的 /chat 导航项,
@@ -1353,7 +1353,7 @@ function NavGroupSection({
   //   - AI:核心分类,所有用户高频入口
   //   - 管理:admin 用户的核心入口(非 admin 用户此分组被 visibleGroups 过滤掉,此设置不影响)
   // 其余分组(AI教育/内容/交易/个人)默认折叠,降低视觉噪音。
-  const defaultOpen = group.label === 'AI' || group.label === 'adminGroupLabel'
+  const defaultOpen = group.label === 'aiGroupLabel' || group.label === 'adminGroupLabel'
   // v3 后缀:版本化 key。重要:旧实现用 useEffect 在 open 变化时写 localStorage,
   // 导致首次挂载 setOpen(defaultOpen) 触发写入,污染了测试环境的 localStorage。
   // 新实现只在用户主动 toggle 时写,首次挂载只读不写,因此 localStorage 在用户切换前保持空,
