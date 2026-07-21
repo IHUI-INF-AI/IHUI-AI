@@ -14151,22 +14151,22 @@
       "sqlite": "SQLite"
     },
     "promos": {
-      "promo1": "프로모션 1",
-      "promo2": "프로모션 2",
-      "promo3": "프로모션 3",
-      "promo4": "프로모션 4",
-      "promo5": "프로모션 5",
-      "promo6": "프로모션 6",
-      "promo7": "프로모션 7",
-      "promo8": "프로모션 8",
-      "promo11": "프로모션 11",
-      "promo12": "프로모션 12",
-      "promo14": "프로모션 14",
-      "promo15": "프로모션 15",
-      "promo17": "프로모션 17",
+      "xiaohongshu": "샤오홍슈",
+      "douyin": "더우인",
+      "wechatChannels": "위챗 채널",
+      "kuaishou": "콰이쇼우",
+      "wechat": "위챗",
+      "qq": "QQ",
+      "bilibili": "비리비리",
+      "youtube": "YouTube",
       "x": "X",
       "facebook": "Facebook",
-      "github": "GitHub"
+      "baidu": "바이두",
+      "weibo": "웨이보",
+      "telegram": "Telegram",
+      "google": "Google",
+      "github": "GitHub",
+      "reddit": "Reddit"
     }
   },
   "agentCategory": {

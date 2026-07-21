@@ -14155,22 +14155,22 @@
       "sqlite": "SQLite"
     },
     "promos": {
-      "promo1": "Promotion 1",
-      "promo2": "Promotion 2",
-      "promo3": "Promotion 3",
-      "promo4": "Promotion 4",
-      "promo5": "Promotion 5",
-      "promo6": "Promotion 6",
-      "promo7": "Promotion 7",
-      "promo8": "Promotion 8",
-      "promo11": "Promotion 11",
-      "promo12": "Promotion 12",
-      "promo14": "Promotion 14",
-      "promo15": "Promotion 15",
-      "promo17": "Promotion 17",
+      "xiaohongshu": "Xiaohongshu",
+      "douyin": "Douyin",
+      "wechatChannels": "WeChat Channels",
+      "kuaishou": "Kuaishou",
+      "wechat": "WeChat",
+      "qq": "QQ",
+      "bilibili": "Bilibili",
+      "youtube": "YouTube",
       "x": "X",
       "facebook": "Facebook",
-      "github": "GitHub"
+      "baidu": "Baidu",
+      "weibo": "Weibo",
+      "telegram": "Telegram",
+      "google": "Google",
+      "github": "GitHub",
+      "reddit": "Reddit"
     }
   },
   "agentCategory": {
