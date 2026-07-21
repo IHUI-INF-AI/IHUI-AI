@@ -28,6 +28,10 @@ export const aiWorldCategories = pgTable(
  * - project: GitHub 趋势项目
  * - tool: AI 工具
  * - app: AI APP
+ *
+ * 热度字段(2026-07-22 立):trendingScore 综合热度分(0-100),trendingMetrics 多维热度数据,
+ * trendingUpdatedAt 热度更新时间。trendingMetrics 结构示例:
+ * { githubStars, githubForks, githubWatchers, productHuntVotes, similarwebVisits, huggingfaceDownloads }
  */
 export const aiWorldItems = pgTable(
   'ai_world_items',
@@ -51,6 +55,12 @@ export const aiWorldItems = pgTable(
     metadata: jsonb('metadata').notNull().default({}),
     viewCount: integer('view_count').default(0).notNull(),
     likeCount: integer('like_count').default(0).notNull(),
+    /** 综合热度分(0-100,LLM 综合多源数据给出) */
+    trendingScore: integer('trending_score'),
+    /** 多维热度数据 { githubStars, githubForks, productHuntVotes, similarwebVisits, ... } */
+    trendingMetrics: jsonb('trending_metrics'),
+    /** 热度数据最近更新时间 */
+    trendingUpdatedAt: timestamp('trending_updated_at', { withTimezone: true }),
     status: integer('status').default(1).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -60,6 +70,56 @@ export const aiWorldItems = pgTable(
     kindIdx: index('ix_ai_world_items_kind').on(t.kind),
     sourceIdx: index('ix_ai_world_items_source').on(t.source),
     kindSourceUrlUniq: unique('uq_ai_world_items_kind_source_url').on(t.kind, t.sourceUrl),
+    trendingScoreIdx: index('ix_ai_world_items_trending_score').on(t.trendingScore),
+  }),
+)
+
+/**
+ * AI World 模型排行榜表 - 存储各大权威榜单的真实排名数据。
+ *
+ * 数据源(2026-07-22 立,5 大权威榜单):
+ * - lmsys: LMSYS Chatbot Arena(HuggingFace Spaces,综合/编程/数学/硬提示/多轮等)
+ * - opencompass: OpenCompass 司南(中文/英文/代码/推理等)
+ * - hf-open-llm: HuggingFace Open LLM Leaderboard(开源模型综合)
+ * - superclue: SuperCLUE(中文综合/学科/安全等)
+ * - artificial-analysis: Artificial Analysis(性能/价格/质量综合)
+ *
+ * category 字段对齐各榜单子分类,不同榜单语义不同(统一字符串保留)。
+ * score 字段不同榜单单位不同(Elo / 百分比 / 分数),用 string 保留原文。
+ * scores 字段保留多维度数据 {elo, ci_lower, ci_upper, votes} 等。
+ */
+export const aiWorldRankings = pgTable(
+  'ai_world_rankings',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    /** 榜单 ID:lmsys / opencompass / hf-open-llm / superclue / artificial-analysis */
+    leaderboard: varchar('leaderboard', { length: 50 }).notNull(),
+    /** 子分类:overall / coding / math / reasoning / chinese / english / multiturn / hard-prompts */
+    category: varchar('category', { length: 50 }).notNull(),
+    /** 排名(从 1 开始) */
+    rank: integer('rank').notNull(),
+    /** 模型名称(原始榜单名称,如 "GPT-4o" / "Claude 3.5 Sonnet") */
+    modelName: varchar('model_name', { length: 200 }).notNull(),
+    /** 模型提供方(如 openai / anthropic / google / meta / mistral) */
+    provider: varchar('provider', { length: 100 }),
+    /** 分数(原始字符串保留,Elo / 百分比 / 分数 等) */
+    score: varchar('score', { length: 100 }),
+    /** 多维分数 {elo, ci_lower, ci_upper, votes, organization, license, ...} */
+    scores: jsonb('scores'),
+    /** 额外元数据(原始抓取保留) */
+    metadata: jsonb('metadata').notNull().default({}),
+    /** 榜单发布时间(从榜单页面解析) */
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    /** 抓取时间 */
+    fetchedAt: timestamp('fetched_at', { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    leaderboardIdx: index('ix_ai_world_rankings_leaderboard').on(t.leaderboard),
+    categoryIdx: index('ix_ai_world_rankings_category').on(t.category),
+    rankIdx: index('ix_ai_world_rankings_rank').on(t.rank),
+    leaderboardCategoryModelUniq: unique('uq_ai_world_rankings_lb_cat_model').on(t.leaderboard, t.category, t.modelName),
   }),
 )
 
@@ -91,3 +151,5 @@ export type AiWorldItem = typeof aiWorldItems.$inferSelect
 export type NewAiWorldItem = typeof aiWorldItems.$inferInsert
 export type AiWorldSyncLog = typeof aiWorldSyncLog.$inferSelect
 export type NewAiWorldSyncLog = typeof aiWorldSyncLog.$inferInsert
+export type AiWorldRanking = typeof aiWorldRankings.$inferSelect
+export type NewAiWorldRanking = typeof aiWorldRankings.$inferInsert
