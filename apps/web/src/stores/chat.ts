@@ -15,6 +15,23 @@ export interface ToolCall {
   error?: string
 }
 
+/** AI 主动提问的选项 */
+export interface QuestionOption {
+  id: string
+  label: string
+}
+
+/** AI 主动提问(挂起对话,等用户回答后继续) */
+export interface PendingQuestion {
+  questionId: string
+  prompt: string
+  options: QuestionOption[]
+  allowCustom: boolean
+  allowMultiple: boolean
+  /** 关联的 assistant 消息 ID,用户回答后追加到该消息上下文 */
+  assistantMessageId?: string
+}
+
 export interface ChatMessage {
   id: string
   role: ChatRole
@@ -24,6 +41,8 @@ export interface ChatMessage {
   error?: boolean
   toolCalls?: ToolCall[]
   reasoning?: string
+  /** 该消息触发的提问(若有,渲染时显示提问卡片) */
+  question?: PendingQuestion
 }
 
 interface ChatState {
@@ -35,6 +54,8 @@ interface ChatState {
   conversationId: string | null
   /** 模板选择等外部输入填充值；MessageInput 消费后置 null */
   draftInput: string | null
+  /** AI 主动提问挂起态:非 null 表示有未回答的提问,前端弹窗阻塞输入,等待用户回答后调 /chat/answer 续流 */
+  pendingQuestion: PendingQuestion | null
 
   setModel: (model: string) => void
   addMessage: (msg: Pick<ChatMessage, 'role' | 'content' | 'model'>) => string
@@ -47,6 +68,10 @@ interface ChatState {
   setConversationId: (id: string | null) => void
   /** MessageInput 消费 draftInput 后调用,置 null 避免重复填充 */
   clearDraftInput: () => void
+  /** 设置当前挂起的 AI 提问(收到 SSE question 事件时调用) */
+  setPendingQuestion: (q: PendingQuestion | null) => void
+  /** 清空挂起的提问(用户回答后或续流开始时调用) */
+  clearPendingQuestion: () => void
 }
 
 function genId(): string {
@@ -65,6 +90,7 @@ export const useChatStore = create<ChatState>()(
       error: null,
       conversationId: null,
       draftInput: null,
+      pendingQuestion: null,
 
       setModel: (model) => set({ currentModel: model }),
 
@@ -110,6 +136,10 @@ export const useChatStore = create<ChatState>()(
       setConversationId: (id) => set({ conversationId: id }),
 
       clearDraftInput: () => set({ draftInput: null }),
+
+      setPendingQuestion: (q) => set({ pendingQuestion: q }),
+
+      clearPendingQuestion: () => set({ pendingQuestion: null }),
     }),
     createPersistConfig<ChatState>('ihui-chat', (s) => ({
       currentModel: s.currentModel,
