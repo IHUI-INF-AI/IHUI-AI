@@ -7772,7 +7772,15 @@
       "alipay": "アリペイ",
       "renewNow": "すぐ",
       "openNow": "すぐ",
-      "days": "日"
+      "days": "日",
+      "pleaseSelectPlan": "サブスクリプションプランを選択してください",
+      "openAutoRenewFailed": "自動更新の開始に失敗しました",
+      "autoRenewManageTitle": "自動更新管理",
+      "autoRenewOpened": "自動更新が有効になりました",
+      "nextCharge": "次回の請求日",
+      "manage": "管理",
+      "autoRenewClosed": "自動更新が無効になりました",
+      "openAutoRenew": "自動更新を有効化"
     },
     "articles": {
       "title": "の",
