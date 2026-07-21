@@ -537,7 +537,13 @@
       "community": "커뮤니티",
       "resource": "자료 센터",
       "developer": "개발자 센터"
-    }
+    },
+    "adminGroupLabel": "관리",
+    "eduGroup": "AI 교육",
+    "contentGroup": "콘텐츠",
+    "tradeGroup": "거래",
+    "personalGroup": "개인",
+    "developerGroup": "개발자"
   },
   "auth": {
     "loginTitle": "돌아오신 것을 환영합니다",
@@ -1143,7 +1149,8 @@
       "noTarget": "선택되지 않음",
       "itemCount": "{count, plural, =0 {폴더 없음} =1 {1 폴더} other {{count} 폴더}}",
       "itemCountFiltered": "{filtered} / {total} 표시",
-      "shortcutsHint": "↑↓ 탐색 · Enter 열기/진입 · Backspace 상위"
+      "shortcutsHint": "↑↓ 탐색 · Enter 열기/진입 · Backspace 상위",
+      "rowOpenHint": "열기"
     },
     "permission": {
       "title": "워크스페이스 접근 권한",
@@ -1791,7 +1798,18 @@
       "stripe": "스트라이프",
       "usdc": "ＵＳＤＣ",
       "payNow": "설정즉시결제",
-      "processing": "처리중간..."
+      "processing": "처리중간...",
+      "paySuccess": "결제 성공",
+      "payIncomplete": "결제가 완료되지 않았습니다",
+      "payTimeout": "결제 시간이 초과되었습니다. 다시 시도해 주세요",
+      "orderClosed": "주문이 종료되었습니다",
+      "payConfigNotReady": "결제 설정이 준비되지 않았습니다",
+      "contactAdmin": "관리자에게 문의해 주세요",
+      "methodNotSupported": "지원되지 않는 결제 방법입니다",
+      "wechatScanTitle": "WeChat 스캔 결제",
+      "wechatScanDesc": "아래의 QR 코드를 WeChat으로 스캔해 주세요. 결제 완료 후 자동으로 이동합니다.",
+      "wechatQrAlt": "WeChat Pay QR 코드",
+      "loading": "로딩 중..."
     }
   },
   "admin": {
@@ -9421,7 +9439,15 @@
       "noTemplate": "이 공급자에 대한 템플릿이 없습니다. 「설정 → LLM 설정」에서 수동 추가하세요.",
       "securityHint": "API Key는 AES-256-GCM으로 암호화 저장되며 계정만 볼 수 있습니다. 평문 저장·제3자 전송되지 않습니다.",
       "fullConfigHint": "문맥 길이 / 메모 / 사용자 정의 Base URL을 수정하려면",
-      "openFullConfig": "전체 설정 페이지 →"
+      "openFullConfig": "전체 설정 페이지 →",
+      "errSelectPlatform": "플랫폼을 선택해 주세요",
+      "errApiKeyRequired": "API 키를 입력해 주세요",
+      "errModelIdRequired": "모델 ID를 입력해 주세요",
+      "errNoTemplate": "이 공급자에 대한 템플릿이 없습니다",
+      "defaultConfigName": "내 설정",
+      "official": "공식",
+      "cancel": "취소",
+      "testDuration": "소요 시간: {ms}ms"
     },
     "providers": {
       "openai": "오픈ＡＩ",
@@ -9652,7 +9678,11 @@
       "resetFilters": "필터 초기화",
       "configureKey": "API Key 설정",
       "updateKey": "Key 업데이트",
-      "configureKeyHint": "이 모델은 사용 전에 API Key 설정이 필요합니다. 클릭하여 원클릭 설정하세요."
+      "configureKeyHint": "이 모델은 사용 전에 API Key 설정이 필요합니다. 클릭하여 원클릭 설정하세요.",
+      "ariaLabel": {
+        "addFavorite": "즐겨찾기에 추가",
+        "removeFavorite": "즐겨찾기에서 제거"
+      }
     },
     "aiNews": {
       "title": "2026-07 AI 뉴스",
@@ -13733,26 +13763,61 @@
     "downloadToView": "다운로드보기"
   },
   "commandPalette": {
-    "placeholder": "입력검색",
-    "escToAbort": "ESC 닫기",
-    "enter": "돌아",
-    "navigate": "네비게이션",
-    "execute": "행",
-    "systemReady": "시스템즉",
-    "cpuOptimized": "테이블현재",
-    "noResults": "미까지일치",
-    "systemInternal": "시스템내",
+    "searchPlaceholder": "명령 검색...",
+    "noResults": "일치하는 명령이 없습니다",
+    "keyboardHint": "↑↓ 선택 · Enter 실행",
+    "resultCount": "{count}개 결과",
     "commands": {
-      "home": "홈",
-      "store": "ai앱",
-      "plaza": "요구광장",
-      "learnAI": "AI 배우기",
-      "community": "ai커뮤니티",
-      "docs": "기술문서",
-      "about": "회사 소개",
-      "darkMode": "어두움",
-      "aiAssistant": "열기ai",
-      "backToTop": "맨 위로"
+      "chat": {
+        "label": "AI 채팅",
+        "description": "새 AI 대화 시작",
+        "keywords": [
+          "AI",
+          "채팅",
+          "대화"
+        ]
+      },
+      "drama": {
+        "label": "AI 드라마",
+        "description": "AI 드라마 콘텐츠 제작",
+        "keywords": [
+          "드라마",
+          "영상"
+        ]
+      },
+      "search": {
+        "label": "검색",
+        "description": "콘텐츠, 사용자, 태그 검색",
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ]
+      },
+      "ai-world": {
+        "label": "AI 월드",
+        "description": "AI 월드 탐색",
+        "keywords": [
+          "AI월드",
+          "탐색"
+        ]
+      },
+      "profile": {
+        "label": "프로필",
+        "description": "프로필 보기",
+        "keywords": [
+          "프로필",
+          "개인"
+        ]
+      },
+      "settings": {
+        "label": "설정",
+        "description": "앱 환경설정 수정",
+        "keywords": [
+          "설정",
+          "환경"
+        ]
+      }
     }
   },
   "routes": {
@@ -26758,5 +26823,253 @@
     "yuan": "위안",
     "minSpend": "최소 {amount} 이상",
     "validUntil": "유효 기간: {date}"
+  },
+  "answerArea": {
+    "thinking": {
+      "title": "사고 과정",
+      "collapse": "접기",
+      "expand": "펼치기"
+    },
+    "image": {
+      "alt": "이미지 {index}",
+      "previewAlt": "이미지 {index} 미리보기",
+      "close": "닫기",
+      "prev": "이전",
+      "next": "다음"
+    },
+    "audio": {
+      "playFailed": "오디오 재생 실패",
+      "pause": "일시정지",
+      "play": "재생"
+    }
+  },
+  "agentRuntimePanel": {
+    "title": "Agent 런타임",
+    "clear": "비우기",
+    "plan": "실행 계획",
+    "permissionDecision": "권한 결정: {decision}",
+    "permissionMeta": "도구: {tool} · 등급: {level} · 모드: {mode}",
+    "unknownTool": "알 수 없음",
+    "defaultLevel": "읽기",
+    "output": "출력",
+    "error": "오류",
+    "cancelledTitle": "작업이 취소되었습니다",
+    "cancelledBody": "현재 실행이 중지되었습니다. 계속하려면 입력을 수정한 후 다시 실행하세요.",
+    "emptyState": "작업을 입력하여 Agent 실행을 시작하세요",
+    "placeholder": "작업을 입력하세요...",
+    "stop": "중지",
+    "execute": "실행"
+  },
+  "musicGenerator": {
+    "title": "음악 생성",
+    "generate": "음악 생성",
+    "genreLabel": "장르",
+    "durationLabel": "길이",
+    "download": "다운로드",
+    "placeholder": "생성할 음악을 설명하세요...",
+    "genre": {
+      "pop": "팝",
+      "classical": "클래식",
+      "electronic": "일렉트로닉",
+      "jazz": "재즈",
+      "rock": "록"
+    },
+    "duration": {
+      "15": "15 초",
+      "30": "30 초",
+      "60": "60 초"
+    }
+  },
+  "cronEditor": {
+    "title": "Cron 식 편집기",
+    "everyField": "매 {field}",
+    "stepPrefix": "매 ",
+    "specificPlaceholder": "{min}-{max}, 쉼표로 구분",
+    "recentRuns": "최근 5회 실행",
+    "field": {
+      "minute": "분",
+      "hour": "시간",
+      "day": "일",
+      "month": "월",
+      "weekday": "요일"
+    },
+    "mode": {
+      "every": "매",
+      "step": "간격",
+      "range": "범위",
+      "specific": "지정"
+    }
+  },
+  "videoGenerator": {
+    "title": "비디오 생성",
+    "generate": "비디오 생성",
+    "providerLabel": "제공자",
+    "durationLabel": "길이",
+    "download": "다운로드",
+    "placeholder": "생성할 비디오를 설명하세요...",
+    "provider": {
+      "qwen": "Qwen",
+      "kling": "Kling",
+      "one-click": "원클릭 생성"
+    },
+    "duration": {
+      "5": "5 초",
+      "10": "10 초",
+      "30": "30 초"
+    }
+  },
+  "ticketDetailDialog": {
+    "statusPrefix": "상태: ",
+    "priorityPrefix": "우선순위: ",
+    "descriptionLabel": "문제 설명",
+    "commentsLabel": "소통 기록",
+    "noComments": "답변이 없습니다",
+    "adminRole": "지원",
+    "userRole": "나",
+    "replyLabel": "추가 답변",
+    "replyPlaceholder": "추가 내용을 입력하세요...",
+    "send": "전송",
+    "myRating": "내 평가",
+    "serviceRating": "서비스 평가",
+    "ratingCommentPlaceholder": "평가 메모(선택)",
+    "submitRating": "평가 제출",
+    "status": {
+      "pending": "대기 중",
+      "open": "처리 중",
+      "resolved": "해결됨",
+      "closed": "종료됨",
+      "rejected": "반려됨"
+    },
+    "priority": {
+      "low": "낮음",
+      "medium": "중간",
+      "high": "높음",
+      "urgent": "긴급"
+    }
+  },
+  "memberSubscriptionPage": {
+    "title": "구독 관리",
+    "subtitle": "현재 구독 관리, 갱신 또는 취소",
+    "loading": "로딩 중...",
+    "noSubscription": "아직 멤버십 플랜을 구독하지 않았습니다",
+    "subscribeNow": "지금 구독",
+    "subscriptionAmount": "구독 금액",
+    "autoRenew": "자동 갱신",
+    "autoRenewOn": "활성화됨",
+    "autoRenewOff": "비활성화됨",
+    "renewNow": "지금 갱신",
+    "cancelSubscription": "구독 취소",
+    "status": {
+      "active": "활성",
+      "cancelled": "취소됨",
+      "expired": "만료됨"
+    }
+  },
+  "resourcesEditPage": {
+    "loading": "로딩 중...",
+    "backToList": "리소스 목록으로 돌아가기",
+    "editTitle": "리소스 편집",
+    "createTitle": "리소스 게시",
+    "errTitleRequired": "제목을 입력해 주세요",
+    "errTypeRequired": "리소스 유형을 선택해 주세요",
+    "errProductIdRequired": "제품 ID를 입력해 주세요",
+    "errIntroductionRequired": "리소스 소개를 입력해 주세요",
+    "errCategoryRequired": "최소한 하나의 카테고리를 선택해 주세요"
+  },
+  "toolsPdfSplitPage": {
+    "title": "PDF 분할",
+    "description": "PDF를 페이지 범위, 고정 페이지 수 또는 책갈피로 여러 파일로 분할합니다",
+    "uploadLabel": "PDF 파일을 클릭하거나 드래그하여 업로드",
+    "removeFile": "제거",
+    "modeLabel": "분할 모드",
+    "mode": {
+      "range": "페이지 범위별",
+      "every": "N 페이지마다",
+      "bookmarks": "책갈피별"
+    },
+    "rangesLabel": "페이지 범위(쉼표로 구분, 예: 1-3,5,7-10)",
+    "everyLabel": "파일당 페이지 수",
+    "bookmarksHint": "PDF의 내장 책갈피(1단계)를 기준으로 자동으로 여러 파일로 분할합니다.",
+    "submit": "분할",
+    "submitting": "분할 중...",
+    "resultHint": "분할이 완료되었습니다. 결과는 ZIP으로 패키징되었습니다:"
+  },
+  "supportNewTicketForm": {
+    "errTitleMin": "제목은 최소 2자 이상이어야 합니다",
+    "errDescMin": "설명은 최소 10자 이상이어야 합니다",
+    "titleLabel": "제목",
+    "titlePlaceholder": "문제를 간단히 설명해 주세요",
+    "categoryLabel": "카테고리",
+    "categoryPlaceholder": "카테고리 선택",
+    "priorityLabel": "우선순위",
+    "priority": {
+      "low": "낮음",
+      "medium": "보통",
+      "high": "높음",
+      "urgent": "긴급"
+    },
+    "descLabel": "문제 설명",
+    "descPlaceholder": "문제를 자세히 설명해 주세요 (최소 10자)",
+    "cancel": "취소",
+    "submit": "티켓 제출"
+  },
+  "h5SharePage": {
+    "loading": "로딩 중...",
+    "errorDefault": "공유 링크가 유효하지 않거나 만료되었습니다",
+    "retry": "재시도",
+    "copyFail": "복사에 실패했습니다. 수동으로 복사해 주세요",
+    "shareTitleWithUser": "{user}님의 공유",
+    "shareTitleDefault": "IHUI AI 공유",
+    "wechatShareTip": "우측 상단 ···을 눌러 \"친구에게 공유\"를 선택하거나 링크를 복사해 보내주세요",
+    "questionLabel": "질문",
+    "thinkingLabel": "사고 과정",
+    "answerLabel": "답변",
+    "imageAlt": "이미지 {n}",
+    "contentAlt": "콘텐츠 {n}",
+    "copied": "복사됨",
+    "copyLink": "링크 복사",
+    "wechatShare": "WeChat 공유"
+  },
+  "contactPage": {
+    "badge": "문의하기",
+    "title": "저희에게 연락해 주세요",
+    "subtitle": "비즈니스 협력, 과정 상담, 기업 서비스 맞춤 등 언제든지 연락해 주세요. 저희 팀이 24시간 이내에 답변드립니다.",
+    "loading": "로딩 중...",
+    "addressTitle": "회사 주소",
+    "merchantIdLabel": "WeChat Pay 가맹점 번호",
+    "ctaTitle": "지금 IHUI AI 커뮤니티에 가입하세요",
+    "ctaSubtitle": "얼리버드 가격 ¥6000/인/년, 18석 한정. 1:1 AI 컨설팅, 불만족 시 전액 환불.",
+    "ctaJoin": "지금 가입",
+    "ctaLearnMore": "더 알아보기"
+  },
+  "kbArticleForm": {
+    "articleInfo": "문서 정보",
+    "titleLabel": "제목",
+    "titlePlaceholder": "문서 제목 입력",
+    "summaryLabel": "요약",
+    "summaryPlaceholder": "문서 내용을 한 문장으로 설명하세요",
+    "categoryLabel": "분류",
+    "categoryPlaceholder": "분류 선택",
+    "tagsLabel": "태그",
+    "contentLabel": "본문(Markdown)",
+    "contentPlaceholder": "Markdown 문법 지원...",
+    "cancel": "취소",
+    "publish": "게시"
+  },
+  "securityAuditPage": {
+    "title": "보안 감사",
+    "subtitle": "계정 보안 관련 이벤트를 확인 (마스킹됨)",
+    "loading": "로딩 중...",
+    "empty": "보안 이벤트 없음",
+    "colType": "유형",
+    "colDesc": "설명",
+    "colIp": "IP",
+    "colTime": "시간",
+    "type": {
+      "login": "로그인 기록",
+      "permission": "권한 변경",
+      "sensitive": "민감 작업",
+      "other": "기타"
+    }
   }
 }

@@ -4,6 +4,7 @@ import * as React from 'react'
 import Image from 'next/image'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { AlertCircle, Loader2, Bot, Link2, Check, Share2, RotateCcw } from 'lucide-react'
 import { fetchShareContent, type ShareContent } from '@/lib/share-api'
 import { cn } from '@/lib/utils'
@@ -35,10 +36,11 @@ export default function H5SharePage(): React.JSX.Element {
 }
 
 function LoadingView(): React.JSX.Element {
+  const t = useTranslations('h5SharePage')
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      <p className="mt-4 text-sm text-muted-foreground">加载中...</p>
+      <p className="mt-4 text-sm text-muted-foreground">{t('loading')}</p>
     </div>
   )
 }
@@ -50,23 +52,25 @@ function ErrorView({
   onRetry: () => void
   message?: string
 }): React.JSX.Element {
+  const t = useTranslations('h5SharePage')
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-10 text-center">
       <AlertCircle className="mb-4 h-16 w-16 text-muted-foreground/40" />
-      <p className="mb-6 text-sm text-muted-foreground">{message || '分享链接无效或已失效'}</p>
+      <p className="mb-6 text-sm text-muted-foreground">{message || t('errorDefault')}</p>
       <button
         type="button"
         onClick={onRetry}
         className="inline-flex items-center gap-1.5 rounded-md bg-primary px-6 py-2.5 text-sm text-primary-foreground transition-colors hover:bg-primary/90"
       >
         <RotateCcw className="h-4 w-4" />
-        重试
+        {t('retry')}
       </button>
     </div>
   )
 }
 
 function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
+  const t = useTranslations('h5SharePage')
   const [copied, setCopied] = React.useState(false)
   const [shareTip, setShareTip] = React.useState('')
 
@@ -76,7 +80,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      setShareTip('复制失败，请手动复制')
+      setShareTip(t('copyFail'))
       setTimeout(() => setShareTip(''), 2000)
     }
   }
@@ -86,7 +90,9 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
     if (nav.share) {
       try {
         await nav.share({
-          title: data.userName ? `${data.userName} 的分享` : '智汇AI 分享',
+          title: data.userName
+            ? t('shareTitleWithUser', { user: data.userName })
+            : t('shareTitleDefault'),
           text: data.question,
           url: window.location.href,
         })
@@ -95,7 +101,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
         // 用户取消或失败，回退到复制链接
       }
     }
-    setShareTip('请点击右上角···选择"分享给朋友"或复制链接发送')
+    setShareTip(t('wechatShareTip'))
     setTimeout(() => setShareTip(''), 2500)
   }
 
@@ -133,7 +139,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
 
         <div className="space-y-4 p-4">
           <section>
-            <div className="mb-1.5 text-xs font-medium text-muted-foreground">问题</div>
+            <div className="mb-1.5 text-xs font-medium text-muted-foreground">{t('questionLabel')}</div>
             <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
               {data.question}
             </p>
@@ -141,7 +147,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
 
           {data.answer?.thinking && (
             <section className="rounded-lg bg-muted/40 p-3">
-              <div className="mb-1 text-xs font-medium text-muted-foreground">思考过程</div>
+              <div className="mb-1 text-xs font-medium text-muted-foreground">{t('thinkingLabel')}</div>
               <p className="whitespace-pre-wrap break-words text-xs leading-relaxed text-muted-foreground">
                 {data.answer.thinking}
               </p>
@@ -150,7 +156,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
 
           {data.answer?.text && (
             <section>
-              <div className="mb-1.5 text-xs font-medium text-muted-foreground">回答</div>
+              <div className="mb-1.5 text-xs font-medium text-muted-foreground">{t('answerLabel')}</div>
               <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
                 {data.answer.text}
               </p>
@@ -163,7 +169,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
                 <Image
                   key={i}
                   src={src}
-                  alt={`图片${i + 1}`}
+                  alt={t('imageAlt', { n: i + 1 })}
                   width={200}
                   height={200}
                   className="aspect-square w-full rounded-lg object-cover"
@@ -179,7 +185,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
                   {it.type === 'image' ? (
                     <Image
                       src={it.content}
-                      alt={`内容${i + 1}`}
+                      alt={t('contentAlt', { n: i + 1 })}
                       width={400}
                       height={300}
                       className="w-full rounded object-cover"
@@ -239,7 +245,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
             )}
           >
             {copied ? <Check className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
-            {copied ? '已复制' : '复制链接'}
+            {copied ? t('copied') : t('copyLink')}
           </button>
           <button
             type="button"
@@ -247,7 +253,7 @@ function ShareCard({ data }: { data: ShareContent }): React.JSX.Element {
             className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-[#07c160] px-4 py-2.5 text-sm text-white transition-opacity hover:opacity-90"
           >
             <Share2 className="h-4 w-4" />
-            微信分享
+            {t('wechatShare')}
           </button>
         </div>
       </footer>

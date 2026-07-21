@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Loader2, ShieldAlert, KeyRound, LogIn, Settings } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -26,22 +27,16 @@ interface AuditEvent {
   createdAt: string
 }
 
-type EventMeta = { label: string; Icon: React.ComponentType<{ className?: string }> }
-
-function metaOf(type: AuditEvent['type']): EventMeta {
-  switch (type) {
-    case 'login':
-      return { label: '登录记录', Icon: LogIn }
-    case 'permission':
-      return { label: '权限变更', Icon: KeyRound }
-    case 'sensitive':
-      return { label: '敏感操作', Icon: Settings }
-    default:
-      return { label: '其他', Icon: ShieldAlert }
-  }
+const TYPE_ICON: Record<AuditEvent['type'], React.ComponentType<{ className?: string }>> = {
+  login: LogIn,
+  permission: KeyRound,
+  sensitive: Settings,
 }
 
+const DEFAULT_ICON = ShieldAlert
+
 export default function SecurityAuditPage() {
+  const t = useTranslations('securityAuditPage')
   const { data: list = [], isLoading } = useQuery({
     queryKey: ['security-audit'],
     queryFn: async () => {
@@ -61,9 +56,9 @@ export default function SecurityAuditPage() {
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <ShieldAlert className="h-6 w-6 text-primary" />
-          安全审计
+          {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">查看账户安全相关事件（已脱敏）</p>
+        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       <Card>
@@ -71,30 +66,29 @@ export default function SecurityAuditPage() {
           {isLoading ? (
             <div className="flex items-center justify-center py-16 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              加载中...
+              {t('loading')}
             </div>
           ) : list.length === 0 ? (
-            <p className="py-16 text-center text-sm text-muted-foreground">暂无安全事件</p>
+            <p className="py-16 text-center text-sm text-muted-foreground">{t('empty')}</p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="w-32 px-4 py-2.5">类型</TableHead>
-                  <TableHead className="px-4 py-2.5">描述</TableHead>
-                  <TableHead className="px-4 py-2.5">IP</TableHead>
-                  <TableHead className="px-4 py-2.5">时间</TableHead>
+                  <TableHead className="w-32 px-4 py-2.5">{t('colType')}</TableHead>
+                  <TableHead className="px-4 py-2.5">{t('colDesc')}</TableHead>
+                  <TableHead className="px-4 py-2.5">{t('colIp')}</TableHead>
+                  <TableHead className="px-4 py-2.5">{t('colTime')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {list.map((ev) => {
-                  const meta = metaOf(ev.type)
-                  const Icon = meta.Icon
+                  const Icon = TYPE_ICON[ev.type] ?? DEFAULT_ICON
                   return (
                     <TableRow key={ev.id}>
                       <TableCell className="px-4 py-2.5">
                         <span className="flex items-center gap-1.5 text-sm font-medium">
                           <Icon className="h-4 w-4 text-muted-foreground" />
-                          {meta.label}
+                          {t(`type.${ev.type}`)}
                         </span>
                       </TableCell>
                       <TableCell className="px-4 py-2.5">{ev.description}</TableCell>

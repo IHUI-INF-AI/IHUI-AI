@@ -1,6 +1,7 @@
 'use client'
 
 import { Loader2, Send } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Button,
   Card,
@@ -39,7 +40,7 @@ export function KBArticleForm({
   tagInput,
   err,
   submitting,
-  submitLabel = '发布',
+  submitLabel,
   onFormChange,
   onTagInputChange,
   onAddTag,
@@ -47,10 +48,12 @@ export function KBArticleForm({
   onSubmit,
   onCancel,
 }: Props) {
+  const t = useTranslations('kbArticleForm')
+  const finalSubmitLabel = submitLabel ?? t('publish')
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">文章信息</CardTitle>
+        <CardTitle className="text-base">{t('articleInfo')}</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} className="space-y-4">
@@ -61,33 +64,33 @@ export function KBArticleForm({
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="kb-title">标题</Label>
+            <Label htmlFor="kb-title">{t('titleLabel')}</Label>
             <Input
               id="kb-title"
               value={form.title}
               onChange={(e) => onFormChange({ ...form, title: e.target.value })}
-              placeholder="输入文章标题"
+              placeholder={t('titlePlaceholder')}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="kb-summary">摘要</Label>
+            <Label htmlFor="kb-summary">{t('summaryLabel')}</Label>
             <Input
               id="kb-summary"
               value={form.summary}
               onChange={(e) => onFormChange({ ...form, summary: e.target.value })}
-              placeholder="一句话描述文章内容"
+              placeholder={t('summaryPlaceholder')}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="kb-category">分类</Label>
+            <Label htmlFor="kb-category">{t('categoryLabel')}</Label>
             <Select
               value={form.categoryId}
               onValueChange={(v) => onFormChange({ ...form, categoryId: v })}
             >
               <SelectTrigger className={selectClass} id="kb-category">
-                <SelectValue placeholder="选择分类" />
+                <SelectValue placeholder={t('categoryPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((c) => (
@@ -100,7 +103,7 @@ export function KBArticleForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="kb-tags">标签</Label>
+            <Label htmlFor="kb-tags">{t('tagsLabel')}</Label>
             <TagInput
               tags={form.tags}
               value={tagInput}
@@ -111,20 +114,20 @@ export function KBArticleForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="kb-content">正文(Markdown)</Label>
+            <Label htmlFor="kb-content">{t('contentLabel')}</Label>
             <textarea
               id="kb-content"
               value={form.content}
               onChange={(e) => onFormChange({ ...form, content: e.target.value })}
               rows={14}
               className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              placeholder="支持 Markdown 语法..."
+              placeholder={t('contentPlaceholder')}
             />
           </div>
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
-              取消
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={submitting}>
               {submitting ? (
@@ -132,7 +135,7 @@ export function KBArticleForm({
               ) : (
                 <Send className="mr-1 h-4 w-4" />
               )}
-              {submitLabel}
+              {finalSubmitLabel}
             </Button>
           </div>
         </form>

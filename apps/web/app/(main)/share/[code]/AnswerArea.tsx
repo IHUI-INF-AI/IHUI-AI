@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Image from 'next/image'
 import { ChevronDown, Pause, Play, Volume2, X, Lightbulb } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { type ShareContent, type ShareListItem } from '@/lib/share-api'
 import { VideoPlayer } from '@/components/media'
@@ -42,6 +43,7 @@ export function AnswerArea({ answer }: { answer: ShareContent['answer'] }) {
 }
 
 function ThinkingProcess({ text }: { text: string }) {
+  const t = useTranslations('answerArea.thinking')
   const [expanded, setExpanded] = React.useState(false)
   const needToggle = text.length > 200
 
@@ -49,7 +51,7 @@ function ThinkingProcess({ text }: { text: string }) {
     <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-5">
       <div className="mb-3 flex items-center">
         <Lightbulb className="mr-2.5 h-5 w-5 text-primary" />
-        <span className="text-base font-semibold text-primary">思考过程</span>
+        <span className="text-base font-semibold text-primary">{t('title')}</span>
       </div>
       <div
         className={`relative overflow-hidden transition-all duration-300 ${
@@ -65,7 +67,7 @@ function ThinkingProcess({ text }: { text: string }) {
           onClick={() => setExpanded((v) => !v)}
           className="mt-3 flex w-full items-center justify-center gap-2 py-2 text-sm text-primary"
         >
-          <span>{expanded ? '收起' : '展开'}</span>
+          <span>{expanded ? t('collapse') : t('expand')}</span>
           <ChevronDown
             className={`h-4 w-4 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
           />
@@ -100,6 +102,7 @@ function ShareVideo({ video }: { video: NonNullable<ShareContent['answer']['vide
 }
 
 function ImageGrid({ images }: { images: string[] }) {
+  const t = useTranslations('answerArea.image')
   const [previewIndex, setPreviewIndex] = React.useState<number | null>(null)
 
   return (
@@ -113,7 +116,7 @@ function ImageGrid({ images }: { images: string[] }) {
           >
             <Image
               src={url}
-              alt={`图片${idx + 1}`}
+              alt={t('alt', { index: idx + 1 })}
               width={400}
               height={400}
               className="h-full w-full cursor-pointer object-cover transition-transform hover:scale-105"
@@ -139,6 +142,7 @@ function ImagePreview({
   index: number
   onClose: () => void
 }) {
+  const t = useTranslations('answerArea.image')
   const [current, setCurrent] = React.useState(index)
   const src = images[current]
   if (!src) return null
@@ -159,14 +163,14 @@ function ImagePreview({
       <button
         onClick={onClose}
         className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white transition-colors hover:bg-white/20"
-        aria-label="关闭"
+        aria-label={t('close')}
       >
         <X className="h-5 w-5" />
       </button>
 
       <Image
         src={src}
-        alt={`预览图片 ${current + 1}`}
+        alt={t('previewAlt', { index: current + 1 })}
         width={1920}
         height={1080}
         className="max-h-[90vh] max-w-[90vw] object-contain"
@@ -181,7 +185,7 @@ function ImagePreview({
               setCurrent((c) => (c - 1 + images.length) % images.length)
             }}
             className="absolute left-4 flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white transition-colors hover:bg-white/20"
-            aria-label="上一张"
+            aria-label={t('prev')}
           >
             ‹
           </button>
@@ -191,7 +195,7 @@ function ImagePreview({
               setCurrent((c) => (c + 1) % images.length)
             }}
             className="absolute right-4 top-1/2 flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white transition-colors hover:bg-white/20"
-            aria-label="下一张"
+            aria-label={t('next')}
           >
             ›
           </button>
@@ -202,6 +206,7 @@ function ImagePreview({
 }
 
 function AudioPlayer({ audio }: { audio: NonNullable<ShareContent['answer']['audio']> }) {
+  const t = useTranslations('answerArea.audio')
   const audioRef = React.useRef<HTMLAudioElement | null>(null)
   const [playing, setPlaying] = React.useState(false)
   const [progress, setProgress] = React.useState(0)
@@ -215,7 +220,7 @@ function AudioPlayer({ audio }: { audio: NonNullable<ShareContent['answer']['aud
       setPlaying(false)
     } else {
       el.play().catch(() => {
-        toast.error('音频播放失败')
+        toast.error(t('playFailed'))
       })
       setPlaying(true)
     }
@@ -252,7 +257,7 @@ function AudioPlayer({ audio }: { audio: NonNullable<ShareContent['answer']['aud
         }}
         onError={() => {
           setPlaying(false)
-          toast.error('音频播放失败')
+          toast.error(t('playFailed'))
         }}
       >
         <track kind="captions" />
@@ -260,7 +265,7 @@ function AudioPlayer({ audio }: { audio: NonNullable<ShareContent['answer']['aud
       <button
         onClick={toggle}
         className="flex h-10 w-10 shrink-0 items-center justify-center text-xl text-primary"
-        aria-label={playing ? '暂停' : '播放'}
+        aria-label={playing ? t('pause') : t('play')}
       >
         {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
       </button>
@@ -279,6 +284,7 @@ function AudioPlayer({ audio }: { audio: NonNullable<ShareContent['answer']['aud
 }
 
 function ListsContent({ lists }: { lists: ShareListItem[] }) {
+  const t = useTranslations('answerArea.image')
   return (
     <div className="space-y-2.5">
       {lists.map((item, idx) => {
@@ -301,7 +307,7 @@ function ListsContent({ lists }: { lists: ShareListItem[] }) {
             >
               <Image
                 src={item.content}
-                alt={`图片${idx + 1}`}
+                alt={t('alt', { index: idx + 1 })}
                 width={800}
                 height={600}
                 className="w-full cursor-pointer object-cover"

@@ -797,10 +797,11 @@ function FavoriteStar({
   onClick: (e: React.MouseEvent) => void
   className?: string
 }) {
+  const t = useTranslations('models')
   return (
     <button
       type="button"
-      aria-label={isFavorite ? '取消收藏' : '收藏模型'}
+      aria-label={isFavorite ? t('market.ariaLabel.removeFavorite') : t('market.ariaLabel.addFavorite')}
       onClick={onClick}
       className={cn(
         'flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent',
