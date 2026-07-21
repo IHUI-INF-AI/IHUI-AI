@@ -74,6 +74,7 @@ async def lifespan(app: FastAPI):
     publish_scheduler.start()
 
     yield
+    shutdown_telemetry()
 
     await publish_scheduler.stop()
     await self_media_scheduler.stop()
