@@ -173,7 +173,7 @@ export function DevToolsTrigger() {
      * 即使面板收起时也能看到并被悬停触发。
      */
     <div
-      className="fixed right-0 top-0 z-50 flex h-screen"
+      className="fixed right-0 top-0 z-50 h-screen w-[10px]"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       aria-label={t('trigger')}
@@ -181,13 +181,12 @@ export function DevToolsTrigger() {
       {/* 拉出的面板 - 320px 宽,从右往左滑入 */}
       <div
         className={[
-          'flex h-full w-80 flex-col border-l bg-background shadow-xl',
+          'absolute right-full top-0 flex h-full w-80 flex-col border-l bg-background shadow-xl',
           'transition-transform duration-200 ease-out',
           // 收起时 translate-x-full 把自己推到视口外,只露把手
-          hover ? 'translate-x-0' : 'translate-x-full',
         ].join(' ')}
         // 收起时不接收 pointer events,避免挡住下方页面元素;展开时正常接收
-        style={{ pointerEvents: hover ? 'auto' : 'none' }}
+        style={{ pointerEvents: hover ? 'auto' : 'none', transform: hover ? 'translateX(0)' : 'translateX(100%)' }}
         aria-hidden={!hover}
       >
         {/* 面板头部 */}
@@ -282,7 +281,7 @@ export function DevToolsTrigger() {
       {/* 收起时也保持可见,作为悬停触发器 */}
       <div
         className={[
-          'flex h-full w-[10px] shrink-0 flex-col items-center justify-center',
+          'flex h-full w-full flex-col items-center justify-center',
           'border-l border-border/60 bg-foreground/5',
           'transition-colors duration-150',
           hover ? 'bg-foreground/15' : 'hover:bg-foreground/10',
