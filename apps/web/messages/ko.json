@@ -25989,5 +25989,25 @@
       "empty": "학습 기록 없음",
       "progressLabel": "진행률 {n}%"
     }
+  },
+  "memberSettingsPage": {
+    "loading": "로딩 중…",
+    "title": "회원 설정",
+    "description": "알림 및 개인 정보 기본 설정을 관리하세요",
+    "notifTitle": "알림 설정",
+    "notif": {
+      "orderUpdates": "주문 업데이트",
+      "promotions": "프로모션",
+      "points": "포인트 활동",
+      "newsletter": "뉴스레터"
+    },
+    "privacyTitle": "개인 정보 설정",
+    "privacy": {
+      "showProfile": "프로필 공개",
+      "showActivity": "활동 내역 표시",
+      "allowInvites": "초대 허용"
+    },
+    "saveBtn": "설정 저장",
+    "saved": "저장됨"
   }
 }
