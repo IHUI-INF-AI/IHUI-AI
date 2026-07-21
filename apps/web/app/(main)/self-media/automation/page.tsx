@@ -34,6 +34,12 @@ interface AutomationExample {
   descKey: string
   scheduleKey: string
   outputKey: string
+  /** 对应的内置任务 ID(2026-07-22 新增)
+   *  - 有值:点击"参考此模板"时用 /auto-task 斜杠命令直接配置该任务(秒级完成)
+   *  - 无值:走 AI 引导路径,让 AI 用自然语言引导用户配置 */
+  taskId?: 'wechat_daily' | 'koubo_daily'
+  /** 默认执行时间(HH:MM 格式,用于斜杠命令),仅当 taskId 存在时有效 */
+  defaultTime?: string
 }
 
 const AUTOMATION_EXAMPLES: AutomationExample[] = [
@@ -44,6 +50,8 @@ const AUTOMATION_EXAMPLES: AutomationExample[] = [
     descKey: 'example1Desc',
     scheduleKey: 'example1Schedule',
     outputKey: 'example1Output',
+    taskId: 'wechat_daily',
+    defaultTime: '09:00',
   },
   {
     id: 'video-script',
@@ -52,6 +60,8 @@ const AUTOMATION_EXAMPLES: AutomationExample[] = [
     descKey: 'example2Desc',
     scheduleKey: 'example2Schedule',
     outputKey: 'example2Output',
+    taskId: 'koubo_daily',
+    defaultTime: '08:00',
   },
   {
     id: 'content-monitor',
@@ -143,22 +153,32 @@ export default function AutomationPage() {
   const [triggeringId, setTriggeringId] = React.useState<string | null>(null)
   const [togglingId, setTogglingId] = React.useState<string | null>(null)
 
-  /** 点击示例卡片:打开 AI 对话面板注入"创建 XXX 自动化任务"消息(2026-07-22 升级)
-   *  原方案只 toast + 滚动,无实际填充。现改为对接 AI 对话面板:
-   *  - 打开 AI 对话面板
-   *  - 注入按 exampleId 定制的创建指令(name + desc + schedule + output)
-   *  - AI 引导用户完成自动化任务配置(比手动填表单更智能) */
+  /** 点击示例卡片:两条路径(2026-07-22 升级 v2)
+   *  路径 A — 有对应内置任务(taskId 存在):
+   *    打开 AI 面板 → 注入 /auto-task <taskId> <HH:MM> 斜杠命令 → 秒级配置完成
+   *    AI 面板会显示配置结果(执行时间/dry-run/enabled),用户可直接去任务列表查看
+   *  路径 B — 无对应内置任务(如内容监控/数据报告/竞品追踪/邮件日报):
+   *    打开 AI 面板 → 注入 exampleInvokePrompt(name+desc+schedule+output)
+   *    → AI 用自然语言引导用户用现有 wechat_daily/koubo_daily 任务实现类似功能 */
   const openAiPanel = useAiPanelStore((s) => s.openPanel)
   const { sendMessage } = useChat()
   const handleUseExample = (ex: AutomationExample) => {
     openAiPanel()
     const name = t(ex.nameKey)
-    const desc = t(ex.descKey)
-    const schedule = t(ex.scheduleKey)
-    const output = t(ex.outputKey)
-    const prompt = t('exampleInvokePrompt', { name, desc, schedule, output })
-    void sendMessage(prompt)
-    toast.info(t('templateLoaded', { name }))
+    if (ex.taskId && ex.defaultTime) {
+      // 路径 A:斜杠命令直接配置
+      const slashCmd = `/auto-task ${ex.taskId} ${ex.defaultTime}`
+      void sendMessage(slashCmd)
+      toast.info(t('templateLoaded', { name }))
+    } else {
+      // 路径 B:AI 引导
+      const desc = t(ex.descKey)
+      const schedule = t(ex.scheduleKey)
+      const output = t(ex.outputKey)
+      const prompt = t('exampleInvokePrompt', { name, desc, schedule, output })
+      void sendMessage(prompt)
+      toast.info(t('templateLoaded', { name }))
+    }
   }
 
   const loadAll = React.useCallback(async () => {
