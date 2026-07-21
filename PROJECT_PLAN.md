@@ -732,4 +732,72 @@
 - ❌ 用量采集 + 计费(阶段 3,需 api 端扩展)
 - ❌ 支付集成(阶段 3,需 web + api + 数据库 3 端联动)
 
+---
+
+## 学生学习报告 + 每日多格式日志全链路补全(2026-07-21 立)
+
+**触发**:用户问"学生管理 学生每天填入自己的学习情况 各种格式 还有一键导出学习报告的全链路现在都开发好了吗 都正常使用了吗"。深度审计结论:① 学生管理 ✅ 已完成;② "每天填写学习情况(各种格式)" ❌ 不支持每日机制 + 不支持图片/音频/视频附件;③ "一键导出学习报告" ❌ 前端无导出按钮 + 后端 `report.ts` 仅运营报表 + `useReportGenerator` Hook 是孤儿代码 + `/api/edu/my-report` 仅返回 3 维 JSON 无导出能力。
+
+### 任务拆分(P0 → P3)
+
+#### [ ] P0:修 student/notes/page.tsx URL 缺 `/edu` 前缀 bug
+
+- [ ] `apps/web/app/(main)/student/notes/page.tsx` 第 48 行 `PUT /api/notes/${editing.id}` → `/api/edu/notes/${editing.id}`
+- [ ] 第 63 行 `DELETE /edu/notes/${id}` → `/api/edu/notes/${id}`(同时缺 `/api` 前缀)
+
+#### [ ] P1:一键导出学习报告全链路(后端 + 前端打通)
+
+**后端**(`apps/api/src/routes/edu-public.ts`):
+- [ ] 新增 `POST /edu/my-report/export` 端点(学员本人,只需登录鉴权,非 admin)
+- [ ] 支持 `format: 'pdf' | 'excel' | 'json'`(复用 `pdf-service.ts` 的 `generateReportPDF` + `excel-export-service.ts` 的 `exportToExcel`)
+- [ ] 支持 `dateRange?: { start, end }` 过滤
+- [ ] 数据源扩展为 8 维(lessons + exams + certificates + lesson_records 视频时长 + edu_notes 笔记数 + edu_offline_records 线下学时 + edu_uploaded_certs 自传证书 + learn_homework_record 作业提交)
+- [ ] Zod 校验请求体
+
+**前端**:
+- [ ] `apps/web/src/hooks/use-report-generator.ts` 改为通用下载 Hook(支持 blob 响应 + 浏览器触发下载)
+- [ ] `apps/web/app/(main)/student/page.tsx` 学员中心顶部加"导出学习报告"按钮(下拉:PDF / Excel / JSON)
+- [ ] `apps/web/app/(main)/admin/edu/reports/memberstudy/page.tsx` admin 端加导出按钮(支持按 userId 导出单个学员报告)
+- [ ] 5 语言 i18n parity(zh-CN / zh-TW / en / ja / ko)
+
+**验证**:
+- [ ] `pnpm --filter @ihui/api typecheck` exit 0
+- [ ] `pnpm --filter @ihui/web typecheck` exit 0
+- [ ] 新增 `apps/api/src/routes/__tests__/edu-report-export.test.ts` 覆盖 401/400/200/pdf/excel/json 6 个用例
+- [ ] browser_use 实际渲染验证学员中心导出按钮 4 状态(默认/hover/active/disabled-生成中)
+- [ ] curl 实际下载 PDF/Excel 文件验证 Content-Type + Content-Disposition
+
+#### [ ] P2:每日学习日志 + 多格式附件
+
+**数据库**(`packages/database/src/schema/edu-extended.ts`):
+- [ ] `edu_notes` 表新增 `attachments jsonb` 字段(数组:[{ url, name, type, size }])
+- [ ] `edu_offline_records` 表新增 `attachments jsonb` 字段
+- [ ] `pnpm --filter @ihui/database drizzle-kit generate` 生成 migration
+
+**后端**:
+- [ ] `apps/api/src/routes/edu-public.ts` `POST /edu/notes` + `PUT /edu/notes/:id` 接收 attachments
+- [ ] `POST /edu/offline-records` + `PUT /edu/offline-records/:id` 接收 attachments
+- [ ] Zod schema 校验 attachments 结构(每项必须有 url + name + type + size)
+
+**前端**:
+- [ ] `apps/web/app/(main)/student/notes/NoteDialog.tsx` 加 ImageUpload 组件(复用 `@/components/form/ImageUpload.tsx`,支持 image/audio/video MIME)
+- [ ] `apps/web/app/(main)/student/offline-records/OfflineRecordDialog.tsx` 同上
+- [ ] 修 `ImageUpload` 默认 `uploadUrl` BUG(`/api/files/upload` 不存在,改为 `/api/files/upload/form`)
+- [ ] 5 语言 i18n parity(附件上传相关文案)
+
+**验证**:
+- [ ] `pnpm --filter @ihui/database drizzle-kit generate` exit 0 + migration 文件正确
+- [ ] `pnpm --filter @ihui/api typecheck` exit 0
+- [ ] `pnpm --filter @ihui/web typecheck` exit 0
+- [ ] browser_use 实际渲染验证 NoteDialog 文件上传 4 状态(空/上传中/已上传/删除)
+- [ ] curl 实际上传文件 + 创建带附件的笔记 + GET 验证 attachments 字段返回
+
+#### [ ] P3:清理 3 个孤儿 Hook
+
+- [ ] `apps/web/src/hooks/use-student-profile.ts`:调用 `/api/students/:id/profile` 后端不存在 + 前端 0 引用 → 删除
+- [ ] `apps/web/src/hooks/use-ai-report.ts`:调用 `/api/ai-ext/reports` 后端不存在 + 前端 0 引用 → 删除
+- [ ] `apps/web/src/hooks/use-report-generator.ts`:P1 任务中改造为通用下载 Hook,从孤儿代码变为实际使用
+- [ ] grep 验证 3 个 Hook 删除/改造后无残留引用
+
+---
 
