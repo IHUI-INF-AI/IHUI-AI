@@ -25989,5 +25989,25 @@
       "empty": "No learning records",
       "progressLabel": "Progress {n}%"
     }
+  },
+  "memberSettingsPage": {
+    "loading": "Loading…",
+    "title": "Member Settings",
+    "description": "Manage your notification and privacy preferences",
+    "notifTitle": "Notification Preferences",
+    "notif": {
+      "orderUpdates": "Order Updates",
+      "promotions": "Promotions",
+      "points": "Points Activity",
+      "newsletter": "Newsletter"
+    },
+    "privacyTitle": "Privacy Settings",
+    "privacy": {
+      "showProfile": "Show Profile Publicly",
+      "showActivity": "Show My Activity",
+      "allowInvites": "Allow Invitations"
+    },
+    "saveBtn": "Save Settings",
+    "saved": "Saved"
   }
 }
