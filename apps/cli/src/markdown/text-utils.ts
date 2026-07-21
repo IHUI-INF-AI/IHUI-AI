@@ -1,9 +1,6 @@
 /**
  * P44-2 Markdown text utilities(纯函数,0 依赖)。
  *
- * 灵感来源:参考 cli-markdown/src/buffers.rs
- *   - count_trailing_blank_lines (L73-119)
- *   - floor_char_boundary / ceil_char_boundary (L259-278)
  *
  * 用途:
  *   - 配合 checkpoint-freezing.ts:决定 frozen 边界后多少空行可截断
