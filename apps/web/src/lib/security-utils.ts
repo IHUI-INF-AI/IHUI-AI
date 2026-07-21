@@ -12,6 +12,23 @@ import type { ApiResult } from '@ihui/types'
 
 import { fetchApi } from '@/lib/api'
 
+/**
+ * 密码学安全随机 hex(浏览器端 Web Crypto API,无 Math.random 降级)
+ * 2026-07-21 加固:防止 CWE-330 可预测随机漏洞,用于 sessionId / TOTP / 备份码 / log id
+ */
+function randomHex(bytes: number): string {
+  if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
+    throw new Error('Web Crypto API 不可用,拒绝降级到 Math.random()')
+  }
+  const buf = new Uint8Array(bytes)
+  crypto.getRandomValues(buf)
+  let hex = ''
+  for (let i = 0; i < bytes; i++) {
+    hex += (buf[i] ?? 0).toString(16).padStart(2, '0')
+  }
+  return hex
+}
+
 /* ------------------------------------------------------------------ */
 /* 基础安全工具（security）                                            */
 /* ------------------------------------------------------------------ */
@@ -136,7 +153,7 @@ interface SessionInfo {
 export function createSession(userId: string): SessionInfo {
   const now = Date.now()
   const session: SessionInfo = {
-    sessionId: `sess_${now}_${Math.random().toString(36).slice(2, 10)}`,
+    sessionId: `sess_${now}_${randomHex(8)}`,
     userId,
     loginAt: now,
     lastActiveAt: now,
@@ -195,18 +212,15 @@ function saveSession(session: SessionInfo): void {
 /* 双因素认证（twoFactorService）                                      */
 /* ------------------------------------------------------------------ */
 
-/** 生成 base32 密钥（用于 TOTP） */
+/** 生成 base32 密钥（用于 TOTP）。2026-07-21 加固:强制 Web Crypto,无 Math.random 回退。 */
 export function generateBase32Secret(length = 20): string {
+  if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
+    throw new Error('Web Crypto API 不可用,无法生成 TOTP 密钥,拒绝降级到 Math.random()')
+  }
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
   let secret = ''
   const bytes = new Uint8Array(length)
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    crypto.getRandomValues(bytes)
-  } else {
-    for (let i = 0; i < length; i++) {
-      bytes[i] = Math.floor(Math.random() * 256)
-    }
-  }
+  crypto.getRandomValues(bytes)
   for (let i = 0; i < length; i++) {
     const byte = bytes[i] ?? 0
     const ch = chars[byte % 32]
@@ -453,7 +467,7 @@ export function pushSecurityNotification(
   channels: NotificationChannel[] = ['in_app'],
 ): SecurityNotification {
   const n: SecurityNotification = {
-    id: `ntf_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    id: `ntf_${Date.now()}_${randomHex(4)}`,
     title,
     content,
     severity,

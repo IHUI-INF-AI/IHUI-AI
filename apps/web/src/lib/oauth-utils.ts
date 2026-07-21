@@ -12,15 +12,17 @@ const OAUTH_STATE_KEY_PREFIX = 'oauth_state_'
 
 /**
  * 生成随机 state 参数，用于防止 CSRF 攻击。
- * 使用 Web Crypto API（可用时）以保证密码学强度；不可用时回退到 Math.random。
- * @returns 随机 state 字符串
+ * 强制使用 Web Crypto API(crypto.getRandomValues),保证密码学强度;
+ * 不可用时抛错(不允许降级到 Math.random — 那是 CWE-330 可预测随机漏洞)。
+ * @returns 随机 state 字符串(32 hex chars = 128 bits entropy)
  */
 export function generateState(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID()
+  if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
+    throw new Error('Web Crypto API 不可用,无法生成密码学安全随机数,拒绝降级到 Math.random()')
   }
-  // 回退方案：拼接两段随机串
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 /**
