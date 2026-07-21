@@ -8,6 +8,57 @@
 
 ## 当前活跃任务(2026-07-20)
 
+### AI 资讯自动采集 cron + 17 信源 seed + ai-news 页面改接(2026-07-22)
+
+**触发**:用户反馈"本项目的 ai 资讯每天间隔 6 小时会自动全网国内外所有信源获取一遍吗 然后显示到界面上 这个功能完整开发好了吗"。调研发现 ai-feed-service.ts 11 个函数全为手动触发(注释明确"手动触发"),无 cron 调度;`ai_feed_source` 表无 seed 数据;前端 ai-news 页面用 mock FALLBACK_ARTICLES 静态数据。用户参考 aihot.virxact.com/all 要求"看看他们的信源 还有设计可以抄袭借鉴"。
+
+**方案与产出**(参考 aihot 三分法:firstParty/news/x):
+
+1. **P0-1 cron 任务**:`apps/api/src/plugins/scheduler.ts` 加 2 个 cron
+   - `ai-feed-collect` `0 */6 * * *`(每 6 小时全量采集 17 个信源,落 ai_feed_hot_item)
+   - `ai-feed-process` `30 */6 * * *`(错峰 30 分,LLM 分类摘要 + 标题翻译 + 趋势信号计算)
+   - `scheduler-worker.ts` 加 2 个 case handler,ai-feed-process 用 Promise.all 并行 3 子任务 + 独立 catch 防止一个失败拖垮全部
+
+2. **P0-2 信源 seed**:`packages/database/seed/ai-feed-sources.ts` 17 个信源(幂等 upsert,fetchIntervalMinutes=360 与 cron 对齐)
+   - 国内 hotlist 8:weibo/zhihu/36kr/sspai/juejin/v2ex/bilibili/ithome
+   - 国外 hotlist 4:hackernews/producthunt/github-trending/techcrunch
+   - RSS 5:openai-blog/anthropic-blog/google-ai/arxiv-cs-ai/mit-tech-review
+   - `seed/index.ts` 追加 step 8
+
+3. **P1 前端 ai-news 改接**:
+   - `apps/web/app/(main)/ai-news/page.tsx` 改 server component,并行调 `fetchAiFeedItems(50)` + `fetchAiFeedSources()`
+   - 新建 `apps/web/app/(main)/ai-news/components/AiFeedTimeline.tsx`(client,category tab + 按日分组[今天/昨天/更早] + 来源徽章动态颜色 + 趋势信号 rising/cooling + 热度数字格式化[亿/万])
+   - `apps/web/src/lib/ai-news-api.ts` 加 `AiFeedTimelineItem` 类型 + `fetchAiFeedItems` + `fetchAiFeedSources` 函数
+   - 5 语言 i18n 加 `aiNews.feed.*` 17 个 key(label/title/subtitle/totalPrefix/totalSuffix/today/yesterday/itemsUnit/empty + 8 个 categoryTab)
+
+**变更文件**:
+
+- `apps/api/src/plugins/scheduler.ts`(+15 行,ScheduledJobName 加 2 个 + SCHEDULED_JOBS 加 2 个)
+- `apps/api/src/workers/scheduler-worker.ts`(+50 行,import + 2 个 case handler)
+- `packages/database/seed/ai-feed-sources.ts`(新,260 行,17 信源 + 幂等 upsert)
+- `packages/database/seed/index.ts`(+10 行,import + step 8)
+- `apps/web/app/(main)/ai-news/page.tsx`(重写,server component + AiFeedTimeline)
+- `apps/web/app/(main)/ai-news/components/AiFeedTimeline.tsx`(新,客户端时间线组件)
+- `apps/web/src/lib/ai-news-api.ts`(+110 行,AiFeedTimelineItem + fetchAiFeedItems + fetchAiFeedSources)
+- `apps/web/messages/{zh-CN,zh-TW,en,ko,ja}.json`(+17 key × 5 语言)
+
+**自验**:
+
+- `pnpm --filter @ihui/database typecheck` exit 0 ✅
+- `pnpm --filter @ihui/api exec tsc --noEmit` exit 2,但本任务 4 个后端文件(scheduler.ts/scheduler-worker.ts/ai-feed-sources.ts/seed/index.ts)不在错误列表(其他 agent 引入的 clawdbot safe-condition.js 缺失 / knowledge-rag-service unused / server.ts pluginsRoutes unused)
+- `pnpm --filter @ihui/web exec tsc --noEmit` exit 1,但本任务 3 个 web 文件(ai-news-api.ts/AiFeedTimeline.tsx/ai-news/page.tsx)不在错误列表(其他 agent 引入的 DictDialog.tsx 13 错误 + AdminNav.tsx 类型错 + sidebar.tsx ExpandableNavItem 重复定义)
+- browser_use 4 状态自验:**降级跳过**(AGENTS.md §17 场景 3),根因 `/ai-news` 页面 500 编译失败因其他 agent 的 `apps/web/src/components/sidebar.tsx` ExpandableNavItem 重复定义(line 1109 + 1578),不在本任务清单,30 分钟内无法修复
+
+**硬约束**:
+
+- 跨端:仅 web + api + database 3 端(ai-news 是 web 独占页面,cron 与 seed 是 api/database 后端独占,不涉及 ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)
+- 改动文件仅限本任务清单(8 个 web/api/database 文件 + 5 个 i18n 文件)
+- commit message: `feat(ai-feed): cron 每6h自动采集17信源 + ai-news 页改接真实数据,借鉴 aihot`
+- Verified-DOM:无法验证(其他 agent sidebar.tsx 重复定义阻塞 dev server,非本任务范围)
+- 多端同步:`fetchIntervalMinutes=360` 与 cron `0 */6 * * *` 对齐;17 信源 endpoint 用相对路径,DailyHotApi/RSSHub base URL 由环境变量 DAILYHOT_API_URL/RSSHUB_URL 配置
+
+---
+
 ### G5+ 知识图谱 DrizzleGraphStore 持久化后端(2026-07-22)
 
 **触发**:G5 知识图谱 commit `73f8d0a5d` 落地后,`graph_store` 仅 `InMemoryGraphStore`(进程内 dict),生产环境重启丢数据。本任务将其升级为 DrizzleGraphStore(asyncpg 直连 PG),通过环境变量 `KNOWLEDGE_GRAPH_STORE` 切换后端。
