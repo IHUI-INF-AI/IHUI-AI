@@ -121,7 +121,9 @@ export function MessageList({
   }
 
   return (
-    <div ref={containerRef} className="h-full overflow-y-auto">
+    // 2026-07-21 AI 面板滚动条:加 hover-scroll 完全隐藏滚动条(不占布局空间),
+    // 解决 bg-shell-panel 暗色背景下默认滚动条轨道透出深色的问题
+    <div ref={containerRef} className="hover-scroll h-full overflow-y-auto">
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6">
         {messages.map((m, idx) => {
           const isUser = m.role === 'user'
