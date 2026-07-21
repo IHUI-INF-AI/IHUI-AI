@@ -40,7 +40,7 @@ export const integrationConfigs = pgTable('integration_configs', {
   provider: varchar('provider', { length: 32 }).notNull(),
   credentials: jsonb('credentials'),
   isEnabled: boolean('is_enabled').default(false).notNull(),
-  config: jsonb('config'),
+  config: jsonb('config').default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
