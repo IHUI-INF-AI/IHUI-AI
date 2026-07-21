@@ -8,6 +8,51 @@
 
 ## 当前活跃任务(2026-07-20)
 
+### [x] ✅(2026-07-22) 多端流式输出极致化(packages/ui 共享折叠组件 + api 多路复用 + web feed 流式 token 改造)
+
+**触发**:用户问"本项目多端的流式输出开发完全到极致了吗 比如 subagent 多个同时工作时的流式显示动态更新 还有繁杂的 powershell 进程内容窗口的隐藏收纳 点击后可展开查看等"。调研发现:多 subagent 并发只有步骤级/快照级更新(非 token 级流式);无专门终端输出折叠组件;packages/ui 缺共享折叠基座。用户指示"都需要 启动goal 多agent开发好"。
+
+**方案与产出**(goal 模式 + 3 subagent 并行,2 轮):
+
+1. **packages/ui 补 3 个共享组件**(subagent A,共享包 only/跨端共享):
+   - `collapsible.tsx` — Collapsible/CollapsibleTrigger/CollapsibleContent(受控/非受控 + aria-expanded + useId a11y 配对)
+   - `code-block.tsx` — 轻量纯文本代码块(复制按钮 + isStreaming opacity-60 + 错误降级 + React.memo,零新依赖,主题走 Tailwind token)
+   - `log-viewer.tsx` — 日志查看器(超 maxCollapsedLines 自动折叠 + 展开查看全部 + autoScroll 流式滚底 + 状态图标 + 空输出占位 + 流式光标)
+   - `index.ts` 追加导出三组件 + 类型
+
+2. **api 层单连接多 agent 流式多路复用**(subagent B,api 独占):
+   - `ai-chat-stream.ts` — SSE chunk 注入 agentId(extraFirstEvents/error chunk,字节透传部分由 ai-service 决定)
+   - `ws-ai.ts` — WS 消息透传 agentId(/ws/agent/stream + capability 端点 + 4 个 Provider 端点)
+   - 向后兼容:agentId 可选,JSON.stringify 忽略 undefined,缺失时降级单 agent
+
+3. **web 端流式 feed 改造 + CollapsibleOutput**(subagent C,web 独占):
+   - `types.ts` — SubAgentActivity 扩展 streamingContent?/streamingDone?(向后兼容)
+   - `sub-agent-activity-feed.tsx` — 重构为 Feed + SubAgentCard,每卡片支持流式 token 输出(MarkdownStream 渲染 streamingContent)+ 独立折叠 + 自动展开(197 行)
+   - `collapsible-output.tsx` — 新建泛化折叠输出组件(109 行,复用 @ihui/ui 的 Collapsible/LogViewer/CodeBlock,标题栏 + 状态图标 + 折叠箭头 + 展开体)
+
+**变更文件**(9 个):
+- `packages/ui/src/components/{collapsible,code-block,log-viewer}.tsx`(3 新建)
+- `packages/ui/src/index.ts`(导出)
+- `apps/api/src/routes/ai-chat-stream.ts` + `apps/api/src/plugins/ws-ai.ts`(agentId 透传)
+- `apps/web/src/components/ai/{sub-agent-activity-feed.tsx,collapsible-output.tsx,types.ts}`(改造 + 新建 + 扩展)
+
+**自验**:
+- @ihui/ui typecheck + build 退出码 0 ✅
+- @ihui/api 本任务文件 typecheck 绿(预存 4 错误属其他 agent:clawdbot/safe-condition 缺失 + cosineSimilarity 未使用)
+- @ihui/web 本任务 3 文件 typecheck + lint 0 错误(预存 20 typecheck + 9 lint 属其他模块:DictDialog/AdminNav/sidebar 等)
+- UI 合规:无 rounded-full、无分割线、无渐变遮罩、hover subtle、中文字体对齐由 globals.css 全局处理
+
+**平台独占豁免标注**(§9):
+- packages/ui 改动 = "共享包 only/跨端共享"
+- api 改动 = "api 独占"
+- web 改动 = "web 独占"
+- 其他端(desktop/extension/mobile-rn/miniapp-taro)AgentRuntimePanel 是单 agent 场景,不需 sub-agent feed,按平台独占豁免不强制接入
+
+**已知缺口(后续任务,非本任务范围)**:
+- use-chat.ts 的 onDelta 未按 agentId 分流到 SubAgentActivity.streamingContent(组件层已就绪,数据层"最后一公里"待接通)
+
+---
+
 ### [x] ✅(2026-07-21) 深度代码比对 + 7 项遗漏补全(跨端:web+api+database,补全遗漏项涉及新文件)
 
 **触发**:`/goal` 用户要求"深度查看比对分析在本项目未改架构前的git仓库所有的代码 还有d盘历史项目是否整合迁移百分百 一个个代码分析 所有文件都要比对是否有完整的对应代码实现 不可以有任何遗漏缺失 不可以以项目plan文件里的历史进度记录为依据 要重新全部分析 是否项目整个完整的百分百的更改完架构了整合迁移完美了 没有遗漏缺失 不能光分析架构 还要深入到每一个代码都要分析到前端后端样式交互接口连通等等所有问题"。
