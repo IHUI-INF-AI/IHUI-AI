@@ -17,11 +17,11 @@ import Taro from '@tarojs/taro'
 import { loginByWechat } from '../api'
 import { setToken, setRefreshToken, setUserInfo, type UserInfo } from './auth'
 import { useUserStore } from '../stores/user'
-import { miniapp as zhCN } from '@ihui/i18n/locales/zh-CN'
-import { miniapp as en } from '@ihui/i18n/locales/en'
-import { miniapp as ja } from '@ihui/i18n/locales/ja'
-import { miniapp as ko } from '@ihui/i18n/locales/ko'
-import { miniapp as zhTW } from '@ihui/i18n/locales/zh-TW'
+import zhCN from '../i18n/zh-CN'
+import en from '../i18n/en'
+import ja from '../i18n/ja'
+import ko from '../i18n/ko'
+import zhTW from '../i18n/zh-TW'
 
 /** 读取当前 locale 下的 i18n 字典(非 hook 场景,供工具函数使用) */
 function getCurrentDict(): typeof zhCN {
