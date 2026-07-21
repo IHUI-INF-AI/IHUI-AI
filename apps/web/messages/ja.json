@@ -25991,55 +25991,402 @@
     }
   },
   "memberSettingsPage": {
-    "loading": "読み込み中…",
+    "loading": "読み込み中...",
     "title": "会員設定",
-    "description": "通知とプライバシー設定を管理する",
+    "description": "通知設定とプライバシー設定を管理",
     "notifTitle": "通知設定",
     "notif": {
-      "orderUpdates": "注文の更新",
-      "promotions": "プロモーション",
-      "points": "ポイント",
-      "newsletter": "ニュースレター"
+      "orderUpdates": "注文ステータス更新",
+      "promotions": "プロモーションとオファー",
+      "points": "ポイント変動通知",
+      "newsletter": "ニュースレター購読"
     },
     "privacyTitle": "プライバシー設定",
     "privacy": {
       "showProfile": "プロフィールを公開",
-      "showActivity": "アクティビティを表示",
-      "allowInvites": "招待を許可"
+      "showActivity": "最近のアクティビティを表示",
+      "allowInvites": "他ユーザーからの招待を許可"
     },
     "saveBtn": "設定を保存",
-    "saved": "保存しました"
+    "saved": "保存済み"
   },
   "memberDashboardPage": {
-    "defaultLevel": "デフォルトレベル",
+    "defaultLevel": "通常会員",
     "title": "会員センター",
-    "description": "会員レベル、ポイント、クーポン、注文を管理する",
-    "expireAt": "有効期限",
-    "renew": "更新",
+    "description": "会員特典、注文、ポイント、クーポンを一元管理",
+    "expireAt": "会員有効期限:",
+    "renew": "今すぐ更新",
     "recentOrders": "最近の注文",
     "viewAll": "すべて表示",
-    "loading": "読み込み中…",
-    "empty": "データなし"
+    "loading": "読み込み中...",
+    "empty": "注文記録はありません",
+    "stats": {
+      "level": "会員ランク",
+      "points": "利用可能ポイント",
+      "coupon": "クーポン",
+      "orders": "注文合計"
+    }
   },
   "developerHomePage": {
-    "statCalls": "API 呼び出し",
-    "statApiKeys": "API キー",
+    "statCalls": "呼出回数(今月)",
+    "statApiKeys": "APIキー",
     "statWebhook": "Webhook",
     "statMonthFee": "今月の費用",
-    "qeApiDocsLabel": "API ドキュメント",
-    "qeApiDocsDesc": "完全な API リファレンスとサンプル",
-    "qeSandboxLabel": "サンドボックス",
-    "qeSandboxDesc": "インストールせずに API をテスト",
-    "qeLogsLabel": "呼び出しログ",
-    "qeLogsDesc": "履歴リクエストとエラーを表示",
+    "qeApiDocsLabel": "APIドキュメント",
+    "qeApiDocsDesc": "API仕様を表示",
+    "qeSandboxLabel": "サンドボックステスト",
+    "qeSandboxDesc": "APIをオンライン呼出",
+    "qeLogsLabel": "呼出ログ",
+    "qeLogsDesc": "リクエスト記録を表示",
     "qeVersionsLabel": "バージョン管理",
-    "qeVersionsDesc": "バージョンと廃止を管理",
-    "title": "開発者センター",
-    "subtitle": "API キー、Webhook、使用量を管理",
+    "qeVersionsDesc": "APIバージョン状態",
+    "title": "開発者概覧",
+    "subtitle": "API使用状況と開発者リソースを表示",
     "currentPlan": "現在のプラン",
     "quotaUsage": "クォータ使用量",
     "upgrade": "アップグレード",
-    "quickEntries": "クイックエントリ",
-    "loading": "読み込み中…"
+    "quickEntries": "クイックエントリー",
+    "loading": "読み込み中..."
+  },
+  "memberInvitationsPage": {
+    "title": "招待記録",
+    "description": "友人を招待して登録すると、双方に報酬が付与されます",
+    "generate": "招待を生成",
+    "codesTitle": "マイ招待コード",
+    "loading": "読み込み中...",
+    "codesEmpty": "招待コードがありません。右上をクリックして生成",
+    "rewards": "招待者 +{inviter} · 被招待者 +{invitee}",
+    "expiresAt": "有効期限:",
+    "copied": "コピー済み",
+    "copyCode": "招待コードをコピー",
+    "inviteesTitle": "招待済みユーザー",
+    "inviteesEmpty": "まだ招待したユーザーはいません",
+    "columns": {
+      "user": "ユーザー",
+      "registeredAt": "登録日時",
+      "reward": "報酬"
+    },
+    "status": {
+      "unused": "利用可能",
+      "expired": "期限切れ",
+      "used": "使用済み"
+    }
+  },
+  "memberPointsPage": {
+    "title": "ポイントセンター",
+    "description": "ポイント残高、明細、ギフト交換を確認",
+    "summary": {
+      "current": "現在のポイント",
+      "earned": "累計取得",
+      "spent": "累計消費"
+    },
+    "txTitle": "ポイント明細",
+    "loading": "読み込み中...",
+    "txEmpty": "ポイント記録はありません",
+    "redeemTitle": "ポイント交換",
+    "redeemEmpty": "交換可能な商品はありません",
+    "pointsUnit": "{n} ポイント",
+    "redeemBtn": "今すぐ交換"
+  },
+  "eduExamPage": {
+    "loading": "読み込み中...",
+    "backToList": "試験一覧に戻る",
+    "notExists": "試験が見つかりません",
+    "noQuestions": "問題がありません",
+    "duration": "{n} 分",
+    "answeredProgress": "回答済み {answered} / {total}",
+    "questionProgress": "第 {current} 問 / 全 {total} 問",
+    "single": "単一選択",
+    "multiple": "複数選択",
+    "prevQuestion": "前の問題",
+    "nextQuestion": "次の問題",
+    "submit": "試験を提出"
+  },
+  "aiWorldEditPage": {
+    "toastUpdated": "更新しました",
+    "errNameRequired": "名前を入力してください",
+    "loading": "読み込み中...",
+    "back": "戻る",
+    "title": "AIワールドプロジェクト編集",
+    "subtitle": "プロジェクト情報を修正",
+    "nameLabel": "名前",
+    "namePlaceholder": "プロジェクト名を入力",
+    "descLabel": "説明",
+    "descPlaceholder": "プロジェクト説明を入力",
+    "categoryLabel": "カテゴリー",
+    "noCategory": "カテゴリーなし",
+    "coverLabel": "カバーURL",
+    "coverPlaceholder": "カバー画像URLを入力",
+    "configLabel": "設定",
+    "configPlaceholder": "JSON設定(任意)",
+    "cancel": "キャンセル",
+    "submitting": "送信中...",
+    "save": "保存"
+  },
+  "aiWorldCreatePage": {
+    "toastCreated": "作成しました",
+    "errNameRequired": "名前を入力してください",
+    "back": "戻る",
+    "title": "AIワールドプロジェクト作成",
+    "subtitle": "以下の情報を入力して新しいAIワールドプロジェクトを作成",
+    "nameLabel": "名前",
+    "namePlaceholder": "プロジェクト名を入力",
+    "descLabel": "説明",
+    "descPlaceholder": "プロジェクト説明を入力",
+    "categoryLabel": "カテゴリー",
+    "noCategory": "カテゴリーなし",
+    "coverLabel": "カバーURL",
+    "coverPlaceholder": "カバー画像URLを入力",
+    "configLabel": "設定",
+    "configPlaceholder": "JSON設定(任意)",
+    "cancel": "キャンセル",
+    "submitting": "送信中...",
+    "create": "作成"
+  },
+  "developerBillingPage": {
+    "title": "請求書",
+    "subtitle": "請求記録と支払い方法を表示",
+    "paymentMethods": "支払い方法",
+    "toastContactSupport": "カスタマーサポートにお問い合わせください",
+    "add": "追加",
+    "noPaymentMethods": "支払い方法がありません",
+    "default": "デフォルト",
+    "payType": {
+      "alipay": "Alipay",
+      "wechat": "WeChat Pay",
+      "card": "銀行カード"
+    },
+    "toastInvoiceGenerating": "請求書を生成中です。お待ちください",
+    "billRecords": "請求記録",
+    "loading": "読み込み中...",
+    "noBills": "請求記録がありません",
+    "status": {
+      "paid": "支払済み",
+      "pending": "未払い",
+      "failed": "失敗"
+    },
+    "invoice": "請求書"
+  },
+  "developerApiDocsPage": {
+    "title": "APIドキュメント",
+    "subtitle": "オープンプラットフォームAPI仕様と呼出例を表示",
+    "searchPlaceholder": "APIパスまたは名前を検索...",
+    "toastCopied": "パスをコピーしました",
+    "toastCopyFailed": "コピー失敗",
+    "loading": "読み込み中...",
+    "noDocs": "APIドキュメントがありません",
+    "requestParams": "リクエストパラメータ",
+    "colName": "パラメータ名",
+    "colType": "型",
+    "colRequired": "必須",
+    "colDesc": "説明",
+    "yes": "はい",
+    "no": "いいえ",
+    "responseExample": "レスポンス例"
+  },
+  "memberExamSignUpPage": {
+    "title": "試験申込",
+    "description": "申込済みの試験を確認し、申込ステータスを管理",
+    "loading": "読み込み中...",
+    "empty": "申込記録はありません",
+    "cancelBtn": "申込キャンセル",
+    "cancelConfirm": "この試験申込をキャンセルしますか?",
+    "cancelSuccess": "申込をキャンセルしました",
+    "cancelFailed": "キャンセル失敗",
+    "total": "全 {n} 件",
+    "status": {
+      "pending": "受験待ち",
+      "attended": "受験済み",
+      "canceled": "キャンセル済み",
+      "unknown": "不明"
+    },
+    "columns": {
+      "examName": "試験名",
+      "signedAt": "申込日時",
+      "examTime": "試験日時",
+      "status": "ステータス",
+      "action": "操作"
+    }
+  },
+  "eduExamResultPage": {
+    "loading": "読み込み中...",
+    "backToList": "試験一覧に戻る",
+    "notExists": "結果が見つかりません",
+    "passed": "合格おめでとうございます",
+    "failed": "不合格",
+    "correct": "正解",
+    "wrong": "不正解",
+    "duration": "所要時間",
+    "minutes": "{n} 分",
+    "submittedAt": "提出時間：{time}",
+    "detail": "回答詳細",
+    "score": "{n} 点",
+    "yourAnswer": "あなたの回答：{answer}",
+    "correctAnswer": "正解：{answer}",
+    "totalScore": "{score} / {total} 点",
+    "backList": "一覧に戻る",
+    "retry": "再受験"
+  },
+  "learnBuyConfirmPage": {
+    "missingCourse": "コース情報が不足しています",
+    "missingCourseParam": "コースパラメータが不足しています",
+    "title": "注文確認",
+    "loadFailed": "読み込みに失敗しました",
+    "courseNotFound": "コースが見つかりません",
+    "productInfo": "商品情報",
+    "instructor": "講師：{name}",
+    "lessonCount": "{n} レッスン",
+    "couponCode": "クーポンコード",
+    "couponPlaceholder": "クーポンコードを入力（任意）",
+    "payMethod": "支払い方法",
+    "wechatPay": "WeChat Pay",
+    "alipay": "Alipay",
+    "originalPrice": "定価",
+    "discount": "割引",
+    "actualPay": "支払額",
+    "confirmPurchase": "購入確認",
+    "freeCourseNoNeed": "無料コースは購入不要です"
+  },
+  "learnTopicPage": {
+    "loading": "読み込み中...",
+    "backToList": "トピック一覧に戻る",
+    "notExists": "トピックが見つかりません",
+    "premiumTopic": "プレミアムトピック",
+    "courseTopic": "コーストピック",
+    "premiumTip": "企業/部門向けカスタムコンテンツを含み、有料の場合があります。",
+    "courseTip": "運営精選のコース組み合わせ、無料で学習できます。",
+    "lessonCount": "{n} コース",
+    "learnCount": "{n} 人が学習",
+    "free": "無料",
+    "includes": "含まれるコース",
+    "noLessons": "コースがありません"
+  },
+  "learnRatePage": {
+    "loading": "読み込み中...",
+    "backToCourse": "コースに戻る",
+    "loadFailed": "読み込みに失敗しました",
+    "title": "コースレビュー",
+    "formTitle": "レビューを書く",
+    "rating": "評価",
+    "starAriaLabel": "{n}つ星",
+    "ratingValue": "{rating} / 5",
+    "contentLabel": "レビュー内容",
+    "contentPlaceholder": "このコースへのレビューを入力してください...",
+    "submit": "レビューを提出",
+    "allRates": "すべてのレビュー ({n})",
+    "noRates": "まだレビューがありません。最初のレビューを投稿しましょう！",
+    "anonymous": "匿名ユーザー"
+  },
+  "modelsBillingPage": {
+    "consumeTrend": "+{n}% vs 先月",
+    "rechargeCount": "合計 {n} 回チャージ",
+    "packages": {
+      "starter": {
+        "features": [
+          "1Mトークン枠",
+          "基本モデル利用可能",
+          "5個のAPIトークン",
+          "コミュニティサポート"
+        ]
+      },
+      "pro": {
+        "features": [
+          "15Mトークン枠",
+          "全モデル利用可能",
+          "20個のAPIトークン",
+          "優先サポート",
+          "90日間の呼び出しログ"
+        ]
+      },
+      "enterprise": {
+        "features": [
+          "200Mトークン枠",
+          "専用モデルチャネル",
+          "無制限APIトークン",
+          "専任アカウントマネージャー",
+          "永続的な呼び出しログ",
+          "SLA 99.95%"
+        ]
+      }
+    }
+  },
+  "n8nAgentsPage": {
+    "metaDescription": "N8N ワークフロー連携：AIエージェントを自動オーケストレーション。カスタマーサポートボット、コンテンツモデレーション、データ同期などに対応。",
+    "subtitle": "N8N ワークフロー連携 - N8N経由でAIエージェントを自動オーケストレーション",
+    "cardTitle": "N8N ワークフロー連携",
+    "totalBadge": "合計 {n} エージェント",
+    "activeBadge": "{n} 件実行中",
+    "cardDescription": "N8N経由でAIエージェントを自動オーケストレーションし、カスタマーサポート、モデレーション、同期、レポート、アラートなどのシナリオを連携してエンドツーエンドの自動化を実現。",
+    "createButton": "新規エージェント作成",
+    "lastRunLabel": "最終実行",
+    "runCountLabel": "実行回数",
+    "agents": {
+      "customer-service": {
+        "name": "カスタマーサポートボット",
+        "description": "ユーザー問い合わせに自動応答し、ナレッジベースから回答をマッチングし、ヒューマンハンドオフにも対応。"
+      },
+      "content-moderation": {
+        "name": "コンテンツモデレーション",
+        "description": "UGCコンテンツを自動モデレーションし、違反テキスト/画像を検出して処理フローをトリガー。"
+      },
+      "data-sync": {
+        "name": "データ同期",
+        "description": "外部データソースをローカルデータベースに定期的に同期し、増分同期と全量同期をサポート。"
+      },
+      "report-generation": {
+        "name": "レポート生成",
+        "description": "毎日業務レポートを生成し、指定チャネル(メール、IM、オブジェクトストレージ)にプッシュ。"
+      },
+      "alert-notify": {
+        "name": "アラート通知",
+        "description": "異常指標を監視し、担当者に自動通知。多段階エスカレーション戦略をサポート。"
+      }
+    }
+  },
+  "agentsMyPage": {
+    "statusFilters": {
+      "all": "すべて",
+      "pending": "審査待ち",
+      "published": "公開済み",
+      "rejected": "却下済み",
+      "offline": "オフライン"
+    },
+    "back": "戻る",
+    "title": "マイエージェント",
+    "subtitle": "作成したエージェントを管理",
+    "create": "作成",
+    "loading": "読み込み中...",
+    "empty": "エージェントがありません",
+    "noDescription": "説明なし",
+    "free": "無料"
+  },
+  "businessCardPage": {
+    "title": "デジタル名刺",
+    "subtitle": "自分の名刺とお気に入りを管理",
+    "create": "新規作成",
+    "myCards": "自分の名刺",
+    "loading": "読み込み中...",
+    "emptyMine": "まだ名刺がありません。「新規作成」をクリックして作成してください。",
+    "share": "共有",
+    "edit": "編集",
+    "delete": "削除",
+    "favorites": "お気に入り名刺",
+    "viewAll": "すべて表示",
+    "emptyFavorites": "お気に入りの名刺がありません"
+  },
+  "developerSubscriptionPage": {
+    "title": "サブスクリプション管理",
+    "subtitle": "現在のプラン、更新、アップグレードを管理",
+    "loading": "読み込み中...",
+    "currentPlan": "現在のプラン",
+    "month": "月",
+    "renew": "更新",
+    "expireTime": "有効期限：",
+    "quotaUsage": "クォータ使用量",
+    "upgradePlans": "アップグレード可能プラン",
+    "current": "現在",
+    "upgrade": "アップグレード",
+    "renewSuccess": "更新が成功しました",
+    "upgradeSuccess": "プランをアップグレードしました"
   }
 }

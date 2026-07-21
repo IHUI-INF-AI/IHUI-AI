@@ -37,7 +37,8 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 type PayMethod = 'wechat' | 'alipay'
 
 function BuyConfirmContent() {
-  const t = useTranslations('learn')
+  const t = useTranslations('learnBuyConfirmPage')
+  const tLearn = useTranslations('learn')
   const tc = useTranslations('common')
   const router = useRouter()
   const sp = useSearchParams()
@@ -67,11 +68,11 @@ function BuyConfirmContent() {
     mutationFn: async () => {
       setFormError(null)
       if (!courseId) {
-        setFormError('缺少课程信息')
+        setFormError(t('missingCourse'))
         throw new Error('missing courseId')
       }
       if (price <= 0) {
-        setFormError('免费课程无需购买')
+        setFormError(t('freeCourseNoNeed'))
         throw new Error('free course')
       }
       const body: Record<string, unknown> = {
@@ -101,7 +102,7 @@ function BuyConfirmContent() {
           {tc('back')}
         </button>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          缺少课程参数
+          {t('missingCourseParam')}
         </div>
       </div>
     )
@@ -118,27 +119,27 @@ function BuyConfirmContent() {
       </button>
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <ShoppingCart className="h-6 w-6 text-primary" />
-        确认订单
+        {t('title')}
       </h1>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          {t('loading')}
+          {tLearn('loading')}
         </div>
       ) : error ? (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {(error as Error)?.message ?? '加载失败'}
+          {(error as Error)?.message ?? t('loadFailed')}
         </div>
       ) : !course ? (
         <div className="rounded-lg border border-dashed py-10 text-center text-sm text-muted-foreground">
-          课程不存在
+          {t('courseNotFound')}
         </div>
       ) : (
         <>
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">商品信息</CardTitle>
+              <CardTitle className="text-base">{t('productInfo')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <p className="break-words text-sm font-medium">{course.title}</p>
@@ -146,15 +147,19 @@ function BuyConfirmContent() {
                 <p className="line-clamp-2 text-xs text-muted-foreground">{course.description}</p>
               )}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                {course.teacherName && <span>讲师：{course.teacherName}</span>}
-                {typeof course.lessonCount === 'number' && <span>{course.lessonCount} 课时</span>}
+                {course.teacherName && (
+                  <span>{t('instructor', { name: course.teacherName })}</span>
+                )}
+                {typeof course.lessonCount === 'number' && (
+                  <span>{t('lessonCount', { n: course.lessonCount })}</span>
+                )}
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">优惠码</CardTitle>
+              <CardTitle className="text-base">{t('couponCode')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="relative flex-1">
@@ -162,7 +167,7 @@ function BuyConfirmContent() {
                 <Input
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value)}
-                  placeholder="输入优惠码（可选）"
+                  placeholder={t('couponPlaceholder')}
                   className="pl-8"
                 />
               </div>
@@ -171,7 +176,7 @@ function BuyConfirmContent() {
 
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">支付方式</CardTitle>
+              <CardTitle className="text-base">{t('payMethod')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {(['wechat', 'alipay'] as PayMethod[]).map((m) => (
@@ -186,7 +191,7 @@ function BuyConfirmContent() {
                       : 'border-border text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  <span>{m === 'wechat' ? '微信支付' : '支付宝'}</span>
+                  <span>{m === 'wechat' ? t('wechatPay') : t('alipay')}</span>
                   {payMethod === m && <Check className="h-4 w-4 text-primary" />}
                 </button>
               ))}
@@ -197,18 +202,18 @@ function BuyConfirmContent() {
             <CardContent className="space-y-2 p-4 text-sm">
               {originalPrice && originalPrice > price && (
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">原价</span>
+                  <span className="text-muted-foreground">{t('originalPrice')}</span>
                   <span className="text-muted-foreground line-through">¥{originalPrice}</span>
                 </div>
               )}
               {discount > 0 && (
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">优惠</span>
+                  <span className="text-muted-foreground">{t('discount')}</span>
                   <span className="text-emerald-600">-¥{discount}</span>
                 </div>
               )}
               <div className="flex items-center justify-between border-t pt-2">
-                <span className="font-medium">实付</span>
+                <span className="font-medium">{t('actualPay')}</span>
                 <span className="text-lg font-semibold text-primary">¥{price}</span>
               </div>
             </CardContent>
@@ -218,7 +223,7 @@ function BuyConfirmContent() {
           <div className="flex items-center gap-3">
             <Button onClick={() => createMut.mutate()} disabled={createMut.isPending || price <= 0}>
               {createMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-              确认购买
+              {t('confirmPurchase')}
             </Button>
             <Button variant="outline" onClick={() => router.back()}>
               {tc('cancel')}

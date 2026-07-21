@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { ArrowLeft, Check, X, Loader2, Award, RotateCcw } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -36,6 +36,7 @@ async function api<T>(url: string): Promise<T> {
 }
 
 export default function EduExamResultPage() {
+  const t = useTranslations('eduExamResultPage')
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -65,7 +66,7 @@ export default function EduExamResultPage() {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
 
@@ -78,9 +79,9 @@ export default function EduExamResultPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回考试列表
+          {t('backToList')}
         </button>
-        <Alert variant="danger" description={(error as Error)?.message ?? '结果不存在'} />
+        <Alert variant="danger" description={(error as Error)?.message ?? t('notExists')} />
       </div>
     )
   }
@@ -95,7 +96,7 @@ export default function EduExamResultPage() {
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回考试列表
+        {t('backToList')}
       </Link>
 
       <Card>
@@ -111,7 +112,7 @@ export default function EduExamResultPage() {
             {result.passed ? <Check className="h-7 w-7" /> : <X className="h-7 w-7" />}
           </div>
           <CardTitle className="text-2xl">
-            {result.score} / {result.totalScore} 分
+            {t('totalScore', { score: result.score, total: result.totalScore })}
           </CardTitle>
           <p
             className={cn(
@@ -119,28 +120,28 @@ export default function EduExamResultPage() {
               result.passed ? 'text-emerald-600' : 'text-destructive',
             )}
           >
-            {result.passed ? '恭喜通过' : '未通过'}
+            {result.passed ? t('passed') : t('failed')}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-3 gap-4 text-center text-sm">
             <div>
-              <p className="text-muted-foreground">答对</p>
+              <p className="text-muted-foreground">{t('correct')}</p>
               <p className="text-lg font-bold text-emerald-600">{correctCount}</p>
             </div>
             <div>
-              <p className="text-muted-foreground">答错</p>
+              <p className="text-muted-foreground">{t('wrong')}</p>
               <p className="text-lg font-bold text-destructive">
                 {result.results.length - correctCount}
               </p>
             </div>
             <div>
-              <p className="text-muted-foreground">用时</p>
-              <p className="text-lg font-bold">{result.duration} 分钟</p>
+              <p className="text-muted-foreground">{t('duration')}</p>
+              <p className="text-lg font-bold">{t('minutes', { n: result.duration })}</p>
             </div>
           </div>
           <p className="text-center text-xs text-muted-foreground">
-            提交时间：{fmt(result.submittedAt)}
+            {t('submittedAt', { time: fmt(result.submittedAt) })}
           </p>
         </CardContent>
       </Card>
@@ -148,7 +149,7 @@ export default function EduExamResultPage() {
       <section className="space-y-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
           <Award className="h-5 w-5 text-primary" />
-          答题详情
+          {t('detail')}
         </h2>
         <div className="space-y-2">
           {result.results.map((r, i) => (
@@ -164,13 +165,19 @@ export default function EduExamResultPage() {
                     {i + 1}. {r.title}
                   </span>
                 </span>
-                <span className="shrink-0 text-xs text-muted-foreground">{r.score} 分</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {t('score', { n: r.score })}
+                </span>
               </div>
               {!r.correct && (
                 <div className="mt-2 space-y-1 pl-6 text-xs">
-                  {r.myAnswer && <p className="text-destructive">你的答案：{r.myAnswer}</p>}
+                  {r.myAnswer && (
+                    <p className="text-destructive">{t('yourAnswer', { answer: r.myAnswer })}</p>
+                  )}
                   {r.correctAnswer && (
-                    <p className="text-emerald-600">正确答案：{r.correctAnswer}</p>
+                    <p className="text-emerald-600">
+                      {t('correctAnswer', { answer: r.correctAnswer })}
+                    </p>
                   )}
                 </div>
               )}
@@ -183,11 +190,11 @@ export default function EduExamResultPage() {
         <Button asChild variant="outline">
           <Link href="/edu/exam">
             <RotateCcw className="h-4 w-4" />
-            返回列表
+            {t('backList')}
           </Link>
         </Button>
         <Button asChild>
-          <Link href={`/edu/exam/${id}`}>重新考试</Link>
+          <Link href={`/edu/exam/${id}`}>{t('retry')}</Link>
         </Button>
       </div>
     </div>
