@@ -353,7 +353,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   // admin 扁平 80 项通过 useAdminRouters() 动态加载,在 Sidebar 组件中合并到本组 items 前部。
   // 仅 admin 用户可见(items 全部 adminOnly),默认展开(见 NavGroupSection.defaultOpen)。
   {
-    label: '管理',
+    label: 'adminGroupLabel',
     items: [
       { href: '/admin', labelKey: 'admin', icon: Shield, adminOnly: true },
       { href: '/admin/statistics', labelKey: 'adminStatistics', icon: BarChart3, adminOnly: true },
@@ -375,7 +375,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: 'AI教育',
+    label: 'eduGroup',
     items: [
       { href: '/dashboard', labelKey: 'overview', icon: LayoutDashboard },
       { href: '/learn', labelKey: 'learn', icon: GraduationCap },
@@ -395,7 +395,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: '内容',
+    label: 'contentGroup',
     items: [
       { href: '/plaza', labelKey: 'plaza', icon: LayoutGrid },
       { href: '/enterprise', labelKey: 'enterprise', icon: Briefcase },
@@ -420,7 +420,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: '交易',
+    label: 'tradeGroup',
     items: [
       { href: '/vip-membership', labelKey: 'vip', icon: Crown },
       { href: '/wallet', labelKey: 'wallet', icon: Wallet },
@@ -435,7 +435,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     ],
   },
   {
-    label: '个人',
+    label: 'personalGroup',
     items: [
       {
         href: '/favorites',
@@ -462,7 +462,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   },
   // 开发者分组(2026-07-20 新增):整合原 /developer/layout.tsx 14 项页面级菜单栏
   {
-    label: '开发者',
+    label: 'developerGroup',
     items: DEVELOPER_ITEMS,
   },
 ]
@@ -1347,11 +1347,13 @@ function NavGroupSection({
 }: NavGroupSectionProps) {
   // 分组是否参与折叠:展开态 + 有 label
   const isCollapsible = !collapsed && group.label !== ''
+  // 分组标题:i18n 解析(group.label 是 nav namespace 下的 key,如 'adminGroup' / 'AI')
+  const groupLabel = group.label ? t(group.label) : group.label
   // 默认展开的分组(2026-07-20 立):
   //   - AI:核心分类,所有用户高频入口
   //   - 管理:admin 用户的核心入口(非 admin 用户此分组被 visibleGroups 过滤掉,此设置不影响)
   // 其余分组(AI教育/内容/交易/个人)默认折叠,降低视觉噪音。
-  const defaultOpen = group.label === 'AI' || group.label === '管理'
+  const defaultOpen = group.label === 'AI' || group.label === 'adminGroupLabel'
   // v3 后缀:版本化 key。重要:旧实现用 useEffect 在 open 变化时写 localStorage,
   // 导致首次挂载 setOpen(defaultOpen) 触发写入,污染了测试环境的 localStorage。
   // 新实现只在用户主动 toggle 时写,首次挂载只读不写,因此 localStorage 在用户切换前保持空,
@@ -1457,7 +1459,7 @@ function NavGroupSection({
       <div className={isFirst ? '' : 'pt-2'}>
         {!collapsed && group.label && (
           <div className="px-2.5 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
-            {group.label}
+            {groupLabel}
           </div>
         )}
         {group.items.map(renderItem)}
@@ -1472,7 +1474,7 @@ function NavGroupSection({
         type="button"
         onClick={handleToggle}
         aria-expanded={open}
-        aria-label={group.label}
+        aria-label={groupLabel}
         data-testid={`nav-group-${group.label}-toggle`}
         className="group/grp flex w-full items-center gap-1 px-2.5 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
       >
@@ -1483,7 +1485,7 @@ function NavGroupSection({
           )}
           aria-hidden="true"
         />
-        <span className="min-w-0 whitespace-nowrap text-left">{group.label}</span>
+        <span className="min-w-0 whitespace-nowrap text-left">{groupLabel}</span>
       </button>
       {/*
         分组折叠动画(2026-07-20 立):用 CSS grid-template-rows 0fr↔1fr 现代方案。
@@ -1617,7 +1619,7 @@ export function Sidebar({
     return NAV_GROUPS.map((g) => {
       const filtered = g.items.filter((item) => !item.adminOnly || isAdmin)
       // 合并 admin 动态路由到"管理"分组(items[0] 是 /admin 入口,动态项插在它后面)
-      if (g.label === '管理' && adminDynamicItems.length > 0) {
+      if (g.label === 'adminGroupLabel' && adminDynamicItems.length > 0) {
         const [head, ...rest] = filtered
         return {
           ...g,
@@ -1661,7 +1663,7 @@ export function Sidebar({
       <nav
         ref={ref}
         id={navId}
-        aria-label={t('title') ?? '主导航'}
+        aria-label={t('title')}
         className={cn(
           'hover-scroll min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto py-2',
           // 滚动条已完全隐藏(globals.css .hover-scroll),不占布局空间。

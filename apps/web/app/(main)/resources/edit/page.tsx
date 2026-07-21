@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -13,6 +14,7 @@ import type { Category, ResourceDetail, ResourceType } from './types'
 
 export default function ResourceEditPage() {
   const router = useRouter()
+  const t = useTranslations('resourcesEditPage')
   const searchParams = useSearchParams()
   const id = searchParams.get('id') ?? ''
 
@@ -60,25 +62,25 @@ export default function ResourceEditPage() {
     mutationFn: async () => {
       setFormError(null)
       if (!title.trim()) {
-        setFormError('请输入标题')
-        throw new Error('请输入标题')
+        setFormError(t('errTitleRequired'))
+        throw new Error(t('errTitleRequired'))
       }
       if (!type) {
-        setFormError('请选择资源类型')
-        throw new Error('请选择资源类型')
+        setFormError(t('errTypeRequired'))
+        throw new Error(t('errTypeRequired'))
       }
       if (!productId.trim()) {
-        setFormError('请输入产品 ID')
-        throw new Error('请输入产品 ID')
+        setFormError(t('errProductIdRequired'))
+        throw new Error(t('errProductIdRequired'))
       }
       if (!introduction.trim()) {
-        setFormError('请输入资源简介')
-        throw new Error('请输入资源简介')
+        setFormError(t('errIntroductionRequired'))
+        throw new Error(t('errIntroductionRequired'))
       }
       const cidArr = parseIdList(cidList)
       if (cidArr.length === 0) {
-        setFormError('请至少选择一个分类')
-        throw new Error('请至少选择一个分类')
+        setFormError(t('errCategoryRequired'))
+        throw new Error(t('errCategoryRequired'))
       }
 
       const body = {
@@ -145,7 +147,7 @@ export default function ResourceEditPage() {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
 
@@ -156,10 +158,10 @@ export default function ResourceEditPage() {
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回资源列表
+        {t('backToList')}
       </Link>
 
-      <h1 className="text-2xl font-bold tracking-tight">{id ? '编辑资源' : '发布资源'}</h1>
+      <h1 className="text-2xl font-bold tracking-tight">{id ? t('editTitle') : t('createTitle')}</h1>
 
       <ResourceForm
         title={title}

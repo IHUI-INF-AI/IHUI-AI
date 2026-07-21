@@ -17,13 +17,13 @@ import { useToast } from '@/hooks/use-toast'
 const formatCNY = (n: number) =>
   new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(n)
 
-const PLAN_PRICES: Record<string, { name: string; price: number }> = {
-  free: { name: '免费版', price: 0 },
-  pro: { name: '专业版', price: 99 },
-  enterprise: { name: '企业版', price: 499 },
+const PLAN_PRICES: Record<string, { price: number }> = {
+  free: { price: 0 },
+  pro: { price: 99 },
+  enterprise: { price: 499 },
 }
 
-const DEFAULT_PLAN = { name: '专业版', price: 99 }
+const DEFAULT_PRICE = 99
 
 const METHODS = [
   { id: 'wechat_native', labelKey: 'checkout.wechat' },
@@ -36,8 +36,9 @@ function CheckoutContent() {
   const t = useTranslations('payment')
   const router = useRouter()
   const searchParams = useSearchParams()
-  const planId = searchParams.get('plan') ?? 'pro'
-  const plan = PLAN_PRICES[planId] ?? DEFAULT_PLAN
+  const rawPlanId = searchParams.get('plan') ?? 'pro'
+  const planId = PLAN_PRICES[rawPlanId] ? rawPlanId : 'pro'
+  const plan = PLAN_PRICES[planId] ?? { price: DEFAULT_PRICE }
 
   const { createOrder, queryOrder, paying, payMethod, setPayMethod } = useVipPayment()
   const toast = useToast()
@@ -75,13 +76,16 @@ function CheckoutContent() {
       if (status === 'paid') {
         stopPoll()
         setQrCodeUrl('')
-        toast.success('支付成功')
+        toast.success(t('checkout.paySuccess'))
         router.push('/payment')
         return
       }
       if (status === 'cancelled' || status === 'closed' || status === 'refunded' || count >= MAX) {
         stopPoll()
-        toast.error('支付未完成', count >= MAX ? '支付超时,请重试' : '订单已关闭')
+        toast.error(
+          t('checkout.payIncomplete'),
+          count >= MAX ? t('checkout.payTimeout') : t('checkout.orderClosed'),
+        )
       }
     }, 2000)
   }
@@ -94,14 +98,14 @@ function CheckoutContent() {
     if (!order) return
     const info = order.payInfo
     if (info.mock && info.error) {
-      toast.error('支付配置未就绪', '请联系管理员')
+      toast.error(t('checkout.payConfigNotReady'), t('checkout.contactAdmin'))
     } else if (info.method === 'native' && info.codeUrl) {
       setQrCodeUrl(info.codeUrl)
     } else if (info.method === 'h5' && info.h5Url) {
       window.location.href = info.h5Url
       return
     } else {
-      toast.error('支付方式不支持')
+      toast.error(t('checkout.methodNotSupported'))
     }
     startPolling(order.orderNo)
   }
@@ -127,7 +131,7 @@ function CheckoutContent() {
             <CardContent className="space-y-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">{t('checkout.plan')}</span>
-                <span className="font-medium">{plan.name}</span>
+                <span className="font-medium">{t(`plans.${planId}.name`)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">{t('checkout.subtotal')}</span>
@@ -212,14 +216,14 @@ function CheckoutContent() {
       <Dialog open={!!qrCodeUrl} onOpenChange={(o) => !o && setQrCodeUrl('')}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>微信扫码支付</DialogTitle>
-            <DialogDescription>请使用微信扫描下方二维码,支付完成后自动跳转</DialogDescription>
+            <DialogTitle>{t('checkout.wechatScanTitle')}</DialogTitle>
+            <DialogDescription>{t('checkout.wechatScanDesc')}</DialogDescription>
           </DialogHeader>
           <div className="flex justify-center py-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrCodeUrl)}&size=240x240`}
-              alt="微信支付二维码"
+              alt={t('checkout.wechatQrAlt')}
               className="h-60 w-60 rounded-lg border"
             />
           </div>
@@ -230,12 +234,13 @@ function CheckoutContent() {
 }
 
 export default function CheckoutPage() {
+  const t = useTranslations('payment')
   return (
     <Suspense
       fallback={
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          Loading...
+          {t('checkout.loading')}
         </div>
       }
     >
