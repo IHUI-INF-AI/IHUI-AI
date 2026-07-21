@@ -7,14 +7,18 @@ import {
 } from '@tanstack/react-query'
 
 import {
+  adminGetCustomerQuota,
   adminGetTenant,
   adminListBackups,
+  adminListCertificates,
   adminListTenants,
 } from '@ihui/api-client'
 
 import type {
   Backup,
   BackupListResult,
+  CertificateListResult,
+  CustomerQuota,
   Tenant,
   TenantDetailResult,
   TenantListResult,
@@ -69,5 +73,41 @@ export function useBackupsQuery(
     },
     enabled: Boolean(slug),
     staleTime: 60_000,
+  })
+}
+
+/** P1-2.2c: 证书列表(扫描 Traefik acme.json) */
+export function useCertificatesQuery(options?: {
+  refetchInterval?: number
+  enabled?: boolean
+}): UseQueryResult<CertificateListResult, Error> {
+  return useQuery<CertificateListResult, Error>({
+    queryKey: ['admin', 'saas', 'certificates'],
+    queryFn: async () => {
+      const r = await adminListCertificates()
+      if (!r.success) throw new Error(r.error)
+      return r.data as CertificateListResult
+    },
+    refetchInterval: options?.refetchInterval ?? 60_000,
+    enabled: options?.enabled ?? true,
+    staleTime: 30_000,
+  })
+}
+
+/** P1-2.2c: 租户配额(P1-2.2c 占位,等 P1-2.3 Prometheus) */
+export function useCustomerQuotaQuery(
+  slug: string | null,
+): UseQueryResult<CustomerQuota, Error> {
+  return useQuery<CustomerQuota, Error>({
+    queryKey: ['admin', 'saas', 'tenants', 'quota', slug],
+    queryFn: async () => {
+      if (!slug) throw new Error('slug required')
+      const r = await adminGetCustomerQuota(slug)
+      if (!r.success) throw new Error(r.error)
+      return r.data as CustomerQuota
+    },
+    enabled: Boolean(slug),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
   })
 }
