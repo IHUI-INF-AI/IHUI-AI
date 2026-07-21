@@ -10,7 +10,7 @@ import { useChatStore } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { createConversation, sendMessage as persistMessage } from '@/lib/chat-api'
+import { createConversation, sendMessage as persistMessage, persistQuestion } from '@/lib/chat-api'
 import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
@@ -110,19 +110,41 @@ export interface UseChatReturn {
   setModel: (model: string) => void
 }
 
-/** 后台持久化消息，失败仅打日志，不阻塞流式体验 */
+/** 后台持久化消息，失败仅打日志，不阻塞流式体验
+ *  P2 多端同步:metadata 参数用于标记 questionId/isAnswer(用户回答)或其他业务元数据 */
 async function persistMessageSafe(
   conversationId: string,
   content: string,
   role: 'user' | 'assistant',
+  metadata?: { questionId?: string; isAnswer?: boolean; [key: string]: unknown },
 ) {
-  const res = await persistMessage(conversationId, content, role)
+  const res = await persistMessage(conversationId, content, role, metadata)
   if (!res.success) {
     logger.error(`[chat] persist ${role} message failed:`, res.error)
     // 用户可见提示(非阻塞 toast),让用户知道消息未保存到服务端
     toast.error('消息保存失败', {
       description: res.error || '网络异常,本次对话未被服务端记录',
     })
+  }
+}
+
+/** 后台持久化 AI 主动提问挂起状态 + WS 广播到多端
+ *  失败仅打日志,不阻塞主流程(用户仍能在当前端看到弹窗,只是其他端不会同步) */
+async function persistQuestionSafe(
+  conversationId: string,
+  question: {
+    questionId: string
+    prompt: string
+    options: { id: string; label: string }[]
+    allowCustom: boolean
+    allowMultiple: boolean
+  },
+) {
+  const res = await persistQuestion({ conversationId, ...question })
+  if (!res.success) {
+    logger.error(`[chat] persist question ${question.questionId} failed:`, res.error)
+    // 静默失败:不弹 toast(避免干扰用户),仅日志记录
+    // 影响:其他端不会收到 ai_question WS 事件,但当前端弹窗仍正常工作
   }
 }
 
@@ -229,6 +251,18 @@ export function useChat(): UseChatReturn {
               allowMultiple: q.allowMultiple,
               assistantMessageId: assistantId,
             })
+            // P2 多端同步:持久化挂起状态到 conversation.metadata + WS 广播 ai_question 给其他端
+            // fire-and-forget,失败仅日志(当前端弹窗仍正常,只是其他端不会同步)
+            const convId = useChatStore.getState().conversationId
+            if (convId) {
+              void persistQuestionSafe(convId, {
+                questionId: q.questionId,
+                prompt: q.prompt,
+                options: q.options,
+                allowCustom: q.allowCustom,
+                allowMultiple: q.allowMultiple,
+              })
+            }
           },
           onDelta: (delta) => {
             firstTokenReceived = true
@@ -356,8 +390,7 @@ export function useChat(): UseChatReturn {
           if (formatted.severity === 'auth') {
             useLoginDialogStore.getState().open('login')
           }
-          const toastDesc =
-            formatted.severity === 'auth' ? formatted.message : formatted.rawMessage
+          const toastDesc = formatted.severity === 'auth' ? formatted.message : formatted.rawMessage
           if (formatted.severity === 'ratelimit') {
             toast.warning(formatted.title, { description: toastDesc })
           } else if (formatted.severity === 'safety') {
@@ -370,10 +403,7 @@ export function useChat(): UseChatReturn {
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') {
         if (!firstTokenReceived) {
-          const formatted = formatSSEError(
-            err,
-            'AI 响应超时(15 秒内未收到任何内容),请稍后重试',
-          )
+          const formatted = formatSSEError(err, 'AI 响应超时(15 秒内未收到任何内容),请稍后重试')
           useChatStore.getState().setMessageError(assistantId, formatted.message)
           useChatStore.getState().setError(formatted.message)
         }
