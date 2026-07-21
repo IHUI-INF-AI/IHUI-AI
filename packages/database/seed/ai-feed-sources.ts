@@ -13,7 +13,7 @@ const db = createDb(
  * 1. hotlist(国内 8 + 国外 4):走 DailyHotApi(/news/<platform> 相对路径)
  * 2. rss(厂商博客 5):走 RSSHub(/<route> 相对路径)
  *
- * fetchIntervalMinutes 默认 360(6 小时),与 cron `0 */6 * * *` 对齐。
+ * fetchIntervalMinutes 默认 360(6 小时),与 ai-feed-collect cron 每 6 小时一次对齐。
  * 幂等 upsert:已存在则只更新可变字段,不重置 enabled/lastFetchAt/lastFetchStatus。
  */
 
