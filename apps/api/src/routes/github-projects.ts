@@ -1,5 +1,4 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { z } from 'zod'
 import { eq, desc, and, like, count } from 'drizzle-orm'
 import { resourceGithubProjects } from '@ihui/database'
 import { db } from '../db/index.js'
@@ -18,17 +17,6 @@ const githubProjectRoutes: FastifyPluginAsync = async (fastify) => {
     }
   }>(
     '/github-projects',
-    {
-      schema: {
-        querystring: z.object({
-          page: z.number().min(1).default(1),
-          limit: z.number().min(1).max(100).default(20),
-          keyword: z.string().optional(),
-          category: z.string().optional(),
-          language: z.string().optional(),
-        }),
-      },
-    },
     async (request, reply) => {
       const { page = 1, limit = 20, keyword, category, language } = request.query
       const conditions = []
@@ -54,9 +42,6 @@ const githubProjectRoutes: FastifyPluginAsync = async (fastify) => {
   // GitHub 项目详情
   fastify.get<{ Params: { id: number } }>(
     '/github-projects/:id',
-    {
-      schema: { params: z.object({ id: z.coerce.number() }) },
-    },
     async (request, reply) => {
       const [item] = await db
         .select()
@@ -82,16 +67,6 @@ const githubProjectRoutes: FastifyPluginAsync = async (fastify) => {
     '/github-projects',
     {
       preHandler: [requireAdmin],
-      schema: {
-        body: z.object({
-          name: z.string().min(1).max(200),
-          url: z.string().min(1).max(500),
-          stars: z.number().optional(),
-          category: z.string().max(100).optional(),
-          description: z.string().optional(),
-          language: z.string().max(50).optional(),
-        }),
-      },
     },
     async (request, reply) => {
       const [item] = await db
@@ -118,17 +93,6 @@ const githubProjectRoutes: FastifyPluginAsync = async (fastify) => {
     '/github-projects/:id',
     {
       preHandler: [requireAdmin],
-      schema: {
-        params: z.object({ id: z.coerce.number() }),
-        body: z.object({
-          name: z.string().min(1).max(200).optional(),
-          url: z.string().min(1).max(500).optional(),
-          stars: z.number().optional(),
-          category: z.string().max(100).optional(),
-          description: z.string().optional(),
-          language: z.string().max(50).optional(),
-        }),
-      },
     },
     async (request, reply) => {
       const [item] = await db
@@ -146,7 +110,6 @@ const githubProjectRoutes: FastifyPluginAsync = async (fastify) => {
     '/github-projects/:id',
     {
       preHandler: [requireAdmin],
-      schema: { params: z.object({ id: z.coerce.number() }) },
     },
     async (request, reply) => {
       const [item] = await db
