@@ -6,6 +6,7 @@ import { startSchedulerWorker } from './workers/scheduler-worker.js'
 import { initVendorConfigs } from './lifecycle/init-vendor-configs.js'
 import { initOtel } from './plugins/otel.js'
 import { isWechatPayConfigured, isPlatformCertConfigured } from './services/wechat-pay.js'
+import { startAiWorldSyncScheduler, stopAiWorldSyncScheduler } from './jobs/ai-world-sync.js'
 
 const PORT = Number(process.env.PORT ?? 8080)
 const HOST = process.env.HOST ?? '0.0.0.0'
@@ -64,8 +65,14 @@ async function start() {
     process.exit(1)
   }
 
+  // 启动 AI World 数据同步定时任务(每 12 小时一次,默认开启,ENABLE_AI_WORLD_SYNC=false 禁用)
+  if (process.env.ENABLE_AI_WORLD_SYNC !== 'false') {
+    startAiWorldSyncScheduler()
+  }
+
   const shutdown = async (signal: string) => {
     server.log.info({ signal }, 'Shutting down...')
+    stopAiWorldSyncScheduler()
     if (workers) {
       await Promise.allSettled(workers.map((w) => w.close()))
     }
