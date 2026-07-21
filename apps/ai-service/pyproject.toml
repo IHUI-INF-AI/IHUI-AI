@@ -29,6 +29,14 @@ dependencies = [
     "opentelemetry-sdk>=1.30.0",
     "opentelemetry-exporter-otlp>=1.30.0",
     "opentelemetry-instrumentation-fastapi>=0.51b0",
+    # 多平台一键发布(2026-07-20 新增)
+    "python-socketio>=5.11.0",
+    "python-multipart>=0.0.12",
+    "markdown>=3.7",
+    "beautifulsoup4>=4.12.0",
+    "mammoth>=1.8.0",
+    "pdfplumber>=0.11.0",
+    "playwright>=1.48.0",
 ]
 
 [build-system]
