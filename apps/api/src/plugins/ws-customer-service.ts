@@ -12,6 +12,7 @@ import {
   findAgentByUserId,
   updateAgentStatus,
 } from '../db/customer-service-queries.js'
+import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -267,6 +268,14 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
         }
       })
     })()
+  })
+
+  getWsAutoRecoveryManager().setFastify(server)
+  getWsAutoRecoveryManager().registerPlugin('ws-customer-service', {
+    getConnections: () => connections as unknown as Map<string, WebSocket | Set<WebSocket>>,
+    removeConnection: async (sessionId) => {
+      connections.delete(sessionId)
+    },
   })
 }
 

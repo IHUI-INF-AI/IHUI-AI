@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { orders } from '@ihui/database'
 import { wsAuth } from './ws-helpers.js'
+import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 
 interface PaymentStatusPayload {
   orderNo: string
@@ -141,6 +142,12 @@ const wsPaymentPlugin: FastifyPluginAsync = async (server) => {
       },
       5 * 60 * 1000,
     )
+  })
+
+  getWsAutoRecoveryManager().setFastify(server)
+  getWsAutoRecoveryManager().registerPlugin('ws-payment', {
+    getConnections: () => new Map(),
+    removeConnection: async () => {},
   })
 }
 
