@@ -8,6 +8,7 @@ import { useTranslations } from 'next-intl'
 import { Radio, PlayCircle, Eye, Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { SELECT_CLASS } from '@/lib/select-class'
 import {
   Button,
   Card,
@@ -43,8 +44,6 @@ interface ChannelsData {
 }
 
 const PAGE_SIZE = 20
-const selectClass =
-  'h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 async function api<T>(url: string): Promise<T> {
   const r = await fetchApi<T>(url)
@@ -121,7 +120,7 @@ export default function LivePage() {
             setPage(1)
           }}
         >
-          <SelectTrigger className={selectClass} aria-label={t('category')}>
+          <SelectTrigger className={SELECT_CLASS} aria-label={t('category')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

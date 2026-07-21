@@ -39,14 +39,20 @@ export default function LearnTopicDetailPage() {
   })
 
   const [premiumLessons, setPremiumLessons] = React.useState<TopicLesson[]>([])
+  const [premiumError, setPremiumError] = React.useState(false)
 
   React.useEffect(() => {
     if (data?.source === 'premium') {
+      setPremiumError(false)
       fetchPremiumLessons(id)
         .then(setPremiumLessons)
-        .catch(() => setPremiumLessons([]))
+        .catch(() => {
+          setPremiumLessons([])
+          setPremiumError(true)
+        })
     } else {
       setPremiumLessons([])
+      setPremiumError(false)
     }
   }, [data, id])
 
@@ -158,7 +164,9 @@ export default function LearnTopicDetailPage() {
         {lessons.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
             <PlayCircle className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t('noLessons')}</p>
+            <p className="text-sm text-muted-foreground">
+              {source === 'premium' && premiumError ? t('premiumLoadFailed') : t('noLessons')}
+            </p>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

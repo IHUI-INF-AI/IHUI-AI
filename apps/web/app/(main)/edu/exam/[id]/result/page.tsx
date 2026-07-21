@@ -47,7 +47,7 @@ export default function EduExamResultPage() {
     queryKey: ['edu', 'exam', id, 'result', recordId],
     queryFn: () =>
       api<{ result: ExamResult }>(
-        `/api/edu/exam/${id}/result${recordId ? `?recordId=${recordId}` : ''}`,
+        `/api/edu/exam/${id}/result${recordId && recordId.length > 0 ? `?recordId=${recordId}` : ''}`,
       ).then((d) => d.result),
   })
 
@@ -56,6 +56,7 @@ export default function EduExamResultPage() {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+    second: '2-digit',
   })
   const fmt = (v: string) => {
     const d = new Date(v)

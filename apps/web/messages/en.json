@@ -11228,7 +11228,13 @@
     "prev": "Previous",
     "next": "Next",
     "loading": "Loading...",
-    "page": "Page {page} / {total}"
+    "page": "Page {page} / {total}",
+    "exportReport": "Export Learning Report",
+    "exporting": "Exporting...",
+    "exportPdf": "Export PDF",
+    "exportExcel": "Export Excel",
+    "exportJson": "Export JSON",
+    "exportError": "Export failed, please retry later"
   },
   "notes": {
     "title": "My Notes",
@@ -26200,10 +26206,10 @@
     "subtitle": "View your learning data and recent progress",
     "loading": "Loading...",
     "stats": {
-      "studyHours": "Study Hours",
-      "inProgressCourses": "In Progress",
+      "totalCourses": "Enrolled Courses",
+      "completedCourses": "Completed Courses",
       "passedExams": "Passed Exams",
-      "avgProgress": "Avg Progress"
+      "totalCerts": "Certificates"
     },
     "coursesCard": {
       "title": "Courses",
@@ -26494,7 +26500,8 @@
     "learnCount": "{n} learners",
     "free": "Free",
     "includes": "Included Courses",
-    "noLessons": "No courses yet"
+    "noLessons": "No courses yet",
+    "premiumLoadFailed": "Failed to load premium lessons, please try again later"
   },
   "learnRatePage": {
     "loading": "Loading...",
@@ -26731,6 +26738,15 @@
       "avgProgress": "Avg. progress"
     }
   },
+  "eduSchedulePage": {
+    "title": "Class Schedule",
+    "subtitle": "This week's class schedule",
+    "loading": "Loading...",
+    "empty": "No classes this week",
+    "today": "Today",
+    "noClass": "No class",
+    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+  },
   "memberUpgradePage": {
     "title": "Membership upgrade",
     "subtitle": "Choose the membership level that suits you and unlock more benefits",
@@ -26827,6 +26843,14 @@
     "bestScore": "Best: {n}",
     "retake": "Retake",
     "start": "Start Exam"
+  },
+  "eduNotesPage": {
+    "title": "Study Notes",
+    "subtitle": "Record and review learning insights",
+    "searchPlaceholder": "Search notes...",
+    "loading": "Loading...",
+    "empty": "No notes yet",
+    "generalNote": "General note"
   },
   "memberCouponsPage": {
     "title": "Coupons",
@@ -27109,6 +27133,34 @@
       "thirdParty": "Third-party"
     }
   },
+  "oauthMockPage": {
+    "title": "{platform} Authorization",
+    "subtitle": "Sign in to IHUI-AI",
+    "permissionsTitle": "The application will request the following permissions",
+    "permissionNickname": "Your nickname",
+    "permissionAvatar": "Your avatar",
+    "permissionEmail": "Your email address",
+    "appRequesting": "App {app} is requesting to sign in with your account",
+    "demoNotice": "Currently in local demo mode (no real {platform} OAuth credentials configured). Clicking 'Authorize' will simulate the login flow without sending any request to {platform}.",
+    "authorize": "Authorize & Sign In",
+    "cancel": "Cancel",
+    "platforms": {
+      "google": "Google",
+      "apple": "Apple",
+      "dingtalk": "DingTalk",
+      "enterpriseWechat": "WeCom",
+      "wechat": "WeChat",
+      "feishu": "Feishu",
+      "github": "GitHub",
+      "alipay": "Alipay"
+    }
+  },
+  "oauthSetupPage": {
+    "title": "OAuth Credentials Setup Wizard",
+    "subtitle": "In-app interactive guide to help you obtain real OAuth credentials for third-party login providers",
+    "honestTitle": "🤖 AI cannot register accounts for you",
+    "honestBody": "Registering accounts on 5 platforms (GitHub/Google/Feishu/Alipay/Apple) requires your personal information (email/phone/ID/business license/paid credit card), and AI cannot do this for you. But this wizard will guide you step by step so you won't get lost. We recommend starting with GitHub (3 minutes, free)."
+  },
   "agentsStatsPage": {
     "back": "Back",
     "title": "Agent Statistics",
@@ -27265,7 +27317,13 @@
     "share": "Share",
     "danmuTitle": "Live Chat",
     "danmuPlaceholder": "Send a message...",
-    "me": "Me"
+    "me": "Me",
+    "mockDanmu1Name": "Student Zhang",
+    "mockDanmu1Content": "The teacher explains clearly",
+    "mockDanmu2Name": "Student Li",
+    "mockDanmu2Content": "Finally understand this concept",
+    "mockDanmu3Name": "Student Wang",
+    "mockDanmu3Content": "Looking forward to the next live"
   },
   "memberAddressFormPage": {
     "recipient": "Recipient",
