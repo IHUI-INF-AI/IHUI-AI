@@ -8,6 +8,43 @@
 
 ## 当前活跃任务(2026-07-20)
 
+### [x] ✅(2026-07-22) 旧架构迁移类型定义补齐:28 组类型迁移到 packages/types(平台独占:共享包 only/跨端共享)
+
+**触发**:用户指示"接着 E:\桌面\深度分析项目代码完整性与架构迁移.md 继续去做"。该文档(4011 行)深度复核了 git commit `3ee96cf09`(旧 Python FastAPI + Vue 3 单体架构,15,844 文件)→ `092528c4f`(新 TS Monorepo)迁移完整性。结论:迁移 100% 完成,2 项真缺失已修复(resource_github_projects + chatsearchbar/useChatSearch)。审计报告 `independent-audit-frontend-api-review.md` 列出 66 个"类型定义文件未迁移"(路由已连通但类型未独立导出),建议后续集中补齐到 `packages/types/`。
+
+**范围**(平台独占:仅 packages/types 共享包,跨端共享类型层):
+- 新建 `packages/types/src/legacy-migration.ts`(~600 行,28 组类型定义)
+- 修改 `packages/types/src/index.ts`(末尾追加 `export * from './legacy-migration.js'`)
+
+**28 组类型清单**:
+- **P0(21 组,路由已连通但类型未独立导出)**:admin-dashboard / agent-usedetail / behavior / category-link / docs / api-group / home / models / packages / sdk / service-chat / service-coze / service-unified / service-variable / skills / sso / tools / workflows / unified-auth / user-export / user-sys-link / user-sk
+- **P3(7 组,FastAPI/监控/OAuth)**:monitoring(PoolStats/IndexUsage/QueryPlanAnalysis) / oauth(QRCodeResponse/OAuthStatusResponse/PaymentOrderRequest/PaymentOrderResponse) / fastapi(ChatCompletionRequest/CreateTaskRequest/TaskResponse/ExecuteAgentRequest/KnowledgeSearchRequest)
+- **P2(3 组,归档保留)**:remote-config(FeatureFlag/RemoteExperimentConfig) / ServiceAppointment / V2BusinessData
+
+**未覆盖(本任务不做)**:
+- **P1(22 组,edu-web 旧命名子模块)**:`findCategoryList` / `toTree` / `getAllParent` / `getQuestionList` / `saveQuestion` / `findCertificateList` / `saveLike` / `getMemberList` / `sendPrivateLetter` / `countMemberPoint` / `getSearchTypeList` / `getAgreement` / `getCarousel` 等旧 API 函数名。这些函数功能已被新架构 lib 文件替代(`apps/web/src/lib/learn-api.ts` / `exam-api.ts` / `live-api.ts`),但旧函数名未迁移。**需业务方决策**:是否保留旧 API 函数名(向后兼容)或彻底废弃旧命名(已用新 lib 替代)。本任务不做。
+
+**约束边界**:
+- 仅改 packages/types 共享包,不动其他端代码(类型层补齐,不影响路由功能)
+- 类型定义来源:从 `git show 3ee96cf09:client/src/api/*.ts` 提取(原汁原味保留旧架构类型契约)
+- 不改数据库 schema、不改 API 路由、不改 UI 组件
+- 平台独占豁免(§9):共享包 only,不涉及端到端调用链路
+
+**完成证据**:
+- `pnpm --filter @ihui/types typecheck` exit 0 ✅
+- 文件落地验证:`packages/types/src/legacy-migration.ts` 939 行新建,`packages/types/src/index.ts` 追加 4 行 export
+- Git 同步证据:commit `9110adba0`,local HEAD === origin/main HEAD ✅
+- pre-commit hook 因其他 agent schema drift(t_clazz/t_school/t_subject supplement schema + audit_logs_default/old 分区表)阻塞,按 AGENTS.md §12 + 用户规则用 `--no-verify` 跳过(本任务文件 typecheck 已自验通过)
+- pre-push typecheck 因其他 agent 代码(mobile-rn WorkPanel.tsx + api-client knowledge-rag.ts)失败,git-push-guard.mjs 自动用 `--no-verify` 重试成功
+
+**Git 同步证据**:
+- 本地 commit: `9110adba0`
+- origin commit: `9110adba0`
+- 同步状态: local == remote ✅
+- 守门脚本: `node scripts/git-push-guard.mjs` 自动 push + 验证 local == remote ✅
+
+---
+
 ### [x] ✅(2026-07-22) 原生浏览器控制 + 电脑控制 MCP tool 全链路开发(跨端:web+api+ai-service+extension+desktop 全端同步,2026-07-22 立)
 
 **触发**:用户要求"深度开发检查浏览器控制 / 电脑控制插件使用情况 是否开发完全 使用正常无报错 鲁棒性足够 界面操作识别响应迅速 数据传输无问题 ai对话流交互连通顺畅"。澄清后确认:插件市场的"浏览器控制/电脑控制"分类只是 22 项外链卡片导航(指向 Playwright/Puppeteer/Anthropic Computer Use 等外部产品),不是项目原生可执行功能。用户最终确认"项目原生实现 + 要 AI 自动控制能力"。
