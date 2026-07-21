@@ -310,6 +310,22 @@ describe('AI 主动提问多端同步持久化(P2)', () => {
           allowMultiple: false,
         },
       })
+
+      // 验证 WS 广播 payload 也使用 Zod default 值
+      // 防止后端代码用 body.options(undefined) 而非 parsed.options([]) 广播
+      expect(pushSpy).toHaveBeenCalledTimes(1)
+      const [, pushPayload] = pushSpy.mock.calls[0]!
+      expect(pushPayload).toEqual({
+        type: 'ai_question',
+        conversationId: 'conv-1',
+        question: {
+          questionId: 'q-1',
+          prompt: '请选择',
+          options: [],
+          allowCustom: false,
+          allowMultiple: false,
+        },
+      })
     })
   })
 
