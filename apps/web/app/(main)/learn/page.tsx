@@ -3,9 +3,10 @@
 import * as React from 'react'
 import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { GraduationCap, PlayCircle, Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
+import { SELECT_CLASS } from '@/lib/select-class'
 import {
   Button,
   Card,
@@ -38,8 +39,6 @@ interface LessonsData {
 }
 
 const PAGE_SIZE = 20
-const selectClass =
-  'h-9 rounded-md border border-input bg-transparent px-2 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
 
 async function api<T>(url: string): Promise<T> {
   const r = await fetchApi<T>(url)
@@ -60,6 +59,7 @@ function fetchLessons(params: {
 
 export default function LearnPage() {
   const t = useTranslations('learn')
+  const locale = useLocale()
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [categoryId, setCategoryId] = React.useState('all')
@@ -91,22 +91,34 @@ export default function LearnPage() {
     <div className="mx-auto w-full max-w-6xl space-y-6">
       <Card className="overflow-hidden">
         <div className="relative h-40 sm:h-48">
-          <Image
-            src="/images/edu-illustration.png"
-            alt=""
-            aria-hidden
-            fill
-            className="object-cover"
-            loading="eager"
-            sizes="(min-width: 1024px) 72rem, 100vw"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent" />
-          <div className="relative flex h-full flex-col justify-center gap-1 p-6 text-white">
+          {locale === 'zh-CN' && (
+            <>
+              <Image
+                src="/images/edu-illustration.png"
+                alt=""
+                aria-hidden
+                fill
+                className="object-cover"
+                loading="eager"
+                sizes="(min-width: 1024px) 72rem, 100vw"
+              />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent" />
+            </>
+          )}
+          <div
+            className={
+              locale === 'zh-CN'
+                ? 'relative flex h-full flex-col justify-center gap-1 p-6 text-white'
+                : 'relative flex h-full flex-col justify-center gap-1 bg-primary/10 p-6'
+            }
+          >
             <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
-              <GraduationCap className="h-7 w-7" />
+              <GraduationCap className={locale === 'zh-CN' ? 'h-7 w-7' : 'h-7 w-7 text-primary'} />
               {t('title')}
             </h1>
-            <p className="text-sm opacity-90">{t('subtitle')}</p>
+            <p className={locale === 'zh-CN' ? 'text-sm opacity-90' : 'text-sm text-muted-foreground'}>
+              {t('subtitle')}
+            </p>
           </div>
         </div>
       </Card>
@@ -129,7 +141,7 @@ export default function LearnPage() {
             setPage(1)
           }}
         >
-          <SelectTrigger className={selectClass} aria-label={t('category')}>
+          <SelectTrigger className={SELECT_CLASS} aria-label={t('category')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
