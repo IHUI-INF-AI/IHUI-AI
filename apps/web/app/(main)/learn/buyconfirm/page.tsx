@@ -56,7 +56,7 @@ function BuyConfirmContent() {
 
   const course: CourseDetail | null = (() => {
     if (!data) return null
-    if ((data as { course: CourseDetail }).course) return (data as { course: CourseDetail }).course
+    if ('course' in data && data.course) return data.course as CourseDetail
     return data as CourseDetail
   })()
 
