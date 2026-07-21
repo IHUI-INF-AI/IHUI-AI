@@ -48,64 +48,9 @@
 
 ---
 
-### .check-api-routes-ignore.json 5 处 TODO 后端路径审计补建 + 豁免移除闭环(2026-07-21)
+<!-- 已归档(2026-07-22):.check-api-routes-ignore.json 5 处 TODO 后端路径审计补建 + 豁免移除闭环(已完成 ✅ 2026-07-21)— notes ×5 + shares ×1 + study/plans ×1 共 7 端点补建 + 5 处 TODO 豁免移除 + 2 处守门 bug 标注 + §22 main 分支保护规则落地,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
 
-**触发**:用户授权"按授权指令'完美细致完整毫无遗漏'对 .check-api-routes-ignore.json 中 5 处标记为 TODO 待实装的后端路径完成审计 + 补建 + 移除豁免闭环"。
-
-**方案与产出**:
-
-1. **T1 审计**:5 处 TODO 豁免定位 → notes 5 端点 + shares 1 端点 + study/plans 1 端点(共 7 端点)+ admin/content/:type/:id 1 处已由 `apps/api/src/routes/admin/content/crud.ts` 实装(无需补建)
-2. **T2 补建**:`apps/api/src/routes/frontend-stub-other-routes.ts` 新增 188 行
-   - notes 模块:POST /notes(创建) + GET /notes/public(公开列表) + GET /notes/:id(详情) + PUT /notes/:id(更新,仅所有者) + DELETE /notes/:id(删除,仅所有者) → 共 5 端点
-   - shares 模块:POST /shares(创建分享链接,基于 systemConfigs 表 category='share-link')
-   - study/plans 模块:GET /study/plans(基于 lessonSignUps + lessons 聚合,progress 推算 status pending/inProgress/completed)
-3. **T3 豁免闭环**:
-   - **移除 5 处 TODO 豁免**:`POST /api/notes` / `GET /api/notes/public` / `POST /api/shares` / `GET /api/study/plans` / `GET /api/admin/content/:type/:id` 全部从 `.check-api-routes-ignore.json` 删除
-   - **新增 2 处守门 bug 标注**:`GET /api/auth/login/email`(e2e spec 字符串字面量误识别)/ `GET /api/admin/content/:type/:id`(desktop JSDoc 注释误识别)→ 这 2 处实际后端已注册,守门脚本假阳性
-4. **T4 守门脚本验证**:`node scripts/check-api-routes.mjs --warn-only` exit 0,前端所有 API 调用均有后端路由对应
-
-**变更文件**:
-
-- `apps/api/src/routes/frontend-stub-other-routes.ts`(+188 行)
-- `.check-api-routes-ignore.json`(移除 5 条 TODO 豁免 + 新增 2 条守门 bug 标注)
-- 配套: `scripts/check-staged-files.mjs`(新,lightweight staged 清单打印)
-- `AGENTS.md` 新增 §22 main 分支保护规则
-- `.husky/pre-commit` 第 22 项集成 `check-staged-files.mjs`
-
-**自验**:
-
-- `node scripts/check-api-routes.mjs --warn-only` exit 0 ✅
-- 后端 7 端点全部实装(notes ×5 + shares ×1 + study/plans ×1)✅
-- `.check-api-routes-ignore.json` 5 处 TODO 全部移除 ✅
-- 守门脚本误识别的 2 处 bug 已添加显式标注 ✅
-- `node scripts/check-staged-files.mjs` 测试通过(2 文件 staged, 端分布正确显示)✅
-
-**协作事故与教训(2026-07-21 落地 §22 规则)**:
-
-1. **本任务 commit 协作事故链**:
-   - 原 commit `2f817903f` 在另一 agent 跑 `git pull --rebase origin main` 时被**剥离**为 dangling commit
-   - 另一 agent 重建 commit `dcfdf438d`(message 写"fix(docs): 恢复 server-docs 3 文档")时,把本任务的 2 个文件 + 188 行变更**混入**了 docs 修复 commit,导致 commit message 与实际内容**不一致**
-   - 已 push 到 origin/main 的 `dcfdf438d` 无法改 message(git 不允许改写已 push 的 commit message)
-   - **接受现状**:本任务代码已 100% 落地 origin(只是 commit message 不完美),重 commit 反而会引入新的 non-fast-forward
-2. **新落地的 §22 规则**(AGENTS.md 2026-07-21 立)正是为此类事故设计:
-   - 禁止 main `git pull --rebase origin main`(永远)
-   - commit message 必须与 `git show --stat` 文件清单一致
-   - staged 清单 commit 前必须肉眼检查(第 22 项 `check-staged-files.mjs`)
-
-**硬约束**:
-
-- 本任务只动 `.check-api-routes-ignore.json` + `apps/api/src/routes/frontend-stub-other-routes.ts` + 新增 `scripts/check-staged-files.mjs` + 修改 `AGENTS.md` + `.husky/pre-commit`
-- 跨端:仅 api 端补建(7 端点)+ 工具脚本(`scripts/` + `.husky/` + `AGENTS.md`)
-
-### P0-MIG 历史数据迁移(ID 映射 + 关联重建)
-
-- [x] ✅(2026-07-17) **P0-MIG-1 ID 映射表**(前置依赖):`id_mapping` 表(`packages/database/src/schema/id-mapping.ts`)+ `apps/api/src/db/id-mapping-queries.ts`(getNewId/createMapping/hasBeenMigrated/bulkCreateMappings)+ `migrate-legacy-data.ts` 框架(MIGRATION_PLAN + shouldSkip 断点续传)
-- [x] ✅(2026-07-17) **P0-MIG-2 关联重建脚本**:`apps/api/src/scripts/migrate-legacy-data.ts` 7 个 importFn 完整实现(用户→课程→章节→报名→答题→错题→积分记录,按依赖顺序),外键重建(查 id_mapping 替换 Java Long → uuid)、断点续传(shouldSkip + hasBeenMigrated)、dry-run 模式、单条失败不阻塞批次、每步进度报告;LegacyFetcher 注入机制(生产用 LEGACY_DATABASE_URL,测试用 setLegacyFetcher);新增 `apps/api/src/routes/__tests__/migrate-legacy.test.ts`(7 用例:dry-run / importUsers / importCourses 外键重建 / create_user_id null 处理 / 断点续传 / 单条失败隔离 / 批量 100 条 < 5s)
-  - 验证:`pnpm --filter @ihui/api typecheck` 退出码 0 ✅;`pnpm --filter @ihui/api lint` 退出码 0 ✅;`pnpm --filter @ihui/api test migrate` 7 用例全绿 ✅
-- [x] ✅(2026-07-17) **P0-MIG-3 数据迁移 E2E 验证**:新增 `apps/api/src/routes/__tests__/migration-e2e.test.ts`(21 用例,6 大场景)。mock 策略:LegacyFetcher 注入(按 SQL 关键字返回样本数据模拟 Java 历史库)+ db mock(复用 chain 模式队列驱动)+ node:crypto mock(randomUUID 序号化使外键可断言)。样本数据:2 用户 + 2 课程 + 4 章节 + 2 报名 + 4 答题 + 2 错题 + 4 积分 = 20 条。验证维度:① 准备+执行(runMigration 7 步全完成,40 条 insert)② 关联完整性(id_mapping 20 条覆盖 7 种 legacyTable,目标表记录数正确,id 唯一)③ 外键正确性(lecturerId/lessonId/userId/memberId/questionId/paperId 全部正确映射,isPassed 业务逻辑验证)④ 业务可查询(用户视角:历史课程/积分/错题/答题/报名)⑤ 断点续传(第二次运行 0 insert,全部 shouldSkip)⑥ 数据一致性(每步 migrated+skipped=total,所有 newId 在 id_mapping 可查,legacyId 唯一)
-  - 验证:`pnpm --filter @ihui/api typecheck` 退出码 0 ✅(migration-e2e 无错误,6 个预存错误来自 exam-extended-queries.ts/watch-aspect.ts 非本任务引入);`pnpm --filter @ihui/api lint` 退出码 0 ✅;`pnpm --filter @ihui/api test migration-e2e` 21 用例全绿 ✅
-
----
+<!-- 已归档(2026-07-22):P0-MIG 历史数据迁移(ID 映射 + 关联重建,已完成 ✅ 2026-07-17)— P0-MIG-1 id_mapping 表 + P0-MIG-2 7 importFn 关联重建 + P0-MIG-3 migration-e2e 21 用例全绿,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
 
 ### 模型市场 nav 样式重构 + 厂商 SVG 图标(2026-07-21)
 
@@ -208,64 +153,7 @@
 
 ---
 
-### AI 对话框 Skill 库统一面板 + 用户自定义技能 CRUD(2026-07-21,跨端:web + api + 共享包)
-
-**触发**:用户反馈"本项目的 ai 对话框内怎么没有 skill 列表呢 显示本项目所有的 skill 脚本 插件之类的 并且分类 可以点击调用对话"。
-
-**方案**(双 Tab 混合分类,用户已确认):
-
-- **数据源**(5 类聚合):
-  1. 硬编码斜杠命令 7 项(summary/translate/explain/code/polish/wechat-article/koubo-script)
-  2. 硬编码提示词模板 5 项(summary/translate/explain/code/polish)
-  3. 硬编码自媒体 Skill 2 项(公众号文章 / 口播稿)
-  4. 动态 OpenClaw Skills(`listAvailableSkills`)
-  5. 动态 MCP 工具(`/api/ai/mcp/servers` 拉每个 server 的 tools)
-  6. **新增** 用户自定义技能(新建 `user_chat_skills` 表 + 5 API)
-- **双 Tab 分类**:
-  - Tab 1 「按来源」:提示词模板 / 斜杠命令 / 自媒体 / OpenClaw / MCP 工具 / 自定义(6 分组)
-  - Tab 2 「按场景」:写作 / 编程 / 媒体 / 工具 / 自定义(5 分组,跨数据源聚合)
-- **点击行为**:填充 Skill 模板到 textarea(同现有 slash/template/self-media 行为);`category='custom'` 项有 ✏️/🗑 按钮;新增按钮调出 inline 表单(name + prompt + category + scenario + icon)
-- **toolbar 改造**:删除 message-input 的"提示词模板"按钮 + "自媒体 skill"按钮 + `/` 独立按钮,合并成单一"📚 技能库"按钮(`BookMarked` 图标)打开 SkillLibrary 弹窗;`@` 和 `+` 独立按钮保留;textarea 内输入 `/` 仍触发 SlashCommandPalette
-
-**变更文件**:
-
-- `packages/database/src/schema/user-chat-skills.ts`(新):user_chat_skills 表(id / userId / name / category / scenario / prompt / icon / enabled / sortOrder / createdAt / updatedAt)
-- `packages/database/src/schema/index.ts`:export 新表
-- `packages/database/drizzle/20260721200000_user_chat_skills.sql`(新):CREATE TABLE
-- `packages/database/drizzle/meta/_journal.json`:追加 idx 123 条目
-- `packages/database/drizzle/meta/0123_snapshot.json`(新):快照
-- `apps/api/src/db/chat-skills-queries.ts`(新):listChatSkills / createChatSkill / updateChatSkill / deleteChatSkill / findChatSkillById
-- `apps/api/src/routes/chat-skills.ts`(新):GET/POST/PATCH/DELETE /api/chat/skills(authenticate 守门 + Zod)
-- `apps/api/src/server.ts`:register chatSkillsRoutes(挂在 `/api/chat/skills` 路径前缀)
-- `apps/web/src/lib/chat-skills-api.ts`(新):listUserSkills / createUserSkill / updateUserSkill / deleteUserSkill
-- `apps/web/src/components/ai/skill-library.tsx`(新):双 Tab SkillLibrary 弹窗组件
-- `apps/web/src/components/chat/message-input.tsx`:改造 toolbar,删除 3 个分散按钮,新增"技能库"按钮接入 SkillLibrary
-- `apps/web/messages/{zh-CN,en,ja,ko,zh-TW}.json`:新增 30+ key 5 语言 parity(详见 STATE-skill-library.md H8)
-
-**多端同步**:跨端联动(AI 对话框 web 端 UI 调 api 端新接口 + 共享 packages/database 新表,完整三层联通;其他 6 端无 AI 对话框不动)
-
-**自验**:
-
-- typecheck `pnpm --filter @ihui/api typecheck` 0 错误
-- typecheck `pnpm --filter @ihui/web typecheck` 0 错误
-- `pnpm turbo build` exit 0
-- i18n 5 文件 JSON.parse VALID + 30+ key parity
-- zh-TW 无简体字残留 + ko 无中文残留 + en 无破碎英文
-- 圆角守门(`check-rounded-full.mjs`)exit 0
-- 多端同步守门(`check-multi-end-sync.mjs`):跨端任务 pass(本任务 web + api + 共享包)
-- 浏览器 4 状态截图(默认 / hover / active / dark)保存到 `.trae-cn/tmp/skill-library-*.png`
-
-**硬约束**:
-
-- 改动文件仅限本任务清单(不碰 chat.ts、use-chat.ts、chat-api.ts 等其他 agent 改动)
-- commit message: `feat(chat): AI 对话框 Skill 库统一面板 + 用户自定义技能 CRUD`
-- 数据库 migration 失败时降级为手写 SQL(仍写 journal 条目)
-- dev server 起不来走 §19 应急(告知用户手动跑,绝不带独立窗口)
-
-**详细 STATE**:`.trae-cn/goal-runtime/STATE-skill-library.md`(H1-H10 + C1-C5 + E1-E3 + Q1-Q3)
-**执行日志**:`.trae-cn/goal-runtime/loop-run-log-skill-library.md`
-
----
+<!-- 已归档(2026-07-22):AI 对话框 Skill 库统一面板 + 用户自定义技能 CRUD(已完成 ✅ 2026-07-21,跨端:web + api + 共享包)— 双 Tab SkillLibrary 弹窗 + user_chat_skills 表 5 API + 30+ i18n key 5 语言 parity,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
 
 <!-- 已归档(2026-07-21):管理端 AI 成本监控补全(已完成 ✅ 2026-07-21)— P1 阶段(recordAiCost 接入 + AdminNav AI 成本入口 + i18n 5 语言 + server-docs fix-forward + recordAiCost import 修复),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-21_admin-ai-cost.md -->
 
@@ -285,78 +173,7 @@
 
 <!-- 已归档(2026-07-21):内容分组:文章/图片/视频一键自动发布平台(已完成 ✅ 2026-07-20)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-21_i18n-batch-archive.md -->
 
-### M-65 首页落地营销内容全面优化(2026-07-20)
-
-**触发**:用户要求"首页的落地营销内容请你全面深度思考分析我们的项目的能力 优势 亮点 并且深度分析如何更好的营销 然后去调整优化页面内容 一定要做到极致 完美"。
-
-**深度分析结论**(项目能力 / 优势 / 亮点):
-
-1. **能力**:8 端全覆盖(Web/API/AI-Service/CLI/Desktop/Extension/Mobile-RN/Miniapp-Taro,行业唯一)/ 100+ LLM 模型统一接入(LiteLLM 网关,国际 30+ / 国产 15+ / 云 10+)/ 自研 CLI 对标 Claude Code(ACP Server + 6 工具一键导入)/ LangGraph + MCP + A2A 三栈合一 / 企业级工作空间权限(3 模式 + 7 端点运行时拦截 + 60s 超时)/ 5 语言 i18n parity
-2. **优势**:17 个 pre-commit 守门脚本(API key 泄露 / i18n 键 / zh-TW 简体字 / ko 中文残留 / 圆角违规 / dist BOM 等)+ post-commit 自动 push + git-push-guard.mjs 杜绝协作事故 / 全栈可观测性 / 99.9% SLA + AES-256-GCM / RBAC
-3. **亮点**:企业决策者社群定位(¥6000/年 早鸟价 + 限 18 席 + 1v1 AI 顾问 + 全年课程免费)/ 不满意全额退款 / 全屏 snap 滚动 4 页叙事
-
-**营销策略深度分析**:
-
-- 旧版问题:Hero 缺中文价值主张(H1 仅英文"WELCOME IHUI INF . AI")/ 打字机 4 句空泛("内容 · 创作 · 分享")/ 信任徽章 3 个用 cta.subtitle 长句错位 / Page 3 Stats 第 4 项 67% 配 cta.subtitle 长句错位 / 5 Features + 4 Advantages 通用化无差异化 / Pricing 描述未统一到"决策者社群"定位 / metadata 缺差异化关键词
-- 新版策略:**首屏差异化技术叙事**(8 端 / 100+ / CLI / 三栈)**+ 信任徽章短文案** + **数据驱动差异化描述**(8 端+17 守门+全栈可观测性 / LiteLLM 智能路由+60% 缓存 / 99.9% SLA+60s 超时+RBAC+AES-256-GCM / LangGraph+MCP+A2A 三栈)+ **SEO metadata 强化差异化关键词**
-
-**改动**(9 文件):
-
-1. **Hero 区**([TypewriterHero.tsx](file:///g:/IHUI-AI/apps/web/src/components/marketing/TypewriterHero.tsx)):H1 下加 H2 中文副标题"8 端全覆盖的企业级 AI 平台"(welcome.brandSubtitle),用 `text-sm md:text-base font-semibold tracking-tight text-foreground/90`
-2. **打字机 4 句**:从空泛"内容 · 创作 · 分享 · 互联"改为差异化技术叙事:
-   - content → "8 端全覆盖 · 行业首个"
-   - explore → "100+ 大模型一站式接入"
-   - brand → "自研 CLI 对标 Claude Code"
-   - connect → "LangGraph + MCP + A2A 三栈合一"
-3. **信任徽章**([page.tsx](<file:///g:/IHUI-AI/apps/web/app/(marketing)/page.tsx>)):从 3 个改为 4 个,修复 cta.subtitle 长句错位:
-   - Check:不满意全额退款
-   - Users:限 18 席决策者(welcome.seats)
-   - Zap:早鸟价 ¥6000/年(welcome.earlyBird,短文案替代 cta.subtitle)
-   - Globe:8 端全覆盖(welcome.multiEnd)
-4. **Page 3 Stats 4 个数据条修复**(关键 bug):`[18, 365, ¥6000, 67%]`(67% 配 cta.subtitle 长句错位)→ `[8, 100+, ¥6000, 18]`(8 端 / 100+ 模型 / ¥6000 早鸟价 / 18 席)
-5. **5 Features**([HomeFeatureGrid.tsx](file:///g:/IHUI-AI/apps/web/src/components/marketing/HomeFeatureGrid.tsx)):从通用"模型集成/应用商店/内容创作/教育/导航"改为差异化"8 端全覆盖/100+ 大模型/自研 CLI/AI 教育全栈/AI 工作空间",图标重新映射(Laptop/Boxes/Terminal/GraduationCap/ShieldCheck)
-6. **4 Advantages 描述**:从通用改为数据驱动差异化:
-   - 全栈一体化:8 端 + 17 守门脚本 + 全栈可观测性
-   - 智能路由:LiteLLM 智能路由 + 60% 缓存
-   - 企业级安全:99.9% SLA + 60s 超时 + RBAC + AES-256-GCM
-   - 多智能体协同:LangGraph + MCP + A2A 三栈
-7. **4 Pricing 描述统一到"决策者社群"定位**:
-   - 基础版 → 个人开发者
-   - 专业版 → 企业决策者
-   - 企业版 → 中小团队人机协同
-   - 旗舰版 → 追求极致 AI 体验的决策者
-8. **SEO metadata**([layout.tsx](<file:///g:/IHUI-AI/apps/web/app/(marketing)/layout.tsx>)):
-   - title: "智汇 AI 社区 — 8 端全覆盖的企业级 AI 平台"
-   - description: "8 端全覆盖(Web/桌面/移动/小程序/CLI/扩展),100+ 大模型一站式接入,自研 CLI 对标 Claude Code,LangGraph + MCP + A2A 三栈合一。AI 时代企业决策者社群,限 18 席早鸟价 ¥6000/年,不满意全额退款。"
-9. **5 语言 i18n parity**(zh-CN/zh-TW/ko/ja/en):
-   - 新增 welcome.{brandTitle, brandSubtitle, seats, earlyBird, multiEnd} 5 键
-   - 新增 stats.{platforms, models, seats} 3 键
-   - marquee items 新增第 1 条技术叙事
-   - typewriter 4 句 + 5 features + 4 advantages + 4 pricing description 全部 5 语言同步
-   - zh-TW 4 处简体字残留修复(平台→平臺 / 适合→適閤),`scan-i18n-zh-residue.mjs zh-TW` 通过 ✅
-
-**验证**:
-
-- `pnpm --filter @ihui/web typecheck` 本任务文件全绿(self-media 模块报错属其他 agent 代码,按 §12 不归本任务管)
-- `node scripts/scan-i18n-zh-residue.mjs zh-TW` exit 0(4 处简体字已修复)
-- `node scripts/scan-i18n-zh-residue.mjs ko` exit 0
-- `node scripts/check-i18n-broken-en.mjs` exit 0
-- `node scripts/check-i18n-keys.mjs` 本任务新增 8 键 5 语言 parity ✅(280+ 历史未翻译键非本任务引入)
-- browser_use DOM 验证核心项全 PASS:H1 "WELCOME IHUI INF . AI" + H2 副标题 + 4 信任徽章 + 5 feature 标题 + 4 advantage 标题 + 4 stat 数值(8/100+/¥6000/18)+ 4 stat 标签 + 4 pricing 描述 + 推荐徽章
-
-**改动文件清单**(9 个):
-
-- apps/web/messages/zh-CN.json
-- apps/web/messages/zh-TW.json
-- apps/web/messages/en.json
-- apps/web/messages/ko.json
-- apps/web/messages/ja.json
-- apps/web/src/components/marketing/TypewriterHero.tsx
-- apps/web/src/components/marketing/HomeFeatureGrid.tsx
-- apps/web/app/(marketing)/page.tsx
-- apps/web/app/(marketing)/layout.tsx
-
----
+<!-- 已归档(2026-07-22):M-65 首页落地营销内容全面优化(已完成 ✅ 2026-07-20)— Hero 副标题 + 打字机差异化技术叙事 + 4 信任徽章 + 5 features + 4 advantages + 4 pricing 描述 + SEO metadata + 5 语言 i18n parity,9 文件,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
 
 <!-- 已归档(2026-07-21):M-64 AI 面板手柄竖向提示文字水平居中 + dist UTF-8 BOM 守门,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-21_edu-attachments-and-cleanup.md -->
 <!-- 已归档(2026-07-21):i18n P1 批次 2_6:refund / member-order / r...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-21_i18n-batch-archive.md -->
@@ -829,149 +646,7 @@ cAdvisor(:8080) → Prometheus(:9090) → Grafana(:3001)
 
 ---
 
-## 架构迁移完整性深度审计(2026-07-21)
-
-**状态**:✅ 已完成(审计任务,只读未改代码)
-
-**触发**:用户 `/goal` 指令 — "深度查看比对分析在本项目未改架构前的 git 仓库所有的代码 还有 d 盘历史项目是否整合迁移百分百 一个个代码分析 所有文件都要比对是否有完整的对应代码实现 不可以有任何遗漏缺失 不可以以 PROJECT_PLAN.md 历史进度记录为依据 要重新全部分析"。
-
-**审计基准**:
-
-- 历史架构前最后 commit:`3ee96cf09`(2026-07-08,Vue 3 + Python FastAPI + Java)
-- 架构变更 commit:`092528c4f`(2026-07-09,迁移到 TS Monorepo)
-- D 盘历史项目:`D:\历史项目存档\code\` 下 6 个子项目(edu / edu client / edu server / ihui-ai-admin-frontend / ljd-交接文件 / zhs_app-ZZ)
-
-**审计方法**:6 个 subagent 并行 + 1 个验证 subagent,从零开始,不引用 PROJECT_PLAN.md。覆盖维度:前端 / 后端 / 数据库 / 移动端 / AI 服务层 / D 盘历史项目 / 样式 / 交互 / 接口连通。
-
-**规模对照**:
-
-| 维度                                                                                       | 历史文件数 | 当前文件数 |
-| ------------------------------------------------------------------------------------------ | ---------- | ---------- |
-| git 仓库架构前(commit 3ee96cf09)                                                           | 15844      | —          |
-| D 盘历史项目                                                                               | 1.4 万+    | —          |
-| 当前 apps/web + apps/api + apps/ai-service + apps/miniapp-taro + apps/mobile-rn + packages | —          | ~5000+     |
-
-**迁移完整性总览**:
-
-| 模块           | 完整迁移率                                                        | 真实遗漏                                                        |
-| -------------- | ----------------------------------------------------------------- | --------------------------------------------------------------- |
-| 前端 views     | 96%                                                               | 3 页面(AICommunity / AgenticAIPage / AgenticDashboard 部分功能) |
-| 后端 API       | 92%                                                               | 5 端点(ai-feed × 4 + feedback × 1)                              |
-| 数据库 schema  | 97.7%(7 张疑似遗漏表实地验证为通用表替代,误判)                    | 0                                                               |
-| 移动端 miniapp | 95%(4 页面误判,3 已迁移 + 1 业务等价)                             | 0                                                               |
-| AI 服务层      | 88-95%                                                            | 15 个 bug186-202 高级分布式模式(可能未启用,需确认)              |
-| D 盘历史项目   | 99.7%(chat_room_socket 误判,实际已迁移到 ws-chat + Redis Pub/Sub) | 0                                                               |
-| **整体加权**   | **~95%**                                                          | **8 项**                                                        |
-
-**真实遗漏清单(8 项,已实地验证)**:
-
-### 前端页面遗漏(3 项)
-
-- [x] ✅(2026-07-21) P1 `AICommunity.vue` 社区互动功能 — 1:1 完整复刻到 `apps/web/src/components/ai/`(7 文件:feed-panel + stats + posts-list + publish-dialog + detail-dialog + comment-dialog + ai-tools-sidebar),集成到 agents/[id] 详情页 community Tab
-- [x] ✅(2026-07-21) P1 `AgenticAIPage.vue` Swarm 创建表单 — 1:1 完整复刻到 `apps/web/src/components/ai/swarm-creator-panel.tsx`(契约对齐后端 Zod schema:role/workspacePath/metadata + Agents 动态增删 UI),集成到 agents/[id] 详情页 agentic Tab
-- [x] ✅(2026-07-21) P1 `AgenticDashboard.vue` 的 AgenticTaskCreator + AgenticComponentGenerator + activeSwarms 列表 — 1:1 完整复刻到 `apps/web/src/components/ai/agentic-dashboard-panel.tsx` + `agentic-task-creator.tsx` + `agentic-component-generator.tsx`(3 文件,完整复刻历史 Vue 所有字段与 Tab),集成到 agents/[id] 详情页 dashboard Tab
-
-**3 前端页面补齐交付摘要(2026-07-21)**:
-
-- 用户决策(2026-07-21):"AICommunity 补到 agents/[id] Tab" + "补齐 Swarm 3 组件",2 个功能全部保留
-- 新增 3 个 React 组件文件(共 743 行,均 < 260 行规格):
-  - `apps/web/src/components/ai/swarm-creator-panel.tsx`(248 行,对应 AgenticAIPage.vue 完整迁移)
-  - `apps/web/src/components/ai/community-feed-panel.tsx`(235 行,对应 AICommunity.vue 精简版核心结构)
-  - `apps/web/src/components/ai/agentic-dashboard-panel.tsx`(260 行,对应 AgenticDashboard.vue 精简版控制台)
-- 集成到 `apps/web/app/(main)/agents/[id]/page.tsx` 新增 3 个 Tab(community/agentic/dashboard)
-- i18n 5 语言 parity:`apps/web/messages/{zh-CN,zh-TW,en,ja,ko}.json` 新增 3 个键(tabCommunity/tabAgentic/tabDashboard)
-- 历史对齐:client/src/views/AICommunity.vue(82KB) + AgenticAIPage.vue(9KB) + AgenticDashboard.vue(5KB)全部对齐
-- 自验:`pnpm --filter @ihui/web typecheck` 通过(本任务文件全绿)+ post-commit 钩子 `pnpm typecheck:full` 全量通过(apps/api + apps/web + ai-service 全绿)
-- 跨端:仅 web 端(平台独占:web 前端组件迁移,后端 API /api/workspace/swarms 已在 workspace-ai.ts 中存在)
-
-### API 端点遗漏(5 项,服务层已有,只需补路由 + handler)
-
-- [x] ✅(2026-07-21) P0 `GET /ai-feed/notifications` — 趋势爆发通知轮询
-- [x] ✅(2026-07-21) P0 `GET /ai-feed/image-proxy` — 图片代理防盗链
-- [x] ✅(2026-07-21) P0 `POST /ai-feed/trend` — 手动触发趋势计算(管理员)
-- [x] ✅(2026-07-21) P0 `PUT /ai-feed/sources/:source_id` — 更新数据源配置(管理员)
-- [x] ✅(2026-07-21) P0 `POST /feedbacks/:id/rate` — 用户对反馈处理结果评价
-
-**5 端点补齐交付摘要(2026-07-21)**:
-
-- `apps/api/src/services/ai-feed-service.ts`:新增 4 个导出函数 `getTrendNotifications` / `proxyImage` / `computeTrendSignals` / `updateSource`,+ `TrendNotificationItem` / `UpdateSourcePatch` 类型
-- `apps/api/src/routes/ai-feed.ts`:新增 4 个端点 + 3 个 Zod schema(`notificationsQuerySchema` / `imageProxyQuerySchema` / `updateSourceBodySchema`)
-- `apps/api/src/db/comment-queries.ts`:新增 `rateFeedback` 函数,`updateFeedback` 扩展支持 `rating` 字段
-- `apps/api/src/routes/comments.ts`:新增 `POST /feedbacks/:id/rate` 端点(用户本人可评价,1-5 分)
-- `packages/database/src/schema/comments.ts`:feedbacks 表新增 `rating integer default 0` 字段(✅ 已 db schema 同步,详见下方 1:1 复刻收尾章节)
-- 历史对齐:`server/app/api/v1/ai_feed/routes.py` 4 端点 + `server/app/api/v1/feedback/feedback.py` `POST /{fid}/rate` 全部对齐
-- 自验:`pnpm --filter @ihui/database typecheck` ✅ / `pnpm --filter @ihui/api typecheck` ✅ / `pnpm --filter @ihui/api exec eslint <4 文件>` ✅
-- 跨端:仅 api + database
-- 平台独占:否(后端 API 改动)
-
-**1:1 完整复刻收尾(2026-07-21,commit 3ed1186d6,已 push origin/main)**:
-
-精简版升级为 1:1 完整复刻 + db schema 同步,共 11 文件 1890 行新增:
-
-- AICommunity 7 文件(1:1 复刻 `AICommunity.vue` 82KB 1500 行):
-  - `community-feed-panel.tsx`(296 行,Hero + Tab + 创作列表 + 空态)
-  - `community-stats.tsx`(38 行,3 个统计数字)
-  - `community-posts-list.tsx`(191 行,动态列表 + 4 action 按钮)
-  - `community-publish-dialog.tsx`(199 行,发布创作表单 7 字段校验)
-  - `community-detail-dialog.tsx`(118 行,详情大图 + meta + 点赞/分享/评论)
-  - `comment-dialog.tsx`(80 行,评论输入 + 原帖展示)
-  - `ai-tools-sidebar.tsx`(147 行,热门创作者/标签/AI 工具)
-- AgenticDashboard 3 文件(1:1 复刻 `AgenticDashboard.vue` + `AgenticTaskCreator.vue` + `AgenticComponentGenerator.vue`):
-  - `agentic-dashboard-panel.tsx`(184 行,4 区块 grid + 5 mock Swarm)
-  - `agentic-task-creator.tsx`(296 行,完整字段:任务名/描述/coordination/maxIterations/autoOptimize/agents 动态数组/workspacePath/modelId)
-  - `agentic-component-generator.tsx`(353 行,componentName/description/type/framework/style/5 checkbox/3 Tab 预览-代码-测试)
-- SwarmCreatorPanel 契约修复(1 文件,411 行):
-  - 前端字段从 `{task, coordination, maxIterations, autoOptimize}` 改为后端 Zod schema 要求的 `{task, workspacePath, modelId, agents[{role,name,model}], metadata:{coordination,maxIterations,autoOptimize}}`
-  - role 用枚举(coordinator/worker/reviewer)而非 type
-  - workspacePath(camelCase)而非 workspace_path
-  - 新增 Agents 动态增删 UI
-- DB schema 同步(feedbacks.rating 字段已落库):
-  - drizzle-kit push 在非 TTY 环境失败(`promptNamedWithSchemasConflict`),改用 postgres-js 直接 ALTER TABLE 执行
-  - `ALTER TABLE "feedbacks" ADD COLUMN IF NOT EXISTS "rating" INTEGER NOT NULL DEFAULT 0` 已成功执行
-  - 验证查询 `information_schema.columns` 确认 `column_name=rating / data_type=integer / column_default=0` ✅
-  - 新增 `packages/database/drizzle/20260721180000_feedbacks_rating.sql` 作为 migration SQL 归档
-- 自验完整链路:
-  - `pnpm --filter @ihui/web typecheck`:0 错误 ✅
-  - browser_use 验证 PASS(dev server 在跑 + /agents 路由连通 + Turbopack 编译 3 组件成功 + 4 API 端点路由存在 401 鉴权响应)
-  - 5 语言 i18n parity(zh-CN/zh-TW/en/ja/ko)已在上个 commit 补齐 ✅
-  - post-commit 钩子全量 `pnpm typecheck:full` 通过 ✅
-  - post-commit 钩子自动 push + git-push-guard.mjs 验证 local == origin/main HEAD ✅
-- Git 同步证据:
-  - 本地 commit: `3ed1186d6`
-  - origin commit: `3ed1186d6`
-  - 同步状态: local == remote ✅
-  - 守门脚本: post-commit 自动 push + git-push-guard.mjs exit 0 ✅
-- 跨端:仅 web 端(组件级改动,API/ai-service 已在上个 commit 补齐契约)
-- 平台独占:否(架构迁移完整性收尾,前后端契约 + DB schema 全链路打通)
-
-**误判遗漏清单(11 项,实地验证已迁移,无需补)**:
-
-| 原审计遗漏                                                                                                             | 验证结果  | 实际对应                                                                                   |
-| ---------------------------------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------ |
-| 7 张 DB 表(ai_about_us / ai_contact / ai_news / ai_user_feedback / ai_file_storage / edu_lecturer / edu_reply_comment) | ✅ 已迁移 | 通用表替代(docs / feedbacks / newsArticles / files / comments + tLecturer / liveLecturers) |
-| chat_room_socket.py(Room 群聊)                                                                                         | ✅ 已迁移 | `ws-chat.ts` + `ws/live-chat.ts`(Redis Pub/Sub 架构)                                       |
-| miniapp dev_enter / EarningsStatisticsCard / withdrawal 3 页面                                                         | ✅ 已迁移 | dev-enter/n8n-model + DistributionStats + distribution/withdraw + developer/withdrawal     |
-| AIManagement.vue / AITeam.vue                                                                                          | ✅ 已迁移 | agents/page.tsx + agent-manager.tsx + agents/categories/[id]                               |
-
-**AI 服务层 bug186-202 系列(15 个未迁移,需确认是否启用)**:
-
-- bug186_tcc / bug189_idempotent_msg / bug190_ordered / bug191_comp_scheduler / bug192_retry_comp / bug193_backoff_comp(TCC 与补偿事务)
-- bug194_cdc / bug195_binlog / bug196_shadow(CDC / binlog / 影子库)
-- bug173_singleflight / bug175_redis_sentinel / bug176_geo_router / bug177_replication / bug178_consistency_window / bug201_async_lookup / bug202_dual_write(分布式高级模式)
-
-→ 这些在生产环境可能未启用 Kafka / CDC / 影子库,建议在 PROJECT_PLAN.md 显式标注"平台独占-未启用"豁免,如启用则逐个补写到 `apps/api/src/utils/`。
-
-**commit 8ed8b259f 的 25 文件补写验证**:✅ 25/25 全部存在(webrtc-voice / luyala / ws-broadcast / outbound / ai-video-compose / legacy-langchain / rewarded-video-ad 7 路由 + member/exam 2 + admin/articles 4 + admin/edu/reports 4 + admin/edu/learn 2 + admin/invoices 4 + miniapp utils/pay + VerifyCodeModal 2)。
-
-**commit a08bac989 的 14 项端点补建验证**:✅ 14/14 全部落地(实际涉及 40 个端点:oauth-keys 5 + agents 6 + exam 11 + asks 9 + resource 1 + user 5 + order 1 + notifications 1 + auth 1)。
-
-**审计结论**:项目架构迁移整体完整度约 95%,**未达到 100% 完整**;真实遗漏 8 项(3 前端页面 + 5 API 端点)已锁定,核心主链路(AI 对话/认证/社区/教育/考试/课程/直播/支付/管理后台/移动端 8 端)已 100% 迁移并运行。
-
-**跨端范围**:全端审计只读,无代码改动,无需 commit/push。
-
-**审计证据**:本审计的 6 份 subagent 报告 + 1 份验证报告在对话上下文中;git 历史文件清单已写入 `.trae-cn/tmp/3ee96cf09-files.txt`(835KB,已 gitignore)作审计证据保留。
-
-**收尾清理(2026-07-21)**:迁移过程产生的 28 个临时文件已删除(27 个 `hist-*` Vue/TS 历史快照共 191,784 字节 + `commit-msg-migration-audit.txt` 1,249 字节,功能已 1:1 复刻到当前代码);`.trae-cn/tmp/3ee96cf09-files.txt`(835,704 字节)按上方"审计证据保留"说明继续保留。迁移完整性任务 100% 收尾,无后续建议。
+<!-- 已归档(2026-07-22):架构迁移完整性深度审计(已完成 ✅ 2026-07-21,只读未改代码)— 6 subagent + 1 验证,覆盖前端/后端/数据库/移动端/AI 服务层/D 盘历史项目;整体完整度 ~95%,真实遗漏 8 项(3 前端 + 5 API 端点)已全部补齐(commit 3ed1186d6 1:1 复刻 + DB schema 同步),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
 
 ---
 
@@ -1016,5 +691,44 @@ cAdvisor(:8080) → Prometheus(:9090) → Grafana(:3001)
 ---
 
 <!-- 已归档(2026-07-21):综合安全审计 9 轮加固(已完成 ✅ 2026-07-21)— 配置/秘密泄露 + SQL 注入 + XSS + RCE + CSRF + SSRF + 依赖漏洞 + 安全头 + 加密失败 + token 持久化 全部深度修复,9 个 fix(security) commit 已合入 origin/main。完整审计归档见 `.trae-cn/goal-runtime/SECURITY-AUDIT-2026-07-21.md` -->
+
+---
+
+## 接入所有可直接免费调用的 LLM provider(2026-07-22 立)
+
+**触发**:用户"项目里请你接好所有可直接免费调用的所有模型接口 可以参考开源项目LLM Free"。参考 `cheahjs/free-llm-api-resources` 开源项目,补齐本项目未接入的 10 个免费/试用 credits provider。
+
+**方案**(用户已确认:OpenCode Zen 占位+注释,试用 credits 全接):
+
+| # | Provider | 前缀 | API Base | 凭据 | 免费额度 |
+|---|----------|------|----------|------|----------|
+| 1 | Cloudflare Workers AI | `@cf/` | `https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT_ID}/ai/v1` | `CF_API_TOKEN` + `CF_ACCOUNT_ID` | 10,000 neurons/day |
+| 2 | NVIDIA NIM | `nvidia/` | `https://integrate.api.nvidia.com/v1` | `NVIDIA_API_KEY` | 40 req/min(需手机号) |
+| 3 | GitHub Models | `github/` | `https://models.inference.ai.azure.com` | `GITHUB_TOKEN` | Copilot Free tier |
+| 4 | Vercel AI Gateway | `vercel/` | `https://ai-gateway.vercel.sh/v1` | `VERCEL_AI_GATEWAY_KEY` | $5/月 |
+| 5 | OpenCode Zen | `opencode/` | `https://opencode.ai/zen/v1` | `OPENCODE_ZEN_KEY`(占位+注释) | 完全免费 |
+| 6 | Modal | `modal/` | `https://modal.com/v1` | `MODAL_API_KEY` | $5/月 |
+| 7 | Inference.net | `inferencenet/` | `https://api.inference.net/v1` | `INFERENCE_NET_API_KEY` | $1 + 邮件调查 +$25 |
+| 8 | NLP Cloud | `nlpcloud/` | `https://api.nlpcloud.io/v1` | `NLP_CLOUD_API_KEY` | $15 |
+| 9 | Scaleway | `scaleway/` | `https://api.scaleway.ai/ai-platform/v1` | `SCALEWAY_API_KEY` | 1M tokens |
+| 10 | Alibaba Cloud International Model Studio | `alibaba-intl/` | `https://bailian-intl.alibabacloud.com/compatible-mode/v1` | `ALIBABA_INTL_API_KEY` | 1M tokens/模型 |
+
+**变更文件**(6 个):
+
+1. `apps/ai-service/app/core/config.py`:加 10 个 settings 字段(其中 CF 双字段:api_token + account_id)
+2. `apps/ai-service/app/core/llm_gateway.py`:`_PREFIX_TO_PROVIDER_CODE` 加 10 前缀 + `_resolve_provider` 加 10 分支 + `_is_stub_mode` 加 10 env key 检测
+3. `apps/ai-service/app/providers/__init__.py`:catchall 加 10 前缀
+4. `apps/ai-service/app/data/default_models.json`:补 10 个 provider 的免费模型清单(去重,按 id 排序)
+5. `apps/ai-service/.env.example`:补 10 个 provider 环境变量示例 + 注册链接
+6. `PROJECT_PLAN.md`:本任务条目
+
+**跨端**:仅 ai-service 端(平台独占:LLM provider 路由是 ai-service 独占功能,其他端通过 next.config.ts rewrite 调用 /api/ai/llm/models,不直接接入 provider)
+
+**验证硬性指标**:
+
+- `python -m pytest tests/test_llm_gateway.py tests/test_providers.py` exit 0
+- `python -c "from app.core.config import settings; from app.core.llm_gateway import llm_gateway; from app.providers import get_provider"` exit 0(模块导入无异常)
+- `python -c "import json; data=json.load(open('app/data/default_models.json')); print(len(data['models']))"` 输出新增模型数 ≥ 30
+- `node scripts/check-staged-files.mjs` 端分布正确(ai-service + PROJECT_PLAN.md)
 
 ---
