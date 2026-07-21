@@ -752,7 +752,6 @@ The project eliminates collaboration incidents through 17 pre-commit hooks + pos
 | 9       | check-safe-parse.mjs                         | safeParse silent ignore (warn-only)                        |
 | 11      | check-rounded-full.mjs                       | Container border-radius violation (enforced size gradient) |
 | 12      | check-delivery-report-consistency.mjs        | Delivery report consistency                                |
-| 13      | check-cli-integration-completeness.mjs | cli integration completeness                        |
 | 13b     | check-project-plan-size.mjs                  | PROJECT_PLAN.md size < 50KB                                |
 | 13c     | check-project-plan-archive.mjs               | PROJECT_PLAN.md completed task item anti-deletion          |
 | 15      | check-api-migration-completeness.mjs         | Migration completeness                                     |
@@ -1645,7 +1644,7 @@ Here are 5 technical decisions that get asked again and again.
 
 **Reasons**:
 
-- **Machines replace humans for review**: 17 guardrails cover API key leaks, i18n key integrity, zh-TW simplified-Chinese residue, ko Chinese residue, ja residue, en broken machine translation, schema drift, stale dist, UTF-8 BOM, API route consistency, safeParse silent ignoring, dependency fragmentation, skipResponseSanitization, border-radius violations, delivery report consistency, cli integration, migration completeness, CSS color token nesting, native title tooltip, staged pollution warnings
+- **Machines replace humans for review**: 16 guardrails cover API key leaks, i18n key integrity, zh-TW simplified-Chinese residue, ko Chinese residue, ja residue, en broken machine translation, schema drift, stale dist, UTF-8 BOM, API route consistency, safeParse silent ignoring, dependency fragmentation, skipResponseSanitization, border-radius violations, delivery report consistency, migration completeness, CSS color token nesting, native title tooltip, staged pollution warnings
 - **Machines replace humans for audit**: 11 migration audit scripts + post-commit auto-push hooks mechanistically eliminate "forgot to push after commit" collaboration accidents
 - **Machines replace DevOps**: 9 PowerShell startup scripts turn "start the project" from "can't remember 8 commands" into "1 command"
 
