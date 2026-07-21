@@ -26009,5 +26009,37 @@
     },
     "saveBtn": "Save Settings",
     "saved": "Saved"
+  },
+  "memberDashboardPage": {
+    "defaultLevel": "Default Level",
+    "title": "Member Center",
+    "description": "Manage your membership level, points, coupons and orders",
+    "expireAt": "Expires At",
+    "renew": "Renew",
+    "recentOrders": "Recent Orders",
+    "viewAll": "View All",
+    "loading": "Loading…",
+    "empty": "No data"
+  },
+  "developerHomePage": {
+    "statCalls": "API Calls",
+    "statApiKeys": "API Keys",
+    "statWebhook": "Webhooks",
+    "statMonthFee": "This Month",
+    "qeApiDocsLabel": "API Docs",
+    "qeApiDocsDesc": "Full API reference and examples",
+    "qeSandboxLabel": "Sandbox",
+    "qeSandboxDesc": "Test API without installing",
+    "qeLogsLabel": "Call Logs",
+    "qeLogsDesc": "View history requests and errors",
+    "qeVersionsLabel": "Versions",
+    "qeVersionsDesc": "Manage versions and deprecations",
+    "title": "Developer Center",
+    "subtitle": "Manage your API keys, webhooks and usage",
+    "currentPlan": "Current Plan",
+    "quotaUsage": "Quota Usage",
+    "upgrade": "Upgrade",
+    "quickEntries": "Quick Entries",
+    "loading": "Loading…"
   }
 }
