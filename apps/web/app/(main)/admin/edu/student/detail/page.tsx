@@ -5,7 +5,17 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, ChevronLeft, TrendingUp, BookOpen, Award } from 'lucide-react'
+import {
+  Loader2,
+  ChevronLeft,
+  TrendingUp,
+  BookOpen,
+  Award,
+  Download,
+  FileText,
+  FileSpreadsheet,
+  FileJson,
+} from 'lucide-react'
 import { eduApi } from '@/lib/edu'
 import { cn } from '@/lib/utils'
 import {
@@ -20,7 +30,15 @@ import {
   TableCell,
 } from '@ihui/ui'
 import { Avatar } from '@/components/data/Avatar'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu'
+import { toast } from 'sonner'
 
+// 后端 GET /api/admin/users/:id 返回 { user: AdminUser },前端解包为 Detail
 interface Detail {
   id: string
   nickname: string
@@ -29,11 +47,13 @@ interface Detail {
   level: number
   status: number
   createdAt: string
-  signupCount: number
-  learnHours: number
-  examCount: number
-  certCount: number
-  lessons: { id: string; title: string; progress: number }[]
+  // 聚合字段暂未在后端 GET /api/admin/users/:id 实现,显示 0 占位
+  // 真正聚合数据走 GET /api/admin/edu/students/:userId/report/export?format=json
+  signupCount?: number
+  learnHours?: number
+  examCount?: number
+  certCount?: number
+  lessons?: { id: string; title: string; progress: number }[]
 }
 
 export default function EduStudentDetailPage() {
@@ -43,10 +63,60 @@ export default function EduStudentDetailPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'student', 'detail', id],
-    queryFn: () => eduApi<Detail>(`/api/admin/users/${id}`),
+    queryFn: async () => {
+      // 后端返回 { user: {...} },这里解包
+      const wrapped = await eduApi<{ user: Detail }>(`/api/admin/users/${id}`)
+      return wrapped.user
+    },
     enabled: !!id,
     retry: false,
   })
+
+  const [exporting, setExporting] = React.useState<'pdf' | 'excel' | 'json' | null>(null)
+
+  const handleExport = async (format: 'pdf' | 'excel' | 'json') => {
+    if (!id) return
+    setExporting(format)
+    try {
+      const resp = await fetch(`/api/admin/edu/students/${id}/report/export?format=${format}`, {
+        method: 'GET',
+        credentials: 'include',
+      })
+      if (!resp.ok) throw new Error(`${resp.status}`)
+      const contentType = resp.headers.get('Content-Type') ?? ''
+      if (contentType.includes('application/pdf') || contentType.includes('spreadsheetml')) {
+        const blob = await resp.blob()
+        const url = URL.createObjectURL(blob)
+        const cd = resp.headers.get('Content-Disposition') ?? ''
+        const match = /filename="?([^";]+)"?/.exec(cd)
+        const filename =
+          match?.[1] ?? `student-${id.slice(0, 8)}.${format === 'pdf' ? 'pdf' : 'xlsx'}`
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+      } else {
+        // json 走文件下载
+        const blob = await resp.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `student-${id.slice(0, 8)}.json`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+      }
+      toast.success('导出成功')
+    } catch (e) {
+      toast.error(`导出失败: ${(e as Error).message}`)
+    } finally {
+      setExporting(null)
+    }
+  }
 
   if (!id) {
     return (
@@ -86,13 +156,39 @@ export default function EduStudentDetailPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link href="/admin/edu/student">
             <ChevronLeft className="h-4 w-4" />
             {t('backToList')}
           </Link>
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" disabled={exporting !== null}>
+              {exporting !== null ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              {exporting !== null ? '导出中...' : '导出报告'}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleExport('pdf')}>
+              <FileText className="mr-2 h-4 w-4" />
+              导出 PDF
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport('excel')}>
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              导出 Excel
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => handleExport('json')}>
+              <FileJson className="mr-2 h-4 w-4" />
+              导出 JSON
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <div className="rounded-lg border p-6">
         <div className="flex items-center gap-4">
