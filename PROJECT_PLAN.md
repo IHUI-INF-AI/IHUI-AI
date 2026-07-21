@@ -8,6 +8,42 @@
 
 ## 当前活跃任务(2026-07-20)
 
+### [x] ✅(2026-07-22) 多端流式 agentId 分流"最后一公里"接通(api token chunk 注入 + api-client onAgentDelta + chat store subAgentActivities + use-chat 分流 + UI 数据源接通)
+
+**触发**:上一轮交付报告 P0 建议"在 use-chat.ts 的 onDelta 回调中,识别带 agentId 的 chunk,按 agent 累加到 SubAgentActivity.streamingContent"。用户指示"继续按你的建议去做执行,要求完美细致完整毫无遗漏 直到没有任何后续建议可给到我为止"。
+
+**方案与产出**(5 层全链路接通):
+
+1. **api 层 token chunk 注入 agentId**(api 独占):
+   - `apps/api/src/routes/ai-chat-stream.ts` — streamToClient 从 raw 字节透传改为逐行解析,对 JSON 格式 `data: {...}` 行注入顶层 `agentId`(Vercel AI SDK `0:"..."` 格式协议限制无法注入,透传原样)
+2. **api-client 加 onAgentDelta 回调**(共享包 only/跨端共享):
+   - `packages/api-client/src/client.ts` — StreamChatOptions 新增 `agentId?` + `onAgentDelta?`;新增 `extractAgentId(line)` 辅助函数(仅 JSON 对象格式支持);SSE 循环有 agentId 且 onAgentDelta 存在时走 onAgentDelta,否则走 onDelta(向后兼容);body 透传 agentId
+   - `packages/api-client/src/index.ts` — 导出 extractAgentId
+3. **chat store 加 subAgentActivities 状态**(web 独占):
+   - `apps/web/src/stores/chat.ts` — ChatState 新增 `subAgentActivities: SubAgentActivity[]`(不持久化);新增 3 个 action:`appendToAgentStream(agentId, delta, name?)`(agentId 不存在自动创建)/ `markAllAgentStreamsDone()`(stream 结束标记完成)/ `resetSubAgentActivities()`(新对话清空)
+4. **use-chat.ts onDelta 按 agentId 分流**(web 独占):
+   - `apps/web/src/hooks/use-chat.ts` — sendMessage + sendAnswer 两处 streamChat 调用新增 `onAgentDelta` 回调(调 appendToAgentStream);开始时 resetSubAgentActivities;finally 块 markAllAgentStreamsDone
+5. **SubAgentActivityFeed 数据源接通**(web 独占):
+   - `apps/web/app/(main)/agents/[id]/page.tsx` — 从 chat store 读 subAgentActivities,传入 SubAgentActivityFeed(原 `activities={[]}` 改为 `activities={subAgentActivities}`)
+   - `apps/web/src/components/ai/ai-side-panel.tsx` — 在消息区和输入区之间渲染 SubAgentActivityFeed(仅当 subAgentActivities.length > 0 时显示,单 agent 模式不渲染)
+
+**验证**:
+- @ihui/api-client build 退出码 0 ✅
+- 本任务 7 文件 eslint 0 错误(5 warnings 全是 use-chat.ts 预存 `any` 警告,非本次改动)
+- @ihui/web typecheck 本任务文件无报错(预存 DictDialog/AdminNav/sidebar 报错属其他 agent)
+- @ihui/api typecheck 本任务文件无报错(预存 clawdbot/knowledge-rag 报错属其他 agent)
+- browser 验证:localhost:3000 页面加载成功,console 无与本次改动相关的 JS 错误
+
+**平台独占豁免标注**(§9):
+- api 改动 = "api 独占"
+- api-client 改动 = "共享包 only/跨端共享"
+- web 改动 = "web 独占"
+- 其他端(desktop/extension/mobile-rn/miniapp-taro)不涉及 sub-agent feed,按平台独占豁免不强制接入
+
+**上一轮"已知缺口"状态**:✅ 已解决(use-chat.ts onDelta 已按 agentId 分流到 SubAgentActivity.streamingContent,组件层 + 数据层全链路接通)
+
+---
+
 ### [x] ✅(2026-07-22) 多端流式输出极致化(packages/ui 共享折叠组件 + api 多路复用 + web feed 流式 token 改造)
 
 **触发**:用户问"本项目多端的流式输出开发完全到极致了吗 比如 subagent 多个同时工作时的流式显示动态更新 还有繁杂的 powershell 进程内容窗口的隐藏收纳 点击后可展开查看等"。调研发现:多 subagent 并发只有步骤级/快照级更新(非 token 级流式);无专门终端输出折叠组件;packages/ui 缺共享折叠基座。用户指示"都需要 启动goal 多agent开发好"。
@@ -49,7 +85,7 @@
 - 其他端(desktop/extension/mobile-rn/miniapp-taro)AgentRuntimePanel 是单 agent 场景,不需 sub-agent feed,按平台独占豁免不强制接入
 
 **已知缺口(后续任务,非本任务范围)**:
-- use-chat.ts 的 onDelta 未按 agentId 分流到 SubAgentActivity.streamingContent(组件层已就绪,数据层"最后一公里"待接通)
+- ~~use-chat.ts 的 onDelta 未按 agentId 分流到 SubAgentActivity.streamingContent(组件层已就绪,数据层"最后一公里"待接通)~~ ✅ 已在 2026-07-22 后续任务中接通(见上方任务条目)
 
 ---
 

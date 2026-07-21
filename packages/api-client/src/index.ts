@@ -5,6 +5,7 @@ export {
   streamChat,
   parseStreamLine,
   parseStreamLineReasoning,
+  extractAgentId,
   getSSEErrorInfo,
   formatSSEError,
 } from './client.js'
