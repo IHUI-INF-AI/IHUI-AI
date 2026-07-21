@@ -34,6 +34,8 @@ export type ScheduledJobName =
   | 'workwechat-token-refresh'
   | 'wechat-token-refresh'
   | 'dingtalk-token-refresh'
+  | 'ai-feed-collect'
+  | 'ai-feed-process'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
@@ -119,6 +121,19 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     name: 'dingtalk-token-refresh',
     pattern: '*/100 * * * *',
     description: '钉钉 access_token 刷新（每100分钟,7200s 过期）',
+  },
+  // AI 资讯采集与处理(参考 aihot.virxact.com,2026-07-22 立)
+  // collect: 全量采集 17 个国内外信源,落 ai_feed_hot_item 表
+  // process: LLM 分类摘要 + 标题翻译 + 趋势信号计算,错峰 30 分钟避免与 collect 抢资源
+  {
+    name: 'ai-feed-collect',
+    pattern: '0 */6 * * *',
+    description: 'AI 资讯全量采集（每6小时,17个国内外信源）',
+  },
+  {
+    name: 'ai-feed-process',
+    pattern: '30 */6 * * *',
+    description: 'AI 资讯 LLM 分类摘要 + 标题翻译 + 趋势信号计算（每6小时错峰30分）',
   },
 ]
 
