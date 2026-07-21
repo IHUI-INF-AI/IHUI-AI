@@ -168,3 +168,30 @@ export type ResourceDownload = typeof resourceDownloads.$inferSelect
 export type NewResourceDownload = typeof resourceDownloads.$inferInsert
 export type ResourceSearchLog = typeof resourceSearchLogs.$inferSelect
 export type NewResourceSearchLog = typeof resourceSearchLogs.$inferInsert
+
+/**
+ * GitHub 开源项目库表（历史 resource_github_projects）。
+ * - url: GitHub 仓库链接
+ * - stars: Star 数
+ * - category: 分类
+ * - language: 主语言
+ */
+export const resourceGithubProjects = pgTable(
+  'resource_github_projects',
+  {
+    id: serial('id').primaryKey(),
+    name: varchar('name', { length: 200 }).notNull(),
+    url: varchar('url', { length: 500 }).notNull(),
+    stars: integer('stars'),
+    category: varchar('category', { length: 100 }),
+    description: text('description'),
+    language: varchar('language', { length: 50 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    categoryIdx: index('resource_github_projects_category_idx').on(t.category),
+  }),
+)
+
+export type ResourceGithubProject = typeof resourceGithubProjects.$inferSelect
+export type NewResourceGithubProject = typeof resourceGithubProjects.$inferInsert
