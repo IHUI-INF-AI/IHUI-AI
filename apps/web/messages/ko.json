@@ -2640,6 +2640,7 @@
         "destroyTitle": "테넌트 {slug} 삭제",
         "destroyHint": "이 작업은 되돌릴 수 없습니다! 모든 데이터, 컨테이너, 백업이 영구적으로 삭제됩니다.",
         "destroyInputHint": "삭제를 확인하려면 식별자 \"{slug}\"을 입력하세요",
+        "confirmInputHint": "확인하려면 \"{value}\"을 입력하세요",
         "cancel": "취소",
         "confirm": "확인"
       },
@@ -2652,6 +2653,54 @@
         "planFree": "무료",
         "planPro": "프로",
         "planEnterprise": "엔터프라이즈"
+      },
+      "detail": {
+        "back": "테넌트 목록으로",
+        "status": "상태",
+        "statusHint": "{time}에 변경됨",
+        "containers": "컨테이너",
+        "containersHint": "실행 중 / 총 수",
+        "resources": "리소스 제한",
+        "resourcesHint": "메모리 + CPU 할당량",
+        "memory": "메모리",
+        "cpu": "CPU",
+        "domain": "도메인",
+        "domainHint": "사용자 접속 URL",
+        "shortcuts": "바로가기",
+        "manageBackups": "백업 관리"
+      },
+      "backups": {
+        "title": "{slug}의 백업",
+        "subtitle": "이 테넌트의 모든 백업을 관리합니다. 복원 및 삭제를 지원합니다.",
+        "createNow": "지금 백업",
+        "createTitle": "{slug} 지금 백업",
+        "createHint": "지금 데이터 스냅샷을 생성합니다. 작업 중에도 서비스는 정상 사용 가능합니다.",
+        "restoreTitle": "{timestamp}에서 복원",
+        "restoreHint": "이 작업은 현재 데이터를 백업본으로 덮어씁니다. 타임스탬프를 확인하세요.",
+        "restoreInputHint": "복원을 확인하려면 타임스탬프 \"{timestamp}\"을 입력하세요",
+        "deleteTitle": "백업 {timestamp} 삭제",
+        "deleteHint": "이 작업은 되돌릴 수 없습니다! 백업 파일이 영구적으로 삭제됩니다.",
+        "deleteInputHint": "삭제를 확인하려면 타임스탬프 \"{timestamp}\"을 입력하세요",
+        "restore": "복원",
+        "delete": "삭제",
+        "stats": {
+          "total": "총 백업 수",
+          "totalSize": "총 크기",
+          "avg": "평균 {size} / 건",
+          "latest": "최신 백업",
+          "empty": "백업 없음"
+        },
+        "listTitle": "백업 목록",
+        "empty": "백업이 없습니다. 오른쪽 상단 \"지금 백업\"을 클릭하여 생성",
+        "table": {
+          "timestamp": "타임스탬프",
+          "size": "크기",
+          "files": "파일 수",
+          "createdAt": "생성 시간",
+          "age": "경과",
+          "actions": "작업"
+        },
+        "download": "백업 다운로드"
       }
     },
     "users": {
@@ -26816,7 +26865,15 @@
     "empty": "이번 주 수업이 없습니다",
     "today": "오늘",
     "noClass": "수업 없음",
-    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ]
   },
   "memberUpgradePage": {
     "title": "멤버십 업그레이드",
@@ -27504,5 +27561,11 @@
     "featuredBadge": "추천",
     "noDescription": "설명 없음",
     "free": "무료"
+  },
+  "oauthSetupPage": {
+    "title": "OAuth 凭据配置向导",
+    "subtitle": "应用内交互式引导,帮你一步步获取第三方登录平台的真实凭据",
+    "honestTitle": "🤖 AI 不能替你注册账号",
+    "honestBody": "5 个平台(GitHub/Google/飞书/支付宝/Apple)的账号注册需要你的真人信息(邮箱/手机/身份证/营业执照/付费信用卡),AI 无法代替你操作。但本向导会引导你每一步,跟着点就不会迷路。建议从 GitHub 开始(3 分钟,免费)。"
   }
 }

@@ -9,6 +9,7 @@ import type { ApiResult } from '@ihui/types'
 import { fetchApi } from '../client.js'
 
 import type {
+  BackupDeleteResult,
   BackupListResult,
   TenantActionResult,
   TenantCreateResult,
@@ -27,6 +28,7 @@ export type {
   TenantDetailResult,
   TenantCreateResult,
   TenantActionResult,
+  BackupDeleteResult,
   BackupListResult,
   TenantRestoreBody,
 } from './admin-tenants.types.js'
@@ -101,5 +103,16 @@ export async function adminDeleteTenant(slug: string): Promise<ApiResult<TenantA
 export async function adminListBackups(slug: string): Promise<ApiResult<BackupListResult>> {
   return fetchApi<BackupListResult>(
     `/api/admin-saas/customers/${encodeURIComponent(slug)}/backups`,
+  )
+}
+
+/** P1-2.2b: 删除指定备份 */
+export async function adminDeleteBackup(
+  slug: string,
+  timestamp: string,
+): Promise<ApiResult<BackupDeleteResult>> {
+  return fetchApi<BackupDeleteResult>(
+    `/api/admin-saas/customers/${encodeURIComponent(slug)}/backups/${encodeURIComponent(timestamp)}`,
+    { method: 'DELETE' },
   )
 }
