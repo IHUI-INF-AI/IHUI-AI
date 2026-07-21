@@ -182,10 +182,13 @@ apiclient_*
 # workbuddy 工具本地记忆(memory/MEMORY.md + 每日 memory)
 .workbuddy/
 
-# 公众号文章系统(content_engine)+ 口播稿系统(koubo_workflow)的运行时临时文件
-# AGENTS.md / scripts 是项目内合法源码,仅 ignore 运行时产物
+# 公众号文章系统(content_engine)+ 口播稿系统(koubo_workflow)的运行时/产物
+# AGENTS.md / scripts 是项目内合法源码,仅 ignore 跨项目产物
 apps/ai-service/app/skills/.session/
 apps/ai-service/app/skills/content_engine/output/
 apps/ai-service/app/skills/content_engine/.wechat_token_cache.json
+apps/ai-service/app/skills/content_engine/articles/
+apps/ai-service/app/skills/content_engine/download_real_imgs_v2.py
 apps/ai-service/app/skills/koubo_workflow/.cache/
+apps/ai-service/app/skills/koubo_workflow/build_0721.py
 
