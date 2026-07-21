@@ -241,6 +241,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/agent-rules', labelKey: 'agentRules', icon: Shield },
   { href: '/admin/demand-square', labelKey: 'demandSquare', icon: LayoutGrid },
   // R6: 运维监控
+  { href: '/admin/ai-cost', labelKey: 'aiCost', icon: Coins },
   { href: '/admin/monitoring-dashboard', labelKey: 'monitoringDashboard', icon: MonitorCog },
   { href: '/admin/backend-health', labelKey: 'backendHealth', icon: Server },
   { href: '/admin/performance-dashboard', labelKey: 'performanceDashboard', icon: Gauge },
