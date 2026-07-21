@@ -14,7 +14,7 @@ vi.hoisted(() => {
 // 模拟 db.insert / db.select / db.delete
 const insertedRows: unknown[] = []
 let insertCalls: { table?: string; values?: unknown }[] = []
-let selectRows: unknown[] = []
+const selectRows: unknown[] = []
 
 const chain: Record<string, (...a: unknown[]) => typeof chain> & { then: unknown } = {
   then: undefined as never,

@@ -1,7 +1,7 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { desc } from 'drizzle-orm'
-import { authenticate } from '../plugins/auth.js'
+import { authenticate, checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
   findPublishedCategories,
@@ -502,22 +502,6 @@ const updateTopicSchema = z.object({
 })
 
 // =============================================================================
-// 鉴权辅助
-// =============================================================================
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-}
-
-// =============================================================================
 // 字段适配：后端 schema 字段名 → 前端期望字段名
 // =============================================================================
 
@@ -617,7 +601,7 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /learn/records - 用户学习记录（需登录,前端 user/learn-record 页面调用）
   server.get('/learn/records', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
     const list = await findUserLearnRecords(userId)
     return reply.send(success({ list }))
@@ -625,7 +609,7 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /learn/my-lessons - 我报名的课程（需登录）
   server.get('/learn/my-lessons', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = myLessonsQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -637,7 +621,7 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /learn/lessons/:id/sign-up - 报名课程（需登录）
   server.post('/learn/lessons/:id/sign-up', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -653,7 +637,7 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /learn/lessons/:id/progress - 获取学习进度(需登录,合并章节追踪数据)
   server.get('/learn/lessons/:id/progress', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -678,7 +662,7 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /learn/lessons/:id/heartbeat - 心跳上报(需登录,前端定时调用,每 10-15 秒)
   server.post('/learn/lessons/:id/heartbeat', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -736,7 +720,7 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /learn/lessons/:id/progress - 更新学习进度（需登录）
   server.post('/learn/lessons/:id/progress', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -795,7 +779,7 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /learn/maps/favorites - 我收藏的学习地图（需登录）
   server.get('/learn/maps/favorites', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const list = await findPublishedMaps()
     return reply.send(success({ list }))
   })
@@ -822,7 +806,7 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /learn/lessons/:lessonId/rates - 创建课程评价（需登录）
   server.post('/learn/lessons/:lessonId/rates', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = lessonIdParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -851,7 +835,7 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /learn/lessons/:lessonId/rates/my - 我的课程评价（需登录）
   server.get('/learn/lessons/:lessonId/rates/my', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = lessonIdParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -865,7 +849,7 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /learn/lessons/:id/homework - 学生提交作业（需登录，需先报名）
   server.post('/learn/lessons/:id/homework', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -890,7 +874,7 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /learn/homework - 我的作业提交记录列表（需登录，支持 status 过滤）
   server.get('/learn/homework', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = homeworkListQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
@@ -14,26 +14,10 @@ import {
 import { eq, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import { uploadSessions } from '@ihui/database'
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
-
-// =============================================================================
-// 鉴权辅助
-// =============================================================================
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-  return true
-}
 
 // =============================================================================
 // Zod schemas
@@ -80,7 +64,7 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /chunked-upload/init - 初始化分片上传
   server.post('/chunked-upload/init', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
 
     const parsed = initBodySchema.safeParse(request.body)
     if (!parsed.success) {
@@ -128,7 +112,7 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /chunked-upload/upload - 上传单个分片（application/octet-stream）
   server.post('/chunked-upload/upload', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
 
     const uploadId = request.headers['x-upload-id']
     const chunkNumberRaw = request.headers['x-chunk-number']
@@ -201,7 +185,7 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /chunked-upload/merge - 合并分片
   server.post('/chunked-upload/merge', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
 
     const parsed = mergeBodySchema.safeParse(request.body)
     if (!parsed.success) {
@@ -292,7 +276,7 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /chunked-upload/cancel - 取消上传
   server.delete('/chunked-upload/cancel', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
 
     const parsed = cancelBodySchema.safeParse(request.body)
     if (!parsed.success) {
@@ -319,7 +303,7 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /chunked-upload/status - 查询上传状态
   server.get('/chunked-upload/status', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
 
     const parsed = statusQuerySchema.safeParse(request.query)
     if (!parsed.success) {
