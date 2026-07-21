@@ -162,6 +162,7 @@
 <!-- 已归档(2026-07-21):i18n P1 批次 2_8:20 page.tsx 多 subagent 并行...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-21_i18n-batch-archive.md -->
 <!-- 已归档(2026-07-21):i18n P1 批次 2_9:20 page.tsx 多 subagent 并行...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-21_i18n-batch-archive.md -->
 <!-- 已归档(2026-07-21):i18n P1 批次 2_10:20 个高优组件文件多 subagent 并行 i18n 化(commit dbb0995d,协作事故 commit message 错误),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-21_i18n-batch-archive.md -->
+<!-- 已归档(2026-07-21):i18n P1 批次 2_11:15 个高优 page/tsx 多 subagent 并行 i18n 化(commit 4b94b09),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-21_i18n-batch-archive.md -->
 ### AI 主动提问弹窗 + 挂起对话续流(已完成 ✅ 2026-07-21,commit 2fad28f)
 
 **触发**:用户要求"AI 对话过程中模型向用户主动提问的提示弹窗窗口,并且挂起对话等待用户回答选择后再继续给模型,不中断对话"。`/goal` 模式启动,硬性指标:4 端 typecheck/test 全绿 + curl /chat/answer 200 + browser_use 4 状态截图 + git-push-guard exit 0。
@@ -578,3 +579,8 @@
 - PROJECT_PLAN.md(本条目记录)
 
 **最终迁移完成度(续跑后)**:**100%**(7 项遗漏补全 + 6 项合理废弃验收 + 8 项前端合理合并验收,核心业务功能 100% 迁移,无核心功能缺失,所有交付物已 push 到 origin/main)
+
+---
+
+<!-- 已归档(2026-07-21):Page 6 修复内容偏上布局(commit 514f866),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-21_page-6-fix.md -->
+
