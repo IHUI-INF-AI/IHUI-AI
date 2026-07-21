@@ -61,6 +61,13 @@ async def lifespan(app: FastAPI):
     from app.services.self_media_scheduler import self_media_scheduler
     self_media_scheduler.start()
 
+    # 启动时从 Redis 加载历史向量记忆(进程重启不丢)
+    # 失败/无 Redis 时静默降级为内存模式,不阻塞启动
+    from app.services.vector_memory import vector_memory
+    hydrated = await vector_memory.hydrate()
+    if hydrated:
+        logger.info("[vector_memory] 启动从 Redis hydrate %d 条历史记忆", hydrated)
+
     # 启动多平台一键发布调度器(轮询 publish_tasks 表 scheduled_at 到期任务,
     # 同用户最多 3 个并发,失败平台支持 retry)
     from app.services.publish.scheduler import publish_scheduler
