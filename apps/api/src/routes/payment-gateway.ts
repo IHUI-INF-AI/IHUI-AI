@@ -385,6 +385,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
               request.log.warn({ err: ae, orderNo: out_trade_no }, 'subscription activation failed')
             }
             try {
+              if (!result.order.userId) throw new Error('order has no userId')
               const tokenQuantity = await getBalance(result.order.userId)
               await feedbackInvite(
                 { id: result.order.userId, tokenQuantity },
@@ -653,6 +654,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
               request.log.warn({ err: ae, orderNo: outTradeNo }, 'subscription activation failed')
             }
             try {
+              if (!result.order.userId) throw new Error('order has no userId')
               const tokenQuantity = await getBalance(result.order.userId)
               await feedbackInvite(
                 { id: result.order.userId, tokenQuantity },
