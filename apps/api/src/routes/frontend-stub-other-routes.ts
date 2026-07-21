@@ -172,11 +172,14 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
     const [item] = await db
       .insert(aiWorldItems)
       .values({
+        kind: 'news',
         title: body.data.title,
         content: body.data.content ?? null,
         coverImage: body.data.coverImage ?? null,
         categoryId: body.data.categoryId ?? null,
         authorId: request.userId,
+        source: 'user',
+        sourceUrl: null,
         status: body.data.status,
       })
       .returning()
