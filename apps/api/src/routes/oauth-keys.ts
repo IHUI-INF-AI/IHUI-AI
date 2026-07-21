@@ -5,6 +5,7 @@ import { db } from '../db/index.js'
 import { oauthPrivateKeys } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { generateApiKey } from '../utils/crypto-random.js'
 
 // =============================================================================
 // OAuth 私钥管理(多租户 JWT/RS256 签名密钥轮转)
@@ -58,8 +59,10 @@ const listQuery = z.object({
 // 占位密钥生成(生产环境应使用 crypto 生成真实 RSA/EC 密钥对,或对接 KMS)
 function placeholderKey(keyType: string): { privateKey: string; publicKey: string } {
   if (keyType === 'HMAC') {
+    // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成 HMAC secret,
+    // Math.random 可预测 -> 攻击者可重放 JWT/signature 劫持会话
     return {
-      privateKey: `hmac-secret-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      privateKey: `hmac-secret-${generateApiKey()}`,
       publicKey: '',
     }
   }
