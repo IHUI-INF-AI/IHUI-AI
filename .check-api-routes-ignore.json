@@ -119,33 +119,15 @@
       "addedAt": "2026-07-21"
     },
     {
-      "method": "POST",
-      "pathPattern": "/api/notes",
-      "reason": "TODO 后端补建:mobile-rn NoteCreateScreen.tsx:28 调用,后端 /notes 仅有 PUT /:id,缺 POST 根级创建",
-      "addedAt": "2026-07-21"
-    },
-    {
       "method": "GET",
-      "pathPattern": "/api/notes/public",
-      "reason": "TODO 后端补建:mobile-rn NoteListScreen.tsx:25 调用,后端无 /notes/public 公开笔记列表",
-      "addedAt": "2026-07-21"
-    },
-    {
-      "method": "POST",
-      "pathPattern": "/api/shares",
-      "reason": "TODO 后端补建:mobile-rn ShareScreen.tsx:27 调用,后端只有 GET /share/content/:code 查看,缺 POST /shares 创建分享",
-      "addedAt": "2026-07-21"
-    },
-    {
-      "method": "GET",
-      "pathPattern": "/api/study/plans",
-      "reason": "TODO 后端补建:mobile-rn StudyPlanScreen.tsx:25 调用,后端 /study 仅有 /progress,缺 /plans 学习计划列表",
+      "pathPattern": "/api/auth/login/email",
+      "reason": "守门脚本误识别 e2e spec 字符串字面量为 GET 调用:login-3step-enter.spec.ts:122 是 page.on('request') 内 url.includes() 字符串匹配,实际 method='POST' (spec.ts:122 显式 req.method() === 'POST'),后端已注册 POST /auth/login/email (auth-extended.ts:221),非真 404",
       "addedAt": "2026-07-21"
     },
     {
       "method": "GET",
       "pathPattern": "/api/admin/content/:type/:id",
-      "reason": "TODO 后端补建:desktop admin-content-types.ts:4 调用,后端无 /admin/content/:type/:id 通用内容详情",
+      "reason": "守门脚本误识别注释为调用:desktop/src/lib/admin-content-types.ts:4 是 JSDoc 注释里的路径字符串 (非实际 fetchApi 调用),后端已注册 /api/admin/content/:type/:id 全套 CRUD (admin/content/crud.ts,注册前缀 /api/admin/content,支持 10 种 type),非真 404",
       "addedAt": "2026-07-21"
     }
   ]
