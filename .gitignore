@@ -21,6 +21,17 @@ logs-*-restart*.txt
 .secrets.act
 .env.act.local
 
+# 2026-07-21 安全审计加固:测试环境密钥文件不应入库(2026-07-21 安全审计发现
+# 之前 .env.act 含 DATABASE_URL, apps/api/.env.test 含 JWT_SECRET +
+# CREDENTIALS_ENCRYPTION_KEY,均为已知弱密钥,任何能访问仓库的人都能伪造 token)。
+# 本地保留文件(不被删除),仅从 git 索引移除。
+.env.act
+**/.env.test
+**/.env.test.local
+**/.env.tests
+**/.env.staging
+**/.env.staging.local
+
 # /goal 目标驱动模式运行时临时文件位于 .trae-cn/goal-runtime/,
 # 已被上方 .trae-cn/ 整体忽略规则覆盖,无需单独列出。
 
