@@ -1959,7 +1959,8 @@
         "resource": "리소스 센터",
         "developer": "개발자 센터",
         "saas": "SaaS 배포"
-      }
+      },
+      "saasMetrics": "리소스 모니터링"
     },
     "refund": {
       "title": "AI인마음페이스테스트",
@@ -2667,7 +2668,8 @@
         "domain": "도메인",
         "domainHint": "사용자 접속 URL",
         "shortcuts": "바로가기",
-        "manageBackups": "백업 관리"
+        "manageBackups": "백업 관리",
+        "compareTenants": "테넌트 비교"
       },
       "backups": {
         "title": "{slug}의 백업",
@@ -2749,6 +2751,35 @@
         "aiTokens": "AI 토큰",
         "storage": "저장 공간",
         "unlimited": "무제한"
+      },
+      "metrics": {
+        "pageTitle": "리소스 모니터링",
+        "pageSubtitle": "멀티 테넌트 CPU/메모리/네트워크 실시간 비교 (Prometheus + Grafana)",
+        "refresh": "새로고침",
+        "loading": "Grafana 차트 로딩 중…",
+        "iframeTitle": "실시간 메트릭 (Grafana)",
+        "openNewWindow": "새 창에서 열기",
+        "unavailable": "Prometheus 연결 불가. cadvisor/prometheus 컨테이너 상태를 확인하세요.",
+        "unavailableTitle": "리소스 모니터링 사용 불가",
+        "unavailableHint": "Prometheus 서비스 연결 실패. 컨테이너 메트릭을 가져올 수 없습니다.",
+        "envHint": "힌트: NEXT_PUBLIC_GRAFANA_BASE 미설정. 기본값 http://127.0.0.1:3001 사용",
+        "compareTitle": "멀티 테넌트 비교 (각 테넌트 CPU/메모리)",
+        "rankingTitle": "테넌트 랭킹 (CPU 내림차순)",
+        "totalTenants": "총 {total}개 테넌트",
+        "containers": "컨테이너 × {count}",
+        "usageBarLabel": "{label} 사용률",
+        "empty": "모니터링 가능한 테넌트 없음. 컨테이너 시작 대기 중…",
+        "generatedAt": "데이터 생성 시각: {time}",
+        "degraded": "성능 저하 모드",
+        "degradedHint": "Prometheus 데이터 소스 연결 불가, 빈 데이터 표시",
+        "live": "실시간",
+        "back": "테넌트 목록으로",
+        "cardTitle": "실시간 리소스 메트릭",
+        "cpu": "CPU",
+        "memory": "메모리",
+        "networkRx": "수신",
+        "networkTx": "송신",
+        "unitCores": "코어"
       }
     },
     "users": {
