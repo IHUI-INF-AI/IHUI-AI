@@ -3,12 +3,29 @@
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import Image from 'next/image'
 import { useAuthStore } from '@/stores/auth'
 import { fetchApi } from '@/lib/api'
 import { Button, Input, Label } from '@ihui/ui'
 import { Loader2, ShieldCheck, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { AuthShell, AuthShellPage } from '@/components/auth/AuthShell'
+import { useThirdPartyAuth } from '@/hooks/use-third-party-auth'
+import type { ThirdPartyPlatform } from '@/types/third-party'
+
+/** SSO 入口暴露的第三方登录 provider(P3-4:钉钉 + 企业微信,后端已支持) */
+const SSO_OAUTH_PROVIDERS: Array<{
+  key: ThirdPartyPlatform
+  labelKey: 'dingtalkLogin' | 'enterpriseWechat'
+  icon: string
+}> = [
+  { key: 'dingtalk', labelKey: 'dingtalkLogin', icon: '/images/oauth-providers/dingtalk.svg' },
+  {
+    key: 'enterpriseWechat',
+    labelKey: 'enterpriseWechat',
+    icon: '/images/oauth-providers/wecom.svg',
+  },
+]
 
 /**
  * SSO 统一登录页(2026-07-20 重做:整页弹窗化,与主站 LoginDialog 视觉统一)
@@ -23,12 +40,14 @@ import { AuthShell, AuthShellPage } from '@/components/auth/AuthShell'
  */
 export default function SsoLoginPage() {
   const t = useTranslations('sso')
+  const tAuth = useTranslations('auth')
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectUrl = searchParams.get('redirect') || '/'
   const clientId = searchParams.get('client_id') || 'web'
 
   const { token, user } = useAuthStore()
+  const { startLogin, isLoading: oauthLoading, currentPlatform } = useThirdPartyAuth()
   const [account, setAccount] = React.useState('')
   const [password, setPassword] = React.useState('')
   const [loading, setLoading] = React.useState(false)
@@ -165,6 +184,40 @@ export default function SsoLoginPage() {
             {t('loginBtn')}
           </Button>
         </form>
+
+        {/* 第三方登录(P3-4:钉钉 + 企业微信,后端 oauth-providers 已支持) */}
+        <div className="my-4 flex justify-center text-xs uppercase">
+          <span className="text-muted-foreground">{tAuth('thirdPartyLogin')}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {SSO_OAUTH_PROVIDERS.map((p) => {
+            const isBusy = oauthLoading && currentPlatform === p.key
+            return (
+              <Button
+                key={p.key}
+                type="button"
+                variant="outline"
+                className="h-10"
+                disabled={loading || exchanging || oauthLoading}
+                onClick={() => void startLogin(p.key)}
+              >
+                {isBusy ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Image
+                    src={p.icon}
+                    alt=""
+                    aria-hidden="true"
+                    width={16}
+                    height={16}
+                    className="mr-2 h-4 w-4 shrink-0"
+                  />
+                )}
+                <span>{tAuth(p.labelKey)}</span>
+              </Button>
+            )
+          })}
+        </div>
       </AuthShell>
     </AuthShellPage>
   )
