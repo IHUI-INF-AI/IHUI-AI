@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { BarChart3, Loader2, Clock, BookOpen, Award, TrendingUp } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -28,6 +28,7 @@ async function api<T>(url: string): Promise<T> {
 
 export default function EduProgressPage() {
   const locale = useLocale()
+  const t = useTranslations('eduProgressPage')
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'progress'],
     queryFn: () => api<ProgressData>('/api/edu/progress'),
@@ -42,10 +43,10 @@ export default function EduProgressPage() {
   const maxHours = Math.max(1, ...(data?.weeklyHours ?? []).map((w) => w.hours))
 
   const stats = [
-    { label: '累计学习', value: `${data?.totalStudyHours ?? 0}h`, icon: Clock },
-    { label: '已报课程', value: data?.totalCourses ?? 0, icon: BookOpen },
-    { label: '已完成', value: data?.completedCourses ?? 0, icon: Award },
-    { label: '平均进度', value: `${data?.avgProgress ?? 0}%`, icon: TrendingUp },
+    { label: t('stats.totalStudy'), value: `${data?.totalStudyHours ?? 0}h`, icon: Clock },
+    { label: t('stats.enrolled'), value: data?.totalCourses ?? 0, icon: BookOpen },
+    { label: t('stats.completed'), value: data?.completedCourses ?? 0, icon: Award },
+    { label: t('stats.avgProgress'), value: `${data?.avgProgress ?? 0}%`, icon: TrendingUp },
   ]
 
   return (
@@ -53,15 +54,15 @@ export default function EduProgressPage() {
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <BarChart3 className="h-7 w-7 text-primary" />
-          学习进度
+          {t('title')}
         </h1>
-        <p className="text-sm text-muted-foreground">追踪你的学习成长轨迹</p>
+        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : error ? (
         <Alert variant="danger" description={(error as Error).message} />
@@ -83,7 +84,7 @@ export default function EduProgressPage() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">本周学习时长</CardTitle>
+              <CardTitle className="text-sm">{t('weeklyHours')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex h-40 items-end justify-between gap-2">
@@ -107,11 +108,11 @@ export default function EduProgressPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">分类进度</CardTitle>
+                <CardTitle className="text-sm">{t('categoryProgress')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {(data.categoryProgress ?? []).length === 0 ? (
-                  <p className="py-4 text-center text-sm text-muted-foreground">暂无数据</p>
+                  <p className="py-4 text-center text-sm text-muted-foreground">{t('noData')}</p>
                 ) : (
                   (data.categoryProgress ?? []).map((cat) => (
                     <div key={cat.name} className="space-y-1">
@@ -135,11 +136,11 @@ export default function EduProgressPage() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">近期成就</CardTitle>
+                <CardTitle className="text-sm">{t('recentMilestones')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {(data.recentMilestones ?? []).length === 0 ? (
-                  <p className="py-4 text-center text-sm text-muted-foreground">暂无成就</p>
+                  <p className="py-4 text-center text-sm text-muted-foreground">{t('noMilestones')}</p>
                 ) : (
                   (data.recentMilestones ?? []).map((m) => (
                     <div

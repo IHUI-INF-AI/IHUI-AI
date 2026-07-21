@@ -1483,6 +1483,20 @@
       "next": "Next",
       "pageInfo": "Page {page}/{totalPages}",
       "total": "{total} items"
+    },
+    "result": {
+      "correct": "Correct",
+      "wrong": "Wrong",
+      "unanswered": "Unanswered",
+      "duration": "Duration",
+      "minutes": "{n} min",
+      "submittedAt": "Submitted at: {time}",
+      "detailsTitle": "Answer details",
+      "detailsEmpty": "No answer details",
+      "yourAnswer": "Your answer:",
+      "correctAnswer": "Correct answer:",
+      "analysis": "Analysis:",
+      "points": "{n} pts"
     }
   },
   "circles": {
@@ -1491,7 +1505,19 @@
     "loading": "Loading...",
     "empty": "No circles",
     "memberCount": "{count} members",
-    "postCount": "{count} posts"
+    "postCount": "{count} posts",
+    "post": {
+      "cardTitle": "New Post",
+      "selectCircle": "Select Circle",
+      "selectCirclePlaceholder": "Please select a circle",
+      "titleLabel": "Title",
+      "titlePlaceholder": "Enter post title",
+      "contentLabel": "Content",
+      "contentPlaceholder": "Enter post content",
+      "images": "Images",
+      "errorCircleRequired": "Please select a circle",
+      "errorTitleContentRequired": "Title and content cannot be empty"
+    }
   },
   "plaza": {
     "title": "Community Plaza",
@@ -7773,14 +7799,14 @@
       "renewNow": "Renew Now",
       "openNow": "Subscribe Now",
       "days": "days",
-      "pleaseSelectPlan": "Please select a subscription plan",
-      "openAutoRenewFailed": "Failed to open auto-renew",
+      "pleaseSelectPlan": "Please select a subscription plan first",
+      "openAutoRenewFailed": "Failed to enable auto-renew",
       "autoRenewManageTitle": "Auto-Renew Management",
-      "autoRenewOpened": "Auto-renew opened",
-      "nextCharge": "Next charge on",
+      "autoRenewOpened": "Auto-renew enabled",
+      "nextCharge": "Next charge:",
       "manage": "Manage",
-      "autoRenewClosed": "Auto-renew closed",
-      "openAutoRenew": "Open Auto-Renew"
+      "autoRenewClosed": "Auto-renew not enabled",
+      "openAutoRenew": "Enable Auto-Renew"
     },
     "articles": {
       "title": "My Articles",
@@ -12187,11 +12213,55 @@
       "runSuccess": "Run succeeded",
       "runFailed": "Run failed",
       "historyTitle": "History",
-      "historyEmpty": "No published records"
+      "historyEmpty": "No published records",
+      "pipeline": "One-Click Pipeline",
+      "pipelineRunning": "Generating 8 voice-over scripts with dual-gate validation. Expected 5-10 minutes, please do not leave the page...",
+      "downloadAll": "Download All",
+      "copied": "Copied",
+      "copy": "Copy",
+      "articleNumber": "Article {n}",
+      "articleUnit": "articles",
+      "msUnit": "ms",
+      "historyItemHint": "Click to reuse this history entry's parameters",
+      "validateFailedPrefix": "validate failed: ",
+      "unknownError": "unknown error",
+      "noOutputPathError": "generate did not return outputPath, cannot continue validate",
+      "latestOutput": "Latest output:",
+      "requestFailed": "Request failed",
+      "networkError": "Network error"
     },
     "automationPage": {
       "historyTitle": "Execution History",
-      "historyEmpty": "No execution records"
+      "historyEmpty": "No execution records",
+      "running": "Running",
+      "toggleAriaLabel": "Enable/Disable task",
+      "executionTime": "Execution Time",
+      "runMode": "Run Mode",
+      "modeDryRun": "dry-run (no push)",
+      "modeProduction": "Production (actual push)",
+      "titleTemplate": "Title Template",
+      "notConfigured": "(Not configured)",
+      "status": "Status",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "lastRun": "Last Run",
+      "hourLabel": "Hour (0-23)",
+      "minuteLabel": "Minute (0-59)",
+      "dryRunLabel": "Dry-run mode (does not actually push to drafts)",
+      "titleTemplateLabel": "Title template (use {date} placeholder, replaced with MMDD)",
+      "titleTemplatePlaceholder": "e.g., Today's AI News {date}",
+      "cancel": "Cancel",
+      "save": "Save",
+      "triggerNow": "Trigger Now",
+      "configure": "Configure",
+      "enable": "Enable",
+      "disable": "Disable",
+      "schedulerNoteTitle": "Scheduler Notes",
+      "note1": "Scheduled tasks are automatically mounted when ai-service starts, polling every 60 seconds.",
+      "note2": "All tasks default to dry-run mode and do not actually push to WeChat drafts. Trigger manually or disable dry-run in the configuration.",
+      "note3": "Task execution history keeps the latest 30 entries (in memory) and is cleared on service restart.",
+      "note4": "Timezone: UTC+8 (Asia/Shanghai).",
+      "note5": "After service restart, the task switch resets to the value of the <code>SELF_MEDIA_CRON_ENABLED</code> environment variable (default false). Runtime enable state via this page is not persisted to disk."
     }
   },
   "publish": {
@@ -26457,5 +26527,224 @@
     "upgrade": "Upgrade",
     "renewSuccess": "Renewal successful",
     "upgradeSuccess": "Plan upgraded"
+  },
+  "agentsCategoriesPage": {
+    "loading": "Loading...",
+    "back": "Back",
+    "notExists": "Category does not exist",
+    "status": {
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "paidCategory": "Paid category",
+    "agentsTitle": "Agents in this category",
+    "total": "{count} total",
+    "emptyAgents": "No agents in this category yet",
+    "noDescription": "No description",
+    "free": "Free",
+    "loadingAgents": "Loading agents..."
+  },
+  "aiWorldSharePage": {
+    "linkCopied": "Link copied",
+    "copyFailed": "Copy failed",
+    "loading": "Loading...",
+    "back": "Back",
+    "notExists": "Project does not exist",
+    "title": "Share Project",
+    "subtitle": "Share this AI World project with others",
+    "viewCount": "{count} views",
+    "shareLink": "Share link",
+    "copied": "Copied",
+    "copy": "Copy",
+    "scanShare": "Scan to share"
+  },
+  "chatSettingsPage": {
+    "saved": "Settings saved",
+    "errorTempRange": "Temperature must be between 0 and 2",
+    "errorMaxTokensRange": "max_tokens must be between 1 and 32768",
+    "back": "Back",
+    "title": "Chat Settings",
+    "subtitle": "Configure model parameters and system prompt",
+    "model": "Model",
+    "temperature": "Temperature (0-2)",
+    "maxTokens": "max_tokens",
+    "systemPrompt": "System prompt",
+    "systemPromptPlaceholder": "Set the assistant's behavior and role...",
+    "cancel": "Cancel",
+    "saving": "Saving...",
+    "save": "Save"
+  },
+  "developerLogsPage": {
+    "title": "API Call Logs",
+    "subtitle": "View API request records and response details",
+    "statusFilter": {
+      "all": "All",
+      "2xx": "2xx Success",
+      "4xx": "4xx Client Error",
+      "5xx": "5xx Server Error"
+    },
+    "searchPlaceholder": "Search path...",
+    "loading": "Loading...",
+    "empty": "No call logs",
+    "keyValue": "Key: {value}",
+    "requestBody": "Request body",
+    "responseBody": "Response body"
+  },
+  "eduCertificatesPage": {
+    "loading": "Loading...",
+    "backToList": "Back to certificates",
+    "notFound": "Certificate not found",
+    "downloadFailed": "Download failed ({status})",
+    "certificateNo": "Certificate No.: {no}",
+    "status": {
+      "valid": "Valid",
+      "revoked": "Revoked"
+    },
+    "completed": "Completed",
+    "issuanceText": "Has completed the course and passed the assessment. This certificate is hereby awarded.",
+    "issuedAt": "Issued on: {date}",
+    "print": "Print",
+    "download": "Download certificate"
+  },
+  "eduCourseLearnPage": {
+    "loading": "Loading...",
+    "backToDetail": "Back to course details",
+    "loadFailed": "Failed to load",
+    "notes": "Study notes",
+    "noteLabel": "Record key points of this section",
+    "notePlaceholder": "Enter note content...",
+    "saveNote": "Save note",
+    "sections": "Sections",
+    "qa": "Q&A",
+    "qaPlaceholder": "Ask a question...",
+    "qaEmpty": "No questions yet"
+  },
+  "eduProgressPage": {
+    "title": "Learning progress",
+    "subtitle": "Track your learning journey",
+    "loading": "Loading...",
+    "weeklyHours": "Study hours this week",
+    "categoryProgress": "Progress by category",
+    "noData": "No data",
+    "recentMilestones": "Recent milestones",
+    "noMilestones": "No milestones",
+    "stats": {
+      "totalStudy": "Total study",
+      "enrolled": "Enrolled courses",
+      "completed": "Completed",
+      "avgProgress": "Avg. progress"
+    }
+  },
+  "memberUpgradePage": {
+    "title": "Membership upgrade",
+    "subtitle": "Choose the membership level that suits you and unlock more benefits",
+    "currentLevel": "Current level",
+    "member": "Member",
+    "statusActive": "Active",
+    "statusExpired": "Expired",
+    "expiresAt": "Expires",
+    "loading": "Loading...",
+    "noLevels": "No membership levels available",
+    "popular": "Recommended",
+    "days": " days",
+    "currentLevelBtn": "Current level",
+    "upgradeNow": "Upgrade now",
+    "subscribeNow": "Subscribe now"
+  },
+  "recruitmentDetailPage": {
+    "loading": "Loading...",
+    "back": "Back",
+    "notExist": "Position does not exist",
+    "defaultSubtitle": "Position Details",
+    "requirementsTitle": "Requirements",
+    "emptyRequirements": "No requirements",
+    "benefitsTitle": "Exclusive Benefits",
+    "emptyBenefits": "No benefits",
+    "applicantsTitle": "Applicants",
+    "emptyApplicants": "No applicant data",
+    "publishTime": "Published: {date}"
+  },
+  "developerSandboxPage": {
+    "title": "Sandbox Testing",
+    "subtitle": "Call APIs online to verify requests and responses",
+    "send": "Send",
+    "requestHeaders": "Request Headers",
+    "add": "Add",
+    "headerNamePlaceholder": "Header name",
+    "headerValuePlaceholder": "Header value",
+    "requestBody": "Request Body",
+    "responseBody": "Response Body",
+    "requestFailed": "Request failed",
+    "requestError": "Request error"
+  },
+  "developerVersionsPage": {
+    "title": "API Version Management",
+    "subtitle": "View API version status and deprecation schedule",
+    "loading": "Loading...",
+    "empty": "No version information",
+    "releasedAt": "Released {date}",
+    "deprecateTime": "Deprecation time:",
+    "sunsetTime": "Sunset time:",
+    "status": {
+      "stable": "Stable",
+      "beta": "Beta",
+      "deprecated": "Deprecated",
+      "sunset": "Sunset"
+    }
+  },
+  "distributionTeamDetailPage": {
+    "defaultName": "Team Member",
+    "loading": "Loading...",
+    "back": "Back",
+    "notExist": "Team member does not exist",
+    "joinedAt": "Joined: {time}",
+    "subordinateCount": "Subordinates",
+    "teamLevel": "Team Level",
+    "directSubordinates": "Direct Subordinates",
+    "totalCount": "{count} total",
+    "noSubordinates": "No subordinates"
+  },
+  "eduCoursesPage": {
+    "title": "My Courses",
+    "subtitle": "Manage all enrolled courses",
+    "searchPlaceholder": "Search courses...",
+    "searchAriaLabel": "Search courses",
+    "loading": "Loading...",
+    "empty": "No courses",
+    "statusCompleted": "Completed",
+    "statusInProgress": "In Progress",
+    "statusNotStarted": "Not Started",
+    "progress": "Progress {n}%",
+    "total": "{n} total"
+  },
+  "eduExamListPage": {
+    "title": "Online Exams",
+    "subtitle": "Take exams and view scores",
+    "loading": "Loading...",
+    "empty": "No exams",
+    "passed": "Passed",
+    "notPassed": "Not Passed",
+    "questionCount": "{n} questions",
+    "totalScore": "Max {n}",
+    "passScore": "Pass {n}",
+    "duration": "{n} min",
+    "bestScore": "Best: {n}",
+    "retake": "Retake",
+    "start": "Start Exam"
+  },
+  "memberCouponsPage": {
+    "title": "Coupons",
+    "subtitle": "Manage your coupons, auto-applied at checkout",
+    "tab": {
+      "unused": "Unused",
+      "used": "Used",
+      "expired": "Expired"
+    },
+    "loading": "Loading...",
+    "empty": "No coupons",
+    "discount": "OFF",
+    "yuan": "CNY",
+    "minSpend": "Min spend {amount}",
+    "validUntil": "Valid until: {date}"
   }
 }
