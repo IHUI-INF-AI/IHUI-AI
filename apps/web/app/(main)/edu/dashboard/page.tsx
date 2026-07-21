@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import {
-  Clock,
   BookOpen,
   Award,
   BarChart3,
@@ -13,6 +12,7 @@ import {
   PlayCircle,
   ArrowRight,
   TrendingUp,
+  CheckCircle2,
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -46,6 +46,7 @@ async function api<T>(url: string): Promise<T> {
 
 export default function EduDashboardPage() {
   const t = useTranslations('eduDashboardPage')
+  const tc = useTranslations('common')
   const locale = useLocale()
   const { data, isLoading, error } = useQuery({
     queryKey: ['edu', 'dashboard'],
@@ -65,10 +66,10 @@ export default function EduDashboardPage() {
   }
 
   const stats = [
-    { label: t('stats.studyHours'), value: `${data?.studyHours ?? 0}h`, icon: Clock },
-    { label: t('stats.inProgressCourses'), value: data?.inProgressCourses ?? 0, icon: BookOpen },
+    { label: t('stats.totalCourses'), value: data?.totalCourses ?? 0, icon: BookOpen },
+    { label: t('stats.completedCourses'), value: data?.completedCourses ?? 0, icon: CheckCircle2 },
     { label: t('stats.passedExams'), value: data?.passedExams ?? 0, icon: Award },
-    { label: t('stats.avgProgress'), value: `${data?.avgProgress ?? 0}%`, icon: TrendingUp },
+    { label: t('stats.totalCerts'), value: data?.totalCerts ?? 0, icon: TrendingUp },
   ]
 
   return (
