@@ -17748,6 +17748,23 @@
     "switchingToHighContrastLight": "正在切换到高对比度浅色模式...",
     "switchingToHighContrastDark": "正在切换到高对比度深色模式..."
   },
+  "devTools": {
+    "trigger": "开发者工具",
+    "title": "开发者工具",
+    "description": "仅在开发或内网环境展示工具面板；公网部署时仅显示说明",
+    "envSection": "环境信息",
+    "path": "当前路径",
+    "viewport": "视口尺寸",
+    "now": "当前时间",
+    "toolsSection": "快捷工具",
+    "reload": "刷新页面",
+    "clearStorage": "清理本地缓存（仅清理 ihui- 前缀的键）",
+    "copyInfo": "复制环境信息",
+    "copied": "已复制到剪贴板",
+    "tip": "提示：此面板仅在 localhost 或内网环境展示；公网域名访问会显示“仅开发模式可用”。",
+    "prodModeTitle": "仅开发模式可用",
+    "prodModeHint": "开发者工具仅在 localhost 或内网环境可见。当前为公网域名访问，因此工具面板已自动隐藏。"
+  },
   "themePreset": {
     "title": "主题预设",
     "create": "创建预设",
