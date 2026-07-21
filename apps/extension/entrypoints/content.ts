@@ -24,6 +24,8 @@ import {
   computePositionWithMemory,
   type RectLike,
 } from '../src/content/position-memory'
+import { executeDomAction } from '../lib/agent-control'
+import type { BrowserControlActionType } from '@ihui/types'
 
 const TX_CLASS = 'ihui-tx'
 const CTX_POPUP_ID = 'ihui-ctx-popup'
@@ -321,6 +323,16 @@ export default defineContentScript({
       const m = msg as {
         type?: string
         payload?: { word?: string; matches?: number; text?: string; rect?: RectLike } & CtxVocabResult
+      }
+      // Agent DOM action forwarded from background (AI browser control)
+      if (m.type === 'agent.action.dom') {
+        const req = m.payload as unknown as { action: string; params: Record<string, unknown>; timeout?: number }
+        void executeDomAction(
+          req.action as BrowserControlActionType,
+          req.params,
+          req.timeout ?? 30000,
+        ).then((result) => sendResponse(result))
+        return true
       }
       if (m.type === 'highlight.applied' && m.payload?.word) {
         if (m.payload.matches === 0) {
