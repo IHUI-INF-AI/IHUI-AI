@@ -1945,6 +1945,7 @@
       "messageOverview": "メッセージ概覧",
       "visitTracking": "訪問追跡",
       "examMarking": "試験採点",
+      "saasTenants": "テナント管理",
       "group": {
         "operation": "運営管理",
         "moderation": "コンテンツ審査",
@@ -1956,7 +1957,8 @@
         "support": "サポート・チケット",
         "community": "コミュニティ",
         "resource": "リソースセンター",
-        "developer": "開発者センター"
+        "developer": "開発者センター",
+        "saas": "SaaS デプロイ"
       }
     },
     "refund": {
@@ -2595,6 +2597,62 @@
       "totalProjects": "プロジェクト",
       "todayRevenue": "の",
       "activeSessions": "アクティブセッション"
+    },
+    "saas": {
+      "title": "テナント管理",
+      "subtitle": "SaaS 顧客テナントのライフサイクルを管理",
+      "createTenant": "テナント作成",
+      "creating": "作成中...",
+      "search": "検索",
+      "searchPlaceholder": "テナント識別子を検索...",
+      "filterState": "状態フィルター",
+      "stateAll": "すべて",
+      "stateActive": "稼働中",
+      "statePaused": "一時停止",
+      "stateCreating": "作成中",
+      "stateNotFound": "存在しない",
+      "total": "{total} 件",
+      "empty": "テナントがありません。右上の「テナント作成」をクリックして開始",
+      "table": {
+        "slug": "識別子",
+        "domain": "ドメイン",
+        "state": "状態",
+        "containers": "コンテナ",
+        "memory": "メモリ",
+        "cpu": "CPU",
+        "stateChangedAt": "状態変更",
+        "actions": "操作"
+      },
+      "action": {
+        "detail": "詳細",
+        "pause": "一時停止",
+        "resume": "再開",
+        "backup": "バックアップ",
+        "destroy": "破棄"
+      },
+      "confirm": {
+        "pauseTitle": "テナント {slug} を一時停止",
+        "pauseHint": "一時停止後、このテナントのすべてのコンテナは停止しますが、データは保持されます。いつでも再開できます。",
+        "resumeTitle": "テナント {slug} を再開",
+        "resumeHint": "再開後、テナントのコンテナが再起動します。DNS 解決は変更されません。",
+        "backupTitle": "テナント {slug} をバックアップ",
+        "backupHint": "今すぐデータ スナップショットを作成します。操作中もサービスは利用可能です。",
+        "destroyTitle": "テナント {slug} を破棄",
+        "destroyHint": "この操作は元に戻せません！すべてのデータ、コンテナ、バックアップが完全に削除されます。",
+        "destroyInputHint": "破棄を確認するには識別子「{slug}」を入力してください",
+        "cancel": "キャンセル",
+        "confirm": "確認"
+      },
+      "form": {
+        "slug": "テナント識別子",
+        "slugHint": "3〜20 文字の小文字、数字、ハイフン。作成後は変更不可",
+        "memory": "メモリ制限",
+        "cpu": "CPU 制限",
+        "plan": "プラン",
+        "planFree": "無料版",
+        "planPro": "プロ版",
+        "planEnterprise": "エンタープライズ版"
+      }
     },
     "users": {
       "title": "ユーザー",

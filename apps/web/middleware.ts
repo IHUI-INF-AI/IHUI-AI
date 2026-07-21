@@ -24,6 +24,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 const ADMIN_PATH_PREFIX = '/admin'
 const SSO_LOGIN_PATH = '/sso/login'
 const AUTH_COOKIE_NAME = 'auth_token'
+/** P1-2.2: SaaS 租户管理后台(需 superadmin 角色) */
+const SAAS_ADMIN_PATH_PREFIX = '/admin/saas'
+/** P1-2.2: web 用户身份 cookie 名称(供 X-Admin-User 注入) */
+const AUTH_USER_ID_COOKIE = 'auth_user_id'
+const AUTH_USER_ROLE_COOKIE = 'auth_user_role'
 
 /** 认证子域 host 字面量(env 不可用,Edge 中无法读 process.env.NEXT_PUBLIC_*) */
 const AUTH_SUBDOMAIN_HOST = 'bsm.aizhs.top'
@@ -118,6 +123,16 @@ function stripPort(host: string): string {
   return host.split(':')[0]!.toLowerCase()
 }
 
+/**
+ * P1-2.2: 判断当前用户是否具有 SaaS 租户管理权限(superadmin / system_admin)
+ * 注意:middleware 运行在 Edge Runtime,无法访问 Zustand persist(localStorage),
+ * 所以仅基于 cookie 做角色检查。若项目后续统一 cookie 方案,需同步更新此处。
+ */
+function isSuperAdmin(request: NextRequest): boolean {
+  const role = request.cookies.get(AUTH_USER_ROLE_COOKIE)?.value
+  return role === 'superadmin' || role === 'system_admin'
+}
+
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const rawHost = getRequestHost(request)
@@ -145,6 +160,17 @@ export function middleware(request: NextRequest) {
 
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value
   if (token && token.length > 0) {
+    // P1-2.2: SaaS 租户管理后台 — 通过基础鉴权后还需 superadmin 角色
+    if (pathname.startsWith(SAAS_ADMIN_PATH_PREFIX)) {
+      if (!isSuperAdmin(request)) {
+        return NextResponse.redirect(new URL('/forbidden', request.url), 307)
+      }
+      // 注入 X-Admin-User 给下游 Route Handler
+      const reqHeaders = new Headers(request.headers)
+      const userId = request.cookies.get(AUTH_USER_ID_COOKIE)?.value ?? 'admin'
+      reqHeaders.set('x-admin-user', userId)
+      return NextResponse.next({ request: { headers: reqHeaders } })
+    }
     return NextResponse.next()
   }
 
