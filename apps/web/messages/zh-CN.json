@@ -1483,6 +1483,20 @@
       "next": "下一页",
       "pageInfo": "第 {page}/{totalPages} 页",
       "total": "共 {total} 条"
+    },
+    "result": {
+      "correct": "答对",
+      "wrong": "答错",
+      "unanswered": "未答",
+      "duration": "用时",
+      "minutes": "{n}分",
+      "submittedAt": "提交时间：{time}",
+      "detailsTitle": "答题详情",
+      "detailsEmpty": "暂无答题详情",
+      "yourAnswer": "你的答案：",
+      "correctAnswer": "正确答案：",
+      "analysis": "解析：",
+      "points": "{n}分"
     }
   },
   "circles": {
@@ -1491,7 +1505,19 @@
     "loading": "加载中...",
     "empty": "暂无圈子",
     "memberCount": "{count} 成员",
-    "postCount": "{count} 帖子"
+    "postCount": "{count} 帖子",
+    "post": {
+      "cardTitle": "发帖",
+      "selectCircle": "选择圈子",
+      "selectCirclePlaceholder": "请选择圈子",
+      "titleLabel": "标题",
+      "titlePlaceholder": "请输入帖子标题",
+      "contentLabel": "内容",
+      "contentPlaceholder": "请输入帖子内容",
+      "images": "图片",
+      "errorCircleRequired": "请选择圈子",
+      "errorTitleContentRequired": "标题和内容不能为空"
+    }
   },
   "plaza": {
     "title": "社区广场",
@@ -7773,13 +7799,13 @@
       "disableAutoRenew": "关闭自动续费",
       "success": "续费请求已发起",
       "error": "提交失败",
-      "pleaseSelectPlan": "请选择订阅方案",
+      "pleaseSelectPlan": "请先选择订阅方案",
       "openAutoRenewFailed": "开通自动续费失败",
       "autoRenewManageTitle": "自动续费管理",
       "autoRenewOpened": "已开通自动续费",
-      "nextCharge": "下次扣款日",
+      "nextCharge": "下次扣款:",
       "manage": "管理",
-      "autoRenewClosed": "已关闭自动续费",
+      "autoRenewClosed": "未开通自动续费",
       "openAutoRenew": "开通自动续费"
     },
     "articles": {
@@ -7913,11 +7939,55 @@
       "runSuccess": "运行成功",
       "runFailed": "运行失败",
       "historyTitle": "历史记录",
-      "historyEmpty": "暂无发布记录"
+      "historyEmpty": "暂无发布记录",
+      "pipeline": "一键流水线",
+      "pipelineRunning": "正在执行 8 篇口播稿生成 + 双门禁验证,预计 5-10 分钟,请勿离开页面...",
+      "downloadAll": "下载全部",
+      "copied": "已复制",
+      "copy": "复制",
+      "articleNumber": "第 {n} 篇",
+      "articleUnit": "篇",
+      "msUnit": "ms",
+      "historyItemHint": "点击复用此条历史参数",
+      "validateFailedPrefix": "validate 失败:",
+      "unknownError": "未知错误",
+      "noOutputPathError": "generate 未返回 outputPath,无法继续 validate",
+      "latestOutput": "最新输出:",
+      "requestFailed": "请求失败",
+      "networkError": "网络错误"
     },
     "automationPage": {
       "historyTitle": "执行历史",
-      "historyEmpty": "暂无执行记录"
+      "historyEmpty": "暂无执行记录",
+      "running": "运行中",
+      "toggleAriaLabel": "启用/禁用任务",
+      "executionTime": "执行时间",
+      "runMode": "运行模式",
+      "modeDryRun": "dry-run(不推送)",
+      "modeProduction": "正式(实际推送)",
+      "titleTemplate": "标题模板",
+      "notConfigured": "(未配置)",
+      "status": "状态",
+      "enabled": "已启用",
+      "disabled": "已禁用",
+      "lastRun": "最近一次",
+      "hourLabel": "小时 (0-23)",
+      "minuteLabel": "分钟 (0-59)",
+      "dryRunLabel": "dry-run 模式(不实际推送草稿箱)",
+      "titleTemplateLabel": "标题模板(可用 {date} 占位符替换为 MMDD)",
+      "titleTemplatePlaceholder": "如:今日 AI 资讯 {date}",
+      "cancel": "取消",
+      "save": "保存",
+      "triggerNow": "立即触发",
+      "configure": "配置",
+      "enable": "启用",
+      "disable": "禁用",
+      "schedulerNoteTitle": "调度器说明",
+      "note1": "定时任务在 ai-service 启动时自动挂载,每 60 秒轮询一次。",
+      "note2": "所有任务默认 dry-run 模式,不会真的推送微信草稿箱,需手动触发或在配置中关闭 dry-run。",
+      "note3": "任务执行历史保留最近 30 条(内存),服务重启后清空。",
+      "note4": "时区:东八区(Asia/Shanghai)。",
+      "note5": "服务重启后,任务开关会重置为环境变量 <code>SELF_MEDIA_CRON_ENABLED</code>(默认 false)的值;运行时通过本页面启用的状态不会持久化到磁盘。"
     }
   },
   "publish": {
@@ -26457,5 +26527,224 @@
     "upgrade": "升级",
     "renewSuccess": "续费成功",
     "upgradeSuccess": "套餐已升级"
+  },
+  "agentsCategoriesPage": {
+    "loading": "加载中...",
+    "back": "返回",
+    "notExists": "分类不存在",
+    "status": {
+      "enabled": "启用",
+      "disabled": "禁用"
+    },
+    "paidCategory": "付费分类",
+    "agentsTitle": "分类下智能体",
+    "total": "共 {count} 个",
+    "emptyAgents": "该分类下暂无智能体",
+    "noDescription": "暂无描述",
+    "free": "免费",
+    "loadingAgents": "加载智能体..."
+  },
+  "aiWorldSharePage": {
+    "linkCopied": "链接已复制",
+    "copyFailed": "复制失败",
+    "loading": "加载中...",
+    "back": "返回",
+    "notExists": "项目不存在",
+    "title": "分享项目",
+    "subtitle": "分享这个 AI 世界项目给他人",
+    "viewCount": "{count} 次浏览",
+    "shareLink": "分享链接",
+    "copied": "已复制",
+    "copy": "复制",
+    "scanShare": "扫码分享"
+  },
+  "chatSettingsPage": {
+    "saved": "设置已保存",
+    "errorTempRange": "温度需在 0-2 之间",
+    "errorMaxTokensRange": "max_tokens 需在 1-32768 之间",
+    "back": "返回",
+    "title": "聊天设置",
+    "subtitle": "配置模型参数和系统提示词",
+    "model": "模型",
+    "temperature": "温度 (0-2)",
+    "maxTokens": "max_tokens",
+    "systemPrompt": "系统提示词",
+    "systemPromptPlaceholder": "设定助手的行为和角色...",
+    "cancel": "取消",
+    "saving": "保存中...",
+    "save": "保存"
+  },
+  "developerLogsPage": {
+    "title": "调用日志",
+    "subtitle": "查看 API 请求记录与响应详情",
+    "statusFilter": {
+      "all": "全部",
+      "2xx": "2xx 成功",
+      "4xx": "4xx 客户端错误",
+      "5xx": "5xx 服务端错误"
+    },
+    "searchPlaceholder": "搜索路径...",
+    "loading": "加载中...",
+    "empty": "暂无调用日志",
+    "keyValue": "密钥: {value}",
+    "requestBody": "请求体",
+    "responseBody": "响应体"
+  },
+  "eduCertificatesPage": {
+    "loading": "加载中...",
+    "backToList": "返回证书列表",
+    "notFound": "证书不存在",
+    "downloadFailed": "下载失败（{status}）",
+    "certificateNo": "证书编号：{no}",
+    "status": {
+      "valid": "有效",
+      "revoked": "已撤销"
+    },
+    "completed": "已完成",
+    "issuanceText": "学习并通过考核，特发此证",
+    "issuedAt": "颁发日期：{date}",
+    "print": "打印",
+    "download": "下载证书"
+  },
+  "eduCourseLearnPage": {
+    "loading": "加载中...",
+    "backToDetail": "返回课程详情",
+    "loadFailed": "加载失败",
+    "notes": "学习笔记",
+    "noteLabel": "记录本节重点",
+    "notePlaceholder": "输入笔记内容...",
+    "saveNote": "保存笔记",
+    "sections": "章节目录",
+    "qa": "问答",
+    "qaPlaceholder": "提问...",
+    "qaEmpty": "暂无问答"
+  },
+  "eduProgressPage": {
+    "title": "学习进度",
+    "subtitle": "追踪你的学习成长轨迹",
+    "loading": "加载中...",
+    "weeklyHours": "本周学习时长",
+    "categoryProgress": "分类进度",
+    "noData": "暂无数据",
+    "recentMilestones": "近期成就",
+    "noMilestones": "暂无成就",
+    "stats": {
+      "totalStudy": "累计学习",
+      "enrolled": "已报课程",
+      "completed": "已完成",
+      "avgProgress": "平均进度"
+    }
+  },
+  "memberUpgradePage": {
+    "title": "会员升级",
+    "subtitle": "选择适合你的会员等级,解锁更多权益",
+    "currentLevel": "当前等级",
+    "member": "会员",
+    "statusActive": "生效中",
+    "statusExpired": "已过期",
+    "expiresAt": "到期",
+    "loading": "加载中...",
+    "noLevels": "暂无可选会员等级",
+    "popular": "推荐",
+    "days": "天",
+    "currentLevelBtn": "当前等级",
+    "upgradeNow": "立即升级",
+    "subscribeNow": "立即订阅"
+  },
+  "recruitmentDetailPage": {
+    "loading": "加载中...",
+    "back": "返回",
+    "notExist": "岗位不存在",
+    "defaultSubtitle": "岗位详情",
+    "requirementsTitle": "岗位要求",
+    "emptyRequirements": "暂无要求",
+    "benefitsTitle": "专属权益",
+    "emptyBenefits": "暂无权益",
+    "applicantsTitle": "申请人列表",
+    "emptyApplicants": "暂无申请人数据",
+    "publishTime": "发布时间:{date}"
+  },
+  "developerSandboxPage": {
+    "title": "沙箱测试",
+    "subtitle": "在线调用 API 验证请求与响应",
+    "send": "发送",
+    "requestHeaders": "请求头",
+    "add": "添加",
+    "headerNamePlaceholder": "Header 名",
+    "headerValuePlaceholder": "Header 值",
+    "requestBody": "请求体",
+    "responseBody": "响应体",
+    "requestFailed": "请求失败",
+    "requestError": "请求异常"
+  },
+  "developerVersionsPage": {
+    "title": "API 版本管理",
+    "subtitle": "查看 API 版本状态与废弃时间表",
+    "loading": "加载中...",
+    "empty": "暂无版本信息",
+    "releasedAt": "发布于 {date}",
+    "deprecateTime": "废弃时间:",
+    "sunsetTime": "下线时间:",
+    "status": {
+      "stable": "稳定",
+      "beta": "测试版",
+      "deprecated": "已废弃",
+      "sunset": "已下线"
+    }
+  },
+  "distributionTeamDetailPage": {
+    "defaultName": "团队成员",
+    "loading": "加载中...",
+    "back": "返回",
+    "notExist": "团队成员不存在",
+    "joinedAt": "加入时间:{time}",
+    "subordinateCount": "下级人数",
+    "teamLevel": "团队层级",
+    "directSubordinates": "直属下级",
+    "totalCount": "共 {count} 人",
+    "noSubordinates": "暂无下级成员"
+  },
+  "eduCoursesPage": {
+    "title": "我的课程",
+    "subtitle": "管理已报名的全部课程",
+    "searchPlaceholder": "搜索课程...",
+    "searchAriaLabel": "搜索课程",
+    "loading": "加载中...",
+    "empty": "暂无课程",
+    "statusCompleted": "已完成",
+    "statusInProgress": "进行中",
+    "statusNotStarted": "未开始",
+    "progress": "进度 {n}%",
+    "total": "共 {n} 条"
+  },
+  "eduExamListPage": {
+    "title": "在线考试",
+    "subtitle": "参加考试并查看成绩",
+    "loading": "加载中...",
+    "empty": "暂无考试",
+    "passed": "已通过",
+    "notPassed": "未通过",
+    "questionCount": "{n} 题",
+    "totalScore": "满分 {n}",
+    "passScore": "及格 {n}",
+    "duration": "{n} 分钟",
+    "bestScore": "最高分:{n}",
+    "retake": "再次考试",
+    "start": "开始考试"
+  },
+  "memberCouponsPage": {
+    "title": "优惠券",
+    "subtitle": "管理你的优惠券,下单时自动可用",
+    "tab": {
+      "unused": "未使用",
+      "used": "已使用",
+      "expired": "已过期"
+    },
+    "loading": "加载中...",
+    "empty": "暂无优惠券",
+    "discount": "折扣",
+    "yuan": "元",
+    "minSpend": "满 {amount} 可用",
+    "validUntil": "有效期至:{date}"
   }
 }
