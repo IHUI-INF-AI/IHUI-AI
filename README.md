@@ -1430,7 +1430,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 1. **Fork 仓库** → 创建分支 `feat/your-feature` 或 `fix/your-bugfix`
 2. **阅读规范**:[AGENTS.md](AGENTS.md)(AI Agent 协作规范)+ [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)(人类贡献指南)
-3. **本地开发**:`pnpm install && pnpm dev`,遵守 17 项 pre-commit 守门
+3. **本地开发**:`pnpm install && pnpm dev`,遵守 21 项 pre-commit 守门
 4. **提交规范**:Conventional Commits(`feat:` / `fix:` / `docs:` / `chore:` / `test:` / `refactor:`)
 5. **自验通过**:`pnpm turbo build typecheck lint test` 全绿
 6. **提交 PR**:描述清晰,关联 Issue,等待 review
