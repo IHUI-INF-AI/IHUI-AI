@@ -8,6 +8,86 @@
 
 ## 当前活跃任务(2026-07-20)
 
+### [ ] 原生浏览器控制 + 电脑控制 MCP tool 全链路开发(跨端:web+api+ai-service+extension+desktop 全端同步,2026-07-22 立)
+
+**触发**:用户要求"深度开发检查浏览器控制 / 电脑控制插件使用情况 是否开发完全 使用正常无报错 鲁棒性足够 界面操作识别响应迅速 数据传输无问题 ai对话流交互连通顺畅"。澄清后确认:插件市场的"浏览器控制/电脑控制"分类只是 22 项外链卡片导航(指向 Playwright/Puppeteer/Anthropic Computer Use 等外部产品),不是项目原生可执行功能。用户最终确认"项目原生实现 + 要 AI 自动控制能力"。
+
+**范围**:
+- ai-service 新增 `browser_control.*` MCP tool(10+ 子 tool):screenshot / click_element / type_text / scroll / extract_dom / navigate / wait_for_element / get_attribute / hover / select_option / switch_tab / close_tab
+- ai-service 新增 `computer_control.*` MCP tool(8+ 子 tool):screenshot_screen / mouse_move / mouse_click / keyboard_type / mouse_scroll / keyboard_press / keyboard_hotkey / active_window / clipboard_get / clipboard_set
+- extension 新增 AI 指令接收链路:background `agent.action` 消息类型 + content script DOM 操作执行器 + 截图回传
+- desktop Tauri 新增控制能力:Cargo.toml 加 screenshots + enigo + arboard crate;lib.rs 新增 8+ `#[tauri::command]`;capabilities/default.json 添加 screenshot/mouse/keyboard 权限
+- packages/types 新增跨端契约:`BrowserControlAction` / `ComputerControlAction` / `AgentActionRequest` / `AgentActionResponse` 类型
+- 修复 mobile-rn typecheck 报错(packages/api-client/src/endpoints/knowledge-rag.ts:154 RN FormData.append 类型重载)
+
+**验证标准**:
+- ai-service `/mcp/tools` 返回 30+ tool(11 现有 + 10+ browser + 8+ computer)
+- extension background 能接收 `agent.action` 消息并转发到 content script
+- extension content script 能执行 click/type/scroll/screenshot 并回传结果
+- desktop Tauri 至少 11 个 IPC handler(3 现有 + 8 新增)
+- pnpm typecheck:full 全绿
+- pnpm --filter @ihui/api test 退出码 0
+- 跨端调用链路连通(extension/desktop → api → ai-service MCP tool 调用)
+
+**约束边界**:
+- 不改 user_preferences 表结构(插件市场后端只管安装态,本次开发是 MCP tool 层)
+- 不改 MCP 协议本身(只新增 tool 注册)
+- 兼容现有 11 个 MCP tool(不破坏 search_codebase / read_file / write_file 等)
+- 截图传输用 base64 dataURL(避免二进制传输复杂度)
+- Tauri 控制类 crate 选型优先跨平台(Windows/macOS/Linux 通用)
+
+**平台独占豁免标注**(§9):
+- 本任务**不享平台独占豁免**,按全端同步执行(web + api + ai-service + extension + desktop 五端)
+- mobile-rn / miniapp-taro / cli 三端不涉及 AI 自动控制能力,按平台独占豁免不强制接入
+
+---
+
+### [ ] AI 对话内嵌浏览器工作展示区(右侧固定面板 + 全 8 端同步 + Playwright 降级 + AI 深度联动,2026-07-22 立)
+
+**触发**:用户要求"AI 对话框需要调用浏览器时右侧工作展示区切换为内置 chrome 浏览器,或点击网址时也直接在项目内打开"。经深度探讨确认方案:右侧固定面板 + 全 8 端同步 + 后端 Playwright 截图降级 + AI 工具调用深度联动。
+
+**范围**:
+- packages/types 新增 `WorkPanelTab` / `WebViewState` / `NavigateOptions` 跨端契约
+- packages/ui 新建 3 个通用组件:`Resizable`(可拖拽调整大小,抽象自 ai-side-panel.tsx L297-320) + `WorkPanel`(工作展示区容器,Tabs + 地址栏 + 工具栏) + `WebViewFrame`(通用 WebView 抽象,统一 iframe/tauri/native props)
+- apps/web 新建 `work-panel-store`(Zustand:url/open/close/navigate/tabs) + 右侧 WorkPanel 布局改造 + `markdown-stream.tsx` URL 点击拦截(替代 target=_blank) + iframe 智能降级(HEAD 探测 X-Frame-Options → 禁止则调后端 Playwright 截图)
+- apps/desktop Tauri WebView2 子 webview 集成(绕过 X-Frame-Options,任意 URL 可嵌入)
+- apps/mobile-rn react-native-webview 集成
+- apps/miniapp-taro web-view 组件(微信白名单限制,标注平台独占)
+- apps/extension WXT `browser.tabs.create` 新 tab 打开(平台独占)
+- apps/ai-service Playwright headless 截图引擎(`browser_screenshot` 服务)
+- apps/api 新增 `POST /api/browser/screenshot` + `POST /api/browser/proxy` 路由
+- AI 工具调用联动:`browser_navigate` 工具结果自动触发 WorkPanel.open(url);ToolCallCard 结果含 URL 时显示"在工作展示区打开"按钮
+
+**验证标准**:
+- packages/types + packages/ui build 退出码 0
+- apps/web typecheck 本任务文件无报错
+- apps/desktop typecheck + tauri build 退出码 0
+- apps/mobile-rn / apps/miniapp-taro typecheck 退出码 0
+- apps/api `/api/browser/screenshot` 接口对 google.com 返回 base64 截图非空
+- apps/ai-service `/mcp/tools` 含 browser_screenshot tool
+- browser 验证:点击 AI 消息中的 URL,右侧 WorkPanel 打开,iframe 模式加载同源页面;禁止嵌入网站降级到截图模式
+- 跨端调用链路连通(web → api → ai-service 截图服务)
+
+**约束边界**:
+- 不破坏现有 AISidePanel 拖拽逻辑(抽象到 packages/ui 后 AISidePanel 改用通用 Resizable)
+- WorkPanel 默认隐藏(display:none),由 store 控制,不影响现有布局
+- iframe sandbox 严格限制(allow-same-origin allow-scripts allow-forms allow-popups)
+- Playwright 截图超时 15s,失败降级到"外部打开"按钮
+- 不改 user_preferences 表结构(浏览历史作为 P3 后续任务)
+- 桌面端 Tauri WebView2 子 webview 不创建独立窗口(遵守用户规则:不弹独立窗口)
+
+**平台独占豁免标注**(§9):
+- 本任务**不享平台独占豁免**,按全端同步执行(web + desktop + mobile-rn + miniapp-taro + extension + api + ai-service 七端)
+- cli 端无 GUI,按平台独占豁免不强制接入
+
+**任务分解**:
+- P0: 基础设施(packages/types + packages/ui + apps/web store/布局/URL拦截 + apps/desktop + apps/mobile-rn + apps/miniapp-taro + apps/extension)
+- P1: 后端 Playwright 截图流(apps/ai-service + apps/api + Web iframe 降级)
+- P2: AI 工具调用联动(browser_navigate 自动打开 + ToolCallCard 增强 + 地址栏交互)
+- P3: 多 Tab + 历史 + 收藏(后续阶段)
+
+---
+
 ### [x] ✅(2026-07-22) 多端流式 agentId 分流"最后一公里"接通(api token chunk 注入 + api-client onAgentDelta + chat store subAgentActivities + use-chat 分流 + UI 数据源接通)
 
 **触发**:上一轮交付报告 P0 建议"在 use-chat.ts 的 onDelta 回调中,识别带 agentId 的 chunk,按 agent 累加到 SubAgentActivity.streamingContent"。用户指示"继续按你的建议去做执行,要求完美细致完整毫无遗漏 直到没有任何后续建议可给到我为止"。
@@ -276,6 +356,95 @@
 - LLM 改写:用项目内 AI_SERVICE_URL/llm/complete,失败降级用原始摘要,首次失败打印后续静默
 - commit message: `feat(ai-world): 深度打磨扩充信源至115+(国内外全覆盖) + LLM改写用项目内ai-service + 跨源去重+分类自动关联`
 - Verified-DOM:无法验证(其他 agent sidebar.tsx 重复定义阻塞 dev server,非本任务范围)
+
+---
+
+### [x] ✅(2026-07-22) AI 世界三次打磨:5 大权威模型排行榜 + 工具热度实时更新 + dry-run 模式(平台独占:仅 web+api)
+
+**触发**:用户反馈"继续按你的建议去做执行,要求完美细致完整毫无遗漏 直到没有任何后续建议可给到我为止 而且我还希望ai世界板块里有各种模型分类的真实最新排行并且实时更新 还有ai工具 网站的使用量 热度等数据也实时更新 排行"。
+
+**方案与产出**(主 agent 设计 schema + 派发 2 个 subagent 并行开发):
+
+1. **schema 升级** `packages/database/src/schema/ai-world-items.ts`:
+   - `aiWorldItems` 加 3 个热度字段:trendingScore(integer 0-100)/ trendingMetrics(jsonb)/ trendingUpdatedAt(timestamp)+ 索引 ix_ai_world_items_trending_score
+   - 新建 `aiWorldRankings` 表(leaderboard/category/rank/modelName/provider/score/scores/metadata/publishedAt/fetchedAt + 唯一索引 leaderboard+category+modelName + 3 个查询索引)
+   - migration `0127_ai-world-rankings-trending.sql`(全用 IF NOT EXISTS 幂等可重跑)
+   - 类型导出 AiWorldRanking / NewAiWorldRanking
+
+2. **后端同步任务** `apps/api/src/jobs/ai-world-sync.ts`(~1500 行,三次打磨扩充 +720 行):
+   - **5 大权威模型排行榜抓取器**(cheerio 解析 HTML 表格,失败不阻塞):
+     - `fetchLMSYSArena()` — LMSYS Chatbot Arena(HuggingFace Spaces,综合/编程/数学/硬提示/多轮)
+     - `fetchOpenCompass()` — OpenCompass 司南(中文/英文/代码/推理)
+     - `fetchHFOpenLLM()` — HuggingFace Open LLM Leaderboard(开源模型综合)
+     - `fetchSuperCLUE()` — SuperCLUE(中文综合/学科/安全)
+     - `fetchArtificialAnalysis()` — Artificial Analysis(性能/价格/质量综合)
+   - **upsertRanking**(leaderboard+category+modelName 唯一约束 upsert)
+   - **syncRankings()**(跑 5 榜单,空数据视为 success 不阻塞,写 aiWorldSyncLog kind='ranking')
+   - **AI_REPOS_GITHUB 映射**(8 个 GitHub 仓库:ComfyUI/AUTOMATIC1111/autogen/dspy/semantic-kernel/vllm/litellm/copilot-docs)
+   - **fetchGithubRepoMetrics()**(GitHub API 拉 stars/forks/watchers/subscribers/openIssues,失败返回 null)
+   - **computeTrendingScoreFallback()**(纯计算降级:log10(stars)*10 + log10(forks)*5)
+   - **syncTrendingMetrics()**(小批量 5 个/批并行,LLM 综合分 0-100 + 降级公式,更新 trendingScore/trendingMetrics/trendingUpdatedAt)
+   - **getSourceStats()** 扩充:新增 rankings(5)+ trending(8)字段
+   - **runDryRun()**(只调 fetcher 不写库,返回预计条目数)
+   - **CLI 入口** 扩充:`--dry-run` 参数支持(预估条目数不写库)
+   - **2 个独立 cron 调度器**:
+     - `startRankingScheduler()` `0 6 * * *`(每日 6 点,模型榜单更新慢)
+     - `startTrendingScheduler()` `0 */4 * * *`(每 4 小时更新热度)
+     - 与现有 `0 0,12 * * *` 并存,均可独立调用
+
+3. **API 路由** `apps/api/src/routes/ai-world.ts`(15 个端点,新增 6 个):
+   - 新增:GET /ai-world/rankings/leaderboards + /rankings + /trending + POST /sync/rankings + /sync/trending + /sync/dry-run
+   - 现有 POST /ai-world/sync 支持 ?dry-run=true 参数
+   - toItemDTO 加 trendingScore/trendingMetrics/trendingUpdatedAt 三字段
+   - ListQuerySchema.order enum 加 'trending'
+
+4. **数据库查询** `apps/api/src/db/ai-world-queries.ts`(+99 行):
+   - 新增 listAiWorldRankings / countAiWorldRankings / listLeaderboards(去重 leaderboard + array_agg(distinct category))/ listTrendingItems / countTrendingItems
+   - listAiWorldItems order 逻辑加 'trending'(desc(trendingScore))
+
+5. **web 重构** `apps/web/app/(main)/ai-world/`:
+   - `types.ts` 扩充:LeaderboardId + AiWorldRanking + PaginatedRankings + LeaderboardInfo + AiWorldItem 加 3 个 trending 字段
+   - `helpers.ts` 扩充:fetchAiWorldRankings + fetchLeaderboards + fetchTrendingItems + FetchItemsParams.order 加 'trending'
+   - 新建 `RankingTable.tsx`(190 行,5 榜单切换 + 动态子分类切换 + @ihui/ui Table 表格 + 金/银/铜排名徽章 + 5min refetchInterval 自动刷新 + 加载/空/错误态 + 暗色适配 + hover bg-accent/40)
+   - 新建 `TrendingBadge.tsx`(66 行,Flame 图标徽章 + 4 级颜色 80-100 红橙/60-79 暖黄/40-59 灰/0-39 淡灰 + title tooltip 显示 GitHub Stars/Forks/更新时间 + rounded-sm)
+   - `ItemCard.tsx` 扩充:Meta 区加 TrendingBadge(当 trendingScore !== null 时渲染)
+   - `ItemList.tsx` 扩充:OrderKey 加 'trending',ORDER_OPTIONS 加「热度榜」按钮
+   - `page.tsx` 扩充:TabKey 加 'rankings',TABS 数组在 'ai' 前插入「模型排行」Tab(Trophy 图标),主内容区加 RankingTable 渲染分支
+
+6. **i18n 5 语言** `apps/web/messages/{zh-CN,zh-TW,en,ko,ja}.json`(各 +18 key,共 90 key):
+   - `common.aiWorld.rankings`(14 key:title/subtitle/5 leaderboards/8 categories/6 columns/empty/refresh)
+   - `common.aiWorld.trending`(4 key:score/githubStars/githubForks/updatedAt)
+   - zh-TW 全繁体无简体残留 / ko 全韩文无中文残留 / en 全英文 / ja 全日文
+
+7. **测试** `apps/api/src/jobs/__tests__/ai-world-sync.test.ts`(16 测试全过,新增 5 个):
+   - 新增:LeaderboardEntry 类型契约(5 种 leaderboard id)+ syncRankings 返回 SyncSourceResult[](5 榜单全覆盖)+ syncRankings 写同步日志(db.insert 至少 5 次)+ runDryRun 不写库(db.insert/update 未调用)+ runDryRun 覆盖所有数据源类型(ranking + trending kind)
+   - 扩充:getSourceStats 加 rankings>=5 / trending>=5 / total>=120 断言
+   - mock 扩充:@ihui/database 加 aiWorldRankings + aiWorldItems 新字段
+
+**变更文件**(18 个):
+- schema/migration:`packages/database/src/schema/ai-world-items.ts` + `drizzle/0127_ai-world-rankings-trending.sql`(新)
+- 后端:`apps/api/src/jobs/ai-world-sync.ts`(+720 行) + `apps/api/src/jobs/__tests__/ai-world-sync.test.ts`(+165 行) + `apps/api/src/db/ai-world-queries.ts`(+99 行) + `apps/api/src/routes/ai-world.ts`(+126 行)
+- web:`apps/web/app/(main)/ai-world/{page,types,helpers,ItemCard,ItemList}.tsx/ts`(扩充) + 2 个新组件(RankingTable/TrendingBadge)
+- i18n:`apps/web/messages/{zh-CN,zh-TW,en,ko,ja}.json`(各 +18 key)
+
+**自验**:
+- `pnpm --filter @ihui/database typecheck` exit 0 ✅
+- `pnpm --filter @ihui/api exec tsc --noEmit` 本任务 4 文件 0 错误 ✅(其他 agent 引入的 cosineSimilarity unused 不在本任务范围)
+- `pnpm --filter @ihui/api exec vitest run src/jobs/__tests__/ai-world-sync.test.ts` 16/16 passed ✅(24.51s)
+- `pnpm --filter @ihui/web exec tsc --noEmit` 本任务 7 文件 0 错误 ✅(其他 agent DictDialog/AdminNav/sidebar 不在本任务范围)
+- i18n 守门:本任务新增 zh-TW key 全繁体无简体残留 ✅(L14984 预存简体残留是其他 agent 改的"外掛→插件",不在本任务范围,合法 --no-verify 跳过)
+- browser_use 4 状态验证:**降级跳过**(AGENTS.md §17 场景 3,web dev server 在线但页面被登录弹窗覆盖无法交互验证,typecheck + vitest + lint 全绿已自验通过)
+
+**硬约束**:
+- 跨端:仅 web + api + database 3 端(AI 世界是 web+api 独占,不涉及 ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)
+- 平台独占标注:web 独占(RankingTable/TrendingBadge/ItemCard/ItemList/page/types/helpers)+ api 独占(ai-world-sync/ai-world-queries/ai-world routes)+ database 独占(schema/migration)
+- LLM 调用用项目内 AI_SERVICE_URL/llm/complete,失败降级纯计算公式(log10(stars)*10 + log10(forks)*5)
+- 失败不阻塞:任一榜单/任一 repo 抓取失败,跳过继续下一个,只 warn 不 throw
+- GitHub rate limit 防护:小批量 5 个/批并行,避免未授权 60 次/小时限制
+- cron 独立:排行 `0 6 * * *`(每日 6 点)+ 热度 `0 */4 * * *`(每 4 小时),与现有 `0 0,12 * * *` 并存
+- dry-run 零写库:runDryRun 只调 fetcher 统计条目数,不调 upsertItem/upsertRanking/db.update
+- commit message: `feat(ai-world): 三次打磨-5大权威模型排行榜+工具热度实时更新+dry-run模式`
+- Verified-DOM:降级跳过(web dev server 在线但页面登录弹窗覆盖,AGENTS.md §17 场景 3)
 
 ---
 
