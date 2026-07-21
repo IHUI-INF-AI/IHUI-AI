@@ -152,3 +152,20 @@ export function generateTrackingId(prefix: string): string {
   }
   return `${prefix}-${ts}-${rand}`
 }
+
+/**
+ * 生成紧凑型 ID (用于内部服务/内存对象的 ID,兼容 `${prefix}_${ts36}${rand}` 旧格式)
+ *
+ * 格式: PREFIX_<timestamp_base36><8 字符 hex>
+ * 例: msg_lvk8x3a17f9b2e5d
+ * 8 hex 字符 = 32 位熵
+ * 与 generateTrackingId 等熵级别,但格式更紧凑,适合高频内部对象
+ *
+ * 2026-07-21 安全审计加固:替换 Math.random() 用于内部 ID 生成,
+ * 原实现 6 字符 base36 熵仅 31 位且可预测 → 攻击者可枚举内部对象 ID
+ *
+ * @param prefix 业务前缀,例: msg/room/page/mem
+ */
+export function generateCompactId(prefix: string): string {
+  return `${prefix}_${Date.now().toString(36)}${randomBytes(4).toString('hex')}`
+}

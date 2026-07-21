@@ -1,7 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, sql, desc, and } from 'drizzle-orm'
-import { dbRead } from '../db/index.js'
+import { randomUUID } from 'node:crypto'
+import { eq, sql, desc, and, inArray } from 'drizzle-orm'
+import { db, dbRead } from '../db/index.js'
 import { commissionFlows, withdrawalFlows, users, systemConfigs } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
@@ -101,9 +102,10 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
           parentId: users.parentId,
         })
         .from(users)
-        .where(
-          sql`${users.parentId} = ANY(${sql.raw(`ARRAY[${level1Ids.map((id) => `'${id}'`).join(',')}]::uuid[]`)})`,
-        )
+        // 2026-07-21 安全审计加固:用 Drizzle 参数化 inArray 替代 sql.raw 字符串拼接,
+        // 消除 SQL 注入隐患(虽然 level1Ids 来自 DB 查询,本身是 UUID,
+        // 但 sql.raw 模式是反模式,若上游某天被替换为用户输入则直接 RCE)
+        .where(inArray(users.parentId, level1Ids))
         .orderBy(desc(users.createdAt))
       for (const u of level2) {
         const pid = u.parentId!
@@ -128,9 +130,8 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
           parentId: users.parentId,
         })
         .from(users)
-        .where(
-          sql`${users.parentId} = ANY(${sql.raw(`ARRAY[${level2Ids.map((id) => `'${id}'`).join(',')}]::uuid[]`)})`,
-        )
+        // 2026-07-21 安全审计加固:同上,参数化 inArray
+        .where(inArray(users.parentId, level2Ids))
         .orderBy(desc(users.createdAt))
       for (const u of level3) {
         const pid = u.parentId!
@@ -274,5 +275,52 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
         pageSize,
       }),
     )
+  })
+
+  // POST /distribution/withdraw — 发起提现申请
+  server.post('/distribution/withdraw', async (request, reply) => {
+    const userId = request.userId!
+    const body = z
+      .object({
+        amount: z.number().positive('提现金额必须大于 0'),
+        method: z.string().max(32).optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+
+    // 校验可提现余额(已完成佣金 - 已成功提现)
+    const [earnedRow] = await dbRead
+      .select({ total: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)` })
+      .from(commissionFlows)
+      .where(and(eq(commissionFlows.beneficiaryId, userId), eq(commissionFlows.status, 2)))
+    const [withdrawnRow] = await dbRead
+      .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.amount}), 0)` })
+      .from(withdrawalFlows)
+      .where(and(eq(withdrawalFlows.userId, userId), eq(withdrawalFlows.status, 2)))
+    const available = Number(earnedRow?.total ?? 0) - Number(withdrawnRow?.total ?? 0)
+    if (body.data.amount > available) {
+      return reply.status(400).send(error(400, '可提现余额不足'))
+    }
+
+    // 创建提现申请(status=0 待审核)
+    const [withdrawal] = await db
+      .insert(withdrawalFlows)
+      .values({
+        id: randomUUID(),
+        userId,
+        amount: body.data.amount,
+        originalAmount: body.data.amount,
+        fee: 0,
+        status: 0,
+        method: body.data.method ?? 'bank',
+      })
+      .returning()
+
+    if (!withdrawal) {
+      return reply.status(500).send(error(500, '创建提现申请失败'))
+    }
+    return reply.status(201).send(success({ withdrawal }))
   })
 }
