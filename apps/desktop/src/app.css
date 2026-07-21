@@ -427,6 +427,16 @@ textarea:focus {
   font-size: 13px;
 }
 
+.notice-banner {
+  background: var(--primary-bg, #f0f9ff);
+  color: var(--primary, #0369a1);
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--primary, #0369a1);
+  margin: 12px 0;
+  font-size: 13px;
+}
+
 /* ============== Login ============== */
 .login-page {
   display: flex;
