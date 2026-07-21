@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -195,7 +195,7 @@ async def list_models() -> dict[str, Any]:
 
 
 @router.post("/llm/complete/stream")
-async def complete_stream(req: LLMCompleteRequest) -> StreamingResponse:
+async def complete_stream(req: LLMCompleteRequest, request: Request) -> StreamingResponse:
     """流式 LLM 调用(原生 token 级流式 + SSE event 字段 + 心跳保活)。
 
     事件类型:
@@ -222,6 +222,9 @@ async def complete_stream(req: LLMCompleteRequest) -> StreamingResponse:
             if compaction_info and compaction_info.get("compressed"):
                 yield f"data: {json.dumps({'compaction': {'triggered': True, 'tokensBefore': compaction_info['original_tokens'], 'tokensAfter': compaction_info['compressed_tokens'], 'removedCount': compaction_info['removed_count'], 'usageRatio': compaction_info['usage_ratio']}}, ensure_ascii=False)}\n\n"
             async for event in llm_gateway.astream(messages, model=req.model, owner_uuid=owner_uuid):
+                if await request.is_disconnected():
+                    logger.info("SSE client disconnected, stopping stream")
+                    break
                 event_type = event.get("type", "message")
                 # 累积内容用于回调
                 if event_type in ("chunk", "message"):
@@ -259,14 +262,18 @@ async def complete_stream(req: LLMCompleteRequest) -> StreamingResponse:
                     if req.metadata:
                         event["metadata"] = req.metadata
                 yield f"event: {event_type}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except asyncio.CancelledError:
+            logger.info("SSE generator cancelled by client disconnect")
+            raise
         except Exception as e:
             err = {"type": "error", "message": str(e)}
             yield f"event: error\ndata: {json.dumps(err, ensure_ascii=False)}\n\n"
             return
 
         # 流结束后异步回调(仅当 metadata 含关联键且无错误时)
+        # 客户端已断开则不触发 callback(避免 POST 到已废弃 URL)
         has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
-        if has_association and not accumulated.get("error"):
+        if has_association and not accumulated.get("error") and not await request.is_disconnected():
             url = req.callback_url or f"{settings.api_service_url}/api/ai/callback"
             task = asyncio.create_task(_fire_callback(url, accumulated, req.metadata))
             _pending_callbacks.add(task)
