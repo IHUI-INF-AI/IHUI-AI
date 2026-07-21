@@ -25989,5 +25989,25 @@
       "empty": "暫無學習記錄",
       "progressLabel": "進度 {n}%"
     }
+  },
+  "memberSettingsPage": {
+    "loading": "載入中…",
+    "title": "會員設定",
+    "description": "管理你的通知和隱私偏好",
+    "notifTitle": "通知偏好",
+    "notif": {
+      "orderUpdates": "訂單更新",
+      "promotions": "優惠活動",
+      "points": "積分變動",
+      "newsletter": "訂閱郵件"
+    },
+    "privacyTitle": "隱私設定",
+    "privacy": {
+      "showProfile": "公開個人資料",
+      "showActivity": "顯示我的活動",
+      "allowInvites": "允許他人邀請"
+    },
+    "saveBtn": "儲存設定",
+    "saved": "已儲存"
   }
 }
