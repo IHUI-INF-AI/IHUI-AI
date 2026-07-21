@@ -5,6 +5,7 @@
  */
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
+import { generateShortCode } from '../../utils/crypto-random.js'
 
 export interface PairingRequest {
   id: string
@@ -35,7 +36,11 @@ export class PairingService extends EventEmitter {
   private codeToRequestId = new Map<string, string>()
   private ttl = 1000 * 60 * 5
 
-  createRequest(params: { userId?: string; deviceId?: string; channelType?: string }): PairingRequest {
+  createRequest(params: {
+    userId?: string
+    deviceId?: string
+    channelType?: string
+  }): PairingRequest {
     const code = this.generateCode()
     const request: PairingRequest = {
       id: `pr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -54,7 +59,12 @@ export class PairingService extends EventEmitter {
     return request
   }
 
-  confirmPairing(code: string, userId: string, deviceId: string, channelType: string): PairingSession | null {
+  confirmPairing(
+    code: string,
+    userId: string,
+    deviceId: string,
+    channelType: string,
+  ): PairingSession | null {
     const requestId = this.codeToRequestId.get(code)
     if (!requestId) return null
     const request = this.requests.get(requestId)
@@ -120,7 +130,9 @@ export class PairingService extends EventEmitter {
   }
 
   private generateCode(): string {
-    return Math.random().toString(36).slice(2, 8).toUpperCase()
+    // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成设备配对码,
+    // 配对码可预测 -> 攻击者可劫持设备配对流程
+    return generateShortCode(6)
   }
 
   getStats() {
