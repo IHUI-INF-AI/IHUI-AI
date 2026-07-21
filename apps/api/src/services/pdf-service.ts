@@ -9,19 +9,29 @@
  */
 
 import { env } from 'node:process'
+import { Writable } from 'node:stream'
 
 // 最小类型描摹，避免未安装时类型解析失败
+type PDFTextOptions = {
+  align?: 'left' | 'center' | 'right' | 'justify'
+  width?: number
+  height?: number
+  lineBreak?: boolean
+  ellipsis?: boolean | string
+}
+
 interface PDFDocumentLike {
   pipe(writable: NodeJS.WritableStream): void
   fontSize(n: number): PDFDocumentLike
   font(name: string): PDFDocumentLike
-  text(content: string, x?: number, y?: number): PDFDocumentLike
+  text(content: string, x?: number, y?: number, options?: PDFTextOptions): PDFDocumentLike
   moveTo(x: number, y: number): PDFDocumentLike
   lineTo(x: number, y: number): PDFDocumentLike
   stroke(): PDFDocumentLike
   rect(x: number, y: number, w: number, h: number): PDFDocumentLike
   fill(): PDFDocumentLike
   end(): void
+  on(event: 'end' | 'finish' | 'error', cb: () => void): PDFDocumentLike
 }
 
 interface PDFKitModule {
@@ -75,21 +85,27 @@ export async function generateCertificatePDF(input: CertificatePDFInput): Promis
       `[certificate-stub] ${input.certificateNo} ${input.title} -> ${input.recipientName}`,
     )
   }
-  const doc = new mod.default({ size: 'A4', margin: 50 })
-  const chunks: Buffer[] = []
-  doc.pipe(new WritableBuffer(chunks) as unknown as NodeJS.WritableStream)
+  return new Promise<PDFResult>((resolve) => {
+    try {
+      const doc = new mod.default({ size: 'A4', margin: 50 })
+      const buf = new WritableBuffer()
+      buf.on('finish', () => resolve({ buffer: buf.getBuffer(), stub: false }))
+      doc.pipe(buf as unknown as NodeJS.WritableStream)
 
-  doc
-    .fontSize(28)
-    .font('Helvetica-Bold')
-    .text(input.title, { align: 'center' } as never)
-  doc.fontSize(14).font('Helvetica').text(`证书编号: ${input.certificateNo}`, 50, 120)
-  doc.text(`受证人: ${input.recipientName}`, 50, 150)
-  if (input.courseName) doc.text(`课程: ${input.courseName}`, 50, 180)
-  doc.text(`签发日期: ${input.issuedAt.toISOString().slice(0, 10)}`, 50, 210)
-  doc.end()
-
-  return { buffer: Buffer.concat(chunks), stub: false }
+      doc
+        .fontSize(28)
+        .font('Helvetica-Bold')
+        .text(input.title, { align: 'center' } as never)
+      doc.fontSize(14).font('Helvetica').text(`证书编号: ${input.certificateNo}`, 50, 120)
+      doc.text(`受证人: ${input.recipientName}`, 50, 150)
+      if (input.courseName) doc.text(`课程: ${input.courseName}`, 50, 180)
+      doc.text(`签发日期: ${input.issuedAt.toISOString().slice(0, 10)}`, 50, 210)
+      doc.end()
+    } catch (err) {
+      console.error('[pdf-service] generateCertificatePDF error:', err)
+      resolve(stub(`[certificate-stub-error] ${input.certificateNo} ${input.title}`))
+    }
+  })
 }
 
 /** 生成发票 PDF。 */
@@ -98,28 +114,34 @@ export async function generateInvoicePDF(input: InvoicePDFInput): Promise<PDFRes
   if (!mod) {
     return stub(`[invoice-stub] ${input.invoiceNo} ${input.title} ${input.amount}`)
   }
-  const doc = new mod.default({ size: 'A4', margin: 50 })
-  const chunks: Buffer[] = []
-  doc.pipe(new WritableBuffer(chunks) as unknown as NodeJS.WritableStream)
+  return new Promise<PDFResult>((resolve) => {
+    try {
+      const doc = new mod.default({ size: 'A4', margin: 50 })
+      const buf = new WritableBuffer()
+      buf.on('finish', () => resolve({ buffer: buf.getBuffer(), stub: false }))
+      doc.pipe(buf as unknown as NodeJS.WritableStream)
 
-  doc
-    .fontSize(20)
-    .font('Helvetica-Bold')
-    .text('Invoice / 发票', { align: 'center' } as never)
-  doc.fontSize(12).font('Helvetica').text(`编号: ${input.invoiceNo}`, 50, 100)
-  doc.text(`抬头: ${input.title}`, 50, 120)
-  doc.text(`金额: ${input.amount}`, 50, 140)
-  if (input.email) doc.text(`邮箱: ${input.email}`, 50, 160)
-  if (input.items) {
-    let y = 200
-    for (const item of input.items) {
-      doc.text(`${item.name} x${item.quantity} = ${item.price}`, 50, y)
-      y += 20
+      doc
+        .fontSize(20)
+        .font('Helvetica-Bold')
+        .text('Invoice / 发票', { align: 'center' } as never)
+      doc.fontSize(12).font('Helvetica').text(`编号: ${input.invoiceNo}`, 50, 100)
+      doc.text(`抬头: ${input.title}`, 50, 120)
+      doc.text(`金额: ${input.amount}`, 50, 140)
+      if (input.email) doc.text(`邮箱: ${input.email}`, 50, 160)
+      if (input.items) {
+        let y = 200
+        for (const item of input.items) {
+          doc.text(`${item.name} x${item.quantity} = ${item.price}`, 50, y)
+          y += 20
+        }
+      }
+      doc.end()
+    } catch (err) {
+      console.error('[pdf-service] generateInvoicePDF error:', err)
+      resolve(stub(`[invoice-stub-error] ${input.invoiceNo} ${input.title}`))
     }
-  }
-  doc.end()
-
-  return { buffer: Buffer.concat(chunks), stub: false }
+  })
 }
 
 /** 生成报表 PDF。 */
@@ -128,37 +150,42 @@ export async function generateReportPDF(input: ReportPDFInput): Promise<PDFResul
   if (!mod) {
     return stub(`[report-stub] ${input.title} (${input.sections.length} sections)`)
   }
-  try {
-    const doc = new mod.default({ size: 'A4', margin: 50 })
-    const chunks: Buffer[] = []
-    doc.pipe(new WritableBuffer(chunks) as unknown as NodeJS.WritableStream)
+  return new Promise<PDFResult>((resolve) => {
+    try {
+      const doc = new mod.default({ size: 'A4', margin: 50 })
+      const buf = new WritableBuffer()
+      buf.on('finish', () => resolve({ buffer: buf.getBuffer(), stub: false }))
+      doc.pipe(buf as unknown as NodeJS.WritableStream)
 
-    doc
-      .fontSize(24)
-      .font('Helvetica-Bold')
-      .text(input.title, { align: 'center' } as never)
-    if (input.subtitle) {
       doc
-        .fontSize(12)
-        .font('Helvetica')
-        .text(input.subtitle, { align: 'center' } as never)
+        .fontSize(24)
+        .font('Helvetica-Bold')
+        .text(input.title, { align: 'center' } as never)
+      if (input.subtitle) {
+        doc
+          .fontSize(12)
+          .font('Helvetica')
+          .text(input.subtitle, { align: 'center' } as never)
+      }
+      let y = 120
+      for (const section of input.sections) {
+        doc.fontSize(14).font('Helvetica-Bold').text(section.heading, 50, y)
+        y += 24
+        doc.fontSize(11).font('Helvetica').text(section.content, 50, y, {
+          width: 495,
+        })
+        y += 40
+      }
+      doc
+        .fontSize(10)
+        .text(`Generated: ${input.generatedAt.toISOString()}`, 50, y + 20)
+      doc.end()
+    } catch (err) {
+      // pdfkit 实例化/调用失败(字体缺失/WritableBuffer 接口不全等),降级到 stub 避免阻塞导出链路
+      console.error('[pdf-service] generateReportPDF error:', err)
+      resolve(stub(`[report-stub-error] ${input.title} (${input.sections.length} sections)`))
     }
-    let y = 120
-    for (const section of input.sections) {
-      doc.fontSize(14).font('Helvetica-Bold').text(section.heading, 50, y)
-      y += 24
-      doc.fontSize(11).font('Helvetica').text(section.content, 50, y)
-      y += 40
-    }
-    doc.fontSize(10).text(`Generated: ${input.generatedAt.toISOString()}`, 50, y + 20)
-    doc.end()
-
-    return { buffer: Buffer.concat(chunks), stub: false }
-  } catch (err) {
-    // pdfkit 实例化/调用失败(字体缺失/WritableBuffer 接口不全等),降级到 stub 避免阻塞导出链路
-    console.error('[pdf-service] generateReportPDF error:', err)
-    return stub(`[report-stub-error] ${input.title} (${input.sections.length} sections)`)
-  }
+  })
 }
 
 /**
@@ -208,27 +235,31 @@ export function isPdfConfigured(): boolean {
 // 内部工具
 // =============================================================================
 
-/** 简易 Writable 流，收集 PDF 输出为 Buffer 数组。 */
-class WritableBuffer {
-  private chunks: Buffer[]
-  constructor(chunks: Buffer[]) {
-    this.chunks = chunks
+/**
+ * 简易 Writable 流，收集 PDF 输出为 Buffer 数组。
+ * 继承 node:stream.Writable 正确实现 pipe 协议,让 pdfkit 触发 'finish' 事件。
+ * 之前版本(自实现 write/end/on/once)的 end() 是 noop,导致 pdfkit 误以为"流已 flush",
+ * 最终 chunk 永远不刷出,只返回 208 字节 stub PDF。
+ */
+class WritableBuffer extends Writable {
+  private chunks: Buffer[] = []
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  constructor(opts: any = {}) {
+    super(opts)
   }
-  // Node.js WritableStream 接口（pdfkit 通过 pipe 调用）
-  write(chunk: Buffer | string, cb?: () => void): boolean {
+
+  _write(
+    chunk: Buffer | string,
+    _encoding: BufferEncoding,
+    cb: (error?: Error | null) => void,
+  ): void {
     this.chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
-    cb?.()
-    return true
-  }
-  end(): void {
-    /* noop */
-  }
-  on(_event: string, _cb: () => void): this {
-    return this
-  }
-  once(_event: string, cb: () => void): this {
     cb()
-    return this
+  }
+
+  getBuffer(): Buffer {
+    return Buffer.concat(this.chunks)
   }
 }
 
