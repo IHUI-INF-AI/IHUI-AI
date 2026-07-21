@@ -564,8 +564,8 @@ locust -f locustfile.py --headless \
 |------|---------|------|
 | `server/` | Python FastAPI + SQLAlchemy 2.0 | 已弃用,新后端在 `apps/api/` |
 | `client/` | Vue 3 + Vite + Element Plus + Pinia | 已弃用,新前端在 `apps/web/` |
-| `Dockerfile.server` | 旧 Python 后端镜像 | 已弃用,新镜像用 `Dockerfile.api-new` |
-| `Dockerfile.client` | 旧 Vue nginx 镜像 | 已弃用,新镜像用 `Dockerfile.web-new` |
+| `Dockerfile.server` | 旧 Python 后端镜像 | 已弃用,新镜像用 `Dockerfile.api` |
+| `Dockerfile.client` | 旧 Vue nginx 镜像 | 已弃用,新镜像用 `Dockerfile.web` |
 
 旧架构的迁移参考:
 - 多 Engine 数据库(3 engine)→ 新架构单库单 engine
