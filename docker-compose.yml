@@ -134,6 +134,8 @@ services:
     image: ihui-ai-service:latest
     container_name: ihui-ai-service
     restart: unless-stopped
+    ports:
+      - '8000:8000'
     environment:
       - NODE_ENV=production
       - PORT=8000
