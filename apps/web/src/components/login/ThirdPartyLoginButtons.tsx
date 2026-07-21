@@ -56,7 +56,17 @@ export function ThirdPartyLoginButtons() {
   }, [])
 
   // 自动处理 OAuth 回调：URL 含 code + state 时触发
+  // ⚠️ /callback 路径下跳过,避免与 OAuthCallbackHandler 双重处理导致 state 校验失败 (2026-07-21 修)
+  // /callback 路由由 OAuthCallbackHandler 官方处理(直接 fetchApi,不校验 state)
+  // 本逻辑仅用于"弹窗内 OAuth 回调"场景(如 LoginDialog 中点登录后 URL 带 code/state)
   React.useEffect(() => {
+    // /callback 路径下不处理,交给 OAuthCallbackHandler
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname
+      if (path === '/callback' || path.startsWith('/callback/')) return
+      if (path === '/google/callback' || path === '/apple/callback') return
+    }
+
     const code = searchParams.get('code')
     const authCode = searchParams.get('auth_code')
     const state = searchParams.get('state')
