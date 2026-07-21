@@ -5,7 +5,7 @@
  */
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
-import { generateShortCode } from '../../utils/crypto-random.js'
+import { generateShortCode, generateCompactId } from '../../utils/crypto-random.js'
 
 export interface PairingRequest {
   id: string
@@ -74,7 +74,8 @@ export class PairingService extends EventEmitter {
     }
     request.status = 'confirmed'
     const session: PairingSession = {
-      id: `ps_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成配对会话 ID
+      id: generateCompactId('ps'),
       userId,
       deviceId,
       channelType,

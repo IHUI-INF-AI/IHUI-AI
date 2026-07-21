@@ -19,6 +19,7 @@ import { db, dbRead, returningOne } from '../db/index.js'
 import { zhsAgentDeveloper } from '@ihui/database'
 import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
+import { generateOrderNumber } from '../utils/crypto-random.js'
 
 const PREFIX = '/cozeZhsApi/agent-developer'
 
@@ -49,14 +50,10 @@ const listQuerySchema = z.object({
 
 // ==================== Helpers ====================
 
+// 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成续费订单号
+// 原实现 6 位数字熵仅 10^6 = 20 位,配合 Date.now() 可预测 → 攻击者枚举其他用户订单 → IDOR
 function genOrderNo(): string {
-  const now = new Date()
-  const yyyymmdd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
-  // 6 位自增随机数(测试场景下不保证唯一,生产应使用序列)
-  const rand = Math.floor(Math.random() * 1_000_000)
-    .toString()
-    .padStart(6, '0')
-  return `WXK${yyyymmdd}${rand}`
+  return generateOrderNumber('WXK')
 }
 
 function toIsoOrNull(v: Date | string | null | undefined): string | null {
