@@ -17747,6 +17747,23 @@
     "switchingToHighContrastLight": "toHightoLight...",
     "switchingToHighContrastDark": "toHightoDark..."
   },
+  "devTools": {
+    "trigger": "Developer Tools",
+    "title": "Developer Tools",
+    "description": "Tool panel is only shown in dev / intranet environments; public domain shows a notice only.",
+    "envSection": "Environment",
+    "path": "Current Path",
+    "viewport": "Viewport",
+    "now": "Current Time",
+    "toolsSection": "Quick Tools",
+    "reload": "Reload Page",
+    "clearStorage": "Clear Local Cache (ihui- prefix only)",
+    "copyInfo": "Copy Environment Info",
+    "copied": "Copied to clipboard",
+    "tip": "Tip: this panel is only visible on localhost or intranet; public domain access shows \"Dev mode only\".",
+    "prodModeTitle": "Dev mode only",
+    "prodModeHint": "Developer tools are only visible on localhost or intranet. You are accessing via a public domain, so the tool panel is hidden."
+  },
   "themePreset": {
     "title": "Theme",
     "create": "Create",
