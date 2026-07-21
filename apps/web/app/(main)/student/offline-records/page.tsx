@@ -41,6 +41,7 @@ export default function OfflineRecordsPage() {
         description: form.description.trim() || undefined,
         hours: form.hours ? Number(form.hours) : undefined,
         occurredAt: form.occurredAt || undefined,
+        attachments: form.attachments,
       }
       if (editing) {
         return api(`/api/edu/offline-records/${editing.id}`, {
