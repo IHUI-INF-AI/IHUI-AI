@@ -855,6 +855,13 @@
       "when": 1784606965730,
       "tag": "0121_massive_black_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1784622020247,
+      "tag": "0122_add_attachments_to_edu_notes_offline_records",
+      "breakpoints": true
     }
   ]
 }
