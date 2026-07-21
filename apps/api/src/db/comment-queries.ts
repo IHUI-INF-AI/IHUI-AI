@@ -317,13 +317,27 @@ export async function findAllFeedbacksForAdmin(
 
 export async function updateFeedback(
   id: string,
-  patch: { status?: string; priority?: string; adminReply?: string | null },
+  patch: { status?: string; priority?: string; adminReply?: string | null; rating?: number },
 ): Promise<Feedback | undefined> {
   const set: Record<string, unknown> = { updatedAt: new Date() }
   if (patch.status !== undefined) set.status = patch.status
   if (patch.priority !== undefined) set.priority = patch.priority
   if (patch.adminReply !== undefined) set.adminReply = patch.adminReply
+  if (patch.rating !== undefined) set.rating = patch.rating
   const rows = await db.update(feedbacks).set(set).where(eq(feedbacks.id, id)).returning()
+  return rows[0]
+}
+
+/**
+ * 设置反馈评分（1-5）。仅本人可评价自己的反馈处理结果。
+ * 与旧架构 server/app/api/v1/feedback/feedback.py 的 POST /{fid}/rate 一致。
+ */
+export async function rateFeedback(id: string, rating: number): Promise<Feedback | undefined> {
+  const rows = await db
+    .update(feedbacks)
+    .set({ rating, updatedAt: new Date() })
+    .where(eq(feedbacks.id, id))
+    .returning()
   return rows[0]
 }
 
