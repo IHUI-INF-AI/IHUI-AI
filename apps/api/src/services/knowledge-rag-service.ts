@@ -16,7 +16,7 @@
  */
 
 import { createHash } from 'node:crypto'
-import { desc, eq, and } from 'drizzle-orm'
+import { desc, eq, and, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { knowledgeDoc, knowledgeChunk } from '@ihui/database'
 import { getEmbeddingProvider } from './embedding-provider.js'
@@ -148,7 +148,8 @@ class KnowledgeRagService {
           ownerUuid,
           chunkIndex: i,
           content,
-          embedding: embedding ? JSON.stringify(embedding) : null,
+          // vector1536 customType toDriver 自动序列化为 '[...]',NULL 走 fallback
+          embedding: embedding && embedding.length === 1536 ? embedding : null,
         }
       }),
     )
@@ -156,7 +157,15 @@ class KnowledgeRagService {
     return chunks.length
   }
 
-  /** 语义检索 */
+  /** 语义检索 (pgvector ANN)
+   *
+   * 流程:
+   * 1. 调 EmbeddingProvider 生成 query embedding
+   * 2. SQL 端用 pgvector `<=>` 距离运算符检索 top-K
+   *    - 1 - (embedding <=> query) 作为 score(0~1 越接近 1 越相似)
+   * 3. 当 query embedding 不可用(provider 未配置 / 失败)时
+   *    走关键词 fallback 拉全表 Node cosine
+   */
   async search(opts: {
     query: string
     collectionName?: string
@@ -167,26 +176,87 @@ class KnowledgeRagService {
     const { query, collectionName = 'default', topK = 5, scoreThreshold = 0, ownerUuid = '' } = opts
     const queryEmbedding = await getEmbedding(query)
 
+    // 主路径:pgvector SQL 端 ANN 检索
+    if (queryEmbedding && queryEmbedding.length === 1536) {
+      try {
+        const vectorLiteral = `[${queryEmbedding.join(',')}]`
+        // 条件用 drizzle sql template,ownerUuid 可选
+        const whereParts = [
+          sql`"collection_name" = ${collectionName}`,
+          sql`"embedding" IS NOT NULL`,
+        ]
+        if (ownerUuid) whereParts.push(sql`"owner_uuid" = ${ownerUuid}`)
+
+        // 1 - (embedding <=> query) 作为 cosine 相似度 score
+        const rows = (await db.execute(sql`
+          SELECT
+            "id",
+            "doc_id",
+            "content",
+            "chunk_index",
+            1 - ("embedding" <=> ${vectorLiteral}::vector) AS "score"
+          FROM "zhs_knowledge_chunk"
+          WHERE ${sql.join(whereParts, sql` AND `)}
+          ORDER BY "embedding" <=> ${vectorLiteral}::vector
+          LIMIT ${topK * 2}
+        `)) as Array<{
+          id: number
+          doc_id: number
+          content: string
+          chunk_index: number
+          score: number
+        }>
+
+        const results: SearchHit[] = []
+        for (const row of rows) {
+          const score = Number(row.score) || 0
+          if (score >= scoreThreshold) {
+            results.push({
+              id: row.id,
+              docId: row.doc_id,
+              content: row.content,
+              score,
+              chunkIndex: row.chunk_index,
+            })
+          }
+        }
+        return results.slice(0, topK)
+      } catch (e) {
+        // pgvector 不可用(扩展未启用 / SQL 执行错误)→ 降级到关键词路径
+        console.warn(
+          '[knowledge-rag-service.search] pgvector query failed, fallback to keyword:',
+          (e as Error).message,
+        )
+      }
+    }
+
+    // 降级路径:无 query embedding 时走关键词检索
+    return this._searchByKeyword(query, collectionName, topK, scoreThreshold, ownerUuid)
+  }
+
+  /** 关键词 fallback:拉全表 + Node 端简单词集重合打分 */
+  private async _searchByKeyword(
+    query: string,
+    collectionName: string,
+    topK: number,
+    scoreThreshold: number,
+    ownerUuid: string,
+  ): Promise<SearchHit[]> {
     const conditions = [eq(knowledgeChunk.collectionName, collectionName)]
     if (ownerUuid) conditions.push(eq(knowledgeChunk.ownerUuid, ownerUuid))
     const rows = await db
-      .select()
+      .select({
+        id: knowledgeChunk.id,
+        docId: knowledgeChunk.docId,
+        content: knowledgeChunk.content,
+        chunkIndex: knowledgeChunk.chunkIndex,
+      })
       .from(knowledgeChunk)
       .where(and(...conditions))
 
     const results: SearchHit[] = []
     for (const chunk of rows) {
-      let score = 0
-      if (queryEmbedding && chunk.embedding) {
-        try {
-          const chunkEmbedding = JSON.parse(chunk.embedding) as number[]
-          score = cosineSimilarity(queryEmbedding, chunkEmbedding)
-        } catch {
-          score = keywordScore(query, chunk.content)
-        }
-      } else {
-        score = keywordScore(query, chunk.content)
-      }
+      const score = keywordScore(query, chunk.content)
       if (score >= scoreThreshold) {
         results.push({
           id: chunk.id,
