@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { authenticate } from '../plugins/auth.js';
+import { authenticate, checkAuth } from '../plugins/auth.js';
 import {
   createInvitationCode,
   findInvitationCodesByUser,
@@ -99,22 +99,6 @@ const verifyCouponSchema = z.object({
 });
 
 // =============================================================================
-// 鉴权辅助
-// =============================================================================
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request);
-    return true;
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401;
-    const message = (e as Error).message || 'Authentication required';
-    reply.status(statusCode).send(error(statusCode, message));
-    return false;
-  }
-}
-
-// =============================================================================
 // 公开 + 用户认证路由（前缀 /api）
 // =============================================================================
 
@@ -152,7 +136,7 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
       },
     },
   }, async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const userId = request.userId!;
 
     const parsed = createInvitationSchema.safeParse(request.body);
@@ -171,7 +155,7 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /invitations - 需登录：当前用户的邀请码列表
   server.get('/invitations', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const userId = request.userId!;
     const list = await findInvitationCodesByUser(userId);
     return reply.send(success({ list }));
@@ -179,7 +163,7 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /invitations/invitees - 需登录：当前用户邀请的用户列表
   server.get('/invitations/invitees', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const userId = request.userId!;
     const list = await findInviteesByUser(userId);
     return reply.send(success({ list }));
@@ -259,7 +243,7 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /activities/:id/join - 需登录：参与活动
   server.post('/activities/:id/join', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const userId = request.userId!;
 
     const parsed = idParamSchema.safeParse(request.params);
@@ -285,7 +269,7 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /activities/:id/join - 需登录：取消参与
   server.delete('/activities/:id/join', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const userId = request.userId!;
 
     const parsed = idParamSchema.safeParse(request.params);
@@ -302,7 +286,7 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /activities/:id/participants - 需登录：活动参与者列表（分页，admin 可查全部）
   server.get('/activities/:id/participants', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const roleId = request.jwtPayload?.roleId ?? 0;
 
     const idParsed = idParamSchema.safeParse(request.params);
@@ -364,7 +348,7 @@ export const promotionRoutes: FastifyPluginAsync = async (server) => {
       },
     },
   }, async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
 
     const parsed = verifyCouponSchema.safeParse(request.body);
     if (!parsed.success) {

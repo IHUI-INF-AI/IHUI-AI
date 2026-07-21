@@ -115,8 +115,7 @@ export default function TenantBackupsPage() {
       }
     }
     return null
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [confirmAction, t])
+  }, [confirmAction, t, slug])
 
   return (
     <>

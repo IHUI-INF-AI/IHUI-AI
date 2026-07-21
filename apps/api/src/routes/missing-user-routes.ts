@@ -108,7 +108,7 @@ import { toggleLike } from '../db/resource-likes-queries.js'
 import { findNotificationById } from '../db/notification-queries.js'
 import { findFunds, findFundByCode, findFundNetValues } from '../db/fund-queries.js'
 import { findAiFeedPosts, findAiFeedPostById } from '../db/ai-feed-post-queries.js'
-import { findAiWorldCategories, findAiWorldItemById } from '../db/ai-world-queries.js'
+import { findAiWorldItemById } from '../db/ai-world-queries.js'
 import { findMcpServers, findMcpServerById } from '../db/mcp-queries.js'
 import { findOpenclawItems, findOpenclawItemById } from '../db/openclaw-queries.js'
 import { findSiteCategories } from '../db/site-categories-queries.js'
@@ -1868,10 +1868,11 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ feed }))
   })
 
-  server.get('/ai-world/categories', async (_request, reply) => {
-    const list = await findAiWorldCategories()
-    return reply.send(success({ list }))
-  })
+  // 2026-07-22 临时注释:与 ai-world.ts:97 重复注册,导致 FST_ERR_DUPLICATED_ROUTE
+  // server.get('/ai-world/categories', async (_request, reply) => {
+  //   const list = await findAiWorldCategories()
+  //   return reply.send(success({ list }))
+  // })
 
   server.get('/ai-world/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
