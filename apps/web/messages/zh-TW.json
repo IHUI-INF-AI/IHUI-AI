@@ -11476,7 +11476,13 @@
     "prev": "上一頁",
     "next": "下一頁",
     "loading": "加載中...",
-    "page": "第 {page} / {total} 頁"
+    "page": "第 {page} / {total} 頁",
+    "exportReport": "匯出學習報告",
+    "exporting": "匯出中...",
+    "exportPdf": "匯出 PDF",
+    "exportExcel": "匯出 Excel",
+    "exportJson": "匯出 JSON",
+    "exportError": "匯出失敗,請稍後重試"
   },
   "notes": {
     "title": "我的筆記",
@@ -26201,10 +26207,10 @@
     "subtitle": "查看你的學習資料與最近進度",
     "loading": "載入中...",
     "stats": {
-      "studyHours": "學習時長",
-      "inProgressCourses": "進行中課程",
+      "totalCourses": "已報名課程",
+      "completedCourses": "已完成課程",
       "passedExams": "已通過考試",
-      "avgProgress": "平均進度"
+      "totalCerts": "證書數量"
     },
     "coursesCard": {
       "title": "課程",
@@ -26495,7 +26501,8 @@
     "learnCount": "{n} 人學",
     "free": "免費",
     "includes": "包含課程",
-    "noLessons": "暫無課程"
+    "noLessons": "暫無課程",
+    "premiumLoadFailed": "專題課程載入失敗,請稍後重試"
   },
   "learnRatePage": {
     "loading": "載入中...",
@@ -26732,6 +26739,15 @@
       "avgProgress": "平均進度"
     }
   },
+  "eduSchedulePage": {
+    "title": "課程表",
+    "subtitle": "本週課程安排一覽",
+    "loading": "載入中...",
+    "empty": "本週暫無課程",
+    "today": "今天",
+    "noClass": "無課",
+    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
+  },
   "memberUpgradePage": {
     "title": "會員升級",
     "subtitle": "選擇適合你的會員等級,解鎖更多權益",
@@ -26828,6 +26844,14 @@
     "bestScore": "最高分:{n}",
     "retake": "再次考試",
     "start": "開始考試"
+  },
+  "eduNotesPage": {
+    "title": "學習筆記",
+    "subtitle": "記錄與回顧學習心得",
+    "searchPlaceholder": "搜尋筆記...",
+    "loading": "載入中...",
+    "empty": "暫無筆記",
+    "generalNote": "通用筆記"
   },
   "memberCouponsPage": {
     "title": "優惠券",
@@ -27110,6 +27134,34 @@
       "thirdParty": "第三方"
     }
   },
+  "oauthMockPage": {
+    "title": "{platform} 授權",
+    "subtitle": "登入到 IHUI-AI",
+    "permissionsTitle": "應用將取得以下權限",
+    "permissionNickname": "你的暱稱",
+    "permissionAvatar": "你的頭像",
+    "permissionEmail": "你的電子郵件地址",
+    "appRequesting": "應用 {app} 正在申請使用你的帳號登入",
+    "demoNotice": "目前為本地示範模式(未設定真實 {platform} OAuth 憑證),點擊「授權」將模擬完成登入流程,不會向 {platform} 發送任何請求。",
+    "authorize": "授權並登入",
+    "cancel": "取消",
+    "platforms": {
+      "google": "Google",
+      "apple": "Apple",
+      "dingtalk": "釘釘",
+      "enterpriseWechat": "企業微信",
+      "wechat": "微信",
+      "feishu": "飛書",
+      "github": "GitHub",
+      "alipay": "支付寶"
+    }
+  },
+  "oauthSetupPage": {
+    "title": "OAuth 憑證設定精靈",
+    "subtitle": "應用內互動式引導,幫你一步步取得第三方登入平台的真實憑證",
+    "honestTitle": "🤖 AI 無法替你註冊帳號",
+    "honestBody": "5 個平台(GitHub/Google/飛書/支付寶/Apple)的帳號註冊需要你的真人資訊(信箱/手機/身分證/營業執照/付費信用卡),AI 無法代替你操作。但本精靈會引導你每一步,跟著點就不會迷路。建議從 GitHub 開始(3 分鐘,免費)。"
+  },
   "agentsStatsPage": {
     "back": "返回",
     "title": "智能體統計",
@@ -27266,7 +27318,13 @@
     "share": "分享",
     "danmuTitle": "彈幕互動",
     "danmuPlaceholder": "發送彈幕...",
-    "me": "我"
+    "me": "我",
+    "mockDanmu1Name": "張同學",
+    "mockDanmu1Content": "老師講得很清晰",
+    "mockDanmu2Name": "李同學",
+    "mockDanmu2Content": "這個知識點終於懂了",
+    "mockDanmu3Name": "王同學",
+    "mockDanmu3Content": "期待下次直播"
   },
   "memberAddressFormPage": {
     "recipient": "收貨人",

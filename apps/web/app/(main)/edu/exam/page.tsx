@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { FileCheck, Clock, ListChecks, Target, Loader2, ArrowRight } from 'lucide-react'
+import { FileCheck, Clock, ListChecks, Target, Loader2, ArrowRight, Award } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
@@ -100,7 +100,7 @@ export default function EduExamPage() {
                     {t('totalScore', { n: exam.totalScore })}
                   </span>
                   <span className="flex items-center gap-1">
-                    <Target className="h-3.5 w-3.5" />
+                    <Award className="h-3.5 w-3.5" />
                     {t('passScore', { n: exam.passScore })}
                   </span>
                   <span className="flex items-center gap-1">
