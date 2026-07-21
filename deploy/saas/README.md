@@ -267,8 +267,12 @@ docker compose up -d admin-api
 | 暂停/恢复 | 二次确认弹窗,操作期间显示 loading |
 | 备份 | 立即创建快照,服务不受影响 |
 | 销毁 | 输入 slug 二次确认,操作不可逆 |
+| 租户详情 | `/admin/saas/[slug]`:基本信息 + 容器状态 + 资源配额占位 + 快捷操作 |
+| 备份管理 | `/admin/saas/[slug]/backups`:列表 + 恢复 + 删除(时间戳二次确认) |
+| 证书状态 | `/admin/saas/certificates`:扫描 Traefik `acme.json`,健康/警告/紧急/已过期分级展示 |
+| 资源配额 | 详情页占位卡片(API 调用 / AI Token / 存储),等待 P1-2.3 Prometheus 接入 |
 
-> 租户详情页 + 备份管理 UI 计划在 P1-2.2b 提供(API 已就绪)。
+> 全部 P1-2.2a / 2.2b / 2.2c 任务已完成。后端 API、前端 UI、i18n 5 语言均已交付。
 
 ## 故障排查
 
