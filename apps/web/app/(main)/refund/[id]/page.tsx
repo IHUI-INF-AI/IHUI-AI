@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, ArrowLeft, RotateCcw, Clock, CheckCircle, XCircle, Wallet } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -49,20 +49,20 @@ interface RefundListData {
   total: number
 }
 
-const STATUS_CONFIG: Record<string, { label: string; icon: typeof Clock; cls: string }> = {
+const STATUS_CONFIG: Record<string, { labelKey: string; icon: typeof Clock; cls: string }> = {
   pending: {
-    label: '审核中',
+    labelKey: 'status.pending',
     icon: Clock,
     cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
   },
   approved: {
-    label: '已通过',
+    labelKey: 'status.approved',
     icon: CheckCircle,
     cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   },
-  rejected: { label: '已拒绝', icon: XCircle, cls: 'bg-destructive/10 text-destructive' },
+  rejected: { labelKey: 'status.rejected', icon: XCircle, cls: 'bg-destructive/10 text-destructive' },
   completed: {
-    label: '已完成',
+    labelKey: 'status.completed',
     icon: Wallet,
     cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
   },
@@ -73,6 +73,7 @@ const PENDING_CLS = 'bg-amber-500/10 text-amber-600 dark:text-amber-500'
 export default function RefundDetailPage() {
   const params = useParams<{ id: string }>()
   const locale = useLocale()
+  const t = useTranslations('refundDetailPage')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['refund', params.id],
@@ -85,7 +86,7 @@ export default function RefundDetailPage() {
         const found = listRes.data.list?.find((r) => r.id === params.id)
         if (found) return { refund: found, order: null, auditRecords: [] }
       }
-      throw new Error(detailRes.error || '退款记录不存在')
+      throw new Error(detailRes.error || t('notFound'))
     },
     enabled: !!params.id,
   })
@@ -112,7 +113,7 @@ export default function RefundDetailPage() {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
   }
@@ -125,10 +126,10 @@ export default function RefundDetailPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回
+          {t('back')}
         </Link>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {(error as Error)?.message ?? '退款记录不存在'}
+          {(error as Error)?.message ?? t('notFound')}
         </div>
       </div>
     )
@@ -141,13 +142,13 @@ export default function RefundDetailPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回
+        {t('back')}
       </Link>
 
       <div className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <RotateCcw className="h-6 w-6 text-primary" />
-          退款详情
+          {t('title')}
         </h1>
         <p className="font-mono text-sm text-muted-foreground">{refund.orderNo}</p>
       </div>
@@ -160,18 +161,18 @@ export default function RefundDetailPage() {
           )}
         >
           <StatusIcon className="h-4 w-4" />
-          {statusKey.label}
+          {t(statusKey.labelKey)}
         </div>
       )}
 
       <Card>
         <CardContent className="p-0">
           <dl className="divide-y">
-            <Row label="退款单号" value={refund.id} mono />
-            <Row label="订单号" value={refund.orderNo} mono />
-            <Row label="订单类型" value={refund.orderType} />
+            <Row label={t('fields.refundNo')} value={refund.id} mono />
+            <Row label={t('fields.orderNo')} value={refund.orderNo} mono />
+            <Row label={t('fields.orderType')} value={refund.orderType} />
             <Row
-              label="退款金额"
+              label={t('fields.refundAmount')}
               value={
                 <span className="font-semibold text-primary">
                   ¥{Number(refund.refundAmount).toFixed(2)}
@@ -179,22 +180,22 @@ export default function RefundDetailPage() {
               }
             />
             <Row
-              label="退款方式"
-              value={refund.refundType === 'original' ? '原路退回' : refund.refundType}
+              label={t('fields.refundType')}
+              value={refund.refundType === 'original' ? t('refundType.original') : refund.refundType}
             />
-            <Row label="申请时间" value={fmt(refund.applyTime ?? refund.createdAt)} />
-            <Row label="处理时间" value={fmt(refund.processTime)} />
-            <Row label="完成时间" value={fmt(refund.completeTime)} />
-            {refund.reason && <Row label="退款原因" value={refund.reason} />}
-            {refund.processMessage && <Row label="处理说明" value={refund.processMessage} />}
-            {refund.handleMessage && <Row label="处理结果" value={refund.handleMessage} />}
+            <Row label={t('fields.applyTime')} value={fmt(refund.applyTime ?? refund.createdAt)} />
+            <Row label={t('fields.processTime')} value={fmt(refund.processTime)} />
+            <Row label={t('fields.completeTime')} value={fmt(refund.completeTime)} />
+            {refund.reason && <Row label={t('fields.reason')} value={refund.reason} />}
+            {refund.processMessage && <Row label={t('fields.processMessage')} value={refund.processMessage} />}
+            {refund.handleMessage && <Row label={t('fields.handleMessage')} value={refund.handleMessage} />}
           </dl>
         </CardContent>
       </Card>
 
       {auditRecords.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold">审核记录</h2>
+          <h2 className="text-lg font-semibold">{t('auditRecords')}</h2>
           <div className="space-y-2">
             {auditRecords.map((record) => {
               const cfg =
@@ -218,9 +219,9 @@ export default function RefundDetailPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium">
                         {record.action === 'approve'
-                          ? '审核通过'
+                          ? t('auditAction.approve')
                           : record.action === 'reject'
-                            ? '驳回'
+                            ? t('auditAction.reject')
                             : record.action}
                       </span>
                       <span className="text-xs text-muted-foreground">{fmt(record.createdAt)}</span>

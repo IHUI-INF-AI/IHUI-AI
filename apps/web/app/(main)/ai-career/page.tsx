@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { GraduationCap, Loader2, Sparkles } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@ihui/ui'
 import { Container } from '@/components/layout'
@@ -30,16 +31,17 @@ const INITIAL_FORM: CareerForm = {
   target: '',
 }
 
-const SCHOOL_OPTIONS = ['公立学校', '私立学校', '重点学校']
-const CLASS_OPTIONS = ['普通班', '重点班']
-const DIFFICULTY_OPTIONS = ['阅读速度慢', '理解困难', '词汇量不足', '写作薄弱']
-const OBSTACLE_OPTIONS = ['游戏沉迷', '注意力分散', '拖延症', '效率低']
-
 export default function AICareerPage() {
+  const t = useTranslations('aiCareerPage')
   const [form, setForm] = React.useState<CareerForm>(INITIAL_FORM)
   const [loading, setLoading] = React.useState(false)
   const [result, setResult] = React.useState<string>('')
   const [error, setError] = React.useState<string>('')
+
+  const SCHOOL_OPTIONS = t.raw('options.school') as string[]
+  const CLASS_OPTIONS = t.raw('options.classLevel') as string[]
+  const DIFFICULTY_OPTIONS = t.raw('options.difficulty') as string[]
+  const OBSTACLE_OPTIONS = t.raw('options.obstacle') as string[]
 
   const update = (key: keyof CareerForm, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -60,12 +62,12 @@ export default function AICareerPage() {
     try {
       const r = await getCareerAdvice(form)
       if (!r.success) {
-        setError(r.error || 'AI 分析失败')
+        setError(r.error || t('result.failed'))
         return
       }
       setResult(r.data.content)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'AI 分析失败')
+      setError(e instanceof Error ? e.message : t('result.failed'))
     } finally {
       setLoading(false)
     }
@@ -103,18 +105,16 @@ export default function AICareerPage() {
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <GraduationCap className="h-7 w-7" />
-          AI 生涯指导
+          {t('title')}
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          填写孩子学习情况，AI 为您生成个性化生涯指导建议
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <Card>
         <CardContent className="space-y-5 p-6">
           <div>
             <span className="mb-2 block text-sm font-medium">
-              孩子就读学校类型 <span className="text-destructive">*</span>
+              {t('fields.school')} <span className="text-destructive">*</span>
             </span>
             <RadioGroup
               value={form.school}
@@ -125,7 +125,7 @@ export default function AICareerPage() {
 
           <div>
             <span className="mb-2 block text-sm font-medium">
-              班级整体水平 <span className="text-destructive">*</span>
+              {t('fields.classLevel')} <span className="text-destructive">*</span>
             </span>
             <RadioGroup
               value={form.classLevel}
@@ -136,19 +136,19 @@ export default function AICareerPage() {
 
           <div>
             <span className="mb-2 block text-sm font-medium">
-              语文和英语考试分数范围 <span className="text-destructive">*</span>
+              {t('fields.scoreRange')} <span className="text-destructive">*</span>
             </span>
             <Input
               value={form.scoreRange}
               onChange={(e) => update('scoreRange', e.target.value)}
-              placeholder="如：80-90分"
+              placeholder={t('fields.scoreRangePlaceholder')}
               maxLength={100}
             />
           </div>
 
           <div>
             <span className="mb-2 block text-sm font-medium">
-              语文和英语学习困难 <span className="text-destructive">*</span>
+              {t('fields.languageDifficulty')} <span className="text-destructive">*</span>
             </span>
             <RadioGroup
               value={form.languageDifficulty}
@@ -158,13 +158,13 @@ export default function AICareerPage() {
           </div>
 
           <div>
-            <span className="mb-2 block text-sm font-medium">理科方面特点</span>
+            <span className="mb-2 block text-sm font-medium">{t('fields.scienceCharacteristics')}</span>
             <Textarea
               value={form.scienceCharacteristics}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                 update('scienceCharacteristics', e.target.value)
               }
-              placeholder="如：数学较好，物理一般..."
+              placeholder={t('fields.scienceCharacteristicsPlaceholder')}
               rows={3}
               maxLength={500}
             />
@@ -172,7 +172,7 @@ export default function AICareerPage() {
 
           <div>
             <span className="mb-2 block text-sm font-medium">
-              影响学习的因素 <span className="text-destructive">*</span>
+              {t('fields.learningObstacle')} <span className="text-destructive">*</span>
             </span>
             <RadioGroup
               value={form.learningObstacle}
@@ -182,23 +182,23 @@ export default function AICareerPage() {
           </div>
 
           <div>
-            <span className="mb-2 block text-sm font-medium">兴趣爱好</span>
+            <span className="mb-2 block text-sm font-medium">{t('fields.hobbies')}</span>
             <Input
               value={form.hobbies}
               onChange={(e) => update('hobbies', e.target.value)}
-              placeholder="如：编程、绘画、音乐"
+              placeholder={t('fields.hobbiesPlaceholder')}
               maxLength={100}
             />
           </div>
 
           <div>
             <span className="mb-2 block text-sm font-medium">
-              升学目标 <span className="text-destructive">*</span>
+              {t('fields.target')} <span className="text-destructive">*</span>
             </span>
             <Input
               value={form.target}
               onChange={(e) => update('target', e.target.value)}
-              placeholder="如：重点高中、985大学"
+              placeholder={t('fields.targetPlaceholder')}
               maxLength={100}
             />
           </div>
@@ -207,12 +207,12 @@ export default function AICareerPage() {
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                AI 分析中...
+                {t('submitting')}
               </>
             ) : (
               <>
                 <Sparkles className="mr-2 h-4 w-4" />
-                生成生涯指导
+                {t('submit')}
               </>
             )}
           </Button>
@@ -232,7 +232,7 @@ export default function AICareerPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Sparkles className="h-5 w-5" />
-              AI 生涯指导建议
+              {t('result.title')}
             </CardTitle>
           </CardHeader>
           <CardContent>
