@@ -49,6 +49,10 @@ const BROWSER_ACTIONS: BrowserControlActionType[] = [
 
 let bridgeInitialized = false
 
+/** requestId 去重集,防止 WS 重连后重复推送相同 lastMessage 导致同一 DOM 操作执行两次(与 desktop hook 一致) */
+const _processedIds = new Set<string>()
+const _PROCESSED_IDS_MAX = 100
+
 // ===== HTTP helper =====
 
 async function postJson(path: string, body: unknown): Promise<boolean> {
@@ -196,6 +200,17 @@ function onRuntimeMessage(msg: unknown): void {
   if (m?.type !== 'ws.notification') return
   const req = extractAgentRequest(m.payload)
   if (!req) return
+  // requestId 去重,防止 WS 重连后重复执行同一指令(与 desktop hook 一致)
+  if (_processedIds.has(req.requestId)) return
+  _processedIds.add(req.requestId)
+  // 清理超过 _PROCESSED_IDS_MAX 的旧 requestId(避免 Set 无限增长)
+  if (_processedIds.size > _PROCESSED_IDS_MAX) {
+    const arr = Array.from(_processedIds)
+    _processedIds.clear()
+    for (const id of arr.slice(-Math.floor(_PROCESSED_IDS_MAX / 2))) {
+      _processedIds.add(id)
+    }
+  }
   void executeAgentAction(req)
     .then(reportResult)
     .catch((err) => {
