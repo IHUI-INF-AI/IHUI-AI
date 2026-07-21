@@ -25989,5 +25989,25 @@
       "empty": "暂无学习记录",
       "progressLabel": "进度 {n}%"
     }
+  },
+  "memberSettingsPage": {
+    "loading": "加载中…",
+    "title": "会员设置",
+    "description": "管理你的通知和隐私偏好",
+    "notifTitle": "通知偏好",
+    "notif": {
+      "orderUpdates": "订单更新",
+      "promotions": "优惠活动",
+      "points": "积分变动",
+      "newsletter": "订阅邮件"
+    },
+    "privacyTitle": "隐私设置",
+    "privacy": {
+      "showProfile": "公开个人资料",
+      "showActivity": "显示我的活动",
+      "allowInvites": "允许他人邀请"
+    },
+    "saveBtn": "保存设置",
+    "saved": "已保存"
   }
 }
