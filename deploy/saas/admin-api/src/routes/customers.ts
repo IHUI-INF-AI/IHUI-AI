@@ -474,4 +474,49 @@ export async function customerRoutes(app: FastifyInstance): Promise<void> {
     }
     return { status: 'destroyed', slug: parse.data };
   });
+
+  // ==================== 配额占位 (P1-2.2c) ====================
+  // 等待 P1-2.3 Prometheus 接入,当前返回硬编码占位数据
+  // 端点契约已稳定,接入 Prometheus 时只改此处 + 移除 placeholder 字段即可
+  app.get<{ Params: { slug: string } }>(
+    '/admin/api/customers/:slug/quota',
+    async (request, reply) => {
+      const parse = SlugSchema.safeParse(request.params.slug);
+      if (!parse.success) {
+        return reply.status(400).send({ error: 'InvalidSlug', message: parse.error.message });
+      }
+
+      const slug = parse.data;
+      const state = getCustomerState(slug);
+      if (!state.exists) {
+        return reply.status(404).send({
+          error: 'NotFound',
+          message: `Customer '${slug}' not found`,
+        });
+      }
+
+      return {
+        slug,
+        apiCalls: {
+          used: 0,
+          limit: null,
+          window: 'all',
+          resetAt: null,
+        },
+        storage: {
+          usedBytes: 0,
+          limitBytes: null,
+        },
+        aiTokens: {
+          used: 0,
+          limit: null,
+          window: 'all',
+          resetAt: null,
+        },
+        placeholder: true,
+        expectedFrom: 'P1-2.3 (Prometheus + Grafana)',
+        generatedAt: new Date().toISOString(),
+      };
+    },
+  );
 }
