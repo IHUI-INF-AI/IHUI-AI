@@ -4,6 +4,7 @@ import fp from 'fastify-plugin'
 import { config } from '../config/index.js'
 import { wsAuth } from './ws-helpers.js'
 import { cloneTimbre } from '../routes/ai-vendors.js'
+import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 
 const send = (socket: WebSocket, obj: unknown): void => {
   try {
@@ -933,6 +934,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         stopHeartbeat()
       })
     })()
+  })
+
+  getWsAutoRecoveryManager().setFastify(server)
+  getWsAutoRecoveryManager().registerPlugin('ws-ai', {
+    getConnections: () => new Map(),
+    removeConnection: async () => {},
   })
 }
 
