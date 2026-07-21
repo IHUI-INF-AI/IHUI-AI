@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { sql } from 'drizzle-orm'
+import bcrypt from 'bcryptjs'
 import { db } from '../src/db/index.js'
 import {
   hashPassword,
+  hashPasswordLegacy,
+  hashPasswordBcrypt,
   findMembers,
   findUnauditedMembers,
   findMemberById,
@@ -54,20 +57,38 @@ describe('member-queries — 真实 DB 集成测试', () => {
   })
 
   describe('hashPassword', () => {
-    it('sha256 哈希 — 空字符串返回空', () => {
+    it('hashPassword — 空字符串返回空', () => {
       expect(hashPassword('')).toBe('')
+      // hashPassword 现在用 bcrypt 10 轮,返回 $2a$10$... 格式
+      const h = hashPassword('123456')
+      expect(h).toMatch(/^\$2[aby]\$\d{2}\$/)
+      expect(bcrypt.compareSync('123456', h)).toBe(true)
+    })
+
+    it('hashPasswordBcrypt — bcrypt 哈希,同密码不同输出(自带 salt)', () => {
+      const a = hashPasswordBcrypt('123456')
+      const b = hashPasswordBcrypt('123456')
+      expect(a).not.toBe(b) // bcrypt salt 不同 → 输出不同
+      expect(bcrypt.compareSync('123456', a)).toBe(true)
+      expect(bcrypt.compareSync('123456', b)).toBe(true)
+    })
+
+    it('hashPasswordLegacy — 旧 SHA-256 哈希保留,仅供数据迁移', () => {
+      expect(hashPasswordLegacy('')).toBe('')
       // sha256('123456') = 8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92
-      expect(hashPassword('123456')).toBe(
+      expect(hashPasswordLegacy('123456')).toBe(
         '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92',
       )
     })
   })
 
   describe('会员 CRUD', () => {
-    it('createMember + findMemberById — 密码自动 sha256 哈希', async () => {
+    it('createMember + findMemberById — 密码自动 bcrypt 哈希(2026-07-21 安全审计加固)', async () => {
       const m = await createMember({ username: 'alice', password: '123456', status: 1 })
       expect(m.username).toBe('alice')
-      expect(m.password).toBe(hashPassword('123456'))
+      // 2026-07-21 起密码用 bcrypt,bcrypt 哈希含 salt 不可直接比较
+      expect(m.password).toMatch(/^\$2[aby]\$\d{2}\$/)
+      expect(bcrypt.compareSync('123456', m.password)).toBe(true)
       expect(m.status).toBe(1)
       const found = await findMemberById(m.id)
       expect(found?.username).toBe('alice')
@@ -154,12 +175,14 @@ describe('member-queries — 真实 DB 集成测试', () => {
   })
 
   describe('注册', () => {
-    it('registerMember — 用户名注册成功 + 默认 status=1', async () => {
+    it('registerMember — 用户名注册成功 + 默认 status=1 + 密码 bcrypt 哈希', async () => {
       const m = await registerMember({ username: 'newuser', password: 'pw', nickname: 'New' })
       expect(m.username).toBe('newuser')
       expect(m.nickname).toBe('New')
       expect(m.status).toBe(1)
-      expect(m.password).toBe(hashPassword('pw'))
+      // 2026-07-21 起密码用 bcrypt,bcrypt 哈希含 salt 不可直接比较
+      expect(m.password).toMatch(/^\$2[aby]\$\d{2}\$/)
+      expect(bcrypt.compareSync('pw', m.password)).toBe(true)
     })
 
     it('registerMember — 用户名重复抛 MemberConflictError', async () => {

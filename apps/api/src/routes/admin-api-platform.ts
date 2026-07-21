@@ -5,6 +5,7 @@ import { db, dbRead } from '../db/index.js'
 import { developerApiKeys, plans, orders, commissionFlows, auditLogs } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
+import { generateApiKey } from '../utils/crypto-random.js'
 
 // =============================================================================
 // Zod schemas
@@ -93,7 +94,9 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
     }
     const { name, userId, permissions, rateLimit } = parsed.data
     const key = `ihui_${Date.now().toString(36)}`
-    const secret = `sk_${Math.random().toString(36).slice(2)}`
+    // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成 API key,
+    // Math.random 可预测,攻击者可从少量样本预测其他用户密钥
+    const secret = generateApiKey()
     const [created] = await db
       .insert(developerApiKeys)
       .values({ name, userId, key, secret, permissions, rateLimit })
