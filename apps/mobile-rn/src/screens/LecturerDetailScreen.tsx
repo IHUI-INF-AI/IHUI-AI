@@ -60,7 +60,7 @@ export function LecturerDetailScreen() {
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined
       const [infoRes, coursesRes] = await Promise.all([
         fetch(`${API_BASE_URL}/api/live/lecturers/${lecturerId}`, { headers } as RequestInit),
-        fetch(`${API_BASE_URL}/api/lecturers/${lecturerId}/courses?page=1&pageSize=20`, {
+        fetch(`${API_BASE_URL}/api/live/lecturers/${lecturerId}/courses`, {
           headers,
         } as RequestInit),
       ])

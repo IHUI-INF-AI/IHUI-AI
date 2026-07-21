@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { findPublishedArticles } from '../db/news-queries.js'
+import { findPublishedArticles, findArticleById } from '../db/news-queries.js'
 import { success, error } from '../utils/response.js'
 
 const articlesQuerySchema = z.object({
@@ -30,5 +30,15 @@ export const articleRoutes: FastifyPluginAsync = async (server) => {
       search: parsed.data.search,
     })
     return reply.send(success(result.list))
+  })
+
+  // GET /articles/:id — 文章详情
+  server.get('/articles/:id', async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+    const article = await findArticleById(id)
+    if (!article) {
+      return reply.status(404).send(error(404, '文章不存在'))
+    }
+    return reply.send(success(article))
   })
 }

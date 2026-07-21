@@ -23,7 +23,7 @@ export function AgentMarketScreen() {
   const load = async (kw: string) => {
     setLoading(true)
     setError('')
-    const url = kw ? `/api/agents?keyword=${encodeURIComponent(kw)}` : '/api/agents'
+    const url = kw ? `/api/agents/list?keyword=${encodeURIComponent(kw)}` : '/api/agents/list'
     const res = await fetchApi<Agent[]>(url)
     if (res.success) setAgents(res.data ?? [])
     else if (!res.success) setError(res.error || t('agentMarket.loadFailed'))

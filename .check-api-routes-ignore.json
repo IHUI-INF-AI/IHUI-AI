@@ -117,6 +117,36 @@
       "pathPattern": "/api/files/upload/form",
       "reason": "守门脚本 method 推断 bug:AttachmentsUpload.tsx:86 使用 fetch() 直接调用 (非 fetchApi),守门脚本无法从同行推断 method,实际 method='POST' (AttachmentsUpload.tsx:87),后端已注册 POST /api/files/upload/form (files.ts:575,@fastify/multipart 解析),非真 404",
       "addedAt": "2026-07-21"
+    },
+    {
+      "method": "POST",
+      "pathPattern": "/api/notes",
+      "reason": "TODO 后端补建:mobile-rn NoteCreateScreen.tsx:28 调用,后端 /notes 仅有 PUT /:id,缺 POST 根级创建",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "/api/notes/public",
+      "reason": "TODO 后端补建:mobile-rn NoteListScreen.tsx:25 调用,后端无 /notes/public 公开笔记列表",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "POST",
+      "pathPattern": "/api/shares",
+      "reason": "TODO 后端补建:mobile-rn ShareScreen.tsx:27 调用,后端只有 GET /share/content/:code 查看,缺 POST /shares 创建分享",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "/api/study/plans",
+      "reason": "TODO 后端补建:mobile-rn StudyPlanScreen.tsx:25 调用,后端 /study 仅有 /progress,缺 /plans 学习计划列表",
+      "addedAt": "2026-07-21"
+    },
+    {
+      "method": "GET",
+      "pathPattern": "/api/admin/content/:type/:id",
+      "reason": "TODO 后端补建:desktop admin-content-types.ts:4 调用,后端无 /admin/content/:type/:id 通用内容详情",
+      "addedAt": "2026-07-21"
     }
   ]
 }

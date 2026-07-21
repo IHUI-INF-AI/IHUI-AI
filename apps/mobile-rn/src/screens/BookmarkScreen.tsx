@@ -57,7 +57,7 @@ export function BookmarkScreen() {
   }
 
   const onRemove = async (item: Bookmark) => {
-    const res = await fetchApi<void>(`/api/bookmarks/${encodeURIComponent(item.id)}`, {
+    const res = await fetchApi<void>(`/api/favorites/${item.targetType}/${encodeURIComponent(item.targetId)}`, {
       method: 'DELETE',
     })
     if (res.success) setItems((prev) => prev.filter((b) => b.id !== item.id))

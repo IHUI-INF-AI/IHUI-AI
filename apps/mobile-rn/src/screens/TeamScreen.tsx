@@ -75,8 +75,8 @@ export function TeamScreen() {
     else setLoading(true)
     setError('')
     const [statsRes, membersRes] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/team/stats`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-      fetch(`${API_BASE_URL}/api/team/members?page=1&pageSize=20`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+      fetch(`${API_BASE_URL}/api/teams/me/stats`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+      fetch(`${API_BASE_URL}/api/teams/me/members`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
     ])
     if (!statsRes.ok || !membersRes.ok) {
       setError(t('team.loadFailed'))

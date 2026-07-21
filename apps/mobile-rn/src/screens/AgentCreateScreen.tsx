@@ -24,7 +24,7 @@ export function AgentCreateScreen() {
     if (!name.trim()) { setError(t('agentCreate.nameRequired')); return }
     setSaving(true)
     setError('')
-    const res = await fetchApi<{ id: string }>('/api/agents', {
+    const res = await fetchApi<{ id: string }>('/api/agents/create', {
       method: 'POST',
       body: JSON.stringify({ name: name.trim(), description: description.trim(), systemPrompt: systemPrompt.trim(), category: category.trim() || 'general', isPublic }),
     })

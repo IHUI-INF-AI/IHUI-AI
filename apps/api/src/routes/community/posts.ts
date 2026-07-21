@@ -74,6 +74,60 @@ const postsRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
+  // GET /community/posts/:id — 帖子详情（status=1 已发布 + 作者本人可见草稿）
+  server.get('/community/posts/:id', async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params)
+    const userId = request.userId!
+    try {
+      const [post] = await dbRead
+        .select({
+          id: circlePosts.id,
+          circleId: circlePosts.circleId,
+          userId: circlePosts.userId,
+          title: circlePosts.title,
+          content: circlePosts.content,
+          images: circlePosts.images,
+          viewCount: circlePosts.viewCount,
+          likeCount: circlePosts.likeCount,
+          replyCount: circlePosts.replyCount,
+          status: circlePosts.status,
+          createdAt: circlePosts.createdAt,
+          updatedAt: circlePosts.updatedAt,
+          authorName: users.nickname,
+          authorAvatar: users.avatar,
+          circleName: circles.name,
+        })
+        .from(circlePosts)
+        .leftJoin(users, eq(users.id, circlePosts.userId))
+        .leftJoin(circles, eq(circles.id, circlePosts.circleId))
+        .where(eq(circlePosts.id, id))
+        .limit(1)
+      if (!post) {
+        return reply.status(404).send(error(404, '帖子不存在'))
+      }
+      // 草稿仅作者本人可见
+      if (post.status !== 1 && post.userId !== userId) {
+        return reply.status(404).send(error(404, '帖子不存在'))
+      }
+      // 适配 mobile-rn PostDetailScreen Post interface:author/circleName/likes/comments
+      return reply.send(
+        success({
+          id: post.id,
+          title: post.title,
+          content: post.content,
+          author: post.authorName ?? '',
+          circleName: post.circleName ?? undefined,
+          likes: post.likeCount ?? 0,
+          comments: post.replyCount ?? 0,
+          createdAt: post.createdAt,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询帖子详情失败'))
+    }
+  })
+
   // GET /community/posts/draft — 当前用户草稿列表（status=0）
   server.get('/community/posts/draft', async (request, reply) => {
     const { page, pageSize } = z

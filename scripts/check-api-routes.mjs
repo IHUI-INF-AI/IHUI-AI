@@ -11,7 +11,14 @@ import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from '
 import { join, relative } from 'node:path'
 
 const ROOT = process.cwd()
-const WEB_DIR = join(ROOT, 'apps/web')
+// 扫描范围:web + mobile-rn + miniapp-taro + extension + desktop(全端 API 调用 vs 后端路由一致性)
+const FRONTEND_DIRS = [
+  join(ROOT, 'apps/web'),
+  join(ROOT, 'apps/mobile-rn'),
+  join(ROOT, 'apps/miniapp-taro'),
+  join(ROOT, 'apps/extension'),
+  join(ROOT, 'apps/desktop'),
+]
 const API_ROUTES_DIR = join(ROOT, 'apps/api/src/routes')
 const SERVER_FILE = join(ROOT, 'apps/api/src/server.ts')
 
@@ -309,15 +316,18 @@ console.log(
   `${C.dim}[API 路由比对] 后端注册路由: ${backendRoutes.length} 条（含 ${compositePrefixes.length} 个组合前缀）${C.reset}`,
 )
 
-// 提取前端调用
-const frontendFiles = collectFiles(WEB_DIR, ['.ts', '.tsx'])
+// 提取前端调用(扫描 web + mobile-rn + miniapp-taro + extension + desktop)
+const frontendFiles = []
+for (const dir of FRONTEND_DIRS) {
+  frontendFiles.push(...collectFiles(dir, ['.ts', '.tsx']))
+}
 const allCalls = []
 for (const file of frontendFiles) {
   const src = readFileSync(file, 'utf8')
   allCalls.push(...extractFrontendCalls(src, file))
 }
 
-console.log(`${C.dim}[API 路由比对] 前端 API 调用: ${allCalls.length} 处${C.reset}`)
+console.log(`${C.dim}[API 路由比对] 前端 API 调用: ${allCalls.length} 处(扫描 ${FRONTEND_DIRS.length} 个端)${C.reset}`)
 
 // 比对
 const missing = []

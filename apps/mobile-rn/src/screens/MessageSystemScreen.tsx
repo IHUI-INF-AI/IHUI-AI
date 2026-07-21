@@ -22,7 +22,7 @@ export function MessageSystemScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const r = await fetch(`${API_BASE_URL}/api/message/system`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      const r = await fetch(`${API_BASE_URL}/api/messages/system-notice/list`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       if (!r.ok) throw new Error()
       const d = (await r.json()) as { data?: Item[] }
       setItems(d.data ?? [])

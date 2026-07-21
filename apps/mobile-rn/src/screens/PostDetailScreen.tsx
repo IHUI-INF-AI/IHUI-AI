@@ -25,7 +25,7 @@ export function PostDetailScreen() {
     let cancelled = false
     void (async () => {
       setLoading(true); setError('')
-      const res = await fetchApi<Post>(`/api/posts/${encodeURIComponent(id)}`)
+      const res = await fetchApi<Post>(`/api/community/posts/${encodeURIComponent(id)}`)
       if (cancelled) return
       if (res.success) setPost(res.data)
       else setError(res.error || t('postDetail.loadFailed'))

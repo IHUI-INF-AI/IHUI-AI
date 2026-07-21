@@ -60,7 +60,7 @@ export function LivePreviewScreen() {
     if (!item) return
     setSubscribing(true)
     try {
-      const r = await fetch(`${API_BASE_URL}/api/live/preview/${id}/subscribe`, {
+      const r = await fetch(`${API_BASE_URL}/api/live/${id}/subscribe`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })

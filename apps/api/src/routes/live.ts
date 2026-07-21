@@ -27,8 +27,11 @@ import {
   findUserSubscriptions,
 } from '../db/live-queries.js'
 import { findLiveCalendar } from '../db/live-calendar-queries.js'
+import { db } from '../db/index.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { config } from '../config/index.js'
+import { eq, desc } from 'drizzle-orm'
+import { zhsCourseVideo } from '@ihui/database'
 import {
   verifyCallbackSignature,
   handleCallbackEvent,
@@ -275,6 +278,33 @@ export const liveRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '讲师不存在'))
     }
     return reply.send(success({ lecturer }))
+  })
+
+  // GET /live/lecturers/:id/courses - 讲师关联课程列表
+  server.get('/live/lecturers/:id/courses', { schema: { response: R } }, async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const lecturer = await findLecturerById(parsed.data.id)
+    if (!lecturer) {
+      return reply.status(404).send(error(404, '讲师不存在'))
+    }
+    // zhsCourseVideo.lecturer 是讲师名字符串(name),非 UUID,需用 name 匹配
+    const courses = await db
+      .select({
+        id: zhsCourseVideo.id,
+        title: zhsCourseVideo.title,
+        adjunctUrl: zhsCourseVideo.adjunctUrl,
+        amount: zhsCourseVideo.amount,
+        sort: zhsCourseVideo.sort,
+        status: zhsCourseVideo.status,
+        createdAt: zhsCourseVideo.createdAt,
+      })
+      .from(zhsCourseVideo)
+      .where(eq(zhsCourseVideo.lecturer, lecturer.name))
+      .orderBy(desc(zhsCourseVideo.sort), desc(zhsCourseVideo.createdAt))
+    return reply.send(success({ courses }))
   })
 
   // GET /live/statistics - 直播统计

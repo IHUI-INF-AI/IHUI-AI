@@ -213,6 +213,48 @@ export const teamRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ---------------------------------------------------------------------------
+  // 当前用户团队聚合(me/*,静态优先于 :id)
+  // ---------------------------------------------------------------------------
+
+  // GET /me/stats - 当前用户的团队统计概览
+  server.get('/me/stats', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const teams = await findTeamsByUser(userId)
+    const totalMembers = await Promise.all(
+      teams.map((t) => findTeamMembers(t.id).then((ms) => ms.length)),
+    )
+    const ownedTeams = teams.filter((t) => t.ownerId === userId).length
+
+    return reply.send(
+      success({
+        totalTeams: teams.length,
+        ownedTeams,
+        totalMembers: totalMembers.reduce((a, b) => a + b, 0),
+      }),
+    )
+  })
+
+  // GET /me/members - 当前用户所在所有团队的成员聚合列表
+  server.get('/me/members', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const teams = await findTeamsByUser(userId)
+    const membersByTeam = await Promise.all(
+      teams.map(async (t) => ({
+        teamId: t.id,
+        teamName: t.name,
+        members: (await findTeamMembers(t.id)).map(serializeMember),
+      })),
+    )
+    return reply.send(success({ teams: membersByTeam }))
+  })
+
+  // ---------------------------------------------------------------------------
   // 团队 CRUD
   // ---------------------------------------------------------------------------
 
