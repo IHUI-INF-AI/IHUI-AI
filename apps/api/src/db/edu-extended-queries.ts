@@ -9,6 +9,7 @@ import {
   type EduOfflineRecord,
   type EduUploadedCert,
   type EduUploadedPaper,
+  type AttachmentItem,
 } from '@ihui/database';
 
 // =============================================================================
@@ -51,6 +52,7 @@ export interface CreateNoteInput {
   title?: string | null;
   content: string;
   isPublic?: boolean;
+  attachments?: AttachmentItem[];
 }
 
 export async function createNote(data: CreateNoteInput): Promise<EduNote> {
@@ -62,6 +64,7 @@ export async function createNote(data: CreateNoteInput): Promise<EduNote> {
       title: data.title,
       content: data.content,
       isPublic: data.isPublic,
+      attachments: data.attachments ?? [],
     })
     .returning();
   const row = rows[0];
@@ -74,6 +77,7 @@ export interface UpdateNoteInput {
   title?: string | null;
   content?: string;
   isPublic?: boolean;
+  attachments?: AttachmentItem[];
 }
 
 export async function updateNote(id: string, data: UpdateNoteInput): Promise<EduNote | undefined> {
@@ -82,6 +86,7 @@ export async function updateNote(id: string, data: UpdateNoteInput): Promise<Edu
   if (data.title !== undefined) set.title = data.title;
   if (data.content !== undefined) set.content = data.content;
   if (data.isPublic !== undefined) set.isPublic = data.isPublic;
+  if (data.attachments !== undefined) set.attachments = data.attachments;
   set.updatedAt = new Date();
   const rows = await db.update(eduNotes).set(set).where(eq(eduNotes.id, id)).returning();
   return rows[0];
@@ -132,6 +137,7 @@ export interface CreateOfflineRecordInput {
   description?: string | null;
   hours?: number;
   occurredAt?: Date | null;
+  attachments?: AttachmentItem[];
 }
 
 export async function createOfflineRecord(data: CreateOfflineRecordInput): Promise<EduOfflineRecord> {
@@ -144,6 +150,7 @@ export async function createOfflineRecord(data: CreateOfflineRecordInput): Promi
       description: data.description,
       hours: data.hours,
       occurredAt: data.occurredAt,
+      attachments: data.attachments ?? [],
     })
     .returning();
   const row = rows[0];
@@ -157,6 +164,7 @@ export interface UpdateOfflineRecordInput {
   description?: string | null;
   hours?: number;
   occurredAt?: Date | null;
+  attachments?: AttachmentItem[];
 }
 
 export async function updateOfflineRecord(
@@ -169,6 +177,7 @@ export async function updateOfflineRecord(
   if (data.description !== undefined) set.description = data.description;
   if (data.hours !== undefined) set.hours = data.hours;
   if (data.occurredAt !== undefined) set.occurredAt = data.occurredAt;
+  if (data.attachments !== undefined) set.attachments = data.attachments;
   set.updatedAt = new Date();
   const rows = await db.update(eduOfflineRecords).set(set).where(eq(eduOfflineRecords.id, id)).returning();
   return rows[0];
