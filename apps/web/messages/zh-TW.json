@@ -1959,7 +1959,8 @@
         "resource": "資源中心",
         "developer": "開發者中心",
         "saas": "SaaS 部署"
-      }
+      },
+      "saasMetrics": "資源監控"
     },
     "refund": {
       "title": "退款審核管理",
@@ -2667,7 +2668,8 @@
         "domain": "存取網域",
         "domainHint": "使用者存取網址",
         "shortcuts": "快捷操作",
-        "manageBackups": "管理備份"
+        "manageBackups": "管理備份",
+        "compareTenants": "租戶對比"
       },
       "backups": {
         "title": "{slug} 的備份",
@@ -2749,6 +2751,35 @@
         "aiTokens": "AI Token",
         "storage": "儲存空間",
         "unlimited": "無限制"
+      },
+      "metrics": {
+        "pageTitle": "資源監控",
+        "pageSubtitle": "多租戶 CPU/記憶體/網路 即時對比(Prometheus + Grafana)",
+        "refresh": "重新整理",
+        "loading": "正在載入 Grafana 圖表…",
+        "iframeTitle": "即時指標(Grafana)",
+        "openNewWindow": "在新視窗開啟",
+        "unavailable": "Prometheus 無法連線,請檢查 cadvisor/prometheus 容器狀態",
+        "unavailableTitle": "資源監控暫時無法使用",
+        "unavailableHint": "Prometheus 服務連線失敗,容器指標無法取得。",
+        "envHint": "提示: NEXT_PUBLIC_GRAFANA_BASE 未設定,iframe 使用預設值 http://127.0.0.1:3001",
+        "compareTitle": "多租戶對比(各租戶 CPU/記憶體疊加)",
+        "rankingTitle": "租戶排名(依 CPU 降冪)",
+        "totalTenants": "共 {total} 個租戶",
+        "containers": "容器 × {count}",
+        "usageBarLabel": "{label} 使用率",
+        "empty": "暫無可監控的租戶,等待容器啟動…",
+        "generatedAt": "資料產生於 {time}",
+        "degraded": "降級模式",
+        "degradedHint": "Prometheus 資料源無法連線,顯示為空資料",
+        "live": "即時",
+        "back": "返回租戶列表",
+        "cardTitle": "即時資源指標",
+        "cpu": "CPU",
+        "memory": "記憶體",
+        "networkRx": "下行",
+        "networkTx": "上行",
+        "unitCores": "核"
       }
     },
     "users": {

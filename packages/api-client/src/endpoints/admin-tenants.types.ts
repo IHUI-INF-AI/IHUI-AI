@@ -130,3 +130,37 @@ export interface CustomerQuota {
   expectedFrom: string
   generatedAt: string
 }
+
+/* ==================== P1-2.3: Prometheus 实时指标 ==================== */
+
+/** per-tenant 详细实时指标(数据源:Prometheus) */
+export interface CustomerMetrics {
+  slug: string
+  /** CPU 占用核数(5m 速率 × 5min 累计) */
+  cpu: number
+  /** 内存占用字节数 */
+  memoryBytes: number
+  /** 网络下行字节/秒 */
+  networkRxBytesPerSec: number
+  /** 网络上行字节/秒 */
+  networkTxBytesPerSec: number
+  /** Prometheus 不可达时为 false,UI 降级显示 */
+  available: boolean
+  generatedAt: string
+}
+
+/** 横向对比 — 单一租户聚合 */
+export interface TenantMetricsSummary {
+  slug: string
+  cpu: number
+  memoryBytes: number
+  containers: number
+}
+
+/** 横向对比 — 多租户聚合 */
+export interface MetricsSummary {
+  tenants: TenantMetricsSummary[]
+  total: number
+  available: boolean
+  generatedAt: string
+}

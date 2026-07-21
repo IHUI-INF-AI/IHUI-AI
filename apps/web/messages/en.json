@@ -1959,7 +1959,8 @@
         "resource": "Resources",
         "developer": "Developer",
         "saas": "SaaS Deploy"
-      }
+      },
+      "saasMetrics": "Resource Monitoring"
     },
     "refund": {
       "title": "Refund Audit Management",
@@ -2667,7 +2668,8 @@
         "domain": "Domain",
         "domainHint": "User-facing URL",
         "shortcuts": "Shortcuts",
-        "manageBackups": "Manage Backups"
+        "manageBackups": "Manage Backups",
+        "compareTenants": "Compare Tenants"
       },
       "backups": {
         "title": "Backups of {slug}",
@@ -2749,6 +2751,35 @@
         "aiTokens": "AI Tokens",
         "storage": "Storage",
         "unlimited": "Unlimited"
+      },
+      "metrics": {
+        "pageTitle": "Resource Monitoring",
+        "pageSubtitle": "Multi-tenant CPU / Memory / Network real-time comparison (Prometheus + Grafana)",
+        "refresh": "Refresh",
+        "loading": "Loading Grafana charts…",
+        "iframeTitle": "Live Metrics (Grafana)",
+        "openNewWindow": "Open in new window",
+        "unavailable": "Prometheus unavailable. Please check cadvisor/prometheus containers.",
+        "unavailableTitle": "Resource monitoring unavailable",
+        "unavailableHint": "Failed to connect to Prometheus. Container metrics are unreachable.",
+        "envHint": "Hint: NEXT_PUBLIC_GRAFANA_BASE is not set; iframe uses default http://127.0.0.1:3001",
+        "compareTitle": "Multi-tenant Comparison (CPU/Memory overlay)",
+        "rankingTitle": "Tenant Ranking (by CPU desc)",
+        "totalTenants": "{total} tenants in total",
+        "containers": "Containers × {count}",
+        "usageBarLabel": "{label} usage",
+        "empty": "No monitorable tenants. Waiting for containers to start…",
+        "generatedAt": "Data generated at {time}",
+        "degraded": "Degraded",
+        "degradedHint": "Prometheus data source unreachable, showing empty data",
+        "live": "Live",
+        "back": "Back to tenant list",
+        "cardTitle": "Real-time Resource Metrics",
+        "cpu": "CPU",
+        "memory": "Memory",
+        "networkRx": "RX",
+        "networkTx": "TX",
+        "unitCores": "cores"
       }
     },
     "users": {

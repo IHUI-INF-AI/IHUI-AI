@@ -1,0 +1,16 @@
+# Grafana 数据源自动注册(P1-2.3)
+# 容器启动时,此文件由 Grafana 自动加载,无需手动配置 UI
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    # admin-api 通过环境变量 PROMETHEUS_URL 内部访问
+    # Grafana 容器内直接访问 prometheus:9090(docker network 内)
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 15s
+      httpMethod: POST
