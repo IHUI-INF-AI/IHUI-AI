@@ -389,6 +389,32 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
+  // 第三方登录配置状态(公开端点,登录页用于显示哪些平台可用)
+  // 返回 8 平台 true/false,与 .env 凭据配置实时一致
+  server.get('/auth/oauth-status', async (_request, reply) => {
+    return reply.send(
+      success({
+        google: isGoogleConfigured(),
+        apple: Boolean(
+          process.env.APPLE_CLIENT_ID &&
+            process.env.APPLE_TEAM_ID &&
+            process.env.APPLE_KEY_ID &&
+            process.env.APPLE_PRIVATE_KEY,
+        ),
+        dingtalk: isDingtalkConfigured(),
+        enterpriseWechat: isWecomConfigured(),
+        wechat: Boolean(
+          process.env.WECHAT_APP_ID && process.env.WECHAT_APP_SECRET,
+        ),
+        feishu: isFeishuConfigured(),
+        github: Boolean(
+          process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET,
+        ),
+        alipay: isAlipayLoginConfigured(),
+      }),
+    )
+  })
+
   // 用户信息
   server.get('/auth/info', async (request, reply) => {
     await authenticate(request)
