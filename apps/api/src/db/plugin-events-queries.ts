@@ -109,19 +109,26 @@ export async function getPluginStatsSummary(days: number): Promise<PluginStatsSu
  */
 export async function getPluginStatsByPlugin(days: number, limit: number): Promise<PluginStatsRow[]> {
   const since = sql`now() - interval '${sql.raw(String(days))} days'`
+  const installsExpr = sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'install')`
+  const uninstallsExpr = sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'uninstall')`
+  const clicksExpr = sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'click')`
+  const pinsExpr = sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'pin')`
+  const unpinsExpr = sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'unpin')`
+  const heatExpr = sql<number>`(${installsExpr}) * 10 + (${clicksExpr}) + (${pinsExpr}) * 20 - (${uninstallsExpr}) * 5`
   const rows = await db
     .select({
       pluginId: pluginEvents.pluginId,
-      installs: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'install')`,
-      uninstalls: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'uninstall')`,
-      clicks: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'click')`,
-      pins: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'pin')`,
-      unpins: sql<number>`count(*) filter (where ${pluginEvents.eventType} = 'unpin')`,
+      installs: installsExpr,
+      uninstalls: uninstallsExpr,
+      clicks: clicksExpr,
+      pins: pinsExpr,
+      unpins: unpinsExpr,
+      heat: heatExpr,
     })
     .from(pluginEvents)
     .where(gte(pluginEvents.createdAt, since))
     .groupBy(pluginEvents.pluginId)
-    .orderBy(desc(sql`installs * 10 + clicks + pins * 20 - uninstalls * 5`))
+    .orderBy(desc(heatExpr))
     .limit(limit)
 
   return rows.map((r) => ({
