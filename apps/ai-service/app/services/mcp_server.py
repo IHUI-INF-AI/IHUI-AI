@@ -1053,7 +1053,11 @@ async def _tool_agent_control(
     tool_name = f"{category}_{action}"
     try:
         async with httpx.AsyncClient(timeout=timeout_ms / 1000 + 10) as client:
-            response = await client.post(_AGENT_CONTROL_API_URL, json=request)
+            response = await client.post(
+                _AGENT_CONTROL_API_URL,
+                json=request,
+                headers={"Authorization": "Bearer internal-service"},
+            )
             response.raise_for_status()
             payload = response.json()
             # api 层返回 ApiResponse<AgentActionResponse> = { code, message, data }
