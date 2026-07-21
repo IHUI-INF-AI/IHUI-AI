@@ -625,6 +625,16 @@
     "qrRefresh": "Refresh QR code",
     "qrScanTip": "Scan with your phone to log in (expires in {time})",
     "qrSwitchMethod": "Other login methods",
+    "qrConfirmTitle": "Scan Login Confirmation",
+    "qrConfirmPrompt": "Check the result on the original login page",
+    "qrConfirmBtn": "Confirm Login",
+    "qrConfirmCancel": "Cancel",
+    "qrConfirmSuccess": "Login confirmed, you may close this page",
+    "qrConfirmInvalid": "QR code is invalid or expired",
+    "account": "Account",
+    "accountPlaceholder": "Enter your account",
+    "invalidAccount": "Invalid account",
+    "sendSmsCode": "Send code",
     "passwordWeak": "Weak",
     "passwordMedium": "Medium",
     "passwordStrong": "Strong",
@@ -1751,12 +1761,7 @@
       "free": {
         "name": "Free",
         "cta": "Get Started",
-        "features": [
-          "10 AI chats per day",
-          "Basic models",
-          "1 project",
-          "Community support"
-        ]
+        "features": ["10 AI chats per day", "Basic models", "1 project", "Community support"]
       },
       "pro": {
         "name": "Pro",
@@ -8043,11 +8048,7 @@
     "planLifetimePrice": "$149.99",
     "planFeatures": "Plan Features",
     "subscribe": "Subscribe",
-    "planMonthlyFeatures": [
-      "1000 credits/month",
-      "Basic AI chat",
-      "Community access"
-    ],
+    "planMonthlyFeatures": ["1000 credits/month", "Basic AI chat", "Community access"],
     "planYearlyFeatures": [
       "12000 credits/month",
       "Advanced AI chat",
@@ -13772,56 +13773,32 @@
       "chat": {
         "label": "AI Chat",
         "description": "Start a new AI conversation",
-        "keywords": [
-          "AI",
-          "chat",
-          "conversation"
-        ]
+        "keywords": ["AI", "chat", "conversation"]
       },
       "drama": {
         "label": "AI Drama",
         "description": "Create AI drama content",
-        "keywords": [
-          "drama",
-          "video",
-          "short"
-        ]
+        "keywords": ["drama", "video", "short"]
       },
       "search": {
         "label": "Search",
         "description": "Search content, users, tags",
-        "keywords": [
-          "search",
-          "find",
-          "lookup"
-        ]
+        "keywords": ["search", "find", "lookup"]
       },
       "ai-world": {
         "label": "AI World",
         "description": "Explore the AI world",
-        "keywords": [
-          "AI",
-          "world",
-          "explore"
-        ]
+        "keywords": ["AI", "world", "explore"]
       },
       "profile": {
         "label": "Profile",
         "description": "View your profile",
-        "keywords": [
-          "profile",
-          "user",
-          "account"
-        ]
+        "keywords": ["profile", "user", "account"]
       },
       "settings": {
         "label": "Settings",
         "description": "Modify app preferences",
-        "keywords": [
-          "settings",
-          "preferences",
-          "config"
-        ]
+        "keywords": ["settings", "preferences", "config"]
       }
     }
   },
@@ -17319,12 +17296,7 @@
       "title": "MonthlyMember",
       "days": "30day",
       "select": "Sel",
-      "benefits": [
-        "All Lessons Free Study",
-        "Learning Community",
-        "M3SubAI",
-        "Learning Progress"
-      ]
+      "benefits": ["All Lessons Free Study", "Learning Community", "M3SubAI", "Learning Progress"]
     },
     "yearly": {
       "title": "YearlyMember",
@@ -21381,11 +21353,7 @@
       "label": "Core Positioning",
       "title": "Rational efficiency services and a mutual-aid community for enterprises in the AI era",
       "description": "IHUI AI Community is dedicated to helping enterprise decision-makers deeply understand the relationship between AI and enterprises. Through systematic courses, hands-on exploration, and community mutual aid, we build human-machine collaborative super organizations and achieve rational efficiency gains for enterprises.",
-      "tags": [
-        "Human-Machine Collaboration",
-        "Rational Efficiency",
-        "Super Organization"
-      ]
+      "tags": ["Human-Machine Collaboration", "Rational Efficiency", "Super Organization"]
     },
     "modules": {
       "label": "Three Service Modules",
@@ -21395,31 +21363,19 @@
           "tag": "MODULE 01",
           "title": "Local Community",
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": [
-            "Systematic courses",
-            "Hands-on exploration",
-            "Community mutual aid"
-          ]
+          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"]
         },
         {
           "tag": "MODULE 02",
           "title": "Online Community",
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": [
-            "Communication platform",
-            "Experience sharing",
-            "Resource matching"
-          ]
+          "features": ["Communication platform", "Experience sharing", "Resource matching"]
         },
         {
           "tag": "MODULE 03",
           "title": "AI Professional Services",
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": [
-            "Professional LLMs",
-            "Agent services",
-            "Consulting services"
-          ]
+          "features": ["Professional LLMs", "Agent services", "Consulting services"]
         }
       ]
     },
@@ -21551,37 +21507,25 @@
           "tag": "Q1",
           "title": "Efficient Assistant",
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": [
-            "Knowledge Q&A",
-            "Process automation"
-          ]
+          "examples": ["Knowledge Q&A", "Process automation"]
         },
         {
           "tag": "Q2",
           "title": "Smart Advisor",
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": [
-            "Data analysis",
-            "Decision support"
-          ]
+          "examples": ["Data analysis", "Decision support"]
         },
         {
           "tag": "Q3",
           "title": "Execution Expert",
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": [
-            "Meeting scheduling",
-            "Approval workflows"
-          ]
+          "examples": ["Meeting scheduling", "Approval workflows"]
         },
         {
           "tag": "Q4",
           "title": "All-round Expert",
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": [
-            "Marketing automation",
-            "Multi-agent collaboration"
-          ]
+          "examples": ["Marketing automation", "Multi-agent collaboration"]
         }
       ]
     },
@@ -21605,29 +21549,12 @@
       ],
       "infoTitle": "Information World",
       "infoBasicLabel": "Basic Information World",
-      "infoBasic": [
-        "Informatization",
-        "IoT",
-        "Automation"
-      ],
+      "infoBasic": ["Informatization", "IoT", "Automation"],
       "infoAdvancedLabel": "Advanced Information World",
-      "infoAdvanced": [
-        "Perceptive AI",
-        "Generative AI",
-        "Agent AI",
-        "Physical AI"
-      ],
+      "infoAdvanced": ["Perceptive AI", "Generative AI", "Agent AI", "Physical AI"],
       "effectTitle": "AI Transformation Effects",
-      "effectFlow": [
-        "Super Employee",
-        "Super Team",
-        "Super Product/Service"
-      ],
-      "effectMetrics": [
-        "Cost Optimization",
-        "Efficiency Improvement",
-        "Experience Upgrade"
-      ]
+      "effectFlow": ["Super Employee", "Super Team", "Super Product/Service"],
+      "effectMetrics": ["Cost Optimization", "Efficiency Improvement", "Experience Upgrade"]
     }
   },
   "drama": {
@@ -25800,15 +25727,7 @@
       "visitsHeader": "Visits",
       "ratioHeader": "Ratio"
     },
-    "weekdays": [
-      "Mon",
-      "Tue",
-      "Wed",
-      "Thu",
-      "Fri",
-      "Sat",
-      "Sun"
-    ]
+    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
   },
   "pdfWatermarkPage": {
     "title": "PDF Watermark",
@@ -26025,27 +25944,15 @@
       "targetPlaceholder": "e.g. Top high school, 985 university"
     },
     "options": {
-      "school": [
-        "Public School",
-        "Private School",
-        "Key School"
-      ],
-      "classLevel": [
-        "Regular Class",
-        "Key Class"
-      ],
+      "school": ["Public School", "Private School", "Key School"],
+      "classLevel": ["Regular Class", "Key Class"],
       "difficulty": [
         "Slow Reading",
         "Comprehension Difficulty",
         "Limited Vocabulary",
         "Weak Writing"
       ],
-      "obstacle": [
-        "Gaming Addiction",
-        "Attention Deficit",
-        "Procrastination",
-        "Low Efficiency"
-      ]
+      "obstacle": ["Gaming Addiction", "Attention Deficit", "Procrastination", "Low Efficiency"]
     },
     "submit": "Generate Guidance",
     "submitting": "AI analyzing...",
@@ -27076,5 +26983,131 @@
       "sensitive": "Sensitive operation",
       "other": "Other"
     }
+  },
+  "oAuthCallbackPage": {
+    "loading": "Completing sign-in...",
+    "success": "Sign-in successful, redirecting...",
+    "failedTitle": "Sign-in failed",
+    "backToLogin": "Back to login",
+    "error": {
+      "missingPlatform": "Missing platform parameter",
+      "missingCode": "Missing authorization code",
+      "loginFailed": "Login failed, please retry",
+      "emptyData": "Empty response data",
+      "network": "Network error, please check your connection"
+    },
+    "provider": {
+      "google": "Google",
+      "apple": "Apple",
+      "thirdParty": "Third-party"
+    }
+  },
+  "agentsStatsPage": {
+    "back": "Back",
+    "title": "Agent Statistics",
+    "subtitle": "View your agent performance metrics",
+    "loading": "Loading statistics..."
+  },
+  "videoTasksPage": {
+    "title": "Video Generation Tasks",
+    "description": "Manage your AI video generation tasks",
+    "refresh": "Refresh",
+    "taskList": "Task List",
+    "loading": "Loading tasks...",
+    "empty": "No tasks yet",
+    "promptSummary": "Prompt",
+    "status": "Status",
+    "createdAt": "Created At"
+  },
+  "asksEditFormPage": {
+    "editTitle": "Edit Question",
+    "publishTitle": "Publish Question",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Enter a concise title",
+    "contentLabel": "Content",
+    "contentPlaceholder": "Describe your question in detail",
+    "tagsLabel": "Tags",
+    "tagsPlaceholder": "Add up to 5 tags",
+    "saveButton": "Save",
+    "publishButton": "Publish",
+    "cancel": "Cancel"
+  },
+  "rankingPage": {
+    "title": "Ranking",
+    "subtitle": "Top contributors and creators",
+    "loading": "Loading ranking...",
+    "empty": "No ranking data",
+    "col": {
+      "rank": "Rank",
+      "user": "User",
+      "score": "Score"
+    }
+  },
+  "recruitmentPage": {
+    "loading": "Loading positions...",
+    "empty": "No open positions",
+    "defaultSubtitle": "Join our team",
+    "requirementsTitle": "Requirements",
+    "emptyRequirements": "No specific requirements",
+    "benefitsTitle": "Benefits",
+    "emptyBenefits": "No benefits listed",
+    "cta": {
+      "title": "Ready to join?",
+      "subtitle": "Send us your resume and portfolio",
+      "button": "Apply Now"
+    }
+  },
+  "shareContentPage": {
+    "modelIconAlt": "Model icon",
+    "defaultModelName": "AI Model",
+    "aiGenerated": "AI Generated",
+    "tokenCostLabel": "Tokens"
+  },
+  "businessCardSharePage": {
+    "loading": "Loading...",
+    "backToList": "Back to list",
+    "notFound": "Card not found",
+    "qrAlt": "QR code",
+    "scanTip": "Scan to view card",
+    "copied": "Copied",
+    "copyLink": "Copy link",
+    "downloadVcard": "Download vCard",
+    "processing": "Processing...",
+    "favoriteCard": "Favorite card"
+  },
+  "imageGenPage": {
+    "success": "Generation succeeded",
+    "promptRequired": "Please enter a prompt",
+    "title": "AI Image Generation",
+    "subtitle": "Generate images from text descriptions",
+    "promptLabel": "Prompt",
+    "promptPlaceholder": "Describe the image you want...",
+    "sizeLabel": "Size",
+    "generating": "Generating...",
+    "generate": "Generate",
+    "download": "Download"
+  },
+  "kbEditPage": {
+    "titleRequired": "Title is required",
+    "contentRequired": "Content is required",
+    "loading": "Loading...",
+    "backToList": "Back to list",
+    "notFound": "Article not found",
+    "title": "Edit Article",
+    "subtitle": "Modify article content",
+    "backToArticle": "Back to article",
+    "submitLabel": "Save"
+  },
+  "learnMapPage": {
+    "defaultTitle": "Learning Path",
+    "defaultDesc": "Master the topic step by step",
+    "totalProgress": "Overall progress",
+    "loading": "Loading...",
+    "empty": "No learning content",
+    "stageN": "Stage {n}",
+    "completed": "Completed",
+    "lessonsProgress": "{completed}/{total} lessons",
+    "review": "Review",
+    "continueLearning": "Continue"
   }
 }
