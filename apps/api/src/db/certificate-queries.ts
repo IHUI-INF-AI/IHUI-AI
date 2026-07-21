@@ -7,6 +7,7 @@ import {
   type CertificateTemplate,
   type Certificate,
 } from '@ihui/database'
+import { generateCertificateNumber } from '../utils/crypto-random.js'
 
 // =============================================================================
 // Templates
@@ -252,13 +253,9 @@ export async function deleteCertificate(id: string): Promise<void> {
   await db.delete(certificates).where(eq(certificates.id, id))
 }
 
-/** 生成唯一证书编号: CERT-YYYYMMDD-随机8位。 */
+/** 生成唯一证书编号: CERT-YYYYMMDD-随机8位(密码学安全)。 */
 export function generateCertificateNo(): string {
-  const now = new Date()
-  const ymd =
-    now.getFullYear().toString() +
-    String(now.getMonth() + 1).padStart(2, '0') +
-    String(now.getDate()).padStart(2, '0')
-  const rand = Math.random().toString(36).slice(2, 10).toUpperCase()
-  return `CERT-${ymd}-${rand}`
+  // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成证书编号,
+  // 防止攻击者猜测其他用户证书编号
+  return generateCertificateNumber()
 }
