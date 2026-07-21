@@ -96,6 +96,8 @@ export * from './endpoints/misc.js'
 export * from './endpoints/notification.js'
 export * from './endpoints/order.js'
 export * from './endpoints/payment.js'
+// 插件市场 API(2026-07-22 立,跨端共享)
+export * from './endpoints/plugin.js'
 export * from './endpoints/resource.js'
 export * from './endpoints/share.js'
 export * from './endpoints/subscription.js'
