@@ -18,6 +18,9 @@ import { PlanMachine } from '../plan/index.js';
 import { setupAgentTools, runToolLoop, type ToolContext, type InterjectionBlock } from './agent.js';
 import { InterjectionBuffer } from '../interjection.js';
 import { renderSlashHelp, suggestSlashCommands } from './slash-registry.js';
+import { createMarkdownRenderer, type MarkdownRenderer } from './markdown-renderer.js';
+import { createWaitingSpinner, createToolSpinner, type Spinner } from './ui-spinner.js';
+import { renderErrorCard, renderBannerGradient } from './ui-banners.js';
 import type { PermissionRules, PermissionMode } from '../tools/permissions.js';
 import type { PluginRegistry } from '../plugins/index.js';
 import { readTodoList } from '../tools/todo-write.js';
@@ -513,8 +516,10 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
   const horizontalLine = '─'.repeat(bannerWidth + 4);
   console.info('');
   console.info(chalk.cyan(`┌${horizontalLine}┐`));
-  for (const line of bannerLines) {
-    console.info(chalk.cyan(`│  ${line}  │`));
+  // 渐变 banner:truecolor 终端下 cyan → magenta 渐变,否则单色 cyan
+  const gradientBanner = renderBannerGradient(bannerLines);
+  for (const line of gradientBanner) {
+    console.info(chalk.cyan(`│  `) + line + chalk.cyan(`  │`));
   }
   console.info(chalk.cyan(`└${horizontalLine}┘`));
   const workspaceName = path.basename(opts.workspacePath);
@@ -1741,6 +1746,15 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
   const promptPreview = prompt.length > 60 ? `${prompt.slice(0, 60)}…` : prompt;
   console.info(chalk.cyan(`\n▶ ${state.opts.modelId}  ·  ${chalk.dim(promptPreview)}`));
 
+  // 首 token 等待 spinner — onDelta 首次回调时停止
+  const waitingSpinner = createWaitingSpinner(`${state.opts.modelId} · 正在思考...`);
+  waitingSpinner.start();
+  let firstTokenReceived = false;
+
+  // LLM 流式输出接入 markdown 渲染器 — 累积 delta,按行喂给 markdown 渲染器
+  const mdRenderer: MarkdownRenderer = createMarkdownRenderer();
+  let pendingLine = '';
+
   // P2-2 恢复 drain 机制:从 InterjectionBuffer 弹出所有 pending,供 runToolLoop 循环内注入
   // 替代原 `() => []` 禁用代码:agent 循环内每轮调一次 drain,interjection 内容追加到 messages
   const drainInterjections = createDrainInterjections(state.interjectionBuffer);
@@ -1749,6 +1763,9 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
     // 工具调用追踪:记录每个工具的起始时间,用于卡片显示耗时
     const toolStartTime = new Map<string, number>();
     let toolCallCount = 0;
+    // 当前工具运行中的 spinner(每个工具独立)
+    let currentToolSpinner: Spinner | null = null;
+
     const result = await runToolLoop({
       modelId: state.opts.modelId,
       messages,
@@ -1761,8 +1778,37 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       planMachine: state.planMachine,
       plugins: state.pluginRegistry,
       drainInterjections,
-      onDelta: (delta) => { process.stdout.write(delta); },
+      onDelta: (delta) => {
+        // 首 token 到达,停止等待 spinner
+        if (!firstTokenReceived) {
+          firstTokenReceived = true;
+          waitingSpinner.stop();
+          // 换行让 LLM 输出从新行开始
+          process.stdout.write('\n');
+        }
+        // 流式 markdown 渲染:按 \n 切分,完整行交给 renderer,残片累积
+        pendingLine += delta;
+        let nlIdx: number;
+        while ((nlIdx = pendingLine.indexOf('\n')) !== -1) {
+          const line = pendingLine.slice(0, nlIdx);
+          pendingLine = pendingLine.slice(nlIdx + 1);
+          const rendered = mdRenderer.pushLine(line);
+          for (const r of rendered) console.info(r);
+        }
+      },
       onToolCall: (name, args) => {
+        // 首 token 等待 spinner 保险停止(避免与工具调用 spinner 冲突)
+        if (!firstTokenReceived) {
+          firstTokenReceived = true;
+          waitingSpinner.stop();
+          process.stdout.write('\n');
+        }
+        // flush 残留 markdown 行(避免代码块未闭合就进入工具卡片)
+        if (pendingLine) {
+          const rendered = mdRenderer.pushLine(pendingLine);
+          for (const r of rendered) console.info(r);
+          pendingLine = '';
+        }
         toolCallCount++;
         const callId = `call-${toolCallCount}`;
         toolStartTime.set(callId, Date.now());
@@ -1770,8 +1816,16 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         const argDisplay = argStr.length > 100 ? `${argStr.slice(0, 100)}…` : argStr;
         console.info(chalk.cyan(`\n  ┌─ 🔧 ${chalk.bold(name)} ${chalk.dim(`#${toolCallCount}`)}`));
         console.info(chalk.cyan(`  │  ${chalk.dim('参数:')} ${argDisplay}`));
+        // 启动工具运行 spinner(显示在卡片下方)
+        currentToolSpinner = createToolSpinner(name, argDisplay);
+        currentToolSpinner.start();
       },
       onToolResult: (_name, success, output) => {
+        // 停止工具运行 spinner
+        if (currentToolSpinner) {
+          currentToolSpinner.stop();
+          currentToolSpinner = null;
+        }
         const callId = `call-${toolCallCount}`;
         const startTime = toolStartTime.get(callId);
         const durationMs = startTime ? Date.now() - startTime : 0;
@@ -1782,8 +1836,35 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
         console.info(chalk.cyan(`  │  ${icon} ${chalk.dim('结果:')} ${outDisplay.replace(/\n/g, '\n  │  ')}`));
         console.info(chalk.cyan(`  └─ ${statusLabel}${durationStr} ${chalk.dim('────')}`));
       },
-      onError: (err) => console.error(chalk.red(`\n❌ ${err}`)),
+      onError: (err) => {
+        // 错误卡片化:╭─ ERROR ╮ 边框 + 红色高亮
+        if (currentToolSpinner) {
+          currentToolSpinner.stop();
+          currentToolSpinner = null;
+        }
+        const msg = typeof err === 'string' ? err : String(err);
+        const cardLines = renderErrorCard(msg, {
+          title: 'Agent 错误',
+        });
+        for (const line of cardLines) console.error(line);
+      },
     });
+
+    // LLM 输出结束 — flush 残留 markdown(未闭合代码块等)
+    if (!firstTokenReceived) {
+      // 整个 sendToAgent 期间没有 delta(纯工具调用),停止 spinner
+      waitingSpinner.stop();
+    } else {
+      // flush 最后一行(未带 \n 的残片)
+      if (pendingLine) {
+        const rendered = mdRenderer.pushLine(pendingLine);
+        for (const r of rendered) console.info(r);
+        pendingLine = '';
+      }
+      const flushed = mdRenderer.flush();
+      for (const r of flushed) console.info(r);
+      console.info('');  // 收尾空行
+    }
 
     state.agentRunning = false;
 
@@ -1810,6 +1891,18 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       console.info(chalk.dim(`  prompt ${u.promptTokens} + completion ${u.completionTokens}`));
     }
     console.info(chalk.dim('─'.repeat(sepWidth) + '\n'));
+  } catch (err) {
+    // sendToAgent 整体失败的兜底错误卡片化
+    if (!firstTokenReceived) waitingSpinner.stop();
+    const msg = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    const cardLines = renderErrorCard(msg, {
+      title: '会话错误',
+      kind: err instanceof Error ? err.name : undefined,
+      stack,
+    });
+    for (const line of cardLines) console.error(line);
+    throw err;
   } finally {
     // P2-2 确保无论成功/失败/中止都清理 abort 状态,避免泄漏到下次 sendToAgent
     state.agentRunning = false;
