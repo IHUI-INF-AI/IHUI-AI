@@ -548,6 +548,76 @@ P2 AI 工具调用深度联动(5 修改文件):
 
 ---
 
+### [x] ✅(2026-07-22) AI 世界六次打磨:OpenCompass Playwright headless 渲染接通 + 5 大榜单全生产可用(跨端:api+ai-service)
+
+**触发**:五次打磨后用户指示"继续 你去做啊 我不会"。要求 OpenCompass 从降级空改为真实数据,达 5 大榜单全部生产可用。
+
+**方案与产出**(跨端 api+ai-service,Playwright headless 渲染抓取):
+
+1. **ai-service 新建 OpenCompass 渲染抓取服务** — `apps/ai-service/app/services/opencompass_scrape.py`:
+   - 复用 `screenshot_service._get_browser()` 单例 Chromium(避免重复启动)
+   - `page.goto('https://rank.opencompass.org.cn/leaderboard/llm')` + `wait_for_selector('table tbody tr')` 等 JS 渲染
+   - 关键发现:OpenCompass 用 **ant-design Vue Table**,thead 和 tbody 在**独立的 table 元素**(header table + body table),JS 提取需配对
+   - 列结构:序号(空) / 模型(含 "模型名\n开源闭源 · 机构" 换行合并) / 发布日期 / 参数量 / 均分 / 语言 / 知识 / 推理 / 数学 / 代码 / 智能体
+   - 模型列解析:`split('\n')` 第一行是模型名,第二行用 "·" 分割提取 provider
+   - 启发式列定位:`_find_col(headers, keywords)` + 数值列 fallback
+   - 按均分降序重排 rank
+
+2. **ai-service 新建路由** — `apps/ai-service/app/routers/opencompass.py`:
+   - `POST /api/opencompass/scrape` → `{ code, message, data: { entries, captured_at, url, headers } }`
+   - 失败时 code=1 + message,调用方降级返回空
+   - `main.py` 注册路由(prefix="/api")
+
+3. **api 端 fetchOpenCompass 重写** — `apps/api/src/jobs/ai-world-sync.ts`:
+   - 从降级空改为 HTTP 调用 `${AI_SERVICE_URL}/api/opencompass/scrape`
+   - 60s 超时(Playwright 渲染较慢)
+   - publishedAt 字段支持(从 OpenCompass "发布日期" 列解析 ISO 时间)
+   - 失败降级:HTTP 非 200 / code != 0 / 异常 → 返回空数组 + warn,不阻塞其他榜单
+
+**实测验证**(`Invoke-RestMethod http://127.0.0.1:8001/api/opencompass/scrape`):
+
+```
+code=0 msg=success entries_count=23
+rank=1 model=GPT-5.4-2026-03-05 (High) provider=OpenAI score=67.3 pub=2026-03-05
+rank=2 model=DeepSeek-V4-Pro provider=DeepSeek score=65.1 pub=2026-04-24
+rank=3 model=Claude Opus 4.7 (High) provider=Anthropic score=64 pub=2026-04-16
+rank=4 model=Doubao-Seed-2-0-Pro-260215 provider=ByteDance score=63.5 pub=2026-02-15
+rank=5 model=Kimi-K2.6 provider=Moonshot score=63.4 pub=2026-04-20
+scores 子能力:语言 80.2 / 知识 93.7 / 推理 64.4 / 数学 72.1 / 代码 63.4 / 智能体 52.8
+```
+
+**变更文件**(4 个):
+- `apps/ai-service/app/services/opencompass_scrape.py`(新建)— Playwright 渲染抓取服务
+- `apps/ai-service/app/routers/opencompass.py`(新建)— HTTP 端点
+- `apps/ai-service/app/main.py`(M)— 注册 opencompass 路由
+- `apps/api/src/jobs/ai-world-sync.ts`(M)— fetchOpenCompass 重写为调用 ai-service
+
+**自验**:
+- `python -c "from app.services.opencompass_scrape import scrape_opencompass"` imports OK ✅
+- `pnpm --filter @ihui/api typecheck` ai-world-sync.ts 0 错误 ✅(其他文件 payment-gateway/order-service 报错属其他 agent)
+- `Invoke-RestMethod /api/opencompass/scrape` 实测 23 条真实数据 ✅(GPT-5.4 rank 1)
+
+**硬约束**:
+- 跨端:api + ai-service 2 端(api 调 ai-service HTTP,ai-service 用 Playwright 渲染)
+- 平台独占标注:api + ai-service 跨端共享
+- 资源开销:Playwright headless Chromium 单例复用(与 screenshot_service 共享 Browser 实例,不重复启动)
+- 失败不阻塞:抓取失败返回空数组 + warn,不 throw,不影响其他 4 个榜单
+- 部署要求:生产环境需 ai-service 装好 Playwright + Chromium(`pip install playwright && playwright install chromium`)
+
+**数据源可用性矩阵(2026-07-22 最终版,5 大榜单全通)**:
+
+| 榜单 | 数据源 | 可用性 | 条目数 | 真实数据样本 |
+|---|---|---|---|---|
+| LMArena | lmarena.ai/leaderboard HTML 表格 | ✅ 稳定 | 190 | claude-fable-5 rank 1 |
+| HF Open LLM | huggingface.co/api/models API | ✅ 稳定 | 50 | Qwen/Qwen3-0.6B 25843960 downloads |
+| Artificial Analysis | artificialanalysis.ai RSC chunks | ✅ 稳定 | 23 | Claude Fable 5 elo=1574.33 |
+| SuperCLUE | superclueai.com Gradio SSG JSON | ✅ 稳定 | 48 | GPT-5(high) 75.34 rank 1 |
+| OpenCompass | rank.opencompass.org.cn Playwright 渲染 | ✅ 稳定 | 23 | GPT-5.4-2026-03-05 (High) 67.3 rank 1 ← 新通! |
+
+**部署提示**:生产环境若 ai-service 跑老版本(8000 端口),需重启 ai-service 加载新路由(`pnpm --filter @ihui/ai-service dev` 或 `python -m uvicorn app.main:app --port 8000`)。
+
+---
+
 ### [x] ✅(2026-07-22) AI 世界四次打磨:5 大抓取器改真实数据源 + GitHub Token + --rankings-only 实测验证(平台独占:仅 api)
 
 **触发**:三次打磨后用户反馈"继续按建议去做 我肯定要真实数据啊 并且生产可用上线"。实测发现 cheerio 静态解析只能拿 LMArena 1 个源真实数据,其余 4 源要么 HTML 结构变化要么无公开 API 返回空数组。
