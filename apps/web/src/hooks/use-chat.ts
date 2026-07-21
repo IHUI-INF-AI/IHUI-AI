@@ -153,6 +153,37 @@ async function tryHandleSelfMediaSlash(
   return true
 }
 
+/** Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):
+ *  传入 streamChat → api /ai/chat/stream → ai-service /api/llm/complete/stream
+ *  ai-service 收到后从 mcp_server 加载完整 schema,走 tool loop(complete→tool_calls→execute→astream)
+ *  12 browser tools + 10 computer tools = 22 个 */
+const AGENT_TOOLS = [
+  // 12 browser tools
+  'browser_screenshot',
+  'browser_click_element',
+  'browser_type_text',
+  'browser_scroll',
+  'browser_navigate',
+  'browser_extract_dom',
+  'browser_wait_for_element',
+  'browser_get_attribute',
+  'browser_hover',
+  'browser_select_option',
+  'browser_switch_tab',
+  'browser_close_tab',
+  // 10 computer tools
+  'computer_screenshot_screen',
+  'computer_mouse_move',
+  'computer_mouse_click',
+  'computer_keyboard_type',
+  'computer_mouse_scroll',
+  'computer_keyboard_press',
+  'computer_keyboard_hotkey',
+  'computer_active_window',
+  'computer_clipboard_get',
+  'computer_clipboard_set',
+] as const
+
 /** 浏览器类工具:命中即自动在右侧 WorkPanel 打开 URL(2026-07-22 立,P2 联动) */
 const BROWSER_TOOL_NAMES = new Set([
   'browser_navigate',
@@ -427,6 +458,7 @@ export function useChat(): UseChatReturn {
             useChatStore.getState().appendReasoningToMessage(assistantId, delta)
           },
           onToolCall: createToolCallHandler(assistantId),
+          agentTools: [...AGENT_TOOLS],
           onError: (errMsg) => {
             const formatted = formatSSEError(errMsg)
             useChatStore.getState().setMessageError(assistantId, formatted.message)
@@ -546,6 +578,7 @@ export function useChat(): UseChatReturn {
           useChatStore.getState().appendReasoningToMessage(assistantId, delta)
         },
         onToolCall: createToolCallHandler(assistantId),
+        agentTools: [...AGENT_TOOLS],
         onError: (errMsg) => {
           const formatted = formatSSEError(errMsg)
           useChatStore.getState().setMessageError(assistantId, formatted.message)
