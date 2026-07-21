@@ -30,12 +30,22 @@ vi.mock('../../db/index.js', () => ({
 
 vi.mock('@ihui/database', () => ({
   aiWorldCategories: { id: 'id', slug: 'slug', name: 'name', description: 'description', icon: 'icon', sort: 'sort', status: 'status' },
-  aiWorldItems: { id: 'id', kind: 'kind', sourceUrl: 'source_url', title: 'title', summary: 'summary', content: 'content', url: 'url', coverImage: 'cover_image', publishedAt: 'published_at', fetchedAt: 'fetched_at', metadata: 'metadata', status: 'status', updatedAt: 'updated_at', likeCount: 'like_count', viewCount: 'view_count', categoryId: 'category_id' },
+  aiWorldItems: { id: 'id', kind: 'kind', sourceUrl: 'source_url', title: 'title', summary: 'summary', content: 'content', url: 'url', coverImage: 'cover_image', publishedAt: 'published_at', fetchedAt: 'fetched_at', metadata: 'metadata', status: 'status', updatedAt: 'updated_at', likeCount: 'like_count', viewCount: 'view_count', categoryId: 'category_id', source: 'source', trendingScore: 'trending_score', trendingMetrics: 'trending_metrics', trendingUpdatedAt: 'trending_updated_at' },
   aiWorldSyncLog: { source: 'source', kind: 'kind', status: 'status', startedAt: 'started_at', finishedAt: 'finished_at', itemCount: 'item_count', error: 'error' },
+  aiWorldRankings: { id: 'id', leaderboard: 'leaderboard', category: 'category', rank: 'rank', modelName: 'model_name', provider: 'provider', score: 'score', scores: 'scores', metadata: 'metadata', publishedAt: 'published_at', fetchedAt: 'fetched_at', createdAt: 'created_at', updatedAt: 'updated_at' },
 }))
 
 // Import after mocks are in place
-import { AI_WORLD_CATEGORIES, syncAllSources, getSourceStats, type FetchedItem } from '../ai-world-sync.js'
+import {
+  AI_WORLD_CATEGORIES,
+  syncAllSources,
+  syncRankings,
+  runDryRun,
+  getSourceStats,
+  type FetchedItem,
+  type LeaderboardEntry,
+  type LeaderboardId,
+} from '../ai-world-sync.js'
 
 describe('AI World Sync — 数据完整性', () => {
   it('AI_WORLD_CATEGORIES 应有 12 个分类', () => {
@@ -83,8 +93,19 @@ describe('AI World Sync — 信源数量(深度打磨后)', () => {
     expect(stats.apps).toBeGreaterThanOrEqual(35)
     // AI Tools:35+
     expect(stats.tools).toBeGreaterThanOrEqual(35)
-    // 总源数:30 + 1(arxiv) + 1(hf papers) + 12(github topics) + 35 + 35 = 114+
+    // 总源数:30 + 1(arxiv) + 1(hf papers) + 12(github topics) + 35 + 35 + 5(rankings) + 8(trending) = 127+
     expect(stats.total).toBeGreaterThanOrEqual(100)
+  })
+
+  it('getSourceStats 应包含 rankings 和 trending 字段(2026-07-22 新增)', () => {
+    const stats = getSourceStats()
+    // rankings:5 大权威榜单(lmsys / opencompass / hf-open-llm / superclue / artificial-analysis)
+    expect(stats.rankings).toBeGreaterThanOrEqual(5)
+    // trending:有 GitHub 仓库的 AI 工具/APP(8 个)
+    expect(stats.trending).toBeGreaterThanOrEqual(5)
+    // total 应包含 rankings + trending 贡献(原有 6 类源基数 ≈114 + rankings 5 + trending 8 → >= 120)
+    // 注:stats.arxiv 是分类数(6),total 公式中 arxiv 只算 1 个源,故不直接相加
+    expect(stats.total).toBeGreaterThanOrEqual(120)
   })
 })
 
@@ -183,4 +204,149 @@ describe('AI World Sync — FetchedItem 类型契约', () => {
     }
     expect(item.categorySlug).toBe('chat')
   })
+})
+
+describe('AI World Sync — 模型排行榜(2026-07-22 新增)', () => {
+  it('LeaderboardEntry 类型契约:5 种 leaderboard id,必填字段齐全', () => {
+    const validIds: LeaderboardId[] = ['lmsys', 'opencompass', 'hf-open-llm', 'superclue', 'artificial-analysis']
+    expect(validIds).toHaveLength(5)
+    for (const leaderboard of validIds) {
+      const entry: LeaderboardEntry = {
+        leaderboard,
+        category: 'overall',
+        rank: 1,
+        modelName: 'Test Model',
+        provider: 'test-provider',
+        score: '1200',
+        scores: { elo: 1200, votes: 1000 },
+        publishedAt: new Date(),
+      }
+      expect(entry.leaderboard).toBe(leaderboard)
+      expect(entry.category).toBe('overall')
+      expect(entry.rank).toBeGreaterThan(0)
+      expect(entry.modelName).toBeTruthy()
+    }
+  })
+
+  it('syncRankings 应返回 SyncSourceResult[] 数组,失败不阻塞(mock fetch 返回空 HTML)', async () => {
+    const originalFetch = globalThis.fetch
+    // mock fetch 返回空 HTML(模拟 JS 渲染页面拿不到表格,所有榜单返回空数组但 success)
+    globalThis.fetch = vi.fn(async () =>
+      new Response('<html><body></body></html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      }),
+    ) as unknown as typeof fetch
+
+    try {
+      const results = await syncRankings()
+      expect(Array.isArray(results)).toBe(true)
+      // 5 大榜单各返回一个 SyncSourceResult
+      expect(results.length).toBe(5)
+      for (const r of results) {
+        expect(r).toHaveProperty('source')
+        expect(r).toHaveProperty('kind')
+        expect(r.kind).toBe('ranking')
+        expect(['success', 'failed', 'partial']).toContain(r.status)
+        expect(typeof r.itemCount).toBe('number')
+        // 空数据视为 success(不阻塞),itemCount=0
+        expect(r.status).toBe('success')
+        expect(r.itemCount).toBe(0)
+      }
+      // 验证 5 个榜单 source 都在结果中
+      const sources = new Set(results.map((r) => r.source))
+      expect(sources.has('lmsys')).toBe(true)
+      expect(sources.has('opencompass')).toBe(true)
+      expect(sources.has('hf-open-llm')).toBe(true)
+      expect(sources.has('superclue')).toBe(true)
+      expect(sources.has('artificial-analysis')).toBe(true)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  }, 60000)
+
+  it('syncRankings 应对每个榜单写同步日志(writeSyncLog 调 db.insert)', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn(async () =>
+      new Response('<html></html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      }),
+    ) as unknown as typeof fetch
+
+    try {
+      vi.clearAllMocks()
+      await syncRankings()
+      // 5 个榜单各写一条 sync log → db.insert 至少被调用 5 次
+      expect(mocks.mockInsert).toHaveBeenCalled()
+      expect(mocks.mockInsert.mock.calls.length).toBeGreaterThanOrEqual(5)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  }, 60000)
+})
+
+describe('AI World Sync — Dry-run 模式(2026-07-22 新增)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('runDryRun 应返回预计条目数数组,不写库(db.insert/update 未被调用)', async () => {
+    const originalFetch = globalThis.fetch
+    // mock fetch 返回空 HTML/JSON,所有 fetcher 返回空或抛错(被 runDryRun try/catch 捕获)
+    globalThis.fetch = vi.fn(async () =>
+      new Response('<html><body></body></html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      }),
+    ) as unknown as typeof fetch
+
+    try {
+      const results = await runDryRun()
+      expect(Array.isArray(results)).toBe(true)
+      expect(results.length).toBeGreaterThan(0)
+      for (const r of results) {
+        expect(r).toHaveProperty('source')
+        expect(r).toHaveProperty('kind')
+        expect(r).toHaveProperty('estimatedItems')
+        expect(typeof r.estimatedItems).toBe('number')
+      }
+      // dry-run 不写库:db.insert 和 db.update 都不应被调用
+      expect(mocks.mockInsert).not.toHaveBeenCalled()
+      expect(mocks.mockUpdate).not.toHaveBeenCalled()
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  }, 120000)
+
+  it('runDryRun 应覆盖所有数据源类型(rss/paper/project/app/tool/ranking/trending)', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn(async () =>
+      new Response('<html></html>', {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' },
+      }),
+    ) as unknown as typeof fetch
+
+    try {
+      const results = await runDryRun()
+      const kinds = new Set(results.map((r) => r.kind))
+      // 至少覆盖 ranking + trending(2026-07-22 新增类型)
+      expect(kinds.has('ranking')).toBe(true)
+      expect(kinds.has('trending')).toBe(true)
+      // 5 大排行榜 source 全覆盖
+      const rankingSources = results.filter((r) => r.kind === 'ranking').map((r) => r.source)
+      expect(rankingSources).toContain('lmsys')
+      expect(rankingSources).toContain('opencompass')
+      expect(rankingSources).toContain('hf-open-llm')
+      expect(rankingSources).toContain('superclue')
+      expect(rankingSources).toContain('artificial-analysis')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  }, 120000)
 })
