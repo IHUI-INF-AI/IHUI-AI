@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { View, Text } from 'react-native'
-import { createNativeStackNavigator } from '@react-navigation/native-stack'
+import { createNativeStackNavigator, type NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
+import { useNavigation } from '@react-navigation/native'
 import { useAuth } from '../context/AuthContext'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../stores/notification'
@@ -137,6 +138,7 @@ import { HistoryScreen } from '../screens/HistoryScreen'
 import { BookmarkScreen } from '../screens/BookmarkScreen'
 import { ShareScreen } from '../screens/ShareScreen'
 import { useI18n } from '../i18n'
+import { WorkPanelScreen, setWorkPanelNavigator } from '../components/WorkPanel'
 
 export type RootStackParamList = {
   Login: undefined
@@ -266,6 +268,7 @@ export type RootStackParamList = {
   History: undefined
   Bookmark: undefined
   Share: { targetType: string; targetId: string; title: string }
+  WorkPanel: { url: string }
 }
 
 export type HomeStackParamList = {
@@ -393,6 +396,15 @@ function MainTabs() {
       />
     </Tabs.Navigator>
   )
+}
+
+function WorkPanelNavBridge() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
+  useEffect(() => {
+    setWorkPanelNavigator((url: string) => navigation.navigate('WorkPanel', { url }))
+    return () => setWorkPanelNavigator(null)
+  }, [navigation])
+  return null
 }
 
 function RootNavigatorInner() {
@@ -531,6 +543,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="History" component={HistoryScreen} />
             <RootStack.Screen name="Bookmark" component={BookmarkScreen} />
             <RootStack.Screen name="Share" component={ShareScreen} />
+            <RootStack.Screen name="WorkPanel" component={WorkPanelScreen} />
           </>
         ) : (
           <>
@@ -540,6 +553,7 @@ function RootNavigatorInner() {
         )}
       </RootStack.Navigator>
       <NotificationPanel />
+      <WorkPanelNavBridge />
     </>
   )
 }
