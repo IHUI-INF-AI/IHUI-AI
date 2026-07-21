@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Loader2, Upload, FileText, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import {
   Button,
   Card,
@@ -87,59 +88,60 @@ export function ResourceForm({
   onCancel,
   isEdit,
 }: Props) {
+  const t = useTranslations('resourceFormPage')
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">资源信息</CardTitle>
+        <CardTitle className="text-lg">{t('cardTitle')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="title">标题</Label>
+          <Label htmlFor="title">{t('fields.title.label')}</Label>
           <Input
             id="title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="请输入资源标题"
+            placeholder={t('fields.title.placeholder')}
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="intro">描述</Label>
+          <Label htmlFor="intro">{t('fields.intro.label')}</Label>
           <textarea
             id="intro"
             value={intro}
             onChange={(e) => setIntro(e.target.value)}
-            placeholder="请输入资源描述"
+            placeholder={t('fields.intro.placeholder')}
             rows={3}
             className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="cidList">分类(多选,逗号分隔 ID)</Label>
+          <Label htmlFor="cidList">{t('fields.cidList.label')}</Label>
           <Input
             id="cidList"
             value={cidList}
             onChange={(e) => setCidList(e.target.value)}
-            placeholder="如:uuid1, uuid2"
+            placeholder={t('fields.cidList.placeholder')}
           />
           {categories.length > 0 && (
             <p className="text-xs text-muted-foreground">
-              可选分类: {categories.map((c) => c.name).join(' / ')}
+              {t('fields.cidList.available')}: {categories.map((c) => c.name).join(' / ')}
             </p>
           )}
         </div>
 
         <div className="space-y-2">
-          <Label>资源类型</Label>
+          <Label>{t('fields.type.label')}</Label>
           <Select value={type} onValueChange={(v) => setType(v as ResourceType)}>
-            <SelectTrigger className={selectClass} aria-label="资源类型">
-              <SelectValue placeholder="请选择资源类型" />
+            <SelectTrigger className={selectClass} aria-label={t('fields.type.label')}>
+              <SelectValue placeholder={t('fields.type.placeholder')} />
             </SelectTrigger>
             <SelectContent>
-              {RESOURCE_TYPES.map((t) => (
-                <SelectItem key={t.value} value={t.value}>
-                  {t.label}
+              {RESOURCE_TYPES.map((rt) => (
+                <SelectItem key={rt.value} value={rt.value}>
+                  {rt.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -147,47 +149,47 @@ export function ResourceForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="productId">产品 ID</Label>
+          <Label htmlFor="productId">{t('fields.productId.label')}</Label>
           <Input
             id="productId"
             value={productId}
             onChange={(e) => setProductId(e.target.value)}
-            placeholder="请输入关联产品 ID"
+            placeholder={t('fields.productId.placeholder')}
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="tagIdList">标签(多选,逗号分隔 ID)</Label>
+          <Label htmlFor="tagIdList">{t('fields.tagIdList.label')}</Label>
           <Input
             id="tagIdList"
             value={tagIdList}
             onChange={(e) => setTagIdList(e.target.value)}
-            placeholder="如:tag-id-1, tag-id-2"
+            placeholder={t('fields.tagIdList.placeholder')}
           />
         </div>
 
         <div className="space-y-2">
-          <Label>展示图</Label>
+          <Label>{t('fields.image.label')}</Label>
           <ImageUpload
             value={image || undefined}
             onChange={(v) => setImage(typeof v === 'string' ? v : (v[0] ?? ''))}
             uploadUrl="/api/files/upload"
-            placeholder="上传展示图"
+            placeholder={t('fields.image.placeholder')}
           />
         </div>
 
         <div className="space-y-2">
-          <Label>资源简介(富文本)</Label>
+          <Label>{t('fields.introduction.label')}</Label>
           <TiptapRichText
             value={introduction}
             onChange={setIntroduction}
-            placeholder="请输入资源详细介绍..."
+            placeholder={t('fields.introduction.placeholder')}
             className="w-full"
           />
         </div>
 
         <div className="space-y-2">
-          <Label>文件上传</Label>
+          <Label>{t('fields.file.label')}</Label>
           {fileName ? (
             <div className="flex items-center justify-between rounded-md border border-input px-3 py-2">
               <span className="flex items-center gap-2 text-sm">
@@ -198,7 +200,7 @@ export function ResourceForm({
                 type="button"
                 onClick={onRemoveFile}
                 className="text-muted-foreground hover:text-destructive"
-                aria-label="移除文件"
+                aria-label={t('fields.file.removeLabel')}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -206,7 +208,7 @@ export function ResourceForm({
           ) : (
             <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed border-input px-3 py-6 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-primary">
               <Upload className="h-5 w-5" />
-              {uploadPending ? '上传中...' : '点击上传文件'}
+              {uploadPending ? t('fields.file.uploading') : t('fields.file.select')}
               <input
                 type="file"
                 className="hidden"
@@ -228,10 +230,10 @@ export function ResourceForm({
         <div className="flex items-center gap-3 pt-2">
           <Button onClick={onSubmit} disabled={savePending}>
             {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
-            {isEdit ? '保存修改' : '发布资源'}
+            {isEdit ? t('submit.edit') : t('submit.create')}
           </Button>
           <Button variant="outline" onClick={onCancel}>
-            取消
+            {t('submit.cancel')}
           </Button>
         </div>
       </CardContent>
