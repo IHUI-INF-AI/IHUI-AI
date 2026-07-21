@@ -26009,5 +26009,37 @@
     },
     "saveBtn": "設定を保存",
     "saved": "保存しました"
+  },
+  "memberDashboardPage": {
+    "defaultLevel": "デフォルトレベル",
+    "title": "会員センター",
+    "description": "会員レベル、ポイント、クーポン、注文を管理する",
+    "expireAt": "有効期限",
+    "renew": "更新",
+    "recentOrders": "最近の注文",
+    "viewAll": "すべて表示",
+    "loading": "読み込み中…",
+    "empty": "データなし"
+  },
+  "developerHomePage": {
+    "statCalls": "API 呼び出し",
+    "statApiKeys": "API キー",
+    "statWebhook": "Webhook",
+    "statMonthFee": "今月の費用",
+    "qeApiDocsLabel": "API ドキュメント",
+    "qeApiDocsDesc": "完全な API リファレンスとサンプル",
+    "qeSandboxLabel": "サンドボックス",
+    "qeSandboxDesc": "インストールせずに API をテスト",
+    "qeLogsLabel": "呼び出しログ",
+    "qeLogsDesc": "履歴リクエストとエラーを表示",
+    "qeVersionsLabel": "バージョン管理",
+    "qeVersionsDesc": "バージョンと廃止を管理",
+    "title": "開発者センター",
+    "subtitle": "API キー、Webhook、使用量を管理",
+    "currentPlan": "現在のプラン",
+    "quotaUsage": "クォータ使用量",
+    "upgrade": "アップグレード",
+    "quickEntries": "クイックエントリ",
+    "loading": "読み込み中…"
   }
 }
