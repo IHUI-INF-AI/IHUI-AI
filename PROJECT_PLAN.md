@@ -135,11 +135,24 @@ P2 AI 工具调用深度联动(5 修改文件):
 
 ---
 
-### [ ] G2 计费资金安全核心:wallet/finance 充值漏洞 + token_flows 幂等 + 事务(平台独占:仅 api+database,待启动)
+### [x] ✅(2026-07-22) G2 计费资金安全核心:wallet/finance 充值漏洞 + token_flows 幂等 + 事务(平台独占:仅 api+database,已完成)
 
 **触发**:审计发现 P0-1(/wallet/recharge 直接加余额无需支付)+ P0-2(/finance/margin/recharge outTradeNo 不验证)+ P0-4(token_flows 无幂等键)+ P0-9(wallet/fund 多表写入无事务)。
 
-**范围**:`apps/api/src/routes/{wallet,finance}.ts` + `packages/database/src/schema/wallet.ts` + `apps/api/src/db/commission-queries.ts`
+**范围**:`apps/api/src/routes/{wallet,finance}.ts` + `packages/database/src/schema/wallet.ts` + `apps/api/src/db/commission-queries.ts` + 新建 migration `packages/database/drizzle/20260722120000_g2_billing_safety.sql`
+
+**完成证据**:
+- P0-1 修复:`apps/api/src/routes/wallet.ts` `/recharge` 改为只返回 orderNo 不写 DB,余额增加只能走支付回调
+- P0-2 + P0-4 修复:`apps/api/src/db/commission-queries.ts` `rechargeToken` 加 try/catch 捕获 unique_violation (23505) 幂等保护
+- P0-4 修复:`packages/database/src/schema/wallet.ts` `tokenFlows` 加 `uniqueIndex('token_flows_order_op_unique_idx').on(t.relatedOrderNo, t.opType)` + migration SQL 用 partial unique index
+- P0-9 修复:`apps/api/src/routes/wallet.ts` `/withdraw` 用 `db.transaction` 包裹 select+update frozenQuantity+insert tokenFlows
+- P1-1 修复:`apps/api/src/db/commission-queries.ts` `deductToken` 改用单条原子 UPDATE + `sql\`token_quantity >= ${quantity}\`` 行锁消除 TOCTOU
+- P1-4 修复:`apps/api/src/routes/finance.ts` `/finance/margin/{deduct,recharge,expire,commission,refund}` 5 个接口加 `roleId < 1` admin 校验
+- database build exit 0 ✅
+- api typecheck exit 0 ✅
+- migration 文件:`packages/database/drizzle/20260722120000_g2_billing_safety.sql`(CREATE UNIQUE INDEX IF NOT EXISTS token_flows_order_op_unique_idx ... WHERE related_order_no IS NOT NULL)
+
+**遗留(P2,非本任务范围)**:rechargeToken 仅做幂等未 JOIN orders 表验证 outTradeNo status='paid'(复杂度超阈值,后续单独处理)
 
 ---
 
