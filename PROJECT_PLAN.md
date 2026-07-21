@@ -97,6 +97,14 @@
 - 本任务只动 `.check-api-routes-ignore.json` + `apps/api/src/routes/frontend-stub-other-routes.ts` + 新增 `scripts/check-staged-files.mjs` + 修改 `AGENTS.md` + `.husky/pre-commit`
 - 跨端:仅 api 端补建(7 端点)+ 工具脚本(`scripts/` + `.husky/` + `AGENTS.md`)
 
+### P0-MIG 历史数据迁移(ID 映射 + 关联重建)
+
+- [x] ✅(2026-07-17) **P0-MIG-1 ID 映射表**(前置依赖):`id_mapping` 表(`packages/database/src/schema/id-mapping.ts`)+ `apps/api/src/db/id-mapping-queries.ts`(getNewId/createMapping/hasBeenMigrated/bulkCreateMappings)+ `migrate-legacy-data.ts` 框架(MIGRATION_PLAN + shouldSkip 断点续传)
+- [x] ✅(2026-07-17) **P0-MIG-2 关联重建脚本**:`apps/api/src/scripts/migrate-legacy-data.ts` 7 个 importFn 完整实现(用户→课程→章节→报名→答题→错题→积分记录,按依赖顺序),外键重建(查 id_mapping 替换 Java Long → uuid)、断点续传(shouldSkip + hasBeenMigrated)、dry-run 模式、单条失败不阻塞批次、每步进度报告;LegacyFetcher 注入机制(生产用 LEGACY_DATABASE_URL,测试用 setLegacyFetcher);新增 `apps/api/src/routes/__tests__/migrate-legacy.test.ts`(7 用例:dry-run / importUsers / importCourses 外键重建 / create_user_id null 处理 / 断点续传 / 单条失败隔离 / 批量 100 条 < 5s)
+  - 验证:`pnpm --filter @ihui/api typecheck` 退出码 0 ✅;`pnpm --filter @ihui/api lint` 退出码 0 ✅;`pnpm --filter @ihui/api test migrate` 7 用例全绿 ✅
+- [x] ✅(2026-07-17) **P0-MIG-3 数据迁移 E2E 验证**:新增 `apps/api/src/routes/__tests__/migration-e2e.test.ts`(21 用例,6 大场景)。mock 策略:LegacyFetcher 注入(按 SQL 关键字返回样本数据模拟 Java 历史库)+ db mock(复用 chain 模式队列驱动)+ node:crypto mock(randomUUID 序号化使外键可断言)。样本数据:2 用户 + 2 课程 + 4 章节 + 2 报名 + 4 答题 + 2 错题 + 4 积分 = 20 条。验证维度:① 准备+执行(runMigration 7 步全完成,40 条 insert)② 关联完整性(id_mapping 20 条覆盖 7 种 legacyTable,目标表记录数正确,id 唯一)③ 外键正确性(lecturerId/lessonId/userId/memberId/questionId/paperId 全部正确映射,isPassed 业务逻辑验证)④ 业务可查询(用户视角:历史课程/积分/错题/答题/报名)⑤ 断点续传(第二次运行 0 insert,全部 shouldSkip)⑥ 数据一致性(每步 migrated+skipped=total,所有 newId 在 id_mapping 可查,legacyId 唯一)
+  - 验证:`pnpm --filter @ihui/api typecheck` 退出码 0 ✅(migration-e2e 无错误,6 个预存错误来自 exam-extended-queries.ts/watch-aspect.ts 非本任务引入);`pnpm --filter @ihui/api lint` 退出码 0 ✅;`pnpm --filter @ihui/api test migration-e2e` 21 用例全绿 ✅
+
 ---
 
 ### 模型市场 nav 样式重构 + 厂商 SVG 图标(2026-07-21)
