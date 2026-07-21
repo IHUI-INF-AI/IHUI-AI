@@ -424,6 +424,10 @@ export function inferVendor(model: string | undefined | null): string | undefine
   if (bare.startsWith('sensenova')) return 'sensenova'
   if (bare.startsWith('skywork')) return 'skywork'
   if (bare.startsWith('internlm')) return 'internlm'
+  // === 2026-07 国内新势力(无 lobehub 官方图标,fallback 项目 logo) ===
+  if (bare.startsWith('ornith')) return 'ornith'
+  if (bare.startsWith('codebrain')) return 'codebrain'
+  if (bare.startsWith('mai')) return 'mai'
   // === 反查 providerCode 前缀(如 'openai/gpt-4o' → 'openai') ===
   if (m.includes('/')) {
     const providerCode = m.split('/')[0]
