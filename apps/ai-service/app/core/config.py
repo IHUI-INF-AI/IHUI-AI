@@ -36,6 +36,30 @@ class Settings(BaseSettings):
     agnes_api_base: str = "https://apihub.agnes-ai.com/v1"
     stepfun_api_key: str = ""  # https://api.stepfun.com/step_plan/v1
     stepfun_api_base: str = "https://api.stepfun.com/step_plan/v1"
+
+    # 免费 / 试用 credits provider(2026-07-22 接入,参考 cheahjs/free-llm-api-resources)
+    # Cloudflare Workers AI(10,000 neurons/day 免费,需 API Token + Account ID)
+    cloudflare_api_token: str = ""  # https://dash.cloudflare.com/profile/api-tokens
+    cloudflare_account_id: str = ""  # https://dash.cloudflare.com/ 右侧 Account ID
+    # NVIDIA NIM(40 req/min,需手机号验证)
+    nvidia_api_key: str = ""  # https://build.nvidia.com/explore/discover
+    # GitHub Models(Copilot Free tier 可用)
+    github_token: str = ""  # https://github.com/settings/tokens
+    # Vercel AI Gateway($5/月免费额度)
+    vercel_ai_gateway_key: str = ""  # https://vercel.com/docs/ai-gateway
+    # OpenCode Zen(完全免费,公开示例 key 见 .env.example 注释)
+    opencode_zen_key: str = ""  # https://opencode.ai/docs/zen/
+    # Modal($5/月注册赠送,加支付方式 $30/月)
+    modal_api_key: str = ""  # https://modal.com/settings/tokens
+    # Inference.net($1 注册送 + 回邮件调查 +$25)
+    inference_net_api_key: str = ""  # https://inference.net
+    # NLP Cloud($15 注册送,需手机号验证)
+    nlp_cloud_api_key: str = ""  # https://nlpcloud.com/home
+    # Scaleway(1M tokens 免费)
+    scaleway_api_key: str = ""  # https://console.scaleway.com/generative-api/models
+    # Alibaba Cloud International Model Studio(1M tokens/模型免费)
+    alibaba_intl_api_key: str = ""  # https://bailian.console.alibabacloud.com/
+
     litellm_model: str = "stepfun/step-3.7-flash"  # 默认用 stepfun(已验证连通)
     max_agent_iterations: int = 10
     # Sliding window:系统消息始终保留 + 最近 N 轮 user/assistant + 当前输入
