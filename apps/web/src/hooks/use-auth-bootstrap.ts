@@ -43,7 +43,7 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
         return
       }
 
-      // 🎭 Mock 模式: token 以 mock_ 开头时,跳过 /auth/profile API 调用
+      // 🎭 Mock 模式: token 以 mock_ 开头时,跳过 /auth/me API 调用
       // (mock token 是前端伪造,后端不认),改从 mock_user_info 跨域 cookie 恢复 user
       // 该 cookie 由 OAuthCallbackHandler 的 mock 分支设置,domain=.aizhs.top
       if (storedToken.startsWith('mock_')) {
@@ -69,20 +69,21 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
         return
       }
 
+      // 先把 cookie 中的 token 写入 store,使 fetchApi 能附加 Bearer header
+      // (tokenProvider 从 useAuthStore.getState().token 读取,不读 cookie)
+      // 修复前:页面刷新后 store.token 为空 → fetchApi 无 Bearer → POST 请求触发 CSRF 403
+      setToken(storedToken, null)
+
       try {
-        const res = await fetchApi<{
-          id: string
-          nickname: string
-          avatar?: string
-          phone?: string
-        }>('/auth/profile')
+        const res = await fetchApi<{ user: { id: string; nickname: string; avatar?: string; phone?: string } }>('/auth/me')
         if (cancelled) return
         if (res.success) {
+          const u = res.data.user
           setUser({
-            id: res.data.id,
-            nickname: res.data.nickname,
-            avatar: res.data.avatar,
-            phone: res.data.phone,
+            id: u.id,
+            nickname: u.nickname,
+            avatar: u.avatar,
+            phone: u.phone,
           })
           await fetchProfile()
         } else {
