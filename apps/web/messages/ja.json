@@ -25989,5 +25989,25 @@
       "empty": "学習記録なし",
       "progressLabel": "進捗 {n}%"
     }
+  },
+  "memberSettingsPage": {
+    "loading": "読み込み中…",
+    "title": "会員設定",
+    "description": "通知とプライバシー設定を管理する",
+    "notifTitle": "通知設定",
+    "notif": {
+      "orderUpdates": "注文の更新",
+      "promotions": "プロモーション",
+      "points": "ポイント",
+      "newsletter": "ニュースレター"
+    },
+    "privacyTitle": "プライバシー設定",
+    "privacy": {
+      "showProfile": "プロフィールを公開",
+      "showActivity": "アクティビティを表示",
+      "allowInvites": "招待を許可"
+    },
+    "saveBtn": "設定を保存",
+    "saved": "保存しました"
   }
 }
