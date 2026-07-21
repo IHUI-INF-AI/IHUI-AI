@@ -17,26 +17,10 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { SignJWT } from 'jose'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import { verifyAccessToken } from '@ihui/auth'
 import { success, error } from '../utils/response.js'
 import { degradedMode, getBulkhead } from '../plugins/resilience-extended.js'
-
-// ============================================================================
-// 鉴权辅助
-// ============================================================================
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-}
 
 /** 校验环境变量是否配置,返回 key 或发送 503 并返回 null。 */
 function requireKey(envName: string, serviceName: string, reply: FastifyReply): string | null {
@@ -514,7 +498,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
 
   server.post('/deepseek/chat', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = chatQuerySchema.safeParse(mergeQueryBody(request))
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -544,7 +528,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/deepseek/chat/stream', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = chatQuerySchema.safeParse(mergeQueryBody(request))
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -649,7 +633,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
 
   server.post('/kling/video/generate', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = klingVideoSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -680,7 +664,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/kling/video/image-to-video', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = klingI2VSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -703,7 +687,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/kling/image/generate', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = klingImageSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -723,7 +707,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/kling/task/:taskId', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { taskId } = taskIdParam.parse(request.params)
     const { task_type: taskType } = taskTypeQuery.parse(request.query)
     const base = taskType === 'image' ? KLING_T2I : KLING_T2V
@@ -738,12 +722,12 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
 
   server.get('/multi/vendors', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     return reply.send(success({ vendors: Object.keys(VENDOR_CONFIGS) }))
   })
 
   server.post('/multi/:vendor/chat', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { vendor } = vendorParam.parse(request.params)
     const parsed = multiChatSchema.omit({ vendors: true }).safeParse(mergeQueryBody(request))
     if (!parsed.success) {
@@ -765,7 +749,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/multi/:vendor/chat/stream', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { vendor } = vendorParam.parse(request.params)
     const parsed = multiChatSchema.omit({ vendors: true }).safeParse(mergeQueryBody(request))
     if (!parsed.success) {
@@ -788,7 +772,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/multi/multi', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = multiChatSchema.safeParse(mergeQueryBody(request))
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -844,7 +828,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
 
   server.post('/qwen/chat', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = chatQuerySchema.safeParse(mergeQueryBody(request))
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -874,7 +858,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/qwen/chat/stream', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = chatQuerySchema.safeParse(mergeQueryBody(request))
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1158,7 +1142,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
 
   server.post('/history/create', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = historyCreateSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1184,7 +1168,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/history/query', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = historyQuerySchema.safeParse(mergeQueryBody(request))
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1207,7 +1191,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/history/:chatId/mark', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsedParams = chatIdParam.safeParse(request.params)
     if (!parsedParams.success) {
       return reply.status(400).send(error(400, 'chatId must be integer'))
@@ -1234,7 +1218,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/history/:chatId', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsedParams = chatIdParam.safeParse(request.params)
     if (!parsedParams.success) {
       return reply.status(400).send(error(400, 'chatId must be integer'))
@@ -1253,7 +1237,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
 
   server.post('/coze/message', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = cozeMessageSchema.safeParse(mergeQueryBody(request))
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1284,7 +1268,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/coze/message/stream', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = cozeMessageSchema.safeParse(mergeQueryBody(request))
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1308,7 +1292,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/coze/conversation/create', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsedBody = cozeCreateBody.safeParse(request.body)
     if (!parsedBody.success) return reply.status(400).send(error(400, 'bot_id is required'))
     const { bot_id } = parsedBody.data
@@ -1328,7 +1312,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/coze/workflow/run', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = cozeWorkflowSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1346,7 +1330,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/coze/workflow/run/stream', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = cozeWorkflowSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1362,7 +1346,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/coze/workflow/run/resume', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = cozeWorkflowResumeSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1385,7 +1369,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/coze/workflow/run/resume/stream', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = cozeWorkflowResumeSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1406,7 +1390,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/coze/workflow/run/history', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = cozeWorkflowHistorySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1427,7 +1411,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/coze/conversations/list', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = cozeConversationListSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1450,7 +1434,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/coze/conversations/retrieve', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsedBody = cozeRetrieveBody.safeParse(request.body)
     if (!parsedBody.success)
       return reply.status(400).send(error(400, 'conversation_id is required'))
@@ -1467,7 +1451,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/coze/messages/list', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = cozeMessageListSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1491,7 +1475,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/coze/messages/feedback', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = cozeFeedbackSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

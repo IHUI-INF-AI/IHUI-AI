@@ -13,11 +13,10 @@ import {
   createSignInRecord,
   findLevels,
   findCurrentLevel,
-  todayString,
-  shiftDate,
 } from '../db/gamification-queries.js';
 import { earnPoints, spendPoints } from '../services/points-service.js';
 import { success, error, emptyToUndefined } from '../utils/response.js';
+import { calcSignInReward, todayString, shiftDate } from '../utils/checkin-helpers.js';
 
 const ADMIN_ROLE_ID = 1;
 const TX_TYPE = ['earn', 'spend'] as const;
@@ -47,16 +46,6 @@ const signInHistoryQuerySchema = z.object({
     z.string().regex(/^\d{4}-\d{2}$/, 'yearMonth 格式应为 YYYY-MM').optional(),
   ),
 });
-
-// =============================================================================
-// 签到奖励：第1天10分，逐日+5，第7天起50分封顶
-//   1=10, 2=15, 3=20, 4=25, 5=30, 6=35, >=7=50
-// =============================================================================
-
-function calcSignInReward(consecutiveDays: number): number {
-  if (consecutiveDays >= 7) return 50;
-  return 10 + (consecutiveDays - 1) * 5;
-}
 
 // =============================================================================
 // 路由（前缀 /api，所有端点需登录）

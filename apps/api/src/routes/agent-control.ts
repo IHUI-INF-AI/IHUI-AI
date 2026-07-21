@@ -14,14 +14,14 @@
  *  - GET    /status       查询已注册的端(管理/调试用)
  */
 
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import type {
   AgentActionRequest,
   AgentActionResponse,
   AgentControlCapability,
 } from '@ihui/types'
-import { authenticate } from '../plugins/auth.js'
+import { authenticate, checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 
 // ---------------------------------------------------------------------------
@@ -111,25 +111,12 @@ const resultSchema = z.object({
 // 路由
 // ---------------------------------------------------------------------------
 
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    reply
-      .status(statusCode)
-      .send(error(statusCode, (e as Error).message || 'Authentication required'))
-    return false
-  }
-}
-
 export const agentControlRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /capability - 上报端能力
   // -------------------------------------------------------------------------
   server.post('/capability', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
 
     const result = capabilitySchema.safeParse(request.body)
@@ -234,7 +221,7 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
   // POST /result - 回传执行结果(extension/desktop 调用)
   // -------------------------------------------------------------------------
   server.post('/result', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
 
     const result = resultSchema.safeParse(request.body)
     if (!result.success) {
@@ -259,7 +246,7 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
   // GET /status - 查询已注册的端(管理/调试用)
   // -------------------------------------------------------------------------
   server.get('/status', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
 
     cleanupStaleEndpoints()
     const endpoints = Array.from(_endpoints.values()).map((ep) => ({

@@ -43,11 +43,13 @@ export function TagFormDialog({
     schema: tagSchema,
     defaultValues,
   })
+  // defaultValues 用 ref:避免加入 deps 后父组件传入新对象引用导致表单被反复重置
+  const defaultValuesRef = React.useRef(defaultValues)
+  defaultValuesRef.current = defaultValues
   // 每次 defaultValues 变更(切换 editing)时重置表单
   React.useEffect(() => {
-    form.reset(defaultValues)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing?.id, open])
+    form.reset(defaultValuesRef.current)
+  }, [editing?.id, open, form])
 
   const nameErr = form.formState.errors.name?.message
 
