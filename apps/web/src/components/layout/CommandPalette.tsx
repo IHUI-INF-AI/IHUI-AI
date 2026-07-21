@@ -2,67 +2,23 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Search, MessageSquare, Sparkles, Globe, User, Settings } from 'lucide-react'
 import { Dialog, DialogContent } from '@ihui/ui'
 
 interface CommandItem {
   id: string
-  label: string
-  description?: string
   icon: React.ComponentType<{ className?: string }>
   path: string
-  keywords?: string[]
 }
 
 const COMMANDS: CommandItem[] = [
-  {
-    id: 'chat',
-    label: 'AI 对话',
-    description: '打开 AI 聊天',
-    icon: MessageSquare,
-    path: '/chat',
-    keywords: ['chat', 'ai', '对话'],
-  },
-  {
-    id: 'drama',
-    label: '短剧编辑器',
-    description: 'AI 辅助剧本创作',
-    icon: Sparkles,
-    path: '/drama',
-    keywords: ['drama', '短剧', '剧本'],
-  },
-  {
-    id: 'search',
-    label: '高级搜索',
-    description: '搜索用户/项目/文件',
-    icon: Search,
-    path: '/search',
-    keywords: ['search', '搜索', '查找'],
-  },
-  {
-    id: 'ai-world',
-    label: 'AI 世界',
-    description: '浏览 AI 应用',
-    icon: Globe,
-    path: '/ai-world',
-    keywords: ['ai-world', '世界', '应用'],
-  },
-  {
-    id: 'profile',
-    label: '个人中心',
-    description: '账户设置与资料',
-    icon: User,
-    path: '/user-center',
-    keywords: ['profile', '个人', '设置'],
-  },
-  {
-    id: 'settings',
-    label: '系统设置',
-    description: '偏好与配置',
-    icon: Settings,
-    path: '/settings',
-    keywords: ['settings', '设置', '配置'],
-  },
+  { id: 'chat', icon: MessageSquare, path: '/chat' },
+  { id: 'drama', icon: Sparkles, path: '/drama' },
+  { id: 'search', icon: Search, path: '/search' },
+  { id: 'ai-world', icon: Globe, path: '/ai-world' },
+  { id: 'profile', icon: User, path: '/user-center' },
+  { id: 'settings', icon: Settings, path: '/settings' },
 ]
 
 export function CommandPalette({
@@ -73,6 +29,7 @@ export function CommandPalette({
   onOpenChange: (v: boolean) => void
 }) {
   const router = useRouter()
+  const t = useTranslations('commandPalette')
   const [query, setQuery] = React.useState('')
   const [activeIndex, setActiveIndex] = React.useState(0)
   const inputRef = React.useRef<HTMLInputElement>(null)
@@ -82,10 +39,11 @@ export function CommandPalette({
     const q = query.trim().toLowerCase()
     if (!q) return COMMANDS
     return COMMANDS.filter((c) => {
-      const text = `${c.label} ${c.description ?? ''} ${c.keywords?.join(' ') ?? ''}`.toLowerCase()
+      const keywords = t.raw(`commands.${c.id}.keywords`) as string[]
+      const text = `${t(`commands.${c.id}.label`)} ${t(`commands.${c.id}.description`)} ${keywords.join(' ')}`.toLowerCase()
       return text.includes(q)
     })
-  }, [query])
+  }, [query, t])
 
   React.useEffect(() => {
     if (open) {
@@ -131,7 +89,7 @@ export function CommandPalette({
           <input
             ref={inputRef}
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-            placeholder="搜索页面或功能..."
+            placeholder={t('searchPlaceholder')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
@@ -142,7 +100,7 @@ export function CommandPalette({
         </div>
         <div ref={listRef} className="max-h-[50vh] overflow-y-auto p-1">
           {filtered.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">未找到匹配的命令</div>
+            <div className="py-8 text-center text-sm text-muted-foreground">{t('noResults')}</div>
           ) : (
             filtered.map((item, idx) => {
               const Icon = item.icon
@@ -159,12 +117,10 @@ export function CommandPalette({
                 >
                   <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{item.label}</div>
-                    {item.description && (
-                      <div className="truncate text-xs text-muted-foreground">
-                        {item.description}
-                      </div>
-                    )}
+                    <div className="truncate text-sm font-medium">{t(`commands.${item.id}.label`)}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {t(`commands.${item.id}.description`)}
+                    </div>
                   </div>
                 </button>
               )
@@ -172,8 +128,8 @@ export function CommandPalette({
           )}
         </div>
         <div className="flex items-center justify-between bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
-          <span>↑↓ 导航 · Enter 选择</span>
-          <span>{filtered.length} 个结果</span>
+          <span>{t('keyboardHint')}</span>
+          <span>{t('resultCount', { count: filtered.length })}</span>
         </div>
       </DialogContent>
     </Dialog>

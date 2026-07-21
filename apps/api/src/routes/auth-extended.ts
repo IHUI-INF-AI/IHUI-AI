@@ -78,7 +78,9 @@ import {
   getPhoneNumber,
   isWechatMiniConfigured,
   wecomCode2session,
+  wecomPcCode2session,
   isWecomConfigured,
+  isWecomSuiteConfigured,
   isDingtalkConfigured,
   buildDingtalkAuthUrl,
   exchangeDingtalkCode,
@@ -603,9 +605,12 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 企业微信扫码登录 — code 换 session → 查 binding → 查/建用户 → 颁发 JWT
   server.get('/auth/login/enterprise/pc/wxCode', async (request, reply) => {
     const { code } = codeQuery.parse(request.query)
-    if (!isWecomConfigured()) return reply.send(success({ mock: true, msg: '企业微信未配置' }))
+    if (!isWecomConfigured() && !isWecomSuiteConfigured())
+      return reply.send(success({ mock: true, msg: '企业微信未配置' }))
     try {
-      const session = await wecomCode2session(code)
+      const session = isWecomConfigured()
+        ? await wecomPcCode2session(code)
+        : await wecomCode2session(code)
       const binding = await findThirdPartyAccount('enterpriseWechat', session.openUserId)
       if (!binding) {
         return reply.send(
@@ -1881,9 +1886,14 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           break
         }
         case 'enterpriseWechat': {
-          if (!isWecomConfigured()) return reply.status(400).send(error(400, '企业微信未配置'))
-          const session = await wecomCode2session(code)
-          openId = session.openUserId
+          // 优先自建应用 PC 网页扫码模式(WECOM_CORP_ID + WECOM_AGENT_ID + WECOM_SECRET)
+          // 回退到 suite 模式(第三方应用服务商,仅小程序场景)
+          if (!isWecomConfigured() && !isWecomSuiteConfigured())
+            return reply.status(400).send(error(400, '企业微信未配置'))
+          const session = isWecomConfigured()
+            ? await wecomPcCode2session(code)
+            : await wecomCode2session(code)
+          openId = session.openUserId || session.userId
           break
         }
         case 'feishu': {
