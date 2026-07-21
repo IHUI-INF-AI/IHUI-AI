@@ -161,6 +161,7 @@
 <!-- 已归档(2026-07-21):i18n P1 批次 2_7:member-orders / learn-pay...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-21_i18n-batch-archive.md -->
 <!-- 已归档(2026-07-21):i18n P1 批次 2_8:20 page.tsx 多 subagent 并行...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-21_i18n-batch-archive.md -->
 <!-- 已归档(2026-07-21):i18n P1 批次 2_9:20 page.tsx 多 subagent 并行...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-21_i18n-batch-archive.md -->
+<!-- 已归档(2026-07-21):i18n P1 批次 2_10:20 个高优组件文件多 subagent 并行 i18n 化(commit dbb0995d,协作事故 commit message 错误),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-21_i18n-batch-archive.md -->
 ### AI 主动提问弹窗 + 挂起对话续流(已完成 ✅ 2026-07-21,commit 2fad28f)
 
 **触发**:用户要求"AI 对话过程中模型向用户主动提问的提示弹窗窗口,并且挂起对话等待用户回答选择后再继续给模型,不中断对话"。`/goal` 模式启动,硬性指标:4 端 typecheck/test 全绿 + curl /chat/answer 200 + browser_use 4 状态截图 + git-push-guard exit 0。
