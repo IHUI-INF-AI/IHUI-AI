@@ -14854,7 +14854,22 @@
     "official": "官方",
     "free": "免费",
     "open": "进入",
-    "visit": "访问官网"
+    "visit": "访问官网",
+    "catInstalled": "已安装",
+    "catPinned": "已收藏",
+    "sortInstalled": "已安装",
+    "loadingStates": "加载中...",
+    "loginRequired": "请先登录后管理插件",
+    "install": "启用",
+    "uninstall": "禁用",
+    "pin": "收藏",
+    "unpin": "取消收藏",
+    "installedBadge": "已启用",
+    "installed": "已启用 {name}",
+    "uninstalled": "已禁用 {name}",
+    "pinned": "已收藏 {name}",
+    "unpinned": "已取消收藏 {name}",
+    "mutationError": "操作失败,请重试"
   },
   "aiWorld": {
     "empty": "暂无内容，敬请期待",
@@ -25740,6 +25755,25 @@
       "pinned": "置顶",
       "empty": "暂无最新资讯,请先跑 ai-fresh-2026 seed"
     },
+    "feed": {
+      "label": "AI 资讯时间线",
+      "title": "全网 AI 资讯实时流",
+      "subtitle": "聚合 17 个国内外信源,每 6 小时自动采集更新",
+      "totalPrefix": "共",
+      "totalSuffix": "条",
+      "today": "今天",
+      "yesterday": "昨天",
+      "itemsUnit": "条",
+      "empty": "暂无采集数据,等待首次 ai-feed-collect cron 触发",
+      "categoryAll": "全部",
+      "categoryHotspot": "热点",
+      "categoryAccount": "账号",
+      "categoryAnalysis": "分析",
+      "categoryCreation": "创作",
+      "categoryRetrieval": "检索",
+      "categoryTool": "工具",
+      "categorySource": "信源"
+    },
     "funding": {
       "label": "重磅融资与收购",
       "title": "重磅融资与收购",
@@ -27751,6 +27785,7 @@
       "empty": "暂无文档",
       "loading": "加载中...",
       "manage": "管理",
+      "upload": "上传文档",
       "chunkCount": "{count} 个切片",
       "sourceType": {
         "text": "文本",
@@ -27795,6 +27830,24 @@
       "chunkCount": "{count} 个切片",
       "loading": "加载中...",
       "empty": "暂无文档"
+    },
+    "upload": {
+      "title": "上传文档",
+      "subtitle": "支持 PDF / DOCX / Markdown / 纯文本 / HTML",
+      "modeFile": "文件上传",
+      "modeText": "纯文本",
+      "titleLabel": "标题(可选)",
+      "titlePlaceholder": "留空则使用文件名",
+      "fileLabel": "选择文件",
+      "fileHint": "支持 PDF / DOCX / MD / TXT / HTML,≤20MB",
+      "textLabel": "文本内容",
+      "textPlaceholder": "粘贴或输入文本内容...",
+      "charCount": "{count} 字符",
+      "submit": "上传",
+      "noFile": "请选择文件",
+      "noText": "请输入文本内容",
+      "defaultTitle": "未命名文档",
+      "success": "入库成功,生成 {count} 个切片"
     }
   }
 }
