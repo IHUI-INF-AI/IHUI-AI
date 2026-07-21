@@ -76,3 +76,57 @@ export interface BackupListResult {
 export interface TenantRestoreBody {
   timestamp?: string
 }
+
+/* ==================== P1-2.2c: 证书 + 配额 ==================== */
+
+export type CertStatus = 'healthy' | 'warning' | 'critical' | 'expired'
+export type CertSource = 'letsencrypt' | 'self-signed' | 'custom'
+
+export interface Certificate {
+  domain: string
+  sans: string[]
+  issuer: string
+  subject: string
+  notBefore: string
+  notAfter: string
+  daysUntilExpiry: number
+  status: CertStatus
+  source: CertSource
+  serialNumber?: string
+  fingerprint?: string
+}
+
+export interface CertificateListResult {
+  certificates: Certificate[]
+  total: number
+  healthy: number
+  warning: number
+  critical: number
+  expired: number
+  acmePath: string
+  acmeExists: boolean
+  generatedAt: string
+}
+
+export interface QuotaWindow {
+  used: number
+  limit: number | null
+  window: 'all' | 'day' | 'month'
+  resetAt: string | null
+}
+
+export interface QuotaStorage {
+  usedBytes: number
+  limitBytes: number | null
+}
+
+export interface CustomerQuota {
+  slug: string
+  apiCalls: QuotaWindow
+  storage: QuotaStorage
+  aiTokens: QuotaWindow
+  /** P1-2.2c 占位:等待 P1-2.3 接入 Prometheus 后置为 false */
+  placeholder: boolean
+  expectedFrom: string
+  generatedAt: string
+}

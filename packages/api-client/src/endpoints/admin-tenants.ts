@@ -11,6 +11,8 @@ import { fetchApi } from '../client.js'
 import type {
   BackupDeleteResult,
   BackupListResult,
+  CertificateListResult,
+  CustomerQuota,
   TenantActionResult,
   TenantCreateResult,
   TenantDetailResult,
@@ -31,7 +33,18 @@ export type {
   BackupDeleteResult,
   BackupListResult,
   TenantRestoreBody,
+  CertStatus,
+  CertSource,
+  CertificateListResult,
+  QuotaWindow,
+  QuotaStorage,
+  CustomerQuota,
 } from './admin-tenants.types.js'
+
+// 注意:Certificate 类型与 resource.ts 冲突(均为证书领域类型,字段含义不同),
+// 不在此处 export,使用方请按需从子路径导入或重命名:
+import type { Certificate as TenantCertificate } from './admin-tenants.types.js'
+export type { TenantCertificate }
 
 /** 列出所有租户 */
 export async function adminListTenants(): Promise<ApiResult<TenantListResult>> {
@@ -114,5 +127,19 @@ export async function adminDeleteBackup(
   return fetchApi<BackupDeleteResult>(
     `/api/admin-saas/customers/${encodeURIComponent(slug)}/backups/${encodeURIComponent(timestamp)}`,
     { method: 'DELETE' },
+  )
+}
+
+/* ==================== P1-2.2c: 证书 + 配额 ==================== */
+
+/** 列出所有证书(扫描 Traefik acme.json) */
+export async function adminListCertificates(): Promise<ApiResult<CertificateListResult>> {
+  return fetchApi<CertificateListResult>('/api/admin-saas/certificates')
+}
+
+/** 获取租户配额(P1-2.2c 占位,等待 P1-2.3 Prometheus 接入) */
+export async function adminGetCustomerQuota(slug: string): Promise<ApiResult<CustomerQuota>> {
+  return fetchApi<CustomerQuota>(
+    `/api/admin-saas/customers/${encodeURIComponent(slug)}/quota`,
   )
 }
