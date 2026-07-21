@@ -1287,9 +1287,11 @@ pnpm は monorepo シナリオで優位性が顕著:厳密な依存分離(ファ
 </p>
 <p align="center"><sub>📍 吉林省愛智匯人工知能科技有限公司 · オフライン拠点 · 長春ハイテクゾーン越達路107号 AI人材育成インキュベーション基地(2026-07 実撮)</sub></p>
 
-<!-- 画像プレースホルダー(今後追加用): -->
-<!-- - apps/web/public/images/story/late-night-coding.jpg — 深夜のコード画面、もしくはランプの下の作業台 -->
-<!-- 写真が用意できたら上のHTMLコメントを削除し、該当段落の下に <p align="center"><img src="..." width="600"/></p> を挿入してください -->
+<!-- 画像:深夜コーディング · ランプと成長するコード(Pexels 無料透かし無しライブラリ、Free License) -->
+<p align="center">
+  <img src="apps/web/public/images/story/late-night-coding.jpg" width="600" alt="深夜 3 時 · ランプと成長するコード" />
+</p>
+<p align="center"><sub>📍 深夜 3:17 · ランプ一つ、ノートパソコン一台、成長するコード(画像:Pexels · Free License)</sub></p>
 
 ### 序章 · 何度も問われた質問
 
@@ -1534,6 +1536,8 @@ AIコーディングエージェントを駆使し、大規模なチームなし
 
 **代償**: 学習曲線は急ですが、一度学べば以降の新しいワークフローはテンプレ化された複製になります。
 
+> 💬 **議論**: → [#1 決定議論:IHUI-AI はなぜ AutoGen/CrewAI ではなく LangGraph を選んだか?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/1)
+
 #### 決定 2 · Prisma ではなく Drizzle ORM なのはなぜ?
 
 **背景**: TypeScript ORM の主流は Prisma と Drizzle です。
@@ -1551,6 +1555,8 @@ AIコーディングエージェントを駆使し、大規模なチームなし
 
 **代償**: Prisma よりエコシステムは小さいですが、十分です。
 
+> 💬 **議論**: → [#2 決定議論:IHUI-AI はなぜ Prisma ではなく Drizzle ORM を選んだか?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/2)
+
 #### 決定 3 · Polyrepo ではなく TS Monorepo なのはなぜ?
 
 **背景**: 8 プラットフォームのコード(Web / API / AI / CLI / Desktop / Extension / Mobile / Miniapp)について、monorepo vs polyrepo は生死を分ける決定です。
@@ -1567,6 +1573,8 @@ AIコーディングエージェントを駆使し、大規模なチームなし
 
 **代償**: monorepo 設定は複雑ですが、一度設定すれば永続的です。
 
+> 💬 **議論**: → [#3 決定議論:IHUI-AI はなぜ Polyrepo ではなく TS Monorepo を選んだか?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/3)
+
 #### 決定 4 · 17 個の pre-commit ガードレールなのはなぜ?
 
 **背景**: code review も、QA も、CI チームもない独立開発者—コード品質をどう保証するか?
@@ -1580,6 +1588,8 @@ AIコーディングエージェントを駆使し、大規模なチームなし
 - **機械が DevOps に代わる**: 9 個の PowerShell 起動スクリプトが「プロジェクト起動」を「8 つのコマンド暗記」から「1 つのコマンド」に変えます
 
 **代償**: フックが時に誤報しますが、誤報は見逃しよりマシです。
+
+> 💬 **議論**: → [#4 決定議論:IHUI-AI はなぜ 17 個の pre-commit ガードレールなのか?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/4)
 
 #### 決定 5 · AGPL / 商用デュアルライセンスではなく Apache 2.0 なのはなぜ?
 
@@ -1596,6 +1606,8 @@ AIコーディングエージェントを駆使し、大規模なチームなし
 - **真の防衛線はコミュニティ**: オープンコード + 活性コミュニティ > クローズドコード + 死コミュニティ
 
 **代償**: 他人が fork 後クローズドで販売できますが、こうした fork は通常コミュニティがなく長生きしません。
+
+> 💬 **議論**: → [#5 決定議論:IHUI-AI はなぜ AGPL/デュアルライセンスではなく Apache 2.0 を堅持するのか?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/5)
 
 ---
 
