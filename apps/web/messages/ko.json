@@ -14784,7 +14784,22 @@
     "official": "공식",
     "free": "무료",
     "open": "열기",
-    "visit": "공식 사이트"
+    "visit": "공식 사이트",
+    "catInstalled": "설치됨",
+    "catPinned": "고정됨",
+    "sortInstalled": "설치 순",
+    "loadingStates": "로딩 중...",
+    "loginRequired": "플러그인을 관리하려면 로그인하세요",
+    "install": "활성화",
+    "uninstall": "비활성화",
+    "pin": "고정",
+    "unpin": "고정 해제",
+    "installedBadge": "활성화됨",
+    "installed": "{name} 활성화됨",
+    "uninstalled": "{name} 비활성화됨",
+    "pinned": "{name} 고정됨",
+    "unpinned": "{name} 고정 해제됨",
+    "mutationError": "작업 실패, 다시 시도하세요"
   },
   "aiWorld": {
     "title": "플러그인 마켓",
@@ -25778,6 +25793,25 @@
       "pinned": "고정",
       "empty": "기사가 없습니다. 먼저 ai-fresh-2026 seed를 실행하세요."
     },
+    "feed": {
+      "label": "AI 피드 타임라인",
+      "title": "실시간 AI 뉴스 스트림",
+      "subtitle": "17개 국내외 소스 집계, 6시간마다 자동 수집",
+      "totalPrefix": "총 ",
+      "totalSuffix": "건",
+      "today": "오늘",
+      "yesterday": "어제",
+      "itemsUnit": "건",
+      "empty": "수집된 데이터가 없습니다. 첫 ai-feed-collect cron 실행 대기 중.",
+      "categoryAll": "전체",
+      "categoryHotspot": "핫스팟",
+      "categoryAccount": "계정",
+      "categoryAnalysis": "분석",
+      "categoryCreation": "창작",
+      "categoryRetrieval": "검색",
+      "categoryTool": "도구",
+      "categorySource": "소스"
+    },
     "funding": {
       "label": "대규모 펀딩 & 인수",
       "title": "대규모 펀딩 & 인수",
@@ -27789,6 +27823,7 @@
       "empty": "문서가 없습니다",
       "loading": "로드 중...",
       "manage": "관리",
+      "upload": "업로드",
       "chunkCount": "청크 {count}개",
       "sourceType": {
         "text": "텍스트",
@@ -27833,6 +27868,24 @@
       "chunkCount": "청크 {count}개",
       "loading": "로드 중...",
       "empty": "문서가 없습니다"
+    },
+    "upload": {
+      "title": "업로드",
+      "subtitle": "PDF / DOCX / Markdown / 텍스트 / HTML 지원",
+      "modeFile": "파일 업로드",
+      "modeText": "일반 텍스트",
+      "titleLabel": "제목(선택)",
+      "titlePlaceholder": "비워두면 파일명 사용",
+      "fileLabel": "파일 선택",
+      "fileHint": "PDF / DOCX / MD / TXT / HTML 지원, 최대 20MB",
+      "textLabel": "텍스트 내용",
+      "textPlaceholder": "텍스트를 붙여넣거나 입력...",
+      "charCount": "{count}자",
+      "submit": "업로드",
+      "noFile": "파일을 선택해 주세요",
+      "noText": "텍스트를 입력해 주세요",
+      "defaultTitle": "제목 없는 문서",
+      "success": "성공적으로 처리됨, {count}개 청크 생성"
     }
   },
   "knowledgeGraph": {

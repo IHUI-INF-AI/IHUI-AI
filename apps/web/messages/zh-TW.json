@@ -14910,7 +14910,22 @@
     "official": "官方",
     "free": "免費",
     "open": "進入",
-    "visit": "造訪官網"
+    "visit": "造訪官網",
+    "catInstalled": "已安裝",
+    "catPinned": "已收藏",
+    "sortInstalled": "已安裝",
+    "loadingStates": "載入中...",
+    "loginRequired": "請先登入後管理外掛",
+    "install": "啟用",
+    "uninstall": "停用",
+    "pin": "收藏",
+    "unpin": "取消收藏",
+    "installedBadge": "已啟用",
+    "installed": "已啟用 {name}",
+    "uninstalled": "已停用 {name}",
+    "pinned": "已收藏 {name}",
+    "unpinned": "已取消收藏 {name}",
+    "mutationError": "操作失敗,請重試"
   },
   "aiWorld": {
     "empty": "暫無內容，敬請期待",
@@ -25796,6 +25811,25 @@
       "pinned": "置頂",
       "empty": "暫無最新資訊,請先跑 ai-fresh-2026 seed"
     },
+    "feed": {
+      "label": "AI 資訊時間線",
+      "title": "全網 AI 資訊即時流",
+      "subtitle": "聚合 17 個國內外信源,每 6 小時自動採集更新",
+      "totalPrefix": "共",
+      "totalSuffix": "條",
+      "today": "今天",
+      "yesterday": "昨天",
+      "itemsUnit": "條",
+      "empty": "暫無採集資料,等待首次 ai-feed-collect cron 觸發",
+      "categoryAll": "全部",
+      "categoryHotspot": "熱點",
+      "categoryAccount": "帳號",
+      "categoryAnalysis": "分析",
+      "categoryCreation": "創作",
+      "categoryRetrieval": "檢索",
+      "categoryTool": "工具",
+      "categorySource": "信源"
+    },
     "funding": {
       "label": "重磅融資與收購",
       "title": "重磅融資與收購",
@@ -27807,6 +27841,7 @@
       "empty": "暫無文檔",
       "loading": "載入中...",
       "manage": "管理",
+      "upload": "上傳文檔",
       "chunkCount": "{count} 個切片",
       "sourceType": {
         "text": "文字",
@@ -27851,6 +27886,24 @@
       "chunkCount": "{count} 個切片",
       "loading": "載入中...",
       "empty": "暫無文檔"
+    },
+    "upload": {
+      "title": "上傳文檔",
+      "subtitle": "支援 PDF / DOCX / Markdown / 純文字 / HTML",
+      "modeFile": "檔案上傳",
+      "modeText": "純文字",
+      "titleLabel": "標題(可選)",
+      "titlePlaceholder": "留空則使用檔名",
+      "fileLabel": "選擇檔案",
+      "fileHint": "支援 PDF / DOCX / MD / TXT / HTML,≤20MB",
+      "textLabel": "文字內容",
+      "textPlaceholder": "貼上或輸入文字內容...",
+      "charCount": "{count} 字元",
+      "submit": "上傳",
+      "noFile": "請選擇檔案",
+      "noText": "請輸入文字內容",
+      "defaultTitle": "未命名文檔",
+      "success": "入庫成功,生成 {count} 個切片"
     }
   },
   "knowledgeGraph": {
