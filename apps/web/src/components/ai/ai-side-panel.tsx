@@ -23,9 +23,10 @@ import { QuestionDialog } from '@/components/chat/question-dialog'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
 import { Tooltip } from '@/components/feedback'
-import { useChatStore, type ChatMessage, type PendingQuestion } from '@/stores/chat'
+import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getConversation, getMessages } from '@/lib/chat-api'
+import { parsePendingQuestion } from '@/lib/pending-question'
 import { fetchApi } from '@/lib/api'
 
 /** 全局 AI docked 侧边面板(对齐旧架构 .ai-side-panel 设计)。
@@ -131,13 +132,12 @@ export function AISidePanel() {
       const { conversationId, question } = lastMessage.data
       // 仅处理当前会话的事件(其他会话的提问不弹窗,避免干扰)
       if (conversationId && currentConv && conversationId !== currentConv) return
-      useChatStore.getState().setPendingQuestion({
-        questionId: question.questionId,
-        prompt: question.prompt,
-        options: question.options,
-        allowCustom: question.allowCustom,
-        allowMultiple: question.allowMultiple,
-      })
+      // 运行时 Zod 校验:WS payload 可能因客户端版本差异 / 中间件篡改而异常,
+      // 校验失败时不弹窗(避免脏数据进 store 导致 UI 崩溃)
+      const pending = parsePendingQuestion(question)
+      if (pending) {
+        useChatStore.getState().setPendingQuestion(pending)
+      }
       return
     }
 
@@ -225,13 +225,17 @@ export function AISidePanel() {
           // 场景:用户 A 在 web 提问后刷新页面 / 切换会话再切回 / 在其他端打开同一会话
           // 后端 /chat/questions 已把 pendingQuestion 写入 conversation.metadata(merge 模式)
           // 这里读取并还原弹窗,让用户能继续回答(不丢失挂起态)
+          //
+          // 运行时 Zod 校验:防止 DB metadata 被其他端写入异常结构 / 被外部篡改 / 字段
+          // 类型不匹配导致前端崩溃。校验失败时降级为 clearPendingQuestion(不弹窗)。
           const meta = convRes.data.conversation.metadata as {
-            pendingQuestion?: PendingQuestion | null
+            pendingQuestion?: unknown
           } | null
-          if (meta?.pendingQuestion) {
-            useChatStore.getState().setPendingQuestion(meta.pendingQuestion)
+          const pending = parsePendingQuestion(meta?.pendingQuestion)
+          if (pending) {
+            useChatStore.getState().setPendingQuestion(pending)
           } else {
-            // 无挂起提问时清空(避免上一会话的弹窗残留)
+            // 无挂起提问或数据非法时清空(避免上一会话的弹窗残留 / 脏数据崩溃)
             useChatStore.getState().clearPendingQuestion()
           }
         } else {
