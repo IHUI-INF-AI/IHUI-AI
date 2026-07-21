@@ -2,7 +2,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, desc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import { recordAiCost } from '../plugins/ai-cost.js'
 import { success, error } from '../utils/response.js'
 import { zhsAiUserModelChatConfig, zhsAiUserModelChatHistory } from '@ihui/database'
@@ -78,18 +78,6 @@ const chatSchemaFrontend = z.union([
       conversationId: v.conversationId,
     })),
 ])
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-}
 
 function maskKey(key: string): string {
   if (key.length <= 8) return '****'
@@ -244,7 +232,7 @@ async function callLLM(params: LLMCallParams): Promise<{
 
 export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
   })
 
   server.get('/configs', async (request, reply) => {

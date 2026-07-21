@@ -1,27 +1,8 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { authenticate } from '../plugins/auth.js';
+import { checkAuth } from '../plugins/auth.js';
 import { success, error } from '../utils/response.js';
 import { findPlazaItemList } from '../db/misc-queries.js';
-
-// =============================================================================
-// 鉴权辅助
-// =============================================================================
-
-async function requireAuth(
-  request: FastifyRequest,
-  reply: FastifyReply,
-): Promise<boolean> {
-  try {
-    await authenticate(request);
-    return true;
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401;
-    const message = (e as Error).message || 'Authentication required';
-    reply.status(statusCode).send(error(statusCode, message));
-    return false;
-  }
-}
 
 // =============================================================================
 // 查询参数
@@ -40,7 +21,7 @@ const plazaListQuerySchema = z.object({
 
 export const plazaRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
   });
 
   // GET /list - 广场智能体列表
