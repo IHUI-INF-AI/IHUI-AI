@@ -36,15 +36,13 @@ export const plans = pgTable('plans', {
 /**
  * 订单表。
  * amount 以分为单位。status: pending|paid|cancelled|refunded。
- * user_id 级联删除；plan_id 默认 NO ACTION（有订单时禁止删除方案）。
+ * user_id 可空：用户删除时保留订单财务凭证，userId 置 NULL；plan_id 默认 NO ACTION（有订单时禁止删除方案）。
  * orderType: 1=membership 2=token 3=activity 4=identity（0=未分类）。
  */
 export const orders = pgTable('orders', {
   id: uuid('id').defaultRandom().primaryKey(),
   orderNo: varchar('order_no', { length: 64 }).notNull().unique(),
-  userId: uuid('user_id')
-    .references(() => users.id, { onDelete: 'cascade' })
-    .notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
   planId: uuid('plan_id').references(() => plans.id),
   amount: integer('amount').notNull(),
   currency: varchar('currency', { length: 8 }).default('CNY').notNull(),
