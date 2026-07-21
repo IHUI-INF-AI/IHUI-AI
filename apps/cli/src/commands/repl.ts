@@ -1946,5 +1946,55 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       }
     }
   }
+
+  state.rewindStack.push(state.history.map((m) => ({ ...m })));
+  if (state.rewindStack.length > 20) {
+    state.rewindStack.shift();
+  }
+  state.history.push({ role: 'user', content: prompt });
+
+  const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+    { role: 'system', content: state.systemPrompt! },
+    ...state.history.map((m) => ({ role: m.role as 'system' | 'user' | 'assistant', content: m.content })),
+  ];
+
+  // P0-2 Interject:agent 运行期间允许用户输入非斜杠命令到 buffer,runToolLoop 每轮 drain
+  state.agentRunning = true;
+  const drainInterjections = (): string[] => {
+    const buf = state.interjectionBuffer;
+    state.interjectionBuffer = [];
+    return buf;
+  };
+
+  const result = await runToolLoop({
+    modelId: state.opts.modelId,
+    messages,
+    ctx: state.ctx!,
+    maxIterations: state.opts.maxIterations,
+    planFirst: state.opts.planFirst,
+    planApproved: state.planApproved,
+    drainInterjections,
+    onDelta: (delta) => { process.stdout.write(delta); },
+    onToolCall: (name, args) => console.info(chalk.cyan(`\n  🔧 ${name} ${JSON.stringify(args)}`)),
+    onToolResult: (_name, success, output) => {
+      const icon = success ? '✓' : '✗';
+      console.info(chalk.dim(`  ${icon} ${output.slice(0, 200)}`));
+    },
+    onError: (err) => console.error(chalk.red(`\n❌ ${err}`)),
+  });
+
+  state.agentRunning = false;
+
+  if (result.assistantText) {
+    state.history.push({ role: 'assistant', content: result.assistantText });
+  }
+  if (state.session) {
+    state.session.history = state.history;
+    saveSession(state.session);
+  }
+  const u = result.usage;
+  const cost = u.estimatedCostUsd > 0 ? `$${u.estimatedCostUsd.toFixed(4)}` : 'plan 套餐';
+  console.info(chalk.green(`\n\n✨ 完成 (${result.iterations} 轮, ${result.stopReason})`));
+  console.info(chalk.dim(`📊 tokens: ${u.totalTokens} (prompt ${u.promptTokens} + completion ${u.completionTokens}) — ${cost}\n`));
 }
 
