@@ -6,7 +6,13 @@ import { createWebSocketHook } from '@/hooks/create-websocket-hook'
 
 export type CustomerServiceMessageType = 'text' | 'image' | 'file' | 'system'
 
-export interface CustomerServiceMessage {
+/**
+ * 客服 WebSocket 实时消息格式(前端 WS 客户端用)。
+ * 与 @ihui/types 的 CustomerServiceMessage(DB 持久化格式:id/sessionId/fromId/fromType/isRead/createdAt)语义不同 ——
+ * 此处是 WS 网络传输格式,含 sender / timestamp / fileName / fileUrl 字段,无 sessionId / fromId / isRead 字段。
+ * 命名为 CustomerServiceWSMessage 避免与 @ihui/types CustomerServiceMessage 命名冲突。
+ */
+export interface CustomerServiceWSMessage {
   id?: string
   type: CustomerServiceMessageType
   content: string
@@ -17,14 +23,14 @@ export interface CustomerServiceMessage {
 }
 
 export interface UseCustomerServiceReturn {
-  messages: CustomerServiceMessage[]
-  sendMessage: (msg: Omit<CustomerServiceMessage, 'id' | 'timestamp'>) => void
+  messages: CustomerServiceWSMessage[]
+  sendMessage: (msg: Omit<CustomerServiceWSMessage, 'id' | 'timestamp'>) => void
   isConnected: boolean
   typing: boolean
 }
 
-/** 类型守卫:判断解析后的对象是否符合 CustomerServiceMessage 结构 */
-function isCustomerServiceMessage(v: unknown): v is CustomerServiceMessage {
+/** 类型守卫:判断解析后的对象是否符合 CustomerServiceWSMessage 结构 */
+function isCustomerServiceMessage(v: unknown): v is CustomerServiceWSMessage {
   if (typeof v !== 'object' || v === null) return false
   const t = (v as { type?: unknown }).type
   return t === 'text' || t === 'image' || t === 'file' || t === 'system'
@@ -36,7 +42,7 @@ function buildWsUrl(token: string | null): string {
   return `${proto}//${window.location.host}/ws/customer-service?token=${encodeURIComponent(token)}`
 }
 
-const useCustomerServiceWS = createWebSocketHook<CustomerServiceMessage>({
+const useCustomerServiceWS = createWebSocketHook<CustomerServiceWSMessage>({
   urlBuilder: buildWsUrl,
   messageGuard: isCustomerServiceMessage,
   heartbeatMessage: () => JSON.stringify({ type: 'ping' }),
@@ -58,7 +64,7 @@ const useCustomerServiceWS = createWebSocketHook<CustomerServiceMessage>({
  */
 export function useCustomerService(): UseCustomerServiceReturn {
   const ws = useCustomerServiceWS()
-  const [messages, setMessages] = React.useState<CustomerServiceMessage[]>([])
+  const [messages, setMessages] = React.useState<CustomerServiceWSMessage[]>([])
   const [typing, setTyping] = React.useState(false)
   const typingTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -95,8 +101,8 @@ export function useCustomerService(): UseCustomerServiceReturn {
   }, [])
 
   const sendMessage = React.useCallback(
-    (msg: Omit<CustomerServiceMessage, 'id' | 'timestamp'>) => {
-      const payload: CustomerServiceMessage = {
+    (msg: Omit<CustomerServiceWSMessage, 'id' | 'timestamp'>) => {
+      const payload: CustomerServiceWSMessage = {
         ...msg,
         timestamp: new Date().toISOString(),
       }
