@@ -55,3 +55,13 @@ export { Upload } from './components/Upload.js'
 export type { UploadProps } from './components/Upload.js'
 export { Badge, badgeVariants } from './components/badge.js'
 export type { BadgeProps } from './components/badge.js'
+export { Collapsible, CollapsibleTrigger, CollapsibleContent } from './components/collapsible.js'
+export type {
+  CollapsibleProps,
+  CollapsibleTriggerProps,
+  CollapsibleContentProps,
+} from './components/collapsible.js'
+export { CodeBlock } from './components/code-block.js'
+export type { CodeBlockProps } from './components/code-block.js'
+export { LogViewer } from './components/log-viewer.js'
+export type { LogViewerProps } from './components/log-viewer.js'
