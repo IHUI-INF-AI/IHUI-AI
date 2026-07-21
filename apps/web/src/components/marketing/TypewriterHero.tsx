@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Smartphone, MessageSquare, GraduationCap, X } from 'lucide-react'
 import { Button } from '@ihui/ui'
@@ -163,10 +164,11 @@ function MiniAppQrModal({ open, onClose }: { open: boolean; onClose: () => void 
           </button>
         </div>
         <div className="flex flex-col items-center gap-3 pt-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/footer/erweima/footer-icon-2.png"
             alt={t('qrAlt')}
+            width={192}
+            height={192}
             className="h-48 w-48 rounded-lg border object-contain"
           />
           <p className="text-center text-xs text-muted-foreground">{t('scanTip')}</p>

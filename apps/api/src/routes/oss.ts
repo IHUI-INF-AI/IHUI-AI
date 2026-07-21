@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, and, ilike, isNull } from 'drizzle-orm'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {
   findOssDrivers,
@@ -16,22 +16,6 @@ import { createUploadPreHandler } from '../plugins/upload-scanner.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { db } from '../db/index.js'
 import { files } from '@ihui/database'
-
-// =============================================================================
-// 鉴权辅助
-// =============================================================================
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-}
 
 // =============================================================================
 // Zod schemas
@@ -93,7 +77,7 @@ const uploadProxyBodySchema = z.object({
 
 export const ossRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
   })
 
   // GET /oss/drivers - 启用中的驱动列表(不返回 credentials)
