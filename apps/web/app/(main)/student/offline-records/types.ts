@@ -1,3 +1,5 @@
+import type { AttachmentItem } from '@/components/form/AttachmentsUpload'
+
 export interface OfflineRecord {
   id: string
   type: string
@@ -5,6 +7,7 @@ export interface OfflineRecord {
   description: string | null
   hours: number | null
   occurredAt: string | null
+  attachments: AttachmentItem[]
 }
 
 export interface RecordForm {
@@ -13,4 +16,5 @@ export interface RecordForm {
   description: string
   hours: string
   occurredAt: string
+  attachments: AttachmentItem[]
 }

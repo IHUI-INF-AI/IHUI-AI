@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { FlatList, RefreshControl, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  FlatList,
+  RefreshControl,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Card } from '@ihui/ui-native'
@@ -48,7 +56,7 @@ export function InviteScreen() {
     try {
       const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
       const [infoResp, listResp] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/distribution/invite-info`, { headers: authHeaders }),
+        fetch(`${API_BASE_URL}/api/distribution/overview`, { headers: authHeaders }),
         fetch(`${API_BASE_URL}/api/distribution/invited-users`, { headers: authHeaders }),
       ])
       if (!infoResp.ok || !listResp.ok) throw new Error('http')
@@ -142,7 +150,9 @@ export function InviteScreen() {
         renderItem={({ item }) => (
           <Card style={styles.card}>
             <View style={styles.row}>
-              <Text style={styles.name} numberOfLines={1}>{item.nickname}</Text>
+              <Text style={styles.name} numberOfLines={1}>
+                {item.nickname}
+              </Text>
               <Text style={styles.reward}>+¥{item.reward}</Text>
             </View>
             <Text style={styles.date}>{formatDate(item.invitedAt)}</Text>
@@ -156,7 +166,13 @@ export function InviteScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   center: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
   backText: { fontSize: 14, color: '#374151' },
   title: { fontSize: 18, fontWeight: '600', color: '#111827' },
   card: { padding: 12, marginBottom: 12, borderRadius: 8 },
@@ -166,7 +182,13 @@ const styles = StyleSheet.create({
   statBox: { flex: 1, padding: 8, backgroundColor: '#F9FAFB', borderRadius: 8 },
   statValue: { fontSize: 16, fontWeight: '600', color: '#111827' },
   statLabel: { marginTop: 2, fontSize: 11, color: '#6B7280' },
-  shareBtn: { marginTop: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: '#10B981', alignItems: 'center' },
+  shareBtn: {
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+  },
   shareText: { fontSize: 13, color: '#FFFFFF', fontWeight: '600' },
   sectionTitle: { fontSize: 13, fontWeight: '600', color: '#374151', marginVertical: 8 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

@@ -14,6 +14,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@ihui/ui'
+import { AttachmentsUpload } from '@/components/form/AttachmentsUpload'
 import type { OfflineRecord, RecordForm } from './types'
 
 interface Props {
@@ -104,6 +105,16 @@ export function OfflineRecordDialog({
                 onChange={(e) => setForm({ ...form, occurredAt: e.target.value })}
               />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>{t('attachmentsField')}</Label>
+            <AttachmentsUpload
+              value={form.attachments}
+              onChange={(items) => setForm({ ...form, attachments: items })}
+              multiple
+              maxCount={10}
+              accept="image/*,audio/*,video/*,application/pdf"
+            />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
