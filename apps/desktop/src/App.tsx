@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { getProfile, type AuthUser } from '@ihui/api-client'
 import { initApi, getToken } from './lib/token'
-import { useNotificationWebSocket } from './hooks/use-websocket'
+import { useAgentControlBridge } from './hooks/use-agent-control-bridge'
 import { NotificationProvider, useNotificationStore } from './stores/notification'
 import { I18nProvider, useI18n } from './i18n'
 import Layout from './components/Layout'
 import NotificationPanel from './components/NotificationPanel'
+import { DesktopWorkPanel } from './components/work-panel/DesktopWorkPanel'
 import AdminLayout from './components/admin/AdminLayout'
 import AdminGuard from './components/admin/AdminGuard'
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -28,7 +29,7 @@ function AppInner() {
   const [ready, setReady] = useState(false)
   const [user, setUser] = useState<AuthUser | null>(null)
   const token = getToken()
-  const { connected: wsConnected, lastMessage } = useNotificationWebSocket(token || null)
+  const { connected: wsConnected, lastMessage } = useAgentControlBridge(token || null)
   const { addFromWs } = useNotificationStore()
   const { t } = useI18n()
 
@@ -103,6 +104,7 @@ function AppInner() {
         </Route>
       </Routes>
       <NotificationPanel />
+      <DesktopWorkPanel />
     </BrowserRouter>
   )
 }
