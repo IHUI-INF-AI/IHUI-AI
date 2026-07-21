@@ -7,7 +7,7 @@
  *   settings(key TEXT PRIMARY KEY, value TEXT)
  *   providers(
  *     id TEXT PRIMARY KEY,
- *     app_type TEXT,        -- claude/claude-desktop/codex/gemini/cli/opencode/openclaw/hermes
+ *     app_type TEXT,        -- claude/claude-desktop/codex/gemini/opencode/openclaw/hermes
  *     name TEXT,
  *     settings_config TEXT, -- JSON
  *     is_current INTEGER,
@@ -54,7 +54,6 @@ const VALID_APP_TYPES: CliAppType[] = [
   'claude-desktop',
   'codex',
   'gemini',
-  'cli',
   'opencode',
   'openclaw',
   'hermes',
