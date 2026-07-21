@@ -1960,7 +1960,8 @@
         "developer": "Developer",
         "saas": "SaaS Deploy"
       },
-      "saasMetrics": "Resource Monitoring"
+      "saasMetrics": "Resource Monitoring",
+      "aiCost": "AI Cost Overview"
     },
     "refund": {
       "title": "Refund Audit Management",
@@ -11240,7 +11241,27 @@
     "ipCity": "IP City Distribution",
     "noData": "No data"
   },
-  "wallet": {
+  "aiCost": {
+    "title": "AI Cost Overview",
+    "subtitle": "Token usage, cost and cache hit rate monitoring",
+    "loading": "Loading...",
+    "empty": "No AI call data",
+    "emptyHint": "Data will appear once user model chat is connected",
+    "totalCost": "Total Cost",
+    "totalTokens": "Total Tokens",
+    "totalCalls": "Total Calls",
+    "cacheHitRate": "Cache Hit Rate",
+    "byModel": "By Model",
+    "byDay": "By Day",
+    "calls": "calls",
+    "noModelData": "No model data",
+    "noDayData": "No daily data",
+    "rangeLabel": "Time Range",
+    "range1d": "Last 1 day",
+    "range7d": "Last 7 days",
+    "range30d": "Last 30 days"
+  },
+  "visitTracking": {
     "title": "My Wallet",
     "balance": "Token Balance",
     "flows": "Transactions",
