@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2, Clock, CheckCircle, XCircle, Wallet } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -30,23 +30,23 @@ interface Order {
   createdAt: string
 }
 
-const STATUS_CONFIG: Record<OrderStatus, { icon: typeof Clock; cls: string; label: string }> = {
+const STATUS_CONFIG: Record<OrderStatus, { icon: typeof Clock; cls: string; labelKey: string }> = {
   pending: {
     icon: Clock,
     cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
-    label: '待支付',
+    labelKey: 'status.pending',
   },
   paid: {
     icon: CheckCircle,
     cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
-    label: '已支付',
+    labelKey: 'status.paid',
   },
   cancelled: {
     icon: XCircle,
     cls: 'bg-red-500/10 text-red-600 dark:text-red-500',
-    label: '已取消',
+    labelKey: 'status.cancelled',
   },
-  refunded: { icon: Wallet, cls: 'bg-primary/10 text-primary', label: '已退款' },
+  refunded: { icon: Wallet, cls: 'bg-primary/10 text-primary', labelKey: 'status.refunded' },
 }
 
 function Row({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
@@ -60,6 +60,7 @@ function Row({ label, value, mono }: { label: string; value: React.ReactNode; mo
 
 export default function MemberOrderDetailPage() {
   const locale = useLocale()
+  const t = useTranslations('memberOrderDetailPage')
   const router = useRouter()
   const params = useParams<{ id: string }>()
   const qc = useQueryClient()
@@ -102,7 +103,7 @@ export default function MemberOrderDetailPage() {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
   }
@@ -112,9 +113,9 @@ export default function MemberOrderDetailPage() {
       <div className="space-y-3">
         <Button variant="ghost" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="mr-1.5 h-4 w-4" />
-          返回
+          {t('back')}
         </Button>
-        <Alert variant="danger" description={(error as Error)?.message ?? '订单不存在'} />
+        <Alert variant="danger" description={(error as Error)?.message ?? t('notFound')} />
       </div>
     )
   }
@@ -126,11 +127,11 @@ export default function MemberOrderDetailPage() {
     <div className="space-y-4">
       <Button variant="ghost" size="sm" onClick={() => router.back()}>
         <ArrowLeft className="mr-1.5 h-4 w-4" />
-        返回
+        {t('back')}
       </Button>
 
       <div className="space-y-1">
-        <h1 className="text-xl font-bold tracking-tight">订单详情</h1>
+        <h1 className="text-xl font-bold tracking-tight">{t('title')}</h1>
         <p className="font-mono text-xs text-muted-foreground">{order.orderNo}</p>
       </div>
 
@@ -141,39 +142,39 @@ export default function MemberOrderDetailPage() {
         )}
       >
         <StatusIcon className="h-4 w-4" />
-        {sc.label}
+        {t(sc.labelKey)}
       </span>
 
       <dl className="divide-y rounded-lg border">
-        <Row label="订单号" value={order.orderNo} mono />
-        <Row label="商品名称" value={order.targetTitle ?? '-'} />
-        <Row label="订单类型" value={order.orderType} />
-        <Row label="数量" value={order.quantity} />
-        <Row label="创建时间" value={dateFmt.format(new Date(order.createdAt))} />
-        {order.payTime && <Row label="支付时间" value={dateFmt.format(new Date(order.payTime))} />}
+        <Row label={t('fields.orderNo')} value={order.orderNo} mono />
+        <Row label={t('fields.product')} value={order.targetTitle ?? '-'} />
+        <Row label={t('fields.orderType')} value={order.orderType} />
+        <Row label={t('fields.quantity')} value={order.quantity} />
+        <Row label={t('fields.createdAt')} value={dateFmt.format(new Date(order.createdAt))} />
+        {order.payTime && <Row label={t('fields.payTime')} value={dateFmt.format(new Date(order.payTime))} />}
         {order.cancelTime && (
-          <Row label="取消时间" value={dateFmt.format(new Date(order.cancelTime))} />
+          <Row label={t('fields.cancelTime')} value={dateFmt.format(new Date(order.cancelTime))} />
         )}
         {order.refundTime && (
-          <Row label="退款时间" value={dateFmt.format(new Date(order.refundTime))} />
+          <Row label={t('fields.refundTime')} value={dateFmt.format(new Date(order.refundTime))} />
         )}
-        {order.payType && <Row label="支付方式" value={order.payType} />}
-        {order.remark && <Row label="备注" value={order.remark} />}
+        {order.payType && <Row label={t('fields.payType')} value={order.payType} />}
+        {order.remark && <Row label={t('fields.remark')} value={order.remark} />}
       </dl>
 
       <div className="space-y-2 rounded-lg border bg-muted/30 p-4">
         <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">原价</span>
+          <span className="text-muted-foreground">{t('fields.originalPrice')}</span>
           <span>{currencyFmt.format(Number(order.originalPrice))}</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-muted-foreground">优惠</span>
+          <span className="text-muted-foreground">{t('fields.discount')}</span>
           <span className="text-emerald-600 dark:text-emerald-500">
             -{currencyFmt.format(Number(order.discountAmount))}
           </span>
         </div>
         <div className="flex justify-between border-t pt-2 text-base font-bold">
-          <span>实付</span>
+          <span>{t('fields.payAmount')}</span>
           <span>{currencyFmt.format(Number(order.payAmount))}</span>
         </div>
       </div>
@@ -184,7 +185,7 @@ export default function MemberOrderDetailPage() {
             variant="outline"
             onClick={() => router.push(`/payment/checkout?order=${order.id}`)}
           >
-            去支付
+            {t('actions.pay')}
           </Button>
           <Button
             variant="ghost"
@@ -193,7 +194,7 @@ export default function MemberOrderDetailPage() {
             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
           >
             {cancelMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-            取消订单
+            {t('actions.cancel')}
           </Button>
         </div>
       )}
