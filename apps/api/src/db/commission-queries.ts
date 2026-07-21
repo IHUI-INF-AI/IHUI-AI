@@ -43,20 +43,29 @@ export async function rechargeToken(
 ): Promise<number> {
   const margin = await ensureMargin(userId)
   const newBalance = margin.tokenQuantity + quantity
-  await db.transaction(async (tx) => {
-    await tx
-      .update(userMargins)
-      .set({ tokenQuantity: newBalance, updatedAt: new Date() })
-      .where(eq(userMargins.userId, userId))
-    await tx.insert(tokenFlows).values({
-      userId,
-      opType: 0,
-      quantity,
-      balanceAfter: newBalance,
-      remark: remark ?? '充值',
-      relatedOrderNo: orderNo,
+  try {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(userMargins)
+        .set({ tokenQuantity: newBalance, updatedAt: new Date() })
+        .where(eq(userMargins.userId, userId))
+      await tx.insert(tokenFlows).values({
+        userId,
+        opType: 0,
+        quantity,
+        balanceAfter: newBalance,
+        remark: remark ?? '充值',
+        relatedOrderNo: orderNo,
+      })
+      // P0-2 + P0-4 幂等:(related_order_no, op_type) unique 索引拦截重复回调,事务自动回滚
     })
-  })
+  } catch (e: unknown) {
+    // PostgreSQL unique_violation (23505):幂等命中,重复充值被拦截,返回当前余额不重复加
+    if (e && typeof e === 'object' && 'code' in e && e.code === '23505' && orderNo) {
+      return margin.tokenQuantity
+    }
+    throw e
+  }
   return newBalance
 }
 
@@ -65,23 +74,25 @@ export async function deductToken(
   quantity: number,
   remark?: string,
 ): Promise<number> {
-  const margin = await ensureMargin(userId)
-  if (margin.tokenQuantity < quantity) throw new Error('Token 余额不足')
-  const newBalance = margin.tokenQuantity - quantity
-  await db.transaction(async (tx) => {
-    await tx
+  await ensureMargin(userId)
+  // P1-1 行锁原子 UPDATE:WHERE 条件内联 token_quantity >= quantity,消除 SELECT→UPDATE 跨事务 TOCTOU
+  const result = await db.transaction(async (tx) => {
+    const [updated] = await tx
       .update(userMargins)
-      .set({ tokenQuantity: newBalance, updatedAt: new Date() })
-      .where(eq(userMargins.userId, userId))
+      .set({ tokenQuantity: sql`token_quantity - ${quantity}`, updatedAt: new Date() })
+      .where(and(eq(userMargins.userId, userId), sql`token_quantity >= ${quantity}`))
+      .returning()
+    if (!updated) throw new Error('Token 余额不足')
     await tx.insert(tokenFlows).values({
       userId,
       opType: 1,
       quantity,
-      balanceAfter: newBalance,
+      balanceAfter: updated.tokenQuantity,
       remark: remark ?? '扣减',
     })
+    return updated.tokenQuantity
   })
-  return newBalance
+  return result
 }
 
 export async function refundToken(
