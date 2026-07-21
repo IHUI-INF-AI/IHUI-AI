@@ -5,13 +5,14 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 
 export default async function BillingPage() {
   const t = await getTranslations('models')
+  const tp = await getTranslations('modelsBillingPage')
 
   const packages = [
     {
       name: t('billing.packages.starter'),
       price: '¥ 9.9',
       bonus: t('billing.packages.starterBonus'),
-      features: ['1M tokens 额度', '基础模型可用', '5 个 API 令牌', '社区支持'],
+      features: tp.raw('packages.starter.features') as string[],
       cta: t('billing.packages.cta'),
       highlighted: false,
     },
@@ -19,13 +20,7 @@ export default async function BillingPage() {
       name: t('billing.packages.pro'),
       price: '¥ 99',
       bonus: t('billing.packages.proBonus'),
-      features: [
-        '15M tokens 额度',
-        '全部模型可用',
-        '20 个 API 令牌',
-        '优先技术支持',
-        '调用日志 90 天',
-      ],
+      features: tp.raw('packages.pro.features') as string[],
       cta: t('billing.packages.cta'),
       highlighted: true,
     },
@@ -33,14 +28,7 @@ export default async function BillingPage() {
       name: t('billing.packages.enterprise'),
       price: '¥ 999',
       bonus: t('billing.packages.enterpriseBonus'),
-      features: [
-        '200M tokens 额度',
-        '专属模型通道',
-        '无限 API 令牌',
-        '专属客户经理',
-        '调用日志永久',
-        'SLA 99.95%',
-      ],
+      features: tp.raw('packages.enterprise.features') as string[],
       cta: t('billing.packages.cta'),
       highlighted: false,
     },
@@ -125,7 +113,7 @@ export default async function BillingPage() {
             <div className="mt-2 text-2xl font-bold">¥ 285.40</div>
             <div className="mt-1 flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400">
               <ArrowUpRight className="h-3 w-3" />
-              +8.7% vs 上月
+              {tp('consumeTrend', { n: 8.7 })}
             </div>
           </CardContent>
         </Card>
@@ -133,7 +121,9 @@ export default async function BillingPage() {
           <CardContent className="p-5">
             <div className="text-xs text-muted-foreground">{t('billing.totalRecharge')}</div>
             <div className="mt-2 text-2xl font-bold">¥ 1,500.00</div>
-            <div className="mt-1 text-xs text-muted-foreground">累计 6 次充值</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {tp('rechargeCount', { n: 6 })}
+            </div>
           </CardContent>
         </Card>
       </div>

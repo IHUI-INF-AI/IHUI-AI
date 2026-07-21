@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, ArrowLeft, Sparkles, Plus } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -35,11 +35,11 @@ async function api<T>(url: string): Promise<T> {
 }
 
 const STATUS_FILTERS = [
-  { value: 'all', label: '全部' },
-  { value: 'pending', label: '待审核' },
-  { value: 'published', label: '已发布' },
-  { value: 'rejected', label: '已拒绝' },
-  { value: 'offline', label: '已下线' },
+  { value: 'all' },
+  { value: 'pending' },
+  { value: 'published' },
+  { value: 'rejected' },
+  { value: 'offline' },
 ]
 
 const STATUS_CLASS: Record<string, string> = {
@@ -51,6 +51,7 @@ const STATUS_CLASS: Record<string, string> = {
 
 export default function MyAgentsPage() {
   const locale = useLocale()
+  const t = useTranslations('agentsMyPage')
   const [status, setStatus] = React.useState('all')
 
   const { data, isLoading, error } = useQuery({
@@ -81,18 +82,18 @@ export default function MyAgentsPage() {
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回
+        {t('back')}
       </Link>
 
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">我的智能体</h1>
-          <p className="mt-1 text-sm text-muted-foreground">管理你创建的智能体</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button size="sm" asChild>
           <Link href="/agents/create">
             <Plus className="mr-1.5 h-4 w-4" />
-            创建
+            {t('create')}
           </Link>
         </Button>
       </div>
@@ -109,7 +110,7 @@ export default function MyAgentsPage() {
                 : 'bg-muted text-muted-foreground hover:bg-accent',
             )}
           >
-            {f.label}
+            {t(`statusFilters.${f.value}`)}
           </button>
         ))}
       </div>
@@ -117,7 +118,7 @@ export default function MyAgentsPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : error ? (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
@@ -126,7 +127,7 @@ export default function MyAgentsPage() {
       ) : agents.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center text-muted-foreground">
           <Sparkles className="h-8 w-8 opacity-40" />
-          <p className="text-sm">暂无智能体</p>
+          <p className="text-sm">{t('empty')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -156,13 +157,14 @@ export default function MyAgentsPage() {
                           STATUS_CLASS[agent.status] ?? STATUS_CLASS.offline,
                         )}
                       >
-                        {STATUS_FILTERS.find((f) => f.value === agent.status)?.label ??
-                          agent.status}
+                        {STATUS_FILTERS.some((f) => f.value === agent.status)
+                          ? t(`statusFilters.${agent.status}`)
+                          : agent.status}
                       </span>
                     </div>
                   </div>
                   <p className="line-clamp-2 text-xs text-muted-foreground">
-                    {agent.description ?? '暂无描述'}
+                    {agent.description ?? t('noDescription')}
                   </p>
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span
@@ -171,7 +173,7 @@ export default function MyAgentsPage() {
                         agent.isFree ? 'text-emerald-600 dark:text-emerald-500' : 'text-primary',
                       )}
                     >
-                      {agent.isFree ? '免费' : `¥${agent.price}`}
+                      {agent.isFree ? t('free') : `¥${agent.price}`}
                     </span>
                     <span>{fmt(agent.updatedAt)}</span>
                   </div>

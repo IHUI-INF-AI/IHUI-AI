@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { ArrowLeft, Clock, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -33,6 +34,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export default function EduExamTakePage() {
+  const t = useTranslations('eduExamPage')
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const [answers, setAnswers] = React.useState<Record<string, string[]>>({})
@@ -60,7 +62,7 @@ export default function EduExamTakePage() {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
 
@@ -73,9 +75,9 @@ export default function EduExamTakePage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回考试列表
+          {t('backToList')}
         </button>
-        <Alert variant="danger" description={(error as Error)?.message ?? '考试不存在'} />
+        <Alert variant="danger" description={(error as Error)?.message ?? t('notExists')} />
       </div>
     )
   }
@@ -104,9 +106,9 @@ export default function EduExamTakePage() {
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回考试列表
+          {t('backToList')}
         </Link>
-        <Alert variant="info" description="暂无题目" />
+        <Alert variant="info" description={t('noQuestions')} />
       </div>
     )
   }
@@ -119,27 +121,27 @@ export default function EduExamTakePage() {
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回考试列表
+          {t('backToList')}
         </Link>
         <span className="flex items-center gap-1 text-sm text-muted-foreground">
           <Clock className="h-4 w-4" />
-          {exam.duration} 分钟
+          {t('duration', { n: exam.duration })}
         </span>
       </div>
 
       <div className="flex items-center justify-between text-sm">
         <h1 className="text-lg font-semibold">{exam.title}</h1>
         <span className="text-muted-foreground">
-          已答 {answeredCount} / {questions.length}
+          {t('answeredProgress', { answered: answeredCount, total: questions.length })}
         </span>
       </div>
 
       <Card>
         <CardContent className="space-y-4 p-6">
           <p className="text-sm font-medium">
-            第 {current + 1} 题 / 共 {questions.length} 题
+            {t('questionProgress', { current: current + 1, total: questions.length })}
             <span className="ml-2 text-xs text-muted-foreground">
-              {q.type === 'single' ? '单选' : '多选'}
+              {q.type === 'single' ? t('single') : t('multiple')}
             </span>
           </p>
           <p className="text-base">{q.title}</p>
@@ -182,17 +184,17 @@ export default function EduExamTakePage() {
           onClick={() => setCurrent((c) => c - 1)}
         >
           <ChevronLeft className="h-4 w-4" />
-          上一题
+          {t('prevQuestion')}
         </Button>
         {current < questions.length - 1 ? (
           <Button size="sm" onClick={() => setCurrent((c) => c + 1)}>
-            下一题
+            {t('nextQuestion')}
             <ChevronRight className="h-4 w-4" />
           </Button>
         ) : (
           <Button size="sm" disabled={submitMut.isPending} onClick={() => submitMut.mutate()}>
             {submitMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            提交考试
+            {t('submit')}
           </Button>
         )}
       </div>
