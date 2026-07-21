@@ -37,7 +37,11 @@ export function LoginDialog() {
   }, [close, router])
 
   const title =
-    mode === 'login' ? t('loginTitle') : mode === 'register' ? t('registerTitle') : t('forgotPassword')
+    mode === 'login'
+      ? t('loginTitle')
+      : mode === 'register'
+        ? t('registerTitle')
+        : t('forgotPassword')
   const subtitle =
     mode === 'login'
       ? t('loginSubtitle')
@@ -48,6 +52,7 @@ export function LoginDialog() {
   return (
     <Dialog open={isOpen} onOpenChange={(o) => !o && close()}>
       <DialogContent
+        data-testid="login-dialog"
         className="
           sm:rounded-xl
           gap-0
