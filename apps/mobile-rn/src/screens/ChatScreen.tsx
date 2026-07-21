@@ -53,6 +53,77 @@ const FALLBACK_MODELS: LlmModel[] = [
     context_length: 200000,
     input_price: 0,
   },
+  // 2026-07-22 新增免费 / 试用 credits provider 兜底(参考 cheahjs/free-llm-api-resources)
+  {
+    id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    name: 'Llama 3.3 70B Fast (Cloudflare 免费)',
+    provider: 'cloudflare_workers_ai',
+    context_length: 128000,
+    input_price: 0,
+  },
+  {
+    id: 'nvidia/llama-3.1-nemotron-70b-instruct',
+    name: 'Llama 3.1 Nemotron 70B (NVIDIA NIM 免费)',
+    provider: 'nvidia_nim',
+    context_length: 128000,
+    input_price: 0,
+  },
+  {
+    id: 'github/gpt-4o',
+    name: 'GPT-4o (GitHub Models 免费)',
+    provider: 'github_models',
+    context_length: 128000,
+    input_price: 0,
+  },
+  {
+    id: 'vercel/auto',
+    name: 'Vercel AI Gateway Auto',
+    provider: 'vercel_ai_gateway',
+    context_length: 128000,
+    input_price: 0,
+  },
+  {
+    id: 'opencode/big-pickle-stealth',
+    name: 'Big Pickle Stealth (OpenCode Zen 免费)',
+    provider: 'opencode_zen',
+    context_length: 256000,
+    input_price: 0,
+  },
+  {
+    id: 'modal/labcompute/qwen2.5-72b',
+    name: 'Qwen2.5 72B (Modal 试用 credits)',
+    provider: 'modal',
+    context_length: 32768,
+    input_price: 0,
+  },
+  {
+    id: 'inferencenet/meta-llama/Llama-3.3-70B-Instruct',
+    name: 'Llama 3.3 70B (Inference.net 试用 credits)',
+    provider: 'inferencenet',
+    context_length: 128000,
+    input_price: 0,
+  },
+  {
+    id: 'nlpcloud/finetuned-llama-3-70b',
+    name: 'Finetuned Llama 3 70B (NLP Cloud 试用 credits)',
+    provider: 'nlpcloud',
+    context_length: 32768,
+    input_price: 0,
+  },
+  {
+    id: 'scaleway/mistral-small-3.2-24b-instruct-2506',
+    name: 'Mistral Small 3.2 24B (Scaleway 免费)',
+    provider: 'scaleway',
+    context_length: 128000,
+    input_price: 0,
+  },
+  {
+    id: 'alibaba-intl/qwen-max',
+    name: 'Qwen Max (Alibaba Intl 免费)',
+    provider: 'alibaba_intl',
+    context_length: 131072,
+    input_price: 0,
+  },
 ]
 
 export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParamList, 'Chat'>) {
