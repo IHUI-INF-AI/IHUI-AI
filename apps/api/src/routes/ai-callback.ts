@@ -19,6 +19,7 @@ import { config } from '../config/index.js';
 const callbackSchema = z.object({
   content: z.string(),
   model: z.string().nullable().optional(),
+  provider: z.string().optional(),
   usage: z.unknown().optional(),
   stub: z.boolean().optional(),
   metadata: z.object({
@@ -44,7 +45,7 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
     }
 
-    const { content, model, usage, stub, metadata } = parsed.data;
+    const { content, model, provider, usage, stub, metadata } = parsed.data;
     const conversationId = metadata?.conversationId;
     const messageId = metadata?.messageId;
     const userId = metadata?.userId;
@@ -62,12 +63,25 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
       }).aiCallbackQueue;
 
       if (aiCallbackQueue) {
+        const usageObj = usage as {
+          total_tokens?: number
+          prompt_tokens?: number
+          completion_tokens?: number
+        } | undefined
+        const tokens = usageObj?.total_tokens
         await aiCallbackQueue.add('complete', {
           conversationId,
           userId,
           messageId: messageId ?? '',
           content,
-          tokens: (usage as { total_tokens?: number })?.total_tokens,
+          tokens,
+          // G3: 透传 LLM 扣费链路所需结构化字段
+          model: model ?? undefined,
+          provider,
+          promptTokens: usageObj?.prompt_tokens,
+          completionTokens: usageObj?.completion_tokens,
+          // 幂等键:同一消息重试只扣一次(防 BullMQ 重试重复扣费)
+          idempotencyKey: `${conversationId}:${messageId ?? ''}`,
           metadata: { model, usage, stub },
         });
         return reply.status(202).send(success({ accepted: true, queued: true }));
