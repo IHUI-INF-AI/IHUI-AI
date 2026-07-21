@@ -91,6 +91,8 @@ def get_provider(model: str, api_key: str | None, api_base: str | None) -> BaseP
     # → 全部由 catchall OpenAIProvider 处理(无 key 时返回 None → fallback LiteLLM)
     # Groq 为 OpenAI 兼容接口,复用 OpenAIProvider 处理 tools 差异
     # OpenRouter 已迁移至专属 OpenrouterProvider,catchall 不再覆盖 openrouter/
+    # 2026-07-22 接入:免费 / 试用 credits provider(参考 cheahjs/free-llm-api-resources)
+    # Cloudflare Workers AI(@cf/ 前缀)不走 catchall,因 _strip_prefix 会破坏 @cf/meta/... 完整 model ID,由 LiteLLM 处理
     if m.startswith(("gpt-", "o1-", "o3-", "o4-", "o5-",
                      "openai/", "groq/", "mistral/", "codestral/", "pixtral/",
                      "command-", "sonar-", "grok-",
@@ -109,6 +111,9 @@ def get_provider(model: str, api_key: str | None, api_base: str | None) -> BaseP
                      "gemma-", "qwen", "deepseek-",
                      "kimi-",
                      "ornith-", "codebrain-", "mai-",
+                     "nvidia/", "github/", "vercel/", "opencode/",
+                     "modal/", "inferencenet/", "nlpcloud/",
+                     "scaleway/", "alibaba-intl/",
                      "claude", "gemini-")) or "/" not in model:
         return OpenAIProvider(api_key, api_base)
     return None
