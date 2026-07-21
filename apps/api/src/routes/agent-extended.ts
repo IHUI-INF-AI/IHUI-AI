@@ -1373,14 +1373,9 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       body.expires_at = expiresAt
       if (body.status === undefined) body.status = 1
       if (!body.order_no) {
-        const pad = (n: number) => String(n).padStart(2, '0')
-        const ts =
-          `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
-          `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
-        const random = Math.floor(Math.random() * 1000000)
-          .toString()
-          .padStart(6, '0')
-        body.order_no = `DEV${ts}${random}`
+        // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成开发者链接 order_no
+        // 原实现 6 位数字熵 10^6 = 20 位,攻击者枚举其他开发者链接 → 订单查询/支付绕过
+        body.order_no = generateOrderNumber('DEV')
       }
       const row = await rawInsert('zhs_developer_link', developerLinkCols, body, reply)
       if (!row) return

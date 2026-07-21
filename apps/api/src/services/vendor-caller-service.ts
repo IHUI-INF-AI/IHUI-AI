@@ -15,6 +15,7 @@ import type { FastifyReply } from 'fastify'
 import { resolveVendor, getVendorCredentials } from './ai-vendor-config-service.js'
 import { authStrategyFactory } from './vendor-auth-strategies.js'
 import { VendorErrorHandler } from './vendor-error-handler.js'
+import { generateCompactId } from '../utils/crypto-random.js'
 
 /** 调用上下文 */
 export interface CallVendorContext {
@@ -169,7 +170,9 @@ export async function callVendorAsync(
   const data = await callVendor(vendorCode, { ...ctx, method: 'POST' }, reply)
   if (data === null) return null
   return {
-    taskId: `task_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`,
+    // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成 taskId
+    // 风险:可预测 taskId → 攻击者枚举其他用户的 AI 生成任务 → 越权查询结果
+    taskId: generateCompactId('task'),
     status: 'pending',
     raw: data,
   }

@@ -34,7 +34,7 @@ describe('clawdbot BrowserAutomation 浏览器自动化', () => {
       expect(page.url).toBe('https://example.com')
       expect(page.title).toBe('Test')
       expect(page.statusCode).toBe(200)
-      expect(page.id).toMatch(/^page_\d+_/)
+      expect(page.id).toMatch(/^page_[a-z0-9]+$/)
     })
 
     it('页面被存储到 pages Map', async () => {
