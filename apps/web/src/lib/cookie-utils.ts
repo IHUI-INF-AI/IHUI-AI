@@ -1,8 +1,13 @@
 export function getAuthCookieDomain(): string | undefined {
   if (typeof window === 'undefined') return undefined
   const configured = process.env.NEXT_PUBLIC_COOKIE_DOMAIN
-  if (configured) return configured
-  return undefined
+  if (!configured) return undefined
+  // 浏览器不接受 .localhost / .127.0.0.1 作为 Cookie domain,本地纯 localhost 调试时跳过
+  const host = window.location.hostname.toLowerCase()
+  if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.localhost')) {
+    return undefined
+  }
+  return configured
 }
 
 export function setAuthCookie(token: string | null): void {
