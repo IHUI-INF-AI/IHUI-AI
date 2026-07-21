@@ -6,7 +6,26 @@
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
 
-export type ModelProvider = 'openai' | 'anthropic' | 'gemini' | 'deepseek' | 'qwen' | 'zhipu' | 'local' | 'custom'
+export type ModelProvider =
+  | 'openai'
+  | 'anthropic'
+  | 'gemini'
+  | 'deepseek'
+  | 'qwen'
+  | 'zhipu'
+  | 'local'
+  | 'custom'
+  // 2026-07-22 新增免费 / 试用 credits provider(参考 cheahjs/free-llm-api-resources)
+  | 'cloudflare_workers_ai'
+  | 'nvidia_nim'
+  | 'github_models'
+  | 'vercel_ai_gateway'
+  | 'opencode_zen'
+  | 'modal'
+  | 'inferencenet'
+  | 'nlpcloud'
+  | 'scaleway'
+  | 'alibaba_intl'
 
 export interface ModelConfig {
   id: string
