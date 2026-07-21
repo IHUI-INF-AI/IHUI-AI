@@ -18,6 +18,7 @@
 
 import { env } from 'node:process'
 import { eq, and, desc, asc, ilike, sql, isNull, gte } from 'drizzle-orm'
+import Parser from 'rss-parser'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
 import {
@@ -28,6 +29,12 @@ import {
   type AiFeedSource,
   type AiFeedHotItem,
 } from '@ihui/database'
+
+/** rss-parser 单例(避免每次请求重建实例,解析 RSS/Atom XML) */
+const rssParser = new Parser({
+  timeout: 15000,
+  headers: { 'User-Agent': 'IHUI-AI-Feed/1.0 (+https://ihui.ai)' },
+})
 
 // =============================================================================
 // 类型定义
@@ -168,7 +175,7 @@ async function fetchRssHub(url: string, sourceCode: string): Promise<FetchedFeed
   const list = json.items ?? json.data ?? []
   return list.map((raw, idx) => ({
     sourceCode,
-    platformItemId: String(raw.id ?? raw.guid ?? idx),
+    platformItemId: String(raw.id ?? raw.guid ?? idx).slice(0, 128),
     title: String(raw.title ?? '').slice(0, 500),
     summary: raw.description ? String(raw.description).slice(0, 2000) : null,
     url: raw.link ? String(raw.link) : raw.url ? String(raw.url) : null,
@@ -177,6 +184,65 @@ async function fetchRssHub(url: string, sourceCode: string): Promise<FetchedFeed
     currentRank: idx + 1,
     currentHot: null,
     publishTime: raw.pubDate ? new Date(String(raw.pubDate)) : null,
+  }))
+}
+
+/**
+ * 安全转 string:处理 rss-parser 返回的 object 类型 guid/link(Atom feed 非标准格式)。
+ * Atom feed 的 guid 可能是 { isPermaLink: false, value: "xxx" } 这样的对象,
+ * 直接 String() 会报 "Cannot convert object to primitive value"。
+ */
+function toSafeStr(v: unknown): string {
+  if (v === null || v === undefined) return ''
+  if (typeof v === 'string') return v
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+  if (typeof v === 'object') {
+    const obj = v as Record<string, unknown>
+    if (typeof obj.value === 'string') return obj.value
+    if (typeof obj._ === 'string') return obj._
+    try {
+      return JSON.stringify(v)
+    } catch {
+      return ''
+    }
+  }
+  try {
+    return String(v)
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * 原生 RSS/Atom XML 解析(用于厂商博客/媒体原生 RSS feed,不依赖 RSSHub)。
+ *
+ * 与 fetchRssHub 的区别:
+ * - fetchRssHub 拉 RSSHub 的 JSON 接口(相对路径,拼接 rsshubUrl)
+ * - fetchRssXml 直接拉取原生 RSS/Atom XML(完整 URL,如 https://export.arxiv.org/rss/cs.AI)
+ *
+ * 用 rss-parser 解析,支持 RSS 2.0 / Atom 1.0 / RDF 等格式。
+ */
+async function fetchRssXml(url: string, sourceCode: string): Promise<FetchedFeedItem[]> {
+  const res = await fetchWithTimeout(url, {
+    headers: {
+      Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml',
+      'User-Agent': 'IHUI-AI-Feed/1.0 (+https://ihui.ai)',
+    },
+  })
+  if (!res.ok) throw new Error(`RSS XML ${url} 返回 ${res.status}`)
+  const xml = await res.text()
+  const feed = await rssParser.parseString(xml)
+  return (feed.items ?? []).map((item, idx) => ({
+    sourceCode,
+    platformItemId: toSafeStr(item.guid ?? item.link ?? idx).slice(0, 128),
+    title: toSafeStr(item.title).slice(0, 500),
+    summary: toSafeStr(item.contentSnippet ?? item.content).slice(0, 2000) || null,
+    url: toSafeStr(item.link) || null,
+    coverUrl: item.enclosure?.url ? toSafeStr(item.enclosure.url) : null,
+    author: toSafeStr(item.creator ?? item.author).slice(0, 200) || null,
+    currentRank: idx + 1,
+    currentHot: null,
+    publishTime: item.isoDate ? new Date(item.isoDate) : item.pubDate ? new Date(item.pubDate) : null,
   }))
 }
 
@@ -413,13 +479,37 @@ export async function collectAllSources(): Promise<CollectResult> {
             : new URL(src.endpoint, dailyHotUrl).toString()
           : `${dailyHotUrl}/news`
         items = await fetchDailyHotApi(url, src.sourceCode)
-      } else if (src.sourceType === 'rss' && rsshubUrl) {
-        const url = src.endpoint
-          ? src.endpoint.startsWith('http')
-            ? src.endpoint
-            : new URL(src.endpoint, rsshubUrl).toString()
-          : `${rsshubUrl}/热门订阅`
-        items = await fetchRssHub(url, src.sourceCode)
+      } else if (src.sourceType === 'rss') {
+        // RSS 分支:优先用原生 RSS feed(完整 URL 且非 rsshub.app),否则走 RSSHub
+        if (
+          src.endpoint &&
+          src.endpoint.startsWith('http') &&
+          !src.endpoint.includes('rsshub.app')
+        ) {
+          // 原生 RSS/Atom XML(如 https://export.arxiv.org/rss/cs.AI)
+          items = await fetchRssXml(src.endpoint, src.sourceCode)
+        } else if (rsshubUrl) {
+          // RSSHub 相对路径(如 /openai/blog),拼接 rsshubUrl 后走 JSON 接口
+          const url = src.endpoint
+            ? src.endpoint.startsWith('http')
+              ? src.endpoint
+              : new URL(src.endpoint, rsshubUrl).toString()
+            : `${rsshubUrl}/热门订阅`
+          items = await fetchRssHub(url, src.sourceCode)
+        } else {
+          // 既不是原生 RSS,也未配 rsshubUrl,跳过
+          details.push({ sourceCode: src.sourceCode, status: 'skipped', count: 0 })
+          await db
+            .update(aiFeedSource)
+            .set({
+              lastFetchAt: new Date(),
+              lastFetchStatus: 'skipped',
+              lastFetchCount: 0,
+              updatedAt: new Date(),
+            })
+            .where(eq(aiFeedSource.id, src.id))
+          continue
+        }
       } else if (src.sourceType === 'api' && src.endpoint) {
         // api 类型直接用 endpoint，优先尝试 DailyHotApi 格式
         items = await fetchDailyHotApi(src.endpoint, src.sourceCode)
@@ -501,7 +591,7 @@ export async function collectAllSources(): Promise<CollectResult> {
 // =============================================================================
 
 const CATEGORY_PROMPT =
-  '请对以下资讯标题进行分类，仅返回以下类别之一：hotspot、account、analysis、creation、retrieval、tool、source。仅返回类别名称，不要解释。'
+  '请对以下资讯标题进行分类,仅返回以下类别之一:ai-models(AI 模型发布/升级)、ai-products(AI 产品/应用/工具上线)、industry(AI 行业动态/融资/收购/政策)、paper(AI 论文/研究/学术)、tip(AI 技巧/教程/最佳实践)。仅返回类别名称,不要解释。'
 
 /**
  * 手动触发 LLM 分类与摘要批处理。
@@ -525,7 +615,7 @@ export async function processLlmBatch(limit = 100): Promise<LlmBatchResult> {
     if (llmResult && isValidCategory(llmResult)) {
       category = llmResult.toLowerCase()
     } else {
-      category = inferCategoryByTitle(item.title)
+      category = inferCategoryByTitle(item.title, item.sourceCode)
     }
 
     await db
@@ -546,30 +636,37 @@ export async function processLlmBatch(limit = 100): Promise<LlmBatchResult> {
   }
 }
 
-const VALID_CATEGORIES = new Set([
-  'hotspot',
-  'account',
-  'analysis',
-  'creation',
-  'retrieval',
-  'tool',
-  'source',
-])
+const VALID_CATEGORIES = new Set(['ai-models', 'ai-products', 'industry', 'paper', 'tip'])
 
 function isValidCategory(value: string): boolean {
   return VALID_CATEGORIES.has(value.trim().toLowerCase())
 }
 
-/** 基于标题关键词的简单规则分类（LLM 不可用时的降级实现）。 */
-function inferCategoryByTitle(title: string): string {
+/** 基于标题关键词的简单规则分类（LLM 不可用时的降级实现）。与 aihot 6 类对齐(5 类 + 默认)。 */
+function inferCategoryByTitle(title: string, sourceCode?: string): string {
+  // 信源级判断:arxiv 信源的条目天然是学术论文
+  if (sourceCode && sourceCode.startsWith('arxiv')) return 'paper'
   const lower = title.toLowerCase()
-  if (/发布|推出|上线|launch|release|announce/.test(lower)) return 'hotspot'
-  if (/账号|博主|creator|influencer/.test(lower)) return 'account'
-  if (/论文|paper|arxiv|研究|research/.test(lower)) return 'analysis'
-  if (/创作|生成|generation|create/.test(lower)) return 'creation'
-  if (/检索|搜索|retrieval|search|rag/.test(lower)) return 'retrieval'
-  if (/工具|tool|api|sdk/.test(lower)) return 'tool'
-  return 'source'
+  // paper 必须先判断,避免被 ai-models 关键词截胡(很多论文标题含"模型")
+  if (/论文|paper|arxiv|research|研究|emnlp|neurips|icml|iclr|cvpr/.test(lower)) return 'paper'
+  if (/融资|收购|ipo|funding|acquisition|市场|行业|政策|监管|ipo|上市/.test(lower))
+    return 'industry'
+  if (/教程|技巧|实践|guide|tutorial|tip|best practice|最佳实践|how-to|入门/.test(lower))
+    return 'tip'
+  if (
+    /产品|应用|上线|product|app|platform|chatgpt|cursor|copilot|agent|智能体|机器人|机器人|平台|workspace|服务/.test(
+      lower,
+    )
+  )
+    return 'ai-products'
+  // 默认 ai-models:覆盖模型发布/升级/评测,本任务 41 信源中一手厂商博客多数属此类
+  if (
+    /发布|推出|升级|launch|release|announce|gpt|claude|gemini|llama|mistral|qwen|deepseek|kimi|moonshot|glm|混元|hunyuan|模型|llm|foundation model|vlm|多模态|推理|reasoning/.test(
+      lower,
+    )
+  )
+    return 'ai-models'
+  return 'ai-models'
 }
 
 // =============================================================================
