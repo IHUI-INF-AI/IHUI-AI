@@ -1017,6 +1017,147 @@ async def _tool_db_query(arguments: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+# ---------------------------------------------------------------------------
+# AI 自动控制工具(22 个:12 browser + 10 computer,2026-07-22 立)
+# 转发到 api 层 /api/agent-control/execute,由 extension/desktop 端执行
+# ---------------------------------------------------------------------------
+
+# api 层 agent-control 端点(转发到 extension/desktop 端执行)
+_AGENT_CONTROL_API_URL = "http://127.0.0.1:3001/api/agent-control/execute"
+
+
+async def _tool_agent_control(
+    category: str, action: str, arguments: dict[str, Any]
+) -> dict[str, Any]:
+    """agent_control: AI 自动控制浏览器/电脑(转发到 extension/desktop 端执行)。
+
+    category='browser'  → extension 端执行 DOM 操作 + 截图
+    category='computer' → desktop 端执行 Tauri IPC(截图/鼠标/键盘)
+    """
+    import uuid
+
+    import httpx
+
+    # 从 arguments 提取参数(去掉 MCP tool 的元数据字段)
+    timeout_ms = int(arguments.pop("timeout", 30000))
+    params = dict(arguments)
+
+    request = {
+        "requestId": f"mcp-{uuid.uuid4().hex[:12]}",
+        "category": category,
+        "action": action,
+        "params": params,
+        "timeout": timeout_ms,
+    }
+
+    tool_name = f"{category}_{action}"
+    try:
+        async with httpx.AsyncClient(timeout=timeout_ms / 1000 + 10) as client:
+            response = await client.post(_AGENT_CONTROL_API_URL, json=request)
+            response.raise_for_status()
+            payload = response.json()
+            # api 层返回 ApiResponse<AgentActionResponse> = { code, message, data }
+            data = payload.get("data", payload) if isinstance(payload, dict) else {}
+            return {
+                "tool": tool_name,
+                "ok": bool(data.get("success", False)),
+                "action": action,
+                "category": category,
+                "result": data,
+            }
+    except httpx.TimeoutException:
+        return {
+            "tool": tool_name,
+            "ok": False,
+            "error": f"控制调用超时({timeout_ms}ms)",
+            "errorCode": "TIMEOUT",
+        }
+    except Exception as e:
+        err_type = type(e).__name__
+        return {
+            "tool": tool_name,
+            "ok": False,
+            "error": str(e)[:200],
+            "errorCode": "EXECUTION_FAILED",
+            "message": f"控制调用失败: {err_type}",
+        }
+
+
+def _make_agent_control_handler(category: str, action: str):
+    """生成 agent control handler 闭包,绑定 category + action。"""
+
+    async def handler(arguments: dict[str, Any]) -> dict[str, Any]:
+        return await _tool_agent_control(category, action, arguments)
+
+    return handler
+
+
+# ---------------------------------------------------------------------------
+# 自动化任务配置工具(2026-07-22 新增)
+# 调用 api 层 /api/self-media/automation/tasks/:taskId/config
+# ---------------------------------------------------------------------------
+
+_AUTOMATION_API_BASE = "http://127.0.0.1:3001/api/self-media/automation/tasks"
+
+
+async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str, Any]:
+    """配置自媒体自动化定时任务(转发到 api 层 config 端点)。
+
+    支持 koubo_daily / wechat_daily 两个内置任务,
+    可修改执行时间、dry-run、enabled、title_template。
+    """
+    import httpx
+
+    task_id = arguments.get("task_id", "wechat_daily")
+    if task_id not in ("koubo_daily", "wechat_daily"):
+        return {"success": False, "error": f"不支持的任务 ID: {task_id}(仅 koubo_daily / wechat_daily)"}
+
+    hour = int(arguments.get("hour", 9))
+    minute = int(arguments.get("minute", 0))
+    dry_run = bool(arguments.get("dry_run", True))
+    enabled = bool(arguments.get("enabled", True))
+    title_template = arguments.get("title_template")
+
+    config_body: dict[str, Any] = {
+        "hour": hour,
+        "minute": minute,
+        "dry_run": dry_run,
+        "enabled": enabled,
+    }
+    if title_template:
+        config_body["title_template"] = str(title_template)
+
+    url = f"{_AUTOMATION_API_BASE}/{task_id}/config"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(url, json=config_body)
+            if resp.status_code >= 400:
+                return {
+                    "success": False,
+                    "error": f"api 返回 {resp.status_code}: {resp.text[:200]}",
+                }
+            data = resp.json()
+            # api 返回 {code, message, data} 格式,提取 data
+            task_data = data.get("data", data) if isinstance(data, dict) else data
+            return {
+                "success": True,
+                "task_id": task_id,
+                "hour": hour,
+                "minute": minute,
+                "dry_run": dry_run,
+                "enabled": enabled,
+                "title_template": title_template,
+                "raw_response": task_data,
+            }
+    except Exception as e:
+        err_type = type(e).__name__
+        return {
+            "success": False,
+            "message": f"配置失败: {err_type}",
+            "error": str(e)[:200],
+        }
+
+
 # 工具注册表
 _TOOLS: list[MCPTool] = [
     MCPTool(
@@ -1157,6 +1298,296 @@ _TOOLS: list[MCPTool] = [
             "required": ["sql"],
         },
     ),
+    # ===== AI 自动控制浏览器(12 个,由 extension 端执行)=====
+    MCPTool(
+        name="browser_screenshot",
+        description="浏览器截图(chrome.tabs.captureVisibleTab,返回 base64 PNG)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "area": {"type": "string", "enum": ["viewport", "fullpage", "element"], "default": "viewport"},
+                "selector": {"type": "string", "description": "area='element' 时的 CSS 选择器"},
+            },
+        },
+    ),
+    MCPTool(
+        name="browser_click_element",
+        description="点击浏览器页面元素(CSS 选择器定位)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "selector": {"type": "string", "description": "CSS 选择器"},
+                "button": {"type": "string", "enum": ["left", "right", "middle"], "default": "left"},
+                "count": {"type": "integer", "default": 1},
+            },
+            "required": ["selector"],
+        },
+    ),
+    MCPTool(
+        name="browser_type_text",
+        description="在浏览器输入框输入文本(CSS 选择器定位)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "selector": {"type": "string"},
+                "text": {"type": "string"},
+                "clear": {"type": "boolean", "default": True},
+                "delay": {"type": "integer", "default": 0},
+            },
+            "required": ["selector", "text"],
+        },
+    ),
+    MCPTool(
+        name="browser_scroll",
+        description="浏览器页面滚动(上下左右)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "direction": {"type": "string", "enum": ["up", "down", "left", "right"]},
+                "amount": {"type": "integer", "default": 300},
+                "selector": {"type": "string", "description": "作用于指定元素,默认 window"},
+            },
+            "required": ["direction"],
+        },
+    ),
+    MCPTool(
+        name="browser_extract_dom",
+        description="提取浏览器页面 DOM 信息(文本/属性/节点结构)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "selector": {"type": "string", "description": "空=visible;'all'=全文档;其他=选择器"},
+                "attributes": {"type": "array", "items": {"type": "string"}, "default": ["text", "href", "src", "value"]},
+                "maxNodes": {"type": "integer", "default": 100},
+            },
+        },
+    ),
+    MCPTool(
+        name="browser_navigate",
+        description="浏览器导航到指定 URL",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string"},
+                "waitUntil": {"type": "string", "enum": ["load", "domcontentloaded", "networkidle0", "networkidle2"], "default": "load"},
+                "timeout": {"type": "integer", "default": 30000},
+            },
+            "required": ["url"],
+        },
+    ),
+    MCPTool(
+        name="browser_wait_for_element",
+        description="等待浏览器页面元素出现/消失",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "selector": {"type": "string"},
+                "state": {"type": "string", "enum": ["attached", "detached", "visible", "hidden"], "default": "visible"},
+                "timeout": {"type": "integer", "default": 30000},
+            },
+            "required": ["selector"],
+        },
+    ),
+    MCPTool(
+        name="browser_get_attribute",
+        description="获取浏览器页面元素属性值",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "selector": {"type": "string"},
+                "attribute": {"type": "string"},
+            },
+            "required": ["selector", "attribute"],
+        },
+    ),
+    MCPTool(
+        name="browser_hover",
+        description="鼠标悬停在浏览器页面元素上",
+        input_schema={
+            "type": "object",
+            "properties": {"selector": {"type": "string"}},
+            "required": ["selector"],
+        },
+    ),
+    MCPTool(
+        name="browser_select_option",
+        description="选择浏览器页面 select 下拉选项",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "selector": {"type": "string"},
+                "value": {"type": "string", "description": "选项值或文本"},
+            },
+            "required": ["selector", "value"],
+        },
+    ),
+    MCPTool(
+        name="browser_switch_tab",
+        description="切换浏览器标签页(按索引)",
+        input_schema={
+            "type": "object",
+            "properties": {"index": {"type": "integer", "description": "0-based 标签页索引"}},
+            "required": ["index"],
+        },
+    ),
+    MCPTool(
+        name="browser_close_tab",
+        description="关闭当前浏览器标签页",
+        input_schema={"type": "object", "properties": {}},
+    ),
+    # ===== AI 自动控制电脑(10 个,由 desktop 端 Tauri 执行)=====
+    MCPTool(
+        name="computer_screenshot_screen",
+        description="电脑截屏(返回 base64 PNG,支持多显示器 + 区域截取)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "displayIndex": {"type": "integer", "default": 0, "description": "显示器索引,默认 0(主屏)"},
+                "region": {"type": "array", "items": {"type": "number"}, "description": "[x, y, w, h] 截取区域,默认全屏"},
+            },
+        },
+    ),
+    MCPTool(
+        name="computer_mouse_move",
+        description="移动电脑鼠标(绝对坐标)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "x": {"type": "number"},
+                "y": {"type": "number"},
+                "absolute": {"type": "boolean", "default": True},
+            },
+            "required": ["x", "y"],
+        },
+    ),
+    MCPTool(
+        name="computer_mouse_click",
+        description="点击电脑鼠标(支持左/右/中键 + 单/双击)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "x": {"type": "number"},
+                "y": {"type": "number"},
+                "button": {"type": "string", "enum": ["left", "right", "middle"], "default": "left"},
+                "count": {"type": "integer", "default": 1},
+            },
+            "required": ["x", "y"],
+        },
+    ),
+    MCPTool(
+        name="computer_keyboard_type",
+        description="电脑键盘输入文本(逐字符)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "text": {"type": "string"},
+                "delay": {"type": "integer", "default": 0},
+            },
+            "required": ["text"],
+        },
+    ),
+    MCPTool(
+        name="computer_mouse_scroll",
+        description="电脑鼠标滚轮(正数向上,负数向下)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "deltaY": {"type": "integer"},
+                "x": {"type": "number"},
+                "y": {"type": "number"},
+            },
+            "required": ["deltaY"],
+        },
+    ),
+    MCPTool(
+        name="computer_keyboard_press",
+        description="电脑键盘按单个键(如 Enter/Tab/Escape)",
+        input_schema={
+            "type": "object",
+            "properties": {"key": {"type": "string"}},
+            "required": ["key"],
+        },
+    ),
+    MCPTool(
+        name="computer_keyboard_hotkey",
+        description="电脑键盘组合键(如 Ctrl+Shift+A)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "keys": {"type": "array", "items": {"type": "string"}, "description": "如 ['Control','Shift','A']"},
+            },
+            "required": ["keys"],
+        },
+    ),
+    MCPTool(
+        name="computer_active_window",
+        description="获取电脑当前活动窗口信息(标题/应用名/边界)",
+        input_schema={"type": "object", "properties": {}},
+    ),
+    MCPTool(
+        name="computer_clipboard_get",
+        description="读取电脑剪贴板内容(文本/图片)",
+        input_schema={
+            "type": "object",
+            "properties": {"format": {"type": "string", "enum": ["text", "image"], "default": "text"}},
+        },
+    ),
+    MCPTool(
+        name="computer_clipboard_set",
+        description="写入电脑剪贴板内容(文本/图片)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "content": {"type": "string", "description": "文本内容或 base64 image dataURL"},
+                "format": {"type": "string", "enum": ["text", "image"], "default": "text"},
+            },
+            "required": ["content"],
+        },
+    ),
+    # ===== 自动化任务配置工具(2026-07-22 新增)=====
+    MCPTool(
+        name="configure_automation_task",
+        description=(
+            "配置自媒体自动化定时任务(支持 koubo_daily / wechat_daily 两个内置任务)。"
+            "可修改执行时间、dry-run 模式、启用状态、标题模板。"
+            "适用于用户说'帮我设置每天 9 点生成公众号文章'等场景。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "enum": ["koubo_daily", "wechat_daily"],
+                    "description": "任务 ID:koubo_daily=每日口播稿生成,wechat_daily=每日公众号文章生成",
+                },
+                "hour": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 23,
+                    "description": "执行小时(0-23,24 小时制)",
+                },
+                "minute": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 59,
+                    "description": "执行分钟(0-59)",
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "是否 dry-run 模式(默认 true,只生成不发布)",
+                },
+                "enabled": {
+                    "type": "boolean",
+                    "description": "是否启用任务(默认 true)",
+                },
+                "title_template": {
+                    "type": "string",
+                    "description": "标题模板(仅 wechat_daily 用,支持 {date} 占位符)",
+                },
+            },
+            "required": ["task_id", "hour", "minute"],
+        },
+    ),
 ]
 
 _TOOL_HANDLERS: dict[str, Any] = {
@@ -1171,6 +1602,32 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "file_search": _tool_file_search,
     "git_operations": _tool_git_operations,
     "db_query": _tool_db_query,
+    # ===== AI 自动控制浏览器(12 个)=====
+    "browser_screenshot": _make_agent_control_handler("browser", "screenshot"),
+    "browser_click_element": _make_agent_control_handler("browser", "click_element"),
+    "browser_type_text": _make_agent_control_handler("browser", "type_text"),
+    "browser_scroll": _make_agent_control_handler("browser", "scroll"),
+    "browser_extract_dom": _make_agent_control_handler("browser", "extract_dom"),
+    "browser_navigate": _make_agent_control_handler("browser", "navigate"),
+    "browser_wait_for_element": _make_agent_control_handler("browser", "wait_for_element"),
+    "browser_get_attribute": _make_agent_control_handler("browser", "get_attribute"),
+    "browser_hover": _make_agent_control_handler("browser", "hover"),
+    "browser_select_option": _make_agent_control_handler("browser", "select_option"),
+    "browser_switch_tab": _make_agent_control_handler("browser", "switch_tab"),
+    "browser_close_tab": _make_agent_control_handler("browser", "close_tab"),
+    # ===== AI 自动控制电脑(10 个)=====
+    "computer_screenshot_screen": _make_agent_control_handler("computer", "screenshot_screen"),
+    "computer_mouse_move": _make_agent_control_handler("computer", "mouse_move"),
+    "computer_mouse_click": _make_agent_control_handler("computer", "mouse_click"),
+    "computer_keyboard_type": _make_agent_control_handler("computer", "keyboard_type"),
+    "computer_mouse_scroll": _make_agent_control_handler("computer", "mouse_scroll"),
+    "computer_keyboard_press": _make_agent_control_handler("computer", "keyboard_press"),
+    "computer_keyboard_hotkey": _make_agent_control_handler("computer", "keyboard_hotkey"),
+    "computer_active_window": _make_agent_control_handler("computer", "active_window"),
+    "computer_clipboard_get": _make_agent_control_handler("computer", "clipboard_get"),
+    "computer_clipboard_set": _make_agent_control_handler("computer", "clipboard_set"),
+    # ===== 自动化任务配置(2026-07-22 新增)=====
+    "configure_automation_task": _tool_configure_automation_task,
 }
 
 
