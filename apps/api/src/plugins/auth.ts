@@ -1,9 +1,10 @@
-import type { FastifyInstance, FastifyPluginAsync, FastifyRequest } from 'fastify'
+import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import jwtPlugin from '@fastify/jwt'
 import { verifyAccessToken, type JWTPayload } from '@ihui/auth'
 import { config } from '../config/index.js'
 import { getUserStatus } from '../db/usercenter-queries.js'
+import { error } from '../utils/response.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -59,6 +60,23 @@ export async function authenticate(request: FastifyRequest): Promise<JWTPayload>
   request.userId = payload.userId
   request.jwtPayload = payload
   return payload
+}
+
+/**
+ * 强制鉴权(handler 内控制流版):失败时发送 401 并返回 false,成功返回 true。
+ * 用于 handler 内部 `if (!(await checkAuth(request, reply))) return` 模式。
+ * 与 plugins/require-permission.ts 的 requireAuth(preHandler void 版)语义不同,不可混用。
+ */
+export async function checkAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
+  try {
+    await authenticate(request)
+    return true
+  } catch (e) {
+    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+    const message = (e as Error).message || 'Authentication required'
+    reply.status(statusCode).send(error(statusCode, message))
+    return false
+  }
 }
 
 /**

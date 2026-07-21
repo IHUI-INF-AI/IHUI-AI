@@ -3,30 +3,15 @@ import { eq, and, desc, sql, type SQL } from 'drizzle-orm'
 import { z } from 'zod'
 import { db } from '../db/index.js'
 import { signInRecords, signInRules, tCheckInRecord } from '@ihui/database'
-import { authenticate } from '../plugins/auth.js'
+import { authenticate, checkAuth } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { calcSignInReward, todayString, shiftDate } from '../utils/checkin-helpers.js'
 
 // =============================================================================
 // 签到(legacy /auth-api/check-in + /public-api/check-in 补开发,2 个端点)
 // 数据表: sign_in_records(现代版,UUID 兼容)
 // 业务逻辑参考 D 盘 CheckInController + CheckInServiceImpl
-// 复用 checkin.ts 的 calcSignInReward 逻辑(连续签到逐日递增,7 天封顶)
 // =============================================================================
-
-function calcSignInReward(consecutiveDays: number): number {
-  if (consecutiveDays >= 7) return 50
-  return 10 + (consecutiveDays - 1) * 5
-}
-
-function todayString(): string {
-  return new Date().toISOString().slice(0, 10)
-}
-
-function shiftDate(date: string, days: number): string {
-  const d = new Date(date + 'T00:00:00Z')
-  d.setUTCDate(d.getUTCDate() + days)
-  return d.toISOString().slice(0, 10)
-}
 
 /** 可选鉴权:登录用户返回 userId,未登录返回 null(对应 Java getLoginUserId 失败返回 null) */
 async function optionalAuth(request: FastifyRequest): Promise<string | null> {
@@ -35,19 +20,6 @@ async function optionalAuth(request: FastifyRequest): Promise<string | null> {
     return request.userId ?? null
   } catch {
     return null
-  }
-}
-
-/** 强制鉴权:失败时发送 401 并返回 false,成功返回 true。 */
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
   }
 }
 
@@ -219,7 +191,7 @@ const checkInRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /list — 签到规则列表(分页 + memberId 过滤)
   server.get('/list', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const q = checkinListQuerySchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const { page, pageSize, memberId } = q.data
@@ -247,7 +219,7 @@ const checkInRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /:cid — 签到规则详情
   server.get('/:cid', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const p = cidParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     const [row] = await db
@@ -262,7 +234,7 @@ const checkInRoutes: FastifyPluginAsync = async (server) => {
   // PUT /:cid — 修改签到规则(api-client updateCheckin 发送 { continuousNum?, memberId? })
   // 注: tCheckInRecord 无 continuousNum 列,该字段忽略;memberId 可更新
   server.put('/:cid', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const p = cidParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     const b = updateCheckinSchema.safeParse(request.body ?? {})
@@ -280,7 +252,7 @@ const checkInRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /:cid — 删除签到规则
   server.delete('/:cid', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const p = cidParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     const [row] = await db
@@ -298,7 +270,7 @@ const checkInRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /record/list + GET /record — 签到记录列表(分页 + memberId + type 过滤)
   const recordListHandler = async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const q = checkinRecordListQuerySchema.safeParse(request.query)
     if (!q.success) return reply.status(400).send(error(400, '参数错误'))
     const { page, pageSize, memberId, type } = q.data
@@ -330,7 +302,7 @@ const checkInRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /record — 创建签到记录(api-client createCheckinRecord 发送 { type, memberId? })
   server.post('/record', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const b = createCheckinRecordSchema.safeParse(request.body ?? {})
     if (!b.success) return reply.status(400).send(error(400, '参数错误'))
     const [row] = await db
@@ -346,7 +318,7 @@ const checkInRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /record/:rid — 签到记录详情
   server.get('/record/:rid', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const p = ridParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     const [row] = await db
@@ -360,7 +332,7 @@ const checkInRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /record/:rid — 修改签到记录(api-client updateCheckinRecord 发送 { type? })
   server.put('/record/:rid', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const p = ridParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     const b = updateCheckinRecordSchema.safeParse(request.body ?? {})
@@ -378,7 +350,7 @@ const checkInRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /record/:rid — 删除签到记录
   server.delete('/record/:rid', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const p = ridParamSchema.safeParse(request.params)
     if (!p.success) return reply.status(400).send(error(400, '参数错误'))
     const [row] = await db

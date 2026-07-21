@@ -1,6 +1,6 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { authenticate } from '../plugins/auth.js';
+import { checkAuth } from '../plugins/auth.js';
 import {
   followUser,
   unfollowUser,
@@ -116,18 +116,6 @@ const attachResourceParam = z.object({
 // 路由
 // =============================================================================
 
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request);
-    return true;
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401;
-    const message = (e as Error).message || 'Authentication required';
-    reply.status(statusCode).send(error(statusCode, message));
-    return false;
-  }
-}
-
 export const socialRoutes: FastifyPluginAsync = async (server) => {
   // ===== Follows =====
 
@@ -175,7 +163,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = userIdParam.safeParse(request.params);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -266,7 +254,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = userIdParam.safeParse(request.params);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -278,7 +266,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /follows/following - 我关注的用户列表（分页）
   server.get('/follows/following', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = paginationOnlyQuery.safeParse(request.query);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -293,7 +281,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /follows/followers - 关注我的用户列表（分页）
   server.get('/follows/followers', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = paginationOnlyQuery.safeParse(request.query);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -308,7 +296,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /follows/:userId/status - 关注状态
   server.get('/follows/:userId/status', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = userIdParam.safeParse(request.params);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -319,7 +307,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /follows/mutual/:userId - 检测当前用户与指定用户是否互关
   server.get('/follows/mutual/:userId', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = userIdParam.safeParse(request.params);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -330,7 +318,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /follows/:userId/stats - 指定用户的关注/粉丝/收藏计数(公开,登录可查任意用户)
   server.get('/follows/:userId/stats', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = userIdParam.safeParse(request.params);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -387,7 +375,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-      if (!(await requireAuth(request, reply))) return;
+      if (!(await checkAuth(request, reply))) return;
       const parsed = favoriteBody.safeParse(request.body);
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -403,7 +391,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /favorites/:resourceType/:resourceId - 取消收藏
   server.delete('/favorites/:resourceType/:resourceId', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = favoriteResourceParam.safeParse(request.params);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -463,7 +451,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-      if (!(await requireAuth(request, reply))) return;
+      if (!(await checkAuth(request, reply))) return;
       const parsed = favoritesListQuery.safeParse(request.query);
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -480,7 +468,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /favorites/check/:resourceType/:resourceId - 检查是否已收藏
   server.get('/favorites/check/:resourceType/:resourceId', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = favoriteResourceParam.safeParse(request.params);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -497,7 +485,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /subscriptions - 订阅（幂等）
   server.post('/subscriptions', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = subscriptionBody.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -512,7 +500,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /subscriptions/:targetType/:targetId - 取消订阅
   server.delete('/subscriptions/:targetType/:targetId', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = subscriptionTargetParam.safeParse(request.params);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -527,7 +515,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /subscriptions - 我的订阅列表（分页，支持 targetType 筛选）
   server.get('/subscriptions', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = subscriptionsListQuery.safeParse(request.query);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -564,7 +552,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /tags - 创建标签（需登录）
   server.post('/tags', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = createTagBody.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -590,7 +578,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
 
   // PATCH /tags/:id - 更新标签（需登录）
   server.patch('/tags/:id', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = tagIdParam.safeParse(request.params);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -619,7 +607,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /tags/:id - 删除标签（需登录,级联删除关联）
   server.delete('/tags/:id', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = tagIdParam.safeParse(request.params);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -633,7 +621,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /tags/:id/attach - 关联标签到资源（幂等）
   server.post('/tags/:id/attach', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = tagIdParam.safeParse(request.params);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
@@ -657,7 +645,7 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /tags/:id/attach/:resourceType/:resourceId - 移除标签关联
   server.delete('/tags/:id/attach/:resourceType/:resourceId', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return;
+    if (!(await checkAuth(request, reply))) return;
     const parsed = attachResourceParam.safeParse(request.params);
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'));
