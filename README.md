@@ -752,7 +752,6 @@ IHUI-AI/
 | 9       | check-safe-parse.mjs                         | safeParse 静默忽略(warn-only)               |
 | 11      | check-rounded-full.mjs                       | 容器圆角违规(强制尺寸梯度)                  |
 | 12      | check-delivery-report-consistency.mjs        | 交付报告一致性                              |
-| 13      | check-cli-integration-completeness.mjs | cli 整合完整性                       |
 | 13b     | check-project-plan-size.mjs                  | PROJECT_PLAN.md 体积 < 50KB                 |
 | 13c     | check-project-plan-archive.mjs               | PROJECT_PLAN.md 已完成任务条目防误删        |
 | 15      | check-api-migration-completeness.mjs         | 迁移完整性                                  |
@@ -1644,7 +1643,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 
 **理由**:
 
-- **机器代替人 review**:17 个守门钩子覆盖 API key 泄露、i18n 键完整性、zh-TW 简体字残留、ko 中文残留、ja 残留、en 破碎机翻、schema drift、dist 陈旧、UTF-8 BOM、API 路由一致性、safeParse 静默忽略、依赖碎片化、skipResponseSanitization、圆角违规、交付报告一致性、cli 整合、迁移完整性、CSS 颜色 token 嵌套、原生 title tooltip、staged 污染预警
+- **机器代替人 review**:16 个守门钩子覆盖 API key 泄露、i18n 键完整性、zh-TW 简体字残留、ko 中文残留、ja 残留、en 破碎机翻、schema drift、dist 陈旧、UTF-8 BOM、API 路由一致性、safeParse 静默忽略、依赖碎片化、skipResponseSanitization、圆角违规、交付报告一致性、迁移完整性、CSS 颜色 token 嵌套、原生 title tooltip、staged 污染预警
 - **机器代替人 audit**:11 个迁移审计脚本 + post-commit 自动 push 钩子,让"commit 后忘记 push"这种协作事故从机制上杜绝
 - **机器代替 DevOps**:9 个 PowerShell 启动脚本让"启动项目"从"记不住 8 条命令"变成"1 条命令"
 
