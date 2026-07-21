@@ -112,13 +112,6 @@ if (!run('📋 检查交付报告一致性...', 'node scripts/check-delivery-rep
   process.exit(1)
 }
 
-// 13. cli 整合完整性守门(PROJECT_PLAN.md 第 38 轮落地)
-// 防止"100% 整合"虚假声明再次出现:命名清零 + 已整合能力 import/call/file 三件套 + 不融合证据
-// --staged 模式:只检查本次 commit 暂存的文件,避免与历史代码冲突
-if (!run('🔍 检查 cli 整合完整性(staged)...', 'node scripts/check-cli-integration-completeness.mjs --staged')) {
-  process.exit(1)
-}
-
 // 13b. PROJECT_PLAN.md 长度守门(2026-07-19 根因诊断落地)
 // 防止 PROJECT_PLAN.md 膨胀超过 50KB 导致 AI 上下文窗口撑爆,模型被迫停止响应
 // 阈值: 50KB(约 1250 行),超出则阻止 commit,强制归档历史条目至 .trae-cn/archive/

@@ -20,7 +20,6 @@ export type CliAppType =
   | 'claude-desktop'
   | 'codex'
   | 'gemini'
-  | 'cli'
   | 'opencode'
   | 'openclaw'
   | 'hermes'

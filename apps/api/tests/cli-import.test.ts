@@ -89,7 +89,7 @@ describe('cli-import/mapper', () => {
 
     it('其他 app_type 不加后缀', () => {
       expect(deduplicateName('OpenAI', 'claude-desktop')).toBe('OpenAI')
-      expect(deduplicateName('OpenAI', 'cli')).toBe('OpenAI')
+      expect(deduplicateName('OpenAI', 'opencode')).toBe('OpenAI')
     })
 
     it('无 app_type 不加后缀', () => {
