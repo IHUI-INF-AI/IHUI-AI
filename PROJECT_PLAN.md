@@ -459,6 +459,70 @@ P2 AI 工具调用深度联动(5 修改文件):
 
 ---
 
+### [x] ✅(2026-07-22) AI 世界五次打磨:SuperCLUE Gradio 数据源接通 + GITHUB_TOKEN 环境变量文档 + 4 大榜单真实数据全通(平台独占:仅 api)
+
+**触发**:四次打磨后用户指示"继续按建议去做"。执行四次打磨交付报告的两个"下一步建议":1) 配置 GITHUB_TOKEN 环境变量文档;2) OpenCompass/SuperCLUE headless 渲染抓取可行性调研。
+
+**方案与产出**(单 agent,数据源深度调研 + SuperCLUE 抓取器重写):
+
+1. **GITHUB_TOKEN 环境变量文档** — `apps/api/.env.example` 增补配置段:
+   - 用途说明:ai-world-sync.ts 抓 GitHub 仓库 stars/forks 元数据
+   - 限额对比:未配置 60/h → 已配置 5000/h
+   - 获取方式:github.com/settings/tokens → Fine-grained tokens → Public Repositories (read-only) → Contents: Read
+   - 有效期建议:90 天
+
+2. **OpenCompass/SuperCLUE 数据源深度调研**(9 个探测脚本,归档 .trae-cn/tmp/):
+   - OpenCompass:发现 rank.opencompass.org.cn 子域有 API 端点 `/api/v1/rank/listArenaRankings` + `/api/v1/rank/listNewModelsV2`,但 nginx 返回 405 Method Not Allowed(加 Referer/Origin 仍 405,判定为 nginx WAF/IP 白名单),GitHub 仓库无结构化数据,HF datasets 无排行榜数据集 → **保持降级空**
+   - SuperCLUE:发现 `www.superclueai.com/leaderboard` 是 Gradio 3.39.0 SSG 应用,700KB `window.gradio_config` JSON 内嵌完整排行榜数据(168/169 个 dataframe 有真实数据,169 个唯一模型名) → **改为真实数据抓取**
+
+3. **SuperCLUE 抓取器重写** — 从降级空改为真实数据抓取:
+   - 数据源:`https://www.superclueai.com/leaderboard` HTML 内 `window.gradio_config = {...}` 内联 script
+   - 结构:`config.components[].props.value = { headers: [...], data: [[row1], [row2], ...] }`
+   - 第一个 dataframe(id=13)是总排行榜,13 列:排名/模型名称/机构/开源闭源/总分/数学推理/科学推理/代码生成/智能体Agent/精确指令遵循/幻觉控制/使用方式/发布日期
+   - rank 解析:🥇→1 / 🥈→2 / 🥉→3 / 数字→数字 / 其他→按总分降序重排
+   - 子分数提取:数学推理/科学推理/代码生成/智能体Agent/精确指令遵循/幻觉控制 6 个子维度
+   - 实测:48 条真实数据(GPT-5(high) 75.34 rank 1, o3(high) 73.78, o4-mini 73.32, Gemini-2.5-Pro 68.98, Doubao-Seed 68.04, Claude-Opus-4-Reasoning 67.02, DeepSeek-R1-0528 66.15, Qwen3-235B 64.34),2.1s
+
+**实测验证**(`npx tsx --env-file=.env src/jobs/ai-world-sync.ts --rankings-only`):
+
+```
+✓ lmsys: 190 entries (3.8s) — claude-fable-5 rank 1
+✓ opencompass: 0 entries (0.0s) — API 405 nginx WAF 无法绕过,降级空
+✓ hf-open-llm: 50 entries (0.9s) — Qwen/Qwen3-0.6B 25843960 downloads
+✓ superclue: 48 entries (2.1s) — GPT-5(high) 75.34 rank 1 ← 新增真实数据!
+✓ artificial-analysis: 23 entries (1.2s) — Claude Fable 5 elo=1574.33
+✓ GitHub repos: 5/5 真实 stars 数据
+总耗时:12.1s,4 大榜单 311 条真实数据(↑ 从 263 条增至 311 条)
+```
+
+**变更文件**(2 个):
+- `apps/api/src/jobs/ai-world-sync.ts`(M)— SuperCLUE 抓取器重写(从降级空改为 gradio_config JSON 提取)
+- `apps/api/.env.example`(M)— 增补 GITHUB_TOKEN 环境变量配置段
+
+**自验**:
+- `pnpm --filter @ihui/api exec tsc --noEmit` ai-world-sync.ts 0 错误 ✅
+- `pnpm --filter @ihui/api exec vitest run src/jobs/__tests__/ai-world-sync.test.ts` 16/16 passed ✅(29.59s)
+- `npx tsx --rankings-only` 实测 4 大榜单 311 条真实数据 ✅(SuperCLUE 从 0 条增至 48 条)
+
+**硬约束**:
+- 跨端:仅 api 1 端(抓取器重写 + 环境变量文档,不涉及 web/database/其他端)
+- 平台独占标注:api 独占
+- 数据源稳定性:SuperCLUE Gradio SSG 是稳定公开数据源(700KB HTML 静态输出,不依赖 JS 渲染)
+- 失败不阻塞:SuperCLUE 抓取失败返回空数组 + warn,不 throw
+- OpenCompass 保持降级空:nginx WAF 无法绕过,需 headless 渲染(资源开销大,暂不引入)
+
+**数据源可用性矩阵(2026-07-22 最终版)**:
+
+| 榜单 | 数据源 | 可用性 | 条目数 | 真实数据样本 |
+|---|---|---|---|---|
+| LMArena | lmarena.ai/leaderboard HTML 表格 | ✅ 稳定 | 190 | claude-fable-5 rank 1 |
+| HF Open LLM | huggingface.co/api/models API | ✅ 稳定 | 50 | Qwen/Qwen3-0.6B 25843960 downloads |
+| Artificial Analysis | artificialanalysis.ai RSC chunks | ✅ 稳定 | 23 | Claude Fable 5 elo=1574.33 |
+| SuperCLUE | superclueai.com Gradio SSG JSON | ✅ 稳定 | 48 | GPT-5(high) 75.34 rank 1 ← 新通! |
+| OpenCompass | opencompass.org.cn | ❌ API 405 nginx WAF | 0 | 降级空 + warn |
+
+---
+
 ### [x] ✅(2026-07-22) AI 世界四次打磨:5 大抓取器改真实数据源 + GitHub Token + --rankings-only 实测验证(平台独占:仅 api)
 
 **触发**:三次打磨后用户反馈"继续按建议去做 我肯定要真实数据啊 并且生产可用上线"。实测发现 cheerio 静态解析只能拿 LMArena 1 个源真实数据,其余 4 源要么 HTML 结构变化要么无公开 API 返回空数组。
