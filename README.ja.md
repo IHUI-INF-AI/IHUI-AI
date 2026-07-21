@@ -70,20 +70,20 @@
 
 ### 🚀 3 つのアクション、30 秒、この物語を届ける
 
-| #   | アクション                              | あなたが得るもの                                                    |
-| --- | --------------------------------------- | ------------------------------------------------------------------- |
-| 1   | ⭐ **このリポジトリを Star**              | あなたの GitHub タイムラインに表示され、あなたの followers が見ます  |
-| 2   | 📲 **上の二行をあなたのフィードにコピー**  | 下の画像を使ってください — あなたは「友達にこの物語を最初に届ける人」になります |
+| #   | アクション                                | あなたが得るもの                                                                         |
+| --- | ----------------------------------------- | ---------------------------------------------------------------------------------------- |
+| 1   | ⭐ **このリポジトリを Star**              | あなたの GitHub タイムラインに表示され、あなたの followers が見ます                      |
+| 2   | 📲 **上の二行をあなたのフィードにコピー** | 下の画像を使ってください — あなたは「友達にこの物語を最初に届ける人」になります          |
 | 3   | 💬 **Issue であなたの物語を語る**         | [ここから](https://github.com/IHUI-INF-AI/IHUI-AI/issues) — 上位は固定し、世界に見せます |
 
 ---
 
 ### 🖼️ 画像を用意しました (保存して、そのままシェア)
 
-| 画像 | 用途 | パス |
-| ---- | ---- | ---- |
-| 🏢 長春オフラインベース実写 | フィードヘッダー / 微博 | `apps/web/public/images/story/changchun-winter-2024.jpg` |
-| 🌃 深夜コーディング · ランプ一つ | X / 知乎 / 記事の中間 | `apps/web/public/images/story/late-night-coding.jpg` |
+| 画像                             | 用途                    | パス                                                     |
+| -------------------------------- | ----------------------- | -------------------------------------------------------- |
+| 🏢 長春オフラインベース実写      | フィードヘッダー / 微博 | `apps/web/public/images/story/changchun-winter-2024.jpg` |
+| 🌃 深夜コーディング · ランプ一つ | X / 知乎 / 記事の中間   | `apps/web/public/images/story/late-night-coding.jpg`     |
 
 ---
 
@@ -452,8 +452,8 @@ IHUI-AI/
 ├── .github/workflows/       # 4 CI:build / ci / e2e / knip + GitHub Act ローカル CI
 ├── .husky/                  # Git hooks (commit-msg + post-commit + pre-commit + pre-push + post-checkout + post-merge)
 ├── docker-compose.yml       # 14 サービスオーケストレーション(7 業務 + 7 監視)
-├── Dockerfile.api-new       # バックエンドイメージ(api + worker 共用)
-├── Dockerfile.web-new       # フロントエンドイメージ(Next.js standalone)
+├── Dockerfile.api       # バックエンドイメージ(api + worker 共用)
+├── Dockerfile.web       # フロントエンドイメージ(Next.js standalone)
 ├── Dockerfile.migrate       # マイグレーション一次性サービスイメージ
 ├── locustfile.py            # Locust 負荷テストスクリプト
 ├── lighthouserc.json        # Lighthouse CI 性能予算
@@ -733,33 +733,33 @@ LiteLLM ゲートウェイで統一接続、インテリジェントルーティ
 
 プロジェクトは 17 個の pre-commit フック + post-commit 自動 push + 11 マイグレーション監査スクリプトで協作事故を根絶:
 
-| #       | スクリプト                                   | 用途                                                     |
-| ------- | -------------------------------------------- | -------------------------------------------------------- |
-| 1       | check-api-key-leak.mjs                       | API key 漏洩検出                                         |
-| 2       | check-i18n-keys.mjs                          | i18n キー完全性 + parity                                 |
-| 2b      | scan-i18n-zh-residue.mjs zh-TW               | zh-TW 簡体字残留(opencc 字形変換)                        |
-| 2c      | scan-i18n-zh-residue.mjs ko                  | ko.json 中国語残留(文字範囲検出)                         |
-| 2d      | scan-i18n-zh-residue.mjs ja                  | ja.json 中国語残留(warn-only)                            |
-| 2e      | check-i18n-broken-en.mjs                     | en.json 破綻機翻英語ゲート                               |
-| 3       | check-db-schema-drift.mjs                    | schema drift 検出                                        |
-| 4       | check-stale-dist.mjs                         | packages 古い dist 検出                                  |
-| 4b      | check-dist-encoding.mjs                      | packages dist UTF-8 BOM ゲート                           |
-| 4c      | check-api-client-utf8.mjs                    | api-client ソースバイト級 UTF-8 完全性                   |
-| 5       | lint-staged                                  | eslint + prettier                                        |
-| 6       | check-sanitizer-bypass.mjs                   | XSS sanitizer バイパス検出                               |
-| 7       | check-dedupe.mjs                             | 依存フラグメンテーション検出                             |
-| 8       | check-api-routes.mjs                         | フロントエンド/バックエンドルート一貫性                  |
-| 9       | check-safe-parse.mjs                         | safeParse サイレント無視(warn-only)                      |
-| 11      | check-rounded-full.mjs                       | コンテナー角丸違反(サイズ階段を強制)                     |
-| 12      | check-delivery-report-consistency.mjs        | 納品レポート一貫性                                       |
-| 13b     | check-project-plan-size.mjs                  | PROJECT_PLAN.md サイズ < 50KB                            |
-| 13c     | check-project-plan-archive.mjs               | PROJECT_PLAN.md 完了タスク誤削除防止                     |
-| 15      | check-api-migration-completeness.mjs         | マイグレーション完全性                                   |
-| 16      | 条件付き typecheck                           | apps/web staged 時に typecheck 実行                      |
-| 16b     | 条件付き database build                      | packages/database/src staged 時に build 実行             |
-| 17      | check-input-border-var.mjs                   | CSS カラートークン入れ子(hsl(var()))防护                 |
-| 18      | check-native-title-tooltip.mjs               | ネイティブ title tooltip 違反(プロジェクト Tooltip 強制) |
-| 17-post | git-push-guard.mjs(post-commit)              | 自動 push + local == remote 検証(忘れ防止)               |
+| #       | スクリプト                            | 用途                                                     |
+| ------- | ------------------------------------- | -------------------------------------------------------- |
+| 1       | check-api-key-leak.mjs                | API key 漏洩検出                                         |
+| 2       | check-i18n-keys.mjs                   | i18n キー完全性 + parity                                 |
+| 2b      | scan-i18n-zh-residue.mjs zh-TW        | zh-TW 簡体字残留(opencc 字形変換)                        |
+| 2c      | scan-i18n-zh-residue.mjs ko           | ko.json 中国語残留(文字範囲検出)                         |
+| 2d      | scan-i18n-zh-residue.mjs ja           | ja.json 中国語残留(warn-only)                            |
+| 2e      | check-i18n-broken-en.mjs              | en.json 破綻機翻英語ゲート                               |
+| 3       | check-db-schema-drift.mjs             | schema drift 検出                                        |
+| 4       | check-stale-dist.mjs                  | packages 古い dist 検出                                  |
+| 4b      | check-dist-encoding.mjs               | packages dist UTF-8 BOM ゲート                           |
+| 4c      | check-api-client-utf8.mjs             | api-client ソースバイト級 UTF-8 完全性                   |
+| 5       | lint-staged                           | eslint + prettier                                        |
+| 6       | check-sanitizer-bypass.mjs            | XSS sanitizer バイパス検出                               |
+| 7       | check-dedupe.mjs                      | 依存フラグメンテーション検出                             |
+| 8       | check-api-routes.mjs                  | フロントエンド/バックエンドルート一貫性                  |
+| 9       | check-safe-parse.mjs                  | safeParse サイレント無視(warn-only)                      |
+| 11      | check-rounded-full.mjs                | コンテナー角丸違反(サイズ階段を強制)                     |
+| 12      | check-delivery-report-consistency.mjs | 納品レポート一貫性                                       |
+| 13b     | check-project-plan-size.mjs           | PROJECT_PLAN.md サイズ < 50KB                            |
+| 13c     | check-project-plan-archive.mjs        | PROJECT_PLAN.md 完了タスク誤削除防止                     |
+| 15      | check-api-migration-completeness.mjs  | マイグレーション完全性                                   |
+| 16      | 条件付き typecheck                    | apps/web staged 時に typecheck 実行                      |
+| 16b     | 条件付き database build               | packages/database/src staged 時に build 実行             |
+| 17      | check-input-border-var.mjs            | CSS カラートークン入れ子(hsl(var()))防护                 |
+| 18      | check-native-title-tooltip.mjs        | ネイティブ title tooltip 違反(プロジェクト Tooltip 強制) |
+| 17-post | git-push-guard.mjs(post-commit)       | 自動 push + local == remote 検証(忘れ防止)               |
 
 **11 マイグレーション監査スクリプト**:`audit-migration-api-routes-v2.mjs` / `audit-migration-api-routes.mjs` / `audit-migration-db-fields.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-migration-frontend-routes.mjs` / `audit-migration-i18n.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs`
 
@@ -1574,8 +1574,8 @@ AIコーディングエージェントを駆使し、大規模なチームなし
 
 ### 附録 · 技術決定の裏側
 
-> *この部分は開発者に向けて書かれています。技術読者でない方は、この章を飛ばして「物語の続編」と「オープンソース共創ビジョン」に直接進んでください。*
-> *技術読者の方へ、この章は IHUI-AI が 2025 年に下した 5 つの重要なアーキテクチャ決定—そしてその裏側の思考プロセスを記録します。*
+> _この部分は開発者に向けて書かれています。技術読者でない方は、この章を飛ばして「物語の続編」と「オープンソース共創ビジョン」に直接進んでください。_
+> _技術読者の方へ、この章は IHUI-AI が 2025 年に下した 5 つの重要なアーキテクチャ決定—そしてその裏側の思考プロセスを記録します。_
 
 一人の人物が Vibe Coding で 8 プラットフォームのコードを完成させる過程で、すべての技術選択には代償が伴います:**間違えれば = その後のすべてのコードを書き直す必要があります; 正しく選べば = その後のコードは自然に立ちます。**
 
@@ -1672,8 +1672,8 @@ AIコーディングエージェントを駆使し、大規模なチームなし
 
 ---
 
-> *これが 5 つの主要決定です。各決定の裏には、深夜 3 時に独立開発者が繰り返し天秤をかけた代償があります。*
-> *もしこれらのいずれかに同意できないなら、Issue で議論してください—説得される用意があります。*
+> _これが 5 つの主要決定です。各決定の裏には、深夜 3 時に独立開発者が繰り返し天秤をかけた代償があります。_
+> _もしこれらのいずれかに同意できないなら、Issue で議論してください—説得される用意があります。_
 
 ---
 
