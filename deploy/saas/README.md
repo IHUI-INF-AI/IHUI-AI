@@ -214,6 +214,62 @@ bash deploy/saas/cron/cert-renew.sh
 - 证书剩余 < 7 天:重启 Traefik 强制重签
 - 同时清理 30 天前的旧备份
 
+## Web 管理后台(P1 阶段 2.2)
+
+`/admin/saas` 路径提供 SaaS 租户管理的可视化操作界面(仅 superadmin 角色可访问)。
+
+### 访问方式
+
+1. **Web 端**:`https://<主域名>/admin/saas` → 侧边栏"租户管理"分组
+2. **角色要求**:登录用户角色必须为 `superadmin` 或 `system_admin`,否则 307 → `/forbidden`
+3. **审计追溯**:所有操作经 `X-Admin-User` 标识,记录到 `admin-api-audit.log`
+
+### 环境变量
+
+| 变量 | 必填 | 默认值 | 说明 |
+|---|---|---|---|
+| `ADMIN_API_URL` | 否 | `http://127.0.0.1:8081` | admin-api 地址(Web 反向代理) |
+| `ADMIN_SAAS_API_KEY` | 是 | 空 | 与 admin-api 的 `ADMIN_API_KEY` 一致 |
+| `ADMIN_USER_WHITELIST` | 否 | `admin` | 允许调用 admin-api 的 web 用户白名单(逗号分隔) |
+| `ENABLE_AUDIT_LOG` | 否 | `true` | 是否启用操作审计日志 |
+
+### 首次启动
+
+```bash
+# 1. admin-api 未设置 ADMIN_API_KEY 时,容器启动自动生成并写日志:
+#    [WARN] ADMIN_API_KEY not set, auto-generated: <key>
+#    持久化到 deploy/saas/.env:
+echo "ADMIN_API_KEY=<auto-key>" >> .env
+
+# 2. Web 端配置(apps/web/.env.local):
+ADMIN_API_URL=http://127.0.0.1:8081
+ADMIN_SAAS_API_KEY=<same-as-admin-api-key>
+
+# 3. 重启 admin-api
+docker compose up -d admin-api
+```
+
+### 审计日志格式
+
+`deploy/saas/admin-api-audit.log` (JSON Lines,append-only):
+
+```json
+{"ts":"2026-07-21T18:00:00.000Z","method":"POST","url":"/admin/api/customers","status":201,"durationMs":"123.4","adminUser":"admin","remoteIp":"127.0.0.1"}
+{"ts":"2026-07-21T18:01:30.000Z","method":"POST","url":"/admin/api/customers/demo/pause","status":200,"durationMs":"5.6","adminUser":"admin","remoteIp":"127.0.0.1"}
+```
+
+### 支持的 Web 操作
+
+| 操作 | 说明 |
+|---|---|
+| 租户列表 | 30s 自动轮询,支持按 slug 搜索 + 按 state 筛选 |
+| 创建租户 | 弹窗填写 slug/memory/cpu/plan,实时校验 regex |
+| 暂停/恢复 | 二次确认弹窗,操作期间显示 loading |
+| 备份 | 立即创建快照,服务不受影响 |
+| 销毁 | 输入 slug 二次确认,操作不可逆 |
+
+> 租户详情页 + 备份管理 UI 计划在 P1-2.2b 提供(API 已就绪)。
+
 ## 故障排查
 
 ### 证书签发失败
