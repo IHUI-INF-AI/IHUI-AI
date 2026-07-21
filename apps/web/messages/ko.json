@@ -26009,5 +26009,37 @@
     },
     "saveBtn": "설정 저장",
     "saved": "저장됨"
+  },
+  "memberDashboardPage": {
+    "defaultLevel": "기본 레벨",
+    "title": "회원 센터",
+    "description": "회원 등급, 포인트, 쿠폰 및 주문을 관리하세요",
+    "expireAt": "만료일",
+    "renew": "갱신",
+    "recentOrders": "최근 주문",
+    "viewAll": "모두 보기",
+    "loading": "로딩 중…",
+    "empty": "데이터 없음"
+  },
+  "developerHomePage": {
+    "statCalls": "API 호출",
+    "statApiKeys": "API 키",
+    "statWebhook": "Webhook",
+    "statMonthFee": "이번 달 요금",
+    "qeApiDocsLabel": "API 문서",
+    "qeApiDocsDesc": "전체 API 참조 및 예제",
+    "qeSandboxLabel": "샌드박스",
+    "qeSandboxDesc": "설치 없이 API 테스트",
+    "qeLogsLabel": "호출 로그",
+    "qeLogsDesc": "기록 요청 및 오류 보기",
+    "qeVersionsLabel": "버전 관리",
+    "qeVersionsDesc": "버전 및 지원 중단 관리",
+    "title": "개발자 센터",
+    "subtitle": "API 키, Webhook 및 사용량 관리",
+    "currentPlan": "현재 플랜",
+    "quotaUsage": "할당량 사용",
+    "upgrade": "업그레이드",
+    "quickEntries": "빠른 진입",
+    "loading": "로딩 중…"
   }
 }

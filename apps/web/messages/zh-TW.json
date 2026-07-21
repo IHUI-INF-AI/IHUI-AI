@@ -26009,5 +26009,37 @@
     },
     "saveBtn": "儲存設定",
     "saved": "已儲存"
+  },
+  "memberDashboardPage": {
+    "defaultLevel": "預設等級",
+    "title": "會員中心",
+    "description": "管理你的會員等級、積分、優惠券和訂單",
+    "expireAt": "到期時間",
+    "renew": "續費",
+    "recentOrders": "最近訂單",
+    "viewAll": "查看全部",
+    "loading": "載入中…",
+    "empty": "暫無資料"
+  },
+  "developerHomePage": {
+    "statCalls": "API 呼叫",
+    "statApiKeys": "API 金鑰",
+    "statWebhook": "Webhook",
+    "statMonthFee": "本月費用",
+    "qeApiDocsLabel": "API 文件",
+    "qeApiDocsDesc": "檢視完整 API 介面與範例",
+    "qeSandboxLabel": "線上沙盒",
+    "qeSandboxDesc": "無需安裝即可調試 API",
+    "qeLogsLabel": "呼叫日誌",
+    "qeLogsDesc": "檢視歷史請求與錯誤",
+    "qeVersionsLabel": "版本管理",
+    "qeVersionsDesc": "管理 API 版本與下線計畫",
+    "title": "開發者中心",
+    "subtitle": "管理你的 API 金鑰、Webhook 和用量",
+    "currentPlan": "目前方案",
+    "quotaUsage": "配額使用",
+    "upgrade": "升級方案",
+    "quickEntries": "快捷入口",
+    "loading": "載入中…"
   }
 }
