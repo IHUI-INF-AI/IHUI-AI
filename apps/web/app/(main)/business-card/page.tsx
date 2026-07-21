@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { CreditCard, Plus, Star, Share2, Loader2, Pencil, Trash2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -76,6 +76,7 @@ function CardItem({ card, footer }: { card: BusinessCard; footer?: React.ReactNo
 
 export default function BusinessCardPage() {
   const locale = useLocale()
+  const t = useTranslations('businessCardPage')
   const qc = useQueryClient()
 
   const {
@@ -114,14 +115,14 @@ export default function BusinessCardPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <CreditCard className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">电子名片</h1>
+            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{t('title')}</h1>
           </div>
-          <p className="text-sm text-muted-foreground">管理我的名片与收藏</p>
+          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <Button asChild>
           <Link href="/business-card/edit">
             <Plus className="mr-1 h-4 w-4" />
-            新建
+            {t('create')}
           </Link>
         </Button>
       </header>
@@ -129,13 +130,13 @@ export default function BusinessCardPage() {
       <section className="space-y-3">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
           <CreditCard className="h-4 w-4 text-primary" />
-          我的名片
+          {t('myCards')}
           <span className="text-sm font-normal text-muted-foreground">{(mine ?? []).length}</span>
         </h2>
         {mineLoading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            加载中...
+            {t('loading')}
           </div>
         ) : mineErr ? (
           <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
@@ -144,7 +145,7 @@ export default function BusinessCardPage() {
         ) : (mine ?? []).length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
             <CreditCard className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">还没有名片,点击「新建」创建</p>
+            <p className="text-sm text-muted-foreground">{t('emptyMine')}</p>
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -159,18 +160,18 @@ export default function BusinessCardPage() {
                       <Link
                         href={`/business-card/share/${card.id}`}
                         className="inline-flex items-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                        title="分享"
+                        title={t('share')}
                       >
                         <Share2 className="h-3.5 w-3.5" />
                       </Link>
                       <Link
                         href={`/business-card/edit?id=${card.id}`}
                         className="inline-flex items-center rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                        title="编辑"
+                        title={t('edit')}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Link>
-                      <Tooltip content="删除">
+                      <Tooltip content={t('delete')}>
                         <button
                           type="button"
                           onClick={() => removeMut.mutate(card.id)}
@@ -193,20 +194,20 @@ export default function BusinessCardPage() {
         <div className="flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
             <Star className="h-4 w-4 text-amber-500" />
-            收藏名片
+            {t('favorites')}
             <span className="text-sm font-normal text-muted-foreground">{(favs ?? []).length}</span>
           </h2>
           <Link
             href="/business-card/favorites"
             className="text-sm text-primary transition-colors hover:opacity-80"
           >
-            查看全部
+            {t('viewAll')}
           </Link>
         </div>
         {favLoading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            加载中...
+            {t('loading')}
           </div>
         ) : favErr ? (
           <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
@@ -215,7 +216,7 @@ export default function BusinessCardPage() {
         ) : (favs ?? []).length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
             <Star className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">暂无收藏名片</p>
+            <p className="text-sm text-muted-foreground">{t('emptyFavorites')}</p>
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
