@@ -22,6 +22,7 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
   const token = useAuthStore((s) => s.token)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const setUser = useAuthStore((s) => s.setUser)
+  const setToken = useAuthStore((s) => s.setToken)
   const logout = useAuthStore((s) => s.logout)
   const fetchProfile = useUserStore((s) => s.fetchProfile)
 
@@ -39,6 +40,32 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
       }
       if (!storedToken) {
         setReady(true)
+        return
+      }
+
+      // 🎭 Mock 模式: token 以 mock_ 开头时,跳过 /auth/profile API 调用
+      // (mock token 是前端伪造,后端不认),改从 mock_user_info 跨域 cookie 恢复 user
+      // 该 cookie 由 OAuthCallbackHandler 的 mock 分支设置,domain=.aizhs.top
+      if (storedToken.startsWith('mock_')) {
+        // 同步设置 token + isAuthenticated,避免 setUser 后 isAuthenticated 仍为 false
+        setToken(storedToken, null)
+        const mockUserCookie = document.cookie.match(/(?:^|;\s*)mock_user_info=([^;]+)/)
+        if (mockUserCookie && mockUserCookie[1]) {
+          try {
+            const decoded = decodeURIComponent(escape(atob(decodeURIComponent(mockUserCookie[1]))))
+            const mockUser = JSON.parse(decoded) as {
+              id: string
+              nickname: string
+              email?: string
+              avatar?: string | null
+              provider?: string
+            }
+            setUser(mockUser as never)
+          } catch {
+            /* base64 解析失败时,token 仍然标记已认证,user 留空(导航不显示) */
+          }
+        }
+        if (!cancelled) setReady(true)
         return
       }
 
