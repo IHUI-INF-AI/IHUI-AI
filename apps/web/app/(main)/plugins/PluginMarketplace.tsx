@@ -73,11 +73,28 @@ export function PluginMarketplace() {
 
   /** 内置插件调用:打开 AI 对话面板并注入"使用该插件"消息(2026-07-22 新增)
    *  用户点击插件卡片后,不跳转外部,而是在平台内通过 AI 对话调用该插件能力。
-   *  AI 会根据插件类型(category)和描述,调用对应工具或引导用户完成操作。 */
+   *  AI 会根据插件类型(category)和描述,调用对应工具或引导用户完成操作。
+   *
+   *  2026-07-22 升级:按 category 选择精准调用指令,而非通用模板。
+   *  - browser/computer:强调"控制浏览器/电脑执行操作"
+   *  - video:强调"生成/剪辑视频内容"
+   *  - devops:强调"部署/运维操作"
+   *  - mcp/agent:强调"调用 MCP 工具/Agent 能力"
+   *  - 其他:走通用模板 */
   const handleInvokePlugin = React.useCallback(
     (plugin: MarketPlugin) => {
       openAiPanel()
-      const invokePrompt = t('invokePromptTemplate', {
+      // 按 category 选择精准 prompt 模板(找不到则 fallback 到通用模板)
+      const promptKeyMap: Partial<Record<PluginCategory, string>> = {
+        browser: 'invokePromptBrowser',
+        computer: 'invokePromptComputer',
+        video: 'invokePromptVideo',
+        devops: 'invokePromptDevops',
+        mcp: 'invokePromptMcp',
+        agent: 'invokePromptAgent',
+      }
+      const promptKey = promptKeyMap[plugin.category] ?? 'invokePromptTemplate'
+      const invokePrompt = t(promptKey, {
         name: plugin.name,
         category: plugin.category,
         description: plugin.description,
