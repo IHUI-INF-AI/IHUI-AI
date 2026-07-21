@@ -191,7 +191,6 @@ export default function AdminSaasPage() {
             pending={pending}
             onPause={(tn) => setConfirmAction({ type: 'pause', tenant: tn })}
             onResume={(tn) => setConfirmAction({ type: 'resume', tenant: tn })}
-            onBackup={(tn) => setConfirmAction({ type: 'backup', tenant: tn })}
             onDelete={(tn) => setConfirmAction({ type: 'delete', tenant: tn })}
           />
         )}

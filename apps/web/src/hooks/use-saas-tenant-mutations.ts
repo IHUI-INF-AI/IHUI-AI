@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import {
   adminBackupTenant,
   adminCreateTenant,
+  adminDeleteBackup,
   adminDeleteTenant,
   adminPauseTenant,
   adminRestoreTenant,
@@ -18,6 +19,7 @@ import {
 } from '@ihui/api-client'
 
 import type {
+  BackupDeleteResult,
   TenantActionResult,
   TenantCreateResult,
   TenantForm,
@@ -151,5 +153,29 @@ export function useDeleteTenant(): UseMutationResult<
       invalidateAll(qc)
     },
     onError: (e) => toast.error(`销毁失败: ${e.message}`),
+  })
+}
+
+/** P1-2.2b: 删除指定备份 */
+export function useDeleteBackup(): UseMutationResult<
+  BackupDeleteResult,
+  Error,
+  { slug: string; timestamp: string }
+> {
+  const qc = useQueryClient()
+  return useMutation<BackupDeleteResult, Error, { slug: string; timestamp: string }>({
+    mutationFn: async ({ slug, timestamp }) => {
+      const r = await adminDeleteBackup(slug, timestamp)
+      if (!r.success) throw new Error(r.error)
+      return r.data as BackupDeleteResult
+    },
+    onSuccess: (data) => {
+      toast.success(`备份 ${data.timestamp} 已删除`)
+      // 仅失效备份列表缓存,避免刷新整个租户数据
+      qc.invalidateQueries({
+        queryKey: ['admin', 'saas', 'tenants', 'backups', data.slug],
+      })
+    },
+    onError: (e) => toast.error(`删除备份失败: ${e.message}`),
   })
 }
