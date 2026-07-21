@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { ClipboardList, Loader2, ChevronLeft, ChevronRight, CalendarClock } from 'lucide-react'
 
@@ -28,17 +28,18 @@ interface SignUpsData {
 
 const PAGE_SIZE = 10
 
-const STATUS_CFG: Record<string, { label: string; cls: string }> = {
-  pending: { label: '待考', cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500' },
-  attended: { label: '已考', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' },
-  canceled: { label: '已取消', cls: 'bg-muted text-muted-foreground' },
+const STATUS_CLS: Record<string, string> = {
+  pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
+  attended: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
+  canceled: 'bg-muted text-muted-foreground',
 }
 
-function statusOf(s: string) {
-  return STATUS_CFG[s] ?? { label: s || '未知', cls: 'bg-muted text-muted-foreground' }
+function statusClsOf(s: string) {
+  return STATUS_CLS[s] ?? 'bg-muted text-muted-foreground'
 }
 
 export default function MemberExamSignUpPage() {
+  const t = useTranslations('memberExamSignUpPage')
   const locale = useLocale()
   const qc = useQueryClient()
   const [page, setPage] = React.useState(1)
@@ -56,10 +57,10 @@ export default function MemberExamSignUpPage() {
     mutationFn: (examId: string) => cancelSignUp(examId),
     onSuccess: (r) => {
       if (r.success) {
-        toast.success('已取消报名')
+        toast.success(t('cancelSuccess'))
         qc.invalidateQueries({ queryKey: ['member', 'exam', 'signups'] })
       } else {
-        toast.error(r.error || '取消失败')
+        toast.error(r.error || t('cancelFailed'))
       }
     },
     onError: (e: Error) => toast.error(e.message),
@@ -77,8 +78,15 @@ export default function MemberExamSignUpPage() {
   })
 
   function handleCancel(examId: string) {
-    if (!window.confirm('确认取消该考试报名?')) return
+    if (!window.confirm(t('cancelConfirm'))) return
     cancelMut.mutate(examId)
+  }
+
+  function statusLabel(s: string) {
+    if (s === 'pending' || s === 'attended' || s === 'canceled') {
+      return t(`status.${s}`)
+    }
+    return s || t('status.unknown')
   }
 
   return (
@@ -86,9 +94,9 @@ export default function MemberExamSignUpPage() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <ClipboardList className="h-5 w-5 text-primary" />
-          我的考试报名
+          {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">查看已报名的考试并管理报名状态</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('description')}</p>
       </div>
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
@@ -96,28 +104,28 @@ export default function MemberExamSignUpPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
           <ClipboardList className="h-8 w-8 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">暂无报名记录</p>
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">考试名称</th>
-                <th className="px-3 py-2 font-medium">报名时间</th>
-                <th className="px-3 py-2 font-medium">考试时间</th>
-                <th className="px-3 py-2 font-medium">状态</th>
-                <th className="px-3 py-2 text-right font-medium">操作</th>
+                <th className="px-3 py-2 font-medium">{t('columns.examName')}</th>
+                <th className="px-3 py-2 font-medium">{t('columns.signedAt')}</th>
+                <th className="px-3 py-2 font-medium">{t('columns.examTime')}</th>
+                <th className="px-3 py-2 font-medium">{t('columns.status')}</th>
+                <th className="px-3 py-2 text-right font-medium">{t('columns.action')}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {rows.map((r) => {
-                const sc = statusOf(r.status)
+                const sc = statusClsOf(r.status)
                 const canCancel = r.status === 'pending'
                 return (
                   <tr key={r.id} className="transition-colors hover:bg-muted/30">
@@ -139,10 +147,10 @@ export default function MemberExamSignUpPage() {
                       <span
                         className={cn(
                           'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
-                          sc.cls,
+                          sc,
                         )}
                       >
-                        {sc.label}
+                        {statusLabel(r.status)}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-right">
@@ -154,7 +162,7 @@ export default function MemberExamSignUpPage() {
                           disabled={cancelMut.isPending}
                           onClick={() => handleCancel(r.examId)}
                         >
-                          取消报名
+                          {t('cancelBtn')}
                         </Button>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
@@ -170,7 +178,7 @@ export default function MemberExamSignUpPage() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">共 {total} 条</span>
+          <span className="text-xs text-muted-foreground">{t('total', { n: total })}</span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
