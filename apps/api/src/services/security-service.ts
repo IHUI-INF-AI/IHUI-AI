@@ -30,13 +30,15 @@ export class RateLimiter {
     private readonly requestsPerHour = 1000,
   ) {}
 
-  /** 从请求中提取客户端 IP（X-Forwarded-For > X-Real-IP > request.ip）。 */
+  /** 从请求中提取客户端 IP(2026-07-21 安全审计第十轮加固)。
+   *
+   * 不再直接读 X-Forwarded-For 头 — 因为 Fastify 已通过 trustProxy 配置
+   * 在解析阶段验证代理 IP,request.ip 已经是真实客户端 IP(或最后可信代理 IP)。
+   * 手工读 X-Forwarded-For 会绕过 trustProxy 检查,被攻击者伪造任意 IP 绕过
+   * 限流 / IP 拉黑 / 失败计数(例如:Authorization: bypass, X-Forwarded-For: 1.1.1.1)。
+   */
   static getClientIp(request: FastifyRequest): string {
-    const forwarded = request.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string') return forwarded.split(',')[0]!.trim();
-    const realIp = request.headers['x-real-ip'];
-    if (typeof realIp === 'string') return realIp;
-    return request.ip;
+    return request.ip
   }
 
   /**
