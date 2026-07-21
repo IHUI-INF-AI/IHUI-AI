@@ -18,7 +18,6 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "typecheck": "node scripts/typecheck-full.mjs",
     "typecheck:full": "node scripts/typecheck-full.mjs",
-    "generate:sdk": "tsx scripts/generate-sdk.ts",
     "check:api-key-leak": "node scripts/check-api-key-leak.mjs",
     "check:i18n-keys": "node scripts/check-i18n-keys.mjs",
     "check:api-routes": "node scripts/check-api-routes.mjs",
