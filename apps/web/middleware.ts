@@ -1,6 +1,20 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 /**
+ * Edge Runtime 安全的密码学随机 hex 生成器(Web Crypto API,无 Math.random 降级)
+ * 2026-07-21 加固:用于 OAuth state 生成,防止 CWE-330 可预测随机漏洞
+ */
+function randomHex(bytes: number): string {
+  const buf = new Uint8Array(bytes)
+  crypto.getRandomValues(buf)
+  let hex = ''
+  for (let i = 0; i < bytes; i++) {
+    hex += (buf[i] ?? 0).toString(16).padStart(2, '0')
+  }
+  return hex
+}
+
+/**
  * 服务端 SSO 鉴权 middleware（迁移自 D 盘 edu/admin/admin/src/router/guard.js + edu/web/src/router/guard.js）。
  *
  * 触发条件:访问 /admin/* 路径且 cookie 中无 auth_token。
@@ -135,7 +149,7 @@ export function middleware(request: NextRequest) {
         const redirectUri = process.env.NEXT_PUBLIC_ALIPAY_REDIRECT_URI
         if (appId && redirectUri) {
           const scope = process.env.NEXT_PUBLIC_ALIPAY_SCOPE || 'auth_user'
-          const state = `alipay_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+          const state = `alipay_${Date.now()}_${randomHex(16)}`
           const authUrl = new URL('https://openauth.alipay.com/oauth2/publicAppAuthorize.htm')
           authUrl.searchParams.set('app_id', appId)
           authUrl.searchParams.set('scope', scope)
