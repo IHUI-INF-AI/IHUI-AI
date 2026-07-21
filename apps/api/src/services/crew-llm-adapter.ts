@@ -11,6 +11,7 @@
  */
 import { config } from '../config/index.js'
 import { logger } from './clawdbot/logger.js'
+import { recordAiCost } from '../plugins/ai-cost.js'
 
 export interface LlmMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
@@ -54,6 +55,10 @@ export interface LlmCallOptions {
   tools?: LlmToolDef[]
   /** 工具选择策略: auto(默认)/none/required */
   toolChoice?: 'auto' | 'none' | 'required'
+  /** G7: 可选 userId,用于记录 AI 调用成本(不传则不记成本) */
+  userId?: string
+  /** G7: 可选 sessionId,用于关联 Crew 会话 */
+  sessionId?: string
 }
 
 export interface LlmCallResult {
@@ -151,6 +156,28 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
     },
     '[CrewLLM] 调用完成',
   )
+
+  // G7: 记录 AI 调用成本(独立函数,不依赖 server)
+  // stub 响应无真实 LLM 调用,跳过记成本;userId 未传时跳过(系统侧调用)
+  if (opts.userId && !result.stub && result.usage.totalTokens > 0) {
+    try {
+      const provider = result.modelUsed.includes('/')
+        ? result.modelUsed.split('/')[0]!
+        : 'unknown'
+      await recordAiCost({
+        userId: opts.userId,
+        model: result.modelUsed,
+        provider,
+        promptTokens: result.usage.promptTokens,
+        completionTokens: result.usage.completionTokens,
+        totalTokens: result.usage.totalTokens,
+        requestType: opts.sessionId ? 'crew_session' : 'crew',
+        metadata: opts.sessionId ? JSON.stringify({ sessionId: opts.sessionId }) : undefined,
+      })
+    } catch (e) {
+      logger.warn({ err: e }, '[CrewLLM] recordAiCost 失败(不影响主流程)')
+    }
+  }
 
   return result
 }
