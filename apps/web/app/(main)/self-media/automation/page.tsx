@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import {
   Clock,
   Play,
@@ -56,6 +56,7 @@ interface HistoryItem {
 
 export default function AutomationPage() {
   const t = useTranslations('selfMedia.automationPage')
+  const locale = useLocale()
   const [tasks, setTasks] = React.useState<Task[]>([])
   const [history, setHistory] = React.useState<HistoryItem[]>([])
   const [loading, setLoading] = React.useState(true)
@@ -151,7 +152,7 @@ export default function AutomationPage() {
 
   const formatTime = (iso: string) => {
     try {
-      return new Intl.DateTimeFormat('zh-CN', {
+      return new Intl.DateTimeFormat(locale, {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',
@@ -165,7 +166,7 @@ export default function AutomationPage() {
 
   const formatDate = (iso: string) => {
     try {
-      return new Intl.DateTimeFormat('zh-CN', {
+      return new Intl.DateTimeFormat(locale, {
         month: '2-digit',
         day: '2-digit',
         hour: '2-digit',
@@ -217,14 +218,14 @@ export default function AutomationPage() {
                     {task.running && (
                       <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
                         <Loader2 className="h-3 w-3 animate-spin" />
-                        运行中
+                        {t('running')}
                       </span>
                     )}
                     <Switch
                       checked={task.config.enabled}
                       onCheckedChange={() => handleToggle(task)}
                       disabled={isToggling}
-                      aria-label="启用/禁用任务"
+                      aria-label={t('toggleAriaLabel')}
                     />
                   </div>
                 </CardTitle>
@@ -234,32 +235,32 @@ export default function AutomationPage() {
                 {!isEditing && (
                   <div className="space-y-2 text-xs">
                     <div className="flex items-center justify-between rounded-md bg-muted/50 px-2.5 py-1.5">
-                      <span className="text-muted-foreground">执行时间</span>
+                      <span className="text-muted-foreground">{t('executionTime')}</span>
                       <code className="font-mono">
                         {String(task.config.hour).padStart(2, '0')}:
                         {String(task.config.minute).padStart(2, '0')}
                       </code>
                     </div>
                     <div className="flex items-center justify-between rounded-md bg-muted/50 px-2.5 py-1.5">
-                      <span className="text-muted-foreground">运行模式</span>
+                      <span className="text-muted-foreground">{t('runMode')}</span>
                       <span>
                         {task.config.dryRun ? (
-                          <span className="text-amber-600">dry-run(不推送)</span>
+                          <span className="text-amber-600">{t('modeDryRun')}</span>
                         ) : (
-                          <span className="text-emerald-600">正式(实际推送)</span>
+                          <span className="text-emerald-600">{t('modeProduction')}</span>
                         )}
                       </span>
                     </div>
                     {task.id === 'wechat_daily' && (
                       <div className="flex items-center justify-between rounded-md bg-muted/50 px-2.5 py-1.5">
-                        <span className="text-muted-foreground">标题模板</span>
+                        <span className="text-muted-foreground">{t('titleTemplate')}</span>
                         <code className="max-w-[60%] truncate font-mono">
-                          {task.config.titleTemplate || '(未配置)'}
+                          {task.config.titleTemplate || t('notConfigured')}
                         </code>
                       </div>
                     )}
                     <div className="flex items-center justify-between rounded-md bg-muted/50 px-2.5 py-1.5">
-                      <span className="text-muted-foreground">状态</span>
+                      <span className="text-muted-foreground">{t('status')}</span>
                       <span
                         className={
                           task.config.enabled
@@ -267,12 +268,12 @@ export default function AutomationPage() {
                             : 'text-muted-foreground'
                         }
                       >
-                        {task.config.enabled ? '已启用' : '已禁用'}
+                        {task.config.enabled ? t('enabled') : t('disabled')}
                       </span>
                     </div>
                     {task.lastRun && (
                       <div className="flex items-center justify-between rounded-md bg-muted/50 px-2.5 py-1.5">
-                        <span className="text-muted-foreground">最近一次</span>
+                        <span className="text-muted-foreground">{t('lastRun')}</span>
                         <span className="flex items-center gap-1.5">
                           {task.lastRun.status === 'success' ? (
                             <CheckCircle2 className="h-3 w-3 text-emerald-600" />
@@ -297,7 +298,7 @@ export default function AutomationPage() {
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
                         <Label htmlFor={`hour-${task.id}`} className="text-xs">
-                          小时 (0-23)
+                          {t('hourLabel')}
                         </Label>
                         <Input
                           id={`hour-${task.id}`}
@@ -311,7 +312,7 @@ export default function AutomationPage() {
                       </div>
                       <div className="space-y-1">
                         <Label htmlFor={`minute-${task.id}`} className="text-xs">
-                          分钟 (0-59)
+                          {t('minuteLabel')}
                         </Label>
                         <Input
                           id={`minute-${task.id}`}
@@ -326,7 +327,7 @@ export default function AutomationPage() {
                     </div>
                     <div className="flex items-center justify-between rounded-md bg-muted/50 px-2.5 py-1.5">
                       <Label htmlFor={`dryrun-${task.id}`} className="text-xs">
-                        dry-run 模式(不实际推送草稿箱)
+                        {t('dryRunLabel')}
                       </Label>
                       <Switch
                         id={`dryrun-${task.id}`}
@@ -337,13 +338,13 @@ export default function AutomationPage() {
                     {task.id === 'wechat_daily' && (
                       <div className="space-y-1">
                         <Label htmlFor={`title-${task.id}`} className="text-xs">
-                          标题模板(可用 {'{date}'} 占位符替换为 MMDD)
+                          {t('titleTemplateLabel')}
                         </Label>
                         <Input
                           id={`title-${task.id}`}
                           value={editTitleTpl}
                           onChange={(e) => setEditTitleTpl(e.target.value)}
-                          placeholder="如:今日 AI 资讯 {date}"
+                          placeholder={t('titleTemplatePlaceholder')}
                           className="text-xs"
                         />
                       </div>
@@ -357,7 +358,7 @@ export default function AutomationPage() {
                         disabled={saving !== null}
                         className="h-7 text-xs"
                       >
-                        取消
+                        {t('cancel')}
                       </Button>
                       <Button
                         type="button"
@@ -369,7 +370,7 @@ export default function AutomationPage() {
                         {saving === 'saving' ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
                         ) : null}
-                        保存
+                        {t('save')}
                       </Button>
                     </div>
                   </div>
@@ -390,7 +391,7 @@ export default function AutomationPage() {
                       ) : (
                         <Play className="h-3 w-3" />
                       )}
-                      立即触发
+                      {t('triggerNow')}
                     </Button>
                     <Button
                       variant="ghost"
@@ -399,7 +400,7 @@ export default function AutomationPage() {
                       className="h-7 text-xs"
                     >
                       <Settings2 className="h-3 w-3" />
-                      配置
+                      {t('configure')}
                     </Button>
                     <Button
                       variant="ghost"
@@ -409,7 +410,7 @@ export default function AutomationPage() {
                       className="h-7 text-xs"
                     >
                       <Power className="h-3 w-3" />
-                      {task.config.enabled ? '禁用' : '启用'}
+                      {task.config.enabled ? t('disable') : t('enable')}
                     </Button>
                   </div>
                 )}
@@ -425,15 +426,16 @@ export default function AutomationPage() {
           <div className="flex items-start gap-2 rounded-md bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
             <Clock className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
-              <p className="font-semibold">调度器说明</p>
+              <p className="font-semibold">{t('schedulerNoteTitle')}</p>
               <ul className="mt-1 list-inside list-disc space-y-0.5 text-xs">
-                <li>定时任务在 ai-service 启动时自动挂载,每 60 秒轮询一次。</li>
-                <li>所有任务默认 dry-run 模式,不会真的推送微信草稿箱,需手动触发或在配置中关闭 dry-run。</li>
-                <li>任务执行历史保留最近 30 条(内存),服务重启后清空。</li>
-                <li>时区:东八区(Asia/Shanghai)。</li>
+                <li>{t('note1')}</li>
+                <li>{t('note2')}</li>
+                <li>{t('note3')}</li>
+                <li>{t('note4')}</li>
                 <li>
-                  服务重启后,任务开关会重置为环境变量 <code>SELF_MEDIA_CRON_ENABLED</code>(默认
-                  false)的值;运行时通过本页面启用的状态不会持久化到磁盘。
+                  {t.rich('note5', {
+                    code: (chunks) => <code>{chunks}</code>,
+                  })}
                 </li>
               </ul>
             </div>

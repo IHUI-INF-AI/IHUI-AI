@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { ArrowLeft, Award, Loader2, Download, Printer } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -33,6 +33,7 @@ export default function EduCertificateDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const locale = useLocale()
+  const t = useTranslations('eduCertificatesPage')
   const [downloading, setDownloading] = React.useState(false)
 
   const { data, isLoading, error } = useQuery({
@@ -58,7 +59,7 @@ export default function EduCertificateDetailPage() {
     setDownloading(true)
     try {
       const res = await fetch(`/api/edu/certificates/${id}/download`, { method: 'POST' })
-      if (!res.ok) throw new Error(`下载失败（${res.status}）`)
+      if (!res.ok) throw new Error(t('downloadFailed', { status: res.status }))
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -79,7 +80,7 @@ export default function EduCertificateDetailPage() {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
 
@@ -92,9 +93,9 @@ export default function EduCertificateDetailPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回证书列表
+          {t('backToList')}
         </button>
-        <Alert variant="danger" description={(error as Error)?.message ?? '证书不存在'} />
+        <Alert variant="danger" description={(error as Error)?.message ?? t('notFound')} />
       </div>
     )
   }
@@ -108,7 +109,7 @@ export default function EduCertificateDetailPage() {
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回证书列表
+        {t('backToList')}
       </Link>
 
       <Card>
@@ -117,7 +118,7 @@ export default function EduCertificateDetailPage() {
             <Award className="h-8 w-8 text-primary" />
           </div>
           <CardTitle className="text-2xl">{cert.name}</CardTitle>
-          <p className="text-sm text-muted-foreground">证书编号：{cert.certificateNo}</p>
+          <p className="text-sm text-muted-foreground">{t('certificateNo', { no: cert.certificateNo })}</p>
           <span
             className={cn(
               'mx-auto mt-2 inline-block rounded-md px-3 py-0.5 text-xs',
@@ -126,16 +127,16 @@ export default function EduCertificateDetailPage() {
                 : 'bg-muted text-muted-foreground',
             )}
           >
-            {cert.status === 1 ? '有效' : '已撤销'}
+            {cert.status === 1 ? t('status.valid') : t('status.revoked')}
           </span>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="mx-auto max-w-md space-y-4 rounded-lg border bg-gradient-to-br from-primary/5 to-transparent p-8 text-center">
             <p className="text-lg font-semibold">{cert.recipientName}</p>
-            <p className="text-sm text-muted-foreground">已完成</p>
+            <p className="text-sm text-muted-foreground">{t('completed')}</p>
             <p className="text-base font-medium">{cert.courseName ?? cert.name}</p>
-            <p className="text-sm text-muted-foreground">学习并通过考核，特发此证</p>
-            <p className="pt-2 text-sm text-muted-foreground">颁发日期：{fmt(cert.issuedAt)}</p>
+            <p className="text-sm text-muted-foreground">{t('issuanceText')}</p>
+            <p className="pt-2 text-sm text-muted-foreground">{t('issuedAt', { date: fmt(cert.issuedAt) })}</p>
           </div>
 
           {cert.description && (
@@ -145,7 +146,7 @@ export default function EduCertificateDetailPage() {
           <div className="flex justify-center gap-3">
             <Button variant="outline" onClick={() => window.print()}>
               <Printer className="h-4 w-4" />
-              打印
+              {t('print')}
             </Button>
             <Button onClick={handleDownload} disabled={downloading}>
               {downloading ? (
@@ -153,7 +154,7 @@ export default function EduCertificateDetailPage() {
               ) : (
                 <Download className="h-4 w-4" />
               )}
-              下载证书
+              {t('download')}
             </Button>
           </div>
         </CardContent>
