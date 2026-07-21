@@ -14,11 +14,10 @@
 import type { EmbeddingProvider } from './embedding.js'
 import { extractKeywords, isAllStopWords } from './query-expansion.js'
 
-// ==================== P43 内容过滤(参考 cli-memory/search.rs::is_content_free) ====================
+// ==================== P43 内容过滤 ====================
 
 /**
  * scaffold 模板最大字节数:超过此长度的内容即使包含 marker 也不是 scaffold
- * (灵感:参考 cli-memory/src/dream.rs::is_scaffold_template 中的 500 阈值)
  */
 const SCAFFOLD_MAX_LEN = 500
 const SCAFFOLD_MARKERS = [
@@ -72,7 +71,6 @@ function linesAreScaffolding(text: string): boolean {
  * 检测是否是 dream scaffold 模板(自动生成的 MEMORY.md 占位内容)。
  *
  * 判定:内容短 (< 500 字节) AND 包含任一 marker 字符串。
- * 灵感:参考 cli-memory/src/dream.rs::is_scaffold_template
  */
 export function isScaffoldTemplate(content: string): boolean {
   const trimmed = content.trim()
@@ -88,7 +86,6 @@ export function isScaffoldTemplate(content: string): boolean {
  *   - 来源是 evergreen(global/workspace) 且是 scaffold 模板 → true
  *   - 其他情况 → false
  *
- * 灵感:参考 cli-memory/src/search.rs::is_content_free
  * 关键设计:scaffold 模板检测限定在 evergreen 来源,
  * 避免 session chunk 仅引用 marker 短语被误杀。
  */

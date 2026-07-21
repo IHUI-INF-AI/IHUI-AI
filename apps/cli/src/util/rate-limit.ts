@@ -1,7 +1,6 @@
 /**
  * TokenBucket + SuppressionTracker — 纯进程内速率限制。
  *
- * 灵感来源:参考 cli-tools/src/implementations/grok_build/monitor/rate_limiter.rs
  * 简化策略(做减法):
  *   - 0 新依赖(无 lodash / p-limit),纯 TS
  *   - 滑动补充:`lastRefill += interval * refills`(避免 elapsed 累计浮点失真)

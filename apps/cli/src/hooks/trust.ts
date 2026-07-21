@@ -1,7 +1,6 @@
 /**
  * Hook Trust — Hook 派发前的信任门控(security P0)。
  *
- * 灵感来源:参考 cli-hooks/src/trust.rs::is_hook_disabled + folder-trust
  * 简化策略(做减法):
  *   - 2 个核心 gate:
  *     1. **disabled-hooks file**(每行一个被禁 hook 名,# 注释)

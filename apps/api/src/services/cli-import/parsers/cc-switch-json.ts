@@ -36,7 +36,6 @@ const VALID_APP_TYPES: CliAppType[] = [
   'claude-desktop',
   'codex',
   'gemini',
-  'cli',
   'opencode',
   'openclaw',
   'hermes',

@@ -1,7 +1,6 @@
 /**
  * Isolated Subprocess Spawning — 跨平台带超时的子进程隔离执行。
  *
- * 灵感来源:参考 cli-mermaid/src/subprocess.rs
  * 简化策略(做减法):
  *   - 0 外部依赖(无 shell-quote / tree-kill),用 Node 内置 child_process
  *   - 跨平台进程组清理:Unix 用 kill(-pid) 发给进程组;Windows 用 taskkill /T /F 杀进程树
@@ -24,7 +23,7 @@
 import { spawn, type ChildProcess, type StdioOptions } from 'node:child_process'
 import * as os from 'node:os'
 
-/** 子进程执行失败原因(对齐 cli-mermaid/src/subprocess.rs::SubprocessError) */
+/** 子进程执行失败原因 */
 export type SubprocessFailureReason =
   | 'spawn' // 启动失败(binary 缺失 / fork 失败)
   | 'timeout' // 超时被杀
@@ -159,7 +158,6 @@ function awaitReap(child: ChildProcess, reapTimeoutMs: number): Promise<void> {
 
 /**
  * 重试 spawn(Linux 上偶发 ETXTBSY:Text file busy,毫秒级窗口)。
- * 参考 cli-mermaid/src/subprocess.rs::spawn_with_etxtbsy_retry。
  */
 async function spawnWithRetry(
   command: string,
