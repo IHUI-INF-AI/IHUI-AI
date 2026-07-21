@@ -177,6 +177,12 @@ if (!run('🎯 检查 Tailwind class 冲突...', 'node scripts/check-tailwind-cl
 // 不阻塞 commit, 提醒 agent 按 §9 默认全端连通或显式补标注
 run('🌐 检查多端同步开发守门(warn-only)...', 'node scripts/check-multi-end-sync.mjs')
 
+// 22. Staged 文件清单打印(lightweight, 2026-07-21 立)
+// commit 前最后看一眼 staged 清单, 杜绝"混入其他 agent 改动"污染事故
+// 与第 19 项 check-staged-pollution 互补: 19 是跨端超阈值 warn, 22 是无条件打印清单
+// info-only, 始终 exit 0, 不影响其他守门
+run('📋 打印 staged 文件清单(info)...', 'node scripts/check-staged-files.mjs')
+
 // 16. 条件 typecheck 闸门(仅 staged 涉及 apps/web 时跑 web typecheck)
 // 防止"commit 通过但 push 失败"的循环(f21dc473 commit 漏掉 import 的教训)
 // 只在 staged 文件涉及 apps/web 时跑,避免影响其他包的 commit 速度
