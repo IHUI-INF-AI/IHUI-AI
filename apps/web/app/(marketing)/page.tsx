@@ -200,19 +200,24 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Page 6: 4 定价卡 + 品牌跑马灯 + 4 Stat 数据条
-            - 2026-07-21 重新编号(原 Page 4 → Page 6):
-              Pricing 4 卡 (flex-1) + 4 stat 横向条 (固定) + BrandMarquee (固定)
-              四段式 flex-col justify-between 撑满 ~100vh */}
+        {/* Page 6: 4 定价卡 + 4 Stat 数据条 + 品牌跑马灯
+            - 2026-07-21 v4 改(根因修复"偏上"):用户反馈"图片里这个页面里的内容排版布局不合理 太偏上了"。
+              v3 修了 `flex h-full items-center justify-center`,但 section 没有 flex 容器
+              → h-full 在 block 容器里失效,innerDiv 高度只占内容自然高 729.5px,
+                justify-center 在 729.5px 内部居中,顶部仍紧贴 section 顶端 (0px gap),
+                下方留 482.5px 大空白
+              v4:section 改 `flex flex-col` + innerDiv 改 `flex-1` 真正占满 section 全高 (1212px),
+                justify-center 真正在 1212px 内居中,上下均分空白 (约 240px each)
+            - v3.1:marquee 容器去掉自带的 px-3 + 整体加 max-w-7xl 限宽防溢出 */}
         <section
           id="home-page-6"
-          className="snap-start"
+          className="flex flex-col snap-start"
           style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={t('pricing.title', { fallback: 'Pricing' })}
         >
-          <div className="flex h-full w-full flex-col justify-between gap-4 px-4 py-4 md:px-8 md:py-6">
-            {/* Pricing 4 卡(顶部,flex-1 占满剩余空间) */}
-            <div className="min-h-0 flex-1">
+          <div className="flex h-full w-full flex-1 flex-col items-center justify-center gap-3 overflow-hidden">
+            {/* Pricing 4 卡(顶部,自然高度,不再 flex-1 撑大) */}
+            <div className="w-full">
               <HomePage4Pricing />
             </div>
 
@@ -222,34 +227,40 @@ export default function HomePage() {
                 2. 100+ 大模型接入(stats.models)
                 3. ¥6000 元/人/年 早鸟价(enterprise.hero.priceEarlyBird)
                 4. 18 席限位 · 决策者(stats.seats)
-                修复原 67% + cta.subtitle 长句错位 bug */}
-            <div className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
-              {[
-                { value: 8, suffix: '', label: t('stats.platforms') },
-                { value: 100, suffix: '+', label: t('stats.models') },
-                { value: 6000, prefix: '¥', label: te('hero.priceEarlyBird') },
-                { value: 18, suffix: '', label: t('stats.seats') },
-              ].map((s, i) => (
-                <div
-                  key={i}
-                  className="flex flex-col items-center gap-0.5 rounded-lg border bg-card px-3 py-2 text-center md:py-3"
-                >
-                  <span className="text-xl font-bold tracking-tight text-primary md:text-2xl">
-                    {s.prefix && <span>{s.prefix}</span>}
-                    <AnimatedNumber value={s.value} duration={1500} />
-                    {s.suffix && <span>{s.suffix}</span>}
-                  </span>
-                  <span className="line-clamp-2 text-[10px] text-muted-foreground md:text-xs">
-                    {s.label}
-                  </span>
-                </div>
-              ))}
+                修复原 67% + cta.subtitle 长句错位 bug
+                v3:加 max-w-5xl 限宽,居中对称 */}
+            <div className="mx-auto w-full max-w-5xl px-4">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
+                {[
+                  { value: 8, suffix: '', label: t('stats.platforms') },
+                  { value: 100, suffix: '+', label: t('stats.models') },
+                  { value: 6000, prefix: '¥', label: te('hero.priceEarlyBird') },
+                  { value: 18, suffix: '', label: t('stats.seats') },
+                ].map((s, i) => (
+                  <div
+                    key={i}
+                    className="flex flex-col items-center gap-0.5 rounded-lg border bg-card px-3 py-2 text-center md:py-3"
+                  >
+                    <span className="text-xl font-bold tracking-tight text-primary md:text-2xl">
+                      {s.prefix && <span>{s.prefix}</span>}
+                      <AnimatedNumber value={s.value} duration={1500} />
+                      {s.suffix && <span>{s.suffix}</span>}
+                    </span>
+                    <span className="line-clamp-2 text-[10px] text-muted-foreground md:text-xs">
+                      {s.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Brand 跑马灯(底部,删除原 CTA 按钮组 2026-07-20:
+            {/* Brand 跑马灯(底部,固定高度,删除原 CTA 按钮组 2026-07-20:
                 用户要求"不需要有这个跳转功能",移除"立即加入"/"进入工作台"按钮,
-                仅保留品牌跑马灯展示) */}
-            <BrandMarquee />
+                仅保留品牌跑马灯展示
+                v3:加 max-w-7xl 限宽 + px-4 对称 padding */}
+            <div className="w-full max-w-7xl px-4">
+              <BrandMarquee />
+            </div>
           </div>
         </section>
 
