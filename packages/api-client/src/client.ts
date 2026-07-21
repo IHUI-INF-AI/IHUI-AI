@@ -281,6 +281,10 @@ export interface StreamChatOptions {
   agentId?: string
   /** 多 agent 多路复用回调:chunk 带 agentId 时触发,与 onDelta 互斥(有 agentId 走此回调,无则走 onDelta)。 */
   onAgentDelta?: (agentId: string, delta: string) => void
+  /** Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):
+   *  传入工具名列表后,后端走 tool loop(complete→tool_calls→execute→astream)。
+   *  如 ["browser_screenshot", "computer_mouse_click"] */
+  agentTools?: string[]
   /** AI 工具调用回调(2026-07-22 立,P2 联动 WorkPanel):
    *  - toolCallStart:Vercel AI SDK 协议 type 9(tool-call-streaming-start)或 type 8(tool-call)
    *  - toolCallResult:type 7(tool-result)或自定义 tool_result 事件
@@ -761,6 +765,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   if (opts.workspacePath) body.workspacePath = opts.workspacePath
   if (opts.contextLimit !== undefined) body.contextLimit = opts.contextLimit
   if (opts.agentId) body.agentId = opts.agentId
+  if (opts.agentTools && opts.agentTools.length > 0) body.agentTools = opts.agentTools
   if (opts.extraBody) Object.assign(body, opts.extraBody)
 
   try {
@@ -917,11 +922,27 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         return
       }
 
-      // 自定义 JSON 事件 { type: 'tool_result', toolCallId, toolName, args, result }
+      // 自定义 JSON 事件(支持 ai-service agent tool loop 推送的 tool-call-start / tool-result)
       if (data.startsWith('{')) {
         try {
           const json = JSON.parse(data) as Record<string, unknown>
           if (json?.type === 'tool_result' && json?.toolCallId) {
+            opts.onToolCall!({
+              type: 'tool-result',
+              toolCallId: String(json.toolCallId),
+              toolName: typeof json.toolName === 'string' ? json.toolName : '',
+              args: json.args as Record<string, unknown> | undefined,
+              result: json.result,
+              isError: json.isError === true,
+            })
+          } else if (json?.type === 'tool-call-start' && json?.toolCallId) {
+            opts.onToolCall!({
+              type: 'tool-call-start',
+              toolCallId: String(json.toolCallId),
+              toolName: typeof json.toolName === 'string' ? json.toolName : '',
+              args: json.args as Record<string, unknown> | undefined,
+            })
+          } else if (json?.type === 'tool-result' && json?.toolCallId) {
             opts.onToolCall!({
               type: 'tool-result',
               toolCallId: String(json.toolCallId),
