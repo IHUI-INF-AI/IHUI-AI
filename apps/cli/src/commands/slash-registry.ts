@@ -60,6 +60,22 @@ const CATEGORY_LABELS: Record<SlashCommandCategory, string> = {
   file: '文件操作',
 };
 
+const CATEGORY_ICONS: Record<SlashCommandCategory, string> = {
+  basic: '◆',
+  session: '◐',
+  task: '◈',
+  checkpoint: '▣',
+  file: '▤',
+};
+
+const CATEGORY_COLORS: Record<SlashCommandCategory, (s: string) => string> = {
+  basic: chalk.cyan,
+  session: chalk.magenta,
+  task: chalk.yellow,
+  checkpoint: chalk.green,
+  file: chalk.blue,
+};
+
 const CATEGORY_ORDER: SlashCommandCategory[] = ['basic', 'session', 'task', 'checkpoint', 'file'];
 
 /** 查找命令(支持别名) */
@@ -67,18 +83,26 @@ export function findSlashCommand(name: string): SlashCommandMeta | undefined {
   return SLASH_COMMANDS.find((c) => c.name === name || c.aliases?.includes(name));
 }
 
-/** 渲染帮助文本(按分类分组,单一来源) */
+/** 渲染帮助文本(分类色带 + 图标 + 别名对齐,单一来源) */
 export function renderSlashHelp(): string {
-  const lines: string[] = [chalk.cyan('可用命令:')];
+  const lines: string[] = [];
+  const totalCmds = SLASH_COMMANDS.length;
+  lines.push(chalk.cyan(`╭─ 可用命令 (${totalCmds}) `) + chalk.dim('─'.repeat(40)));
   for (const cat of CATEGORY_ORDER) {
     const cmds = SLASH_COMMANDS.filter((c) => c.category === cat);
     if (cmds.length === 0) continue;
-    lines.push(chalk.cyan(`\n${CATEGORY_LABELS[cat]}:`));
+    const color = CATEGORY_COLORS[cat];
+    const icon = CATEGORY_ICONS[cat];
+    // 分类色带
+    lines.push(color(`\n${icon} ${CATEGORY_LABELS[cat]} · ${cmds.length} 项`));
+    lines.push(color('─'.repeat(46)));
     for (const c of cmds) {
-      const aliases = c.aliases ? chalk.dim(` (/${c.aliases.join(', /')})`) : '';
-      lines.push(`  ${c.usage.padEnd(28)} ${c.description}${aliases}`);
+      const aliases = c.aliases ? chalk.dim(`  /${c.aliases.join(' /')}`) : '';
+      const usage = color(c.usage.padEnd(26));
+      lines.push(`  ${usage} ${chalk.gray(c.description)}${aliases}`);
     }
   }
+  lines.push(chalk.cyan('╰─ 输入命令开始 · Tab 自动补全 · 未知命令给相似度建议 '));
   lines.push('');
   return lines.join('\n');
 }
