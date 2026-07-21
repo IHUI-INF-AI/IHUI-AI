@@ -47,8 +47,13 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ sufficient: balance >= minTokens, balance }))
   })
 
+  // P1-4 修复:/finance/margin/* 资金操作全部加 admin 权限校验(roleId >= 1),禁止普通用户自助调用
   server.post('/finance/margin/deduct', async (request, reply) => {
     await authenticate(request)
+    const roleId = request.jwtPayload?.roleId ?? 0
+    if (roleId < 1) {
+      return reply.status(403).send(error(403, '需要管理员权限'))
+    }
     const { quantity, remark } = z
       .object({ quantity: z.coerce.number(), remark: z.string().optional().default('') })
       .parse(request.query)
@@ -59,6 +64,10 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/finance/margin/recharge', async (request, reply) => {
     await authenticate(request)
+    const roleId = request.jwtPayload?.roleId ?? 0
+    if (roleId < 1) {
+      return reply.status(403).send(error(403, '需要管理员权限'))
+    }
     const { quantity, outTradeNo } = z
       .object({ quantity: z.coerce.number(), outTradeNo: z.string() })
       .parse(request.query)
@@ -69,6 +78,10 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/finance/margin/expire', async (request, reply) => {
     await authenticate(request)
+    const roleId = request.jwtPayload?.roleId ?? 0
+    if (roleId < 1) {
+      return reply.status(403).send(error(403, '需要管理员权限'))
+    }
     const { quantity, source } = z
       .object({ quantity: z.coerce.number(), source: z.string().optional().default('到期清零') })
       .parse(request.query)
@@ -79,6 +92,10 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/finance/margin/commission', async (request, reply) => {
     await authenticate(request)
+    const roleId = request.jwtPayload?.roleId ?? 0
+    if (roleId < 1) {
+      return reply.status(403).send(error(403, '需要管理员权限'))
+    }
     const { quantity, invitedUserId, source } = z
       .object({
         quantity: z.coerce.number(),
@@ -94,6 +111,10 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
 
   server.post('/finance/margin/refund', async (request, reply) => {
     await authenticate(request)
+    const roleId = request.jwtPayload?.roleId ?? 0
+    if (roleId < 1) {
+      return reply.status(403).send(error(403, '需要管理员权限'))
+    }
     const { quantity, remark } = z
       .object({ quantity: z.coerce.number(), remark: z.string().optional().default('') })
       .parse(request.query)
