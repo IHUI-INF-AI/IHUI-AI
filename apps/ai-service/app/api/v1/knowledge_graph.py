@@ -1,12 +1,14 @@
-"""知识图谱 API(G5 - 2026-07-21)。
+"""知识图谱 API(G5 - 2026-07-21,G5+ 2026-07-22 加 DrizzleGraphStore 持久化)。
 
 端点(挂载在 /api/v1/ai/knowledge-graph 前缀):
 - POST /extract   从一段文本抽取实体 + 关系
-- POST /build     从一段文本抽取 + 入库(内存 store)
+- POST /build     从一段文本抽取 + 入库(memory/drizzle store)
 - GET  /data      查询某 owner 的图谱数据
 - DELETE /data    清除某 owner 的图谱
 
-注:当前为内存 store(无 DB 写入),DB 接入是下一阶段。提取 → 入库 → 查询完整流程打通。
+存储后端由 `KNOWLEDGE_GRAPH_STORE` 环境变量控制:
+- `memory` (默认):进程内 dict,dev/test 场景
+- `drizzle`:asyncpg 直连 PG,生产场景(进程重启不丢)
 """
 
 from __future__ import annotations
@@ -71,7 +73,7 @@ async def build_graph(
         # 入库(upsert 实体 + 关系)
         entity_map: dict[str, dict[str, Any]] = {}
         for e in result["entities"]:
-            saved = graph_store.upsert_entity(
+            saved = await graph_store.upsert_entity(
                 owner_uuid=owner,
                 name=e["name"],
                 entity_type=e["type"],
@@ -85,7 +87,7 @@ async def build_graph(
             tgt = entity_map.get(r["target"])
             if not src or not tgt:
                 continue
-            graph_store.upsert_relation(
+            await graph_store.upsert_relation(
                 owner_uuid=owner,
                 source_entity_id=src["id"],
                 target_entity_id=tgt["id"],
@@ -117,7 +119,7 @@ async def get_graph_data(
 ) -> dict[str, Any]:
     """获取某 owner 的图谱数据(节点 + 边)。"""
     owner = x_owner_uuid or "anonymous"
-    graph = graph_store.get_graph(owner)
+    graph = await graph_store.get_graph(owner)
     return {
         "code": 0,
         "message": "ok",
@@ -139,8 +141,8 @@ async def clear_graph(
 ) -> dict[str, Any]:
     """清除某 owner 的图谱数据。"""
     owner = x_owner_uuid or "anonymous"
-    before = graph_store.get_graph(owner)
-    graph_store.clear(owner)
+    before = await graph_store.get_graph(owner)
+    await graph_store.clear(owner)
     return {
         "code": 0,
         "message": "ok",
