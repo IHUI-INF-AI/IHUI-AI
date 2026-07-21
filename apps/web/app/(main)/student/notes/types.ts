@@ -1,3 +1,5 @@
+import type { AttachmentItem } from '@/components/form/AttachmentsUpload'
+
 export interface Note {
   id: string
   lessonId: string | null
@@ -5,6 +7,7 @@ export interface Note {
   title: string
   content: string
   isPublic: boolean
+  attachments: AttachmentItem[]
   createdAt: string
   updatedAt: string
 }
@@ -18,4 +21,5 @@ export interface NoteForm {
   title: string
   content: string
   isPublic: boolean
+  attachments: AttachmentItem[]
 }

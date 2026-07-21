@@ -68,7 +68,7 @@ export function LiveListScreen() {
       pageSize: String(PAGE_SIZE),
       status: statusTab,
     })
-    const resp = await fetch(`${API_BASE_URL}/api/live?${params.toString()}`, {
+    const resp = await fetch(`${API_BASE_URL}/api/live/list?${params.toString()}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
     if (!resp.ok) return { success: false as const, error: t('liveList.loadFailed') }
@@ -77,7 +77,10 @@ export function LiveListScreen() {
     return { success: true as const, data: { list, total: data.data?.total ?? list.length } }
   }, [token, statusTab, t])
 
-  const { items, loading, refreshing, error, refresh } = usePaginatedList<LiveItem>(fetcher, PAGE_SIZE)
+  const { items, loading, refreshing, error, refresh } = usePaginatedList<LiveItem>(
+    fetcher,
+    PAGE_SIZE,
+  )
 
   const onTabChange = (next: (typeof STATUS_TABS)[number]) => {
     if (next === statusTab) return
@@ -138,12 +141,16 @@ export function LiveListScreen() {
           renderItem={({ item }) => (
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+                <Text style={styles.cardTitle} numberOfLines={1}>
+                  {item.title}
+                </Text>
                 <View style={[styles.statusBadge, { backgroundColor: statusColor(item.status) }]}>
                   <Text style={styles.statusText}>{t(`liveList.tab_${item.status}`)}</Text>
                 </View>
               </View>
-              <Text style={styles.cardMeta}>{t('liveList.lecturer')}: {item.lecturer}</Text>
+              <Text style={styles.cardMeta}>
+                {t('liveList.lecturer')}: {item.lecturer}
+              </Text>
               <View style={styles.cardMetaRow}>
                 <Text style={styles.cardMetaText}>
                   {t('liveList.startAt')}: {formatDateTime(item.startAt)}
@@ -174,12 +181,24 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: PRIMARY },
   tabText: { fontSize: 12, color: '#6B7280' },
   tabTextActive: { color: '#FFFFFF' },
-  errorBar: { paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  errorBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   errorText: { fontSize: 12, color: '#DC2626' },
   retryText: { fontSize: 12, color: PRIMARY },
   center: { alignItems: 'center', paddingVertical: 32 },
   emptyText: { fontSize: 12, color: '#9CA3AF', marginTop: 8 },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
+  card: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: '#111827', marginRight: 8 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },

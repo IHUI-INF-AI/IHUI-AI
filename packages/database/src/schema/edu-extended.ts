@@ -7,8 +7,23 @@ import {
   integer,
   timestamp,
   index,
+  jsonb,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
+
+/**
+ * 附件结构(jsonb 数组)。
+ * - url: 文件访问 URL(由 /api/files/upload/form 返回)
+ * - name: 原始文件名(用于显示)
+ * - type: MIME 类型(image/jpeg, audio/mpeg, video/mp4, application/pdf 等)
+ * - size: 文件字节数(用于校验配额)
+ */
+export interface AttachmentItem {
+  url: string
+  name: string
+  type: string
+  size: number
+}
 
 /**
  * 课程笔记表。
@@ -21,6 +36,7 @@ export const eduNotes = pgTable('edu_notes', {
   title: varchar('title', { length: 200 }),
   content: text('content').notNull(),
   isPublic: boolean('is_public').default(false).notNull(),
+  attachments: jsonb('attachments').$type<AttachmentItem[]>().default([]).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })
@@ -37,6 +53,7 @@ export const eduOfflineRecords = pgTable('edu_offline_records', {
   description: text('description'),
   hours: integer('hours').default(0).notNull(),
   occurredAt: timestamp('occurred_at', { withTimezone: true }),
+  attachments: jsonb('attachments').$type<AttachmentItem[]>().default([]).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 })

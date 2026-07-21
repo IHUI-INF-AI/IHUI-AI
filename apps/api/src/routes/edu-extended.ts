@@ -29,6 +29,7 @@ import {
   deleteUploadedPaper,
   verifyUploadedPaper,
 } from '../db/edu-extended-queries.js'
+import { sendStudentReport } from './edu-public.js'
 
 // =============================================================================
 // Zod schemas
@@ -70,12 +71,22 @@ const uploadedPapersListQuerySchema = z.object({
   search: z.string().max(200).optional(),
 })
 
+const attachmentItemSchema = z.object({
+  url: z.string().min(1).max(2048),
+  name: z.string().min(1).max(255),
+  type: z.string().min(1).max(100),
+  size: z.number().int().min(0).max(100 * 1024 * 1024),
+})
+
+const attachmentsSchema = z.array(attachmentItemSchema).max(20).default([])
+
 const createNoteBodySchema = z.object({
   lessonId: z.string().uuid().nullable().optional(),
   userId: z.string().uuid('无效的用户 ID'),
   title: z.string().min(1).max(200).optional(),
   content: z.string().min(1),
   isPublic: z.boolean().optional(),
+  attachments: attachmentsSchema.optional(),
 })
 
 const updateNoteBodySchema = z.object({
@@ -83,6 +94,7 @@ const updateNoteBodySchema = z.object({
   title: z.string().min(1).max(200).optional(),
   content: z.string().min(1).optional(),
   isPublic: z.boolean().optional(),
+  attachments: attachmentsSchema.optional(),
 })
 
 const createOfflineRecordBodySchema = z.object({
@@ -92,6 +104,7 @@ const createOfflineRecordBodySchema = z.object({
   description: z.string().nullable().optional(),
   occurredAt: z.string().datetime().optional(),
   hours: z.number().int().min(0).optional(),
+  attachments: attachmentsSchema.optional(),
 })
 
 const updateOfflineRecordBodySchema = z.object({
@@ -100,6 +113,7 @@ const updateOfflineRecordBodySchema = z.object({
   description: z.string().nullable().optional(),
   occurredAt: z.string().datetime().optional(),
   hours: z.number().int().min(0).optional(),
+  attachments: attachmentsSchema.optional(),
 })
 
 const createUploadedCertBodySchema = z.object({
@@ -306,7 +320,7 @@ export const adminEduExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { userId, type, title, description, occurredAt, hours } = parsed.data
+    const { userId, type, title, description, occurredAt, hours, attachments } = parsed.data
     const record = await createOfflineRecord({
       userId,
       type,
@@ -314,6 +328,7 @@ export const adminEduExtendedRoutes: FastifyPluginAsync = async (server) => {
       description,
       hours,
       occurredAt: occurredAt ? new Date(occurredAt) : null,
+      attachments,
     })
     return reply.status(201).send(success(record))
   })
@@ -328,13 +343,14 @@ export const adminEduExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { type, title, description, occurredAt, hours } = parsed.data
+    const { type, title, description, occurredAt, hours, attachments } = parsed.data
     const record = await updateOfflineRecord(idParsed.data.id, {
       ...(type !== undefined ? { type } : {}),
       ...(title !== undefined ? { title } : {}),
       ...(description !== undefined ? { description } : {}),
       ...(occurredAt !== undefined ? { occurredAt: new Date(occurredAt) } : {}),
       ...(hours !== undefined ? { hours } : {}),
+      ...(attachments !== undefined ? { attachments } : {}),
     })
     if (!record) return reply.status(404).send(error(404, '线下记录不存在'))
     return reply.send(success(record))
@@ -772,6 +788,28 @@ export const adminEduExtendedRoutes: FastifyPluginAsync = async (server) => {
         passed,
       }),
     )
+  })
+
+  // GET /admin/edu/students/:userId/report/export — admin 端导出单个学员学习报告
+  // 复用学员端的 sendStudentReport 共享逻辑(8 维聚合 + PDF/Excel/JSON 三格式)
+  server.get('/admin/edu/students/:userId/report/export', async (request, reply) => {
+    const paramsSchema = z.object({ userId: z.string().uuid('无效的用户 ID') })
+    const paramsParsed = paramsSchema.safeParse(request.params)
+    if (!paramsParsed.success) {
+      return reply.status(400).send(error(400, paramsParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const querySchema = z.object({
+      format: z.enum(['pdf', 'excel', 'json']).default('json'),
+      startDate: z.string().optional(),
+      endDate: z.string().optional(),
+    })
+    const queryParsed = querySchema.safeParse(request.query)
+    if (!queryParsed.success) {
+      return reply.status(400).send(error(400, queryParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { format, startDate, endDate } = queryParsed.data
+    const dateRange = startDate && endDate ? { start: startDate, end: endDate } : undefined
+    return sendStudentReport(reply, paramsParsed.data.userId, format, dateRange)
   })
 }
 
