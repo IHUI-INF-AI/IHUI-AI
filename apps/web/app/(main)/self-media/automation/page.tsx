@@ -11,10 +11,79 @@ import {
   History,
   Settings2,
   Power,
+  Video,
+  Bell,
+  BarChart3,
+  Eye,
+  Mail,
+  Sparkles,
+  type LucideIcon,
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label, Switch } from '@ihui/ui'
+import { useToast } from '@/hooks/use-toast'
+
+/** 自动化工作示例模板(2026-07-22 新增,展示 6 个典型场景) */
+interface AutomationExample {
+  id: string
+  icon: LucideIcon
+  nameKey: string
+  descKey: string
+  scheduleKey: string
+  outputKey: string
+}
+
+const AUTOMATION_EXAMPLES: AutomationExample[] = [
+  {
+    id: 'wechat-daily',
+    icon: Clock,
+    nameKey: 'example1Name',
+    descKey: 'example1Desc',
+    scheduleKey: 'example1Schedule',
+    outputKey: 'example1Output',
+  },
+  {
+    id: 'video-script',
+    icon: Video,
+    nameKey: 'example2Name',
+    descKey: 'example2Desc',
+    scheduleKey: 'example2Schedule',
+    outputKey: 'example2Output',
+  },
+  {
+    id: 'content-monitor',
+    icon: Bell,
+    nameKey: 'example3Name',
+    descKey: 'example3Desc',
+    scheduleKey: 'example3Schedule',
+    outputKey: 'example3Output',
+  },
+  {
+    id: 'data-report',
+    icon: BarChart3,
+    nameKey: 'example4Name',
+    descKey: 'example4Desc',
+    scheduleKey: 'example4Schedule',
+    outputKey: 'example4Output',
+  },
+  {
+    id: 'competitor-track',
+    icon: Eye,
+    nameKey: 'example5Name',
+    descKey: 'example5Desc',
+    scheduleKey: 'example5Schedule',
+    outputKey: 'example5Output',
+  },
+  {
+    id: 'email-daily',
+    icon: Mail,
+    nameKey: 'example6Name',
+    descKey: 'example6Desc',
+    scheduleKey: 'example6Schedule',
+    outputKey: 'example6Output',
+  },
+]
 
 interface TaskConfig {
   hour: number
@@ -57,6 +126,8 @@ interface HistoryItem {
 export default function AutomationPage() {
   const t = useTranslations('selfMedia.automationPage')
   const locale = useLocale()
+  const toast = useToast()
+  const tasksRef = React.useRef<HTMLDivElement>(null)
   const [tasks, setTasks] = React.useState<Task[]>([])
   const [history, setHistory] = React.useState<HistoryItem[]>([])
   const [loading, setLoading] = React.useState(true)
@@ -69,6 +140,12 @@ export default function AutomationPage() {
   const [saving, setSaving] = React.useState<'saving' | null>(null)
   const [triggeringId, setTriggeringId] = React.useState<string | null>(null)
   const [togglingId, setTogglingId] = React.useState<string | null>(null)
+
+  /** 点击示例卡片:toast 提示 + 滚动到任务列表 */
+  const handleUseExample = (name: string) => {
+    toast.info(t('templateLoaded', { name }))
+    tasksRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const loadAll = React.useCallback(async () => {
     const [tasksRes, historyRes] = await Promise.all([
@@ -195,8 +272,59 @@ export default function AutomationPage() {
 
   return (
     <div className="space-y-4">
+      {/* 自动化示例模板(2026-07-22 新增,6 个典型场景,点击参考快速配置) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Sparkles className="h-4 w-4" />
+            {t('examplesTitle')}
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">{t('examplesDesc')}</p>
+        </CardHeader>
+        <CardContent className="p-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {AUTOMATION_EXAMPLES.map((ex) => {
+              const ExIcon = ex.icon
+              return (
+                <div
+                  key={ex.id}
+                  className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 transition-colors hover:bg-accent/40"
+                >
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
+                      <ExIcon className="h-4 w-4" />
+                    </div>
+                    <h4 className="text-sm font-semibold leading-tight">{t(ex.nameKey)}</h4>
+                  </div>
+                  <p className="line-clamp-2 text-xs text-muted-foreground">{t(ex.descKey)}</p>
+                  <div className="space-y-1 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-3 w-3 shrink-0" />
+                      <span>{t(ex.scheduleKey)}</span>
+                    </div>
+                    <div className="flex items-start gap-1.5">
+                      <Sparkles className="mt-0.5 h-3 w-3 shrink-0" />
+                      <span className="line-clamp-2">{t(ex.outputKey)}</span>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleUseExample(t(ex.nameKey))}
+                    className="mt-auto h-7 text-xs"
+                  >
+                    {t('useRefTemplate')}
+                  </Button>
+                </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* 任务列表 */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div ref={tasksRef} className="grid gap-4 md:grid-cols-2 scroll-mt-4">
         {tasks.map((task) => {
           const isEditing = editingTaskId === task.id
           const isTriggering = triggeringId === task.id
