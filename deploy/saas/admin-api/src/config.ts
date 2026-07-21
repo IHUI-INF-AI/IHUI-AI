@@ -35,9 +35,19 @@ const ConfigSchema = z.object({
   ADMIN_API_KEY: z.string().min(32, 'ADMIN_API_KEY must be at least 32 chars'),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   SAAS_ROOT: z.string().default(SAAS_ROOT),
+  // P1-2.2: 允许调用 admin-api 的 web 用户白名单(逗号分隔,默认仅 'admin')
+  ADMIN_USER_WHITELIST: z.string().default('admin'),
+  // P1-2.2: 是否启用操作审计日志(JSON Lines 写入 admin-api-audit.log)
+  ENABLE_AUDIT_LOG: z.coerce.boolean().default(true),
 });
 
 export const config = ConfigSchema.parse(process.env);
+
+/**
+ * P1-2.2: 审计日志路径
+ * 部署侧统一管理,gitignore(每个部署实例一份)
+ */
+export const AUDIT_LOG_PATH = resolve(config.SAAS_ROOT, 'admin-api-audit.log');
 
 if (!process.env.ADMIN_API_KEY) {
   // 自动生成(仅首次启动)

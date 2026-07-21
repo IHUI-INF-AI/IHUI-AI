@@ -3,6 +3,8 @@
  * 端点:
  *   GET    /admin/api/customers
  *   GET    /admin/api/customers/:slug
+ *   POST   /admin/api/customers                  (P1-2.2 新增)
+ *   GET    /admin/api/customers/:slug/backups     (P1-2.2 新增)
  *   POST   /admin/api/customers/:slug/pause
  *   POST   /admin/api/customers/:slug/resume
  *   POST   /admin/api/customers/:slug/backup
@@ -17,7 +19,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve as pathResolve, join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { z } from 'zod';
-import { requireApiKey } from './auth.js';
+import { requireAdminAuth } from './auth.js';
 import { config } from '../config.js';
 
 const SlugSchema = z.string().regex(/^[a-z0-9-]{3,20}$/, 'Invalid slug');
@@ -145,8 +147,91 @@ async function getContainerStatus(slug: string): Promise<{ running: number; tota
 }
 
 export async function customerRoutes(app: FastifyInstance): Promise<void> {
-  // 所有路由需要鉴权
-  app.addHook('preHandler', requireApiKey);
+  // 所有路由需要双重鉴权(X-Admin-API-Key + X-Admin-User)
+  app.addHook('preHandler', requireAdminAuth);
+
+  // ==================== 创建(P1-2.2 新增)====================
+  const CreateCustomerSchema = z.object({
+    slug: SlugSchema,
+    memory: z.string().default('2G'),
+    cpu: z.string().default('1.0'),
+    plan: z.enum(['free', 'pro', 'enterprise']).default('free'),
+  });
+
+  app.post('/admin/api/customers', async (request, reply) => {
+    const parse = CreateCustomerSchema.safeParse(request.body);
+    if (!parse.success) {
+      return reply.status(400).send({ error: 'InvalidBody', message: parse.error.message });
+    }
+    const { slug, memory, cpu } = parse.data;
+
+    if (existsSync(join(CUSTOMERS_DIR, slug))) {
+      return reply.status(409).send({
+        error: 'AlreadyExists',
+        message: `Customer '${slug}' already exists`,
+      });
+    }
+
+    const result = await runScript('create-customer.sh', [slug, memory, cpu], request.log);
+    if (result.code !== 0) {
+      return reply.status(500).send({
+        error: 'CreateFailed',
+        message: 'Create script failed',
+        stderr: result.stderr,
+        stdout: result.stdout,
+      });
+    }
+    return { status: 'created', slug, memory, cpu, plan: parse.data.plan, output: result.stdout };
+  });
+
+  // ==================== 备份列表(P1-2.2 新增)====================
+  app.get<{ Params: { slug: string } }>(
+    '/admin/api/customers/:slug/backups',
+    async (request, reply) => {
+      const parse = SlugSchema.safeParse(request.params.slug);
+      if (!parse.success) {
+        return reply.status(400).send({ error: 'InvalidSlug', message: parse.error.message });
+      }
+      const slug = parse.data;
+      const backupsDir = join(BACKUPS_DIR, slug);
+
+      if (!existsSync(backupsDir)) {
+        return { backups: [] };
+      }
+
+      const now = Date.now();
+      const backups = readdirSync(backupsDir)
+        .filter((name) => {
+          const full = join(backupsDir, name);
+          return statSync(full).isDirectory();
+        })
+        .map((timestamp) => {
+          const full = join(backupsDir, timestamp);
+          const st = statSync(full);
+          // 简单 size 估算:目录内文件数 × 平均大小(避免递归扫描,接口保持轻量)
+          const fileCount = readdirSync(full).length;
+          const ageMs = now - st.mtimeMs;
+          const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
+          const ageHours = Math.floor(ageMs / (1000 * 60 * 60));
+          const age =
+            ageDays > 0
+              ? `${ageDays} 天前`
+              : ageHours > 0
+                ? `${ageHours} 小时前`
+                : '刚刚';
+          return {
+            timestamp,
+            mtime: st.mtime.toISOString(),
+            size: `${fileCount} 个文件`, // 真实 size 由 P1-2.2b 详情页递归统计
+            age,
+            fileCount,
+          };
+        })
+        .sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1));
+
+      return { backups };
+    },
+  );
 
   // ==================== 列表 ====================
   app.get('/admin/api/customers', async () => {

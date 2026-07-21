@@ -1945,6 +1945,7 @@
       "messageOverview": "訊息概覽",
       "visitTracking": "造訪追蹤",
       "examMarking": "考試批閱",
+      "saasTenants": "租戶管理",
       "group": {
         "operation": "運營管理",
         "moderation": "內容審核",
@@ -1956,7 +1957,8 @@
         "support": "客服工單",
         "community": "社區圈子",
         "resource": "資源中心",
-        "developer": "開發者中心"
+        "developer": "開發者中心",
+        "saas": "SaaS 部署"
       }
     },
     "refund": {
@@ -2595,6 +2597,62 @@
       "totalProjects": "總項目數",
       "todayRevenue": "今日營收",
       "activeSessions": "活躍會話"
+    },
+    "saas": {
+      "title": "租戶管理",
+      "subtitle": "管理 SaaS 客戶租戶生命週期",
+      "createTenant": "建立租戶",
+      "creating": "建立中...",
+      "search": "搜尋",
+      "searchPlaceholder": "搜尋租戶識別...",
+      "filterState": "狀態篩選",
+      "stateAll": "全部",
+      "stateActive": "執行中",
+      "statePaused": "已暫停",
+      "stateCreating": "建立中",
+      "stateNotFound": "不存在",
+      "total": "共 {total} 個",
+      "empty": "暫無租戶,點擊右上角「建立租戶」開始",
+      "table": {
+        "slug": "租戶識別",
+        "domain": "存取網域",
+        "state": "狀態",
+        "containers": "容器",
+        "memory": "記憶體",
+        "cpu": "CPU",
+        "stateChangedAt": "狀態變更",
+        "actions": "操作"
+      },
+      "action": {
+        "detail": "檢視詳情",
+        "pause": "暫停",
+        "resume": "恢復",
+        "backup": "備份",
+        "destroy": "銷毀"
+      },
+      "confirm": {
+        "pauseTitle": "暫停租戶 {slug}",
+        "pauseHint": "暫停後該租戶的所有容器將停止執行,但資料保留。可隨時恢復。",
+        "resumeTitle": "恢復租戶 {slug}",
+        "resumeHint": "恢復後該租戶的容器將重新啟動,網域解析保持不變。",
+        "backupTitle": "備份租戶 {slug}",
+        "backupHint": "立即建立一份資料快照備份,操作期間服務可正常使用。",
+        "destroyTitle": "銷毀租戶 {slug}",
+        "destroyHint": "此操作不可復原!租戶的所有資料、容器、備份將全部清除,請謹慎操作。",
+        "destroyInputHint": "請輸入租戶識別「{slug}」以確認銷毀",
+        "cancel": "取消",
+        "confirm": "確認"
+      },
+      "form": {
+        "slug": "租戶識別",
+        "slugHint": "3-20 位小寫字母、數字、連字號,建立後不可修改",
+        "memory": "記憶體限制",
+        "cpu": "CPU 限制",
+        "plan": "方案",
+        "planFree": "免費版",
+        "planPro": "專業版",
+        "planEnterprise": "企業版"
+      }
     },
     "users": {
       "title": "使用者管理",
