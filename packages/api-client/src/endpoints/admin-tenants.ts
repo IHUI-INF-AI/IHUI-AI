@@ -12,7 +12,9 @@ import type {
   BackupDeleteResult,
   BackupListResult,
   CertificateListResult,
+  CustomerMetrics,
   CustomerQuota,
+  MetricsSummary,
   TenantActionResult,
   TenantCreateResult,
   TenantDetailResult,
@@ -39,6 +41,9 @@ export type {
   QuotaWindow,
   QuotaStorage,
   CustomerQuota,
+  CustomerMetrics,
+  TenantMetricsSummary,
+  MetricsSummary,
 } from './admin-tenants.types.js'
 
 // 注意:Certificate 类型与 resource.ts 冲突(均为证书领域类型,字段含义不同),
@@ -142,4 +147,20 @@ export async function adminGetCustomerQuota(slug: string): Promise<ApiResult<Cus
   return fetchApi<CustomerQuota>(
     `/api/admin-saas/customers/${encodeURIComponent(slug)}/quota`,
   )
+}
+
+/* ==================== P1-2.3: Prometheus 实时指标 ==================== */
+
+/** per-tenant 详细指标(数据源:Prometheus via admin-api) */
+export async function adminGetCustomerMetrics(
+  slug: string,
+): Promise<ApiResult<CustomerMetrics>> {
+  return fetchApi<CustomerMetrics>(
+    `/api/admin-saas/customers/${encodeURIComponent(slug)}/metrics`,
+  )
+}
+
+/** 多租户横向对比(CPU/内存聚合) */
+export async function adminGetMetricsSummary(): Promise<ApiResult<MetricsSummary>> {
+  return fetchApi<MetricsSummary>('/api/admin-saas/metrics/summary')
 }

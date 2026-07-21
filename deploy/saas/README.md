@@ -44,11 +44,20 @@
 deploy/saas/
 ├── README.md                              # 本文档
 ├── .env.example                           # 顶层环境变量样例
-├── docker-compose.yml                     # Traefik 编排
+├── docker-compose.yml                     # Traefik + admin-api + cAdvisor + Prometheus + Grafana
 ├── traefik/
 │   ├── traefik.yml                        # 静态配置
 │   └── dynamic/
 │       └── customers.yml.template         # 动态路由模板(由 create-customer.sh 自动生成实际文件)
+├── grafana/                               # P1-2.3: 监控可视化
+│   ├── provisioning/
+│   │   ├── datasources/prometheus.yml     # Prometheus 数据源自动注册
+│   │   └── dashboards/dashboards.yml      # Dashboard 自动加载
+│   └── dashboards/
+│       ├── tenant-overview.json           # per-tenant 仪表板
+│       └── tenant-comparison.json         # 多租户对比仪表板
+├── prometheus/
+│   └── prometheus.yml                     # Prometheus 抓取配置(cAdvisor/admin-api)
 ├── templates/
 │   └── customer/                          # 客户租户模板(只读,不可改)
 │       ├── .env.template
@@ -57,7 +66,27 @@ deploy/saas/
 ├── scripts/                               # 运维脚本
 │   ├── create-customer.sh
 │   ├── destroy-customer.sh
-│   └── list-customers.sh
+│   ├── list-customers.sh
+│   ├── pause-customer.sh                  # P1-2.1
+│   ├── resume-customer.sh                 # P1-2.1
+│   ├── backup-customer.sh                 # P1-2.1
+│   ├── restore-customer.sh                # P1-2.1
+│   └── delete-backup.sh                   # P1-2.2b
+├── admin-api/                             # P1-2.1 管理 API(Fastify)
+│   ├── src/
+│   │   ├── index.ts
+│   │   ├── config.ts
+│   │   └── routes/
+│   │       ├── auth.ts                    # X-Admin-API-Key 鉴权
+│   │       ├── customers.ts               # 客户生命周期
+│   │       ├── certificates.ts            # P1-2.2c acme.json 扫描
+│   │       └── metrics.ts                 # P1-2.3 Prometheus 代理
+│   ├── Dockerfile
+│   ├── package.json
+│   └── tsconfig.json
+├── cron/                                  # P1-2.1 证书续期
+│   ├── cert-renew.cron
+│   └── cert-renew.sh
 ├── customers/                             # 运行时生成的客户目录(.gitignore)
 │   └── <slug>/
 └── backups/                               # 备份目录(.gitignore)
@@ -267,12 +296,64 @@ docker compose up -d admin-api
 | 暂停/恢复 | 二次确认弹窗,操作期间显示 loading |
 | 备份 | 立即创建快照,服务不受影响 |
 | 销毁 | 输入 slug 二次确认,操作不可逆 |
-| 租户详情 | `/admin/saas/[slug]`:基本信息 + 容器状态 + 资源配额占位 + 快捷操作 |
+| 租户详情 | `/admin/saas/[slug]`:基本信息 + 容器状态 + 资源配额 + Grafana 实时图表 + 快捷操作 |
 | 备份管理 | `/admin/saas/[slug]/backups`:列表 + 恢复 + 删除(时间戳二次确认) |
 | 证书状态 | `/admin/saas/certificates`:扫描 Traefik `acme.json`,健康/警告/紧急/已过期分级展示 |
-| 资源配额 | 详情页占位卡片(API 调用 / AI Token / 存储),等待 P1-2.3 Prometheus 接入 |
+| 资源配额 | 详情页卡片(API 调用 / AI Token / 存储,真实 Prometheus 数据) |
+| 资源监控 | `/admin/saas/metrics`:多租户 CPU/内存/网络对比页 + Grafana 对比图 |
 
-> 全部 P1-2.2a / 2.2b / 2.2c 任务已完成。后端 API、前端 UI、i18n 5 语言均已交付。
+> 全部 P1-2.2a / 2.2b / 2.2c / 2.3 任务已完成。后端 API、前端 UI、i18n 5 语言均已交付。
+
+## 资源监控(P1 阶段 2.3)
+
+通过 Prometheus + cAdvisor + Grafana 三件套实现 per-tenant 资源监控,15s 抓取 + 7d 保留。
+
+### 架构
+
+```
+cAdvisor(:8080) ──┐
+                  ├──> Prometheus(:9090) ──> Grafana(:3001)
+                  │                         公开 dashboard
+admin-api(:8081) ─┘
+  └─ /admin/api/customers/:slug/metrics    per-tenant 实时数据
+  └─ /admin/api/metrics/summary            横向对比聚合
+  └─ /admin/api/customers/:slug/quota      配额(已从占位切换为 Prometheus)
+```
+
+### 端点
+
+| 端点 | 说明 |
+|---|---|
+| `GET /admin/api/customers/:slug/quota` | 配额(API 调用/AI Token/存储,P1-2.2c 占位已切换为真实数据) |
+| `GET /admin/api/customers/:slug/metrics` | 实时指标(CPU 核数 / 内存字节 / 网络 rx/tx B/s) |
+| `GET /admin/api/metrics/summary` | 多租户横向对比(按 CPU 降序排序) |
+
+### Web UI
+
+- 详情页内嵌 `GrafanaFrame` 组件(同源 iframe,var-tenant 自动锁定)
+- `/admin/saas/metrics` 横向对比页:顶部 Grafana 多租户图 + 底部排名表
+- 数据源不可达时降级:卡片显示"降级模式"标签,Grafana 区域显示黄色提示
+
+### 环境变量(可选)
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `NEXT_PUBLIC_GRAFANA_BASE` | `http://127.0.0.1:3001` | Grafana 公开 URL(生产环境可走反向代理) |
+| `GRAFANA_ADMIN_USER` | `admin` | Grafana 管理员账号 |
+| `GRAFANA_ADMIN_PASSWORD` | `admin` | Grafana 管理员密码(生产环境必须修改) |
+
+### Prometheus 不可达降级策略
+
+- `promQuery` 函数:HTTP 非 200 / 超时 / 解析失败 → 返回 `null` 而非抛错
+- metrics.ts:三个核心指标全 `null` → 返回 `placeholder: true` 的占位对象,UI 仍可渲染
+- GrafanaFrame:容器未启动 → 显示"资源监控暂不可用"卡片,不影响其他功能
+
+### 自定义 dashboard
+
+- 模板:`deploy/saas/grafana/dashboards/tenant-overview.json` / `tenant-comparison.json`
+- 变量:`var-tenant` 注入当前租户
+- 数据源:`deploy/saas/grafana/provisioning/datasources/prometheus.yml` 自动注册
+- 加载路径:`deploy/saas/grafana/provisioning/dashboards/dashboards.yml` 30s 扫描一次
 
 ## 故障排查
 
@@ -330,15 +411,23 @@ docker logs customer-demo-api | grep -i "database"
 - 证书自动续期 cron(每周日 3:00 + 阈值自动重启 Traefik)
 - 备份保留策略(自动保留 7 个 + 30 天前清理)
 
-### ⏳ P1 阶段 2.2 web/admin UI(下次)
+### ✅ P1 阶段 2.2 web/admin UI(本次)
 
-- 租户管理后台(web/admin 端扩展,管理客户创建/暂停/删除/查看)
-- 需跨 web 端扩展,工作量 3-5 天
+- 租户列表页(创建/暂停/恢复/备份/销毁/搜索/筛选)
+- 租户详情页(基本信息 + 容器状态 + 资源配额 + 快捷操作)
+- 备份管理页(列表 + 恢复 + 删除 + 大小/文件数统计)
+- 证书状态页(健康/警告/紧急/过期四级)
+- 资源监控页(Grafana 对比图 + 多租户排名)
+- Admin API 服务(Fastify 5,端口 8081,双重鉴权 + 操作审计)
 
-### ⏳ P1 阶段 2.3 资源监控(后续)
+### ✅ P1 阶段 2.3 资源监控(本次)
 
-- Prometheus + Grafana per-tenant dashboard
-- 资源配额(API 调用 / 存储 / AI token)
+- cAdvisor 容器指标采集(15s)
+- Prometheus 时序存储(7d 保留)
+- Grafana per-tenant dashboard(自动 provisioning)
+- 详情页内嵌实时图表 + 横向对比页
+- 配额 API 占位切换为真实 Prometheus 数据
+- 数据不可达时降级渲染(不阻断 UI)
 
 ### ⏳ P2 阶段 3(后续)
 
