@@ -39,7 +39,7 @@ export function parsePendingQuestion(data: unknown): PendingQuestionFromSchema |
   if (!result.success) {
     // data 为 null/undefined 时静默返回 null(正常:无挂起提问)
     // data 非 null 但结构非法时,dev 环境 console.warn 辅助调试脏数据来源
-    if (process.env.NODE_ENV !== 'production' && data != null) {
+    if (process.env.NODE_ENV !== 'production' && data !== null && data !== undefined) {
       console.warn(
         '[parsePendingQuestion] 数据校验失败,降级为 null:',
         result.error.issues,
