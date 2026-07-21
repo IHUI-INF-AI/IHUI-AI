@@ -1323,6 +1323,16 @@
     },
     "hideReasoning": "Hide Reasoning",
     "showReasoning": "Show Reasoning",
+    "question": {
+      "title": "AI needs your answer",
+      "subtitle": "Answer the question to continue the conversation",
+      "submit": "Submit Answer",
+      "skip": "Skip Question",
+      "customPlaceholder": "Or type your own answer...",
+      "selectHint": "Select one to continue",
+      "multiSelectHint": "Select multiple, then submit",
+      "selectedCount": "{count} selected"
+    },
     "vendors": {
       "openai": "OpenAI",
       "anthropic": "Anthropic",
