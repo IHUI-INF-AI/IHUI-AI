@@ -141,6 +141,21 @@ export const HIGHLIGHT_MODEL_IDS = new Set<string>([
   'kimi-k2',
   'grok-3',
   'llama-3.3-70b-versatile',
+  // === 2026-07 新模型(旗舰 + 新势力置顶推荐) ===
+  'gpt-5.6-sol',
+  'gpt-5.6-terra',
+  'claude-sonnet-5',
+  'claude-opus-4.8',
+  'gemini-3.5-pro',
+  'grok-4.5',
+  'deepseek-v4-pro',
+  'glm-5.2',
+  'qwen3.7-max',
+  'hunyuan-hy3',
+  'kimi-k3',
+  'ornith-1.0',
+  'codebrain-1',
+  'mai-thinking-1',
 ])
 
 /**
