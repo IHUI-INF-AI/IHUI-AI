@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Send, Square, SquareSlash, FileText, Plus, FilePlus, AtSign, Newspaper } from 'lucide-react'
+import { Send, Square, SquareSlash, FileText, Plus, FilePlus, AtSign, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -12,7 +12,7 @@ import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { ModelSelector } from '@/components/chat/model-selector'
 import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
-import { SelfMediaSkillPicker } from '@/components/chat/self-media-skill-picker'
+import { SkillLibrary } from '@/components/chat/skill-library'
 import { Popover, Tooltip } from '@/components/feedback'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
 import { getRecentFilesForMention } from '@/lib/workspace-api'
@@ -446,37 +446,38 @@ export function MessageInput({
                   <span>{value.trim() ? t('addContextReference') : t('addContextHint')}</span>
                 </button>
               </Tooltip>
-              {/* 自媒体 skill 入口(2026-07-20 新增):Popover 展示 2 个 skill,
-                  选中后填充模板到 textarea,与斜杠命令 /wechat-article /koubo-script 同源 */}
+              {/* Skill 库入口(2026-07-21 新增):统一收纳 内置模板 + 斜杠命令 + 自媒体 + 用户自定义技能。
+                  点击后弹出 SkillLibrary 弹窗,选中后填充模板到 textarea。
+                  替代了原先单独的 SelfMediaSkillPicker(已并入此弹窗的 self-media tab)。 */}
               {isStreaming ? (
-                <Tooltip content={t('selfMediaSkill')}>
+                <Tooltip content={t('skillLibrary')}>
                   <button
                     type="button"
                     disabled
-                    aria-label={t('selfMediaSkill')}
+                    aria-label={t('skillLibrary')}
                     className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground/50"
                   >
-                    <Newspaper className="h-3.5 w-3.5" />
-                    <span>{t('selfMediaSkill')}</span>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>{t('skillLibrary')}</span>
                   </button>
                 </Tooltip>
               ) : (
                 <Popover
-                  content={<SelfMediaSkillPicker onSelect={fillInput} onClose={() => {}} />}
+                  content={<SkillLibrary onSelect={fillInput} onClose={() => {}} />}
                   position="bottom"
                   trigger="click"
-                  tooltip={t('selfMediaSkill')}
+                  tooltip={t('skillLibrary')}
                 >
                   <button
                     type="button"
-                    aria-label={t('selfMediaSkill')}
+                    aria-label={t('skillLibrary')}
                     className={cn(
                       'inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-all',
                       'text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:-translate-y-px',
                     )}
                   >
-                    <Newspaper className="h-3.5 w-3.5" />
-                    <span>{t('selfMediaSkill')}</span>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>{t('skillLibrary')}</span>
                   </button>
                 </Popover>
               )}
