@@ -2011,6 +2011,7 @@
       "notificationDispatch": "Targeted Notification",
       "messageOverview": "Message Overview",
       "visitTracking": "Visit Tracking",
+      "pluginsStats": "Plugins Stats",
       "examMarking": "Exam Marking",
       "saasTenants": "Tenant Management",
       "group": {

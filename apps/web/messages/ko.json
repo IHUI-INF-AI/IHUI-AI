@@ -2013,6 +2013,7 @@
       "notificationDispatch": "타겟 알림",
       "messageOverview": "메시지 개요",
       "visitTracking": "방문 추적",
+      "pluginsStats": "플러그인 모니터링",
       "examMarking": "시험 채점",
       "saasTenants": "테넌트 관리",
       "group": {
