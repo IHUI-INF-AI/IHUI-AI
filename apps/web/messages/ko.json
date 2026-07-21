@@ -26202,10 +26202,10 @@
     "subtitle": "학습 데이터와 최근 진행 상황 보기",
     "loading": "로딩 중...",
     "stats": {
-      "studyHours": "학습 시간",
-      "inProgressCourses": "진행 중 강좌",
+      "totalCourses": "수강 신청 강좌",
+      "completedCourses": "완료 강좌",
       "passedExams": "합격한 시험",
-      "avgProgress": "평균 진행률"
+      "totalCerts": "자격증 수"
     },
     "coursesCard": {
       "title": "강좌",
@@ -26496,7 +26496,8 @@
     "learnCount": "{n}명 학습",
     "free": "무료",
     "includes": "포함된 강좌",
-    "noLessons": "강좌가 없습니다"
+    "noLessons": "강좌가 없습니다",
+    "premiumLoadFailed": "프리미엄 강좌를 불러오지 못했습니다. 나중에 다시 시도해 주세요"
   },
   "learnRatePage": {
     "loading": "로딩 중...",
@@ -26733,6 +26734,15 @@
       "avgProgress": "평균 진도"
     }
   },
+  "eduSchedulePage": {
+    "title": "시간표",
+    "subtitle": "이번 주 수업 일정",
+    "loading": "로딩 중...",
+    "empty": "이번 주 수업이 없습니다",
+    "today": "오늘",
+    "noClass": "수업 없음",
+    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
+  },
   "memberUpgradePage": {
     "title": "멤버십 업그레이드",
     "subtitle": "적합한 멤버십 등급을 선택하고 더 많은 혜택을 잠금해제하세요",
@@ -26829,6 +26839,14 @@
     "bestScore": "최고점: {n}",
     "retake": "재응시",
     "start": "시험 시작"
+  },
+  "eduNotesPage": {
+    "title": "학습 노트",
+    "subtitle": "학습 통찰 기록 및 복습",
+    "searchPlaceholder": "노트 검색...",
+    "loading": "로딩 중...",
+    "empty": "노트가 없습니다",
+    "generalNote": "일반 노트"
   },
   "memberCouponsPage": {
     "title": "쿠폰",
@@ -27289,7 +27307,13 @@
     "share": "공유",
     "danmuTitle": "댓글 인터랙션",
     "danmuPlaceholder": "댓글 보내기...",
-    "me": "나"
+    "me": "나",
+    "mockDanmu1Name": "장 학생",
+    "mockDanmu1Content": "선생님 설명이 명확해요",
+    "mockDanmu2Name": "이 학생",
+    "mockDanmu2Content": "이 개념을 이제야 이해했어요",
+    "mockDanmu3Name": "왕 학생",
+    "mockDanmu3Content": "다음 라이브가 기대돼요"
   },
   "memberAddressFormPage": {
     "recipient": "수령인",
