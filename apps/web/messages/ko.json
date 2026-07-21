@@ -1960,7 +1960,8 @@
         "developer": "개발자 센터",
         "saas": "SaaS 배포"
       },
-      "saasMetrics": "리소스 모니터링"
+      "saasMetrics": "리소스 모니터링",
+      "aiCost": "AI 비용 개요"
     },
     "refund": {
       "title": "AI인마음페이스테스트",
@@ -11239,6 +11240,26 @@
     "dayUv": "일일 UV",
     "ipCity": "IP 도시 분포",
     "noData": "없음데이마음"
+  },
+  "aiCost": {
+    "title": "AI 비용 개요",
+    "subtitle": "토큰 사용량·비용·캐시 적중률 모니터링",
+    "loading": "로딩 중...",
+    "empty": "AI 호출 데이터 없음",
+    "emptyHint": "사용자 모델 채팅 연동 후 데이터가 표시됩니다",
+    "totalCost": "총 비용",
+    "totalTokens": "총 토큰",
+    "totalCalls": "총 호출 수",
+    "cacheHitRate": "캐시 적중률",
+    "byModel": "모델별",
+    "byDay": "일별",
+    "calls": "회",
+    "noModelData": "모델별 데이터 없음",
+    "noDayData": "일별 데이터 없음",
+    "rangeLabel": "기간",
+    "range1d": "최근 1일",
+    "range7d": "최근 7일",
+    "range30d": "최근 30일"
   },
   "wallet": {
     "title": "AI인마음페이스테스트",
