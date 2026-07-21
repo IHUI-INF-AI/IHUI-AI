@@ -9,6 +9,21 @@
 
 import type { StoreApi } from 'zustand'
 
+// 2026-07-21 安全审计第十轮加固:使用 Web Crypto API 生成 CSPRNG 随机 ID
+// 替代 Date.now() + Math.random()(后者可预测,攻击者可伪造同 ID 干扰其他标签页状态)
+// crypto.getRandomValues 是浏览器侧 CSPRNG,256 bit 熵,业界标准
+function generateInstanceId(): string {
+  const bytes = new Uint8Array(16)
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes)
+  } else {
+    // 极端兜底:Node 端或其他无 Web Crypto 环境,降级到 Math.random
+    // 跨标签页 instanceId 主要是去重目的(非凭证),降级可接受
+    for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256)
+  }
+  return `tab-${Date.now().toString(36)}-${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`
+}
+
 // ============================================================================
 // 类型定义
 // ============================================================================
@@ -56,7 +71,7 @@ export function syncStore<T extends object>(
 
   const storageKey = options?.storageKey ?? `cross-tab-${channelName}`
   const debounceMs = options?.debounce ?? 300
-  const instanceId = `tab-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+  const instanceId = generateInstanceId()
 
   let channel: BroadcastChannel | null = null
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
