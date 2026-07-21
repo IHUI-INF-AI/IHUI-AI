@@ -1,6 +1,8 @@
 /**
  * Clawdbot 服务统一导出
  */
+export { convertCardToSimpleFormat } from './card-converter.js'
+export type { CardConversionResult } from './card-converter.js'
 export { logger } from './logger.js'
 export { getClawdbotService } from './clawdbot-service.js'
 export type { ClawdbotService } from './clawdbot-service.js'
