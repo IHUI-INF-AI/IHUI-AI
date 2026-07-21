@@ -2,6 +2,10 @@ use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 #[cfg(debug_assertions)]
 use tauri::Manager;
+use std::io::Cursor;
+use base64::Engine;
+use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings};
+use screenshots::Screen;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct AppInfo {
@@ -19,6 +23,36 @@ struct AdminWindowInfo {
     height: f64,
     min_width: f64,
     min_height: f64,
+}
+
+// ================== Computer Control 返回类型 ==================
+
+#[derive(Serialize)]
+struct ScreenshotResult {
+    screenshot: String,
+}
+
+#[derive(Serialize)]
+struct OkResult {
+    ok: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WindowInfo {
+    title: String,
+    app_name: String,
+    bounds: Vec<f64>,
+}
+
+#[derive(Serialize)]
+struct ActiveWindowResult {
+    window: WindowInfo,
+}
+
+#[derive(Serialize)]
+struct ClipboardResult {
+    clipboard: String,
 }
 
 #[tauri::command]
@@ -91,6 +125,247 @@ fn build_app_menu(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+// ================== Computer Control 命令(10 个)==================
+
+/// 将字符串键名解析为 enigo Key 枚举。
+fn parse_key(key: &str) -> Result<Key, String> {
+    match key {
+        "Enter" | "Return" => Ok(Key::Return),
+        "Tab" => Ok(Key::Tab),
+        "Escape" | "Esc" => Ok(Key::Escape),
+        "Space" => Ok(Key::Space),
+        "Backspace" | "BackSpace" => Ok(Key::Backspace),
+        "Delete" | "Del" => Ok(Key::Delete),
+        "Control" | "Ctrl" => Ok(Key::Control),
+        "Shift" => Ok(Key::Shift),
+        "Alt" | "Option" => Ok(Key::Alt),
+        "Meta" | "Super" | "Win" | "Command" | "Cmd" => Ok(Key::Meta),
+        "Home" => Ok(Key::Home),
+        "End" => Ok(Key::End),
+        "PageUp" => Ok(Key::PageUp),
+        "PageDown" => Ok(Key::PageDown),
+        "ArrowUp" | "Up" => Ok(Key::UpArrow),
+        "ArrowDown" | "Down" => Ok(Key::DownArrow),
+        "ArrowLeft" | "Left" => Ok(Key::LeftArrow),
+        "ArrowRight" | "Right" => Ok(Key::RightArrow),
+        "F1" => Ok(Key::F1),
+        "F2" => Ok(Key::F2),
+        "F3" => Ok(Key::F3),
+        "F4" => Ok(Key::F4),
+        "F5" => Ok(Key::F5),
+        "F6" => Ok(Key::F6),
+        "F7" => Ok(Key::F7),
+        "F8" => Ok(Key::F8),
+        "F9" => Ok(Key::F9),
+        "F10" => Ok(Key::F10),
+        "F11" => Ok(Key::F11),
+        "F12" => Ok(Key::F12),
+        _ if key.chars().count() == 1 => Ok(Key::Unicode(key.chars().next().unwrap())),
+        _ => Err(format!("Unknown key: {}", key)),
+    }
+}
+
+#[tauri::command]
+fn screenshot_screen(
+    display_index: Option<usize>,
+    region: Option<Vec<f64>>,
+) -> Result<ScreenshotResult, String> {
+    let screens = Screen::all().map_err(|e| e.to_string())?;
+    let idx = display_index.unwrap_or(0);
+    let screen = screens
+        .get(idx)
+        .ok_or(format!("Display index {} not found", idx))?;
+    let img = if let Some(r) = region {
+        if r.len() < 4 {
+            return Err("region must be [x, y, w, h]".to_string());
+        }
+        screen
+            .capture_area(r[0] as i32, r[1] as i32, r[2] as u32, r[3] as u32)
+            .map_err(|e| e.to_string())?
+    } else {
+        screen.capture().map_err(|e| e.to_string())?
+    };
+    let dyn_img = image::DynamicImage::ImageRgba8(img);
+    let mut buf = Cursor::new(Vec::new());
+    dyn_img
+        .write_to(&mut buf, image::ImageFormat::Png)
+        .map_err(|e| e.to_string())?;
+    let screenshot = base64::engine::general_purpose::STANDARD.encode(buf.into_inner());
+    Ok(ScreenshotResult { screenshot })
+}
+
+#[tauri::command]
+fn mouse_move(x: f64, y: f64, absolute: Option<bool>) -> Result<OkResult, String> {
+    let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
+    let coord = if absolute.unwrap_or(true) {
+        Coordinate::Abs
+    } else {
+        Coordinate::Rel
+    };
+    enigo
+        .move_mouse(x as i32, y as i32, coord)
+        .map_err(|e| e.to_string())?;
+    Ok(OkResult { ok: true })
+}
+
+#[tauri::command]
+fn mouse_click(
+    x: f64,
+    y: f64,
+    button: Option<String>,
+    count: Option<u32>,
+) -> Result<OkResult, String> {
+    let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
+    enigo
+        .move_mouse(x as i32, y as i32, Coordinate::Abs)
+        .map_err(|e| e.to_string())?;
+    let btn = match button.as_deref().unwrap_or("left") {
+        "left" => Button::Left,
+        "right" => Button::Right,
+        "middle" => Button::Middle,
+        other => return Err(format!("Unknown button: {}", other)),
+    };
+    let n = count.unwrap_or(1);
+    for _ in 0..n {
+        enigo
+            .button(btn, Direction::Click)
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(OkResult { ok: true })
+}
+
+#[tauri::command]
+fn keyboard_type(text: String, delay: Option<u64>) -> Result<OkResult, String> {
+    let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
+    if let Some(ms) = delay {
+        if ms > 0 {
+            for ch in text.chars() {
+                enigo
+                    .text(&ch.to_string())
+                    .map_err(|e| e.to_string())?;
+                std::thread::sleep(std::time::Duration::from_millis(ms));
+            }
+            return Ok(OkResult { ok: true });
+        }
+    }
+    enigo.text(&text).map_err(|e| e.to_string())?;
+    Ok(OkResult { ok: true })
+}
+
+#[tauri::command]
+fn mouse_scroll(
+    delta_y: f64,
+    x: Option<f64>,
+    y: Option<f64>,
+) -> Result<OkResult, String> {
+    let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
+    if let (Some(x), Some(y)) = (x, y) {
+        enigo
+            .move_mouse(x as i32, y as i32, Coordinate::Abs)
+            .map_err(|e| e.to_string())?;
+    }
+    enigo
+        .scroll(delta_y as i32, Axis::Vertical)
+        .map_err(|e| e.to_string())?;
+    Ok(OkResult { ok: true })
+}
+
+#[tauri::command]
+fn keyboard_press(key: String) -> Result<OkResult, String> {
+    let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
+    let k = parse_key(&key)?;
+    enigo.key(k, Direction::Click).map_err(|e| e.to_string())?;
+    Ok(OkResult { ok: true })
+}
+
+#[tauri::command]
+fn keyboard_hotkey(keys: Vec<String>) -> Result<OkResult, String> {
+    let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
+    let parsed: Vec<Key> = keys
+        .iter()
+        .map(|k| parse_key(k))
+        .collect::<Result<_, _>>()?;
+    for k in &parsed {
+        enigo
+            .key(k.clone(), Direction::Press)
+            .map_err(|e| e.to_string())?;
+    }
+    for k in parsed.iter().rev() {
+        enigo
+            .key(k.clone(), Direction::Release)
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(OkResult { ok: true })
+}
+
+#[tauri::command]
+fn active_window() -> Result<ActiveWindowResult, String> {
+    // active-win-related-rs crate 不存在于 crates.io,暂返回错误。
+    // 后续可接入 xcap 或 platform-specific 实现(GetForegroundWindow / NSWorkspace / xdotool)。
+    Err("active_window not yet implemented: no suitable cross-platform crate available".to_string())
+}
+
+#[tauri::command]
+fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String> {
+    let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
+    let fmt = format.as_deref().unwrap_or("text");
+    let result = match fmt {
+        "text" => clipboard.get_text().map_err(|e| e.to_string())?,
+        "image" => {
+            let img = clipboard.get_image().map_err(|e| e.to_string())?;
+            let rgba_img = image::RgbaImage::from_raw(
+                img.width as u32,
+                img.height as u32,
+                img.bytes.to_vec(),
+            )
+            .ok_or("Failed to convert clipboard image")?;
+            let dyn_img = image::DynamicImage::ImageRgba8(rgba_img);
+            let mut buf = Cursor::new(Vec::new());
+            dyn_img
+                .write_to(&mut buf, image::ImageFormat::Png)
+                .map_err(|e| e.to_string())?;
+            base64::engine::general_purpose::STANDARD.encode(buf.into_inner())
+        }
+        other => return Err(format!("Unknown format: {}", other)),
+    };
+    Ok(ClipboardResult { clipboard: result })
+}
+
+#[tauri::command]
+fn clipboard_set(
+    content: String,
+    format: Option<String>,
+) -> Result<OkResult, String> {
+    let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
+    let fmt = format.as_deref().unwrap_or("text");
+    match fmt {
+        "text" => {
+            clipboard
+                .set_text(&content)
+                .map_err(|e| e.to_string())?;
+        }
+        "image" => {
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(&content)
+                .map_err(|e| e.to_string())?;
+            let rgba_img = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png)
+                .map_err(|e| e.to_string())?
+                .to_rgba8();
+            let (w, h) = (rgba_img.width() as usize, rgba_img.height() as usize);
+            let img_data = arboard::ImageData {
+                width: w,
+                height: h,
+                bytes: std::borrow::Cow::Owned(rgba_img.into_raw()),
+            };
+            clipboard
+                .set_image(img_data)
+                .map_err(|e| e.to_string())?;
+        }
+        other => return Err(format!("Unknown format: {}", other)),
+    };
+    Ok(OkResult { ok: true })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -117,7 +392,17 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_app_info,
             get_admin_window_info,
-            build_app_menu
+            build_app_menu,
+            screenshot_screen,
+            mouse_move,
+            mouse_click,
+            keyboard_type,
+            mouse_scroll,
+            keyboard_press,
+            keyboard_hotkey,
+            active_window,
+            clipboard_get,
+            clipboard_set
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
