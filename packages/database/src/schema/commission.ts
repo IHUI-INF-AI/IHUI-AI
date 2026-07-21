@@ -5,7 +5,7 @@ import { orders } from './billing.js';
 /**
  * 佣金流水表。
  * 语义澄清（修正旧架构 user_id 语义混乱）：
- * - beneficiaryId = 获佣人（推荐人，佣金计入此账户）
+ * - beneficiaryId = 获佣人（推荐人，佣金计入此账户，可空：用户删除时保留佣金凭证，beneficiaryId 置 NULL）
  * - invitedUserId = 下单人（被邀请人，产生订单的用户）
  * - orderId = 关联订单
  * type: 0=regular 1=vip 2=trader(祖父级)
@@ -15,9 +15,7 @@ export const commissionFlows = pgTable(
   'commission_flows',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    beneficiaryId: uuid('beneficiary_id')
-      .references(() => users.id, { onDelete: 'cascade' })
-      .notNull(),
+    beneficiaryId: uuid('beneficiary_id').references(() => users.id, { onDelete: 'set null' }),
     invitedUserId: uuid('invited_user_id')
       .references(() => users.id, { onDelete: 'set null' }),
     orderId: uuid('order_id').references(() => orders.id, { onDelete: 'set null' }),
@@ -40,14 +38,13 @@ export const commissionFlows = pgTable(
  * status: 0=pending 1=processing 2=completed 3=failed
  * method: wechat | alipay | bank
  * accountInfo: jsonb（微信/支付宝账号、银行卡号、姓名等）
+ * userId 可空：用户删除时保留提现财务凭证，userId 置 NULL。
  */
 export const withdrawalFlows = pgTable(
   'withdrawal_flows',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    userId: uuid('user_id')
-      .references(() => users.id, { onDelete: 'cascade' })
-      .notNull(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
     amount: integer('amount').notNull(), // 实际到账金额（已扣手续费，分）
     fee: integer('fee').default(0).notNull(), // 手续费（分）
     originalAmount: integer('original_amount').notNull(), // 原始申请金额（分）
