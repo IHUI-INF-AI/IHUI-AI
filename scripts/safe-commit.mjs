@@ -127,15 +127,17 @@ if (resetResult.status !== 0) {
   process.exit(2)
 }
 
-// ─── 2. git add <用户预期文件> ─────────────────────────────
-log('info', `Step 2/5: git add <${expectedFiles.length} files> — 只暂存自己声明的文件`)
-const addResult = spawnSync('git', ['add', '--', ...expectedFiles], {
+// ─── 2. git add -A <用户预期文件>(-A 支持已删除文件) ─────
+// 修复(2026-07-22): 原 `git add --` 对已删除文件报错 pathspec did not match。
+// `git add -A --` 同时暂存新增/修改/删除三种变更, 第 3 步校验仍保证精确匹配。
+log('info', `Step 2/5: git add -A <${expectedFiles.length} files> — 只暂存自己声明的文件(含删除)`)
+const addResult = spawnSync('git', ['add', '-A', '--', ...expectedFiles], {
   encoding: 'utf8',
   cwd: repoRoot,
 })
 if (addResult.status !== 0) {
   log('err', `git add 失败: ${addResult.stderr}`)
-  log('warn', '可能原因: 文件不存在/已被其他 agent 改动/路径错误')
+  log('warn', '可能原因: 路径错误/仓库锁定/权限问题')
   process.exit(1)
 }
 
