@@ -1,11 +1,12 @@
-"""OpenCompass 司南排行榜抓取服务(2026-07-22 新增)。
+"""OpenCompass 司南排行榜抓取服务(2026-07-22 新增,2026-07-22 修复 Windows EventLoop)。
 
 用途:OpenCompass(rank.opencompass.org.cn)是 Vue SPA,数据完全 JS 渲染,
 后端 API 受 nginx WAF 保护返回 405。本服务用 Playwright headless Chromium
 渲染页面后提取表格数据。
 
 设计:
-- 复用 screenshot_service._get_browser 单例(避免重复启动 Chromium)
+- 复用 screenshot_service._get_browser_sync 单例(避免重复启动 Chromium)
+- sync API + run_in_executor(根治 Windows SelectorEventLoop NotImplementedError)
 - goto + waitForSelector('table') + page.evaluate 提取
 - 超时 30s,失败抛异常由调用方降级
 - 返回结构化 entries,与 api 端 LeaderboardEntry 一致
@@ -13,11 +14,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import Any
 
-from .screenshot_service import _get_browser
+from .screenshot_service import _get_browser_sync
 
 logger = logging.getLogger(__name__)
 
@@ -79,8 +81,8 @@ def _try_float(s: Any) -> float | None:
         return None
 
 
-async def scrape_opencompass(timeout_ms: int = 30000) -> dict[str, Any]:
-    """抓取 OpenCompass 司南排行榜。
+def _scrape_opencompass_sync(timeout_ms: int = 30000) -> dict[str, Any]:
+    """同步抓取 OpenCompass(在线程池中运行,不受 EventLoop policy 限制)。
 
     返回:
         {
@@ -92,8 +94,8 @@ async def scrape_opencompass(timeout_ms: int = 30000) -> dict[str, Any]:
 
     失败抛异常,由调用方 try/except 返回错误响应。
     """
-    browser = await _get_browser()
-    context = await browser.new_context(
+    browser = _get_browser_sync()
+    context = browser.new_context(
         viewport={"width": 1280, "height": 900},
         locale="zh-CN",
         timezone_id="Asia/Shanghai",
@@ -103,32 +105,32 @@ async def scrape_opencompass(timeout_ms: int = 30000) -> dict[str, Any]:
             "Chrome/120.0.0.0 Safari/537.36"
         ),
     )
-    page = await context.new_page()
+    page = context.new_page()
     try:
-        await page.goto(OPENCOMPASS_URL, wait_until="domcontentloaded", timeout=timeout_ms)
+        page.goto(OPENCOMPASS_URL, wait_until="domcontentloaded", timeout=timeout_ms)
 
         # 等待表格出现(JS 渲染完成的核心标志)
         try:
-            await page.wait_for_selector("table", state="attached", timeout=timeout_ms)
+            page.wait_for_selector("table", state="attached", timeout=timeout_ms)
         except Exception:
             # 退化等待 networkidle
             try:
-                await page.wait_for_load_state("networkidle", timeout=10_000)
+                page.wait_for_load_state("networkidle", timeout=10_000)
             except Exception:
                 pass
 
         # 等待 ant-design Vue Table 渲染数据行(tbody tr 出现)
         # OpenCompass 用 ant-design Vue,数据加载后 tbody 才有 tr
         try:
-            await page.wait_for_selector("table tbody tr", state="attached", timeout=20_000)
+            page.wait_for_selector("table tbody tr", state="attached", timeout=20_000)
         except Exception:
             # 数据行等待超时,继续执行(可能是 loading 状态,稍后再试)
             pass
 
         # 额外等待 2s 让数据填充完整(Vue 异步渲染)
-        await page.wait_for_timeout(2000)
+        page.wait_for_timeout(2000)
 
-        tables = await page.evaluate(_EXTRACT_JS)
+        tables = page.evaluate(_EXTRACT_JS)
         if not tables:
             raise RuntimeError("OpenCompass 页面无表格(JS 渲染未完成或页面结构变化)")
 
@@ -249,5 +251,29 @@ async def scrape_opencompass(timeout_ms: int = 30000) -> dict[str, Any]:
             "headers": headers,
         }
     finally:
-        await page.close()
-        await context.close()
+        page.close()
+        context.close()
+
+
+async def scrape_opencompass(timeout_ms: int = 30000) -> dict[str, Any]:
+    """异步抓取 OpenCompass 司南排行榜(在线程池中运行同步实现)。
+
+    使用 run_in_executor 包装 sync 实现,根治 Windows SelectorEventLoop
+    下 async_playwright 报 NotImplementedError 的问题。
+
+    返回:
+        {
+            "entries": List[dict],  # LeaderboardEntry-like
+            "captured_at": int(time.time() * 1000),
+            "url": OPENCOMPASS_URL,
+            "headers": list[str],
+        }
+
+    失败抛异常,由调用方 try/except 返回错误响应。
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None,
+        _scrape_opencompass_sync,
+        timeout_ms,
+    )
