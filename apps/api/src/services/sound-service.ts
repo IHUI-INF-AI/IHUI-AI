@@ -17,6 +17,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { env } from 'node:process'
 import { logger } from '../utils/logger.js'
+import { generateCompactId } from '../utils/crypto-random.js'
 
 let fallbackSignSecretWarned = false
 
@@ -58,8 +59,10 @@ const library = new Map<string, SoundAsset>()
 const MAX_RESULTS = 100
 
 /** 生成简单 ID。 */
+// 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成音效 ID
+// 风险:可预测音效 ID → 攻击者枚举其他用户上传的私有音效 → 越权访问
 function genId(): string {
-  return `snd_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+  return generateCompactId('snd')
 }
 
 /** 添加音效到库。 */
