@@ -53,10 +53,13 @@ function SubAgentCard({ agent, badgeLabel, defaultName, statusLabel }: SubAgentC
   const hasStreaming = !!streaming && streaming.length > 0
   const [open, setOpen] = React.useState(active || hasStreaming)
 
+  // open 用 ref 读取:避免把 open 加入 deps 后,用户手动折叠会触发 effect 立即重开
+  const openRef = React.useRef(open)
+  openRef.current = open
+
   // 流式开始或 agent 转为运行中时自动展开(用户手动折叠后不会强行重开,除非状态再变化)
   React.useEffect(() => {
-    if ((active || hasStreaming) && !open) setOpen(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if ((active || hasStreaming) && !openRef.current) setOpen(true)
   }, [active, hasStreaming])
 
   return (

@@ -46,10 +46,12 @@ export function AskDialog({
     schema: askSchema,
     defaultValues,
   })
+  // defaultValues 用 ref:父组件每次渲染可能传入新对象引用,加入 deps 会导致表单被反复重置
+  const defaultValuesRef = React.useRef(defaultValues)
+  defaultValuesRef.current = defaultValues
   React.useEffect(() => {
-    form.reset(defaultValues)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing?.id, open])
+    form.reset(defaultValuesRef.current)
+  }, [editing?.id, open, form])
 
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : onClose())}>

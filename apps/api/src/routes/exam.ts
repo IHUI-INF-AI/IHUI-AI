@@ -1,6 +1,6 @@
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { authenticate } from '../plugins/auth.js'
+import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { db } from '../db/index.js'
 import {
@@ -431,22 +431,6 @@ const gradeStatusSchema = z.object({
 })
 
 // =============================================================================
-// 鉴权辅助
-// =============================================================================
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    const message = (e as Error).message || 'Authentication required'
-    reply.status(statusCode).send(error(statusCode, message))
-    return false
-  }
-}
-
-// =============================================================================
 // 路由：公共端点(需登录) + Admin 端点
 // =============================================================================
 
@@ -462,14 +446,14 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /exam/categories - 启用的试卷分类列表
   server.get('/exam/categories', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const list = await findPublishedExamCategories()
     return reply.send(success({ list }))
   })
 
   // GET /exam/papers - 已发布试卷列表(分页,支持搜索 + categoryId 筛选)
   server.get('/exam/papers', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = papersQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -494,7 +478,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /exam/papers/:id - 试卷详情(不含答案)
   server.get('/exam/papers/:id', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -508,7 +492,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /exam/papers/by-ids - 按 id 列表批量查询已发布试卷
   server.get('/exam/papers/by-ids', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const idsParam = (request.query as { ids?: string }).ids ?? ''
     const ids = idsParam
       .split(',')
@@ -522,7 +506,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // GET /exam/papers/:id/questions - 试卷题目(不含正确答案,用于答题)
   // 响应: { exam: Exam, questions: ExamQuestion[] }  匹配前端 api-client getExamById
   server.get('/exam/papers/:id/questions', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -563,7 +547,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /exam/papers/:id/start - 开始答题(创建 pending 记录)
   server.post('/exam/papers/:id/start', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -579,7 +563,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /exam/records/:id/submit - 提交试卷(自动判分)
   server.post('/exam/records/:id/submit', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -611,7 +595,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // GET /exam/records - 我的答题记录(分页)
   // 响应: PageData<ExamRecord>,匹配前端 api-client getMyRecords
   server.get('/exam/records', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = z
       .object({
         page: z.coerce.number().int().min(1).default(1),
@@ -640,7 +624,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // GET /exam/records/check-submitted - 检查用户是否已提交某考试(扁平 boolean)
   // 响应: boolean,匹配前端 api-client checkSubmitted
   server.get('/exam/records/check-submitted', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = z
       .object({
         examId: z.string().uuid('无效的试卷 ID'),
@@ -673,7 +657,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // GET /exam/records/:id - 答题记录详情(含正确答案)
   // 响应: ExamResult 形状(扁平),匹配前端 api-client getResult
   server.get('/exam/records/:id', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -721,7 +705,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /exam/random-questions - 随机抽题(按题型/难度/知识点池筛选 + seed 可重现)
   server.post('/exam/random-questions', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = randomQuestionsSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -745,7 +729,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // 路径含 examId,匹配前端 api-client submitAnswer(/exam/records/{examId}/submit)
   // 响应: ExamResult 形状(扁平),匹配前端 api-client ExamResult
   server.post('/exam/papers/:examId/submit-answers', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const examParam = z.object({ examId: z.string().uuid('无效的试卷 ID') }).safeParse(request.params)
     if (!examParam.success) {
       return reply.status(400).send(error(400, examParam.error.issues[0]?.message ?? '参数错误'))
@@ -853,7 +837,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // POST /exam/submit-answers - 提交答案(含自动错题判定)  body 含 examId
   // 兼容老接口
   server.post('/exam/submit-answers', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = submitAnswersSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -922,7 +906,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /exam/wrong-questions/stats - 错题统计(必须在 :questionId 动态路由前注册)
   server.get('/exam/wrong-questions/stats', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
     const stats = await getWrongQuestionStats(userId)
     return reply.send(success({ stats }))
@@ -930,7 +914,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /exam/wrong-questions - 用户错题列表(分页,支持 examId/isResolved 筛选)
   server.get('/exam/wrong-questions', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = wrongQuestionsQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -954,7 +938,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /exam/wrong-questions/:questionId/resolve - 标记错题已掌握
   server.put('/exam/wrong-questions/:questionId/resolve', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = resolveQuestionParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -974,7 +958,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /exam/:id/enroll - 报名(draft→enrolled,幂等)
   server.post('/exam/:id/enroll', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -990,7 +974,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /exam/records/:recordId/start - 开始答题(enrolled→answering)
   server.post('/exam/records/:recordId/start', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = recordIdParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1009,7 +993,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // POST /exam/records/:recordId/submit-exam - 提交试卷(answering→submitted)
   // 注:路径用 submit-exam 避免与现有 /exam/records/:id/submit(含判分)冲突
   server.post('/exam/records/:recordId/submit-exam', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = recordIdParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1027,7 +1011,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /exam/records/:recordId/status - 查询答题记录状态
   server.get('/exam/records/:recordId/status', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = recordIdParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1091,7 +1075,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /exam/composition/list - 作文考试列表
   server.get('/exam/composition/list', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { page, pageSize, keyword, status } = z
       .object({
         page: z.coerce.number().optional().default(1),
@@ -1127,7 +1111,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /exam/composition/:eid - 作文考试详情
   server.get('/exam/composition/:eid', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { eid } = eidParam.parse(request.params)
     const result = await db
       .select()
@@ -1140,7 +1124,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /exam/composition/rule/list - 抽题规则列表
   server.get('/exam/composition/rule/list', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { paperId } = z.object({ paperId: z.coerce.number().optional() }).parse(request.query)
     const conditions = []
     if (paperId) conditions.push(eq(examPaperQuestionRule.paperId, Number(paperId)))
@@ -1156,7 +1140,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // GET /exam/papers/:examId/chapters - 试卷章节列表(public)
   // 响应: ExamChapter[]  直接数组,匹配前端 api-client getExamChapters
   server.get('/exam/papers/:examId/chapters', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = z.object({ examId: z.string().uuid('无效的试卷 ID') }).safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1191,7 +1175,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // ----- Composition signup 报名 -----
   // GET /exam/composition/signup/list - 报名列表
   server.get('/exam/composition/signup/list', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { examId, memberId, status, page, pageSize } = z
       .object({
         examId: z.coerce.number().optional(),
@@ -1219,7 +1203,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // GET /exam/composition/signup/my - 我的报名列表
   // 响应: PageData<ExamSignUp>(list, total, page, pageSize),匹配前端 api-client getMySignUps
   server.get('/exam/composition/signup/my', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { memberId, page = 1, pageSize = 20 } = z
       .object({
         memberId: z.coerce.number().optional(),
@@ -1263,7 +1247,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /exam/composition/signup/:sid - 报名详情
   server.get('/exam/composition/signup/:sid', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { sid } = sidParam.parse(request.params)
     const result = await db
       .select()
@@ -1278,7 +1262,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
   // body 兼容:前端 api-client saveSignUp 传 { eid };后端原生用 { examId, memberId, status }
   // 响应: 扁平 ExamSignUp,匹配前端 api-client ExamSignUp
   server.post('/exam/composition/signup', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const body = z
       .object({
         eid: z.union([z.number().int(), z.string()]).optional(),
@@ -1324,7 +1308,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /exam/composition/signup/:sid - 修改报名
   server.put('/exam/composition/signup/:sid', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { sid } = sidParam.parse(request.params)
     const body = z
       .object({
@@ -1347,7 +1331,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /exam/composition/signup/:sid - 删除报名
   server.delete('/exam/composition/signup/:sid', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { sid } = sidParam.parse(request.params)
     await db.delete(examSignUp).where(eq(examSignUp.id, Number(sid)))
     return reply.send(success({ ok: true }))
@@ -1355,7 +1339,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /exam/composition/signup/:sid/submit - 提交答卷
   server.post('/exam/composition/signup/:sid/submit', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { sid } = sidParam.parse(request.params)
     const [updated] = await db
       .update(examSignUp)
@@ -1376,7 +1360,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /exam/wrong/list - 错题本列表
   server.get('/exam/wrong/list', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
     const { page, pageSize, paperId, isMastered } = z
       .object({
@@ -1413,7 +1397,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // PUT /exam/wrong/:wid/master - 标记错题为已掌握
   server.put('/exam/wrong/:wid/master', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const { wid } = widParam.parse(request.params)
     const userId = request.userId!
     const [updated] = await db
@@ -1445,7 +1429,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /exam/paper/category/list - 试卷分类列表（auth）
   server.get('/exam/paper/category/list', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const list = await findPublishedExamCategories()
     return reply.send(success({ list }))
   })
@@ -1497,7 +1481,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /exam/question-lib/category/list - 题库分类列表（auth）
   server.get('/exam/question-lib/category/list', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const list = await findPublishedExamCategories()
     return reply.send(success({ list }))
   })
@@ -1645,7 +1629,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /exam/auth-api/record/check-submitted - 检查是否已提交（auth, query 含 recordId/paperId）
   server.get('/exam/auth-api/record/check-submitted', async (request, reply) => {
-    if (!(await requireAuth(request, reply))) return
+    if (!(await checkAuth(request, reply))) return
     const parsed = checkSubmittedSchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

@@ -114,7 +114,6 @@ export default function TenantDetailPage() {
       variant: 'destructive' as const,
       requireInput: tenant.slug,
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [confirmAction, t])
 
   if (error) {

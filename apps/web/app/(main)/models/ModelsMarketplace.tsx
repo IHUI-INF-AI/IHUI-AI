@@ -236,8 +236,7 @@ export function ModelsMarketplace({ list }: Props) {
   const highlightTotal = React.useMemo(() => list.filter((m) => m.highlight).length, [list])
   const favoriteTotal = React.useMemo(
     () => list.filter((m) => favoriteIds.has(m.id)).length,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [list, favoriteTick],
+    [list, favoriteIds],
   )
   const configuredTotal = React.useMemo(
     () => list.filter((m) => isModelConfigured(m)).length,
