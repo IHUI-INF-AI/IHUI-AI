@@ -3,6 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
 import { Loader2, CheckCircle2, TrendingUp, Users, Award, Target, ArrowRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -35,6 +36,7 @@ async function api<T>(url: string): Promise<T> {
 }
 
 export default function RecruitmentPage() {
+  const t = useTranslations('recruitmentPage')
   const { data, isLoading, error } = useQuery({
     queryKey: ['recruitment'],
     queryFn: () => api<RecruitmentPlan>('/api/recruitment'),
@@ -44,7 +46,7 @@ export default function RecruitmentPage() {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
   }
@@ -61,7 +63,7 @@ export default function RecruitmentPage() {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
         <Users className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">暂无招募计划</p>
+        <p className="text-sm text-muted-foreground">{t('empty')}</p>
       </div>
     )
   }
@@ -78,7 +80,7 @@ export default function RecruitmentPage() {
       <header className="space-y-3 text-center">
         <div className="inline-flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm text-primary">
           <Target className="h-4 w-4" />
-          {data.subtitle ?? '招募计划'}
+          {data.subtitle ?? t('defaultSubtitle')}
         </div>
         <h1 className="text-3xl font-bold tracking-tight md:text-4xl">{data.title}</h1>
         <p className="mx-auto max-w-2xl text-sm text-muted-foreground md:text-base">
@@ -118,7 +120,7 @@ export default function RecruitmentPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Target className="h-5 w-5 text-primary" />
-              招募要求
+              {t('requirementsTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -137,7 +139,7 @@ export default function RecruitmentPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">暂无要求</p>
+              <p className="text-sm text-muted-foreground">{t('emptyRequirements')}</p>
             )}
           </CardContent>
         </Card>
@@ -146,7 +148,7 @@ export default function RecruitmentPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Award className="h-5 w-5 text-amber-500" />
-              专属权益
+              {t('benefitsTitle')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -163,18 +165,18 @@ export default function RecruitmentPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">暂无权益</p>
+              <p className="text-sm text-muted-foreground">{t('emptyBenefits')}</p>
             )}
           </CardContent>
         </Card>
       </div>
 
       <div className="flex flex-col items-center gap-3 rounded-lg border bg-muted/30 p-6 text-center">
-        <h2 className="text-xl font-bold">准备好加入我们了吗？</h2>
-        <p className="text-sm text-muted-foreground">立即申请成为操盘手，开启专属成长路径</p>
+        <h2 className="text-xl font-bold">{t('cta.title')}</h2>
+        <p className="text-sm text-muted-foreground">{t('cta.subtitle')}</p>
         <Button asChild size="lg">
           <Link href="/vip/trader">
-            立即申请
+            {t('cta.button')}
             <ArrowRight className="ml-1 h-4 w-4" />
           </Link>
         </Button>

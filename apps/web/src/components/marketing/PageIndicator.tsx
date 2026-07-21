@@ -50,9 +50,16 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
             className="group flex h-4 w-4 items-center justify-center"
           >
             <span
+              // 2026-07-21 v8:拆分 isActive 两套完整 className — 修 bug
+              // 旧实现模板字符串拼接导致 h-4 / h-2、w-1.5 / w-2 同元素冲突,Tailwind 源序后值获胜
+              // → 非激活态被拉成 16x8 竖向胶囊,所有点都成椭圆。修复后非激活 8x8 圆点、激活 16x6 胶囊。
               // 2026-07-21 v7:active 竖向胶囊 h-5 w-2 → h-4 w-1.5,精致比例
               // 豁免 5b:竖向装饰指示器(width<=8px height>=12px rounded-full),分页指示器胶囊
-              className={`block h-4 w-1.5 rounded-full bg-foreground transition-all duration-300 ${isActive ? '' : 'h-2 w-2 bg-foreground/30 group-hover:h-2.5 group-hover:w-2.5 group-hover:bg-foreground/60'}`}
+              className={
+                isActive
+                  ? 'block h-4 w-1.5 rounded-full bg-foreground transition-all duration-300'
+                  : 'block h-2 w-2 rounded-full bg-foreground/30 transition-all duration-300 group-hover:h-2.5 group-hover:w-2.5 group-hover:bg-foreground/60'
+              }
             />
           </button>
         )

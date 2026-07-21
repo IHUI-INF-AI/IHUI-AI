@@ -4,12 +4,12 @@ import { Copy, Gift, Share2, Users } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 
 export default async function ReferralPage() {
-  const t = await getTranslations('models')
+  const t = await getTranslations('modelsReferralPage')
 
   const stats = [
-    { icon: Users, label: t('referral.stats.invited'), value: '24' },
-    { icon: CheckCircle2Icon, label: t('referral.stats.activated'), value: '18' },
-    { icon: Gift, label: t('referral.stats.reward'), value: '¥ 360.00' },
+    { icon: Users, label: t('stats.invited'), value: '24' },
+    { icon: CheckCircle2Icon, label: t('stats.activated'), value: '18' },
+    { icon: Gift, label: t('stats.reward'), value: '¥ 360.00' },
   ]
 
   const referrals = [
@@ -26,8 +26,8 @@ export default async function ReferralPage() {
   return (
     <div className="space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('referral.title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('referral.subtitle')}</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
       </header>
 
       {/* 邀请链接 */}
@@ -35,20 +35,20 @@ export default async function ReferralPage() {
         <CardContent className="p-5">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Share2 className="h-4 w-4 text-primary" />
-            {t('referral.link.title')}
+            {t('link.title')}
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">{t('referral.link.tip')}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t('link.tip')}</p>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <div className="flex h-10 flex-1 items-center rounded-lg border border-input bg-background px-3 font-mono text-sm text-muted-foreground">
               {inviteLink}
             </div>
             <Button className="gap-1.5">
               <Copy className="h-4 w-4" />
-              {t('referral.link.copy')}
+              {t('link.copy')}
             </Button>
           </div>
           <div className="mt-3 rounded-lg bg-background/60 p-3 text-xs text-muted-foreground">
-            {t('referral.link.reward', { amount: '¥ 15.00' })}
+            {t('link.reward', { amount: '¥ 15.00' })}
           </div>
         </CardContent>
       </Card>
@@ -74,17 +74,17 @@ export default async function ReferralPage() {
       {/* 邀请记录 */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">{t('referral.list.title')}</CardTitle>
+          <CardTitle className="text-base">{t('list.title')}</CardTitle>
         </CardHeader>
         <CardContent className="px-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="px-4 py-2 font-medium">{t('referral.list.user')}</th>
-                  <th className="px-4 py-2 font-medium">{t('referral.list.joined')}</th>
-                  <th className="px-4 py-2 font-medium">{t('referral.list.reward')}</th>
-                  <th className="px-4 py-2 font-medium">{t('referral.list.status')}</th>
+                  <th className="px-4 py-2 font-medium">{t('list.user')}</th>
+                  <th className="px-4 py-2 font-medium">{t('list.joined')}</th>
+                  <th className="px-4 py-2 font-medium">{t('list.reward')}</th>
+                  <th className="px-4 py-2 font-medium">{t('list.status')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -106,7 +106,7 @@ export default async function ReferralPage() {
                             : 'inline-flex items-center rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400'
                         }
                       >
-                        {t(`referral.list.statusLabels.${r.status}`)}
+                        {t(`list.statusLabels.${r.status}`)}
                       </span>
                     </td>
                   </tr>

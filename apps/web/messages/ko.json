@@ -1761,7 +1761,12 @@
       "free": {
         "name": "무료",
         "cta": "getStarted",
-        "features": ["10 AI chats per day", "Basic models", "1 project", "Community support"]
+        "features": [
+          "10 AI chats per day",
+          "Basic models",
+          "1 project",
+          "Community support"
+        ]
       },
       "pro": {
         "name": "프로페셔널",
@@ -8048,8 +8053,17 @@
     "planLifetimePrice": "¥999",
     "planFeatures": "플랜 기능",
     "subscribe": "구독",
-    "planMonthlyFeatures": ["월 1000 크레딧", "기본 AI 채팅", "커뮤니티 접근"],
-    "planYearlyFeatures": ["월 12000 크레딧", "고급 AI 채팅", "우선 지원", "광고 없음"],
+    "planMonthlyFeatures": [
+      "월 1000 크레딧",
+      "기본 AI 채팅",
+      "커뮤니티 접근"
+    ],
+    "planYearlyFeatures": [
+      "월 12000 크레딧",
+      "고급 AI 채팅",
+      "우선 지원",
+      "광고 없음"
+    ],
     "planLifetimeFeatures": [
       "무제한 크레딧",
       "모든 AI 기능",
@@ -9573,29 +9587,11 @@
       "gemini-2-flash": {
         "description": "초장문 컨텍스트 멀티모달"
       },
-      "gpt-5.6-sol": {
-        "description": "OpenAI 2026-07 플래그십 범용 모델, 1M 컨텍스트"
-      },
-      "gpt-5.6-terra": {
-        "description": "OpenAI 멀티모달 플래그십, 비전 특화"
-      },
-      "gpt-5.6-luna": {
-        "description": "OpenAI 코드 특화 모델"
-      },
       "gpt-red": {
         "description": "OpenAI 추론 연구 프리뷰"
       },
       "claude-sonnet-5": {
         "description": "Anthropic 2026-07 신세대 플래그십, 심층 추론"
-      },
-      "claude-opus-4.8": {
-        "description": "Anthropic 최고 수준 심층 추론 모델"
-      },
-      "gemini-3.5-pro": {
-        "description": "Google 멀티모달 플래그십, 2M 컨텍스트"
-      },
-      "grok-4.5": {
-        "description": "xAI 실시간 강화 추론 모델"
       },
       "deepseek-v4-pro": {
         "description": "DeepSeek V4 오픈소스 플래그십"
@@ -9603,26 +9599,44 @@
       "deepseek-v4-flash": {
         "description": "DeepSeek V4 고속 경제형"
       },
-      "glm-5.2": {
-        "description": "즈푸 칭언 신세대 플래그십, 중국어 최적화"
-      },
-      "qwen3.7-max": {
-        "description": "알리바바 통이치엔원 3.7 플래그십"
-      },
       "hunyuan-hy3": {
         "description": "텐센트 혼위안 3세대, 중국어 심층 최적화"
       },
       "kimi-k3": {
         "description": "월즈다크면 2M 장문 컨텍스트 플래그십"
       },
-      "ornith-1.0": {
-        "description": "국산 신세대 범용 모델"
-      },
       "codebrain-1": {
         "description": "국산 코드 특화 모델"
       },
       "mai-thinking-1": {
         "description": "국산 심층 추론 모델"
+      },
+      "gpt-5-6-sol": {
+        "description": "OpenAI 2026-07 플래그십 범용 모델, 1M 컨텍스트"
+      },
+      "gpt-5-6-terra": {
+        "description": "OpenAI 멀티모달 플래그십, 비전 특화"
+      },
+      "gpt-5-6-luna": {
+        "description": "OpenAI 코드 특화 모델"
+      },
+      "claude-opus-4-8": {
+        "description": "Anthropic 최고 수준 심층 추론 모델"
+      },
+      "gemini-3-5-pro": {
+        "description": "Google 멀티모달 플래그십, 2M 컨텍스트"
+      },
+      "grok-4-5": {
+        "description": "xAI 실시간 강화 추론 모델"
+      },
+      "glm-5-2": {
+        "description": "즈푸 칭언 신세대 플래그십, 중국어 최적화"
+      },
+      "qwen3-7-max": {
+        "description": "알리바바 통이치엔원 3.7 플래그십"
+      },
+      "ornith-1-0": {
+        "description": "국산 신세대 범용 모델"
       }
     },
     "nav": {
@@ -13768,32 +13782,52 @@
       "chat": {
         "label": "AI 채팅",
         "description": "새 AI 대화 시작",
-        "keywords": ["AI", "채팅", "대화"]
+        "keywords": [
+          "AI",
+          "채팅",
+          "대화"
+        ]
       },
       "drama": {
         "label": "AI 드라마",
         "description": "AI 드라마 콘텐츠 제작",
-        "keywords": ["드라마", "영상"]
+        "keywords": [
+          "드라마",
+          "영상"
+        ]
       },
       "search": {
         "label": "검색",
         "description": "콘텐츠, 사용자, 태그 검색",
-        "keywords": ["검색", "찾기", "search"]
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 월드",
         "description": "AI 월드 탐색",
-        "keywords": ["AI월드", "탐색"]
+        "keywords": [
+          "AI월드",
+          "탐색"
+        ]
       },
       "profile": {
         "label": "프로필",
         "description": "프로필 보기",
-        "keywords": ["프로필", "개인"]
+        "keywords": [
+          "프로필",
+          "개인"
+        ]
       },
       "settings": {
         "label": "설정",
         "description": "앱 환경설정 수정",
-        "keywords": ["설정", "환경"]
+        "keywords": [
+          "설정",
+          "환경"
+        ]
       }
     }
   },
@@ -17291,13 +17325,23 @@
       "title": "청크월회원",
       "days": "30일",
       "select": "선택",
-      "benefits": ["전체코스관리무료학습", "학습 커뮤니티", "월3ai", "학습 진도"]
+      "benefits": [
+        "전체코스관리무료학습",
+        "학습 커뮤니티",
+        "월3ai",
+        "학습 진도"
+      ]
     },
     "yearly": {
       "title": "청크년회원",
       "days": "365일",
       "select": "선택",
-      "benefits": ["전체코스관리무료학습", "학습 커뮤니티", "없음ai", "학습 진도+인증서"]
+      "benefits": [
+        "전체코스관리무료학습",
+        "학습 커뮤니티",
+        "없음ai",
+        "학습 진도+인증서"
+      ]
     },
     "monthlyMember": "청크월회원",
     "yearlyMember": "청크년회원"
@@ -21343,7 +21387,11 @@
       "label": "핵심 포지셔닝",
       "title": "AI 시대 기업 합리적 효율 서비스 및 상호 지원 커뮤니티",
       "description": "IHUI AI 커뮤니티는 기업 의사결정자가 AI와 기업의 관계를 깊이 이해하도록 돕는 데 전념합니다. 체계적인 과정, 실천 탐구, 커뮤니티 상호 지원을 통해 인간-기계 협업 슈퍼 조직을 구축하고 기업의 합리적 효율 향상을 실현합니다.",
-      "tags": ["인간-기계 협업", "합리적 효율", "슈퍼 조직"]
+      "tags": [
+        "인간-기계 협업",
+        "합리적 효율",
+        "슈퍼 조직"
+      ]
     },
     "modules": {
       "label": "3대 서비스 모듈",
@@ -21353,19 +21401,31 @@
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티",
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"]
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티",
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"]
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI 전문 서비스",
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"]
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ]
         }
       ]
     },
@@ -21497,25 +21557,37 @@
           "tag": "Q1",
           "title": "효율적 어시스턴트",
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"]
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ]
         },
         {
           "tag": "Q2",
           "title": "스마트 어드바이저",
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"]
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ]
         },
         {
           "tag": "Q3",
           "title": "실행 전문가",
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"]
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ]
         },
         {
           "tag": "Q4",
           "title": "올라운드 전문가",
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"]
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ]
         }
       ]
     },
@@ -21539,12 +21611,29 @@
       ],
       "infoTitle": "정보 세계",
       "infoBasicLabel": "초급 정보 세계",
-      "infoBasic": ["정보화", "IoT", "자동화"],
+      "infoBasic": [
+        "정보화",
+        "IoT",
+        "자동화"
+      ],
       "infoAdvancedLabel": "고급 정보 세계",
-      "infoAdvanced": ["지각 AI", "생성형 AI", "에이전트 AI", "물리 AI"],
+      "infoAdvanced": [
+        "지각 AI",
+        "생성형 AI",
+        "에이전트 AI",
+        "물리 AI"
+      ],
       "effectTitle": "AI화 효과",
-      "effectFlow": ["슈퍼 직원", "슈퍼 팀", "슈퍼 제품/서비스"],
-      "effectMetrics": ["비용 최적화", "효율 향상", "경험 업그레이드"]
+      "effectFlow": [
+        "슈퍼 직원",
+        "슈퍼 팀",
+        "슈퍼 제품/서비스"
+      ],
+      "effectMetrics": [
+        "비용 최적화",
+        "효율 향상",
+        "경험 업그레이드"
+      ]
     }
   },
   "drama": {
@@ -25717,7 +25806,15 @@
       "visitsHeader": "방문수",
       "ratioHeader": "비율"
     },
-    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ]
   },
   "pdfWatermarkPage": {
     "title": "PDF 워터마크",
@@ -25934,10 +26031,27 @@
       "targetPlaceholder": "예:명문 고등학교, 985대학"
     },
     "options": {
-      "school": ["공립학교", "사립학교", "특목학교"],
-      "classLevel": ["일반반", "특별반"],
-      "difficulty": ["읽기 속도 느림", "이해困难", "어휘 부족", "작문 취약"],
-      "obstacle": ["게임 중독", "주의력 분산", "미루기", "효율 저하"]
+      "school": [
+        "공립학교",
+        "사립학교",
+        "특목학교"
+      ],
+      "classLevel": [
+        "일반반",
+        "특별반"
+      ],
+      "difficulty": [
+        "읽기 속도 느림",
+        "이해困难",
+        "어휘 부족",
+        "작문 취약"
+      ],
+      "obstacle": [
+        "게임 중독",
+        "주의력 분산",
+        "미루기",
+        "효율 저하"
+      ]
     },
     "submit": "진로 지도 생성",
     "submitting": "AI 분석 중...",
@@ -26395,7 +26509,12 @@
     "rechargeCount": "총 {n}회 충전",
     "packages": {
       "starter": {
-        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
+        "features": [
+          "1M 토큰 한도",
+          "기본 모델 사용 가능",
+          "5개 API 토큰",
+          "커뮤니티 지원"
+        ]
       },
       "pro": {
         "features": [
@@ -26965,37 +27084,45 @@
     }
   },
   "oAuthCallbackPage": {
-    "loading": "로그인 완료 중...",
-    "success": "로그인 성공,이동 중...",
+    "loading": "{provider} 로그인 처리 중...",
+    "success": "로그인 성공, 곧 이동합니다...",
     "failedTitle": "로그인 실패",
     "backToLogin": "로그인으로 돌아가기",
     "error": {
-      "missingPlatform": "플랫폼 매개변수가 없습니다",
-      "missingCode": "인증 코드가 없습니다",
-      "loginFailed": "로그인 실패,다시 시도해 주세요",
-      "emptyData": "응답 데이터가 비어 있습니다",
-      "network": "네트워크 오류,연결을 확인해 주세요"
+      "missingPlatform": "platform 파라미터가 누락되었습니다. 다시 로그인을 시작해 주세요",
+      "missingCode": "인가 코드 파라미터가 누락되었습니다. 다시 로그인을 시작해 주세요",
+      "loginFailed": "로그인 실패, 잠시 후 다시 시도해 주세요",
+      "emptyData": "로그인 응답 데이터가 비어 있습니다",
+      "network": "네트워크 오류, 연결을 확인해 주세요"
     },
     "provider": {
       "google": "Google",
       "apple": "Apple",
-      "thirdParty": "제3자"
+      "thirdParty": "서드파티"
     }
   },
   "agentsStatsPage": {
     "back": "뒤로",
     "title": "에이전트 통계",
-    "subtitle": "에이전트 성능 지표 확인",
-    "loading": "통계 로드 중..."
+    "subtitle": "에이전트 사용 데이터 개요",
+    "loading": "로딩 중...",
+    "stat": {
+      "totalAgents": "에이전트 총수",
+      "published": "게시됨",
+      "pending": "심사 대기",
+      "totalCalls": "총 호출 수",
+      "totalUsers": "사용자 수",
+      "avgRating": "평균 평점"
+    }
   },
   "videoTasksPage": {
-    "title": "비디오 생성 작업",
-    "description": "AI 비디오 생성 작업 관리",
-    "refresh": "새로 고침",
+    "title": "Jimeng 비디오 작업",
+    "description": "텍스트-비디오 작업 진행 상황을 확인합니다. 생성 중 작업은 5초마다 자동 새로고침됩니다",
+    "refresh": "새로고침",
     "taskList": "작업 목록",
-    "loading": "작업 로드 중...",
-    "empty": "작업 없음",
-    "promptSummary": "프롬프트",
+    "loading": "불러오는 중...",
+    "empty": "비디오 작업이 없습니다",
+    "promptSummary": "프롬프트 요약",
     "status": "상태",
     "createdAt": "생성 시간"
   },
@@ -27003,50 +27130,55 @@
     "editTitle": "질문 편집",
     "publishTitle": "질문 게시",
     "titleLabel": "제목",
-    "titlePlaceholder": "간결한 제목 입력",
+    "titlePlaceholder": "질문 제목을 입력해 주세요",
     "contentLabel": "내용",
     "contentPlaceholder": "질문을 자세히 설명해 주세요",
     "tagsLabel": "태그",
-    "tagsPlaceholder": "최대 5개 태그 추가",
-    "saveButton": "저장",
-    "publishButton": "게시",
+    "tagsPlaceholder": "여러 태그는 쉼표로 구분하세요",
+    "saveButton": "수정 사항 저장",
+    "publishButton": "질문 게시",
     "cancel": "취소"
   },
   "rankingPage": {
-    "title": "순위",
-    "subtitle": "최고 기여자 및 크리에이터",
-    "loading": "순위 로드 중...",
-    "empty": "순위 데이터 없음",
+    "title": "종합 랭킹",
+    "subtitle": "사용자 포인트 및 활동 순위 조회",
+    "loading": "로딩 중...",
+    "empty": "랭킹 데이터가 없습니다",
     "col": {
       "rank": "순위",
       "user": "사용자",
-      "score": "점수"
+      "score": "포인트"
+    },
+    "range": {
+      "week": "주간",
+      "month": "월간",
+      "total": "전체"
     }
   },
   "recruitmentPage": {
-    "loading": "포지션 로드 중...",
-    "empty": "채용 포지션 없음",
-    "defaultSubtitle": "우리 팀에 합류하세요",
-    "requirementsTitle": "자격 요건",
-    "emptyRequirements": "구체적인 요건 없음",
-    "benefitsTitle": "복리 후생",
-    "emptyBenefits": "복리 후생 없음",
+    "loading": "로딩 중...",
+    "empty": "채용 계획이 없습니다",
+    "defaultSubtitle": "채용 계획",
+    "requirementsTitle": "채용 요건",
+    "emptyRequirements": "요건이 없습니다",
+    "benefitsTitle": "전용 혜택",
+    "emptyBenefits": "혜택이 없습니다",
     "cta": {
-      "title": "합류할 준비가 되셨나요?",
-      "subtitle": "이력서와 포트폴리오를 보내주세요",
-      "button": "지금 지원"
+      "title": "우리와 함께할 준비가 되셨나요?",
+      "subtitle": "지금 신청하여 트레이더가 되고 전용 성장 경로를 시작하세요",
+      "button": "지금 신청"
     }
   },
   "shareContentPage": {
     "modelIconAlt": "모델 아이콘",
-    "defaultModelName": "AI 모델",
-    "aiGenerated": "AI 생성",
-    "tokenCostLabel": "토큰 수"
+    "defaultModelName": "AI 스마트 대화",
+    "aiGenerated": "Zhihui AI 생성",
+    "tokenCostLabel": "Zhihui값 소모: {cost}"
   },
   "businessCardSharePage": {
     "loading": "로딩 중...",
-    "backToList": "목록으로 돌아가기",
-    "notFound": "명함을 찾을 수 없습니다",
+    "backToList": "목록으로",
+    "notFound": "명함이 없습니다",
     "qrAlt": "QR 코드",
     "scanTip": "스캔하여 명함 보기",
     "copied": "복사됨",
@@ -27057,37 +27189,124 @@
   },
   "imageGenPage": {
     "success": "생성 성공",
-    "promptRequired": "프롬프트를 입력해 주세요",
+    "promptRequired": "프롬프트를 입력하세요",
     "title": "AI 이미지 생성",
-    "subtitle": "텍스트 설명에서 이미지 생성",
+    "subtitle": "프롬프트를 입력하여 이미지 생성",
     "promptLabel": "프롬프트",
-    "promptPlaceholder": "원하는 이미지 설명...",
+    "promptPlaceholder": "생성하고 싶은 이미지를 설명...",
     "sizeLabel": "크기",
     "generating": "생성 중...",
-    "generate": "생성",
+    "generate": "이미지 생성",
     "download": "다운로드"
   },
   "kbEditPage": {
-    "titleRequired": "제목을 입력해 주세요",
-    "contentRequired": "내용을 입력해 주세요",
+    "titleRequired": "제목을 입력하세요",
+    "contentRequired": "내용을 입력하세요",
     "loading": "로딩 중...",
-    "backToList": "목록으로 돌아가기",
-    "notFound": "기사를 찾을 수 없습니다",
-    "title": "기사 편집",
-    "subtitle": "기사 내용 수정",
-    "backToArticle": "기사로 돌아가기",
+    "backToList": "목록으로",
+    "notFound": "글이 없습니다",
+    "title": "글 편집",
+    "subtitle": "지식 베이스 글 내용 수정",
+    "backToArticle": "글로 돌아가기",
     "submitLabel": "저장"
   },
   "learnMapPage": {
-    "defaultTitle": "학습 경로",
-    "defaultDesc": "주제를 단계별로 마스터",
+    "defaultTitle": "학습 맵",
+    "defaultDesc": "학습 경로를 계획하고 단계적으로 지식 포인트를 마스터하세요",
     "totalProgress": "전체 진행률",
     "loading": "로딩 중...",
-    "empty": "학습 콘텐츠 없음",
-    "stageN": "{n}단계",
-    "completed": "완료",
-    "lessonsProgress": "{completed}/{total} 강의",
+    "empty": "학습 경로가 없습니다",
+    "stageN": "제 {n}단계",
+    "completed": "완료됨",
+    "lessonsProgress": "{completed} / {total}강",
     "review": "복습",
-    "continueLearning": "계속하기"
+    "continueLearning": "학습 계속"
+  },
+  "modelsGroupsPage": {
+    "group": {
+      "1": {
+        "name": "기본 그룹",
+        "desc": "모든 신규 사용자의 기본 그룹"
+      },
+      "2": {
+        "name": "롱강구 수학 그룹",
+        "desc": "롱강구 수학 교사 전용 그룹"
+      },
+      "3": {
+        "name": "고등학교 영어 그룹",
+        "desc": "고등학교 영어 교사 전용 그룹"
+      },
+      "4": {
+        "name": "AI 연구 그룹",
+        "desc": "AI 교육 연구 팀"
+      },
+      "5": {
+        "name": "관리자",
+        "desc": "시스템 관리자 그룹"
+      }
+    }
+  },
+  "livePlayPage": {
+    "detailBack": "라이브로 돌아가기",
+    "loading": "로딩 중...",
+    "notFound": "라이브가 존재하지 않습니다",
+    "notLive": "아직 라이브 방송이 시작되지 않았습니다",
+    "viewCount": "{n} 시청",
+    "subscribed": "구독됨",
+    "subscribe": "구독",
+    "share": "공유",
+    "danmuTitle": "댓글 인터랙션",
+    "danmuPlaceholder": "댓글 보내기...",
+    "me": "나"
+  },
+  "memberAddressFormPage": {
+    "recipient": "수령인",
+    "phone": "전화번호",
+    "province": "성",
+    "city": "시",
+    "district": "구",
+    "detailAddress": "상세 주소",
+    "setDefault": "기본 주소로 설정",
+    "save": "저장",
+    "cancel": "취소"
+  },
+  "memberRefundsPage": {
+    "title": "환불 기록",
+    "subtitle": "환불 신청 및 처리 진행 상황을 확인하세요",
+    "loading": "로딩 중...",
+    "empty": "환불 기록이 없습니다",
+    "reason": "사유: {reason}",
+    "status": {
+      "pending": "심사 중",
+      "approved": "승인됨",
+      "rejected": "거절됨",
+      "completed": "완료"
+    }
+  },
+  "modelsReferralPage": {
+    "title": "초대 보상",
+    "subtitle": "친구를 초대하면 양쪽 모두 보상을 받을 수 있습니다",
+    "link": {
+      "title": "내 초대 링크",
+      "tip": "전용 초대 링크를 친구에게 공유하세요",
+      "copy": "링크 복사",
+      "reward": "친구가 가입하고 ¥10 이상 소비하면 {amount} 보상을 받습니다"
+    },
+    "stats": {
+      "invited": "초대됨",
+      "activated": "활성화됨",
+      "reward": "누적 보상"
+    },
+    "list": {
+      "title": "초대 기록",
+      "user": "사용자",
+      "joined": "가입 시간",
+      "reward": "보상",
+      "status": "상태",
+      "statusLabels": {
+        "activated": "활성화됨",
+        "pending": "활성화 대기"
+      }
+    }
   }
 }
