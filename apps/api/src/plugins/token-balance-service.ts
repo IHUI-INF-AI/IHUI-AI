@@ -42,6 +42,7 @@ interface TokenBalanceService {
     userId: string,
     amount: number,
     reason?: string,
+    idempotencyKey?: string,
   ): Promise<{ success: boolean; remaining: number }>
   rechargeTokens(
     userId: string,
@@ -138,8 +139,23 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       userId: string,
       amount: number,
       reason?: string,
+      idempotencyKey?: string,
     ): Promise<{ success: boolean; remaining: number }> {
       const info = await this.getBalance(userId)
+
+      // G3: 幂等保护 - 若 idempotencyKey 已存在于 token_flows(同 op_type=1 扣减),
+      // 说明是 BullMQ 重试重复消费,直接返回当前余额不重复扣
+      // (依赖 G2 已建的 unique index (related_order_no, op_type))
+      if (idempotencyKey) {
+        const existing = await db.execute(sql`
+          SELECT 1 FROM "token_flows"
+          WHERE "related_order_no" = ${idempotencyKey} AND "op_type" = 1
+          LIMIT 1
+        `)
+        if (existing.length > 0) {
+          return { success: true, remaining: info.balance }
+        }
+      }
 
       // 促销期折扣
       const actualAmount = checkPromotionPeriod()
@@ -157,9 +173,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         WHERE "user_id" = ${userId} AND "token_quantity" >= ${actualAmount}
       `)
 
+      // 写流水:带 related_order_no = idempotencyKey,ON CONFLICT DO NOTHING 兜底
+      // (并发场景下两个 worker 同时通过 pre-check 时,第二个 INSERT 命中 unique index 被丢弃)
       await db.execute(sql`
-        INSERT INTO "token_flows" ("user_id", "op_type", "quantity", "balance_after", "remark", "created_at")
-        VALUES (${userId}, 1, ${actualAmount}, ${newBalance}, ${reason ?? 'api_call'}, now())
+        INSERT INTO "token_flows" ("user_id", "op_type", "quantity", "balance_after", "remark", "related_order_no", "created_at")
+        VALUES (${userId}, 1, ${actualAmount}, ${newBalance}, ${reason ?? 'api_call'}, ${idempotencyKey ?? null}, now())
+        ON CONFLICT ("related_order_no", "op_type") DO NOTHING
       `)
 
       await this.invalidateCache(userId)

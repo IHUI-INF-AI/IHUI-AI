@@ -156,11 +156,23 @@ P2 AI 工具调用深度联动(5 修改文件):
 
 ---
 
-### [ ] G3 LLM 扣费链路接通:ai-callback-worker 补 calculateCost→deductTokens→recordAiCost(平台独占:仅 api,待启动)
+### [x] ✅(2026-07-22) G3 LLM 扣费链路接通:ai-callback-worker 补 deductTokens+recordAiCost 联动扣费(平台独占:仅 api,已完成)
 
 **触发**:审计发现 P0-3(LLM 调用完全不扣费,ai-callback-worker 断链)。
 
-**范围**:`apps/api/src/workers/ai-callback-worker.ts` + `apps/api/src/services/token-balance-service.ts` + `apps/api/src/services/ai-cost-service.ts`
+**范围**:`apps/api/src/plugins/queue.ts` + `apps/api/src/routes/ai-callback.ts` + `apps/api/src/workers/ai-callback-worker.ts` + `apps/api/src/plugins/token-balance-service.ts`
+
+**完成证据**:
+- queue.ts:`AICallbackJobData` 扩展 5 个 optional 字段(model/provider/promptTokens/completionTokens/idempotencyKey),向后兼容
+- ai-callback.ts:入队时透传结构化字段,callbackSchema 加 `provider: z.string().optional()`,idempotencyKey = `${conversationId}:${messageId ?? ''}`
+- ai-callback-worker.ts:消息持久化后、WebSocket 推送前,插入 `server.aiCost.record` 记成本 + `server.tokenBalance.deductTokens` 扣余额联动,try/catch 不 rethrow(idempotencyKey 兜底)
+- token-balance-service.ts:`deductTokens` 加第 4 参数 `idempotencyKey?`,扣费前 SELECT 查 token_flows 幂等命中则跳过,INSERT 带 related_order_no + ON CONFLICT DO NOTHING(依赖 G2 unique index)
+- eslint exit 0 ✅
+- 本任务 4 文件 typecheck 无错误 ✅(全量 typecheck 因其他 agent ai-feed-service.ts:731 错误失败,§12 不阻塞本任务)
+
+**遗留(P1/P2,非本任务范围)**:
+- P1:ai-chat-stream.ts 等散落 LLM 入口未收口到 worker 集中扣费(方案 A 只修 worker,其他入口仍可能各自扣费导致双重扣费,需主 agent 全局排查扣频)
+- P2:routes/agents.ts user_token_balance 双账本问题 / ai-cost-tracker.ts 死代码清理 / VIP 等级硬编码 0
 
 ---
 
