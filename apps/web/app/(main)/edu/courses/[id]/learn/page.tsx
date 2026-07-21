@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import {
   ArrowLeft,
   PlayCircle,
@@ -46,6 +46,7 @@ export default function EduCourseLearnPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const locale = useLocale()
+  const t = useTranslations('eduCourseLearnPage')
   const qc = useQueryClient()
   const [currentSec, setCurrentSec] = React.useState<Section | null>(null)
   const [noteText, setNoteText] = React.useState('')
@@ -100,7 +101,7 @@ export default function EduCourseLearnPage() {
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
 
@@ -113,9 +114,9 @@ export default function EduCourseLearnPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回课程详情
+          {t('backToDetail')}
         </button>
-        <Alert variant="danger" description={(error as Error)?.message ?? '加载失败'} />
+        <Alert variant="danger" description={(error as Error)?.message ?? t('loadFailed')} />
       </div>
     )
   }
@@ -130,7 +131,7 @@ export default function EduCourseLearnPage() {
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回课程详情
+        {t('backToDetail')}
       </Link>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
@@ -158,13 +159,13 @@ export default function EduCourseLearnPage() {
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm">
                 <NotebookPen className="h-4 w-4 text-primary" />
-                学习笔记
+                {t('notes')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="space-y-2">
                 <Label htmlFor="note" className="text-xs">
-                  记录本节重点
+                  {t('noteLabel')}
                 </Label>
                 <textarea
                   id="note"
@@ -172,7 +173,7 @@ export default function EduCourseLearnPage() {
                   onChange={(e) => setNoteText(e.target.value)}
                   rows={3}
                   className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  placeholder="输入笔记内容..."
+                  placeholder={t('notePlaceholder')}
                 />
               </div>
               <Button
@@ -181,7 +182,7 @@ export default function EduCourseLearnPage() {
                 onClick={() => noteMut.mutate()}
               >
                 {noteMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                保存笔记
+                {t('saveNote')}
               </Button>
               {noteMut.isError && (
                 <p className="text-xs text-destructive">{(noteMut.error as Error)?.message}</p>
@@ -193,7 +194,7 @@ export default function EduCourseLearnPage() {
         <div className="space-y-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">章节目录</CardTitle>
+              <CardTitle className="text-sm">{t('sections')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-0.5 p-2">
               {sections.map((s, i) => (
@@ -223,7 +224,7 @@ export default function EduCourseLearnPage() {
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-sm">
                 <HelpCircle className="h-4 w-4 text-primary" />
-                问答
+                {t('qa')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -231,7 +232,7 @@ export default function EduCourseLearnPage() {
                 <Input
                   value={qaText}
                   onChange={(e) => setQaText(e.target.value)}
-                  placeholder="提问..."
+                  placeholder={t('qaPlaceholder')}
                   className="h-8 text-xs"
                 />
                 <Button
@@ -245,7 +246,7 @@ export default function EduCourseLearnPage() {
               </div>
               <div className="max-h-64 space-y-2 overflow-y-auto">
                 {(qaList ?? []).length === 0 ? (
-                  <p className="py-4 text-center text-xs text-muted-foreground">暂无问答</p>
+                  <p className="py-4 text-center text-xs text-muted-foreground">{t('qaEmpty')}</p>
                 ) : (
                   (qaList ?? []).map((qa) => (
                     <div key={qa.id} className="rounded-md border p-2">
