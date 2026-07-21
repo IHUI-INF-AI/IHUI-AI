@@ -70,10 +70,15 @@ export const useAuthStore = create<AuthState>()(
         })
       },
     }),
+    // 2026-07-21 安全审计加固:严禁把 token / refreshToken 持久化到 localStorage
+    // 原因:localStorage 可被任意 JavaScript 读取,任何 XSS 漏洞
+    // (含第三方依赖的间接 XSS) 都会让攻击者通过 localStorage.getItem('ihui-auth')
+    // 直接拿到 access_token + refresh_token,造成全账户劫持
+    // 修复:仅持久化非敏感 UI 状态(isAuthenticated + user)到 localStorage
+    // access_token 改用 httpOnly cookie(由后端 Set-Cookie 写入,JS 无法读取)
+    // refresh_token 必须由后端管理(httpOnly cookie + 定期轮换)
+    // 此处仅保留 isAuthenticated 标志位用于 UI 渲染决策
     createPersistConfig<AuthState>('ihui-auth', (s) => ({
-      token: s.token,
-      refreshToken: s.refreshToken,
-      expiresIn: s.expiresIn,
       isAuthenticated: s.isAuthenticated,
       user: s.user,
     })),
