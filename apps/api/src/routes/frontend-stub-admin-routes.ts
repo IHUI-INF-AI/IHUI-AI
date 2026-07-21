@@ -357,8 +357,8 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     '/admin/api-platform/packages',
     { preHandler: requireAdmin },
     async (_request, reply) => {
-      // api_platform_packages 表未在 packages/database 中定义,暂返回 501
-      return reply.status(501).send(error(501, 'api-platform packages 模块待表设计后实现'))
+      // api_platform_packages 表未在 packages/database 中定义,无前端 PATCH 调用方
+      return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
     },
   )
   server.get(
@@ -601,59 +601,63 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ deleted: true, id: row.id }))
     },
   )
+  // 存根端点业务必要性评估 (2026-07-21):
+  // - [no-callsite] → 410 Gone 风格,前端可拿到明确错误码
+  // - [has-callsite] → 保留原 echo 风格,加 TODO 注释留给业务方评估
   server.put('/admin/edu/classes', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.put(
     '/admin/learn/lessons/:id/chapters',
     async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({ updated: true }))
+      return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
     },
   )
 
   server.put(
     '/admin/edu/exam/arrangements',
     async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({ updated: true }))
+      return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
     },
   )
   server.put('/admin/edu/exam/templates', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.put('/admin/learn/community', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.put('/admin/learn/homework', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.put('/admin/live/channels', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.put('/admin/learn/maps', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.put('/admin/learn/materials', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.put('/admin/learn/lessons', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.put('/admin/learn/plans', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.put('/admin/learn/reminds', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.post(
     '/admin/learn/signup-batchlesson/:id/retry',
     async (_request: FastifyRequest, reply: FastifyReply) => {
+      // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
       return reply.status(201).send(success({ created: true, id: randomUUID() }))
     },
   )
   server.put(
     '/admin/learn/premium-topics',
     async (_request: FastifyRequest, reply: FastifyReply) => {
-      return reply.send(success({ updated: true }))
+      return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
     },
   )
   server.put('/admin/member-levels/:id', { preHandler: requireAdmin }, async (request, reply) => {
@@ -688,6 +692,7 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(row))
   })
   server.post('/admin/users/:id/review', async (_request: FastifyRequest, reply: FastifyReply) => {
+    // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
     return reply.status(201).send(success({ created: true, id: randomUUID() }))
   })
   server.put('/admin/user-platform/:id', { preHandler: requireAdmin }, async (request, reply) => {
@@ -711,36 +716,41 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     },
   )
   server.patch('/admin/help/articles', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.put('/admin/learn/categories', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.put('/admin/live/categories', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.post('/admin/users/:id/audit', async (_request: FastifyRequest, reply: FastifyReply) => {
+    // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
     return reply.status(201).send(success({ created: true, id: randomUUID() }))
   })
   server.put('/admin/members/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.post(
     '/admin/monitor/alerts/:id/ack',
     async (_request: FastifyRequest, reply: FastifyReply) => {
+      // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
       return reply.status(201).send(success({ created: true, id: randomUUID() }))
     },
   )
   server.post(
     '/admin/monitor/alerts/:id/resolve',
     async (_request: FastifyRequest, reply: FastifyReply) => {
+      // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
       return reply.status(201).send(success({ created: true, id: randomUUID() }))
     },
   )
   server.get('/admin/monitor/funnel/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
+    // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
     return reply.send(success({}))
   })
   server.get('/admin/monitoring/alerts', async (_request: FastifyRequest, reply: FastifyReply) => {
+    // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
     return reply.send(success({ list: [], total: 0 }))
   })
 
@@ -762,12 +772,14 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ id, deleted: true }))
   })
   server.post('/admin/oss/files', async (_request: FastifyRequest, reply: FastifyReply) => {
+    // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
     return reply.status(201).send(success({ created: true, id: randomUUID() }))
   })
   server.patch('/admin/oss/drivers', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.get('/admin/system/posts', async (_request: FastifyRequest, reply: FastifyReply) => {
+    // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
     return reply.send(success({ list: [], total: 0 }))
   })
   server.put(
@@ -797,40 +809,46 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
   server.delete(
     '/admin/roles/:id/users/:id',
     async (_request: FastifyRequest, reply: FastifyReply) => {
+      // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
       return reply.send(success({ deleted: true }))
     },
   )
   server.delete('/admin/roles/:id/users', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ deleted: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.post('/admin/roles/:id/users', async (_request: FastifyRequest, reply: FastifyReply) => {
+    // TODO: 业务方需评估,当前有前端调用 [callsite-count=2]
     return reply.status(201).send(success({ created: true, id: randomUUID() }))
   })
   server.post(
     '/admin/shop/payments/:id/ship',
     async (_request: FastifyRequest, reply: FastifyReply) => {
+      // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
       return reply.status(201).send(success({ created: true, id: randomUUID() }))
     },
   )
   server.patch('/admin/shop/products', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.put('/admin/shop/withdrawals', async (_request: FastifyRequest, reply: FastifyReply) => {
-    return reply.send(success({ updated: true }))
+    return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.post(
     '/admin/shop/withdrawals/:id/:id',
     async (_request: FastifyRequest, reply: FastifyReply) => {
+      // TODO: 业务方需评估,当前有前端调用 [callsite-count=2]
       return reply.status(201).send(success({ created: true, id: randomUUID() }))
     },
   )
 
   server.get('/admin/system/tasks/logs', async (_request: FastifyRequest, reply: FastifyReply) => {
+    // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
     return reply.send(success({ list: [], total: 0 }))
   })
   server.post(
     '/admin/system/tasks/:id/run',
     async (_request: FastifyRequest, reply: FastifyReply) => {
+      // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
       return reply.status(201).send(success({ created: true, id: randomUUID() }))
     },
   )
