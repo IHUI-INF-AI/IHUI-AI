@@ -537,7 +537,13 @@
       "community": "コミュニティ",
       "resource": "リソースセンター",
       "developer": "デベロッパーセンター"
-    }
+    },
+    "adminGroupLabel": "管理",
+    "eduGroup": "AI教育",
+    "contentGroup": "コンテンツ",
+    "tradeGroup": "取引",
+    "personalGroup": "個人",
+    "developerGroup": "開発者"
   },
   "auth": {
     "loginTitle": "おかえりなさい",
@@ -1143,7 +1149,8 @@
       "noTarget": "未選択",
       "itemCount": "{count, plural, =0 {フォルダなし} =1 {1 フォルダ} other {{count} フォルダ}}",
       "itemCountFiltered": "{filtered} / {total} 件表示",
-      "shortcutsHint": "↑↓ 移動 · Enter 開く/入る · Backspace 上の階層"
+      "shortcutsHint": "↑↓ 移動 · Enter 開く/入る · Backspace 上の階層",
+      "rowOpenHint": "開く"
     },
     "permission": {
       "title": "ワークスペースアクセス権限",
@@ -1791,7 +1798,18 @@
       "stripe": "ストライプ",
       "usdc": "ＵＳＤＣ",
       "payNow": "い",
-      "processing": "..."
+      "processing": "...",
+      "paySuccess": "支払いが成功しました",
+      "payIncomplete": "支払いが未完了です",
+      "payTimeout": "支払いがタイムアウトしました。再試行してください",
+      "orderClosed": "注文が閉じられました",
+      "payConfigNotReady": "支払い設定が未完了です",
+      "contactAdmin": "管理者にお問い合わせください",
+      "methodNotSupported": "サポートされていない支払い方法です",
+      "wechatScanTitle": "WeChat スキャン決済",
+      "wechatScanDesc": "下記の QR コードを WeChat でスキャンしてください。支払い完了後に自動的にリダイレクトします。",
+      "wechatQrAlt": "WeChat Pay QR コード",
+      "loading": "読み込み中..."
     }
   },
   "admin": {
@@ -9421,7 +9439,15 @@
       "noTemplate": "このプロバイダにはテンプレートがありません。「設定 → LLM 設定」で手動追加してください。",
       "securityHint": "API Key は AES-256-GCM で暗号化保存され、アカウントのみ閲覧可能。平文で保存・第三者送信されません。",
       "fullConfigHint": "コンテキスト長 / メモ / カスタム Base URL を編集するには",
-      "openFullConfig": "詳細設定ページ →"
+      "openFullConfig": "詳細設定ページ →",
+      "errSelectPlatform": "プラットフォームを選択してください",
+      "errApiKeyRequired": "APIキーを入力してください",
+      "errModelIdRequired": "モデルIDを入力してください",
+      "errNoTemplate": "このプロバイダーにはテンプレートがありません",
+      "defaultConfigName": "マイ設定",
+      "official": "公式",
+      "cancel": "キャンセル",
+      "testDuration": "所要時間: {ms}ms"
     },
     "providers": {
       "openai": "オープンＡＩ",
@@ -9652,7 +9678,11 @@
       "resetFilters": "フィルターをリセット",
       "configureKey": "API キーを設定",
       "updateKey": "キーを更新",
-      "configureKeyHint": "このモデルは使用前に API キーの設定が必要です。クリックして簡単設定。"
+      "configureKeyHint": "このモデルは使用前に API キーの設定が必要です。クリックして簡単設定。",
+      "ariaLabel": {
+        "addFavorite": "お気に入りに追加",
+        "removeFavorite": "お気に入りから削除"
+      }
     },
     "aiNews": {
       "title": "2026-07 AI ニュース",
@@ -13733,26 +13763,62 @@
     "downloadToView": "ダウンロード"
   },
   "commandPalette": {
-    "placeholder": "...",
-    "escToAbort": "ESC じる",
-    "enter": "Enter",
-    "navigate": "ナビゲーション",
-    "execute": "実行",
-    "systemReady": "システムすぐ",
-    "cpuOptimized": "パフォーマンス最適化",
-    "noResults": "までマッチの",
-    "systemInternal": "システム",
+    "searchPlaceholder": "コマンドを検索...",
+    "noResults": "一致するコマンドが見つかりません",
+    "keyboardHint": "↑↓ 選択 · Enter 実行",
+    "resultCount": "{count} 件の結果",
     "commands": {
-      "home": "ホーム",
-      "store": "aiアプリ",
-      "plaza": "プラザ",
-      "learnAI": "AIを学ぶ",
-      "community": "aiコミュニティ",
-      "docs": "ドキュメント",
-      "about": "について",
-      "darkMode": "ダークモード切替",
-      "aiAssistant": "くai",
-      "backToTop": "トップへ"
+      "chat": {
+        "label": "AIチャット",
+        "description": "新しいAI会話を開始",
+        "keywords": [
+          "AI",
+          "チャット",
+          "会話"
+        ]
+      },
+      "drama": {
+        "label": "AIショートドラマ",
+        "description": "AIショートドラマコンテンツを作成",
+        "keywords": [
+          "短劇",
+          "ドラマ",
+          "動画"
+        ]
+      },
+      "search": {
+        "label": "検索",
+        "description": "コンテンツ、ユーザー、タグを検索",
+        "keywords": [
+          "検索",
+          "探す",
+          "search"
+        ]
+      },
+      "ai-world": {
+        "label": "AIワールド",
+        "description": "AIワールドを探索",
+        "keywords": [
+          "AIワールド",
+          "探索"
+        ]
+      },
+      "profile": {
+        "label": "プロフィール",
+        "description": "プロフィールを表示",
+        "keywords": [
+          "プロフィール",
+          "個人"
+        ]
+      },
+      "settings": {
+        "label": "設定",
+        "description": "アプリの設定を変更",
+        "keywords": [
+          "設定",
+          "環境設定"
+        ]
+      }
     }
   },
   "routes": {
@@ -26758,5 +26824,253 @@
     "yuan": "元",
     "minSpend": "最低利用額 {amount}",
     "validUntil": "有効期限:{date}"
+  },
+  "answerArea": {
+    "thinking": {
+      "title": "思考プロセス",
+      "collapse": "折りたたむ",
+      "expand": "展開する"
+    },
+    "image": {
+      "alt": "画像 {index}",
+      "previewAlt": "画像 {index} プレビュー",
+      "close": "閉じる",
+      "prev": "前へ",
+      "next": "次へ"
+    },
+    "audio": {
+      "playFailed": "音声の再生に失敗しました",
+      "pause": "一時停止",
+      "play": "再生"
+    }
+  },
+  "agentRuntimePanel": {
+    "title": "Agent ランタイム",
+    "clear": "クリア",
+    "plan": "実行計画",
+    "permissionDecision": "権限決定: {decision}",
+    "permissionMeta": "ツール: {tool} · レベル: {level} · モード: {mode}",
+    "unknownTool": "不明",
+    "defaultLevel": "読み取り",
+    "output": "出力",
+    "error": "エラー",
+    "cancelledTitle": "タスクがキャンセルされました",
+    "cancelledBody": "現在の実行を停止しました。続行するには入力を編集して再度実行してください。",
+    "emptyState": "タスクを入力して Agent 実行を開始",
+    "placeholder": "タスクを入力...",
+    "stop": "停止",
+    "execute": "実行"
+  },
+  "musicGenerator": {
+    "title": "音楽生成",
+    "generate": "音楽を生成",
+    "genreLabel": "ジャンル",
+    "durationLabel": "長さ",
+    "download": "ダウンロード",
+    "placeholder": "生成する音楽を説明してください...",
+    "genre": {
+      "pop": "ポップ",
+      "classical": "クラシック",
+      "electronic": "エレクトロニック",
+      "jazz": "ジャズ",
+      "rock": "ロック"
+    },
+    "duration": {
+      "15": "15 秒",
+      "30": "30 秒",
+      "60": "60 秒"
+    }
+  },
+  "cronEditor": {
+    "title": "Cron 式エディタ",
+    "everyField": "{field}ごと",
+    "stepPrefix": "毎",
+    "specificPlaceholder": "{min}-{max}, カンマ区切り",
+    "recentRuns": "直近 5 件の実行",
+    "field": {
+      "minute": "分",
+      "hour": "時間",
+      "day": "日",
+      "month": "月",
+      "weekday": "曜日"
+    },
+    "mode": {
+      "every": "毎",
+      "step": "ステップ",
+      "range": "範囲",
+      "specific": "指定"
+    }
+  },
+  "videoGenerator": {
+    "title": "動画生成",
+    "generate": "動画を生成",
+    "providerLabel": "プロバイダー",
+    "durationLabel": "長さ",
+    "download": "ダウンロード",
+    "placeholder": "生成する動画を説明してください...",
+    "provider": {
+      "qwen": "Qwen",
+      "kling": "Kling",
+      "one-click": "ワンクリック生成"
+    },
+    "duration": {
+      "5": "5 秒",
+      "10": "10 秒",
+      "30": "30 秒"
+    }
+  },
+  "ticketDetailDialog": {
+    "statusPrefix": "ステータス: ",
+    "priorityPrefix": "優先度: ",
+    "descriptionLabel": "問題の説明",
+    "commentsLabel": "コミュニケーション記録",
+    "noComments": "返信なし",
+    "adminRole": "サポート",
+    "userRole": "自分",
+    "replyLabel": "追加返信",
+    "replyPlaceholder": "追加内容を入力...",
+    "send": "送信",
+    "myRating": "私の評価",
+    "serviceRating": "サービス評価",
+    "ratingCommentPlaceholder": "評価コメント（任意）",
+    "submitRating": "評価を送信",
+    "status": {
+      "pending": "保留中",
+      "open": "処理中",
+      "resolved": "解決済み",
+      "closed": "クローズ",
+      "rejected": "却下"
+    },
+    "priority": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "urgent": "緊急"
+    }
+  },
+  "memberSubscriptionPage": {
+    "title": "サブスクリプション管理",
+    "subtitle": "現在のサブスクリプションを管理、更新またはキャンセル",
+    "loading": "読み込み中...",
+    "noSubscription": "まだ会員プランに登録していません",
+    "subscribeNow": "今すぐ登録",
+    "subscriptionAmount": "サブスクリプション金額",
+    "autoRenew": "自動更新",
+    "autoRenewOn": "有効",
+    "autoRenewOff": "無効",
+    "renewNow": "今すぐ更新",
+    "cancelSubscription": "サブスクリプションをキャンセル",
+    "status": {
+      "active": "有効",
+      "cancelled": "キャンセル済み",
+      "expired": "期限切れ"
+    }
+  },
+  "resourcesEditPage": {
+    "loading": "読み込み中...",
+    "backToList": "リソース一覧に戻る",
+    "editTitle": "リソースを編集",
+    "createTitle": "リソースを公開",
+    "errTitleRequired": "タイトルを入力してください",
+    "errTypeRequired": "リソースタイプを選択してください",
+    "errProductIdRequired": "製品 ID を入力してください",
+    "errIntroductionRequired": "リソースの紹介を入力してください",
+    "errCategoryRequired": "カテゴリを少なくとも 1 つ選択してください"
+  },
+  "toolsPdfSplitPage": {
+    "title": "PDF 分割",
+    "description": "PDF をページ範囲、固定ページ数、またはブックマークで複数ファイルに分割します",
+    "uploadLabel": "クリックまたは PDF ファイルをドラッグしてアップロード",
+    "removeFile": "削除",
+    "modeLabel": "分割モード",
+    "mode": {
+      "range": "ページ範囲で",
+      "every": "N ページごと",
+      "bookmarks": "ブックマークで"
+    },
+    "rangesLabel": "ページ範囲（カンマ区切り、例: 1-3,5,7-10）",
+    "everyLabel": "ファイルごとのページ数",
+    "bookmarksHint": "PDF の組み込みブックマーク（レベル 1）に基づいて自動的に複数ファイルに分割します。",
+    "submit": "分割",
+    "submitting": "分割中...",
+    "resultHint": "分割が完了しました。結果は ZIP にパッケージ化されています："
+  },
+  "supportNewTicketForm": {
+    "errTitleMin": "タイトルは 2 文字以上で入力してください",
+    "errDescMin": "説明は 10 文字以上で入力してください",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "問題を簡潔に説明してください",
+    "categoryLabel": "カテゴリ",
+    "categoryPlaceholder": "カテゴリを選択",
+    "priorityLabel": "優先度",
+    "priority": {
+      "low": "低",
+      "medium": "中",
+      "high": "高",
+      "urgent": "緊急"
+    },
+    "descLabel": "問題の説明",
+    "descPlaceholder": "問題を詳しく説明してください（10 文字以上）",
+    "cancel": "キャンセル",
+    "submit": "チケットを送信"
+  },
+  "h5SharePage": {
+    "loading": "読み込み中...",
+    "errorDefault": "共有リンクが無効または期限切れです",
+    "retry": "再試行",
+    "copyFail": "コピーに失敗しました。手動でコピーしてください",
+    "shareTitleWithUser": "{user} さんの共有",
+    "shareTitleDefault": "IHUI AI 共有",
+    "wechatShareTip": "右上の···をタップして「友達に共有」を選択するか、リンクをコピーして送信してください",
+    "questionLabel": "質問",
+    "thinkingLabel": "思考プロセス",
+    "answerLabel": "回答",
+    "imageAlt": "画像 {n}",
+    "contentAlt": "コンテンツ {n}",
+    "copied": "コピー済み",
+    "copyLink": "リンクをコピー",
+    "wechatShare": "WeChat で共有"
+  },
+  "contactPage": {
+    "badge": "お問い合わせ",
+    "title": "お問い合わせ",
+    "subtitle": "ビジネス提携、コース相談、エンタープライズサービスのカスタマイズなど、お気軽にお問い合わせください。チームが24時間以内に返信します。",
+    "loading": "読み込み中...",
+    "addressTitle": "会社住所",
+    "merchantIdLabel": "WeChat Pay マーチャント ID",
+    "ctaTitle": "今すぐ IHUI AI コミュニティに参加",
+    "ctaSubtitle": "早期鳥価格 ¥6000/人/年、18席限定。1対1 AIコンサルタント。不満の場合は全額返金。",
+    "ctaJoin": "今すぐ参加",
+    "ctaLearnMore": "詳細を見る"
+  },
+  "kbArticleForm": {
+    "articleInfo": "記事情報",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "記事のタイトルを入力",
+    "summaryLabel": "概要",
+    "summaryPlaceholder": "記事の内容を一文で説明してください",
+    "categoryLabel": "カテゴリー",
+    "categoryPlaceholder": "カテゴリーを選択",
+    "tagsLabel": "タグ",
+    "contentLabel": "本文(Markdown)",
+    "contentPlaceholder": "Markdown 構文をサポート...",
+    "cancel": "キャンセル",
+    "publish": "公開"
+  },
+  "securityAuditPage": {
+    "title": "セキュリティ監査",
+    "subtitle": "アカウントセキュリティ関連のイベントを表示（マスキング済み）",
+    "loading": "読み込み中...",
+    "empty": "セキュリティイベントはありません",
+    "colType": "タイプ",
+    "colDesc": "説明",
+    "colIp": "IP",
+    "colTime": "時間",
+    "type": {
+      "login": "ログイン記録",
+      "permission": "権限変更",
+      "sensitive": "機密操作",
+      "other": "その他"
+    }
   }
 }

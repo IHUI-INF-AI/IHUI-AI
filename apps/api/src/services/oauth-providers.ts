@@ -1,12 +1,13 @@
 /**
  * OAuth 第三方登录服务。
- * 支持 Google / 微信小程序 / 企业微信（WeCom suite）/ 钉钉（DingTalk）。
- * 密钥配置留空时降级为 mock 模式（DEV）。
+ * 支持 Google / 微信小程序 / 企业微信(自建应用 PC 网页扫码 + suite 模式)/ 钉钉(DingTalk)。
+ * 密钥配置留空时降级为 mock 模式(DEV)。
  *
- * 密钥配置（.env）:
+ * 密钥配置(.env):
  * - GOOGLE_APP_ID / GOOGLE_ANDROID_ID / GOOGLE_SECRET / GOOGLE_PC_REDIRECT_URI
  * - WX_MINI_APPID / WX_MINI_SECRET
- * - WECOM_SECRET (suite_secret) / WECOM_SUITE_ID
+ * - WECOM_CORP_ID / WECOM_AGENT_ID / WECOM_SECRET(自建应用 PC 网页扫码)
+ * - WECOM_SECRET / WECOM_SUITE_ID / WECOM_SUITE_TICKET(suite 模式,仅小程序场景)
  * - DINGTALK_APP_KEY / DINGTALK_APP_SECRET / DINGTALK_REDIRECT_URI
  */
 
@@ -148,7 +149,15 @@ export async function generateQrcode(scene: string, page: string): Promise<Buffe
 }
 
 // ============================================================================
-// 企业微信（WeCom suite）
+// 企业微信（WeCom）
+// ----------------------------------------------------------------------------
+// 支持两种模式:
+//   1. 自建应用 PC 网页扫码(WECOM_CORP_ID + WECOM_AGENT_ID + WECOM_SECRET)— 当前启用
+//   2. 第三方应用服务商 suite 模式(WECOM_SUITE_ID + WECOM_SECRET + WECOM_SUITE_TICKET)— 仅小程序场景
+//
+// 配置(.env):
+//   - 自建应用:WECOM_CORP_ID / WECOM_AGENT_ID / WECOM_SECRET
+//   - suite 模式:WECOM_SECRET / WECOM_SUITE_ID / WECOM_SUITE_TICKET
 // ============================================================================
 
 export interface WecomSession {
@@ -158,11 +167,70 @@ export interface WecomSession {
   corpId: string
 }
 
+/** 自建应用 PC 网页扫码是否已配置 */
 export function isWecomConfigured(): boolean {
+  return Boolean(env.WECOM_CORP_ID && env.WECOM_SECRET && env.WECOM_AGENT_ID)
+}
+
+/** 第三方应用服务商 suite 模式是否已配置 */
+export function isWecomSuiteConfigured(): boolean {
   return Boolean(env.WECOM_SECRET && env.WECOM_SUITE_ID)
 }
 
-/** 获取 suite_access_token */
+let cachedWecomAccessToken: { token: string; expiresAt: number } | null = null
+
+/** 获取企业微信自建应用 access_token(corpid + corpsecret) */
+async function getWecomAccessToken(): Promise<string> {
+  const now = Date.now()
+  if (cachedWecomAccessToken && cachedWecomAccessToken.expiresAt > now + 60000) {
+    return cachedWecomAccessToken.token
+  }
+  const url = `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${env.WECOM_CORP_ID}&corpsecret=${env.WECOM_SECRET}`
+  const resp = await fetch(url)
+  if (!resp.ok) throw new Error(`WeCom gettoken failed: ${resp.status}`)
+  const data = (await resp.json()) as { access_token?: string; expires_in?: number; errcode?: number; errmsg?: string }
+  if (!data.access_token) {
+    throw new Error(`WeCom gettoken error: ${data.errcode ?? '?'} ${data.errmsg ?? ''}`)
+  }
+  cachedWecomAccessToken = {
+    token: data.access_token,
+    expiresAt: now + (data.expires_in ?? 7200) * 1000,
+  }
+  return data.access_token
+}
+
+/**
+ * 自建应用 PC 网页扫码:用授权 code 换用户身份。
+ * 文档:https://developer.work.weixin.qq.com/document/path/91023
+ * 返回的 userId 是企业内的 userid(用于唯一标识用户)。
+ */
+export async function wecomPcCode2session(code: string): Promise<WecomSession> {
+  const accessToken = await getWecomAccessToken()
+  const url = `https://qyapi.weixin.qq.com/cgi-bin/auth/getuserinfo?access_token=${accessToken}&code=${code}`
+  const resp = await fetch(url)
+  if (!resp.ok) throw new Error(`WeCom getuserinfo failed: ${resp.status}`)
+  const data = (await resp.json()) as {
+    userid?: string
+    open_userid?: string
+    corpid?: string
+    errcode?: number
+    errmsg?: string
+  }
+  if (data.errcode && data.errcode !== 0) {
+    throw new Error(`WeCom getuserinfo error: ${data.errcode} ${data.errmsg ?? ''}`)
+  }
+  if (!data.userid && !data.open_userid) {
+    throw new Error('WeCom getuserinfo: 未返回 userid 或 open_userid')
+  }
+  return {
+    userId: data.userid ?? data.open_userid ?? '',
+    sessionKey: '',
+    openUserId: data.open_userid ?? data.userid ?? '',
+    corpId: data.corpid ?? env.WECOM_CORP_ID ?? '',
+  }
+}
+
+/** suite 模式:获取 suite_access_token(仅第三方应用服务商场景) */
 export async function getSuiteAccessToken(): Promise<string> {
   const suiteTicket = env.WECOM_SUITE_TICKET ?? ''
   const resp = await fetch('https://qyapi.weixin.qq.com/cgi-bin/service/get_suite_token', {
@@ -179,7 +247,7 @@ export async function getSuiteAccessToken(): Promise<string> {
   return data.suite_access_token
 }
 
-/** code2session（企业微信小程序） */
+/** suite 模式:code2session(企业微信小程序场景) */
 export async function wecomCode2session(code: string): Promise<WecomSession> {
   const token = await getSuiteAccessToken()
   const url = `https://qyapi.weixin.qq.com/cgi-bin/service/miniprogram/jscode2session?suite_access_token=${token}&js_code=${code}&grant_type=authorization_code`

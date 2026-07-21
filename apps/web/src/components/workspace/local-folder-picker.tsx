@@ -361,6 +361,7 @@ interface EntryRowProps {
 }
 
 function EntryRow({ entry, isSelected, onSelect, onOpen }: EntryRowProps) {
+  const t = useTranslations('workspace.folderPicker')
   return (
     <li>
       <button
@@ -392,7 +393,7 @@ function EntryRow({ entry, isSelected, onSelect, onOpen }: EntryRowProps) {
           )}
         >
           <CornerDownLeft className="h-2.5 w-2.5" />
-          open
+          {t('rowOpenHint')}
         </span>
       </button>
     </li>
