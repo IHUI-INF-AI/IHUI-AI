@@ -6,6 +6,7 @@ import { oauthPrivateKeys } from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { generateApiKey } from '../utils/crypto-random.js'
+import { generateKeyPairSync } from 'node:crypto'
 
 // =============================================================================
 // OAuth 私钥管理(多租户 JWT/RS256 签名密钥轮转)
@@ -56,21 +57,31 @@ const listQuery = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
 
-// 占位密钥生成(生产环境应使用 crypto 生成真实 RSA/EC 密钥对,或对接 KMS)
-function placeholderKey(keyType: string): { privateKey: string; publicKey: string } {
+// 真实密钥生成:RSA/EC 用 crypto.generateKeyPairSync,HMAC 用 CSPRNG
+function generateKeyPair(keyType: string): { privateKey: string; publicKey: string } {
   if (keyType === 'HMAC') {
-    // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成 HMAC secret,
-    // Math.random 可预测 -> 攻击者可重放 JWT/signature 劫持会话
     return {
       privateKey: `hmac-secret-${generateApiKey()}`,
       publicKey: '',
     }
   }
-  // RSA/EC 占位:实际应由 KMS 或 crypto.generateKeyPair 生成
-  return {
-    privateKey: `-----BEGIN PRIVATE KEY-----\nplaceholder-${keyType}-${Date.now()}\n-----END PRIVATE KEY-----`,
-    publicKey: `-----BEGIN PUBLIC KEY-----\nplaceholder-${keyType}-${Date.now()}\n-----END PUBLIC KEY-----`,
+  if (keyType === 'RSA') {
+    const { privateKey, publicKey } = generateKeyPairSync('rsa', {
+      modulusLength: 2048,
+      publicKeyEncoding: { type: 'pkcs1', format: 'pem' },
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    })
+    return { privateKey, publicKey }
   }
+  if (keyType === 'EC') {
+    const { privateKey, publicKey } = generateKeyPairSync('ec', {
+      namedCurve: 'P-256',
+      publicKeyEncoding: { type: 'spki', format: 'pem' },
+      privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    })
+    return { privateKey, publicKey }
+  }
+  throw new Error(`不支持的密钥类型: ${keyType}`)
 }
 
 export const oauthKeysRoutes: FastifyPluginAsync = async (server) => {
@@ -82,7 +93,7 @@ export const oauthKeysRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { clientId, keyType } = parsed.data
-    const { privateKey, publicKey } = placeholderKey(keyType)
+    const { privateKey, publicKey } = generateKeyPair(keyType)
     const [key] = await db
       .insert(oauthPrivateKeys)
       .values({ clientId, privateKey, publicKey, keyType, isActive: 1 })
@@ -90,7 +101,7 @@ export const oauthKeysRoutes: FastifyPluginAsync = async (server) => {
     return reply.status(201).send(success({ key: { ...key, privateKey: '[REDACTED]' } }))
   })
 
-  // POST /rotate - 轮转密钥(旧密钥置 isActive=0,生成新密钥)
+  // POST /rotate - 轮转密钥(旧密钥置 isActive=0 + 新密钥 insert,事务保证原子性)
   server.post('/rotate', async (request, reply) => {
     if (!(await requireAdmin(request, reply))) return
     const parsed = rotateSchema.safeParse(request.body)
@@ -98,17 +109,18 @@ export const oauthKeysRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { clientId, keyType } = parsed.data
-    // 旧密钥全部置 0
-    await db
-      .update(oauthPrivateKeys)
-      .set({ isActive: 0, updatedAt: new Date() })
-      .where(eq(oauthPrivateKeys.clientId, clientId))
-    // 生成新密钥
-    const { privateKey, publicKey } = placeholderKey(keyType)
-    const [key] = await db
-      .insert(oauthPrivateKeys)
-      .values({ clientId, privateKey, publicKey, keyType, isActive: 1 })
-      .returning()
+    const { privateKey, publicKey } = generateKeyPair(keyType)
+    const key = await db.transaction(async (tx) => {
+      await tx
+        .update(oauthPrivateKeys)
+        .set({ isActive: 0, updatedAt: new Date() })
+        .where(eq(oauthPrivateKeys.clientId, clientId))
+      const [newKey] = await tx
+        .insert(oauthPrivateKeys)
+        .values({ clientId, privateKey, publicKey, keyType, isActive: 1 })
+        .returning()
+      return newKey
+    })
     return reply.send(success({ rotated: true, key: { ...key, privateKey: '[REDACTED]' } }))
   })
 
