@@ -81,6 +81,10 @@ export type Provider =
   | 'sensenova'
   | 'skywork'
   | 'internlm'
+  // 2026-07 新增国内新势力厂商
+  | 'ornith'
+  | 'codebrain'
+  | 'mai'
   | 'local'
 
 /**

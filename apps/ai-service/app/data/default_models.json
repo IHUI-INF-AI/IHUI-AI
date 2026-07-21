@@ -900,6 +900,128 @@
       "provider": "ai2",
       "context_length": 4096,
       "input_price": 0
+    },
+
+    {
+      "_seed_2026_07": "new flagship 5.6 系列,3 个分工变体(Sol/通用 / Terra/多模态 / Luna/代码)",
+      "id": "gpt-5.6-sol",
+      "name": "GPT-5.6 Sol (OpenAI 旗舰通用)",
+      "provider": "openai",
+      "context_length": 1048576,
+      "input_price": 5.0
+    },
+    {
+      "id": "gpt-5.6-terra",
+      "name": "GPT-5.6 Terra (OpenAI 多模态)",
+      "provider": "openai",
+      "context_length": 1048576,
+      "input_price": 7.5
+    },
+    {
+      "id": "gpt-5.6-luna",
+      "name": "GPT-5.6 Luna (OpenAI 代码专精)",
+      "provider": "openai",
+      "context_length": 524288,
+      "input_price": 6.0
+    },
+    {
+      "id": "gpt-red",
+      "name": "GPT-Red (OpenAI 推理研究预览)",
+      "provider": "openai",
+      "context_length": 524288,
+      "input_price": 15.0
+    },
+    {
+      "id": "claude-sonnet-5",
+      "name": "Claude Sonnet 5 (Anthropic 新旗舰)",
+      "provider": "anthropic",
+      "context_length": 524288,
+      "input_price": 5.0
+    },
+    {
+      "id": "claude-opus-4.8",
+      "name": "Claude Opus 4.8 (Anthropic 深度推理)",
+      "provider": "anthropic",
+      "context_length": 524288,
+      "input_price": 20.0
+    },
+    {
+      "id": "kimi-k3",
+      "name": "Kimi K3 (Moonshot 长上下文旗舰)",
+      "provider": "moonshot",
+      "context_length": 2097152,
+      "input_price": 0.8
+    },
+    {
+      "id": "gemini-3.5-pro",
+      "name": "Gemini 3.5 Pro (Google 多模态旗舰)",
+      "provider": "google",
+      "context_length": 2097152,
+      "input_price": 2.0
+    },
+    {
+      "id": "grok-4.5",
+      "name": "Grok 4.5 (xAI 实时增强)",
+      "provider": "xai",
+      "context_length": 262144,
+      "input_price": 4.0
+    },
+    {
+      "id": "deepseek-v4-pro",
+      "name": "DeepSeek V4 Pro (国产开源旗舰)",
+      "provider": "deepseek",
+      "context_length": 131072,
+      "input_price": 0.6
+    },
+    {
+      "id": "deepseek-v4-flash",
+      "name": "DeepSeek V4 Flash (国产开源快版)",
+      "provider": "deepseek",
+      "context_length": 131072,
+      "input_price": 0.15
+    },
+    {
+      "id": "glm-5.2",
+      "name": "GLM-5.2 (智谱清言新一代)",
+      "provider": "zhipu",
+      "context_length": 262144,
+      "input_price": 1.0
+    },
+    {
+      "id": "qwen3.7-max",
+      "name": "Qwen3.7 Max (阿里通义千问旗舰)",
+      "provider": "qwen",
+      "context_length": 262144,
+      "input_price": 2.0
+    },
+    {
+      "id": "hunyuan-hy3",
+      "name": "Hunyuan Hy3 (腾讯混元 3 代)",
+      "provider": "hunyuan",
+      "context_length": 262144,
+      "input_price": 1.5
+    },
+    {
+      "_seed_2026_07": "国内新增厂商模型(2026-07 收录)",
+      "id": "ornith-1.0",
+      "name": "Ornith 1.0 (国产新势力)",
+      "provider": "ornith",
+      "context_length": 131072,
+      "input_price": 0.8
+    },
+    {
+      "id": "codebrain-1",
+      "name": "CodeBrain-1 (代码专精模型)",
+      "provider": "codebrain",
+      "context_length": 65536,
+      "input_price": 0.3
+    },
+    {
+      "id": "mai-thinking-1",
+      "name": "MAI-Thinking-1 (深度推理模型)",
+      "provider": "mai",
+      "context_length": 131072,
+      "input_price": 1.2
     }
   ]
 }
