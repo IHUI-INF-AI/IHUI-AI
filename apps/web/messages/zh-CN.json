@@ -402,7 +402,6 @@
     "publishPlatform": "发布平台",
     "selfMediaKoubo": "口播稿",
     "selfMediaAutomation": "自动化",
-    "pluginMarket": "插件市场",
     "downloadIOS": "iOS",
     "downloadAndroidApk": "Android APK",
     "downloadWechatMiniApp": "微信小程序",
@@ -7814,6 +7813,22 @@
       }
     }
   },
+  "knowledgeGraph": {
+      "title": "知识图谱",
+      "buildSection": "从文本构建图谱",
+      "placeholder": "粘贴一段文本,系统会抽取其中的实体和关系...",
+      "buildButton": "抽取并构建",
+      "clearButton": "清空图谱",
+      "graphSection": "图谱可视化",
+      "emptyState": "暂无数据,在上方输入文本后点击「抽取并构建」",
+      "stats": "共 {entities} 个实体 / {relations} 条关系",
+      "legendHint": "提示:鼠标悬停节点高亮关联边,节点大小代表出现频次,边粗细代表关系权重",
+      "graphAriaLabel": "知识图谱可视化",
+      "frequencyLabel": "出现 {count} 次",
+      "charCount": "{count} 字符",
+      "feedbackBuildSuccess": "抽取完成,新增 {entities} 个实体,{relations} 条关系",
+      "feedbackClearSuccess": "图谱已清空"
+    },
   "user": {
     "guest": "游客",
     "nav": {
@@ -14804,17 +14819,6 @@
     "pleaseEnterDocumentContent": "请输入文档内容",
     "documentContentMinLength": "文档内容至少10个字符",
     "metadataFormatError": "元数据格式错误，请输入有效的JSON"
-  },
-  "plugins": {
-    "title": "插件市场",
-    "subtitle": "探索本项目内置插件与全网热门 AI 插件脚本市场",
-    "sectionProject": "本项目配置的插件",
-    "sectionProjectDesc": "平台已集成的内置插件能力,点击卡片直接进入对应功能",
-    "sectionMarket": "热门插件脚本市场",
-    "sectionMarketDesc": "全网主流 AI 插件 / 脚本 / MCP 市场,点击访问官方网站",
-    "open": "进入",
-    "visit": "访问官网",
-    "total": "共 {count} 个"
   },
   "aiWorld": {
     "empty": "暂无内容，敬请期待",
@@ -27756,21 +27760,5 @@
       "loading": "加载中...",
       "empty": "暂无文档"
     }
-  },
-  "knowledgeGraph": {
-    "title": "知识图谱",
-    "buildSection": "从文本构建图谱",
-    "placeholder": "粘贴一段文本,系统会抽取其中的实体和关系...",
-    "buildButton": "抽取并构建",
-    "clearButton": "清空图谱",
-    "graphSection": "图谱可视化",
-    "emptyState": "暂无数据,在上方输入文本后点击「抽取并构建」",
-    "stats": "共 {entities} 个实体 / {relations} 条关系",
-    "legendHint": "提示:鼠标悬停节点高亮关联边,节点大小代表出现频次,边粗细代表关系权重",
-    "graphAriaLabel": "知识图谱可视化",
-    "frequencyLabel": "出现 {count} 次",
-    "charCount": "{count} 字符",
-    "feedbackBuildSuccess": "抽取完成,新增 {entities} 个实体,{relations} 条关系",
-    "feedbackClearSuccess": "图谱已清空"
   }
 }
