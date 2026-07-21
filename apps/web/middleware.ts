@@ -125,6 +125,36 @@ export function middleware(request: NextRequest) {
 
   // ===== 分域 SSO:认证子域 =====
   if (host === AUTH_SUBDOMAIN_HOST) {
+    // 支付宝 server-side redirect(绕过客户端 React hydration 失败,2026-07-21 立)
+    // 用户访问 bsm.aizhs.top/sso/auth?platform=alipay → middleware 直接 302 跳到支付宝授权页
+    if (pathname === '/sso/auth') {
+      const platform = request.nextUrl.searchParams.get('platform')
+      if (platform === 'alipay') {
+        const appId = process.env.NEXT_PUBLIC_ALIPAY_APP_ID
+        const redirectUri = process.env.NEXT_PUBLIC_ALIPAY_REDIRECT_URI
+        if (appId && redirectUri) {
+          const scope = process.env.NEXT_PUBLIC_ALIPAY_SCOPE || 'auth_user'
+          const state = `alipay_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+          const authUrl = new URL('https://openauth.alipay.com/oauth2/publicAppAuthorize.htm')
+          authUrl.searchParams.set('app_id', appId)
+          authUrl.searchParams.set('scope', scope)
+          authUrl.searchParams.set('redirect_uri', redirectUri)
+          authUrl.searchParams.set('state', state)
+          const res = NextResponse.redirect(authUrl, 302)
+          // 保存 state 到 cookie,回调时校验(防 CSRF)
+          res.cookies.set('alipay_oauth_state', state, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 600,
+            domain: '.aizhs.top',
+          })
+          return res
+        }
+      }
+    }
+
     if (isAllowedOnAuthSubdomain(pathname)) {
       return NextResponse.next()
     }
