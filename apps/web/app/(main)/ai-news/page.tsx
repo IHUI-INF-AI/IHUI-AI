@@ -3,25 +3,27 @@ import type { Metadata } from 'next'
 import { Hero } from './components/Hero'
 import { ComparisonTableSection } from './components/ComparisonTable'
 import { LiveChannelsBlock } from './components/LiveChannelsBlock'
-import { NewsGrid } from './components/NewsGrid'
+import { AiFeedTimeline } from './components/AiFeedTimeline'
 import { FundingSection } from './components/FundingSection'
 import { CtaSection } from './components/CtaSection'
 import {
-  fetchAiNewsArticles,
+  fetchAiFeedItems,
+  fetchAiFeedSources,
   fetchAiLiveChannels,
   getComparisonTable,
   getFundingItems,
 } from '@/lib/ai-news-api'
 
 export const metadata: Metadata = {
-  title: 'AI 资讯 · 2026-07 真实资讯流',
+  title: 'AI 资讯 · 全网实时聚合流',
   description:
-    '聚合 2026 年 7 月真实 AI 资讯:GPT-5.6 / Claude Sonnet 5 / Gemini 3.5 Pro / Kimi K3 / DeepSeek V4 横向对比,WAIC 2026 直播入口,重磅融资与收购。',
+    '聚合国内外 17 个信源(微博/知乎/36氪/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等),每 6 小时自动采集,模型/产品/行业/论文分类与趋势信号实时更新。',
 }
 
 export default async function AiNewsPage() {
-  const [articles, channels, comparison, funding] = await Promise.all([
-    fetchAiNewsArticles(9),
+  const [feed, sources, channels, comparison, funding] = await Promise.all([
+    fetchAiFeedItems(50),
+    fetchAiFeedSources(),
     fetchAiLiveChannels(4),
     Promise.resolve(getComparisonTable()),
     Promise.resolve(getFundingItems()),
@@ -32,7 +34,7 @@ export default async function AiNewsPage() {
       <Hero />
       <ComparisonTableSection table={comparison} />
       <LiveChannelsBlock channels={channels} />
-      <NewsGrid articles={articles} />
+      <AiFeedTimeline items={feed.items} sources={sources} total={feed.total} />
       <FundingSection items={funding} />
       <CtaSection />
     </div>
