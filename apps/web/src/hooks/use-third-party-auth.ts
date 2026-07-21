@@ -59,12 +59,28 @@ function callbackPath(platform: ThirdPartyPlatform): string {
  * 判断平台是否配置了真实凭据(非 placeholder)。
  * 用于 demo 模式下区分:有真凭据走真 OAuth,无真凭据走本地 mock。
  * placeholder 命名约定:dev_xxx_placeholder_xxx
+ *
+ * ⚠️ 本地开发闭环规则(2026-07-21 立):
+ * 支付宝后台「授权回调地址」只接受已备案域名(bsm.aizhs.top),不接受 localhost。
+ * 所以本地开发时,即使支付宝有真凭据,也强制走 Mock(否则跳真 OAuth 后回调到 bsm.aizhs.top,
+ * 本地 dev server 接不到,无法完整闭环测试)。
+ * 生产环境(NODE_ENV=production 或主域 aizhs.top)走真 OAuth。
  */
 function hasRealCredentials(platform: ThirdPartyPlatform): boolean {
   const config = getPlatformConfig(platform)
   const id = config.clientId || config.appId || ''
   if (!id) return false
   if (id.startsWith('dev_') && id.includes('placeholder')) return false
+
+  // 本地开发环境(localhost / 127.0.0.1)+ 支付宝 → 强制走 Mock
+  // 原因:支付宝后台回调地址只接受已备案域名,本地 redirect_uri 不匹配会报错
+  if (platform === 'alipay' && typeof window !== 'undefined') {
+    const host = window.location.hostname.toLowerCase()
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return false
+    }
+  }
+
   return true
 }
 

@@ -281,13 +281,14 @@ test.describe('第三方登录 - 后端状态 API', () => {
     expect(body.data.feishu).toBe(true)
   })
 
-  test('GET /api/auth/oauth-status Apple + 支付宝 应为 false(placeholder 凭据)', async ({
+  test('GET /api/auth/oauth-status Apple 应为 false + 支付宝应为 true(2026-07-21 支付宝真凭据接通)', async ({
     request,
   }) => {
     const resp = await request.get('/api/auth/oauth-status')
     const body = await resp.json()
-    // placeholder 凭据场景:Apple + 支付宝 必须 false
+    // Apple 仍是 placeholder 凭据 → false
     expect(body.data.apple).toBe(false)
-    expect(body.data.alipay).toBe(false)
+    // 支付宝已配真凭据(AppID 2021005181634508 + RSA2048 密钥对)→ true
+    expect(body.data.alipay).toBe(true)
   })
 })
