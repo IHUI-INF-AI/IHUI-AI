@@ -29,7 +29,7 @@ export const llmCallLogs = pgTable(
     status: varchar('status', { length: 20 }).default('success').notNull(),
     errorMessage: text('error_message'),
     conversationId: varchar('conversation_id', { length: 100 }),
-    metadata: jsonb('metadata'),
+    metadata: jsonb('metadata').default({}),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => ({
