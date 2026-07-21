@@ -84,6 +84,7 @@ import {
   RotateCcw,
   Settings,
   ChevronDown,
+  Layers,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -211,6 +212,7 @@ interface AdminNavItem {
     | 'examMarking'
     | 'crew'
     | 'knowledgeRag'
+    | 'saasTenants'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -468,6 +470,7 @@ type AdminGroupKey =
   | 'community'
   | 'resource'
   | 'developer'
+  | 'saas'
 
 export interface AdminNavGroup {
   groupKey: AdminGroupKey
@@ -624,6 +627,14 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { href: '/admin/commissionRule', labelKey: 'dashboard', icon: Percent, dynamicLabel: 'Commission Rule' },
       { href: '/admin/menuPermission', labelKey: 'dashboard', icon: Lock, dynamicLabel: 'Menu Permission' },
       { href: '/admin/dataScope', labelKey: 'dashboard', icon: Lock, dynamicLabel: 'Data Scope' },
+    ],
+  },
+  // P1-2.2: SaaS 部署层管理(仅 superadmin 可访问)
+  {
+    groupKey: 'saas',
+    icon: Server,
+    items: [
+      { href: '/admin/saas', labelKey: 'saasTenants', icon: Layers },
     ],
   },
 ]

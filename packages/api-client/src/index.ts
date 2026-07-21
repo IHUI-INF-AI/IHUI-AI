@@ -57,6 +57,8 @@ export * from './endpoints/admin-content.js'
 export * from './endpoints/admin-member.js'
 export * from './endpoints/admin-monitor.js'
 export * from './endpoints/admin-system.js'
+// P1-2.2a: SaaS 部署层管理后台 API 端点
+export * from './endpoints/admin-tenants.js'
 export * from './endpoints/agent.js'
 export * from './endpoints/agent-runtime.js'
 export * from './endpoints/ai.js'
