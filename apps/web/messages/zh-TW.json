@@ -1761,18 +1761,35 @@
       "free": {
         "name": "免費版",
         "cta": "開始使用",
-        "features": ["每日 10 次 AI 對話", "基礎模型", "1 個項目", "社區支持"]
+        "features": [
+          "每日 10 次 AI 對話",
+          "基礎模型",
+          "1 個項目",
+          "社區支持"
+        ]
       },
       "pro": {
         "name": "專業版",
         "cta": "立即升級",
-        "features": ["無限 AI 對話", "高級模型", "無限項目", "優先支持", "API 接入"]
+        "features": [
+          "無限 AI 對話",
+          "高級模型",
+          "無限項目",
+          "優先支持",
+          "API 接入"
+        ]
       },
       "enterprise": {
         "name": "企業版",
         "cta": "聯繫我們",
         "contactSales": "聯繫銷售",
-        "features": ["專屬部署", "團隊管理", "SLA 保障", "定製開發", "培訓支持"]
+        "features": [
+          "專屬部署",
+          "團隊管理",
+          "SLA 保障",
+          "定製開發",
+          "培訓支持"
+        ]
       }
     },
     "checkout": {
@@ -8305,9 +8322,24 @@
     "planLifetimePrice": "¥999",
     "planFeatures": "套餐功能",
     "subscribe": "訂閱",
-    "planMonthlyFeatures": ["每月 1000 積分", "基礎 AI 對話", "社區訪問"],
-    "planYearlyFeatures": ["每月 12000 積分", "高級 AI 對話", "優先客服", "去廣告"],
-    "planLifetimeFeatures": ["無限積分", "全部 AI 功能", "專屬客服", "去廣告", "早期功能體驗"],
+    "planMonthlyFeatures": [
+      "每月 1000 積分",
+      "基礎 AI 對話",
+      "社區訪問"
+    ],
+    "planYearlyFeatures": [
+      "每月 12000 積分",
+      "高級 AI 對話",
+      "優先客服",
+      "去廣告"
+    ],
+    "planLifetimeFeatures": [
+      "無限積分",
+      "全部 AI 功能",
+      "專屬客服",
+      "去廣告",
+      "早期功能體驗"
+    ],
     "avatarCurrent": "當前頭像",
     "avatarUpload": "點選相機按鈕選擇圖片",
     "avatarUploadBtn": "上傳頭像",
@@ -9783,29 +9815,11 @@
       "gemini-2-flash": {
         "description": "超長上下文多模態"
       },
-      "gpt-5.6-sol": {
-        "description": "OpenAI 2026-07 旗艦通用模型,1M 上下文"
-      },
-      "gpt-5.6-terra": {
-        "description": "OpenAI 多模態旗艦,擅長視覺理解"
-      },
-      "gpt-5.6-luna": {
-        "description": "OpenAI 程式碼專精模型"
-      },
       "gpt-red": {
         "description": "OpenAI 推理研究預覽版"
       },
       "claude-sonnet-5": {
         "description": "Anthropic 2026-07 新一代旗艦,深度推理"
-      },
-      "claude-opus-4.8": {
-        "description": "Anthropic 頂級深度推理模型"
-      },
-      "gemini-3.5-pro": {
-        "description": "Google 多模態旗艦,2M 上下文"
-      },
-      "grok-4.5": {
-        "description": "xAI 即時增強推理模型"
       },
       "deepseek-v4-pro": {
         "description": "DeepSeek V4 開源旗艦"
@@ -9813,26 +9827,44 @@
       "deepseek-v4-flash": {
         "description": "DeepSeek V4 快速經濟版"
       },
-      "glm-5.2": {
-        "description": "智譜清言新一代旗艦,中文優化"
-      },
-      "qwen3.7-max": {
-        "description": "阿里通義千問 3.7 旗艦"
-      },
       "hunyuan-hy3": {
         "description": "騰訊混元第三代,中文深度優化"
       },
       "kimi-k3": {
         "description": "月之暗面 2M 長上下文旗艦"
       },
-      "ornith-1.0": {
-        "description": "國產新勢力通用模型"
-      },
       "codebrain-1": {
         "description": "國產程式碼專精模型"
       },
       "mai-thinking-1": {
         "description": "國產深度推理模型"
+      },
+      "gpt-5-6-sol": {
+        "description": "OpenAI 2026-07 旗艦通用模型,1M 上下文"
+      },
+      "gpt-5-6-terra": {
+        "description": "OpenAI 多模態旗艦,擅長視覺理解"
+      },
+      "gpt-5-6-luna": {
+        "description": "OpenAI 程式碼專精模型"
+      },
+      "claude-opus-4-8": {
+        "description": "Anthropic 頂級深度推理模型"
+      },
+      "gemini-3-5-pro": {
+        "description": "Google 多模態旗艦,2M 上下文"
+      },
+      "grok-4-5": {
+        "description": "xAI 即時增強推理模型"
+      },
+      "glm-5-2": {
+        "description": "智譜清言新一代旗艦,中文優化"
+      },
+      "qwen3-7-max": {
+        "description": "阿里通義千問 3.7 旗艦"
+      },
+      "ornith-1-0": {
+        "description": "國產新勢力通用模型"
       }
     },
     "nav": {
@@ -13847,32 +13879,57 @@
       "chat": {
         "label": "AI 對話",
         "description": "開始新的 AI 對話",
-        "keywords": ["AI", "對話", "聊天", "chat"]
+        "keywords": [
+          "AI",
+          "對話",
+          "聊天",
+          "chat"
+        ]
       },
       "drama": {
         "label": "AI 短劇",
         "description": "創作 AI 短劇內容",
-        "keywords": ["短劇", "影片", "drama"]
+        "keywords": [
+          "短劇",
+          "影片",
+          "drama"
+        ]
       },
       "search": {
         "label": "搜尋",
         "description": "搜尋內容、用戶、標籤",
-        "keywords": ["搜尋", "尋找", "search"]
+        "keywords": [
+          "搜尋",
+          "尋找",
+          "search"
+        ]
       },
       "ai-world": {
         "label": "AI 世界",
         "description": "探索 AI 世界",
-        "keywords": ["AI世界", "探索", "world"]
+        "keywords": [
+          "AI世界",
+          "探索",
+          "world"
+        ]
       },
       "profile": {
         "label": "個人中心",
         "description": "查看個人主頁",
-        "keywords": ["個人", "主頁", "profile"]
+        "keywords": [
+          "個人",
+          "主頁",
+          "profile"
+        ]
       },
       "settings": {
         "label": "設定",
         "description": "修改應用偏好設定",
-        "keywords": ["設定", "偏好", "settings"]
+        "keywords": [
+          "設定",
+          "偏好",
+          "settings"
+        ]
       }
     }
   },
@@ -17273,13 +17330,23 @@
       "title": "月度會員",
       "days": "30天",
       "select": "選擇",
-      "benefits": ["全部課程免費學習", "專屬學習社區", "每月3次AI答疑", "學習進度追蹤"]
+      "benefits": [
+        "全部課程免費學習",
+        "專屬學習社區",
+        "每月3次AI答疑",
+        "學習進度追蹤"
+      ]
     },
     "yearly": {
       "title": "年度會員",
       "days": "365天",
       "select": "選擇",
-      "benefits": ["全部課程免費學習", "專屬學習社區", "無限AI答疑", "學習進度追蹤+證書"]
+      "benefits": [
+        "全部課程免費學習",
+        "專屬學習社區",
+        "無限AI答疑",
+        "學習進度追蹤+證書"
+      ]
     },
     "monthlyMember": "月度會員",
     "yearlyMember": "年度會員"
@@ -21325,7 +21392,11 @@
       "label": "核心定位",
       "title": "AI時代企業理性效率服務與互助社群",
       "description": "智匯 AI社致力於幫助企業決策者深度理解AI與企業的關係,通過系統化的課程、實踐探索和社群互助,構建人機協同的超級組織,實現企業的理性效率提升。",
-      "tags": ["人機協同", "理性效率", "超級組織"]
+      "tags": [
+        "人機協同",
+        "理性效率",
+        "超級組織"
+      ]
     },
     "modules": {
       "label": "三大服務模塊",
@@ -21335,19 +21406,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"]
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "線上社群",
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": ["交流平臺", "經驗共享", "資源對接"]
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI專業服務",
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": ["專業大模型", "智能體服務", "諮詢服務"]
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ]
         }
       ]
     },
@@ -21479,25 +21562,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"]
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顧問",
           "description": "複雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["數據分析", "決策支持"]
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "執行專家",
           "description": "簡單決策 + 複雜執行,處理跨系統複雜任務",
-          "examples": ["會議安排", "審批流程"]
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能專家",
           "description": "複雜決策 + 複雜執行,自主規劃與多智能體協作",
-          "examples": ["營銷自動化", "多智能體協同"]
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ]
         }
       ]
     },
@@ -21521,12 +21616,29 @@
       ],
       "infoTitle": "信息世界",
       "infoBasicLabel": "初級信息世界",
-      "infoBasic": ["信息化", "物聯網", "自動化"],
+      "infoBasic": [
+        "信息化",
+        "物聯網",
+        "自動化"
+      ],
       "infoAdvancedLabel": "高級信息世界",
-      "infoAdvanced": ["感知AI", "生成式AI", "智能體AI", "物理AI"],
+      "infoAdvanced": [
+        "感知AI",
+        "生成式AI",
+        "智能體AI",
+        "物理AI"
+      ],
       "effectTitle": "AI化效果",
-      "effectFlow": ["超級員工", "超級團隊", "超級產品/服務"],
-      "effectMetrics": ["成本優化", "效率提升", "體驗升級"]
+      "effectFlow": [
+        "超級員工",
+        "超級團隊",
+        "超級產品/服務"
+      ],
+      "effectMetrics": [
+        "成本優化",
+        "效率提升",
+        "體驗升級"
+      ]
     }
   },
   "drama": {
@@ -25699,7 +25811,15 @@
       "visitsHeader": "造訪數",
       "ratioHeader": "佔比"
     },
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ]
   },
   "pdfWatermarkPage": {
     "title": "PDF 浮水印",
@@ -25916,10 +26036,27 @@
       "targetPlaceholder": "如:重點高中、985大學"
     },
     "options": {
-      "school": ["公立學校", "私立學校", "重點學校"],
-      "classLevel": ["普通班", "重點班"],
-      "difficulty": ["閱讀速度慢", "理解困難", "詞彙量不足", "寫作薄弱"],
-      "obstacle": ["遊戲沉迷", "注意力分散", "拖延症", "效率低"]
+      "school": [
+        "公立學校",
+        "私立學校",
+        "重點學校"
+      ],
+      "classLevel": [
+        "普通班",
+        "重點班"
+      ],
+      "difficulty": [
+        "閱讀速度慢",
+        "理解困難",
+        "詞彙量不足",
+        "寫作薄弱"
+      ],
+      "obstacle": [
+        "遊戲沉迷",
+        "注意力分散",
+        "拖延症",
+        "效率低"
+      ]
     },
     "submit": "生成生涯指導",
     "submitting": "AI 分析中...",
@@ -26377,7 +26514,12 @@
     "rechargeCount": "累計 {n} 次充值",
     "packages": {
       "starter": {
-        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社群支援"]
+        "features": [
+          "1M tokens 額度",
+          "基礎模型可用",
+          "5 個 API 令牌",
+          "社群支援"
+        ]
       },
       "pro": {
         "features": [
@@ -26947,16 +27089,16 @@
     }
   },
   "oAuthCallbackPage": {
-    "loading": "正在完成登入...",
-    "success": "登入成功,正在跳轉...",
+    "loading": "正在處理{provider}登入...",
+    "success": "登入成功,即將跳轉...",
     "failedTitle": "登入失敗",
     "backToLogin": "返回登入",
     "error": {
-      "missingPlatform": "缺少平臺參數",
-      "missingCode": "缺少授權碼",
-      "loginFailed": "登入失敗,請重試",
-      "emptyData": "返回資料為空",
-      "network": "網路錯誤,請檢查網路連線"
+      "missingPlatform": "缺少 platform 參數,請重新發起登入",
+      "missingCode": "缺少授權碼參數,請重新發起登入",
+      "loginFailed": "登入失敗,請稍後重試",
+      "emptyData": "登入傳回資料為空",
+      "network": "網路錯誤,請檢查連線"
     },
     "provider": {
       "google": "Google",
@@ -26966,70 +27108,83 @@
   },
   "agentsStatsPage": {
     "back": "返回",
-    "title": "智慧體統計",
-    "subtitle": "檢視智慧體表現指標",
-    "loading": "正在載入統計資料..."
+    "title": "智能體統計",
+    "subtitle": "智能體使用數據概覽",
+    "loading": "載入中...",
+    "stat": {
+      "totalAgents": "智能體總數",
+      "published": "已發布",
+      "pending": "待審核",
+      "totalCalls": "總呼叫數",
+      "totalUsers": "使用用戶數",
+      "avgRating": "平均評分"
+    }
   },
   "videoTasksPage": {
-    "title": "影片生成任務",
-    "description": "管理您的 AI 影片生成任務",
+    "title": "即夢視頻任務",
+    "description": "檢視文生視頻任務進度,生成中任務每 5 秒自動重新整理",
     "refresh": "重新整理",
     "taskList": "任務列表",
-    "loading": "正在載入任務...",
-    "empty": "暫無任務",
-    "promptSummary": "提示詞",
+    "loading": "載入中...",
+    "empty": "暫無視頻任務",
+    "promptSummary": "Prompt 摘要",
     "status": "狀態",
     "createdAt": "建立時間"
   },
   "asksEditFormPage": {
-    "editTitle": "編輯提問",
-    "publishTitle": "發佈提問",
+    "editTitle": "編輯問題",
+    "publishTitle": "發佈問題",
     "titleLabel": "標題",
-    "titlePlaceholder": "請輸入簡潔的標題",
+    "titlePlaceholder": "請輸入問題標題",
     "contentLabel": "內容",
     "contentPlaceholder": "請詳細描述您的問題",
     "tagsLabel": "標籤",
-    "tagsPlaceholder": "最多新增 5 個標籤",
-    "saveButton": "儲存",
-    "publishButton": "發佈",
+    "tagsPlaceholder": "多個標籤用逗號分隔",
+    "saveButton": "儲存修改",
+    "publishButton": "發佈問題",
     "cancel": "取消"
   },
   "rankingPage": {
-    "title": "排行榜",
-    "subtitle": "頂級貢獻者和創作者",
-    "loading": "正在載入排行榜...",
-    "empty": "暫無排行資料",
+    "title": "綜合排行榜",
+    "subtitle": "查看用戶積分與活躍度排名",
+    "loading": "載入中...",
+    "empty": "暫無排行數據",
     "col": {
       "rank": "排名",
-      "user": "使用者",
+      "user": "用戶",
       "score": "積分"
+    },
+    "range": {
+      "week": "週榜",
+      "month": "月榜",
+      "total": "總榜"
     }
   },
   "recruitmentPage": {
-    "loading": "正在載入職位...",
-    "empty": "暫無招聘職位",
-    "defaultSubtitle": "加入我們",
-    "requirementsTitle": "職位要求",
-    "emptyRequirements": "無具體要求",
-    "benefitsTitle": "福利待遇",
-    "emptyBenefits": "暫無福利",
+    "loading": "載入中...",
+    "empty": "暫無招募計劃",
+    "defaultSubtitle": "招募計劃",
+    "requirementsTitle": "招募要求",
+    "emptyRequirements": "暫無要求",
+    "benefitsTitle": "專屬權益",
+    "emptyBenefits": "暫無權益",
     "cta": {
-      "title": "準備加入?",
-      "subtitle": "請傳送您的履歷和作品集",
+      "title": "準備好加入我們了嗎？",
+      "subtitle": "立即申請成為操盤手，開啟專屬成長路徑",
       "button": "立即申請"
     }
   },
   "shareContentPage": {
     "modelIconAlt": "模型圖示",
-    "defaultModelName": "AI 模型",
-    "aiGenerated": "AI 生成",
-    "tokenCostLabel": "Token 數"
+    "defaultModelName": "AI智慧對話",
+    "aiGenerated": "智匯 AI 生成",
+    "tokenCostLabel": "消耗智匯值：{cost}"
   },
   "businessCardSharePage": {
     "loading": "載入中...",
     "backToList": "返回列表",
     "notFound": "名片不存在",
-    "qrAlt": "QR code",
+    "qrAlt": "二維碼",
     "scanTip": "掃碼查看名片",
     "copied": "已複製",
     "copyLink": "複製連結",
@@ -27041,12 +27196,12 @@
     "success": "生成成功",
     "promptRequired": "請輸入提示詞",
     "title": "AI 圖片生成",
-    "subtitle": "從文字描述生成圖片",
+    "subtitle": "輸入提示詞生成圖片",
     "promptLabel": "提示詞",
-    "promptPlaceholder": "描述您想要的圖片...",
+    "promptPlaceholder": "描述你想生成的圖片...",
     "sizeLabel": "尺寸",
-    "generating": "正在生成...",
-    "generate": "生成",
+    "generating": "生成中...",
+    "generate": "生成圖片",
     "download": "下載"
   },
   "kbEditPage": {
@@ -27056,20 +27211,107 @@
     "backToList": "返回列表",
     "notFound": "文章不存在",
     "title": "編輯文章",
-    "subtitle": "修改文章內容",
+    "subtitle": "修改知識庫文章內容",
     "backToArticle": "返回文章",
     "submitLabel": "儲存"
   },
   "learnMapPage": {
-    "defaultTitle": "學習路徑",
-    "defaultDesc": "逐步掌握該主題",
-    "totalProgress": "總進度",
+    "defaultTitle": "學習地圖",
+    "defaultDesc": "規劃你的學習路徑，循序漸進掌握知識點",
+    "totalProgress": "總體進度",
     "loading": "載入中...",
-    "empty": "暫無學習內容",
+    "empty": "暫無學習路徑",
     "stageN": "第 {n} 階段",
     "completed": "已完成",
-    "lessonsProgress": "已學 {completed}/{total} 課時",
+    "lessonsProgress": "{completed} / {total} 課時",
     "review": "複習",
     "continueLearning": "繼續學習"
+  },
+  "modelsGroupsPage": {
+    "group": {
+      "1": {
+        "name": "預設分組",
+        "desc": "所有新用戶預設所屬分組"
+      },
+      "2": {
+        "name": "龍崗區數學組",
+        "desc": "龍崗區數學學科教師專用分組"
+      },
+      "3": {
+        "name": "高中英語組",
+        "desc": "高中英語教師專用分組"
+      },
+      "4": {
+        "name": "AI 教研組",
+        "desc": "AI 教學研究團隊"
+      },
+      "5": {
+        "name": "管理員",
+        "desc": "系統管理員分組"
+      }
+    }
+  },
+  "livePlayPage": {
+    "detailBack": "返回直播",
+    "loading": "載入中...",
+    "notFound": "直播不存在",
+    "notLive": "尚未開始直播",
+    "viewCount": "{n} 觀看",
+    "subscribed": "已訂閱",
+    "subscribe": "訂閱",
+    "share": "分享",
+    "danmuTitle": "彈幕互動",
+    "danmuPlaceholder": "發送彈幕...",
+    "me": "我"
+  },
+  "memberAddressFormPage": {
+    "recipient": "收貨人",
+    "phone": "手機號",
+    "province": "省",
+    "city": "市",
+    "district": "區",
+    "detailAddress": "詳細地址",
+    "setDefault": "設為預設地址",
+    "save": "儲存",
+    "cancel": "取消"
+  },
+  "memberRefundsPage": {
+    "title": "退款記錄",
+    "subtitle": "查看你的退款申請與處理進度",
+    "loading": "載入中...",
+    "empty": "暫無退款記錄",
+    "reason": "原因: {reason}",
+    "status": {
+      "pending": "審核中",
+      "approved": "已通過",
+      "rejected": "已拒絕",
+      "completed": "已完成"
+    }
+  },
+  "modelsReferralPage": {
+    "title": "邀請獎勵",
+    "subtitle": "邀請好友註冊,雙方均可獲得獎勵",
+    "link": {
+      "title": "我的邀請連結",
+      "tip": "分享您的專屬邀請連結給好友",
+      "copy": "複製連結",
+      "reward": "好友註冊並消費滿 ¥10 後,您將獲得 {amount} 獎勵"
+    },
+    "stats": {
+      "invited": "已邀請",
+      "activated": "已啟用",
+      "reward": "累計獎勵"
+    },
+    "list": {
+      "title": "邀請記錄",
+      "user": "使用者",
+      "joined": "註冊時間",
+      "reward": "獎勵",
+      "status": "狀態",
+      "statusLabels": {
+        "activated": "已啟用",
+        "pending": "待啟用"
+      }
+    }
   }
 }
