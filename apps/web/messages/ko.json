@@ -12059,7 +12059,11 @@
       "submitSchedule": "예약 게시",
       "submitting": "제출 중...",
       "submitSuccess": "작업이 제출되었습니다. 게시 중",
-      "submitFailed": "제출 실패"
+      "submitFailed": "제출 실패",
+      "uploading": "업로드 중...",
+      "uploadSuccess": "업로드됨: {filename}",
+      "uploadFailed": "업로드 실패",
+      "uploadedHint": "파일이 업로드되었습니다. 다시 선택하여 교체할 수 있습니다."
     },
     "history": {
       "title": "게시 기록",
@@ -25855,6 +25859,135 @@
       "resultCol": "결과",
       "correctLabel": "정답",
       "wrongLabel": "오답"
+    }
+  },
+  "memberOrdersPage": {
+    "title": "내 주문",
+    "subtitle": "모든 주문 보기 및 관리",
+    "status": {
+      "pending": "결제 대기",
+      "paid": "결제 완료",
+      "cancelled": "취소됨",
+      "refunded": "환불됨",
+      "all": "전체"
+    },
+    "table": {
+      "orderNo": "주문번호",
+      "product": "상품",
+      "amount": "금액",
+      "status": "상태",
+      "time": "시간",
+      "action": "작업"
+    },
+    "viewAction": "보기",
+    "loading": "로딩 중...",
+    "empty": "주문 내역 없음",
+    "total": "총 {n}건"
+  },
+  "learnPaymentConfirmPage": {
+    "missingOrderNo": "주문번호 누락",
+    "loadingOrder": "주문 로딩 중...",
+    "statusPaid": "결제 성공",
+    "statusFailed": "결제 실패",
+    "statusCancelled": "주문 취소됨",
+    "statusPending": "결제 대기 중...",
+    "descPaid": "주문 결제가 완료되었습니다",
+    "descPending": "새 창에서 결제를 완료하세요. 시스템이 결제 상태를 자동으로 감지합니다.",
+    "descFailed": "결제를 다시 시작하세요",
+    "fields": {
+      "orderNo": "주문번호",
+      "product": "상품",
+      "payMethod": "결제 수단",
+      "payAmount": "결제 금액",
+      "createdAt": "주문 시간",
+      "paidAt": "결제 시간"
+    },
+    "actions": {
+      "backToLearn": "학습으로 돌아가기",
+      "viewOrders": "주문 보기",
+      "cancelPolling": "폴링 취소",
+      "repurchase": "재구매"
+    }
+  },
+  "learnHomeworkPage": {
+    "title": "과제",
+    "loading": "로딩 중...",
+    "errorFallback": "로딩 실패",
+    "backToCourse": "강의로 돌아가기",
+    "empty": "과제 없음",
+    "deadlineLabel": "마감: {deadline}",
+    "submitBtn": {
+      "submitted": "제출됨",
+      "notSubmitted": "제출"
+    },
+    "status": {
+      "waitingApproval": "채점 대기",
+      "passApproval": "합격",
+      "failApproval": "불합격",
+      "notSubmitted": "미제출",
+      "submitted": "제출됨",
+      "unknown": "알 수 없음"
+    }
+  },
+  "contractManager": {
+    "title": "계약 관리",
+    "empty": "자동 갱신 계약 없음",
+    "planName": "월간 구독",
+    "fields": {
+      "nextCharge": "다음 결제",
+      "lastCharge": "이전 결제",
+      "chargeStatus": "결제 상태",
+      "signedAt": "계약 시간"
+    },
+    "status": {
+      "pending": "계약 중",
+      "active": "활성",
+      "cancelled": "해지됨",
+      "expired": "만료됨"
+    },
+    "chargeStatus": {
+      "success": "성공",
+      "failed": "실패",
+      "processing": "처리 중"
+    },
+    "actions": {
+      "cancel": "해지"
+    },
+    "cancelDialog": {
+      "title": "자동 갱신 해지",
+      "content": "해지 후 자동 결제되지 않으며, 현재 VIP 혜택은 만료까지 유지됩니다. 해지하시겠습니까?",
+      "confirmText": "해지 확인",
+      "cancelText": "취소"
+    }
+  },
+  "eduDashboardPage": {
+    "title": "학습 개요",
+    "subtitle": "학습 데이터와 최근 진행 상황 보기",
+    "loading": "로딩 중...",
+    "stats": {
+      "studyHours": "학습 시간",
+      "inProgressCourses": "진행 중 강좌",
+      "passedExams": "합격한 시험",
+      "avgProgress": "평균 진행률"
+    },
+    "coursesCard": {
+      "title": "강좌",
+      "total": "수강 신청",
+      "completed": "완료"
+    },
+    "examsCard": {
+      "title": "시험 및 자격증",
+      "totalExams": "총 시험",
+      "totalCerts": "자격증 수"
+    },
+    "progressCard": {
+      "title": "완료율"
+    },
+    "recentSection": {
+      "title": "최근 학습",
+      "viewAll": "전체 보기",
+      "empty": "학습 기록 없음",
+      "progressLabel": "진행률 {n}%"
     }
   }
 }

@@ -12198,7 +12198,11 @@
       "submitSchedule": "Schedule Publish",
       "submitting": "Submitting...",
       "submitSuccess": "Task submitted, publishing",
-      "submitFailed": "Submit Failed"
+      "submitFailed": "Submit Failed",
+      "uploading": "Uploading...",
+      "uploadSuccess": "Uploaded: {filename}",
+      "uploadFailed": "Upload Failed",
+      "uploadedHint": "File uploaded. Click to replace."
     },
     "history": {
       "title": "Publish History",
@@ -25855,6 +25859,135 @@
       "resultCol": "Result",
       "correctLabel": "Correct",
       "wrongLabel": "Wrong"
+    }
+  },
+  "memberOrdersPage": {
+    "title": "My Orders",
+    "subtitle": "View and manage all your orders",
+    "status": {
+      "pending": "Pending",
+      "paid": "Paid",
+      "cancelled": "Cancelled",
+      "refunded": "Refunded",
+      "all": "All"
+    },
+    "table": {
+      "orderNo": "Order No.",
+      "product": "Product",
+      "amount": "Amount",
+      "status": "Status",
+      "time": "Time",
+      "action": "Action"
+    },
+    "viewAction": "View",
+    "loading": "Loading...",
+    "empty": "No orders yet",
+    "total": "{n} records"
+  },
+  "learnPaymentConfirmPage": {
+    "missingOrderNo": "Missing order number",
+    "loadingOrder": "Loading order...",
+    "statusPaid": "Payment Successful",
+    "statusFailed": "Payment Failed",
+    "statusCancelled": "Order Cancelled",
+    "statusPending": "Waiting for payment...",
+    "descPaid": "The order has been paid",
+    "descPending": "Please complete the payment in the new window. The system will detect the payment status automatically.",
+    "descFailed": "Please initiate the payment again",
+    "fields": {
+      "orderNo": "Order No.",
+      "product": "Product",
+      "payMethod": "Payment Method",
+      "payAmount": "Amount",
+      "createdAt": "Order Time",
+      "paidAt": "Payment Time"
+    },
+    "actions": {
+      "backToLearn": "Back to Learn",
+      "viewOrders": "View Orders",
+      "cancelPolling": "Cancel Polling",
+      "repurchase": "Repurchase"
+    }
+  },
+  "learnHomeworkPage": {
+    "title": "Course Homework",
+    "loading": "Loading...",
+    "errorFallback": "Load failed",
+    "backToCourse": "Back to Course",
+    "empty": "No homework",
+    "deadlineLabel": "Deadline: {deadline}",
+    "submitBtn": {
+      "submitted": "Submitted",
+      "notSubmitted": "Submit"
+    },
+    "status": {
+      "waitingApproval": "Awaiting Review",
+      "passApproval": "Passed",
+      "failApproval": "Failed",
+      "notSubmitted": "Not Submitted",
+      "submitted": "Submitted",
+      "unknown": "Unknown"
+    }
+  },
+  "contractManager": {
+    "title": "Contract Management",
+    "empty": "No auto-renewal contracts",
+    "planName": "Monthly Subscription",
+    "fields": {
+      "nextCharge": "Next Charge",
+      "lastCharge": "Last Charge",
+      "chargeStatus": "Charge Status",
+      "signedAt": "Signed At"
+    },
+    "status": {
+      "pending": "Pending",
+      "active": "Active",
+      "cancelled": "Cancelled",
+      "expired": "Expired"
+    },
+    "chargeStatus": {
+      "success": "Success",
+      "failed": "Failed",
+      "processing": "Processing"
+    },
+    "actions": {
+      "cancel": "Cancel"
+    },
+    "cancelDialog": {
+      "title": "Cancel Auto-Renewal",
+      "content": "After cancellation, no automatic deduction will occur. Current VIP benefits remain until expiration. Confirm cancellation?",
+      "confirmText": "Confirm Cancel",
+      "cancelText": "Cancel"
+    }
+  },
+  "eduDashboardPage": {
+    "title": "Learning Overview",
+    "subtitle": "View your learning data and recent progress",
+    "loading": "Loading...",
+    "stats": {
+      "studyHours": "Study Hours",
+      "inProgressCourses": "In Progress",
+      "passedExams": "Passed Exams",
+      "avgProgress": "Avg Progress"
+    },
+    "coursesCard": {
+      "title": "Courses",
+      "total": "Enrolled",
+      "completed": "Completed"
+    },
+    "examsCard": {
+      "title": "Exams & Certs",
+      "totalExams": "Total Exams",
+      "totalCerts": "Certificates"
+    },
+    "progressCard": {
+      "title": "Completion Rate"
+    },
+    "recentSection": {
+      "title": "Recent Learning",
+      "viewAll": "View All",
+      "empty": "No learning records",
+      "progressLabel": "Progress {n}%"
     }
   }
 }

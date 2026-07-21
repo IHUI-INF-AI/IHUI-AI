@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import {
   Loader2,
@@ -46,21 +46,6 @@ const STATUS_CONFIG: Record<OrderStatus, { icon: typeof Clock; cls: string }> = 
   refunded: { icon: Wallet, cls: 'bg-primary/10 text-primary' },
 }
 
-const STATUS_LABEL: Record<OrderStatus, string> = {
-  pending: '待支付',
-  paid: '已支付',
-  cancelled: '已取消',
-  refunded: '已退款',
-}
-
-const TABS: { value: 'all' | OrderStatus; label: string }[] = [
-  { value: 'all', label: '全部' },
-  { value: 'pending', label: '待支付' },
-  { value: 'paid', label: '已支付' },
-  { value: 'cancelled', label: '已取消' },
-  { value: 'refunded', label: '已退款' },
-]
-
 async function fetchOrders(status: string, page: number): Promise<OrdersData> {
   const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
   if (status !== 'all') qs.set('status', status)
@@ -70,6 +55,7 @@ async function fetchOrders(status: string, page: number): Promise<OrdersData> {
 }
 
 export default function MemberOrdersPage() {
+  const t = useTranslations('memberOrdersPage')
   const locale = useLocale()
   const router = useRouter()
   const [status, setStatus] = React.useState<'all' | OrderStatus>('all')
@@ -95,14 +81,22 @@ export default function MemberOrdersPage() {
     currency: 'CNY',
   })
 
+  const TABS: { value: 'all' | OrderStatus; labelKey: string }[] = [
+    { value: 'all', labelKey: 'status.all' },
+    { value: 'pending', labelKey: 'status.pending' },
+    { value: 'paid', labelKey: 'status.paid' },
+    { value: 'cancelled', labelKey: 'status.cancelled' },
+    { value: 'refunded', labelKey: 'status.refunded' },
+  ]
+
   return (
     <div className="space-y-4">
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <ShoppingBag className="h-5 w-5 text-primary" />
-          我的订单
+          {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">查看并管理你的全部订单</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1">
@@ -120,7 +114,7 @@ export default function MemberOrdersPage() {
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {tab.label}
+            {t(tab.labelKey as 'status.all')}
           </button>
         ))}
       </div>
@@ -130,30 +124,31 @@ export default function MemberOrdersPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : orders.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-12 text-center">
           <ShoppingBag className="h-8 w-8 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">暂无订单记录</p>
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left text-xs text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 font-medium">订单号</th>
-                <th className="px-3 py-2 font-medium">商品</th>
-                <th className="px-3 py-2 text-right font-medium">金额</th>
-                <th className="px-3 py-2 font-medium">状态</th>
-                <th className="px-3 py-2 font-medium">时间</th>
-                <th className="px-3 py-2 text-right font-medium">操作</th>
+                <th className="px-3 py-2 font-medium">{t('table.orderNo')}</th>
+                <th className="px-3 py-2 font-medium">{t('table.product')}</th>
+                <th className="px-3 py-2 text-right font-medium">{t('table.amount')}</th>
+                <th className="px-3 py-2 font-medium">{t('table.status')}</th>
+                <th className="px-3 py-2 font-medium">{t('table.time')}</th>
+                <th className="px-3 py-2 text-right font-medium">{t('table.action')}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {orders.map((o) => {
                 const sc = STATUS_CONFIG[o.status] ?? STATUS_CONFIG.pending
                 const StatusIcon = sc.icon
+                const statusLabelKey = `status.${o.status}` as 'status.pending'
                 return (
                   <tr key={o.id} className="transition-colors hover:bg-muted/30">
                     <td className="px-3 py-2 font-mono text-xs">{o.orderNo}</td>
@@ -169,7 +164,7 @@ export default function MemberOrdersPage() {
                         )}
                       >
                         <StatusIcon className="h-3 w-3" />
-                        {STATUS_LABEL[o.status] ?? o.status}
+                        {t(statusLabelKey)}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">
@@ -181,7 +176,7 @@ export default function MemberOrdersPage() {
                         size="sm"
                         onClick={() => router.push(`/member/orders/${o.id}`)}
                       >
-                        查看
+                        {t('viewAction')}
                       </Button>
                     </td>
                   </tr>
@@ -194,7 +189,7 @@ export default function MemberOrdersPage() {
 
       {total > PAGE_SIZE && (
         <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">共 {total} 条</span>
+          <span className="text-xs text-muted-foreground">{t('total', { n: total })}</span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
