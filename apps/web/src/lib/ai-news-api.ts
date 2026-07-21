@@ -373,3 +373,112 @@ export function getComparisonTable(): ComparisonTable {
 export function getFundingItems(): AiFundingItem[] {
   return FALLBACK_FUNDING
 }
+
+// =============================================================================
+// AI Feed 时间线(对接 /api/ai-feed/items,真实采集数据,aihot 风格)
+// =============================================================================
+
+/** AI 资讯时间线条目(对应 ai_feed_hot_item 表) */
+export interface AiFeedTimelineItem {
+  id: string
+  sourceCode: string
+  title: string
+  summary: string | null
+  url: string | null
+  coverUrl: string | null
+  author: string | null
+  currentRank: number | null
+  currentHot: number | null
+  publishTime: string | null
+  lastSeenAt: string
+  llmCategory: string | null
+  trendTag: string | null
+  trendGrowthPct: number | null
+  titleEn: string | null
+}
+
+interface ApiFeedItemRaw {
+  id: string
+  sourceCode: string
+  title: string
+  summary?: string | null
+  url?: string | null
+  coverUrl?: string | null
+  author?: string | null
+  currentRank?: number | null
+  currentHot?: number | null
+  publishTime?: string | null
+  lastSeenAt: string
+  llmCategory?: string | null
+  trendTag?: string | null
+  trendGrowthPct?: number | null
+  titleEn?: string | null
+}
+
+/**
+ * 拉取真实 AI 资讯时间线数据(对接 /api/ai-feed/items)。
+ *
+ * 后端 ai-feed-collect cron 每 6 小时全量采集 17 个国内外信源,
+ * 落到 ai_feed_hot_item 表;此函数读取最新条目并按 lastSeenAt 倒序展示。
+ *
+ * @param pageSize 单页条数(默认 50)
+ * @param source 可选 sourceCode 筛选
+ * @param category 可选 llmCategory 筛选
+ */
+export async function fetchAiFeedItems(
+  pageSize = 50,
+  source?: string,
+  category?: string,
+): Promise<{ items: AiFeedTimelineItem[]; total: number }> {
+  const params = new URLSearchParams({
+    page: '1',
+    pageSize: String(pageSize),
+  })
+  if (source) params.set('source', source)
+  if (category) params.set('category', category)
+
+  const data = await safeApi<{ list: ApiFeedItemRaw[]; total: number }>(
+    `/api/ai-feed/items?${params.toString()}`,
+  )
+  if (!data?.list) {
+    return { items: [], total: 0 }
+  }
+  return {
+    items: data.list.map((it) => ({
+      id: it.id,
+      sourceCode: it.sourceCode,
+      title: it.title,
+      summary: it.summary ?? null,
+      url: it.url ?? null,
+      coverUrl: it.coverUrl ?? null,
+      author: it.author ?? null,
+      currentRank: it.currentRank ?? null,
+      currentHot: it.currentHot ?? null,
+      publishTime: it.publishTime ?? null,
+      lastSeenAt: it.lastSeenAt,
+      llmCategory: it.llmCategory ?? null,
+      trendTag: it.trendTag ?? null,
+      trendGrowthPct: it.trendGrowthPct ?? null,
+      titleEn: it.titleEn ?? null,
+    })),
+    total: data.total,
+  }
+}
+
+/** 拉取启用的数据源列表(用于顶部 Tab 渲染) */
+export async function fetchAiFeedSources(): Promise<
+  Array<{
+    id: string
+    sourceCode: string
+    sourceName: string
+    category: string
+    icon: string | null
+    color: string | null
+    sortOrder: number
+  }>
+> {
+  const data = await safeApi<{ list: Array<{ id: string; sourceCode: string; sourceName: string; category: string; icon: string | null; color: string | null; sortOrder: number }> }>(
+    '/api/ai-feed/sources?enabledOnly=true',
+  )
+  return data?.list ?? []
+}
