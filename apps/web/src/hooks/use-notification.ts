@@ -4,15 +4,9 @@ import * as React from 'react'
 
 import { useWebSocket, type WSNotification } from '@/hooks/use-websocket'
 import { fetchApi } from '@/lib/api'
+import type { NotificationItem } from '@ihui/types'
 
-export interface NotificationItem {
-  id: string
-  type: string
-  title: string
-  content?: string
-  read: boolean
-  createdAt: string
-}
+export type { NotificationItem }
 
 export interface UseNotificationReturn {
   notifications: NotificationItem[]
@@ -178,7 +172,7 @@ export function useNotification(): UseNotificationReturn {
         type: data.type,
         title,
         content,
-        read: false,
+        isRead: false,
         createdAt: String(data.createdAt ?? new Date().toISOString()),
       },
       ...prev,
@@ -186,13 +180,13 @@ export function useNotification(): UseNotificationReturn {
   }, [lastMessage])
 
   const unreadCount = React.useMemo(
-    () => notifications.filter((n) => !n.read).length,
+    () => notifications.filter((n) => !n.isRead).length,
     [notifications],
   )
 
   const markAsRead = React.useCallback(async (id: string) => {
     const prev = notificationsRef.current
-    setNotifications((p) => p.map((n) => (n.id === id ? { ...n, read: true } : n)))
+    setNotifications((p) => p.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
     // 后端 PATCH /api/notifications/:id/read (notifications.ts:176)
     const res = await fetchApi(`/api/notifications/${id}/read`, { method: 'PATCH' })
     if (!res.success) setNotifications(prev)
