@@ -5,11 +5,12 @@
  * 并可扩展到 ja / vi / th 等任意非中文 locale。
  *
  * 用法:
- *   node scripts/scan-i18n-zh-residue.mjs <locale> [--staged]
+ *   node scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme]
  *
  * 参数:
  *   <locale>  必填，翻译文件名 (不含 .json)，如 ko / ja / zh-TW / vi
  *   --staged  可选，仅当对应 locale 文件在 git 暂存区时检查 (pre-commit 用)
+ *   --readme  可选，扫描根目录 README.<locale>.md 而非 apps/web/messages/<locale>.json
  *
  * 检测逻辑 (按 locale 分支):
  *   - zh-TW: 用 opencc-js 简→繁字形转换检测 (字形变化即简体字残留)
@@ -20,6 +21,14 @@
  *       无 localRe 的 locale: 任何含汉字即视为纯中文残留 → exit 1
  *   - ja (warnOnly 模式): 日文汉字词 (登録/確認/削除等) 数量太多，
  *       字符范围启发式不可靠 (假阳性海量)，所有汉字只 warn 不阻塞 → exit 0
+ *
+ * Markdown 模式 (--readme):
+ *   扫描 README.<locale>.md 检测中文残留，跳过:
+ *     - ``` 代码块内容
+ *     - HTML 注释 <!-- ... -->
+ *     - 图片标签 ![alt](src)
+ *     - 链接 URL 部分 [text](url) → 仅扫描 text
+ *   其余行内任何汉字按 locale 分支同样的策略判断。
  *
  * 退出码:
  *   0 = 通过 (无残留 或 仅 warn-only)
@@ -48,16 +57,19 @@ const LINE_RE = /^(\s+)"([^"]+)":\s+"([^"]*)"\s*,?\s*$/
 function parseArgs(argv) {
   const positional = []
   let isStaged = false
+  let isReadme = false
   for (const arg of argv) {
     if (arg === '--staged') {
       isStaged = true
+    } else if (arg === '--readme') {
+      isReadme = true
     } else if (arg.startsWith('--')) {
       // 忽略未知 flag，避免误判
     } else {
       positional.push(arg)
     }
   }
-  return { locale: positional[0], isStaged }
+  return { locale: positional[0], isStaged, isReadme }
 }
 
 function isFileStaged(relPath) {
@@ -133,21 +145,82 @@ function scanWarnOnly(text) {
   return { pure: [], half }
 }
 
+// Markdown 模式: 扫描 README.<locale>.md 检测中文残留
+// 跳过: ``` 代码块 / HTML 注释 / 图片标签 / 链接 URL 部分(仅扫描 [text])
+// 策略与 JSON 模式一致:
+//   - opencc (zh-TW): converter(line) !== line → 简体字残留
+//   - charRange (ko 等): 含汉字且不含本地字符 → 纯中文残留; 含本地字符 → warn
+//   - warnOnly (ja): 任何含汉字 → warn (日文汉字词启发式不可靠)
+// 行级白名单: 中国法定 ICP 备案号(吉ICP备XXXXXXXX号)格式不可翻译,跨语言版均保留中文
+const MARKDOWN_LINE_WHITELIST = [
+  /ICP[备备]\d+号/, // 中国 ICP 备案号(简体/繁体)
+]
+function scanMarkdown(text, config) {
+  const lines = text.split('\n')
+  const pure = []
+  const half = []
+  let inCodeFence = false
+  let converter = null
+  if (config.mode === 'opencc') {
+    converter = OpenCC.Converter({ from: 'cn', to: 'tw' })
+  }
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i]
+    // 代码块边界 (``` 或 ~~~)
+    if (/^(\s*)(```|~~~)/.test(raw)) {
+      inCodeFence = !inCodeFence
+      continue
+    }
+    if (inCodeFence) continue
+    // 跳过 HTML 注释行 (单行或多行注释开始)
+    if (/^\s*<!--/.test(raw)) continue
+    // 行级白名单 (如 ICP 备案号)
+    if (MARKDOWN_LINE_WHITELIST.some((re) => re.test(raw))) continue
+    // 提取行内文本: 移除图片 + 链接保留 text + 移除行内代码
+    const cleaned = raw
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, '') // 图片整体移除
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // 链接保留 text
+      .replace(/`[^`]*`/g, ' ') // 行内代码移除
+    if (!HAN_RE.test(cleaned)) continue
+    const trimmed = cleaned.trim()
+    if (!trimmed) continue
+
+    if (config.mode === 'opencc') {
+      const converted = converter(trimmed)
+      if (converted !== trimmed) {
+        pure.push({ line: i + 1, key: '(markdown)', value: trimmed.slice(0, 120), converted })
+      }
+    } else if (config.mode === 'warnOnly') {
+      half.push({ line: i + 1, key: '(markdown)', value: trimmed.slice(0, 120) })
+    } else {
+      // charRange 模式
+      if (config.localRe && config.localRe.test(cleaned)) {
+        half.push({ line: i + 1, key: '(markdown)', value: trimmed.slice(0, 120) })
+      } else {
+        pure.push({ line: i + 1, key: '(markdown)', value: trimmed.slice(0, 120) })
+      }
+    }
+  }
+  return { pure, half }
+}
+
 function main() {
-  const { locale, isStaged } = parseArgs(process.argv.slice(2))
+  const { locale, isStaged, isReadme } = parseArgs(process.argv.slice(2))
 
   if (!locale) {
-    console.error('用法: node scripts/scan-i18n-zh-residue.mjs <locale> [--staged]')
+    console.error('用法: node scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme]')
     console.error('  <locale>: ko / ja / zh-TW / vi ...')
+    console.error('  --readme: 扫描根目录 README.<locale>.md')
     process.exit(2)
   }
 
-  const relPath = `apps/web/messages/${locale}.json`
+  const relPath = isReadme ? `README.${locale}.md` : `apps/web/messages/${locale}.json`
   const file = path.resolve(relPath)
+  const fileLabel = isReadme ? `README.${locale}.md` : `${locale}.json`
 
   if (isStaged) {
     if (!isFileStaged(relPath)) {
-      console.log(`${locale}.json 未在暂存区，跳过中文残留扫描`)
+      console.log(`${fileLabel} 未在暂存区，跳过中文残留扫描`)
       process.exit(0)
     }
   }
@@ -161,7 +234,9 @@ function main() {
   const text = fs.readFileSync(file, 'utf8')
 
   let result
-  if (config.mode === 'opencc') {
+  if (isReadme) {
+    result = scanMarkdown(text, config)
+  } else if (config.mode === 'opencc') {
     result = scanZhTw(text)
   } else if (config.mode === 'warnOnly') {
     result = scanWarnOnly(text)
@@ -174,7 +249,7 @@ function main() {
 
   if (pure.length > 0) {
     const label = config.mode === 'opencc' ? '简体字残留' : '纯中文残留'
-    console.error(`❌ ${locale}.json 发现 ${pure.length} 处${label}:`)
+    console.error(`❌ ${fileLabel} 发现 ${pure.length} 处${label}:`)
     for (const it of pure) {
       console.error(`  L${it.line}: "${it.key}": "${it.value}"`)
       if (it.converted) {
@@ -189,7 +264,7 @@ function main() {
       config.mode === 'warnOnly'
         ? '汉字残留 (warn-only，ja 汉字词启发式不可靠)'
         : '半翻译 (本地字符+汉字混合)'
-    console.warn(`⚠️ ${locale}.json 发现 ${half.length} 处${label}:`)
+    console.warn(`⚠️ ${fileLabel} 发现 ${half.length} 处${label}:`)
     for (const it of half) {
       console.warn(`  L${it.line}: "${it.key}": "${it.value}"`)
     }
@@ -197,7 +272,7 @@ function main() {
   }
 
   if (!failed && half.length === 0) {
-    console.log(`✅ ${locale}.json 无中文残留`)
+    console.log(`✅ ${fileLabel} 无中文残留`)
   }
 
   process.exit(failed ? 1 : 0)
