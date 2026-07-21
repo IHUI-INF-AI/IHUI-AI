@@ -30,6 +30,7 @@ import {
 } from '@ihui/database'
 
 import { db } from '../db/index.js'
+import { logger } from '../utils/logger.js'
 
 // ===== 类型定义 =====
 
@@ -386,7 +387,7 @@ async function fetchGithubTrending(): Promise<FetchedItem[]> {
       }, 15000)
       if (!res.ok) {
         // rate limit 或其他错误,跳过此 topic 继续下一个
-        console.warn(`[ai-world-sync] github topic=${topic} HTTP ${res.status}, skip`)
+        logger.warn(`[ai-world-sync] github topic=${topic} HTTP ${res.status}, skip`)
         continue
       }
       const data = (await res.json()) as { items?: Array<Record<string, unknown>> }
@@ -415,7 +416,7 @@ async function fetchGithubTrending(): Promise<FetchedItem[]> {
         })
       }
     } catch (err) {
-      console.warn(`[ai-world-sync] github topic=${topic} error:`, err instanceof Error ? err.message : err)
+      logger.warn(`[ai-world-sync] github topic=${topic} error:`, { error: err instanceof Error ? err.message : err })
     }
   }
   // 去重(同 sourceUrl)
@@ -489,7 +490,7 @@ async function callLlm(prompt: string, content: string, timeoutMs = 15000): Prom
     return text.trim() || null
   } catch (err) {
     if (!llmErrorLogged) {
-      console.warn(`[ai-world-sync] LLM 调用异常(后续静默):`, err instanceof Error ? err.message : err)
+      logger.warn(`[ai-world-sync] LLM 调用异常(后续静默):`, { error: err instanceof Error ? err.message : err })
       llmErrorLogged = true
     }
     return null
@@ -779,7 +780,7 @@ export function startAiWorldSyncScheduler(): void {
       const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
       console.log(`[ai-world-sync] done: ${ok} success, ${partial} partial, ${fail} failed, ${totalItems} items`)
     } catch (err) {
-      console.error('[ai-world-sync] fatal:', err)
+      logger.error('[ai-world-sync] fatal:', { error: err })
     }
   }, {
     timezone: 'Asia/Shanghai',
@@ -858,7 +859,7 @@ async function fetchLMSYSArena(): Promise<LeaderboardEntry[]> {
       30000,
     )
     if (!res.ok) {
-      console.warn(`[ai-world-sync] LMArena leaderboard HTTP ${res.status}, skip`)
+      logger.warn(`[ai-world-sync] LMArena leaderboard HTTP ${res.status}, skip`)
       return []
     }
     const html = await res.text()
@@ -990,12 +991,109 @@ async function fetchHFOpenLLM(): Promise<LeaderboardEntry[]> {
 
 /**
  * 抓 SuperCLUE(中文综合榜)
- * 数据源调研:superclueai.com 是 SPA,JS 渲染,无公开 API;GitHub 仓库只有 README/PDF
- * 降级:返回空数组,不阻塞其他榜单
+ * 数据源:https://www.superclueai.com/leaderboard — Gradio 3.39.0 SSG 应用
+ * 数据嵌入在 window.gradio_config = {...} 内联 script 中(700KB JSON)
+ * 结构:config.components[].props.value = { headers: [...], data: [[row1], [row2], ...] }
+ * 第一个 dataframe(id=13)是总排行榜,13 列:排名/模型名称/机构/开源闭源/总分/数学推理/科学推理/代码生成/智能体Agent/精确指令遵循/幻觉控制/使用方式/发布日期
+ * 2026-07-22 立:从降级空改为真实数据抓取,生产可用
  */
 async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
-  console.warn('[ai-world-sync] SuperCLUE 网站 JS 渲染无公开 API,暂不可用(降级空)')
-  return []
+  try {
+    const res = await fetchWithTimeout(
+      'https://www.superclueai.com/leaderboard',
+      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT, Accept: 'text/html' } },
+      30000,
+    )
+    if (!res.ok) {
+      console.warn(`[ai-world-sync] SuperCLUE HTTP ${res.status}, skip`)
+      return []
+    }
+    const html = await res.text()
+    // 提取 window.gradio_config = {...} JSON
+    const configMatch = html.match(/window\.gradio_config\s*=\s*(\{[\s\S]*?\});\s*<\/script>/)
+    if (!configMatch || !configMatch[1]) {
+      console.warn('[ai-world-sync] SuperCLUE gradio_config not found in HTML, skip')
+      return []
+    }
+    const config = JSON.parse(configMatch[1]) as {
+      components?: Array<{
+        id: number
+        type: string
+        props?: {
+          value?: {
+            headers?: string[]
+            data?: Array<Array<string | number>>
+          }
+        }
+      }>
+    }
+    // 取第一个 dataframe(总排行榜)
+    const firstDf = config.components?.find((c) => c.type === 'dataframe' && c.props?.value?.data?.length)
+    if (!firstDf || !firstDf.props?.value?.data) {
+      console.warn('[ai-world-sync] SuperCLUE no dataframe with data found, skip')
+      return []
+    }
+    const dfValue = firstDf.props.value
+    const headers = dfValue.headers ?? []
+    const rows = dfValue.data ?? []
+    const now = new Date()
+    const entries: LeaderboardEntry[] = []
+    // 列索引:排名(0) / 模型名称(1) / 机构(2) / 开源闭源(3) / 总分(4)
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      if (!row || row.length < 5) continue
+      const modelName = String(row[1] ?? '').trim()
+      if (!modelName || modelName === '-') continue
+      const provider = String(row[2] ?? '').trim() || undefined
+      const totalScore = row[4]
+      const scoreStr = typeof totalScore === 'number' ? totalScore.toFixed(2) : String(totalScore ?? '')
+      const scoreNum = typeof totalScore === 'number' ? totalScore : parseFloat(scoreStr)
+      if (!Number.isFinite(scoreNum)) continue
+      // rank:用 medal(🥇🥈🥉)或数字,否则用 i+1
+      const rankRaw = String(row[0] ?? '').trim()
+      let rank = i + 1
+      if (rankRaw === '🥇') rank = 1
+      else if (rankRaw === '🥈') rank = 2
+      else if (rankRaw === '🥉') rank = 3
+      else {
+        const parsedRank = parseInt(rankRaw.replace(/[^\d]/g, ''), 10)
+        if (Number.isFinite(parsedRank) && parsedRank > 0) rank = parsedRank
+      }
+      // 提取子分数(数学推理/科学推理/代码生成等)
+      const scores: Record<string, unknown> = { total: scoreNum, source: 'superclue' }
+      const subScoreKeys = ['数学推理', '科学推理', '代码生成', '智能体Agent', '精确指令遵循', '幻觉控制']
+      for (let j = 5; j < Math.min(headers.length, row.length); j++) {
+        const headerName = headers[j]
+        if (!headerName) continue
+        if (subScoreKeys.includes(headerName)) {
+          const subScore = row[j]
+          if (typeof subScore === 'number') scores[headerName] = subScore
+        }
+      }
+      entries.push({
+        leaderboard: 'superclue',
+        category: 'overall',
+        rank,
+        modelName: modelName.slice(0, 200),
+        provider,
+        score: scoreStr,
+        scores,
+        publishedAt: now,
+      })
+    }
+    // 按总分降序排序后重新填 rank(确保 rank 准确)
+    entries.sort((a, b) => {
+      const aScore = parseFloat(a.score ?? '0')
+      const bScore = parseFloat(b.score ?? '0')
+      return bScore - aScore
+    })
+    const topEntries = entries.slice(0, 50).map((entry, idx) => ({ ...entry, rank: idx + 1 }))
+    console.log(`[ai-world-sync] SuperCLUE fetched ${topEntries.length} entries from ${rows.length} total rows`)
+    return topEntries
+  } catch (err) {
+    console.warn('[ai-world-sync] SuperCLUE leaderboard error:', err instanceof Error ? err.message : err)
+    return []
+  }
 }
 
 /**
