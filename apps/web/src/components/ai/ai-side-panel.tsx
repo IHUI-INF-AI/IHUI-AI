@@ -13,6 +13,7 @@ import { useChat } from '@/hooks/use-chat'
 import { useWebSocket, type WSNotification, isAIResponse } from '@/hooks/use-websocket'
 import { MessageList } from '@/components/chat/message-list'
 import { MessageInput } from '@/components/chat/message-input'
+import { QuestionDialog } from '@/components/chat/question-dialog'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
 import { Tooltip } from '@/components/feedback'
@@ -37,8 +38,18 @@ export function AISidePanel() {
 
   const { open, width, isResizing, closePanel, setWidth, setResizing } = useAiPanelStore()
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
-  const { messages, currentModel, isStreaming, sendMessage, stop, clearMessages, setModel } =
-    useChat()
+  const {
+    messages,
+    currentModel,
+    isStreaming,
+    pendingQuestion,
+    sendMessage,
+    sendAnswer,
+    skipQuestion,
+    stop,
+    clearMessages,
+    setModel,
+  } = useChat()
   const { lastMessage } = useWebSocket()
   const lastWsRef = React.useRef<WSNotification | null>(null)
   const [loadingHistory, setLoadingHistory] = React.useState(false)
@@ -402,6 +413,13 @@ export function AISidePanel() {
           model={currentModel}
           onModelChange={setModel}
           modelLabel={t('model')}
+        />
+
+        {/* AI 主动提问弹窗:挂起对话,等用户回答后续流 */}
+        <QuestionDialog
+          question={pendingQuestion}
+          onSubmit={sendAnswer}
+          onSkip={skipQuestion}
         />
       </aside>
       {/* 右侧拖拽手柄:外层 8px 命中区 right-[-4px] 居中跨越 aside 右边缘(左右各 4px),
