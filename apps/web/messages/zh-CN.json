@@ -1960,7 +1960,8 @@
         "resource": "资源中心",
         "developer": "开发者中心",
         "saas": "SaaS 部署"
-      }
+      },
+      "saasMetrics": "资源监控"
     },
     "refund": {
       "title": "退款审核管理",
@@ -2668,7 +2669,8 @@
         "domain": "访问域名",
         "domainHint": "用户访问地址",
         "shortcuts": "快捷操作",
-        "manageBackups": "管理备份"
+        "manageBackups": "管理备份",
+        "compareTenants": "租户对比"
       },
       "backups": {
         "title": "{slug} 的备份",
@@ -2702,6 +2704,35 @@
           "actions": "操作"
         },
         "download": "下载备份"
+      },
+      "metrics": {
+        "pageTitle": "资源监控",
+        "pageSubtitle": "多租户 CPU/内存/网络 实时对比(Prometheus + Grafana)",
+        "refresh": "刷新",
+        "loading": "正在加载 Grafana 图表…",
+        "iframeTitle": "实时指标(Grafana)",
+        "openNewWindow": "在新窗口打开",
+        "unavailable": "Prometheus 不可达,请检查 cadvisor/prometheus 容器状态",
+        "unavailableTitle": "资源监控暂不可用",
+        "unavailableHint": "Prometheus 服务连接失败,容器指标无法获取。",
+        "envHint": "提示: NEXT_PUBLIC_GRAFANA_BASE 未配置,iframe 使用默认值 http://127.0.0.1:3001",
+        "compareTitle": "多租户对比(各租户 CPU/内存叠加)",
+        "rankingTitle": "租户排名(按 CPU 降序)",
+        "totalTenants": "共 {total} 个租户",
+        "containers": "容器 × {count}",
+        "usageBarLabel": "{label} 使用率",
+        "empty": "暂无可监控的租户,等待容器启动…",
+        "generatedAt": "数据生成于 {time}",
+        "degraded": "降级模式",
+        "degradedHint": "Prometheus 数据源不可达,显示为空数据",
+        "live": "实时",
+        "back": "返回租户列表",
+        "cardTitle": "实时资源指标",
+        "cpu": "CPU",
+        "memory": "内存",
+        "networkRx": "下行",
+        "networkTx": "上行",
+        "unitCores": "核"
       }
     },
     "users": {

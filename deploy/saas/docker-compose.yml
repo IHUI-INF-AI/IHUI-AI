@@ -63,7 +63,7 @@ services:
       - traefik.http.routers.traefik-dashboard.tls=true
       - traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt
 
-  # IHUI-AI SaaS Admin API — 客户生命周期管理(端口 8081 仅 localhost 暴露)
+  # IHUI-AI SaaS Admin API — 客户生命周期管理 + 资源监控查询(端口 8081 仅 localhost 暴露)
   admin-api:
     build:
       context: ./admin-api
@@ -78,6 +78,8 @@ services:
       - LOG_LEVEL=${ADMIN_API_LOG_LEVEL:-info}
       - ADMIN_API_KEY=${ADMIN_API_KEY:-}
       - CORS_ORIGIN=${ADMIN_CORS_ORIGIN:-http://localhost:3000}
+      # P1-2.3:admin-api 内部访问 Prometheus(同网络)
+      - PROMETHEUS_URL=http://prometheus:9090
     ports:
       # 仅绑 localhost,不暴露公网
       - '127.0.0.1:8081:8081'
@@ -101,6 +103,85 @@ services:
     depends_on:
       traefik:
         condition: service_healthy
+      prometheus:
+        condition: service_healthy
+
+  # ==================== P1-2.3 资源监控 ====================
+  # cAdvisor — 容器运行时指标采集
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: ihui-saas-cadvisor
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=15s
+      - --max_container_age=0s  # 保留所有历史,7d 由 Prometheus 侧控制
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - ihui-saas-net
+
+  # Prometheus — 指标存储 + PromQL
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: ihui-saas-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - saas_prometheus_data:/prometheus
+    networks:
+      - ihui-saas-net
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:9090/-/healthy']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # Grafana — 仪表板可视化(端口 3001 仅 localhost)
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: ihui-saas-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_SERVER_ROOT_URL=http://127.0.0.1:3001
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - saas_grafana_data:/var/lib/grafana
+    networks:
+      - ihui-saas-net
+    ports:
+      # 同源 iframe 嵌入(localhost 浏览器直访)
+      - '127.0.0.1:3001:3000'
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:3000/api/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      prometheus:
+        condition: service_healthy
 
 networks:
   ihui-saas-net:
@@ -110,3 +191,9 @@ networks:
 volumes:
   saas_letsencrypt:
     name: ihui-saas-letsencrypt
+  # P1-2.3:Prometheus 时序数据(7d 保留,约占用 1-5GB)
+  saas_prometheus_data:
+    name: ihui-saas-prometheus-data
+  # P1-2.3:Grafana 用户配置(dashboards 通过挂载目录管理,此卷只存 datasource 状态)
+  saas_grafana_data:
+    name: ihui-saas-grafana-data
