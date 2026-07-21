@@ -22,6 +22,7 @@ import { PermissionConfirmDialog } from '@/components/ai/permission-confirm-dial
 import { CheckpointHistoryPanel } from '@/components/ai/checkpoint-history-panel'
 import { AgentRuntimePanel } from '@/components/ai/agent-runtime-panel'
 import { getAgentPermission } from '@ihui/api-client'
+import { useChatStore } from '@/stores/chat'
 
 interface Agent {
   agentId: string
@@ -77,6 +78,8 @@ export default function AgentDetailPage() {
   const params = useParams<{ id: string }>()
   const id = params.id
   const [permOpen, setPermOpen] = React.useState(false)
+  // 从 chat store 读取 sub-agent 活动流(多 agent 多路复用:SSE chunk 按 agentId 分流后累加)
+  const subAgentActivities = useChatStore((s) => s.subAgentActivities)
 
   const {
     data: agent,
@@ -271,7 +274,7 @@ export default function AgentDetailPage() {
               <PlanReviewPanel plan={{ steps: [] }} />
             </TabsContent>
             <TabsContent value="activity">
-              <SubAgentActivityFeed swarmId={agent.agentId} activities={[]} />
+              <SubAgentActivityFeed swarmId={agent.agentId} activities={subAgentActivities} />
             </TabsContent>
             <TabsContent value="background">
               <BackgroundAgentsPanel agents={[]} />

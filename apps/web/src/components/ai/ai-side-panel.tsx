@@ -22,6 +22,7 @@ import { MessageInput } from '@/components/chat/message-input'
 import { QuestionDialog } from '@/components/chat/question-dialog'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
+import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
 import { Tooltip } from '@/components/feedback'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -57,6 +58,7 @@ export function AISidePanel() {
     clearMessages,
     setModel,
   } = useChat()
+  const subAgentActivities = useChatStore((s) => s.subAgentActivities)
   const { lastMessage } = useWebSocket()
   const lastWsRef = React.useRef<WSNotification | null>(null)
   const [loadingHistory, setLoadingHistory] = React.useState(false)
@@ -468,6 +470,14 @@ export function AISidePanel() {
             }}
           />
         </div>
+
+        {/* Sub-agent 活动流:多 agent 多路复用时按 agentId 分流实时显示 token 输出。
+            仅当有 sub-agent 活动时渲染,单 agent 模式不显示。 */}
+        {subAgentActivities.length > 0 && (
+          <div className="shrink-0 px-3 pb-1">
+            <SubAgentActivityFeed swarmId="" activities={subAgentActivities} />
+          </div>
+        )}
 
         {/* 输入区 */}
         <MessageInput
