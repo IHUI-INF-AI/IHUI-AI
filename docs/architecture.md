@@ -424,6 +424,138 @@ pnpm turbo typecheck lint test  # 22/22 tasks, 268/268 tests, 0 errors + 0 warni
 
 ---
 
+## 12. 多租户架构(原 server-docs/MULTI_TENANT.md,2026-07-22 整合)
+
+> 等价自旧架构 `server/docs/MULTI_TENANT.md`,适配新架构(TS Monorepo + Fastify + Drizzle)。
+
+### 概述
+
+IHUI-AI 采用**共享数据库 + 行级隔离**的多租户模型。每个租户通过 `tenant_id` 字段隔离数据,应用层在查询时自动注入租户过滤条件。
+
+### 数据隔离层级
+
+| 层级   | 隔离方式 | 说明                             |
+| ------ | -------- | -------------------------------- |
+| 数据库 | 共享     | 所有租户共用同一 PostgreSQL 实例 |
+| Schema | 共享     | 所有租户共用同一 schema          |
+| 行     | 隔离     | 通过 `tenant_id` 列实现行级隔离  |
+
+### 租户标识传递链路
+
+```
+请求 → tenant 插件(解析 X-Tenant-ID / JWT claim)→ request.tenantId → 查询层自动注入 WHERE tenant_id = ?
+```
+
+- `apps/api/src/plugins/tenant.ts` 负责从请求头 `X-Tenant-ID` 或 JWT payload 中解析 `tenantId` 并挂载到 `request.tenantId`。
+- 所有多租户表在 schema 中定义 `tenantId` 列(见 `packages/database/src/schema/tenant.ts`)。
+- 查询层(`apps/api/src/db/*-queries.ts`)在读写时自动携带 `tenantId` 过滤。
+
+### 租户管理
+
+1. **创建**: 管理员通过 `POST /api/admin/tenants` 创建租户,分配默认配额。
+2. **激活/停用**: 通过 `PUT /api/admin/tenants/:id/status` 切换租户状态,停用后该租户用户无法登录。
+3. **配额**: 每个租户有独立的 API 调用、存储、Token 配额,由 `billing-queries.ts` 跟踪。
+4. **删除**: 软删除,保留数据 30 天后物理清理。
+
+### 安全约束
+
+- **禁止跨租户访问**: 所有查询必须携带 `tenantId`,缺失则拒绝执行。
+- **IDOR 防护**: `apps/api/src/utils/idor-guard.ts` 校验资源归属租户。
+- **数据范围**: `packages/auth/src/data-scope.ts` 实现基于租户的数据权限控制。
+- **审计**: 所有跨租户敏感操作记录到 `audit` 表,含 `tenantId`。
+
+### 配额与限流
+
+| 资源     | 默认配额  | 超额处理   |
+| -------- | --------- | ---------- |
+| API 调用 | 10000/天  | 429 限流   |
+| 文件存储 | 10 GB     | 拒绝上传   |
+| AI Token | 100 万/月 | 降级或拒绝 |
+| 并发会话 | 50        | 拒绝新会话 |
+
+限流由 `apps/api/src/plugins/queue.ts` + Redis 实现,按 `tenantId` 维度计数。
+
+### 运维注意事项
+
+- 新增多租户表时,**必须**在 schema 中添加 `tenantId` 列并建索引。
+- 运维查询若需跨租户,必须显式声明并经 DBA 审批,禁止在生产直连绕过租户过滤。
+- 租户数据导出/迁移走 `apps/api/src/routes/tenant.ts` 提供的管理接口,不直接操作数据库。
+
+---
+
+## 13. 性能基线(原 server-docs/PERFORMANCE_BASELINE.md,2026-07-22 整合)
+
+> 等价自旧架构 `server/docs/PERFORMANCE_BASELINE.md`,适配新架构(TS Monorepo + Fastify + Drizzle)。
+
+### 概述
+
+本文档定义 IHUI-AI 各核心端点的性能基线(SLA),作为容量规划、压测验收与回归监控的依据。基线数据基于 Locust 压测(`locustfile.py`)与 Prometheus 指标得出。
+
+### 硬件基准
+
+| 角色       | 规格  | 说明            |
+| ---------- | ----- | --------------- |
+| API 服务   | 4C8G  | Fastify 单实例  |
+| Web 服务   | 2C4G  | Next.js 单实例  |
+| PostgreSQL | 8C16G | 主从,连接池 50 |
+| Redis      | 2C4G  | 缓存 + 限流     |
+| AI Service | 4C8G  | Python FastAPI  |
+
+### 核心端点 SLA
+
+| 端点                     | P50   | P95   | P99   | 错误率 | 说明               |
+| ------------------------ | ----- | ----- | ----- | ------ | ------------------ |
+| `GET /api/health`        | 20ms  | 50ms  | 100ms | <0.01% | 健康检查           |
+| `GET /api/auth/me`       | 30ms  | 80ms  | 150ms | <0.1%  | 鉴权链路           |
+| `GET /api/content/list`  | 50ms  | 150ms | 300ms | <0.1%  | 内容列表(含缓存) |
+| `GET /api/chat/sessions` | 80ms  | 200ms | 400ms | <0.1%  | 会话列表           |
+| `POST /api/chat` (SSE)   | 800ms | 2s    | 5s    | <1%    | AI 对话首 Token    |
+| `POST /api/files/upload` | 200ms | 800ms | 2s    | <0.5%  | 小文件上传         |
+| `WS /ws`                 | 100ms | 300ms | 600ms | <0.1%  | WebSocket 握手     |
+
+### 数据库性能基线
+
+| 指标          | 基线   | 告警阈值                   |
+| ------------- | ------ | -------------------------- |
+| 活跃连接数    | <20    | >40 warning / >48 critical |
+| 慢查询(>1s)  | <5/min | >20/min                    |
+| 缓存命中率    | >95%   | <90%                       |
+| 复制延迟      | <1s    | >5s                        |
+| 死锁          | 0      | >0                         |
+| 事务平均耗时  | <50ms  | >200ms                     |
+
+### 压测验收标准
+
+使用 `locustfile.py` 执行压测,验收需满足:
+
+- **100 并发**: P95 达标,错误率 <0.1%
+- **500 并发**: P95 ≤ 基线 ×2,错误率 <1%
+- **1000 并发**: 服务不崩溃,错误率 <5%,触发限流而非超时
+
+```bash
+locust -f locustfile.py --headless \
+    --host http://localhost:3000 \
+    --users 100 --spawn-rate 10 --run-time 120s
+```
+
+### 性能回归监控
+
+- Prometheus 采集 API 延迟直方图(`apps/api/src/plugins/metrics.ts`)。
+- Grafana dashboard `api-performance.json` 展示 P50/P95/P99 趋势。
+- 告警规则见 `monitoring/prometheus/alerts.yml`,超基线阈值触发告警。
+- 每周回归压测由 `.github/workflows/ws-loadtest.yml` 自动执行。
+
+### 性能优化 checklist
+
+- [ ] 新增查询走索引,避免全表扫描
+- [ ] 列表接口强制分页,单页 ≤100
+- [ ] N+1 检测器(`n1-detector.ts`)无告警
+- [ ] 热点数据加 Redis 缓存
+- [ ] 大响应启用 gzip 压缩(`compression.ts`)
+- [ ] 慢 SQL 杀手(`slow-sql-killer.ts`)生效
+
+---
+
 ## 旧架构弃用说明
 
 以下目录为旧架构代码,已弃用,不再维护:
