@@ -112,8 +112,6 @@ const broadcastConfig: BroadcastConfig = {
   maxConnectionsPerUser: 10,
 }
 
-const idParam = { type: 'object' as const, properties: { id: { type: 'string' } } }
-
 export const publicSocketRoutes: FastifyPluginAsync = async (server) => {
   // 全部 admin 鉴权(运维端点,非用户端)
   server.addHook('preHandler', async (request, reply) => {
@@ -272,21 +270,17 @@ export const publicSocketRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 7) PUT /public-socket/config - 更新广播系统配置
-  server.put(
-    '/public-socket/config',
-    { schema: { body: configUpdateSchema } },
-    async (request, reply) => {
-      const parsed = configUpdateSchema.safeParse(request.body)
-      if (!parsed.success)
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      if (parsed.data.rateLimit !== undefined) broadcastConfig.rateLimit = parsed.data.rateLimit
-      if (parsed.data.heartbeatTimeoutMs !== undefined)
-        broadcastConfig.heartbeatTimeoutMs = parsed.data.heartbeatTimeoutMs
-      if (parsed.data.maxConnectionsPerUser !== undefined)
-        broadcastConfig.maxConnectionsPerUser = parsed.data.maxConnectionsPerUser
-      return reply.send(success({ config: broadcastConfig, updated: true }))
-    },
-  )
+  server.put('/public-socket/config', async (request, reply) => {
+    const parsed = configUpdateSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (parsed.data.rateLimit !== undefined) broadcastConfig.rateLimit = parsed.data.rateLimit
+    if (parsed.data.heartbeatTimeoutMs !== undefined)
+      broadcastConfig.heartbeatTimeoutMs = parsed.data.heartbeatTimeoutMs
+    if (parsed.data.maxConnectionsPerUser !== undefined)
+      broadcastConfig.maxConnectionsPerUser = parsed.data.maxConnectionsPerUser
+    return reply.send(success({ config: broadcastConfig, updated: true }))
+  })
 
   // 8) GET /public-socket/logs - 广播日志
   server.get('/public-socket/logs', async (request, reply) => {
@@ -348,13 +342,10 @@ export const publicSocketRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 10) POST /public-socket/register - WS 客户端 register 事件注册复合键
-  server.post(
-    '/public-socket/register',
-    { schema: { body: registerSchema, params: idParam } },
-    async (request, reply) => {
-      const parsed = registerSchema.safeParse(request.body)
-      if (!parsed.success)
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+  server.post('/public-socket/register', async (request, reply) => {
+    const parsed = registerSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       const { userId, modelId, chatId, remoteAddress } = parsed.data
       const compositeKey = `${userId}:${modelId}:${chatId}`
       const now = new Date()
@@ -391,8 +382,7 @@ export const publicSocketRoutes: FastifyPluginAsync = async (server) => {
         status: 'success',
       })
       return reply.status(201).send(success({ compositeKey, connectionId: conns.length - 1 }))
-    },
-  )
+  })
 }
 
 // 暴露给 ws-broadcast 插件注册的内部 API
