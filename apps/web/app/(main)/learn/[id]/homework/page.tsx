@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useLocale, useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2, ClipboardList, Clock, Upload } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
@@ -27,43 +28,9 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-const deadlineFmt = new Intl.DateTimeFormat('zh-CN', {
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  hour12: false,
-})
-
-function formatDeadline(t?: string) {
-  if (!t) return ''
-  const d = new Date(t)
-  if (isNaN(d.getTime())) return t
-  return deadlineFmt.format(d)
-}
-
-const STATUS_MAP: Record<string, string> = {
-  waiting_approval: '待批改',
-  pass_approval: '已通过',
-  fail_approval: '未通过',
-  not_submitted: '未提交',
-  submitted: '已提交',
-}
-const NUM_STATUS_MAP: Record<number, string> = {
-  0: '未提交',
-  1: '已提交',
-  2: '已通过',
-  3: '未通过',
-}
-
-function statusText(status?: number | string) {
-  if (status === undefined || status === null) return '未提交'
-  if (typeof status === 'number') return NUM_STATUS_MAP[status] ?? '未知'
-  return STATUS_MAP[status] ?? status
-}
-
 export default function CourseHomeworkPage() {
+  const t = useTranslations('learnHomeworkPage')
+  const locale = useLocale()
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const qc = useQueryClient()
@@ -79,13 +46,40 @@ export default function CourseHomeworkPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['learn', 'homework', id] }),
   })
 
+  const deadlineFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+
+  const formatDeadline = (t?: string) => {
+    if (!t) return ''
+    const d = new Date(t)
+    if (isNaN(d.getTime())) return t
+    return deadlineFmt.format(d)
+  }
+
+  const statusText = (status?: number | string) => {
+    if (status === undefined || status === null) return t('status.notSubmitted')
+    if (typeof status === 'number') {
+      const numKey = ['notSubmitted', 'submitted', 'passApproval', 'failApproval'][
+        status
+      ] as 'notSubmitted' | 'submitted' | 'passApproval' | 'failApproval'
+      return numKey ? t(`status.${numKey}`) : t('status.unknown')
+    }
+    return t(`status.${status}` as 'status.submitted')
+  }
+
   const list = data?.list ?? []
 
   if (isLoading)
     return (
       <div className="flex items-center justify-center py-16 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-        加载中...
+        {t('loading')}
       </div>
     )
 
@@ -98,10 +92,10 @@ export default function CourseHomeworkPage() {
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          返回课程
+          {t('backToCourse')}
         </button>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
-          {(error as Error)?.message ?? '加载失败'}
+          {(error as Error)?.message ?? t('errorFallback')}
         </div>
       </div>
     )
@@ -113,18 +107,18 @@ export default function CourseHomeworkPage() {
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
-        返回课程
+        {t('backToCourse')}
       </Link>
 
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
         <ClipboardList className="h-6 w-6 text-primary" />
-        课程作业
+        {t('title')}
       </h1>
 
       {list.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16">
           <ClipboardList className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">暂无作业</p>
+          <p className="text-sm text-muted-foreground">{t('empty')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -140,7 +134,7 @@ export default function CourseHomeworkPage() {
                       {deadline && (
                         <span className="flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5" />
-                          截止时间：{deadline}
+                          {t('deadlineLabel', { deadline })}
                         </span>
                       )}
                       <span className="rounded px-1.5 py-0.5 bg-muted">
@@ -160,7 +154,7 @@ export default function CourseHomeworkPage() {
                       ) : (
                         <Upload className="h-4 w-4" />
                       )}
-                      {submitted ? '已提交' : '提交作业'}
+                      {submitted ? t('submitBtn.submitted') : t('submitBtn.notSubmitted')}
                     </Button>
                   </div>
                 </CardContent>

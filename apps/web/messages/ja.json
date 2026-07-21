@@ -12059,7 +12059,11 @@
       "submitSchedule": "予約公開",
       "submitting": "送信中...",
       "submitSuccess": "タスクを送信しました。公開中",
-      "submitFailed": "送信失敗"
+      "submitFailed": "送信失敗",
+      "uploading": "アップロード中...",
+      "uploadSuccess": "アップロード済み: {filename}",
+      "uploadFailed": "アップロード失敗",
+      "uploadedHint": "ファイルがアップロードされました。再選択で置換できます。"
     },
     "history": {
       "title": "公開履歴",
@@ -25855,6 +25859,135 @@
       "resultCol": "結果",
       "correctLabel": "正解",
       "wrongLabel": "不正解"
+    }
+  },
+  "memberOrdersPage": {
+    "title": "マイオーダー",
+    "subtitle": "すべてのオーダーを表示・管理",
+    "status": {
+      "pending": "未払い",
+      "paid": "支払済み",
+      "cancelled": "キャンセル",
+      "refunded": "返金済み",
+      "all": "すべて"
+    },
+    "table": {
+      "orderNo": "注文番号",
+      "product": "商品",
+      "amount": "金額",
+      "status": "ステータス",
+      "time": "時間",
+      "action": "アクション"
+    },
+    "viewAction": "表示",
+    "loading": "読み込み中...",
+    "empty": "注文履歴がありません",
+    "total": "{n} 件"
+  },
+  "learnPaymentConfirmPage": {
+    "missingOrderNo": "注文番号が不足しています",
+    "loadingOrder": "注文を読み込み中...",
+    "statusPaid": "支払い成功",
+    "statusFailed": "支払い失敗",
+    "statusCancelled": "注文はキャンセルされました",
+    "statusPending": "支払い待ち...",
+    "descPaid": "注文の支払いが完了しました",
+    "descPending": "新しいウィンドウで支払いを完了してください。システムが支払い状態を自動検出します。",
+    "descFailed": "再度支払いを開始してください",
+    "fields": {
+      "orderNo": "注文番号",
+      "product": "商品",
+      "payMethod": "支払い方法",
+      "payAmount": "支払金額",
+      "createdAt": "注文日時",
+      "paidAt": "支払日時"
+    },
+    "actions": {
+      "backToLearn": "学習に戻る",
+      "viewOrders": "注文を表示",
+      "cancelPolling": "ポーリングをキャンセル",
+      "repurchase": "再購入"
+    }
+  },
+  "learnHomeworkPage": {
+    "title": "課題",
+    "loading": "読み込み中...",
+    "errorFallback": "読み込み失敗",
+    "backToCourse": "コースに戻る",
+    "empty": "課題なし",
+    "deadlineLabel": "締切:{deadline}",
+    "submitBtn": {
+      "submitted": "提出済み",
+      "notSubmitted": "提出"
+    },
+    "status": {
+      "waitingApproval": "採点待ち",
+      "passApproval": "合格",
+      "failApproval": "不合格",
+      "notSubmitted": "未提出",
+      "submitted": "提出済み",
+      "unknown": "不明"
+    }
+  },
+  "contractManager": {
+    "title": "契約管理",
+    "empty": "自動継続契約なし",
+    "planName": "月額サブスクリプション",
+    "fields": {
+      "nextCharge": "次回引き落とし",
+      "lastCharge": "前回引き落とし",
+      "chargeStatus": "引き落とし状態",
+      "signedAt": "契約日時"
+    },
+    "status": {
+      "pending": "契約中",
+      "active": "有効",
+      "cancelled": "解約済み",
+      "expired": "期限切れ"
+    },
+    "chargeStatus": {
+      "success": "成功",
+      "failed": "失敗",
+      "processing": "処理中"
+    },
+    "actions": {
+      "cancel": "解約"
+    },
+    "cancelDialog": {
+      "title": "自動継続を解約",
+      "content": "解約後は自動引き落としされません。現在の VIP 権益は期限まで有効です。解約しますか?",
+      "confirmText": "解約を確認",
+      "cancelText": "キャンセル"
+    }
+  },
+  "eduDashboardPage": {
+    "title": "学習概況",
+    "subtitle": "学習データと最近の進捗を表示",
+    "loading": "読み込み中...",
+    "stats": {
+      "studyHours": "学習時間",
+      "inProgressCourses": "進行中コース",
+      "passedExams": "合格した試験",
+      "avgProgress": "平均進捗"
+    },
+    "coursesCard": {
+      "title": "コース",
+      "total": "登録数",
+      "completed": "完了"
+    },
+    "examsCard": {
+      "title": "試験と証明書",
+      "totalExams": "試験総数",
+      "totalCerts": "証明書数"
+    },
+    "progressCard": {
+      "title": "完了率"
+    },
+    "recentSection": {
+      "title": "最近の学習",
+      "viewAll": "すべて表示",
+      "empty": "学習記録なし",
+      "progressLabel": "進捗 {n}%"
     }
   }
 }
