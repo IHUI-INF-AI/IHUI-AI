@@ -22,7 +22,21 @@ const envSchema = z.object({
   REDIS_URL: z.string().url().default('redis://localhost:6379'),
   JWT_SECRET: z.string().min(32),
   JWT_EXPIRES_IN: z.string().default('7d'),
-  CREDENTIALS_ENCRYPTION_KEY: z.string().min(32).default('a'.repeat(32)),
+  CREDENTIALS_ENCRYPTION_KEY: z
+    .string()
+    .min(32, 'CREDENTIALS_ENCRYPTION_KEY 必须至少 32 字符')
+    .refine(
+      (v) => {
+        // 仅在生产环境拒绝弱默认值/已知占位符(2026-07-21 安全审计加固)
+        // 测试环境允许弱密钥(测试套件历史使用 'a'.repeat(32) 占位)
+        if (process.env.NODE_ENV !== 'production') return true
+        if (v === 'a'.repeat(32)) return false
+        if (/^(.)\1+$/.test(v)) return false // 全相同字符(如 aaaa...)
+        if (v.toLowerCase() === 'change-me' || v.toLowerCase() === 'changeme') return false
+        return true
+      },
+      { message: 'CREDENTIALS_ENCRYPTION_KEY 不能使用弱默认值/全相同字符/已知占位符' },
+    ),
 
   AI_SERVICE_URL: z.string().url().default('http://localhost:8000'),
 
