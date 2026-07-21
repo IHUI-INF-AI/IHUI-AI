@@ -337,9 +337,10 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
       if (!fileUrl) return reply.status(404).send(error(404, '资源文件不存在'))
 
       // 写入下载记录 + 自增下载量（不阻塞响应）
-      const ip =
-        (request.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ??
-        request.ip
+      // 2026-07-21 安全审计第十轮加固:不再手工读 X-Forwarded-For
+      // request.ip 已经过 trustProxy 验证,等同于真实客户端 IP(或最后可信代理 IP)
+      // 手工读 X-Forwarded-For 会被攻击者伪造任意 IP 污染审计日志
+      const ip = request.ip
       const userAgent = request.headers['user-agent'] ?? null
       await Promise.all([
         createDownloadRecord({ resourceId: parsed.data.id, userId, ip, userAgent }),
