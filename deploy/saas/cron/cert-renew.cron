@@ -1,0 +1,12 @@
+# IHUI-AI SaaS 证书自动续期 cron
+# 部署: cp cert-renew.cron /etc/cron.d/ihui-saas-cert-renew
+#
+# 触发:每周日 3:00(Let's Encrypt 通常在 60 天前自动续,我们每周检查一次)
+# 行为:
+#   - 解析 acme.json
+#   - 证书剩余 < 7 天 → 重启 Traefik 强制重签
+#   - 证书剩余 < 30 天 → 警告(无需干预)
+#   - 证书剩余 >= 30 天 → 健康
+#   - 清理 30 天前的旧备份
+
+0 3 * * 0 root cd /opt/ihui-saas && /bin/bash deploy/saas/cron/cert-renew.sh >> /var/log/ihui-saas/cert-renew.log 2>&1
