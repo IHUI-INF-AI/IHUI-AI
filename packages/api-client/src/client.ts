@@ -276,6 +276,11 @@ export interface StreamChatOptions {
   path?: string
   /** 透传到请求 body 的额外字段(如 /chat/answer 的 questionId / answer)。 */
   extraBody?: Record<string, unknown>
+  /** 绑定的 agent ID:透传到后端,后端在 SSE chunk 顶层注入 agentId。
+   * 前端 onAgentDelta 据此分流到 subagent 卡片;缺失时降级为单 agent 模式。 */
+  agentId?: string
+  /** 多 agent 多路复用回调:chunk 带 agentId 时触发,与 onDelta 互斥(有 agentId 走此回调,无则走 onDelta)。 */
+  onAgentDelta?: (agentId: string, delta: string) => void
 }
 
 export function parseStreamLine(line: string): string | null {
@@ -348,6 +353,36 @@ function attachErrorMeta(err: Error, json: Record<string, unknown>): Error {
     ;(err as Error & { retryAfter: number }).retryAfter = json.retryAfter
   }
   return err
+}
+
+/**
+ * 从 SSE data: 行提取顶层 agentId 字段。
+ * 仅 JSON 对象格式支持(`data: {"choices":[...],"agentId":"..."}`);
+ * Vercel AI SDK `0:"token"` / 纯文本 / 非 JSON → undefined。
+ */
+export function extractAgentId(line: string): string | undefined {
+  if (!line || line.startsWith(':')) return undefined
+  let data = line
+  if (line.startsWith('data:')) {
+    data = line.slice(5).replace(/^\s/, '')
+  } else if (
+    line.startsWith('event:') ||
+    line.startsWith('id:') ||
+    line.startsWith('retry:')
+  ) {
+    return undefined
+  }
+  if (!data || data === '[DONE]') return undefined
+  // Vercel AI SDK 协议 `0:"..."` → 无 agentId
+  if (/^\d+:/.test(data)) return undefined
+  if (!data.startsWith('{')) return undefined
+  try {
+    const json = JSON.parse(data) as Record<string, unknown>
+    if (typeof json?.agentId === 'string') return json.agentId
+  } catch {
+    /* 非 JSON */
+  }
+  return undefined
 }
 
 export function parseStreamLineReasoning(line: string): string | null {
@@ -703,6 +738,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
   if (opts.stop !== undefined) body.stop = opts.stop
   if (opts.workspacePath) body.workspacePath = opts.workspacePath
   if (opts.contextLimit !== undefined) body.contextLimit = opts.contextLimit
+  if (opts.agentId) body.agentId = opts.agentId
   if (opts.extraBody) Object.assign(body, opts.extraBody)
 
   try {
@@ -749,6 +785,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const hasReasoning = typeof opts.onReasoning === 'function'
     const hasCompaction = typeof opts.onCompaction === 'function'
     const hasQuestion = typeof opts.onQuestion === 'function'
+    const hasAgentDelta = typeof opts.onAgentDelta === 'function'
 
     const tryParseCompaction = (line: string): void => {
       if (!hasCompaction) return
@@ -820,7 +857,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseCompaction(line)
         tryParseQuestion(line)
         const delta = parseStreamLine(line)
-        if (delta) opts.onDelta(delta)
+        if (delta) {
+          const agentId = hasAgentDelta ? extractAgentId(line) : undefined
+          if (agentId) opts.onAgentDelta!(agentId, delta)
+          else opts.onDelta(delta)
+        }
         if (hasReasoning) {
           const r = parseStreamLineReasoning(line)
           if (r) opts.onReasoning!(r)
@@ -831,7 +872,11 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       tryParseCompaction(buffer)
       tryParseQuestion(buffer)
       const delta = parseStreamLine(buffer)
-      if (delta) opts.onDelta(delta)
+      if (delta) {
+        const agentId = hasAgentDelta ? extractAgentId(buffer) : undefined
+        if (agentId) opts.onAgentDelta!(agentId, delta)
+        else opts.onDelta(delta)
+      }
       if (hasReasoning) {
         const r = parseStreamLineReasoning(buffer)
         if (r) opts.onReasoning!(r)
