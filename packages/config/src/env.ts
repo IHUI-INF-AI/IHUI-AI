@@ -12,8 +12,8 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(32).optional(),
   JWT_ISSUER: z.string().default('ihui-ai'),
 
-  JWT_ACCESS_TTL: z.string().default('30m'),
-  JWT_REFRESH_TTL: z.string().default('7d'),
+  JWT_ACCESS_TTL: z.string().default('7d'),
+  JWT_REFRESH_TTL: z.string().default('30d'),
 
   PORT: z.coerce.number().int().positive().default(3000),
 

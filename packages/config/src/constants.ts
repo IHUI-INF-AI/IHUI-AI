@@ -14,9 +14,9 @@ export const MAX_PAGE_SIZE = 100;
 
 export const JWT_ISSUER = 'ihui-ai';
 
-export const ACCESS_TOKEN_TTL_SECONDS = 60 * 30;
+export const ACCESS_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 
-export const REFRESH_TOKEN_TTL_SECONDS = 60 * 60 * 24 * 7;
+export const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
 
 export const PASSWORD_MIN_LENGTH = 8;
 
