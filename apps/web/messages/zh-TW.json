@@ -2640,6 +2640,7 @@
         "destroyTitle": "銷毀租戶 {slug}",
         "destroyHint": "此操作不可復原!租戶的所有資料、容器、備份將全部清除,請謹慎操作。",
         "destroyInputHint": "請輸入租戶識別「{slug}」以確認銷毀",
+        "confirmInputHint": "請輸入「{value}」以確認操作",
         "cancel": "取消",
         "confirm": "確認"
       },
@@ -2652,6 +2653,54 @@
         "planFree": "免費版",
         "planPro": "專業版",
         "planEnterprise": "企業版"
+      },
+      "detail": {
+        "back": "返回租戶列表",
+        "status": "狀態",
+        "statusHint": "狀態變更於 {time}",
+        "containers": "容器",
+        "containersHint": "執行中 / 總數",
+        "resources": "資源限制",
+        "resourcesHint": "記憶體 + CPU 配額",
+        "memory": "記憶體",
+        "cpu": "CPU",
+        "domain": "存取網域",
+        "domainHint": "使用者存取網址",
+        "shortcuts": "快捷操作",
+        "manageBackups": "管理備份"
+      },
+      "backups": {
+        "title": "{slug} 的備份",
+        "subtitle": "管理此租戶的全部備份,支援還原與刪除",
+        "createNow": "立即備份",
+        "createTitle": "立即備份 {slug}",
+        "createHint": "立即建立一份資料快照備份,操作期間服務可正常使用。",
+        "restoreTitle": "從 {timestamp} 還原",
+        "restoreHint": "此操作將使用備份覆蓋目前資料,請確認時間戳記正確。",
+        "restoreInputHint": "請輸入時間戳「{timestamp}」以確認還原",
+        "deleteTitle": "刪除備份 {timestamp}",
+        "deleteHint": "此操作不可復原!備份檔案將永久刪除,無法還原。",
+        "deleteInputHint": "請輸入時間戳「{timestamp}」以確認刪除",
+        "restore": "還原",
+        "delete": "刪除",
+        "stats": {
+          "total": "備份總數",
+          "totalSize": "佔用空間",
+          "avg": "平均 {size} / 份",
+          "latest": "最新備份",
+          "empty": "暫無備份"
+        },
+        "listTitle": "備份列表",
+        "empty": "暫無備份,點擊右上角「立即備份」建立",
+        "table": {
+          "timestamp": "時間戳",
+          "size": "大小",
+          "files": "檔案數",
+          "createdAt": "建立時間",
+          "age": "距今",
+          "actions": "操作"
+        },
+        "download": "下載備份"
       }
     },
     "users": {
@@ -26821,7 +26870,15 @@
     "empty": "本週暫無課程",
     "today": "今天",
     "noClass": "無課",
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ]
   },
   "memberUpgradePage": {
     "title": "會員升級",
@@ -27233,9 +27290,9 @@
   },
   "oauthSetupPage": {
     "title": "OAuth 憑證設定精靈",
-    "subtitle": "應用內互動式引導,幫你一步步取得第三方登入平台的真實憑證",
+    "subtitle": "應用內互動式引導,幫你一步步取得第三方登入平臺的真實憑證",
     "honestTitle": "🤖 AI 無法替你註冊帳號",
-    "honestBody": "5 個平台(GitHub/Google/飛書/支付寶/Apple)的帳號註冊需要你的真人資訊(信箱/手機/身分證/營業執照/付費信用卡),AI 無法代替你操作。但本精靈會引導你每一步,跟著點就不會迷路。建議從 GitHub 開始(3 分鐘,免費)。"
+    "honestBody": "5 個平臺(GitHub/Google/飛書/支付寶/Apple)的帳號註冊需要你的真人資訊(信箱/手機/身分證/營業執照/付費信用卡),AI 無法代替你操作。但本精靈會引導你每一步,跟著點就不會迷路。建議從 GitHub 開始(3 分鐘,免費)。"
   },
   "agentsStatsPage": {
     "back": "返回",
