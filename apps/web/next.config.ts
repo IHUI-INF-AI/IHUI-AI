@@ -63,6 +63,8 @@ const nextConfig: NextConfig = {
       { source: '/api/tools/:path*', destination: `${aiServiceUrl}/api/tools/:path*` },
       { source: '/api/mcp/:path*', destination: `${aiServiceUrl}/api/mcp/:path*` },
       { source: '/api/a2a/:path*', destination: `${aiServiceUrl}/api/a2a/:path*` },
+      // v1 业务流(对话/智能体/RAG/知识图谱,挂在 ai-service /api/v1/ai/ 前缀)
+      { source: '/api/ai/:path*', destination: `${aiServiceUrl}/api/v1/ai/:path*` },
       // 其余 /api/* 转发到 Fastify 后端(端口 8080)
       { source: '/api/:path*', destination: `${apiUrl}/api/:path*` },
       // 静态资源(头像等)转发到 Fastify 后端
