@@ -37,6 +37,14 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
+interface UploadResult {
+  file_path: string
+  filename: string
+  format: string
+  size: number
+  content_type: string
+}
+
 export default function NewPublishPage() {
   const t = useTranslations('publish')
   const toast = useToast()
@@ -46,11 +54,32 @@ export default function NewPublishPage() {
   const [format, setFormat] = React.useState<Format>('md')
   const [textContent, setTextContent] = React.useState('')
   const [filePath, setFilePath] = React.useState('')
+  const [fileMeta, setFileMeta] = React.useState<UploadResult | null>(null)
   const [coverPath, setCoverPath] = React.useState('')
+  const [coverMeta, setCoverMeta] = React.useState<UploadResult | null>(null)
+  const [uploadingKey, setUploadingKey] = React.useState<'file' | 'cover' | null>(null)
   const [selected, setSelected] = React.useState<Set<string>>(new Set())
   const [scheduleMode, setScheduleMode] = React.useState<'now' | 'schedule'>('now')
   const [scheduledAt, setScheduledAt] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
+
+  async function uploadFile(file: File): Promise<UploadResult> {
+    const fd = new FormData()
+    fd.append('file', file, file.name)
+    const r = await fetchApi<{ data: UploadResult } | UploadResult>('/api/publish/upload', {
+      method: 'POST',
+      body: fd,
+    })
+    if (!r.success) throw new Error(r.error)
+    const data = (r.data as { data?: UploadResult })?.data ?? (r.data as UploadResult)
+    return data
+  }
+
+  function fmtSize(n: number): string {
+    if (n < 1024) return `${n} B`
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+    return `${(n / 1024 / 1024).toFixed(2)} MB`
+  }
 
   React.useEffect(() => {
     void (async () => {
@@ -91,11 +120,33 @@ export default function NewPublishPage() {
     setSelected(new Set())
   }
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>, setter: (v: string) => void) {
+  async function handleFile(
+    e: React.ChangeEvent<HTMLInputElement>,
+    kind: 'file' | 'cover',
+  ) {
     const file = e.target.files?.[0]
-    if (!file) return
-    setter(file.name)
     e.target.value = ''
+    if (!file) return
+    setUploadingKey(kind)
+    try {
+      const result = await uploadFile(file)
+      if (kind === 'file') {
+        setFilePath(result.file_path)
+        setFileMeta(result)
+        // 自动切换 format 到与文件匹配的类型(若当前是文本格式)
+        if (result.format !== 'md' && result.format !== 'html') {
+          setFormat(result.format as Format)
+        }
+      } else {
+        setCoverPath(result.file_path)
+        setCoverMeta(result)
+      }
+      toast.success(t('new.uploadSuccess', { filename: result.filename }))
+    } catch (err) {
+      toast.error(t('new.uploadFailed'), (err as Error).message)
+    } finally {
+      setUploadingKey(null)
+    }
   }
 
   async function submit(e: React.FormEvent) {
@@ -193,16 +244,27 @@ export default function NewPublishPage() {
             ) : (
               <div className="space-y-2">
                 <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-3 text-xs text-muted-foreground transition-colors hover:bg-accent">
-                  <Upload className="h-4 w-4" />
-                  <span>{filePath || t('new.uploadFileHint')}</span>
+                  {uploadingKey === 'file' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="h-4 w-4" />
+                  )}
+                  <span>
+                    {uploadingKey === 'file'
+                      ? t('new.uploading')
+                      : fileMeta
+                        ? `${fileMeta.filename} · ${fmtSize(fileMeta.size)} · ${fileMeta.format}`
+                        : t('new.uploadFileHint')}
+                  </span>
                   <input
                     type="file"
                     className="hidden"
-                    onChange={(e) => handleFile(e, setFilePath)}
+                    disabled={uploadingKey !== null}
+                    onChange={(e) => handleFile(e, 'file')}
                   />
                 </label>
                 <p className="text-xs text-amber-600 dark:text-amber-400">
-                  {t('new.uploadFileHint')}
+                  {fileMeta ? t('new.uploadedHint') : t('new.uploadFileHint')}
                 </p>
               </div>
             )}
@@ -210,13 +272,24 @@ export default function NewPublishPage() {
           <div className="space-y-2">
             <Label>{t('new.coverImage')}</Label>
             <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-accent">
-              <Upload className="h-4 w-4" />
-              <span>{coverPath || t('new.coverImage')}</span>
+              {uploadingKey === 'cover' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              <span>
+                {uploadingKey === 'cover'
+                  ? t('new.uploading')
+                  : coverMeta
+                    ? `${coverMeta.filename} · ${fmtSize(coverMeta.size)}`
+                    : t('new.coverImage')}
+              </span>
               <input
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => handleFile(e, setCoverPath)}
+                disabled={uploadingKey !== null}
+                onChange={(e) => handleFile(e, 'cover')}
               />
             </label>
           </div>

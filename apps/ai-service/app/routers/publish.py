@@ -14,6 +14,7 @@
 - POST   /publish/tasks/{task_id}/retry  - 重试失败平台
 - GET    /publish/history              - 历史记录
 - GET    /publish/stats                - 统计
+- POST   /publish/upload               - 上传内容文件(docx/pdf/image/video)
 
 DB 表(由 scheduler 自动建表):
 - publish_tasks:    任务主表
@@ -34,7 +35,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import asyncpg
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
@@ -164,6 +165,126 @@ async def list_platforms() -> dict[str, Any]:
             "needsBrowser": cls.needs_browser,
         })
     return {"items": items, "count": len(items)}
+
+
+# ===== 文件上传 =====
+
+# 允许的文件扩展名(按格式分类)
+_ALLOWED_EXTENSIONS = {
+    "docx": {".docx"},
+    "pdf": {".pdf"},
+    "image": {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"},
+    "video": {".mp4", ".mov", ".avi", ".mkv", ".flv", ".wmv", ".webm"},
+    "md": {".md", ".markdown"},
+    "html": {".html", ".htm"},
+}
+
+# 单文件最大 200MB(视频可能较大)
+_MAX_FILE_SIZE = 200 * 1024 * 1024
+
+# 上传根目录(可被 PUBLISH_UPLOAD_DIR 环境变量覆盖,默认 .uploads/publish)
+def _upload_root() -> Path:
+    raw = os.environ.get("PUBLISH_UPLOAD_DIR", "")
+    if raw:
+        p = Path(raw)
+    else:
+        # 默认放 ai-service 工作目录下 .uploads/publish(已在 .gitignore)
+        p = Path.cwd() / ".uploads" / "publish"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def _detect_format(filename: str) -> str:
+    """根据文件扩展名判定格式。返回 docx/pdf/image/video/md/html 之一,未知返回空串。"""
+    suffix = Path(filename).suffix.lower()
+    for fmt, exts in _ALLOWED_EXTENSIONS.items():
+        if suffix in exts:
+            return fmt
+    return ""
+
+
+@router.post("/upload")
+async def upload_file(
+    file: UploadFile = File(..., description="要上传的文件(docx/pdf/image/video/md/html)"),
+    user_id: Optional[str] = Query(default=None, description="用户 ID,用于隔离存储"),
+) -> dict[str, Any]:
+    """上传内容文件,返回服务器存储路径 + 解析后的 format。
+
+    存储路径:`<upload_root>/<user_id or anonymous>/<yyyymmdd>/<uuid><ext>`
+
+    返回:
+    ```json
+    {
+      "ok": true,
+      "file_path": "/abs/path/to/saved/file.docx",
+      "filename": "原始文件名.docx",
+      "format": "docx",
+      "size": 12345,
+      "content_type": "application/vnd.openxmlformats..."
+    }
+    ```
+    """
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="filename is required")
+
+    fmt = _detect_format(file.filename)
+    if not fmt:
+        allowed = ", ".join(sorted({e for exts in _ALLOWED_EXTENSIONS.values() for e in exts}))
+        raise HTTPException(
+            status_code=400,
+            detail=f"unsupported file extension: {Path(file.filename).suffix}. allowed: {allowed}",
+        )
+
+    # 读取内容并检查大小
+    content_bytes = await file.read()
+    size = len(content_bytes)
+    if size == 0:
+        raise HTTPException(status_code=400, detail="file is empty")
+    if size > _MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"file too large: {size} bytes > max {_MAX_FILE_SIZE} bytes (200MB)",
+        )
+
+    # 构造存储路径
+    user_dir = user_id or "anonymous"
+    user_dir = "".join(c for c in user_dir if c.isalnum() or c in "-_") or "anonymous"
+    yyyymmdd = datetime.now(timezone.utc).strftime("%Y%m%d")
+    unique = uuid.uuid4().hex[:16]
+    suffix = Path(file.filename).suffix.lower()
+    # 安全文件名(去除路径分隔符)
+    safe_name = "".join(c for c in Path(file.filename).stem if c.isalnum() or c in "-_")[:50] or "file"
+    save_dir = _upload_root() / user_dir / yyyymmdd
+    save_dir.mkdir(parents=True, exist_ok=True)
+    save_path = save_dir / f"{safe_name}_{unique}{suffix}"
+
+    # 写入磁盘
+    try:
+        with save_path.open("wb") as f:
+            f.write(content_bytes)
+    except OSError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"failed to write file: {type(e).__name__}: {e}",
+        )
+
+    logger.info(
+        "[publish.upload] user=%s filename=%s format=%s size=%d saved=%s",
+        user_dir,
+        file.filename,
+        fmt,
+        size,
+        save_path,
+    )
+
+    return {
+        "ok": True,
+        "file_path": str(save_path),
+        "filename": file.filename,
+        "format": fmt,
+        "size": size,
+        "content_type": file.content_type or "",
+    }
 
 
 # ===== 账号管理 =====
