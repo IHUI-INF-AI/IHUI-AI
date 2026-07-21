@@ -1707,18 +1707,35 @@
       "free": {
         "name": "免費版",
         "cta": "開始使用",
-        "features": ["每日 10 次 AI 對話", "基礎模型", "1 個項目", "社區支持"]
+        "features": [
+          "每日 10 次 AI 對話",
+          "基礎模型",
+          "1 個項目",
+          "社區支持"
+        ]
       },
       "pro": {
         "name": "專業版",
         "cta": "立即升級",
-        "features": ["無限 AI 對話", "高級模型", "無限項目", "優先支持", "API 接入"]
+        "features": [
+          "無限 AI 對話",
+          "高級模型",
+          "無限項目",
+          "優先支持",
+          "API 接入"
+        ]
       },
       "enterprise": {
         "name": "企業版",
         "cta": "聯繫我們",
         "contactSales": "聯繫銷售",
-        "features": ["專屬部署", "團隊管理", "SLA 保障", "定製開發", "培訓支持"]
+        "features": [
+          "專屬部署",
+          "團隊管理",
+          "SLA 保障",
+          "定製開發",
+          "培訓支持"
+        ]
       }
     },
     "checkout": {
@@ -8184,9 +8201,24 @@
     "planLifetimePrice": "¥999",
     "planFeatures": "套餐功能",
     "subscribe": "訂閱",
-    "planMonthlyFeatures": ["每月 1000 積分", "基礎 AI 對話", "社區訪問"],
-    "planYearlyFeatures": ["每月 12000 積分", "高級 AI 對話", "優先客服", "去廣告"],
-    "planLifetimeFeatures": ["無限積分", "全部 AI 功能", "專屬客服", "去廣告", "早期功能體驗"],
+    "planMonthlyFeatures": [
+      "每月 1000 積分",
+      "基礎 AI 對話",
+      "社區訪問"
+    ],
+    "planYearlyFeatures": [
+      "每月 12000 積分",
+      "高級 AI 對話",
+      "優先客服",
+      "去廣告"
+    ],
+    "planLifetimeFeatures": [
+      "無限積分",
+      "全部 AI 功能",
+      "專屬客服",
+      "去廣告",
+      "早期功能體驗"
+    ],
     "avatarCurrent": "當前頭像",
     "avatarUpload": "點選相機按鈕選擇圖片",
     "avatarUploadBtn": "上傳頭像",
@@ -17062,13 +17094,23 @@
       "title": "月度會員",
       "days": "30天",
       "select": "選擇",
-      "benefits": ["全部課程免費學習", "專屬學習社區", "每月3次AI答疑", "學習進度追蹤"]
+      "benefits": [
+        "全部課程免費學習",
+        "專屬學習社區",
+        "每月3次AI答疑",
+        "學習進度追蹤"
+      ]
     },
     "yearly": {
       "title": "年度會員",
       "days": "365天",
       "select": "選擇",
-      "benefits": ["全部課程免費學習", "專屬學習社區", "無限AI答疑", "學習進度追蹤+證書"]
+      "benefits": [
+        "全部課程免費學習",
+        "專屬學習社區",
+        "無限AI答疑",
+        "學習進度追蹤+證書"
+      ]
     },
     "monthlyMember": "月度會員",
     "yearlyMember": "年度會員"
@@ -21114,7 +21156,11 @@
       "label": "核心定位",
       "title": "AI時代企業理性效率服務與互助社群",
       "description": "智匯 AI社致力於幫助企業決策者深度理解AI與企業的關係,通過系統化的課程、實踐探索和社群互助,構建人機協同的超級組織,實現企業的理性效率提升。",
-      "tags": ["人機協同", "理性效率", "超級組織"]
+      "tags": [
+        "人機協同",
+        "理性效率",
+        "超級組織"
+      ]
     },
     "modules": {
       "label": "三大服務模塊",
@@ -21124,19 +21170,31 @@
           "tag": "MODULE 01",
           "title": "在地社群",
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"]
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ]
         },
         {
           "tag": "MODULE 02",
           "title": "線上社群",
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": ["交流平臺", "經驗共享", "資源對接"]
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ]
         },
         {
           "tag": "MODULE 03",
           "title": "AI專業服務",
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": ["專業大模型", "智能體服務", "諮詢服務"]
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ]
         }
       ]
     },
@@ -21268,25 +21326,37 @@
           "tag": "Q1",
           "title": "高效助手",
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"]
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ]
         },
         {
           "tag": "Q2",
           "title": "智慧顧問",
           "description": "複雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["數據分析", "決策支持"]
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ]
         },
         {
           "tag": "Q3",
           "title": "執行專家",
           "description": "簡單決策 + 複雜執行,處理跨系統複雜任務",
-          "examples": ["會議安排", "審批流程"]
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ]
         },
         {
           "tag": "Q4",
           "title": "全能專家",
           "description": "複雜決策 + 複雜執行,自主規劃與多智能體協作",
-          "examples": ["營銷自動化", "多智能體協同"]
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ]
         }
       ]
     },
@@ -21310,12 +21380,29 @@
       ],
       "infoTitle": "信息世界",
       "infoBasicLabel": "初級信息世界",
-      "infoBasic": ["信息化", "物聯網", "自動化"],
+      "infoBasic": [
+        "信息化",
+        "物聯網",
+        "自動化"
+      ],
       "infoAdvancedLabel": "高級信息世界",
-      "infoAdvanced": ["感知AI", "生成式AI", "智能體AI", "物理AI"],
+      "infoAdvanced": [
+        "感知AI",
+        "生成式AI",
+        "智能體AI",
+        "物理AI"
+      ],
       "effectTitle": "AI化效果",
-      "effectFlow": ["超級員工", "超級團隊", "超級產品/服務"],
-      "effectMetrics": ["成本優化", "效率提升", "體驗升級"]
+      "effectFlow": [
+        "超級員工",
+        "超級團隊",
+        "超級產品/服務"
+      ],
+      "effectMetrics": [
+        "成本優化",
+        "效率提升",
+        "體驗升級"
+      ]
     }
   },
   "drama": {
@@ -25397,7 +25484,14 @@
       "originalPrice": "¥18000",
       "period": "/人/年",
       "desc": "限前 18 席,售完即恢復原價",
-      "features": ["全年所有課程免費參加", "探索活動優先參與", "社群互助無限次", "線上社群專屬入口", "AI 助手優先體驗", "不滿意全額退款"],
+      "features": [
+        "全年所有課程免費參加",
+        "探索活動優先參與",
+        "社群互助無限次",
+        "線上社群專屬入口",
+        "AI 助手優先體驗",
+        "不滿意全額退款"
+      ],
       "cta": "立即加入"
     },
     "standard": {
@@ -25405,7 +25499,13 @@
       "price": "¥18000",
       "period": "/人/年",
       "desc": "早鳥售罄後自動切換至此方案",
-      "features": ["全年所有課程免費參加", "探索活動優先參與", "社群互助無限次", "線上社群專屬入口", "AI 助手優先體驗"],
+      "features": [
+        "全年所有課程免費參加",
+        "探索活動優先參與",
+        "社群互助無限次",
+        "線上社群專屬入口",
+        "AI 助手優先體驗"
+      ],
       "cta": "瞭解詳情"
     },
     "enterprise": {
@@ -25413,7 +25513,13 @@
       "price": "商務洽談",
       "period": "",
       "desc": "面向企業決策者團隊的客製方案",
-      "features": ["團隊多席位套餐", "一對一 AI 顧問諮詢", "企業 AI 文化落地陪跑", "專屬客製課程", "私享閉門活動"],
+      "features": [
+        "團隊多席位套餐",
+        "一對一 AI 顧問諮詢",
+        "企業 AI 文化落地陪跑",
+        "專屬客製課程",
+        "私享閉門活動"
+      ],
       "cta": "聯絡商務"
     }
   },
@@ -25469,7 +25575,15 @@
       "visitsHeader": "造訪數",
       "ratioHeader": "佔比"
     },
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ]
   },
   "pdfWatermarkPage": {
     "title": "PDF 浮水印",
@@ -25521,14 +25635,226 @@
       "creative": "創意"
     },
     "fields": {
-      "name": { "label": "姓名 *", "placeholder": "張三" },
-      "title": { "label": "職位", "placeholder": "產品經理" },
-      "company": { "label": "公司", "placeholder": "XX 科技有限公司" },
-      "phone": { "label": "電話", "placeholder": "13800138000" },
-      "email": { "label": "信箱", "placeholder": "zhangsan@example.com" },
-      "wechat": { "label": "微信", "placeholder": "zhangsan_wx" },
-      "address": { "label": "地址", "placeholder": "台北市信義區..." },
-      "avatar": { "label": "頭像 URL", "placeholder": "https://..." }
+      "name": {
+        "label": "姓名 *",
+        "placeholder": "張三"
+      },
+      "title": {
+        "label": "職位",
+        "placeholder": "產品經理"
+      },
+      "company": {
+        "label": "公司",
+        "placeholder": "XX 科技有限公司"
+      },
+      "phone": {
+        "label": "電話",
+        "placeholder": "13800138000"
+      },
+      "email": {
+        "label": "信箱",
+        "placeholder": "zhangsan@example.com"
+      },
+      "wechat": {
+        "label": "微信",
+        "placeholder": "zhangsan_wx"
+      },
+      "address": {
+        "label": "地址",
+        "placeholder": "台北市信義區..."
+      },
+      "avatar": {
+        "label": "頭像 URL",
+        "placeholder": "https://..."
+      }
+    }
+  },
+  "refundDetailPage": {
+    "loading": "載入中...",
+    "back": "返回",
+    "title": "退款詳情",
+    "notFound": "退款記錄不存在",
+    "status": {
+      "pending": "審核中",
+      "approved": "已通過",
+      "rejected": "已拒絕",
+      "completed": "已完成"
+    },
+    "auditAction": {
+      "approve": "審核通過",
+      "reject": "駁回"
+    },
+    "refundType": {
+      "original": "原路退回"
+    },
+    "fields": {
+      "refundNo": "退款單號",
+      "orderNo": "訂單號",
+      "orderType": "訂單類型",
+      "refundAmount": "退款金額",
+      "refundType": "退款方式",
+      "applyTime": "申請時間",
+      "processTime": "處理時間",
+      "completeTime": "完成時間",
+      "reason": "退款原因",
+      "processMessage": "處理說明",
+      "handleMessage": "處理結果"
+    },
+    "auditRecords": "審核記錄"
+  },
+  "memberOrderDetailPage": {
+    "loading": "載入中...",
+    "back": "返回",
+    "title": "訂單詳情",
+    "notFound": "訂單不存在",
+    "status": {
+      "pending": "待支付",
+      "paid": "已支付",
+      "cancelled": "已取消",
+      "refunded": "已退款"
+    },
+    "fields": {
+      "orderNo": "訂單號",
+      "product": "商品名稱",
+      "orderType": "訂單類型",
+      "quantity": "數量",
+      "createdAt": "建立時間",
+      "payTime": "支付時間",
+      "cancelTime": "取消時間",
+      "refundTime": "退款時間",
+      "payType": "支付方式",
+      "remark": "備註",
+      "originalPrice": "原價",
+      "discount": "優惠",
+      "payAmount": "實付"
+    },
+    "actions": {
+      "pay": "去支付",
+      "cancel": "取消訂單"
+    }
+  },
+  "resourceFormPage": {
+    "cardTitle": "資源資訊",
+    "fields": {
+      "title": {
+        "label": "標題",
+        "placeholder": "請輸入資源標題"
+      },
+      "intro": {
+        "label": "描述",
+        "placeholder": "請輸入資源描述"
+      },
+      "cidList": {
+        "label": "分類(多選,逗號分隔 ID)",
+        "placeholder": "如:uuid1, uuid2",
+        "available": "可選分類"
+      },
+      "type": {
+        "label": "資源類型",
+        "placeholder": "請選擇資源類型"
+      },
+      "productId": {
+        "label": "產品 ID",
+        "placeholder": "請輸入關聯產品 ID"
+      },
+      "tagIdList": {
+        "label": "標籤(多選,逗號分隔 ID)",
+        "placeholder": "如:tag-id-1, tag-id-2"
+      },
+      "image": {
+        "label": "展示圖",
+        "placeholder": "上傳展示圖"
+      },
+      "introduction": {
+        "label": "資源簡介(富文本)",
+        "placeholder": "請輸入資源詳細介紹..."
+      },
+      "file": {
+        "label": "檔案上傳",
+        "uploading": "上傳中...",
+        "select": "點擊上傳檔案",
+        "removeLabel": "移除檔案"
+      }
+    },
+    "submit": {
+      "edit": "儲存修改",
+      "create": "發布資源",
+      "cancel": "取消"
+    }
+  },
+  "aiCareerPage": {
+    "title": "AI 生涯指導",
+    "subtitle": "填寫孩子學習情況,AI 為您生成個人生涯指導建議",
+    "fields": {
+      "school": "孩子就讀學校類型",
+      "classLevel": "班級整體水平",
+      "scoreRange": "語文和英語考試分數範圍",
+      "scoreRangePlaceholder": "如:80-90分",
+      "languageDifficulty": "語文和英語學習困難",
+      "scienceCharacteristics": "理科方面特點",
+      "scienceCharacteristicsPlaceholder": "如:數學較好,物理一般...",
+      "learningObstacle": "影響學習的因素",
+      "hobbies": "興趣愛好",
+      "hobbiesPlaceholder": "如:程式設計、繪畫、音樂",
+      "target": "升學目標",
+      "targetPlaceholder": "如:重點高中、985大學"
+    },
+    "options": {
+      "school": [
+        "公立學校",
+        "私立學校",
+        "重點學校"
+      ],
+      "classLevel": [
+        "普通班",
+        "重點班"
+      ],
+      "difficulty": [
+        "閱讀速度慢",
+        "理解困難",
+        "詞彙量不足",
+        "寫作薄弱"
+      ],
+      "obstacle": [
+        "遊戲沉迷",
+        "注意力分散",
+        "拖延症",
+        "效率低"
+      ]
+    },
+    "submit": "生成生涯指導",
+    "submitting": "AI 分析中...",
+    "result": {
+      "title": "AI 生涯指導建議",
+      "failed": "AI 分析失敗"
+    }
+  },
+  "memberExamRecordPage": {
+    "title": "我的考試記錄",
+    "subtitle": "查看歷史考試成績與答卷詳情",
+    "loading": "載入中...",
+    "empty": "暫無考試記錄",
+    "table": {
+      "examName": "考試名稱",
+      "examTime": "考試時間",
+      "score": "得分",
+      "result": "結果",
+      "action": "操作"
+    },
+    "passed": "及格",
+    "failed": "不及格",
+    "total": "共 {n} 條",
+    "viewDetail": "查看詳情",
+    "detail": {
+      "title": "考試成績詳情",
+      "score": "得分",
+      "correct": "答對",
+      "wrong": "答錯",
+      "unanswered": "未答",
+      "question": "題目",
+      "resultCol": "結果",
+      "correctLabel": "正確",
+      "wrongLabel": "錯誤"
     }
   }
 }
