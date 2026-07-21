@@ -19881,7 +19881,7 @@
     },
     "plaza": {
       "titleRequired": "請輸入標題",
-      "protocolPublished": "協議已發佈"
+      "protocolPublished": "協定已發佈"
     },
     "business_card": {
       "请求失败1": "請求失敗"
@@ -25504,22 +25504,22 @@
   },
   "llmSettings": {
     "title": "我的 LLM 配置",
-    "subtitle": "為每個 AI 平台保存獨立的 API Key、模型 ID 與上下文長度。系統已預置 15+ 平台模板,只需填寫授權資訊。",
+    "subtitle": "為每個 AI 平臺保存獨立的 API Key、模型 ID 與上下文長度。系統已預置 15+ 平臺模板,只需填寫授權資訊。",
     "importCliConfig": "匯入 CLI 配置",
     "infoTitle": "配置說明",
-    "infoDesc": "平台 URL 與協議已預置，您只需填寫 API Key、模型 ID 和上下文支援數。儲存後可一鍵測試連通，或拉取上游所有模型 ID。每個帳號的配置互相獨立、加密儲存。",
+    "infoDesc": "平臺 URL 與協定已預置，您只需填寫 API Key、模型 ID 和上下文支援數。儲存後可一鍵測試連通，或拉取上游所有模型 ID。每個帳號的配置互相獨立、加密儲存。",
     "statsTotal": "總配置",
     "statsEnabled": "已啟用",
-    "statsAvailablePlatforms": "可用平台",
+    "statsAvailablePlatforms": "可用平臺",
     "emptyList": "尚未新增任何配置",
     "listCount": "共 {total} 個配置 · {enabledCount} 個已啟用",
     "newConfig": "新增配置",
     "loading": "載入中...",
     "noConfigs": "還沒有配置",
-    "noConfigsDesc": "點擊「新增配置」開始新增，或選擇下方平台模板快速開始",
+    "noConfigsDesc": "點擊「新增配置」開始新增，或選擇下方平臺模板快速開始",
     "firstConfig": "新增第一個配置",
-    "quickStartTitle": "常用平台(點擊快速開始):",
-    "securityNotice": "API Key 使用 AES-256 加密儲存，僅本帳號可見。每個平台的 URL、協議、Headers 已按官方規範預置，無需您手動配置。",
+    "quickStartTitle": "常用平臺(點擊快速開始):",
+    "securityNotice": "API Key 使用 AES-256 加密儲存，僅本帳號可見。每個平臺的 URL、協議、Headers 已按官方規範預置，無需您手動配置。",
     "card": {
       "enabled": "啟用",
       "disabled": "已停用",
@@ -25533,7 +25533,7 @@
       "testFailedWithTime": "失敗 · {date}",
       "untested": "未測試",
       "fetching": "拉取中...",
-      "noModelsReturned": "該平台未返回模型",
+      "noModelsReturned": "該平臺未返回模型",
       "clickToFetch": "點擊下方按鈕拉取",
       "refetch": "重新拉取",
       "more": "共 {total} 個，展開省略",
@@ -25557,8 +25557,8 @@
     "dialog": {
       "editTitle": "編輯 LLM 配置",
       "newTitle": "新增 LLM 配置",
-      "description": "選擇平台模板，只需填寫 API Key、模型 ID 與上下文長度，系統自動按平台協議呼叫。",
-      "templateLabel": "平台模板",
+      "description": "選擇平臺模板，只需填寫 API Key、模型 ID 與上下文長度，系統自動按平臺協議呼叫。",
+      "templateLabel": "平臺模板",
       "official": "官方",
       "self": "自建",
       "baseUrlLabel": "Base URL:",
@@ -25591,7 +25591,7 @@
       "copyModelId": "複製模型 ID",
       "copied": "已複製: {id}",
       "copyTip": "點擊模型 ID 旁的複製按鈕，可填入「模型 ID」欄位",
-      "selectTemplate": "請選擇平台模板",
+      "selectTemplate": "請選擇平臺模板",
       "fillKey": "請填寫 API Key",
       "fillModelId": "請填寫模型 ID",
       "created": "已建立",
@@ -25599,7 +25599,7 @@
       "createFailed": "建立失敗",
       "saved": "已儲存",
       "saveFailed": "儲存失敗",
-      "previewTestSelect": "請選擇平台模板",
+      "previewTestSelect": "請選擇平臺模板",
       "previewTestKey": "請先填寫 API Key",
       "previewTestModel": "請先填寫模型 ID",
       "previewTestSuccess": "連通成功",
@@ -25804,7 +25804,7 @@
       },
       "address": {
         "label": "地址",
-        "placeholder": "台北市信義區..."
+        "placeholder": "臺北市信義區..."
       },
       "avatar": {
         "label": "頭像 URL",
