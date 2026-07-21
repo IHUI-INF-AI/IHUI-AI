@@ -9,10 +9,10 @@ import { ThirdPartyLoginButtons } from './ThirdPartyLoginButtons'
 import { QrCodeLogin } from './QrCodeLogin'
 import { PasswordLoginForm } from './PasswordLoginForm'
 import { EmailCodeLoginForm } from './EmailCodeLoginForm'
-import { UsernameLoginForm } from './UsernameLoginForm'
+import { PhoneCodeLoginForm } from './PhoneCodeLoginForm'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 
-type LoginTab = 'password' | 'email' | 'username' | 'qr'
+type LoginTab = 'email' | 'phone' | 'password' | 'qr'
 
 interface LoginFormContentProps {
   onSuccess?: () => void
@@ -22,7 +22,7 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
   const t = useTranslations('auth')
   const qc = useQueryClient()
   const setMode = useLoginDialogStore((s) => s.setMode)
-  const [tab, setTab] = React.useState<LoginTab>('password')
+  const [tab, setTab] = React.useState<LoginTab>('email')
   const [agreed, setAgreed] = React.useState(false)
   const [showAgreeErr, setShowAgreeErr] = React.useState(false)
 
@@ -36,25 +36,11 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
     <div className="space-y-4">
       <Tabs value={tab} onValueChange={(v) => setTab(v as LoginTab)}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="password">{t('passwordLogin')}</TabsTrigger>
           <TabsTrigger value="email">{t('emailLogin')}</TabsTrigger>
-          <TabsTrigger value="username">{t('usernameLogin')}</TabsTrigger>
+          <TabsTrigger value="phone">{t('phoneCodeLogin')}</TabsTrigger>
+          <TabsTrigger value="password">{t('passwordLogin')}</TabsTrigger>
           <TabsTrigger value="qr">{t('qrLogin')}</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="password">
-          <PasswordLoginForm
-            active={tab === 'password'}
-            onSuccess={handleSuccess}
-            agreed={agreed}
-            onAgreedChange={(v) => {
-              setAgreed(v)
-              if (v) setShowAgreeErr(false)
-            }}
-            onRequireAgree={() => setShowAgreeErr(true)}
-            showAgreeErr={showAgreeErr}
-          />
-        </TabsContent>
 
         <TabsContent value="email">
           <EmailCodeLoginForm
@@ -70,9 +56,23 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
           />
         </TabsContent>
 
-        <TabsContent value="username">
-          <UsernameLoginForm
-            active={tab === 'username'}
+        <TabsContent value="phone">
+          <PhoneCodeLoginForm
+            active={tab === 'phone'}
+            onSuccess={handleSuccess}
+            agreed={agreed}
+            onAgreedChange={(v) => {
+              setAgreed(v)
+              if (v) setShowAgreeErr(false)
+            }}
+            onRequireAgree={() => setShowAgreeErr(true)}
+            showAgreeErr={showAgreeErr}
+          />
+        </TabsContent>
+
+        <TabsContent value="password">
+          <PasswordLoginForm
+            active={tab === 'password'}
             onSuccess={handleSuccess}
             agreed={agreed}
             onAgreedChange={(v) => {
@@ -85,7 +85,7 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
         </TabsContent>
 
         <TabsContent value="qr">
-          <QrCodeLogin onSwitchMethod={() => setTab('password')} />
+          <QrCodeLogin onSwitchMethod={() => setTab('email')} />
         </TabsContent>
       </Tabs>
 
