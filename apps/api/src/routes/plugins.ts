@@ -15,10 +15,10 @@
  *  - POST   /:id/click          埋点:用户点击市场卡片外链(无需鉴权,游客可触发)
  */
 
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import type { PluginInstallState } from '@ihui/types'
-import { authenticate } from '../plugins/auth.js'
+import { authenticate, checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import {
   findUserPreferences,
@@ -45,19 +45,6 @@ const installBodySchema = z.object({
 const preferencesBodySchema = z.object({
   pinned: z.boolean().optional(),
 })
-
-async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
-  try {
-    await authenticate(request)
-    return true
-  } catch (e) {
-    const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-    reply
-      .status(statusCode)
-      .send(error(statusCode, (e as Error).message || 'Authentication required'))
-    return false
-  }
-}
 
 /** 解析 user_preferences.value(JSON 字符串)为 PluginInstallState,失败返回 null */
 function parseInstallState(value: string | null): PluginInstallState | null {
@@ -111,7 +98,7 @@ export const pluginsRoutes: FastifyPluginAsync = async (server) => {
   server.post<{ Params: { id: string }; Body: unknown }>(
     '/:id/install',
     async (request, reply) => {
-      if (!(await requireAuth(request, reply))) return
+      if (!(await checkAuth(request, reply))) return
       const userId = request.userId!
 
       const paramsResult = pluginIdParam.safeParse(request.params)
@@ -154,7 +141,7 @@ export const pluginsRoutes: FastifyPluginAsync = async (server) => {
   server.delete<{ Params: { id: string } }>(
     '/:id/install',
     async (request, reply) => {
-      if (!(await requireAuth(request, reply))) return
+      if (!(await checkAuth(request, reply))) return
       const userId = request.userId!
 
       const paramsResult = pluginIdParam.safeParse(request.params)
@@ -176,7 +163,7 @@ export const pluginsRoutes: FastifyPluginAsync = async (server) => {
   server.patch<{ Params: { id: string }; Body: unknown }>(
     '/:id/preferences',
     async (request, reply) => {
-      if (!(await requireAuth(request, reply))) return
+      if (!(await checkAuth(request, reply))) return
       const userId = request.userId!
 
       const paramsResult = pluginIdParam.safeParse(request.params)

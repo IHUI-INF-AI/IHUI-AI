@@ -17,7 +17,7 @@
 
 import { SMTPServer } from 'smtp-server'
 import { simpleParser } from 'mailparser'
-import { appendFileSync, mkdirSync, existsSync, writeFileSync } from 'node:fs'
+import { appendFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
