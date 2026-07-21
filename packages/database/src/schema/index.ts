@@ -167,3 +167,11 @@ export * from './search-hot-words.js'
 export * from './user-chat-skills.js'
 // 插件市场事件流(2026-07-22 新增,管理端监测插件热度 / 安装量 / 点击量)
 export * from './plugin-events.js'
+// D3 edu Java 14 个未迁移实体补齐(2026-07-22):
+//   学校组织架构 4 表(t_school/t_clazz/t_grade/t_subject)
+//   题库知识点 1 表(t_knowledge_point;其余 5 表已等价于 examQuestions/examChapters/examChapterSections/examRecords)
+//   课程推荐 2 表(t_course_recommend/t_course_recommend_log)
+//   课程核心三表(t_lesson/t_lesson_chapter/t_lesson_chapter_section)已等价于 learn.ts 的 lessons/lessonChapters/lessonChapterSections,无需补建
+export * from './school-org-supplement.js'
+export * from './question-bank-supplement.js'
+export * from './course-recommend-supplement.js'
