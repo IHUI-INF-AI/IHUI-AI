@@ -158,7 +158,7 @@ describe('Tencent Hunyuan 3D API (P1 R81 真实化端点)', () => {
       expect(body.code).toBe(0)
       expect(body.data.stub).toBe(true)
       expect(body.data.live).toBe(false)
-      expect(body.data.data.JobId).toMatch(/^stub_/)
+      expect(body.data.data.JobId).toMatch(/^stub-/)
       expect(body.data.data.Status).toBe('PENDING')
       expect(body.data.data.tencentConfig).toBe(false)
       expect(body.data.message).toContain('stub')
@@ -206,7 +206,7 @@ describe('Tencent Hunyuan 3D API (P1 R81 真实化端点)', () => {
       const body = res.json()
       expect(body.data.stub).toBe(true)
       expect(body.data.live).toBe(false)
-      expect(body.data.data.JobId).toMatch(/^stub_/)
+      expect(body.data.data.JobId).toMatch(/^stub-/)
       expect(body.data.message).toContain('降级')
     })
 
@@ -256,11 +256,11 @@ describe('Tencent Hunyuan 3D API (P1 R81 真实化端点)', () => {
   })
 
   describe('POST /api/tencent/hunyuan3d/query', () => {
-    it('stub_ JobId 守卫: 不调用腾讯 API, 仅查 DB+内存', async () => {
+    it('stub- JobId 守卫: 不调用腾讯 API, 仅查 DB+内存', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/tencent/hunyuan3d/query',
-        payload: { JobId: 'stub_123' },
+        payload: { JobId: 'stub-123' },
       })
       expect(res.statusCode).toBe(200)
       const body = res.json()
@@ -329,15 +329,15 @@ describe('Tencent Hunyuan 3D API (P1 R81 真实化端点)', () => {
   })
 
   describe('GET /api/tencent/hunyuan3d/job/:job_id (与 query 端点对称)', () => {
-    it('stub_ JobId 守卫: 不调用腾讯 API', async () => {
+    it('stub- JobId 守卫: 不调用腾讯 API', async () => {
       const res = await app.inject({
         method: 'GET',
-        url: '/api/tencent/hunyuan3d/job/stub_xyz',
+        url: '/api/tencent/hunyuan3d/job/stub-xyz',
       })
       expect(res.statusCode).toBe(200)
       const body = res.json()
       expect(body.data.stub).toBe(true)
-      expect(body.data.data.JobId).toBe('stub_xyz')
+      expect(body.data.data.JobId).toBe('stub-xyz')
       expect(mockBuildHeaders).not.toHaveBeenCalled()
     })
 

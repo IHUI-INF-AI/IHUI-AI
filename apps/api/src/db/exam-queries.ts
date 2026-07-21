@@ -1,4 +1,5 @@
 import { eq, and, desc, asc, sql, inArray, arrayOverlaps } from 'drizzle-orm'
+import { randomBytes } from 'node:crypto'
 import { db } from './index.js'
 import {
   examCategories,
@@ -674,9 +675,11 @@ export class InsufficientQuestionsError extends Error {
   }
 }
 
-/** FNV-1a 哈希:将种子字符串映射为 32 位无符号整数。无 seed 时用时间戳+随机回退。 */
+/** FNV-1a 哈希:将种子字符串映射为 32 位无符号整数。无 seed 时用时间戳+CSPRNG 回退。 */
 function hashSeed(seed?: string): number {
-  if (!seed) return (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0
+  // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成试卷种子
+  // 风险:Math.random 可预测 → 攻击者预测试卷抽题顺序 → 作弊风险
+  if (!seed) return (Date.now() ^ randomBytes(4).readUInt32BE(0)) >>> 0
   let h = 2166136261
   for (let i = 0; i < seed.length; i++) {
     h ^= seed.charCodeAt(i)

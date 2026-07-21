@@ -6,6 +6,7 @@ import type { FastifyRequest, FastifyReply, FastifyPluginAsync } from 'fastify'
 import { authenticate } from '../../plugins/auth.js'
 import { error } from '../../utils/response.js'
 import { z } from 'zod'
+import { generateTrackingId } from '../../utils/crypto-random.js'
 
 export type { FastifyRequest, FastifyReply, FastifyPluginAsync }
 
@@ -18,7 +19,10 @@ export const recordIdParam = z.object({ recordId: z.string() })
 
 export const pageSizeQuery = z.object({ page_size: z.string().optional() })
 export const tasksQuery = z.object({ vendor: z.string().optional(), status: z.string().optional() })
-export const aigcRecordsQuery = z.object({ type: z.string().optional(), vendor: z.string().optional() })
+export const aigcRecordsQuery = z.object({
+  type: z.string().optional(),
+  vendor: z.string().optional(),
+})
 export const tokenQuery = z.object({ token: z.string().optional() })
 
 export const chatBody = z.object({
@@ -37,7 +41,10 @@ export const ttsBody = z.object({
   voice: z.string().optional(),
 })
 export const asrBody = z.object({ audioUrl: z.string().optional(), model: z.string().optional() })
-export const promptModelBody = z.object({ prompt: z.string().optional(), model: z.string().optional() })
+export const promptModelBody = z.object({
+  prompt: z.string().optional(),
+  model: z.string().optional(),
+})
 export const textModelBody = z.object({ text: z.string().optional(), model: z.string().optional() })
 export const multimodalBody = z.object({
   messages: z.array(z.unknown()).optional(),
@@ -376,7 +383,9 @@ export const n8nAgentStore = new Map<string, Record<string, unknown>>()
 export const tencentActiveJobs = new Map<string, Record<string, unknown>>()
 
 export function genId(prefix: string): string {
-  return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+  // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成追踪 ID
+  // 风险:Math.random 可预测 → 攻击者可枚举其他用户的任务/事件 ID
+  return generateTrackingId(prefix)
 }
 
 export function recordUsage(userId: string, vendor: string): void {
@@ -391,7 +400,12 @@ export function recordUsage(userId: string, vendor: string): void {
   }
 }
 
-export function createTask(userId: string, vendor: string, type: string, payload?: unknown): AsyncTask {
+export function createTask(
+  userId: string,
+  vendor: string,
+  type: string,
+  payload?: unknown,
+): AsyncTask {
   const now = Date.now()
   const task: AsyncTask = {
     taskId: genId('task'),
