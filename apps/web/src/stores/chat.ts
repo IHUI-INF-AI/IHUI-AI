@@ -32,6 +32,18 @@ export interface PendingQuestion {
   assistantMessageId?: string
 }
 
+/**
+ * Web 前端 chat store UI 状态消息类型(本地保留,不复用 @ihui/types 的 ChatMessage)。
+ *
+ * 原因:@ihui/types 的 ChatMessage 是 LLM API 调用消息格式(role + content 简版),
+ * 此处是 web chat store 的 UI 状态消息(含 id / createdAt / model / error / toolCalls / reasoning / question 等 UI 状态字段)。
+ * 两者语义不同:LLM API 消息格式 vs 前端 store 状态类型,强行合并会让 packages/types ChatMessage
+ * 变成大杂烩,且 question 字段会引入与 PendingQuestionPayload 的循环依赖风险。
+ *
+ * 命名保留 ChatMessage 是因为 web chat store 内仅此一种 chat 消息类型,文件内无命名冲突
+ * (web 端在其他位置如 lib/video-tools/chat-image-drawer.ts 也有同名 ChatMessage,但属于不同业务上下文,
+ *  各自文件内独立,无 import 交叉)。
+ */
 export interface ChatMessage {
   id: string
   role: ChatRole
