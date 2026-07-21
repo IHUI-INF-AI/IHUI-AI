@@ -3,6 +3,8 @@ import {
   streamChat,
   fetchModels,
   formatSSEError,
+  getModelContextCapacity,
+  formatTokenCount,
   type StreamChatOptions,
   type LlmModel,
 } from '@ihui/api-client'
@@ -43,6 +45,7 @@ export default function ChatPage({ onLogout }: Props) {
   const [error, setError] = useState('')
   const [models, setModels] = useState<LlmModel[]>(FALLBACK_MODELS)
   const [model, setModel] = useState<string>(FALLBACK_MODELS[0]!.id)
+  const [notice, setNotice] = useState('')
 
   useEffect(() => {
     document.title = 'IHUI AI 桌面端 - 对话'
@@ -72,6 +75,7 @@ export default function ChatPage({ onLogout }: Props) {
     if (!text || streaming) return
     setInput('')
     setError('')
+    setNotice('')
     const next: ChatMessage[] = [
       ...messages,
       { id: `u-${Date.now()}`, role: 'user', content: text },
@@ -89,6 +93,13 @@ export default function ChatPage({ onLogout }: Props) {
         .filter((m) => m.content || m.role === 'user')
         .map(({ role, content }) => ({ role, content: content || ' ' })),
       signal: controller.signal,
+      // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,后端压缩后通过 SSE 回调提示用户
+      contextLimit: getModelContextCapacity(model),
+      onCompaction: (info) => {
+        setNotice(
+          `上下文已自动压缩:${formatTokenCount(info.tokensBefore)} → ${formatTokenCount(info.tokensAfter)}(移除 ${info.removedCount} 条历史)`,
+        )
+      },
       onDelta: (delta) => {
         window.clearTimeout(timeoutId)
         setMessages((cur) => {
@@ -180,6 +191,7 @@ export default function ChatPage({ onLogout }: Props) {
         )}
       </div>
 
+      {notice ? <div className="notice-banner">{notice}</div> : null}
       {error ? <div className="error-banner">{error}</div> : null}
 
       <form
