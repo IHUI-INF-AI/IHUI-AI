@@ -51,3 +51,51 @@ export interface PluginUninstallResponse {
   pluginId: string
   removed: true
 }
+
+// ===========================================================================
+// 插件市场埋点 + 管理端统计类型(2026-07-22 新增)
+// ===========================================================================
+
+/** POST /api/plugins/:id/click 响应体(埋点:用户点击市场卡片外链) */
+export interface PluginClickResponse {
+  pluginId: string
+  recorded: true
+}
+
+/** 管理端统计总览(GET /api/admin/plugins/stats/summary) */
+export interface PluginStatsSummary {
+  totalEvents: number
+  totalInstalls: number
+  totalUninstalls: number
+  totalClicks: number
+  totalPins: number
+  totalUnpins: number
+  todayInstalls: number
+  todayClicks: number
+}
+
+/** 管理端热度榜单行(GET /api/admin/plugins/stats/top) */
+export interface PluginStatsRow {
+  pluginId: string
+  installs: number
+  uninstalls: number
+  clicks: number
+  pins: number
+  unpins: number
+  /** 热度 = installs * 10 + clicks * 1 + pins * 20 - uninstalls * 5 */
+  heat: number
+}
+
+/** 管理端趋势单行(GET /api/admin/plugins/stats/trend) */
+export interface PluginTrendRow {
+  date: string
+  installs: number
+  clicks: number
+  uninstalls: number
+}
+
+/** 管理端统计查询参数 */
+export interface PluginStatsQuery {
+  days?: number
+  limit?: number
+}
