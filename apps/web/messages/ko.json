@@ -17743,6 +17743,23 @@
     "switchingToHighContrastLight": "까지높은에게라이트템플릿방식...",
     "switchingToHighContrastDark": "까지높은에게깊은색템플릿방식..."
   },
+  "devTools": {
+    "trigger": "개발자 도구",
+    "title": "개발자 도구",
+    "description": "개발 / 인트라넷 환경에서만 도구 패널이 표시됩니다.",
+    "envSection": "환경 정보",
+    "path": "현재 경로",
+    "viewport": "뷰포트",
+    "now": "현재 시간",
+    "toolsSection": "빠른 도구",
+    "reload": "페이지 새로 고침",
+    "clearStorage": "로컬 캐시 정리 (ihui- 접두사만)",
+    "copyInfo": "환경 정보 복사",
+    "copied": "클립보드에 복사됨",
+    "tip": "팁: localhost 또는 인트라넷 환경에서만 표시됩니다.",
+    "prodModeTitle": "개발 모드에서만 사용 가능",
+    "prodModeHint": "개발자 도구는 localhost 또는 인트라넷 환경에서만 표시됩니다. 공용 도메인에서 액세스 중이므로 도구 패널이 숨겨져 있습니다."
+  },
   "themePreset": {
     "title": "테마",
     "create": "생성",
