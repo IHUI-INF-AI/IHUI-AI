@@ -170,6 +170,14 @@ if (!run('🖱️  检查原生 title tooltip 违规...', 'node scripts/check-na
 // 配套工具: scripts/guard-push-other-agent-changes.mjs (白名单模式, 阻塞)
 run('⚠️  检查 staged 污染预警(warn-only)...', 'node scripts/check-staged-pollution.mjs')
 
+// 20. Tailwind class 冲突守门(2026-07-21 M-64 修复同步立,PageIndicator h-4/h-2 + w-1.5/w-2 冲突教训)
+// 防止 className 模板字面量 BASE/BRANCH 出现多套 size 类导致后值覆盖前值,UI 实际渲染与设计意图脱节
+// 检测:  className={`base ${cond ? '' : 'other'}`} 形式 + BASE/BRANCH h-X/w-Y 不一致
+// 豁免:  行内/上方一行 // tailwind-class-conflict-allow | 纯三元 | 纯字符串 | cn() 调用
+if (!run('🎯 检查 Tailwind class 冲突...', 'node scripts/check-tailwind-class-conflict.mjs --staged')) {
+  process.exit(1)
+}
+
 // 16. 条件 typecheck 闸门(仅 staged 涉及 apps/web 时跑 web typecheck)
 // 防止"commit 通过但 push 失败"的循环(f21dc473 commit 漏掉 import 的教训)
 // 只在 staged 文件涉及 apps/web 时跑,避免影响其他包的 commit 速度
