@@ -22,6 +22,7 @@ import {
   Plug,
   ScrollText,
   Activity,
+  Boxes,
   GraduationCap,
   BookOpen,
   UserCheck,
@@ -215,6 +216,7 @@ interface AdminNavItem {
     | 'saasTenants'
     | 'saasCertificates'
     | 'saasMetrics'
+    | 'pluginsStats'
   icon: React.ComponentType<{ className?: string }>
   dynamicLabel?: string
 }
@@ -367,6 +369,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   // R90: 运营监控 + 教育批阅
   { href: '/admin/message-overview', labelKey: 'messageOverview', icon: BarChart3 },
   { href: '/admin/visit-tracking', labelKey: 'visitTracking', icon: BarChart3 },
+  { href: '/admin/plugins-stats', labelKey: 'pluginsStats', icon: Boxes, dynamicLabel: 'Plugins Stats' },
   { href: '/admin/exam-marking', labelKey: 'examMarking', icon: ClipboardCheck },
   // P1: 73 个运营域模块（audit 新增）
   // 运营管理

@@ -165,3 +165,5 @@ export * from './publish-platform.js'
 export * from './search-hot-words.js'
 // 用户自定义 AI 对话框技能(2026-07-21 新增,AI 对话框 Skill 库统一面板支撑)
 export * from './user-chat-skills.js'
+// 插件市场事件流(2026-07-22 新增,管理端监测插件热度 / 安装量 / 点击量)
+export * from './plugin-events.js'

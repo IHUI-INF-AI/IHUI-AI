@@ -1,16 +1,18 @@
 /**
- * 插件市场后端路由(2026-07-22 立)
+ * 插件市场后端路由(2026-07-22 立,2026-07-22 增埋点 + click 端点)
  *
  * 设计:
  *  - 零迁移:复用 user_preferences 表(group='plugins', key=pluginId, value=JSON)
  *  - 后端只管 installState,catalog 由前端静态数据提供
  *  - pluginId 用 Zod 校验(/^[a-zA-Z0-9_-]+$/)防注入
+ *  - 埋点:install/uninstall/pin/unpin/click 事件写入 plugin_events 表(失败不阻塞)
  *
  * 端点:
  *  - GET    /installed          查询当前用户所有插件安装态(未登录返回空 states)
  *  - POST   /:id/install        安装/启用(可选 pinned)
  *  - DELETE /:id/install        卸载/禁用
  *  - PATCH  /:id/preferences    更新偏好(pinned)
+ *  - POST   /:id/click          埋点:用户点击市场卡片外链(无需鉴权,游客可触发)
  */
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
@@ -23,6 +25,7 @@ import {
   upsertUserPreference,
   deleteUserPreference,
 } from '../db/user-preferences-queries.js'
+import { recordPluginEvent } from '../db/plugin-events-queries.js'
 
 const PLUGIN_GROUP = 'plugins'
 
@@ -133,6 +136,14 @@ export const pluginsRoutes: FastifyPluginAsync = async (server) => {
       }
 
       await upsertUserPreference(userId, PLUGIN_GROUP, pluginId, JSON.stringify(state))
+      // 埋点:首次安装记 install,已安装切换 pinned 记 pin/unpin
+      if (!prevState) {
+        void recordPluginEvent({ pluginId, eventType: 'install', userId })
+      } else if (!prevState.pinned && pinned) {
+        void recordPluginEvent({ pluginId, eventType: 'pin', userId })
+      } else if (prevState.pinned && !pinned) {
+        void recordPluginEvent({ pluginId, eventType: 'unpin', userId })
+      }
       return reply.send(success({ pluginId, state }))
     },
   )
@@ -153,6 +164,8 @@ export const pluginsRoutes: FastifyPluginAsync = async (server) => {
       const pluginId = paramsResult.data.id
 
       await deleteUserPreference(userId, PLUGIN_GROUP, pluginId)
+      // 埋点:卸载
+      void recordPluginEvent({ pluginId, eventType: 'uninstall', userId })
       return reply.send(success({ pluginId, removed: true as const }))
     },
   )
@@ -190,7 +203,49 @@ export const pluginsRoutes: FastifyPluginAsync = async (server) => {
         pinned: bodyResult.data.pinned ?? prevState.pinned,
       }
       await upsertUserPreference(userId, PLUGIN_GROUP, pluginId, JSON.stringify(state))
+      // 埋点:pinned 状态变化
+      if (bodyResult.data.pinned !== undefined && bodyResult.data.pinned !== prevState.pinned) {
+        void recordPluginEvent({
+          pluginId,
+          eventType: bodyResult.data.pinned ? 'pin' : 'unpin',
+          userId,
+        })
+      }
       return reply.send(success({ pluginId, state }))
+    },
+  )
+
+  // -------------------------------------------------------------------------
+  // POST /:id/click - 埋点:用户点击市场卡片外链
+  // 无需鉴权(游客点击也计数),但需校验 pluginId 格式
+  // -------------------------------------------------------------------------
+  server.post<{ Params: { id: string } }>(
+    '/:id/click',
+    async (request, reply) => {
+      const paramsResult = pluginIdParam.safeParse(request.params)
+      if (!paramsResult.success) {
+        return reply.status(400).send(error(400, 'Invalid plugin id'))
+      }
+      const pluginId = paramsResult.data.id
+
+      // 尝试识别登录用户(失败不阻塞,游客也计数)
+      let userId: string | null = null
+      try {
+        await authenticate(request)
+        userId = request.userId ?? null
+      } catch {
+        // 游客
+      }
+
+      // 提取 IP(用于反作弊分析,不做去重)
+      const xff = request.headers['x-forwarded-for']
+      const ip =
+        (typeof xff === 'string' ? xff.split(',')[0]?.trim() : undefined) ??
+        (request.ip as string | undefined) ??
+        null
+
+      void recordPluginEvent({ pluginId, eventType: 'click', userId, ip })
+      return reply.send(success({ pluginId, recorded: true as const }))
     },
   )
 }
