@@ -75,6 +75,35 @@ vi.mock('../../db/user-preferences-queries.js', () => ({
   }),
 }))
 
+// ─────────────────────────────────────────────────────────────
+// Mock:插件事件埋点(append-only,失败不阻塞主流程)
+// ─────────────────────────────────────────────────────────────
+const pluginEventsStore: Array<{
+  pluginId: string
+  eventType: string
+  userId: string | null
+  ip: string | null
+}> = []
+
+vi.mock('../../db/plugin-events-queries.js', () => ({
+  recordPluginEvent: vi.fn(
+    async (input: {
+      pluginId: string
+      eventType: string
+      userId?: string | null
+      ip?: string | null
+    }) => {
+      pluginEventsStore.push({
+        pluginId: input.pluginId,
+        eventType: input.eventType,
+        userId: input.userId ?? null,
+        ip: input.ip ?? null,
+      })
+      return undefined
+    },
+  ),
+}))
+
 vi.mock('../../plugins/auth.js', () => ({
   authenticate: vi.fn(async (request: { userId?: string }) => {
     if (!getAuthState()) {
@@ -89,6 +118,7 @@ vi.mock('../../plugins/auth.js', () => ({
 
 import { pluginsRoutes } from '../plugins.js'
 import { upsertUserPreference, deleteUserPreference } from '../../db/user-preferences-queries.js'
+import { recordPluginEvent } from '../../db/plugin-events-queries.js'
 
 describe('Plugin Marketplace API (4 端点完整覆盖)', () => {
   let app: FastifyInstance
@@ -105,6 +135,7 @@ describe('Plugin Marketplace API (4 端点完整覆盖)', () => {
 
   beforeEach(() => {
     store.clear()
+    pluginEventsStore.length = 0
     setAuthState(true)
     vi.clearAllMocks()
   })
@@ -456,6 +487,150 @@ describe('Plugin Marketplace API (4 端点完整覆盖)', () => {
       })
       expect(res.statusCode).toBe(200)
       expect(res.json().data.pluginId).toBe('openai_codex')
+    })
+  })
+
+  // ─────────────────────────────────────────────────────────
+  // 埋点验证:install / uninstall / pin / unpin 事件
+  // ─────────────────────────────────────────────────────────
+  describe('埋点:事件流记录', () => {
+    it('首次 install → 记录 install 事件', async () => {
+      await app.inject({
+        method: 'POST',
+        url: '/api/plugins/playwright-mcp/install',
+        payload: { pinned: false },
+      })
+      expect(recordPluginEvent).toHaveBeenCalledWith({
+        pluginId: 'playwright-mcp',
+        eventType: 'install',
+        userId: mockUserId,
+      })
+      expect(pluginEventsStore).toHaveLength(1)
+      expect(pluginEventsStore[0]).toEqual({
+        pluginId: 'playwright-mcp',
+        eventType: 'install',
+        userId: mockUserId,
+        ip: null,
+      })
+    })
+
+    it('已安装 + 切换 pinned=false→true → 记录 pin 事件(非 install)', async () => {
+      store.set(
+        `${mockUserId}:plugins:remotion`,
+        JSON.stringify({ installedAt: '2026-07-22T00:00:00.000Z', pinned: false }),
+      )
+      await app.inject({
+        method: 'POST',
+        url: '/api/plugins/remotion/install',
+        payload: { pinned: true },
+      })
+      expect(recordPluginEvent).toHaveBeenCalledWith({
+        pluginId: 'remotion',
+        eventType: 'pin',
+        userId: mockUserId,
+      })
+      expect(pluginEventsStore[0]?.eventType).toBe('pin')
+    })
+
+    it('已安装 pinned=true + 切换 pinned=false → 记录 unpin 事件', async () => {
+      store.set(
+        `${mockUserId}:plugins:remotion`,
+        JSON.stringify({ installedAt: '2026-07-22T00:00:00.000Z', pinned: true }),
+      )
+      await app.inject({
+        method: 'POST',
+        url: '/api/plugins/remotion/install',
+        payload: { pinned: false },
+      })
+      expect(pluginEventsStore[0]?.eventType).toBe('unpin')
+    })
+
+    it('PATCH pinned true→false → 记录 unpin 事件', async () => {
+      store.set(
+        `${mockUserId}:plugins:remotion`,
+        JSON.stringify({ installedAt: '2026-07-22T00:00:00.000Z', pinned: true }),
+      )
+      await app.inject({
+        method: 'PATCH',
+        url: '/api/plugins/remotion/preferences',
+        payload: { pinned: false },
+      })
+      expect(recordPluginEvent).toHaveBeenCalledWith({
+        pluginId: 'remotion',
+        eventType: 'unpin',
+        userId: mockUserId,
+      })
+    })
+
+    it('PATCH pinned 未变化 → 不记录事件', async () => {
+      store.set(
+        `${mockUserId}:plugins:remotion`,
+        JSON.stringify({ installedAt: '2026-07-22T00:00:00.000Z', pinned: true }),
+      )
+      await app.inject({
+        method: 'PATCH',
+        url: '/api/plugins/remotion/preferences',
+        payload: { pinned: true },
+      })
+      expect(recordPluginEvent).not.toHaveBeenCalled()
+    })
+
+    it('uninstall → 记录 uninstall 事件', async () => {
+      await app.inject({
+        method: 'DELETE',
+        url: '/api/plugins/playwright-mcp/install',
+      })
+      expect(recordPluginEvent).toHaveBeenCalledWith({
+        pluginId: 'playwright-mcp',
+        eventType: 'uninstall',
+        userId: mockUserId,
+      })
+    })
+  })
+
+  // ─────────────────────────────────────────────────────────
+  // POST /:id/click - 埋点:点击市场卡片外链
+  // ─────────────────────────────────────────────────────────
+  describe('POST /api/plugins/:id/click', () => {
+    it('游客(未登录)→ 200 + recorded=true,userId=null', async () => {
+      setAuthState(false)
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/plugins/playwright-mcp/click',
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data).toEqual({ pluginId: 'playwright-mcp', recorded: true })
+      expect(recordPluginEvent).toHaveBeenCalledWith({
+        pluginId: 'playwright-mcp',
+        eventType: 'click',
+        userId: null,
+        ip: expect.any(String),
+      })
+    })
+
+    it('已登录用户 → 200 + recorded=true,userId=用户 id', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/plugins/remotion/click',
+      })
+      expect(res.statusCode).toBe(200)
+      expect(recordPluginEvent).toHaveBeenCalledWith({
+        pluginId: 'remotion',
+        eventType: 'click',
+        userId: mockUserId,
+        ip: expect.any(String),
+      })
+    })
+
+    it('无效 id → 400,不记录事件', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/plugins/has%20space/click',
+      })
+      expect(res.statusCode).toBe(400)
+      expect(recordPluginEvent).not.toHaveBeenCalled()
     })
   })
 })
