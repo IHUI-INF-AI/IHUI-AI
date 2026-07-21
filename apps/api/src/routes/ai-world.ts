@@ -2,15 +2,26 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import {
   countAiWorldItems,
+  countAiWorldRankings,
+  countTrendingItems,
   findAiWorldCategories,
   findAiWorldHotItems,
   findAiWorldItemById,
   findRecentSyncLogs,
   incrementViewCount,
   listAiWorldItems,
+  listAiWorldRankings,
+  listLeaderboards,
+  listTrendingItems,
   type ItemKind,
 } from '../db/ai-world-queries.js'
-import { syncAllSources, getSourceStats } from '../jobs/ai-world-sync.js'
+import {
+  runDryRun,
+  syncAllSources,
+  syncRankings,
+  syncTrendingMetrics,
+  getSourceStats,
+} from '../jobs/ai-world-sync.js'
 import { success } from '../utils/response.js'
 
 const ListQuerySchema = z.object({
@@ -18,7 +29,7 @@ const ListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(30),
   offset: z.coerce.number().int().min(0).default(0),
   search: z.string().optional(),
-  order: z.enum(['latest', 'hot', 'published']).default('latest'),
+  order: z.enum(['latest', 'hot', 'published', 'trending']).default('latest'),
 })
 
 function toItemDTO(item: Awaited<ReturnType<typeof listAiWorldItems>>[number]) {
@@ -37,8 +48,24 @@ function toItemDTO(item: Awaited<ReturnType<typeof listAiWorldItems>>[number]) {
     metadata: item.metadata,
     viewCount: item.viewCount,
     likeCount: item.likeCount,
+    trendingScore: item.trendingScore,
+    trendingMetrics: item.trendingMetrics,
+    trendingUpdatedAt: item.trendingUpdatedAt,
   }
 }
+
+const RankingQuerySchema = z.object({
+  leaderboard: z.string().optional(),
+  category: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+})
+
+const TrendingQuerySchema = z.object({
+  kind: z.enum(['news', 'paper', 'project', 'tool', 'app']).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+})
 
 export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
   // GET /ai-world — 旧入口(保留兼容,返回分类 + 各 kind 顶部条目)
@@ -159,8 +186,22 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ logs, stats }))
   })
 
-  // POST /ai-world/sync — 手动触发同步(admin)
-  server.post('/ai-world/sync', async (_request, reply) => {
+  // POST /ai-world/sync — 手动触发同步(admin,支持 ?dry-run=true 只预估不写库)
+  server.post('/ai-world/sync', async (request, reply) => {
+    const query = (request.query ?? {}) as { 'dry-run'?: string }
+    if (query['dry-run'] === 'true' || query['dry-run'] === '1') {
+      const results = await runDryRun()
+      const totalEstimated = results.reduce((sum, r) => sum + r.estimatedItems, 0)
+      const failed = results.filter((r) => r.error).length
+      return reply.send(success({
+        dryRun: true,
+        total: results.length,
+        totalEstimated,
+        failed,
+        stats: getSourceStats(),
+        results,
+      }))
+    }
     const results = await syncAllSources()
     const ok = results.filter((r) => r.status === 'success').length
     const partial = results.filter((r) => r.status === 'partial').length
@@ -172,6 +213,91 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
       partial,
       failed: fail,
       totalItems,
+      stats: getSourceStats(),
+      results,
+    }))
+  })
+
+  // ===== 模型排行榜端点(2026-07-22 新增) =====
+
+  // GET /ai-world/rankings/leaderboards — 可用榜单列表(去重 leaderboard,聚合 categories)
+  server.get('/ai-world/rankings/leaderboards', async (_request, reply) => {
+    const leaderboards = await listLeaderboards()
+    return reply.send(success({ leaderboards, total: leaderboards.length }))
+  })
+
+  // GET /ai-world/rankings — 排行榜列表(?leaderboard=&category=&limit=20&offset=0)
+  server.get('/ai-world/rankings', async (request, reply) => {
+    const parsed = RankingQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send({ code: 400, message: parsed.error.message, data: null })
+    }
+    const { leaderboard, category, limit, offset } = parsed.data
+    const [items, total] = await Promise.all([
+      listAiWorldRankings({ leaderboard, category, limit, offset }),
+      countAiWorldRankings({ leaderboard, category }),
+    ])
+    return reply.send(success({ items, total, limit, offset }))
+  })
+
+  // ===== 热度排行端点(2026-07-22 新增) =====
+
+  // GET /ai-world/trending — 热度排行(?kind=&limit=20&offset=0,按 trendingScore desc)
+  server.get('/ai-world/trending', async (request, reply) => {
+    const parsed = TrendingQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send({ code: 400, message: parsed.error.message, data: null })
+    }
+    const { kind, limit, offset } = parsed.data
+    const [items, total] = await Promise.all([
+      listTrendingItems({ kind: kind as ItemKind | undefined, limit, offset }),
+      countTrendingItems({ kind: kind as ItemKind | undefined }),
+    ])
+    return reply.send(success({ items: items.map(toItemDTO), total, limit, offset }))
+  })
+
+  // ===== 手动触发同步端点(2026-07-22 新增) =====
+
+  // POST /ai-world/sync/rankings — 手动触发模型排行榜同步
+  server.post('/ai-world/sync/rankings', async (_request, reply) => {
+    const results = await syncRankings()
+    const ok = results.filter((r) => r.status === 'success').length
+    const fail = results.filter((r) => r.status === 'failed').length
+    const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
+    return reply.send(success({
+      total: results.length,
+      success: ok,
+      failed: fail,
+      totalItems,
+      results,
+    }))
+  })
+
+  // POST /ai-world/sync/trending — 手动触发热度更新
+  server.post('/ai-world/sync/trending', async (_request, reply) => {
+    const results = await syncTrendingMetrics()
+    const ok = results.filter((r) => r.status === 'success').length
+    const fail = results.filter((r) => r.status === 'failed').length
+    const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
+    return reply.send(success({
+      total: results.length,
+      success: ok,
+      failed: fail,
+      totalItems,
+      results,
+    }))
+  })
+
+  // POST /ai-world/sync/dry-run — 跑 dry-run(返回预计条目数,不写库)
+  server.post('/ai-world/sync/dry-run', async (_request, reply) => {
+    const results = await runDryRun()
+    const totalEstimated = results.reduce((sum, r) => sum + r.estimatedItems, 0)
+    const failed = results.filter((r) => r.error).length
+    return reply.send(success({
+      dryRun: true,
+      total: results.length,
+      totalEstimated,
+      failed,
       stats: getSourceStats(),
       results,
     }))

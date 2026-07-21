@@ -1,6 +1,14 @@
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
-import type { AiWorldData, AiCategory, PaginatedItems, ItemKind } from './types'
+import type {
+  AiWorldData,
+  AiCategory,
+  PaginatedItems,
+  PaginatedRankings,
+  LeaderboardInfo,
+  LeaderboardId,
+  ItemKind,
+} from './types'
 
 async function api<T>(url: string): Promise<T> {
   const res = await fetchApi<T>(url)
@@ -22,7 +30,7 @@ export interface FetchItemsParams {
   limit?: number
   offset?: number
   search?: string
-  order?: 'latest' | 'hot' | 'published'
+  order?: 'latest' | 'hot' | 'published' | 'trending'
 }
 
 export async function fetchAiWorldItems(params: FetchItemsParams): Promise<PaginatedItems> {
@@ -34,6 +42,42 @@ export async function fetchAiWorldItems(params: FetchItemsParams): Promise<Pagin
   if (params.order) qs.set('order', params.order)
   const suffix = qs.toString()
   return api<PaginatedItems>(`/api/ai-world/${params.kind}s${suffix ? `?${suffix}` : ''}`)
+}
+
+export interface FetchRankingsParams {
+  leaderboard?: LeaderboardId
+  category?: string
+  limit?: number
+  offset?: number
+}
+
+export async function fetchAiWorldRankings(params: FetchRankingsParams): Promise<PaginatedRankings> {
+  const qs = new URLSearchParams()
+  if (params.leaderboard) qs.set('leaderboard', params.leaderboard)
+  if (params.category) qs.set('category', params.category)
+  if (params.limit) qs.set('limit', String(params.limit))
+  if (params.offset) qs.set('offset', String(params.offset))
+  const suffix = qs.toString()
+  return api<PaginatedRankings>(`/api/ai-world/rankings${suffix ? `?${suffix}` : ''}`)
+}
+
+export async function fetchLeaderboards(): Promise<LeaderboardInfo[]> {
+  return api<LeaderboardInfo[]>('/api/ai-world/rankings/leaderboards')
+}
+
+export interface FetchTrendingParams {
+  kind?: ItemKind
+  limit?: number
+  offset?: number
+}
+
+export async function fetchTrendingItems(params: FetchTrendingParams): Promise<PaginatedItems> {
+  const qs = new URLSearchParams()
+  if (params.kind) qs.set('kind', params.kind)
+  if (params.limit) qs.set('limit', String(params.limit))
+  if (params.offset) qs.set('offset', String(params.offset))
+  const suffix = qs.toString()
+  return api<PaginatedItems>(`/api/ai-world/trending${suffix ? `?${suffix}` : ''}`)
 }
 
 /**
