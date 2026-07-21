@@ -1,6 +1,7 @@
 'use client'
 
 import { Loader2, X } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { Card, CardContent, Button, Input, Label } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
 import type { AddressInput } from './types'
@@ -22,13 +23,14 @@ export function AddressForm({
   onSubmit,
   onCancel,
 }: Props) {
+  const t = useTranslations('memberAddressFormPage')
   return (
     <Card>
       <CardContent className="p-4">
         <form onSubmit={onSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs">收货人</Label>
+              <Label className="text-xs">{t('recipient')}</Label>
               <Input
                 value={editing.name}
                 onChange={(e) => onChange('name', e.target.value)}
@@ -36,7 +38,7 @@ export function AddressForm({
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">手机号</Label>
+              <Label className="text-xs">{t('phone')}</Label>
               <Input
                 value={editing.phone}
                 onChange={(e) => onChange('phone', e.target.value)}
@@ -46,23 +48,23 @@ export function AddressForm({
           </div>
           <div className="grid grid-cols-3 gap-3">
             <Input
-              placeholder="省"
+              placeholder={t('province')}
               value={editing.province}
               onChange={(e) => onChange('province', e.target.value)}
             />
             <Input
-              placeholder="市"
+              placeholder={t('city')}
               value={editing.city}
               onChange={(e) => onChange('city', e.target.value)}
             />
             <Input
-              placeholder="区"
+              placeholder={t('district')}
               value={editing.district}
               onChange={(e) => onChange('district', e.target.value)}
             />
           </div>
           <Input
-            placeholder="详细地址"
+            placeholder={t('detailAddress')}
             value={editing.detail}
             onChange={(e) => onChange('detail', e.target.value)}
             required
@@ -74,16 +76,16 @@ export function AddressForm({
               onChange={(e) => onChange('isDefault', e.target.checked)}
               className="h-4 w-4 rounded"
             />
-            设为默认地址
+            {t('setDefault')}
           </label>
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={isPending}>
               {isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-              保存
+              {t('save')}
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={onCancel}>
               <X className="h-4 w-4" />
-              取消
+              {t('cancel')}
             </Button>
           </div>
           {errorMessage && <Alert variant="danger" description={errorMessage} />}
