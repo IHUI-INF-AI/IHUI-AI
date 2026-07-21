@@ -47,6 +47,7 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
     setNoticeOpen(false)
     // 弹窗关闭后,恢复焦点到原 input,让用户再按 Enter 能触发 form submit
     // (Radix Dialog focus trap 卸载后焦点会丢失到 body,不恢复则第 3 步 Enter 无目标)
+    // 延迟 350ms 等 Radix Dialog 退出动画结束 + focus trap 完全卸载,否则 focus 会被 trap 拉回
     setTimeout(() => {
       const target = lastFocusRef.current
       if (target && document.contains(target)) {
@@ -59,7 +60,7 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
         ) as HTMLInputElement | null
         firstInput?.focus()
       }
-    }, 100)
+    }, 350)
   }, [])
 
   const handleNoticeCancel = React.useCallback(() => {
