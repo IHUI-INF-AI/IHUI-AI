@@ -346,8 +346,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/agents', labelKey: 'agents', icon: Bot },
       { href: '/ai-world', labelKey: 'aiWorld', icon: Globe },
       { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
-      // AI 自动化定时任务调度器(2026-07-20 移入 AI 分组,通用 AI 任务调度,与 /agents /workspace 同类)
-      { href: '/self-media/automation', labelKey: 'selfMediaAutomation', icon: Clock },
+      // 自动化任务调度器已于 2026-07-22 移至侧边栏快捷区(插件市场按钮下方),不再占用 AI 分组位置。
     ],
   },
   // 管理 分组(2026-07-20 重构):
@@ -1942,6 +1941,47 @@ export function Sidebar({
             >
               <Package className="h-4 w-4 shrink-0" />
               <span className="truncate">{t('pluginMarket')}</span>
+            </Link>
+          )}
+        </div>
+
+        {/* 自动化任务按钮(2026-07-22 新增,位于"插件市场"按钮正下方,快捷区第3个)
+            - 视觉与上方两个按钮成组:同 bg-foreground/10 + text-foreground 灰底风格
+            - active 态(/self-media/automation 路由命中):bg-foreground/20 锁定为 hover 色
+            - 折叠态:36×36 正方形图标按钮,与上方两个按钮对齐
+            - 从 AI 分组移出,提升为快捷入口(用户需求 2026-07-22) */}
+        <div className={cn('mb-1', collapsed && 'flex justify-center')}>
+          {collapsed ? (
+            <Tooltip content={t('selfMediaAutomation')} side="right">
+              <Link
+                href="/self-media/automation"
+                onClick={onCloseMobile}
+                aria-label={t('selfMediaAutomation')}
+                aria-current={pathname.startsWith('/self-media/automation') ? 'page' : undefined}
+                className={cn(
+                  'flex h-9 w-9 items-center justify-center rounded-md text-foreground transition-colors',
+                  pathname.startsWith('/self-media/automation')
+                    ? 'bg-foreground/20'
+                    : 'bg-foreground/10 hover:bg-foreground/20',
+                )}
+              >
+                <Clock className="h-4 w-4" />
+              </Link>
+            </Tooltip>
+          ) : (
+            <Link
+              href="/self-media/automation"
+              onClick={onCloseMobile}
+              aria-current={pathname.startsWith('/self-media/automation') ? 'page' : undefined}
+              className={cn(
+                BTN_NEW_CONVERSATION_CLASS,
+                pathname.startsWith('/self-media/automation')
+                  ? 'bg-foreground/20 text-foreground'
+                  : 'bg-foreground/10 text-foreground hover:bg-foreground/20',
+              )}
+            >
+              <Clock className="h-4 w-4 shrink-0" />
+              <span className="truncate">{t('selfMediaAutomation')}</span>
             </Link>
           )}
         </div>

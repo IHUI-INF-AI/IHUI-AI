@@ -12,6 +12,7 @@ import {
   Search,
   Shield,
   X,
+  Zap,
 } from 'lucide-react'
 
 import { Card } from '@ihui/ui'
@@ -21,6 +22,8 @@ import { usePlugins } from '@/hooks/use-plugins'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useLocalStorage } from '@/hooks/use-local-storage'
 import { useToast } from '@/hooks/use-toast'
+import { useAiPanelStore } from '@/stores/ai-panel'
+import { useChat } from '@/hooks/use-chat'
 
 import {
   PROJECT_PLUGINS,
@@ -65,6 +68,25 @@ export function PluginMarketplace() {
   const t = useTranslations('plugins')
   const toast = useToast()
   const plugins = usePlugins()
+  const openAiPanel = useAiPanelStore((s) => s.openPanel)
+  const { sendMessage } = useChat()
+
+  /** 内置插件调用:打开 AI 对话面板并注入"使用该插件"消息(2026-07-22 新增)
+   *  用户点击插件卡片后,不跳转外部,而是在平台内通过 AI 对话调用该插件能力。
+   *  AI 会根据插件类型(category)和描述,调用对应工具或引导用户完成操作。 */
+  const handleInvokePlugin = React.useCallback(
+    (plugin: MarketPlugin) => {
+      openAiPanel()
+      const invokePrompt = t('invokePromptTemplate', {
+        name: plugin.name,
+        category: plugin.category,
+        description: plugin.description,
+      })
+      void sendMessage(invokePrompt)
+      toast.info(t('invokeToast', { name: plugin.name }))
+    },
+    [openAiPanel, sendMessage, t, toast],
+  )
 
   // UI 偏好持久化到 localStorage(只存 filter/sort,不存启用态)
   const [uiPrefs, setUiPrefs] = useLocalStorage<PluginUIPrefs>('ihui:plugins:ui-prefs', {
@@ -365,6 +387,7 @@ export function PluginMarketplace() {
                 key={p.id}
                 plugin={p}
                 visitLabel={t('visit')}
+                invokeLabel={t('invoke')}
                 officialLabel={t('official')}
                 freeLabel={t('free')}
                 isAuthenticated={plugins.isAuthenticated}
@@ -373,6 +396,7 @@ export function PluginMarketplace() {
                 onToggleInstall={() => handleToggleInstall(p.id, p.name)}
                 onTogglePinned={() => handleTogglePinned(p.id, p.name)}
                 onRecordClick={() => plugins.recordClick(p.id)}
+                onInvoke={() => handleInvokePlugin(p)}
                 installedBadgeLabel={t('installedBadge')}
                 installLabel={t('install')}
                 uninstallLabel={t('uninstall')}
@@ -563,6 +587,7 @@ function ProjectPluginCard({
 function MarketPluginCard({
   plugin,
   visitLabel,
+  invokeLabel,
   officialLabel,
   freeLabel,
   isAuthenticated,
@@ -571,6 +596,7 @@ function MarketPluginCard({
   onToggleInstall,
   onTogglePinned,
   onRecordClick,
+  onInvoke,
   installedBadgeLabel,
   installLabel,
   uninstallLabel,
@@ -579,6 +605,7 @@ function MarketPluginCard({
 }: {
   plugin: MarketPlugin
   visitLabel: string
+  invokeLabel: string
   officialLabel: string
   freeLabel: string
   isAuthenticated: boolean
@@ -587,14 +614,20 @@ function MarketPluginCard({
   onToggleInstall: () => void
   onTogglePinned: () => void
   onRecordClick: () => void
+  onInvoke: () => void
   installedBadgeLabel: string
   installLabel: string
   uninstallLabel: string
   pinLabel: string
   unpinLabel: string
 }) {
+  // 调用模式:默认 'dialog'(内置可调用),少数为 'external'(纯外链参考)
+  const invokeMode = plugin.invokeMode ?? 'dialog'
   const isInternal = plugin.url.startsWith('/')
   const FallbackIcon = plugin.fallbackIcon
+  // dialog 模式:点击卡片触发 onInvoke(打开 AI 对话面板调用)
+  // external 模式:点击卡片跳转外部(isInternal 时走 Link,否则新窗口 <a>)
+  const isDialogMode = invokeMode === 'dialog' && !isInternal
 
   const card = (
     <Card className="flex h-full flex-col gap-3 p-4 transition-all hover:bg-accent/40 hover:shadow-md">
@@ -643,13 +676,24 @@ function MarketPluginCard({
           </span>
         ))}
       </div>
+      {/* 底部行动条:dialog 模式显示"调用"(Zap 图标),external 模式显示"访问"(ExternalLink 图标) */}
       <div className="flex items-center justify-end text-xs font-medium text-primary [&>span]:translate-y-[0.5px]">
-        <span>{visitLabel}</span>
-        <ExternalLink className="ml-1 h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+        {isDialogMode ? (
+          <>
+            <span>{invokeLabel}</span>
+            <Zap className="ml-1 h-3 w-3 transition-transform group-hover:scale-110" />
+          </>
+        ) : (
+          <>
+            <span>{visitLabel}</span>
+            <ExternalLink className="ml-1 h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+          </>
+        )}
       </div>
     </Card>
   )
 
+  // 内部路由(项目插件):走 Link
   if (isInternal) {
     return (
       <Link
@@ -661,6 +705,23 @@ function MarketPluginCard({
       </Link>
     )
   }
+  // dialog 模式(内置可调用):点击触发 onInvoke,不跳转外部
+  if (isDialogMode) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          onRecordClick()
+          onInvoke()
+        }}
+        className="group block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:rounded-lg"
+        aria-label={`${invokeLabel} ${plugin.name}`}
+      >
+        {card}
+      </button>
+    )
+  }
+  // external 模式(纯外链参考):新窗口跳转
   return (
     <a
       href={plugin.url}
