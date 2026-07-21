@@ -83,6 +83,10 @@ export default function ResourceEditPage() {
         throw new Error(t('errCategoryRequired'))
       }
 
+      // 后端 createResourceSchema/updateResourceSchema 仅支持:
+      // title/coverImage/intro/categoryId(单)/fileUrl/fileType/fileSize/isPublished/sort/status
+      // TODO(后端): 支持 type / productId / tagIdList / image / introduction / cidList(多)
+      // 未支持字段暂随 body 发送,Zod 会 strip,需后端扩展 schema 后方可持久化
       const body = {
         title: title.trim(),
         intro: intro.trim(),
