@@ -43,7 +43,19 @@ __all__ = [
 
 
 def get_provider(model: str, api_key: str | None, api_base: str | None) -> BaseProvider | None:
-    """根据模型前缀返回对应适配器,无 key 或无匹配前缀时返回 None(fallback LiteLLM)。"""
+    """根据模型前缀返回对应适配器,无 key 或无匹配前缀时返回 None(fallback LiteLLM)。
+
+    路由策略(2026-07 扩展):
+    - 国内厂商(jimeng/kling/luyala/qwen/doubao/hunyuan/glm/volcengine)有专属适配器
+      → 必须放在 OpenAI catchall 之前(否则无斜杠前缀会被吞)
+    - 国际原厂(claude/gemini/stepfun)有专属适配器
+    - 其他国际厂商(groq/mistral/cohere/perplexity/xai/replicate/stability/ai21/
+      watsonx/vertex/together/cerebras/sambanova/deepinfra/friendli/anyscale/
+      huggingface/ollama/azure/bedrock/moonshot/baichuan/y)都是 OpenAI 兼容
+      → catchall OpenAIProvider 已能处理,此处显式列出仅为提高可读性
+        + 未来若厂商有非 OpenAI 兼容协议(例如 ollama 原生 / vertex AI 原生),
+          可在路由前补专属适配器
+    """
     if not api_key:
         return None
     m = model.lower()
@@ -72,8 +84,31 @@ def get_provider(model: str, api_key: str | None, api_base: str | None) -> BaseP
         return ZhipuProvider(api_key, api_base)
     if m.startswith("volcengine-"):
         return VolcengineProvider(api_key, api_base)
+    # 国际厂商(均为 OpenAI 兼容,catchall OpenAIProvider 可处理;此处显式列出便于未来扩展专属协议)
+    # groq / mistral / cohere / perplexity / xai / replicate / stability / ai21
+    # watsonx / vertex / together / cerebras / sambanova / deepinfra / friendli
+    # anyscale / huggingface / ollama / azure / bedrock / moonshot / baichuan / y / z
+    # → 全部由 catchall OpenAIProvider 处理(无 key 时返回 None → fallback LiteLLM)
     # Groq 为 OpenAI 兼容接口,复用 OpenAIProvider 处理 tools 差异
     # OpenRouter 已迁移至专属 OpenrouterProvider,catchall 不再覆盖 openrouter/
-    if m.startswith(("gpt-", "o1-", "o3-", "openai/", "groq/")) or "/" not in model:
+    if m.startswith(("gpt-", "o1-", "o3-", "o4-", "o5-",
+                     "openai/", "groq/", "mistral/", "codestral/", "pixtral/",
+                     "command-", "sonar-", "grok-",
+                     "replicate/", "stability-", "jamba-",
+                     "watsonx/", "vertex/", "together-",
+                     "cerebras/", "sambanova/", "deepinfra/",
+                     "friendli/", "anyscale/", "infermatic/",
+                     "huggingface/", "ollama/", "azure/", "bedrock/",
+                     "moonshot-", "baichuan-", "yi-",
+                     "ernie-", "abab", "minimax-", "spark-",
+                     "internlm", "sensenova-", "skywork-",
+                     "amazon-nova-",
+                     "inflection-",
+                     "snowflake-", "stablelm-", "nous-",
+                     "phi-", "nemotron-", "llama-", "mistral-",
+                     "gemma-", "qwen", "deepseek-",
+                     "kimi-",
+                     "ornith-", "codebrain-", "mai-",
+                     "claude", "gemini-")) or "/" not in model:
         return OpenAIProvider(api_key, api_base)
     return None
