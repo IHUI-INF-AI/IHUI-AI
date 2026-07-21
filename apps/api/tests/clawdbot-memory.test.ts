@@ -16,7 +16,7 @@ describe('clawdbot MemoryService 记忆服务', () => {
   describe('store 存储', () => {
     it('存储记忆并生成 id/createdAt/lastAccessedAt/accessCount', () => {
       const m = svc.store({ type: 'long_term', content: 'hello', importance: 0.5 })
-      expect(m.id).toMatch(/^mem_\d+_/)
+      expect(m.id).toMatch(/^mem_[a-z0-9]+$/)
       expect(m.createdAt).toBeGreaterThan(0)
       expect(m.lastAccessedAt).toBeGreaterThan(0)
       expect(m.accessCount).toBe(0)

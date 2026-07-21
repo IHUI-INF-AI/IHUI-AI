@@ -5,6 +5,7 @@ import { db } from '../db/index.js'
 import { userMargins, tokenFlows } from '@ihui/database'
 import { requireAuth } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
+import { generateOrderNumber } from '../utils/crypto-random.js'
 
 /**
  * 钱包路由 — /api/wallet/*
@@ -44,7 +45,9 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
       .limit(1)
 
     if (!margin) {
-      return reply.send(success({ balance: 0, frozenBalance: 0, totalRecharge: 0, totalWithdraw: 0 }))
+      return reply.send(
+        success({ balance: 0, frozenBalance: 0, totalRecharge: 0, totalWithdraw: 0 }),
+      )
     }
 
     const [rechargeSum] = await db
@@ -57,12 +60,14 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
       .from(tokenFlows)
       .where(and(eq(tokenFlows.userId, userId), eq(tokenFlows.opType, 1)))
 
-    return reply.send(success({
-      balance: margin.tokenQuantity,
-      frozenBalance: margin.frozenQuantity,
-      totalRecharge: rechargeSum?.total ?? 0,
-      totalWithdraw: withdrawSum?.total ?? 0,
-    }))
+    return reply.send(
+      success({
+        balance: margin.tokenQuantity,
+        frozenBalance: margin.frozenQuantity,
+        totalRecharge: rechargeSum?.total ?? 0,
+        totalWithdraw: withdrawSum?.total ?? 0,
+      }),
+    )
   })
 
   // POST /recharge
@@ -74,21 +79,37 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
     }
     const { amount } = parsed.data
 
-    const [margin] = await db.select().from(userMargins).where(eq(userMargins.userId, userId)).limit(1)
+    const [margin] = await db
+      .select()
+      .from(userMargins)
+      .where(eq(userMargins.userId, userId))
+      .limit(1)
     const currentBalance = margin?.tokenQuantity ?? 0
     const newBalance = currentBalance + amount
 
     if (margin) {
-      await db.update(userMargins).set({ tokenQuantity: newBalance, updatedAt: new Date() }).where(eq(userMargins.userId, userId))
+      await db
+        .update(userMargins)
+        .set({ tokenQuantity: newBalance, updatedAt: new Date() })
+        .where(eq(userMargins.userId, userId))
     } else {
       await db.insert(userMargins).values({ userId, tokenQuantity: newBalance, frozenQuantity: 0 })
     }
 
-    const [flow] = await db.insert(tokenFlows).values({
-      userId, opType: 0, quantity: amount, balanceAfter: newBalance, remark: `充值 ${amount} tokens`,
-    }).returning()
+    const [flow] = await db
+      .insert(tokenFlows)
+      .values({
+        userId,
+        opType: 0,
+        quantity: amount,
+        balanceAfter: newBalance,
+        remark: `充值 ${amount} tokens`,
+      })
+      .returning()
 
-    const orderNo = `RC${Date.now()}${Math.floor(Math.random() * 10000)}`
+    // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成充值订单号
+    // 原实现 4 位数字熵仅 10^4 = 13 位,数秒内可暴力枚举其他用户充值订单 → 支付绕过/IDOR
+    const orderNo = generateOrderNumber('RC')
     return reply.status(201).send(success({ orderNo, flow }))
   })
 
@@ -101,7 +122,11 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
     }
     const { amount, account, accountType } = parsed.data
 
-    const [margin] = await db.select().from(userMargins).where(eq(userMargins.userId, userId)).limit(1)
+    const [margin] = await db
+      .select()
+      .from(userMargins)
+      .where(eq(userMargins.userId, userId))
+      .limit(1)
     const balance = margin?.tokenQuantity ?? 0
     const frozen = margin?.frozenQuantity ?? 0
     const available = balance - frozen
@@ -111,13 +136,19 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
     }
 
     if (margin) {
-      await db.update(userMargins).set({ frozenQuantity: margin.frozenQuantity + amount, updatedAt: new Date() }).where(eq(userMargins.userId, userId))
+      await db
+        .update(userMargins)
+        .set({ frozenQuantity: margin.frozenQuantity + amount, updatedAt: new Date() })
+        .where(eq(userMargins.userId, userId))
     } else {
       await db.insert(userMargins).values({ userId, tokenQuantity: 0, frozenQuantity: amount })
     }
 
     await db.insert(tokenFlows).values({
-      userId, opType: 1, quantity: -amount, balanceAfter: balance - amount,
+      userId,
+      opType: 1,
+      quantity: -amount,
+      balanceAfter: balance - amount,
       remark: `提现到 ${accountType}(${account})`,
     })
 
@@ -135,13 +166,35 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
     const offset = (page - 1) * pageSize
 
     const conditions = [eq(tokenFlows.userId, userId), eq(tokenFlows.opType, 1)]
-    const list = await db.select().from(tokenFlows).where(and(...conditions)).orderBy(desc(tokenFlows.createdAt)).limit(pageSize).offset(offset)
-    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(tokenFlows).where(and(...conditions))
+    const list = await db
+      .select()
+      .from(tokenFlows)
+      .where(and(...conditions))
+      .orderBy(desc(tokenFlows.createdAt))
+      .limit(pageSize)
+      .offset(offset)
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(tokenFlows)
+      .where(and(...conditions))
 
-    return reply.send(success({
-      list: list.map((f) => ({ id: f.id, amount: Math.abs(f.quantity), balanceAfter: f.balanceAfter, type: 'withdraw' as const, status: 'pending', payMethod: null, remark: f.remark, createdAt: f.createdAt.toISOString() })),
-      total: countResult?.count ?? 0, page, pageSize,
-    }))
+    return reply.send(
+      success({
+        list: list.map((f) => ({
+          id: f.id,
+          amount: Math.abs(f.quantity),
+          balanceAfter: f.balanceAfter,
+          type: 'withdraw' as const,
+          status: 'pending',
+          payMethod: null,
+          remark: f.remark,
+          createdAt: f.createdAt.toISOString(),
+        })),
+        total: countResult?.count ?? 0,
+        page,
+        pageSize,
+      }),
+    )
   })
 
   // GET /recharge/records
@@ -155,13 +208,35 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
     const offset = (page - 1) * pageSize
 
     const conditions = [eq(tokenFlows.userId, userId), eq(tokenFlows.opType, 0)]
-    const list = await db.select().from(tokenFlows).where(and(...conditions)).orderBy(desc(tokenFlows.createdAt)).limit(pageSize).offset(offset)
-    const [countResult] = await db.select({ count: sql<number>`count(*)::int` }).from(tokenFlows).where(and(...conditions))
+    const list = await db
+      .select()
+      .from(tokenFlows)
+      .where(and(...conditions))
+      .orderBy(desc(tokenFlows.createdAt))
+      .limit(pageSize)
+      .offset(offset)
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(tokenFlows)
+      .where(and(...conditions))
 
-    return reply.send(success({
-      list: list.map((f) => ({ id: f.id, amount: f.quantity, balanceAfter: f.balanceAfter, type: 'recharge' as const, status: 'success', payMethod: null, remark: f.remark, createdAt: f.createdAt.toISOString() })),
-      total: countResult?.count ?? 0, page, pageSize,
-    }))
+    return reply.send(
+      success({
+        list: list.map((f) => ({
+          id: f.id,
+          amount: f.quantity,
+          balanceAfter: f.balanceAfter,
+          type: 'recharge' as const,
+          status: 'success',
+          payMethod: null,
+          remark: f.remark,
+          createdAt: f.createdAt.toISOString(),
+        })),
+        total: countResult?.count ?? 0,
+        page,
+        pageSize,
+      }),
+    )
   })
 }
 

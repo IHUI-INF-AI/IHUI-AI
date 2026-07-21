@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
+import { generateCompactId } from '../utils/crypto-random.js'
 
 /**
  * 服务注册发现 — 轻量级内存实现(无 schema 依赖)
@@ -76,7 +77,9 @@ const serviceCatalogRoutes: FastifyPluginAsync = async (server) => {
     if (!body.success) {
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     }
-    const id = `svc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成服务实例 ID
+    // 风险:可预测服务 ID → 攻击者枚举内部微服务/CDN 节点 → 越权访问
+    const id = generateCompactId('svc')
     const now = Date.now()
     const instance: ServiceInstance = {
       id,
