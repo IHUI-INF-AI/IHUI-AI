@@ -5,6 +5,7 @@ import { Menu } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Sidebar } from '@/components/sidebar'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
+import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
 import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
 import { WorkspacePermissionRequestDialog } from '@/components/workspace/workspace-permission-request-dialog'
 import { DevToolsTrigger } from '@/components/dev/DevToolsTrigger'
@@ -145,6 +146,10 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
           </Button>
           {children}
         </div>
+        {/* 工作展示区(右侧固定面板):AI 对话内嵌浏览器 / URL 预览。
+            open=false 时渲染 null,不影响布局;open=true 时参与 flex 流,work-area 自动收缩。
+            不弹独立窗口,纯组件渲染(遵守用户规则:dev server 只在 TRAE 内部运行)。 */}
+        <WebWorkPanel />
       </div>
       {/* AISidePanel 作为全局 fixed 组件,移出 flex 容器避免挤压内容区宽度。
           定位样式 left:var(--sidebar-width) 由 Sidebar 同步到 :root,紧贴 Sidebar 右侧。
