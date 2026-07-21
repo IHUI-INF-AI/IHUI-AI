@@ -52,36 +52,43 @@ export function LecturerDetailScreen() {
   const [error, setError] = useState('')
   const [followLoading, setFollowLoading] = useState(false)
 
-  const load = useCallback(async (refresh = false) => {
-    if (refresh) setRefreshing(true)
-    else setLoading(true)
-    setError('')
-    const headers = token ? { Authorization: `Bearer ${token}` } : undefined
-    const [infoRes, coursesRes] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/lecturers/${lecturerId}`, { headers } as RequestInit),
-      fetch(`${API_BASE_URL}/api/lecturers/${lecturerId}/courses?page=1&pageSize=20`, { headers } as RequestInit),
-    ])
-    if (!infoRes.ok || !coursesRes.ok) {
-      setError(t('lecturerDetail.loadFailed'))
+  const load = useCallback(
+    async (refresh = false) => {
+      if (refresh) setRefreshing(true)
+      else setLoading(true)
+      setError('')
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined
+      const [infoRes, coursesRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/live/lecturers/${lecturerId}`, { headers } as RequestInit),
+        fetch(`${API_BASE_URL}/api/lecturers/${lecturerId}/courses?page=1&pageSize=20`, {
+          headers,
+        } as RequestInit),
+      ])
+      if (!infoRes.ok || !coursesRes.ok) {
+        setError(t('lecturerDetail.loadFailed'))
+        setLoading(false)
+        setRefreshing(false)
+        return
+      }
+      const infoData = (await infoRes.json()) as { data?: LecturerInfo }
+      const coursesData = (await coursesRes.json()) as { data?: { list: LecturerCourse[] } }
+      setInfo(infoData.data ?? null)
+      setCourses(coursesData.data?.list ?? [])
       setLoading(false)
       setRefreshing(false)
-      return
-    }
-    const infoData = (await infoRes.json()) as { data?: LecturerInfo }
-    const coursesData = (await coursesRes.json()) as { data?: { list: LecturerCourse[] } }
-    setInfo(infoData.data ?? null)
-    setCourses(coursesData.data?.list ?? [])
-    setLoading(false)
-    setRefreshing(false)
-  }, [token, lecturerId, t])
+    },
+    [token, lecturerId, t],
+  )
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   const handleFollow = async () => {
     if (!info) return
     setFollowLoading(true)
-    const resp = await fetch(`${API_BASE_URL}/api/lecturers/${info.id}/${info.isFollowing ? 'unfollow' : 'follow'}`, {
-      method: 'POST',
+    const resp = await fetch(`${API_BASE_URL}/api/follows/${info.id}`, {
+      method: info.isFollowing ? 'DELETE' : 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     })
     setFollowLoading(false)
@@ -154,7 +161,9 @@ export function LecturerDetailScreen() {
                 disabled={followLoading}
               >
                 <Text style={[styles.followBtnText, info.isFollowing && styles.followingBtnText]}>
-                  {info.isFollowing ? t('lecturerDetail.unfollowBtn') : t('lecturerDetail.followBtn')}
+                  {info.isFollowing
+                    ? t('lecturerDetail.unfollowBtn')
+                    : t('lecturerDetail.followBtn')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -173,9 +182,13 @@ export function LecturerDetailScreen() {
       contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
       renderItem={({ item }) => (
         <View style={styles.card}>
-          <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {item.title}
+          </Text>
           <View style={styles.cardMetaRow}>
-            <Text style={styles.cardMetaText}>{t('lecturerDetail.level')}: {item.level}</Text>
+            <Text style={styles.cardMetaText}>
+              {t('lecturerDetail.level')}: {item.level}
+            </Text>
             <Text style={styles.cardMetaText}>
               {t('lecturerDetail.studentCount', { count: item.studentCount })}
             </Text>
@@ -193,7 +206,13 @@ const PRIMARY = '#10B981'
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', padding: 16 },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+  },
   emptyText: { fontSize: 12, color: '#9CA3AF', marginTop: 8 },
   errorText: { fontSize: 12, color: '#DC2626', marginTop: 4 },
   header: { paddingTop: 48, paddingBottom: 8 },
@@ -208,16 +227,40 @@ const styles = StyleSheet.create({
   statItem: { alignItems: 'center', flex: 1 },
   statValue: { fontSize: 18, fontWeight: '600', color: PRIMARY },
   statLabel: { marginTop: 2, fontSize: 11, color: '#6B7280' },
-  followBtn: { marginTop: 14, paddingVertical: 10, borderRadius: 8, backgroundColor: PRIMARY, alignItems: 'center' },
+  followBtn: {
+    marginTop: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+    alignItems: 'center',
+  },
   followingBtn: { backgroundColor: '#F3F4F6' },
   followBtnText: { fontSize: 13, color: '#FFFFFF' },
   followingBtnText: { color: '#6B7280' },
   sectionTitle: { fontSize: 15, fontWeight: '600', color: '#111827', marginVertical: 8 },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
+  card: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
   cardTitle: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  cardMetaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6, gap: 8, flexWrap: 'wrap' },
+  cardMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 6,
+    gap: 8,
+    flexWrap: 'wrap',
+  },
   cardMetaText: { fontSize: 11, color: '#9CA3AF' },
   priceText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
-  retryBtn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
+  retryBtn: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+  },
   retryBtnText: { color: '#FFFFFF', fontSize: 13 },
 })
