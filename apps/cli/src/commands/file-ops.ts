@@ -34,14 +34,25 @@ export function cmdRead(workspacePath: string, filePath: string): void {
     console.info(chalk.yellow(`是目录,用 /ls 查看: ${filePath}`))
     return
   }
-  if (stat.size > 1024 * 1024) {
+  const sizeLabel = stat.size < 1024 ? `${stat.size}B` : `${(stat.size / 1024).toFixed(1)}KB`
+  const showTruncate = stat.size > 1024 * 1024
+  if (showTruncate) {
     console.info(chalk.yellow(`文件过大 (${(stat.size / 1024).toFixed(1)} KB),仅显示前 1000 行`))
   }
   const content = fs.readFileSync(fullPath, 'utf-8')
   const lines = content.split('\n').slice(0, 1000)
+  // 卡片化:头部信息条 + 行号 + 内容
+  const header = `📄 ${filePath}  ${chalk.dim(`${lines.length} 行 · ${sizeLabel}`)}`
+  console.info(chalk.cyan(`\n╭─ ${header}`))
+  console.info(chalk.cyan('│'))
   lines.forEach((line, i) => {
-    console.info(chalk.dim(`${String(i + 1).padStart(4)} `) + line)
+    const num = chalk.dim(String(i + 1).padStart(4, ' ') + ' ')
+    // 空行用 dim 占位,避免显示空白
+    const display = line.length === 0 ? chalk.dim('·') : line
+    console.info(`${chalk.cyan('│')} ${num}${display}`)
   })
+  console.info(chalk.cyan('╰─'))
+  console.info('')
 }
 
 export function cmdLs(workspacePath: string, dirPath: string): void {
@@ -59,12 +70,33 @@ export function cmdLs(workspacePath: string, dirPath: string): void {
   const entries = fs.readdirSync(fullPath, { withFileTypes: true })
   const dirs = entries.filter((e) => e.isDirectory()).sort((a, b) => a.name.localeCompare(b.name))
   const files = entries.filter((e) => e.isFile()).sort((a, b) => a.name.localeCompare(b.name))
-  for (const d of dirs) console.info(`  ${chalk.cyan(d.name + '/')}`)
-  for (const f of files) {
-    const stat = fs.statSync(path.join(fullPath, f.name))
-    const size = stat.size < 1024 ? `${stat.size}B` : `${(stat.size / 1024).toFixed(1)}K`
-    console.info(`  ${f.name} ${chalk.dim(size)}`)
-  }
+  const total = dirs.length + files.length
+  // 卡片化:头部信息条 + 树形结构(目录在前,文件在后)
+  console.info(chalk.cyan(`\n╭─ 📁 ${target}  ${chalk.dim(`${total} 项 · ${dirs.length} 目录 / ${files.length} 文件`)}`))
+  console.info(chalk.cyan('│'))
+  // 目录列表(树形 ├─ / └─)
+  dirs.forEach((d, i) => {
+    const isLast = i === dirs.length - 1 && files.length === 0
+    const branch = isLast ? '└─' : '├─'
+    console.info(`${chalk.cyan('│')} ${chalk.dim(branch)} ${chalk.cyan.bold(d.name + '/')}`)
+  })
+  // 文件列表(带大小)
+  files.forEach((f, i) => {
+    const isLast = i === files.length - 1
+    const branch = isLast ? '└─' : '├─'
+    let fstat: fs.Stats
+    try {
+      fstat = fs.statSync(path.join(fullPath, f.name))
+    } catch {
+      console.info(`${chalk.cyan('│')} ${chalk.dim(branch)} ${f.name}`)
+      return
+    }
+    const size = fstat.size < 1024 ? `${fstat.size}B` : `${(fstat.size / 1024).toFixed(1)}K`
+    const sizeLabel = chalk.dim(size.padStart(8))
+    console.info(`${chalk.cyan('│')} ${chalk.dim(branch)} ${f.name} ${sizeLabel}`)
+  })
+  console.info(chalk.cyan('╰─'))
+  console.info('')
 }
 
 export function cmdGrep(workspacePath: string, pattern: string, searchPath: string): void {
@@ -125,10 +157,29 @@ export function cmdGrep(workspacePath: string, pattern: string, searchPath: stri
     console.info(chalk.dim('未找到匹配'))
     return
   }
-  for (const line of results) console.info(`  ${line}`)
+  // 卡片化:头部信息条 + 按文件分组折叠(粗略实现:连续相同路径前缀合并)
+  console.info(chalk.cyan(`\n╭─ 🔍 ${pattern}  ${chalk.dim(`${results.length} 匹配` + (results.length >= MAX_GREP_RESULTS ? ' · 截断' : ''))}`))
+  console.info(chalk.cyan('│'))
+  let lastFile = ''
+  results.forEach((line, i) => {
+    // line 格式:"path:lineNum content"
+    const colonIdx = line.indexOf(':')
+    const file = colonIdx > 0 ? line.slice(0, colonIdx) : ''
+    const rest = colonIdx > 0 ? line.slice(colonIdx + 1) : line
+    // 文件切换时打印文件名作为分组标题
+    if (file && file !== lastFile) {
+      if (lastFile) console.info(`${chalk.cyan('│')}`)
+      console.info(`${chalk.cyan('│')} ${chalk.magenta.bold(file)}`)
+      lastFile = file
+    }
+    const branch = i === results.length - 1 ? '└─' : '├─'
+    console.info(`${chalk.cyan('│')}   ${chalk.dim(branch)} ${rest}`)
+  })
   if (results.length >= MAX_GREP_RESULTS) {
-    console.info(chalk.dim(`  ...结果过多,仅显示前 ${MAX_GREP_RESULTS} 条`))
+    console.info(`${chalk.cyan('│')} ${chalk.dim(`...结果过多,仅显示前 ${MAX_GREP_RESULTS} 条`)}`)
   }
+  console.info(chalk.cyan('╰─'))
+  console.info('')
 }
 
 export function cmdGlob(workspacePath: string, pattern: string): void {
@@ -168,10 +219,29 @@ export function cmdGlob(workspacePath: string, pattern: string): void {
     console.info(chalk.dim('未找到匹配文件'))
     return
   }
-  results.sort().forEach((f) => console.info(`  ${f}`))
+  // 卡片化:头部信息条 + 树形结构(按目录分组)
+  results.sort()
+  console.info(chalk.cyan(`\n╭─ 📋 ${pattern}  ${chalk.dim(`${results.length} 文件` + (results.length >= MAX_GLOB_RESULTS ? ' · 截断' : ''))}`))
+  console.info(chalk.cyan('│'))
+  // 按目录分组
+  let lastDir = ''
+  results.forEach((f, i) => {
+    const lastSlash = f.lastIndexOf('/')
+    const dir = lastSlash > 0 ? f.slice(0, lastSlash) : '.'
+    const name = lastSlash > 0 ? f.slice(lastSlash + 1) : f
+    if (dir !== lastDir) {
+      if (lastDir) console.info(`${chalk.cyan('│')}`)
+      console.info(`${chalk.cyan('│')} ${chalk.magenta.bold(dir + '/')}`)
+      lastDir = dir
+    }
+    const branch = i === results.length - 1 || results[i + 1]?.slice(0, results[i + 1]!.lastIndexOf('/')) !== dir ? '└─' : '├─'
+    console.info(`${chalk.cyan('│')}   ${chalk.dim(branch)} ${chalk.cyan(name)}`)
+  })
   if (results.length >= MAX_GLOB_RESULTS) {
-    console.info(chalk.dim(`  ...结果过多,仅显示前 ${MAX_GLOB_RESULTS} 个`))
+    console.info(`${chalk.cyan('│')} ${chalk.dim(`...结果过多,仅显示前 ${MAX_GLOB_RESULTS} 个`)}`)
   }
+  console.info(chalk.cyan('╰─'))
+  console.info('')
 }
 
 export function cmdBash(workspacePath: string, command: string, checkpoints?: CheckpointManager): void {
