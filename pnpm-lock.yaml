@@ -13176,7 +13176,7 @@ packages:
   lucide-react@1.25.0:
     resolution: {integrity: sha512-/mdJTRbiwcLOQ1NZZK1amZF9rIZyvO18D6r9TngE6TG1NmqHgFuT4eE7Xrkm9UsXMbBJD1NlfwHVltCDWHrOTw==}
     peerDependencies:
-      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0-rc
 
   luxon@3.7.2:
     resolution: {integrity: sha512-vtEhXh/gNjI9Yg1u4jX/0YVPMvxzHuGgCm6tC5kZyb08yjGWGnqAjGJvcXbqQR2P3MyMEFnRbpcdFS6PBcLqew==}
@@ -21314,7 +21314,7 @@ snapshots:
     dependencies:
       '@types/mdx': 2.0.14
       '@types/react': 19.2.17
-      react: 19.0.0
+      react: 18.3.1
 
   '@mediapipe/tasks-vision@0.10.17': {}
 
