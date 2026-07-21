@@ -135,6 +135,11 @@ class LLMCompleteRequest(BaseModel):
     context_limit: int | None = Field(
         None, description="模型上下文窗口大小(tokens),达 88% 阈值自动压缩。0 或 None = 不压缩"
     )
+    # Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):
+    # 传入工具名列表后,后端从 mcp_server 加载完整 schema,走 tool loop(complete→tool_calls→execute→astream)
+    agent_tools: list[str] | None = Field(
+        None, description="Agent 工具名列表(如 browser_screenshot/computer_mouse_click),传入后走 tool loop"
+    )
 
 
 @router.post("/llm/complete")
@@ -221,6 +226,230 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 若发生压缩,通过 SSE 首事件通知调用方(对标 API 层的 compaction 事件)
             if compaction_info and compaction_info.get("compressed"):
                 yield f"data: {json.dumps({'compaction': {'triggered': True, 'tokensBefore': compaction_info['original_tokens'], 'tokensAfter': compaction_info['compressed_tokens'], 'removedCount': compaction_info['removed_count'], 'usageRatio': compaction_info['usage_ratio']}}, ensure_ascii=False)}\n\n"
+
+            # ===== Agent tool loop(2026-07-22 立,AI 浏览器/电脑控制)=====
+            # 当请求携带 agent_tools(工具名列表)时:
+            # 1. 从 mcp_server 加载完整 schema,转换为 OpenAI tools 格式
+            # 2. 调 llm_gateway.complete() 带 tools,获取 LLM 决策(tool_calls)
+            # 3. 如有 tool_calls:推送 SSE 事件 → 执行工具 → 回灌结果 → 继续 astream 生成最终回复
+            # 4. 如无 tool_calls:推送 content + done,跳过 astream
+            if req.agent_tools:
+                from ..services.mcp_server import mcp_server as _mcp
+                all_tools = _mcp.list_tools()
+                tool_map = {t.name: t for t in all_tools}
+                openai_tools: list[dict[str, Any]] = []
+                for _name in req.agent_tools:
+                    _t = tool_map.get(_name)
+                    if _t:
+                        openai_tools.append({
+                            "type": "function",
+                            "function": {
+                                "name": _t.name,
+                                "description": _t.description,
+                                "parameters": _t.input_schema,
+                            },
+                        })
+
+                if openai_tools:
+                    complete_result = await llm_gateway.complete(
+                        messages, model=req.model, owner_uuid=owner_uuid,
+                        tools=openai_tools, tool_choice="auto",
+                    )
+                    # complete() 错误检查
+                    if complete_result.get("error"):
+                        err_evt = {"type": "error", "message": complete_result.get("error_message", "LLM 调用失败")}
+                        yield f"event: error\ndata: {json.dumps(err_evt, ensure_ascii=False)}\n\n"
+                        return
+
+                    tool_calls_raw = complete_result.get("tool_calls") or []
+
+                    if tool_calls_raw:
+                        # 有 tool_calls:执行工具 + 回灌结果,然后继续走 astream
+                        messages.append({
+                            "role": "assistant",
+                            "content": complete_result.get("content", "") or "",
+                            "tool_calls": tool_calls_raw,
+                        })
+                        tool_exec_tracker: list[bool] = []
+                        for tc in tool_calls_raw:
+                            fn = tc.get("function", {})
+                            tool_name = fn.get("name", "")
+                            raw_args = fn.get("arguments", "")
+                            try:
+                                args = json.loads(raw_args) if raw_args.strip() else {}
+                            except (json.JSONDecodeError, ValueError):
+                                args = {"_raw": raw_args}
+
+                            # 推送 tool-call-start 事件(前端 onToolCall 回调)
+                            tc_start = {
+                                "type": "tool-call-start",
+                                "toolCallId": tc.get("id", ""),
+                                "toolName": tool_name,
+                                "args": args,
+                            }
+                            yield f"event: tool-call-start\ndata: {json.dumps(tc_start, ensure_ascii=False)}\n\n"
+
+                            # 执行工具
+                            exec_result = await _mcp.call_tool(tool_name, args)
+                            ok = bool(exec_result.get("ok"))
+                            tool_exec_tracker.append(ok)
+
+                            # 推送 tool-result 事件
+                            tc_result_evt = {
+                                "type": "tool-result",
+                                "toolCallId": tc.get("id", ""),
+                                "toolName": tool_name,
+                                "args": args,
+                                "result": exec_result,
+                                "isError": not ok,
+                            }
+                            yield f"event: tool-result\ndata: {json.dumps(tc_result_evt, ensure_ascii=False)}\n\n"
+
+                            # 回灌工具结果(失败时显式标注,防止 LLM 幻觉"已完成")
+                            result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
+                            if not ok:
+                                err_detail = exec_result.get("error") or exec_result.get("message") or "unknown error"
+                                err_code = exec_result.get("errorCode", "UNKNOWN")
+                                inner = exec_result.get("result", {})
+                                if isinstance(inner, dict) and inner.get("errorCode"):
+                                    err_code = inner.get("errorCode", err_code)
+                                    err_detail = inner.get("error", err_detail)
+                                result_json = (
+                                    f"TOOL EXECUTION FAILED. errorCode={err_code}. error={err_detail}. "
+                                    f"You MUST tell the user the tool failed. Do NOT claim success. "
+                                    f"Raw result: {result_json}"
+                                )
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": tc.get("id", ""),
+                                "name": tool_name,
+                                "content": result_json,
+                            })
+                        # 全部 tool 失败时,直接构造失败响应,不走 astream(与 conversation.py 一致,防止 LLM 幻觉)
+                        if tool_exec_tracker and all(not ok_flag for ok_flag in tool_exec_tracker):
+                            failed_lines = []
+                            for tc in tool_calls_raw:
+                                fn = tc.get("function", {})
+                                t_name = fn.get("name", "")
+                                for m in messages:
+                                    if m.get("role") == "tool" and m.get("name") == t_name:
+                                        raw_content = m.get("content", "")
+                                        err_code = "UNKNOWN"
+                                        err_msg = "unknown error"
+                                        if "errorCode=" in raw_content:
+                                            try:
+                                                err_code = raw_content.split("errorCode=")[1].split(".")[0].strip()
+                                                if "error=" in raw_content:
+                                                    err_msg = raw_content.split("error=")[1].split(".")[0].strip()
+                                            except (IndexError, ValueError):
+                                                pass
+                                        failed_lines.append(f"- {t_name}: {err_code} — {err_msg}")
+                                        break
+                            fail_text = (
+                                "工具执行失败,未能完成您的请求:\n"
+                                + "\n".join(failed_lines) + "\n\n"
+                                "可能的原因:\n"
+                                "- TARGET_NOT_CONNECTED:浏览器扩展或桌面端未启动,请确保对应端已打开并登录\n"
+                                "- TIMEOUT:操作超时,请稍后重试\n"
+                                "- SELECTOR_NOT_FOUND:页面元素未找到,请检查选择器是否正确\n"
+                            )
+                            clean_text, questions = question_parser.feed(fail_text)
+                            for q in questions:
+                                q_event = {"type": "question", "question": q.to_dict()}
+                                yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                            if clean_text:
+                                chunk_event = {"type": "chunk", "content": clean_text}
+                                accumulated["content"] += clean_text
+                                yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                            leftover, leftover_qs = question_parser.flush()
+                            if leftover:
+                                chunk_event = {"type": "chunk", "content": leftover}
+                                accumulated["content"] += leftover
+                                yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                            for q in leftover_qs:
+                                q_event = {"type": "question", "question": q.to_dict()}
+                                yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                            accumulated["model"] = complete_result.get("model", req.model)
+                            accumulated["usage"] = complete_result.get("usage", {})
+                            done_event = {
+                                "type": "done",
+                                "model": accumulated["model"],
+                                "usage": accumulated["usage"],
+                                "stub": accumulated.get("stub", False),
+                            }
+                            if req.metadata:
+                                done_event["metadata"] = req.metadata
+                            yield f"event: done\ndata: {json.dumps(done_event, ensure_ascii=False)}\n\n"
+                            has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
+                            if has_association and not accumulated.get("error") and not await request.is_disconnected():
+                                url = req.callback_url or f"{settings.api_service_url}/api/ai/callback"
+                                task = asyncio.create_task(_fire_callback(url, accumulated, req.metadata))
+                                _pending_callbacks.add(task)
+                                task.add_done_callback(_pending_callbacks.discard)
+                            return
+
+                        # 有成功的 tool:把 tool 角色消息转为 user 消息(避免被 astream 内部 repair_messages 过滤)
+                        normalized_msgs: list[dict[str, Any]] = []
+                        for m in messages:
+                            if m.get("role") == "tool":
+                                normalized_msgs.append({
+                                    "role": "user",
+                                    "content": f"[Tool Result: {m.get('name', 'unknown')}]\n{m.get('content', '')}",
+                                })
+                            elif m.get("role") == "assistant" and m.get("tool_calls"):
+                                content = m.get("content", "") or ""
+                                if not content:
+                                    tool_names = [tc.get("function", {}).get("name", "") for tc in m.get("tool_calls", [])]
+                                    content = f"[I called tools: {', '.join(tool_names)}]"
+                                normalized_msgs.append({
+                                    "role": "assistant",
+                                    "content": content,
+                                })
+                            else:
+                                normalized_msgs.append(m)
+                        messages[:] = normalized_msgs  # 切片赋值:修改原列表,避免创建本地变量
+                        # 继续走 astream(用归一化后的 messages,不带 tools)
+                    else:
+                        # 无 tool_calls:LLM 直接回复,推送 content + done,跳过 astream
+                        content = complete_result.get("content", "") or ""
+                        clean_text, questions = question_parser.feed(content)
+                        for q in questions:
+                            q_event = {"type": "question", "question": q.to_dict()}
+                            yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                        if clean_text:
+                            chunk_event = {"type": "chunk", "content": clean_text}
+                            accumulated["content"] += clean_text
+                            yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                        # flush question_parser 残留
+                        leftover, leftover_qs = question_parser.flush()
+                        if leftover:
+                            chunk_event = {"type": "chunk", "content": leftover}
+                            accumulated["content"] += leftover
+                            yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                        for q in leftover_qs:
+                            q_event = {"type": "question", "question": q.to_dict()}
+                            yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                        accumulated["model"] = complete_result.get("model", req.model)
+                        accumulated["usage"] = complete_result.get("usage", {})
+                        accumulated["stub"] = complete_result.get("stub", False)
+                        done_event = {
+                            "type": "done",
+                            "model": accumulated["model"],
+                            "usage": accumulated["usage"],
+                            "stub": accumulated["stub"],
+                        }
+                        if req.metadata:
+                            done_event["metadata"] = req.metadata
+                        yield f"event: done\ndata: {json.dumps(done_event, ensure_ascii=False)}\n\n"
+                        # 跳过 astream — 执行 callback 后 return
+                        has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
+                        if has_association and not accumulated.get("error") and not await request.is_disconnected():
+                            url = req.callback_url or f"{settings.api_service_url}/api/ai/callback"
+                            task = asyncio.create_task(_fire_callback(url, accumulated, req.metadata))
+                            _pending_callbacks.add(task)
+                            task.add_done_callback(_pending_callbacks.discard)
+                        return
+
             async for event in llm_gateway.astream(messages, model=req.model, owner_uuid=owner_uuid):
                 if await request.is_disconnected():
                     logger.info("SSE client disconnected, stopping stream")
