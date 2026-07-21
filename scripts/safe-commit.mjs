@@ -25,7 +25,6 @@
  *   2  环境错误(非 git 仓库/无 origin 等)
  */
 import { execSync, spawnSync } from 'node:child_process'
-import { resolve } from 'node:path'
 
 const C = {
   red: '\x1b[31m',
