@@ -1514,6 +1514,197 @@ function NavGroupSection({
   )
 }
 
+interface NavLinkProps {
+  item: NavItem
+  collapsed: boolean
+  active: boolean
+  label: string
+  onCloseMobile: () => void
+  registerRef: (href: string, el: HTMLElement | null) => void
+}
+
+function NavLink({ item, collapsed, active, label, onCloseMobile, registerRef }: NavLinkProps) {
+  const Icon = item.icon
+  const className = cn(
+    'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+    active
+      ? 'bg-primary text-primary-foreground'
+      : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
+    collapsed && 'justify-center',
+  )
+  const refCb = (el: HTMLElement | null) => registerRef(item.href, el)
+
+  if (collapsed) {
+    return (
+      <Tooltip key={item.href} content={label} side="right">
+        <Link
+          href={item.href}
+          ref={refCb}
+          onClick={onCloseMobile}
+          aria-label={label}
+          aria-current={active ? 'page' : undefined}
+          className={className}
+        >
+          <Icon className="h-5 w-5 shrink-0" />
+        </Link>
+      </Tooltip>
+    )
+  }
+
+  return (
+    <Link
+      key={item.href}
+      href={item.href}
+      ref={refCb}
+      onClick={onCloseMobile}
+      aria-current={active ? 'page' : undefined}
+      className={className}
+    >
+      <Icon className="h-5 w-5 shrink-0" />
+      <span>{label}</span>
+    </Link>
+  )
+}
+
+interface ExpandableNavItemProps {
+  item: NavItem
+  collapsed: boolean
+  isActive: (href: string) => boolean
+  onCloseMobile: () => void
+  registerRef: (href: string, el: HTMLElement | null) => void
+  t: (key: string) => string
+}
+
+function ExpandableNavItem({
+  item,
+  collapsed,
+  isActive,
+  onCloseMobile,
+  registerRef,
+  t,
+}: ExpandableNavItemProps) {
+  const router = useRouter()
+  const children = item.children ?? []
+  const parentActive = children.some((child) => isActive(child.href))
+  const storageKey = `sidebar-expand-${item.href}`
+  const [open, setOpen] = React.useState(() => {
+    if (parentActive) return true
+    try {
+      return localStorage.getItem(storageKey) === '1'
+    } catch {
+      return false
+    }
+  })
+  const controlId = React.useId()
+  const listId = `${controlId}-list`
+
+  React.useEffect(() => {
+    if (parentActive) setOpen(true)
+  }, [parentActive])
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(storageKey, open ? '1' : '0')
+    } catch {
+      // localStorage 不可用
+    }
+  }, [open, storageKey])
+
+  const Icon = item.icon
+  const label = t(item.labelKey)
+
+  const parentClassName = cn(
+    'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+    parentActive
+      ? 'bg-primary text-primary-foreground'
+      : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
+    collapsed && 'justify-center',
+  )
+
+  const childClassName = (active: boolean) =>
+    cn(
+      'flex h-9 w-full min-w-0 items-center gap-2 rounded-md pl-8 pr-2.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
+      active
+        ? 'bg-primary text-primary-foreground'
+        : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
+    )
+
+  const childList = (
+    <div id={listId} role="group" aria-label={label} className="flex flex-col gap-0.5">
+      {children.map((child) => {
+        const ChildIcon = child.icon
+        const active = isActive(child.href)
+        const childLabel = t(child.labelKey)
+        const refCb = (el: HTMLElement | null) => registerRef(child.href, el)
+        return (
+          <Link
+            key={child.href}
+            data-testid={`nav-${child.labelKey}`}
+            href={child.href}
+            ref={refCb}
+            onClick={onCloseMobile}
+            aria-current={active ? 'page' : undefined}
+            className={childClassName(active)}
+          >
+            <ChildIcon className="h-4 w-4 shrink-0" />
+            <span>{childLabel}</span>
+          </Link>
+        )
+      })}
+    </div>
+  )
+
+  if (collapsed) {
+    return (
+      <Dropdown
+        side="right"
+        align="start"
+        items={children.map((child) => ({
+          key: child.href,
+          label: t(child.labelKey),
+          icon: child.icon,
+          onSelect: () => {
+            router.push(child.href)
+            onCloseMobile()
+          },
+        }))}
+        trigger={
+          <button
+            type="button"
+            data-testid={`nav-${item.labelKey}`}
+            aria-label={label}
+            aria-controls={listId}
+            className={parentClassName}
+            title={label}
+          >
+            <Icon className="h-5 w-5 shrink-0" />
+          </button>
+        }
+      />
+    )
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        data-testid={`nav-${item.labelKey}`}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={listId}
+        className={parentClassName}
+      >
+        <Icon className="h-5 w-5 shrink-0" />
+        <span>{label}</span>
+        <ChevronDown
+          className={cn('ml-auto h-4 w-4 shrink-0 transition-transform', open && 'rotate-180')}
+        />
+      </button>
+      {open && <div className="mt-0.5 pl-2">{childList}</div>}
+    </div>
+  )
+}
+
 export function Sidebar({
   id,
   collapsed,
@@ -1633,6 +1824,11 @@ export function Sidebar({
       return { ...g, items: filtered }
     }).filter((g) => g.items.length > 0)
   }, [isAdmin, adminDynamicItems])
+
+  const allVisibleItems = React.useMemo(
+    () => flattenNavItems(visibleGroups.flatMap((g) => g.items)),
+    [visibleGroups],
+  )
 
   const allVisibleItems = React.useMemo(
     () => flattenNavItems(visibleGroups.flatMap((g) => g.items)),
