@@ -539,6 +539,7 @@
       "developer": "Developer"
     },
     "adminGroupLabel": "Admin",
+    "aiGroupLabel": "AI",
     "eduGroup": "AI Education",
     "contentGroup": "Content",
     "tradeGroup": "Trade",

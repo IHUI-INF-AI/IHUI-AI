@@ -32,6 +32,7 @@ import {
 import { BrandIcon } from '@/components/ai/brand-icon'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
+import { useAuthStore } from '@/stores/auth'
 import { fetchConfigs, type UserLlmConfig } from '@/lib/user-llm-configs'
 import { providerToTemplateCode, hasPresetTemplate } from '@/lib/llm-templates'
 import { Tooltip } from '@/components/feedback'
@@ -88,6 +89,7 @@ export function ModelsMarketplace({ list }: Props) {
   const router = useRouter()
   const openPanel = useAiPanelStore((s) => s.openPanel)
   const setModel = useChatStore((s) => s.setModel)
+  const isAuthenticated = useAuthStore((s) => !!s.token)
 
   const [query, setQuery] = React.useState('')
   const [quickFilter, setQuickFilter] = React.useState<QuickFilter | 'all'>('all')
@@ -105,10 +107,12 @@ export function ModelsMarketplace({ list }: Props) {
   const [favoriteTick, setFavoriteTick] = React.useState(0)
 
   // 拉取用户 LLM 配置(用于配置感知徽章 + configured/notConfigured 筛选)
-  // retry: false + throwOnError: false:未登录或网络异常时静默失败,不阻塞渲染
+  // enabled: isAuthenticated:未登录时不触发请求(避免 401 触发自动登录弹窗,让未登录用户也能浏览模型市场)
+  // retry: false + throwOnError: false:网络异常时静默失败,不阻塞渲染
   const { data: cfgData } = useQuery({
     queryKey: ['user-llm-configs'],
     queryFn: () => fetchConfigs(),
+    enabled: isAuthenticated,
     retry: false,
     throwOnError: false,
     staleTime: 60_000,
