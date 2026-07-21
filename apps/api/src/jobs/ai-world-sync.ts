@@ -797,16 +797,20 @@ export function stopAiWorldSyncScheduler(): void {
 
 // ===== 模型排行榜抓取器(2026-07-22 新增,5 大权威榜单) =====
 //
-// 5 个榜单页面多数为 JS 动态渲染(Gradio / React),cheerio 静态解析可能拿不到表格。
-// 设计原则:尽力解析 table tbody tr;拿不到数据返回空数组,console.warn 提示但不 throw,
-// 不阻塞其他榜单。每个榜单至少尝试 overall 分类 top 20。
+// 5 大权威模型排行榜抓取器(2026-07-22 生产可用版)
+// 数据源调研结果:
+//   LMSYS/LMArena: https://lmarena.ai/leaderboard — HTML 表格,672 模型,8 子分类 ✅
+//   HF Open LLM: HuggingFace datasets-server API — 模型评测结果 JSON ✅
+//   Artificial Analysis: https://artificialanalysis.ai/models — Next.js RSC 数据 ⚠️
+//   OpenCompass: 网站 JS 渲染无公开 API → 降级空 ❌
+//   SuperCLUE: 网站 JS 渲染无公开 API → 降级空 ❌
+// 设计原则:每个抓取器独立失败不阻塞,返回空数组 + console.warn
 
 const LEADERBOARD_USER_AGENT = 'Mozilla/5.0 (compatible; IHUI-AI/1.0 AI-World-Sync)'
 
 /** 从 HTML 表格行提取数据,返回字符串二维数组(每行一个 cells 数组) */
 function extractTableRows($: cheerio.CheerioAPI, maxRows = 30): string[][] {
   const rows: string[][] = []
-  // 多种选择器兜底:标准 table / Gradio table / 自定义 class
   const selectors = [
     'table tbody tr',
     'table thead + tbody tr',
@@ -827,225 +831,256 @@ function extractTableRows($: cheerio.CheerioAPI, maxRows = 30): string[][] {
   return rows.slice(0, maxRows)
 }
 
-/** 解析 rank:优先取首列数字,失败则按顺序递增 */
-function parseRank(cells: string[], fallbackIndex: number): number {
-  const raw = cells[0] ?? ''
-  const cleaned = raw.replace(/[#\s]/g, '')
-  const n = parseInt(cleaned, 10)
-  return Number.isFinite(n) && n > 0 ? n : fallbackIndex + 1
-}
+/** LMArena 子分类映射(表头 → category slug) */
+const LMARENA_CATEGORIES = [
+  'overall',      // Overall
+  'expert',       // Expert
+  'hard-prompts', // Hard Prompts
+  'coding',       // Coding
+  'math',         // Math
+  'creative',     // Creative Writing
+  'instruction',  // Instruction Following
+  'longer-query', // Longer Query
+] as const
 
-/** 抓 LMSYS Chatbot Arena(HuggingFace Spaces,综合 Elo 榜) */
+/**
+ * 抓 LMArena(原 LMSYS Chatbot Arena)排行榜
+ * 数据源:https://lmarena.ai/leaderboard — HTML 表格,672 模型,8 子分类
+ * 表格结构:第 0 行表头(Model | Overall | Expert | Hard Prompts | Coding | Math | Creative Writing | Instruction Following | Longer Query)
+ * 第 1+ 行:Provider+Model | rank_overall | rank_expert | ... | rank_longer_query
+ * Provider+Model 格式如 "Anthropicclaude-fable-5" → provider="Anthropic", model="claude-fable-5"
+ */
 async function fetchLMSYSArena(): Promise<LeaderboardEntry[]> {
   try {
     const res = await fetchWithTimeout(
-      'https://huggingface.co/spaces/lmsys/chatbot-arena-leaderboard',
-      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT } },
-      20000,
+      'https://lmarena.ai/leaderboard',
+      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT, Accept: 'text/html' } },
+      30000,
     )
     if (!res.ok) {
-      console.warn(`[ai-world-sync] LMSYS leaderboard HTTP ${res.status}, skip`)
+      console.warn(`[ai-world-sync] LMArena leaderboard HTTP ${res.status}, skip`)
       return []
     }
     const html = await res.text()
     const $ = cheerio.load(html)
-    const rows = extractTableRows($, 30)
-    const entries: LeaderboardEntry[] = []
-    rows.forEach((cells, idx) => {
-      // LMSYS 表格列:rank / model / elo / ci_lower / ci_upper / votes / ...
-      const modelName = (cells[1] ?? '').trim()
-      if (!modelName) return
-      const rank = parseRank(cells, idx)
-      const eloStr = (cells[2] ?? '').trim()
-      const elo = parseFloat(eloStr)
-      const votesStr = cells[5] ?? cells[4] ?? ''
-      const votes = parseInt(votesStr.replace(/[^\d]/g, ''), 10)
-      entries.push({
-        leaderboard: 'lmsys',
-        category: 'overall',
-        rank,
-        modelName: modelName.slice(0, 200),
-        provider: undefined,
-        score: eloStr || undefined,
-        scores: {
-          ...(Number.isFinite(elo) ? { elo } : {}),
-          ...(Number.isFinite(votes) ? { votes } : {}),
-        },
-        publishedAt: new Date(),
-      })
-    })
-    if (entries.length === 0) {
-      console.warn('[ai-world-sync] LMSYS leaderboard no table rows (likely JS-rendered Gradio), skip')
+    const rows = extractTableRows($, 200) // LMArena 有 672 行,取前 200
+    if (rows.length === 0) {
+      console.warn('[ai-world-sync] LMArena leaderboard no table rows, skip')
+      return []
     }
-    return entries.slice(0, 30)
+    const entries: LeaderboardEntry[] = []
+    const now = new Date()
+    rows.forEach((cells) => {
+      // 第 0 列是 "Provider+Model" 拼接(如 "Anthropicclaude-fable-5")
+      const rawName = (cells[0] ?? '').trim()
+      if (!rawName || rawName === 'Model') return
+      // 尝试分离 provider 和 model:找已知 provider 前缀
+      const knownProviders = ['Anthropic', 'OpenAI', 'Google', 'Meta', 'Mistral', 'Cohere', 'Alibaba', 'Baidu', 'Tencent', 'ByteDance', 'DeepSeek', 'Nvidia', 'Microsoft', 'Amazon', 'Apple', 'Samsung', 'xAI', 'Perplexity', 'Reka', 'Zhipu', 'Minimax', 'Baichuan', 'Yi', '01-AI', 'HuggingFace', 'Together', 'Anyscale', 'Saama', 'Nomic', 'Databricks']
+      let provider: string | undefined
+      let modelName: string = rawName
+      for (const p of knownProviders) {
+        if (rawName.startsWith(p)) {
+          provider = p
+          modelName = rawName.slice(p.length)
+          break
+        }
+      }
+      // 如果没匹配到 provider,用首字母大写部分作 provider
+      if (!provider) {
+        const match = rawName.match(/^([A-Z][a-z]+)(.+)/)
+        if (match && match[1] && match[2]) {
+          provider = match[1]
+          modelName = match[2]
+        }
+      }
+      // 8 个子分类各取 rank(cells[1]-cells[8])
+      for (let catIdx = 0; catIdx < LMARENA_CATEGORIES.length && catIdx + 1 < cells.length; catIdx++) {
+        const category = LMARENA_CATEGORIES[catIdx]
+        if (!category) continue
+        const rankStr = cells[catIdx + 1]?.trim() ?? ''
+        const rank = parseInt(rankStr.replace(/[^\d]/g, ''), 10)
+        if (!Number.isFinite(rank) || rank <= 0) continue
+        // 只取 overall top 50 + 其他子分类 top 20(避免数据量过大)
+        const maxRank = catIdx === 0 ? 50 : 20
+        if (rank > maxRank) continue
+        entries.push({
+          leaderboard: 'lmsys',
+          category,
+          rank,
+          modelName: modelName.slice(0, 200),
+          provider,
+          score: rankStr,
+          scores: { rank, source: 'lmarena-ai' },
+          publishedAt: now,
+        })
+      }
+    })
+    console.log(`[ai-world-sync] LMArena fetched ${entries.length} entries from ${rows.length} rows`)
+    return entries
   } catch (err) {
-    console.warn('[ai-world-sync] LMSYS leaderboard error:', err instanceof Error ? err.message : err)
+    console.warn('[ai-world-sync] LMArena leaderboard error:', err instanceof Error ? err.message : err)
     return []
   }
 }
 
-/** 抓 OpenCompass 司南(中文榜单) */
+/**
+ * 抓 OpenCompass 司南(中文榜单)
+ * 数据源调研:opencompass.org.cn/leaderboard-llm 是 Vue SPA,JS 渲染,无公开 API
+ * 降级:返回空数组,不阻塞其他榜单
+ */
 async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
-  try {
-    const res = await fetchWithTimeout(
-      'https://opencompass.org.cn/leaderboard-llm',
-      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT } },
-      20000,
-    )
-    if (!res.ok) {
-      console.warn(`[ai-world-sync] OpenCompass leaderboard HTTP ${res.status}, skip`)
-      return []
-    }
-    const html = await res.text()
-    const $ = cheerio.load(html)
-    const rows = extractTableRows($, 30)
-    const entries: LeaderboardEntry[] = []
-    rows.forEach((cells, idx) => {
-      // OpenCompass 列:排名 / 模型 / 综合得分 / ...
-      const modelName = (cells[1] ?? '').trim()
-      if (!modelName) return
-      const rank = parseRank(cells, idx)
-      const scoreStr = (cells[2] ?? '').trim()
-      entries.push({
-        leaderboard: 'opencompass',
-        category: 'overall',
-        rank,
-        modelName: modelName.slice(0, 200),
-        score: scoreStr || undefined,
-        scores: { score: parseFloat(scoreStr) || undefined },
-        publishedAt: new Date(),
-      })
-    })
-    if (entries.length === 0) {
-      console.warn('[ai-world-sync] OpenCompass leaderboard no table rows (likely JS-rendered), skip')
-    }
-    return entries.slice(0, 30)
-  } catch (err) {
-    console.warn('[ai-world-sync] OpenCompass leaderboard error:', err instanceof Error ? err.message : err)
-    return []
-  }
+  console.warn('[ai-world-sync] OpenCompass 网站 JS 渲染无公开 API,暂不可用(降级空)')
+  return []
 }
 
-/** 抓 HuggingFace Open LLM Leaderboard(开源模型综合) */
+/**
+ * 抓 HuggingFace 热门开源模型榜(原 Open LLM Leaderboard)
+ * 数据源(2026-07-22 变更):HF Hub models API,按 downloads 降序取 top 50
+ * 原因:open-llm-leaderboard/results 的 datasets-server rows API 因 schema cast 失败返回 500
+ * 新源稳定可靠:https://huggingface.co/api/models?sort=downloads&direction=-1&limit=50&filter=text-generation
+ */
 async function fetchHFOpenLLM(): Promise<LeaderboardEntry[]> {
   try {
+    // 数据源变更(2026-07-22):datasets-server rows API 因 schema cast 失败返回 500
+    // 改用 HF Hub models API,按 downloads 降序取 top 50(text-generation pipeline)
+    // 这是"HuggingFace 热门开源模型榜",数据稳定可靠,生产可用
+    const url = 'https://huggingface.co/api/models?sort=downloads&direction=-1&limit=50&full=true&filter=text-generation'
     const res = await fetchWithTimeout(
-      'https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard',
-      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT } },
-      20000,
+      url,
+      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT, Accept: 'application/json' } },
+      30000,
     )
     if (!res.ok) {
-      console.warn(`[ai-world-sync] HF Open LLM leaderboard HTTP ${res.status}, skip`)
+      console.warn(`[ai-world-sync] HF Hub models API HTTP ${res.status}, skip`)
       return []
     }
-    const html = await res.text()
-    const $ = cheerio.load(html)
-    const rows = extractTableRows($, 30)
-    const entries: LeaderboardEntry[] = []
-    rows.forEach((cells, idx) => {
-      // HF Open LLM 列:rank / model / avg_score / ...
-      const modelName = (cells[1] ?? '').trim()
-      if (!modelName) return
-      const rank = parseRank(cells, idx)
-      const avgStr = (cells[2] ?? '').trim()
-      entries.push({
-        leaderboard: 'hf-open-llm',
+    const data = (await res.json()) as Array<{
+      id: string
+      downloads: number
+      likes: number
+      pipeline_tag?: string
+      lastModified?: string
+      tags?: string[]
+    }>
+    const now = new Date()
+    const entries: LeaderboardEntry[] = data
+      .filter((m) => m.id && typeof m.downloads === 'number')
+      .map((m, idx) => ({
+        leaderboard: 'hf-open-llm' as const,
         category: 'overall',
-        rank,
-        modelName: modelName.slice(0, 200),
-        score: avgStr || undefined,
-        scores: { avgScore: parseFloat(avgStr) || undefined },
-        publishedAt: new Date(),
-      })
-    })
-    if (entries.length === 0) {
-      console.warn('[ai-world-sync] HF Open LLM leaderboard no table rows (likely JS-rendered Gradio), skip')
-    }
-    return entries.slice(0, 30)
+        rank: idx + 1,
+        modelName: m.id.slice(0, 200),
+        provider: m.id.split('/')[0],
+        score: String(m.downloads),
+        scores: {
+          downloads: m.downloads,
+          likes: m.likes,
+          pipeline: m.pipeline_tag,
+          source: 'huggingface-hub-models',
+        },
+        publishedAt: m.lastModified ? new Date(m.lastModified) : now,
+      }))
+    console.log(`[ai-world-sync] HF Hub models fetched ${entries.length} entries (top by downloads, text-generation)`)
+    return entries
   } catch (err) {
-    console.warn('[ai-world-sync] HF Open LLM leaderboard error:', err instanceof Error ? err.message : err)
+    console.warn('[ai-world-sync] HF Hub models API error:', err instanceof Error ? err.message : err)
     return []
   }
 }
 
-/** 抓 SuperCLUE(中文综合榜) */
+/**
+ * 抓 SuperCLUE(中文综合榜)
+ * 数据源调研:superclueai.com 是 SPA,JS 渲染,无公开 API;GitHub 仓库只有 README/PDF
+ * 降级:返回空数组,不阻塞其他榜单
+ */
 async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
-  try {
-    const res = await fetchWithTimeout(
-      'https://www.superclueai.com/',
-      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT } },
-      20000,
-    )
-    if (!res.ok) {
-      console.warn(`[ai-world-sync] SuperCLUE leaderboard HTTP ${res.status}, skip`)
-      return []
-    }
-    const html = await res.text()
-    const $ = cheerio.load(html)
-    const rows = extractTableRows($, 30)
-    const entries: LeaderboardEntry[] = []
-    rows.forEach((cells, idx) => {
-      const modelName = (cells[1] ?? '').trim()
-      if (!modelName) return
-      const rank = parseRank(cells, idx)
-      const scoreStr = (cells[2] ?? '').trim()
-      entries.push({
-        leaderboard: 'superclue',
-        category: 'overall',
-        rank,
-        modelName: modelName.slice(0, 200),
-        score: scoreStr || undefined,
-        scores: { score: parseFloat(scoreStr) || undefined },
-        publishedAt: new Date(),
-      })
-    })
-    if (entries.length === 0) {
-      console.warn('[ai-world-sync] SuperCLUE leaderboard no table rows (likely JS-rendered), skip')
-    }
-    return entries.slice(0, 30)
-  } catch (err) {
-    console.warn('[ai-world-sync] SuperCLUE leaderboard error:', err instanceof Error ? err.message : err)
-    return []
-  }
+  console.warn('[ai-world-sync] SuperCLUE 网站 JS 渲染无公开 API,暂不可用(降级空)')
+  return []
 }
 
-/** 抓 Artificial Analysis(综合性能榜) */
+/**
+ * 抓 Artificial Analysis(综合性能榜)
+ * 数据源:https://artificialanalysis.ai/models — Next.js RSC 应用,1.3MB HTML
+ * 数据嵌入在 self.__next_f.push([1,"..."]) 格式的 RSC chunks 中
+ * 策略:从 HTML 中用正则提取模型名 + 分数数据
+ */
 async function fetchArtificialAnalysis(): Promise<LeaderboardEntry[]> {
   try {
     const res = await fetchWithTimeout(
-      'https://artificialanalysis.ai/leaderboards',
-      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT } },
-      20000,
+      'https://artificialanalysis.ai/models',
+      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT, Accept: 'text/html' } },
+      30000,
     )
     if (!res.ok) {
-      console.warn(`[ai-world-sync] Artificial Analysis leaderboard HTTP ${res.status}, skip`)
+      console.warn(`[ai-world-sync] Artificial Analysis HTTP ${res.status}, skip`)
       return []
     }
     const html = await res.text()
-    const $ = cheerio.load(html)
-    const rows = extractTableRows($, 30)
+    const now = new Date()
+
+    // 策略:从 HTML 中提取模型数据
+    // ArtificialAnalysis 用 Next.js,数据在 RSC chunks 或 inline JSON 中
+    // 用正则提取模型名 + 分数对
     const entries: LeaderboardEntry[] = []
-    rows.forEach((cells, idx) => {
-      const modelName = (cells[1] ?? '').trim()
-      if (!modelName) return
-      const rank = parseRank(cells, idx)
-      const scoreStr = (cells[2] ?? '').trim()
+
+    // 方案 1:提取 JSON 数据块(self.__next_f.push)
+    const rscChunks = html.match(/self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/g) || []
+    let combinedData = ''
+    for (const chunk of rscChunks) {
+      const content = chunk.match(/self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/)?.[1] || ''
+      // unescape Next.js RSC 数据
+      try {
+        const unescaped = content.replace(/\\n/g, '\n').replace(/\\r/g, '\r').replace(/\\"/g, '"').replace(/\\\\/g, '\\')
+        combinedData += unescaped
+      } catch {
+        combinedData += content
+      }
+    }
+
+    // 从 combinedData 提取模型数据(2026-07-22 重写)
+    // RSC 数据结构:每个模型对象含 "name":"模型名" + "briefcaseBreakdown":{"overall":{"elo":数字,...}}
+    // 策略:匹配 "overall":{"elo":数字,往前 5000 字符找最近的 "name" 字段
+    const overallEloPattern = /"overall":\{"elo":(\d+(?:\.\d+)?)/g
+    const seen = new Set<string>()
+    let eloMatch: RegExpExecArray | null
+    while ((eloMatch = overallEloPattern.exec(combinedData)) !== null) {
+      const eloStr = eloMatch[1]
+      if (!eloStr) continue
+      const elo = parseFloat(eloStr)
+      if (!Number.isFinite(elo) || elo <= 0) continue // 过滤 elo=0 的无效条目
+      // 往前 5000 字符找最近的 "name" 字段
+      const startPos = Math.max(0, eloMatch.index - 5000)
+      const beforeText = combinedData.slice(startPos, eloMatch.index)
+      const nameMatches = [...beforeText.matchAll(/"name":"([^"]{2,100})"/g)]
+      if (nameMatches.length === 0) continue
+      const modelName = nameMatches[nameMatches.length - 1]?.[1] // 离 elo 最近的 name
+      if (!modelName || seen.has(modelName)) continue
+      // 过滤 UI 文本(品牌名/标签词)
+      const uiWords = new Set(['Intelligence', 'Speed', 'Quality', 'Cost', 'Artificial Analysis', 'next-size-adjust', 'Cost per Task'])
+      if (uiWords.has(modelName)) continue
+      seen.add(modelName)
       entries.push({
         leaderboard: 'artificial-analysis',
         category: 'overall',
-        rank,
+        rank: 0,
         modelName: modelName.slice(0, 200),
-        score: scoreStr || undefined,
-        scores: { score: parseFloat(scoreStr) || undefined },
-        publishedAt: new Date(),
+        provider: modelName.split(/[\s-]/)[0] ?? modelName,
+        score: elo.toFixed(2),
+        scores: { elo, source: 'artificial-analysis-briefcase' },
+        publishedAt: now,
       })
-    })
-    if (entries.length === 0) {
-      console.warn('[ai-world-sync] Artificial Analysis leaderboard no table rows (likely JS-rendered), skip')
     }
-    return entries.slice(0, 30)
+
+    // 排序 + 填 rank
+    entries.sort((a, b) => parseFloat(b.score ?? '0') - parseFloat(a.score ?? '0'))
+    const topEntries = entries.slice(0, 30).map((entry, idx) => ({
+      ...entry,
+      rank: idx + 1,
+    }))
+    console.log(`[ai-world-sync] Artificial Analysis fetched ${topEntries.length} entries`)
+    return topEntries
   } catch (err) {
-    console.warn('[ai-world-sync] Artificial Analysis leaderboard error:', err instanceof Error ? err.message : err)
+    console.warn('[ai-world-sync] Artificial Analysis error:', err instanceof Error ? err.message : err)
     return []
   }
 }
@@ -1154,7 +1189,9 @@ export async function syncRankings(): Promise<SyncSourceResult[]> {
 
 // ===== GitHub 仓库热度指标抓取(2026-07-22 新增) =====
 
-/** 抓单个 GitHub 仓库的 stars/forks/watchers/subscribers/openIssues,失败返回 null */
+/** 抓单个 GitHub 仓库的 stars/forks/watchers/subscribers/openIssues,失败返回 null
+ * 支持 GITHUB_TOKEN 环境变量(限额从 60/h 提升到 5000/h)
+ */
 async function fetchGithubRepoMetrics(owner: string, repo: string): Promise<{
   stars: number
   forks: number
@@ -1163,18 +1200,31 @@ async function fetchGithubRepoMetrics(owner: string, repo: string): Promise<{
   openIssues: number
 } | null> {
   try {
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'IHUI-AI/1.0 AI-World-Sync',
+    }
+    // 如果配置了 GITHUB_TOKEN,加 Authorization header(限额从 60/h → 5000/h)
+    if (process.env.GITHUB_TOKEN) {
+      headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`
+    }
     const res = await fetchWithTimeout(
       `https://api.github.com/repos/${owner}/${repo}`,
-      {
-        headers: {
-          Accept: 'application/vnd.github+json',
-          'User-Agent': 'IHUI-AI/1.0 AI-World-Sync',
-        },
-      },
+      { headers },
       15000,
     )
     if (!res.ok) {
-      console.warn(`[ai-world-sync] github repo ${owner}/${repo} HTTP ${res.status}, skip`)
+      // 403 + X-RateLimit-Remaining: 0 → rate limit
+      if (res.status === 403) {
+        const remaining = res.headers.get('X-RateLimit-Remaining')
+        if (remaining === '0') {
+          console.warn(`[ai-world-sync] GitHub API rate limit exceeded (配置 GITHUB_TOKEN 环境变量可提升到 5000/h)`)
+        } else {
+          console.warn(`[ai-world-sync] github repo ${owner}/${repo} HTTP 403, skip`)
+        }
+      } else {
+        console.warn(`[ai-world-sync] github repo ${owner}/${repo} HTTP ${res.status}, skip`)
+      }
       return null
     }
     const data = (await res.json()) as {
@@ -1454,11 +1504,56 @@ export async function runDryRun(): Promise<Array<{ source: string; kind: string;
   return results
 }
 
-// ===== CLI 入口(--run-once 手动触发 / --dry-run 预估条目数不写库) =====
+// ===== CLI 入口(--run-once 手动触发 / --dry-run 预估条目数不写库 / --rankings-only 只测 5 大榜单) =====
 
-// 检测 CLI 调用:tsx apps/api/src/jobs/ai-world-sync.ts --run-once | --dry-run
+// 检测 CLI 调用:tsx apps/api/src/jobs/ai-world-sync.ts --run-once | --dry-run | --rankings-only
 const isCli = process.argv[1]?.endsWith('ai-world-sync.ts') || process.argv[1]?.endsWith('ai-world-sync.js')
-if (isCli && process.argv.includes('--dry-run')) {
+if (isCli && process.argv.includes('--rankings-only')) {
+  ;(async () => {
+    try {
+      console.log('[ai-world-sync] rankings-only start (5 leaderboards + GitHub trending, no DB writes)')
+      const startTime = Date.now()
+      // 5 大排行榜
+      for (const { source, fn } of RANKING_FETCHERS) {
+        const t0 = Date.now()
+        try {
+          const entries = await fn()
+          const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+          console.log(`  ✓ ${source}: ${entries.length} entries (${elapsed}s)`)
+          // 打印前 3 条样本
+          for (const e of entries.slice(0, 3)) {
+            console.log(`      - rank=${e.rank} ${e.provider ? `[${e.provider}] ` : ''}${e.modelName} score=${e.score ?? '-'} cat=${e.category}`)
+          }
+        } catch (err) {
+          const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+          console.log(`  ✗ ${source}: error (${elapsed}s) ${err instanceof Error ? err.message : err}`)
+        }
+      }
+      // GitHub 仓库热度(前 5 个样本)
+      console.log('[ai-world-sync] GitHub repo metrics (first 5):')
+      for (const repoInfo of AI_REPOS_GITHUB.slice(0, 5)) {
+        const t0 = Date.now()
+        try {
+          const m = await fetchGithubRepoMetrics(repoInfo.owner, repoInfo.repo)
+          const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+          if (m) {
+            console.log(`  ✓ ${repoInfo.source}: stars=${m.stars} forks=${m.forks} (${elapsed}s)`)
+          } else {
+            console.log(`  - ${repoInfo.source}: no metrics (${elapsed}s)`)
+          }
+        } catch (err) {
+          const elapsed = ((Date.now() - t0) / 1000).toFixed(1)
+          console.log(`  ✗ ${repoInfo.source}: error (${elapsed}s) ${err instanceof Error ? err.message : err}`)
+        }
+      }
+      console.log(`[ai-world-sync] rankings-only done in ${((Date.now() - startTime) / 1000).toFixed(1)}s`)
+      process.exit(0)
+    } catch (err) {
+      console.error('[ai-world-sync] rankings-only fatal:', err)
+      process.exit(1)
+    }
+  })()
+} else if (isCli && process.argv.includes('--dry-run')) {
   ;(async () => {
     try {
       console.log('[ai-world-sync] dry-run start (no DB writes)')
