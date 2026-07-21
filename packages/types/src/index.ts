@@ -10,6 +10,10 @@ export * from './agent-runtime.js'
 export * from './workspace.js'
 // 插件市场跨端类型契约(2026-07-22 立,复用 user_preferences 表)
 export * from './plugin.js'
+// AI 自动控制跨端契约(2026-07-22 立,browser_control + computer_control MCP tool 全链路)
+export * from './agent-control.js'
+// 工作展示区跨端契约(2026-07-22 立,AI 对话内嵌浏览器 + URL 预览 + Artifact)
+export * from './work-panel.js'
 // 跨端 API 契约类型单一入口(纯类型 re-export,见 api-contracts.ts)
 // 通过 @ihui/types/api-contracts subpath 访问,避免与上方散落导出冲突。
 export * from './api-contracts.js'
