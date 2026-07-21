@@ -94,6 +94,12 @@ interface ChatState {
   markAllAgentStreamsDone: () => void
   /** 清空所有 sub-agent 活动(新对话开始时调用) */
   resetSubAgentActivities: () => void
+  /** 添加工具调用到指定消息(SSE tool-call-start 事件触发)
+   * 2026-07-22 立,P2 联动 WorkPanel */
+  addToolCall: (messageId: string, toolCall: Omit<ToolCall, 'status'> & { status?: ToolCall['status'] }) => void
+  /** 更新工具调用结果(SSE tool-result 事件触发)
+   * 同步联动 WorkPanel:toolName=browser_navigate 或 args/result 含 url → openPanel */
+  updateToolCall: (messageId: string, toolCallId: string, updates: Partial<ToolCall>) => void
 }
 
 function genId(): string {
@@ -213,6 +219,37 @@ export const useChatStore = create<ChatState>()(
         })),
 
       resetSubAgentActivities: () => set({ subAgentActivities: [] }),
+
+      addToolCall: (messageId, toolCall) =>
+        set((s) => ({
+          messages: s.messages.map((m) => {
+            if (m.id !== messageId) return m
+            const fullCall: ToolCall = {
+              ...toolCall,
+              status: toolCall.status ?? 'running',
+            }
+            const exists = m.toolCalls?.some((tc) => tc.id === fullCall.id)
+            return {
+              ...m,
+              toolCalls: exists
+                ? m.toolCalls
+                : [...(m.toolCalls ?? []), fullCall],
+            }
+          }),
+        })),
+
+      updateToolCall: (messageId, toolCallId, updates) =>
+        set((s) => ({
+          messages: s.messages.map((m) => {
+            if (m.id !== messageId || !m.toolCalls) return m
+            return {
+              ...m,
+              toolCalls: m.toolCalls.map((tc) =>
+                tc.id === toolCallId ? { ...tc, ...updates } : tc,
+              ),
+            }
+          }),
+        })),
     }),
     createPersistConfig<ChatState>('ihui-chat', (s) => ({
       currentModel: s.currentModel,
