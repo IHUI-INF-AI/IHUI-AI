@@ -399,6 +399,18 @@ export const aiUserModelChatRoutes: FastifyPluginAsync = async (server) => {
         createdAt: zhsAiUserModelChatHistory.createdAt,
       })
 
+    recordAiCost({
+      userId: request.userId!,
+      model: config.modelId,
+      provider: config.vendor,
+      promptTokens: usage.promptTokens,
+      completionTokens: usage.completionTokens,
+      totalTokens: usage.totalTokens,
+      requestType: 'user-model-chat',
+    }).catch((err) => {
+      request.log.warn({ err, vendor: config.vendor, model: config.modelId }, 'recordAiCost failed')
+    })
+
     return reply.send(
       success({
         configId: config.id,
