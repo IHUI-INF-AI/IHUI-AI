@@ -33,7 +33,7 @@ export function FeedbackScreen() {
     setError('')
     setSuccess('')
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/feedback`, {
+      const resp = await fetch(`${API_BASE_URL}/api/feedbacks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -93,7 +93,12 @@ export function FeedbackScreen() {
           />
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           {success ? <Text style={styles.successText}>{success}</Text> : null}
-          <Button loading={submitting} disabled={submitting} onPress={handleSubmit} style={styles.submitBtn}>
+          <Button
+            loading={submitting}
+            disabled={submitting}
+            onPress={handleSubmit}
+            style={styles.submitBtn}
+          >
             {submitting ? t('feedback.submitting') : t('feedback.submit')}
           </Button>
         </Card>
@@ -104,14 +109,25 @@ export function FeedbackScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
   backText: { fontSize: 14, color: '#374151' },
   title: { fontSize: 18, fontWeight: '600', color: '#111827' },
   body: { padding: 16 },
   card: { padding: 12, borderRadius: 8 },
   label: { fontSize: 12, color: '#6B7280', marginTop: 8 },
   typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
-  typeBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#F3F4F6' },
+  typeBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
   typeBtnActive: { backgroundColor: '#10B981' },
   typeText: { fontSize: 12, color: '#6B7280' },
   typeTextActive: { color: '#FFFFFF' },

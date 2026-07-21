@@ -14,6 +14,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@ihui/ui'
+import { AttachmentsUpload } from '@/components/form/AttachmentsUpload'
 import type { Note, NoteForm } from './types'
 
 interface Props {
@@ -84,6 +85,16 @@ export function NoteDialog({
             />
             {t('isPublic')}
           </label>
+          <div className="space-y-2">
+            <Label>{t('attachmentsField')}</Label>
+            <AttachmentsUpload
+              value={form.attachments}
+              onChange={(items) => setForm({ ...form, attachments: items })}
+              multiple
+              maxCount={10}
+              accept="image/*,audio/*,video/*,application/pdf"
+            />
+          </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
               {t('cancel')}
