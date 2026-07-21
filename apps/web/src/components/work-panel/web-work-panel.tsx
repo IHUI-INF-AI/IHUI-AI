@@ -14,6 +14,7 @@ import { useMounted } from '@/hooks/use-mounted'
  * - 渲染 @ihui/ui 的 WorkPanel 容器 + WebViewFrame(iframe + 降级)
  * - P0:iframe 失败降级到 external(显示"在外部打开"按钮)
  * - P1:接入后端 Playwright 截图 API,screenshot 模式
+ * - P3:多 Tab + 收藏夹 + 历史记录
  *
  * 布局:作为 GlobalShell flex 流的一部分,在 work-area 右侧。
  */
@@ -22,23 +23,22 @@ export function WebWorkPanel() {
   const {
     open,
     width,
-    url,
     addressInput,
-    status,
-    mode,
-    screenshot,
-    title,
-    error,
-    isLoading,
-    history,
-    historyIndex,
     isResizing,
+    tabs,
+    activeTabId,
+    favorites,
     closePanel,
     navigate,
     back,
     forward,
     reload,
     stop,
+    newTab,
+    closeTab,
+    setActiveTab,
+    addFavorite,
+    removeFavorite,
     setWidth,
     setResizing,
     setAddressInput,
@@ -46,15 +46,35 @@ export function WebWorkPanel() {
     onFailed,
   } = useWorkPanelStore()
 
+  // 当前激活 Tab(从 tabs 数组查找)
+  const activeTab = React.useMemo(
+    () => tabs.find((t) => t.id === activeTabId) ?? null,
+    [tabs, activeTabId],
+  )
+
+  // 从 active tab 派生展示字段
+  const url = activeTab?.url ?? ''
+  const status = activeTab?.state.status ?? 'idle'
+  // WebViewFrame 只支持 iframe/screenshot/external,native(Tauri)映射为 external
+  const rawMode = activeTab?.state.mode ?? 'iframe'
+  const mode: 'iframe' | 'screenshot' | 'external' =
+    rawMode === 'native' ? 'external' : rawMode
+  const screenshot = activeTab?.state.screenshot
+  const title = activeTab?.state.title
+  const error = activeTab?.state.error
+  const isLoading = status === 'loading'
+  const canBack = activeTab ? activeTab.historyIndex > 0 : false
+  const canForward = activeTab ? activeTab.historyIndex < activeTab.history.length - 1 : false
+
   // SSR / 首帧:用默认宽度占位,避免 hydration mismatch
   const effectiveWidth = !mounted ? WORK_PANEL_DEFAULT_WIDTH : width
   const effectiveOpen = mounted && open
 
-  // 当前单 Tab(P0 单 tab,P3 扩展多 tab)
-  const tabs: WorkPanelTabItem[] = React.useMemo(() => {
-    if (!url) return []
-    return [{ id: 'current', title: title ?? new URL(url).hostname ?? url, type: 'browser' }]
-  }, [url, title])
+  // Tab 栏数据(映射为 UI 组件需要的格式)
+  const uiTabs: WorkPanelTabItem[] = React.useMemo(
+    () => tabs.map((t) => ({ id: t.id, title: t.title || t.url || '新标签页', type: t.type })),
+    [tabs],
+  )
 
   const handleResize = React.useCallback(
     (delta: number) => {
@@ -67,6 +87,17 @@ export function WebWorkPanel() {
   const handleOpenExternal = React.useCallback(() => {
     if (url) window.open(url, '_blank', 'noopener,noreferrer')
   }, [url])
+
+  // 收藏切换
+  const isFavorite = favorites.some((f) => f.url === url)
+  const handleToggleFavorite = React.useCallback(() => {
+    if (!url) return
+    if (isFavorite) {
+      removeFavorite(url)
+    } else {
+      addFavorite(url, title ?? url)
+    }
+  }, [url, title, isFavorite, addFavorite, removeFavorite])
 
   if (!effectiveOpen) return null
 
@@ -86,13 +117,17 @@ export function WebWorkPanel() {
       onReload={reload}
       onStop={stop}
       onOpenExternal={handleOpenExternal}
-      canBack={historyIndex > 0}
-      canForward={historyIndex < history.length - 1}
+      isFavorite={isFavorite}
+      onToggleFavorite={handleToggleFavorite}
+      canBack={canBack}
+      canForward={canForward}
       isLoading={isLoading}
       isSecure={url.startsWith('https://')}
-      tabs={tabs}
-      activeTabId={tabs.length > 0 ? 'current' : null}
-      onTabChange={() => {}}
+      tabs={uiTabs}
+      activeTabId={activeTabId}
+      onTabChange={setActiveTab}
+      onTabClose={closeTab}
+      onNewTab={() => newTab()}
       className={isResizing ? 'select-none' : undefined}
     >
       <WebViewFrame
