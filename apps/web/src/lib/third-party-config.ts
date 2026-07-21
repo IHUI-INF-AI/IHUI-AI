@@ -54,6 +54,8 @@ export interface ThirdPartyPlatformConfig {
   proxyPath: string
   /** 授权端点（直接跳转时使用，留空则走 proxyPath） */
   authUrl?: string
+  /** 企业微信 agentid（自建应用 ID，仅 enterpriseWechat 使用） */
+  agentId?: string
   /** 平台特定配置 */
   [key: string]: unknown
 }
