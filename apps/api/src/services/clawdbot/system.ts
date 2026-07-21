@@ -5,6 +5,7 @@
  */
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
+import { generateCompactId } from '../../utils/crypto-random.js'
 
 export interface SystemConfig {
   [key: string]: unknown
@@ -49,7 +50,8 @@ export class SystemService extends EventEmitter {
 
   log(level: LogEntry['level'], source: string, message: string, data?: unknown): void {
     const entry: LogEntry = {
-      id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成日志 ID
+      id: generateCompactId('log'),
       level,
       source,
       message,

@@ -84,7 +84,7 @@ describe('clawdbot ChannelManager 渠道管理', () => {
         userId: 'user1',
         content: 'hello',
       })
-      expect(msg.id).toMatch(/^msg_\d+_/)
+      expect(msg.id).toMatch(/^msg_[a-z0-9]+$/)
       expect(msg.timestamp).toBeGreaterThan(0)
       expect(msg.content).toBe('hello')
     })
