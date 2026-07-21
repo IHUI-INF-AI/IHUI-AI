@@ -1287,9 +1287,11 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 </p>
 <p align="center"><sub>📍 吉林省爱智汇人工智能科技有限公司 · 线下基地 · 长春高新区越达路 107 号人工智能人才孵化基地(2026-07 实拍)</sub></p>
 
-<!-- 配图位(后续可追加): -->
-<!-- - apps/web/public/images/story/late-night-coding.jpg — 凌晨代码截图或台灯下的工作台 -->
-<!-- 照片到位后,把上方 HTML 注释删除,在下方对应段落插入 <p align="center"><img src="..." width="600"/></p> 即可 -->
+<!-- 配图:凌晨编程 · 一盏台灯和还在生长的代码(Pexels 免费无水印图库,Free License) -->
+<p align="center">
+  <img src="apps/web/public/images/story/late-night-coding.jpg" width="600" alt="凌晨 3 点 · 一盏台灯和还在生长的代码" />
+</p>
+<p align="center"><sub>📍 凌晨 3:17 · 一盏台灯,一台电脑,还在生长的代码(图源:Pexels · Free License)</sub></p>
 
 ### 序 · 一个被反复问起的问题
 
@@ -1533,6 +1535,8 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 
 **代价**:学习曲线陡,但一旦学会,后面每个新工作流都是模板化复制。
 
+> 💬 **讨论**:→ [#1 决策讨论:为什么 IHUI-AI 选 LangGraph,而不是 AutoGen / CrewAI?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/1)
+
 #### 决策 2 · 为什么选 Drizzle ORM,而不是 Prisma?
 
 **背景**:TypeScript ORM 主流是 Prisma 和 Drizzle。
@@ -1550,6 +1554,8 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 
 **代价**:生态比 Prisma 小,但够用。
 
+> 💬 **讨论**:→ [#2 决策讨论:为什么 IHUI-AI 选 Drizzle ORM,而不是 Prisma?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/2)
+
 #### 决策 3 · 为什么选 TS Monorepo,而不是 Polyrepo?
 
 **背景**:8 端代码(Web / API / AI / CLI / Desktop / Extension / Mobile / Miniapp),monorepo vs polyrepo 是生死决策。
@@ -1566,6 +1572,8 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 
 **代价**:monorepo 配置复杂,但配好之后一劳永逸。
 
+> 💬 **讨论**:→ [#3 决策讨论:为什么 IHUI-AI 选 TS Monorepo,而不是 Polyrepo?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/3)
+
 #### 决策 4 · 为什么是 17 个 pre-commit 守门钩子?
 
 **背景**:一个独立开发者,没有 code review,没有 QA,没有 CI 团队——如何保证代码质量?
@@ -1579,6 +1587,8 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 - **机器代替 DevOps**:9 个 PowerShell 启动脚本让"启动项目"从"记不住 8 条命令"变成"1 条命令"
 
 **代价**:钩子偶尔误报,但宁可误报不可漏报。
+
+> 💬 **讨论**:→ [#4 决策讨论:为什么 IHUI-AI 是 17 个 pre-commit 守门钩子?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/4)
 
 #### 决策 5 · 为什么坚持 Apache 2.0,而不是 AGPL / 商业双许可?
 
@@ -1595,6 +1605,8 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 - **真正的护城河是社区**:开源代码 + 活跃社区 > 闭源代码 + 死社区
 
 **代价**:别人可以 fork 后闭源卖钱,但这种 fork 通常没有社区,活不久。
+
+> 💬 **讨论**:→ [#5 决策讨论:为什么 IHUI-AI 坚持 Apache 2.0,而不是 AGPL / 商业双许可?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/5)
 
 ---
 
