@@ -379,10 +379,16 @@ export function AISidePanel() {
     >
       <aside
         aria-label={tc('title')}
-        // 2026-07-21 移除 bg-shell-panel:深色背景下默认滚动条轨道会透出深色,
-        // 改为透明让 aside 继承 work-area 背景,统一视觉;hover-scroll 已隐藏滚动条,
-        // 此处不再有"容器背景色透出滚动条"的违和感
-        className="flex h-full flex-col overflow-hidden rounded-xl"
+        // AI 面板必须有独立 bg-shell-panel 背景(2026-07-21 修复):
+        // 1) 卡片感:AI 面板 position: fixed 跨在 work-area 之外,无法"继承" work-area 背景,
+        //    透明 aside 在 top-2/bottom-2/mr-2 间距处无背景,看到 body 底色,没有"卡片"视觉边界;
+        // 2) 暗色模式下的遮罩一致性:登录/SSO/认证授权弹窗打开时,z-modal=2000 遮罩(z-50 Dialog 也会盖)叠加在 AI 面板之上,
+        //    若 AI 面板透明,内容透到变暗的 work-area 上,视觉上像"AI 面板高亮"未被遮罩盖住;有 bg-shell-panel 后,
+        //    AI 面板背景独立变暗,真正"暗下去到背景里"。
+        // 之前 commit 5d378c22e 担心"深色背景下默认滚动条轨道透出深色",但 message-list 已加 hover-scroll
+        // (scrollbar-width: none + ::-webkit-scrollbar { display: none })完全隐藏滚动条,不会透色,
+        // 恢复 bg-shell-panel 安全。
+        className="flex h-full flex-col overflow-hidden rounded-xl bg-shell-panel"
       >
         {/* 标题栏 */}
         <header
