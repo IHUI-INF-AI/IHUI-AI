@@ -23,6 +23,7 @@ import { CenteredText, Skeleton } from '@/components/common'
 import { StateBadge } from '../_components/StateBadge'
 import { ContainerStatusCell } from '../_components/ContainerStatusCell'
 import { ConfirmActionDialog } from '../_components/ConfirmActionDialog'
+import { QuotaCard } from '../_components/QuotaCard'
 import { useTenantDetail } from '@/hooks/use-saas-tenants'
 import {
   useBackupTenant,
@@ -257,6 +258,13 @@ export default function TenantDetailPage() {
             }
             hint={t('detail.domainHint')}
           />
+        </div>
+
+        {/* P1-2.2c: 配额占位卡片 */}
+        <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-3">
+          <div className="lg:col-span-1">
+            <QuotaCard slug={tenant.slug} />
+          </div>
         </div>
 
         {/* 快捷导航 */}
