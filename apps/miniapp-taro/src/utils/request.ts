@@ -22,7 +22,9 @@ export interface RequestOptions {
 
 export interface ApiResponse<T = unknown> {
   code: number
-  msg: string
+  /** 后端统一返回 `message` 字段(新架构);`msg` 为旧架构兼容别名,优先取 message。 */
+  message?: string
+  msg?: string
   data: T
 }
 
@@ -63,19 +65,20 @@ export function request<T = unknown>(options: RequestOptions): Promise<T> {
         }
 
         if (statusCode < 200 || statusCode >= 300) {
-          const msg = (body && body.msg) || `请求失败(${statusCode})`
+          const msg = (body && (body.message || body.msg)) || `请求失败(${statusCode})`
           Taro.showToast({ title: msg, icon: 'none' })
           reject(new Error(msg))
           return
         }
 
-        // 兼容后端统一返回 { code, msg, data } 结构
+        // 兼容后端统一返回 { code, message, data } 结构(message 优先,兼容旧 msg)
         if (body && typeof body.code === 'number') {
           if (body.code === 0 || body.code === 200) {
             resolve(body.data)
           } else {
-            Taro.showToast({ title: body.msg || '请求失败', icon: 'none' })
-            reject(new Error(body.msg || '请求失败'))
+            const errMsg = body.message || body.msg || '请求失败'
+            Taro.showToast({ title: errMsg, icon: 'none' })
+            reject(new Error(errMsg))
           }
           return
         }
