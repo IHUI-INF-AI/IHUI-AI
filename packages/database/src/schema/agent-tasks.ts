@@ -8,13 +8,17 @@ import {
   jsonb,
   index,
 } from 'drizzle-orm/pg-core'
+import { agents } from './agents-extended.js'
+import { agentRule } from './agent-rule.js'
 
 export const agentTasks = pgTable(
   'agent_tasks',
   {
     id: uuid('id').defaultRandom().primaryKey(),
-    agentId: uuid('agent_id').notNull(),
-    ruleId: uuid('rule_id'),
+    agentId: uuid('agent_id')
+      .references(() => agents.agentId, { onDelete: 'cascade' })
+      .notNull(),
+    ruleId: uuid('rule_id').references(() => agentRule.id, { onDelete: 'set null' }),
     name: varchar('name', { length: 200 }).notNull(),
     description: text('description'),
     status: varchar('status', { length: 20 }).default('pending').notNull(),
