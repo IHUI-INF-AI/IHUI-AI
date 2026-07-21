@@ -7,7 +7,9 @@ import {
 } from '@tanstack/react-query'
 
 import {
+  adminGetCustomerMetrics,
   adminGetCustomerQuota,
+  adminGetMetricsSummary,
   adminGetTenant,
   adminListBackups,
   adminListCertificates,
@@ -18,7 +20,9 @@ import type {
   Backup,
   BackupListResult,
   CertificateListResult,
+  CustomerMetrics,
   CustomerQuota,
+  MetricsSummary,
   Tenant,
   TenantDetailResult,
   TenantListResult,
@@ -109,5 +113,42 @@ export function useCustomerQuotaQuery(
     enabled: Boolean(slug),
     refetchInterval: 60_000,
     staleTime: 30_000,
+  })
+}
+
+/** P1-2.3: per-tenant 实时 Prometheus 指标(CPU/内存/网络) */
+export function useCustomerMetricsQuery(
+  slug: string | null,
+  options?: { refetchInterval?: number; enabled?: boolean },
+): UseQueryResult<CustomerMetrics, Error> {
+  return useQuery<CustomerMetrics, Error>({
+    queryKey: ['admin', 'saas', 'tenants', 'metrics', slug],
+    queryFn: async () => {
+      if (!slug) throw new Error('slug required')
+      const r = await adminGetCustomerMetrics(slug)
+      if (!r.success) throw new Error(r.error)
+      return r.data as CustomerMetrics
+    },
+    enabled: (options?.enabled ?? true) && Boolean(slug),
+    refetchInterval: options?.refetchInterval ?? 15_000,
+    staleTime: 10_000,
+  })
+}
+
+/** P1-2.3: 多租户横向对比 */
+export function useMetricsSummaryQuery(options?: {
+  refetchInterval?: number
+  enabled?: boolean
+}): UseQueryResult<MetricsSummary, Error> {
+  return useQuery<MetricsSummary, Error>({
+    queryKey: ['admin', 'saas', 'metrics', 'summary'],
+    queryFn: async () => {
+      const r = await adminGetMetricsSummary()
+      if (!r.success) throw new Error(r.error)
+      return r.data as MetricsSummary
+    },
+    refetchInterval: options?.refetchInterval ?? 30_000,
+    enabled: options?.enabled ?? true,
+    staleTime: 15_000,
   })
 }
