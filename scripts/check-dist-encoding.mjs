@@ -9,7 +9,8 @@
 //      Turbopack 按 UTF-8 解析到第 27 字节触发非法序列。
 // 修复:重新编码为 UTF-8 无 BOM 后构建恢复。
 //
-// 守门策略:扫描所有 packages/*/dist/** 与 apps/*/dist/** 下的 .js .mjs .cjs .ts .map 文件,
+// 守门策略:扫描所有 packages/*/dist/** 与 apps/*/dist/** 下的
+//          .js .mjs .cjs .ts .map .css .json .html 文件,
 //          检测前 3 字节是否为 UTF-8 BOM(0xEF 0xBB 0xBF)或
 //          UTF-16 LE BOM(0xFF 0xFE)/ BE BOM(0xFE 0xFF)。
 //          任何 dist 文件含 BOM → 报错并 exit 1,阻断 commit。
@@ -42,7 +43,11 @@ const BOM_UTF16_LE = Buffer.from([0xff, 0xfe])
 const BOM_UTF16_BE = Buffer.from([0xfe, 0xff])
 
 // 需要扫描的扩展名
-const TARGET_EXTS = new Set(['.js', '.mjs', '.cjs', '.ts', '.map'])
+// 2026-07-20 M-64 扩展 .css .json .html(apps/desktop dist 含 Vite 输出 1 个 .html + 1 个 .css,
+//                    apps/miniapp-taro dist 含 Taro 输出 1 个 .json,这些都会被 Turbopack/Vite
+//                    解析,BOM 污染同样会触发 "invalid utf-8 sequence" 报错)。
+// 守门策略:扫描所有 packages/*/dist/** 与 apps/*/dist/** 下的 .js .mjs .cjs .ts .map .css .json .html 文件,
+const TARGET_EXTS = new Set(['.js', '.mjs', '.cjs', '.ts', '.map', '.css', '.json', '.html'])
 
 // 每个文件最多读取的字节数(检测 BOM 只需要前几字节)
 const PROBE_BYTES = 4
