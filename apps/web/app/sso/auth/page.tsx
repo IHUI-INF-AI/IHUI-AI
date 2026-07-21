@@ -52,8 +52,14 @@ export default function SsoAuthPage() {
     if (triggeredRef.current) return
     triggeredRef.current = true
 
-    // 安全:不在认证子域 → 跳回主域
-    if (!isAuthSubdomainHost()) {
+    // 安全:非认证子域且非 localhost → 跳回主域
+    // - 认证子域(bsm.aizhs.top):正常执行 OAuth 跳板逻辑
+    // - localhost / 127.0.0.1:本地开发,直接走 OAuth(避免被跳到生产主域 aizhs.top)
+    // - 主域 / 其他 host:/sso/auth 应只在认证子域访问,跳回主域根防滥用
+    const isLocalhost =
+      typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    if (!isAuthSubdomainHost() && !isLocalhost) {
       window.location.href = buildMainDomainUrl('/')
       return
     }
