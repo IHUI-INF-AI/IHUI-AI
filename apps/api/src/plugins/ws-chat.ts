@@ -8,6 +8,7 @@ import { wsAuth } from './ws-helpers.js'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
+import { generateCompactId } from '../utils/crypto-random.js'
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -156,7 +157,9 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const redis = getRedis()
     if (!redis) return reply.status(503).send(error(503, 'Redis 未配置,无法创建房间'))
-    const roomId = `room_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成房间 ID
+    // 风险:可预测房间 ID → 攻击者枚举加入他人房间 → 消息窃听/伪造
+    const roomId = generateCompactId('room')
     const meta = {
       roomId,
       name: parsed.data.name,
@@ -482,8 +485,10 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
         }
         if (!ALLOWED_MSG_TYPES.has(mtype)) return
         // 业务消息广播(跨实例)
+        // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成消息 ID
+        // 风险:可预测消息 ID → 攻击者伪造/重放消息
         const messagePayload = {
-          id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          id: generateCompactId('msg'),
           type: mtype,
           from: userId,
           nickname,

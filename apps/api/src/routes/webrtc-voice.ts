@@ -11,6 +11,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { generateCompactId } from '../utils/crypto-random.js'
 
 interface VoiceSession {
   sessionId: string
@@ -26,8 +27,10 @@ interface VoiceSession {
 
 const sessionStore = new Map<string, VoiceSession>()
 
+// 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成 WebRTC 会话 ID
+// 风险:可预测会话 ID → 攻击者劫持他人语音通话会话 → 窃听
 function genId(prefix: string): string {
-  return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
+  return generateCompactId(prefix)
 }
 
 async function requireAuth(request: FastifyRequest, reply: FastifyReply): Promise<boolean> {
