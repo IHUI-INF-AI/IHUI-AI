@@ -14,6 +14,7 @@ export interface SForm {
   nickname: string
   phone: string
   email: string
+  password: string
   level: string
   status: number
 }
