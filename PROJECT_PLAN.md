@@ -504,11 +504,11 @@ nginx -t && nginx -s reload
 
 **P1 阶段 2 全量范围**(留待后续子集):
 
-| 子集 | 范围 | 工作量 |
-|---|---|---|
+| 子集                        | 范围                                                                           | 工作量 |
+| --------------------------- | ------------------------------------------------------------------------------ | ------ |
 | **P1-2.1 部署层管理(本次)** | 客户 pause/resume/backup/restore 脚本 + admin-api Fastify 服务 + 证书续期 cron | 1-2 天 |
-| P1-2.2 web/admin UI | web/admin 端扩展(创建/暂停/删除/查看客户 UI) | 3-5 天 |
-| P1-2.3 资源监控 | Prometheus + Grafana per-tenant dashboard | 2-3 天 |
+| P1-2.2 web/admin UI         | web/admin 端扩展(创建/暂停/删除/查看客户 UI)                                   | 3-5 天 |
+| P1-2.3 资源监控             | Prometheus + Grafana per-tenant dashboard                                      | 2-3 天 |
 
 **P1-2.1 详细任务清单**:
 
@@ -586,7 +586,8 @@ nginx -t && nginx -s reload
 - `bash -n` 5 个新脚本全通过(pause/resume/backup/restore/cert-renew) ✅
 - `pnpm typecheck` admin-api 0 错误 ✅
 - 17 个新文件 + 4 个修改,commit `a400e8ff` ✅
->>>>>>> 44e64367 (footer: 推广平台图片重命名为平台英文名 + 生态合作恢复 4 类分组布局)
+
+> > > > > > > 44e64367 (footer: 推广平台图片重命名为平台英文名 + 生态合作恢复 4 类分组布局)
 
 ---
 
@@ -634,11 +635,23 @@ nginx -t && nginx -s reload
 
 ### API 端点遗漏(5 项,服务层已有,只需补路由 + handler)
 
-- [ ] P0 `GET /ai-feed/notifications` — 趋势爆发通知轮询
-- [ ] P0 `GET /ai-feed/image-proxy` — 图片代理防盗链
-- [ ] P0 `POST /ai-feed/trend` — 手动触发趋势计算(管理员)
-- [ ] P0 `PUT /ai-feed/sources/:source_id` — 更新数据源配置(管理员)
-- [ ] P0 `POST /feedback/:fid/rate` — 用户对反馈处理结果评价
+- [x] ✅(2026-07-21) P0 `GET /ai-feed/notifications` — 趋势爆发通知轮询
+- [x] ✅(2026-07-21) P0 `GET /ai-feed/image-proxy` — 图片代理防盗链
+- [x] ✅(2026-07-21) P0 `POST /ai-feed/trend` — 手动触发趋势计算(管理员)
+- [x] ✅(2026-07-21) P0 `PUT /ai-feed/sources/:source_id` — 更新数据源配置(管理员)
+- [x] ✅(2026-07-21) P0 `POST /feedbacks/:id/rate` — 用户对反馈处理结果评价
+
+**5 端点补齐交付摘要(2026-07-21)**:
+
+- `apps/api/src/services/ai-feed-service.ts`:新增 4 个导出函数 `getTrendNotifications` / `proxyImage` / `computeTrendSignals` / `updateSource`,+ `TrendNotificationItem` / `UpdateSourcePatch` 类型
+- `apps/api/src/routes/ai-feed.ts`:新增 4 个端点 + 3 个 Zod schema(`notificationsQuerySchema` / `imageProxyQuerySchema` / `updateSourceBodySchema`)
+- `apps/api/src/db/comment-queries.ts`:新增 `rateFeedback` 函数,`updateFeedback` 扩展支持 `rating` 字段
+- `apps/api/src/routes/comments.ts`:新增 `POST /feedbacks/:id/rate` 端点(用户本人可评价,1-5 分)
+- `packages/database/src/schema/comments.ts`:feedbacks 表新增 `rating integer default 0` 字段(**需 db:push 同步**)
+- 历史对齐:`server/app/api/v1/ai_feed/routes.py` 4 端点 + `server/app/api/v1/feedback/feedback.py` `POST /{fid}/rate` 全部对齐
+- 自验:`pnpm --filter @ihui/database typecheck` ✅ / `pnpm --filter @ihui/api typecheck` ✅ / `pnpm --filter @ihui/api exec eslint <4 文件>` ✅
+- 跨端:仅 api + database(packages/database 改了 schema,需用户跑 `pnpm --filter @ihui/database db:push` 同步 rating 字段到生产库)
+- 平台独占:否(后端 API 改动)
 
 **误判遗漏清单(11 项,实地验证已迁移,无需补)**:
 
