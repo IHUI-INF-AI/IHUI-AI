@@ -11,6 +11,11 @@ import {
   collectAllSources,
   processLlmBatch,
   translateTitles,
+  getTrendNotifications,
+  proxyImage,
+  computeTrendSignals,
+  updateSource,
+  type UpdateSourcePatch,
 } from '../services/ai-feed-service.js'
 
 // =============================================================================
@@ -44,6 +49,30 @@ const summarizeBodySchema = z.object({
 
 const translateBodySchema = z.object({
   limit: z.number().int().min(1).max(200).optional(),
+})
+
+const notificationsQuerySchema = z.object({
+  hours: z.coerce.number().int().min(1).max(168).default(24),
+  minGrowth: z.coerce.number().min(0).max(1000).default(15),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+})
+
+const imageProxyQuerySchema = z.object({
+  url: z
+    .string()
+    .url('无效的图片 URL')
+    .refine((v) => /^https?:\/\//i.test(v), '仅支持 http/https 协议'),
+})
+
+const updateSourceBodySchema = z.object({
+  enabled: z.boolean().optional(),
+  sortOrder: z.number().int().min(0).max(10000).optional(),
+  fetchIntervalMinutes: z.number().int().min(1).max(10080).optional(),
+  sourceName: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional(),
+  category: z.string().max(64).optional(),
+  color: z.string().max(16).optional(),
+  icon: z.string().max(255).optional(),
 })
 
 // =============================================================================
@@ -106,6 +135,38 @@ const aiFeedRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list }))
   })
 
+  // GET /notifications — 趋势爆发通知（前端每 60s 轮询）
+  server.get('/notifications', async (request, reply) => {
+    const parsed = notificationsQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = await getTrendNotifications(
+      parsed.data.hours,
+      parsed.data.minGrowth,
+      parsed.data.limit,
+    )
+    return reply.send(success(result))
+  })
+
+  // GET /image-proxy — 图片代理（防盗链，返回二进制流）
+  server.get('/image-proxy', async (request, reply) => {
+    const parsed = imageProxyQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const { buffer, contentType } = await proxyImage(parsed.data.url)
+      return reply
+        .header('Content-Type', contentType)
+        .header('Cache-Control', 'public, max-age=86400')
+        .header('Access-Control-Allow-Origin', '*')
+        .send(buffer)
+    } catch (e) {
+      return reply.status(502).send(error(502, (e as Error).message ?? '图片代理失败'))
+    }
+  })
+
   // ----- 管理操作（需 admin）-----
 
   // POST /collect — 手动触发采集
@@ -138,6 +199,27 @@ const aiFeedRoutes: FastifyPluginAsync = async (server) => {
     }
     const result = await translateTitles(parsed.data.limit ?? 50)
     return reply.send(success(result))
+  })
+
+  // POST /trend — 手动触发趋势信号计算（管理员）
+  server.post('/trend', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const result = await computeTrendSignals()
+    return reply.send(success(result))
+  })
+
+  // PUT /sources/:source_id — 更新数据源配置（管理员）
+  server.put<{ Params: { source_id: string } }>('/sources/:source_id', async (request, reply) => {
+    await requireAdmin(request, reply)
+    if (reply.sent) return
+    const parsed = updateSourceBodySchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const updated = await updateSource(request.params.source_id, parsed.data as UpdateSourcePatch)
+    if (!updated) return reply.status(404).send(error(404, '数据源不存在'))
+    return reply.send(success({ source: updated }))
   })
 }
 
