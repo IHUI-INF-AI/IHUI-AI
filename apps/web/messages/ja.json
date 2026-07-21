@@ -1960,7 +1960,8 @@
         "developer": "開発者センター",
         "saas": "SaaS デプロイ"
       },
-      "saasMetrics": "リソース監視"
+      "saasMetrics": "リソース監視",
+      "aiCost": "AI コスト概要"
     },
     "refund": {
       "title": "APIテスト",
@@ -11239,6 +11240,26 @@
     "dayUv": "1あたりUV",
     "ipCity": "IPアドレスすべて",
     "noData": "なしデータ"
+  },
+  "aiCost": {
+    "title": "AI コスト概要",
+    "subtitle": "トークン使用量・コスト・キャッシュヒット率の監視",
+    "loading": "読み込み中...",
+    "empty": "AI 呼び出しデータなし",
+    "emptyHint": "ユーザーモデルチャット連携後に表示されます",
+    "totalCost": "総コスト",
+    "totalTokens": "総トークン",
+    "totalCalls": "総呼び出し数",
+    "cacheHitRate": "キャッシュヒット率",
+    "byModel": "モデル別",
+    "byDay": "日別",
+    "calls": "回",
+    "noModelData": "モデル別データなし",
+    "noDayData": "日別データなし",
+    "rangeLabel": "期間",
+    "range1d": "最近 1 日",
+    "range7d": "最近 7 日",
+    "range30d": "最近 30 日"
   },
   "wallet": {
     "title": "APIテスト",
