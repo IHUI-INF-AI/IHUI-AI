@@ -1,0 +1,2 @@
+ALTER TABLE "edu_notes" ADD COLUMN "attachments" jsonb DEFAULT '[]'::jsonb NOT NULL;--> statement-breakpoint
+ALTER TABLE "edu_offline_records" ADD COLUMN "attachments" jsonb DEFAULT '[]'::jsonb NOT NULL;

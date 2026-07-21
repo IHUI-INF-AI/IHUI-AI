@@ -7,6 +7,7 @@ export const EMPTY_FORM: RecordForm = {
   description: '',
   hours: '',
   occurredAt: '',
+  attachments: [],
 }
 
 export const TYPE_COLORS = [
@@ -29,5 +30,6 @@ export function recordToForm(record: OfflineRecord): RecordForm {
     description: record.description ?? '',
     hours: record.hours !== null && record.hours !== undefined ? String(record.hours) : '',
     occurredAt: record.occurredAt ? record.occurredAt.slice(0, 10) : '',
+    attachments: record.attachments ?? [],
   }
 }

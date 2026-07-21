@@ -807,3 +807,40 @@
 
 ---
 
+## 第三方登录 e2e 测试补强 + Mock 平台验证(2026-07-21)
+
+**状态**:✅ 已完成
+
+**任务范围**:
+
+- 修复 e2e feishu 跳转判定(从单前缀改为域名候选列表)
+- 跑完整 e2e 18 用例全绿(`apps/web/e2e/auth-third-party.spec.ts`)
+- browser_use 验证 Mock 平台(apple + alipay)授权页完整渲染
+
+**验证证据**:
+
+- `pnpm exec playwright test e2e/auth-third-party.spec.ts` → 18 passed (1.2m)
+- browser_use 验证 `/oauth/mock/apple` 和 `/oauth/mock/alipay` 授权页关键元素 PASS(标题/用户卡片/权限列表/按钮齐全)
+- e2e 覆盖范围:8 平台按钮可见性 + 按钮可点击 + 回调路径不崩溃 + 账号绑定页 + 控制台无异常 + 8 平台跳转目标验证(6 真凭据 + 2 Mock)+ Mock 授权页可访问 + 后端 oauth-status API
+
+**Mock 平台配置检查结论**:
+
+| 平台 | 凭据类型 | 跳转目标 | 验证结果 |
+| ---- | -------- | -------- | -------- |
+| apple | placeholder(`dev_apple_placeholder_client_id`) | `/oauth/mock/apple` | ✅ |
+| alipay | placeholder(`dev_alipay_placeholder_app_id`) | `/oauth/mock/alipay` | ✅ |
+| google | 真凭据 | `accounts.google.com` | ✅ |
+| github | 真凭据 | `github.com` | ✅ |
+| feishu | 真凭据 | `passport.feishu.cn` / `accounts.feishu.cn` | ✅ |
+| wechat | 真凭据 | `open.weixin.qq.com` / `open.work.weixin.qq.com` | ✅ |
+| dingtalk | 真凭据 | `login.dingtalk.com` | ✅ |
+| enterpriseWechat | 真凭据 | `open.work.weixin.qq.com` | ✅ |
+
+`/api/auth/oauth-status` 返回 8 平台状态(true/false 与凭据配置匹配)。
+
+**commit**:`e5605f1` test(web): 修复 e2e feishu 跳转判定 + Mock 平台 18 用例全绿
+
+**跨端范围**:web only(平台独占豁免,e2e 测试只针对 web)
+
+---
+

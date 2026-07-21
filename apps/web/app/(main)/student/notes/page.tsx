@@ -42,10 +42,11 @@ export default function MyNotesPage() {
         title: form.title.trim() || undefined,
         content: form.content,
         isPublic: form.isPublic,
+        attachments: form.attachments,
         ...(editing?.lessonId ? { lessonId: editing.lessonId } : {}),
       }
       if (editing) {
-        return api(`/api/notes/${editing.id}`, {
+        return api(`/api/edu/notes/${editing.id}`, {
           method: 'PUT',
           body: JSON.stringify(body),
         })
@@ -60,7 +61,7 @@ export default function MyNotesPage() {
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => api(`/edu/notes/${id}`, { method: 'DELETE' }),
+    mutationFn: (id: string) => api(`/api/edu/notes/${id}`, { method: 'DELETE' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['student', 'notes'] }),
   })
 
@@ -72,7 +73,7 @@ export default function MyNotesPage() {
   }
   function openEdit(note: Note) {
     setEditing(note)
-    setForm({ title: note.title, content: note.content, isPublic: note.isPublic })
+    setForm({ title: note.title, content: note.content, isPublic: note.isPublic, attachments: note.attachments ?? [] })
     setErr(null)
     setOpen(true)
   }
