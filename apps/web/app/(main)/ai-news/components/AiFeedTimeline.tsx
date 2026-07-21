@@ -8,6 +8,7 @@ import type { AiFeedTimelineItem } from '@/lib/ai-news-api'
 interface SourceMeta {
   sourceCode: string
   sourceName: string
+  category: string
   icon: string | null
   color: string | null
 }
@@ -18,15 +19,54 @@ interface Props {
   total: number
 }
 
+/**
+ * Channel Tab(按信源类型筛选,参考 aihot.virxact.com/all 的"来源"三分法)
+ * - 全部:所有信源
+ * - 一手(first-party):厂商官方博客(OpenAI/Anthropic/Google/...)
+ * - 资讯(ai-media):媒体 RSS(机器之心/MIT Tech Review/...)
+ * - 论文(ai-paper):学术论文(arXiv CS.AI / CS.CL)
+ * - 热榜(hotlist):DailyHotApi 热榜(微博/知乎/HN/...)
+ */
+const CHANNEL_LIST = [
+  { key: '', labelKey: 'feed.channelAll', matchCategory: null },
+  { key: 'first-party', labelKey: 'feed.channelFirstParty', matchCategory: 'first-party' },
+  { key: 'ai-media', labelKey: 'feed.channelNews', matchCategory: 'ai-media' },
+  { key: 'ai-paper', labelKey: 'feed.channelPaper', matchCategory: 'ai-paper' },
+  { key: 'hotlist', labelKey: 'feed.channelHotlist', matchCategory: '__hotlist__' },
+] as const
+
+/**
+ * Category Tab(按单条资讯的 LLM 分类筛选,参考 aihot 6 类)
+ * llmCategory 字段由 ai-feed-process cron 的 LLM 自动分类填充
+ */
 const CATEGORY_LIST = [
   { key: '', labelKey: 'feed.categoryAll' },
-  { key: 'hotspot', labelKey: 'feed.categoryHotspot' },
-  { key: 'account', labelKey: 'feed.categoryAccount' },
-  { key: 'analysis', labelKey: 'feed.categoryAnalysis' },
-  { key: 'creation', labelKey: 'feed.categoryCreation' },
-  { key: 'tool', labelKey: 'feed.categoryTool' },
-  { key: 'source', labelKey: 'feed.categorySource' },
+  { key: 'ai-models', labelKey: 'feed.categoryModel' },
+  { key: 'ai-products', labelKey: 'feed.categoryProduct' },
+  { key: 'industry', labelKey: 'feed.categoryIndustry' },
+  { key: 'paper', labelKey: 'feed.categoryPaper' },
+  { key: 'tip', labelKey: 'feed.categoryTip' },
 ] as const
+
+/**
+ * llmCategory 原值 → i18n key 映射。
+ * 后端 LLM 可能输出的 category 值:ai-models / ai-products / industry / paper / tip。
+ * 单条资讯徽章用此映射查找翻译 key,未命中则原样回显(避免动态拼接 key 生成 `feed.categoryAi-models` 等无效 key)。
+ */
+const LLM_CATEGORY_KEY_MAP: Record<string, string> = {
+  'ai-models': 'feed.categoryModel',
+  'ai-products': 'feed.categoryProduct',
+  industry: 'feed.categoryIndustry',
+  paper: 'feed.categoryPaper',
+  tip: 'feed.categoryTip',
+}
+
+/** 单条资讯徽章翻译:命中映射返回 i18n 文案,未命中原样回显(防御 LLM 输出未知 category) */
+function llmCategoryLabel(cat: string | null, t: (k: string) => string): string {
+  if (!cat) return ''
+  const key = LLM_CATEGORY_KEY_MAP[cat]
+  return key ? t(key) : cat
+}
 
 function startOfDay(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
@@ -48,6 +88,12 @@ function formatHot(n: number | null): string {
   return String(n)
 }
 
+/** 取信源首字母作为徽章图标(避免引入完整 BrandIcon 依赖) */
+function sourceInitial(name: string): string {
+  const ch = name.trim().charAt(0)
+  return ch || '?'
+}
+
 function groupByDay(items: AiFeedTimelineItem[]): Array<{ day: string; items: AiFeedTimelineItem[] }> {
   const groups = new Map<string, AiFeedTimelineItem[]>()
   for (const it of items) {
@@ -65,6 +111,7 @@ function groupByDay(items: AiFeedTimelineItem[]): Array<{ day: string; items: Ai
 
 export function AiFeedTimeline({ items, sources, total }: Props) {
   const t = useTranslations('aiNews')
+  const [activeChannel, setActiveChannel] = React.useState<string>('')
   const [activeCategory, setActiveCategory] = React.useState<string>('')
 
   const sourceMap = React.useMemo(() => {
@@ -73,10 +120,29 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
     return m
   }, [sources])
 
+  // channel 筛选:按信源 category 筛选(hotlist = general + tech-community)
+  const channelFiltered = React.useMemo(() => {
+    if (!activeChannel) return items
+    const channelDef = CHANNEL_LIST.find((c) => c.key === activeChannel)
+    if (!channelDef || !channelDef.matchCategory) return items
+    if (channelDef.matchCategory === '__hotlist__') {
+      // 热榜:source.category === 'general' || 'tech-community'
+      return items.filter((it) => {
+        const src = sourceMap.get(it.sourceCode)
+        return src?.category === 'general' || src?.category === 'tech-community'
+      })
+    }
+    return items.filter((it) => {
+      const src = sourceMap.get(it.sourceCode)
+      return src?.category === channelDef.matchCategory
+    })
+  }, [items, activeChannel, sourceMap])
+
+  // category 筛选:按单条资讯的 llmCategory 筛选
   const filteredItems = React.useMemo(() => {
-    if (!activeCategory) return items
-    return items.filter((it) => it.llmCategory === activeCategory)
-  }, [items, activeCategory])
+    if (!activeCategory) return channelFiltered
+    return channelFiltered.filter((it) => it.llmCategory === activeCategory)
+  }, [channelFiltered, activeCategory])
 
   const dayGroups = React.useMemo(() => groupByDay(filteredItems), [filteredItems])
 
@@ -86,7 +152,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
       className="overflow-hidden rounded-xl border bg-card shadow-sm"
     >
       {/* 头部 */}
-      <div className="space-y-2 p-6 pb-3">
+      <div className="space-y-3 p-6 pb-3">
         <div className="flex flex-row items-center justify-between gap-3">
           <div className="space-y-1">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
@@ -102,19 +168,40 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
           </span>
         </div>
 
-        {/* Category 筛选 Tab */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-2">
-          {CATEGORY_LIST.map((cat) => {
-            const isActive = activeCategory === cat.key
+        {/* Channel 筛选 Tab(按信源类型,5 个) */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {CHANNEL_LIST.map((ch) => {
+            const isActive = activeChannel === ch.key
             return (
               <button
-                key={cat.key || 'all'}
+                key={ch.key || 'channel-all'}
                 type="button"
-                onClick={() => setActiveCategory(cat.key)}
+                onClick={() => setActiveChannel(ch.key)}
                 className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                   isActive
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-background/60 text-muted-foreground hover:bg-accent hover:text-foreground'
+                }`}
+              >
+                {t(ch.labelKey)}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Category 筛选 Tab(按资讯类型,6 个) */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          {CATEGORY_LIST.map((cat) => {
+            const isActive = activeCategory === cat.key
+            return (
+              <button
+                key={cat.key || 'category-all'}
+                type="button"
+                onClick={() => setActiveCategory(cat.key)}
+                className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  isActive
+                    ? 'bg-primary/10 text-primary font-semibold'
+                    : 'text-muted-foreground/70 hover:bg-accent/60 hover:text-foreground'
                 }`}
               >
                 {t(cat.labelKey)}
@@ -155,6 +242,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                   const hot = formatHot(it.currentHot)
                   const isRising = it.trendTag === 'rising'
                   const isCooling = it.trendTag === 'cooling'
+                  const srcColor = source?.color ?? '#888'
 
                   return (
                     <a
@@ -162,7 +250,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                       href={it.url ?? '#'}
                       target={it.url ? '_blank' : undefined}
                       rel={it.url ? 'noopener noreferrer' : undefined}
-                      className="group flex flex-row items-start gap-3 rounded-lg border bg-background/40 p-3 transition-colors hover:border-primary/40 hover:bg-accent/40"
+                      className="group flex flex-row items-start gap-3 rounded-lg border bg-background/40 p-3 transition-all hover:border-primary/40 hover:bg-accent/40 hover:shadow-sm"
                     >
                       {/* 左侧时间 */}
                       <div className="w-10 shrink-0 pt-0.5 text-right">
@@ -175,13 +263,19 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                         <div className="flex flex-wrap items-center gap-1.5">
                           {source ? (
                             <span
-                              className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium"
+                              className="inline-flex h-5 items-center gap-1 rounded-md px-1.5 text-[10px] font-medium"
                               style={{
-                                backgroundColor: `${source.color ?? '#888'}20`,
-                                color: source.color ?? '#888',
+                                backgroundColor: `${srcColor}20`,
+                                color: srcColor,
                               }}
                             >
-                              <span aria-hidden>{source.icon}</span>
+                              <span
+                                className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-sm text-[8px] font-bold text-white"
+                                style={{ backgroundColor: srcColor }}
+                                aria-hidden
+                              >
+                                {sourceInitial(source.sourceName)}
+                              </span>
                               {source.sourceName}
                             </span>
                           ) : (
@@ -191,7 +285,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                           )}
                           {it.llmCategory ? (
                             <span className="inline-flex items-center rounded-md bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                              {t(`feed.category${it.llmCategory.charAt(0).toUpperCase()}${it.llmCategory.slice(1)}`)}
+                              {llmCategoryLabel(it.llmCategory, t)}
                             </span>
                           ) : null}
                           {isRising ? (
