@@ -42,6 +42,55 @@ export function isAIResponse(
   return !!n && n.data?.type === 'ai_response' && !!n.data?.message
 }
 
+/** AI 主动提问选项(跨端共享,与 web store 的 QuestionOption 结构一致) */
+export interface QuestionOptionPayload {
+  id: string
+  label: string
+}
+
+/** AI 主动提问载荷(跨端共享,与 web store 的 PendingQuestion 结构一致)
+ *  - 由 api /chat/questions 端点写入 chat_messages.metadata.pendingQuestion
+ *  - 通过 WS ai_question 事件广播到多端
+ *  - 前端收到后 setPendingQuestion 弹窗阻塞输入
+ *  - 用户回答后通过 /chat/answer 续流,WS 广播 chat_question_answered 通知多端关闭弹窗 */
+export interface PendingQuestionPayload {
+  questionId: string
+  prompt: string
+  options: QuestionOptionPayload[]
+  allowCustom: boolean
+  allowMultiple: boolean
+  /** 关联的 assistant 消息 ID(DB id),用于持久化 metadata 到该消息 */
+  assistantMessageId?: string
+}
+
+/** AI 主动提问推送载荷(api /chat/questions → pushNotification → WS) */
+export interface AIQuestionNotification {
+  type: 'ai_question'
+  conversationId: string
+  question: PendingQuestionPayload
+}
+
+/** 类型守卫:WSNotification 是否为 AI 主动提问 */
+export function isAIQuestion(
+  n: WSNotification | null,
+): n is WSNotification & { data: AIQuestionNotification } {
+  return !!n && n.data?.type === 'ai_question' && !!n.data?.question
+}
+
+/** AI 提问已回答推送载荷(用户提交答案后 → WS 广播 → 多端关闭弹窗) */
+export interface AIQuestionAnsweredNotification {
+  type: 'chat_question_answered'
+  conversationId: string
+  questionId: string
+}
+
+/** 类型守卫:WSNotification 是否为 AI 提问已回答 */
+export function isAIQuestionAnswered(
+  n: WSNotification | null,
+): n is WSNotification & { data: AIQuestionAnsweredNotification } {
+  return !!n && n.data?.type === 'chat_question_answered' && !!n.data?.questionId
+}
+
 // ===================== 通知业务类型 =====================
 
 /** 通知列表项 */
