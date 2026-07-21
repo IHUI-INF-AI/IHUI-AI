@@ -53,7 +53,8 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
   // roomId -> 本机成员集合
   const rooms = new Map<string, Set<RoomMember>>()
   // 实例标识:Pub/Sub 中识别本机发布的消息,避免本机重复推送
-  const instanceId = Math.random().toString(36).slice(2)
+  // 2026-07-21 加固:用 generateCompactId 替代 Math.random,防止 CWE-330 可预测实例标识导致 Pub/Sub 消息伪造
+  const instanceId = generateCompactId('inst')
   const channelFor = (roomId: string) => `chatroom:${roomId}`
 
   const localBroadcast = (roomId: string, payload: unknown, exclude?: WebSocket): void => {
