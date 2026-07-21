@@ -17744,6 +17744,23 @@
     "switchingToHighContrastLight": "までへ...",
     "switchingToHighContrastDark": "までへ..."
   },
+  "devTools": {
+    "trigger": "開発者ツール",
+    "title": "開発者ツール",
+    "description": "ツールパネルは開発/イントラ環境でのみ表示されます。",
+    "envSection": "環境情報",
+    "path": "現在のパス",
+    "viewport": "ビューポート",
+    "now": "現在時刻",
+    "toolsSection": "クイックツール",
+    "reload": "ページを再読み込み",
+    "clearStorage": "ローカルキャッシュを消去 (ihui- プレフィックスのみ)",
+    "copyInfo": "環境情報をコピー",
+    "copied": "クリップボードにコピーしました",
+    "tip": "ヒント：localhost またはイントラ環境でのみ表示されます。",
+    "prodModeTitle": "開発モードのみ利用可能",
+    "prodModeHint": "開発者ツールは localhost またはイントラ環境でのみ表示されます。パブリックドメインからアクセスしているため、ツールパネルは非表示です。"
+  },
   "themePreset": {
     "title": "テーマ",
     "create": "プリセット作成",
