@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Video, Download } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { GenerationFrame, PromptInput, OptionSelect, useGeneration } from './generation-base'
 import type { VideoProvider } from '../ai/types'
@@ -10,20 +11,12 @@ interface VideoGeneratorProps {
   onGenerate?: (prompt: string, provider: VideoProvider, duration: number) => Promise<string>
 }
 
-const PROVIDERS: Array<{ value: VideoProvider; label: string }> = [
-  { value: 'qwen', label: '通义千问' },
-  { value: 'kling', label: '可灵' },
-  { value: 'one-click', label: '一键生成' },
-]
-
-const DURATIONS = [
-  { value: '5', label: '5 秒' },
-  { value: '10', label: '10 秒' },
-  { value: '30', label: '30 秒' },
-] as const
+const PROVIDERS: VideoProvider[] = ['qwen', 'kling', 'one-click']
+const DURATIONS = ['5', '10', '30'] as const
 
 /** VideoGenerator - 视频生成器 */
 export function VideoGenerator({ onGenerate }: VideoGeneratorProps) {
+  const t = useTranslations('videoGenerator')
   const [prompt, setPrompt] = React.useState('')
   const [provider, setProvider] = React.useState<VideoProvider>('qwen')
   const [duration, setDuration] = React.useState<string>('5')
@@ -36,22 +29,27 @@ export function VideoGenerator({ onGenerate }: VideoGeneratorProps) {
 
   return (
     <GenerationFrame
-      title="视频生成"
+      title={t('title')}
       icon={<Video className="h-4 w-4 text-pink-500" />}
       status={result.status}
       error={result.error}
       onGenerate={handleGenerate}
       canGenerate={!!prompt.trim()}
-      generateLabel="生成视频"
+      generateLabel={t('generate')}
       options={
         <div className="flex flex-wrap items-center gap-3">
           <OptionSelect
-            label="服务商"
+            label={t('providerLabel')}
             value={provider}
             onChange={setProvider}
-            options={PROVIDERS}
+            options={PROVIDERS.map((p) => ({ value: p, label: t(`provider.${p}`) }))}
           />
-          <OptionSelect label="时长" value={duration} onChange={setDuration} options={DURATIONS} />
+          <OptionSelect
+            label={t('durationLabel')}
+            value={duration}
+            onChange={setDuration}
+            options={DURATIONS.map((d) => ({ value: d, label: t(`duration.${d}`) }))}
+          />
         </div>
       }
       result={
@@ -66,13 +64,13 @@ export function VideoGenerator({ onGenerate }: VideoGeneratorProps) {
               className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
               <Download className="h-3 w-3" />
-              下载
+              {t('download')}
             </a>
           </div>
         ) : null
       }
     >
-      <PromptInput value={prompt} onChange={setPrompt} placeholder="描述要生成的视频..." />
+      <PromptInput value={prompt} onChange={setPrompt} placeholder={t('placeholder')} />
     </GenerationFrame>
   )
 }

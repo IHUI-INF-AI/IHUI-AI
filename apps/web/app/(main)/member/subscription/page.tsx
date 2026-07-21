@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useLocale } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { CreditCard, Loader2, CheckCircle, XCircle } from 'lucide-react'
 
@@ -26,14 +26,15 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-const STATUS_CONFIG: Record<Subscription['status'], { label: string; cls: string }> = {
-  active: { label: '生效中', cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' },
-  cancelled: { label: '已取消', cls: 'bg-muted text-muted-foreground' },
-  expired: { label: '已过期', cls: 'bg-muted text-muted-foreground' },
+const STATUS_CLS: Record<Subscription['status'], string> = {
+  active: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
+  cancelled: 'bg-muted text-muted-foreground',
+  expired: 'bg-muted text-muted-foreground',
 }
 
 export default function MemberSubscriptionPage() {
   const locale = useLocale()
+  const t = useTranslations('memberSubscriptionPage')
   const router = useRouter()
   const qc = useQueryClient()
 
@@ -70,9 +71,9 @@ export default function MemberSubscriptionPage() {
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
           <CreditCard className="h-5 w-5 text-primary" />
-          订阅管理
+          {t('title')}
         </h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">管理当前订阅,续费或取消</p>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('subtitle')}</p>
       </div>
 
       {error && <Alert variant="danger" description={(error as Error).message} />}
@@ -80,13 +81,13 @@ export default function MemberSubscriptionPage() {
       {isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-          加载中...
+          {t('loading')}
         </div>
       ) : !sub ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12 text-center">
           <CreditCard className="h-8 w-8 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">你还没有订阅任何会员计划</p>
-          <Button onClick={() => router.push('/member/upgrade')}>立即订阅</Button>
+          <p className="text-sm text-muted-foreground">{t('noSubscription')}</p>
+          <Button onClick={() => router.push('/member/upgrade')}>{t('subscribeNow')}</Button>
         </div>
       ) : (
         <>
@@ -103,19 +104,19 @@ export default function MemberSubscriptionPage() {
                 <span
                   className={cn(
                     'rounded-md px-2 py-0.5 text-xs font-medium',
-                    STATUS_CONFIG[sub.status].cls,
+                    STATUS_CLS[sub.status],
                   )}
                 >
-                  {STATUS_CONFIG[sub.status].label}
+                  {t(`status.${sub.status}`)}
                 </span>
               </div>
 
               <div className="flex items-center justify-between border-t pt-3 text-sm">
-                <span className="text-muted-foreground">订阅金额</span>
+                <span className="text-muted-foreground">{t('subscriptionAmount')}</span>
                 <span className="font-semibold">{currencyFmt.format(Number(sub.amount))}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">自动续费</span>
+                <span className="text-muted-foreground">{t('autoRenew')}</span>
                 <span
                   className={cn(
                     'inline-flex items-center gap-1',
@@ -129,7 +130,7 @@ export default function MemberSubscriptionPage() {
                   ) : (
                     <XCircle className="h-3.5 w-3.5" />
                   )}
-                  {sub.autoRenew ? '已开启' : '未开启'}
+                  {sub.autoRenew ? t('autoRenewOn') : t('autoRenewOff')}
                 </span>
               </div>
             </CardContent>
@@ -139,7 +140,7 @@ export default function MemberSubscriptionPage() {
             <div className="flex gap-3">
               <Button onClick={() => renewMut.mutate()} disabled={renewMut.isPending}>
                 {renewMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-                立即续费
+                {t('renewNow')}
               </Button>
               <Button
                 variant="outline"
@@ -148,7 +149,7 @@ export default function MemberSubscriptionPage() {
                 className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
                 {cancelMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-                取消订阅
+                {t('cancelSubscription')}
               </Button>
             </div>
           )}
