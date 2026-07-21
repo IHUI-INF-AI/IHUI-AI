@@ -11228,7 +11228,13 @@
     "prev": "이전",
     "next": "다음",
     "loading": "로딩 중...",
-    "page": "페이지"
+    "page": "페이지",
+    "exportReport": "학습 보고서 내보내기",
+    "exporting": "내보내는 중...",
+    "exportPdf": "PDF 내보내기",
+    "exportExcel": "Excel 내보내기",
+    "exportJson": "JSON 내보내기",
+    "exportError": "내보내기 실패, 잠시 후 다시 시도하세요"
   },
   "notes": {
     "title": "AI인마음페이스테스트",
@@ -27103,6 +27109,28 @@
       "google": "Google",
       "apple": "Apple",
       "thirdParty": "서드파티"
+    }
+  },
+  "oauthMockPage": {
+    "title": "{platform} 인증",
+    "subtitle": "IHUI-AI에 로그인",
+    "permissionsTitle": "앱이 다음 권한을 요청합니다",
+    "permissionNickname": "닉네임",
+    "permissionAvatar": "아바타",
+    "permissionEmail": "이메일 주소",
+    "appRequesting": "앱 {app}이(가) 계정으로 로그인을 요청합니다",
+    "demoNotice": "현재 로컬 데모 모드입니다(실제 {platform} OAuth 자격 증명이 구성되지 않음). '인증'을 클릭하면 로그인 흐름을 시뮬레이션하며 {platform}에 요청을 보내지 않습니다.",
+    "authorize": "인증 및 로그인",
+    "cancel": "취소",
+    "platforms": {
+      "google": "Google",
+      "apple": "Apple",
+      "dingtalk": "딩톡",
+      "enterpriseWechat": "기업 위챗",
+      "wechat": "위챗",
+      "feishu": "페이수",
+      "github": "GitHub",
+      "alipay": "알리페이"
     }
   },
   "agentsStatsPage": {
