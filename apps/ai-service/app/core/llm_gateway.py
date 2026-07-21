@@ -69,16 +69,105 @@ def _decrypt_api_key(api_key_enc: Optional[str]) -> Optional[str]:
 
 
 _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
+    # 2026-07 扩展:覆盖 LiteLLM 支持的所有 LLM 厂商前缀
+    # 国内
     "stepfun/": "stepfun",
     "agnes/": "agnes",
+    "qwen": "qwen",
+    "qwen-": "qwen",
+    "doubao-": "doubao",
+    "hunyuan-": "hunyuan",
+    "glm-": "zhipu",
+    "volcengine-": "volcengine",
+    "moonshot-": "moonshot",
+    "kimi-": "moonshot",
+    "deepseek-": "deepseek",
+    "ernie-": "wenxin",
+    "abab": "minimax",
+    "minimax-": "minimax",
+    "baichuan-": "baichuan",
+    "spark-": "spark",
+    "yi-": "yi",
+    "internlm": "internlm",
+    "sensenova-": "sensenova",
+    "skywork-": "skywork",
+    "jimeng-": "jimeng",
+    "kling-": "kling",
+    "luyala-": "luyala",
+    # 国际原厂
     "groq/": "groq",
     "gemini/": "gemini",
+    "gemini-": "google",
     "openrouter/": "openrouter",
     "anthropic/": "anthropic",
     "claude-": "anthropic",
+    "claude": "anthropic",
+    "gpt-": "openai",
+    "o1-": "openai",
+    "o3-": "openai",
+    "o4-": "openai",
+    "openai/": "openai",
+    # 云 / 聚合平台
     "ollama/": "ollama",
     "azure/": "azure",
     "bedrock/": "bedrock",
+    "watsonx/": "ibm",
+    "vertex/": "vertexai",
+    "huggingface/": "huggingface",
+    "replicate/": "replicate",
+    "together-": "togetherai",
+    "cerebras/": "cerebras",
+    "sambanova/": "sambanova",
+    "deepinfra/": "deepinfra",
+    "friendli/": "friendli",
+    "anyscale/": "anyscale",
+    "infermatic/": "infermatic",
+    "fireworks/": "fireworksai",
+    "leptonai/": "leptonai",
+    "featherless/": "featherless",
+    "parasail/": "parasail",
+    "openwebui/": "openwebui",
+    "lmstudio/": "lmstudio",
+    # 第三方模型系列(走对应厂商)
+    "command-": "cohere",
+    "sonar-": "perplexity",
+    "grok-": "xai",
+    "mistral-": "mistral",
+    "mistral/": "mistral",
+    "codestral-": "mistral",
+    "pixtral-": "mistral",
+    "jamba-": "ai21",
+    "stability-": "stability",
+    "phi-": "microsoft",
+    "nemotron-": "nvidia",
+    "llama-": "meta",
+    "gemma-": "gemma",
+    "amazon-nova-": "aws",
+    "inflection-": "inflection",
+    "snowflake-": "snowflake",
+    "stablelm-": "stability",
+    "nous-": "nous",
+    "ornith-": "ornith",
+    "codebrain-": "codebrain",
+    "mai-": "mai",
+    # LiteLLM OpenAI 兼容聚合(免厂商专属 key)
+    "novita/": "novita",
+    "lambda/": "lambda",
+    "baseten/": "baseten",
+    "crusoe/": "crusoe",
+    "targon/": "targon",
+    "centml/": "centml",
+    "nebius/": "nebius",
+    "siliconcloud/": "siliconcloud",
+    "modelscope/": "modelscope",
+    "ppio/": "ppio",
+    "bailian/": "bailian",
+    "baai/": "baai",
+    "tii/": "tii",
+    "liquid/": "liquid",
+    "ai2/": "ai2",
+    "upstage/": "upstage",
+    "hyperbolic/": "hyperbolic",
 }
 
 
@@ -266,8 +355,14 @@ class LLMGateway:
 
     @staticmethod
     def _is_stub_mode() -> bool:
-        """未配置任何 .env API key 时为 stub 模式(仍可被 DB 配置覆盖)。"""
-        return not any([
+        """未配置任何 .env API key 时为 stub 模式(仍可被 DB 配置覆盖)。
+
+        2026-07 扩展:覆盖 LiteLLM 支持的所有厂商 .env key,任一存在即视为"已配置"。
+        直接读 os.environ 而非 settings 字段,避免给 Pydantic Settings 加 30+ 字段。
+        注意:key 已用任何厂商(国内/国际/云/聚合)即解除 stub,无需重启。
+        """
+        # 第一层:settings 字段(8 个核心 OpenAI 兼容厂商,显式 settings 配置)
+        if any([
             settings.openai_api_key,
             settings.anthropic_api_key,
             settings.groq_api_key,
@@ -275,7 +370,46 @@ class LLMGateway:
             settings.openrouter_api_key,
             settings.agnes_api_key,
             settings.stepfun_api_key,
-        ])
+        ]):
+            return False
+        # 第二层:os.environ 检查所有 LiteLLM 一等公民厂商 key
+        # 用户在 .env 直接配 GROQ_API_KEY / XAI_API_KEY / DEEPSEEK_API_KEY 等也立即激活
+        # 前缀列表对应 _PREFIX_TO_PROVIDER_CODE 全部 30+ 厂商
+        vendor_env_keys = [
+            # 国际原厂
+            "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY",
+            "OPENROUTER_API_KEY", "COHERE_API_KEY", "MISTRAL_API_KEY", "XAI_API_KEY",
+            "PERPLEXITY_API_KEY", "DEEPSEEK_API_KEY", "TOGETHERAI_API_KEY",
+            "HUGGINGFACE_API_KEY", "REPLICATE_API_KEY", "AI21_API_KEY",
+            "FIREWORKS_API_KEY", "WATSONX_API_KEY", "UPSTAGE_API_KEY",
+            # 国内厂商
+            "DASHSCOPE_API_KEY",  # 阿里通义
+            "ZHIPUAI_API_KEY",  # 智谱
+            "MOONSHOT_API_KEY",
+            "BAIDU_API_KEY",  # 文心
+            "YI_API_KEY",  # 零一万物
+            "MINIMAX_API_KEY",  # MiniMax
+            "SPARK_API_KEY",  # 讯飞星火
+            "BAICHUAN_API_KEY",
+            "HUNYUAN_API_KEY",  # 腾讯混元
+            "STEPFUN_API_KEY",
+            "AGNES_API_KEY",
+            "DOUBAO_API_KEY",  # 字节豆包(火山方舟)
+            # 云 / 聚合平台
+            "AZURE_OPENAI_API_KEY", "AZURE_API_KEY",
+            "AWS_ACCESS_KEY_ID", "AWS_BEDROCK_API_KEY",
+            "VERTEX_API_KEY", "VERTEX_AI_API_KEY",
+            "OLLAMA_API_BASE",  # 本地 ollama 不需 key,有 base 即激活
+            "ANTHROPIC_VERTEX_API_KEY",
+            # OpenAI 兼容聚合
+            "NOVITA_API_KEY", "LAMBDA_API_KEY", "BASETEN_API_KEY",
+            "CEREBRAS_API_KEY", "SAMBANOVA_API_KEY", "DEEPINFRA_API_KEY",
+            "FRIENDLI_API_KEY", "ANYSCALE_API_KEY", "LEPTONAI_API_KEY",
+            "PPIO_API_KEY", "SILICONCLOUD_API_KEY", "MODELSCOPE_API_KEY",
+            "NEBIUS_API_KEY", "FEATHERLESS_API_KEY", "PARASAIL_API_KEY",
+            "OPENWEBUI_API_KEY", "LMSTUDIO_API_KEY",
+        ]
+        return not any(os.environ.get(k) for k in vendor_env_keys)
 
     @staticmethod
     def _resolve_provider(model: str) -> tuple[str | None, str | None, str | None]:
