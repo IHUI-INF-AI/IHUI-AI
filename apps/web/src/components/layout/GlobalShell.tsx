@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/sidebar'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
 import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
 import { WorkspacePermissionRequestDialog } from '@/components/workspace/workspace-permission-request-dialog'
+import { DevToolsTrigger } from '@/components/dev/DevToolsTrigger'
 import { Button } from '@ihui/ui'
 import { useAiPanelStore, AI_PANEL_DEFAULT_WIDTH } from '@/stores/ai-panel'
 import { useMounted } from '@/hooks/use-mounted'
@@ -167,6 +168,12 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
         未登录时不订阅、未挂载,登录后自动启用。
       */}
       <WorkspacePermissionRequestDialog userId={currentUserId} />
+      {/* 开发者工具悬浮侧栏 (2026-07-21)
+          - 固定在视口最右侧,平时仅露 10px 把手,hover 自动从右往左拉出 320px 面板
+          - 独立于主侧边栏,不与 AISidePanel/主 Sidebar 冲突(右侧空间空闲)
+          - 面板内容按 hostname 识别 dev/prod,生产态只显示说明不暴露任何工具
+          - 详见 DevToolsTrigger.tsx */}
+      <DevToolsTrigger />
     </>
   )
 }
