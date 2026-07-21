@@ -22,7 +22,7 @@ export const chatConversations = pgTable('chat_conversations', {
   title: varchar('title', { length: 255 }).default('新对话').notNull(),
   model: varchar('model', { length: 64 }).default('gpt-4o-mini').notNull(),
   systemPrompt: text('system_prompt'),
-  metadata: jsonb('metadata'),
+  metadata: jsonb('metadata').default({}),
   lastMessageAt: timestamp('last_message_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -43,7 +43,7 @@ export const chatMessages = pgTable('chat_messages', {
   role: varchar('role', { length: 16 }).default('user').notNull(),
   content: text('content').notNull(),
   tokens: integer('tokens'),
-  metadata: jsonb('metadata'),
+  metadata: jsonb('metadata').default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 })
 
