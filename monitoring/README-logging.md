@@ -90,7 +90,7 @@ services:
 
 ## 五、Grafana 查询指南
 
-1. 打开 Grafana(http://localhost:3001,默认 admin / 配置的 GRAFANA_ADMIN_PASSWORD)
+1. 打开 Grafana(http://localhost:8816,默认 admin / 配置的 GRAFANA_ADMIN_PASSWORD)
 2. 左侧菜单 → **Explore**(放大镜图标)
 3. 数据源下拉选择 **Loki**
 4. 在查询输入框中写 LogQL
@@ -216,7 +216,7 @@ docker exec ihui-promtail cat /tmp/positions.yaml
 
 ```bash
 # 1) 查看 Loki 限流
-curl http://localhost:3100/metrics | grep loki_request
+curl http://localhost:8818/metrics | grep loki_request
 
 # 2) 调高 ingestion 限制(已在 loki-config.yml 中设为 10MB/s)
 #    如仍不够,继续调高 ingestion_rate_mb 与 ingestion_burst_size_mb

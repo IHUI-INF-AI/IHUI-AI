@@ -1,6 +1,6 @@
 // scripts/test-llm-connection.mjs
 // 验证 AI service LLM 接入是否可用
-const AI_URL = process.env.AI_URL ?? 'http://localhost:8000'
+const AI_URL = process.env.AI_URL ?? 'http://localhost:8803'
 
 async function fetchJson(url, options = {}) {
   const r = await fetch(url, options)

@@ -199,6 +199,12 @@ if (!run('📏 检查侧边栏宽度一致性...', 'node scripts/check-sidebar-w
 // info-only, 始终 exit 0, 不影响其他守门
 run('📋 打印 staged 文件清单(info)...', 'node scripts/check-staged-files.mjs')
 
+// 24. 端口注册表守门(warn-only, 2026-07-22 立, AGENTS.md §docs/port-management.md)
+// 检测 staged 文件中的 localhost:PORT 引用, PORT 非 88xx → warn
+// 豁免: CI workflows / 测试默认值 / Docker 容器内部端口 / healthcheck / 第三方端口
+// 不阻塞 commit, 提醒 agent 按 docs/port-management.md §3 端口分配规则使用 88xx
+run('🔌 检查端口注册表守门(warn-only)...', 'node scripts/check-port-registry.mjs')
+
 // 16. 条件 typecheck 闸门(仅 staged 涉及 apps/web 时跑 web typecheck)
 // 防止"commit 通过但 push 失败"的循环(f21dc473 commit 漏掉 import 的教训)
 // 只在 staged 文件涉及 apps/web 时跑,避免影响其他包的 commit 速度

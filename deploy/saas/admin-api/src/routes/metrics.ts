@@ -16,8 +16,8 @@ import { config } from '../config.js';
 
 const SlugSchema = z.string().regex(/^[a-z0-9-]{3,20}$/, 'Invalid slug');
 
-/** Prometheus 端点(仅 localhost,docker-compose 端口映射 127.0.0.1:9090:9090) */
-const PROMETHEUS_URL = process.env.PROMETHEUS_URL ?? 'http://127.0.0.1:9090';
+/** Prometheus 端点(仅 localhost,docker-compose 端口映射 127.0.0.1:8815:9090) */
+const PROMETHEUS_URL = process.env.PROMETHEUS_URL ?? 'http://127.0.0.1:8815';
 
 /** 查询超时(2s)— 单租户 dashboard 要求秒级响应 */
 const QUERY_TIMEOUT_MS = 2000;
