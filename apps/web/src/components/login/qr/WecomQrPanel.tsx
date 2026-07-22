@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 
 import { getPlatformConfig } from '@/lib/third-party-config'
 import { generateState, saveOAuthState } from '@/lib/oauth-utils'
-import { loadWecomQrSdk, type WecomLoginPanelInstance } from './sdk-loader'
+import { loadWecomQrSdk, type WecomLoginInstance } from './sdk-loader'
 import { UnconfiguredState, ErrorState } from './WechatQrPanel'
 
 interface WecomQrPanelProps {
@@ -17,7 +17,7 @@ export function WecomQrPanel({ refreshKey }: WecomQrPanelProps) {
   const t = useTranslations('auth')
   const containerRef = React.useRef<HTMLDivElement>(null)
   const containerId = React.useId().replace(/[:]/g, '')
-  const panelRef = React.useRef<WecomLoginPanelInstance | null>(null)
+  const instanceRef = React.useRef<WecomLoginInstance | null>(null)
   const [status, setStatus] = React.useState<'loading' | 'ready' | 'error' | 'unconfigured'>('loading')
   const [errorMsg, setErrorMsg] = React.useState('')
 
@@ -37,20 +37,19 @@ export function WecomQrPanel({ refreshKey }: WecomQrPanelProps) {
 
     loadWecomQrSdk()
       .then(() => {
-        if (cancelled || !window.ww?.createWWLoginPanel || !container) return
+        if (cancelled || !window.WwLogin || !container) return
         container.innerHTML = ''
         try {
-          panelRef.current = window.ww.createWWLoginPanel({
-            el: `#${containerId}`,
-            params: {
-              login_type: 'CorpApp',
-              appid: config.appId!,
-              agentid: config.agentId!,
-              redirect_uri: config.redirectUri,
-              state,
-              redirect_type: 'top',
-              lang: 'zh',
-            },
+          // 企业微信 wwLogin-1.2.7.js API:new WwLogin(options)
+          // SDK 内部创建 iframe 指向 https://open.work.weixin.qq.com/wwopen/sso/qrConnect?...
+          // 扫码成功后通过 postMessage 通知父窗口,SDK 自动整页跳转到 redirect_uri
+          instanceRef.current = new window.WwLogin({
+            id: containerId,
+            appid: config.appId!,
+            agentid: config.agentId!,
+            redirect_uri: config.redirectUri,
+            state,
+            lang: 'zh',
           })
           if (!cancelled) setStatus('ready')
         } catch (e) {
@@ -70,11 +69,11 @@ export function WecomQrPanel({ refreshKey }: WecomQrPanelProps) {
     return () => {
       cancelled = true
       try {
-        panelRef.current?.destroy?.()
+        instanceRef.current?.destroyed?.()
       } catch {
         /* ignore */
       }
-      panelRef.current = null
+      instanceRef.current = null
       if (container) container.innerHTML = ''
     }
   }, [containerId, refreshKey])
