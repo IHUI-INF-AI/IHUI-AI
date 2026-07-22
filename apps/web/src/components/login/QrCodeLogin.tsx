@@ -95,7 +95,7 @@ export function QrCodeLogin({ onSwitchMethod }: { onSwitchMethod?: () => void })
   const ss = String(countdown % 60).padStart(2, '0')
 
   return (
-    <div className="flex flex-col items-center gap-3 py-4">
+    <div className="flex flex-col items-center gap-3 pt-4 pb-0">
       <div className="relative">
         {loading ? (
           <div className="flex h-[160px] w-[160px] items-center justify-center rounded-lg border">
