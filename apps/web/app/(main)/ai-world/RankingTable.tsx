@@ -42,7 +42,7 @@ export function RankingTable() {
     [locale],
   )
 
-  const [leaderboard, setLeaderboard] = React.useState<LeaderboardId>('superclue')
+  const [leaderboard, setLeaderboard] = React.useState<LeaderboardId>('lmsys')
   const [category, setCategory] = React.useState<string | null>(null)
 
   const { data: leaderboardsData } = useQuery({
