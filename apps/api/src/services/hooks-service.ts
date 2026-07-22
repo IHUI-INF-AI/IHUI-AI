@@ -597,3 +597,224 @@ export async function triggerHookHealthCheck(
     { method: 'POST' },
   )
 }
+
+// ============================================================================
+// 超越创新功能(2026-07-23 立)
+// 智能编排 + A/B 测试 + Gantt 可视化 + 预置模板 + 健康预测
+// ============================================================================
+
+/** 降级响应(ai-service 无响应时返回) */
+export interface DegradedResponse {
+  degraded: true
+}
+
+/** A/B 测试配置 */
+export interface AbTestConfig {
+  id: string
+  hook_a_id: string
+  hook_b_id: string
+  traffic_split: number
+  user_bucketing: string
+  started_at: string
+  ended_at: string
+  status: string
+}
+
+/** 创建 A/B 测试请求体 */
+export interface CreateAbTestPayload {
+  hook_a_id: string
+  hook_b_id: string
+  traffic_split: number
+  user_bucketing?: string
+}
+
+/** 智能编排请求体 */
+export interface AutoOrchestratePayload {
+  requirement: string
+  event?: string
+}
+
+/** 智能编排响应 */
+export interface AutoOrchestrateResponse {
+  hooks: unknown[]
+  dependencies: unknown[]
+  rationale: string
+  degraded: boolean
+}
+
+/** Gantt 时间线条目 */
+export interface ExecutionTimelineItem {
+  hook_id: string
+  log_id: string
+  start_time: string
+  end_time: string
+  duration_ms: number
+  status: string
+  event: string
+}
+
+/** 健康预测响应 */
+export interface HealthForecastResponse {
+  hook_id: string
+  current_health: string
+  predicted_failure_rate: number
+  predicted_latency: number
+  trend: string
+  recommendation: string
+  degraded: boolean
+}
+
+/**
+ * 智能编排:用 LLM 分析自然语言需求,生成 Hook + DAG 依赖图。
+ *
+ * 失败降级返回 {degraded: true}。
+ */
+export async function autoOrchestrateHooks(
+  request: FastifyRequest | null,
+  requirement: string,
+  event?: string,
+): Promise<AutoOrchestrateResponse | DegradedResponse> {
+  const payload: AutoOrchestratePayload = { requirement, ...(event ? { event } : {}) }
+  const data = await callAiHooks<AutoOrchestrateResponse>(request, '/api/hooks/auto-orchestrate', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  return data ?? { degraded: true }
+}
+
+/**
+ * 创建 A/B 测试。
+ *
+ * 失败降级返回 {degraded: true}。
+ */
+export async function createAbTest(
+  request: FastifyRequest | null,
+  config: CreateAbTestPayload,
+): Promise<AbTestConfig | DegradedResponse> {
+  const data = await callAiHooks<AbTestConfig>(request, '/api/hooks/ab-test', {
+    method: 'POST',
+    body: JSON.stringify(config),
+  })
+  return data ?? { degraded: true }
+}
+
+/**
+ * 列出所有 A/B 测试。
+ *
+ * 失败降级返回空数组。
+ */
+export async function listAbTests(
+  request: FastifyRequest | null,
+): Promise<AbTestConfig[]> {
+  const data = await callAiHooks<AbTestConfig[]>(request, '/api/hooks/ab-tests', {
+    method: 'GET',
+  })
+  return data ?? []
+}
+
+/**
+ * 获取 A/B 测试详情(含 A/B 各自 stats 对比)。
+ *
+ * 失败降级返回 {degraded: true}。
+ */
+export async function getAbTest(
+  request: FastifyRequest | null,
+  testId: string,
+): Promise<unknown | DegradedResponse> {
+  const data = await callAiHooks<unknown>(
+    request,
+    `/api/hooks/ab-test/${encodeURIComponent(testId)}`,
+    { method: 'GET' },
+  )
+  return data ?? { degraded: true }
+}
+
+/**
+ * 停止 A/B 测试。
+ *
+ * 失败降级返回 {degraded: true}。
+ */
+export async function stopAbTest(
+  request: FastifyRequest | null,
+  testId: string,
+): Promise<unknown | DegradedResponse> {
+  const data = await callAiHooks<unknown>(
+    request,
+    `/api/hooks/ab-test/${encodeURIComponent(testId)}/stop`,
+    { method: 'POST' },
+  )
+  return data ?? { degraded: true }
+}
+
+/**
+ * 列出 5 个预置模板。
+ *
+ * 失败降级返回空数组。
+ */
+export async function listHookTemplates(
+  request: FastifyRequest | null,
+): Promise<unknown[]> {
+  const data = await callAiHooks<unknown[]>(request, '/api/hooks/templates', {
+    method: 'GET',
+  })
+  return data ?? []
+}
+
+/**
+ * 用模板创建 hook(overrides 覆盖 url/command 等)。
+ *
+ * 失败降级返回 {degraded: true}。
+ */
+export async function instantiateHookTemplate(
+  request: FastifyRequest | null,
+  templateId: string,
+  overrides: Record<string, unknown>,
+): Promise<unknown | DegradedResponse> {
+  const data = await callAiHooks<unknown>(
+    request,
+    `/api/hooks/templates/${encodeURIComponent(templateId)}/instantiate`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ overrides }),
+    },
+  )
+  return data ?? { degraded: true }
+}
+
+/**
+ * 获取 Hook 执行时间线(Gantt 可视化数据)。
+ *
+ * 失败降级返回空数组。
+ */
+export async function getHookExecutionTimeline(
+  request: FastifyRequest | null,
+  hookId: string,
+  since?: string,
+): Promise<ExecutionTimelineItem[]> {
+  const qs = since ? `?since=${encodeURIComponent(since)}` : ''
+  const data = await callAiHooks<ExecutionTimelineItem[]>(
+    request,
+    `/api/hooks/${encodeURIComponent(hookId)}/execution-timeline${qs}`,
+    { method: 'GET' },
+  )
+  return data ?? []
+}
+
+/**
+ * 获取 Hook 健康预测(LLM 分析趋势 + 线性回归降级)。
+ *
+ * 失败降级返回 {degraded: true}。
+ */
+export async function getHookHealthForecast(
+  request: FastifyRequest | null,
+  hookId: string,
+  days?: number,
+): Promise<HealthForecastResponse | DegradedResponse> {
+  const qs = days ? `?days=${encodeURIComponent(days)}` : ''
+  const data = await callAiHooks<HealthForecastResponse>(
+    request,
+    `/api/hooks/${encodeURIComponent(hookId)}/health-forecast${qs}`,
+    { method: 'GET' },
+  )
+  return data ?? { degraded: true }
+}
