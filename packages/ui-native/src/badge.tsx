@@ -29,7 +29,12 @@ export interface BadgeProps extends ComponentProps<typeof View>, VariantProps<ty
 export function Badge({ variant, label, className, ...props }: BadgeProps) {
   const v = variant ?? 'default'
   return (
-    <View className={cn(badgeVariants({ variant }), 'rounded-md', className)} {...props}>
+    <View
+      className={cn(badgeVariants({ variant }), 'rounded-md', className)}
+      accessibilityRole="text"
+      accessibilityLabel={label}
+      {...props}
+    >
       <Text className={cn('text-xs font-semibold', badgeTextVariants[v])}>{label}</Text>
     </View>
   )

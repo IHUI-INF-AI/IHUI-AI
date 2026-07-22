@@ -92,12 +92,14 @@ function DataTable<TData>({
                 {headerGroup.headers.map((header) => {
                   const canSort = header.column.getCanSort()
                   const sorted = header.column.getIsSorted()
+                  const ariaSort = sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : 'none'
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead key={header.id} aria-sort={canSort ? ariaSort : undefined}>
                       {canSort ? (
                         <button
                           type="button"
                           onClick={header.column.getToggleSortingHandler()}
+                          aria-label={`排序: ${sorted === 'asc' ? '升序' : sorted === 'desc' ? '降序' : '未排序'}`}
                           className="inline-flex items-center gap-1 text-left font-medium transition-colors hover:text-foreground"
                         >
                           <span>{flexRender(header.column.columnDef.header, header.getContext())}</span>
@@ -164,6 +166,8 @@ function DataTable<TData>({
                 type="button"
                 key={p}
                 onClick={() => table.setPageIndex(p)}
+                aria-current={p === pageIndex ? 'page' : undefined}
+                aria-label={`第 ${p + 1} 页`}
                 className={cn(
                   'inline-flex h-8 min-w-8 items-center justify-center rounded-md border px-2 text-xs transition-colors',
                   p === pageIndex
