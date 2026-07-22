@@ -11000,8 +11000,12 @@
     "maxLevel": "已達最高等級",
     "tab": {
       "tx": "積分流水",
-      "lb": "排行榜"
+      "lb": "排行榜",
+      "redeem": "積分兌換"
     },
+    "redeemEmpty": "暫無可兌換商品",
+    "pointsUnit": "{n} 積分",
+    "redeemBtn": "立即兌換",
     "source": "來源",
     "amount": "變動",
     "balance": "餘額",
@@ -28505,6 +28509,10 @@
       "searchPlaceholder": "搜尋資訊標題或摘要…",
       "searchEmpty": "未找到符合的資訊,換個關鍵字試試",
       "trendBtn": "趨勢",
+      "trendAll": "全部趨勢",
+      "trendRising": "上升",
+      "trendCooling": "下降",
+      "trendNew": "新晉",
       "moreHint": "已展示 {shown}/{total} 條,更多資訊請調整篩選條件"
     },
     "hotRanking": {
