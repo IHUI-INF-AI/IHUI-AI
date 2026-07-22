@@ -357,6 +357,461 @@ class AgentOrchestrator:
         )
 
     # =========================================================================
+    # Debate(辩论:多 Agent 多轮交替发言,P1-2)
+    # =========================================================================
+
+    async def run_debate(
+        self,
+        agents: list[str],
+        topic: str,
+        max_rounds: int = 3,
+        session_id: str | None = None,
+        model_override: str | None = None,
+    ) -> OrchestrationResult:
+        """辩论模式:多 Agent 多轮交替发言,每轮给出立场(agree/disagree/neutral)。
+
+        流程:
+        1. 第 1 轮:每个 Agent 基于主题给出初始观点 + 立场
+        2. 第 2+ 轮:每个 Agent 看到其他 Agent 上一轮发言后,给出回应 + 可能更新立场
+        3. 最后一轮后,LLM 综合所有发言生成最终结论
+        """
+        import re as _re
+
+        start = time.monotonic()
+        orchestration_id = f"orch-{uuid.uuid4().hex[:8]}"
+        sid = session_id or f"{orchestration_id}-session"
+        trace: list[dict[str, Any]] = []
+        step_results: list[AgentStepResult] = []
+        status = "completed"
+
+        if len(agents) < 2:
+            return OrchestrationResult(
+                orchestration_id=orchestration_id,
+                steps=[],
+                final_output="",
+                status="failed",
+                total_duration_ms=round((time.monotonic() - start) * 1000, 2),
+                trace=[{"error": "至少需要 2 个 Agent"}],
+            )
+
+        # 每轮每个 Agent 的发言记录:[{agent, output, stance, status}]
+        rounds_history: list[list[dict[str, Any]]] = []
+
+        for round_idx in range(max_rounds):
+            round_records: list[dict[str, Any]] = []
+            prev_round = rounds_history[-1] if rounds_history else []
+            prev_text = ""
+            if prev_round:
+                prev_text = "前序发言:\n" + "\n".join(
+                    f"[{r['agent']}](立场:{r.get('stance', 'unknown')}): "
+                    f"{r.get('output', '')[:500]}"
+                    for r in prev_round
+                ) + "\n\n"
+
+            for agent_name in agents:
+                agent = self._registry.get(agent_name)
+                if not agent:
+                    step_results.append(AgentStepResult(
+                        agent_name=agent_name, input="", output="",
+                        status="failed", error=f"Agent 不存在: {agent_name}",
+                    ))
+                    trace.append({
+                        "round": round_idx + 1, "agent": agent_name,
+                        "status": "failed", "error": "agent_not_found",
+                    })
+                    round_records.append({
+                        "agent": agent_name, "output": "",
+                        "stance": "unknown", "status": "failed",
+                    })
+                    continue
+
+                if round_idx == 0:
+                    user_input = (
+                        f"辩论主题:{topic}\n\n"
+                        "请给出你的初始观点,并在末尾用一行声明立场(agree/disagree/neutral)。"
+                    )
+                else:
+                    user_input = (
+                        f"{prev_text}辩论主题:{topic}\n\n"
+                        f"这是第 {round_idx + 1} 轮,请基于以上发言回应,"
+                        "可在末尾更新立场(agree/disagree/neutral)。"
+                    )
+
+                t0 = time.monotonic()
+                try:
+                    result = await self._run_agent(agent, user_input, sid, model_override)
+                except Exception as e:
+                    result = AgentStepResult(
+                        agent_name=agent_name, input=user_input, output="",
+                        status="failed",
+                        duration_ms=round((time.monotonic() - t0) * 1000, 2),
+                        error=str(e),
+                    )
+
+                # 解析立场(取 output 中首个 agree/disagree/neutral 词)
+                stance = "neutral"
+                m = _re.search(r"\b(agree|disagree|neutral)\b", (result.output or "").lower())
+                if m:
+                    stance = m.group(1)
+
+                step_results.append(result)
+                trace.append({
+                    "round": round_idx + 1, "agent": agent_name,
+                    "duration_ms": result.duration_ms, "status": result.status,
+                    "stance": stance,
+                })
+                round_records.append({
+                    "agent": agent_name, "output": result.output,
+                    "stance": stance, "status": result.status,
+                })
+                if result.status == "failed":
+                    status = "failed"
+
+            rounds_history.append(round_records)
+
+        # 最终综合:LLM 汇总所有发言
+        all_speeches = "\n\n".join(
+            f"=== 第 {i + 1} 轮 ===\n" + "\n".join(
+                f"[{r['agent']}](立场:{r.get('stance', 'unknown')}): "
+                f"{r.get('output', '')[:800]}"
+                for r in round_recs
+            )
+            for i, round_recs in enumerate(rounds_history)
+        )
+        summary_input = (
+            f"以下是关于主题「{topic}」的多轮辩论记录:\n\n{all_speeches}\n\n"
+            "请综合各方观点,生成最终结论(含主流立场 + 关键分歧 + 综合判断)。"
+        )
+        try:
+            summary_result = await llm_gateway.complete(
+                [{"role": "user", "content": summary_input}],
+                model=model_override,
+            )
+            final_output = str(summary_result.get("content", "") or "")
+        except Exception as e:
+            final_output = f"[综合结论生成失败: {e}]\n\n" + all_speeches[:2000]
+
+        return OrchestrationResult(
+            orchestration_id=orchestration_id,
+            steps=step_results,
+            final_output=final_output,
+            status=status,
+            total_duration_ms=round((time.monotonic() - start) * 1000, 2),
+            trace=trace,
+        )
+
+    # =========================================================================
+    # Vote(投票:每个 Agent 出方案,然后投票,P1-2)
+    # =========================================================================
+
+    async def run_vote(
+        self,
+        agents: list[str],
+        topic: str,
+        session_id: str | None = None,
+        model_override: str | None = None,
+    ) -> OrchestrationResult:
+        """投票模式:每个 Agent 独立出方案,然后所有 Agent 对每个方案投票。
+
+        流程:
+        1. 第 1 阶段:每个 Agent 独立生成方案(parallel)
+        2. 第 2 阶段:每个 Agent 对所有方案(含自己)投票(每个 Agent 1 票,可投自己)
+        3. 统计票数,票数最高的方案为最终结论
+        4. OrchestrationResult.final_output 含获胜方案 + 票数
+        5. trace 最后一项加 votes 字段(OrchestrationResult 无 votes 字段)
+        """
+        import re as _re
+
+        start = time.monotonic()
+        orchestration_id = f"orch-{uuid.uuid4().hex[:8]}"
+        sid = session_id or f"{orchestration_id}-session"
+        trace: list[dict[str, Any]] = []
+        step_results: list[AgentStepResult] = []
+        status = "completed"
+
+        if len(agents) < 2:
+            return OrchestrationResult(
+                orchestration_id=orchestration_id,
+                steps=[],
+                final_output="",
+                status="failed",
+                total_duration_ms=round((time.monotonic() - start) * 1000, 2),
+                trace=[{"error": "至少需要 2 个 Agent"}],
+            )
+
+        # 第 1 阶段:并行生成方案
+        async def _gen(idx: int, agent_name: str) -> tuple[int, str, AgentStepResult]:
+            agent = self._registry.get(agent_name)
+            if not agent:
+                r = AgentStepResult(
+                    agent_name=agent_name, input="", output="",
+                    status="failed", error=f"Agent 不存在: {agent_name}",
+                )
+                return idx, agent_name, r
+            user_input = f"主题:{topic}\n\n请提出你的方案(含核心思路 + 关键步骤)。"
+            t0 = time.monotonic()
+            try:
+                r = await self._run_agent(agent, user_input, sid, model_override)
+            except Exception as e:
+                r = AgentStepResult(
+                    agent_name=agent_name, input=user_input, output="",
+                    status="failed",
+                    duration_ms=round((time.monotonic() - t0) * 1000, 2),
+                    error=str(e),
+                )
+            return idx, agent_name, r
+
+        gen_results = await asyncio.gather(
+            *[_gen(i, n) for i, n in enumerate(agents)]
+        )
+        proposals: list[dict[str, Any]] = []
+        for idx, agent_name, r in gen_results:
+            step_results.append(r)
+            trace.append({
+                "phase": "propose", "agent": agent_name,
+                "duration_ms": r.duration_ms, "status": r.status,
+            })
+            if r.status == "completed":
+                proposals.append({"idx": idx, "agent": agent_name, "output": r.output})
+            else:
+                status = "failed"
+
+        if not proposals:
+            return OrchestrationResult(
+                orchestration_id=orchestration_id,
+                steps=step_results,
+                final_output="[所有 Agent 方案生成失败]",
+                status="failed",
+                total_duration_ms=round((time.monotonic() - start) * 1000, 2),
+                trace=trace,
+            )
+
+        # 第 2 阶段:每个 Agent 投票
+        proposals_text = "\n".join(
+            f"[方案{i + 1} - {p['agent']}]: {p['output'][:600]}"
+            for i, p in enumerate(proposals)
+        )
+        n_proposals = len(proposals)
+
+        async def _vote(voter_name: str) -> tuple[str, int]:
+            agent = self._registry.get(voter_name)
+            if not agent:
+                return voter_name, -1
+            user_input = (
+                f"主题:{topic}\n\n以下是 {n_proposals} 个方案:\n{proposals_text}\n\n"
+                f"请投票选出最佳方案,只回复方案编号(1-{n_proposals})。"
+            )
+            try:
+                r = await self._run_agent(agent, user_input, sid, model_override)
+            except Exception:
+                return voter_name, -1
+            nums = _re.findall(r"\d+", r.output or "")
+            if not nums:
+                return voter_name, 1  # 解析失败默认投 1
+            vote = int(nums[0])
+            if vote < 1 or vote > n_proposals:
+                vote = 1  # 越界默认投 1
+            return voter_name, vote
+
+        vote_results = await asyncio.gather(*[_vote(n) for n in agents])
+        votes_count: dict[int, int] = {i + 1: 0 for i in range(n_proposals)}
+        votes_detail: list[dict[str, Any]] = []
+        for voter, vote in vote_results:
+            if vote >= 1:
+                votes_count[vote] += 1
+            votes_detail.append({"voter": voter, "vote": vote})
+            trace.append({
+                "phase": "vote", "agent": voter, "vote": vote,
+                "status": "completed" if vote >= 1 else "failed",
+            })
+
+        # 获胜方案(票数最高,平票取编号最小)
+        winner_idx = min(
+            range(1, n_proposals + 1),
+            key=lambda i: (-votes_count[i], i),
+        )
+        winner = proposals[winner_idx - 1]
+
+        trace.append({
+            "phase": "tally",
+            "votes": votes_count,
+            "votes_detail": votes_detail,
+            "winner_idx": winner_idx,
+            "winner_agent": winner["agent"],
+        })
+
+        final_output = (
+            f"获胜方案(方案{winner_idx} - {winner['agent']},"
+            f"得票 {votes_count[winner_idx]}/{len(agents)}):\n\n"
+            f"{winner['output']}\n\n投票明细:{votes_count}"
+        )
+
+        return OrchestrationResult(
+            orchestration_id=orchestration_id,
+            steps=step_results,
+            final_output=final_output,
+            status=status,
+            total_duration_ms=round((time.monotonic() - start) * 1000, 2),
+            trace=trace,
+        )
+
+    # =========================================================================
+    # Critique(批判:出方案 + 挑刺 + 改进,P1-2)
+    # =========================================================================
+
+    async def run_critique(
+        self,
+        agents: list[str],
+        topic: str,
+        max_rounds: int = 2,
+        session_id: str | None = None,
+        model_override: str | None = None,
+    ) -> OrchestrationResult:
+        """批判模式:第一个 Agent 出方案,其余 Agent 挑刺,出方案者迭代改进。
+
+        流程:
+        1. agents[0] 出初始方案
+        2. agents[1:] 每个 Agent 提出批判意见(并行)
+        3. agents[0] 基于批判意见改进方案(迭代 max_rounds 轮)
+        4. 最终输出改进后的方案
+        """
+        start = time.monotonic()
+        orchestration_id = f"orch-{uuid.uuid4().hex[:8]}"
+        sid = session_id or f"{orchestration_id}-session"
+        trace: list[dict[str, Any]] = []
+        step_results: list[AgentStepResult] = []
+        status = "completed"
+
+        if len(agents) < 2:
+            return OrchestrationResult(
+                orchestration_id=orchestration_id,
+                steps=[],
+                final_output="",
+                status="failed",
+                total_duration_ms=round((time.monotonic() - start) * 1000, 2),
+                trace=[{"error": "至少需要 2 个 Agent"}],
+            )
+
+        proposer_name = agents[0]
+        critic_names = agents[1:]
+        proposer = self._registry.get(proposer_name)
+
+        if not proposer:
+            return OrchestrationResult(
+                orchestration_id=orchestration_id,
+                steps=[],
+                final_output=f"出方案 Agent 不存在: {proposer_name}",
+                status="failed",
+                total_duration_ms=round((time.monotonic() - start) * 1000, 2),
+                trace=[{"error": f"proposer_not_found: {proposer_name}"}],
+            )
+
+        # 第 1 轮:出方案者给初始方案
+        t0 = time.monotonic()
+        try:
+            r0 = await self._run_agent(
+                proposer,
+                f"主题:{topic}\n\n请提出你的方案(含核心思路 + 关键步骤 + 预期效果)。",
+                sid, model_override,
+            )
+        except Exception as e:
+            r0 = AgentStepResult(
+                agent_name=proposer_name, input="", output="",
+                status="failed",
+                duration_ms=round((time.monotonic() - t0) * 1000, 2),
+                error=str(e),
+            )
+        step_results.append(r0)
+        trace.append({
+            "round": 1, "phase": "propose", "agent": proposer_name,
+            "duration_ms": r0.duration_ms, "status": r0.status,
+        })
+        current_proposal = r0.output if r0.status == "completed" else ""
+        if r0.status == "failed":
+            status = "failed"
+
+        # 迭代 max_rounds 轮:批判 + 改进
+        for round_idx in range(max_rounds):
+            # 批判阶段(并行)
+            async def _critique(critic_name: str) -> AgentStepResult:
+                agent = self._registry.get(critic_name)
+                if not agent:
+                    return AgentStepResult(
+                        agent_name=critic_name, input="", output="",
+                        status="failed", error=f"Agent 不存在: {critic_name}",
+                    )
+                user_input = (
+                    f"主题:{topic}\n\n以下是当前方案:\n{current_proposal}\n\n"
+                    "请挑出该方案的问题/风险/可改进点(列出 3-5 条具体批判)。"
+                )
+                t0c = time.monotonic()
+                try:
+                    return await self._run_agent(agent, user_input, sid, model_override)
+                except Exception as e:
+                    return AgentStepResult(
+                        agent_name=critic_name, input=user_input, output="",
+                        status="failed",
+                        duration_ms=round((time.monotonic() - t0c) * 1000, 2),
+                        error=str(e),
+                    )
+
+            crit_results = await asyncio.gather(
+                *[_critique(n) for n in critic_names]
+            )
+            critiques_text = ""
+            for cr in crit_results:
+                step_results.append(cr)
+                trace.append({
+                    "round": round_idx + 1, "phase": "critique",
+                    "agent": cr.agent_name,
+                    "duration_ms": cr.duration_ms, "status": cr.status,
+                })
+                if cr.status == "completed":
+                    critiques_text += f"[{cr.agent_name}]: {cr.output[:600]}\n\n"
+                else:
+                    status = "failed"
+
+            if not critiques_text.strip():
+                break  # 无批判意见,提前结束
+
+            # 改进阶段
+            t0p = time.monotonic()
+            try:
+                rp = await self._run_agent(
+                    proposer,
+                    f"主题:{topic}\n\n当前方案:\n{current_proposal}\n\n"
+                    f"批判意见:\n{critiques_text}\n\n"
+                    "请基于以上批判改进方案,输出改进后的完整方案。",
+                    sid, model_override,
+                )
+            except Exception as e:
+                rp = AgentStepResult(
+                    agent_name=proposer_name, input="", output="",
+                    status="failed",
+                    duration_ms=round((time.monotonic() - t0p) * 1000, 2),
+                    error=str(e),
+                )
+            step_results.append(rp)
+            trace.append({
+                "round": round_idx + 1, "phase": "revise",
+                "agent": proposer_name,
+                "duration_ms": rp.duration_ms, "status": rp.status,
+            })
+            if rp.status == "completed" and rp.output:
+                current_proposal = rp.output
+            else:
+                status = "failed"
+
+        return OrchestrationResult(
+            orchestration_id=orchestration_id,
+            steps=step_results,
+            final_output=current_proposal,
+            status=status,
+            total_duration_ms=round((time.monotonic() - start) * 1000, 2),
+            trace=trace,
+        )
+
+    # =========================================================================
     # 私有:执行单个 agent
     # =========================================================================
 
