@@ -12,7 +12,6 @@ import {
   Download,
   FileText,
   Bell,
-  CreditCard,
   PackagePlus,
   LogIn,
 } from 'lucide-react'
@@ -90,11 +89,5 @@ export const SUB_PAGES = [
     icon: Bell,
     titleKey: 'notificationsTitle',
     descKey: 'notificationsDesc',
-  },
-  {
-    href: '/settings/subscription',
-    icon: CreditCard,
-    titleKey: 'subscriptionTitle',
-    descKey: 'subscriptionDesc',
   },
 ] as const
