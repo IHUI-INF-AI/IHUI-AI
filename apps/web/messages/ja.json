@@ -1202,9 +1202,6 @@
       "routines": "ルーチン",
       "folders": "フォルダ"
     },
-    "openLocalFolder": "ローカルフォルダを開く",
-    "openedWorkspace": "開かれたワークスペース",
-    "reopenPermission": "権限を再設定",
     "selectWorkspace": "ワークスペースを選択",
     "recentWorkspaces": "最近のワークスペース",
     "folderPicker": {
@@ -28491,6 +28488,38 @@
       "label": "大型資金調達・買収",
       "title": "大型資金調達・買収",
       "subtitle": "7 月 AI 業界資本動向:SpaceX が Cursor を 600 億ドルで買収、DeepSeek が 500 億元資金調達"
+    },
+    "detailDialog": {
+      "arenaScore": "Arena スコア",
+      "rank": "順位",
+      "rankDelta": "順位変動",
+      "stable": "安定",
+      "winRate": "勝率",
+      "voteCount": "投票数",
+      "contextWindow": "コンテキストウィンドウ",
+      "maxOutput": "最大出力",
+      "inputPrice": "入力価格",
+      "outputPrice": "出力価格",
+      "releaseDate": "リリース日",
+      "license": "ライセンス",
+      "coreParams": "コアパラメータ",
+      "highlight": "主な特徴",
+      "capabilityRadar": "能力レーダー",
+      "noCapabilityData": "能力スコアデータなし",
+      "officialResources": "公式リソース",
+      "getApiKey": "API Key 取得",
+      "officialDocs": "公式ドキュメント",
+      "quickImport": "ワンクリックインポート",
+      "noQuickImport": "ワンクリックインポート非対応"
+    },
+    "apiRelays": {
+      "title": "API リレー",
+      "subtitle": "主要 API アグリゲータ + 個人リレーのリスク注意、Provider 設定へワンクリックインポート対応",
+      "companyType": "企業プラットフォーム",
+      "personalType": "個人運営",
+      "import": "インポート",
+      "riskTitle": "リスク注意",
+      "tipsTitle": "利用のヒント"
     },
     "cta": {
       "label": "ボトム CTA",
