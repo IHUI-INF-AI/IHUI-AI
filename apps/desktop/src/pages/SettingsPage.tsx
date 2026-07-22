@@ -26,6 +26,11 @@ const IMPORT_SOURCES = [
   { value: 'codex-cli', label: 'Codex CLI (config.toml)' },
   { value: 'gemini-cli', label: 'Gemini CLI (.env)' },
   { value: 'hermes', label: 'Hermes (config.yaml)' },
+  { value: 'env-file', label: '.env 通用配置' },
+  { value: 'cursor', label: 'Cursor IDE (settings.json)' },
+  { value: 'windsurf', label: 'Windsurf (settings.json)' },
+  { value: 'cline', label: 'Cline (settings.json)' },
+  { value: 'aider', label: 'Aider (.aider.conf.yml)' },
 ] as const
 
 export default function SettingsPage() {
