@@ -234,6 +234,7 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
           ],
           model,
         }),
+        signal: AbortSignal.timeout(60_000),
       })
       const elapsed = Date.now() - startTime
       const result = (await response.json().catch(() => ({}))) as Record<string, unknown>

@@ -101,6 +101,9 @@ const distributedRateLimitPlugin: FastifyPluginAsync = async (server) => {
   const weights = new Map<string, number>()
   let totalAllowed = 0
   let totalBlocked = 0
+  // 2026-07-22 P0 Round 3:本地 token bucket 降级存储(Redis 故障时使用)
+  // key=bucketKey, value={timestamps: number[]},超过 10000 个 key 时 clear() 防内存泄漏
+  const localBuckets = new Map<string, { timestamps: number[] }>()
 
   // 事件循环延迟监控：用于自适应限流
   const histogram = monitorEventLoopDelay()
@@ -159,16 +162,60 @@ const distributedRateLimitPlugin: FastifyPluginAsync = async (server) => {
         rule: ruleName,
       }
     } catch (e) {
-      // Redis 不可用：fail-open 放行，仅记日志
-      server.log.warn({ err: e }, 'distributed rate limit redis failed, fail-open')
+      // 2026-07-22 P0 Round 3 鲁棒性加固:Redis 故障降级本地 token bucket
+      // 原:fail-open 直接放行(限流失效,攻击者可无限调用)
+      // 新:降级到进程内 token bucket(单实例限流,多实例下不如 Redis 精确但有保护)
+      server.log.warn({ err: e }, 'distributed rate limit redis failed, fallback to local token bucket')
+      return localTokenBucket(bucketKey, effectiveLimit, windowMs, nowMs, ruleName)
+    }
+  }
+
+  /**
+   * 本地 token bucket 降级(Redis 故障时使用)。
+   * 进程内 Map 存储最近请求时间戳,按滑动窗口计数。
+   * 多实例下每个实例独立计数(限额会被放大 N 倍),但仍提供基本保护。
+   */
+  function localTokenBucket(
+    bucketKey: string,
+    limit: number,
+    windowMs: number,
+    nowMs: number,
+    ruleName: string,
+  ): { allowed: boolean; count: number; limit: number; retryAfterMs: number; remaining: number; rule: string } {
+    const bucket = localBuckets.get(bucketKey) ?? { timestamps: [] as number[] }
+    // 清理窗口外时间戳
+    const cutoff = nowMs - windowMs
+    bucket.timestamps = bucket.timestamps.filter((t) => t > cutoff)
+    if (bucket.timestamps.length >= limit) {
+      // 被限流:计算最早时间戳何时过期
+      const oldest = bucket.timestamps[0] ?? nowMs
+      const retryAfterMs = Math.max(0, oldest + windowMs - nowMs)
+      // 更新 bucket(防止 Map 无限增长:超过 10000 个 key 时清理最旧的)
+      if (localBuckets.size > 10_000) {
+        localBuckets.clear()
+      }
+      localBuckets.set(bucketKey, bucket)
       return {
-        allowed: true,
-        count: 0,
-        limit: effectiveLimit,
-        retryAfterMs: 0,
-        remaining: effectiveLimit,
+        allowed: false,
+        count: bucket.timestamps.length,
+        limit,
+        retryAfterMs,
+        remaining: 0,
         rule: ruleName,
       }
+    }
+    bucket.timestamps.push(nowMs)
+    if (localBuckets.size > 10_000) {
+      localBuckets.clear()
+    }
+    localBuckets.set(bucketKey, bucket)
+    return {
+      allowed: true,
+      count: bucket.timestamps.length,
+      limit,
+      retryAfterMs: 0,
+      remaining: Math.max(0, limit - bucket.timestamps.length),
+      rule: ruleName,
     }
   }
 
