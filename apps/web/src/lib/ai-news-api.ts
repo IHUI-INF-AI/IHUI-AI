@@ -322,7 +322,11 @@ interface ApiChannelRaw {
 }
 
 function safeApi<T>(url: string): Promise<T | null> {
-  return fetchApi<T>(url)
+  // server component 中 fetch 相对路径会失败(无 origin),需用绝对 URL
+  const isServer = typeof window === 'undefined'
+  const baseUrl = isServer ? (process.env.API_URL ?? 'http://localhost:3001') : ''
+  const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`
+  return fetchApi<T>(fullUrl)
     .then((r) => (r.success ? r.data : null))
     .catch(() => null)
 }
@@ -473,29 +477,37 @@ export async function fetchAiFeedItems(
 }
 
 /**
- * 拉取热度排行榜 Top N(对接 /api/ai-feed/hot,按 currentHot 排序)。
- * 不依赖趋势数据,只要有热度值即可展示。
+ * 拉取热度排行榜 Top N(对接 /api/ai-feed/hot)。
+ * 综合热度排序:有 currentHot 用 currentHot,否则用 currentRank 反推(排名越靠前热度越高)。
+ * 拉取 pageSize=limit*5 扩大候选池,客户端排序后取 Top N。
  */
 export async function fetchAiFeedHot(
   limit = 10,
-): Promise<Array<{ id: string; title: string; sourceCode: string; currentHot: number | null; url: string | null; llmCategory: string | null }>> {
-  const params = new URLSearchParams({ page: '1', pageSize: String(limit) })
+): Promise<Array<{ id: string; title: string; sourceCode: string; currentHot: number | null; currentRank: number | null; url: string | null; llmCategory: string | null }>> {
+  const params = new URLSearchParams({ page: '1', pageSize: String(limit * 5) })
   const data = await safeApi<{ list: ApiFeedItemRaw[]; total: number }>(
     `/api/ai-feed/hot?${params.toString()}`,
   )
   if (!data?.list) return []
-  // 过滤掉无热度值的条目,按 currentHot 降序排序
   return data.list
-    .filter((it) => it.currentHot !== null && it.currentHot !== undefined && it.currentHot > 0)
-    .sort((a, b) => (b.currentHot ?? 0) - (a.currentHot ?? 0))
+    .map((it) => {
+      const hot = it.currentHot ?? null
+      const rank = it.currentRank ?? null
+      // 综合热度分:有 hot 用 hot,否则用 rank 反推(100000 - rank*100,排名 1 ≈ 99900)
+      const score = hot !== null && hot > 0 ? hot : rank !== null && rank > 0 ? 100000 - rank * 100 : 0
+      return { it, score }
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
     .slice(0, limit)
-    .map((it) => ({
-      id: it.id,
-      title: it.title,
-      sourceCode: it.sourceCode,
-      currentHot: it.currentHot ?? null,
-      url: it.url ?? null,
-      llmCategory: it.llmCategory ?? null,
+    .map((x) => ({
+      id: x.it.id,
+      title: x.it.title,
+      sourceCode: x.it.sourceCode,
+      currentHot: x.it.currentHot ?? null,
+      currentRank: x.it.currentRank ?? null,
+      url: x.it.url ?? null,
+      llmCategory: x.it.llmCategory ?? null,
     }))
 }
 
