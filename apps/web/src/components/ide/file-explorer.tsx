@@ -1,5 +1,6 @@
 'use client'
 import * as React from 'react'
+import { useLocale, useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { FileTreeNode } from './file-tree-node'
 import { getFileIcon, getFileColor } from './file-icons'
@@ -50,16 +51,6 @@ const TIMELINE_COLOR: Record<string, string> = {
   commit: 'text-purple-500',
 }
 
-function formatTime(ts: number): string {
-  const diff = Date.now() - ts
-  const m = Math.floor(diff / 60000)
-  if (m < 1) return '刚刚'
-  if (m < 60) return `${m} 分钟前`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h} 小时前`
-  return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit' }).format(ts)
-}
-
 function flattenFiles(nodes: FileNode[], term: string): FileNode[] {
   const out: FileNode[] = []
   const lower = term.toLowerCase()
@@ -87,13 +78,27 @@ function highlightMatch(name: string, term: string) {
 }
 
 export function FileExplorer() {
+  const t = useTranslations('ide')
+  const locale = useLocale()
   const { fileTree, activeView, openFile, selectFile } = useIDEWorkspace()
   const [subTab, setSubTab] = React.useState<SubTab>('files')
   const [search, setSearch] = React.useState('')
 
+  const formatTime = (ts: number): string => {
+    const diff = Date.now() - ts
+    const m = Math.floor(diff / 60000)
+    if (m < 1) return t('fileExplorer.justNow')
+    if (m < 60) return t('fileExplorer.minutesAgo', { count: m })
+    const h = Math.floor(m / 60)
+    if (h < 24) return t('fileExplorer.hoursAgo', { count: h })
+    return new Intl.DateTimeFormat(locale, { month: '2-digit', day: '2-digit' }).format(ts)
+  }
+
   if (activeView !== 'files') return null
 
   const matched = search ? flattenFiles(fileTree, search) : []
+  const tabLabel = (tab: SubTab) =>
+    tab === 'files' ? t('fileExplorer.tabFiles') : tab === 'outline' ? t('fileExplorer.tabOutline') : t('fileExplorer.tabTimeline')
 
   return (
     <div className="flex w-56 shrink-0 flex-col bg-muted/20">
@@ -107,7 +112,7 @@ export function FileExplorer() {
               subTab === tab ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {tab === 'files' ? '文件' : tab === 'outline' ? '大纲' : '时间线'}
+            {tabLabel(tab)}
           </button>
         ))}
       </div>
@@ -119,14 +124,14 @@ export function FileExplorer() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="搜索文件"
+              placeholder={t('fileExplorer.searchPlaceholder')}
               className="w-full rounded-md border border-border bg-background py-1 pl-7 pr-2 text-xs focus:outline-none"
             />
           </div>
-          <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" title="新建文件">
+          <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" title={t('fileExplorer.newFile')}>
             <FilePlus className="h-3.5 w-3.5" />
           </button>
-          <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" title="刷新">
+          <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" title={t('fileExplorer.refresh')}>
             <RefreshCw className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -136,7 +141,7 @@ export function FileExplorer() {
         {subTab === 'files' && (
           search ? (
             matched.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-muted-foreground">无匹配文件</div>
+              <div className="px-3 py-2 text-xs text-muted-foreground">{t('fileExplorer.noMatch')}</div>
             ) : matched.map((node) => {
               const Icon = getFileIcon(node.name)
               return (
