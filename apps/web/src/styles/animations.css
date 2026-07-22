@@ -3287,3 +3287,55 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ============ 首页深度美化动画类(2026-07-23 立) ============ */
+
+/* 缓慢旋转(40s 一圈),用于装饰圆环 */
+.animate-spin-slower {
+  animation: spin 40s linear infinite;
+}
+
+/* 缓慢反向旋转(60s 一圈),用于装饰圆环(与 spin-slower 形成对位) */
+@keyframes spin-reverse-slower {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+.animate-spin-reverse-slower {
+  animation: spin-reverse-slower 60s linear infinite;
+}
+
+/* 缓慢呼吸(4s),用于顶部辉光聚光灯效果 */
+@keyframes pulse-slow {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: translateX(-50%) scale(1.05);
+  }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 4s ease-in-out infinite;
+}
+
+/* 渐变文字流动(用于大标题渐变高亮) */
+@keyframes gradient-shift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+.animate-gradient-shift {
+  background-size: 200% 200%;
+  animation: gradient-shift 6s ease infinite;
+}
+
