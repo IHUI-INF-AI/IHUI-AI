@@ -27,7 +27,7 @@ export function DingtalkQrPanel({ refreshKey }: DingtalkQrPanelProps) {
     const container = containerRef.current
     const config = getPlatformConfig('dingtalk')
     const clientId = config.clientId || config.appId
-    if (!config.enabled || !clientId || !config.redirectUri) {
+    if (!config.enabled || !clientId) {
       setStatus('unconfigured')
       return
     }
@@ -37,6 +37,9 @@ export function DingtalkQrPanel({ refreshKey }: DingtalkQrPanelProps) {
 
     const state = generateState()
     saveOAuthState('dingtalk', state)
+
+    // redirect_uri 必须与当前访问域名+端口一致,否则钉钉 OAuth 校验失败,SDK 收不到 authCode 显示"二维码过期"
+    const redirectUri = `${window.location.origin}/callback?platform=dingtalk`
 
     loadDingtalkQrSdk()
       .then(() => {
@@ -54,7 +57,7 @@ export function DingtalkQrPanel({ refreshKey }: DingtalkQrPanelProps) {
             },
             {
               client_id: clientId,
-              redirect_uri: config.redirectUri,
+              redirect_uri: redirectUri,
               response_type: 'code',
               scope: config.scope || 'openid',
               state,
