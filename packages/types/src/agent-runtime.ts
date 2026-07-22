@@ -1305,6 +1305,34 @@ export interface KanbanTask {
   updatedAt: string
   /** 单任务超时秒数(覆盖 WorkerPoolConfig.taskTimeoutSeconds,不设用全局默认) */
   timeoutSeconds?: number
+  /** 独立工作区路径(git worktree,空=用主仓库;P1-2 隔离) */
+  workspacePath?: string
+  /** worktree 分支名(如 subagent/<taskId>) */
+  workspaceBranch?: string
+}
+
+/** 资源限制配置(P1-3,CLI V8 heap + ai-service psutil/Job Object 共享) */
+export interface WorkerResourceLimits {
+  /** V8 old gen heap 上限 MB(CLI 专属,跨平台) */
+  maxOldGenerationSizeMb?: number
+  /** V8 young gen 上限 MB(CLI 专属) */
+  maxYoungGenerationSizeMb?: number
+  /** 进程内存上限 MB(ai-service psutil 监控 + POSIX setrlimit + Windows Job Object) */
+  memoryMb?: number
+  /** CPU 核心数上限(ai-service 软监控,Windows Job Object CPU rate) */
+  cpuCores?: number
+  /** CPU 累计时间上限秒(POSIX RLIMIT_CPU,Windows 不支持) */
+  cpuSeconds?: number
+}
+
+/** 网络出站策略(P1-5,executor 入口白名单检查;完整隔离需 OS 沙箱) */
+export interface NetworkEgressPolicy {
+  /** 模式:'allowlist'=只允许白名单域名;'blocklist'=黑名单;'open'=不限制(默认) */
+  mode: 'allowlist' | 'blocklist' | 'open'
+  /** 域名列表(支持通配符 *.example.com) */
+  domains?: string[]
+  /** 是否允许访问 localhost/127.0.0.1(默认 true,开发环境需要) */
+  allowLocalhost?: boolean
 }
 
 /** Worker Pool 配置(ai-service DAG 调度器 + cli 子进程池共享) */
@@ -1321,6 +1349,14 @@ export interface WorkerPoolConfig {
   preemptive?: boolean
   /** 失败时是否保留 worktree 供调试(cli 专属,默认 false=失败也清理防磁盘泄漏) */
   keepWorktreeOnFailure?: boolean
+  /** 资源限制(P1-3,不设=不限) */
+  resourceLimits?: WorkerResourceLimits
+  /** 网络出站策略(P1-5,不设=open 不限制) */
+  networkEgressPolicy?: NetworkEgressPolicy
+  /** worktree 源仓库路径(P1-2,空=不启用 worktree 隔离) */
+  workspaceSourcePath?: string
+  /** watchdog 心跳超时秒数(P1-1,默认 60,executor 超过此时长无心跳判定卡死) */
+  heartbeatTimeoutSeconds?: number
 }
 
 /** Worker 状态(调度器内部跟踪) */
