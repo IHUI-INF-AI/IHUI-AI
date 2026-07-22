@@ -18,7 +18,7 @@ const DESKTOP_ASIDE = 'aside[aria-label="主导航"]:not([role="dialog"])'
 async function gotoHome(page: Page) {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      await page.goto('http://localhost:3000/', {
+      await page.goto('http://localhost:3001/', {
         waitUntil: 'domcontentloaded',
         timeout: 15000,
       })

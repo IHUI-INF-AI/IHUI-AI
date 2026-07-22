@@ -66,7 +66,7 @@ export class ClawdbotGateway extends EventEmitter {
     this.state = 'connecting'
     logger.info('[Gateway] Connecting')
     // 简化实现:未建立真实 WebSocket 连接到 ai-service
-    // TODO: 需建立真实 WebSocket 连接到 ai-service(ws://localhost:8000/gateway)
+    // TODO: 需建立真实 WebSocket 连接到 ai-service(ws://localhost:3003/gateway)
     logger.warn('[Gateway] 简化实现:未建立真实 WebSocket 连接,仅标记为 connected')
     this.state = 'connected'
     this.connected = true
