@@ -97,6 +97,15 @@
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 对标 Hermes Agent 深度层 P3:三大核心壁垒真正超越(跨端:packages/types + ai-servi...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) P3 深化:§22 README 同步规则机制守门集成(平台独占:仅守门脚本 + 文档,2026-07-22 立)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 对标 Hermes Agent 深度升级:11 项差距分 P0/P1/P2 开发(跨端:packages/types + a...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 全项目对外开放 API 接入系统深度开发 — 105 端点 + TS/Python SDK 双语言(commit ba347294,跨端:packages/types + api + sdk + web 文档) -->
+### [x] ✅(2026-07-22) Java SDK 补齐 — ihui-ai-java 三语言 SDK 平级(平台独占:仅 SDK 新增)
+
+**触发**:用户追问"不支持 Node.js Java 吗?"。澄清 Node.js 已支持(TS SDK 编译后纯 JS,Node.js 18+ 直接 import),Java 未实现,派发 subagent 补齐。
+
+**范围**(1 subagent,平台独占:仅 packages/sdk/java/ 新增):pom.xml(groupId com.ihui / Java 11+ / OkHttp+Jackson+SLF4J 三依赖)+ 11 核心类 + 17 POJO + 13 业务模块(105 端点)+ Builder 模式 + 流式响应 + 重试 + 5 类异常分级。`mvn compile` BUILD SUCCESS ✅
+
+**Git**:local `7b69f38f` == origin `7b69f38f` ✅。**多语言 SDK 覆盖**:TypeScript `@ihui/sdk` / Python `ihui-ai` / Java `ihui-ai-java` 三语言平级,105 端点全覆盖。
+
 ### [ ] 深度鲁棒性加固 P0+P1+P2 全量 85 项(2026-07-22 立,/goal 模式)
 
 **触发**:用户要求"深度开发本项目的鲁棒性 必须达到完美"。5 路并行调研(api/web/ai-service/packages/desktop+extension+mobile)发现 85 项鲁棒性问题(P0 30 + P1 35 + P2 20)。
