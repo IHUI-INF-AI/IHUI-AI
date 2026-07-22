@@ -42,7 +42,23 @@ export interface CanvasExecutionResult {
 }
 
 export class CanvasService extends EventEmitter {
-  /** 内存画布存储 — 需后续建表持久化(workflows 表需 createdBy userId,当前接口未传 userId) */
+  /**
+   * 内存画布存储。
+   *
+   * 持久化现状(2026-07-22 评估):
+   *   - 当前 HTTP 路由仅暴露 list + execute,无 create/update/delete 端点
+   *   - canvases 由内部代码程序化创建,非用户直接操作
+   *   - 现有 `workflows` 表 schema 不匹配:有 triggerType/isActive/createdBy 字段,
+   *     但 Canvas 模型是 nodes/edges 二元结构,映射到 steps jsonb 会丢失拓扑语义
+   *   - 触发 HTTP 创建后再启动持久化迁移,当前保持内存即可
+   *
+   * 迁移规格(未来需要时):
+   *   1. 新建 `clawdbot_canvases` 表:id / name / description / nodes(jsonb) / edges(jsonb) /
+   *      version / created_by / created_at / updated_at
+   *   2. 新建 `clawdbot_canvas_executions` 表记录执行历史
+   *   3. 在路由层加 POST /clawdbot/canvas(create)/ PUT /:id(update)/ DELETE /:id(forget)
+   *   4. CanvasService 方法改 async + 接受 userId,参照 MemoryService.storeForUser 模式
+   */
   private canvases = new Map<string, Canvas>()
 
   create(canvas: Omit<Canvas, 'createdAt' | 'updatedAt' | 'version'>): Canvas {
