@@ -17,6 +17,7 @@ export type CliConfigSource =
   | 'trae' | 'trae-work' | 'qoder' | 'qoder-work'
   | 'codex-desktop' | 'claude-code-desktop'
   | 'github-copilot' | 'amazon-q' | 'continue' | 'tabnine' | 'cody' | 'zed'
+  | 'antigravity'
 
 /** cc-switch 的 app_type(严格对齐 cc-switch Rust AppType 枚举) */
 export type CliAppType =
