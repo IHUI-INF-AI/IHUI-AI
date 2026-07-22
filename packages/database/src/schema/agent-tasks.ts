@@ -15,6 +15,7 @@ import { users } from './users.js'
 /**
  * 智能体任务表。
  * G10:补 updatedBy 字段(审计追溯,用户删除时 SET NULL)
+ * G13:补 createdBy 字段(创建者审计,管理员或系统创建时记录)
  */
 export const agentTasks = pgTable(
   'agent_tasks',
@@ -34,6 +35,7 @@ export const agentTasks = pgTable(
     startedAt: timestamp('started_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     errorMessage: text('error_message'),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

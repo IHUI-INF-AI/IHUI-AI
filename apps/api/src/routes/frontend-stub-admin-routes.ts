@@ -36,6 +36,7 @@ import {
 } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../utils/response.js'
+import { withAuditBoth } from '../utils/audit.js'
 import { createComment, findTicketById } from '../db/customer-service-queries.js'
 import { addUserRole, removeUserRole } from '../db/rbac-queries.js'
 
@@ -1397,7 +1398,7 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
   })
   server.post('/admin/agent-task', { preHandler: requireAdmin }, async (request, reply) => {
     const body = parseOrThrow(createAgentTaskSchema, request.body)
-    const [row] = await db.insert(agentTasks).values({ ...body, updatedBy: request.userId ?? null }).returning()
+    const [row] = await db.insert(agentTasks).values(withAuditBoth({ ...body }, request.userId ?? null)).returning()
     return reply.status(201).send(success(row))
   })
   server.post('/admin/clawdbot/bots', { preHandler: requireAdmin }, async (request, reply) => {

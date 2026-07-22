@@ -11,6 +11,7 @@ import { orders } from './billing.js';
  * type: 0=regular 1=vip 2=trader(祖父级)
  * status: 0=invalid 1=active
  * G10:补 updatedAt + updatedBy 字段(原表只有 createdAt,补齐后支持审计追溯)
+ * G13:补 createdBy 字段(创建者审计,系统自动分佣时为 null)
  */
 export const commissionFlows = pgTable(
   'commission_flows',
@@ -25,6 +26,7 @@ export const commissionFlows = pgTable(
     type: integer('type').default(0).notNull(),
     status: integer('status').default(1).notNull(),
     remark: varchar('remark', { length: 255 }),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -43,6 +45,7 @@ export const commissionFlows = pgTable(
  * accountInfo: jsonb（微信/支付宝账号、银行卡号、姓名等）
  * userId 可空：用户删除时保留提现财务凭证，userId 置 NULL。
  * G10:补 updatedBy 字段(审计追溯,用户删除时 SET NULL)
+ * G13:补 createdBy 字段(申请者审计,与 updatedBy 区分)
  */
 export const withdrawalFlows = pgTable(
   'withdrawal_flows',
@@ -59,6 +62,7 @@ export const withdrawalFlows = pgTable(
     paymentNo: varchar('payment_no', { length: 64 }),
     rejectReason: varchar('reject_reason', { length: 500 }),
     processedAt: timestamp('processed_at', { withTimezone: true }),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
