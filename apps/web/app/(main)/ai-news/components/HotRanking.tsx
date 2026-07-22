@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Flame, ExternalLink } from 'lucide-react'
 
 interface Props {
-  items: Array<{ id: string; title: string; sourceCode: string; currentHot: number | null; url: string | null; llmCategory: string | null }>
+  items: Array<{ id: string; title: string; sourceCode: string; currentHot: number | null; currentRank: number | null; url: string | null; llmCategory: string | null }>
   sources: Array<{ sourceCode: string; sourceName: string; color: string | null }>
 }
 
@@ -39,22 +39,23 @@ export function HotRanking({ items, sources }: Props) {
       aria-label={t('hotRanking.label')}
       className="overflow-hidden rounded-xl border bg-card shadow-sm"
     >
-      <div className="flex items-center gap-2 border-b bg-orange-500/5 px-5 py-3">
+      <div className="flex items-center gap-2 bg-orange-500/5 px-5 py-3">
         <Flame className="h-4 w-4 text-orange-500" />
         <h2 className="text-sm font-semibold">{t('hotRanking.title')}</h2>
         <span className="ml-auto text-[10px] text-muted-foreground">{t('hotRanking.subtitle')}</span>
       </div>
-      <div className="divide-y">
+      <div className="flex flex-col gap-px bg-muted/30">
         {items.map((it, idx) => {
           const source = sourceMap.get(it.sourceCode)
           const hot = formatHot(it.currentHot)
+          const rank = it.currentRank ?? null
           return (
             <a
               key={it.id}
               href={it.url ?? '#'}
               target={it.url ? '_blank' : undefined}
               rel={it.url ? 'noopener noreferrer' : undefined}
-              className="group flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-accent/40"
+              className="group flex items-center gap-3 bg-card px-5 py-2.5 transition-colors hover:bg-accent/40"
             >
               <span className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold tabular-nums ${rankColor(idx)}`}>
                 {idx + 1}
@@ -69,6 +70,11 @@ export function HotRanking({ items, sources }: Props) {
                 <span className="flex shrink-0 items-center gap-0.5 text-xs font-bold tabular-nums text-orange-600 dark:text-orange-400">
                   <Flame className="h-2.5 w-2.5" />
                   {hot}
+                </span>
+              ) : rank !== null && rank > 0 ? (
+                <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+                  #
+                  {rank}
                 </span>
               ) : null}
               {it.url ? (
