@@ -1028,3 +1028,14 @@ cAdvisor(:8080) → Prometheus(:8815) → Grafana(:8816)
 - [x] ✅(2026-07-22) Grep 验证残留清零:#07c160 = 0,#eee/#999 border 残留 = 0,text-gray-* = 0,#fff5e6/#fff9ef/#f2b04a = 0。保留项:bg-white/20(半透明白色叠加,玻璃拟态合法)、setting/theme.*(主题色板数据)、vip/index.tsx #999 fallback(无 level 时灰色)。
 - [x] ✅(2026-07-22) typecheck:miniapp-taro 自身零错误(packages/types 2 个预存错误为其他 agent 问题,按 §12 规则 --no-verify 跳过)。
 - [x] ✅(2026-07-22) Git 同步:commit 0b016dc,push 成功(f73fc09..0b016dc main -> main),local HEAD == origin/main HEAD ✅。
+
+---
+
+## i18n 深化:Payment 重复键修复 + aiNews 缺失键补齐 + 守门脚本白名单(已完成 ✅ 2026-07-23,跨端:web+scripts)
+
+- [x] ✅(2026-07-23) P0 删除 5 语言文件大写 Payment 死代码块(无前端引用,与小写 payment 大小写冲突导致 JSON.parse 行为不一致)。
+- [x] ✅(2026-07-23) P0 补齐 aiNews.compare 缺失 2 键(compare.label + compare.maxToast)在 5 语言文件,位置在 aiNews 顶层(对应 useTranslations('aiNews') + t('compare.xxx'))。
+- [x] ✅(2026-07-23) P1 改进 check-i18n-keys.mjs 翻译完整性检测,新增 isExemptFromTranslation 函数(15 条豁免规则),未翻译误报从 1068 处降到 293 处(剩余均为品牌名/技术术语,按 §20 保留英文)。
+- [x] ✅(2026-07-23) 修复 zh-TW 简体残留 2 处(Agent 工作台 → Agent 工作臺)。
+- [x] ✅(2026-07-23) 文档同步:AGENTS.md 守门速查表第 2 项 + README i18n 章节 + 本文件记录。
+- [x] ✅(2026-07-23) 验证:check-i18n-keys exit 0(parity OK)/ scan-zh-residue zh-TW exit 0 / check-broken-en exit 0 / 5 JSON valid。
