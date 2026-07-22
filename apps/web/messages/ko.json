@@ -25931,7 +25931,26 @@
       "categoryProduct": "AI 제품",
       "categoryIndustry": "업계",
       "categoryPaper": "논문",
-      "categoryTip": "팁"
+      "categoryTip": "팁",
+      "searchPlaceholder": "제목 또는 요약 검색…",
+      "searchEmpty": "일치하는 기사가 없습니다, 다른 키워드를 시도해보세요",
+      "trendBtn": "트렌드",
+      "moreHint": "{shown}/{total}개 표시 중, 필터를 조정하여 더 보기"
+    },
+    "hotRanking": {
+      "label": "인기 랭킹",
+      "title": "AI 뉴스 인기 Top 10",
+      "subtitle": "실시간 인기순"
+    },
+    "trendChart": {
+      "subtitle": "7/14일 인기 추세 곡선",
+      "days": "일",
+      "loading": "추세 데이터 로딩 중…",
+      "noData": "데이터 축적 중",
+      "noDataHint": "추세를 그리려면 ≥2일 스냅샷 필요, 내일 cron 후 자동 사용 가능",
+      "stable": "안정",
+      "rankDelta": "순위 변동",
+      "hotValue": "인기값"
     },
     "funding": {
       "label": "대규모 펀딩 & 인수",
