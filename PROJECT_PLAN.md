@@ -42,6 +42,23 @@
 
 <!-- 已归档(2026-07-22):settings/llm v2 方案 B 完整落地,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
 
+### [x] ✅(2026-07-22) WorkerPool/CLI 子进程并行 P0 致命缺陷修复(P0-1/P0-2/P0-3/P0-5,跨端:仅 ai-service + cli 两端)
+
+**触发**:用户要求"检查 WorkerPool 和 CLI 子进程并行在真实场景下的资源隔离与超时处理逻辑"。深度审查后发现 5 个 P0 致命缺陷,本次修复 4 个(P0-1/P0-2/P0-3/P0-5)。
+
+**修复内容**(2 文件):
+
+| 缺陷 | 端 | 文件 | 修复 |
+|---|---|---|---|
+| P0-1 spawn 失败 activeCount 泄漏 | cli | `subagents/worker-pool.ts` | `proc.on('error')` 补 activeCount-- + workers.delete + 清理 timers + worktree 清理 + drainQueue(Node spawn 失败只触发 error 不触发 exit) |
+| P0-3 stdoutBuf/stderrBuf OOM | cli | `subagents/worker-pool.ts` | buffer 加 1MB 上限(截断保留尾部)+ stderr 转发 rate limit(100 行/秒) |
+| P0-2 executor 超时无法强制取消 | ai-service | `dag_scheduler.py` | 保存 executor asyncio.Task 对象,超时强制 cancel + finally 清理引用 |
+| P0-5 shutdown 阻塞 300s | ai-service | `dag_scheduler.py` | 新增 `_cancel_executing_tasks()` 方法,shutdown 主动 cancel 所有运行中 executor(秒级完成) |
+
+**验证**:
+- CLI typecheck + build exit 0 ✅
+- ai-service 4 场景独立验证全过 ✅(正常完成 / 超时 cancel 0.52s / shutdown 强制取消 0.22s / 超时不阻塞其他 worker 0.51s)
+
 ### [x] ✅(2026-07-22) CLI 配置导入扩展至 24 源 + Google Antigravity + URL/协议深度修正 + 20 测试(跨端:packages/types + api + web + cli + desktop)
 
 **触发**:用户反馈"谷歌的反重力平台怎么没加进去呢 还有你那测试好啊 所有这些平台支持的 URL 协议具体参数也都要深度分析 配置好一键切换 不可以出错搞混"。
