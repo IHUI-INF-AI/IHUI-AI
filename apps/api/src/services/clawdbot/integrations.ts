@@ -35,7 +35,22 @@ export interface IntegrationResponse {
 }
 
 export class IntegrationManager extends EventEmitter {
-  /** 内存集成配置存储 — 需后续建表持久化(无对应 DB 表,userPreferences 需 userId 不适用系统级配置) */
+  /**
+   * 内存集成配置存储。
+   *
+   * 持久化现状(2026-07-22 评估):
+   *   - 无对应 DB 表
+   *   - 集成配置含 apiKey 等敏感字段,需加密存储
+   *   - 现有 userPreferences 表设计为 userId-scoped 偏好,不适用于系统级集成配置
+   *
+   * 迁移规格(未来需要时):
+   *   1. 新建 `clawdbot_integrations` 表:id / name / type / base_url / api_key_encrypted /
+   *      auth_type / headers(jsonb) / enabled / config(jsonb) / created_by / created_at / updated_at
+   *   2. api_key_encrypted 用 AES-256-GCM + KMS 包封,禁止明文入库
+   *   3. register() 时 upsert 到 DB;unregister() 时软删除(enabled=false)
+   *   4. list()/get() 优先读 DB,启动时全量加载到内存缓存
+   *   5. 增加 rotate-key 接口定期轮换 apiKey
+   */
   private integrations = new Map<string, IntegrationConfig>()
 
   register(config: IntegrationConfig): void {
