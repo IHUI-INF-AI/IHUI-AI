@@ -275,7 +275,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | AI 数字人       | 腾讯混元 3D / AI 世界 / 数字人交互                                                                          |
 |                   | AI 世界         | ai-world-items + AI 排名 + 趋势同步 + AI 模块化(ai-modules)+ AI 厂商配置中心(ai-vendor-configs)             |
 |                   | AI 职业         | AI 求职助手 / 简历优化 / 模拟面试                                                                           |
-|                   | AI 资讯         | AI 资讯聚合 / 智能摘要 / ai-feed / 大模型排行榜(Arena 评分 + 8 大分类 + Elo + Bootstrap CI + 能力雷达图)+ API 中转站(29 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(47 厂商映射 + 剪贴板粘贴 + Provider 配置) |
+|                   | AI 资讯         | AI 资讯聚合 / 智能摘要 / ai-feed / 大模型排行榜(Arena 评分 + 8 大分类 + Elo + Bootstrap CI + 能力雷达图 + 模型对比勾选 + PriceChart 价格可视化 + 能力雷达叠加)+ API 中转站(29 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(47 厂商映射 + 剪贴板粘贴 + Provider 配置)+ 资讯标题多语言切换(中/EN/日/한)+ 趋势爆发通知 Banner(60s 轮询) |
 |                   | 用户级 AI 配置  | LLM 配置中心 v2(1:N provider-model + 分组 + 健康状态 + 30 天用量 + 批量导入导出 + 跨 Provider 模型对比 + 一键复制 + 结构化参数 Temperature/Max Tokens/Top P/Penalty + 4 预设 + 高级 JSON)/ CLI 配置 24 源一键导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env / Trae / Qoder / Codex Desktop / Claude Code Desktop / GitHub Copilot / Amazon Q / Continue / Tabnine / Cody / Zed / Google Antigravity)/ 用户级模型对话偏好(ai-user-model-chat)/ 用户长期记忆(user-memory)/ 用户偏好(user-preferences) |
 | **AI 工作流**     | LangGraph       | StateGraph 工作流(plan → execute → summarize)+ stub 模式 + agent_loop 多轮 tool 循环 + 任务自动分解 DAG 拓扑 |
 |                   | MCP 工具协议    | 33 内置工具(11 基础 + 12 浏览器控制 + 10 电脑控制)+ 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP / mcp-extended |
@@ -901,7 +901,7 @@ IHUI-AI/
 | **文生视频**     | 多模型混编 / 视频编辑 / 视频合成 / 转码 / ai-generation/video-tasks                 |
 | **AI 数字人**    | 腾讯混元 3D / AI 世界 / 数字人交互 / `tencent-hunyuan-3d.ts`                        |
 | **AI 求职**      | 简历优化 / 模拟面试 / 职业建议 / `ai-career/`                                       |
-| **AI 资讯**      | AI 资讯聚合 / 智能摘要 / `ai-feed.ts` + `ai-feed-posts.ts` / 大模型排行榜(`model-leaderboard` + Arena 评分 + 能力雷达图)+ API 中转站(`api-relays.ts` + 29 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(`vendor-platforms.ts` + 47 厂商映射 + `?prefill=` base64 跳转 + `ProviderFormDialog` 剪贴板粘贴按钮) |
+| **AI 资讯**      | AI 资讯聚合 / 智能摘要 / `ai-feed.ts` + `ai-feed-posts.ts` / 大模型排行榜(`model-leaderboard` + Arena 评分 + 能力雷达图 + 模型对比勾选 + `ModelCompareBar` + `ModelCompareDialog` + `PriceChart` SVG 柱状图 + 能力雷达叠加)+ API 中转站(`api-relays.ts` + 29 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(`vendor-platforms.ts` + 47 厂商映射 + `?prefill=` base64 跳转 + `ProviderFormDialog` 剪贴板粘贴按钮)+ 资讯标题多语言切换(中/EN/日/한 4 语言 + `titleEn/titleJa/titleKo` schema 字段)+ 趋势爆发通知 Banner(`TrendNotificationBanner` + 60s 轮询 + `/api/ai-feed/notifications`) |
 
 ### B. AI 工作流与开发者(面向开发者)
 
@@ -1885,7 +1885,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **P3 三大核心壁垒深度层(真正超越 Hermes)**:
   - **P3-1 记忆系统深度层**:pgvector 向量 + FTS5 全文双引擎 + 自动记忆提取(从对话流提取偏好/决策/事实)+ 衰减遗忘(时间 + 访问频率)+ 用户画像建模(5 维度聚合)+ **向量持久化**(JSON 原子写 + 异步 + hydrate 启动加载)+ **纯本地降级**(api 服务不可用时从 VectorMemoryStore.list_entries 拉取,userId+scope 过滤,闭环不中断)
   - **P3-2 自进化闭环深度层**:Skill 生成后自动测试(跑测试用例验证有效性)+ 使用反馈追踪(使用次数 + 成功率 + 满意度)+ 基于反馈迭代优化(v1→v2→v3,semver minor+1)+ 评分系统 + **质量门**(通过率 <0.6 拒绝落盘)+ **LLM 输出解析三层容错**(markdown 代码块剥离 + 裸换行符转义 + 兜底默认不迭代)
-  - **P3-3 调度系统深度层**:任务自动分解(LLM 分解 + DAG 拓扑排序 + 并行批次)+ agent 通信机制(消息队列 + 共享黑板)+ 调度算法(能力匹配 + 负载均衡 + 优先级 + 轮询 4 策略)+ 失败重试(fixed/linear/exponential 3 退避)+ 故障转移(LLM 质量评估触发)+ **API 路由暴露**(`POST /agent/decompose` 任务分解 + `POST /agent/run-decomposed` 端到端分解式执行)
+  - **P3-3 调度系统深度层**:任务自动分解(LLM 分解 + DAG 拓扑排序 + 并行批次)+ agent 通信机制(消息队列 + 共享黑板)+ 调度算法(能力匹配 + 负载均衡 + 优先级 + 轮询 4 策略)+ 失败重试(fixed/linear/exponential 3 退避)+ 故障转移(LLM 质量评估触发)+ **API 路由暴露**(`POST /agent/decompose` 任务分解 + `POST /agent/run-decomposed` 端到端分解式执行)+ **资源隔离栈(生产级并行执行鲁棒性)**:watchdog 心跳检测(5s 检查 + 超时强制 cancel)+ worktree 隔离(每 executor 独立 git worktree + 三层 cleanup)+ ResourceMonitor(CLI V8 heap resourceLimits + 子进程自限 OOM;ai-service psutil 软监控 + 降级)+ NetworkEgressPolicy(allowlist/blocklist/open 三模式 + 通配符 + IP 拦截 + contextvar 注入)
   - **P3-4 沙箱 6 后端完整实现**:Modal 无服务器 + Daytona 云开发 + Singularity HPC 集群
   - **P3-5 IM 渠道扩展**:8 → 16 平台(新增 WhatsApp / LINE / KakaoTalk / Signal / Matrix / Rocket.Chat / Mattermost / Zulip)
   - **真实 LLM 端到端验证(2026-07-22)**:stepfun/step-3.7-flash 真实调用三大壁垒闭环全跑通 — 记忆提取 6 条 + 向量持久化 18235B / Skill 生成 passRate=1.0 + iterate 正确解析 LLM 反馈 / 任务分解 7 子任务 6 批 + 端到端 10 步执行完成,总耗时 ~7 分钟无 API 错误
@@ -1982,6 +1982,19 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **Wave 4 P3 分发与本地化**:
   - **W4-1 CLI 9 种安装方式**:`apps/cli/scripts/install/` 提供 curl 一键(install.sh)/ PowerShell 一键(install.ps1)/ Homebrew Formula(brew.rb)/ Scoop manifest(scoop.json)/ Chocolatey 包(choco.nuspec)/ Nix flake(nix.nix)/ Docker 镜像(Dockerfile,node:20-slim)/ VSCode SDK 文档(vscode-extension.md)/ 9 种方式汇总 README
 - **鲁棒性 P2 Batch 3(11 项 eslint/tsconfig 严格化,85/85 完美收官)**:9 个 tsconfig 启用 `strict` + `noUncheckedIndexedAccess` + `noImplicitOverride`(packages/types + database + auth + ui + config + api-client + apps/api + apps/web + apps/cli)+ `packages/eslint-config/index.js` `eqeqeq` 加 `{ null: 'ignore' }` — 一次性消除 `obj == null` 合法 idiom 误报(webhooks-trigger.ts / safe-condition.ts / ToolCallTree.tsx / debug-panel.tsx 共 9 处),不改变运行时语义。鲁棒性 85 项 /goal 模式 STATE.md=achieved,85/85 完成
+
+#### 17. WorkerPool/CLI 子进程并行执行引擎鲁棒性加固(P0+P1+P2 共 12 项缺陷修复)
+
+> 触发:深度审查 WorkerPool 和 CLI 子进程并行在真实场景下的资源隔离与超时处理逻辑,发现 5 个 P0 致命缺陷 + 4 个 P1 资源隔离缺失 + 3 个 P0/P1/P2 边界缺陷,本轮一次性修复。
+
+- **P0 致命缺陷(4 项)**:① CLI spawn 失败 activeCount 泄漏 ② stdoutBuf/stderrBuf OOM(buffer 1MB 上限 + stderr rate limit)③ ai-service executor 超时无法取消(保存 asyncio.Task + 强制 cancel)④ shutdown 阻塞 300s(_cancel_executing_tasks 秒级完成)
+- **P1 资源隔离栈(4 项,从 0 到 1)**:
+  - watchdog 心跳检测:`dag_scheduler._watchdog()` coroutine 每 5s 检查 + 超时强制 cancel
+  - worktree 隔离:新建 `apps/ai-service/app/services/worktree.py`,executor 在独立 git worktree 中跑,三层 cleanup
+  - ResourceMonitor:CLI V8 heap resourceLimits + 子进程自限 OOM;ai-service 新建 `resource_monitor.py`,psutil 软监控(可选降级)
+  - NetworkEgressPolicy:新建 `apps/ai-service/app/services/network_guard.py`,allowlist/blocklist/open 三模式 + 通配符 + IP 拦截,contextvar 注入 executor
+- **跨端类型契约(packages/types)**:新增 WorkerResourceLimits + NetworkEgressPolicy 接口;KanbanTask 加 timeoutSeconds/workspacePath/workspaceBranch;WorkerPoolConfig 加 resourceLimits/networkEgressPolicy/workspaceSourcePath/heartbeatTimeoutSeconds
+- **验证**:CLI typecheck + build exit 0;ai-service 6 场景独立验证全过
 
 ### 进行中
 

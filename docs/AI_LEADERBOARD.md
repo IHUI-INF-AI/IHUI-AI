@@ -33,6 +33,21 @@
 - **能力标签**(2026-07-22 立升级):从模型数据自动提取 6 种能力标签(长上下文 ≥100K / 大输出 ≥8K / 低成本 <$1 / 高胜率 >70% / 顶级模型 >1300 / 多模态),在弹窗头部以 primary 色标签显示,增强信息密度
 - **一键导入**:跳转到 `/settings/llm?prefill=<base64>`,预填 Provider 表单
 
+### 1.4 模型对比(ModelCompareBar + ModelCompareDialog + PriceChart)
+
+2026-07-22 新增,激活 Leaderboard 表格最左侧勾选列:
+
+- **勾选列**(`GitCompare` 图标表头 + checkbox 行):点击勾选/取消,最多 5 个模型(超出 toast 提示)
+- **ModelCompareBar**:底部固定浮条,显示已选模型 chip(可逐个 × 移除)+"清空" + "开始对比"按钮(≥2 个时启用)
+- **ModelCompareDialog**:并排对比 10 个维度(arenaRank/arenaScore±CI/winRate/voteCount/contextWindow/maxOutput/inputPrice/outputPrice/releaseDate/license),最低价格绿色高亮
+- **PriceChart**:纯手写 SVG 柱状图(无 chart 库),输入价蓝色 + 输出价橙色双柱,原生 `<title>` tooltip,Y 轴刻度 + 网格线 + 图例
+- **能力雷达叠加**:5 色 SVG 雷达图,多模型叠加对比 5 维能力
+
+### 1.5 资讯标题多语言切换 + 趋势通知(2026-07-22 新增)
+
+- **标题语言切换**:`AiFeedTimeline` 组件 Channel Tab 右侧 4 语言切换按钮(中/EN/日/한),激活态 `bg-foreground text-background`,通过 `pickTitle(item, lang)` 函数按 lang 选择 `titleEn/titleJa/titleKo`(缺失时降级中文原标题)。关键词搜索 + 趋势弹窗标题同步跟随语言切换
+- **TrendNotificationBanner**:`'use client'` 组件,60s 轮询 `/api/ai-feed/notifications`(后端已实现),展示热度增长率 ≥50% 的最近 6 小时条目。折叠态:🔥 + "{count} 资讯热度爆发" + 最新标题 + 增长率徽章;展开态:完整列表 + 外链;5 秒自动折叠 + 手动关闭。无通知时 `return null` 不渲染
+
 ## 2. 官方 API Key + 一键导入
 
 ### 2.1 厂商平台映射表
@@ -138,8 +153,9 @@
 |---|---|---|
 | `leaderboard` | 7 | 排行榜标题/副标题/空态/排序提示/搜索/全部厂商 |
 | `detailDialog` | 31 | 详情弹窗字段标签 + 官方资源 + 一键导入 + 复制 Base URL + 复制并导入 + 能力标签×6 |
+| `compare` | 11 | 模型对比(标签/已选/清空/开始对比/最大提示/对比维度/最低/价格可视化/能力雷达叠加/无价格数据) |
 | `apiRelays` | 20 | API 中转站区块标题/类型/导入/风险/建议 + 搜索/厂商筛选/计费筛选/计数/空态/排序 |
-| 其他(hero/comparison/live/articles/feed/hotRanking/trendChart/funding/cta) | 60+ | 资讯页其他模块 |
+| 其他(hero/comparison/live/articles/feed/hotRanking/trendChart/funding/cta) | 60+ | 资讯页其他模块(含 feed.trendNotifyTitle/trendNotifyExpand/trendNotifyCollapse/trendNotifyClose/langSwitch 5 键) |
 
 ## 5. 守门
 
