@@ -2476,6 +2476,7 @@ cAdvisor(:8080) → Prometheus(:9090) → Grafana(:3001)
 - ~~快捷键真实绑定~~ ✅ 已完成(2026-07-22,use-ide-shortcuts.ts hook)
 - ~~browser_use 4 态截图验证~~ ✅ 已完成(2026-07-22,keyLeak=false 全通过)
 - ~~store 持久化 + LSP 依赖文档~~ ✅ 已完成(2026-07-22):expandedFolders Set → localStorage 序列化(loadExpandedFolders/saveExpandedFolders)+ 刷新后自动恢复展开状态(fetchFileTree/fetchFolderChildren 递归恢复)+ loadedFolders 防重复 fetch 守卫;ai-service Dockerfile 加 Node.js 20 + typescript-language-server + typescript;README 补 LSP 依赖章节
+- ~~browser_use 集成验证~~ ✅ 已完成(2026-07-22):localStorage 序列化 round-trip 验证通过(isIdentical=true);store 源码审查确认 toggleFolder→saveExpandedFolders + restoreExpandedFolders→fetchFileTree 递归恢复;页面可加载(200 + 967KB);修复 api-client dist 过期(tsc --noEmitOnError false 生成 4 函数导出);集成验证被其他 agent bug 阻塞(API 3001 崩溃 missing-user-routes.ts:370 重复路由 / ai-service 8000 崩溃 llm.py:251 类型注解),§12 不修其他 agent 代码
 
 ---
 
