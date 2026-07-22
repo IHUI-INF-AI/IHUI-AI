@@ -61,22 +61,22 @@ export default function DistributionTeam() {
   })
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       {list.length > 0 && (
         <View className="p-[12px]">
           {list.map((m) => (
             <View
               key={m.id}
-              className="flex items-center bg-white p-[12px] mb-[12px] rounded-[8px]"
+              className="flex items-center bg-card p-[12px] mb-[12px] rounded-[8px]"
             >
               <Image
-                className="w-[40px] h-[40px] rounded-md bg-[#f5f5f5]"
+                className="w-[40px] h-[40px] rounded-md bg-muted"
                 src={m.avatar || '/static/default-avatar.png'}
                 mode="aspectFill"
               />
               <View className="flex-1 ml-[12px]">
-                <Text className="block text-[14px] text-[#333]">{m.nickname}</Text>
-                <Text className="block text-[12px] text-[#999] mt-[4px]">
+                <Text className="block text-[14px] text-foreground">{m.nickname}</Text>
+                <Text className="block text-[12px] text-muted-foreground mt-[4px]">
                   {t('distribution.team.joinTime', { time: m.joinTime })}
                 </Text>
               </View>
@@ -86,12 +86,12 @@ export default function DistributionTeam() {
         </View>
       )}
       {list.length === 0 && !loading && (
-        <View className="text-center py-[60px] text-[#999]">
+        <View className="text-center py-[60px] text-muted-foreground">
           <Text>{t('distribution.team.empty')}</Text>
         </View>
       )}
       {loading && (
-        <View className="text-center py-[20px] text-[#999]">
+        <View className="text-center py-[20px] text-muted-foreground">
           <Text>{t('distribution.team.loading')}</Text>
         </View>
       )}

@@ -31,7 +31,7 @@ export default function VideoPlayer({
         className="flex items-center justify-center w-full bg-black"
         style={{ height: '210px' }}
       >
-        <Text className="text-sm text-gray-400">加载中...</Text>
+        <Text className="text-sm text-muted-foreground">加载中...</Text>
       </View>
     )
   }
@@ -42,7 +42,7 @@ export default function VideoPlayer({
         className="flex items-center justify-center w-full bg-black"
         style={{ height: '210px' }}
       >
-        <Text className="text-sm text-gray-400">暂无视频</Text>
+        <Text className="text-sm text-muted-foreground">暂无视频</Text>
       </View>
     )
   }

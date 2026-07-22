@@ -17,7 +17,7 @@ export default function Tooltip({ text, children, placement = 'top' }: TooltipPr
       </View>
       {show && (
         <View
-          className={`absolute z-20 left-1/2 px-2 py-1 bg-gray-800 rounded whitespace-nowrap ${
+          className={`absolute z-20 left-1/2 px-2 py-1 bg-secondary rounded whitespace-nowrap ${
             placement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
           }`}
           style={{ transform: 'translateX(-50%)' }}

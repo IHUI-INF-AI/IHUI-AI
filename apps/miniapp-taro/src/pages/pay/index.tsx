@@ -71,27 +71,27 @@ export default function PayIndex() {
   }
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa] pb-[120rpx]">
-      <View className="m-[24rpx] p-[32rpx] bg-white rounded-[16rpx]">
+    <View className="min-h-screen bg-background pb-[120rpx]">
+      <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
         <View className="text-center">
-          <Text className="block text-[26rpx] text-[#999]">{t('pay.orderAmount')}</Text>
+          <Text className="block text-[26rpx] text-muted-foreground">{t('pay.orderAmount')}</Text>
           <Text className="block text-[60rpx] text-[#dd524d] font-bold mt-[12rpx]">¥{amount}</Text>
         </View>
       </View>
-      <View className="m-[24rpx] p-[32rpx] bg-white rounded-[16rpx]">
-        <View className="text-[28rpx] text-[#333] font-semibold mb-[24rpx]">
+      <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
+        <View className="text-[28rpx] text-foreground font-semibold mb-[24rpx]">
           {t('pay.selectMethod')}
         </View>
         <View className="flex items-center py-[24rpx]">
-          <View className="w-[60rpx] h-[60rpx] leading-[60rpx] text-center bg-[#f5f5f5] rounded-md text-[28rpx] text-[#09bb07]">
+          <View className="w-[60rpx] h-[60rpx] leading-[60rpx] text-center bg-muted rounded-md text-[28rpx] text-[#09bb07]">
             微
           </View>
-          <Text className="flex-1 ml-[24rpx] text-[28rpx] text-[#333]">{t('pay.wechat')}</Text>
-          <View className="w-[36rpx] h-[36rpx] rounded-md border-[2rpx] bg-[#07c160] border-[#07c160]" />
+          <Text className="flex-1 ml-[24rpx] text-[28rpx] text-foreground">{t('pay.wechat')}</Text>
+          <View className="w-[36rpx] h-[36rpx] rounded-md border-[2rpx] bg-primary border-primary" />
         </View>
       </View>
       <Button
-        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-[#07c160] text-white rounded-[40rpx] text-[32rpx]"
+        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-primary text-white rounded-[40rpx] text-[32rpx]"
         loading={submitting}
         disabled={submitting}
         onClick={onPay}

@@ -24,10 +24,10 @@ const TYPE_ICON: Record<InteractionItem['type'], string> = {
 }
 
 const TYPE_COLOR: Record<InteractionItem['type'], string> = {
-  like: 'text-red-500',
+  like: 'text-destructive',
   comment: 'text-primary',
-  follow: 'text-green-500',
-  collect: 'text-yellow-500',
+  follow: 'text-primary',
+  collect: 'text-[#f59e0b]',
 }
 
 const TYPE_LABEL: Record<InteractionItem['type'], string> = {
@@ -41,7 +41,7 @@ export default function InteractionMessage({ list, onClick }: InteractionMessage
   if (!list.length) {
     return (
       <View className="flex items-center justify-center py-16">
-        <Text className="text-sm text-gray-400">暂无互动消息</Text>
+        <Text className="text-sm text-muted-foreground">暂无互动消息</Text>
       </View>
     )
   }
@@ -51,23 +51,23 @@ export default function InteractionMessage({ list, onClick }: InteractionMessage
       {list.map((item) => (
         <View
           key={item.id}
-          className="flex bg-white rounded-xl p-3 mb-2"
+          className="flex bg-card rounded-xl p-3 mb-2"
           onClick={() => onClick?.(item)}
         >
           <View className="relative mr-3">
             {item.userAvatar ? (
               <Image
                 src={item.userAvatar}
-                className="w-10 h-10 rounded-lg bg-gray-50"
+                className="w-10 h-10 rounded-lg bg-muted"
                 mode="aspectFill"
               />
             ) : (
-              <View className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                <Text className="text-sm text-gray-500">{item.userName.charAt(0)}</Text>
+              <View className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                <Text className="text-sm text-muted-foreground">{item.userName.charAt(0)}</Text>
               </View>
             )}
             <Text
-              className={`absolute -bottom-1 -right-1 w-4 h-4 text-xs bg-white rounded flex items-center justify-center ${
+              className={`absolute -bottom-1 -right-1 w-4 h-4 text-xs bg-card rounded flex items-center justify-center ${
                 TYPE_COLOR[item.type]
               }`}
             >
@@ -76,17 +76,17 @@ export default function InteractionMessage({ list, onClick }: InteractionMessage
           </View>
           <View className="flex-1 min-w-0">
             <View className="flex items-center">
-              <Text className="text-sm font-medium text-gray-800 truncate">{item.userName}</Text>
-              <Text className="ml-1 text-xs text-gray-400">{TYPE_LABEL[item.type]}</Text>
-              {!item.read && <View className="w-2 h-2 rounded-full bg-red-500 ml-auto" />}
+              <Text className="text-sm font-medium text-foreground truncate">{item.userName}</Text>
+              <Text className="ml-1 text-xs text-muted-foreground">{TYPE_LABEL[item.type]}</Text>
+              {!item.read && <View className="w-2 h-2 rounded-full bg-destructive ml-auto" />}
             </View>
-            <Text className="text-xs text-gray-500 mt-1 line-clamp-1">{item.content}</Text>
+            <Text className="text-xs text-muted-foreground mt-1 line-clamp-1">{item.content}</Text>
             {item.targetTitle && (
-              <View className="mt-1.5 px-2 py-1 bg-gray-50 rounded">
-                <Text className="text-xs text-gray-500 line-clamp-1">@{item.targetTitle}</Text>
+              <View className="mt-1.5 px-2 py-1 bg-muted rounded">
+                <Text className="text-xs text-muted-foreground line-clamp-1">@{item.targetTitle}</Text>
               </View>
             )}
-            <Text className="text-[10px] text-gray-400 mt-1">{item.createdAt}</Text>
+            <Text className="text-[10px] text-muted-foreground mt-1">{item.createdAt}</Text>
           </View>
         </View>
       ))}

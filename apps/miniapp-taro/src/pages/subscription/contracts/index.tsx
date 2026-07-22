@@ -5,9 +5,9 @@ import { listRecurringContracts, cancelRecurringContract, type WechatPayContract
 
 const STATUS_STYLE: Record<WechatPayContract['status'], string> = {
   active: 'bg-[#e8f5e9] text-[#4caf50]',
-  pending: 'bg-[#fff5e6] text-[#ff9a3c]',
-  cancelled: 'bg-[#f5f5f5] text-[#999]',
-  expired: 'bg-[#f5f5f5] text-[#999]',
+  pending: 'bg-[rgba(245, 158, 11, 0.1)] text-[#ff9a3c]',
+  cancelled: 'bg-muted text-muted-foreground',
+  expired: 'bg-muted text-muted-foreground',
 }
 
 const STATUS_TEXT: Record<WechatPayContract['status'], string> = {
@@ -82,16 +82,16 @@ export default function SubscriptionContractsPage() {
   })
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       <View className="px-[24rpx] pt-[24rpx] pb-[16rpx]">
-        <Text className="text-[28rpx] text-[#333] font-semibold">自动续费管理</Text>
+        <Text className="text-[28rpx] text-foreground font-semibold">自动续费管理</Text>
       </View>
       {list.length > 0 && (
         <View className="px-[24rpx] pb-[24rpx]">
           {list.map((c) => (
-            <View key={c.id} className="bg-white rounded-[16rpx] p-[32rpx] mb-[24rpx]">
+            <View key={c.id} className="bg-card rounded-[16rpx] p-[32rpx] mb-[24rpx]">
               <View className="flex justify-between items-center">
-                <Text className="text-[30rpx] text-[#333] font-semibold">
+                <Text className="text-[30rpx] text-foreground font-semibold">
                   {c.planId ? `套餐 ${c.planId}` : '自动续费'}
                 </Text>
                 <Text
@@ -102,12 +102,12 @@ export default function SubscriptionContractsPage() {
               </View>
               <View className="mt-[20rpx]">
                 <View className="flex justify-between py-[8rpx]">
-                  <Text className="text-[24rpx] text-[#999]">下次扣款</Text>
-                  <Text className="text-[24rpx] text-[#333]">{formatTime(c.nextChargeTime)}</Text>
+                  <Text className="text-[24rpx] text-muted-foreground">下次扣款</Text>
+                  <Text className="text-[24rpx] text-foreground">{formatTime(c.nextChargeTime)}</Text>
                 </View>
                 <View className="flex justify-between py-[8rpx]">
-                  <Text className="text-[24rpx] text-[#999]">上次扣款</Text>
-                  <Text className="text-[24rpx] text-[#333]">
+                  <Text className="text-[24rpx] text-muted-foreground">上次扣款</Text>
+                  <Text className="text-[24rpx] text-foreground">
                     {c.lastChargeTime
                       ? `${formatTime(c.lastChargeTime)} ${
                           c.lastChargeStatus ? LAST_CHARGE_TEXT[c.lastChargeStatus] : ''
@@ -116,8 +116,8 @@ export default function SubscriptionContractsPage() {
                   </Text>
                 </View>
                 <View className="flex justify-between py-[8rpx]">
-                  <Text className="text-[24rpx] text-[#999]">签约时间</Text>
-                  <Text className="text-[24rpx] text-[#333]">
+                  <Text className="text-[24rpx] text-muted-foreground">签约时间</Text>
+                  <Text className="text-[24rpx] text-foreground">
                     {formatTime(c.signedAt || c.createdAt)}
                   </Text>
                 </View>
@@ -137,12 +137,12 @@ export default function SubscriptionContractsPage() {
         </View>
       )}
       {list.length === 0 && !loading && (
-        <View className="text-center py-[120rpx] text-[#999]">
+        <View className="text-center py-[120rpx] text-muted-foreground">
           <Text className="text-[26rpx]">暂无自动续费签约</Text>
         </View>
       )}
       {loading && (
-        <View className="text-center py-[120rpx] text-[#999]">
+        <View className="text-center py-[120rpx] text-muted-foreground">
           <Text className="text-[26rpx]">加载中...</Text>
         </View>
       )}
