@@ -26,7 +26,7 @@ const PAGES = [
   '/workspace',
   '/user-center',
   '/settings',
-  '/settings/profile',
+  '/user/profile',
   '/orders',
   '/orders/123',
   '/admin',
