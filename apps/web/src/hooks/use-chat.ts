@@ -636,15 +636,22 @@ export function useChat(): UseChatReturn {
           },
           onToolCall: createToolCallHandler(assistantId),
           agentTools: mergeAgentTools(),
-          onError: (errMsg) => {
+          onError: (errMsg, info) => {
             const formatted = formatSSEError(errMsg)
             useChatStore.getState().setMessageError(assistantId, formatted.message)
             useChatStore.getState().setError(formatted.message)
             if (formatted.severity === 'auth') {
               useLoginDialogStore.getState().open('login')
             }
+            // 前端错误码透出(P1,2026-07-22 立):toast description 前缀 [errorCode],
+            // 让用户直接定位问题(MODEL_NOT_CONFIGURED/PROVIDER_NOT_IMPLEMENTED/LLM_ERROR 等)
+            const ec = info?.errorCode
             const toastDesc =
-              formatted.severity === 'auth' ? formatted.message : formatted.rawMessage
+              formatted.severity === 'auth'
+                ? formatted.message
+                : ec
+                  ? `[${ec}] ${formatted.rawMessage}`
+                  : formatted.rawMessage
             if (formatted.severity === 'ratelimit') {
               toast.warning(formatted.title, { description: toastDesc })
             } else if (formatted.severity === 'safety') {
@@ -669,12 +676,15 @@ export function useChat(): UseChatReturn {
           if (formatted.severity === 'auth') {
             useLoginDialogStore.getState().open('login')
           }
+          // 前端错误码透出(P1):catch 路径(HTTP 4xx throw)的 errorCode 从 formatted 直接取
+          const ec = formatted.errorCode
+          const prefix = ec ? `[${ec}] ` : ''
           if (formatted.severity === 'ratelimit' || formatted.severity === 'safety') {
-            toast.warning(formatted.title, { description: formatted.message })
+            toast.warning(formatted.title, { description: `${prefix}${formatted.message}` })
           } else if (formatted.severity === 'network') {
-            toast.error(formatted.title, { description: formatted.message })
+            toast.error(formatted.title, { description: `${prefix}${formatted.message}` })
           } else {
-            toast.error(formatted.title, { description: formatted.rawMessage })
+            toast.error(formatted.title, { description: `${prefix}${formatted.rawMessage}` })
           }
         }
       } finally {
@@ -756,15 +766,21 @@ export function useChat(): UseChatReturn {
         },
         onToolCall: createToolCallHandler(assistantId),
         agentTools: mergeAgentTools(),
-        onError: (errMsg) => {
+        onError: (errMsg, info) => {
           const formatted = formatSSEError(errMsg)
           useChatStore.getState().setMessageError(assistantId, formatted.message)
           useChatStore.getState().setError(formatted.message)
           if (formatted.severity === 'auth') {
             useLoginDialogStore.getState().open('login')
           }
+          // 前端错误码透出(P1):sendAnswer 路径同 sendMessage,toast description 加 [errorCode] 前缀
+          const ec = info?.errorCode
           const toastDesc =
-            formatted.severity === 'auth' ? formatted.message : formatted.rawMessage
+            formatted.severity === 'auth'
+              ? formatted.message
+              : ec
+                ? `[${ec}] ${formatted.rawMessage}`
+                : formatted.rawMessage
           if (formatted.severity === 'ratelimit') {
             toast.warning(formatted.title, { description: toastDesc })
           } else if (formatted.severity === 'safety') {
@@ -788,12 +804,15 @@ export function useChat(): UseChatReturn {
         if (formatted.severity === 'auth') {
           useLoginDialogStore.getState().open('login')
         }
+        // 前端错误码透出(P1):catch 路径(HTTP 4xx throw)的 errorCode 从 formatted 直接取
+        const ec = formatted.errorCode
+        const prefix = ec ? `[${ec}] ` : ''
         if (formatted.severity === 'ratelimit' || formatted.severity === 'safety') {
-          toast.warning(formatted.title, { description: formatted.message })
+          toast.warning(formatted.title, { description: `${prefix}${formatted.message}` })
         } else if (formatted.severity === 'network') {
-          toast.error(formatted.title, { description: formatted.message })
+          toast.error(formatted.title, { description: `${prefix}${formatted.message}` })
         } else {
-          toast.error(formatted.title, { description: formatted.rawMessage })
+          toast.error(formatted.title, { description: `${prefix}${formatted.rawMessage}` })
         }
       }
     } finally {
