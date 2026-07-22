@@ -1,4 +1,5 @@
 import { useNotificationStore } from '../../lib/notification-store'
+import { useI18n } from '../../src/i18n'
 
 function formatTime(iso: string): string {
   try {
@@ -14,6 +15,7 @@ function formatTime(iso: string): string {
 }
 
 export default function NotificationPanel() {
+  const { t } = useI18n()
   const { notifications, visible, markAllRead, setVisible, clearAll } = useNotificationStore()
 
   if (!visible) return null
@@ -21,21 +23,21 @@ export default function NotificationPanel() {
   return (
     <>
       <div className="sp-np-overlay" onClick={() => setVisible(false)} />
-      <div className="sp-np-panel" role="dialog" aria-label="通知">
+      <div className="sp-np-panel" role="dialog" aria-label={t('notification.title')}>
         <div className="sp-np-header">
-          <span className="sp-np-title">通知</span>
+          <span className="sp-np-title">{t('notification.title')}</span>
           <div className="sp-np-actions">
             <button className="sp-np-btn" onClick={markAllRead} type="button">
-              全部已读
+              {t('notification.markAllRead')}
             </button>
             <button className="sp-np-btn" onClick={clearAll} type="button">
-              清空
+              {t('notification.clearAll')}
             </button>
             <button
               className="sp-np-btn sp-np-close"
               onClick={() => setVisible(false)}
               type="button"
-              aria-label="关闭"
+              aria-label={t('notification.close')}
             >
               ×
             </button>
@@ -43,7 +45,7 @@ export default function NotificationPanel() {
         </div>
         <div className="sp-np-list">
           {notifications.length === 0 ? (
-            <div className="sp-np-empty">暂无通知</div>
+            <div className="sp-np-empty">{t('notification.empty')}</div>
           ) : (
             notifications.map((n) => (
               <div key={n.id} className={`sp-np-item ${n.isRead ? 'read' : 'unread'}`}>
