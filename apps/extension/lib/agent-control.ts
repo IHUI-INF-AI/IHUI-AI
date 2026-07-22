@@ -6,9 +6,11 @@
  *   wait_for_element / get_attribute / hover / select_option
  * - Background actions(在 service worker 执行):screenshot / navigate / switch_tab / close_tab
  *
- * 调用方:background.ts handleAgentAction / content.ts agent.action.dom handler
+ * 调用方:background.ts routeMessage / agent-control-bridge.ts onRuntimeMessage / content.ts agent.action.dom handler
+ * 2026-07-22 P2 dedupe:新增 executeAgentActionRequest + forwardRequestToContentScript 共享函数,
+ * 供 background.ts 和 agent-control-bridge.ts 共用,消除重复实现。
  */
-import type { BrowserControlActionType, AgentActionErrorCode } from '@ihui/types'
+import type { BrowserControlActionType, AgentActionErrorCode, AgentActionRequest, AgentActionResponse } from '@ihui/types'
 
 // ===== Result type =====
 
@@ -379,4 +381,69 @@ async function bgCloseTab(params: Record<string, unknown>): Promise<DomActionRes
   }
   await chrome.tabs.remove(tab.id)
   return { success: true, data: { closed: true, index } }
+}
+
+// ===== Shared agent action dispatcher (2026-07-22 抽取,消除 background.ts 与 agent-control-bridge.ts 重复) =====
+
+/**
+ * 共享:执行 AgentActionRequest,自动分发 DOM action(转发到 content script)或 background action(本地执行)。
+ * 供 background.ts 的 routeMessage 'agent.action' 和 agent-control-bridge.ts 的 onRuntimeMessage 共用。
+ */
+export async function executeAgentActionRequest(req: AgentActionRequest): Promise<AgentActionResponse> {
+  const start = Date.now()
+  const timeout = req.timeout ?? 30000
+  const action = req.action as BrowserControlActionType
+
+  let result: DomActionResult
+  if (isDomAction(action)) {
+    result = await forwardRequestToContentScript(req)
+  } else if (isBackgroundAction(action)) {
+    result = await executeBackgroundAction(action, req.params, timeout)
+  } else {
+    result = { success: false, errorCode: 'UNSUPPORTED_ACTION', error: `unsupported action: ${action}` }
+  }
+
+  return {
+    requestId: req.requestId,
+    success: result.success,
+    error: result.error,
+    errorCode: result.errorCode,
+    data: result.data,
+    durationMs: Date.now() - start,
+    executedBy: 'extension',
+  }
+}
+
+/**
+ * 共享:将 DOM action 请求转发到当前 active tab 的 content script,带超时。
+ */
+export async function forwardRequestToContentScript(req: AgentActionRequest): Promise<DomActionResult> {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
+  const tabId = tabs[0]?.id
+  if (typeof tabId !== 'number') {
+    return { success: false, errorCode: 'TARGET_NOT_CONNECTED', error: 'no active tab' }
+  }
+  const timeoutMs = req.timeout ?? 30000
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      resolve({ success: false, errorCode: 'TIMEOUT', error: `content script no response after ${timeoutMs}ms` })
+    }, timeoutMs)
+    chrome.tabs.sendMessage(
+      tabId,
+      { type: 'agent.action.dom', payload: req },
+      (response: DomActionResult | undefined) => {
+        clearTimeout(timer)
+        const lastErr = chrome.runtime.lastError
+        if (lastErr) {
+          resolve({ success: false, errorCode: 'TARGET_NOT_CONNECTED', error: lastErr.message })
+          return
+        }
+        if (!response) {
+          resolve({ success: false, errorCode: 'EXECUTION_FAILED', error: 'no response from content script' })
+          return
+        }
+        resolve(response)
+      },
+    )
+  })
 }
