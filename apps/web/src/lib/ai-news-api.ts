@@ -599,7 +599,7 @@ export async function fetchAiFeedSources(): Promise<
 }
 
 // =============================================================================
-// 大模型排行榜(对接 /api/leaderboard,参考 arena.ai/leaderboard)
+// 大模型排行榜(对接 /api/model-leaderboard,参考 arena.ai/leaderboard)
 // =============================================================================
 
 /** 模型分类(6 类 + agent + overall) */
@@ -643,7 +643,7 @@ export interface LeaderboardEntry {
   sortOrder: number
 }
 
-/** 拉取排行榜(对接 /api/leaderboard?category=&subcategory=&limit=) */
+/** 拉取排行榜(对接 /api/model-leaderboard?category=&subcategory=&limit=) */
 export async function fetchLeaderboard(
   category: LeaderboardCategory = 'overall',
   subcategory?: string,
@@ -655,17 +655,17 @@ export async function fetchLeaderboard(
   })
   if (subcategory) params.set('subcategory', subcategory)
   const data = await safeApi<{ list: LeaderboardEntry[]; total: number }>(
-    `/api/leaderboard?${params.toString()}`,
+    `/api/model-leaderboard?${params.toString()}`,
   )
   return data?.list ?? []
 }
 
-/** 拉取单模型详情(对接 /api/leaderboard/:modelId) */
+/** 拉取单模型详情(对接 /api/model-leaderboard/:modelId) */
 export async function fetchLeaderboardEntry(
   modelId: string,
 ): Promise<LeaderboardEntry | null> {
   const data = await safeApi<{ entry: LeaderboardEntry }>(
-    `/api/leaderboard/${encodeURIComponent(modelId)}`,
+    `/api/model-leaderboard/${encodeURIComponent(modelId)}`,
   )
   return data?.entry ?? null
 }
