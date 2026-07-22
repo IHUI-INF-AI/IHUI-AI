@@ -152,6 +152,9 @@ def create_app() -> FastAPI:
     app.include_router(screenshot.router, prefix="/api", tags=["screenshot"])
     # v1 业务流路由(对话/智能体/RAG,2026-07-20 新增)
     app.include_router(api_v1_router, prefix="/api/v1", tags=["v1"])
+    # 四层记忆 + Dream 梦境系统(2026-07-22 新增,对标 OpenClaw Mem)
+    from app.api.memory import router as memory_router
+    app.include_router(memory_router, prefix="/api", tags=["memory"])
     app.include_router(legacy_router)
 
     # Prometheus 指标(/metrics 端点,由 prometheus-fastapi-instrumentator 自动暴露)

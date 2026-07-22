@@ -175,3 +175,5 @@ export * from './plugin-events.js'
 export * from './school-org-supplement.js'
 export * from './question-bank-supplement.js'
 export * from './course-recommend-supplement.js'
+// 四层记忆 + Dream 梦境系统(2026-07-22 立,对标 OpenClaw Mem:episodic/semantic/procedural 3 表)
+export * from './memory.js'
