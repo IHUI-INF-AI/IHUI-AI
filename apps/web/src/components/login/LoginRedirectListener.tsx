@@ -42,11 +42,10 @@ export function LoginRedirectListener() {
     if (!match) return
     const target = decodeURIComponent(match[1] ?? '')
     document.cookie = 'login_redirect=; path=/; max-age=0'
+    // 仅当用户访问的是需要登录的受保护路由时才弹窗
+    // 首页 / 等公开路径不弹窗(2026-07-23:用户要求"刷新进项目不要弹窗")
     if (target && target !== '/') {
       open('login', target)
-    } else {
-      open('login')
-      void router.replace('/')
     }
   }, [open, router, searchParams])
 
