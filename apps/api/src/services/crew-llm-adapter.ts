@@ -12,6 +12,7 @@
 import { config } from '../config/index.js'
 import { logger } from './clawdbot/logger.js'
 import { recordAiCost } from '../plugins/ai-cost.js'
+import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 
 export interface LlmMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
@@ -107,7 +108,7 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
     '[CrewLLM] 调用 ai-service',
   )
 
-  const resp = await fetch(url, {
+  const resp = await aiServiceFetch(null, '/api/llm/complete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
