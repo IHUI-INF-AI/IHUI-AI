@@ -103,11 +103,11 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
         sameSite: 'Lax',
       },
     ])
-    await page.goto('/user-center')
+    await page.goto('/admin/user-center')
     await page.waitForLoadState('domcontentloaded')
     // 清除 cookie 模拟注销
     await context.clearCookies()
-    await page.goto('/user-center')
+    await page.goto('/admin/user-center')
     // 未登录访问应被 middleware 拦截(login/register/403/回到登录)
     await page
       .waitForURL(/\/(login|register|403|forbidden|sso\/login)/, { timeout: 5000 })
