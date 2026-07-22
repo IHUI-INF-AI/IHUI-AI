@@ -333,6 +333,38 @@ export const VENDOR_PLATFORMS: Record<string, VendorPlatform> = {
     apiFormat: 'openai_chat',
     note: '硅基流动,国内主流开源模型聚合,OpenAI 格式兼容,国内直连速度快',
   },
+  'Baidu ERNIE': {
+    officialKeyUrl: 'https://console.bce.baidu.com/qianfan/ais/console/applicationConsole/application',
+    docsUrl: 'https://cloud.baidu.com/doc/WENXINWORKSHOP/index.html',
+    defaultBaseUrl: 'https://qianfan.baidubce.com/v2',
+    providerCode: 'ernie',
+    apiFormat: 'openai_chat',
+    note: '百度文心一言,千帆平台,国内大模型代表,OpenAI 兼容 V2 接口',
+  },
+  'iFlytek Spark': {
+    officialKeyUrl: 'https://console.xfyun.cn/services/bm4',
+    docsUrl: 'https://www.xfyun.cn/doc/spark/Web.html',
+    defaultBaseUrl: 'https://spark-api-open.xf-yun.com/v1',
+    providerCode: 'spark',
+    apiFormat: 'openai_chat',
+    note: '科大讯飞星火大模型,国内语音 + NLP 厂商,OpenAI 兼容接口',
+  },
+  '360 Zhinao': {
+    officialKeyUrl: 'https://ai.360.com/platform/api_key',
+    docsUrl: 'https://ai.360.com/platform/developers',
+    defaultBaseUrl: 'https://api.360.cn/v1',
+    providerCode: '360',
+    apiFormat: 'openai_chat',
+    note: '360 智脑,360 集团大模型,国内安全厂商,OpenAI 兼容接口',
+  },
+  'NetEase Youdao': {
+    officialKeyUrl: 'https://ai.h.youdao.com/console/',
+    docsUrl: 'https://ai.youdao.com/DOCSIRMAI/translation/',
+    defaultBaseUrl: 'https://openapi.youdao.com/v1',
+    providerCode: 'youdao',
+    apiFormat: 'openai_chat',
+    note: '网易有道子曰大模型,翻译 + 教育场景,OpenAI 兼容接口',
+  },
 }
 
 /** 查询 vendor 平台信息,返回降级兜底 */
