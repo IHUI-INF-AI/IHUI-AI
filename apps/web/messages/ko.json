@@ -11590,7 +11590,8 @@
     "isPublic": "공개",
     "save": "저장",
     "cancel": "취소",
-    "deleteConfirm": "이 항목을 삭제하시겠습니까?"
+    "deleteConfirm": "이 항목을 삭제하시겠습니까?",
+    "attachmentsField": "첨부파일"
   },
   "offlineRecords": {
     "title": "AI인마음페이스테스트",
@@ -11607,7 +11608,13 @@
     "occurredAtField": "날짜",
     "save": "저장",
     "cancel": "취소",
-    "deleteConfirm": "삭제 확인"
+    "deleteConfirm": "삭제 확인",
+    "attachmentsField": "첨부파일"
+  },
+  "attachments": {
+    "placeholder": "클릭 또는 드래그하여 첨부파일 업로드",
+    "uploading": "업로드 중...",
+    "remove": "삭제"
   },
   "papers": {
     "title": "AI인마음페이스테스트",
