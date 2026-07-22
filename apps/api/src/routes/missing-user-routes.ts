@@ -139,6 +139,7 @@ import { findCozeChatHistory } from '../db/coze-chat-queries.js'
 import { listVipLevels } from '../db/vip-queries.js'
 import { isAlipayConfigured, buildSignedUrl } from '../services/alipay.js'
 import { createOrder } from '../db/payment-queries.js'
+import { callRealLlm } from '../services/crew-llm-adapter.js'
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -1587,7 +1588,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
     const body = (request.body as { reason?: string } | null) ?? {}
-    const flow = await rejectWithdrawal(id, body.reason ?? '驳回')
+    const flow = await rejectWithdrawal(id, body.reason ?? '驳回', request.userId ?? null)
     if (!flow) return reply.status(400).send(error(400, '提现记录不存在或已处理'))
     return reply.send(success({ success: true, flow }))
   })
@@ -1608,7 +1609,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
       productId: body.productId,
       payType: 'alipay',
       description: body.description,
-    })
+    }, request.userId ?? null)
     if (!isAlipayConfigured()) {
       return reply.send(
         success({ payUrl: null, orderId: order.id, orderNo: order.orderNo, mock: true }),
@@ -1637,7 +1638,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
       productId: body.productId,
       payType: 'alipay',
       description: body.description,
-    })
+    }, request.userId ?? null)
     if (!isAlipayConfigured()) {
       return reply.send(
         success({ payUrl: null, orderId: order.id, orderNo: order.orderNo, mock: true }),
@@ -2692,7 +2693,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   // 此处原 Phase 7 P0 补建版(BASE_CAPABILITIES 写死 + aiModelConfig 合并)删除以避免
   // Fastify "Method 'GET' already declared" 重复注册。POST invoke + POST auto-match 不冲突保留。
 
-  /** POST /api/v1/ai/capabilities/invoke - 调用能力（统一占位,真实实现由 plugin 端负责） */
+  /** POST /api/v1/ai/capabilities/invoke - 调用能力(通过 LLM 真实执行) */
   server.post('/v1/ai/capabilities/invoke', async (request, reply) => {
     const body = z
       .object({
@@ -2704,13 +2705,32 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     if (!body.success) return reply.status(400).send(error(400, '参数错误'))
     const cap = BASE_CAPABILITIES.find((c) => c.id === body.data.capability_id)
     if (!cap) return reply.status(404).send(error(404, '能力不存在'))
-    return reply.send(
-      success({
-        success: true,
-        capability_id: cap.id,
-        result: `已接收对 ${cap.name} 的调用请求(input 长度 ${body.data.input.length})`,
-      }),
-    )
+    try {
+      const llmResult = await callRealLlm({
+        messages: [
+          { role: 'system', content: `你是「${cap.name}」能力。${cap.description}` },
+          { role: 'user', content: body.data.input },
+        ],
+      })
+      return reply.send(
+        success({
+          success: true,
+          capability_id: cap.id,
+          result: llmResult.content || body.data.input,
+          model: llmResult.modelUsed,
+          stub: llmResult.stub,
+        }),
+      )
+    } catch (e) {
+      request.log.warn({ err: e, capabilityId: cap.id }, 'ai capability invoke LLM 调用失败,降级返回')
+      return reply.send(
+        success({
+          success: true,
+          capability_id: cap.id,
+          result: `已接收对 ${cap.name} 的调用请求(input 长度 ${body.data.input.length}),LLM 调用失败已降级`,
+        }),
+      )
+    }
   })
 
   /** POST /api/v1/ai/capabilities/auto-match - AI 自动匹配(基于关键词打分的简单实现) */
