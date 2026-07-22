@@ -23,7 +23,7 @@ import java.time.Duration;
  * <pre>
  * IhuiClient client = IhuiClient.builder()
  *     .apiKey("ihui_xxx")
- *     .baseUrl("http://localhost:3001")
+ *     .baseUrl("http://localhost:8802")
  *     .build();
  *
  * ChatCompletionResponse resp = client.ai.completions(
@@ -156,7 +156,7 @@ public final class IhuiClient {
         /**
          * 设置基础 URL。
          *
-         * @param baseUrl 基础 URL(默认 http://localhost:3001)
+         * @param baseUrl 基础 URL(默认 http://localhost:8802)
          * @return 当前 builder
          */
         public Builder baseUrl(String baseUrl) {

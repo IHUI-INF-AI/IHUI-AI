@@ -49,7 +49,7 @@ using Ihui.AI;
 
 var client = IhuiClient.CreateBuilder()
     .WithApiKey("ihui_xxx")
-    .WithBaseUrl("http://localhost:3001")
+    .WithBaseUrl("http://localhost:8802")
     .Build();
 
 var req = ChatCompletionRequest.CreateBuilder()
@@ -85,7 +85,7 @@ Console.WriteLine(resp?.GetContent());
 var client = IhuiClient.CreateBuilder()
     .WithApiKey("ihui_xxx")                              // 必需,API Key
     .WithSecret("optional-api-secret")                  // 可选,API Secret
-    .WithBaseUrl("https://api.ihui.example.com")        // 默认 http://localhost:3001
+    .WithBaseUrl("https://api.ihui.example.com")        // 默认 http://localhost:8802
     .WithTimeout(TimeSpan.FromSeconds(60))               // 默认 30s,流式请求不超时
     .WithMaxRetries(2)                                   // 默认 2,网络错误 + 5xx 自动重试
     .WithHttpClient(new HttpClient())                    // 可选,自定义 HttpClient(依赖注入场景)

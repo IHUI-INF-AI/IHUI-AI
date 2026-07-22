@@ -1,6 +1,6 @@
 /**
  * 请求封装 - 指向新架构后端
- * 新架构 API: http://localhost:3001/api
+ * 新架构 API: http://localhost:8801/api
  */
 import Taro from '@tarojs/taro'
 import { getToken, clearAuth } from './auth'
