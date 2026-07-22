@@ -500,8 +500,8 @@ export async function fetchAiFeedNotifications(
     minGrowth: String(minGrowth),
     limit: String(limit),
   })
-  const data = await safeApi<TrendNotification[]>(`/api/ai-feed/notifications?${params.toString()}`)
-  return data ?? []
+  const data = await safeApi<{ list: TrendNotification[]; total: number }>(`/api/ai-feed/notifications?${params.toString()}`)
+  return data?.list ?? []
 }
 
 // aihot API(权威 AI 资讯源,公开匿名可访,数据最新最准)
