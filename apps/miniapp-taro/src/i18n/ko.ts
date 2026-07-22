@@ -328,6 +328,16 @@ export default {
     common: {
       loading: '로딩 중…',
     },
+    chatMessageItem: {
+      me: '나',
+      ai: 'AI',
+      thinkingProcess: '사고 과정',
+      noContent: '복사할 내용 없음',
+      aiGenerated: 'AI 생성',
+      tokenCost: '토큰: {{n}}',
+      reuse: '재사용',
+      copy: '복사',
+    },
     inputArea: {
       placeholder: '질문 입력…',
       releaseToSend: '놓으면 전송',
