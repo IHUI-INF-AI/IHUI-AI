@@ -77,14 +77,15 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
     return <ErrorState message={errorMsg} />
   }
 
+  // React 18 严格模式 + 第三方 SDK DOM 操作冲突修复(2026-07-22):
+  // 旧实现把 <Loader2> 作为容器子节点,SDK 用 container.innerHTML='' 清空时把 React 的子节点也清了,
+  // React cleanup 试图 removeChild 时节点已不存在 → "Failed to execute 'removeChild' on 'Node'"
+  // 修复:SDK 挂载点(sdkContainerRef)与 React 子节点(Loader2)分层渲染,互不干扰
   return (
-    <div
-      ref={containerRef}
-      id={containerId}
-      className="flex h-[280px] w-full items-center justify-center overflow-hidden rounded-md border bg-card"
-    >
+    <div className="relative flex h-[280px] w-full items-center justify-center overflow-hidden rounded-md border bg-card">
+      <div ref={containerRef} id={containerId} className="absolute inset-0" />
       {status === 'loading' && (
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="relative h-6 w-6 animate-spin text-muted-foreground" />
       )}
     </div>
   )
