@@ -59,6 +59,23 @@
 - CLI typecheck + build exit 0 ✅
 - ai-service 4 场景独立验证全过 ✅(正常完成 / 超时 cancel 0.52s / shutdown 强制取消 0.22s / 超时不阻塞其他 worker 0.51s)
 
+### [x] ✅(2026-07-22) WorkerPool/CLI 子进程并行 P0-4+P1-4+P2-1+P2-4 缺陷修复(跨端:packages/types + ai-service + cli)
+
+**触发**:用户要求"继续"修复剩余缺陷。本轮修复 4 项(P0-4/P1-4/P2-1/P2-4)。
+
+**修复内容**(3 文件):
+
+| 缺陷 | 端 | 文件 | 修复 |
+|---|---|---|---|
+| P0-4 shutdown 丢弃 queued 任务 | cli | `subagents/worker-pool.ts` | shutdown 时遍历 queue 调 resolve({status:'failed'}) 再清空(防调用方 Promise 泄漏 hang) |
+| P1-4 失败任务 worktree 不清理 | cli + types + ai-service | `worker-pool.ts` + `agent-runtime.ts` + `dag_scheduler.py` | WorkerPoolConfig 加 keepWorktreeOnFailure(默认 false=失败也清理防磁盘泄漏,true=保留供调试) |
+| P2-1 _wait_retries 永不清理 | ai-service | `dag_scheduler.py` | task 终态后 pop _wait_retries(防长跑小内存泄漏) |
+| P2-4 全局超时无法按 task 配置 | types + ai-service | `agent-runtime.ts` + `dag_scheduler.py` | KanbanTask 加 timeoutSeconds 字段,task 级超时覆盖全局 |
+
+**验证**:
+- CLI typecheck + build exit 0 ✅
+- ai-service 4 场景独立验证全过 ✅(task 级超时 0.3s 覆盖全局 300s / blocked 路径清理 _wait_retries / 成功路径清理 _wait_retries / queued 任务 shutdown 0.00s 完成)
+
 ### [x] ✅(2026-07-22) CLI 配置导入扩展至 24 源 + Google Antigravity + URL/协议深度修正 + 20 测试(跨端:packages/types + api + web + cli + desktop)
 
 **触发**:用户反馈"谷歌的反重力平台怎么没加进去呢 还有你那测试好啊 所有这些平台支持的 URL 协议具体参数也都要深度分析 配置好一键切换 不可以出错搞混"。
