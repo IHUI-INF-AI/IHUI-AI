@@ -6,13 +6,26 @@ export default defineConfig({
     name: 'IHUI AI',
     description: 'IHUI AI 浏览器助手',
     version: '1.0.0',
+    minimum_chrome_version: '114',
     permissions: ['storage', 'activeTab', 'sidePanel', 'contextMenus', 'tabs', 'scripting', 'session'],
     host_permissions: ['http://localhost:8801/*', 'https://*.ihui.ai/*'],
+    icons: {
+      16: 'icon/16.png',
+      32: 'icon/32.png',
+      48: 'icon/48.png',
+      128: 'icon/128.png',
+    },
     side_panel: {
       default_path: '/sidepanel.html',
     },
     action: {
       default_popup: 'popup.html',
+      default_icon: {
+        16: 'icon/16.png',
+        32: 'icon/32.png',
+        48: 'icon/48.png',
+        128: 'icon/128.png',
+      },
     },
     web_accessible_resources: [
       {
