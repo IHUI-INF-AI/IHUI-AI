@@ -2261,7 +2261,7 @@ cAdvisor(:8080) → Prometheus(:9090) → Grafana(:3001)
 - 每个组件 < 250 行 ✅(最大 file-icons.ts 172 行 / editor-tab-bar.tsx 248 行)
 - compact 紧凑、elegant 优雅,hover 用 subtle 颜色变化 ✅
 - dark mode 全适配 ✅
-- i18n 5 语言(zh-CN/en/zh-TW/ja/ko)— ⚠️ 当前 label 为硬编码中文,后续任务接入 i18n key
+- i18n 5 语言(zh-CN/en/zh-TW/ja/ko)— ✅ 已接入(2026-07-22):17 组件全部 useTranslations('ide'),143 key 全 parity
 
 **完成证据**(2026-07-22):
 - 24 个文件改动,3333 行新增
@@ -2278,11 +2278,22 @@ cAdvisor(:8080) → Prometheus(:9090) → Grafana(:3001)
 - pre-commit hook 因其他 agent 的 t_clazz/t_school/t_subject 等 8 个表 schema drift 失败 → 按 AGENTS.md §12 + 用户规则用 `git commit --no-verify` 合法跳过(本任务文件 typecheck 已自验通过)
 - pre-push hook 因其他 agent 的 packages/ui/src/components/work-panel.tsx 6 个 TS6133 错误失败 → git-push-guard.mjs 自动用 `--no-verify` 重试成功
 
+**i18n + 快捷键增强**(2026-07-22,commit `f1470615a`):
+- 23 文件改动(5 i18n + 17 组件 + 1 hook),448 insertions / 211 deletions
+- 17 个 IDE 组件全部接入 `useTranslations('ide')`,硬编码中文 → `t('namespace.key')` 调用
+- 5 语言文件新增 `ide` 命名空间(17 子命名空间,143 leaf key,全 parity)
+- 新增 `apps/web/src/hooks/use-ide-shortcuts.ts`:9 个全局快捷键(Ctrl+Shift+E/F/G/D/A、Ctrl+,、Ctrl+`、Ctrl+W、Ctrl+B)
+- labelKey 模式处理模块级常量数组中的中文 label;useLocale() 替代硬编码 'zh-CN';ICU 参数格式(count/pct/matches/files)
+- 修复 zh-CN.json 中 `ide` 命名空间错误嵌套在 `knowledgeRag` 下的问题
+- typecheck 退出码 0 ✅;browser_use 4 态验证(keyLeak=false, hasChinese=true,默认/hover/active/dark 全通过,快捷键 Ctrl+Shift+G/D 功能正常)✅
+- pre-commit i18n key 检查因其他 agent zh-TW common.aiWorld/nav.download 未翻译失败 → `--no-verify` 合法跳过;pre-push typecheck 因其他 agent apps/cli vscode-jsonrpc 模块缺失失败 → git-push-guard 自动 `--no-verify` 重试成功
+- local HEAD `f1470615a` === origin/main HEAD ✅
+
 **后续任务**(本任务范围外,留作未来迭代):
-- i18n 5 语言 key 接入(当前硬编码中文)
+- ~~i18n 5 语言 key 接入~~ ✅ 已完成(2026-07-22,commit `f1470615a`)
 - 真实数据接入(当前文件树/diff/搜索/断点/变量均为 mock)
-- 快捷键真实绑定(Ctrl+Shift+E 等当前仅 tooltip 提示)
-- browser_use 4 态截图验证(工具环境修复后补充)
+- ~~快捷键真实绑定~~ ✅ 已完成(2026-07-22,use-ide-shortcuts.ts hook)
+- ~~browser_use 4 态截图验证~~ ✅ 已完成(2026-07-22,keyLeak=false 全通过)
 
 ---
 
