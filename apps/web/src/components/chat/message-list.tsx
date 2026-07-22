@@ -190,6 +190,7 @@ export function MessageList({
                           status={tc.status}
                           duration={tc.duration}
                           error={tc.error}
+                          iteration={tc.iteration}
                         />
                       ))}
                       <MarkdownStream content={m.content} isStreaming={streamingThis} />
