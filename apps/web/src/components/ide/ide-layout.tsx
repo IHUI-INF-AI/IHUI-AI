@@ -1,6 +1,8 @@
 'use client'
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
+import { useIDEShortcuts } from '@/hooks/use-ide-shortcuts'
 import { IDETopBar } from './ide-top-bar'
 import { ActivityBar } from './activity-bar'
 import { FileExplorer } from './file-explorer'
@@ -34,31 +36,33 @@ function SidePanel() {
 /** 根据顶部 tab 类型渲染主内容区 */
 function MainContent() {
   const { activeTopTab } = useIDEWorkspace()
+  const t = useTranslations('ide')
   switch (activeTopTab) {
     case 'editor':
       return <CodeEditorPane />
     case 'code-changes':
       return <DiffViewerPane />
     case 'document':
-      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">文档视图</div>
+      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('layout.documentView')}</div>
     case 'terminal':
-      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">终端视图</div>
+      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('layout.terminalView')}</div>
     case 'browser':
-      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">浏览器视图</div>
+      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('layout.browserView')}</div>
     case 'figma':
-      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Figma 视图</div>
+      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('layout.figmaView')}</div>
     case 'agent':
-      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">智能体视图</div>
+      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('layout.agentView')}</div>
     case 'mcp':
-      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">MCP 视图</div>
+      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('layout.mcpView')}</div>
     case 'settings':
-      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">设置视图</div>
+      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('layout.settingsView')}</div>
     default:
       return <CodeEditorPane />
   }
 }
 
 export function IDELayout() {
+  useIDEShortcuts()
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background">
       <IDETopBar />
