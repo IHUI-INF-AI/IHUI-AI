@@ -44,8 +44,9 @@ const TABS: TabItem[] = [
   },
 ]
 
-const ACTIVE_COLOR = '#07c160'
-const INACTIVE_COLOR = '#999999'
+// 赛博朋克配色:激活青 #00F2FF,未激活半透明白
+const ACTIVE_COLOR = '#00f2ff'
+const INACTIVE_COLOR = 'rgba(255,255,255,0.5)'
 
 export default function CustomTabBar() {
   const { t } = useI18n()
@@ -66,7 +67,7 @@ export default function CustomTabBar() {
   }
 
   return (
-    <View className="fixed left-0 right-0 bottom-0 z-50 bg-white border-t border-solid border-[#eee] flex">
+    <View className="fixed left-0 right-0 bottom-0 z-50 bg-card border-t border-solid border-[var(--color-border)] flex">
       {TABS.map((item) => {
         const active = current === item.pagePath
         return (
