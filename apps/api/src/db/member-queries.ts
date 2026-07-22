@@ -37,9 +37,9 @@ export function hashPasswordLegacy(password: string): string {
  * 2026-07-21 安全审计加固:替换原 SHA-256 哈希。
  * Bcrypt 自带 salt + cost factor,抗 GPU 暴力破解和彩虹表攻击。
  */
-export function hashPasswordBcrypt(password: string): string {
+export async function hashPasswordBcrypt(password: string): Promise<string> {
   if (!password) return ''
-  return bcrypt.hashSync(password, BCRYPT_COST)
+  return bcrypt.hash(password, BCRYPT_COST)
 }
 
 /**
@@ -48,7 +48,7 @@ export function hashPasswordBcrypt(password: string): string {
  * 历史 API:`hashPassword(password)` 返回 SHA-256 哈希,已被本函数取代。
  * 旧函数 `hashPasswordLegacy` 保留仅用于数据迁移验证。
  */
-export function hashPassword(password: string): string {
+export async function hashPassword(password: string): Promise<string> {
   return hashPasswordBcrypt(password)
 }
 
@@ -195,7 +195,7 @@ export async function createMember(data: CreateMemberInput): Promise<EduMember> 
     .insert(eduMembers)
     .values({
       username: data.username,
-      password: hashPassword(data.password),
+      password: await hashPassword(data.password),
       mobile: data.mobile,
       email: data.email,
       nickname: data.nickname,
@@ -255,7 +255,7 @@ export async function resetMemberPassword(
 ): Promise<EduMember | undefined> {
   const rows = await db
     .update(eduMembers)
-    .set({ password: hashPassword(password) })
+    .set({ password: await hashPassword(password) })
     .where(eq(eduMembers.id, id))
     .returning()
   return rows[0]
@@ -285,7 +285,7 @@ export async function registerMember(data: RegisterMemberInput): Promise<EduMemb
     .insert(eduMembers)
     .values({
       username: data.username,
-      password: hashPassword(data.password),
+      password: await hashPassword(data.password),
       nickname: data.nickname ?? data.username,
       mobile: data.mobile,
       email: data.email,
@@ -312,7 +312,7 @@ export async function registerMemberByMobile(data: RegisterMobileInput): Promise
     .values({
       mobile: data.mobile,
       username: data.mobile,
-      password: hashPassword(data.password),
+      password: await hashPassword(data.password),
       nickname: data.nickname ?? data.mobile,
       status: 1,
     })
