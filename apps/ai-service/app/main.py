@@ -41,6 +41,7 @@ from app.routers.legacy import router as legacy_router
 from app.sio import sio
 from app.sio.handlers import register_handlers
 from app.telemetry import setup_telemetry, shutdown_telemetry
+from app.middleware.audit import setup_audit_middleware
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +135,9 @@ def create_app() -> FastAPI:
     # OpenTelemetry 追踪中间件（未配置 OTEL_EXPORTER_OTLP_ENDPOINT 时降级为 no-op）
     setup_telemetry(app)
 
+    # 审计日志中间件(记录所有 POST/PATCH/PUT/DELETE,与 api 端 audit.ts 对等,2026-07-22 立)
+    setup_audit_middleware(app)
+
     # 全局异常兜底:未捕获的 Exception 返回 500 JSON(避免 ASGI 默认 HTML 错误页)
     @app.exception_handler(Exception)
     async def global_exception_handler(request, exc):
@@ -173,6 +177,16 @@ def create_app() -> FastAPI:
     from app.api.message_bus import router as message_bus_router
     app.include_router(message_bus_router, prefix="/api", tags=["message-bus"])
     app.include_router(legacy_router)
+
+    # 审计日志查询端点(调试用,返回最近审计记录,2026-07-22 立)
+    @app.get("/api/audit/recent", tags=["audit"])
+    async def audit_recent(limit: int = 100):
+        from app.services.audit_service import audit_service
+        return {
+            "code": 200,
+            "message": "ok",
+            "data": audit_service.get_recent(limit=limit),
+        }
 
     # Prometheus 指标(/metrics 端点,由 prometheus-fastapi-instrumentator 自动暴露)
     Instrumentator(
