@@ -148,7 +148,11 @@
           "finance": "金融",
           "automotive": "汽车",
           "industrial": "工业",
-          "roleplay": "角色扮演"
+          "roleplay": "角色扮演",
+          "analytical": "分析能力",
+          "presentation": "表达能力",
+          "intelligence": "智能指数",
+          "agentic": "智能体指数"
         },
         "columns": {
           "rank": "排名",
@@ -2905,7 +2909,7 @@
         "unavailable": "Prometheus 不可达,请检查 cadvisor/prometheus 容器状态",
         "unavailableTitle": "资源监控暂不可用",
         "unavailableHint": "Prometheus 服务连接失败,容器指标无法获取。",
-        "envHint": "提示: NEXT_PUBLIC_GRAFANA_BASE 未配置,iframe 使用默认值 http://127.0.0.1:3010",
+        "envHint": "提示: NEXT_PUBLIC_GRAFANA_BASE 未配置,iframe 使用默认值 http://127.0.0.1:3001",
         "compareTitle": "多租户对比(各租户 CPU/内存叠加)",
         "rankingTitle": "租户排名(按 CPU 降序)",
         "totalTenants": "共 {total} 个租户",
