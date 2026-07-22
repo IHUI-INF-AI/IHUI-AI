@@ -108,7 +108,12 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     if (subscriber) {
       const publisher = (server as unknown as { redis?: Redis }).redis
       if (publisher) {
-        void publisher.publish(channelFor(roomId), JSON.stringify({ _src: instanceId, payload }))
+        // fire-and-forget 必须挂 catch,避免未处理的 Promise 拒绝导致进程告警
+        void publisher
+          .publish(channelFor(roomId), JSON.stringify({ _src: instanceId, payload }))
+          .catch((err) => {
+            server.log.error({ err }, 'ws-chat redis operation failed')
+          })
       }
     }
   }
@@ -123,8 +128,13 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     const publisher = (server as unknown as { redis?: Redis }).redis
     if (!publisher) return
     const key = `chatroom:messages:${roomId}`
-    void publisher.lpush(key, JSON.stringify(payload))
-    void publisher.ltrim(key, 0, 199)
+    // fire-and-forget 必须挂 catch,避免未处理的 Promise 拒绝导致进程告警
+    void publisher.lpush(key, JSON.stringify(payload)).catch((err) => {
+      server.log.error({ err }, 'ws-chat redis operation failed')
+    })
+    void publisher.ltrim(key, 0, 199).catch((err) => {
+      server.log.error({ err }, 'ws-chat redis operation failed')
+    })
   }
 
   // HTTP 鉴权辅助
@@ -406,8 +416,13 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
         // 持久化成员关系到 Redis(跨实例共享,支持 HTTP 查询用户房间列表)
         const r = getRedis()
         if (r) {
-          void r.sadd(`chatroom:members:${targetRoom}`, userId)
-          void r.sadd(`chatroom:user_rooms:${userId}`, targetRoom)
+          // fire-and-forget 必须挂 catch,避免未处理的 Promise 拒绝导致进程告警
+          void r.sadd(`chatroom:members:${targetRoom}`, userId).catch((err) => {
+            server.log.error({ err }, 'ws-chat redis operation failed')
+          })
+          void r.sadd(`chatroom:user_rooms:${userId}`, targetRoom).catch((err) => {
+            server.log.error({ err }, 'ws-chat redis operation failed')
+          })
         }
         // 通知房间其他成员有新人加入(跨实例广播,排除自己)
         publish(
@@ -434,8 +449,13 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
         // 同步移除 Redis 成员关系
         const r = getRedis()
         if (r) {
-          void r.srem(`chatroom:members:${targetRoom}`, userId)
-          void r.srem(`chatroom:user_rooms:${userId}`, targetRoom)
+          // fire-and-forget 必须挂 catch,避免未处理的 Promise 拒绝导致进程告警
+          void r.srem(`chatroom:members:${targetRoom}`, userId).catch((err) => {
+            server.log.error({ err }, 'ws-chat redis operation failed')
+          })
+          void r.srem(`chatroom:user_rooms:${userId}`, targetRoom).catch((err) => {
+            server.log.error({ err }, 'ws-chat redis operation failed')
+          })
         }
         // 通知房间其他成员有人离开
         publish(targetRoom, {
