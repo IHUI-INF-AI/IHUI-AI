@@ -12,7 +12,7 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8801'
 
 function isAllowedRedirect(url: string): boolean {
   if (!url) return false
