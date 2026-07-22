@@ -259,7 +259,7 @@ export function Leaderboard({ entries }: Props) {
   }
 
   /** 可排序表头 props */
-  function sortableTh(field: SortField, label: string, align: 'left' | 'right' = 'right') {
+  function sortableTh(field: SortField, labelKey: string, align: 'left' | 'right' = 'right') {
     return (
       <th
         className={`px-3 py-2 ${align === 'right' ? 'text-right' : 'text-left'} font-medium cursor-pointer select-none hover:text-foreground transition-colors`}
@@ -267,7 +267,7 @@ export function Leaderboard({ entries }: Props) {
         title={t('leaderboard.sortHint')}
       >
         <span className="inline-flex items-center">
-          {label}
+          {t(labelKey)}
           <SortIcon field={field} />
         </span>
       </th>
@@ -308,7 +308,7 @@ export function Leaderboard({ entries }: Props) {
       {/* LLM 子分类 Tab */}
       {activeCategory === 'llm' ? (
         <div className="flex items-center gap-1 bg-muted/10 px-3 py-1.5">
-          <span className="mr-1 text-[10px] text-muted-foreground">LLM 细分:</span>
+          <span className="mr-1 text-[10px] text-muted-foreground">{t('leaderboard.llmSubcatLabel')}</span>
           {LLM_SUBCATS.map((sub) => (
             <button
               key={sub.key}
@@ -320,7 +320,7 @@ export function Leaderboard({ entries }: Props) {
                   : 'text-muted-foreground hover:bg-accent'
               }`}
             >
-              {sub.label}
+              {t(sub.labelKey)}
             </button>
           ))}
         </div>
@@ -387,17 +387,17 @@ export function Leaderboard({ entries }: Props) {
                 <GitCompare className="inline h-3 w-3 text-muted-foreground" />
               </th>
               <th className="px-3 py-2 text-left font-medium">#</th>
-              <th className="px-3 py-2 text-left font-medium">模型</th>
-              <th className="px-3 py-2 text-left font-medium">厂商</th>
-              {sortableTh('arenaScore', 'Arena 评分')}
-              {sortableTh('winRate', '胜率')}
-              {sortableTh('voteCount', '投票')}
-              {sortableTh('contextWindow', '上下文')}
-              {sortableTh('maxOutput', '最大输出')}
-              {sortableTh('inputPrice', '输入价')}
-              {sortableTh('outputPrice', '输出价')}
-              <th className="px-3 py-2 text-center font-medium">变化</th>
-              {sortableTh('releaseDate', '发布', 'left')}
+              <th className="px-3 py-2 text-left font-medium">{t('leaderboard.colModel')}</th>
+              <th className="px-3 py-2 text-left font-medium">{t('leaderboard.colVendor')}</th>
+              {sortableTh('arenaScore', 'leaderboard.colArenaScore')}
+              {sortableTh('winRate', 'leaderboard.colWinRate')}
+              {sortableTh('voteCount', 'leaderboard.colVoteCount')}
+              {sortableTh('contextWindow', 'leaderboard.colContextWindow')}
+              {sortableTh('maxOutput', 'leaderboard.colMaxOutput')}
+              {sortableTh('inputPrice', 'leaderboard.colInputPrice')}
+              {sortableTh('outputPrice', 'leaderboard.colOutputPrice')}
+              <th className="px-3 py-2 text-center font-medium">{t('leaderboard.colChange')}</th>
+              {sortableTh('releaseDate', 'leaderboard.colReleaseDate', 'left')}
               <th className="px-3 py-2 text-right font-medium"></th>
             </tr>
           </thead>
@@ -513,8 +513,8 @@ export function Leaderboard({ entries }: Props) {
 
       {/* 底部说明 */}
       <div className="flex items-center gap-2 bg-muted/10 px-4 py-2 text-[10px] text-muted-foreground">
-        <span>📊 数据参考 arena.ai/leaderboard · Elo 评分 + Bootstrap 置信区间</span>
-        <span className="ml-auto">{t('leaderboard.sortHint')} · 点击行查看模型详情 + 能力雷达图</span>
+        <span>{t('leaderboard.footerDataRef')}</span>
+        <span className="ml-auto">{t('leaderboard.sortHint')} · {t('leaderboard.footerClickHint')}</span>
       </div>
 
       {/* 对比栏 */}
