@@ -4,9 +4,8 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Mail, MessageSquare, Bell, Volume2 } from 'lucide-react'
 
-import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui'
 import { Container } from '@/components/layout'
-import { Switch } from '@/components/form'
 import { useNotification } from '@/hooks/use-notification'
 
 export default function NotificationsPage() {
@@ -36,17 +35,17 @@ export default function NotificationsPage() {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">{t('emailNotifDesc')}</span>
-            <Switch checked={emailEnabled} onChange={setEmailEnabled} />
+            <Switch checked={emailEnabled} onCheckedChange={setEmailEnabled} />
           </div>
           {emailEnabled && (
             <div className="space-y-3 border-t pt-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm">{t('systemNotif')}</span>
-                <Switch checked={systemNotif} onChange={setSystemNotif} size="sm" />
+                <Switch checked={systemNotif} onCheckedChange={setSystemNotif} size="sm" />
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm">{t('marketingEmail')}</span>
-                <Switch checked={marketingEmail} onChange={setMarketingEmail} size="sm" />
+                <Switch checked={marketingEmail} onCheckedChange={setMarketingEmail} size="sm" />
               </div>
             </div>
           )}
@@ -66,7 +65,7 @@ export default function NotificationsPage() {
               <span className="text-sm text-muted-foreground">{t('smsNotifDesc')}</span>
               <p className="font-mono text-xs text-muted-foreground">+86 138****8888</p>
             </div>
-            <Switch checked={smsEnabled} onChange={setSmsEnabled} />
+            <Switch checked={smsEnabled} onCheckedChange={setSmsEnabled} />
           </div>
         </CardContent>
       </Card>
@@ -81,7 +80,7 @@ export default function NotificationsPage() {
         <CardContent>
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">{t('pushNotifDesc')}</span>
-            <Switch checked={pushEnabled} onChange={setPushEnabled} />
+            <Switch checked={pushEnabled} onCheckedChange={setPushEnabled} />
           </div>
         </CardContent>
       </Card>
@@ -96,7 +95,7 @@ export default function NotificationsPage() {
         <CardContent>
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">{t('desc.notificationSound')}</span>
-            <Switch checked={soundEnabled} onChange={setSoundEnabled} />
+            <Switch checked={soundEnabled} onCheckedChange={setSoundEnabled} />
           </div>
         </CardContent>
       </Card>

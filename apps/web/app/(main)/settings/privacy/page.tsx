@@ -4,9 +4,8 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Eye, Target, Sparkles } from 'lucide-react'
 
-import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui'
 import { Container } from '@/components/layout'
-import { Switch } from '@/components/form'
 
 export default function PrivacyPage() {
   const t = useTranslations('settings')
@@ -58,7 +57,7 @@ export default function PrivacyPage() {
             <CardContent>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">{item.desc}</span>
-                <Switch checked={item.checked} onChange={item.onChange} />
+                <Switch checked={item.checked} onCheckedChange={item.onChange} />
               </div>
             </CardContent>
           </Card>
