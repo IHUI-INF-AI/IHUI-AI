@@ -15,7 +15,8 @@
  */
 
 import { runAgent } from '../commands/agent.js';
-import type { SubagentPersona, CapabilityMode } from '@ihui/types';
+import { installEgressGuard } from './egress-guard.js';
+import type { SubagentPersona, CapabilityMode, NetworkEgressPolicy, WorkerResourceLimits } from '@ihui/types';
 
 interface StartMessage {
   type: 'start';
@@ -26,19 +27,29 @@ interface StartMessage {
   model?: string;
   capability?: CapabilityMode;
   maxIterations?: number;
+  /** 网络出站策略(P1-5,调 installEgressGuard 注入 fetch 拦截) */
+  networkEgressPolicy?: NetworkEgressPolicy;
+  /** 资源限制(P1-3,memoryMb 覆盖 OOM 阈值,cpuCores/cpuSeconds 轮询) */
+  resourceLimits?: WorkerResourceLimits;
 }
 
 const HEARTBEAT_INTERVAL_MS = 5_000;
 const API_BASE_URL = process.env.IHUI_API_URL || 'http://localhost:8803';
 const API_KEY = process.env.IHUI_API_KEY || '';
-// P1-3 修复:子进程 RSS 自限阈值(从环境变量读,默认 512MB)
+// P1-3 修复:子进程 RSS 自限阈值(默认 512MB,可被 IPC resourceLimits.memoryMb 覆盖)
 // 超限时子进程优雅退出(exit code 3 = self-OOM),比被父进程 SIGKILL 更安全
-const SELF_OOM_THRESHOLD_MB = parseInt(
+let selfOomThresholdMb = parseInt(
   process.env.IHUI_SUBAGENT_OOM_MB || '512',
   10,
 );
+// P1-3 修复:CPU 限制(从 IPC 消息读,POSIX 轮询;Windows 跳过)
+let cpuCoresLimit: number | undefined;
+let cpuSecondsLimit: number | undefined;
+let cumulativeCpuSeconds = 0;
+let lastCpuUsage = process.resourceUsage();
+let lastCpuCheckAt = Date.now();
 
-/** 心跳定时器:每 5s 向父进程发 heartbeat(携带 RSS,父进程 15s 无心跳标记 dead) */
+/** 心跳定时器:每 5s 向父进程发 heartbeat(携带 RSS,父进程超 heartbeatTimeoutSeconds 标记 dead) */
 const heartbeatTimer = setInterval(() => {
   try {
     if (typeof process.send === 'function') {
@@ -51,14 +62,47 @@ const heartbeatTimer = setInterval(() => {
       });
       // P1-3 第一层软限制:子进程自检 RSS,超阈值优雅退出
       const rssMb = mem.rss / 1024 / 1024;
-      if (rssMb > SELF_OOM_THRESHOLD_MB) {
+      if (rssMb > selfOomThresholdMb) {
         process.stdout.write(
           JSON.stringify({
             type: 'error',
-            message: `self OOM: rss=${rssMb.toFixed(0)}MB > threshold=${SELF_OOM_THRESHOLD_MB}MB`,
+            message: `self OOM: rss=${rssMb.toFixed(0)}MB > threshold=${selfOomThresholdMb}MB`,
           }) + '\n',
         );
         process.exit(3); // 3 = self-OOM 优雅退出
+      }
+      // P1-3 修复:CPU 限制轮询(POSIX 可用,Windows 跳过;exit code 4 = CPU 超限)
+      if (process.platform !== 'win32' && (cpuCoresLimit || cpuSecondsLimit)) {
+        const now = Date.now();
+        const usage = process.resourceUsage();
+        const cpuMicros =
+          (usage.userCPUTime - lastCpuUsage.userCPUTime) +
+          (usage.systemCPUTime - lastCpuUsage.systemCPUTime);
+        const cpuSecs = cpuMicros / 1_000_000;
+        const wallSecs = (now - lastCpuCheckAt) / 1000;
+        // cpuCores:瞬时 CPU 占比(累计 CPU 时间 / wall 时间)超核心数 → 退出
+        if (cpuCoresLimit && wallSecs > 0 && cpuSecs / wallSecs > cpuCoresLimit) {
+          process.stdout.write(
+            JSON.stringify({
+              type: 'error',
+              message: `cpu cores exceeded: ${cpuSecs.toFixed(2)}/${wallSecs.toFixed(2)}s > ${cpuCoresLimit} cores`,
+            }) + '\n',
+          );
+          process.exit(4);
+        }
+        // cpuSeconds:累计 CPU 时间超限 → 退出
+        cumulativeCpuSeconds += cpuSecs;
+        if (cpuSecondsLimit && cumulativeCpuSeconds > cpuSecondsLimit) {
+          process.stdout.write(
+            JSON.stringify({
+              type: 'error',
+              message: `cpu seconds exceeded: ${cumulativeCpuSeconds.toFixed(2)}s > ${cpuSecondsLimit}s`,
+            }) + '\n',
+          );
+          process.exit(4);
+        }
+        lastCpuUsage = usage;
+        lastCpuCheckAt = now;
       }
     }
   } catch {
@@ -82,6 +126,25 @@ process.on('SIGTERM', () => {
 process.on('message', async (msg: StartMessage) => {
   if (msg.type !== 'start') return;
   const { subagentId, task, workspacePath, model, maxIterations } = msg;
+
+  // P1-3 修复:用 IPC 传入的 memoryMb 覆盖默认 OOM 阈值(替代硬编码 SELF_OOM_THRESHOLD_MB)
+  if (msg.resourceLimits?.memoryMb) {
+    selfOomThresholdMb = msg.resourceLimits.memoryMb;
+  }
+  // P1-3 修复:读取 CPU 限制并重置轮询基线(从任务起点计)
+  if (msg.resourceLimits?.cpuCores) cpuCoresLimit = msg.resourceLimits.cpuCores;
+  if (msg.resourceLimits?.cpuSeconds) cpuSecondsLimit = msg.resourceLimits.cpuSeconds;
+  if (cpuCoresLimit || cpuSecondsLimit) {
+    lastCpuUsage = process.resourceUsage();
+    lastCpuCheckAt = Date.now();
+    cumulativeCpuSeconds = 0;
+  }
+
+  // P0 安全:安装网络出站拦截器(在 runAgent 前注入,对齐 ai-service network_guard)
+  // 进程退出时 monkey-patch 随之销毁,无需显式 uninstall
+  if (msg.networkEgressPolicy) {
+    installEgressGuard(msg.networkEgressPolicy);
+  }
 
   try {
     const result = await runAgent({
