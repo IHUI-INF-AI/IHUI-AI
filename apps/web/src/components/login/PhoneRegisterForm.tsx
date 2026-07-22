@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react'
 
 import { Button, Input, Label } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
-import { PasswordStrengthIndicator } from '@/components/login'
+import { PasswordInput, PasswordStrengthIndicator } from '@/components/login'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 
@@ -184,9 +184,8 @@ export function PhoneRegisterForm({
 
       <div className="space-y-1.5">
         <Label htmlFor="phone-register-password">{t('password')}</Label>
-        <Input
+        <PasswordInput
           id="phone-register-password"
-          type="password"
           autoComplete="new-password"
           placeholder={t('passwordPlaceholder')}
           className="h-10"
@@ -200,9 +199,8 @@ export function PhoneRegisterForm({
 
       <div className="space-y-1.5">
         <Label htmlFor="phone-register-confirm">{t('confirmPassword')}</Label>
-        <Input
+        <PasswordInput
           id="phone-register-confirm"
-          type="password"
           autoComplete="new-password"
           placeholder={t('passwordPlaceholder')}
           className="h-10"
