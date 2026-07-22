@@ -18,6 +18,11 @@ import {
   Eraser,
   Columns2,
   Rows2,
+  Sparkles,
+  Stethoscope,
+  History,
+  Wand2,
+  RefreshCw,
 } from 'lucide-react'
 
 // xterm 主题定义(满足 AGENTS.md §4:dark #1e1e1e/#d4d4d4, light #ffffff/#1e1e1e)
@@ -155,7 +160,27 @@ function TerminalViewport({
 }) {
   const { resolvedTheme } = useTheme()
   const containerRef = React.useRef<HTMLDivElement>(null)
-  const { connectWS, resizeSession } = useTerminalSession()
+  const {
+    connectWS,
+    resizeSession,
+    // AI 辅助 / 智能历史(2026-07-23 立)
+    aiSuggestOpen,
+    aiSuggestLoading,
+    aiSuggestions,
+    aiDiagnoseOpen,
+    aiDiagnoseLoading,
+    aiDiagnoseResult,
+    aiError,
+    commandHistory,
+    suggestCommand,
+    diagnoseError,
+    autoFix,
+    recordHistory,
+    getSmartHistory,
+    setAiSuggestOpen,
+    setAiDiagnoseOpen,
+    setAiError,
+  } = useTerminalSession()
   const [connected, setConnected] = React.useState(false)
   const [wsError, setWsError] = React.useState<string | null>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- xterm 6.x 实例类型在动态 import 后才能确定,用 any 简化跨 API 调用
@@ -164,6 +189,19 @@ function TerminalViewport({
   const wsHandleRef = React.useRef<ReturnType<typeof connectWS> | null>(null)
   const roRef = React.useRef<ResizeObserver | null>(null)
   const resizeDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // 命令追踪(用于 AI 诊断上下文 + 历史记录)
+  const lastCommandRef = React.useRef('')
+  const commandBufferRef = React.useRef('')
+  const commandTaintedRef = React.useRef(false)
+  // 最近输出缓冲(用于 AI 诊断 stderr 上下文,保留最后 2000 字符)
+  const recentOutputRef = React.useRef('')
+
+  // Ctrl+R 智能历史搜索(本地状态,仅活跃 pane 渲染)
+  const [historyOpen, setHistoryOpen] = React.useState(false)
+  const [historyQuery, setHistoryQuery] = React.useState('')
+  const [historyIndex, setHistoryIndex] = React.useState(0)
+  const historyInputRef = React.useRef<HTMLInputElement>(null)
 
   // 搜索状态(深化:正则 + 全字 + 大小写)
   const [searchOpen, setSearchOpen] = React.useState(false)
@@ -449,11 +487,21 @@ function TerminalViewport({
         // - Ctrl+Shift+D 垂直分屏(列并排)
         // - Ctrl+Shift+H 水平分屏(行堆叠)
         // - Alt+ArrowLeft/Right/Up/Down 焦点切换
+        // - Ctrl+R → 智能历史搜索(2026-07-23 立)
         term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
           // Ctrl+F → 搜索
           if ((event.ctrlKey || event.metaKey) && event.key === 'f' && !event.shiftKey && !event.altKey) {
             if (event.type === 'keydown') {
               setSearchOpen(true)
+            }
+            return false
+          }
+          // Ctrl+R → 智能历史搜索(仅活跃 pane 响应)
+          if ((event.ctrlKey || event.metaKey) && event.key === 'r' && !event.shiftKey && !event.altKey) {
+            if (event.type === 'keydown' && isActive) {
+              setHistoryOpen(true)
+              // 拉取智能历史(相关性打分排序)
+              void getSmartHistory(sessionId)
             }
             return false
           }
@@ -530,9 +578,30 @@ function TerminalViewport({
           onMessage: (msg: TerminalWSServerMessage) => {
             if (msg.type === 'output') {
               term.write(msg.data)
+              // 累积最近输出(保留最后 2000 字符,供 AI 诊断 stderr 上下文)
+              recentOutputRef.current = (recentOutputRef.current + msg.data).slice(-2000)
             } else if (msg.type === 'exit') {
               term.write(`\r\n\x1b[33m${msg.data}\x1b[0m\r\n`)
               setConnected(false)
+              // 进程退出码非 0 → 自动触发 AI 诊断(失败自动弹出,2026-07-23 立)
+              if (msg.code !== 0 && isActive && lastCommandRef.current) {
+                void diagnoseError(sessionId, {
+                  command: lastCommandRef.current,
+                  stderr: recentOutputRef.current,
+                  exitCode: msg.code,
+                  cwd: '',
+                }).then((result) => {
+                  if (result) {
+                    setAiDiagnoseOpen(true)
+                  }
+                })
+                // 记录失败命令到智能历史(exitCode != 0)
+                void recordHistory(sessionId, {
+                  command: lastCommandRef.current,
+                  exitCode: msg.code,
+                })
+                lastCommandRef.current = ''
+              }
             } else if (msg.type === 'error') {
               setWsError(msg.data)
             }
@@ -547,9 +616,37 @@ function TerminalViewport({
         })
         wsHandleRef.current = handle
 
-        // xterm 输入 → WebSocket
+        // xterm 输入 → WebSocket + 命令追踪(检测 Enter 完成命令,供 AI 诊断上下文 + 历史记录)
         const inputDisposable = term.onData((data: string) => {
           handle.send({ type: 'input', data })
+          // 命令缓冲累积(检测可打印字符 + Enter 完成,转义序列污染时跳过)
+          for (const ch of data) {
+            const code = ch.charCodeAt(0)
+            if (ch === '\r' || ch === '\n') {
+              if (!commandTaintedRef.current) {
+                const cmd = commandBufferRef.current.trim()
+                if (cmd) {
+                  lastCommandRef.current = cmd
+                  // 命令成功完成(退出码 0,由后续 exit 消息覆盖非 0 情况)
+                  void recordHistory(sessionId, { command: cmd, exitCode: 0 })
+                }
+              }
+              commandBufferRef.current = ''
+              commandTaintedRef.current = false
+              // 命令完成后清空最近输出缓冲(下一次命令的输出从头累积)
+              recentOutputRef.current = ''
+            } else if (code === 0x7f) {
+              // Backspace
+              commandBufferRef.current = commandBufferRef.current.slice(0, -1)
+            } else if (code === 0x1b) {
+              // 转义序列(箭头键/Ctrl+组合键)→ 污染标记
+              commandTaintedRef.current = true
+            } else if (code >= 0x20 && code <= 0x7e) {
+              if (!commandTaintedRef.current) commandBufferRef.current += ch
+            } else if (code >= 0x80) {
+              if (!commandTaintedRef.current) commandBufferRef.current += ch
+            }
+          }
         })
 
         // xterm resize → WebSocket + REST
@@ -690,6 +787,83 @@ function TerminalViewport({
     [onSplitRequest],
   )
 
+  // ==================== AI 辅助 / 智能历史 handlers(2026-07-23 立) ====================
+
+  /** 打开 AI 建议浮层 + 触发建议请求(用当前 cwd + lastCommand 作为上下文) */
+  const handleOpenSuggest = React.useCallback(() => {
+    if (!isActive) return
+    setAiSuggestOpen(true)
+    setAiError(null)
+    void suggestCommand(sessionId, {
+      cwd: '',
+      lastCommand: lastCommandRef.current || undefined,
+    })
+  }, [isActive, sessionId, setAiSuggestOpen, setAiError, suggestCommand])
+
+  /** 刷新 AI 建议(重新请求) */
+  const handleRefreshSuggest = React.useCallback(() => {
+    void suggestCommand(sessionId, {
+      cwd: '',
+      lastCommand: lastCommandRef.current || undefined,
+    })
+  }, [sessionId, suggestCommand])
+
+  /** 插入建议命令到终端(term.paste 触发 onData → WS input) */
+  const handleInsertSuggestion = React.useCallback((command: string) => {
+    const t = termRef.current
+    if (!t) return
+    t.paste?.(command)
+    setAiSuggestOpen(false)
+  }, [setAiSuggestOpen])
+
+  /** 一键修复(把 fixCommand 写入 PTY 执行) */
+  const handleAutoFix = React.useCallback(() => {
+    const fixCommand = aiDiagnoseResult?.fixCommand
+    if (!fixCommand) return
+    void autoFix(sessionId, fixCommand).then((result) => {
+      if (result?.applied) {
+        setAiDiagnoseOpen(false)
+      }
+    })
+  }, [aiDiagnoseResult, sessionId, autoFix, setAiDiagnoseOpen])
+
+  /** 从历史搜索中选择一条命令插入终端 */
+  const handleHistorySelect = React.useCallback((command: string) => {
+    const t = termRef.current
+    if (!t) return
+    t.paste?.(command)
+    setHistoryOpen(false)
+    setHistoryQuery('')
+    setHistoryIndex(0)
+  }, [])
+
+  /** 关闭历史搜索 */
+  const handleHistoryClose = React.useCallback(() => {
+    setHistoryOpen(false)
+    setHistoryQuery('')
+    setHistoryIndex(0)
+  }, [])
+
+  // 历史搜索打开时聚焦输入框
+  React.useEffect(() => {
+    if (historyOpen && historyInputRef.current) {
+      historyInputRef.current.focus()
+      historyInputRef.current.select()
+    }
+  }, [historyOpen])
+
+  // 历史搜索重置选中索引(query 变化时)
+  React.useEffect(() => {
+    setHistoryIndex(0)
+  }, [historyQuery])
+
+  // 历史搜索过滤结果(按 query 子串匹配,大小写不敏感)
+  const filteredHistory = React.useMemo(() => {
+    if (!historyQuery) return commandHistory
+    const q = historyQuery.toLowerCase()
+    return commandHistory.filter((e) => e.command.toLowerCase().includes(q))
+  }, [commandHistory, historyQuery])
+
   return (
     <div
       className={cn(
@@ -699,9 +873,26 @@ function TerminalViewport({
       onContextMenu={handleContextMenu}
       onMouseDown={onFocusPane}
     >
-      {/* pane 工具条(右上角:分屏 + 关闭) */}
+      {/* pane 工具条(右上角:AI + 分屏 + 关闭) */}
       <div className="pointer-events-none absolute right-2 top-2 z-10 flex items-center gap-1">
         <div className="pointer-events-auto flex items-center gap-0.5 rounded bg-background/80 p-0.5 backdrop-blur-sm">
+          {/* AI 建议按钮(2026-07-23 立,仅活跃 pane 显示) */}
+          {isActive && (
+            <button
+              type="button"
+              className={cn(
+                'flex h-5 w-5 items-center justify-center rounded transition-colors',
+                aiSuggestOpen
+                  ? 'bg-accent text-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+              )}
+              onClick={handleOpenSuggest}
+              title="AI 命令建议"
+              aria-label="AI 命令建议"
+            >
+              <Sparkles className="h-3 w-3" />
+            </button>
+          )}
           <button
             type="button"
             className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
@@ -857,6 +1048,223 @@ function TerminalViewport({
           style={{ padding: '4px 8px' }}
         />
       </div>
+
+      {/* ==================== AI 建议浮层(2026-07-23 立,仅活跃 pane) ==================== */}
+      {isActive && aiSuggestOpen && (
+        <div className="absolute left-2 top-10 z-20 w-80 overflow-hidden rounded-md border border-border bg-popover shadow-md">
+          <div className="flex items-center justify-between bg-muted/40 px-2.5 py-1.5">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">AI 命令建议</span>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <button
+                type="button"
+                className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-40"
+                onClick={handleRefreshSuggest}
+                disabled={aiSuggestLoading}
+                aria-label="刷新建议"
+                title="刷新建议"
+              >
+                <RefreshCw className={cn('h-3 w-3', aiSuggestLoading && 'animate-spin')} />
+              </button>
+              <button
+                type="button"
+                className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={() => setAiSuggestOpen(false)}
+                aria-label="关闭"
+                title="关闭"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
+          <div className="max-h-60 overflow-y-auto">
+            {aiError ? (
+              <div className="px-2.5 py-3 text-center text-xs text-destructive">
+                {aiError}
+                <div className="mt-1 text-[10px] text-muted-foreground">AI 服务暂不可用,请稍后重试</div>
+              </div>
+            ) : aiSuggestLoading ? (
+              <div className="flex items-center gap-1.5 px-2.5 py-3 text-xs text-muted-foreground">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                <span>正在生成建议...</span>
+              </div>
+            ) : aiSuggestions.length === 0 ? (
+              <div className="px-2.5 py-3 text-center text-xs text-muted-foreground">
+                暂无建议。尝试执行命令后点击刷新。
+              </div>
+            ) : (
+              aiSuggestions.map((s, i) => (
+                <button
+                  key={`${i}-${s.command}`}
+                  type="button"
+                  className="flex w-full flex-col gap-0.5 px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-accent"
+                  onClick={() => handleInsertSuggestion(s.command)}
+                  title="点击插入到终端"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <code className="truncate font-mono text-foreground">{s.command}</code>
+                    <span className="shrink-0 text-[10px] text-muted-foreground">
+                      {Math.round(s.confidence * 100)}%
+                    </span>
+                  </div>
+                  {s.description && (
+                    <span className="text-[10px] text-muted-foreground">{s.description}</span>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ==================== AI 诊断浮层(2026-07-23 立,失败自动弹出,仅活跃 pane) ==================== */}
+      {isActive && aiDiagnoseOpen && (
+        <div className="absolute right-2 top-10 z-20 w-96 overflow-hidden rounded-md border border-border bg-popover shadow-md">
+          <div className="flex items-center justify-between bg-muted/40 px-2.5 py-1.5">
+            <div className="flex items-center gap-1.5">
+              <Stethoscope className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">AI 错误诊断</span>
+            </div>
+            <button
+              type="button"
+              className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              onClick={() => setAiDiagnoseOpen(false)}
+              aria-label="关闭"
+              title="关闭"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+          <div className="max-h-72 overflow-y-auto px-2.5 py-2 text-xs">
+            {aiError ? (
+              <div className="text-center text-destructive">
+                {aiError}
+                <div className="mt-1 text-[10px] text-muted-foreground">AI 服务暂不可用,请稍后重试</div>
+              </div>
+            ) : aiDiagnoseLoading ? (
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <RefreshCw className="h-3 w-3 animate-spin" />
+                <span>正在诊断错误...</span>
+              </div>
+            ) : aiDiagnoseResult ? (
+              <div className="flex flex-col gap-1.5">
+                <div>
+                  <span className="font-medium text-foreground">诊断:</span>
+                  <span className="text-muted-foreground"> {aiDiagnoseResult.diagnosis}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-foreground">根因:</span>
+                  <span className="text-muted-foreground"> {aiDiagnoseResult.rootCause}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-foreground">建议:</span>
+                  <span className="text-muted-foreground"> {aiDiagnoseResult.suggestedFix}</span>
+                </div>
+                {aiDiagnoseResult.fixCommand && (
+                  <div className="mt-1 flex items-center gap-2 rounded bg-muted/50 p-1.5">
+                    <code className="flex-1 truncate font-mono text-[11px] text-foreground">
+                      {aiDiagnoseResult.fixCommand}
+                    </code>
+                    <button
+                      type="button"
+                      className="flex shrink-0 items-center gap-1 rounded bg-accent px-1.5 py-0.5 text-[10px] text-accent-foreground transition-colors hover:bg-accent/80"
+                      onClick={handleAutoFix}
+                      title="一键执行修复命令"
+                    >
+                      <Wand2 className="h-2.5 w-2.5" />
+                      <span>一键修复</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center text-muted-foreground">暂无诊断结果</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ==================== Ctrl+R 智能历史搜索(2026-07-23 立,仅活跃 pane) ==================== */}
+      {isActive && historyOpen && (
+        <div className="absolute left-1/2 top-2 z-30 w-96 -translate-x-1/2 overflow-hidden rounded-md border border-border bg-popover shadow-lg">
+          <div className="flex items-center gap-1.5 border-b border-border px-2 py-1.5">
+            <History className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <input
+              ref={historyInputRef}
+              type="text"
+              value={historyQuery}
+              onChange={(e) => setHistoryQuery(e.target.value)}
+              onKeyDown={(e) => {
+                e.stopPropagation()
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  const item = filteredHistory[historyIndex]
+                  if (item) handleHistorySelect(item.command)
+                } else if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setHistoryIndex((prev) =>
+                    Math.min(prev + 1, Math.max(0, filteredHistory.length - 1)),
+                  )
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setHistoryIndex((prev) => Math.max(prev - 1, 0))
+                } else if (e.key === 'Escape') {
+                  e.preventDefault()
+                  handleHistoryClose()
+                }
+              }}
+              placeholder="搜索命令历史(按相关性排序)..."
+              className="h-6 min-w-0 flex-1 rounded border border-border bg-background px-2 text-xs outline-none focus:border-ring/50"
+              aria-label="搜索命令历史"
+            />
+            <span className="shrink-0 text-[10px] text-muted-foreground">
+              {filteredHistory.length > 0 ? `${historyIndex + 1}/${filteredHistory.length}` : '0/0'}
+            </span>
+            <button
+              type="button"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              onClick={handleHistoryClose}
+              aria-label="关闭"
+              title="关闭 (Esc)"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+          <div className="max-h-60 overflow-y-auto">
+            {filteredHistory.length === 0 ? (
+              <div className="px-2.5 py-3 text-center text-xs text-muted-foreground">
+                {commandHistory.length === 0 ? '暂无历史。执行命令后会自动记录。' : '无匹配命令。'}
+              </div>
+            ) : (
+              filteredHistory.map((entry, i) => (
+                <button
+                  key={`${i}-${entry.command}`}
+                  type="button"
+                  className={cn(
+                    'flex w-full items-center gap-2 px-2.5 py-1 text-left text-xs transition-colors',
+                    i === historyIndex ? 'bg-accent text-accent-foreground' : 'hover:bg-accent',
+                  )}
+                  onMouseEnter={() => setHistoryIndex(i)}
+                  onClick={() => handleHistorySelect(entry.command)}
+                >
+                  <code className="flex-1 truncate font-mono">{entry.command}</code>
+                  {entry.exitCode !== 0 && (
+                    <span className="shrink-0 text-[10px] text-red-500">退出{entry.exitCode}</span>
+                  )}
+                  {entry.frequency > 1 && (
+                    <span className="shrink-0 text-[10px] text-muted-foreground">×{entry.frequency}</span>
+                  )}
+                  {entry.gitBranch && (
+                    <span className="shrink-0 text-[10px] text-muted-foreground">{entry.gitBranch}</span>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 连接状态指示器(左下角,不使用 rounded-full,用 rounded 紧凑) */}
       <div className="pointer-events-none absolute bottom-1 left-2 flex items-center gap-1.5 rounded bg-background/80 px-2 py-0.5 text-xs text-muted-foreground backdrop-blur-sm">
@@ -1078,6 +1486,15 @@ export function TerminalPanel() {
     addPane,
     removePane,
     setActivePane,
+    // 录制 / AI state(2026-07-23 立)
+    recordingBySession,
+    recordings,
+    activePlaybackId,
+    startRecording,
+    stopRecording,
+    listRecordings,
+    playRecording,
+    deleteRecording,
   } = useTerminalSession()
 
   // 全局字号状态(所有 session/pane 共享)
@@ -1148,6 +1565,39 @@ export function TerminalPanel() {
     [activeSessionId, panes, removePane, handleClose],
   )
 
+  // 录制切换(开始/停止,2026-07-23 立)
+  const handleToggleRecording = React.useCallback(
+    (sessionId: string) => {
+      if (recordingBySession[sessionId]) {
+        void stopRecording(sessionId)
+      } else {
+        void startRecording(sessionId)
+      }
+    },
+    [recordingBySession, startRecording, stopRecording],
+  )
+
+  // 回放录制(2026-07-23 立)
+  const handlePlayRecording = React.useCallback(
+    (recordingId: string) => {
+      void playRecording(recordingId)
+    },
+    [playRecording],
+  )
+
+  // 删除录制(2026-07-23 立)
+  const handleDeleteRecording = React.useCallback(
+    (recordingId: string) => {
+      void deleteRecording(recordingId)
+    },
+    [deleteRecording],
+  )
+
+  // 刷新录制列表(2026-07-23 立)
+  const handleRefreshRecordings = React.useCallback(() => {
+    void listRecordings()
+  }, [listRecordings])
+
   if (!hasToken) {
     return (
       <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
@@ -1166,6 +1616,13 @@ export function TerminalPanel() {
         onNew={handleNew}
         onRename={handleRename}
         loading={loading}
+        recordingBySession={recordingBySession}
+        onToggleRecording={handleToggleRecording}
+        recordings={recordings}
+        onRefreshRecordings={handleRefreshRecordings}
+        onPlayRecording={handlePlayRecording}
+        onDeleteRecording={handleDeleteRecording}
+        activePlaybackId={activePlaybackId}
       />
       <div className="min-h-0 flex-1">
         {activeSessionId && currentPaneIds.length > 0 ? (
