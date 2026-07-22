@@ -42,6 +42,7 @@ from app.sio import sio
 from app.sio.handlers import register_handlers
 from app.telemetry import setup_telemetry, shutdown_telemetry
 from app.middleware.audit import setup_audit_middleware
+from app.middleware.trace_context import setup_trace_context_middleware
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +135,10 @@ def create_app() -> FastAPI:
 
     # OpenTelemetry 追踪中间件（未配置 OTEL_EXPORTER_OTLP_ENDPOINT 时降级为 no-op）
     setup_telemetry(app)
+
+    # traceparent 上下文中间件(解析 api 端透传的 W3C traceparent 入 request.state.trace_id,
+    # 供 telemetry_middleware 关联 parent context + 业务 logger 使用,2026-07-22 立)
+    setup_trace_context_middleware(app)
 
     # 审计日志中间件(记录所有 POST/PATCH/PUT/DELETE,与 api 端 audit.ts 对等,2026-07-22 立)
     setup_audit_middleware(app)
