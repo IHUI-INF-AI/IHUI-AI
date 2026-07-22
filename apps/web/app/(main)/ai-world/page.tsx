@@ -2,18 +2,19 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Wrench, AppWindow, Newspaper, FileText, Github, Sparkles, Trophy } from 'lucide-react'
 
 import { fetchAiWorld } from './helpers'
 import { ItemList } from './ItemList'
 import { CategorySidebar } from './CategorySidebar'
-import { AiChatSection } from './AiChatSection'
 import { HotAppsCard } from './HotAppsCard'
 import { RankingTable } from './RankingTable'
+import { useAiPanelStore } from '@/stores/ai-panel'
 import type { ItemKind } from './types'
 
-type TabKey = 'tools' | 'apps' | 'news' | 'papers' | 'projects' | 'rankings' | 'ai'
+type TabKey = 'tools' | 'apps' | 'news' | 'papers' | 'projects' | 'rankings'
 
 interface TabDef {
   key: TabKey
@@ -31,14 +32,21 @@ const TABS: TabDef[] = [
   { key: 'papers', label: '论文', icon: FileText, kind: 'paper', layout: 'list', hasSidebar: false },
   { key: 'projects', label: '项目', icon: Github, kind: 'project', layout: 'list', hasSidebar: false },
   { key: 'rankings', label: '模型排行', icon: Trophy, layout: 'list', hasSidebar: false },
-  { key: 'ai', label: 'AI 对话', icon: Sparkles, layout: 'list', hasSidebar: false },
 ]
+
+// 白名单:仅允许 TABS 已声明的 key,防 XSS
+const TAB_KEYS: ReadonlySet<string> = new Set(TABS.map((tab) => tab.key))
 
 export default function AiWorldPage() {
   const t = useTranslations('common.aiWorld')
-  const [activeTab, setActiveTab] = React.useState<TabKey>('tools')
+  const searchParams = useSearchParams()
+  // 首次挂载读 ?tab= query,白名单内则用之,否则 fallback 'tools'
+  const [activeTab, setActiveTab] = React.useState<TabKey>(() => {
+    const q = searchParams?.get('tab')
+    return q && TAB_KEYS.has(q) ? (q as TabKey) : 'tools'
+  })
   const [activeCategory, setActiveCategory] = React.useState<string | null>(null)
-  const [aiOpen, setAiOpen] = React.useState(false)
+  const openPanel = useAiPanelStore((s) => s.openPanel)
 
   const { data } = useQuery({
     queryKey: ['ai-world'],
@@ -89,12 +97,19 @@ export default function AiWorldPage() {
             </button>
           )
         })}
+        {/* AI 对话入口:统一调用全局 AISidePanel(与 /chat / plugins / models 等正确范例一致) */}
+        <button
+          type="button"
+          onClick={() => openPanel()}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          <Sparkles className="h-4 w-4" />
+          <span>AI 对话</span>
+        </button>
       </div>
 
       {/* 主内容区 */}
-      {activeTab === 'ai' ? (
-        <AiChatSection open={aiOpen} onToggle={() => setAiOpen((v) => !v)} />
-      ) : activeTab === 'rankings' ? (
+      {activeTab === 'rankings' ? (
         <RankingTable />
       ) : activeTabDef.hasSidebar ? (
         <div className="grid gap-4 lg:grid-cols-[200px_1fr]">
