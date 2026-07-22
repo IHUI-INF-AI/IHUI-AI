@@ -74,8 +74,18 @@ interface ChatState {
   /** Sub-agent 活动列表(多 agent 多路复用:SSE chunk 带 agentId 时按 agent 分流累加)。
    * 不持久化(每次新对话 resetSubAgentActivities 清空)。 */
   subAgentActivities: SubAgentActivity[]
+  /** 用户从插件市场"添加到对话"的已选工具列表(2026-07-22 立)
+   * 存 pluginId,sendMessage 时合并到 agentTools 传给后端。
+   * 不持久化(每次新会话默认空)。 */
+  selectedTools: string[]
 
   setModel: (model: string) => void
+  /** 添加单个工具到已选;已存在则忽略 */
+  addSelectedTool: (pluginId: string) => void
+  /** 从已选移除单个工具 */
+  removeSelectedTool: (pluginId: string) => void
+  /** 清空已选工具 */
+  clearSelectedTools: () => void
   addMessage: (msg: Pick<ChatMessage, 'role' | 'content' | 'model'>) => string
   appendToMessage: (id: string, delta: string) => void
   appendReasoningToMessage: (id: string, delta: string) => void
@@ -130,8 +140,18 @@ export const useChatStore = create<ChatState>()(
       draftInput: null,
       pendingQuestion: null,
       subAgentActivities: [],
+      selectedTools: [],
 
       setModel: (model) => set({ currentModel: model }),
+      addSelectedTool: (pluginId) =>
+        set((s) =>
+          s.selectedTools.includes(pluginId)
+            ? s
+            : { selectedTools: [...s.selectedTools, pluginId] },
+        ),
+      removeSelectedTool: (pluginId) =>
+        set((s) => ({ selectedTools: s.selectedTools.filter((id) => id !== pluginId) })),
+      clearSelectedTools: () => set({ selectedTools: [] }),
 
       addMessage: (msg) => {
         const id = genId()
