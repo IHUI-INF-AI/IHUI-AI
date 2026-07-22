@@ -44,7 +44,7 @@ export async function parseCline(input: ParserInput): Promise<ParserResult> {
   }
   const apiProvider = str(settings['cline.apiProvider'])
   const apiKey = str(settings['cline.apiKey'])
-  const baseUrl = str(settings['cline.openAiBaseUrl']) ?? ''
+  const baseUrl = str(settings['cline.openAiBaseUrl'])
   const model = str(settings['cline.openAiModelId'])
   if (!apiKey) {
     return {
@@ -52,9 +52,13 @@ export async function parseCline(input: ParserInput): Promise<ParserResult> {
       globalWarnings: ['Cline settings.json 中未找到 cline.apiKey'],
     }
   }
+  if (!baseUrl) {
+    return {
+      providers: [],
+      globalWarnings: ['Cline settings.json 中未找到 cline.openAiBaseUrl,Cline 无默认 API 端点'],
+    }
+  }
   const apiFormat = pickApiFormat(apiProvider)
-  const warnings: string[] = []
-  if (!baseUrl) warnings.push('cline.openAiBaseUrl 未设置')
   const provider: ImportedProvider = {
     sourceId: 'cline-default',
     name: sanitizeProviderName('Cline'),
@@ -69,7 +73,7 @@ export async function parseCline(input: ParserInput): Promise<ParserResult> {
       models: model ? [model] : undefined,
     },
     isCurrent: true,
-    warnings,
+    warnings: [],
   }
   return {
     providers: [normalizeProvider(provider)],
