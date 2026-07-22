@@ -14,6 +14,9 @@
  *   3. 退出时 await shutdownTelemetry()
  */
 
+import { randomUUID } from 'node:crypto';
+import type { TraceContext, TraceEvent } from '@ihui/types';
+
 /** Telemetry 事件类型(枚举已知事件) */
 export type TelemetryEventType =
   | 'session_start'
@@ -277,3 +280,67 @@ export function getDefaultTelemetryClient(): TelemetryClient | null {
 export function _resetDefaultClientForTest(): void {
   defaultClient = null;
 }
+
+// ============================================================================
+// TraceLogger — CLI 端 trace 日志(P2-4,轻量级,不引入 OTel SDK)
+// ============================================================================
+
+/**
+ * TraceLogger — 记录工具调用/LLM 调用的 trace 事件,支持跨端 trace context 传递。
+ *
+ * 与 TelemetryClient 的区别:
+ * - TelemetryClient:批量上报业务事件到 api endpoint(feature flag 控制)
+ * - TraceLogger:本地 trace 事件内存缓冲,用于端到端调用链串联(maxEvents FIFO 防泄漏)
+ */
+export class TraceLogger {
+  private events: TraceEvent[] = [];
+  private readonly maxEvents: number;
+
+  constructor(maxEvents = 1000) {
+    this.maxEvents = maxEvents;
+  }
+
+  /** 生成新的 trace context(32 hex traceId + 16 hex spanId,endpoint 存入 baggage 跨端携带)。 */
+  startTrace(endpoint = 'cli'): TraceContext {
+    return {
+      traceId: randomUUID().replace(/-/g, '').padEnd(32, '0'),
+      spanId: randomUUID().replace(/-/g, '').substring(0, 16),
+      baggage: { endpoint },
+    };
+  }
+
+  /** 记录 trace 事件(超出 maxEvents 时 FIFO 淘汰最早条目)。 */
+  log(event: Omit<TraceEvent, 'timestamp'> & { timestamp?: string }): void {
+    const fullEvent: TraceEvent = {
+      ...event,
+      timestamp: event.timestamp || new Date().toISOString(),
+    };
+    this.events.push(fullEvent);
+    if (this.events.length > this.maxEvents) {
+      this.events.shift();
+    }
+  }
+
+  /** 获取所有 trace 事件(返回副本,外部修改不影响内部缓冲)。 */
+  getEvents(): TraceEvent[] {
+    return [...this.events];
+  }
+
+  /** 按 traceId 过滤事件(traceId 存放在 attributes 中)。 */
+  getEventsByTrace(traceId: string): TraceEvent[] {
+    return this.events.filter((e) => e.attributes?.traceId === traceId);
+  }
+
+  /** 清空所有 trace 事件。 */
+  clear(): void {
+    this.events = [];
+  }
+
+  /** 导出为 JSON(方便发送到 api 持久化)。 */
+  toJSON(): string {
+    return JSON.stringify(this.events);
+  }
+}
+
+/** 默认 TraceLogger 实例(CLI 全局可用) */
+export const traceLogger = new TraceLogger();
