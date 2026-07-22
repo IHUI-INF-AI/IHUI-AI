@@ -9,7 +9,7 @@ import { Card, CardContent } from '@ihui/ui'
 import { Container } from '@/components/layout'
 
 const LINKS = [
-  { href: '/settings/profile', icon: User, titleKey: 'profileTitle', descKey: 'profileDesc' },
+  { href: '/user/profile', icon: User, titleKey: 'profileTitle', descKey: 'profileDesc' },
   { href: '/settings/avatar', icon: UserCircle, titleKey: 'avatarTitle', descKey: 'avatarDesc' },
   { href: '/settings/billing', icon: Receipt, titleKey: 'billingTitle', descKey: 'billingDesc' },
   {
