@@ -21,6 +21,7 @@ import { eq, and, desc, asc, ilike, sql, isNull, gte } from 'drizzle-orm'
 import Parser from 'rss-parser'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
+import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import {
   aiFeedSource,
   aiFeedHotItem,
@@ -269,7 +270,7 @@ async function callLlm(
       if (options.maxTokens !== undefined) body.max_tokens = options.maxTokens
       // temperature=0 确定性输出(分类任务不需要创造性)
       if (options.temperature !== undefined) body.temperature = options.temperature
-      const res = await fetch(`${baseUrl}/api/llm/complete`, {
+      const res = await aiServiceFetch(null, '/api/llm/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
