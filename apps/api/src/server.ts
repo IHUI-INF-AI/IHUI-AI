@@ -289,6 +289,7 @@ import csrfPlugin from './plugins/csrf.js'
 import responseSanitizerPlugin from './plugins/response-sanitizer.js'
 import logSanitizerPlugin from './plugins/log-sanitizer.js'
 import { metricsPlugin } from './plugins/metrics.js'
+import { tracePlugin } from './plugins/trace.js'
 import { redis } from './plugins/redis.js'
 import { queue } from './plugins/queue.js'
 import { scheduler } from './plugins/scheduler.js'
@@ -496,6 +497,8 @@ async function registerPlugins(server: FastifyInstance) {
 
   // 请求指标收集插件：onRequest/onResponse 收集计数/响应时间，暴露 /metrics 端点
   await server.register(metricsPlugin)
+  // Trace 中间件(P2-4):为每个请求生成/透传 W3C traceparent,记录端到端调用链
+  await server.register(tracePlugin)
   // 业务漏斗与自定义业务指标（暴露 /business-metrics 端点）
   await server.register(businessMetricsPlugin)
 
