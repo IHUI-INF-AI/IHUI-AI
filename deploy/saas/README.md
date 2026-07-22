@@ -194,7 +194,7 @@ curl -k https://demo.127.0.0.1.nip.io:443/
 
 ### Admin API(程序化)
 
-启动后监听 `127.0.0.1:8081`(仅本机,不暴露公网)。
+启动后监听 `127.0.0.1:8830`(仅本机,不暴露公网)。
 
 ```bash
 # 1. 在 .env 中设置 ADMIN_API_KEY(用 openssl rand -hex 32 生成)
@@ -203,28 +203,28 @@ curl -k https://demo.127.0.0.1.nip.io:443/
 docker compose up -d admin-api
 
 # 3. 调用 API
-curl -H "X-Admin-API-Key: <your-key>" http://localhost:8081/admin/api/health
+curl -H "X-Admin-API-Key: <your-key>" http://localhost:8830/admin/api/health
 
 # 列出客户
-curl -H "X-Admin-API-Key: <key>" http://localhost:8081/admin/api/customers
+curl -H "X-Admin-API-Key: <key>" http://localhost:8830/admin/api/customers
 
 # 暂停
-curl -X POST -H "X-Admin-API-Key: <key>" http://localhost:8081/admin/api/customers/demo/pause
+curl -X POST -H "X-Admin-API-Key: <key>" http://localhost:8830/admin/api/customers/demo/pause
 
 # 备份
-curl -X POST -H "X-Admin-API-Key: <key>" http://localhost:8081/admin/api/customers/demo/backup
+curl -X POST -H "X-Admin-API-Key: <key>" http://localhost:8830/admin/api/customers/demo/backup
 
 # 恢复(默认最新备份)
-curl -X POST -H "X-Admin-API-Key: <key>" http://localhost:8081/admin/api/customers/demo/restore
+curl -X POST -H "X-Admin-API-Key: <key>" http://localhost:8830/admin/api/customers/demo/restore
 
 # 恢复指定备份
 curl -X POST -H "X-Admin-API-Key: <key>" \
      -H "Content-Type: application/json" \
      -d '{"timestamp":"20260721_120000"}' \
-     http://localhost:8081/admin/api/customers/demo/restore
+     http://localhost:8830/admin/api/customers/demo/restore
 
 # 销毁
-curl -X DELETE -H "X-Admin-API-Key: <key>" http://localhost:8081/admin/api/customers/demo
+curl -X DELETE -H "X-Admin-API-Key: <key>" http://localhost:8830/admin/api/customers/demo
 ```
 
 ### 证书自动续期
@@ -257,7 +257,7 @@ bash deploy/saas/cron/cert-renew.sh
 
 | 变量 | 必填 | 默认值 | 说明 |
 |---|---|---|---|
-| `ADMIN_API_URL` | 否 | `http://127.0.0.1:8081` | admin-api 地址(Web 反向代理) |
+| `ADMIN_API_URL` | 否 | `http://127.0.0.1:8830` | admin-api 地址(Web 反向代理) |
 | `ADMIN_SAAS_API_KEY` | 是 | 空 | 与 admin-api 的 `ADMIN_API_KEY` 一致 |
 | `ADMIN_USER_WHITELIST` | 否 | `admin` | 允许调用 admin-api 的 web 用户白名单(逗号分隔) |
 | `ENABLE_AUDIT_LOG` | 否 | `true` | 是否启用操作审计日志 |
@@ -271,7 +271,7 @@ bash deploy/saas/cron/cert-renew.sh
 echo "ADMIN_API_KEY=<auto-key>" >> .env
 
 # 2. Web 端配置(apps/web/.env.local):
-ADMIN_API_URL=http://127.0.0.1:8081
+ADMIN_API_URL=http://127.0.0.1:8830
 ADMIN_SAAS_API_KEY=<same-as-admin-api-key>
 
 # 3. 重启 admin-api
@@ -314,7 +314,7 @@ docker compose up -d admin-api
 cAdvisor(:8080) ──┐
                   ├──> Prometheus(:9090) ──> Grafana(:3001)
                   │                         公开 dashboard
-admin-api(:8081) ─┘
+admin-api(:8830) ─┘
   └─ /admin/api/customers/:slug/metrics    per-tenant 实时数据
   └─ /admin/api/metrics/summary            横向对比聚合
   └─ /admin/api/customers/:slug/quota      配额(已从占位切换为 Prometheus)
@@ -407,7 +407,7 @@ docker logs customer-demo-api | grep -i "database"
 ### ✅ P1 阶段 2.1 部署层管理增强(本次)
 
 - 客户 pause/resume/backup/restore 脚本(状态持久化到 `.state` 文件)
-- Admin API 服务(Fastify 5 + X-Admin-API-Key 鉴权,端口 8081 仅 localhost)
+- Admin API 服务(Fastify 5 + X-Admin-API-Key 鉴权,端口 8830 仅 localhost)
 - 证书自动续期 cron(每周日 3:00 + 阈值自动重启 Traefik)
 - 备份保留策略(自动保留 7 个 + 30 天前清理)
 
@@ -418,7 +418,7 @@ docker logs customer-demo-api | grep -i "database"
 - 备份管理页(列表 + 恢复 + 删除 + 大小/文件数统计)
 - 证书状态页(健康/警告/紧急/过期四级)
 - 资源监控页(Grafana 对比图 + 多租户排名)
-- Admin API 服务(Fastify 5,端口 8081,双重鉴权 + 操作审计)
+- Admin API 服务(Fastify 5,端口 8830,双重鉴权 + 操作审计)
 
 ### ✅ P1 阶段 2.3 资源监控(本次)
 

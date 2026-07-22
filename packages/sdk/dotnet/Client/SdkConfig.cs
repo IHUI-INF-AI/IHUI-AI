@@ -8,7 +8,7 @@ namespace Ihui.AI;
 /// <list type="bullet">
 ///   <item><c>ApiKey</c> — 必需,API Key(格式 ihui_xxx)</item>
 ///   <item><c>Secret</c> — 可选,API Secret(创建/轮换时返回)</item>
-///   <item><c>BaseUrl</c> — 基础 URL,默认 http://localhost:3001</item>
+///   <item><c>BaseUrl</c> — 基础 URL,默认 http://localhost:8802</item>
 ///   <item><c>Timeout</c> — 请求超时,默认 30s;流式请求不超时</item>
 ///   <item><c>MaxRetries</c> — 最大重试次数,默认 2;网络错误和 5xx 自动重试,429 不重试</item>
 /// </list>
@@ -16,7 +16,7 @@ namespace Ihui.AI;
 public sealed class SdkConfig
 {
     /// <summary>默认基础 URL。</summary>
-    public const string DefaultBaseUrl = "http://localhost:3001";
+    public const string DefaultBaseUrl = "http://localhost:8802";
 
     /// <summary>默认超时。</summary>
     public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(30);
@@ -87,7 +87,7 @@ public sealed class SdkConfig
         }
 
         /// <summary>设置基础 URL。</summary>
-        /// <param name="baseUrl">基础 URL(默认 http://localhost:3001)</param>
+        /// <param name="baseUrl">基础 URL(默认 http://localhost:8802)</param>
         /// <returns>当前 builder</returns>
         public Builder WithBaseUrl(string baseUrl)
         {
