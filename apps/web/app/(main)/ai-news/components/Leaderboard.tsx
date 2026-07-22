@@ -2,9 +2,12 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Trophy, TrendingUp, TrendingDown, Minus, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { Trophy, TrendingUp, TrendingDown, Minus, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, GitCompare } from 'lucide-react'
 import type { LeaderboardEntry, LeaderboardCategory } from '@/lib/ai-news-api'
 import { ModelDetailDialog } from './ModelDetailDialog'
+import { ModelCompareBar } from './ModelCompareBar'
+import { ModelCompareDialog } from './ModelCompareDialog'
+import { toast } from 'sonner'
 
 interface Props {
   entries: LeaderboardEntry[]
@@ -24,7 +27,7 @@ type SortField =
 type SortDir = 'asc' | 'desc'
 
 /** 把字符串数字("200K" / "1M" / "$3.00/1M")解析为数值用于排序 */
-function parseNumeric(raw: string | number | null | undefined): number | null {
+export function parseNumeric(raw: string | number | null | undefined): number | null {
   if (raw === null || raw === undefined || raw === '') return null
   if (typeof raw === 'number') return raw
   const s = String(raw).trim().toLowerCase()
@@ -36,6 +39,32 @@ function parseNumeric(raw: string | number | null | undefined): number | null {
   if (m[2] === 'k') return n * 1_000
   if (m[2] === 'm') return n * 1_000_000
   return n
+}
+
+/** localStorage 排序偏好:按分类记忆 sortField + sortDir */
+const SORT_PREF_KEY = 'leaderboard-sort-pref'
+const DEFAULT_SORT = { field: 'arenaScore' as SortField, dir: 'desc' as SortDir }
+
+function readSortPref(category: string): { field: SortField; dir: SortDir } {
+  try {
+    const raw = localStorage.getItem(SORT_PREF_KEY)
+    if (!raw) return DEFAULT_SORT
+    const all = JSON.parse(raw) as Record<string, { field: SortField; dir: SortDir }>
+    return all[category] ?? DEFAULT_SORT
+  } catch {
+    return DEFAULT_SORT
+  }
+}
+
+function writeSortPref(category: string, field: SortField, dir: SortDir) {
+  try {
+    const raw = localStorage.getItem(SORT_PREF_KEY)
+    const all = raw ? (JSON.parse(raw) as Record<string, { field: SortField; dir: SortDir }>) : {}
+    all[category] = { field, dir }
+    localStorage.setItem(SORT_PREF_KEY, JSON.stringify(all))
+  } catch {
+    // SSR / 隐私模式 / 配额溢出,静默降级
+  }
 }
 
 /** 分类 Tab 配置 */
@@ -91,9 +120,11 @@ export function Leaderboard({ entries }: Props) {
   const [activeCategory, setActiveCategory] = React.useState<LeaderboardCategory>('overall')
   const [activeSubcat, setActiveSubcat] = React.useState<string>('general')
   const [selectedEntry, setSelectedEntry] = React.useState<LeaderboardEntry | null>(null)
-  // 列排序:默认按 Arena 评分降序(最高分在前)
-  const [sortField, setSortField] = React.useState<SortField>('arenaScore')
-  const [sortDir, setSortDir] = React.useState<SortDir>('desc')
+  // 列排序:从 localStorage 恢复 overall 分类的偏好
+  const [sortField, setSortField] = React.useState<SortField>(() => readSortPref('overall').field)
+  const [sortDir, setSortDir] = React.useState<SortDir>(() => readSortPref('overall').dir)
+  const [compareList, setCompareList] = React.useState<LeaderboardEntry[]>([])
+  const [showCompareDialog, setShowCompareDialog] = React.useState(false)
 
   // 按当前 Tab 过滤
   const filtered = React.useMemo(() => {
@@ -135,21 +166,38 @@ export function Leaderboard({ entries }: Props) {
     })
   }, [filtered, sortField, sortDir])
 
-  // 点击表头排序:同字段切方向,不同字段切字段并默认降序
+  // 点击表头排序:同字段切方向,不同字段切字段并默认降序 + 写入 localStorage
   function toggleSort(field: SortField) {
     if (field === sortField) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+      const next: SortDir = sortDir === 'asc' ? 'desc' : 'asc'
+      setSortDir(next)
+      writeSortPref(activeCategory, field, next)
     } else {
       setSortField(field)
       setSortDir('desc')
+      writeSortPref(activeCategory, field, 'desc')
     }
   }
 
-  // 切换分类时重置子分类 + 重置排序(避免切到生图榜后还按 LLM 的 arenaScore 排)
+  /** 切换对比列表(最多 5 个) */
+  function toggleCompare(entry: LeaderboardEntry) {
+    setCompareList((prev) => {
+      const exists = prev.some((e) => e.id === entry.id)
+      if (exists) return prev.filter((e) => e.id !== entry.id)
+      if (prev.length >= 5) {
+        toast.error(t('compare.maxToast'))
+        return prev
+      }
+      return [...prev, entry]
+    })
+  }
+
+  // 切换分类时重置子分类 + 恢复该分类的排序偏好
   React.useEffect(() => {
     if (activeCategory !== 'llm') setActiveSubcat('')
-    setSortField('arenaScore')
-    setSortDir('desc')
+    const pref = readSortPref(activeCategory)
+    setSortField(pref.field)
+    setSortDir(pref.dir)
   }, [activeCategory])
 
   /** 渲染排序图标 */
@@ -233,6 +281,9 @@ export function Leaderboard({ entries }: Props) {
         <table className="w-full min-w-[920px] border-collapse text-sm">
           <thead>
             <tr className="bg-muted/30 text-[10px] uppercase tracking-wide text-muted-foreground">
+              <th className="w-8 px-2 py-2 text-center">
+                <GitCompare className="inline h-3 w-3 text-muted-foreground" />
+              </th>
               <th className="px-3 py-2 text-left font-medium">#</th>
               <th className="px-3 py-2 text-left font-medium">模型</th>
               <th className="px-3 py-2 text-left font-medium">厂商</th>
@@ -251,7 +302,7 @@ export function Leaderboard({ entries }: Props) {
           <tbody>
             {sorted.length === 0 ? (
               <tr>
-                <td colSpan={13} className="px-3 py-8 text-center text-xs text-muted-foreground">
+                <td colSpan={14} className="px-3 py-8 text-center text-xs text-muted-foreground">
                   {t('leaderboard.empty')}
                 </td>
               </tr>
@@ -264,6 +315,16 @@ export function Leaderboard({ entries }: Props) {
                     onClick={() => setSelectedEntry(entry)}
                     className="cursor-pointer border-b border-muted/30 transition-colors last:border-0 hover:bg-accent/30"
                   >
+                    {/* 对比勾选 */}
+                    <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={compareList.some((c) => c.id === entry.id)}
+                        onChange={() => toggleCompare(entry)}
+                        className="h-3.5 w-3.5 cursor-pointer accent-primary"
+                        aria-label={t('compare.label')}
+                      />
+                    </td>
                     {/* 排名 */}
                     <td className="px-3 py-2.5">
                       <span className={`inline-flex h-6 w-6 items-center justify-center rounded text-[11px] font-bold tabular-nums ${rankBg(idx)}`}>
@@ -340,6 +401,23 @@ export function Leaderboard({ entries }: Props) {
         <span>📊 数据参考 arena.ai/leaderboard · Elo 评分 + Bootstrap 置信区间</span>
         <span className="ml-auto">{t('leaderboard.sortHint')} · 点击行查看模型详情 + 能力雷达图</span>
       </div>
+
+      {/* 对比栏 */}
+      {compareList.length >= 2 ? (
+        <ModelCompareBar
+          entries={compareList}
+          onRemove={(id) => setCompareList((prev) => prev.filter((e) => e.id !== id))}
+          onClear={() => setCompareList([])}
+          onCompare={() => setShowCompareDialog(true)}
+        />
+      ) : null}
+
+      {/* 对比弹窗 */}
+      <ModelCompareDialog
+        entries={compareList}
+        open={showCompareDialog}
+        onClose={() => setShowCompareDialog(false)}
+      />
 
       {/* 详情弹窗 */}
       {selectedEntry ? (
