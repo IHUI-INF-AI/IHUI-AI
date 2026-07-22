@@ -26,6 +26,8 @@ export function TrendNotificationBanner() {
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const poll = React.useCallback(async () => {
+    // 标签页隐藏时跳过轮询,避免后台空跑
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
     try {
       const list = await fetchAiFeedNotifications(
         NOTIFICATION_HOURS,
@@ -44,10 +46,22 @@ export function TrendNotificationBanner() {
   }, [])
 
   React.useEffect(() => {
+    // closed 后不再轮询
+    if (closed) return
     void poll()
     const id = setInterval(poll, POLL_INTERVAL_MS)
-    return () => clearInterval(id)
-  }, [poll])
+    // 标签页可见时立即恢复轮询(避免长时间隐藏后数据陈旧)
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void poll()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [poll, closed])
 
   // 自动折叠:展开后 5 秒自动收回
   React.useEffect(() => {
