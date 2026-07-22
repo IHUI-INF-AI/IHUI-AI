@@ -2,7 +2,7 @@
  * 测试 ai-service /llm/complete 端点连通性 + 真实 LLM 响应(非 stub)。
  * 用法:pnpm --filter @ihui/api exec tsx scripts/test-llm-complete.mts
  */
-const baseUrl = process.env.AI_SERVICE_URL ?? 'http://127.0.0.1:8000'
+const baseUrl = process.env.AI_SERVICE_URL ?? 'http://127.0.0.1:8803'
 
 async function main() {
   const start = Date.now()
