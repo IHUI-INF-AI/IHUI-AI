@@ -16,6 +16,22 @@ import type {
   TerminalWSServerMessage,
   TerminalHistoryListResponse,
   TerminalScrollbackResponse,
+  TerminalSuggestInput,
+  TerminalSuggestResponse,
+  TerminalDiagnoseInput,
+  TerminalDiagnoseResponse,
+  TerminalAutoFixInput,
+  TerminalAutoFixResponse,
+  TerminalRecordingStartInput,
+  TerminalRecordingStartResponse,
+  TerminalRecordingStopResponse,
+  TerminalRecordingListResponse,
+  TerminalRecordingDetailResponse,
+  TerminalRecordingEditInput,
+  TerminalRecordingEditResponse,
+  TerminalRecordingPlayResponse,
+  TerminalHistoryRecordInput,
+  TerminalSmartHistoryResponse,
 } from '@ihui/types'
 
 /**
@@ -29,6 +45,24 @@ import type {
  *   renameSession(id,...)  → PUT  /terminal/sessions/:id/rename
  *   getScrollback(id)     → GET  /terminal/sessions/:id/scrollback(回滚恢复)
  *   listHistorySessions() → GET  /terminal/sessions/history(最近 7 天历史会话)
+ *
+ * AI 辅助(2026-07-23 立,LLM 调用经 ai-service 转发,不可用返回 503):
+ *   suggestCommand(id,input)  → POST /terminal/sessions/:id/suggest
+ *   diagnoseError(id,input)   → POST /terminal/sessions/:id/diagnose
+ *   autoFix(id,fixCommand)    → POST /terminal/sessions/:id/auto-fix
+ *
+ * 操作录制与回放(2026-07-23 立,Redis list+hash+30 天 TTL,内存降级):
+ *   startRecording(id,title?) → POST /terminal/sessions/:id/recording/start
+ *   stopRecording(id)         → POST /terminal/sessions/:id/recording/stop
+ *   listRecordings()          → GET  /terminal/recordings
+ *   getRecording(id)          → GET  /terminal/recordings/:id
+ *   deleteRecording(id)       → DELETE /terminal/recordings/:id
+ *   editRecording(id,input)   → PUT  /terminal/recordings/:id
+ *   playRecording(id)         → POST /terminal/recordings/:id/play
+ *
+ * 智能命令历史(2026-07-23 立,相关性打分排序):
+ *   recordHistory(id,input)   → POST /terminal/sessions/:id/history
+ *   getSmartHistory(id)       → GET  /terminal/sessions/:id/history
  *
  * WebSocket:
  *   connectWS(sessionId) → ws(s)://host/ws/terminal/:sessionId?token=xxx
@@ -66,6 +100,18 @@ export function useTerminalSession() {
     panes,
     activePaneId,
     splitDirections,
+    // AI 辅助 / 录制 / 智能历史 state
+    recordingBySession,
+    recordings,
+    activePlaybackId,
+    commandHistory,
+    aiSuggestOpen,
+    aiSuggestLoading,
+    aiSuggestions,
+    aiDiagnoseOpen,
+    aiDiagnoseLoading,
+    aiDiagnoseResult,
+    aiError,
     setSessions,
     addSession,
     removeSession,
@@ -78,6 +124,23 @@ export function useTerminalSession() {
     setActivePane: setActivePaneInStore,
     getPanes: getPanesInStore,
     getSplitDirection: getSplitDirectionInStore,
+    // 录制 / 历史 / AI actions
+    startRecording: startRecordingInStore,
+    stopRecording: stopRecordingInStore,
+    isRecording: isRecordingInStore,
+    setRecordings,
+    addRecording,
+    removeRecording: removeRecordingInStore,
+    setActivePlaybackId,
+    setCommandHistory,
+    setAiSuggestOpen,
+    setAiSuggestLoading,
+    setAiSuggestions,
+    setAiDiagnoseOpen,
+    setAiDiagnoseLoading,
+    setAiDiagnoseResult,
+    setAiError,
+    resetAiPanel,
   } = useTerminalStore()
 
   const activeSession = React.useMemo(
@@ -295,6 +358,302 @@ export function useTerminalSession() {
     }
   }, [])
 
+  // ==================== AI 辅助终端(2026-07-23 立,经 ai-service 转发) ====================
+
+  /**
+   * AI 命令建议(POST /terminal/sessions/:id/suggest)。
+   * LLM 不可用时服务端返回 503 + errorCode='ai_unavailable',此处返回 null + 写入 aiError。
+   */
+  const suggestCommand = React.useCallback(
+    async (sessionId: string, input: TerminalSuggestInput): Promise<TerminalSuggestResponse | null> => {
+      setAiSuggestLoading(true)
+      setAiError(null)
+      try {
+        const result = await fetchApi<TerminalSuggestResponse>(
+          `/terminal/sessions/${sessionId}/suggest`,
+          { method: 'POST', body: JSON.stringify(input) },
+        )
+        if (result.success) {
+          setAiSuggestions(result.data.suggestions)
+          return result.data
+        }
+        // 503 ai_unavailable 或其他错误
+        setAiError(result.error)
+        return null
+      } catch (e) {
+        setAiError((e as Error).message)
+        return null
+      } finally {
+        setAiSuggestLoading(false)
+      }
+    },
+    [setAiError, setAiSuggestLoading, setAiSuggestions],
+  )
+
+  /**
+   * AI 错误诊断(POST /terminal/sessions/:id/diagnose)。
+   * 命令失败时由 terminal-panel 自动触发,诊断结果写入 store 浮层。
+   */
+  const diagnoseError = React.useCallback(
+    async (sessionId: string, input: TerminalDiagnoseInput): Promise<TerminalDiagnoseResponse | null> => {
+      setAiDiagnoseLoading(true)
+      setAiError(null)
+      try {
+        const result = await fetchApi<TerminalDiagnoseResponse>(
+          `/terminal/sessions/${sessionId}/diagnose`,
+          { method: 'POST', body: JSON.stringify(input) },
+        )
+        if (result.success) {
+          setAiDiagnoseResult(result.data)
+          return result.data
+        }
+        setAiError(result.error)
+        return null
+      } catch (e) {
+        setAiError((e as Error).message)
+        return null
+      } finally {
+        setAiDiagnoseLoading(false)
+      }
+    },
+    [setAiDiagnoseLoading, setAiDiagnoseResult, setAiError],
+  )
+
+  /**
+   * AI 自动修复(POST /terminal/sessions/:id/auto-fix)。
+   * 把 diagnose 返回的 fixCommand 写入 PTY 执行,服务端返回 applied=true。
+   */
+  const autoFix = React.useCallback(
+    async (sessionId: string, fixCommand: string): Promise<TerminalAutoFixResponse | null> => {
+      setAiError(null)
+      try {
+        const result = await fetchApi<TerminalAutoFixResponse>(
+          `/terminal/sessions/${sessionId}/auto-fix`,
+          { method: 'POST', body: JSON.stringify({ fixCommand } satisfies TerminalAutoFixInput) },
+        )
+        if (result.success) {
+          return result.data
+        }
+        setAiError(result.error)
+        return null
+      } catch (e) {
+        setAiError((e as Error).message)
+        return null
+      }
+    },
+    [setAiError],
+  )
+
+  // ==================== 操作录制与回放(2026-07-23 立) ====================
+
+  /**
+   * 开始录制(POST /terminal/sessions/:id/recording/start)。
+   * 同一 session 仅一个活动录制,服务端幂等返回已有 recordingId。
+   * 成功后写入 store.recordingBySession 标记正在录制。
+   */
+  const startRecording = React.useCallback(
+    async (sessionId: string, title?: string): Promise<string | null> => {
+      try {
+        const body: TerminalRecordingStartInput = title ? { title } : {}
+        const result = await fetchApi<TerminalRecordingStartResponse>(
+          `/terminal/sessions/${sessionId}/recording/start`,
+          { method: 'POST', body: JSON.stringify(body) },
+        )
+        if (result.success) {
+          startRecordingInStore(sessionId, result.data.recordingId)
+          return result.data.recordingId
+        }
+        return null
+      } catch {
+        return null
+      }
+    },
+    [startRecordingInStore],
+  )
+
+  /**
+   * 停止录制(POST /terminal/sessions/:id/recording/stop)。
+   * 服务端持久化到 Redis,返回完整录制对象。成功后写入 store.recordings 列表头部 + 清除录制标记。
+   */
+  const stopRecording = React.useCallback(
+    async (sessionId: string): Promise<boolean> => {
+      try {
+        const result = await fetchApi<TerminalRecordingStopResponse>(
+          `/terminal/sessions/${sessionId}/recording/stop`,
+          { method: 'POST' },
+        )
+        if (result.success) {
+          stopRecordingInStore(sessionId)
+          // 追加到录制列表头部(精简项)
+          const r = result.data.recording
+          addRecording({
+            id: r.id,
+            sessionId: r.sessionId,
+            title: r.title,
+            startedAt: r.startedAt,
+            durationMs: r.durationMs,
+            eventCount: r.events.length,
+          })
+          return true
+        }
+        return false
+      } catch {
+        return false
+      }
+    },
+    [stopRecordingInStore, addRecording],
+  )
+
+  /** 列出当前用户全部录制(GET /terminal/recordings,30 天 TTL 内) */
+  const listRecordings = React.useCallback(async (): Promise<boolean> => {
+    try {
+      const result = await fetchApi<TerminalRecordingListResponse>('/terminal/recordings')
+      if (result.success) {
+        setRecordings(result.data.recordings)
+        return true
+      }
+      return false
+    } catch {
+      return false
+    }
+  }, [setRecordings])
+
+  /** 获取录制详情(含完整 events,用于回放预览 / 编辑) */
+  const getRecording = React.useCallback(
+    async (recordingId: string): Promise<TerminalRecordingDetailResponse['recording'] | null> => {
+      try {
+        const result = await fetchApi<TerminalRecordingDetailResponse>(
+          `/terminal/recordings/${recordingId}`,
+        )
+        if (result.success) {
+          return result.data.recording
+        }
+        return null
+      } catch {
+        return null
+      }
+    },
+    [],
+  )
+
+  /** 删除录制(DELETE /terminal/recordings/:id),成功后从 store 列表移除 */
+  const deleteRecording = React.useCallback(
+    async (recordingId: string): Promise<boolean> => {
+      try {
+        const result = await fetchApi(`/terminal/recordings/${recordingId}`, { method: 'DELETE' })
+        if (result.success) {
+          removeRecordingInStore(recordingId)
+          return true
+        }
+        return false
+      } catch {
+        return false
+      }
+    },
+    [removeRecordingInStore],
+  )
+
+  /**
+   * 编辑录制(PUT /terminal/recordings/:id,裁剪/合并/删除事件,整体替换 events)。
+   * 成功后更新 store 列表中对应项的 eventCount。
+   */
+  const editRecording = React.useCallback(
+    async (recordingId: string, input: TerminalRecordingEditInput): Promise<boolean> => {
+      try {
+        const result = await fetchApi<TerminalRecordingEditResponse>(
+          `/terminal/recordings/${recordingId}`,
+          { method: 'PUT', body: JSON.stringify(input) },
+        )
+        if (result.success) {
+          // 更新列表项的 eventCount + title
+          const r = result.data.recording
+          setRecordings(
+            useTerminalStore.getState().recordings.map((item) =>
+              item.id === recordingId
+                ? { ...item, eventCount: r.events.length, title: r.title, durationMs: r.durationMs }
+                : item,
+            ),
+          )
+          return true
+        }
+        return false
+      } catch {
+        return false
+      }
+    },
+    [setRecordings],
+  )
+
+  /**
+   * 回放录制(POST /terminal/recordings/:id/play)。
+   * 服务端创建新 session 并按 timestamp 顺序回放事件,返回新 sessionId。
+   * 成功后设置 activePlaybackId 供 tab 显示回放徽章。
+   */
+  const playRecording = React.useCallback(
+    async (recordingId: string): Promise<string | null> => {
+      try {
+        const result = await fetchApi<TerminalRecordingPlayResponse>(
+          `/terminal/recordings/${recordingId}/play`,
+          { method: 'POST' },
+        )
+        if (result.success) {
+          setActivePlaybackId(recordingId)
+          // 回放创建的新 session 需要刷新列表才能切换过去
+          void refreshSessions()
+          return result.data.sessionId
+        }
+        return null
+      } catch {
+        return null
+      }
+    },
+    [setActivePlaybackId, refreshSessions],
+  )
+
+  // ==================== 智能命令历史(2026-07-23 立,相关性打分排序) ====================
+
+  /**
+   * 记录命令执行(POST /terminal/sessions/:id/history)。
+   * 命令完成后由前端回传,服务端累积 frequency + 写入 Redis hash。
+   * 失败静默(不影响终端主流程)。
+   */
+  const recordHistory = React.useCallback(
+    async (sessionId: string, input: TerminalHistoryRecordInput): Promise<void> => {
+      try {
+        await fetchApi(`/terminal/sessions/${sessionId}/history`, {
+          method: 'POST',
+          body: JSON.stringify(input),
+        })
+      } catch {
+        /* 静默 */
+      }
+    },
+    [],
+  )
+
+  /**
+   * 获取智能历史(GET /terminal/sessions/:id/history)。
+   * 服务端按相关性打分(cwd+50/gitBranch+30/最近24h+20/frequency*5/exitCode=0+10)排序返回。
+   * 成功后写入 store.commandHistory 供 Ctrl+R 搜索消费。
+   */
+  const getSmartHistory = React.useCallback(
+    async (sessionId: string): Promise<TerminalSmartHistoryResponse | null> => {
+      try {
+        const result = await fetchApi<TerminalSmartHistoryResponse>(
+          `/terminal/sessions/${sessionId}/history`,
+        )
+        if (result.success) {
+          setCommandHistory(result.data.entries)
+          return result.data
+        }
+        return null
+      } catch {
+        return null
+      }
+    },
+    [setCommandHistory],
+  )
+
   // ==================== 分屏 pane 操作(转发 store,提供 paneId 透传) ====================
 
   /** 新增 pane(Ctrl+Shift+D 垂直分割 / Ctrl+Shift+H 水平分割) */
@@ -345,6 +704,18 @@ export function useTerminalSession() {
     panes,
     activePaneId,
     splitDirections,
+    // AI 辅助 / 录制 / 智能历史 state
+    recordingBySession,
+    recordings,
+    activePlaybackId,
+    commandHistory,
+    aiSuggestOpen,
+    aiSuggestLoading,
+    aiSuggestions,
+    aiDiagnoseOpen,
+    aiDiagnoseLoading,
+    aiDiagnoseResult,
+    aiError,
     // Actions — session
     createSession,
     refreshSessions,
@@ -361,6 +732,30 @@ export function useTerminalSession() {
     // Scrollback / history(REST)
     getScrollback,
     listHistorySessions,
+    // AI 辅助终端(REST,经 ai-service 转发,LLM 不可用返回 503)
+    suggestCommand,
+    diagnoseError,
+    autoFix,
+    // 操作录制与回放(REST,Redis list+hash+30 天 TTL,内存降级)
+    startRecording,
+    stopRecording,
+    listRecordings,
+    getRecording,
+    deleteRecording,
+    editRecording,
+    playRecording,
+    // 录制 / AI 浮层 actions(转发 store)
+    isRecording: isRecordingInStore,
+    setRecordings,
+    setActivePlaybackId,
+    setCommandHistory,
+    setAiSuggestOpen,
+    setAiDiagnoseOpen,
+    setAiError,
+    resetAiPanel,
+    // 智能命令历史(REST,相关性打分排序)
+    recordHistory,
+    getSmartHistory,
     // WebSocket
     connectWS,
     // Token availability
