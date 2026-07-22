@@ -215,6 +215,149 @@ const AGENT_TOOLS = [
   'computer_clipboard_set',
 ] as const
 
+/**
+ * 插件市场 pluginId → ai-service MCP 工具名映射(2026-07-22 立)。
+ *
+ * 用户在插件市场点击"+"添加到对话后,selectedTools 存 pluginId。
+ * sendMessage 时通过 mergeAgentTools() 把对应 MCP 工具名合并到 agentTools,
+ * 传给后端 ai-service /api/llm/complete/stream。
+ *
+ * 仅 realIntegrated=true 的插件有真实 MCP 工具映射;'model' 接入类和
+ * 仅 prompt 意图类无映射,不参与 mergeAgentTools(避免污染 AGENT_TOOLS)。
+ */
+const PLUGIN_ID_TO_TOOLS: Record<string, readonly string[]> = {
+  // 12 browser tools(所有浏览器类插件共用同一组 browser_* 工具)
+  'playwright-mcp': [
+    'browser_screenshot', 'browser_click_element', 'browser_type_text',
+    'browser_scroll', 'browser_navigate', 'browser_extract_dom',
+    'browser_wait_for_element', 'browser_get_attribute', 'browser_hover',
+    'browser_select_option', 'browser_switch_tab', 'browser_close_tab',
+  ],
+  'puppeteer': [
+    'browser_screenshot', 'browser_click_element', 'browser_type_text',
+    'browser_scroll', 'browser_navigate', 'browser_extract_dom',
+    'browser_wait_for_element', 'browser_get_attribute', 'browser_hover',
+    'browser_select_option', 'browser_switch_tab', 'browser_close_tab',
+  ],
+  'browser-use': [
+    'browser_screenshot', 'browser_click_element', 'browser_type_text',
+    'browser_scroll', 'browser_navigate', 'browser_extract_dom',
+    'browser_wait_for_element', 'browser_get_attribute', 'browser_hover',
+    'browser_select_option', 'browser_switch_tab', 'browser_close_tab',
+  ],
+  'stagehand': [
+    'browser_screenshot', 'browser_click_element', 'browser_type_text',
+    'browser_scroll', 'browser_navigate', 'browser_extract_dom',
+    'browser_wait_for_element', 'browser_get_attribute', 'browser_hover',
+    'browser_select_option', 'browser_switch_tab', 'browser_close_tab',
+  ],
+  'skyvern': [
+    'browser_screenshot', 'browser_click_element', 'browser_type_text',
+    'browser_scroll', 'browser_navigate', 'browser_extract_dom',
+    'browser_wait_for_element', 'browser_get_attribute', 'browser_hover',
+    'browser_select_option', 'browser_switch_tab', 'browser_close_tab',
+  ],
+  'selenium': [
+    'browser_screenshot', 'browser_click_element', 'browser_type_text',
+    'browser_scroll', 'browser_navigate', 'browser_extract_dom',
+    'browser_wait_for_element', 'browser_get_attribute', 'browser_hover',
+    'browser_select_option', 'browser_switch_tab', 'browser_close_tab',
+  ],
+  'playwright': [
+    'browser_screenshot', 'browser_click_element', 'browser_type_text',
+    'browser_scroll', 'browser_navigate', 'browser_extract_dom',
+    'browser_wait_for_element', 'browser_get_attribute', 'browser_hover',
+    'browser_select_option', 'browser_switch_tab', 'browser_close_tab',
+  ],
+  'multion': [
+    'browser_screenshot', 'browser_click_element', 'browser_type_text',
+    'browser_scroll', 'browser_navigate', 'browser_extract_dom',
+    'browser_wait_for_element', 'browser_get_attribute', 'browser_hover',
+    'browser_select_option', 'browser_switch_tab', 'browser_close_tab',
+  ],
+  'axiom': [
+    'browser_screenshot', 'browser_click_element', 'browser_type_text',
+    'browser_scroll', 'browser_navigate', 'browser_extract_dom',
+    'browser_wait_for_element', 'browser_get_attribute', 'browser_hover',
+    'browser_select_option', 'browser_switch_tab', 'browser_close_tab',
+  ],
+  'brightdata': [
+    'browser_screenshot', 'browser_click_element', 'browser_type_text',
+    'browser_scroll', 'browser_navigate', 'browser_extract_dom',
+    'browser_wait_for_element', 'browser_get_attribute', 'browser_hover',
+    'browser_select_option', 'browser_switch_tab', 'browser_close_tab',
+  ],
+  'browserbase': [
+    'browser_screenshot', 'browser_click_element', 'browser_type_text',
+    'browser_scroll', 'browser_navigate', 'browser_extract_dom',
+    'browser_wait_for_element', 'browser_get_attribute', 'browser_hover',
+    'browser_select_option', 'browser_switch_tab', 'browser_close_tab',
+  ],
+  'browserless': [
+    'browser_screenshot', 'browser_click_element', 'browser_type_text',
+    'browser_scroll', 'browser_navigate', 'browser_extract_dom',
+    'browser_wait_for_element', 'browser_get_attribute', 'browser_hover',
+    'browser_select_option', 'browser_switch_tab', 'browser_close_tab',
+  ],
+  // 10 computer tools(所有电脑控制类插件共用同一组 computer_* 工具)
+  'anthropic-computer-use': [
+    'computer_screenshot_screen', 'computer_mouse_move', 'computer_mouse_click',
+    'computer_keyboard_type', 'computer_mouse_scroll', 'computer_keyboard_press',
+    'computer_keyboard_hotkey', 'computer_active_window',
+    'computer_clipboard_get', 'computer_clipboard_set',
+  ],
+  'open-interpreter': [
+    'computer_screenshot_screen', 'computer_mouse_move', 'computer_mouse_click',
+    'computer_keyboard_type', 'computer_mouse_scroll', 'computer_keyboard_press',
+    'computer_keyboard_hotkey', 'computer_active_window',
+    'computer_clipboard_get', 'computer_clipboard_set',
+  ],
+  'auto-gpt': [
+    'computer_screenshot_screen', 'computer_mouse_move', 'computer_mouse_click',
+    'computer_keyboard_type', 'computer_mouse_scroll', 'computer_keyboard_press',
+    'computer_keyboard_hotkey', 'computer_active_window',
+    'computer_clipboard_get', 'computer_clipboard_set',
+  ],
+  'babyagi': [
+    'computer_screenshot_screen', 'computer_mouse_move', 'computer_mouse_click',
+    'computer_keyboard_type', 'computer_mouse_scroll', 'computer_keyboard_press',
+    'computer_keyboard_hotkey', 'computer_active_window',
+    'computer_clipboard_get', 'computer_clipboard_set',
+  ],
+  'self-operating-computer': [
+    'computer_screenshot_screen', 'computer_mouse_move', 'computer_mouse_click',
+    'computer_keyboard_type', 'computer_mouse_scroll', 'computer_keyboard_press',
+    'computer_keyboard_hotkey', 'computer_active_window',
+    'computer_clipboard_get', 'computer_clipboard_set',
+  ],
+  'claude-desktop': [
+    'computer_screenshot_screen', 'computer_mouse_move', 'computer_mouse_click',
+    'computer_keyboard_type', 'computer_mouse_scroll', 'computer_keyboard_press',
+    'computer_keyboard_hotkey', 'computer_active_window',
+    'computer_clipboard_get', 'computer_clipboard_set',
+  ],
+  // 其他真集成插件:filesystem / postgres / search / code-exec / github / langgraph
+  'filesystem-mcp': ['read_file', 'write_file'],
+  'postgres-mcp': ['db_query'],
+  'duckduckgo': ['search_web'],
+  'code-interpreter-mcp': ['run_command'],
+  'e2b': ['run_command'],
+  'github-mcp': ['run_command'],
+  'langgraph': ['run_command'],
+} as const
+
+/**
+ * 合并默认 AGENT_TOOLS + 用户已选插件对应的 MCP 工具(2026-07-22 立)。
+ *
+ * 调用时机:sendMessage / sendAnswer 构造 streamChat 参数前。
+ * 去重保证工具名唯一,ai-service 收到后从 mcp_server 加载完整 schema。
+ */
+function mergeAgentTools(): string[] {
+  const selected = useChatStore.getState().selectedTools
+  const extra = selected.flatMap((id) => PLUGIN_ID_TO_TOOLS[id] ?? [])
+  return [...new Set([...AGENT_TOOLS, ...extra])]
+}
+
 /** 浏览器类工具:命中即自动在右侧 WorkPanel 打开 URL(2026-07-22 立,P2 联动) */
 const BROWSER_TOOL_NAMES = new Set([
   'browser_navigate',
@@ -492,7 +635,7 @@ export function useChat(): UseChatReturn {
             useChatStore.getState().appendReasoningToMessage(assistantId, delta)
           },
           onToolCall: createToolCallHandler(assistantId),
-          agentTools: [...AGENT_TOOLS],
+          agentTools: mergeAgentTools(),
           onError: (errMsg) => {
             const formatted = formatSSEError(errMsg)
             useChatStore.getState().setMessageError(assistantId, formatted.message)
@@ -612,7 +755,7 @@ export function useChat(): UseChatReturn {
           useChatStore.getState().appendReasoningToMessage(assistantId, delta)
         },
         onToolCall: createToolCallHandler(assistantId),
-        agentTools: [...AGENT_TOOLS],
+        agentTools: mergeAgentTools(),
         onError: (errMsg) => {
           const formatted = formatSSEError(errMsg)
           useChatStore.getState().setMessageError(assistantId, formatted.message)
