@@ -220,3 +220,19 @@ export async function getNews(query: NewsListQuery = {}): Promise<ApiResult<Page
 export async function getNewsById(id: string): Promise<ApiResult<News>> {
   return fetchApi<News>(`/news/articles/${encodeURIComponent(id)}`)
 }
+
+/** 批量查询资源点赞数 */
+export async function getLikeCounts(
+  resourceType: string,
+  resourceIds: string[],
+): Promise<ApiResult<LikeCountItem[]>> {
+  return fetchApi<LikeCountItem[]>('/behavior/likes/counts', {
+    method: 'POST',
+    body: JSON.stringify({ resourceType, resourceIds }),
+  })
+}
+
+export interface LikeCountItem {
+  resourceId: string
+  count: number
+}
