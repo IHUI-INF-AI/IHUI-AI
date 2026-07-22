@@ -22,7 +22,7 @@ export function parseNumeric(raw: string | number | null | undefined): number | 
 
 /**
  * 高亮搜索关键词:大小写不敏感,匹配部分用 <mark> 包裹。
- * 跨组件复用:Leaderboard 模型名/厂商名 + ApiRelaysSection 平台名/特点/计费。
+ * 跨组件复用:Leaderboard 模型名/厂商名 + ApiRelaysSection 平台名/特点/计费 + ModelDetailDialog 模型名/厂商名。
  *
  * - 正则特殊字符自动转义(防注入)
  * - 支持多次匹配(split 后逐段渲染)
@@ -40,3 +40,32 @@ export function highlight(text: string, query: string): React.ReactNode {
       : part
   )
 }
+
+/**
+ * 能力标签阈值配置(2026-07-22 立升级:从硬编码提取为可配置常量)。
+ * ModelDetailDialog 的 extractCapabilityTags 引用此配置,方便后续调整或 i18n 化。
+ *
+ * - longContext: 上下文窗口 ≥ 100K tokens
+ * - largeOutput: 最大输出 ≥ 8K tokens
+ * - lowCost: 输入价 < $1/1M tokens
+ * - highWinRate: 胜率 > 70%
+ * - topTier: Arena 评分 > 1300
+ * - multimodal: 多模态分类(无阈值,匹配 category)
+ */
+export const CAPABILITY_THRESHOLDS = {
+  longContext: 100_000,
+  largeOutput: 8_000,
+  lowCost: 1,
+  highWinRate: 70,
+  topTier: 1300,
+} as const
+
+/** 能力标签 key 列表(用于 i18n 翻译 key 映射) */
+export const CAPABILITY_TAG_KEYS = [
+  'tagLongContext',
+  'tagLargeOutput',
+  'tagLowCost',
+  'tagHighWinRate',
+  'tagTopTier',
+  'tagMultimodal',
+] as const
