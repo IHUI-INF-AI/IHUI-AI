@@ -25,7 +25,7 @@ export function FeishuQrPanel({ refreshKey }: FeishuQrPanelProps) {
     const container = containerRef.current
     const config = getPlatformConfig('feishu')
     const clientId = config.clientId || config.appId
-    if (!config.enabled || !clientId || !config.redirectUri) {
+    if (!config.enabled || !clientId) {
       setStatus('unconfigured')
       return
     }
@@ -36,15 +36,40 @@ export function FeishuQrPanel({ refreshKey }: FeishuQrPanelProps) {
     const state = generateState()
     saveOAuthState('feishu', state)
 
+    // redirect_uri 必须与当前访问域名+端口一致,否则飞书 OAuth 校验失败
+    const redirectUri = `${window.location.origin}/callback?platform=feishu`
+
     // 飞书 QRLogin SDK 通过 goto 参数指定完整 OAuth 授权 URL,
-    // 扫码成功后整页跳转到 redirect_uri?code=xxx&state=xxx
+    // 扫码成功后 SDK 通过 postMessage 通知父窗口跳转(不会自动整页跳转)
     const gotoUrl = `https://passport.feishu.cn/suite/passport/oauth/authorize?${new URLSearchParams({
       client_id: clientId,
-      redirect_uri: config.redirectUri,
+      redirect_uri: redirectUri,
       response_type: 'code',
       state,
       scope: config.scope || 'contact:user.base:readonly',
     }).toString()}`
+
+    // 飞书 SDK 扫码成功后 postMessage 通知父窗口,不同版本消息格式可能不同:
+    // { type: 'redirect', url: 'xxx' } / { proto: 'redirect', data: { redirect_uri: 'xxx' } } 等
+    // 通用监听器:从消息中提取包含 code= 的 URL 并跳转
+    const handleMessage = (event: MessageEvent) => {
+      if (cancelled) return
+      const data = event.data
+      if (!data || typeof data !== 'object') return
+      const url: unknown =
+        data.url ?? data.redirect_uri ?? data.data?.url ?? data.data?.redirect_uri
+      if (typeof url === 'string' && (url.includes('code=') || url.includes('state='))) {
+        try {
+          const u = new URL(url, window.location.origin)
+          if (u.searchParams.get('code')) {
+            window.location.href = url
+          }
+        } catch {
+          /* ignore invalid url */
+        }
+      }
+    }
+    window.addEventListener('message', handleMessage)
 
     loadFeishuQrSdk()
       .then(() => {
@@ -75,6 +100,7 @@ export function FeishuQrPanel({ refreshKey }: FeishuQrPanelProps) {
 
     return () => {
       cancelled = true
+      window.removeEventListener('message', handleMessage)
       try {
         qrRef.current?.destroy?.()
       } catch {
@@ -93,14 +119,13 @@ export function FeishuQrPanel({ refreshKey }: FeishuQrPanelProps) {
     return <ErrorState message={errorMsg} />
   }
 
+  // React 18 严格模式 + 第三方 SDK DOM 操作冲突修复(2026-07-22)
+  // 详见 WechatQrPanel.tsx 同名注释
   return (
-    <div
-      ref={containerRef}
-      id={containerId}
-      className="flex h-[280px] w-full items-center justify-center overflow-hidden rounded-md border bg-card"
-    >
+    <div className="relative flex h-[280px] w-full items-center justify-center overflow-hidden rounded-md border bg-card">
+      <div ref={containerRef} id={containerId} className="absolute inset-0" />
       {status === 'loading' && (
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="relative h-6 w-6 animate-spin text-muted-foreground" />
       )}
     </div>
   )
