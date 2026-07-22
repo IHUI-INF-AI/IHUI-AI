@@ -222,13 +222,13 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
         { clickCount: 2 },
       )
     }
-    await page.waitForSelector('[data-account-history-container] > .absolute.top-full', { timeout: 5000 })
+    await page.waitForSelector('[data-account-history-container] > .absolute.top-full [data-history-index]', { timeout: 5000 })
 
-    // 用 page.mouse 点击历史条目
-    const historyBtn = page.locator('[data-account-history-container] > .absolute.top-full button').first()
-    const hbox = await historyBtn.boundingBox()
+    // 用 page.mouse 点击历史条目(偏移到左侧 30% 处避免点到右侧删除按钮)
+    const historyItem = page.locator('[data-account-history-container] > .absolute.top-full [data-history-index]').first()
+    const hbox = await historyItem.boundingBox()
     if (hbox) {
-      await page.mouse.move(hbox.x + hbox.width / 2, hbox.y + hbox.height / 2)
+      await page.mouse.move(hbox.x + hbox.width * 0.3, hbox.y + hbox.height / 2)
       await page.mouse.down()
       await page.mouse.up()
     }
@@ -236,7 +236,119 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     await expect(page.locator('#account')).toHaveValue('historyuser', { timeout: 5000 })
   })
 
-  test('i18n 翻译完整性(5 语言 rememberPassword + autoLogin + accountHistory)', async () => {
+  test('账号历史:删除单个历史账号', async ({ page }) => {
+    await page.addInitScript(() => {
+      const data = btoa(unescape(encodeURIComponent(JSON.stringify(['deluser1', 'deluser2', 'deluser3']))))
+      localStorage.setItem('ihui-login-history', data)
+    })
+
+    await openLoginDialog(page)
+    await switchToPasswordTab(page)
+
+    // 双击打开历史下拉
+    const acctBox = await page.locator('#account').boundingBox()
+    if (acctBox) {
+      await page.mouse.click(
+        acctBox.x + acctBox.width / 2,
+        acctBox.y + acctBox.height / 2,
+        { clickCount: 2 },
+      )
+    }
+    await page.waitForSelector('[data-account-history-container] > .absolute.top-full [data-history-index]', { timeout: 5000 })
+
+    // 点击第一个条目的删除按钮
+    const deleteBtn = page.locator('[data-account-history-container] > .absolute.top-full [aria-label="删除该账号"]').first()
+    const dbox = await deleteBtn.boundingBox()
+    if (dbox) {
+      await page.mouse.move(dbox.x + dbox.width / 2, dbox.y + dbox.height / 2)
+      await page.mouse.down()
+      await page.mouse.up()
+    }
+
+    // deluser1 应该消失,deluser2 和 deluser3 仍在
+    await expect(page.locator('[data-account-history-container] > .absolute.top-full')).not.toContainText('deluser1', { timeout: 3000 })
+    await expect(page.locator('[data-account-history-container] > .absolute.top-full')).toContainText('deluser2')
+    await expect(page.locator('[data-account-history-container] > .absolute.top-full')).toContainText('deluser3')
+  })
+
+  test('账号历史:清空全部历史', async ({ page }) => {
+    await page.addInitScript(() => {
+      const data = btoa(unescape(encodeURIComponent(JSON.stringify(['clearuser1', 'clearuser2']))))
+      localStorage.setItem('ihui-login-history', data)
+    })
+
+    await openLoginDialog(page)
+    await switchToPasswordTab(page)
+
+    // 双击打开历史下拉
+    const acctBox = await page.locator('#account').boundingBox()
+    if (acctBox) {
+      await page.mouse.click(
+        acctBox.x + acctBox.width / 2,
+        acctBox.y + acctBox.height / 2,
+        { clickCount: 2 },
+      )
+    }
+    await page.waitForSelector('[data-account-history-container] > .absolute.top-full [data-history-index]', { timeout: 5000 })
+
+    // 点击"清空历史记录"按钮(文本匹配)
+    const clearBtn = page.locator('[data-account-history-container] > .absolute.top-full').getByText('清空历史记录')
+    const cbox = await clearBtn.boundingBox()
+    if (cbox) {
+      await page.mouse.move(cbox.x + cbox.width / 2, cbox.y + cbox.height / 2)
+      await page.mouse.down()
+      await page.mouse.up()
+    }
+
+    // 下拉应关闭
+    await expect(page.locator('[data-account-history-container] > .absolute.top-full')).not.toBeVisible({ timeout: 3000 })
+
+    // 重新打开下拉,应显示"暂无历史记录"
+    if (acctBox) {
+      await page.mouse.click(
+        acctBox.x + acctBox.width / 2,
+        acctBox.y + acctBox.height / 2,
+        { clickCount: 2 },
+      )
+    }
+    await expect(page.locator('[data-account-history-container] > .absolute.top-full')).toContainText('暂无历史记录', { timeout: 3000 })
+  })
+
+  test('账号历史:键盘导航(ArrowDown + Enter 选中)', async ({ page }) => {
+    await page.addInitScript(() => {
+      const data = btoa(unescape(encodeURIComponent(JSON.stringify(['kbuser1', 'kbuser2']))))
+      localStorage.setItem('ihui-login-history', data)
+    })
+
+    await openLoginDialog(page)
+    await switchToPasswordTab(page)
+
+    // 双击打开历史下拉
+    const acctBox = await page.locator('#account').boundingBox()
+    if (acctBox) {
+      await page.mouse.click(
+        acctBox.x + acctBox.width / 2,
+        acctBox.y + acctBox.height / 2,
+        { clickCount: 2 },
+      )
+    }
+    await page.waitForSelector('[data-account-history-container] > .absolute.top-full [data-history-index]', { timeout: 5000 })
+
+    // 按 ArrowDown 高亮第一项
+    await page.locator('#account').press('ArrowDown')
+
+    // 第一项应有 bg-accent 类(选中态)
+    const firstItem = page.locator('[data-account-history-container] > .absolute.top-full [data-history-index="0"]')
+    await expect(firstItem).toHaveClass(/bg-accent/)
+
+    // 按 Enter 选中
+    await page.locator('#account').press('Enter')
+
+    // 账号应填入 kbuser1
+    await expect(page.locator('#account')).toHaveValue('kbuser1', { timeout: 3000 })
+  })
+
+  test('i18n 翻译完整性(5 语言 rememberPassword + autoLogin + accountHistory + noHistory + removeAccount + clearHistory)', async () => {
     const { readFileSync } = await import('fs')
     const { resolve } = await import('path')
     const locales = ['zh-CN', 'en', 'zh-TW', 'ko', 'ja']
@@ -246,6 +358,9 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
       expect(data.auth?.rememberPassword, `${locale} missing auth.rememberPassword`).toBeTruthy()
       expect(data.auth?.autoLogin, `${locale} missing auth.autoLogin`).toBeTruthy()
       expect(data.auth?.accountHistory, `${locale} missing auth.accountHistory`).toBeTruthy()
+      expect(data.auth?.noHistory, `${locale} missing auth.noHistory`).toBeTruthy()
+      expect(data.auth?.removeAccount, `${locale} missing auth.removeAccount`).toBeTruthy()
+      expect(data.auth?.clearHistory, `${locale} missing auth.clearHistory`).toBeTruthy()
     }
   })
 })
