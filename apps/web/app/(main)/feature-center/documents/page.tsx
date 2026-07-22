@@ -82,6 +82,15 @@ export default function DocumentsPage() {
 
   const previewDoc = list.find((d) => d.id === previewId) ?? null
 
+  // 当前预览文档的 slug(含子目录路径,如 developer/incentive-program/course)
+  // 用于 ReactMarkdown 改写相对图片路径 ./images/xxx.png → /api/feature-center/documents/asset/<dir>/images/xxx.png
+  const previewSlug = React.useMemo(() => {
+    if (!previewDoc) return ''
+    return previewDoc.url
+      ? previewDoc.url.replace('/docs/', '')
+      : previewDoc.id.replace('file:', '')
+  }, [previewDoc])
+
   // 点击 preview 时加载 markdown 内容(DB 优先,文件兜底)
   const { data: previewContent, isLoading: previewLoading } = useQuery({
     queryKey: ['doc-content', previewId],
@@ -219,7 +228,40 @@ export default function DocumentsPage() {
               </div>
             ) : (
               <div className="prose prose-sm dark:prose-invert max-w-none overflow-auto">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{previewContent ?? ''}</ReactMarkdown>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    img: ({ src, alt, ...props }) => {
+                      // 改写相对路径图片到后端 asset 代理端点
+                      // previewSlug 形如 developer/incentive-program/course
+                      // 目录前缀 = developer/incentive-program
+                      // 相对图片 ./images/1.png → /api/feature-center/documents/asset/developer/incentive-program/images/1.png
+                      if (!src) return <img src={src} alt={alt} {...props} />
+                      const isHttp = /^(https?:)?\/\//.test(String(src))
+                      const isAbsolute = String(src).startsWith('/')
+                      let finalSrc = String(src)
+                      if (!isHttp && !isAbsolute && previewSlug) {
+                        const dirBase = previewSlug.includes('/')
+                          ? previewSlug.slice(0, previewSlug.lastIndexOf('/'))
+                          : ''
+                        const cleanSrc = String(src).replace(/^\.\//, '').replace(/^\.\.\//, '')
+                        finalSrc = dirBase
+                          ? `/api/feature-center/documents/asset/${dirBase}/${cleanSrc}`
+                          : `/api/feature-center/documents/asset/${cleanSrc}`
+                      }
+                      return (
+                        <img
+                          src={finalSrc}
+                          alt={alt}
+                          {...props}
+                          className="max-h-[480px] w-auto rounded-md"
+                        />
+                      )
+                    },
+                  }}
+                >
+                  {previewContent ?? ''}
+                </ReactMarkdown>
               </div>
             )}
           </CardContent>
