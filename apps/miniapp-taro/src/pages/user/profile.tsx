@@ -62,6 +62,27 @@ export default function Profile() {
 
   return (
     <View className="min-h-screen bg-background">
+      {/* 身份标签(对标原项目 settings/account)*/}
+      <View className="mx-[12px] mt-[12px] tech-card px-[16px] py-[12px] flex items-center justify-between">
+        <Text className="text-[14px] text-foreground">{t('user.identity')}</Text>
+        <View className="flex items-center">
+          {form.isVip ? (
+            <Text className="px-[8px] py-[2px] bg-[#8b5cf6] text-white text-[11px] rounded-[4px]">
+              {t('user.vipMember')}
+            </Text>
+          ) : null}
+          {(form.roleId ?? 0) >= 1 ? (
+            <Text className="ml-[6px] px-[8px] py-[2px] bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-[11px] rounded-[4px]">
+              {t('user.admin')}
+            </Text>
+          ) : null}
+          {!form.isVip && (form.roleId ?? 0) < 1 ? (
+            <Text className="px-[8px] py-[2px] bg-muted text-muted-foreground text-[11px] rounded-[4px]">
+              {t('user.normalUser')}
+            </Text>
+          ) : null}
+        </View>
+      </View>
       <View className="mx-[12px] bg-card rounded-[8px] overflow-hidden">
         {rows.map((row, idx) => (
           <View
