@@ -28213,5 +28213,26 @@
       "sync": "同步",
       "toggleTheme": "切換主題"
     }
+  },
+  "workPanel": {
+    "back": "後退",
+    "forward": "前進",
+    "reload": "重新整理",
+    "stop": "停止",
+    "addressPlaceholder": "輸入網址或搜尋...",
+    "favorite": "加入收藏",
+    "unfavorite": "取消收藏",
+    "favoritesAndHistory": "收藏和歷史",
+    "openExternal": "在外部瀏覽器開啟",
+    "closePanel": "關閉面板",
+    "newTab": "新增分頁",
+    "removeFavorite": "移除收藏",
+    "tabFavorites": "收藏",
+    "tabHistory": "歷史",
+    "emptyFavorites": "暫無收藏",
+    "emptyHistory": "暫無歷史",
+    "clearHistory": "清除歷史",
+    "dragInsertBefore": "在此處之前插入",
+    "dragInsertAfter": "在此處之後插入"
   }
 }
