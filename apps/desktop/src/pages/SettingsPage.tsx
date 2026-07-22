@@ -31,6 +31,18 @@ const IMPORT_SOURCES = [
   { value: 'windsurf', label: 'Windsurf (settings.json)' },
   { value: 'cline', label: 'Cline (settings.json)' },
   { value: 'aider', label: 'Aider (.aider.conf.yml)' },
+  { value: 'trae', label: 'Trae IDE (settings.json)' },
+  { value: 'trae-work', label: 'Trae Work (settings.json)' },
+  { value: 'qoder', label: 'Qoder (settings.json)' },
+  { value: 'qoder-work', label: 'Qoder Work (settings.json)' },
+  { value: 'codex-desktop', label: 'Codex Desktop (config.json)' },
+  { value: 'claude-code-desktop', label: 'Claude Code Desktop (config.json)' },
+  { value: 'github-copilot', label: 'GitHub Copilot (settings.json)' },
+  { value: 'amazon-q', label: 'Amazon Q Developer (settings.json)' },
+  { value: 'continue', label: 'Continue.dev (config.json)' },
+  { value: 'tabnine', label: 'Tabnine (settings.json)' },
+  { value: 'cody', label: 'Sourcegraph Cody (settings.json)' },
+  { value: 'zed', label: 'Zed (settings.json)' },
 ] as const
 
 export default function SettingsPage() {
