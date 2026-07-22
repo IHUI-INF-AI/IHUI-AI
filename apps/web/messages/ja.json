@@ -376,7 +376,9 @@
     "copyCode": "コードをコピー",
     "collapse": "折りたたむ",
     "expand": "展開",
-    "breadcrumb": "パンくずリスト"
+    "breadcrumb": "パンくずナビ",
+    "showPassword": "パスワードを表示",
+    "hidePassword": "パスワードを隠す"
   },
   "nav": {
     "title": "メインナビゲーション",
@@ -594,6 +596,7 @@
     "noAccount": "まだアカウントをおちでないですか？",
     "registerNow": "しみ",
     "forgotPassword": "パスワードをれた",
+    "rememberPassword": "パスワードを記憶する",
     "forgotSubtitle": "パスワードをリセット",
     "registerTitle": "アカウント",
     "registerSubtitle": "しいアカウントを",
@@ -27987,5 +27990,184 @@
     "charCount": "{count} 文字",
     "feedbackBuildSuccess": "{entities} 個のエンティティと {relations} 個のリレーションを抽出しました",
     "feedbackClearSuccess": "グラフをクリアしました"
+  },
+  "ide": {
+    "activityBar": {
+      "files": "ファイル",
+      "search": "検索",
+      "sourceControl": "ソース管理",
+      "debug": "デバッグ",
+      "applications": "アプリ",
+      "settings": "設定"
+    },
+    "topBar": {
+      "editor": "エディタ",
+      "codeChanges": "コード変更",
+      "document": "ドキュメント",
+      "terminal": "ターミナル",
+      "browser": "ブラウザ",
+      "agent": "エージェント",
+      "settings": "設定",
+      "close": "閉じる"
+    },
+    "viewSwitcher": {
+      "groupView": "ビュー",
+      "groupTools": "ツール",
+      "groupSettings": "設定",
+      "searchPlaceholder": "ビューを検索...",
+      "noMatch": "一致なし"
+    },
+    "layout": {
+      "documentView": "ドキュメントビュー",
+      "terminalView": "ターミナルビュー",
+      "browserView": "ブラウザビュー",
+      "figmaView": "Figma ビュー",
+      "agentView": "エージェントビュー",
+      "mcpView": "MCP ビュー",
+      "settingsView": "設定ビュー"
+    },
+    "fileExplorer": {
+      "tabFiles": "ファイル",
+      "tabOutline": "アウトライン",
+      "tabTimeline": "タイムライン",
+      "searchPlaceholder": "ファイル検索",
+      "newFile": "新規ファイル",
+      "refresh": "更新",
+      "noMatch": "一致するファイルなし",
+      "justNow": "たった今",
+      "minutesAgo": "{count} 分前",
+      "hoursAgo": "{count} 時間前"
+    },
+    "fileTreeNode": {
+      "open": "開く",
+      "rename": "名前変更",
+      "delete": "削除",
+      "copyPath": "パスをコピー"
+    },
+    "codeEditor": {
+      "findPlaceholder": "検索...",
+      "matchCount": "{count} 件一致",
+      "closeSearch": "検索を閉じる",
+      "zoomOut": "縮小",
+      "zoomIn": "拡大"
+    },
+    "editorEmpty": {
+      "title": "IHUI IDE ワークスペース",
+      "subtitle": "ファイルを選択するか、下のクイック操作から開始",
+      "browseFiles": "ファイルを参照",
+      "viewChanges": "変更を表示",
+      "settings": "設定",
+      "recentFiles": "最近開いた",
+      "shortcuts": "ショートカット",
+      "scOpenFile": "ファイルを開く",
+      "scGlobalSearch": "グローバル検索",
+      "scToggleSidebar": "サイドバーを切り替え",
+      "scToggleTerminal": "ターミナルを切り替え",
+      "scGotoLine": "行に移動"
+    },
+    "editorTabBar": {
+      "closeTab": "タブを閉じる",
+      "unpin": "ピン留め解除",
+      "pin": "タブをピン留め",
+      "close": "閉じる",
+      "closeOthers": "その他を閉じる",
+      "closeAll": "すべて閉じる",
+      "copyPath": "パスをコピー"
+    },
+    "diffViewer": {
+      "selectFile": "ファイルを選択",
+      "selectToCompare": "差分を表示するファイルを選択",
+      "addPct": "{pct}% 追加",
+      "changeBlocks": "{count} 変更ブロック",
+      "wordLevel": "単語レベルの変更:"
+    },
+    "diffStats": {
+      "split": "分割",
+      "unified": "統合",
+      "fileCount": "{count} ファイル",
+      "filterAll": "すべて",
+      "filterModified": "変更",
+      "filterAdded": "追加",
+      "filterDeleted": "削除",
+      "commit": "変更をコミット"
+    },
+    "diffFileList": {
+      "groupModified": "変更",
+      "groupAdded": "追加",
+      "groupDeleted": "削除",
+      "groupRenamed": "名前変更",
+      "noMatch": "一致するファイルなし"
+    },
+    "searchPanel": {
+      "filterAll": "すべて",
+      "searchPlaceholder": "検索",
+      "replacePlaceholder": "置換",
+      "toggleReplace": "置換を切り替え",
+      "caseSensitive": "大文字小文字を区別",
+      "wholeWord": "完全一致",
+      "useRegex": "正規表現",
+      "replace": "置換",
+      "replaceAll": "すべて置換",
+      "resultSummary": "{matches} 件の結果 · {files} ファイル",
+      "noResults": "結果が見つかりません",
+      "recentSearches": "最近の検索",
+      "remove": "削除",
+      "inputHint": "キーワードを入力して検索"
+    },
+    "sourceControl": {
+      "commitPlaceholder": "コミットメッセージ",
+      "commit": "コミット",
+      "changeStats": "変更統計",
+      "staged": "ステージ済み ({count})",
+      "changes": "変更 ({count})",
+      "noChanges": "変更なし",
+      "commitHistory": "コミット履歴",
+      "unstage": "ステージ解除",
+      "stage": "ステージ",
+      "refresh": "更新",
+      "more": "その他"
+    },
+    "debug": {
+      "stateStopped": "停止中",
+      "stateRunning": "実行中",
+      "statePaused": "一時停止",
+      "start": "開始",
+      "pause": "一時停止",
+      "stop": "停止",
+      "stepOver": "ステップオーバー",
+      "stepInto": "ステップイン",
+      "stepOut": "ステップアウト",
+      "restart": "再起動",
+      "noSession": "デバッグセッションが開始されていません",
+      "variables": "変数",
+      "watch": "ウォッチ",
+      "watchPlaceholder": "ウォッチ式を追加",
+      "add": "追加",
+      "delete": "削除",
+      "toggle": "切り替え",
+      "breakpoints": "ブレークポイント",
+      "callStack": "コールスタック",
+      "debugConsole": "デバッグコンソール"
+    },
+    "applications": {
+      "title": "アプリ",
+      "newConfig": "新規設定",
+      "configNamePlaceholder": "設定名",
+      "commandPlaceholder": "コマンド",
+      "cancel": "キャンセル",
+      "add": "追加",
+      "launchConfigs": "起動設定",
+      "run": "実行",
+      "debug": "デバッグ",
+      "recentRuns": "最近の実行",
+      "typeTerminal": "ターミナル"
+    },
+    "statusBar": {
+      "synced": "同期済み",
+      "unsynced": "未同期",
+      "conflict": "競合",
+      "sync": "同期",
+      "toggleTheme": "テーマ切替"
+    }
   }
 }
