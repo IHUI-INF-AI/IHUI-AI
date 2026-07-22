@@ -47,6 +47,7 @@ export const vueToNextRedirects = [
   { source: '/edu/learn/certificate', destination: '/edu/certificates', permanent: true },
   { source: '/edu/member', destination: '/student', permanent: true },
   { source: '/ai-world/detail/:id', destination: '/ai-world/:id', permanent: true },
+  // /ai-news 页面已恢复开发(大模型排行榜 + AI 资讯聚合),不再重定向到 /ai-world
   { source: '/mcp-use-project', destination: '/mcp-projects', permanent: true },
   { source: '/models-management', destination: '/models', permanent: true },
   { source: '/chat-history', destination: '/chat/history', permanent: true },
