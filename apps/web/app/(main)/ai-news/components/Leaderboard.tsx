@@ -2,12 +2,40 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Trophy, TrendingUp, TrendingDown, Minus, ChevronRight } from 'lucide-react'
+import { Trophy, TrendingUp, TrendingDown, Minus, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
 import type { LeaderboardEntry, LeaderboardCategory } from '@/lib/ai-news-api'
 import { ModelDetailDialog } from './ModelDetailDialog'
 
 interface Props {
   entries: LeaderboardEntry[]
+}
+
+/** 可排序字段 */
+type SortField =
+  | 'arenaScore'
+  | 'winRate'
+  | 'voteCount'
+  | 'contextWindow'
+  | 'maxOutput'
+  | 'inputPrice'
+  | 'outputPrice'
+  | 'releaseDate'
+
+type SortDir = 'asc' | 'desc'
+
+/** 把字符串数字("200K" / "1M" / "$3.00/1M")解析为数值用于排序 */
+function parseNumeric(raw: string | number | null | undefined): number | null {
+  if (raw === null || raw === undefined || raw === '') return null
+  if (typeof raw === 'number') return raw
+  const s = String(raw).trim().toLowerCase()
+  // 提取数字部分(含小数)
+  const m = s.match(/([\d.]+)\s*([km])?/)
+  if (!m || !m[1]) return null
+  const n = parseFloat(m[1])
+  if (isNaN(n)) return null
+  if (m[2] === 'k') return n * 1_000
+  if (m[2] === 'm') return n * 1_000_000
+  return n
 }
 
 /** 分类 Tab 配置 */
@@ -63,6 +91,9 @@ export function Leaderboard({ entries }: Props) {
   const [activeCategory, setActiveCategory] = React.useState<LeaderboardCategory>('overall')
   const [activeSubcat, setActiveSubcat] = React.useState<string>('general')
   const [selectedEntry, setSelectedEntry] = React.useState<LeaderboardEntry | null>(null)
+  // 列排序:默认按 Arena 评分降序(最高分在前)
+  const [sortField, setSortField] = React.useState<SortField>('arenaScore')
+  const [sortDir, setSortDir] = React.useState<SortDir>('desc')
 
   // 按当前 Tab 过滤
   const filtered = React.useMemo(() => {
@@ -76,10 +107,74 @@ export function Leaderboard({ entries }: Props) {
     return list
   }, [entries, activeCategory, activeSubcat])
 
-  // 切换分类时重置子分类
+  // 排序:null 值永远排末尾(不管 asc/desc)
+  const sorted = React.useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1
+    const getter = (e: LeaderboardEntry): number | string | null => {
+      switch (sortField) {
+        case 'arenaScore': return e.arenaScore
+        case 'winRate': return e.winRate
+        case 'voteCount': return e.voteCount
+        case 'contextWindow': return parseNumeric(e.contextWindow)
+        case 'maxOutput': return parseNumeric(e.maxOutput)
+        case 'inputPrice': return parseNumeric(e.inputPrice)
+        case 'outputPrice': return parseNumeric(e.outputPrice)
+        case 'releaseDate': return e.releaseDate
+      }
+    }
+    return [...filtered].sort((a, b) => {
+      const va = getter(a)
+      const vb = getter(b)
+      // null 排末尾
+      if (va === null && vb === null) return 0
+      if (va === null) return 1
+      if (vb === null) return -1
+      if (va < vb) return -1 * dir
+      if (va > vb) return 1 * dir
+      return 0
+    })
+  }, [filtered, sortField, sortDir])
+
+  // 点击表头排序:同字段切方向,不同字段切字段并默认降序
+  function toggleSort(field: SortField) {
+    if (field === sortField) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortDir('desc')
+    }
+  }
+
+  // 切换分类时重置子分类 + 重置排序(避免切到生图榜后还按 LLM 的 arenaScore 排)
   React.useEffect(() => {
     if (activeCategory !== 'llm') setActiveSubcat('')
+    setSortField('arenaScore')
+    setSortDir('desc')
   }, [activeCategory])
+
+  /** 渲染排序图标 */
+  function SortIcon({ field }: { field: SortField }) {
+    if (sortField !== field) return <ArrowUpDown className="ml-0.5 inline h-2.5 w-2.5 text-muted-foreground/40" />
+    return sortDir === 'asc'
+      ? <ArrowUp className="ml-0.5 inline h-2.5 w-2.5 text-primary" />
+      : <ArrowDown className="ml-0.5 inline h-2.5 w-2.5 text-primary" />
+  }
+
+  /** 可排序表头 props */
+  function sortableTh(field: SortField, label: string, align: 'left' | 'right' = 'right') {
+    return (
+      <th
+        className={`px-3 py-2 ${align === 'right' ? 'text-right' : 'text-left'} font-medium cursor-pointer select-none hover:text-foreground transition-colors`}
+        onClick={() => toggleSort(field)}
+        title={t('leaderboard.sortHint')}
+      >
+        <span className="inline-flex items-center">
+          {label}
+          <SortIcon field={field} />
+        </span>
+      </th>
+    )
+  }
 
   return (
     <section
@@ -141,27 +236,27 @@ export function Leaderboard({ entries }: Props) {
               <th className="px-3 py-2 text-left font-medium">#</th>
               <th className="px-3 py-2 text-left font-medium">模型</th>
               <th className="px-3 py-2 text-left font-medium">厂商</th>
-              <th className="px-3 py-2 text-right font-medium">Arena 评分</th>
-              <th className="px-3 py-2 text-right font-medium">胜率</th>
-              <th className="px-3 py-2 text-right font-medium">投票</th>
-              <th className="px-3 py-2 text-right font-medium">上下文</th>
-              <th className="px-3 py-2 text-right font-medium">最大输出</th>
-              <th className="px-3 py-2 text-right font-medium">输入价</th>
-              <th className="px-3 py-2 text-right font-medium">输出价</th>
+              {sortableTh('arenaScore', 'Arena 评分')}
+              {sortableTh('winRate', '胜率')}
+              {sortableTh('voteCount', '投票')}
+              {sortableTh('contextWindow', '上下文')}
+              {sortableTh('maxOutput', '最大输出')}
+              {sortableTh('inputPrice', '输入价')}
+              {sortableTh('outputPrice', '输出价')}
               <th className="px-3 py-2 text-center font-medium">变化</th>
-              <th className="px-3 py-2 text-left font-medium">发布</th>
+              {sortableTh('releaseDate', '发布', 'left')}
               <th className="px-3 py-2 text-right font-medium"></th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {sorted.length === 0 ? (
               <tr>
                 <td colSpan={13} className="px-3 py-8 text-center text-xs text-muted-foreground">
                   {t('leaderboard.empty')}
                 </td>
               </tr>
             ) : (
-              filtered.map((entry, idx) => {
+              sorted.map((entry, idx) => {
                 const rank = entry.arenaRank ?? idx + 1
                 return (
                   <tr
@@ -243,7 +338,7 @@ export function Leaderboard({ entries }: Props) {
       {/* 底部说明 */}
       <div className="flex items-center gap-2 bg-muted/10 px-4 py-2 text-[10px] text-muted-foreground">
         <span>📊 数据参考 arena.ai/leaderboard · Elo 评分 + Bootstrap 置信区间</span>
-        <span className="ml-auto">点击行查看模型详情 + 能力雷达图</span>
+        <span className="ml-auto">{t('leaderboard.sortHint')} · 点击行查看模型详情 + 能力雷达图</span>
       </div>
 
       {/* 详情弹窗 */}

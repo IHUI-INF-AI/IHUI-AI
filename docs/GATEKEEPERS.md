@@ -1,6 +1,6 @@
 # 守门规则详解(Gatekeepers)
 
-> IHUI-AI pre-commit / commit-msg / post-commit / pre-push 四阶段守门体系全解:25 个守门脚本的工作原理、失败排查与跳过策略。守门脚本速查表见 [AGENTS.md 守门脚本速查](../AGENTS.md),本文档聚焦每个脚本的检测逻辑与实操,不重复速查表。
+> IHUI-AI pre-commit / commit-msg / post-commit / pre-push 四阶段守门体系全解:29 个守门脚本的工作原理、失败排查与跳过策略。守门脚本速查表见 [AGENTS.md 守门脚本速查](../AGENTS.md),本文档聚焦每个脚本的检测逻辑与实操,不重复速查表。
 
 ---
 
@@ -23,7 +23,7 @@ IHUI-AI 通过 Husky git hooks 在 4 个阶段部署自动守门,从 commit 到 
 
 ### 2.1 pre-commit 流程
 
-`.husky/pre-commit` 是跨平台 Node.js 脚本(Windows 兼容),按编号顺序执行 25 项检查。任一**阻塞项**(exit 1)即终止提交;**warn-only / info-only** 项只打印不阻塞。
+`.husky/pre-commit` 是跨平台 Node.js 脚本(Windows 兼容),按编号顺序执行 29 项检查。任一**阻塞项**(exit 1)即终止提交;**warn-only / info-only** 项只打印不阻塞。
 
 ```
 git commit
@@ -454,7 +454,7 @@ HUSKY_SKIP_TYPECHECK=1 git push   # 紧急 push,不推荐
 
 | 钩子 | 跳过方式 | 说明 |
 |------|----------|------|
-| pre-commit | `git commit --no-verify` | 跳过全部 25 项守门 |
+| pre-commit | `git commit --no-verify` | 跳过全部 29 项守门 |
 | commit-msg | `git commit --no-verify` | 跳过 message 校验 + Verified-DOM |
 | post-commit | `HUSKY_SKIP_PUSH=1 git commit` | 跳过自动 push,commit 仅落地本地 |
 | pre-push | `HUSKY_SKIP_TYPECHECK=1 git push` | 跳过全量 typecheck |

@@ -3,7 +3,8 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { X, TrendingUp, TrendingDown, Minus, ExternalLink, Zap } from 'lucide-react'
+import { toast } from 'sonner'
+import { X, TrendingUp, TrendingDown, Minus, ExternalLink, Zap, Copy } from 'lucide-react'
 import type { LeaderboardEntry } from '@/lib/ai-news-api'
 import { CapabilityRadar } from './CapabilityRadar'
 import { getVendorPlatform, encodePrefill } from './vendor-platforms'
@@ -59,6 +60,16 @@ export function ModelDetailDialog({ entry, open, onClose }: Props) {
       vendor: entry.vendor,
     })
     router.push(`/settings/llm?prefill=${payload}`)
+  }
+
+  async function handleCopyBaseUrl() {
+    if (!platform?.defaultBaseUrl) return
+    try {
+      await navigator.clipboard.writeText(platform.defaultBaseUrl)
+      toast.success(t('baseUrlCopied'))
+    } catch {
+      toast.error(t('copyFailed'))
+    }
   }
 
   return (
@@ -174,6 +185,17 @@ export function ModelDetailDialog({ entry, open, onClose }: Props) {
                       <span>{t('officialDocs')}</span>
                       <ExternalLink className="h-3 w-3" />
                     </a>
+                  ) : null}
+                  {platform.defaultBaseUrl ? (
+                    <button
+                      type="button"
+                      onClick={handleCopyBaseUrl}
+                      className="inline-flex items-center gap-1 font-medium text-muted-foreground transition-colors hover:text-foreground"
+                      title={platform.defaultBaseUrl}
+                    >
+                      <span>{t('copyBaseUrl')}</span>
+                      <Copy className="h-3 w-3" />
+                    </button>
                   ) : null}
                 </div>
                 {platform.note ? (

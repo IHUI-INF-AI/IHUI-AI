@@ -69,8 +69,12 @@ apps/ai-service/
 | `self_media.py` | `/api/self-media` | - | 自媒体内容生成(公众号 + 口播稿) |
 | `publish.py` | `/api/publish` | - | 多平台一键发布(14 平台) |
 | `opencompass.py` | `/api/opencompass` | - | OpenCompass 排行榜抓取(Playwright) |
+| `lmarena.py` | `/api/lmarena` | - | LM Arena(lmarena.ai)排行榜抓取,配合 `services/lmarena_scrape.py` |
 | `screenshot.py` | `/api/screenshot` | - | 截图服务(Playwright headless) |
 | `legacy.py` | - | - | 兼容历史 coze_zhs_py 客户端 |
+| `hooks.py` | - | - | Webhook 回调入口 |
+| `rules.py` | - | - | 规则管理 |
+| `spec.py` | - | - | OpenAPI spec 导出 |
 
 ### services/ 文件用途
 
