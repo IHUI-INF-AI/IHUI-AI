@@ -1,7 +1,6 @@
 import {
   LayoutDashboard,
   User,
-  UserCircle,
   Receipt,
   Link2,
   Key,
@@ -26,7 +25,6 @@ export const SUB_PAGES = [
     descKey: 'dashboardDesc',
   },
   { href: '/user/profile', icon: User, titleKey: 'profileTitle', descKey: 'profileDesc' },
-  { href: '/settings/avatar', icon: UserCircle, titleKey: 'avatarTitle', descKey: 'avatarDesc' },
   { href: '/settings/billing', icon: Receipt, titleKey: 'billingTitle', descKey: 'billingDesc' },
   {
     href: '/settings/connected-accounts',
