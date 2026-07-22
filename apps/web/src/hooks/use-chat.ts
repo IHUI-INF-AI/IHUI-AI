@@ -12,10 +12,12 @@ import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useWorkPanelStore } from '@/stores/work-panel'
+import { useApplyDiff } from '@/hooks/use-apply-diff'
 import { createConversation, sendMessage as persistMessage, persistQuestion } from '@/lib/chat-api'
 import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
+import type { InlineDiffInfo } from '@/components/ai/types'
 
 /** 自媒体斜杠命令 API 返回数据 */
 interface SlashCommandData {
@@ -466,6 +468,10 @@ export interface UseChatReturn {
   stop: () => void
   clearMessages: () => void
   setModel: (model: string) => void
+  /** Accept:把 edit_file/write_file 的 diff 写入文件系统(2026-07-22 立,P3 Inline Diff) */
+  applyDiff: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
+  /** Reject:纯前端标记为 rejected,无 API 调用 */
+  rejectDiff: (messageId: string, toolCallId: string) => void
 }
 
 /** 后台持久化消息，失败仅打日志，不阻塞流式体验
@@ -839,6 +845,9 @@ export function useChat(): UseChatReturn {
   const setModel = useChatStore((s) => s.setModel)
   const pendingQuestion = useChatStore((s) => s.pendingQuestion)
 
+  // P3 Inline Diff Apply 工作流:Accept 调 API 写入文件,Reject 纯前端标记
+  const { applyDiff, rejectDiff } = useApplyDiff()
+
   return {
     messages,
     currentModel,
@@ -851,5 +860,7 @@ export function useChat(): UseChatReturn {
     stop,
     clearMessages,
     setModel,
+    applyDiff,
+    rejectDiff,
   }
 }
