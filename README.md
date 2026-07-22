@@ -1742,6 +1742,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - 分类按钮从返回数据动态生成(10 大分类:API 参考 / SDK / 集成 / 激励计划 / 入门 / 功能 / 用户 / 指南 / 企业服务 / 开发)
 - 卡片含 format 标签(Markdown)+ excerpt 缩略预览(前 120 字符,自动剥离 markdown 语法)
 - 生产容器 `Dockerfile.api` 已 `COPY docs/ ./docs`,部署后即可访问
+- **markdown 图片代理**:后端 `GET /api/feature-center/documents/asset/*` 端点返回 docs/ 下的图片字节(png/jpg/gif/webp/svg),前端 ReactMarkdown 的 `img` 组件把相对路径 `./images/x.png` 改写为 `/api/feature-center/documents/asset/<dirBase>/images/x.png`,使文档预览时图片可正常显示(权限与文档一致:子目录全公开,顶层需管理员)
 
 **权限分级(防越线)**:`docs/**/*.md` 按位置分两级:
 - **子目录文档全公开**(`developer/*` / `user/*` / `enterprise-service/*`):用户指南、开发者 API 文档、企业服务白皮书等
