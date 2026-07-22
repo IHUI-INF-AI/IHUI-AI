@@ -31,12 +31,12 @@ export default function EmptyIllustration({
 }: EmptyIllustrationProps) {
   return (
     <View className="flex flex-col items-center justify-center py-12 px-4">
-      <Text className="text-5xl mb-3 text-gray-200">{ICONS[type]}</Text>
-      <Text className="text-sm text-gray-500 mb-1">{text || DEFAULT_TEXTS[type]}</Text>
-      {desc && <Text className="text-xs text-gray-400 text-center mb-3">{desc}</Text>}
+      <Text className="text-5xl mb-3 text-muted-foreground">{ICONS[type]}</Text>
+      <Text className="text-sm text-muted-foreground mb-1">{text || DEFAULT_TEXTS[type]}</Text>
+      {desc && <Text className="text-xs text-muted-foreground text-center mb-3">{desc}</Text>}
       {actionText && onAction && (
-        <View className="px-4 py-2 rounded-md bg-indigo-50" onClick={onAction}>
-          <Text className="text-sm text-indigo-600">{actionText}</Text>
+        <View className="px-4 py-2 rounded-md bg-primary/10" onClick={onAction}>
+          <Text className="text-sm text-primary">{actionText}</Text>
         </View>
       )}
     </View>

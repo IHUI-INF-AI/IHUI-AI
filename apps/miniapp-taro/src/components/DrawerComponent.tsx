@@ -29,12 +29,12 @@ export default function DrawerComponent({
     <View className="fixed inset-0 z-[90] flex flex-col justify-end">
       <View className="absolute inset-0 bg-black/40 transition-opacity" onClick={handleMaskClick} />
       <View
-        className="relative bg-white rounded-t-xl overflow-hidden transition-transform"
+        className="relative bg-card rounded-t-xl overflow-hidden transition-transform"
         style={{ maxHeight: '80vh', height }}
         onClick={handleStop}
       >
         <View className="flex justify-center pt-2 pb-1">
-          <View className="w-9 h-1 rounded-lg bg-gray-200" />
+          <View className="w-9 h-1 rounded-lg bg-muted" />
         </View>
         {children}
       </View>

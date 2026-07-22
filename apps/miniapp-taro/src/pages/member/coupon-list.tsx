@@ -34,10 +34,10 @@ export default function CouponListPage() {
   }
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa] p-[12px]">
+    <View className="min-h-screen bg-background p-[12px]">
       {list.map(c => (
-        <View key={c.id} className="bg-white rounded-[8px] mb-[12px] flex overflow-hidden">
-          <View className="bg-gradient-to-r from-[#dd5145] to-[#f7695a] w-[180rpx] flex flex-col items-center justify-center py-[24rpx]">
+        <View key={c.id} className="bg-card rounded-[8px] mb-[12px] flex overflow-hidden">
+          <View className="bg-gradient-to-r from-[#00f2ff] to-[#8b5cf6] w-[180rpx] flex flex-col items-center justify-center py-[24rpx]">
             <View className="flex items-baseline">
               <Text className="text-[60rpx] text-white font-bold">{c.amount}</Text>
               <Text className="text-[26rpx] text-white ml-[4rpx]">元</Text>
@@ -46,12 +46,12 @@ export default function CouponListPage() {
           </View>
           <View className="flex-1 px-[20rpx] py-[20rpx] flex flex-col justify-between">
             <View>
-              <Text className="block text-[30rpx] text-[#333] font-semibold">{c.title}</Text>
-              <Text className="block text-[24rpx] text-[#999] mt-[8rpx]">满 {c.threshold} 元可用</Text>
-              <Text className="block text-[22rpx] text-[#bbb] mt-[4rpx]">有效期至 {c.expireTime}</Text>
+              <Text className="block text-[30rpx] text-foreground font-semibold">{c.title}</Text>
+              <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx]">满 {c.threshold} 元可用</Text>
+              <Text className="block text-[22rpx] text-muted-foreground mt-[4rpx]">有效期至 {c.expireTime}</Text>
             </View>
             <Button
-              className="self-end text-[24rpx] text-white bg-[#dd5145] rounded-[24rpx] px-[24rpx] py-[4rpx] leading-[40rpx]"
+              className="self-end text-[24rpx] text-white bg-primary rounded-[24rpx] px-[24rpx] py-[4rpx] leading-[40rpx]"
               onClick={() => onReceive(c.id)}
             >
               立即领取
@@ -60,7 +60,7 @@ export default function CouponListPage() {
         </View>
       ))}
       {!loading && !list.length ? (
-        <View className="text-center py-[120px] text-[#999]">
+        <View className="text-center py-[120px] text-muted-foreground">
           <Text>暂无可领取优惠券</Text>
         </View>
       ) : null}

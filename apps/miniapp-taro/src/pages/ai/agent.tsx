@@ -84,7 +84,7 @@ export default function AgentPage() {
 
   return (
     <View className="page">
-      <View className="bg-white pb-2 sticky top-0 z-10">
+      <View className="bg-card pb-2 sticky top-0 z-10">
         <SearchBar
           value={keyword}
           placeholder={t('ai.agent.searchPlaceholder')}
@@ -97,7 +97,7 @@ export default function AgentPage() {
 
       {filtered.length ? (
         <View className="px-3 py-2">
-          <Text className="block text-xs text-gray-400 mb-2">
+          <Text className="block text-xs text-muted-foreground mb-2">
             {t('ai.agent.count', { n: filtered.length })}
           </Text>
           <AgentListPanel visible agents={filtered} loading={loading} onSelect={onSelectAgent} />
@@ -108,7 +108,7 @@ export default function AgentPage() {
 
       <View className="h-20" />
 
-      <View className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100">
+      <View className="fixed bottom-0 left-0 right-0 bg-card border-t border-border">
         <BottomActionBar
           value={keyword}
           onInput={setKeyword}

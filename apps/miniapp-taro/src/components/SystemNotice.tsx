@@ -23,15 +23,15 @@ const TYPE_LABEL: Record<string, string> = {
 
 const TYPE_STYLE: Record<string, string> = {
   system: 'bg-primary/10 text-primary',
-  activity: 'bg-orange-50 text-orange-600',
-  upgrade: 'bg-green-50 text-green-600',
+  activity: 'bg-[#f59e0b]/10 text-[#f59e0b]',
+  upgrade: 'bg-primary/10 text-primary',
 }
 
 export default function SystemNotice({ list, onClick }: SystemNoticeProps) {
   if (!list.length) {
     return (
       <View className="flex items-center justify-center py-16">
-        <Text className="text-sm text-gray-400">暂无系统通知</Text>
+        <Text className="text-sm text-muted-foreground">暂无系统通知</Text>
       </View>
     )
   }
@@ -41,13 +41,13 @@ export default function SystemNotice({ list, onClick }: SystemNoticeProps) {
       {list.map((item) => (
         <View
           key={item.id}
-          className="flex bg-white rounded-xl p-3 mb-2"
+          className="flex bg-card rounded-xl p-3 mb-2"
           onClick={() => onClick?.(item)}
         >
           {item.cover && (
             <Image
               src={item.cover}
-              className="w-12 h-12 rounded-lg mr-3 bg-gray-50"
+              className="w-12 h-12 rounded-lg mr-3 bg-muted"
               mode="aspectFill"
             />
           )}
@@ -62,13 +62,13 @@ export default function SystemNotice({ list, onClick }: SystemNoticeProps) {
                   {TYPE_LABEL[item.type] || '系统'}
                 </Text>
               )}
-              <Text className="text-sm font-medium text-gray-800 truncate flex-1">
+              <Text className="text-sm font-medium text-foreground truncate flex-1">
                 {item.title}
               </Text>
-              {!item.read && <View className="w-2 h-2 rounded-full bg-red-500 ml-2" />}
+              {!item.read && <View className="w-2 h-2 rounded-full bg-destructive ml-2" />}
             </View>
-            <Text className="text-xs text-gray-500 mt-1 line-clamp-2">{item.content}</Text>
-            <Text className="text-[10px] text-gray-400 mt-1">{item.createdAt}</Text>
+            <Text className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.content}</Text>
+            <Text className="text-[10px] text-muted-foreground mt-1">{item.createdAt}</Text>
           </View>
         </View>
       ))}
