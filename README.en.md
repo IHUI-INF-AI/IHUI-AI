@@ -665,7 +665,7 @@ IHUI-AI/
 │   ├── docker/              # Dockerfile.api / .web / .cli / .migrate (image build, context is repo root)
 │   ├── s3-lifecycle.yml     # S3 object storage lifecycle rules
 │   └── setup-github-secrets.sh  # GitHub Actions secrets batch configuration
-├── docs/                    # 9 docs: architecture / CHANGELOG / CONTRIBUTING / DEPLOYMENT_RUNBOOK / SECURITY / EMAIL_SETUP / I18N / INCIDENTS / README
+├── docs/                    # 35 docs center: architecture / dev / testing / API / database / auth / AI service / multi-end / monitoring / gatekeepers / i18n / performance / SDK / CLI / release / troubleshooting / FAQ (see docs/README.md index)
 ├── monitoring/              # Grafana (20 dashboards) + Loki + Prometheus + Promtail + otel-collector + Alertmanager
 ├── scripts/                 # 17 guardrails + 19 i18n + 11 migration audits + 9 PowerShell launchers + locustfile.py load testing + ops tools
 ├── server-docs/             # Multi-tenant design docs (MULTI_TENANT.md)
@@ -1532,19 +1532,88 @@ We especially welcome contributions in these directions:
 
 ## Documentation Navigation
 
-| Document                                                     | Description                                                                                                                                 |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| [docs/architecture.md](docs/architecture.md)                 | System architecture (tech stack / database / API routes / startup flow / legacy architecture deprecation notes)                             |
-| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)                 | Contribution guide (environment setup / code conventions / commit conventions / PR process)                                                 |
-| [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)     | Deployment ops runbook (blue-green deployment / rollback / cert renewal)                                                                    |
-| [docs/SECURITY.md](docs/SECURITY.md)                         | Security policy (vulnerability disclosure / encryption design / permission model)                                                           |
-| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)                   | Email service configuration (SMTP / templates / DKIM)                                                                                       |
-| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | Internationalization completion plan                                                                                                        |
-| [docs/CHANGELOG.md](docs/CHANGELOG.md)                       | Changelog                                                                                                                                   |
-| [docs/INCIDENTS.md](docs/INCIDENTS.md)                       | Historical incident retrospectives                                                                                                          |
-| [server-docs/MULTI_TENANT.md](server-docs/MULTI_TENANT.md)   | Multi-tenant design doc (RLS + tenant routing)                                                                                              |
-| [AGENTS.md](AGENTS.md)                                       | AI Agent collaboration spec (21 sections of mandatory rules; optional reading: shows how this project collaborates with AI for development) |
-| [PROJECT_PLAN.md](PROJECT_PLAN.md)                           | Project task plan and historical archive (internal dev record, shows evolution trajectory)                                                  |
+> Full documentation center index: [docs/README.md](docs/README.md) (35 docs, 9 categories)
+
+### Project & Architecture
+
+| Document                                                     | Description                                                                                            |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| [docs/architecture.md](docs/architecture.md)                 | **System architecture overview** (tech stack / database / API routes / startup flow / legacy deprecation) |
+| [docs/MULTI_END.md](docs/MULTI_END.md)                       | Multi-end architecture (8-end matrix + cross-end links + sync dev + 14-platform release matrix)        |
+| [docs/PACKAGES.md](docs/PACKAGES.md)                         | Shared packages guide (13 @ihui/* packages + dependencies + new package flow)                          |
+| [docs/port-management.md](docs/port-management.md)           | Port management rules (8801-8899 port registry)                                                        |
+| [docs/INFRASTRUCTURE_DECISION.md](docs/INFRASTRUCTURE_DECISION.md) | Infrastructure decision (Docker Compose vs K8s)                                                   |
+| [docs/PRODUCTION_INFRASTRUCTURE.md](docs/PRODUCTION_INFRASTRUCTURE.md) | Production infrastructure spec                                                                 |
+
+### Development & Testing
+
+| Document                                                     | Description                                                                                            |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                   | **Local dev guide** (env vars / startup / debug / script cheatsheet / Windows notes)                   |
+| [docs/TESTING.md](docs/TESTING.md)                           | Test strategy (8-layer pyramid + Vitest + pytest + Playwright + Locust + CI)                           |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)                 | Contribution guide (env setup / code conventions / commit conventions / PR process)                    |
+| [docs/UI_GUIDELINES.md](docs/UI_GUIDELINES.md)               | UI design guidelines (border radius / font alignment / login popup / component library)                |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)                   | Performance baseline & optimization (SLA / load test / database / frontend / AI service)               |
+
+### API & Data Layer
+
+| Document                                                     | Description                                                                                            |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| [docs/API_REFERENCE.md](docs/API_REFERENCE.md)               | **Complete API reference** (60+ routes + 12 WebSocket + SSE + error codes + client examples)           |
+| [docs/DATABASE.md](docs/DATABASE.md)                         | Database design (Drizzle / 339 tables / migrations / RLS / seed / backup)                              |
+| [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)             | Auth & authorization (JWT / token-family / OAuth2 / 2FA / RBAC / multi-tenant / WS auth)              |
+
+### AI Service
+
+| Document                                                     | Description                                                                                            |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| [docs/AI_SERVICE.md](docs/AI_SERVICE.md)                     | **AI service deep-dive** (6 routers + LangGraph + LiteLLM + MCP + A2A + vector memory)                 |
+| [docs/LLM_SETUP.md](docs/LLM_SETUP.md)                       | LLM model config (OpenAI / Anthropic / Google / domestic vendors)                                      |
+| [docs/AI_LEADERBOARD.md](docs/AI_LEADERBOARD.md)             | AI model leaderboard data                                                                              |
+
+### Deployment & Ops
+
+| Document                                                     | Description                                                                                            |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)     | **Deployment ops runbook** (blue-green deployment / rollback / cert renewal)                           |
+| [docs/RELEASE.md](docs/RELEASE.md)                           | Release process (14 platforms + SemVer + Git tag + Docker images + hotfix)                             |
+| [docs/MONITORING.md](docs/MONITORING.md)                     | Observability (Prometheus + Grafana + Loki + Jaeger + Alertmanager)                                    |
+| [docs/INCIDENTS.md](docs/INCIDENTS.md)                       | Historical incident retrospectives                                                                      |
+| [docs/SECURITY.md](docs/SECURITY.md)                         | Security policy (vulnerability disclosure / encryption design / permission model)                      |
+| [docs/CREDENTIAL_ROTATION_RUNBOOK.md](docs/CREDENTIAL_ROTATION_RUNBOOK.md) | Credential rotation ops runbook                                                                  |
+| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)                   | Email service config (SMTP / templates / DKIM)                                                         |
+| [docs/WECHAT_PAY_ACTIVATION_REPORT.md](docs/WECHAT_PAY_ACTIVATION_REPORT.md) | WeChat Pay V3 activation report                                                                 |
+| [server-docs/MULTI_TENANT.md](server-docs/MULTI_TENANT.md)   | Multi-tenant design doc (RLS + tenant routing)                                                         |
+
+### Quality & Gatekeepers
+
+| Document                                                     | Description                                                                                            |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| [docs/GATEKEEPERS.md](docs/GATEKEEPERS.md)                   | **Gatekeeper rules deep-dive** (23 pre-commit + post-commit + pre-push, per-script)                    |
+| [docs/I18N.md](docs/I18N.md)                                 | Internationalization (5 languages + 68 namespaces + 12 gatekeeper scripts + translation strategy)      |
+| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | i18n completion plan (historical planning)                                                              |
+
+### SDK & CLI
+
+| Document                                                     | Description                                                                                            |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| [docs/SDK.md](docs/SDK.md)                                   | 5-language SDK guide (TS / Python / Go / Java / .NET code examples)                                    |
+| [docs/CLI.md](docs/CLI.md)                                   | CLI tool guide (24-source import + subagent parallel + skills + plugins)                               |
+
+### Troubleshooting & FAQ
+
+| Document                                                     | Description                                                                                            |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)           | **Troubleshooting guide** (10 categories, 35+ issues, unified template)                                |
+| [docs/FAQ.md](docs/FAQ.md)                                   | FAQ (14 categories, 86 questions)                                                                      |
+
+### Project Management
+
+| Document                                                     | Description                                                                                            |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md)                       | Changelog                                                                                              |
+| [AGENTS.md](AGENTS.md)                                       | AI Agent collaboration spec (23 sections of mandatory rules; shows how this project collaborates with AI for development) |
+| [PROJECT_PLAN.md](PROJECT_PLAN.md)                           | Project task plan & historical archive (internal dev record, shows evolution trajectory)               |
 
 ---
 
