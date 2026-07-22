@@ -6,7 +6,13 @@
  * - issueTokenPair: 登录/注册后签发 access + refresh token 对
  * - verifyAccessToken: 验证 access token 并检查黑名单
  * - refreshAccessToken: refresh token 轮转（旧 token 吊销 + 新 token 对）
+ *   - 2026-07-22 加固:RFC 6749 §10.4 重用检测 — 已吊销 token 重用 → 撤销整个 family
  * - revokeToken / revokeUserTokens: 主动吊销（登出/踢下线）
+ *
+ * 2026-07-22 鲁棒性加固:
+ * - ACCESS_TTL_MS 从 7d 改为 15min(对齐 @ihui/auth 的 ACCESS_TOKEN_TTL_SECONDS)
+ * - REFRESH_TTL_MS 从 30d 改为读取 @ihui/auth 的 REFRESH_TOKEN_TTL_SECONDS(默认仍 30d)
+ * - refreshAccessToken 加 family 重用检测(stored.revokedAt 非空 → revokeRefreshTokenFamily)
  */
 
 import {
@@ -15,18 +21,24 @@ import {
   verifyAccessToken,
   verifyRefreshToken,
   createFamilyId,
+  ACCESS_TOKEN_TTL_SECONDS,
+  REFRESH_TOKEN_TTL_SECONDS,
   type JWTPayload,
   type TokenBlacklist,
+  type FamilyRevoker,
+  noopFamilyRevoker,
 } from '@ihui/auth';
 import {
   saveRefreshToken,
   findRefreshToken,
   revokeRefreshToken,
+  revokeRefreshTokenFamily,
 } from '../db/queries.js';
 
-/** access token 7d，refresh token 30d（与 @ihui/auth 保持一致）。 */
-const ACCESS_TTL_MS = 7 * 86400_000;
-const REFRESH_TTL_MS = 30 * 86400_000;
+/** access token TTL(毫秒),从 @ihui/auth 同步,默认 15min。 */
+const ACCESS_TTL_MS = ACCESS_TOKEN_TTL_SECONDS * 1000;
+/** refresh token TTL(毫秒),从 @ihui/auth 同步,默认 30d。 */
+const REFRESH_TTL_MS = REFRESH_TOKEN_TTL_SECONDS * 1000;
 
 export interface TokenPair {
   accessToken: string;
@@ -60,6 +72,7 @@ export async function issueTokenPair(
 /**
  * 验证 access token：先验签，再查黑名单。
  * 黑名单未传入时跳过黑名单检查（fail-open，由调用方保证已鉴权）。
+ * 黑名单传入时默认 fail-open(Redis 故障放行,因为 access token TTL 已 15min,风险可控)。
  */
 export async function verifyToken(
   token: string,
@@ -79,17 +92,45 @@ export async function verifyToken(
  * 3. 吊销旧 refresh token（轮转）
  * 4. 签发新的 token 对
  *
+ * 2026-07-22 加固(RFC 6749 §10.4):
+ * - 若 stored.revokedAt 非空(已被吊销的 token 再次出现 = 重用攻击),
+ *   立即吊销整个 family 所有活跃 token,迫使合法用户重新登录
+ * - 通过 familyRevoker 注入实际撤销逻辑(默认 noop,保持向后兼容)
+ *
  * @returns 新 token 对；失败抛出错误
+ * @throws Error('Refresh token 已被吊销,可能存在重用攻击') 当检测到重用时
  */
 export async function refreshAccessToken(
   refreshTokenStr: string,
   blacklist?: TokenBlacklist,
+  familyRevoker: FamilyRevoker = noopFamilyRevoker,
 ): Promise<TokenPair> {
   const payload = await verifyRefreshToken(refreshTokenStr);
 
   const stored = await findRefreshToken(refreshTokenStr);
   if (!stored) throw new Error('Refresh token 不存在');
-  if (stored.revokedAt) throw new Error('Refresh token 已被吊销');
+
+  if (stored.revokedAt) {
+    // 重用攻击检测:已被吊销的 token 再次被使用 → 撤销整个 family
+    if (payload.familyId) {
+      try {
+        const revokedCount = await revokeRefreshTokenFamily(payload.familyId);
+        await familyRevoker.revoke(payload.familyId);
+        // 把被重用的 token 也加入黑名单(防御重放)
+        if (blacklist) {
+          const expiresAt = stored.expiresAt ?? new Date(Date.now() + REFRESH_TTL_MS);
+          await blacklist.add(refreshTokenStr, expiresAt);
+        }
+        console.warn(
+          `[security] refresh token reuse detected: familyId=${payload.familyId} userId=${payload.userId} revoked=${revokedCount}`,
+        )
+      } catch (e) {
+        // 撤销失败不应让攻击者得逞,继续抛错
+        console.error('[security] family revocation failed:', e);
+      }
+    }
+    throw new Error('Refresh token 已被吊销,可能存在重用攻击');
+  }
 
   // 轮转：吊销旧 token
   await revokeRefreshToken(refreshTokenStr);
