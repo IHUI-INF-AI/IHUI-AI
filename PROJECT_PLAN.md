@@ -55,6 +55,62 @@
 
 ---
 
+### [ ] 深度鲁棒性加固 P0+P1+P2 全量 85 项(2026-07-22 立,/goal 模式)
+
+**触发**:用户要求"深度开发本项目的鲁棒性 必须达到完美"。5 路并行调研(api/web/ai-service/packages/desktop+extension+mobile)发现 85 项鲁棒性问题(P0 30 + P1 35 + P2 20)。
+
+**用户确认范围**(AskUserQuestion 弹窗):
+- 覆盖 P0+P1+P2 全量 85 项
+- 允许破坏性变更 4 项:Refresh Token 轮换 / Access Token TTL 7d→15min / OAuth 字段加密 / MCP 路径白名单+权限校验
+- 允许新增 DB migration
+- /goal 模式执行
+
+**目标条件 + 9 条硬性验证标准 + 约束边界 + 质量要求 + 异常处理**:
+详见 `.trae-cn/goal-runtime/STATE.md`(本任务 goal runtime 文件)。
+
+**85 项任务清单**(分批执行,逐批 commit):
+
+#### P0 Round 1:packages/auth + packages/database 安全核心(7 项,跨端:packages/auth + packages/database + apps/api 共享包层)
+
+1. Refresh Token 轮换重用检测 + family 撤销(RFC 6749 §10.4)
+2. Access Token TTL 7d → 15min(破坏性:现有用户被踢下线)
+3. 黑名单 Redis fail-open → fail-closed(认证场景)
+4. trackUserToken 改存 fingerprint(原始 JWT 不入库)
+5. OAuth clientSecret bcrypt 哈希化(破坏性:DB migration + OAuth 应用重配)
+6. OAuth 私钥字段加密框架(KMS 占位)
+7. RLS `SET LOCAL` 字符串拼接 → `set_config($1, $2, true)` 参数化
+
+#### P0 Round 2:ai-service MCP 安全(6 项,跨端:ai-service + packages/types 契约)
+
+8-13:MCP 路径白名单 / 权限矩阵强制 / JWT_SECRET fail-fast / 内部密钥 env 化 / Windows shell 注入修复 / workspace 记忆 XML 隔离
+
+#### P0 Round 3:api 后端安全(8 项,平台独占:仅 api)
+
+14-21:SQL 注入参数化 / webhook-secret requireAdmin / 微信支付+LLM+OAuth fetch 超时 / 租户 fail-closed / 限流降级 / Map LRU 化
+
+#### P0 Round 4:web 前端安全(3 项,平台独占:仅 web)
+
+22-24:路由级 error.tsx / API 客户端超时 / useTaskWebsocket 重连
+
+#### P0 Round 5:desktop/extension/mobile 收紧(6 项,跨端:desktop + extension + mobile-rn + miniapp-taro 四端)
+
+25-30:Tauri panic 兜底 / extension matches 收窄 / mobile-rn NetInfo / miniapp-taro onNetworkStatusChange
+
+#### P1 Rounds(35 项)+ P2 Rounds(20 项)
+
+详见 STATE.md 任务清单。每个 Round 完成后跑相关端 typecheck + lint,跨端契约改动同步所有端。
+
+**约束边界**:
+- 不破坏现有 API 契约(除 OAuth/JWT 显式破坏性变更外)
+- 不改 user 表核心字段
+- 不动既有 migration 文件,只新增
+- 平台独占豁免按 §9 显式标注
+- /goal 红线:单目标最大 20 轮,连续 3 轮无进展 → blocked
+
+**当前状态**:Round 1 启动中
+
+---
+
 ### [x] ✅(2026-07-22) 旧架构迁移类型定义补齐:28 组类型迁移到 packages/types(平台独占:共享包 only/跨端共享)
 
 **触发**:用户指示"接着 E:\桌面\深度分析项目代码完整性与架构迁移.md 继续去做"。该文档(4011 行)深度复核了 git commit `3ee96cf09`(旧 Python FastAPI + Vue 3 单体架构,15,844 文件)→ `092528c4f`(新 TS Monorepo)迁移完整性。结论:迁移 100% 完成,2 项真缺失已修复(resource_github_projects + chatsearchbar/useChatSearch)。审计报告 `independent-audit-frontend-api-review.md` 列出 66 个"类型定义文件未迁移"(路由已连通但类型未独立导出),建议后续集中补齐到 `packages/types/`。
@@ -2105,5 +2161,40 @@ cAdvisor(:8080) → Prometheus(:9090) → Grafana(:3001)
 - 真实数据接入(当前文件树/diff/搜索/断点/变量均为 mock)
 - 快捷键真实绑定(Ctrl+Shift+E 等当前仅 tooltip 提示)
 - browser_use 4 态截图验证(工具环境修复后补充)
+
+---
+
+## 赶超 OpenClaw + OpenCode 深度开发计划(2026-07-22 立)
+
+> 触发:用户要求"本项目现在跟 OpenClaw 比 还有 OpenCode 哪里不如他们 深度分析 并且深度开发到极致 要比他们还更完美 更强大"。
+> 深度分析结论:14 项差距分 4 波。IHUI-AI 反超策略 = "Agent 内核 + 商业基座 + 多端工作台"三位一体差异化,不与 OpenCode 卷 TUI 基因、不与 OpenClaw 卷社区先发。
+
+### Wave 1:P0 Agent 内核反超(平台独占:仅 cli,2026-07-22 立)
+
+**对标**:OpenCode 的 LSP + Client/Server + TUI 三大杀手锏。
+
+- [ ] **W1-1 LSP 集成**:apps/cli 新增 `src/tools/lsp.ts`,接入 typescript-language-server + vscode-jsonrpc,注册 `lsp_goto_definition` / `lsp_find_references` / `lsp_diagnostics` / `lsp_hover` 工具,与现有 codegraph 作为离线兜底。验证:`pnpm --filter @ihui/cli typecheck` exit 0。
+- [ ] **W1-2 Client/Server 架构**:apps/cli 新增 `src/server/`(agent-core 内核 + HTTP/WS server)+ `src/client/`(TUI client 连接 server),支持"本机跑 Agent、远程驱动"。验证:typecheck exit 0 + server 可启动监听。
+- [ ] **W1-3 TUI 增强**:apps/cli 新增 `src/tui/`(@ 文件模糊搜索 + Tab Plan/Build 模式切换 + 图片输入),重构 repl 交互。验证:typecheck exit 0。
+
+### Wave 2:P1 智能深度反超(平台独占:仅 cli)
+
+- [ ] **W2-1 四层记忆 + Dream 梦境 + 向量语义**:对标 OpenClaw Mem 系统,short-term/long-term/soul + 梦境周期沉淀 + embedding 语义检索(替换现有 keyword substring)。
+- [ ] **W2-2 Plan/Build 交互双模**:Tab 切换,右下角模式指示器,迭代计划再实施。
+- [ ] **W2-3 /undo /redo /share 命令**:对话修改回滚 + 对话链接分享。
+- [ ] **W2-4 Subagent 对等协作**:child session lane 隔离执行 + 对等/层级协作模式。
+
+### Wave 3:P2 生态工作台反超(跨端:web+api+cli)
+
+- [ ] **W3-1 Control UI Agent 工作台**(web):Agent 运行时统一工作台(session 树/token 流/工具调用链可视化)。
+- [ ] **W3-2 多通道消息总线**:飞书/钉钉/TG/Slack/Discord/微信 统一消息总线。
+- [ ] **W3-3 Webhook 唤醒机制**:`POST /hooks/wake` + Bearer token,外部唤醒 Agent。
+- [ ] **W3-4 Hooks 自动发现**:目录自动发现 + CLI 管理,像 Skills。
+- [ ] **W3-5 运行时可视化中心**:session 树 + token 流 + 工具调用链可视化。
+
+### Wave 4:P3 分发与本地化(跨端:cli+docs)
+
+- [ ] **W4-1 9 种安装方式**:curl/npm/brew/scoop/choco/nix/docker + VSCode SDK。
+- [ ] **W4-2 本地 LLM 主打**:Qwen3.5 本地适配优化 + 文档。
 
 ---
