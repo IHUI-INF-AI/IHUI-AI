@@ -72,7 +72,7 @@ export function FileMentionPopover({ files, open, onSelect, onClose }: FileMenti
 
   return (
     <div className="absolute bottom-full left-0 z-popover mb-2 w-80 overflow-hidden rounded-lg border bg-popover shadow-lg">
-      <div className="flex items-center gap-2 border-b px-3 py-2">
+      <div className="flex items-center gap-2 bg-muted/40 px-3 py-2">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
         <Input
           ref={inputRef}
