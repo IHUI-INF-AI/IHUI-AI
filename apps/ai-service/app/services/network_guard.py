@@ -1,0 +1,117 @@
+"""网络出站白名单检查(P1-5,executor 入口拦截)。
+
+注意:这是应用层软检查,只能拦截通过本模块发起的 HTTP 请求。
+完整网络隔离需 OS 沙箱(Linux network namespace / Windows WFP),本模块不提供。
+"""
+
+import fnmatch
+import ipaddress
+import logging
+import re
+from dataclasses import dataclass, field
+from typing import Optional
+from urllib.parse import urlparse
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class NetworkEgressPolicy:
+    """网络出站策略(对齐 agent-runtime.ts NetworkEgressPolicy)。
+
+    mode:
+        - 'open': 不限制(默认)
+        - 'allowlist': 只允许白名单域名(其他全部拒绝)
+        - 'blocklist': 拒绝黑名单域名
+    """
+
+    mode: str = "open"
+    domains: list[str] = field(default_factory=list)
+    allow_localhost: bool = True
+
+    def check(self, url: str) -> tuple[bool, str]:
+        """检查 URL 是否允许访问。
+
+        Returns:
+            (allowed, reason)
+        """
+        if self.mode == "open":
+            return True, "open mode"
+
+        try:
+            parsed = urlparse(url)
+            host = parsed.hostname or ""
+            if not host:
+                return False, "无法解析 hostname"
+
+            # localhost 检查
+            if self._is_localhost(host):
+                if self.allow_localhost:
+                    return True, "localhost allowed"
+                return False, "localhost blocked by policy"
+
+            # IP 地址检查(allowlist 模式下 IP 默认拒绝,除非显式在白名单)
+            if self._is_ip(host):
+                if self.mode == "allowlist":
+                    return False, f"IP {host} not in allowlist (IPs blocked by default)"
+                # blocklist: IP 不在黑名单则允许
+                return not self._match_domains(host), f"IP {host}"
+
+            # 域名匹配
+            if self.mode == "allowlist":
+                if self._match_domains(host):
+                    return True, f"{host} matches allowlist"
+                return False, f"{host} not in allowlist"
+            elif self.mode == "blocklist":
+                if self._match_domains(host):
+                    return False, f"{host} matches blocklist"
+                return True, f"{host} not in blocklist"
+
+            return True, "unknown mode treated as open"
+        except Exception as e:  # noqa: BLE001
+            logger.warning("网络策略检查异常: %s, url=%s", e, url)
+            return False, f"check error: {e}"
+
+    def _match_domains(self, host: str) -> bool:
+        """检查 host 是否匹配域名列表(支持通配符 *.example.com)。"""
+        for domain in self.domains:
+            if domain.startswith("*"):
+                # 通配符:*.example.com 匹配 sub.example.com
+                pattern = domain[1:]  # 去掉 * → .example.com
+                if host.endswith(pattern) or host == domain[2:]:
+                    return True
+            elif fnmatch.fnmatch(host, domain):
+                return True
+            elif host == domain:
+                return True
+        return False
+
+    def _is_localhost(self, host: str) -> bool:
+        """检查是否是 localhost。"""
+        return host.lower() in ("localhost", "127.0.0.1", "::1", "0.0.0.0")
+
+    def _is_ip(self, host: str) -> bool:
+        """检查是否是 IP 地址。"""
+        try:
+            ipaddress.ip_address(host)
+            return True
+        except ValueError:
+            return False
+
+
+def from_config(config: Optional[dict]) -> Optional[NetworkEgressPolicy]:
+    """从 WorkerPoolConfig.network_egress_policy 字典创建策略。
+
+    config 示例:
+        {"mode": "allowlist", "domains": ["api.openai.com", "*.anthropic.com"]}
+    """
+    if config is None:
+        return None
+    mode = config.get("mode", "open")
+    if mode == "open":
+        return None
+    return NetworkEgressPolicy(
+        mode=mode,
+        domains=config.get("domains", []),
+        allow_localhost=config.get("allow_localhost", True),
+    )

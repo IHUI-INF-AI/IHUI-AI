@@ -65,6 +65,19 @@ export function ApiRelaysSection() {
     })
   }, [query, activeVendor, activeBilling])
 
+  // 每个计费模式下的平台数量
+  const billingCounts = React.useMemo(() => {
+    const counts: Record<BillingMode | 'all', number> = { all: 0, token: 0, free: 0, gpu: 0, subscription: 0 }
+    for (const r of COMPANY_RELAYS) {
+      counts.all++
+      if (matchBillingMode(r.billing, 'token')) counts.token++
+      if (matchBillingMode(r.billing, 'free')) counts.free++
+      if (matchBillingMode(r.billing, 'gpu')) counts.gpu++
+      if (matchBillingMode(r.billing, 'subscription')) counts.subscription++
+    }
+    return counts
+  }, [COMPANY_RELAYS])
+
   function handleRelayImport(baseUrl: string, name: string) {
     const payload = encodePrefill({
       providerCode: 'openai',
@@ -153,6 +166,9 @@ export function ApiRelaysSection() {
                   }`}
                 >
                   {t(f.labelKey)}
+                  <span className={`ml-1 tabular-nums ${activeBilling === f.key ? 'text-background/70' : 'text-muted-foreground/60'}`}>
+                    {billingCounts[f.key]}
+                  </span>
                 </button>
               ))}
             </div>
