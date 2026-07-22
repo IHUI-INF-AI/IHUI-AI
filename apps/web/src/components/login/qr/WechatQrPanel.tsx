@@ -23,7 +23,7 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
   React.useEffect(() => {
     const container = containerRef.current
     const config = getPlatformConfig('wechat')
-    if (!config.enabled || !config.appId || !config.redirectUri) {
+    if (!config.enabled || !config.appId) {
       setStatus('unconfigured')
       return
     }
@@ -33,6 +33,10 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
 
     const state = generateState()
     saveOAuthState('wechat', state)
+
+    // redirect_uri 必须与当前访问域名+端口一致,否则微信开放平台校验失败报"redirect_uri 参数错误"
+    // 不读 env 死值(env 配的端口可能与实际 dev server 端口不符,如 3000 vs 3001)
+    const redirectUri = `${window.location.origin}/callback?platform=wechat`
 
     loadWechatQrSdk()
       .then(() => {
@@ -44,7 +48,7 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
             id: containerId,
             appid: config.appId!,
             scope: 'snsapi_login',
-            redirect_uri: config.redirectUri,
+            redirect_uri: redirectUri,
             state,
             style: 'black',
           })
@@ -77,14 +81,15 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
     return <ErrorState message={errorMsg} />
   }
 
+  // React 18 严格模式 + 第三方 SDK DOM 操作冲突修复(2026-07-22):
+  // 旧实现把 <Loader2> 作为容器子节点,SDK 用 container.innerHTML='' 清空时把 React 的子节点也清了,
+  // React cleanup 试图 removeChild 时节点已不存在 → "Failed to execute 'removeChild' on 'Node'"
+  // 修复:SDK 挂载点(sdkContainerRef)与 React 子节点(Loader2)分层渲染,互不干扰
   return (
-    <div
-      ref={containerRef}
-      id={containerId}
-      className="flex h-[280px] w-full items-center justify-center overflow-hidden rounded-md border bg-card"
-    >
+    <div className="relative flex h-[280px] w-full items-center justify-center overflow-hidden rounded-md border bg-card">
+      <div ref={containerRef} id={containerId} className="absolute inset-0" />
       {status === 'loading' && (
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="relative h-6 w-6 animate-spin text-muted-foreground" />
       )}
     </div>
   )
