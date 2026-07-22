@@ -1,13 +1,17 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, Plus, RefreshCw, Search, Sparkles, AlertCircle } from 'lucide-react'
+import { Loader2, Plus, RefreshCw, Search, Sparkles, AlertCircle, GitBranch, Activity } from 'lucide-react'
 import { Button, Card, CardContent, Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn } from '@ihui/ui'
 import { fetchApi } from '@/lib/api'
 import { AgentCard, AgentDetailCard, normalizeAgent, type Agent, type RawAgent } from './components/AgentCard'
 import { AgentCreator } from './components/AgentCreator'
 import { AgentRuntimeLog } from './components/AgentRuntimeLog'
 import { AgentSessionList } from './components/AgentSessionList'
+import { SessionTree } from './components/SessionTree'
+import { TokenStream } from './components/TokenStream'
+import { ToolCallChain } from './components/ToolCallChain'
+import { useAgentRuntime } from '@/hooks/use-agent-runtime'
 
 const STATUS_FILTERS = [
   { value: 'all', label: '全部' },
@@ -25,7 +29,7 @@ const MODEL_FILTERS = [
   { value: 'default', label: 'default' },
 ]
 
-type Action = 'start' | 'stop' | 'pause' | 'copy' | 'delete'
+type ViewMode = 'management' | 'runtime'
 
 export default function AgentWorkbenchPage() {
   const [agents, setAgents] = React.useState<Agent[]>([])
@@ -38,6 +42,9 @@ export default function AgentWorkbenchPage() {
   const [creatorOpen, setCreatorOpen] = React.useState(false)
   const [actionLoading, setActionLoading] = React.useState(false)
   const [toast, setToast] = React.useState<string | null>(null)
+  const [viewMode, setViewMode] = React.useState<ViewMode>('management')
+
+  const runtime = useAgentRuntime(selectedId)
 
   const loadAgents = React.useCallback(async () => {
     setLoading(true)
@@ -78,7 +85,7 @@ export default function AgentWorkbenchPage() {
     setTimeout(() => setToast(null), 2500)
   }
 
-  const handleAction = async (action: Action, agent: Agent) => {
+  const handleAction = async (action: 'start' | 'stop' | 'pause' | 'copy' | 'delete', agent: Agent) => {
     if (action === 'copy') {
       const config = {
         name: agent.name, role: agent.role, model: agent.model,
@@ -122,6 +129,22 @@ export default function AgentWorkbenchPage() {
             <p className="mt-1 text-sm text-muted-foreground">可视化创建、管理和监控 AI Agent</p>
           </div>
           <div className="flex items-center gap-2">
+            <div className="flex rounded-md border p-0.5">
+              <button
+                type="button"
+                onClick={() => setViewMode('management')}
+                className={cn('flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs transition-colors', viewMode === 'management' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
+              >
+                <GitBranch className="h-3.5 w-3.5" /> 管理
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('runtime')}
+                className={cn('flex items-center gap-1 rounded-sm px-2.5 py-1 text-xs transition-colors', viewMode === 'runtime' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
+              >
+                <Activity className="h-3.5 w-3.5" /> 运行时
+              </button>
+            </div>
             <Button variant="outline" size="sm" onClick={loadAgents} disabled={loading}>
               <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
               刷新
@@ -183,26 +206,66 @@ export default function AgentWorkbenchPage() {
           )}
         </div>
 
-        <div className="space-y-4 lg:col-span-6">
-          {selected ? (
-            <>
-              <AgentDetailCard agent={selected} />
-              <div className="h-[480px]">
-                <AgentRuntimeLog agentId={selected.id} running={selected.status === 'running'} />
+        {viewMode === 'management' ? (
+          <>
+            <div className="space-y-4 lg:col-span-6">
+              {selected ? (
+                <>
+                  <AgentDetailCard agent={selected} />
+                  <div className="h-[480px]">
+                    <AgentRuntimeLog agentId={selected.id} running={selected.status === 'running'} />
+                  </div>
+                </>
+              ) : (
+                <Card><CardContent className="flex min-h-[400px] items-center justify-center text-sm text-muted-foreground">
+                  从左侧选择一个 Agent 查看详情和运行日志
+                </CardContent></Card>
+              )}
+            </div>
+            <div className="lg:col-span-3">
+              <div className="h-[600px] lg:h-full lg:min-h-[540px]">
+                <AgentSessionList agentId={selectedId} />
               </div>
-            </>
-          ) : (
-            <Card><CardContent className="flex min-h-[400px] items-center justify-center text-sm text-muted-foreground">
-              从左侧选择一个 Agent 查看详情和运行日志
-            </CardContent></Card>
-          )}
-        </div>
-
-        <div className="lg:col-span-3">
-          <div className="h-[600px] lg:h-full lg:min-h-[540px]">
-            <AgentSessionList agentId={selectedId} />
-          </div>
-        </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="lg:col-span-3">
+              <div className="h-[400px] lg:h-[600px]">
+                <SessionTree
+                  nodes={runtime.sessionTree}
+                  loading={runtime.loading}
+                />
+              </div>
+            </div>
+            <div className="space-y-4 lg:col-span-5">
+              <div className="h-[290px]">
+                <TokenStream
+                  tokens={runtime.tokenStream}
+                  connected={runtime.connected}
+                  running={selected?.status === 'running'}
+                />
+              </div>
+              <div className="h-[290px]">
+                <ToolCallChain
+                  toolCalls={runtime.toolCallChain}
+                  running={selected?.status === 'running'}
+                />
+              </div>
+            </div>
+            <div className="lg:col-span-4">
+              <div className="h-[600px]">
+                {selected ? (
+                  <AgentRuntimeLog agentId={selected.id} running={selected.status === 'running'} />
+                ) : (
+                  <div className="flex h-full items-center justify-center rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
+                    选择一个 Agent 查看运行日志
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <AgentCreator open={creatorOpen} onOpenChange={setCreatorOpen} onCreated={loadAgents} />

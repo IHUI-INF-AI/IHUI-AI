@@ -481,3 +481,18 @@ export function runHook(event: HookEvent, ctx: HookContext): HookResult {
     return { proceed: true };
   }
 }
+
+// ============================================================================
+// Hooks 目录自动发现(Wave 3 W3-4,2026-07-22 立)
+// re-export discovery.ts 作为统一入口,供 commands/hooks.ts enable/disable 使用
+// 完整沙箱执行见 commands/hooks-auto.ts(registerHooksAutoCommand)
+// ============================================================================
+export {
+  discoverHooks,
+  listDiscoveredHooks,
+  enableHook,
+  disableHook,
+  getHooksDirs,
+  type DiscoveredHook,
+  type DiscoveredHookType,
+} from './discovery.js';

@@ -150,3 +150,139 @@ Get-Content g:\IHUI-AI\.trae-cn\ai-final.log
 | Anthropic | claude-3-5-haiku | $0.80/1M        | $4/1M           | $0.50           |
 
 **推荐开发用 Groq(免费 + 极快),生产用 StepFun(国内快)或 OpenAI(稳定)**
+
+---
+
+## 7. Qwen3.5 本地部署(W4-2 主打适配,OpenClaw 对标)
+
+> 本项目内置 `QwenLocalProvider`(`apps/ai-service/app/providers/qwen_local_provider.py`),
+> 针对通义千问 Qwen3.5 系列的 **ChatML 模板**(`<|im_start|>`/`<|im_end|>`)做以下主打优化:
+>
+> - **stop tokens 注入**:`["<|im_end|>", "<|endoftext|>"]` — 显式注入避免不同 Ollama 版本 Modelfile 默认 stop 漂移导致"生成不收尾"。
+> - **context window 默认 32768** — Qwen3.5 支持 32K,通过 Ollama `options.num_ctx` 透传,避免被默认 2048 截断。
+> - **协议复用 Ollama 原生 `/api/chat`** — 支持 tools function calling(Ollama 0.3.0+),无需改路由核心。
+>
+> 模型前缀:`qwen-local/<ollama_model_name>`,例如 `qwen-local/qwen2.5:7b`。
+
+### 7.1 三种部署方式
+
+#### 方式 A:Ollama(推荐,最简)
+
+```bash
+# 安装 Ollama(Windows)
+winget install Ollama.Ollama
+
+# 拉取 Qwen2.5 系列(Qwen3.5 沿用同款 ChatML 模板,7B 主打推荐)
+ollama pull qwen2.5:7b         # 4GB 显存
+ollama pull qwen2.5:14b        # 8GB 显存
+ollama pull qwen2.5:32b        # 16GB 显存
+ollama pull qwen2.5:72b        # 40GB 显存(旗舰)
+ollama pull qwen2.5-coder:7b   # 代码专精
+
+# 启动服务(默认 11434)
+ollama serve
+```
+
+`apps/ai-service/.env` 配置:
+
+```bash
+LITELLM_MODEL=qwen-local/qwen2.5:7b
+# 服务端点(可选,默认 http://localhost:11434)
+# OLLAMA_API_BASE=http://localhost:11434
+```
+
+#### 方式 B:llama.cpp server(高吞吐,自定义量化)
+
+```bash
+# 编译 llama.cpp(略)
+# 下载 GGUF 模型:https://huggingface.co/Qwen/Qwen2.5-7B-Instruct-GGUF
+
+# 启动 llama-server(OpenAI 兼容端点,默认 8080)
+./llama-server \
+  -m Qwen2.5-7B-Instruct-Q5_K_M.gguf \
+  --port 8080 \
+  -c 32768 \
+  -ngl 99
+```
+
+`apps/ai-service/.env` 配置:
+
+```bash
+LITELLM_MODEL=llamacpp/qwen2.5-7b
+LLAMACPP_API_BASE=http://localhost:8080
+```
+
+> 注:llama.cpp 走 OpenAI 兼容协议,无 ChatML stop 注入优化;若需 Qwen 专有优化,仍推荐方式 A。
+
+#### 方式 C:vLLM(生产级,多并发)
+
+```bash
+# 安装 vLLM(需 CUDA 12+)
+pip install vllm
+
+# 启动 vLLM OpenAI 兼容服务(默认 8000)
+vllm serve Qwen/Qwen2.5-7B-Instruct \
+  --port 8000 \
+  --max-model-len 32768 \
+  --gpu-memory-utilization 0.9
+```
+
+`apps/ai-service/.env` 配置:
+
+```bash
+LITELLM_MODEL=openai/qwen2.5-7b-instruct
+OPENAI_API_BASE=http://localhost:8000/v1
+OPENAI_API_KEY=vllm-dummy
+```
+
+> 注:vLLM 走 OpenAI 兼容协议,ChatML 模板由 vLLM 内部应用,stop tokens 自动注入。
+
+### 7.2 CLI 配置(`~/.ihui/settings.json`)
+
+```json
+{
+  "localQwen": {
+    "enabled": true,
+    "endpoint": "http://localhost:11434",
+    "modelName": "qwen2.5:7b",
+    "contextLength": 32768,
+    "temperature": 0.7
+  }
+}
+```
+
+字段说明:
+
+| 字段           | 类型    | 默认值                   | 说明                                  |
+| -------------- | ------- | ------------------------ | ------------------------------------- |
+| `enabled`      | boolean | `false`                  | 启用 Qwen3.5 本地主打(零回归)       |
+| `endpoint`     | string  | `http://localhost:11434` | Ollama / llama.cpp / vLLM 服务端点    |
+| `modelName`    | string  | `qwen2.5:7b`             | Ollama 模型名(与 `ollama pull` 一致) |
+| `contextLength`| number  | `32768`                  | 上下文窗口(Qwen3.5 支持 32K)         |
+| `temperature`  | number  | `0.7`                    | 采样温度(0-2,代码任务推荐 0.2)     |
+
+### 7.3 内置 Qwen3.5 本地模型预设
+
+`apps/ai-service/app/data/default_models.json` 已收录 5 个预设(均 `input_price: 0`):
+
+| 模型 ID                          | 名称                          | 适用场景       |
+| -------------------------------- | ----------------------------- | -------------- |
+| `qwen-local/qwen2.5:7b`          | Qwen3.5 7B 本地(主打推荐)   | 4GB 显存,通用 |
+| `qwen-local/qwen2.5:14b`         | Qwen3.5 14B 本地              | 8GB 显存       |
+| `qwen-local/qwen2.5:32b`         | Qwen3.5 32B 本地              | 16GB 显存      |
+| `qwen-local/qwen2.5:72b`         | Qwen3.5 72B 本地(旗舰)      | 40GB 显存      |
+| `qwen-local/qwen2.5-coder:7b`    | Qwen3.5 Coder 7B 本地         | 代码专精       |
+
+### 7.4 验证
+
+```bash
+# 健康检查
+curl http://localhost:11434/api/tags | jq '.models[] | select(.name | startswith("qwen"))'
+
+# 通过 ai-service 调用
+curl -X POST http://localhost:8803/api/llm/chat \
+  -H "Content-Type: application/json" \
+  -d '{"model":"qwen-local/qwen2.5:7b","messages":[{"role":"user","content":"你好"}]}'
+```
+
+期望返回非 stub 响应,且 `usage.total_tokens > 0`(Ollama eval_count + prompt_eval_count)。

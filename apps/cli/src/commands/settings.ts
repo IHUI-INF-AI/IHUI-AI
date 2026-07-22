@@ -191,6 +191,25 @@ export interface Settings {
     pluginsDir?: string;
   };
   /**
+   * W4-2 Qwen3.5 本地主打 LLM 配置(OpenClaw 对标)。
+   *
+   * 启用方式:settings.localQwen.enabled = true + 设 defaultModel。
+   * 默认走 Ollama 原生 /api/chat 协议(ChatML stop + 32K ctx 已在 QwenLocalProvider 内置)。
+   * 关闭时无任何副作用(零回归)。
+   */
+  localQwen?: {
+    /** 启用 Qwen3.5 本地主打(默认 false) */
+    enabled?: boolean;
+    /** Ollama / llama.cpp / vLLM 服务端点(默认 http://localhost:11434) */
+    endpoint?: string;
+    /** 模型名(默认 qwen2.5:7b,Qwen3.5 ChatML 模板兼容) */
+    modelName?: string;
+    /** 上下文窗口 token 数(默认 32768,Qwen3.5 支持 32K) */
+    contextLength?: number;
+    /** 采样温度(0-2,默认 0.7) */
+    temperature?: number;
+  };
+  /**
    * P1-6 MCP 深化配置(默认关闭,启用后激活 credentials / OAuth / liveness / ACP transport / HTTP backoff)。
    *
    * 启用方式:settings.mcp.advanced.enabled = true(总开关)。
@@ -366,6 +385,14 @@ export function saveSettingsTemplate(overwrite = false): boolean {
     },
     plugins: {
       enabled: false,
+    },
+    // W4-2 Qwen3.5 本地主打:默认关闭(零回归)
+    localQwen: {
+      enabled: false,
+      endpoint: 'http://localhost:11434',
+      modelName: 'qwen2.5:7b',
+      contextLength: 32768,
+      temperature: 0.7,
     },
     // P1-6 MCP 深化:默认关闭(零回归)
     mcp: {
