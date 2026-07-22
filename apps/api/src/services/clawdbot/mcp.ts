@@ -35,6 +35,7 @@ export interface McpCallResult {
 }
 
 export class McpClient extends EventEmitter {
+  /** 内存 MCP 服务器注册表 — 需后续建表持久化(mcpServers 表缺少 transport/tools/resources 字段) */
   private servers = new Map<string, McpServerConfig>()
   private tools = new Map<string, McpTool & { serverId: string }>()
   private resources = new Map<string, McpResource & { serverId: string }>()
