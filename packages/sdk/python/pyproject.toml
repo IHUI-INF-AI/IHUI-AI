@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ihui-ai"
+version = "0.1.0"
+description = "IHUI AI Platform Python SDK - 105 endpoints across 13 modules"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "IHUI-AI" }]
+readme = "README.md"
+keywords = ["ihui", "ai", "sdk", "llm", "openai", "agents", "rag"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.urls]
+Homepage = "https://github.com/ihui-ai/ihui-ai"
+Repository = "https://github.com/ihui-ai/ihui-ai"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ihui_ai*"]
