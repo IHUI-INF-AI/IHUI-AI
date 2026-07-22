@@ -11016,8 +11016,12 @@
     "maxLevel": "已达最高等级",
     "tab": {
       "tx": "积分流水",
-      "lb": "排行榜"
+      "lb": "排行榜",
+      "redeem": "积分兑换"
     },
+    "redeemEmpty": "暂无可兑换商品",
+    "pointsUnit": "{n} 积分",
+    "redeemBtn": "立即兑换",
     "source": "来源",
     "amount": "变动",
     "balance": "余额",
@@ -26021,7 +26025,16 @@
       "searchPlaceholder": "搜索资讯标题或摘要…",
       "searchEmpty": "未找到匹配的资讯,换个关键词试试",
       "trendBtn": "趋势",
-      "moreHint": "已展示 {shown}/{total} 条,更多资讯请调整筛选条件"
+      "trendAll": "全部趋势",
+      "trendRising": "上升",
+      "trendCooling": "下降",
+      "trendNew": "新晋",
+      "moreHint": "已展示 {shown}/{total} 条,更多资讯请调整筛选条件",
+      "trendNotifyTitle": "{count} 资讯热度爆发",
+      "trendNotifyExpand": "展开全部",
+      "trendNotifyCollapse": "收起",
+      "trendNotifyClose": "关闭",
+      "langSwitch": "切换标题语言为{lang}"
     },
     "hotRanking": {
       "label": "热度排行榜",
@@ -26075,6 +26088,19 @@
       "tagHighWinRate": "高胜率",
       "tagTopTier": "顶级模型",
       "tagMultimodal": "多模态"
+    },
+    "compare": {
+      "label": "模型对比",
+      "selected": "已选 {count} 个",
+      "clear": "清空",
+      "startCompare": "开始对比",
+      "maxToast": "最多对比 5 个模型,请先移除其他模型",
+      "colModel": "对比维度",
+      "cheapest": "最低",
+      "priceChartTitle": "价格可视化",
+      "priceChartHint": "输入价 / 输出价(每 1M tokens)",
+      "capabilityOverlay": "能力雷达叠加",
+      "noPriceData": "所选模型均无价格数据"
     },
     "apiRelays": {
       "title": "API 中转站",
