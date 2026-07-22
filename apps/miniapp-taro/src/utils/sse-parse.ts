@@ -94,12 +94,12 @@ function parseLine(line: string): SSEEvent | null {
         choice.text
       if (typeof delta === 'string') return { type: 'chunk', content: delta }
     }
-    if (typeof json?.content === 'string') return { type: 'chunk', content: json.content }
-    if (typeof json?.delta === 'string') return { type: 'chunk', content: json.delta }
-    if (typeof json?.text === 'string') return { type: 'chunk', content: json.text }
     if (json?.type === 'reasoning' && typeof json?.delta === 'string') {
       return { type: 'reasoning', content: json.delta }
     }
+    if (typeof json?.content === 'string') return { type: 'chunk', content: json.content }
+    if (typeof json?.delta === 'string') return { type: 'chunk', content: json.delta }
+    if (typeof json?.text === 'string') return { type: 'chunk', content: json.text }
     if (json?.type === 'meta' && typeof json?.sessionId === 'string') {
       return { type: 'meta', sessionId: json.sessionId }
     }
