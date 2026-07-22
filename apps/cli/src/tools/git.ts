@@ -12,6 +12,9 @@
 import { spawnSync } from 'node:child_process';
 import type { Tool, ToolResult } from './index.js';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
+// Wave 8:高级 Git 工具(branch/merge/rebase/stash/conflict/tag/remote)+ GitHub PR 工具
+import { GIT_ADVANCED_TOOLS } from './git-advanced.js';
+import { GITHUB_PR_TOOLS } from './github-pr.js';
 
 interface GitExecResult {
   stdout: string;
@@ -19,7 +22,7 @@ interface GitExecResult {
   exitCode: number | null;
 }
 
-function execGit(args: string[], cwd: string, timeoutMs = 30_000): GitExecResult {
+export function execGit(args: string[], cwd: string, timeoutMs = 30_000): GitExecResult {
   const result = spawnSync('git', args, {
     cwd,
     encoding: 'utf-8',
@@ -34,7 +37,7 @@ function execGit(args: string[], cwd: string, timeoutMs = 30_000): GitExecResult
   };
 }
 
-function formatGitResult(r: GitExecResult, successOnZero = true): ToolResult {
+export function formatGitResult(r: GitExecResult, successOnZero = true): ToolResult {
   const parts: string[] = [];
   if (r.stdout.trim()) parts.push(r.stdout.trimEnd());
   if (r.stderr.trim()) parts.push(`[stderr] ${r.stderr.trimEnd()}`);
@@ -178,4 +181,15 @@ const git_commit: Tool = {
   },
 };
 
-export const GIT_TOOLS: Tool[] = [git_status, git_diff, git_log, git_add, git_commit];
+export const GIT_TOOLS: Tool[] = [
+  git_status,
+  git_diff,
+  git_log,
+  git_add,
+  git_commit,
+  ...GIT_ADVANCED_TOOLS,
+  ...GITHUB_PR_TOOLS,
+];
+
+// Wave 8:re-export 高级工具集与 GitHub PR 工具集(供按需导入)
+export { GIT_ADVANCED_TOOLS, GITHUB_PR_TOOLS };
