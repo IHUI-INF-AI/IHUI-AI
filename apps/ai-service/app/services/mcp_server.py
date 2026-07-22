@@ -4,12 +4,71 @@
 工具实现为真实文件系统/网络操作,无外部依赖时返回降级结果。
 """
 
+import os
 import re
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import parse_qs, quote_plus, urlparse
 
 from .skills import skill_registry
+
+
+# ---------------------------------------------------------------------------
+# 安全常量(2026-07-22 P0 Round 2 鲁棒性加固)
+# ---------------------------------------------------------------------------
+
+# 工作区根目录白名单:MCP read_file/write_file 只允许读写白名单内文件
+# 从 env MCP_WORKSPACE_ROOTS 读取(分隔符 os.pathsep),默认当前工作目录
+_WORKSPACE_ROOTS: list[str] = [
+    os.path.abspath(r)
+    for r in os.environ.get("MCP_WORKSPACE_ROOTS", os.getcwd()).split(os.pathsep)
+    if r.strip()
+]
+
+# 工具权限矩阵:admin 专属工具(role >= 1),其他工具所有用户可用
+# 危险工具:写文件 / 执行命令 / 数据库查询 / git 操作 / 自动化配置 / 电脑控制
+_ADMIN_ONLY_TOOLS: set[str] = {
+    "write_file", "run_command", "db_query", "git_operations",
+    "configure_automation_task",
+    # computer_* 系列:控制电脑是高危操作,需 admin
+    "computer_screenshot_screen", "computer_mouse_move", "computer_mouse_click",
+    "computer_keyboard_type", "computer_mouse_scroll", "computer_keyboard_press",
+    "computer_keyboard_hotkey", "computer_active_window",
+    "computer_clipboard_get", "computer_clipboard_set",
+}
+
+# agent_control 内部调用密钥(从 env 读取,api 层用 secrets.compare_digest 校验)
+# 2026-07-22 修复:原硬编码 "internal-service" → env 化
+_AGENT_CONTROL_SECRET: str = os.environ.get("AGENT_CONTROL_INTERNAL_SECRET", "")
+
+
+def _validate_path_in_workspace(path: str) -> tuple[bool, str]:
+    """校验路径在工作区白名单内,防 symlink 穿越。
+
+    Returns:
+        (ok, resolved_path) 或 (False, error_message)
+    """
+    from pathlib import Path
+
+    if not path:
+        return False, "路径为空"
+    try:
+        # resolve(strict=False) 解析 symlink + .. ,但不要求路径存在
+        resolved = Path(path).resolve(strict=False)
+        resolved_str = str(resolved)
+        # 检查 resolved 是否在任一白名单根目录下(防 symlink 穿越到 /etc/passwd 等)
+        for root in _WORKSPACE_ROOTS:
+            try:
+                resolved.relative_to(root)
+                return True, resolved_str
+            except ValueError:
+                continue
+        return False, (
+            f"路径不在工作区白名单内: {path}"
+            f"(允许根目录: {_WORKSPACE_ROOTS})"
+        )
+    except Exception as e:
+        return False, f"路径解析失败: {e}"
 
 
 # ---------------------------------------------------------------------------
@@ -246,26 +305,34 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
-    """read_file: 读取文件内容。"""
+    """read_file: 读取文件内容(路径必须在工作区白名单内,防 symlink 穿越)。"""
     path = arguments.get("path", "")
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return {"tool": "read_file", "path": path, "content": "", "ok": False, "error": info}
+    resolved_path = info
     try:
-        with open(path, encoding="utf-8") as f:
+        with open(resolved_path, encoding="utf-8") as f:
             content = f.read()
-        return {"tool": "read_file", "path": path, "content": content, "ok": True}
+        return {"tool": "read_file", "path": resolved_path, "content": content, "ok": True}
     except Exception as e:
-        return {"tool": "read_file", "path": path, "content": "", "ok": False, "error": str(e)}
+        return {"tool": "read_file", "path": resolved_path, "content": "", "ok": False, "error": str(e)}
 
 
 async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
-    """write_file: 写入文件内容。"""
+    """write_file: 写入文件内容(路径必须在工作区白名单内,防 symlink 穿越)。"""
     path = arguments.get("path", "")
     content = arguments.get("content", "")
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return {"tool": "write_file", "path": path, "ok": False, "error": info}
+    resolved_path = info
     try:
-        with open(path, "w", encoding="utf-8") as f:
+        with open(resolved_path, "w", encoding="utf-8") as f:
             f.write(content)
-        return {"tool": "write_file", "path": path, "bytes_written": len(content.encode("utf-8")), "ok": True}
+        return {"tool": "write_file", "path": resolved_path, "bytes_written": len(content.encode("utf-8")), "ok": True}
     except Exception as e:
-        return {"tool": "write_file", "path": path, "ok": False, "error": str(e)}
+        return {"tool": "write_file", "path": resolved_path, "ok": False, "error": str(e)}
 
 
 async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -363,19 +430,29 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
         import shlex
         import sys
 
-        # 解析命令参数
-        if sys.platform == "win32":
-            # Windows: echo/type/ver 等是 shell 内置命令,需用 shell 执行
-            # 用 cmd /c 执行整个命令字符串
-            proc = await asyncio.create_subprocess_shell(
-                command,
+        # Windows shell 内置命令集合(echo/type/ver/dir 等 cmd.exe 内置)
+        # 这些命令无独立可执行文件,必须走 cmd /c;其他命令优先用 exec 防 shell 注入
+        _WIN_BUILTINS = {
+            "echo", "type", "ver", "dir", "set", "cd", "cls", "color",
+            "prompt", "title", "path", "assoc", "ftype",
+        }
+
+        # 解析命令参数(统一用 shlex.split,Windows 下 shlex 用 POSIX 模式仍可正确切分)
+        # 已通过上方黑名单过滤掉 ;/&&/||/|/`/$() 等危险模式,shlex.split 不会再被注入
+        args = shlex.split(command, posix=sys.platform != "win32")
+
+        if sys.platform == "win32" and cmd_name in _WIN_BUILTINS:
+            # Windows shell 内置命令必须走 cmd /c(无独立 exe),用 list 形式传给
+            # create_subprocess_exec,参数由 shell 解析但仍走 exec 入口(不派生 sh.exe)
+            proc = await asyncio.create_subprocess_exec(
+                "cmd", "/c", command,
                 cwd=cwd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
         else:
-            # Unix: 用 exec 避免 shell 注入(参数已通过白名单 + 黑名单过滤)
-            args = shlex.split(command)
+            # 优先 exec(避免 shell 注入),Unix 和 Windows 通用
+            # Windows 下若 first_token 不在 PATH 会抛 FileNotFoundError,已下方兜底
             proc = await asyncio.create_subprocess_exec(
                 *args,
                 cwd=cwd,
@@ -1051,12 +1128,21 @@ async def _tool_agent_control(
     }
 
     tool_name = f"{category}_{action}"
+    # 内部服务密钥从 env 读取(2026-07-22 修复:原硬编码 "internal-service")
+    # api 层用 secrets.compare_digest 校验,密钥未配置时拒绝调用(fail-closed)
+    if not _AGENT_CONTROL_SECRET:
+        return {
+            "tool": tool_name,
+            "ok": False,
+            "error": "AGENT_CONTROL_INTERNAL_SECRET 未配置,拒绝 agent_control 调用(fail-closed)",
+            "errorCode": "MISSING_SECRET",
+        }
     try:
         async with httpx.AsyncClient(timeout=timeout_ms / 1000 + 10) as client:
             response = await client.post(
                 _AGENT_CONTROL_API_URL,
                 json=request,
-                headers={"Authorization": "Bearer internal-service"},
+                headers={"Authorization": f"Bearer {_AGENT_CONTROL_SECRET}"},
             )
             response.raise_for_status()
             payload = response.json()
@@ -1810,12 +1896,33 @@ class MCPServer:
         """列出全部工具。"""
         return list(_TOOLS)
 
-    async def call_tool(self, name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
-        """调用指定工具。"""
+    async def call_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any] | None = None,
+        *,
+        user_role: int = 0,
+    ) -> dict[str, Any]:
+        """调用指定工具(带权限矩阵校验)。
+
+        Args:
+            name: 工具名
+            arguments: 工具参数
+            user_role: 调用者角色 ID(0=普通用户,>=1=admin)。admin 专属工具
+                       需 user_role >= 1,其他工具所有用户可用。
+        """
         handler = _TOOL_HANDLERS.get(name)
         if not handler:
             available = ", ".join(_TOOL_HANDLERS.keys())
             return {"ok": False, "error": f"未知工具: {name}。可用: {available}"}
+        # 权限矩阵:admin 专属工具(write_file/run_command/db_query/computer_* 等)
+        # 普通用户(user_role < 1)调用 → 直接拒绝,不执行 handler
+        if name in _ADMIN_ONLY_TOOLS and user_role < 1:
+            return {
+                "ok": False,
+                "error": f"工具 '{name}' 需要 admin 权限(role >= 1),当前 role={user_role}",
+                "errorCode": "PERMISSION_DENIED",
+            }
         try:
             return await handler(arguments or {})
         except Exception as e:
