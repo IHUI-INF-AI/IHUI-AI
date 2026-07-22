@@ -42,6 +42,7 @@ import { registerHooksCommand } from './commands/hooks.js';
 import { registerHooksAutoCommand } from './commands/hooks-auto.js';
 import { registerImportCommand } from './commands/import.js';
 import { startAcpServer } from './acp/server.js';
+import { registerSubagentParallelCommand } from './commands/subagent-parallel.js';
 import { CheckpointManager } from './checkpoints/index.js';
 import {
   resolveEffectiveConfig,
@@ -481,6 +482,9 @@ registerHooksAutoCommand(program);
 
 // import 子命令组 — CLI 配置导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)
 registerImportCommand(program);
+
+// subagent-parallel 子命令 — 并行 fork N 个子 agent(真子进程并行,支持 4 拓扑)
+registerSubagentParallelCommand(program);
 
 // skills 子命令 — 列出/查看已加载的 skills(从 .ihui/.agents/.claude/.cursor/skills 平面加载)
 const skillsCmd = program.command('skills').description('管理/查看 skills(.ihui/skills/*.md 等四级目录平面加载)');
