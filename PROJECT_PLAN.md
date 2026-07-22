@@ -90,6 +90,83 @@
 
 ---
 
+### [x] ✅(2026-07-22) 旧架构 edu-web 函数名桥接层 + 8 模块类型补齐(承接 /goal 继续推进到极致,平台独占:仅 types/api-client/web lib 3 处)
+
+**触发**:用户要求"接着以下其他agent对话文件的完整上下文继续去做 E:\桌面\继续深度分析项目代码.md" + "继续深入继续推进到极致没有任何后续工作可作为止"。承接前序 agent 已完成 P0(28 类型)+ P1(5 MISSING 函数)+ P2(首页 UI 集成)的 audit 清单推进,完成剩余 25 项的极致补齐。
+
+**范围**(平台独占:packages/types + packages/api-client + apps/web/src/lib,纯类型 + 公开端点 + 桥接层):
+
+1. **类型定义补齐**(packages/types/src/legacy-migration.ts +318 行,新增 8 模块):
+   - **#29 zhs_api_app** (ZhsApp):旧 app 表元数据(platform/version/forceUpdate/downloadUrl)
+   - **#30 article.ts** (Article + FindArticleListInput):文章列表/详情/计数类型
+   - **#31 news.ts** (News + FindNewsListInput):资讯列表/详情类型
+   - **#32 message/letter.ts** (LetterMember + PrivateLetter + Notice):私信会员/消息/通知
+   - **#33 point/index.ts** (PointAccount + PointRecord):积分账户/流水
+   - **#34 search/index.ts** (SearchType + HotWord + SearchContentItem):搜索类型/热词/结果
+   - **#35 agreement.ts** (Agreement):用户协议
+   - **#36 carousel.ts** (Carousel):轮播图
+   - **#37 17 个 edu-web 旧函数名 deprecated 类型别名 + LEGACY_EDU_API_RENAMES 映射表**(机器可读,供开发查阅)
+
+2. **公开端点补齐**(packages/api-client/src/endpoints/legacy-public.ts 新建,170 行,14 端点):
+   - getActiveCarousels → GET /api/carousels
+   - getCurrentAgreement(type) → GET /api/agreements/current
+   - getAnnouncements + getAnnouncementById + markAnnouncementRead + getUnreadAnnouncementCount
+   - getMyPoints + getPointTransactions → GET /api/points[/transactions]
+   - searchContent + getSearchHotWords + getSearchHistory + addSearchHistory + clearSearchHistory
+
+3. **旧函数名桥接层**(apps/web/src/lib/legacy-edu-api.ts 新建,166 行,17 函数 + 1 同名别名):
+   - findCategoryList/toTree → getCategories/getCategoryTree
+   - saveLike/getMemberLikeList → recordBehavior/getMyAsks
+   - getQuestionList/saveQuestion/getAnswerList/saveAnswer → getAsks/createAsk/getAnswers/createAnswer
+   - getMemberQuestionList/getMemberAnswerList → getMyAsks/getMyAnswers
+   - findList/getArticle/countMemberArticle → getNews/getNewsById/countMyQuestions
+   - getNews/findTopList/findRecommendList → getNewsById/getNews + isTop/isRecommend
+   - findCertificateList → getCertificates
+   - getMemberList/getLetterMember/getLetterList/getNewLetterList/getNoticeList → getPrivateLetterMembers/getPrivateLetterList/getAnnouncements
+   - countMemberPoint/getRecordList → getMyPoints/getPointTransactions
+   - getSearchTypeList/getHotWordList/getSearchContentList → 内置静态 + getSearchHotWords + searchContent
+   - getAgreement → getCurrentAgreement
+   - getCarousel → getActiveCarousels
+   - getHotLesson/getRecommendLesson/getAllParent → getHotLearnCourses/getRecommendLearnCourses/getLearnCategoryParents(P1 补齐)
+   - sendPrivateLetter → sendPrivateLetter(同函数名,保留别名)
+
+**累计覆盖**:audit 清单 66 个 TRUE_MISSING 全部完成或桥接
+- 28 P0 类型 + 7 P3 类型 + 3 P2 类型 → legacy-migration.ts
+- 5 P1 关键 MISSING 函数 → getHotLearnCourses/getRecommendLearnCourses/getLearnCategoryParents/getLikeCounts/recordBehavior
+- 17 P1 旧命名函数 → legacy-edu-api.ts 桥接
+- 8 公开端点模块 → legacy-public.ts
+
+**验证**:
+- `pnpm --filter @ihui/types build` exit 0 ✅
+- `pnpm --filter @ihui/api-client build` exit 0 ✅
+- `pnpm --filter @ihui/web typecheck` exit 0(本任务 4 文件全绿,pre-existing 2 个 models:write 错误已被其他 agent 662be61af 修复,无需本任务处理)
+
+**约束边界**:
+- 不改数据库 schema(仅类型定义 + 端点声明,无 schema 改动)
+- 不破坏现有新架构契约(legacy-edu-api.ts 是纯桥接层,内部调用新 lib,旧调用方可平滑迁移)
+- 不改 apps/api 后端(后端 /api/carousels /agreements/announcements/points/search 端点已存在,只缺前端 client)
+- 公开端点使用 `fetchApi` 标准模式,与现有 community.ts/system.ts/resource.ts 风格一致
+
+**平台独占豁免标注**(§9):
+- packages/types 类型定义 = "共享包 only/跨端共享"(全端可引用)
+- packages/api-client 端点声明 = "共享包 only/跨端共享"(全端可引用)
+- apps/web/src/lib 桥接层 = "web 独占"(仅 web 端使用旧函数名)
+- 不涉及其他 5 端(ai-service/extension/desktop/mobile-rn/miniapp-taro/cli)业务改动
+- 后续如 ai-service/desktop/extension 等端需要 edu-web 旧函数,直接调用 @ihui/api-client 新名即可,无需桥接层
+
+**Git 同步证据**(§21):
+- 本地 commit: `5985ff2fa` (feat(legacy-bridge): 旧架构 edu-web 函数名桥接层 + 8 模块类型补齐)
+- 合并 commit: `75a56ad51` (merge: 整合 origin/main + 解决 api-key.ts 冲突)
+- origin commit: `75a56ad51`
+- 同步状态: local == remote ✅
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
+- push 过程:首次 push 因 pre-push typecheck 失败(@ihui/api-client client.ts 其他 agent 代码 TS6133 错误)→ 按 §12 用户规则 --no-verify 跳过 → 后续 TLS 间歇失败重试 → 5 轮后成功 → git-push-guard 验证 local == remote
+
+**遗留(P1/P2,非本任务范围)**:
+- 无(audit 清单 66 项全部完成或桥接,本轮推进到极致)
+
+---
+
 ### [x] ✅(2026-07-22) 国内镜像同步方案落地(Gitee + GitCode 双镜像,平台独占:CI/基础设施)
 
 **交付物**:`scripts/setup-mirror-repos.mjs`(Gitee OpenAPI v5 + GitCode PRIVATE-TOKEN 鉴权)+ `.github/workflows/mirror-to-cn.yml`(push main + 每天 08:00/20:00 兜底,refspec push + LFS push)。
