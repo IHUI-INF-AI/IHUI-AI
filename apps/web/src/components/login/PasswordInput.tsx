@@ -70,7 +70,7 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
           aria-pressed={visible}
           data-testid="password-toggle"
           className={cn(
-            'absolute right-2 top-0 flex h-10 w-10 items-center justify-center',
+            'absolute right-2 top-0 flex h-10 w-10 items-center justify-center overflow-visible',
             'rounded-r-md text-foreground/60 transition-colors duration-200',
             'hover:text-foreground focus-visible:outline-none',
           )}
@@ -80,9 +80,12 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
               尺寸 h-5 w-5 (20×20) — 比默认的 16×16 更醒目,符合项目守则:
               元素尺寸越大,圆角和图标按比例放大。
               fillRule="evenodd" 防止某些字形 fill 异常时出现黑洞。 */}
+          {/* viewBox 选 640×512 以兼容两个 path 的实际宽度:
+              EYE_SLASH_D 实际占 0~640(EYE_OPEN_D 占 0~626),meet 模式居中等比缩放,
+              不裁切任何一边的 path 数据,避免斜杠右端被切。 */}
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 576 512"
+            viewBox="0 0 640 512"
             fill="currentColor"
             fillRule="evenodd"
             aria-hidden="true"
