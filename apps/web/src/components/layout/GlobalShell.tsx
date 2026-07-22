@@ -55,17 +55,24 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // Sidebar 内部会再派生 desktop/mobile 两个 nav id,确保两个 <nav> 元素不会共享同一 id。
   const sidebarId = 'main-sidebar'
 
-  // AI 面板占位宽度(直接订阅 store,避免 SSR/初始渲染时 --ai-panel-width CSS 变量未同步导致内容区与 AI 面板重叠)。
-  // hydration-safe:zustand persist + useSyncExternalStore 保证 SSR 与首 client render 都用默认值
-  // (open=true, width=400 → occupy=408px),与 SSR HTML 一致,无 hydration mismatch。
-  // rehydrate 完成后(若用户偏好 width≠400)自动切换到持久化值,通过下方 transition-[padding-left]
-  // 平滑过渡,避免突变闪烁(2026-07-22 修复"首屏 sidebar 看起来很宽"的闪烁 bug)。
-  // 之前用 !mounted 切换默认值/store 值,会在 mounted 切换瞬间触发 paddingLeft 突变;
-  // 现在直接读 store,跳变时机由 zustand 内部 rehydrate 接管,且配合 transition 平滑过渡。
+  // AI 面板占位宽度(通过 CSS 变量 --ai-panel-occupy 控制,彻底消除首屏闪烁)。
+  // 链路:
+  // 1. layout.tsx 的 inline bootstrap script 在 React hydrate 前从 localStorage 读 ai-panel width,
+  //    预设 --ai-panel-occupy 到 documentElement,首帧 HTML 的 paddingLeft 就是持久化值
+  // 2. 下面的 useEffect 在组件 mount 后继续同步该 CSS 变量,跟随运行时 store 变化(用户拖拽/关闭)
+  // 3. work-area-portal-root 的 paddingLeft 用 var(--ai-panel-occupy, 408px),
+  //    React inline style 只声明 CSS 变量引用,不接管具体数值 → 无 hydration mismatch
+  // 之前方案:首帧用 store 默认值(408px),rehydrate 后跳到持久化值 → "先宽后窄"闪烁
+  // 本方案(2026-07-22):首帧就用持久化值(由 bootstrap script 预设),无跳变
   const mounted = useMounted()
   const { open: aiOpen, width: aiWidth } = useAiPanelStore()
   const currentUserId = useAuthStore((s) => s.user?.id)
-  const aiPanelOccupy = aiOpen ? aiWidth + 8 : 0
+
+  // 运行时同步 CSS 变量(跟随用户拖拽 AI 面板宽度 / 关闭面板)
+  React.useEffect(() => {
+    const occupy = aiOpen ? aiWidth + 8 : 0
+    document.documentElement.style.setProperty('--ai-panel-occupy', `${occupy}px`)
+  }, [aiOpen, aiWidth])
 
   React.useEffect(() => {
     try {
@@ -147,7 +154,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
         <div
           id="work-area-portal-root"
           className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden transition-[padding-left] duration-200 ease-out"
-          style={{ paddingLeft: `${aiPanelOccupy}px` }}
+          style={{ paddingLeft: 'var(--ai-panel-occupy, 408px)' }}
         >
           {/* 移动端浮动菜单按钮(Header 移除后,用浮动按钮打开侧边栏抽屉) */}
           <Button
