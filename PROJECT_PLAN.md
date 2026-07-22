@@ -72,6 +72,48 @@
 
 **Git 同步证据**:本地 commit e083d7ec9 → origin/main 93a28d0d2(local == remote ✅)。
 
+### [x] ✅(2026-07-23) 前端冗余页面整合 P3(平台独占:仅 web 端)
+
+**触发**:用户要求"继续 多agentAgent goal命令去处理"。P2 批次后深度分析 settings 目录,发现 6 个完全不可达的"孤儿页面"(0 引用,不在 sidebar/SUB_PAGES/CommandPalette 任何导航中)。
+
+**深度分析**(search subagent + 主 agent Grep 验证):
+- settings 目录共 22 个子页面,其中 17 个可达(SUB_PAGES 16 + api-keys 硬编码 1)
+- 6 个孤儿页面:change-phone / app-permission / business-license / model-record / icp-record / usage-rules
+- 逐一验证 API 调用 + 功能重叠:
+  - change-phone(73行,2步验证改手机号)→ user/security/PhoneSection 已有改手机号功能(调 /api/users/change-phone),重复
+  - app-permission(97行,7种App权限静态表格)→ App端概念,web端无意义
+  - business-license(102行,营业执照占位图)→ 占位图无实际信息,法律展示应在 SiteFooter
+  - usage-rules(55行,5段使用规范文本)→ 与 AgreementDialog 用户协议功能重叠(SiteFooter 已有弹窗)
+  - model-record(65行,大模型备案信息)→ 法律要求,含真实备案号,保留
+  - icp-record(82行,ICP备案信息)→ 法律要求,SiteFooter 只有简短文字,保留
+
+**整合内容**(删除 4 页面 6 文件 + 清理 5 语言 i18n):
+
+| 孤儿页面 | 行数 | 处理 | 理由 |
+|---|---|---|---|
+| change-phone(+Step1+Step2) | 73+子组件 | 删除 | user/security/PhoneSection 已有改手机号功能 |
+| app-permission | 97 | 删除 | App端概念,web端无意义,0引用 |
+| business-license | 102 | 删除 | 占位图无实际信息,0引用 |
+| usage-rules | 55 | 删除 | 与AgreementDialog用户协议重叠,0引用 |
+
+**保留**(法律备案页面,不加入导航保持现状):
+- model-record / icp-record — 法律要求展示,含真实备案号,未来可在 SiteFooter 加链接
+
+**i18n 清理**(5 语言 × 58 key = 290 key 删除):
+- settings namespace 下:businessLicense*(7) + usageRules*(13) + appPermission*(15) + changePhone*(23) = 58 key/语言
+- 保留 user.security namespace 的 changePhone/changePhoneDesc(被 user/security/PhoneSection 使用)
+- 保留 icpRecord*/modelRecord* key(法律备案页面保留)
+- 保留 routes namespace 的 key(保守处理)
+- 多 agent 并行:主 agent 清理 zh-CN.json + subagent 清理 4 语言(zh-TW/en/ja/ko)
+
+**验证**:
+- web typecheck 我的文件零错误(管道过滤 changePhone/appPermission/businessLicense/usageRules 关键词无匹配)
+- i18n parity:5 语言 key 集合一致(只剩 1 个预先存在的 opencompass 问题,与本次无关)
+- JSON 合法性:5 文件全部 VALID(ConvertFrom-Json 成功)
+- dev server 8801 被其他 agent 占用且不响应,适用 §19 豁免(纯删除+配置清理,typecheck+i18n parity 已验证)
+
+**Git 同步证据**:待填(commit + push 后更新)
+
 <!-- 已归档(2026-07-23):多 Agent 并行提效全栈打通(跨端:packages/types + ai-service + cli + api ...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-22):多 Agent 并行提效全栈打通任务原始计划(触发/目标/现状/验证标准/约束边界),完整内容已浓缩为上方交付摘要 -->
 <!-- 已归档(2026-07-22):首屏侧边栏自身 width 跳变修复(承接 061b83d79 / 54a8f8256 残留),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
