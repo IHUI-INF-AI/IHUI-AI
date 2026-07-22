@@ -1,14 +1,15 @@
 /**
- * windsurf parser 全参数综合测试
+ * Windsurf parser 综合测试 — 全参数深度覆盖
  *
- * 覆盖(与 cursor 对齐,但用 windsurf.ai.* 前缀):
- *   1. URL/协议不搞混(8 大厂商 + GitHub Copilot + 未知)
- *   2. model 前缀与 baseUrl 冲突时的协议推断
- *   3. 必填字段校验
- *   4. providerCode 推断
- *   5. 字段读取(name / apiKey / model / meta / sourceId / isCurrent)
- *   6. 异常输入
- *   7. 大小写不敏感 + 跨平台隔离
+ * 覆盖维度:
+ *   1. apiFormat 推断(URL 优先 + model 兜底)
+ *   2. providerCode 推断(model 前缀优先 + baseUrl 兜底)
+ *   3. 各厂商 URL 完整覆盖
+ *   4. model 前缀覆盖(9 个主流厂商)
+ *   5. 空值/异常/边界
+ *   6. JSON 格式变体
+ *   7. meta + name + isCurrent 验证
+ *   8. 跨平台不搞混(Windsurf ≠ Cursor ≠ Cline)
  */
 import { describe, it, expect } from 'vitest'
 
@@ -16,332 +17,382 @@ import type { ParserInput } from '../../src/services/cli-import/parsers/types.js
 import { parseWindsurf } from '../../src/services/cli-import/parsers/windsurf.js'
 
 function makeText(text: string): ParserInput {
-  return { text, sourcePath: 'windsurf-settings.json' }
+  return { text, sourcePath: 'test' }
 }
 
-function makeSettings(obj: Record<string, unknown>): ParserInput {
-  return makeText(JSON.stringify(obj))
+function makeWindsurfJson(opts: Record<string, unknown>): string {
+  return JSON.stringify(opts)
 }
 
-describe('windsurf parser 全参数综合测试', () => {
-  // ===========================================================================
-  // 1. URL/协议不搞混
-  // ===========================================================================
-  describe('URL/协议不搞混', () => {
-    it('api.openai.com → openai_chat', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-xxx',
-          'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
-        }),
-      )
-      expect(res.providers[0]!.apiFormat).toBe('openai_chat')
-      expect(res.providers[0]!.providerCode).toBe('openai')
-    })
-
-    it('api.anthropic.com → anthropic_messages', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-ant-xxx',
-          'windsurf.ai.baseUrl': 'https://api.anthropic.com',
-        }),
-      )
-      expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
-      expect(res.providers[0]!.providerCode).toBe('anthropic')
-    })
-
-    it('googleapis.com → gemini_native', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'AIza-xxx',
-          'windsurf.ai.baseUrl': 'https://generativelanguage.googleapis.com/v1beta',
-        }),
-      )
-      expect(res.providers[0]!.apiFormat).toBe('gemini_native')
-      expect(res.providers[0]!.providerCode).toBe('google')
-    })
-
-    it('api.deepseek.com → openai_chat + providerCode=deepseek', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-xxx',
-          'windsurf.ai.baseUrl': 'https://api.deepseek.com',
-          'windsurf.ai.model': 'deepseek-coder',
-        }),
-      )
-      expect(res.providers[0]!.apiFormat).toBe('openai_chat')
-      expect(res.providers[0]!.providerCode).toBe('deepseek')
-    })
-
-    it('api.moonshot.cn → openai_chat + providerCode=moonshot', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-xxx',
-          'windsurf.ai.baseUrl': 'https://api.moonshot.cn/v1',
-        }),
-      )
-      expect(res.providers[0]!.apiFormat).toBe('openai_chat')
-      expect(res.providers[0]!.providerCode).toBe('moonshot')
-    })
-
-    it('api.githubcopilot.com → openai_chat', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'ghu-xxx',
-          'windsurf.ai.baseUrl': 'https://api.githubcopilot.com',
-        }),
-      )
-      expect(res.providers[0]!.apiFormat).toBe('openai_chat')
-    })
-
-    it('未知 URL → openai_chat (default) + providerCode=custom', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-xxx',
-          'windsurf.ai.baseUrl': 'https://api.unknown.com/v1',
-        }),
-      )
-      expect(res.providers[0]!.apiFormat).toBe('openai_chat')
-      expect(res.providers[0]!.providerCode).toBe('custom')
-    })
+describe('windsurf parser — apiFormat URL 优先推断', () => {
+  it('api.openai.com → openai_chat', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
+    })))
+    expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 
-  // ===========================================================================
-  // 2. model 前缀与 baseUrl 冲突
-  // ===========================================================================
-  describe('model 前缀与 baseUrl 冲突(2026-07-22 修正后)', () => {
-    it('model=claude-* + openai.com → apiFormat=openai_chat (URL 优先) + providerCode=anthropic (model 优先)', async () => {
-      // 修正后:apiFormat 由 URL 决定(接入点协议),providerCode 由 model 决定(实际模型归属)
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-xxx',
-          'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
-          'windsurf.ai.model': 'claude-3-opus',
-        }),
-      )
-      expect(res.providers[0]!.apiFormat).toBe('openai_chat')
-      expect(res.providers[0]!.providerCode).toBe('anthropic')
-    })
-
-    it('model=gemini-* + openai.com → apiFormat=openai_chat (URL 优先) + providerCode=google (model 优先)', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-xxx',
-          'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
-          'windsurf.ai.model': 'gemini-1.5-pro',
-        }),
-      )
-      expect(res.providers[0]!.apiFormat).toBe('openai_chat')
-      expect(res.providers[0]!.providerCode).toBe('google')
-    })
-
-    it('无 model + anthropic.com → anthropic_messages', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-xxx',
-          'windsurf.ai.baseUrl': 'https://api.anthropic.com',
-        }),
-      )
-      expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
-    })
+  it('api.anthropic.com → anthropic_messages', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-ant-xxx',
+      'windsurf.ai.baseUrl': 'https://api.anthropic.com',
+    })))
+    expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
   })
 
-  // ===========================================================================
-  // 3. 必填字段校验
-  // ===========================================================================
-  describe('必填字段校验', () => {
-    it('无 apiKey → providers 空 + warning', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
-        }),
-      )
-      expect(res.providers).toHaveLength(0)
-      expect(res.globalWarnings.length).toBeGreaterThan(0)
-      expect(res.globalWarnings[0]).toContain('windsurf.ai.apiKey')
-    })
-
-    it('无 baseUrl → providers 空 + warning(Windsurf 无默认端点)', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-xxx',
-        }),
-      )
-      expect(res.providers).toHaveLength(0)
-      expect(res.globalWarnings.length).toBeGreaterThan(0)
-      expect(res.globalWarnings[0]).toContain('windsurf.ai.baseUrl')
-    })
-
-    it('空对象 → providers 空 + warning', async () => {
-      const res = await parseWindsurf(makeSettings({}))
-      expect(res.providers).toHaveLength(0)
-      expect(res.globalWarnings.length).toBeGreaterThan(0)
-    })
-
-    it('apiKey 空字符串 → 视为无 apiKey', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': '',
-          'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
-        }),
-      )
-      expect(res.providers).toHaveLength(0)
-      expect(res.globalWarnings.length).toBeGreaterThan(0)
-    })
+  it('googleapis.com → gemini_native', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'AIza-xxx',
+      'windsurf.ai.baseUrl': 'https://generativelanguage.googleapis.com/v1beta',
+    })))
+    expect(res.providers[0]!.apiFormat).toBe('gemini_native')
   })
 
-  // ===========================================================================
-  // 4. providerCode 推断
-  // ===========================================================================
-  describe('providerCode 推断', () => {
-    it('api.openai.com → openai', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-xxx',
-          'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
-        }),
-      )
-      expect(res.providers[0]!.providerCode).toBe('openai')
-    })
-
-    it('api.anthropic.com → anthropic', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-xxx',
-          'windsurf.ai.baseUrl': 'https://api.anthropic.com',
-        }),
-      )
-      expect(res.providers[0]!.providerCode).toBe('anthropic')
-    })
-
-    it('127.0.0.1 → local', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-xxx',
-          'windsurf.ai.baseUrl': 'http://127.0.0.1:8080/v1',
-        }),
-      )
-      expect(res.providers[0]!.providerCode).toBe('local')
-    })
-
-    it('api.siliconflow.cn → siliconflow', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-xxx',
-          'windsurf.ai.baseUrl': 'https://api.siliconflow.cn/v1',
-        }),
-      )
-      expect(res.providers[0]!.providerCode).toBe('siliconflow')
-    })
+  it('api.deepseek.com → openai_chat(默认)', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.deepseek.com',
+    })))
+    expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 
-  // ===========================================================================
-  // 5. 字段读取正确性
-  // ===========================================================================
-  describe('字段读取正确性', () => {
-    it('apiKey + model + baseUrl 全字段正确读取', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-test-67890',
-          'windsurf.ai.baseUrl': 'https://api.deepseek.com',
-          'windsurf.ai.model': 'deepseek-coder',
-        }),
-      )
-      const p = res.providers[0]!
-      expect(p.apiKey).toBe('sk-test-67890')
-      expect(p.baseUrl).toBe('https://api.deepseek.com')
-      expect(p.modelIdForTest).toBe('deepseek-coder')
-      expect(p.meta?.models).toEqual(['deepseek-coder'])
-    })
-
-    it('meta.category + meta.websiteUrl + sourceId 是 Windsurf 专属', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-xxx',
-          'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
-        }),
-      )
-      const p = res.providers[0]!
-      expect(p.meta?.category).toBe('Windsurf')
-      expect(p.meta?.websiteUrl).toBe('https://codeium.com')
-      expect(p.sourceId).toBe('windsurf-default')
-    })
-
-    it('isCurrent 总是 true', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-xxx',
-          'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
-        }),
-      )
-      expect(res.providers[0]!.isCurrent).toBe(true)
-    })
-
-    it('无 model → meta.models 不存在', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-xxx',
-          'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
-        }),
-      )
-      expect(res.providers[0]!.meta?.models).toBeUndefined()
-      expect(res.providers[0]!.modelIdForTest).toBeUndefined()
-    })
+  it('githubcopilot URL → openai_chat', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'ghu-xxx',
+      'windsurf.ai.baseUrl': 'https://api.githubcopilot.com',
+    })))
+    expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 
-  // ===========================================================================
-  // 6. 异常输入
-  // ===========================================================================
-  describe('异常输入', () => {
-    it('非 JSON → 抛异常', async () => {
-      await expect(parseWindsurf(makeText('not json'))).rejects.toThrow()
-    })
-
-    it('空字符串 → 抛异常', async () => {
-      await expect(parseWindsurf(makeText(''))).rejects.toThrow()
-    })
-
-    it('只有空格 → 抛异常', async () => {
-      await expect(parseWindsurf(makeText('  \n\t  '))).rejects.toThrow()
-    })
-
-    it('JSON 解析错误信息含 Windsurf 标识', async () => {
-      try {
-        await parseWindsurf(makeText('{invalid'))
-        expect.fail('应抛异常')
-      } catch (err) {
-        expect((err as Error).message).toContain('Windsurf')
-      }
-    })
+  it('未知 URL → 默认 openai_chat', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.custom.com/v1',
+    })))
+    expect(res.providers[0]!.apiFormat).toBe('openai_chat')
   })
 
-  // ===========================================================================
-  // 7. 跨平台隔离
-  // ===========================================================================
-  describe('跨平台隔离', () => {
-    it('cursor 前缀字段被 windsurf parser 忽略', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'cursor.ai.apiKey': 'sk-xxx',
-          'cursor.ai.baseUrl': 'https://api.openai.com/v1',
-        }),
-      )
-      // windsurf parser 只读 windsurf.ai.*,cursor 字段被忽略 → 无 apiKey
-      expect(res.providers).toHaveLength(0)
-      expect(res.globalWarnings.length).toBeGreaterThan(0)
-    })
+  it('URL 大小写不敏感', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'AIza-xxx',
+      'windsurf.ai.baseUrl': 'HTTPS://GenerativeLanguage.googleapis.com',
+    })))
+    expect(res.providers[0]!.apiFormat).toBe('gemini_native')
+  })
+})
 
-    it('其他无关字段被忽略,只读 windsurf.ai.*', async () => {
-      const res = await parseWindsurf(
-        makeSettings({
-          'windsurf.ai.apiKey': 'sk-real',
-          'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
-          'cursor.ai.apiKey': 'ignored',
-          'editor.fontSize': 14,
-        }),
-      )
-      expect(res.providers).toHaveLength(1)
-      expect(res.providers[0]!.apiKey).toBe('sk-real')
-    })
+describe('windsurf parser — apiFormat model 兜底', () => {
+  it('未知 URL + model=claude- → anthropic_messages', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://proxy.example.com',
+      'windsurf.ai.model': 'claude-3-sonnet',
+    })))
+    expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
+  })
+
+  it('未知 URL + model=gemini- → gemini_native', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://proxy.example.com',
+      'windsurf.ai.model': 'gemini-1.5-flash',
+    })))
+    expect(res.providers[0]!.apiFormat).toBe('gemini_native')
+  })
+
+  it('URL 优先于 model(anthropic.com + gpt-4 → anthropic_messages)', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.anthropic.com',
+      'windsurf.ai.model': 'gpt-4',
+    })))
+    expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
+  })
+})
+
+describe('windsurf parser — providerCode 推断(model 前缀优先)', () => {
+  it('model=claude-3-opus → providerCode=anthropic', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
+      'windsurf.ai.model': 'claude-3-opus',
+    })))
+    expect(res.providers[0]!.providerCode).toBe('anthropic')
+  })
+
+  it('model=deepseek-coder → providerCode=deepseek', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.deepseek.com',
+      'windsurf.ai.model': 'deepseek-coder',
+    })))
+    expect(res.providers[0]!.providerCode).toBe('deepseek')
+  })
+
+  it('model=glm-4 → providerCode=zhipu', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://open.bigmodel.cn/api/paas/v4',
+      'windsurf.ai.model': 'glm-4',
+    })))
+    expect(res.providers[0]!.providerCode).toBe('zhipu')
+  })
+
+  it('model=qwen-max → providerCode=alibaba', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://dashscope.aliyuncs.com/v1',
+      'windsurf.ai.model': 'qwen-max',
+    })))
+    expect(res.providers[0]!.providerCode).toBe('alibaba')
+  })
+
+  it('model=ernie-4.0 → providerCode=baidu', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://qianfan.baidubce.com/v2',
+      'windsurf.ai.model': 'ernie-4.0',
+    })))
+    expect(res.providers[0]!.providerCode).toBe('baidu')
+  })
+
+  it('model=doubao-pro → providerCode=bytedance', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://ark.cn-beijing.volces.com/api/v3',
+      'windsurf.ai.model': 'doubao-pro',
+    })))
+    expect(res.providers[0]!.providerCode).toBe('bytedance')
+  })
+
+  it('无 model + api.moonshot.cn URL → providerCode=moonshot', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.moonshot.cn/v1',
+    })))
+    expect(res.providers[0]!.providerCode).toBe('moonshot')
+  })
+
+  it('无 model + api.openai.com → providerCode=openai', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
+    })))
+    expect(res.providers[0]!.providerCode).toBe('openai')
+  })
+
+  it('localhost URL → providerCode=local', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'http://localhost:8080/v1',
+    })))
+    expect(res.providers[0]!.providerCode).toBe('local')
+  })
+
+  it('openrouter URL → providerCode=openrouter', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-or-xxx',
+      'windsurf.ai.baseUrl': 'https://openrouter.ai/api/v1',
+    })))
+    expect(res.providers[0]!.providerCode).toBe('openrouter')
+  })
+
+  it('groq URL → providerCode=groq', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'gsk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.groq.com/openai/v1',
+    })))
+    expect(res.providers[0]!.providerCode).toBe('groq')
+  })
+})
+
+describe('windsurf parser — 空值与异常边界', () => {
+  it('空字符串输入抛异常', async () => {
+    await expect(parseWindsurf(makeText(''))).rejects.toThrow()
+  })
+
+  it('纯空白输入抛异常', async () => {
+    await expect(parseWindsurf(makeText('  \n  '))).rejects.toThrow()
+  })
+
+  it('非 JSON 输入抛异常', async () => {
+    await expect(parseWindsurf(makeText('{invalid'))).rejects.toThrow()
+  })
+
+  it('空对象 → warning(无 apiKey)', async () => {
+    const res = await parseWindsurf(makeText('{}'))
+    expect(res.providers).toHaveLength(0)
+    expect(res.globalWarnings[0]).toContain('windsurf.ai.apiKey')
+  })
+
+  it('有 apiKey 无 baseUrl → warning(无默认端点)', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+    })))
+    expect(res.providers).toHaveLength(0)
+    expect(res.globalWarnings[0]).toContain('windsurf.ai.baseUrl')
+  })
+
+  it('apiKey 为空字符串 → warning', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': '',
+      'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
+    })))
+    expect(res.providers).toHaveLength(0)
+  })
+
+  it('apiKey 为 null → warning', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': null,
+      'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
+    })))
+    expect(res.providers).toHaveLength(0)
+  })
+
+  it('apiKey 为数字 → warning', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 12345,
+      'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
+    })))
+    expect(res.providers).toHaveLength(0)
+  })
+
+  it('baseUrl 为空字符串 → warning', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': '',
+    })))
+    expect(res.providers).toHaveLength(0)
+    expect(res.globalWarnings[0]).toContain('windsurf.ai.baseUrl')
+  })
+})
+
+describe('windsurf parser — JSON 格式变体', () => {
+  it('嵌套 JSON 不读取(windsurf.ai.* 必须扁平)', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      windsurf: { ai: { apiKey: 'sk-xxx', baseUrl: 'https://api.openai.com/v1' } },
+    })))
+    expect(res.providers).toHaveLength(0)
+  })
+
+  it('其他 VSCode 字段不影响提取', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'editor.fontSize': 14,
+      'workbench.colorTheme': 'dark',
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
+      'windsurf.ai.model': 'gpt-4o',
+    })))
+    expect(res.providers).toHaveLength(1)
+    expect(res.providers[0]!.modelIdForTest).toBe('gpt-4o')
+  })
+
+  it('model 为 null → modelIdForTest undefined', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
+      'windsurf.ai.model': null,
+    })))
+    expect(res.providers[0]!.modelIdForTest).toBeUndefined()
+  })
+
+  it('model 为空字符串 → modelIdForTest undefined', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
+      'windsurf.ai.model': '',
+    })))
+    expect(res.providers[0]!.modelIdForTest).toBeUndefined()
+  })
+
+  it('model 为数字 → modelIdForTest undefined', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
+      'windsurf.ai.model': 99,
+    })))
+    expect(res.providers[0]!.modelIdForTest).toBeUndefined()
+  })
+})
+
+describe('windsurf parser — meta + name 验证', () => {
+  it('meta.category = Windsurf', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
+    })))
+    expect(res.providers[0]!.meta.category).toBe('Windsurf')
+  })
+
+  it('meta.websiteUrl = https://codeium.com', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
+    })))
+    expect(res.providers[0]!.meta.websiteUrl).toBe('https://codeium.com')
+  })
+
+  it('有 model 时 meta.models = [model]', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.anthropic.com',
+      'windsurf.ai.model': 'claude-3-opus',
+    })))
+    expect(res.providers[0]!.meta.models).toEqual(['claude-3-opus'])
+  })
+
+  it('sourceId = windsurf-default', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
+    })))
+    expect(res.providers[0]!.sourceId).toBe('windsurf-default')
+  })
+
+  it('isCurrent = true', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
+    })))
+    expect(res.providers[0]!.isCurrent).toBe(true)
+  })
+
+  it('name = Windsurf(XSS 清洗后)', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'windsurf.ai.apiKey': 'sk-xxx',
+      'windsurf.ai.baseUrl': 'https://api.openai.com/v1',
+    })))
+    expect(res.providers[0]!.name).toBe('Windsurf')
+  })
+})
+
+describe('windsurf parser — 跨平台不搞混', () => {
+  it('不读取 cursor.ai.* 字段', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'cursor.ai.apiKey': 'sk-xxx',
+      'cursor.ai.baseUrl': 'https://api.openai.com/v1',
+    })))
+    expect(res.providers).toHaveLength(0)
+  })
+
+  it('不读取 cline.* 字段', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'cline.apiKey': 'sk-xxx',
+      'cline.openAiBaseUrl': 'https://api.openai.com/v1',
+    })))
+    expect(res.providers).toHaveLength(0)
+  })
+
+  it('同时含 cursor + windsurf 字段,只解析 windsurf', async () => {
+    const res = await parseWindsurf(makeText(makeWindsurfJson({
+      'cursor.ai.apiKey': 'sk-cursor',
+      'cursor.ai.baseUrl': 'https://api.openai.com/v1',
+      'windsurf.ai.apiKey': 'sk-windsurf',
+      'windsurf.ai.baseUrl': 'https://api.anthropic.com',
+    })))
+    expect(res.providers).toHaveLength(1)
+    expect(res.providers[0]!.apiKey).toBe('sk-windsurf')
+    expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
   })
 })
