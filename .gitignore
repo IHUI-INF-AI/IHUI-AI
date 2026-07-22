@@ -142,6 +142,69 @@ report.json
 _tmp-*
 _tmp_*.html
 
+# Agent 调试日志/审计产物(2026-07-22 立:apps/web + 根目录散落 150+ .log 文件回潮)
+*.log
+.dev-server*.log
+.dev.log
+.dev-server.err.log
+TEMPmcp-verify.log
+
+# Agent 临时脚本(__ 前缀 + 数字命名无扩展名)
+__*
+check_guard_final*.log
+deep_audit_round*.log
+stub_audit_round*.log
+zhs_full_audit_round*.log
+m63_audit_round*.log
+project_plan_audit_round*.log
+typecheck-api*.log
+typecheck_r76.log
+api-dev*.log
+api-test*.log
+api-tests.log
+api-build.log
+api-recovery.log
+api-sso-fix.log
+api-final*.log
+api-err.log
+test-output*.log
+final-verify.log
+dev-startup.log
+immut-test*.log
+lint-output.log
+build-output.log
+web-dev.log
+users-auth-test.log
+verify-admin.log
+cleanup.log
+db-build.log
+push.log
+migrate2.log
+sso-test-out.log
+tmp-curl.log
+tmp-i18n-check*.log
+tmp-ls-remote.log
+tmp-net.log
+tmp-push*.log
+
+# Agent 临时脚本(.cjs / .ps1 / .bat / .mjs 数字后缀命名)
+fix-ja*.cjs
+fix-ko*.cjs
+check_test.cjs
+scan-empties.cjs
+list-unfound.cjs
+tmp-i18n-check*.cjs
+_fix.cjs
+_replace_refs.cjs
+__count_g_routes.ps1
+__extract_d_endpoints.ps1
+__runtypecheck.bat
+__gate_*.mjs
+__git_*.mjs
+__run_*.mjs
+__write_audit.mjs
+__gate_result.txt
+
 # ============================================================================
 # Trae IDE shell integration 残留(自动注入的怪异文件名,防回潮)
 # ============================================================================
