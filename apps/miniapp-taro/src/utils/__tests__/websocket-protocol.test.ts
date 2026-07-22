@@ -153,7 +153,7 @@ describe('taroWebSocketFactory — Taro WebSocket 适配器', () => {
   it('集成:createNotificationClient 注入 taroWebSocketFactory 后 connect,onOpen 回调触发', async () => {
     const onOpen = vi.fn()
     const client = createNotificationClient(
-      { baseUrl: 'http://localhost:3000/api', tokenProvider: () => 'test-token' },
+      { baseUrl: 'http://localhost:3001/api', tokenProvider: () => 'test-token' },
       { onOpen },
       { webSocketFactory: taroWebSocketFactory },
     )

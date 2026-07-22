@@ -1,5 +1,5 @@
 /**
- * API 接口定义 - 对接新架构后端 http://localhost:3000/api
+ * API 接口定义 - 对接新架构后端 http://localhost:3001/api
  */
 import Taro from '@tarojs/taro'
 import { get, post, put, patch, del, BASE_URL } from '../utils/request'

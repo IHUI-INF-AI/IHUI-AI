@@ -74,7 +74,7 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
   test('API 登录:POST /api/auth/login 返回 accessToken', async ({ request, baseURL }) => {
     const result = await apiLogin(
       request,
-      baseURL ?? 'http://localhost:3000',
+      baseURL ?? 'http://localhost:3001',
       process.env.E2E_USER_EMAIL ?? 'test@ihui.ai',
       process.env.E2E_USER_PASSWORD ?? 'Test@123456',
     )
@@ -122,7 +122,7 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
   }) => {
     const result = await apiLogin(
       request,
-      baseURL ?? 'http://localhost:3000',
+      baseURL ?? 'http://localhost:3001',
       process.env.E2E_USER_EMAIL ?? 'test@ihui.ai',
       process.env.E2E_USER_PASSWORD ?? 'Test@123456',
     )

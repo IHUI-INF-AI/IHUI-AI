@@ -26,7 +26,7 @@ import {
 
 // ===== Constants =====
 
-const BRIDGE_BASE_URL = 'http://127.0.0.1:3001/api/agent-control'
+const BRIDGE_BASE_URL = 'http://127.0.0.1:3002/api/agent-control'
 const CAPABILITY_ALARM_NAME = 'ihui-agent-capability'
 const CAPABILITY_INTERVAL_MIN = 1
 const TOKEN_RETRY_MS = 5000
