@@ -10,6 +10,8 @@ import type {
   TerminalCreateResponse,
   TerminalListResponse,
   TerminalResizeInput,
+  TerminalRenameInput,
+  TerminalRenameResponse,
   TerminalWSServerMessage,
 } from '@ihui/types'
 
@@ -21,6 +23,7 @@ import type {
  *   refreshSessions()    → GET  /terminal/sessions
  *   closeSession(id)     → DELETE /terminal/sessions/:id
  *   resizeSession(id,...)→ POST /terminal/sessions/:id/resize
+ *   renameSession(id,...)→ PUT  /terminal/sessions/:id/rename
  *
  * WebSocket:
  *   connectWS(sessionId) → ws(s)://host/ws/terminal/:sessionId?token=xxx
@@ -57,6 +60,7 @@ export function useTerminalSession() {
     setActive,
     setLoading,
     setError,
+    renameSession: renameSessionInStore,
   } = useTerminalStore()
 
   const activeSession = React.useMemo(
@@ -141,6 +145,38 @@ export function useTerminalSession() {
     [],
   )
 
+  /** 重命名终端会话(乐观更新 store,REST 失败回滚) */
+  const renameSession = React.useCallback(
+    async (sessionId: string, name: string): Promise<boolean> => {
+      const trimmed = name.trim()
+      // 乐观更新 store
+      const prev = useTerminalStore
+        .getState()
+        .sessions.find((s) => s.id === sessionId)?.name
+      renameSessionInStore(sessionId, trimmed)
+      try {
+        const body: TerminalRenameInput = { name: trimmed }
+        const result = await fetchApi<TerminalRenameResponse>(
+          `/terminal/sessions/${sessionId}/rename`,
+          { method: 'PUT', body: JSON.stringify(body) },
+        )
+        if (!result.success) {
+          // 回滚
+          renameSessionInStore(sessionId, prev ?? '')
+          return false
+        }
+        // 以服务端返回为准
+        renameSessionInStore(sessionId, result.data.session.name ?? trimmed)
+        return true
+      } catch {
+        // 回滚
+        renameSessionInStore(sessionId, prev ?? '')
+        return false
+      }
+    },
+    [renameSessionInStore],
+  )
+
   /** 创建 WebSocket 连接(供 terminal-panel 组件使用) */
   const connectWS = React.useCallback(
     (sessionId: string, handlers: {
@@ -217,6 +253,7 @@ export function useTerminalSession() {
     refreshSessions,
     closeSession: closeSessionById,
     resizeSession,
+    renameSession,
     setActive,
     // WebSocket
     connectWS,
