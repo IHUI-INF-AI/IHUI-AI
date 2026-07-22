@@ -376,7 +376,9 @@
     "copyCode": "复制代码",
     "collapse": "折叠",
     "expand": "展开",
-    "breadcrumb": "面包屑导航"
+    "breadcrumb": "面包屑导航",
+    "showPassword": "显示密码",
+    "hidePassword": "隐藏密码"
   },
   "nav": {
     "title": "主导航",
@@ -595,6 +597,7 @@
     "noAccount": "还没有账号？",
     "registerNow": "立即注册",
     "forgotPassword": "忘记密码",
+    "rememberPassword": "记住密码",
     "forgotSubtitle": "重置您的密码",
     "registerTitle": "创建账号",
     "registerSubtitle": "注册一个新账号",
@@ -27944,6 +27947,185 @@
       "noText": "请输入文本内容",
       "defaultTitle": "未命名文档",
       "success": "入库成功,生成 {count} 个切片"
+    },
+    "ide": {
+      "activityBar": {
+        "files": "文件",
+        "search": "搜索",
+        "sourceControl": "源代码控制",
+        "debug": "调试",
+        "applications": "应用",
+        "settings": "设置"
+      },
+      "topBar": {
+        "editor": "编辑器",
+        "codeChanges": "代码变更",
+        "document": "文档",
+        "terminal": "终端",
+        "browser": "浏览器",
+        "agent": "智能体",
+        "settings": "设置",
+        "close": "关闭"
+      },
+      "viewSwitcher": {
+        "groupView": "视图",
+        "groupTools": "工具",
+        "groupSettings": "设置",
+        "searchPlaceholder": "搜索视图...",
+        "noMatch": "无匹配项"
+      },
+      "layout": {
+        "documentView": "文档视图",
+        "terminalView": "终端视图",
+        "browserView": "浏览器视图",
+        "figmaView": "Figma 视图",
+        "agentView": "智能体视图",
+        "mcpView": "MCP 视图",
+        "settingsView": "设置视图"
+      },
+      "fileExplorer": {
+        "tabFiles": "文件",
+        "tabOutline": "大纲",
+        "tabTimeline": "时间线",
+        "searchPlaceholder": "搜索文件",
+        "newFile": "新建文件",
+        "refresh": "刷新",
+        "noMatch": "无匹配文件",
+        "justNow": "刚刚",
+        "minutesAgo": "{count} 分钟前",
+        "hoursAgo": "{count} 小时前"
+      },
+      "fileTreeNode": {
+        "open": "打开",
+        "rename": "重命名",
+        "delete": "删除",
+        "copyPath": "复制路径"
+      },
+      "codeEditor": {
+        "findPlaceholder": "查找...",
+        "matchCount": "{count} 匹配",
+        "closeSearch": "关闭搜索",
+        "zoomOut": "缩小字号",
+        "zoomIn": "放大字号"
+      },
+      "editorEmpty": {
+        "title": "IHUI IDE 工作区",
+        "subtitle": "选择文件或从下方快捷操作开始",
+        "browseFiles": "浏览文件",
+        "viewChanges": "查看变更",
+        "settings": "设置",
+        "recentFiles": "最近打开",
+        "shortcuts": "快捷键",
+        "scOpenFile": "打开文件",
+        "scGlobalSearch": "全局搜索",
+        "scToggleSidebar": "切换侧栏",
+        "scToggleTerminal": "切换终端",
+        "scGotoLine": "跳转行号"
+      },
+      "editorTabBar": {
+        "closeTab": "关闭标签",
+        "unpin": "取消固定",
+        "pin": "固定标签",
+        "close": "关闭",
+        "closeOthers": "关闭其他",
+        "closeAll": "关闭全部",
+        "copyPath": "复制路径"
+      },
+      "diffViewer": {
+        "selectFile": "选择文件",
+        "selectToCompare": "选择文件查看差异",
+        "addPct": "{pct}% 新增",
+        "changeBlocks": "{count} 个变更块",
+        "wordLevel": "词级变更:"
+      },
+      "diffStats": {
+        "split": "对比",
+        "unified": "合并",
+        "fileCount": "{count} 个文件",
+        "filterAll": "全部",
+        "filterModified": "修改",
+        "filterAdded": "新增",
+        "filterDeleted": "删除",
+        "commit": "提交变更"
+      },
+      "diffFileList": {
+        "groupModified": "修改",
+        "groupAdded": "新增",
+        "groupDeleted": "删除",
+        "groupRenamed": "重命名",
+        "noMatch": "无匹配文件"
+      },
+      "searchPanel": {
+        "filterAll": "全部",
+        "searchPlaceholder": "搜索",
+        "replacePlaceholder": "替换",
+        "toggleReplace": "切换替换",
+        "caseSensitive": "区分大小写",
+        "wholeWord": "全词匹配",
+        "useRegex": "正则表达式",
+        "replace": "替换",
+        "replaceAll": "全部替换",
+        "resultSummary": "{matches} 个结果 · {files} 个文件",
+        "noResults": "未找到结果",
+        "recentSearches": "最近搜索",
+        "remove": "移除",
+        "inputHint": "输入关键词搜索"
+      },
+      "sourceControl": {
+        "commitPlaceholder": "提交信息",
+        "commit": "提交",
+        "changeStats": "变更统计",
+        "staged": "已暂存 ({count})",
+        "changes": "变更 ({count})",
+        "noChanges": "无变更",
+        "commitHistory": "提交历史",
+        "unstage": "取消暂存",
+        "stage": "暂存",
+        "refresh": "刷新",
+        "more": "更多"
+      },
+      "debug": {
+        "stateStopped": "未运行",
+        "stateRunning": "运行中",
+        "statePaused": "已暂停",
+        "start": "开始",
+        "pause": "暂停",
+        "stop": "停止",
+        "stepOver": "单步跳过",
+        "stepInto": "单步进入",
+        "stepOut": "单步跳出",
+        "restart": "重启",
+        "noSession": "尚未启动调试会话",
+        "variables": "变量",
+        "watch": "监视",
+        "watchPlaceholder": "添加监视表达式",
+        "add": "添加",
+        "delete": "删除",
+        "toggle": "切换",
+        "breakpoints": "断点",
+        "callStack": "调用栈",
+        "debugConsole": "调试控制台"
+      },
+      "applications": {
+        "title": "应用",
+        "newConfig": "新建配置",
+        "configNamePlaceholder": "配置名称",
+        "commandPlaceholder": "命令",
+        "cancel": "取消",
+        "add": "添加",
+        "launchConfigs": "启动配置",
+        "run": "运行",
+        "debug": "调试",
+        "recentRuns": "最近运行",
+        "typeTerminal": "终端"
+      },
+      "statusBar": {
+        "synced": "已同步",
+        "unsynced": "未同步",
+        "conflict": "有冲突",
+        "sync": "同步",
+        "toggleTheme": "切换主题"
+      }
     }
   }
 }
