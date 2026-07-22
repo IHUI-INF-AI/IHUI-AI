@@ -1,7 +1,7 @@
 /**
  * AI 组件群 - 从旧架构 Vue3 迁移至 React + shadcn/ui
  *
- * 核心组件：UnifiedAIPanel / MarkdownStream / DiffPreview / InlineDiffViewer
+ * 核心组件：MarkdownStream / DiffPreview / InlineDiffViewer
  * Agent 组件：AgentSwarmMonitor / BackgroundAgentsPanel / PermissionConfirmDialog / SubAgentActivityFeed
  * 语音组件：VoiceInput / VoiceRecord
  * 生成组件群：见 ./ai-generation
@@ -9,7 +9,6 @@
  */
 
 // 核心组件
-export { UnifiedAIPanel } from './unified-ai-panel'
 export { MarkdownStream } from './markdown-stream'
 export { DiffPreview } from './diff-preview'
 export { InlineDiffViewer } from './inline-diff-viewer'
