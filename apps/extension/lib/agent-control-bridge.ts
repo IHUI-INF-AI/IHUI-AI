@@ -9,6 +9,10 @@
  * 运行环境:background service worker(MV3)
  * WS 消息来源:sidepanel/popup 的 useNotificationWebSocket hook 收到后通过
  * chrome.runtime.sendMessage({ type: 'ws.notification', payload: WSNotification }) 广播
+ *
+ * 2026-07-22 P2 dedupe:删除重复的 executeAgentAction/forwardToContentScript,
+ * 改用 agent-control.ts 抽取的 executeAgentActionRequest(与 background.ts 共用同一实现)。
+ * 2026-07-22 P1 fix:BRIDGE_BASE_URL 改为从 ./config 派生,不再硬编码 127.0.0.1:8802。
  */
 import type {
   AgentActionRequest,
@@ -17,16 +21,11 @@ import type {
   BrowserControlActionType,
 } from '@ihui/types'
 import { getToken } from './token'
-import {
-  executeBackgroundAction,
-  isDomAction,
-  isBackgroundAction,
-  type DomActionResult,
-} from './agent-control'
+import { BRIDGE_BASE_URL } from './config'
+import { executeAgentActionRequest } from './agent-control'
 
 // ===== Constants =====
 
-const BRIDGE_BASE_URL = 'http://127.0.0.1:8802/api/agent-control'
 const CAPABILITY_ALARM_NAME = 'ihui-agent-capability'
 const CAPABILITY_INTERVAL_MIN = 1
 const TOKEN_RETRY_MS = 5000
@@ -98,65 +97,7 @@ async function reportCapability(): Promise<void> {
   }
 }
 
-// ===== Action execution =====
-
-async function executeAgentAction(req: AgentActionRequest): Promise<AgentActionResponse> {
-  const start = Date.now()
-  const timeout = req.timeout ?? 30000
-  const action = req.action as BrowserControlActionType
-
-  let result: DomActionResult
-  if (isDomAction(action)) {
-    // DOM actions 在 content script 执行,需转发
-    result = await forwardToContentScript(req)
-  } else if (isBackgroundAction(action)) {
-    // screenshot/navigate/switch_tab/close_tab 在 background 直接执行
-    result = await executeBackgroundAction(action, req.params, timeout)
-  } else {
-    result = { success: false, errorCode: 'UNSUPPORTED_ACTION', error: `unsupported action: ${action}` }
-  }
-
-  return {
-    requestId: req.requestId,
-    success: result.success,
-    error: result.error,
-    errorCode: result.errorCode,
-    data: result.data,
-    durationMs: Date.now() - start,
-    executedBy: 'extension',
-  }
-}
-
-async function forwardToContentScript(req: AgentActionRequest): Promise<DomActionResult> {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
-  const tabId = tabs[0]?.id
-  if (typeof tabId !== 'number') {
-    return { success: false, errorCode: 'TARGET_NOT_CONNECTED', error: 'no active tab' }
-  }
-  const timeoutMs = req.timeout ?? 30000
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      resolve({ success: false, errorCode: 'TIMEOUT', error: `content script no response after ${timeoutMs}ms` })
-    }, timeoutMs)
-    chrome.tabs.sendMessage(
-      tabId,
-      { type: 'agent.action.dom', payload: req },
-      (response: DomActionResult | undefined) => {
-        clearTimeout(timer)
-        const lastErr = chrome.runtime.lastError
-        if (lastErr) {
-          resolve({ success: false, errorCode: 'TARGET_NOT_CONNECTED', error: lastErr.message })
-          return
-        }
-        if (!response) {
-          resolve({ success: false, errorCode: 'EXECUTION_FAILED', error: 'no response from content script' })
-          return
-        }
-        resolve(response)
-      },
-    )
-  })
-}
+// ===== Result reporting (action 执行已抽到 ./agent-control.ts executeAgentActionRequest,2026-07-22 P2 dedupe) =====
 
 async function reportResult(response: AgentActionResponse): Promise<void> {
   if (!getToken()) return
@@ -211,7 +152,7 @@ function onRuntimeMessage(msg: unknown): void {
       _processedIds.add(id)
     }
   }
-  void executeAgentAction(req)
+  void executeAgentActionRequest(req)
     .then(reportResult)
     .catch((err) => {
       console.warn('[IHUI AI] agent-control bridge: action failed:', err)

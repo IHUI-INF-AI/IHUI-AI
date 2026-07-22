@@ -13,8 +13,7 @@ import { initApi, getRefreshToken, getToken, clearAllTokens } from '../lib/token
 import { doRefresh, startAutoRefresh, scheduleRefreshAlarm } from '../lib/token-utils'
 import type { ExtMessage, ExtResponse, ApiProxyPayload } from '../lib/message-router'
 import { REFRESH_ALARM_NAME, API_BASE_URL } from '../lib/config'
-import type { AgentActionRequest, AgentActionResponse, BrowserControlActionType } from '@ihui/types'
-import { executeBackgroundAction, isDomAction, isBackgroundAction, type DomActionResult } from '../lib/agent-control'
+import { executeAgentActionRequest } from '../lib/agent-control'
 import { initAgentControlBridge } from '../lib/agent-control-bridge'
 
 // API 代理:background context 通过 fetch 直连 API(走 @ihui/api-client 的 fetchApi)。
@@ -183,63 +182,8 @@ async function handleSidePanelOpen(payload: { tabId?: number }): Promise<{ opene
   return { opened: true }
 }
 
-async function handleAgentAction(req: AgentActionRequest): Promise<AgentActionResponse> {
-  const start = Date.now()
-  const timeout = req.timeout ?? 30000
-  const action = req.action as BrowserControlActionType
-
-  let result: DomActionResult
-  if (isDomAction(action)) {
-    // click/type/scroll/extract/wait/attr/hover/select → forward to content script
-    result = await forwardAgentToContent(req)
-  } else if (isBackgroundAction(action)) {
-    // screenshot/navigate/switch_tab/close_tab → execute in background
-    result = await executeBackgroundAction(action, req.params, timeout)
-  } else {
-    result = { success: false, errorCode: 'UNSUPPORTED_ACTION', error: `unsupported action: ${action}` }
-  }
-
-  return {
-    requestId: req.requestId,
-    success: result.success,
-    error: result.error,
-    errorCode: result.errorCode,
-    data: result.data,
-    durationMs: Date.now() - start,
-    executedBy: 'extension',
-  }
-}
-
-async function forwardAgentToContent(req: AgentActionRequest): Promise<DomActionResult> {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
-  const tabId = tabs[0]?.id
-  if (typeof tabId !== 'number') {
-    return { success: false, errorCode: 'TARGET_NOT_CONNECTED', error: 'no active tab' }
-  }
-  const timeoutMs = req.timeout ?? 30000
-  return new Promise((resolve) => {
-    const timer = setTimeout(() => {
-      resolve({ success: false, errorCode: 'TIMEOUT', error: `content script no response after ${timeoutMs}ms` })
-    }, timeoutMs)
-    chrome.tabs.sendMessage(
-      tabId,
-      { type: 'agent.action.dom', payload: req },
-      (response: DomActionResult | undefined) => {
-        clearTimeout(timer)
-        const lastErr = chrome.runtime.lastError
-        if (lastErr) {
-          resolve({ success: false, errorCode: 'TARGET_NOT_CONNECTED', error: lastErr.message })
-          return
-        }
-        if (!response) {
-          resolve({ success: false, errorCode: 'EXECUTION_FAILED', error: 'no response from content script' })
-          return
-        }
-        resolve(response)
-      },
-    )
-  })
-}
+// 2026-07-22 P2 dedupe:handleAgentAction / forwardAgentToContent 已删除,
+// 改用 agent-control.ts 的 executeAgentActionRequest(与 agent-control-bridge.ts 共用同一实现)。
 
 async function routeMessage(msg: ExtMessage): Promise<ExtResponse> {
   try {
@@ -281,7 +225,9 @@ async function routeMessage(msg: ExtMessage): Promise<ExtResponse> {
         return reply(msg.requestId, { broadcast: true })
       }
       case 'agent.action': {
-        const data = await handleAgentAction(msg.payload)
+        // 2026-07-22 P2 dedupe:改用 agent-control.ts 的 executeAgentActionRequest
+        // (与 agent-control-bridge.ts 共用同一实现,消除重复)
+        const data = await executeAgentActionRequest(msg.payload)
         return reply(msg.requestId, data)
       }
       default: {
