@@ -55,8 +55,8 @@ const nextConfig: NextConfig = {
     return [...vueToNextRedirects]
   },
   async rewrites() {
-    const apiUrl = process.env.API_URL ?? 'http://localhost:3002'
-    const aiServiceUrl = process.env.AI_SERVICE_URL ?? 'http://localhost:3003'
+    const apiUrl = process.env.API_URL ?? 'http://localhost:3001'
+    const aiServiceUrl = process.env.AI_SERVICE_URL ?? 'http://localhost:8000'
     return [
       // AI 服务路由优先匹配,转发到 FastAPI(端口 8000)
       { source: '/api/llm/:path*', destination: `${aiServiceUrl}/api/llm/:path*` },
@@ -90,11 +90,16 @@ const nextConfig: NextConfig = {
           // 2026-07-21 安全审计加固:添加 Content Security Policy
           // 默认 self,脚本/样式允许 inline(Next.js + Tailwind 必需),
           // connect 允许 aizhs.top API 域名,frame 限制为同源 + 第三方 OAuth
+          // 2026-07-22 修复:添加 4 平台扫码登录 SDK CDN + iframe 域名白名单
+          //   - 微信: res.wx.qq.com(SDK) + open.weixin.qq.com(iframe)
+          //   - 企业微信: wwcdn.weixin.qq.com(SDK) + open.work.weixin.qq.com(iframe)
+          //   - 钉钉: g.alicdn.com(SDK) + login.dingtalk.com(iframe)
+          //   - 飞书: lf-package-cn.feishucdn.com(SDK) + accounts.feishu.cn(iframe)
           {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://res.wx.qq.com https://wwcdn.weixin.qq.com https://g.alicdn.com https://lf-package-cn.feishucdn.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
@@ -104,7 +109,7 @@ const nextConfig: NextConfig = {
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
-              "frame-src 'self' https://*.aizhs.top",
+              "frame-src 'self' https://*.aizhs.top https://open.weixin.qq.com https://open.work.weixin.qq.com https://login.dingtalk.com https://accounts.feishu.cn https://passport.feishu.cn",
             ].join('; '),
           },
         ],
