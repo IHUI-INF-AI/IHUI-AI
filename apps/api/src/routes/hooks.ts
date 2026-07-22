@@ -3,7 +3,7 @@
  *
  * 端点清单(全部 JWT 鉴权):
  *  1. GET    /hooks                       — 列出全部 Hook(可选 ?event=)
- *  2. POST   /hooks                       — 创建 Hook
+ *  2. POST   /hooks                       — 创建 Hook(支持 depends_on/schedule)
  *  3. GET    /hooks/:id                   — 获取详情
  *  4. PATCH  /hooks/:id                   — 更新
  *  5. DELETE /hooks/:id                   — 删除
@@ -13,6 +13,14 @@
  *  9. GET    /hooks/logs                  — 查询全部日志(支持过滤)
  * 10. POST   /hooks/batch/toggle          — 批量启用/禁用(2026-07-22 立)
  * 11. GET    /hooks/stats                 — Hook 执行统计(2026-07-22 立)
+ * 12. GET    /hooks/dag                   — DAG 可视化(?event=xxx,2026-07-22 立)
+ * 13. GET    /hooks/health                — 所有 Hook 健康状态(2026-07-22 立)
+ * 14. POST   /hooks/:id/replay            — 重放指定日志(2026-07-22 立)
+ * 15. POST   /hooks/:id/replay-all        — 批量重放时间范围内触发(2026-07-22 立)
+ * 16. GET    /hooks/:id/dlq               — 查询 DLQ 列表(2026-07-22 立)
+ * 17. POST   /hooks/:id/dlq/:entry_id/reprocess — 从 DLQ 重新处理(2026-07-22 立)
+ * 18. DELETE /hooks/:id/dlq               — 清空 DLQ(2026-07-22 立)
+ * 19. POST   /hooks/:id/health-check      — 手动触发健康检查(2026-07-22 立)
  *
  * 路径前缀:在 server.ts 用 prefix:'/api' 注册 → /api/hooks/*
  * 全部转发到 ai-service /api/hooks/*,自身不存状态。
@@ -24,15 +32,23 @@ import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import {
   batchToggleHooks,
+  clearHookDlq,
   createHook,
   deleteHook,
   getHook,
+  getHookDag,
   getHookStats,
+  getHooksHealth,
   listAllHookLogs,
+  listHookDlq,
   listHookLogs,
   listHooks,
+  replayAllHookLogs,
+  replayHookLog,
+  reprocessDlqEntry,
   testHook,
   toggleHook,
+  triggerHookHealthCheck,
   updateHook,
 } from '../services/hooks-service.js'
 import type { HookLogsFilter } from '../services/hooks-service.js'
@@ -45,6 +61,7 @@ const HOOK_EVENTS_ENUM = z.enum([
   'session.start',
   'session.end',
   'error',
+  'schedule.trigger', // cron 定时触发(2026-07-22 立)
 ])
 
 const HOOK_ACTION_TYPES_ENUM = z.enum(['webhook', 'script', 'log', 'notify'])
@@ -82,6 +99,10 @@ const createHookSchema = z.object({
   condition: z.string().max(8192).nullable().optional(),
   action: actionSchema,
   enabled: z.boolean().optional(),
+  // DAG 依赖(2026-07-22 立):依赖的其他 hook_id 列表,被依赖的先执行
+  depends_on: z.array(z.string().min(1).max(64)).max(50).optional(),
+  // cron 定时表达式(2026-07-22 立):如 "0 */6 * * *" 每 6 小时
+  schedule: z.string().max(120).nullable().optional(),
 })
 
 const updateHookSchema = z.object({
@@ -91,6 +112,8 @@ const updateHookSchema = z.object({
   condition: z.string().max(8192).nullable().optional(),
   action: actionSchema.optional(),
   enabled: z.boolean().optional(),
+  depends_on: z.array(z.string().min(1).max(64)).max(50).optional(),
+  schedule: z.string().max(120).nullable().optional(),
 })
 
 const toggleHookSchema = z.object({
@@ -100,6 +123,11 @@ const toggleHookSchema = z.object({
 const testHookSchema = z.object({
   event: HOOK_EVENTS_ENUM,
   context: z.record(z.string(), z.unknown()).default({}),
+})
+
+/** 重放日志请求体(2026-07-22 立) */
+const replayLogSchema = z.object({
+  logId: z.string().min(1).max(64),
 })
 
 /** 批量启用/禁用请求体(2026-07-22 立) */
@@ -207,6 +235,28 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     const hookId = (request.query as { hookId?: string }).hookId
     const stats = await getHookStats(request, hookId)
     return reply.send(success(stats))
+  })
+
+  // 13. GET /hooks/dag — DAG 可视化(2026-07-22 立)
+  //     必须在 /:id 之前注册,否则 'dag' 被当作 hook_id
+  server.get('/hooks/dag', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const event = (request.query as { event?: string }).event
+    if (!event) {
+      return reply.status(400).send(error(400, '缺少 event 参数'))
+    }
+    const dag = await getHookDag(request, event)
+    return reply.send(success(dag))
+  })
+
+  // 14. GET /hooks/health — 所有 Hook 健康状态(2026-07-22 立)
+  //     必须在 /:id 之前注册,否则 'health' 被当作 hook_id
+  server.get('/hooks/health', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const health = await getHooksHealth(request)
+    return reply.send(success(health))
   })
 
   // 3. GET /hooks/:id — 详情
@@ -320,6 +370,97 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     const filter = parseLogsFilter(query)
     const data = await listHookLogs(request, params.data.id, limit, filter)
     return reply.send(success(data))
+  })
+
+  // 15. POST /hooks/:id/replay — 重放指定日志(2026-07-22 立)
+  server.post('/hooks/:id/replay', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const params = idParamSchema.safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, '无效的 Hook ID'))
+    }
+    const parsed = replayLogSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const log = await replayHookLog(request, params.data.id, parsed.data.logId)
+    if (log === null) {
+      return reply.status(404).send(error(404, '日志不存在或服务不可用'))
+    }
+    return reply.send(success(log))
+  })
+
+  // 16. POST /hooks/:id/replay-all — 批量重放时间范围内触发(2026-07-22 立)
+  server.post('/hooks/:id/replay-all', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const params = idParamSchema.safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, '无效的 Hook ID'))
+    }
+    const query = request.query as { since?: string; until?: string }
+    const logs = await replayAllHookLogs(request, params.data.id, query.since, query.until)
+    return reply.send(success({ logs, count: logs.length }))
+  })
+
+  // 17. GET /hooks/:id/dlq — 查询 DLQ 列表(2026-07-22 立)
+  server.get('/hooks/:id/dlq', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const params = idParamSchema.safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, '无效的 Hook ID'))
+    }
+    const data = await listHookDlq(request, params.data.id)
+    return reply.send(success(data))
+  })
+
+  // 18. POST /hooks/:id/dlq/:entry_id/reprocess — 从 DLQ 重新处理(2026-07-22 立)
+  server.post('/hooks/:id/dlq/:entry_id/reprocess', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const params = z.object({
+      id: z.string().min(1),
+      entry_id: z.string().min(1),
+    }).safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, '无效的参数'))
+    }
+    const log = await reprocessDlqEntry(request, params.data.id, params.data.entry_id)
+    if (log === null) {
+      return reply.status(404).send(error(404, 'DLQ 条目不存在或服务不可用'))
+    }
+    return reply.send(success(log))
+  })
+
+  // 19. DELETE /hooks/:id/dlq — 清空 DLQ(2026-07-22 立)
+  server.delete('/hooks/:id/dlq', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const params = idParamSchema.safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, '无效的 Hook ID'))
+    }
+    const cleared = await clearHookDlq(request, params.data.id)
+    return reply.send(success({ cleared, hookId: params.data.id }))
+  })
+
+  // 20. POST /hooks/:id/health-check — 手动触发健康检查(2026-07-22 立)
+  server.post('/hooks/:id/health-check', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const params = idParamSchema.safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, '无效的 Hook ID'))
+    }
+    const health = await triggerHookHealthCheck(request, params.data.id)
+    if (health === null) {
+      return reply.status(404).send(error(404, 'Hook 不存在或服务不可用'))
+    }
+    return reply.send(success(health))
   })
 }
 
