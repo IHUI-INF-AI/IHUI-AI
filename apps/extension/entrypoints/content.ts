@@ -113,22 +113,37 @@ function insertTranslation(_original: string, translated: string) {
   if (!sel || sel.rangeCount === 0) return
   const range = sel.getRangeAt(0)
   const doc = range.commonAncestorContainer.ownerDocument || document
-  const wrap = doc.createElement('span')
-  wrap.className = TX_CLASS
-  wrap.setAttribute('data-ihui', 'translation')
-  wrap.style.cssText = [
-    'display:block',
-    'margin:4px 0',
-    'padding:6px 10px',
-    'background:rgba(20,184,166,0.08)',
-    'color:#0f766e',
-    'border-left:2px solid #14b8a6',
-    'border-radius:4px',
-    'font-size:12px',
-    'line-height:1.5',
-  ].join(';')
-  wrap.textContent = `🌐 ${translated}`
-  range.insertNode(wrap)
+
+  const host = doc.createElement('span')
+  host.className = TX_CLASS
+  host.setAttribute('data-ihui', 'translation')
+  host.style.cssText = 'display:block;all:initial;'
+
+  const shadow = host.attachShadow({ mode: 'open' })
+  const style = doc.createElement('style')
+  style.textContent = `
+    :host { all: initial; }
+    .tx {
+      display: block;
+      margin: 4px 0;
+      padding: 6px 10px;
+      background: rgba(20, 184, 166, 0.08);
+      color: #0f766e;
+      border-left: 2px solid #14b8a6;
+      border-radius: 4px;
+      font-size: 12px;
+      line-height: 1.5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      box-sizing: border-box;
+    }
+  `
+  const inner = doc.createElement('span')
+  inner.className = 'tx'
+  inner.textContent = `🌐 ${translated}`
+  shadow.appendChild(style)
+  shadow.appendChild(inner)
+
+  range.insertNode(host)
   sel.removeAllRanges()
   hideToolbar()
 }
