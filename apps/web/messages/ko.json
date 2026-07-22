@@ -10743,8 +10743,12 @@
     "maxLevel": "최고 등급에 도달했습니다",
     "tab": {
       "tx": "거래 내역",
-      "lb": "랭킹"
+      "lb": "랭킹",
+      "redeem": "교환"
     },
+    "redeemEmpty": "교환 가능한 상품이 없습니다",
+    "pointsUnit": "{n} 포인트",
+    "redeemBtn": "지금 교환",
     "source": "출처",
     "amount": "변경",
     "balance": "잔액",
@@ -28503,6 +28507,10 @@
       "searchPlaceholder": "제목·요약 검색…",
       "searchEmpty": "일치하는 기사 없음, 다른 키워드로 시도",
       "trendBtn": "트렌드",
+      "trendAll": "전체 트렌드",
+      "trendRising": "상승",
+      "trendCooling": "하락",
+      "trendNew": "신규",
       "moreHint": "{shown}/{total}건 표시 중, 필터 조정으로 더 보기"
     },
     "hotRanking": {
