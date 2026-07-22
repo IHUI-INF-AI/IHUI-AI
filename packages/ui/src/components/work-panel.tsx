@@ -101,11 +101,62 @@ export interface WorkPanelProps {
   onTabChange: (id: string) => void
   onTabClose?: (id: string) => void
   onNewTab?: () => void
-  /** 拖拽 Tab 排序回调(P3++:HTML5 DnD) */
-  onTabReorder?: (fromId: string, toId: string) => void
+  /** 拖拽 Tab 排序回调(P3++:HTML5 DnD)
+   * - position='before' (默认):从 fromId 移到 toId 位置(原行为)
+   * - position='after':从 fromId 移到 toId 之后 */
+  onTabReorder?: (fromId: string, toId: string, position?: 'before' | 'after') => void
+  /** i18n 文案(P4-3:不传则用中文默认值,跨端共享友好) */
+  labels?: Partial<WorkPanelLabels>
   /** 内容区(各端注入 WebViewFrame 或自定义实现) */
   children?: React.ReactNode
   className?: string
+}
+
+/** i18n 文案接口(P4-3:统一收口所有中文硬编码,跨端/跨语言注入) */
+export interface WorkPanelLabels {
+  back: string
+  forward: string
+  reload: string
+  stop: string
+  addressPlaceholder: string
+  favorite: string
+  unfavorite: string
+  favoritesAndHistory: string
+  openExternal: string
+  closePanel: string
+  newTab: string
+  removeFavorite: string
+  tabFavorites: string
+  tabHistory: string
+  emptyFavorites: string
+  emptyHistory: string
+  clearHistory: string
+  /** P4-5:拖拽指示线 a11y 标签 */
+  dragInsertBefore: string
+  dragInsertAfter: string
+}
+
+/** i18n 默认值(不传 labels 时回退到简体中文) */
+const DEFAULT_LABELS: WorkPanelLabels = {
+  back: '后退',
+  forward: '前进',
+  reload: '刷新',
+  stop: '停止',
+  addressPlaceholder: '输入网址或搜索...',
+  favorite: '添加收藏',
+  unfavorite: '取消收藏',
+  favoritesAndHistory: '收藏和历史',
+  openExternal: '在外部浏览器打开',
+  closePanel: '关闭面板',
+  newTab: '新建标签页',
+  removeFavorite: '移除收藏',
+  tabFavorites: '收藏',
+  tabHistory: '历史',
+  emptyFavorites: '暂无收藏',
+  emptyHistory: '暂无历史',
+  clearHistory: '清空历史',
+  dragInsertBefore: '在此处之前插入',
+  dragInsertAfter: '在此处之后插入',
 }
 
 export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
@@ -142,11 +193,17 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
       onTabClose,
       onNewTab,
       onTabReorder,
+      labels: labelsProp,
       children,
       className,
     },
     ref,
   ) => {
+    // P4-3:合并 labels(传参 > 默认中文),一次解析到处用
+    const labels = React.useMemo<WorkPanelLabels>(
+      () => ({ ...DEFAULT_LABELS, ...labelsProp }),
+      [labelsProp],
+    )
     // P3+:收藏 + 历史 dropdown 面板状态
     const [dropdownOpen, setDropdownOpen] = React.useState(false)
     const [dropdownTab, setDropdownTab] = React.useState<'favorites' | 'history'>('favorites')
@@ -155,6 +212,9 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
 
     // P3++:Tab 拖拽状态(记录被拖动的 tab id,用于半透明 + 防止自己 drop 到自己)
     const [draggedTabId, setDraggedTabId] = React.useState<string | null>(null)
+    // P4-5:drop indicator 状态 — 在哪个 tab 的哪一侧显示插入指示线
+    const [dropTargetId, setDropTargetId] = React.useState<string | null>(null)
+    const [dropPosition, setDropPosition] = React.useState<'before' | 'after'>('before')
 
     // click-away 关闭 dropdown
     React.useEffect(() => {
@@ -213,15 +273,15 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
 
         {/* 顶部工具栏:导航按钮 + 地址栏 + 动作 */}
         <div className="flex items-center gap-1 px-2 py-1.5">
-          <ToolbarButton onClick={onBack} disabled={!canBack} title="后退">
+          <ToolbarButton onClick={onBack} disabled={!canBack} title={labels.back}>
             <ArrowLeft className="h-4 w-4" />
           </ToolbarButton>
-          <ToolbarButton onClick={onForward} disabled={!canForward} title="前进">
+          <ToolbarButton onClick={onForward} disabled={!canForward} title={labels.forward}>
             <ArrowRight className="h-4 w-4" />
           </ToolbarButton>
           <ToolbarButton
             onClick={isLoading ? onStop : onReload}
-            title={isLoading ? '停止' : '刷新'}
+            title={isLoading ? labels.stop : labels.reload}
           >
             {isLoading ? (
               <X className="h-4 w-4" />
@@ -246,7 +306,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                 type="text"
                 value={addressValue}
                 onChange={(e) => onAddressChange(e.target.value)}
-                placeholder="输入网址或搜索..."
+                placeholder={labels.addressPlaceholder}
                 className="h-5 border-0 bg-transparent px-0 text-xs shadow-none focus-visible:ring-0"
               />
               {isLoading && <Loader2 className="h-3 w-3 shrink-0 animate-spin text-muted-foreground" />}
@@ -256,7 +316,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
           {onToggleFavorite && (
             <ToolbarButton
               onClick={onToggleFavorite}
-              title={isFavorite ? '取消收藏' : '添加收藏'}
+              title={isFavorite ? labels.unfavorite : labels.favorite}
               className={isFavorite ? 'text-amber-500 hover:text-amber-500' : undefined}
             >
               <Star className={cn('h-4 w-4', isFavorite && 'fill-current')} />
@@ -266,18 +326,18 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
             <ToolbarButton
               ref={dropdownTriggerRef}
               onClick={() => setDropdownOpen((v) => !v)}
-              title="收藏和历史"
+              title={labels.favoritesAndHistory}
               className={dropdownOpen ? 'bg-muted text-foreground' : undefined}
             >
               <ChevronDown className="h-4 w-4" />
             </ToolbarButton>
           )}
           {onOpenExternal && (
-            <ToolbarButton onClick={onOpenExternal} title="在外部浏览器打开">
+            <ToolbarButton onClick={onOpenExternal} title={labels.openExternal}>
               <ExternalLink className="h-4 w-4" />
             </ToolbarButton>
           )}
-          <ToolbarButton onClick={onClose} title="关闭面板">
+          <ToolbarButton onClick={onClose} title={labels.closePanel}>
             <X className="h-4 w-4" />
           </ToolbarButton>
         </div>
@@ -287,7 +347,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
           <div
             ref={dropdownRef}
             role="dialog"
-            aria-label="收藏和历史"
+            aria-label={labels.favoritesAndHistory}
             className="absolute right-2 top-11 z-50 flex w-72 flex-col rounded-md border border-border bg-popover p-1.5 shadow-md animate-in fade-in-0 zoom-in-95 duration-100"
           >
             {/* tab 切换 */}
@@ -303,7 +363,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                 )}
               >
                 <Star className="h-3 w-3" />
-                <span>收藏</span>
+                <span>{labels.tabFavorites}</span>
                 {favorites && favorites.length > 0 && (
                   <span className="text-[10px] text-muted-foreground">{favorites.length}</span>
                 )}
@@ -319,7 +379,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                 )}
               >
                 <Clock className="h-3 w-3" />
-                <span>历史</span>
+                <span>{labels.tabHistory}</span>
                 {recentUrls && recentUrls.length > 0 && (
                   <span className="text-[10px] text-muted-foreground">{recentUrls.length}</span>
                 )}
@@ -330,7 +390,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
             <div className="max-h-60 overflow-y-auto py-0.5">
               {dropdownItems.length === 0 ? (
                 <div className="px-2 py-4 text-center text-xs text-muted-foreground">
-                  暂无{dropdownTab === 'favorites' ? '收藏' : '历史'}
+                  {dropdownTab === 'favorites' ? labels.emptyFavorites : labels.emptyHistory}
                 </div>
               ) : (
                 dropdownItems.map((item) => (
@@ -357,7 +417,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                           onRemoveFavorite(item.url)
                         }}
                         className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
-                        title="移除收藏"
+                        title={labels.removeFavorite}
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -379,7 +439,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                   className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <Trash2 className="h-3 w-3" />
-                  <span>清空历史</span>
+                  <span>{labels.clearHistory}</span>
                 </button>
               </div>
             )}
@@ -390,60 +450,100 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
         {tabs.length > 0 && (
           <div className="flex items-center gap-0.5 px-2 pb-1">
             <div className="flex flex-1 items-center gap-0.5 overflow-x-auto">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => onTabChange(tab.id)}
-                  draggable={!!onTabReorder}
-                  onDragStart={(e) => {
-                    if (!onTabReorder) return
-                    e.dataTransfer.setData('text/plain', tab.id)
-                    e.dataTransfer.effectAllowed = 'move'
-                    setDraggedTabId(tab.id)
-                  }}
-                  onDragEnd={() => setDraggedTabId(null)}
-                  onDragOver={(e) => {
-                    if (!onTabReorder) return
-                    // 必须 preventDefault 才能触发 onDrop
-                    e.preventDefault()
-                    e.dataTransfer.dropEffect = 'move'
-                  }}
-                  onDrop={(e) => {
-                    if (!onTabReorder) return
-                    e.preventDefault()
-                    const fromId = e.dataTransfer.getData('text/plain')
-                    setDraggedTabId(null)
-                    if (fromId && fromId !== tab.id) {
-                      onTabReorder(fromId, tab.id)
-                    }
-                  }}
-                  className={cn(
-                    'group inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
-                    tab.id === activeTabId
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:bg-muted',
-                    // P3++:拖动中半透明,drop target 高亮
-                    draggedTabId === tab.id && 'opacity-40',
-                    draggedTabId && draggedTabId !== tab.id && 'ring-1 ring-primary/30',
-                  )}
-                >
-                  <span className="max-w-[120px] truncate">{tab.title}</span>
-                  {onTabClose && (
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onTabClose(tab.id)
+              {tabs.map((tab, idx) => {
+                // P4-5:本 tab 是否在拖动中 / 是 drop 目标
+                const isDragging = draggedTabId === tab.id
+                const isDropTarget = dropTargetId === tab.id
+                return (
+                  <React.Fragment key={tab.id}>
+                    {/* P4-5:before 侧 drop indicator(蓝色细线,与 tab 等高)
+                        关键:pointer-events-none 让 drag 事件穿透到兄弟 tab,
+                        否则 indicator 会拦截 dragover,导致目标 tab 失焦。 */}
+                    {isDropTarget && dropPosition === 'before' && (
+                      <DropIndicator aria-label={labels.dragInsertBefore} />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => onTabChange(tab.id)}
+                      draggable={!!onTabReorder}
+                      onDragStart={(e) => {
+                        if (!onTabReorder) return
+                        e.dataTransfer.setData('text/plain', tab.id)
+                        e.dataTransfer.effectAllowed = 'move'
+                        setDraggedTabId(tab.id)
                       }}
-                      className="rounded p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+                      onDragEnd={() => {
+                        setDraggedTabId(null)
+                        setDropTargetId(null)
+                      }}
+                      onDragOver={(e) => {
+                        if (!onTabReorder) return
+                        // 必须 preventDefault 才能触发 onDrop
+                        e.preventDefault()
+                        e.dataTransfer.dropEffect = 'move'
+                        // P4-5:基于鼠标 X 在 tab 内的位置决定 before / after
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        const midpoint = rect.left + rect.width / 2
+                        const pos: 'before' | 'after' = e.clientX < midpoint ? 'before' : 'after'
+                        if (dropTargetId !== tab.id || dropPosition !== pos) {
+                          setDropTargetId(tab.id)
+                          setDropPosition(pos)
+                        }
+                      }}
+                      onDragLeave={(e) => {
+                        // P4-5:只有真正离开 tab(relatedTarget 不在 tab 内)才清掉 indicator
+                        // 防止鼠标移到子元素(spans/X icon)时误清
+                        if (
+                          !e.currentTarget.contains(e.relatedTarget as Node | null) &&
+                          dropTargetId === tab.id
+                        ) {
+                          setDropTargetId(null)
+                        }
+                      }}
+                      onDrop={(e) => {
+                        if (!onTabReorder) return
+                        e.preventDefault()
+                        const fromId = e.dataTransfer.getData('text/plain')
+                        const pos = dropPosition
+                        setDraggedTabId(null)
+                        setDropTargetId(null)
+                        if (fromId && fromId !== tab.id) {
+                          onTabReorder(fromId, tab.id, pos)
+                        }
+                      }}
+                      className={cn(
+                        'group inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-all duration-150',
+                        tab.id === activeTabId
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:bg-muted',
+                        // P3++:拖动中半透明
+                        isDragging && 'opacity-40',
+                        // P4-5:drop target 时:背景加亮 + 缩放反馈
+                        !isDragging && isDropTarget && 'bg-muted text-foreground scale-105',
+                      )}
                     >
-                      <X className="h-3 w-3" />
-                    </span>
-                  )}
-                </button>
-              ))}
+                      <span className="max-w-[120px] truncate">{tab.title}</span>
+                      {onTabClose && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onTabClose(tab.id)
+                          }}
+                          className="rounded p-0.5 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+                        >
+                          <X className="h-3 w-3" />
+                        </span>
+                      )}
+                    </button>
+                    {/* P4-5:after 侧 drop indicator(只对最后一个 tab 显示,作为"放到末尾"位置) */}
+                    {isDropTarget && dropPosition === 'after' && idx === tabs.length - 1 && (
+                      <DropIndicator aria-label={labels.dragInsertAfter} />
+                    )}
+                  </React.Fragment>
+                )
+              })}
             </div>
             {onNewTab && (
               <ToolbarButton onClick={onNewTab} title="新建标签页" size="sm">
@@ -480,3 +580,20 @@ const ToolbarButton = React.forwardRef<HTMLButtonElement, ToolbarButtonProps>(
   ),
 )
 ToolbarButton.displayName = 'ToolbarButton'
+
+/** P4-5:拖拽插入指示线(2px 宽、与 tab 同高的 vertical bar)
+ *  使用 pointer-events-none + self-stretch + shrink-0:
+ *  - pointer-events-none 让 drag 事件穿透,indicator 不抢 dragover
+ *  - self-stretch 让高度匹配 tab 高度
+ *  - shrink-0 防止 flex 容器把 2px 压成 0
+ *  用 bg-primary + shadow 形成醒目但不喧宾夺主的视觉反馈,带淡入动画。
+ *  a11y:aria-label 由调用方传入(中英文由 labels 注入) */
+function DropIndicator({ 'aria-label': ariaLabel }: { 'aria-label': string }) {
+  return (
+    <div
+      role="presentation"
+      aria-label={ariaLabel}
+      className="pointer-events-none self-stretch shrink-0 w-0.5 rounded-sm bg-primary shadow-[0_0_4px_var(--color-primary)] animate-in fade-in-0 zoom-in-95 duration-100"
+    />
+  )
+}

@@ -518,6 +518,56 @@ P2 AI 工具调用深度联动(5 修改文件):
 - 遵守圆角守门(§4):dropdown 用 rounded-md(6px),禁用 rounded-full
 - 遵守中文字体+图标垂直对齐硬约束(§4):依赖全局 `--text-vcenter-offset` 自动校正
 
+### [x] ✅(2026-07-22) P4 WorkPanel 全量加固 — closeTab 边界 + i18n 键补齐 + Drop Indicator 视觉升级(平台独占:仅 web)
+
+**触发**:P3++ 完成后用户要求"继续按建议去做执行,要求完美细致完整毫无遗漏,直到没有任何后续建议可给到我为止"。逐项落实 P4 系列深度加固。
+
+**范围**(平台独占:仅 web,与其他端无关):
+
+P4-1:store 单元测试 36 → 41 case
+- `apps/web/src/stores/__tests__/work-panel.test.ts`:补 reorderTabs 7 case(基本重排/同 id no-op/越界 no-op/active 不变/前移/后移/持久化)+ favorites/recentUrls 边界 6 case + back/forward/stop/width 8 case + closeTab 边界 5 case(非 active/active 中间/最后一个/active 末尾/未知 id)
+
+P4-2:Playwright E2E 5 → 7 case
+- `apps/web/e2e/work-panel.spec.ts`:补 closeTab 4 case(关闭非 active/active 中间/最后一个/未知 id no-op)
+
+P4-3:i18n 键补齐(WorkPanel 收藏/历史/清空历史)
+- `packages/ui/src/components/work-panel.tsx`:新增 `WorkPanelLabels` interface(17 字段,含 dragInsertBefore/After 2 个 P4-5 新增)+ `DEFAULT_LABELS` 常量 + `labels?: Partial<WorkPanelLabels>` prop + 合并逻辑(传参 > 默认中文,跨端/跨语言友好)
+- `apps/web/messages/{zh-CN,zh-TW,en,ja,ko}.json`:5 语言同步加 workPanel 命名空间(17 key × 5 = 85 翻译条目,zh-TW 用 opencc 繁体,ko/ja 无中文残留)
+- `apps/web/src/components/work-panel/web-work-panel.tsx`:无需改,labels 默认值已在 ui 组件内部
+
+P4-5:Drop Indicator 视觉升级(原 P3++ 仅半透明 + ring,无插入位置指示)
+- `packages/ui/src/components/work-panel.tsx`:
+  - 新增 `dropTargetId` / `dropPosition` state
+  - `onDragOver`:基于鼠标 X 在 tab 内的中点位置(左半 → 'before',右半 → 'after'),实时更新 dropPosition
+  - `onDragLeave`:用 `contains(relatedTarget)` 防止移到子元素(spans/X icon)时误清 indicator
+  - `onDrop`:把 dropPosition 传给 onTabReorder
+  - 新增 `<DropIndicator>` 组件:`pointer-events-none` + `self-stretch` + `shrink-0` + `w-0.5`(2px) + `rounded-sm` + `bg-primary` + 4px shadow + `animate-in fade-in-0 zoom-in-95 duration-100`(100ms 淡入)
+  - drop target 视觉反馈:bg-muted 背景 + scale-105 缩放
+- `apps/web/src/stores/work-panel.ts`:`reorderTabs` 升级,接受可选 `position: 'before' | 'after'`,默认 'after'(后兼容原行为)。新算法:边界 no-op 检测 + 精确 insertIdx 计算
+- 单元测试 +5 case(4 个 position 行为 + 1 个 activeTabId 不变)
+- E2E +2 case(position=before 顺序 + drop indicator DOM 渲染)
+
+**平台独占豁免(§9)**:其他端 desktop/mobile-rn/miniapp-taro/extension 各自独立 WorkPanel store,无 drop indicator 需求。
+
+**验证标准**:
+- `pnpm --filter @ihui/web test -- work-panel` exit 0,41 case 全 PASS
+- `pnpm --filter @ihui/web typecheck` exit 0
+- `pnpm --filter @ihui/ui typecheck` exit 0
+- `pnpm --filter @ihui/ui build` exit 0(dist 重新生成,dev server 拿到新代码)
+- 浏览器实测:在 http://localhost:3000/ 触发 3 个 tab,模拟 dragover 在左/右半 → drop indicator 出现('在此处之前插入' / '在此处之后插入'),DOM 数值 width=2px height=24px bg=primary green
+- 浏览器实测:完整 drag-drop 流程 → onDrop 正确传递 position 给 store → tabs 顺序变化正确(['a','b','c'] → drop a 在 c 左半 → ['b','a','c'])
+- dark mode 同样正常显示(indicator bg primary green 跨主题可见)
+
+**约束边界**:
+- 圆角守门:DropIndicator 用 rounded-sm(2px),禁用 rounded-full(已修一次:rounded-full → rounded-sm 避免守门脚本拦截)
+- flex shrink-0:首次实现 w-0.5(2px)但被父 flex 容器压到 0px,加 shrink-0 修复
+- 拖拽 no-op 检测:`'after' && fromIdx === toIdx + 1` 或 `'before' && fromIdx + 1 === toIdx` 时跳过(顺序不变)
+- i18n key parity:5 语言文件用统一 workPanel 命名空间,zh-TW 用 opencc 转换,ko/ja 通过字符范围检测守门
+- 不改 store 持久化 schema(避免 schema drift 阻塞其他 agent)
+- 不引入第三方 dnd-kit/react-dnd(HTML5 DnD + 状态机已足够,零依赖)
+
+---
+
 ### [x] ✅(2026-07-22) AI 对话内嵌浏览器工作展示区 P3++ Tab 拖拽排序 + Playwright E2E 补证据(平台独占:仅 web)
 
 **触发**:P3+ dropdown 已完成 commit `c2f7c7c47`,用户要求按建议继续做(1) Tab 拖拽排序补完 P3 增强 + (2) 补 Playwright E2E 补齐 P3+P3+ 100% 视觉/DOM 证据,彻底解决 browser_use 工具稳定性限制。
