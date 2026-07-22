@@ -1397,7 +1397,7 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
   })
   server.post('/admin/agent-task', { preHandler: requireAdmin }, async (request, reply) => {
     const body = parseOrThrow(createAgentTaskSchema, request.body)
-    const [row] = await db.insert(agentTasks).values(body).returning()
+    const [row] = await db.insert(agentTasks).values({ ...body, updatedBy: request.userId ?? null }).returning()
     return reply.status(201).send(success(row))
   })
   server.post('/admin/clawdbot/bots', { preHandler: requireAdmin }, async (request, reply) => {
