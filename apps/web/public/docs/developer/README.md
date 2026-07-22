@@ -9,7 +9,7 @@
 3. **发起首个请求**:
 
 ```bash
-curl -X POST http://localhost:3001/v1/chat/completions \
+curl -X POST http://localhost:8802/v1/chat/completions \
   -H "Authorization: Bearer ihui_xxx" \
   -H "Content-Type: application/json" \
   -d '{"model":"gpt-4","messages":[{"role":"user","content":"你好"}]}'
@@ -62,7 +62,7 @@ curl -X POST http://localhost:3001/v1/chat/completions \
 - **字段命名** — camelCase(与 `@ihui/types` 契约一致,非 OpenAI snake_case)
 - **鉴权** — `Authorization: Bearer ihui_xxx` 或 `X-Api-Key: ihui_xxx`,可选 `X-Api-Secret: sk_xxx`
 - **响应格式** — OpenAI 兼容,直接返回数据对象,无 `{ code, message, data }` 外层包裹
-- **baseUrl** — 本地开发用 `http://localhost:3001`,生产以部署环境为准
+- **baseUrl** — 本地开发用 `http://localhost:8802`,生产以部署环境为准
 
 ---
 

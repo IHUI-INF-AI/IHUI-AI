@@ -485,11 +485,11 @@ console.log(`\n${C.green}✅ 所有硬约束通过, 允许 commit${C.reset}`);
 console.log(`\n${C.cyan}[8/8] 运行时端到端检查 (informational, 需 services 已启动)${C.reset}`);
 
 const runtimeEndpoints = [
-  { name: 'API health', url: 'http://localhost:3001/api/health' },
-  { name: 'agents list', url: 'http://localhost:3001/api/agents/list' },
+  { name: 'API health', url: 'http://localhost:8802/api/health' },
+  { name: 'agents list', url: 'http://localhost:8802/api/agents/list' },
   { name: 'ai-service health', url: 'http://localhost:8000/health' },
   { name: 'web home', url: 'http://localhost:3000/' },
-  { name: 'oauth keys list', url: 'http://localhost:3001/api/oauth-keys/list' },
+  { name: 'oauth keys list', url: 'http://localhost:8802/api/oauth-keys/list' },
 ];
 
 let runtimeOk = 0;

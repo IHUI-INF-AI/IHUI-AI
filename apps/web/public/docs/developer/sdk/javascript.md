@@ -22,7 +22,7 @@ import { createClient } from '@ihui/sdk'
 const client = createClient({
   apiKey: process.env.IHUI_API_KEY!, // 必需,格式 ihui_xxx
   // secret: 'sk_xxx',                 // 可选,创建/轮换时返回的 Secret
-  // baseUrl: 'http://localhost:3001', // 可选,默认 http://localhost:3001
+  // baseUrl: 'http://localhost:8802', // 可选,默认 http://localhost:8802
   // timeout: 30000,                   // 可选,默认 30000ms(流式不超时)
   // maxRetries: 2,                    // 可选,默认 2(5xx + 网络错误自动重试)
 })
@@ -47,7 +47,7 @@ console.log(resp.choices[0].message.content)
 |------|------|------|--------|------|
 | apiKey | string | 是 | — | API Key,格式 `ihui_xxx` |
 | secret | string | 否 | — | API Secret(创建/轮换密钥时返回),通过 `X-Api-Secret` 头传递 |
-| baseUrl | string | 否 | `http://localhost:3001` | 基础 URL(自动去除尾部 `/`) |
+| baseUrl | string | 否 | `http://localhost:8802` | 基础 URL(自动去除尾部 `/`) |
 | timeout | number | 否 | 30000 | 请求超时(毫秒),流式请求不超时 |
 | maxRetries | number | 否 | 2 | 最大重试次数(网络错误和 5xx 自动重试,429 和 4xx 不重试) |
 | fetch | typeof fetch | 否 | globalThis.fetch | 自定义 fetch 实现(测试/拦截用) |
@@ -588,7 +588,7 @@ SDK 导出 `parseChatStream` 和 `parseAgentStream` 工具函数,可用于手动
 ```typescript
 import { parseChatStream } from '@ihui/sdk'
 
-const resp = await fetch('http://localhost:3001/v1/chat/completions', {
+const resp = await fetch('http://localhost:8802/v1/chat/completions', {
   method: 'POST',
   headers: { Authorization: 'Bearer ihui_xxx', 'Content-Type': 'application/json' },
   body: JSON.stringify({ model: 'gpt-4', messages: [...], stream: true }),
@@ -607,7 +607,7 @@ import fs from 'fs'
 
 const client = createClient({
   apiKey: process.env.IHUI_API_KEY!,
-  baseUrl: process.env.IHUI_BASE_URL || 'http://localhost:3001',
+  baseUrl: process.env.IHUI_BASE_URL || 'http://localhost:8802',
 })
 
 async function main() {

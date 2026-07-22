@@ -131,7 +131,7 @@ for chunk in stream:
 **cURL**
 
 ```bash
-curl -X POST http://localhost:3001/v1/chat/completions \
+curl -X POST http://localhost:8802/v1/chat/completions \
   -H "Authorization: Bearer ihui_xxx" \
   -H "Content-Type: application/json" \
   -d '{"model":"gpt-4","messages":[{"role":"user","content":"你好"}]}'
@@ -268,7 +268,7 @@ Authorization: Bearer ihui_xxx
 ```typescript
 const sessions = await client.ai.listSessions?.()
 // 或直接 HTTP
-const res = await fetch('http://localhost:3001/v1/chat/sessions', {
+const res = await fetch('http://localhost:8802/v1/chat/sessions', {
   headers: { Authorization: 'Bearer ihui_xxx' },
 })
 ```

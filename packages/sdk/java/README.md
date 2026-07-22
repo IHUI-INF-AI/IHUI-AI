@@ -39,7 +39,7 @@ import com.ihui.ai.sdk.model.ChatCompletionResponse;
 
 IhuiClient client = IhuiClient.builder()
     .apiKey("ihui_xxx")
-    .baseUrl("http://localhost:3001")
+    .baseUrl("http://localhost:8802")
     .build();
 
 ChatCompletionResponse resp = client.ai.completions(
@@ -75,7 +75,7 @@ System.out.println(resp.getContent());
 IhuiClient client = IhuiClient.builder()
     .apiKey("ihui_xxx")                              // 必需,API Key
     .secret("optional-api-secret")                  // 可选,API Secret
-    .baseUrl("https://api.ihui.example.com")        // 默认 http://localhost:3001
+    .baseUrl("https://api.ihui.example.com")        // 默认 http://localhost:8802
     .timeout(Duration.ofSeconds(60))                // 默认 30s
     .maxRetries(3)                                   // 默认 2
     .build();

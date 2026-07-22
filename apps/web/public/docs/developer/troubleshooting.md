@@ -61,7 +61,7 @@ const client = createClient({
 **排查步骤**:
 1. 确认服务在线:
    ```bash
-   curl -I http://localhost:3001/v1/models
+   curl -I http://localhost:8802/v1/models
    # 应返回 200/401,而非 connection refused
    ```
 2. 确认 `baseUrl` 配置正确:

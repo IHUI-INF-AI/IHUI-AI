@@ -97,7 +97,7 @@ print(len(response["data"][0]["embedding"]))  # 1536
 **cURL**
 
 ```bash
-curl -X POST http://localhost:3001/v1/embeddings \
+curl -X POST http://localhost:8802/v1/embeddings \
   -H "Authorization: Bearer ihui_xxx" \
   -H "Content-Type: application/json" \
   -d '{"model":"text-embedding-3-small","input":"测试文本"}'

@@ -1,7 +1,7 @@
 /**
  * IHUI-AI SaaS Admin API
  *
- * 端口: 8081(仅 localhost,不暴露公网)
+ * 端口: 8830(仅 localhost,不暴露公网)
  * 鉴权: X-Admin-API-Key + X-Admin-User(白名单)
  * 审计: 所有管理操作写入 JSON Lines 到 admin-api-audit.log(P1-2.2)
  * 端点: 见 ./routes/customers.ts + ./routes/auth.ts + ./routes/certificates.ts
@@ -26,7 +26,7 @@ const app = Fastify({
     } : undefined,
   },
   // 不暴露给公网:仅 localhost 监听
-  // (docker compose 端口映射到 127.0.0.1:8081:8081)
+  // (docker compose 端口映射到 127.0.0.1:8830:8830)
 });
 
 // CORS(仅允许本地管理 UI)

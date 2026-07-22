@@ -1,5 +1,5 @@
 # Prometheus 抓取配置(2026-07-22 立)
-# 抓取目标:OTel Collector(8888)+ IHUI-AI api(3001)+ ai-service(8000)
+# 抓取目标:OTel Collector(8888)+ IHUI-AI api(8801)+ ai-service(8803)
 
 global:
   scrape_interval: 15s
@@ -18,13 +18,13 @@ scrape_configs:
   # IHUI-AI API 服务(Fastify,主机网络)
   - job_name: 'ihui-api'
     static_configs:
-      - targets: ['host.docker.internal:3001']
+      - targets: ['host.docker.internal:8801']
         labels:
           service: 'ihui-api'
 
   # IHUI-AI AI Service(FastAPI,主机网络)
   - job_name: 'ihui-ai-service'
     static_configs:
-      - targets: ['host.docker.internal:8000']
+      - targets: ['host.docker.internal:8803']
         labels:
           service: 'ihui-ai-service'

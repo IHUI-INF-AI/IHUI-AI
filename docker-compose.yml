@@ -151,7 +151,7 @@ services:
       - AI_SERVICE_URL=http://ai-service:8000
       - NEXT_TELEMETRY_DISABLED=1
     ports:
-      - '${WEB_PORT:-3000}:3000'
+      - '${WEB_PORT:-8801}:3000'
     depends_on:
       api:
         condition: service_healthy
@@ -167,7 +167,7 @@ services:
     container_name: ihui-ai-service
     restart: unless-stopped
     ports:
-      - '8000:8000'
+      - '${AI_SERVICE_PORT:-8803}:8000'
     environment:
       - NODE_ENV=production
       - PORT=8000
@@ -219,6 +219,8 @@ services:
       POSTGRES_DB: ${DB_NAME:-ihui}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    ports:
+      - '${DB_PORT:-8810}:5432'
     networks:
       - ihui-net
     healthcheck:
@@ -253,6 +255,8 @@ services:
     command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
     volumes:
       - redisdata:/data
+    ports:
+      - '${REDIS_PORT:-8811}:6379'
     networks:
       - ihui-net
     healthcheck:
@@ -269,7 +273,7 @@ services:
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     ports:
-      - '${JAEGER_UI_PORT:-16686}:16686'
+      - '${JAEGER_UI_PORT:-8814}:16686'
     networks:
       - ihui-net
     healthcheck:
@@ -287,7 +291,8 @@ services:
       - ./monitoring/otel-collector/config.yaml:/etc/otelcol/config.yaml
     command: ['--config=/etc/otelcol/config.yaml']
     ports:
-      - '${OTEL_COLLECTOR_PORT:-4318}:4318'
+      - '${OTEL_COLLECTOR_PORT:-8813}:4318'
+      - '${OTEL_COLLECTOR_GRPC_PORT:-8812}:4317'
     networks:
       - ihui-net
     depends_on:
@@ -322,7 +327,7 @@ services:
       - '--web.console.templates=/etc/prometheus/consoles'
       - '--web.enable-lifecycle'
     ports:
-      - '${PROMETHEUS_PORT:-9091}:9090'
+      - '${PROMETHEUS_PORT:-8815}:9090'
     networks:
       - ihui-net
     healthcheck:
@@ -351,7 +356,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD 未配置,请在 .env 设置强密码(≥16 字符)}
       - GF_USERS_ALLOW_SIGN_UP=false
     ports:
-      - '${GRAFANA_PORT:-3010}:3000'
+      - '${GRAFANA_PORT:-8816}:3000'
     networks:
       - ihui-net
     healthcheck:
@@ -372,7 +377,7 @@ services:
       - /sys:/host/sys:ro
       - /:/host/root:ro
     ports:
-      - '${NODE_EXPORTER_PORT:-9100}:9100'
+      - '${NODE_EXPORTER_PORT:-8817}:9100'
     networks:
       - ihui-net
 
@@ -388,7 +393,7 @@ services:
       - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml
       - loki-data:/loki-data
     ports:
-      - '${LOKI_PORT:-3100}:3100'
+      - '${LOKI_PORT:-8818}:3100'
     networks:
       - ihui-net
     healthcheck:

@@ -15,14 +15,14 @@ class Settings(BaseSettings):
     app_name: str = "IHUI AI Service"
     node_env: str = "development"
     debug: bool = False
-    port: int = 3003
+    port: int = 8803
     host: str = "0.0.0.0"
     log_level: str = "info"
-    cors_origin: str = "http://localhost:3001"
+    cors_origin: str = "http://localhost:8801"
 
     # 数据存储
-    database_url: str = "postgres://postgres:postgres@localhost:5432/ihui_ai"
-    redis_url: str = "redis://localhost:6379"
+    database_url: str = "postgres://postgres:postgres@localhost:8810/ihui_ai"
+    redis_url: str = "redis://localhost:8811"
 
     # LLM 配置(多 provider 支持,OpenAI 兼容 endpoint 优先)
     # 任意一个 key 配置即激活真实调用,全部为空降级 stub
@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     chat_history_window: int = 6
 
     # 后端 API
-    api_service_url: str = "http://localhost:8080"
+    api_service_url: str = "http://localhost:8802"
     # AI 回调共享密钥(可选,与后端 AI_CALLBACK_SECRET 一致;为空则不发送 X-Internal-Secret 头)
     ai_callback_secret: str = ""
 

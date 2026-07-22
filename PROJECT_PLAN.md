@@ -69,7 +69,7 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 ---
 ### [x] ✅(2026-07-22) ai-news 入口梳理 + ai-world ?tab= query param 支持(平台独占:仅 apps/web)
 
-**触发**:用户反馈"`http://localhost:3000/ai-news` 这个页面的入口在哪里啊 怎么点击左侧侧边栏的AI世界 跟他不是一个页面呢 那这个页面是什么作用 怎么个逻辑使用 跳转 怎么乱七八糟的 懵了 而且这个页面的AI资讯广场按钮点击后 怎么跳转到其他别人的网站去了 你这是什么设定啊"。用户后续指示"继续按你的建议去做执行,要求完美细致完整毫无遗漏"。
+**触发**:用户反馈"`http://localhost:8801/ai-news` 这个页面的入口在哪里啊 怎么点击左侧侧边栏的AI世界 跟他不是一个页面呢 那这个页面是什么作用 怎么个逻辑使用 跳转 怎么乱七八糟的 懵了 而且这个页面的AI资讯广场按钮点击后 怎么跳转到其他别人的网站去了 你这是什么设定啊"。用户后续指示"继续按你的建议去做执行,要求完美细致完整毫无遗漏"。
 
 **实际交付状态(2026-07-22 收尾时点)**:本任务原拟执行方案 A(删除孤儿页 + redirect 接通),执行期间发现其他 agent 在 commit `27fa843db` 中并行扩展 `/ai-news` 路由(恢复 page.tsx / ai-news-api.ts,新增 Leaderboard/CapabilityRadar/ModelDetailDialog/layout 等),并已合并本任务对 [ai-world/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/ai-world/page.tsx) 的 `useSearchParams` + `TAB_KEYS` 白名单改造(方案 A 步骤 4)。其他 agent 同步在 [redirects.config.ts](file:///g:/IHUI-AI/apps/web/src/config/redirects.config.ts) 中移除 `/ai-news` redirect,替换为注释"页面已恢复开发(大模型排行榜 + AI 资讯聚合),不再重定向到 /ai-world"。按 §12/§16「各 agent 各管各的、不混入其他 agent 改动到自己 commit」,本任务最终仅交付 PROJECT_PLAN.md(本次任务记录),代码改动已合并到其他 agent commit `27fa843db`。i18n 5 语言文件的 aiNews 命名空间删除(本任务 working tree 已完成)+ homePage3.empty.leaderboard 新增(其他 agent)处于 mixed state,留给其他 agent 处理。
 
@@ -104,8 +104,8 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 **自验**:
 - @ihui/web typecheck 全局 3 个错误均属其他 agent 代码(`unified-ai-panel` / `@monaco-editor/react` / `PasswordLoginForm`),本任务改动文件 0 错误
 - browser_use 6 步验证(在 redirect 还存在时执行,记录方案 A 完整执行情况):
-  1. ✅ web 服务在线(`http://localhost:3000`)
-  2. ✅ `/ai-news` 301 redirect 到 `http://localhost:3000/ai-world?tab=news`(redirect 后被其他 agent 移除,此验证记录方案 A 执行时的状态)
+  1. ✅ web 服务在线(`http://localhost:8801`)
+  2. ✅ `/ai-news` 301 redirect 到 `http://localhost:8801/ai-world?tab=news`(redirect 后被其他 agent 移除,此验证记录方案 A 执行时的状态)
   3. ✅ `/ai-world?tab=news` DOM 检查 tabCount=6,activeTabText=「资讯」(不是默认「工具集」)
   4. ✅ `/ai-world` 无 query 时 activeTabText=「工具集」(默认 fallback 正常)
   5. ✅ `/ai-world?tab=invalidquery` 时 activeTabText=「工具集」(白名单防 XSS 生效)
@@ -295,7 +295,7 @@ certbot --nginx -d aizhs.top -d www.aizhs.top -d bsm.aizhs.top
 **3. 飞书开发者后台**(https://open.feishu.cn/app/cli_a9de15cbb8399bc8):
 
 - 「安全设置 → 重定向 URL」白名单加两条:
-  - `http://localhost:3000/callback?platform=feishu`(本地开发)
+  - `http://localhost:8801/callback?platform=feishu`(本地开发)
   - `https://bsm.aizhs.top/callback?platform=feishu`(生产)
 - 「应用功能 → 网页」开关打开
 - 「应用发布 → 版本管理与发布」创建版本 + 申请发布 + 管理员审核通过
@@ -370,9 +370,9 @@ nginx -t && nginx -s reload
 **架构**:
 
 ```
-cAdvisor(:8080) → Prometheus(:9090) → Grafana(:3001)
+cAdvisor(:8080) → Prometheus(:8815) → Grafana(:8816)
                                   ↓
-                  admin-api(:8081) 代理查询 + 配额端点替换
+                  admin-api(:8830) 代理查询 + 配额端点替换
                                   ↓
               web 端 GrafanaFrame(iframe) + MetricsCard(实时数据)
 ```

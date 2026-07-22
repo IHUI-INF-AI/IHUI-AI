@@ -587,12 +587,12 @@ cd IHUI-AI && docker compose up -d
                                        │       │
                           ┌────────────▼─┐   ┌─▼──────────────┐
                           │  PostgreSQL  │   │  apps/ai-service│  FastAPI + Socket.IO
-                          │  15 (339 tbl)│   │  :8000          │  LangGraph + LiteLLM + MCP + A2A
+                          │  15 (339 tbl)│   │  :8803          │  LangGraph + LiteLLM + MCP + A2A
                           └──────────────┘   └────┬────────────┘  5 provider + 14 publish adapter
                                                   │
                                             ┌─────▼─────┐  ┌──────────┐
                                             │  Redis 7  │  │ Worker   │  BullMQ independent process
-                                            │ Pub/Sub   │  │ :8081    │  Async task scheduling
+                                            │ Pub/Sub   │  │ :8830    │  Async task scheduling
                                             └───────────┘  └──────────┘
 ```
 
@@ -1033,13 +1033,13 @@ docker compose up -d
 | Service      | URL                              | Description                                                              |
 | ------------ | -------------------------------- | ------------------------------------------------------------------------ |
 | Web          | http://localhost:3000            | Next.js frontend                                                         |
-| API          | http://localhost:8080/api/health | Fastify backend health check                                             |
-| Worker       | http://localhost:8081            | BullMQ async task process                                                |
-| AI Service   | http://localhost:8000/health     | FastAPI AI service health check                                          |
-| Grafana      | http://localhost:3001            | Default account admin / change password (20 dashboards auto-provisioned) |
+| API          | http://localhost:8802/api/health | Fastify backend health check                                             |
+| Worker       | http://localhost:8830            | BullMQ async task process                                                |
+| AI Service   | http://localhost:8803/health     | FastAPI AI service health check                                          |
+| Grafana      | http://localhost:8816            | Default account admin / change password (20 dashboards auto-provisioned) |
 | Prometheus   | http://localhost:9091            | Metrics collection                                                       |
-| Jaeger UI    | http://localhost:16686           | Distributed tracing                                                      |
-| Loki         | http://localhost:3100            | Log aggregation                                                          |
+| Jaeger UI    | http://localhost:8814           | Distributed tracing                                                      |
+| Loki         | http://localhost:8818            | Log aggregation                                                          |
 | Alertmanager | http://localhost:9093            | Alert routing                                                            |
 
 ### Development Mode (Local)
@@ -1171,17 +1171,17 @@ Full-stack observability, three pillars (metrics / logs / traces) + alerting ful
 | 20  | tenant-usage     | Tenant usage          |
 | 21  | ws               | WebSocket             |
 
-- **Node Exporter** (:9100): Host CPU / memory / disk / network metrics
+- **Node Exporter** (:8817): Host CPU / memory / disk / network metrics
 
 ### Logs (Loki + Promtail)
 
-- **Loki** (:3100): Log aggregation backend
+- **Loki** (:8818): Log aggregation backend
 - **Promtail**: Auto-discovers Docker containers with `logging=promtail` label, collects Docker + Nginx + API application logs
 
 ### Tracing (OpenTelemetry + Jaeger)
 
-- **OpenTelemetry Collector** (:4318): Receives OTLP traces / metrics, exports to Jaeger + Prometheus
-- **Jaeger UI** (:16686): Distributed tracing visualization, API ↔ AI Service ↔ Database end-to-end
+- **OpenTelemetry Collector** (:8813): Receives OTLP traces / metrics, exports to Jaeger + Prometheus
+- **Jaeger UI** (:8814): Distributed tracing visualization, API ↔ AI Service ↔ Database end-to-end
 
 ### Alerting (Alertmanager + noise-rules)
 
@@ -1324,20 +1324,31 @@ docker compose up -d
 
 | Type       | Service        | Port  | Purpose                                          |
 | ---------- | -------------- | ----- | ------------------------------------------------ |
-| Business   | api            | 8080  | Fastify backend                                  |
-| Business   | worker         | 8081  | BullMQ independent worker process                |
-| Business   | web            | 3000  | Next.js frontend (standalone)                    |
-| Business   | ai-service     | 8000  | FastAPI AI service                               |
-| Business   | db             | 5432  | PostgreSQL 15                                    |
-| Business   | redis          | 6379  | Redis 7                                          |
+| Business   | api            | 8802  | Fastify backend                                  |
+| Business   | worker         | 8830  | BullMQ independent worker process                |
+| Business   | web            | 8801  | Next.js frontend (standalone)                    |
+| Business   | ai-service     | 8803  | FastAPI AI service                               |
+| Business   | db             | 8810  | PostgreSQL 15                                    |
+| Business   | redis          | 8811  | Redis 7                                          |
 | Business   | migrate        | -     | One-shot migration service (exits on completion) |
-| Monitoring | jaeger         | 16686 | Distributed tracing UI                           |
-| Monitoring | otel-collector | 4318  | OpenTelemetry Collector                          |
+| Monitoring | jaeger         | 8814  | Distributed tracing UI                           |
+| Monitoring | otel-collector | 8813  | OpenTelemetry Collector                          |
 | Monitoring | prometheus     | 9091  | Metrics collection                               |
-| Monitoring | grafana        | 3001  | Visualization (20 dashboards)                    |
-| Monitoring | node-exporter  | 9100  | Host metrics                                     |
-| Monitoring | loki           | 3100  | Log aggregation                                  |
+| Monitoring | grafana        | 8816  | Visualization (20 dashboards)                    |
+| Monitoring | node-exporter  | 8817  | Host metrics                                     |
+| Monitoring | loki           | 8818  | Log aggregation                                  |
 | Monitoring | promtail       | -     | Log collection                                   |
+
+### Port Management Rules
+
+All services in this project use the `88xx` port range to avoid conflicts with system services:
+
+| Port Range | Purpose           | Description                                          |
+| ---------- | ------------------ | ---------------------------------------------------- |
+| 8801-8809  | App Services       | Web / API / AI Service / Taro H5 / Metro / Desktop etc. |
+| 8810-8819  | Infrastructure     | PostgreSQL (8810) / Redis (8811) / OTel (8812-8813) / Jaeger (8814) / Prometheus (8815) / Grafana (8816) / Node Exporter (8817) / Loki (8818) |
+| 8820-8829  | Auxiliary Tools    | Storybook (8820) and other dev tools                 |
+| 8830-8839  | SaaS Deployment    | Admin API (8830) and other SaaS deployment services  |
 
 ### Production Deployment
 

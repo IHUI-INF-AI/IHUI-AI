@@ -51,7 +51,7 @@ console.log(job.jobId, '排队位置:', job.position)
 ```
 
 ```bash
-curl -X POST http://localhost:3001/v1/generation/enqueue \
+curl -X POST http://localhost:8802/v1/generation/enqueue \
   -H "Authorization: Bearer ihui_xxx" \
   -H "Content-Type: application/json" \
   -d '{"type":"image","payload":{"model":"dall-e-3","prompt":"一只猫"}}'

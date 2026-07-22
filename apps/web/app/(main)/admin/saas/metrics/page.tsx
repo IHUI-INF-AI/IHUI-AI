@@ -77,7 +77,7 @@ export default function MetricsComparisonPage() {
               title={t('openNewWindow')}
             >
               <a
-                href={`${process.env.NEXT_PUBLIC_GRAFANA_BASE ?? 'http://127.0.0.1:3001'}/d/saas-tenant-comparison`}
+                href={`${process.env.NEXT_PUBLIC_GRAFANA_BASE ?? 'http://127.0.0.1:8801'}/d/saas-tenant-comparison`}
                 target="_blank"
                 rel="noreferrer"
               >

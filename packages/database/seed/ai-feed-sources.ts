@@ -3,7 +3,7 @@ import { aiFeedSource } from '../src/schema/ai-feed.js'
 import { eq, notInArray } from 'drizzle-orm'
 
 const db = createDb(
-  process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui',
+  process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:8810/ihui',
 )
 
 /**

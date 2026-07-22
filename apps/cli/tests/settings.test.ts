@@ -74,7 +74,7 @@ describe('settings 加载/保存/合并', () => {
     // default
     process.env.IHUI_API_URL = ''
     const r4 = resolveEffectiveConfig({})
-    expect(r4.apiUrl).toBe('http://localhost:8000')
+    expect(r4.apiUrl).toBe('http://localhost:8803')
     expect(r4.maxIterations).toBe(25)
     expect(r4.auditEnabled).toBe(true)
   })

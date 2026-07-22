@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { WebSocket } from '@fastify/websocket'
 
 vi.hoisted(() => {
-  process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
+  process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:8810/test'
 })
 
 // 模拟 db.insert / db.select / db.delete
