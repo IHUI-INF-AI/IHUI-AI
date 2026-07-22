@@ -339,3 +339,11 @@ export class UnifiedMemoryClient {
 export * from './chunker.js';
 export * from './embedding.js';
 export * from './hybrid-search.js';
+// === W2-1 四层记忆 + Dream 梦境 + 向量语义(平台独占:仅 cli)===
+// short-term(当前 session)/ long-term(跨 session 持久化)/ soul(用户偏好价值观)/
+// dream(梦境周期沉淀 short-term → long-term)/ vector-search(embedding 语义检索)
+export * from './short-term.js';
+export * from './long-term.js';
+export * from './soul.js';
+export * from './dream.js';
+export * from './vector-search.js';
