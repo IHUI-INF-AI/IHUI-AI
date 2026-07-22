@@ -252,6 +252,18 @@ export const PLATFORM_TEMPLATES: PlatformTemplate[] = [
     modelsListPath: '/v1/models',
     isOfficial: false,
   },
+  {
+    code: 'llamacpp',
+    name: 'llama.cpp (本地)',
+    vendor: 'local',
+    description: 'llama.cpp C++ server 原生推理',
+    baseUrl: 'http://localhost:8080/v1',
+    apiFormat: 'openai_chat',
+    defaultModelId: 'local-model',
+    defaultContextLength: 32768,
+    modelsListPath: '/v1/models',
+    isOfficial: false,
+  },
   // 自定义
   {
     code: 'custom',
