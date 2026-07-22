@@ -99,6 +99,7 @@ export function sourceLabelKey(source: CliConfigSource): string {
     tabnine: 'sourceTabnine',
     cody: 'sourceCody',
     zed: 'sourceZed',
+    antigravity: 'sourceAntigravity',
   }
   return map[source]
 }
