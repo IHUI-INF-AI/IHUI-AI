@@ -25893,7 +25893,9 @@
       "empty": "No leaderboard data",
       "sortHint": "Click header to sort",
       "searchPlaceholder": "Search model/vendor…",
-      "allVendors": "All vendors"
+      "allVendors": "All vendors",
+      "noMatch": "No matching models found",
+      "clearFilter": "Clear filters"
     },
     "hero": {
       "label": "AI News Hero",
