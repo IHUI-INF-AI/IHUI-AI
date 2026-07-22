@@ -802,16 +802,25 @@ h6 {
  * PasswordInput 眼睛图标弹性动画 (2026-07-22 立)
  * ============================================================
  * 用途:登录框密码输入框的显隐按钮,切换时图标弹性放大回弹。
- * 触发:PasswordInput.tsx 中 style={{ animation: 'eye-fill 0.5s ease' }}
- * key 变化(visible on/off)让 React 重新挂载 <span>,重新触发动画。
+ * 触发:PasswordInput.tsx 中每个 <svg> style={{ animation: 'eye-fill 0.45s ease both' }}
+ * key 变化(visible on/off)让 React 重新挂载 <span> + 重新挂载 <svg> → 重新触发动画。
+ *
+ * 关键:animation-fill-mode: both
+ *  - 'both' = 同时应用 'forwards' 和 'backwards'
+ *  - 'forwards':动画结束后保留 100% 关键帧的样式(避免回弹到 0% 的 opacity:0)
+ *  - 'backwards':动画开始前(挂载瞬间)应用 0% 关键帧的样式(避免挂载后立刻闪烁到 100% 再播)
+ *  - 不写 'both' 时(fill-mode: none)动画结束后元素回到原始样式,
+ *    但原始样式继承自父级,会从 0% 关键帧继承 opacity:0,导致图标消失
+ *    (这是初版 0.5s ease 没写 fill-mode 时的根因,见 git log)
  */
 @keyframes eye-fill {
   0% {
     transform: scale(0);
     opacity: 0;
   }
-  50% {
-    transform: scale(1.2);
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
   }
   100% {
     transform: scale(1);
