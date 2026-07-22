@@ -6,7 +6,7 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { X, Plus } from 'lucide-react'
+import { X, Plus, Bot } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
@@ -23,6 +23,7 @@ import { QuestionDialog } from '@/components/chat/question-dialog'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
 import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
+import { DispatchSubagentDialog } from '@/components/ai/dispatch-subagent-dialog'
 import { Tooltip } from '@/components/feedback'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -64,6 +65,7 @@ export function AISidePanel() {
   const [loadingHistory, setLoadingHistory] = React.useState(false)
   const [conversationTitle, setConversationTitle] = React.useState<string | null>(null)
   const [workspaceName, setWorkspaceName] = React.useState<string | null>(null)
+  const [dispatchOpen, setDispatchOpen] = React.useState(false)
   const pathname = usePathname()
 
   // 从 URL 检测当前是否处于 workspace 项目页(/workspace/[id]),并拉取项目名
@@ -443,6 +445,18 @@ export function AISidePanel() {
               <Plus className="h-4 w-4" />
             </button>
           </Tooltip>
+          {/* 派发 Subagent 按钮(2026-07-22 立,对标 Trae Subagent 派单)
+              点击打开 DispatchSubagentDialog,落地 AGENTS.md §11 派单格式 */}
+          <Tooltip content="派发 Subagent">
+            <button
+              type="button"
+              onClick={() => setDispatchOpen(true)}
+              aria-label="派发 Subagent"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <Bot className="h-4 w-4" />
+            </button>
+          </Tooltip>
           <Tooltip content={tcommon('close')}>
             <button
               type="button"
@@ -494,6 +508,8 @@ export function AISidePanel() {
 
         {/* AI 主动提问弹窗:挂起对话,等用户回答后续流 */}
         <QuestionDialog question={pendingQuestion} onSubmit={sendAnswer} onSkip={skipQuestion} />
+        {/* Subagent 派单对话框(2026-07-22 立,对标 Trae Subagent) */}
+        <DispatchSubagentDialog open={dispatchOpen} onOpenChange={setDispatchOpen} />
       </aside>
       {/* 右侧拖拽手柄:外层 8px 命中区 right-[-4px] 居中跨越 aside 右边缘(左右各 4px),
         内层 0.5px 线 left-[calc(50%-0.25px)] -translate-x-1/2 居中在命中区中心,与 aside 右边缘重合。
