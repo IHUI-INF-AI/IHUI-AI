@@ -3,8 +3,6 @@
 import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
 
-import { fetchApi } from '@/lib/api'
-
 export interface PdfPrintOptions {
   fileId: string
   copies?: number
@@ -26,13 +24,9 @@ export interface UsePdfPrintReturn {
   error: Error | null
 }
 
-async function printPdf(options: PdfPrintOptions): Promise<PdfPrintResult> {
-  const res = await fetchApi<PdfPrintResult>('/api/pdf-service/print', {
-    method: 'POST',
-    body: JSON.stringify(options),
-  })
-  if (!res.success) throw new Error(res.error)
-  return res.data
+/** 打印是浏览器端行为,后端不支持,直接返回错误提示。 */
+async function printPdf(_options: PdfPrintOptions): Promise<PdfPrintResult> {
+  throw new Error('该功能暂不支持:打印请使用浏览器自带功能')
 }
 
 /** PDF 打印 Hook，提交打印任务到后端 */
