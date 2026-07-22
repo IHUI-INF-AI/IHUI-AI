@@ -273,7 +273,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | AI 数字人       | 腾讯混元 3D / AI 世界 / 数字人交互                                                                          |
 |                   | AI 世界         | ai-world-items + AI 排名 + 趋势同步 + AI 模块化(ai-modules)+ AI 厂商配置中心(ai-vendor-configs)             |
 |                   | AI 职业         | AI 求职助手 / 简历优化 / 模拟面试                                                                           |
-|                   | AI 资讯         | AI 资讯聚合 / 智能摘要 / ai-feed / 大模型排行榜(Arena 评分 + 8 大分类 + Elo + Bootstrap CI + 能力雷达图)+ API 中转站(5 公司平台 + 个人运行风险提示)+ 官方 Key 一键导入到 Provider 配置 |
+|                   | AI 资讯         | AI 资讯聚合 / 智能摘要 / ai-feed / 大模型排行榜(Arena 评分 + 8 大分类 + Elo + Bootstrap CI + 能力雷达图)+ API 中转站(10 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(25 厂商映射 + 剪贴板粘贴 + Provider 配置) |
 |                   | 用户级 AI 配置  | LLM 配置中心 v2(1:N provider-model + 分组 + 健康状态 + 30 天用量 + 批量导入导出 + 跨 Provider 模型对比 + 一键复制 + 结构化参数 Temperature/Max Tokens/Top P/Penalty + 4 预设 + 高级 JSON)/ CLI 配置 24 源一键导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env / Trae / Qoder / Codex Desktop / Claude Code Desktop / GitHub Copilot / Amazon Q / Continue / Tabnine / Cody / Zed / Google Antigravity)/ 用户级模型对话偏好(ai-user-model-chat)/ 用户长期记忆(user-memory)/ 用户偏好(user-preferences) |
 | **AI 工作流**     | LangGraph       | StateGraph 工作流(plan → execute → summarize)+ stub 模式 + agent_loop 多轮 tool 循环 + 任务自动分解 DAG 拓扑 |
 |                   | MCP 工具协议    | 33 内置工具(11 基础 + 12 浏览器控制 + 10 电脑控制)+ 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP / mcp-extended |
@@ -608,25 +608,21 @@ IHUI-AI/
 │   ├── ui-native/           # @ihui/ui-native (React Native)
 │   └── ui-primitives/       # @ihui/ui-primitives (cn + 原语)
 ├── deploy/
+│   ├── docker/              # Dockerfile.api / .web / .cli / .migrate(镜像构建,context 为仓库根)
 │   ├── nginx/               # Nginx 反向代理 + 蓝绿 upstream + SSL/security/rate-limit
 │   ├── scripts/             # deploy.sh / rollback.sh / health-check.sh / backup-db.sh / restore-db.sh / deploy_certs.sh
 │   ├── cron/                # Let's Encrypt 证书自动续期
+│   ├── s3-lifecycle.yml     # S3 对象存储生命周期规则
 │   └── setup-github-secrets.sh  # GitHub Actions secrets 批量配置
 ├── docs/                    # 9 个文档:architecture / CHANGELOG / CONTRIBUTING / DEPLOYMENT_RUNBOOK / SECURITY / EMAIL_SETUP / I18N / INCIDENTS / README
 ├── monitoring/              # Grafana(20 仪表盘)+ Loki + Prometheus + Promtail + otel-collector + Alertmanager
-├── scripts/                 # 17 守门 + 19 i18n + 11 迁移审计 + 9 PowerShell 启动 + 运维工具
+├── scripts/                 # 17 守门 + 19 i18n + 11 迁移审计 + 9 PowerShell 启动 + locustfile.py 压测 + 运维工具
 ├── server-docs/             # 多租户设计文档(MULTI_TENANT.md)
 ├── .github/workflows/       # 4 个 CI:build / ci / e2e / knip + GitHub Act 本地 CI
+├── .github/loop-runtime/    # loop-daily-triage CI 运行状态(STATE.md + loop-run-log.md)
 ├── .husky/                  # Git hooks (commit-msg + post-commit + pre-commit + pre-push + post-checkout + post-merge)
 ├── docker-compose.yml       # 14 服务编排(7 业务 + 7 监控)
-├── Dockerfile.api       # 后端镜像(api + worker 共用)
-├── Dockerfile.web       # 前端镜像(Next.js standalone)
-├── Dockerfile.migrate       # 迁移一次性服务镜像
-├── locustfile.py            # Locust 压测脚本
-├── lighthouserc.json        # Lighthouse CI 性能预算
 ├── knip.jsonc               # Knip 未使用代码检测配置
-├── noise-rules.yml          # Alertmanager 噪音抑制规则
-├── s3-lifecycle.yml         # S3 对象存储生命周期规则
 ├── AGENTS.md                # AI Agent 协作规范(21 节强制规则)
 ├── PROJECT_PLAN.md          # 项目唯一任务计划文档
 ├── LICENSE                  # Apache 2.0
@@ -681,7 +677,7 @@ IHUI-AI/
 | **文生视频**     | 多模型混编 / 视频编辑 / 视频合成 / 转码 / ai-generation/video-tasks                 |
 | **AI 数字人**    | 腾讯混元 3D / AI 世界 / 数字人交互 / `tencent-hunyuan-3d.ts`                        |
 | **AI 求职**      | 简历优化 / 模拟面试 / 职业建议 / `ai-career/`                                       |
-| **AI 资讯**      | AI 资讯聚合 / 智能摘要 / `ai-feed.ts` + `ai-feed-posts.ts` / 大模型排行榜(`model-leaderboard` + Arena 评分 + 能力雷达图)+ API 中转站(`api-relays.ts` + 5 公司平台 + 个人运行风险提示)+ 官方 Key 一键导入(`vendor-platforms.ts` + `?prefill=` base64 跳转) |
+| **AI 资讯**      | AI 资讯聚合 / 智能摘要 / `ai-feed.ts` + `ai-feed-posts.ts` / 大模型排行榜(`model-leaderboard` + Arena 评分 + 能力雷达图)+ API 中转站(`api-relays.ts` + 10 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(`vendor-platforms.ts` + 25 厂商映射 + `?prefill=` base64 跳转 + `ProviderFormDialog` 剪贴板粘贴按钮) |
 
 ### B. AI 工作流与开发者(面向开发者)
 
@@ -947,8 +943,8 @@ IHUI-AI/
 | 前端 E2E   | Playwright    | 17 spec 文件               | `pnpm test:e2e`                  |
 | AI 服务    | pytest        | 13 文件,400+ 用例          | `cd apps/ai-service && pytest`   |
 | CLI 单元   | Vitest        | 13 文件                    | `pnpm --filter @ihui/cli test`   |
-| 压测       | Locust        | `locustfile.py`            | `locust -f locustfile.py`        |
-| 性能预算   | Lighthouse CI | `lighthouserc.json`        | CI 自动跑                        |
+| 压测       | Locust        | `scripts/locustfile.py`    | `locust -f scripts/locustfile.py` |
+| 性能预算   | Lighthouse CI | `apps/web/lighthouserc.json` | CI 自动跑                        |
 | 未使用代码 | Knip          | `knip.jsonc` + CI workflow | `pnpm knip`                      |
 | 全量验证   | turbo         | 22 tasks                   | `pnpm turbo typecheck lint test` |
 
@@ -1142,7 +1138,7 @@ pnpm turbo build typecheck lint test
 ### 告警(Alertmanager + noise-rules)
 
 - **Alertmanager**(:9093):告警路由 + 噪音抑制
-- **noise-rules.yml**:告警噪音抑制规则(根目录 + monitoring/alertmanager/ 双份同步)
+- **monitoring/alertmanager/noise-rules.yml**:告警噪音抑制规则(单一源,旧根目录副本已合并)
 
 ### 健康检查
 
