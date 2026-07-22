@@ -9,7 +9,7 @@ import { Button, Input, Label } from '@ihui/ui'
 import { Loader2, ShieldCheck, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { AuthShell, AuthShellPage } from '@/components/auth/AuthShell'
-import { ThirdPartyLoginButtons } from '@/components/login'
+import { ThirdPartyLoginButtons, PasswordInput } from '@/components/login'
 
 /**
  * SSO 统一登录页(2026-07-20 重做:整页弹窗化,与主站 LoginDialog 视觉统一)
@@ -150,8 +150,7 @@ export default function SsoLoginPage() {
           </div>
           <div className="space-y-1.5">
             <Label>{t('password')}</Label>
-            <Input
-              type="password"
+            <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder={t('passwordPlaceholder')}

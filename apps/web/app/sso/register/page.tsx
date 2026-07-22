@@ -10,6 +10,7 @@ import { Loader2, ArrowRight, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { AuthShell, AuthShellPage } from '@/components/auth/AuthShell'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
+import { PasswordInput } from '@/components/login'
 
 /**
  * SSO 统一注册页(2026-07-20 重做:整页弹窗化,与主站 LoginDialog 视觉统一)
@@ -214,8 +215,7 @@ export default function SsoRegisterPage() {
           </div>
           <div className="space-y-1.5">
             <Label>{t('password')}</Label>
-            <Input
-              type="password"
+            <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder={t('passwordPlaceholder')}
@@ -225,8 +225,7 @@ export default function SsoRegisterPage() {
           </div>
           <div className="space-y-1.5">
             <Label>{t('confirmPassword')}</Label>
-            <Input
-              type="password"
+            <PasswordInput
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder={t('confirmPasswordPlaceholder')}
