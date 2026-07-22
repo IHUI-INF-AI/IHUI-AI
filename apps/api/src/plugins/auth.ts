@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply 
 import fp from 'fastify-plugin'
 import jwtPlugin from '@fastify/jwt'
 import { verifyAccessToken, type JWTPayload } from '@ihui/auth'
+import type { AuthenticatedApiKey } from '@ihui/types'
 import { config } from '../config/index.js'
 import { getUserStatus } from '../db/usercenter-queries.js'
 import { error } from '../utils/response.js'
@@ -10,6 +11,8 @@ declare module 'fastify' {
   interface FastifyRequest {
     userId?: string
     jwtPayload?: JWTPayload
+    /** API Key 鉴权后注入的上下文(由 plugins/api-key-auth.ts 设置)。与 JWT 鉴权独立。 */
+    apiKey?: AuthenticatedApiKey
   }
 }
 
