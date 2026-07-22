@@ -130,3 +130,8 @@ export { getUserStatistics } from './endpoints/user.js'
 export { getAuthRole, updateAuthRole } from './endpoints/admin-system.js'
 export { getToolGenMeta, postToolGen } from './endpoints/admin-tool-gen.js'
 export type { GenType, GenField, GenInput, GenResult, GenTypeMeta, GenMetaResponse } from './endpoints/admin-tool-gen.js'
+
+// 旧架构 edu-web 公开 API 端点(2026-07-22 立)
+// 覆盖 audit 清单中 carousels/agreements/announcements/points/search 公开端点
+// 旧函数名通过 apps/web/src/lib/legacy-edu-api.ts 桥接
+export * from './endpoints/legacy-public.js'
