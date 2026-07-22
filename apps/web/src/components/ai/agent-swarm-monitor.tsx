@@ -2,10 +2,11 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { RefreshCw, AlertCircle } from 'lucide-react'
+import { RefreshCw, AlertCircle, List, Network } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui'
 
 import { cn } from '@/lib/utils'
+import { SwarmTopologyView } from '@/components/ai/swarm-topology-view'
 import type { SwarmData, SwarmPerformanceMetrics, AgentStatus } from './types'
 
 interface AgentSwarmMonitorProps {
@@ -47,23 +48,61 @@ export function AgentSwarmMonitor({
   const swarm = swarmData?.swarm
   const agentList = swarmData?.agentList ?? []
   const results = swarmData?.results ?? []
+  // 视图切换:列表视图 / 拓扑视图(2026-07-22 立,对标 Trae Subagent mesh 拓扑)
+  const [viewMode, setViewMode] = React.useState<'list' | 'topology'>('list')
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle className="text-base">{t('title')}</CardTitle>
-        {swarmId && (
-          <Button variant="ghost" size="sm" onClick={onRefresh} disabled={loading}>
-            <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
-            {t('refresh')}
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          {/* 视图切换按钮组(列表 / 拓扑,2026-07-22 立) */}
+          <div className="flex items-center rounded-md border border-border">
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              aria-label="列表视图"
+              aria-pressed={viewMode === 'list'}
+              className={cn(
+                'flex h-7 items-center gap-1 px-2 text-xs transition-colors',
+                viewMode === 'list'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80',
+              )}
+            >
+              <List className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('topology')}
+              aria-label="拓扑视图"
+              aria-pressed={viewMode === 'topology'}
+              className={cn(
+                'flex h-7 items-center gap-1 px-2 text-xs transition-colors border-l border-border',
+                viewMode === 'topology'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80',
+              )}
+            >
+              <Network className="h-3 w-3" />
+            </button>
+          </div>
+          {swarmId && (
+            <Button variant="ghost" size="sm" onClick={onRefresh} disabled={loading}>
+              <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
+              {t('refresh')}
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {!swarmData ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             {swarmId ? t('loading') : t('notStarted')}
           </p>
+        ) : viewMode === 'topology' ? (
+          /* 拓扑视图(2026-07-22 立,对标 Trae Subagent mesh 拓扑可视化) */
+          <SwarmTopologyView />
         ) : (
           <>
             {/* Swarm 信息 */}
