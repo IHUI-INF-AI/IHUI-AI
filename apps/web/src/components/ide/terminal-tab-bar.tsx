@@ -1,11 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, X, Terminal as TerminalIcon, ChevronDown, Check } from 'lucide-react'
+import { Plus, X, Terminal as TerminalIcon, ChevronDown, Check, Server, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { TerminalSession } from '@ihui/types'
+import type { TerminalSession, TerminalCreateInput, TerminalSshParams } from '@ihui/types'
 
-/** 可选 shell 列表(Windows 优先) */
+/** 可选 shell 列表(Windows 优先,仅本地会话时显示) */
 const SHELL_OPTIONS = [
   { value: 'powershell', label: 'PowerShell' },
   { value: 'cmd', label: 'CMD' },
@@ -13,18 +13,27 @@ const SHELL_OPTIONS = [
   { value: 'wsl', label: 'WSL' },
 ] as const
 
+/** SSH 认证方式 */
+type SshAuthMethod = 'password' | 'privateKey'
+
 interface TerminalTabBarProps {
   sessions: TerminalSession[]
   activeSessionId: string | null
   loading: boolean
   onSelect: (id: string) => void
   onClose: (id: string) => void
-  onNew: (shell?: string) => void
+  /** 新建会话(支持本地 shell 或 SSH 远程,参数透传到 terminal-service.createSession) */
+  onNew: (opts?: TerminalCreateInput) => void
   onRename: (id: string, name: string) => Promise<boolean> | void
 }
 
 /**
- * 终端 tab bar — 多 session 切换 + 新建(带 shell 选择) + 关闭 + 双击 rename。
+ * 终端 tab bar — 多 session 切换 + 新建(本地 / SSH 远程) + 关闭 + 双击 rename。
+ *
+ * 深化(2026-07-22):
+ * - 新建菜单支持"连接类型"单选:本地(默认)/ SSH 远程
+ * - SSH 模式展开表单:主机 / 端口 / 用户名 / 密码 or 私钥(textarea + 文件选择器)
+ * - 表单校验:主机非空,端口 1-65535,用户名非空,密码或私钥至少一个
  *
  * 样式约束(AGENTS.md §4):
  * - border-b border-border 分隔(非 divide-x)
@@ -47,6 +56,18 @@ export function TerminalTabBar({
   const [shellMenuOpen, setShellMenuOpen] = React.useState(false)
   const shellMenuRef = React.useRef<HTMLDivElement>(null)
 
+  // SSH 表单状态
+  const [connectKind, setConnectKind] = React.useState<'local' | 'ssh'>('local')
+  const [sshHost, setSshHost] = React.useState('')
+  const [sshPort, setSshPort] = React.useState<string>('22')
+  const [sshUsername, setSshUsername] = React.useState('')
+  const [sshAuthMethod, setSshAuthMethod] = React.useState<SshAuthMethod>('password')
+  const [sshPassword, setSshPassword] = React.useState('')
+  const [sshPrivateKey, setSshPrivateKey] = React.useState('')
+  const [sshPassphrase, setSshPassphrase] = React.useState('')
+  const [sshFormError, setSshFormError] = React.useState<string | null>(null)
+  const privateKeyFileRef = React.useRef<HTMLInputElement>(null)
+
   // rename 状态
   const [renamingId, setRenamingId] = React.useState<string | null>(null)
   const [renameValue, setRenameValue] = React.useState('')
@@ -58,6 +79,7 @@ export function TerminalTabBar({
     const handle = (e: MouseEvent) => {
       if (shellMenuRef.current && !shellMenuRef.current.contains(e.target as Node)) {
         setShellMenuOpen(false)
+        setSshFormError(null)
       }
     }
     document.addEventListener('mousedown', handle)
@@ -93,9 +115,72 @@ export function TerminalTabBar({
     setRenameValue('')
   }
 
-  const handleNewWithShell = () => {
-    onNew(selectedShell)
+  /** 校验 SSH 表单 + 构造 SshParams */
+  const buildSshParams = (): TerminalSshParams | { error: string } => {
+    const host = sshHost.trim()
+    const username = sshUsername.trim()
+    if (!host) return { error: '主机地址不能为空' }
+    const portNum = parseInt(sshPort, 10)
+    if (!Number.isFinite(portNum) || portNum < 1 || portNum > 65535) {
+      return { error: '端口范围 1-65535' }
+    }
+    if (!username) return { error: '用户名不能为空' }
+    if (sshAuthMethod === 'password' && !sshPassword) {
+      return { error: '密码不能为空' }
+    }
+    if (sshAuthMethod === 'privateKey' && !sshPrivateKey) {
+      return { error: '私钥内容不能为空' }
+    }
+    const params: TerminalSshParams = { host, port: portNum, username }
+    if (sshAuthMethod === 'password') {
+      params.password = sshPassword
+    } else {
+      params.privateKey = sshPrivateKey
+      if (sshPassphrase) params.passphrase = sshPassphrase
+    }
+    return params
+  }
+
+  /** 新建会话(根据 connectKind 构造 opts) */
+  const handleCreateSession = () => {
+    if (connectKind === 'local') {
+      onNew({ shell: selectedShell })
+      setShellMenuOpen(false)
+      setSshFormError(null)
+      return
+    }
+    // SSH 模式:校验 + 构造
+    const result = buildSshParams()
+    if ('error' in result) {
+      setSshFormError(result.error)
+      return
+    }
+    onNew({ ssh: result })
+    // 重置表单(关闭菜单)
     setShellMenuOpen(false)
+    setSshFormError(null)
+    setSshHost('')
+    setSshPort('22')
+    setSshUsername('')
+    setSshPassword('')
+    setSshPrivateKey('')
+    setSshPassphrase('')
+  }
+
+  /** 私钥文件选择(FileReader.readAsText) */
+  const handlePrivateKeyFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      setSshPrivateKey(typeof reader.result === 'string' ? reader.result : '')
+    }
+    reader.onerror = () => {
+      setSshFormError('私钥文件读取失败')
+    }
+    reader.readAsText(file)
+    // 重置 input value 让同一文件可再次选择
+    e.target.value = ''
   }
 
   return (
@@ -104,7 +189,11 @@ export function TerminalTabBar({
         const isActive = session.id === activeSessionId
         const fallbackLabel = `Terminal ${index + 1}`
         const label = session.name ?? fallbackLabel
-        const cwdShort = session.cwd.split(/[\\/]/).pop() || session.cwd
+        // SSH 会话显示 host,本地会话显示 cwd 末段
+        const cwdShort =
+          session.kind === 'ssh'
+            ? (session.sshUser ? `${session.sshUser}@` : '') + (session.sshHost ?? session.cwd)
+            : session.cwd.split(/[\\/]/).pop() || session.cwd
         const isRenaming = renamingId === session.id
 
         return (
@@ -126,7 +215,11 @@ export function TerminalTabBar({
               }
             }}
           >
-            <TerminalIcon className="h-3 w-3 shrink-0 opacity-60" />
+            {session.kind === 'ssh' ? (
+              <Server className="h-3 w-3 shrink-0 opacity-60" />
+            ) : (
+              <TerminalIcon className="h-3 w-3 shrink-0 opacity-60" />
+            )}
             {isRenaming ? (
               <input
                 ref={renameInputRef}
@@ -185,7 +278,7 @@ export function TerminalTabBar({
         )
       })}
 
-      {/* 新建按钮 + shell 下拉 */}
+      {/* 新建按钮 + 下拉菜单(本地 shell / SSH 远程) */}
       <div className="relative flex items-center" ref={shellMenuRef}>
         <button
           type="button"
@@ -194,10 +287,10 @@ export function TerminalTabBar({
             'hover:bg-background hover:text-foreground',
             loading && 'pointer-events-none opacity-40',
           )}
-          onClick={handleNewWithShell}
+          onClick={handleCreateSession}
           disabled={loading}
           aria-label="新建终端"
-          title={`新建终端 (${SHELL_OPTIONS.find((s) => s.value === selectedShell)?.label ?? 'PowerShell'})`}
+          title={`新建终端 (${connectKind === 'ssh' ? 'SSH' : SHELL_OPTIONS.find((s) => s.value === selectedShell)?.label ?? 'PowerShell'})`}
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
@@ -210,44 +303,199 @@ export function TerminalTabBar({
           )}
           onClick={() => setShellMenuOpen((v) => !v)}
           disabled={loading}
-          aria-label="选择 Shell 类型"
-          title="选择 Shell"
+          aria-label="选择连接类型"
+          title="选择连接类型"
         >
           <ChevronDown className="h-3 w-3" />
         </button>
         {shellMenuOpen && (
-          <div className="absolute left-0 top-7 z-50 min-w-32 overflow-hidden rounded-md border border-border bg-popover shadow-md">
+          <div className="absolute left-0 top-7 z-50 w-64 overflow-hidden rounded-md border border-border bg-popover shadow-md">
+            {/* 连接类型单选 */}
             <div className="bg-muted/40 px-2.5 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-              Shell 类型
+              连接类型
             </div>
-            <div className="py-0.5">
-              {SHELL_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  className={cn(
-                    'flex w-full items-center justify-between gap-2 px-2.5 py-1 text-left text-xs transition-colors',
-                    'hover:bg-accent hover:text-accent-foreground',
-                    selectedShell === opt.value && 'text-foreground',
-                  )}
-                  onClick={() => {
-                    setSelectedShell(opt.value)
-                    setShellMenuOpen(false)
-                  }}
-                >
-                  <span>{opt.label}</span>
-                  {selectedShell === opt.value && <Check className="h-3 w-3 opacity-70" />}
-                </button>
-              ))}
+            <div className="flex gap-1 px-2 py-1.5">
+              <button
+                type="button"
+                className={cn(
+                  'flex flex-1 items-center justify-center gap-1 rounded px-2 py-1 text-xs transition-colors',
+                  connectKind === 'local'
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+                onClick={() => setConnectKind('local')}
+              >
+                <TerminalIcon className="h-3 w-3" />
+                <span>本地</span>
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  'flex flex-1 items-center justify-center gap-1 rounded px-2 py-1 text-xs transition-colors',
+                  connectKind === 'ssh'
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                )}
+                onClick={() => setConnectKind('ssh')}
+              >
+                <Server className="h-3 w-3" />
+                <span>SSH 远程</span>
+              </button>
             </div>
+
+            {/* 本地:Shell 类型选择 */}
+            {connectKind === 'local' && (
+              <>
+                <div className="bg-muted/40 px-2.5 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Shell 类型
+                </div>
+                <div className="py-0.5">
+                  {SHELL_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      className={cn(
+                        'flex w-full items-center justify-between gap-2 px-2.5 py-1 text-left text-xs transition-colors',
+                        'hover:bg-accent hover:text-accent-foreground',
+                        selectedShell === opt.value && 'text-foreground',
+                      )}
+                      onClick={() => setSelectedShell(opt.value)}
+                    >
+                      <span>{opt.label}</span>
+                      {selectedShell === opt.value && <Check className="h-3 w-3 opacity-70" />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* SSH:表单 */}
+            {connectKind === 'ssh' && (
+              <div className="flex flex-col gap-1.5 px-2 py-1.5">
+                <label className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-muted-foreground">主机</span>
+                  <input
+                    type="text"
+                    value={sshHost}
+                    onChange={(e) => setSshHost(e.target.value)}
+                    placeholder="example.com 或 192.168.1.1"
+                    className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+                  />
+                </label>
+                <label className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-muted-foreground">端口</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={65535}
+                    value={sshPort}
+                    onChange={(e) => setSshPort(e.target.value)}
+                    className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+                  />
+                </label>
+                <label className="flex flex-col gap-0.5">
+                  <span className="text-[10px] text-muted-foreground">用户名</span>
+                  <input
+                    type="text"
+                    value={sshUsername}
+                    onChange={(e) => setSshUsername(e.target.value)}
+                    placeholder="root"
+                    className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+                  />
+                </label>
+                {/* 认证方式单选 */}
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    className={cn(
+                      'flex flex-1 items-center justify-center rounded px-2 py-0.5 text-[10px] transition-colors',
+                      sshAuthMethod === 'password'
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                    )}
+                    onClick={() => setSshAuthMethod('password')}
+                  >
+                    <span>密码</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      'flex flex-1 items-center justify-center rounded px-2 py-0.5 text-[10px] transition-colors',
+                      sshAuthMethod === 'privateKey'
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+                    )}
+                    onClick={() => setSshAuthMethod('privateKey')}
+                  >
+                    <span>私钥</span>
+                  </button>
+                </div>
+                {sshAuthMethod === 'password' ? (
+                  <label className="flex flex-col gap-0.5">
+                    <span className="text-[10px] text-muted-foreground">密码</span>
+                    <input
+                      type="password"
+                      value={sshPassword}
+                      onChange={(e) => setSshPassword(e.target.value)}
+                      className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+                    />
+                  </label>
+                ) : (
+                  <label className="flex flex-col gap-0.5">
+                    <span className="text-[10px] text-muted-foreground">私钥(PEM)</span>
+                    <textarea
+                      value={sshPrivateKey}
+                      onChange={(e) => setSshPrivateKey(e.target.value)}
+                      placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
+                      rows={3}
+                      className="rounded border border-border bg-background p-1.5 font-mono text-[10px] outline-none focus:border-ring/50"
+                    />
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      onClick={() => privateKeyFileRef.current?.click()}
+                    >
+                      <FileText className="h-3 w-3" />
+                      <span>选择私钥文件</span>
+                    </button>
+                    <input
+                      ref={privateKeyFileRef}
+                      type="file"
+                      accept=".pem,.key,.id_rsa,.id_ed25519,.txt"
+                      onChange={handlePrivateKeyFile}
+                      className="hidden"
+                    />
+                    <label className="flex flex-col gap-0.5">
+                      <span className="text-[10px] text-muted-foreground">
+                        私钥 passphrase(可选)
+                      </span>
+                      <input
+                        type="password"
+                        value={sshPassphrase}
+                        onChange={(e) => setSshPassphrase(e.target.value)}
+                        className="h-6 rounded border border-border bg-background px-1.5 text-xs outline-none focus:border-ring/50"
+                      />
+                    </label>
+                  </label>
+                )}
+                {sshFormError && (
+                  <div className="rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] text-destructive">
+                    {sshFormError}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 新建会话按钮 */}
             <div className="bg-muted/40 py-0.5">
               <button
                 type="button"
                 className="flex w-full items-center gap-2 px-2.5 py-1 text-left text-xs font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-                onClick={handleNewWithShell}
+                onClick={handleCreateSession}
+                disabled={loading}
               >
                 <Plus className="h-3 w-3" />
-                <span>新建会话</span>
+                <span>新建{connectKind === 'ssh' ? ' SSH 会话' : '会话'}</span>
               </button>
             </div>
           </div>

@@ -13,6 +13,16 @@
  *  - GET    /rules/templates  → listTemplates(转发,失败本地静态降级)
  *  - GET    /rules/audit-log  → getAuditLog(转发,失败空降级)
  *
+ * 深化端点(2026-07-22,对标 Trae/Cursor Rules 专业级):
+ *  - GET    /rules/resolved       → getResolvedRules(scope 继承链合并)
+ *  - GET    /rules/:id/history    → getRuleHistory(版本历史)
+ *  - POST   /rules/:id/rollback   → rollbackRule(回滚到指定版本)
+ *  - GET    /rules/:id/diff       → diffRuleVersions(unified diff)
+ *  - POST   /rules/:id/feedback   → recordFeedback(用户反馈)
+ *  - GET    /rules/:id/stats      → getRuleStats(效果统计)
+ *  - POST   /rules/ab-test        → abTestRules(A/B 测试)
+ *  - GET    /rules/stats          → getGlobalStats(全局统计)
+ *
  * 超时 10s,失败降级返回空数组 + warning header(由调用方处理)。
  */
 
@@ -33,6 +43,12 @@ export interface RuleDto {
   matchPattern?: string
   createdAt: string
   updatedAt: string
+  /** 命中次数(持久化到 frontmatter,2026-07-22 深化) */
+  matchCount?: number
+  /** 最后命中时间 ISO(持久化到 frontmatter) */
+  lastMatchedAt?: string
+  /** 继承来源 scope(scope 继承链合并时标记) */
+  inheritedFrom?: string
 }
 
 export interface RuleListDto {
@@ -48,6 +64,89 @@ export interface RuleTestResultDto {
 export interface RuleMatchResultDto {
   appliedRules: RuleDto[]
   promptSuffix: string
+}
+
+// ── 版本控制 DTO(2026-07-22 深化)──────────────────────────
+
+/** 版本历史条目 */
+export interface RuleHistoryEntryDto {
+  /** 版本 timestamp(文件名前缀,ISO 格式) */
+  timestamp: string
+  /** 变更动作:create / update / delete / rollback */
+  action: string
+  /** 该版本的完整规则内容(markdown,含 frontmatter) */
+  content: string
+}
+
+export interface RuleHistoryDto {
+  history: RuleHistoryEntryDto[]
+}
+
+export interface RuleDiffDto {
+  diff: string
+}
+
+// ── 效果评估 DTO(2026-07-22 深化)──────────────────────────
+
+export type RuleFeedbackType = 'thumbs_up' | 'thumbs_down'
+
+export interface RuleFeedbackResultDto {
+  success: boolean
+}
+
+export interface RuleStatsDto {
+  ruleId: string
+  /** 过去 7 天命中次数 */
+  hits7d: number
+  /** 过去 30 天命中次数 */
+  hits30d: number
+  /** 平均 token 增量 */
+  avgTokenDelta: number
+  /** 反馈总数 */
+  totalFeedback: number
+  /** 正面反馈数 */
+  positiveFeedback: number
+  /** 满意度(正面反馈率,0-100) */
+  satisfactionRate: number
+  /** 累计命中次数 */
+  matchCount: number
+}
+
+export interface RuleAbTestResultDto {
+  ruleA: {
+    id: string
+    name: string
+    matched: boolean
+    output: string
+  }
+  ruleB: {
+    id: string
+    name: string
+    matched: boolean
+    output: string
+  }
+  message: string
+  /** ai-service 不支持时为空 */
+  error?: string
+}
+
+// ── 触发统计 DTO(2026-07-22 深化)──────────────────────────
+
+export interface RuleGlobalStatsDto {
+  totalRules: number
+  activeRules7d: number
+  topRules: Array<{
+    id: string
+    name: string
+    matchCount: number
+  }>
+}
+
+// ── Scope 继承链 DTO(2026-07-22 深化)──────────────────────
+
+export interface ResolvedRulesDto {
+  rules: RuleDto[]
+  total: number
 }
 
 /** 冲突类型 */
@@ -324,6 +423,297 @@ class RulesService {
         (e as Error).message,
       )
       return { entries: [], total: 0 }
+    }
+  }
+
+  // ── 深化方法(2026-07-22,转发到 ai-service,失败降级)──────
+
+  /**
+   * 获取 scope 继承链合并后的最终生效规则集。
+   *
+   * 转发到 ai-service GET /api/rules/resolved?scope=xxx&agentId=xxx。
+   * 失败时降级为本地 listRules 结果(无 inheritedFrom 标记)。
+   */
+  async getResolvedRules(
+    scope: string,
+    agentId?: string,
+  ): Promise<ResolvedRulesDto> {
+    try {
+      const qs = new URLSearchParams({ scope })
+      if (agentId) qs.set('agentId', agentId)
+      return await this.request<ResolvedRulesDto>(`/resolved?${qs.toString()}`)
+    } catch (e) {
+      console.warn(
+        '[rules-service] getResolvedRules 降级为 listRules:',
+        (e as Error).message,
+      )
+      const list = await this.listRules()
+      const filtered = list.rules.filter(
+        (r) => r.scope === scope || (scope === 'agent' && r.scope !== 'global'),
+      )
+      return { rules: filtered, total: filtered.length }
+    }
+  }
+
+  /**
+   * 获取规则版本历史列表。
+   *
+   * 转发到 ai-service GET /api/rules/:id/history。
+   * 失败时降级为空列表(版本历史不存在时不阻塞 UI)。
+   */
+  async getRuleHistory(id: string): Promise<RuleHistoryDto> {
+    try {
+      return await this.request<RuleHistoryDto>(
+        `/${encodeURIComponent(id)}/history`,
+      )
+    } catch (e) {
+      console.warn(
+        '[rules-service] getRuleHistory 降级返回空:',
+        (e as Error).message,
+      )
+      return { history: [] }
+    }
+  }
+
+  /**
+   * 回滚规则到指定版本。
+   *
+   * 转发到 ai-service POST /api/rules/:id/rollback?version=xxx。
+   * 失败时返回 null(由调用方返回 502 或 404)。
+   */
+  async rollbackRule(
+    id: string,
+    version: string,
+  ): Promise<RuleDto | null> {
+    try {
+      const qs = new URLSearchParams({ version })
+      return await this.request<RuleDto>(
+        `/${encodeURIComponent(id)}/rollback?${qs.toString()}`,
+        { method: 'POST' },
+      )
+    } catch (e) {
+      console.warn(
+        '[rules-service] rollbackRule 失败:',
+        (e as Error).message,
+      )
+      return null
+    }
+  }
+
+  /**
+   * 对比两个版本之间的差异(unified diff)。
+   *
+   * 转发到 ai-service GET /api/rules/:id/diff?from=xxx&to=xxx。
+   * 失败时降级为空字符串。
+   */
+  async diffRuleVersions(
+    id: string,
+    from: string,
+    to: string,
+  ): Promise<RuleDiffDto> {
+    try {
+      const qs = new URLSearchParams({ from, to })
+      return await this.request<RuleDiffDto>(
+        `/${encodeURIComponent(id)}/diff?${qs.toString()}`,
+      )
+    } catch (e) {
+      console.warn(
+        '[rules-service] diffRuleVersions 降级返回空:',
+        (e as Error).message,
+      )
+      return { diff: '' }
+    }
+  }
+
+  /**
+   * 记录用户对规则效果的反馈(thumbs_up / thumbs_down)。
+   *
+   * 转发到 ai-service POST /api/rules/:id/feedback。
+   * 失败时返回 { success: false }。
+   */
+  async recordFeedback(
+    id: string,
+    feedback: RuleFeedbackType,
+  ): Promise<RuleFeedbackResultDto> {
+    try {
+      return await this.request<RuleFeedbackResultDto>(
+        `/${encodeURIComponent(id)}/feedback`,
+        { method: 'POST', body: JSON.stringify({ feedback }) },
+      )
+    } catch (e) {
+      console.warn(
+        '[rules-service] recordFeedback 失败:',
+        (e as Error).message,
+      )
+      return { success: false }
+    }
+  }
+
+  /**
+   * 获取规则效果统计(命中率 / token 增量 / 满意度)。
+   *
+   * 转发到 ai-service GET /api/rules/:id/stats。
+   * 失败时降级为零值统计。
+   */
+  async getRuleStats(id: string): Promise<RuleStatsDto> {
+    try {
+      return await this.request<RuleStatsDto>(
+        `/${encodeURIComponent(id)}/stats`,
+      )
+    } catch (e) {
+      console.warn(
+        '[rules-service] getRuleStats 降级返回零值:',
+        (e as Error).message,
+      )
+      return {
+        ruleId: id,
+        hits7d: 0,
+        hits30d: 0,
+        avgTokenDelta: 0,
+        totalFeedback: 0,
+        positiveFeedback: 0,
+        satisfactionRate: 0,
+        matchCount: 0,
+      }
+    }
+  }
+
+  /**
+   * A/B 测试:两条规则对同一输入分别应用,返回两份输出供对比。
+   *
+   * 转发到 ai-service POST /api/rules/ab-test。
+   * 失败时降级为本地简化实现(仅基于 matchType 做基本匹配)。
+   */
+  async abTestRules(
+    ruleIdA: string,
+    ruleIdB: string,
+    message: string,
+  ): Promise<RuleAbTestResultDto> {
+    try {
+      return await this.request<RuleAbTestResultDto>('/ab-test', {
+        method: 'POST',
+        body: JSON.stringify({
+          ruleIdA,
+          ruleIdB,
+          message,
+        }),
+      })
+    } catch (e) {
+      console.warn(
+        '[rules-service] abTestRules 降级为本地实现:',
+        (e as Error).message,
+      )
+      return this._abTestLocal(ruleIdA, ruleIdB, message)
+    }
+  }
+
+  /**
+   * 获取全局规则统计(总规则数 / 活跃规则数 / top 10)。
+   *
+   * 转发到 ai-service GET /api/rules/stats。
+   * 失败时降级为本地计算(基于 listRules 的 matchCount 字段)。
+   */
+  async getGlobalStats(): Promise<RuleGlobalStatsDto> {
+    try {
+      return await this.request<RuleGlobalStatsDto>('/stats')
+    } catch (e) {
+      console.warn(
+        '[rules-service] getGlobalStats 降级为本地计算:',
+        (e as Error).message,
+      )
+      return this._getGlobalStatsLocal()
+    }
+  }
+
+  /**
+   * 本地 A/B 测试降级实现(不依赖 ai-service)。
+   *
+   * 基于本地规则数据做基本匹配判断,不计算 token 增量。
+   */
+  private async _abTestLocal(
+    ruleIdA: string,
+    ruleIdB: string,
+    message: string,
+  ): Promise<RuleAbTestResultDto> {
+    const { rules } = await this.listRules()
+    const ruleA = rules.find((r) => r.id === ruleIdA)
+    const ruleB = rules.find((r) => r.id === ruleIdB)
+    const matchedA = ruleA ? this._matchSingleLocal(ruleA, message) : false
+    const matchedB = ruleB ? this._matchSingleLocal(ruleB, message) : false
+    return {
+      ruleA: {
+        id: ruleIdA,
+        name: ruleA?.name ?? ruleIdA,
+        matched: matchedA,
+        output:
+          matchedA && ruleA
+            ? `## ${ruleA.name}\n${ruleA.content}`
+            : '',
+      },
+      ruleB: {
+        id: ruleIdB,
+        name: ruleB?.name ?? ruleIdB,
+        matched: matchedB,
+        output:
+          matchedB && ruleB
+            ? `## ${ruleB.name}\n${ruleB.content}`
+            : '',
+      },
+      message,
+    }
+  }
+
+  /**
+   * 本地规则匹配降级(仅 keyword / regex / always,不含 semantic)。
+   */
+  private _matchSingleLocal(rule: RuleDto, message: string): boolean {
+    if (!rule.enabled) return false
+    switch (rule.matchType) {
+      case 'always':
+        return true
+      case 'keyword': {
+        if (!rule.matchPattern) return false
+        return rule.matchPattern
+          .split(',')
+          .some((kw) => kw.trim() && message.includes(kw.trim()))
+      }
+      case 'regex': {
+        if (!rule.matchPattern) return false
+        try {
+          return new RegExp(rule.matchPattern).test(message)
+        } catch {
+          return false
+        }
+      }
+      default:
+        return false
+    }
+  }
+
+  /**
+   * 本地全局统计降级(基于 listRules 的 matchCount 字段)。
+   */
+  private async _getGlobalStatsLocal(): Promise<RuleGlobalStatsDto> {
+    const { rules } = await this.listRules()
+    const now = Date.now()
+    const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000
+    const active7d = rules.filter(
+      (r) =>
+        r.lastMatchedAt &&
+        new Date(r.lastMatchedAt).getTime() >= sevenDaysAgo,
+    ).length
+    const top = [...rules]
+      .sort((a, b) => (b.matchCount ?? 0) - (a.matchCount ?? 0))
+      .slice(0, 10)
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        matchCount: r.matchCount ?? 0,
+      }))
+    return {
+      totalRules: rules.length,
+      activeRules7d: active7d,
+      topRules: top,
     }
   }
 
