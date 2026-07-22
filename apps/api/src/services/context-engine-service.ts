@@ -6,12 +6,16 @@
  * 2. database schema 查询:用 drizzle db.execute 查 information_schema(表清单 + 列定义)
  * 3. folder 扫描:用 node:fs 扫描工作区目录(限深度 2 层防爆炸)
  * 4. file 检索:委托 file-queries.findRecentFiles(按 q 过滤)
+ * 5. enrich:两层集成(@ 提及 + RAG 检索),委托 ai-service /api/context/enrich(2026-07-22 立)
+ * 6. sources:查询可用上下文源类型 + 预算分配,委托 ai-service /api/context/sources
  *
  * 性能:检索结果带 LRU 缓存(Map<key, {ts, data}>,TTL 60s,容量 100 条)。
  *
  * 跨服务说明:task 约定 "调 ai-service /v1/codebase/search",但该路由实际由
  * apps/api 自身承载(v1-codebase-search.ts),ai-service codebase_indexer 反向调用本服务。
  * 因此 symbol 检索直接复用 in-process codebaseIndexService,避免 HTTP 自调用回环。
+ *
+ * 降级:enrich/getSources 调 ai-service 失败时,退化为本地逻辑(仅 @ 提及内容 / 内置源定义)。
  */
 
 import { readdirSync, statSync } from 'node:fs'
@@ -21,6 +25,7 @@ import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { codebaseIndexService } from './codebase-index-service.js'
 import { findRecentFiles } from '../db/file-queries.js'
+import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import type {
   ContextMention,
   DatabaseColumn,
@@ -29,6 +34,58 @@ import type {
   MentionType,
   SymbolSearchItem,
 } from '@ihui/types'
+
+/** 上下文源类型(history/codebase/mention/web/database,2026-07-22 立) */
+export type ContextSourceType = 'history' | 'codebase' | 'mention' | 'web' | 'database'
+
+/** 单条上下文源定义(供前端展示源类型 + 预算占比) */
+export interface ContextSource {
+  type: ContextSourceType
+  label: string
+  budgetRatio: number
+  description: string
+}
+
+/** 增强后的上下文条目(由 ai-service /api/context/enrich 返回) */
+export interface EnrichedContextSource {
+  type: string
+  content: string
+  relevance: number
+  source: string
+  metadata?: Record<string, unknown>
+}
+
+/** enrich 方法返回结构 */
+export interface EnrichedContext {
+  /** 拼接后的上下文文本(供 LLM 注入) */
+  enrichedContext: string
+  /** enrichedContext 的 token 数 */
+  tokenCount: number
+  /** 各源条目明细(供前端展示) */
+  sources: EnrichedContextSource[]
+  /** 会话 ID */
+  conversationId: string
+}
+
+/** getSources 方法返回结构 */
+export interface ContextSourcesResult {
+  sources: ContextSource[]
+  defaultBudget: number
+}
+
+/** enrich 方法请求参数 */
+export interface EnrichOptions {
+  /** 用户当前消息(作为 RAG 检索 query,空字符串时跳过 RAG) */
+  userMessage: string
+  /** 会话 ID */
+  conversationId: string
+  /** 当前 @ 提及结果列表 */
+  mentions: ContextMention[]
+  /** 当前会话消息历史(可选,提供时启用 history RAG) */
+  messages?: Array<{ role: string; content: string }>
+  /** 总 token 预算(默认 8000) */
+  totalBudget?: number
+}
 
 /** LRU 缓存条目 */
 interface CacheEntry<T> {
@@ -326,6 +383,167 @@ class ContextEngineService {
     }
     walk(root, 0)
     return result
+  }
+
+  /**
+   * 两层集成入口:@ 提及结果 + RAG 检索(2026-07-22 立)。
+   *
+   * 委托 ai-service POST /api/context/enrich:
+   * - mentions 作为额外 RAG 数据源注入检索池(relevance=1.0,用户显式选择)
+   * - ai-service 调 retrieve_and_enrich 检索 history + codebase 上下文
+   * - _merge_context 多源融合(去重 + relevance DESC 排序 + token 截断)
+   *
+   * 降级:ai-service 不可用 / HTTP 错误 / 响应异常 → 退化为本地拼接
+   *      (仅 @ 提及内容,无 RAG 检索),保证链路不报错。
+   */
+  async enrich(opts: EnrichOptions): Promise<EnrichedContext> {
+    const {
+      userMessage,
+      conversationId,
+      mentions,
+      messages = [],
+      totalBudget = 8000,
+    } = opts
+
+    try {
+      const resp = await aiServiceFetch(null, '/api/context/enrich', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mentions,
+          conversationId,
+          query: userMessage,
+          messages,
+          totalBudget,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service /api/context/enrich HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as { code: number; data?: EnrichedContext }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      throw new Error(`ai-service /api/context/enrich 返回 code=${json.code}`)
+    } catch {
+      // 降级:仅用 @ 提及内容拼接(无 RAG 检索)
+      return this._fallbackEnrich(mentions, conversationId)
+    }
+  }
+
+  /**
+   * 查询可用上下文源类型 + 预算分配(2026-07-22 立)。
+   *
+   * 委托 ai-service GET /api/context/sources:
+   * - 返回 5 个源类型(history/codebase/mention/web/database)+ budgetRatio + description
+   * - 返回 defaultBudget(默认 8000)
+   *
+   * 降级:ai-service 不可用时返回内置默认值(与 ai-service 端常量同步)。
+   */
+  async getSources(): Promise<ContextSourcesResult> {
+    try {
+      const resp = await aiServiceFetch(null, '/api/context/sources', {
+        method: 'GET',
+        signal: AbortSignal.timeout(5_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service /api/context/sources HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as {
+        code: number
+        data?: ContextSourcesResult
+      }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      throw new Error(`ai-service /api/context/sources 返回 code=${json.code}`)
+    } catch {
+      // 降级:返回内置默认值(与 ai-service SOURCE_BUDGET_RATIOS 同步)
+      return {
+        sources: [
+          {
+            type: 'history',
+            label: '历史对话',
+            budgetRatio: 0.4,
+            description: '本会话 + 跨会话历史消息 RAG(embedding 相似度检索)',
+          },
+          {
+            type: 'codebase',
+            label: '代码库',
+            budgetRatio: 0.3,
+            description: 'codebase_indexer 语义检索代码 chunk(跨会话 RAG)',
+          },
+          {
+            type: 'mention',
+            label: '@ 提及',
+            budgetRatio: 0.2,
+            description: '用户显式 @ 提及的 file/database/symbol/folder/web',
+          },
+          {
+            type: 'web',
+            label: 'Web 搜索',
+            budgetRatio: 0.05,
+            description: '外部 Web 搜索结果(可选项)',
+          },
+          {
+            type: 'database',
+            label: 'DB Schema',
+            budgetRatio: 0.05,
+            description: '数据库表结构定义(information_schema)',
+          },
+        ],
+        defaultBudget: 8000,
+      }
+    }
+  }
+
+  /** 降级:仅用 @ 提及内容拼接 enrichedContext(无 RAG 检索) */
+  private _fallbackEnrich(
+    mentions: ContextMention[],
+    conversationId: string,
+  ): EnrichedContext {
+    const sources: EnrichedContextSource[] = mentions.map((m) => ({
+      type: 'mention',
+      content: this._mentionToText(m),
+      relevance: 1.0,
+      source: `mention:${m.type}`,
+      metadata: {
+        mention_type: m.type,
+        label: m.label,
+        insert_text: m.insertText,
+      },
+    }))
+    const enrichedContext = sources
+      .map((s) => `[${s.source}]\n${s.content}`)
+      .join('\n\n')
+    // 粗略 token 估算(中文 ~1.5 char/token,英文 ~4 char/token,取 3.5 折中)
+    const tokenCount = Math.max(1, Math.ceil(enrichedContext.length / 3.5))
+    return { enrichedContext, tokenCount, sources, conversationId }
+  }
+
+  /** @ 提及条目 → 可注入文本(降级路径专用,与 ai-service _mention_to_content 同构) */
+  private _mentionToText(m: ContextMention): string {
+    const meta = m.meta ?? {}
+    switch (m.type) {
+      case 'file':
+        return `文件: ${m.label}\n路径: ${meta.path ?? m.detail ?? ''}`.trim()
+      case 'folder':
+        return `目录: ${m.label}\n路径: ${meta.path ?? m.detail ?? ''}`.trim()
+      case 'database':
+        return `数据表: ${meta.tableName ?? m.label}\n${m.detail ?? ''}`.trim()
+      case 'symbol': {
+        const symName = meta.symbolName ?? m.label
+        const symType = meta.symbolType ?? ''
+        const filePath = meta.filePath ?? ''
+        const line = meta.lineStart ?? ''
+        return `符号: ${symName}(${symType})\n文件: ${filePath}:${line}`.trim()
+      }
+      case 'web':
+        return `Web: ${m.label}\nURL: ${meta.url ?? ''}`.trim()
+      default:
+        return `${m.type}: ${m.label}`.trim()
+    }
   }
 }
 
