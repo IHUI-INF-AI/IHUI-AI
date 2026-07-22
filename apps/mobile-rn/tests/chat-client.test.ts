@@ -72,7 +72,7 @@ describe('lib/ws/chat-client', () => {
   it('connect 建立 WS,URL 含 roomId + token,status 变化被订阅者收到', async () => {
     const { LiveChatClient } = await import('../src/lib/ws/chat-client')
     const client = new LiveChatClient({
-      baseUrl: 'http://localhost:3001',
+      baseUrl: 'http://localhost:8801',
       tokenProvider: () => 'tk-123',
       webSocketFactory: factory,
     })
@@ -110,7 +110,7 @@ describe('lib/ws/chat-client', () => {
   it('收到 { type: "chat", data } 推送给 onMessage', async () => {
     const { LiveChatClient } = await import('../src/lib/ws/chat-client')
     const client = new LiveChatClient({
-      baseUrl: 'http://localhost:3001',
+      baseUrl: 'http://localhost:8801',
       tokenProvider: () => 'tk',
       webSocketFactory: factory,
     })
@@ -131,7 +131,7 @@ describe('lib/ws/chat-client', () => {
   it('收到裸 ChatMessage(无外壳)也能识别', async () => {
     const { LiveChatClient } = await import('../src/lib/ws/chat-client')
     const client = new LiveChatClient({
-      baseUrl: 'http://localhost:3001',
+      baseUrl: 'http://localhost:8801',
       tokenProvider: () => 'tk',
       webSocketFactory: factory,
     })
@@ -148,7 +148,7 @@ describe('lib/ws/chat-client', () => {
   it('收到 { type: "history", data: [...] } 触发 onHistory(单次)', async () => {
     const { LiveChatClient } = await import('../src/lib/ws/chat-client')
     const client = new LiveChatClient({
-      baseUrl: 'http://localhost:3001',
+      baseUrl: 'http://localhost:8801',
       tokenProvider: () => 'tk',
       webSocketFactory: factory,
     })
@@ -172,7 +172,7 @@ describe('lib/ws/chat-client', () => {
   it('非法消息(JSON.parse 失败 / 缺字段)被忽略,不抛错', async () => {
     const { LiveChatClient } = await import('../src/lib/ws/chat-client')
     const client = new LiveChatClient({
-      baseUrl: 'http://localhost:3001',
+      baseUrl: 'http://localhost:8801',
       tokenProvider: () => 'tk',
       webSocketFactory: factory,
     })
@@ -194,7 +194,7 @@ describe('lib/ws/chat-client', () => {
   it('send 仅在 OPEN 状态成功,关闭后返回 false', async () => {
     const { LiveChatClient } = await import('../src/lib/ws/chat-client')
     const client = new LiveChatClient({
-      baseUrl: 'http://localhost:3001',
+      baseUrl: 'http://localhost:8801',
       tokenProvider: () => 'tk',
       webSocketFactory: factory,
     })
@@ -216,7 +216,7 @@ describe('lib/ws/chat-client', () => {
     vi.useFakeTimers()
     const { LiveChatClient } = await import('../src/lib/ws/chat-client')
     const client = new LiveChatClient({
-      baseUrl: 'http://localhost:3001',
+      baseUrl: 'http://localhost:8801',
       tokenProvider: () => 'tk',
       webSocketFactory: factory,
       maxReconnectDelay: 5000,
@@ -241,7 +241,7 @@ describe('lib/ws/chat-client', () => {
     vi.useFakeTimers()
     const { LiveChatClient } = await import('../src/lib/ws/chat-client')
     const client = new LiveChatClient({
-      baseUrl: 'http://localhost:3001',
+      baseUrl: 'http://localhost:8801',
       tokenProvider: () => 'tk',
       webSocketFactory: factory,
     })
@@ -262,7 +262,7 @@ describe('lib/ws/chat-client', () => {
   it('无 token 时 status=error 并 onError 回调', async () => {
     const { LiveChatClient } = await import('../src/lib/ws/chat-client')
     const client = new LiveChatClient({
-      baseUrl: 'http://localhost:3001',
+      baseUrl: 'http://localhost:8801',
       tokenProvider: () => null,
       webSocketFactory: factory,
     })
@@ -282,7 +282,7 @@ describe('lib/ws/chat-client', () => {
   it('多订阅者都收到消息和状态变化', async () => {
     const { LiveChatClient } = await import('../src/lib/ws/chat-client')
     const client = new LiveChatClient({
-      baseUrl: 'http://localhost:3001',
+      baseUrl: 'http://localhost:8801',
       tokenProvider: () => 'tk',
       webSocketFactory: factory,
     })
@@ -305,7 +305,7 @@ describe('lib/ws/chat-client', () => {
   it('重复 connect 同一 roomId 不创建新连接', async () => {
     const { LiveChatClient } = await import('../src/lib/ws/chat-client')
     const client = new LiveChatClient({
-      baseUrl: 'http://localhost:3001',
+      baseUrl: 'http://localhost:8801',
       tokenProvider: () => 'tk',
       webSocketFactory: factory,
     })
