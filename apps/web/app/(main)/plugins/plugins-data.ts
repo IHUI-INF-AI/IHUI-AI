@@ -108,6 +108,16 @@ export interface MarketPlugin {
    * 默认所有插件都是 'dialog',让用户在平台内直接调用,而不是被甩到外部平台。
    */
   invokeMode?: 'dialog' | 'external'
+  /**
+   * 真实集成度(2026-07-22 新增,基于 ai-service mcp_server.py 36 工具 + llm_gateway 80+ provider 调研)
+   * - true:ai-service 后端有对应 MCP 工具/原生 provider 适配器,点击"添加到对话"后
+   *        LLM 真的能调用对应工具(浏览器控制/电脑控制/文件系统/数据库/搜索/代码执行/视觉/git 等)
+   * - false/未填:仅前端 prompt 意图,后端无对应实现,添加到对话仅作 UI 标记
+   * - 'model':LLM 模型供应商已接入(LiteLLM catchall 或原生 provider),需用户配 .env 激活
+   *
+   * 用户在卡片上看到"已集成"徽章即知道真能用,"外部参考"则只是导航链接。
+   */
+  realIntegrated?: boolean | 'model'
 }
 
 /** 本项目已集成的插件能力(24 项,对应 (main) 路由组下已有页面) */
@@ -2492,3 +2502,56 @@ export const MARKET_PLUGINS: MarketPlugin[] = [
     free: true,
   },
 ]
+
+// ============================================================================
+// 真实集成度映射表(2026-07-22 立,基于 ai-service mcp_server.py + llm_gateway 调研)
+// 集中管理避免逐项散落,PluginMarketplace 渲染时查询 getPluginIntegration(id)。
+// ============================================================================
+
+/** ai-service 后端有对应 MCP 工具(可真实调用,非纯 prompt 意图)的 plugin id */
+const REAL_INTEGRATED_IDS = new Set<string>([
+  // 浏览器控制(12)→ 走 ai-service 12 个 browser_* MCP 工具(桥接到 extension 端)
+  'playwright-mcp', 'puppeteer', 'browser-use', 'browserbase', 'stagehand',
+  'skyvern', 'browserless', 'selenium', 'playwright', 'multion', 'axiom', 'brightdata',
+  // 电脑控制(7)→ 走 ai-service 10 个 computer_* MCP 工具(桥接到 desktop 端)
+  'anthropic-computer-use', 'claude-desktop', 'self-operating-computer', 'openadapt',
+  'adept-act', 'agsafety-agent', 'openai-operator',
+  // 文件系统(1)
+  'filesystem-mcp',
+  // 数据库(1)→ ai-service db_query MCP 工具(只读 SELECT/WITH)
+  'postgres-mcp',
+  // 搜索(1)→ ai-service search_web / web_search MCP 工具
+  'duckduckgo',
+  // 代码执行(2)
+  'code-interpreter-mcp', 'e2b',
+  // git(1)→ ai-service git_operations MCP 工具
+  'github-mcp',
+  // LangGraph 已用
+  'langgraph',
+])
+
+/** LiteLLM 已接入的模型供应商 plugin id(需用户配 .env 激活) */
+const MODEL_INTEGRATED_IDS = new Set<string>([
+  // 原生 provider 适配器(14 个)
+  'claude-skills', 'doubao', 'zhipu', 'qwen', 'hunyuan', 'volcengine',
+  'kling', 'openrouter',
+  // LiteLLM catchall(模型前缀路由,60+ env key)
+  'grok', 'mistral', 'cohere', 'perplexity', 'deepseek', 'moonshot',
+  'baidu-ernie', 'minimax', 'yi', 'spark', 'baichuan',
+  'together-ai', 'fireworks-ai', 'groq', 'replicate',
+  'ollama', 'lm-studio', 'jan',
+  'cerebras', 'sambanova', 'siliconcloud', 'modelscope', 'bailian', 'alibaba-cloud-bailian',
+  'aws-bedrock', 'azure-ai', 'vertex-ai', 'watsonx',
+  'huggingface-models', 'huggingface-spaces',
+  'workers-ai', 'github-models',
+])
+
+/** 查询 plugin 的真实集成度
+ *  - true:ai-service 后端有对应 MCP 工具,LLM 真能调用
+ *  - 'model':LLM 供应商已接入(LiteLLM),需用户配 .env 激活
+ *  - undefined:仅前端 prompt 意图或纯外链,后端无对应实现 */
+export function getPluginIntegration(pluginId: string): boolean | 'model' | undefined {
+  if (REAL_INTEGRATED_IDS.has(pluginId)) return true
+  if (MODEL_INTEGRATED_IDS.has(pluginId)) return 'model'
+  return undefined
+}
