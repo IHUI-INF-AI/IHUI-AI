@@ -10743,8 +10743,12 @@
     "maxLevel": "Max level reached",
     "tab": {
       "tx": "Transactions",
-      "lb": "Leaderboard"
+      "lb": "Leaderboard",
+      "redeem": "Redeem"
     },
+    "redeemEmpty": "No items available to redeem",
+    "pointsUnit": "{n} points",
+    "redeemBtn": "Redeem Now",
     "source": "Source",
     "amount": "Change",
     "balance": "Balance",
@@ -25956,6 +25960,10 @@
       "searchPlaceholder": "Search title or summary…",
       "searchEmpty": "No matching articles, try a different keyword",
       "trendBtn": "Trend",
+      "trendAll": "All trends",
+      "trendRising": "Rising",
+      "trendCooling": "Cooling",
+      "trendNew": "New",
       "moreHint": "Showing {shown}/{total} articles, adjust filters for more"
     },
     "hotRanking": {
