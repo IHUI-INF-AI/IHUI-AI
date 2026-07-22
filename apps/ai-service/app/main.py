@@ -37,6 +37,8 @@ from app.routers import self_media
 from app.routers import publish
 from app.routers import opencompass
 from app.routers import screenshot
+# P3 深度层 Wave 11:6 大对标能力(2026-07-22 立,对标 Codex/Trae/Qoder)
+from app.routers import rules, hooks, spec
 from app.routers.legacy import router as legacy_router
 from app.sio import sio
 from app.sio.handlers import register_handlers
@@ -195,6 +197,12 @@ def create_app() -> FastAPI:
     # 多通道消息总线(5 通道 + 优先级 + 降级 + 模板 + 批量 + 限流,2026-07-22 新增,反超 OpenClaw 单 WS)
     from app.api.message_bus import router as message_bus_router
     app.include_router(message_bus_router, prefix="/api", tags=["message-bus"])
+    # P3 Wave 11:Rules 引擎(对标 Trae Rules,文件存储 .trae-cn/rules/*.md + 热加载 + 4 种匹配)
+    app.include_router(rules.router, prefix="/api", tags=["rules"])
+    # P3 Wave 11:Hook 服务(对标 Trae Hooks,事件总线 + JSONLogic 条件 + 4 执行器)
+    app.include_router(hooks.router, prefix="/api", tags=["hooks"])
+    # P3 Wave 11:Plan/Spec 模式(对标 Trae Plan/Spec,tree-sitter AST 反向生成 spec markdown)
+    app.include_router(spec.router, prefix="/api", tags=["spec"])
     app.include_router(legacy_router)
 
     # 审计日志查询端点(调试用,返回最近审计记录,2026-07-22 立)
