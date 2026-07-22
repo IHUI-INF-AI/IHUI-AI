@@ -32,6 +32,7 @@ export interface MemoryQuery {
 }
 
 export class MemoryService extends EventEmitter {
+  /** 内存记忆存储 — 需后续建表持久化(userMemories 表需 userId,当前接口未传 userId) */
   private memories = new Map<string, MemoryItem>()
   private shortTermTTL = 1000 * 60 * 30
   private maxShortTermItems = 100
