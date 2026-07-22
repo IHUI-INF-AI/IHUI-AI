@@ -25952,7 +25952,26 @@
       "categoryProduct": "AI 产品",
       "categoryIndustry": "行业",
       "categoryPaper": "论文",
-      "categoryTip": "技巧"
+      "categoryTip": "技巧",
+      "searchPlaceholder": "搜索资讯标题或摘要…",
+      "searchEmpty": "未找到匹配的资讯,换个关键词试试",
+      "trendBtn": "趋势",
+      "moreHint": "已展示 {shown}/{total} 条,更多资讯请调整筛选条件"
+    },
+    "hotRanking": {
+      "label": "热度排行榜",
+      "title": "AI 资讯热度榜 Top 10",
+      "subtitle": "按实时热度排序"
+    },
+    "trendChart": {
+      "subtitle": "7/14 天热度趋势曲线",
+      "days": "天",
+      "loading": "加载趋势数据…",
+      "noData": "数据积累中",
+      "noDataHint": "需 ≥2 天快照才能绘制趋势,明天 cron 后自动有",
+      "stable": "平稳",
+      "rankDelta": "排名变化",
+      "hotValue": "热度值"
     },
     "funding": {
       "label": "重磅融资与收购",
