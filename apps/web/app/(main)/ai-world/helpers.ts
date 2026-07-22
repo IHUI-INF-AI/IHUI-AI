@@ -62,8 +62,7 @@ export async function fetchAiWorldRankings(params: FetchRankingsParams): Promise
 }
 
 export async function fetchLeaderboards(): Promise<LeaderboardInfo[]> {
-  const res = await api<{ leaderboards: LeaderboardInfo[]; total: number }>('/api/ai-world/rankings/leaderboards')
-  return res.leaderboards ?? []
+  return api<LeaderboardInfo[]>('/api/ai-world/rankings/leaderboards')
 }
 
 export interface FetchTrendingParams {
