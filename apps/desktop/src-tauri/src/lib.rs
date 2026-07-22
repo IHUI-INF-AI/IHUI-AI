@@ -160,7 +160,13 @@ fn parse_key(key: &str) -> Result<Key, String> {
         "F10" => Ok(Key::F10),
         "F11" => Ok(Key::F11),
         "F12" => Ok(Key::F12),
-        _ if key.chars().count() == 1 => Ok(Key::Unicode(key.chars().next().unwrap())),
+        _ if key.chars().count() == 1 => {
+            // 2026-07-22 P0 Round 5:显式 match 防 panic(虽有 count==1 守护,但 unwrap 写法不安全)
+            match key.chars().next() {
+                Some(ch) => Ok(Key::Unicode(ch)),
+                None => Err(format!("Empty key: {}", key)),
+            }
+        }
         _ => Err(format!("Unknown key: {}", key)),
     }
 }
@@ -476,5 +482,33 @@ pub fn run() {
             clipboard_set
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|e| {
+            // 2026-07-22 P0 Round 5 鲁棒性加固:主入口 panic → 写 crash log + exit(1)
+            // 原:.expect() 会 panic 导致"应用已停止运行"弹窗,无 crash log 落盘
+            // 新:尝试写 crash log 到 APPDATA/LOCALAPPDATA(不依赖额外 crate),失败也 exit(1)
+            let ts = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            let log_content = format!(
+                "IHUI Desktop crash report\nTimestamp: {}\nError: {}\n\n{:?}",
+                ts, e, e
+            );
+            // 尝试写 crash log(Windows: %APPDATA%,macOS/Linux: $HOME)
+            let written = (|| {
+                let base = std::env::var_os("APPDATA")
+                    .or_else(|| std::env::var_os("XDG_DATA_HOME"))
+                    .or_else(|| std::env::var_os("HOME"))?;
+                let log_dir = std::path::Path::new(&base).join("com.ihui.ai").join("logs");
+                std::fs::create_dir_all(&log_dir).ok()?;
+                let log_path = log_dir.join(format!("crash-{}.log", ts));
+                std::fs::write(&log_path, &log_content).ok()?;
+                Some(log_path)
+            })();
+            match &written {
+                Some(p) => eprintln!("[crash] IHUI Desktop error log written to: {:?}", p),
+                None => eprintln!("[crash] IHUI Desktop error (log write failed): {}", log_content),
+            }
+            std::process::exit(1);
+        });
 }
