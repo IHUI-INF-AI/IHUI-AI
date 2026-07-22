@@ -417,7 +417,7 @@ export function MessageInput({
                 - 右侧:引用计数徽章
                 提示词模板按钮从底部工具栏上移至此(用户规则:挪到输入框上方附加栏),
                 与空状态 chips 共用同一组 5 个核心模板源,视觉风格协调。 */}
-            <div className="flex items-center gap-1 border-b border-border/60 px-2 py-1.5">
+            <div className="flex items-center gap-1 bg-muted/30 px-2 py-1.5">
               {isStreaming ? (
                 <Tooltip content={t('promptTemplate')}>
                   <button
