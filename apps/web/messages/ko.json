@@ -599,6 +599,7 @@
     "forgotPassword": "비밀번호 찾기",
     "rememberPassword": "비밀번호 기억하기",
     "accountHistory": "계정 기록",
+    "noHistory": "기록 없음",
     "forgotSubtitle": "비밀번호 재설정",
     "registerTitle": "계정 만들기",
     "registerSubtitle": "새 계정 등록",
@@ -1082,7 +1083,11 @@
       "community": "커뮤니티",
       "communityEn": "커뮤니티",
       "knowledge": "지식 베이스",
-      "knowledgeEn": "지식"
+      "knowledgeEn": "지식",
+      "recommend": "추천 코스",
+      "recommendEn": "추천",
+      "hot": "인기 코스",
+      "hotEn": "인기"
     },
     "units": {
       "questions": "{count}문제",
