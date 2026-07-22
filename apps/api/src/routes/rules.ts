@@ -21,8 +21,17 @@
  *  - GET    /api/rules/:id/stats    规则效果统计
  *  - POST   /api/rules/match    匹配规则(供 agent loop 调用)
  *
- * 静态路由(/conflicts、/templates、/audit-log、/resolved、/stats、/ab-test)
- * 在 Fastify find-my-way 中优先于参数路由(/:id),无需担心顺序冲突。
+ * 超越创新端点(2026-07-23,行为学习 + LLM 模式提取 + 冲突协商 + 效果预测 + 知识图谱):
+ *  - POST   /api/rules/auto-generate          基于行为模式自动生成规则草稿
+ *  - POST   /api/rules/resolve-conflicts      LLM 自动协商冲突解决方案
+ *  - POST   /api/rules/:id/predict-effect     预测规则应用效果
+ *  - GET    /api/rules/knowledge-graph        规则知识图谱(duplicate/complementary/conflict)
+ *  - POST   /api/rules/:id/learn-feedback     记录对自动生成规则的反馈
+ *
+ * 静态路由(/conflicts、/templates、/audit-log、/resolved、/stats、/ab-test、
+ * /auto-generate、/resolve-conflicts、/knowledge-graph)
+ * 在 Fastify find-my-way 中优先于参数路由(/:id),无需担心顺序冲突;
+ * 任务规格要求静态路径在 /:id 之前注册,本文件遵循该约束。
  *
  * 在 server.ts 注册:server.register(rulesRoutes, { prefix: '/api' })
  *
@@ -88,6 +97,36 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     ruleIdA: z.string().min(1),
     ruleIdB: z.string().min(1),
     message: z.string().min(1),
+  })
+
+  // ── 超越创新 schemas(2026-07-23)──
+  const ruleAutoGenerateSchema = z.object({
+    userId: z.string().min(1),
+  })
+
+  const ruleResolveConflictsSchema = z.object({
+    conflicts: z
+      .array(
+        z.object({
+          type: z.enum([
+            'name_conflict',
+            'semantic_duplicate',
+            'priority_collision',
+          ]),
+          ruleIds: z.array(z.string()),
+          detail: z.string(),
+        }),
+      )
+      .min(1),
+  })
+
+  const rulePredictEffectSchema = z.object({
+    dryRunMessage: z.string().optional(),
+  })
+
+  const ruleLearnFeedbackSchema = z.object({
+    feedback: z.string().min(1),
+    accepted: z.boolean(),
   })
 
   // GET /rules — 列出全部规则
@@ -203,6 +242,61 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(502).send(error(502, (e as Error).message))
     }
   })
+
+  // ── 超越创新:静态路由(必须在 /:id 之前注册,避免被当作 rule_id)──
+
+  // POST /rules/auto-generate — 基于行为模式自动生成规则草稿
+  server.post('/rules/auto-generate', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = ruleAutoGenerateSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const data = await rulesService.autoGenerateRules(parsed.data.userId)
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
+
+  // POST /rules/resolve-conflicts — LLM 自动协商冲突解决方案
+  server.post('/rules/resolve-conflicts', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = ruleResolveConflictsSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const data = await rulesService.resolveConflicts(parsed.data.conflicts)
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
+
+  // GET /rules/knowledge-graph — 规则知识图谱(duplicate/complementary/conflict 边)
+  server.get<{ Querystring: { scope?: string } }>(
+    '/rules/knowledge-graph',
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      try {
+        const data = await rulesService.getRulesKnowledgeGraph(
+          request.query.scope,
+        )
+        return reply.send(success(data))
+      } catch (e) {
+        return reply.status(502).send(error(502, (e as Error).message))
+      }
+    },
+  )
 
   // GET /rules/:id — 获取单个规则
   server.get<{ Params: { id: string } }>(
@@ -403,6 +497,57 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     )
     return reply.send(success(result))
   })
+
+  // ── 超越创新:动态 :id 路由(在 /:id/* 同级注册)──
+
+  // POST /rules/:id/predict-effect — 预测规则应用效果
+  server.post<{ Params: { id: string } }>(
+    '/rules/:id/predict-effect',
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const parsed = rulePredictEffectSchema.safeParse(request.body ?? {})
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      try {
+        const data = await rulesService.predictRuleEffect(
+          request.params.id,
+          parsed.data.dryRunMessage,
+        )
+        return reply.send(success(data))
+      } catch (e) {
+        return reply.status(502).send(error(502, (e as Error).message))
+      }
+    },
+  )
+
+  // POST /rules/:id/learn-feedback — 记录对自动生成规则的反馈
+  server.post<{ Params: { id: string } }>(
+    '/rules/:id/learn-feedback',
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const parsed = ruleLearnFeedbackSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      try {
+        const data = await rulesService.recordLearnFeedback(
+          request.params.id,
+          parsed.data.feedback,
+          parsed.data.accepted,
+        )
+        return reply.send(success(data))
+      } catch (e) {
+        return reply.status(502).send(error(502, (e as Error).message))
+      }
+    },
+  )
 }
 
 export default rulesRoutes
