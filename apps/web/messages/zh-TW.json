@@ -28441,7 +28441,8 @@
       "label": "大模型排行榜",
       "title": "大模型排行榜 · Arena 評分",
       "subtitle": "參考 arena.ai · Elo + Bootstrap CI",
-      "empty": "暫無排行資料"
+      "empty": "暫無排行資料",
+      "sortHint": "點擊表頭排序"
     },
     "hero": {
       "label": "AI 資訊 Hero",
@@ -28545,7 +28546,10 @@
       "getApiKey": "取得 API Key",
       "officialDocs": "官方文件",
       "quickImport": "一鍵匯入",
-      "noQuickImport": "暫不支援一鍵匯入"
+      "noQuickImport": "暫不支援一鍵匯入",
+      "copyBaseUrl": "複製 Base URL",
+      "baseUrlCopied": "Base URL 已複製到剪貼簿",
+      "copyFailed": "複製失敗,請手動複製"
     },
     "apiRelays": {
       "title": "API 中轉站",
@@ -28558,7 +28562,13 @@
       "searchPlaceholder": "搜尋平臺名稱 / 廠商 / 特點 / 計費方式...",
       "allVendors": "全部",
       "resultCount": "共 {count} / {total} 個平臺",
-      "emptyResult": "沒有符合的平臺,請嘗試調整搜尋關鍵字或廠商篩選"
+      "emptyResult": "沒有符合的平臺,請嘗試調整搜尋關鍵字或廠商篩選",
+      "billingLabel": "計費",
+      "allBilling": "全部",
+      "billingToken": "按 Token",
+      "billingFree": "免費額度",
+      "billingGpu": "GPU 時長",
+      "billingSubscription": "套餐"
     },
     "cta": {
       "label": "底部 CTA",
