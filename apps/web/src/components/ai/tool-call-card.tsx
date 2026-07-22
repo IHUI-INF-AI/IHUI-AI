@@ -13,6 +13,8 @@ interface ToolCallCardProps {
   status: 'running' | 'success' | 'error'
   duration?: number
   error?: string
+  /** 多轮 tool loop 轮次(>1 时显示"第N轮"徽章) */
+  iteration?: number
 }
 
 const STATUS_CONFIG = {
@@ -81,6 +83,7 @@ export function ToolCallCard({
   status,
   duration,
   error,
+  iteration,
 }: ToolCallCardProps) {
   const [expanded, setExpanded] = React.useState(false)
   const config = STATUS_CONFIG[status]
@@ -115,6 +118,11 @@ export function ToolCallCard({
           />
           <StatusIcon className={cn('h-4 w-4 shrink-0', config.className)} />
           <CardTitle className="flex-1 break-words text-sm font-medium">{toolName}</CardTitle>
+          {iteration !== undefined && iteration > 1 && (
+            <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
+              第{iteration}轮
+            </span>
+          )}
           {duration !== undefined && (
             <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
               {duration}ms
