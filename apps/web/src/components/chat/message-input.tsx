@@ -516,6 +516,12 @@ export function MessageInput({
                 </span>
               )}
             </div>
+            {/* 模式切换栏(2026-07-23 移至 textarea 上方,对标 Cursor 'top of chat input'):
+                模式切换是"对话开始前的决策",放输入区上方符合用户决策流(选模式→写prompt→发送)。
+                从底部工具栏移出,避免和 ModelSelector/VoiceInput/Send 拥挤(对标 Trae/Cursor/Claude/ChatGPT 均不放在输入框右下角)。 */}
+            <div className="flex items-center px-3 pt-2">
+              <ModeSwitcher className="hidden sm:flex" />
+            </div>
             {/* textarea 容器:padding 由容器提供,避免 textarea 滚动时 padding-top 被吃掉 */}
             <div className="px-3 pt-2 pb-2">
               <textarea
@@ -634,8 +640,6 @@ export function MessageInput({
                 tabIndex={-1}
               />
               <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
-                {/* 模式切换器(2026-07-22 立,对标 Trae Plan/Spec 双模式) */}
-                <ModeSwitcher className="hidden sm:flex" />
                 <ContextUsageRing model={model} isStreaming={isStreaming} />
                 <ModelSelector
                   value={model}
