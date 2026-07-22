@@ -23,6 +23,13 @@
  *  - POST   /rules/ab-test        → abTestRules(A/B 测试)
  *  - GET    /rules/stats          → getGlobalStats(全局统计)
  *
+ * 超越创新端点(2026-07-23,行为学习 + LLM 模式提取 + 冲突协商 + 效果预测 + 知识图谱):
+ *  - POST   /rules/auto-generate          → autoGenerateRules(行为模式→规则草稿)
+ *  - POST   /rules/resolve-conflicts      → resolveConflicts(LLM 仲裁冲突)
+ *  - POST   /rules/:id/predict-effect     → predictRuleEffect(效果预测)
+ *  - GET    /rules/knowledge-graph        → getRulesKnowledgeGraph(规则知识图谱)
+ *  - POST   /rules/:id/learn-feedback     → recordLearnFeedback(学习反馈)
+ *
  * 超时 10s,失败降级返回空数组 + warning header(由调用方处理)。
  */
 
@@ -192,6 +199,87 @@ export interface RuleAuditLogEntryDto {
 export interface RuleAuditLogDto {
   entries: RuleAuditLogEntryDto[]
   total: number
+}
+
+// ── 超越创新 DTO(行为学习 + LLM 模式提取 + 冲突协商 + 效果预测 + 知识图谱)──
+
+/** 自动生成的规则草稿(基于行为模式) */
+export interface RuleDraftDto {
+  /** 行为模式描述 */
+  pattern: string
+  /** 建议的规则草稿 */
+  draftRule: {
+    name: string
+    description: string
+    content: string
+    scope: 'global' | 'workspace' | 'agent'
+  }
+  /** 置信度 0-1 */
+  confidence: number
+}
+
+export interface AutoGenerateRulesDto {
+  drafts: RuleDraftDto[]
+  /** ai-service 不可用时为 true */
+  degraded?: boolean
+}
+
+/** 冲突解决方案类型 */
+export type RuleConflictResolution = 'merge' | 'disable' | 'priority_adjust'
+
+export interface RuleConflictResolutionDto {
+  /** 冲突索引(对应输入 conflicts 数组下标) */
+  conflictId: number
+  resolution: RuleConflictResolution
+  reason: string
+  /** 具体动作描述(如 "keep:rule-a;disable:rule-b") */
+  action: string
+}
+
+export interface ResolveConflictsDto {
+  resolutions: RuleConflictResolutionDto[]
+  degraded?: boolean
+}
+
+/** 规则效果预测建议类型 */
+export type RuleEffectRecommendation = 'apply' | 'review' | 'reject'
+
+export interface RulePredictEffectDto {
+  ruleId: string
+  predictedMatchRate: number
+  falsePositiveRisk: number
+  recommendation: RuleEffectRecommendation
+  /** ai-service 不可用时为 true(基于历史统计降级) */
+  degraded: boolean
+}
+
+/** 知识图谱边类型 */
+export type RuleGraphEdgeType = 'duplicate' | 'complementary' | 'conflict'
+
+export interface RuleKnowledgeGraphNodeDto {
+  id: string
+  name: string
+  scope: 'global' | 'workspace' | 'agent'
+  pattern: string
+}
+
+export interface RuleKnowledgeGraphEdgeDto {
+  source: string
+  target: string
+  type: RuleGraphEdgeType
+  similarity: number
+}
+
+export interface RuleKnowledgeGraphDto {
+  nodes: RuleKnowledgeGraphNodeDto[]
+  edges: RuleKnowledgeGraphEdgeDto[]
+  /** embedding 不可用时为 true(只返回节点,无边) */
+  degraded?: boolean
+}
+
+/** 学习反馈结果 */
+export interface RuleLearnFeedbackResultDto {
+  success: boolean
 }
 
 interface AiServiceResponse<T> {
@@ -784,6 +872,137 @@ class RulesService {
     }
 
     return { conflicts }
+  }
+
+  // ── 超越创新方法(2026-07-23,行为学习 + LLM 模式提取 + 冲突协商 + 效果预测 + 知识图谱)──
+
+  /**
+   * 基于用户行为模式自动生成规则草稿(不自动创建,返回草稿供用户确认)。
+   *
+   * 转发到 ai-service POST /api/rules/auto-generate。
+   * 失败时降级返回空草稿列表(degraded=true)。
+   */
+  async autoGenerateRules(userId: string): Promise<AutoGenerateRulesDto> {
+    try {
+      return await this.request<AutoGenerateRulesDto>('/auto-generate', {
+        method: 'POST',
+        body: JSON.stringify({ userId }),
+      })
+    } catch (e) {
+      console.warn(
+        '[rules-service] autoGenerateRules 降级返回空:',
+        (e as Error).message,
+      )
+      return { drafts: [], degraded: true }
+    }
+  }
+
+  /**
+   * LLM 自动协商冲突解决方案(merge / disable / priority_adjust)。
+   *
+   * 转发到 ai-service POST /api/rules/resolve-conflicts。
+   * 失败时降级返回空解决方案列表(degraded=true)。
+   */
+  async resolveConflicts(
+    conflicts: RuleConflictDto[],
+  ): Promise<ResolveConflictsDto> {
+    try {
+      return await this.request<ResolveConflictsDto>('/resolve-conflicts', {
+        method: 'POST',
+        body: JSON.stringify({ conflicts }),
+      })
+    } catch (e) {
+      console.warn(
+        '[rules-service] resolveConflicts 降级返回空:',
+        (e as Error).message,
+      )
+      return { resolutions: [], degraded: true }
+    }
+  }
+
+  /**
+   * 预测规则应用效果(命中率 / 误报风险 / 建议)。
+   *
+   * 转发到 ai-service POST /api/rules/:id/predict-effect。
+   * 失败时降级返回零值预测(degraded=true)。
+   */
+  async predictRuleEffect(
+    id: string,
+    dryRunMessage?: string,
+  ): Promise<RulePredictEffectDto> {
+    try {
+      return await this.request<RulePredictEffectDto>(
+        `/${encodeURIComponent(id)}/predict-effect`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ dryRunMessage: dryRunMessage ?? '' }),
+        },
+      )
+    } catch (e) {
+      console.warn(
+        '[rules-service] predictRuleEffect 降级返回零值:',
+        (e as Error).message,
+      )
+      return {
+        ruleId: id,
+        predictedMatchRate: 0,
+        falsePositiveRisk: 0,
+        recommendation: 'review',
+        degraded: true,
+      }
+    }
+  }
+
+  /**
+   * 获取规则知识图谱(基于 embedding 相似度的 duplicate/complementary/conflict 边)。
+   *
+   * 转发到 ai-service GET /api/rules/knowledge-graph?scope=xxx。
+   * 失败时降级为空图谱(degraded=true)。
+   */
+  async getRulesKnowledgeGraph(
+    scope?: string,
+  ): Promise<RuleKnowledgeGraphDto> {
+    try {
+      const qs = new URLSearchParams()
+      if (scope) qs.set('scope', scope)
+      const query = qs.toString()
+      const path = query ? `/knowledge-graph?${query}` : '/knowledge-graph'
+      return await this.request<RuleKnowledgeGraphDto>(path)
+    } catch (e) {
+      console.warn(
+        '[rules-service] getRulesKnowledgeGraph 降级返回空:',
+        (e as Error).message,
+      )
+      return { nodes: [], edges: [], degraded: true }
+    }
+  }
+
+  /**
+   * 记录用户对自动生成规则的反馈(accepted=true 采纳 / false 拒绝)。
+   *
+   * 转发到 ai-service POST /api/rules/:id/learn-feedback。
+   * 失败时返回 { success: false }。
+   */
+  async recordLearnFeedback(
+    id: string,
+    feedback: string,
+    accepted: boolean,
+  ): Promise<RuleLearnFeedbackResultDto> {
+    try {
+      return await this.request<RuleLearnFeedbackResultDto>(
+        `/${encodeURIComponent(id)}/learn-feedback`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ feedback, accepted }),
+        },
+      )
+    } catch (e) {
+      console.warn(
+        '[rules-service] recordLearnFeedback 失败:',
+        (e as Error).message,
+      )
+      return { success: false }
+    }
   }
 }
 
