@@ -68,6 +68,9 @@ export default function ChatPage() {
   const [agents, setAgents] = useState<AgentItem[]>([])
   const [agentsLoading, setAgentsLoading] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  // 复用问题到输入框(对标原 ai_assistant.vue copyToInput)
+  const [inputValue, setInputValue] = useState('')
+  const [inputKey, setInputKey] = useState(0)
 
   const activeAgentId = currentAgentId || routeAgentId
 
@@ -296,6 +299,14 @@ export default function ChatPage() {
     Taro.showToast({ title: `上传 Tab${tab} 素材`, icon: 'none' })
   }, [])
 
+  /** 复用问题到输入框(对标原 ai_assistant.vue copyToInput) */
+  const handleReuse = useCallback((question: string) => {
+    if (!question) return
+    setInputValue(question)
+    setInputKey((k) => k + 1)
+    Taro.pageScrollTo({ scrollTop: 100000, duration: 300 })
+  }, [])
+
   const openModelDrawer = useCallback(() => {
     setModelDrawerVisible(true)
     if (!models.length) loadModels()
@@ -343,7 +354,7 @@ export default function ChatPage() {
         ) : null}
 
         {messages.map((msg, idx) => (
-          <ChatMessageItem key={idx} msg={msg} />
+          <ChatMessageItem key={idx} msg={msg} onReuse={handleReuse} />
         ))}
 
         {thinking && messages[messages.length - 1]?.role !== 'assistant' ? (
@@ -375,6 +386,8 @@ export default function ChatPage() {
           </Text>
         </View>
         <InputArea
+          key={inputKey}
+          value={inputValue}
           placeholder={t('ai.inputPlaceholder')}
           disabled={thinking}
           onSend={(text) => sendMessage(text)}
