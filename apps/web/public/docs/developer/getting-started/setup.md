@@ -41,7 +41,7 @@ import { createClient } from '@ihui/sdk'
 const client = createClient({
   apiKey: process.env.IHUI_API_KEY!, // 必填
   secret: process.env.IHUI_API_SECRET, // 可选,启用 Secret 二次校验
-  baseUrl: 'http://localhost:3001', // 可选,默认 http://localhost:3001
+  baseUrl: 'http://localhost:8802', // 可选,默认 http://localhost:8802
   timeout: 30000, // 可选,默认 30000ms
   maxRetries: 2, // 可选,默认 2(仅对 5xx / 网络错误重试)
 })
@@ -94,7 +94,7 @@ from ihui_ai import create_client, create_async_client
 client = create_client({
     "apiKey": os.environ["IHUI_API_KEY"],  # 必填
     "secret": os.environ.get("IHUI_API_SECRET"),  # 可选
-    "baseUrl": "http://localhost:3001",  # 可选,默认 http://localhost:3001
+    "baseUrl": "http://localhost:8802",  # 可选,默认 http://localhost:8802
     "timeout": 30000,  # 可选,默认 30000ms
     "maxRetries": 2,  # 可选,默认 2
 })
@@ -149,12 +149,12 @@ asyncio.run(main())
 
 ## 直接 HTTP 调用
 
-不使用 SDK 时,可直接发起 HTTP 请求。所有端点以 `http://localhost:3001/v1` 为前缀。
+不使用 SDK 时,可直接发起 HTTP 请求。所有端点以 `http://localhost:8802/v1` 为前缀。
 
 ### cURL
 
 ```bash
-curl -X POST http://localhost:3001/v1/chat/completions \
+curl -X POST http://localhost:8802/v1/chat/completions \
   -H "Authorization: Bearer $IHUI_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"model":"gpt-4","messages":[{"role":"user","content":"你好"}]}'
@@ -165,7 +165,7 @@ curl -X POST http://localhost:3001/v1/chat/completions \
 ### Node.js(fetch)
 
 ```javascript
-const response = await fetch('http://localhost:3001/v1/chat/completions', {
+const response = await fetch('http://localhost:8802/v1/chat/completions', {
   method: 'POST',
   headers: {
     Authorization: `Bearer ${process.env.IHUI_API_KEY}`,
@@ -188,21 +188,21 @@ console.log(data.choices[0].message.content)
 # .env(不要提交到 git,确保 .gitignore 已排除)
 IHUI_API_KEY=ihui_xxx
 IHUI_API_SECRET=sk_xxx
-IHUI_BASE_URL=http://localhost:3001
+IHUI_BASE_URL=http://localhost:8802
 ```
 
 | 变量名 | 必填 | 说明 |
 |--------|------|------|
 | `IHUI_API_KEY` | 是 | API Key(`ihui_xxx`) |
 | `IHUI_API_SECRET` | 否 | Secret(`sk_xxx`),启用二次校验时必填 |
-| `IHUI_BASE_URL` | 否 | API 地址,默认 `http://localhost:3001` |
+| `IHUI_BASE_URL` | 否 | API 地址,默认 `http://localhost:8802` |
 
 ## 验证连通性
 
 安装完成后,运行以下命令验证 API Key 与服务连通性:
 
 ```bash
-curl http://localhost:3001/v1/models \
+curl http://localhost:8802/v1/models \
   -H "Authorization: Bearer $IHUI_API_KEY"
 ```
 

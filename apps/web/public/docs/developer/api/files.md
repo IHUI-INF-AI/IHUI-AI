@@ -63,7 +63,7 @@ Content-Type: multipart/form-data
 ### cURL 示例
 
 ```bash
-curl -X POST http://localhost:3001/v1/files \
+curl -X POST http://localhost:8802/v1/files \
   -H "Authorization: Bearer ihui_xxx" \
   -F "file=@example.pdf" \
   -F "purpose=assistants"
@@ -318,20 +318,20 @@ console.log(file.id)
 
 ```bash
 # 1. 初始化
-curl -X POST http://localhost:3001/v1/files/upload-init \
+curl -X POST http://localhost:8802/v1/files/upload-init \
   -H "Authorization: Bearer ihui_xxx" \
   -H "Content-Type: application/json" \
   -d '{"filename":"large.mp4","sizeBytes":524288000,"chunkSize":5242880}'
 
 # 2. 上传分片(重复 chunkCount 次)
-curl -X POST http://localhost:3001/v1/files/upload-chunk \
+curl -X POST http://localhost:8802/v1/files/upload-chunk \
   -H "Authorization: Bearer ihui_xxx" \
   -F "uploadId=upload-abc" \
   -F "index=0" \
   -F "chunk=@chunk-0.bin"
 
 # 3. 完成
-curl -X POST http://localhost:3001/v1/files/complete \
+curl -X POST http://localhost:8802/v1/files/complete \
   -H "Authorization: Bearer ihui_xxx" \
   -H "Content-Type: application/json" \
   -d '{"uploadId":"upload-abc"}'

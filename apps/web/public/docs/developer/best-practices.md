@@ -48,7 +48,7 @@ const kbClient = createClient({
 # .env(添加到 .gitignore)
 IHUI_API_KEY=ihui_xxx
 IHUI_API_SECRET=sk_xxx
-IHUI_BASE_URL=http://localhost:3001
+IHUI_BASE_URL=http://localhost:8802
 ```
 
 ```typescript

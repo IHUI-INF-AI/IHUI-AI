@@ -112,7 +112,7 @@ class CodebaseIndexer:
     def __init__(self) -> None:
         self._tree_sitter_available = self._check_tree_sitter()
         self._api_base_url = os.environ.get(
-            "API_SERVICE_URL", "http://localhost:3001"
+            "API_SERVICE_URL", "http://localhost:8801"
         ).rstrip("/")
 
     def _check_tree_sitter(self) -> bool:

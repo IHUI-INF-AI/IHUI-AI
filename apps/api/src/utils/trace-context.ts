@@ -72,7 +72,7 @@ export function extractTraceId(traceparent: string | undefined | null): string |
  *
  * 用法:
  *   const headers = propagateToHeaders(request)
- *   const resp = await fetch('http://ai-service:8000/api/llm/complete', { headers })
+ *   const resp = await fetch('http://ai-service:8803/api/llm/complete', { headers })
  *
  * 如果入站 request 无 traceparent,生成新的(开启新 trace)。
  * 如果有,透传原 traceparent(延续同一 trace)。

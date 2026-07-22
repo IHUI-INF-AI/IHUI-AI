@@ -29,7 +29,7 @@ class SdkConfig(TypedDict, total=False):
     Attributes:
         apiKey: API Key(必需,格式 ``ihui_xxx``)。
         secret: API Secret(可选,创建/轮换时返回)。
-        baseUrl: 基础 URL,默认 ``http://localhost:3001``。
+        baseUrl: 基础 URL,默认 ``http://localhost:8802``。
         timeout: 请求超时(秒),默认 30。流式请求不超时。
         maxRetries: 最大重试次数,默认 2。网络错误和 5xx 自动重试,429 不重试。
     """
@@ -109,7 +109,7 @@ class BaseClient:
             raise SdkError(401, "missing_api_key", "api_key is required")
         self._api_key: str = api_key
         self._secret: str | None = config.get("secret")  # type: ignore[assignment]
-        base_url = config.get("base_url") or config.get("baseUrl") or "http://localhost:3001"  # type: ignore[assignment]
+        base_url = config.get("base_url") or config.get("baseUrl") or "http://localhost:8802"  # type: ignore[assignment]
         self._base_url: str = _normalize_base_url(base_url)
         self._timeout: float = float(config.get("timeout", DEFAULT_TIMEOUT))  # type: ignore[arg-type]
         max_retries = config.get("max_retries", config.get("maxRetries", DEFAULT_MAX_RETRIES))  # type: ignore[assignment]

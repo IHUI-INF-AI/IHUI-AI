@@ -40,7 +40,7 @@ class AsyncBaseClient:
             raise SdkError(401, "missing_api_key", "api_key is required")
         self._api_key: str = api_key
         self._secret: str | None = config.get("secret")  # type: ignore[assignment]
-        base_url = config.get("base_url") or config.get("baseUrl") or "http://localhost:3001"  # type: ignore[assignment]
+        base_url = config.get("base_url") or config.get("baseUrl") or "http://localhost:8802"  # type: ignore[assignment]
         self._base_url: str = _normalize_base_url(base_url)
         self._timeout: float = float(config.get("timeout", DEFAULT_TIMEOUT))  # type: ignore[arg-type]
         max_retries = config.get("max_retries", config.get("maxRetries", DEFAULT_MAX_RETRIES))  # type: ignore[assignment]

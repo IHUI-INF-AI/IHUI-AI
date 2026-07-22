@@ -447,7 +447,7 @@ def _make_redis_store(monkeypatch) -> tuple[VectorMemoryStore, _FakeRedis]:
     fake = _FakeRedis()
     from app.services import vector_memory as vm_mod
     monkeypatch.setattr(vm_mod.aioredis, "from_url", lambda *a, **kw: fake)
-    store = VectorMemoryStore(LLMGateway(), redis_url="redis://fake:6379/0")
+    store = VectorMemoryStore(LLMGateway(), redis_url="redis://fake:8811/0")
     return store, fake
 
 
@@ -457,10 +457,10 @@ def test_redis_url_unset_uses_settings_default(monkeypatch):
     fake = _FakeRedis()
     monkeypatch.setattr(vm_mod.aioredis, "from_url", lambda *a, **kw: fake)
     from app.core.config import settings
-    monkeypatch.setattr(settings, "redis_url", "redis://localhost:6379/0")
+    monkeypatch.setattr(settings, "redis_url", "redis://localhost:8811/0")
 
     store = VectorMemoryStore(LLMGateway())
-    assert store._redis_url == "redis://localhost:6379/0"
+    assert store._redis_url == "redis://localhost:8811/0"
     assert store._use_redis is True
 
 
@@ -502,11 +502,11 @@ async def test_redis_hydrate_loads_existing_entries(monkeypatch):
     from app.services import vector_memory as vm_mod
     monkeypatch.setattr(vm_mod.aioredis, "from_url", lambda *a, **kw: fake)
 
-    store1 = VectorMemoryStore(LLMGateway(), redis_url="redis://fake:6379/0")
+    store1 = VectorMemoryStore(LLMGateway(), redis_url="redis://fake:8811/0")
     await store1.add("s1", "user", "first")
     await store1.add("s1", "user", "second")
 
-    store2 = VectorMemoryStore(LLMGateway(), redis_url="redis://fake:6379/0")
+    store2 = VectorMemoryStore(LLMGateway(), redis_url="redis://fake:8811/0")
     count = await store2.hydrate()
     assert count == 2
     assert store2.count() == 2
@@ -521,12 +521,12 @@ async def test_redis_hydrate_continues_id_counter(monkeypatch):
     from app.services import vector_memory as vm_mod
     monkeypatch.setattr(vm_mod.aioredis, "from_url", lambda *a, **kw: fake)
 
-    store1 = VectorMemoryStore(LLMGateway(), redis_url="redis://fake:6379/0")
+    store1 = VectorMemoryStore(LLMGateway(), redis_url="redis://fake:8811/0")
     await store1.add("s1", "user", "msg-1")
     await store1.add("s1", "user", "msg-2")
     # next_id 此时是 3
 
-    store2 = VectorMemoryStore(LLMGateway(), redis_url="redis://fake:6379/0")
+    store2 = VectorMemoryStore(LLMGateway(), redis_url="redis://fake:8811/0")
     await store2.hydrate()
     assert store2._next_id == 3
     await store2.add("s1", "user", "msg-3")
@@ -540,7 +540,7 @@ async def test_redis_hydrate_empty_returns_zero(monkeypatch):
     from app.services import vector_memory as vm_mod
     monkeypatch.setattr(vm_mod.aioredis, "from_url", lambda *a, **kw: fake)
 
-    store = VectorMemoryStore(LLMGateway(), redis_url="redis://fake:6379/0")
+    store = VectorMemoryStore(LLMGateway(), redis_url="redis://fake:8811/0")
     count = await store.hydrate()
     assert count == 0
     assert store.count() == 0
@@ -556,7 +556,7 @@ async def test_redis_hydrate_skips_corrupted_entries(monkeypatch):
 
     from app.services import vector_memory as vm_mod
     monkeypatch.setattr(vm_mod.aioredis, "from_url", lambda *a, **kw: fake)
-    store = VectorMemoryStore(LLMGateway(), redis_url="redis://fake:6379/0")
+    store = VectorMemoryStore(LLMGateway(), redis_url="redis://fake:8811/0")
     count = await store.hydrate()
     assert count == 1  # 只有 entry 2 成功
     assert store._store[0]["id"] == 2
@@ -605,7 +605,7 @@ async def test_redis_get_redis_connect_failure_degrades(monkeypatch):
         raise ConnectionError("redis not available")
 
     monkeypatch.setattr(vm_mod.aioredis, "from_url", _broken_from_url)
-    store = VectorMemoryStore(LLMGateway(), redis_url="redis://broken:6379/0")
+    store = VectorMemoryStore(LLMGateway(), redis_url="redis://broken:8811/0")
     redis = await store._get_redis()
     assert redis is None
     assert store._use_redis is False

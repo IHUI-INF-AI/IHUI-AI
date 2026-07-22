@@ -1,7 +1,7 @@
 # cURL 示例
 
 > 所有请求需在 `Authorization` 头携带 API Key(格式 `Bearer ihui_xxx`)。可选 `X-Api-Secret: sk_xxx` 进行 Secret 二次校验。
-> 基础 URL:`http://localhost:3001`(生产环境替换为实际域名)。
+> 基础 URL:`http://localhost:8802`(生产环境替换为实际域名)。
 
 ## 环境变量
 
@@ -10,7 +10,7 @@
 ```bash
 export IHUI_API_KEY="ihui_xxx"
 export IHUI_API_SECRET="sk_xxx"  # 可选
-export IHUI_BASE_URL="http://localhost:3001"
+export IHUI_BASE_URL="http://localhost:8802"
 ```
 
 后续 cURL 示例均使用 `$IHUI_API_KEY` 占位。

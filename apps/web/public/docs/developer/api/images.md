@@ -61,7 +61,7 @@ console.log(result.data[0].url)
 ```
 
 ```bash
-curl -X POST http://localhost:3001/v1/images/generations \
+curl -X POST http://localhost:8802/v1/images/generations \
   -H "Authorization: Bearer ihui_xxx" \
   -H "Content-Type: application/json" \
   -d '{"model":"dall-e-3","prompt":"一只猫","vendor":"dashscope"}'

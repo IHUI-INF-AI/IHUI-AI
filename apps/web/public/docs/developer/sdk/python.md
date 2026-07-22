@@ -23,7 +23,7 @@ from ihui_ai import create_client
 client = create_client({
     "apiKey": os.environ["IHUI_API_KEY"],  # 必需,格式 ihui_xxx
     # "secret": "sk_xxx",                  # 可选,创建/轮换时返回
-    # "baseUrl": "http://localhost:3001",  # 可选,默认 http://localhost:3001
+    # "baseUrl": "http://localhost:8802",  # 可选,默认 http://localhost:8802
     # "timeout": 30,                       # 可选,默认 30 秒(流式不超时)
     # "maxRetries": 2,                     # 可选,默认 2(5xx + 网络错误自动重试)
 })
@@ -70,7 +70,7 @@ asyncio.run(main())
 |------|------|------|--------|------|
 | `apiKey` / `api_key` | str | 是 | — | API Key,格式 `ihui_xxx` |
 | `secret` | str | 否 | — | API Secret(创建/轮换密钥时返回),通过 `X-Api-Secret` 头传递 |
-| `baseUrl` / `base_url` | str | 否 | `http://localhost:3001` | 基础 URL(自动去除尾部 `/`) |
+| `baseUrl` / `base_url` | str | 否 | `http://localhost:8802` | 基础 URL(自动去除尾部 `/`) |
 | `timeout` | float | 否 | 30.0 | 请求超时(秒),流式请求不超时 |
 | `maxRetries` / `max_retries` | int | 否 | 2 | 最大重试次数(网络错误和 5xx 自动重试,429 和 4xx 不重试) |
 
@@ -566,7 +566,7 @@ import urllib.request
 import json
 
 req = urllib.request.Request(
-    "http://localhost:3001/v1/chat/completions",
+    "http://localhost:8802/v1/chat/completions",
     data=json.dumps({"model": "gpt-4", "messages": [...], "stream": True}).encode(),
     headers={"Authorization": "Bearer ihui_xxx", "Content-Type": "application/json"},
     method="POST",
@@ -594,7 +594,7 @@ from ihui_ai.exceptions import SdkError
 client = create_client(
     {
         "apiKey": os.environ["IHUI_API_KEY"],
-        "baseUrl": os.environ.get("IHUI_BASE_URL", "http://localhost:3001"),
+        "baseUrl": os.environ.get("IHUI_BASE_URL", "http://localhost:8802"),
     }
 )
 
