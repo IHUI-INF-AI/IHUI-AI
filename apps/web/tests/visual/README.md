@@ -5,10 +5,10 @@
 ## 工作流
 
 ```bash
-# 1. 确保 web(3000) + api(3001) + ai-service(8000) 三个服务在线
+# 1. 确保 web(3000) + api(8802) + ai-service(8803) 三个服务在线
 curl -sI http://localhost:3000 | head -1   # → HTTP/1.1 200
-curl -sI http://localhost:3001/api/health  # → HTTP/1.1 200
-curl -sI http://localhost:8000/health      # → HTTP/1.1 200
+curl -sI http://localhost:8802/api/health  # → HTTP/1.1 200
+curl -sI http://localhost:8803/health      # → HTTP/1.1 200
 
 # 2. 跑单个 spec(如 4 状态自验)
 cd apps/web

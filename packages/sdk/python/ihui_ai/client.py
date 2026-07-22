@@ -102,7 +102,7 @@ def create_client(config: SdkConfig) -> IhuiClient:
         config: SDK 配置,支持以下键:
             - ``apiKey``(必需):API Key,格式 ``ihui_xxx``。
             - ``secret``(可选):API Secret。
-            - ``baseUrl``(可选):基础 URL,默认 ``http://localhost:3001``。
+            - ``baseUrl``(可选):基础 URL,默认 ``http://localhost:8802``。
             - ``timeout``(可选):请求超时(秒),默认 30。
             - ``maxRetries``(可选):最大重试次数,默认 2。
 

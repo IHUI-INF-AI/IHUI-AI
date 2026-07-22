@@ -633,7 +633,7 @@ class TestCreateGraphStore:
 
         monkeypatch.setenv("KNOWLEDGE_GRAPH_STORE", "drizzle")
         # 不实际创建 pool,只验证类型
-        monkeypatch.setattr(config.settings, "database_url", "postgres://fake:fake@localhost:5432/fake")
+        monkeypatch.setattr(config.settings, "database_url", "postgres://fake:fake@localhost:8810/fake")
         store = _create_graph_store()
         assert isinstance(store, DrizzleGraphStore)
 
