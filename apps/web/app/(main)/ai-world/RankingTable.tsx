@@ -9,7 +9,14 @@ import { fetchAiWorldRankings, fetchLeaderboards } from './helpers'
 import type { LeaderboardId, AiWorldRanking } from './types'
 
 const LEADERBOARDS: LeaderboardId[] = ['lmsys', 'opencompass', 'hf-open-llm', 'superclue', 'artificial-analysis']
-const KNOWN_CATS = ['overall', 'coding', 'math', 'reasoning', 'chinese', 'english', 'multiturn', 'hard-prompts']
+const KNOWN_CATS = [
+  'overall', 'coding', 'math', 'reasoning', 'chinese', 'english', 'multiturn', 'hard-prompts',
+  'expert', 'creative', 'instruction', 'longer-query',
+  'knowledge', 'agent', 'multimodal', 'safety', 'long-text', 'open-source', 'basic', 'subject',
+  'chat', 'small-10b', 'small-5b', 'finance', 'automotive', 'industrial', 'roleplay',
+  // Artificial Analysis 9 子分类
+  'analytical', 'presentation', 'intelligence', 'agentic',
+]
 const REFRESH_MS = 5 * 60 * 1000
 
 function rankBadgeClass(rank: number): string {
