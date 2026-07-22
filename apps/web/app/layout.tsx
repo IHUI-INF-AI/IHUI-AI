@@ -62,9 +62,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           在 React hydrate 之前同步执行,从 localStorage 读取 AI 面板持久化 width,
           预设 --ai-panel-occupy CSS 变量,让 GlobalShell 的 work-area 首帧 paddingLeft
           就是用户持久化值,而非 store 默认值(408px)。
-          - 解决 zustand persist rehydrate 引起的首帧 408px → 持久化值跳变
-          - 与 next-themes 的 suppressHydrationWarning 同模式(只设 CSS 变量,不触发 mismatch)
-          - GlobalShell 运行时通过 useEffect 继续同步该 CSS 变量(跟随用户拖拽/关闭)
+
+          注意:sidebar-width **不**在此 inline script 中预设。
+          - 用户要求首帧直接显示默认 130 宽度,不要先显示持久化的拉伸宽度(如 180)再切回。
+          - sidebar.tsx 的 aside style 用 `var(--sidebar-width, 130px)`,首帧 fallback 130。
+          - sidebar.tsx 的 useState(SIDEBAR_WIDTH)=130 + useEffect 同步 CSS 变量=130,三者一致无跳变。
+          - 拖拽宽度仍存 localStorage,但刷新后不读取(首帧永远默认 130,无跳变)。
+
+          与 next-themes 的 suppressHydrationWarning 同模式:只设 CSS 变量,
+          React inline style 只声明 CSS 变量引用,不接管具体数值 → 无 hydration mismatch。
         */}
         <script
           dangerouslySetInnerHTML={{
