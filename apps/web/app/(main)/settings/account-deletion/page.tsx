@@ -4,10 +4,10 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { AlertTriangle, Send } from 'lucide-react'
 
-import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, Button, Switch } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
 import { Container } from '@/components/layout'
-import { Switch, Input } from '@/components/form'
+import { Input } from '@/components/form'
 
 export default function AccountDeletionPage() {
   const t = useTranslations('settings')
@@ -39,7 +39,7 @@ export default function AccountDeletionPage() {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">{t('accountDeletionConfirm')}</span>
-            <Switch checked={confirmed} onChange={setConfirmed} />
+            <Switch checked={confirmed} onCheckedChange={setConfirmed} />
           </div>
 
           <div className="space-y-2">
