@@ -1,7 +1,7 @@
 """Persona contracts 路由(3 端点)。
 
 提供 persona 列表 + 详情 + 契约查询,对齐 CLI 端 contracts.ts。
-router 定义但不自动注册到 main.py(留作后续串行集成)。
+已注册到 main.py(prefix=/api, tags=["personas"])。
 """
 
 from typing import Any
