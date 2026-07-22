@@ -309,3 +309,245 @@ export interface MemorySyncResponse {
   entries: MemoryEntry[]
   total: number
 }
+
+// ============================================================================
+// 多 Agent 协商/辩论契约(P1-2)
+// ============================================================================
+
+/** 多 Agent 协作模式 */
+export type AgentCollaborationMode =
+  | 'pipeline' // 串行(现有)
+  | 'parallel' // 并行(现有)
+  | 'debate' // 辩论:多轮交替发言
+  | 'vote' // 投票:多 Agent 各出方案后投票
+  | 'critique' // 批判:一个出方案,其余挑刺,迭代收敛
+
+/** 协商辩论请求 */
+export interface AgentDebateRequest {
+  /** 协作模式 */
+  mode: AgentCollaborationMode
+  /** 参与 Agent 名列表(≥2) */
+  agents: string[]
+  /** 辩论主题/任务 */
+  topic: string
+  /** 最大辩论轮数(默认 3) */
+  maxRounds?: number
+  /** 会话 ID */
+  sessionId?: string
+  /** 模型覆盖 */
+  modelOverride?: string
+}
+
+/** 单轮辩论发言 */
+export interface DebateTurn {
+  /** 轮次(从 1 起) */
+  round: number
+  /** 发言 Agent 名 */
+  agent: string
+  /** 发言内容 */
+  content: string
+  /** 该轮立场(agree/disagree/neutral,仅 debate 模式) */
+  stance?: 'agree' | 'disagree' | 'neutral'
+}
+
+/** 协商辩论结果 */
+export interface AgentDebateResult {
+  /** 编排 ID */
+  orchestrationId: string
+  /** 协作模式 */
+  mode: AgentCollaborationMode
+  /** 所有发言记录 */
+  turns: DebateTurn[]
+  /** 最终结论(投票/收敛后的结果) */
+  finalOutput: string
+  /** 投票统计(vote 模式有值) */
+  votes?: Record<string, number>
+  /** 状态(completed/failed) */
+  status: 'completed' | 'failed'
+  /** 总耗时(ms) */
+  totalDurationMs: number
+  /** trace */
+  trace: Array<{ round: number; agent: string; durationMs: number; status: string }>
+}
+
+// ============================================================================
+// MCP Sampling 反向调用契约(P1-3)
+// ============================================================================
+
+/** MCP Sampling 请求(MCP 工具反向请求 LLM 推理) */
+export interface McpSamplingRequest {
+  /** 调用方 MCP 工具名 */
+  callerTool: string
+  /** LLM 推理的 messages */
+  messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
+  /** 期望模型(可选,缺省用主模型) */
+  model?: string
+  /** 最大 token(默认 1024) */
+  maxTokens?: number
+  /** 温度(默认 0.7) */
+  temperature?: number
+  /** 工具调用上下文(用于审计) */
+  context?: string
+}
+
+/** MCP Sampling 响应 */
+export interface McpSamplingResponse {
+  /** LLM 输出内容 */
+  content: string
+  /** 实际使用模型 */
+  model: string
+  /** token 使用量 */
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number }
+  /** 是否被护栏拦截(如速率限制/白名单) */
+  blocked: boolean
+  /** 拦截原因(blocked=true 时有值) */
+  blockedReason?: string
+}
+
+/** Sampling 护栏配置(5 层) */
+export interface SamplingGuardrails {
+  /** 速率限制(RPM,默认 10) */
+  rateLimitRpm: number
+  /** 模型白名单(允许被 sampling 调用的模型) */
+  modelWhitelist: string[]
+  /** 最大工具调用轮数(默认 5) */
+  maxToolRounds: number
+  /** 超时秒数(默认 30) */
+  timeoutSeconds: number
+  /** 是否记录审计日志 */
+  auditLog: boolean
+}
+
+// ============================================================================
+// IM 平台 gateway 契约(P1-1)
+// ============================================================================
+
+/** IM 平台类型 */
+export type ImPlatform =
+  | 'feishu'
+  | 'wecom'
+  | 'dingtalk'
+  | 'discord'
+  | 'telegram'
+  | 'slack'
+  | 'wechat'
+  | 'webhook'
+
+/** IM 消息方向 */
+export type ImMessageDirection = 'inbound' | 'outbound'
+
+/** IM 消息类型 */
+export type ImMessageType = 'text' | 'image' | 'file' | 'audio' | 'video' | 'card'
+
+/** IM 入站消息(从 IM 平台到 IHUI-AI) */
+export interface ImInboundMessage {
+  /** 平台类型 */
+  platform: ImPlatform
+  /** 平台原始消息 ID */
+  platformMessageId: string
+  /** 发送者 ID(平台侧) */
+  fromUserId: string
+  /** 发送者昵称 */
+  fromUserName?: string
+  /** 会话/群 ID */
+  chatId: string
+  /** 消息类型 */
+  messageType: ImMessageType
+  /** 文本内容 */
+  text?: string
+  /** 媒体 URL(图片/文件/音视频) */
+  mediaUrl?: string
+  /** 是否群消息 */
+  isGroup: boolean
+  /** @机器人 标记 */
+  mentionedBot: boolean
+  /** 平台原始 payload(完整 webhook 数据) */
+  rawPayload: unknown
+  /** 接收时间(ISO) */
+  receivedAt: string
+}
+
+/** IM 出站消息(从 IHUI-AI 到 IM 平台) */
+export interface ImOutboundMessage {
+  /** 平台类型 */
+  platform: ImPlatform
+  /** 目标会话/群 ID */
+  chatId: string
+  /** 消息类型 */
+  messageType: ImMessageType
+  /** 文本内容 */
+  text?: string
+  /** 媒体 URL */
+  mediaUrl?: string
+  /** 卡片结构(platform=feishu/wecom 时可用) */
+  card?: unknown
+  /** 回复的消息 ID(可选) */
+  replyToMessageId?: string
+}
+
+/** IM gateway 适配器配置 */
+export interface ImAdapterConfig {
+  /** 平台类型 */
+  platform: ImPlatform
+  /** 是否启用 */
+  enabled: boolean
+  /** webhook secret(验签) */
+  webhookSecret?: string
+  /** bot token */
+  botToken?: string
+  /** app id(飞书/企业微信) */
+  appId?: string
+  /** app secret */
+  appSecret?: string
+  /** 回调 URL(出站消息 API) */
+  callbackUrl?: string
+}
+
+/** IM gateway 状态 */
+export interface ImGatewayStatus {
+  platform: ImPlatform
+  enabled: boolean
+  connected: boolean
+  lastMessageAt?: string
+  messageCount: number
+  error?: string
+}
+
+// ============================================================================
+// Skill 跨端同步契约(P1-4)
+// ============================================================================
+
+/** Skill 同步请求(跨端同步) */
+export interface SkillSyncRequest {
+  /** 用户 ID */
+  userId: string
+  /** 操作类型 */
+  action: 'push' | 'pull' | 'list'
+  /** push:本地 skill 推到 api;pull:从 api 拉到本地 */
+  skills?: Array<{
+    name: string
+    description?: string
+    content: string
+    frontmatter?: SkillFrontmatter
+  }>
+  /** pull 时指定要拉的 skill 名(缺省拉全部) */
+  skillNames?: string[]
+}
+
+/** Skill 同步响应 */
+export interface SkillSyncResponse {
+  /** 操作结果 */
+  action: 'push' | 'pull' | 'list'
+  /** 同步的 skill 列表 */
+  skills: Array<{
+    name: string
+    description?: string
+    content: string
+    frontmatter?: SkillFrontmatter
+    source?: SkillSource
+  }>
+  /** 同步数量 */
+  count: number
+  /** 同步时间(ISO) */
+  syncedAt: string
+}

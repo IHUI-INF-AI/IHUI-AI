@@ -6,10 +6,10 @@
 from dataclasses import asdict
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from ..services.mcp_server import mcp_server
+from ..services.mcp_server import mcp_server, sampling_handler
 from ..services.skills import skill_registry
 from ..services.slash_commands import slash_command_registry
 
@@ -144,3 +144,33 @@ async def execute_slash_command(req: SlashCommandRequest) -> dict[str, Any]:
     """执行 slash 命令。"""
     output = await slash_command_registry.execute(req.command, req.args, req.ctx)
     return {"command": req.command, "output": output}
+
+
+# ---------------------------------------------------------------------------
+# Sampling 端点(MCP 反向调用 LLM,P1-3)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/mcp/sampling")
+async def mcp_sampling(request: Request) -> dict[str, Any]:
+    """MCP Sampling 反向调用(让 MCP 工具请求 LLM 推理)。
+
+    body: McpSamplingRequest 字典(callerTool/messages/model/maxTokens/
+          temperature/context),经 5 层护栏(速率/白名单/轮数/超时/审计)后
+          调用 llm_gateway.complete。
+    """
+    body = await request.json()
+    result = await sampling_handler.handle_sampling(body)
+    return {"code": 0, "message": "ok", "data": result}
+
+
+@router.get("/mcp/sampling/stats")
+async def mcp_sampling_stats() -> dict[str, Any]:
+    """Sampling 审计统计(total_calls/blocked_calls/guardrails)。"""
+    return {"code": 0, "message": "ok", "data": sampling_handler.get_stats()}
+
+
+@router.get("/mcp/sampling/audit-logs")
+async def mcp_sampling_audit_logs() -> dict[str, Any]:
+    """Sampling 审计日志列表。"""
+    return {"code": 0, "message": "ok", "data": sampling_handler.get_audit_logs()}
