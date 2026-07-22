@@ -26,6 +26,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
+// 跨端统一记忆契约(P0-3):MemoryEntry/MemoryScope 由 @ihui/types 维护。
+// 注意:本地 MemoryEntry(文件系统层,raw/text/source/category)与统一 MemoryEntry
+// (跨端层,id/scope/type/...)结构不同,故 alias 为 UnifiedMemoryEntry 避免冲突。
+import type { MemoryEntry as UnifiedMemoryEntry, MemoryScope } from '@ihui/types';
 
 const MEMORY_DIR = '.ihui';
 const MEMORY_FILE = 'MEMORY.md';
@@ -236,6 +240,98 @@ export function formatMemoryForPrompt(entries: MemoryEntry[]): string {
     }
   }
   return lines.join('\n');
+}
+
+// === 跨端统一记忆同步(P0-3):UnifiedMemoryClient 对接 api /api/memory 路由 ===
+// 平台独占:CLI 专用,不引入新依赖(用 Node 18+ 内置 fetch)。
+// 文件系统(现有 MEMORY.md)优先,api 持久化兜底;网络失败时降级为纯文件模式,不抛错。
+export type { MemoryEntry as UnifiedMemoryEntry, MemoryScope } from '@ihui/types';
+
+/**
+ * 从任意常见响应壳中提取 entries 数组。
+ * 兼容:bare array / { entries: [...] } / { data: { entries: [...] } } / { data: [...] }。
+ */
+function extractMemoryEntries(data: unknown): UnifiedMemoryEntry[] {
+  if (Array.isArray(data)) return data as UnifiedMemoryEntry[];
+  if (!data || typeof data !== 'object') return [];
+  const obj = data as Record<string, unknown>;
+  if (Array.isArray(obj.entries)) return obj.entries as UnifiedMemoryEntry[];
+  if (obj.data !== undefined) return extractMemoryEntries(obj.data);
+  return [];
+}
+
+/**
+ * 从任意常见响应壳中提取单条 entry。
+ * 兼容:bare entry(含 id) / { entry: {...} } / { data: {...} }。
+ */
+function extractMemoryEntry(data: unknown): UnifiedMemoryEntry | null {
+  if (!data || typeof data !== 'object') return null;
+  const obj = data as Record<string, unknown>;
+  if (typeof obj.id === 'string') return obj as unknown as UnifiedMemoryEntry;
+  if (obj.entry !== undefined) return extractMemoryEntry(obj.entry);
+  if (obj.data !== undefined) return extractMemoryEntry(obj.data);
+  return null;
+}
+
+/**
+ * UnifiedMemoryClient — 对接 api /api/memory 路由,实现跨端记忆同步。
+ *
+ * 文件系统(现有 MEMORY.md)优先,api 持久化兜底。
+ * 网络失败时降级为纯文件模式,不抛错,不影响主流程。
+ *
+ * 用法:
+ *   const client = new UnifiedMemoryClient('http://127.0.0.1:3001');
+ *   const entries = await client.getEntries(userId, 'session', sessionId);
+ *   const entry = await client.addEntry(userId, { scope, type, category, text, source });
+ */
+export class UnifiedMemoryClient {
+  constructor(private apiBaseUrl: string = 'http://127.0.0.1:3001') {}
+
+  /**
+   * 拉取指定用户/作用域的记忆条目。
+   * 失败(网络/非 2xx/解析错)返回 [],不抛错。
+   */
+  async getEntries(
+    userId: string,
+    scope: MemoryScope = 'session',
+    sessionId?: string,
+  ): Promise<UnifiedMemoryEntry[]> {
+    const params = new URLSearchParams({ userId, scope });
+    if (sessionId) params.set('sessionId', sessionId);
+    try {
+      const res = await fetch(`${this.apiBaseUrl}/api/memory?${params.toString()}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+      if (!res.ok) return [];
+      const data = (await res.json()) as unknown;
+      return extractMemoryEntries(data);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * 新增一条记忆条目(api 负责生成 id/createdAt/updatedAt)。
+   * 失败(网络/非 2xx/解析错)返回 null,不抛错。
+   */
+  async addEntry(
+    userId: string,
+    entry: Omit<UnifiedMemoryEntry, 'id' | 'createdAt' | 'updatedAt'>,
+  ): Promise<UnifiedMemoryEntry | null> {
+    try {
+      const res = await fetch(`${this.apiBaseUrl}/api/memory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ userId, entry }),
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as unknown;
+      return extractMemoryEntry(data);
+    } catch {
+      return null;
+    }
+  }
 }
 
 // === 跨 session 记忆升级(P1-4):hybrid search + chunker + embedding ===
