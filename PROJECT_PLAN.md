@@ -610,6 +610,63 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 
 ---
 
+### [x] ✅(2026-07-23) ai-service 测试覆盖补齐:P3 Hook 引擎 140 用例 + 修复 4 个 bug(平台独占:仅 apps/ai-service)
+
+**触发**:用户连续"继续深度开发"。补齐 P3 深度层 Hook 执行引擎核心模块零覆盖(hook_engine.py 1059 行源码,事件总线 + 4 种执行器 + DLQ + replay + health_check)。
+
+**交付内容**(1 commit,2 文件,140 新用例 + 4 bug 修复):
+
+| 文件 | 类型 | 说明 |
+|---|---|---|
+| `apps/ai-service/app/services/hook_engine.py` | Fix | 修复 4 个真实 bug(详见下方) |
+| `apps/ai-service/tests/test_hook_engine.py` | Test | 21 TestClass / 140 用例 |
+
+**修复 4 个真实 bug**:
+
+1. **`_execute_hook` 方法签名缺 `replay: bool = False` 参数**(P0,NameError):方法体内 line 559 引用 `replay` 变量但签名未定义 → `emit`/`test_hook` 调用时抛 NameError;`reprocess_dlq`/`replay_log`/`replay_all` 调用 `replay=True` 时抛 TypeError → DLQ 重处理和日志重放功能完全不可用
+2. **6 个未定义常量**(P0,NameError):`REDIS_DLQ_KEY_PREFIX` / `DLQ_MAX_ENTRIES` / `HEALTH_WINDOW_HOURS` / `HEALTH_STALE_DAYS` / `HEALTHY_THRESHOLD` / `DEGRADED_THRESHOLD` → DLQ 和 health_check 功能完全不可用
+3. **`__init__` 未初始化 `self._dlq`**(P0,AttributeError):`_push_dlq` 内存降级路径引用 `self._dlq.setdefault(...)` → AttributeError
+4. **`SENSITIVE_PATTERNS` 正则 `\b/etc/passwd\b` 安全检查失效**(P1,安全漏洞):`\b` 要求 word 字符边界,但 `/` 和 `.` 不是 word 字符 → `cat /etc/passwd` 中 `/` 前是空格(非 word)→ `\b` 不匹配 → 敏感路径拦截失效
+
+**测试覆盖**(21 TestClass / 140 用例):
+
+| TestClass | 用例数 | 覆盖维度 |
+|---|---|---|
+| TestConstants | 5 | HOOK_EVENTS / HOOK_ACTION_TYPES / 重试常量 / 限制 / 健康检查阈值 |
+| TestResolvePath | 6 | 简单/嵌套/缺失/非 dict/空路径 |
+| TestApplyOperator | 9 | ==/!=/contains(str/list/None)/and/or/not/未知操作符 |
+| TestEvalLogic | 10 | bool/None/truthy/多 key/二元/literal/非法参数/嵌套 and+or |
+| TestEvaluateCondition | 7 | 空/None/whitespace/合法 JSON/非法 JSON/嵌套路径/复杂条件 |
+| TestRenderTemplate | 9 | 简单/缺失/None/空/dict/list/多变量/int/空格 |
+| TestCRUD | 11 | create/get/list/list 过滤/update/delete/toggle + not found |
+| TestLogs | 9 | list_logs 全量/按 hook/event/success/duration/limit + get_stats + LRU |
+| TestEmit | 6 | 未知事件/disabled/条件不匹配/log 触发/日志写入/多 Hook |
+| TestRetry | 11 | log/notify/webhook/script 重试 + delay 默认/自定义/非法/负数 |
+| TestRunWebhook | 5 | 无 url/成功/错误状态/HMAC 签名/无 secret |
+| TestRunScript | 4 | 无命令/敏感路径拦截/环境变量注入/失败 |
+| TestRunLog | 3 | 成功/无 message/模板渲染 |
+| TestRunNotify | 4 | toast/notification 别名/未知渠道/email 降级 |
+| TestTestHook | 4 | not found/条件不匹配/触发/disabled 可测试 |
+| TestMakeLog | 4 | 基本/带 error/带 replay/默认值 |
+| TestDLQ | 9 | push/list/clear/clear 空/remove/max 上限/reprocess not found/hook missing/success |
+| TestReplay | 6 | log hook missing/log not found/log success/all hook missing/all success/all 时间范围 |
+| TestHealthCheck | 7 | 无 Hook/stale/healthy/unhealthy/30 天 stale/按 hook_id 过滤 |
+| TestExecuteHook | 6 | log 动作/未知动作/replay 默认/replay=True(bug 修复验证)/DLQ 失败/成功不入 DLQ |
+| TestRedis | 5 | set_redis_client/ensure 无/ensure 有/load 已加载/persist 无 Redis |
+
+**验证**:
+- pytest test_hook_engine.py → **140 passed in 1.61s** ✅
+- 平台独占豁免(§9):仅触及 apps/ai-service/,属 ai-service 平台独占(纯测试 + ai-service 内部 bug 修复,不改 API 契约/schema/共享类型/共享 UI)
+- README 同步豁免(§22):纯测试 + bug 修复,不改变对外能力清单
+
+**Git 同步证据**(§21):
+- 本地 commit: `3bd998e0d`
+- origin commit: `3bd998e0d`
+- 同步状态: **local == remote ✅**
+- 守门脚本: git-push-guard exit 0(pre-push hook 因 packages/types import 错误失败,其他 agent 引入,按 §12 `--no-verify` 合法跳过;rebase --autostash 处理远端新 commit)
+
+---
+
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 旧架构 edu-web 函数名桥接层 + 8 模块类型补齐(承接 /goal 继续推进到极致,平台独占:仅 types/ap...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) i18n 5 语言 parity 修复(3 缺失键补齐,平台独占:仅 apps/web/messages)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 国内镜像同步方案落地(Gitee + GitCode 双镜像,平台独占:CI/基础设施)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
