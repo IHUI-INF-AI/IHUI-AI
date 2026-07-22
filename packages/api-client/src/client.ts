@@ -46,6 +46,7 @@ export function normalizeUrlPublic(url: string): string {
  * 合并多个 AbortSignal 为一个(ES2022+ 兼容 polyfill)。
  * AbortSignal.any() 需要 ES2024 lib,mobile-rn(ES2023)不可用。
  * 任一 signal abort 时,合并 signal 也 abort。
+ * 保留:供未来需要多 signal 合并的调用方使用(如 SSE + 用户取消)。
  */
 function mergeAbortSignals(signals: (AbortSignal | null | undefined)[]): AbortSignal {
   const controller = new AbortController()
@@ -200,13 +201,15 @@ export async function fetchApi<T>(
   }
 
   // 2026-07-22 P0 Round 4 鲁棒性加固:默认 30s 超时,防止请求无限挂起
-  // 调用方传入的 signal 与超时 signal 合并(mergeAbortSignals),任一触发都中止
+  // 调用方传入的 signal 与超时 signal 合并(AbortSignal.any),任一触发都中止
   // streamChat SSE 流场景不经过 fetchApi(走独立 streamText),不受此超时影响
-  // 2026-07-22 P0 Round 5:AbortSignal.any() → mergeAbortSignals()(ES2022+ 兼容)
   const DEFAULT_TIMEOUT_MS = 30_000
   const timeoutController = new AbortController()
   const timeoutId = setTimeout(() => timeoutController.abort(), DEFAULT_TIMEOUT_MS)
-  const mergedSignal = mergeAbortSignals([restOptions.signal, timeoutController.signal])
+  const userSignal = restOptions.signal
+  const mergedSignal = userSignal
+    ? AbortSignal.any([userSignal, timeoutController.signal])
+    : timeoutController.signal
   const optionsWithTimeout = { ...restOptions, signal: mergedSignal }
 
   try {
@@ -283,7 +286,7 @@ export interface StreamChatOptions {
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
   signal?: AbortSignal
   onDelta: (delta: string) => void
-  onError?: (error: string) => void
+  onError?: (error: string, info?: SSEErrorInfo) => void
   onDone?: () => void
   onReasoning?: (delta: string) => void
   /** 后端自动压缩上下文(88% 阈值触发)时回调,前端可 toast 提示用户 */
@@ -1046,6 +1049,9 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       return
     }
     const message = err instanceof Error ? err.message : '网络异常'
-    opts.onError?.(message)
+    // 透传 errorCode/code/retryAfter 到 onError(供调用方按错误码分类提示)
+    // SSE 流内错误(parseStreamLine → attachErrorMeta)和 HTTP 错误(fetch !ok → throw)都走此路径
+    const info = getSSEErrorInfo(err)
+    opts.onError?.(message, info)
   }
 }
