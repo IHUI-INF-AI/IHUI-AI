@@ -417,6 +417,36 @@ function registerAlarmListener(): void {
 }
 
 export default defineBackground(() => {
+  // 2026-07-22 P0 Round 5 鲁棒性加固:全局未捕获 Promise rejection + error 监听
+  // MV3 Service Worker 未捕获异常会被 Chrome 累计,达阈值后自动禁用扩展(工具栏图标变灰)
+  // 监听后写 chrome.storage.local 日志,供 sidepanel 错误监控面板读取
+  self.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason
+    console.error('[IHUI AI] SW unhandledrejection:', reason)
+    void chrome.storage.local.set({
+      [`ihui_sw_error_${Date.now()}`]: {
+        type: 'unhandledrejection',
+        reason: String(reason?.message || reason),
+        stack: reason?.stack,
+        ts: Date.now(),
+      },
+    }).catch(() => {})
+    event.preventDefault()
+  })
+
+  self.addEventListener('error', (event) => {
+    console.error('[IHUI AI] SW error:', event.message, event.filename, event.lineno)
+    void chrome.storage.local.set({
+      [`ihui_sw_error_${Date.now()}`]: {
+        type: 'error',
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        ts: Date.now(),
+      },
+    }).catch(() => {})
+  })
+
   startAutoRefresh()
   registerMessageListener()
   registerInstallHook()

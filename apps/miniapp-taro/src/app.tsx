@@ -14,6 +14,29 @@ import { I18nProvider, useI18n } from './i18n'
 import CustomerServiceFloat from './components/CustomerServiceFloat'
 import './app.css'
 
+// 2026-07-22 P0 Round 5 鲁棒性加固:防 NetworkStatusListener 在组件卸载后仍触发 toast
+let networkListenerRegistered = false
+
+/**
+ * 2026-07-22 P0 Round 5 鲁棒性加固:全局网络状态监听。
+ * - 网络断开(networkType === 'none')时 toast 提示
+ * - 网络恢复时不弹 toast(WebSocket 重连逻辑自行恢复连接,避免打扰用户)
+ * - 用模块级 flag 防止 HMR/多次挂载导致重复注册 listener
+ */
+function NetworkStatusHandler() {
+  const { t } = useI18n()
+  useLaunch(() => {
+    if (networkListenerRegistered) return
+    networkListenerRegistered = true
+    Taro.onNetworkStatusChange((res) => {
+      if (!res.isConnected || res.networkType === 'none') {
+        Taro.showToast({ title: t('error.network'), icon: 'none', duration: 2000 })
+      }
+    })
+  })
+  return null
+}
+
 /**
  * 检查小程序启动参数是否带 sso_code(外部场景:H5 / 扫码 / deep link 携带)。
  * 若有则调 /api/auth/sso/exchange 换 token,实现"从 web 已登录态无缝继承到小程序"。
@@ -94,6 +117,7 @@ async function consumeSsoCodeFromLaunch(
 function App({ children }: PropsWithChildren<unknown>) {
   return (
     <I18nProvider>
+      <NetworkStatusHandler />
       <SsoLaunchHandler />
       {children}
       <CustomerServiceFloat />
