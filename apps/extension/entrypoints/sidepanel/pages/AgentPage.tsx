@@ -100,7 +100,7 @@ function AgentList() {
       if (res.success) {
         setAgents(res.data.list)
       } else {
-        setError(res.error || '加载失败')
+        setError(res.error || t('agent.loadFailed'))
       }
       setLoading(false)
     })()
@@ -145,7 +145,7 @@ function AgentList() {
               <CardContent>
                 <p style={descStyle}>{a.description || '—'}</p>
                 <div className="sp-course-meta">
-                  <span>使用 {a.useCount}</span>
+                  <span>{t('agent.useCount')} {a.useCount}</span>
                   <span className="sp-course-price">★ {a.rating.toFixed(1)}</span>
                 </div>
               </CardContent>
@@ -176,7 +176,7 @@ function AgentDetail({ id }: { id: string }) {
       if (detailRes.success) {
         setAgent(detailRes.data)
       } else {
-        setError(detailRes.error || '加载失败')
+        setError(detailRes.error || t('agent.loadFailed'))
       }
       if (permRes.success) {
         setPermission(permRes.data)
@@ -193,11 +193,11 @@ function AgentDetail({ id }: { id: string }) {
   if (!agent) return null
 
   const permText = permission?.hasPermission
-    ? '可使用'
+    ? t('agent.usable')
     : permission?.type === 'vip' || permission?.type === 'vip_only'
-      ? '需要 VIP'
+      ? t('agent.needVip')
       : permission?.type === 'paid' || permission?.type === 'purchased'
-        ? '需要购买'
+        ? t('agent.needPurchase')
         : permission?.reason || '—'
 
   return (
@@ -214,7 +214,7 @@ function AgentDetail({ id }: { id: string }) {
           style={activeTab === 'info' ? activeTabBtnStyle : tabBtnStyle}
           onClick={() => setActiveTab('info')}
         >
-          详情
+          {t('agent.detailTab')}
         </button>
         <button
           type="button"
@@ -237,15 +237,15 @@ function AgentDetail({ id }: { id: string }) {
             <p style={descStyle}>{agent.description || '—'}</p>
             <dl className="sp-info-list">
               <div>
-                <dt>使用次数</dt>
+                <dt>{t('agent.useCount')}</dt>
                 <dd>{agent.useCount}</dd>
               </div>
               <div>
-                <dt>评分</dt>
+                <dt>{t('agent.rating')}</dt>
                 <dd>★ {agent.rating.toFixed(1)}</dd>
               </div>
               <div>
-                <dt>权限</dt>
+                <dt>{t('agent.permission')}</dt>
                 <dd>{permText}</dd>
               </div>
             </dl>

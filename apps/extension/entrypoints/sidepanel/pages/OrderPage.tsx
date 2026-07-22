@@ -1,16 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getOrders, type Order, type OrderStatus } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
-
-const STATUS_LABEL: Record<OrderStatus, string> = {
-  pending: '待支付',
-  paid: '已支付',
-  cancelled: '已取消',
-  refunding: '退款中',
-  refunded: '已退款',
-  completed: '已完成',
-  failed: '失败',
-}
+import { useI18n } from '../../../src/i18n'
 
 function fmt(n: number | undefined | null): string {
   if (typeof n !== 'number') return '—'
@@ -18,6 +9,19 @@ function fmt(n: number | undefined | null): string {
 }
 
 export default function OrderPage() {
+  const { t } = useI18n()
+  const getStatusLabel = (status: OrderStatus) => {
+    const map: Record<OrderStatus, string> = {
+      pending: t('order.statusPending'),
+      paid: t('order.statusPaid'),
+      cancelled: t('order.statusCancelled'),
+      refunding: t('order.statusRefunding'),
+      refunded: t('order.statusRefunded'),
+      completed: t('order.statusCompleted'),
+      failed: t('order.statusFailed'),
+    }
+    return map[status] ?? status
+  }
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -30,7 +34,7 @@ export default function OrderPage() {
       const res = await getOrders({ page: 1, pageSize: 20 })
       if (cancelled) return
       if (res.success) setOrders(res.data.list)
-      else setError(res.error || '加载失败')
+      else setError(res.error || t('order.loadFailed'))
       setLoading(false)
     })()
     return () => {
@@ -38,16 +42,16 @@ export default function OrderPage() {
     }
   }, [])
 
-  if (loading) return <div className="empty-state">加载中...</div>
+  if (loading) return <div className="empty-state">{t('common.loading')}</div>
   if (error) return <div className="error-banner">{error}</div>
 
   return (
     <div className="sp-page">
       <div className="sp-page-header">
-        <h3>我的订单</h3>
+        <h3>{t('order.title')}</h3>
       </div>
       {orders.length === 0 ? (
-        <div className="empty-state">暂无订单</div>
+        <div className="empty-state">{t('order.empty')}</div>
       ) : (
         orders.map((o) => (
           <Card key={o.id}>
@@ -56,7 +60,7 @@ export default function OrderPage() {
             </CardHeader>
             <CardContent>
               <div className="sp-order-meta">
-                <span className="sp-status">{STATUS_LABEL[o.status] ?? o.status}</span>
+                <span className="sp-status">{getStatusLabel(o.status)}</span>
                 <span className="sp-time">
                   {new Intl.DateTimeFormat('zh-CN', {
                     month: '2-digit',
