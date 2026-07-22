@@ -3,14 +3,13 @@
 三层防御(对齐研究报告):
 1. 应用层软限制:executor 内部自检(本模块提供监控协程)
 2. 父进程监控层:psutil 轮询 RSS/CPU,超限 terminate
-3. OS 硬上限:POSIX setrlimit(preexec_fn)+ Windows Job Object(ctypes)
+3. OS 硬上限:预留给子进程执行器(当前 executor 为同进程 asyncio Task,本层未启用)
 
 psutil 可选:未安装时降级为仅超时控制(不监控 RSS/CPU)。
 """
 
 import asyncio
 import logging
-import sys
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -86,9 +85,15 @@ class ResourceMonitor:
 
         while True:
             try:
+                # 进程树列表(合并两次 children 调用为一次,避免性能开销与竞态)
+                children = proc.children(recursive=True)
+
                 # 计算进程树总 RSS(含子进程)
-                rss = proc.memory_info().rss
-                for child in proc.children(recursive=True):
+                try:
+                    rss = proc.memory_info().rss
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue  # 跳过本轮,不终止循环
+                for child in children:
                     try:
                         rss += child.memory_info().rss
                     except (psutil.NoSuchProcess, psutil.AccessDenied):
@@ -97,7 +102,7 @@ class ResourceMonitor:
                 # 计算进程树总 CPU 时间
                 cpu_times = proc.cpu_times()
                 cpu_total = cpu_times.user + cpu_times.system
-                for child in proc.children(recursive=True):
+                for child in children:  # 复用同一份 children 列表
                     try:
                         ct = child.cpu_times()
                         cpu_total += ct.user + ct.system
@@ -157,24 +162,6 @@ class ResourceMonitor:
             proc.kill()
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
-
-
-def apply_posix_rlimits(memory_mb: Optional[float], cpu_seconds: Optional[float]) -> None:
-    """POSIX preexec_fn 回调:在子进程 exec 前设 rlimit(第三层硬上限)。
-
-    仅 POSIX(Linux/macOS)有效。Windows 不支持 preexec_fn,用 Job Object 替代。
-    """
-    if sys.platform == "win32":
-        return  # Windows 不支持 preexec_fn
-
-    import resource
-
-    if memory_mb is not None:
-        mem_bytes = int(memory_mb * 1024 * 1024)
-        # RLIMIT_AS:虚拟内存硬上限(比 RSS 严格,含 mmap)
-        resource.setrlimit(resource.RLIMIT_AS, (mem_bytes, mem_bytes))
-    if cpu_seconds is not None:
-        resource.setrlimit(resource.RLIMIT_CPU, (int(cpu_seconds), int(cpu_seconds)))
 
 
 def is_psutil_available() -> bool:
