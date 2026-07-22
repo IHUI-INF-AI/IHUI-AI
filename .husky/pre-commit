@@ -177,9 +177,17 @@ if (!run('🎯 检查 Tailwind class 冲突...', 'node scripts/check-tailwind-cl
 // 不阻塞 commit, 提醒 agent 按 §9 默认全端连通或显式补标注
 run('🌐 检查多端同步开发守门(warn-only)...', 'node scripts/check-multi-end-sync.mjs')
 
-// 22. Staged 文件清单打印(lightweight, 2026-07-21 立)
+// 22. README 同步守门(warn-only, 2026-07-22 立, AGENTS.md §22)
+// 检测 staged 中 apps/*/src 或 packages/*/src 功能代码改动但 README.md 未在 staged 中
+// 触发条件: 新功能模块 / 现有功能重大调整 / 守门规则新增 / 对外能力清单变化
+// 豁免: bug 修复 / 重构 / 测试 / 配置 / 单端内部优化 / 文档 / 守门脚本本身
+// 不阻塞 commit, 提醒 agent 按 §22 同步更新 README.md(功能开发后强制 README + git 同 commit)
+// 反面案例: 2026-07-22 P3 深度层三大壁垒交付后 README 未同步, 用户在远端看不到最新能力清单
+run('📖 检查 README 同步守门(warn-only)...', 'node scripts/check-readme-sync.mjs --staged')
+
+// 23. Staged 文件清单打印(lightweight, 2026-07-21 立)
 // commit 前最后看一眼 staged 清单, 杜绝"混入其他 agent 改动"污染事故
-// 与第 19 项 check-staged-pollution 互补: 19 是跨端超阈值 warn, 22 是无条件打印清单
+// 与第 19 项 check-staged-pollution 互补: 19 是跨端超阈值 warn, 23 是无条件打印清单
 // info-only, 始终 exit 0, 不影响其他守门
 run('📋 打印 staged 文件清单(info)...', 'node scripts/check-staged-files.mjs')
 
