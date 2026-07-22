@@ -18,66 +18,24 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { eq, and, isNull } from 'drizzle-orm'
+import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { config } from '../config/index.js'
-import { dbRead } from '../db/index.js'
-import { agents, files } from '@ihui/database'
+import { db, dbRead } from '../db/index.js'
+import { agents, files, projects, chatConversations } from '@ihui/database'
+import type {
+  V1AgentInfo,
+  V1AgentsListResponse,
+  V1AgentCallResponse,
+  V1ChatCompletionResponse,
+  V1ModelsResponse,
+} from '@ihui/types'
 import {
   requireApiKeyAuth,
   requireApiKeyPermission,
   requireApiKeyQuota,
 } from '../plugins/api-key-auth.js'
 import { error } from '../utils/response.js'
-
-// =============================================================================
-// 本地类型定义
-// TODO: packages/types/src/index.ts 尚未 re-export api-key.ts,待补齐后切换为:
-//   import type { V1AgentsListResponse, V1AgentInfo, ... } from '@ihui/types'
-// 当前与 packages/types/src/api-key.ts 保持结构一致(2026-07-22 立)
-// =============================================================================
-
-interface V1AgentInfo {
-  id: string
-  name: string
-  description: string
-  capabilities: string[]
-}
-
-interface V1AgentsListResponse {
-  object: 'list'
-  data: V1AgentInfo[]
-}
-
-interface V1AgentCallResponse {
-  agentId: string
-  sessionId: string
-  output: string
-  usage: { totalTokens: number }
-}
-
-interface V1ChatCompletionResponse {
-  id: string
-  object: 'chat.completion'
-  created: number
-  model: string
-  choices: Array<{
-    index: number
-    message: { role: 'assistant'; content: string }
-    finishReason: 'stop' | 'length'
-  }>
-  usage: { promptTokens: number; completionTokens: number; totalTokens: number }
-}
-
-interface V1ModelsResponse {
-  object: 'list'
-  data: Array<{
-    id: string
-    object: 'model'
-    created: number
-    ownedBy: string
-  }>
-}
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致) */
 interface ApiKeyContext {
@@ -113,10 +71,10 @@ const agentCallSchema = z.object({
 })
 
 // =============================================================================
-// 静态降级数据
+// 静态降级数据 + 模型缓存
 // =============================================================================
 
-// TODO: 接入真实 ai-service 模型列表(ai-service /api/llm/models 不可用时降级)
+/** ai-service 不可用时的最终兜底模型清单(只在 live + cache 均失败时使用)。 */
 const FALLBACK_MODELS: V1ModelsResponse = {
   object: 'list',
   data: [
@@ -133,23 +91,124 @@ const FALLBACK_MODELS: V1ModelsResponse = {
   ],
 }
 
+/**
+ * 模型列表缓存(5 分钟 TTL,避免每次请求都打 ai-service)。
+ * source 标识:'live' 实时拉取 / 'cache' 命中缓存 / 'fallback' 静态兜底。
+ */
+const MODELS_CACHE_TTL_MS = 5 * 60 * 1000
+interface ModelsCacheEntry {
+  data: V1ModelsResponse
+  fetchedAt: number
+}
+let modelsCache: ModelsCacheEntry | null = null
+
+/**
+ * 拉取模型列表(优先 live → cache → fallback)。
+ * 返回响应体 + 来源标识,由调用方写入 X-Model-Source 响应头。
+ */
+async function fetchModels(): Promise<{ body: V1ModelsResponse; source: 'live' | 'cache' | 'fallback' }> {
+  const now = Date.now()
+  // 缓存未过期 → 直接命中
+  if (modelsCache && now - modelsCache.fetchedAt < MODELS_CACHE_TTL_MS) {
+    return { body: modelsCache.data, source: 'cache' }
+  }
+  try {
+    const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/models`, { method: 'GET' })
+    if (resp.ok) {
+      const data = (await resp.json()) as unknown
+      let models: unknown[] = []
+      if (Array.isArray(data)) models = data
+      else if (data && typeof data === 'object') {
+        const obj = data as Record<string, unknown>
+        if (Array.isArray(obj.data)) models = obj.data
+        else if (Array.isArray(obj.models)) models = obj.models
+      }
+      if (models.length > 0) {
+        const mapped: V1ModelsResponse = {
+          object: 'list',
+          data: models.map((m) => {
+            const mo = (m ?? {}) as Record<string, unknown>
+            const id =
+              (typeof mo.id === 'string' && mo.id) ||
+              (typeof mo.model === 'string' && mo.model) ||
+              (typeof mo.code === 'string' && mo.code) ||
+              (typeof mo.name === 'string' && mo.name) ||
+              'unknown'
+            const ownedBy =
+              (typeof mo.owned_by === 'string' && mo.owned_by) ||
+              (typeof mo.provider === 'string' && mo.provider) ||
+              (typeof mo.manufacturer === 'string' && mo.manufacturer) ||
+              'ihui'
+            const created = typeof mo.created === 'number' ? mo.created : Math.floor(now / 1000)
+            return { id, object: 'model' as const, created, ownedBy }
+          }),
+        }
+        modelsCache = { data: mapped, fetchedAt: now }
+        return { body: mapped, source: 'live' }
+      }
+    }
+  } catch {
+    // live 失败,降级 cache(若已过期则进一步降级 fallback)
+  }
+  // live 失败,但缓存还在(即便已过期)→ 用旧缓存
+  if (modelsCache) {
+    return { body: modelsCache.data, source: 'cache' }
+  }
+  return { body: FALLBACK_MODELS, source: 'fallback' }
+}
+
 // =============================================================================
 // 辅助函数
 // =============================================================================
 
+/**
+ * 根据模型名推导能力标签(用于 GET /v1/agents capabilities + GET /v1/models/:id)。
+ * 规则:基于模型名前缀匹配主流厂商命名约定。
+ */
+function deriveModelCapabilities(modelName: string): string[] {
+  const name = modelName.toLowerCase()
+  const caps: string[] = ['chat']
+  // GPT-4* / GPT-5* → vision + tools
+  if (/^gpt-(4|5|o)/.test(name) || name.includes('gpt-4o') || name.includes('gpt-4-turbo')) {
+    caps.push('vision', 'tools')
+  } else if (/^gpt-3/.test(name)) {
+    caps.push('tools')
+  }
+  // Claude 3+ → vision + tools
+  if (/^claude-3/.test(name) || /^claude-4/.test(name)) {
+    caps.push('vision', 'tools')
+  }
+  // o1 / o3 / o4 系列 → reasoning
+  if (/^o[134]-/.test(name) || name.startsWith('o1') || name.startsWith('o3') || name.startsWith('o4')) {
+    caps.push('reasoning', 'tools')
+  }
+  // Gemini → vision + tools
+  if (name.startsWith('gemini-')) {
+    caps.push('vision', 'tools')
+  }
+  // Qwen-VL / Qwen2-VL → vision
+  if (name.includes('vl') || name.includes('vision')) {
+    caps.push('vision')
+  }
+  return Array.from(new Set(caps))
+}
+
 type AgentRow = typeof agents.$inferSelect
 
-/** 从 agents 表行映射为 V1AgentInfo */
+/** 从 agents 表行映射为 V1AgentInfo。capabilities 由 botId + agentModel 综合推导。 */
 function toAgentInfo(row: AgentRow): V1AgentInfo {
-  // TODO: 根据 agent 配置(botId/agentModel/agentTools)推导 capabilities
-  const capabilities: string[] = ['chat']
-  if (row.botId) capabilities.push('coze')
-  if (row.agentModel) capabilities.push('model:' + row.agentModel)
+  const capabilities = new Set<string>(['chat'])
+  if (row.botId) capabilities.add('coze')
+  if (row.agentModel) {
+    capabilities.add('model:' + row.agentModel)
+    // 沿用模型名推导 vision/tools/reasoning 标签(与 GET /v1/models/:id 一致)
+    for (const c of deriveModelCapabilities(row.agentModel)) capabilities.add(c)
+  }
   return {
     id: row.agentId,
     name: row.name,
     description: row.description ?? '',
-    capabilities,
+    capabilities: Array.from(capabilities),
   }
 }
 
@@ -487,7 +546,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // ===== 5. GET /models — 模型列表 =====
+  // ===== 5. GET /models — 模型列表(5min 缓存 + X-Model-Source 标识来源) =====
   server.get(
     '/models',
     {
@@ -498,49 +557,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       ],
     },
     async (_request, reply) => {
-      try {
-        const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/models`, { method: 'GET' })
-
-        if (resp.ok) {
-          const data = (await resp.json()) as unknown
-          // 适配多种格式:LiteLLM/OpenAI { data: [...] } / 裸数组 / { models: [...] }
-          let models: unknown[] = []
-          if (Array.isArray(data)) {
-            models = data
-          } else if (data && typeof data === 'object') {
-            const obj = data as Record<string, unknown>
-            if (Array.isArray(obj.data)) models = obj.data
-            else if (Array.isArray(obj.models)) models = obj.models
-          }
-
-          if (models.length > 0) {
-            const mapped = models.map((m) => {
-              const mo = (m ?? {}) as Record<string, unknown>
-              const id =
-                (typeof mo.id === 'string' && mo.id) ||
-                (typeof mo.model === 'string' && mo.model) ||
-                (typeof mo.code === 'string' && mo.code) ||
-                (typeof mo.name === 'string' && mo.name) ||
-                'unknown'
-              const ownedBy =
-                (typeof mo.owned_by === 'string' && mo.owned_by) ||
-                (typeof mo.provider === 'string' && mo.provider) ||
-                (typeof mo.manufacturer === 'string' && mo.manufacturer) ||
-                'ihui'
-              const created =
-                typeof mo.created === 'number' ? mo.created : Math.floor(Date.now() / 1000)
-              return { id, object: 'model' as const, created, ownedBy }
-            })
-            const result: V1ModelsResponse = { object: 'list', data: mapped }
-            return reply.send(result)
-          }
-        }
-      } catch {
-        // 降级到静态列表
-      }
-
-      // TODO: 接入真实 ai-service 模型列表,当前为静态降级数据
-      return reply.send(FALLBACK_MODELS)
+      const { body, source } = await fetchModels()
+      reply.header('X-Model-Source', source)
+      return reply.send(body)
     },
   )
 
@@ -577,7 +596,7 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // ===== 7. POST /files — 上传文件 =====
+  // ===== 7. POST /files — 上传文件(落盘 + files 表持久化) =====
   server.post(
     '/files',
     {
@@ -588,6 +607,12 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
       ],
     },
     async (request, reply) => {
+      const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
+      if (!apiKey) {
+        return reply.status(401).send(error(401, 'API key authentication required'))
+      }
+      const userId = apiKey.userId
+
       if (!request.isMultipart()) {
         return reply.status(400).send(error(400, 'Request must be multipart/form-data'))
       }
@@ -611,16 +636,109 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         const filePath = join(UPLOAD_DIR, fileId)
         writeFileSync(filePath, buffer)
 
-        // TODO: 接入 files 表持久化(files 表 projectId 必填,公开 API 无项目上下文,暂仅存磁盘)
+        // files 表 projectId 必填(notNull):取该用户的第一个项目作为默认归属,
+        // 若用户无任何项目则自动创建名为 "API Uploads" 的默认项目(隔离公开 API 上传)。
+        const [existingProject] = await dbRead
+          .select({ id: projects.id })
+          .from(projects)
+          .where(eq(projects.userId, userId))
+          .orderBy(projects.createdAt)
+          .limit(1)
+
+        let projectId = existingProject?.id
+        if (!projectId) {
+          const [created] = await db
+            .insert(projects)
+            .values({
+              userId,
+              name: 'API Uploads',
+              description: 'Default project for /v1/files uploads',
+            })
+            .returning({ id: projects.id })
+          projectId = created?.id
+        }
+
+        let persisted = false
+        if (projectId) {
+          await db.insert(files).values({
+            id: fileId,
+            projectId,
+            name: filename,
+            path: filePath,
+            size: buffer.length,
+            mimeType: data.mimetype || 'application/octet-stream',
+            uploadedBy: userId,
+          })
+          persisted = true
+        }
+
         return reply.status(201).send({
           id: fileId,
           object: 'file',
           filename,
           bytes: buffer.length,
           createdAt: new Date().toISOString(),
+          persisted,
         })
       } catch {
         return reply.status(500).send(error(500, 'File save failed'))
+      }
+    },
+  )
+
+  // ===== 8. GET /chat/sessions — 列出当前 API Key 用户的会话(chat:read) =====
+  server.get(
+    '/chat/sessions',
+    {
+      preHandler: [
+        requireApiKeyAuth,
+        requireApiKeyPermission('chat:read'),
+        requireApiKeyQuota(),
+      ],
+    },
+    async (request, reply) => {
+      const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
+      if (!apiKey) {
+        return reply.status(401).send(error(401, 'API key authentication required'))
+      }
+      const query = request.query as { page?: string; pageSize?: string }
+      const page = Math.max(1, Number(query.page ?? '1') || 1)
+      const pageSize = Math.min(100, Math.max(1, Number(query.pageSize ?? '20') || 20))
+      const offset = (page - 1) * pageSize
+
+      try {
+        // chat_conversations 表无 api_key_id 字段,按 apiKey.userId 过滤(同用户所有会话)
+        const [rows, countRow] = await Promise.all([
+          dbRead
+            .select()
+            .from(chatConversations)
+            .where(eq(chatConversations.userId, apiKey.userId))
+            .orderBy(desc(chatConversations.updatedAt))
+            .limit(pageSize)
+            .offset(offset),
+          dbRead
+            .select({ total: sql<number>`count(*)::int` })
+            .from(chatConversations)
+            .where(eq(chatConversations.userId, apiKey.userId)),
+        ])
+        const total = countRow[0]?.total ?? 0
+        const list = rows.map((r) => ({
+          id: r.id,
+          title: r.title,
+          model: r.model,
+          lastMessageAt: r.lastMessageAt?.toISOString() ?? null,
+          createdAt: r.createdAt.toISOString(),
+          updatedAt: r.updatedAt.toISOString(),
+        }))
+        return reply.send({
+          code: 0,
+          message: 'success',
+          data: { list, total, page, pageSize },
+        })
+      } catch (e) {
+        return reply
+          .status(500)
+          .send(error(500, (e as Error).message || 'Failed to fetch chat sessions'))
       }
     },
   )
