@@ -39,6 +39,7 @@ import { success, error, parseOrThrow } from '../utils/response.js'
 import { withAuditBoth } from '../utils/audit.js'
 import { createComment, findTicketById } from '../db/customer-service-queries.js'
 import { addUserRole, removeUserRole } from '../db/rbac-queries.js'
+import { buildKanbanColumns } from './agents-kanban.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -332,6 +333,10 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
     await db.delete(agentRule).where(eq(agentRule.id, id))
     return reply.send(success({ id, deleted: true }))
+  })
+  server.get('/admin/agent-task/kanban', { preHandler: requireAdmin }, async (_request, reply) => {
+    const columns = await buildKanbanColumns()
+    return reply.send(success(columns))
   })
   server.put('/admin/agent-task/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
