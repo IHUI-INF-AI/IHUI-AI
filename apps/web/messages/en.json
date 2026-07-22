@@ -25975,7 +25975,11 @@
       "personalType": "Personal Relay",
       "import": "Import",
       "riskTitle": "Risk Warning",
-      "tipsTitle": "Usage Tips"
+      "tipsTitle": "Usage Tips",
+      "searchPlaceholder": "Search by platform name / vendor / features / billing...",
+      "allVendors": "All",
+      "resultCount": "{count} / {total} platforms",
+      "emptyResult": "No matching platform. Try adjusting your search or vendor filter."
     },
     "cta": {
       "label": "Bottom CTA",
@@ -26346,6 +26350,10 @@
         "keyPlaceholderNew": "sk-...",
         "keyPlaceholderEdit": "•••••••(encrypted)",
         "keyKeepEmpty": "(leave empty to keep current)",
+        "pasteFromClipboard": "Paste API Key from clipboard",
+        "pasteSuccess": "Pasted from clipboard",
+        "pasteFailed": "Clipboard read failed, please paste manually",
+        "pasteEmpty": "Clipboard is empty",
         "baseUrl": "Base URL",
         "optional": "optional",
         "group": "Group",
