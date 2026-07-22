@@ -39,6 +39,38 @@ services:
       - OTEL_ENABLED=${OTEL_ENABLED:-false}
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       - OTEL_SERVICE_NAME=ihui-api
+      # OAuth 第三方登录凭据(2026-07-22 补全,从根目录 .env 读取)
+      # 前端 NEXT_PUBLIC_* 在 Next.js build 时已静态编译进产物,无需运行时注入
+      # 后端凭据运行时读取 process.env,必须在容器 environment 中显式注入
+      # 微信网站扫码登录(微信开放平台 - 网站应用)
+      - WECHAT_APP_ID=${WECHAT_APP_ID:-}
+      - WECHAT_APP_SECRET=${WECHAT_APP_SECRET:-}
+      # 钉钉扫码登录(钉钉开放平台 - 企业内部应用)
+      - DINGTALK_APP_KEY=${DINGTALK_APP_KEY:-}
+      - DINGTALK_APP_SECRET=${DINGTALK_APP_SECRET:-}
+      - DINGTALK_REDIRECT_URI=${DINGTALK_REDIRECT_URI:-}
+      # 企业微信扫码登录(企业微信管理后台 - 自建应用)
+      - WECOM_CORP_ID=${WECOM_CORP_ID:-}
+      - WECOM_AGENT_ID=${WECOM_AGENT_ID:-}
+      - WECOM_SECRET=${WECOM_SECRET:-}
+      - WECOM_REDIRECT_URI=${WECOM_REDIRECT_URI:-}
+      # 飞书登录(飞书开放平台 - 自建应用)
+      - FEISHU_APP_ID=${FEISHU_APP_ID:-}
+      - FEISHU_APP_SECRET=${FEISHU_APP_SECRET:-}
+      - FEISHU_REDIRECT_URI=${FEISHU_REDIRECT_URI:-}
+      # Google 登录(Google Cloud Console - OAuth 2.0)
+      - GOOGLE_APP_ID=${GOOGLE_APP_ID:-}
+      - GOOGLE_SECRET=${GOOGLE_SECRET:-}
+      - GOOGLE_PC_REDIRECT_URI=${GOOGLE_PC_REDIRECT_URI:-}
+      # GitHub 登录(GitHub OAuth App)
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      # 支付宝登录(支付宝开放平台 - 网页应用)
+      - ALIPAY_APP_ID=${ALIPAY_APP_ID:-}
+      - ALIPAY_PRIVATE_KEY=${ALIPAY_PRIVATE_KEY:-}
+      - ALIPAY_PUBLIC_KEY=${ALIPAY_PUBLIC_KEY:-}
+      - ALIPAY_GATEWAY=${ALIPAY_GATEWAY:-https://openapi.alipay.com/gateway.do}
+      - ALIPAY_RETURN_URL=${ALIPAY_RETURN_URL:-}
     depends_on:
       db:
         condition: service_healthy
