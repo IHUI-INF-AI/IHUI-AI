@@ -1,9 +1,12 @@
 'use client'
 
 import * as React from 'react'
-import { X, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
+import { X, TrendingUp, TrendingDown, Minus, ExternalLink, Zap } from 'lucide-react'
 import type { LeaderboardEntry } from '@/lib/ai-news-api'
 import { CapabilityRadar } from './CapabilityRadar'
+import { getVendorPlatform, encodePrefill } from './vendor-platforms'
 
 interface Props {
   entry: LeaderboardEntry
@@ -11,8 +14,11 @@ interface Props {
   onClose: () => void
 }
 
-/** 模型详情弹窗:评分 + 核心参数 + 能力雷达图 */
+/** 模型详情弹窗:评分 + 核心参数 + 能力雷达图 + 官方 Key + 一键导入 */
 export function ModelDetailDialog({ entry, open, onClose }: Props) {
+  const router = useRouter()
+  const t = useTranslations('aiNews.detailDialog')
+
   React.useEffect(() => {
     if (!open) return
     const handler = (e: KeyboardEvent) => {
@@ -26,20 +32,34 @@ export function ModelDetailDialog({ entry, open, onClose }: Props) {
 
   const rankDelta = entry.rankDelta
   const caps = entry.capabilities
+  const platform = getVendorPlatform(entry.vendor)
 
   const paramRows = [
-    { label: 'Arena 评分', value: entry.arenaScore ? `${entry.arenaScore}${entry.scoreCi ? ` ±${entry.scoreCi}` : ''}` : null },
-    { label: '排名', value: entry.arenaRank ? `#${entry.arenaRank}` : null },
-    { label: '排名变化', value: rankDelta !== null ? (rankDelta > 0 ? `↑${rankDelta}` : rankDelta < 0 ? `↓${Math.abs(rankDelta)}` : '持平') : null },
-    { label: '胜率', value: entry.winRate ? `${entry.winRate.toFixed(1)}%` : null },
-    { label: '投票数', value: entry.voteCount ? entry.voteCount.toLocaleString() : null },
-    { label: '上下文窗口', value: entry.contextWindow },
-    { label: '最大输出', value: entry.maxOutput },
-    { label: '输入价格', value: entry.inputPrice },
-    { label: '输出价格', value: entry.outputPrice },
-    { label: '发布时间', value: entry.releaseDate },
-    { label: 'License', value: entry.license },
+    { label: t('arenaScore'), value: entry.arenaScore ? `${entry.arenaScore}${entry.scoreCi ? ` ±${entry.scoreCi}` : ''}` : null },
+    { label: t('rank'), value: entry.arenaRank ? `#${entry.arenaRank}` : null },
+    { label: t('rankDelta'), value: rankDelta !== null ? (rankDelta > 0 ? `↑${rankDelta}` : rankDelta < 0 ? `↓${Math.abs(rankDelta)}` : t('stable')) : null },
+    { label: t('winRate'), value: entry.winRate ? `${entry.winRate.toFixed(1)}%` : null },
+    { label: t('voteCount'), value: entry.voteCount ? entry.voteCount.toLocaleString() : null },
+    { label: t('contextWindow'), value: entry.contextWindow },
+    { label: t('maxOutput'), value: entry.maxOutput },
+    { label: t('inputPrice'), value: entry.inputPrice },
+    { label: t('outputPrice'), value: entry.outputPrice },
+    { label: t('releaseDate'), value: entry.releaseDate },
+    { label: t('license'), value: entry.license },
   ].filter((r) => r.value)
+
+  function handleQuickImport() {
+    if (!platform) return
+    const payload = encodePrefill({
+      providerCode: platform.providerCode,
+      name: `${entry.vendor} ${entry.modelName}`,
+      baseUrlOverride: platform.defaultBaseUrl,
+      apiFormat: platform.apiFormat,
+      modelName: entry.modelName,
+      vendor: entry.vendor,
+    })
+    router.push(`/settings/llm?prefill=${payload}`)
+  }
 
   return (
     <div
@@ -65,7 +85,7 @@ export function ModelDetailDialog({ entry, open, onClose }: Props) {
                 </span>
               ) : rankDelta === 0 ? (
                 <span className="inline-flex items-center gap-0.5 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  <Minus className="h-2.5 w-2.5" />持平
+                  <Minus className="h-2.5 w-2.5" />{t('stable')}
                 </span>
               ) : null}
             </div>
@@ -94,7 +114,7 @@ export function ModelDetailDialog({ entry, open, onClose }: Props) {
         <div className="grid gap-4 px-5 py-4 md:grid-cols-2">
           {/* 左:核心参数 */}
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-muted-foreground">核心参数</h4>
+            <h4 className="text-xs font-semibold text-muted-foreground">{t('coreParams')}</h4>
             <div className="space-y-1.5">
               {paramRows.map((row) => (
                 <div key={row.label} className="flex items-center justify-between gap-3 text-xs">
@@ -105,7 +125,7 @@ export function ModelDetailDialog({ entry, open, onClose }: Props) {
             </div>
             {entry.highlight ? (
               <div className="mt-3 rounded-md bg-primary/5 px-3 py-2">
-                <p className="text-[10px] font-medium text-muted-foreground">核心亮点</p>
+                <p className="text-[10px] font-medium text-muted-foreground">{t('highlight')}</p>
                 <p className="mt-0.5 text-xs leading-relaxed">{entry.highlight}</p>
               </div>
             ) : null}
@@ -113,18 +133,70 @@ export function ModelDetailDialog({ entry, open, onClose }: Props) {
 
           {/* 右:能力雷达图 */}
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-muted-foreground">能力雷达</h4>
+            <h4 className="text-xs font-semibold text-muted-foreground">{t('capabilityRadar')}</h4>
             {caps ? (
               <div className="rounded-md bg-muted/20 p-3">
                 <CapabilityRadar capabilities={caps} size={200} />
               </div>
             ) : (
               <div className="flex h-40 items-center justify-center text-xs text-muted-foreground">
-                暂无能力评分数据
+                {t('noCapabilityData')}
               </div>
             )}
           </div>
         </div>
+
+        {/* 官方资源 + 一键导入 */}
+        {platform ? (
+          <div className="mx-5 mb-5 rounded-lg border bg-muted/20 px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 space-y-1.5">
+                <h4 className="text-xs font-semibold text-muted-foreground">{t('officialResources')}</h4>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                  {platform.officialKeyUrl ? (
+                    <a
+                      href={platform.officialKeyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-medium text-primary transition-colors hover:text-primary/80"
+                    >
+                      <span>{t('getApiKey')}</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : null}
+                  {platform.docsUrl ? (
+                    <a
+                      href={platform.docsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <span>{t('officialDocs')}</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : null}
+                </div>
+                {platform.note ? (
+                  <p className="text-[10px] leading-relaxed text-muted-foreground">{platform.note}</p>
+                ) : null}
+              </div>
+              {platform.defaultBaseUrl ? (
+                <button
+                  type="button"
+                  onClick={handleQuickImport}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                >
+                  <Zap className="h-3 w-3" />
+                  <span>{t('quickImport')}</span>
+                </button>
+              ) : (
+                <span className="shrink-0 rounded-md bg-muted px-3 py-1.5 text-[10px] text-muted-foreground">
+                  {t('noQuickImport')}
+                </span>
+              )}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )
