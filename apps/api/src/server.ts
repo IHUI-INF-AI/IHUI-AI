@@ -111,6 +111,7 @@ import developerRoutes from './routes/developer.js'
 import appVersionRoutes from './routes/app-version.js'
 import monitorRoutes from './routes/monitor.js'
 import webhooksRoutes from './routes/webhooks.js'
+import webhookTriggerRoutes from './routes/webhooks-trigger.js'
 import packagesRoutes from './routes/packages.js'
 import fundRoutes from './routes/fund.js'
 import walletRoutes from './routes/wallet.js'
@@ -276,6 +277,8 @@ import { tencentHunyuan3dRoutes } from './routes/tencent-hunyuan-3d.js'
 // P1-3/P1-4 补建：智能体分类字典缓存 + 分类同步 API（迁移自 coze_zhs_py/api/agent_category_cache_api.py + category_sync_api.py）
 import { agentCategoriesCacheRoutes } from './routes/agent-categories-cache.js'
 import { categorySyncRoutes } from './routes/category-sync.js'
+// 对外公开 API(/v1/*,API Key 鉴权,2026-07-22 立)
+import v1PublicRoutes from './routes/v1-public.js'
 
 import { setFastify } from './utils/logger.js'
 import { isAppError } from './errors/index.js'
@@ -757,6 +760,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(monitorRoutes, { prefix: '/api/monitor' })
   // Webhook 管理：/api/developer/webhooks/*
   server.register(webhooksRoutes, { prefix: '/api/developer/webhooks' })
+  // Webhook 触发器(Wave 3 W3-3):/api/webhooks/* — 外部系统 webhook 唤醒 agent
+  server.register(webhookTriggerRoutes, { prefix: '/api/webhooks' })
   // 套餐管理：/api/packages/*
   server.register(packagesRoutes, { prefix: '/api/packages' })
   // 资金管理：/api/fund/*
@@ -1026,4 +1031,7 @@ function registerRoutes(server: FastifyInstance) {
   server.register(agentCategoriesCacheRoutes)
   // 5 端点: POST pull / POST push / GET status / POST resolve / GET history（绝对路径字面量注册，见 routes/category-sync.ts）
   server.register(categorySyncRoutes)
+
+  // 对外公开 API(/v1/*,API Key 鉴权,2026-07-22 立)
+  server.register(v1PublicRoutes, { prefix: '/v1' })
 }
