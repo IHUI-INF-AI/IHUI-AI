@@ -5,9 +5,11 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import {
   ArrowRight,
+  Check,
   ExternalLink,
   Gift,
   Pin,
+  Plus,
   Power,
   Search,
   Shield,
@@ -24,6 +26,7 @@ import { useLocalStorage } from '@/hooks/use-local-storage'
 import { useToast } from '@/hooks/use-toast'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChat } from '@/hooks/use-chat'
+import { useChatStore } from '@/stores/chat'
 
 import {
   PROJECT_PLUGINS,
@@ -31,6 +34,7 @@ import {
   type ProjectPlugin,
   type MarketPlugin,
   type PluginCategory,
+  getPluginIntegration,
 } from './plugins-data'
 
 type Filter = 'all' | 'builtin' | 'market' | 'installed' | 'pinned' | PluginCategory
@@ -70,6 +74,8 @@ export function PluginMarketplace() {
   const plugins = usePlugins()
   const openAiPanel = useAiPanelStore((s) => s.openPanel)
   const { sendMessage } = useChat()
+  // 订阅已选工具列表(用于卡片"已添加"状态显示)
+  const selectedToolsIds = useChatStore((s) => s.selectedTools)
 
   /** 内置插件调用:打开 AI 对话面板并注入"使用该插件"消息(2026-07-22 新增)
    *  用户点击插件卡片后,不跳转外部,而是在平台内通过 AI 对话调用该插件能力。
@@ -103,6 +109,36 @@ export function PluginMarketplace() {
       toast.info(t('invokeToast', { name: plugin.name }))
     },
     [openAiPanel, sendMessage, t, toast],
+  )
+
+  /** 添加到对话(2026-07-22 新增,用户需求:加号按钮添加到 AI 输入框)
+   *  与 handleInvokePlugin 区别:
+   *   - invoke:点击卡片立即发送 prompt 调用插件
+   *   - addToChat:点击"+"按钮把插件作为"已选工具"加入 chat store,
+   *     在 AI 输入框上方显示 chip,用户可继续编辑输入后主动发送
+   *  真集成插件:对应 MCP 工具会合并到 agentTools,LLM 真能调用
+   *  仅 prompt 意图插件:只作 UI 标记,sendMessage 时 prompt 文本仍会注入 */
+  const handleAddToChat = React.useCallback(
+    (plugin: MarketPlugin) => {
+      const store = useChatStore.getState()
+      if (store.selectedTools.includes(plugin.id)) {
+        // 已添加:移除(toggle 行为)
+        store.removeSelectedTool(plugin.id)
+        toast.info(t('removedFromChat', { name: plugin.name }))
+        return
+      }
+      store.addSelectedTool(plugin.id)
+      openAiPanel()
+      const integration = getPluginIntegration(plugin.id)
+      if (integration === true) {
+        toast.success(t('addedToChatReal', { name: plugin.name }))
+      } else if (integration === 'model') {
+        toast.success(t('addedToChatModel', { name: plugin.name }))
+      } else {
+        toast.info(t('addedToChatPrompt', { name: plugin.name }))
+      }
+    },
+    [openAiPanel, t, toast],
   )
 
   // UI 偏好持久化到 localStorage(只存 filter/sort,不存启用态)
@@ -414,6 +450,14 @@ export function PluginMarketplace() {
                 onTogglePinned={() => handleTogglePinned(p.id, p.name)}
                 onRecordClick={() => plugins.recordClick(p.id)}
                 onInvoke={() => handleInvokePlugin(p)}
+                onAddToChat={() => handleAddToChat(p)}
+                isAddedToChat={selectedToolsIds.includes(p.id)}
+                integrationLevel={getPluginIntegration(p.id)}
+                addToChatLabel={t('addToChat')}
+                addedToChatLabel={t('addedToChat')}
+                realIntegratedLabel={t('realIntegrated')}
+                modelIntegratedLabel={t('modelIntegrated')}
+                promptOnlyLabel={t('promptOnly')}
                 installedBadgeLabel={t('installedBadge')}
                 installLabel={t('install')}
                 uninstallLabel={t('uninstall')}
@@ -614,6 +658,14 @@ function MarketPluginCard({
   onTogglePinned,
   onRecordClick,
   onInvoke,
+  onAddToChat,
+  isAddedToChat,
+  integrationLevel,
+  addToChatLabel,
+  addedToChatLabel,
+  realIntegratedLabel,
+  modelIntegratedLabel,
+  promptOnlyLabel,
   installedBadgeLabel,
   installLabel,
   uninstallLabel,
@@ -632,6 +684,14 @@ function MarketPluginCard({
   onTogglePinned: () => void
   onRecordClick: () => void
   onInvoke: () => void
+  onAddToChat: () => void
+  isAddedToChat: boolean
+  integrationLevel?: boolean | 'model'
+  addToChatLabel: string
+  addedToChatLabel: string
+  realIntegratedLabel: string
+  modelIntegratedLabel: string
+  promptOnlyLabel: string
   installedBadgeLabel: string
   installLabel: string
   uninstallLabel: string
@@ -645,6 +705,26 @@ function MarketPluginCard({
   // dialog 模式:点击卡片触发 onInvoke(打开 AI 对话面板调用)
   // external 模式:点击卡片跳转外部(isInternal 时走 Link,否则新窗口 <a>)
   const isDialogMode = invokeMode === 'dialog' && !isInternal
+
+  // 集成度徽章文案 + 颜色(2026-07-22 新增)
+  const integrationBadge = (() => {
+    if (integrationLevel === true) {
+      return {
+        label: realIntegratedLabel,
+        className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+      }
+    }
+    if (integrationLevel === 'model') {
+      return {
+        label: modelIntegratedLabel,
+        className: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
+      }
+    }
+    return {
+      label: promptOnlyLabel,
+      className: 'bg-muted text-muted-foreground',
+    }
+  })()
 
   const card = (
     <Card className="flex h-full flex-col gap-3 p-4 transition-all hover:bg-accent/40 hover:shadow-md">
@@ -668,8 +748,44 @@ function MarketPluginCard({
               </span>
             )}
             {isInstalled && <InstalledBadge label={installedBadgeLabel} />}
+            {/* 集成度徽章:已集成(绿)/ 模型接入(蓝)/ 仅参考(灰) */}
+            <span
+              className={cn(
+                'rounded-md px-1.5 py-0.5 text-[10px] font-medium',
+                integrationBadge.className,
+              )}
+              title={
+                integrationLevel === true
+                  ? 'ai-service 后端有对应 MCP 工具,LLM 真能调用'
+                  : integrationLevel === 'model'
+                    ? 'LiteLLM 已接入,需配 .env 激活'
+                    : '仅前端 prompt 意图,后端无对应实现'
+              }
+            >
+              {integrationBadge.label}
+            </span>
           </div>
         </div>
+        {/* 添加到对话按钮(2026-07-22 新增):独立 + 图标,与 Pin/Power 并列
+            点击后把插件作为"已选工具"加入 chat store,在 AI 输入框上方显示 chip */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            onAddToChat()
+          }}
+          aria-label={isAddedToChat ? addedToChatLabel : addToChatLabel}
+          title={isAddedToChat ? addedToChatLabel : addToChatLabel}
+          className={cn(
+            'flex h-6 w-6 shrink-0 items-center justify-center rounded transition-colors',
+            isAddedToChat
+              ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+          )}
+        >
+          {isAddedToChat ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+        </button>
         <PluginCardActions
           isAuthenticated={isAuthenticated}
           isInstalled={isInstalled}
