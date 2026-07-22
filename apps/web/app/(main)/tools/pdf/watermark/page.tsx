@@ -35,7 +35,7 @@ export default function PdfWatermarkPage() {
   const [opacity, setOpacity] = React.useState(20)
   const [position, setPosition] = React.useState('middle-center')
   const [rotation, setRotation] = React.useState(-30)
-  const { loading, progress, result, error, run } = useProcessApi('/api/tools/pdf/watermark')
+  const { loading, progress, result, error, run } = useProcessApi('/api/pdf-service/watermark')
 
   const handleSubmit = () => {
     if (!file) return
