@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.services.agent_graph import AgentState, get_agent_graph
+from app.services.memory import unified_memory_client
 
 router = APIRouter(prefix="/agent-runtime", tags=["agent-runtime"])
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ class ExecuteResponse(BaseModel):
     sessionId: str
     mode: str
     received: str
+    summary: str = ""
 
 
 class SessionMessage(BaseModel):
@@ -59,21 +61,46 @@ class PermissionCheckResponse(BaseModel):
     decision: str
 
 
-# ============ 内存会话存储(占位 — 后续可换 Redis/DB)============
+# ============ 会话存储(Redis 优先 + 内存降级,最大 1000 条)============
 
+_MAX_SESSIONS = 1000
 _sessions: dict[str, SessionState] = {}
 
 
+def _evict_if_needed() -> None:
+    """内存会话超过上限时按 FIFO 淘汰最旧条目(防止内存泄漏)。"""
+    while len(_sessions) > _MAX_SESSIONS:
+        _sessions.pop(next(iter(_sessions)))
+
+
 def _get_or_create_session(session_id: str | None, bot_id: str) -> SessionState:
-    if session_id and session_id in _sessions:
-        return _sessions[session_id]
+    """获取或创建会话:内存命中 → Redis 回填 → 新建。"""
     new_id = session_id or str(uuid.uuid4())
+    if new_id in _sessions:
+        return _sessions[new_id]
+    session = _load_session_redis(new_id)
+    if session is not None:
+        _sessions[new_id] = session
+        _evict_if_needed()
+        return session
     session = SessionState(id=new_id, botId=bot_id)
     _sessions[new_id] = session
+    _evict_if_needed()
     return session
 
 
-# ============ 可选 Redis 持久化(降级到内存)============
+def _find_session(session_id: str) -> SessionState | None:
+    """查找会话(只读):内存 → Redis 回填,不新建。"""
+    if session_id in _sessions:
+        return _sessions[session_id]
+    session = _load_session_redis(session_id)
+    if session is not None:
+        _sessions[session_id] = session
+        _evict_if_needed()
+    return session
+
+
+# ============ Redis 客户端(不可用时降级到纯内存)============
 
 _redis_client = None
 _redis_disabled = False
@@ -147,10 +174,31 @@ def _check_permission(tool_name: str, mode: str, danger_level: str) -> str:
 
 @router.post("/execute", response_model=ExecuteResponse)
 async def execute(req: ExecuteRequest) -> ExecuteResponse:
-    """同步执行(占位 — 实际 Agent 执行由 /execute/stream SSE 完成)。"""
+    """同步执行 — 调用 LangGraph plan → execute → summarize 完整链路。"""
     session = _get_or_create_session(req.sessionId, req.botId or "default")
     session.messages.append(SessionMessage(role="user", content=req.message))
-    return ExecuteResponse(sessionId=session.id, mode=req.mode, received=req.message)
+    _save_session_redis(session)
+
+    summary = ""
+    try:
+        graph = get_agent_graph()
+        initial_state: AgentState = {
+            "messages": [m.model_dump() for m in session.messages],
+            "mode": req.mode,
+            "session_id": session.id,
+            "plan": "",
+            "execution_result": "",
+            "summary": "",
+            "error": None,
+        }
+        result = await graph.ainvoke(initial_state)
+        summary = result.get("summary", "")
+    except Exception as e:
+        logger.warning("agent_runtime /execute graph failed: %s", e)
+
+    return ExecuteResponse(
+        sessionId=session.id, mode=req.mode, received=req.message, summary=summary
+    )
 
 
 @router.post("/execute/stream")
@@ -238,17 +286,19 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
 
 @router.get("/{session_id}/status")
 async def get_status(session_id: str) -> dict:
-    if session_id not in _sessions:
+    session = _find_session(session_id)
+    if session is None:
         raise HTTPException(status_code=404, detail="session not found")
-    s = _sessions[session_id]
-    return {"sessionId": s.id, "status": s.status, "messageCount": len(s.messages)}
+    return {"sessionId": session.id, "status": session.status, "messageCount": len(session.messages)}
 
 
 @router.post("/{session_id}/cancel")
 async def cancel_session(session_id: str) -> dict:
-    if session_id not in _sessions:
+    session = _find_session(session_id)
+    if session is None:
         raise HTTPException(status_code=404, detail="session not found")
-    _sessions[session_id].status = "cancelled"
+    session.status = "cancelled"
+    _save_session_redis(session)
     return {"sessionId": session_id, "status": "cancelled"}
 
 
@@ -263,16 +313,19 @@ async def list_sessions(limit: int = 20, offset: int = 0) -> dict:
 
 @router.get("/sessions/{session_id}")
 async def get_session(session_id: str) -> dict:
-    if session_id not in _sessions:
+    session = _find_session(session_id)
+    if session is None:
         raise HTTPException(status_code=404, detail="session not found")
-    return _sessions[session_id].model_dump()
+    return session.model_dump()
 
 
 @router.post("/sessions/{session_id}/resume")
 async def resume_session(session_id: str) -> dict:
-    if session_id not in _sessions:
+    session = _find_session(session_id)
+    if session is None:
         raise HTTPException(status_code=404, detail="session not found")
-    _sessions[session_id].status = "running"
+    session.status = "running"
+    _save_session_redis(session)
     return {"sessionId": session_id, "status": "running"}
 
 
@@ -284,6 +337,23 @@ async def check_permission(
     return PermissionCheckResponse(
         toolName=toolName, mode=mode, dangerLevel=dangerLevel, decision=decision
     )
+
+
+@router.get("/memory")
+async def get_memory(
+    user_id: str, scope: str = "session", session_id: str | None = None
+) -> dict:
+    """读取统一记忆(对接 api /api/memory,网络失败降级返回空列表)。"""
+    entries = await unified_memory_client.get_entries(user_id, scope, session_id)
+    return {"code": 0, "message": "ok", "data": entries}
+
+
+@router.post("/memory")
+async def add_memory(request: Request) -> dict:
+    """写入统一记忆(对接 api /api/memory,网络失败降级返回 None)。"""
+    body = await request.json()
+    result = await unified_memory_client.add_entry(body.get("userId"), body.get("entry"))
+    return {"code": 0, "message": "ok", "data": result}
 
 
 __all__ = ["router"]
