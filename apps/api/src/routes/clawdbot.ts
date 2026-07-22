@@ -22,6 +22,8 @@ import {
   getBrowserAutomation,
   getIntegrationManager,
   getSelfEvolutionEngine,
+  type MemoryItem,
+  type MemoryQuery,
 } from '../services/clawdbot/index.js'
 
 export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
@@ -106,13 +108,25 @@ export const clawdbotRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   server.get('/clawdbot/memory', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
-    const query = req.query as never
-    return success(getMemoryService().search(query))
+    const query = (req.query as never) as MemoryQuery
+    const userId = req.userId!
+    // 优先返回用户桶 + DB long_term 结果;失败降级到默认内存桶
+    try {
+      return success(await getMemoryService().searchForUser(userId, query))
+    } catch {
+      return success(getMemoryService().search(query))
+    }
   })
 
   server.post('/clawdbot/memory', async (req, reply) => {
     if (!(await checkAuth(req, reply))) return
-    return success(getMemoryService().store(req.body as never))
+    const userId = req.userId!
+    const body = req.body as Omit<MemoryItem, 'id' | 'createdAt' | 'lastAccessedAt' | 'accessCount'>
+    try {
+      return success(await getMemoryService().storeForUser(userId, body))
+    } catch {
+      return success(getMemoryService().store(body))
+    }
   })
 
   // ===========================================================================
