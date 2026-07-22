@@ -8,6 +8,24 @@
 
 ## 当前活跃任务(2026-07-22)
 
+### [x] ✅(2026-07-23) 前端冗余页面整合 P0(平台独占:仅 web 端)
+
+**触发**:用户要求"本项目有没有重复冗余页面,可以整合的尽量整合"。深度分析 200+ 页面后发现 10 组严重重复,本次执行 P0 批次。
+
+**整合内容**(删除 9 页面 + 新增 1 组件 + 修改 17 文件):
+
+| 重复组 | 删除 | 保留/合并 |
+|---|---|---|
+| VIP 等级购买三重 | vip-membership + member/upgrade | /vip |
+| 订单列表三重 | member/orders + user/orders | /orders + /orders/[id] |
+| 积分中心三重 | member/points + user/point | /points(新增 redeem tab + PointsRedeemList 组件) |
+| 邀请有礼双重 | member/invitations | /invitations |
+| 僵尸页 | settings/subscription(无 API,硬编码) | 删除 |
+
+**同步修改**:sidebar 7 处(删 3 nav + 改 2 href + 清理 2 未用 import)、settings/helpers 删 subscription 条目、use-user-menu/member/layout/member/subscription/member/dashboard/learn 共 9 处 href 修改、4 个 e2e 测试路由更新、5 语言 i18n 同步。
+
+**验证**:web typecheck 我的文件零错误(11 个预先存在错误均为其他模块)、eslint 零错误、browser 验证 /vip✅ /vip-membership 404✅ /invitations✅ /orders✅ /points 3 tab✅。
+
 ### [x] ✅(2026-07-22) 多 Agent 并行提效全栈打通(跨端:packages/types + ai-service + cli + api + web)
 
 **触发**:用户要求"继续深入开发多 agent 提高效率"。深度分析对标 Codex/Claude Code/Trae/HermesAgent 后,4 端均有基础但需补全并行执行能力。
