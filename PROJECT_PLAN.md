@@ -274,6 +274,84 @@
 
 ---
 
+### [x] ✅(2026-07-22) 全项目对外开放 API 接入系统深度开发 — 105 端点 + TS/Python SDK 双语言(跨端:packages/types + api + sdk + web 文档,2026-07-22 立)
+
+**触发**:用户追加"继续深度开发 全项目所有功能都要有对应的 api 接口 sdk 可以让人自定接走"。在阶段一 7 端点基础上,扩展到 105 端点全覆盖 + TS/Python 双语言 SDK,让第三方开发者一行代码接入平台所有 AI 功能。
+
+**范围**(5 subagent 串行+并行:契约扩展 + 3 后端路由 + 3 SDK/文档):
+
+- **契约层扩展**(`packages/types/src/`):
+  - `api-key.ts` 修改:7 → 27 权限点枚举(新增 embeddings/audio/images/videos/3d/generation/knowledge/tools/memory/messages/user/workspace/workflows/stats 14 类),覆盖全功能对外开放
+  - `v1-endpoints.ts` 新建(992 行):97+ 端点的请求/响应类型契约,9 大类分组(AI 核心 / Agent 高级 / Audio / Images / Videos / 3D / Knowledge / MCP Tools / Memory Messages / Files User Workflows Stats)
+  - `index.ts` 修改:导出 v1-endpoints.js
+
+- **后端 /v1/* 路由层**(`apps/api/src/routes/`,3 subagent 串行):
+  - `v1-public.ts`(7 端点,阶段一已交付):chat/completions + agents + models + files + /me
+  - `v1-ai-core.ts` 新建(1183 行,20 端点 AI 核心):embeddings + chat/vision + chat/moa + moa-presets CRUD + models/:id + vendors/:vendor/models + user/models CRUD + agents/execute + execute/stream + tasks/status + tasks/cancel + sessions + pipeline + parallel + decompose
+  - `v1-multimodal.ts` 新建(1099 行,21 端点多模态):audio(voices/speech/transcriptions/chat/speakers/compare/music)+ images(generations/edits/inpaint/style-transfer/virtual-try-on/background)+ videos(generations/tasks/compose)+ 3d/generations + generation(enqueue/status/cancel)
+  - `v1-knowledge-tools.ts` 新建(2283 行,57 端点知识工具):knowledge(health/documents CRUD/search/rag-context/graph extract/build/data)+ MCP tools(tools/resources/prompts/skills/slash-commands/sampling/personas/search-codebase/search-web/analyze-code/screenshot)+ memory(save/recall/search/dream/forget/working/episodic/procedural)+ messages(publish/subscribe/unsubscribe/status)+ files 补齐(/id/content/versions/upload-init/upload-chunk/complete)+ user/me/projects/workflows/coze-run/n8n-run/usage
+  - `server.ts` 修改:3 个新路由通过 `prefix: '/v1'` 挂载
+  - **创新**:mintInternalJwt(userId) 签发 15min 短期 JWT(familyId: `apikey-${userId}`)解决 API Key 用户无 JWT 转发内部 /api/* 障碍;forwardInternal + forwardAiService 双转发模式;17 Zod schemas 覆盖所有 POST/PUT 请求体校验
+
+- **TypeScript SDK**(`packages/sdk/`,Subagent D 交付,20 文件):
+  - 重建为完整 `@ihui/sdk` 包(原只有 dist 占位,无 src 源码)
+  - 13 个模块(ai/agents/audio/images/videos/threed/generation/knowledge/tools/memory/messages/files/user)+ base + streaming + client + index
+  - 105 端点全覆盖,零运行时依赖(纯 fetch + ReadableStream)
+  - 鉴权链路:Authorization: Bearer + 可选 X-Api-Secret
+  - 重试机制:网络错误 + 5xx 指数退避(500ms/1000ms),429 不重试
+  - 流式响应:chat.completions({ stream: true }) + agents.executeStream() 返回 AsyncIterable
+  - TypeScript 类型完整,引用 @ihui/types v1-endpoints 契约
+  - `pnpm --filter @ihui/sdk typecheck` exit 0 ✅
+  - `pnpm --filter @ihui/sdk build` exit 0 ✅
+
+- **Python SDK**(`packages/sdk/python/`,Subagent E 交付,24 文件):
+  - 新建 `ihui-ai` 包(Python 3.10+,零运行时依赖,纯 stdlib)
+  - 同步 + asyncio 双版本(IhuiClient + AsyncIhuiClient),asyncio 用 `asyncio.open_connection` 原生流而非 run_in_executor
+  - 13 个业务模块(对应 TS SDK)+ base + async_base + client + async_client + streaming + exceptions + types
+  - 105 端点全覆盖,TypedDict 类型对应 v1-endpoints.ts
+  - 7 个异常类(SdkError + AuthenticationError + PermissionError + QuotaExceededError + NotFoundError + ServerError)
+  - multipart 上传:纯 stdlib 手写 multipart/form-data 编码器
+  - 配置键双兼容:api_key/apiKey、base_url/baseUrl、max_retries/maxRetries
+  - 4 条 python -c 验证全通过(import + 实例化 + async 客户端 + 13 模块覆盖)✅
+
+- **开发者文档对齐**(`apps/web/public/docs/developer/`,Subagent F 交付,26 文件):
+  - 14 重写 + 12 新建
+  - api/ 新建 11 个模块文档(audio/embeddings/generation/images/knowledge/memory/messages/threed/tools/user/videos)
+  - api/ 重写 5 个(agents/chat/error-handling/files/models/overview)
+  - getting-started/ 重写 3 个(authentication/introduction/setup)
+  - sdk/ 重写 3 个(curl/javascript/python),基于真实 @ihui/sdk + ihui-ai 包
+  - 根目录新建 README.md(开发者文档总入口 + 模块导航)
+  - 4 条 Grep 验证全通过(105 端点数 / 27 权限点 / 端点级权限标注 / SDK 包名)✅
+
+**验证标准**:
+- pnpm --filter @ihui/sdk typecheck exit 0 ✅
+- pnpm --filter @ihui/types typecheck exit 0 ✅
+- Python `import ihui_ai` + `create_client` + `AsyncIhuiClient` 4 条验证全通过 ✅
+- 文档 4 条 Grep 验证全通过(105 / 27 / 权限标注 / SDK 包名)✅
+- 端点覆盖:13+12+8+6+3+1+3+13+16+8+4+9+9 = 105 ✅
+- 权限点覆盖:27 个全文档化 ✅
+
+**约束边界**:
+- 端点字段 camelCase(与 v1-endpoints.ts 一致,非 snake_case)
+- SDK 零运行时依赖(TS 纯 fetch / Python 纯 stdlib)
+- 不改后端 /v1/* 路由实现(路由层已由阶段一 + 本任务后端 subagent 完成)
+- 不改 packages/types 已有契约(只新增 v1-endpoints.ts + 扩展 api-key.ts 权限点)
+- 不改前端业务代码(只改文档目录 apps/web/public/docs/developer/)
+- TS SDK 在 pnpm workspace 内(@ihui/sdk),Python SDK 独立目录(packages/sdk/python/,不参与 pnpm)
+
+**平台独占豁免标注**(§9):
+- 本任务**不享平台独占豁免**,按全端同步执行(packages/types + packages/sdk 契约/SDK + api 后端 + web 文档四端)
+- ai-service / extension / desktop / mobile-rn / miniapp-taro / cli 六端不涉及对外开放 API 接入(平台独占豁免)
+- 文档目录属 web 端但仅文档不改业务代码
+
+**Git 同步证据**:
+- 本地 commit: ba347294
+- origin commit: ba347294
+- 同步状态: local == remote ✅
+- 过程: 3 subagent 串行(A/B/C 后端路由)+ 3 subagent 并行(D/E/F SDK-JS + SDK-Python + 文档)→ 精确 git add(隔离其他 agent 改动,按 §12)→ commit acb4ace6 → pull --rebase --autostash(其他 agent push 竞态)→ rebase hash 变 dc34c7ee → 再次 pull --rebase --autostash → push ba347294
+
+---
+
 ### [x] ✅(2026-07-22) 对标 Hermes Agent 深度层 P3:三大核心壁垒真正超越(跨端:packages/types + ai-service + api,2026-07-22 立)
 
 P0/P1/P2 是脚手架层(已 ✅),P3 是真正超越 Hermes Agent 三大核心壁垒的深度层:
