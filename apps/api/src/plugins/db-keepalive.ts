@@ -89,8 +89,8 @@ const dbKeepalivePlugin: FastifyPluginAsync = async (server: FastifyInstance) =>
         checkedOut,
         overflow: 0,
       })
-    } catch {
-      /* 指标采集失败不影响业务 */
+    } catch (err) {
+      server.log.warn({ err }, 'pool metrics sample failed')
     }
   }, POOL_SAMPLE_INTERVAL_MS)
 
@@ -106,8 +106,8 @@ const dbKeepalivePlugin: FastifyPluginAsync = async (server: FastifyInstance) =>
           'pool leak detected',
         )
       }
-    } catch {
-      /* 泄漏扫描失败不影响业务 */
+    } catch (err) {
+      server.log.warn({ err }, 'pool leak scan failed')
     }
   }, LEAK_SCAN_INTERVAL_MS)
 
