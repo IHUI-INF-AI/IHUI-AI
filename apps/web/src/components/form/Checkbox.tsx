@@ -1,8 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { Check, Minus } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 interface CheckboxProps {
   checked?: boolean
@@ -10,63 +8,26 @@ interface CheckboxProps {
   onChange?: (checked: boolean) => void
   label?: React.ReactNode
   disabled?: boolean
-  /** 复选框原生 a11y 标签;不传时回退到 label 文本/aria-labelledby 关联 */
   'aria-label'?: string
   className?: string
 }
 
-export const Checkbox = React.forwardRef<HTMLSpanElement, CheckboxProps>(function Checkbox(
-  {
-    checked = false,
-    indeterminate = false,
-    onChange,
-    label,
-    disabled = false,
-    className,
-    'aria-label': ariaLabel,
-  },
+export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(function Checkbox(
+  { checked = false, indeterminate = false, onChange, label, disabled = false, className, 'aria-label': ariaLabel },
   ref,
 ) {
-  const handleToggle = () => {
-    if (!disabled) onChange?.(!checked)
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === ' ' || e.key === 'Enter') {
-      e.preventDefault()
-      handleToggle()
-    }
-  }
-
   return (
-    <label
-      className={cn(
-        'inline-flex cursor-pointer items-center gap-2',
-        disabled && 'cursor-not-allowed opacity-50',
-        className,
-      )}
-    >
-      <span
+    <label className={`ihui-checkbox ${disabled ? 'opacity-50 pointer-events-none' : ''} ${className ?? ''}`}>
+      <input
         ref={ref}
-        role="checkbox"
-        tabIndex={disabled ? -1 : 0}
-        aria-checked={indeterminate ? 'mixed' : checked}
-        aria-disabled={disabled || undefined}
+        type="checkbox"
+        checked={checked}
+        data-indeterminate={indeterminate ? 'true' : undefined}
+        disabled={disabled}
         aria-label={ariaLabel}
-        aria-invalid={indeterminate || undefined}
-        data-state={indeterminate ? 'indeterminate' : checked ? 'checked' : 'unchecked'}
-        onClick={handleToggle}
-        onKeyDown={handleKeyDown}
-        className={cn(
-          'ihui-checkbox flex h-4 w-4 items-center justify-center rounded border border-input',
-        )}
-      >
-        {indeterminate ? (
-          <Minus className="ihui-checkbox-indicator h-3 w-3" strokeWidth={3} />
-        ) : checked ? (
-          <Check className="ihui-checkbox-indicator h-3 w-3" strokeWidth={3} />
-        ) : null}
-      </span>
+        onChange={(e) => onChange?.(e.target.checked)}
+      />
+      <span className="checkmark" />
       {label && <span className="text-sm">{label}</span>}
     </label>
   )
