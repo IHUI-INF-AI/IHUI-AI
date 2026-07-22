@@ -112,7 +112,7 @@
 - JSON 合法性:5 文件全部 VALID(ConvertFrom-Json 成功)
 - dev server 8801 被其他 agent 占用且不响应,适用 §19 豁免(纯删除+配置清理,typecheck+i18n parity 已验证)
 
-**Git 同步证据**:待填(commit + push 后更新)
+**Git 同步证据**:本地 commit e17f77a7e → origin/main e17f77a7e(local == remote ✅)。
 
 <!-- 已归档(2026-07-23):多 Agent 并行提效全栈打通(跨端:packages/types + ai-service + cli + api ...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-22):多 Agent 并行提效全栈打通任务原始计划(触发/目标/现状/验证标准/约束边界),完整内容已浓缩为上方交付摘要 -->
