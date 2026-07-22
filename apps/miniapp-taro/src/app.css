@@ -2,57 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 对齐 web 端 design-tokens（apps/web/app/globals.css @theme + .dark 块） */
+/*
+ * 深色赛博朋克风 design-tokens
+ * 迁移自原 uniapp 项目 AI智汇社 (D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\uni.scss)
+ * 主色:青 #00F2FF + 强调:紫 #8B5CF6 + 深黑背景 #121217
+ * 视觉语言:霓虹发光 / 玻璃拟态 / 科技网格 / 渐变描边
+ */
 :root {
-  --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(0 0% 3.9%);
-  --color-card: hsl(0 0% 100%);
-  --color-card-foreground: hsl(0 0% 3.9%);
-  --color-primary: hsl(142 71% 45%);
-  --color-primary-foreground: hsl(0 0% 100%);
-  --color-secondary: hsl(0 0% 96.1%);
-  --color-secondary-foreground: hsl(0 0% 9%);
-  --color-muted: hsl(0 0% 96.1%);
-  --color-muted-foreground: hsl(0 0% 40%);
-  --color-accent: hsl(0 0% 96.1%);
-  --color-accent-foreground: hsl(0 0% 9%);
-  --color-destructive: hsl(0 84.2% 60.2%);
-  --color-destructive-foreground: hsl(0 0% 98%);
-  --color-border: hsl(0 0% 89.8%);
-  --color-input: hsl(0 0% 89.8%);
-  --color-ring: hsl(0 0% 70%);
-  --color-success: hsl(142 71% 45%);
-  --color-success-foreground: hsl(0 0% 98%);
-  --color-warning: hsl(38 92% 50%);
-  --color-warning-foreground: hsl(0 0% 98%);
-  --color-info: hsl(199 89% 48%);
-  --color-info-foreground: hsl(0 0% 98%);
+  --color-background: #121217;
+  --color-foreground: #ffffff;
+  --color-card: #1f1f28;
+  --color-card-foreground: #ffffff;
+  --color-primary: #00f2ff;
+  --color-primary-foreground: #121217;
+  --color-secondary: #1a1a23;
+  --color-secondary-foreground: rgba(255, 255, 255, 0.8);
+  --color-muted: #1a1a23;
+  --color-muted-foreground: rgba(255, 255, 255, 0.6);
+  --color-accent: #8b5cf6;
+  --color-accent-foreground: #ffffff;
+  --color-destructive: #ff3b3b;
+  --color-destructive-foreground: #ffffff;
+  --color-border: rgba(0, 242, 255, 0.15);
+  --color-input: rgba(0, 242, 255, 0.2);
+  --color-ring: rgba(0, 242, 255, 0.4);
+  --color-success: #22c55e;
+  --color-success-foreground: #ffffff;
+  --color-warning: #f59e0b;
+  --color-warning-foreground: #121217;
+  --color-info: #3b82f6;
+  --color-info-foreground: #ffffff;
 }
 
 .dark {
-  --color-background: hsl(0 0% 3.9%);
-  --color-foreground: hsl(0 0% 98%);
-  --color-card: hsl(0 0% 3.9%);
-  --color-card-foreground: hsl(0 0% 98%);
-  --color-primary: hsl(142 65% 50%);
-  --color-primary-foreground: hsl(0 0% 100%);
-  --color-secondary: hsl(0 0% 14.9%);
-  --color-secondary-foreground: hsl(0 0% 98%);
-  --color-muted: hsl(0 0% 14.9%);
-  --color-muted-foreground: hsl(0 0% 63.9%);
-  --color-accent: hsl(0 0% 14.9%);
-  --color-accent-foreground: hsl(0 0% 98%);
-  --color-destructive: hsl(0 62.8% 30.6%);
-  --color-destructive-foreground: hsl(0 0% 98%);
-  --color-border: hsl(0 0% 22%);
-  --color-input: hsl(0 0% 22%);
-  --color-ring: hsl(0 0% 35%);
-  --color-success: hsl(142 65% 50%);
-  --color-success-foreground: hsl(0 0% 98%);
-  --color-warning: hsl(38 85% 55%);
-  --color-warning-foreground: hsl(0 0% 98%);
-  --color-info: hsl(199 80% 55%);
-  --color-info-foreground: hsl(0 0% 98%);
+  --color-background: #0a0a0f;
+  --color-foreground: #ffffff;
+  --color-card: #16161e;
+  --color-card-foreground: #ffffff;
+  --color-primary: #00f2ff;
+  --color-primary-foreground: #0a0a0f;
+  --color-secondary: #14141c;
+  --color-secondary-foreground: rgba(255, 255, 255, 0.8);
+  --color-muted: #14141c;
+  --color-muted-foreground: rgba(255, 255, 255, 0.5);
+  --color-accent: #8b5cf6;
+  --color-accent-foreground: #ffffff;
+  --color-destructive: #ff3b3b;
+  --color-destructive-foreground: #ffffff;
+  --color-border: rgba(0, 242, 255, 0.12);
+  --color-input: rgba(0, 242, 255, 0.15);
+  --color-ring: rgba(0, 242, 255, 0.3);
+  --color-success: #22c55e;
+  --color-success-foreground: #ffffff;
+  --color-warning: #f59e0b;
+  --color-warning-foreground: #0a0a0f;
+  --color-info: #3b82f6;
+  --color-info-foreground: #ffffff;
 }
 
 page {
@@ -67,6 +72,72 @@ page {
     sans-serif;
 }
 
+/* ===== 赛博朋克视觉语言工具类(迁移自原项目 App.vue / uni.scss)===== */
+
+/* 霓虹发光文字 */
+.text-neon {
+  color: var(--color-primary);
+  text-shadow: 0 0 10rpx rgba(0, 242, 255, 0.8);
+}
+
+.text-neon-accent {
+  color: var(--color-accent);
+  text-shadow: 0 0 10rpx rgba(139, 92, 246, 0.8);
+}
+
+/* 玻璃拟态容器 */
+.glass {
+  background: rgba(31, 31, 40, 0.5);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+}
+
+/* 科技渐变描边卡片 */
+.tech-card {
+  background: var(--color-card);
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 0 16rpx rgba(0, 242, 255, 0.08);
+}
+
+/* 青→紫渐变背景 */
+.gradient-cyber {
+  background: linear-gradient(135deg, #00f2ff, #8b5cf6);
+}
+
+/* 紫→粉渐变边框(原项目轮播图风格) */
+.gradient-border-cyber {
+  background: linear-gradient(
+    235deg,
+    #d19eff 6%,
+    rgba(255, 242, 0, 0.3) 31%,
+    rgba(146, 146, 146, 0.3) 52%,
+    rgba(255, 242, 0, 0.3) 73%,
+    #cd96ff 93%
+  );
+}
+
+/* 渐变文字 */
+.gradient-text {
+  background: linear-gradient(135deg, #00f2ff, #8b5cf6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* 科技网格背景 */
+.tech-grid {
+  background-image:
+    linear-gradient(rgba(0, 242, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 242, 255, 0.06) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* ===== 客服浮动按钮(保留,配色改为赛博朋克)===== */
+
 .cs-float {
   position: fixed;
   right: 32rpx;
@@ -79,9 +150,9 @@ page {
   height: 96rpx;
   padding: 0;
   margin: 0;
-  background: var(--color-primary);
+  background: linear-gradient(135deg, #00f2ff, #8b5cf6);
   border-radius: 16rpx;
-  box-shadow: 0 4rpx 16rpx hsl(142 71% 45% / 0.3);
+  box-shadow: 0 4rpx 16rpx rgba(0, 242, 255, 0.3);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -100,7 +171,7 @@ page {
 
 .cs-float-label {
   font-size: 20rpx;
-  color: var(--color-primary-foreground);
+  color: #ffffff;
   margin-top: 4rpx;
   line-height: 1;
 }
