@@ -17,7 +17,7 @@ const COMMANDS: CommandItem[] = [
   { id: 'drama', icon: Sparkles, path: '/drama' },
   { id: 'search', icon: Search, path: '/search' },
   { id: 'ai-world', icon: Globe, path: '/ai-world' },
-  { id: 'profile', icon: User, path: '/user-center' },
+  { id: 'profile', icon: User, path: '/admin/user-center' },
   { id: 'settings', icon: Settings, path: '/settings' },
 ]
 
