@@ -10,7 +10,7 @@ import { PWAInstallPrompt, PWAUpdatePrompt } from '@/components/common'
 import { WorkspacePermissionRequestDialog } from '@/components/workspace/workspace-permission-request-dialog'
 import { DevToolsTrigger } from '@/components/dev/DevToolsTrigger'
 import { Button } from '@ihui/ui'
-import { useAiPanelStore, AI_PANEL_DEFAULT_WIDTH } from '@/stores/ai-panel'
+import { useAiPanelStore } from '@/stores/ai-panel'
 import { useMounted } from '@/hooks/use-mounted'
 import { useAuthStore } from '@/stores/auth'
 import { startAutoRefresh } from '@/lib/tokenUtils'
@@ -56,20 +56,16 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   const sidebarId = 'main-sidebar'
 
   // AI 面板占位宽度(直接订阅 store,避免 SSR/初始渲染时 --ai-panel-width CSS 变量未同步导致内容区与 AI 面板重叠)。
-  // - mount 前(SSR + 首次 CSR render):用默认值(open=true, width=400) → occupy=408px
-  //   保证 SSR HTML 与首次 CSR render 一致(无 hydration mismatch),且初始就为 AI 面板留出避让空间。
-  // - mount 后(useEffect 触发):用 store 实际值(rehydrate 后的持久化 width) → occupy=width+8 或 0
-  //   跟随用户拖拽偏好 / 关闭态实时变化。
-  // 之前依赖 AISidePanel 的 useEffect 同步 --ai-panel-width 到 :root,但 useEffect 在 paint 后才执行,
-  // 导致 open=true 默认展开时,首帧 padding-left=0,AI 面板覆盖内容区(2026-07-20 修复"重叠"问题)。
+  // hydration-safe:zustand persist + useSyncExternalStore 保证 SSR 与首 client render 都用默认值
+  // (open=true, width=400 → occupy=408px),与 SSR HTML 一致,无 hydration mismatch。
+  // rehydrate 完成后(若用户偏好 width≠400)自动切换到持久化值,通过下方 transition-[padding-left]
+  // 平滑过渡,避免突变闪烁(2026-07-22 修复"首屏 sidebar 看起来很宽"的闪烁 bug)。
+  // 之前用 !mounted 切换默认值/store 值,会在 mounted 切换瞬间触发 paddingLeft 突变;
+  // 现在直接读 store,跳变时机由 zustand 内部 rehydrate 接管,且配合 transition 平滑过渡。
   const mounted = useMounted()
   const { open: aiOpen, width: aiWidth } = useAiPanelStore()
   const currentUserId = useAuthStore((s) => s.user?.id)
-  const aiPanelOccupy = !mounted
-    ? AI_PANEL_DEFAULT_WIDTH + 8
-    : aiOpen
-      ? aiWidth + 8
-      : 0
+  const aiPanelOccupy = aiOpen ? aiWidth + 8 : 0
 
   React.useEffect(() => {
     try {
@@ -150,7 +146,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
         */}
         <div
           id="work-area-portal-root"
-          className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden"
+          className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden transition-[padding-left] duration-200 ease-out"
           style={{ paddingLeft: `${aiPanelOccupy}px` }}
         >
           {/* 移动端浮动菜单按钮(Header 移除后,用浮动按钮打开侧边栏抽屉) */}
