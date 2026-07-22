@@ -52,6 +52,8 @@ export function useApiCache(
   const [error, setError] = React.useState<string | null>(null)
   const [ready, setReady] = React.useState(false)
 
+  const cancelledRef = React.useRef(false)
+
   const fetchData = React.useCallback(
     async (force = false) => {
       if (!url) return
@@ -64,6 +66,8 @@ export function useApiCache(
       setLoading(true)
       setError(null)
       const res = await fetchApi<unknown>(url)
+      // 组件已卸载或 url 已变更,丢弃过期响应
+      if (cancelledRef.current) return
       if (res.success) {
         setCacheEntry(url, res.data)
         setDataState(res.data)
@@ -77,8 +81,12 @@ export function useApiCache(
   )
 
   React.useEffect(() => {
+    cancelledRef.current = false
     if (!enabled) return
     fetchData(false)
+    return () => {
+      cancelledRef.current = true
+    }
   }, [enabled, fetchData])
 
   const refresh = React.useCallback(async () => fetchData(true), [fetchData])

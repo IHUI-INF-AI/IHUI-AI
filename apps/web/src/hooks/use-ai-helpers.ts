@@ -180,8 +180,17 @@ export function useAiHelpers(options: UseAiHelpersOptions = {}): UseAiHelpersRet
       onFailed: (err: string) => void,
     ) => {
       if (audioPollingRef.current) clearInterval(audioPollingRef.current)
+      let attempts = 0
+      const MAX_ATTEMPTS = 60 // 2 分钟超时(2000ms × 60)
       // TODO: POST /api/ai/keling/audio/end 后端校准
       audioPollingRef.current = setInterval(async () => {
+        attempts++
+        if (attempts >= MAX_ATTEMPTS) {
+          if (audioPollingRef.current) clearInterval(audioPollingRef.current)
+          audioPollingRef.current = null
+          onFailed('轮询超时')
+          return
+        }
         const res = await fetchApi<TaskPollingResult>('/api/ai/keling/audio/end', {
           method: 'POST',
           body: JSON.stringify({ task_id: taskId }),

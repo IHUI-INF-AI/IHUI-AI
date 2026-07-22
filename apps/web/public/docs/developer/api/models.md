@@ -1,4 +1,6 @@
-# 模型API
+# 模型 API
+
+> 所需权限：`models:read`
 
 ## 获取模型列表
 
@@ -8,119 +10,81 @@
 GET /v1/models
 ```
 
+**实现状态**：已实现（从平台模型配置读取）
+
 ### 请求
 
 ```http
 GET /v1/models
-Authorization: Bearer YOUR_API_KEY
+Authorization: Bearer ihui_xxx
 ```
 
 ### 响应
 
 ```json
 {
-  "code": 200,
-  "success": true,
-  "data": {
-    "models": [
-      {
-        "id": "gpt-4",
-        "name": "GPT-4",
-        "provider": "openai",
-        "capabilities": ["chat", "completion"],
-        "pricing": {
-          "input": 0.03,
-          "output": 0.06
-        }
-      }
-    ]
-  }
-}
-```
-
-## 获取模型详情
-
-### 端点
-
-```
-GET /v1/models/:id
-```
-
-### 请求
-
-```http
-GET /v1/models/gpt-4
-Authorization: Bearer YOUR_API_KEY
-```
-
-### 响应
-
-```json
-{
-  "code": 200,
-  "success": true,
-  "data": {
-    "id": "gpt-4",
-    "name": "GPT-4",
-    "provider": "openai",
-    "description": "GPT-4 is a large language model",
-    "capabilities": ["chat", "completion"],
-    "pricing": {
-      "input": 0.03,
-      "output": 0.06
+  "object": "list",
+  "data": [
+    {
+      "id": "gpt-4",
+      "object": "model",
+      "created": 1687882411,
+      "ownedBy": "openai"
     },
-    "limits": {
-      "max_tokens": 8192,
-      "context_length": 128000
+    {
+      "id": "claude-3-5-sonnet",
+      "object": "model",
+      "created": 1687882411,
+      "ownedBy": "anthropic"
     }
-  }
+  ]
 }
 ```
+
+> **字段命名**：`ownedBy`（非 `owned_by`），与 `@ihui/types` 契约一致。
 
 ## 支持的模型
 
-### OpenAI
+模型列表随平台配置动态更新，可通过 `GET /v1/models` 获取当前可用模型。常见模型包括：
 
-- `gpt-4` - GPT-4模型
-- `gpt-4-turbo` - GPT-4 Turbo
-- `gpt-3.5-turbo` - GPT-3.5 Turbo
-
-### Anthropic
-
-- `claude-3-5-sonnet` - Claude 3.5 Sonnet
-- `claude-3-opus` - Claude 3 Opus
-
-### Google
-
-- `gemini-pro` - Gemini Pro
-- `gemini-ultra` - Gemini Ultra
+- OpenAI 系列（gpt-4、gpt-4-turbo、gpt-3.5-turbo）
+- Anthropic 系列（claude-3-5-sonnet、claude-3-opus）
+- Google 系列（gemini-pro、gemini-ultra）
 
 ## 代码示例
 
 ### JavaScript
 
 ```javascript
-// 获取模型列表
 const response = await fetch('https://api.example.com/v1/models', {
   headers: {
-    'Authorization': 'Bearer YOUR_API_KEY'
+    'Authorization': 'Bearer ihui_xxx'
   }
 })
 
 const data = await response.json()
-console.log(data.data.models)
+console.log(data.data)
+```
 
-// 获取模型详情
-const modelResponse = await fetch('https://api.example.com/v1/models/gpt-4', {
-  headers: {
-    'Authorization': 'Bearer YOUR_API_KEY'
-  }
-})
+### Python
 
-const modelData = await modelResponse.json()
-console.log(modelData.data)
+```python
+import requests
+
+headers = {
+    'Authorization': 'Bearer ihui_xxx'
+}
+
+response = requests.get(
+    'https://api.example.com/v1/models',
+    headers=headers
+)
+
+result = response.json()
+for model in result['data']:
+    print(model['id'], model['ownedBy'])
 ```
 
 ---
 
-*最后更新: 2026-01-10*
+*最后更新: 2026-07-22*

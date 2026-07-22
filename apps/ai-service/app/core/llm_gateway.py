@@ -12,6 +12,7 @@ import os
 from typing import Any, AsyncIterator, Optional
 
 import asyncpg
+import httpx
 
 from .config import settings
 from ..providers import get_provider as _get_native_provider
@@ -20,6 +21,27 @@ from ..providers.base_provider import BaseProvider, ProviderError
 logger = logging.getLogger(__name__)
 
 _pool: Optional[asyncpg.Pool] = None
+
+# 全局共享 httpx.AsyncClient(连接池复用,避免每次请求新建 client)
+# provider 通过 get_http_client() 获取,在 main.py lifespan shutdown 中 close_http_client()
+_http_client: Optional[httpx.AsyncClient] = None
+
+
+def get_http_client() -> httpx.AsyncClient:
+    """获取全局共享 httpx.AsyncClient(懒初始化,连接池复用)。"""
+    global _http_client
+    if _http_client is None:
+        _http_client = httpx.AsyncClient(timeout=60.0)
+    return _http_client
+
+
+async def close_http_client() -> None:
+    """关闭全局 httpx.AsyncClient(main.py shutdown 调用)。"""
+    global _http_client
+    if _http_client is not None:
+        await _http_client.aclose()
+        _http_client = None
+        logger.info("global httpx.AsyncClient closed")
 
 
 async def _get_pool() -> asyncpg.Pool:

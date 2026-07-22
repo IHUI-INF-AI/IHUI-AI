@@ -41,17 +41,27 @@ export function PhoneCodeLoginForm({
   const [sending, setSending] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
   const [autoLogin, setAutoLogin] = React.useState(loadLocalLoginPrefs().autoLogin)
+  const countdownTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
 
   React.useEffect(() => {
     if (!active) setErr(null)
   }, [active])
 
+  // unmount 时清理倒计时定时器,避免内存泄漏
+  React.useEffect(() => {
+    return () => {
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
+    }
+  }, [])
+
   const startCountdown = () => {
     setCountdown(60)
-    const timer = setInterval(() => {
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
+    countdownTimerRef.current = setInterval(() => {
       setCountdown((c) => {
         if (c <= 1) {
-          clearInterval(timer)
+          if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
+          countdownTimerRef.current = null
           return 0
         }
         return c - 1
@@ -119,7 +129,7 @@ export function PhoneCodeLoginForm({
         setUser({ id: json.data.userId, nickname: '' })
         void fetchApi<{ user: AuthUser }>('/api/auth/me').then((r) => {
           if (r.success) setUser(r.data.user)
-        })
+        }).catch(() => {})
       }
       onSuccess?.()
     } catch {
