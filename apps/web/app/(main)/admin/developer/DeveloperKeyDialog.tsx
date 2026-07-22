@@ -14,14 +14,29 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Checkbox,
 } from '@ihui/ui'
+import { API_KEY_PERMISSIONS, isValidApiKeyPermission } from '@ihui/types'
+import type { ApiKeyPermission } from '@ihui/types'
 import { textareaClass } from './helpers'
+
+const PERMISSION_LABELS: Record<ApiKeyPermission, string> = {
+  'agents:read': '读取智能体',
+  'agents:call': '调用智能体',
+  'chat:read': '读取对话',
+  'chat:write': '发起对话',
+  'models:read': '读取模型',
+  'files:read': '读取文件',
+  'files:write': '上传文件',
+}
 
 interface DeveloperKeyDialogProps {
   open: boolean
   name: string
   isPending: boolean
+  permissions?: ApiKeyPermission[]
   onNameChange: (v: string) => void
+  onPermissionsChange?: (v: ApiKeyPermission[]) => void
   onClose: () => void
   onSubmit: () => void
 }
@@ -30,12 +45,25 @@ export function DeveloperKeyDialog({
   open,
   name,
   isPending,
+  permissions,
   onNameChange,
+  onPermissionsChange,
   onClose,
   onSubmit,
 }: DeveloperKeyDialogProps) {
   const t = useTranslations('adminTools')
   const tc = useTranslations('common')
+  const [internalPerms, setInternalPerms] = React.useState<ApiKeyPermission[]>([])
+
+  React.useEffect(() => {
+    if (!open) setInternalPerms([])
+  }, [open])
+
+  const currentPermissions = permissions ?? internalPerms
+  const handlePermsChange = (v: ApiKeyPermission[]) => {
+    if (onPermissionsChange) onPermissionsChange(v)
+    else setInternalPerms(v)
+  }
 
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? null : !isPending && onClose())}>
@@ -47,6 +75,8 @@ export function DeveloperKeyDialog({
               toast.error(t('developer.nameRequired'))
               return
             }
+            // 防御性过滤:确保 permissions 仅含合法权限点枚举值
+            handlePermsChange(currentPermissions.filter(isValidApiKeyPermission))
             onSubmit()
           }}
           className="space-y-4"
@@ -62,6 +92,31 @@ export function DeveloperKeyDialog({
               onChange={(e) => onNameChange(e.target.value)}
               placeholder={t('developer.namePlaceholder')}
             />
+          </div>
+          <div className="space-y-2">
+            <Label>权限点</Label>
+            <p className="text-xs text-muted-foreground">选择该密钥可访问的 API 权限</p>
+            <div className="grid grid-cols-2 gap-3 rounded-md border p-3">
+              {API_KEY_PERMISSIONS.map((perm) => (
+                <label
+                  key={perm}
+                  className="flex cursor-pointer items-center gap-2 text-sm"
+                >
+                  <Checkbox
+                    checked={currentPermissions.includes(perm)}
+                    onCheckedChange={(checked) => {
+                      if (checked && isValidApiKeyPermission(perm)) {
+                        handlePermsChange([...currentPermissions, perm])
+                      } else {
+                        handlePermsChange(currentPermissions.filter((p) => p !== perm))
+                      }
+                    }}
+                  />
+                  <span>{PERMISSION_LABELS[perm]}</span>
+                  <code className="ml-auto font-mono text-xs text-muted-foreground">{perm}</code>
+                </label>
+              ))}
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
