@@ -8,6 +8,67 @@
 
 ## 当前活跃任务(2026-07-20)
 
+### [x] ✅(2026-07-22) 开发者 API Key 统一接入系统深度补齐(跨端:packages/types + api + web 全端同步,2026-07-22 立)
+
+**触发**:用户要求"本项目所有的 api 是否我们平台有统一的介入 apikey 支持用户自己申请密钥并且自己自行选择设置好对应权限 可以让其他别的平台 agent 或者自行接入连同我们平台 api"。调研发现:文档承诺齐全但实现断层——API Key 创建后无法鉴权调用、`/v1/*` 对外端点未实现、secret 明文存储、用户端自助 UI 缺失、权限点无枚举无校验、配额未启用。
+
+**范围**(跨端:packages/types 契约 + api 后端 + web 前端,4 subagent 并行):
+- **契约层**(`packages/types/src/api-key.ts` 新建,169 行):7 权限点枚举 + isValidApiKeyPermission 校验 + 鉴权请求/响应类型 + OpenAI 兼容 /v1/* 响应格式
+- **后端鉴权层**(`apps/api/src/`):
+  - `utils/api-key-hash.ts` 新建:sha256 哈希 + generateApiKey(CSPRNG)+ 兼容过渡期明文数据
+  - `plugins/api-key-auth.ts` 新建:authenticateApiKey + requireApiKeyAuth + requireApiKeyPermission(perm) + requireApiKeyQuota() 中间件
+  - `services/developer-api-keys-service.ts` 新建:统一 service(createKey/listKeys/updateKey/deleteKey/rotateSecret/getUsage),4 路由文件全部改调 service
+  - `plugins/auth.ts` 修改:declare module 扩展 request.apiKey 字段
+  - 4 路由文件修改(developer.ts / frontend-stub-other-routes.ts / user-sk.ts / admin-api-platform.ts):secret 哈希化 + permissions Zod refine 校验 + 统一调 service
+- **后端 /v1/* 路由**(`apps/api/src/routes/v1-public.ts` 新建 + server.ts 注册):
+  - 7 端点全部实现,三重 preHandler[requireApiKeyAuth, requireApiKeyPermission, requireApiKeyQuota]
+  - GET /v1/agents(agents:read)— 真实查 agents 表
+  - GET /v1/agents/:id(agents:read)— 真实查询
+  - POST /v1/agents/:id/call(agents:call)— 转发 ai-service /api/llm/complete
+  - POST /v1/chat/completions(chat:write)— 转发 ai-service,stream=true 转换 Vercel AI SDK SSE 为 OpenAI chunk 格式
+  - GET /v1/models(models:read)— 转发 ai-service /api/llm/models,不可用降级静态列表
+  - GET /v1/files(files:read)— 真实查 files 表
+  - POST /v1/files(files:write)— multipart 上传到 UPLOAD_DIR
+- **前端用户端 UI**(`apps/web/app/(main)/settings/api-keys/` 新建 7 文件 + page.tsx 修改):
+  - page.tsx(114 行):React Query useQuery + 3 mutations + 弹窗状态机
+  - ApiKeyListCard.tsx(238 行):列表三态 + 删除/轮换确认弹窗 + masked key + Intl.DateTimeFormat
+  - CreateKeyDialog.tsx(99 行):name + permissions + rateLimit 表单
+  - SecretDisplayDialog.tsx(74 行):一次性 secret 安全展示 + 2s 延迟关闭防误触
+  - PermissionSelector.tsx(52 行):7 权限点中文标签 Checkbox grid
+  - helpers.ts(79 行):6 个 fetch 函数,复用 @/lib/api 的 fetchApi
+  - types.ts(54 行):re-export 契约类型 + 本地 UI 状态
+  - settings/page.tsx 修改:SubPageGrid 加入"API 密钥"入口(KeyRound 图标)
+- **前端 Admin UI + 文档对齐**:
+  - DeveloperCards.tsx 修改:新增"重置密钥"按钮 + 内联 secret 展示 Dialog
+  - DeveloperKeyDialog.tsx 修改:permissions 从文本输入改 Checkbox 枚举选择器(7 权限点)
+  - 7 份文档对齐(authentication.md / introduction.md / overview.md / agents.md / chat.md / models.md / files.md / error-handling.md):鉴权方式 / 端点路径 / camelCase 字段 / 429 配额错误码
+
+**验证标准**:
+- pnpm --filter @ihui/types typecheck exit 0 ✅
+- pnpm --filter @ihui/api typecheck 本任务 10 文件全绿(残留 webhooks-trigger/clawdbot/pdf-tools 错误属其他 agent,§12 不处理)✅
+- pnpm --filter @ihui/web typecheck 本任务 10 文件全绿(残留 api-client/client.ts 错误属其他 agent)✅
+- 跨端契约对齐:packages/types 定义权限点枚举,api 和 web 均从 @ihui/types import,无重复定义 ✅
+- 鉴权链路闭环:API Key 创建 → 哈希存储 → /v1/* 路由鉴权 → 配额校验 → 权限点校验 → 响应 ✅
+
+**约束边界**:
+- 不改数据库 schema(secret 字段保持 varchar(255),sha256 hex 64 字符足够)
+- 不破坏现有 JWT 鉴权链路(authenticate 函数不动,API Key 鉴权是独立中间件)
+- 4 路由文件对外 API 契约不变(请求/响应格式不变,内部实现换 service)
+- 兼容过渡期:老明文 secret 数据用 isHashed() 判断,verifySecret 同时支持明文与哈希
+- OpenAI 兼容格式用 camelCase 字段(与 @ihui/types 契约一致,非 OpenAI 的 snake_case)
+- 7 权限点枚举:agents:read / agents:call / chat:read / chat:write / models:read / files:read / files:write
+
+**平台独占豁免标注**(§9):
+- 本任务**不享平台独占豁免**,按全端同步执行(packages/types 契约 + api 后端 + web 前端三端)
+- ai-service / extension / desktop / mobile-rn / miniapp-taro / cli 六端不涉及 API Key 接入(平台独占豁免)
+
+**Git 同步证据**:
+- 本地 commit: 438b0401(已合入 main)
+- origin commit: 438b0401
+- 守门脚本: post-commit hook 自动 push 完成,local == remote ✅
+
+---
+
 ### [x] ✅(2026-07-22) 对标 Hermes Agent 深度层 P3:三大核心壁垒真正超越(跨端:packages/types + ai-service + api,2026-07-22 立)
 
 P0/P1/P2 是脚手架层(已 ✅),P3 是真正超越 Hermes Agent 三大核心壁垒的深度层:
