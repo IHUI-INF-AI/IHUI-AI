@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm exec vite",
     "beforeBuildCommand": "pnpm exec vite build",
-    "devUrl": "http://localhost:1420",
+    "devUrl": "http://localhost:3006",
     "frontendDist": "../dist"
   },
   "app": {
@@ -37,7 +37,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' data: asset: http://127.0.0.1:3001 https:; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:3001 http://localhost:3001 http://localhost:8000 http://127.0.0.1:8000 https:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:"
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' data: asset: http://127.0.0.1:3002 https:; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:3002 http://localhost:3002 http://localhost:3003 http://127.0.0.1:3003 https:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:"
     }
   },
   "bundle": {
