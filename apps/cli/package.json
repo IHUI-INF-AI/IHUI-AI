@@ -2,10 +2,19 @@
   "name": "@ihui/cli",
   "version": "1.0.0",
   "description": "IHUI AI Coding Agent CLI — 对标 Claude Code / Codex",
-  "private": true,
+  "private": false,
   "type": "module",
   "bin": {
     "ihui": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
     "dev": "tsx src/index.ts",
