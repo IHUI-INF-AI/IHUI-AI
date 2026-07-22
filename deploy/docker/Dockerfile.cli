@@ -1,5 +1,5 @@
 # IHUI AI CLI — Docker 镜像 (多阶段构建)
-# 构建: docker build -f Dockerfile.cli -t ghcr.io/ihui/ai-cli:latest .
+# 构建: docker build -f deploy/docker/Dockerfile.cli -t ghcr.io/ihui/ai-cli:latest .
 # 运行: docker run --rm -v "$(pwd):/workspace" ghcr.io/ihui/ai-cli
 
 # ---------- Stage 1: builder ----------
