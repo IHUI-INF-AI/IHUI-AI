@@ -29,7 +29,7 @@ import {
 } from './agent-control'
 import { getToken } from './token'
 
-const API_BASE = 'http://127.0.0.1:3002/api/agent-control'
+const API_BASE = 'http://127.0.0.1:8802/api/agent-control'
 const CAPABILITY_INTERVAL_MS = 60_000
 const RETRY_DELAY_MS = 5_000
 const VERSION = '1.0.0'
