@@ -317,11 +317,15 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/finance/statistics', async (request, reply) => {
     const { period } = z.object({ period: z.string().optional() }).parse(request.query)
-    // 2026-07-21 安全审计加固:interval 是本地硬编码的 3 个白名单字符串,
-    // 经控制流保证不会接受 period 任意字符串。PostgreSQL interval 字面量
-    // 不能直接参数化绑定(类型不匹配),所以用 sql.raw 注入硬编码字符串是安全的。
-    // 若未来需要支持 period 任意值,必须改用 whitelist mapping + Drizzle prepared statement
-    const interval = period === 'year' ? '1 year' : period === 'month' ? '1 month' : '7 days'
+    // 2026-07-22 P0 Round 3 鲁棒性加固:显式 whitelist mapping 替代三元运算符
+    // PostgreSQL interval 字面量不能参数化绑定,用 sql.raw 注入硬编码白名单字符串
+    // 任何不在白名单的 period 值统一降级为 '7 days',杜绝注入风险
+    const INTERVAL_WHITELIST: Record<string, string> = {
+      year: '1 year',
+      month: '1 month',
+      week: '7 days',
+    }
+    const interval = INTERVAL_WHITELIST[period ?? ''] ?? '7 days'
 
     const [stats] = await db
       .select({
@@ -332,8 +336,7 @@ export const adminMonitoringRoutes: FastifyPluginAsync = async (server) => {
         avgOrderAmount: sql<number>`coalesce(avg(${eduOrders.payAmount}), 0)`,
       })
       .from(eduOrders)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .where(gte(eduOrders.createdAt, sql`now() - interval '${sql.raw(interval)}'` as any))
+      .where(gte(eduOrders.createdAt, sql`now() - interval '${sql.raw(interval)}'`))
 
     const byType = await db
       .select({
