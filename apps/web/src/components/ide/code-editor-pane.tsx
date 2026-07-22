@@ -4,8 +4,11 @@ import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { EditorEmptyState } from './editor-empty-state'
 import { EditorTabBar } from './editor-tab-bar'
-import { CodeViewer } from '@/components/media/CodeViewer'
-import { ChevronRight, Search, X, Plus, Minus } from 'lucide-react'
+import { CodeEditor, type MonacoSelection } from '@/components/editor/CodeEditor'
+import { InlineEditDialog } from '@/components/ai/inline-edit-dialog'
+import { useInlineEdit } from '@/hooks/use-inline-edit'
+import { useInlineEditStore, type InlineEditSelection } from '@/stores/inline-edit'
+import { ChevronRight, Plus, Minus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const LANG_LABELS: Record<string, string> = {
@@ -29,8 +32,24 @@ const LANG_LABELS: Record<string, string> = {
 const DEFAULT_FONT_SIZE = 14
 const MIN_FONT_SIZE = 10
 const MAX_FONT_SIZE = 24
-/** minimap 最多渲染的行数(避免超大文件卡顿) */
-const MINIMAP_MAX_LINES = 200
+
+/** Monaco editor 实例的最小类型(仅用到的子集) */
+interface MonacoEditorLike {
+  executeEdits(
+    source: string,
+    edits: Array<{
+      range: {
+        startLineNumber: number
+        startColumn: number
+        endLineNumber: number
+        endColumn: number
+      }
+      text: string | null
+      forceMoveMarkers?: boolean
+    }>,
+  ): boolean
+  focus(): void
+}
 
 export function CodeEditorPane() {
   const { openTabs, activeTabId } = useIDEWorkspace()
@@ -39,45 +58,100 @@ export function CodeEditorPane() {
   // tab 内容为空字符串表示正在异步加载
   const isLoadingContent = Boolean(activeTab && activeTab.content === '')
   const [fontSize, setFontSize] = React.useState(DEFAULT_FONT_SIZE)
-  const [showSearch, setShowSearch] = React.useState(false)
-  const [query, setQuery] = React.useState('')
-  const [hoverTop, setHoverTop] = React.useState(-1)
-  // 行高随字号联动(SyntaxHighlighter 默认 lineHeight: 1.5)
-  const lineHeight = Math.round(fontSize * 1.5)
 
-  // 切换 tab 时重置搜索态
+  // 最新选区 ref(供 'global-shortcut:inline-edit' 事件读取)
+  const selectionRef = React.useRef<{
+    selection: MonacoSelection
+    selectedText: string
+  } | null>(null)
+  const editorRef = React.useRef<MonacoEditorLike | null>(null)
+  const tabIdRef = React.useRef<string | null>(null)
+
+  const { openInlineEdit } = useInlineEdit()
+  const registerApplyPatchCallback = useInlineEditStore((s) => s.registerApplyPatchCallback)
+
+  /** 更新 tab content 到 IDE workspace store(标记 isDirty) */
+  const updateTabContent = React.useCallback(
+    (tabId: string, content: string) => {
+      useIDEWorkspace.setState((s) => ({
+        openTabs: s.openTabs.map((tab) =>
+          tab.id === tabId ? { ...tab, content, isDirty: true } : tab,
+        ),
+      }))
+    },
+    [],
+  )
+
+  /** onMount:缓存 editor 实例 + 注册 applyPatch callback */
+  const handleEditorMount = React.useCallback(
+    (editor: MonacoEditorLike) => {
+      editorRef.current = editor
+      // 注册 patch 应用回调:用 executeEdits 替换选区文本
+      registerApplyPatchCallback((patch, sel) => {
+        const e = editorRef.current
+        if (!e) return
+        e.executeEdits('inline-edit', [
+          {
+            range: {
+              startLineNumber: sel.startLineNumber,
+              startColumn: sel.startColumn,
+              endLineNumber: sel.endLineNumber,
+              endColumn: sel.endColumn,
+            },
+            text: patch,
+            forceMoveMarkers: true,
+          },
+        ])
+        e.focus()
+      })
+    },
+    [registerApplyPatchCallback],
+  )
+
+  /** onSelectionChange:缓存选区到 ref */
+  const handleSelectionChange = React.useCallback(
+    (selection: MonacoSelection, selectedText: string) => {
+      selectionRef.current = { selection, selectedText }
+    },
+    [],
+  )
+
+  // 切换 tab 时重置选区缓存 + 同步 tabIdRef
   React.useEffect(() => {
-    setShowSearch(false)
-    setQuery('')
+    tabIdRef.current = activeTabId ?? null
+    selectionRef.current = null
   }, [activeTabId])
 
-  // Ctrl+F 切换文件内搜索 / Escape 关闭
+  // 监听 'global-shortcut:inline-edit' 事件 → 弹 InlineEditDialog
   React.useEffect(() => {
-    if (!activeTab) return
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        e.preventDefault()
-        setShowSearch((v) => !v)
-      } else if (e.key === 'Escape') {
-        setShowSearch(false)
+    const handler = () => {
+      const tabId = tabIdRef.current
+      const cached = selectionRef.current
+      if (!tabId || !activeTab) return
+      // 选区为空时:不允许 inline edit(避免误触)
+      if (!cached || !cached.selectedText) return
+      const sel: InlineEditSelection = {
+        tabId,
+        filePath: activeTab.path,
+        language: activeTab.language,
+        startLineNumber: cached.selection.startLineNumber,
+        startColumn: cached.selection.startColumn,
+        endLineNumber: cached.selection.endLineNumber,
+        endColumn: cached.selection.endColumn,
+        selectedText: cached.selectedText,
       }
+      openInlineEdit(sel)
     }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [activeTab])
+    window.addEventListener('global-shortcut:inline-edit', handler)
+    return () => window.removeEventListener('global-shortcut:inline-edit', handler)
+  }, [activeTab, openInlineEdit])
 
-  const matchCount = React.useMemo(() => {
-    if (!query || !activeTab || isLoadingContent) return 0
-    return activeTab.content.split(query).length - 1
-  }, [query, activeTab, isLoadingContent])
-
-  const minimapLines = React.useMemo(() => {
-    if (!activeTab || isLoadingContent) return []
-    return activeTab.content
-      .split('\n')
-      .slice(0, MINIMAP_MAX_LINES)
-      .map((l) => l.trim().length)
-  }, [activeTab, isLoadingContent])
+  // 卸载时注销 applyPatch callback(防止悬空调用)
+  React.useEffect(() => {
+    return () => {
+      registerApplyPatchCallback(null)
+    }
+  }, [registerApplyPatchCallback])
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -108,95 +182,28 @@ export function CodeEditorPane() {
             </span>
           </div>
 
-          {/* 编辑器主体:代码区 + minimap + 搜索 + 字号 */}
+          {/* 编辑器主体:Monaco + InlineEditDialog 浮层 + 字号控制 */}
           <div className="relative flex flex-1 overflow-hidden">
-            {/* 文件内搜索框 */}
-            {showSearch && (
-              <div className="absolute right-3 top-2 z-20 flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 shadow-sm">
-                <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                <input
-                  autoFocus
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t('codeEditor.findPlaceholder')}
-                  className="w-40 bg-transparent text-xs outline-none placeholder:text-muted-foreground/60"
-                />
-                <span className="shrink-0 text-xs tabular-nums text-muted-foreground/70">
-                  {t('codeEditor.matchCount', { count: matchCount })}
-                </span>
-                <button
-                  onClick={() => {
-                    setShowSearch(false)
-                    setQuery('')
-                  }}
-                  className="rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  aria-label={t('codeEditor.closeSearch')}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
+            {isLoadingContent ? (
+              <div className="flex h-full flex-1 items-center justify-center text-xs text-muted-foreground">...</div>
+            ) : (
+              <CodeEditor
+                value={activeTab.content}
+                language={activeTab.language}
+                fontSize={fontSize}
+                onChange={(v) => updateTabContent(activeTab.id, v)}
+                onSelectionChange={handleSelectionChange}
+                onMount={handleEditorMount}
+                className="flex-1"
+              />
             )}
 
-            {/* 代码区 + 鼠标悬停行高亮 */}
-            <div
-              className="relative flex-1 overflow-auto"
-              onMouseMove={(e) => {
-                if (isLoadingContent) return
-                const rect = e.currentTarget.getBoundingClientRect()
-                const y = e.clientY - rect.top + e.currentTarget.scrollTop
-                const top = Math.floor(y / lineHeight) * lineHeight
-                setHoverTop((prev) => (prev === top ? prev : top))
-              }}
-              onMouseLeave={() => setHoverTop(-1)}
-            >
-              {isLoadingContent ? (
-                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">...</div>
-              ) : (
-                <>
-                  <div
-                    className="[&_pre]:!text-[var(--editor-font-size)]"
-                    style={{ '--editor-font-size': `${fontSize}px` } as React.CSSProperties}
-                  >
-                    <CodeViewer
-                      code={activeTab.content}
-                      language={activeTab.language}
-                      showLineNumbers
-                      showCopyButton
-                      className="rounded-none border-0"
-                    />
-                  </div>
-                  {/* 悬停行高亮层(pointer-events-none 不拦截鼠标) */}
-                  {hoverTop >= 0 && (
-                    <div
-                      className="pointer-events-none absolute left-0 right-0 bg-muted/25"
-                      style={{ top: hoverTop, height: lineHeight }}
-                    />
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Minimap 缩略图:每行用 2px 高的色条表示代码密度 */}
-            {!isLoadingContent && (
-              <div className="hidden w-14 shrink-0 overflow-hidden bg-muted/15 py-2 lg:block">
-                <div className="flex flex-col gap-px px-1">
-                  {minimapLines.map((len, i) => (
-                    <div
-                      key={i}
-                      className="bg-muted-foreground/30"
-                      style={{
-                        height: '2px',
-                        width: `${Math.min(100, Math.max(4, len * 1.5))}%`,
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* InlineEditDialog 浮在编辑器顶部居中 */}
+            <InlineEditDialog />
 
             {/* 字号控制:- / 当前 / + */}
             {!isLoadingContent && (
-              <div className="absolute bottom-2 right-20 z-10 flex items-center gap-0.5 rounded-md border border-border bg-background/95 px-1 py-0.5 shadow-sm">
+              <div className="absolute bottom-2 right-3 z-10 flex items-center gap-0.5 rounded-md border border-border bg-background/95 px-1 py-0.5 shadow-sm">
                 <button
                   onClick={() => setFontSize((s) => Math.max(MIN_FONT_SIZE, s - 1))}
                   className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
