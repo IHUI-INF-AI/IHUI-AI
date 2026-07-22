@@ -48,13 +48,13 @@ describe('rls-isolation — RLS 行级安全真实 DB 集成测试', () => {
     //   `''::uuid` 会抛 "invalid input syntax for type uuid"
     // - 因此 withBypassRls 前必须确保 session 级 tenant_id 是合法 UUID(默认租户即可)
     await rlsDb.execute(`SET app.tenant_id = '${DEFAULT_TENANT_ID}'`)
-    await withBypassRls(rlsDb, async (tx) => {
+    await withBypassRls(rlsDb, 'test-cleanup', async (tx) => {
       await tx.execute(`DELETE FROM users WHERE phone LIKE 'rls-%'`)
     })
   })
 
   afterAll(async () => {
-    await withBypassRls(rlsDb, async (tx) => {
+    await withBypassRls(rlsDb, 'test-cleanup', async (tx) => {
       await tx.execute(sql`DELETE FROM users WHERE phone LIKE 'rls-%'`)
     })
     await closeRlsDb()
@@ -123,7 +123,7 @@ describe('rls-isolation — RLS 行级安全真实 DB 集成测试', () => {
     await insertUserAsTenant(TENANT_B, 'rls-0003-B', 'B')
 
     // 3) 用 withBypassRls:应同时看到 A 和 B 的两行
-    const all = await withBypassRls(rlsDb, async (tx) => {
+    const all = await withBypassRls(rlsDb, 'test-cleanup', async (tx) => {
       return tx.execute(
         sql`SELECT phone, tenant_id::text AS t FROM users WHERE phone LIKE 'rls-0003-%' ORDER BY phone`,
       )
@@ -156,7 +156,7 @@ describe('rls-isolation — RLS 行级安全真实 DB 集成测试', () => {
    */
   it('测试 4 — 不设置/不匹配 tenant_id 时,SELECT 默认拒绝(返回 0 行)', async () => {
     // 1) 先用 bypass 模式塞一条 DEFAULT_TENANT_ID 的数据(模拟遗留单租户数据)
-    await withBypassRls(rlsDb, async (tx) => {
+    await withBypassRls(rlsDb, 'test-cleanup', async (tx) => {
       await tx.execute(
         sql`INSERT INTO users (phone, nickname, tenant_id) VALUES (${'rls-0004-default'}, ${'默认租户'}, ${DEFAULT_TENANT_ID}::uuid)`,
       )
