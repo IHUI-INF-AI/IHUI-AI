@@ -12,11 +12,16 @@
     "core:window:allow-set-focus",
     "deep-link:default",
     "dialog:default",
-    "fs:default",
-    "http:default",
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [{ "path": "$APPDATA/com.ihui.ai/**" }]
+    },
+    {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [{ "path": "$APPDATA/com.ihui.ai/**" }]
+    },
     "notification:default",
     "os:default",
-    "shell:default",
     "store:default",
     "updater:default"
   ]
