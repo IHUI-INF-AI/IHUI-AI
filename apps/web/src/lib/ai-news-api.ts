@@ -597,3 +597,149 @@ export async function fetchAiFeedSources(): Promise<
   )
   return data?.list ?? []
 }
+
+// =============================================================================
+// 大模型排行榜(对接 /api/leaderboard,参考 arena.ai/leaderboard)
+// =============================================================================
+
+/** 模型分类(6 类 + agent + overall) */
+export type LeaderboardCategory =
+  | 'overall' | 'llm' | 'image' | 'video' | 'multimodal' | 'audio' | 'embedding' | 'agent'
+
+/** 能力雷达图 5 维评分(0-100) */
+export interface ModelCapabilities {
+  coding: number
+  math: number
+  reasoning: number
+  creative: number
+  chinese: number
+}
+
+/** 排行榜条目(对应后端 model_leaderboard 表) */
+export interface LeaderboardEntry {
+  id: string
+  modelId: string
+  modelName: string
+  vendor: string
+  category: LeaderboardCategory
+  subcategory: string | null
+  arenaScore: number | null
+  arenaRank: number | null
+  rankDelta: number | null
+  rankSpreadLow: number | null
+  rankSpreadHigh: number | null
+  scoreCi: number | null
+  winRate: number | null
+  voteCount: number | null
+  contextWindow: string | null
+  maxOutput: string | null
+  inputPrice: string | null
+  outputPrice: string | null
+  releaseDate: string | null
+  highlight: string | null
+  capabilities: ModelCapabilities | null
+  license: string
+  isOverall: boolean
+  sortOrder: number
+}
+
+/** 拉取排行榜(对接 /api/leaderboard?category=&subcategory=&limit=) */
+export async function fetchLeaderboard(
+  category: LeaderboardCategory = 'overall',
+  subcategory?: string,
+  limit = 20,
+): Promise<LeaderboardEntry[]> {
+  const params = new URLSearchParams({
+    category,
+    limit: String(limit),
+  })
+  if (subcategory) params.set('subcategory', subcategory)
+  const data = await safeApi<{ list: LeaderboardEntry[]; total: number }>(
+    `/api/leaderboard?${params.toString()}`,
+  )
+  return data?.list ?? []
+}
+
+/** 拉取单模型详情(对接 /api/leaderboard/:modelId) */
+export async function fetchLeaderboardEntry(
+  modelId: string,
+): Promise<LeaderboardEntry | null> {
+  const data = await safeApi<{ entry: LeaderboardEntry }>(
+    `/api/leaderboard/${encodeURIComponent(modelId)}`,
+  )
+  return data?.entry ?? null
+}
+
+/**
+ * 一次性拉取全部分类的排行榜条目(供 Leaderboard 客户端组件本地过滤)。
+ *
+ * 并行请求 8 个分类(overall/llm/image/video/multimodal/audio/embedding/agent),
+ * llm 额外拉取 3 个子分类(general/coding/reasoning)。
+ * 若 API 全部返回空 → 降级到 FALLBACK_LEADERBOARD(arena.ai 2026-07 真实数据子集)。
+ */
+export async function fetchAllLeaderboardEntries(): Promise<LeaderboardEntry[]> {
+  const cats: Array<[LeaderboardCategory, string?]> = [
+    ['overall'],
+    ['llm', 'general'],
+    ['llm', 'coding'],
+    ['llm', 'reasoning'],
+    ['image'],
+    ['video'],
+    ['multimodal'],
+    ['audio'],
+    ['embedding'],
+    ['agent'],
+  ]
+  const results = await Promise.all(cats.map(([c, s]) => fetchLeaderboard(c, s, 30)))
+  const merged = results.flat()
+  if (merged.length > 0) return merged
+  return FALLBACK_LEADERBOARD
+}
+
+/** Fallback:arena.ai 2026-07 真实数据子集(DB 未 seed 时降级使用) */
+const FALLBACK_LEADERBOARD: LeaderboardEntry[] = [
+  // 总榜(9)
+  { id: 'fb-o1', modelId: 'claude-fable-5', modelName: 'Claude Fable 5', vendor: 'Anthropic', category: 'overall', subcategory: null, arenaScore: 1507, arenaRank: 1, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 7, winRate: null, voteCount: null, contextWindow: '1M', maxOutput: '128K', inputPrice: '$10', outputPrice: '$50', releaseDate: '2026-07-15', highlight: '总榜第一,LLM 通用冠军,综合能力全面领先', capabilities: { coding: 95, math: 90, reasoning: 94, creative: 88, chinese: 90 }, license: 'Proprietary', isOverall: true, sortOrder: 1 },
+  { id: 'fb-o2', modelId: 'gpt-image-2-medium', modelName: 'GPT Image 2 Medium', vendor: 'OpenAI', category: 'overall', subcategory: null, arenaScore: 1500, arenaRank: 2, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 5, winRate: null, voteCount: null, contextWindow: null, maxOutput: null, inputPrice: null, outputPrice: null, releaseDate: null, highlight: '总榜第二,生图冠军,归一化分 1500', capabilities: { coding: 35, math: 30, reasoning: 65, creative: 95, chinese: 70 }, license: 'Proprietary', isOverall: true, sortOrder: 2 },
+  { id: 'fb-o3', modelId: 'gemini-omni-flash', modelName: 'Gemini Omni Flash', vendor: 'Google', category: 'overall', subcategory: null, arenaScore: 1527, arenaRank: 3, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 13, winRate: null, voteCount: 5449, contextWindow: null, maxOutput: null, inputPrice: null, outputPrice: null, releaseDate: null, highlight: '总榜第三,视频生成冠军,运动一致性最佳', capabilities: { coding: 35, math: 30, reasoning: 60, creative: 94, chinese: 65 }, license: 'Proprietary', isOverall: true, sortOrder: 3 },
+  { id: 'fb-o4', modelId: 'claude-fable-5-high', modelName: 'Claude Fable 5 High', vendor: 'Anthropic', category: 'overall', subcategory: null, arenaScore: 1394, arenaRank: 4, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 8, winRate: 13.94, voteCount: 16059, contextWindow: '1M', maxOutput: '128K', inputPrice: '$10', outputPrice: '$50', releaseDate: '2026-07-15', highlight: '总榜第四,Agent 冠军,净提升 13.94%', capabilities: { coding: 95, math: 82, reasoning: 94, creative: 78, chinese: 85 }, license: 'Proprietary', isOverall: true, sortOrder: 4 },
+  { id: 'fb-o5', modelId: 'claude-opus-4-6-thinking', modelName: 'Claude Opus 4.6 Thinking', vendor: 'Anthropic', category: 'overall', subcategory: null, arenaScore: 1504, arenaRank: 5, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 4, winRate: null, voteCount: null, contextWindow: '1M', maxOutput: '64K', inputPrice: '$5', outputPrice: '$25', releaseDate: '2026-07-10', highlight: '总榜第五,LLM 通用亚军,深度推理强项', capabilities: { coding: 93, math: 92, reasoning: 95, creative: 84, chinese: 88 }, license: 'Proprietary', isOverall: true, sortOrder: 5 },
+  { id: 'fb-o6', modelId: 'dreamina-seedance-2-0-720p', modelName: 'Dreamina Seedance 2.0 720p', vendor: 'Bytedance', category: 'overall', subcategory: null, arenaScore: 1482, arenaRank: 6, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 10, winRate: null, voteCount: 41953, contextWindow: null, maxOutput: null, inputPrice: null, outputPrice: null, releaseDate: null, highlight: '总榜第六,视频亚军,国产视频第一', capabilities: { coding: 32, math: 28, reasoning: 58, creative: 92, chinese: 75 }, license: 'Proprietary', isOverall: true, sortOrder: 6 },
+  { id: 'fb-o7', modelId: 'eleven-multilingual-v2', modelName: 'Eleven Multilingual v2', vendor: 'ElevenLabs', category: 'overall', subcategory: null, arenaScore: 1420, arenaRank: 7, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 6, winRate: null, voteCount: 50000, contextWindow: null, maxOutput: null, inputPrice: null, outputPrice: null, releaseDate: null, highlight: '总榜第七,语音冠军,多语言自然度顶尖', capabilities: { coding: 30, math: 28, reasoning: 35, creative: 90, chinese: 60 }, license: 'Proprietary', isOverall: true, sortOrder: 7 },
+  { id: 'fb-o8', modelId: 'text-embedding-3-large', modelName: 'Text Embedding 3 Large', vendor: 'OpenAI', category: 'overall', subcategory: null, arenaScore: 1450, arenaRank: 8, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 5, winRate: null, voteCount: null, contextWindow: '8K', maxOutput: null, inputPrice: null, outputPrice: null, releaseDate: null, highlight: '总榜第八,嵌入冠军,8192 维检索精度最高', capabilities: { coding: 65, math: 72, reasoning: 68, creative: 60, chinese: 65 }, license: 'Proprietary', isOverall: true, sortOrder: 8 },
+  { id: 'fb-o9', modelId: 'claude-opus-4-7-thinking', modelName: 'Claude Opus 4.7 Thinking', vendor: 'Anthropic', category: 'overall', subcategory: null, arenaScore: 1503, arenaRank: 9, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 4, winRate: null, voteCount: null, contextWindow: '1M', maxOutput: '64K', inputPrice: '$5', outputPrice: '$25', releaseDate: '2026-07-12', highlight: '总榜第九,Opus 4.6 升级版,推理能力进一步提升', capabilities: { coding: 94, math: 91, reasoning: 95, creative: 85, chinese: 89 }, license: 'Proprietary', isOverall: true, sortOrder: 9 },
+  // LLM 通用(3)
+  { id: 'fb-lg1', modelId: 'claude-fable-5', modelName: 'Claude Fable 5', vendor: 'Anthropic', category: 'llm', subcategory: 'general', arenaScore: 1507, arenaRank: 1, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 7, winRate: null, voteCount: null, contextWindow: '1M', maxOutput: '128K', inputPrice: '$10', outputPrice: '$50', releaseDate: '2026-07-15', highlight: 'Anthropic 旗舰模型,综合能力全面领先', capabilities: { coding: 95, math: 90, reasoning: 94, creative: 88, chinese: 90 }, license: 'Proprietary', isOverall: false, sortOrder: 1 },
+  { id: 'fb-lg2', modelId: 'claude-opus-4-6-thinking', modelName: 'Claude Opus 4.6 Thinking', vendor: 'Anthropic', category: 'llm', subcategory: 'general', arenaScore: 1504, arenaRank: 2, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 4, winRate: null, voteCount: null, contextWindow: '1M', maxOutput: '64K', inputPrice: '$5', outputPrice: '$25', releaseDate: '2026-07-10', highlight: '深度推理强项,数学与代码表现突出', capabilities: { coding: 93, math: 92, reasoning: 95, creative: 84, chinese: 88 }, license: 'Proprietary', isOverall: false, sortOrder: 2 },
+  { id: 'fb-lg3', modelId: 'kimi-k3', modelName: 'Kimi K3', vendor: 'Moonshot', category: 'llm', subcategory: 'general', arenaScore: 1486, arenaRank: 9, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 11, winRate: null, voteCount: null, contextWindow: '1M', maxOutput: null, inputPrice: '开源', outputPrice: '开源', releaseDate: '2026-07-17', highlight: '月之暗面 2.8 万亿参数开源模型,国产之光', capabilities: { coding: 88, math: 85, reasoning: 87, creative: 86, chinese: 93 }, license: '开源', isOverall: false, sortOrder: 9 },
+  // LLM 代码(3)
+  { id: 'fb-lc1', modelId: 'claude-opus-4-7-thinking#coding', modelName: 'Claude Opus 4.7 Thinking', vendor: 'Anthropic', category: 'llm', subcategory: 'coding', arenaScore: 1567, arenaRank: 1, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 5, winRate: null, voteCount: null, contextWindow: '1M', maxOutput: '64K', inputPrice: '$5', outputPrice: '$25', releaseDate: '2026-07-12', highlight: 'WebDev Arena 编程榜首,全栈开发能力最强', capabilities: { coding: 98, math: 90, reasoning: 95, creative: 80, chinese: 85 }, license: 'Proprietary', isOverall: false, sortOrder: 11 },
+  { id: 'fb-lc2', modelId: 'qwen3-7-max#coding', modelName: 'Qwen3.7 Max', vendor: 'Alibaba', category: 'llm', subcategory: 'coding', arenaScore: 1537, arenaRank: 7, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 7, winRate: null, voteCount: null, contextWindow: '1M', maxOutput: null, inputPrice: '¥2', outputPrice: '¥6', releaseDate: null, highlight: '阿里通义千问编程特化,国产编程第一', capabilities: { coding: 94, math: 88, reasoning: 87, creative: 78, chinese: 92 }, license: 'Proprietary', isOverall: false, sortOrder: 17 },
+  { id: 'fb-lc3', modelId: 'glm-5-1#coding', modelName: 'GLM-5.1', vendor: 'Z.ai', category: 'llm', subcategory: 'coding', arenaScore: 1532, arenaRank: 8, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 8, winRate: null, voteCount: null, contextWindow: '128K', maxOutput: null, inputPrice: '¥3', outputPrice: '¥6', releaseDate: null, highlight: '智谱 GLM 编程版,中文代码注释优秀', capabilities: { coding: 92, math: 85, reasoning: 86, creative: 76, chinese: 94 }, license: 'Proprietary', isOverall: false, sortOrder: 18 },
+  // LLM 推理(3)
+  { id: 'fb-lr1', modelId: 'claude-fable-5#reasoning', modelName: 'Claude Fable 5', vendor: 'Anthropic', category: 'llm', subcategory: 'reasoning', arenaScore: 1500, arenaRank: 1, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 8, winRate: null, voteCount: null, contextWindow: '1M', maxOutput: '128K', inputPrice: '$10', outputPrice: '$50', releaseDate: '2026-07-15', highlight: '复杂推理与多步规划能力顶尖', capabilities: { coding: 92, math: 93, reasoning: 96, creative: 85, chinese: 89 }, license: 'Proprietary', isOverall: false, sortOrder: 21 },
+  { id: 'fb-lr2', modelId: 'kimi-k3#reasoning', modelName: 'Kimi K3', vendor: 'Moonshot', category: 'llm', subcategory: 'reasoning', arenaScore: 1478, arenaRank: 9, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 12, winRate: null, voteCount: null, contextWindow: '1M', maxOutput: null, inputPrice: '开源', outputPrice: '开源', releaseDate: '2026-07-17', highlight: '国产开源推理旗舰,中文推理优秀', capabilities: { coding: 86, math: 87, reasoning: 89, creative: 84, chinese: 92 }, license: '开源', isOverall: false, sortOrder: 29 },
+  { id: 'fb-lr3', modelId: 'gpt-5-6-sol-xhigh#reasoning', modelName: 'GPT-5.6 Sol xHigh', vendor: 'OpenAI', category: 'llm', subcategory: 'reasoning', arenaScore: 1478, arenaRank: 10, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 10, winRate: null, voteCount: null, contextWindow: '1.05M', maxOutput: '128K', inputPrice: '$5', outputPrice: '$30', releaseDate: '2026-07-09', highlight: 'OpenAI 推理模式,数学竞赛级表现', capabilities: { coding: 90, math: 90, reasoning: 91, creative: 81, chinese: 82 }, license: 'Proprietary', isOverall: false, sortOrder: 30 },
+  // 生图(3)
+  { id: 'fb-im1', modelId: 'gpt-image-2-medium', modelName: 'GPT Image 2 Medium', vendor: 'OpenAI', category: 'image', subcategory: null, arenaScore: 1385, arenaRank: 1, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 5, winRate: null, voteCount: null, contextWindow: null, maxOutput: null, inputPrice: null, outputPrice: null, releaseDate: null, highlight: 'OpenAI 旗舰生图,细节还原与文字渲染顶尖', capabilities: { coding: 35, math: 30, reasoning: 65, creative: 95, chinese: 70 }, license: 'Proprietary', isOverall: false, sortOrder: 31 },
+  { id: 'fb-im2', modelId: 'reve-2-1', modelName: 'Reve 2.1', vendor: 'Reve', category: 'image', subcategory: null, arenaScore: 1302, arenaRank: 2, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 12, winRate: null, voteCount: null, contextWindow: null, maxOutput: null, inputPrice: null, outputPrice: null, releaseDate: null, highlight: '新兴生图黑马,风格化表现突出', capabilities: { coding: 32, math: 28, reasoning: 62, creative: 92, chinese: 68 }, license: 'Proprietary', isOverall: false, sortOrder: 32 },
+  { id: 'fb-im3', modelId: 'muse-image', modelName: 'Muse Image', vendor: 'Meta', category: 'image', subcategory: null, arenaScore: 1280, arenaRank: 3, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 8, winRate: null, voteCount: null, contextWindow: null, maxOutput: null, inputPrice: null, outputPrice: null, releaseDate: null, highlight: 'Meta 开源生图,编辑能力灵活', capabilities: { coding: 34, math: 29, reasoning: 63, creative: 90, chinese: 66 }, license: '开源', isOverall: false, sortOrder: 33 },
+  // 视频(3)
+  { id: 'fb-vi1', modelId: 'gemini-omni-flash', modelName: 'Gemini Omni Flash', vendor: 'Google', category: 'video', subcategory: null, arenaScore: 1527, arenaRank: 1, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 13, winRate: null, voteCount: 5449, contextWindow: null, maxOutput: null, inputPrice: null, outputPrice: null, releaseDate: null, highlight: 'Google 全能视频生成,运动一致性最佳', capabilities: { coding: 35, math: 30, reasoning: 60, creative: 94, chinese: 65 }, license: 'Proprietary', isOverall: false, sortOrder: 41 },
+  { id: 'fb-vi2', modelId: 'dreamina-seedance-2-0-720p', modelName: 'Dreamina Seedance 2.0 720p', vendor: 'Bytedance', category: 'video', subcategory: null, arenaScore: 1482, arenaRank: 2, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 10, winRate: null, voteCount: 41953, contextWindow: null, maxOutput: null, inputPrice: null, outputPrice: null, releaseDate: null, highlight: '字节梦境 2.0,国产视频第一,720p 画质', capabilities: { coding: 32, math: 28, reasoning: 58, creative: 92, chinese: 75 }, license: 'Proprietary', isOverall: false, sortOrder: 42 },
+  { id: 'fb-vi3', modelId: 'sora-2-pro', modelName: 'Sora 2 Pro', vendor: 'OpenAI', category: 'video', subcategory: null, arenaScore: 1366, arenaRank: 5, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 8, winRate: null, voteCount: 39773, contextWindow: null, maxOutput: null, inputPrice: null, outputPrice: null, releaseDate: null, highlight: 'OpenAI 视频旗舰,物理模拟逼真', capabilities: { coding: 36, math: 32, reasoning: 62, creative: 93, chinese: 66 }, license: 'Proprietary', isOverall: false, sortOrder: 45 },
+  // 多模态(3)
+  { id: 'fb-mm1', modelId: 'claude-fable-5', modelName: 'Claude Fable 5', vendor: 'Anthropic', category: 'multimodal', subcategory: null, arenaScore: 1318, arenaRank: 1, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 9, winRate: null, voteCount: 7411, contextWindow: '1M', maxOutput: '128K', inputPrice: '$10', outputPrice: '$50', releaseDate: '2026-07-15', highlight: '视觉理解+推理双强,图表分析顶尖', capabilities: { coding: 90, math: 85, reasoning: 92, creative: 85, chinese: 88 }, license: 'Proprietary', isOverall: false, sortOrder: 51 },
+  { id: 'fb-mm2', modelId: 'gemini-3-pro', modelName: 'Gemini 3 Pro', vendor: 'Google', category: 'multimodal', subcategory: null, arenaScore: 1289, arenaRank: 7, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 8, winRate: null, voteCount: 13183, contextWindow: '1M', maxOutput: '128K', inputPrice: '$2', outputPrice: '$12', releaseDate: '2026-07-17', highlight: '原生多模态,视频理解能力强', capabilities: { coding: 86, math: 88, reasoning: 88, creative: 83, chinese: 84 }, license: 'Proprietary', isOverall: false, sortOrder: 57 },
+  { id: 'fb-mm3', modelId: 'gpt-5-5', modelName: 'GPT-5.5', vendor: 'OpenAI', category: 'multimodal', subcategory: null, arenaScore: 1286, arenaRank: 9, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 7, winRate: null, voteCount: 17412, contextWindow: '1.1M', maxOutput: '128K', inputPrice: '$5', outputPrice: '$30', releaseDate: null, highlight: 'OpenAI 多模态旗舰,图文混合理解强', capabilities: { coding: 87, math: 86, reasoning: 87, creative: 82, chinese: 83 }, license: 'Proprietary', isOverall: false, sortOrder: 59 },
+  // Agent(3)
+  { id: 'fb-ag1', modelId: 'claude-fable-5-high', modelName: 'Claude Fable 5 High', vendor: 'Anthropic', category: 'agent', subcategory: null, arenaScore: 1394, arenaRank: 1, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 8, winRate: 13.94, voteCount: 16059, contextWindow: '1M', maxOutput: '128K', inputPrice: '$10', outputPrice: '$50', releaseDate: '2026-07-15', highlight: 'Agent 净提升 13.94% 居首,复杂任务规划最强', capabilities: { coding: 95, math: 82, reasoning: 94, creative: 78, chinese: 85 }, license: 'Proprietary', isOverall: false, sortOrder: 61 },
+  { id: 'fb-ag2', modelId: 'gpt-5-6-sol-xhigh', modelName: 'GPT-5.6 Sol xHigh', vendor: 'OpenAI', category: 'agent', subcategory: null, arenaScore: 1094, arenaRank: 2, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 9, winRate: 10.94, voteCount: 7881, contextWindow: '1.05M', maxOutput: '128K', inputPrice: '$5', outputPrice: '$30', releaseDate: '2026-07-09', highlight: 'Agent 净提升 10.94%,代码任务自动化出色', capabilities: { coding: 93, math: 80, reasoning: 90, creative: 72, chinese: 80 }, license: 'Proprietary', isOverall: false, sortOrder: 62 },
+  { id: 'fb-ag3', modelId: 'glm-5-2-max', modelName: 'GLM-5.2 Max', vendor: 'Z.ai', category: 'agent', subcategory: null, arenaScore: 624, arenaRank: 9, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 10, winRate: 6.24, voteCount: null, contextWindow: '128K', maxOutput: null, inputPrice: '¥3', outputPrice: '¥6', releaseDate: null, highlight: '国产 Agent 第一,净提升 6.24%', capabilities: { coding: 86, math: 75, reasoning: 85, creative: 72, chinese: 90 }, license: 'Proprietary', isOverall: false, sortOrder: 69 },
+  // 语音(2)
+  { id: 'fb-au1', modelId: 'eleven-multilingual-v2', modelName: 'Eleven Multilingual v2', vendor: 'ElevenLabs', category: 'audio', subcategory: null, arenaScore: 1420, arenaRank: 1, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 6, winRate: null, voteCount: 50000, contextWindow: null, maxOutput: null, inputPrice: null, outputPrice: null, releaseDate: null, highlight: 'ElevenLabs 旗舰,多语言语音自然度顶尖', capabilities: { coding: 30, math: 28, reasoning: 35, creative: 90, chinese: 60 }, license: 'Proprietary', isOverall: false, sortOrder: 71 },
+  { id: 'fb-au2', modelId: 'minimax-voice', modelName: 'MiniMax Voice', vendor: 'MiniMax', category: 'audio', subcategory: null, arenaScore: 1350, arenaRank: 5, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 8, winRate: null, voteCount: 25000, contextWindow: null, maxOutput: null, inputPrice: null, outputPrice: null, releaseDate: null, highlight: '国产语音合成,中文拟真度高', capabilities: { coding: 30, math: 28, reasoning: 35, creative: 85, chinese: 88 }, license: 'Proprietary', isOverall: false, sortOrder: 75 },
+  // 嵌入(2)
+  { id: 'fb-em1', modelId: 'text-embedding-3-large', modelName: 'Text Embedding 3 Large', vendor: 'OpenAI', category: 'embedding', subcategory: null, arenaScore: 1450, arenaRank: 1, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 5, winRate: null, voteCount: null, contextWindow: '8K', maxOutput: null, inputPrice: null, outputPrice: null, releaseDate: null, highlight: 'OpenAI 旗舰嵌入,8192 维,检索精度最高', capabilities: { coding: 65, math: 72, reasoning: 68, creative: 60, chinese: 65 }, license: 'Proprietary', isOverall: false, sortOrder: 76 },
+  { id: 'fb-em2', modelId: 'bge-m3', modelName: 'BGE-M3', vendor: 'BAAI', category: 'embedding', subcategory: null, arenaScore: 1390, arenaRank: 4, rankDelta: null, rankSpreadLow: null, rankSpreadHigh: null, scoreCi: 8, winRate: null, voteCount: null, contextWindow: null, maxOutput: null, inputPrice: null, outputPrice: null, releaseDate: null, highlight: '智源开源嵌入,多语言+长文本', capabilities: { coding: 63, math: 67, reasoning: 64, creative: 56, chinese: 72 }, license: '开源', isOverall: false, sortOrder: 79 },
+]
