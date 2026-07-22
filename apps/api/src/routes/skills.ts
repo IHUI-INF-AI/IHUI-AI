@@ -14,7 +14,7 @@
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import type { SkillSource } from '@ihui/types'
+import type { SkillSource, SkillFrontmatter } from '@ihui/types'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 
@@ -26,6 +26,7 @@ interface SkillRecord {
   license: string
   source: SkillSource
   tags?: string[]
+  frontmatter?: SkillFrontmatter
   createdAt: string
   updatedAt: string
 }
@@ -170,4 +171,103 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ name: parsed.data.name, deleted: true }))
     },
   )
+
+  // POST /skills/sync — 跨端同步(push/pull/list),对齐 SkillSyncRequest/SkillSyncResponse 契约
+  server.post('/skills/sync', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+
+    const body = (request.body ?? {}) as {
+      action?: 'push' | 'pull' | 'list'
+      skills?: Array<{
+        name: string
+        description?: string
+        content: string
+        frontmatter?: SkillFrontmatter
+      }>
+      skillNames?: string[]
+    }
+
+    const action = body.action
+    if (!action || !['push', 'pull', 'list'].includes(action)) {
+      return reply.status(400).send(error(400, 'action 必须为 push/pull/list'))
+    }
+
+    const key = redisKey(userId)
+    const skills = await readSkills(server.redis, key)
+    const syncedAt = new Date().toISOString()
+
+    if (action === 'push') {
+      if (!Array.isArray(body.skills) || body.skills.length === 0) {
+        return reply.status(400).send(error(400, 'push 操作必须提供 skills 数组'))
+      }
+      for (const s of body.skills) {
+        if (!s.name || !s.content) {
+          return reply.status(400).send(error(400, 'skill.name 和 skill.content 必填'))
+        }
+        const idx = skills.findIndex((existing) => existing.name === s.name)
+        const record: SkillRecord = {
+          name: s.name,
+          description: s.description,
+          content: s.content,
+          version: '1.0.0',
+          license: 'MIT',
+          source: 'user',
+          frontmatter: s.frontmatter,
+          createdAt: idx >= 0 ? skills[idx]!.createdAt : syncedAt,
+          updatedAt: syncedAt,
+        }
+        if (idx >= 0) {
+          skills[idx] = record
+        } else {
+          skills.push(record)
+        }
+      }
+      await writeSkills(server.redis, key, skills)
+      return reply.send(
+        success({
+          action: 'push',
+          skills: [],
+          count: body.skills.length,
+          syncedAt,
+        }),
+      )
+    }
+
+    if (action === 'pull') {
+      let result = skills
+      if (Array.isArray(body.skillNames) && body.skillNames.length > 0) {
+        const nameSet = new Set(body.skillNames)
+        result = skills.filter((s) => nameSet.has(s.name))
+      }
+      return reply.send(
+        success({
+          action: 'pull',
+          skills: result.map((s) => ({
+            name: s.name,
+            description: s.description,
+            content: s.content,
+            frontmatter: s.frontmatter,
+            source: s.source,
+          })),
+          count: result.length,
+          syncedAt,
+        }),
+      )
+    }
+
+    // action === 'list'
+    return reply.send(
+      success({
+        action: 'list',
+        skills: skills.map((s) => ({
+          name: s.name,
+          description: s.description,
+          source: s.source,
+        })),
+        count: skills.length,
+        syncedAt,
+      }),
+    )
+  })
 }
