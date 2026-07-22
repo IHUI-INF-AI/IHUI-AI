@@ -32,6 +32,12 @@ export function HotRanking({ items, sources }: Props) {
     return m
   }, [sources])
 
+  // sourceMap 查不到时的 fallback(如 aihot 外部数据源不在本地 sources 表里)
+  const sourceNameFallback = (code: string): string | null => {
+    if (code === 'aihot') return 'AI HOT'
+    return null
+  }
+
   if (items.length === 0) return null
 
   return (
@@ -47,6 +53,7 @@ export function HotRanking({ items, sources }: Props) {
       <div className="flex flex-col gap-px bg-muted/30">
         {items.map((it, idx) => {
           const source = sourceMap.get(it.sourceCode)
+          const sourceName = source?.sourceName ?? sourceNameFallback(it.sourceCode)
           const hot = formatHot(it.currentHot)
           const rank = it.currentRank ?? null
           return (
@@ -63,8 +70,8 @@ export function HotRanking({ items, sources }: Props) {
               <span className="min-w-0 flex-1 truncate text-xs font-medium leading-tight transition-colors group-hover:text-primary">
                 {it.title}
               </span>
-              {source ? (
-                <span className="shrink-0 text-[10px] text-muted-foreground">{source.sourceName}</span>
+              {sourceName ? (
+                <span className="shrink-0 text-[10px] text-muted-foreground">{sourceName}</span>
               ) : null}
               {hot ? (
                 <span className="flex shrink-0 items-center gap-0.5 text-xs font-bold tabular-nums text-orange-600 dark:text-orange-400">
