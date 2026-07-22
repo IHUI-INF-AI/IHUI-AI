@@ -295,7 +295,10 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
         // 由该子域薄页调用本函数发起 OAuth,回调时写跨域 Cookie + 307 跳回主域。
         // ⚠️ 本地开发(localhost / 127.0.0.1)跳过分域 SSO,直接走本地 OAuth 流程,
         // 否则跳到线上 bsm.aizhs.top(那里是另一个部署,本地代码改动不生效)
-        if (typeof window !== 'undefined' && !isAuthSubdomainHost() && isMainDomainHost()) {
+        // ⚠️ 2026-07-22 临时禁用:bsm.aizhs.top cloudflared 隧道 502(路由指向 localhost:3000
+        // 但 web 实际跑 8801),需 Cloudflare 控制台修复路由后再恢复
+        // 禁用后 aizhs.top 主域直接处理 OAuth,redirect_uri = https://aizhs.top/callback?platform=xxx
+        if (false && typeof window !== 'undefined' && !isAuthSubdomainHost() && isMainDomainHost()) {
           const returnTo = `${window.location.origin}${window.location.pathname}${window.location.search}`
           const crossDomainUrl = buildAuthSubdomainStartUrl(platform, returnTo)
           window.location.href = crossDomainUrl
