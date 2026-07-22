@@ -248,6 +248,36 @@ export const COMPANY_RELAYS: ApiRelay[] = [
     features: '海外开源模型聚合,主打低延迟推理,OpenAI 格式兼容,支持流式输出',
     billing: '按 token 计费,提供免费试用额度,送新用户额度',
   },
+  {
+    name: 'AutoDL',
+    type: 'company',
+    url: 'https://www.autodl.com/',
+    docsUrl: 'https://www.autodl.com/docs/',
+    baseUrl: 'https://api.autodl.com/v1',
+    vendors: ['Meta', 'Qwen', 'DeepSeek', 'BAAI'],
+    features: '国内 GPU 算力租用平台,支持按小时计费租卡 + 模型部署,国内直连速度快',
+    billing: '按 GPU 时长计费(元/小时),送新用户代金券,支持包日 / 包周 / 包月',
+  },
+  {
+    name: '矩池云 Matpool',
+    type: 'company',
+    url: 'https://matpool.com/',
+    docsUrl: 'https://matpool.com/docs/',
+    baseUrl: 'https://api.matpool.com/v1',
+    vendors: ['Meta', 'Qwen', 'BAAI', 'Stability'],
+    features: '国内 GPU 算力租用平台,主打学生 / 学术优惠,支持模型训练 + 推理',
+    billing: '按 GPU 时长计费(元/小时),学生认证更优惠,送新用户额度',
+  },
+  {
+    name: '极客云 GeekCloud',
+    type: 'company',
+    url: 'https://www.geekyun.com/',
+    docsUrl: 'https://www.geekyun.com/docs/',
+    baseUrl: 'https://api.geekyun.com/v1',
+    vendors: ['Meta', 'Qwen', 'DeepSeek', 'BAAI'],
+    features: '国内 GPU 算力租用平台,支持主流 GPU 型号,按需租用 + 长期租赁',
+    billing: '按 GPU 时长计费(元/小时),送新用户代金券,支持包日 / 包月套餐',
+  },
 ]
 
 /**
