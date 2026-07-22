@@ -10,7 +10,7 @@ import java.util.Objects;
  * <ul>
  *   <li>{@code apiKey} — 必需,API Key(格式 ihui_xxx)</li>
  *   <li>{@code secret} — 可选,API Secret(创建/轮换时返回)</li>
- *   <li>{@code baseUrl} — 基础 URL,默认 http://localhost:3001</li>
+ *   <li>{@code baseUrl} — 基础 URL,默认 http://localhost:8802</li>
  *   <li>{@code timeout} — 请求超时,默认 30s;流式请求不超时</li>
  *   <li>{@code maxRetries} — 最大重试次数,默认 2;网络错误和 5xx 自动重试,429 不重试</li>
  * </ul>
@@ -18,7 +18,7 @@ import java.util.Objects;
 public final class SdkConfig {
 
     /** 默认基础 URL。 */
-    public static final String DEFAULT_BASE_URL = "http://localhost:3001";
+    public static final String DEFAULT_BASE_URL = "http://localhost:8802";
 
     /** 默认超时(毫秒)。 */
     public static final long DEFAULT_TIMEOUT_MS = 30_000L;
@@ -115,7 +115,7 @@ public final class SdkConfig {
         /**
          * 设置基础 URL。
          *
-         * @param baseUrl 基础 URL(默认 http://localhost:3001)
+         * @param baseUrl 基础 URL(默认 http://localhost:8802)
          * @return 当前 builder
          */
         public Builder baseUrl(String baseUrl) {
