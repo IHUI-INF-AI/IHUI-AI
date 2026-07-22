@@ -25926,6 +25926,12 @@
     }
   },
   "aiNews": {
+    "leaderboard": {
+      "label": "大模型排行榜",
+      "title": "大模型排行榜 · Arena 评分",
+      "subtitle": "参考 arena.ai · Elo + Bootstrap CI",
+      "empty": "暂无排行数据"
+    },
     "hero": {
       "label": "AI 资讯 Hero",
       "badge": "2026-07 真实资讯流",
