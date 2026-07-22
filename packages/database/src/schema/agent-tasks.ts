@@ -10,7 +10,12 @@ import {
 } from 'drizzle-orm/pg-core'
 import { agents } from './agents-extended.js'
 import { agentRule } from './agent-rule.js'
+import { users } from './users.js'
 
+/**
+ * 智能体任务表。
+ * G10:补 updatedBy 字段(审计追溯,用户删除时 SET NULL)
+ */
 export const agentTasks = pgTable(
   'agent_tasks',
   {
@@ -29,6 +34,7 @@ export const agentTasks = pgTable(
     startedAt: timestamp('started_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     errorMessage: text('error_message'),
+    updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
