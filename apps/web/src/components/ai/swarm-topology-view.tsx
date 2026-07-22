@@ -1,15 +1,22 @@
 'use client'
 
 /**
- * SwarmTopologyView - Swarm mesh 拓扑可视化(2026-07-22 立)。
+ * SwarmTopologyView - Swarm mesh 拓扑可视化(2026-07-22 立,2026-07-22 深化)。
  *
  * 渲染:
  *  - SVG 画布(w-full h-72,viewBox 自适应)
- *  - 节点:rect rounded-md w-10 h-10 居中首字 + 状态色(idle 灰/running 蓝+脉冲/waiting 黄/completed 绿/failed 红)
+ *  - 节点:rect rounded-md 居中首字 + 状态色(pending 灰/running 蓝+脉冲/completed 绿/failed 红/cancelled 黄)
  *  - 边:带箭头 + label + 类型色(pipeline 灰实线/parallel 灰虚线/debate 红/vote 绿/critique 橙/communication 蓝虚线)
  *  - 自动布局:环形(简化 force-directed,节点间距 ≥80px)
- *  - hover 节点:tooltip(agent name + role + status)
+ *  - arbiter 节点(debate/vote 中心):稍大 + 紫色边框
+ *  - hover 节点:简略 tooltip(agent name + role + status)
+ *  - 点击节点:详细 tooltip(agent 角色 + 状态 + 耗时 + token)
  *  - 点击节点:高亮其所有边
+ *
+ * 深化:
+ *  - 节点状态色基于 dispatchStatus(pending/running/completed/failed/cancelled)
+ *  - 仲裁节点(isArbiter)居中渲染 + 紫色描边
+ *  - 点击 tooltip 显示 durationMs + tokenUsage
  *
  * 数据来源:useSwarmTopology hook(5s 轮询 /api/subagents/topology)
  *
@@ -30,16 +37,39 @@ import type {
   TopologyEdgeType,
 } from '@ihui/types/subagent-dispatch'
 
-/** 节点状态 → 颜色 + 是否脉冲 */
+/** dispatch 状态(用于精确颜色映射,从后端 RichTopologyNode 传入) */
+type DispatchStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+
+/** 扩展拓扑节点(后端 RichTopologyNode 的前端镜像,携带 dispatchStatus + 资源统计 + 仲裁标记) */
+interface RichTopologyNode extends TopologyNode {
+  dispatchStatus?: DispatchStatus
+  durationMs?: number
+  tokenUsage?: number
+  isArbiter?: boolean
+}
+
+/** dispatch 状态 → 颜色 + 是否脉冲(优先于 TopologyNodeStatus) */
+const DISPATCH_STATUS_STYLE: Record<
+  DispatchStatus,
+  { fill: string; stroke: string; pulse: boolean; label: string }
+> = {
+  pending: { fill: 'fill-muted', stroke: 'stroke-muted-foreground/40', pulse: false, label: '等待中' },
+  running: { fill: 'fill-blue-500/20', stroke: 'stroke-blue-500', pulse: true, label: '运行中' },
+  completed: { fill: 'fill-green-500/20', stroke: 'stroke-green-500', pulse: false, label: '已完成' },
+  failed: { fill: 'fill-red-500/20', stroke: 'stroke-red-500', pulse: false, label: '失败' },
+  cancelled: { fill: 'fill-yellow-500/20', stroke: 'stroke-yellow-500', pulse: false, label: '已取消' },
+}
+
+/** 节点状态 → 颜色 + 是否脉冲(回退,当无 dispatchStatus 时用) */
 const NODE_STATUS_STYLE: Record<
   TopologyNodeStatus,
-  { fill: string; stroke: string; pulse: boolean }
+  { fill: string; stroke: string; pulse: boolean; label: string }
 > = {
-  idle: { fill: 'fill-muted', stroke: 'stroke-muted-foreground/40', pulse: false },
-  running: { fill: 'fill-blue-500/20', stroke: 'stroke-blue-500', pulse: true },
-  waiting: { fill: 'fill-amber-500/15', stroke: 'stroke-amber-500', pulse: false },
-  completed: { fill: 'fill-emerald-500/20', stroke: 'stroke-emerald-500', pulse: false },
-  failed: { fill: 'fill-red-500/20', stroke: 'stroke-red-500', pulse: false },
+  idle: { fill: 'fill-muted', stroke: 'stroke-muted-foreground/40', pulse: false, label: '空闲' },
+  running: { fill: 'fill-blue-500/20', stroke: 'stroke-blue-500', pulse: true, label: '运行中' },
+  waiting: { fill: 'fill-muted', stroke: 'stroke-muted-foreground/40', pulse: false, label: '等待中' },
+  completed: { fill: 'fill-green-500/20', stroke: 'stroke-green-500', pulse: false, label: '已完成' },
+  failed: { fill: 'fill-red-500/20', stroke: 'stroke-red-500', pulse: false, label: '失败' },
 }
 
 /** 边类型 → 颜色 + 线型 */
@@ -55,33 +85,74 @@ const EDGE_TYPE_STYLE: Record<
   communication: { stroke: '#3b82f6', dash: '4 3' }, // 蓝虚线
 }
 
-/** 状态中文标签 */
-const STATUS_LABEL: Record<TopologyNodeStatus, string> = {
-  idle: '空闲',
-  running: '运行中',
-  waiting: '等待中',
-  completed: '已完成',
-  failed: '失败',
+/** 获取节点样式(优先 dispatchStatus,回退 TopologyNodeStatus) */
+function getNodeStyle(node: RichTopologyNode): {
+  fill: string
+  stroke: string
+  pulse: boolean
+  label: string
+} {
+  if (node.dispatchStatus) {
+    return DISPATCH_STATUS_STYLE[node.dispatchStatus]
+  }
+  return NODE_STATUS_STYLE[node.status]
+}
+
+/** 格式化耗时 */
+function formatDuration(ms?: number): string {
+  if (ms === undefined || ms === null) return '-'
+  if (ms < 1000) return `${ms}ms`
+  return `${(ms / 1000).toFixed(1)}s`
+}
+
+/** 格式化 token 数 */
+function formatTokens(tokens?: number): string {
+  if (tokens === undefined || tokens === null) return '-'
+  if (tokens < 1000) return `${tokens}`
+  return `${(tokens / 1000).toFixed(1)}k`
 }
 
 /** 环形布局:把节点均匀分布在圆周上,半径按节点数自适应 */
-function layoutNodes(nodes: TopologyNode[]): Map<string, { x: number; y: number }> {
+function layoutNodes(
+  nodes: RichTopologyNode[],
+): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>()
   const n = nodes.length
   if (n === 0) return positions
 
+  // 分离 arbiter 和普通节点
+  const arbiters = nodes.filter((node) => node.isArbiter)
+  const regular = nodes.filter((node) => !node.isArbiter)
+
+  const centerX = 200
+  const centerY = 130
+
   // 单节点:居中
   if (n === 1) {
-    positions.set(nodes[0]!.id, { x: 200, y: 130 })
+    positions.set(nodes[0]!.id, { x: centerX, y: centerY })
     return positions
   }
 
-  // 多节点:环形布局,半径保证节点间距 ≥80px
+  // 有 arbiter 的情况:arbiter 居中,其他节点环绕
+  if (arbiters.length === 1 && regular.length > 0) {
+    // arbiter 居中
+    positions.set(arbiters[0]!.id, { x: centerX, y: centerY })
+    // 普通节点环绕
+    const radius = Math.max(80, Math.min(140, regular.length * 22 + 50))
+    for (let i = 0; i < regular.length; i++) {
+      const angle = (i / regular.length) * Math.PI * 2 - Math.PI / 2
+      positions.set(regular[i]!.id, {
+        x: centerX + radius * Math.cos(angle),
+        y: centerY + radius * Math.sin(angle),
+      })
+    }
+    return positions
+  }
+
+  // 无 arbiter 或多个 arbiter:所有节点环形布局
   const radius = Math.max(80, Math.min(140, (n - 1) * 25 + 60))
-  const centerX = 200
-  const centerY = 130
   for (let i = 0; i < n; i++) {
-    const angle = (i / n) * Math.PI * 2 - Math.PI / 2 // 从顶部开始
+    const angle = (i / n) * Math.PI * 2 - Math.PI / 2
     positions.set(nodes[i]!.id, {
       x: centerX + radius * Math.cos(angle),
       y: centerY + radius * Math.sin(angle),
@@ -104,12 +175,15 @@ export function SwarmTopologyView({
   const query = useSwarmTopology()
   const topology = injectedTopology ?? query.data ?? { nodes: [], edges: [] }
 
+  // 将 nodes 转为 RichTopologyNode(运行时携带额外字段)
+  const richNodes: RichTopologyNode[] = topology.nodes as RichTopologyNode[]
+
   const [hoveredNodeId, setHoveredNodeId] = React.useState<string | null>(null)
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null)
 
   const positions = React.useMemo(
-    () => layoutNodes(topology.nodes),
-    [topology.nodes],
+    () => layoutNodes(richNodes),
+    [richNodes],
   )
 
   // 高亮边:selected 节点的所有边 / hover 节点的所有边
@@ -123,7 +197,13 @@ export function SwarmTopologyView({
     )
   }, [topology.edges, highlightNodeId])
 
-  const isEmpty = topology.nodes.length === 0
+  const isEmpty = richNodes.length === 0
+
+  // 选中节点的详细信息(点击 tooltip)
+  const selectedNode = selectedNodeId
+    ? richNodes.find((n) => n.id === selectedNodeId)
+    : null
+  const selectedPos = selectedNode ? positions.get(selectedNode.id) : null
 
   return (
     <div
@@ -180,12 +260,11 @@ export function SwarmTopologyView({
             const dx = to.x - from.x
             const dy = to.y - from.y
             const dist = Math.sqrt(dx * dx + dy * dy) || 1
-            const offset = 22 // 节点半径(w-10/2=20 + 2px 间隙)
+            const offset = 22
             const x1 = from.x + (dx / dist) * offset
             const y1 = from.y + (dy / dist) * offset
             const x2 = to.x - (dx / dist) * offset
             const y2 = to.y - (dy / dist) * offset
-            // label 中点
             const midX = (x1 + x2) / 2
             const midY = (y1 + y2) / 2
             return (
@@ -217,16 +296,20 @@ export function SwarmTopologyView({
           })}
 
           {/* 渲染节点 */}
-          {topology.nodes.map((node: TopologyNode) => {
+          {richNodes.map((node: RichTopologyNode) => {
             const pos = positions.get(node.id)
             if (!pos) return null
-            const style = NODE_STATUS_STYLE[node.status] ?? { fill: 'fill-muted', stroke: 'stroke-muted-foreground/40', pulse: false }
+            const style = getNodeStyle(node)
             const isSelected = selectedNodeId === node.id
             const isHovered = hoveredNodeId === node.id
             const isDimmed = highlightNodeId && highlightNodeId !== node.id
-            // rect 中心定位:x - 20, y - 20(w-10 h-10 = 40x40)
-            const rx = pos.x - 20
-            const ry = pos.y - 20
+            // arbiter 节点稍大(48x48)+ 紫色描边
+            const nodeSize = node.isArbiter ? 48 : 40
+            const halfSize = nodeSize / 2
+            const rx = pos.x - halfSize
+            const ry = pos.y - halfSize
+            const arbiterStroke = node.isArbiter ? 'stroke-purple-500' : style.stroke
+            const arbiterStrokeWidth = node.isArbiter ? 2 : 1.2
             return (
               <g
                 key={node.id}
@@ -243,8 +326,8 @@ export function SwarmTopologyView({
                   <rect
                     x="-3"
                     y="-3"
-                    width="46"
-                    height="46"
+                    width={nodeSize + 6}
+                    height={nodeSize + 6}
                     rx="8"
                     className="fill-blue-500/10 stroke-blue-500/30"
                     style={{
@@ -256,30 +339,42 @@ export function SwarmTopologyView({
                 <rect
                   x="0"
                   y="0"
-                  width="40"
-                  height="40"
+                  width={nodeSize}
+                  height={nodeSize}
                   rx="6"
                   ry="6"
-                  className={cn(style.fill, style.stroke)}
-                  strokeWidth={isSelected || isHovered ? 2 : 1.2}
+                  className={cn(style.fill, arbiterStroke)}
+                  strokeWidth={isSelected || isHovered ? 2.5 : arbiterStrokeWidth}
                   opacity={isDimmed ? 0.4 : 1}
                 />
+                {/* arbiter 标记(中心点) */}
+                {node.isArbiter && (
+                  <circle
+                    cx={halfSize}
+                    cy={halfSize - 8}
+                    r="2"
+                    className="fill-purple-500"
+                  />
+                )}
                 {/* 节点首字(label 第一个字符) */}
                 <text
-                  x="20"
-                  y="20"
+                  x={halfSize}
+                  y={halfSize}
                   textAnchor="middle"
                   dominantBaseline="central"
                   className="fill-foreground text-[11px] font-medium"
-                  style={{ fontSize: '11px', fontWeight: 500 }}
+                  style={{
+                    fontSize: node.isArbiter ? '13px' : '11px',
+                    fontWeight: 600,
+                  }}
                   opacity={isDimmed ? 0.4 : 1}
                 >
                   {node.label.charAt(0)}
                 </text>
                 {/* 节点名(label 全文,放在 rect 下方) */}
                 <text
-                  x="20"
-                  y="52"
+                  x={halfSize}
+                  y={nodeSize + 12}
                   textAnchor="middle"
                   className="fill-muted-foreground text-[7px]"
                   style={{ fontSize: '7px' }}
@@ -292,16 +387,19 @@ export function SwarmTopologyView({
         </svg>
       )}
 
-      {/* Tooltip(hover 节点时显示) */}
+      {/* Hover Tooltip(简略) */}
       {hoveredNodeId &&
-        topology.nodes.find((n: TopologyNode) => n.id === hoveredNodeId) &&
+        !selectedNodeId &&
+        richNodes.find((n: RichTopologyNode) => n.id === hoveredNodeId) &&
         (() => {
-          const node = topology.nodes.find((n: TopologyNode) => n.id === hoveredNodeId)!
+          const node = richNodes.find(
+            (n: RichTopologyNode) => n.id === hoveredNodeId,
+          )!
           const pos = positions.get(node.id)
           if (!pos) return null
-          // tooltip 定位在节点右上方(SVG 坐标 → 百分比)
           const leftPct = (pos.x / 400) * 100
           const topPct = (pos.y / 260) * 100
+          const style = getNodeStyle(node)
           return (
             <div
               className="pointer-events-none absolute z-10 rounded-md border border-border bg-popover px-2 py-1 text-[10px] shadow-md"
@@ -310,16 +408,64 @@ export function SwarmTopologyView({
                 top: `${Math.max(topPct - 12, 0)}%`,
               }}
             >
-              <div className="font-medium text-foreground">{node.label}</div>
+              <div className="font-medium text-foreground">
+                {node.label}
+                {node.isArbiter && (
+                  <span className="ml-1 text-purple-500">仲裁</span>
+                )}
+              </div>
               <div className="text-muted-foreground">
-                角色:{node.role} · {STATUS_LABEL[node.status]}
+                角色:{node.role} · {style.label}
               </div>
             </div>
           )
         })()}
 
+      {/* Click Detail Tooltip(详细:角色 + 状态 + 耗时 + token) */}
+      {selectedNode && selectedPos && (
+        <div
+          className="absolute z-20 w-44 rounded-md border border-border bg-popover px-2.5 py-2 text-[10px] shadow-lg"
+          style={{
+            left: `${Math.min((selectedPos.x / 400) * 100 + 6, 55)}%`,
+            top: `${Math.max((selectedPos.y / 260) * 100 - 10, 0)}%`,
+          }}
+        >
+          <div className="mb-1 flex items-center gap-1 font-medium text-foreground">
+            <span>{selectedNode.label}</span>
+            {selectedNode.isArbiter && (
+              <span className="rounded-sm bg-purple-500/10 px-1 text-[9px] text-purple-600">
+                仲裁节点
+              </span>
+            )}
+          </div>
+          <div className="space-y-0.5 text-muted-foreground">
+            <div>角色:{selectedNode.role}</div>
+            <div>
+              状态:
+              <span
+                className={cn(
+                  'ml-1 font-medium',
+                  selectedNode.dispatchStatus === 'completed' && 'text-green-600',
+                  selectedNode.dispatchStatus === 'running' && 'text-blue-600',
+                  selectedNode.dispatchStatus === 'failed' && 'text-red-600',
+                  selectedNode.dispatchStatus === 'cancelled' && 'text-yellow-600',
+                  selectedNode.dispatchStatus === 'pending' && 'text-muted-foreground',
+                )}
+              >
+                {getNodeStyle(selectedNode).label}
+              </span>
+            </div>
+            <div>耗时:{formatDuration(selectedNode.durationMs)}</div>
+            <div>Token:{formatTokens(selectedNode.tokenUsage)}</div>
+          </div>
+          <div className="mt-1 text-[9px] text-muted-foreground/60">
+            点击空白取消 · 再次点击同一节点取消
+          </div>
+        </div>
+      )}
+
       {/* 选中状态提示 */}
-      {selectedNodeId && (
+      {selectedNodeId && !selectedNode && (
         <div className="absolute bottom-1 left-2 text-[10px] text-muted-foreground">
           已选中节点(点击空白取消高亮)·再次点击同一节点取消
         </div>

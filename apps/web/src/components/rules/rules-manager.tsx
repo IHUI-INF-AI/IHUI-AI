@@ -2,7 +2,9 @@
 
 import * as React from 'react'
 import {
+  AlertTriangle,
   FlaskConical,
+  LayoutTemplate,
   Loader2,
   Pencil,
   Plus,
@@ -11,6 +13,7 @@ import {
   X,
 } from 'lucide-react'
 
+import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useRules } from '@/hooks/use-rules'
 import {
@@ -23,16 +26,78 @@ import type { Rule, RuleInput, RuleMatchType, RuleScope } from '@ihui/types'
 import { Badge, Button, Input } from '@ihui/ui'
 
 /**
- * Rules 管理器 — 规则列表 + 编辑器 + 启用/禁用 + 优先级 + 测试。
+ * Rules 管理器 — 规则列表 + 编辑器 + 启用/禁用 + 优先级 + 测试 + 冲突检测 + 模板库。
  *
  * 对标 Trae IDE Rules:用户可编辑的规则集,约束 agent 运行时行为。
  * 数据流:react-query(useRules)↔ /api/rules ↔ ai-service rules_engine。
  */
 
+// ── 冲突检测 + 模板库本地类型(与 api rules-service.ts DTO 对齐)──────────
+
+interface RuleConflict {
+  type: 'name_conflict' | 'semantic_duplicate' | 'priority_collision'
+  ruleIds: string[]
+  detail: string
+}
+
+interface RuleConflictsResponse {
+  conflicts: RuleConflict[]
+}
+
+interface RuleTemplate {
+  name: string
+  description: string
+  matchType: 'always' | 'keyword' | 'regex' | 'semantic'
+  pattern: string
+  priority: number
+  scope: 'global' | 'workspace' | 'agent'
+  content: string
+}
+
+interface RuleTemplatesResponse {
+  templates: RuleTemplate[]
+}
+
+async function rulesApi<T>(url: string, options: RequestInit = {}): Promise<T> {
+  const r = await fetchApi<T>(url, options)
+  if (!r.success) throw new Error(r.error)
+  return r.data
+}
+
+/** 冲突类型中文标签 */
+function conflictTypeLabel(type: RuleConflict['type']): string {
+  switch (type) {
+    case 'name_conflict':
+      return '同名冲突'
+    case 'semantic_duplicate':
+      return '语义重复'
+    case 'priority_collision':
+      return '优先级碰撞'
+    default:
+      return type
+  }
+}
+
+/** 冲突类型徽章样式 */
+function conflictBadgeClass(type: RuleConflict['type']): string {
+  switch (type) {
+    case 'name_conflict':
+      return 'bg-yellow-500/10 text-yellow-600'
+    case 'semantic_duplicate':
+      return 'bg-orange-500/10 text-orange-600'
+    case 'priority_collision':
+      return 'bg-red-500/10 text-red-600'
+    default:
+      return 'bg-muted text-muted-foreground'
+  }
+}
+
 export function RulesManager() {
   const { rules, loading, error, refresh, deleteRule, toggleEnabled } =
     useRules()
   const { startCreate, startEdit } = useRulesStore()
+  const [showConflicts, setShowConflicts] = React.useState(false)
+  const [showTemplates, setShowTemplates] = React.useState(false)
 
   return (
     <div className="space-y-4">
@@ -41,6 +106,22 @@ export function RulesManager() {
           共 {rules.length} 条规则,按优先级降序排列
         </p>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowConflicts(true)}
+          >
+            <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+            <span>检测冲突</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowTemplates(true)}
+          >
+            <LayoutTemplate className="mr-1 h-3.5 w-3.5" />
+            <span>模板库</span>
+          </Button>
           <Button variant="outline" size="sm" onClick={() => refresh()}>
             刷新
           </Button>
@@ -86,6 +167,15 @@ export function RulesManager() {
 
       <RuleEditDialog />
       <RuleTestDialog />
+      {showConflicts && (
+        <RuleConflictDialog
+          rules={rules}
+          onClose={() => setShowConflicts(false)}
+        />
+      )}
+      {showTemplates && (
+        <RuleTemplateDialog onClose={() => setShowTemplates(false)} />
+      )}
     </div>
   )
 }
@@ -469,6 +559,274 @@ function RuleTestDialog() {
             {testResult.matched ? '匹配命中' : '未命中'} — {testResult.reason}
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ── 冲突检测对话框 ──────────────────────────────────────
+
+interface RuleConflictDialogProps {
+  rules: Rule[]
+  onClose: () => void
+}
+
+function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
+  const [conflicts, setConflicts] = React.useState<RuleConflict[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    rulesApi<RuleConflictsResponse>('/api/rules/conflicts')
+      .then((res) => {
+        if (!cancelled) {
+          setConflicts(res.conflicts)
+          setLoading(false)
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setError((e as Error).message)
+          setLoading(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // 规则 ID → 名称映射(用于在冲突详情中显示可读名称)
+  const ruleNameMap = React.useMemo(
+    () => new Map(rules.map((r) => [r.id, r.name])),
+    [rules],
+  )
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="flex max-h-[80vh] w-full max-w-lg flex-col space-y-3 rounded-lg border border-border bg-card p-4 shadow-lg">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold">规则冲突检测</span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="关闭"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            检测中...
+          </div>
+        ) : error ? (
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {error}
+          </div>
+        ) : conflicts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-green-500/10 text-green-600">
+              <AlertTriangle className="h-4 w-4" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              未检测到冲突,规则集状态良好
+            </p>
+          </div>
+        ) : (
+          <div className="thin-scroll space-y-2 overflow-y-auto">
+            <p className="text-xs text-muted-foreground">
+              检测到 {conflicts.length} 处冲突
+            </p>
+            {conflicts.map((conflict, idx) => (
+              <div
+                key={`${conflict.type}-${idx}`}
+                className="space-y-1.5 rounded-md border border-border bg-background px-3 py-2"
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-sm px-1.5 py-0 text-[10px]',
+                      conflictBadgeClass(conflict.type),
+                    )}
+                  >
+                    {conflictTypeLabel(conflict.type)}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {conflict.detail}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {conflict.ruleIds.map((rid) => (
+                    <span
+                      key={rid}
+                      className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                    >
+                      {ruleNameMap.get(rid) ?? rid}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center justify-end">
+          <Button variant="outline" size="sm" onClick={onClose}>
+            关闭
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── 模板库对话框 ────────────────────────────────────────
+
+interface RuleTemplateDialogProps {
+  onClose: () => void
+}
+
+function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
+  const [templates, setTemplates] = React.useState<RuleTemplate[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
+  const [creatingName, setCreatingName] = React.useState<string | null>(null)
+  const { createRule } = useRules()
+
+  React.useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    rulesApi<RuleTemplatesResponse>('/api/rules/templates')
+      .then((res) => {
+        if (!cancelled) {
+          setTemplates(res.templates)
+          setLoading(false)
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setError((e as Error).message)
+          setLoading(false)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const handleUseTemplate = async (template: RuleTemplate) => {
+    setCreatingName(template.name)
+    try {
+      const input: RuleInput = {
+        name: template.name,
+        description: template.description,
+        content: template.content,
+        scope: template.scope,
+        priority: template.priority,
+        matchType: template.matchType,
+        matchPattern: template.pattern,
+      }
+      await createRule(input)
+      onClose()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setCreatingName(null)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="flex max-h-[80vh] w-full max-w-lg flex-col space-y-3 rounded-lg border border-border bg-card p-4 shadow-lg">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold">规则模板库</span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="关闭"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            加载模板...
+          </div>
+        ) : error ? (
+          <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {error}
+          </div>
+        ) : (
+          <div className="thin-scroll space-y-2 overflow-y-auto">
+            <p className="text-xs text-muted-foreground">
+              共 {templates.length} 个预置模板,点击「使用」快速创建规则
+            </p>
+            {templates.map((template) => (
+              <div
+                key={template.name}
+                className="space-y-1.5 rounded-md border border-border bg-background px-3 py-2"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-medium">
+                    {template.name}
+                  </span>
+                  <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0 text-[10px] text-muted-foreground">
+                    {matchTypeLabel(template.matchType)}
+                  </span>
+                  <Badge
+                    variant={priorityVariant(template.priority)}
+                    className={cn(
+                      'shrink-0 px-1.5 py-0 text-[10px]',
+                      template.priority >= 70 &&
+                        'border-transparent bg-green-500/10 text-green-600',
+                      template.priority >= 30 &&
+                        template.priority < 70 &&
+                        'border-transparent bg-yellow-500/10 text-yellow-600',
+                      template.priority < 30 &&
+                        'border-transparent bg-muted text-muted-foreground',
+                    )}
+                  >
+                    P{template.priority}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {template.description}
+                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <code className="truncate rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    {template.pattern}
+                  </code>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0"
+                    disabled={creatingName !== null}
+                    onClick={() => handleUseTemplate(template)}
+                  >
+                    {creatingName === template.name
+                      ? '创建中...'
+                      : '使用'}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center justify-end">
+          <Button variant="outline" size="sm" onClick={onClose}>
+            关闭
+          </Button>
+        </div>
       </div>
     </div>
   )
