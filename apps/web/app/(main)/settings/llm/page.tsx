@@ -1,149 +1,161 @@
 'use client'
 
+/**
+ * 用户级 LLM 配置中心 — 主页面 v2(2026-07-22 升级)
+ *
+ * 方案 B 整合:两栏布局
+ *  - 左侧:GroupSidebar(分组导航 + 添加分组)
+ *  - 右侧:ProviderCardV2 列表(每个 provider 卡片含其下所有 model)
+ *
+ * 深度功能(2026-07-22):
+ *  - 批量导入/导出(BulkImportExportDialog)
+ *  - 跨 Provider 模型对比(CompareModelsDialog)
+ *  - 一键复制 model 到其他 provider(CopyModelDialog)
+ *  - 模板选择 + 行业通用英文术语(Temperature / Max Tokens 等)
+ */
 import * as React from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { useSearchParams } from 'next/navigation'
-import { toast } from 'sonner'
-import { Info, KeyRound, Loader2, Plus, Sparkles, Wand2 } from 'lucide-react'
 
 import { Button, Card, CardContent } from '@ihui/ui'
 import { Container } from '@/components/layout'
 import { Alert } from '@/components/feedback'
-import Link from 'next/link'
-import { PackagePlus } from 'lucide-react'
+import { KeyRound, Loader2, PackagePlus, Sparkles, Wand2 } from 'lucide-react'
 
-import { LlmConfigDialog } from './LlmConfigDialog'
-import { LlmConfigCard } from './LlmConfigCard'
+import { GroupSidebar } from './GroupSidebar'
+import { ProviderCardV2 } from './ProviderCardV2'
+import { ProviderFormDialog } from './ProviderFormDialog'
+import { ModelFormDialog } from './ModelFormDialog'
+import { BulkImportExportDialog } from './BulkImportExportDialog'
+import { CompareModelsDialog } from './CompareModelsDialog'
+import { CopyModelDialog } from './CopyModelDialog'
 import {
-  fetchConfigs,
-  fetchTemplates,
-  createConfig,
-  updateConfig,
-  configToForm,
-  templateToForm,
-  EMPTY_FORM,
-  type FormState,
-} from './helpers'
-import type { PlatformTemplate, UserLlmConfig } from './types'
+  fetchProvidersV2,
+  fetchTemplatesV2,
+  fetchGroupsV2,
+} from './helpers-v2'
+import type { PlatformTemplate } from './types'
+import type {
+  ProviderGroup,
+  UserLlmModel,
+  UserLlmProvider,
+} from './types-v2'
 
 export default function UserLlmConfigsPage() {
   const t = useTranslations('llmSettings')
-  const tDialog = useTranslations('llmSettings.dialog')
+  const tV2 = useTranslations('llmSettings.v2')
   const qc = useQueryClient()
-  const searchParams = useSearchParams()
-  // URL 深链预填:?template=openai&model=gpt-4o&name=我的 OpenAI&action=create
-  // - 用于从模型广场 / 详情对话框 / QuickKeyDialog 关闭后跳到完整配置页继续编辑
-  const urlTemplate = searchParams.get('template') || ''
-  const urlModel = searchParams.get('model') || ''
-  const urlName = searchParams.get('name') || ''
-  const urlAction = searchParams.get('action') || ''
-  const urlPrefillHandled = React.useRef(false)
 
-  const [open, setOpen] = React.useState(false)
-  const [form, setForm] = React.useState<FormState>(EMPTY_FORM)
+  // 选中的 group('__all__' | '__ungrouped__' | groupCode)
+  const [activeGroup, setActiveGroup] = React.useState('__all__')
+
+  // Dialog 状态
+  const [provDialogOpen, setProvDialogOpen] = React.useState(false)
+  const [editingProvider, setEditingProvider] = React.useState<UserLlmProvider | null>(null)
+
+  const [modelDialogOpen, setModelDialogOpen] = React.useState(false)
+  const [modelDialogProvider, setModelDialogProvider] = React.useState<UserLlmProvider | null>(null)
+  const [editingModel, setEditingModel] = React.useState<UserLlmModel | null>(null)
+
+  const [bulkOpen, setBulkOpen] = React.useState(false)
+  const [compareOpen, setCompareOpen] = React.useState(false)
+  const [compareSelectedIds, setCompareSelectedIds] = React.useState<number[]>([])
+
+  const [copySource, setCopySource] = React.useState<{
+    prov: UserLlmProvider
+    m: UserLlmModel
+  } | null>(null)
 
   // 加载模板
   const { data: tplData } = useQuery({
-    queryKey: ['user-llm-templates'],
-    queryFn: () => fetchTemplates(),
+    queryKey: ['v2-templates'],
+    queryFn: () => fetchTemplatesV2(),
     staleTime: 5 * 60_000,
   })
-  const templates: PlatformTemplate[] = React.useMemo(() => tplData?.templates ?? [], [tplData])
+  const templates: PlatformTemplate[] = React.useMemo(
+    () => tplData?.templates ?? [],
+    [tplData],
+  )
   const templateMap = React.useMemo(
     () => Object.fromEntries(templates.map((tpl) => [tpl.code, tpl])),
     [templates],
   )
 
-  // URL 深链预填:模板加载完成 + 含有效 template 时 → 自动打开 dialog
-  React.useEffect(() => {
-    if (urlPrefillHandled.current) return
-    if (!urlTemplate || !templates.length) return
-    const tpl = templateMap[urlTemplate]
-    if (!tpl) return
-    const pre: FormState = {
-      ...templateToForm(tpl),
-      modelId: urlModel || tpl.defaultModelId,
-      name: urlName || tpl.name,
-    }
-    setForm(pre)
-    if (urlAction === 'create' || urlAction === 'edit' || !urlAction) {
-      setOpen(true)
-    }
-    urlPrefillHandled.current = true
-  }, [urlTemplate, urlModel, urlName, urlAction, templates, templateMap])
-
-  // 加载用户配置
+  // 加载 provider 列表
   const { data, isLoading } = useQuery({
-    queryKey: ['user-llm-configs'],
-    queryFn: () => fetchConfigs(),
+    queryKey: ['v2-providers'],
+    queryFn: () => fetchProvidersV2(),
   })
-  const list: UserLlmConfig[] = data?.list ?? []
+  const groups: ProviderGroup[] = React.useMemo(() => data?.groups ?? [], [data])
+  const allProviders: UserLlmProvider[] = React.useMemo(
+    () => groups.flatMap((g) => g.providers),
+    [groups],
+  )
 
-  // 创建
-  const createMut = useMutation({
-    mutationFn: (f: FormState) => createConfig(f),
-    onSuccess: (res) => {
-      toast.success(tDialog('created'), { description: tDialog('createdDesc', { name: res.name }) })
-      qc.invalidateQueries({ queryKey: ['user-llm-configs'] })
-      closeDialog()
-    },
-    onError: (e: Error) => toast.error(tDialog('createFailed'), { description: e.message }),
+  // 加载分组(用于 ProviderFormDialog 的 existingGroups 下拉)
+  const { data: groupsData } = useQuery({
+    queryKey: ['v2-groups'],
+    queryFn: () => fetchGroupsV2(),
+    staleTime: 60_000,
   })
+  const existingGroups = React.useMemo(
+    () =>
+      (groupsData?.list ?? []).map((g) => ({
+        group: g.id.toString(),
+        groupLabel: g.label,
+      })),
+    [groupsData],
+  )
 
-  // 更新
-  const updateMut = useMutation({
-    mutationFn: ({ id, f }: { id: number; f: FormState }) => updateConfig(id, f),
-    onSuccess: () => {
-      toast.success(tDialog('saved'))
-      qc.invalidateQueries({ queryKey: ['user-llm-configs'] })
-      closeDialog()
-    },
-    onError: (e: Error) => toast.error(tDialog('saveFailed'), { description: e.message }),
-  })
+  // 按 activeGroup 过滤 provider
+  const visibleProviders: UserLlmProvider[] = React.useMemo(() => {
+    if (activeGroup === '__all__') return allProviders
+    if (activeGroup === '__ungrouped__') {
+      return allProviders.filter(
+        (p) =>
+          !p.providerGroup ||
+          p.providerGroup === 'default' ||
+          p.providerGroup === '' ||
+          p.providerGroup === null,
+      )
+    }
+    return allProviders.filter((p) => p.providerGroup === activeGroup)
+  }, [allProviders, activeGroup])
 
-  function openCreate() {
-    setForm(EMPTY_FORM)
-    setOpen(true)
-  }
-  function openEdit(c: UserLlmConfig) {
-    setForm(configToForm(c, c.providerCode))
-    setOpen(true)
-  }
-  function closeDialog() {
-    if (createMut.isPending || updateMut.isPending) return
-    setOpen(false)
-  }
-  function submit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!form.templateCode) {
-      toast.error(tDialog('selectTemplate'))
-      return
-    }
-    if (!form.name.trim()) {
-      const tpl = templateMap[form.templateCode]
-      setForm({ ...form, name: tpl?.name ?? tDialog('namePlaceholder') })
-    }
-    if (!form.id && !form.apiKey) {
-      toast.error(tDialog('fillKey'))
-      return
-    }
-    if (!form.modelId.trim()) {
-      toast.error(tDialog('fillModelId'))
-      return
-    }
-    if (form.id) {
-      updateMut.mutate({ id: form.id, f: form })
-    } else {
-      createMut.mutate(form)
-    }
-  }
+  const total = allProviders.length
+  const enabledCount = allProviders.filter((p) => p.enabled).length
 
-  const enabledCount = list.filter((c) => c.enabled).length
-  const total = list.length
+  function openCreateProvider() {
+    setEditingProvider(null)
+    setProvDialogOpen(true)
+  }
+  function openEditProvider(prov: UserLlmProvider) {
+    setEditingProvider(prov)
+    setProvDialogOpen(true)
+  }
+  function openAddModel(prov: UserLlmProvider) {
+    setEditingModel(null)
+    setModelDialogProvider(prov)
+    setModelDialogOpen(true)
+  }
+  function openEditModel(prov: UserLlmProvider, m: UserLlmModel) {
+    setEditingModel(m)
+    setModelDialogProvider(prov)
+    setModelDialogOpen(true)
+  }
+  function handleCompareModel(_prov: UserLlmProvider, m: UserLlmModel) {
+    setCompareSelectedIds([m.id])
+    setCompareOpen(true)
+  }
+  function handleCopyModel(prov: UserLlmProvider, m: UserLlmModel) {
+    setCopySource({ prov, m })
+  }
+  function refreshAll() {
+    qc.invalidateQueries({ queryKey: ['v2-providers'] })
+  }
 
   return (
-    <Container maxWidth="lg" padding={false} className="space-y-6 py-6">
+    <Container maxWidth="xl" padding={false} className="space-y-5 py-6">
       {/* Header */}
       <header className="flex items-start justify-between gap-3">
         <div className="space-y-1">
@@ -153,128 +165,160 @@ export default function UserLlmConfigsPage() {
           </h1>
           <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <Button asChild size="sm" variant="outline">
-          <Link href="/settings/import">
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setBulkOpen(true)} size="sm" variant="outline">
             <PackagePlus className="mr-1.5 h-4 w-4" />
-            <span>{t('importCliConfig')}</span>
-          </Link>
-        </Button>
+            {tV2('bulk.title')}
+          </Button>
+          <Button onClick={openCreateProvider} size="sm">
+            <Sparkles className="mr-1.5 h-4 w-4" />
+            {tV2('newProvider')}
+          </Button>
+        </div>
       </header>
 
       {/* Info Banner */}
       <Alert variant="info" title={t('infoTitle')} description={t('infoDesc')} />
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">{t('statsTotal')}</p>
-            <p className="text-2xl font-bold">{total}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">{t('statsEnabled')}</p>
-            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-              {enabledCount}
+      {/* Two-column layout */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-[200px_1fr]">
+        <div className="rounded-lg border bg-card p-2">
+          <GroupSidebar
+            groups={groups}
+            activeGroup={activeGroup}
+            onChange={setActiveGroup}
+          />
+        </div>
+        <div className="space-y-3">
+          {/* Toolbar */}
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              {tV2('listCount', { total, enabledCount })}
             </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">{t('statsAvailablePlatforms')}</p>
-            <p className="text-2xl font-bold text-primary">{templates.length}</p>
-          </CardContent>
-        </Card>
-      </div>
+            {visibleProviders.length > 0 && (
+              <Button onClick={openCreateProvider} size="sm" variant="outline">
+                <Sparkles className="mr-1.5 h-4 w-4" />
+                {tV2('newProvider')}
+              </Button>
+            )}
+          </div>
 
-      {/* Action bar */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {total === 0 ? t('emptyList') : t('listCount', { total, enabledCount })}
-        </p>
-        <Button onClick={openCreate} size="sm">
-          <Plus className="mr-1.5 h-4 w-4" />
-          {t('newConfig')}
-        </Button>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {t('loading')}
+            </div>
+          ) : visibleProviders.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+                <div className="rounded-md bg-primary/10 p-3">
+                  <Wand2 className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{tV2('emptyTitle')}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {tV2('emptyDesc')}
+                  </p>
+                </div>
+                <Button onClick={openCreateProvider} variant="outline" size="sm">
+                  <Sparkles className="mr-1.5 h-4 w-4" />
+                  {tV2('firstProvider')}
+                </Button>
+                {templates.length > 0 && (
+                  <div className="mt-4 w-full">
+                    <p className="mb-2 text-xs text-muted-foreground">
+                      {tV2('quickStartTitle')}
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {templates
+                        .filter(
+                          (tpl) =>
+                            tpl.isOfficial &&
+                            ['openai', 'deepseek', 'zhipu', 'alibaba', 'moonshot'].includes(
+                              tpl.code,
+                            ),
+                        )
+                        .map((tpl) => (
+                          <button
+                            key={tpl.code}
+                            type="button"
+                            onClick={() => {
+                              setEditingProvider(null)
+                              setProvDialogOpen(true)
+                            }}
+                            className="rounded-md border px-3 py-1 text-xs transition-colors hover:border-primary hover:bg-primary/5"
+                          >
+                            {tpl.name}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+              {visibleProviders.map((p) => (
+                <ProviderCardV2
+                  key={p.id}
+                  provider={p}
+                  template={templateMap[p.providerCode]}
+                  onEditProvider={openEditProvider}
+                  onAddModel={openAddModel}
+                  onEditModel={openEditModel}
+                  onCompareModel={handleCompareModel}
+                  onCopyModelToProvider={handleCopyModel}
+                  onDeleted={refreshAll}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-
-      {/* List */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          {t('loading')}
-        </div>
-      ) : list.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-            <div className="rounded-md bg-primary/10 p-3">
-              <Wand2 className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm font-medium">{t('noConfigs')}</p>
-              <p className="mt-1 text-xs text-muted-foreground">{t('noConfigsDesc')}</p>
-            </div>
-            <Button onClick={openCreate} variant="outline" size="sm">
-              <Sparkles className="mr-1.5 h-4 w-4" />
-              {t('firstConfig')}
-            </Button>
-            {/* Quick start templates */}
-            <div className="mt-4 w-full">
-              <p className="mb-2 text-xs text-muted-foreground">{t('quickStartTitle')}</p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {templates
-                  .filter(
-                    (tpl) =>
-                      tpl.isOfficial &&
-                      ['openai', 'deepseek', 'zhipu', 'alibaba', 'moonshot'].includes(tpl.code),
-                  )
-                  .map((tpl) => (
-                    <button
-                      key={tpl.code}
-                      type="button"
-                      onClick={() => {
-                        setForm(templateToForm(tpl))
-                        setOpen(true)
-                      }}
-                      className="rounded-md border px-3 py-1 text-xs transition-colors hover:border-primary hover:bg-primary/5"
-                    >
-                      {tpl.name}
-                    </button>
-                  ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {list.map((c) => (
-            <LlmConfigCard
-              key={c.id}
-              config={c}
-              template={templateMap[c.providerCode]}
-              onEdit={openEdit}
-              onDeleted={() => qc.invalidateQueries({ queryKey: ['user-llm-configs'] })}
-            />
-          ))}
-        </div>
-      )}
 
       {/* Security notice */}
       <div className="flex items-start gap-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground">
-        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <p>{t('securityNotice')}</p>
       </div>
 
-      {/* Edit/Create dialog */}
-      <LlmConfigDialog
-        open={open}
-        form={form}
-        setForm={setForm}
+      {/* Provider create/edit dialog */}
+      <ProviderFormDialog
+        open={provDialogOpen}
+        provider={editingProvider}
         templates={templates}
-        savePending={createMut.isPending || updateMut.isPending}
-        onSubmit={submit}
-        onClose={closeDialog}
+        existingGroups={existingGroups}
+        onClose={() => setProvDialogOpen(false)}
+        onSaved={refreshAll}
+      />
+
+      {/* Model create/edit dialog */}
+      <ModelFormDialog
+        open={modelDialogOpen}
+        provider={modelDialogProvider}
+        model={editingModel}
+        onClose={() => setModelDialogOpen(false)}
+        onSaved={refreshAll}
+      />
+
+      {/* Bulk import/export */}
+      <BulkImportExportDialog open={bulkOpen} onClose={() => setBulkOpen(false)} />
+
+      {/* Cross-provider model compare */}
+      <CompareModelsDialog
+        open={compareOpen}
+        providers={allProviders}
+        initialSelectedIds={compareSelectedIds}
+        onClose={() => setCompareOpen(false)}
+      />
+
+      {/* Copy model to other provider */}
+      <CopyModelDialog
+        open={Boolean(copySource)}
+        sourceProvider={copySource?.prov ?? null}
+        sourceModel={copySource?.m ?? null}
+        allProviders={allProviders}
+        onClose={() => setCopySource(null)}
+        onSaved={refreshAll}
       />
     </Container>
   )
