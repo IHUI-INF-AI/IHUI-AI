@@ -44,7 +44,7 @@ services:
   # 指标存储 + 查询,抓取 Collector + api + ai-service 的 metrics
   prometheus:
     image: prom/prometheus:v2.54.0
-    container_name: ihui-prometheus
+    container_name: ihui-observability-prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
@@ -53,7 +53,7 @@ services:
       - '--storage.tsdb.retention.time=7d'
       - '--web.enable-lifecycle'
     ports:
-      - "8815:9090"
+      - "8825:9090"
     restart: unless-stopped
 
   # ===== Grafana =====
