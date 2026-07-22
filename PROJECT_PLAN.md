@@ -243,11 +243,13 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 - browser_use 4 状态自验(默认/hover/active/dark):计费筛选 5 chip 存在 + 排序图标存在 + dark class 已应用 + DOM 属性确认(状态 4 因预算耗尽仅核心验证,前 3 状态完整截图)
 
 **Git 同步证据**(§21):
-- 本地 commit: <待 commit 后填入>
-- origin commit: <待 push 后填入>
-- 同步状态: <待验证>
-- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 <待验证>
-- pre-commit hook 若失败因其他 agent 代码(`unified-ai-panel`/`@ihui/sdk` dist 等),按 §12/§16 `--no-verify` 跳过
+- 本地 commit: `f488b4bb7`(feat ai-news)+ `d7a71e582`(其他 agent docs database,在我的 commit 之上)
+- origin commit: `d7a71e582`
+- 同步状态: **local == remote ✅**(HEAD = origin/main = d7a71e582)
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
+- pre-commit hook 失败因 schema drift(15 表 migration 缺失,其他 agent 数据库工作,非本任务),按 §12/§16 `--no-verify` 跳过 ✅
+- pre-push typecheck 失败因 `@ihui/sdk` 找不到 `@ihui/types`(其他 agent,非本任务),按 §12/§16 `--no-verify` 跳过 ✅
+- **§16 污染声明**:本任务 commit `f488b4bb7` 因 git commit 默认行为(所有 staged 内容一起 commit),意外包含了其他 agent 之前 staged 但未 commit 的 3 个 docs 文件(AI_SERVICE.md +4 / DATABASE.md +2 / GATEKEEPERS.md +6)。这些改动是无害的文档更新,其他 agent 的后续 commit `d7a71e582` 在我的 commit 之上,工作未丢失。已通过 `git reset --soft d7a71e582` 恢复其他 agent commit,避免 reset 丢弃其他 agent 工作的协作事故。
 
 ---
 ### [x] ✅(2026-07-22) ai-news 入口梳理 + ai-world ?tab= query param 支持(平台独占:仅 apps/web)
