@@ -1,9 +1,14 @@
 'use client'
 
 import * as React from 'react'
-import { Plus, X, Terminal as TerminalIcon, ChevronDown, Check, Server, FileText } from 'lucide-react'
+import { Plus, X, Terminal as TerminalIcon, ChevronDown, Check, Server, FileText, Circle, Video, Play, Trash2, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { TerminalSession, TerminalCreateInput, TerminalSshParams } from '@ihui/types'
+import type {
+  TerminalSession,
+  TerminalCreateInput,
+  TerminalSshParams,
+  TerminalRecordingListItem,
+} from '@ihui/types'
 
 /** 可选 shell 列表(Windows 优先,仅本地会话时显示) */
 const SHELL_OPTIONS = [
@@ -25,6 +30,20 @@ interface TerminalTabBarProps {
   /** 新建会话(支持本地 shell 或 SSH 远程,参数透传到 terminal-service.createSession) */
   onNew: (opts?: TerminalCreateInput) => void
   onRename: (id: string, name: string) => Promise<boolean> | void
+  /** 录制状态:sessionId → recordingId(值为 undefined 表示该 session 未在录制) */
+  recordingBySession: Record<string, string>
+  /** 切换录制(开始/停止),由 terminal-panel 调用 REST + store */
+  onToggleRecording: (sessionId: string) => void
+  /** 录制列表(REST 拉取,录制列表抽屉消费) */
+  recordings: TerminalRecordingListItem[]
+  /** 拉取录制列表(打开抽屉时触发) */
+  onRefreshRecordings: () => void
+  /** 回放录制(POST /recordings/:id/play) */
+  onPlayRecording: (recordingId: string) => void
+  /** 删除录制(DELETE /recordings/:id) */
+  onDeleteRecording: (recordingId: string) => void
+  /** 当前正在回放的录制 ID(用于显示回放徽章,null=无回放) */
+  activePlaybackId: string | null
 }
 
 /**
@@ -50,6 +69,13 @@ export function TerminalTabBar({
   onClose,
   onNew,
   onRename,
+  recordingBySession,
+  onToggleRecording,
+  recordings,
+  onRefreshRecordings,
+  onPlayRecording,
+  onDeleteRecording,
+  activePlaybackId,
 }: TerminalTabBarProps) {
   // shell 选择下拉
   const [selectedShell, setSelectedShell] = React.useState<string>('powershell')
@@ -73,6 +99,10 @@ export function TerminalTabBar({
   const [renameValue, setRenameValue] = React.useState('')
   const renameInputRef = React.useRef<HTMLInputElement>(null)
 
+  // 录制列表抽屉状态
+  const [recordingDrawerOpen, setRecordingDrawerOpen] = React.useState(false)
+  const recordingDrawerRef = React.useRef<HTMLDivElement>(null)
+
   // 外部点击关闭 shell 菜单
   React.useEffect(() => {
     if (!shellMenuOpen) return
@@ -85,6 +115,25 @@ export function TerminalTabBar({
     document.addEventListener('mousedown', handle)
     return () => document.removeEventListener('mousedown', handle)
   }, [shellMenuOpen])
+
+  // 外部点击关闭录制抽屉
+  React.useEffect(() => {
+    if (!recordingDrawerOpen) return
+    const handle = (e: MouseEvent) => {
+      if (recordingDrawerRef.current && !recordingDrawerRef.current.contains(e.target as Node)) {
+        setRecordingDrawerOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [recordingDrawerOpen])
+
+  // 打开录制抽屉时拉取最新列表
+  React.useEffect(() => {
+    if (recordingDrawerOpen) {
+      onRefreshRecordings()
+    }
+  }, [recordingDrawerOpen, onRefreshRecordings])
 
   // rename 输入框聚焦
   React.useEffect(() => {
@@ -183,6 +232,34 @@ export function TerminalTabBar({
     e.target.value = ''
   }
 
+  /** 格式化录制时长(ms → "12s" / "1m 5s") */
+  const formatDuration = (ms: number): string => {
+    const totalSec = Math.floor(ms / 1000)
+    if (totalSec < 60) return `${totalSec}s`
+    const m = Math.floor(totalSec / 60)
+    const s = totalSec % 60
+    return s > 0 ? `${m}m ${s}s` : `${m}m`
+  }
+
+  /** 格式化时间戳为简短日期(MM-DD HH:mm) */
+  const formatStartedAt = (ts: number): string => {
+    const d = new Date(ts)
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    const hh = String(d.getHours()).padStart(2, '0')
+    const mi = String(d.getMinutes()).padStart(2, '0')
+    return `${mm}-${dd} ${hh}:${mi}`
+  }
+
+  /** 录制按钮点击(切换当前激活 session 的录制状态) */
+  const handleToggleRecording = () => {
+    if (!activeSessionId) return
+    onToggleRecording(activeSessionId)
+  }
+
+  /** 当前激活 session 是否正在录制 */
+  const isCurrentRecording = activeSessionId ? !!recordingBySession[activeSessionId] : false
+
   return (
     <div className="flex items-center gap-1 border-b border-border bg-muted/30 px-2 py-1">
       {sessions.map((session, index) => {
@@ -219,6 +296,15 @@ export function TerminalTabBar({
               <Server className="h-3 w-3 shrink-0 opacity-60" />
             ) : (
               <TerminalIcon className="h-3 w-3 shrink-0 opacity-60" />
+            )}
+            {/* 录制中:红色圆点闪烁(纯装饰点,豁免 rounded-full,用 Tailwind animate-pulse) */}
+            {recordingBySession[session.id] && (
+              <span
+                className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse bg-red-500"
+                style={{ borderRadius: '50%' }}
+                title="正在录制"
+                aria-label="正在录制"
+              />
             )}
             {isRenaming ? (
               <input
@@ -505,6 +591,129 @@ export function TerminalTabBar({
       {loading && (
         <span className="ml-1 text-[10px] text-muted-foreground/60">创建中...</span>
       )}
+
+      {/* 右侧:录制控制 + 回放徽章 + 录制列表抽屉(2026-07-23 立) */}
+      <div className="ml-auto flex items-center gap-1">
+        {/* 回放徽章(正在回放录制时显示) */}
+        {activePlaybackId && (
+          <span className="flex items-center gap-1 rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] text-blue-600 dark:text-blue-400">
+            <Play className="h-2.5 w-2.5" />
+            <span>回放中</span>
+          </span>
+        )}
+
+        {/* 录制按钮:切换当前激活 session 的录制状态 */}
+        <button
+          type="button"
+          className={cn(
+            'flex h-6 w-6 items-center justify-center rounded-md transition-colors',
+            isCurrentRecording
+              ? 'bg-red-500/15 text-red-600 dark:text-red-400'
+              : 'text-muted-foreground hover:bg-background hover:text-foreground',
+            !activeSessionId && 'pointer-events-none opacity-40',
+          )}
+          onClick={handleToggleRecording}
+          disabled={!activeSessionId}
+          aria-label={isCurrentRecording ? '停止录制' : '开始录制'}
+          title={isCurrentRecording ? '停止录制' : '开始录制'}
+        >
+          {isCurrentRecording ? (
+            <Circle className="h-3 w-3 fill-current" />
+          ) : (
+            <Video className="h-3 w-3" />
+          )}
+        </button>
+
+        {/* 录制列表抽屉触发器 */}
+        <div className="relative flex items-center" ref={recordingDrawerRef}>
+          <button
+            type="button"
+            className={cn(
+              'flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors',
+              'hover:bg-background hover:text-foreground',
+              recordingDrawerOpen && 'bg-background text-foreground',
+            )}
+            onClick={() => setRecordingDrawerOpen((v) => !v)}
+            aria-label="录制列表"
+            title="录制列表"
+          >
+            <Clock className="h-3 w-3" />
+          </button>
+          {recordings.length > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-3 min-w-3 items-center justify-center rounded bg-accent px-0.5 text-[9px] font-medium text-accent-foreground">
+              {recordings.length > 99 ? '99+' : recordings.length}
+            </span>
+          )}
+          {recordingDrawerOpen && (
+            <div className="absolute right-0 top-7 z-50 w-80 overflow-hidden rounded-md border border-border bg-popover shadow-md">
+              <div className="flex items-center justify-between bg-muted/40 px-2.5 py-1.5">
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  录制列表({recordings.length})
+                </span>
+                <button
+                  type="button"
+                  className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  onClick={() => setRecordingDrawerOpen(false)}
+                  aria-label="关闭"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {recordings.length === 0 ? (
+                  <div className="px-2.5 py-4 text-center text-xs text-muted-foreground">
+                    暂无录制。点击录制按钮(左侧 Video 图标)开始录制终端操作。
+                  </div>
+                ) : (
+                  recordings.map((rec) => (
+                    <div
+                      key={rec.id}
+                      className="group flex items-center gap-2 px-2.5 py-1.5 text-xs transition-colors hover:bg-accent"
+                    >
+                      <Play className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-foreground">
+                          {rec.title || `录制 ${formatStartedAt(rec.startedAt)}`}
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                          <span>{formatStartedAt(rec.startedAt)}</span>
+                          <span>{formatDuration(rec.durationMs)}</span>
+                          <span>{rec.eventCount} 事件</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onPlayRecording(rec.id)
+                          setRecordingDrawerOpen(false)
+                        }}
+                        aria-label="回放"
+                        title="回放"
+                      >
+                        <Play className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/15 hover:text-destructive group-hover:opacity-100"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onDeleteRecording(rec.id)
+                        }}
+                        aria-label="删除"
+                        title="删除"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
