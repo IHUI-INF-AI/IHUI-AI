@@ -62,17 +62,50 @@ export interface FeishuQrInstance {
 }
 
 export interface DingtalkFrameOptions {
+  /** 容器 DOM id */
   id: string
-  width: number
-  height: number
-  /** 钉钉 OAuth2 授权 URL(https://login.dingtalk.com/oauth2/auth?...) */
-  goto: string
-  style?: string
+  /** iframe 宽度(默认 300) */
+  width?: number
+  /** iframe 高度(默认 300) */
+  height?: number
+}
+
+/**
+ * 钉钉 OAuth 授权参数(新版 h5-dingtalk-login SDK)
+ *
+ * 旧版 SDK(0.1.8)用单一 `goto` URL,新版(0.21.0+)拆解为结构化字段。
+ * 字段与 https://login.dingtalk.com/oauth2/auth 查询参数一一对应。
+ */
+export interface DingtalkAuthParams {
+  /** 应用 client_id(等同于 AppKey,SDK 内拼到 OAuth URL ?client_id=) */
+  client_id: string
+  /** 授权回调地址(必须与钉钉后台「安全设置 → 回调地址」一致) */
+  redirect_uri: string
+  /** 固定 'code' */
+  response_type: 'code'
+  /** 通常是 'openid'(可选附加 'corpid') */
+  scope: string
+  /** 防 CSRF,OAuth state */
+  state?: string
+  /** 'consent' = 每次都显示授权确认页 */
+  prompt?: string
+  /** 仅预发环境用 true */
+  isPre?: boolean
+  /** 企业 org_type(企业内部应用场景) */
+  org_type?: string
+  /** 企业 corpId */
+  corpId?: string
+  /** 独立登录场景 */
+  exclusiveLogin?: string
+  exclusiveCorpId?: string
 }
 
 export interface DingtalkLoginResult {
+  /** 完整回调 URL(包含 authCode + state) */
   redirectUrl: string
+  /** 钉钉返回的 authCode(换取 user token 用) */
   authCode: string
+  /** OAuth state(回包) */
   state: string
 }
 
@@ -89,8 +122,9 @@ declare global {
       createWWLoginPanel: (opts: WecomLoginPanelOptions) => WecomLoginPanelInstance
     }
     QRLogin?: new (opts: FeishuQrOptions) => FeishuQrInstance
-    DTFrameLogin?: new (
+    DTFrameLogin?: (
       opts: DingtalkFrameOptions,
+      authParams: DingtalkAuthParams,
       onSuccess: (res: DingtalkLoginResult) => void,
       onError: (msg: string) => void,
     ) => DingtalkFrameInstance
@@ -100,10 +134,14 @@ declare global {
 // ---- SDK URL 常量 ----
 
 const WECHAT_SDK_URL = 'https://res.wx.qq.com/connect/zh_CN/htmledition/js/wxLogin.js'
-const WECOM_SDK_URL = 'https://wwopen.wsopen.qq.com/wwopen/wwopen/js/wecom-login-1.0.0.js'
+// 2026-07-22 修复:旧 URL https://wwopen.wsopen.qq.com/wwopen/wwopen/js/wecom-login-1.0.0.js 已下线(connection closed)
+// 新 URL 来自 https://developer.work.weixin.qq.com/document/path/91022 官方文档推荐 jssdk
+const WECOM_SDK_URL = 'https://wwcdn.weixin.qq.com/node/open/js/wecom-jssdk-2.0.2.js'
 const FEISHU_SDK_URL =
   'https://lf-package-cn.feishucdn.com/obj/feishu-static/lark/passport/qrcode/LarkSSOSDKWebQRCode-1.0.3.js'
-const DINGTALK_SDK_URL = 'https://g.alicdn.com/dingding/dinglogin/0.1.8/dinglogin.js'
+// 2026-07-22 修复:旧 URL https://g.alicdn.com/dingding/dinglogin/0.1.8/dinglogin.js 已 404
+// 新 URL 来自 https://open.dingtalk.com/document/orgapp/dingtalk-manually-implements-the-qr-code-login-function 官方文档
+const DINGTALK_SDK_URL = 'https://g.alicdn.com/dingding/h5-dingtalk-login/0.21.0/ddlogin.js'
 
 // ---- 通用 script 加载器(src 去重 + Promise 缓存) ----
 
