@@ -1,0 +1,82 @@
+version: '3.8'
+
+# 可观测性基础设施(2026-07-22 立)
+# 启动:docker compose -f deploy/observability/docker-compose.observability.yml up -d
+# 端口:
+#   - Jaeger UI: http://localhost:16686
+#   - Prometheus: http://localhost:9090
+#   - Grafana: http://localhost:3001(admin/admin)
+#   - OTel Collector OTLP: http://localhost:4318(HTTP)/ localhost:4317(gRPC)
+
+services:
+  # ===== OpenTelemetry Collector =====
+  # 接收 api/ai-service 的 OTLP 导出,分发到 Jaeger(traces)+ Prometheus(metrics)
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.108.0
+    container_name: ihui-otel-collector
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8888:8888"   # Collector 自身 metrics
+    depends_on:
+      - jaeger
+      - prometheus
+    restart: unless-stopped
+
+  # ===== Jaeger =====
+  # 分布式追踪 UI,查看跨服务调用链
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    container_name: ihui-jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - JAEGER_DISABLED=false
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14250:14250"  # gRPC(Collector 内部)
+      - "14268:14268"  # HTTP(Collector 内部)
+    restart: unless-stopped
+
+  # ===== Prometheus =====
+  # 指标存储 + 查询,抓取 Collector + api + ai-service 的 metrics
+  prometheus:
+    image: prom/prometheus:v2.54.0
+    container_name: ihui-prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+
+  # ===== Grafana =====
+  # 可视化面板,数据源 Prometheus + Jaeger
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: ihui-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"  # Grafana UI(3001 避免与 web 3000 冲突)
+    depends_on:
+      - prometheus
+      - jaeger
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  grafana-data:
