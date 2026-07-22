@@ -23,7 +23,7 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
   React.useEffect(() => {
     const container = containerRef.current
     const config = getPlatformConfig('wechat')
-    if (!config.enabled || !config.appId || !config.redirectUri) {
+    if (!config.enabled || !config.appId) {
       setStatus('unconfigured')
       return
     }
@@ -33,6 +33,10 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
 
     const state = generateState()
     saveOAuthState('wechat', state)
+
+    // redirect_uri 必须与当前访问域名+端口一致,否则微信开放平台校验失败报"redirect_uri 参数错误"
+    // 不读 env 死值(env 配的端口可能与实际 dev server 端口不符,如 3000 vs 3001)
+    const redirectUri = `${window.location.origin}/callback?platform=wechat`
 
     loadWechatQrSdk()
       .then(() => {
@@ -44,7 +48,7 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
             id: containerId,
             appid: config.appId!,
             scope: 'snsapi_login',
-            redirect_uri: config.redirectUri,
+            redirect_uri: redirectUri,
             state,
             style: 'black',
           })
