@@ -61,7 +61,7 @@
 | **Monorepo** | pnpm 9.15 workspace + Turborepo 2.3 + 13 共享包(@ihui/auth / database / types / ui 等) |
 | **多端实现** | 8 端**独立代码**(非"一套代码编译适配"),各端完成度详见[项目状态矩阵](#项目状态矩阵) |
 | **代码规模** | 8 端代码 / 100+ schema 文件 / **339+ 数据库表**(实测 339 张 pgTable)/ 128+ 迁移 / **1168+ API 端点**(实测 grep)/ 200+ Web 页面 / 13 共享包 / 5 语言 i18n parity |
-| **工程守门** | **22 pre-commit 钩子**(实测,见 [.husky/pre-commit](./.husky/pre-commit))+ post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动 |
+| **工程守门** | **23 pre-commit 钩子**(实测,见 [.husky/pre-commit](./.husky/pre-commit))+ post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动 |
 | **测试覆盖** | **237 API 测试 + 63 e2e spec**(实测,见 [apps/api/tests/](./apps/api/tests/) + [apps/web/e2e/](./apps/web/e2e/))+ pytest(AI 服务)+ Locust 压测 + Lighthouse 性能 |
 | **可观测性** | Prometheus + Grafana(**20 仪表盘**实测,见 [monitoring/grafana/dashboards/](./monitoring/grafana/dashboards/))+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager |
 | **AI 编排** | LangGraph 真接入(21 文件使用:`langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`),不是"接入级编排" |
@@ -112,7 +112,7 @@
 - [数据库](#数据库)
 - [可观测性](#可观测性)
 - [安全设计](#安全设计)
-- [工程守门](#工程守门21-个-pre-commit-钩子)
+- [工程守门](#工程守门23-个-pre-commit-钩子)
 - [工程质量证据(反驳"AI 生成代码三通病")](#工程质量证据反驳ai-生成代码三通病)
 - [AI 编程协作声明](#ai-编程协作声明)
 - [测试](#测试)
@@ -166,7 +166,7 @@ IHUI-AI 的定位由"用户价值 → 产品形态 → 技术护城河"三层金
    第 3 层       │  技术护城河(How)                                 │
    技术护城河    │  • 8 端 / 339+ 表 / 128+ 迁移 / 1168+ API 端点    │
    (How)        │  • LangGraph + MCP + A2A 三栈协同                 │
-                 │  • 13 共享包 / 22 pre-commit 守门 / 5 语言 i18n   │
+                 │  • 13 共享包 / 23 pre-commit 守门 / 5 语言 i18n   │
                  │  • 三支柱可观测性 + 20 Grafana 仪表盘             │
                  │  • 企业级安全栈(RBAC + RLS + SSO + AES-256-GCM)  │
                  │  • Apache 2.0 License,商用零限制                │
@@ -183,7 +183,7 @@ IHUI-AI 的定位由"用户价值 → 产品形态 → 技术护城河"三层金
 | **目标用户**  | 个人开发者(私有 AI 助手)/ 中小企业(AI 中台)/ AI 服务商(商业产品)/ 教育机构(AI 教学全栈)/ 内容创作者(14 平台发布)/ 企业决策者(企业级 AI 平台)                       |
 | **License**   | Apache 2.0(商用友好,无传染性,允许闭源商用,无任何 copyleft 约束)                                                                                                |
 | **部署模式**  | 完全自托管,Docker Compose 一键启动 14 服务,数据 100% 主权,凭证 AES-256-GCM 加密,不被任何大厂窥探                                                                   |
-| **代码规模**  | 8 端代码 / 100+ schema 文件 / 339+ 数据库表 / 128+ 迁移 / 1168+ API 端点 / 200+ Web 页面 / 13 共享包 / 22 pre-commit 守门 / 5 语言 i18n parity                         |
+| **代码规模**  | 8 端代码 / 100+ schema 文件 / 339+ 数据库表 / 128+ 迁移 / 1168+ API 端点 / 200+ Web 页面 / 13 共享包 / 23 pre-commit 守门 / 5 语言 i18n parity                         |
 | **替代价值**  | 替代 Stripe($84/月)+ Auth0($35/月)+ Mailgun($35/月)+ Mixpanel($20/月)+ Dify($59/月)+ Claude Code($20/月)+ 蚁客($50/月)≈ $303/月,IHUI-AI 自托管 $0/月             |
 
 ### IHUI-AI 不是什么
@@ -336,7 +336,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | 对象存储        | OSS 多厂商驱动 / 凭证加密 / 分块上传 / 文件版本 / chunked-upload                                            |
 |                   | 邮件短信        | SMTP / 短信网关 / 邮件模板 / 验证码 / mail + message-templates                                              |
 |                   | 国际化          | 5 语言 parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n 工具链 + 4 守门脚本                                    |
-|                   | 工程守门        | 22 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动                                |
+|                   | 工程守门        | 23 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动                                |
 |                   | 测试覆盖        | 268 + 400+ 用例 / Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能                              |
 |                   | 部署运维        | Docker Compose(14 服务)/ 蓝绿部署 / Nginx upstream 切换 / 健康检查 / 回滚 / 备份 / 证书续期 cron            |
 |                   | 性能 CI         | Knip 未使用代码检测 + Lighthouse CI 性能预算 + GitHub Act 本地 CI                                           |
@@ -356,7 +356,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 | **企业级安全**       | RBAC + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时                                 | 决策者级风险控制                |
 | **数据加密**         | AES-256-GCM(credentials 加密)+ JWT token-family 旋转 + refresh 黑名单                        | 金融级数据保护                  |
 | **可观测性**         | Prometheus + Grafana(**20 仪表盘**)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager | 全链路指标 / 日志 / 追踪 / 告警 |
-| **工程守门**         | 22 pre-commit + post-commit 自动 push + git-push-guard + 11 迁移审计                         | 杜绝协作事故,99.9% SLA          |
+| **工程守门**         | 23 pre-commit + post-commit 自动 push + git-push-guard + 11 迁移审计                         | 杜绝协作事故,99.9% SLA          |
 | **国际化**           | zh-CN / zh-TW / en / ko / ja 5 语言 parity + 19 i18n 工具链                                  | 5 语言键集合强一致性            |
 | **数据库**           | **339+ 表 + 128+ 迁移** + 100 schema 文件 + Drizzle ORM + RLS + 租户路由 + pgvector         | 单库 PostgreSQL 15,schema 隔离  |
 | **API 规模**         | 1168+ 端点(api 1080 + ai-service 55)+ 12 WebSocket + 95+ 路由文件                            | 远超源项目 331 端点             |
@@ -891,37 +891,43 @@ IHUI-AI/
 
 **品牌翻译策略**:优先官方英文名(智谱清言 → Zhipu AI,百度文心 → Baidu ERNIE,火山引擎 → Volcengine 等),机器可读映射表见 `scripts/brand-glossary.json`。
 
-#### E4. 工程守门(22 pre-commit + post-commit + 11 迁移审计)
+#### E4. 工程守门(23 pre-commit + post-commit + 11 迁移审计)
 
-项目通过 21 个 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计脚本杜绝协作事故:
+项目通过 23 个 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计脚本杜绝协作事故:
 
-| #       | 脚本                                  | 用途                                        |
-| ------- | ------------------------------------- | ------------------------------------------- |
-| 1       | check-api-key-leak.mjs                | API key 泄露检测                            |
-| 2       | check-i18n-keys.mjs                   | i18n 键完整性 + parity                      |
-| 2b      | scan-i18n-zh-residue.mjs zh-TW        | zh-TW 简体字残留(opencc 字形转换)           |
-| 2c      | scan-i18n-zh-residue.mjs ko           | ko.json 中文残留(字符范围检测)              |
-| 2d      | scan-i18n-zh-residue.mjs ja           | ja.json 中文残留(warn-only)                 |
-| 2e      | check-i18n-broken-en.mjs              | en.json 破碎机翻英文守门                    |
-| 3       | check-db-schema-drift.mjs             | schema drift 检测                           |
-| 4       | check-stale-dist.mjs                  | packages 陈旧 dist 检测                     |
-| 4b      | check-dist-encoding.mjs               | packages dist UTF-8 BOM 守门                |
-| 4c      | check-api-client-utf8.mjs             | api-client 源码字节级 UTF-8 完整性          |
-| 5       | lint-staged                           | eslint + prettier                           |
-| 6       | check-sanitizer-bypass.mjs            | XSS sanitizer 绕过检测                      |
-| 7       | check-dedupe.mjs                      | 依赖碎片化检测                              |
-| 8       | check-api-routes.mjs                  | 前后端路由一致性                            |
-| 9       | check-safe-parse.mjs                  | safeParse 静默忽略(warn-only)               |
-| 11      | check-rounded-full.mjs                | 容器圆角违规(强制尺寸梯度)                  |
-| 12      | check-delivery-report-consistency.mjs | 交付报告一致性                              |
-| 13b     | check-project-plan-size.mjs           | PROJECT_PLAN.md 体积 < 50KB                 |
-| 13c     | check-project-plan-archive.mjs        | PROJECT_PLAN.md 已完成任务条目防误删        |
-| 15      | check-api-migration-completeness.mjs  | 迁移完整性                                  |
-| 16      | 条件 typecheck                        | apps/web staged 时跑 typecheck              |
-| 16b     | 条件 database build                   | packages/database/src staged 时跑 build     |
-| 17      | check-input-border-var.mjs            | CSS 颜色 token 嵌套(hsl(var()))防护         |
-| 18      | check-native-title-tooltip.mjs        | 原生 title tooltip 违规(强制用项目 Tooltip) |
-| 17-post | git-push-guard.mjs(post-commit)       | 自动 push + 验证 local == remote(防遗漏)    |
+| #       | 脚本                                         | 用途                                                 |
+| ------- | -------------------------------------------- | ---------------------------------------------------- |
+| 1       | check-api-key-leak.mjs                       | API key 泄露                                         |
+| 2       | check-i18n-keys.mjs                          | i18n 键完整性                                        |
+| 2b      | scan-i18n-zh-residue.mjs zh-TW               | zh-TW 简体字残留 (opencc 字形转换)                   |
+| 2c      | scan-i18n-zh-residue.mjs ko                  | ko.json 中文残留 (字符范围检测)                      |
+| 2d      | scan-i18n-zh-residue.mjs ja                  | ja.json 中文残留 (warn-only,不阻塞)                  |
+| 2e      | check-i18n-broken-en.mjs                     | en.json 破碎机翻英文                                 |
+| 3       | check-db-schema-drift.mjs                    | schema drift                                         |
+| 4       | check-stale-dist.mjs                         | packages 陈旧 dist                                   |
+| 4b      | check-dist-encoding.mjs                      | packages/*/dist UTF-8 BOM 守门                       |
+| 4c      | check-api-client-utf8.mjs                    | api-client 源码字节级 UTF-8 完整性                   |
+| 5       | lint-staged                                  | eslint + prettier                                    |
+| 6       | check-sanitizer-bypass.mjs                   | skipResponseSanitization                             |
+| 7       | check-dedupe.mjs                             | 依赖碎片化                                           |
+| 8       | check-api-routes.mjs                         | 前后端路由一致性                                     |
+| 9       | check-safe-parse.mjs                         | safeParse 静默忽略(warn-only)                        |
+| 10      | openapi-check.mjs                            | OpenAPI spec 存在性(informational)                   |
+| 11      | check-rounded-full.mjs                       | 容器圆角违规                                         |
+| 12      | check-delivery-report-consistency.mjs        | 交付报告一致性                                       |
+| 13b     | check-project-plan-size.mjs                  | **PROJECT_PLAN.md 体积(<50KB)**                      |
+| 13c     | check-project-plan-archive.mjs               | **PROJECT_PLAN.md 已完成任务条目防误删**             |
+| 15      | check-api-migration-completeness.mjs         | 迁移完整性                                           |
+| 17      | check-input-border-var.mjs                   | CSS 颜色 token 嵌套(hsl(hsl(...)))                   |
+| 18      | check-native-title-tooltip.mjs               | 原生 title tooltip 违规                              |
+| 19      | check-staged-pollution.mjs                   | **staged 污染预警(warn-only,跨 ≥ 4 目录)**           |
+| 20      | check-tailwind-class-conflict.mjs            | **Tailwind class 冲突(模板字面量 BASE/BRANCH size)** |
+| 21      | check-multi-end-sync.mjs                     | **多端同步守门(warn-only,单端未标注平台独占)** |
+| 22      | check-readme-sync.mjs                        | **README 同步守门(warn-only,功能代码改动但 README 未更新)** |
+| 23      | check-staged-files.mjs                       | **staged 文件清单打印(info-only)**                  |
+| 16      | 条件 typecheck                               | apps/web staged 时跑 typecheck             |
+| 16b     | 条件 database build                          | packages/database/src staged 时跑 build              |
+| 17-post | git-push-guard.mjs(post-commit)              | 自动 push + 验证 local == remote(防遗漏)    |
 
 **11 迁移审计脚本**:`audit-migration-api-routes-v2.mjs` / `audit-migration-api-routes.mjs` / `audit-migration-db-fields.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-migration-frontend-routes.mjs` / `audit-migration-i18n.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs`
 
@@ -1170,11 +1176,11 @@ pnpm turbo build typecheck lint test
 
 ---
 
-## 工程守门(21 个 pre-commit 钩子)
+## 工程守门(23 个 pre-commit 钩子)
 
-项目通过 21 个 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动脚本杜绝协作事故:
+项目通过 23 个 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动脚本杜绝协作事故:
 
-详细清单见 [核心能力 E4 节](#e4-工程守门21-pre-commit--post-commit--11-迁移审计)。
+详细清单见 [核心能力 E4 节](#e4-工程守门23-pre-commit--post-commit--11-迁移审计)。
 
 ---
 
@@ -1221,7 +1227,7 @@ pnpm turbo build typecheck lint test
 
 1. **写代码前**:AGENTS.md 21 节强制规则 + §11 多 Subagent 并行开发任务分配格式 + §9 全端连通强制
 2. **写代码中**:§17 样式改动强制 browser_use 验证 + §19 UI 改动交付前自验 4 状态截图 + §14 Agent 自主验证
-3. **写代码后**:`pnpm turbo build typecheck lint test` 全量验证 + 22 pre-commit 钩子 + pre-push typecheck 闸门 + post-commit 自动 push + git-push-guard 验证
+3. **写代码后**:`pnpm turbo build typecheck lint test` 全量验证 + 23 pre-commit 钩子 + pre-push typecheck 闸门 + post-commit 自动 push + git-push-guard 验证
 
 ### AI 生成代码的针对性反制
 
@@ -1232,7 +1238,7 @@ pnpm turbo build typecheck lint test
 | 业务逻辑断裂 | 业务流程集成测试(`test_business_flow_integration.py`)+ saga 事务模式 + outbox 事务发件箱 |
 | 类型安全漏洞 | TypeScript strict + Zod 端到端校验 + @ihui/types 跨端契约 |
 | 文档与代码 drift | §13 文件修改持久化强制 Read 验证 + check-project-plan-archive 守门 |
-| 风格不一致 | ESLint + Prettier + 22 pre-commit 钩子 + check-rounded-full / check-i18n-keys / check-api-routes 等 |
+| 风格不一致 | ESLint + Prettier + 23 pre-commit 钩子 + check-rounded-full / check-i18n-keys / check-api-routes 等 |
 | 协作事故 | §12 多会话并行规则 + §16 push 阶段跨 Agent 改动保护 + git-push-guard + post-commit 自动 push |
 
 ### 客观承认的不足
@@ -1438,7 +1444,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 1. **Fork 仓库** → 创建分支 `feat/your-feature` 或 `fix/your-bugfix`
 2. **阅读规范**:[AGENTS.md](AGENTS.md)(AI Agent 协作规范)+ [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)(人类贡献指南)
-3. **本地开发**:`pnpm install && pnpm dev`,遵守 21 项 pre-commit 守门
+3. **本地开发**:`pnpm install && pnpm dev`,遵守 23 项 pre-commit 守门
 4. **提交规范**:Conventional Commits(`feat:` / `fix:` / `docs:` / `chore:` / `test:` / `refactor:`)
 5. **自验通过**:`pnpm turbo build typecheck lint test` 全绿
 6. **提交 PR**:描述清晰,关联 Issue,等待 review
@@ -1504,7 +1510,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - BI 仪表盘 + 错误仪表盘 + 灰度发布 + i18n 仪表盘
 - 5 语言 i18n parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n 工具链 + 4 守门
 - 全栈可观测性(Prometheus + Grafana 20 仪表盘 + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager)
-- 22 pre-commit 守门 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动
+- 23 pre-commit 守门 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动
 - 企业级安全(RBAC + 多租户 + RLS + SSO + AES-256-GCM + JWT token-family + CSRF + XSS + GDPR + 2FA)
 - 339+ 数据库表 + 128+ 迁移 + 13 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 
@@ -1843,7 +1849,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 - 一次次推翻重构,一次次为某个 schema 是否合理争论到凌晨
 - 越来越紧的预算,越来越沉的肩
 
-他们从最底层的架构开始打磨——monorepo 怎么组织、13 个共享包怎么划分、8 端类型怎么对齐、数据库 schema 怎么按 30+ 业务域隔离、API 响应怎么统一 `{ code, message, data }` 格式、i18n 怎么保证 5 语言 parity、CI 怎么在 21 个 pre-commit 守门下还能保持敏捷……每一个决定,都要在未来数千次迭代中被反复验证。
+他们从最底层的架构开始打磨——monorepo 怎么组织、13 个共享包怎么划分、8 端类型怎么对齐、数据库 schema 怎么按 30+ 业务域隔离、API 响应怎么统一 `{ code, message, data }` 格式、i18n 怎么保证 5 语言 parity、CI 怎么在 23 个 pre-commit 守门下还能保持敏捷……每一个决定,都要在未来数千次迭代中被反复验证。
 
 这一段路,走得非常慢,也非常孤独。
 
@@ -1873,7 +1879,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 | **数据库**          | 339+ 表 + 100 schema 文件 + 128+ 迁移 + RLS + 多租户路由 + pgvector + 知识图谱                          | 通常 1 个 DBA + 2-3 个后端      |
 | **API 规模**        | 1168+ 端点 + 12 WebSocket + 95+ 路由文件                                                               | 通常 5-8 个后端工程师           |
 | **前端规模**        | 200+ 页面 + 5 语言 i18n parity + 暗黑模式 + PWA + SEO                                                  | 通常 4-6 个前端工程师           |
-| **工程守门**        | 22 pre-commit + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动                                | 通常 1-2 个 DevOps 工程师       |
+| **工程守门**        | 23 pre-commit + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动                                | 通常 1-2 个 DevOps 工程师       |
 | **可观测性**        | Prometheus + Grafana(20 仪表盘)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager               | 通常 1-2 个 SRE 工程师          |
 | **业务模块**        | 14 平台一键发布 + AI 教育全栈 + 完整计费交易闭环 + 智能体市场 + 社区互动 + 运营增长 + 客服 + BI 仪表盘 | 通常 30-50 人的产品研发团队     |
 
@@ -1940,7 +1946,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 - LangGraph + MCP + A2A 三栈协同跑通
 - 14 平台一键发布 adapter 全部就位
 - AI 教育全栈从课程到证书完整闭环
-- 21 个 pre-commit 守门 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动脚本全部上线
+- 23 个 pre-commit 守门 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动脚本全部上线
 - 5 语言 i18n parity 在 4 个守门脚本下保持强一致
 
 不是因为有资本支持。
@@ -2065,6 +2071,12 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 **代价**:钩子偶尔误报,但宁可误报不可漏报。
 
 > 💬 **讨论**:→ [#4 决策讨论:为什么 IHUI-AI 是 21 个 pre-commit 守门钩子?](https://github.com/IHUI-INF-AI/IHUI-AI/issues/4)
+
+**演化(2026-07-22)**:从初始 21 个 pre-commit 钩子逐步演化到 23 个,新增:
+- **#20 check-tailwind-class-conflict**(2026-07-21):防止 className 模板字面量 BASE/BRANCH 出现多套 size 类导致后值覆盖前值
+- **#21 check-multi-end-sync**(2026-07-21,§9 升级配套):检测单端改动未在 PROJECT_PLAN.md 标注"平台独占",把"默认全端连通"从人工自觉变成机制守门
+- **#22 check-readme-sync**(2026-07-22,§22 配套):检测功能代码改动但 README.md 未同步,把"功能开发后同步更新 README"从人工自觉变成机制守门(反面案例:P3 深度层三大壁垒交付后 README 未同步)
+- **#23 check-staged-files**(2026-07-21):commit 前最后看一眼 staged 清单,杜绝"混入其他 agent 改动"污染事故
 
 #### 决策 5 · 为什么坚持 Apache 2.0,而不是 AGPL / 商业双许可?
 
