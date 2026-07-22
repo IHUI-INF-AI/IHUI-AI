@@ -13,6 +13,7 @@ import {
   cancelUserAccount,
   findRefreshToken,
   revokeRefreshToken,
+  revokeRefreshTokenFamily,
   isSystemAdminUser,
 } from '../db/queries.js'
 import { getUserPermissions } from '../db/rbac-queries.js'
@@ -902,7 +903,23 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       // 2. 查库确认未被吊销
       const record = await findRefreshToken(token)
-      if (!record || record.revokedAt) {
+      if (!record) {
+        return reply.status(401).send(error(401, 'Invalid refresh token'))
+      }
+      if (record.revokedAt) {
+        // 2026-07-22 鲁棒性加固:RFC 6749 §10.4 重用检测
+        // 已被吊销的 refresh token 再次出现 = 重用攻击,立即吊销整个 family 所有活跃 token
+        if (payload.familyId) {
+          try {
+            const revokedCount = await revokeRefreshTokenFamily(payload.familyId)
+            request.log.warn(
+              { familyId: payload.familyId, userId: payload.userId, revokedCount },
+              '[security] refresh token reuse detected, family revoked',
+            )
+          } catch (e) {
+            request.log.error({ err: e }, '[security] family revocation failed')
+          }
+        }
         return reply.status(401).send(error(401, 'Invalid refresh token'))
       }
 
