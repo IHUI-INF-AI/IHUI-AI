@@ -98,6 +98,7 @@
 **验证**:
 - CLI typecheck + build exit 0 ✅
 - ai-service 6 场景独立验证全过 ✅(watchdog 5s cancel 卡死 executor / 正常 executor 不触发 watchdog / worktree 创建+列表+清理 / 网络白名单 allowlist+blocklist+通配符+IP / psutil 可选降级 / worktree 集成 WorkerPool executor 在独立 worktree 中执行)
+- **P1-3/P1-5 接入补充(2026-07-22)**:P1-3 ResourceMonitor + P1-5 NetworkEgressPolicy contextvar 正式接入 `dag_scheduler._worker_loop` executor 调用链路。`network_guard.py` 加 `set_current_policy`/`get_current_policy`/`check_current` contextvar API;`resource_monitor.py` 加 `kill_on_violation=False` 模式(不杀 ai-service 自己,只标记违规)。6 场景接入验证全过 ✅(allowlist 允许白名单 / allowlist 拒绝非白名单 / 无策略返回 True / 无 resource_limits 正常 / 有限制未超限正常 / psutil 降级正常)
 
 ### [x] ✅(2026-07-22) CLI 配置导入扩展至 24 源 + Google Antigravity + URL/协议深度修正 + 20 测试(跨端:packages/types + api + web + cli + desktop)
 

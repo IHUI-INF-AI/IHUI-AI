@@ -39,12 +39,16 @@ class ResourceMonitor:
     """异步轮询子进程 RSS / CPU,超限 terminate(第二层软监控)。
 
     仅当 psutil 可用时生效。无 psutil 时 start() 立即返回,stop() 返回空。
+
+    kill_on_violation=False 时只记录违规不 kill 进程(用于 ai-service 同 event loop executor
+    场景:监控 os.getpid() 但不能杀自己,由调用方检查 terminated/violations 后 cancel executor)。
     """
 
     pid: int
     memory_mb: Optional[float] = None
     cpu_seconds: Optional[float] = None
     poll_interval_s: float = 2.0
+    kill_on_violation: bool = True
     _task: Optional[asyncio.Task] = None
     _violations: list[ResourceViolation] = field(default_factory=list)
     _terminated: bool = False
@@ -111,7 +115,11 @@ class ResourceMonitor:
                                 actual=rss_mb,
                             )
                         )
-                        await self._terminate_tree(proc)
+                        if self.kill_on_violation:
+                            await self._terminate_tree(proc)
+                        else:
+                            # 只标记违规不 kill(调用方检查后自行 cancel executor)
+                            self._terminated = True
                         return
 
                 # 检查 CPU 时间超限
@@ -123,7 +131,10 @@ class ResourceMonitor:
                             actual=cpu_total,
                         )
                     )
-                    await self._terminate_tree(proc)
+                    if self.kill_on_violation:
+                        await self._terminate_tree(proc)
+                    else:
+                        self._terminated = True
                     return
 
             except psutil.NoSuchProcess:
