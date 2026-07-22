@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Flame, TrendingUp, TrendingDown, ExternalLink, Rss, Search, LineChart, Loader2 } from 'lucide-react'
 import type { AiFeedTimelineItem } from '@/lib/ai-news-api'
 import { TrendChartDialog } from './TrendChartDialog'
+import { TrendNotificationBanner } from './TrendNotificationBanner'
 
 interface SourceMeta {
   sourceCode: string
@@ -36,6 +37,15 @@ const CATEGORY_LIST = [
   { key: 'paper', labelKey: 'feed.categoryPaper' },
   { key: 'tip', labelKey: 'feed.categoryTip' },
 ] as const
+
+type TitleLang = 'zh' | 'en' | 'ja' | 'ko'
+
+const LANG_LIST: Array<{ key: TitleLang; label: string }> = [
+  { key: 'zh', label: '中' },
+  { key: 'en', label: 'EN' },
+  { key: 'ja', label: '日' },
+  { key: 'ko', label: '한' },
+]
 
 const LLM_CATEGORY_KEY_MAP: Record<string, string> = {
   'ai-models': 'feed.categoryModel',
@@ -76,6 +86,14 @@ function sourceInitial(name: string): string {
   return ch || '?'
 }
 
+/** 按当前语言选择标题,缺失时降级到中文原标题(避免空白) */
+function pickTitle(item: AiFeedTimelineItem, lang: TitleLang): string {
+  if (lang === 'en' && item.titleEn) return item.titleEn
+  if (lang === 'ja' && item.titleJa) return item.titleJa
+  if (lang === 'ko' && item.titleKo) return item.titleKo
+  return item.title
+}
+
 function groupByDay(items: AiFeedTimelineItem[]): Array<{ day: string; items: AiFeedTimelineItem[] }> {
   const groups = new Map<string, AiFeedTimelineItem[]>()
   for (const it of items) {
@@ -98,6 +116,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
   const [keyword, setKeyword] = React.useState<string>('')
   const [trendItemId, setTrendItemId] = React.useState<string | null>(null)
   const [trendTitle, setTrendTitle] = React.useState<string>('')
+  const [titleLang, setTitleLang] = React.useState<TitleLang>('zh')
 
   const sourceMap = React.useMemo(() => {
     const m = new Map<string, SourceMeta>()
@@ -130,18 +149,18 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
       const kw = keyword.trim().toLowerCase()
       result = result.filter(
         (it) =>
-          it.title.toLowerCase().includes(kw) ||
+          pickTitle(it, titleLang).toLowerCase().includes(kw) ||
           (it.summary?.toLowerCase().includes(kw) ?? false),
       )
     }
     return result
-  }, [channelFiltered, activeCategory, keyword])
+  }, [channelFiltered, activeCategory, keyword, titleLang])
 
   const dayGroups = React.useMemo(() => groupByDay(filteredItems), [filteredItems])
 
   const openTrend = (item: AiFeedTimelineItem) => {
     setTrendItemId(item.id)
-    setTrendTitle(item.title)
+    setTrendTitle(pickTitle(item, titleLang))
   }
 
   return (
@@ -178,25 +197,48 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
           />
         </div>
 
-        {/* Channel 筛选 Tab */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {CHANNEL_LIST.map((ch) => {
-            const isActive = activeChannel === ch.key
-            return (
-              <button
-                key={ch.key || 'channel-all'}
-                type="button"
-                onClick={() => setActiveChannel(ch.key)}
-                className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background/60 text-muted-foreground hover:bg-accent hover:text-foreground'
-                }`}
-              >
-                {t(ch.labelKey)}
-              </button>
-            )
-          })}
+        {/* Channel 筛选 Tab + 语言切换 */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {CHANNEL_LIST.map((ch) => {
+              const isActive = activeChannel === ch.key
+              return (
+                <button
+                  key={ch.key || 'channel-all'}
+                  type="button"
+                  onClick={() => setActiveChannel(ch.key)}
+                  className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-background/60 text-muted-foreground hover:bg-accent hover:text-foreground'
+                  }`}
+                >
+                  {t(ch.labelKey)}
+                </button>
+              )
+            })}
+          </div>
+          {/* 标题语言切换:中/EN/日/韩 */}
+          <div className="flex shrink-0 items-center gap-0.5 rounded-md border bg-background/50 p-0.5">
+            {LANG_LIST.map((lng) => {
+              const isActive = titleLang === lng.key
+              return (
+                <button
+                  key={lng.key}
+                  type="button"
+                  onClick={() => setTitleLang(lng.key)}
+                  aria-label={t('feed.langSwitch', { lang: lng.label })}
+                  className={`inline-flex h-5 min-w-[24px] items-center justify-center rounded-sm px-1.5 text-[11px] font-medium transition-colors ${
+                    isActive
+                      ? 'bg-foreground text-background'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  }`}
+                >
+                  {lng.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* Category 筛选 Tab */}
@@ -220,6 +262,9 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
           })}
         </div>
       </div>
+
+      {/* 趋势爆发通知 Banner(独立轮询,有通知时展示) */}
+      <TrendNotificationBanner />
 
       {/* 时间线列表 */}
       {dayGroups.length === 0 ? (
@@ -309,10 +354,10 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                               rel="noopener noreferrer"
                               className="after:absolute after:inset-0"
                             >
-                              {it.title}
+                              {pickTitle(it, titleLang)}
                             </a>
                           ) : (
-                            it.title
+                            pickTitle(it, titleLang)
                           )}
                         </h3>
 
