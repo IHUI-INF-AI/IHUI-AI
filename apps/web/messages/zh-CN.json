@@ -25954,7 +25954,8 @@
       "label": "大模型排行榜",
       "title": "大模型排行榜 · Arena 评分",
       "subtitle": "参考 arena.ai · Elo + Bootstrap CI",
-      "empty": "暂无排行数据"
+      "empty": "暂无排行数据",
+      "sortHint": "点击表头排序"
     },
     "hero": {
       "label": "AI 资讯 Hero",
@@ -26058,7 +26059,10 @@
       "getApiKey": "获取 API Key",
       "officialDocs": "官方文档",
       "quickImport": "一键导入",
-      "noQuickImport": "暂不支持一键导入"
+      "noQuickImport": "暂不支持一键导入",
+      "copyBaseUrl": "复制 Base URL",
+      "baseUrlCopied": "Base URL 已复制到剪贴板",
+      "copyFailed": "复制失败,请手动复制"
     },
     "apiRelays": {
       "title": "API 中转站",
@@ -26071,7 +26075,13 @@
       "searchPlaceholder": "搜索平台名称 / 厂商 / 特点 / 计费方式...",
       "allVendors": "全部",
       "resultCount": "共 {count} / {total} 个平台",
-      "emptyResult": "没有匹配的平台,试试调整搜索关键词或厂商筛选"
+      "emptyResult": "没有匹配的平台,试试调整搜索关键词或厂商筛选",
+      "billingLabel": "计费",
+      "allBilling": "全部",
+      "billingToken": "按 Token",
+      "billingFree": "免费额度",
+      "billingGpu": "GPU 时长",
+      "billingSubscription": "套餐"
     },
     "cta": {
       "label": "底部 CTA",
