@@ -26262,6 +26262,10 @@
         "keyPlaceholderNew": "sk-...",
         "keyPlaceholderEdit": "•••••••(암호화됨)",
         "keyKeepEmpty": "(비워두면 변경되지 않음)",
+        "pasteFromClipboard": "클립보드에서 API Key 붙여넣기",
+        "pasteSuccess": "클립보드에서 붙여넣었습니다",
+        "pasteFailed": "클립보드 읽기 실패, 수동으로 붙여넣어 주세요",
+        "pasteEmpty": "클립보드가 비어 있습니다",
         "baseUrl": "기본 URL",
         "optional": "선택사항",
         "group": "그룹",
@@ -28518,7 +28522,11 @@
       "personalType": "개인 운영",
       "import": "가져오기",
       "riskTitle": "위험 경고",
-      "tipsTitle": "사용 팁"
+      "tipsTitle": "사용 팁",
+      "searchPlaceholder": "플랫폼 이름 / 벤더 / 특징 / 결제 방식으로 검색...",
+      "allVendors": "전체",
+      "resultCount": "{count} / {total} 플랫폼",
+      "emptyResult": "일치하는 플랫폼이 없습니다. 검색어 또는 벤더 필터를 조정해 보세요."
     },
     "cta": {
       "label": "하단 CTA",
