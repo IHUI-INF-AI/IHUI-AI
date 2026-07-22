@@ -1,0 +1,63 @@
+# IHUI AI CLI — Snap 打包配置
+# 构建: snapcraft snap --use-lxd(在项目根目录)
+# 安装: sudo snap install ihui --classic
+
+name: ihui
+base: core22
+version: '1.0.0'
+summary: IHUI AI Coding Agent CLI
+description: |
+  IHUI AI 是全栈 AI 平台的命令行工具,提供 AI 编码代理、会话管理、
+  MCP 工具集成、子代理协作等能力。对标 Claude Code / Codex。
+
+grade: stable
+confinement: classic
+
+apps:
+  ihui:
+    command: bin/ihui
+    environment:
+      NODE_PATH: $SNAP/lib/node_modules
+      PATH: $SNAP/usr/bin:$PATH
+
+parts:
+  cli:
+    plugin: nil
+    source: .
+    source-type: local
+    build-packages:
+      - curl
+    build-snaps:
+      - node/22/stable
+    stage-snaps:
+      - node/22/stable
+    override-build: |
+      # 确保 npm 可用
+      export PATH=$SNAP/usr/bin:$PATH
+      which npm || (echo "npm not found" && exit 1)
+
+      # 安装 pnpm
+      corepack enable
+      corepack prepare pnpm@latest --activate
+
+      # 安装依赖并构建
+      pnpm install --frozen-lockfile --filter @ihui/cli...
+      pnpm --filter @ihui/cli build
+
+      # 安装到 snap 的 node_modules
+      mkdir -p $CRAFT_PART_INSTALL/lib/node_modules
+      cp -r apps/cli/dist $CRAFT_PART_INSTALL/lib/node_modules/@ihui/cli/dist
+      cp apps/cli/package.json $CRAFT_PART_INSTALL/lib/node_modules/@ihui/cli/package.json
+
+      # 复制 workspace 依赖
+      cp -r node_modules/* $CRAFT_PART_INSTALL/lib/node_modules/ 2>/dev/null || true
+      cp -r packages $CRAFT_PART_INSTALL/lib/node_modules/@ihui-packages 2>/dev/null || true
+
+      # 创建 wrapper 脚本
+      mkdir -p $CRAFT_PART_INSTALL/bin
+      cat > $CRAFT_PART_INSTALL/bin/ihui << 'EOF'
+      #!/bin/bash
+      export NODE_PATH="$SNAP/lib/node_modules"
+      exec "$SNAP/usr/bin/node" "$SNAP/lib/node_modules/@ihui/cli/dist/index.js" "$@"
+      EOF
+      chmod +x $CRAFT_PART_INSTALL/bin/ihui
