@@ -377,6 +377,46 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // -------------------------------------------------------------------------
+  // GET /documents/asset/* - 文档图片资源代理
+  // markdown 中 ![](./images/xxx.png) 由前端改写为 /api/feature-center/documents/asset/<slug-dir>/images/xxx.png
+  // 权限:仅公开子目录(developer/user/enterprise-service)下的资源可匿名访问,
+  //      顶层敏感文档目录的图片需管理员(与文档白名单策略一致)
+  // -------------------------------------------------------------------------
+  const MIME_MAP: Record<string, string> = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.webp': 'image/webp',
+    '.svg': 'image/svg+xml',
+  }
+  server.get('/documents/asset/*', async (request, reply) => {
+    try {
+      const wildcard = (request.params as { '*': string })['*'] ?? ''
+      const normalized = wildcard.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
+      if (normalized.includes('..') || normalized.includes('\0')) {
+        return reply.code(404).send()
+      }
+      // 权限:子目录公开,顶层需管理员
+      const firstSeg = normalized.split('/')[0]
+      const isPublicSubdir =
+        firstSeg === 'developer' || firstSeg === 'user' || firstSeg === 'enterprise-service'
+      if (!isPublicSubdir) {
+        const admin = await isAdmin(request)
+        if (!admin) return reply.code(404).send()
+      }
+      // 仅允许图片扩展名
+      const ext = normalized.toLowerCase().match(/\.(png|jpe?g|gif|webp|svg)$/)
+      if (!ext) return reply.code(404).send()
+      const filePath = join(DOCS_DIR, normalized)
+      const buf = await readFile(filePath)
+      return reply.type(MIME_MAP[`.${ext[1]}`] ?? 'application/octet-stream').send(buf)
+    } catch {
+      return reply.code(404).send()
+    }
+  })
+
+  // -------------------------------------------------------------------------
   // GET /models - 模型集市列表
   // -------------------------------------------------------------------------
   server.get('/models', async (_request, reply) => {

@@ -36,7 +36,7 @@ function ReasoningBlock({ reasoning }: { reasoning: string }) {
         {expanded ? t('hideReasoning') : t('showReasoning')}
       </button>
       {expanded && (
-        <div className="border-t border-muted px-3 py-2 text-xs text-muted-foreground whitespace-pre-wrap break-words">
+        <div className="bg-muted/30 px-3 py-2 text-xs text-muted-foreground whitespace-pre-wrap break-words">
           {reasoning}
         </div>
       )}
