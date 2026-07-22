@@ -24,7 +24,7 @@ export default function PdfSplitPage() {
   const [mode, setMode] = React.useState<SplitMode>('range')
   const [ranges, setRanges] = React.useState('1-3,5,7-10')
   const [every, setEvery] = React.useState(1)
-  const { loading, progress, result, error, run } = useProcessApi('/api/tools/pdf/split')
+  const { loading, progress, result, error, run } = useProcessApi('/api/pdf-service/split')
 
   const handleSubmit = () => {
     if (!file) return
