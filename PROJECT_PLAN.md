@@ -63,9 +63,10 @@
 - ai-service / extension / desktop / mobile-rn / miniapp-taro / cli 六端不涉及 API Key 接入(平台独占豁免)
 
 **Git 同步证据**:
-- 本地 commit: 438b0401(已合入 main)
-- origin commit: 438b0401
-- 守门脚本: post-commit hook 自动 push 完成,local == remote ✅
+- 本地 commit: e871b61a(最终,含 rebase 恢复的 26 文件)
+- origin commit: e871b61a
+- 同步状态: local == remote ✅
+- 过程: 4 subagent 并行 → commit 438b0401 → rebase autostash 丢文件 → 补充 commit 180f7eb0(26 文件恢复)→ 多轮 merge 解决多会话并发 push 竞态 → 最终 pull --rebase --autostash → push e871b61a
 
 ---
 
