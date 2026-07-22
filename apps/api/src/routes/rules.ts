@@ -4,11 +4,17 @@
  * 端点(全部 JWT 鉴权 + Zod 校验):
  *  - GET    /api/rules          列出全部规则
  *  - POST   /api/rules          创建规则
+ *  - GET    /api/rules/conflicts  检测规则冲突(同名/语义重复/优先级碰撞)
+ *  - GET    /api/rules/templates  预置规则模板(5 个常用模板)
+ *  - GET    /api/rules/audit-log  审计日志(create/update/delete/test)
  *  - GET    /api/rules/:id      获取单个规则
  *  - PATCH  /api/rules/:id      更新规则
  *  - DELETE /api/rules/:id      删除规则
  *  - POST   /api/rules/:id/test 测试规则
  *  - POST   /api/rules/match    匹配规则(供 agent loop 调用)
+ *
+ * 静态路由(/conflicts、/templates、/audit-log)在 Fastify find-my-way 中
+ * 优先于参数路由(/:id),无需担心顺序冲突。
  *
  * 在 server.ts 注册:server.register(rulesRoutes, { prefix: '/api' })
  *
@@ -87,6 +93,42 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     try {
       const rule = await rulesService.createRule(parsed.data)
       return reply.status(201).send(success(rule))
+    } catch (e) {
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
+
+  // GET /rules/conflicts — 检测规则冲突(同名/语义重复/优先级碰撞)
+  server.get('/rules/conflicts', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    try {
+      const data = await rulesService.detectConflicts()
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
+
+  // GET /rules/templates — 预置规则模板(5 个常用模板)
+  server.get('/rules/templates', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    try {
+      const data = await rulesService.listTemplates()
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
+
+  // GET /rules/audit-log — 审计日志(create/update/delete/test)
+  server.get('/rules/audit-log', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    try {
+      const data = await rulesService.getAuditLog()
+      return reply.send(success(data))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
     }
