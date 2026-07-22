@@ -10052,13 +10052,7 @@
       "liveTag": "실시간",
       "viewAll": "전체 보기",
       "relatedModels": "관련 {count}개 모델",
-      "empty": "AI 뉴스가 아직 없습니다",
-      "leaderboard": {
-        "label": "모델 리더보드",
-        "title": "모델 리더보드 · Arena 점수",
-        "subtitle": "참조: arena.ai · Elo + Bootstrap CI",
-        "empty": "순위 데이터 없음"
-      }
+      "empty": "AI 뉴스가 아직 없습니다"
     },
     "overview": {
       "title": "콘솔 개요",
@@ -26071,7 +26065,8 @@
     "sourceContinue": "Continue.dev",
     "sourceTabnine": "Tabnine",
     "sourceCody": "Sourcegraph Cody",
-    "sourceZed": "Zed"
+    "sourceZed": "Zed",
+    "sourceAntigravity": "Google Antigravity"
   },
   "llmSettings": {
     "title": "내 LLM 설정",
@@ -28407,5 +28402,101 @@
     "clearHistory": "기록 지우기",
     "dragInsertBefore": "여기 앞에 삽입",
     "dragInsertAfter": "여기 뒤에 삽입"
+  },
+  "aiNews": {
+    "leaderboard": {
+      "label": "모델 리더보드",
+      "title": "모델 리더보드 · Arena 점수",
+      "subtitle": "참조: arena.ai · Elo + Bootstrap CI",
+      "empty": "랭킹 데이터 없음"
+    },
+    "hero": {
+      "label": "AI 뉴스 Hero",
+      "badge": "2026-07 실시간 피드",
+      "title": "AI 뉴스",
+      "subtitle": "2026년 7월 주요 AI 업계 동향 집약: GPT-5.6 / Claude Sonnet 5 / Gemini 3.5 Pro / Kimi K3 / DeepSeek V4 비교, WAIC 2026 라이브 입장, 대형 자금 조달 및 인수.",
+      "updateFreq": "매일 업데이트",
+      "ctaPrimary": "뉴스 광장으로",
+      "ctaSecondary": "라이브 보기"
+    },
+    "comparison": {
+      "label": "비교 표",
+      "title": "7월 플래그십 LLM 비교",
+      "subtitle": "주요 5사 7월 발표 모델, 파라미터·가격·특징 비교",
+      "verified": "2026-07 검증 완료",
+      "colModel": "비교 항목",
+      "highlight": "핵심 특징",
+      "footnote": "가격은 공식 API 공개 요금 기준, 환율 변동 가능",
+      "footnote2": "데이터는 공식 기술 보고서 + 주요 벤치마크 종합"
+    },
+    "live": {
+      "label": "WAIC 2026 라이브 입장",
+      "title": "WAIC 2026 라이브 입장",
+      "subtitle": "리처드 서튼 기조연설, 케빈 켈리 embodied AI, 3대 포럼 동시 생중계",
+      "viewMore": "전체 보기",
+      "liveBadge": "LIVE",
+      "empty": "현재 라이브 없음, 나중에 다시 확인"
+    },
+    "articles": {
+      "label": "최신 뉴스 카드",
+      "title": "최신 AI 뉴스",
+      "subtitle": "모델 발표, 업계 동향, 학술 최전선, 안전 거버넌스",
+      "viewMore": "더 보기",
+      "pinned": "고정",
+      "empty": "아직 기사가 없습니다. ai-fresh-2026 seed를 먼저 실행하세요"
+    },
+    "feed": {
+      "label": "AI 뉴스 타임라인",
+      "title": "실시간 AI 뉴스 스트림",
+      "subtitle": "41개 권위 소스 집약, 6시간마다 자동 수집",
+      "totalPrefix": "총",
+      "totalSuffix": "건",
+      "today": "오늘",
+      "yesterday": "어제",
+      "itemsUnit": "건",
+      "empty": "아직 수집 데이터 없음. 첫 ai-feed-collect cron 실행 대기 중",
+      "channelAll": "전체",
+      "channelFirstParty": "1차 벤더",
+      "channelNews": "뉴스",
+      "channelPaper": "논문",
+      "channelHotlist": "핫리스트",
+      "categoryAll": "전체",
+      "categoryModel": "AI 모델",
+      "categoryProduct": "AI 제품",
+      "categoryIndustry": "업계",
+      "categoryPaper": "논문",
+      "categoryTip": "팁",
+      "searchPlaceholder": "제목·요약 검색…",
+      "searchEmpty": "일치하는 기사 없음, 다른 키워드로 시도",
+      "trendBtn": "트렌드",
+      "moreHint": "{shown}/{total}건 표시 중, 필터 조정으로 더 보기"
+    },
+    "hotRanking": {
+      "label": "핫 랭킹",
+      "title": "AI 뉴스 핫 Top 10",
+      "subtitle": "실시간 인기순"
+    },
+    "trendChart": {
+      "subtitle": "7/14일 인기 트렌드 곡선",
+      "days": "일",
+      "loading": "트렌드 데이터 로딩 중…",
+      "noData": "데이터 축적 중",
+      "noDataHint": "트렌드 그리려면 ≥2일 스냅샷 필요, 내일 cron 후 이용 가능",
+      "stable": "안정",
+      "rankDelta": "순위 변동",
+      "hotValue": "인기도"
+    },
+    "funding": {
+      "label": "대형 자금 조달·인수",
+      "title": "대형 자금 조달·인수",
+      "subtitle": "7월 AI 업계 자본 동향: SpaceX가 Cursor를 600억 달러에 인수, DeepSeek 500억 위안 조달"
+    },
+    "cta": {
+      "label": "하단 CTA",
+      "title": "다음 AI 마일스톤을 놓치지 마세요",
+      "subtitle": "매일 AI 뉴스 브리핑 구독, IHUI AI 커뮤니티 참여로 AI 시대를 함께하세요.",
+      "subscribe": "데일리 브리핑 구독",
+      "community": "커뮤니티 참여"
+    }
   }
 }
