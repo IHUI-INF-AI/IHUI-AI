@@ -2,6 +2,7 @@
   "name": "@ihui/ui-primitives",
   "version": "0.0.0",
   "private": true,
+  "description": "IHUI-AI 共享 UI 原语:cn() 类名合并工具 + design tokens 色板/间距/字号/圆角/阴影/z-index",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
