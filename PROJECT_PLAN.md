@@ -587,7 +587,27 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 - test:**100/100 全绿**(94 原有 + 6 新 i18n parity)
 - i18n parity:5 语言各 **164 key**,完美一致(zh-CN=164, en=164, ja=164, ko=164, zh-TW=164)
 
-### [ ] 深度鲁棒性加固 P0+P1+P2 全量 85 项(2026-07-22 立,/goal 模式)
+### [x] ✅(2026-07-23) 浏览器插件界面样式与 web 端统一 — Tailwind 4 启用 + design token 对齐 + 深色模式修复(平台独占:仅 apps/extension)
+
+**触发**:用户询问"界面样式风格跟 web 端统一了吗"。调研发现 extension 未启用 Tailwind,@ihui/ui 的 Card/Button/Switch/Input 等 8 个组件在 extension 中完全无样式(裸奔),且 SettingsPage 深色模式开关是 no-op BUG。
+
+**修复内容**(7 文件,1 新建):
+
+| 优先级 | 问题 | 文件 | 修复 |
+|---|---|---|---|
+| P0 | extension 未启用 Tailwind,@ihui/ui 组件裸奔 | `wxt.config.ts` + `package.json` | 添加 `@tailwindcss/vite` 插件(WXT 基于 Vite,直接用 Vite 插件集成 Tailwind 4,非不存在的 `@wxt-dev/module-tailwindcss`)+ 声明 `tailwindcss@^4.0.0` + `@tailwindcss/vite@^4.0.0` 依赖 |
+| P0 | 缺少与 web 端统一的 design token 文件 | 新建 `entrypoints/sidepanel/globals.css` | 与 `apps/web/app/globals.css` 一致的 Tailwind 4 `@theme` 块(颜色/圆角/字体)+ `.dark` class 深色模式 + `@source '../../../packages/ui/src'` 让 Tailwind 扫描共享包 className + `--text-vcenter-offset: 0.3px` 中文字体垂直对齐硬约束(AGENTS.md §4) |
+| P0 | SettingsPage 深色模式开关 no-op BUG(设 `data-theme="dark"` 但 CSS 无规则响应) | `entrypoints/sidepanel/pages/SettingsPage.tsx` | 改用 `document.documentElement.classList.toggle('dark', v)`(与 web 端一致)+ 初始态从 `classList.contains('dark')` 读取 |
+| P1 | style.css 旧变量体系(`--bg/--fg/--card`)与 web 端 `--color-*` 命名割裂 | `entrypoints/sidepanel/style.css` | 69 处旧变量引用迁移到 Tailwind 4 token(`var(--bg)` → `var(--color-background)` 等)+ 删除 4 处 `@media (prefers-color-scheme: dark)` 硬编码块(改用 `.dark` class)+ 修复 `.notice-banner` 残留 `var(--primary-bg)` 引用 |
+| P1 | main.tsx 未 import globals.css | `entrypoints/sidepanel/main.tsx` + `entrypoints/popup/main.tsx` | 两个入口在 style.css 前添加 `import './globals.css'` / `import '../sidepanel/globals.css'` |
+
+**验证**:
+- `@tailwindcss/vite` + `tailwindcss` 已安装到 `apps/extension/node_modules/` ✅(pnpm install 成功)
+- test:**100/100 全绿**(9 测试文件,vitest run)
+- typecheck/build:⚠️ 因预存 `browser-tab.ts` 缺 default export bug(其他 agent commit `559e98cf1` 引入,`wxt prepare` 在 entrypoint 导入阶段失败,`.wxt/tsconfig.json` 无法生成)无法验证;本任务改动文件均通过 Read 验证语法正确;`wxt.config.ts` 的 `@tailwindcss/vite` import 与现有 `wxt/browser` import 是同一 moduleResolution 问题,非新引入错误
+- 按 AGENTS.md §12,不修改其他 agent 代码,预存 bug 由引入方修复
+
+### [x] ✅(2026-07-22) 深度鲁棒性加固 P0+P1+P2 — 85/85 完美收官,STATE.md=achieved;P2 Batch 3(11 项 eslint/tsconfig 严格化)已补齐(2026-07-22 立,/goal 模式)
 
 **触发**:用户要求"深度开发本项目的鲁棒性 必须达到完美"。5 路并行调研(api/web/ai-service/packages/desktop+extension+mobile)发现 85 项鲁棒性问题(P0 30 + P1 35 + P2 20)。
 
@@ -951,29 +971,29 @@ cAdvisor(:8080) → Prometheus(:8815) → Grafana(:8816)
 
 **对标**:OpenCode 的 LSP + Client/Server + TUI 三大杀手锏。
 
-- [ ] **W1-1 LSP 集成**:apps/cli 新增 `src/tools/lsp.ts`,接入 typescript-language-server + vscode-jsonrpc,注册 `lsp_goto_definition` / `lsp_find_references` / `lsp_diagnostics` / `lsp_hover` 工具,与现有 codegraph 作为离线兜底。验证:`pnpm --filter @ihui/cli typecheck` exit 0。
-- [ ] **W1-2 Client/Server 架构**:apps/cli 新增 `src/server/`(agent-core 内核 + HTTP/WS server)+ `src/client/`(TUI client 连接 server),支持"本机跑 Agent、远程驱动"。验证:typecheck exit 0 + server 可启动监听。
-- [ ] **W1-3 TUI 增强**:apps/cli 新增 `src/tui/`(@ 文件模糊搜索 + Tab Plan/Build 模式切换 + 图片输入),重构 repl 交互。验证:typecheck exit 0。
+- [x] ✅ **W1-1 LSP 集成**:apps/cli 新增 `src/tools/lsp.ts`,接入 typescript-language-server + vscode-jsonrpc,注册 `lsp_goto_definition` / `lsp_find_references` / `lsp_diagnostics` / `lsp_hover` 工具,与现有 codegraph 作为离线兜底。验证:`pnpm --filter @ihui/cli typecheck` exit 0。
+- [x] ✅ **W1-2 Client/Server 架构**:`apps/cli/src/commands/serve.ts`(端口 8841,AgentCore + HTTP server + WS bridge)+ `connect.ts`(TUI client)。验证:typecheck exit 0 + GET /health 返回 200。
+- [x] ✅ **W1-3 TUI 增强**:`apps/cli/src/tui/`(fuzzy-file.ts + image-input.ts + mode-indicator.tsx + mode-manager.ts)。验证:typecheck exit 0。
 
 ### Wave 2:P1 智能深度反超(平台独占:仅 cli)
 
-- [ ] **W2-1 四层记忆 + Dream 梦境 + 向量语义**:对标 OpenClaw Mem 系统,short-term/long-term/soul + 梦境周期沉淀 + embedding 语义检索(替换现有 keyword substring)。
-- [ ] **W2-2 Plan/Build 交互双模**:Tab 切换,右下角模式指示器,迭代计划再实施。
-- [ ] **W2-3 /undo /redo /share 命令**:对话修改回滚 + 对话链接分享。
-- [ ] **W2-4 Subagent 对等协作**:child session lane 隔离执行 + 对等/层级协作模式。
+- [x] ✅ **W2-1 四层记忆 + Dream 梦境 + 向量语义**:`apps/cli/src/memory/` 新增 short-term / long-term / soul / dream / vector-search 5 模块。
+- [x] ✅ **W2-2 Plan/Build 交互双模**:`apps/cli/src/modes/plan-build.ts` PlanBuildCoordinator 状态机 + `src/tui/mode-indicator.tsx`。
+- [x] ✅ **W2-3 /undo /redo /share 命令**:`apps/cli/src/commands/undo-redo.ts`(UndoRedoManager 多步回滚)+ `share.ts`(ShareManager + SHA-256 防篡改),已注册。
+- [x] ✅ **W2-4 Subagent 对等协作**:`apps/cli/src/subagent/peer-collab.ts`(对等 + lane 隔离)+ `hierarchy.ts`(层级 parent→child)。
 
 ### Wave 3:P2 生态工作台反超(跨端:web+api+cli)
 
-- [ ] **W3-1 Control UI Agent 工作台**(web):Agent 运行时统一工作台(session 树/token 流/工具调用链可视化)。
-- [ ] **W3-2 多通道消息总线**:飞书/钉钉/TG/Slack/Discord/微信 统一消息总线。
-- [ ] **W3-3 Webhook 唤醒机制**:`POST /hooks/wake` + Bearer token,外部唤醒 Agent。
-- [ ] **W3-4 Hooks 自动发现**:目录自动发现 + CLI 管理,像 Skills。
-- [ ] **W3-5 运行时可视化中心**:session 树 + token 流 + 工具调用链可视化。
+- [x] ✅ **W3-1 Control UI Agent 工作台**(web):`/agent-workbench` 双视图 + SessionTree + TokenStream + ToolCallChain + `use-agent-runtime` hook + 侧边栏入口(5 语言 i18n 35 键)。
+- [x] ✅ **W3-2 多通道消息总线**:`packages/types/message-bus.ts` + 6 适配器(飞书/钉钉/TG/Slack/Discord/微信)+ `GET /channels` + `POST /send` + `POST /webhook/:channel`。
+- [x] ✅ **W3-3 Webhook 唤醒机制**:`POST /hooks/wake` + Bearer + `timingSafeEqual` 防时序攻击 + `packages/types/webhook.ts`。
+- [x] ✅ **W3-4 Hooks 自动发现**:`apps/cli/src/hooks/discovery.ts` 目录扫描 + frontmatter 解析 + `hooks enable/disable` CLI 子命令。
+- [x] ✅ **W3-5 运行时可视化中心**:合并到 W3-1(SessionTree + TokenStream + ToolCallChain 三组件已实现)。
 
 ### Wave 4:P3 分发与本地化(跨端:cli+docs)
 
-- [ ] **W4-1 9 种安装方式**:curl/npm/brew/scoop/choco/nix/docker + VSCode SDK。
-- [ ] **W4-2 本地 LLM 主打**:Qwen3.5 本地适配优化 + 文档。
+- [x] ✅ **W4-1 9 种安装方式**:`apps/cli/scripts/install/` 提供 install.sh / install.ps1 / brew.rb / scoop.json / choco.nuspec / nix.nix / Dockerfile / vscode-extension.md / README 汇总。
+- [x] ✅ **W4-2 本地 LLM 主打**:`apps/ai-service/app/providers/qwen_local_provider.py`(QwenLocalProvider + ChatML stop + 32K ctx)+ 5 个预设 + CLI `localQwen` 配置 + `docs/LLM_SETUP.md` §7 三种部署方式文档。
 
 ---
 
