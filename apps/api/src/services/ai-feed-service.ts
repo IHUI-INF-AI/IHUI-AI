@@ -1022,7 +1022,62 @@ export async function proxyImage(url: string): Promise<{
 }
 
 // =============================================================================
-// 9. 手动触发趋势信号计算
+// 9. 每日快照生成
+// =============================================================================
+
+/**
+ * 生成当日 AI 资讯快照（写入 ai_feed_snapshot 表）。
+ *
+ * 把所有 ai_feed_hot_item 的 (currentHot, currentRank) 写入 ai_feed_snapshot，
+ * snapshotDate = 当天（YYYY-MM-DD），(sourceCode + platformItemId + snapshotDate) 三元组唯一，幂等 upsert。
+ *
+ * computeTrendSignals 依赖快照数据：需要 7/14 天窗口内至少 2 个快照点才能计算趋势。
+ * 因此本函数必须在 computeTrendSignals 之前调用（由 ai-feed-process cron 保证顺序）。
+ *
+ * 只快照有 hot 或 rank 的条目（避免无热度数据条目污染趋势计算）。
+ */
+export async function generateSnapshot(): Promise<{ insertedRows: number }> {
+  await db.execute(sql`
+    INSERT INTO ai_feed_snapshot (source_code, platform_item_id, item_id, title, rank, hot_value, snapshot_date, captured_at, created_at, updated_at)
+    SELECT
+      h.source_code,
+      h.platform_item_id,
+      h.id,
+      h.title,
+      h.current_rank,
+      h.current_hot,
+      CURRENT_DATE,
+      NOW(),
+      NOW(),
+      NOW()
+    FROM ai_feed_hot_item h
+    WHERE h.current_hot IS NOT NULL OR h.current_rank IS NOT NULL
+    ON CONFLICT (source_code, platform_item_id, snapshot_date) DO UPDATE
+    SET
+      rank = EXCLUDED.rank,
+      hot_value = EXCLUDED.hot_value,
+      title = EXCLUDED.title,
+      item_id = EXCLUDED.item_id,
+      captured_at = NOW(),
+      updated_at = NOW()
+  `)
+  // drizzle 的 db.execute 返回 RowList(无 rowCount 属性),用 COUNT 查询获取当天快照数
+  const countRes = await db.execute(sql`
+    SELECT COUNT(*)::int AS cnt
+    FROM ai_feed_snapshot
+    WHERE snapshot_date = CURRENT_DATE
+  `)
+  const countRows = Array.isArray(countRes) ? countRes : (countRes as { rows?: unknown[] }).rows ?? []
+  const insertedRows = (countRows[0] as { cnt?: number } | undefined)?.cnt ?? 0
+  logger.info('ai-feed snapshot generated', {
+    insertedRows,
+    snapshotDate: new Date().toISOString().slice(0, 10),
+  })
+  return { insertedRows }
+}
+
+// =============================================================================
+// 10. 手动触发趋势信号计算
 // =============================================================================
 
 /**
@@ -1115,7 +1170,7 @@ export async function computeTrendSignals(): Promise<{ processedItems: number }>
 }
 
 // =============================================================================
-// 10. 更新数据源配置
+// 11. 更新数据源配置
 // =============================================================================
 
 export interface UpdateSourcePatch {
