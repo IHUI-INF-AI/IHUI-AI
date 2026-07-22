@@ -224,9 +224,28 @@ export const frontendStubAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /ai/mcp/servers/:id/tools — 列出指定 MCP 服务器的工具
-  // 分类:需 ai-service 集成。ai-service 仅提供全局 /mcp/tools,无按服务器查询端点,保留空桩待开发。
-  server.get('/ai/mcp/servers/:id/tools', async (_request, reply) => {
-    return reply.send(success({ list: [], total: 0 }))
+  // 代理到 ai-service /api/mcp/tools,客户端按 serverId 过滤(ai-service 暂无按服务器查询端点)
+  server.get('/ai/mcp/servers/:id/tools', async (request, reply) => {
+    const { id } = (request.params as { id: string }) ?? { id: '' }
+    try {
+      const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/tools`, {
+        headers: { Authorization: request.headers.authorization ?? '' },
+      })
+      if (!resp.ok) {
+        return reply.status(502).send(error(502, `ai-service 调用失败: ${resp.status}`))
+      }
+      const data = (await resp.json().catch(() => ({ tools: [] }))) as {
+        tools: Array<Record<string, unknown>>
+        count: number
+      }
+      const tools = (data.tools ?? []).filter(
+        (t) => !t.serverId || t.serverId === id || t.server === id,
+      )
+      return reply.send(success({ list: tools, total: tools.length }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(502).send(error(502, `ai-service 调用异常: ${(e as Error).message}`))
+    }
   })
 
   // POST /ai/mcp/tools/call — 调用 MCP 工具(代理到 ai-service)
