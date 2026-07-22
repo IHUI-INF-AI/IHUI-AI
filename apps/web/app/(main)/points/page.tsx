@@ -9,12 +9,13 @@ import { useAuthStore } from '@/stores/auth'
 import { PointsSummary } from './PointsSummary'
 import { PointsTransactionList } from './PointsTransactionList'
 import { PointsLeaderboard } from './PointsLeaderboard'
+import { PointsRedeemList } from './PointsRedeemList'
 import { api } from './helpers'
 import type { Transaction, LeaderboardUser } from './types'
 
 export default function PointsPage() {
   const t = useTranslations('points')
-  const [tab, setTab] = React.useState<'tx' | 'lb'>('tx')
+  const [tab, setTab] = React.useState<'tx' | 'lb' | 'redeem'>('tx')
   const currentUserId = useAuthStore((s) => s.user?.id)
 
   const pointsQ = useQuery({
@@ -68,7 +69,7 @@ export default function PointsPage() {
       />
 
       <div className="flex gap-1 border-b">
-        {(['tx', 'lb'] as const).map((k) => (
+        {(['tx', 'lb', 'redeem'] as const).map((k) => (
           <button
             key={k}
             onClick={() => setTab(k)}
@@ -87,8 +88,10 @@ export default function PointsPage() {
       <div key={tab} className="animate-in fade-in-0 duration-200">
         {tab === 'tx' ? (
           <PointsTransactionList isLoading={txQ.isLoading} error={txQ.error} data={txQ.data} />
-        ) : (
+        ) : tab === 'lb' ? (
           <PointsLeaderboard isLoading={lbQ.isLoading} error={lbQ.error} data={lbQ.data} />
+        ) : (
+          <PointsRedeemList />
         )}
       </div>
     </div>
