@@ -24,7 +24,6 @@ import { config } from '../config/index.js'
 import { db, dbRead } from '../db/index.js'
 import {
   aiWorldItems,
-  developerApiKeys,
   developerSubscriptions,
   developerPricing,
   teamInvitations,
@@ -73,6 +72,8 @@ import { createMessage } from '../db/notification-queries.js'
 import { findGenerationHistory, findGenerationTemplates } from '../db/content-generation-queries.js'
 import { mergePdfs, splitPdf, watermarkPdf } from '../services/pdf-tools.js'
 import { PDFDocument } from 'pdf-lib'
+import { isValidApiKeyPermission } from '@ihui/types'
+import * as apiKeysService from '../services/developer-api-keys-service.js'
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -549,40 +550,30 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
     const body = z
       .object({
         name: z.string().min(1).max(100),
-        permissions: z.array(z.string()).default([]),
+        permissions: z
+          .array(z.string())
+          .refine((arr) => arr.every(isValidApiKeyPermission), '包含非法权限点')
+          .default([]),
         rateLimit: z.number().int().min(1).max(10000).optional(),
       })
       .safeParse(request.body)
     if (!body.success)
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
-    const apiKey = `ihui_${randomUUID().replace(/-/g, '').slice(0, 24)}`
-    const apiSecret = `sk_${randomUUID().replace(/-/g, '')}`
-    const [record] = await db
-      .insert(developerApiKeys)
-      .values({
-        userId: request.userId!,
-        name: body.data.name,
-        key: apiKey,
-        secret: apiSecret,
-        permissions: body.data.permissions,
-        rateLimit: body.data.rateLimit ?? 60,
-      })
-      .returning()
+    const { apiKey, secret } = await apiKeysService.createKey(request.userId!, {
+      name: body.data.name,
+      permissions: body.data.permissions,
+      rateLimit: body.data.rateLimit,
+    })
     request.skipResponseSanitization = true
-    return reply.status(201).send(success({ apiKey: record, secret: apiSecret }))
+    return reply.status(201).send(success({ apiKey, secret }))
   })
 
   // DELETE /developer/keys/:id — 删除 API 密钥
   server.delete('/developer/keys/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    const [deleted] = await db
-      .delete(developerApiKeys)
-      .where(eq(developerApiKeys.id, id))
-      .returning()
-    if (!deleted) return reply.status(404).send(error(404, 'API 密钥不存在'))
-    if (deleted.userId !== request.userId)
-      return reply.status(403).send(error(403, '无权删除此 API 密钥'))
+    const ok = await apiKeysService.deleteKey(id, request.userId!)
+    if (!ok) return reply.status(404).send(error(404, 'API 密钥不存在或无权操作'))
     return reply.send(success({ ok: true }))
   })
 
@@ -590,22 +581,10 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
   server.post('/developer/keys/:id/reset', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    const [existing] = await dbRead
-      .select()
-      .from(developerApiKeys)
-      .where(eq(developerApiKeys.id, id))
-      .limit(1)
-    if (!existing) return reply.status(404).send(error(404, 'API 密钥不存在'))
-    if (existing.userId !== request.userId)
-      return reply.status(403).send(error(403, '无权重置此 API 密钥'))
-    const newSecret = `sk_${randomUUID().replace(/-/g, '')}`
-    const [updated] = await db
-      .update(developerApiKeys)
-      .set({ secret: newSecret, updatedAt: new Date() })
-      .where(eq(developerApiKeys.id, id))
-      .returning()
+    const result = await apiKeysService.rotateSecret(id, request.userId!)
+    if (!result) return reply.status(404).send(error(404, 'API 密钥不存在或无权操作'))
     request.skipResponseSanitization = true
-    return reply.status(201).send(success({ apiKey: updated, secret: newSecret }))
+    return reply.status(201).send(success({ apiKey: result.apiKey, secret: result.secret }))
   })
 
   // POST /developer/subscription — 开通开发者订阅
