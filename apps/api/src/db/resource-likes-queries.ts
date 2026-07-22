@@ -1,4 +1,4 @@
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import { db } from './index.js'
 import { resourceLikes, type ResourceLike } from '@ihui/database'
 
@@ -50,4 +50,30 @@ export async function findLikesByUser(
     .from(resourceLikes)
     .where(and(...conds))
     .orderBy(desc(resourceLikes.createdAt))
+}
+
+/**
+ * 批量查询资源点赞数。
+ * 替代旧架构 getLikeCountList,按 resourceType 筛选 + resourceIds 批量聚合。
+ * 返回 Map<resourceId, count> 便于调用方 O(1) 查找。
+ */
+export async function findLikeCounts(
+  resourceType: string,
+  resourceIds: string[],
+): Promise<Map<string, number>> {
+  if (resourceIds.length === 0) return new Map()
+  const rows = await db
+    .select({
+      resourceId: resourceLikes.resourceId,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(resourceLikes)
+    .where(
+      and(
+        eq(resourceLikes.resourceType, resourceType),
+        sql`${resourceLikes.resourceId} = ANY(${resourceIds})`,
+      ),
+    )
+    .groupBy(resourceLikes.resourceId)
+  return new Map(rows.map((r) => [r.resourceId, r.count]))
 }
