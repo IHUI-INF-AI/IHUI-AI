@@ -42,6 +42,7 @@ export interface CanvasExecutionResult {
 }
 
 export class CanvasService extends EventEmitter {
+  /** 内存画布存储 — 需后续建表持久化(workflows 表需 createdBy userId,当前接口未传 userId) */
   private canvases = new Map<string, Canvas>()
 
   create(canvas: Omit<Canvas, 'createdAt' | 'updatedAt' | 'version'>): Canvas {

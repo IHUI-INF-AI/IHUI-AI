@@ -58,6 +58,7 @@ export interface ProcessedMessage {
 }
 
 export class MessageProcessor extends EventEmitter {
+  /** 内存消息上下文 — 运行时状态(会话历史,非持久化数据,重启后重新积累) */
   private contexts = new Map<string, MessageContext>()
   private queue: ChannelMessage[] = []
 
