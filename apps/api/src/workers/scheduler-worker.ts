@@ -35,6 +35,7 @@ import {
   processLlmBatch,
   translateTitles,
   computeTrendSignals,
+  generateSnapshot,
 } from '../services/ai-feed-service.js'
 
 /**
@@ -418,7 +419,14 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             return result
           }
           case 'ai-feed-process': {
-            // 三个子任务并行执行,各自独立 catch 防止一个失败拖垮全部
+            // 1. 先生成当日快照(computeTrendSignals 依赖快照数据,必须先执行)
+            //    快照是纯 SQL upsert,几秒完成,串行等待不影响整体耗时
+            const snapRes = await generateSnapshot().catch((err) => {
+              server.log.error({ err }, 'generateSnapshot failed in ai-feed-process')
+              return { insertedRows: 0 }
+            })
+            // 2. 三个子任务并行执行,各自独立 catch 防止一个失败拖垮全部
+            //    computeTrendSignals 用刚生成的快照计算趋势(需 ≥2 天快照才有趋势)
             const [llmRes, transRes, trendRes] = await Promise.all([
               processLlmBatch(100).catch((err) => {
                 server.log.error({ err }, 'processLlmBatch failed in ai-feed-process')
@@ -435,6 +443,7 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             ])
             server.log.info(
               {
+                snapshotRows: snapRes.insertedRows,
                 llmProcessed: llmRes.processedItems,
                 translated: transRes.processedItems,
                 trendItems: trendRes.processedItems,
@@ -446,7 +455,7 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             } catch {
               /* 指标采集失败不影响业务 */
             }
-            return { llm: llmRes, translate: transRes, trend: trendRes }
+            return { snapshot: snapRes, llm: llmRes, translate: transRes, trend: trendRes }
           }
           default:
             server.log.warn({ jobName: name }, 'unknown scheduled job')
