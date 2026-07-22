@@ -403,6 +403,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
               '分析以下外呼通话转录文本,判断客户意向。只返回一个 JSON: {"intent":"high|normal|low","reason":"简要原因"}。high=高意向(积极询问/愿意了解),normal=中等意向(态度中立/未明确拒绝),low=低意向(拒绝/挂断/无兴趣)。',
             text: body.transcript,
           }),
+          signal: AbortSignal.timeout(60_000),
         })
         if (!llmResp.ok) {
           req.log.error({ status: llmResp.status }, 'LLM 意向分析失败')
@@ -678,6 +679,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: modelId, prompt, temperature }),
+        signal: AbortSignal.timeout(60_000),
       })
       const latency = Date.now() - started
       if (!llmResp.ok) {
