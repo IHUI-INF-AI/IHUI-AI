@@ -315,10 +315,10 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 - browser_use 降级为代码审查(连续 3 次 BLOCKED:截图功能 "browser tab is not visible on screen")
 
 **Git 同步证据**(§21):
-- 本地 commit: <待填入>
-- origin commit: <待填入>
-- 同步状态: <待填入>
-- 守门脚本: <待填入>
+- 本地 commit: `fa84e6a1d` feat(ai-news): leaderboard 搜索关键词高亮 + 空状态优化 + i18n 5 语言同步
+- origin commit: `fa84e6a1d`
+- 同步状态: **local == remote ✅**(HEAD = origin/main = fa84e6a1d)
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
 
 ---
 ### [x] ✅(2026-07-22) 大模型排行榜深度优化三轮:搜索+厂商筛选 + 能力标签 + 排序功能 + i18n 5 语言同步(平台独占:仅 apps/web)
