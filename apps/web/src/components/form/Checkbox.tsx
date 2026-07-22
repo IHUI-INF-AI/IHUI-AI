@@ -54,18 +54,17 @@ export const Checkbox = React.forwardRef<HTMLSpanElement, CheckboxProps>(functio
         aria-disabled={disabled || undefined}
         aria-label={ariaLabel}
         aria-invalid={indeterminate || undefined}
+        data-state={indeterminate ? 'indeterminate' : checked ? 'checked' : 'unchecked'}
         onClick={handleToggle}
         onKeyDown={handleKeyDown}
         className={cn(
-          'flex h-4 w-4 items-center justify-center rounded border border-input transition-colors',
-          (checked || indeterminate) && 'border-primary bg-primary text-primary-foreground',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+          'ihui-checkbox flex h-4 w-4 items-center justify-center rounded border border-input',
         )}
       >
         {indeterminate ? (
-          <Minus className="h-3 w-3" />
+          <Minus className="ihui-checkbox-indicator h-3 w-3" strokeWidth={3} />
         ) : checked ? (
-          <Check className="h-3 w-3" />
+          <Check className="ihui-checkbox-indicator h-3 w-3" strokeWidth={3} />
         ) : null}
       </span>
       {label && <span className="text-sm">{label}</span>}
