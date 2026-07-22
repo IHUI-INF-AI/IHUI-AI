@@ -14,6 +14,7 @@ import {
   Bell,
   CreditCard,
   PackagePlus,
+  LogIn,
 } from 'lucide-react'
 
 export const SIDEBAR_KEY = 'sidebar-collapsed'
@@ -77,6 +78,12 @@ export const SUB_PAGES = [
     icon: FileText,
     titleKey: 'securityLogTitle',
     descKey: 'securityLogDesc',
+  },
+  {
+    href: '/settings/login-security',
+    icon: LogIn,
+    titleKey: 'loginSecurityTitle',
+    descKey: 'loginSecurityDesc',
   },
   {
     href: '/settings/notifications',
