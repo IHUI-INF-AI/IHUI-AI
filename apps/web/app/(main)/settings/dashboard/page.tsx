@@ -3,14 +3,13 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import Link from 'next/link'
-import { User, UserCircle, Receipt, Link2, Settings, Activity, Shield } from 'lucide-react'
+import { User, Receipt, Link2, Settings, Activity, Shield } from 'lucide-react'
 
 import { Card, CardContent } from '@ihui/ui'
 import { Container } from '@/components/layout'
 
 const LINKS = [
   { href: '/user/profile', icon: User, titleKey: 'profileTitle', descKey: 'profileDesc' },
-  { href: '/settings/avatar', icon: UserCircle, titleKey: 'avatarTitle', descKey: 'avatarDesc' },
   { href: '/settings/billing', icon: Receipt, titleKey: 'billingTitle', descKey: 'billingDesc' },
   {
     href: '/settings/connected-accounts',
