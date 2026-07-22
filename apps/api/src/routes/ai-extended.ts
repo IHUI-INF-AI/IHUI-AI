@@ -5,6 +5,7 @@ import { db } from '../db/index.js'
 import { videoGenerationTasks, aiCapabilities } from '@ihui/database'
 import { success, error } from '../utils/response.js'
 import { listDiscovered } from '../services/ai/ai-capability-discovery.js'
+import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
 
@@ -395,7 +396,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     // 有转录文本:调用 LLM 分析意向
     if (body?.transcript && body.transcript.trim().length > 0) {
       try {
-        const llmResp = await fetch(`${aiServiceUrl}/llm/complete`, {
+        const llmResp = await aiServiceFetch(req, '/llm/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -675,7 +676,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       )
     }
     try {
-      const llmResp = await fetch(`${aiServiceUrl}/llm/complete`, {
+      const llmResp = await aiServiceFetch(req, '/llm/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: modelId, prompt, temperature }),
