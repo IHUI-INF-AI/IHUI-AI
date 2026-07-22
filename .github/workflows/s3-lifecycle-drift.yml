@@ -35,11 +35,11 @@ jobs:
       - name: Compare against declared configuration
         id: compare
         run: |
-          # 声明配置位于仓库根目录 s3-lifecycle.yml，先转为 JSON 后比对
+          # 声明配置位于 deploy/s3-lifecycle.yml，先转为 JSON 后比对
           python3 - <<'PY'
           import json, sys, subprocess
           declared = subprocess.run(
-            ['python3', '-c', 'import sys,yaml,json; print(json.dumps(yaml.safe_load(open("s3-lifecycle.yml"))))'],
+            ['python3', '-c', 'import sys,yaml,json; print(json.dumps(yaml.safe_load(open("deploy/s3-lifecycle.yml"))))'],
             capture_output=True, text=True
           ).stdout
           with open('/tmp/current-lifecycle.json') as f:
@@ -55,7 +55,7 @@ jobs:
         if: steps.compare.outputs.drift == 'true'
         run: |
           echo "::warning::检测到 S3 生命周期配置漂移（桶 ${{ steps.current.outputs.bucket }}）"
-          echo "声明规则与实际规则数量不一致，请人工核对 s3-lifecycle.yml 与线上配置"
+          echo "声明规则与实际规则数量不一致，请人工核对 deploy/s3-lifecycle.yml 与线上配置"
           exit 1
 
       - name: No drift
