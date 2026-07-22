@@ -3,8 +3,6 @@
 import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
 
-import { fetchApi } from '@/lib/api'
-
 export interface PdfSignatureInput {
   fileId: string
   signerName: string
@@ -29,13 +27,9 @@ export interface UsePdfSignatureReturn {
   error: Error | null
 }
 
-async function signPdf(input: PdfSignatureInput): Promise<PdfSignatureResult> {
-  const res = await fetchApi<PdfSignatureResult>('/api/pdf-service/sign', {
-    method: 'POST',
-    body: JSON.stringify(input),
-  })
-  if (!res.success) throw new Error(res.error)
-  return res.data
+/** 数字签名需证书,后端暂未实现,直接返回错误提示。 */
+async function signPdf(_input: PdfSignatureInput): Promise<PdfSignatureResult> {
+  throw new Error('该功能暂不支持:数字签名需证书,暂未实现')
 }
 
 /** PDF 签名 Hook，提交数字签名到后端 */
