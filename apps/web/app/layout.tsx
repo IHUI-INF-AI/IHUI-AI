@@ -59,16 +59,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="font-sans antialiased">
         {/*
           No-flash bootstrap(2026-07-22 立,修复首屏侧边栏宽度闪烁):
-          在 React hydrate 之前同步执行,从 localStorage 读取 AI 面板持久化 width,
-          预设 --ai-panel-occupy CSS 变量,让 GlobalShell 的 work-area 首帧 paddingLeft
-          就是用户持久化值,而非 store 默认值(408px)。
-          - 解决 zustand persist rehydrate 引起的首帧 408px → 持久化值跳变
-          - 与 next-themes 的 suppressHydrationWarning 同模式(只设 CSS 变量,不触发 mismatch)
-          - GlobalShell 运行时通过 useEffect 继续同步该 CSS 变量(跟随用户拖拽/关闭)
+          在 React hydrate 之前同步执行,从 localStorage 读取持久化值并预设 CSS 变量,
+          让 GlobalShell 的 work-area 首帧 paddingLeft 和 Sidebar 首帧 width
+          都是用户持久化值,无 SSR 默认值 → 持久化值的二次跳变。
+
+          修复链路:
+          1. ai-panel width:work-area paddingLeft = w + 8(fallback 408)
+          2. sidebar-width:aside width 直接读 CSS 变量(fallback 130,clamp 130-180)
+          3. sidebar-collapsed:移动端抽屉 + 桌面端折叠状态(fallback 'false')
+          4. sidebar-expand-*:NavGroupSection 子菜单展开状态(此处仅设置 :root data-* 兜底,
+             实际展开由 sidebar.tsx 内 NavGroupSection 用 lazy initializer 同步读)
+
+          与 next-themes 的 suppressHydrationWarning 同模式:只设 CSS 变量 + DOM 属性,
+          React inline style 只声明 CSS 变量引用,不接管具体数值 → 无 hydration mismatch。
+
+          GlobalShell / Sidebar 运行时通过 useEffect 继续同步(跟随用户拖拽/折叠/展开)。
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var raw=localStorage.getItem('ihui-ai-panel');if(raw){var p=JSON.parse(raw);var w=p&&p.state&&p.state.width;if(typeof w==='number'&&w>=320&&w<=720){document.documentElement.style.setProperty('--ai-panel-occupy',(w+8)+'px');return;}}}catch(e){}document.documentElement.style.setProperty('--ai-panel-occupy','408px');})();`,
+            __html: `(function(){try{var p1=document.documentElement.style;var aiRaw=localStorage.getItem('ihui-ai-panel');if(aiRaw){var p=JSON.parse(aiRaw);var w=p&&p.state&&p.state.width;if(typeof w==='number'&&w>=320&&w<=720){p1.setProperty('--ai-panel-occupy',(w+8)+'px');}else{p1.setProperty('--ai-panel-occupy','408px');}}else{p1.setProperty('--ai-panel-occupy','408px');}}catch(e){document.documentElement.style.setProperty('--ai-panel-occupy','408px');}try{var sb=localStorage.getItem('sidebar-width');if(sb){var n=Number(sb);if(Number.isFinite(n)&&n>=130&&n<=180){document.documentElement.style.setProperty('--sidebar-width',n+'px');}else{document.documentElement.style.setProperty('--sidebar-width','130px');}}else{document.documentElement.style.setProperty('--sidebar-width','130px');}}catch(e){document.documentElement.style.setProperty('--sidebar-width','130px');}})();`,
           }}
         />
         <ThemeProvider
