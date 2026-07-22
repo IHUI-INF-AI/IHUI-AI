@@ -562,7 +562,7 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const list = await findCategoryParents(parsed.data.id)
-    return reply.send(success({ list }))
+    return reply.send(success(list))
   })
 
   // GET /learn/recommend - 推荐课程(按报名数降序,公开)
@@ -573,7 +573,7 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const list = await findRecommendLessons(parsed.data.limit)
-    return reply.send(success({ list: list.map(adaptLesson) }))
+    return reply.send(success(list.map(adaptLesson)))
   })
 
   // GET /learn/hot - 热门课程(按浏览数降序,公开)
@@ -584,7 +584,7 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const list = await findHotLessons(parsed.data.limit)
-    return reply.send(success({ list: list.map(adaptLesson) }))
+    return reply.send(success(list.map(adaptLesson)))
   })
 
   // GET /learn/lessons - 已发布课程列表（分页，公开）
