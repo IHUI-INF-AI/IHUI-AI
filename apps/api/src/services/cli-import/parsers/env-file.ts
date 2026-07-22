@@ -28,7 +28,7 @@ interface ProviderSpec {
 const PROVIDER_SPECS: ProviderSpec[] = [
   { prefixes: ['OPENAI'], providerCode: 'openai', apiFormat: 'openai_chat', defaultBaseUrl: 'https://api.openai.com/v1', displayName: 'OpenAI', category: 'OpenAI', websiteUrl: 'https://openai.com' },
   { prefixes: ['ANTHROPIC'], providerCode: 'anthropic', apiFormat: 'anthropic_messages', defaultBaseUrl: 'https://api.anthropic.com', displayName: 'Anthropic', category: 'Anthropic', websiteUrl: 'https://anthropic.com' },
-  { prefixes: ['GEMINI', 'GOOGLE'], providerCode: 'google', apiFormat: 'gemini_native', defaultBaseUrl: 'https://generativelanguage.googleapis.com', displayName: 'Google', category: 'Google', websiteUrl: 'https://ai.google.dev' },
+  { prefixes: ['GEMINI', 'GOOGLE'], providerCode: 'google', apiFormat: 'gemini_native', defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta', displayName: 'Google', category: 'Google', websiteUrl: 'https://ai.google.dev' },
   { prefixes: ['AZURE_OPENAI'], providerCode: 'azure', apiFormat: 'openai_chat', defaultBaseUrl: '', displayName: 'Azure OpenAI', category: 'Azure', websiteUrl: 'https://azure.microsoft.com' },
   { prefixes: ['DEEPSEEK'], providerCode: 'deepseek', apiFormat: 'openai_chat', defaultBaseUrl: 'https://api.deepseek.com', displayName: 'DeepSeek', category: 'DeepSeek', websiteUrl: 'https://deepseek.com' },
   { prefixes: ['MOONSHOT'], providerCode: 'moonshot', apiFormat: 'openai_chat', defaultBaseUrl: 'https://api.moonshot.cn/v1', displayName: 'Moonshot', category: 'Moonshot', websiteUrl: 'https://moonshot.cn' },
