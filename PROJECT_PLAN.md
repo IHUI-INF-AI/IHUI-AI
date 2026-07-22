@@ -759,3 +759,13 @@ cAdvisor(:8080) → Prometheus(:8815) → Grafana(:8816)
 - [ ] **W4-2 本地 LLM 主打**:Qwen3.5 本地适配优化 + 文档。
 
 ---
+
+## miniapp-taro 深色赛博朋克风样式迁移恢复(已完成 ✅ 2026-07-22,平台独占:仅 miniapp-taro)
+
+> 触发:用户反馈"移动端界面跟原 uniapp 项目完全不一样",要求深度比对迁移恢复原 D 盘 uniapp(AI智汇社)项目页面样式。
+> 决策(AskUserQuestion 确认):整体改回深色赛博朋克风(青 #00F2FF + 紫 #8B5CF6 + 背景 #121217)+ 首页两者融合(保留教育内容 + 新增 AI 应用入口)。
+
+- [x] ✅(2026-07-22) 全局 design-tokens 迁移:`apps/miniapp-taro/src/app.css` :root/.dark 块改为深色赛博朋克配色(主色青 #00f2ff + 强调紫 #8b5cf6 + 背景 #121217 + 卡片 #1f1f28 + border 青色半透明),新增 `.text-neon`/`.glass`/`.tech-card`/`.gradient-cyber`/`.gradient-text`/`.tech-grid` 赛博朋克工具类。迁移自原项目 `D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\uni.scss`。
+- [x] ✅(2026-07-22) 首页融合改造:`apps/miniapp-taro/src/pages/index/index.tsx` 顶部用户信息条改为青→紫赛博朋克渐变 + 科技网格(tech-grid),新增"AI 应用"入口区(6 入口:AI对话/AI绘图/AI语音/AI视频/智能体/模型广场,gradient-cyber 圆角图标),所有卡片改用 tech-card。
+- [x] ✅(2026-07-22) tabbar/导航适配:`apps/miniapp-taro/src/custom-tab-bar/index.tsx` 配色改为激活青 #00f2ff / 未激活半透明白 + 容器 bg-card + border 青色半透明;`apps/miniapp-taro/src/app.config.ts` window(tabBar 配色)改为深色背景 + 青 selectedColor。
+- [x] ✅(2026-07-22) 验证:`pnpm --filter @ihui/miniapp-taro typecheck` exit 0;`dev:h5` server 在线(http://localhost:8804/index.html 返回 200);源码 Read 验证 3 关键色值(#00f2ff/#8b5cf6/#121217)已落地 app.css :root 块。browser 渲染验证因 Taro H5 dev server entry 注入问题(React 未挂载 #app,非迁移导致)降级为源码验证 + typecheck。
