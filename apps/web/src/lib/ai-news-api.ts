@@ -424,24 +424,29 @@ interface ApiFeedItemRaw {
  * @param pageSize 单页条数(默认 50)
  * @param source 可选 sourceCode 筛选
  * @param category 可选 llmCategory 筛选
+ * @param keyword 可选标题关键词搜索(后端 ilike 模糊匹配)
+ * @param page 页码(默认 1,用于加载更多)
  */
 export async function fetchAiFeedItems(
   pageSize = 50,
   source?: string,
   category?: string,
-): Promise<{ items: AiFeedTimelineItem[]; total: number }> {
+  keyword?: string,
+  page = 1,
+): Promise<{ items: AiFeedTimelineItem[]; total: number; page: number; pageSize: number }> {
   const params = new URLSearchParams({
-    page: '1',
+    page: String(page),
     pageSize: String(pageSize),
   })
   if (source) params.set('source', source)
   if (category) params.set('category', category)
+  if (keyword) params.set('keyword', keyword)
 
-  const data = await safeApi<{ list: ApiFeedItemRaw[]; total: number }>(
+  const data = await safeApi<{ list: ApiFeedItemRaw[]; total: number; page: number; pageSize: number }>(
     `/api/ai-feed/items?${params.toString()}`,
   )
   if (!data?.list) {
-    return { items: [], total: 0 }
+    return { items: [], total: 0, page, pageSize }
   }
   return {
     items: data.list.map((it) => ({
@@ -462,7 +467,67 @@ export async function fetchAiFeedItems(
       titleEn: it.titleEn ?? null,
     })),
     total: data.total,
+    page: data.page,
+    pageSize: data.pageSize,
   }
+}
+
+/**
+ * 拉取热度排行榜 Top N(对接 /api/ai-feed/hot,按 currentHot 排序)。
+ * 不依赖趋势数据,只要有热度值即可展示。
+ */
+export async function fetchAiFeedHot(
+  limit = 10,
+): Promise<Array<{ id: string; title: string; sourceCode: string; currentHot: number | null; url: string | null; llmCategory: string | null }>> {
+  const params = new URLSearchParams({ page: '1', pageSize: String(limit) })
+  const data = await safeApi<{ list: ApiFeedItemRaw[]; total: number }>(
+    `/api/ai-feed/hot?${params.toString()}`,
+  )
+  if (!data?.list) return []
+  // 过滤掉无热度值的条目,按 currentHot 降序排序
+  return data.list
+    .filter((it) => it.currentHot !== null && it.currentHot !== undefined && it.currentHot > 0)
+    .sort((a, b) => (b.currentHot ?? 0) - (a.currentHot ?? 0))
+    .slice(0, limit)
+    .map((it) => ({
+      id: it.id,
+      title: it.title,
+      sourceCode: it.sourceCode,
+      currentHot: it.currentHot ?? null,
+      url: it.url ?? null,
+      llmCategory: it.llmCategory ?? null,
+    }))
+}
+
+/** 趋势图表数据点(对应 ai_feed_snapshot 表某天的 rank/hotValue) */
+export interface TrendChartPoint {
+  snapshotDate: string
+  rank: number | null
+  hotValue: number | null
+}
+
+/** 趋势图表 API 返回(对接 /api/ai-feed/trends) */
+export interface TrendChartData {
+  itemId: string
+  title: string
+  windowDays: number
+  points: TrendChartPoint[]
+  signals: Array<{
+    windowDays: number
+    trendTag: string
+    growthPct: number | null
+    rankDelta: number | null
+  }>
+}
+
+/**
+ * 拉取单条资讯的趋势图表数据(7/14 天热度+排名曲线)。
+ * 需 ≥2 天快照才有曲线数据(明天 cron 后自动有)。
+ */
+export async function fetchAiTrendChart(itemId: string, window = 14): Promise<TrendChartData | null> {
+  const params = new URLSearchParams({ itemId, window: String(window) })
+  const data = await safeApi<TrendChartData>(`/api/ai-feed/trends?${params.toString()}`)
+  return data
 }
 
 /** 拉取启用的数据源列表(用于顶部 Tab 渲染) */
