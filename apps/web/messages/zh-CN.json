@@ -25958,7 +25958,9 @@
       "empty": "暂无排行数据",
       "sortHint": "点击表头排序",
       "searchPlaceholder": "搜索模型/厂商…",
-      "allVendors": "全部厂商"
+      "allVendors": "全部厂商",
+      "noMatch": "未找到匹配的模型",
+      "clearFilter": "清空筛选"
     },
     "hero": {
       "label": "AI 资讯 Hero",
