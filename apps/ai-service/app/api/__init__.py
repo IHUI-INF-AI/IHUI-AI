@@ -2,3 +2,6 @@
 
 # 四层记忆 + Dream 梦境系统路由(2026-07-22 立,对标 OpenClaw Mem)
 from .memory import router as memory_router  # noqa: E402,F401
+
+# 多通道消息总线路由(2026-07-22 立,5 通道 + 优先级 + 降级,反超 OpenClaw 单 WS)
+from .message_bus import router as message_bus_router  # noqa: E402,F401
