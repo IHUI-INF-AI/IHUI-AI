@@ -1080,10 +1080,10 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     }
     if (newPassword.length < 6) return reply.status(400).send(error(400, '新密码至少 6 位'))
     const user = await findUserById(request.userId!)
-    if (!user?.passwordHash || !bcrypt.compareSync(oldPassword, user.passwordHash)) {
+    if (!user?.passwordHash || !(await bcrypt.compare(oldPassword, user.passwordHash))) {
       return reply.status(400).send(error(400, '原密码错误'))
     }
-    await updateUser(request.userId!, { passwordHash: bcrypt.hashSync(newPassword, 10) })
+    await updateUser(request.userId!, { passwordHash: await bcrypt.hash(newPassword, 10) })
     return reply.send(success({ updated: true }))
   })
 
