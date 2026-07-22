@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 from urllib.parse import parse_qs
 
@@ -32,7 +33,28 @@ from . import sio
 logger = logging.getLogger(__name__)
 
 # sid → user info 映射(connect 时建立,disconnect 时清理)
+# 2026-07-22 P1 鲁棒性加固:加 TTL + 容量上限,防内存泄漏
 _sessions: dict[str, dict[str, Any]] = {}
+_MAX_SESSIONS = 500
+_SESSION_TTL_SEC = 1800
+
+
+def _touch_session(sid: str) -> dict[str, Any] | None:
+    """刷新 session 访问时间,返回 session 或 None。"""
+    s = _sessions.get(sid)
+    if s is not None:
+        s["last_access"] = time.time()
+    return s
+
+
+def _evict_sessions_if_needed() -> None:
+    """TTL 过期淘汰 + FIFO 容量淘汰。"""
+    now = time.time()
+    expired = [sid for sid, s in _sessions.items() if now - s.get("last_access", 0) > _SESSION_TTL_SEC]
+    for sid in expired:
+        _sessions.pop(sid, None)
+    while len(_sessions) > _MAX_SESSIONS:
+        _sessions.pop(next(iter(_sessions)))
 
 
 # =============================================================================
@@ -149,7 +171,9 @@ async def connect(sid: str, environ: dict[str, Any], auth: Any = None) -> bool:
         "user_id": user_id,
         "role_id": payload.get("roleId") or 0,
         "rooms": set(),
+        "last_access": time.time(),
     }
+    _evict_sessions_if_needed()
     logger.info(
         "[sio] connected sid=%s user=%s role=%s",
         sid, user_id, payload.get("roleId", 0),
@@ -184,7 +208,7 @@ async def on_join_room(sid: str, data: Any) -> None:
         )
         return
 
-    session = _sessions.get(sid)
+    session = _touch_session(sid)
     if not session:
         await sio.emit(
             "chat_error",
@@ -209,7 +233,7 @@ async def on_join_room(sid: str, data: Any) -> None:
 async def on_leave_room(sid: str, data: Any) -> None:
     """离开房间。"""
     chat_id = _extract_chat_id(data)
-    session = _sessions.get(sid)
+    session = _touch_session(sid)
     if not session or not chat_id:
         return
 
@@ -236,7 +260,7 @@ async def on_chat_message(sid: str, data: Any) -> None:
             "history": [...],         # 可选,直接传入历史(覆盖 session 记忆)
         }
     """
-    session = _sessions.get(sid)
+    session = _touch_session(sid)
     if not session:
         await sio.emit(
             "chat_error",

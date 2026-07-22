@@ -60,9 +60,20 @@ const wsPaymentPlugin: FastifyPluginAsync = async (server) => {
 
     let lastStatus: string | null | undefined = undefined
     let closed = false
+    let interval: NodeJS.Timeout | null = null
+    let timeoutRef: NodeJS.Timeout | null = null
 
     socket.on('close', () => {
       closed = true
+      // 清理所有定时器,避免 socket 关闭后定时器仍触发造成资源泄漏
+      if (interval) {
+        clearInterval(interval)
+        interval = null
+      }
+      if (timeoutRef) {
+        clearTimeout(timeoutRef)
+        timeoutRef = null
+      }
     })
 
     socket.on('message', (data: Buffer) => {
@@ -116,23 +127,33 @@ const wsPaymentPlugin: FastifyPluginAsync = async (server) => {
     await pushStatus()
 
     // 每 2 秒轮询订单状态（仅 pending 状态时持续轮询）
-    const interval = setInterval(async () => {
+    interval = setInterval(async () => {
       if (closed) {
-        clearInterval(interval)
+        if (interval) clearInterval(interval)
         return
       }
       await pushStatus()
       // 终态后停止轮询
       if (lastStatus !== null && lastStatus !== undefined && lastStatus !== 'pending') {
-        clearInterval(interval)
+        if (interval) {
+          clearInterval(interval)
+          interval = null
+        }
+        if (timeoutRef) {
+          clearTimeout(timeoutRef)
+          timeoutRef = null
+        }
       }
     }, 2000)
 
     // 安全兜底：5 分钟后自动关闭连接，避免泄漏
-    setTimeout(
+    timeoutRef = setTimeout(
       () => {
         if (!closed) {
-          clearInterval(interval)
+          if (interval) {
+            clearInterval(interval)
+            interval = null
+          }
           try {
             socket.close(1000, 'timeout')
           } catch {

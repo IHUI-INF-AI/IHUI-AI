@@ -52,6 +52,8 @@ class SessionState(BaseModel):
     messages: list[SessionMessage] = []
     botId: str = "default"
     createdAt: float = Field(default_factory=time.time)
+    # 2026-07-22 P1 鲁棒性加固:TTL 过期清理,防长期空闲会话内存泄漏
+    last_access: float = Field(default_factory=time.time)
 
 
 class PermissionCheckResponse(BaseModel):
@@ -64,11 +66,19 @@ class PermissionCheckResponse(BaseModel):
 # ============ 会话存储(Redis 优先 + 内存降级,最大 1000 条)============
 
 _MAX_SESSIONS = 1000
+# 2026-07-22 P1 鲁棒性加固:30 分钟未访问的 session 自动淘汰
+_SESSION_TTL_SEC = 1800
 _sessions: dict[str, SessionState] = {}
 
 
 def _evict_if_needed() -> None:
-    """内存会话超过上限时按 FIFO 淘汰最旧条目(防止内存泄漏)。"""
+    """内存会话淘汰:FIFO 容量上限 + TTL 过期清理(防止内存泄漏)。"""
+    now = time.time()
+    # TTL 淘汰:删除超过 30 分钟未访问的 session
+    expired = [sid for sid, s in _sessions.items() if now - s.last_access > _SESSION_TTL_SEC]
+    for sid in expired:
+        _sessions.pop(sid, None)
+    # FIFO 容量淘汰
     while len(_sessions) > _MAX_SESSIONS:
         _sessions.pop(next(iter(_sessions)))
 
@@ -77,6 +87,7 @@ def _get_or_create_session(session_id: str | None, bot_id: str) -> SessionState:
     """获取或创建会话:内存命中 → 新建(写入时持久化 Redis)。"""
     new_id = session_id or str(uuid.uuid4())
     if new_id in _sessions:
+        _sessions[new_id].last_access = time.time()
         return _sessions[new_id]
     session = SessionState(id=new_id, botId=bot_id)
     _sessions[new_id] = session
@@ -87,6 +98,7 @@ def _get_or_create_session(session_id: str | None, bot_id: str) -> SessionState:
 def _find_session(session_id: str) -> SessionState | None:
     """查找会话(只读):内存 → Redis 回填,不新建。"""
     if session_id in _sessions:
+        _sessions[session_id].last_access = time.time()
         return _sessions[session_id]
     session = _load_session_redis(session_id)
     if session is not None:
