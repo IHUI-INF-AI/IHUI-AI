@@ -253,6 +253,13 @@ import { frontendStubOtherRoutes } from './routes/frontend-stub-other-routes.js'
 // P1-2 补建：报表生成器（接线 excel/pdf 孤儿服务）
 import { adminReportRoutes } from './routes/report.js'
 
+// 孤儿路由接线(2026-07-22 整合:5 个路由有完整 api-client 封装但 server.ts 漏挂载,前端调用 404)
+import mailRoutes from './routes/mail.js'
+import wrongQuestionRoutes from './routes/wrong-questions.js'
+import examMarkingRoutes from './routes/exam-marking.js'
+import authCodeRoutes from './routes/auth-codes.js'
+import privateLetterRoutes from './routes/private-letters.js'
+
 // P2-2 补建：公告系统 CLI 专用端点（/api/cli/announcements/*）
 import { announcementsRoutes } from './routes/announcements.js'
 
@@ -939,6 +946,18 @@ function registerRoutes(server: FastifyInstance) {
   server.register(adminExchangeRateRoutes, { prefix: '/api/admin' })
   // 私信管理：/api/admin/private-letters 列表
   server.register(adminPrivateLettersRoutes, { prefix: '/api/admin' })
+
+  // ===== 孤儿路由接线(2026-07-22 整合:5 个路由有完整 api-client 封装但 server.ts 漏挂载) =====
+  // 邮件发送:/api/mail/send + /api/mail/send/html
+  server.register(mailRoutes, { prefix: '/api/mail' })
+  // 错题本:/api/wrong-questions CRUD
+  server.register(wrongQuestionRoutes, { prefix: '/api/wrong-questions' })
+  // 阅卷:/api/exam-marking POST
+  server.register(examMarkingRoutes, { prefix: '/api/exam-marking' })
+  // 验证码:/api/auth-codes GET + /check
+  server.register(authCodeRoutes, { prefix: '/api/auth-codes' })
+  // 私信:/api/private-letters CRUD(前端 sidebar 已有页面入口)
+  server.register(privateLetterRoutes, { prefix: '/api/private-letters' })
 
   // ===== P0-3 补建：M-81 管理后台页面后端 API =====
   // 菜单管理 + 需求审核 + 在线用户
