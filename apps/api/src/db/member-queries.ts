@@ -711,6 +711,10 @@ export async function findUsersByDepartment(
         isSystemAdmin: users.isSystemAdmin,
         inviteCode: users.inviteCode,
         parentId: users.parentId,
+        twoFactorSecret: users.twoFactorSecret,
+        twoFactorEnabled: users.twoFactorEnabled,
+        twoFactorBackupCodes: users.twoFactorBackupCodes,
+        twoFactorEnabledAt: users.twoFactorEnabledAt,
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       })
