@@ -11,6 +11,9 @@ import {
   Loader2,
   Lock,
   Star,
+  ChevronDown,
+  Trash2,
+  Clock,
 } from 'lucide-react'
 import { cn } from '../lib/utils.js'
 import { Input } from './input.js'
@@ -33,6 +36,20 @@ export interface WorkPanelTabItem {
   id: string
   title: string
   type?: string
+}
+
+/** 收藏项(跨端共享,与 stores/work-panel.ts FavoriteItem 一致) */
+export interface WorkPanelFavoriteItem {
+  url: string
+  title: string
+  addedAt?: number
+}
+
+/** 最近访问项(跨端共享,与 stores/work-panel.ts RecentUrlItem 一致) */
+export interface WorkPanelRecentUrlItem {
+  url: string
+  title: string
+  visitedAt?: number
 }
 
 export interface WorkPanelProps {
@@ -68,6 +85,16 @@ export interface WorkPanelProps {
   isFavorite?: boolean
   /** 切换收藏状态 */
   onToggleFavorite?: () => void
+  /** 收藏夹列表(P3+:用于 dropdown 面板) */
+  favorites?: WorkPanelFavoriteItem[]
+  /** 最近访问列表(P3+:用于 dropdown 面板) */
+  recentUrls?: WorkPanelRecentUrlItem[]
+  /** 从 dropdown 列表选择 URL 时触发(导航) */
+  onSelectFromList?: (url: string) => void
+  /** 从 dropdown 移除收藏 */
+  onRemoveFavorite?: (url: string) => void
+  /** 清空历史记录 */
+  onClearHistory?: () => void
   /** Tab 列表 */
   tabs: WorkPanelTabItem[]
   activeTabId: string | null
@@ -102,6 +129,11 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
       isSecure,
       isFavorite,
       onToggleFavorite,
+      favorites,
+      recentUrls,
+      onSelectFromList,
+      onRemoveFavorite,
+      onClearHistory,
       tabs,
       activeTabId,
       onTabChange,
@@ -112,7 +144,48 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
     },
     ref,
   ) => {
+    // P3+:收藏 + 历史 dropdown 面板状态
+    const [dropdownOpen, setDropdownOpen] = React.useState(false)
+    const [dropdownTab, setDropdownTab] = React.useState<'favorites' | 'history'>('favorites')
+    const dropdownRef = React.useRef<HTMLDivElement>(null)
+    const dropdownTriggerRef = React.useRef<HTMLButtonElement>(null)
+
+    // click-away 关闭 dropdown
+    React.useEffect(() => {
+      if (!dropdownOpen) return
+      const handler = (e: MouseEvent) => {
+        const target = e.target as Node
+        if (
+          dropdownRef.current?.contains(target) ||
+          dropdownTriggerRef.current?.contains(target)
+        ) {
+          return
+        }
+        setDropdownOpen(false)
+      }
+      document.addEventListener('mousedown', handler)
+      return () => document.removeEventListener('mousedown', handler)
+    }, [dropdownOpen])
+
+    // ESC 关闭 dropdown
+    React.useEffect(() => {
+      if (!dropdownOpen) return
+      const handler = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setDropdownOpen(false)
+      }
+      document.addEventListener('keydown', handler)
+      return () => document.removeEventListener('keydown', handler)
+    }, [dropdownOpen])
+
     if (!open) return null
+
+    // 是否启用 dropdown(需要 onSelectFromList + 至少一个列表数据源)
+    const dropdownEnabled =
+      !!onSelectFromList && (!!favorites || !!recentUrls)
+
+    // 当前 tab 列表数据
+    const dropdownItems =
+      dropdownTab === 'favorites' ? favorites ?? [] : recentUrls ?? []
 
     return (
       <div
@@ -183,6 +256,16 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
               <Star className={cn('h-4 w-4', isFavorite && 'fill-current')} />
             </ToolbarButton>
           )}
+          {dropdownEnabled && (
+            <ToolbarButton
+              ref={dropdownTriggerRef}
+              onClick={() => setDropdownOpen((v) => !v)}
+              title="收藏和历史"
+              className={dropdownOpen ? 'bg-muted text-foreground' : undefined}
+            >
+              <ChevronDown className="h-4 w-4" />
+            </ToolbarButton>
+          )}
           {onOpenExternal && (
             <ToolbarButton onClick={onOpenExternal} title="在外部浏览器打开">
               <ExternalLink className="h-4 w-4" />
@@ -192,6 +275,110 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
             <X className="h-4 w-4" />
           </ToolbarButton>
         </div>
+
+        {/* P3+:收藏 + 历史 dropdown 面板 */}
+        {dropdownOpen && dropdownEnabled && (
+          <div
+            ref={dropdownRef}
+            role="dialog"
+            aria-label="收藏和历史"
+            className="absolute right-2 top-11 z-50 flex w-72 flex-col rounded-md border border-border bg-popover p-1.5 shadow-md animate-in fade-in-0 zoom-in-95 duration-100"
+          >
+            {/* tab 切换 */}
+            <div className="flex items-center gap-0.5 px-1 pb-1">
+              <button
+                type="button"
+                onClick={() => setDropdownTab('favorites')}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
+                  dropdownTab === 'favorites'
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Star className="h-3 w-3" />
+                <span>收藏</span>
+                {favorites && favorites.length > 0 && (
+                  <span className="text-[10px] text-muted-foreground">{favorites.length}</span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDropdownTab('history')}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
+                  dropdownTab === 'history'
+                    ? 'bg-muted text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Clock className="h-3 w-3" />
+                <span>历史</span>
+                {recentUrls && recentUrls.length > 0 && (
+                  <span className="text-[10px] text-muted-foreground">{recentUrls.length}</span>
+                )}
+              </button>
+            </div>
+
+            {/* 列表 */}
+            <div className="max-h-60 overflow-y-auto py-0.5">
+              {dropdownItems.length === 0 ? (
+                <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+                  暂无{dropdownTab === 'favorites' ? '收藏' : '历史'}
+                </div>
+              ) : (
+                dropdownItems.map((item) => (
+                  <div
+                    key={item.url}
+                    className="group flex items-center gap-1 rounded px-1.5 py-1 hover:bg-muted"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSelectFromList?.(item.url)
+                        setDropdownOpen(false)
+                      }}
+                      className="flex-1 truncate text-left text-xs text-foreground"
+                      title={item.url}
+                    >
+                      {item.title || item.url}
+                    </button>
+                    {dropdownTab === 'favorites' && onRemoveFavorite && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onRemoveFavorite(item.url)
+                        }}
+                        className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                        title="移除收藏"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* footer:清空(仅历史 tab 且非空) */}
+            {dropdownTab === 'history' && dropdownItems.length > 0 && onClearHistory && (
+              <div className="mt-1 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClearHistory()
+                    setDropdownOpen(false)
+                  }}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  <span>清空历史</span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Tab 栏(仅多 Tab 时显示) */}
         {tabs.length > 0 && (

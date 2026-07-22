@@ -308,7 +308,7 @@ P2 AI 工具调用深度联动(5 修改文件):
 - 平台独占豁免:desktop/mobile-rn/miniapp-taro/extension 保持单 Tab(各端独立 store,屏幕限制不适合多 Tab)
 - 验证:web typecheck exit 0;browser_use store 逻辑 PASS(openPanel 创建 tab、newTab/closeTab/setActiveTab 正常、addFavorite/removeFavorite 正常、WorkPanel DOM panelExists=true、WebViewFrame status/mode 正确)
 
-### [ ] AI 对话内嵌浏览器工作展示区 P3+ 增强:收藏 + 历史 dropdown 面板(平台独占:仅 web,2026-07-22 立)
+### [x] ✅(2026-07-22) AI 对话内嵌浏览器工作展示区 P3+ 增强:收藏 + 历史 dropdown 面板(平台独占:仅 web)
 
 **触发**:P3 已完成 commit `f8776381e`,用户选择继续做"P3 范围内尚未实现的功能"(原 P3 计划第 259 行明确"浏览历史作为 P3 后续任务")。
 
@@ -319,11 +319,20 @@ P2 AI 工具调用深度联动(5 修改文件):
 - 不改 packages/types(复用现有 FavoriteItem/RecentUrlItem 类型)
 - 平台独占豁免(§9):desktop/mobile-rn/miniapp-taro/extension 保持原 WorkPanel(屏幕限制不适合 dropdown,已标注平台独占)
 
-**验证标准**:
-- `pnpm --filter @ihui/web typecheck` exit 0
-- `pnpm --filter @ihui/ui typecheck` exit 0
-- browser_use 4 状态自验(默认/hover/active/dark)+ DOM 数值(dropdown exists、收藏列表渲染、amber-500 类应用、点击收藏触发 navigate)
-- 降级条件:browser_use 工具连续 2 次失败 → 按 §19 第 3 条豁免降级为源码逻辑 + store API 调用验证
+**完成证据**:
+- `packages/ui/src/components/work-panel.tsx`:加 ChevronDown/Trash2/Clock 图标 + WorkPanelFavoriteItem/WorkPanelRecentUrlItem 类型 + 5 个 props(favorites/recentUrls/onSelectFromList/onRemoveFavorite/onClearHistory)+ dropdown 实现(useState+useRef+useEffect click-away + ESC 关闭 + 收藏/历史 tab 切换 + 列表项 + 清空历史 footer)
+- `apps/web/src/components/work-panel/web-work-panel.tsx`:解构 favorites/recentUrls/clearHistory + WorkPanel 调用传 onSelectFromList=(url)=>navigate(url,'user') + onRemoveFavorite=removeFavorite + onClearHistory=clearHistory
+- `apps/web/src/stores/work-panel.ts`:加 `clearHistory: () => set({ recentUrls: [] })` 接口 + 实现(Read 验证落地)
+- 验证:`pnpm --filter @ihui/web typecheck` exit 0;`pnpm --filter @ihui/ui typecheck` exit 0
+
+**browser_use 验证降级(§19 第 3 条豁免)**:
+- 4 次 browser_use 验证均失败(原因各异):
+  1. 未登录态,WorkPanel 默认关闭未挂载
+  2. browser 注入 localStorage schema 错误导致 React 崩溃(P3 源码无 bug,是测试方法问题)
+  3. 步骤 1-3 PASS(调 store API openPanel 成功,open false→true、tabs 0→1、activeTabId 生成),步骤 4+ IDE Command timeout + ERR_CONNECTION_REFUSED
+  4. 清理 localStorage 后 `window.__workPanelStore` 返回 not found(疑似 HMR 后 window 暴露丢失)
+- 按 user_profile "2 次失败立即告知"+ §19 工具故障应急,停止再尝试,降级为源码逻辑 + typecheck 验证
+- 降级后续:补 Playwright E2E 测试(apps/web/e2e/work-panel.spec.ts),彻底避开 browser_use 工具限制
 
 **约束边界**:
 - 不改 store 已有 favorites/recentUrls schema(persist 兼容)
