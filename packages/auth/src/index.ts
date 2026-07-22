@@ -1,6 +1,6 @@
 // @ihui/auth - 自研认证体系
 //
-// 导出顺序: jwt → token-family → blacklist(Redis) → data-scope(5 级)
+// 导出顺序: jwt → token-family → blacklist(Redis) → data-scope(6 级)
 //         → oauth2(含 PKCE) → ws-auth(socket.io)
 
 export * from './jwt.js'
