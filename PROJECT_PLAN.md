@@ -102,10 +102,10 @@
 - §13 文件持久化:全部 Edit 已 Grep 验证落地 ✅
 
 **Git 同步证据**(§21):
-- 本地 commit: <待填入>
-- origin commit: <待填入>
-- 同步状态: <待填入>
-- 守门脚本: <待填入>
+- 本地 commit: `69bbbb50f` refactor(ai-news): 能力标签阈值配置化 + ModelDetailDialog 高亮延续
+- origin commit: `69bbbb50f`
+- 同步状态: **local == remote ✅**(HEAD = origin/main = 69bbbb50f)
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
 
 ---
 ### [x] ✅(2026-07-22) 大模型排行榜深度优化五轮:highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证(平台独占:仅 apps/web)
