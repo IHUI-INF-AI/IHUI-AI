@@ -169,7 +169,18 @@ export class SubagentWorkerPool {
   /** 优雅关闭:SIGTERM 所有子进程 → 5s → SIGKILL,清理 worktree */
   async shutdown(): Promise<void> {
     this.shutDown = true;
-    this.queue.length = 0;
+    // P0-4 修复:shutdown 时先遍历 queue 调 resolve(failed) 再清空
+    // 原实现直接 this.queue.length = 0 → 调用方 await pool.spawn(req) 永远 hang → Promise 泄漏
+    // 在 spawnParallel 场景下 Promise.all 永不 resolve,调用方整个 await hang 住
+    while (this.queue.length > 0) {
+      const item = this.queue.shift()!;
+      item.resolve({
+        subagentId: `rejected_shutdown_${item.req.persona ?? 'unknown'}`,
+        pid: 0,
+        status: 'failed',
+        error: 'worker pool 已 shutdown,任务未启动',
+      });
+    }
 
     const entries = [...this.workers.values()];
     for (const w of entries) {
@@ -450,11 +461,19 @@ export class SubagentWorkerPool {
       entry.resolver = undefined;
     }
 
-    // 清理 worktree(成功完成时)
-    if (!isFailed && entry.worktree) {
+    // P1-4 修复:worktree 清理策略
+    // - 成功完成:清理
+    // - 失败:默认也清理(防磁盘泄漏),除非配置 keepWorktreeOnFailure=true 保留供调试
+    const shouldCleanWorktree = entry.worktree && (!isFailed || !this.config.keepWorktreeOnFailure);
+    if (shouldCleanWorktree && entry.worktree) {
       try {
         removeWorktree(entry.worktree.path, { sourcePath: entry.worktree.parentId, force: true });
       } catch { /* ignore */ }
+    } else if (isFailed && entry.worktree && this.config.keepWorktreeOnFailure) {
+      // 保留失败任务的 worktree 供调试,记录路径供用户查找
+      process.stderr.write(
+        `[subagent ${subagentId}] worktree retained for debugging: ${entry.worktree.path}\n`,
+      );
     }
 
     this.workers.delete(subagentId);
