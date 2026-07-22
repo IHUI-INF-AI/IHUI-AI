@@ -1055,6 +1055,8 @@ export default {
     logout: 'Log out',
     logoutConfirm: 'Are you sure you want to log out?',
     vipMember: 'VIP member',
+    admin: 'Admin',
+    normalUser: 'User',
     tapLogin: 'Tap to log in',
     loginHint: 'Log in for more services',
     menu: {
@@ -1066,6 +1068,7 @@ export default {
       ai: 'AI Assistant',
       settings: 'Settings',
     },
+    identity: 'Identity',
     avatar: {
       updateSuccess: 'Avatar updated',
       choose: 'Choose avatar',

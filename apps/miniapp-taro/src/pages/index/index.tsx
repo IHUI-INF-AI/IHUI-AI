@@ -2,7 +2,7 @@ import { View, Text, Image, Swiper, SwiperItem, ScrollView } from '@tarojs/compo
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
-import { getHomePage, getCourseList, getLiveList, getStudyInfo, getBannerList, type Banner, type Course, type Live } from '@/api'
+import { getHomePage, getCourseList, getLiveList, getStudyInfo, getBannerList, getCircleList, type Banner, type Course, type Live } from '@/api'
 import { useI18n } from '@/i18n'
 
 const defaultAvatar =
@@ -42,6 +42,7 @@ export default function Index() {
   const [courseList, setCourseList] = useState<Course[]>([])
   const [livePreview, setLivePreview] = useState<Live[]>([])
   const [study, setStudy] = useState<StudyStats | null>(null)
+  const [circlePreview, setCirclePreview] = useState<Record<string, unknown>[]>([])
 
   function refreshUser() {
     setIsLogin(isLoggedIn())
@@ -70,7 +71,7 @@ export default function Index() {
 
   const loadData = useCallback(async () => {
     try {
-      const [banners, courses, lives, studyRes, home] = await Promise.all([
+      const [banners, courses, lives, studyRes, home, circles] = await Promise.all([
         // 运营 banner 独立接口优先(支持精细化运营配置)
         getBannerList({ position: 'home', status: 1 })
           .then((res) => res.list || [])
@@ -84,6 +85,10 @@ export default function Index() {
         ),
         // 兜底:home 聚合接口里的 banner
         getHomePage().catch(() => null),
+        // 智汇社区动态预览
+        getCircleList({ page: 1, pageSize: 3 })
+          .then((res) => (res?.list as unknown as Record<string, unknown>[]) || [])
+          .catch(() => [] as Record<string, unknown>[]),
       ])
       const list =
         banners ?? (home?.banner as Banner[] | undefined) ?? []
@@ -91,6 +96,7 @@ export default function Index() {
       setCourseList(courses.list || [])
       setLivePreview(lives.list || [])
       setStudy(studyRes as StudyStats)
+      setCirclePreview(circles)
     } catch {
       // 静默处理,首页可离线展示
     }
@@ -245,6 +251,42 @@ export default function Index() {
           ))}
         </View>
       </View>
+
+      {/* 智汇社区动态预览 — 点击进入智汇社区 tab */}
+      {circlePreview.length > 0 ? (
+        <View className="mx-[16px] my-[12px]">
+          <View className="flex justify-between items-center mb-[10px]">
+            <Text className="text-[15px] font-semibold text-neon">{t('community.title')}</Text>
+            <Text
+              className="text-[12px] text-muted-foreground"
+              onClick={() => Taro.switchTab({ url: '/pages/community/index' })}
+            >
+              {t('home.more')} {'>'}
+            </Text>
+          </View>
+          {circlePreview.map((item) => (
+            <View
+              key={item.id as string}
+              className="tech-card px-[12px] py-[10px] mb-[8px]"
+              onClick={() => Taro.navigateTo({ url: `/pages/circle/detail?id=${item.id}` })}
+            >
+              <View className="flex items-center mb-[4px]">
+                <Image
+                  className="w-[20px] h-[20px] rounded-md bg-muted"
+                  src={(item.authorAvatar as string) || defaultAvatar}
+                  mode="aspectFill"
+                />
+                <Text className="ml-[6px] text-[11px] text-muted-foreground">
+                  {(item.authorName as string) || t('common.user')}
+                </Text>
+              </View>
+              <Text className="block text-[13px] text-white font-semibold truncate">
+                {(item.title as string) || t('aiCircle.post')}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       {/* 直播预告 */}
       {livePreview.length > 0 ? (
