@@ -35,6 +35,8 @@ COPY --from=builder --chown=apijs:nodejs /app/apps/api/node_modules ./apps/api/n
 # 复制 workspace 依赖包(@ihui/database/@ihui/auth/@ihui/types/@ihui/config)
 # Node.js 解析 workspace 包时需要 packages/<name>/package.json + dist + node_modules
 COPY --from=builder --chown=apijs:nodejs /app/packages ./packages
+# 复制 docs/ 目录(feature-center.ts 运行时直读工程文档,2026-07-22 立)
+COPY --from=builder --chown=apijs:nodejs /app/docs ./docs
 USER apijs
 EXPOSE 8080
 CMD ["node", "apps/api/dist/index.js"]
