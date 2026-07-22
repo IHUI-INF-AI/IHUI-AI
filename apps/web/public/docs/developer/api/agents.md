@@ -1,4 +1,6 @@
-# 智能体API
+# 智能体 API
+
+> 所需权限：`agents:read`（列表/详情）、`agents:call`（调用）
 
 ## 获取智能体列表
 
@@ -8,36 +10,28 @@
 GET /v1/agents
 ```
 
-### 请求参数
+**实现状态**：已实现
 
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| page | number | 页码（默认1） |
-| page_size | number | 每页数量（默认10） |
-| category_id | number | 分类ID |
-| keyword | string | 搜索关键词 |
+### 请求
+
+```http
+GET /v1/agents
+Authorization: Bearer ihui_xxx
+```
 
 ### 响应
 
 ```json
 {
-  "code": 200,
-  "success": true,
-  "data": {
-    "list": [
-      {
-        "id": "agent-123",
-        "name": "AI助手",
-        "description": "智能AI助手",
-        "category": "assistant",
-        "price": 0,
-        "rating": 4.5
-      }
-    ],
-    "total": 100,
-    "page": 1,
-    "page_size": 10
-  }
+  "object": "list",
+  "data": [
+    {
+      "id": "agent-123",
+      "name": "AI助手",
+      "description": "智能AI助手",
+      "capabilities": ["chat", "tool_use"]
+    }
+  ]
 }
 ```
 
@@ -49,22 +43,23 @@ GET /v1/agents
 GET /v1/agents/:id
 ```
 
+**实现状态**：已实现
+
+### 请求
+
+```http
+GET /v1/agents/agent-123
+Authorization: Bearer ihui_xxx
+```
+
 ### 响应
 
 ```json
 {
-  "code": 200,
-  "success": true,
-  "data": {
-    "id": "agent-123",
-    "name": "AI助手",
-    "description": "智能AI助手",
-    "category": "assistant",
-    "price": 0,
-    "rating": 4.5,
-    "usage_count": 1000,
-    "created_at": "2024-01-01T00:00:00Z"
-  }
+  "id": "agent-123",
+  "name": "AI助手",
+  "description": "智能AI助手",
+  "capabilities": ["chat", "tool_use"]
 }
 ```
 
@@ -76,28 +71,37 @@ GET /v1/agents/:id
 POST /v1/agents/:id/call
 ```
 
+**实现状态**：转发到 ai-service（LangGraph）
+
 ### 请求
+
+```http
+POST /v1/agents/agent-123/call
+Authorization: Bearer ihui_xxx
+Content-Type: application/json
+```
 
 ```json
 {
   "input": "用户输入",
-  "context": {
-    "user_id": "user-123"
-  }
+  "sessionId": "session-abc"
 }
 ```
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| input | string | 是 | 用户输入内容 |
+| sessionId | string | 否 | 会话 ID，用于多轮对话 |
 
 ### 响应
 
 ```json
 {
-  "code": 200,
-  "success": true,
-  "data": {
-    "output": "智能体输出",
-    "usage": {
-      "tokens": 100
-    }
+  "agentId": "agent-123",
+  "sessionId": "session-abc",
+  "output": "智能体输出内容",
+  "usage": {
+    "totalTokens": 100
   }
 }
 ```
@@ -108,34 +112,32 @@ POST /v1/agents/:id/call
 
 ```javascript
 // 获取智能体列表
-const agentsResponse = await fetch('https://api.example.com/v1/agents?page=1&page_size=10', {
+const agentsResponse = await fetch('https://api.example.com/v1/agents', {
   headers: {
-    'Authorization': 'Bearer YOUR_API_KEY'
+    'Authorization': 'Bearer ihui_xxx'
   }
 })
 
 const agentsData = await agentsResponse.json()
-console.log(agentsData.data.list)
+console.log(agentsData.data)
 
 // 调用智能体
 const callResponse = await fetch('https://api.example.com/v1/agents/agent-123/call', {
   method: 'POST',
   headers: {
-    'Authorization': 'Bearer YOUR_API_KEY',
+    'Authorization': 'Bearer ihui_xxx',
     'Content-Type': 'application/json'
   },
   body: JSON.stringify({
     input: 'Hello',
-    context: {
-      user_id: 'user-123'
-    }
+    sessionId: 'session-abc'
   })
 })
 
 const callData = await callResponse.json()
-console.log(callData.data.output)
+console.log(callData.output)
 ```
 
 ---
 
-*最后更新: 2026-01-10*
+*最后更新: 2026-07-22*
