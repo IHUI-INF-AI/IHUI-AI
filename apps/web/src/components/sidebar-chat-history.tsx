@@ -501,7 +501,7 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
             <span>{t('loading')}</span>
           </div>
         ) : queryError ? (
-          <div className="px-2 py-3 text-xs text-muted-foreground">{t('loading')}</div>
+          <div className="px-2 py-3 text-xs text-muted-foreground">{tCommon('loadFailed')}</div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center gap-1.5 px-2 py-4 text-center">
             <MessageCirclePlus className="h-5 w-5 text-muted-foreground/50" />
