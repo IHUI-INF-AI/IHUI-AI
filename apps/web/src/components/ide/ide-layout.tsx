@@ -13,6 +13,7 @@ import { ApplicationsPanel } from './applications-panel'
 import { CodeEditorPane } from './code-editor-pane'
 import { DiffViewerPane } from './diff-viewer-pane'
 import { StatusBar } from './status-bar'
+import { TerminalPanel } from './terminal-panel'
 
 /** 根据活动视图渲染左侧面板 */
 function SidePanel() {
@@ -45,7 +46,7 @@ function MainContent() {
     case 'document':
       return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('layout.documentView')}</div>
     case 'terminal':
-      return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('layout.terminalView')}</div>
+      return <TerminalPanel />
     case 'browser':
       return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('layout.browserView')}</div>
     case 'figma':
