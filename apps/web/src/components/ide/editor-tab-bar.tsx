@@ -1,5 +1,6 @@
 'use client'
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { getFileColor, getFileIcon } from './file-icons'
 import { X, Circle, Pin, Copy, XCircle, Files } from 'lucide-react'
@@ -23,12 +24,13 @@ function calcTabWidth(filename: string): number {
 
 export function EditorTabBar() {
   const { openTabs, activeTabId, setActiveTab, closeTab } = useIDEWorkspace()
+  const t = useTranslations('ide')
   // pin 状态:从 store 的 isPinned 初始化,本地维护(zustand 未暴露 togglePin action)
   const [pinnedIds, setPinnedIds] = React.useState<Set<string>>(
-    () => new Set(openTabs.filter((t) => t.isPinned).map((t) => t.id)),
+    () => new Set(openTabs.filter((tab) => tab.isPinned).map((tab) => tab.id)),
   )
   // 本地维护 tab 顺序(支持拖拽重排),store 增删时同步
-  const [order, setOrder] = React.useState<string[]>(() => openTabs.map((t) => t.id))
+  const [order, setOrder] = React.useState<string[]>(() => openTabs.map((tab) => tab.id))
   const [dragId, setDragId] = React.useState<string | null>(null)
   const [overId, setOverId] = React.useState<string | null>(null)
   const [menu, setMenu] = React.useState<ContextMenuState | null>(null)
@@ -36,13 +38,13 @@ export function EditorTabBar() {
   // 同步 store 中 tab 增删到本地 order / pinnedIds
   React.useEffect(() => {
     setOrder((prev) => {
-      const current = openTabs.map((t) => t.id)
+      const current = openTabs.map((tab) => tab.id)
       const kept = prev.filter((id) => current.includes(id))
       const added = current.filter((id) => !kept.includes(id))
       return [...kept, ...added]
     })
     setPinnedIds((prev) => {
-      const ids = new Set(openTabs.map((t) => t.id))
+      const ids = new Set(openTabs.map((tab) => tab.id))
       const next = new Set<string>()
       prev.forEach((id) => {
         if (ids.has(id)) next.add(id)
@@ -53,10 +55,10 @@ export function EditorTabBar() {
 
   // 排序:pinned 优先(左侧),然后按 order
   const sortedTabs = React.useMemo(() => {
-    const byId = new Map(openTabs.map((t) => [t.id, t]))
+    const byId = new Map(openTabs.map((tab) => [tab.id, tab]))
     return order
       .map((id) => byId.get(id))
-      .filter((t): t is EditorTab => Boolean(t))
+      .filter((tab): tab is EditorTab => Boolean(tab))
       .sort((a, b) => {
         const ap = pinnedIds.has(a.id) ? 0 : 1
         const bp = pinnedIds.has(b.id) ? 0 : 1
@@ -92,11 +94,11 @@ export function EditorTabBar() {
 
   const closeOthers = (id: string) => {
     sortedTabs
-      .filter((t) => t.id !== id && !pinnedIds.has(t.id))
-      .forEach((t) => closeTab(t.id))
+      .filter((tab) => tab.id !== id && !pinnedIds.has(tab.id))
+      .forEach((tab) => closeTab(tab.id))
   }
   const closeAll = () => {
-    sortedTabs.filter((t) => !pinnedIds.has(t.id)).forEach((t) => closeTab(t.id))
+    sortedTabs.filter((tab) => !pinnedIds.has(tab.id)).forEach((tab) => closeTab(tab.id))
   }
   const copyPath = async (tab: EditorTab) => {
     try {
@@ -176,7 +178,7 @@ export function EditorTabBar() {
                   closeTab(tab.id)
                 }}
                 className="rounded-sm opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
-                aria-label="关闭标签"
+                aria-label={t('editorTabBar.closeTab')}
               >
                 <X className="h-3 w-3" />
               </button>
@@ -198,25 +200,25 @@ export function EditorTabBar() {
           }}
         >
           {(() => {
-            const tab = openTabs.find((t) => t.id === menu.tabId)
+            const tab = openTabs.find((item) => item.id === menu.tabId)
             if (!tab) return null
             const isPinned = pinnedIds.has(tab.id)
             return (
               <>
                 <MenuItem icon={Pin} onClick={() => { togglePin(tab.id); setMenu(null) }}>
-                  {isPinned ? '取消固定' : '固定标签'}
+                  {isPinned ? t('editorTabBar.unpin') : t('editorTabBar.pin')}
                 </MenuItem>
                 <MenuItem icon={X} onClick={() => { closeTab(tab.id); setMenu(null) }}>
-                  关闭
+                  {t('editorTabBar.close')}
                 </MenuItem>
                 <MenuItem icon={XCircle} onClick={() => { closeOthers(tab.id); setMenu(null) }}>
-                  关闭其他
+                  {t('editorTabBar.closeOthers')}
                 </MenuItem>
                 <MenuItem icon={Files} onClick={() => { closeAll(); setMenu(null) }}>
-                  关闭全部
+                  {t('editorTabBar.closeAll')}
                 </MenuItem>
                 <MenuItem icon={Copy} onClick={() => { void copyPath(tab); setMenu(null) }}>
-                  复制路径
+                  {t('editorTabBar.copyPath')}
                 </MenuItem>
               </>
             )

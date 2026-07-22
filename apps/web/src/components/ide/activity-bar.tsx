@@ -1,18 +1,19 @@
 'use client'
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import type { ViewPanelType } from '@ihui/types'
 import { cn } from '@/lib/utils'
 import { FileSearch, Search, GitBranch, Bug, AppWindow, Settings } from 'lucide-react'
 
-type Item = { id: ViewPanelType; icon: typeof FileSearch; label: string; shortcut: string }
+type Item = { id: ViewPanelType; icon: typeof FileSearch; labelKey: string; shortcut: string }
 
 const ITEMS: Item[] = [
-  { id: 'files', icon: FileSearch, label: '文件', shortcut: 'Ctrl+Shift+E' },
-  { id: 'search', icon: Search, label: '搜索', shortcut: 'Ctrl+Shift+F' },
-  { id: 'source-control', icon: GitBranch, label: '源代码控制', shortcut: 'Ctrl+Shift+G' },
-  { id: 'debug', icon: Bug, label: '调试', shortcut: 'Ctrl+Shift+D' },
-  { id: 'applications', icon: AppWindow, label: '应用', shortcut: 'Ctrl+Shift+A' },
+  { id: 'files', icon: FileSearch, labelKey: 'activityBar.files', shortcut: 'Ctrl+Shift+E' },
+  { id: 'search', icon: Search, labelKey: 'activityBar.search', shortcut: 'Ctrl+Shift+F' },
+  { id: 'source-control', icon: GitBranch, labelKey: 'activityBar.sourceControl', shortcut: 'Ctrl+Shift+G' },
+  { id: 'debug', icon: Bug, labelKey: 'activityBar.debug', shortcut: 'Ctrl+Shift+D' },
+  { id: 'applications', icon: AppWindow, labelKey: 'activityBar.applications', shortcut: 'Ctrl+Shift+A' },
 ]
 
 function Tooltip({ label, shortcut }: { label: string; shortcut: string }) {
@@ -27,6 +28,7 @@ function Tooltip({ label, shortcut }: { label: string; shortcut: string }) {
 }
 
 export function ActivityBar() {
+  const t = useTranslations('ide')
   const { activeView, setActiveView, setActiveTopTab, diffFiles } = useIDEWorkspace()
   const badgeCount = diffFiles.length
 
@@ -57,7 +59,7 @@ export function ActivityBar() {
                   </span>
                 )}
               </button>
-              <Tooltip label={item.label} shortcut={item.shortcut} />
+              <Tooltip label={t(item.labelKey)} shortcut={item.shortcut} />
             </div>
           )
         })}
@@ -69,7 +71,7 @@ export function ActivityBar() {
         >
           <Settings className="h-5 w-5" />
         </button>
-        <Tooltip label="设置" shortcut="Ctrl+," />
+        <Tooltip label={t('activityBar.settings')} shortcut="Ctrl+," />
       </div>
     </div>
   )
