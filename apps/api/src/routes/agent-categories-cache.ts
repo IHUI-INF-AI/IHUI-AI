@@ -83,7 +83,11 @@ export const agentCategoriesCacheRoutes: FastifyPluginAsync = async (server) => 
 
   // 1. GET /api/agent-categories/cache - 获取分类缓存（全量 / 分页）
   server.get('/api/agent-categories/cache', async (request, reply) => {
-    const q = listQuerySchema.parse(request.query)
+    const parsed = listQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const q = parsed.data
     const page = toPositiveInt(q.page, 1)
     const pageSize = toPositiveInt(q.pageSize, 50)
     const keyword = q.keyword?.trim().toLowerCase()
@@ -124,7 +128,11 @@ export const agentCategoriesCacheRoutes: FastifyPluginAsync = async (server) => 
   //    简化实现：接收 upsert + deleteKeys 增量，更新内存缓存 + 时间戳
   //    （后续接 DB 时替换为 onConflictDoNothing + DELETE WHERE key IN (...)）
   server.post('/api/agent-categories/cache/sync', async (request, reply) => {
-    const body = syncBodySchema.parse(request.body ?? {})
+    const parsed = syncBodySchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const body = parsed.data
     const syncedAt = new Date().toISOString()
     let upserted = 0
     for (const item of body.upsert) {

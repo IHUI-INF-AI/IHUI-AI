@@ -33,12 +33,12 @@ export function useAiFeed(): UseAiFeedReturn {
   const [items, setItems] = React.useState<AiFeedItem[]>([])
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [page, setPage] = React.useState(1)
+  const pageRef = React.useRef(1)
   const [hasMore, setHasMore] = React.useState(true)
 
   const fetchItems = React.useCallback(
     async (reset = false) => {
-      const nextPage = reset ? 1 : page
+      const nextPage = reset ? 1 : pageRef.current
       setLoading(true)
       setError(null)
       try {
@@ -49,7 +49,7 @@ export function useAiFeed(): UseAiFeedReturn {
           const list = res.data.list ?? []
           setItems((prev) => (reset ? list : [...prev, ...list]))
           setHasMore(list.length === PAGE_SIZE)
-          setPage(nextPage + 1)
+          pageRef.current = nextPage + 1
         } else {
           setError(res.error)
         }
@@ -57,8 +57,8 @@ export function useAiFeed(): UseAiFeedReturn {
         setLoading(false)
       }
     },
-    [page],
+    [],
   )
 
-  return { items, loading, error, hasMore, page, fetchItems }
+  return { items, loading, error, hasMore, page: pageRef.current, fetchItems }
 }

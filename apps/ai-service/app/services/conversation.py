@@ -173,8 +173,8 @@ class ConversationService:
             # 1. 写入用户消息到记忆
             try:
                 await memory_store.add(sid, "user", user_input)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("memory_store.add user 消息失败: %s", e)
 
             # 2. 意图分类
             t0 = time.monotonic()
@@ -404,8 +404,8 @@ class ConversationService:
             # 6. 写入 assistant 响应
             try:
                 await memory_store.add(sid, "assistant", final_response)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("memory_store.add assistant 响应失败: %s", e)
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -477,8 +477,8 @@ class ConversationService:
                     needs_tool=bool(parsed.get("needs_tool", False)),
                     suggested_tools=list(parsed.get("suggested_tools") or []),
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("意图分类 JSON 解析失败,使用 fallback: %s", e)
         return fallback
 
     def _fallback_intent(self, user_input: str) -> IntentResult:

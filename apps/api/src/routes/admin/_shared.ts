@@ -222,56 +222,81 @@ export function registerCrud(
 ) {
   const hasUpdatedAt = opts.hasUpdatedAt !== false
   server.get(basePath, async (request, reply) => {
-    const q = paginationSchema.safeParse(request.query)
-    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
-    const { page, pageSize, search } = q.data
-    const where = search && opts.searchField ? ilike(opts.searchField, `%${search}%`) : undefined
-    const list = await db
-      .select()
-      .from(table)
-      .where(where)
-      .orderBy(opts.orderBy ?? desc(table.createdAt))
-      .limit(pageSize)
-      .offset((page - 1) * pageSize)
-    const total =
-      (
-        await db
-          .select({ c: sql<number>`count(*)::int` })
-          .from(table)
-          .where(where)
-      )[0]?.c ?? 0
-    return reply.send(success({ list, total, page, pageSize }))
+    try {
+      const q = paginationSchema.safeParse(request.query)
+      if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+      const { page, pageSize, search } = q.data
+      const where = search && opts.searchField ? ilike(opts.searchField, `%${search}%`) : undefined
+      const list = await db
+        .select()
+        .from(table)
+        .where(where)
+        .orderBy(opts.orderBy ?? desc(table.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize)
+      const total =
+        (
+          await db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(table)
+            .where(where)
+        )[0]?.c ?? 0
+      return reply.send(success({ list, total, page, pageSize }))
+    } catch (err) {
+      server.log.error({ err }, 'registerCrud operation failed')
+      return reply.status(500).send(error(500, '服务器内部错误'))
+    }
   })
   server.post(basePath, async (request, reply) => {
-    const body = request.body as Record<string, unknown>
-    const [row] = await db.insert(table).values(opts.map(body)).returning()
-    return reply.status(201).send(success(row))
+    try {
+      const body = request.body as Record<string, unknown>
+      const [row] = await db.insert(table).values(opts.map(body)).returning()
+      return reply.status(201).send(success(row))
+    } catch (err) {
+      server.log.error({ err }, 'registerCrud operation failed')
+      return reply.status(500).send(error(500, '服务器内部错误'))
+    }
   })
   server.put(`${basePath}/:id`, async (request, reply) => {
-    const p = idParamSchema.safeParse(request.params)
-    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    const body = request.body as Record<string, unknown>
-    const set: Record<string, unknown> = { ...opts.map(body) }
-    if (hasUpdatedAt) set.updatedAt = new Date()
-    const [row] = await db.update(table).set(set).where(eq(table.id, p.data.id)).returning()
-    if (!row) return reply.status(404).send(error(404, '记录不存在'))
-    return reply.send(success(row))
+    try {
+      const p = idParamSchema.safeParse(request.params)
+      if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+      const body = request.body as Record<string, unknown>
+      const set: Record<string, unknown> = { ...opts.map(body) }
+      if (hasUpdatedAt) set.updatedAt = new Date()
+      const [row] = await db.update(table).set(set).where(eq(table.id, p.data.id)).returning()
+      if (!row) return reply.status(404).send(error(404, '记录不存在'))
+      return reply.send(success(row))
+    } catch (err) {
+      server.log.error({ err }, 'registerCrud operation failed')
+      return reply.status(500).send(error(500, '服务器内部错误'))
+    }
   })
   server.delete(`${basePath}/:id`, async (request, reply) => {
-    const p = idParamSchema.safeParse(request.params)
-    if (!p.success) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(table).where(eq(table.id, p.data.id))
-    return reply.send(success({ id: p.data.id, deleted: true }))
+    try {
+      const p = idParamSchema.safeParse(request.params)
+      if (!p.success) return reply.status(400).send(error(400, '参数错误'))
+      await db.delete(table).where(eq(table.id, p.data.id))
+      return reply.send(success({ id: p.data.id, deleted: true }))
+    } catch (err) {
+      server.log.error({ err }, 'registerCrud operation failed')
+      return reply.status(500).send(error(500, '服务器内部错误'))
+    }
   })
   server.delete(basePath, async (request, reply) => {
-    const parsed = z
-      .object({ ids: z.string().optional().default('') })
-      .safeParse(request.body ?? {})
-    if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
-    const idList = parsed.data.ids.split(',').filter(Boolean)
-    if (idList.length === 0) return reply.status(400).send(error(400, '参数错误'))
-    await db.delete(table).where(inArray(table.id, idList))
-    return reply.send(success({ deleted: idList.length }))
+    try {
+      const parsed = z
+        .object({ ids: z.string().optional().default('') })
+        .safeParse(request.body ?? {})
+      if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
+      const idList = parsed.data.ids.split(',').filter(Boolean)
+      if (idList.length === 0) return reply.status(400).send(error(400, '参数错误'))
+      await db.delete(table).where(inArray(table.id, idList))
+      return reply.send(success({ deleted: idList.length }))
+    } catch (err) {
+      server.log.error({ err }, 'registerCrud operation failed')
+      return reply.status(500).send(error(500, '服务器内部错误'))
+    }
   })
 }
 

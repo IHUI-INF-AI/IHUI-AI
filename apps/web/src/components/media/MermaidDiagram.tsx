@@ -67,7 +67,12 @@ function MermaidDiagramInner({ code, className }: MermaidDiagramProps) {
         })
         const result = await mermaid.render(id, code)
         if (cancelled) return
-        setSvg(result.svg)
+        // DOMPurify 消毒 SVG,防止 XSS(mermaid securityLevel: 'strict' 已阻断 HTML 事件,此处二次防御)
+        const DOMPurifyModule = await import('dompurify')
+        const DOMPurify = DOMPurifyModule.default
+        const clean = DOMPurify.sanitize(result.svg, { USE_PROFILES: { svg: true } })
+        if (cancelled) return
+        setSvg(clean)
         setError(null)
       } catch (err) {
         if (cancelled) return

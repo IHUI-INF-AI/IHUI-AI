@@ -17,6 +17,27 @@ import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
 
+/** 自媒体斜杠命令 API 返回数据 */
+interface SlashCommandData {
+  ok?: boolean
+  title?: string
+  mdPath?: string
+  duration_ms?: number
+  error?: string
+  stdout?: string
+  date?: string
+  articlesCount?: number
+  outputPath?: string
+  articles?: Array<Record<string, unknown>>
+}
+
+/** 自媒体斜杠命令 fetchApi 结果 */
+interface SlashCommandResult {
+  success: boolean
+  error?: string
+  data?: SlashCommandData
+}
+
 // 斜杠命令 → 自媒体 skill 直调映射(避免走 LLM chat 流,直接调 skill API)
 // /wechat-article <title>  → POST /api/self-media/wechat/generate {title, dryRun:true}
 // /koubo-script <MMDD>     → POST /api/self-media/koubo/generate {date, dryRun:true}
@@ -28,9 +49,9 @@ const SELF_MEDIA_SLASH_MAP = {
   '/wechat-article': {
     endpoint: '/api/self-media/wechat/generate',
     parseArgs: (rest: string) => ({ title: rest || '今日公众号文章' }),
-    format: (r: any) => {
+    format: (r: SlashCommandResult) => {
       if (!r.success) return `❌ 公众号文章生成失败: ${r.error || '未知错误'}`
-      const d = r.data || {}
+      const d: SlashCommandData = r.data || {}
       const ok = d.ok ?? false
       const lines = [
         `### 公众号文章生成 ${ok ? '✅' : '⚠️'}`,
@@ -50,9 +71,9 @@ const SELF_MEDIA_SLASH_MAP = {
       const [date, ...topicParts] = rest.split(/\s+/)
       return { date: date || '0720', topic: topicParts.join(' ') }
     },
-    format: (r: any) => {
+    format: (r: SlashCommandResult) => {
       if (!r.success) return `❌ 口播稿生成失败: ${r.error || '未知错误'}`
-      const d = r.data || {}
+      const d: SlashCommandData = r.data || {}
       const ok = d.ok ?? false
       const lines = [
         `### 口播稿生成 ${ok ? '✅' : '⚠️'}`,
@@ -62,7 +83,7 @@ const SELF_MEDIA_SLASH_MAP = {
         `- 耗时: ${d.duration_ms ?? 0} ms`,
       ]
       if (d.error) lines.push(`- 错误: ${d.error}`)
-      const articles: any[] = d.articles || []
+      const articles: Array<Record<string, unknown>> = d.articles || []
       if (articles.length) {
         lines.push('\n---')
         for (const a of articles.slice(0, 8)) {
@@ -95,13 +116,13 @@ async function tryHandleAutoTaskSlash(
   const minute = typeof m === 'number' && Number.isFinite(m) && m >= 0 && m <= 59 ? m : 0
   const titleTemplate = titleParts.join(' ') || undefined
   try {
-    const token = useAuthStore.getState().token
-    const resp = await fetch(`/api/self-media/automation/tasks/${encodeURIComponent(taskId)}/config`, {
+    const r = await fetchApi<{
+      ok: boolean
+      message?: string
+      error?: string
+      config?: { dry_run?: boolean; enabled?: boolean }
+    }>(`/api/self-media/automation/tasks/${encodeURIComponent(taskId)}/config`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
       body: JSON.stringify({
         hour,
         minute,
@@ -110,9 +131,13 @@ async function tryHandleAutoTaskSlash(
         ...(titleTemplate ? { title_template: titleTemplate } : {}),
       }),
     })
-    const d = await resp.json().catch(() => ({}))
-    if (!resp.ok || !d.ok) {
-      onResult(`❌ 自动化任务配置失败: ${d.message || d.error || `HTTP ${resp.status}`}`)
+    if (!r.success) {
+      onResult(`❌ 自动化任务配置失败: ${r.error}`)
+      return true
+    }
+    const d = r.data
+    if (!d.ok) {
+      onResult(`❌ 自动化任务配置失败: ${d.message || d.error || '未知错误'}`)
       return true
     }
     const cfg = d.config || {}
@@ -126,8 +151,8 @@ async function tryHandleAutoTaskSlash(
     if (titleTemplate) lines.push(`- 标题模板: ${titleTemplate}`)
     lines.push(`\n请在自动化任务页面查看详情,点击"立即触发"可测试运行。`)
     onResult(lines.join('\n'))
-  } catch (e: any) {
-    onResult(`❌ /auto-task 调用失败: ${e?.message || String(e)}`)
+  } catch (e: unknown) {
+    onResult(`❌ /auto-task 调用失败: ${e instanceof Error ? e.message : String(e)}`)
   }
   return true
 }
@@ -148,13 +173,13 @@ async function tryHandleSelfMediaSlash(
   const rest = trimmed.slice(matched.length).trim()
   const body = cfg.parseArgs(rest)
   try {
-    const r = await fetchApi<any>(cfg.endpoint, {
+    const r = await fetchApi<SlashCommandData>(cfg.endpoint, {
       method: 'POST',
       body: JSON.stringify({ ...body, dryRun: true }),
     })
     onResult(cfg.format(r))
-  } catch (e: any) {
-    onResult(`❌ ${matched} 调用失败: ${e?.message || String(e)}`)
+  } catch (e: unknown) {
+    onResult(`❌ ${matched} 调用失败: ${e instanceof Error ? e.message : String(e)}`)
   }
   return true
 }

@@ -44,7 +44,8 @@ const listQuerySchema = z.object({
   order_no: z.string().optional(),
   start_date: z.string().optional(),
   end_date: z.string().optional(),
-  sort_by: z.string().default('bugTime'),
+  // 白名单防 SQL 注入:仅允许实际存在的列名(对应 zhs-full.ts schema)
+  sort_by: z.enum(['bugTime', 'expirationDate', 'createdAt']).default('bugTime'),
   sort_order: z.enum(['asc', 'desc']).default('desc'),
 })
 
