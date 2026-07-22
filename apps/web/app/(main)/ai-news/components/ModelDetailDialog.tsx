@@ -72,6 +72,25 @@ export function ModelDetailDialog({ entry, open, onClose }: Props) {
     }
   }
 
+  async function handleCopyAndImport() {
+    if (!platform?.defaultBaseUrl) return
+    try {
+      await navigator.clipboard.writeText(platform.defaultBaseUrl)
+      const payload = encodePrefill({
+        providerCode: platform.providerCode,
+        name: `${entry.vendor} ${entry.modelName}`,
+        baseUrlOverride: platform.defaultBaseUrl,
+        apiFormat: platform.apiFormat,
+        modelName: entry.modelName,
+        vendor: entry.vendor,
+      })
+      toast.success(t('copyAndImport'), { description: platform.defaultBaseUrl })
+      window.open(`/settings/llm?prefill=${payload}`, '_blank')
+    } catch {
+      toast.error(t('copyFailed'))
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
@@ -187,15 +206,26 @@ export function ModelDetailDialog({ entry, open, onClose }: Props) {
                     </a>
                   ) : null}
                   {platform.defaultBaseUrl ? (
-                    <button
-                      type="button"
-                      onClick={handleCopyBaseUrl}
-                      className="inline-flex items-center gap-1 font-medium text-muted-foreground transition-colors hover:text-foreground"
-                      title={platform.defaultBaseUrl}
-                    >
-                      <span>{t('copyBaseUrl')}</span>
-                      <Copy className="h-3 w-3" />
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleCopyBaseUrl}
+                        className="inline-flex items-center gap-1 font-medium text-muted-foreground transition-colors hover:text-foreground"
+                        title={platform.defaultBaseUrl}
+                      >
+                        <span>{t('copyBaseUrl')}</span>
+                        <Copy className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCopyAndImport}
+                        className="inline-flex items-center gap-1 font-medium text-primary transition-colors hover:text-primary/80"
+                        title={platform.defaultBaseUrl}
+                      >
+                        <span>{t('copyAndImport')}</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </button>
+                    </>
                   ) : null}
                 </div>
                 {platform.note ? (
