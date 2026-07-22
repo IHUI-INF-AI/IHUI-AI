@@ -46,7 +46,7 @@
 5. 等待 5 分钟(微信服务器缓存)
 6. 更新 `g:\IHUI-AI\.env.production` 第 91 行
 7. 重启 API 服务: `pnpm --filter @ihui/api start`
-8. 验证: `curl http://localhost:3001/api/health/ready` → `checks.wechatPay.status` 应为 `ok`
+8. 验证: `curl http://localhost:8802/api/health/ready` → `checks.wechatPay.status` 应为 `ok`
 9. **回滚**: 若新 KEY 无效,5 分钟内(缓存失效前)用旧 KEY 覆盖;超过 5 分钟则必须用新 KEY 排查
 
 ---
@@ -81,7 +81,7 @@
 4. 备份旧 Key
 5. 更新 `.env.production`
 6. 重启 API + AI service
-7. 验证: `curl http://localhost:3001/api/health/ready` → `checks.aiService.status` 应为 `ok`
+7. 验证: `curl http://localhost:8802/api/health/ready` → `checks.aiService.status` 应为 `ok`
 8. **24h 后**删除旧 Key(保留 24h 灰度)
 
 ---

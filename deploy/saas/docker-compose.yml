@@ -63,7 +63,7 @@ services:
       - traefik.http.routers.traefik-dashboard.tls=true
       - traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt
 
-  # IHUI-AI SaaS Admin API — 客户生命周期管理 + 资源监控查询(端口 8081 仅 localhost 暴露)
+  # IHUI-AI SaaS Admin API — 客户生命周期管理 + 资源监控查询(端口 8830 仅 localhost 暴露)
   admin-api:
     build:
       context: ./admin-api
@@ -74,15 +74,15 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV:-production}
       - HOST=127.0.0.1
-      - PORT=8081
+      - PORT=8830
       - LOG_LEVEL=${ADMIN_API_LOG_LEVEL:-info}
       - ADMIN_API_KEY=${ADMIN_API_KEY:-}
-      - CORS_ORIGIN=${ADMIN_CORS_ORIGIN:-http://localhost:3000}
+      - CORS_ORIGIN=${ADMIN_CORS_ORIGIN:-http://localhost:8801}
       # P1-2.3:admin-api 内部访问 Prometheus(同网络)
       - PROMETHEUS_URL=http://prometheus:9090
     ports:
       # 仅绑 localhost,不暴露公网
-      - '127.0.0.1:8081:8081'
+      - '127.0.0.1:8830:8830'
     volumes:
       # Docker socket(需要 RW 以管理客户容器)
       - /var/run/docker.sock:/var/run/docker.sock
@@ -95,7 +95,7 @@ services:
     networks:
       - ihui-saas-net
     healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8081/admin/api/health']
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8830/admin/api/health']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -152,7 +152,7 @@ services:
       retries: 3
       start_period: 15s
 
-  # Grafana — 仪表板可视化(端口 3001 仅 localhost)
+  # Grafana — 仪表板可视化(端口 8816 仅 localhost)
   grafana:
     image: grafana/grafana:11.1.0
     container_name: ihui-saas-grafana
@@ -163,7 +163,7 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
-      - GF_SERVER_ROOT_URL=http://127.0.0.1:3001
+      - GF_SERVER_ROOT_URL=http://127.0.0.1:8816
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
@@ -172,7 +172,7 @@ services:
       - ihui-saas-net
     ports:
       # 同源 iframe 嵌入(localhost 浏览器直访)
-      - '127.0.0.1:3001:3000'
+      - '127.0.0.1:8816:3000'
     healthcheck:
       test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:3000/api/health']
       interval: 30s

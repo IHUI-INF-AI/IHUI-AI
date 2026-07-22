@@ -540,7 +540,7 @@ cd IHUI-AI && docker compose up -d
 | ---------------- | -------------------------------------------------------------------------------------- | ------------------------------------- |
 | Monorepo         | pnpm workspace + Turborepo                                                             | pnpm 9.15 / turbo 2.3                 |
 | 백엔드 API       | Fastify + @fastify/jwt + @fastify/websocket + Drizzle ORM + PostgreSQL                 | Fastify 5.1 / Drizzle 0.38 / PG 15    |
-| 캐시 및 큐       | Redis 7 + BullMQ                                                                       | 독립 worker 프로세스(:8081)           |
+| 캐시 및 큐       | Redis 7 + BullMQ                                                                       | 독립 worker 프로세스(:8830)           |
 | 프론트엔드 Web   | Next.js + React + Tailwind CSS + shadcn/ui                                             | Next 15.1 / React 19 / Tailwind 4     |
 | 프론트엔드 상태  | @tanstack/react-query 5 + Zustand                                                      | 서버/클라이언트 상태 분리             |
 | 국제화           | next-intl                                                                              | zh-CN / zh-TW / en / ko / ja 5개 언어 |
@@ -587,12 +587,12 @@ cd IHUI-AI && docker compose up -d
                                        │       │
                           ┌────────────▼─┐   ┌─▼──────────────┐
                           │  PostgreSQL  │   │  apps/ai-service│  FastAPI + Socket.IO
-                          │  15 (339 표) │   │  :8000          │  LangGraph + LiteLLM + MCP + A2A
+                          │  15 (339 표) │   │  :8803          │  LangGraph + LiteLLM + MCP + A2A
                           └──────────────┘   └────┬────────────┘  5 provider + 14 publish adapter
                                                   │
                                             ┌─────▼─────┐  ┌──────────┐
                                             │  Redis 7  │  │ Worker   │  BullMQ 독립 프로세스
-                                            │ Pub/Sub   │  │ :8081    │  비동기 작업 스케줄링
+                                            │ Pub/Sub   │  │ :8830    │  비동기 작업 스케줄링
                                             └───────────┘  └──────────┘
 ```
 
@@ -1032,14 +1032,14 @@ docker compose up -d
 
 | 서비스       | URL                              | 설명                                                        |
 | ------------ | -------------------------------- | ----------------------------------------------------------- |
-| Web          | http://localhost:3000            | Next.js 프론트엔드                                          |
-| API          | http://localhost:8080/api/health | Fastify 백엔드 헬스 체크                                    |
-| Worker       | http://localhost:8081            | BullMQ 비동기 작업 프로세스                                 |
-| AI 서비스    | http://localhost:8000/health     | FastAPI AI 서비스 헬스 체크                                 |
-| Grafana      | http://localhost:3001            | 기본 계정 admin / 비밀번호 변경(20 대시보드 자동 provision) |
+| Web          | http://localhost:8801            | Next.js 프론트엔드                                          |
+| API          | http://localhost:8802/api/health | Fastify 백엔드 헬스 체크                                    |
+| Worker       | http://localhost:8830            | BullMQ 비동기 작업 프로세스                                 |
+| AI 서비스    | http://localhost:8803/health     | FastAPI AI 서비스 헬스 체크                                 |
+| Grafana      | http://localhost:8816            | 기본 계정 admin / 비밀번호 변경(20 대시보드 자동 provision) |
 | Prometheus   | http://localhost:9091            | 지표 수집                                                   |
-| Jaeger UI    | http://localhost:16686           | 분산 추적                                                   |
-| Loki         | http://localhost:3100            | 로그 aggregation                                            |
+| Jaeger UI    | http://localhost:8814           | 분산 추적                                                   |
+| Loki         | http://localhost:8818            | 로그 aggregation                                            |
 | Alertmanager | http://localhost:9093            | 알림 라우팅                                                 |
 
 ### 개발 모드(로컬)
@@ -1171,17 +1171,17 @@ pnpm turbo build typecheck lint test
 | 20  | tenant-usage     | 테넌트 사용     |
 | 21  | ws               | WebSocket       |
 
-- **Node Exporter**(:9100):호스트 CPU / 메모리 / 디스크 / 네트워크 지표
+- **Node Exporter**(:8817):호스트 CPU / 메모리 / 디스크 / 네트워크 지표
 
 ### 로그(Loki + Promtail)
 
-- **Loki**(:3100):로그 aggregation 백엔드
+- **Loki**(:8818):로그 aggregation 백엔드
 - **Promtail**:`logging=promtail` 라벨이 있는 Docker 컨테이너 자동 발견, Docker + Nginx + API 애플리케이션 로그 수집
 
 ### 추적(OpenTelemetry + Jaeger)
 
-- **OpenTelemetry Collector**(:4318):OTLP 추적 / 지표 수신, Jaeger + Prometheus로 내보내기
-- **Jaeger UI**(:16686):분산 추적 시각화, API ↔ AI 서비스 ↔ 데이터베이스 풀링크
+- **OpenTelemetry Collector**(:8813):OTLP 추적 / 지표 수신, Jaeger + Prometheus로 내보내기
+- **Jaeger UI**(:8814):분산 추적 시각화, API ↔ AI 서비스 ↔ 데이터베이스 풀링크
 
 ### 알림(Alertmanager + noise-rules)
 
@@ -1324,20 +1324,31 @@ docker compose up -d
 
 | 타입     | 서비스         | 포트  | 용도                                     |
 | -------- | -------------- | ----- | ---------------------------------------- |
-| 비즈니스 | api            | 8080  | Fastify 백엔드                           |
-| 비즈니스 | worker         | 8081  | BullMQ 독립 worker 프로세스              |
-| 비즈니스 | web            | 3000  | Next.js 프론트엔드(standalone)           |
-| 비즈니스 | ai-service     | 8000  | FastAPI AI 서비스                        |
-| 비즈니스 | db             | 5432  | PostgreSQL 15                            |
-| 비즈니스 | redis          | 6379  | Redis 7                                  |
+| 비즈니스 | api            | 8802  | Fastify 백엔드                           |
+| 비즈니스 | worker         | 8830  | BullMQ 독립 worker 프로세스              |
+| 비즈니스 | web            | 8801  | Next.js 프론트엔드(standalone)           |
+| 비즈니스 | ai-service     | 8803  | FastAPI AI 서비스                        |
+| 비즈니스 | db             | 8810  | PostgreSQL 15                            |
+| 비즈니스 | redis          | 8811  | Redis 7                                  |
 | 비즈니스 | migrate        | -     | 일회성 마이그레이션 서비스(완료 후 종료) |
-| 모니터링 | jaeger         | 16686 | 분산 추적 UI                             |
-| 모니터링 | otel-collector | 4318  | OpenTelemetry Collector                  |
+| 모니터링 | jaeger         | 8814  | 분산 추적 UI                             |
+| 모니터링 | otel-collector | 8813  | OpenTelemetry Collector                  |
 | 모니터링 | prometheus     | 9091  | 지표 수집                                |
-| 모니터링 | grafana        | 3001  | 시각화(20 대시보드)                      |
-| 모니터링 | node-exporter  | 9100  | 호스트 지표                              |
-| 모니터링 | loki           | 3100  | 로그 aggregation                         |
+| 모니터링 | grafana        | 8816  | 시각화(20 대시보드)                      |
+| 모니터링 | node-exporter  | 8817  | 호스트 지표                              |
+| 모니터링 | loki           | 8818  | 로그 aggregation                         |
 | 모니터링 | promtail       | -     | 로그 수집                                |
+
+### 포트 관리 규칙
+
+본 프로젝트의 모든 서비스는 `88xx` 포트 대역을 통일 사용하여 시스템 서비스와의 충돌을 회피합니다:
+
+| 포트 대역  | 용도             | 설명                                                   |
+| ---------- | ---------------- | ------------------------------------------------------ |
+| 8801-8809  | 앱 서비스        | Web / API / AI Service / Taro H5 / Metro / Desktop 등  |
+| 8810-8819  | 인프라           | PostgreSQL(8810)/ Redis(8811)/ OTel(8812-8813)/ Jaeger(8814)/ Prometheus(8815)/ Grafana(8816)/ Node Exporter(8817)/ Loki(8818) |
+| 8820-8829  | 보조 도구        | Storybook(8820) 등 개발 보조 도구                       |
+| 8830-8839  | SaaS 배포        | Admin API(8830) 등 SaaS화 배포 서비스                   |
 
 ### 프로덕션 배포
 

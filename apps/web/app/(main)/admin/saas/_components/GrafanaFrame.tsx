@@ -2,13 +2,13 @@
  * P1-2.3: Grafana iframe 包装组件
  *
  * 职责:
- * - 渲染 Grafana dashboard iframe(同源 localhost:3001)
+ * - 渲染 Grafana dashboard iframe(同源 localhost:8801)
  * - 透传 var-tenant 变量,自动锁定当前租户
  * - 时间范围:近 1h(实时监控场景)
  *
  * 注意:
  * - 仅在浏览器端渲染(Grafana 需要 cookie/header)
- * - Grafana 服务运行于 http://127.0.0.1:3001(production 需走反向代理)
+ * - Grafana 服务运行于 http://127.0.0.1:8801(production 需走反向代理)
  * - 若 NEXT_PUBLIC_GRAFANA_BASE 未配置,组件显示降级提示
  */
 'use client'
@@ -38,7 +38,7 @@ interface GrafanaFrameProps {
 }
 
 const DEFAULT_UID = 'saas-tenant-overview'
-const DEFAULT_BASE = process.env.NEXT_PUBLIC_GRAFANA_BASE ?? 'http://127.0.0.1:3001'
+const DEFAULT_BASE = process.env.NEXT_PUBLIC_GRAFANA_BASE ?? 'http://127.0.0.1:8801'
 
 export function GrafanaFrame({
   tenant,
