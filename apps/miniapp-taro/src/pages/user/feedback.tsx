@@ -61,15 +61,15 @@ export default function Feedback() {
   }
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="mx-[12px] mt-[12px] px-[16px] py-[16px] bg-white rounded-[8px]">
-        <Text className="block text-[14px] text-[#333] mb-[12px]">{t('feedback.type')}</Text>
+    <View className="min-h-screen bg-background">
+      <View className="mx-[12px] mt-[12px] px-[16px] py-[16px] bg-card rounded-[8px]">
+        <Text className="block text-[14px] text-foreground mb-[12px]">{t('feedback.type')}</Text>
         <View className="flex flex-wrap gap-[8px]">
           {types.map((item) => (
             <View
               key={item.key}
               className={`px-[16px] py-[6px] rounded-[16px] text-[13px] ${
-                activeType === item.key ? 'bg-[#07c160] text-white' : 'bg-[#f5f5f5] text-[#666]'
+                activeType === item.key ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
               }`}
               onClick={() => setActiveType(item.key)}
             >
@@ -78,8 +78,8 @@ export default function Feedback() {
           ))}
         </View>
       </View>
-      <View className="mx-[12px] mt-[12px] px-[16px] py-[16px] bg-white rounded-[8px]">
-        <Text className="block text-[14px] text-[#333] mb-[12px]">{t('feedback.content')}</Text>
+      <View className="mx-[12px] mt-[12px] px-[16px] py-[16px] bg-card rounded-[8px]">
+        <Text className="block text-[14px] text-foreground mb-[12px]">{t('feedback.content')}</Text>
         <Textarea
           className="w-full text-[14px] min-h-[120px]"
           placeholder={t('feedback.contentPlaceholder')}
@@ -88,8 +88,8 @@ export default function Feedback() {
           maxlength={500}
         />
       </View>
-      <View className="mx-[12px] mt-[12px] px-[16px] py-[16px] bg-white rounded-[8px]">
-        <Text className="block text-[14px] text-[#333] mb-[12px]">
+      <View className="mx-[12px] mt-[12px] px-[16px] py-[16px] bg-card rounded-[8px]">
+        <Text className="block text-[14px] text-foreground mb-[12px]">
           {t('feedback.images', { n: MAX_IMAGES })}
         </Text>
         <View className="flex flex-wrap gap-[8px]">
@@ -109,21 +109,21 @@ export default function Feedback() {
           ))}
           {images.length < MAX_IMAGES && (
             <View
-              className="w-[72px] h-[72px] rounded-[6px] bg-[#f5f5f5] flex items-center justify-center"
+              className="w-[72px] h-[72px] rounded-[6px] bg-muted flex items-center justify-center"
               onClick={onPickImages}
             >
-              <Text className="text-[24px] text-[#999] leading-none">
+              <Text className="text-[24px] text-muted-foreground leading-none">
                 {uploading ? '...' : '+'}
               </Text>
             </View>
           )}
         </View>
         {uploading && (
-          <Text className="block text-[12px] text-[#999] mt-[8px]">{t('feedback.uploading')}</Text>
+          <Text className="block text-[12px] text-muted-foreground mt-[8px]">{t('feedback.uploading')}</Text>
         )}
       </View>
-      <View className="mx-[12px] mt-[12px] px-[16px] py-[16px] bg-white rounded-[8px]">
-        <Text className="block text-[14px] text-[#333] mb-[12px]">{t('feedback.contact')}</Text>
+      <View className="mx-[12px] mt-[12px] px-[16px] py-[16px] bg-card rounded-[8px]">
+        <Text className="block text-[14px] text-foreground mb-[12px]">{t('feedback.contact')}</Text>
         <Input
           className="w-full text-[14px]"
           type="text"
@@ -134,7 +134,7 @@ export default function Feedback() {
       </View>
       <Button
         className={`mx-[16px] mt-[30px] rounded-[20px] text-[16px] ${
-          content.trim() ? 'bg-[#07c160] text-white' : 'bg-[#ccc] text-white'
+          content.trim() ? 'bg-primary text-white' : 'bg-[#ccc] text-white'
         }`}
         disabled={!content.trim()}
         onClick={onSubmit}

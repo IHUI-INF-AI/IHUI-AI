@@ -146,27 +146,29 @@ export default function Index() {
         </View>
       </View>
 
-      {/* 轮播图 — 科技渐变描边 */}
-      <Swiper
-        className="h-[140px] mx-[16px] my-[12px] rounded-[12px] overflow-hidden tech-card"
-        indicatorDots
-        autoplay
-        interval={4000}
-        circular
-      >
-        {bannerList.map((item) => (
-          <SwiperItem key={item.id} onClick={() => onBannerClick(item)}>
-            <Image className="w-full h-full" src={item.coverUrl} mode="aspectFill" />
-          </SwiperItem>
-        ))}
-        {bannerList.length === 0 ? (
-          <SwiperItem>
-            <View className="w-full h-full flex items-center justify-center tech-card text-[15px]">
-              <Text className="text-neon">{t('home.slogan')}</Text>
-            </View>
-          </SwiperItem>
-        ) : null}
-      </Swiper>
+      {/* 轮播图 — 渐变描边(对标原项目 custom-carousel-wrapper + gradient-border)*/}
+      <View className="mx-[16px] my-[12px] carousel-cyber">
+        <Swiper
+          className="h-[140px] carousel-cyber-inner"
+          indicatorDots
+          autoplay
+          interval={4000}
+          circular
+        >
+          {bannerList.map((item) => (
+            <SwiperItem key={item.id} onClick={() => onBannerClick(item)}>
+              <Image className="w-full h-full" src={item.coverUrl} mode="aspectFill" />
+            </SwiperItem>
+          ))}
+          {bannerList.length === 0 ? (
+            <SwiperItem>
+              <View className="w-full h-full flex items-center justify-center text-[15px]">
+                <Text className="text-neon">{t('home.slogan')}</Text>
+              </View>
+            </SwiperItem>
+          ) : null}
+        </Swiper>
+      </View>
 
       {/* 学习进度(登录后)— 玻璃拟态卡片 */}
       {showLearningSection && study ? (

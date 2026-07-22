@@ -41,16 +41,16 @@ export default function Nickname() {
   }
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="mx-[12px] mt-[12px] px-[16px] bg-white rounded-[8px]">
-        <View className="flex items-center py-[16px] border-b-[1px] border-solid border-[#f5f5f5]">
-          <Text className="w-[80px] text-[14px] text-[#333]">{t('user.nickname.current')}</Text>
-          <Text className="flex-1 text-[14px] text-[#999]">
+    <View className="min-h-screen bg-background">
+      <View className="mx-[12px] mt-[12px] px-[16px] bg-card rounded-[8px]">
+        <View className="flex items-center py-[16px] border-b-[1px] border-solid border-border">
+          <Text className="w-[80px] text-[14px] text-foreground">{t('user.nickname.current')}</Text>
+          <Text className="flex-1 text-[14px] text-muted-foreground">
             {original || t('user.profile.notSet')}
           </Text>
         </View>
         <View className="flex items-center py-[16px]">
-          <Text className="w-[80px] text-[14px] text-[#333]">{t('user.nickname.newNickname')}</Text>
+          <Text className="w-[80px] text-[14px] text-foreground">{t('user.nickname.newNickname')}</Text>
           <Input
             className="flex-1 text-[14px]"
             type="text"
@@ -62,7 +62,7 @@ export default function Nickname() {
       </View>
       <Button
         className={`mx-[16px] mt-[30px] rounded-[20px] text-[16px] ${
-          nickname.trim() ? 'bg-[#07c160] text-white' : 'bg-[#ccc] text-white'
+          nickname.trim() ? 'bg-primary text-white' : 'bg-[#ccc] text-white'
         }`}
         disabled={!nickname.trim()}
         onClick={onSubmit}

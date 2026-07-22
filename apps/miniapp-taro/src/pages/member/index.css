@@ -1,11 +1,11 @@
 .page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-background);
 }
 .head {
   padding: 60rpx 40rpx;
-  background: linear-gradient(135deg, #07c160, #35e683);
-  color: #fff;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary));
+  color: var(--color-foreground);
 }
 .level-tag {
   display: inline-block;
@@ -35,7 +35,7 @@
 }
 .menu {
   margin: 24rpx;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 16rpx;
   overflow: hidden;
 }
@@ -44,10 +44,10 @@
   justify-content: space-between;
   align-items: center;
   padding: 32rpx;
-  border-bottom: 2rpx solid #f5f5f5;
+  border-bottom: 2rpx solid var(--color-border);
   font-size: 28rpx;
-  color: #333;
+  color: var(--color-foreground);
 }
 .arrow {
-  color: #ccc;
+  color: var(--color-muted-foreground);
 }

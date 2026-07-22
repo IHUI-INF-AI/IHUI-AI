@@ -77,14 +77,14 @@ export default function CourseList() {
     <View className="min-h-screen p-3">
       <View className="flex items-center mb-3">
         <Input
-          className="flex-1 h-9 px-3 bg-white rounded-lg text-sm"
+          className="flex-1 h-9 px-3 bg-card rounded-lg text-sm"
           type="text"
           placeholder={t('course.list.searchPlaceholder')}
           value={keyword}
           onInput={(e) => setKeyword(e.detail.value)}
           onConfirm={onSearch}
         />
-        <View className="ml-2 px-3 h-9 leading-9 text-[#07c160] text-sm" onClick={onSearch}>
+        <View className="ml-2 px-3 h-9 leading-9 text-primary text-sm" onClick={onSearch}>
           <Text>{t('course.list.search')}</Text>
         </View>
       </View>
@@ -94,7 +94,7 @@ export default function CourseList() {
           {list.map((item) => (
             <View
               key={item.id}
-              className="flex bg-white rounded-2xl overflow-hidden mb-3"
+              className="flex bg-card rounded-2xl overflow-hidden mb-3"
               onClick={() => goDetail(item.id)}
             >
               <Image
@@ -103,10 +103,10 @@ export default function CourseList() {
                 mode="aspectFill"
               />
               <View className="flex-1 p-2 flex flex-col justify-between">
-                <Text className="text-[15px] text-[#333] font-semibold">{item.title}</Text>
-                {item.subtitle && <Text className="text-xs text-[#999] mt-1">{item.subtitle}</Text>}
+                <Text className="text-[15px] text-foreground font-semibold">{item.title}</Text>
+                {item.subtitle && <Text className="text-xs text-muted-foreground mt-1">{item.subtitle}</Text>}
                 <View className="flex justify-between items-center mt-2">
-                  {item.teacher && <Text className="text-xs text-[#666]">{item.teacher}</Text>}
+                  {item.teacher && <Text className="text-xs text-muted-foreground">{item.teacher}</Text>}
                   <Text className="text-base text-[#dd524d] font-semibold">¥{item.price ?? 0}</Text>
                 </View>
               </View>
@@ -116,13 +116,13 @@ export default function CourseList() {
       )}
 
       {!loading && list.length === 0 && (
-        <View className="text-center py-16 text-[#999] text-sm">
+        <View className="text-center py-16 text-muted-foreground text-sm">
           <Text>{t('course.list.empty')}</Text>
         </View>
       )}
 
       {loading && (
-        <View className="text-center py-16 text-[#999] text-sm">
+        <View className="text-center py-16 text-muted-foreground text-sm">
           <Text>{t('common.loading')}</Text>
         </View>
       )}

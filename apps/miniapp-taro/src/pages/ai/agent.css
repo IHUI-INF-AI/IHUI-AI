@@ -1,6 +1,6 @@
 .page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-background);
 }
 .search-bar {
   padding: 24rpx 32rpx;
@@ -8,7 +8,7 @@
 .search-input {
   height: 72rpx;
   padding: 0 24rpx;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 36rpx;
   font-size: 26rpx;
 }
@@ -18,7 +18,7 @@
 .item {
   display: flex;
   align-items: center;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 16rpx;
   padding: 24rpx;
   margin-bottom: 24rpx;
@@ -27,7 +27,7 @@
   width: 100rpx;
   height: 100rpx;
   border-radius: 16rpx;
-  background: #f5f5f5;
+  background: var(--color-background);
 }
 .body {
   flex: 1;
@@ -36,26 +36,26 @@
 .name {
   display: block;
   font-size: 30rpx;
-  color: #333;
+  color: var(--color-foreground);
   font-weight: 600;
 }
 .desc {
   display: block;
   font-size: 24rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
   margin-top: 8rpx;
 }
 .uses {
   display: block;
   font-size: 22rpx;
-  color: #07c160;
+  color: var(--color-primary);
   margin-top: 8rpx;
 }
 .arrow {
-  color: #ccc;
+  color: var(--color-muted-foreground);
 }
 .empty {
   text-align: center;
   padding: 120rpx 0;
-  color: #999;
+  color: var(--color-muted-foreground);
 }

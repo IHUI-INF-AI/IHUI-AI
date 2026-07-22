@@ -31,32 +31,32 @@ export default function TeacherDetail() {
   }, [teacher])
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       {teacher && (
-        <View className="mx-[12px] my-[12px] bg-white rounded-[8px] p-[16px]">
+        <View className="mx-[12px] my-[12px] bg-card rounded-[8px] p-[16px]">
           <View className="flex items-center">
             <Image
-              className="w-[80px] h-[80px] rounded-md bg-[#f5f5f5]"
+              className="w-[80px] h-[80px] rounded-md bg-muted"
               src={teacher.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
             <View className="ml-[12px] flex-1">
-              <Text className="text-[18px] text-[#333] font-bold">{teacher.name}</Text>
+              <Text className="text-[18px] text-foreground font-bold">{teacher.name}</Text>
               {teacher.title && (
-                <Text className="block text-[13px] text-[#07c160] mt-[4px]">{teacher.title}</Text>
+                <Text className="block text-[13px] text-primary mt-[4px]">{teacher.title}</Text>
               )}
             </View>
           </View>
           <View className="flex mt-[16px]">
             <View className="flex-1 flex flex-col items-center">
-              <Text className="text-[20px] text-[#333] font-bold">{teacher.courses || 0}</Text>
-              <Text className="text-[12px] text-[#999] mt-[4px]">
+              <Text className="text-[20px] text-foreground font-bold">{teacher.courses || 0}</Text>
+              <Text className="text-[12px] text-muted-foreground mt-[4px]">
                 {t('teacher.detail.courses')}
               </Text>
             </View>
             <View className="flex-1 flex flex-col items-center">
-              <Text className="text-[20px] text-[#333] font-bold">{teacher.students || 0}</Text>
-              <Text className="text-[12px] text-[#999] mt-[4px]">
+              <Text className="text-[20px] text-foreground font-bold">{teacher.students || 0}</Text>
+              <Text className="text-[12px] text-muted-foreground mt-[4px]">
                 {t('teacher.detail.students')}
               </Text>
             </View>
@@ -64,17 +64,17 @@ export default function TeacherDetail() {
         </View>
       )}
       {teacher?.intro && (
-        <View className="mx-[12px] mb-[12px] bg-[#f5f5f5] rounded-[8px] p-[16px]">
-          <Text className="text-[14px] text-[#333] font-semibold mb-[8px] block">
+        <View className="mx-[12px] mb-[12px] bg-muted rounded-[8px] p-[16px]">
+          <Text className="text-[14px] text-foreground font-semibold mb-[8px] block">
             {t('teacher.detail.intro')}
           </Text>
-          <Text className="text-[14px] text-[#666] leading-[22px]">{teacher.intro}</Text>
+          <Text className="text-[14px] text-muted-foreground leading-[22px]">{teacher.intro}</Text>
         </View>
       )}
       {teacher && (
         <View className="mx-[12px] my-[12px]">
           <Button
-            className="w-full bg-[#07c160] text-white text-[16px] rounded-[8px] h-[44px] leading-[44px]"
+            className="w-full bg-primary text-white text-[16px] rounded-[8px] h-[44px] leading-[44px]"
             onClick={onViewCourses}
           >
             {t('teacher.detail.viewCourses')}
