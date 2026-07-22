@@ -42,6 +42,25 @@ export function normalizeUrlPublic(url: string): string {
   return normalizeUrl(url)
 }
 
+/**
+ * 合并多个 AbortSignal 为一个(ES2022+ 兼容 polyfill)。
+ * AbortSignal.any() 需要 ES2024 lib,mobile-rn(ES2023)不可用。
+ * 任一 signal abort 时,合并 signal 也 abort。
+ */
+function mergeAbortSignals(signals: (AbortSignal | undefined)[]): AbortSignal {
+  const controller = new AbortController()
+  const onAbort = () => controller.abort()
+  for (const sig of signals) {
+    if (!sig) continue
+    if (sig.aborted) {
+      controller.abort()
+      break
+    }
+    sig.addEventListener('abort', onAbort, { once: true })
+  }
+  return controller.signal
+}
+
 function normalizeUrl(url: string): string {
   if (/^https?:\/\//i.test(url)) return url
   const normalized = (() => {
@@ -181,15 +200,13 @@ export async function fetchApi<T>(
   }
 
   // 2026-07-22 P0 Round 4 鲁棒性加固:默认 30s 超时,防止请求无限挂起
-  // 调用方传入的 signal 与超时 signal 合并(AbortSignal.any),任一触发都中止
+  // 调用方传入的 signal 与超时 signal 合并(mergeAbortSignals),任一触发都中止
   // streamChat SSE 流场景不经过 fetchApi(走独立 streamText),不受此超时影响
+  // 2026-07-22 P0 Round 5:AbortSignal.any() → mergeAbortSignals()(ES2022+ 兼容)
   const DEFAULT_TIMEOUT_MS = 30_000
   const timeoutController = new AbortController()
   const timeoutId = setTimeout(() => timeoutController.abort(), DEFAULT_TIMEOUT_MS)
-  const userSignal = restOptions.signal
-  const mergedSignal = userSignal
-    ? AbortSignal.any([userSignal, timeoutController.signal])
-    : timeoutController.signal
+  const mergedSignal = mergeAbortSignals([restOptions.signal, timeoutController.signal])
   const optionsWithTimeout = { ...restOptions, signal: mergedSignal }
 
   try {

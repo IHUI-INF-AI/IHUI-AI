@@ -301,6 +301,24 @@ function showContextResultPopup(payload: CtxVocabResult, rect: RectLike | null) 
 
 export default defineContentScript({
   matches: ['<all_urls>'],
+  // 2026-07-22 P0 Round 5 鲁棒性加固:排除银行/支付/政府等敏感网站
+  // 防止 content script 注入到敏感页面拦截银行卡号/密码/验证码等
+  exclude_matches: [
+    '*://*.icbc.com.cn/*',      // 工商银行
+    '*://*.cmbchina.com/*',     // 招商银行
+    '*://*.abchina.com/*',      // 农业银行
+    '*://*.boc.cn/*',           // 中国银行
+    '*://*.bankcomm.com/*',     // 交通银行
+    '*://*.ccb.com/*',          // 建设银行
+    '*://*.psbc.com/*',         // 邮储银行
+    '*://*.alipay.com/*',       // 支付宝
+    '*://*.tenpay.com/*',       // 财付通
+    '*://pay.weixin.qq.com/*',  // 微信支付
+    '*://*.unionpay.com/*',     // 银联
+    '*://*.gov.cn/*',           // 政府网站
+    '*://*.12306.cn/*',         // 12306
+    '*://*.chinatax.gov.cn/*',  // 税务
+  ],
   runAt: 'document_idle',
   main(ctx) {
     document.addEventListener('mouseup', () => {
