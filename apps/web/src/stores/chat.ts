@@ -2,9 +2,12 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 import { createPersistConfig } from './persist-helpers'
-import type { SubAgentActivity } from '@/components/ai/types'
+import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 
 export type ChatRole = 'user' | 'assistant' | 'system'
+
+/** Inline Diff Apply 状态:pending=待确认 / applying=应用中 / applied=已应用 / rejected=已拒绝 / error=应用失败 */
+export type DiffApplyStatus = 'pending' | 'applying' | 'applied' | 'rejected' | 'error'
 
 export interface ToolCall {
   id: string
@@ -16,6 +19,12 @@ export interface ToolCall {
   error?: string
   /** 多轮 tool loop 的轮次(1-based,undefined 或 1 表示单轮) */
   iteration?: number
+  /** edit_file/write_file 工具调用关联的 Inline Diff 信息(供 InlineDiffCard 渲染) */
+  diffInfo?: InlineDiffInfo
+  /** Inline Diff Apply 工作流状态(Accept/Reject 按钮交互) */
+  applyStatus?: DiffApplyStatus
+  /** Apply 失败时的错误信息(applyStatus === 'error' 时填充) */
+  applyError?: string
 }
 
 /** AI 主动提问的选项 */
@@ -112,6 +121,14 @@ interface ChatState {
   /** 更新工具调用结果(SSE tool-result 事件触发)
    * 同步联动 WorkPanel:toolName=browser_navigate 或 args/result 含 url → openPanel */
   updateToolCall: (messageId: string, toolCallId: string, updates: Partial<ToolCall>) => void
+  /** 设置工具调用的 Inline Diff Apply 状态(Accept/Reject 按钮交互)
+   *  2026-07-22 立,P3 Inline Diff 卡片 Apply 工作流 */
+  setToolCallApplyStatus: (
+    messageId: string,
+    toolCallId: string,
+    status: DiffApplyStatus,
+    errorMessage?: string,
+  ) => void
 }
 
 function genId(): string {
@@ -268,6 +285,25 @@ export const useChatStore = create<ChatState>()(
               ...m,
               toolCalls: m.toolCalls.map((tc) =>
                 tc.id === toolCallId ? { ...tc, ...updates } : tc,
+              ),
+            }
+          }),
+        })),
+
+      setToolCallApplyStatus: (messageId, toolCallId, status, errorMessage) =>
+        set((s) => ({
+          messages: s.messages.map((m) => {
+            if (m.id !== messageId || !m.toolCalls) return m
+            return {
+              ...m,
+              toolCalls: m.toolCalls.map((tc) =>
+                tc.id === toolCallId
+                  ? {
+                      ...tc,
+                      applyStatus: status,
+                      applyError: status === 'error' ? errorMessage : undefined,
+                    }
+                  : tc,
               ),
             }
           }),

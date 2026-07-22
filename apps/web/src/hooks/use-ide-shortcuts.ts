@@ -1,6 +1,7 @@
 'use client'
 import { useEffect } from 'react'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
+import { useInlineEditStore } from '@/stores/inline-edit'
 import type { ViewPanelType } from '@ihui/types'
 
 export function useIDEShortcuts() {
@@ -10,6 +11,7 @@ export function useIDEShortcuts() {
       if (!isMod) return
 
       const target = e.target as HTMLElement
+      const inMonaco = !!target.closest?.('.monaco-editor')
       const isInputFocused =
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
@@ -42,6 +44,16 @@ export function useIDEShortcuts() {
             store.setActiveView('applications')
             return
         }
+        return
+      }
+
+      // Ctrl+K 在 Monaco 编辑器聚焦时 → 派发 inline-edit 事件
+      // (use-global-shortcuts 在 monaco 场景不派发,交由本 hook 处理)
+      if (key === 'k' && inMonaco) {
+        // 对话框已打开时不再重复派发(避免打断输入)
+        if (useInlineEditStore.getState().isOpen) return
+        e.preventDefault()
+        window.dispatchEvent(new CustomEvent('global-shortcut:inline-edit'))
         return
       }
 
