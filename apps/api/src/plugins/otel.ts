@@ -6,6 +6,7 @@ import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentation
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
 import { resourceFromAttributes } from '@opentelemetry/resources'
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions'
+import { generateTraceparent } from '../utils/trace-context.js'
 
 /**
  * OpenTelemetry 分布式追踪插件（R74 P2 增强）。
@@ -87,6 +88,15 @@ const otelPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 将 userId 注入当前活跃 span，实现用户级追踪串联
   server.addHook('onRequest', async (request: FastifyRequest) => {
+    // 2026-07-22 立：确保每个请求都有 traceparent（W3C Trace Context）。
+    // - 客户端带 traceparent 头：透传（延续上游 trace，如 web → api）
+    // - 客户端未带：生成 root traceparent（api 端作为 trace 起点）
+    // 这样 aiServiceFetch 能从 request.headers['traceparent'] 拿到 parent context，
+    // 生成 child traceparent 给出站请求（api → ai-service），实现 Jaeger 端到端调用链。
+    if (!request.headers['traceparent']) {
+      request.headers['traceparent'] = generateTraceparent()
+    }
+
     const span = trace.getActiveSpan()
     if (!span) return
     const attrs: Attributes = {
