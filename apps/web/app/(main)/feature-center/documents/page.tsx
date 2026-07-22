@@ -2,19 +2,20 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, Search, FileText, Eye } from 'lucide-react'
+import { Loader2, Search, FileText, Eye, FileType2, Clock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Input, Button } from '@ihui/ui'
-import { FeatureCenterHeader, FeatureCenterNav, FeatureCard } from '@/components/feature-center'
+import { FeatureCenterHeader, FeatureCenterNav } from '@/components/feature-center'
 
 interface DocItem {
   id: string
   title: string
   description: string
+  excerpt: string
   category: string
   format: 'markdown' | 'pdf' | 'html'
   url: string
@@ -36,6 +37,13 @@ const CATEGORY_LABELS: Record<string, string> = {
   'getting-started': '入门',
   'best-practice': '最佳实践',
   changelog: '更新日志',
+}
+
+// format → 显示标签
+const FORMAT_LABELS: Record<string, string> = {
+  markdown: 'Markdown',
+  pdf: 'PDF',
+  html: 'HTML',
 }
 
 export default function DocumentsPage() {
@@ -60,7 +68,7 @@ export default function DocumentsPage() {
       const matchKeyword =
         !keyword ||
         item.title.toLowerCase().includes(keyword.toLowerCase()) ||
-        item.description.toLowerCase().includes(keyword.toLowerCase())
+        item.excerpt.toLowerCase().includes(keyword.toLowerCase())
       const matchCategory = category === '全部' || item.category === category
       return matchKeyword && matchCategory
     })
@@ -132,27 +140,57 @@ export default function DocumentsPage() {
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {list.map((item) => (
-            <FeatureCard
-              key={item.id}
-              title={item.title}
-              description={item.description}
-              badge={CATEGORY_LABELS[item.category] ?? item.category}
-              footer={
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">
-                    {item.updatedAt
-                      ? new Date(item.updatedAt).toLocaleDateString()
-                      : ''}
-                  </span>
-                  <Button variant="ghost" size="sm" onClick={() => setPreviewId(item.id)}>
-                    <Eye className="mr-1 h-3.5 w-3.5" />
-                    {t('preview')}
-                  </Button>
-                </div>
-              }
-            />
-          ))}
+          {list.map((item) => {
+            const formatLabel = FORMAT_LABELS[item.format] ?? item.format
+            const categoryLabel = CATEGORY_LABELS[item.category] ?? item.category
+            return (
+              <Card
+                key={item.id}
+                className="flex h-full flex-col transition-shadow hover:shadow-md"
+              >
+                <CardContent className="flex flex-1 flex-col gap-3 p-4">
+                  {/* 顶部:format 标签 + 分类徽章 */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                      <FileType2 className="h-3 w-3" />
+                      {formatLabel}
+                    </span>
+                    <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                      {categoryLabel}
+                    </span>
+                  </div>
+
+                  {/* 标题 */}
+                  <h3 className="line-clamp-2 text-sm font-semibold leading-snug">
+                    {item.title}
+                  </h3>
+
+                  {/* excerpt 缩略预览 */}
+                  {item.excerpt && (
+                    <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                      {item.excerpt}
+                    </p>
+                  )}
+
+                  {/* 底部:日期 + 预览按钮 */}
+                  <div className="mt-auto flex items-center justify-between pt-2">
+                    {item.updatedAt ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {new Date(item.updatedAt).toLocaleDateString()}
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+                    <Button variant="ghost" size="sm" onClick={() => setPreviewId(item.id)}>
+                      <Eye className="mr-1 h-3.5 w-3.5" />
+                      {t('preview')}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
 
