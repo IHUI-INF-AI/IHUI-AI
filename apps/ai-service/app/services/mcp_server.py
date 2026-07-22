@@ -1104,6 +1104,60 @@ def _make_agent_control_handler(category: str, action: str):
 _AUTOMATION_API_BASE = "http://127.0.0.1:3001/api/self-media/automation/tasks"
 
 
+# ---------------------------------------------------------------------------
+# 截图工具(2026-07-22 新增,WorkPanel iframe 降级)
+# 直接调本服务 Playwright headless 截图,不走 agent_control 转发
+# ---------------------------------------------------------------------------
+
+
+async def _tool_screenshot_url(arguments: dict[str, Any]) -> dict[str, Any]:
+    """对指定 URL 截图(Playwright headless Chromium)。
+
+    用于 WorkPanel iframe 降级:当目标站点禁止 iframe 嵌入(X-Frame-Options /
+    CSP frame-ancestors)时,后端截图返回 base64 给前端展示。
+    """
+    url = arguments.get("url")
+    if not url or not isinstance(url, str):
+        return {"tool": "screenshot_url", "ok": False, "error": "缺少 url 参数"}
+
+    width = int(arguments.get("width", 1280))
+    height = int(arguments.get("height", 720))
+    full_page = bool(arguments.get("full_page", False))
+    wait_until = str(arguments.get("wait_until", "load"))
+    timeout = int(arguments.get("timeout", 15000))
+
+    try:
+        from .screenshot_service import take_screenshot
+
+        result = await take_screenshot(
+            url,
+            width=width,
+            height=height,
+            full_page=full_page,
+            wait_until=wait_until,
+            timeout=timeout,
+        )
+        return {
+            "tool": "screenshot_url",
+            "ok": True,
+            "url": result["url"],
+            "title": result["title"],
+            "can_embed": result["can_embed"],
+            "screenshot_length": len(result["screenshot"]),
+            "captured_at": result["captured_at"],
+            # 注意:不直接返回 base64(可能很大),客户端调 HTTP 端点获取
+        }
+    except Exception as e:
+        err_type = type(e).__name__
+        return {
+            "tool": "screenshot_url",
+            "ok": False,
+            "error": str(e)[:200],
+            "errorCode": "SCREENSHOT_FAILED",
+            "message": f"截图失败: {err_type}",
+        }
+
+
 async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str, Any]:
     """配置自媒体自动化定时任务(转发到 api 层 config 端点)。
 
@@ -1592,6 +1646,32 @@ _TOOLS: list[MCPTool] = [
             "required": ["task_id", "hour", "minute"],
         },
     ),
+    # ===== 截图工具(2026-07-22 新增,WorkPanel iframe 降级)=====
+    MCPTool(
+        name="screenshot_url",
+        description=(
+            "对指定 URL 截图(Playwright headless Chromium),返回 base64 PNG。"
+            "适用于:目标站点禁止 iframe 嵌入时,后端截图供前端展示。"
+            "注意:本工具返回截图元数据(不含 base64 全文),如需获取 base64 数据请调 HTTP 端点 /api/screenshot/take。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "目标 URL(http/https)"},
+                "width": {"type": "integer", "description": "视口宽度(默认 1280)", "default": 1280},
+                "height": {"type": "integer", "description": "视口高度(默认 720)", "default": 720},
+                "full_page": {"type": "boolean", "description": "是否全页面截图(默认 false)", "default": False},
+                "wait_until": {
+                    "type": "string",
+                    "enum": ["none", "dom", "load", "networkidle"],
+                    "description": "等待策略(默认 load)",
+                    "default": "load",
+                },
+                "timeout": {"type": "integer", "description": "超时 ms(默认 15000)", "default": 15000},
+            },
+            "required": ["url"],
+        },
+    ),
 ]
 
 _TOOL_HANDLERS: dict[str, Any] = {
@@ -1632,6 +1712,8 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "computer_clipboard_set": _make_agent_control_handler("computer", "clipboard_set"),
     # ===== 自动化任务配置(2026-07-22 新增)=====
     "configure_automation_task": _tool_configure_automation_task,
+    # ===== 截图工具(2026-07-22 新增,WorkPanel iframe 降级)=====
+    "screenshot_url": _tool_screenshot_url,
 }
 
 
@@ -1775,6 +1857,12 @@ class MCPServer:
                 },
                 "ok": True,
             }
+        if uri == "sampling://handler":
+            return {
+                "uri": uri,
+                "content": sampling_handler.get_stats(),
+                "ok": True,
+            }
         return {"uri": uri, "content": None, "ok": False, "error": f"未知资源 URI: {uri}"}
 
     def list_prompts(self) -> list[MCPPrompt]:
@@ -1788,5 +1876,178 @@ class MCPServer:
             return {"ok": False, "error": f"未知提示词: {name}。可用: {', '.join(prompt_names)}"}
         return {"name": name, "prompt": _render_prompt(name, arguments or {}), "ok": True}
 
+    # =========================================================================
+    # Sampling(反向调用 LLM,P1-3)
+    # =========================================================================
+
+    def list_sampling_capabilities(self) -> dict[str, Any]:
+        """列出 Sampling 能力(供 MCP 客户端发现 sampling/createMessage)。"""
+        return {
+            "uri": "sampling://handler",
+            "name": "sampling_handler",
+            "description": (
+                "MCP Sampling 反向调用:让 MCP 工具请求 LLM 推理(createMessage)。"
+                "5 层护栏:速率限制 / 模型白名单 / 工具调用轮数 / 超时 / 审计日志。"
+            ),
+            "guardrails": sampling_handler.get_stats()["guardrails"],
+        }
+
+    async def call_sampling(self, request: dict[str, Any]) -> dict[str, Any]:
+        """处理 MCP Sampling 请求(反向让 MCP 工具调用 LLM)。
+
+        Args:
+            request: McpSamplingRequest 字典(callerTool/messages/model/maxTokens/
+                     temperature/context)。
+
+        Returns:
+            McpSamplingResponse 字典(content/model/usage/blocked/blockedReason)。
+        """
+        return await sampling_handler.handle_sampling(request)
+
 
 mcp_server = MCPServer()
+
+
+# ---------------------------------------------------------------------------
+# SamplingHandler — MCP Sampling 反向调用处理器(5 层护栏,P1-3)
+# ---------------------------------------------------------------------------
+
+
+class SamplingHandler:
+    """MCP Sampling 反向调用处理器(5 层护栏)。
+
+    让 MCP 工具能反向请求 LLM 推理(sampling/createMessage)。
+    对齐 packages/types 的 McpSamplingRequest/Response/Guardrails 契约。
+    """
+
+    # 默认护栏配置(对齐 McpSamplingGuardrails 类型)
+    DEFAULT_GUARDRAILS: dict[str, Any] = {
+        "rate_limit_rpm": 10,       # 速率限制 10 RPM
+        "model_whitelist": [],      # 空白名单=允许所有(非空时只允许白名单内模型)
+        "max_tool_rounds": 5,       # 单个 callerTool 最大调用轮数
+        "timeout_seconds": 30,      # LLM 调用超时
+        "audit_log": True,          # 审计日志
+    }
+
+    def __init__(self, guardrails: dict[str, Any] | None = None) -> None:
+        self._guardrails: dict[str, Any] = {
+            **self.DEFAULT_GUARDRAILS, **(guardrails or {})
+        }
+        self._call_timestamps: list[float] = []  # 滑动窗口速率限制
+        self._audit_logs: list[dict[str, Any]] = []
+
+    async def handle_sampling(self, request: dict[str, Any]) -> dict[str, Any]:
+        """处理 MCP Sampling 请求。
+
+        Args:
+            request: McpSamplingRequest 字典(callerTool/messages/model/maxTokens/
+                     temperature/context)。
+
+        Returns:
+            McpSamplingResponse 字典(content/model/usage/blocked/blockedReason)。
+
+        5 层护栏:
+        1. 速率限制:滑动窗口检查 RPM
+        2. 模型白名单:request.model 非空且白名单非空时校验
+        3. 工具调用轮数:记录每个 callerTool 的成功调用次数,超限拦截
+        4. 超时:asyncio.wait_for 包装 llm_gateway.complete
+        5. 审计日志:记录每次调用(callerTool/model/timestamp/blocked)
+        """
+        import asyncio
+        import time
+        from datetime import datetime
+
+        from ..core.llm_gateway import llm_gateway
+
+        # 1. 速率限制(滑动窗口 60s)
+        now = time.monotonic()
+        self._call_timestamps = [t for t in self._call_timestamps if now - t < 60]
+        if len(self._call_timestamps) >= self._guardrails["rate_limit_rpm"]:
+            return {
+                "content": "", "model": "", "usage": None,
+                "blocked": True, "blockedReason": "rate_limit_exceeded",
+            }
+
+        # 2. 模型白名单
+        model = request.get("model")
+        whitelist = self._guardrails["model_whitelist"]
+        if model and whitelist and model not in whitelist:
+            return {
+                "content": "", "model": model or "", "usage": None,
+                "blocked": True, "blockedReason": "model_not_whitelisted",
+            }
+
+        # 3. 工具调用轮数(用 audit_logs 统计每个 callerTool 的成功次数)
+        caller = request.get("callerTool", "unknown")
+        caller_count = sum(
+            1 for log in self._audit_logs
+            if log.get("callerTool") == caller and not log.get("blocked")
+        )
+        if caller_count >= self._guardrails["max_tool_rounds"]:
+            return {
+                "content": "", "model": model or "", "usage": None,
+                "blocked": True, "blockedReason": "max_tool_rounds_exceeded",
+            }
+
+        # 记录时间戳(通过速率检查后才记录)
+        self._call_timestamps.append(now)
+
+        # 4. 超时调用 LLM
+        messages = request.get("messages", [])
+        try:
+            result = await asyncio.wait_for(
+                llm_gateway.complete(messages, model=model),
+                timeout=self._guardrails["timeout_seconds"],
+            )
+            content = str(result.get("content", "") or "")
+            used_model = str(result.get("model", model or "") or "")
+            usage = result.get("usage")
+
+            # 5. 审计日志
+            if self._guardrails["audit_log"]:
+                self._audit_logs.append({
+                    "callerTool": caller,
+                    "model": used_model,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "blocked": False,
+                    "context": str(request.get("context", ""))[:200],
+                })
+            return {
+                "content": content,
+                "model": used_model,
+                "usage": usage,
+                "blocked": False,
+            }
+        except asyncio.TimeoutError:
+            if self._guardrails["audit_log"]:
+                self._audit_logs.append({
+                    "callerTool": caller,
+                    "model": model or "",
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "blocked": True,
+                    "blockedReason": "timeout",
+                })
+            return {
+                "content": "", "model": model or "", "usage": None,
+                "blocked": True, "blockedReason": "timeout",
+            }
+        except Exception as e:
+            return {
+                "content": "", "model": model or "", "usage": None,
+                "blocked": True, "blockedReason": f"error: {e}",
+            }
+
+    def get_audit_logs(self) -> list[dict[str, Any]]:
+        """获取审计日志。"""
+        return list(self._audit_logs)
+
+    def get_stats(self) -> dict[str, Any]:
+        """获取统计信息。"""
+        return {
+            "total_calls": len(self._audit_logs),
+            "blocked_calls": sum(1 for log in self._audit_logs if log.get("blocked")),
+            "guardrails": dict(self._guardrails),
+        }
+
+
+sampling_handler = SamplingHandler()
