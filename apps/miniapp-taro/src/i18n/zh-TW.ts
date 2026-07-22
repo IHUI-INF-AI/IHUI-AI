@@ -328,6 +328,16 @@ export default {
     common: {
       loading: '載入中…',
     },
+    chatMessageItem: {
+      me: '我',
+      ai: 'AI',
+      thinkingProcess: '思考過程',
+      noContent: '沒有可複製的內容',
+      aiGenerated: '智匯AI生成',
+      tokenCost: '消耗智匯值:{{n}}',
+      reuse: '復用',
+      copy: '複製',
+    },
     inputArea: {
       placeholder: '輸入你的問題…',
       releaseToSend: '鬆開傳送',
