@@ -8,8 +8,34 @@ import {
   date,
   boolean,
   unique,
+  jsonb,
+  customType,
 } from 'drizzle-orm/pg-core'
 import { sysDepts } from './admin-sys.js'
+
+/**
+ * PostgreSQL bytea 类型 Drizzle 适配(drizzle-orm 0.38 原生 bytea 未稳定导出)。
+ *
+ * - dataType()   → 'bytea'
+ * - toDriver()    → 写入时 Buffer 透传给 postgres-js (Buffer 是 PG bytea 的原生映射)
+ * - fromDriver()  → 读取时把 Buffer 透传回应用层
+ *
+ * 用途:users.two_factor_secret 字段(AES-256-GCM 加密后的密文 Buffer)。
+ */
+export const bytea = customType<{
+  data: Buffer | null
+  driverData: Buffer | null
+}>({
+  dataType() {
+    return 'bytea'
+  },
+  toDriver(value: Buffer | null): Buffer | null {
+    return value
+  },
+  fromDriver(value: Buffer | null): Buffer | null {
+    return value
+  },
+})
 
 export const users = pgTable(
   'users',
@@ -35,6 +61,18 @@ export const users = pgTable(
     parentId: uuid('parent_id'), // 推荐人(分销关系链),不自引用 FK 以避免循环
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+    // 2FA/MFA (Wave 10, 2026-07-22):TOTP (RFC 6238) 双因素认证
+    // - twoFactorSecret: AES-256-GCM 加密后的 EncryptedPayload Buffer (key=CREDENTIALS_ENCRYPTION_KEY)
+    // - twoFactorEnabled: 启用后登录需 2FA challenge
+    // - twoFactorBackupCodes: sha256 hash 数组,明文不存,单次使用后立即移除
+    // - twoFactorEnabledAt: 启用时间,风控/审计用
+    twoFactorSecret: bytea('two_factor_secret'),
+    twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
+    twoFactorBackupCodes: jsonb('two_factor_backup_codes')
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    twoFactorEnabledAt: timestamp('two_factor_enabled_at', { withTimezone: true }),
   },
   (t) => ({
     inviteCodeIdx: unique('users_invite_code_unique').on(t.inviteCode),

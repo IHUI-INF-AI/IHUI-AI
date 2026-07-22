@@ -16,8 +16,8 @@ import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error, parseOrThrow } from '../utils/response.js'
 
-/** ai-service 基础 URL(默认 http://localhost:8000) */
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL ?? 'http://localhost:8000'
+/** ai-service 基础 URL(默认 http://localhost:3003) */
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL ?? 'http://localhost:3003'
 
 const screenshotSchema = z.object({
   url: z.string().url('Invalid URL'),
