@@ -61,6 +61,8 @@ export default function DocumentsPage() {
   const [keyword, setKeyword] = React.useState('')
   const [category, setCategory] = React.useState('全部')
   const [previewId, setPreviewId] = React.useState<string | null>(null)
+  // 用户通过点击 markdown 内部 .md 链接跳转的目标 slug(覆盖 previewSlug)
+  const [navigatedSlug, setNavigatedSlug] = React.useState<string | null>(null)
 
   // 动态生成分类按钮(从返回数据的 unique category 值)
   const categories = React.useMemo(() => {
@@ -107,6 +109,68 @@ export default function DocumentsPage() {
     },
     enabled: !!previewId,
   })
+
+  // 点击 markdown 内部 .md 链接时加载目标文档内容(覆盖 previewContent)
+  const { data: navigatedContent, isLoading: navigatedLoading } = useQuery({
+    queryKey: ['doc-content-nav', navigatedSlug],
+    queryFn: async () => {
+      if (!navigatedSlug) return ''
+      const res = await fetchApi<{ content: string }>(
+        `/api/feature-center/documents/${navigatedSlug}/content`,
+      )
+      if (!res.success) throw new Error(res.error)
+      return res.data.content
+    },
+    enabled: !!navigatedSlug,
+  })
+
+  // 实际显示的内容与 slug(navigated 优先,覆盖 preview)
+  const displayContent = navigatedSlug ? (navigatedContent ?? '') : (previewContent ?? '')
+  const displaySlug = navigatedSlug ?? previewSlug
+  const displayLoading = navigatedSlug ? navigatedLoading : previewLoading
+
+  // 把 markdown 中的相对 .md 链接改写为可点击的内部导航
+  // ./xxx.md 或 ./dir/xxx.md → 基于 displaySlug 推导 dirBase,组合成绝对 slug
+  // ../xxx.md 或 ../../xxx.md → 逐级回退 dirBase
+  function resolveMdLink(href: string): string | null {
+    if (!href.endsWith('.md') && !href.includes('.md#')) return null
+    const hashIdx = href.indexOf('#')
+    const mdPart = hashIdx >= 0 ? href.slice(0, hashIdx) : href
+    const hash = hashIdx >= 0 ? href.slice(hashIdx) : ''
+    const dirBase = displaySlug.includes('/')
+      ? displaySlug.slice(0, displaySlug.lastIndexOf('/'))
+      : ''
+    let target: string
+    if (mdPart.startsWith('./')) {
+      target = mdPart.slice(2)
+      target = dirBase ? `${dirBase}/${target}` : target
+    } else if (mdPart.startsWith('../')) {
+      const parts = mdPart.split('/')
+      let cur = dirBase ? dirBase.split('/') : []
+      for (const p of parts) {
+        if (p === '..') {
+          cur = cur.slice(0, -1)
+        } else if (p === '.' || p === '') {
+          continue
+        } else {
+          cur = [...cur, p]
+        }
+      }
+      target = cur.join('/')
+    } else if (mdPart.startsWith('/')) {
+      target = mdPart.slice(1)
+    } else {
+      target = mdPart
+      if (dirBase) target = `${dirBase}/${target}`
+    }
+    return target.replace(/\.md$/, '') + hash
+  }
+
+  // 关闭预览时清空 navigated 状态
+  function closePreview() {
+    setPreviewId(null)
+    setNavigatedSlug(null)
+  }
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
@@ -216,12 +280,22 @@ export default function DocumentsPage() {
               <h3 className="flex items-center gap-2 text-lg font-semibold">
                 <FileText className="h-5 w-5 text-primary" />
                 {previewDoc.title}
+                {navigatedSlug && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setNavigatedSlug(null)}
+                    className="ml-2 h-7 px-2 text-xs"
+                  >
+                    返回原文
+                  </Button>
+                )}
               </h3>
-              <Button variant="ghost" size="sm" onClick={() => setPreviewId(null)}>
+              <Button variant="ghost" size="sm" onClick={closePreview}>
                 {t('close')}
               </Button>
             </div>
-            {previewLoading ? (
+            {displayLoading ? (
               <div className="flex items-center justify-center py-8 text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 {t('loading')}
@@ -232,19 +306,17 @@ export default function DocumentsPage() {
                   remarkPlugins={[remarkGfm]}
                   components={{
                     img: ({ src, alt, ...props }) => {
-                      // 改写相对路径图片到后端 asset 代理端点
-                      // previewSlug 形如 developer/incentive-program/course
-                      // 目录前缀 = developer/incentive-program
-                      // 相对图片 ./images/1.png → /api/feature-center/documents/asset/developer/incentive-program/images/1.png
                       if (!src) return <img src={src} alt={alt} {...props} />
                       const isHttp = /^(https?:)?\/\//.test(String(src))
                       const isAbsolute = String(src).startsWith('/')
                       let finalSrc = String(src)
-                      if (!isHttp && !isAbsolute && previewSlug) {
-                        const dirBase = previewSlug.includes('/')
-                          ? previewSlug.slice(0, previewSlug.lastIndexOf('/'))
+                      if (!isHttp && !isAbsolute && displaySlug) {
+                        const dirBase = displaySlug.includes('/')
+                          ? displaySlug.slice(0, displaySlug.lastIndexOf('/'))
                           : ''
-                        const cleanSrc = String(src).replace(/^\.\//, '').replace(/^\.\.\//, '')
+                        const cleanSrc = String(src)
+                          .replace(/^\.\//, '')
+                          .replace(/^\.\.\//, '')
                         finalSrc = dirBase
                           ? `/api/feature-center/documents/asset/${dirBase}/${cleanSrc}`
                           : `/api/feature-center/documents/asset/${cleanSrc}`
@@ -258,9 +330,44 @@ export default function DocumentsPage() {
                         />
                       )
                     },
+                    a: ({ href, children, ...props }) => {
+                      if (!href) return <a href={href}>{children}</a>
+                      // 拦截 .md 内部链接,点击加载目标文档
+                      const targetSlug = resolveMdLink(String(href))
+                      if (targetSlug) {
+                        return (
+                          <a
+                            href={`#doc-${targetSlug}`}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              setNavigatedSlug(targetSlug)
+                            }}
+                            className="text-primary underline underline-offset-2 hover:opacity-80"
+                            {...props}
+                          >
+                            {children}
+                          </a>
+                        )
+                      }
+                      // 外部 http 链接正常打开新窗口
+                      const isHttp = /^(https?:)?\/\//.test(String(href))
+                      if (isHttp) {
+                        return (
+                          <a
+                            href={String(href)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            {...props}
+                          >
+                            {children}
+                          </a>
+                        )
+                      }
+                      return <a href={String(href)}>{children}</a>
+                    },
                   }}
                 >
-                  {previewContent ?? ''}
+                  {displayContent}
                 </ReactMarkdown>
               </div>
             )}
