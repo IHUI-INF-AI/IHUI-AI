@@ -1,4 +1,4 @@
-{
+﻿{
   "version": "7",
   "dialect": "postgresql",
   "entries": [
@@ -896,6 +896,111 @@
       "version": "7",
       "when": 1784698547560,
       "tag": "0127_dazzling_master_mold",
+      "breakpoints": true
+    },
+    {
+      "idx": 128,
+      "version": "7",
+      "when": 1784702400000,
+      "tag": "0128_robustness_p0_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 129,
+      "version": "7",
+      "when": 1784706000000,
+      "tag": "0129_codebase_embedding",
+      "breakpoints": true
+    },
+    {
+      "idx": 130,
+      "version": "7",
+      "when": 1784709600000,
+      "tag": "0130_two_factor",
+      "breakpoints": true
+    },
+    {
+      "idx": 131,
+      "version": "7",
+      "when": 1784713200000,
+      "tag": "20260720160000_self_media_published",
+      "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1784716800000,
+      "tag": "20260720170000_publish_platform",
+      "breakpoints": true
+    },
+    {
+      "idx": 133,
+      "version": "7",
+      "when": 1784720400000,
+      "tag": "20260720180000_search_hot_words",
+      "breakpoints": true
+    },
+    {
+      "idx": 134,
+      "version": "7",
+      "when": 1784724000000,
+      "tag": "20260721180000_feedbacks_rating",
+      "breakpoints": true
+    },
+    {
+      "idx": 135,
+      "version": "7",
+      "when": 1784727600000,
+      "tag": "20260722120000_g2_billing_safety",
+      "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1784731200000,
+      "tag": "20260722130000_g5_fk_audit_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1784734800000,
+      "tag": "20260722140000_g6_jsonb_defaults",
+      "breakpoints": true
+    },
+    {
+      "idx": 138,
+      "version": "7",
+      "when": 1784738400000,
+      "tag": "20260722150000_g10_updated_by",
+      "breakpoints": true
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1784742000000,
+      "tag": "20260722160000_g13_created_by",
+      "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1784745600000,
+      "tag": "20260722170000_email_logs_create",
+      "breakpoints": true
+    },
+    {
+      "idx": 141,
+      "version": "7",
+      "when": 1784749200000,
+      "tag": "20260722180000_llm_config_models_and_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 142,
+      "version": "7",
+      "when": 1784752800000,
+      "tag": "20260722190000_model_leaderboard",
       "breakpoints": true
     }
   ]

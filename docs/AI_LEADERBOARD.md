@@ -35,7 +35,7 @@
 
 文件:`apps/web/app/(main)/ai-news/components/vendor-platforms.ts`
 
-覆盖 35 个厂商:Anthropic / OpenAI / Google / Meta / Moonshot / Alibaba / Z.ai / MiniMax / Bytedance / SpaceXAI / Microsoft / ElevenLabs / Voyage AI / Cohere / BAAI / Reve / Alibaba-ATH / DeepSeek / Baichuan / SenseTime(商汤) / Kunlun(昆仑万维) / Tencent(腾讯混元) / Huawei(华为云盘古) / Mistral / 01.AI(零一万物) / StepFun(阶跃星辰) / Perplexity / Groq / Cerebras / **Lambda Labs** / **Modal** / **Baseten** / **RunPod** / **Lepton**
+覆盖 39 个厂商:Anthropic / OpenAI / Google / Meta / Moonshot / Alibaba / Z.ai / MiniMax / Bytedance / SpaceXAI / Microsoft / ElevenLabs / Voyage AI / Cohere / BAAI / Reve / Alibaba-ATH / DeepSeek / Baichuan / SenseTime(商汤) / Kunlun(昆仑万维) / Tencent(腾讯混元) / Huawei(华为云盘古) / Mistral / 01.AI(零一万物) / StepFun(阶跃星辰) / Perplexity / Groq / Cerebras / Lambda Labs / Modal / Baseten / RunPod / Lepton / **OpenRouter** / **Together AI** / **Fireworks AI** / **SiliconFlow**(聚合平台 4 家)
 
 每个厂商映射:
 - `officialKeyUrl`:官方 API Key 申请地址
@@ -83,6 +83,10 @@
 | **AI/ML API** | https://aimlapi.com/ | 聚合 100+ 模型,统一 OpenAI 格式,价格比官方低 30-50% | 按 token,送新用户额度,支持按月套餐 |
 | **Predibase** | https://predibase.com/ | LoRA 微调专家,支持开源模型 fine-tune + 推理 | 按 token,微调按 GPU 时长 |
 | **Lepton AI** | https://www.lepton.ai/ | Lepton AI 推理平台,Jian Yang 创办,支持自定义模型部署 | 按 token,提供免费试用额度 |
+| **Infermatic** | https://infermatic.ai/ | 海外开源模型聚合,主打企业级 API,支持批量推理 | 按 token,提供免费试用额度,企业版按套餐 |
+| **MonsterAPI** | https://monsterapi.ai/ | 海外开源模型聚合,主打生图 + LLM,支持模型微调 | 按 token,送新用户免费额度,支持按月套餐 |
+| **Chub AI** | https://chub.ai/ | 海外聚合平台,支持角色扮演 / 对话类模型 | 按 token,提供免费试用额度,支持按月套餐 |
+| **FallAI** | https://fallai.ai/ | 海外开源模型聚合,主打低延迟推理,支持流式输出 | 按 token,提供免费试用额度,送新用户额度 |
 
 每个中转站卡片有「导入」按钮,点击后跳转到 `/settings/llm?prefill=`,预填 `providerCode=openai` + `baseUrlOverride=<中转站 baseUrl>` + `name=<中转站名> 中转`。
 
