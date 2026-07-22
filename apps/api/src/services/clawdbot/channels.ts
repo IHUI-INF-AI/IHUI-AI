@@ -31,6 +31,7 @@ export interface ChannelMessage {
 }
 
 export class ChannelManager extends EventEmitter {
+  /** 内存渠道注册表 — 需后续建表持久化(无对应 DB 表,userPreferences 需 userId 不适用系统级配置) */
   private channels = new Map<string, ChannelConfig>()
 
   register(config: ChannelConfig): void {
@@ -78,8 +79,9 @@ export class ChannelManager extends EventEmitter {
       logger.warn({ channelId }, '[Channels] Channel not found or disabled')
       return false
     }
-    // 简化实现：实际需对接各渠道 API
-    logger.info({ channelId, userId, contentLength: content.length }, '[Channels] Message sent')
+    // 简化实现:未对接各渠道 API
+    // TODO: 需对接各渠道 API(wechat/dingtalk/feishu/slack/telegram 等)
+    logger.warn({ channelId, userId, contentLength: content.length }, '[Channels] 简化实现:未对接真实渠道 API,仅记录日志')
     this.emit('sent', { channelId, content, userId })
     return true
   }

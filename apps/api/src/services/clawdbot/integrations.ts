@@ -35,6 +35,7 @@ export interface IntegrationResponse {
 }
 
 export class IntegrationManager extends EventEmitter {
+  /** 内存集成配置存储 — 需后续建表持久化(无对应 DB 表,userPreferences 需 userId 不适用系统级配置) */
   private integrations = new Map<string, IntegrationConfig>()
 
   register(config: IntegrationConfig): void {
