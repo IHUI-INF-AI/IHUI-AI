@@ -1,12 +1,27 @@
 'use client'
 
-import { Loader2, KeyRound, Webhook, Plus, Copy, Trash2, Package, Download } from 'lucide-react'
+import * as React from 'react'
+import { Loader2, KeyRound, Webhook, Plus, Copy, Trash2, Package, Download, RefreshCw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
 
 import { cn } from '@/lib/utils'
+import { fetchApi } from '@/lib/api'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@ihui/ui'
+import type { RotateApiKeyResponse } from '@ihui/types'
 import type { ApiKey, WebhookConfig, SdkItem } from './types'
 
 interface DeveloperCardsProps {
@@ -34,6 +49,39 @@ export function DeveloperCards({
 }: DeveloperCardsProps) {
   const t = useTranslations('adminTools')
   const tc = useTranslations('common')
+  const qc = useQueryClient()
+  const [resetTarget, setResetTarget] = React.useState<{ id: string; name: string } | null>(null)
+  const [resetPending, setResetPending] = React.useState(false)
+  const [resetSecret, setResetSecret] = React.useState<string | null>(null)
+
+  async function handleResetConfirm() {
+    if (!resetTarget) return
+    setResetPending(true)
+    try {
+      const r = await fetchApi<RotateApiKeyResponse>(
+        `/api/developer/keys/${resetTarget.id}/reset`,
+        { method: 'POST' },
+      )
+      if (!r.success || !r.data) {
+        throw new Error(r.error || '重置失败')
+      }
+      setResetSecret(r.data.secret)
+      qc.invalidateQueries({ queryKey: ['admin', 'developer', 'keys'] })
+      toast.success('密钥已重置')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '重置失败')
+    } finally {
+      setResetPending(false)
+      setResetTarget(null)
+    }
+  }
+
+  function copySecret(s: string) {
+    navigator.clipboard?.writeText(s).then(
+      () => toast.success(t('developer.copied')),
+      () => toast.error(t('developer.copyFailed')),
+    )
+  }
 
   if (isLoading) {
     return (
@@ -84,6 +132,15 @@ export function DeveloperCards({
                         <Button size="sm" variant="ghost" onClick={() => onCopyKey(k.key)}>
                           <Copy className="h-4 w-4" />
                         </Button>
+                        <HasPermi code="ai:developer:add">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setResetTarget({ id: k.id, name: k.name })}
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                        </HasPermi>
                         <HasPermi code="ai:developer:remove">
                           <Button
                             size="sm"
@@ -203,6 +260,53 @@ export function DeveloperCards({
           </div>
         )}
       </section>
+
+      <Dialog open={!!resetTarget} onOpenChange={(o) => !o && !resetPending && setResetTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>重置密钥</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            确定要重置「{resetTarget?.name}」的密钥吗？重置后旧密钥立即失效，需更新所有接入方，确认？
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetTarget(null)} disabled={resetPending}>
+              {tc('cancel')}
+            </Button>
+            <Button onClick={handleResetConfirm} disabled={resetPending}>
+              {resetPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              确认重置
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!resetSecret} onOpenChange={(o) => !o && setResetSecret(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>新密钥已生成</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-amber-600 dark:text-amber-400">
+              ⚠ 此密钥仅显示一次，请立即保存，关闭后无法找回。旧密钥已失效。
+            </p>
+            <div className="flex items-center gap-2 rounded-md border bg-muted/50 p-3">
+              <code className="flex-1 break-all font-mono text-sm">{resetSecret}</code>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="shrink-0"
+                onClick={() => resetSecret && copySecret(resetSecret)}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setResetSecret(null)}>我已保存</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
