@@ -75,7 +75,7 @@ export interface TotpOptions {
   period?: number
 }
 
-const DEFAULT_ALGORITHM: TotpOptions['algorithm'] = 'sha1'
+const DEFAULT_ALGORITHM: NonNullable<TotpOptions['algorithm']> = 'sha1'
 const DEFAULT_DIGITS: 6 | 8 = 6
 const DEFAULT_PERIOD = 30
 
