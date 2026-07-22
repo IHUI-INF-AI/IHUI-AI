@@ -28439,7 +28439,9 @@
       "title": "モデルリーダーボード · Arena スコア",
       "subtitle": "参考: arena.ai · Elo + Bootstrap CI",
       "empty": "ランキングデータなし",
-      "sortHint": "ヘッダーをクリックでソート"
+      "sortHint": "ヘッダーをクリックでソート",
+      "searchPlaceholder": "モデル/ベンダーを検索…",
+      "allVendors": "全ベンダー"
     },
     "hero": {
       "label": "AI ニュース Hero",
@@ -28547,7 +28549,13 @@
       "copyBaseUrl": "Base URL をコピー",
       "baseUrlCopied": "Base URL をクリップボードにコピーしました",
       "copyFailed": "コピー失敗、手動でコピーしてください",
-      "copyAndImport": "コピーしてインポート"
+      "copyAndImport": "コピーしてインポート",
+      "tagLongContext": "ロングコンテキスト",
+      "tagLargeOutput": "大出力",
+      "tagLowCost": "低コスト",
+      "tagHighWinRate": "高勝率",
+      "tagTopTier": "トップモデル",
+      "tagMultimodal": "マルチモーダル"
     },
     "apiRelays": {
       "title": "API リレー",
@@ -28566,7 +28574,10 @@
       "billingToken": "トークン単位",
       "billingFree": "無料枠",
       "billingGpu": "GPU 時間",
-      "billingSubscription": "定額制"
+      "billingSubscription": "定額制",
+      "sortLabel": "ソート",
+      "sortByName": "名前順",
+      "sortByBilling": "課金順"
     },
     "cta": {
       "label": "ボトム CTA",
