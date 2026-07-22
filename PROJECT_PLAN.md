@@ -170,9 +170,11 @@
 ### [x] ✅(2026-07-22) 国内镜像同步方案落地(Gitee + GitCode 双镜像,平台独占:CI/基础设施)
 
 **交付物**:`scripts/setup-mirror-repos.mjs`(Gitee OpenAPI v5 + GitCode PRIVATE-TOKEN 鉴权)+ `.github/workflows/mirror-to-cn.yml`(push main + 每天 08:00/20:00 兜底,refspec push + LFS push)。
-**镜像地址**:Gitee https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI ✅ | GitCode https://gitcode.com/lichunchuan1/IHUI-AI ✅(main + tags + 159MB LFS 已推送)。
-**修复 bug**:GitCode 鉴权 access_token→PRIVATE-TOKEN header;push --mirror→refspec(避免 remote-tracking refs 被拒);加 git lfs push --all(GitCode 服务端要求 LFS 对象)。
-**Git 证据**:commit 8e72b9b33,local == remote ✅。
+**镜像地址**:Gitee https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI ✅ | GitCode https://gitcode.com/IHUI-AI/IHUI-AI ✅(均已同步至 commit aef3308c)。
+**修复 bug**:GitCode 鉴权 access_token→PRIVATE-TOKEN header;push --mirror→refspec(避免 remote-tracking refs 被拒);加 git lfs push --all(GitCode 服务端要求 LFS 对象);workflow 去掉 continue-on-error 让失败可见;GitCode 用户改名 lichunchuan1→IHUI-AI 全文修正。
+**Secrets 配置**:GITEE_TOKEN/GITEE_OWNER=JLSLSSZWHYXGS_0/GITCODE_TOKEN/GITCODE_OWNER=IHUI-AI(4 个 GitHub Actions secrets 已由用户网页配置,API 因 fine-grained PAT 无写权限无法代设)。
+**链路验证**:workflow run 29908378668,Gitee `a9b4cb37..aef3308c main->main` + GitCode `Uploading LFS 8/8 159MB` + `a9b4cb37..aef3308c main->main`,两仓库匿名 browser 访问确认代码可见 + 标题完整。
+**Git 证据**:commit aef3308c9,local == remote ✅。
 **平台独占**(§9):CI/基础设施,不涉及业务代码跨端同步。
 
 ### [x] ✅(2026-07-22) 开发者 API Key 统一接入系统深度补齐(跨端:packages/types + api + web 全端同步,2026-07-22 立)
