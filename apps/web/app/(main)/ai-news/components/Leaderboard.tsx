@@ -41,6 +41,20 @@ export function parseNumeric(raw: string | number | null | undefined): number | 
   return n
 }
 
+/** 高亮搜索关键词:大小写不敏感,匹配部分用 <mark> 包裹 */
+function highlight(text: string, query: string): React.ReactNode {
+  const q = query.trim()
+  if (!q) return text
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'))
+  if (parts.length === 1) return text
+  return parts.map((part, i) =>
+    part.toLowerCase() === q.toLowerCase()
+      ? <mark key={i} className="rounded-sm bg-yellow-200/70 px-0.5 text-foreground dark:bg-yellow-500/30">{part}</mark>
+      : part
+  )
+}
+
 /** localStorage 排序偏好:按分类记忆 sortField + sortDir */
 const SORT_PREF_KEY = 'leaderboard-sort-pref'
 const DEFAULT_SORT = { field: 'arenaScore' as SortField, dir: 'desc' as SortDir }
@@ -162,21 +176,23 @@ export function Leaderboard({ entries }: Props) {
   // 排序:null 值永远排末尾(不管 asc/desc)
   const sorted = React.useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1
-    const getter = (e: LeaderboardEntry): number | string | null => {
-      switch (sortField) {
-        case 'arenaScore': return e.arenaScore
-        case 'winRate': return e.winRate
-        case 'voteCount': return e.voteCount
-        case 'contextWindow': return parseNumeric(e.contextWindow)
-        case 'maxOutput': return parseNumeric(e.maxOutput)
-        case 'inputPrice': return parseNumeric(e.inputPrice)
-        case 'outputPrice': return parseNumeric(e.outputPrice)
-        case 'releaseDate': return e.releaseDate
-      }
+    // 预计算每项的数值化字段,避免 sort 回调内重复 parseNumeric
+    const cache = new Map<string, Record<SortField, number | string | null>>()
+    for (const e of filtered) {
+      cache.set(e.id, {
+        arenaScore: e.arenaScore,
+        winRate: e.winRate,
+        voteCount: e.voteCount,
+        contextWindow: parseNumeric(e.contextWindow),
+        maxOutput: parseNumeric(e.maxOutput),
+        inputPrice: parseNumeric(e.inputPrice),
+        outputPrice: parseNumeric(e.outputPrice),
+        releaseDate: e.releaseDate,
+      })
     }
     return [...filtered].sort((a, b) => {
-      const va = getter(a)
-      const vb = getter(b)
+      const va = cache.get(a.id)![sortField]
+      const vb = cache.get(b.id)![sortField]
       // null 排末尾
       if (va === null && vb === null) return 0
       if (va === null) return 1
@@ -378,7 +394,20 @@ export function Leaderboard({ entries }: Props) {
             {sorted.length === 0 ? (
               <tr>
                 <td colSpan={14} className="px-3 py-8 text-center text-xs text-muted-foreground">
-                  {t('leaderboard.empty')}
+                  {searchQuery || activeVendor ? (
+                    <div className="space-y-2">
+                      <p>{t('leaderboard.noMatch')}</p>
+                      <button
+                        type="button"
+                        onClick={() => { setSearchQuery(''); setActiveVendor(null) }}
+                        className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20"
+                      >
+                        {t('leaderboard.clearFilter')}
+                      </button>
+                    </div>
+                  ) : (
+                    t('leaderboard.empty')
+                  )}
                 </td>
               </tr>
             ) : (
@@ -408,10 +437,10 @@ export function Leaderboard({ entries }: Props) {
                     </td>
                     {/* 模型名 — 单行竖向排列,核心亮点移至详情弹窗 */}
                     <td className="px-3 py-2.5">
-                      <span className="text-xs font-semibold leading-tight">{entry.modelName}</span>
+                      <span className="text-xs font-semibold leading-tight">{highlight(entry.modelName, searchQuery)}</span>
                     </td>
                     {/* 厂商 */}
-                    <td className="px-3 py-2.5 text-xs text-muted-foreground">{entry.vendor}</td>
+                    <td className="px-3 py-2.5 text-xs text-muted-foreground">{highlight(entry.vendor, searchQuery)}</td>
                     {/* Arena 评分 */}
                     <td className="px-3 py-2.5 text-right">
                       {entry.arenaScore ? (
