@@ -26,7 +26,8 @@ function str(v: unknown): string | undefined {
 function inferApiFormat(baseUrl: string, model?: string): CliApiFormat {
   const u = baseUrl.toLowerCase()
   if (u.includes('anthropic.com') || model?.startsWith('claude-')) return 'anthropic_messages'
-  if (u.includes('googleapis.com') || model?.startsWith('gemini-')) return 'gemini_native'
+  if (u.includes('googleapis.com') || u.includes('generativelanguage') || model?.startsWith('gemini-')) return 'gemini_native'
+  if (u.includes('openai.com') || u.includes('githubcopilot')) return 'openai_chat'
   return 'openai_chat'
 }
 
@@ -42,12 +43,18 @@ export async function parseWindsurf(input: ParserInput): Promise<ParserResult> {
     throw new Error(`Windsurf settings.json 解析失败: ${(err as Error).message}`)
   }
   const apiKey = str(settings['windsurf.ai.apiKey'])
-  const baseUrl = str(settings['windsurf.ai.baseUrl']) ?? 'https://api.anthropic.com'
+  const baseUrl = str(settings['windsurf.ai.baseUrl'])
   const model = str(settings['windsurf.ai.model'])
   if (!apiKey) {
     return {
       providers: [],
       globalWarnings: ['Windsurf settings.json 中未找到 windsurf.ai.apiKey'],
+    }
+  }
+  if (!baseUrl) {
+    return {
+      providers: [],
+      globalWarnings: ['Windsurf settings.json 中未找到 windsurf.ai.baseUrl,Windsurf 无默认 API 端点'],
     }
   }
   const apiFormat = inferApiFormat(baseUrl, model)
