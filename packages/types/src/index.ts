@@ -37,3 +37,6 @@ export * from './ide-workspace.js'
 
 // 四层记忆 + Dream 梦境系统跨端契约(2026-07-22 立,对标 OpenClaw Mem)
 export * from './memory.js'
+
+// Webhook 触发器跨端契约(2026-07-22 立,Wave 3 W3-3 对标 OpenClaw webhook)
+export * from './webhook-trigger.js'
