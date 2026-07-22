@@ -23,7 +23,7 @@
      ┌─────────┐
      │  压测    │  Locust(4 类端点 / 100 并发)
      ├─────────┤
-     │  E2E    │  Playwright(16+ spec,真实浏览器)
+     │  E2E    │  Playwright(53 spec,真实浏览器)
      ├─────────┤
      │  视觉    │  Playwright(DOM 数值断言,非截图)
      ├─────────┤
@@ -42,7 +42,7 @@
 | 项 | 值 |
 |---|---|
 | 位置 | `apps/api/tests/` |
-| 文件数 | 38+ 个 `*.test.ts` |
+| 文件数 | 278 个 `*.test.ts` |
 | 框架 | Vitest 2 |
 | 配置(默认) | `apps/api/vitest.config.ts`(mock 模式) |
 | 配置(真实 DB) | `apps/api/vitest.real.config.ts`(集成模式) |
@@ -178,7 +178,7 @@ describe('health route', () => {
 | 项 | 值 |
 |---|---|
 | 位置 | `apps/web/e2e/*.spec.ts` |
-| spec 数 | 16+ 个 |
+| spec 数 | 53 个 |
 | 框架 | Playwright |
 | 配置 | `apps/web/playwright.config.ts` |
 | 运行命令 | `pnpm --filter @ihui/web e2e` |
@@ -414,12 +414,27 @@ npx @lhci/cli autorun
 
 ### 10.1 Workflow 总览
 
+`.github/workflows/` 下共 23 个 workflow(4 个核心 CI + 19 个专项),核心 4 个:
+
 | Workflow | 文件 | 触发条件 | 跑什么 |
 |---|---|---|---|
 | CI | `.github/workflows/ci.yml` | push / PR 到 `main` / `develop` | typecheck + schema drift + lint + test + build + Python 语法检查 + ai-service schema check |
 | E2E | `.github/workflows/e2e.yml` | push / PR 到 `main` / `develop`(改 `apps/web/**` / `apps/api/**` / `packages/**`) | Playwright E2E(production build + start server) |
 | Build Docker | `.github/workflows/build.yml` | push 到 `main` / tag `v*` | 构建 api / web / ai-service 三个 Docker 镜像 |
 | Knip | `.github/workflows/knip.yml` | push / PR 到 `main` / `develop`(改 `apps/**` / `packages/**` / `package.json` / `knip.jsonc`) | 死代码扫描 |
+
+专项 workflow(19 个,按用途分组):
+
+| 类别 | Workflow | 用途 |
+|---|---|---|
+| 性能 | `lighthouse-ci.yml` / `visual-regression.yml` / `ws-loadtest.yml` | Lighthouse 性能预算 / 视觉回归 / WebSocket 压测 |
+| 数据库 | `test-real-db.yml` / `migration-tests.yml` | 真实 DB 测试 / 迁移测试 |
+| i18n | `i18n-check.yml` | i18n key parity + 翻译纯度 |
+| 安全 | `weekly-security-audit.yml` | 每周安全审计 |
+| 发布 | `release-cli.yml` / `blue-green-deploy.yml` | CLI 发布 / 蓝绿部署 |
+| 运维 | `loop-daily-triage.yml` / `weekly-cleanup.yml` / `observability-drills.yml` | 每日分诊 / 每周清理 / 可观测性演练 |
+| 监控 | `s3-lifecycle-drift.yml` / `openapi-check.yml` / `miniapp-preview.yml` | S3 生命周期 / OpenAPI 校验 / 小程序预览 |
+| 其他 | `ci-monorepo.yml` / `mirror-to-cn.yml` / `style-spec.yml` / `smoke-new-modules.yml` | Monorepo CI / 中国镜像 / 样式规范 / 新模块冒烟 |
 
 ### 10.2 CI workflow 详解(`ci.yml`)
 
