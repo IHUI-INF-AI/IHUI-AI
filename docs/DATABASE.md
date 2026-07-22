@@ -14,7 +14,7 @@
 | ORM | Drizzle ORM 0.38 |
 | 连接池 | 默认 `max=10`(单库)/ `max=20`(读写分离主库)/ `max=10`(每租户分库) |
 | Schema 文件 | `packages/database/src/schema/`(160+ 文件,339 表) |
-| 迁移文件 | `packages/database/drizzle/`(128+ SQL 文件) |
+| 迁移文件 | `packages/database/drizzle/`(144+ SQL 文件) |
 | 种子数据 | `packages/database/seed/`(9 步幂等 seed 流程) |
 | 多租户隔离 | RLS 行级安全 + `tenant_id` 列 + `app.tenant_id` 会话变量 |
 | 默认租户 UUID | `00000000-0000-0000-0000-000000000000` |
