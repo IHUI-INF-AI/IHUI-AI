@@ -430,7 +430,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       const user = await createUser({
         phone: parsed.data.phone,
         email: parsed.data.email,
-        passwordHash: bcrypt.hashSync(parsed.data.password, 10),
+        passwordHash: await bcrypt.hash(parsed.data.password, 10),
         nickname: parsed.data.nickname,
         roleId: parsed.data.roleId,
         status: parsed.data.status,
@@ -623,7 +623,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     }
     const user = await findUserById(paramParsed.data.id)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
-    const passwordHash = bcrypt.hashSync(bodyParsed.data.newPassword, 10)
+    const passwordHash = await bcrypt.hash(bodyParsed.data.newPassword, 10)
     const { db } = await import('../db/index.js')
     const { users } = await import('@ihui/database')
     const { eq } = await import('drizzle-orm')

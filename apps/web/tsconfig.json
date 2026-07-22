@@ -18,7 +18,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@plugins-data": ["./app/(main)/plugins/plugins-data"]
     },
     "isolatedModules": true
   },
