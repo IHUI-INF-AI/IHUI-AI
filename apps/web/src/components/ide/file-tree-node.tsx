@@ -3,7 +3,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import type { FileNode } from '@ihui/types'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
-import { getFileIcon, getFileColor, getGitStatusColor, type GitFileStatus } from './file-icons'
+import { getFileIcon, getFileColor } from './file-icons'
 import { ChevronRight, Folder, FolderOpen, FileText, Pencil, Trash2, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -13,13 +13,6 @@ interface FileTreeNodeProps {
   searchTerm?: string
 }
 
-/** mock git 状态数据(演示用) */
-const MOCK_GIT_STATUS: Record<string, GitFileStatus> = {
-  'ide-layout': 'modified',
-  'activity-bar': 'modified',
-  'ide-workspace-store': 'added',
-}
-
 export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps) {
   const t = useTranslations('ide')
   const { expandedFolders, selectedFileId, toggleFolder, openFile, selectFile } = useIDEWorkspace()
@@ -27,7 +20,6 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
   const isExpanded = node.type === 'folder' && expandedFolders.has(node.id)
   const isSelected = selectedFileId === node.id
   const Icon = node.type === 'folder' ? (isExpanded ? FolderOpen : Folder) : getFileIcon(node.name)
-  const gitColor = getGitStatusColor(MOCK_GIT_STATUS[node.id])
 
   const handleClick = () => {
     if (node.type === 'folder') toggleFolder(node.id)
@@ -98,7 +90,6 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
         )}
         <Icon className={cn('h-3.5 w-3.5 shrink-0', node.type === 'file' && getFileColor(node.name))} />
         {renderName()}
-        {gitColor && <span className={cn('ml-auto h-1.5 w-1.5 shrink-0 rounded-full', gitColor)} />}
       </div>
 
       {node.type === 'folder' && (
