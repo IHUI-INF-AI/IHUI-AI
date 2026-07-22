@@ -67,18 +67,18 @@ export default function SkillsPopup({
 
   return (
     <DrawerComponent visible={visible} onClose={onClose} height="70vh">
-      <View className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-        <Text className="text-base font-semibold text-gray-800 dark:text-gray-100">
+      <View className="px-4 py-3 border-b border-border">
+        <Text className="text-base font-semibold text-foreground dark:text-muted-foreground">
           {t('ai.skillsPopup.title')}
         </Text>
       </View>
 
       <View className="px-4 py-2">
         <Input
-          className="w-full h-9 px-3 text-sm bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-800 dark:text-gray-100"
+          className="w-full h-9 px-3 text-sm bg-muted rounded-lg text-foreground dark:text-muted-foreground"
           type="text"
           placeholder={t('ai.skillsPopup.searchPlaceholder')}
-          placeholderClass="text-gray-400"
+          placeholderClass="text-muted-foreground"
           value={keyword}
           onInput={handleSearch}
         />
@@ -86,12 +86,12 @@ export default function SkillsPopup({
 
       <ScrollView
         scrollX
-        className="whitespace-nowrap px-3 py-2 border-b border-gray-100 dark:border-gray-800"
+        className="whitespace-nowrap px-3 py-2 border-b border-border"
       >
         {CATEGORIES.map((c) => (
           <View
             key={c.key}
-            className={`inline-block px-3 py-1 mr-2 text-xs rounded-md ${category === c.key ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}
+            className={`inline-block px-3 py-1 mr-2 text-xs rounded-md ${category === c.key ? 'bg-primary text-white' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
             onClick={() => setCategory(c.key)}
           >
             <Text>{t(c.labelKey)}</Text>
@@ -101,7 +101,7 @@ export default function SkillsPopup({
 
       <ScrollView scrollY className="flex-1" style={{ maxHeight: '50vh' }}>
         {loading ? (
-          <View className="py-12 text-center text-sm text-gray-400">
+          <View className="py-12 text-center text-sm text-muted-foreground">
             <Text>{t('ai.common.loading')}</Text>
           </View>
         ) : filtered.length ? (
@@ -109,37 +109,37 @@ export default function SkillsPopup({
             {filtered.map((agent) => (
               <View
                 key={agent.id}
-                className={`flex items-center p-3 mb-2 rounded-xl active:bg-gray-50 dark:active:bg-gray-800 ${selectedId === agent.id ? 'bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700' : 'bg-gray-50 dark:bg-gray-800'}`}
+                className={`flex items-center p-3 mb-2 rounded-xl active:bg-muted ${selectedId === agent.id ? 'bg-primary/10 border border-primary' : 'bg-muted'}`}
                 onClick={() => handleSelect(agent)}
               >
                 {agent.avatar ? (
                   <Image
-                    className="w-10 h-10 rounded-md mr-3 bg-gray-200"
+                    className="w-10 h-10 rounded-md mr-3 bg-muted"
                     src={agent.avatar}
                     mode="aspectFill"
                   />
                 ) : (
-                  <View className="w-10 h-10 rounded-md mr-3 bg-green-600 flex items-center justify-center text-white text-base font-semibold">
+                  <View className="w-10 h-10 rounded-md mr-3 bg-primary flex items-center justify-center text-white text-base font-semibold">
                     <Text>{agent.name.charAt(0)}</Text>
                   </View>
                 )}
                 <View className="flex-1 min-w-0">
                   <View className="flex items-center">
-                    <Text className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
+                    <Text className="text-sm font-medium text-foreground dark:text-muted-foreground truncate">
                       {agent.name}
                     </Text>
                     {selectedId === agent.id ? (
-                      <Text className="ml-2 text-xs text-green-600">✓</Text>
+                      <Text className="ml-2 text-xs text-primary">✓</Text>
                     ) : null}
                   </View>
                   {agent.desc ? (
-                    <Text className="block text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
+                    <Text className="block text-xs text-muted-foreground dark:text-muted-foreground mt-1 truncate">
                       {agent.desc}
                     </Text>
                   ) : null}
                 </View>
                 {typeof agent.uses === 'number' ? (
-                  <View className="ml-2 text-xs text-gray-400">
+                  <View className="ml-2 text-xs text-muted-foreground">
                     <Text>{t('ai.skillsPopup.uses', { n: agent.uses })}</Text>
                   </View>
                 ) : null}

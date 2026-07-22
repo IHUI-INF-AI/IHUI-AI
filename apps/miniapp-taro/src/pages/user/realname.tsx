@@ -48,21 +48,21 @@ export default function Realname() {
 
   if (authenticated) {
     return (
-      <View className="min-h-screen bg-[#f7f8fa]">
-        <View className="mx-[12px] mt-[30px] py-[40px] bg-white rounded-[8px] flex flex-col items-center">
+      <View className="min-h-screen bg-background">
+        <View className="mx-[12px] mt-[30px] py-[40px] bg-card rounded-[8px] flex flex-col items-center">
           <Text className="text-[48px]">✓</Text>
-          <Text className="mt-[12px] text-[16px] text-[#333]">{t('user.realname.authed')}</Text>
-          <Text className="mt-[8px] text-[13px] text-[#999]">{authName}</Text>
+          <Text className="mt-[12px] text-[16px] text-foreground">{t('user.realname.authed')}</Text>
+          <Text className="mt-[8px] text-[13px] text-muted-foreground">{authName}</Text>
         </View>
       </View>
     )
   }
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="mx-[12px] mt-[12px] px-[16px] bg-white rounded-[8px]">
-        <View className="flex items-center py-[16px] border-b-[1px] border-solid border-[#f5f5f5]">
-          <Text className="w-[80px] text-[14px] text-[#333]">{t('user.realname.realName')}</Text>
+    <View className="min-h-screen bg-background">
+      <View className="mx-[12px] mt-[12px] px-[16px] bg-card rounded-[8px]">
+        <View className="flex items-center py-[16px] border-b-[1px] border-solid border-border">
+          <Text className="w-[80px] text-[14px] text-foreground">{t('user.realname.realName')}</Text>
           <Input
             className="flex-1 text-[14px]"
             type="text"
@@ -72,7 +72,7 @@ export default function Realname() {
           />
         </View>
         <View className="flex items-center py-[16px]">
-          <Text className="w-[80px] text-[14px] text-[#333]">{t('user.realname.idCard')}</Text>
+          <Text className="w-[80px] text-[14px] text-foreground">{t('user.realname.idCard')}</Text>
           <Input
             className="flex-1 text-[14px]"
             type="idcard"
@@ -85,7 +85,7 @@ export default function Realname() {
       </View>
       <Button
         className={`mx-[16px] mt-[30px] rounded-[20px] text-[16px] ${
-          realName.trim() && idCard ? 'bg-[#07c160] text-white' : 'bg-[#ccc] text-white'
+          realName.trim() && idCard ? 'bg-primary text-white' : 'bg-[#ccc] text-white'
         }`}
         disabled={!realName.trim() || !idCard}
         onClick={onSubmit}

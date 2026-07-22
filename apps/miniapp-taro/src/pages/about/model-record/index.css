@@ -1,10 +1,10 @@
-﻿.page {
+.page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-background);
 }
 .card {
   margin: 24rpx;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 16rpx;
   overflow: hidden;
 }
@@ -13,19 +13,19 @@
   justify-content: space-between;
   align-items: flex-start;
   padding: 32rpx;
-  border-bottom: 2rpx solid #f5f5f5;
+  border-bottom: 2rpx solid var(--color-border);
 }
 .row.last {
   border-bottom: none;
 }
 .label {
   font-size: 28rpx;
-  color: #666;
+  color: var(--color-muted-foreground);
   flex-shrink: 0;
 }
 .value {
   font-size: 28rpx;
-  color: #333;
+  color: var(--color-foreground);
   text-align: right;
   margin-left: 24rpx;
   word-break: break-all;
@@ -36,13 +36,13 @@
 .notice-title {
   display: block;
   font-size: 28rpx;
-  color: #333;
+  color: var(--color-foreground);
   font-weight: 500;
   margin-bottom: 16rpx;
 }
 .notice-text {
   font-size: 26rpx;
-  color: #666;
+  color: var(--color-muted-foreground);
   line-height: 1.8;
 }
 .tips {
@@ -51,5 +51,5 @@
 }
 .tips text {
   font-size: 22rpx;
-  color: #bbb;
+  color: var(--color-muted-foreground);
 }

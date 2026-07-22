@@ -39,10 +39,10 @@ export default function FavoritesPage() {
   usePullDownRefresh(() => load(true).finally(() => Taro.stopPullDownRefresh()))
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       {items.length === 0 && !loading && (
         <View className="flex flex-col items-center justify-center py-[160rpx]">
-          <Text className="text-[28rpx] text-[#999]">{t('favorites.empty')}</Text>
+          <Text className="text-[28rpx] text-muted-foreground">{t('favorites.empty')}</Text>
         </View>
       )}
       {items.length > 0 && (
@@ -50,7 +50,7 @@ export default function FavoritesPage() {
           {items.map((item) => (
             <View
               key={item.id}
-              className="bg-white rounded-[16rpx] p-[24rpx] mb-[24rpx] flex items-center"
+              className="bg-card rounded-[16rpx] p-[24rpx] mb-[24rpx] flex items-center"
             >
               {item.cover ? (
                 <Image
@@ -64,10 +64,10 @@ export default function FavoritesPage() {
                 </View>
               )}
               <View className="flex-1 min-w-0">
-                <Text className="text-[30rpx] text-[#333] font-semibold truncate">
+                <Text className="text-[30rpx] text-foreground font-semibold truncate">
                   {item.title}
                 </Text>
-                <Text className="text-[24rpx] text-[#999] mt-[8rpx]">{item.targetType}</Text>
+                <Text className="text-[24rpx] text-muted-foreground mt-[8rpx]">{item.targetType}</Text>
               </View>
               <Text
                 className="text-[26rpx] text-[#dd524d] px-[16rpx] py-[8rpx]"
@@ -79,18 +79,18 @@ export default function FavoritesPage() {
           ))}
           <View className="text-center py-[32rpx]">
             {loading ? (
-              <Text className="text-[24rpx] text-[#999]">{t('common.loading')}</Text>
+              <Text className="text-[24rpx] text-muted-foreground">{t('common.loading')}</Text>
             ) : hasMore ? (
-              <Text className="text-[24rpx] text-[#999]">{t('favorites.loadMore')}</Text>
+              <Text className="text-[24rpx] text-muted-foreground">{t('favorites.loadMore')}</Text>
             ) : (
-              <Text className="text-[24rpx] text-[#999]">{t('favorites.noMore')}</Text>
+              <Text className="text-[24rpx] text-muted-foreground">{t('favorites.noMore')}</Text>
             )}
           </View>
         </View>
       )}
       {loading && items.length === 0 && (
         <View className="text-center py-[120rpx]">
-          <Text className="text-[28rpx] text-[#999]">{t('common.loading')}</Text>
+          <Text className="text-[28rpx] text-muted-foreground">{t('common.loading')}</Text>
         </View>
       )}
     </View>
