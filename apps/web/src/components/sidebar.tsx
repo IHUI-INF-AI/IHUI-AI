@@ -1373,25 +1373,29 @@ function NavGroupSection({
   // SSR-safe: 初始 false,hydration 后读真实状态
   const [open, setOpen] = React.useState(false)
 
+  // mount-once effect:用 ref 捕获挂载时的初始值,后续 groupActive 变化由下方 effect 单独处理
+  const initialGroupActive = React.useRef(groupActive)
+  const initialStorageKey = React.useRef(storageKey)
+  const initialDefaultOpen = React.useRef(defaultOpen)
+
   // 仅在挂载后读一次真实状态(默认值 / localStorage / groupActive 三者择一)。
   // 不在 open 变化时回写 localStorage — 那会让"默认值生效"被误判为"用户切换",污染下次访问。
   // 用户主动 toggle 时,由 handleToggle 显式写入 localStorage。
   React.useEffect(() => {
-    if (groupActive) {
+    if (initialGroupActive.current) {
       setOpen(true)
       return
     }
     try {
-      const stored = window.localStorage.getItem(storageKey)
+      const stored = window.localStorage.getItem(initialStorageKey.current)
       if (stored === '1') setOpen(true)
       else if (stored === '0') setOpen(false)
-      else setOpen(defaultOpen)
+      else setOpen(initialDefaultOpen.current)
     } catch {
-      setOpen(defaultOpen)
+      setOpen(initialDefaultOpen.current)
     }
     // 故意只跑一次:依赖项固定为挂载时常量。groupActive/storageKey/defaultOpen 在挂载后不变,
     // 即便变化(如路由切换导致 groupActive 变化)也由下方 groupActive effect 单独处理。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // 路由切换后,若新路由命中本组,强制展开(覆盖用户上次折叠的偏好)
@@ -1509,197 +1513,6 @@ function NavGroupSection({
           <div className="flex flex-col gap-0.5">{group.items.map(renderItem)}</div>
         </div>
       </div>
-    </div>
-  )
-}
-
-interface NavLinkProps {
-  item: NavItem
-  collapsed: boolean
-  active: boolean
-  label: string
-  onCloseMobile: () => void
-  registerRef: (href: string, el: HTMLElement | null) => void
-}
-
-function NavLink({ item, collapsed, active, label, onCloseMobile, registerRef }: NavLinkProps) {
-  const Icon = item.icon
-  const className = cn(
-    'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
-    active
-      ? 'bg-primary text-primary-foreground'
-      : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
-    collapsed && 'justify-center',
-  )
-  const refCb = (el: HTMLElement | null) => registerRef(item.href, el)
-
-  if (collapsed) {
-    return (
-      <Tooltip key={item.href} content={label} side="right">
-        <Link
-          href={item.href}
-          ref={refCb}
-          onClick={onCloseMobile}
-          aria-label={label}
-          aria-current={active ? 'page' : undefined}
-          className={className}
-        >
-          <Icon className="h-5 w-5 shrink-0" />
-        </Link>
-      </Tooltip>
-    )
-  }
-
-  return (
-    <Link
-      key={item.href}
-      href={item.href}
-      ref={refCb}
-      onClick={onCloseMobile}
-      aria-current={active ? 'page' : undefined}
-      className={className}
-    >
-      <Icon className="h-5 w-5 shrink-0" />
-      <span>{label}</span>
-    </Link>
-  )
-}
-
-interface ExpandableNavItemProps {
-  item: NavItem
-  collapsed: boolean
-  isActive: (href: string) => boolean
-  onCloseMobile: () => void
-  registerRef: (href: string, el: HTMLElement | null) => void
-  t: (key: string) => string
-}
-
-function ExpandableNavItem({
-  item,
-  collapsed,
-  isActive,
-  onCloseMobile,
-  registerRef,
-  t,
-}: ExpandableNavItemProps) {
-  const router = useRouter()
-  const children = item.children ?? []
-  const parentActive = children.some((child) => isActive(child.href))
-  const storageKey = `sidebar-expand-${item.href}`
-  const [open, setOpen] = React.useState(() => {
-    if (parentActive) return true
-    try {
-      return localStorage.getItem(storageKey) === '1'
-    } catch {
-      return false
-    }
-  })
-  const controlId = React.useId()
-  const listId = `${controlId}-list`
-
-  React.useEffect(() => {
-    if (parentActive) setOpen(true)
-  }, [parentActive])
-
-  React.useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, open ? '1' : '0')
-    } catch {
-      // localStorage 不可用
-    }
-  }, [open, storageKey])
-
-  const Icon = item.icon
-  const label = t(item.labelKey)
-
-  const parentClassName = cn(
-    'flex h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap transition-colors',
-    parentActive
-      ? 'bg-primary text-primary-foreground'
-      : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
-    collapsed && 'justify-center',
-  )
-
-  const childClassName = (active: boolean) =>
-    cn(
-      'flex h-9 w-full min-w-0 items-center gap-2 rounded-md pl-8 pr-2.5 py-1.5 text-sm font-medium whitespace-nowrap transition-colors',
-      active
-        ? 'bg-primary text-primary-foreground'
-        : 'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
-    )
-
-  const childList = (
-    <div id={listId} role="group" aria-label={label} className="flex flex-col gap-0.5">
-      {children.map((child) => {
-        const ChildIcon = child.icon
-        const active = isActive(child.href)
-        const childLabel = t(child.labelKey)
-        const refCb = (el: HTMLElement | null) => registerRef(child.href, el)
-        return (
-          <Link
-            key={child.href}
-            data-testid={`nav-${child.labelKey}`}
-            href={child.href}
-            ref={refCb}
-            onClick={onCloseMobile}
-            aria-current={active ? 'page' : undefined}
-            className={childClassName(active)}
-          >
-            <ChildIcon className="h-4 w-4 shrink-0" />
-            <span>{childLabel}</span>
-          </Link>
-        )
-      })}
-    </div>
-  )
-
-  if (collapsed) {
-    return (
-      <Dropdown
-        side="right"
-        align="start"
-        items={children.map((child) => ({
-          key: child.href,
-          label: t(child.labelKey),
-          icon: child.icon,
-          onSelect: () => {
-            router.push(child.href)
-            onCloseMobile()
-          },
-        }))}
-        trigger={
-          <button
-            type="button"
-            data-testid={`nav-${item.labelKey}`}
-            aria-label={label}
-            aria-controls={listId}
-            className={parentClassName}
-            title={label}
-          >
-            <Icon className="h-5 w-5 shrink-0" />
-          </button>
-        }
-      />
-    )
-  }
-
-  return (
-    <div>
-      <button
-        type="button"
-        data-testid={`nav-${item.labelKey}`}
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-controls={listId}
-        className={parentClassName}
-      >
-        <Icon className="h-5 w-5 shrink-0" />
-        <span>{label}</span>
-        <ChevronDown
-          className={cn('ml-auto h-4 w-4 shrink-0 transition-transform', open && 'rotate-180')}
-        />
-      </button>
-      {open && <div className="mt-0.5 pl-2">{childList}</div>}
     </div>
   )
 }
@@ -1829,10 +1642,6 @@ export function Sidebar({
     [visibleGroups],
   )
 
-  const allVisibleItems = React.useMemo(
-    () => flattenNavItems(visibleGroups.flatMap((g) => g.items)),
-    [visibleGroups],
-  )
 
   const activeHref = React.useMemo(() => {
     const found = allVisibleItems.find((item) => isActive(item.href))
@@ -1905,10 +1714,11 @@ export function Sidebar({
         </div>
 
         {/* 插件市场按钮(2026-07-22 新增,位于"新建任务"按钮正下方)
-            - 视觉与"新建任务"按钮成对:同 bg-foreground/10 + text-foreground 灰底风格
-            - active 态(/plugins 路由命中):bg-foreground/20 锁定为 hover 色,提示"正在该页面"
+            - 默认态无背景(与下方 NavLink 导航项一致),仅 hover 出现 bg-foreground/20
+            - active 态(/plugins 路由命中):bg-foreground/20 锁定,提示"正在该页面"
             - 折叠态:36×36 正方形图标按钮,与"新建任务"折叠态对齐
-            - 与新建任务按钮共用 BTN_NEW_CONVERSATION_CLASS(h-9 + gap-2 + translateY 对齐) */}
+            - 与新建任务按钮共用 BTN_NEW_CONVERSATION_CLASS(h-9 + gap-2 + translateY 对齐)
+            - 2026-07-22 用户反馈:默认不应与新建任务一样有灰底,改为透明 */}
         <div className={cn('mb-1', collapsed && 'flex justify-center')}>
           {collapsed ? (
             <Tooltip content={t('pluginMarket')} side="right">
@@ -1921,7 +1731,7 @@ export function Sidebar({
                   'flex h-9 w-9 items-center justify-center rounded-md text-foreground transition-colors',
                   pathname.startsWith('/plugins')
                     ? 'bg-foreground/20'
-                    : 'bg-foreground/10 hover:bg-foreground/20',
+                    : 'hover:bg-foreground/20',
                 )}
               >
                 <Package className="h-4 w-4" />
@@ -1936,7 +1746,7 @@ export function Sidebar({
                 BTN_NEW_CONVERSATION_CLASS,
                 pathname.startsWith('/plugins')
                   ? 'bg-foreground/20 text-foreground'
-                  : 'bg-foreground/10 text-foreground hover:bg-foreground/20',
+                  : 'text-foreground hover:bg-foreground/20',
               )}
             >
               <Package className="h-4 w-4 shrink-0" />
@@ -1946,10 +1756,11 @@ export function Sidebar({
         </div>
 
         {/* 自动化任务按钮(2026-07-22 新增,位于"插件市场"按钮正下方,快捷区第3个)
-            - 视觉与上方两个按钮成组:同 bg-foreground/10 + text-foreground 灰底风格
-            - active 态(/self-media/automation 路由命中):bg-foreground/20 锁定为 hover 色
+            - 默认态无背景(与下方 NavLink 导航项一致),仅 hover 出现 bg-foreground/20
+            - active 态(/self-media/automation 路由命中):bg-foreground/20 锁定
             - 折叠态:36×36 正方形图标按钮,与上方两个按钮对齐
-            - 从 AI 分组移出,提升为快捷入口(用户需求 2026-07-22) */}
+            - 从 AI 分组移出,提升为快捷入口(用户需求 2026-07-22)
+            - 2026-07-22 用户反馈:默认不应与新建任务一样有灰底,改为透明 */}
         <div className={cn('mb-1', collapsed && 'flex justify-center')}>
           {collapsed ? (
             <Tooltip content={t('selfMediaAutomation')} side="right">
@@ -1962,7 +1773,7 @@ export function Sidebar({
                   'flex h-9 w-9 items-center justify-center rounded-md text-foreground transition-colors',
                   pathname.startsWith('/self-media/automation')
                     ? 'bg-foreground/20'
-                    : 'bg-foreground/10 hover:bg-foreground/20',
+                    : 'hover:bg-foreground/20',
                 )}
               >
                 <Clock className="h-4 w-4" />
@@ -1977,7 +1788,7 @@ export function Sidebar({
                 BTN_NEW_CONVERSATION_CLASS,
                 pathname.startsWith('/self-media/automation')
                   ? 'bg-foreground/20 text-foreground'
-                  : 'bg-foreground/10 text-foreground hover:bg-foreground/20',
+                  : 'text-foreground hover:bg-foreground/20',
               )}
             >
               <Clock className="h-4 w-4 shrink-0" />
