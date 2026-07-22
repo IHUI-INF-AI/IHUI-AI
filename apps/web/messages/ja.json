@@ -10743,8 +10743,12 @@
     "maxLevel": "レベルにしました",
     "tab": {
       "tx": "ポイントストリーム",
-      "lb": "ランキング"
+      "lb": "ランキング",
+      "redeem": "交換"
     },
+    "redeemEmpty": "交換可能な商品はありません",
+    "pointsUnit": "{n} ポイント",
+    "redeemBtn": "今すぐ交換",
     "source": "ソース",
     "amount": "変動",
     "balance": "残高",
@@ -28504,6 +28508,10 @@
       "searchPlaceholder": "タイトル・概要を検索…",
       "searchEmpty": "一致する記事なし、別のキーワードで試してください",
       "trendBtn": "トレンド",
+      "trendAll": "全トレンド",
+      "trendRising": "上昇",
+      "trendCooling": "下降",
+      "trendNew": "新着",
       "moreHint": "{shown}/{total} 件表示中、絞り込みを調整して更に表示"
     },
     "hotRanking": {
