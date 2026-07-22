@@ -20473,6 +20473,7 @@
     "listStatusApproved": "승인됨",
     "listStatusRejected": "거절됨",
     "listStatusCompleted": "완료",
+    "listReason": "사유: {reason}",
     "detailTitle": "환불 상세",
     "detailNotFound": "환불 기록이 존재하지 않습니다",
     "detailBack": "뒤로",
@@ -28511,7 +28512,12 @@
       "trendRising": "상승",
       "trendCooling": "하락",
       "trendNew": "신규",
-      "moreHint": "{shown}/{total}건 표시 중, 필터 조정으로 더 보기"
+      "moreHint": "{shown}/{total}건 표시 중, 필터 조정으로 더 보기",
+      "trendNotifyTitle": "{count}개 기사 트렌드 급상승",
+      "trendNotifyExpand": "모두 표시",
+      "trendNotifyCollapse": "접기",
+      "trendNotifyClose": "닫기",
+      "langSwitch": "제목 언어를 {lang}(으)로 전환"
     },
     "hotRanking": {
       "label": "핫 랭킹",
@@ -28565,6 +28571,19 @@
       "tagHighWinRate": "고승률",
       "tagTopTier": "최상위 모델",
       "tagMultimodal": "멀티모달"
+    },
+    "compare": {
+      "label": "모델 비교",
+      "selected": "{count}개 선택됨",
+      "clear": "비우기",
+      "startCompare": "비교 시작",
+      "maxToast": "최대 5개 모델까지 비교 가능, 다른 모델을 먼저 제거하세요",
+      "colModel": "비교 차원",
+      "cheapest": "최저",
+      "priceChartTitle": "가격 시각화",
+      "priceChartHint": "입력 / 출력 가격(1M tokens당)",
+      "capabilityOverlay": "능력 레이더 오버레이",
+      "noPriceData": "선택된 모델에 가격 데이터 없음"
     },
     "apiRelays": {
       "title": "API 릴레이",
