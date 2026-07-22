@@ -45,20 +45,20 @@ export default function DistributionRank() {
   const rest = list.slice(3)
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       <View className="py-[20px] text-center bg-gradient-to-b from-[#ff6b35] to-[#ff8e53]">
         <Text className="text-white text-[18px] font-bold">分销排行榜</Text>
       </View>
       {top3.length >= 3 && (
-        <View className="flex items-end justify-center py-[24px] bg-white">
+        <View className="flex items-end justify-center py-[24px] bg-card">
           {/* 2nd */}
           <View className="flex flex-col items-center mx-[12px] relative">
             <Image
-              className="w-[55px] h-[55px] rounded-md bg-[#f5f5f5] border-2 ${RANK_BORDER['2']}"
+              className="w-[55px] h-[55px] rounded-md bg-muted border-2 ${RANK_BORDER['2']}"
               src={top3[1]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <Text className="text-[12px] text-[#333] mt-[8px]">{top3[1]!.nickname}</Text>
+            <Text className="text-[12px] text-foreground mt-[8px]">{top3[1]!.nickname}</Text>
             <Text className="text-[14px] text-[#ff6b35] font-semibold mt-[2px]">
               ¥{top3[1]!.commission}
             </Text>
@@ -71,11 +71,11 @@ export default function DistributionRank() {
           {/* 1st */}
           <View className="flex flex-col items-center mx-[12px] relative">
             <Image
-              className="w-[70px] h-[70px] rounded-md bg-[#f5f5f5] border-2 ${RANK_BORDER['1']}"
+              className="w-[70px] h-[70px] rounded-md bg-muted border-2 ${RANK_BORDER['1']}"
               src={top3[0]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <Text className="text-[12px] text-[#333] mt-[8px]">{top3[0]!.nickname}</Text>
+            <Text className="text-[12px] text-foreground mt-[8px]">{top3[0]!.nickname}</Text>
             <Text className="text-[14px] text-[#ff6b35] font-semibold mt-[2px]">
               ¥{top3[0]!.commission}
             </Text>
@@ -88,11 +88,11 @@ export default function DistributionRank() {
           {/* 3rd */}
           <View className="flex flex-col items-center mx-[12px] relative">
             <Image
-              className={`w-[55px] h-[55px] rounded-md bg-[#f5f5f5] border-2 ${RANK_BORDER['3']}`}
+              className={`w-[55px] h-[55px] rounded-md bg-muted border-2 ${RANK_BORDER['3']}`}
               src={top3[2]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <Text className="text-[12px] text-[#333] mt-[8px]">{top3[2]!.nickname}</Text>
+            <Text className="text-[12px] text-foreground mt-[8px]">{top3[2]!.nickname}</Text>
             <Text className="text-[14px] text-[#ff6b35] font-semibold mt-[2px]">
               ¥{top3[2]!.commission}
             </Text>
@@ -105,23 +105,23 @@ export default function DistributionRank() {
         </View>
       )}
       {rest.length > 0 && (
-        <View className="m-[12px] bg-white rounded-[8px] overflow-hidden">
+        <View className="m-[12px] bg-card rounded-[8px] overflow-hidden">
           {rest.map((u, i) => (
-            <View key={u.id} className="flex items-center p-[12px] border-b-[1px] border-[#f5f5f5]">
-              <Text className="w-[30px] text-[14px] text-[#999]">{i + 4}</Text>
+            <View key={u.id} className="flex items-center p-[12px] border-b-[1px] border-border">
+              <Text className="w-[30px] text-[14px] text-muted-foreground">{i + 4}</Text>
               <Image
-                className="w-[32px] h-[32px] rounded-md bg-[#f5f5f5]"
+                className="w-[32px] h-[32px] rounded-md bg-muted"
                 src={u.avatar || '/static/default-avatar.png'}
                 mode="aspectFill"
               />
-              <Text className="flex-1 ml-[12px] text-[14px] text-[#333]">{u.nickname}</Text>
+              <Text className="flex-1 ml-[12px] text-[14px] text-foreground">{u.nickname}</Text>
               <Text className="text-[14px] text-[#ff6b35] font-semibold">¥{u.commission}</Text>
             </View>
           ))}
         </View>
       )}
       {!loading && list.length === 0 && (
-        <View className="text-center py-[60px] text-[#999]">
+        <View className="text-center py-[60px] text-muted-foreground">
           <Text>暂无排行数据</Text>
         </View>
       )}

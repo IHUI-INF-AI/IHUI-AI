@@ -81,10 +81,10 @@ export default function SpecialModelsPage() {
   }, [])
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       <ScrollView scrollY className="h-screen">
         <View className="px-3 py-3">
-          <Text className="block text-xs text-gray-500 mb-3">
+          <Text className="block text-xs text-muted-foreground mb-3">
             以下为特殊 AI 模型入口,部分模型 API 仍在迁移中
           </Text>
           {errorMsg ? (
@@ -95,37 +95,37 @@ export default function SpecialModelsPage() {
           {MODELS.map((m) => (
             <View
               key={m.key}
-              className="flex items-center bg-white rounded-lg p-3 mb-2"
+              className="flex items-center bg-card rounded-lg p-3 mb-2"
               onClick={() => onEnter(m)}
             >
-              <View className="flex items-center justify-center w-12 h-12 mr-3 rounded-lg bg-gray-50">
+              <View className="flex items-center justify-center w-12 h-12 mr-3 rounded-lg bg-muted">
                 <Text className="text-2xl">{m.icon}</Text>
               </View>
               <View className="flex-1 min-w-0">
                 <View className="flex items-center">
-                  <Text className="text-sm font-medium text-gray-800">{m.name}</Text>
+                  <Text className="text-sm font-medium text-foreground">{m.name}</Text>
                   <Text
                     className={`ml-2 px-2 py-0.5 text-[10px] rounded ${
-                      m.available ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'
+                      m.available ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
                     }`}
                   >
                     {m.available ? '可用' : '未开放'}
                   </Text>
                 </View>
-                <Text className="block text-xs text-gray-500 mt-1">{m.desc}</Text>
+                <Text className="block text-xs text-muted-foreground mt-1">{m.desc}</Text>
                 <View className="flex flex-wrap gap-1 mt-2">
                   {m.capabilities.map((c) => (
                     <Text
                       key={c}
-                      className="px-2 py-0.5 text-[10px] rounded bg-gray-50 text-gray-500"
+                      className="px-2 py-0.5 text-[10px] rounded bg-muted text-muted-foreground"
                     >
                       {c}
                     </Text>
                   ))}
                 </View>
-                <Text className="block text-[10px] text-gray-400 mt-1">{m.apiStatus}</Text>
+                <Text className="block text-[10px] text-muted-foreground mt-1">{m.apiStatus}</Text>
               </View>
-              <Text className="ml-2 text-gray-300 text-lg">›</Text>
+              <Text className="ml-2 text-muted-foreground text-lg">›</Text>
             </View>
           ))}
         </View>

@@ -71,14 +71,14 @@ export default function PayResult() {
   }
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       <View className="pt-[120rpx] pb-[120rpx] text-center">
         <View
           className={`w-[160rpx] h-[160rpx] leading-[160rpx] mx-auto rounded-md text-[80rpx] text-white ${STATUS_BG[status]}`}
         >
           {STATUS_ICON[status]}
         </View>
-        <Text className="block text-[36rpx] text-[#333] font-semibold mt-[32rpx]">
+        <Text className="block text-[36rpx] text-foreground font-semibold mt-[32rpx]">
           {t(STATUS_KEY[status])}
         </Text>
         {amount > 0 && (
@@ -88,13 +88,13 @@ export default function PayResult() {
       {status !== 'pending' ? (
         <View className="px-[60rpx]">
           <Button
-            className="mt-[32rpx] bg-[#07c160] text-white rounded-[40rpx] text-[30rpx]"
+            className="mt-[32rpx] bg-primary text-white rounded-[40rpx] text-[30rpx]"
             onClick={goHome}
           >
             {t('pay.backHome')}
           </Button>
           <Button
-            className="mt-[32rpx] bg-white text-[#333] rounded-[40rpx] text-[30rpx]"
+            className="mt-[32rpx] bg-card text-foreground rounded-[40rpx] text-[30rpx]"
             onClick={goOrders}
           >
             {t('pay.viewOrders')}
@@ -103,7 +103,7 @@ export default function PayResult() {
       ) : (
         <View className="px-[60rpx]">
           <Button
-            className="mt-[32rpx] bg-[#07c160] text-white rounded-[40rpx] text-[30rpx]"
+            className="mt-[32rpx] bg-primary text-white rounded-[40rpx] text-[30rpx]"
             onClick={check}
           >
             {t('pay.refresh')}

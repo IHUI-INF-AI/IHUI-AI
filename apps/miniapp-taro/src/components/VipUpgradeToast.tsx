@@ -52,7 +52,7 @@ export default function VipUpgradeToast({
           <Text className="text-xs text-white font-medium">升级</Text>
         </View>
         <Text
-          className="text-xs text-yellow-600 ml-2"
+          className="text-xs text-[#f59e0b] ml-2"
           onClick={() => {
             setShow(false)
             onClose?.()

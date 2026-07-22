@@ -41,42 +41,42 @@ export default function Comment({
       >
         {loading ? (
           <View className="py-8 text-center">
-            <Text className="text-sm text-gray-400">加载中...</Text>
+            <Text className="text-sm text-muted-foreground">加载中...</Text>
           </View>
         ) : comments.length === 0 ? (
           <EmptyState text="暂无评论,快来抢沙发" />
         ) : (
           comments.map((item) => (
-            <View key={item.id} className="py-3 border-b border-gray-50">
+            <View key={item.id} className="py-3 border-b border-border">
               <View className="flex items-start">
                 <Image
-                  className="w-8 h-8 mr-2.5 rounded-lg bg-gray-100"
+                  className="w-8 h-8 mr-2.5 rounded-lg bg-muted"
                   src={item.avatar || '/static/default-avatar.png'}
                   mode="aspectFill"
                 />
                 <View className="flex-1 min-w-0">
                   <View className="flex items-center">
-                    <Text className="text-sm font-medium text-gray-700">
+                    <Text className="text-sm font-medium text-foreground">
                       {item.nickname || '匿名'}
                     </Text>
-                    <Text className="text-xs text-gray-400 ml-2">{item.createdAt}</Text>
+                    <Text className="text-xs text-muted-foreground ml-2">{item.createdAt}</Text>
                   </View>
-                  <Text className="block text-sm text-gray-600 mt-1 leading-relaxed">
+                  <Text className="block text-sm text-foreground mt-1 leading-relaxed">
                     {item.content}
                   </Text>
                   <View className="flex justify-end mt-1">
-                    <Text className="text-xs text-indigo-400" onClick={() => onReply?.(item.id)}>
+                    <Text className="text-xs text-primary" onClick={() => onReply?.(item.id)}>
                       回复
                     </Text>
                   </View>
                   {item.replies && item.replies.length > 0 && (
-                    <View className="mt-2 ml-2 pl-3 border-l-2 border-gray-100">
+                    <View className="mt-2 ml-2 pl-3 border-l-2 border-border">
                       {item.replies.map((reply) => (
                         <View key={reply.id} className="py-1.5">
-                          <Text className="text-xs text-indigo-400">
+                          <Text className="text-xs text-primary">
                             {reply.nickname || '匿名'}
                           </Text>
-                          <Text className="text-xs text-gray-500">:{reply.content}</Text>
+                          <Text className="text-xs text-muted-foreground">:{reply.content}</Text>
                         </View>
                       ))}
                     </View>
@@ -88,16 +88,16 @@ export default function Comment({
         )}
       </ScrollView>
       {inputVisible && (
-        <View className="flex items-center px-3 py-2 bg-white border-t border-gray-100">
+        <View className="flex items-center px-3 py-2 bg-card border-t border-border">
           <Input
-            className="flex-1 px-3 py-2 text-sm bg-gray-50 rounded-md"
+            className="flex-1 px-3 py-2 text-sm bg-muted rounded-md"
             placeholder="写评论..."
             value={inputValue}
             onInput={(e) => onInput?.(e.detail.value)}
             onConfirm={() => onSubmit?.()}
           />
           <View
-            className={`ml-2 px-4 py-2 rounded-md ${inputValue ? 'bg-indigo-500' : 'bg-gray-200'}`}
+            className={`ml-2 px-4 py-2 rounded-md ${inputValue ? 'bg-primary' : 'bg-muted'}`}
             onClick={() => inputValue && onSubmit?.()}
           >
             <Text className="text-sm text-white">发送</Text>

@@ -103,17 +103,17 @@ export default function ShareCreationPage() {
 
   if (loading) {
     return (
-      <View className="min-h-screen bg-[#f7f8fa]">
+      <View className="min-h-screen bg-background">
         <NavBar title="AI 创作分享" showBack />
         <View className="flex items-center justify-center py-20">
-          <Text className="text-sm text-gray-400">加载中...</Text>
+          <Text className="text-sm text-muted-foreground">加载中...</Text>
         </View>
       </View>
     )
   }
   if (error || !content) {
     return (
-      <View className="min-h-screen bg-[#f7f8fa]">
+      <View className="min-h-screen bg-background">
         <NavBar title="AI 创作分享" showBack />
         <ErrorView title="加载失败" desc={error || '分享内容不存在'} onRetry={load} />
       </View>
@@ -125,10 +125,10 @@ export default function ShareCreationPage() {
   const lists = answer.lists || []
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       <NavBar title="AI 创作分享" showBack />
       <ScrollView scrollY className="h-screen">
-        <View className="mx-3 mt-3 bg-white rounded-lg p-4">
+        <View className="mx-3 mt-3 bg-card rounded-lg p-4">
           <View className="flex items-center mb-3">
             {content.modelIcon ? (
               <Image
@@ -138,13 +138,13 @@ export default function ShareCreationPage() {
               />
             ) : null}
             <View className="flex-1 min-w-0">
-              <Text className="block text-sm font-medium text-gray-800 truncate">
+              <Text className="block text-sm font-medium text-foreground truncate">
                 {content.modelName || 'AI 模型'}
               </Text>
-              <Text className="block text-xs text-gray-400">{fmtTime(content.createdAt)}</Text>
+              <Text className="block text-xs text-muted-foreground">{fmtTime(content.createdAt)}</Text>
             </View>
             {content.tokenCost ? (
-              <Text className="text-xs text-gray-400">消耗 {content.tokenCost} 智汇值</Text>
+              <Text className="text-xs text-muted-foreground">消耗 {content.tokenCost} 智汇值</Text>
             ) : null}
           </View>
           {content.userName ? (
@@ -156,27 +156,27 @@ export default function ShareCreationPage() {
                   mode="aspectFill"
                 />
               ) : null}
-              <Text className="text-xs text-gray-500">{content.userName}</Text>
+              <Text className="text-xs text-muted-foreground">{content.userName}</Text>
             </View>
           ) : null}
-          <View className="px-3 py-2 bg-gray-50 rounded-md">
-            <Text className="block text-sm text-gray-700">{content.question}</Text>
+          <View className="px-3 py-2 bg-muted rounded-md">
+            <Text className="block text-sm text-foreground">{content.question}</Text>
           </View>
         </View>
 
         {answer.thinking ? (
-          <View className="mx-3 mt-2 bg-white rounded-lg p-4">
-            <Text className="block text-xs text-gray-500 mb-2">思考过程</Text>
-            <Text className="block text-xs text-gray-600 whitespace-pre-wrap">
+          <View className="mx-3 mt-2 bg-card rounded-lg p-4">
+            <Text className="block text-xs text-muted-foreground mb-2">思考过程</Text>
+            <Text className="block text-xs text-foreground whitespace-pre-wrap">
               {answer.thinking}
             </Text>
           </View>
         ) : null}
 
-        <View className="mx-3 mt-2 bg-white rounded-lg p-4">
-          <Text className="block text-xs text-gray-500 mb-2">AI 回答</Text>
+        <View className="mx-3 mt-2 bg-card rounded-lg p-4">
+          <Text className="block text-xs text-muted-foreground mb-2">AI 回答</Text>
           {answer.text ? (
-            <Text className="block text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+            <Text className="block text-sm text-foreground whitespace-pre-wrap leading-relaxed">
               {answer.text}
             </Text>
           ) : null}
@@ -206,9 +206,9 @@ export default function ShareCreationPage() {
             </View>
           ) : null}
           {answer.audio?.url ? (
-            <View className="mt-3 p-2 bg-gray-50 rounded-md flex items-center">
-              <Text className="text-xs text-gray-600 flex-1">🔊 语音回答</Text>
-              <Text className="text-xs text-gray-400">
+            <View className="mt-3 p-2 bg-muted rounded-md flex items-center">
+              <Text className="text-xs text-foreground flex-1">🔊 语音回答</Text>
+              <Text className="text-xs text-muted-foreground">
                 {answer.audio.duration ? `${answer.audio.duration}s` : ''}
               </Text>
             </View>
@@ -216,11 +216,11 @@ export default function ShareCreationPage() {
           {lists.length ? (
             <View className="mt-3">
               {lists.map((item, i) => (
-                <View key={i} className="py-2 border-t border-gray-50 first:border-t-0">
+                <View key={i} className="py-2 border-t border-border first:border-t-0">
                   {item.type === 'image' ? (
                     <Image className="w-full rounded-md" src={item.content} mode="widthFix" />
                   ) : (
-                    <Text className="block text-sm text-gray-700 whitespace-pre-wrap">
+                    <Text className="block text-sm text-foreground whitespace-pre-wrap">
                       {item.content}
                     </Text>
                   )}
@@ -232,13 +232,13 @@ export default function ShareCreationPage() {
 
         <View className="mx-3 mt-3 mb-6 flex gap-2">
           <Button
-            className="flex-1 text-sm rounded-md !bg-[#07c160] !text-white"
+            className="flex-1 text-sm rounded-md !bg-primary !text-white"
             onClick={onRegenerate}
           >
             再生成一个
           </Button>
           <Button
-            className="flex-1 text-sm rounded-md !bg-gray-100 !text-gray-700"
+            className="flex-1 text-sm rounded-md !bg-muted !text-foreground"
             onClick={onShareFriend}
           >
             分享给好友

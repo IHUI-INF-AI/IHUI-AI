@@ -19,11 +19,11 @@ const LEVEL_TITLES: Record<number, string> = {
 }
 
 const LEVEL_COLORS: Record<number, string> = {
-  0: 'bg-gray-100 text-gray-600',
-  1: 'bg-orange-50 text-orange-600',
-  2: 'bg-gray-100 text-gray-700',
-  3: 'bg-yellow-50 text-yellow-600',
-  4: 'bg-indigo-50 text-indigo-600',
+  0: 'bg-muted text-foreground',
+  1: 'bg-[#f59e0b]/10 text-[#f59e0b]',
+  2: 'bg-muted text-foreground',
+  3: 'bg-yellow-50 text-[#f59e0b]',
+  4: 'bg-primary/10 text-primary',
   5: 'bg-cyan-50 text-cyan-600',
   6: 'bg-purple-50 text-purple-600',
 }
@@ -50,7 +50,7 @@ export default function LevelBadge({
         <Text>{displayTitle}</Text>
       </View>
       {nextLevelTitle && progress > 0 && progress < 100 && (
-        <Text className="ml-2 text-[10px] text-gray-400">
+        <Text className="ml-2 text-[10px] text-muted-foreground">
           距 {nextLevelTitle} {Math.floor(progress)}%
         </Text>
       )}
