@@ -838,7 +838,7 @@ IHUI-AI/
 │   ├── cron/                # Let's Encrypt 证书自动续期
 │   ├── s3-lifecycle.yml     # S3 对象存储生命周期规则
 │   └── setup-github-secrets.sh  # GitHub Actions secrets 批量配置
-├── docs/                    # 35 个文档中心:架构 / 开发 / 测试 / API / 数据库 / 认证 / AI 服务 / 多端 / 监控 / 守门 / i18n / 性能 / SDK / CLI / 发布 / 故障排查 / FAQ(见 docs/README.md 索引)
+├── docs/                    # 87 个文档(10 大分类):架构 / 开发 / 测试 / API / 数据库 / 认证 / AI 服务 / 多端 / 监控 / 守门 / i18n / 性能 / SDK / CLI / 发布 / 故障排查 / FAQ / 用户指南 / 企业服务 / 激励计划(见 docs/README.md 索引)
 ├── monitoring/              # Grafana(20 仪表盘)+ Loki + Prometheus + Promtail + otel-collector + Alertmanager
 ├── scripts/                 # 17 守门 + 19 i18n + 11 迁移审计 + 9 PowerShell 启动 + locustfile.py 压测 + 运维工具
 ├── server-docs/             # 多租户设计文档(MULTI_TENANT.md)
@@ -1730,23 +1730,25 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 ## 文档导航
 
-> 完整文档中心索引:[docs/README.md](docs/README.md)(35 个文档,9 大分类)
+> 完整文档中心索引:[docs/README.md](docs/README.md)(87 个文档,10 大分类:API / SDK / 集成 / 激励计划 / 入门 / 功能 / 用户 / 指南 / 企业服务 / 开发)
 
-### 在线文档中心(运行时直读)
+### 在线文档中心(运行时直读,唯一文档入口)
 
-工程文档同步到 Web 端「特性中心 → 文档」页面(`/feature-center/documents`),无需手动录入:
+工程文档同步到 Web 端「特性中心 → 文档」页面(`/feature-center/documents`),无需手动录入。**旧 `/docs` SSG 页面已删除**,所有文档统一从 `/feature-center/documents` 入口访问:
 
-- 后端 `GET /api/feature-center/documents` 合并 DB `docs` 表(published)+ `docs/*.md` 文件,DB slug 优先去重
-- 后端 `GET /api/feature-center/documents/:slug/content` 返回 markdown 内容(DB 优先,文件兜底,`basename` 防 `../` 路径遍历)
+- 后端 `GET /api/feature-center/documents` 合并 DB `docs` 表(published)+ `docs/**/*.md` 递归扫描文件(支持子目录),DB slug 优先去重
+- 后端 `GET /api/feature-center/documents/*/content` 通配符路由,支持子目录 slug(如 `developer/api/chat`),DB 优先 + 文件兜底,`basename` 防 `../` 路径遍历
 - 前端用 `react-markdown` + `remark-gfm` 直接渲染(替代 iframe,避免 `X-Frame-Options: DENY` 冲突)
-- 分类按钮从返回数据动态生成(不再硬编码,适配 DB `category` enum 与文件 `guide` 默认值)
+- 分类按钮从返回数据动态生成(10 大分类:API 参考 / SDK / 集成 / 激励计划 / 入门 / 功能 / 用户 / 指南 / 企业服务 / 开发)
+- 卡片含 format 标签(Markdown)+ excerpt 缩略预览(前 120 字符,自动剥离 markdown 语法)
 - 生产容器 `Dockerfile.api` 已 `COPY docs/ ./docs`,部署后即可访问
 
-**权限分级(防越线)**:`docs/*.md` 按敏感度分两级:
-- **普通用户/匿名可见**(白名单 20 篇):AI_LEADERBOARD / AI_SERVICE / API_REFERENCE / architecture / AUTHENTICATION / CHANGELOG / CLI / CONTRIBUTING / DATABASE / FAQ / I18N / MULTI_END / PACKAGES / PERFORMANCE / RELEASE / SDK / SECURITY / TESTING / TROUBLESHOOTING / UI_GUIDELINES
-- **仅管理员可见**(14 篇,含生产环境/凭证/守门策略):CREDENTIAL_ROTATION_RUNBOOK / INCIDENTS / WECHAT_PAY_ACTIVATION_REPORT / GATEKEEPERS / DEPLOYMENT_RUNBOOK / MONITORING / DEVELOPMENT / LLM_SETUP / EMAIL_SETUP / PRODUCTION_INFRASTRUCTURE / port-management / INFRASTRUCTURE_DECISION / migration-audit-frontend / I18N-COMPLETION-PLAN
+**权限分级(防越线)**:`docs/**/*.md` 按位置分两级:
+- **子目录文档全公开**(`developer/*` / `user/*` / `enterprise-service/*`):用户指南、开发者 API 文档、企业服务白皮书等
+- **顶层文档仅白名单 20 篇公开**:AI_LEADERBOARD / AI_SERVICE / API_REFERENCE / architecture / AUTHENTICATION / CHANGELOG / CLI / CONTRIBUTING / DATABASE / FAQ / I18N / MULTI_END / PACKAGES / PERFORMANCE / RELEASE / SDK / SECURITY / TESTING / TROUBLESHOOTING / UI_GUIDELINES
+- **顶层敏感文档仅管理员可见**(14 篇,含生产环境/凭证/守门策略):CREDENTIAL_ROTATION_RUNBOOK / INCIDENTS / WECHAT_PAY_ACTIVATION_REPORT / GATEKEEPERS / DEPLOYMENT_RUNBOOK / MONITORING / DEVELOPMENT / LLM_SETUP / EMAIL_SETUP / PRODUCTION_INFRASTRUCTURE / port-management / INFRASTRUCTURE_DECISION / migration-audit-frontend / I18N-COMPLETION-PLAN
 
-管理员登录后(`roleId >= 1`)可查看全部 34 篇工程文档 + 所有 published DB 文档,普通用户只能看白名单 20 篇。DB `docs` 表内容由管理员通过 `/admin/docs` 管理,不受文件白名单限制。
+管理员登录后(`roleId >= 1`)可查看全部 87 篇工程文档 + 所有 published DB 文档,普通用户只能看子目录全公开 + 顶层白名单 20 篇。DB `docs` 表内容由管理员通过 `/admin/docs` 管理,不受文件白名单限制。
 
 ### 项目与架构
 

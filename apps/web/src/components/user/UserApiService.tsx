@@ -21,7 +21,7 @@ const DEFAULT_ENTRIES: ApiEntry[] = [
   { key: 'keys', label: 'API 密钥', desc: '管理 AccessKey / Secret', href: '/developer/keys' },
   { key: 'limits', label: '配额与限流', desc: '查看调用上限', href: '/developer/limits' },
   { key: 'team', label: '团队协作', desc: '多成员协同', href: '/developer/team' },
-  { key: 'docs', label: 'API 文档', desc: '接口说明', href: '/docs' },
+  { key: 'docs', label: 'API 文档', desc: '接口说明', href: '/feature-center/documents' },
 ]
 
 export default function UserApiService({
