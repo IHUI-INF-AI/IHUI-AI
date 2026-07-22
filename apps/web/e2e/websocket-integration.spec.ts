@@ -6,7 +6,7 @@ import { test, expect, type Page } from '@playwright/test'
  * 使用 page.evaluate + 浏览器 WebSocket API
  */
 
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000'
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001'
 const WS_URL = BASE_URL.replace(/^http/, 'ws') + '/api/ws'
 
 test.describe.parallel('WebSocket 集成专项', () => {

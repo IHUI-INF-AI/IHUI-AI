@@ -17,7 +17,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 
 export const ADMIN_API_URL =
-  process.env.ADMIN_API_URL ?? 'http://127.0.0.1:8081'
+  process.env.ADMIN_API_URL ?? 'http://127.0.0.1:3005'
 
 export const ADMIN_SAAS_API_KEY = process.env.ADMIN_SAAS_API_KEY ?? ''
 
