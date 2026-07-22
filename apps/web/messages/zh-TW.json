@@ -2724,6 +2724,15 @@
       "subtitle": "管理 SaaS 客戶租戶生命週期",
       "createTenant": "建立租戶",
       "creating": "建立中...",
+      "quota": {
+        "title": "資源配額",
+        "placeholder": "佔位",
+        "unavailable": "無法取得配額資料",
+        "apiCalls": "API 呼叫",
+        "aiTokens": "AI Token",
+        "storage": "儲存空間",
+        "unlimited": "無限制"
+      },
       "search": "搜尋",
       "searchPlaceholder": "搜尋租戶識別...",
       "filterState": "狀態篩選",
@@ -2823,6 +2832,45 @@
           "actions": "操作"
         },
         "download": "下載備份"
+      },
+      "certificates": {
+        "title": "憑證狀態",
+        "subtitle": "掃描 Traefik acme.json,展示所有租戶憑證的剩餘有效期",
+        "refresh": "重新整理",
+        "back": "返回租戶列表",
+        "empty": "暫無憑證記錄",
+        "acmeMissing": "未找到 acme.json:{path}。請確認 Traefik 資料卷已掛載到管理節點。",
+        "generatedAt": "掃描時間:{time}",
+        "stats": {
+          "total": "憑證總數",
+          "healthy": "健康",
+          "warning": "即將到期",
+          "critical": "緊急",
+          "expired": "已過期"
+        },
+        "status": {
+          "healthy": "健康",
+          "warning": "即將到期",
+          "critical": "緊急",
+          "expired": "已過期"
+        },
+        "source": {
+          "letsencrypt": "Let's Encrypt",
+          "selfSigned": "自簽",
+          "custom": "自訂"
+        },
+        "issuer": "頒發者",
+        "subject": "主體",
+        "notBefore": "生效時間",
+        "notAfter": "失效時間",
+        "daysUntilExpiry": "剩餘有效期",
+        "fingerprint": "指紋",
+        "sans": "SAN:{sans}",
+        "days": {
+          "remaining": "{days} 天",
+          "today": "今天到期",
+          "expired": "已過期 {days} 天"
+        }
       },
       "metrics": {
         "pageTitle": "資源監控",
@@ -28120,7 +28168,7 @@
       "toggle": "切換",
       "breakpoints": "中斷點",
       "callStack": "呼叫堆疊",
-      "debugConsole": "除錯主控台"
+      "debugConsole": "除錯主控臺"
     },
     "applications": {
       "title": "應用",
