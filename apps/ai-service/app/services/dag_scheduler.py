@@ -789,6 +789,28 @@ class WorkerPool:
                 watchdog_task = asyncio.create_task(
                     self._watchdog(task.id, worker_id)
                 )
+                # P1-5 修复:创建网络出站策略并通过 contextvar 注入 executor
+                # executor 内部 HTTP 客户端可调 network_guard.check_current(url) 校验
+                from app.services.network_guard import (
+                    from_config as _net_policy_from_config,
+                    set_current_policy as _set_net_policy,
+                    reset_current_policy as _reset_net_policy,
+                )
+                net_policy = _net_policy_from_config(self.config.network_egress_policy)
+                net_token = _set_net_policy(net_policy)
+                # P1-3 修复:启动资源监控(psutil 可用时监控进程 RSS/CPU,超限标记违规)
+                # 注意:ai-service executor 与调度器共享 event loop,无独立子进程 PID,
+                # 这里监控 os.getpid()(整个 ai-service 进程)。kill_on_violation=False
+                # 不杀自己,只标记违规,由调用方 cancel executor Task。
+                from app.services.resource_monitor import ResourceMonitor
+                res_limits = self.config.resource_limits or {}
+                res_monitor = ResourceMonitor(
+                    pid=_os.getpid(),
+                    memory_mb=res_limits.get("memoryMb"),
+                    cpu_seconds=res_limits.get("cpuSeconds"),
+                    kill_on_violation=False,
+                )
+                await res_monitor.start()
                 # P0-2 修复:用 asyncio.create_task 创建 executor Task 并保存引用
                 executor_task = asyncio.create_task(self.executor_factory(task))
                 self._executing_tasks[task.id] = executor_task
@@ -797,11 +819,21 @@ class WorkerPool:
                         executor_task,
                         timeout=task_timeout,
                     )
-                    task.status = "done"
-                    task.result = output if isinstance(output, dict) else {"value": output}
-                    task.completed_at = _now_iso()
-                    state.completed_count += 1
-                    self._emit("task_completed", task, worker_id)
+                    # P1-3 修复:检查资源监控是否触发违规(terminated=True 表示超限)
+                    if res_monitor.terminated:
+                        violations = await res_monitor.stop()
+                        vstr = "; ".join(f"{v.resource}={v.actual:.1f}>{v.limit}" for v in violations)
+                        task.status = "blocked"
+                        task.error_message = f"资源超限: {vstr}"
+                        task.completed_at = _now_iso()
+                        state.failed_count += 1
+                        self._emit("task_failed", task, worker_id)
+                    else:
+                        task.status = "done"
+                        task.result = output if isinstance(output, dict) else {"value": output}
+                        task.completed_at = _now_iso()
+                        state.completed_count += 1
+                        self._emit("task_completed", task, worker_id)
                 except asyncio.TimeoutError:
                     # P0-2 修复:超时后强制 cancel executor Task
                     executor_task.cancel()
@@ -838,6 +870,12 @@ class WorkerPool:
                         await watchdog_task
                     except (asyncio.CancelledError, Exception):
                         pass
+                    # P1-3 修复:停止资源监控(若已 terminate 则 violations 已在 try 块处理,
+                    # 否则正常 stop 返回已有违规记录)
+                    if not res_monitor.terminated:
+                        await res_monitor.stop()
+                    # P1-5 修复:清理网络策略 contextvar
+                    _reset_net_policy(net_token)
                     # P1-2 修复:清理 worktree(成功或失败,除非 keep_worktree_on_failure=True 且失败)
                     if wt_info:
                         is_failed = task.status == "blocked"
