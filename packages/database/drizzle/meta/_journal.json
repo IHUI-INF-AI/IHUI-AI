@@ -1002,6 +1002,13 @@
       "when": 1784752800000,
       "tag": "20260722190000_model_leaderboard",
       "breakpoints": true
+    },
+    {
+      "idx": 143,
+      "version": "7",
+      "when": 1784756400000,
+      "tag": "0143_drop_legacy_learn_tables",
+      "breakpoints": true
     }
   ]
 }
