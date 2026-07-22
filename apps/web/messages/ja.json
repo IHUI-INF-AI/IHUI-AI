@@ -11590,7 +11590,8 @@
     "isPublic": "公開",
     "save": "保存",
     "cancel": "キャンセル",
-    "deleteConfirm": "これ？"
+    "deleteConfirm": "これ？",
+    "attachmentsField": "添付ファイル"
   },
   "offlineRecords": {
     "title": "APIテスト",
@@ -11607,7 +11608,13 @@
     "occurredAtField": "日付",
     "save": "保存",
     "cancel": "キャンセル",
-    "deleteConfirm": "を"
+    "deleteConfirm": "を",
+    "attachmentsField": "添付ファイル"
+  },
+  "attachments": {
+    "placeholder": "クリックまたはドラッグして添付ファイルをアップロード",
+    "uploading": "アップロード中...",
+    "remove": "削除"
   },
   "papers": {
     "title": "APIテスト",
