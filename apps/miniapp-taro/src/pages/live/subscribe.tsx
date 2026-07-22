@@ -43,7 +43,7 @@ export default function LiveSubscribe() {
   )
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       {list.length > 0 ? (
         <View className="p-[12px]">
           {list.map((l) => {
@@ -51,25 +51,25 @@ export default function LiveSubscribe() {
             return (
               <View
                 key={l.id}
-                className="flex items-center bg-white rounded-[8px] p-[12px] mb-[12px]"
+                className="flex items-center bg-card rounded-[8px] p-[12px] mb-[12px]"
               >
                 <Image
-                  className="w-[80px] h-[60px] rounded-[8px] bg-[#f5f5f5]"
+                  className="w-[80px] h-[60px] rounded-[8px] bg-muted"
                   src={l.coverUrl}
                   mode="aspectFill"
                 />
                 <View className="flex-1 ml-[12px]">
-                  <Text className="text-[15px] text-[#333] font-semibold">{l.title}</Text>
+                  <Text className="text-[15px] text-foreground font-semibold">{l.title}</Text>
                   {l.startTime && (
-                    <Text className="block text-[12px] text-[#999] mt-[4px]">{l.startTime}</Text>
+                    <Text className="block text-[12px] text-muted-foreground mt-[4px]">{l.startTime}</Text>
                   )}
                   {l.anchor && (
-                    <Text className="block text-[12px] text-[#666] mt-[2px]">{l.anchor}</Text>
+                    <Text className="block text-[12px] text-muted-foreground mt-[2px]">{l.anchor}</Text>
                   )}
                 </View>
                 <Button
                   className={`ml-[8px] text-[12px] rounded-[4px] h-[30px] leading-[30px] px-[12px] ${
-                    isSubscribed ? 'bg-[#f5f5f5] text-[#999]' : 'bg-[#07c160] text-white'
+                    isSubscribed ? 'bg-muted text-muted-foreground' : 'bg-primary text-white'
                   }`}
                   disabled={isSubscribed}
                   onClick={() => onSubscribe(l.id)}
@@ -82,7 +82,7 @@ export default function LiveSubscribe() {
         </View>
       ) : (
         <View className="text-center py-[64px]">
-          <Text className="text-[14px] text-[#999]">{t('live.subscribe.empty')}</Text>
+          <Text className="text-[14px] text-muted-foreground">{t('live.subscribe.empty')}</Text>
         </View>
       )}
     </View>
