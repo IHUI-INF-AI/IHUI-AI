@@ -42,6 +42,11 @@ from app.sio import sio
 from app.sio.handlers import register_handlers
 from app.telemetry import setup_telemetry, shutdown_telemetry
 from app.middleware.audit import setup_audit_middleware
+from app.middleware.input_sanitizer import (
+    setup_input_sanitizer_middleware,
+    setup_rate_limit_middleware,
+)
+from app.middleware.response_sanitizer import setup_response_sanitizer_middleware
 from app.middleware.trace_context import setup_trace_context_middleware
 
 logger = logging.getLogger(__name__)
@@ -142,6 +147,12 @@ def create_app() -> FastAPI:
 
     # 审计日志中间件(记录所有 POST/PATCH/PUT/DELETE,与 api 端 audit.ts 对等,2026-07-22 立)
     setup_audit_middleware(app)
+    # 输入净化中间件(XSS + Prompt Injection 检测,2026-07-22 立)
+    setup_input_sanitizer_middleware(app)
+    # 响应脱敏中间件(敏感字段替换 ***,2026-07-22 立)
+    setup_response_sanitizer_middleware(app)
+    # 限流中间件(令牌桶,/api/llm/* 60/min, /api/v1/chat/* 30/min,2026-07-22 立)
+    setup_rate_limit_middleware(app)
 
     # 全局异常兜底:未捕获的 Exception 返回 500 JSON(避免 ASGI 默认 HTML 错误页)
     @app.exception_handler(Exception)
@@ -175,6 +186,9 @@ def create_app() -> FastAPI:
     # LSP 转发路由(封装 cli LSP 能力为 HTTP 端点,供 web 端 IDE 调试面板调用,2026-07-22 新增)
     from app.api.v1 import lsp as lsp_router_module
     app.include_router(lsp_router_module.router, prefix="/api/v1", tags=["lsp"])
+    # DAP 调试路由(封装 DebugSessionManager 为 HTTP 端点,2026-07-22 新增)
+    from app.api.v1 import debug as debug_router_module
+    app.include_router(debug_router_module.router, prefix="/api/v1", tags=["debug"])
     # 四层记忆 + Dream 梦境系统(2026-07-22 新增,对标 OpenClaw Mem)
     from app.api.memory import router as memory_router
     app.include_router(memory_router, prefix="/api", tags=["memory"])
