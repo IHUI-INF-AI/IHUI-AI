@@ -36,6 +36,10 @@ import {
   generateCode,
   cleanupExpiredCodes,
 } from '../utils/code-store.js'
+import {
+  signChallengeToken,
+  CHALLENGE_TOKEN_TTL_SECONDS,
+} from '../services/totp-service.js'
 
 // =============================================================================
 // Zod schemas
@@ -614,6 +618,23 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         )
       }
 
+      // 2FA 检查:若用户已启用 2FA,返回 challenge token(5min),前端走 /auth/2fa/login-verify 二次校验
+      if (user.twoFactorEnabled) {
+        const challengeToken = await signChallengeToken({
+          userId: user.id,
+          phone: user.phone ?? '',
+          familyId: '', // challenge token 不绑定 family,login-verify 通过后新建
+          roleId: user.roleId ?? 0,
+        })
+        return reply.send(
+          success({
+            twoFactorRequired: true,
+            challengeToken,
+            expiresIn: CHALLENGE_TOKEN_TTL_SECONDS,
+          }),
+        )
+      }
+
       request.skipResponseSanitization = true
       const familyId = createFamilyId()
       const tokens = await buildTokenPair({
@@ -714,6 +735,23 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (risk.action === 'DENY') {
         request.log.warn({ userId: user.id, ip: request.ip, hits: risk.hits }, '登录被风控拒绝')
         return reply.status(403).send(error(403, '登录请求被风控拦截，请联系客服'))
+      }
+
+      // 2FA 检查:若用户已启用 2FA,返回 challenge token(5min),前端走 /auth/2fa/login-verify 二次校验
+      if (user.twoFactorEnabled) {
+        const challengeToken = await signChallengeToken({
+          userId: user.id,
+          phone: user.phone ?? '',
+          familyId: '',
+          roleId: user.roleId ?? 0,
+        })
+        return reply.send(
+          success({
+            twoFactorRequired: true,
+            challengeToken,
+            expiresIn: CHALLENGE_TOKEN_TTL_SECONDS,
+          }),
+        )
       }
 
       request.skipResponseSanitization = true
