@@ -211,7 +211,7 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
       orderType: 2,
       productId: level.id,
       payType: paymentMethod,
-    })
+    }, request.userId ?? null)
     // 开发环境直接激活方便测试，生产环境应等支付回调后激活
     if (process.env.NODE_ENV === 'development') {
       await purchaseVip({ userId: request.userId!, vipLevelId: level.id, orderId: order.id })
@@ -265,7 +265,7 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
       orderType: 2,
       productId: level.id,
       payType: paymentMethod,
-    })
+    }, request.userId ?? null)
     const resolvedOpenId = await resolveOpenId(request.userId!, openId)
     const payInfo = await createVipPrepay(order, paymentMethod, resolvedOpenId, request.ip)
     return reply.send(
