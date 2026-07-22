@@ -19,7 +19,7 @@
 import cron, { type ScheduledTask } from 'node-cron'
 import RSSParser from 'rss-parser'
 import * as cheerio from 'cheerio'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import {
   aiWorldCategories,
   aiWorldItems,
@@ -932,8 +932,17 @@ async function fetchLMSYSArena(): Promise<LeaderboardEntry[]> {
  * 后端 API 受 nginx WAF 保护返回 405,无法直接 HTTP 抓取
  * 方案:调用 ai-service 的 /api/opencompass/scrape 端点(Playwright headless 渲染)
  * 失败降级:返回空数组,不阻塞其他榜单
- * 2026-07-22 立:从降级空改为 Playwright 渲染抓取,生产可用
+ * 2026-07-22 立:从降级空改为 Playwright 渲染抓取 + 多分类拆分(7 类),生产可用
  */
+const OPENCOMPASS_SUBSCORE_MAP: Record<string, string> = {
+  '语言': 'chinese', 'chinese': 'chinese', 'Chinese': 'chinese',
+  '英文': 'english', 'english': 'english', 'English': 'english',
+  '知识': 'knowledge', 'knowledge': 'knowledge', 'Knowledge': 'knowledge',
+  '推理': 'reasoning', 'reasoning': 'reasoning', 'Reasoning': 'reasoning',
+  '数学': 'math', 'math': 'math', 'Math': 'math',
+  '代码': 'coding', 'coding': 'coding', 'Coding': 'coding',
+  '智能体': 'agent', 'agent': 'agent', 'Agent': 'agent',
+}
 async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
   const baseUrl = process.env.AI_SERVICE_URL
   if (!baseUrl) {
@@ -975,14 +984,14 @@ async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
       return []
     }
     const fallbackDate = json.data.captured_at ? new Date(json.data.captured_at) : new Date()
-    const entries: LeaderboardEntry[] = json.data.entries.map((e) => {
+    const rawEntries = json.data.entries.map((e) => {
       let publishedAt = fallbackDate
       if (e.publishedAt) {
         const parsed = new Date(e.publishedAt)
         if (!Number.isNaN(parsed.getTime())) publishedAt = parsed
       }
       return {
-        leaderboard: 'opencompass',
+        leaderboard: 'opencompass' as const,
         category: e.category || 'overall',
         rank: e.rank,
         modelName: e.modelName,
@@ -992,7 +1001,45 @@ async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
         publishedAt,
       }
     })
-    logger.info(`[ai-world-sync] OpenCompass fetched ${entries.length} entries (Playwright render)`)
+    // 多分类拆分:每条 entry 的 scores 中匹配 OPENCOMPASS_SUBSCORE_MAP 的子分数 → 拆出独立条目
+    const byCat: Record<string, Array<{ modelName: string; provider?: string; subScore: number; scores: Record<string, unknown>; publishedAt: Date }>> = {}
+    for (const entry of rawEntries) {
+      if (!entry.scores) continue
+      for (const [k, v] of Object.entries(entry.scores)) {
+        if (typeof v !== 'number' || !Number.isFinite(v) || v <= 0) continue
+        const cat = OPENCOMPASS_SUBSCORE_MAP[k]
+        if (!cat) continue
+        if (!byCat[cat]) byCat[cat] = []
+        byCat[cat].push({
+          modelName: entry.modelName,
+          provider: entry.provider,
+          subScore: v,
+          scores: { ...entry.scores, source: 'opencompass' },
+          publishedAt: entry.publishedAt ?? fallbackDate,
+        })
+      }
+    }
+    const entries: LeaderboardEntry[] = [...rawEntries]
+    for (const [cat, items] of Object.entries(byCat)) {
+      items.sort((a, b) => b.subScore - a.subScore)
+      const top = items.slice(0, 30)
+      for (let i = 0; i < top.length; i++) {
+        const it = top[i]!
+        entries.push({
+          leaderboard: 'opencompass',
+          category: cat,
+          rank: i + 1,
+          modelName: it.modelName.slice(0, 200),
+          provider: it.provider,
+          score: it.subScore.toFixed(2),
+          scores: it.scores,
+          publishedAt: it.publishedAt,
+        })
+      }
+    }
+    const catCount: Record<string, number> = {}
+    for (const e of entries) catCount[e.category] = (catCount[e.category] ?? 0) + 1
+    logger.info(`[ai-world-sync] OpenCompass fetched ${entries.length} entries across ${Object.keys(catCount).length} categories: ${JSON.stringify(catCount)}`)
     return entries
   } catch (err) {
     logger.warn('[ai-world-sync] OpenCompass scrape error:', { error: err instanceof Error ? err.message : err })
@@ -1002,16 +1049,14 @@ async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
 
 /**
  * 抓 HuggingFace 热门开源模型榜(原 Open LLM Leaderboard)
- * 数据源(2026-07-22 变更):HF Hub models API,按 downloads 降序取 top 50
+ * 数据源(2026-07-22 变更):HF Hub models API,按 downloads 降序取 top 100
  * 原因:open-llm-leaderboard/results 的 datasets-server rows API 因 schema cast 失败返回 500
- * 新源稳定可靠:https://huggingface.co/api/models?sort=downloads&direction=-1&limit=50&filter=text-generation
+ * 新源稳定可靠:https://huggingface.co/api/models?sort=downloads&direction=-1&limit=100&filter=text-generation
+ * 多分类(2026-07-22 立):基于 tags + 模型名特征拆 6 类(overall/chat/coding/instruction/reasoning/open-source)
  */
 async function fetchHFOpenLLM(): Promise<LeaderboardEntry[]> {
   try {
-    // 数据源变更(2026-07-22):datasets-server rows API 因 schema cast 失败返回 500
-    // 改用 HF Hub models API,按 downloads 降序取 top 50(text-generation pipeline)
-    // 这是"HuggingFace 热门开源模型榜",数据稳定可靠,生产可用
-    const url = 'https://huggingface.co/api/models?sort=downloads&direction=-1&limit=50&full=true&filter=text-generation'
+    const url = 'https://huggingface.co/api/models?sort=downloads&direction=-1&limit=100&full=true&filter=text-generation'
     const res = await fetchWithTimeout(
       url,
       { headers: { 'User-Agent': LEADERBOARD_USER_AGENT, Accept: 'application/json' } },
@@ -1030,24 +1075,54 @@ async function fetchHFOpenLLM(): Promise<LeaderboardEntry[]> {
       tags?: string[]
     }>
     const now = new Date()
-    const entries: LeaderboardEntry[] = data
-      .filter((m) => m.id && typeof m.downloads === 'number')
-      .map((m, idx) => ({
-        leaderboard: 'hf-open-llm' as const,
-        category: 'overall',
-        rank: idx + 1,
-        modelName: m.id.slice(0, 200),
-        provider: m.id.split('/')[0],
-        score: String(m.downloads),
-        scores: {
-          downloads: m.downloads,
-          likes: m.likes,
-          pipeline: m.pipeline_tag,
-          source: 'huggingface-hub-models',
-        },
-        publishedAt: m.lastModified ? new Date(m.lastModified) : now,
-      }))
-    logger.info(`[ai-world-sync] HF Hub models fetched ${entries.length} entries (top by downloads, text-generation)`)
+    const filtered = data.filter((m) => m.id && typeof m.downloads === 'number')
+    const baseEntry = (m: typeof filtered[number], rank: number, category: string, score: number) => ({
+      leaderboard: 'hf-open-llm' as const,
+      category,
+      rank,
+      modelName: m.id.slice(0, 200),
+      provider: m.id.split('/')[0],
+      score: String(score),
+      scores: {
+        downloads: m.downloads,
+        likes: m.likes,
+        pipeline: m.pipeline_tag,
+        source: 'huggingface-hub-models',
+      },
+      publishedAt: m.lastModified ? new Date(m.lastModified) : now,
+    })
+    const entries: LeaderboardEntry[] = []
+    // overall:全部 top 50(按 downloads 降序)
+    const overallTop = filtered.slice(0, 50)
+    overallTop.forEach((m, i) => entries.push(baseEntry(m, i + 1, 'overall', m.downloads)))
+    // 分类判定 helper
+    const hasTag = (m: typeof filtered[number], keys: string[]) => {
+      const tags = (m.tags ?? []).map((t) => t.toLowerCase())
+      const id = m.id.toLowerCase()
+      return keys.some((k) => tags.includes(k) || id.includes(k))
+    }
+    // chat:tags 含 conversational/chat
+    const chatTop = filtered.filter((m) => hasTag(m, ['conversational', 'chat', 'rlhf', 'dpo'])).slice(0, 30)
+    chatTop.forEach((m, i) => entries.push(baseEntry(m, i + 1, 'chat', m.downloads)))
+    // coding:tags 含 code/coder
+    const codingTop = filtered.filter((m) => hasTag(m, ['code', 'coder', 'codestral', 'starcoder', 'deepseek-coder'])).slice(0, 30)
+    codingTop.forEach((m, i) => entries.push(baseEntry(m, i + 1, 'coding', m.downloads)))
+    // instruction:tags 含 instruct
+    const instTop = filtered.filter((m) => hasTag(m, ['instruct', 'instruction', 'it'])).slice(0, 30)
+    instTop.forEach((m, i) => entries.push(baseEntry(m, i + 1, 'instruction', m.downloads)))
+    // reasoning:tags 含 reasoning 或模型名含 r1/o1
+    const reasonTop = filtered.filter((m) => hasTag(m, ['reasoning', 'reason', 'r1', 'o1', 'qwq'])).slice(0, 30)
+    reasonTop.forEach((m, i) => entries.push(baseEntry(m, i + 1, 'reasoning', m.downloads)))
+    // open-source:license 在 OSI 列表(简化判定:tags 含 'license:' 开源协议)
+    const OSI_LICENSES = ['mit', 'apache-2.0', 'apache 2.0', 'gpl', 'lgpl', 'bsd', 'mpl', 'unlicense', 'cc-by-sa-4.0', 'cc0']
+    const openTop = filtered.filter((m) => {
+      const tags = (m.tags ?? []).map((t) => t.toLowerCase())
+      return tags.some((t) => t.startsWith('license:') && OSI_LICENSES.some((lic) => t.includes(lic)))
+    }).slice(0, 30)
+    openTop.forEach((m, i) => entries.push(baseEntry(m, i + 1, 'open-source', m.downloads)))
+    const catCount: Record<string, number> = {}
+    for (const e of entries) catCount[e.category] = (catCount[e.category] ?? 0) + 1
+    logger.info(`[ai-world-sync] HF Hub models fetched ${entries.length} entries across ${Object.keys(catCount).length} categories: ${JSON.stringify(catCount)}`)
     return entries
   } catch (err) {
     logger.warn('[ai-world-sync] HF Hub models API error:', { error: err instanceof Error ? err.message : err })
@@ -1061,8 +1136,15 @@ async function fetchHFOpenLLM(): Promise<LeaderboardEntry[]> {
  * 数据嵌入在 window.gradio_config = {...} 内联 script 中(700KB JSON)
  * 结构:config.components[].props.value = { headers: [...], data: [[row1], [row2], ...] }
  * 第一个 dataframe(id=13)是总排行榜,13 列:排名/模型名称/机构/开源闭源/总分/数学推理/科学推理/代码生成/智能体Agent/精确指令遵循/幻觉控制/使用方式/发布日期
- * 2026-07-22 立:从降级空改为真实数据抓取,生产可用
+ * 多分类(2026-07-22 立):基于子分数列拆 6 类(overall/reasoning/coding/agent/instruction/safety)
  */
+const SUPERCLUE_SUBSCORE_MAP: Record<string, string> = {
+  '数学推理': 'reasoning', '科学推理': 'reasoning',
+  '代码生成': 'coding',
+  '智能体Agent': 'agent',
+  '精确指令遵循': 'instruction',
+  '幻觉控制': 'safety',
+}
 async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
   try {
     const res = await fetchWithTimeout(
@@ -1075,7 +1157,6 @@ async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
       return []
     }
     const html = await res.text()
-    // 提取 window.gradio_config = {...} JSON
     const configMatch = html.match(/window\.gradio_config\s*=\s*(\{[\s\S]*?\});\s*<\/script>/)
     if (!configMatch || !configMatch[1]) {
       logger.warn('[ai-world-sync] SuperCLUE gradio_config not found in HTML, skip')
@@ -1093,7 +1174,6 @@ async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
         }
       }>
     }
-    // 取第一个 dataframe(总排行榜)
     const firstDf = config.components?.find((c) => c.type === 'dataframe' && c.props?.value?.data?.length)
     if (!firstDf || !firstDf.props?.value?.data) {
       logger.warn('[ai-world-sync] SuperCLUE no dataframe with data found, skip')
@@ -1103,8 +1183,8 @@ async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
     const headers = dfValue.headers ?? []
     const rows = dfValue.data ?? []
     const now = new Date()
-    const entries: LeaderboardEntry[] = []
-    // 列索引:排名(0) / 模型名称(1) / 机构(2) / 开源闭源(3) / 总分(4)
+    // 提取原始行数据(含 modelName / provider / 总分 / 各子分数)
+    const rawRows: Array<{ modelName: string; provider?: string; totalScore: number; subScores: Record<string, number> }> = []
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
       if (!row || row.length < 5) continue
@@ -1112,50 +1192,62 @@ async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
       if (!modelName || modelName === '-') continue
       const provider = String(row[2] ?? '').trim() || undefined
       const totalScore = row[4]
-      const scoreStr = typeof totalScore === 'number' ? totalScore.toFixed(2) : String(totalScore ?? '')
-      const scoreNum = typeof totalScore === 'number' ? totalScore : parseFloat(scoreStr)
+      const scoreNum = typeof totalScore === 'number' ? totalScore : parseFloat(String(totalScore ?? ''))
       if (!Number.isFinite(scoreNum)) continue
-      // rank:用 medal(🥇🥈🥉)或数字,否则用 i+1
-      const rankRaw = String(row[0] ?? '').trim()
-      let rank = i + 1
-      if (rankRaw === '🥇') rank = 1
-      else if (rankRaw === '🥈') rank = 2
-      else if (rankRaw === '🥉') rank = 3
-      else {
-        const parsedRank = parseInt(rankRaw.replace(/[^\d]/g, ''), 10)
-        if (Number.isFinite(parsedRank) && parsedRank > 0) rank = parsedRank
-      }
-      // 提取子分数(数学推理/科学推理/代码生成等)
-      const scores: Record<string, unknown> = { total: scoreNum, source: 'superclue' }
-      const subScoreKeys = ['数学推理', '科学推理', '代码生成', '智能体Agent', '精确指令遵循', '幻觉控制']
+      const subScores: Record<string, number> = {}
       for (let j = 5; j < Math.min(headers.length, row.length); j++) {
         const headerName = headers[j]
         if (!headerName) continue
-        if (subScoreKeys.includes(headerName)) {
-          const subScore = row[j]
-          if (typeof subScore === 'number') scores[headerName] = subScore
+        const subScore = row[j]
+        if (typeof subScore === 'number' && Number.isFinite(subScore)) {
+          subScores[headerName] = subScore
         }
       }
-      entries.push({
-        leaderboard: 'superclue',
-        category: 'overall',
-        rank,
-        modelName: modelName.slice(0, 200),
-        provider,
-        score: scoreStr,
-        scores,
-        publishedAt: now,
-      })
+      rawRows.push({ modelName, provider, totalScore: scoreNum, subScores })
     }
-    // 按总分降序排序后重新填 rank(确保 rank 准确)
-    entries.sort((a, b) => {
-      const aScore = parseFloat(a.score ?? '0')
-      const bScore = parseFloat(b.score ?? '0')
-      return bScore - aScore
-    })
-    const topEntries = entries.slice(0, 50).map((entry, idx) => ({ ...entry, rank: idx + 1 }))
-    logger.info(`[ai-world-sync] SuperCLUE fetched ${topEntries.length} entries from ${rows.length} total rows`)
-    return topEntries
+    // overall:按总分降序 top 50
+    const overallSorted = [...rawRows].sort((a, b) => b.totalScore - a.totalScore).slice(0, 50)
+    const entries: LeaderboardEntry[] = overallSorted.map((r, i) => ({
+      leaderboard: 'superclue',
+      category: 'overall',
+      rank: i + 1,
+      modelName: r.modelName.slice(0, 200),
+      provider: r.provider,
+      score: r.totalScore.toFixed(2),
+      scores: { total: r.totalScore, ...r.subScores, source: 'superclue' },
+      publishedAt: now,
+    }))
+    // 子分类:按 SUPERCLUE_SUBSCORE_MAP 拆分,每个子分类 top 30
+    const byCat: Record<string, Array<{ modelName: string; provider?: string; subScore: number; subScores: Record<string, number> }>> = {}
+    for (const r of rawRows) {
+      for (const [header, subScore] of Object.entries(r.subScores)) {
+        const cat = SUPERCLUE_SUBSCORE_MAP[header]
+        if (!cat) continue
+        if (!byCat[cat]) byCat[cat] = []
+        byCat[cat].push({ modelName: r.modelName, provider: r.provider, subScore, subScores: r.subScores })
+      }
+    }
+    for (const [cat, items] of Object.entries(byCat)) {
+      items.sort((a, b) => b.subScore - a.subScore)
+      const top = items.slice(0, 30)
+      for (let i = 0; i < top.length; i++) {
+        const it = top[i]!
+        entries.push({
+          leaderboard: 'superclue',
+          category: cat,
+          rank: i + 1,
+          modelName: it.modelName.slice(0, 200),
+          provider: it.provider,
+          score: it.subScore.toFixed(2),
+          scores: { ...it.subScores, source: 'superclue' },
+          publishedAt: now,
+        })
+      }
+    }
+    const catCount: Record<string, number> = {}
+    for (const e of entries) catCount[e.category] = (catCount[e.category] ?? 0) + 1
+    logger.info(`[ai-world-sync] SuperCLUE fetched ${entries.length} entries across ${Object.keys(catCount).length} categories: ${JSON.stringify(catCount)}`)
+    return entries
   } catch (err) {
     logger.warn('[ai-world-sync] SuperCLUE leaderboard error:', { error: err instanceof Error ? err.message : err })
     return []
@@ -1166,7 +1258,10 @@ async function fetchSuperCLUE(): Promise<LeaderboardEntry[]> {
  * 抓 Artificial Analysis(综合性能榜)
  * 数据源:https://artificialanalysis.ai/models — Next.js RSC 应用,1.3MB HTML
  * 数据嵌入在 self.__next_f.push([1,"..."]) 格式的 RSC chunks 中
- * 策略:从 HTML 中用正则提取模型名 + 分数数据
+ * 多分类(2026-07-22 立):基于 briefcaseBreakdown + 顶层分数 + 评测通过率拆 9 类
+ *   - 3 elo 子分类:overall/analytical/presentation(来自 briefcaseBreakdown)
+ *   - 3 index 子分类:intelligence/coding/agentic(来自顶层 intelligenceIndex/codingIndex/agenticIndex)
+ *   - 3 rate 子分类:knowledge/reasoning/instruction(来自 gpqa/hle/ifbench 通过率,0-1 转 0-100)
  */
 async function fetchArtificialAnalysis(): Promise<LeaderboardEntry[]> {
   try {
@@ -1182,17 +1277,11 @@ async function fetchArtificialAnalysis(): Promise<LeaderboardEntry[]> {
     const html = await res.text()
     const now = new Date()
 
-    // 策略:从 HTML 中提取模型数据
-    // ArtificialAnalysis 用 Next.js,数据在 RSC chunks 或 inline JSON 中
-    // 用正则提取模型名 + 分数对
-    const entries: LeaderboardEntry[] = []
-
-    // 方案 1:提取 JSON 数据块(self.__next_f.push)
+    // 提取 RSC chunks 并合并
     const rscChunks = html.match(/self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/g) || []
     let combinedData = ''
     for (const chunk of rscChunks) {
       const content = chunk.match(/self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/)?.[1] || ''
-      // unescape Next.js RSC 数据
       try {
         const unescaped = content.replace(/\\n/g, '\n').replace(/\\r/g, '\r').replace(/\\"/g, '"').replace(/\\\\/g, '\\')
         combinedData += unescaped
@@ -1201,48 +1290,141 @@ async function fetchArtificialAnalysis(): Promise<LeaderboardEntry[]> {
       }
     }
 
-    // 从 combinedData 提取模型数据(2026-07-22 重写)
-    // RSC 数据结构:每个模型对象含 "name":"模型名" + "briefcaseBreakdown":{"overall":{"elo":数字,...}}
-    // 策略:匹配 "overall":{"elo":数字,往前 5000 字符找最近的 "name" 字段
-    const overallEloPattern = /"overall":\{"elo":(\d+(?:\.\d+)?)/g
-    const seen = new Set<string>()
-    let eloMatch: RegExpExecArray | null
-    while ((eloMatch = overallEloPattern.exec(combinedData)) !== null) {
-      const eloStr = eloMatch[1]
-      if (!eloStr) continue
-      const elo = parseFloat(eloStr)
-      if (!Number.isFinite(elo) || elo <= 0) continue // 过滤 elo=0 的无效条目
-      // 往前 5000 字符找最近的 "name" 字段
-      const startPos = Math.max(0, eloMatch.index - 5000)
-      const beforeText = combinedData.slice(startPos, eloMatch.index)
-      const nameMatches = [...beforeText.matchAll(/"name":"([^"]{2,100})"/g)]
-      if (nameMatches.length === 0) continue
-      const modelName = nameMatches[nameMatches.length - 1]?.[1] // 离 elo 最近的 name
-      if (!modelName || seen.has(modelName)) continue
-      // 过滤 UI 文本(品牌名/标签词)
-      const uiWords = new Set(['Intelligence', 'Speed', 'Quality', 'Cost', 'Artificial Analysis', 'next-size-adjust', 'Cost per Task'])
-      if (uiWords.has(modelName)) continue
-      seen.add(modelName)
-      entries.push({
-        leaderboard: 'artificial-analysis',
-        category: 'overall',
-        rank: 0,
-        modelName: modelName.slice(0, 200),
+    // 9 分类数据收集:每类按分数排序后填 rank
+    const byCat: Record<string, Array<{ modelName: string; provider?: string; score: number; scores: Record<string, unknown> }>> = {}
+    const uiWords = new Set(['Intelligence', 'Speed', 'Quality', 'Cost', 'Artificial Analysis', 'next-size-adjust', 'Cost per Task'])
+    const seenModel = new Set<string>()
+
+    const addEntry = (cat: string, modelName: string, score: number, scores: Record<string, unknown>) => {
+      if (!modelName || uiWords.has(modelName) || score <= 0) return
+      if (!byCat[cat]) byCat[cat] = []
+      byCat[cat].push({
+        modelName,
         provider: modelName.split(/[\s-]/)[0] ?? modelName,
-        score: elo.toFixed(2),
-        scores: { elo, source: 'artificial-analysis-briefcase' },
-        publishedAt: now,
+        score,
+        scores,
       })
     }
 
-    // 排序 + 填 rank
-    entries.sort((a, b) => parseFloat(b.score ?? '0') - parseFloat(a.score ?? '0'))
-    const topEntries = entries.slice(0, 30).map((entry, idx) => ({
-      ...entry,
-      rank: idx + 1,
-    }))
-    logger.info(`[ai-world-sync] Artificial Analysis fetched ${topEntries.length} entries`)
-    return topEntries
+    // 平衡括号扫描每个 briefcaseBreakdown 块
+    const bbRegex = /"briefcaseBreakdown":\{/g
+    let bbMatch: RegExpExecArray | null
+    while ((bbMatch = bbRegex.exec(combinedData)) !== null) {
+      const bbStart = bbMatch.index + '"briefcaseBreakdown":'.length
+      let depth = 0
+      let end = -1
+      for (let i = bbStart; i < combinedData.length; i++) {
+        const c = combinedData[i]
+        if (c === '{') depth++
+        else if (c === '}') {
+          depth--
+          if (depth === 0) { end = i + 1; break }
+        }
+      }
+      if (end < 0) continue
+      const bbContent = combinedData.slice(bbStart, end)
+
+      // 提取 3 个 elo 子分类
+      const overallElo = bbContent.match(/"overall":\{"elo":(\d+(?:\.\d+)?)/)?.[1]
+      const analyticalElo = bbContent.match(/"analyticalQuality":\{"elo":(\d+(?:\.\d+)?)/)?.[1]
+      const presentationElo = bbContent.match(/"presentation":\{"elo":(\d+(?:\.\d+)?)/)?.[1]
+
+      // evaluations 边界定位(过滤 evaluation slug 污染,找模型真正的 slug/name)
+      const windowStart = Math.max(0, bbMatch.index - 15000)
+      const window = combinedData.slice(windowStart, bbMatch.index)
+      const evalIdx = window.lastIndexOf('"evaluations":[')
+      const cutoff = evalIdx >= 0 ? evalIdx : window.length
+      const beforeEvals = window.slice(0, cutoff)
+      const slugMatches = [...beforeEvals.matchAll(/"slug":"([^"]{2,100})"/g)]
+      const nameMatches = [...beforeEvals.matchAll(/"name":"([^"]{2,100})"/g)]
+      const lastSlug = slugMatches[slugMatches.length - 1]?.[1]
+      const lastName = nameMatches[nameMatches.length - 1]?.[1]
+      const modelName = (lastName ?? lastSlug ?? '').trim()
+      if (!modelName || seenModel.has(modelName)) continue
+      seenModel.add(modelName)
+
+      // 从 BB 往前 5000 字符找顶层分数(intelligenceIndex/codingIndex/agenticIndex/gpqa/hle/ifbench)
+      const scoreWindow = combinedData.slice(Math.max(0, bbMatch.index - 5000), bbMatch.index)
+      const intelM = scoreWindow.match(/"intelligenceIndex":(\d+(?:\.\d+)?)/)
+      const codingM = scoreWindow.match(/"codingIndex":(\d+(?:\.\d+)?)/)
+      const agenticM = scoreWindow.match(/"agenticIndex":(\d+(?:\.\d+)?)/)
+      const gpqaM = scoreWindow.match(/"gpqa":(\d+(?:\.\d+)?)/)
+      const hleM = scoreWindow.match(/"hle":(\d+(?:\.\d+)?)/)
+      const ifbenchM = scoreWindow.match(/"ifbench":(\d+(?:\.\d+)?)/)
+
+      // 添加 elo 子分类
+      if (overallElo) {
+        const elo = parseFloat(overallElo)
+        if (Number.isFinite(elo) && elo > 0) addEntry('overall', modelName, elo, { elo, source: 'briefcase-overall' })
+      }
+      if (analyticalElo) {
+        const elo = parseFloat(analyticalElo)
+        if (Number.isFinite(elo) && elo > 0) addEntry('analytical', modelName, elo, { elo, source: 'briefcase-analytical' })
+      }
+      if (presentationElo) {
+        const elo = parseFloat(presentationElo)
+        if (Number.isFinite(elo) && elo > 0) addEntry('presentation', modelName, elo, { elo, source: 'briefcase-presentation' })
+      }
+      // 添加 index 子分类(0-100 分)
+      if (intelM && intelM[1]) {
+        const v = parseFloat(intelM[1])
+        if (Number.isFinite(v) && v > 0) addEntry('intelligence', modelName, v, { intelligenceIndex: v, source: 'intelligence-index' })
+      }
+      if (codingM && codingM[1]) {
+        const v = parseFloat(codingM[1])
+        if (Number.isFinite(v) && v > 0) addEntry('coding', modelName, v, { codingIndex: v, source: 'coding-index' })
+      }
+      if (agenticM && agenticM[1]) {
+        const v = parseFloat(agenticM[1])
+        if (Number.isFinite(v) && v > 0) addEntry('agentic', modelName, v, { agenticIndex: v, source: 'agentic-index' })
+      }
+      // 添加 rate 子分类(0-1 通过率转 0-100 分)
+      if (gpqaM && gpqaM[1]) {
+        const v = parseFloat(gpqaM[1])
+        if (Number.isFinite(v) && v > 0) {
+          const score = v <= 1 ? v * 100 : v
+          addEntry('knowledge', modelName, score, { gpqa: v, source: 'gpqa-diamond' })
+        }
+      }
+      if (hleM && hleM[1]) {
+        const v = parseFloat(hleM[1])
+        if (Number.isFinite(v) && v > 0) {
+          const score = v <= 1 ? v * 100 : v
+          addEntry('reasoning', modelName, score, { hle: v, source: 'humanitys-last-exam' })
+        }
+      }
+      if (ifbenchM && ifbenchM[1]) {
+        const v = parseFloat(ifbenchM[1])
+        if (Number.isFinite(v) && v > 0) {
+          const score = v <= 1 ? v * 100 : v
+          addEntry('instruction', modelName, score, { ifbench: v, source: 'ifbench' })
+        }
+      }
+    }
+
+    // 每类按分数降序排序,top 30,填 rank
+    const entries: LeaderboardEntry[] = []
+    for (const [cat, items] of Object.entries(byCat)) {
+      items.sort((a, b) => b.score - a.score)
+      const top = items.slice(0, 30)
+      for (let i = 0; i < top.length; i++) {
+        const it = top[i]!
+        entries.push({
+          leaderboard: 'artificial-analysis',
+          category: cat,
+          rank: i + 1,
+          modelName: it.modelName.slice(0, 200),
+          provider: it.provider,
+          score: it.score.toFixed(2),
+          scores: it.scores,
+          publishedAt: now,
+        })
+      }
+    }
+    const catCount: Record<string, number> = {}
+    for (const e of entries) catCount[e.category] = (catCount[e.category] ?? 0) + 1
+    logger.info(`[ai-world-sync] Artificial Analysis fetched ${entries.length} entries across ${Object.keys(catCount).length} categories: ${JSON.stringify(catCount)}`)
+    return entries
   } catch (err) {
     logger.warn('[ai-world-sync] Artificial Analysis error:', { error: err instanceof Error ? err.message : err })
     return []
@@ -1714,6 +1896,53 @@ if (isCli && process.argv.includes('--rankings-only')) {
       process.exit(0)
     } catch (err) {
       logger.error('[ai-world-sync] rankings-only fatal:', { error: err })
+      process.exit(1)
+    }
+  })()
+} else if (isCli && process.argv.includes('--sync-rankings')) {
+  ;(async () => {
+    try {
+      logger.info('[ai-world-sync] sync-rankings start (DELETE old + fetch + upsert + verify)')
+      const startTime = Date.now()
+      // 1. 删除旧的 5 大榜单数据
+      const delRes = await db.execute(sql`DELETE FROM ai_world_rankings WHERE leaderboard IN ('lmsys','opencompass','hf-open-llm','superclue','artificial-analysis')`)
+      const delCount = Array.isArray(delRes) ? delRes.length : 0
+      logger.info(`[ai-world-sync] deleted ${delCount} old ranking rows`)
+      // 2. 调用 syncRankings 抓取 + upsert 新数据
+      const results = await syncRankings()
+      for (const r of results) {
+        logger.info(`  - ${r.source}: ${r.status} items=${r.itemCount}${r.error ? ` err=${r.error}` : ''}`)
+      }
+      // 3. 验证:GROUP BY 统计每个榜单的分类分布
+      const verifyRows = await db.execute(sql`
+        SELECT leaderboard, category, COUNT(*) AS n
+        FROM ai_world_rankings
+        WHERE leaderboard IN ('lmsys','opencompass','hf-open-llm','superclue','artificial-analysis')
+        GROUP BY leaderboard, category
+        ORDER BY leaderboard, category
+      `)
+      const rows = (verifyRows as unknown as Array<{ leaderboard: string; category: string; n: number | string }>) ?? []
+      const byLeaderboard: Record<string, Array<{ category: string; n: number }>> = {}
+      let totalEntries = 0
+      for (const row of rows) {
+        const lb = row.leaderboard
+        const cat = row.category
+        const n = typeof row.n === 'string' ? parseInt(row.n, 10) : row.n
+        if (!byLeaderboard[lb]) byLeaderboard[lb] = []
+        byLeaderboard[lb].push({ category: cat, n: Number.isFinite(n) ? n : 0 })
+        totalEntries += Number.isFinite(n) ? n : 0
+      }
+      logger.info('[ai-world-sync] verify after sync:')
+      for (const lb of Object.keys(byLeaderboard).sort()) {
+        const cats = byLeaderboard[lb] ?? []
+        const catSummary = cats.map((c) => `${c.category}=${c.n}`).join(', ')
+        logger.info(`  ${lb} (${cats.length} cats): ${catSummary}`)
+      }
+      logger.info(`[ai-world-sync] TOTAL: ${totalEntries} entries across ${Object.keys(byLeaderboard).length} leaderboards`)
+      logger.info(`[ai-world-sync] sync-rankings done in ${((Date.now() - startTime) / 1000).toFixed(1)}s`)
+      process.exit(0)
+    } catch (err) {
+      logger.error('[ai-world-sync] sync-rankings fatal:', { error: err })
       process.exit(1)
     }
   })()
