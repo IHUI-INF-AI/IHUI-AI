@@ -67,9 +67,17 @@ DEFAULT_RETRY_DELAY = 1.0  # 秒,指数退避 base(1s, 2s, 4s)
 REDIS_HOOKS_KEY = "hooks:configs"
 REDIS_LOGS_KEY_PREFIX = "hooks:logs:"  # + hook_id
 REDIS_LOGS_MAX = 1000  # 每个 hook 保留最近 1000 条日志
+REDIS_DLQ_KEY_PREFIX = "hooks:dlq:"  # + hook_id
+DLQ_MAX_ENTRIES = 100  # 每个 hook 的 DLQ 保留最近 100 条
 
 # 通知渠道(2026-07-22 扩展,toast/email/webhook + notification 兼容)
 NOTIFY_CHANNELS: tuple[str, ...] = ("toast", "email", "webhook", "notification")
+
+# 健康检查阈值(2026-07-22 立)
+HEALTH_WINDOW_HOURS = 24  # 健康检查时间窗口(24h)
+HEALTH_STALE_DAYS = 30  # 超过 30 天未触发 → stale
+HEALTHY_THRESHOLD = 0.95  # 24h 成功率 ≥ 95% → healthy
+DEGRADED_THRESHOLD = 0.80  # 24h 成功率 ≥ 80% → degraded,否则 unhealthy
 
 # 沙箱目录(AGENTS.md §15 工作区卫生规则的临时目录 .trae-cn/tmp/hooks/)
 _PROJECT_ROOT = Path(__file__).resolve().parents[4]
@@ -77,15 +85,16 @@ SANDBOX_DIR = _PROJECT_ROOT / ".trae-cn" / "tmp" / "hooks"
 LOG_FILE = _PROJECT_ROOT / "logs" / "hooks.log"
 
 # 敏感路径正则(script 命令禁止包含以下模式)
+# 注意:/ 和 . 不是 word 字符,\b 在它们前后不生效,改用 (?<!\w) 负向后顾
 SENSITIVE_PATTERNS = [
-    r"\b/etc/passwd\b",
-    r"\b/etc/shadow\b",
-    r"\b\.ssh\b",
-    r"\b\.env\b",
+    r"/etc/passwd",
+    r"/etc/shadow",
+    r"\.ssh",
+    r"\.env\b",
     r"\bcredentials\b",
     r"\bAPI_KEY\b",
     r"\bSECRET\b",
-    r"\brm\s+-rf\s+/\b",
+    r"rm\s+-rf\s+/",
     r"\bmkfs\b",
     r"\bdd\s+if=",
 ]
@@ -223,6 +232,8 @@ class HookEngine:
         self._hooks: dict[str, dict[str, Any]] = {}
         # 日志:list(LRU,超出 MAX_LOGS 删最旧)
         self._logs: list[dict[str, Any]] = []
+        # DLQ 死信队列(内存降级):{hook_id: [entry, ...]}
+        self._dlq: dict[str, list[dict[str, Any]]] = {}
         # Redis 客户端(可选,降级内存)
         self._redis: Any = redis_client
         self._use_redis = redis_client is not None
@@ -490,7 +501,8 @@ class HookEngine:
         return triggered_logs
 
     async def _execute_hook(
-        self, hook: dict[str, Any], event: str, context: dict[str, Any]
+        self, hook: dict[str, Any], event: str, context: dict[str, Any],
+        replay: bool = False,
     ) -> dict[str, Any]:
         """执行单个 Hook(已通过条件匹配),返回日志条目。带指数退避重试。
 
