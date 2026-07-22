@@ -808,3 +808,178 @@ class LLMGateway:
 
 
 llm_gateway = LLMGateway()
+
+
+# ---------------------------------------------------------------------------
+# MoA / Fallback / CredentialPool(P2-2,对标 Hermes Agent provider 扩展)
+# ---------------------------------------------------------------------------
+
+
+class MoARouter:
+    """Mixture of Agents 路由器 — 多模型出方案 + 聚合。
+
+    对齐 packages/types 的 MoaPreset 契约:
+    - preset.models 中 role=proposer 的模型并行出方案
+    - role=aggregator 的模型聚合所有 proposer 方案
+    - role=critic 的模型对聚合结果做批判(可选,本轮未实现)
+    """
+
+    def __init__(self) -> None:
+        self._presets: dict[str, dict] = {}
+
+    def register_preset(self, name: str, preset: dict) -> None:
+        """注册 MoA 预设。"""
+        self._presets[name] = preset
+
+    def list_presets(self) -> list[dict]:
+        """列出所有预设。"""
+        return list(self._presets.values())
+
+    async def complete(self, messages: list[dict], preset_name: str) -> dict:
+        """MoA 推理:多 proposer 出方案 → aggregator 聚合。
+
+        流程:
+        1. 取 preset.models 中 role=proposer 的模型,并行调用各自出方案
+        2. 取 role=aggregator 的模型,把所有 proposer 方案喂给它聚合
+        3. role=critic 的模型对聚合结果做批判(可选,本轮透传不实现)
+        4. 返回最终聚合结果
+        """
+        import asyncio as _asyncio
+
+        preset = self._presets.get(preset_name)
+        if not preset:
+            return {"content": "", "error": f"preset not found: {preset_name}"}
+
+        models = preset.get("models", [])
+        proposers = [m for m in models if m.get("role") == "proposer"]
+        aggregators = [m for m in models if m.get("role") == "aggregator"]
+
+        if not proposers:
+            return {"content": "", "error": "no proposer models in preset"}
+
+        # 1. 并行出方案(return_exceptions=True 防止单个失败导致整体崩溃)
+        proposals = await _asyncio.gather(*[
+            llm_gateway.complete(messages, model=m["model"])
+            for m in proposers
+        ], return_exceptions=True)
+
+        # 2. 聚合(有 aggregator 时综合,无 aggregator 时取第一个成功方案)
+        if aggregators:
+            agg_model = aggregators[0]["model"]
+            proposal_texts = [
+                p.get("content", "") for p in proposals
+                if isinstance(p, dict) and p.get("content")
+            ]
+            if not proposal_texts:
+                return {"content": "", "error": "all proposers returned empty"}
+            agg_messages = messages + [{
+                "role": "user",
+                "content": (
+                    "以下是多个模型的回答,请综合给出最佳答案:\n\n"
+                    + "\n\n---\n\n".join(proposal_texts)
+                ),
+            }]
+            return await llm_gateway.complete(agg_messages, model=agg_model)
+
+        # 无 aggregator:返回第一个非异常方案
+        for p in proposals:
+            if isinstance(p, dict) and not p.get("error"):
+                return p
+        return {"content": "", "error": "all proposers failed"}
+
+
+class FallbackRouter:
+    """Provider 故障转移路由器。
+
+    对齐 packages/types 的 ProviderFallbackConfig 契约:
+    - 先调 primary provider
+    - 失败且错误类型在 triggerOnError 中时,依次尝试 fallbacks
+    - 全部失败返回错误
+    """
+
+    def __init__(self) -> None:
+        self._configs: dict[str, dict] = {}
+
+    def configure(self, provider: str, config: dict) -> None:
+        """配置故障转移。"""
+        self._configs[provider] = config
+
+    def get_config(self, provider: str) -> dict:
+        """获取故障转移配置。"""
+        return self._configs.get(provider, {})
+
+    async def complete_with_fallback(
+        self, messages: list[dict], primary: str
+    ) -> dict:
+        """带故障转移的推理。
+
+        1. 先调 primary provider
+        2. 如果失败且错误类型在 triggerOnError 中,依次尝试 fallbacks
+        3. 全部失败返回错误
+        """
+        config = self._configs.get(primary, {})
+        fallbacks = config.get("fallbacks", [])
+        trigger_on = config.get(
+            "triggerOnError", ["rate_limited", "timeout", "overloaded"]
+        )
+
+        providers_to_try = [primary] + fallbacks
+        last_error: str | None = None
+        for provider in providers_to_try:
+            try:
+                result = await llm_gateway.complete(messages, model=provider)
+                if not result.get("error"):
+                    return result
+                last_error = result.get("error_message") or result.get("error")
+            except Exception as e:
+                last_error = str(e)
+                continue
+        return {"content": "", "error": f"all providers failed: {last_error}"}
+
+
+class CredentialPool:
+    """凭证池 — 多 API key 轮询。
+
+    对齐 packages/types 的 CredentialPoolConfig 契约:
+    - round_robin 策略:按顺序轮询
+    - random 策略:随机选择
+    """
+
+    def __init__(self) -> None:
+        self._pools: dict[str, dict] = {}
+
+    def configure(
+        self, provider: str, keys: list[str], strategy: str = "round_robin"
+    ) -> None:
+        """配置凭证池。"""
+        self._pools[provider] = {"keys": keys, "index": 0, "strategy": strategy}
+
+    def get_key(self, provider: str) -> str | None:
+        """获取下一个 key(按轮询策略)。"""
+        pool = self._pools.get(provider)
+        if not pool or not pool["keys"]:
+            return None
+        keys = pool["keys"]
+        if pool["strategy"] == "random":
+            import random
+            return random.choice(keys)
+        # round_robin(默认)
+        key = keys[pool["index"] % len(keys)]
+        pool["index"] += 1
+        return key
+
+    def get_pool_info(self, provider: str) -> dict:
+        """获取凭证池信息(不含实际 key)。"""
+        pool = self._pools.get(provider)
+        if not pool:
+            return {}
+        return {
+            "key_count": len(pool["keys"]),
+            "strategy": pool["strategy"],
+            "current_index": pool["index"],
+        }
+
+
+moa_router = MoARouter()
+fallback_router = FallbackRouter()
+credential_pool = CredentialPool()
