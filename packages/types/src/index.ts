@@ -43,6 +43,12 @@ export * from './memory.js'
 // Webhook 触发器跨端契约(2026-07-22 立,Wave 3 W3-3 对标 OpenClaw webhook)
 export * from './webhook-trigger.js'
 
+// Webhook 唤醒机制跨端契约(2026-07-22 立,Wave 3 W3-3 简化唤醒 Bearer token)
+export * from './webhook.js'
+
+// 多通道消息总线跨端契约(2026-07-22 立,Wave 3 W3-2 对标 OpenClaw 多通道消息)
+export * from './message-bus.js'
+
 // 大模型排行榜跨端契约(2026-07-22 立,参考 arena.ai/leaderboard,6 类模型 + Agent + 总榜)
 export * from './leaderboard.js'
 

@@ -12,6 +12,7 @@
     "composite": false,
     "declaration": false,
     "declarationMap": false,
+    "noUncheckedIndexedAccess": true,
     "plugins": [
       {
         "name": "next"

@@ -13,6 +13,7 @@
     "declarationMap": false,
     "sourceMap": true,
     "noEmit": false,
+    "strict": true,
     "types": ["node"]
   },
   "include": ["src/**/*.ts"],
