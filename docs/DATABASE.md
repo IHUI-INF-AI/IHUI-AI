@@ -30,7 +30,7 @@
 
 ```
 packages/database/
-├── drizzle/                  # 迁移 SQL 文件(128+) + meta/(journal + snapshots)
+├── drizzle/                  # 迁移 SQL 文件(144+) + meta/(journal + snapshots)
 │   ├── 0000_naive_barracuda.sql
 │   ├── ...
 │   ├── 0130_two_factor.sql
