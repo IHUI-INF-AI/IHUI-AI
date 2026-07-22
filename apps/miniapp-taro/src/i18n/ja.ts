@@ -328,6 +328,16 @@ export default {
     common: {
       loading: '読み込み中…',
     },
+    chatMessageItem: {
+      me: '私',
+      ai: 'AI',
+      thinkingProcess: '思考プロセス',
+      noContent: 'コピーする内容がありません',
+      aiGenerated: 'AI生成',
+      tokenCost: 'トークン: {{n}}',
+      reuse: '再利用',
+      copy: 'コピー',
+    },
     inputArea: {
       placeholder: '質問を入力…',
       releaseToSend: '離して送信',
