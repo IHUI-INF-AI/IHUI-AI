@@ -365,6 +365,38 @@ export const VENDOR_PLATFORMS: Record<string, VendorPlatform> = {
     apiFormat: 'openai_chat',
     note: '网易有道子曰大模型,翻译 + 教育场景,OpenAI 兼容接口',
   },
+  'NVIDIA NIM': {
+    officialKeyUrl: 'https://org.ngc.nvidia.com/setup/api-key',
+    docsUrl: 'https://docs.nvidia.com/nim/',
+    defaultBaseUrl: 'https://integrate.api.nvidia.com/v1',
+    providerCode: 'nvidia',
+    apiFormat: 'openai_chat',
+    note: 'NVIDIA 推理微服务,支持 GPU 加速 + 自部署,OpenAI 兼容接口',
+  },
+  'Databricks': {
+    officialKeyUrl: 'https://docs.databricks.com/en/machine-learning/foundation-models/',
+    docsUrl: 'https://docs.databricks.com/en/generative-ai/',
+    defaultBaseUrl: 'https://databricks-prod-12345.svc.databricks.com/serving-endpoints',
+    providerCode: 'databricks',
+    apiFormat: 'openai_chat',
+    note: 'Databricks AI 平台,Foundation Model API + 自训练模型,企业级部署',
+  },
+  'AI21 Labs': {
+    officialKeyUrl: 'https://studio.ai21.com/account/api-key',
+    docsUrl: 'https://docs.ai21.com/',
+    defaultBaseUrl: 'https://api.ai21.com/studio/v1',
+    providerCode: 'ai21',
+    apiFormat: 'openai_chat',
+    note: 'AI21 Labs Jamba 模型,Mamba + Transformer 混合架构,OpenAI 兼容',
+  },
+  'Replit': {
+    officialKeyUrl: 'https://replit.com/@me/api-keys',
+    docsUrl: 'https://docs.replit.com/replit-ai/',
+    defaultBaseUrl: 'https://api.replit.com/v1',
+    providerCode: 'replit',
+    apiFormat: 'openai_chat',
+    note: 'Replit 代码模型,replit-code-v1.5,代码补全 + 对话,OpenAI 兼容',
+  },
 }
 
 /** 查询 vendor 平台信息,返回降级兜底 */
