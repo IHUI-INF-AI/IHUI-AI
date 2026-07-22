@@ -342,12 +342,20 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
     - command: 命令字符串(如 "git status", "ls -la", "python --version")
     - cwd: 工作目录(默认当前目录)
     - timeout: 超时秒数(默认 10,上限 60)
+    - sandbox_backend: 沙箱后端(默认 local,可选 docker/ssh/modal/daytona/singularity)
+    - docker_image: Docker 镜像(backend=docker 时,默认 python:3.12-slim)
+    - ssh_host: SSH 主机(backend=ssh 时必填)
+    - ssh_user: SSH 用户名(backend=ssh 时,默认 root)
     - 白名单: 允许的命令前缀(git/ls/cat/echo/python/node/npm/pnpm/tsc/ruff/mypy/pytest/find/grep/wc/head/tail/date/whoami/pwd/which/where/env)
     - 禁止: rm/mv/cp/mkdir/rmdir/curl/wget/scp/ssh/dd/mkfs/shutdown/reboot/>/>>/| 等危险操作
     """
     command = arguments.get("command", "").strip()
     cwd = arguments.get("cwd", ".")
     timeout = min(int(arguments.get("timeout", 10)), 60)
+    sandbox_backend = arguments.get("sandbox_backend", "local")
+    docker_image = arguments.get("docker_image", "python:3.12-slim")
+    ssh_host = arguments.get("ssh_host")
+    ssh_user = arguments.get("ssh_user", "root")
 
     if not command:
         return {
@@ -358,6 +366,31 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
             "stderr": "",
             "ok": False,
             "message": "命令为空",
+        }
+
+    # 非 local 后端:委托 sandbox_executor(Docker/SSH/预留后端,P2-1)
+    if sandbox_backend != "local":
+        from .sandbox import sandbox_executor
+        result = await sandbox_executor.execute(
+            command,
+            backend=sandbox_backend,
+            timeout=timeout,
+            workdir=cwd,
+            docker_image=docker_image,
+            ssh_host=ssh_host,
+            ssh_user=ssh_user,
+        )
+        return {
+            "tool": "run_command",
+            "command": command,
+            "backend": sandbox_backend,
+            "exit_code": result.exit_code,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "duration_ms": result.duration_ms,
+            "timed_out": result.timed_out,
+            "ok": result.exit_code == 0,
+            "message": f"backend={sandbox_backend} exit_code={result.exit_code}",
         }
 
     # 危险字符/操作黑名单(Shell 注入 + 破坏性操作)
@@ -1302,6 +1335,56 @@ async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str
         }
 
 
+async def _tool_vision_analyze(arguments: dict[str, Any]) -> dict[str, Any]:
+    """vision_analyze: 图像分析(支持 URL 和 base64,P2-3)。
+
+    参数:
+    - image: 图片 URL 或 base64 编码(必填)
+    - task: 分析任务描述(必填,如"描述这张图片的内容")
+    - model: 期望模型(可选,缺省用支持视觉的模型)
+    """
+    from ..core.llm_gateway import llm_gateway
+
+    image = arguments.get("image", "")
+    task = arguments.get("task", "")
+    model = arguments.get("model")
+
+    if not image or not task:
+        return {
+            "tool": "vision_analyze",
+            "ok": False,
+            "error": "image and task are required",
+        }
+
+    # 构造 OpenAI vision 格式消息(text + image_url content block)
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": task},
+                {"type": "image_url", "image_url": {"url": image}},
+            ],
+        }
+    ]
+    try:
+        result = await llm_gateway.complete(messages, model=model)
+        return {
+            "tool": "vision_analyze",
+            "ok": not result.get("error"),
+            "analysis": result.get("content", ""),
+            "model": result.get("model", model or ""),
+            "stub": result.get("stub", False),
+            "error": result.get("error_message"),
+        }
+    except Exception as e:
+        return {
+            "tool": "vision_analyze",
+            "ok": False,
+            "error": str(e)[:200],
+            "message": f"vision analysis failed: {type(e).__name__}",
+        }
+
+
 # 工具注册表
 _TOOLS: list[MCPTool] = [
     MCPTool(
@@ -1342,13 +1425,26 @@ _TOOLS: list[MCPTool] = [
     ),
     MCPTool(
         name="run_command",
-        description="运行 shell 命令(真实 subprocess,白名单: git/ls/cat/echo/python/node/npm/pnpm/ruff/mypy/pytest 等,禁止 rm/mv/cp/curl/重定向/管道)",
+        description="运行 shell 命令(真实 subprocess,白名单: git/ls/cat/echo/python/node/npm/pnpm/ruff/mypy/pytest 等,禁止 rm/mv/cp/curl/重定向/管道)。支持 sandbox_backend 参数切换 local/docker/ssh 后端",
         input_schema={
             "type": "object",
             "properties": {
                 "command": {"type": "string", "description": "命令字符串(如 git status, python --version)"},
                 "cwd": {"type": "string", "description": "工作目录(默认当前目录)", "default": "."},
                 "timeout": {"type": "integer", "description": "超时秒数(默认 10,上限 60)", "default": 10},
+                "sandbox_backend": {
+                    "type": "string",
+                    "enum": ["local", "docker", "ssh", "modal", "daytona", "singularity"],
+                    "description": "沙箱后端(默认 local,modal/daytona/singularity 预留未实现)",
+                    "default": "local",
+                },
+                "docker_image": {
+                    "type": "string",
+                    "description": "Docker 镜像(backend=docker 时,默认 python:3.12-slim)",
+                    "default": "python:3.12-slim",
+                },
+                "ssh_host": {"type": "string", "description": "SSH 主机(backend=ssh 时必填)"},
+                "ssh_user": {"type": "string", "description": "SSH 用户名(backend=ssh 时,默认 root)", "default": "root"},
             },
             "required": ["command"],
         },
@@ -1758,6 +1854,33 @@ _TOOLS: list[MCPTool] = [
             "required": ["url"],
         },
     ),
+    # ===== 图像分析工具(P2-3,对标 Hermes 多模态输入)=====
+    MCPTool(
+        name="vision_analyze",
+        description=(
+            "图像分析(支持 URL 和 base64)。传入图片 + 分析任务描述,"
+            "调用支持视觉的 LLM 模型返回分析结果。"
+            "适用于'描述这张图片的内容'/'识别图中的文字'/'分析 UI 截图'等场景。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "image": {
+                    "type": "string",
+                    "description": "图片 URL(http/https)或 base64 编码(如 data:image/png;base64,...)",
+                },
+                "task": {
+                    "type": "string",
+                    "description": "分析任务描述(如'描述这张图片的内容')",
+                },
+                "model": {
+                    "type": "string",
+                    "description": "期望模型(可选,缺省用支持视觉的模型,如 gpt-4o)",
+                },
+            },
+            "required": ["image", "task"],
+        },
+    ),
 ]
 
 _TOOL_HANDLERS: dict[str, Any] = {
@@ -1800,6 +1923,8 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "configure_automation_task": _tool_configure_automation_task,
     # ===== 截图工具(2026-07-22 新增,WorkPanel iframe 降级)=====
     "screenshot_url": _tool_screenshot_url,
+    # ===== 图像分析(P2-3,对标 Hermes 多模态输入)=====
+    "vision_analyze": _tool_vision_analyze,
 }
 
 
