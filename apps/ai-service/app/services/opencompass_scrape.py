@@ -199,6 +199,7 @@ def _scrape_opencompass_sync(timeout_ms: int = 30000) -> dict[str, Any]:
             ).strip() or None
 
             # 子能力分数(只保留数值列,排除 name/date/params/score)
+            # 关键:值必须转为 float,api 端 typeof v !== 'number' 检查才能通过(多分类拆分依赖此)
             scores_map: dict[str, Any] = {}
             for col_idx, h in enumerate(headers):
                 if col_idx in meta_cols or not h:
@@ -206,7 +207,11 @@ def _scrape_opencompass_sync(timeout_ms: int = 30000) -> dict[str, Any]:
                 if col_idx < len(row):
                     val = row[col_idx].strip()
                     if val and val != "-":
-                        scores_map[h] = val
+                        num_val = _try_float(val)
+                        if num_val is not None:
+                            scores_map[h] = num_val
+                        else:
+                            scores_map[h] = val
 
             # 发布日期作为 publishedAt(可选)
             published_at = None
