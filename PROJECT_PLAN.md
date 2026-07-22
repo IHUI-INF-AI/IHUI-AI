@@ -513,8 +513,38 @@ P2 AI 工具调用深度联动(5 修改文件):
 - `pnpm --filter @ihui/api lint` exit 0(0 errors,34 warnings 全是测试文件预存 `no-explicit-any`,非本次改动)✅
 
 **遗留(P1/P2,非本任务范围)**:
-- P1:routes/agents.ts user_token_balance 双账本问题(G2 遗留,待 G9+ 处理)
+- P1:routes/agents.ts user_token_balance 双账本问题(G2 遗留,待 G10+ 处理)
 - P2:rechargeToken 函数本身未做"订单金额 vs quantity 一致性"校验(当前信任前端传 quantity;后续可加 `order.payAmount * 100 === quantity` 校验,需对齐订单币种单位)
+
+---
+
+### [x] ✅(2026-07-22) G9 SSE 断连检测补齐:三端断连资源收口(全端连通:ai-service + api,已完成)
+
+**触发**:上一轮对话定位发现 SSE 长连接客户端断网/浏览器关闭后,服务端无法及时感知,导致 (1) LLM token 持续浪费,(2) sse_buffer / _sessionUsage 内存泄漏,(3) CrewAI 会话状态永远 'running'。
+
+**三端现状(定位结论)**:
+| 端 / 文件 | 修复前 | 修复后 |
+|---|---|---|
+| ai-service `agents.py` | `request` 参数**从未用**,无 `is_disconnected` 检测 | ✅ 每个 yield 前 `await request.is_disconnected()` + finally `sse_buffer.clear` |
+| api `ai-chat-stream.ts` | ✅ 已有 AbortController 模式 | 无需改动(已是教科书实现) |
+| api `agent-runtime.ts` | SSE 透传**无 close 监听** | ✅ AbortController + `req.raw.on('close')` + `signal` 传入 upstream fetch + finally cleanup + AbortError 友好处理 |
+| api `crew.ts` + `crew-orchestrator.ts` | close 时只清理 heartbeat,LLM 继续跑 | ✅ orchestrator 加 `_cancelled: Set` + `cancel/isCancelled/clearCancelled`;generator 加 try/finally 清理 _sessionUsage + 取消分支;crew.ts close handler 调 `crewOrchestrator.cancel(id)` |
+| web `use-chat.ts` | ✅ AbortController + finally + setStreaming(false) | 无需改动(只验证) |
+
+**完成证据**:
+- ai-service `agents.py`:在 `langgraph_service.run_graph_stream` + `agent_executor.run_stream` 两个 `async for` 循环内,每次 `yield _format_sse` 前加 `if await request.is_disconnected(): break`;`finally` 块由 `pass` 改为 `sse_buffer.clear(task_id)`(立即释放内存,TTL 仍兜底重连场景)
+- api `agent-runtime.ts`:`/execute/stream` 端点新增 `AbortController` + `req.raw.on('close', onClose)` + `signal: controller.signal` 传入 upstream `fetch` + `catch` 块识别 `AbortError` 友好处理(不写 error 事件,仅记录日志) + `finally` 块 `req.raw.off('close', onClose)` 清理 listener
+- api `crew-orchestrator.ts`:`CrewOrchestrator` 类新增 `_cancelled: Set<string>` 字段 + `cancel(sessionId)` / `isCancelled(sessionId)` / `clearCancelled(sessionId)` 三个方法;`executeSessionStreaming` 在主循环每 step 前加 `if (this.isCancelled(sessionId)) break`;任务循环结束后区分正常完成 vs 客户端取消(更新 session 状态为 `'cancelled'` + yield error 事件);新增 `try/catch/finally` 块 finally 兜底清理 `_sessionUsage` + `_cancelled`(防 Set 泄漏);开始时 `clearCancelled` 重置(允许重连后重新执行)
+- api `crew.ts`:`/runs/:id/stream` 端点的 `req.raw.on('close', ...)` handler 调 `crewOrchestrator.cancel(id)`(原只清理 heartbeat)
+- `pnpm --filter @ihui/api typecheck` exit 0 ✅
+- 本任务 3 个 api 文件 eslint 0 errors ✅
+- `python ast.parse` ai-service agents.py 语法有效 ✅
+
+**遗留(P1/P2,非本任务范围)**:
+- P1:routes/agents.ts user_token_balance 双账本问题(G2 遗留,待 G10+ 处理)
+- P2:`crew-orchestrator.ts` 的 `callRealLlm` 未透传 `AbortSignal`,loop 级 `isCancelled` 检测只能中断 generator 迭代,正在进行的 LLM HTTP 请求不会被取消(LLM 端会跑完当次响应);根治需把 `AbortController.signal` 透传到 `callRealLlm` → `crew-llm-adapter.ts` → LiteLLM 客户端
+- P2:ai-service 其他 SSE 端点(如 `agent_runtime.py` 的 `/execute/stream`)是否也有相同缺口待审计
+- P2:web 端 `use-chat.ts` 的 AbortController 仅在组件 unmount / 主动 stop / 首 token 超时 3 个场景触发,缺少"页面 visibilitychange 切到后台 X 秒后自动 abort"省电逻辑
 
 ---
 
