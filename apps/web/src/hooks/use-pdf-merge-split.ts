@@ -42,7 +42,7 @@ async function mergePdf(input: PdfMergeInput): Promise<PdfTaskResult> {
 async function splitPdf(input: PdfSplitInput): Promise<PdfTaskResult> {
   const res = await fetchApi<PdfTaskResult>('/api/pdf-service/split', {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify({ fileId: input.fileId, ranges: input.ranges.join(',') }),
   })
   if (!res.success) throw new Error(res.error)
   return res.data
