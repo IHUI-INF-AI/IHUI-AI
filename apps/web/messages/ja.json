@@ -26007,7 +26007,7 @@
   },
   "cliImport": {
     "title": "CLI 設定インポート",
-    "desc": "cc-switch / codex++ / Claude / Codex / Gemini / Hermes などのローカルツールからワンクリックインポート",
+    "desc": "cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env から一键インポート",
     "sources": "対応ソース",
     "sourceCcSwitch": "cc-switch",
     "sourceCodexPlus": "codex++",
@@ -26055,7 +26055,12 @@
     "errorNoFile": "設定ファイルをアップロードしてください",
     "errorNoSource": "インポートソースを選択してください",
     "errorPreviewExpired": "プレビュー期限切れ、再解析してください",
-    "errorParseFailed": "解析失敗"
+    "errorParseFailed": "解析失敗",
+    "sourceEnvFile": ".env 汎用設定",
+    "sourceCursor": "Cursor IDE",
+    "sourceWindsurf": "Windsurf (Codeium)",
+    "sourceCline": "Cline (VSCode)",
+    "sourceAider": "Aider"
   },
   "llmSettings": {
     "title": "マイLLM設定",
@@ -26223,7 +26228,10 @@
         "importSuccess": "{providers} プロバイダー / {models} モデルをインポートしました",
         "importFailed": "インポート失敗:{error}",
         "invalidJson": "無効な JSON です。ファイルを確認してください",
-        "cancel": "キャンセル"
+        "cancel": "キャンセル",
+        "formatLabel": "エクスポート形式",
+        "exportJson": "JSON 形式",
+        "exportEnv": ".env 形式"
       },
       "sidebar": {
         "title": "グループ",
