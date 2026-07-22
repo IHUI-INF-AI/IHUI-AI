@@ -24,10 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout（全历史）
+      - name: Checkout（全历史 + LFS）
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          lfs: true
 
       - name: 配置 git
         run: |
@@ -46,7 +47,9 @@ jobs:
             exit 0
           fi
           REMOTE="https://${GITEE_OWNER}:${GITEE_TOKEN}@gitee.com/${GITEE_OWNER}/IHUI-AI.git"
-          git push --mirror "$REMOTE" 2>&1 | sed "s|${GITEE_TOKEN}|***|g"
+          # 不用 --mirror:推 refs/remotes/origin/* 会被 Gitee 拒绝(deny hidden ref)
+          # 改用 refspec:推 branches + tags,删除远端多余,不推 remote-tracking
+          GIT_LFS_SKIP_PUSH=1 git push --force --prune "$REMOTE" "refs/heads/*:refs/heads/*" "refs/tags/*:refs/tags/*" 2>&1 | sed "s|${GITEE_TOKEN}|***|g"
           echo "✅ Gitee 镜像推送完成"
 
       - name: 镜像到 GitCode
@@ -61,7 +64,10 @@ jobs:
             exit 0
           fi
           REMOTE="https://${GITCODE_OWNER}:${GITCODE_TOKEN}@gitcode.com/${GITCODE_OWNER}/IHUI-AI.git"
-          git push --mirror "$REMOTE" 2>&1 | sed "s|${GITCODE_TOKEN}|***|g"
+          # GitCode 服务端 pre-receive hook 要求 LFS 对象必须存在，先推 LFS 对象
+          git lfs push --all "$REMOTE" 2>&1 | sed "s|${GITCODE_TOKEN}|***|g" || true
+          # 推 branches + tags（refspec，不推 remote-tracking）
+          GIT_LFS_SKIP_PUSH=1 git push --force --prune "$REMOTE" "refs/heads/*:refs/heads/*" "refs/tags/*:refs/tags/*" 2>&1 | sed "s|${GITCODE_TOKEN}|***|g"
           echo "✅ GitCode 镜像推送完成"
 
       - name: 同步结果汇总
