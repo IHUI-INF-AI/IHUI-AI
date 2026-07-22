@@ -1,5 +1,6 @@
 'use client'
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { cn } from '@/lib/utils'
 import { getFileIcon, getFileColor } from './file-icons'
@@ -19,6 +20,7 @@ const COMMITS = [
 ]
 
 export function SourceControlPanel() {
+  const t = useTranslations('ide')
   const { activeView, diffFiles } = useIDEWorkspace()
   const [branch, setBranch] = React.useState('main')
   const [branchOpen, setBranchOpen] = React.useState(false)
@@ -69,7 +71,7 @@ export function SourceControlPanel() {
           <button
             onClick={() => toggleStage(file.id)}
             className="text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
-            aria-label={staged ? '取消暂存' : '暂存'}
+            aria-label={staged ? t('sourceControl.unstage') : t('sourceControl.stage')}
           >
             {staged ? <Minus className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
           </button>
@@ -118,25 +120,25 @@ export function SourceControlPanel() {
           </span>
         </div>
         <div className="ml-auto flex gap-1">
-          <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" aria-label="刷新"><RefreshCw className="h-3.5 w-3.5" /></button>
-          <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" aria-label="更多"><MoreHorizontal className="h-3.5 w-3.5" /></button>
+          <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" aria-label={t('sourceControl.refresh')}><RefreshCw className="h-3.5 w-3.5" /></button>
+          <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" aria-label={t('sourceControl.more')}><MoreHorizontal className="h-3.5 w-3.5" /></button>
         </div>
       </div>
 
       <div className="px-2 py-1">
         <input
-          placeholder="提交信息"
+          placeholder={t('sourceControl.commitPlaceholder')}
           className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs focus:outline-none"
         />
         <button className="mt-1 flex w-full items-center justify-center gap-1 rounded-md bg-foreground py-1 text-xs text-background hover:bg-foreground/90">
           <Check className="h-3.5 w-3.5" />
-          <span>提交</span>
+          <span>{t('sourceControl.commit')}</span>
         </button>
       </div>
 
       <div className="px-2 py-1.5">
         <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
-          <span>变更统计</span>
+          <span>{t('sourceControl.changeStats')}</span>
           <span className="ml-auto flex items-center gap-1">
             <span className="text-green-600 dark:text-green-400">+{totalAdd}</span>
             <span className="text-red-600 dark:text-red-400">-{totalDel}</span>
@@ -152,26 +154,26 @@ export function SourceControlPanel() {
         {stagedFiles.length > 0 && (
           <div className="mb-2">
             <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-              已暂存 ({stagedFiles.length})
+              {t('sourceControl.staged', { count: stagedFiles.length })}
             </div>
             {stagedFiles.map((f) => renderFile(f, true))}
           </div>
         )}
         <div className="mb-2">
           <div className="px-2 py-1 text-xs font-medium text-muted-foreground">
-            变更 ({unstagedFiles.length})
+            {t('sourceControl.changes', { count: unstagedFiles.length })}
           </div>
           {unstagedFiles.length > 0 ? (
             unstagedFiles.map((f) => renderFile(f, false))
           ) : (
-            <div className="px-2 py-1 text-xs text-muted-foreground">无变更</div>
+            <div className="px-2 py-1 text-xs text-muted-foreground">{t('sourceControl.noChanges')}</div>
           )}
         </div>
 
         <div className="mb-2">
           <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground">
             <GitCommit className="h-3 w-3" />
-            <span>提交历史</span>
+            <span>{t('sourceControl.commitHistory')}</span>
           </div>
           {COMMITS.map((c) => (
             <div key={c.id} className="rounded px-2 py-1 text-xs hover:bg-muted/30">
