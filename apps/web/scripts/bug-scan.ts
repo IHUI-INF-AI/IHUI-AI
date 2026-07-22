@@ -24,7 +24,7 @@ const PAGES = [
   '/ai-career',
   '/bi-dashboard',
   '/workspace',
-  '/user-center',
+  '/admin/user-center',
   '/settings',
   '/user/profile',
   '/orders',
