@@ -797,3 +797,24 @@ h6 {
     display: none;
   }
 }
+
+/* ============================================================
+ * PasswordInput 眼睛图标弹性动画 (2026-07-22 立)
+ * ============================================================
+ * 用途:登录框密码输入框的显隐按钮,切换时图标弹性放大回弹。
+ * 触发:PasswordInput.tsx 中 style={{ animation: 'eye-fill 0.5s ease' }}
+ * key 变化(visible on/off)让 React 重新挂载 <span>,重新触发动画。
+ */
+@keyframes eye-fill {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
