@@ -530,13 +530,14 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // POST /messages/:id/read - 占位:会话已读标记(chat_messages 无 isRead 列,直接成功)
+  // POST /messages/:id/read - 占位:会话已读标记
+  // TODO: chatConversations 表无 lastReadAt 字段,持久化已读状态需扩展 schema
   server.post(
     '/messages/:id/read',
     {
       schema: {
         summary: '标记会话已读',
-        description: '标记指定会话为已读(占位实现,直接返回成功)',
+        description: '标记指定会话为已读(占位:chatConversations 无 lastReadAt 字段,暂不持久化)',
         tags: ['message'],
         params: {
           type: 'object',
