@@ -812,6 +812,361 @@ class AgentOrchestrator:
         )
 
     # =========================================================================
+    # Decomposed(任务自动分解 + 调度 + 重试/故障转移,P3-3)
+    # =========================================================================
+
+    async def run_decomposed(
+        self,
+        task: str,
+        strategy: str = "dag",
+        session_id: str | None = None,
+    ) -> OrchestrationResult:
+        """分解式执行:任务分解 → 调度 → 按并行批次执行 → 重试/故障转移 → 汇总。
+
+        流程:
+        1. TaskDecomposer.decompose 分解任务为子任务(含拓扑排序 + 并行批次)
+        2. TaskScheduler.schedule 按能力匹配分配 agent
+        3. 按并行批次执行(同批 asyncio.gather,批次间串行)
+        4. 每个子任务调 execute_with_retry,失败时调 execute_with_failover
+        5. 通过 AgentMessageBus + AgentBlackboard 共享中间结果
+        6. 汇总所有子任务结果
+        """
+        # 懒导入避免循环依赖(scheduler 导入本模块的 AgentDefinition/AgentStepResult)
+        from .task_decomposer import task_decomposer, TaskDecompositionRequest
+        from .scheduler import TaskScheduler, RetryPolicy, FailoverConfig
+        from .agent_comm import agent_message_bus, agent_blackboard, BlackboardEntry
+
+        start = time.monotonic()
+        orchestration_id = f"orch-{uuid.uuid4().hex[:8]}"
+        sid = session_id or f"{orchestration_id}-session"
+        trace: list[dict[str, Any]] = []
+        step_results: list[AgentStepResult] = []
+        status = "completed"
+
+        # 1. 构建可用 agent 列表(注册表转 decomposer 格式)
+        all_agents = self._registry.list_agents()
+        available_agents_info = [
+            {
+                "name": a.name,
+                "capabilities": a.tools + (
+                    [str(a.metadata.get("category"))]
+                    if a.metadata.get("category") else []
+                ),
+            }
+            for a in all_agents
+        ]
+
+        # 注册所有 agent 到消息总线
+        for a in all_agents:
+            agent_message_bus.register(a.name)
+
+        # 2. 分解任务
+        decomp_request = TaskDecompositionRequest(
+            task=task,
+            availableAgents=available_agents_info,
+            strategy=strategy,  # type: ignore[arg-type]
+            maxSubTasks=10,
+        )
+        try:
+            decomp_result = await task_decomposer.decompose(decomp_request)
+        except Exception as e:
+            return OrchestrationResult(
+                orchestration_id=orchestration_id,
+                steps=[],
+                final_output=f"任务分解失败: {e}",
+                status="failed",
+                total_duration_ms=round((time.monotonic() - start) * 1000, 2),
+                trace=[{"error": str(e)}],
+            )
+
+        trace.append({
+            "phase": "decompose",
+            "strategy": strategy,
+            "sub_task_count": len(decomp_result.subTasks),
+            "execution_order": decomp_result.executionOrder,
+            "parallel_batches": decomp_result.parallelBatches,
+        })
+
+        if not decomp_result.subTasks:
+            return OrchestrationResult(
+                orchestration_id=orchestration_id,
+                steps=[],
+                final_output="任务分解未产生子任务",
+                status="failed",
+                total_duration_ms=round((time.monotonic() - start) * 1000, 2),
+                trace=trace,
+            )
+
+        # 3. 调度(能力匹配)
+        local_scheduler = TaskScheduler(
+            executor=self._make_executor(sid)
+        )
+        sched_result = await local_scheduler.schedule(
+            decomp_result.subTasks, all_agents, strategy="capability_match"
+        )
+        trace.append({
+            "phase": "schedule",
+            "decisions": [
+                {
+                    "subTaskId": d.subTaskId,
+                    "agent": d.assignedAgent,
+                    "score": d.matchScore,
+                    "reason": d.reason,
+                }
+                for d in sched_result.decisions
+            ],
+            "concurrency": sched_result.concurrency,
+            "estimated_duration_s": sched_result.estimatedTotalDurationSeconds,
+        })
+
+        # 构建 subTaskId → assignedAgent 映射
+        subtask_map = {st.id: st for st in decomp_result.subTasks}
+        decision_map = {d.subTaskId: d for d in sched_result.decisions}
+
+        # 4. 按并行批次执行
+        for batch_idx, batch in enumerate(decomp_result.parallelBatches):
+            trace.append({
+                "phase": "execute_batch",
+                "batch": batch_idx + 1,
+                "sub_tasks": batch,
+            })
+
+            async def _exec_one(sub_task_id: str) -> AgentStepResult:
+                st = subtask_map[sub_task_id]
+                decision = decision_map.get(sub_task_id)
+                agent_name = decision.assignedAgent if decision else st.recommendedAgentType
+                agent = self._registry.get(agent_name)
+                if agent is None:
+                    return AgentStepResult(
+                        agent_name=agent_name,
+                        input=st.description,
+                        output="",
+                        status="failed",
+                        error=f"agent 不存在: {agent_name}",
+                    )
+
+                # 重试策略
+                retry_policy = RetryPolicy(
+                    maxRetries=st.maxRetries if st.retryable else 0,
+                    backoff="exponential",
+                    initialDelayMs=1000,
+                    maxDelayMs=10000,
+                    retryableErrors=["timeout", "rate_limited", "overloaded", "network", "unknown"],
+                )
+
+                result = await local_scheduler.execute_with_retry(
+                    st, agent, retry_policy, session_id=sid
+                )
+
+                # 失败且有其他可用 agent → 故障转移
+                if result.status == "failed" and len(all_agents) > 1:
+                    fallback_agents = [a for a in all_agents if a.name != agent_name]
+                    failover_config = FailoverConfig(
+                        primary=agent_name,
+                        fallbacks=[a.name for a in fallback_agents],
+                        triggerOn=["failure"],
+                    )
+                    result = await local_scheduler.execute_with_failover(
+                        st, all_agents, failover_config, session_id=sid
+                    )
+
+                # 写入黑板(共享中间结果)
+                if result.status == "completed" and result.output:
+                    await agent_blackboard.write(BlackboardEntry(
+                        id=f"bb-{uuid.uuid4().hex[:8]}",
+                        key=f"result:{sub_task_id}",
+                        value=result.output[:4000],
+                        writtenBy=agent.name,
+                        subTaskId=sub_task_id,
+                    ))
+
+                # 广播完成通知
+                await agent_message_bus.broadcast(
+                    from_agent=agent.name,
+                    content=f"子任务 {sub_task_id} 完成(状态:{result.status})",
+                    sub_task_id=sub_task_id,
+                )
+                return result
+
+            batch_results = await asyncio.gather(
+                *[_exec_one(sid_) for sid_ in batch]
+            )
+            step_results.extend(batch_results)
+            if any(r.status == "failed" for r in batch_results):
+                status = "failed"
+
+        # 5. 汇总
+        final_output = "\n\n---\n\n".join(
+            f"[{r.agent_name}]: {r.output}"
+            for r in step_results if r.status == "completed" and r.output
+        ) or "[所有子任务执行失败]"
+
+        return OrchestrationResult(
+            orchestration_id=orchestration_id,
+            steps=step_results,
+            final_output=final_output,
+            status=status,
+            total_duration_ms=round((time.monotonic() - start) * 1000, 2),
+            trace=trace,
+        )
+
+    # =========================================================================
+    # With Communication(多 agent 协作 + 消息总线 + 共享黑板,P3-3)
+    # =========================================================================
+
+    async def run_with_communication(
+        self,
+        agents: list[str],
+        task: str,
+        session_id: str | None = None,
+        model_override: str | None = None,
+    ) -> OrchestrationResult:
+        """多 agent 协作模式:通过消息总线通信 + 共享黑板记录中间结果。
+
+        流程:
+        1. 注册所有 agent 到消息总线
+        2. 第一个 agent 处理任务主体,结果写入黑板
+        3. 后续 agent 读取黑板 + 请求其他 agent 协助(通过 message bus)
+        4. 每个 agent 可广播进度 / 请求-回复
+        5. 汇总所有 agent 输出
+        """
+        from .agent_comm import (
+            agent_message_bus, agent_blackboard, BlackboardEntry, AgentMessage,
+        )
+
+        start = time.monotonic()
+        orchestration_id = f"orch-{uuid.uuid4().hex[:8]}"
+        sid = session_id or f"{orchestration_id}-session"
+        trace: list[dict[str, Any]] = []
+        step_results: list[AgentStepResult] = []
+        status = "completed"
+
+        if not agents:
+            return OrchestrationResult(
+                orchestration_id=orchestration_id,
+                steps=[],
+                final_output="",
+                status="failed",
+                total_duration_ms=round((time.monotonic() - start) * 1000, 2),
+                trace=[{"error": "agents 列表为空"}],
+            )
+
+        # 1. 注册 agent 到消息总线
+        for name in agents:
+            agent_message_bus.register(name)
+
+        # 2. 写入初始任务到黑板
+        await agent_blackboard.write(BlackboardEntry(
+            id=f"bb-{uuid.uuid4().hex[:8]}",
+            key="task",
+            value=task,
+            writtenBy="orchestrator",
+        ))
+
+        # 3. 每个 agent 依次处理(可读黑板 + 请求协助)
+        for idx, agent_name in enumerate(agents):
+            agent = self._registry.get(agent_name)
+            if not agent:
+                step_results.append(AgentStepResult(
+                    agent_name=agent_name, input="", output="",
+                    status="failed", error=f"Agent 不存在: {agent_name}",
+                ))
+                trace.append({
+                    "agent": agent_name, "status": "failed",
+                    "error": "agent_not_found",
+                })
+                status = "failed"
+                continue
+
+            # 读取黑板上的前序结果
+            prev_entry = await agent_blackboard.read("task", agent_name)
+            prev_results: list[BlackboardEntry] = await agent_blackboard.list_entries()
+            context_text = ""
+            for entry in prev_results:
+                if entry.key == "task":
+                    continue
+                context_text += f"[{entry.writtenBy} 的 {entry.key}]: {entry.value[:500]}\n\n"
+
+            # 构建 agent 输入:任务 + 前序 agent 的黑板结果
+            if context_text:
+                user_input = (
+                    f"任务:{task}\n\n"
+                    f"前序 agent 的产出:\n{context_text}\n"
+                    f"请基于以上上下文继续推进任务。如需其他 agent 协助,可声明请求。"
+                )
+            else:
+                user_input = f"任务:{task}\n\n请处理并给出你的产出。"
+
+            t0 = time.monotonic()
+            try:
+                result = await self._run_agent(agent, user_input, sid, model_override)
+            except Exception as e:
+                result = AgentStepResult(
+                    agent_name=agent_name, input=user_input, output="",
+                    status="failed",
+                    duration_ms=round((time.monotonic() - t0) * 1000, 2),
+                    error=str(e),
+                )
+
+            step_results.append(result)
+            trace.append({
+                "agent": agent_name,
+                "duration_ms": result.duration_ms,
+                "status": result.status,
+            })
+            if result.status == "failed":
+                status = "failed"
+
+            # 4. 结果写入黑板
+            if result.status == "completed" and result.output:
+                await agent_blackboard.write(BlackboardEntry(
+                    id=f"bb-{uuid.uuid4().hex[:8]}",
+                    key=f"output:{agent_name}",
+                    value=result.output[:4000],
+                    writtenBy=agent_name,
+                ))
+
+            # 5. 广播进度
+            await agent_message_bus.broadcast(
+                from_agent=agent_name,
+                content=f"agent {agent_name} 完成处理(状态:{result.status})",
+            )
+
+            # 检查是否有待处理请求(非阻塞,5s 超时)
+            pending = await agent_message_bus.receive(agent_name, timeout=0.1)
+            if pending is not None and pending.requireReply:
+                # 回复请求方
+                await agent_message_bus.send(AgentMessage(
+                    id=f"resp-{uuid.uuid4().hex[:8]}",
+                    fromAgent=agent_name,
+                    toAgent=pending.fromAgent,
+                    type="response",
+                    content=f"已收到请求:{pending.content[:200]}. 当前进度已完成。",
+                    subTaskId=pending.id,
+                ))
+
+        # 汇总
+        final_output = "\n\n---\n\n".join(
+            f"[{r.agent_name}]: {r.output}"
+            for r in step_results if r.status == "completed" and r.output
+        ) or "[所有 agent 执行失败]"
+
+        return OrchestrationResult(
+            orchestration_id=orchestration_id,
+            steps=step_results,
+            final_output=final_output,
+            status=status,
+            total_duration_ms=round((time.monotonic() - start) * 1000, 2),
+            trace=trace,
+        )
+
+    def _make_executor(self, session_id: str) -> Any:
+        """创建执行器闭包(注入 _run_agent 到 TaskScheduler)。"""
+        async def _executor(agent: AgentDefinition, user_input: str, sid: str | None) -> AgentStepResult:
+            return await self._run_agent(agent, user_input, sid or session_id, None)
+        return _executor
+
+    # =========================================================================
     # 私有:执行单个 agent
     # =========================================================================
 
