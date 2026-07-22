@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getBalance, type WalletBalance } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { useI18n } from '../../../src/i18n'
 
 function fmt(n: number | undefined): string {
   if (typeof n !== 'number') return '—'
@@ -8,6 +9,7 @@ function fmt(n: number | undefined): string {
 }
 
 export default function WalletPage() {
+  const { t } = useI18n()
   const [balance, setBalance] = useState<WalletBalance | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -22,7 +24,7 @@ export default function WalletPage() {
       if (res.success) {
         setBalance(res.data)
       } else {
-        setError(res.error || '加载失败')
+        setError(res.error || t('wallet.loadFailed'))
       }
       setLoading(false)
     })()
@@ -31,18 +33,18 @@ export default function WalletPage() {
     }
   }, [])
 
-  if (loading) return <div className="empty-state">加载中...</div>
+  if (loading) return <div className="empty-state">{t('common.loading')}</div>
   if (error) return <div className="error-banner">{error}</div>
   if (!balance) return null
 
   return (
     <div className="sp-page">
       <div className="sp-page-header">
-        <h3>钱包</h3>
+        <h3>{t('wallet.title')}</h3>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>可用余额</CardTitle>
+          <CardTitle>{t('wallet.balance')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="sp-balance">¥ {fmt(balance.balance)}</div>
@@ -50,7 +52,7 @@ export default function WalletPage() {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>累计充值</CardTitle>
+          <CardTitle>{t('wallet.totalRecharge')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="sp-balance muted">¥ {fmt(balance.totalRecharge)}</div>
