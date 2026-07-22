@@ -1,0 +1,291 @@
+name: Release CLI
+
+on:
+  push:
+    tags:
+      - 'cli-v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. cli-v1.0.0)'
+        required: true
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9'
+
+jobs:
+  # ---------- Job 1: npm publish ----------
+  npm-publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build CLI
+        run: pnpm --filter @ihui/cli build
+
+      - name: Typecheck
+        run: pnpm --filter @ihui/cli typecheck
+
+      - name: Publish to npm
+        run: pnpm --filter @ihui/cli publish --no-git-checks --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "### npm 发布完成" >> $GITHUB_STEP_SUMMARY
+          echo "包名: \`@ihui/cli\`" >> $GITHUB_STEP_SUMMARY
+          echo "安装: \`npm install -g @ihui/cli\`" >> $GITHUB_STEP_SUMMARY
+
+  # ---------- Job 2: Build binaries ----------
+  build-binary:
+    name: Build Binaries (${{ matrix.os }}-${{ matrix.arch }})
+    needs: npm-publish
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: x64
+            runner: ubuntu-latest
+            asset_name: ihui-linux-x64.tar.gz
+          - os: linux
+            arch: arm64
+            runner: ubuntu-latest
+            asset_name: ihui-linux-arm64.tar.gz
+          - os: macos
+            arch: x64
+            runner: macos-13
+            asset_name: ihui-macos-x64.tar.gz
+          - os: macos
+            arch: arm64
+            runner: macos-latest
+            asset_name: ihui-macos-arm64.tar.gz
+          - os: windows
+            arch: x64
+            runner: windows-latest
+            asset_name: ihui-windows-x64.zip
+          - os: windows
+            arch: arm64
+            runner: windows-latest
+            asset_name: ihui-windows-arm64.zip
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build CLI
+        run: pnpm --filter @ihui/cli build
+
+      - name: Create SEA blob config
+        shell: bash
+        run: |
+          mkdir -p sea-build
+          cat > sea-build/sea-config.json <<EOF
+          {
+            "main": "apps/cli/dist/index.js",
+            "output": "sea-prep.blob",
+            "disableExperimentalSEAWarning": true,
+            "useCodeCache": true
+          }
+          EOF
+
+      - name: Generate SEA blob
+        shell: bash
+        run: node --experimental-sea-config sea-build/sea-config.json
+
+      - name: Build binary (Linux/macOS)
+        if: matrix.os != 'windows'
+        shell: bash
+        run: |
+          cp "$(command -v node)" sea-build/ihui
+          npx postject sea-build/ihui NODE_SEA_BLOB sea-build/sea-prep.blob \
+            --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 \
+            --overwrite
+          chmod +x sea-build/ihui
+          mkdir -p artifacts
+          tar -czf artifacts/${{ matrix.asset_name }} -C sea-build ihui
+
+      - name: Build binary (Windows)
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          Copy-Item (Get-Command node).Source sea-build\ihui.exe
+          npx postject sea-build\ihui.exe NODE_SEA_BLOB sea-build\sea-prep.blob `
+            --sentinel-fuse NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2 `
+            --overwrite
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          Compress-Archive -Path sea-build\ihui.exe -DestinationPath artifacts\${{ matrix.asset_name }}
+
+      - name: Verify binary
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            ./sea-build/ihui.exe --version || true
+          else
+            ./sea-build/ihui --version || true
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: artifacts/${{ matrix.asset_name }}
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/${{ matrix.asset_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+
+  # ---------- Job 3: Build Docker image ----------
+  build-docker:
+    name: Build & Push Docker Image
+    needs: npm-publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set tag variable
+        id: vars
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if [ -z "$TAG" ] || [ "$TAG" = "$GITHUB_REF" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          fi
+          VERSION="${TAG#cli-v}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/ihui/ai-cli
+          tags: |
+            type=raw,value=latest
+            type=raw,value=${{ steps.vars.outputs.version }}
+            type=sha,prefix=sha-
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.cli
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          echo "### Docker 镜像推送完成" >> $GITHUB_STEP_SUMMARY
+          echo "镜像: \`ghcr.io/ihui/ai-cli:${{ steps.vars.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "拉取: \`docker pull ghcr.io/ihui/ai-cli:${{ steps.vars.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "运行: \`docker run --rm -v \$(pwd):/workspace ghcr.io/ihui/ai-cli\`" >> $GITHUB_STEP_SUMMARY
+
+  # ---------- Job 4: Generate changelog ----------
+  release-summary:
+    name: Release Summary
+    needs: [npm-publish, build-binary, build-docker]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v5
+        with:
+          configuration: |
+            {
+              "template": "## 变更内容\n\n{{#each commits}}\n* {{this.message.subject}}\n{{/each}}",
+              "categories": [
+                { "title": "新功能", "labels": ["feat", "feature"] },
+                { "title": "修复", "labels": ["fix", "bugfix"] },
+                { "title": "文档", "labels": ["docs"] },
+                { "title": "其他", "labels": ["chore", "refactor"] }
+              ]
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update release notes
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.changelog.outputs.changelog }}
+          append_body: true
+
+      - name: Summary
+        run: |
+          echo "### CLI Release 完成总结" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| npm publish | ${{ needs.npm-publish.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| build-binary | ${{ needs.build-binary.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| build-docker | ${{ needs.build-docker.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 安装方式" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "npm install -g @ihui/cli" >> $GITHUB_STEP_SUMMARY
+          echo "curl -fsSL https://ihui.ai/install.sh | bash" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
