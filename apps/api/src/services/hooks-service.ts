@@ -168,6 +168,90 @@ export interface TestHookResult {
   logs: unknown[]
 }
 
+/**
+ * Hook 日志过滤参数(2026-07-22 立)。
+ *
+ * 透传给 ai-service(router 未来扩展可用),同时在 api 层做客户端兜底过滤
+ * (当前 ai-service router 不识别这些 query 参数,需要 api 层确保过滤生效)。
+ */
+export interface HookLogsFilter {
+  /** 按触发事件过滤 */
+  event?: string
+  /** 按成功/失败过滤 */
+  success?: boolean
+  /** 耗时下限(ms,含) */
+  durationMin?: number
+  /** 耗时上限(ms,含) */
+  durationMax?: number
+  /** 起始时间(ISO 字符串,含) */
+  since?: string
+  /** 截止时间(ISO 字符串,含) */
+  until?: string
+}
+
+/**
+ * Hook 执行统计(2026-07-22 立)。
+ *
+ * 由 api 层从 ai-service 拉取日志后计算(最多 1000 条)。
+ */
+export interface HookStats {
+  total: number
+  success: number
+  failed: number
+  avgDuration: number
+}
+
+/**
+ * 把 HookLogsFilter 序列化为 query string。
+ *
+ * 同时透传给 ai-service(未来 router 扩展可用)+ api 层兜底过滤。
+ */
+function filterToQueryParams(filter: HookLogsFilter | undefined): URLSearchParams {
+  const params = new URLSearchParams()
+  if (!filter) return params
+  if (filter.event) params.set('event', filter.event)
+  if (filter.success !== undefined) params.set('success', String(filter.success))
+  if (filter.durationMin !== undefined) params.set('durationMin', String(filter.durationMin))
+  if (filter.durationMax !== undefined) params.set('durationMax', String(filter.durationMax))
+  if (filter.since) params.set('since', filter.since)
+  if (filter.until) params.set('until', filter.until)
+  return params
+}
+
+/**
+ * 客户端兜底过滤(ai-service router 可能不识别过滤参数)。
+ *
+ * 直接在 api 层对返回的 logs 做过滤,确保过滤条件生效。
+ */
+function applyLogsFilter(
+  logs: unknown[],
+  filter: HookLogsFilter | undefined,
+): unknown[] {
+  if (!filter) return logs
+  return logs.filter((item) => {
+    const log = item as Record<string, unknown>
+    if (filter.event && log.event !== filter.event) return false
+    if (filter.success !== undefined && log.success !== filter.success) return false
+    if (filter.durationMin !== undefined) {
+      const dur = Number(log.duration ?? 0)
+      if (dur < filter.durationMin) return false
+    }
+    if (filter.durationMax !== undefined) {
+      const dur = Number(log.duration ?? 0)
+      if (dur > filter.durationMax) return false
+    }
+    if (filter.since) {
+      const at = String(log.triggeredAt ?? '')
+      if (at < filter.since) return false
+    }
+    if (filter.until) {
+      const at = String(log.triggeredAt ?? '')
+      if (at > filter.until) return false
+    }
+    return true
+  })
+}
+
 /** 测试 Hook(模拟触发)。失败降级返回 {triggered: false, logs: []}。 */
 export async function testHook(
   request: FastifyRequest | null,
@@ -185,29 +269,126 @@ export async function testHook(
   return data ?? { triggered: false, logs: [] }
 }
 
-/** 查询指定 Hook 的日志。失败降级返回空数组。 */
+/** 查询指定 Hook 的日志(支持过滤参数)。失败降级返回空数组。 */
 export async function listHookLogs(
   request: FastifyRequest | null,
   hookId: string,
   limit = 100,
+  filter?: HookLogsFilter,
 ): Promise<HookLogsResponse> {
+  const params = filterToQueryParams(filter)
+  params.set('limit', String(limit))
   const data = await callAiHooks<HookLogsResponse>(
     request,
-    `/api/hooks/${encodeURIComponent(hookId)}/logs?limit=${limit}`,
+    `/api/hooks/${encodeURIComponent(hookId)}/logs?${params.toString()}`,
     { method: 'GET' },
   )
-  return data ?? { logs: [], count: 0 }
+  if (!data) return { logs: [], count: 0 }
+  // 客户端兜底过滤(ai-service router 可能不识别过滤参数)
+  const logs = applyLogsFilter(data.logs ?? [], filter)
+  return { logs, count: logs.length }
 }
 
-/** 查询全部 Hook 日志。 */
+/** 查询全部 Hook 日志(支持过滤参数)。 */
 export async function listAllHookLogs(
   request: FastifyRequest | null,
   limit = 100,
+  filter?: HookLogsFilter,
 ): Promise<HookLogsResponse> {
+  const params = filterToQueryParams(filter)
+  params.set('limit', String(limit))
   const data = await callAiHooks<HookLogsResponse>(
     request,
-    `/api/hooks/logs?limit=${limit}`,
+    `/api/hooks/logs?${params.toString()}`,
     { method: 'GET' },
   )
-  return data ?? { logs: [], count: 0 }
+  if (!data) return { logs: [], count: 0 }
+  const logs = applyLogsFilter(data.logs ?? [], filter)
+  return { logs, count: logs.length }
+}
+
+// ============================================================================
+// 批量操作 + 统计(2026-07-22 立)
+// ============================================================================
+
+/** 批量启用/禁用结果条目 */
+export interface BatchToggleResultItem {
+  id: string
+  success: boolean
+  /** 失败原因(success=false 时填) */
+  error?: string
+}
+
+/** 批量启用/禁用响应 */
+export interface BatchToggleResponse {
+  results: BatchToggleResultItem[]
+  /** 成功数 */
+  succeeded: number
+  /** 失败数 */
+  failed: number
+}
+
+/**
+ * 批量启用/禁用 Hook(2026-07-22 立)。
+ *
+ * 并发调用 toggleHook,每个 Hook 独立处理,单个失败不影响其他。
+ * 返回每个 Hook 的处理结果。
+ */
+export async function batchToggleHooks(
+  request: FastifyRequest | null,
+  hookIds: string[],
+  enabled: boolean,
+): Promise<BatchToggleResponse> {
+  if (hookIds.length === 0) {
+    return { results: [], succeeded: 0, failed: 0 }
+  }
+  const results = await Promise.all(
+    hookIds.map(async (id): Promise<BatchToggleResultItem> => {
+      const hook = await toggleHook(request, id, enabled)
+      if (hook === null) {
+        return { id, success: false, error: 'Hook 不存在或服务不可用' }
+      }
+      return { id, success: true }
+    }),
+  )
+  const succeeded = results.filter((r) => r.success).length
+  return {
+    results,
+    succeeded,
+    failed: results.length - succeeded,
+  }
+}
+
+/**
+ * 获取 Hook 执行统计(2026-07-22 立)。
+ *
+ * 从 ai-service 拉取日志(最多 1000 条)后在 api 层计算统计。
+ * 失败降级返回全 0 统计。
+ *
+ * @param hookId 可选,指定 Hook ID 时只统计该 Hook
+ */
+export async function getHookStats(
+  request: FastifyRequest | null,
+  hookId?: string,
+): Promise<HookStats> {
+  const empty: HookStats = { total: 0, success: 0, failed: 0, avgDuration: 0 }
+  const data = hookId
+    ? await listHookLogs(request, hookId, 1000)
+    : await listAllHookLogs(request, 1000)
+  const logs = (data.logs ?? []) as Array<{
+    success?: boolean
+    duration?: number
+  }>
+  const total = logs.length
+  if (total === 0) return empty
+  const successCount = logs.filter((l) => l.success === true).length
+  const failedCount = total - successCount
+  const totalDuration = logs.reduce((sum, l) => sum + (Number(l.duration ?? 0)), 0)
+  const avgDuration = Math.round((totalDuration / total) * 100) / 100
+  return {
+    total,
+    success: successCount,
+    failed: failedCount,
+    avgDuration,
+  }
 }
