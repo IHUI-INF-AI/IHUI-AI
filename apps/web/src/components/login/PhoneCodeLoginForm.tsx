@@ -169,7 +169,7 @@ export function PhoneCodeLoginForm({
         error={showAgreeErr && !agreed}
       />
       {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
-      <Button type="submit" className="h-10 w-full" disabled={submitting || !agreed}>
+      <Button type="submit" className="h-10 w-full" disabled={submitting}>
         {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {t('loginBtn')}
       </Button>
