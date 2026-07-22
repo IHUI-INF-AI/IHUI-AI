@@ -301,6 +301,38 @@ export const VENDOR_PLATFORMS: Record<string, VendorPlatform> = {
     apiFormat: 'openai_chat',
     note: 'Lepton AI 推理平台,Jian Yang 创办,OpenAI 格式兼容',
   },
+  OpenRouter: {
+    officialKeyUrl: 'https://openrouter.ai/keys',
+    docsUrl: 'https://openrouter.ai/docs',
+    defaultBaseUrl: 'https://openrouter.ai/api/v1',
+    providerCode: 'openrouter',
+    apiFormat: 'openai_chat',
+    note: '聚合 200+ 模型,统一 OpenAI 格式,支持按量付费,无需多平台注册',
+  },
+  'Together AI': {
+    officialKeyUrl: 'https://api.together.ai/settings/api-keys',
+    docsUrl: 'https://docs.together.ai/',
+    defaultBaseUrl: 'https://api.together.xyz/v1',
+    providerCode: 'together',
+    apiFormat: 'openai_chat',
+    note: '海外开源模型聚合,支持微调训练,OpenAI 格式兼容',
+  },
+  'Fireworks AI': {
+    officialKeyUrl: 'https://fireworks.ai/api-keys',
+    docsUrl: 'https://docs.fireworks.ai/',
+    defaultBaseUrl: 'https://api.fireworks.ai/inference/v1',
+    providerCode: 'fireworks',
+    apiFormat: 'openai_chat',
+    note: '海外开源模型聚合,低延迟推理,支持函数调用',
+  },
+  SiliconFlow: {
+    officialKeyUrl: 'https://cloud.siliconflow.cn/account/ak',
+    docsUrl: 'https://docs.siliconflow.cn/',
+    defaultBaseUrl: 'https://api.siliconflow.cn/v1',
+    providerCode: 'siliconflow',
+    apiFormat: 'openai_chat',
+    note: '硅基流动,国内主流开源模型聚合,OpenAI 格式兼容,国内直连速度快',
+  },
 }
 
 /** 查询 vendor 平台信息,返回降级兜底 */
