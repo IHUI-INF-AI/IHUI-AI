@@ -23,6 +23,11 @@ import { parseCodexCli } from './parsers/codex-cli.js'
 import { parseCodexPlus } from './parsers/codex-plus.js'
 import { parseGeminiCli } from './parsers/gemini-cli.js'
 import { parseHermes } from './parsers/hermes.js'
+import { parseAider } from './parsers/aider.js'
+import { parseCline } from './parsers/cline.js'
+import { parseCursor } from './parsers/cursor.js'
+import { parseEnvFile } from './parsers/env-file.js'
+import { parseWindsurf } from './parsers/windsurf.js'
 import type { ParserFn, ParserInput, ParserResult } from './parsers/types.js'
 
 interface ParserEntry {
@@ -84,6 +89,41 @@ const PARSERS: ParserEntry[] = [
     inputKind: 'text',
     filePatterns: [/hermes[/\\]config\.yaml$/i, /hermes.*\.ya?ml$/i, /config\.ya?ml$/i],
     description: 'Hermes config.yaml',
+  },
+  {
+    source: 'env-file',
+    fn: parseEnvFile,
+    inputKind: 'text',
+    filePatterns: [/^\.env$/i, /\.env$/i, /\.env\./i],
+    description: '.env 通用环境变量配置',
+  },
+  {
+    source: 'cursor',
+    fn: parseCursor,
+    inputKind: 'text',
+    filePatterns: [/cursor.*settings\.json$/i, /cursor.*models\.json$/i],
+    description: 'Cursor IDE AI 配置',
+  },
+  {
+    source: 'windsurf',
+    fn: parseWindsurf,
+    inputKind: 'text',
+    filePatterns: [/windsurf.*settings\.json$/i, /codeium.*settings\.json$/i],
+    description: 'Windsurf (Codeium) AI 配置',
+  },
+  {
+    source: 'cline',
+    fn: parseCline,
+    inputKind: 'text',
+    filePatterns: [/cline.*settings\.json$/i, /cline.*\.json$/i],
+    description: 'Cline VSCode 扩展配置',
+  },
+  {
+    source: 'aider',
+    fn: parseAider,
+    inputKind: 'text',
+    filePatterns: [/aider.*\.ya?ml$/i, /\.aider\.conf\.ya?ml$/i],
+    description: 'Aider AI 配置 YAML',
   },
 ]
 
@@ -213,6 +253,11 @@ export { parseClaudeCli } from './parsers/claude-cli.js'
 export { parseCodexCli } from './parsers/codex-cli.js'
 export { parseGeminiCli } from './parsers/gemini-cli.js'
 export { parseHermes } from './parsers/hermes.js'
+export { parseEnvFile } from './parsers/env-file.js'
+export { parseCursor } from './parsers/cursor.js'
+export { parseWindsurf } from './parsers/windsurf.js'
+export { parseCline } from './parsers/cline.js'
+export { parseAider } from './parsers/aider.js'
 export {
   detectSources,
   getExpectedPaths,
