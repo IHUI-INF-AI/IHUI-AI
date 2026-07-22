@@ -28443,7 +28443,9 @@
       "title": "大模型排行榜 · Arena 評分",
       "subtitle": "參考 arena.ai · Elo + Bootstrap CI",
       "empty": "暫無排行資料",
-      "sortHint": "點擊表頭排序"
+      "sortHint": "點擊表頭排序",
+      "searchPlaceholder": "搜尋模型/廠商…",
+      "allVendors": "全部廠商"
     },
     "hero": {
       "label": "AI 資訊 Hero",
@@ -28551,7 +28553,13 @@
       "copyBaseUrl": "複製 Base URL",
       "baseUrlCopied": "Base URL 已複製到剪貼簿",
       "copyFailed": "複製失敗,請手動複製",
-      "copyAndImport": "複製並匯入"
+      "copyAndImport": "複製並匯入",
+      "tagLongContext": "長上下文",
+      "tagLargeOutput": "大輸出",
+      "tagLowCost": "低成本",
+      "tagHighWinRate": "高勝率",
+      "tagTopTier": "頂級模型",
+      "tagMultimodal": "多模態"
     },
     "apiRelays": {
       "title": "API 中轉站",
@@ -28570,7 +28578,10 @@
       "billingToken": "按 Token",
       "billingFree": "免費額度",
       "billingGpu": "GPU 時長",
-      "billingSubscription": "套餐"
+      "billingSubscription": "套餐",
+      "sortLabel": "排序",
+      "sortByName": "按名稱",
+      "sortByBilling": "按計費"
     },
     "cta": {
       "label": "底部 CTA",
