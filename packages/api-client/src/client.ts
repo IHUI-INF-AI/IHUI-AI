@@ -180,41 +180,67 @@ export async function fetchApi<T>(
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  // 无 breaker:保留原始重试策略(maxRetries=1)
-  if (!circuitBreaker) {
-    const maxRetries = 1
-    let lastError = '网络异常'
+  // 2026-07-22 P0 Round 4 鲁棒性加固:默认 30s 超时,防止请求无限挂起
+  // 调用方传入的 signal 与超时 signal 合并(AbortSignal.any),任一触发都中止
+  // streamChat SSE 流场景不经过 fetchApi(走独立 streamText),不受此超时影响
+  const DEFAULT_TIMEOUT_MS = 30_000
+  const timeoutController = new AbortController()
+  const timeoutId = setTimeout(() => timeoutController.abort(), DEFAULT_TIMEOUT_MS)
+  const userSignal = restOptions.signal
+  const mergedSignal = userSignal
+    ? AbortSignal.any([userSignal, timeoutController.signal])
+    : timeoutController.signal
+  const optionsWithTimeout = { ...restOptions, signal: mergedSignal }
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        return await fetchOnce<T>(normalizedUrl, restOptions, headers)
-      } catch (err) {
-        // AbortError:用户主动取消,直接返回,不重试
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          return { success: false, error: '请求已取消' }
+  try {
+    // 无 breaker:保留原始重试策略(maxRetries=1)
+    if (!circuitBreaker) {
+      const maxRetries = 1
+      let lastError = '网络异常'
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          return await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
+        } catch (err) {
+          // AbortError:用户主动取消或超时,直接返回,不重试
+          if (err instanceof DOMException && err.name === 'AbortError') {
+            // 区分用户取消 vs 超时:timeoutController 已 abort 说明是超时
+            return {
+              success: false,
+              error: timeoutController.signal.aborted ? '请求超时(30s)' : '请求已取消',
+            }
+          }
+          const result = normalizeErrorToResult(err)
+          // 5xx / 4xx(已带 status):直接返回,不重试
+          if (result.status !== undefined) {
+            return result as ApiResult<T>
+          }
+          // 网络异常:重试或返回 lastError
+          lastError = result.error
+          if (attempt < maxRetries) continue
         }
-        const result = normalizeErrorToResult(err)
-        // 5xx / 4xx(已带 status):直接返回,不重试
-        if (result.status !== undefined) {
-          return result as ApiResult<T>
-        }
-        // 网络异常:重试或返回 lastError
-        lastError = result.error
-        if (attempt < maxRetries) continue
       }
+
+      return { success: false, error: lastError }
     }
 
-    return { success: false, error: lastError }
-  }
-
-  // 有 breaker:每次 fetchApi 计 1 个 breaker 样本(不内部重试,避免重复计样本)
-  try {
-    return await circuitBreaker.execute(async () => {
-      return await fetchOnce<T>(normalizedUrl, restOptions, headers)
-    })
-  } catch (err) {
-    if (err instanceof CircuitOpenError) throw err
-    return normalizeErrorToResult(err) as ApiResult<T>
+    // 有 breaker:每次 fetchApi 计 1 个 breaker 样本(不内部重试,避免重复计样本)
+    try {
+      return await circuitBreaker.execute(async () => {
+        return await fetchOnce<T>(normalizedUrl, optionsWithTimeout, headers)
+      })
+    } catch (err) {
+      if (err instanceof CircuitOpenError) throw err
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return {
+          success: false,
+          error: timeoutController.signal.aborted ? '请求超时(30s)' : '请求已取消',
+        }
+      }
+      return normalizeErrorToResult(err) as ApiResult<T>
+    }
+  } finally {
+    clearTimeout(timeoutId)
   }
 }
 
