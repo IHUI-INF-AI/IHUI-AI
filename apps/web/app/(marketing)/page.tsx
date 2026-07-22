@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Check, Globe, ShieldCheck, Users, Zap } from 'lucide-react'
-import { AnimatedNumber } from '@/components/common'
+import { AnimatedNumber, RevealOnView } from '@/components/common'
 import { Marquee } from '@/components/marketing/Marquee'
 import { PageIndicator } from '@/components/marketing/PageIndicator'
 import { ScrollDownButton } from '@/components/marketing/ScrollDownButton'
@@ -15,6 +15,7 @@ import { HomeComparison } from '@/components/marketing/HomeComparison'
 import { HomePage3Magazine } from '@/components/marketing/HomePage3Magazine'
 import { HomePage4Pricing } from '@/components/marketing/HomePage4Pricing'
 import { TypewriterHeroSection } from '@/components/marketing/TypewriterHero'
+import { HomeDecor } from '@/components/marketing/HomeDecor'
 import { SiteFooter } from '@/components/marketing/SiteFooter'
 import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
 
@@ -72,18 +73,21 @@ export default function HomePage() {
               接近 743px 视口,浪费率从 47% 降到 <10% */}
         <section
           id="home-page-1"
-          className="flex snap-start flex-col"
+          className="relative flex snap-start flex-col overflow-hidden"
           style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={t('indicator.page1', { fallback: 'Hero' })}
         >
+          {/* Hero 区装饰光斑 — absolute,在内容下方,打破"纯文字卡片"单调感 */}
+          <HomeDecor />
+
           {/* 顶部固定区:Marquee 通知跑马灯(2026-07-20 用户反馈:从底部上移到顶部,
               像 banner 一样最先被看到) */}
-          <div className="flex w-full flex-col gap-2 px-4 pt-4 md:px-8 md:pt-6">
+          <div className="relative z-10 flex w-full flex-col gap-2 px-4 pt-4 md:px-8 md:pt-6">
             <Marquee />
           </div>
 
           {/* 主区:hero + 信任行,flex-1 占满所有剩余空间 */}
-          <div className="flex w-full flex-1 flex-col items-center justify-center gap-4 md:gap-5">
+          <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center gap-4 md:gap-5">
             <TypewriterHeroSection />
 
             {/* 4 个信任徽章 — 填充 hero 与底部之间的视觉空地
@@ -91,44 +95,52 @@ export default function HomePage() {
                 1. 不满意全额退款(benefit6)
                 2. 限 18 席决策者(welcome.seats)
                 3. 早鸟价 ¥6000/年(welcome.earlyBird)
-                4. 8 端全覆盖(welcome.multiEnd) */}
-            <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 text-[11px] text-muted-foreground md:text-xs">
-              <span className="inline-flex items-center gap-1.5">
+                4. 8 端全覆盖(welcome.multiEnd)
+                2026-07-23 改:加 hover 上浮微交互 + 入场动画 */}
+            <RevealOnView
+              delay={0.4}
+              as="div"
+              className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 text-[11px] text-muted-foreground md:text-xs"
+            >
+              <span className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
                 <ShieldCheck className="h-3.5 w-3.5 text-primary" />
                 {t('welcome.benefits.benefit6')}
               </span>
               <span className="hidden h-3 w-px bg-border md:inline-block" />
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
                 <Users className="h-3.5 w-3.5 text-primary" />
                 {t('welcome.seats')}
               </span>
               <span className="hidden h-3 w-px bg-border md:inline-block" />
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
                 <Zap className="h-3.5 w-3.5 text-primary" />
                 {t('welcome.earlyBird')}
               </span>
               <span className="hidden h-3 w-px bg-border md:inline-block" />
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
                 <Globe className="h-3.5 w-3.5 text-primary" />
                 {t('welcome.multiEnd')}
               </span>
-            </div>
+            </RevealOnView>
           </div>
 
           {/* 底部固定区:6 Benefits(去掉 marquee,已上移到顶部)
               2026-07-20 改:pb-4 md:pb-6 -> pb-12 md:pb-14
               给 fixed 定位的 ScrollDownButton (bottom-4, h-5=20px) 留出 20-28px 视觉间距,
-              避免 chevron 跟 6 benefits ul 在视口底部同一条 y 轴重叠 */}
-          <div className="flex w-full flex-col gap-2 px-4 pb-12 md:px-8 md:pb-14">
+              避免 chevron 跟 6 benefits ul 在视口底部同一条 y 轴重叠
+              2026-07-23 改:每张卡片入场 staggered + hover 上浮 */}
+          <div className="relative z-10 flex w-full flex-col gap-2 px-4 pb-12 md:px-8 md:pb-14">
             <ul className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-2 sm:grid-cols-3 md:gap-3 lg:grid-cols-6">
               {benefits.map((b, i) => (
-                <li
+                <RevealOnView
                   key={i}
-                  className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs md:text-sm"
+                  as="li"
+                  delay={0.5 + i * 0.06}
+                  className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm md:text-sm"
                 >
                   <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
                   <span className="truncate">{b}</span>
-                </li>
+                </RevealOnView>
               ))}
             </ul>
           </div>
@@ -228,7 +240,8 @@ export default function HomePage() {
                 3. ¥6000 元/人/年 早鸟价(enterprise.hero.priceEarlyBird)
                 4. 18 席限位 · 决策者(stats.seats)
                 修复原 67% + cta.subtitle 长句错位 bug
-                v3:加 max-w-5xl 限宽,居中对称 */}
+                v3:加 max-w-5xl 限宽,居中对称
+                2026-07-23 改:每个 Stat 入场 staggered + hover 上浮 + 图标背景 */}
             <div className="mx-auto w-full max-w-5xl px-4">
               <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
                 {[
@@ -237,11 +250,12 @@ export default function HomePage() {
                   { value: 6000, prefix: '¥', label: te('hero.priceEarlyBird') },
                   { value: 18, suffix: '', label: t('stats.seats') },
                 ].map((s, i) => (
-                  <div
+                  <RevealOnView
                     key={i}
-                    className="flex flex-col items-center gap-0.5 rounded-lg border bg-card px-3 py-2 text-center md:py-3"
+                    delay={0.2 + 0.08 * i}
+                    className="group flex flex-col items-center gap-0.5 rounded-lg border bg-card px-3 py-2 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md md:py-3"
                   >
-                    <span className="text-xl font-bold tracking-tight text-primary md:text-2xl">
+                    <span className="text-xl font-bold tracking-tight text-primary transition-transform duration-300 group-hover:scale-110 md:text-2xl">
                       {s.prefix && <span>{s.prefix}</span>}
                       <AnimatedNumber value={s.value} duration={1500} />
                       {s.suffix && <span>{s.suffix}</span>}
@@ -249,7 +263,7 @@ export default function HomePage() {
                     <span className="line-clamp-2 text-[10px] text-muted-foreground md:text-xs">
                       {s.label}
                     </span>
-                  </div>
+                  </RevealOnView>
                 ))}
               </div>
             </div>
@@ -257,10 +271,11 @@ export default function HomePage() {
             {/* Brand 跑马灯(底部,固定高度,删除原 CTA 按钮组 2026-07-20:
                 用户要求"不需要有这个跳转功能",移除"立即加入"/"进入工作台"按钮,
                 仅保留品牌跑马灯展示
-                v3:加 max-w-7xl 限宽 + px-4 对称 padding */}
-            <div className="w-full max-w-7xl px-4">
+                v3:加 max-w-7xl 限宽 + px-4 对称 padding
+                2026-07-23 改:加入场动画 */}
+            <RevealOnView as="div" delay={0.3} className="w-full max-w-7xl px-4">
               <BrandMarquee />
-            </div>
+            </RevealOnView>
           </div>
         </section>
 
