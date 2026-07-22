@@ -232,6 +232,7 @@ import { adminShopRoutes } from './routes/admin-shop-routes.js'
 import { adminInvoicesRoutes } from './routes/admin-invoices.js'
 // 前端用户端缺失路由补建（54 个路由：空数据桩）
 import { missingUserRoutes } from './routes/missing-user-routes.js'
+import { miniappPublicStubRoutes } from './routes/miniapp-public-stubs.js'
 import { publicSocketRoutes } from './routes/public-socket.js'
 // OpenClaw 控制台 8 面板后端端点（memory/skills/automation/channels/tools/gateway/sessions/stats）
 import { openclawRoutes } from './routes/openclaw-routes.js'
@@ -285,6 +286,10 @@ import v1AiCoreRoutes from './routes/v1-ai-core.js'
 import v1MultimodalRoutes from './routes/v1-multimodal.js'
 // 对外公开 API — 知识工具类路由(/v1/*,2026-07-22 立,57 个端点:knowledge/mcp/memory/messages/files/user/workflow)
 import v1KnowledgeToolsRoutes from './routes/v1-knowledge-tools.js'
+// P3 深度层:Inline Diff Apply 后端入口(POST /api/v1/ai/apply-diff,2026-07-22 立)
+import { aiApplyDiffRoutes } from './routes/v1-apply-diff.js'
+// P3 深度层:代码库语义搜索路由(POST /api/v1/codebase/search 等,2026-07-22 立)
+import { codebaseSearchRoutes } from './routes/v1-codebase-search.js'
 
 import { setFastify } from './utils/logger.js'
 import { isAppError } from './errors/index.js'
@@ -410,7 +415,7 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(otelPlugin)
   await server.register(helmet, { contentSecurityPolicy: false })
   await server.register(cors, {
-    origin: (process.env.CORS_ORIGIN ?? 'http://localhost:3000').split(','),
+    origin: (process.env.CORS_ORIGIN ?? 'http://localhost:3001').split(','),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })
@@ -954,6 +959,8 @@ function registerRoutes(server: FastifyInstance) {
   // 全部空数据桩，覆盖：文章 / 内容生成 / 知识库 / 技能 / 学习记录 / MCP / OpenClaw
   // 代理类 / 用户设置 / AI 补充 / 开发者扩展 / 分销 / VIP 权益 / 优惠券 / 通知详情 / 消息详情
   server.register(missingUserRoutes, { prefix: '/api' })
+  // 小程序端首页公开 stub(未登录可访问,返回空数据,2026-07-22 立)
+  server.register(miniappPublicStubRoutes, { prefix: '/api' })
 
   // public_socket 9 端点(迁移自 coze_zhs_py/api/public_socket.py:1-663,P0 补齐 2026-07-20)
   server.register(publicSocketRoutes, { prefix: '/api/admin' })
@@ -1046,4 +1053,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(v1MultimodalRoutes, { prefix: '/v1' })
   // 对外公开 API — 知识工具类路由(/v1/*,57 个端点:knowledge/mcp/memory/messages/files/user/workflow)
   server.register(v1KnowledgeToolsRoutes, { prefix: '/v1' })
+  // P3 深度层:Inline Diff Apply 后端入口(POST /api/v1/ai/apply-diff,2026-07-22 立)
+  server.register(aiApplyDiffRoutes, { prefix: '/api' })
+  // P3 深度层:代码库语义搜索(POST /api/v1/codebase/search 等,2026-07-22 立)
+  server.register(codebaseSearchRoutes, { prefix: '/api/v1/codebase' })
 }

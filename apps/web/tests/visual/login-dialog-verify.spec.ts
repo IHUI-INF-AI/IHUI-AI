@@ -23,7 +23,7 @@ async function gotoAuthorize(page: Page) {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       await page.goto(
-        'http://localhost:3000/oauth/authorize?client_id=test&redirect_uri=http://localhost:3000/&state=xyz',
+        'http://localhost:3001/oauth/authorize?client_id=test&redirect_uri=http://localhost:3001/&state=xyz',
         { waitUntil: 'domcontentloaded', timeout: 15000 },
       )
       // 清 theme 残留,确保从 light 开始

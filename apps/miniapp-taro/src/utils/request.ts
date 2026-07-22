@@ -1,12 +1,12 @@
 /**
  * 请求封装 - 指向新架构后端
- * 新架构 API: http://localhost:3000/api
+ * 新架构 API: http://localhost:3001/api
  */
 import Taro from '@tarojs/taro'
 import { getToken, clearAuth } from './auth'
 
 /** 后端 API 基础地址 */
-export const BASE_URL = 'http://localhost:3000/api'
+export const BASE_URL = 'http://localhost:3001/api'
 
 /** 请求超时时间（毫秒） */
 const TIMEOUT = 15000

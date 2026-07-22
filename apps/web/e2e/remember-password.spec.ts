@@ -9,7 +9,7 @@ import { test, expect, type Page } from '@playwright/test'
  *  - apps/web/messages/{zh-CN,en,zh-TW,ko,ja}.json
  */
 
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000'
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3001'
 
 test.beforeEach(async ({ page }) => {
   // 清除 cookie,防止 LoginRedirectListener 自动打开登录弹窗
