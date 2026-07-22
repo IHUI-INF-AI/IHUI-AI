@@ -3,14 +3,43 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ExternalLink, Zap, Building2, User, AlertTriangle, Lightbulb } from 'lucide-react'
+import { ExternalLink, Zap, Building2, User, AlertTriangle, Lightbulb, Search } from 'lucide-react'
 import { COMPANY_RELAYS, PERSONAL_RELAY_NOTE } from './api-relays'
 import { encodePrefill } from './vendor-platforms'
+
+/** 从所有公司平台中提取去重后的厂商列表 */
+function useUniqueVendors(): string[] {
+  return React.useMemo(() => {
+    const set = new Set<string>()
+    COMPANY_RELAYS.forEach((r) => r.vendors.forEach((v) => set.add(v)))
+    return Array.from(set).sort()
+  }, [])
+}
 
 /** API 中转站区块:公司平台 + 个人运行说明 */
 export function ApiRelaysSection() {
   const router = useRouter()
   const t = useTranslations('aiNews.apiRelays')
+
+  const [query, setQuery] = React.useState('')
+  const [activeVendor, setActiveVendor] = React.useState<string | null>(null)
+  const allVendors = useUniqueVendors()
+
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return COMPANY_RELAYS.filter((r) => {
+      if (q) {
+        const hit =
+          r.name.toLowerCase().includes(q) ||
+          r.features.toLowerCase().includes(q) ||
+          r.billing.toLowerCase().includes(q) ||
+          r.vendors.some((v) => v.toLowerCase().includes(q))
+        if (!hit) return false
+      }
+      if (activeVendor && !r.vendors.includes(activeVendor)) return false
+      return true
+    })
+  }, [query, activeVendor])
 
   function handleRelayImport(baseUrl: string, name: string) {
     const payload = encodePrefill({
@@ -36,8 +65,67 @@ export function ApiRelaysSection() {
             <Building2 className="h-3.5 w-3.5 text-primary" />
             <h3 className="text-xs font-semibold">{t('companyType')}</h3>
           </div>
+
+          {/* 搜索 + 厂商筛选 */}
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('searchPlaceholder')}
+                className="w-full rounded-md border border-input bg-background py-1.5 pl-7 pr-7 text-xs placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              {query ? (
+                <button
+                  type="button"
+                  onClick={() => setQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground hover:text-foreground"
+                >
+                  ✕
+                </button>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveVendor(null)}
+                className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                  activeVendor === null
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-accent'
+                }`}
+              >
+                {t('allVendors')}
+              </button>
+              {allVendors.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setActiveVendor((cur) => (cur === v ? null : v))}
+                  className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                    activeVendor === v
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-accent'
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground/80">
+              {t('resultCount', { count: filtered.length, total: COMPANY_RELAYS.length })}
+            </p>
+          </div>
+
           <div className="grid gap-2 sm:grid-cols-2">
-            {COMPANY_RELAYS.map((relay) => (
+            {filtered.length === 0 ? (
+              <div className="col-span-full rounded-lg border border-dashed bg-muted/20 p-4 text-center text-xs text-muted-foreground">
+                {t('emptyResult')}
+              </div>
+            ) : null}
+            {filtered.map((relay) => (
               <div
                 key={relay.name}
                 className="rounded-lg border bg-background p-3 transition-colors hover:bg-accent/30"
@@ -68,7 +156,9 @@ export function ApiRelaysSection() {
                         </span>
                       ))}
                       {relay.vendors.length > 4 ? (
-                        <span className="text-[9px] text-muted-foreground">+{relay.vendors.length - 4}</span>
+                        <span className="text-[9px] text-muted-foreground">
+                          +{relay.vendors.length - 4}
+                        </span>
                       ) : null}
                     </div>
                     <p className="text-[10px] text-muted-foreground/80">{relay.billing}</p>
