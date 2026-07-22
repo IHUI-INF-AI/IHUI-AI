@@ -43,7 +43,9 @@ export const users = pgTable(
 
 export const refreshTokens = pgTable('refresh_tokens', {
   id: uuid('id').defaultRandom().primaryKey(),
-  userId: uuid('user_id').references(() => users.id),
+  // 2026-07-22 P1 鲁棒性加固:onDelete cascade 对齐 migration 0073(此前 schema 源码与 DB 三态不一致)
+  // 用户被删除时其 refresh tokens 级联清理,防孤儿 token + 安全风险
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
   token: text('token').unique(),
   familyId: uuid('family_id'),
   expiresAt: timestamp('expires_at', { withTimezone: true }),

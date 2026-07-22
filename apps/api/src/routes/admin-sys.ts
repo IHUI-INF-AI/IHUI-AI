@@ -1454,7 +1454,7 @@ export const adminSysRoutes: FastifyPluginAsync = async (server) => {
         if (!parsed.success) {
           return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
         }
-        const passwordHash = bcrypt.hashSync(parsed.data.password, 10)
+        const passwordHash = await bcrypt.hash(parsed.data.password, 10)
         const updated = await db
           .update(users)
           .set({ passwordHash, updatedAt: new Date() })
