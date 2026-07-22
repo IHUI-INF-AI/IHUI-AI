@@ -46,7 +46,7 @@ function dispatchVipPay(payInfo: VipPayInfo, orderNo: string) {
   Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` })
 }
 
-const gradient = 'linear-gradient(135deg, #f8d486, #f2b04a)'
+const gradient = 'linear-gradient(135deg, #f8d486, var(--color-warning))'
 
 export default function VipIndexPage() {
   const { t } = useI18n()
@@ -161,14 +161,14 @@ export default function VipIndexPage() {
           onClick={() => setAutoRenew((v) => !v)}
         >
           <View
-            className={`w-[36rpx] h-[36rpx] mr-[16rpx] flex items-center justify-center border-[2rpx] rounded-[8rpx] ${autoRenew ? 'bg-[#f2b04a] border-[#f2b04a]' : 'border-[#ccc] bg-white'}`}
+            className={`w-[36rpx] h-[36rpx] mr-[16rpx] flex items-center justify-center border-[2rpx] rounded-[8rpx] ${autoRenew ? 'bg-[var(--color-warning)] border-[var(--color-warning)]' : 'border-[#ccc] bg-card'}`}
           >
             {autoRenew && <Text className="text-white text-[24rpx] leading-none">✓</Text>}
           </View>
-          <Text className="text-[24rpx] text-[#666]">开通自动续费(连续包月,可随时关闭)</Text>
+          <Text className="text-[24rpx] text-muted-foreground">开通自动续费(连续包月,可随时关闭)</Text>
         </View>
         <View
-          className="mt-[12rpx] text-[22rpx] text-[#07c160]"
+          className="mt-[12rpx] text-[22rpx] text-primary"
           onClick={() => Taro.navigateTo({ url: '/pages/subscription/contracts/index' })}
         >
           <Text>管理自动续费</Text>

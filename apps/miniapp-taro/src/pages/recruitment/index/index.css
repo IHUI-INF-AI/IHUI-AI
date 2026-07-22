@@ -1,11 +1,11 @@
 .recruitment-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--color-background);
   padding-bottom: 140rpx;
 }
 .recruit-empty {
   text-align: center;
-  color: #999;
+  color: var(--color-muted-foreground);
   padding: 120rpx 0;
   font-size: 28rpx;
 }
@@ -13,7 +13,7 @@
   position: relative;
   width: 100%;
   height: 320rpx;
-  background: linear-gradient(135deg, #07c160, #35e683);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary));
   overflow: hidden;
 }
 .recruit-banner {
@@ -33,7 +33,7 @@
 .recruit-title {
   font-size: 44rpx;
   font-weight: bold;
-  color: #fff;
+  color: var(--color-foreground);
 }
 .recruit-subtitle {
   margin-top: 16rpx;
@@ -43,13 +43,13 @@
 .recruit-section {
   margin: 20rpx;
   padding: 24rpx;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 16rpx;
 }
 .section-title {
   font-size: 32rpx;
   font-weight: 600;
-  color: #333;
+  color: var(--color-foreground);
   display: block;
   margin-bottom: 20rpx;
 }
@@ -66,7 +66,7 @@
   width: 12rpx;
   height: 12rpx;
   border-radius: 50%;
-  background: #07c160;
+  background: var(--color-primary);
   margin-top: 12rpx;
   margin-right: 16rpx;
   flex-shrink: 0;
@@ -79,12 +79,12 @@
 .req-item-title {
   font-size: 28rpx;
   font-weight: 500;
-  color: #333;
+  color: var(--color-foreground);
 }
 .req-item-desc {
   margin-top: 8rpx;
   font-size: 24rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
   line-height: 1.5;
 }
 .priv-grid {
@@ -107,25 +107,25 @@
   width: 64rpx;
   height: 64rpx;
   border-radius: 16rpx;
-  background: #fff5e6;
+  background: rgba(245, 158, 11, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .priv-icon-text {
   font-size: 32rpx;
-  color: #f2b04a;
+  color: var(--color-warning);
 }
 .priv-item-title {
   margin-top: 12rpx;
   font-size: 26rpx;
-  color: #333;
+  color: var(--color-foreground);
   text-align: center;
 }
 .priv-item-desc {
   margin-top: 6rpx;
   font-size: 22rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
   text-align: center;
 }
 .income-list {
@@ -142,7 +142,7 @@
 .income-level {
   font-size: 28rpx;
   font-weight: 600;
-  color: #07c160;
+  color: var(--color-primary);
 }
 .income-detail {
   margin-top: 12rpx;
@@ -157,12 +157,12 @@
 }
 .income-label {
   font-size: 26rpx;
-  color: #666;
+  color: var(--color-muted-foreground);
 }
 .income-value {
   font-size: 28rpx;
   font-weight: 600;
-  color: #f2b04a;
+  color: var(--color-warning);
 }
 .recruit-footer {
   position: fixed;
@@ -171,13 +171,13 @@
   width: 100%;
   padding: 20rpx 30rpx;
   box-sizing: border-box;
-  background: #fff;
+  background: var(--color-card);
   box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.06);
 }
 .apply-btn {
   height: 88rpx;
-  background: #07c160;
-  color: #fff;
+  background: var(--color-primary);
+  color: var(--color-foreground);
   font-size: 32rpx;
   border-radius: 44rpx;
   display: flex;

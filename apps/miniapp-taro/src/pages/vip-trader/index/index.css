@@ -1,24 +1,24 @@
 .vip-trader-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--color-background);
   padding-bottom: 40rpx;
 }
 .trader-empty {
   text-align: center;
-  color: #999;
+  color: var(--color-muted-foreground);
   padding: 120rpx 0;
   font-size: 28rpx;
 }
 .trader-header {
   padding: 60rpx 30rpx;
-  background: linear-gradient(135deg, #f8d486, #f2b04a);
+  background: linear-gradient(135deg, #f8d486, var(--color-warning));
   display: flex;
   flex-direction: column;
 }
 .trader-title {
   font-size: 44rpx;
   font-weight: bold;
-  color: #fff;
+  color: var(--color-foreground);
 }
 .trader-subtitle {
   margin-top: 16rpx;
@@ -28,13 +28,13 @@
 .trader-section {
   margin: 20rpx;
   padding: 24rpx;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 16rpx;
 }
 .section-title {
   font-size: 32rpx;
   font-weight: 600;
-  color: #333;
+  color: var(--color-foreground);
   display: block;
   margin-bottom: 20rpx;
 }
@@ -51,8 +51,8 @@
   margin-bottom: 16rpx;
 }
 .level-item.active {
-  border-color: #f2b04a;
-  background: #fff9ef;
+  border-color: var(--color-warning);
+  background: rgba(245, 158, 11, 0.08);
 }
 .level-icon {
   width: 72rpx;
@@ -64,7 +64,7 @@
   width: 72rpx;
   height: 72rpx;
   border-radius: 16rpx;
-  background: linear-gradient(135deg, #f8d486, #f2b04a);
+  background: linear-gradient(135deg, #f8d486, var(--color-warning));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -74,7 +74,7 @@
 .level-icon-text {
   font-size: 36rpx;
   font-weight: bold;
-  color: #fff;
+  color: var(--color-foreground);
 }
 .level-content {
   flex: 1;
@@ -84,12 +84,12 @@
 .level-name {
   font-size: 30rpx;
   font-weight: 600;
-  color: #333;
+  color: var(--color-foreground);
 }
 .level-desc {
   margin-top: 8rpx;
   font-size: 24rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
 }
 .level-radio {
   width: 36rpx;
@@ -99,8 +99,8 @@
   flex-shrink: 0;
 }
 .level-radio.checked {
-  border-color: #f2b04a;
-  background: #f2b04a;
+  border-color: var(--color-warning);
+  background: var(--color-warning);
   position: relative;
 }
 .level-radio.checked::after {
@@ -111,7 +111,7 @@
   width: 14rpx;
   height: 14rpx;
   border-radius: 50%;
-  background: #fff;
+  background: var(--color-card);
   transform: translate(-50%, -50%);
 }
 .priv-list {
@@ -122,7 +122,7 @@
   display: flex;
   align-items: flex-start;
   padding: 16rpx 0;
-  border-bottom: 1rpx solid #f5f5f5;
+  border-bottom: 1rpx solid var(--color-border);
 }
 .priv-item:last-child {
   border-bottom: none;
@@ -137,7 +137,7 @@
   width: 56rpx;
   height: 56rpx;
   border-radius: 16rpx;
-  background: #fff5e6;
+  background: rgba(245, 158, 11, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -146,7 +146,7 @@
 }
 .priv-icon-text {
   font-size: 28rpx;
-  color: #f2b04a;
+  color: var(--color-warning);
 }
 .priv-content {
   flex: 1;
@@ -156,12 +156,12 @@
 .priv-item-title {
   font-size: 28rpx;
   font-weight: 500;
-  color: #333;
+  color: var(--color-foreground);
 }
 .priv-item-desc {
   margin-top: 6rpx;
   font-size: 24rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
   line-height: 1.5;
 }
 .form {
@@ -169,29 +169,29 @@
   flex-direction: column;
 }
 .form-item {
-  background: #f7f8fa;
+  background: var(--color-background);
   border-radius: 12rpx;
   padding: 20rpx;
   margin-bottom: 16rpx;
 }
 .form-label {
   font-size: 26rpx;
-  color: #666;
+  color: var(--color-muted-foreground);
   display: block;
   margin-bottom: 12rpx;
 }
 .form-input {
   height: 72rpx;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 8rpx;
   padding: 0 20rpx;
   font-size: 28rpx;
-  color: #333;
+  color: var(--color-foreground);
 }
 .submit-btn {
   width: 100%;
-  background: #f2b04a;
-  color: #fff;
+  background: var(--color-warning);
+  color: var(--color-foreground);
   font-size: 32rpx;
   border-radius: 44rpx;
   margin-top: 24rpx;

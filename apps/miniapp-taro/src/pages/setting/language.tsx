@@ -42,8 +42,8 @@ export default function LanguagePage() {
   )
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="mx-[12px] my-[12px] bg-white rounded-[8px] overflow-hidden">
+    <View className="min-h-screen bg-background">
+      <View className="mx-[12px] my-[12px] bg-card rounded-[8px] overflow-hidden">
         {LANGS.map((l, idx) => (
           <View
             key={l.value}
@@ -52,8 +52,8 @@ export default function LanguagePage() {
             }`}
             onClick={() => onSelect(l.value)}
           >
-            <Text className="text-[15px] text-[#333]">{t(`setting.${l.key}`)}</Text>
-            {current === l.value && <Text className="text-[16px] text-[#07c160]">✓</Text>}
+            <Text className="text-[15px] text-foreground">{t(`setting.${l.key}`)}</Text>
+            {current === l.value && <Text className="text-[16px] text-primary">✓</Text>}
           </View>
         ))}
       </View>

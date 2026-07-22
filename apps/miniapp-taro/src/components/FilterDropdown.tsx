@@ -20,37 +20,37 @@ export default function FilterDropdown({
   return (
     <View className="relative">
       <View
-        className="flex items-center px-3 py-2 bg-gray-50 rounded-lg"
+        className="flex items-center px-3 py-2 bg-muted rounded-lg"
         onClick={() => setOpen(!open)}
       >
-        <Text className="text-xs text-gray-500 mr-1">{label}:</Text>
-        <Text className={`text-xs ${selected ? 'text-indigo-600' : 'text-gray-400'}`}>
+        <Text className="text-xs text-muted-foreground mr-1">{label}:</Text>
+        <Text className={`text-xs ${selected ? 'text-primary' : 'text-muted-foreground'}`}>
           {selected?.label || '全部'}
         </Text>
-        <Text className="text-xs text-gray-400 ml-1">{open ? '▲' : '▼'}</Text>
+        <Text className="text-xs text-muted-foreground ml-1">{open ? '▲' : '▼'}</Text>
       </View>
       {open && (
-        <View className="absolute z-10 mt-1 py-1 bg-white rounded-lg shadow-lg border border-gray-100 min-w-32">
+        <View className="absolute z-10 mt-1 py-1 bg-card rounded-lg shadow-lg border border-border min-w-32">
           <View
-            className={`px-3 py-2 ${!value ? 'bg-indigo-50' : ''}`}
+            className={`px-3 py-2 ${!value ? 'bg-primary/10' : ''}`}
             onClick={() => {
               onChange?.('')
               setOpen(false)
             }}
           >
-            <Text className="text-xs text-gray-600">全部</Text>
+            <Text className="text-xs text-muted-foreground">全部</Text>
           </View>
           {options.map((opt) => (
             <View
               key={opt.value}
-              className={`px-3 py-2 ${value === opt.value ? 'bg-indigo-50' : ''}`}
+              className={`px-3 py-2 ${value === opt.value ? 'bg-primary/10' : ''}`}
               onClick={() => {
                 onChange?.(opt.value)
                 setOpen(false)
               }}
             >
               <Text
-                className={`text-xs ${value === opt.value ? 'text-indigo-600' : 'text-gray-600'}`}
+                className={`text-xs ${value === opt.value ? 'text-primary' : 'text-muted-foreground'}`}
               >
                 {opt.label}
               </Text>

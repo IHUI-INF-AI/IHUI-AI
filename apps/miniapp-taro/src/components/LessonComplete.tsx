@@ -27,33 +27,33 @@ export default function LessonComplete({
     <View className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
       <View className="absolute inset-0 bg-black/50" />
       <View
-        className="relative bg-white rounded-xl mx-8 px-6 py-6 max-w-xs w-full text-center"
+        className="relative bg-card rounded-xl mx-8 px-6 py-6 max-w-xs w-full text-center"
         onClick={(e) => e.stopPropagation()}
       >
         <Text className="block text-4xl mb-3">🎉</Text>
-        <Text className="block text-base font-medium text-gray-800 mb-1">学习完成!</Text>
-        <Text className="block text-xs text-gray-400 mb-4">{lessonTitle}</Text>
+        <Text className="block text-base font-medium text-foreground mb-1">学习完成!</Text>
+        <Text className="block text-xs text-muted-foreground mb-4">{lessonTitle}</Text>
 
-        <View className="flex justify-around mb-4 py-3 bg-gray-50 rounded-lg">
+        <View className="flex justify-around mb-4 py-3 bg-muted rounded-lg">
           <View>
-            <Text className="block text-sm font-medium text-gray-700">{duration || '00:00'}</Text>
-            <Text className="block text-xs text-gray-400">学习时长</Text>
+            <Text className="block text-sm font-medium text-foreground">{duration || '00:00'}</Text>
+            <Text className="block text-xs text-muted-foreground">学习时长</Text>
           </View>
           <View>
-            <Text className="block text-sm font-medium text-orange-500">+{points}</Text>
-            <Text className="block text-xs text-gray-400">积分</Text>
+            <Text className="block text-sm font-medium text-[#f59e0b]">+{points}</Text>
+            <Text className="block text-xs text-muted-foreground">积分</Text>
           </View>
         </View>
 
         {nextLessonTitle && (
-          <Text className="block text-xs text-gray-500 mb-4">下一节: {nextLessonTitle}</Text>
+          <Text className="block text-xs text-muted-foreground mb-4">下一节: {nextLessonTitle}</Text>
         )}
 
         <View className="flex space-x-3">
-          <View className="flex-1 py-2.5 rounded-md bg-gray-100" onClick={onShare}>
-            <Text className="text-sm text-gray-600">分享</Text>
+          <View className="flex-1 py-2.5 rounded-md bg-muted" onClick={onShare}>
+            <Text className="text-sm text-foreground">分享</Text>
           </View>
-          <View className="flex-1 py-2.5 rounded-md bg-indigo-500" onClick={onContinue}>
+          <View className="flex-1 py-2.5 rounded-md bg-primary" onClick={onContinue}>
             <Text className="text-sm text-white">{nextLessonTitle ? '继续学习' : '完成'}</Text>
           </View>
         </View>

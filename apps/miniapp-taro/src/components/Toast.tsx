@@ -10,10 +10,10 @@ export interface ToastProps {
 }
 
 const COLORS: Record<string, string> = {
-  success: 'bg-green-500',
-  error: 'bg-red-500',
-  warning: 'bg-orange-500',
-  info: 'bg-indigo-500',
+  success: 'bg-primary',
+  error: 'bg-destructive',
+  warning: 'bg-[#f59e0b]',
+  info: 'bg-primary',
 }
 
 const ICONS: Record<string, string> = {

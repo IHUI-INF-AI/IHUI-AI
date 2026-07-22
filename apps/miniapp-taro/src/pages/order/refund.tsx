@@ -32,19 +32,19 @@ export default function OrderRefund() {
   const disabled = !reason || submitting
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa] pb-[120rpx]">
-      <View className="m-[24rpx] p-[32rpx] bg-white rounded-[16rpx]">
-        <View className="text-[32rpx] text-[#333] font-semibold mb-[24rpx]">
+    <View className="min-h-screen bg-background pb-[120rpx]">
+      <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
+        <View className="text-[32rpx] text-foreground font-semibold mb-[24rpx]">
           {t('order.refund.title')}
         </View>
         <View className="flex justify-between py-[16rpx]">
-          <Text className="text-[26rpx] text-[#999]">{t('order.refund.orderNo')}</Text>
-          <Text className="text-[26rpx] text-[#333]">{orderNo}</Text>
+          <Text className="text-[26rpx] text-muted-foreground">{t('order.refund.orderNo')}</Text>
+          <Text className="text-[26rpx] text-foreground">{orderNo}</Text>
         </View>
         <View className="mt-[24rpx]">
-          <Text className="text-[26rpx] text-[#999]">{t('order.refund.reason')}</Text>
+          <Text className="text-[26rpx] text-muted-foreground">{t('order.refund.reason')}</Text>
           <Textarea
-            className="w-full min-h-[200rpx] mt-[16rpx] p-[20rpx] bg-[#f7f8fa] rounded-[12rpx] text-[26rpx] box-border"
+            className="w-full min-h-[200rpx] mt-[16rpx] p-[20rpx] bg-background rounded-[12rpx] text-[26rpx] box-border"
             value={reason}
             onInput={(e) => setReason(e.detail.value)}
             placeholder={t('order.refund.reasonPlaceholder')}
@@ -53,7 +53,7 @@ export default function OrderRefund() {
         </View>
       </View>
       <Button
-        className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] text-white rounded-[40rpx] text-[32rpx] ${disabled ? 'bg-[#ccc]' : 'bg-[#07c160]'}`}
+        className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] text-white rounded-[40rpx] text-[32rpx] ${disabled ? 'bg-[#ccc]' : 'bg-primary'}`}
         disabled={disabled}
         onClick={onSubmit}
       >

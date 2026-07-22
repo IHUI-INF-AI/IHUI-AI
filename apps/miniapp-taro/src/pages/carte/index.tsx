@@ -61,7 +61,7 @@ export default function CartePage() {
   const shareInfo = getShareInfo('/pages/carte/index', `${displayName}${t('carte.cardSuffix')}`)
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       <View className="bg-gradient-to-b from-[#0f766e] to-[#14b8a6] px-6 pt-12 pb-8 text-white text-center">
         <View className="flex justify-center mb-4">
           {info.avatar ? (
@@ -81,27 +81,27 @@ export default function CartePage() {
         {info.company && <Text className="block text-xs opacity-70 mt-1">{info.company}</Text>}
       </View>
 
-      <View className="mx-3 mt-4 bg-white rounded-xl p-4">
+      <View className="mx-3 mt-4 bg-card rounded-xl p-4">
         {info.intro && (
-          <View className="mb-4 pb-3 border-b border-gray-50">
-            <Text className="block text-xs text-gray-400 mb-1">{t('carte.introLabel')}</Text>
-            <Text className="block text-sm text-gray-600 leading-relaxed">{info.intro}</Text>
+          <View className="mb-4 pb-3 border-b border-border">
+            <Text className="block text-xs text-muted-foreground mb-1">{t('carte.introLabel')}</Text>
+            <Text className="block text-sm text-foreground leading-relaxed">{info.intro}</Text>
           </View>
         )}
 
         {info.phone && (
           <View
-            className="flex items-center justify-between py-2.5 border-b border-gray-50"
+            className="flex items-center justify-between py-2.5 border-b border-border"
             onClick={handleCopyPhone}
           >
-            <Text className="text-sm text-gray-500">{t('carte.phone')}</Text>
-            <Text className="text-sm text-gray-700">{info.phone}</Text>
+            <Text className="text-sm text-muted-foreground">{t('carte.phone')}</Text>
+            <Text className="text-sm text-foreground">{info.phone}</Text>
           </View>
         )}
         {info.email && (
-          <View className="flex items-center justify-between py-2.5 border-b border-gray-50">
-            <Text className="text-sm text-gray-500">{t('carte.email')}</Text>
-            <Text className="text-sm text-gray-700">{info.email}</Text>
+          <View className="flex items-center justify-between py-2.5 border-b border-border">
+            <Text className="text-sm text-muted-foreground">{t('carte.email')}</Text>
+            <Text className="text-sm text-foreground">{info.email}</Text>
           </View>
         )}
 
@@ -109,20 +109,20 @@ export default function CartePage() {
           {info.qrcode ? (
             <Image className="w-36 h-36 rounded-lg" src={info.qrcode} mode="aspectFit" />
           ) : (
-            <View className="flex items-center justify-center w-36 h-36 rounded-lg bg-gray-50">
-              <Text className="text-xs text-gray-400">{t('carte.noQrcode')}</Text>
+            <View className="flex items-center justify-center w-36 h-36 rounded-lg bg-muted">
+              <Text className="text-xs text-muted-foreground">{t('carte.noQrcode')}</Text>
             </View>
           )}
-          <Text className="block text-xs text-gray-400 mt-2">{t('carte.scanHint')}</Text>
+          <Text className="block text-xs text-muted-foreground mt-2">{t('carte.scanHint')}</Text>
         </View>
       </View>
 
       <View className="mx-3 mt-3 flex gap-2">
-        <Button className="flex-1 text-sm rounded-lg bg-gray-800 text-white" onClick={handleShare}>
+        <Button className="flex-1 text-sm rounded-lg bg-secondary text-white" onClick={handleShare}>
           {t('carte.shareCard')}
         </Button>
         <Button
-          className="flex-1 text-sm rounded-lg bg-gray-100 text-gray-700"
+          className="flex-1 text-sm rounded-lg bg-muted text-foreground"
           onClick={handleSaveQrcode}
         >
           {t('carte.saveQrcode')}
@@ -130,7 +130,7 @@ export default function CartePage() {
       </View>
 
       <View className="mx-3 mt-3 mb-6">
-        <Text className="block text-xs text-gray-300 text-center break-all">{shareInfo.path}</Text>
+        <Text className="block text-xs text-muted-foreground text-center break-all">{shareInfo.path}</Text>
       </View>
     </View>
   )

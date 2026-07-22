@@ -142,14 +142,14 @@ export default function InputArea({
   const canSend = text.trim().length > 0 && !disabled
 
   return (
-    <View className="bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 safe-area-bottom">
+    <View className="bg-card border-t border-border safe-area-bottom">
       {showEmoji ? (
-        <ScrollView scrollY className="h-48 border-b border-gray-100 dark:border-gray-800">
+        <ScrollView scrollY className="h-48 border-b border-border">
           <View className="flex flex-wrap p-2">
             {EMOJI_LIST.map((e, i) => (
               <View
                 key={i}
-                className="w-11 h-11 flex items-center justify-center text-2xl active:bg-gray-100 dark:active:bg-gray-800"
+                className="w-11 h-11 flex items-center justify-center text-2xl active:bg-muted"
                 onClick={() => handleEmojiPick(e)}
               >
                 <Text>{e}</Text>
@@ -162,7 +162,7 @@ export default function InputArea({
       <View className="flex items-end px-3 py-2">
         <View className="flex items-center mr-2">
           <Text
-            className={`w-9 h-9 leading-9 text-center text-xl rounded-lg active:bg-gray-100 dark:active:bg-gray-800 ${mode === 'voice' ? 'text-green-600' : 'text-gray-500'}`}
+            className={`w-9 h-9 leading-9 text-center text-xl rounded-lg active:bg-muted ${mode === 'voice' ? 'text-primary' : 'text-muted-foreground'}`}
             onClick={toggleMode}
           >
             {mode === 'text' ? '🎤' : '⌨️'}
@@ -170,13 +170,13 @@ export default function InputArea({
         </View>
 
         {mode === 'text' ? (
-          <View className="flex-1 min-h-10 bg-gray-100 dark:bg-gray-800 rounded-2xl px-3 py-2">
+          <View className="flex-1 min-h-10 bg-muted rounded-2xl px-3 py-2">
             <Textarea
-              className="w-full text-sm text-gray-800 dark:text-gray-100 bg-transparent"
+              className="w-full text-sm text-foreground dark:text-muted-foreground bg-transparent"
               style={{ minHeight: '40rpx', maxHeight: '200rpx' }}
               value={text}
               placeholder={placeholder || t('ai.inputArea.placeholder')}
-              placeholderClass="text-gray-400"
+              placeholderClass="text-muted-foreground"
               maxlength={maxLength}
               autoFocus={autoFocus}
               autoHeight
@@ -187,7 +187,7 @@ export default function InputArea({
               adjustPosition
               disabled={disabled}
             />
-            <View className="text-right text-xs text-gray-400 mt-1">
+            <View className="text-right text-xs text-muted-foreground mt-1">
               <Text>
                 {text.length}/{maxLength}
               </Text>
@@ -195,7 +195,7 @@ export default function InputArea({
           </View>
         ) : (
           <View
-            className={`flex-1 min-h-10 mx-2 rounded-2xl flex items-center justify-center text-sm ${recording ? 'bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}
+            className={`flex-1 min-h-10 mx-2 rounded-2xl flex items-center justify-center text-sm ${recording ? 'bg-red-100 text-destructive' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
             onTouchStart={handleVoiceStart}
             onTouchEnd={handleVoiceEnd}
             onTouchCancel={handleVoiceCancel}
@@ -209,14 +209,14 @@ export default function InputArea({
         <View className="flex items-center ml-2">
           {mode === 'text' ? (
             <Text
-              className={`w-9 h-9 leading-9 text-center text-xl rounded-lg active:bg-gray-100 dark:active:bg-gray-800 ${showEmoji ? 'text-green-600' : 'text-gray-500'}`}
+              className={`w-9 h-9 leading-9 text-center text-xl rounded-lg active:bg-muted ${showEmoji ? 'text-primary' : 'text-muted-foreground'}`}
               onClick={toggleEmoji}
             >
               😊
             </Text>
           ) : null}
           <Text
-            className="w-9 h-9 leading-9 text-center text-xl rounded-lg ml-1 text-gray-500 active:bg-gray-100 dark:active:bg-gray-800"
+            className="w-9 h-9 leading-9 text-center text-xl rounded-lg ml-1 text-muted-foreground active:bg-muted"
             onClick={handleUpload}
           >
             📎
@@ -225,7 +225,7 @@ export default function InputArea({
 
         {mode === 'text' ? (
           <View
-            className={`ml-2 px-4 h-9 leading-9 rounded-lg text-sm ${canSend ? 'bg-green-600 text-white active:bg-green-700' : 'bg-gray-200 text-gray-400 dark:bg-gray-700'}`}
+            className={`ml-2 px-4 h-9 leading-9 rounded-lg text-sm ${canSend ? 'bg-primary text-white active:bg-primary' : 'bg-muted text-muted-foreground'}`}
             onClick={handleSend}
           >
             <Text>{t('ai.inputArea.send')}</Text>

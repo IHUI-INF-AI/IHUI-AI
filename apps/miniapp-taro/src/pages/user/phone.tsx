@@ -59,10 +59,10 @@ export default function Phone() {
   }
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="mx-[12px] px-[16px] bg-white rounded-[8px]">
-        <View className="flex items-center py-[16px] border-b-[1px] border-solid border-[#f5f5f5]">
-          <Text className="w-[70px] text-[14px] text-[#333]">{t('user.phone.phone')}</Text>
+    <View className="min-h-screen bg-background">
+      <View className="mx-[12px] px-[16px] bg-card rounded-[8px]">
+        <View className="flex items-center py-[16px] border-b-[1px] border-solid border-border">
+          <Text className="w-[70px] text-[14px] text-foreground">{t('user.phone.phone')}</Text>
           <Input
             className="flex-1 text-[14px]"
             type="number"
@@ -73,7 +73,7 @@ export default function Phone() {
           />
         </View>
         <View className="flex items-center py-[16px]">
-          <Text className="w-[70px] text-[14px] text-[#333]">{t('user.phone.code')}</Text>
+          <Text className="w-[70px] text-[14px] text-foreground">{t('user.phone.code')}</Text>
           <View className="flex-1 flex items-center">
             <Input
               className="flex-1 text-[14px]"
@@ -84,7 +84,7 @@ export default function Phone() {
               onInput={(e) => setCode(e.detail.value)}
             />
             <Text
-              className={`text-[12px] whitespace-nowrap ${counting ? 'text-[#ccc]' : 'text-[#07c160]'}`}
+              className={`text-[12px] whitespace-nowrap ${counting ? 'text-muted-foreground' : 'text-primary'}`}
               onClick={sendCode}
             >
               {counting ? `${count}s` : t('user.phone.getCode')}
@@ -94,7 +94,7 @@ export default function Phone() {
       </View>
       <Button
         className={`mx-[16px] mt-[30px] rounded-[20px] text-[16px] ${
-          phone && code ? 'bg-[#07c160] text-white' : 'bg-[#ccc] text-white'
+          phone && code ? 'bg-primary text-white' : 'bg-[#ccc] text-white'
         }`}
         disabled={!phone || !code}
         onClick={onSubmit}

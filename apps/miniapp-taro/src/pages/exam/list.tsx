@@ -49,16 +49,16 @@ export default function ExamList() {
   const goResult = (id: string) => Taro.navigateTo({ url: `/pages/exam/result?id=${id}` })
 
   const renderPaper = (e: Exam) => (
-    <View key={e.id} className="bg-white rounded-2xl p-4 mb-3" onClick={() => goDetail(e.id)}>
+    <View key={e.id} className="bg-card rounded-2xl p-4 mb-3" onClick={() => goDetail(e.id)}>
       <View className="flex justify-between items-center">
-        <Text className="text-base text-[#333] font-semibold">{e.title}</Text>
-        {e.categoryName && <Text className="text-xs text-[#07c160]">{e.categoryName}</Text>}
+        <Text className="text-base text-foreground font-semibold">{e.title}</Text>
+        {e.categoryName && <Text className="text-xs text-primary">{e.categoryName}</Text>}
       </View>
       <View className="flex gap-3 mt-2">
-        <Text className="text-xs text-[#666]">{t('exam.questions', { n: e.questionCount })}</Text>
-        <Text className="text-xs text-[#666]">{t('exam.minutes', { n: e.duration })}</Text>
-        <Text className="text-xs text-[#666]">{t('exam.passScore', { n: e.passScore })}</Text>
-        <Text className="text-xs text-[#666]">{t('exam.totalScore', { n: e.totalScore })}</Text>
+        <Text className="text-xs text-muted-foreground">{t('exam.questions', { n: e.questionCount })}</Text>
+        <Text className="text-xs text-muted-foreground">{t('exam.minutes', { n: e.duration })}</Text>
+        <Text className="text-xs text-muted-foreground">{t('exam.passScore', { n: e.passScore })}</Text>
+        <Text className="text-xs text-muted-foreground">{t('exam.totalScore', { n: e.totalScore })}</Text>
       </View>
     </View>
   )
@@ -66,24 +66,24 @@ export default function ExamList() {
   const renderRecord = (r: ExamRecord) => {
     const paper = paperMap.get(r.paperId)
     return (
-      <View key={r.id} className="bg-white rounded-2xl p-4 mb-3" onClick={() => goResult(r.id)}>
+      <View key={r.id} className="bg-card rounded-2xl p-4 mb-3" onClick={() => goResult(r.id)}>
         <View className="flex justify-between items-center">
-          <Text className="text-base text-[#333] font-semibold">
+          <Text className="text-base text-foreground font-semibold">
             {paper?.title ?? t('exam.removedPaper')}
           </Text>
-          <Text className={`text-xs ${r.isPassed ? 'text-green-600' : 'text-red-500'}`}>
+          <Text className={`text-xs ${r.isPassed ? 'text-primary' : 'text-destructive'}`}>
             {r.isPassed ? t('exam.passed') : t('exam.notPassed')}
           </Text>
         </View>
         <View className="flex gap-3 mt-2">
-          <Text className="text-xs text-[#666]">{t('exam.score', { n: r.score })}</Text>
+          <Text className="text-xs text-muted-foreground">{t('exam.score', { n: r.score })}</Text>
           {paper && (
-            <Text className="text-xs text-[#666]">
+            <Text className="text-xs text-muted-foreground">
               {t('exam.totalScore', { n: paper.totalScore })}
             </Text>
           )}
           {r.submittedAt && (
-            <Text className="text-xs text-[#999]">
+            <Text className="text-xs text-muted-foreground">
               {new Intl.DateTimeFormat('zh-CN').format(new Date(r.submittedAt))}
             </Text>
           )}
@@ -101,12 +101,12 @@ export default function ExamList() {
         : 'exam.empty.all'
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="flex bg-white border-b border-[#eee]">
+    <View className="min-h-screen bg-background">
+      <View className="flex bg-card border-b border-[var(--color-border)]">
         {TAB_KEYS.map((item) => (
           <View
             key={item.key}
-            className={`flex-1 py-3 text-center text-sm ${tab === item.key ? 'text-[#07c160] font-semibold border-b-2 border-[#07c160]' : 'text-[#666]'}`}
+            className={`flex-1 py-3 text-center text-sm ${tab === item.key ? 'text-primary font-semibold border-b-2 border-primary' : 'text-muted-foreground'}`}
             onClick={() => setTab(item.key)}
           >
             {t(item.labelKey)}
@@ -123,7 +123,7 @@ export default function ExamList() {
       </View>
 
       {!loading && curList.length === 0 && (
-        <View className="text-center py-16 text-[#999]">
+        <View className="text-center py-16 text-muted-foreground">
           <Text>{t(emptyKey)}</Text>
         </View>
       )}
