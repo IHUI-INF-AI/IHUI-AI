@@ -5,12 +5,12 @@
  * - 发布：将能力推到市场（status=production + enabled=true）
  * - 检索：按 category / tag / 关键词搜索
  * - 排行：按使用量/评分/最新发布排序
- * - 收藏：用户可收藏能力（内存存储，可由调用方持久化）
+ * - 收藏：用户可收藏能力（DB 持久化到 user_preferences 表,group=ai_marketplace_favorites）
  */
 
-import { eq, and, ilike, desc, sql, or } from 'drizzle-orm'
+import { eq, and, ilike, desc, sql, or, inArray } from 'drizzle-orm'
 import { db } from '../../db/index.js'
-import { aiCapabilities, type AiCapability } from '@ihui/database'
+import { aiCapabilities, userPreferences, type AiCapability } from '@ihui/database'
 
 export interface MarketSearchRequest {
   keyword?: string
@@ -28,7 +28,65 @@ export interface MarketSearchResult {
   offset: number
 }
 
-const favorites = new Map<string, Set<string>>() // userId -> Set<capabilityId>
+const FAVORITES_GROUP = 'ai_marketplace_favorites'
+
+/** 用户收藏能力(DB 持久化到 user_preferences 表,group=ai_marketplace_favorites)。 */
+export async function addFavorite(userId: string, capabilityId: string): Promise<void> {
+  await db
+    .insert(userPreferences)
+    .values({
+      userId,
+      group: FAVORITES_GROUP,
+      key: capabilityId,
+      value: String(Date.now()),
+    })
+    .onConflictDoNothing()
+}
+
+/** 取消收藏。 */
+export async function removeFavorite(userId: string, capabilityId: string): Promise<void> {
+  await db
+    .delete(userPreferences)
+    .where(
+      and(
+        eq(userPreferences.userId, userId),
+        eq(userPreferences.group, FAVORITES_GROUP),
+        eq(userPreferences.key, capabilityId),
+      ),
+    )
+}
+
+/** 列出用户收藏。 */
+export async function listFavorites(userId: string): Promise<AiCapability[]> {
+  const favRows = await db
+    .select({ key: userPreferences.key })
+    .from(userPreferences)
+    .where(
+      and(
+        eq(userPreferences.userId, userId),
+        eq(userPreferences.group, FAVORITES_GROUP),
+      ),
+    )
+  const ids = favRows.map((r) => r.key)
+  if (ids.length === 0) return []
+  return db.select().from(aiCapabilities).where(inArray(aiCapabilities.id, ids))
+}
+
+/** 是否已收藏。 */
+export async function isFavorite(userId: string, capabilityId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: userPreferences.id })
+    .from(userPreferences)
+    .where(
+      and(
+        eq(userPreferences.userId, userId),
+        eq(userPreferences.group, FAVORITES_GROUP),
+        eq(userPreferences.key, capabilityId),
+      ),
+    )
+    .limit(1)
+  return rows.length > 0
+}
 
 /** 搜索市场。 */
 export async function searchMarket(req: MarketSearchRequest): Promise<MarketSearchResult> {
@@ -131,34 +189,6 @@ export async function unpublishFromMarket(capabilityId: string): Promise<AiCapab
     .returning()
   if (!updated) throw new Error(`能力 ${capabilityId} 不存在`)
   return updated
-}
-
-/** 用户收藏能力。 */
-export function addFavorite(userId: string, capabilityId: string): void {
-  let set = favorites.get(userId)
-  if (!set) {
-    set = new Set()
-    favorites.set(userId, set)
-  }
-  set.add(capabilityId)
-}
-
-/** 取消收藏。 */
-export function removeFavorite(userId: string, capabilityId: string): void {
-  favorites.get(userId)?.delete(capabilityId)
-}
-
-/** 列出用户收藏。 */
-export async function listFavorites(userId: string): Promise<AiCapability[]> {
-  const ids = Array.from(favorites.get(userId) ?? [])
-  if (ids.length === 0) return []
-  const rows = await db.select().from(aiCapabilities)
-  return rows.filter((r) => ids.includes(r.id))
-}
-
-/** 是否已收藏。 */
-export function isFavorite(userId: string, capabilityId: string): boolean {
-  return favorites.get(userId)?.has(capabilityId) ?? false
 }
 
 /** 热门能力（按 qualityScore + 简化热度算法）。 */
