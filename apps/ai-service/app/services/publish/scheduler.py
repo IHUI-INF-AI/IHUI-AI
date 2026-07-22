@@ -47,6 +47,15 @@ class PublishScheduler:
         self._user_running: dict[str, int] = {}  # user_id -> 正在执行的任务数
         self._history: list[dict[str, Any]] = []  # 内存 LRU 历史
         self._started = False
+        # 持有 spawn 出的 task 引用,避免 CPython GC 回收未完成的 task
+        self._pending_tasks: set[asyncio.Task] = set()
+
+    def _spawn_task(self, coro) -> asyncio.Task:
+        """创建 task 并持有引用,完成后自动从集合移除。"""
+        task = asyncio.create_task(coro)
+        self._pending_tasks.add(task)
+        task.add_done_callback(self._pending_tasks.discard)
+        return task
 
     # ===== 启停 =====
 
@@ -208,7 +217,7 @@ class PublishScheduler:
                     now,
                     task_id,
                 )
-                asyncio.create_task(self._run_task(task_id, user_id, content, targets))
+                self._spawn_task(self._run_task(task_id, user_id, content, targets))
         finally:
             await conn.close()
 
@@ -265,7 +274,7 @@ class PublishScheduler:
             return {"ok": True, "task_id": task_id, "status": "scheduled", "scheduled_at": scheduled_at.isoformat()}
 
         # 立即执行
-        asyncio.create_task(self._run_task(task_id, user_id, content, targets))
+        self._spawn_task(self._run_task(task_id, user_id, content, targets))
         return {"ok": True, "task_id": task_id, "status": "running"}
 
     # ===== 执行任务 =====
@@ -559,7 +568,7 @@ class PublishScheduler:
                 images=row["content"].get("images", []) if isinstance(row["content"], dict) else [],
             )
             retry_task_id = f"{task_id}-retry-{int(datetime.now(timezone.utc).timestamp())}"
-            asyncio.create_task(self._run_task(row["user_id"] or "", retry_task_id, content, new_targets))
+            self._spawn_task(self._run_task(row["user_id"] or "", retry_task_id, content, new_targets))
             return {"ok": True, "retry_task_id": retry_task_id, "targets": len(new_targets)}
         except Exception as e:
             return {"ok": False, "error": f"{type(e).__name__}: {e}"}

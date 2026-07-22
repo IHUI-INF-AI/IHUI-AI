@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -27,6 +28,8 @@ from ..core.llm_gateway import llm_gateway
 from .agent_loop import agent_executor
 from .memory import memory_store
 from .mcp_server import mcp_server
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -1261,8 +1264,8 @@ class AgentOrchestrator:
 
             try:
                 await memory_store.add(sid, "assistant", output)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("memory_store.add assistant 输出失败: %s", e)
 
             return AgentStepResult(
                 agent_name=agent.name,

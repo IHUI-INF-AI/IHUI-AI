@@ -134,6 +134,15 @@ class A2AServer:
         self._tasks: dict[str, A2ATask] = {}  # 内存热缓存
         self._redis = None
         self._redis_available = False
+        # 持有 create_task 引用,防止 CPython GC 回收未完成的 task
+        self._pending_tasks: set[asyncio.Task] = set()
+
+    def _spawn_task(self, coro) -> asyncio.Task:
+        """创建 task 并持有引用,完成后自动从集合移除。"""
+        task = asyncio.create_task(coro)
+        self._pending_tasks.add(task)
+        task.add_done_callback(self._pending_tasks.discard)
+        return task
 
     async def _get_redis(self):
         """获取 Redis 连接(懒初始化)。
@@ -238,7 +247,7 @@ class A2AServer:
     def register_agent(self, agent: A2AAgent) -> A2AAgent:
         """注册一个 agent,若 id 已存在则覆盖。"""
         self._agents[agent.id] = agent
-        asyncio.create_task(self._persist_agent(agent))
+        self._spawn_task(self._persist_agent(agent))
         return agent
 
     def list_agents(self) -> list[A2AAgent]:
@@ -263,9 +272,9 @@ class A2AServer:
         task_id = f"task-{uuid.uuid4().hex}"
         task = A2ATask(task_id, name, agent_id, input_data)
         self._tasks[task_id] = task
-        asyncio.create_task(self._persist_task(task))
+        self._spawn_task(self._persist_task(task))
         # 异步执行(不阻塞 send_task 返回)
-        asyncio.create_task(self._execute_task(task_id))
+        self._spawn_task(self._execute_task(task_id))
         return task
 
     async def _execute_task(self, task_id: str) -> None:

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 import type { WSNotification } from '@/hooks/use-websocket'
 import type { NotificationItem, MessageItem } from '@/lib/notification-api'
@@ -22,7 +23,9 @@ interface NotificationState {
   handleWsMessage: (msg: WSNotification | null) => void
 }
 
-export const useNotificationStore = create<NotificationState>((set) => ({
+export const useNotificationStore = create<NotificationState>()(
+  persist(
+    (set) => ({
   notifications: [],
   unreadCount: 0,
   messages: [],
@@ -103,4 +106,10 @@ export const useNotificationStore = create<NotificationState>((set) => ({
       createdAt: str(data.createdAt) ?? new Date().toISOString(),
     })
   },
-}))
+    }),
+    {
+      name: 'ihui-notification',
+      partialize: (s) => ({ unreadCount: s.unreadCount, unreadMessageCount: s.unreadMessageCount }),
+    },
+  ),
+)

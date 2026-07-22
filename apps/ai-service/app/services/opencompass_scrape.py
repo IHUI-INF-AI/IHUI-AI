@@ -112,20 +112,21 @@ def _scrape_opencompass_sync(timeout_ms: int = 30000) -> dict[str, Any]:
         # 等待表格出现(JS 渲染完成的核心标志)
         try:
             page.wait_for_selector("table", state="attached", timeout=timeout_ms)
-        except Exception:
+        except Exception as e:
             # 退化等待 networkidle
+            logger.warning("等待 table selector 超时,退化 networkidle: %s", e)
             try:
                 page.wait_for_load_state("networkidle", timeout=10_000)
-            except Exception:
-                pass
+            except Exception as e2:
+                logger.warning("networkidle 等待也失败: %s", e2)
 
         # 等待 ant-design Vue Table 渲染数据行(tbody tr 出现)
         # OpenCompass 用 ant-design Vue,数据加载后 tbody 才有 tr
         try:
             page.wait_for_selector("table tbody tr", state="attached", timeout=20_000)
-        except Exception:
+        except Exception as e:
             # 数据行等待超时,继续执行(可能是 loading 状态,稍后再试)
-            pass
+            logger.warning("等待 table tbody tr 超时,继续执行: %s", e)
 
         # 额外等待 2s 让数据填充完整(Vue 异步渲染)
         page.wait_for_timeout(2000)
