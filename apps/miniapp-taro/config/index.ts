@@ -42,6 +42,11 @@ export default defineConfig(async (merge) => {
         filename: 'css/[name].[hash].css',
         chunkFilename: 'css/[name].[chunkhash].css',
       },
+      vite: {
+        resolve: {
+          dedupe: ['react', 'react-dom', '@tarojs/runtime', '@tarojs/runtime-dom'],
+        },
+      },
       postcss: {
         autoprefixer: { enable: true, config: {} },
         tailwindcss: { enable: true, config: {} },

@@ -62,7 +62,7 @@ describe('miniapp-taro SSO 流程', () => {
 
     it('使用默认 webBase', () => {
       const url = getSsoLoginUrl('/pages/test')
-      expect(url).toContain('http://localhost:3001/sso/login?')
+      expect(url).toContain('http://localhost:8801/sso/login?')
     })
   })
 
@@ -136,7 +136,7 @@ describe('miniapp-taro SSO 流程', () => {
       const result = await validateToken('valid-token')
       expect(result).toBe(true)
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3001/api/auth/sso/validate',
+        'http://localhost:8801/api/auth/sso/validate',
         expect.objectContaining({
           headers: { Authorization: 'Bearer valid-token' },
         }),

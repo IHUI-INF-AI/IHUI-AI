@@ -1,6 +1,6 @@
 import { setBaseUrl, setTokenProvider } from '@ihui/api-client'
 
-const API_BASE_URL = 'http://127.0.0.1:3002'
+const API_BASE_URL = 'http://127.0.0.1:8802'
 const TOKEN_KEY = 'ihui-desktop-token'
 const REFRESH_TOKEN_KEY = 'ihui-desktop-refresh-token'
 
