@@ -7,7 +7,7 @@
  *
  * 设计:
  *   - 每个子 agent 一个 fork() 子进程,入口 worker-entry.ts
- *   - 主进程通过 IPC channel 收子进程 heartbeat,15s 无心跳标记 dead
+ *   - 主进程通过 IPC channel 收子进程 heartbeat,超 heartbeatTimeoutSeconds(默认 60s)无心跳标记 dead
  *   - 超时:timeoutSeconds 到期 SIGTERM 子进程,标记 failed
  *   - maxWorkers 限制并发(排队),非抢占式
  *   - isolation='worktree' 时调用现有 createWorktree,子进程在隔离工作区跑
@@ -22,16 +22,17 @@ import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createWorktree, removeWorktree, type WorktreeInfo } from './worktree.js';
 import type {
+  NetworkEgressPolicy,
   SubagentSpawnRequest,
   SubagentSpawnResponse,
   WorkerPoolConfig,
+  WorkerResourceLimits,
   WorkerState,
 } from '@ihui/types';
 
 // ───────────────────────────── 常量 ─────────────────────────────
 
 const HEARTBEAT_INTERVAL_MS = 5_000;
-const HEARTBEAT_TIMEOUT_MS = 15_000;
 const SHUTDOWN_GRACE_MS = 5_000;
 const DEFAULT_MAX_WORKERS = 4;
 const DEFAULT_TASK_TIMEOUT_SECONDS = 300;
@@ -58,6 +59,10 @@ interface StartIPCMessage {
   model?: string;
   capability?: SubagentSpawnRequest['capability'];
   maxIterations?: number;
+  /** 网络出站策略(P1-5,worker-entry 调 installEgressGuard 注入) */
+  networkEgressPolicy?: NetworkEgressPolicy;
+  /** 资源限制(P1-3,memoryMb 供子进程自 OOM 检查,cpuCores/cpuSeconds 供轮询) */
+  resourceLimits?: WorkerResourceLimits;
 }
 
 /** 内部 worker 跟踪条目 */
@@ -102,10 +107,13 @@ export class SubagentWorkerPool {
   private nextWorkerSeq = 0;
   private readonly entryPath: string;
   private shutDown = false;
+  /** 心跳超时 ms(从 config.heartbeatTimeoutSeconds 读,默认 60s) */
+  private readonly heartbeatTimeoutMs: number;
 
   constructor(config: WorkerPoolConfig) {
     this.config = config;
     this.entryPath = resolveWorkerEntryPath();
+    this.heartbeatTimeoutMs = (config.heartbeatTimeoutSeconds ?? 60) * 1000;
   }
 
   /** fork 一个子进程跑子 agent,返回 spawn 响应(子进程完成后 resolve) */
@@ -233,14 +241,26 @@ export class SubagentWorkerPool {
   private startWorker(req: SubagentSpawnRequest, resolve: (r: SubagentSpawnResponse) => void): void {
     const subagentId = generateSubagentId();
     const timeoutSec = req.timeoutSeconds ?? this.config.taskTimeoutSeconds;
-    const baseWorkspace = req.workspacePath ?? process.cwd();
-    let workspacePath = baseWorkspace;
+    // worktree 源路径优先级:config.workspaceSourcePath > req.workspacePath > process.cwd()
+    const sourcePath = this.config.workspaceSourcePath ?? req.workspacePath ?? process.cwd();
+    let workspacePath = sourcePath;
     let worktree: WorktreeInfo | undefined;
 
-    // isolation='worktree' 时创建隔离工作区
+    // isolation='worktree' 时创建隔离工作区(需源仓库路径,空=不启用,对齐类型契约)
     if (req.isolation === 'worktree') {
+      if (!this.config.workspaceSourcePath && !req.workspacePath) {
+        resolve({
+          subagentId,
+          pid: 0,
+          status: 'failed',
+          error: 'worktree 隔离需要 workspaceSourcePath 或 workspacePath,两者都为空(类型契约:空=不启用 worktree 隔离)',
+        });
+        this.activeCount--;
+        void this.drainQueue();
+        return;
+      }
       try {
-        worktree = createWorktree('pool', subagentId, baseWorkspace);
+        worktree = createWorktree('pool', subagentId, sourcePath);
         workspacePath = worktree.path;
       } catch (e) {
         resolve({
@@ -401,6 +421,8 @@ export class SubagentWorkerPool {
       model: req.model,
       capability: req.capability,
       maxIterations: req.maxIterations,
+      networkEgressPolicy: this.config.networkEgressPolicy,
+      resourceLimits: this.config.resourceLimits,
     };
     proc.send(startMsg);
 
@@ -415,9 +437,9 @@ export class SubagentWorkerPool {
     }, HEARTBEAT_INTERVAL_MS);
   }
 
-  /** 心跳检查:15s 无心跳 → 标记 dead,SIGKILL */
+  /** 心跳检查:超过 heartbeatTimeoutMs 无心跳 → 标记 dead,SIGKILL */
   private checkHeartbeat(entry: WorkerEntry): void {
-    if (Date.now() - entry.lastHeartbeatAt > HEARTBEAT_TIMEOUT_MS) {
+    if (Date.now() - entry.lastHeartbeatAt > this.heartbeatTimeoutMs) {
       entry.state.status = 'dead';
       try { entry.proc.kill('SIGKILL'); } catch { /* ignore */ }
     }
