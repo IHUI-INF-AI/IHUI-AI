@@ -246,6 +246,7 @@ function createToolCallHandler(assistantMessageId: string) {
     args?: Record<string, unknown>
     result?: unknown
     isError?: boolean
+    iteration?: number
   }) => {
     if (event.type === 'tool-call-start') {
       useChatStore.getState().addToolCall(assistantMessageId, {
@@ -253,6 +254,7 @@ function createToolCallHandler(assistantMessageId: string) {
         toolName: event.toolName,
         args: event.args ?? {},
         status: 'running',
+        iteration: event.iteration,
       })
       // browser_navigate 类工具:args 含 url 时立即打开 WorkPanel(无需等 result)
       if (BROWSER_TOOL_NAMES.has(event.toolName) && event.args) {
@@ -268,6 +270,7 @@ function createToolCallHandler(assistantMessageId: string) {
         result: event.result,
       }
       if (event.args) updates.args = event.args
+      if (event.iteration !== undefined) updates.iteration = event.iteration
       useChatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, updates)
 
       // tool-result 含 URL:延迟打开(仅当之前 args 没 url 时,result 含 url 的场景)

@@ -14,6 +14,8 @@ export interface ToolCall {
   status: 'running' | 'success' | 'error'
   duration?: number
   error?: string
+  /** 多轮 tool loop 的轮次(1-based,undefined 或 1 表示单轮) */
+  iteration?: number
 }
 
 /** AI 主动提问的选项 */
