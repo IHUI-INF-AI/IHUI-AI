@@ -39,6 +39,9 @@ import {
   getLessonSignReport,
   findLessonStudyReport,
   findUserLearnRecords,
+  findRecommendLessons,
+  findHotLessons,
+  findCategoryParents,
 } from '../db/learn-queries.js'
 import {
   upsertRecord,
@@ -110,6 +113,10 @@ import { eq, and, sql as dsql } from 'drizzle-orm'
 // =============================================================================
 
 const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
+
+const limitQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+})
 
 const chapterParamSchema = z.object({
   id: z.string().uuid('无效的 ID'),
@@ -545,6 +552,39 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
   server.get('/learn/categories', async (_request, reply) => {
     const list = await findPublishedCategories()
     return reply.send(success({ list }))
+  })
+
+  // GET /learn/categories/:id/parents - 分类父级路径(递归到根,公开)
+  // 替代旧架构 getAllParent,用递归 CTE 遍历 learn_categories.pid
+  server.get('/learn/categories/:id/parents', async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const list = await findCategoryParents(parsed.data.id)
+    return reply.send(success({ list }))
+  })
+
+  // GET /learn/recommend - 推荐课程(按报名数降序,公开)
+  // 替代旧架构 getRecommendLesson
+  server.get('/learn/recommend', async (request, reply) => {
+    const parsed = limitQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const list = await findRecommendLessons(parsed.data.limit)
+    return reply.send(success({ list: list.map(adaptLesson) }))
+  })
+
+  // GET /learn/hot - 热门课程(按浏览数降序,公开)
+  // 替代旧架构 getHotLesson
+  server.get('/learn/hot', async (request, reply) => {
+    const parsed = limitQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const list = await findHotLessons(parsed.data.limit)
+    return reply.send(success({ list: list.map(adaptLesson) }))
   })
 
   // GET /learn/lessons - 已发布课程列表（分页，公开）
