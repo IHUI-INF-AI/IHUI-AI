@@ -26040,7 +26040,11 @@
       "personalType": "个人运行性质",
       "import": "导入",
       "riskTitle": "风险提示",
-      "tipsTitle": "使用建议"
+      "tipsTitle": "使用建议",
+      "searchPlaceholder": "搜索平台名称 / 厂商 / 特点 / 计费方式...",
+      "allVendors": "全部",
+      "resultCount": "共 {count} / {total} 个平台",
+      "emptyResult": "没有匹配的平台,试试调整搜索关键词或厂商筛选"
     },
     "cta": {
       "label": "底部 CTA",
@@ -26411,6 +26415,10 @@
         "keyPlaceholderNew": "sk-...",
         "keyPlaceholderEdit": "•••••••(已加密存储)",
         "keyKeepEmpty": "(留空不修改)",
+        "pasteFromClipboard": "从剪贴板粘贴 API Key",
+        "pasteSuccess": "已从剪贴板粘贴",
+        "pasteFailed": "剪贴板读取失败,请手动粘贴",
+        "pasteEmpty": "剪贴板为空",
         "baseUrl": "Base URL",
         "optional": "可选",
         "group": "分组",
