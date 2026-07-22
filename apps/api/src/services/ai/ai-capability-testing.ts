@@ -13,6 +13,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { aiCapabilities } from '@ihui/database'
+import { callRealLlm, type LlmMessage } from '../crew-llm-adapter.js'
 
 export interface TestCase {
   id: string
@@ -45,6 +46,14 @@ export interface TestReport {
 export type CapabilityExecutor = (capabilityId: string, input: unknown) => Promise<unknown>
 
 const executors = new Map<string, CapabilityExecutor>()
+
+/** 全局执行器:对所有能力生效,优先级低于按 capabilityId 注册的执行器,高于 defaultExecutor。 */
+let globalExecutor: CapabilityExecutor | null = null
+
+/** 设置全局执行器(自动注册时调用)。 */
+export function setGlobalExecutor(executor: CapabilityExecutor | null): void {
+  globalExecutor = executor
+}
 
 /** 注册能力的执行器（由调用方注入实际调用逻辑）。 */
 export function registerExecutor(capabilityId: string, executor: CapabilityExecutor): void {
@@ -89,7 +98,7 @@ export async function generateTestCases(capabilityId: string): Promise<TestCase[
 
 /** 执行单个测试用例。 */
 export async function runTestCase(capabilityId: string, testCase: TestCase): Promise<TestResult> {
-  const executor = executors.get(capabilityId) ?? defaultExecutor
+  const executor = executors.get(capabilityId) ?? globalExecutor ?? defaultExecutor
   const start = Date.now()
   const assertionResults: Array<{ description: string; passed: boolean }> = []
   let passed = true
@@ -196,3 +205,19 @@ export async function smokeTestAll(): Promise<
   const rows = await db.select().from(aiCapabilities).where(eq(aiCapabilities.status, 'production'))
   return runBatchTests(rows.map((r) => r.id))
 }
+
+// ===== 自动注册:LLM 真实执行器 =====
+// 模块加载时自动注册全局执行器,使测试默认调用真实 LLM(通过 ai-service LiteLLM 网关)。
+// defaultExecutor 保留作为最终兜底(LLM 不可用时由 runTestCase 的 catch 处理)。
+setGlobalExecutor(async (capabilityId, input) => {
+  const inputStr = typeof input === 'string' ? input : JSON.stringify(input)
+  const messages: LlmMessage[] = [
+    {
+      role: 'system',
+      content: `你是 AI 能力执行器。能力 ID: ${capabilityId}。根据输入执行能力并返回结果。`,
+    },
+    { role: 'user', content: inputStr },
+  ]
+  const result = await callRealLlm({ messages, temperature: 0, maxTokens: 1000 })
+  return result.content
+})
