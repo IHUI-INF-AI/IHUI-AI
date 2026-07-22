@@ -12,6 +12,24 @@ import { parsePath } from '../utils/http-normalize.js'
 // SQL 查询耗时桶（秒）：1ms ~ 30s
 const SQL_DURATION_SECONDS_BUCKETS = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30] as const
 
+// 2026-07-22 P0 Round 3 鲁棒性加固:Map 大小限制 + 定期清理
+// 防止 dynamic route params / table|operation 组合爆炸导致内存泄漏
+const MAP_MAX_SIZE = 2000 // 每个 Map 最多 2000 个 key,超过时清理最旧的 10%
+
+/**
+ * 限制 Map 大小:超过 maxSize 时删除最早插入的 10% key(LRU 近似)。
+ * Map 在 JS 中保持插入顺序,keys().next() 返回最早插入的 key。
+ */
+function ensureMapBounded<K, V>(map: Map<K, V>): void {
+  if (map.size <= MAP_MAX_SIZE) return
+  const deleteCount = Math.floor(MAP_MAX_SIZE * 0.1)
+  let i = 0
+  for (const key of map.keys()) {
+    map.delete(key)
+    if (++i >= deleteCount) break
+  }
+}
+
 /** SQL 指标数据（直方图 + 计数器） */
 export interface SqlMetrics {
   durationBuckets: Map<string, number> // key: table|operation|le
@@ -85,6 +103,8 @@ const metricsPluginInner: FastifyPluginAsync = async (server: FastifyInstance) =
     const rawRoute = request.routeOptions?.url ?? request.url
     const route = parsePath(rawRoute)
     metrics.requestsByRoute.set(route, (metrics.requestsByRoute.get(route) ?? 0) + 1)
+    // 2026-07-22 P0 Round 3:dynamic route params 可能导致 key 爆炸,加大小保护
+    ensureMapBounded(metrics.requestsByRoute)
 
     // 状态码统计
     const status = reply.statusCode
@@ -147,6 +167,11 @@ const metricsPluginInner: FastifyPluginAsync = async (server: FastifyInstance) =
     }
     const infKey = `${key}|le=+Inf`
     metrics.sql.durationBuckets.set(infKey, (metrics.sql.durationBuckets.get(infKey) ?? 0) + 1)
+    // 2026-07-22 P0 Round 3:Map 大小保护,防止 table|operation 组合爆炸
+    ensureMapBounded(metrics.sql.queriesTotal)
+    ensureMapBounded(metrics.sql.durationCount)
+    ensureMapBounded(metrics.sql.durationSum)
+    ensureMapBounded(metrics.sql.durationBuckets)
   })
 
   // /metrics 端点(Prometheus 格式)
