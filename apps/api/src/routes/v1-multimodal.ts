@@ -193,6 +193,15 @@ const generationEnqueueSchema = z.object({
 })
 
 // =============================================================================
+// Fastify OpenAPI schemas(共享)
+// =============================================================================
+
+const errorResponseSchema = {
+  type: 'object',
+  properties: { code: { type: 'number' }, message: { type: 'string' } },
+}
+
+// =============================================================================
 // 辅助函数
 // =============================================================================
 
@@ -390,6 +399,32 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/audio/voices',
     {
+      schema: {
+        description: '音色列表',
+        tags: ['Multimodal'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    name: { type: 'string' },
+                    gender: { type: 'string' },
+                    language: { type: 'string' },
+                    preview: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('audio:read'),
@@ -424,6 +459,26 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/audio/speech',
     {
+      schema: {
+        description: 'TTS 语音合成(返回二进制音频流)',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            input: { type: 'string' },
+            voice: { type: 'string' },
+            responseFormat: { type: 'string' },
+            speed: { type: 'number' },
+          },
+          required: ['model', 'input', 'voice'],
+        },
+        response: {
+          200: { type: 'string' },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('audio:write'),
@@ -457,6 +512,32 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/audio/transcriptions',
     {
+      schema: {
+        description: 'ASR 语音识别',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            audio: { type: 'string' },
+            language: { type: 'string' },
+            prompt: { type: 'string' },
+          },
+          required: ['model', 'audio'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              text: { type: 'string' },
+              language: { type: 'string' },
+              duration: { type: 'number' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('audio:write'),
@@ -495,6 +576,31 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/audio/chat',
     {
+      schema: {
+        description: '语音对话',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            audio: { type: 'string' },
+            model: { type: 'string' },
+            sessionId: { type: 'string' },
+          },
+          required: ['audio', 'model'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              text: { type: 'string' },
+              audio: { type: 'string' },
+              sessionId: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('audio:write'),
@@ -527,6 +633,31 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/audio/speakers',
     {
+      schema: {
+        description: '声纹列表',
+        tags: ['Multimodal'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    name: { type: 'string' },
+                    gender: { type: 'string' },
+                    language: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('audio:read'),
@@ -559,6 +690,30 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/audio/speakers',
     {
+      schema: {
+        description: '声纹注册',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            audio: { type: 'string' },
+          },
+          required: ['name', 'audio'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              name: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('audio:write'),
@@ -590,6 +745,29 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/audio/speakers/compare',
     {
+      schema: {
+        description: '声纹比对',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            speakerId: { type: 'string' },
+            audio: { type: 'string' },
+          },
+          required: ['speakerId', 'audio'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              score: { type: 'number' },
+              matched: { type: 'boolean' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('audio:read'),
@@ -626,6 +804,30 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/audio/music',
     {
+      schema: {
+        description: '音乐生成',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            prompt: { type: 'string' },
+            lyrics: { type: 'string' },
+            duration: { type: 'number' },
+          },
+          required: ['prompt'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              taskId: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('audio:write'),
@@ -658,6 +860,45 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/images/generations',
     {
+      schema: {
+        description: '文生图(按 vendor 路由,同步或异步轮询)',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            prompt: { type: 'string' },
+            n: { type: 'number' },
+            size: { type: 'string' },
+            quality: { type: 'string' },
+            style: { type: 'string' },
+            vendor: { type: 'string' },
+          },
+          required: ['model', 'prompt'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              created: { type: 'number' },
+              data: { type: 'array' },
+            },
+          },
+          202: {
+            type: 'object',
+            properties: {
+              taskId: { type: 'string' },
+              status: { type: 'string' },
+              message: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          500: errorResponseSchema,
+          502: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('images:write'),
@@ -695,7 +936,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
       if (!result.ok) {
         const httpStatus = result.status >= 400 && result.status < 600 ? result.status : 502
         return reply
-          .status(httpStatus)
+          .status(httpStatus as 200 | 202 | 400 | 401 | 500 | 502 | 503)
           .send(error(httpStatus, result.message || `Internal service error (${result.status})`))
       }
       const d = asObj(result.data)
@@ -752,6 +993,34 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/images/edits',
     {
+      schema: {
+        description: '图片编辑(按 vendor 路由)',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            image: { type: 'string' },
+            prompt: { type: 'string' },
+            mask: { type: 'string' },
+            n: { type: 'number' },
+            size: { type: 'string' },
+            vendor: { type: 'string' },
+          },
+          required: ['model', 'image', 'prompt'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              created: { type: 'number' },
+              data: { type: 'array' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('images:write'),
@@ -780,6 +1049,31 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/images/inpaint',
     {
+      schema: {
+        description: '图片修复',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            image: { type: 'string' },
+            mask: { type: 'string' },
+            prompt: { type: 'string' },
+          },
+          required: ['model', 'image', 'mask', 'prompt'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              created: { type: 'number' },
+              data: { type: 'array' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('images:write'),
@@ -807,6 +1101,30 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/images/style-transfer',
     {
+      schema: {
+        description: '风格迁移',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            image: { type: 'string' },
+            style: { type: 'string' },
+          },
+          required: ['model', 'image', 'style'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              created: { type: 'number' },
+              data: { type: 'array' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('images:write'),
@@ -834,6 +1152,30 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/images/virtual-try-on',
     {
+      schema: {
+        description: '虚拟试穿',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            personImage: { type: 'string' },
+            garmentImage: { type: 'string' },
+          },
+          required: ['model', 'personImage', 'garmentImage'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              created: { type: 'number' },
+              data: { type: 'array' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('images:write'),
@@ -862,6 +1204,30 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/images/background',
     {
+      schema: {
+        description: '背景生成',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            foreground: { type: 'string' },
+            prompt: { type: 'string' },
+          },
+          required: ['model', 'foreground', 'prompt'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              created: { type: 'number' },
+              data: { type: 'array' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('images:write'),
@@ -889,6 +1255,33 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/videos/generations',
     {
+      schema: {
+        description: '视频生成(按 vendor 路由,异步返回 taskId)',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            prompt: { type: 'string' },
+            image: { type: 'string' },
+            duration: { type: 'number' },
+            resolution: { type: 'string' },
+            vendor: { type: 'string' },
+          },
+          required: ['model', 'prompt'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              taskId: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('videos:write'),
@@ -926,6 +1319,36 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/videos/tasks/:id',
     {
+      schema: {
+        description: '视频任务查询(sora2→jimeng4 回退)',
+        tags: ['Multimodal'],
+        params: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+          },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              taskId: { type: 'string' },
+              status: { type: 'string' },
+              videoUrl: { type: 'string' },
+              progress: { type: 'number' },
+              error: { type: 'string' },
+              createdAt: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+          500: errorResponseSchema,
+          502: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('videos:read'),
@@ -957,7 +1380,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
         if (sora2.status !== 404) {
           const httpStatus = sora2.status >= 400 && sora2.status < 600 ? sora2.status : 502
           return reply
-            .status(httpStatus)
+            .status(httpStatus as 200 | 400 | 401 | 404 | 500 | 502 | 503)
             .send(error(httpStatus, sora2.message || `Internal service error (${sora2.status})`))
         }
         const jimeng4 = await callInternal(
@@ -971,7 +1394,7 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
           return reply.status(404).send(error(404, `Video task not found: ${id}`))
         }
         return reply
-          .status(httpStatus)
+          .status(httpStatus as 200 | 400 | 401 | 404 | 500 | 502 | 503)
           .send(error(httpStatus, jimeng4.message || `Internal service error (${jimeng4.status})`))
       } catch (e) {
         return reply
@@ -985,6 +1408,40 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/videos/compose',
     {
+      schema: {
+        description: '视频编排(多场景 + BGM)',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            scenes: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  text: { type: 'string' },
+                  duration: { type: 'number' },
+                  imagePrompt: { type: 'string' },
+                },
+                required: ['text'],
+              },
+            },
+            bgmUrl: { type: 'string' },
+          },
+          required: ['scenes'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              composeId: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('videos:write'),
@@ -1025,6 +1482,30 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/3d/generations',
     {
+      schema: {
+        description: '3D 模型生成(腾讯混元 3D)',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            input: { type: 'string' },
+            format: { type: 'string' },
+          },
+          required: ['model', 'input'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              taskId: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('threed:write'),
@@ -1069,6 +1550,33 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/generation/enqueue',
     {
+      schema: {
+        description: '生成队列入队',
+        tags: ['Multimodal'],
+        body: {
+          type: 'object',
+          properties: {
+            type: { type: 'string' },
+            payload: { type: 'object' },
+            priority: {
+              oneOf: [{ type: 'string' }, { type: 'number' }],
+            },
+          },
+          required: ['type', 'payload'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              jobId: { type: 'string' },
+              status: { type: 'string' },
+              position: { type: 'number' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('generation:write'),
@@ -1108,6 +1616,31 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/generation/status/:id',
     {
+      schema: {
+        description: '生成队列状态查询',
+        tags: ['Multimodal'],
+        params: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+          },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              jobId: { type: 'string' },
+              status: { type: 'string' },
+              result: {},
+              error: { type: 'string' },
+              progress: { type: 'number' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('generation:write'),
@@ -1144,6 +1677,28 @@ const v1MultimodalRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/generation/cancel/:id',
     {
+      schema: {
+        description: '生成队列取消',
+        tags: ['Multimodal'],
+        params: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+          },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              jobId: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('generation:write'),

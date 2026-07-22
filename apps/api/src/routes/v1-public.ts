@@ -71,6 +71,15 @@ const agentCallSchema = z.object({
 })
 
 // =============================================================================
+// Fastify OpenAPI schemas(共享)
+// =============================================================================
+
+const errorResponseSchema = {
+  type: 'object',
+  properties: { code: { type: 'number' }, message: { type: 'string' } },
+}
+
+// =============================================================================
 // 静态降级数据 + 模型缓存
 // =============================================================================
 
@@ -369,6 +378,31 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/agents',
     {
+      schema: {
+        description: '列出可用 Agent',
+        tags: ['Agents'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    name: { type: 'string' },
+                    description: { type: 'string' },
+                    capabilities: { type: 'array', items: { type: 'string' } },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('agents:read'),
@@ -387,6 +421,28 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/agents/:id',
     {
+      schema: {
+        description: 'Agent 详情',
+        tags: ['Agents'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              name: { type: 'string' },
+              description: { type: 'string' },
+              capabilities: { type: 'array', items: { type: 'string' } },
+            },
+          },
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('agents:read'),
@@ -408,6 +464,42 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/agents/:id/call',
     {
+      schema: {
+        description: '调用 Agent',
+        tags: ['Agents'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        body: {
+          type: 'object',
+          properties: {
+            input: { type: 'string' },
+            sessionId: { type: 'string' },
+          },
+          required: ['input'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              agentId: { type: 'string' },
+              sessionId: { type: 'string' },
+              output: { type: 'string' },
+              usage: {
+                type: 'object',
+                properties: { totalTokens: { type: 'number' } },
+              },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+          502: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('agents:call'),
@@ -476,6 +568,48 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/chat/completions',
     {
+      schema: {
+        description: 'Chat 补全(OpenAI 兼容,支持 stream)',
+        tags: ['Chat'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            messages: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  role: { type: 'string', enum: ['system', 'user', 'assistant'] },
+                  content: { type: 'string' },
+                },
+                required: ['role', 'content'],
+              },
+            },
+            stream: { type: 'boolean' },
+            temperature: { type: 'number' },
+            maxTokens: { type: 'number' },
+          },
+          required: ['model', 'messages'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              object: { type: 'string' },
+              created: { type: 'number' },
+              model: { type: 'string' },
+              choices: { type: 'array' },
+              usage: { type: 'object' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          502: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('chat:write'),
@@ -550,6 +684,31 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/models',
     {
+      schema: {
+        description: '模型列表(5min 缓存,X-Model-Source 标识来源)',
+        tags: ['Models'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    object: { type: 'string' },
+                    created: { type: 'number' },
+                    ownedBy: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('models:read'),
@@ -567,6 +726,32 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/files',
     {
+      schema: {
+        description: '文件列表(当前 API Key 用户上传的文件)',
+        tags: ['Files'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    object: { type: 'string' },
+                    filename: { type: 'string' },
+                    bytes: { type: 'number' },
+                    createdAt: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('files:read'),
@@ -600,6 +785,27 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/files',
     {
+      schema: {
+        description: '上传文件(multipart/form-data,落盘 + files 表持久化)',
+        tags: ['Files'],
+        consumes: ['multipart/form-data'],
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              object: { type: 'string' },
+              filename: { type: 'string' },
+              bytes: { type: 'number' },
+              createdAt: { type: 'string' },
+              persisted: { type: 'boolean' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          500: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('files:write'),
@@ -690,6 +896,37 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/chat/sessions',
     {
+      schema: {
+        description: '列出当前 API Key 用户的会话',
+        tags: ['Chat'],
+        querystring: {
+          type: 'object',
+          properties: {
+            page: { type: 'number' },
+            pageSize: { type: 'number' },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: {
+                type: 'object',
+                properties: {
+                  list: { type: 'array' },
+                  total: { type: 'number' },
+                  page: { type: 'number' },
+                  pageSize: { type: 'number' },
+                },
+              },
+            },
+          },
+          401: errorResponseSchema,
+          500: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('chat:read'),

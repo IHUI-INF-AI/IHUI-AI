@@ -6,7 +6,7 @@
  * 用法: node scripts/openapi-check.mjs
  *   总是 exit 0（informational,用于 pre-commit 不阻塞）
  */
-import { readdir, stat } from 'node:fs/promises'
+import { readdir, stat, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -28,6 +28,24 @@ try {
   } catch {
     console.log(`[openapi-check] OpenAPI spec 不存在 (openapi.json)，跳过路径对比`)
     console.log(`[openapi-check] 建议: 运行 pnpm --filter @ihui/api dev 后访问 /docs/json 生成 spec`)
+  }
+
+  // 检查 v1 路由的 schema 覆盖率
+  const v1Files = routeFiles.filter(f => f.startsWith('v1-'))
+  let withSchema = 0
+  let total = 0
+  for (const file of v1Files) {
+    const content = await readFile(join(routesDir, file), 'utf-8')
+    // 粗略统计:server.get/post/put/delete 调用数 vs schema 字段数
+    const routeCount = (content.match(/server\.(get|post|put|delete|patch)\(/g) || []).length
+    const schemaCount = (content.match(/\bschema:\s*\{/g) || []).length
+    total += routeCount
+    withSchema += Math.min(schemaCount, routeCount)
+  }
+  const coverage = total > 0 ? Math.round((withSchema / total) * 100) : 0
+  console.log(`[openapi-check] v1 路由 schema 覆盖率: ${withSchema}/${total} (${coverage}%)`)
+  if (coverage < 80) {
+    console.log(`[openapi-check] ⚠️ 覆盖率低于 80%,建议为 v1 路由添加 schema`)
   }
 
   console.log(`[openapi-check] ✅ 检查完成`)
