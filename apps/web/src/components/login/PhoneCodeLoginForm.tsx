@@ -165,7 +165,7 @@ export function PhoneCodeLoginForm({
           </Button>
         </div>
       </div>
-      <div className="flex items-center justify-end">
+      <div className="flex items-start justify-between gap-3">
         <MiniCheckbox
           checked={autoLogin}
           onChange={(v) => {
@@ -174,13 +174,15 @@ export function PhoneCodeLoginForm({
           }}
           label={t('autoLogin')}
         />
+        <div className="flex-1">
+          <AgreementCheckbox
+            checked={agreed}
+            onChange={(v) => onAgreedChange?.(v)}
+            error={showAgreeErr && !agreed}
+          />
+          {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
+        </div>
       </div>
-      <AgreementCheckbox
-        checked={agreed}
-        onChange={(v) => onAgreedChange?.(v)}
-        error={showAgreeErr && !agreed}
-      />
-      {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
       <Button type="submit" className="h-10 w-full" disabled={submitting}>
         {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {t('loginBtn')}

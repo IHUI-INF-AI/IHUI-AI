@@ -703,7 +703,7 @@
     "unknownCallbackType": "Unknown CallbackType",
     "usernameOrPhoneOrEmail": "Please enterAccount",
     "passwordHint": "Enter password",
-    "autoLogin": "fromLogin",
+    "autoLogin": "Auto-login",
     "autoRenew": "Auto-renew",
     "captchaAlt": "Code",
     "clickToRefresh": "Click to refresh",
