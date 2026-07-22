@@ -257,7 +257,7 @@ export const PLATFORM_TEMPLATES: PlatformTemplate[] = [
     name: 'llama.cpp (本地)',
     vendor: 'local',
     description: 'llama.cpp C++ server 原生推理',
-    baseUrl: 'http://localhost:8080/v1',
+    baseUrl: 'http://localhost:8802/v1',
     apiFormat: 'openai_chat',
     defaultModelId: 'local-model',
     defaultContextLength: 32768,

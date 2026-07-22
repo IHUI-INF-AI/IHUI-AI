@@ -8,7 +8,7 @@ export interface SdkConfig {
   apiKey: string
   /** API Secret(可选,创建/轮换时返回)。 */
   secret?: string
-  /** 基础 URL,默认 http://localhost:3001。 */
+  /** 基础 URL,默认 http://localhost:8802。 */
   baseUrl?: string
   /** 请求超时(毫秒),默认 30000。流式请求不超时。 */
   timeout?: number
@@ -60,7 +60,7 @@ export class BaseClient {
     }
     this.apiKey = config.apiKey
     this.secret = config.secret
-    this.baseUrl = normalizeBaseUrl(config.baseUrl ?? 'http://localhost:3001')
+    this.baseUrl = normalizeBaseUrl(config.baseUrl ?? 'http://localhost:8802')
     this.timeout = config.timeout ?? DEFAULT_TIMEOUT
     this.maxRetries = config.maxRetries ?? DEFAULT_MAX_RETRIES
     this.fetchFn = config.fetch ?? fetch

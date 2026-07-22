@@ -33,7 +33,7 @@ test.describe.parallel('安全专项', () => {
     test.skip(!IS_CI, 'dev 环境不强制 HTTPS,跳过')
     // CI/生产环境下,HTTP 请求应跳转到 HTTPS
     const response = await request
-      .get('http://localhost:3001/', { maxRedirects: 0 })
+      .get('http://localhost:8801/', { maxRedirects: 0 })
       .catch(() => null)
     if (response) {
       const status = response.status()
