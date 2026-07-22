@@ -389,6 +389,8 @@ export interface AiFeedTimelineItem {
   trendTag: string | null
   trendGrowthPct: number | null
   titleEn: string | null
+  titleJa: string | null
+  titleKo: string | null
 }
 
 interface ApiFeedItemRaw {
@@ -407,6 +409,8 @@ interface ApiFeedItemRaw {
   trendTag?: string | null
   trendGrowthPct?: number | null
   titleEn?: string | null
+  titleJa?: string | null
+  titleKo?: string | null
 }
 
 /**
@@ -459,11 +463,45 @@ export async function fetchAiFeedItems(
       trendTag: it.trendTag ?? null,
       trendGrowthPct: it.trendGrowthPct ?? null,
       titleEn: it.titleEn ?? null,
+      titleJa: it.titleJa ?? null,
+      titleKo: it.titleKo ?? null,
     })),
     total: data.total,
     page: data.page,
     pageSize: data.pageSize,
   }
+}
+
+/** 趋势爆发通知条目(对接 /api/ai-feed/notifications) */
+export interface TrendNotification {
+  id: string
+  title: string
+  titleEn: string | null
+  sourceCode: string
+  trendGrowthPct: number
+  currentHot: number
+  lastSeenAt: string
+  url: string | null
+}
+
+/**
+ * 拉取趋势爆发通知(热度增长率 ≥ minGrowth% 的最近 hours 小时内条目)。
+ *
+ * 后端 /api/ai-feed/notifications 已实现,此函数为前端轮询入口。
+ * 无数据时返回空数组(组件 return null 不渲染)。
+ */
+export async function fetchAiFeedNotifications(
+  hours = 6,
+  minGrowth = 50,
+  limit = 5,
+): Promise<TrendNotification[]> {
+  const params = new URLSearchParams({
+    hours: String(hours),
+    minGrowth: String(minGrowth),
+    limit: String(limit),
+  })
+  const data = await safeApi<TrendNotification[]>(`/api/ai-feed/notifications?${params.toString()}`)
+  return data ?? []
 }
 
 // aihot API(权威 AI 资讯源,公开匿名可访,数据最新最准)
