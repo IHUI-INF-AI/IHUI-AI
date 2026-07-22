@@ -14,6 +14,7 @@
  *  - 模板选择 + 行业通用英文术语(Temperature / Max Tokens 等)
  */
 import * as React from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 
@@ -40,6 +41,7 @@ import type {
   UserLlmModel,
   UserLlmProvider,
 } from './types-v2'
+import type { ProviderFormState } from './types-v2'
 
 export default function UserLlmConfigsPage() {
   const t = useTranslations('llmSettings')
@@ -52,6 +54,8 @@ export default function UserLlmConfigsPage() {
   // Dialog 状态
   const [provDialogOpen, setProvDialogOpen] = React.useState(false)
   const [editingProvider, setEditingProvider] = React.useState<UserLlmProvider | null>(null)
+  /** 外部预填(如排行榜一键导入,通过 ?prefill=base64 传递) */
+  const [prefill, setPrefill] = React.useState<Partial<ProviderFormState> | null>(null)
 
   const [modelDialogOpen, setModelDialogOpen] = React.useState(false)
   const [modelDialogProvider, setModelDialogProvider] = React.useState<UserLlmProvider | null>(null)
@@ -80,6 +84,22 @@ export default function UserLlmConfigsPage() {
     () => Object.fromEntries(templates.map((tpl) => [tpl.code, tpl])),
     [templates],
   )
+
+  // 外部预填:从 ?prefill=base64 读取(如排行榜一键导入)
+  const searchParams = useSearchParams()
+  React.useEffect(() => {
+    const encoded = searchParams.get('prefill')
+    if (!encoded) return
+    try {
+      const json = decodeURIComponent(atob(encoded))
+      const payload = JSON.parse(json) as Partial<ProviderFormState>
+      setPrefill(payload)
+      setEditingProvider(null)
+      setProvDialogOpen(true)
+    } catch {
+      // 解码失败,忽略
+    }
+  }, [searchParams])
 
   // 加载 provider 列表
   const { data, isLoading } = useQuery({
@@ -293,7 +313,11 @@ export default function UserLlmConfigsPage() {
         provider={editingProvider}
         templates={templates}
         existingGroups={existingGroups}
-        onClose={() => setProvDialogOpen(false)}
+        prefill={prefill}
+        onClose={() => {
+          setProvDialogOpen(false)
+          setPrefill(null)
+        }}
         onSaved={refreshAll}
       />
 
