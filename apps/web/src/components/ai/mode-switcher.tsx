@@ -16,8 +16,8 @@ import { cn } from '@/lib/utils'
  * - 审查(review): 只读审查,deny write 工具 + 强化审查 prompt
  * - 规格(spec):   从代码反向生成 spec 文档
  *
- * 紧凑风格(AGENTS.md §4):h-7 px-2 text-xs rounded,ButtonGroup 风格(border 分隔,非 divide-x)。
- * 选中态 bg-primary text-primary-foreground,未选中 bg-muted text-muted-foreground。
+ * 紧凑风格(AGENTS.md §4,对标 Trae IDE segmented control):h-6 px-2 text-xs rounded,连体容器 bg-muted/50。
+ * 选中态 bg-background text-foreground shadow-sm(subtle 凸出,非 primary 满色),未选中透明底 hover:bg-background/60。
  */
 
 interface ModeOption {
@@ -55,9 +55,9 @@ export function ModeSwitcher({ className }: { className?: string }) {
     <div
       role="group"
       aria-label="对话模式切换"
-      className={cn('flex items-center border border-border rounded-md overflow-hidden', className)}
+      className={cn('flex items-center gap-0.5 rounded-md bg-muted/50 p-0.5', className)}
     >
-      {MODE_OPTIONS.map((option, idx) => {
+      {MODE_OPTIONS.map((option) => {
         const isActive = option.mode === currentMode
         const Icon = option.icon
         return (
@@ -68,12 +68,10 @@ export function ModeSwitcher({ className }: { className?: string }) {
             aria-pressed={isActive}
             title={option.toastText}
             className={cn(
-              'flex h-7 items-center gap-1 px-2 text-xs font-medium transition-colors',
-              // ButtonGroup border 分隔(非 divide-x):每个按钮 border-r,末尾无
-              idx < MODE_OPTIONS.length - 1 && 'border-r border-border',
+              'flex h-6 items-center gap-1 rounded px-2 text-xs font-medium transition-colors',
               isActive
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80',
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:bg-background/60 hover:text-foreground',
             )}
           >
             <Icon className="h-3 w-3" />
