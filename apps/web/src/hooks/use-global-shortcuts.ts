@@ -48,7 +48,8 @@ interface DefaultShortcut {
 }
 
 const DEFAULT_SHORTCUTS: DefaultShortcut[] = [
-  { key: 'Ctrl+K', description: '命令面板', event: 'global-shortcut:open-chat' },
+  // Ctrl+K 区分作用域:编辑器聚焦 → inline-edit;其他 → 命令面板(open-chat)
+  { key: 'Ctrl+K', description: '命令面板 / 行内编辑', event: '__cmd_k__' },
   { key: 'Ctrl+P', description: '搜索', event: 'global-shortcut:search' },
   { key: 'Ctrl+Shift+N', description: '新建对话', event: 'global-shortcut:new-chat' },
   { key: 'Ctrl+/', description: '快捷键帮助', event: '__toggle_help__' },
@@ -160,6 +161,15 @@ export function useGlobalShortcuts(): UseGlobalShortcutsReturn {
       const handler = () => {
         if (def.event === '__toggle_help__') {
           toggleHelpPanelRef.current()
+        } else if (def.event === '__cmd_k__') {
+          // Ctrl+K 作用域判断:
+          // - Monaco 编辑器聚焦 → 不派发(由 use-ide-shortcuts 直接派发 inline-edit)
+          // - 其他场景 → 派发 open-chat(命令面板,向后兼容)
+          if (typeof window === 'undefined') return
+          const active = document.activeElement
+          const inMonaco = !!active?.closest('.monaco-editor')
+          if (inMonaco) return // 交给 use-ide-shortcuts
+          window.dispatchEvent(new CustomEvent('global-shortcut:open-chat'))
         } else if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent(def.event))
         }
