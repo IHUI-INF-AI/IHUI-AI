@@ -1,6 +1,7 @@
 export default defineAppConfig({
   pages: [
     'pages/index/index',
+    'pages/community/index',
     'pages/login/login',
     'pages/course/list',
     'pages/course/detail',
@@ -150,7 +151,7 @@ export default defineAppConfig({
     {
       root: 'pages/setting',
       name: 'pagesD',
-      pages: ['index', 'notification', 'cache', 'language', 'theme'],
+      pages: ['index', 'notification', 'cache', 'language', 'theme', 'privacy'],
     },
   ],
   window: {
