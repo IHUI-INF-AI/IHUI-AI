@@ -1,0 +1,16 @@
+# Grafana 仪表盘自动加载配置(2026-07-22 立)
+# 从 /var/lib/grafana/dashboards 目录自动加载 JSON 仪表盘
+
+apiVersion: 1
+
+providers:
+  - name: 'IHUI-AI Dashboards'
+    orgId: 1
+    folder: 'IHUI-AI'
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
