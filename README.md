@@ -100,6 +100,7 @@
 - [5 个典型场景](#5-个典型场景)
 - [技术栈](#技术栈)
 - [8 端架构](#8-端架构)
+- [应用使用层级图](#应用使用层级图)
 - [项目结构](#项目结构)
 - [核心能力详解(15 大模块 · 按用户角色分组)](#核心能力详解15-大模块--按用户角色分组)
   - [A. AI 能力层](#a-ai-能力层面向最终用户)
@@ -514,35 +515,49 @@ cd IHUI-AI && docker compose up -d
 
 ## 8 端架构
 
+> 端口规则:所有 dev/宿主映射端口统一 `88xx` 段(详见 [docs/port-management.md](docs/port-management.md)),`strictPort: true` 防漂移;容器内部端口不变。
+
 ```
-                    ┌─────────────────────────────────────────────────┐
-                    │          用户 / 企业 / 开发者 / 教育机构             │
-                    └────────────┬───────────────────────┬────────────┘
-                                 │                       │
-        ┌────────────────────────┼───────────────────────┼────────────────────────┐
-        │                        │                       │                        │
+                    ┌──────────────────────────────────────────────────────────────┐
+                    │         用户 / 企业 / 开发者 / 教育机构 / 内容创作者             │
+                    └────────────┬─────────────────────────────────┬───────────────┘
+                                 │                                 │
+        ┌────────────────────────┼─────────────────────────────────┼────────────────────────┐
+        │                        │                                 │                        │
    ┌────▼─────┐  ┌──────────┐  ┌─▼────────┐  ┌──────────▼───┐  ┌──────────┐  ┌─▼────────┐
    │  Web     │  │ Desktop  │  │ Extension│  │  Mobile RN  │  │ Miniapp  │  │   CLI    │
    │ Next 15  │  │ Tauri 2  │  │  WXT     │  │  Expo EAS   │  │ Taro 4   │  │ Node.js  │
-   │ :3000    │  │ + Rust   │  │          │  │ iOS/Android │  │ 微信小程序 │  │ ACP+Skl │
+   │ :8801    │  │ :8806    │  │          │  │  :8805      │  │ :8804    │  │ ACP+Skl │
+   │ strictPort│  │ + Rust   │  │          │  │ iOS/Android │  │ 微信小程序 │  │ 17 命令  │
    └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬─────┘  └────┬─────┘  └────┬─────┘
         │             │             │               │             │             │
         └─────────────┴─────────────┴───────┬───────┴─────────────┴─────────────┘
                                            │  HTTPS / WebSocket / SSE / ACP
                                   ┌────────▼─────────┐
                                   │   apps/api       │  Fastify 5 + Drizzle ORM
-                                  │   :8080          │  ~1080 端点 + 12 WS + 95 路由文件
+                                  │   :8802 strictPort│  1168+ 端点 + 12 WS + 95 路由文件
+                                  │                  │  + Developer API Key /v1/* 105 端点
                                   └────┬───────┬─────┘
                                        │       │
-                          ┌────────────▼─┐   ┌─▼──────────────┐
-                          │  PostgreSQL  │   │  apps/ai-service│  FastAPI + Socket.IO
-                          │  15 (339 表) │   │  :8000          │  LangGraph + LiteLLM + MCP + A2A
-                          └──────────────┘   └────┬────────────┘  5 provider + 14 publish adapter
-                                                  │
-                                            ┌─────▼─────┐  ┌──────────┐
-                                            │  Redis 7  │  │ Worker   │  BullMQ 独立进程
-                                            │ Pub/Sub   │  │ :8830    │  异步任务调度
-                                            └───────────┘  └──────────┘
+            ┌──────────────────────────▼─┐   ┌─▼──────────────────────────┐
+            │  PostgreSQL 15             │   │  apps/ai-service            │  FastAPI + Socket.IO
+            │  ├─ 339+ 表 / 128+ 迁移     │   │  :8803 strictPort           │  LangGraph + LiteLLM + MCP + A2A
+            │  ├─ pgvector 向量索引       │   │                             │  + 三栈 + P3 深度层
+            │  ├─ FTS5 全文检索           │   │  ┌─ 5 provider + 16 IM 渠道  │  + 14 publish adapter
+            │  └─ RLS 多租户隔离          │   │  ├─ 6 沙箱后端               │  + 22 MCP tool
+            └────────────────────────────┘   │  ├─ Skill 自进化闭环         │
+                                              │  ├─ 记忆系统(pgvector+FTS5)  │
+                                              │  ├─ 调度系统(DAG+4 策略)     │
+                                              │  └─ 30+ provider + MoA       │
+                                              └────┬────────────────────────┘
+                                                   │
+                                  ┌────────────────┼────────────────┐
+                                  │                │                │
+                            ┌─────▼─────┐    ┌─────▼─────┐    ┌─────▼─────┐
+                            │  Redis 7  │    │  Worker   │    │ OTel +    │  Jaeger :8814
+                            │ Pub/Sub   │    │  BullMQ   │    │ Prometheus│  Grafana :8816
+                            │ :8811     │    │  :8830    │    │ :8815     │  Loki :8818
+                            └───────────┘    └───────────┘    └───────────┘
 ```
 
 ### 8 端职责
@@ -578,6 +593,69 @@ cd IHUI-AI && docker compose up -d
 - 🟡 **核心场景级**:核心 Chat / WorkPanel / SSO 等关键路径已打通,但业务页面覆盖度低于 Web 端,适合二次开发补全
 
 **多端同步开发规则**:本项目 [AGENTS.md §9](./AGENTS.md) 强制要求"每一个任务默认全端连通",任何新功能必须同步到所有受影响的端(平台独占豁免除外)。
+
+---
+
+## 应用使用层级图
+
+> 从用户使用视角展示 IHUI-AI 的 6 层架构。上层依赖下层,每层均可独立替换 / 扩展。
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ L1 用户层(Who) — 5 类角色使用 IHUI-AI                                                  │
+│   个人开发者 │ 中小企业 │ AI 服务商 │ 教育机构 │ 内容创作者                              │
+└──────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                           │
+┌──────────────────────────────────────────▼─────────────────────────────────────────────┐
+│ L2 接入层(Entry) — 6 种入口形态                                                       │
+│   Web 200+ 页面 │ CLI 17 命令 │ 桌面 Tauri │ 浏览器扩展 │ 移动 RN │ 微信小程序          │
+│   ↓ 第三方接入:Developer API Key(Bearer + 27 权限点)/v1/* 105 端点 + TS/Python/Go SDK  │
+└──────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                           │
+┌──────────────────────────────────────────▼─────────────────────────────────────────────┐
+│ L3 能力层(Capability) — 15 大模块按角色分组                                            │
+│   A. AI 能力层    :100+ 模型 / LangGraph+MCP+A2A 三栈 / 多模态 / 数字人 / 资讯聚合       │
+│   B. AI 工作流    :自研 CLI / 工作空间权限 / 智能体市场 / Coze+OpenClaw+Crew 集成        │
+│   C. 内容教育     :14 平台发布 / AI 教育全栈 45 表 / 短剧 / 名片                         │
+│   D. 企业运营     :计费交易闭环 / 社区互动 / 运营增长 / 客服工单 / BI 仪表盘             │
+│   E. 工程基础     :安全合规 / 数据库 / i18n / 23 守门 / 测试性能                         │
+└──────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                           │
+┌──────────────────────────────────────────▼─────────────────────────────────────────────┐
+│ L4 服务层(Service) — 2 个核心服务 + 1 个 worker                                        │
+│   apps/api :8802  → Fastify 5 + Drizzle 1168+ 端点(业务/认证/计费/WebSocket)            │
+│   apps/ai-service :8803 → FastAPI + LangGraph + LiteLLM + MCP + A2A + P3 深度层          │
+│   Worker :8830    → BullMQ 独立进程(异步任务:发邮件/扣费/爬虫/LLM 回调)                 │
+└──────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                           │
+┌──────────────────────────────────────────▼─────────────────────────────────────────────┐
+│ L5 数据层(Data) — 双引擎持久化                                                        │
+│   PostgreSQL 15 :8810  → 339+ 表 / 128+ 迁移 / 30+ 业务域 / RLS 多租户隔离               │
+│     ├─ pgvector 向量索引(记忆 / RAG / 语义搜索,无需独立向量数据库)                      │
+│     ├─ FTS5 全文检索(双引擎:向量 + 关键词)                                            │
+│     └─ 知识图谱 schema(节点 + 关系 + 实体链接)                                        │
+│   Redis 7 :8811       → Pub/Sub + 缓存 + 限流 + 会话 + 任务队列                          │
+└──────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                           │
+┌──────────────────────────────────────────▼─────────────────────────────────────────────┐
+│ L6 基础设施层(Infra) — 部署 + 可观测 + 守门                                            │
+│   部署:Docker Compose 14 服务 / Nginx 反向代理 + 蓝绿 / Let's Encrypt / S3             │
+│   可观测:Prometheus :8815 + Grafana :8816(20 仪表盘)+ Loki :8818 + Jaeger :8814       │
+│   工程守门:23 pre-commit + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动脚本  │
+│   CI/CD:GitHub Actions(build / ci / e2e / knip 4 workflow)+ GitHub Act 本地预演       │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 层级关系说明
+
+| 层级 | 依赖方向 | 替换/扩展点 |
+|------|---------|------------|
+| L1 用户层 | 向下消费 L2-L6 | 新增角色只需接入对应入口 |
+| L2 接入层 | 向下调用 L3 能力 / L4 服务 | 8 端独立,新增端复用 `packages/*` 共享包 |
+| L3 能力层 | 向下编排 L4 服务 | 15 模块独立,新增模块按角色分组归档 |
+| L4 服务层 | 向下读写 L5 数据 | api ↔ ai-service 通过 HTTP/WS,可独立扩缩 |
+| L5 数据层 | 向下依赖 L6 基础设施 | PostgreSQL 可换 MySQL/SQLite(需同步 Drizzle schema) |
+| L6 基础设施 | 支撑全栈 | Docker Compose 可迁移 K8s(规划中,业务服务 >10 时触发) |
 
 ---
 
@@ -1728,6 +1806,20 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - 充实 ui-primitives design tokens + 扩充 ui-native 5 组件(dialog / avatar / badge / tabs / switch)
 - 知识库 / RAG 知识库 / 知识图谱从 AI 教育分组调整到 AI 分组
 - 插件市场和自动化按钮默认态去掉灰底背景
+
+#### 16. OpenClaw/OpenCode 对标 Wave 3 + Wave 4 + Wave 1/2 深度实现 + 鲁棒性 P2 Batch 3(2026-07-22)
+
+- **Wave 1/2 深度代码落地(本轮新文件)**:
+  - **W1-2 Client/Server 架构**:`apps/cli/src/commands/serve.ts`(端口 8841,AgentCore + HTTP server + WS bridge)+ `connect.ts`(TUI client 连接远程 server)
+  - **W2-1~W2-4 智能深度**:四层记忆 + 梦境(`apps/cli/src/memory/` 新增 short-term / long-term / soul / dream / vector-search 5 模块)+ Plan-Build-Review 三模(`modes/plan-build.ts` PlanBuildCoordinator 状态机)+ Subagent 协作(`subagent/peer-collab.ts` 对等 + lane 隔离 / `hierarchy.ts` 层级 parent→child / TUI 右下角模式指示器)
+- **Wave 3 P2 生态工作台**:
+  - **W3-1 Control UI Agent 工作台(web)**:`/agent-workbench` 双视图(management / runtime)+ `use-agent-runtime` hook + SessionTree 递归可视化 + TokenStream SSE 实时 token 流 + ToolCallChain 工具调用链 + 侧边栏 nav.agentWorkbench 入口(5 语言 i18n 35 键)
+  - **W3-2 多通道消息总线(跨端 6 渠道)**:`packages/types/message-bus.ts` 共享类型 + `apps/api/src/services/message-bus/` 6 适配器(飞书 / 钉钉 / Telegram / Slack / Discord / 微信)+ `GET /channels` + `POST /send` + `POST /webhook/:channel`
+  - **W3-3 Webhook 唤醒机制(api)**:`POST /hooks/wake` + Bearer token + `timingSafeEqual` 防时序攻击 + WakeEvent 内存存储 + `packages/types/webhook.ts` 共享类型
+  - **W3-4 Hooks 自动发现(跨端)**:`apps/cli/src/hooks/discovery.ts` 目录扫描 + frontmatter 解析 + 状态持久化 + `hooks enable/disable` CLI 子命令
+- **Wave 4 P3 分发与本地化**:
+  - **W4-1 CLI 9 种安装方式**:`apps/cli/scripts/install/` 提供 curl 一键(install.sh)/ PowerShell 一键(install.ps1)/ Homebrew Formula(brew.rb)/ Scoop manifest(scoop.json)/ Chocolatey 包(choco.nuspec)/ Nix flake(nix.nix)/ Docker 镜像(Dockerfile,node:20-slim)/ VSCode SDK 文档(vscode-extension.md)/ 9 种方式汇总 README
+- **鲁棒性 P2 Batch 3(11 项 eslint/tsconfig 严格化,85/85 完美收官)**:9 个 tsconfig 启用 `strict` + `noUncheckedIndexedAccess` + `noImplicitOverride`(packages/types + database + auth + ui + config + api-client + apps/api + apps/web + apps/cli)+ `packages/eslint-config/index.js` `eqeqeq` 加 `{ null: 'ignore' }` — 一次性消除 `obj == null` 合法 idiom 误报(webhooks-trigger.ts / safe-condition.ts / ToolCallTree.tsx / debug-panel.tsx 共 9 处),不改变运行时语义。鲁棒性 85 项 /goal 模式 STATE.md=achieved,85/85 完成
 
 ### 进行中
 
