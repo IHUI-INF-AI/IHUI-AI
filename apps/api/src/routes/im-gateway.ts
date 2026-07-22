@@ -528,7 +528,7 @@ async function triggerAiService(payload: {
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 5000)
-    await fetch('http://127.0.0.1:8000/api/agents/invoke', {
+    await fetch('http://127.0.0.1:3003/api/agents/invoke', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),

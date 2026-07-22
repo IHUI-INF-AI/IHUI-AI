@@ -32,7 +32,7 @@ describe('lib/token', () => {
 
   it('initApi 调用 setBaseUrl 设置 API_BASE_URL', async () => {
     await initApi()
-    expect(apiClientMocks.setBaseUrl).toHaveBeenCalledWith('http://localhost:3000')
+    expect(apiClientMocks.setBaseUrl).toHaveBeenCalledWith('http://localhost:3001')
   })
 
   it('initApi 调用 setTokenProvider 注册 token 提供器', async () => {

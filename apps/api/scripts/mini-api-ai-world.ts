@@ -7,15 +7,15 @@ import Fastify from 'fastify'
 import { aiWorldRoutes } from '../src/routes/ai-world.js'
 import { success } from '../src/utils/response.js'
 
-const PORT = 3001
+const PORT = 3002
 const HOST = '0.0.0.0'
 
 async function main() {
   const app = Fastify({ logger: true })
 
-  // CORS(允许 web 端 3000 访问)
+  // CORS(允许 web 端 3001 访问)
   await app.register(import('@fastify/cors'), {
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: ['http://localhost:3001', 'http://127.0.0.1:3001'],
     credentials: true,
   })
 

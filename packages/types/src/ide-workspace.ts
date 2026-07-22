@@ -144,4 +144,59 @@ export interface LaunchConfig {
   command: string
   cwd?: string
   env?: Record<string, string>
+  /** 调试模式:launch(启动新进程)或 attach(附加到已运行进程)。默认 'launch'。 */
+  mode?: 'launch' | 'attach'
+  /** attach 模式下必填:目标进程的调试端口。 */
+  port?: number
+  /** attach 模式下目标主机,默认 'localhost'。 */
+  host?: string
+}
+
+/** DAP(Debug Adapter Protocol)session 生命周期状态。 */
+export type DebugSessionStatus = 'initializing' | 'running' | 'stopped' | 'terminated'
+
+/** DAP session 摘要信息(列表展示用)。 */
+export interface DebugSessionInfo {
+  sessionId: string
+  language: 'node' | 'python' | 'web'
+  status: DebugSessionStatus
+  startedAt: number
+  lastActivityAt: number
+}
+
+/** DAP stopped 事件 — 程序执行暂停(breakpoint/step/exception/pause)。 */
+export interface DebugStoppedEvent {
+  reason: 'breakpoint' | 'step' | 'exception' | 'pause' | 'entry' | 'branch'
+  /** 触发停止的线程 ID。 */
+  threadId?: number
+  /** 异常停止时的附加文本。 */
+  text?: string
+  /** 是否所有线程都应停止(allThreadsStopped)。 */
+  allThreadsStopped?: boolean
+}
+
+/** DAP breakpoint 事件 — 运行时断点状态变更(验证/未命中/已解析)。 */
+export interface DebugBreakpointEvent {
+  reason: 'changed' | 'new' | 'removed'
+  /** 变更后的断点信息(DAP Breakpoint 对象)。 */
+  breakpoint: {
+    id?: number
+    verified: boolean
+    message?: string
+    source?: { name?: string; path?: string }
+    line?: number
+    column?: number
+  }
+}
+
+/** DAP output 事件 — 程序输出(stdout/stderr/console/telemetry)。 */
+export interface DebugOutputEvent {
+  category: 'console' | 'stdout' | 'stderr' | 'telemetry'
+  output: string
+  /** 关联的数据组 ID(用于分组显示)。 */
+  group?: 'start' | 'startCollapsed' | 'end'
+  /** 关联的变量引用(可进一步 get_variables)。 */
+  variablesReference?: number
+  /** 输出来源(如 'stdout'。 */
+  source?: string
 }
