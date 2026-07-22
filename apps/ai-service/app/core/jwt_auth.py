@@ -30,7 +30,21 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         if not settings.jwt_secret:
-            return await call_next(request)
+            # 生产环境 fail-fast:jwt_secret 为空是严重配置错误,拒绝所有请求
+            # 开发环境(node_env == "development")允许跳过验证
+            if settings.node_env == "development":
+                return await call_next(request)
+            logger.error(
+                "[security] JWT_SECRET 未配置但 node_env=%s,拒绝请求(fail-closed)",
+                settings.node_env,
+            )
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "code": 500,
+                    "message": "服务端安全配置错误(JWT_SECRET 缺失),拒绝服务",
+                },
+            )
 
         path = request.url.path
         if any(path.startswith(p) for p in PUBLIC_PATHS):
