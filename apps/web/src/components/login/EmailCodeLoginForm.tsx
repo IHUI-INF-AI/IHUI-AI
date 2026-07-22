@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Check } from 'lucide-react'
 
 import { Button, Input, Label } from '@ihui/ui'
 import { useAuthStore, type AuthUser } from '@/stores/auth'
@@ -11,6 +11,7 @@ import { Alert } from '@/components/feedback'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { emailSchema, type TokenResult } from './login-schemas'
 import { OtpInput } from './OtpInput'
+import { loadLocalLoginPrefs, saveLocalLoginPrefs } from '@/lib/login-preferences'
 
 interface EmailCodeLoginFormProps {
   active: boolean
@@ -39,6 +40,7 @@ export function EmailCodeLoginForm({
   const [emailCountdown, setEmailCountdown] = React.useState(0)
   const [sendingEmail, setSendingEmail] = React.useState(false)
   const [emailSubmitting, setEmailSubmitting] = React.useState(false)
+  const [autoLogin, setAutoLogin] = React.useState(loadLocalLoginPrefs().autoLogin)
 
   React.useEffect(() => {
     if (!active) setEmailErr(null)
@@ -165,6 +167,16 @@ export function EmailCodeLoginForm({
           </Button>
         </div>
       </div>
+      <div className="flex items-center justify-end">
+        <MiniCheckbox
+          checked={autoLogin}
+          onChange={(v) => {
+            setAutoLogin(v)
+            saveLocalLoginPrefs({ autoLogin: v })
+          }}
+          label={t('autoLogin')}
+        />
+      </div>
       <AgreementCheckbox
         checked={agreed}
         onChange={(v) => onAgreedChange?.(v)}
@@ -176,5 +188,27 @@ export function EmailCodeLoginForm({
         {t('loginBtn')}
       </Button>
     </form>
+  )
+}
+
+function MiniCheckbox({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <label className="group flex cursor-pointer items-center gap-2 select-none">
+      <span
+        onClick={(e) => { e.preventDefault(); onChange(!checked) }}
+        className={[
+          'flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-all duration-200',
+          checked ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background group-hover:border-foreground/60',
+        ].join(' ')}
+        role="checkbox"
+        aria-checked={checked}
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onChange(!checked) } }}
+      >
+        {checked && <Check className="h-3 w-3" strokeWidth={3} />}
+      </span>
+      <input type="checkbox" className="sr-only" tabIndex={-1} checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="text-xs leading-5 text-muted-foreground">{label}</span>
+    </label>
   )
 }
