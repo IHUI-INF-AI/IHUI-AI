@@ -386,6 +386,45 @@
 
 /* ============ 2. 微交互 ============ */
 
+/* ---------- 复选框 3D 翻转动画(2026-07-22 立,借鉴 styled-components 样例融入项目设计系统) ---------- */
+/* 触发:Radix [data-state=checked] 状态切换时,checkmark 容器执行 3D 翻转 + 轻微缩放 */
+@keyframes ihui-checkbox-check {
+  0% {
+    transform: scale(1) rotateZ(0deg) rotateY(0deg);
+  }
+  50% {
+    transform: scale(1.15) rotateZ(180deg) rotateY(180deg);
+  }
+  100% {
+    transform: scale(1.1) rotateZ(360deg) rotateY(360deg);
+  }
+}
+
+/* 取消勾选时反向缩回(无翻转,避免视觉过载) */
+@keyframes ihui-checkbox-uncheck {
+  0% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* checkmark 内 ✓ 图标的弹入效果 */
+@keyframes ihui-checkbox-indicator-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) rotate(-45deg);
+  }
+  60% {
+    transform: scale(1.15) rotate(0deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
 @keyframes ripple {
   to {
     transform: scale(2);
