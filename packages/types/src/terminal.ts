@@ -24,6 +24,10 @@ export interface TerminalSession {
   status: TerminalSessionStatus
   /** 退出码(status='exited' 时有值) */
   exitCode?: number
+  /** 会话自定义名称(rename 后有值,无值时前端用 "Terminal N" 兜底) */
+  name?: string
+  /** 创建会话时指定的 shell 类型(powershell/cmd/bash/wsl) */
+  shell?: string
 }
 
 /** 创建终端会话请求体 */
@@ -34,6 +38,19 @@ export interface TerminalCreateInput {
   cols?: number
   /** 初始行数(默认 24) */
   rows?: number
+  /** Shell 类型(powershell / cmd / bash / wsl,默认服务端配置) */
+  shell?: string
+}
+
+/** 重命名终端会话请求体 */
+export interface TerminalRenameInput {
+  /** 新名称(允许空字符串以清除自定义名) */
+  name: string
+}
+
+/** 重命名终端会话响应 */
+export interface TerminalRenameResponse {
+  session: TerminalSession
 }
 
 /** 创建终端会话响应 */

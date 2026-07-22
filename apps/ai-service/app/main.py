@@ -39,6 +39,8 @@ from app.routers import opencompass
 from app.routers import screenshot
 # P3 深度层 Wave 11:6 大对标能力(2026-07-22 立,对标 Codex/Trae/Qoder)
 from app.routers import rules, hooks, spec
+# Context Engineering 路由(对标 Qoder,多维 @ 提及 + 跨会话 RAG + 多源融合)
+from app.services.context_engine import router as context_engine_router
 from app.routers.legacy import router as legacy_router
 from app.sio import sio
 from app.sio.handlers import register_handlers
@@ -206,6 +208,8 @@ def create_app() -> FastAPI:
     app.include_router(hooks.router, prefix="/api", tags=["hooks"])
     # P3 Wave 11:Plan/Spec 模式(对标 Trae Plan/Spec,tree-sitter AST 反向生成 spec markdown)
     app.include_router(spec.router, prefix="/api", tags=["spec"])
+    # P3 Wave 11:Context Engineering(对标 Qoder,多维 @ 提及 + 跨会话 RAG + 多源融合 + token 预算分配)
+    app.include_router(context_engine_router, prefix="/api/context", tags=["context-engine"])
     app.include_router(legacy_router)
 
     # 审计日志查询端点(调试用,返回最近审计记录,2026-07-22 立)

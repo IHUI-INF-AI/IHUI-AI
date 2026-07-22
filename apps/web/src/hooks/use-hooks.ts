@@ -38,6 +38,41 @@ interface HookLogsResponse {
   count: number
 }
 
+/**
+ * Hook 日志过滤参数(与后端 HookLogsFilter 对应,2026-07-22 立)。
+ *
+ * 透传给 /api/hooks/:id/logs 和 /api/hooks/logs 的 query 参数。
+ */
+export interface HookLogsFilter {
+  /** 按触发事件过滤 */
+  event?: string
+  /** 按成功/失败过滤 */
+  success?: boolean
+  /** 耗时下限(ms,含) */
+  durationMin?: number
+  /** 耗时上限(ms,含) */
+  durationMax?: number
+  /** 起始时间(ISO 字符串,含) */
+  since?: string
+  /** 截止时间(ISO 字符串,含) */
+  until?: string
+}
+
+/** Hook 执行统计(2026-07-22 立) */
+export interface HookStats {
+  total: number
+  success: number
+  failed: number
+  avgDuration: number
+}
+
+/** 批量启用/禁用响应(2026-07-22 立) */
+interface BatchToggleResponse {
+  results: { id: string; success: boolean; error?: string }[]
+  succeeded: number
+  failed: number
+}
+
 async function fetchHooks(event?: string): Promise<Hook[]> {
   const qs = event ? `?event=${encodeURIComponent(event)}` : ''
   const res = await fetchApi<HookListResponse>(`/api/hooks${qs}`)
@@ -45,9 +80,21 @@ async function fetchHooks(event?: string): Promise<Hook[]> {
   return res.data.hooks
 }
 
-async function fetchHookLogs(hookId: string, limit = 100): Promise<HookLog[]> {
+async function fetchHookLogs(
+  hookId: string,
+  limit = 100,
+  filter?: HookLogsFilter,
+): Promise<HookLog[]> {
+  const params = new URLSearchParams()
+  params.set('limit', String(limit))
+  if (filter?.event) params.set('event', filter.event)
+  if (filter?.success !== undefined) params.set('success', String(filter.success))
+  if (filter?.durationMin !== undefined) params.set('durationMin', String(filter.durationMin))
+  if (filter?.durationMax !== undefined) params.set('durationMax', String(filter.durationMax))
+  if (filter?.since) params.set('since', filter.since)
+  if (filter?.until) params.set('until', filter.until)
   const res = await fetchApi<HookLogsResponse>(
-    `/api/hooks/${encodeURIComponent(hookId)}/logs?limit=${limit}`,
+    `/api/hooks/${encodeURIComponent(hookId)}/logs?${params.toString()}`,
   )
   if (!res.success) throw new Error(res.error)
   return res.data.logs
@@ -105,8 +152,31 @@ async function testHookApi(id: string, input: TestHookInput): Promise<TestHookRe
   return res.data
 }
 
+/** 获取 Hook 执行统计(2026-07-22 立)。可选 hookId 过滤单个 Hook。 */
+async function fetchHookStats(hookId?: string): Promise<HookStats> {
+  const qs = hookId ? `?hookId=${encodeURIComponent(hookId)}` : ''
+  const res = await fetchApi<HookStats>(`/api/hooks/stats${qs}`)
+  if (!res.success) throw new Error(res.error)
+  return res.data
+}
+
+/** 批量启用/禁用 Hook(2026-07-22 立) */
+async function batchToggleApi(
+  hookIds: string[],
+  enabled: boolean,
+): Promise<BatchToggleResponse> {
+  const res = await fetchApi<BatchToggleResponse>('/api/hooks/batch/toggle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hookIds, enabled }),
+  })
+  if (!res.success) throw new Error(res.error)
+  return res.data
+}
+
 const HOOKS_QUERY_KEY = ['hooks'] as const
 const hookLogsQueryKey = (id: string) => ['hooks', id, 'logs'] as const
+const hookStatsQueryKey = (hookId?: string) => ['hooks', 'stats', hookId ?? 'all'] as const
 
 /** Hook 列表 + CRUD mutations */
 export function useHooks(event?: string) {
@@ -159,6 +229,20 @@ export function useHooks(event?: string) {
     onError: (e: Error) => toast.error('测试失败', { description: e.message }),
   })
 
+  const batchToggleMut = useMutation({
+    mutationFn: ({ hookIds, enabled }: { hookIds: string[]; enabled: boolean }) =>
+      batchToggleApi(hookIds, enabled),
+    onSuccess: (data) => {
+      if (data.failed > 0) {
+        toast.warning(`批量操作:${data.succeeded} 成功,${data.failed} 失败`)
+      } else {
+        toast.success(`批量${data.succeeded > 0 ? '操作完成' : '无变更'}`)
+      }
+      void qc.invalidateQueries({ queryKey: HOOKS_QUERY_KEY })
+    },
+    onError: (e: Error) => toast.error('批量操作失败', { description: e.message }),
+  })
+
   return {
     hooks: query.data ?? [],
     isLoading: query.isLoading,
@@ -169,22 +253,44 @@ export function useHooks(event?: string) {
     deleteHook: deleteMut.mutateAsync,
     toggleHook: toggleMut.mutateAsync,
     testHook: testMut.mutateAsync,
+    batchToggle: batchToggleMut.mutateAsync,
     isCreating: createMut.isPending,
     isUpdating: updateMut.isPending,
     isDeleting: deleteMut.isPending,
     isTesting: testMut.isPending,
+    isBatchToggling: batchToggleMut.isPending,
   }
 }
 
-/** 单个 Hook 的日志查询 */
-export function useHookLogs(hookId: string | null, limit = 100) {
+/** 单个 Hook 的日志查询(支持过滤参数,2026-07-22 立) */
+export function useHookLogs(
+  hookId: string | null,
+  limit = 100,
+  filter?: HookLogsFilter,
+) {
   const query = useQuery({
-    queryKey: hookId ? hookLogsQueryKey(hookId) : ['hooks', 'logs', 'disabled'],
-    queryFn: () => (hookId ? fetchHookLogs(hookId, limit) : Promise.resolve([])),
+    queryKey: hookId
+      ? [...hookLogsQueryKey(hookId), filter]
+      : ['hooks', 'logs', 'disabled'],
+    queryFn: () => (hookId ? fetchHookLogs(hookId, limit, filter) : Promise.resolve([])),
     enabled: !!hookId,
   })
   return {
     logs: query.data ?? [],
+    isLoading: query.isLoading,
+    error: query.error as Error | null,
+    refetch: () => void query.refetch(),
+  }
+}
+
+/** Hook 执行统计(2026-07-22 立)。可选 hookId 过滤单个 Hook。 */
+export function useHookStats(hookId?: string) {
+  const query = useQuery({
+    queryKey: hookStatsQueryKey(hookId),
+    queryFn: () => fetchHookStats(hookId),
+  })
+  return {
+    stats: query.data ?? { total: 0, success: 0, failed: 0, avgDuration: 0 },
     isLoading: query.isLoading,
     error: query.error as Error | null,
     refetch: () => void query.refetch(),

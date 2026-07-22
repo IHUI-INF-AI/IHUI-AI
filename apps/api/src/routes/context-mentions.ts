@@ -6,6 +6,8 @@
  * - GET /database/tables?q=                                 数据库表清单
  * - GET /database/schema/:table                             指定表列定义
  * - GET /symbols?q=                                         符号语义搜索
+ * - POST /enrich                                            @ 提及 + RAG 两层集成(2026-07-22 立)
+ * - GET /sources                                            可用上下文源类型 + 预算分配(2026-07-22 立)
  *
  * 鉴权:JWT(复用 packages/auth authenticate)
  * 校验:Zod(query schema)
@@ -33,6 +35,33 @@ const tableQuerySchema = z.object({
 const symbolQuerySchema = z.object({
   q: z.preprocess(emptyToUndefined, z.string().min(1).max(255)),
   limit: z.coerce.number().int().min(1).max(50).default(20),
+})
+
+/** POST /enrich 请求体 schema(2026-07-22 立) */
+const enrichBodySchema = z.object({
+  userMessage: z.string().max(8000).default(''),
+  conversationId: z.string().max(255).default(''),
+  mentions: z
+    .array(
+      z.object({
+        id: z.string(),
+        type: z.enum(['file', 'database', 'symbol', 'folder', 'web']),
+        label: z.string(),
+        detail: z.string().optional(),
+        insertText: z.string(),
+        meta: z.record(z.string(), z.unknown()).optional(),
+      }),
+    )
+    .default([]),
+  messages: z
+    .array(
+      z.object({
+        role: z.string(),
+        content: z.string(),
+      }),
+    )
+    .optional(),
+  totalBudget: z.coerce.number().int().min(500).max(32000).default(8000),
 })
 
 export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
@@ -130,6 +159,51 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '符号检索失败'))
+    }
+  })
+
+  // POST /enrich — @ 提及结果 + RAG 检索两层集成(2026-07-22 立)
+  // 转发到 context-engine-service.enrich,委托 ai-service /api/context/enrich
+  // 降级:ai-service 不可用时仅返回 @ 提及内容(无 RAG 检索)
+  server.post('/enrich', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = enrichBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { userMessage, conversationId, mentions, messages, totalBudget } = parsed.data
+    try {
+      const enriched = await contextEngineService.enrich({
+        userMessage,
+        conversationId,
+        mentions,
+        messages,
+        totalBudget,
+      })
+      return reply.send(success(enriched))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '上下文增强失败'))
+    }
+  })
+
+  // GET /sources — 返回可用上下文源类型 + 预算分配(2026-07-22 立)
+  // 转发到 context-engine-service.getSources,委托 ai-service /api/context/sources
+  // 降级:ai-service 不可用时返回内置默认值
+  server.get('/sources', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    try {
+      const data = await contextEngineService.getSources()
+      return reply.send(success(data))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '源类型查询失败'))
     }
   })
 }
