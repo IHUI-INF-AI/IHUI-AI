@@ -483,3 +483,8 @@ export function checkPathWritePermission(
 import { registerLspTools } from './lsp.js';
 export { registerLspTools };
 registerLspTools();
+
+// ==================== 四层记忆 + Dream 梦境工具(2026-07-22 新增,对标 OpenClaw Mem)====================
+import { registerMemoryTools } from './memory.js';
+export { registerMemoryTools };
+registerMemoryTools();
