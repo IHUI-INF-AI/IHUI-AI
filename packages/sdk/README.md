@@ -16,7 +16,7 @@ import { createClient } from '@ihui/sdk'
 const client = createClient({
   apiKey: 'ihui_xxx',
   // secret: 'sk_xxx',        // 可选,创建/轮换时返回
-  // baseUrl: 'http://localhost:3001', // 默认值
+  // baseUrl: 'http://localhost:8802', // 默认值
 })
 
 // 列出模型
@@ -36,7 +36,7 @@ console.log(completion.choices[0].message.content)
 |------|------|--------|------|
 | `apiKey` | `string` | (必需) | API Key,格式 `ihui_xxx` |
 | `secret` | `string` | — | API Secret,创建/轮换时返回 |
-| `baseUrl` | `string` | `http://localhost:3001` | 后端 API 地址 |
+| `baseUrl` | `string` | `http://localhost:8802` | 后端 API 地址 |
 | `timeout` | `number` | `30000` | 请求超时(毫秒),流式请求不超时 |
 | `maxRetries` | `number` | `2` | 最大重试次数,网络错误和 5xx 重试,429 不重试 |
 | `fetch` | `typeof fetch` | 全局 fetch | 自定义 fetch 实现(测试/拦截用) |

@@ -3,10 +3,10 @@ version: '3.8'
 # 可观测性基础设施(2026-07-22 立)
 # 启动:docker compose -f deploy/observability/docker-compose.observability.yml up -d
 # 端口:
-#   - Jaeger UI: http://localhost:16686
-#   - Prometheus: http://localhost:9090
-#   - Grafana: http://localhost:3001(admin/admin)
-#   - OTel Collector OTLP: http://localhost:4318(HTTP)/ localhost:4317(gRPC)
+#   - Jaeger UI: http://localhost:8814
+#   - Prometheus: http://localhost:8815
+#   - Grafana: http://localhost:8816(admin/admin)
+#   - OTel Collector OTLP: http://localhost:8813(HTTP)/ localhost:8812(gRPC)
 
 services:
   # ===== OpenTelemetry Collector =====
@@ -18,8 +18,8 @@ services:
     volumes:
       - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
     ports:
-      - "4317:4317"   # OTLP gRPC
-      - "4318:4318"   # OTLP HTTP
+      - "8812:4317"   # OTLP gRPC
+      - "8813:4318"   # OTLP HTTP
       - "8888:8888"   # Collector 自身 metrics
     depends_on:
       - jaeger
@@ -35,7 +35,7 @@ services:
       - COLLECTOR_OTLP_ENABLED=true
       - JAEGER_DISABLED=false
     ports:
-      - "16686:16686"  # Jaeger UI
+      - "8814:16686"  # Jaeger UI
       - "14250:14250"  # gRPC(Collector 内部)
       - "14268:14268"  # HTTP(Collector 内部)
     restart: unless-stopped
@@ -53,7 +53,7 @@ services:
       - '--storage.tsdb.retention.time=7d'
       - '--web.enable-lifecycle'
     ports:
-      - "9090:9090"
+      - "8815:9090"
     restart: unless-stopped
 
   # ===== Grafana =====
@@ -71,7 +71,7 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      - "3001:3000"  # Grafana UI(3001 避免与 web 3000 冲突)
+      - "8816:3000"  # Grafana UI(8816 避免与 web 8801 冲突)
     depends_on:
       - prometheus
       - jaeger

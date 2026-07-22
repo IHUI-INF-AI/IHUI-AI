@@ -28,10 +28,10 @@ RUN addgroup -S app && adduser -S app -G app
 # USER app  # 暂不切换,因需要访问 docker.sock
 
 ENV NODE_ENV=production
-ENV PORT=8081
+ENV PORT=8830
 ENV HOST=127.0.0.1
 
-EXPOSE 8081
+EXPOSE 8830
 
 # 启动(用 tsx 运行 TypeScript,无需构建)
 CMD ["node", "--import", "tsx", "src/index.ts"]

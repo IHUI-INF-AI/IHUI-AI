@@ -22,7 +22,7 @@ import { closeTestDb } from './helpers/test-db'
 // 用非超级用户连接的 DB(RLS 会真正生效)
 const RLS_TEST_URL =
   process.env.RLS_TEST_DATABASE_URL ??
-  'postgresql://rls_test_user:rls_test_pwd@localhost:5432/ihui_test'
+  'postgresql://rls_test_user:rls_test_pwd@localhost:8810/ihui_test'
 
 const { dbWriter: rlsDb, writerClient: rlsClient } = createReadWriteDb({
   url: RLS_TEST_URL,

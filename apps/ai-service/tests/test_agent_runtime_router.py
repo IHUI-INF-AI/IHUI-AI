@@ -213,7 +213,7 @@ async def test_execute_stream_redis_available_persists_session(
     client, mock_llm_gateway, monkeypatch
 ):
     """REDIS_URL 可用(mock redis client)→ session 持久化到 Redis。"""
-    monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
+    monkeypatch.setenv("REDIS_URL", "redis://localhost:8811/0")
     agent_runtime._redis_client = None
     agent_runtime._redis_disabled = False
 
