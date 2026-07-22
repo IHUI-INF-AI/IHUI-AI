@@ -758,3 +758,87 @@ async def vision_analyze(request: Request) -> dict[str, Any]:
     body = await request.json()
     result = await _tool_vision_analyze(body)
     return {"code": 0, "message": "ok", "data": result}
+
+
+# ---------------------------------------------------------------------------
+# Embeddings 路由(2026-07-22 立,补建 v1/embeddings 503 修复的依赖端点)
+# ---------------------------------------------------------------------------
+
+
+class EmbeddingsRequest(BaseModel):
+    """Embedding 向量生成请求(OpenAI 兼容)。"""
+
+    model: str = Field(..., description="模型名称")
+    input: str | list[str] = Field(..., description="文本或文本列表")
+    dimensions: int | None = Field(None, description="输出维度(部分模型支持)")
+
+
+@router.post("/llm/embeddings")
+async def create_embeddings(req: EmbeddingsRequest) -> dict[str, Any]:
+    """生成文本嵌入向量(OpenAI 兼容格式)。
+
+    返回格式:
+    {
+        "object": "list",
+        "data": [{"object": "embedding", "index": 0, "embedding": [0.1, ...]}],
+        "model": "text-embedding-ada-002",
+        "usage": {"prompt_tokens": 10, "total_tokens": 10}
+    }
+    """
+    texts = [req.input] if isinstance(req.input, str) else list(req.input)
+    if not texts:
+        return JSONResponse(
+            status_code=400,
+            content={"code": "INVALID_INPUT", "message": "input must not be empty", "model": req.model},
+        )
+
+    used_model = req.model or getattr(settings, "embedding_model", "text-embedding-ada-002")
+
+    # stub 模式:逐条调 llm_gateway.embed(返回确定性哈希向量,无真实 usage)
+    if llm_gateway._is_stub_mode():
+        embeddings = [await llm_gateway.embed(t, used_model) for t in texts]
+        total_chars = sum(len(t) for t in texts)
+        est_tokens = max(1, total_chars // 4)
+        return {
+            "object": "list",
+            "data": [
+                {"object": "embedding", "index": i, "embedding": emb}
+                for i, emb in enumerate(embeddings)
+            ],
+            "model": used_model,
+            "usage": {"prompt_tokens": est_tokens, "total_tokens": est_tokens},
+        }
+
+    # 非 stub 模式:直接调 litellm.aembedding(批量,含真实 usage)
+    import litellm
+
+    kwargs: dict[str, Any] = {}
+    if req.dimensions is not None:
+        kwargs["dimensions"] = req.dimensions
+    try:
+        response = await litellm.aembedding(model=used_model, input=texts, **kwargs)
+    except Exception as e:
+        logger.exception("Embedding generation failed: model=%s", used_model)
+        return JSONResponse(
+            status_code=502,
+            content={"code": "EMBEDDING_ERROR", "message": str(e), "model": used_model},
+        )
+
+    embeddings = [item["embedding"] for item in response.data]
+    usage_obj = getattr(response, "usage", None)
+    if isinstance(usage_obj, dict):
+        prompt_tokens = usage_obj.get("prompt_tokens", 0) or 0
+        total_tokens = usage_obj.get("total_tokens", 0) or 0
+    else:
+        prompt_tokens = getattr(usage_obj, "prompt_tokens", 0) or 0
+        total_tokens = getattr(usage_obj, "total_tokens", 0) or 0
+
+    return {
+        "object": "list",
+        "data": [
+            {"object": "embedding", "index": i, "embedding": emb}
+            for i, emb in enumerate(embeddings)
+        ],
+        "model": used_model,
+        "usage": {"prompt_tokens": prompt_tokens, "total_tokens": total_tokens},
+    }
