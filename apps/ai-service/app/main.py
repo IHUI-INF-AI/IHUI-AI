@@ -197,6 +197,9 @@ def create_app() -> FastAPI:
     # 多通道消息总线(5 通道 + 优先级 + 降级 + 模板 + 批量 + 限流,2026-07-22 新增,反超 OpenClaw 单 WS)
     from app.api.message_bus import router as message_bus_router
     app.include_router(message_bus_router, prefix="/api", tags=["message-bus"])
+    # DAG Worker Pool(2026-07-22 立,多 agent 并行执行 — 限并发 N worker + 优先级队列 + 持久化)
+    from app.api.dag import router as dag_router
+    app.include_router(dag_router, prefix="/api/dag", tags=["dag"])
     # P3 Wave 11:Rules 引擎(对标 Trae Rules,文件存储 .trae-cn/rules/*.md + 热加载 + 4 种匹配)
     app.include_router(rules.router, prefix="/api", tags=["rules"])
     # P3 Wave 11:Hook 服务(对标 Trae Hooks,事件总线 + JSONLogic 条件 + 4 执行器)
