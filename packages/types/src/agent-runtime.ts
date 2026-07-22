@@ -551,3 +551,203 @@ export interface SkillSyncResponse {
   /** 同步时间(ISO) */
   syncedAt: string
 }
+
+// ============================================================================
+// 沙箱后端契约(P2-1)
+// ============================================================================
+
+/** 沙箱后端类型(对标 Hermes 6 种后端) */
+export type SandboxBackendType =
+  | 'local' // 本地执行(现有)
+  | 'docker' // Docker 容器隔离
+  | 'ssh' // 远程 SSH 执行
+  | 'modal' // Modal serverless GPU
+  | 'daytona' // Daytona 云开发环境
+  | 'singularity' // HPC 集群 Singularity
+
+/** 沙箱配置 */
+export interface SandboxConfig {
+  /** 后端类型 */
+  backend: SandboxBackendType
+  /** 工作目录(本地)或镜像名(Docker)或主机地址(SSH) */
+  target: string
+  /** 超时秒数(默认 60) */
+  timeoutSeconds?: number
+  /** Docker 镜像(backend=docker 时) */
+  image?: string
+  /** SSH 主机(backend=ssh 时) */
+  host?: string
+  /** SSH 用户名 */
+  user?: string
+  /** SSH 端口(默认 22) */
+  port?: number
+  /** 环境变量 */
+  env?: Record<string, string>
+  /** 资源限制(CPU/内存) */
+  resourceLimits?: {
+    cpuCores?: number
+    memoryMb?: number
+    diskMb?: number
+  }
+}
+
+/** 沙箱执行结果 */
+export interface SandboxExecutionResult {
+  /** 退出码(0=成功) */
+  exitCode: number
+  /** stdout */
+  stdout: string
+  /** stderr */
+  stderr: string
+  /** 执行时长(ms) */
+  durationMs: number
+  /** 使用的后端 */
+  backend: SandboxBackendType
+  /** 是否超时 */
+  timedOut: boolean
+}
+
+// ============================================================================
+// LLM Provider 扩展契约(P2-2)
+// ============================================================================
+
+/** MoA(Mixture of Agents)预设 */
+export interface MoaPreset {
+  /** 预设名 */
+  name: string
+  /** 描述 */
+  description: string
+  /** 参与模型列表(按权重) */
+  models: Array<{
+    /** provider 名 */
+    provider: string
+    /** 模型名 */
+    model: string
+    /** 权重(0-1) */
+    weight: number
+    /** 角色:proposer(出方案)/ aggregator(聚合)/ critic(批判) */
+    role: 'proposer' | 'aggregator' | 'critic'
+  }>
+  /** 聚合策略 */
+  aggregationStrategy: 'weighted_average' | 'vote' | 'best_of_n' | 'cascade'
+}
+
+/** Provider 故障转移配置 */
+export interface ProviderFallbackConfig {
+  /** 主 provider */
+  primary: string
+  /** 备用 provider 列表(按优先级) */
+  fallbacks: string[]
+  /** 触发转移的错误类型 */
+  triggerOnError: Array<'rate_limited' | 'auth_error' | 'overloaded' | 'timeout' | 'context_too_long' | 'unknown'>
+  /** 重试次数(默认 1) */
+  maxRetries?: number
+}
+
+/** 凭证池配置(多 key 轮询) */
+export interface CredentialPoolConfig {
+  /** provider 名 */
+  provider: string
+  /** API key 列表(轮询使用) */
+  apiKeys: string[]
+  /** 轮询策略 */
+  rotationStrategy: 'round_robin' | 'least_used' | 'random'
+  /** 单 key 速率限制(RPM) */
+  perKeyRateLimit?: number
+}
+
+// ============================================================================
+// 多模态输入契约(P2-3)
+// ============================================================================
+
+/** 多模态输入类型 */
+export type MultimodalInputType = 'text' | 'image' | 'video' | 'audio'
+
+/** 多模态消息内容块(对齐 OpenAI vision 格式) */
+export interface MultimodalContentBlock {
+  /** 内容类型 */
+  type: 'text' | 'image_url' | 'input_image' | 'input_video' | 'input_audio'
+  /** 文本内容(type=text 时) */
+  text?: string
+  /** 图片 URL(type=image_url 时) */
+  imageUrl?: { url: string; detail?: 'auto' | 'low' | 'high' }
+  /** base64 编码的图片/视频/音频(type=input_* 时) */
+  data?: string
+  /** 媒体 MIME 类型 */
+  mediaType?: string
+}
+
+/** 视觉分析请求 */
+export interface VisionAnalyzeRequest {
+  /** 图片 URL 或 base64 */
+  image: string
+  /** 分析任务描述 */
+  task: string
+  /** 期望模型(可选) */
+  model?: string
+  /** 最大 token(默认 1024) */
+  maxTokens?: number
+}
+
+/** 视觉分析响应 */
+export interface VisionAnalyzeResponse {
+  /** 分析结果文本 */
+  analysis: string
+  /** 实际使用模型 */
+  model: string
+  /** 检测到的对象列表(可选) */
+  detectedObjects?: Array<{ label: string; confidence: number; bbox?: [number, number, number, number] }>
+  /** token 使用量 */
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number }
+}
+
+// ============================================================================
+// 可观测性契约(P2-4)
+// ============================================================================
+
+/** Otel Span 类型 */
+export type OtelSpanKind = 'internal' | 'server' | 'client' | 'producer' | 'consumer'
+
+/** Trace 上下文(跨端传递) */
+export interface TraceContext {
+  /** trace ID */
+  traceId: string
+  /** span ID */
+  spanId: string
+  /** 父 span ID(可选) */
+  parentSpanId?: string
+  /** baggage(跨端携带的键值对) */
+  baggage?: Record<string, string>
+}
+
+/** 可观测性埋点配置 */
+export interface OtelSpanConfig {
+  /** span 名 */
+  name: string
+  /** span 类型 */
+  kind: OtelSpanKind
+  /** 属性(键值对) */
+  attributes?: Record<string, string | number | boolean>
+  /** 关联的 trace 上下文(跨端传递时) */
+  traceContext?: TraceContext
+}
+
+/** 端到端 trace 事件 */
+export interface TraceEvent {
+  /** 事件名 */
+  name: string
+  /** 时间戳(ISO) */
+  timestamp: string
+  /** 端标识(web/api/ai-service/cli/desktop/extension/mobile-rn/miniapp-taro) */
+  endpoint: string
+  /** span ID */
+  spanId: string
+  /** 父 span ID */
+  parentSpanId?: string
+  /** 属性 */
+  attributes?: Record<string, string | number | boolean>
+  /** 状态(ok/error) */
+  status: 'ok' | 'error'
+  /** 错误信息(status=error 时) */
+  error?: string
+}
