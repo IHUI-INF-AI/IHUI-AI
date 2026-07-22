@@ -88,18 +88,31 @@ async def telemetry_middleware(request: Request, call_next: Any) -> Response:
     """FastAPI 中间件：为每个请求创建 span，注入 user/tenant 维度。
 
     OTel 未启用时为 no-op（trace.get_tracer 返回 NoOpTracer）。
+
+    2026-07-22 立：解析请求头 traceparent 关联 api 端 parent context，
+    让 start_as_current_span 自动挂在 api 端 trace 树下（Jaeger 端到端调用链）。
+    解析失败/无 traceparent 头时保持原行为（开 root span）。
     """
     if _tracer is None:
         return await call_next(request)
 
     import opentelemetry.trace as trace_api
+    from opentelemetry.propagate import extract
 
     route = request.url.path
     method = request.method
 
+    # 解析 W3C traceparent 头，关联 api 端 trace（parent context）。
+    # extract 用注册的 propagator（默认含 tracecontext）解析 traceparent，
+    # 返回包含 NonRecordingSpan(parent) 的 Context；非法/缺失时返回空 Context（开 root span）。
+    # 2026-07-22 立：实现 api → ai-service 端到端 trace 关联（Jaeger 调用链）。
+    traceparent_header = request.headers.get("traceparent")
+    parent_context = extract({"traceparent": traceparent_header}) if traceparent_header else None
+
     with _tracer.start_as_current_span(
         f"{method} {route}",
         kind=trace_api.SpanKind.SERVER,
+        context=parent_context,
     ) as span:
         span.set_attribute("http.request.method", method)
         span.set_attribute("http.route", route)
@@ -111,6 +124,11 @@ async def telemetry_middleware(request: Request, call_next: Any) -> Response:
         tenant_id = request.headers.get("x-tenant-id")
         if tenant_id:
             span.set_attribute("tenant.id", tenant_id)
+
+        # 关联 trace_id（TraceContextMiddleware 解析入 request.state，供 logger context 使用）
+        trace_id = getattr(request.state, "trace_id", None)
+        if trace_id:
+            span.set_attribute("trace.id", trace_id)
 
         try:
             response = await call_next(request)
