@@ -42,7 +42,7 @@ struct OkResult {
 struct WindowInfo {
     title: String,
     app_name: String,
-    bounds: Vec<f64>,
+    window_id: String,
 }
 
 #[derive(Serialize)]
@@ -298,11 +298,82 @@ fn keyboard_hotkey(keys: Vec<String>) -> Result<OkResult, String> {
     Ok(OkResult { ok: true })
 }
 
+/// Windows: winapi(GetForegroundWindow + GetWindowTextW + 进程映像名);其他平台未实现。
+#[cfg(windows)]
+mod active_window_impl {
+    use winapi::um::handleapi::CloseHandle;
+    use winapi::um::processthreadsapi::OpenProcess;
+    use winapi::um::winbase::QueryFullProcessImageNameW;
+    use winapi::um::winuser::{
+        GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
+    };
+
+    const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
+
+    pub fn get() -> Result<super::WindowInfo, String> {
+        unsafe {
+            let hwnd = GetForegroundWindow();
+            if hwnd.is_null() {
+                return Err("No foreground window".to_string());
+            }
+            let len = GetWindowTextLengthW(hwnd);
+            let mut title_buf: Vec<u16> = vec![0u16; len as usize + 1];
+            let written = GetWindowTextW(hwnd, title_buf.as_mut_ptr(), title_buf.len() as i32);
+            let title = String::from_utf16_lossy(&title_buf[..written.max(0) as usize]);
+
+            let mut pid: u32 = 0;
+            GetWindowThreadProcessId(hwnd, &mut pid);
+            let app_name = if pid != 0 {
+                process_name(pid).unwrap_or_default()
+            } else {
+                String::new()
+            };
+
+            Ok(super::WindowInfo {
+                title,
+                app_name,
+                window_id: format!("{}", hwnd as usize),
+            })
+        }
+    }
+
+    /// 通过进程映像路径提取可执行文件名(去 .exe 后缀)。
+    fn process_name(pid: u32) -> Result<String, String> {
+        unsafe {
+            let h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+            if h.is_null() {
+                return Err("OpenProcess failed".to_string());
+            }
+            let mut size: u32 = 1024;
+            let mut buf: Vec<u16> = vec![0u16; 1024];
+            let ok = QueryFullProcessImageNameW(h, 0, buf.as_mut_ptr(), &mut size);
+            CloseHandle(h);
+            if ok == 0 {
+                return Err("QueryFullProcessImageNameW failed".to_string());
+            }
+            let path = String::from_utf16_lossy(&buf[..size as usize]);
+            let base = path.rsplit(|c| c == '\\' || c == '/').next().unwrap_or(&path);
+            if base.len() > 4 && base[base.len() - 4..].eq_ignore_ascii_case(".exe") {
+                Ok(base[..base.len() - 4].to_string())
+            } else {
+                Ok(base.to_string())
+            }
+        }
+    }
+}
+
+#[cfg(not(windows))]
+mod active_window_impl {
+    pub fn get() -> Result<super::WindowInfo, String> {
+        Err("active_window only implemented on Windows".to_string())
+    }
+}
+
 #[tauri::command]
 fn active_window() -> Result<ActiveWindowResult, String> {
-    // active-win-related-rs crate 不存在于 crates.io,暂返回错误。
-    // 后续可接入 xcap 或 platform-specific 实现(GetForegroundWindow / NSWorkspace / xdotool)。
-    Err("active_window not yet implemented: no suitable cross-platform crate available".to_string())
+    Ok(ActiveWindowResult {
+        window: active_window_impl::get()?,
+    })
 }
 
 #[tauri::command]
