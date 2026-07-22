@@ -101,6 +101,7 @@
 - [技术栈](#技术栈)
 - [8 端架构](#8-端架构)
 - [应用使用层级图](#应用使用层级图)
+- [应用功能层级及介绍图](#应用功能层级及介绍图)
 - [项目结构](#项目结构)
 - [核心能力详解(15 大模块 · 按用户角色分组)](#核心能力详解15-大模块--按用户角色分组)
   - [A. AI 能力层](#a-ai-能力层面向最终用户)
@@ -656,6 +657,151 @@ cd IHUI-AI && docker compose up -d
 | L4 服务层 | 向下读写 L5 数据 | api ↔ ai-service 通过 HTTP/WS,可独立扩缩 |
 | L5 数据层 | 向下依赖 L6 基础设施 | PostgreSQL 可换 MySQL/SQLite(需同步 Drizzle schema) |
 | L6 基础设施 | 支撑全栈 | Docker Compose 可迁移 K8s(规划中,业务服务 >10 时触发) |
+
+---
+
+## 应用功能层级及介绍图
+
+> 按用户角色分组,5 大功能层 / 15 模块 / 70+ 子能力一览。每个模块标注核心场景与对应代码入口。
+
+```
+IHUI-AI 应用功能全景
+│
+├── A. AI 能力层(面向最终用户)— 对话 / 创作 / 多模态
+│   │
+│   ├── A1. 100+ 大模型一站式接入
+│   │   • LiteLLM 网关统一接入 · 智能路由 · 60% 缓存命中
+│   │   • 国际(OpenAI/Claude/Gemini/Grok)+ 国产(GLM/Qwen/Doubao/DeepSeek/Kimi)+ 云厂商 8 家
+│   │   📁 apps/ai-service/app/providers/ · 5 适配器
+│   │
+│   ├── A2. LangGraph + MCP + A2A 三栈协同
+│   │   • LangGraph StateGraph 工作流(plan→execute→summarize,stub 模式无 key 可开发)
+│   │   • MCP 11 内置工具 + 3 资源 + 3 提示词 + 项目级 MCP + mcp-extended
+│   │   • A2A Agent-to-Agent 协议(Redis 持久化 + 内存降级)
+│   │   • 向量记忆 / 知识库 RAG / 知识图谱 / Persona / Agent Runtime SSE 流式
+│   │   📁 services/langgraph_service.py · routers/mcp.py · routers/a2a.py
+│   │
+│   └── A3. 多模态 AI 创作
+│       • 文生图(SD/DALL-E/通义万相)· 图像编辑 · TTS 流式合成(12+ 音色)
+│       • ASR 语音识别 · 音色克隆 · WebRTC 双向实时语音
+│       • 文生视频 · AI 数字人(腾讯混元 3D)· AI 求职 · AI 资讯聚合
+│       📁 apps/api/src/routes/ai-* · apps/ai-service/app/routers/
+│
+├── B. AI 工作流与开发者(面向开发者)— 编程 / 协作 / Agent 市场
+│   │
+│   ├── B1. 自研 CLI(对标 Claude Code)
+│   │   • 17 命令(REPL/chat/agent/init/sessions/mcp/capabilities/checkpoint/hooks/import/skills/acp/audit)
+│   │   • 13 内置工具(ask-user/builtins/clipboard/codegraph/fetch-url/file-edit/git/mcp-oauth/run-tests/subagent/todo-write/web-search)
+│   │   • ACP Server(Zed/VSCode/Cursor 嵌入)· 6 源配置导入 · Skills 系统
+│   │   • Client/Server 架构 · 四层记忆 + 梦境 · Plan-Build-Review 三模 · Subagent 协作
+│   │   📁 apps/cli/src/
+│   │
+│   ├── B2. 企业级工作空间权限
+│   │   • 3 模式(default/accept-edits/bypass-permissions)· 7 端点运行时拦截
+│   │   • 60s 审计超时 · WebSocket 实时推送权限请求 · 任务级权限隔离
+│   │   📁 apps/api/src/routes/workspace-ai*
+│   │
+│   └── B3. 多智能体业务管理
+│       • 智能体市场(购买/审核/结算/提现/排行/精选)+ 开发者中心(13 子页)
+│       • Coze SDK 代理 · OpenClaw 框架 · CrewAI 集成 · N8N 反向代理
+│       • Skills 系统(content_engine + koubo_workflow 10+ tools)· MCP 扩展 · Persona 注册表
+│       📁 apps/api/src/routes/agent-* · apps/api/src/routes/coze*
+│
+├── C. 内容创作与教育(面向创作者与教育者)— 发布 / 教学 / 短剧
+│   │
+│   ├── C1. 内容创作与多平台发布
+│   │   • 14 平台一键自动发布:文章 9(WordPress/Medium/公众号/头条/知乎/CSDN/掘金)
+│   │     + 图片 2(小红书/微博)+ 视频 5(YouTube/B 站/抖音/快手/视频号)
+│   │   • 凭证 AES-256-GCM 加密 · WebSocket 实时通知 · 资讯新闻爬虫
+│   │   • 自媒体工作台(公众号文章 + 口播稿双流水线)· 短剧创作 · 业务名片
+│   │   📁 apps/ai-service/app/services/publish/ · apps/web/app/(main)/drama/
+│   │
+│   └── C2. AI 教育全栈
+│       • 课程学习(课程/章节/路径/地图/进度/笔记/问答)
+│       • 题库与考试(多题型/自动批改/错题本/试卷上传)
+│       • SRS 间隔重复(艾宾浩斯遗忘曲线)· 直播教学(签到/互动/回放)
+│       • 学习报告 · 证书发放 · 讲师管理 · 学生端 12 子页 · edu-full 45 表 schema
+│   │   📁 apps/api/src/routes/learn* · apps/api/src/routes/exam* · apps/api/src/routes/live*
+│
+├── D. 企业与运营(面向企业管理者与运营)— 计费 / 社区 / 增长 / 客服 / BI
+│   │
+│   ├── D1. 计费与交易
+│   │   • 闭环:订阅 VIP → 钱包充值 → 积分获取 → 模型扣费 → 退款审计 → 发票
+│   │   • 分销佣金 + 邀请返佣 · VIP 多级会员 · 8 支付网关 · 多币种汇率
+│   │   📁 apps/api/src/routes/billing* · apps/api/src/routes/wallet* · apps/api/src/routes/order*
+│   │
+│   ├── D2. 社区与互动
+│   │   • 圈子广场 · 私信消息(WebSocket 实时推送)· 关注粉丝 · 分享邀请
+│   │   • 互动反馈(评论/点赞/收藏/举报/反馈中心)
+│   │   📁 apps/api/src/routes/social* · apps/api/src/routes/message*
+│   │
+│   ├── D3. 运营增长体系
+│   │   • 积分签到 · 排行榜 · 抽奖红包 · 分销佣金(8 子页)· 活动公告
+│   │   • 游戏化(等级/成就/勋章)· VIP 会员权益 · 优惠券
+│   │   📁 apps/api/src/routes/checkin* · apps/api/src/routes/ranking* · apps/api/src/routes/distribution*
+│   │
+│   ├── D4. 客服与支持
+│   │   • 工单系统(提交/处理/评价/FAQ)· 在线客服(WebSocket 1 对 1)
+│   │   • 反馈中心 · 帮助中心(动态路由文档)
+│   │   📁 apps/api/src/routes/admin-asks* · apps/api/src/routes/support*
+│   │
+│   └── D5. 运营与监控
+│       • BI 仪表盘 · 错误仪表盘 · 操作日志 · API 调试 · 灰度发布 / A/B 测试
+│       • i18n 仪表盘 · 访问追踪 · 告警监控(Alertmanager + noise-rules)
+│   │   📁 apps/api/src/routes/bi-* · apps/api/src/routes/audit* · apps/api/src/routes/canary*
+│
+└── E. 工程基础设施(面向运维与架构师)— 安全 / 数据 / i18n / 守门 / 测试
+    │
+    ├── E1. 安全与合规
+    │   • 认证(JWT HS256 + token-family + refresh 黑名单)· SSO(OAuth2 + Apple + Google + PKCE)
+    │   • 加密(AES-256-GCM credentials)· 限流 · RBAC(roleId ≥ 1)· 多租户 RLS · 2FA · GDPR
+    │   • CSRF · XSS 守门 · API key 泄露守门 · 行锁防 TOCTOU · 审计日志
+    │   📁 packages/auth/ · apps/api/src/plugins/auth.ts · apps/api/src/plugins/csrf.ts
+    │
+    ├── E2. 数据库与共享包
+    │   • PostgreSQL 15 单库 + schema 隔离 · 339+ 表 / 128+ 迁移 / 30+ 业务域
+    │   • pgvector 向量 · RLS 行级安全 · 读副本 + tenant-router · 7 步幂等 seed
+    │   • 13 共享包(auth/database/types/ui/sdk/config/eslint-config/tsconfig 等)
+    │   📁 packages/database/ · packages/auth/ · packages/types/
+    │
+    ├── E3. 国际化(5 语言 parity)
+    │   • zh-CN(基准)/ zh-TW(opencc 检测)/ en(破碎机翻检测)/ ko(字符范围检测)/ ja
+    │   • 4 守门脚本 + 19 i18n 工具链 · 品牌翻译策略(官方英文名优先)
+    │   📁 apps/web/messages/ · scripts/*i18n*
+    │
+    ├── E4. 工程守门
+    │   • 23 pre-commit 钩子(API key 泄露 / i18n / schema drift / 圆角 / Tailwind 冲突 / 多端同步 / README 同步 等)
+    │   • post-commit 自动 push(git-push-guard)· 11 迁移审计 · 9 PowerShell 启动脚本
+    │   📁 scripts/check-*.mjs · .husky/
+    │
+    └── E5. 测试与性能
+        • Vitest(后端 268 用例)· Playwright(E2E 17 spec)· pytest(AI 400+ 用例)· Locust 压测
+        • Lighthouse CI 性能预算 · Knip 未使用代码检测 · turbo 22 tasks 全量验证
+        📁 apps/api/tests/ · apps/web/e2e/ · apps/ai-service/tests/
+```
+
+### 功能矩阵速查
+
+| 分组 | 模块 | 核心场景 | 代码入口 |
+|------|------|---------|---------|
+| **A AI 能力** | A1 模型接入 | 100+ 模型统一调用 | `apps/ai-service/app/providers/` |
+| | A2 三栈协同 | LangGraph + MCP + A2A | `services/langgraph_service.py` |
+| | A3 多模态创作 | 文生图/语音/视频/数字人 | `apps/api/src/routes/ai-*` |
+| **B 工作流** | B1 自研 CLI | 17 命令 + 13 工具 + ACP | `apps/cli/src/` |
+| | B2 工作空间权限 | 3 模式 + 7 端点拦截 | `apps/api/src/routes/workspace-ai*` |
+| | B3 智能体市场 | 购买/审核/结算/Coze/Crew | `apps/api/src/routes/agent-*` |
+| **C 内容教育** | C1 多平台发布 | 14 平台 + AES-256-GCM | `apps/ai-service/app/services/publish/` |
+| | C2 AI 教育全栈 | 课程/题库/SRS/直播/45 表 | `apps/api/src/routes/learn*` |
+| **D 企业运营** | D1 计费交易 | VIP/钱包/积分/8 支付网关 | `apps/api/src/routes/billing*` |
+| | D2 社区互动 | 圈子/私信/关注/反馈 | `apps/api/src/routes/social*` |
+| | D3 运营增长 | 签到/排行/分销/游戏化 | `apps/api/src/routes/checkin*` |
+| | D4 客服支持 | 工单/在线客服/帮助中心 | `apps/api/src/routes/admin-asks*` |
+| | D5 运营监控 | BI/灰度/i18n 仪表盘 | `apps/api/src/routes/bi-*` |
+| **E 工程基础** | E1 安全合规 | JWT/SSO/AES/RBAC/RLS/2FA | `packages/auth/` |
+| | E2 数据库共享包 | 339 表/pgvector/13 包 | `packages/database/` |
+| | E3 国际化 | 5 语言 parity + 4 守门 | `apps/web/messages/` |
+| | E4 工程守门 | 23 pre-commit + 自动 push | `scripts/check-*.mjs` |
+| | E5 测试性能 | Vitest/Playwright/pytest/Knip | `apps/api/tests/` |
 
 ---
 
