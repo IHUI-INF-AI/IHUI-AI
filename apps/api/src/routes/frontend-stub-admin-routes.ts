@@ -4,7 +4,6 @@
  * 策略：接入真实 DB 查询与 Drizzle ORM,鉴权后返回真实数据。
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
-import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { eq, and, desc, count, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -28,12 +27,26 @@ import {
   eduAnnouncements,
   certificateTemplates,
   eduClassesMembers,
+  monitorAlerts,
+  sysJobs,
+  sysJobLogs,
+  sysPosts,
+  withdrawalFlows,
+  lessonSignUps,
 } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, parseOrThrow } from '../utils/response.js'
 import { createComment, findTicketById } from '../db/customer-service-queries.js'
+import { addUserRole, removeUserRole } from '../db/rbac-queries.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
+
+const adminListSchema = z.object({
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+})
+
+const addRoleUserSchema = z.object({ userId: z.string().uuid() })
 
 const createAgentRuleSchema = z.object({
   agentId: z.string().min(1),
@@ -649,9 +662,16 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
   })
   server.post(
     '/admin/learn/signup-batchlesson/:id/retry',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
-      return reply.status(201).send(success({ created: true, id: randomUUID() }))
+    { preHandler: requireAdmin },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = parseOrThrow(idParamSchema, request.params)
+      const [row] = await db
+        .update(lessonSignUps)
+        .set({ status: 1 })
+        .where(eq(lessonSignUps.id, id))
+        .returning()
+      if (!row) return reply.status(404).send(error(404, '报名记录不存在'))
+      return reply.send(success(row))
     },
   )
   server.put(
@@ -691,9 +711,15 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     if (!row) return reply.status(404).send(error(404, '用户不存在'))
     return reply.send(success(row))
   })
-  server.post('/admin/users/:id/review', async (_request: FastifyRequest, reply: FastifyReply) => {
-    // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
-    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  server.post('/admin/users/:id/review', { preHandler: requireAdmin }, async (request, reply) => {
+    const { id } = parseOrThrow(idParamSchema, request.params)
+    const [row] = await db
+      .update(users)
+      .set({ status: 1, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning()
+    if (!row) return reply.status(404).send(error(404, '用户不存在'))
+    return reply.send(success(row))
   })
   server.put('/admin/user-platform/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
@@ -724,34 +750,57 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
   server.put('/admin/live/categories', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
-  server.post('/admin/users/:id/audit', async (_request: FastifyRequest, reply: FastifyReply) => {
-    // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
-    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  server.post('/admin/users/:id/audit', { preHandler: requireAdmin }, async (request, reply) => {
+    const { id } = parseOrThrow(idParamSchema, request.params)
+    const [row] = await db
+      .update(users)
+      .set({ status: 1, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning()
+    if (!row) return reply.status(404).send(error(404, '用户不存在'))
+    return reply.send(success(row))
   })
   server.put('/admin/members/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.post(
     '/admin/monitor/alerts/:id/ack',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
-      return reply.status(201).send(success({ created: true, id: randomUUID() }))
+    { preHandler: requireAdmin },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = parseOrThrow(idParamSchema, request.params)
+      const [row] = await db
+        .update(monitorAlerts)
+        .set({ status: 'suppressed' })
+        .where(eq(monitorAlerts.id, id))
+        .returning()
+      if (!row) return reply.status(404).send(error(404, '告警不存在'))
+      return reply.send(success(row))
     },
   )
   server.post(
     '/admin/monitor/alerts/:id/resolve',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
-      return reply.status(201).send(success({ created: true, id: randomUUID() }))
+    { preHandler: requireAdmin },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = parseOrThrow(idParamSchema, request.params)
+      const [row] = await db
+        .update(monitorAlerts)
+        .set({ status: 'resolved', resolvedAt: new Date() })
+        .where(eq(monitorAlerts.id, id))
+        .returning()
+      if (!row) return reply.status(404).send(error(404, '告警不存在'))
+      return reply.send(success(row))
     },
   )
-  server.get('/admin/monitor/funnel/:id', async (_request: FastifyRequest, reply: FastifyReply) => {
-    // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
-    return reply.send(success({}))
+  server.get('/admin/monitor/funnel/:id', { preHandler: requireAdmin }, async (_request, reply) => {
+    return reply.status(501).send(error(501, '监控漏斗暂未实现,无对应数据表'))
   })
-  server.get('/admin/monitoring/alerts', async (_request: FastifyRequest, reply: FastifyReply) => {
-    // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
-    return reply.send(success({ list: [], total: 0 }))
+  server.get('/admin/monitoring/alerts', { preHandler: requireAdmin }, async (_request, reply) => {
+    const list = await db
+      .select()
+      .from(monitorAlerts)
+      .orderBy(desc(monitorAlerts.firedAt))
+      .limit(100)
+    return reply.send(success({ list, total: list.length }))
   })
 
   server.put('/admin/orders/:id', { preHandler: requireAdmin }, async (request, reply) => {
@@ -771,16 +820,22 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     if (!row) return reply.status(404).send(error(404, '订单不存在'))
     return reply.send(success({ id, deleted: true }))
   })
-  server.post('/admin/oss/files', async (_request: FastifyRequest, reply: FastifyReply) => {
-    // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
-    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  server.post('/admin/oss/files', { preHandler: requireAdmin }, async (_request, reply) => {
+    return reply.status(501).send(error(501, 'OSS文件上传暂未实现,files 表需要 projectId'))
   })
   server.patch('/admin/oss/drivers', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
-  server.get('/admin/system/posts', async (_request: FastifyRequest, reply: FastifyReply) => {
-    // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
-    return reply.send(success({ list: [], total: 0 }))
+  server.get('/admin/system/posts', { preHandler: requireAdmin }, async (request, reply) => {
+    const q = adminListSchema.parse(request.query ?? {})
+    const page = q.page ?? 1
+    const pageSize = q.pageSize ?? 20
+    const offset = (page - 1) * pageSize
+    const [list, countResult] = await Promise.all([
+      db.select().from(sysPosts).orderBy(sysPosts.postSort).limit(pageSize).offset(offset),
+      db.select({ count: count() }).from(sysPosts),
+    ])
+    return reply.send(success({ list, total: countResult[0]?.count ?? 0, page, pageSize }))
   })
   server.put(
     '/admin/product-identity/:id',
@@ -807,24 +862,38 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     },
   )
   server.delete(
-    '/admin/roles/:id/users/:id',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
-      return reply.send(success({ deleted: true }))
+    '/admin/roles/:roleId/users/:userId',
+    { preHandler: requireAdmin },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { roleId, userId } = parseOrThrow(
+        z.object({ roleId: z.string().min(1), userId: z.string().uuid() }),
+        request.params,
+      )
+      await removeUserRole(userId, roleId)
+      return reply.send(success({ userId, roleId, deleted: true }))
     },
   )
   server.delete('/admin/roles/:id/users', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
-  server.post('/admin/roles/:id/users', async (_request: FastifyRequest, reply: FastifyReply) => {
-    // TODO: 业务方需评估,当前有前端调用 [callsite-count=2]
-    return reply.status(201).send(success({ created: true, id: randomUUID() }))
+  server.post('/admin/roles/:id/users', { preHandler: requireAdmin }, async (request, reply) => {
+    const { id: roleId } = parseOrThrow(idParamSchema, request.params)
+    const { userId } = parseOrThrow(addRoleUserSchema, request.body)
+    await addUserRole(userId, roleId)
+    return reply.status(201).send(success({ userId, roleId, created: true }))
   })
   server.post(
     '/admin/shop/payments/:id/ship',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
-      return reply.status(201).send(success({ created: true, id: randomUUID() }))
+    { preHandler: requireAdmin },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = parseOrThrow(idParamSchema, request.params)
+      const [row] = await db
+        .update(eduOrders)
+        .set({ remark: `已发货 ${new Date().toISOString()}`, updatedAt: new Date() })
+        .where(eq(eduOrders.id, id))
+        .returning()
+      if (!row) return reply.status(404).send(error(404, '订单不存在'))
+      return reply.send(success(row))
     },
   )
   server.patch('/admin/shop/products', async (_request: FastifyRequest, reply: FastifyReply) => {
@@ -834,22 +903,54 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
     return reply.status(410).send(error(410, '端点已废弃,无业务调用方 @2026-07-21'))
   })
   server.post(
-    '/admin/shop/withdrawals/:id/:id',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      // TODO: 业务方需评估,当前有前端调用 [callsite-count=2]
-      return reply.status(201).send(success({ created: true, id: randomUUID() }))
+    '/admin/shop/withdrawals/:id/:action',
+    { preHandler: requireAdmin },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id, action } = parseOrThrow(
+        z.object({ id: z.string().min(1), action: z.enum(['approve', 'reject']) }),
+        request.params,
+      )
+      const status = action === 'approve' ? 2 : 3
+      const [row] = await db
+        .update(withdrawalFlows)
+        .set({ status, processedAt: new Date() })
+        .where(eq(withdrawalFlows.id, id))
+        .returning()
+      if (!row) return reply.status(404).send(error(404, '提现记录不存在'))
+      return reply.send(success(row))
     },
   )
 
-  server.get('/admin/system/tasks/logs', async (_request: FastifyRequest, reply: FastifyReply) => {
-    // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
-    return reply.send(success({ list: [], total: 0 }))
+  server.get('/admin/system/tasks/logs', { preHandler: requireAdmin }, async (request, reply) => {
+    const q = adminListSchema.parse(request.query ?? {})
+    const page = q.page ?? 1
+    const pageSize = q.pageSize ?? 20
+    const offset = (page - 1) * pageSize
+    const [list, countResult] = await Promise.all([
+      db.select().from(sysJobLogs).orderBy(desc(sysJobLogs.createTime)).limit(pageSize).offset(offset),
+      db.select({ count: count() }).from(sysJobLogs),
+    ])
+    return reply.send(success({ list, total: countResult[0]?.count ?? 0, page, pageSize }))
   })
   server.post(
     '/admin/system/tasks/:id/run',
-    async (_request: FastifyRequest, reply: FastifyReply) => {
-      // TODO: 业务方需评估,当前有前端调用 [callsite-count=1]
-      return reply.status(201).send(success({ created: true, id: randomUUID() }))
+    { preHandler: requireAdmin },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { id } = parseOrThrow(idParamSchema, request.params)
+      const jobId = Number(id)
+      const [job] = await db.select().from(sysJobs).where(eq(sysJobs.jobId, jobId)).limit(1)
+      if (!job) return reply.status(404).send(error(404, '任务不存在'))
+      const [log] = await db
+        .insert(sysJobLogs)
+        .values({
+          jobName: job.jobName,
+          jobGroup: job.jobGroup,
+          invokeTarget: job.invokeTarget,
+          jobMessage: '手动触发执行',
+          status: '0',
+        })
+        .returning()
+      return reply.status(201).send(success(log))
     },
   )
   // === Themes routes (23 routes, all requireAdmin) ===
