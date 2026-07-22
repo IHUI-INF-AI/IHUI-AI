@@ -14,6 +14,8 @@ import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { SkillLibrary } from '@/components/chat/skill-library'
 import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
+import { MentionChips } from '@/components/chat/mention-popover'
+import { ModeSwitcher } from '@/components/ai/mode-switcher'
 import { Popover, Tooltip } from '@/components/feedback'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
 import { getRecentFilesForMention } from '@/lib/workspace-api'
@@ -379,6 +381,8 @@ export function MessageInput({
             <SelectedToolsPanel tools={selectedToolItems} onRemove={removeSelectedTool} />
           </div>
         )}
+        {/* 多维 @ 提及 chips(2026-07-22 立,对标 Qoder Context Engineering) */}
+        <MentionChips />
         <SlashCommandPalette
           commands={slashCommands}
           onSelect={handleCommandSelect}
@@ -630,6 +634,8 @@ export function MessageInput({
                 tabIndex={-1}
               />
               <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
+                {/* 模式切换器(2026-07-22 立,对标 Trae Plan/Spec 双模式) */}
+                <ModeSwitcher className="hidden sm:flex" />
                 <ContextUsageRing model={model} isStreaming={isStreaming} />
                 <ModelSelector
                   value={model}
