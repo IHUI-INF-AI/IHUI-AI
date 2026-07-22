@@ -292,10 +292,10 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 - browser_use 降级为代码审查(连续 2 次 BLOCKED:登录弹窗遮挡 + 截图功能故障)
 
 **Git 同步证据**(§21):
-- 本地 commit: <待填入>
-- origin commit: <待填入>
-- 同步状态: <待填入>
-- 守门脚本: <待填入>
+- 本地 commit: `372be8479` feat(feature-center): 文档卡片增加 format 标签 + excerpt 缩略预览(其他 agent commit 意外包含本任务 10 文件,§12 协作事故,代码已落地)
+- origin commit: `372be8479`
+- 同步状态: **local == remote ✅**(HEAD = origin/main = 372be8479)
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
 
 ---
 ### [x] ✅(2026-07-22) 大模型排行榜深度优化二轮:排序偏好记忆 + chip 数量显示 + 复制并导入按钮(平台独占:仅 apps/web)
