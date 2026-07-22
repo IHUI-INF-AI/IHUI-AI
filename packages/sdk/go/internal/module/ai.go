@@ -8,7 +8,7 @@ import (
 	"github.com/IHUI-INF-AI/IHUI-AI/packages/sdk/go/internal/model"
 )
 
-// AiApi 封装 AI 核心端点(14 个):chat / embeddings / vision / moa / models / userModels。
+// AiApi 封装 AI 核心端点(13 个):chat / embeddings / vision / moa / models / userModels。
 type AiApi struct {
 	client *client.BaseClient
 }
