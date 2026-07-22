@@ -11867,7 +11867,8 @@
     "isPublic": "公開",
     "save": "儲存",
     "cancel": "取消",
-    "deleteConfirm": "確定刪除此筆記？"
+    "deleteConfirm": "確定刪除此筆記？",
+    "attachmentsField": "附件"
   },
   "offlineRecords": {
     "title": "線下學習記錄",
@@ -11884,7 +11885,13 @@
     "occurredAtField": "日期",
     "save": "儲存",
     "cancel": "取消",
-    "deleteConfirm": "確定刪除？"
+    "deleteConfirm": "確定刪除？",
+    "attachmentsField": "附件"
+  },
+  "attachments": {
+    "placeholder": "點擊或拖曳上傳附件",
+    "uploading": "上傳中...",
+    "remove": "刪除"
   },
   "papers": {
     "title": "我的論文",
