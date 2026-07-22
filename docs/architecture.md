@@ -189,6 +189,27 @@ REST 路由之外的实时双向通信,按 plugin 分组:
 - next-intl,zh-CN + en 双语
 - 68 命名空间,所有 `t('key')` 调用 100% 有对应翻译定义
 
+### 登录弹窗视觉规范(2026-07-22 立)
+
+> **背景**:`.login-scope` 作用域(AuthShell 容器)为凸出 hover 语义,把 `--color-muted` 覆写为 `hsl(0 0% 100%)`(亮)/ `hsl(0 0% 22%)`(暗)。这导致作用域内所有 `bg-muted` / `bg-muted/40` 容器在亮色下与 `bg-card` 完全同色,看不出"凹槽"结构。
+
+**强制约束**:`.login-scope` 内需要呈现"凹槽"语义的容器(TabsList、密码强度条轨道等)**必须用显式 `hsl()` 值,禁止用 `var(--color-muted)`** — 后者会被 `.login-scope` 覆写为白,绕不开继承链。
+
+| 元素 | 选择器 | 亮色 | 暗色 | 与 bg-card L 差距 |
+|------|--------|------|------|------------------|
+| TabsList 凹槽容器 | `.login-scope [role='tablist']` | `hsl(0 0% 92%)` `#EBEBEB` | `hsl(0 0% 18%)` `#2E2E2E` | ~8%(对称) |
+| 密码强度条轨道 | `.login-scope [data-slot='strength-track']` | `hsl(0 0% 92%)` `#EBEBEB` | `hsl(0 0% 18%)` `#2E2E2E` | ~8%(对称) |
+
+**实现位置**:`apps/web/app/globals.css` `.login-scope [role='tablist']` 和 `.login-scope [data-slot='strength-track']` 规则。
+
+**data-slot 锚点**:密码强度条轨道用 `data-slot="strength-track"` 属性(在 `PasswordStrengthIndicator.tsx` 第 60 行),比 class 匹配更稳定。
+
+**视觉回归守门**:`apps/web/tests/visual/login-tabs-groove.spec.ts` 2 个 test case(light + dark),断言:
+- TabsList 容器亮 `rgb(235, 235, 235)` / 暗 `rgb(46, 46, 46)`
+- strength-track 轨道亮 `rgb(235, 235, 235)` / 暗 `rgb(46, 46, 46)`
+
+**反面案例**(本规范立规依据):2026-07-22 修复前,亮色下 TabsList 容器呈 `rgb(255, 255, 255)` 与 `bg-card` 完全相同,用户反馈"这个容器怎么在亮色模式下没有一个整体的背景色设定呢"。根因是 `.login-scope --color-muted` 覆写 + `bg-muted` 继承,修复用显式 `hsl()` 绕开。
+
 ---
 
 ## 5. AI 服务架构
