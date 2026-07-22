@@ -25932,7 +25932,26 @@
       "categoryProduct": "AI 製品",
       "categoryIndustry": "業界",
       "categoryPaper": "論文",
-      "categoryTip": "ヒント"
+      "categoryTip": "ヒント",
+      "searchPlaceholder": "タイトルまたは概要を検索…",
+      "searchEmpty": "一致する記事が見つかりません,別のキーワードをお試しください",
+      "trendBtn": "トレンド",
+      "moreHint": "{shown}/{total} 件表示中,フィルターを調整してさらに表示"
+    },
+    "hotRanking": {
+      "label": "人気ランキング",
+      "title": "AI ニュース人気トップ 10",
+      "subtitle": "リアルタイム人気順"
+    },
+    "trendChart": {
+      "subtitle": "7/14 日間の人気推移曲線",
+      "days": "日",
+      "loading": "トレンドデータを読み込み中…",
+      "noData": "データ蓄積中",
+      "noDataHint": "トレンド描画には ≥2 日のスナップショットが必要,明日の cron 後に自動利用可能",
+      "stable": "安定",
+      "rankDelta": "ランキング変動",
+      "hotValue": "人気値"
     },
     "funding": {
       "label": "大型資金調達と買収",
