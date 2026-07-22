@@ -138,6 +138,8 @@ interface WorkPanelState {
   addFavorite: (url: string, title: string) => void
   /** 移除收藏 */
   removeFavorite: (url: string) => void
+  /** 清空历史记录(P3+) */
+  clearHistory: () => void
 
   setWidth: (w: number) => void
   setResizing: (v: boolean) => void
@@ -436,6 +438,8 @@ export const useWorkPanelStore = create<WorkPanelState>()(
       removeFavorite: (url) => {
         set((s) => ({ favorites: s.favorites.filter((f) => f.url !== url) }))
       },
+
+      clearHistory: () => set({ recentUrls: [] }),
 
       setWidth: (w) =>
         set({ width: Math.min(WORK_PANEL_MAX_WIDTH, Math.max(WORK_PANEL_MIN_WIDTH, w)) }),
