@@ -188,7 +188,7 @@ export function PasswordLoginForm({
       // 浏览器关闭再打开仍能保持登录(自动登录闭环)
       setTokenWithPrefs(
         json.data.accessToken,
-        json.data.refreshToken ?? null,
+        json.data.refreshToken ?? '',
         autoLogin && rememberPassword,
       )
       if (json.data.user) setUser(json.data.user)
