@@ -31,12 +31,35 @@ interface StartMessage {
 const HEARTBEAT_INTERVAL_MS = 5_000;
 const API_BASE_URL = process.env.IHUI_API_URL || 'http://localhost:8803';
 const API_KEY = process.env.IHUI_API_KEY || '';
+// P1-3 修复:子进程 RSS 自限阈值(从环境变量读,默认 512MB)
+// 超限时子进程优雅退出(exit code 3 = self-OOM),比被父进程 SIGKILL 更安全
+const SELF_OOM_THRESHOLD_MB = parseInt(
+  process.env.IHUI_SUBAGENT_OOM_MB || '512',
+  10,
+);
 
-/** 心跳定时器:每 5s 向父进程发 heartbeat(父进程 15s 无心跳标记 dead) */
+/** 心跳定时器:每 5s 向父进程发 heartbeat(携带 RSS,父进程 15s 无心跳标记 dead) */
 const heartbeatTimer = setInterval(() => {
   try {
     if (typeof process.send === 'function') {
-      process.send({ type: 'heartbeat' });
+      // P1-3 修复:heartbeat 携带 RSS + heapUsed,父进程可监控内存趋势
+      const mem = process.memoryUsage();
+      process.send({
+        type: 'heartbeat',
+        rss: mem.rss,
+        heapUsed: mem.heapUsed,
+      });
+      // P1-3 第一层软限制:子进程自检 RSS,超阈值优雅退出
+      const rssMb = mem.rss / 1024 / 1024;
+      if (rssMb > SELF_OOM_THRESHOLD_MB) {
+        process.stdout.write(
+          JSON.stringify({
+            type: 'error',
+            message: `self OOM: rss=${rssMb.toFixed(0)}MB > threshold=${SELF_OOM_THRESHOLD_MB}MB`,
+          }) + '\n',
+        );
+        process.exit(3); // 3 = self-OOM 优雅退出
+      }
     }
   } catch {
     // IPC 通道已关闭,停止心跳
