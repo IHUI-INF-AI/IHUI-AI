@@ -99,6 +99,11 @@ const FALLBACK_MODELS: LlmModel[] = [
   { id: 'nlpcloud/finetuned-llama-3-70b', name: 'Finetuned Llama 3 70B (NLP Cloud 试用 credits)', provider: 'nlpcloud', context_length: 32768, input_price: 0 },
   { id: 'scaleway/mistral-small-3.2-24b-instruct-2506', name: 'Mistral Small 3.2 24B (Scaleway 免费)', provider: 'scaleway', context_length: 128000, input_price: 0 },
   { id: 'alibaba-intl/qwen-max', name: 'Qwen Max (Alibaba Intl 免费)', provider: 'alibaba_intl', context_length: 131072, input_price: 0 },
+  // 本地 LLM(ollama 原生 / lmstudio / llama.cpp)
+  { id: 'ollama/llama3.2', name: 'Llama 3.2 (Ollama 本地)', provider: 'ollama', context_length: 128000, input_price: 0 },
+  { id: 'ollama/qwen2.5:32b', name: 'Qwen 2.5 32B (Ollama 本地)', provider: 'ollama', context_length: 32768, input_price: 0 },
+  { id: 'lmstudio/local-model', name: 'Local Model (LM Studio)', provider: 'lmstudio', context_length: 32768, input_price: 0 },
+  { id: 'llamacpp/local-model', name: 'Local Model (llama.cpp)', provider: 'llamacpp', context_length: 32768, input_price: 0 },
 ];
 
 /** 拉取可用模型列表(失败时回退 FALLBACK_MODELS)— 与 desktop/extension/mobile-rn 三端一致 */
