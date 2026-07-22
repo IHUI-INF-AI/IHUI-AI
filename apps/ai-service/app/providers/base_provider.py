@@ -7,6 +7,8 @@ from typing import Any, AsyncIterator
 
 import httpx
 
+from ..core.llm_gateway import get_http_client
+
 
 class ProviderError(Exception):
     """适配器调用异常。"""
@@ -62,17 +64,17 @@ class BaseProvider(ABC):
         headers: dict[str, str] | None = None,
         json: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """通用 httpx 请求封装,失败抛 ProviderError。"""
+        """通用 httpx 请求封装,失败抛 ProviderError。使用全局共享 AsyncClient。"""
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.request(method, url, headers=headers, json=json)
-                data = resp.json()
-                if resp.status_code >= 400:
-                    raise ProviderError(
-                        f"{self.__class__.__name__} 调用失败: {resp.status_code} {str(data)[:300]}",
-                        resp.status_code,
-                    )
-                return data
+            client = get_http_client()
+            resp = await client.request(method, url, headers=headers, json=json, timeout=self.timeout)
+            data = resp.json()
+            if resp.status_code >= 400:
+                raise ProviderError(
+                    f"{self.__class__.__name__} 调用失败: {resp.status_code} {str(data)[:300]}",
+                    resp.status_code,
+                )
+            return data
         except httpx.HTTPError as e:
             raise ProviderError(f"{self.__class__.__name__} 网络异常: {e}") from e
 

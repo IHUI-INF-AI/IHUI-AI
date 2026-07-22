@@ -119,8 +119,9 @@ async function queryTencentJob(jobId: string): Promise<TencentQueryResponse | nu
     const requestBody = { JobId: jobId }
     const authResult = strategy.buildHeaders(
       {
-        key: process.env.TENCENT_SECRET_ID!,
-        secret: process.env.TENCENT_SECRET_KEY!,
+        // hasTencentConfig 已校验存在,此处 ?? '' 仅满足 TS 类型(运行时不会触发空值)
+        key: process.env.TENCENT_SECRET_ID ?? '',
+        secret: process.env.TENCENT_SECRET_KEY ?? '',
       },
       {
         method: 'POST',
@@ -227,8 +228,9 @@ export const tencentHunyuan3dRoutes: FastifyPluginAsync = async (server) => {
           }
           const authResult = strategy.buildHeaders(
             {
-              key: process.env.TENCENT_SECRET_ID!,
-              secret: process.env.TENCENT_SECRET_KEY!,
+              // hasTencentConfig 已校验存在,此处 ?? '' 仅满足 TS 类型(运行时不会触发空值)
+              key: process.env.TENCENT_SECRET_ID ?? '',
+              secret: process.env.TENCENT_SECRET_KEY ?? '',
             },
             {
               method: 'POST',

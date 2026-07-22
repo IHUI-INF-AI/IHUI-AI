@@ -21,6 +21,7 @@ from typing import Any, AsyncIterator
 import httpx
 
 from .base_provider import BaseProvider, ProviderError
+from ..core.llm_gateway import get_http_client
 
 
 # Gemini 4 个安全类别,默认全部设为 BLOCK_ONLY_HIGH(仅拦截高概率违规)
@@ -191,44 +192,44 @@ class GeminiProvider(BaseProvider):
         real_model = self._strip_prefix(model)
         url = f"{self.base_url}/v1beta/models/{real_model}:streamGenerateContent?key={self.api_key}&alt=sse"
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                async with client.stream("POST", url, json=payload) as resp:
-                    if resp.status_code >= 400:
-                        body = await resp.aread()
-                        raise ProviderError(
-                            f"Gemini 流式调用失败: {resp.status_code} {body[:300]!r}",
-                            resp.status_code,
-                        )
-                    saw_chunk = False
-                    async for line in resp.aiter_lines():
-                        if not line.startswith("data: "):
-                            continue
-                        try:
-                            event = json.loads(line[6:])
-                        except json.JSONDecodeError:
-                            continue
-                        text, tool_calls, finish_reason = self._parse_candidates(event)
-                        if text:
-                            saw_chunk = True
-                            yield {"type": "chunk", "content": text}
-                        if tool_calls:
-                            yield {"type": "tool_call", "tool_calls": tool_calls}
-                        # 流式末尾检测 SAFETY 拦截:整段没产出过 chunk 且 finishReason 是 SAFETY
-                        if (
-                            not saw_chunk
-                            and finish_reason in ("SAFETY", "RECITATION", "BLOCKLIST")
-                        ):
-                            yield {
-                                "type": "error",
-                                "message": f"内容被 Gemini 安全策略拦截(finishReason={finish_reason}),请调整提问方式",
-                            }
-                        if event.get("usageMetadata"):
-                            yield {
-                                "type": "done",
-                                "model": real_model,
-                                "usage": event["usageMetadata"],
-                                "stub": False,
-                            }
+            client = get_http_client()
+            async with client.stream("POST", url, json=payload, timeout=self.timeout) as resp:
+                if resp.status_code >= 400:
+                    body = await resp.aread()
+                    raise ProviderError(
+                        f"Gemini 流式调用失败: {resp.status_code} {body[:300]!r}",
+                        resp.status_code,
+                    )
+                saw_chunk = False
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    try:
+                        event = json.loads(line[6:])
+                    except json.JSONDecodeError:
+                        continue
+                    text, tool_calls, finish_reason = self._parse_candidates(event)
+                    if text:
+                        saw_chunk = True
+                        yield {"type": "chunk", "content": text}
+                    if tool_calls:
+                        yield {"type": "tool_call", "tool_calls": tool_calls}
+                    # 流式末尾检测 SAFETY 拦截:整段没产出过 chunk 且 finishReason 是 SAFETY
+                    if (
+                        not saw_chunk
+                        and finish_reason in ("SAFETY", "RECITATION", "BLOCKLIST")
+                    ):
+                        yield {
+                            "type": "error",
+                            "message": f"内容被 Gemini 安全策略拦截(finishReason={finish_reason}),请调整提问方式",
+                        }
+                    if event.get("usageMetadata"):
+                        yield {
+                            "type": "done",
+                            "model": real_model,
+                            "usage": event["usageMetadata"],
+                            "stub": False,
+                        }
         except httpx.HTTPError as e:
             yield {"type": "error", "message": f"Gemini 流式网络异常: {e}"}
         except ProviderError as e:
