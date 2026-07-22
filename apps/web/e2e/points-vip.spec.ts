@@ -35,9 +35,9 @@ test.describe('积分和会员', () => {
   })
 
   test('VIP 会员页可访问', async ({ page }) => {
-    await page.goto('/vip-membership')
+    await page.goto('/vip')
     await page.waitForLoadState('networkidle')
-    await expect(page).toHaveURL(/\/vip-membership/)
+    await expect(page).toHaveURL(/\/vip/)
     const h1 = page.locator('h1').first()
     await expect(h1).toBeVisible({ timeout: 10000 })
   })
@@ -81,7 +81,7 @@ test.describe('积分和会员', () => {
   })
 
   test('VIP 购买:订阅按钮链接到结账页', async ({ page }) => {
-    await page.goto('/vip-membership')
+    await page.goto('/vip')
     await page.waitForTimeout(2000)
     const subscribeBtn = page
       .getByRole('link', { name: /订阅|Subscribe|免费开始|Get Started/i })
@@ -93,7 +93,7 @@ test.describe('积分和会员', () => {
   })
 
   test('VIP 特权展示存在(若可访问)', async ({ page }) => {
-    await page.goto('/vip-membership')
+    await page.goto('/vip')
     await page.waitForTimeout(2000)
     const privilegeText = page.locator('text=/特权|权益|专属|Privilege|Benefit/i').first()
     const hasPrivilege = await privilegeText.isVisible({ timeout: 3000 }).catch(() => false)
