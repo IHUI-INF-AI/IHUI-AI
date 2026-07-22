@@ -28,6 +28,7 @@ import {
 import { success, error } from '../utils/response.js'
 import { jscode2session, isWechatMiniConfigured } from '../services/oauth-providers.js'
 import { findThirdPartyAccount, createThirdPartyBinding } from '../db/oauth-queries.js'
+import { findUserPreferences, upsertUserPreference } from '../db/user-preferences-queries.js'
 import {
   codeStore,
   CODE_TTL_MS,
@@ -92,6 +93,11 @@ const smsLoginSchema = z.object({
 
 const wechatLoginSchema = z.object({
   code: z.string().min(1, '微信 code 不能为空'),
+})
+
+const loginPreferencesSchema = z.object({
+  autoLogin: z.boolean().optional(),
+  autoRenew: z.boolean().optional(),
 })
 
 // =============================================================================
@@ -182,6 +188,20 @@ function publicUser(
     updatedAt: user.updatedAt ? user.updatedAt.toISOString() : '',
     permissions,
   }
+}
+
+/**
+ * 解析用户登录偏好。autoLogin 默认 false,autoRenew 无记录默认 true(自动续期默认开启)。
+ */
+function parseLoginPreferences(list: { key: string; value: string | null }[]): {
+  autoLogin: boolean
+  autoRenew: boolean
+} {
+  const map = new Map(list.map((r) => [r.key, r.value]))
+  const autoLogin = map.get('autoLogin') === '1'
+  const autoRenewRaw = map.get('autoRenew')
+  const autoRenew = autoRenewRaw === undefined ? true : autoRenewRaw === '1'
+  return { autoLogin, autoRenew }
 }
 
 // =============================================================================
@@ -1080,6 +1100,99 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     await cancelUserAccount(request.userId!)
     return reply.send(success({ cancelled: true }))
   })
+
+  // GET /api/auth/login-preferences — 读取用户登录偏好
+  server.get(
+    '/login-preferences',
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: '获取登录偏好',
+        description: '读取当前用户的自动登录/自动续期偏好(autoRenew 默认开启)',
+        tags: ['auth'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: {
+                type: 'object',
+                properties: {
+                  autoLogin: { type: 'boolean' },
+                  autoRenew: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const userId = request.userId!
+      const { list } = await findUserPreferences(userId, 'security')
+      return reply.send(success(parseLoginPreferences(list)))
+    },
+  )
+
+  // PUT /api/auth/login-preferences — 更新用户登录偏好
+  server.put(
+    '/login-preferences',
+    {
+      preHandler: [authenticate],
+      schema: {
+        summary: '更新登录偏好',
+        description: '更新当前用户的自动登录/自动续期偏好(至少传一个字段)',
+        tags: ['auth'],
+        body: {
+          type: 'object',
+          properties: {
+            autoLogin: { type: 'boolean', description: '是否自动登录' },
+            autoRenew: { type: 'boolean', description: '是否自动续期' },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: {
+                type: 'object',
+                properties: {
+                  autoLogin: { type: 'boolean' },
+                  autoRenew: { type: 'boolean' },
+                },
+              },
+            },
+          },
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const parsed = loginPreferencesSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { autoLogin, autoRenew } = parsed.data
+      if (autoLogin === undefined && autoRenew === undefined) {
+        return reply.status(400).send(error(400, '至少提供一个字段(autoLogin 或 autoRenew)'))
+      }
+      const userId = request.userId!
+      if (autoLogin !== undefined) {
+        await upsertUserPreference(userId, 'security', 'autoLogin', autoLogin ? '1' : '0')
+      }
+      if (autoRenew !== undefined) {
+        await upsertUserPreference(userId, 'security', 'autoRenew', autoRenew ? '1' : '0')
+      }
+      const { list } = await findUserPreferences(userId, 'security')
+      return reply.send(success(parseLoginPreferences(list)))
+    },
+  )
 
   // GET /qr/status 与 POST /qr/generate 已迁移至 auth-extended.ts
   // (统一在 /api/auth/qr/* 路径下,提供完整状态机 + dataURL 二维码 + /qr/confirm 确认端点)
