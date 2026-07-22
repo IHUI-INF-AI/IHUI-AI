@@ -93,14 +93,13 @@ export function FeishuQrPanel({ refreshKey }: FeishuQrPanelProps) {
     return <ErrorState message={errorMsg} />
   }
 
+  // React 18 严格模式 + 第三方 SDK DOM 操作冲突修复(2026-07-22)
+  // 详见 WechatQrPanel.tsx 同名注释
   return (
-    <div
-      ref={containerRef}
-      id={containerId}
-      className="flex h-[280px] w-full items-center justify-center overflow-hidden rounded-md border bg-card"
-    >
+    <div className="relative flex h-[280px] w-full items-center justify-center overflow-hidden rounded-md border bg-card">
+      <div ref={containerRef} id={containerId} className="absolute inset-0" />
       {status === 'loading' && (
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="relative h-6 w-6 animate-spin text-muted-foreground" />
       )}
     </div>
   )
