@@ -1,5 +1,11 @@
 import { create } from 'zustand'
-import type { TerminalSession } from '@ihui/types'
+import type {
+  TerminalSession,
+  TerminalSuggestion,
+  TerminalDiagnoseResponse,
+  TerminalRecordingListItem,
+  TerminalHistoryEntry,
+} from '@ihui/types'
 
 /**
  * 终端会话 store — 管理 session 列表 + activeSessionId + 分屏 pane 状态。
@@ -34,6 +40,26 @@ interface TerminalState {
   /** 每个 session 的分屏方向(默认 vertical) */
   splitDirections: Record<string, TerminalSplitDirection>
 
+  // ==================== AI 辅助 / 录制 / 智能历史(2026-07-23 立) ====================
+  /** 录制状态:sessionId → recordingId(值为 null 表示该 session 未在录制) */
+  recordingBySession: Record<string, string>
+  /** 录制列表(REST 拉取,录制列表抽屉消费) */
+  recordings: TerminalRecordingListItem[]
+  /** 当前正在回放的录制 ID(用于 tab 显示回放徽章) */
+  activePlaybackId: string | null
+  /** 智能命令历史(当前激活 session 的,按相关性降序) */
+  commandHistory: TerminalHistoryEntry[]
+  /** AI 建议浮层状态 */
+  aiSuggestOpen: boolean
+  aiSuggestLoading: boolean
+  aiSuggestions: TerminalSuggestion[]
+  /** AI 诊断浮层状态(命令失败时自动弹出) */
+  aiDiagnoseOpen: boolean
+  aiDiagnoseLoading: boolean
+  aiDiagnoseResult: TerminalDiagnoseResponse | null
+  /** AI 浮层错误信息(503 ai_unavailable 等) */
+  aiError: string | null
+
   // Actions — session 级别
   setSessions: (sessions: TerminalSession[]) => void
   addSession: (session: TerminalSession) => void
@@ -45,6 +71,40 @@ interface TerminalState {
   /** 重命名会话(乐观更新 store,REST 失败由调用方回滚) */
   renameSession: (id: string, name: string) => void
   reset: () => void
+
+  // Actions — 录制 / 历史 / AI
+  /** 标记 session 开始录制(绑定 recordingId) */
+  startRecording: (sessionId: string, recordingId: string) => void
+  /** 标记 session 停止录制(清除绑定) */
+  stopRecording: (sessionId: string) => void
+  /** 判断 session 是否正在录制 */
+  isRecording: (sessionId: string) => boolean
+  /** 设置录制列表(REST 拉取后写入) */
+  setRecordings: (recordings: TerminalRecordingListItem[]) => void
+  /** 新增一条录制到列表头部(停止录制后追加) */
+  addRecording: (recording: TerminalRecordingListItem) => void
+  /** 从列表移除一条录制(删除后同步) */
+  removeRecording: (id: string) => void
+  /** 设置当前回放的录制 ID(null 表示无回放) */
+  setActivePlaybackId: (id: string | null) => void
+  /** 设置智能命令历史(REST 拉取后写入) */
+  setCommandHistory: (entries: TerminalHistoryEntry[]) => void
+  /** AI 浮层:打开/关闭建议浮层 */
+  setAiSuggestOpen: (open: boolean) => void
+  /** AI 浮层:设置建议加载状态 */
+  setAiSuggestLoading: (loading: boolean) => void
+  /** AI 浮层:设置建议结果 */
+  setAiSuggestions: (suggestions: TerminalSuggestion[]) => void
+  /** AI 浮层:打开/关闭诊断浮层 */
+  setAiDiagnoseOpen: (open: boolean) => void
+  /** AI 浮层:设置诊断加载状态 */
+  setAiDiagnoseLoading: (loading: boolean) => void
+  /** AI 浮层:设置诊断结果 */
+  setAiDiagnoseResult: (result: TerminalDiagnoseResponse | null) => void
+  /** AI 浮层:设置错误信息(null 清除) */
+  setAiError: (error: string | null) => void
+  /** AI 浮层:重置全部状态(切换 session 时调用) */
+  resetAiPanel: () => void
 
   // Actions — pane 级别
   /** 为 session 新增 pane(返回新 paneId) */
@@ -77,6 +137,18 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   panes: {},
   activePaneId: null,
   splitDirections: {},
+  // AI 辅助 / 录制 / 智能历史初始状态
+  recordingBySession: {},
+  recordings: [],
+  activePlaybackId: null,
+  commandHistory: [],
+  aiSuggestOpen: false,
+  aiSuggestLoading: false,
+  aiSuggestions: [],
+  aiDiagnoseOpen: false,
+  aiDiagnoseLoading: false,
+  aiDiagnoseResult: null,
+  aiError: null,
 
   setSessions: (sessions) =>
     set((s) => {
@@ -140,20 +212,56 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       delete newPanes[id]
       const newDirections = { ...s.splitDirections }
       delete newDirections[id]
+      // 清理录制状态
+      const newRecordingBySession = { ...s.recordingBySession }
+      delete newRecordingBySession[id]
       // 若当前 activePaneId 属于被移除 session 的 pane,重置为首个 session 的首个 pane
       let activePaneId = s.activePaneId
       const removedPanes = s.panes[id] ?? []
       if (removedPanes.includes(activePaneId ?? '')) {
         activePaneId = filtered[0] ? (newPanes[filtered[0].id]?.[0] ?? null) : null
       }
-      return { sessions: filtered, activeSessionId: newActive, panes: newPanes, splitDirections: newDirections, activePaneId }
+      // 若移除的是当前激活 session,清空 AI 浮层 + 智能历史(避免跨 session 串数据)
+      const shouldClearAi = s.activeSessionId === id
+      return {
+        sessions: filtered,
+        activeSessionId: newActive,
+        panes: newPanes,
+        splitDirections: newDirections,
+        activePaneId,
+        recordingBySession: newRecordingBySession,
+        ...(shouldClearAi
+          ? {
+              commandHistory: [],
+              aiSuggestOpen: false,
+              aiSuggestLoading: false,
+              aiSuggestions: [],
+              aiDiagnoseOpen: false,
+              aiDiagnoseLoading: false,
+              aiDiagnoseResult: null,
+              aiError: null,
+            }
+          : {}),
+      }
     }),
 
   setActive: (id) =>
     set((s) => {
       // 切换 session 时,activePaneId 也跟随切换到该 session 的第一个 pane
       const firstPane = id ? (s.panes[id]?.[0] ?? null) : null
-      return { activeSessionId: id, activePaneId: firstPane ?? s.activePaneId }
+      // 切换 session 时清空 AI 浮层 + 智能历史(避免跨 session 串数据)
+      return {
+        activeSessionId: id,
+        activePaneId: firstPane ?? s.activePaneId,
+        commandHistory: [],
+        aiSuggestOpen: false,
+        aiSuggestLoading: false,
+        aiSuggestions: [],
+        aiDiagnoseOpen: false,
+        aiDiagnoseLoading: false,
+        aiDiagnoseResult: null,
+        aiError: null,
+      }
     }),
 
   setLoading: (loading) => set({ loading }),
@@ -176,6 +284,76 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       panes: {},
       activePaneId: null,
       splitDirections: {},
+      recordingBySession: {},
+      recordings: [],
+      activePlaybackId: null,
+      commandHistory: [],
+      aiSuggestOpen: false,
+      aiSuggestLoading: false,
+      aiSuggestions: [],
+      aiDiagnoseOpen: false,
+      aiDiagnoseLoading: false,
+      aiDiagnoseResult: null,
+      aiError: null,
+    }),
+
+  // ==================== 录制 / 历史 / AI Actions(2026-07-23 立) ====================
+
+  startRecording: (sessionId, recordingId) =>
+    set((s) => ({
+      recordingBySession: { ...s.recordingBySession, [sessionId]: recordingId },
+    })),
+
+  stopRecording: (sessionId) =>
+    set((s) => {
+      const newRecordingBySession = { ...s.recordingBySession }
+      delete newRecordingBySession[sessionId]
+      return { recordingBySession: newRecordingBySession }
+    }),
+
+  isRecording: (sessionId) => !!get().recordingBySession[sessionId],
+
+  setRecordings: (recordings) => set({ recordings }),
+
+  addRecording: (recording) =>
+    set((s) => ({ recordings: [recording, ...s.recordings] })),
+
+  removeRecording: (id) =>
+    set((s) => ({ recordings: s.recordings.filter((r) => r.id !== id) })),
+
+  setActivePlaybackId: (id) => set({ activePlaybackId: id }),
+
+  setCommandHistory: (entries) => set({ commandHistory: entries }),
+
+  setAiSuggestOpen: (open) =>
+    set(open
+      ? { aiSuggestOpen: true }
+      : { aiSuggestOpen: false, aiSuggestions: [], aiError: null }),
+
+  setAiSuggestLoading: (loading) => set({ aiSuggestLoading: loading }),
+
+  setAiSuggestions: (suggestions) => set({ aiSuggestions: suggestions }),
+
+  setAiDiagnoseOpen: (open) =>
+    set(open
+      ? { aiDiagnoseOpen: true }
+      : { aiDiagnoseOpen: false, aiDiagnoseResult: null, aiError: null }),
+
+  setAiDiagnoseLoading: (loading) => set({ aiDiagnoseLoading: loading }),
+
+  setAiDiagnoseResult: (result) => set({ aiDiagnoseResult: result }),
+
+  setAiError: (error) => set({ aiError: error }),
+
+  resetAiPanel: () =>
+    set({
+      aiSuggestOpen: false,
+      aiSuggestLoading: false,
+      aiSuggestions: [],
+      aiDiagnoseOpen: false,
+      aiDiagnoseLoading: false,
+      aiDiagnoseResult: null,
+      aiError: null,
     }),
 
   // ==================== Pane Actions ====================
