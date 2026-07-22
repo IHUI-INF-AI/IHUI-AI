@@ -2905,7 +2905,7 @@
         "unavailable": "Prometheus 不可达,请检查 cadvisor/prometheus 容器状态",
         "unavailableTitle": "资源监控暂不可用",
         "unavailableHint": "Prometheus 服务连接失败,容器指标无法获取。",
-        "envHint": "提示: NEXT_PUBLIC_GRAFANA_BASE 未配置,iframe 使用默认值 http://127.0.0.1:3001",
+        "envHint": "提示: NEXT_PUBLIC_GRAFANA_BASE 未配置,iframe 使用默认值 http://127.0.0.1:3010",
         "compareTitle": "多租户对比(各租户 CPU/内存叠加)",
         "rankingTitle": "租户排名(按 CPU 降序)",
         "totalTenants": "共 {total} 个租户",
