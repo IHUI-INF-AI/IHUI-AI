@@ -25,7 +25,10 @@ type Provider = {
 }
 
 /**
- * 第三方登录按钮群：Google / Apple / 钉钉 / 企业微信 / 微信 / GitHub。
+ * 第三方登录按钮群（3 列网格布局，按行排列）：
+ * 第一排：微信 / Google / GitHub
+ * 第二排：飞书 / 钉钉 / 企业微信
+ * 第三排：支付宝 / Apple
  *
  * 增强点（相比旧实现）：
  * - 通过 useThirdPartyAuth hook 统一管理登录状态，替代硬编码 window.location.href 跳转。
@@ -101,27 +104,34 @@ export function ThirdPartyLoginButtons() {
     void handleCallback(platform, finalCode, state).finally(() => setHandlingCallback(false))
   }, [searchParams, handleCallback])
 
+  // 排列顺序：3 列网格按行铺排
+  // 第一排：微信 / Google / GitHub
+  // 第二排：飞书 / 钉钉 / 企业微信
+  // 第三排：支付宝 / Apple
   const providers: Provider[] = [
+    // 第一排
+    { key: 'wechat', label: t('wechatLogin'), icon: '/images/oauth-providers/wechat.svg' },
     {
       key: 'google',
       label: t('googleLogin'),
       icon: '/images/oauth-providers/google.svg',
       needsBackendConfig: true,
     },
-    { key: 'dingtalk', label: t('dingtalkLogin'), icon: '/images/oauth-providers/dingtalk.svg' },
-    {
-      key: 'enterpriseWechat',
-      label: t('enterpriseWechat'),
-      icon: '/images/oauth-providers/wecom.svg',
-    },
-    { key: 'wechat', label: t('wechatLogin'), icon: '/images/oauth-providers/wechat.svg' },
     {
       key: 'github',
       label: t('githubLogin'),
       icon: '/images/oauth-providers/github.svg',
       mono: true,
     },
+    // 第二排
     { key: 'feishu', label: t('feishuLogin'), icon: '/images/loginSANFANG/feishu.png' },
+    { key: 'dingtalk', label: t('dingtalkLogin'), icon: '/images/oauth-providers/dingtalk.svg' },
+    {
+      key: 'enterpriseWechat',
+      label: t('enterpriseWechat'),
+      icon: '/images/oauth-providers/wecom.svg',
+    },
+    // 第三排
     { key: 'alipay', label: t('alipayLogin'), icon: '/images/oauth-providers/alipay.svg' },
     {
       key: 'apple',
