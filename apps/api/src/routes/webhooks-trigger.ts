@@ -184,7 +184,7 @@ async function executeAgentAsync(event: WebhookTriggerEvent): Promise<void> {
   event.executedAt = new Date().toISOString()
 
   try {
-    // 真实集成:const resp = await fetch(`http://ai-service:8000/api/agents/${event.agentId}/run`, { ... })
+    // 真实集成:const resp = await fetch(`http://ai-service:8803/api/agents/${event.agentId}/run`, { ... })
     // 此处模拟调用(生产环境替换为真实 ai-service 调用)
     await simulateAgentCall(event.agentId, event.payload)
 
@@ -221,7 +221,7 @@ async function simulateAgentCall(agentId: string, _payload: unknown): Promise<vo
   // 真实集成:
   // const controller = new AbortController()
   // const timer = setTimeout(() => controller.abort(), 30000)
-  // const resp = await fetch(`http://ai-service:8000/api/agents/${agentId}/run`, {
+  // const resp = await fetch(`http://ai-service:8803/api/agents/${agentId}/run`, {
   //   method: 'POST',
   //   headers: { 'Content-Type': 'application/json' },
   //   body: JSON.stringify({ payload: _payload, triggeredBy: 'webhook' }),
