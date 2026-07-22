@@ -5,6 +5,7 @@
 """
 
 import json
+import time
 from datetime import datetime
 from typing import Any
 
@@ -145,3 +146,356 @@ class UnifiedMemoryClient:
 
 
 unified_memory_client = UnifiedMemoryClient()
+
+
+# ============================================================================
+# P3-1 深度层:MemorySystem — 整合 FTS5 全文 + 向量双引擎 + 自动提取 + 衰减遗忘 + 用户画像
+# 对标 Hermes Agent 三大核心壁垒之一:记忆系统
+# ============================================================================
+
+
+class MemorySystem:
+    """记忆系统深度层:整合三层架构。
+
+    三层架构:
+    - 存储层: MemoryStore(会话消息) + UnifiedMemoryClient(API 持久化) + VectorMemoryStore(向量)
+    - 智能层: MemoryExtractor(自动提取) + MemoryDecayManager(衰减) + UserProfileBuilder(画像)
+    - 检索层: fts5 关键词 + vector 向量 + hybrid 混合
+    """
+
+    def __init__(self) -> None:
+        self._store = memory_store
+        self._client = unified_memory_client
+        # 深度层服务懒加载(避免循环导入)
+        self._vector_store: Any = None
+        self._extractor: Any = None
+        self._decay_manager: Any = None
+        self._profile_builder: Any = None
+
+    def _ensure_services(self) -> None:
+        """懒加载深度层服务(避免与 vector_memory/memory_extractor 等循环导入)。"""
+        if self._vector_store is None:
+            from .vector_memory import vector_memory
+            self._vector_store = vector_memory
+        if self._extractor is None:
+            from .memory_extractor import MemoryExtractor
+            self._extractor = MemoryExtractor()
+        if self._decay_manager is None:
+            from .memory_decay import MemoryDecayManager
+            self._decay_manager = MemoryDecayManager()
+        if self._profile_builder is None:
+            from .user_profile import UserProfileBuilder
+            self._profile_builder = UserProfileBuilder(memory_client=self._client)
+
+    # ==================================================================
+    # 写入 + 自动提取
+    # ==================================================================
+
+    async def add_with_extraction(
+        self,
+        user_id: str,
+        messages: list[dict[str, str]],
+        scope: str = "session",
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        """写入消息 + 自动提取记忆 + 更新画像。
+
+        流程:
+        1. 写入会话消息到 MemoryStore
+        2. 从对话中自动提取记忆(MemoryExtractor)
+        3. 每条提取的记忆:生成 embedding → 写入 VectorMemoryStore + UnifiedMemoryClient
+        4. 增量更新用户画像(UserProfileBuilder)
+
+        Args:
+            user_id:   用户 ID
+            messages:  对话消息列表 [{role, content}]
+            scope:     记忆作用域(session/project/user/global)
+            session_id: 会话 ID(scope=session 时用)
+
+        Returns:
+            {extracted: [...], count: int, durationMs: int}
+        """
+        self._ensure_services()
+        start = time.time()
+
+        # 1. 写入会话消息
+        sid = session_id or user_id
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if content:
+                await self._store.add(sid, role, content)
+
+        # 2. 获取已有记忆(用于去重)
+        existing = await self._client.get_entries(user_id, scope="user")
+
+        # 3. 自动提取记忆
+        extraction_request = {
+            "messages": messages,
+            "userId": user_id,
+            "sessionId": session_id,
+            "existingEntries": existing,
+        }
+        extraction_result = await self._extractor.extract(extraction_request)
+        extracted = extraction_result.get("extracted", [])
+
+        # 4. 每条提取的记忆:生成 embedding + 写入向量存储 + API + 更新画像
+        now = datetime.utcnow().isoformat()
+        ts = int(time.time() * 1000)
+        for idx, item in enumerate(extracted):
+            entry_id = f"mem-{user_id}-{ts}-{idx}"
+            entry = {
+                "id": entry_id,
+                "scope": scope,
+                "type": item.get("type", "fact"),
+                "category": item.get("category", "未分类"),
+                "text": item.get("text", ""),
+                "source": "ai-service",
+                "createdAt": now,
+                "updatedAt": now,
+            }
+            # 生成 embedding 并写入向量存储
+            try:
+                embedding = await self._vector_store.embed(item["text"])
+                await self._vector_store.add_entry(entry_id, entry, embedding)
+            except Exception:
+                pass  # embedding 失败不阻塞,记忆仍写入 API
+            # 写入 API(跨端同步)
+            await self._client.add_entry(user_id, entry)
+            # 增量更新画像
+            try:
+                await self._profile_builder.update_profile(user_id, entry)
+            except Exception:
+                pass
+
+        duration_ms = int((time.time() - start) * 1000)
+        return {
+            "extracted": extracted,
+            "count": len(extracted),
+            "durationMs": duration_ms,
+        }
+
+    # ==================================================================
+    # 混合检索
+    # ==================================================================
+
+    async def retrieve(self, request: dict[str, Any]) -> dict[str, Any]:
+        """混合检索:fts5 + vector + hybrid。
+
+        Args:
+            request: MemoryRetrievalRequest 字典
+                - userId:              用户 ID
+                - query:               查询文本
+                - engine:              检索引擎(fts5/vector/hybrid,默认 hybrid)
+                - scope:               作用域过滤
+                - topK:                返回条数(默认 10)
+                - similarityThreshold: 相似度阈值(默认 0.7)
+                - includeDecayed:      是否包含已衰减记忆(默认 false)
+
+        Returns:
+            MemoryRetrievalResponse 字典
+                - items:      检索结果列表
+                - total:      结果数
+                - engine:     使用的引擎
+                - durationMs: 检索耗时(ms)
+        """
+        self._ensure_services()
+        start = time.time()
+
+        engine = request.get("engine", "hybrid")
+        query = request.get("query", "")
+        user_id = request.get("userId", "")
+        top_k = request.get("topK", 10)
+        threshold = request.get("similarityThreshold", 0.7)
+        include_decayed = request.get("includeDecayed", False)
+        scope = request.get("scope", "user")
+
+        # 从 API 获取用户记忆
+        entries = await self._client.get_entries(user_id, scope=scope)
+
+        # 过滤已衰减记忆
+        if not include_decayed:
+            entries = [
+                e for e in entries
+                if not self._decay_manager.is_decayed(str(e.get("id", "")))
+            ]
+
+        items: list[dict[str, Any]] = []
+
+        if engine == "fts5":
+            items = self._fts5_search(query, entries, top_k)
+        elif engine == "vector":
+            items = await self._vector_search(query, top_k, threshold)
+        else:  # hybrid
+            items = await self._hybrid_search(query, entries, top_k, threshold)
+
+        # 记录访问(用于衰减管理)
+        for item in items:
+            entry = item.get("entry", {})
+            entry_id = str(entry.get("id", ""))
+            if entry_id:
+                self._decay_manager.record_access(entry_id)
+
+        duration_ms = int((time.time() - start) * 1000)
+        return {
+            "items": items,
+            "total": len(items),
+            "engine": engine,
+            "durationMs": duration_ms,
+        }
+
+    # ==================================================================
+    # 用户画像
+    # ==================================================================
+
+    async def get_user_profile(self, user_id: str) -> dict[str, Any]:
+        """获取用户画像(委托 UserProfileBuilder)。"""
+        self._ensure_services()
+        return await self._profile_builder.build_profile(user_id)
+
+    # ==================================================================
+    # 衰减管理
+    # ==================================================================
+
+    async def apply_decay(
+        self,
+        user_id: str,
+        config: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """应用记忆衰减(委托 MemoryDecayManager)。
+
+        Returns:
+            {"updated": N, "decayed": M}
+        """
+        self._ensure_services()
+        decay_config = config or {
+            "strategy": "combined",
+            "halfLifeDays": 30,
+            "minRetentionScore": 0.2,
+            "accessBoost": 0.1,
+        }
+        return await self._decay_manager.apply_decay(
+            user_id, decay_config, self._client,
+        )
+
+    # ==================================================================
+    # 检索引擎(内部方法)
+    # ==================================================================
+
+    @staticmethod
+    def _fts5_search(
+        query: str,
+        entries: list[dict[str, Any]],
+        top_k: int,
+    ) -> list[dict[str, Any]]:
+        """FTS5 全文检索(降级:简单关键词匹配,无 SQLite FTS5 依赖)。
+
+        用空格分词,计算命中关键词数 / 总词数作为 rank。
+        """
+        query_lower = query.lower()
+        query_words = set(query_lower.split())
+        if not query_words:
+            return []
+
+        scored: list[tuple[float, dict[str, Any]]] = []
+        for entry in entries:
+            text = str(entry.get("text", "")).lower()
+            if not text:
+                continue
+            hits = sum(1 for w in query_words if w in text)
+            if hits > 0:
+                rank = hits / max(len(query_words), 1)
+                scored.append((rank, entry))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [
+            {"entry": e, "ftsRank": round(r, 4), "matchedBy": "fts5"}
+            for r, e in scored[:top_k]
+        ]
+
+    async def _vector_search(
+        self,
+        query: str,
+        top_k: int,
+        threshold: float,
+    ) -> list[dict[str, Any]]:
+        """向量检索:调 vector_store.search(query_embedding=...)。"""
+        query_embedding = await self._vector_store.embed(query)
+        results = await self._vector_store.search(
+            query_embedding, top_k=top_k, threshold=threshold,
+        )
+        items: list[dict[str, Any]] = []
+        # results 为 list[tuple[str, dict, float]](entry_id, entry, similarity)
+        for entry_id, entry, score in results:
+            items.append({
+                "entry": entry,
+                "similarity": round(float(score), 4),
+                "matchedBy": "vector",
+            })
+        return items
+
+    async def _hybrid_search(
+        self,
+        query: str,
+        entries: list[dict[str, Any]],
+        top_k: int,
+        threshold: float,
+    ) -> list[dict[str, Any]]:
+        """混合检索:fts5 + vector 并行,合并结果按 combinedScore 排序。
+
+        combinedScore = 0.5 * ftsRank + 0.5 * similarity
+        以 entry id 去重(fts5 和 vector 可能命中同一条)。
+        """
+        # fts5 同步且快速,直接调用
+        fts_results = self._fts5_search(query, entries, top_k)
+        # vector 异步,await
+        vec_results = await self._vector_search(query, top_k, threshold)
+
+        # 合并(以 entry id 去重)
+        merged: dict[str, dict[str, Any]] = {}
+
+        for item in fts_results:
+            entry = item.get("entry", {})
+            eid = str(entry.get("id", ""))
+            if eid:
+                fts_rank = item.get("ftsRank", 0.0)
+                merged[eid] = {
+                    "entry": entry,
+                    "ftsRank": fts_rank,
+                    "similarity": 0.0,
+                    "combinedScore": fts_rank * 0.5,
+                    "matchedBy": "hybrid",
+                }
+
+        for item in vec_results:
+            entry = item.get("entry", {})
+            eid = str(entry.get("id", ""))
+            if not eid:
+                continue
+            sim = item.get("similarity", 0.0)
+            if eid in merged:
+                # 已在 fts 结果中:合并分数
+                merged[eid]["similarity"] = sim
+                merged[eid]["combinedScore"] = (
+                    merged[eid].get("ftsRank", 0.0) * 0.5 + sim * 0.5
+                )
+            else:
+                merged[eid] = {
+                    "entry": entry,
+                    "ftsRank": 0.0,
+                    "similarity": sim,
+                    "combinedScore": sim * 0.5,
+                    "matchedBy": "hybrid",
+                }
+
+        # 按 combinedScore 降序
+        sorted_items = sorted(
+            merged.values(),
+            key=lambda x: x.get("combinedScore", 0.0),
+            reverse=True,
+        )
+        return sorted_items[:top_k]
+
+
+# 全局单例
+memory_system = MemorySystem()
