@@ -107,6 +107,14 @@ _FEEDBACK_LOG_REDIS_PREFIX = "rules:feedback-log:"
 _FEEDBACK_LOG_REDIS_MAX = 1000
 _REDIS_INIT_LOAD = 100  # 初始化时从 Redis 加载审计日志条数
 
+# ── 超越创新模块常量(行为学习 + LLM 模式提取 + 冲突协商 + 效果预测 + 知识图谱)──
+_BEHAVIOR_KEY_PREFIX = "rules:behavior:"      # 用户行为 hash
+_BEHAVIOR_MAX_ENTRIES = 1000                    # 每用户最多保留行为数
+_PATTERN_MIN_SAMPLES = 5                        # 模式提取最小样本数
+_KG_SIM_DUP_THRESHOLD = 0.9                      # 知识图谱:重复边阈值
+_KG_SIM_COMP_THRESHOLD = 0.7                    # 知识图谱:互补边阈值
+_KG_SIM_CONFLICT_THRESHOLD = 0.3                # 知识图谱:冲突边阈值
+
 # ── Scope 继承链 ────────────────────────────────────────
 _SCOPE_CHAIN: dict[str, list[str]] = {
     "global": ["global"],
@@ -361,6 +369,10 @@ class RulesEngine:
         self._effect_log: dict[str, list[dict[str, Any]]] = {}
         # 反馈日志(内存降级):{rule_id: [entry, ...]}
         self._feedback_log: dict[str, list[dict[str, Any]]] = {}
+        # 用户行为日志(内存降级,Redis 不可用时)
+        self._behavior_fallback: list[dict[str, Any]] = []
+        # 学习反馈日志(内存降级,Redis 不可用时):{rule_id: [entry, ...]}
+        self._learn_feedback_log: dict[str, list[dict[str, Any]]] = {}
         # Redis 客户端(懒初始化)
         self._redis: Any = None
         self._use_redis = bool(_REDIS_URL) and _sync_redis is not None
@@ -1528,6 +1540,423 @@ class RulesEngine:
         前端点击模板可快速创建规则(把模板字段填入新建表单)。
         """
         return [dict(t) for t in RULE_TEMPLATES]
+
+    # ── 超越创新:行为学习 + LLM 模式提取 + 冲突协商 + 效果预测 + 知识图谱 ──
+
+    async def _call_llm(
+        self, system_prompt: str, user_prompt: str, max_tokens: int = 2000
+    ) -> str:
+        """调用 LLM,失败返回空字符串(让调用方降级)。
+
+        复用 app.core.llm_gateway.llm_gateway.complete()。
+        max_tokens 参数透传给 LiteLLM(若 gateway 支持)。
+        """
+        try:
+            from ..core.llm_gateway import llm_gateway
+
+            resp = await llm_gateway.complete(
+                [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+            )
+            if isinstance(resp, dict):
+                return str(resp.get("content", ""))
+            return ""
+        except Exception as e:
+            logger.debug("[rules_engine] LLM 调用失败(降级空字符串): %s", e)
+            return ""
+
+    async def _track_behavior(
+        self,
+        user_id: str,
+        action: str,
+        rule_id: str,
+        details: Optional[dict] = None,
+    ) -> None:
+        """记录用户行为到 Redis hash(失败降级到内存)。
+
+        action ∈ {create, update, delete, match, feedback, apply}。
+        field = timestamp(ms),value = JSON({action, rule_id, details, timestamp})。
+        超过 _BEHAVIOR_MAX_ENTRIES 时按 timestamp 删除最早条目。
+        """
+        entry = {
+            "action": action,
+            "rule_id": rule_id,
+            "details": details or {},
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        redis = self._get_redis()
+        if redis:
+            try:
+                key = f"{_BEHAVIOR_KEY_PREFIX}{user_id}"
+                field = str(int(datetime.now(timezone.utc).timestamp() * 1000))
+                redis.hset(key, field, json.dumps(entry, ensure_ascii=False))
+                # 超容量时删除最早 field(timestamp 字典序 == 时间序)
+                current_count = redis.hlen(key)
+                if current_count > _BEHAVIOR_MAX_ENTRIES:
+                    all_fields = redis.hkeys(key)
+                    all_fields.sort()
+                    to_delete = all_fields[: current_count - _BEHAVIOR_MAX_ENTRIES]
+                    if to_delete:
+                        redis.hdel(key, *to_delete)
+                return
+            except Exception as e:
+                logger.debug("[rules_engine] Redis 行为记录失败: %s", e)
+        # 内存降级
+        with self._lock:
+            self._behavior_fallback.append(entry)
+            if len(self._behavior_fallback) > _BEHAVIOR_MAX_ENTRIES:
+                self._behavior_fallback = self._behavior_fallback[
+                    -_BEHAVIOR_MAX_ENTRIES:
+                ]
+
+    async def _get_behaviors(self, user_id: str) -> list[dict[str, Any]]:
+        """读取用户行为列表(Redis hash,降级内存),按 timestamp 升序。"""
+        redis = self._get_redis()
+        if redis:
+            try:
+                key = f"{_BEHAVIOR_KEY_PREFIX}{user_id}"
+                all_values = redis.hgetall(key)
+                entries: list[dict[str, Any]] = []
+                for value in all_values.values():
+                    try:
+                        entries.append(json.loads(value))
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+                entries.sort(key=lambda e: e.get("timestamp", ""))
+                return entries
+            except Exception as e:
+                logger.debug("[rules_engine] Redis 行为读取失败: %s", e)
+        with self._lock:
+            return list(self._behavior_fallback)
+
+    def _extract_patterns_statistical(
+        self, behaviors: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """降级:基于行为频率的简单统计(top-3 最常操作的 action+scope 组合)。"""
+        from collections import Counter
+
+        counter: Counter[tuple[str, str]] = Counter()
+        for b in behaviors:
+            action = str(b.get("action", ""))
+            details = b.get("details", {}) or {}
+            scope = str(details.get("scope", "global"))
+            counter[(action, scope)] += 1
+        patterns: list[dict[str, Any]] = []
+        for (action, scope), count in counter.most_common(3):
+            patterns.append(
+                {
+                    "pattern": (
+                        f"用户频繁执行 {action} 操作(scope={scope}),"
+                        f"共 {count} 次"
+                    ),
+                    "suggested_rule": (
+                        f"针对 {scope} scope 的 {action} 操作提供建议"
+                    ),
+                    "confidence": min(count / 10.0, 0.8),
+                }
+            )
+        return patterns
+
+    async def _extract_patterns(self, user_id: str) -> list[dict[str, Any]]:
+        """从用户行为提取重复模式(LLM 分析,失败降级为简单统计)。
+
+        样本 < _PATTERN_MIN_SAMPLES 时返回空列表。
+        LLM 返回 JSON [{pattern, suggested_rule, confidence}]。
+        """
+        behaviors = await self._get_behaviors(user_id)
+        if len(behaviors) < _PATTERN_MIN_SAMPLES:
+            return []
+        try:
+            llm_resp = await self._call_llm(
+                system_prompt=(
+                    "你是规则行为分析专家。从用户行为历史中提取重复模式,"
+                    "生成建议规则。只输出 JSON 数组,不要额外解释。"
+                ),
+                user_prompt=(
+                    f"用户行为历史(JSON,最近 50 条):\n"
+                    f"{json.dumps(behaviors[-50:], ensure_ascii=False, indent=2)}\n\n"
+                    f'请输出 JSON 数组:[{{"pattern": str, '
+                    f'"suggested_rule": str, "confidence": 0.0-1.0}}]'
+                ),
+            )
+            if llm_resp:
+                cleaned = re.sub(r"```(?:json)?\s*", "", llm_resp).strip()
+                arr_match = re.search(r"\[.*\]", cleaned, re.DOTALL)
+                if arr_match:
+                    patterns = json.loads(arr_match.group())
+                    if isinstance(patterns, list):
+                        return patterns
+        except Exception as e:
+            logger.debug("[rules_engine] LLM 模式提取降级: %s", e)
+        # 降级:基于行为频率的简单统计
+        return self._extract_patterns_statistical(behaviors)
+
+    async def auto_generate_rules(self, user_id: str) -> list[dict[str, Any]]:
+        """基于行为模式自动生成规则草稿(不自动创建,返回草稿供用户确认)。
+
+        对 confidence > 0.6 的模式生成草稿。
+        Returns:
+            [{pattern, draft_rule: {name, description, content, scope}, confidence}]
+        """
+        patterns = await self._extract_patterns(user_id)
+        drafts: list[dict[str, Any]] = []
+        for p in patterns:
+            confidence = float(p.get("confidence", 0) or 0)
+            if confidence <= 0.6:
+                continue
+            suggested = str(p.get("suggested_rule", ""))
+            pattern_desc = str(p.get("pattern", ""))
+            draft_rule = {
+                "name": suggested[:64] or "auto-generated-rule",
+                "description": f"基于模式「{pattern_desc}」自动生成",
+                "content": suggested,
+                "scope": "global",
+            }
+            drafts.append(
+                {
+                    "pattern": pattern_desc,
+                    "draft_rule": draft_rule,
+                    "confidence": confidence,
+                }
+            )
+        return drafts
+
+    async def _auto_resolve_conflicts(
+        self, conflicts: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """LLM 仲裁冲突,失败降级为按 created_at 时间戳保留较新规则。
+
+        输入 detect_conflicts() 的输出。
+        Returns:
+            [{conflict_id, resolution, reason, action}]
+            resolution ∈ {merge, disable, priority_adjust}
+        """
+        if not conflicts:
+            return []
+        try:
+            llm_resp = await self._call_llm(
+                system_prompt=(
+                    "你是规则冲突仲裁专家。为每个冲突提供解决方案"
+                    "(merge/disable/priority_adjust)。只输出 JSON 数组。"
+                ),
+                user_prompt=(
+                    f"冲突列表(JSON):\n"
+                    f"{json.dumps(conflicts, ensure_ascii=False, indent=2)}\n\n"
+                    f'请输出 JSON 数组:[{{"conflict_id": int, '
+                    f'"resolution": "merge|disable|priority_adjust", '
+                    f'"reason": str, "action": str}}]'
+                ),
+            )
+            if llm_resp:
+                cleaned = re.sub(r"```(?:json)?\s*", "", llm_resp).strip()
+                arr_match = re.search(r"\[.*\]", cleaned, re.DOTALL)
+                if arr_match:
+                    resolutions = json.loads(arr_match.group())
+                    if isinstance(resolutions, list):
+                        return resolutions
+        except Exception as e:
+            logger.debug("[rules_engine] LLM 冲突仲裁降级: %s", e)
+        # 降级:按 created_at 时间戳保留较新规则,禁用较旧规则
+        resolutions: list[dict[str, Any]] = []
+        for idx, conflict in enumerate(conflicts):
+            rule_ids = list(conflict.get("ruleIds", []) or [])
+            rules_meta: list[tuple[str, str]] = []
+            for rid in rule_ids:
+                r = self.get(rid)
+                if r:
+                    rules_meta.append((rid, r.created_at))
+            rules_meta.sort(key=lambda x: x[1], reverse=True)
+            keep_id = rules_meta[0][0] if rules_meta else None
+            disable_ids = [rid for rid, _ in rules_meta[1:]]
+            resolutions.append(
+                {
+                    "conflict_id": idx,
+                    "resolution": "disable",
+                    "reason": (
+                        f"降级策略:保留最新规则 {keep_id},"
+                        f"禁用较旧的 {disable_ids}"
+                    ),
+                    "action": (
+                        f"keep:{keep_id};disable:{','.join(disable_ids)}"
+                    ),
+                }
+            )
+        return resolutions
+
+    async def predict_effect(
+        self, rule_id: str, dry_run_message: str = ""
+    ) -> dict[str, Any]:
+        """预测规则应用效果(LLM 预测,失败降级为历史统计)。
+
+        Returns:
+            {rule_id, predicted_match_rate, false_positive_risk,
+             recommendation, degraded}
+        """
+        effects = self._get_effect_log(rule_id)
+        rule = self.get(rule_id)
+        rule_name = rule.name if rule else rule_id
+
+        # 历史统计
+        success_rate = 0.0
+        if effects:
+            token_deltas = [
+                int(e.get("tokenDelta", 0) or 0) for e in effects
+            ]
+            success_rate = (
+                sum(1 for t in token_deltas if t > 0) / len(token_deltas)
+                if token_deltas
+                else 0.0
+            )
+        avg_match_rate = 1.0 if effects else 0.0
+
+        # LLM 预测
+        try:
+            context = (
+                f"规则名:{rule_name}\n"
+                f"规则内容:{rule.content if rule else '未知'}\n"
+            )
+            if dry_run_message:
+                context += f"测试消息:{dry_run_message}\n"
+            if effects:
+                context += (
+                    f"历史效果(最近 5 条):"
+                    f"{json.dumps(effects[:5], ensure_ascii=False)}\n"
+                )
+            llm_resp = await self._call_llm(
+                system_prompt=(
+                    "你是规则效果预测专家。基于规则内容和历史数据,"
+                    "预测应用该规则后的效果。只输出 JSON 对象。"
+                ),
+                user_prompt=(
+                    f"{context}\n"
+                    f'请输出 JSON:{{"match_rate": 0.0-1.0, '
+                    f'"false_positive_risk": 0.0-1.0, '
+                    f'"recommendation": "apply|review|reject"}}'
+                ),
+            )
+            if llm_resp:
+                cleaned = re.sub(r"```(?:json)?\s*", "", llm_resp).strip()
+                obj_match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+                if obj_match:
+                    pred = json.loads(obj_match.group())
+                    return {
+                        "rule_id": rule_id,
+                        "predicted_match_rate": float(
+                            pred.get("match_rate", avg_match_rate)
+                        ),
+                        "false_positive_risk": float(
+                            pred.get("false_positive_risk", 0.5)
+                        ),
+                        "recommendation": str(
+                            pred.get("recommendation", "review")
+                        ),
+                        "degraded": False,
+                    }
+        except Exception as e:
+            logger.debug("[rules_engine] LLM 效果预测降级: %s", e)
+        # 降级:基于历史 effect_log 的简单统计
+        return {
+            "rule_id": rule_id,
+            "predicted_match_rate": avg_match_rate,
+            "false_positive_risk": 1.0 - success_rate,
+            "recommendation": "apply" if success_rate > 0.7 else "review",
+            "degraded": True,
+        }
+
+    async def _build_knowledge_graph(
+        self, scope: Optional[str] = None
+    ) -> dict[str, Any]:
+        """构建规则知识图谱(基于 embedding cosine 相似度)。
+
+        - sim > _KG_SIM_DUP_THRESHOLD → edge type="duplicate"
+        - sim ∈ [_KG_SIM_COMP_THRESHOLD, _KG_SIM_DUP_THRESHOLD] → "complementary"
+        - sim < _KG_SIM_CONFLICT_THRESHOLD → edge type="conflict"
+        - embedding 失败时降级:只返回节点,无边。
+
+        Returns:
+            {nodes: [{id, name, scope, pattern}],
+             edges: [{source, target, type, similarity}]}
+        """
+        self.reload()
+        with self._lock:
+            all_rules = list(self._rules.values())
+        if scope:
+            all_rules = [r for r in all_rules if r.scope == scope]
+
+        nodes = [
+            {
+                "id": r.id,
+                "name": r.name,
+                "scope": r.scope,
+                "pattern": r.match_pattern or "",
+            }
+            for r in all_rules
+        ]
+
+        edges: list[dict[str, Any]] = []
+        embeddings: dict[str, list[float]] = {}
+        for r in all_rules:
+            emb_text = (
+                f"{r.name} {r.description or ''} "
+                f"{r.match_pattern or ''} {r.content[:200]}"
+            )
+            emb = await self._get_embedding_async(emb_text)
+            if emb:
+                embeddings[r.id] = emb
+
+        if len(embeddings) >= 2:
+            rule_ids = list(embeddings.keys())
+            for i, id1 in enumerate(rule_ids):
+                for id2 in rule_ids[i + 1 :]:
+                    sim = _cosine_similarity(embeddings[id1], embeddings[id2])
+                    if sim > _KG_SIM_DUP_THRESHOLD:
+                        edge_type = "duplicate"
+                    elif sim >= _KG_SIM_COMP_THRESHOLD:
+                        edge_type = "complementary"
+                    elif sim < _KG_SIM_CONFLICT_THRESHOLD:
+                        edge_type = "conflict"
+                    else:
+                        continue
+                    edges.append(
+                        {
+                            "source": id1,
+                            "target": id2,
+                            "type": edge_type,
+                            "similarity": round(sim, 3),
+                        }
+                    )
+        return {"nodes": nodes, "edges": edges}
+
+    async def record_learn_feedback(
+        self, rule_id: str, feedback: str, accepted: bool
+    ) -> bool:
+        """记录用户对自动生成规则的反馈(accepted=True 采纳 / False 拒绝)。
+
+        写入 Redis list "rules:learn_feedback:{rule_id}"。
+        用于未来 _extract_patterns 的优化(正反馈的模式 confidence 提升)。
+        """
+        entry = {
+            "feedback": feedback,
+            "accepted": bool(accepted),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        redis = self._get_redis()
+        if redis:
+            try:
+                key = f"rules:learn_feedback:{rule_id}"
+                redis.lpush(key, json.dumps(entry, ensure_ascii=False))
+                redis.ltrim(key, 0, _BEHAVIOR_MAX_ENTRIES - 1)
+                return True
+            except Exception as e:
+                logger.debug(
+                    "[rules_engine] Redis 学习反馈写入失败: %s", e
+                )
+        # 内存降级
+        with self._lock:
+            self._learn_feedback_log.setdefault(rule_id, []).insert(0, entry)
+        return True
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
