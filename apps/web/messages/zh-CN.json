@@ -26182,7 +26182,8 @@
     "sourceContinue": "Continue.dev",
     "sourceTabnine": "Tabnine",
     "sourceCody": "Sourcegraph Cody",
-    "sourceZed": "Zed"
+    "sourceZed": "Zed",
+    "sourceAntigravity": "Google Antigravity"
   },
   "llmSettings": {
     "title": "我的 LLM 配置",
