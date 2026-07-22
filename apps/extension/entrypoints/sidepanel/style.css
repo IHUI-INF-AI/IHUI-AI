@@ -1,40 +1,9 @@
-:root {
-  color-scheme: light dark;
-  --bg: #ffffff;
-  --fg: #111111;
-  --muted: #6b7280;
-  --muted-bg: #f3f4f6;
-  --card: #ffffff;
-  --card-border: #e5e7eb;
-  --border: #e5e7eb;
-  --accent: hsl(142 71% 45%);
-  --user-bg: hsl(142 71% 45%);
-  --user-fg: #ffffff;
-  --ai-bg: #f3f4f6;
-  --ai-fg: #111111;
-  --danger: #dc2626;
-  --danger-bg: #fef2f2;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 14px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0a0a0a;
-    --fg: #f5f5f5;
-    --muted: #9ca3af;
-    --muted-bg: #1f1f1f;
-    --card: #161616;
-    --card-border: #262626;
-    --border: #262626;
-    --accent: hsl(142 65% 50%);
-    --user-bg: hsl(142 65% 50%);
-    --ai-bg: #1f1f1f;
-    --ai-fg: #f5f5f5;
-    --danger: #f87171;
-    --danger-bg: #1f1212;
-  }
-}
+/**
+ * Extension sidepanel/popup 组件样式(2026-07-23 迁移到 Tailwind 4 token 体系)。
+ *
+ * 变量来源:globals.css 的 @theme 块(与 apps/web/app/globals.css 一致)。
+ * 深色模式:通过 .dark class 切换(不再用 prefers-color-scheme)。
+ */
 
 * {
   box-sizing: border-box;
@@ -44,8 +13,8 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--color-background);
+  color: var(--color-foreground);
   width: 100%;
   height: 100%;
 }
@@ -53,13 +22,13 @@ body {
 #root {
   width: 100%;
   min-height: 100vh;
-  background: var(--bg);
+  background: var(--color-background);
 }
 
 button {
-  background: var(--card);
-  color: var(--fg);
-  border: 1px solid var(--border);
+  background: var(--color-card);
+  color: var(--color-foreground);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 6px 14px;
   cursor: pointer;
@@ -67,7 +36,7 @@ button {
 }
 
 button:hover:not(:disabled) {
-  background: var(--muted-bg);
+  background: var(--color-muted);
 }
 
 button:disabled {
@@ -78,9 +47,9 @@ button:disabled {
 input,
 select,
 textarea {
-  background: var(--bg);
-  color: var(--fg);
-  border: 1px solid var(--border);
+  background: var(--color-background);
+  color: var(--color-foreground);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 6px 10px;
   font-size: 13px;
@@ -92,7 +61,7 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--color-primary);
 }
 
 .sp-loading {
@@ -100,33 +69,33 @@ textarea:focus {
   align-items: center;
   justify-content: center;
   height: 100vh;
-  color: var(--muted);
+  color: var(--color-muted-foreground);
   font-size: 13px;
 }
 
 .empty-state {
   text-align: center;
-  color: var(--muted);
+  color: var(--color-muted-foreground);
   padding: 30px 16px;
   font-size: 13px;
 }
 
 .error-banner {
-  background: var(--danger-bg);
-  color: var(--danger);
+  background: hsl(0 100% 60% / 0.1);
+  color: var(--color-destructive);
   padding: 8px 10px;
   border-radius: 6px;
-  border: 1px solid var(--danger);
+  border: 1px solid var(--color-destructive);
   margin: 8px 0;
   font-size: 12px;
 }
 
 .notice-banner {
-  background: var(--primary-bg, #f0f9ff);
-  color: var(--primary, #0369a1);
+  background: hsl(142 71% 45% / 0.1);
+  color: var(--color-primary);
   padding: 8px 10px;
   border-radius: 6px;
-  border: 1px solid var(--primary, #0369a1);
+  border: 1px solid var(--color-primary);
   margin: 8px 0;
   font-size: 12px;
 }
@@ -144,8 +113,8 @@ textarea:focus {
   align-items: center;
   gap: 6px;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--card);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-card);
   flex-shrink: 0;
 }
 
@@ -171,19 +140,17 @@ textarea:focus {
   background: #9ca3af;
 }
 
-@media (prefers-color-scheme: dark) {
-  .sp-ws-dot.connected {
-    background: #22c55e;
-  }
+.dark .sp-ws-dot.connected {
+  background: #22c55e;
+}
 
-  .sp-ws-dot.disconnected {
-    background: #4b5563;
-  }
+.dark .sp-ws-dot.disconnected {
+  background: #4b5563;
 }
 
 .sp-user {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--color-muted-foreground);
 }
 
 /* 通知按钮 */
@@ -234,8 +201,8 @@ textarea:focus {
   bottom: 0;
   width: 300px;
   max-width: 90vw;
-  background: var(--card, #fff);
-  border-left: 1px solid var(--border, #e5e7eb);
+  background: var(--color-card);
+  border-left: 1px solid var(--color-border);
   box-shadow: -4px 0 16px rgba(0, 0, 0, 0.08);
   z-index: 100;
   display: flex;
@@ -247,7 +214,7 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--border, #e5e7eb);
+  border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 
@@ -264,7 +231,7 @@ textarea:focus {
 
 .sp-np-btn {
   background: none;
-  border: 1px solid var(--border, #e5e7eb);
+  border: 1px solid var(--color-border);
   border-radius: 5px;
   padding: 3px 8px;
   font-size: 11px;
@@ -273,7 +240,7 @@ textarea:focus {
 }
 
 .sp-np-btn:hover {
-  background: var(--muted, #f3f4f6);
+  background: var(--color-muted);
 }
 
 .sp-np-close {
@@ -292,7 +259,7 @@ textarea:focus {
 .sp-np-empty {
   padding: 32px 12px;
   text-align: center;
-  color: var(--muted, #9ca3af);
+  color: var(--color-muted-foreground);
   font-size: 12px;
 }
 
@@ -303,7 +270,7 @@ textarea:focus {
 }
 
 .sp-np-item.unread {
-  background: var(--muted, #f3f4f6);
+  background: var(--color-muted);
 }
 
 .sp-np-item-title {
@@ -314,37 +281,14 @@ textarea:focus {
 
 .sp-np-item-content {
   font-size: 11px;
-  color: var(--muted, #6b7280);
+  color: var(--color-muted-foreground);
   margin-bottom: 3px;
   word-break: break-word;
 }
 
 .sp-np-item-time {
   font-size: 10px;
-  color: var(--muted, #9ca3af);
-}
-
-@media (prefers-color-scheme: dark) {
-  .sp-np-panel {
-    background: #1f2937;
-    border-left-color: #374151;
-  }
-
-  .sp-np-header {
-    border-bottom-color: #374151;
-  }
-
-  .sp-np-btn {
-    border-color: #374151;
-  }
-
-  .sp-np-btn:hover {
-    background: #374151;
-  }
-
-  .sp-np-item.unread {
-    background: #374151;
-  }
+  color: var(--color-muted-foreground);
 }
 
 .sp-body {
@@ -355,8 +299,8 @@ textarea:focus {
 
 .sp-tabs {
   width: 64px;
-  background: var(--card);
-  border-right: 1px solid var(--border);
+  background: var(--color-card);
+  border-right: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -369,16 +313,16 @@ textarea:focus {
   align-items: center;
   gap: 2px;
   padding: 10px 4px;
-  color: var(--muted);
+  color: var(--color-muted-foreground);
   text-decoration: none;
   font-size: 11px;
   border-left: 2px solid transparent;
 }
 
 .sp-tab.active {
-  color: var(--accent);
-  border-left-color: var(--accent);
-  background: var(--muted-bg);
+  color: var(--color-primary);
+  border-left-color: var(--color-primary);
+  background: var(--color-muted);
 }
 
 .sp-tab-icon {
@@ -388,7 +332,7 @@ textarea:focus {
 .sp-main {
   flex: 1;
   overflow: auto;
-  background: var(--bg);
+  background: var(--color-background);
 }
 
 /* ============== Page ============== */
@@ -404,7 +348,7 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .sp-page-header h3 {
@@ -416,39 +360,39 @@ textarea:focus {
 .model-select,
 .sp-model-select {
   font-size: 12px;
-  color: var(--fg);
+  color: var(--color-foreground);
   padding: 3px 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
-  background: var(--card);
+  background: var(--color-card);
   cursor: pointer;
   transition: border-color 0.15s ease;
 }
 
 .model-select:hover,
 .sp-model-select:hover {
-  border-color: var(--muted);
+  border-color: var(--color-muted-foreground);
 }
 
 .model-select:focus,
 .sp-model-select:focus {
   outline: none;
-  border-color: var(--muted);
+  border-color: var(--color-muted-foreground);
 }
 
 .link-btn {
   background: none;
   border: none;
-  color: var(--accent);
+  color: var(--color-primary);
   cursor: pointer;
   font-size: 12px;
   padding: 2px 6px;
 }
 
 .sp-danger-btn {
-  background: var(--danger-bg);
-  color: var(--danger);
-  border: 1px solid var(--danger);
+  background: hsl(0 100% 60% / 0.1);
+  color: var(--color-destructive);
+  border: 1px solid var(--color-destructive);
   width: 100%;
 }
 
@@ -509,21 +453,21 @@ textarea:focus {
 }
 
 .sp-bubble.user .sp-bubble-content {
-  background: var(--user-bg);
-  color: var(--user-fg);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
 }
 
 .sp-bubble.assistant .sp-bubble-content {
-  background: var(--ai-bg);
-  color: var(--ai-fg);
+  background: var(--color-muted);
+  color: var(--color-foreground);
 }
 
 .sp-chat-input {
   display: flex;
   gap: 6px;
   padding: 8px 10px;
-  border-top: 1px solid var(--border);
-  background: var(--card);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-card);
 }
 
 .sp-chat-input input {
@@ -545,7 +489,7 @@ textarea:focus {
 }
 
 .sp-info-list dt {
-  color: var(--muted);
+  color: var(--color-muted-foreground);
   margin: 0;
 }
 
@@ -561,7 +505,7 @@ textarea:focus {
 }
 
 .sp-balance.muted {
-  color: var(--muted);
+  color: var(--color-muted-foreground);
 }
 
 /* ============== Course ============== */
@@ -575,11 +519,11 @@ textarea:focus {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--color-muted-foreground);
 }
 
 .sp-course-price {
-  color: var(--accent);
+  color: var(--color-primary);
   font-weight: 600;
 }
 
@@ -591,13 +535,13 @@ textarea:focus {
   gap: 8px;
 }
 
-/* ============== Popup（弹窗扩展专用，主色对齐 web 端 green） ============== */
+/* ============== Popup(弹窗扩展专用,主色对齐 web 端 green) ============== */
 .popup-loading {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 200px;
-  color: var(--muted);
+  color: var(--color-muted-foreground);
   font-size: 13px;
   padding: 16px;
 }
@@ -614,7 +558,7 @@ textarea:focus {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--fg);
+  color: var(--color-foreground);
 }
 
 .popup-container .login-form {
@@ -628,8 +572,8 @@ textarea:focus {
 }
 
 .popup-container .btn {
-  background: var(--accent);
-  color: var(--user-fg);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
   border: none;
   border-radius: 6px;
   padding: 8px 14px;
@@ -641,7 +585,7 @@ textarea:focus {
 
 .popup-container .btn:hover:not(:disabled) {
   opacity: 0.9;
-  background: var(--accent);
+  background: var(--color-primary);
 }
 
 .popup-container .btn:disabled {
@@ -650,23 +594,23 @@ textarea:focus {
 }
 
 .popup-container .btn-logout {
-  background: var(--card);
-  color: var(--danger);
-  border: 1px solid var(--danger);
+  background: var(--color-card);
+  color: var(--color-destructive);
+  border: 1px solid var(--color-destructive);
 }
 
 .popup-container .btn-logout:hover:not(:disabled) {
-  background: var(--danger-bg);
+  background: hsl(0 100% 60% / 0.1);
   opacity: 1;
 }
 
 .popup-container .error {
-  color: var(--danger);
-  background: var(--danger-bg);
+  color: var(--color-destructive);
+  background: hsl(0 100% 60% / 0.1);
   padding: 6px 10px;
   border-radius: 6px;
   font-size: 12px;
-  border: 1px solid var(--danger);
+  border: 1px solid var(--color-destructive);
 }
 
 .popup-container .user-info {
@@ -674,15 +618,15 @@ textarea:focus {
   align-items: center;
   gap: 10px;
   padding: 8px 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .popup-container .avatar {
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background: var(--accent);
-  color: var(--user-fg);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -702,7 +646,7 @@ textarea:focus {
 .popup-container .nickname {
   font-size: 14px;
   font-weight: 500;
-  color: var(--fg);
+  color: var(--color-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -710,7 +654,7 @@ textarea:focus {
 
 .popup-container .role {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--color-muted-foreground);
 }
 
 .popup-header {
@@ -729,7 +673,7 @@ textarea:focus {
 .popup-section-title {
   font-size: 11px;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--color-muted-foreground);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -738,10 +682,4 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-
-@media (prefers-color-scheme: dark) {
-  .popup-header .sp-notify-btn {
-    color: var(--fg);
-  }
 }

@@ -19,12 +19,12 @@ export default function SettingsPage() {
   const { onLogout } = useOutletContext<Ctx>()
   const { locale, setLocale, t } = useI18n()
   const [dark, setDark] = useState(
-    typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches,
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
   )
 
   const onToggleTheme = (v: boolean) => {
     setDark(v)
-    document.documentElement.dataset.theme = v ? 'dark' : 'light'
+    document.documentElement.classList.toggle('dark', v)
   }
 
   return (
