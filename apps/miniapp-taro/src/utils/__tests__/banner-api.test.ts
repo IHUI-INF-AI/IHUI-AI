@@ -19,7 +19,7 @@ vi.mock('@tarojs/taro', () => ({
 
 vi.mock('../../utils/request', () => ({
   get: (url: string, params?: unknown) => mockGet(url, params),
-  BASE_URL: 'http://localhost:3001/api',
+  BASE_URL: 'http://localhost:8801/api',
 }))
 
 import { getBannerList, getHomePage, type Banner } from '../../api'
