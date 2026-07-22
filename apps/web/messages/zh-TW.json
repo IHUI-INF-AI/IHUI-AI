@@ -376,7 +376,9 @@
     "copyCode": "複製程式碼",
     "collapse": "摺疊",
     "expand": "展開",
-    "breadcrumb": "麵包屑導覽"
+    "breadcrumb": "麵包屑導覽",
+    "showPassword": "顯示密碼",
+    "hidePassword": "隱藏密碼"
   },
   "nav": {
     "title": "主導航",
@@ -596,6 +598,7 @@
     "noAccount": "還沒有賬號？",
     "registerNow": "立即註冊",
     "forgotPassword": "忘記密碼",
+    "rememberPassword": "記住密碼",
     "forgotSubtitle": "重設您的密碼",
     "registerTitle": "創建賬號",
     "registerSubtitle": "註冊一個新賬號",
@@ -28017,5 +28020,184 @@
     "charCount": "{count} 字元",
     "feedbackBuildSuccess": "抽取完成,新增 {entities} 個實體,{relations} 條關係",
     "feedbackClearSuccess": "圖譜已清空"
+  },
+  "ide": {
+    "activityBar": {
+      "files": "檔案",
+      "search": "搜尋",
+      "sourceControl": "原始碼控制",
+      "debug": "除錯",
+      "applications": "應用",
+      "settings": "設定"
+    },
+    "topBar": {
+      "editor": "編輯器",
+      "codeChanges": "程式碼變更",
+      "document": "文件",
+      "terminal": "終端",
+      "browser": "瀏覽器",
+      "agent": "智慧代理",
+      "settings": "設定",
+      "close": "關閉"
+    },
+    "viewSwitcher": {
+      "groupView": "檢視",
+      "groupTools": "工具",
+      "groupSettings": "設定",
+      "searchPlaceholder": "搜尋檢視...",
+      "noMatch": "無符合項"
+    },
+    "layout": {
+      "documentView": "文件檢視",
+      "terminalView": "終端檢視",
+      "browserView": "瀏覽器檢視",
+      "figmaView": "Figma 檢視",
+      "agentView": "智慧代理檢視",
+      "mcpView": "MCP 檢視",
+      "settingsView": "設定檢視"
+    },
+    "fileExplorer": {
+      "tabFiles": "檔案",
+      "tabOutline": "大綱",
+      "tabTimeline": "時間線",
+      "searchPlaceholder": "搜尋檔案",
+      "newFile": "新建檔案",
+      "refresh": "重新整理",
+      "noMatch": "無符合檔案",
+      "justNow": "剛剛",
+      "minutesAgo": "{count} 分鐘前",
+      "hoursAgo": "{count} 小時前"
+    },
+    "fileTreeNode": {
+      "open": "開啟",
+      "rename": "重新命名",
+      "delete": "刪除",
+      "copyPath": "複製路徑"
+    },
+    "codeEditor": {
+      "findPlaceholder": "尋找...",
+      "matchCount": "{count} 符合",
+      "closeSearch": "關閉搜尋",
+      "zoomOut": "縮小字號",
+      "zoomIn": "放大字號"
+    },
+    "editorEmpty": {
+      "title": "IHUI IDE 工作區",
+      "subtitle": "選擇檔案或從下方快捷操作開始",
+      "browseFiles": "瀏覽檔案",
+      "viewChanges": "查看變更",
+      "settings": "設定",
+      "recentFiles": "最近開啟",
+      "shortcuts": "快捷鍵",
+      "scOpenFile": "開啟檔案",
+      "scGlobalSearch": "全域搜尋",
+      "scToggleSidebar": "切換側欄",
+      "scToggleTerminal": "切換終端",
+      "scGotoLine": "跳轉行號"
+    },
+    "editorTabBar": {
+      "closeTab": "關閉標籤",
+      "unpin": "取消固定",
+      "pin": "固定標籤",
+      "close": "關閉",
+      "closeOthers": "關閉其他",
+      "closeAll": "關閉全部",
+      "copyPath": "複製路徑"
+    },
+    "diffViewer": {
+      "selectFile": "選擇檔案",
+      "selectToCompare": "選擇檔案查看差異",
+      "addPct": "{pct}% 新增",
+      "changeBlocks": "{count} 個變更區塊",
+      "wordLevel": "詞級變更:"
+    },
+    "diffStats": {
+      "split": "對比",
+      "unified": "合併",
+      "fileCount": "{count} 個檔案",
+      "filterAll": "全部",
+      "filterModified": "修改",
+      "filterAdded": "新增",
+      "filterDeleted": "刪除",
+      "commit": "提交變更"
+    },
+    "diffFileList": {
+      "groupModified": "修改",
+      "groupAdded": "新增",
+      "groupDeleted": "刪除",
+      "groupRenamed": "重新命名",
+      "noMatch": "無符合檔案"
+    },
+    "searchPanel": {
+      "filterAll": "全部",
+      "searchPlaceholder": "搜尋",
+      "replacePlaceholder": "取代",
+      "toggleReplace": "切換取代",
+      "caseSensitive": "區分大小寫",
+      "wholeWord": "全字匹配",
+      "useRegex": "正規表示式",
+      "replace": "取代",
+      "replaceAll": "全部取代",
+      "resultSummary": "{matches} 個結果 · {files} 個檔案",
+      "noResults": "未找到結果",
+      "recentSearches": "最近搜尋",
+      "remove": "移除",
+      "inputHint": "輸入關鍵字搜尋"
+    },
+    "sourceControl": {
+      "commitPlaceholder": "提交訊息",
+      "commit": "提交",
+      "changeStats": "變更統計",
+      "staged": "已暫存 ({count})",
+      "changes": "變更 ({count})",
+      "noChanges": "無變更",
+      "commitHistory": "提交歷史",
+      "unstage": "取消暫存",
+      "stage": "暫存",
+      "refresh": "重新整理",
+      "more": "更多"
+    },
+    "debug": {
+      "stateStopped": "未執行",
+      "stateRunning": "執行中",
+      "statePaused": "已暫停",
+      "start": "開始",
+      "pause": "暫停",
+      "stop": "停止",
+      "stepOver": "單步跳過",
+      "stepInto": "單步進入",
+      "stepOut": "單步跳出",
+      "restart": "重啟",
+      "noSession": "尚未啟動除錯工作階段",
+      "variables": "變數",
+      "watch": "監看",
+      "watchPlaceholder": "新增監看運算式",
+      "add": "新增",
+      "delete": "刪除",
+      "toggle": "切換",
+      "breakpoints": "中斷點",
+      "callStack": "呼叫堆疊",
+      "debugConsole": "除錯主控台"
+    },
+    "applications": {
+      "title": "應用",
+      "newConfig": "新增設定",
+      "configNamePlaceholder": "設定名稱",
+      "commandPlaceholder": "命令",
+      "cancel": "取消",
+      "add": "新增",
+      "launchConfigs": "啟動設定",
+      "run": "執行",
+      "debug": "除錯",
+      "recentRuns": "最近執行",
+      "typeTerminal": "終端"
+    },
+    "statusBar": {
+      "synced": "已同步",
+      "unsynced": "未同步",
+      "conflict": "有衝突",
+      "sync": "同步",
+      "toggleTheme": "切換主題"
+    }
   }
 }
