@@ -76,11 +76,9 @@ import {
   MapPin,
   Heart,
   History,
-  ArrowUp,
   Mail,
   ShieldCheck,
   Receipt,
-  Coins,
   Sparkles,
   Cable,
   Rocket,
@@ -262,12 +260,11 @@ const MESSAGES_CHILDREN: NavItem[] = [
   },
 ]
 
-/** /user 16 项作为 /user/profile 的三级子菜单 */
+/** /user 14 项作为 /user/profile 的三级子菜单 */
 const USER_CHILDREN: NavItem[] = [
   { href: '/user/profile', labelKey: 'userProfile', icon: User },
   { href: '/user/security', labelKey: 'userSecurity', icon: Shield },
   { href: '/user/notifications', labelKey: 'userNotifications', icon: Bell },
-  { href: '/user/orders', labelKey: 'userOrders', icon: ShoppingBag },
   { href: '/user/realname', labelKey: 'userRealname', icon: ShieldCheck },
   { href: '/user/subscription', labelKey: 'userSubscription', icon: CreditCard },
   { href: '/user/learn-record', labelKey: 'userLearnRecord', icon: BookOpen },
@@ -277,7 +274,6 @@ const USER_CHILDREN: NavItem[] = [
   { href: '/user/ask', labelKey: 'userAsk', icon: HelpCircle },
   { href: '/user/circle', labelKey: 'userCircle', icon: CircleIcon },
   { href: '/user/resource', labelKey: 'userResource', icon: FolderOpen },
-  { href: '/user/point', labelKey: 'userPoint', icon: Coins },
   { href: '/user/exam', labelKey: 'userExam', icon: FileCheck },
   { href: '/user/sign-up', labelKey: 'userSignUp', icon: ClipboardList },
 ]
@@ -294,23 +290,20 @@ const EDU_ITEMS: NavItem[] = [
   { href: '/edu/progress', labelKey: 'eduProgress', icon: BarChart3 },
 ]
 
-/** /member 15 项整合到交易组下 */
+/** /member 12 项整合到交易组下 */
 const MEMBER_ITEMS: NavItem[] = [
   { href: '/member/dashboard', labelKey: 'memberDashboard', icon: LayoutDashboard },
-  { href: '/member/orders', labelKey: 'memberOrders', icon: ShoppingBag },
   { href: '/member/benefits', labelKey: 'memberBenefits', icon: Award },
-  { href: '/member/points', labelKey: 'memberPoints', icon: Coins },
   { href: '/member/coupons', labelKey: 'memberCoupons', icon: Ticket },
   { href: '/member/subscription', labelKey: 'memberSubscription', icon: CreditCard },
   { href: '/member/refunds', labelKey: 'memberRefunds', icon: RotateCcw },
   { href: '/member/addresses', labelKey: 'memberAddresses', icon: MapPin },
   { href: '/member/favorites', labelKey: 'memberFavorites', icon: Heart },
   { href: '/member/history', labelKey: 'memberHistory', icon: History },
-  { href: '/member/invitations', labelKey: 'memberInvitations', icon: Users },
+  { href: '/invitations', labelKey: 'memberInvitations', icon: Users },
   { href: '/member/feedback', labelKey: 'memberFeedback', icon: MessageSquare },
   { href: '/member/help', labelKey: 'memberHelp', icon: HelpCircle },
   { href: '/member/settings', labelKey: 'memberSettings', icon: Settings },
-  { href: '/member/upgrade', labelKey: 'memberUpgrade', icon: ArrowUp },
 ]
 
 /** /developer 14 项整合到新增"开发者"组下 */
@@ -413,7 +406,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         icon: MessageSquare,
         children: MESSAGES_CHILDREN,
       },
-      { href: '/docs', labelKey: 'docs', icon: FileText },
+      { href: '/feature-center/documents', labelKey: 'docs', icon: FileText },
       { href: '/search', labelKey: 'search', icon: Search },
       { href: '/tags', labelKey: 'tags', icon: Tag },
       { href: '/oauth/platform', labelKey: 'oauthPlatform', icon: KeyRound },
@@ -427,7 +420,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'tradeGroup',
     items: [
-      { href: '/vip-membership', labelKey: 'vip', icon: Crown },
+      { href: '/vip', labelKey: 'vip', icon: Crown },
       { href: '/wallet', labelKey: 'wallet', icon: Wallet },
       { href: '/payment', labelKey: 'payment', icon: CreditCard },
       { href: '/orders', labelKey: 'orders', icon: ShoppingBag },
