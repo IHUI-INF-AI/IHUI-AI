@@ -64,7 +64,7 @@ export default function IntegralPage() {
   })
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       <View className="bg-gradient-to-b from-[#2c2c2c] to-[#1a1a1a] px-[24px] py-[40px] text-center">
         <Text className="block text-white text-[60px] font-bold">{total}</Text>
         <Text className="block text-[#d4af6a] text-[26px] mt-[8px]">
@@ -75,11 +75,11 @@ export default function IntegralPage() {
         {list.map((it) => (
           <View
             key={it.id}
-            className="bg-white rounded-[8px] p-[16px] mb-[12px] flex justify-between items-center"
+            className="bg-card rounded-[8px] p-[16px] mb-[12px] flex justify-between items-center"
           >
             <View>
-              <Text className="block text-[30px] text-[#333]">{it.type}</Text>
-              <Text className="block text-[24px] text-[#999] mt-[8px]">{it.time}</Text>
+              <Text className="block text-[30px] text-foreground">{it.type}</Text>
+              <Text className="block text-[24px] text-muted-foreground mt-[8px]">{it.time}</Text>
             </View>
             <Text
               className={`text-[36px] font-semibold ${it.amount > 0 ? 'text-[#4caf50]' : 'text-[#f44336]'}`}
@@ -90,12 +90,12 @@ export default function IntegralPage() {
           </View>
         ))}
         {!loading && !list.length ? (
-          <View className="text-center py-[120px] text-[#999]">
+          <View className="text-center py-[120px] text-muted-foreground">
             <Text>{t('member.integral.empty')}</Text>
           </View>
         ) : null}
         {loading ? (
-          <View className="text-center py-[40px] text-[#999]">
+          <View className="text-center py-[40px] text-muted-foreground">
             <Text>{t('member.integral.loading')}</Text>
           </View>
         ) : null}

@@ -1,17 +1,17 @@
 .page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-background);
 }
 .card {
   margin: 24rpx;
   padding: 32rpx;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 16rpx;
 }
 .section-title {
   display: block;
   font-size: 30rpx;
-  color: #333;
+  color: var(--color-foreground);
   font-weight: 600;
   margin-bottom: 20rpx;
 }
@@ -22,14 +22,14 @@
 }
 .dot {
   font-size: 28rpx;
-  color: #07c160;
+  color: var(--color-primary);
   margin-right: 12rpx;
   line-height: 1.7;
 }
 .rule-text {
   flex: 1;
   font-size: 26rpx;
-  color: #666;
+  color: var(--color-muted-foreground);
   line-height: 1.7;
 }
 .tips {
@@ -38,5 +38,5 @@
 }
 .tips text {
   font-size: 22rpx;
-  color: #bbb;
+  color: var(--color-muted-foreground);
 }

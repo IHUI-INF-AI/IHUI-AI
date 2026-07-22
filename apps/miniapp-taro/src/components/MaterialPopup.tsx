@@ -74,12 +74,12 @@ export default function MaterialPopup({
 
   return (
     <DrawerComponent visible={visible} onClose={onClose} height="75vh">
-      <View className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-        <Text className="text-base font-semibold text-gray-800 dark:text-gray-100">
+      <View className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <Text className="text-base font-semibold text-foreground dark:text-muted-foreground">
           {t('ai.materialPopup.title')}
         </Text>
         <View
-          className="px-3 py-1 text-xs rounded-md bg-green-600 text-white active:bg-green-700"
+          className="px-3 py-1 text-xs rounded-md bg-primary text-white active:bg-primary"
           onClick={handleUploadClick}
         >
           <Text>＋ {t('ai.materialPopup.upload')}</Text>
@@ -88,12 +88,12 @@ export default function MaterialPopup({
 
       <ScrollView
         scrollX
-        className="whitespace-nowrap px-3 py-2 border-b border-gray-100 dark:border-gray-800"
+        className="whitespace-nowrap px-3 py-2 border-b border-border"
       >
         {TABS.map((tabItem) => (
           <View
             key={tabItem.key}
-            className={`inline-flex items-center px-3 py-1 mr-2 text-xs rounded-md ${tab === tabItem.key ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}
+            className={`inline-flex items-center px-3 py-1 mr-2 text-xs rounded-md ${tab === tabItem.key ? 'bg-primary text-white' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
             onClick={() => onTabChange?.(tabItem.key)}
           >
             <Text className="mr-1">{tabItem.icon}</Text>
@@ -110,7 +110,7 @@ export default function MaterialPopup({
         lowerThreshold={80}
       >
         {loading && !items.length ? (
-          <View className="py-12 text-center text-sm text-gray-400">
+          <View className="py-12 text-center text-sm text-muted-foreground">
             <Text>{t('ai.common.loading')}</Text>
           </View>
         ) : items.length ? (
@@ -120,13 +120,13 @@ export default function MaterialPopup({
                 {items.map((item) => (
                   <View
                     key={item.id}
-                    className={`relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 active:opacity-80 ${selectedId === item.id ? 'ring-2 ring-green-600' : ''}`}
+                    className={`relative aspect-square rounded-lg overflow-hidden bg-muted active:opacity-80 ${selectedId === item.id ? 'ring-2 ring-primary' : ''}`}
                     onClick={() => onSelect?.(item)}
                   >
                     {item.thumbnail ? (
                       <Image className="w-full h-full" src={item.thumbnail} mode="aspectFill" />
                     ) : (
-                      <View className="w-full h-full flex items-center justify-center text-2xl text-gray-400">
+                      <View className="w-full h-full flex items-center justify-center text-2xl text-muted-foreground">
                         <Text>🖼️</Text>
                       </View>
                     )}
@@ -141,30 +141,30 @@ export default function MaterialPopup({
                 {items.map((item) => (
                   <View
                     key={item.id}
-                    className={`flex p-3 mb-2 rounded-xl active:bg-gray-50 dark:active:bg-gray-800 ${selectedId === item.id ? 'bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700' : 'bg-gray-50 dark:bg-gray-800'}`}
+                    className={`flex p-3 mb-2 rounded-xl active:bg-muted ${selectedId === item.id ? 'bg-primary/10 border border-primary' : 'bg-muted'}`}
                     onClick={() => onSelect?.(item)}
                   >
-                    <View className="w-12 h-12 mr-3 rounded-lg bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xl flex-shrink-0">
+                    <View className="w-12 h-12 mr-3 rounded-lg bg-muted flex items-center justify-center text-xl flex-shrink-0">
                       <Text>
                         {item.thumbnail ? '' : isTextTab ? '📝' : tab === 3 ? '🎬' : '🎵'}
                       </Text>
                     </View>
                     <View className="flex-1 min-w-0">
                       <View className="flex items-center">
-                        <Text className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
+                        <Text className="text-sm font-medium text-foreground dark:text-muted-foreground truncate">
                           {item.title}
                         </Text>
                         {selectedId === item.id ? (
-                          <Text className="ml-2 text-xs text-green-600">✓</Text>
+                          <Text className="ml-2 text-xs text-primary">✓</Text>
                         ) : null}
                       </View>
                       {isTextTab && item.content ? (
-                        <Text className="block text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                        <Text className="block text-xs text-muted-foreground dark:text-muted-foreground mt-1 line-clamp-2">
                           {item.content}
                         </Text>
                       ) : null}
                       {item.createdAt ? (
-                        <Text className="block text-xs text-gray-400 mt-1">
+                        <Text className="block text-xs text-muted-foreground mt-1">
                           {formatTime(item.createdAt)}
                         </Text>
                       ) : null}
@@ -175,12 +175,12 @@ export default function MaterialPopup({
             )}
 
             {loading && items.length ? (
-              <View className="py-3 text-center text-xs text-gray-400">
+              <View className="py-3 text-center text-xs text-muted-foreground">
                 <Text>{t('ai.materialPopup.loadMore')}</Text>
               </View>
             ) : null}
             {!loading && !hasMore && items.length ? (
-              <View className="py-3 text-center text-xs text-gray-400">
+              <View className="py-3 text-center text-xs text-muted-foreground">
                 <Text>{t('ai.materialPopup.noMore')}</Text>
               </View>
             ) : null}

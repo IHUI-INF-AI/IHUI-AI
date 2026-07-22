@@ -27,20 +27,20 @@ export default function BenefitsPage() {
   useDidShow(() => load())
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa] p-[12px]">
+    <View className="min-h-screen bg-background p-[12px]">
       {list.length ? (
         <View className="grid grid-cols-2 gap-[12px]">
           {list.map(b => (
-            <View key={b.id} className="bg-white rounded-[8px] p-[16px]">
+            <View key={b.id} className="bg-card rounded-[8px] p-[16px]">
               <Text className="block text-[48px] text-center">{b.icon || '★'}</Text>
-              <Text className="block text-[30px] text-[#333] font-semibold text-center mt-[12px]">{b.title}</Text>
-              <Text className="block text-[24px] text-[#999] text-center mt-[8px]">{b.desc}</Text>
+              <Text className="block text-[30px] text-foreground font-semibold text-center mt-[12px]">{b.title}</Text>
+              <Text className="block text-[24px] text-muted-foreground text-center mt-[8px]">{b.desc}</Text>
             </View>
           ))}
         </View>
       ) : null}
       {!loading && !list.length ? (
-        <View className="text-center py-[120px] text-[#999]">
+        <View className="text-center py-[120px] text-muted-foreground">
           <Text>暂无权益</Text>
         </View>
       ) : null}
