@@ -11,6 +11,7 @@ import {
   getBehaviorStatistics,
   findAllWatchList,
 } from '../db/behavior-queries.js'
+import { findLikeCounts } from '../db/resource-likes-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { sql, eq, and, desc } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -46,6 +47,11 @@ const deleteWatchQuery = z.object({
 
 const clearWatchQuery = z.object({
   userId: z.string().uuid('无效的用户 ID'),
+})
+
+const likeCountsSchema = z.object({
+  resourceType: z.string().min(1).max(50),
+  resourceIds: z.array(z.string().min(1)).min(1).max(100),
 })
 
 const adminWatchListQuery = z.object({
@@ -103,6 +109,21 @@ const dataObjSchema = {
 export const behaviorRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     if (!(await checkAuth(request, reply))) return
+  })
+
+  // POST /behavior/likes/counts - 批量查询资源点赞数
+  // 替代旧架构 getLikeCountList,返回 [{resourceId, count}] 数组
+  server.post('/behavior/likes/counts', async (request, reply) => {
+    const parsed = likeCountsSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const counts = await findLikeCounts(parsed.data.resourceType, parsed.data.resourceIds)
+    const list = parsed.data.resourceIds.map((id) => ({
+      resourceId: id,
+      count: counts.get(id) ?? 0,
+    }))
+    return reply.send(success({ list }))
   })
 
   // POST /behavior/watch - 记录浏览

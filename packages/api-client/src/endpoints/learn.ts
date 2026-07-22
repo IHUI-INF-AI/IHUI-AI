@@ -169,6 +169,34 @@ export async function deleteLearnCourse(id: string): Promise<ApiResult<{ success
   return fetchApi<{ success: boolean }>(`/api/learn/lessons/${id}`, { method: 'DELETE' })
 }
 
+/** 推荐课程(按报名数降序) */
+export async function getRecommendLearnCourses(
+  limit = 10,
+): Promise<ApiResult<LearnCourse[]>> {
+  return fetchApi<LearnCourse[]>(`/api/learn/recommend${buildQs({ limit })}`)
+}
+
+/** 热门课程(按浏览数降序) */
+export async function getHotLearnCourses(limit = 10): Promise<ApiResult<LearnCourse[]>> {
+  return fetchApi<LearnCourse[]>(`/api/learn/hot${buildQs({ limit })}`)
+}
+
+/** 获取分类父级路径(递归到根) */
+export async function getLearnCategoryParents(
+  id: string,
+): Promise<ApiResult<LearnCategoryParent[]>> {
+  return fetchApi<LearnCategoryParent[]>(`/api/learn/categories/${id}/parents`)
+}
+
+export interface LearnCategoryParent {
+  id: string
+  name: string
+  pid: string | null
+  sort: number
+  status: number
+  createdAt: string
+}
+
 // ===================== study（学习记�?进度�?=====================
 
 /** 获取学习记录列表 */
