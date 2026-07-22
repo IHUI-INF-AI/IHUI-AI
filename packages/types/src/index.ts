@@ -27,3 +27,6 @@ export { type PermissionMode, type PermissionDecision } from './agent-runtime.js
 // 来源: git commit 3ee96cf09 旧架构 client/src/api/* 中存在但新架构未独立导出的类型
 // 路由功能已迁移连通,本文件将 28 组类型定义集中到共享类型层供跨端引用
 export * from './legacy-migration.js'
+
+// IDE 工作区类型契约 (2026-07-22 立,仿 TRAE/Codex IDE 界面)
+export * from './ide-workspace.js'
