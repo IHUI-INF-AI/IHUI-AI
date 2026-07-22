@@ -37,6 +37,59 @@ function NetworkStatusHandler() {
   return null
 }
 
+// 2026-07-22 防 iOS OOM crash:防 MemoryWarningListener 在 HMR/多次挂载下重复注册
+let memoryListenerRegistered = false
+
+const MEMORY_LEVEL_TRIM = 5
+const MEMORY_LEVEL_CRITICAL = 10
+const MEMORY_LEVEL_URGENT = 15
+
+/**
+ * 2026-07-22 防 iOS OOM crash:全局内存告警监听。
+ * - level >= 5  (TRIM):清理非关键 storage(保留 token/userInfo,清 ihui_ 前缀的其他 key)
+ * - level >= 10 (CRITICAL):通过 eventCenter 通知各页面释放内存
+ * - level >= 15 (URGENT):reLaunch 重启到首页
+ * - 用模块级 flag 防止 HMR/多次挂载导致重复注册 listener
+ */
+function MemoryWarningHandler() {
+  useLaunch(() => {
+    if (memoryListenerRegistered) return
+    if (typeof Taro.onMemoryWarning !== 'function') return
+    memoryListenerRegistered = true
+    Taro.onMemoryWarning((res) => {
+      const level = res?.level ?? 0
+      console.warn('[IHUI] memory warning, level:', level)
+      // L5+: 清理非关键 storage
+      if (level >= MEMORY_LEVEL_TRIM) {
+        try {
+          const info = Taro.getStorageInfoSync()
+          const keepKeys = ['ihui_token', 'ihui_refresh_token', 'ihui_user_info']
+          for (const key of info.keys) {
+            if (!keepKeys.includes(key) && key.startsWith('ihui_')) {
+              Taro.removeStorageSync(key)
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+      // L10+: 通知各页面释放内存
+      if (level >= MEMORY_LEVEL_CRITICAL) {
+        try {
+          Taro.eventCenter.trigger('memory:release', { level })
+        } catch {
+          // ignore
+        }
+      }
+      // L15+: 重启到首页
+      if (level >= MEMORY_LEVEL_URGENT) {
+        Taro.reLaunch({ url: '/pages/index/index' })
+      }
+    })
+  })
+  return null
+}
+
 /**
  * 检查小程序启动参数是否带 sso_code(外部场景:H5 / 扫码 / deep link 携带)。
  * 若有则调 /api/auth/sso/exchange 换 token,实现"从 web 已登录态无缝继承到小程序"。
@@ -118,6 +171,7 @@ function App({ children }: PropsWithChildren<unknown>) {
   return (
     <I18nProvider>
       <NetworkStatusHandler />
+      <MemoryWarningHandler />
       <SsoLaunchHandler />
       {children}
       <CustomerServiceFloat />

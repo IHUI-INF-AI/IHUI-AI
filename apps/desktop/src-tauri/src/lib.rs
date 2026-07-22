@@ -231,7 +231,8 @@ fn mouse_click(
         "middle" => Button::Middle,
         other => return Err(format!("Unknown button: {}", other)),
     };
-    let n = count.unwrap_or(1);
+    // 2026-07-22 P1 鲁棒性加固:count 上限 10,防止恶意调用方传 1000000 长时间点击
+    let n = count.unwrap_or(1).min(10);
     for _ in 0..n {
         enigo
             .button(btn, Direction::Click)
@@ -242,6 +243,11 @@ fn mouse_click(
 
 #[tauri::command]
 fn keyboard_type(text: String, delay: Option<u64>) -> Result<OkResult, String> {
+    // 2026-07-22 P1 鲁棒性加固:防止超长 text 卡死 UI
+    const MAX_TEXT_LEN: usize = 10000;
+    if text.chars().count() > MAX_TEXT_LEN {
+        return Err(format!("text too long: max {} chars", MAX_TEXT_LEN));
+    }
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
     if let Some(ms) = delay {
         if ms > 0 {
@@ -286,6 +292,10 @@ fn keyboard_press(key: String) -> Result<OkResult, String> {
 
 #[tauri::command]
 fn keyboard_hotkey(keys: Vec<String>) -> Result<OkResult, String> {
+    // 2026-07-22 P1 鲁棒性加固:防止超多 keys 长时间占用
+    if keys.len() > 10 {
+        return Err("too many keys: max 10".to_string());
+    }
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
     let parsed: Vec<Key> = keys
         .iter()
