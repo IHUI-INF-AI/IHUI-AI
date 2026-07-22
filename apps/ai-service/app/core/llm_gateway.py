@@ -747,14 +747,19 @@ class LLMGateway:
             response = await litellm.acompletion(**call_kwargs)
             final_model = used_model
             final_usage: dict[str, Any] = {}
+            # 累积 content/reasoning,用于 provider 不返回 stream_usage 时估算 token
+            accumulated_content = ""
+            accumulated_reasoning = ""
             async for chunk in response:
                 if hasattr(chunk, "choices") and chunk.choices:
                     delta = chunk.choices[0].delta
                     token = getattr(delta, "content", None)
                     if token:
+                        accumulated_content += token
                         yield {"type": "chunk", "content": token}
                     reasoning_token = getattr(delta, "reasoning_content", None)
                     if reasoning_token:
+                        accumulated_reasoning += reasoning_token
                         yield {"type": "reasoning", "content": reasoning_token}
                 if hasattr(chunk, "usage") and chunk.usage:
                     try:
@@ -767,6 +772,26 @@ class LLMGateway:
                         pass
                 if hasattr(chunk, "model") and chunk.model:
                     final_model = chunk.model
+            # provider 不返回 stream_usage(如 StepFun)时,用 litellm.token_counter 估算兜底
+            if not final_usage:
+                try:
+                    est_model = real_model or used_model
+                    prompt_tokens = litellm.token_counter(model=est_model, messages=trimmed_messages)
+                    completion_tokens = litellm.token_counter(
+                        model=est_model, text=accumulated_content + accumulated_reasoning
+                    )
+                    final_usage = {
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": completion_tokens,
+                        "total_tokens": prompt_tokens + completion_tokens,
+                        "estimated": True,
+                    }
+                    logger.info(
+                        "provider 未返回 stream_usage,已用 token_counter 估算: %s",
+                        final_usage,
+                    )
+                except Exception as est_err:
+                    logger.warning("token_counter 估算失败,usage 保持空: %s", est_err)
             yield {
                 "type": "done",
                 "model": final_model,
