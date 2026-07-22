@@ -279,6 +279,12 @@ import { agentCategoriesCacheRoutes } from './routes/agent-categories-cache.js'
 import { categorySyncRoutes } from './routes/category-sync.js'
 // 对外公开 API(/v1/*,API Key 鉴权,2026-07-22 立)
 import v1PublicRoutes from './routes/v1-public.js'
+// 对外公开 API — AI 核心类路由(/v1/*,2026-07-22 立,20 个 AI 核心端点:chat/embeddings/models/agent 高级执行)
+import v1AiCoreRoutes from './routes/v1-ai-core.js'
+// 对外公开 API — 多模态类路由(/v1/*,2026-07-22 立,21 个端点:audio/images/videos/3d/generation)
+import v1MultimodalRoutes from './routes/v1-multimodal.js'
+// 对外公开 API — 知识工具类路由(/v1/*,2026-07-22 立,57 个端点:knowledge/mcp/memory/messages/files/user/workflow)
+import v1KnowledgeToolsRoutes from './routes/v1-knowledge-tools.js'
 
 import { setFastify } from './utils/logger.js'
 import { isAppError } from './errors/index.js'
@@ -1034,4 +1040,10 @@ function registerRoutes(server: FastifyInstance) {
 
   // 对外公开 API(/v1/*,API Key 鉴权,2026-07-22 立)
   server.register(v1PublicRoutes, { prefix: '/v1' })
+  // 对外公开 API — AI 核心类路由(/v1/*,20 个端点:chat/embeddings/models/agent 高级执行)
+  server.register(v1AiCoreRoutes, { prefix: '/v1' })
+  // 对外公开 API — 多模态类路由(/v1/*,21 个端点:audio/images/videos/3d/generation)
+  server.register(v1MultimodalRoutes, { prefix: '/v1' })
+  // 对外公开 API — 知识工具类路由(/v1/*,57 个端点:knowledge/mcp/memory/messages/files/user/workflow)
+  server.register(v1KnowledgeToolsRoutes, { prefix: '/v1' })
 }
