@@ -665,7 +665,7 @@ IHUI-AI/
 │   ├── docker/              # Dockerfile.api / .web / .cli / .migrate(イメージ構築、context はリポジトリルート)
 │   ├── s3-lifecycle.yml     # S3 オブジェクトストレージライフサイクルルール
 │   └── setup-github-secrets.sh  # GitHub Actions secrets 一括設定
-├── docs/                    # 9 ドキュメント:architecture / CHANGELOG / CONTRIBUTING / DEPLOYMENT_RUNBOOK / SECURITY / EMAIL_SETUP / I18N / INCIDENTS / README
+├── docs/                    # 35 ドキュメントセンター:アーキテクチャ / 開発 / テスト / API / データベース / 認証 / AI サービス / マルチエンド / モニタリング / ゲートキーパー / i18n / パフォーマンス / SDK / CLI / リリース / トラブルシューティング / FAQ(docs/README.md 索引参照)
 ├── monitoring/              # Grafana(20 ダッシュボード)+ Loki + Prometheus + Promtail + otel-collector + Alertmanager
 ├── scripts/                 # 17 ゲート + 19 i18n + 11 マイグレーション監査 + 9 PowerShell 起動 + locustfile.py 負荷テスト + 運用ツール
 ├── server-docs/             # マルチテナント設計ドキュメント(MULTI_TENANT.md)
@@ -1532,19 +1532,88 @@ pnpm は monorepo シナリオで優位性が顕著:厳密な依存分離(ファ
 
 ## ドキュメントナビゲーション
 
-| ドキュメント                                                 | 説明                                                                                                     |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| [docs/architecture.md](docs/architecture.md)                 | システムアーキテクチャ(技術スタック / データベース / API ルート / 起動フロー / 旧アーキテクチャ廃止説明) |
-| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)                 | コントリビュートガイド(環境構築 / コード規範 / 提出規範 / PR フロー)                                     |
-| [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)     | デプロイ運用マニュアル(ブルーグリーンデプロイ / ロールバック / 証明書更新)                               |
-| [docs/SECURITY.md](docs/SECURITY.md)                         | セキュリティポリシー(脆弱性開示 / 暗号化設計 / 権限モデル)                                               |
-| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)                   | メールサービス設定(SMTP / テンプレート / DKIM)                                                           |
-| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国際化完了計画                                                                                           |
-| [docs/CHANGELOG.md](docs/CHANGELOG.md)                       | 変更ログ                                                                                                 |
-| [docs/INCIDENTS.md](docs/INCIDENTS.md)                       | 歴史事故振り返り                                                                                         |
-| [server-docs/MULTI_TENANT.md](server-docs/MULTI_TENANT.md)   | マルチテナント設計ドキュメント(RLS + テナントルーティング)                                               |
-| [AGENTS.md](AGENTS.md)                                       | AI Agent 協作規範(21 節強制ルール、任意読書:本プロジェクトが AI とどう協作開発するかを示す)              |
-| [PROJECT_PLAN.md](PROJECT_PLAN.md)                           | プロジェクトタスク計画と履歴アーカイブ(内部開発記録、進化軌跡を理解)                                     |
+> 完全ドキュメントセンター索引:[docs/README.md](docs/README.md)(35 ドキュメント、9 大分類)
+
+### プロジェクトとアーキテクチャ
+
+| ドキュメント                                                 | 説明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/architecture.md](docs/architecture.md)                 | **システムアーキテクチャ概覧**(技術スタック / データベース / API ルート / 起動フロー / 旧アーキテクチャ廃止説明) |
+| [docs/MULTI_END.md](docs/MULTI_END.md)                       | マルチエンドアーキテクチャ(8 エンドマトリックス + クロスエンドリンク + 同期開発 + 14 プラットフォームリリースマトリックス) |
+| [docs/PACKAGES.md](docs/PACKAGES.md)                         | 共有パッケージガイド(13 個 @ihui/* パッケージ + 依存関係 + 新規パッケージフロー) |
+| [docs/port-management.md](docs/port-management.md)           | ポート管理ルール(8801-8899 ポートレジストリ) |
+| [docs/INFRASTRUCTURE_DECISION.md](docs/INFRASTRUCTURE_DECISION.md) | インフラ決定(Docker Compose vs K8s) |
+| [docs/PRODUCTION_INFRASTRUCTURE.md](docs/PRODUCTION_INFRASTRUCTURE.md) | 本番インフラ仕様 |
+
+### 開発とテスト
+
+| ドキュメント                                                 | 説明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                   | **ローカル開発ガイド**(環境変数 / 起動 / デバッグ / スクリプトチートシート / Windows 注意) |
+| [docs/TESTING.md](docs/TESTING.md)                           | テスト戦略(8 層ピラミッド + Vitest + pytest + Playwright + Locust + CI) |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)                 | コントリビュートガイド(環境構築 / コード規範 / コミット規範 / PR フロー) |
+| [docs/UI_GUIDELINES.md](docs/UI_GUIDELINES.md)               | UI デザイン規範(角丸 / フォントアラインメント / ログインポップアップ / コンポーネントライブラリ) |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)                   | パフォーマンスベースラインと最適化(SLA / 負荷テスト / データベース / フロントエンド / AI サービス) |
+
+### API とデータレイヤー
+
+| ドキュメント                                                 | 説明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/API_REFERENCE.md](docs/API_REFERENCE.md)               | **API 完全リファレンス**(60+ ルート + 12 WebSocket + SSE + エラーコード + クライアント例) |
+| [docs/DATABASE.md](docs/DATABASE.md)                         | データベース設計(Drizzle / 339 テーブル / マイグレーション / RLS / シード / バックアップ) |
+| [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)             | 認証と認可(JWT / token-family / OAuth2 / 2FA / RBAC / マルチテナント / WS 認証) |
+
+### AI サービス
+
+| ドキュメント                                                 | 説明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/AI_SERVICE.md](docs/AI_SERVICE.md)                     | **AI サービス深掘り**(6 ルーター + LangGraph + LiteLLM + MCP + A2A + ベクトルメモリ) |
+| [docs/LLM_SETUP.md](docs/LLM_SETUP.md)                       | LLM モデル設定(OpenAI / Anthropic / Google / 国内ベンダー) |
+| [docs/AI_LEADERBOARD.md](docs/AI_LEADERBOARD.md)             | AI モデルリーダーボードデータ |
+
+### デプロイと運用
+
+| ドキュメント                                                 | 説明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)     | **デプロイ運用マニュアル**(ブルーグリーンデプロイ / ロールバック / 証明書更新) |
+| [docs/RELEASE.md](docs/RELEASE.md)                           | リリースプロセス(14 プラットフォーム + SemVer + Git tag + Docker イメージ + hotfix) |
+| [docs/MONITORING.md](docs/MONITORING.md)                     | オブザーバビリティ(Prometheus + Grafana + Loki + Jaeger + Alertmanager) |
+| [docs/INCIDENTS.md](docs/INCIDENTS.md)                       | 歴史事故振り返り |
+| [docs/SECURITY.md](docs/SECURITY.md)                         | セキュリティポリシー(脆弱性開示 / 暗号化設計 / 権限モデル) |
+| [docs/CREDENTIAL_ROTATION_RUNBOOK.md](docs/CREDENTIAL_ROTATION_RUNBOOK.md) | 認証情報ローテーション運用マニュアル |
+| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)                   | メールサービス設定(SMTP / テンプレート / DKIM) |
+| [docs/WECHAT_PAY_ACTIVATION_REPORT.md](docs/WECHAT_PAY_ACTIVATION_REPORT.md) | WeChat Pay V3 活性化レポート |
+| [server-docs/MULTI_TENANT.md](server-docs/MULTI_TENANT.md)   | マルチテナント設計ドキュメント(RLS + テナントルーティング) |
+
+### 品質とゲートキーパー
+
+| ドキュメント                                                 | 説明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/GATEKEEPERS.md](docs/GATEKEEPERS.md)                   | **ゲートキーパー規則深掘り**(23 pre-commit + post-commit + pre-push、スクリプト別) |
+| [docs/I18N.md](docs/I18N.md)                                 | 国際化(5 言語 + 68 ネームスペース + 12 ゲートキーパースクリプト + 翻訳戦略) |
+| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国際化完了計画(ヒストリカル計画) |
+
+### SDK と CLI
+
+| ドキュメント                                                 | 説明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/SDK.md](docs/SDK.md)                                   | 5 言語 SDK ガイド(TS / Python / Go / Java / .NET コード例) |
+| [docs/CLI.md](docs/CLI.md)                                   | CLI ツールガイド(24 ソースインポート + subagent 並列 + skills + plugins) |
+
+### トラブルシューティングと FAQ
+
+| ドキュメント                                                 | 説明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)           | **トラブルシューティングガイド**(10 大分類 35+ イシュー、統一テンプレート) |
+| [docs/FAQ.md](docs/FAQ.md)                                   | FAQ(14 分類 86 質問) |
+
+### プロジェクト管理
+
+| ドキュメント                                                 | 説明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md)                       | 変更ログ |
+| [AGENTS.md](AGENTS.md)                                       | AI Agent 協作規範(23 節強制ルール、本プロジェクトが AI とどう協作開発するかを示す) |
+| [PROJECT_PLAN.md](PROJECT_PLAN.md)                           | プロジェクトタスク計画と履歴アーカイブ(内部開発記録、進化軌跡を理解) |
 
 ---
 
