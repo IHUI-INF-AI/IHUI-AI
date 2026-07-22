@@ -134,6 +134,8 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     pattern = arguments.get("pattern", "")
     max_results = int(arguments.get("max_results", 50))
     symbol_type = arguments.get("symbol_type", "").strip().lower()
+    # 2026-07-22 新增:语义搜索开关(默认 True,失败/无结果时 fallback 到 regex)
+    use_semantic = arguments.get("use_semantic", True)
 
     # 默认代码文件扩展名(若未指定 pattern)
     _CODE_EXTS = {
@@ -170,6 +172,45 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             "message": "搜索关键词为空",
             "ok": False,
         }
+
+    # 2026-07-22 新增:语义搜索路径(pgvector ANN,优先于 regex)
+    # 失败或无结果时静默 fallback 到下方 regex 路径
+    if use_semantic:
+        try:
+            from .codebase_indexer import codebase_indexer
+            semantic_results = await codebase_indexer.search(query, top_k=max_results)
+            if semantic_results:
+                matches: list[dict[str, Any]] = []
+                for r in semantic_results[:max_results]:
+                    content_preview = r.get("content", "")
+                    if len(content_preview) > 500:
+                        content_preview = content_preview[:500]
+                    matches.append({
+                        "path": r.get("filePath", ""),
+                        "file": r.get("filePath", "").rsplit("/", 1)[-1],
+                        "line": r.get("lineStart", 0),
+                        "symbol_type": r.get("symbolType", "semantic"),
+                        "symbol_name": r.get("symbolName", ""),
+                        "code": content_preview[:200],
+                        "preview": content_preview,
+                        "score": round(r.get("score", 0), 4),
+                    })
+                return {
+                    "tool": "search_codebase",
+                    "query": query,
+                    "path": path,
+                    "use_semantic": True,
+                    "matches": matches,
+                    "total": len(matches),
+                    "truncated": False,
+                    "message": f"语义搜索找到 {len(matches)} 个匹配(pgvector ANN)",
+                    "ok": True,
+                }
+        except Exception as e:
+            import logging as _logging
+            _logging.getLogger(__name__).debug(
+                "semantic search failed, fallback to regex: %s", e
+            )
 
     try:
         from pathlib import Path
@@ -1541,6 +1582,7 @@ _TOOLS: list[MCPTool] = [
                 "pattern": {"type": "string", "description": "文件名 glob 限定(逗号分隔,默认按代码扩展名过滤)"},
                 "symbol_type": {"type": "string", "description": "符号类型过滤(def/class/func/function/interface/type,默认空=全部)"},
                 "max_results": {"type": "integer", "description": "最大返回数", "default": 50},
+                "use_semantic": {"type": "boolean", "description": "是否使用语义搜索(pgvector ANN,默认 True;失败/无结果时自动 fallback 到 regex)", "default": True},
             },
             "required": ["query"],
         },
