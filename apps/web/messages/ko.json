@@ -376,7 +376,9 @@
     "copyCode": "코드 복사",
     "collapse": "접기",
     "expand": "펼치기",
-    "breadcrumb": "빵 부스러기 탐색"
+    "breadcrumb": "빵 부스러기 탐색",
+    "showPassword": "비밀번호 표시",
+    "hidePassword": "비밀번호 숨기기"
   },
   "nav": {
     "title": "메인 내비게이션",
@@ -596,6 +598,7 @@
     "noAccount": "아직 계정이 없으신가요?",
     "registerNow": "신청",
     "forgotPassword": "비밀번호 찾기",
+    "rememberPassword": "비밀번호 기억하기",
     "forgotSubtitle": "비밀번호 재설정",
     "registerTitle": "계정 만들기",
     "registerSubtitle": "새 계정 등록",
@@ -27999,5 +28002,184 @@
     "charCount": "문자 {count}",
     "feedbackBuildSuccess": "{entities} 개 개체, {relations} 개 관계 추출 완료",
     "feedbackClearSuccess": "그래프가 비워졌습니다"
+  },
+  "ide": {
+    "activityBar": {
+      "files": "파일",
+      "search": "검색",
+      "sourceControl": "소스 컨트롤",
+      "debug": "디버그",
+      "applications": "앱",
+      "settings": "설정"
+    },
+    "topBar": {
+      "editor": "에디터",
+      "codeChanges": "코드 변경",
+      "document": "문서",
+      "terminal": "터미널",
+      "browser": "브라우저",
+      "agent": "에이전트",
+      "settings": "설정",
+      "close": "닫기"
+    },
+    "viewSwitcher": {
+      "groupView": "보기",
+      "groupTools": "도구",
+      "groupSettings": "설정",
+      "searchPlaceholder": "보기 검색...",
+      "noMatch": "일치 항목 없음"
+    },
+    "layout": {
+      "documentView": "문서 보기",
+      "terminalView": "터미널 보기",
+      "browserView": "브라우저 보기",
+      "figmaView": "Figma 보기",
+      "agentView": "에이전트 보기",
+      "mcpView": "MCP 보기",
+      "settingsView": "설정 보기"
+    },
+    "fileExplorer": {
+      "tabFiles": "파일",
+      "tabOutline": "개요",
+      "tabTimeline": "타임라인",
+      "searchPlaceholder": "파일 검색",
+      "newFile": "새 파일",
+      "refresh": "새로고침",
+      "noMatch": "일치하는 파일 없음",
+      "justNow": "방금",
+      "minutesAgo": "{count} 분 전",
+      "hoursAgo": "{count} 시간 전"
+    },
+    "fileTreeNode": {
+      "open": "열기",
+      "rename": "이름 변경",
+      "delete": "삭제",
+      "copyPath": "경로 복사"
+    },
+    "codeEditor": {
+      "findPlaceholder": "찾기...",
+      "matchCount": "{count} 개 일치",
+      "closeSearch": "검색 닫기",
+      "zoomOut": "축소",
+      "zoomIn": "확대"
+    },
+    "editorEmpty": {
+      "title": "IHUI IDE 워크스페이스",
+      "subtitle": "파일을 선택하거나 아래 빠른 작업에서 시작하세요",
+      "browseFiles": "파일 탐색",
+      "viewChanges": "변경사항 보기",
+      "settings": "설정",
+      "recentFiles": "최근 열기",
+      "shortcuts": "단축키",
+      "scOpenFile": "파일 열기",
+      "scGlobalSearch": "전역 검색",
+      "scToggleSidebar": "사이드바 전환",
+      "scToggleTerminal": "터미널 전환",
+      "scGotoLine": "줄로 이동"
+    },
+    "editorTabBar": {
+      "closeTab": "탭 닫기",
+      "unpin": "고정 해제",
+      "pin": "탭 고정",
+      "close": "닫기",
+      "closeOthers": "다른 탭 닫기",
+      "closeAll": "모두 닫기",
+      "copyPath": "경로 복사"
+    },
+    "diffViewer": {
+      "selectFile": "파일 선택",
+      "selectToCompare": "차이를 볼 파일 선택",
+      "addPct": "{pct}% 추가",
+      "changeBlocks": "{count} 개 변경 블록",
+      "wordLevel": "단어 수준 변경:"
+    },
+    "diffStats": {
+      "split": "분할",
+      "unified": "통합",
+      "fileCount": "{count} 개 파일",
+      "filterAll": "전체",
+      "filterModified": "수정됨",
+      "filterAdded": "추가",
+      "filterDeleted": "삭제됨",
+      "commit": "변경 커밋"
+    },
+    "diffFileList": {
+      "groupModified": "수정됨",
+      "groupAdded": "추가",
+      "groupDeleted": "삭제됨",
+      "groupRenamed": "이름 변경",
+      "noMatch": "일치하는 파일 없음"
+    },
+    "searchPanel": {
+      "filterAll": "전체",
+      "searchPlaceholder": "검색",
+      "replacePlaceholder": "바꾸기",
+      "toggleReplace": "바꾸기 전환",
+      "caseSensitive": "대소문자 구분",
+      "wholeWord": "전체 단어",
+      "useRegex": "정규식",
+      "replace": "바꾸기",
+      "replaceAll": "모두 바꾸기",
+      "resultSummary": "{matches} 개 결과 · {files} 개 파일",
+      "noResults": "결과 없음",
+      "recentSearches": "최근 검색",
+      "remove": "제거",
+      "inputHint": "검색어 입력"
+    },
+    "sourceControl": {
+      "commitPlaceholder": "커밋 메시지",
+      "commit": "커밋",
+      "changeStats": "변경 통계",
+      "staged": "스테이징됨 ({count})",
+      "changes": "변경 ({count})",
+      "noChanges": "변경 없음",
+      "commitHistory": "커밋 기록",
+      "unstage": "스테이징 해제",
+      "stage": "스테이징",
+      "refresh": "새로고침",
+      "more": "더보기"
+    },
+    "debug": {
+      "stateStopped": "중지됨",
+      "stateRunning": "실행 중",
+      "statePaused": "일시정지",
+      "start": "시작",
+      "pause": "일시정지",
+      "stop": "중지",
+      "stepOver": "프로시저 단위",
+      "stepInto": "한 단계씩",
+      "stepOut": "프로시저 나가기",
+      "restart": "재시작",
+      "noSession": "디버그 세션이 시작되지 않음",
+      "variables": "변수",
+      "watch": "감시",
+      "watchPlaceholder": "감시식 추가",
+      "add": "추가",
+      "delete": "삭제",
+      "toggle": "전환",
+      "breakpoints": "중단점",
+      "callStack": "호출 스택",
+      "debugConsole": "디버그 콘솔"
+    },
+    "applications": {
+      "title": "앱",
+      "newConfig": "새 설정",
+      "configNamePlaceholder": "설정 이름",
+      "commandPlaceholder": "명령",
+      "cancel": "취소",
+      "add": "추가",
+      "launchConfigs": "실행 설정",
+      "run": "실행",
+      "debug": "디버그",
+      "recentRuns": "최근 실행",
+      "typeTerminal": "터미널"
+    },
+    "statusBar": {
+      "synced": "동기화됨",
+      "unsynced": "미동기화",
+      "conflict": "충돌",
+      "sync": "동기화",
+      "toggleTheme": "테마 전환"
+    }
   }
 }
