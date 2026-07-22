@@ -5,7 +5,7 @@ export default defineConfig({
   manifest: {
     name: 'IHUI AI',
     description: 'IHUI AI 浏览器助手',
-    version: '0.0.0',
+    version: '1.0.0',
     permissions: ['storage', 'activeTab', 'sidePanel', 'contextMenus', 'tabs', 'scripting', 'session'],
     host_permissions: ['http://localhost:3000/*', 'https://*.ihui.ai/*'],
     side_panel: {
