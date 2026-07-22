@@ -25936,7 +25936,26 @@
       "categoryProduct": "AI 產品",
       "categoryIndustry": "行業",
       "categoryPaper": "論文",
-      "categoryTip": "技巧"
+      "categoryTip": "技巧",
+      "searchPlaceholder": "搜尋資訊標題或摘要…",
+      "searchEmpty": "未找到匹配的資訊,換個關鍵詞試試",
+      "trendBtn": "趨勢",
+      "moreHint": "已展示 {shown}/{total} 條,更多資訊請調整篩選條件"
+    },
+    "hotRanking": {
+      "label": "熱度排行榜",
+      "title": "AI 資訊熱度榜 Top 10",
+      "subtitle": "按即時熱度排序"
+    },
+    "trendChart": {
+      "subtitle": "7/14 天熱度趨勢曲線",
+      "days": "天",
+      "loading": "載入趨勢資料…",
+      "noData": "資料累積中",
+      "noDataHint": "需 ≥2 天快照才能繪製趨勢,明天 cron 後自動有",
+      "stable": "平穩",
+      "rankDelta": "排名變化",
+      "hotValue": "熱度值"
     },
     "funding": {
       "label": "重磅融資與收購",
