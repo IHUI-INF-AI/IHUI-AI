@@ -548,14 +548,20 @@ class HookEngine:
                 await asyncio.sleep(delay)
 
         duration_ms = int((time.time() - start) * 1000)
-        return self._make_log(
+        log = self._make_log(
             hook_id=hook["id"],
             event=event,
             success=success,
             duration=duration_ms,
             result=last_result,
             error=last_err,
+            input_payload=context,
+            replay=replay,
         )
+        # 重试耗尽仍失败 → 入 DLQ(2026-07-22 立)
+        if not success:
+            await self._push_dlq(hook["id"], context, last_err or "未知错误", retry_count)
+        return log
 
     def _resolve_retry_count(self, action_type: str, config: dict[str, Any]) -> int:
         """解析重试次数:log 不重试,notify 重试 1 次,webhook/script 按 config.retry_count。"""
@@ -818,6 +824,9 @@ class HookEngine:
         duration: int,
         result: str | None = None,
         error: str | None = None,
+        input_payload: dict[str, Any] | None = None,
+        replay: bool = False,
+        skipped: bool = False,
     ) -> dict[str, Any]:
         return {
             "id": f"hl-{uuid.uuid4().hex[:12]}",
@@ -828,6 +837,221 @@ class HookEngine:
             "duration": duration,
             "result": result,
             "error": error,
+            "inputPayload": input_payload,
+            "replay": replay,
+            "skipped": skipped,
+        }
+
+    # ---------- DLQ 死信队列(2026-07-22 立)----------
+
+    async def _push_dlq(
+        self, hook_id: str, payload: dict[str, Any], error: str, retry_count: int
+    ) -> None:
+        """失败 Hook 入 DLQ(Redis list LPUSH + LTRIM 100,降级内存)。"""
+        entry = {
+            "id": f"dlq-{uuid.uuid4().hex[:12]}",
+            "hookId": hook_id,
+            "originalPayload": payload,
+            "error": error,
+            "failedAt": datetime.utcnow().isoformat() + "Z",
+            "retryCount": retry_count,
+        }
+        redis = await self._ensure_redis()
+        if redis is not None:
+            try:
+                key = f"{REDIS_DLQ_KEY_PREFIX}{hook_id}"
+                await redis.lpush(key, json.dumps(entry, ensure_ascii=False))
+                await redis.ltrim(key, 0, DLQ_MAX_ENTRIES - 1)
+                return
+            except Exception as e:
+                logger.warning("[hook_engine] DLQ 写入 Redis 失败,降级内存: %s", e)
+        # 内存降级
+        self._dlq.setdefault(hook_id, []).insert(0, entry)
+        if len(self._dlq[hook_id]) > DLQ_MAX_ENTRIES:
+            self._dlq[hook_id] = self._dlq[hook_id][:DLQ_MAX_ENTRIES]
+
+    async def list_dlq(self, hook_id: str) -> list[dict[str, Any]]:
+        """返回指定 Hook 的 DLQ 列表(最新在前)。"""
+        redis = await self._ensure_redis()
+        if redis is not None:
+            try:
+                key = f"{REDIS_DLQ_KEY_PREFIX}{hook_id}"
+                raw = await redis.lrange(key, 0, DLQ_MAX_ENTRIES - 1)
+                return [json.loads(item) for item in raw]
+            except Exception as e:
+                logger.warning("[hook_engine] DLQ 读取 Redis 失败,降级内存: %s", e)
+        return list(self._dlq.get(hook_id, []))
+
+    async def reprocess_dlq(self, hook_id: str, entry_id: str) -> dict[str, Any] | None:
+        """从 DLQ 重新处理指定条目(重新执行 + 移除 DLQ 条目)。"""
+        entries = await self.list_dlq(hook_id)
+        target = next((e for e in entries if e["id"] == entry_id), None)
+        if target is None:
+            return None
+        hook = self._hooks.get(hook_id)
+        if hook is None:
+            return None
+        # 重新执行(replay 标记)
+        log = await self._execute_hook(
+            hook, "dlq.reprocess", target["originalPayload"], replay=True
+        )
+        self._append_log(log)
+        # 从 DLQ 移除该条目
+        await self._remove_dlq_entry(hook_id, entry_id)
+        return log
+
+    async def _remove_dlq_entry(self, hook_id: str, entry_id: str) -> None:
+        """从 DLQ 移除指定条目。"""
+        redis = await self._ensure_redis()
+        if redis is not None:
+            try:
+                key = f"{REDIS_DLQ_KEY_PREFIX}{hook_id}"
+                raw_list = await redis.lrange(key, 0, -1)
+                for raw in raw_list:
+                    entry = json.loads(raw)
+                    if entry.get("id") == entry_id:
+                        await redis.lrem(key, 1, raw)
+                        return
+            except Exception as e:
+                logger.warning("[hook_engine] DLQ 移除 Redis 失败: %s", e)
+        # 内存降级
+        if hook_id in self._dlq:
+            self._dlq[hook_id] = [e for e in self._dlq[hook_id] if e["id"] != entry_id]
+
+    async def clear_dlq(self, hook_id: str) -> int:
+        """清空指定 Hook 的 DLQ,返回清除条数。"""
+        redis = await self._ensure_redis()
+        if redis is not None:
+            try:
+                key = f"{REDIS_DLQ_KEY_PREFIX}{hook_id}"
+                count = await redis.llen(key)
+                await redis.delete(key)
+                return count
+            except Exception as e:
+                logger.warning("[hook_engine] DLQ 清空 Redis 失败: %s", e)
+        count = len(self._dlq.get(hook_id, []))
+        self._dlq.pop(hook_id, None)
+        return count
+
+    # ---------- Webhook 重放(2026-07-22 立)----------
+
+    async def replay_log(self, hook_id: str, log_id: str) -> dict[str, Any] | None:
+        """重放指定日志记录:从日志读取 input_payload,重新执行。"""
+        hook = self._hooks.get(hook_id)
+        if hook is None:
+            return None
+        log = next(
+            (l for l in self._logs if l["id"] == log_id and l["hookId"] == hook_id),
+            None,
+        )
+        if log is None:
+            return None
+        payload = log.get("inputPayload") or {}
+        event = log.get("event", "replay")
+        new_log = await self._execute_hook(hook, event, payload, replay=True)
+        self._append_log(new_log)
+        return new_log
+
+    async def replay_all(
+        self, hook_id: str, since: str | None = None, until: str | None = None
+    ) -> list[dict[str, Any]]:
+        """批量重放时间范围内的所有触发(since/until 为 ISO 字符串,含)。"""
+        hook = self._hooks.get(hook_id)
+        if hook is None:
+            return []
+        logs = [l for l in self._logs if l["hookId"] == hook_id]
+        if since:
+            logs = [l for l in logs if l.get("triggeredAt", "") >= since]
+        if until:
+            logs = [l for l in logs if l.get("triggeredAt", "") <= until]
+        results: list[dict[str, Any]] = []
+        for log in logs:
+            payload = log.get("inputPayload") or {}
+            event = log.get("event", "replay")
+            new_log = await self._execute_hook(hook, event, payload, replay=True)
+            self._append_log(new_log)
+            results.append(new_log)
+        return results
+
+    # ---------- 健康检查(2026-07-22 立)----------
+
+    def health_check(self, hook_id: str | None = None) -> dict[str, Any]:
+        """所有 Hook 健康检查(可选按 hook_id 过滤)。
+
+        Returns:
+            {summary: {total, healthy, degraded, unhealthy, stale}, hooks: [...]}
+        """
+        hooks = list(self._hooks.values())
+        if hook_id:
+            hooks = [h for h in hooks if h["id"] == hook_id]
+        results = [self._check_one_health(h) for h in hooks]
+        summary = {
+            "total": len(results),
+            "healthy": sum(1 for r in results if r["status"] == "healthy"),
+            "degraded": sum(1 for r in results if r["status"] == "degraded"),
+            "unhealthy": sum(1 for r in results if r["status"] == "unhealthy"),
+            "stale": sum(1 for r in results if r["status"] == "stale"),
+        }
+        return {"summary": summary, "hooks": results}
+
+    def _check_one_health(self, hook: dict[str, Any]) -> dict[str, Any]:
+        """单个 Hook 健康检查:24h 成功率 + 平均耗时 + 最后触发 + stale 判定。"""
+        now = datetime.utcnow()
+        window_start = now.timestamp() - HEALTH_WINDOW_HOURS * 3600
+        stale_threshold = now.timestamp() - HEALTH_STALE_DAYS * 86400
+
+        all_logs = [l for l in self._logs if l["hookId"] == hook["id"]]
+        # 24h 内日志
+        recent: list[dict[str, Any]] = []
+        for l in all_logs:
+            try:
+                ts = datetime.fromisoformat(l["triggeredAt"].rstrip("Z")).timestamp()
+                if ts >= window_start:
+                    recent.append(l)
+            except Exception:
+                continue
+
+        total = len(recent)
+        success_count = sum(1 for l in recent if l.get("success"))
+        success_rate = round(success_count / total, 4) if total > 0 else 0.0
+        avg_duration = (
+            round(sum(l.get("duration", 0) for l in recent) / total, 2) if total > 0 else 0
+        )
+
+        # 最后触发时间 + stale 判定
+        last_triggered = max((l["triggeredAt"] for l in all_logs), default=None)
+        is_stale = False
+        if last_triggered:
+            try:
+                last_ts = datetime.fromisoformat(last_triggered.rstrip("Z")).timestamp()
+                if last_ts < stale_threshold:
+                    is_stale = True
+            except Exception:
+                pass
+        elif not all_logs:
+            is_stale = True  # 从未触发 → stale
+
+        # 健康分级
+        if is_stale:
+            status = "stale"
+        elif total == 0:
+            status = "healthy"  # 24h 内无触发但 30d 内有 → 视为 healthy(空闲)
+        elif success_rate >= HEALTHY_THRESHOLD:
+            status = "healthy"
+        elif success_rate >= DEGRADED_THRESHOLD:
+            status = "degraded"
+        else:
+            status = "unhealthy"
+
+        return {
+            "hookId": hook["id"],
+            "name": hook["name"],
+            "status": status,
+            "successRate": success_rate,
+            "avgDuration": avg_duration,
+            "totalRuns": total,
+            "lastTriggeredAt": last_triggered,
+            "isStale": is_stale,
         }
 
 

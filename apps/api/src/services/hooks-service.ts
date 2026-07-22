@@ -392,3 +392,208 @@ export async function getHookStats(
     avgDuration,
   }
 }
+
+// ============================================================================
+// DAG 可视化(2026-07-22 立)
+// ============================================================================
+
+export interface DagNode {
+  id: string
+  name: string
+  hasCycle: boolean
+}
+
+export interface DagEdge {
+  source: string
+  target: string
+}
+
+export interface DagResponse {
+  event: string
+  nodes: DagNode[]
+  edges: DagEdge[]
+  hasCycle: boolean
+  cycleNodes: string[]
+}
+
+/**
+ * 获取指定事件的 DAG 可视化数据(nodes + edges)。
+ *
+ * 失败降级返回空 DAG。
+ */
+export async function getHookDag(
+  request: FastifyRequest | null,
+  event: string,
+): Promise<DagResponse> {
+  const empty: DagResponse = { event, nodes: [], edges: [], hasCycle: false, cycleNodes: [] }
+  const data = await callAiHooks<DagResponse>(
+    request,
+    `/api/hooks/dag?event=${encodeURIComponent(event)}`,
+    { method: 'GET' },
+  )
+  return data ?? empty
+}
+
+// ============================================================================
+// Webhook 重放(2026-07-22 立)
+// ============================================================================
+
+/**
+ * 重放指定日志记录(重新执行历史触发)。
+ *
+ * 失败降级返回 null。
+ */
+export async function replayHookLog(
+  request: FastifyRequest | null,
+  hookId: string,
+  logId: string,
+): Promise<unknown | null> {
+  return callAiHooks<unknown>(request, `/api/hooks/${encodeURIComponent(hookId)}/replay`, {
+    method: 'POST',
+    body: JSON.stringify({ logId }),
+  })
+}
+
+/**
+ * 批量重放时间范围内的所有触发。
+ *
+ * @param since ISO 字符串(含)
+ * @param until ISO 字符串(含)
+ * 失败降级返回空数组。
+ */
+export async function replayAllHookLogs(
+  request: FastifyRequest | null,
+  hookId: string,
+  since?: string,
+  until?: string,
+): Promise<unknown[]> {
+  const params = new URLSearchParams()
+  if (since) params.set('since', since)
+  if (until) params.set('until', until)
+  const qs = params.toString()
+  const path = `/api/hooks/${encodeURIComponent(hookId)}/replay-all${qs ? `?${qs}` : ''}`
+  const data = await callAiHooks<unknown[]>(request, path, { method: 'POST' })
+  return data ?? []
+}
+
+// ============================================================================
+// DLQ 死信队列(2026-07-22 立)
+// ============================================================================
+
+export interface DlqListResponse {
+  entries: unknown[]
+  count: number
+}
+
+/**
+ * 查询指定 Hook 的 DLQ 列表。
+ *
+ * 失败降级返回空列表。
+ */
+export async function listHookDlq(
+  request: FastifyRequest | null,
+  hookId: string,
+): Promise<DlqListResponse> {
+  const data = await callAiHooks<DlqListResponse>(
+    request,
+    `/api/hooks/${encodeURIComponent(hookId)}/dlq`,
+    { method: 'GET' },
+  )
+  return data ?? { entries: [], count: 0 }
+}
+
+/**
+ * 从 DLQ 重新处理指定条目。
+ *
+ * 失败降级返回 null。
+ */
+export async function reprocessDlqEntry(
+  request: FastifyRequest | null,
+  hookId: string,
+  entryId: string,
+): Promise<unknown | null> {
+  return callAiHooks<unknown>(
+    request,
+    `/api/hooks/${encodeURIComponent(hookId)}/dlq/${encodeURIComponent(entryId)}/reprocess`,
+    { method: 'POST' },
+  )
+}
+
+/**
+ * 清空指定 Hook 的 DLQ。
+ *
+ * 失败降级返回 0。
+ */
+export async function clearHookDlq(
+  request: FastifyRequest | null,
+  hookId: string,
+): Promise<number> {
+  const data = await callAiHooks<{ cleared?: number }>(
+    request,
+    `/api/hooks/${encodeURIComponent(hookId)}/dlq`,
+    { method: 'DELETE' },
+  )
+  return data?.cleared ?? 0
+}
+
+// ============================================================================
+// 健康检查(2026-07-22 立)
+// ============================================================================
+
+export interface HookHealthSummary {
+  total: number
+  healthy: number
+  degraded: number
+  unhealthy: number
+  stale: number
+}
+
+export interface HookHealthItem {
+  hookId: string
+  name: string
+  status: 'healthy' | 'degraded' | 'unhealthy' | 'stale'
+  successRate: number
+  avgDuration: number
+  totalRuns: number
+  lastTriggeredAt: string | null
+  isStale: boolean
+}
+
+export interface HookHealthResponse {
+  summary: HookHealthSummary
+  hooks: HookHealthItem[]
+}
+
+/**
+ * 获取所有 Hook 健康状态。
+ *
+ * 失败降级返回空结果。
+ */
+export async function getHooksHealth(
+  request: FastifyRequest | null,
+): Promise<HookHealthResponse> {
+  const empty: HookHealthResponse = {
+    summary: { total: 0, healthy: 0, degraded: 0, unhealthy: 0, stale: 0 },
+    hooks: [],
+  }
+  const data = await callAiHooks<HookHealthResponse>(request, '/api/hooks/health', {
+    method: 'GET',
+  })
+  return data ?? empty
+}
+
+/**
+ * 手动触发指定 Hook 的健康检查。
+ *
+ * 失败降级返回 null。
+ */
+export async function triggerHookHealthCheck(
+  request: FastifyRequest | null,
+  hookId: string,
+): Promise<unknown | null> {
+  return callAiHooks<unknown>(
+    request,
+    `/api/hooks/${encodeURIComponent(hookId)}/health-check`,
+    { method: 'POST' },
+  )
+}
