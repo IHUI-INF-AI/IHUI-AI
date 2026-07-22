@@ -168,14 +168,6 @@ export function EmailCodeLoginForm({
         </div>
       </div>
       <div className="flex items-start justify-between gap-3">
-        <MiniCheckbox
-          checked={autoLogin}
-          onChange={(v) => {
-            setAutoLogin(v)
-            saveLocalLoginPrefs({ autoLogin: v })
-          }}
-          label={t('autoLogin')}
-        />
         <div className="flex-1">
           <AgreementCheckbox
             checked={agreed}
@@ -184,6 +176,14 @@ export function EmailCodeLoginForm({
           />
           {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
         </div>
+        <MiniCheckbox
+          checked={autoLogin}
+          onChange={(v) => {
+            setAutoLogin(v)
+            saveLocalLoginPrefs({ autoLogin: v })
+          }}
+          label={t('autoLogin')}
+        />
       </div>
       <Button type="submit" className="h-10 w-full" disabled={emailSubmitting}>
         {emailSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
