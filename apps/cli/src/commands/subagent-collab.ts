@@ -553,3 +553,89 @@ export {
   type TaskResult,
   type ConflictResolution,
 };
+
+// ───────────────────────────── 子进程并行 spawnParallel ─────────────────────────────
+// 扩展:基于 SubagentWorkerPool 的真子进程并行 spawn,按拓扑决定任务分派。
+// 与 CollaborationManager(单进程 async executor)互补:需要 OS 级真并行时用 spawnParallel。
+
+import { SubagentWorkerPool, defaultWorkerPoolConfig } from '../subagents/worker-pool.js';
+import type { SubagentSpawnRequest, SubagentSpawnResponse } from '@ihui/types';
+
+/**
+ * 按拓扑并行 spawn N 个子 agent(真子进程 fork 并行,非单进程 async)。
+ *
+ * 拓扑分派:
+ *   - star: 主 agent 中转(所有结果回流给调用方,调用方决定后续路由)
+ *   - mesh: 直接并行(所有子 agent 同时跑,结果直接返回)
+ *   - chain: 串行 handoff(前一个子 agent 的输出作为后一个的输入)
+ *   - hierarchical: 按角色组长(每个角色的首个子 agent 先跑,其余后跑)
+ *
+ * 内部复用 SubagentWorkerPool(fork 子进程),与 CollaborationManager(单进程)互补。
+ *
+ * @param reqs spawn 请求数组
+ * @param opts.topology 协作拓扑(默认 star)
+ * @param opts.maxWorkers 最大并发(默认 4)
+ */
+export async function spawnParallel(
+  reqs: SubagentSpawnRequest[],
+  opts?: { topology?: Topology; maxWorkers?: number },
+): Promise<SubagentSpawnResponse[]> {
+  if (reqs.length === 0) return [];
+  const topology = opts?.topology ?? 'star';
+  const maxWorkers = opts?.maxWorkers ?? 4;
+  const pool = new SubagentWorkerPool(defaultWorkerPoolConfig({ maxWorkers }));
+
+  try {
+    switch (topology) {
+      case 'chain':
+        return await spawnChainHandoff(pool, reqs);
+      case 'hierarchical':
+        return await spawnHierarchicalGrouped(pool, reqs);
+      case 'star':
+      case 'mesh':
+      default:
+        return await pool.spawnParallel(reqs);
+    }
+  } finally {
+    await pool.shutdown();
+  }
+}
+
+/** chain 拓扑:串行 handoff,前一个子 agent 的输出附加到后一个的 task */
+async function spawnChainHandoff(
+  pool: SubagentWorkerPool,
+  reqs: SubagentSpawnRequest[],
+): Promise<SubagentSpawnResponse[]> {
+  const results: SubagentSpawnResponse[] = [];
+  let prevOutput: string | undefined;
+  for (const req of reqs) {
+    const task = prevOutput
+      ? `${req.task}\n\n[前序子 agent 结果]\n${prevOutput.slice(0, 2000)}`
+      : req.task;
+    const resp = await pool.spawn({ ...req, task });
+    results.push(resp);
+    prevOutput = resp.output;
+  }
+  return results;
+}
+
+/** hierarchical 拓扑:按角色分组,每个角色的首个(组长)先跑,其余后跑 */
+async function spawnHierarchicalGrouped(
+  pool: SubagentWorkerPool,
+  reqs: SubagentSpawnRequest[],
+): Promise<SubagentSpawnResponse[]> {
+  const seenPersonas = new Set<string>();
+  const leads: SubagentSpawnRequest[] = [];
+  const followers: SubagentSpawnRequest[] = [];
+  for (const req of reqs) {
+    if (seenPersonas.has(req.persona)) {
+      followers.push(req);
+    } else {
+      seenPersonas.add(req.persona);
+      leads.push(req);
+    }
+  }
+  const leadResults = await pool.spawnParallel(leads);
+  const followerResults = followers.length > 0 ? await pool.spawnParallel(followers) : [];
+  return [...leadResults, ...followerResults];
+}
