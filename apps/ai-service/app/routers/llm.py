@@ -21,9 +21,10 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from ..core.config import settings
-from ..core.llm_gateway import llm_gateway
+from ..core.llm_gateway import llm_gateway, moa_router
 from ..core.context_compaction import compress_messages_if_needed
 from ..core.question_parser import QuestionStreamParser
+from ..services.mcp_server import _tool_vision_analyze
 from ..services.project_memory import build_system_prompt
 
 router = APIRouter()
@@ -612,3 +613,61 @@ async def _fire_callback(url: str, payload: dict[str, Any], metadata: dict[str, 
                 await asyncio.sleep(0.5 * (2 ** attempt))
                 continue
             logger.warning("LLM callback to %s error after %d attempts: %s", url, max_attempts, e)
+
+
+# ---------------------------------------------------------------------------
+# MoA / Vision 路由(P2-2 + P2-3,对标 Hermes Agent provider 扩展 + 多模态输入)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/llm/moa-presets")
+async def list_moa_presets() -> dict[str, Any]:
+    """列出所有 MoA 预设。"""
+    return {"code": 0, "message": "ok", "data": moa_router.list_presets()}
+
+
+@router.post("/llm/moa-presets")
+async def register_moa_preset(request: Request) -> dict[str, Any]:
+    """注册 MoA 预设。
+
+    请求体(MoaPreset 契约):
+    - name: 预设名(必填)
+    - models: 模型列表,每项含 {model, role: proposer|aggregator|critic}
+    """
+    body = await request.json()
+    name = body.get("name")
+    if not name:
+        return {"code": 1, "message": "name is required"}
+    moa_router.register_preset(name, body)
+    return {"code": 0, "message": "ok"}
+
+
+@router.post("/llm/moa-complete")
+async def moa_complete(request: Request) -> dict[str, Any]:
+    """MoA 推理(多模型出方案 + 聚合)。
+
+    请求体:
+    - messages: OpenAI 格式消息列表
+    - presetName: MoA 预设名
+    """
+    body = await request.json()
+    messages = body.get("messages", [])
+    preset_name = body.get("presetName", "")
+    if not preset_name:
+        return {"code": 1, "message": "presetName is required"}
+    result = await moa_router.complete(messages, preset_name)
+    return {"code": 0, "message": "ok", "data": result}
+
+
+@router.post("/llm/vision")
+async def vision_analyze(request: Request) -> dict[str, Any]:
+    """视觉分析(图像 URL 或 base64 + 任务描述 → LLM 视觉模型分析)。
+
+    请求体(VisionAnalyzeRequest 契约):
+    - image: 图片 URL 或 base64 编码(必填)
+    - task: 分析任务描述(必填)
+    - model: 期望模型(可选)
+    """
+    body = await request.json()
+    result = await _tool_vision_analyze(body)
+    return {"code": 0, "message": "ok", "data": result}
