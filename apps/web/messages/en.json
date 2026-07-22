@@ -25997,7 +25997,8 @@
       "noQuickImport": "Quick import not supported",
       "copyBaseUrl": "Copy Base URL",
       "baseUrlCopied": "Base URL copied to clipboard",
-      "copyFailed": "Copy failed, please copy manually"
+      "copyFailed": "Copy failed, please copy manually",
+      "copyAndImport": "Copy & Import"
     },
     "apiRelays": {
       "title": "API Relays",

@@ -26062,7 +26062,8 @@
       "noQuickImport": "暂不支持一键导入",
       "copyBaseUrl": "复制 Base URL",
       "baseUrlCopied": "Base URL 已复制到剪贴板",
-      "copyFailed": "复制失败,请手动复制"
+      "copyFailed": "复制失败,请手动复制",
+      "copyAndImport": "复制并导入"
     },
     "apiRelays": {
       "title": "API 中转站",

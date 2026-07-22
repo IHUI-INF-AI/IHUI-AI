@@ -28544,7 +28544,8 @@
       "noQuickImport": "원클릭 가져오기 미지원",
       "copyBaseUrl": "Base URL 복사",
       "baseUrlCopied": "Base URL이 클립보드에 복사되었습니다",
-      "copyFailed": "복사 실패, 수동으로 복사해주세요"
+      "copyFailed": "복사 실패, 수동으로 복사해주세요",
+      "copyAndImport": "복사 후 가져오기"
     },
     "apiRelays": {
       "title": "API 릴레이",
