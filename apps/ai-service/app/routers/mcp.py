@@ -56,9 +56,14 @@ async def list_tools() -> dict[str, Any]:
 
 
 @router.post("/mcp/tools/call")
-async def call_tool(req: ToolCallRequest) -> dict[str, Any]:
-    """调用指定 MCP 工具。"""
-    result = await mcp_server.call_tool(req.name, req.arguments)
+async def call_tool(req: ToolCallRequest, request: Request) -> dict[str, Any]:
+    """调用指定 MCP 工具(带权限矩阵校验)。
+
+    从 request.state.role_id 读取用户角色(JWTAuthMiddleware 注入),
+    传给 mcp_server.call_tool 做 admin 专属工具权限校验。
+    """
+    user_role = getattr(request.state, "role_id", 0) or 0
+    result = await mcp_server.call_tool(req.name, req.arguments, user_role=user_role)
     return result
 
 
