@@ -26267,6 +26267,10 @@
         "keyPlaceholderNew": "sk-...",
         "keyPlaceholderEdit": "•••••••(已加密儲存)",
         "keyKeepEmpty": "(留空不修改)",
+        "pasteFromClipboard": "從剪貼簿貼上 API Key",
+        "pasteSuccess": "已從剪貼簿貼上",
+        "pasteFailed": "剪貼簿讀取失敗,請手動貼上",
+        "pasteEmpty": "剪貼簿為空",
         "baseUrl": "Base URL",
         "optional": "可選",
         "group": "分組",
@@ -28523,7 +28527,11 @@
       "personalType": "個人運行性質",
       "import": "匯入",
       "riskTitle": "風險提示",
-      "tipsTitle": "使用建議"
+      "tipsTitle": "使用建議",
+      "searchPlaceholder": "搜尋平臺名稱 / 廠商 / 特點 / 計費方式...",
+      "allVendors": "全部",
+      "resultCount": "共 {count} / {total} 個平臺",
+      "emptyResult": "沒有符合的平臺,請嘗試調整搜尋關鍵字或廠商篩選"
     },
     "cta": {
       "label": "底部 CTA",

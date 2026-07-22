@@ -26263,6 +26263,10 @@
         "keyPlaceholderNew": "sk-...",
         "keyPlaceholderEdit": "•••••••(暗号化済み)",
         "keyKeepEmpty": "(空のままにすると変更されません)",
+        "pasteFromClipboard": "クリップボードから API Key を貼り付け",
+        "pasteSuccess": "クリップボードから貼り付けました",
+        "pasteFailed": "クリップボードの読み取りに失敗しました。手動で貼り付けてください。",
+        "pasteEmpty": "クリップボードが空です",
         "baseUrl": "ベース URL",
         "optional": "オプション",
         "group": "グループ",
@@ -28519,7 +28523,11 @@
       "personalType": "個人運営",
       "import": "インポート",
       "riskTitle": "リスク注意",
-      "tipsTitle": "利用のヒント"
+      "tipsTitle": "利用のヒント",
+      "searchPlaceholder": "プラットフォーム名 / ベンダー / 特徴 / 課金方式で検索...",
+      "allVendors": "すべて",
+      "resultCount": "{count} / {total} プラットフォーム",
+      "emptyResult": "一致するプラットフォームがありません。検索キーワードまたはベンダーフィルターを調整してください。"
     },
     "cta": {
       "label": "ボトム CTA",
