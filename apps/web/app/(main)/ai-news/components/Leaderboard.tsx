@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Trophy, TrendingUp, TrendingDown, Minus, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, GitCompare } from 'lucide-react'
+import { Trophy, TrendingUp, TrendingDown, Minus, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, GitCompare, Search } from 'lucide-react'
 import type { LeaderboardEntry, LeaderboardCategory } from '@/lib/ai-news-api'
 import { ModelDetailDialog } from './ModelDetailDialog'
 import { ModelCompareBar } from './ModelCompareBar'
@@ -125,18 +125,39 @@ export function Leaderboard({ entries }: Props) {
   const [sortDir, setSortDir] = React.useState<SortDir>(() => readSortPref('overall').dir)
   const [compareList, setCompareList] = React.useState<LeaderboardEntry[]>([])
   const [showCompareDialog, setShowCompareDialog] = React.useState(false)
+  const [searchQuery, setSearchQuery] = React.useState('')
+  const [activeVendor, setActiveVendor] = React.useState<string | null>(null)
 
-  // 按当前 Tab 过滤
+  // 按当前 Tab 过滤 + 搜索 + 厂商筛选
   const filtered = React.useMemo(() => {
+    let list: LeaderboardEntry[]
     if (activeCategory === 'overall') {
-      return entries.filter((e) => e.isOverall)
+      list = entries.filter((e) => e.isOverall)
+    } else {
+      list = entries.filter((e) => e.category === activeCategory && !e.isOverall)
+      if (activeCategory === 'llm' && activeSubcat) {
+        list = list.filter((e) => e.subcategory === activeSubcat)
+      }
     }
-    let list = entries.filter((e) => e.category === activeCategory && !e.isOverall)
-    if (activeCategory === 'llm' && activeSubcat) {
-      list = list.filter((e) => e.subcategory === activeSubcat)
+    const q = searchQuery.trim().toLowerCase()
+    if (q) {
+      list = list.filter((e) =>
+        e.modelName.toLowerCase().includes(q) ||
+        e.vendor.toLowerCase().includes(q)
+      )
+    }
+    if (activeVendor) {
+      list = list.filter((e) => e.vendor === activeVendor)
     }
     return list
-  }, [entries, activeCategory, activeSubcat])
+  }, [entries, activeCategory, activeSubcat, searchQuery, activeVendor])
+
+  // 当前分类下唯一厂商列表(用于厂商筛选 chip)
+  const vendors = React.useMemo(() => {
+    const set = new Set<string>()
+    filtered.forEach((e) => set.add(e.vendor))
+    return Array.from(set).sort()
+  }, [filtered])
 
   // 排序:null 值永远排末尾(不管 asc/desc)
   const sorted = React.useMemo(() => {
@@ -192,12 +213,14 @@ export function Leaderboard({ entries }: Props) {
     })
   }
 
-  // 切换分类时重置子分类 + 恢复该分类的排序偏好
+  // 切换分类时重置子分类 + 恢复该分类的排序偏好 + 重置搜索/厂商筛选
   React.useEffect(() => {
     if (activeCategory !== 'llm') setActiveSubcat('')
     const pref = readSortPref(activeCategory)
     setSortField(pref.field)
     setSortDir(pref.dir)
+    setSearchQuery('')
+    setActiveVendor(null)
   }, [activeCategory])
 
   /** 渲染排序图标 */
@@ -275,6 +298,58 @@ export function Leaderboard({ entries }: Props) {
           ))}
         </div>
       ) : null}
+
+      {/* 搜索 + 厂商筛选 */}
+      <div className="space-y-2 border-b bg-muted/10 px-3 py-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t('leaderboard.searchPlaceholder')}
+            className="w-full rounded-md border border-input bg-background py-1.5 pl-7 pr-7 text-xs placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          {searchQuery ? (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground hover:text-foreground"
+            >
+              ✕
+            </button>
+          ) : null}
+        </div>
+        {vendors.length > 0 ? (
+          <div className="flex flex-wrap gap-1">
+            <button
+              type="button"
+              onClick={() => setActiveVendor(null)}
+              className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                activeVendor === null
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-accent'
+              }`}
+            >
+              {t('leaderboard.allVendors')}
+            </button>
+            {vendors.map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setActiveVendor((cur) => (cur === v ? null : v))}
+                className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                  activeVendor === v
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-accent'
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
 
       {/* 表格 — 竖向排列模型行,参数横向排列 */}
       <div className="overflow-x-auto">
