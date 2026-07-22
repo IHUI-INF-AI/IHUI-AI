@@ -20,8 +20,8 @@ import { z } from 'zod'
 import { eq, and, desc, asc, sql, or, count } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
-import { config } from '../config/index.js'
 import { db, dbRead } from '../db/index.js'
+import { aiServiceFetchStream } from '../utils/ai-service-fetch.js'
 import {
   aiWorldItems,
   developerSubscriptions,
@@ -268,7 +268,7 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
     request.raw.on('close', onClose)
 
     try {
-      const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete/stream`, {
+      const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
