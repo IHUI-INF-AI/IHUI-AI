@@ -25889,7 +25889,8 @@
       "label": "Model Leaderboard",
       "title": "Model Leaderboard · Arena Score",
       "subtitle": "Ref: arena.ai · Elo + Bootstrap CI",
-      "empty": "No leaderboard data"
+      "empty": "No leaderboard data",
+      "sortHint": "Click header to sort"
     },
     "hero": {
       "label": "AI News Hero",
@@ -25993,7 +25994,10 @@
       "getApiKey": "Get API Key",
       "officialDocs": "Official Docs",
       "quickImport": "Quick Import",
-      "noQuickImport": "Quick import not supported"
+      "noQuickImport": "Quick import not supported",
+      "copyBaseUrl": "Copy Base URL",
+      "baseUrlCopied": "Base URL copied to clipboard",
+      "copyFailed": "Copy failed, please copy manually"
     },
     "apiRelays": {
       "title": "API Relays",
@@ -26006,7 +26010,13 @@
       "searchPlaceholder": "Search by platform name / vendor / features / billing...",
       "allVendors": "All",
       "resultCount": "{count} / {total} platforms",
-      "emptyResult": "No matching platform. Try adjusting your search or vendor filter."
+      "emptyResult": "No matching platform. Try adjusting your search or vendor filter.",
+      "billingLabel": "Billing",
+      "allBilling": "All",
+      "billingToken": "Per Token",
+      "billingFree": "Free Tier",
+      "billingGpu": "GPU Time",
+      "billingSubscription": "Subscription"
     },
     "cta": {
       "label": "Bottom CTA",
