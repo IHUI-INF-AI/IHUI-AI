@@ -17,7 +17,7 @@ import * as React from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { ClipboardPaste, Loader2 } from 'lucide-react'
 
 import {
   Button,
@@ -183,13 +183,38 @@ export function ProviderFormDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="apiKey">{t('apiKey')}</Label>
-            <Input
-              id="apiKey"
-              type="password"
-              value={form.apiKey}
-              onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
-              placeholder={isEdit ? t('keyPlaceholderEdit') : t('keyPlaceholderNew')}
-            />
+            <div className="flex gap-1.5">
+              <Input
+                id="apiKey"
+                type="password"
+                value={form.apiKey}
+                onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
+                placeholder={isEdit ? t('keyPlaceholderEdit') : t('keyPlaceholderNew')}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  try {
+                    const text = await navigator.clipboard.readText()
+                    if (!text) {
+                      toast.error(t('pasteEmpty'))
+                      return
+                    }
+                    setForm({ ...form, apiKey: text.trim() })
+                    toast.success(t('pasteSuccess'))
+                  } catch {
+                    toast.error(t('pasteFailed'))
+                  }
+                }}
+                className="shrink-0 px-2"
+                title={t('pasteFromClipboard')}
+              >
+                <ClipboardPaste className="h-3.5 w-3.5" />
+              </Button>
+            </div>
             {isEdit ? (
               <p className="text-xs text-muted-foreground">{t('keyKeepEmpty')}</p>
             ) : null}
