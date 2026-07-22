@@ -17,7 +17,7 @@ from typing import Any
 
 import httpx
 from fastapi import APIRouter, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from ..core.config import settings
@@ -182,6 +182,37 @@ async def llm_complete(req: LLMCompleteRequest) -> dict[str, Any]:
     if req.max_tokens is not None:
         kwargs["max_tokens"] = req.max_tokens
     result = await llm_gateway.complete(messages, model=req.model, owner_uuid=owner_uuid, **kwargs)
+    # 错误前置返回(P1 错误标准化,2026-07-22 立):
+    # 之前 LLM 错误一律 HTTP 200 + result.error:True,网关/监控层无法通过状态码识别失败,
+    # 必须在调用方解析 result 字段才能区分成功/失败,影响 ELK/Prometheus 错误率统计。
+    # 现在:错误统一返回 HTTP 4xx + 结构化 {code, message, model} JSON,
+    # 前端 api-client 已具备 HTTP 非 2xx 自动 throw SSEError 的能力(errorCode 字段透传),
+    # 无需改前端即可识别 422/501/502 错误。
+    # SSE 流式端点(/llm/complete/stream)本轮不动:StreamingResponse 一旦开始 yield,
+    # HTTP 状态码已锁定为 200,无法中途变更;流内仍推送 event: error(已有),等下一轮做。
+    if result.get("error"):
+        err_msg = str(result.get("error_message") or "LLM 调用失败")
+        if "API key 未配置" in err_msg or "未配置" in err_msg:
+            err_code = "MODEL_NOT_CONFIGURED"
+            status_code = 422
+        elif "NotImplemented" in err_msg:
+            err_code = "PROVIDER_NOT_IMPLEMENTED"
+            status_code = 501
+        else:
+            err_code = "LLM_ERROR"
+            status_code = 502
+        logger.warning(
+            "llm_complete failed: model=%s code=%s status=%d msg=%s",
+            req.model, err_code, status_code, err_msg,
+        )
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "code": err_code,
+                "message": err_msg,
+                "model": req.model,
+            },
+        )
     # 透传 metadata
     if req.metadata:
         result["metadata"] = req.metadata
