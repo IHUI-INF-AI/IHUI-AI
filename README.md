@@ -273,7 +273,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | AI 数字人       | 腾讯混元 3D / AI 世界 / 数字人交互                                                                          |
 |                   | AI 世界         | ai-world-items + AI 排名 + 趋势同步 + AI 模块化(ai-modules)+ AI 厂商配置中心(ai-vendor-configs)             |
 |                   | AI 职业         | AI 求职助手 / 简历优化 / 模拟面试                                                                           |
-|                   | AI 资讯         | AI 资讯聚合 / 智能摘要 / ai-feed / 大模型排行榜(Arena 评分 + 8 大分类 + Elo + Bootstrap CI + 能力雷达图)+ API 中转站(18 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(35 厂商映射 + 剪贴板粘贴 + Provider 配置) |
+|                   | AI 资讯         | AI 资讯聚合 / 智能摘要 / ai-feed / 大模型排行榜(Arena 评分 + 8 大分类 + Elo + Bootstrap CI + 能力雷达图)+ API 中转站(22 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(39 厂商映射 + 剪贴板粘贴 + Provider 配置) |
 |                   | 用户级 AI 配置  | LLM 配置中心 v2(1:N provider-model + 分组 + 健康状态 + 30 天用量 + 批量导入导出 + 跨 Provider 模型对比 + 一键复制 + 结构化参数 Temperature/Max Tokens/Top P/Penalty + 4 预设 + 高级 JSON)/ CLI 配置 24 源一键导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env / Trae / Qoder / Codex Desktop / Claude Code Desktop / GitHub Copilot / Amazon Q / Continue / Tabnine / Cody / Zed / Google Antigravity)/ 用户级模型对话偏好(ai-user-model-chat)/ 用户长期记忆(user-memory)/ 用户偏好(user-preferences) |
 | **AI 工作流**     | LangGraph       | StateGraph 工作流(plan → execute → summarize)+ stub 模式 + agent_loop 多轮 tool 循环 + 任务自动分解 DAG 拓扑 |
 |                   | MCP 工具协议    | 33 内置工具(11 基础 + 12 浏览器控制 + 10 电脑控制)+ 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP / mcp-extended |
@@ -614,7 +614,7 @@ IHUI-AI/
 │   ├── cron/                # Let's Encrypt 证书自动续期
 │   ├── s3-lifecycle.yml     # S3 对象存储生命周期规则
 │   └── setup-github-secrets.sh  # GitHub Actions secrets 批量配置
-├── docs/                    # 9 个文档:architecture / CHANGELOG / CONTRIBUTING / DEPLOYMENT_RUNBOOK / SECURITY / EMAIL_SETUP / I18N / INCIDENTS / README
+├── docs/                    # 35 个文档中心:架构 / 开发 / 测试 / API / 数据库 / 认证 / AI 服务 / 多端 / 监控 / 守门 / i18n / 性能 / SDK / CLI / 发布 / 故障排查 / FAQ(见 docs/README.md 索引)
 ├── monitoring/              # Grafana(20 仪表盘)+ Loki + Prometheus + Promtail + otel-collector + Alertmanager
 ├── scripts/                 # 17 守门 + 19 i18n + 11 迁移审计 + 9 PowerShell 启动 + locustfile.py 压测 + 运维工具
 ├── server-docs/             # 多租户设计文档(MULTI_TENANT.md)
@@ -677,7 +677,7 @@ IHUI-AI/
 | **文生视频**     | 多模型混编 / 视频编辑 / 视频合成 / 转码 / ai-generation/video-tasks                 |
 | **AI 数字人**    | 腾讯混元 3D / AI 世界 / 数字人交互 / `tencent-hunyuan-3d.ts`                        |
 | **AI 求职**      | 简历优化 / 模拟面试 / 职业建议 / `ai-career/`                                       |
-| **AI 资讯**      | AI 资讯聚合 / 智能摘要 / `ai-feed.ts` + `ai-feed-posts.ts` / 大模型排行榜(`model-leaderboard` + Arena 评分 + 能力雷达图)+ API 中转站(`api-relays.ts` + 18 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(`vendor-platforms.ts` + 35 厂商映射 + `?prefill=` base64 跳转 + `ProviderFormDialog` 剪贴板粘贴按钮) |
+| **AI 资讯**      | AI 资讯聚合 / 智能摘要 / `ai-feed.ts` + `ai-feed-posts.ts` / 大模型排行榜(`model-leaderboard` + Arena 评分 + 能力雷达图)+ API 中转站(`api-relays.ts` + 22 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(`vendor-platforms.ts` + 39 厂商映射 + `?prefill=` base64 跳转 + `ProviderFormDialog` 剪贴板粘贴按钮) |
 
 ### B. AI 工作流与开发者(面向开发者)
 
@@ -1506,18 +1506,87 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 ## 文档导航
 
+> 完整文档中心索引:[docs/README.md](docs/README.md)(35 个文档,9 大分类)
+
+### 项目与架构
+
 | 文档                                                         | 说明                                                                   |
 | ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/architecture.md](docs/architecture.md)                 | 系统架构(技术栈 / 数据库 / API 路由 / 启动流程 / 旧架构弃用说明)       |
+| [docs/architecture.md](docs/architecture.md)                 | **系统架构总览**(技术栈 / 数据库 / API 路由 / 启动流程 / 旧架构弃用)   |
+| [docs/MULTI_END.md](docs/MULTI_END.md)                       | 多端架构(8 端矩阵 + 跨端链路 + 同步开发 + 14 平台发布矩阵)             |
+| [docs/PACKAGES.md](docs/PACKAGES.md)                         | 共享包指南(13 个 @ihui/* 包 + 依赖关系 + 新增包流程)                  |
+| [docs/port-management.md](docs/port-management.md)           | 端口管理规则(8801-8899 端口注册表)                                     |
+| [docs/INFRASTRUCTURE_DECISION.md](docs/INFRASTRUCTURE_DECISION.md) | 基础设施决策(Docker Compose vs K8s)                              |
+| [docs/PRODUCTION_INFRASTRUCTURE.md](docs/PRODUCTION_INFRASTRUCTURE.md) | 生产基础设施规格                                                |
+
+### 开发与测试
+
+| 文档                                                         | 说明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                   | **本地开发指南**(环境变量 / 启动 / 调试 / 脚本速查 / Windows 注意)     |
+| [docs/TESTING.md](docs/TESTING.md)                           | 测试策略(8 层金字塔 + Vitest + pytest + Playwright + Locust + CI)     |
 | [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)                 | 贡献指南(环境搭建 / 代码规范 / 提交规范 / PR 流程)                     |
-| [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)     | 部署运维手册(蓝绿部署 / 回滚 / 证书续期)                               |
-| [docs/SECURITY.md](docs/SECURITY.md)                         | 安全策略(漏洞披露 / 加密设计 / 权限模型)                               |
-| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)                   | 邮件服务配置(SMTP / 模板 / DKIM)                                       |
-| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国际化完成计划                                                         |
-| [docs/CHANGELOG.md](docs/CHANGELOG.md)                       | 变更日志                                                               |
+| [docs/UI_GUIDELINES.md](docs/UI_GUIDELINES.md)               | UI 设计规范(圆角 / 字体对齐 / 登录弹窗 / 组件库)                       |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)                   | 性能基线与优化(SLA / 压测 / 数据库 / 前端 / AI 服务)                  |
+
+### API 与数据层
+
+| 文档                                                         | 说明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/API_REFERENCE.md](docs/API_REFERENCE.md)               | **API 完整参考**(60+ 路由 + 12 WebSocket + SSE + 错误码 + 客户端示例)  |
+| [docs/DATABASE.md](docs/DATABASE.md)                         | 数据库设计(Drizzle / 339 表 / 迁移 / RLS / 种子 / 备份)               |
+| [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)             | 认证授权(JWT / token-family / OAuth2 / 2FA / RBAC / 多租户 / WS 鉴权) |
+
+### AI 服务
+
+| 文档                                                         | 说明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/AI_SERVICE.md](docs/AI_SERVICE.md)                     | **AI 服务深度**(6 Router + LangGraph + LiteLLM + MCP + A2A + 向量记忆) |
+| [docs/LLM_SETUP.md](docs/LLM_SETUP.md)                       | LLM 模型配置(OpenAI / Anthropic / Google / 国内厂商)                  |
+| [docs/AI_LEADERBOARD.md](docs/AI_LEADERBOARD.md)             | AI 模型榜单数据                                                        |
+
+### 部署与运维
+
+| 文档                                                         | 说明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)     | **部署运维手册**(蓝绿部署 / 回滚 / 证书续期)                           |
+| [docs/RELEASE.md](docs/RELEASE.md)                           | 发布流程(14 平台 + SemVer + Git tag + Docker 镜像 + hotfix)            |
+| [docs/MONITORING.md](docs/MONITORING.md)                     | 可观测性(Prometheus + Grafana + Loki + Jaeger + Alertmanager)         |
 | [docs/INCIDENTS.md](docs/INCIDENTS.md)                       | 历史事故复盘                                                           |
+| [docs/SECURITY.md](docs/SECURITY.md)                         | 安全策略(漏洞披露 / 加密设计 / 权限模型)                               |
+| [docs/CREDENTIAL_ROTATION_RUNBOOK.md](docs/CREDENTIAL_ROTATION_RUNBOOK.md) | 凭证轮换运维手册                                               |
+| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)                   | 邮件服务配置(SMTP / 模板 / DKIM)                                       |
+| [docs/WECHAT_PAY_ACTIVATION_REPORT.md](docs/WECHAT_PAY_ACTIVATION_REPORT.md) | 微信支付 V3 激活报告                                            |
 | [server-docs/MULTI_TENANT.md](server-docs/MULTI_TENANT.md)   | 多租户设计文档(RLS + 租户路由)                                         |
-| [AGENTS.md](AGENTS.md)                                       | AI Agent 协作规范(21 节强制规则,可选阅读:展示本项目如何与 AI 协作开发) |
+
+### 质量与守门
+
+| 文档                                                         | 说明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/GATEKEEPERS.md](docs/GATEKEEPERS.md)                   | **守门规则详解**(23 pre-commit + post-commit + pre-push,逐项脚本)     |
+| [docs/I18N.md](docs/I18N.md)                                 | 国际化(5 语言 + 68 命名空间 + 12 守门脚本 + 翻译策略)                  |
+| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国际化完成计划(历史规划)                                               |
+
+### SDK 与 CLI
+
+| 文档                                                         | 说明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/SDK.md](docs/SDK.md)                                   | 5 语言 SDK 使用指南(TS / Python / Go / Java / .NET 代码示例)          |
+| [docs/CLI.md](docs/CLI.md)                                   | CLI 工具指南(24 源导入 + subagent 并行 + skills + plugins)            |
+
+### 故障排查与 FAQ
+
+| 文档                                                         | 说明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)           | **故障排查指南**(10 大类 35+ 故障,统一模板)                           |
+| [docs/FAQ.md](docs/FAQ.md)                                   | 常见问题(14 类 86 问)                                                  |
+
+### 项目管理
+
+| 文档                                                         | 说明                                                                   |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md)                       | 变更日志                                                               |
+| [AGENTS.md](AGENTS.md)                                       | AI Agent 协作规范(23 节强制规则,展示本项目如何与 AI 协作开发)         |
 | [PROJECT_PLAN.md](PROJECT_PLAN.md)                           | 项目任务计划与历史归档(内部开发记录,了解演进轨迹)                      |
 
 ---
