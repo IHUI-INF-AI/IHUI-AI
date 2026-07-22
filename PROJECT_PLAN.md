@@ -98,6 +98,76 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 - 测试: 20/20 passed ✅
 
 ---
+### [x] ✅(2026-07-22) CLI 导入 providerCode/apiFormat 推断逻辑深度修正 + README §22 同步(跨端:packages/types + api + web + cli + desktop)
+
+**触发**:用户连续"继续"推进深度开发。上一轮综合测试暴露 3 个设计偏差,本轮做代码层修正。
+
+**交付内容**(1 commit,8 文件改动):
+
+| 文件 | 改动类型 | 说明 |
+|---|---|---|
+| `apps/api/src/services/cli-import/mapper.ts` | Fix 1 | `inferProviderCode` 改为 modelId 前缀优先,URL 兜底 |
+| `apps/api/src/services/cli-import/parsers/cursor.ts` | Fix 2 | `inferApiFormat` 改为 URL 优先,modelId 前缀兜底 |
+| `apps/api/src/services/cli-import/parsers/windsurf.ts` | Fix 3 | 同 cursor.ts 的 URL 优先逻辑 |
+| `apps/api/src/services/cli-import/parsers/cline.ts` | Fix 4 | 新增 `pickProviderCode`,apiProvider 主导 providerCode |
+| `apps/api/tests/cli-import/cursor-comprehensive.test.ts` | 更新 | 3 用例改为修正后预期 |
+| `apps/api/tests/cli-import/windsurf-comprehensive.test.ts` | 更新 | 2 用例改为修正后预期 |
+| `apps/api/tests/cli-import/cline-comprehensive.test.ts` | 更新 | 2 用例改为修正后预期 |
+| `README.md` | §22 同步 | Q8 FAQ 更新 24 源清单 + 推断逻辑说明 + 设计哲学 |
+
+**3 个设计偏差修复**:
+
+1. **mapper.ts inferProviderCode:modelId 前缀优先于 URL 域名**
+   - 修正前:`api.openai.com + model=deepseek-coder` → providerCode=openai(model 兜底永远走不到)
+   - 修正后:providerCode=deepseek(反映实际模型归属)
+   - 设计哲学:providerCode = "调用谁"(model/apiProvider 决定)
+
+2. **cursor/windsurf.ts inferApiFormat:URL 优先于 model 前缀**
+   - 修正前:`model=claude-* + openai.com` → anthropic_messages(协议错配)
+   - 修正后:apiFormat=openai_chat(URL 决定接入点协议)
+   - 设计哲学:apiFormat = "如何调用"(URL/接入点决定)
+
+3. **cline.ts pickProviderCode:apiProvider 主导 providerCode**
+   - 修正前:`apiProvider=anthropic + baseUrl=api.openai.com` → apiFormat=anthropic_messages 但 providerCode=openai(不一致)
+   - 修正后:providerCode=anthropic(与 apiFormat 一致)
+
+**设计哲学**:apiFormat 与 providerCode 独立反映"调用协议"和"模型归属"
+- 用户配 Cursor 指向 `api.openai.com` 但 model=`deepseek-coder`
+  → apiFormat=openai_chat(用 OpenAI 协议调用)
+  → providerCode=deepseek(实际调的是 DeepSeek 模型)
+
+**累计 cli-import 测试覆盖**(230 全绿):
+
+| 测试文件 | 用例数 |
+|---|---|
+| ide-generic.test.ts | 20 |
+| parsers-deep.test.ts | 25 |
+| env-file-comprehensive.test.ts | 45 |
+| cursor-comprehensive.test.ts | 36 |
+| windsurf-comprehensive.test.ts | 28 |
+| cline-comprehensive.test.ts | 33 |
+| aider-comprehensive.test.ts | 43 |
+| **合计** | **230 全绿** |
+
+**§22 README 同步**:
+- 第 361 行对比表:6 源 → 24 源 + providerCode/apiFormat 智能推断说明
+- Q8 FAQ:从"6 源"扩展为完整 24 源清单(CLI 6 + IDE 5 + 桌面 2 + AI 平台 9)+ 推断逻辑详细说明 + 设计哲学示例
+
+**§9 平台独占豁免**:本次为后端代码 + 测试 + README 改动,不涉及 UI/CSS,标注"跨端:packages/types + api + web + cli + desktop"(因 providerCode 推断逻辑影响所有端导入行为,但仅改 apps/api 实现,共享类型 @ihui/types 未变,无需改其他端代码)
+
+**自验**:
+- 测试:230/230 全绿 ✅
+- typecheck:本任务 4 文件 0 错误(其他错误属其他 agent 代码 `terminal-service.ts` 找不到 `node-pty`)
+- pre-commit hook 失败因 `@ihui/sdk`/`@ihui/ui-primitives` dist 陈旧(其他 agent 代码),按 §12 `--no-verify` 跳过 ✅
+
+**Git 同步证据**(§21):
+- 本地 commit: `12ccfac6b` fix(cli-import): providerCode/apiFormat 推断逻辑修正 + README 同步
+- origin commit: **push 失败 ⚠️**(连续 4 次 SSL/TLS 网络故障:`schannel: failed to receive handshake` / `Empty reply from server` / `server closed abruptly`)
+- 同步状态: **local != remote ⚠️**(本地 ahead 1 个 commit,待网络恢复后 `git push origin main` 重试)
+- 守门脚本: post-commit 钩子尝试自动 push 但失败(网络问题,非代码问题)
+- 修复建议: 网络恢复后执行 `git push --no-verify origin main`(pre-push typecheck 因其他 agent 代码会失败,按 §12 跳过)
+
+---
 ### [x] ✅(2026-07-22) CLI 导入 4 独立解析器综合测试深度覆盖(cursor/windsurf/cline/aider 共 140 用例,平台独占:仅 apps/api 测试)
 
 **触发**:用户连续"继续"推进深度测试。上一轮已交付 env-file-comprehensive.test.ts(45 用例),本轮对其他 4 个独立解析器做同等深度覆盖。
