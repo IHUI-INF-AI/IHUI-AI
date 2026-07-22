@@ -28,13 +28,19 @@ async function fetchDocs(): Promise<DocItem[]> {
   return res.data
 }
 
-// 分类英文 key → 中文显示映射
+// 分类英文 key → 中文显示映射(与后端 deriveCategory() 输出对齐)
 const CATEGORY_LABELS: Record<string, string> = {
   api: 'API 参考',
-  guide: '指南',
-  development: '入门',
-  faq: 'FAQ',
+  sdk: 'SDK',
+  integration: '集成',
+  'incentive-program': '激励计划',
+  development: '开发',
   'getting-started': '入门',
+  'user-feature': '功能',
+  user: '用户',
+  guide: '指南',
+  enterprise: '企业服务',
+  faq: 'FAQ',
   'best-practice': '最佳实践',
   changelog: '更新日志',
 }
