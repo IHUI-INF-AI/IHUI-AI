@@ -267,6 +267,16 @@ a.text-xs:has(> svg):has(> span) > span,
   background-color: hsl(0 0% 18%);
 }
 
+/* 登录弹窗内密码强度条轨道 (2026-07-22 ihui-m3-fix-tabs-bg 立)
+   同根因:.login-scope --color-muted 被覆写为白,bg-muted 轨道在亮色下与卡片同色不可见。
+   用显式 hsl 绕开,亮 92% / 暗 18%,与 TabsList 容器同色阶。 */
+.login-scope [data-slot='strength-track'] {
+  background-color: hsl(0 0% 92%);
+}
+.dark .login-scope [data-slot='strength-track'] {
+  background-color: hsl(0 0% 18%);
+}
+
 * {
   border-color: var(--color-border);
 }
