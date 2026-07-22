@@ -8,6 +8,8 @@ import {
   isGoogleConfigured,
   isWechatMiniConfigured,
   isWecomConfigured,
+  isDingtalkConfigured,
+  isFeishuConfigured,
 } from '../src/services/oauth-providers.js';
 import {
   generateCaptchaKey,
@@ -56,6 +58,14 @@ describe('oauth-providers service', () => {
 
   it('isWecomConfigured 在无密钥时返回 false', () => {
     expect(isWecomConfigured()).toBe(false);
+  });
+
+  it('isDingtalkConfigured 在无密钥时返回 false', () => {
+    expect(isDingtalkConfigured()).toBe(false);
+  });
+
+  it('isFeishuConfigured 在无密钥时返回 false', () => {
+    expect(isFeishuConfigured()).toBe(false);
   });
 });
 
