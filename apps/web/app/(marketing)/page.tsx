@@ -16,6 +16,7 @@ import { HomePage3Magazine } from '@/components/marketing/HomePage3Magazine'
 import { HomePage4Pricing } from '@/components/marketing/HomePage4Pricing'
 import { TypewriterHeroSection } from '@/components/marketing/TypewriterHero'
 import { HomeDecor } from '@/components/marketing/HomeDecor'
+import { SectionDecor } from '@/components/marketing/SectionDecor'
 import { SiteFooter } from '@/components/marketing/SiteFooter'
 import { useFullPageScroll } from '@/hooks/use-full-page-scroll'
 
@@ -102,23 +103,23 @@ export default function HomePage() {
               as="div"
               className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-4 text-[11px] text-muted-foreground md:text-xs"
             >
-              <span className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
-                <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+              <span className="group inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
+                <ShieldCheck className="h-3.5 w-3.5 text-primary transition-transform duration-200 group-hover:scale-110" />
                 {t('welcome.benefits.benefit6')}
               </span>
               <span className="hidden h-3 w-px bg-border md:inline-block" />
-              <span className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
-                <Users className="h-3.5 w-3.5 text-primary" />
+              <span className="group inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
+                <Users className="h-3.5 w-3.5 text-primary transition-transform duration-200 group-hover:scale-110" />
                 {t('welcome.seats')}
               </span>
               <span className="hidden h-3 w-px bg-border md:inline-block" />
-              <span className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
-                <Zap className="h-3.5 w-3.5 text-primary" />
+              <span className="group inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
+                <Zap className="h-3.5 w-3.5 text-primary transition-transform duration-200 group-hover:scale-110" />
                 {t('welcome.earlyBird')}
               </span>
               <span className="hidden h-3 w-px bg-border md:inline-block" />
-              <span className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
-                <Globe className="h-3.5 w-3.5 text-primary" />
+              <span className="group inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/5">
+                <Globe className="h-3.5 w-3.5 text-primary transition-transform duration-200 group-hover:scale-110" />
                 {t('welcome.multiEnd')}
               </span>
             </RevealOnView>
@@ -136,9 +137,11 @@ export default function HomePage() {
                   key={i}
                   as="li"
                   delay={0.5 + i * 0.06}
-                  className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm md:text-sm"
+                  className="group relative flex items-center gap-2 overflow-hidden rounded-lg border bg-card px-3 py-2 text-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md md:text-sm"
                 >
-                  <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
+                  {/* 卡片顶部渐变高光(hover 时显现) */}
+                  <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+                  <Check className="h-3.5 w-3.5 shrink-0 text-success transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
                   <span className="truncate">{b}</span>
                 </RevealOnView>
               ))}
@@ -152,11 +155,12 @@ export default function HomePage() {
               总高从 794px 压到 ~450px,完全塞进 743px 视口(原来 115px 溢出) */}
         <section
           id="home-page-2"
-          className="flex snap-start flex-col"
+          className="relative flex snap-start flex-col overflow-hidden"
           style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={t('features.title', { fallback: 'Features' })}
         >
-          <div className="flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
+          <SectionDecor variant="features" />
+          <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
             <div className="w-full">
               <HomeFeatureGrid />
             </div>
@@ -169,11 +173,12 @@ export default function HomePage() {
             - 痛点 → 解决 → 收益 三段式,每段都更醒目可读 */}
         <section
           id="home-page-3"
-          className="flex snap-start flex-col"
+          className="relative flex snap-start flex-col overflow-hidden"
           style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={t('scenarios.title', { fallback: 'Scenarios' })}
         >
-          <div className="flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
+          <SectionDecor variant="scenarios" />
+          <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
             <div className="w-full">
               <HomeScenarios />
             </div>
@@ -185,11 +190,12 @@ export default function HomePage() {
             - 让决策者专注"省多少钱 / 提多少效" */}
         <section
           id="home-page-4"
-          className="flex snap-start flex-col"
+          className="relative flex snap-start flex-col overflow-hidden"
           style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={tr('title', { fallback: 'ROI' })}
         >
-          <div className="flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
+          <SectionDecor variant="roi" />
+          <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
             <div className="w-full">
               <HomeRoi />
             </div>
@@ -201,11 +207,12 @@ export default function HomePage() {
             - 表头 / 单元格 padding 全部加大,行高更舒服 */}
         <section
           id="home-page-5"
-          className="flex snap-start flex-col"
+          className="relative flex snap-start flex-col overflow-hidden"
           style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={tc('title', { fallback: 'Comparison' })}
         >
-          <div className="flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
+          <SectionDecor variant="comparison" />
+          <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center px-4 py-4 md:px-8 md:py-6">
             <div className="w-full">
               <HomeComparison />
             </div>
@@ -223,11 +230,12 @@ export default function HomePage() {
             - v3.1:marquee 容器去掉自带的 px-3 + 整体加 max-w-7xl 限宽防溢出 */}
         <section
           id="home-page-6"
-          className="flex flex-col snap-start"
+          className="relative flex flex-col snap-start overflow-hidden"
           style={{ minHeight: 'calc(100vh - 1rem)' }}
           aria-label={t('pricing.title', { fallback: 'Pricing' })}
         >
-          <div className="flex h-full w-full flex-1 flex-col items-center justify-center gap-3 overflow-hidden">
+          <SectionDecor variant="pricing" />
+          <div className="relative z-10 flex h-full w-full flex-1 flex-col items-center justify-center gap-3 overflow-hidden">
             {/* Pricing 4 卡(顶部,自然高度,不再 flex-1 撑大) */}
             <div className="w-full">
               <HomePage4Pricing />
@@ -241,7 +249,8 @@ export default function HomePage() {
                 4. 18 席限位 · 决策者(stats.seats)
                 修复原 67% + cta.subtitle 长句错位 bug
                 v3:加 max-w-5xl 限宽,居中对称
-                2026-07-23 改:每个 Stat 入场 staggered + hover 上浮 + 图标背景 */}
+                2026-07-23 改:每个 Stat 入场 staggered + hover 上浮 + 图标背景
+                2026-07-23 深度美化:数字渐变高亮 + 卡片玻璃拟态 */}
             <div className="mx-auto w-full max-w-5xl px-4">
               <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
                 {[
@@ -253,9 +262,11 @@ export default function HomePage() {
                   <RevealOnView
                     key={i}
                     delay={0.2 + 0.08 * i}
-                    className="group flex flex-col items-center gap-0.5 rounded-lg border bg-card px-3 py-2 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md md:py-3"
+                    className="group relative flex flex-col items-center gap-0.5 overflow-hidden rounded-lg border bg-card/80 px-3 py-2 text-center backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/5 hover:shadow-lg hover:shadow-primary/10 md:py-3"
                   >
-                    <span className="text-xl font-bold tracking-tight text-primary transition-transform duration-300 group-hover:scale-110 md:text-2xl">
+                    {/* 卡片顶部渐变高光(hover 时显现) */}
+                    <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                    <span className="bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-xl font-bold tracking-tight text-transparent transition-transform duration-300 group-hover:scale-110 md:text-2xl">
                       {s.prefix && <span>{s.prefix}</span>}
                       <AnimatedNumber value={s.value} duration={1500} />
                       {s.suffix && <span>{s.suffix}</span>}
