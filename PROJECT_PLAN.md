@@ -490,9 +490,31 @@ P2 AI 工具调用深度联动(5 修改文件):
 - `pnpm --filter @ihui/api exec eslint` 4 文件 exit 0 ✅
 
 **遗留(P1/P2,非本任务范围)**:
-- P1:routes/agents.ts user_token_balance 双账本问题(G2 遗留,待 G8+ 处理)
-- P1:rechargeToken 仅幂等未 JOIN orders 表验证 outTradeNo status='paid'(G2 遗留,待 G8 处理)
+- P1:routes/agents.ts user_token_balance 双账本问题(G2 遗留,待 G9+ 处理)
 - P2:crew-tools.ts llm_generate 工具的 LLM 调用 usage 未累计到会话级 _sessionUsage(成本已记,但未纳入 deductTokens 扣费;主 LLM 调用已覆盖)
+
+---
+
+### [x] ✅(2026-07-22) G8 rechargeToken 订单状态校验:补 JOIN orders 验证 status='paid'(平台独占:仅 api,已完成)
+
+**触发**:G2 遗留 P0"rechargeToken 仅幂等未 JOIN orders 表验证 outTradeNo status='paid'"。G7 遗留项中明确"待 G8 处理"。
+
+**漏洞分析**:`apps/api/src/routes/finance.ts` 的 `/finance/margin/recharge` 端点(原 line 65-77)虽有 admin 权限校验(roleId >= 1) + rechargeToken 内部 `(related_order_no, op_type)` unique 索引幂等保护,但 `outTradeNo` 可以是任意字符串,不验证 orders 表中是否存在对应订单且 `status='paid'`。理论上管理员可凭任意 `outTradeNo` 调用充值接口"印钞"。
+
+**修复范围**:`apps/api/src/routes/finance.ts` 单文件(仅 `/finance/margin/recharge` 端点;`/finance/margin/commission` 端点无 outTradeNo 不受影响;`commission-queries.ts` 的 `rechargeToken` 函数保持原幂等保护不动)。
+
+**完成证据**:
+- finance.ts:在 `rechargeToken(userId, quantity, outTradeNo)` 调用前,新增 orders 表查询:
+  - 查询 `orders` 表 WHERE `orderNo = outTradeNo`,select `status` + `userId`
+  - 三重校验:订单存在 / `status === 'paid'` / `order.userId === userId`(防越权给他人订单充值)
+  - 任一失败返回 400/403 错误,不进入 rechargeToken 流程
+- 所需依赖 `orders` / `db` / `eq` 原本已在 finance.ts 中导入(line 21-23),无需新增 import
+- `pnpm --filter @ihui/api typecheck` exit 0 ✅
+- `pnpm --filter @ihui/api lint` exit 0(0 errors,34 warnings 全是测试文件预存 `no-explicit-any`,非本次改动)✅
+
+**遗留(P1/P2,非本任务范围)**:
+- P1:routes/agents.ts user_token_balance 双账本问题(G2 遗留,待 G9+ 处理)
+- P2:rechargeToken 函数本身未做"订单金额 vs quantity 一致性"校验(当前信任前端传 quantity;后续可加 `order.payAmount * 100 === quantity` 校验,需对齐订单币种单位)
 
 ---
 
