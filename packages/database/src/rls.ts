@@ -13,7 +13,14 @@
  * - 系统/迁移任务用 withBypassRls(db, fn) 显式绕过 RLS。
  * - 配合 migration 0066_rls_tenant_isolation.sql 启用行级安全。
  * - 默认租户 UUID(单租户模式):'00000000-0000-0000-0000-000000000000'
+ *
+ * 2026-07-22 鲁棒性加固:
+ * - withTenant 改用 `SELECT set_config('app.tenant_id', $1, true)` 参数化绑定,
+ *   替代 `SET LOCAL app.tenant_id = '${tenantId}'` 字符串拼接。
+ *   PostgreSQL SET LOCAL 不支持参数绑定,但 set_config() 函数支持。
+ *   保留 isValidTenantId UUID 白名单作为深度防御,但不再是唯一防线。
  */
+import { sql } from 'drizzle-orm'
 import type { Database } from './client.js'
 
 export const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000000'
@@ -26,6 +33,10 @@ export function isValidTenantId(id: string): boolean {
 /**
  * 在事务内执行 fn,自动设置 app.tenant_id。
  * 事务结束(commit/rollback)后 SET LOCAL 失效。
+ *
+ * 安全:set_config($1, $2, true) 第三参数 true = local(等同 SET LOCAL),
+ * 第一参数固定为 'app.tenant_id'(不可注入),第二参数 tenantId 通过 $2 参数化绑定。
+ * 即使 isValidTenantId 校验被绕过,SQL 注入也无法发生。
  */
 export async function withTenant<T>(
   db: Database,
@@ -36,7 +47,8 @@ export async function withTenant<T>(
     throw new Error(`[rls] invalid tenant id: ${tenantId}`)
   }
   return db.transaction(async (tx) => {
-    await tx.execute(`SET LOCAL app.tenant_id = '${tenantId}'`)
+    // set_config(name, value, is_local) — is_local=true 等同 SET LOCAL,事务结束自动失效
+    await tx.execute(sql`SELECT set_config('app.tenant_id', ${tenantId}, true)`)
     return fn(tx)
   })
 }
@@ -47,7 +59,7 @@ export async function withBypassRls<T>(
   fn: (tx: Parameters<Parameters<Database['transaction']>[0]>[0]) => Promise<T>,
 ): Promise<T> {
   return db.transaction(async (tx) => {
-    await tx.execute(`SET LOCAL app.bypass_rls = 'true'`)
+    await tx.execute(sql`SELECT set_config('app.bypass_rls', 'true', true)`)
     return fn(tx)
   })
 }
