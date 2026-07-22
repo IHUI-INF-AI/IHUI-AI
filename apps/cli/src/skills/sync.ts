@@ -16,7 +16,7 @@ import type { SkillSyncRequest, SkillSyncResponse, SkillFrontmatter } from '@ihu
 import { loadSkills } from './index.js';
 
 export interface SkillSyncClientOptions {
-  /** api 基础 URL(默认 http://127.0.0.1:3001) */
+  /** api 基础 URL(默认 http://127.0.0.1:8801) */
   apiBaseUrl?: string;
   /** 用户认证 token(Bearer) */
   authToken?: string;
@@ -55,7 +55,7 @@ function extractSkillSyncResponse(data: unknown): SkillSyncResponse | null {
  * 网络失败/非 2xx/解析错全部降级(返回 null),不抛错,不影响主流程。
  *
  * 用法:
- *   const client = new SkillSyncClient({ apiBaseUrl: 'http://127.0.0.1:3001', authToken: 'xxx' });
+ *   const client = new SkillSyncClient({ apiBaseUrl: 'http://127.0.0.1:8801', authToken: 'xxx' });
  *   const pushed = await client.push(cwd, userId, ['commit-helper']);
  *   const pulled = await client.pull(userId);
  *   const listed = await client.list(userId);
@@ -64,7 +64,7 @@ export class SkillSyncClient {
   constructor(private options: SkillSyncClientOptions = {}) {}
 
   private get baseUrl(): string {
-    return (this.options.apiBaseUrl ?? 'http://127.0.0.1:3001').replace(/\/$/, '');
+    return (this.options.apiBaseUrl ?? 'http://127.0.0.1:8801').replace(/\/$/, '');
   }
 
   private buildHeaders(): Record<string, string> {

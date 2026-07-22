@@ -36,7 +36,7 @@ vi.mock('../src/lib/token', () => ({
 }))
 
 vi.mock('../src/lib/config', () => ({
-  API_BASE_URL: 'http://localhost:3001',
+  API_BASE_URL: 'http://localhost:8801',
 }))
 
 import { useNotificationWebSocket } from '../src/hooks/use-websocket'

@@ -34,7 +34,7 @@ vi.mock('../src/context/AuthContext', () => ({
 }))
 
 vi.mock('../src/lib/config', () => ({
-  API_BASE_URL: 'http://localhost:3001',
+  API_BASE_URL: 'http://localhost:8801',
 }))
 
 vi.mock('react-native', () => {
