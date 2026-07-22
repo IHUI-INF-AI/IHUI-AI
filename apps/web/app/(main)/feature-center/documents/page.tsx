@@ -4,6 +4,8 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, Search, FileText, Eye } from 'lucide-react'
 import { useTranslations } from 'next-intl'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, Input, Button } from '@ihui/ui'
@@ -25,14 +27,16 @@ async function fetchDocs(): Promise<DocItem[]> {
   return res.data
 }
 
-const CATEGORIES = [
-  { value: '全部', key: 'catAll' },
-  { value: '入门', key: 'catGettingStarted' },
-  { value: '指南', key: 'catGuide' },
-  { value: 'API 参考', key: 'catApiRef' },
-  { value: '最佳实践', key: 'catBestPractice' },
-  { value: '更新日志', key: 'catChangelog' },
-] as const
+// 分类英文 key → 中文显示映射
+const CATEGORY_LABELS: Record<string, string> = {
+  api: 'API 参考',
+  guide: '指南',
+  development: '入门',
+  faq: 'FAQ',
+  'getting-started': '入门',
+  'best-practice': '最佳实践',
+  changelog: '更新日志',
+}
 
 export default function DocumentsPage() {
   const t = useTranslations('featureCenter.documents')
@@ -43,6 +47,12 @@ export default function DocumentsPage() {
   const [keyword, setKeyword] = React.useState('')
   const [category, setCategory] = React.useState('全部')
   const [previewId, setPreviewId] = React.useState<string | null>(null)
+
+  // 动态生成分类按钮(从返回数据的 unique category 值)
+  const categories = React.useMemo(() => {
+    const unique = [...new Set((data ?? []).map((d) => d.category))]
+    return ['全部', ...unique.sort()]
+  }, [data])
 
   const list = React.useMemo(() => {
     const all = data ?? []
@@ -57,6 +67,23 @@ export default function DocumentsPage() {
   }, [data, keyword, category])
 
   const previewDoc = list.find((d) => d.id === previewId) ?? null
+
+  // 点击 preview 时加载 markdown 内容(DB 优先,文件兜底)
+  const { data: previewContent, isLoading: previewLoading } = useQuery({
+    queryKey: ['doc-content', previewId],
+    queryFn: async () => {
+      if (!previewId) return ''
+      const doc = (data ?? []).find((d) => d.id === previewId)
+      if (!doc) return ''
+      const slug = doc.url ? doc.url.replace('/docs/', '') : doc.id.replace('file:', '')
+      const res = await fetchApi<{ content: string }>(
+        `/api/feature-center/documents/${slug}/content`,
+      )
+      if (!res.success) throw new Error(res.error)
+      return res.data.content
+    },
+    enabled: !!previewId,
+  })
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
@@ -74,19 +101,19 @@ export default function DocumentsPage() {
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          {CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <button
-              key={c.value}
+              key={c}
               type="button"
-              onClick={() => setCategory(c.value)}
+              onClick={() => setCategory(c)}
               className={
                 'rounded-md border px-3 py-1 text-sm transition-colors ' +
-                (category === c.value
+                (category === c
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-border hover:bg-muted')
               }
             >
-              {t(c.key)}
+              {c === '全部' ? t('catAll') : (CATEGORY_LABELS[c] ?? c)}
             </button>
           ))}
         </div>
@@ -110,11 +137,13 @@ export default function DocumentsPage() {
               key={item.id}
               title={item.title}
               description={item.description}
-              badge={item.category}
+              badge={CATEGORY_LABELS[item.category] ?? item.category}
               footer={
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">
-                    {new Date(item.updatedAt).toLocaleDateString()}
+                    {item.updatedAt
+                      ? new Date(item.updatedAt).toLocaleDateString()
+                      : ''}
                   </span>
                   <Button variant="ghost" size="sm" onClick={() => setPreviewId(item.id)}>
                     <Eye className="mr-1 h-3.5 w-3.5" />
@@ -139,11 +168,16 @@ export default function DocumentsPage() {
                 {t('close')}
               </Button>
             </div>
-            <iframe
-              src={previewDoc.url}
-              className="h-[60vh] w-full rounded border"
-              title={previewDoc.title}
-            />
+            {previewLoading ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {t('loading')}
+              </div>
+            ) : (
+              <div className="prose prose-sm dark:prose-invert max-w-none overflow-auto">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{previewContent ?? ''}</ReactMarkdown>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
