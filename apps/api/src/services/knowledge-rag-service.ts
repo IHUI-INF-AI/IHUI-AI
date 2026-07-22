@@ -162,7 +162,7 @@ class KnowledgeRagService {
     if (!text || !text.trim()) {
       return { docId: 0, chunkCount: 0 }
     }
-    // sourceType 用 mimeType 简化值:pdf/docx/markdown/text/html
+    // sourceType 用 mimeType 简化值:pdf/docx/markdown/text/html/xlsx/xls/csv
     const sourceType = mimeType?.startsWith('application/pdf')
       ? 'pdf'
       : mimeType?.includes('wordprocessingml')
@@ -171,7 +171,15 @@ class KnowledgeRagService {
           ? 'markdown'
           : mimeType === 'text/html'
             ? 'html'
-            : 'file'
+            : mimeType?.includes('spreadsheetml') || mimeType?.includes('macroEnabled.12')
+              ? 'xlsx'
+              : mimeType === 'application/vnd.ms-excel'
+                ? 'xls'
+                : mimeType === 'text/csv'
+                  ? 'csv'
+                  : mimeType === 'text/plain'
+                    ? 'text'
+                    : 'file'
 
     // 复用 ingestText 入库(切片 + embedding + 写入 knowledge_doc + knowledge_chunk)
     const chunkCount = await this.ingestText({ ownerUuid, title, text, collectionName })

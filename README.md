@@ -1010,9 +1010,9 @@ pnpm --filter @ihui/database seed          # 7 步幂等 seed
 # 4. 一键启动所有 apps(turbo 并行)
 pnpm dev
 # 或单独启动:
-# pnpm --filter @ihui/api run dev          # 后端 :8080
-# pnpm --filter @ihui/web run dev          # 前端 :3000
-# cd apps/ai-service && uv sync && uvicorn app.main:app --reload --port 8000
+# pnpm --filter @ihui/api run dev          # 后端 :3002
+# pnpm --filter @ihui/web run dev          # 前端 :3001
+# cd apps/ai-service && uv sync && uvicorn app.main:app --reload --port 3003
 
 # 5. 全量验证(typecheck + lint + test)
 pnpm turbo build typecheck lint test
