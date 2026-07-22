@@ -253,6 +253,20 @@ a.text-xs:has(> svg):has(> span) > span,
   border-color: hsl(0 0% 98% / 0.2);
 }
 
+/* 登录弹窗内 TabsList 容器专属背景 (2026-07-22 ihui-m3-fix-tabs-bg 立)
+   根因:.login-scope 把 --color-muted 强制为 100% 白(为 hover 凸出语义),
+   TabsList 容器用 `bg-muted` 被连带变成纯白,跟 bg-card 完全相同,
+   导致亮色下 tab 容器与卡片无可见边界,看不出"凹槽"结构。
+   修复:.login-scope [role="tablist"] 用显式 hsl(0 0% 92%)(#EBEBEB)
+   而非 var(--color-muted) — 后者会被 .login-scope 覆写为白,前者绕开继承。
+   暗色下用专属 18% 跟 bg-card 10% 保持 ~8% L 差距(与亮色 92% vs 100% 8% 差距对称)。 */
+.login-scope [role='tablist'] {
+  background-color: hsl(0 0% 92%);
+}
+.dark .login-scope [role='tablist'] {
+  background-color: hsl(0 0% 18%);
+}
+
 * {
   border-color: var(--color-border);
 }
