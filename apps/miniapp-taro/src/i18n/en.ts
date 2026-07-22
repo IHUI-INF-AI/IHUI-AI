@@ -328,6 +328,16 @@ export default {
     common: {
       loading: 'Loading…',
     },
+    chatMessageItem: {
+      me: 'Me',
+      ai: 'AI',
+      thinkingProcess: 'Thinking process',
+      noContent: 'Nothing to copy',
+      aiGenerated: 'AI generated',
+      tokenCost: 'Tokens: {{n}}',
+      reuse: 'Reuse',
+      copy: 'Copy',
+    },
     inputArea: {
       placeholder: 'Ask a question…',
       releaseToSend: 'Release to send',
