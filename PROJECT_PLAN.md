@@ -8,36 +8,7 @@
 
 ## 当前活跃任务(2026-07-22)
 
-### [x] ✅(2026-07-22) 首屏侧边栏自身 width 跳变修复(承接 061b83d79 / 54a8f8256 残留)
-
-**触发**:用户多次反馈"刚刷新打开页面时先显示的是一个宽尺寸然后已经秒后切到了我要求的正常宽度尺寸...依旧还是刚刚才的问题 没变化 没解决"。前序 commit 54a8f8256 只修了 work-area paddingLeft(zustand rehydrate 408→持久化值跳变),**没修 sidebar 自身 width 跳变**。
-
-**根因**(刚实地验证):
-- [sidebar.tsx:1541](file:///g:/IHUI-AI/apps/web/src/components/sidebar.tsx#L1541) `useState(SIDEBAR_WIDTH)` 默认 130
-- [sidebar.tsx:1549-1557](file:///g:/IHUI-AI/apps/web/src/components/sidebar.tsx#L1549-L1557) useEffect mount 后才从 localStorage 读 `sidebar-width` → setSidebarWidth → 二次 render
-- 实测用户 localStorage 存 180,导致 aside 元素 width 从 SSR 130 跳到 hydrate 后 180(200ms transition 动画可见)
-- [NavGroupSection:1123](file:///g:/IHUI-AI/apps/web/src/components/sidebar.tsx#L1123) 同样问题 `useState(false)` → useEffect 读 localStorage → 子菜单从折叠变展开,影响侧边栏高度
-
-**修复方案**(no-flash bootstrap,跟 [layout.tsx](file:///g:/IHUI-AI/apps/web/app/layout.tsx) ai-panel inline script 同模式):
-
-1. **layout.tsx inline script 扩展**:在 React hydrate 前同步读 `sidebar-width`(130-180 clamp)+ 写 `:root --sidebar-width` CSS 变量
-2. **sidebar.tsx aside 元素**:`style={{ width: 'var(--sidebar-width, 130px)' }}`,SSR/CSR 字符串字节级一致,无 hydration mismatch
-3. **删除 sidebar.tsx:1549-1557 useEffect**:不再延迟 setState(由 inline script 完成首帧预设)
-4. **NavGroupSection 同样处理**:`useState` lazy initializer 同步读 localStorage(SSR 仍 false,客户端首帧同步) + `suppressHydrationWarning` 抑制警告
-5. **拖拽保留**:onPointerDown → setSidebarWidth + `documentElement.style.setProperty('--sidebar-width', next + 'px')` 直接更新 CSS 变量(走 React 同步 CSS 变量那条 useEffect)
-
-**验证标准**:
-- `pnpm --filter @ihui/web typecheck` exit 0
-- browser 多次刷新,aside width 首帧 = localStorage 持久化值(无 130→180 跳变)
-- NavGroupSection 子菜单首帧直接是正确展开态(无 false→true 二次展开)
-
-**受影响文件**:
-- [apps/web/app/layout.tsx](file:///g:/IHUI-AI/apps/web/app/layout.tsx) — 扩展 inline script
-- [apps/web/src/components/sidebar.tsx](file:///g:/IHUI-AI/apps/web/src/components/sidebar.tsx) — aside 改 var() + 删除 useEffect + NavGroupSection lazy init
-
-**§9 平台独占**:仅 apps/web,跨端契约不变。
-
----
+<!-- 已归档(2026-07-22):首屏侧边栏自身 width 跳变修复(承接 061b83d79 / 54a8f8256 残留),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
 
 <!-- 已归档(2026-07-22):settings/llm v2 方案 B 完整落地,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
 
@@ -148,14 +119,7 @@
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) P3 深化:§22 README 同步规则机制守门集成(平台独占:仅守门脚本 + 文档,2026-07-22 立)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 对标 Hermes Agent 深度升级:11 项差距分 P0/P1/P2 开发(跨端:packages/types + a...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 全项目对外开放 API 接入系统深度开发 — 105 端点 + TS/Python SDK 双语言(commit ba347294,跨端:packages/types + api + sdk + web 文档) -->
-### [x] ✅(2026-07-22) Java SDK 补齐 — ihui-ai-java 三语言 SDK 平级(平台独占:仅 SDK 新增)
-
-**触发**:用户追问"不支持 Node.js Java 吗?"。澄清 Node.js 已支持(TS SDK 编译后纯 JS,Node.js 18+ 直接 import),Java 未实现,派发 subagent 补齐。
-
-**范围**(1 subagent,平台独占:仅 packages/sdk/java/ 新增):pom.xml(groupId com.ihui / Java 11+ / OkHttp+Jackson+SLF4J 三依赖)+ 11 核心类 + 17 POJO + 13 业务模块(105 端点)+ Builder 模式 + 流式响应 + 重试 + 5 类异常分级。`mvn compile` BUILD SUCCESS ✅
-
-**Git**:local `7b69f38f` == origin `7b69f38f` ✅。**多语言 SDK 覆盖**:TypeScript `@ihui/sdk` / Python `ihui-ai` / Java `ihui-ai-java` 三语言平级,105 端点全覆盖。
-
+<!-- 已归档(2026-07-22):Java SDK 补齐 — ihui-ai-java 三语言 SDK 平级(平台独占:仅 SDK 新增),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
 ### [ ] 深度鲁棒性加固 P0+P1+P2 全量 85 项(2026-07-22 立,/goal 模式)
 
 **触发**:用户要求"深度开发本项目的鲁棒性 必须达到完美"。5 路并行调研(api/web/ai-service/packages/desktop+extension+mobile)发现 85 项鲁棒性问题(P0 30 + P1 35 + P2 20)。
@@ -246,71 +210,7 @@
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) G5+ 知识图谱 DrizzleGraphStore 持久化后端(2026-07-22)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 模型市场 nav 样式重构 + 厂商 SVG 图标(2026-07-21)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) P0 分域 SSO 架构落地:主域 aizhs.top + 认证子域 bsm.aizhs.top(2026-07-21)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
-### SaaS 托管服务架构(2026-07-21)— P0 阶段 1:多租户基础设施 PoC
-
-**触发**:用户要求"想给客户做 SaaS 托管服务时,可以在 docker-compose.yml 顶层加一层多租户路由 + 独立 customer 部署目录,那你就去开发好"。
-
-**三阶段交付**(按工程量分阶段,本会话仅完成 P0 阶段 1):
-
-| 阶段                    | 范围                                                                          | 工作量   | 状态      |
-| ----------------------- | ----------------------------------------------------------------------------- | -------- | --------- |
-| **P0 阶段 1(本次)**     | Traefik 多租户路由 + 通配符证书 + 客户编排 + 创建/销毁脚本 + 1 个示例客户 PoC | 0.5-1 天 | 🚧 进行中 |
-| **P1 阶段 2(下次会话)** | 租户管理后台(web/admin 端扩展) + 资源监控 + 资源配额 + 证书自动续期           | 3-5 天   | ⏳ 待启动 |
-| **P2 阶段 3(后续)**     | 用量采集 + 套餐定价 + 账单生成 + 微信/支付宝集成 + 客户自助账单页             | 2-4 周   | ⏳ 待启动 |
-
-**架构决策**(用户已确认 3 选 1):
-
-1. **路由方式**:子域名路由(`{slug}.{BASE_DOMAIN}`,如 `demo.example.com`)
-2. **隔离粒度**:每租户独立 docker-compose(重隔离,故障/攻击互不影响)
-3. **交付范围**:完整版含计费(分 P0/P1/P2 三阶段交付,本次只做 P0 阶段 1 基础设施)
-
-**P0 阶段 1 详细任务清单**:
-
-**目标**:跑通 1 个示例客户,支持创建/查询/销毁三个核心运维动作,基础设施层可独立运行。
-
-**改动文件清单**(11 个全新文件 + 1 个修改):
-
-1. `deploy/saas/docker-compose.yml`:Traefik v3 + 共享网络 `ihui-saas`
-2. `deploy/saas/traefik/traefik.yml`:Traefik 静态配置(API + Dashboard + 证书存储 + entryPoints 80/443)
-3. `deploy/saas/traefik/dynamic/customers.yml.template`:动态路由模板(SNI 路由到租户 backend)
-4. `deploy/saas/.env.example`:环境变量样例(`BASE_DOMAIN` / `ACME_EMAIL` / `DNS_PROVIDER` / `LETSENCRYPT_ENV`)
-5. `deploy/saas/templates/customer/.env.template`:租户环境变量模板(子域名/管理员账号/AI 配额)
-6. `deploy/saas/templates/customer/docker-compose.yml`:租户独立 docker-compose(db + redis + api + web + ai-service 5 服务)
-7. `deploy/saas/templates/customer/init-db.sql`:租户数据库初始化
-8. `deploy/saas/scripts/create-customer.sh`:创建租户
-9. `deploy/saas/scripts/destroy-customer.sh`:销毁租户
-10. `deploy/saas/scripts/list-customers.sh`:列出所有租户
-11. `deploy/saas/README.md`:运维手册
-12. `docker-compose.yml`:ai-service 已加 `ports: ['8000:8000']`(前置改动,本次随任务一起提交)
-
-**验收硬性指标**(按 AGENTS.md §8):
-
-- `docker compose -f deploy/saas/docker-compose.yml config` exit 0
-- `bash -n deploy/saas/scripts/*.sh` exit 0
-- `cd deploy/saas && cp .env.example .env && docker compose up -d` exit 0
-- `./scripts/create-customer.sh demo` exit 0
-- `docker compose -f customers/demo/docker-compose.yml ps` 所有 5 服务 Up
-- `curl -k https://demo.127.0.0.1.nip.io:8443/` HTTP 200
-- `./scripts/list-customers.sh` 显示 demo 租户
-- `./scripts/destroy-customer.sh demo` exit 0
-- browser_use 验证:访问子域名截图 + 读 `document.title` 含 "IHUI" 字样
-
-**硬约束**:
-
-- 仅修改/新增 `deploy/saas/` 目录 + `docker-compose.yml` (ai-service ports 行)
-- 不动 web/api/ai-service 业务代码(8 端隔离)
-- 客户名 slug 仅允许小写字母数字横线,长度 3-20
-- 真实部署用 Let's Encrypt DNS-01 + 阿里云 DNS provider(可换 Cloudflare)
-- 本地 PoC 用 nip.io 动态 DNS + 自签证书(浏览器需信任或加 `-k`)
-
-**已知边界**(本阶段**不**包含):
-
-- ❌ 资源监控(阶段 2)
-- ❌ 租户管理后台(阶段 2,需 web/admin 端扩展)
-- ❌ 用量采集 + 计费(阶段 3,需 api 端扩展)
-- ❌ 支付集成(阶段 3,需 web + api + 数据库 3 端联动)
-
----
+<!-- 已归档(2026-07-22):SaaS 托管服务架构(2026-07-21)— P0 阶段 1:多租户基础设施 PoC(Traefik 多租户路由 + 通配符证书 + 客户编排 + 创建/销毁脚本 + 1 个示例客户 PoC),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
 
 ## 学生学习报告 + 每日多格式日志全链路补全(2026-07-21 立)
 
@@ -394,130 +294,8 @@ nginx -t && nginx -s reload
 
 ---
 
-## 第三方登录 e2e 测试补强 + Mock 平台验证(2026-07-21)
-
-**状态**:✅ 已完成
-
-**任务范围**:
-
-- 修复 e2e feishu 跳转判定(从单前缀改为域名候选列表)
-- 跑完整 e2e 18 用例全绿(`apps/web/e2e/auth-third-party.spec.ts`)
-- browser_use 验证 Mock 平台(apple + alipay)授权页完整渲染
-
-**验证证据**:
-
-- `pnpm exec playwright test e2e/auth-third-party.spec.ts` → 18 passed (1.2m)
-- browser_use 验证 `/oauth/mock/apple` 和 `/oauth/mock/alipay` 授权页关键元素 PASS(标题/用户卡片/权限列表/按钮齐全)
-- e2e 覆盖范围:8 平台按钮可见性 + 按钮可点击 + 回调路径不崩溃 + 账号绑定页 + 控制台无异常 + 8 平台跳转目标验证(6 真凭据 + 2 Mock)+ Mock 授权页可访问 + 后端 oauth-status API
-
-**Mock 平台配置检查结论**:
-
-| 平台             | 凭据类型                                       | 跳转目标                                         | 验证结果 |
-| ---------------- | ---------------------------------------------- | ------------------------------------------------ | -------- |
-| apple            | placeholder(`dev_apple_placeholder_client_id`) | `/oauth/mock/apple`                              | ✅       |
-| alipay           | placeholder(`dev_alipay_placeholder_app_id`)   | `/oauth/mock/alipay`                             | ✅       |
-| google           | 真凭据                                         | `accounts.google.com`                            | ✅       |
-| github           | 真凭据                                         | `github.com`                                     | ✅       |
-| feishu           | 真凭据                                         | `passport.feishu.cn` / `accounts.feishu.cn`      | ✅       |
-| wechat           | 真凭据                                         | `open.weixin.qq.com` / `open.work.weixin.qq.com` | ✅       |
-| dingtalk         | 真凭据                                         | `login.dingtalk.com`                             | ✅       |
-| enterpriseWechat | 真凭据                                         | `open.work.weixin.qq.com`                        | ✅       |
-
-`/api/auth/oauth-status` 返回 8 平台状态(true/false 与凭据配置匹配)。
-
-**commit**:`e5605f1` test(web): 修复 e2e feishu 跳转判定 + Mock 平台 18 用例全绿
-
-**跨端范围**:web only(平台独占豁免,e2e 测试只针对 web)
-
-### SaaS 托管服务架构(2026-07-21)— P1 阶段 2.1:部署层管理增强 + admin-api
-
-**触发**:用户"继续",按 P0/P1/P2 三阶段计划推进 P1 阶段 2(本次聚焦部署层子集,不建 web/admin UI)。
-
-**P1 阶段 2 全量范围**(留待后续子集):
-
-| 子集                      | 范围                                                                           | 工作量 | 状态 |
-| ------------------------- | ------------------------------------------------------------------------------ | ------ | ---- |
-| **P1-2.1 部署层管理**     | 客户 pause/resume/backup/restore 脚本 + admin-api Fastify 服务 + 证书续期 cron | 1-2 天 | ✅   |
-| **P1-2.2 web/admin UI**   | web/admin 端扩展(创建/暂停/删除/查看客户 UI) + 详情页 + 备份 + 证书            | 3-5 天 | ✅   |
-| **P1-2.3 资源监控(本次)** | Prometheus + cAdvisor + Grafana + 详情页 iframe + 横向对比页                   | 2-3 天 | ✅   |
-
-**P1-2.1 详细任务清单**:
-
-**目标**:在 P0 阶段 1 基础上增强运维能力,提供程序化 API 接口 + 客户生命周期完整管理,不动主 8 端业务代码。
-
-**改动文件清单**(19 个全新文件 + 4 个修改):
-
-1. `deploy/saas/scripts/pause-customer.sh`:暂停客户(stop 容器 + 状态标记 `.state=paused`)
-2. `deploy/saas/scripts/resume-customer.sh`:恢复客户(start 容器 + 状态标记 `.state=active`)
-3. `deploy/saas/scripts/backup-customer.sh`:手动备份(备份 pgdata + .env + metadata.json,保留 7 个)
-4. `deploy/saas/scripts/restore-customer.sh`:从备份恢复(自动备份当前 + 恢复 + 重启)
-5. `deploy/saas/admin-api/package.json`:admin-api 依赖(Fastify 5 + pino + zod)
-6. `deploy/saas/admin-api/pnpm-lock.yaml`:依赖锁文件(Docker `--frozen-lockfile` 需要)
-7. `deploy/saas/admin-api/Dockerfile`:基于 node:20-alpine + docker-cli + git + bash
-8. `deploy/saas/admin-api/tsconfig.json`:TypeScript 严格模式 + ES2022
-9. `deploy/saas/admin-api/src/index.ts`:Fastify 入口 + 错误处理 + CORS
-10. `deploy/saas/admin-api/src/config.ts`:从 .env 加载配置 + 自动生成 ADMIN_API_KEY
-11. `deploy/saas/admin-api/src/routes/auth.ts`:X-Admin-API-Key 鉴权中间件
-12. `deploy/saas/admin-api/src/routes/customers.ts`:客户管理端点(7 个,委托给 Bash 脚本)
-13. `deploy/saas/cron/cert-renew.cron`:证书续期 cron(每周日 3:00 触发)
-14. `deploy/saas/cron/cert-renew.sh`:证书续期脚本(检查有效期 + 触发 Traefik 重签)
-15. `deploy/saas/docker-compose.yml`:增加 admin-api 服务(端口 8081 仅 localhost)
-16. `deploy/saas/.env.example`:补充 ADMIN_API_KEY 等管理 API 配置
-17. `deploy/saas/admin-api/.gitignore`:node_modules + .env 等
-18. `deploy/saas/README.md`:补充 P1 管理脚本 + admin-api 使用文档
-19. `PROJECT_PLAN.md`:追加 P1-2.1 任务条目(本任务)
-
-**admin-api 端点设计**(端口 8081,鉴权 X-Admin-API-Key):
-
-- `GET /admin/api/health` — 健康检查(免鉴权)
-- `GET /admin/api/auth/verify` — 验证 API key 状态
-- `GET /admin/api/customers` — 列出所有客户(含 state/容器状态/资源)
-- `GET /admin/api/customers/:slug` — 客户详情
-- `POST /admin/api/customers/:slug/pause` — 暂停
-- `POST /admin/api/customers/:slug/resume` — 恢复
-- `POST /admin/api/customers/:slug/backup` — 备份
-- `POST /admin/api/customers/:slug/restore` — 恢复(支持指定 timestamp)
-- `DELETE /admin/api/customers/:slug` — 销毁(委托 destroy-customer.sh)
-
-**客户状态持久化**:
-
-- `customers/<slug>/.state`:状态文件(active | paused)
-- `customers/<slug>/.state_changed_at`:状态变更时间戳
-- `customers/<slug>/.env`:包含 `CUSTOMER_DOMAIN`(从 .env 解析)
-- `customers/<slug>/docker-compose.yml`:包含 `memory`/`cpus` 资源限制(从 compose 解析)
-
-**验收硬性指标**(按 AGENTS.md §8):
-
-- `docker compose -f deploy/saas/docker-compose.yml config` exit 0
-- `bash -n deploy/saas/scripts/*.sh` exit 0(7 个脚本)
-- `pnpm install --prefer-offline --ignore-workspace` admin-api 成功
-- `pnpm typecheck` admin-api 0 错误(tsc --noEmit)
-- 容器构建 + 启动 `docker compose up -d admin-api`
-- `curl -H "X-Admin-API-Key: <key>" http://localhost:8081/admin/api/health` 200
-
-**硬约束**:
-
-- 仅修改/新增 `deploy/saas/` 目录 + `PROJECT_PLAN.md`
-- 不动 web/api/ai-service 业务代码(8 端隔离)
-- admin-api 不暴露公网(端口 8081 仅 127.0.0.1 绑定 + Traefik 不路由)
-- 客户状态变更通过 `customers/<slug>/.state` 文件持久化
-- 备份存储到 `deploy/saas/backups/<slug>/<timestamp>/`
-- 备份保留策略:自动保留最近 7 个 + 30 天前清理
-
-**已知边界**(本子集**不**包含):
-
-- ❌ web/admin UI(子集 2.2)
-- ❌ Prometheus + Grafana 资源监控(子集 2.3)
-- ❌ 用量采集 + 计费(阶段 3)
-- ❌ 支付集成(阶段 3)
-
-**已验证(2026-07-21)**:
-
-- `docker compose config` exit 0 ✅
-- `bash -n` 5 个新脚本全通过(pause/resume/backup/restore/cert-renew) ✅
-- `pnpm typecheck` admin-api 0 错误 ✅
-- 17 个新文件 + 4 个修改,commit `a400e8ff` ✅
-
+<!-- 已归档(2026-07-22):第三方登录 e2e 测试补强 + Mock 平台验证(已完成 ✅ 2026-07-21,commit e5605f1,18 用例全绿 + 8 平台 Mock 验证),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
+<!-- 已归档(2026-07-22):SaaS 托管服务架构(2026-07-21)— P1 阶段 2.1:部署层管理增强 + admin-api(已完成 ✅,commit a400e8ff,19 文件 + admin-api 9 端点 + 5 脚本 + cron 证书续期),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
 ### SaaS 托管服务架构(2026-07-21)— P1 阶段 2.2:web/admin UI + 证书 + 资源监控
 
 **P1-2.2 / P1-2.3 完成情况**:
