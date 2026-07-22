@@ -9,6 +9,8 @@ import {
   signRefreshToken,
   verifyRefreshToken,
   createFamilyId,
+  ACCESS_TOKEN_TTL_SECONDS,
+  REFRESH_TOKEN_TTL_SECONDS,
   type JWTPayload,
 } from '@ihui/auth'
 import { authenticate } from '../plugins/auth.js'
@@ -100,8 +102,11 @@ import {
   generateUserSk,
 } from '../services/oauth-providers.js'
 
-const ACCESS_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60 // 7d
-const REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60 // 30d
+// Token TTL 复用 @ihui/auth 的统一常量(2026-07-22 修复一致性)
+// - ACCESS_TOKEN_TTL_SECONDS 默认 15min(env.JWT_ACCESS_TTL_SECONDS 可覆盖)
+// - REFRESH_TOKEN_TTL_SECONDS 默认 30d(env.JWT_REFRESH_TTL_SECONDS 可覆盖)
+// 之前硬编码 7d 与 jwt.ts 实际 15min 不符,返回给客户端的 expiresIn 撒谎,
+// 导致前端 tokenUtils.startAutoRefresh 提前 5min 续期时 token 已失效 14min45s。
 
 // QR 扫码登录会话内存存储(ticket → 会话)。生产环境应迁移 Redis。
 interface QrSession {
