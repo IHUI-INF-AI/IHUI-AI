@@ -1370,33 +1370,27 @@ function NavGroupSection({
     return false
   })
 
-  // SSR-safe: 初始 false,hydration 后读真实状态
-  const [open, setOpen] = React.useState(false)
-
-  // mount-once effect:用 ref 捕获挂载时的初始值,后续 groupActive 变化由下方 effect 单独处理
-  const initialGroupActive = React.useRef(groupActive)
-  const initialStorageKey = React.useRef(storageKey)
-  const initialDefaultOpen = React.useRef(defaultOpen)
-
-  // 仅在挂载后读一次真实状态(默认值 / localStorage / groupActive 三者择一)。
-  // 不在 open 变化时回写 localStorage — 那会让"默认值生效"被误判为"用户切换",污染下次访问。
-  // 用户主动 toggle 时,由 handleToggle 显式写入 localStorage。
-  React.useEffect(() => {
-    if (initialGroupActive.current) {
-      setOpen(true)
-      return
-    }
+  // SSR-safe + no-flash(2026-07-22 修复首屏 sidebar 子菜单展开闪烁):
+  // - SSR 阶段:无 window,fallback 到 defaultOpen(AI / admin 默认 true,其余 false),
+  //   与 SSR HTML 一致,无 hydration mismatch
+  // - 首次 client render:lazy initializer 同步读 localStorage,持久化值已就位,
+  //   首帧 open 就是持久化值 / defaultOpen,无需 useEffect 二次设置
+  // - 用户持久化 stored='0'/'1' 时,client 首 render 可能与 SSR defaultOpen 不一致 →
+  //   对 button 的 aria-expanded 加 suppressHydrationWarning(仅此属性,不影响交互)
+  // 之前:open 初始固定 false,useEffect 读 defaultOpen=true 后 setOpen(true),
+  //       触发 grid-rows 0fr→1fr 过渡(0px → 302px),用户看到"先收起后展开"闪烁
+  // 本次:open 首帧就是 defaultOpen(AI / admin 已是 true),无过渡,无闪烁
+  const [open, setOpen] = React.useState(() => {
+    if (typeof window === 'undefined') return defaultOpen
     try {
-      const stored = window.localStorage.getItem(initialStorageKey.current)
-      if (stored === '1') setOpen(true)
-      else if (stored === '0') setOpen(false)
-      else setOpen(initialDefaultOpen.current)
+      const stored = window.localStorage.getItem(storageKey)
+      if (stored === '1') return true
+      if (stored === '0') return false
+      return defaultOpen
     } catch {
-      setOpen(initialDefaultOpen.current)
+      return defaultOpen
     }
-    // 故意只跑一次:依赖项固定为挂载时常量。groupActive/storageKey/defaultOpen 在挂载后不变,
-    // 即便变化(如路由切换导致 groupActive 变化)也由下方 groupActive effect 单独处理。
-  }, [])
+  })
 
   // 路由切换后,若新路由命中本组,强制展开(覆盖用户上次折叠的偏好)
   React.useEffect(() => {
@@ -1483,6 +1477,10 @@ function NavGroupSection({
         aria-expanded={open}
         aria-label={groupLabel}
         data-testid={`nav-group-${group.label}-toggle`}
+        // suppressHydrationWarning: client 首 render 的 open 可能与 SSR defaultOpen 不一致
+        // (用户持久化 stored='0'/'1' 场景),允许 React 在此属性上 mismatch,避免 console warning。
+        // 不影响交互和 grid-rows 展开行为(首帧 open 已是正确值,无过渡闪烁)。
+        suppressHydrationWarning
         className="group/grp flex w-full items-center gap-1 px-2.5 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
       >
         <ChevronDown
