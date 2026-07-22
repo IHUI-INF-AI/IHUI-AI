@@ -20474,6 +20474,7 @@
     "listStatusApproved": "承認済み",
     "listStatusRejected": "拒否",
     "listStatusCompleted": "完了",
+    "listReason": "理由: {reason}",
     "detailTitle": "返金詳細",
     "detailNotFound": "返金記録が存在しません",
     "detailBack": "戻る",
@@ -28512,7 +28513,12 @@
       "trendRising": "上昇",
       "trendCooling": "下降",
       "trendNew": "新着",
-      "moreHint": "{shown}/{total} 件表示中、絞り込みを調整して更に表示"
+      "moreHint": "{shown}/{total} 件表示中、絞り込みを調整して更に表示",
+      "trendNotifyTitle": "{count} 件の記事がトレンド急上昇",
+      "trendNotifyExpand": "すべて表示",
+      "trendNotifyCollapse": "折りたたむ",
+      "trendNotifyClose": "閉じる",
+      "langSwitch": "タイトル言語を{lang}に切り替え"
     },
     "hotRanking": {
       "label": "ホットランキング",
@@ -28566,6 +28572,19 @@
       "tagHighWinRate": "高勝率",
       "tagTopTier": "トップモデル",
       "tagMultimodal": "マルチモーダル"
+    },
+    "compare": {
+      "label": "モデル比較",
+      "selected": "{count} 件選択",
+      "clear": "クリア",
+      "startCompare": "比較開始",
+      "maxToast": "最大5モデルまで比較できます、他のモデルを削除してください",
+      "colModel": "比較次元",
+      "cheapest": "最低",
+      "priceChartTitle": "価格可視化",
+      "priceChartHint": "入力 / 出力価格(1M tokens あたり)",
+      "capabilityOverlay": "能力レーダー重ね表示",
+      "noPriceData": "選択モデルに価格データなし"
     },
     "apiRelays": {
       "title": "API リレー",
