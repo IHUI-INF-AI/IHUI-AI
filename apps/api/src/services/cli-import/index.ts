@@ -32,6 +32,7 @@ import {
   parseTrae, parseTraeWork, parseQoder, parseQoderWork,
   parseCodexDesktop, parseClaudeCodeDesktop,
   parseGithubCopilot, parseAmazonQ, parseContinue, parseTabnine, parseCody, parseZed,
+  parseAntigravity,
 } from './parsers/ide-generic.js'
 import type { ParserFn, ParserInput, ParserResult } from './parsers/types.js'
 
@@ -213,6 +214,13 @@ const PARSERS: ParserEntry[] = [
     inputKind: 'text',
     filePatterns: [/zed.*settings\.json$/i, /zed.*\.json$/i],
     description: 'Zed 编辑器 AI 配置',
+  },
+  {
+    source: 'antigravity',
+    fn: parseAntigravity,
+    inputKind: 'text',
+    filePatterns: [/antigravity.*settings\.json$/i, /antigravity.*\.json$/i, /antigravity.*config.*\.json$/i],
+    description: 'Google Antigravity (Gemini) 配置',
   },
 ]
 
