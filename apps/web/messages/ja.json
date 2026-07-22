@@ -599,6 +599,7 @@
     "forgotPassword": "パスワードをれた",
     "rememberPassword": "パスワードを記憶する",
     "accountHistory": "アカウント履歴",
+    "noHistory": "履歴なし",
     "forgotSubtitle": "パスワードをリセット",
     "registerTitle": "アカウント",
     "registerSubtitle": "しいアカウントを",
@@ -1082,7 +1083,11 @@
       "community": "コミュニティ",
       "communityEn": "コミュニティ",
       "knowledge": "ナレッジベース",
-      "knowledgeEn": "ナレッジ"
+      "knowledgeEn": "ナレッジ",
+      "recommend": "おすすめコース",
+      "recommendEn": "おすすめ",
+      "hot": "人気コース",
+      "hotEn": "人気"
     },
     "units": {
       "questions": "{count}問",
