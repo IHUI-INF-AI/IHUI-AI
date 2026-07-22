@@ -75,6 +75,17 @@
 - `SLACK_WEBHOOK_URL` — Slack 告警 Webhook（可选）
 - `DINGTALK_WEBHOOK_URL` — 钉钉告警 Webhook（可选）
 
+### 国内镜像同步（mirror-to-cn.yml）
+
+> 仅用 Personal Access Token，不接收明文密码。配置后 push 到 main 会自动镜像到 Gitee + GitCode（每天 08:00/20:00 北京时间兜底同步一次）。
+
+- `GITEE_TOKEN` — Gitee Personal Access Token（生成：https://gitee.com/profile/personal_access_tokens，勾选 `projects`）
+- `GITEE_OWNER` — Gitee 用户名或组织名（镜像仓库归属方）
+- `GITCODE_TOKEN` — GitCode Personal Access Token（生成：https://gitcode.com/profile/personal_access_tokens，勾选 `api`）
+- `GITCODE_OWNER` — GitCode 用户名或组织名
+
+> 首次创建镜像仓库可本地运行 `node scripts/setup-mirror-repos.mjs`（调用各平台官方 REST API 创建，已存在则跳过）。
+
 ## 可选 Secrets
 
 ### 第三方登录
@@ -119,3 +130,4 @@
 | sdk-publish.yml           | `NPM_TOKEN`                                                                                          |
 | weekly-security-audit.yml | `GITHUB_TOKEN`（GitHub 自动提供，无需手动配置）                                                      |
 | miniapp-preview.yml       | （无）                                                                                               |
+| mirror-to-cn.yml          | `GITEE_TOKEN`, `GITEE_OWNER`, `GITCODE_TOKEN`, `GITCODE_OWNER`                                        |
