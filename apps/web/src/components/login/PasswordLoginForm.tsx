@@ -232,40 +232,40 @@ export function PasswordLoginForm({
               rhfAccountRef(el)
               accountInputRef.current = el
             }}
-            onDoubleClick={() => {
-              if (loginHistory.length > 0) setShowHistory(true)
-            }}
+            onDoubleClick={() => setShowHistory((v) => !v)}
           />
-          {loginHistory.length > 0 && (
-            <button
-              type="button"
-              tabIndex={-1}
-              onClick={() => setShowHistory((v) => !v)}
-              className="absolute inset-y-0 right-0 flex w-8 items-center justify-center text-muted-foreground hover:text-foreground"
-              aria-label={t('accountHistory')}
-            >
-              <ChevronDown className={`h-4 w-4 transition-transform ${showHistory ? 'rotate-180' : ''}`} />
-            </button>
-          )}
-          {showHistory && loginHistory.length > 0 && (
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setShowHistory((v) => !v)}
+            className="absolute inset-y-0 right-0 flex w-8 items-center justify-center text-muted-foreground hover:text-foreground"
+            aria-label={t('accountHistory')}
+          >
+            <ChevronDown className={`h-4 w-4 transition-transform ${showHistory ? 'rotate-180' : ''}`} />
+          </button>
+          {showHistory && (
             <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border border-border bg-popover shadow-md">
-              {loginHistory.map((account) => (
-                <button
-                  key={account}
-                  type="button"
-                  className="flex w-full items-center px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
-                  onClick={() => {
-                    setValue('account', account)
-                    if (remembered?.account === account) {
-                      setValue('password', remembered.password)
-                    }
-                    setShowHistory(false)
-                    accountInputRef.current?.focus()
-                  }}
-                >
-                  <span className="truncate">{account}</span>
-                </button>
-              ))}
+              {loginHistory.length > 0 ? (
+                loginHistory.map((account) => (
+                  <button
+                    key={account}
+                    type="button"
+                    className="flex w-full items-center px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => {
+                      setValue('account', account)
+                      if (remembered?.account === account) {
+                        setValue('password', remembered.password)
+                      }
+                      setShowHistory(false)
+                      accountInputRef.current?.focus()
+                    }}
+                  >
+                    <span className="truncate">{account}</span>
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-sm text-muted-foreground">{t('noHistory')}</div>
+              )}
             </div>
           )}
         </div>
