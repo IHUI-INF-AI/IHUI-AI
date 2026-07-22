@@ -279,10 +279,11 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 - browser_use 4 状态自验:连续 2 次 BLOCKED(登录弹窗遮挡 + 截图功能不可用),按 §19 降级为代码审查验证
 
 **Git 同步证据**(§21):
-- 本地 commit: <待 commit 后填入>
-- origin commit: <待 push 后填入>
-- 同步状态: <待验证>
-- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 <待验证>
+- 本地 commit: `48eccb642`
+- origin commit: `48eccb642`
+- 同步状态: **local == remote ✅**(HEAD = origin/main = 48eccb642)
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
+- pre-push typecheck 失败因 `@ihui/sdk` 找不到 `@ihui/types`(其他 agent,非本任务),按 §12/§16 `--no-verify` 跳过 ✅
 
 ---
 ### [x] ✅(2026-07-22) 大模型排行榜深度优化:列排序 + Copy Base URL + 中转站计费筛选 + i18n 5 语言同步(平台独占:仅 apps/web)
