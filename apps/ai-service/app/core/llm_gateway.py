@@ -12,6 +12,7 @@ import os
 from typing import Any, AsyncIterator, Optional
 
 import asyncpg
+import httpx
 
 from .config import settings
 from ..providers import get_provider as _get_native_provider
@@ -20,6 +21,27 @@ from ..providers.base_provider import BaseProvider, ProviderError
 logger = logging.getLogger(__name__)
 
 _pool: Optional[asyncpg.Pool] = None
+
+# 全局共享 httpx.AsyncClient(连接池复用,避免每次请求新建 client)
+# provider 通过 get_http_client() 获取,在 main.py lifespan shutdown 中 close_http_client()
+_http_client: Optional[httpx.AsyncClient] = None
+
+
+def get_http_client() -> httpx.AsyncClient:
+    """获取全局共享 httpx.AsyncClient(懒初始化,连接池复用)。"""
+    global _http_client
+    if _http_client is None:
+        _http_client = httpx.AsyncClient(timeout=60.0)
+    return _http_client
+
+
+async def close_http_client() -> None:
+    """关闭全局 httpx.AsyncClient(main.py shutdown 调用)。"""
+    global _http_client
+    if _http_client is not None:
+        await _http_client.aclose()
+        _http_client = None
+        logger.info("global httpx.AsyncClient closed")
 
 
 async def _get_pool() -> asyncpg.Pool:
@@ -128,6 +150,7 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     "parasail/": "parasail",
     "openwebui/": "openwebui",
     "lmstudio/": "lmstudio",
+    "llamacpp/": "llamacpp",
     # 第三方模型系列(走对应厂商)
     "command-": "cohere",
     "sonar-": "perplexity",
@@ -419,7 +442,7 @@ class LLMGateway:
             "FRIENDLI_API_KEY", "ANYSCALE_API_KEY", "LEPTONAI_API_KEY",
             "PPIO_API_KEY", "SILICONCLOUD_API_KEY", "MODELSCOPE_API_KEY",
             "NEBIUS_API_KEY", "FEATHERLESS_API_KEY", "PARASAIL_API_KEY",
-            "OPENWEBUI_API_KEY", "LMSTUDIO_API_KEY",
+            "OPENWEBUI_API_KEY", "LMSTUDIO_API_KEY", "LLAMACPP_API_BASE",
             # 2026-07-22 接入:免费 / 试用 credits provider(参考 cheahjs/free-llm-api-resources)
             "CLOUDFLARE_API_TOKEN",  # Workers AI(需配合 CLOUDFLARE_ACCOUNT_ID)
             "NVIDIA_API_KEY",  # NIM
@@ -467,6 +490,10 @@ class LLMGateway:
             return settings.anthropic_api_key, None, model
         if m.startswith("ollama/"):
             return os.environ.get("OLLAMA_API_KEY") or None, os.environ.get("OLLAMA_API_BASE", "http://localhost:11434"), model
+        if m.startswith("lmstudio/"):
+            return os.environ.get("LMSTUDIO_API_KEY") or "lm-studio", os.environ.get("LMSTUDIO_API_BASE", "http://localhost:1234"), model
+        if m.startswith("llamacpp/"):
+            return None, os.environ.get("LLAMACPP_API_BASE", "http://localhost:8080"), model
         if m.startswith("azure/"):
             return os.environ.get("AZURE_API_KEY") or None, os.environ.get("AZURE_API_BASE") or None, model
         if m.startswith("bedrock/"):
@@ -768,8 +795,8 @@ class LLMGateway:
                             if hasattr(chunk.usage, "model_dump")
                             else dict(chunk.usage)
                         )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("chunk usage 序列化失败: %s", e)
                 if hasattr(chunk, "model") and chunk.model:
                     final_model = chunk.model
             # provider 不返回 stream_usage(如 StepFun)时,用 litellm.token_counter 估算兜底
