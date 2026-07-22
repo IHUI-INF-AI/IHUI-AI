@@ -861,3 +861,61 @@ export async function findUserLearnRecords(userId: string): Promise<
     lastStudyAt: r.lastStudyAt ? r.lastStudyAt.toISOString() : null,
   }))
 }
+
+// =============================================================================
+// 补齐旧架构迁移缺失功能 (2026-07-22)
+// 来源: git 3ee96cf09 client/src/api/edu/web/index/index.ts (getRecommendLesson/getHotLesson)
+//       + ask/category.ts (getAllParent) — 旧函数功能未迁移,本节补齐
+// =============================================================================
+
+/**
+ * 推荐课程:按报名数降序取前 N 条(已发布且启用)。
+ * 替代旧架构 getRecommendLesson,无 isRecommend 字段时用 signupCount 代理。
+ */
+export async function findRecommendLessons(limit = 10): Promise<LessonWithCategory[]> {
+  const rows = await db
+    .select({ lesson: lessons, categoryName: learnCategories.name })
+    .from(lessons)
+    .leftJoin(learnCategories, eq(lessons.categoryId, learnCategories.id))
+    .where(and(eq(lessons.isPublished, true), eq(lessons.status, 1)))
+    .orderBy(desc(lessons.signupCount), desc(lessons.createdAt))
+    .limit(limit)
+  return rows.map((r) => ({ ...r.lesson, categoryName: r.categoryName }))
+}
+
+/**
+ * 热门课程:按浏览数降序取前 N 条(已发布且启用)。
+ * 替代旧架构 getHotLesson。
+ */
+export async function findHotLessons(limit = 10): Promise<LessonWithCategory[]> {
+  const rows = await db
+    .select({ lesson: lessons, categoryName: learnCategories.name })
+    .from(lessons)
+    .leftJoin(learnCategories, eq(lessons.categoryId, learnCategories.id))
+    .where(and(eq(lessons.isPublished, true), eq(lessons.status, 1)))
+    .orderBy(desc(lessons.viewCount), desc(lessons.createdAt))
+    .limit(limit)
+  return rows.map((r) => ({ ...r.lesson, categoryName: r.categoryName }))
+}
+
+/**
+ * 获取分类的所有父级路径(从当前到根)。
+ * 替代旧架构 getAllParent,用递归 CTE 遍历 learn_categories.pid 自引用。
+ */
+export async function findCategoryParents(id: string): Promise<LearnCategory[]> {
+  const result = await db.execute(sql`
+    WITH RECURSIVE category_path AS (
+      SELECT id, name, pid, sort, status, created_at
+      FROM learn_categories
+      WHERE id = ${id}
+      UNION ALL
+      SELECT c.id, c.name, c.pid, c.sort, c.status, c.created_at
+      FROM learn_categories c
+      JOIN category_path cp ON c.id = cp.pid
+    )
+    SELECT id, name, pid, sort, status, created_at
+    FROM category_path
+    ORDER BY sort ASC, created_at ASC
+  `)
+  return result as unknown as LearnCategory[]
+}
