@@ -28546,7 +28546,8 @@
       "noQuickImport": "ワンクリックインポート非対応",
       "copyBaseUrl": "Base URL をコピー",
       "baseUrlCopied": "Base URL をクリップボードにコピーしました",
-      "copyFailed": "コピー失敗、手動でコピーしてください"
+      "copyFailed": "コピー失敗、手動でコピーしてください",
+      "copyAndImport": "コピーしてインポート"
     },
     "apiRelays": {
       "title": "API リレー",
