@@ -41,8 +41,8 @@
 
 <p align="center">
   <strong>中国ミラー</strong> ·
-  <a href="https://gitee.com/IHUI-INF-AI/IHUI-AI">Gitee</a> ·
-  <a href="https://gitcode.com/IHUI-INF-AI/IHUI-AI">GitCode</a>
+  <a href="https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI">Gitee</a> ·
+  <a href="https://gitcode.com/lichunchuan1/IHUI-AI">GitCode</a>
   <br/>
   <sub>中国ユーザーに高速なクローン/ダウンロード、GitHubと自動同期</sub>
 </p>
