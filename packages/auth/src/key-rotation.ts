@@ -20,7 +20,7 @@
 import { createHash } from 'node:crypto'
 import { SignJWT, jwtVerify } from 'jose'
 import type IORedis from 'ioredis'
-import { getJwtSecret, type JWTPayload } from './jwt.js'
+import { getJwtSecret, type JWTPayload, ACCESS_TOKEN_TTL_SECONDS } from './jwt.js'
 
 /** 密钥版本 */
 export interface KeyVersion {
@@ -293,7 +293,7 @@ export class JwtKeyRotator {
       .setSubject(payload.userId)
       .setIssuer(ISSUER)
       .setIssuedAt()
-      .setExpirationTime('7d')
+      .setExpirationTime(`${ACCESS_TOKEN_TTL_SECONDS}s`)
       .sign(this.current.key)
   }
 

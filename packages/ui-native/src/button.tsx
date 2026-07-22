@@ -39,6 +39,8 @@ export function Button({
     <Pressable
       className={cn(buttonVariants({ variant, size }), disabled && 'opacity-50', className)}
       disabled={disabled || loading}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || loading }}
       {...props}
     >
       {loading ? (
