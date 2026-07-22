@@ -417,7 +417,7 @@ class AgentLoopRuntime {
               ],
               stream: false,
             }),
-            signal: AbortSignal.timeout(30_000),
+            signal: AbortSignal.timeout(60_000),
           })
           if (llmResp.ok) {
             const llmData = (await llmResp.json()) as {
