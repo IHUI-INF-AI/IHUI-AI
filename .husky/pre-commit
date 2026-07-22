@@ -185,6 +185,14 @@ run('🌐 检查多端同步开发守门(warn-only)...', 'node scripts/check-mul
 // 反面案例: 2026-07-22 P3 深度层三大壁垒交付后 README 未同步, 用户在远端看不到最新能力清单
 run('📖 检查 README 同步守门(warn-only)...', 'node scripts/check-readme-sync.mjs --staged')
 
+// 24. 侧边栏宽度一致性守门(2026-07-22 立, 防回归)
+// 防止 design-tokens.css 的 --sidebar-width 与 sidebar.tsx 的 SIDEBAR_WIDTH 不一致,
+// 导致首屏 CSS 预设值 → JS useEffect 覆盖值的宽度跳变闪烁
+// 根因案例: design-tokens.css 有 200px, sidebar.tsx SIDEBAR_WIDTH=130, CSS 先渲染 200px 再跳到 130px
+if (!run('📏 检查侧边栏宽度一致性...', 'node scripts/check-sidebar-width-consistency.mjs --staged')) {
+  process.exit(1)
+}
+
 // 23. Staged 文件清单打印(lightweight, 2026-07-21 立)
 // commit 前最后看一眼 staged 清单, 杜绝"混入其他 agent 改动"污染事故
 // 与第 19 项 check-staged-pollution 互补: 19 是跨端超阈值 warn, 23 是无条件打印清单
