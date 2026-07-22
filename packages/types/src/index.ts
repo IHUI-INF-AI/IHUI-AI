@@ -32,8 +32,10 @@ export * from './legacy-migration.js'
 export * from './ide-workspace.js'
 
 // 开发者 API Key 跨端契约(2026-07-22 立,统一权限点枚举 + 鉴权类型 + /v1/* 响应格式)
-// 注:此行由其他 agent 维护,本 commit 暂不含,见 packages/types/src/api-key.ts(untracked,WIP)
-// export * from './api-key.js'
+export * from './api-key.js'
 
 // 四层记忆 + Dream 梦境系统跨端契约(2026-07-22 立,对标 OpenClaw Mem)
 export * from './memory.js'
+
+// Webhook 触发器跨端契约(2026-07-22 立,Wave 3 W3-3 对标 OpenClaw webhook)
+export * from './webhook-trigger.js'
