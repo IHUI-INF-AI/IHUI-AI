@@ -1,5 +1,5 @@
 /**
- * 5 级 DataScope 数据权限。
+ * 6 级 DataScope 数据权限。
  *
  * 设计对齐 legacy `app/security.py` 的 build_data_scope_query (Bug-12):
  *  - 用最小 scope 优先：admin(ALL) > manager(ORGANIZATION) > user(SELF)
