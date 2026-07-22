@@ -15,10 +15,10 @@ class Settings(BaseSettings):
     app_name: str = "IHUI AI Service"
     node_env: str = "development"
     debug: bool = False
-    port: int = 8000
+    port: int = 3003
     host: str = "0.0.0.0"
     log_level: str = "info"
-    cors_origin: str = "http://localhost:3000"
+    cors_origin: str = "http://localhost:3001"
 
     # 数据存储
     database_url: str = "postgres://postgres:postgres@localhost:5432/ihui_ai"
