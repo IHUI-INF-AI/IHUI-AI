@@ -145,6 +145,15 @@ const agentParallelSchema = z.object({
 })
 
 // =============================================================================
+// Fastify OpenAPI schemas(共享)
+// =============================================================================
+
+const errorResponseSchema = {
+  type: 'object',
+  properties: { code: { type: 'number' }, message: { type: 'string' } },
+}
+
+// =============================================================================
 // 辅助函数
 // =============================================================================
 
@@ -329,6 +338,33 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/embeddings',
     {
+      schema: {
+        description: 'Embedding 向量生成',
+        tags: ['AI Core'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            input: { type: ['string', 'array'] },
+            dimensions: { type: 'number' },
+          },
+          required: ['model', 'input'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: { type: 'array' },
+              model: { type: 'string' },
+              usage: { type: 'object' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('embeddings:write'),
@@ -398,6 +434,34 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/chat/vision',
     {
+      schema: {
+        description: '视觉理解',
+        tags: ['AI Core'],
+        body: {
+          type: 'object',
+          properties: {
+            model: { type: 'string' },
+            image: { type: 'string' },
+            prompt: { type: 'string' },
+            maxTokens: { type: 'number' },
+          },
+          required: ['model', 'image', 'prompt'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              description: { type: 'string' },
+              model: { type: 'string' },
+              usage: { type: 'object' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          502: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('chat:write'),
@@ -453,6 +517,34 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/chat/moa',
     {
+      schema: {
+        description: 'Mixture of Agents 多智能体混合补全',
+        tags: ['AI Core'],
+        body: {
+          type: 'object',
+          properties: {
+            messages: { type: 'array' },
+            presetId: { type: 'string' },
+            stream: { type: 'boolean' },
+          },
+          required: ['messages'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              output: { type: 'string' },
+              presetId: { type: 'string' },
+              model: { type: 'string' },
+              usage: { type: 'object' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          502: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('chat:write'),
@@ -519,6 +611,32 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/moa-presets',
     {
+      schema: {
+        description: 'MoA 预设列表',
+        tags: ['AI Core'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    name: { type: 'string' },
+                    models: { type: 'array', items: { type: 'string' } },
+                    strategy: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('models:read'),
@@ -565,6 +683,24 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/moa-presets',
     {
+      schema: {
+        description: '创建 MoA 预设',
+        tags: ['AI Core'],
+        body: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            models: { type: 'array', items: { type: 'string' } },
+            strategy: { type: 'string' },
+          },
+          required: ['name', 'models', 'strategy'],
+        },
+        response: {
+          200: { type: 'object' },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('models:write'),
@@ -590,6 +726,32 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/models/:id',
     {
+      schema: {
+        description: '模型详情',
+        tags: ['AI Core'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              object: { type: 'string' },
+              created: { type: 'number' },
+              ownedBy: { type: 'string' },
+              capabilities: { type: 'array', items: { type: 'string' } },
+              contextWindow: { type: 'number' },
+              supportsStream: { type: 'boolean' },
+            },
+          },
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('models:read'),
@@ -626,6 +788,27 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/vendors/:vendor/models',
     {
+      schema: {
+        description: '厂商模型列表',
+        tags: ['AI Core'],
+        params: {
+          type: 'object',
+          properties: { vendor: { type: 'string' } },
+          required: ['vendor'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              vendor: { type: 'string' },
+              object: { type: 'string' },
+              data: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('models:read'),
@@ -659,6 +842,35 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/user/models',
     {
+      schema: {
+        description: '用户自定义模型列表',
+        tags: ['AI Core'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    name: { type: 'string' },
+                    provider: { type: 'string' },
+                    model: { type: 'string' },
+                    apiKey: { type: 'string' },
+                    baseUrl: { type: 'string' },
+                    createdAt: { type: 'string' },
+                    updatedAt: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('models:read'),
@@ -693,6 +905,38 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/user/models',
     {
+      schema: {
+        description: '创建用户模型',
+        tags: ['AI Core'],
+        body: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            provider: { type: 'string' },
+            model: { type: 'string' },
+            apiKey: { type: 'string' },
+            baseUrl: { type: 'string' },
+          },
+          required: ['name', 'provider', 'model', 'apiKey'],
+        },
+        response: {
+          201: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              name: { type: 'string' },
+              provider: { type: 'string' },
+              model: { type: 'string' },
+              apiKey: { type: 'string' },
+              baseUrl: { type: 'string' },
+              createdAt: { type: 'string' },
+              updatedAt: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('models:write'),
@@ -739,6 +983,44 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.put(
     '/user/models/:id',
     {
+      schema: {
+        description: '更新用户模型',
+        tags: ['AI Core'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        body: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            provider: { type: 'string' },
+            model: { type: 'string' },
+            apiKey: { type: 'string' },
+            baseUrl: { type: 'string' },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              name: { type: 'string' },
+              provider: { type: 'string' },
+              model: { type: 'string' },
+              apiKey: { type: 'string' },
+              baseUrl: { type: 'string' },
+              createdAt: { type: 'string' },
+              updatedAt: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('models:write'),
@@ -798,6 +1080,21 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.delete(
     '/user/models/:id',
     {
+      schema: {
+        description: '删除用户模型',
+        tags: ['AI Core'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          204: { type: 'null' },
+          401: errorResponseSchema,
+          403: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('models:write'),
@@ -828,6 +1125,38 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/agents/execute',
     {
+      schema: {
+        description: 'Agent 高级执行',
+        tags: ['AI Core'],
+        body: {
+          type: 'object',
+          properties: {
+            agentId: { type: 'string' },
+            input: { type: 'string' },
+            sessionId: { type: 'string' },
+            permissionMode: { type: 'string' },
+            maxIterations: { type: 'number' },
+          },
+          required: ['agentId', 'input'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              taskId: { type: 'string' },
+              sessionId: { type: 'string' },
+              status: { type: 'string' },
+              output: { type: 'string' },
+              iterations: { type: 'number' },
+              usage: { type: 'object' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          502: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('agents:call'),
@@ -895,6 +1224,26 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/agents/execute/stream',
     {
+      schema: {
+        description: 'Agent 流式执行(SSE)',
+        tags: ['AI Core'],
+        body: {
+          type: 'object',
+          properties: {
+            agentId: { type: 'string' },
+            input: { type: 'string' },
+            sessionId: { type: 'string' },
+            permissionMode: { type: 'string' },
+            maxIterations: { type: 'number' },
+          },
+          required: ['agentId', 'input'],
+        },
+        response: {
+          200: { type: 'string' },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('agents:call'),
@@ -986,6 +1335,31 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/agents/tasks/:id/status',
     {
+      schema: {
+        description: '任务状态',
+        tags: ['AI Core'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              taskId: { type: 'string' },
+              status: { type: 'string' },
+              progress: { type: 'number' },
+              result: { type: 'string' },
+              error: { type: 'string' },
+              createdAt: { type: 'string' },
+              updatedAt: { type: 'string' },
+            },
+          },
+          401: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('agents:read'),
@@ -1034,6 +1408,19 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/agents/tasks/:id/cancel',
     {
+      schema: {
+        description: '取消任务',
+        tags: ['AI Core'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: { type: 'object' },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('agents:call'),
@@ -1054,6 +1441,34 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/agents/sessions',
     {
+      schema: {
+        description: '会话列表',
+        tags: ['AI Core'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string' },
+                    agentId: { type: 'string' },
+                    title: { type: 'string' },
+                    messageCount: { type: 'number' },
+                    lastMessageAt: { type: 'string' },
+                    createdAt: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          401: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('agents:read'),
@@ -1101,6 +1516,21 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.delete(
     '/agents/sessions/:id',
     {
+      schema: {
+        description: '删除会话',
+        tags: ['AI Core'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: { type: 'object' },
+          204: { type: 'null' },
+          401: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('agents:read'),
@@ -1134,6 +1564,41 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/agents/pipeline',
     {
+      schema: {
+        description: 'Pipeline 编排',
+        tags: ['AI Core'],
+        body: {
+          type: 'object',
+          properties: {
+            steps: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  agentId: { type: 'string' },
+                  input: { type: 'string' },
+                  dependsOn: { type: 'array', items: { type: 'number' } },
+                },
+                required: ['agentId', 'input'],
+              },
+            },
+          },
+          required: ['steps'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              pipelineId: { type: 'string' },
+              results: { type: 'array' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          502: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('agents:call'),
@@ -1194,6 +1659,40 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/agents/parallel',
     {
+      schema: {
+        description: '并行执行',
+        tags: ['AI Core'],
+        body: {
+          type: 'object',
+          properties: {
+            tasks: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  agentId: { type: 'string' },
+                  input: { type: 'string' },
+                },
+                required: ['agentId', 'input'],
+              },
+            },
+          },
+          required: ['tasks'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              batchId: { type: 'string' },
+              results: { type: 'array' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          502: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('agents:call'),
@@ -1250,6 +1749,15 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/agents/decompose',
     {
+      schema: {
+        description: '任务分解',
+        tags: ['AI Core'],
+        body: { type: 'object' },
+        response: {
+          200: { type: 'object' },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('agents:call'),
