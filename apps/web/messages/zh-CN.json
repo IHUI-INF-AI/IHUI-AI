@@ -20494,6 +20494,7 @@
     "listStatusApproved": "已通过",
     "listStatusRejected": "已拒绝",
     "listStatusCompleted": "已完成",
+    "listReason": "原因: {reason}",
     "detailTitle": "退款详情",
     "detailNotFound": "退款记录不存在",
     "detailBack": "返回",

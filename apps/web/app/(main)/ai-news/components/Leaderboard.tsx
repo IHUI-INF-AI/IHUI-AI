@@ -7,6 +7,9 @@ import type { LeaderboardEntry, LeaderboardCategory } from '@/lib/ai-news-api'
 import { ModelDetailDialog } from './ModelDetailDialog'
 import { ModelCompareBar } from './ModelCompareBar'
 import { ModelCompareDialog } from './ModelCompareDialog'
+import { parseNumeric, highlight } from './text-utils'
+// 向后兼容:旧导入 `import { parseNumeric } from './Leaderboard'` 仍可用
+export { parseNumeric } from './text-utils'
 import { toast } from 'sonner'
 
 interface Props {
@@ -25,35 +28,6 @@ type SortField =
   | 'releaseDate'
 
 type SortDir = 'asc' | 'desc'
-
-/** 把字符串数字("200K" / "1M" / "$3.00/1M")解析为数值用于排序 */
-export function parseNumeric(raw: string | number | null | undefined): number | null {
-  if (raw === null || raw === undefined || raw === '') return null
-  if (typeof raw === 'number') return raw
-  const s = String(raw).trim().toLowerCase()
-  // 提取数字部分(含小数)
-  const m = s.match(/([\d.]+)\s*([km])?/)
-  if (!m || !m[1]) return null
-  const n = parseFloat(m[1])
-  if (isNaN(n)) return null
-  if (m[2] === 'k') return n * 1_000
-  if (m[2] === 'm') return n * 1_000_000
-  return n
-}
-
-/** 高亮搜索关键词:大小写不敏感,匹配部分用 <mark> 包裹 */
-function highlight(text: string, query: string): React.ReactNode {
-  const q = query.trim()
-  if (!q) return text
-  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const parts = text.split(new RegExp(`(${escaped})`, 'gi'))
-  if (parts.length === 1) return text
-  return parts.map((part, i) =>
-    part.toLowerCase() === q.toLowerCase()
-      ? <mark key={i} className="rounded-sm bg-yellow-200/70 px-0.5 text-foreground dark:bg-yellow-500/30">{part}</mark>
-      : part
-  )
-}
 
 /** localStorage 排序偏好:按分类记忆 sortField + sortDir */
 const SORT_PREF_KEY = 'leaderboard-sort-pref'
@@ -76,6 +50,28 @@ function writeSortPref(category: string, field: SortField, dir: SortDir) {
     const all = raw ? (JSON.parse(raw) as Record<string, { field: SortField; dir: SortDir }>) : {}
     all[category] = { field, dir }
     localStorage.setItem(SORT_PREF_KEY, JSON.stringify(all))
+  } catch {
+    // SSR / 隐私模式 / 配额溢出,静默降级
+  }
+}
+
+/** localStorage 对比列表:只存 id 数组,恢复时按 id 匹配 entries */
+const COMPARE_KEY = 'ai-news-compare-list'
+
+function readCompareList(): string[] {
+  try {
+    const raw = localStorage.getItem(COMPARE_KEY)
+    if (!raw) return []
+    return JSON.parse(raw) as string[]
+  } catch {
+    return []
+  }
+}
+
+function writeCompareList(entries: LeaderboardEntry[]) {
+  try {
+    const ids = entries.map((e) => e.id)
+    localStorage.setItem(COMPARE_KEY, JSON.stringify(ids))
   } catch {
     // SSR / 隐私模式 / 配额溢出,静默降级
   }
@@ -220,12 +216,18 @@ export function Leaderboard({ entries }: Props) {
   function toggleCompare(entry: LeaderboardEntry) {
     setCompareList((prev) => {
       const exists = prev.some((e) => e.id === entry.id)
-      if (exists) return prev.filter((e) => e.id !== entry.id)
-      if (prev.length >= 5) {
-        toast.error(t('compare.maxToast'))
-        return prev
+      let next: LeaderboardEntry[]
+      if (exists) {
+        next = prev.filter((e) => e.id !== entry.id)
+      } else {
+        if (prev.length >= 5) {
+          toast.error(t('compare.maxToast'))
+          return prev
+        }
+        next = [...prev, entry]
       }
-      return [...prev, entry]
+      writeCompareList(next)
+      return next
     })
   }
 
@@ -238,6 +240,15 @@ export function Leaderboard({ entries }: Props) {
     setSearchQuery('')
     setActiveVendor(null)
   }, [activeCategory])
+
+  // 从 localStorage 恢复对比列表(按 id 匹配 entries)
+  React.useEffect(() => {
+    const ids = readCompareList()
+    if (ids.length > 0) {
+      const restored = entries.filter((e) => ids.includes(e.id))
+      if (restored.length > 0) setCompareList(restored)
+    }
+  }, [entries])
 
   /** 渲染排序图标 */
   function SortIcon({ field }: { field: SortField }) {
@@ -510,8 +521,17 @@ export function Leaderboard({ entries }: Props) {
       {compareList.length >= 2 ? (
         <ModelCompareBar
           entries={compareList}
-          onRemove={(id) => setCompareList((prev) => prev.filter((e) => e.id !== id))}
-          onClear={() => setCompareList([])}
+          onRemove={(id) =>
+            setCompareList((prev) => {
+              const next = prev.filter((e) => e.id !== id)
+              writeCompareList(next)
+              return next
+            })
+          }
+          onClear={() => {
+            setCompareList([])
+            writeCompareList([])
+          }}
           onCompare={() => setShowCompareDialog(true)}
         />
       ) : null}
