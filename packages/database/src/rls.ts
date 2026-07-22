@@ -53,11 +53,36 @@ export async function withTenant<T>(
   })
 }
 
-/** 系统/迁移任务专用:显式绕过 RLS */
+/**
+ * 系统/迁移任务专用:显式绕过 RLS。
+ *
+ * 2026-07-22 P1 鲁棒性加固:
+ * - 强制要求 reason 参数,非白名单 reason 抛错(防任意代码绕过 RLS)
+ * - 每次调用写审计日志(含 reason + 调用栈),便于事故追溯
+ * - 生产环境只允许 migration / seed / cleanup,测试环境放行 test-cleanup
+ *
+ * @param reason 必填,白名单:`migration` / `seed` / `cleanup` / `test-cleanup`
+ */
+const BYPASS_RLS_REASON_WHITELIST = new Set(['migration', 'seed', 'cleanup', 'test-cleanup'])
+
 export async function withBypassRls<T>(
   db: Database,
+  reason: string,
   fn: (tx: Parameters<Parameters<Database['transaction']>[0]>[0]) => Promise<T>,
 ): Promise<T> {
+  if (!reason || typeof reason !== 'string') {
+    throw new Error('[rls] withBypassRls 必须提供 reason 参数')
+  }
+  if (!BYPASS_RLS_REASON_WHITELIST.has(reason)) {
+    throw new Error(`[rls] withBypassRls reason 不在白名单: ${reason}(允许: ${[...BYPASS_RLS_REASON_WHITELIST].join(', ')})`)
+  }
+  // 生产环境守卫:只允许 migration / seed / cleanup(防测试代码误用)
+  if (process.env.NODE_ENV === 'production' && reason === 'test-cleanup') {
+    throw new Error('[rls] 生产环境禁止 test-cleanup reason')
+  }
+  // 审计日志:warn 级别便于在日志系统告警
+  const stack = new Error().stack
+  console.warn(`[bypass-rls] reason=${reason} stack=${stack?.split('\n').slice(0, 5).join(' | ')}`)
   return db.transaction(async (tx) => {
     await tx.execute(sql`SELECT set_config('app.bypass_rls', 'true', true)`)
     return fn(tx)
