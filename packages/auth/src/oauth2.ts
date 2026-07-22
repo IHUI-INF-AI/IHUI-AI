@@ -165,18 +165,38 @@ export interface AuthorizationCodeStore {
   consume(code: string): Promise<StoredAuthorizationCode | null>;
 }
 
-/** 内存实现（开发用）。code 消费后即删除，过期项惰性清理。 */
+/** 内存实现（开发用）。code 消费后即删除，过期项通过 setTimeout 自动清理。 */
 export class InMemoryAuthorizationCodeStore implements AuthorizationCodeStore {
   private readonly store = new Map<string, StoredAuthorizationCode>();
+  private readonly timers = new Map<string, NodeJS.Timeout>();
 
   async save(entry: StoredAuthorizationCode): Promise<void> {
     this.store.set(entry.code, entry);
+    // 过期自动清理,避免未被 consume 的 code 长期驻留导致内存泄漏
+    const ttl = entry.expiresAt.getTime() - Date.now();
+    if (ttl > 0) {
+      const timer = setTimeout(() => {
+        this.store.delete(entry.code);
+        this.timers.delete(entry.code);
+      }, ttl);
+      // Node.js 事件循环不持有 ref 的 timer 不会阻止进程退出
+      timer.unref?.();
+      this.timers.set(entry.code, timer);
+    } else {
+      this.store.delete(entry.code);
+    }
   }
 
   async consume(code: string): Promise<StoredAuthorizationCode | null> {
     const entry = this.store.get(code);
     if (!entry) return null;
     this.store.delete(code);
+    // 清理对应的过期定时器
+    const timer = this.timers.get(code);
+    if (timer) {
+      clearTimeout(timer);
+      this.timers.delete(code);
+    }
     if (entry.expiresAt.getTime() < Date.now()) return null;
     return entry;
   }
