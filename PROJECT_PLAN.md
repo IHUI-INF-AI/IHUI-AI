@@ -212,6 +212,44 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 - pre-push typecheck 失败因 `@ihui/sdk` 找不到 `@ihui/types`(其他 agent,非本任务),按 §12 `--no-verify` 跳过 ✅
 
 ---
+### [x] ✅(2026-07-22) 大模型排行榜深度优化:列排序 + Copy Base URL + 中转站计费筛选 + i18n 5 语言同步(平台独占:仅 apps/web)
+
+**触发**:承接前序 agent(对话文件 `E:\桌面\大模型排行榜数据落地与路由修复.md`)四轮交付(8 大分类排行榜 + 89 条 seed + 路由冲突修复 + i18n parity + 官方 API Key 链接 + 一键导入 + API 中转站 + 文档中心)后的"下一步建议"深度开发。
+
+**交付内容**(1 commit,9 文件,平台独占:仅 apps/web):
+
+| 模块 | 文件 | 改动 |
+|---|---|---|
+| Leaderboard | [Leaderboard.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/ai-news/components/Leaderboard.tsx) | 新增 8 字段可点击表头排序(Arena 评分/胜率/投票/上下文/最大输出/输入价/输出价/发布)+ `parseNumeric` 解析 "200K"/"1M"/"$3.00/1M" + null 永远排末尾 + 切分类重置排序 + `SortIcon`/`sortableTh` helper |
+| ModelDetailDialog | [ModelDetailDialog.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/ai-news/components/ModelDetailDialog.tsx) | 新增 "复制 Base URL" 按钮(navigator.clipboard.writeText + sonner toast 反馈) |
+| ApiRelaysSection | [ApiRelaysSection.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/ai-news/components/ApiRelaysSection.tsx) | 新增 5 模式计费筛选 chip(全部/按 token/免费/GPU 算力/套餐订阅)+ `matchBillingMode` 文本匹配 |
+| i18n × 5 | `apps/web/messages/{zh-CN,en,ja,ko,zh-TW}.json` | 同步新增 10 键(`leaderboard.sortHint` + `detailDialog.{copyBaseUrl,baseUrlCopied,copyFailed}` + `apiRelays.{billingLabel,allBilling,billingToken,billingFree,billingGpu,billingSubscription}`),5 语言 × 116 keys parity 全 OK |
+| 文档 | [docs/AI_LEADERBOARD.md](file:///g:/IHUI-AI/docs/AI_LEADERBOARD.md) | 1.1 列排序功能 / 1.3 复制 Base URL / 3.2 升级搜索 + 厂商 + 计费筛选 / i18n 键数表更新 |
+
+**核心能力升级**:
+1. **列排序**:点击表头同字段切 asc/desc,不同字段切字段并默认降序;`parseNumeric` 把 "200K"/"1M"/"$3.00/1M" 字符串解析为数值;null 值永远排末尾(不污染排序);切分类自动重置(避免生图榜按 LLM arenaScore 排)
+2. **Copy Base URL**:详情弹窗官方资源区追加复制按钮,一键拷贝 `platform.defaultBaseUrl` 到剪贴板,配合"一键导入"链路(`?prefill=<base64>` → ProviderFormDialog)形成完整 UX 闭环
+3. **计费模式筛选**:5 chip(全部/按 token/免费/GPU 算力/套餐订阅),`matchBillingMode` 从 billing 文本提取模式(支持中英关键词:`按 token`/`per token`/`免费`/`free`/`gpu`/`按秒`/`算力`/`套餐`/`包月`/`包年`)
+4. **i18n 5 语言 parity**:zh-CN 基准 + en/ja/ko/zh-TW 全对齐 116 keys,zh-TW opencc 简体字残留守门通过
+
+**§9 平台独占豁免标注**:本任务仅触及 `apps/web/app/(main)/ai-news/components/` + `apps/web/messages/` + `docs/`,属 web 平台独占(纯前端 UI 增强 + i18n + 文档,不改 API 契约/schema/共享类型/共享 UI 组件 props)。不涉及 api / ai-service / desktop / extension / mobile-rn / miniapp-taro / cli 任一端,无需跨端同步。
+
+**§22 README 同步评估**:本任务是"现有功能增强"(列排序 + 复制按钮 + 计费筛选),不改变对外能力清单(仍是 AI 资讯 + 大模型排行榜),且 `docs/AI_LEADERBOARD.md` 已同步更新。豁免根目录 README 更新(§22 豁免:单端内部优化,不改变跨端契约)。
+
+**自验**(§17/§19 强制):
+- `pnpm --filter @ihui/web typecheck` 本任务 3 组件文件全绿(其他错误属其他 agent:`unified-ai-panel`/`@monic-editor/react`/`PasswordLoginForm`,按 §12 不管)
+- i18n 5 语言 parity 内联脚本验证 116 keys 全对齐
+- `scan-i18n-zh-residue.mjs zh-TW` opencc 守门通过
+- browser_use 4 状态自验(默认/hover/active/dark):计费筛选 5 chip 存在 + 排序图标存在 + dark class 已应用 + DOM 属性确认(状态 4 因预算耗尽仅核心验证,前 3 状态完整截图)
+
+**Git 同步证据**(§21):
+- 本地 commit: <待 commit 后填入>
+- origin commit: <待 push 后填入>
+- 同步状态: <待验证>
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 <待验证>
+- pre-commit hook 若失败因其他 agent 代码(`unified-ai-panel`/`@ihui/sdk` dist 等),按 §12/§16 `--no-verify` 跳过
+
+---
 ### [x] ✅(2026-07-22) ai-news 入口梳理 + ai-world ?tab= query param 支持(平台独占:仅 apps/web)
 
 **触发**:用户反馈"`http://localhost:8801/ai-news` 这个页面的入口在哪里啊 怎么点击左侧侧边栏的AI世界 跟他不是一个页面呢 那这个页面是什么作用 怎么个逻辑使用 跳转 怎么乱七八糟的 懵了 而且这个页面的AI资讯广场按钮点击后 怎么跳转到其他别人的网站去了 你这是什么设定啊"。用户后续指示"继续按你的建议去做执行,要求完美细致完整毫无遗漏"。
