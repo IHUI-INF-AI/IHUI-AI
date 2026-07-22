@@ -41,17 +41,29 @@ export function PhoneCodeLoginForm({
   const [sending, setSending] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
   const [autoLogin, setAutoLogin] = React.useState(loadLocalLoginPrefs().autoLogin)
+  // 2026-07-22 P1 鲁棒性加固:interval 存 ref,unmount 时清理防内存泄漏
+  const countdownTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
 
   React.useEffect(() => {
     if (!active) setErr(null)
   }, [active])
 
+  React.useEffect(() => {
+    return () => {
+      if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
+    }
+  }, [])
+
   const startCountdown = () => {
     setCountdown(60)
-    const timer = setInterval(() => {
+    if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
+    countdownTimerRef.current = setInterval(() => {
       setCountdown((c) => {
         if (c <= 1) {
-          clearInterval(timer)
+          if (countdownTimerRef.current) {
+            clearInterval(countdownTimerRef.current)
+            countdownTimerRef.current = null
+          }
           return 0
         }
         return c - 1
