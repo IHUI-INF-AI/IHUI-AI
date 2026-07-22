@@ -125,8 +125,15 @@ export async function verifyAccessToken(token: string): Promise<JWTPayload> {
     throw err
   }
 
+  // sub 是签发时 setSubject(userId) 写入,缺失说明 token 被篡改或格式错误,拒绝
+  if (!payload.sub) {
+    const err = new Error('invalid access token: missing subject')
+    ;(err as Error & { statusCode: number }).statusCode = 401
+    throw err
+  }
+
   return {
-    userId: payload.sub ?? '',
+    userId: payload.sub,
     phone: String(payload.phone ?? ''),
     familyId: String(payload.familyId ?? ''),
     roleId: Number(payload.roleId ?? 0),
@@ -149,8 +156,15 @@ export async function verifyRefreshToken(token: string): Promise<JWTPayload> {
     throw err
   }
 
+  // sub 是签发时 setSubject(userId) 写入,缺失说明 token 被篡改或格式错误,拒绝
+  if (!payload.sub) {
+    const err = new Error('invalid refresh token: missing subject')
+    ;(err as Error & { statusCode: number }).statusCode = 401
+    throw err
+  }
+
   return {
-    userId: payload.sub ?? '',
+    userId: payload.sub,
     phone: String(payload.phone ?? ''),
     familyId: String(payload.familyId ?? ''),
     roleId: Number(payload.roleId ?? 0),
