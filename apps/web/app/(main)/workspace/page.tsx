@@ -3,10 +3,9 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
-import { FolderOpen, Loader2, Plus, Shield, AlertCircle, RefreshCw, X } from 'lucide-react'
+import { Loader2, Plus, AlertCircle, RefreshCw, X } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { useAiPanelStore } from '@/stores/ai-panel'
 import { Button, Input, Label } from '@ihui/ui'
 import {
   Dialog,
@@ -18,7 +17,6 @@ import {
   DialogFooter,
 } from '@ihui/ui'
 import { ProjectCard, type ProjectCardData } from '@/components/workspace/project-card'
-import { LocalFolderPicker } from '@/components/workspace/local-folder-picker'
 
 interface ProjectItem {
   id: string
@@ -58,11 +56,6 @@ export default function WorkspacePage() {
   const [description, setDescription] = React.useState('')
   const [formError, setFormError] = React.useState<string | null>(null)
   const [errorDismissed, setErrorDismissed] = React.useState(false)
-  const [folderPickerOpen, setFolderPickerOpen] = React.useState(false)
-  const [openedWorkspace, setOpenedWorkspace] = React.useState<{
-    path: string
-    name: string
-  } | null>(null)
 
   const createMutation = useMutation({
     mutationFn: createProject,
@@ -104,10 +97,6 @@ export default function WorkspacePage() {
           <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setFolderPickerOpen(true)}>
-            <FolderOpen className="h-4 w-4" />
-            {t('openLocalFolder')}
-          </Button>
           <Dialog open={dialogOpen} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
               <Button>
@@ -194,7 +183,6 @@ export default function WorkspacePage() {
               onClick={() => {
                 // 后端原始 message 仅写入 console 供调试,不出现在 UI
                 if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
-                  // eslint-disable-next-line no-console
                   console.error('[workspace] load projects failed:', error)
                 }
                 void refetch()
@@ -225,38 +213,6 @@ export default function WorkspacePage() {
           <p className="text-sm text-muted-foreground">{t('noProjects')}</p>
         </div>
       )}
-
-      {/* 已打开的本地工作区展示 */}
-      {openedWorkspace && (
-        <section className="space-y-3">
-          <h2 className="flex items-center gap-2 text-base font-semibold">
-            <Shield className="h-4 w-4 text-emerald-500" />
-            {t('openedWorkspace')}
-          </h2>
-          <div className="rounded-lg border bg-card p-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">{openedWorkspace.name}</p>
-                <p className="font-mono text-xs text-muted-foreground">{openedWorkspace.path}</p>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setFolderPickerOpen(true)}>
-                {t('reopenPermission')}
-              </Button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      <LocalFolderPicker
-        open={folderPickerOpen}
-        onOpenChange={setFolderPickerOpen}
-        onWorkspaceOpened={(path, name) => {
-          setOpenedWorkspace({ path, name })
-          // 同步 AI 面板 activeWorkspace:确保用户在 /workspace 页面打开的文件夹
-          // 与 AI 面板工作区选择器保持一致(双入口行为统一,P1 修复)
-          useAiPanelStore.getState().setActiveWorkspace({ path, name })
-        }}
-      />
     </div>
   )
 }
