@@ -1202,9 +1202,6 @@
       "routines": "루틴",
       "folders": "폴더"
     },
-    "openLocalFolder": "로컬 폴더 열기",
-    "openedWorkspace": "열린 워크스페이스",
-    "reopenPermission": "권한 재설정",
     "selectWorkspace": "워크스페이스 선택",
     "recentWorkspaces": "최근 워크스페이스",
     "folderPicker": {
@@ -28490,6 +28487,38 @@
       "label": "대형 자금 조달·인수",
       "title": "대형 자금 조달·인수",
       "subtitle": "7월 AI 업계 자본 동향: SpaceX가 Cursor를 600억 달러에 인수, DeepSeek 500억 위안 조달"
+    },
+    "detailDialog": {
+      "arenaScore": "Arena 점수",
+      "rank": "순위",
+      "rankDelta": "순위 변동",
+      "stable": "안정",
+      "winRate": "승률",
+      "voteCount": "투표수",
+      "contextWindow": "컨텍스트 윈도우",
+      "maxOutput": "최대 출력",
+      "inputPrice": "입력 가격",
+      "outputPrice": "출력 가격",
+      "releaseDate": "출시일",
+      "license": "라이선스",
+      "coreParams": "핵심 파라미터",
+      "highlight": "핵심 특징",
+      "capabilityRadar": "능력 레이더",
+      "noCapabilityData": "능력 점수 데이터 없음",
+      "officialResources": "공식 리소스",
+      "getApiKey": "API Key 발급",
+      "officialDocs": "공식 문서",
+      "quickImport": "원클릭 가져오기",
+      "noQuickImport": "원클릭 가져오기 미지원"
+    },
+    "apiRelays": {
+      "title": "API 릴레이",
+      "subtitle": "주요 API 어그리게이터 + 개인 릴레이 위험 안내, Provider 설정으로 원클릭 가져오기 지원",
+      "companyType": "기업 플랫폼",
+      "personalType": "개인 운영",
+      "import": "가져오기",
+      "riskTitle": "위험 경고",
+      "tipsTitle": "사용 팁"
     },
     "cta": {
       "label": "하단 CTA",
