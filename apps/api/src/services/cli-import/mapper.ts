@@ -3,17 +3,41 @@ import { randomUUID } from 'node:crypto'
 import type { CliApiFormat, CliAppType, CliConfigSource, ImportedProvider } from '@ihui/types'
 
 /**
- * providerCode 三重推断:
- * 1. baseUrl 域名匹配
- * 2. apiFormat 暗示
- * 3. modelId 前缀兜底
- * 都不匹配 → 'custom'
+ * providerCode 三重推断(2026-07-22 修正:model 优先于 URL):
+ *
+ * 设计哲学:providerCode 反映"用户实际使用的模型归属",而非"接入点域名"。
+ *   - 用户在 Cursor 配 `api.openai.com + model=deepseek-coder` → 实际用 DeepSeek 模型
+ *     经 OpenAI 兼容代理接入,providerCode 应为 `deepseek`(不是 `openai`)
+ *   - 用户在 Cline 配 `apiProvider=anthropic + baseUrl=api.openai.com` → 用户明确选了 Anthropic
+ *     providerCode 应为 `anthropic`(不是 `openai`)
+ *
+ * 修正前问题(深度测试暴露):
+ *   - `api.openai.com + model=deepseek-coder` → providerCode='openai'(model 兜底永远走不到)
+ *   - `api.openai.com + model=claude-3-opus` → providerCode='openai'(实际用 Claude 模型)
+ *
+ * 修正后顺序:
+ *   1. modelId 前缀(最准确,反映实际模型归属)
+ *   2. baseUrl 域名(兜底,当 model 未知或为通用名时)
+ *   3. apiFormat 暗示(最后兜底)
+ *   4. 'custom'
  */
 export function inferProviderCode(
   baseUrl: string,
   apiFormat: CliApiFormat,
   model?: string,
 ): string {
+  // 1. modelId 前缀优先(反映实际模型归属)
+  if (model?.startsWith('claude-')) return 'anthropic'
+  if (model?.startsWith('gpt-')) return 'openai'
+  if (model?.startsWith('gemini-')) return 'google'
+  if (model?.startsWith('deepseek-')) return 'deepseek'
+  if (model?.startsWith('kimi-') || model?.startsWith('moonshot-')) return 'moonshot'
+  if (model?.startsWith('glm-')) return 'zhipu'
+  if (model?.startsWith('qwen-')) return 'alibaba'
+  if (model?.startsWith('ernie-')) return 'baidu'
+  if (model?.startsWith('doubao-')) return 'bytedance'
+
+  // 2. baseUrl 域名兜底(model 未知或为通用名时,用接入点推断)
   const url = baseUrl.toLowerCase()
   if (url.includes('anthropic.com')) return 'anthropic'
   if (url.includes('openai.com')) return 'openai'
@@ -32,16 +56,6 @@ export function inferProviderCode(
   if (url.includes('siliconflow.cn')) return 'siliconflow'
   if (url.includes('packyapi.com') || url.includes('packycode')) return 'packycode'
   if (url.includes('aigocode.com')) return 'aigocode'
-  // 模型名兜底
-  if (model?.startsWith('claude-')) return 'anthropic'
-  if (model?.startsWith('gpt-')) return 'openai'
-  if (model?.startsWith('gemini-')) return 'google'
-  if (model?.startsWith('deepseek-')) return 'deepseek'
-  if (model?.startsWith('kimi-') || model?.startsWith('moonshot-')) return 'moonshot'
-  if (model?.startsWith('glm-')) return 'zhipu'
-  if (model?.startsWith('qwen-')) return 'alibaba'
-  if (model?.startsWith('ernie-')) return 'baidu'
-  if (model?.startsWith('doubao-')) return 'bytedance'
   return 'custom'
 }
 
