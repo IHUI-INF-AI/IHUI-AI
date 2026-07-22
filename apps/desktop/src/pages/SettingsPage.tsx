@@ -43,6 +43,7 @@ const IMPORT_SOURCES = [
   { value: 'tabnine', label: 'Tabnine (settings.json)' },
   { value: 'cody', label: 'Sourcegraph Cody (settings.json)' },
   { value: 'zed', label: 'Zed (settings.json)' },
+  { value: 'antigravity', label: 'Google Antigravity (settings.json)' },
 ] as const
 
 export default function SettingsPage() {
