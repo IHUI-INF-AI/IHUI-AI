@@ -196,9 +196,11 @@
 
 /* ============ sidebar 变量 ============ */
 /* 源: ihui-ai-admin-frontend variables.scss ($base-sidebar-width: 200px)
- *      其余 sidebar 变量为 RuoYi 风格约定值,由任务描述指定 */
+ *      其余 sidebar 变量为 RuoYi 风格约定值,由任务描述指定
+ * 2026-07-22 修复首屏宽度闪烁:--sidebar-width 从 200px 改为 130px,
+ * 与 sidebar.tsx 的 SIDEBAR_WIDTH 常量一致,避免 CSS 预设 200px → useEffect 覆盖 130px 的跳变 */
 :root {
-  --sidebar-width: 200px;
+  --sidebar-width: 130px;
   --sidebar-collapsed-width: 54px;
   --sidebar-menu-height: 24px;
   --sidebar-indent-1: 20px;
