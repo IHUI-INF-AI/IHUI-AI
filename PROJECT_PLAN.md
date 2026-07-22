@@ -425,3 +425,23 @@
 - [x] ✅(2026-07-23) 5 语言 i18n 同步(zh-CN/zh-TW/en/ko/ja):user 命名空间新增 admin/normalUser/identity key。
 - [x] ✅(2026-07-23) app.config.ts 路由注册修复:主包 pages 数组加 'pages/community/index'(tabBar 引用但主包未注册会导致小程序运行报错);setting 分包 pages 加 'privacy'(privacy.tsx 已创建但路由未注册无法访问)。
 - [x] ✅(2026-07-23) 验证:pnpm --filter @ihui/miniapp-taro typecheck exit 0 / lint exit 0(仅 1 个无关 warning)。
+
+## WorkerPool 资源隔离与超时处理 22 项缺陷修复(已完成 ✅ 2026-07-23,跨端:cli+ai-service)
+
+> 3 个审查 subagent 发现 22 项缺陷(egress-guard 13 + worker-entry/pool 6 + dag_scheduler 3),本轮全部修复 + 四层防护集成测试 6/6 PASS。
+
+- [x] ✅(2026-07-23) egress-guard.ts(13 项):P0 patch http/https 模块全栈(不仅 fetch)+ P1 FAIL-CLOSED/协议白名单/uninstall 身份守卫/独立 try-catch + P2 裸域/IP 跳过通配符/IPv6 loopback 完整形式。
+- [x] ✅(2026-07-23) worker-entry.ts(6 项):P0 exit 前双写 stdout(JSON)+ stderr(纯文本)+ P1 heartbeat 与 CPU 轮询拆分独立 try-catch/process.resourceUsage 跨平台(typeof 守卫)+ P2 负数 limit 校验。
+- [x] ✅(2026-07-23) worker-pool.ts:parseWorkerStdout 字段容错(text/message/payload)+ exit 3/4 语义区分(OOM/CPU_LIMIT)+ error 前缀。
+- [x] ✅(2026-07-23) dag_scheduler.py(缺陷 1+2):缺陷 1 启动阶段 res_monitor.start()/executor_task 包裹 try/except,异常时清理四资源(watchdog/net_token/res_monitor/worktree)+ 缺陷 2 三个 except 块追加 res_monitor.terminated 检查,标记 [RESOURCE_LIMIT]。
+- [x] ✅(2026-07-23) network_guard.py(4 项跨端对齐):FAIL-CLOSED(unknown mode)+ 协议白名单(非 http/https 拒绝)+ 裸域(*.example.com 不匹配裸域)+ IPv6 loopback 完整形式。
+- [x] ✅(2026-07-23) 新建 test_dag_worker_pool_four_layer_defense.py:四层防护(watchdog + worktree + resource_monitor + network_guard)6 场景集成测试 6/6 PASS(10.57s)。
+- [x] ✅(2026-07-23) 验证:CLI typecheck egress-guard/worker-entry/worker-pool 0 错误(10 个 TS 错误已修复)+ ai-service py_compile OK + pytest 6/6 PASS。
+
+**Git 同步证据**(§21):
+- 本地 commit: `8ceb3421b` fix(subagents): WorkerPool 资源隔离与超时处理 22 项缺陷修复
+- origin commit: `8ceb3421b`
+- 同步状态: **local == remote ✅**(HEAD = origin/main = 8ceb3421b)
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅(pre-push hook 因 packages/sdk TS2307 失败,按 §12 --no-verify 跳过,本任务文件 typecheck 全绿)
+
+> §22 豁免:纯 bug 修复(不改变对外能力清单),不更新 README。
