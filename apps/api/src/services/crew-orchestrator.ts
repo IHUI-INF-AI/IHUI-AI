@@ -17,7 +17,6 @@ import { eq, and, desc } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { crewSession, crewTask, crewMessage, crewArtifact, type CrewSession } from '@ihui/database'
 import { agentRegistry, type AgentRoleConfig } from './crew-agent-registry.js'
-import { getClawdbotGateway } from './clawdbot/gateway.js'
 import { knowledgeRagService } from './knowledge-rag-service.js'
 import { callRealLlm, type LlmMessage } from './crew-llm-adapter.js'
 import { getCrewToolDefinitions, executeCrewTool } from './crew-tools.js'
@@ -539,34 +538,22 @@ class CrewOrchestrator {
     return finalResult.content
   }
 
-  /** 调用 LLM(优先真实 SDK,失败回退到 clawdbot gateway 占位) */
+  /** 调用 LLM(失败直接抛错,不降级到空转 gateway) */
   private async callLlm(
     prompt: string,
     config: SessionConfig,
     sessionId?: string,
     userId?: string,
   ): Promise<string> {
-    try {
-      const result = await callRealLlm({
-        modelId: config.modelId || undefined,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        userId, // G7: 传 userId 记成本
-        sessionId, // G7: 传 sessionId 关联会话
-      })
-      if (sessionId) this.accUsage(sessionId, result) // G7: 累计 usage
-      return result.content
-    } catch (err) {
-      // 真实 LLM 调用失败(无配置/key 无效/网络错误),回退到 gateway 占位
-      const reason = err instanceof Error ? err.message : String(err)
-      const gateway = getClawdbotGateway()
-      const response = await gateway.routeCompletion({
-        modelId: config.modelId ?? '',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-      })
-      return `${response.content}\n\n[LLM 真实调用失败,使用占位响应。原因: ${reason}]`
-    }
+    const result = await callRealLlm({
+      modelId: config.modelId || undefined,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      userId, // G7: 传 userId 记成本
+      sessionId, // G7: 传 sessionId 关联会话
+    })
+    if (sessionId) this.accUsage(sessionId, result) // G7: 累计 usage
+    return result.content
   }
 
   private async runSimplified(
