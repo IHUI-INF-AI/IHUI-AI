@@ -47,6 +47,31 @@
 
 **Git 同步证据**:本地 commit 97eaa15f2 → origin/main 09690e799(local == remote ✅)。
 
+### [x] ✅(2026-07-23) 前端冗余页面整合 P2(平台独占:仅 web 端)
+
+**触发**:用户要求"继续按你的建议去做执行,最多 agent 并行开发最大化效率,完美细致完整毫无遗漏"。P1 批次后继续执行 P2 批次(命名修正 + settings 收敛)。
+
+**深度分析后精简方案**:原计划 3 组(订阅重组/命名修正/settings 大规模 6 tab 重组),深度分析后只执行 2 项低风险整合,跳过 4 项高风险/非重复项。
+
+**执行内容**(删除 2 页面 + 修改 6 文件):
+
+| 整合项 | 删除 | 保留 | 原因 |
+|---|---|---|---|
+| 组11 user-center 命名修正 | /user-center | /admin/user-center | user-center 是 adminOnly 但路径不在 /admin 下,admin/user-center 已存在且功能更全 |
+| 组12 avatar 重复页 | /settings/avatar | /user/profile(已有 ProfileAvatar 含裁剪功能) | settings/avatar 是 user/profile 的功能子集(无裁剪) |
+
+**同步修改**:sidebar + CommandPalette + bug-scan + e2e/auth-login-flow 共 4 处 /user-center→/admin/user-center;settings/helpers + settings/dashboard 共 2 处删除 avatar 条目 + 清理未用 import UserCircle。
+
+**深度分析后跳过项**(附原因):
+- 组10 订阅重组:3 页面(member/user/developer subscription)服务于不同角色,API 完全不同(/api/subscriptions vs /api/payments/subscription vs /api/developer/subscription),**非重复页面**
+- 组12 change-phone→login-security:功能完全不重叠(改手机号 vs 登录偏好),不应合并
+- 组12 usage-rules→dashboard:独立静态内容页面,不应合并
+- 组12 大规模 6 tab 重组:22 个 settings 子页面收敛风险太高,LLM/Billing/API-keys 等复杂页面不宜合并
+
+**验证**:web typecheck 我的文件零错误、browser 验证 5/5 通过(/user-center 404✅ /admin/user-center 登录保护✅ /settings/avatar 404✅ /user/profile 头像功能✅ /settings/dashboard 无 avatar 卡片✅)。
+
+**Git 同步证据**:本地 commit e083d7ec9 → origin/main 93a28d0d2(local == remote ✅)。
+
 ### [x] ✅(2026-07-22) 多 Agent 并行提效全栈打通(跨端:packages/types + ai-service + cli + api + web)
 
 **触发**:用户要求"继续深入开发多 agent 提高效率"。深度分析对标 Codex/Claude Code/Trae/HermesAgent 后,4 端均有基础但需补全并行执行能力。
