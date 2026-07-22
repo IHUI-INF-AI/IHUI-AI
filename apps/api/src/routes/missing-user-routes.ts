@@ -83,11 +83,7 @@ import {
   deleteKnowledge,
 } from '../db/knowledge-queries.js'
 import {
-  findPublishedSkills,
-  findSkillById,
-  createSkill,
   updateSkill,
-  deleteSkill,
   findSkillsByUserId,
   upsertSkillBySlug,
   deleteSkillsByAuthorAndSlugs,
@@ -365,28 +361,10 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ===========================================================================
-  // 4. 技能 /skills/*（2 个端点）
+  // 4. 技能 /skills/*（GET /skills、GET /skills/:id、POST /skills、DELETE /skills/:id
+  //    已在 routes/skills.ts 中注册,此处不再重复,避免 Fastify FST_ERR_DUPLICATED_ROUTE。
+  //    本文件仅保留 PUT /skills/:id + push/pull/sync 同步端点）
   // ===========================================================================
-  server.get('/skills', async (request, reply) => {
-    const q = parsePagination(request, reply)
-    if (!q) return
-    const result = await findPublishedSkills({
-      page: q.page,
-      pageSize: q.pageSize,
-      search: q.search,
-    })
-    return reply.send(
-      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
-    )
-  })
-
-  server.get('/skills/:id', async (request, reply) => {
-    const id = parseIdParam(request, reply)
-    if (id === null) return
-    const skill = await findSkillById(id)
-    if (!skill) return reply.status(404).send(error(404, '技能不存在'))
-    return reply.send(success({ skill }))
-  })
 
   // ===========================================================================
   // 5. 学习记录 /study/*（6 个端点）
@@ -2028,31 +2006,8 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ success: true }))
   })
 
-  server.post('/skills', async (request, reply) => {
-    const body = z
-      .object({
-        name: z.string().min(1),
-        description: z.string().optional(),
-        icon: z.string().optional(),
-        categoryId: z.string().optional(),
-        difficulty: z.number().optional(),
-        content: z.string().optional(),
-        isPublished: z.boolean().optional(),
-      })
-      .safeParse(request.body)
-    if (!body.success) return reply.status(400).send(error(400, '技能名称不能为空'))
-    const skill = await createSkill({
-      name: body.data.name,
-      description: body.data.description,
-      icon: body.data.icon,
-      categoryId: body.data.categoryId,
-      difficulty: body.data.difficulty,
-      content: body.data.content,
-      authorId: request.userId,
-      isPublished: body.data.isPublished ?? false,
-    })
-    return reply.status(201).send(success({ id: skill.id, skill }))
-  })
+  // POST /skills 已在 routes/skills.ts 中注册,此处不再重复
+  // (DB 版 createSkill 与 Redis 版 upsert by name 冲突,保留 skills.ts 的 Redis 版)
 
   server.put('/skills/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
@@ -2074,12 +2029,8 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ success: true, skill }))
   })
 
-  server.delete('/skills/:id', async (request, reply) => {
-    const id = parseIdParam(request, reply)
-    if (id === null) return
-    await deleteSkill(id)
-    return reply.send(success({ success: true }))
-  })
+  // DELETE /skills/:id 已在 routes/skills.ts 中注册(DELETE /skills/:name),
+  // 此处不再重复,避免 Fastify 动态路由模式冲突(/:id vs /:name)
 
   // ===========================================================================
   // 20.5 Skills 同步模块(CLI ↔ Web 双向同步,3 个端点)
@@ -2168,12 +2119,16 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
   })
 
   /**
-   * POST /api/skills/sync — 双向同步(含 tombstone)
+   * POST /api/skills/db-sync — DB 版双向同步(含 tombstone)
    * 1. 推送本地 skills(upsert,基于 contentHash 跳过未变更;contentHash 不同则复活已软删除的)
    * 2. tombstone 处理:本地 localSlugs 中不存在的远端活跃 skill,批量软删除
    * 3. 拉取远端所有 skills(含已软删除的)返回给 CLI,CLI 据此删本地文件
+   *
+   * 注意:POST /api/skills/sync(Redis 版,action: push|pull|list)已在 routes/skills.ts 中注册,
+   *      实现 packages/types 的 SkillSyncRequest/Response canonical 契约。
+   *      本端点为 DB 版(tombstone + contentHash),使用不同的请求/响应形状,故重命名为 /skills/db-sync 避免冲突。
    */
-  server.post('/skills/sync', async (request, reply) => {
+  server.post('/skills/db-sync', async (request, reply) => {
     if (!request.userId) return reply.status(401).send(error(401, '未登录'))
     const body = z
       .object({
