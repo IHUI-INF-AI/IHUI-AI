@@ -4,6 +4,13 @@
  */
 
 export { findFiles, type FuzzyFileResult } from './fuzzy-file.js';
-export { ModeManager, type WorkMode, type ModeManagerOptions } from './mode-manager.js';
+export {
+  ModeManager,
+  type WorkMode,
+  type ModeManagerOptions,
+  type ModeHistoryEntry,
+  type ModeSuggestion,
+} from './mode-manager.js';
 export { readImageFromPath, readImageFromClipboard, type ImageInput, type ImageReadResult } from './image-input.js';
 export { enhancePrompt, enhanceWithImage, type EnhancedPrompt } from './prompt-enhancer.js';
+export { buildModePrompt, buildModeBanner, buildModeHistory } from './prompt-builder.js';
