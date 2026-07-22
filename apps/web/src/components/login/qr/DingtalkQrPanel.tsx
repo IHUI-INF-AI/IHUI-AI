@@ -38,28 +38,27 @@ export function DingtalkQrPanel({ refreshKey }: DingtalkQrPanelProps) {
     const state = generateState()
     saveOAuthState('dingtalk', state)
 
-    // 钉钉 OAuth2 授权 URL(DTFrameLogin 通过 iframe 内嵌此 URL 显示扫码二维码)
-    const gotoUrl = `https://login.dingtalk.com/oauth2/auth?${new URLSearchParams({
-      redirect_uri: config.redirectUri,
-      response_type: 'code',
-      client_id: clientId,
-      scope: config.scope || 'openid',
-      state,
-      prompt: 'consent',
-    }).toString()}`
-
     loadDingtalkQrSdk()
       .then(() => {
         if (cancelled || !window.DTFrameLogin || !container) return
         container.innerHTML = ''
         try {
-          frameRef.current = new window.DTFrameLogin(
+          // 新版 h5-dingtalk-login SDK(0.21.0+)API:
+          // DTFrameLogin(containerOpts, authParams, onSuccess, onError)
+          // authParams 是拆解后的字段,不再用 goto URL
+          frameRef.current = window.DTFrameLogin(
             {
               id: containerId,
               width: 280,
               height: 280,
-              goto: gotoUrl,
-              style: 'border:none;background:transparent;',
+            },
+            {
+              client_id: clientId,
+              redirect_uri: config.redirectUri,
+              response_type: 'code',
+              scope: config.scope || 'openid',
+              state,
+              prompt: 'consent',
             },
             (loginResult) => {
               if (cancelled) return
