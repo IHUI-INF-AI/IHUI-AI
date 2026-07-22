@@ -1,23 +1,23 @@
 .page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-background);
   padding-bottom: 140rpx;
 }
 .card {
   margin: 24rpx;
   padding: 32rpx;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 16rpx;
 }
 .title-input {
   font-size: 32rpx;
-  color: #333;
+  color: var(--color-foreground);
 }
 .content-input {
   width: 100%;
   min-height: 300rpx;
   font-size: 28rpx;
-  color: #333;
+  color: var(--color-foreground);
   line-height: 1.7;
 }
 .word-count {
@@ -26,7 +26,7 @@
 }
 .word-count text {
   font-size: 22rpx;
-  color: #bbb;
+  color: var(--color-muted-foreground);
 }
 .picker-row {
   display: flex;
@@ -35,28 +35,28 @@
 }
 .picker-label {
   font-size: 28rpx;
-  color: #333;
+  color: var(--color-foreground);
   width: 160rpx;
 }
 .picker-value {
   flex: 1;
   font-size: 28rpx;
-  color: #666;
+  color: var(--color-muted-foreground);
   text-align: right;
 }
 .arrow {
   font-size: 32rpx;
-  color: #ccc;
+  color: var(--color-muted-foreground);
   margin-left: 16rpx;
 }
 .divider {
   height: 2rpx;
-  background: #f5f5f5;
+  background: var(--color-background);
   margin: 0 -32rpx;
 }
 .tags-input {
   font-size: 28rpx;
-  color: #333;
+  color: var(--color-foreground);
   padding-top: 24rpx;
 }
 .submit-btn {
@@ -66,8 +66,8 @@
   right: 32rpx;
   height: 88rpx;
   line-height: 88rpx;
-  background: #07c160;
-  color: #fff;
+  background: var(--color-primary);
+  color: var(--color-foreground);
   border-radius: 44rpx;
   font-size: 30rpx;
 }

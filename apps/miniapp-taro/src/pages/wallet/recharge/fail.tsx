@@ -21,15 +21,15 @@ export default function RechargeFail() {
   }
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       <View className="pt-[120rpx] pb-[80rpx] text-center">
         <View className="w-[160rpx] h-[160rpx] leading-[160rpx] mx-auto rounded-md text-[80rpx] text-white bg-[#dd524d]">
           ×
         </View>
-        <Text className="block text-[36rpx] text-[#333] font-semibold mt-[32rpx]">
+        <Text className="block text-[36rpx] text-foreground font-semibold mt-[32rpx]">
           {t('wallet.recharge.fail.title')}
         </Text>
-        <Text className="block text-[26rpx] text-[#999] mt-[12rpx] px-[60rpx]">
+        <Text className="block text-[26rpx] text-muted-foreground mt-[12rpx] px-[60rpx]">
           {t('wallet.recharge.fail.desc')}
         </Text>
         {orderNo ? (
@@ -40,13 +40,13 @@ export default function RechargeFail() {
       </View>
       <View className="px-[60rpx]">
         <Button
-          className="mt-[32rpx] bg-[#07c160] text-white rounded-[40rpx] text-[30rpx]"
+          className="mt-[32rpx] bg-primary text-white rounded-[40rpx] text-[30rpx]"
           onClick={retry}
         >
           {t('wallet.recharge.fail.retry')}
         </Button>
         <Button
-          className="mt-[32rpx] bg-white text-[#333] rounded-[40rpx] text-[30rpx]"
+          className="mt-[32rpx] bg-card text-foreground rounded-[40rpx] text-[30rpx]"
           onClick={goBack}
         >
           {t('wallet.recharge.fail.backWallet')}

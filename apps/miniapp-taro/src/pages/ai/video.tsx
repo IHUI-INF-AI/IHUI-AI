@@ -148,14 +148,14 @@ export default function VideoPage() {
     }
   }, [])
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       <ScrollView scrollY className="h-screen">
-        <View className="flex gap-2 px-3 py-3 bg-white">
+        <View className="flex gap-2 px-3 py-3 bg-card">
           {VENDORS.map((v) => (
             <View
               key={v.key}
               className={`flex-1 py-2 text-center text-sm rounded-md transition-colors ${
-                vendor === v.key ? 'bg-[#07c160] text-white' : 'bg-gray-50 text-gray-600'
+                vendor === v.key ? 'bg-primary text-white' : 'bg-muted text-foreground'
               }`}
               onClick={() => setVendor(v.key)}
             >
@@ -165,10 +165,10 @@ export default function VideoPage() {
           ))}
         </View>
 
-        <View className="mx-3 mt-2 bg-white rounded-lg p-3">
-          <Text className="block text-xs text-gray-500 mb-2">{currentVendor.desc}</Text>
+        <View className="mx-3 mt-2 bg-card rounded-lg p-3">
+          <Text className="block text-xs text-muted-foreground mb-2">{currentVendor.desc}</Text>
           <Textarea
-            className="w-full min-h-[120rpx] p-2 text-sm bg-[#f7f8fa] rounded-md box-border"
+            className="w-full min-h-[120rpx] p-2 text-sm bg-background rounded-md box-border"
             placeholder="描述你想要生成的视频内容..."
             maxlength={500}
             value={prompt}
@@ -177,15 +177,15 @@ export default function VideoPage() {
           <View className="flex gap-2 mt-3">
             {PARAMS.map((p) => (
               <View key={p.key} className="flex-1">
-                <Text className="block text-xs text-gray-500 mb-1">{p.label}</Text>
+                <Text className="block text-xs text-muted-foreground mb-1">{p.label}</Text>
                 <View className="flex gap-1">
                   {p.options.map((opt) => (
                     <Text
                       key={opt}
                       className={`flex-1 py-1 text-center text-xs rounded ${
                         params[p.key] === opt
-                          ? 'bg-[#07c160] text-white'
-                          : 'bg-gray-50 text-gray-600'
+                          ? 'bg-primary text-white'
+                          : 'bg-muted text-foreground'
                       }`}
                       onClick={() => setParams((prev) => ({ ...prev, [p.key]: opt }))}
                     >
@@ -197,7 +197,7 @@ export default function VideoPage() {
             ))}
           </View>
           <Button
-            className="mt-3 w-full text-sm rounded-md !bg-[#07c160] !text-white"
+            className="mt-3 w-full text-sm rounded-md !bg-primary !text-white"
             disabled={!prompt || status === 'pending' || status === 'running'}
             onClick={onGenerate}
           >
@@ -206,15 +206,15 @@ export default function VideoPage() {
         </View>
 
         {status !== 'idle' && status !== 'failed' ? (
-          <View className="mx-3 mt-2 bg-white rounded-lg p-3">
-            <Text className="block text-sm font-medium text-gray-800 mb-2">
+          <View className="mx-3 mt-2 bg-card rounded-lg p-3">
+            <Text className="block text-sm font-medium text-foreground mb-2">
               {STATUS_TEXT[status]}
             </Text>
             {resultUrl ? (
               <VideoPlayer src={resultUrl} />
             ) : (
               <View className="h-[210px] flex items-center justify-center bg-black rounded-md">
-                <Text className="text-sm text-gray-400">{STATUS_TEXT[status]}</Text>
+                <Text className="text-sm text-muted-foreground">{STATUS_TEXT[status]}</Text>
               </View>
             )}
           </View>
@@ -226,17 +226,17 @@ export default function VideoPage() {
           </View>
         ) : null}
 
-        <View className="mx-3 mt-3 mb-6 bg-white rounded-lg p-3">
-          <Text className="block text-sm font-medium text-gray-800 mb-2">历史记录</Text>
+        <View className="mx-3 mt-3 mb-6 bg-card rounded-lg p-3">
+          <Text className="block text-sm font-medium text-foreground mb-2">历史记录</Text>
           {history.length ? (
             history.map((h) => (
               <View
                 key={h.id}
-                className="flex items-center py-2 border-b border-gray-50 last:border-b-0"
+                className="flex items-center py-2 border-b border-border last:border-b-0"
                 onClick={() => replayHistory(h)}
               >
-                <Text className="flex-1 text-xs text-gray-700 truncate">{h.prompt}</Text>
-                <Text className="text-[10px] text-gray-400 ml-2">
+                <Text className="flex-1 text-xs text-foreground truncate">{h.prompt}</Text>
+                <Text className="text-[10px] text-muted-foreground ml-2">
                   {VENDORS.find((v) => v.key === h.vendor)?.name} · {fmtTime(h.createdAt)}
                 </Text>
               </View>

@@ -24,8 +24,8 @@ export default function ProtocolPage() {
   })
 
   return (
-    <View className="min-h-screen bg-white p-[16px]">
-      <Text className="text-[14px] text-[#333] leading-[24px]">{content}</Text>
+    <View className="min-h-screen bg-card p-[16px]">
+      <Text className="text-[14px] text-foreground leading-[24px]">{content}</Text>
     </View>
   )
 }

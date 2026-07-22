@@ -40,10 +40,10 @@ export default function FollowingPage() {
   usePullDownRefresh(() => load(true).finally(() => Taro.stopPullDownRefresh()))
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       {items.length === 0 && !loading && (
         <View className="flex flex-col items-center justify-center py-[160rpx]">
-          <Text className="text-[28rpx] text-[#999]">{t('following.empty')}</Text>
+          <Text className="text-[28rpx] text-muted-foreground">{t('following.empty')}</Text>
         </View>
       )}
       {items.length > 0 && (
@@ -51,7 +51,7 @@ export default function FollowingPage() {
           {items.map((item) => (
             <View
               key={item.id}
-              className="bg-white rounded-[16rpx] p-[24rpx] mb-[24rpx] flex items-center"
+              className="bg-card rounded-[16rpx] p-[24rpx] mb-[24rpx] flex items-center"
             >
               <Image
                 className="w-[100rpx] h-[100rpx] rounded-md mr-[24rpx] bg-[#f0f0f0]"
@@ -59,11 +59,11 @@ export default function FollowingPage() {
                 mode="aspectFill"
               />
               <View className="flex-1 min-w-0">
-                <Text className="text-[30rpx] text-[#333] font-semibold truncate">
+                <Text className="text-[30rpx] text-foreground font-semibold truncate">
                   {item.nickname || item.username}
                 </Text>
                 {item.bio ? (
-                  <Text className="text-[24rpx] text-[#999] mt-[8rpx] truncate">{item.bio}</Text>
+                  <Text className="text-[24rpx] text-muted-foreground mt-[8rpx] truncate">{item.bio}</Text>
                 ) : null}
               </View>
               <Text
@@ -76,18 +76,18 @@ export default function FollowingPage() {
           ))}
           <View className="text-center py-[32rpx]">
             {loading ? (
-              <Text className="text-[24rpx] text-[#999]">{t('common.loading')}</Text>
+              <Text className="text-[24rpx] text-muted-foreground">{t('common.loading')}</Text>
             ) : hasMore ? (
-              <Text className="text-[24rpx] text-[#999]">{t('following.loadMore')}</Text>
+              <Text className="text-[24rpx] text-muted-foreground">{t('following.loadMore')}</Text>
             ) : (
-              <Text className="text-[24rpx] text-[#999]">{t('following.noMore')}</Text>
+              <Text className="text-[24rpx] text-muted-foreground">{t('following.noMore')}</Text>
             )}
           </View>
         </View>
       )}
       {loading && items.length === 0 && (
         <View className="text-center py-[120rpx]">
-          <Text className="text-[28rpx] text-[#999]">{t('common.loading')}</Text>
+          <Text className="text-[28rpx] text-muted-foreground">{t('common.loading')}</Text>
         </View>
       )}
     </View>

@@ -20,7 +20,7 @@ export default function InvitePoster({
   onShare,
 }: InvitePosterProps) {
   return (
-    <View className="bg-white mx-3 my-3 rounded-xl overflow-hidden">
+    <View className="bg-card mx-3 my-3 rounded-xl overflow-hidden">
       <View
         className="px-6 py-6 text-center text-white"
         style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
@@ -32,36 +32,36 @@ export default function InvitePoster({
       <View className="px-6 py-5">
         <View className="flex items-center justify-center mb-4">
           {qrCodeUrl ? (
-            <Image className="w-32 h-32 rounded-lg bg-gray-50" src={qrCodeUrl} mode="aspectFit" />
+            <Image className="w-32 h-32 rounded-lg bg-muted" src={qrCodeUrl} mode="aspectFit" />
           ) : (
-            <View className="flex items-center justify-center w-32 h-32 rounded-lg bg-gray-50">
-              <Text className="text-xs text-gray-400">二维码</Text>
+            <View className="flex items-center justify-center w-32 h-32 rounded-lg bg-muted">
+              <Text className="text-xs text-muted-foreground">二维码</Text>
             </View>
           )}
         </View>
 
         {inviteCode && (
           <View className="flex items-center justify-center mb-3">
-            <Text className="text-xs text-gray-500 mr-2">邀请码:</Text>
-            <Text className="text-base font-bold text-indigo-600 tracking-widest">
+            <Text className="text-xs text-muted-foreground mr-2">邀请码:</Text>
+            <Text className="text-base font-bold text-primary tracking-widest">
               {inviteCode}
             </Text>
           </View>
         )}
 
         {inviteUrl && (
-          <View className="bg-gray-50 rounded-lg px-3 py-2 mb-4">
-            <Text className="block text-xs text-gray-400 text-center truncate">{inviteUrl}</Text>
+          <View className="bg-muted rounded-lg px-3 py-2 mb-4">
+            <Text className="block text-xs text-muted-foreground text-center truncate">{inviteUrl}</Text>
           </View>
         )}
 
-        <Text className="block text-xs text-gray-400 text-center mb-4">
+        <Text className="block text-xs text-muted-foreground text-center mb-4">
           {inviterName} 邀请你加入
         </Text>
 
         <View className="flex space-x-3">
-          <View className="flex-1 py-2.5 rounded-md bg-gray-100 text-center" onClick={onSave}>
-            <Text className="text-sm text-gray-600">保存图片</Text>
+          <View className="flex-1 py-2.5 rounded-md bg-muted text-center" onClick={onSave}>
+            <Text className="text-sm text-foreground">保存图片</Text>
           </View>
           <View
             className="flex-1 py-2.5 rounded-md text-center"

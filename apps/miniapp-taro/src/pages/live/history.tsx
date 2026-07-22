@@ -50,30 +50,30 @@ export default function LiveHistory() {
   }, [load])
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       {list.length > 0 && (
         <View className="p-3">
           {list.map((l) => (
             <View
               key={l.id}
-              className="flex bg-white rounded-2xl overflow-hidden mb-3"
+              className="flex bg-card rounded-2xl overflow-hidden mb-3"
               onClick={() => goDetail(l.id)}
             >
               <Image
-                className="w-[120px] h-[80px] flex-shrink-0 bg-[#f5f5f5]"
+                className="w-[120px] h-[80px] flex-shrink-0 bg-muted"
                 src={l.coverUrl}
                 mode="aspectFill"
               />
               <View className="flex-1 p-2.5 flex flex-col justify-between">
-                <Text className="text-sm text-[#333] font-semibold">{l.title}</Text>
+                <Text className="text-sm text-foreground font-semibold">{l.title}</Text>
                 {l.anchor && (
-                  <Text className="text-xs text-[#666]">
+                  <Text className="text-xs text-muted-foreground">
                     {t('live.history.anchor', { name: l.anchor })}
                   </Text>
                 )}
                 <View className="flex justify-between">
-                  <Text className="text-xs text-[#999]">{l.startTime}</Text>
-                  <Text className="text-xs text-[#07c160]">{t('live.history.replay')}</Text>
+                  <Text className="text-xs text-muted-foreground">{l.startTime}</Text>
+                  <Text className="text-xs text-primary">{t('live.history.replay')}</Text>
                 </View>
               </View>
             </View>
@@ -82,13 +82,13 @@ export default function LiveHistory() {
       )}
 
       {!loading && list.length === 0 && (
-        <View className="text-center py-16 text-[#999] text-sm">
+        <View className="text-center py-16 text-muted-foreground text-sm">
           <Text>{t('live.history.empty')}</Text>
         </View>
       )}
 
       {loading && (
-        <View className="text-center py-16 text-[#999] text-sm">
+        <View className="text-center py-16 text-muted-foreground text-sm">
           <Text>{t('live.history.loading')}</Text>
         </View>
       )}

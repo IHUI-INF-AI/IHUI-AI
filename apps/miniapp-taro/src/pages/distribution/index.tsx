@@ -125,7 +125,7 @@ export default function DistributionIndex() {
   }
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       <View className="bg-gradient-to-b from-[#ff6b35] to-[#ff8e53] px-[16px] pt-[24px] pb-[20px] text-white">
         <View className="flex items-center justify-between">
           <View className="flex items-center">
@@ -167,7 +167,7 @@ export default function DistributionIndex() {
         </View>
       </View>
 
-      <View className="mx-[12px] mt-[12px] bg-white rounded-[8px] p-[16px]">
+      <View className="mx-[12px] mt-[12px] bg-card rounded-[8px] p-[16px]">
         <View className="grid grid-cols-4 gap-[12px]">
           {menuItems.map((item) => (
             <View
@@ -176,7 +176,7 @@ export default function DistributionIndex() {
               onClick={() => navigate(item.url)}
             >
               <Text className="text-[32px]">{item.icon}</Text>
-              <Text className="text-[12px] text-[#333] mt-[6px]">{item.label}</Text>
+              <Text className="text-[12px] text-foreground mt-[6px]">{item.label}</Text>
             </View>
           ))}
         </View>

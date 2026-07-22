@@ -1,15 +1,15 @@
 .card-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--color-background);
 }
 .page-header {
   padding: 20rpx 30rpx;
-  background: #fff;
+  background: var(--color-card);
 }
 .page-title {
   font-size: 36rpx;
   font-weight: bold;
-  color: #333;
+  color: var(--color-foreground);
 }
 .card-form {
   padding: 20rpx;
@@ -18,26 +18,26 @@
   width: 140rpx;
   height: 140rpx;
   border-radius: 8px;
-  background: #f5f5f5;
+  background: var(--color-background);
   display: block;
   margin: 0 auto 30rpx;
 }
 .form-item {
-  background: #fff;
+  background: var(--color-card);
   border-radius: 12rpx;
   padding: 24rpx;
   margin-bottom: 16rpx;
 }
 .form-label {
   font-size: 28rpx;
-  color: #333;
+  color: var(--color-foreground);
   font-weight: 500;
   display: block;
   margin-bottom: 16rpx;
 }
 .form-input {
   height: 72rpx;
-  background: #f7f8fa;
+  background: var(--color-background);
   border-radius: 8rpx;
   padding: 0 20rpx;
   font-size: 28rpx;
@@ -45,7 +45,7 @@
 .form-textarea {
   width: 100%;
   height: 160rpx;
-  background: #f7f8fa;
+  background: var(--color-background);
   border-radius: 8rpx;
   padding: 20rpx;
   font-size: 28rpx;
@@ -53,15 +53,15 @@
 }
 .action-btn {
   width: 100%;
-  background: #07c160;
-  color: #fff;
+  background: var(--color-primary);
+  color: var(--color-foreground);
   font-size: 30rpx;
   border-radius: 8rpx;
   margin-top: 20rpx;
 }
 .loading-text {
   text-align: center;
-  color: #999;
+  color: var(--color-muted-foreground);
   font-size: 28rpx;
   display: block;
   padding: 60rpx 0;
