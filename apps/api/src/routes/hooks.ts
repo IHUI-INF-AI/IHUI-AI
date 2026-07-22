@@ -9,8 +9,10 @@
  *  5. DELETE /hooks/:id                   — 删除
  *  6. POST   /hooks/:id/toggle            — 启用/禁用
  *  7. POST   /hooks/:id/test              — 测试(模拟触发)
- *  8. GET    /hooks/:id/logs              — 查询日志
- *  9. GET    /hooks/logs                  — 查询全部日志
+ *  8. GET    /hooks/:id/logs              — 查询日志(支持 event/success/duration/时间范围过滤)
+ *  9. GET    /hooks/logs                  — 查询全部日志(支持过滤)
+ * 10. POST   /hooks/batch/toggle          — 批量启用/禁用(2026-07-22 立)
+ * 11. GET    /hooks/stats                 — Hook 执行统计(2026-07-22 立)
  *
  * 路径前缀:在 server.ts 用 prefix:'/api' 注册 → /api/hooks/*
  * 全部转发到 ai-service /api/hooks/*,自身不存状态。
@@ -21,9 +23,11 @@ import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import {
+  batchToggleHooks,
   createHook,
   deleteHook,
   getHook,
+  getHookStats,
   listAllHookLogs,
   listHookLogs,
   listHooks,
@@ -31,6 +35,7 @@ import {
   toggleHook,
   updateHook,
 } from '../services/hooks-service.js'
+import type { HookLogsFilter } from '../services/hooks-service.js'
 
 const HOOK_EVENTS_ENUM = z.enum([
   'tool.before',
@@ -50,8 +55,19 @@ const actionConfigSchema = z.object({
   headers: z.record(z.string(), z.string()).optional(),
   body: z.string().max(8192).optional(),
   command: z.string().max(2048).optional(),
-  channel: z.enum(['toast', 'notification', 'email']).optional(),
+  channel: z.enum(['toast', 'notification', 'email', 'webhook']).optional(),
   message: z.string().max(2048).optional(),
+  // HMAC-SHA256 签名密钥(webhook + notify webhook 渠道,2026-07-22 立)
+  // secret 为空时不签名(向后兼容)
+  secret: z.string().max(2048).optional(),
+  // 失败重试配置(webhook + script,2026-07-22 立)
+  // retry_count: 默认 0,最大 3;retry_delay: 指数退避 base(秒)
+  retry_count: z.number().int().min(0).max(3).optional(),
+  retry_delay: z.number().min(0).max(60).optional(),
+  // email 通知字段(notify channel=email,2026-07-22 立)
+  to: z.string().max(512).optional(),
+  email: z.string().max(512).optional(),
+  subject: z.string().max(512).optional(),
 })
 
 const actionSchema = z.object({
@@ -86,7 +102,29 @@ const testHookSchema = z.object({
   context: z.record(z.string(), z.unknown()).default({}),
 })
 
+/** 批量启用/禁用请求体(2026-07-22 立) */
+const batchToggleSchema = z.object({
+  hookIds: z.array(z.string().min(1)).min(1, 'hookIds 不能为空').max(100),
+  enabled: z.boolean(),
+})
+
 const idParamSchema = z.object({ id: z.string().min(1) })
+
+/**
+ * 从 query string 解析日志过滤参数(2026-07-22 立)。
+ *
+ * 所有参数可选,无任何过滤条件时返回 undefined(避免传空对象)。
+ */
+function parseLogsFilter(query: Record<string, string | undefined>): HookLogsFilter | undefined {
+  const filter: HookLogsFilter = {}
+  if (query.event) filter.event = query.event
+  if (query.success !== undefined) filter.success = query.success === 'true'
+  if (query.durationMin !== undefined) filter.durationMin = Number(query.durationMin)
+  if (query.durationMax !== undefined) filter.durationMax = Number(query.durationMax)
+  if (query.since) filter.since = query.since
+  if (query.until) filter.until = query.until
+  return Object.keys(filter).length > 0 ? filter : undefined
+}
 
 export const hooksRoutes: FastifyPluginAsync = async (server) => {
   // JWT 鉴权 hook(复用 v1-apply-diff.ts 模式)
@@ -127,15 +165,48 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 9. GET /hooks/logs — 全部日志(必须在 /:id 之前注册,否则被 /:id 截获)
+  //    支持过滤参数:event/success/durationMin/durationMax/since/until(2026-07-22 立)
   server.get('/hooks/logs', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    const limit = Math.min(
-      1000,
-      Math.max(1, Number((request.query as { limit?: string }).limit) || 100),
-    )
-    const data = await listAllHookLogs(request, limit)
+    const query = request.query as {
+      limit?: string
+      event?: string
+      success?: string
+      durationMin?: string
+      durationMax?: string
+      since?: string
+      until?: string
+    }
+    const limit = Math.min(1000, Math.max(1, Number(query.limit) || 100))
+    const filter = parseLogsFilter(query)
+    const data = await listAllHookLogs(request, limit, filter)
     return reply.send(success(data))
+  })
+
+  // 11. POST /hooks/batch/toggle — 批量启用/禁用(2026-07-22 立)
+  //     必须在 /:id 之前注册,否则 'batch' 被当作 hook_id
+  server.post('/hooks/batch/toggle', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = batchToggleSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = await batchToggleHooks(request, parsed.data.hookIds, parsed.data.enabled)
+    return reply.send(success(result))
+  })
+
+  // 12. GET /hooks/stats — Hook 执行统计(2026-07-22 立)
+  //     必须在 /:id 之前注册,否则 'stats' 被当作 hook_id
+  server.get('/hooks/stats', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const hookId = (request.query as { hookId?: string }).hookId
+    const stats = await getHookStats(request, hookId)
+    return reply.send(success(stats))
   })
 
   // 3. GET /hooks/:id — 详情
@@ -228,7 +299,7 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(result))
   })
 
-  // 8. GET /hooks/:id/logs — 日志
+  // 8. GET /hooks/:id/logs — 日志(支持过滤参数,2026-07-22 立)
   server.get('/hooks/:id/logs', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
@@ -236,11 +307,18 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     if (!params.success) {
       return reply.status(400).send(error(400, '无效的 Hook ID'))
     }
-    const limit = Math.min(
-      1000,
-      Math.max(1, Number((request.query as { limit?: string }).limit) || 100),
-    )
-    const data = await listHookLogs(request, params.data.id, limit)
+    const query = request.query as {
+      limit?: string
+      event?: string
+      success?: string
+      durationMin?: string
+      durationMax?: string
+      since?: string
+      until?: string
+    }
+    const limit = Math.min(1000, Math.max(1, Number(query.limit) || 100))
+    const filter = parseLogsFilter(query)
+    const data = await listHookLogs(request, params.data.id, limit, filter)
     return reply.send(success(data))
   })
 }
