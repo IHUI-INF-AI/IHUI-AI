@@ -234,7 +234,7 @@ export const PROJECT_PLUGINS: ProjectPlugin[] = [
     id: 'docs',
     name: '文档中心',
     description: '项目文档与 API 参考手册,开发者必读 / 接口契约 / 架构说明',
-    href: '/docs',
+    href: '/feature-center/documents',
     icon: FileText,
     tags: ['文档', 'API'],
     category: 'knowledge',
