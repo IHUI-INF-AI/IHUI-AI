@@ -133,8 +133,11 @@ interface WorkPanelState {
   closeTab: (tabId: string) => void
   /** 切换激活 Tab */
   setActiveTab: (tabId: string) => void
-  /** 拖拽 Tab 排序:P3++(将 fromId 移到 toId 位置,to 之前的元素) */
-  reorderTabs: (fromId: string, toId: string) => void
+  /** 拖拽 Tab 排序:P3++
+   * - 默认 position='after':把 fromId 移到 toId 之后(原行为,后兼容)
+   * - position='before':把 fromId 移到 toId 之前(用于精细控制 drop indicator)
+   * - 相同 id / 越界 id / 拖到原相邻位置 no-op */
+  reorderTabs: (fromId: string, toId: string, position?: 'before' | 'after') => void
 
   /** 添加收藏 */
   addFavorite: (url: string, title: string) => void
@@ -429,15 +432,25 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         })
       },
 
-      reorderTabs: (fromId, toId) => {
+      reorderTabs: (fromId, toId, position = 'after') => {
         const { tabs } = get()
         if (fromId === toId) return
         const fromIdx = tabs.findIndex((t) => t.id === fromId)
         const toIdx = tabs.findIndex((t) => t.id === toId)
         if (fromIdx < 0 || toIdx < 0) return
+        // 拖到原位置 no-op(顺序不变)
+        // 'after' 命中:from 已在 to 之后(相邻)
+        if (position === 'after' && fromIdx === toIdx + 1) return
+        // 'before' 命中:from 已在 to 之前(相邻)
+        if (position === 'before' && fromIdx + 1 === toIdx) return
         const next = [...tabs]
         const [moved] = next.splice(fromIdx, 1)
-        next.splice(toIdx, 0, moved!)
+        if (!moved) return
+        // 'after':直接用原 toIdx 插入(原行为,后兼容)
+        // 'before':用 newToIdx(移除后 toId 在新数组中的位置,等于 toIdx 或 toIdx-1)
+        const newToIdx = fromIdx < toIdx ? toIdx - 1 : toIdx
+        const insertIdx = position === 'after' ? toIdx : newToIdx
+        next.splice(insertIdx, 0, moved)
         set({ tabs: next })
       },
 

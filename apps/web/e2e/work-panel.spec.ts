@@ -205,3 +205,170 @@ test('P3++: 拖拽排序(reorderTabs API 验证 + DOM 顺序)', async ({ page })
   // DOM 应有 3 个 tab(标题可能为 a/b/c.example.com 或 host)
   expect(domOrder.length).toBe(3)
 })
+
+test('P4-2: closeTab 关闭非 active tab', async ({ page }) => {
+  const result = await page.evaluate(() => {
+    const store = (window as any).__workPanelStore
+    if (!store) return { skipped: true }
+    store.getState().newTab('https://a.example.com')
+    store.getState().newTab('https://b.example.com')
+    store.getState().newTab('https://c.example.com')
+    const tabs = store.getState().tabs
+    // 关掉第一个(非 active,active=c)
+    store.getState().closeTab(tabs[0].id)
+    const after = store.getState()
+    return {
+      skipped: false,
+      tabsCount: after.tabs.length,
+      remaining: after.tabs.map((t: any) => t.url),
+      activeUrl: after.tabs.find((t: any) => t.id === after.activeTabId)?.url,
+    }
+  })
+  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过')
+  expect(result.tabsCount).toBe(2)
+  expect(result.remaining).toEqual(['https://b.example.com', 'https://c.example.com'])
+  expect(result.activeUrl).toBe('https://c.example.com')
+})
+
+test('P4-2: closeTab 关闭 active 中间 tab,切到右邻', async ({ page }) => {
+  const result = await page.evaluate(() => {
+    const store = (window as any).__workPanelStore
+    if (!store) return { skipped: true }
+    store.getState().newTab('https://a.example.com')
+    store.getState().newTab('https://b.example.com')
+    store.getState().newTab('https://c.example.com')
+    const tabs = store.getState().tabs
+    // 切到 b 再关
+    store.getState().setActiveTab(tabs[1].id)
+    store.getState().closeTab(tabs[1].id)
+    const after = store.getState()
+    return {
+      skipped: false,
+      tabsCount: after.tabs.length,
+      remaining: after.tabs.map((t: any) => t.url),
+      activeUrl: after.tabs.find((t: any) => t.id === after.activeTabId)?.url,
+      addressInput: after.addressInput,
+    }
+  })
+  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过')
+  expect(result.tabsCount).toBe(2)
+  expect(result.remaining).toEqual(['https://a.example.com', 'https://c.example.com'])
+  // 关掉 idx=1 的 active 后,应切到原 idx=1(现在是 c)
+  expect(result.activeUrl).toBe('https://c.example.com')
+  expect(result.addressInput).toBe('https://c.example.com')
+})
+
+test('P4-2: closeTab 关闭最后一个 tab,active 变 null + addressInput 清空', async ({ page }) => {
+  const result = await page.evaluate(() => {
+    const store = (window as any).__workPanelStore
+    if (!store) return { skipped: true }
+    store.getState().newTab('https://only.example.com')
+    const tabs = store.getState().tabs
+    store.getState().closeTab(tabs[0].id)
+    const after = store.getState()
+    return {
+      skipped: false,
+      tabsCount: after.tabs.length,
+      activeTabId: after.activeTabId,
+      addressInput: after.addressInput,
+    }
+  })
+  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过')
+  expect(result.tabsCount).toBe(0)
+  expect(result.activeTabId).toBeNull()
+  expect(result.addressInput).toBe('')
+})
+
+test('P4-2: closeTab 未知 id no-op(不抛错)', async ({ page }) => {
+  const result = await page.evaluate(() => {
+    const store = (window as any).__workPanelStore
+    if (!store) return { skipped: true }
+    store.getState().newTab('https://a.example.com')
+    const before = store.getState().tabs.length
+    store.getState().closeTab('nonexistent-id-xxx')
+    return {
+      skipped: false,
+      tabsCount: store.getState().tabs.length,
+      before,
+    }
+  })
+  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过')
+  expect(result.tabsCount).toBe(result.before)
+})
+
+test('P4-5: reorderTabs position=before 把 a 移到 c 之前', async ({ page }) => {
+  const result = await page.evaluate(() => {
+    const store = (window as any).__workPanelStore
+    if (!store) return { skipped: true }
+    store.getState().openPanel({ url: 'https://a.example.com' })
+    store.getState().newTab('https://b.example.com')
+    store.getState().newTab('https://c.example.com')
+    const [a, , c] = store.getState().tabs
+    store.getState().reorderTabs(a.id, c.id, 'before')
+    return {
+      skipped: false,
+      urls: store.getState().tabs.map((t: any) => t.url),
+    }
+  })
+  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过')
+  expect(result.urls).toEqual([
+    'https://b.example.com',
+    'https://a.example.com',
+    'https://c.example.com',
+  ])
+})
+
+test('P4-5: drop indicator DOM 渲染(before/after position)', async ({ page }) => {
+  // 1. 准备 3 个 tab
+  await page.evaluate(() => {
+    const store = (window as any).__workPanelStore
+    if (!store) return
+    store.getState().openPanel({ url: 'https://a.example.com' })
+    store.getState().newTab('https://b.example.com')
+    store.getState().newTab('https://c.example.com')
+  })
+  await page.waitForTimeout(500)
+
+  // 2. 模拟 dragover 在第一个 tab 的左半边 → 应触发 before indicator
+  const beforeIndicatorShown = await page.evaluate(() => {
+    // 找到第一个 tab button(包含 max-w-[120px] 的 span)
+    const tabBtns = Array.from(document.querySelectorAll('button')).filter((b) =>
+      b.querySelector('span.max-w-\\[120px\\]'),
+    )
+    if (tabBtns.length === 0) return { found: false }
+    const firstTab = tabBtns[0] as HTMLElement
+    const rect = firstTab.getBoundingClientRect()
+    // dragover 在 tab 内的左 1/4 → midpoint 左侧 → before
+    const event = new DragEvent('dragover', {
+      bubbles: true,
+      cancelable: true,
+      clientX: rect.left + rect.width * 0.25,
+      clientY: rect.top + rect.height / 2,
+    })
+    firstTab.dispatchEvent(event)
+    return { found: true }
+  })
+  test.skip(beforeIndicatorShown.found !== true, 'tab buttons 未渲染,跳过')
+
+  // 3. 等 React 状态更新
+  await page.waitForTimeout(100)
+
+  // 4. 验证 drop indicator 存在(pointer-events-none 的 div,带 aria-label)
+  const indicators = await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('div[aria-label]'))
+    return els
+      .filter((el) => {
+        const label = el.getAttribute('aria-label') ?? ''
+        return label === '在此处之前插入' || label === '在此处之后插入'
+      })
+      .map((el) => ({
+        label: el.getAttribute('aria-label'),
+        hasPointerEventsNone: (el as HTMLElement).classList.contains('pointer-events-none'),
+        hasPrimaryBg: (el as HTMLElement).classList.contains('bg-primary'),
+      }))
+  })
+  // 至少应有一个 indicator 出现(无论是 before 还是 after)
+  expect(indicators.length).toBeGreaterThanOrEqual(1)
+  expect(indicators[0]?.hasPointerEventsNone).toBe(true)
+  expect(indicators[0]?.hasPrimaryBg).toBe(true)
+})
