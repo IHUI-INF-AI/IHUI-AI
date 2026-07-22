@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { z } from 'zod'
 
 import { Button, Input, Label, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui'
-import { PasswordStrengthIndicator } from './PasswordStrengthIndicator'
+import { PasswordInput, PasswordStrengthIndicator } from '@/components/login'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 
 const phoneRegex = /^1[3-9]\d{9}$/
@@ -163,9 +163,8 @@ export function ForgotPasswordForm() {
 
       <div className="space-y-1.5">
         <Label htmlFor="fp-new">{t('newPassword')}</Label>
-        <Input
+        <PasswordInput
           id="fp-new"
-          type="password"
           autoComplete="new-password"
           placeholder={t('enterNewPassword')}
           className="h-10"
@@ -177,9 +176,8 @@ export function ForgotPasswordForm() {
 
       <div className="space-y-1.5">
         <Label htmlFor="fp-confirm">{t('confirmPassword')}</Label>
-        <Input
+        <PasswordInput
           id="fp-confirm"
-          type="password"
           autoComplete="new-password"
           placeholder={t('enterNewPassword')}
           className="h-10"
