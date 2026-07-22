@@ -21,6 +21,15 @@
  * 17. POST   /hooks/:id/dlq/:entry_id/reprocess — 从 DLQ 重新处理(2026-07-22 立)
  * 18. DELETE /hooks/:id/dlq               — 清空 DLQ(2026-07-22 立)
  * 19. POST   /hooks/:id/health-check      — 手动触发健康检查(2026-07-22 立)
+ * 20. POST   /hooks/auto-orchestrate      — 智能编排(LLM 生成 Hook+DAG,2026-07-23 立)
+ * 21. POST   /hooks/ab-test               — 创建 A/B 测试(2026-07-23 立)
+ * 22. GET    /hooks/ab-tests              — 列出所有 A/B 测试(2026-07-23 立)
+ * 23. GET    /hooks/ab-test/:id           — A/B 测试详情(2026-07-23 立)
+ * 24. POST   /hooks/ab-test/:id/stop      — 停止 A/B 测试(2026-07-23 立)
+ * 25. GET    /hooks/templates             — 列出 5 个预置模板(2026-07-23 立)
+ * 26. POST   /hooks/templates/:id/instantiate — 用模板创建 hook(2026-07-23 立)
+ * 27. GET    /hooks/:id/execution-timeline — Gantt 可视化数据(2026-07-23 立)
+ * 28. GET    /hooks/:id/health-forecast   — 健康预测(LLM+线性回归,2026-07-23 立)
  *
  * 路径前缀:在 server.ts 用 prefix:'/api' 注册 → /api/hooks/*
  * 全部转发到 ai-service /api/hooks/*,自身不存状态。
@@ -31,21 +40,30 @@ import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import {
+  autoOrchestrateHooks,
   batchToggleHooks,
   clearHookDlq,
+  createAbTest,
   createHook,
   deleteHook,
+  getAbTest,
   getHook,
   getHookDag,
+  getHookExecutionTimeline,
+  getHookHealthForecast,
   getHookStats,
   getHooksHealth,
+  instantiateHookTemplate,
+  listAbTests,
   listAllHookLogs,
   listHookDlq,
   listHookLogs,
+  listHookTemplates,
   listHooks,
   replayAllHookLogs,
   replayHookLog,
   reprocessDlqEntry,
+  stopAbTest,
   testHook,
   toggleHook,
   triggerHookHealthCheck,
@@ -134,6 +152,25 @@ const replayLogSchema = z.object({
 const batchToggleSchema = z.object({
   hookIds: z.array(z.string().min(1)).min(1, 'hookIds 不能为空').max(100),
   enabled: z.boolean(),
+})
+
+/** 智能编排请求体(2026-07-23 立,超越创新功能) */
+const autoOrchestrateSchema = z.object({
+  requirement: z.string().min(1, 'requirement 不能为空').max(4000),
+  event: z.string().max(100).optional(),
+})
+
+/** 创建 A/B 测试请求体(2026-07-23 立) */
+const createAbTestSchema = z.object({
+  hook_a_id: z.string().min(1).max(64),
+  hook_b_id: z.string().min(1).max(64),
+  traffic_split: z.number().min(0).max(1),
+  user_bucketing: z.enum(['hash', 'random', 'sticky']).optional(),
+})
+
+/** 实例化模板请求体(2026-07-23 立) */
+const instantiateTemplateSchema = z.object({
+  overrides: z.record(z.string(), z.unknown()).default({}),
 })
 
 const idParamSchema = z.object({ id: z.string().min(1) })
@@ -257,6 +294,98 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const health = await getHooksHealth(request)
     return reply.send(success(health))
+  })
+
+  // ===== 超越创新功能(2026-07-23 立)=====
+  // 以下静态路径必须在 /:id 之前注册,否则 'auto-orchestrate'/'ab-test'/'templates'
+  // 被当作 hook_id
+
+  // 21. POST /hooks/auto-orchestrate — 智能编排(LLM 生成 Hook + DAG)
+  server.post('/hooks/auto-orchestrate', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = autoOrchestrateSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = await autoOrchestrateHooks(request, parsed.data.requirement, parsed.data.event)
+    return reply.send(success(result))
+  })
+
+  // 22. POST /hooks/ab-test — 创建 A/B 测试
+  server.post('/hooks/ab-test', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = createAbTestSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = await createAbTest(request, parsed.data)
+    return reply.send(success(result))
+  })
+
+  // 23. GET /hooks/ab-tests — 列出所有 A/B 测试
+  server.get('/hooks/ab-tests', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const tests = await listAbTests(request)
+    return reply.send(success({ tests, count: tests.length }))
+  })
+
+  // 24. GET /hooks/ab-test/:id — A/B 测试详情
+  //     注:此路径在 /ab-test/ 前缀下,不与 /hooks/:id 冲突(2 段 vs 1 段)
+  server.get('/hooks/ab-test/:id', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const params = idParamSchema.safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, '无效的 A/B 测试 ID'))
+    }
+    const test = await getAbTest(request, params.data.id)
+    return reply.send(success(test))
+  })
+
+  // 25. POST /hooks/ab-test/:id/stop — 停止 A/B 测试
+  server.post('/hooks/ab-test/:id/stop', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const params = idParamSchema.safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, '无效的 A/B 测试 ID'))
+    }
+    const result = await stopAbTest(request, params.data.id)
+    return reply.send(success(result))
+  })
+
+  // 26. GET /hooks/templates — 列出 5 个预置模板
+  server.get('/hooks/templates', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const templates = await listHookTemplates(request)
+    return reply.send(success({ templates, count: templates.length }))
+  })
+
+  // 27. POST /hooks/templates/:id/instantiate — 用模板创建 hook
+  //      注:此路径在 /templates/ 前缀下,不与 /hooks/:id 冲突
+  server.post('/hooks/templates/:id/instantiate', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const params = idParamSchema.safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, '无效的模板 ID'))
+    }
+    const parsed = instantiateTemplateSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const hook = await instantiateHookTemplate(request, params.data.id, parsed.data.overrides)
+    return reply.send(success(hook))
   })
 
   // 3. GET /hooks/:id — 详情
@@ -461,6 +590,35 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, 'Hook 不存在或服务不可用'))
     }
     return reply.send(success(health))
+  })
+
+  // ===== 超越创新功能:动态子路径(2026-07-23 立)=====
+
+  // 28. GET /hooks/:id/execution-timeline — Gantt 可视化数据(?since=ISO)
+  server.get('/hooks/:id/execution-timeline', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const params = idParamSchema.safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, '无效的 Hook ID'))
+    }
+    const since = (request.query as { since?: string }).since
+    const timeline = await getHookExecutionTimeline(request, params.data.id, since)
+    return reply.send(success({ timeline, count: timeline.length }))
+  })
+
+  // 29. GET /hooks/:id/health-forecast — 健康预测(?days=7)
+  server.get('/hooks/:id/health-forecast', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const params = idParamSchema.safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, '无效的 Hook ID'))
+    }
+    const daysQuery = (request.query as { days?: string }).days
+    const days = daysQuery ? Math.min(30, Math.max(1, Number(daysQuery) || 7)) : 7
+    const forecast = await getHookHealthForecast(request, params.data.id, days)
+    return reply.send(success(forecast))
   })
 }
 
