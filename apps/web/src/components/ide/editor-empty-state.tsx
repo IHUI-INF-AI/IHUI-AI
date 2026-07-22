@@ -8,6 +8,7 @@ import {
   Settings,
   Keyboard,
   ChevronRight,
+  FolderOpen,
 } from 'lucide-react'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { getFileColor, getFileIcon } from './file-icons'
@@ -35,7 +36,7 @@ const QUICK_ACTIONS = [
 ]
 
 export function EditorEmptyState() {
-  const { setActiveView, openFile, fileTree, openTabs } = useIDEWorkspace()
+  const { setActiveView, openFile, fileTree, openTabs, workspacePath, setWorkspacePath, fetchFileTree, fetchDiffFiles, fetchGitLog, fetchGitBranches } = useIDEWorkspace()
   const t = useTranslations('ide')
 
   // 最近打开的文件:openTabs 优先,不足时从文件树补齐(最多 5 项)
@@ -77,6 +78,20 @@ export function EditorEmptyState() {
     if (found) openFile(found)
   }
 
+  // 打开文件夹:通过 prompt 获取路径,设置工作区并 fetch 数据
+  const handleOpenFolder = async () => {
+    const path = typeof window !== 'undefined'
+      ? window.prompt(t('editorEmpty.subtitle')) ?? ''
+      : ''
+    if (!path) return
+    setWorkspacePath(path)
+    if (typeof window !== 'undefined') localStorage.setItem('ide:workspacePath', path)
+    void fetchFileTree()
+    void fetchDiffFiles()
+    void fetchGitLog()
+    void fetchGitBranches()
+  }
+
   return (
     <div className="flex flex-1 items-center justify-center overflow-auto bg-muted/10 p-8">
       <div className="flex w-full max-w-2xl gap-8">
@@ -92,6 +107,15 @@ export function EditorEmptyState() {
             </p>
           </div>
           <div className="flex gap-2">
+            {!workspacePath && (
+              <button
+                onClick={handleOpenFolder}
+                className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-muted/40"
+              >
+                <FolderOpen className="h-3.5 w-3.5" />
+                <span>{t('editorEmpty.browseFiles')}</span>
+              </button>
+            )}
             {QUICK_ACTIONS.map((item) => (
               <button
                 key={item.labelKey}
