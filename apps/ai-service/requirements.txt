@@ -34,6 +34,8 @@ tenacity>=9.0.0
 structlog>=24.4.0
 tiktoken>=0.8.0
 numpy>=2.1.0
+# P1-3:子进程资源监控(psutil 可选,未安装时降级为仅超时控制)
+psutil>=5.9.0
 
 # --- 鉴权 / 可观测性 ---
 pyjwt>=2.10.0
