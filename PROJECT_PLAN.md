@@ -8,7 +8,7 @@
 
 ## 当前活跃任务(2026-07-20)
 
-### [ ] 对标 Hermes Agent 深度升级:11 项差距分 P0/P1/P2 开发(跨端:packages/types + ai-service + cli + api 全端同步,2026-07-22 立)
+### [x] ✅(2026-07-22) 对标 Hermes Agent 深度升级:11 项差距分 P0/P1/P2 开发(跨端:packages/types + ai-service + cli + api 全端同步,2026-07-22 立)
 
 **触发**:用户要求"本项目跟 hermesagent 比哪里不如他,请你深度分析然后开发好要比他强"。深度调研 NousResearch/hermes-agent(v0.19.0,16,613 commits)后,对比 IHUI-AI 现状,识别出 11 项差距。Hermes 三大护城河:① 闭环学习循环(自进化 Skill + FTS5 跨会话记忆 + Honcho 用户建模)② 25+ IM 平台 gateway ③ Skills Hub 90,000+ 生态。IHUI 在这三块全部缺失,且 `agent_loop.py` 的 run() 工具循环是"第一轮就 break"的半成品(代码注释自承"生产环境可解析 tool_call 继续迭代")。
 
