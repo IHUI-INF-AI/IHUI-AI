@@ -133,6 +133,8 @@ interface WorkPanelState {
   closeTab: (tabId: string) => void
   /** 切换激活 Tab */
   setActiveTab: (tabId: string) => void
+  /** 拖拽 Tab 排序:P3++(将 fromId 移到 toId 位置,to 之前的元素) */
+  reorderTabs: (fromId: string, toId: string) => void
 
   /** 添加收藏 */
   addFavorite: (url: string, title: string) => void
@@ -425,6 +427,18 @@ export const useWorkPanelStore = create<WorkPanelState>()(
           activeTabId: tabId,
           addressInput: tab.url ?? '',
         })
+      },
+
+      reorderTabs: (fromId, toId) => {
+        const { tabs } = get()
+        if (fromId === toId) return
+        const fromIdx = tabs.findIndex((t) => t.id === fromId)
+        const toIdx = tabs.findIndex((t) => t.id === toId)
+        if (fromIdx < 0 || toIdx < 0) return
+        const next = [...tabs]
+        const [moved] = next.splice(fromIdx, 1)
+        next.splice(toIdx, 0, moved!)
+        set({ tabs: next })
       },
 
       addFavorite: (url, title) => {
