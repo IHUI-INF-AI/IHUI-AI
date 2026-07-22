@@ -341,6 +341,12 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | 部署运维        | Docker Compose(14 服务)/ 蓝绿部署 / Nginx upstream 切换 / 健康检查 / 回滚 / 备份 / 证书续期 cron            |
 |                   | 性能 CI         | Knip 未使用代码检测 + Lighthouse CI 性能预算 + GitHub Act 本地 CI                                           |
 |                   | 微服务工程模式  | Outbox 事务性发件箱 + Refund DLQ 退款死信队列 + Circuit Breaker 断路器 + IDOR 防护 + WS Dedup 消息去重 + Hot Config 热配置 |
+| **6 大对标能力**  | 终端集成        | xterm.js + node-pty 动态加载 + WebSocket 双向流 + 多 session tab + SIGINT/SIGTERM 清理(对标 Codex/OpenCode)   |
+|                   | Rules 引擎      | .trae-cn/rules/*.md 文件存储 + 热加载 + 4 种匹配(always/keyword/regex/semantic)+ CRUD + 测试(对标 Trae Rules)|
+|                   | Hook 服务       | 事件总线 + JSONLogic 条件 + 4 执行器(webhook/script/log/notify)+ CRUD + 测试 + 日志(对标 Trae Hooks)         |
+|                   | Plan/Spec 模式  | tree-sitter AST 反向生成 spec markdown + 4 态模式切换(build/plan/review/spec)(对标 Trae Plan/Spec)            |
+|                   | Context Engineering | 多维 @ 提及 file/database/symbol/folder/web + LRU 缓存 + DB schema 查询(对标 Qoder)                      |
+|                   | Subagent 派单   | AGENTS.md §11 派单格式对话框 + SVG mesh 拓扑可视化 + 任务状态机(对标 Trae Subagent)                          |
 
 ---
 
