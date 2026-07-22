@@ -15,6 +15,35 @@ interface Props {
   onClose: () => void
 }
 
+/** 简化版数值解析:支持 "128K" / "1.5M" 后缀 */
+function parseNum(raw: string | number | null | undefined): number | null {
+  if (raw === null || raw === undefined || raw === '') return null
+  if (typeof raw === 'number') return raw
+  const s = String(raw).trim().toLowerCase()
+  const m = s.match(/([\d.]+)\s*([km])?/)
+  if (!m || !m[1]) return null
+  const n = parseFloat(m[1])
+  if (isNaN(n)) return null
+  if (m[2] === 'k') return n * 1_000
+  if (m[2] === 'm') return n * 1_000_000
+  return n
+}
+
+/** 从模型数据自动提取能力标签 */
+function extractCapabilityTags(entry: LeaderboardEntry): Array<{ key: string; label: string }> {
+  const tags: Array<{ key: string; label: string }> = []
+  const ctx = parseNum(entry.contextWindow)
+  if (ctx !== null && ctx >= 100_000) tags.push({ key: 'tagLongContext', label: 'tagLongContext' })
+  const out = parseNum(entry.maxOutput)
+  if (out !== null && out >= 8_000) tags.push({ key: 'tagLargeOutput', label: 'tagLargeOutput' })
+  const inPrice = parseNum(entry.inputPrice)
+  if (inPrice !== null && inPrice < 1) tags.push({ key: 'tagLowCost', label: 'tagLowCost' })
+  if (entry.winRate !== null && entry.winRate > 70) tags.push({ key: 'tagHighWinRate', label: 'tagHighWinRate' })
+  if (entry.arenaScore !== null && entry.arenaScore > 1300) tags.push({ key: 'tagTopTier', label: 'tagTopTier' })
+  if (entry.category === 'multimodal') tags.push({ key: 'tagMultimodal', label: 'tagMultimodal' })
+  return tags
+}
+
 /** 模型详情弹窗:评分 + 核心参数 + 能力雷达图 + 官方 Key + 一键导入 */
 export function ModelDetailDialog({ entry, open, onClose }: Props) {
   const router = useRouter()
@@ -28,6 +57,8 @@ export function ModelDetailDialog({ entry, open, onClose }: Props) {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [open, onClose])
+
+  const capabilityTags = React.useMemo(() => extractCapabilityTags(entry), [entry])
 
   if (!open) return null
 
@@ -130,6 +161,18 @@ export function ModelDetailDialog({ entry, open, onClose }: Props) {
                 </>
               ) : null}
             </div>
+            {capabilityTags.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {capabilityTags.map((tag) => (
+                  <span
+                    key={tag.key}
+                    className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary"
+                  >
+                    {t(tag.label)}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
           <button
             type="button"
