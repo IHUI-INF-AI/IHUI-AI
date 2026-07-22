@@ -49,6 +49,30 @@ function findNode(nodes: FileNode[], id: string): FileNode | null {
   return null
 }
 
+/** localStorage 键 */
+const LS_EXPANDED_FOLDERS = 'ide:expandedFolders'
+
+/** 从 localStorage 恢复展开的文件夹 id 集合(仅在客户端调用) */
+function loadExpandedFolders(): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const saved = window.localStorage.getItem(LS_EXPANDED_FOLDERS)
+    return new Set(saved ? (JSON.parse(saved) as string[]) : [])
+  } catch {
+    return new Set()
+  }
+}
+
+/** 持久化展开的文件夹 id 集合到 localStorage */
+function saveExpandedFolders(folders: Set<string>): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(LS_EXPANDED_FOLDERS, JSON.stringify([...folders]))
+  } catch {
+    /* localStorage 配额满或禁用时静默忽略 */
+  }
+}
+
 /** 更新树中指定节点的 children */
 function updateTreeChildren(nodes: FileNode[], folderId: string, children: FileNode[]): FileNode[] {
   return nodes.map((n) => {
@@ -106,6 +130,8 @@ interface IDEWorkspaceState {
   setActiveTopTab: (tab: IDETabType) => void
   setWorkspacePath: (path: string) => void
   toggleFolder: (folderId: string) => void
+  /** 从 localStorage 恢复展开状态(仅客户端初始化时调用) */
+  restoreExpandedFolders: () => void
   selectFile: (fileId: string) => void
   openFile: (file: FileNode) => void
   closeTab: (tabId: string) => void
@@ -157,7 +183,14 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
         get().fetchFolderChildren(folderId)
       }
     }
+    saveExpandedFolders(next)
     set({ expandedFolders: next })
+  },
+
+  restoreExpandedFolders: () => {
+    const saved = loadExpandedFolders()
+    if (saved.size === 0) return
+    set({ expandedFolders: saved })
   },
 
   selectFile: (fileId) => set({ selectedFileId: fileId }),
@@ -219,6 +252,13 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
       if (result.success) {
         const tree = result.data.entries.map((e) => entryToFileNode(e, workspacePath))
         set({ fileTree: tree, loading: false })
+        // 自动恢复顶层展开文件夹的子项(刷新后懒加载状态重建)
+        const { expandedFolders, fetchFolderChildren } = get()
+        for (const node of tree) {
+          if (node.type === 'folder' && expandedFolders.has(node.id)) {
+            void fetchFolderChildren(node.id)
+          }
+        }
       } else {
         set({ loading: false, error: result.error ?? '加载文件树失败' })
       }
@@ -230,6 +270,8 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
   fetchFolderChildren: async (folderId: string) => {
     const state = get()
     if (!state.workspacePath) return
+    // 已加载则跳过(防止自动恢复时重复 fetch)
+    if (state.loadedFolders.has(folderId)) return
     const folder = findNode(state.fileTree, folderId)
     if (!folder || folder.type !== 'folder') return
     try {
@@ -240,6 +282,13 @@ export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
           fileTree: updateTreeChildren(state.fileTree, folderId, children),
           loadedFolders: new Set(state.loadedFolders).add(folderId),
         })
+        // 递归恢复嵌套展开文件夹的子项
+        const { expandedFolders, fetchFolderChildren } = get()
+        for (const child of children) {
+          if (child.type === 'folder' && expandedFolders.has(child.id)) {
+            void fetchFolderChildren(child.id)
+          }
+        }
       }
     } catch (e) {
       console.error('fetchFolderChildren error:', e)

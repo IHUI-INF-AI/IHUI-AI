@@ -81,6 +81,17 @@ socket.on("chat_error", (err) => console.error("[error]", err));
 - `app/sio/handlers.py` — 事件处理器 + 鉴权
 - `app/core/llm_gateway.py` — LiteLLM 流式网关(`astream()`)
 - `app/api/v1/chat.py` — HTTP `/api/v1/ai/chat`(新客户端默认走 SSE)
+- `app/api/v1/lsp.py` — LSP 转发路由(转到定义 / 查找引用 / 诊断 / hover)
+
+## LSP 依赖
+
+`/api/v1/lsp/*` 端点通过 subprocess 调用 `typescript-language-server`,需在运行环境安装:
+
+```bash
+npm install -g typescript-language-server typescript
+```
+
+未安装时端点返回 HTTP 503 + 降级提示(前端可改用 codegraph 离线兜底)。Docker 镜像已内置 Node.js 20 + LSP 依赖,本地开发需手动安装。
 
 ## 配置
 
