@@ -176,6 +176,10 @@ import { agentControlRoutes } from './routes/agent-control.js'
 
 // 浏览器降级路由(2026-07-22 立,P1 WorkPanel iframe 降级:截图 + 探测)
 import { browserRoutes } from './routes/browser.js'
+// 统一记忆读写路由(P0-3,cli/ai-service/api 三端记忆同步中枢)
+import { memoryRoutes } from './routes/memory.js'
+// Skill 持久化路由(P0-2,管理自进化生成的 skill)
+import { skillsRoutes } from './routes/skills.js'
 
 // R68 补建：M-64 ask 模块扩展端点
 import { askExtendedRoutes } from './routes/ask-extended.js'
@@ -858,6 +862,11 @@ function registerRoutes(server: FastifyInstance) {
 
   // 浏览器降级路由(2026-07-22 立,P1 WorkPanel iframe 降级:POST /screenshot + POST /probe)
   server.register(browserRoutes, { prefix: '/api/browser' })
+
+  // 统一记忆读写(2026-07-22 立,P0-3:GET/POST/DELETE /api/memory)
+  server.register(memoryRoutes, { prefix: '/api' })
+  // Skill 持久化(2026-07-22 立,P0-2:GET/POST /api/skills + GET/DELETE /api/skills/:name)
+  server.register(skillsRoutes, { prefix: '/api' })
 
   // ===== R68 补建：M-64 ask 模块扩展端点 =====
   // M-64: ask 扩展（12端点：回答编辑/删除+点赞+收藏+评论+分类CRUD+树+统计）

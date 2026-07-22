@@ -16,6 +16,7 @@ from ..core.sse_buffer import sse_buffer
 from ..services.agent_loop import agent_executor
 from ..services.langgraph_service import langgraph_service
 from ..services.memory import memory_store
+from ..services.skills import skill_evolution_service
 from ..services.vector_memory import vector_memory
 
 router = APIRouter()
@@ -213,3 +214,15 @@ async def cancel_task(task_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=f"任务不存在: {task_id}")
     ok = agent_executor.cancel(task_id)
     return {"task_id": task_id, "canceled": ok, "status": agent_executor.status(task_id)["status"]}
+
+
+@router.post("/agents/skill-evolution")
+async def trigger_skill_evolution(request: Request) -> dict[str, Any]:
+    """手动触发 Skill 自进化评估。
+
+    body: SkillEvolutionRequest 字典
+    (taskId/sessionId/goal/steps/finalResult/existingSkills)。
+    """
+    body = await request.json()
+    result = await skill_evolution_service.evaluate(body)
+    return {"code": 0, "message": "ok", "data": result}
