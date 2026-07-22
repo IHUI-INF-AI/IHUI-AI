@@ -62,7 +62,7 @@ describe('miniapp-taro SSO 流程', () => {
 
     it('使用默认 webBase', () => {
       const url = getSsoLoginUrl('/pages/test')
-      expect(url).toContain('http://localhost:3000/sso/login?')
+      expect(url).toContain('http://localhost:3001/sso/login?')
     })
   })
 
@@ -87,7 +87,7 @@ describe('miniapp-taro SSO 流程', () => {
       const result = await exchangeSsoCode('valid-code')
       expect(result).toEqual(mockTokenData)
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3000/api/auth/sso/exchange',
+        'http://localhost:3001/api/auth/sso/exchange',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -136,7 +136,7 @@ describe('miniapp-taro SSO 流程', () => {
       const result = await validateToken('valid-token')
       expect(result).toBe(true)
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3000/api/auth/sso/validate',
+        'http://localhost:3001/api/auth/sso/validate',
         expect.objectContaining({
           headers: { Authorization: 'Bearer valid-token' },
         }),
@@ -180,7 +180,7 @@ describe('miniapp-taro SSO 流程', () => {
       const result = await ssoLogout('valid-token')
       expect(result).toBe(true)
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3000/api/auth/sso/logout',
+        'http://localhost:3001/api/auth/sso/logout',
         expect.objectContaining({
           method: 'POST',
           headers: { Authorization: 'Bearer valid-token' },

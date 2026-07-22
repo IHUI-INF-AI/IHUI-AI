@@ -2905,7 +2905,7 @@
         "unavailable": "Prometheus 연결 불가. cadvisor/prometheus 컨테이너 상태를 확인하세요.",
         "unavailableTitle": "리소스 모니터링 사용 불가",
         "unavailableHint": "Prometheus 서비스 연결 실패. 컨테이너 메트릭을 가져올 수 없습니다.",
-        "envHint": "힌트: NEXT_PUBLIC_GRAFANA_BASE 미설정. 기본값 http://127.0.0.1:3001 사용",
+        "envHint": "힌트: NEXT_PUBLIC_GRAFANA_BASE 미설정. 기본값 http://127.0.0.1:3010 사용",
         "compareTitle": "멀티 테넌트 비교 (각 테넌트 CPU/메모리)",
         "rankingTitle": "테넌트 랭킹 (CPU 내림차순)",
         "totalTenants": "총 {total}개 테넌트",

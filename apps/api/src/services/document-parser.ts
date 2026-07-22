@@ -1,5 +1,5 @@
 /**
- * 文档解析器 — 把多格式文件 (PDF / DOCX / Markdown / Text / HTML) 转成纯文本。
+ * 文档解析器 — 把多格式文件 (PDF / DOCX / Markdown / Text / HTML / XLSX / XLS / CSV) 转成纯文本。
  *
  * 用途:RAG 知识库 `ingestFile` 入库前的格式归一化层。
  *
@@ -9,15 +9,20 @@
  * - Markdown → 原样 utf8(保留原始格式,切片时按行/段处理)
  * - Text     → 原样 utf8
  * - HTML     → 简单 regex 去标签 + 实体解码(避免引入 cheerio/node-html-parser)
+ * - XLSX     → exceljs(优先)+ xlsx 库(降级),转 \t 分隔纯文本(详见 xlsx-parser.ts)
+ * - XLS      → xlsx 库(老格式 BIFF,exceljs 不支持)
+ * - CSV      → 手写 CSV 解析(支持引号 / 逗号 / 换行转义)
  *
  * 错误契约:
  * - UnsupportedFormatError: MIME 未知 + 文件名后缀不匹配(路由层 400)
  * - FileTooLargeError:     > 20MB 拒绝(路由层 400, 防止 OOM)
+ * - XlsxFileTooLargeError: > 10MB 拒绝(Excel 应走数据导入,路由层 400)
  * - 其他:                  透传(路由层 500)
  */
 
 import mammoth from 'mammoth'
 import { extractText, getDocumentProxy } from 'unpdf'
+import { parseXlsx, parseXls, parseCsv } from './xlsx-parser.js'
 
 /** 单文件上限 20MB(防止 OOM,与 Fastify multipart 全局 100MB 配合,本端点更严格) */
 export const MAX_FILE_SIZE = 20 * 1024 * 1024
@@ -45,6 +50,10 @@ const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingm
 const TEXT_MIME = 'text/plain'
 const MD_MIME = 'text/markdown'
 const HTML_MIME = 'text/html'
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+const XLSX_MIME_ALT = 'application/vnd.ms-excel.sheet.macroEnabled.12' // .xlsm
+const XLS_MIME = 'application/vnd.ms-excel'
+const CSV_MIME = 'text/csv'
 
 /** 按文件名后缀推断 MIME(MIME 缺失或 application/octet-stream 时兜底) */
 function detectByExt(filename: string): string {
@@ -55,6 +64,9 @@ function detectByExt(filename: string): string {
   if (ext === 'md' || ext === 'markdown') return MD_MIME
   if (ext === 'txt' || ext === 'log') return TEXT_MIME
   if (ext === 'html' || ext === 'htm') return HTML_MIME
+  if (ext === 'xlsx' || ext === 'xlsm') return XLSX_MIME
+  if (ext === 'xls') return XLS_MIME
+  if (ext === 'csv') return CSV_MIME
   return ''
 }
 
@@ -121,6 +133,24 @@ export async function parseDocument(opts: {
 
   if (mime === HTML_MIME) {
     return htmlToText(buffer.toString('utf8'))
+  }
+
+  // XLSX / XLSM:exceljs 优先,xlsx 库降级
+  if (mime === XLSX_MIME || mime === XLSX_MIME_ALT) {
+    const result = await parseXlsx(buffer)
+    return result.text
+  }
+
+  // XLS 老格式:xlsx 库独占
+  if (mime === XLS_MIME) {
+    const result = await parseXls(buffer)
+    return result.text
+  }
+
+  // CSV:手写解析
+  if (mime === CSV_MIME) {
+    const result = await parseCsv(buffer)
+    return result.text
   }
 
   throw new UnsupportedFormatError(mime || '(no mime)')
