@@ -97,6 +97,16 @@ async def lifespan(app: FastAPI):
     # 关闭 Playwright 单例(避免 Chromium 进程泄漏)
     from app.services.screenshot_service import shutdown as screenshot_shutdown
     await screenshot_shutdown()
+
+    # 关闭全局共享 httpx.AsyncClient(连接池复用,provider 共享)
+    from app.core.llm_gateway import close_http_client, _pool
+    await close_http_client()
+
+    # 关闭 asyncpg 连接池(llm_gateway DB 配置查询用)
+    if _pool:
+        await _pool.close()
+        logger.info("asyncpg pool closed")
+
     shutdown_telemetry()
 
 

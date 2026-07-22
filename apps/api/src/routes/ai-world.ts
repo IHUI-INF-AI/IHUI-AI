@@ -175,47 +175,59 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
     if (!item) {
       return reply.status(404).send({ code: 404, message: 'Not found', data: null })
     }
-    // 异步增浏览数,不阻塞响应
-    void incrementViewCount(item.id)
+    // 异步增浏览数,不阻塞响应;挂 catch 避免未处理 Promise 拒绝
+    void incrementViewCount(item.id).catch((err) => {
+      server.log.error({ err }, 'incrementViewCount failed')
+    })
     return reply.send(success(toItemDTO([item][0]!)))
   })
 
   // GET /ai-world/sync/logs — 同步日志(最近 20 条)+ 信源统计
   server.get('/ai-world/sync/logs', async (_request, reply) => {
-    const [logs, stats] = await Promise.all([findRecentSyncLogs(20), Promise.resolve(getSourceStats())])
-    return reply.send(success({ logs, stats }))
+    try {
+      const [logs, stats] = await Promise.all([findRecentSyncLogs(20), Promise.resolve(getSourceStats())])
+      return reply.send(success({ logs, stats }))
+    } catch (err) {
+      server.log.error({ err }, 'ai-world sync/logs failed')
+      return reply.status(500).send({ code: 500, message: '同步失败' })
+    }
   })
 
   // POST /ai-world/sync — 手动触发同步(admin,支持 ?dry-run=true 只预估不写库)
   server.post('/ai-world/sync', async (request, reply) => {
-    const query = (request.query ?? {}) as { 'dry-run'?: string }
-    if (query['dry-run'] === 'true' || query['dry-run'] === '1') {
-      const results = await runDryRun()
-      const totalEstimated = results.reduce((sum, r) => sum + r.estimatedItems, 0)
-      const failed = results.filter((r) => r.error).length
+    try {
+      const query = (request.query ?? {}) as { 'dry-run'?: string }
+      if (query['dry-run'] === 'true' || query['dry-run'] === '1') {
+        const results = await runDryRun()
+        const totalEstimated = results.reduce((sum, r) => sum + r.estimatedItems, 0)
+        const failed = results.filter((r) => r.error).length
+        return reply.send(success({
+          dryRun: true,
+          total: results.length,
+          totalEstimated,
+          failed,
+          stats: getSourceStats(),
+          results,
+        }))
+      }
+      const results = await syncAllSources()
+      const ok = results.filter((r) => r.status === 'success').length
+      const partial = results.filter((r) => r.status === 'partial').length
+      const fail = results.filter((r) => r.status === 'failed').length
+      const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
       return reply.send(success({
-        dryRun: true,
         total: results.length,
-        totalEstimated,
-        failed,
+        success: ok,
+        partial,
+        failed: fail,
+        totalItems,
         stats: getSourceStats(),
         results,
       }))
+    } catch (err) {
+      server.log.error({ err }, 'ai-world sync failed')
+      return reply.status(500).send({ code: 500, message: '同步失败' })
     }
-    const results = await syncAllSources()
-    const ok = results.filter((r) => r.status === 'success').length
-    const partial = results.filter((r) => r.status === 'partial').length
-    const fail = results.filter((r) => r.status === 'failed').length
-    const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
-    return reply.send(success({
-      total: results.length,
-      success: ok,
-      partial,
-      failed: fail,
-      totalItems,
-      stats: getSourceStats(),
-      results,
-    }))
   })
 
   // ===== 模型排行榜端点(2026-07-22 新增) =====
@@ -260,46 +272,61 @@ export const aiWorldRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /ai-world/sync/rankings — 手动触发模型排行榜同步
   server.post('/ai-world/sync/rankings', async (_request, reply) => {
-    const results = await syncRankings()
-    const ok = results.filter((r) => r.status === 'success').length
-    const fail = results.filter((r) => r.status === 'failed').length
-    const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
-    return reply.send(success({
-      total: results.length,
-      success: ok,
-      failed: fail,
-      totalItems,
-      results,
-    }))
+    try {
+      const results = await syncRankings()
+      const ok = results.filter((r) => r.status === 'success').length
+      const fail = results.filter((r) => r.status === 'failed').length
+      const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
+      return reply.send(success({
+        total: results.length,
+        success: ok,
+        failed: fail,
+        totalItems,
+        results,
+      }))
+    } catch (err) {
+      server.log.error({ err }, 'ai-world sync/rankings failed')
+      return reply.status(500).send({ code: 500, message: '同步失败' })
+    }
   })
 
   // POST /ai-world/sync/trending — 手动触发热度更新
   server.post('/ai-world/sync/trending', async (_request, reply) => {
-    const results = await syncTrendingMetrics()
-    const ok = results.filter((r) => r.status === 'success').length
-    const fail = results.filter((r) => r.status === 'failed').length
-    const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
-    return reply.send(success({
-      total: results.length,
-      success: ok,
-      failed: fail,
-      totalItems,
-      results,
-    }))
+    try {
+      const results = await syncTrendingMetrics()
+      const ok = results.filter((r) => r.status === 'success').length
+      const fail = results.filter((r) => r.status === 'failed').length
+      const totalItems = results.reduce((sum, r) => sum + r.itemCount, 0)
+      return reply.send(success({
+        total: results.length,
+        success: ok,
+        failed: fail,
+        totalItems,
+        results,
+      }))
+    } catch (err) {
+      server.log.error({ err }, 'ai-world sync/trending failed')
+      return reply.status(500).send({ code: 500, message: '同步失败' })
+    }
   })
 
   // POST /ai-world/sync/dry-run — 跑 dry-run(返回预计条目数,不写库)
   server.post('/ai-world/sync/dry-run', async (_request, reply) => {
-    const results = await runDryRun()
-    const totalEstimated = results.reduce((sum, r) => sum + r.estimatedItems, 0)
-    const failed = results.filter((r) => r.error).length
-    return reply.send(success({
-      dryRun: true,
-      total: results.length,
-      totalEstimated,
-      failed,
-      stats: getSourceStats(),
-      results,
-    }))
+    try {
+      const results = await runDryRun()
+      const totalEstimated = results.reduce((sum, r) => sum + r.estimatedItems, 0)
+      const failed = results.filter((r) => r.error).length
+      return reply.send(success({
+        dryRun: true,
+        total: results.length,
+        totalEstimated,
+        failed,
+        stats: getSourceStats(),
+        results,
+      }))
+    } catch (err) {
+      server.log.error({ err }, 'ai-world sync/dry-run failed')
+      return reply.status(500).send({ code: 500, message: '同步失败' })
+    }
   })
 }

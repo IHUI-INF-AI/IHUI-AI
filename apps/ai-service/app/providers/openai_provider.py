@@ -15,6 +15,7 @@ from typing import Any, AsyncIterator
 import httpx
 
 from .base_provider import BaseProvider, ProviderError
+from ..core.llm_gateway import get_http_client
 
 logger = logging.getLogger(__name__)
 
@@ -97,45 +98,46 @@ class OpenAIProvider(BaseProvider):
         _done_yielded = False
         _errored = False
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                async with client.stream(
-                    "POST", f"{self.base_url}/v1/chat/completions", headers=self._headers(), json=payload
-                ) as resp:
-                    if resp.status_code >= 400:
-                        body = await resp.aread()
-                        raise ProviderError(
-                            f"OpenAI 流式调用失败: {resp.status_code} {body[:300]!r}",
-                            resp.status_code,
+            client = get_http_client()
+            async with client.stream(
+                "POST", f"{self.base_url}/v1/chat/completions", headers=self._headers(), json=payload,
+                timeout=self.timeout,
+            ) as resp:
+                if resp.status_code >= 400:
+                    body = await resp.aread()
+                    raise ProviderError(
+                        f"OpenAI 流式调用失败: {resp.status_code} {body[:300]!r}",
+                        resp.status_code,
+                    )
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    chunk_str = line[6:]
+                    if chunk_str.strip() == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(chunk_str)
+                    except json.JSONDecodeError as e:
+                        # P1-7: 坏 chunk 日志化(不静默跳过)
+                        logger.warning(
+                            "OpenAI 流式 chunk JSON 解析失败, 跳过: %s (raw=%r)",
+                            e, chunk_str[:200],
                         )
-                    async for line in resp.aiter_lines():
-                        if not line.startswith("data: "):
-                            continue
-                        chunk_str = line[6:]
-                        if chunk_str.strip() == "[DONE]":
-                            break
-                        try:
-                            chunk = json.loads(chunk_str)
-                        except json.JSONDecodeError as e:
-                            # P1-7: 坏 chunk 日志化(不静默跳过)
-                            logger.warning(
-                                "OpenAI 流式 chunk JSON 解析失败, 跳过: %s (raw=%r)",
-                                e, chunk_str[:200],
-                            )
-                            continue
-                        choice = chunk.get("choices", [{}])[0]
-                        delta = choice.get("delta", {})
-                        if delta.get("content"):
-                            yield {"type": "chunk", "content": delta["content"]}
-                        if delta.get("tool_calls"):
-                            yield {"type": "tool_call", "tool_calls": delta["tool_calls"]}
-                        if chunk.get("usage"):
-                            yield {
-                                "type": "done",
-                                "model": chunk.get("model", model),
-                                "usage": chunk["usage"],
-                                "stub": False,
-                            }
-                            _done_yielded = True
+                        continue
+                    choice = chunk.get("choices", [{}])[0]
+                    delta = choice.get("delta", {})
+                    if delta.get("content"):
+                        yield {"type": "chunk", "content": delta["content"]}
+                    if delta.get("tool_calls"):
+                        yield {"type": "tool_call", "tool_calls": delta["tool_calls"]}
+                    if chunk.get("usage"):
+                        yield {
+                            "type": "done",
+                            "model": chunk.get("model", model),
+                            "usage": chunk["usage"],
+                            "stub": False,
+                        }
+                        _done_yielded = True
         except httpx.HTTPError as e:
             _errored = True
             yield {"type": "error", "message": f"OpenAI 流式网络异常: {e}"}

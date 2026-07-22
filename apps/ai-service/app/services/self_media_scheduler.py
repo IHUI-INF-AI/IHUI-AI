@@ -86,7 +86,16 @@ class SelfMediaScheduler:
         self._configs: dict[str, TaskConfig] = {}  # task_id -> 运行时配置
         self._history: list[HistoryEntry] = []  # 全局历史(LRU)
         self._running_tasks: set[str] = set()  # 正在执行的 task_id 集合
+        # 持有 create_task 引用,防止 CPython GC 回收未完成的 task
+        self._pending_tasks: set[asyncio.Task] = set()
         self._init_configs()
+
+    def _spawn_task(self, coro) -> asyncio.Task:
+        """创建 task 并持有引用,完成后自动从集合移除。"""
+        task = asyncio.create_task(coro)
+        self._pending_tasks.add(task)
+        task.add_done_callback(self._pending_tasks.discard)
+        return task
 
     def _init_configs(self) -> None:
         """从环境变量初始化任务配置。"""
@@ -150,7 +159,7 @@ class SelfMediaScheduler:
                         if self._last_run_date.get(tdef["id"]) != today:
                             self._last_run_date[tdef["id"]] = today
                             # 异步触发,不阻塞 loop
-                            asyncio.create_task(self._run_task_safe(tdef["id"]))
+                            self._spawn_task(self._run_task_safe(tdef["id"]))
             except asyncio.CancelledError:
                 raise
             except Exception as e:
@@ -353,7 +362,7 @@ class SelfMediaScheduler:
         if task_id in self._running_tasks:
             return {"ok": False, "error": f"task already running: {task_id}"}
         # 异步触发,立即返回
-        asyncio.create_task(self._run_task_safe(task_id))
+        self._spawn_task(self._run_task_safe(task_id))
         return {"ok": True, "message": f"task {task_id} triggered"}
 
 

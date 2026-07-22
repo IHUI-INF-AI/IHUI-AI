@@ -75,7 +75,7 @@ export function UsernameLoginForm({
         setUser({ id: json.data.userId, nickname: '' })
         void fetchApi<{ user: AuthUser }>('/api/auth/me').then((r) => {
           if (r.success) setUser(r.data.user)
-        })
+        }).catch(() => {})
       }
       onSuccess?.()
     } catch {

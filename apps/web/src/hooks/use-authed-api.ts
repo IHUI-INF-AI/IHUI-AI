@@ -34,7 +34,7 @@ export function useAuthedApi(): UseAuthedApiReturn {
         return { success: false, error: '未登录' }
       }
       const res = await fetchApi<T>(url, options)
-      if (!res.success && /401|未授权|token/i.test(res.error)) {
+      if (!res.success && res.status === 401) {
         onUnauthorizedRef.current?.()
       }
       return res
