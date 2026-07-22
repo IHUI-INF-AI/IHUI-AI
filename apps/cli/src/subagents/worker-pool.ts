@@ -36,6 +36,10 @@ const SHUTDOWN_GRACE_MS = 5_000;
 const DEFAULT_MAX_WORKERS = 4;
 const DEFAULT_TASK_TIMEOUT_SECONDS = 300;
 const DEFAULT_MAX_QUEUE_SIZE = 100;
+// P0-3 修复:buffer 上限,防长跑多 subagent OOM 主进程
+const MAX_STDOUT_BUF_BYTES = 1_048_576; // 1MB
+const MAX_STDERR_BUF_BYTES = 1_048_576; // 1MB
+const STDERR_RATE_LIMIT_LINES_PER_SEC = 100;
 
 // ───────────────────────────── 类型 ─────────────────────────────
 
@@ -70,6 +74,11 @@ interface WorkerEntry {
   stdoutBuf: string;
   stderrBuf: string;
   timedOut: boolean;
+  // P0-3 修复:buffer 截断标记 + stderr rate limit 计数
+  stdoutTruncated: boolean;
+  stderrTruncated: boolean;
+  stderrLastFlushAt: number;
+  stderrLinesSinceFlush: number;
 }
 
 // ───────────────────────────── SubagentWorkerPool ─────────────────────────────
@@ -264,6 +273,10 @@ export class SubagentWorkerPool {
       stdoutBuf: '',
       stderrBuf: '',
       timedOut: false,
+      stdoutTruncated: false,
+      stderrTruncated: false,
+      stderrLastFlushAt: startedAt,
+      stderrLinesSinceFlush: 0,
     };
     this.workers.set(subagentId, entry);
 
@@ -277,14 +290,38 @@ export class SubagentWorkerPool {
 
     // stdout 收集(NDJSON 事件流)
     proc.stdout?.on('data', (chunk: Buffer) => {
-      entry.stdoutBuf += chunk.toString();
+      const text = chunk.toString();
+      // P0-3 修复:buffer 加 1MB 上限,超出截断保留尾部(防长跑多 subagent OOM 主进程)
+      if (entry.stdoutBuf.length + text.length > MAX_STDOUT_BUF_BYTES) {
+        const keepLen = MAX_STDOUT_BUF_BYTES - text.length;
+        entry.stdoutBuf = (keepLen > 0 ? entry.stdoutBuf.slice(-keepLen) : '') + text.slice(-MAX_STDOUT_BUF_BYTES);
+        entry.stdoutTruncated = true;
+      } else {
+        entry.stdoutBuf += text;
+      }
     });
 
     // stderr 收集(日志,转发到主进程 stderr)
     proc.stderr?.on('data', (chunk: Buffer) => {
       const text = chunk.toString();
-      entry.stderrBuf += text;
-      process.stderr.write(`[subagent ${subagentId}] ${text}`);
+      // P0-3 修复:buffer 加 1MB 上限
+      if (entry.stderrBuf.length + text.length > MAX_STDERR_BUF_BYTES) {
+        const keepLen = MAX_STDERR_BUF_BYTES - text.length;
+        entry.stderrBuf = (keepLen > 0 ? entry.stderrBuf.slice(-keepLen) : '') + text.slice(-MAX_STDERR_BUF_BYTES);
+        entry.stderrTruncated = true;
+      } else {
+        entry.stderrBuf += text;
+      }
+      // P0-3 修复:stderr 转发加 rate limit(每秒最多 100 行,防子进程大量日志淹没主进程)
+      const now = Date.now();
+      if (now - entry.stderrLastFlushAt > 1000) {
+        entry.stderrLastFlushAt = now;
+        entry.stderrLinesSinceFlush = 0;
+      }
+      entry.stderrLinesSinceFlush++;
+      if (entry.stderrLinesSinceFlush <= STDERR_RATE_LIMIT_LINES_PER_SEC) {
+        process.stderr.write(`[subagent ${subagentId}] ${text}`);
+      }
     });
 
     // 进程退出
@@ -293,6 +330,9 @@ export class SubagentWorkerPool {
     });
 
     // 进程错误(spawn 失败等)
+    // P0-1 修复:spawn 失败时 Node 只触发 'error' 不触发 'exit'(参见 Node.js child_process 文档)
+    // 若不在此补清理,activeCount 永久占位 → drainQueue 条件 activeCount < maxWorkers 永远少一格
+    // → worker 池容量逐次缩减至 0
     proc.on('error', (err) => {
       if (entry.resolver) {
         entry.resolver({
@@ -304,6 +344,19 @@ export class SubagentWorkerPool {
         });
         entry.resolver = undefined;
       }
+      // 防御重复清理(handleWorkerExit 可能已执行)
+      if (!this.workers.has(subagentId)) return;
+      if (entry.timeoutTimer) clearTimeout(entry.timeoutTimer);
+      if (entry.heartbeatTimer) clearInterval(entry.heartbeatTimer);
+      this.workers.delete(subagentId);
+      this.activeCount--;
+      // 清理 worktree(spawn 失败时 worktree 已创建但子进程未启动)
+      if (entry.worktree) {
+        try {
+          removeWorktree(entry.worktree.path, { sourcePath: entry.worktree.parentId, force: true });
+        } catch { /* ignore */ }
+      }
+      void this.drainQueue();
     });
 
     // 发送任务参数到子进程
