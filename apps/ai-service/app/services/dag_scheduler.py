@@ -313,3 +313,453 @@ class DAGScheduler:
                 lines.append(f"  └─ {node.name}({nid}) 依赖: {deps}{cond}{retry}")
         lines.append("=" * 50)
         return "\n".join(lines)
+
+
+# ============================================================================
+# Worker Pool(限并发 + 优先级队列 + 持久化,2026-07-22 立)
+# 对齐 packages/types/src/agent-runtime.ts L1232-1447 多 Agent 并行执行契约。
+# Python 端用 dataclass 对齐 TS 类型,字段名 snake_case,JSON 序列化转 camelCase。
+# ============================================================================
+
+
+import json as _json
+import os as _os
+import uuid as _uuid
+from typing import Awaitable, Literal
+
+
+AgentTaskStatus = Literal["triage", "todo", "ready", "in_progress", "blocked", "done"]
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _parse_ts(s: Optional[str]) -> float:
+    """ISO 字符串 → timestamp(优先级队列排序用,空值返回 0)。"""
+    if not s:
+        return 0.0
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00")).timestamp()
+    except Exception:
+        return 0.0
+
+
+def _snake_to_camel(s: str) -> str:
+    parts = s.split("_")
+    return parts[0] + "".join(p.capitalize() for p in parts[1:])
+
+
+@dataclass
+class KanbanTask:
+    """Kanban 任务(跨端统一,对齐 agent-runtime.ts KanbanTask)。"""
+
+    id: str
+    agent_id: str
+    name: str
+    status: AgentTaskStatus = "triage"
+    priority: int = 0
+    payload: dict = field(default_factory=dict)
+    description: Optional[str] = None
+    result: Optional[dict] = None
+    scheduled_at: Optional[str] = None
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    error_message: Optional[str] = None
+    dependencies: list[str] = field(default_factory=list)
+    worker_id: Optional[str] = None
+    created_by: Optional[str] = None
+    created_at: str = ""
+    updated_at: str = ""
+
+    def to_camel_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "agentId": self.agent_id,
+            "name": self.name,
+            "description": self.description,
+            "status": self.status,
+            "priority": self.priority,
+            "payload": self.payload,
+            "result": self.result,
+            "scheduledAt": self.scheduled_at,
+            "startedAt": self.started_at,
+            "completedAt": self.completed_at,
+            "errorMessage": self.error_message,
+            "dependencies": list(self.dependencies),
+            "workerId": self.worker_id,
+            "createdBy": self.created_by,
+            "createdAt": self.created_at,
+            "updatedAt": self.updated_at,
+        }
+
+
+@dataclass
+class WorkerPoolConfig:
+    """Worker Pool 配置(对齐 agent-runtime.ts WorkerPoolConfig)。"""
+
+    max_workers: int = 4
+    task_timeout_seconds: float = 300.0
+    max_queue_size: int = 100
+    idle_worker_ttl_seconds: Optional[float] = 60.0
+    preemptive: bool = False
+
+    def to_camel_dict(self) -> dict:
+        return {
+            "maxWorkers": self.max_workers,
+            "taskTimeoutSeconds": self.task_timeout_seconds,
+            "maxQueueSize": self.max_queue_size,
+            "idleWorkerTtlSeconds": self.idle_worker_ttl_seconds,
+            "preemptive": self.preemptive,
+        }
+
+
+@dataclass
+class WorkerState:
+    """Worker 状态(对齐 agent-runtime.ts WorkerState)。"""
+
+    worker_id: str
+    type: str  # ai-service-worker | cli-subprocess | api-dispatcher
+    status: str  # idle | busy | dead
+    current_task_id: Optional[str] = None
+    completed_count: int = 0
+    failed_count: int = 0
+    started_at: str = ""
+    last_heartbeat_at: str = ""
+
+    def to_camel_dict(self) -> dict:
+        return {
+            "workerId": self.worker_id,
+            "type": self.type,
+            "status": self.status,
+            "currentTaskId": self.current_task_id,
+            "completedCount": self.completed_count,
+            "failedCount": self.failed_count,
+            "startedAt": self.started_at,
+            "lastHeartbeatAt": self.last_heartbeat_at,
+        }
+
+
+@dataclass
+class AgentSSEEvent:
+    """SSE 实时流事件(对齐 agent-runtime.ts AgentSSEEvent)。"""
+
+    type: str  # task_created | task_status_changed | task_completed | task_failed | ...
+    task_id: Optional[str] = None
+    worker_id: Optional[str] = None
+    payload: dict = field(default_factory=dict)
+    timestamp: str = ""
+
+    def to_camel_dict(self) -> dict:
+        return {
+            "type": self.type,
+            "taskId": self.task_id,
+            "workerId": self.worker_id,
+            "payload": self.payload,
+            "timestamp": self.timestamp,
+        }
+
+
+@dataclass
+class ParallelExecutionResult:
+    """并行执行结果(对齐 agent-runtime.ts ParallelExecutionResult)。"""
+
+    execution_id: str
+    status: str  # success | partial | failed
+    task_results: dict[str, KanbanTask] = field(default_factory=dict)
+    total_duration_ms: float = 0.0
+    worker_count: int = 0
+    trace: list[dict] = field(default_factory=list)
+
+    def to_camel_dict(self) -> dict:
+        return {
+            "executionId": self.execution_id,
+            "status": self.status,
+            "taskResults": {k: v.to_camel_dict() for k, v in self.task_results.items()},
+            "totalDurationMs": self.total_duration_ms,
+            "workerCount": self.worker_count,
+            "trace": list(self.trace),
+        }
+
+
+async def _default_executor(task: KanbanTask) -> dict:
+    """默认 executor:回显任务 id + payload。"""
+    return {"executed": True, "taskId": task.id, "echo": task.payload}
+
+
+class WorkerPool:
+    """限并发 Worker Pool + 优先级队列。
+
+    - N 个 worker(asyncio.Task)从 asyncio.PriorityQueue 消费任务
+    - 优先级:priority 降序 + scheduledAt 升序 + 入队序号(避免比较 task)
+    - 并发限制:max_workers 个 worker 同时执行,超限排队
+    - 依赖检查:依赖未完成且仍在队列 → 重新入队等待;依赖缺失/阻塞 → 本任务 blocked
+    - 超时:task_timeout_seconds,超时标记 blocked
+    - SSE 事件:状态变化通过 on_event callback 回调
+    - 持久化:REDIS_URL 可用时持久化任务状态到 Redis,不可用纯内存
+    - 优雅关闭:shutdown 后新 submit 拒绝,当前任务完成
+
+    用法:
+        pool = WorkerPool(WorkerPoolConfig(max_workers=4), executor_factory=my_factory)
+        await pool.start()
+        tid = await pool.submit(task)
+        result = await pool.wait_all()
+        await pool.shutdown()
+    """
+
+    def __init__(
+        self,
+        config: WorkerPoolConfig,
+        executor_factory: Optional[Callable[[KanbanTask], Awaitable[dict]]] = None,
+        on_event: Optional[Callable[[AgentSSEEvent], None]] = None,
+    ):
+        self.config = config
+        self.executor_factory = executor_factory or _default_executor
+        self.on_event = on_event
+        # 优先级队列元素:(-priority, scheduled_at_ts, seq, task);seq 保证不比较 task
+        self._queue: asyncio.PriorityQueue = asyncio.PriorityQueue()
+        self._tasks: dict[str, KanbanTask] = {}  # task_id -> task(状态存储)
+        self._workers: list[asyncio.Task] = []
+        self._workers_state: dict[str, WorkerState] = {}
+        self._wait_retries: dict[str, int] = {}  # 依赖等待重试计数(防死循环)
+        self._seq = 0
+        self._shutdown = False
+        self._started = False
+        self._redis = self._init_redis()
+
+    def _init_redis(self):
+        """REDIS_URL 可用时创建异步 redis 客户端,否则 None(纯内存)。"""
+        url = _os.environ.get("REDIS_URL")
+        if not url:
+            return None
+        try:
+            import redis.asyncio as aioredis  # type: ignore
+
+            return aioredis.from_url(url, decode_responses=True)
+        except Exception:
+            logger.debug("Redis 初始化失败,降级为纯内存模式")
+            return None
+
+    async def start(self) -> None:
+        """启动 N 个 worker(asyncio.Task)。幂等:已启动则 no-op。"""
+        if self._started:
+            return
+        self._started = True
+        self._shutdown = False
+        for i in range(self.config.max_workers):
+            wid = f"worker-{i + 1}"
+            now = _now_iso()
+            self._workers_state[wid] = WorkerState(
+                worker_id=wid,
+                type="ai-service-worker",
+                status="idle",
+                started_at=now,
+                last_heartbeat_at=now,
+            )
+            self._workers.append(asyncio.create_task(self._worker_loop(wid)))
+
+    async def submit(self, task: KanbanTask) -> str:
+        """提交任务入队,返回 task_id。shutdown 后拒绝新任务。"""
+        if self._shutdown:
+            raise RuntimeError("WorkerPool 已关闭,拒绝新任务")
+        if self._queue.qsize() >= self.config.max_queue_size:
+            raise RuntimeError("任务队列已满")
+        now = _now_iso()
+        if not task.created_at:
+            task.created_at = now
+        task.updated_at = now
+        if task.status == "triage":
+            task.status = "todo"
+        self._tasks[task.id] = task
+        await self._persist(task)
+        self._emit("task_created", task)
+        self._seq += 1
+        await self._queue.put(
+            (-task.priority, _parse_ts(task.scheduled_at), self._seq, task)
+        )
+        return task.id
+
+    async def get_status(self, task_id: str) -> Optional[KanbanTask]:
+        """查询任务状态,不存在返回 None。"""
+        return self._tasks.get(task_id)
+
+    def list_tasks(self, status: Optional[str] = None) -> list[KanbanTask]:
+        """列出所有任务,可选 status 过滤。"""
+        tasks = list(self._tasks.values())
+        if status:
+            tasks = [t for t in tasks if t.status == status]
+        return tasks
+
+    def get_workers_state(self) -> list[WorkerState]:
+        """返回所有 worker 当前状态。"""
+        return list(self._workers_state.values())
+
+    async def wait_all(self) -> ParallelExecutionResult:
+        """等待所有已提交任务到达终态(done/blocked),返回并行执行结果。"""
+        await self.start()
+        start = datetime.now(timezone.utc)
+        await self._queue.join()
+        end = datetime.now(timezone.utc)
+        has_done = any(t.status == "done" for t in self._tasks.values())
+        has_blocked = any(t.status == "blocked" for t in self._tasks.values())
+        if has_blocked and has_done:
+            status = "partial"
+        elif has_blocked:
+            status = "failed"
+        else:
+            status = "success"
+        trace = [
+            {
+                "level": 0,
+                "nodeIds": [t.id],
+                "status": "success" if t.status == "done" else "failed",
+                "durationMs": 0.0,
+            }
+            for t in self._tasks.values()
+        ]
+        return ParallelExecutionResult(
+            execution_id=str(_uuid.uuid4()),
+            status=status,
+            task_results=dict(self._tasks),
+            total_duration_ms=(end - start).total_seconds() * 1000,
+            worker_count=len(self._workers),
+            trace=trace,
+        )
+
+    async def shutdown(self) -> None:
+        """优雅关闭:拒绝新任务,等待当前任务完成 + worker 退出。"""
+        self._shutdown = True
+        if self._workers:
+            await asyncio.gather(*self._workers, return_exceptions=True)
+            self._workers.clear()
+        self._started = False
+        if self._redis is not None:
+            try:
+                await self._redis.close()
+            except Exception:
+                pass
+            self._redis = None
+
+    def _check_deps(self, task: KanbanTask) -> str:
+        """依赖检查。返回 'ready' | 'wait' | 'blocked:<reason>'。"""
+        for dep_id in task.dependencies or []:
+            dep = self._tasks.get(dep_id)
+            if dep is None:
+                return f"blocked:依赖 {dep_id} 不存在"
+            if dep.status == "done":
+                continue
+            if dep.status == "blocked":
+                return f"blocked:依赖 {dep_id} 已阻塞"
+            # 依赖仍在 triage/todo/ready/in_progress → 等待
+            return "wait"
+        return "ready"
+
+    async def _worker_loop(self, worker_id: str) -> None:
+        """worker 主循环:从优先级队列取任务 → 依赖检查 → 执行 → 更新状态 → SSE。"""
+        state = self._workers_state[worker_id]
+        while not self._shutdown:
+            try:
+                item = await asyncio.wait_for(self._queue.get(), timeout=0.5)
+            except asyncio.TimeoutError:
+                continue
+            # 已取到 item,必须 task_done 恰好一次
+            try:
+                _, _, _, task = item
+                dep_status = self._check_deps(task)
+                if dep_status == "wait":
+                    retries = self._wait_retries.get(task.id, 0) + 1
+                    self._wait_retries[task.id] = retries
+                    if retries > 200:
+                        task.status = "blocked"
+                        task.error_message = "依赖等待超时(重试 200 次)"
+                        task.updated_at = _now_iso()
+                        task.completed_at = _now_iso()
+                        await self._persist(task)
+                        self._emit("task_failed", task, worker_id)
+                        state.failed_count += 1
+                    else:
+                        # 重新入队,让其他任务推进
+                        self._seq += 1
+                        await self._queue.put(
+                            (-task.priority, _parse_ts(task.scheduled_at), self._seq, task)
+                        )
+                        await asyncio.sleep(0.02)
+                    continue
+                if dep_status.startswith("blocked"):
+                    task.status = "blocked"
+                    task.error_message = dep_status.split(":", 1)[1]
+                    task.updated_at = _now_iso()
+                    task.completed_at = _now_iso()
+                    await self._persist(task)
+                    self._emit("task_failed", task, worker_id)
+                    state.failed_count += 1
+                    continue
+                # ready:执行
+                task.status = "in_progress"
+                task.started_at = _now_iso()
+                task.worker_id = worker_id
+                task.updated_at = _now_iso()
+                state.status = "busy"
+                state.current_task_id = task.id
+                state.last_heartbeat_at = _now_iso()
+                await self._persist(task)
+                self._emit("task_status_changed", task, worker_id)
+                try:
+                    output = await asyncio.wait_for(
+                        self.executor_factory(task),
+                        timeout=self.config.task_timeout_seconds,
+                    )
+                    task.status = "done"
+                    task.result = output if isinstance(output, dict) else {"value": output}
+                    task.completed_at = _now_iso()
+                    state.completed_count += 1
+                    self._emit("task_completed", task, worker_id)
+                except asyncio.TimeoutError:
+                    task.status = "blocked"
+                    task.error_message = f"超时({self.config.task_timeout_seconds}s)"
+                    task.completed_at = _now_iso()
+                    state.failed_count += 1
+                    self._emit("task_failed", task, worker_id)
+                except Exception as e:  # noqa: BLE001
+                    task.status = "blocked"
+                    task.error_message = f"执行异常: {e}"
+                    task.completed_at = _now_iso()
+                    state.failed_count += 1
+                    self._emit("task_failed", task, worker_id)
+                task.updated_at = _now_iso()
+                task.worker_id = None
+                state.status = "idle"
+                state.current_task_id = None
+                state.last_heartbeat_at = _now_iso()
+                await self._persist(task)
+            finally:
+                self._queue.task_done()
+
+    def _emit(
+        self, event_type: str, task: KanbanTask, worker_id: Optional[str] = None
+    ) -> None:
+        """发送 SSE 事件(回调异常吞掉,不影响主流程)。"""
+        if self.on_event is None:
+            return
+        event = AgentSSEEvent(
+            type=event_type,
+            task_id=task.id,
+            worker_id=worker_id,
+            payload=task.to_camel_dict(),
+            timestamp=_now_iso(),
+        )
+        try:
+            self.on_event(event)
+        except Exception:  # noqa: BLE001
+            logger.exception("SSE callback 异常")
+
+    async def _persist(self, task: KanbanTask) -> None:
+        """Redis 可用时持久化任务状态(best-effort,失败仅日志)。"""
+        if self._redis is None:
+            return
+        try:
+            await self._redis.set(
+                f"kanban:task:{task.id}", _json.dumps(task.to_camel_dict(), ensure_ascii=False)
+            )
+        except Exception:  # noqa: BLE001
+            logger.debug("Redis 持久化失败(忽略)")
