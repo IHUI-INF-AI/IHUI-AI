@@ -148,7 +148,11 @@
           "finance": "金融",
           "automotive": "自動車",
           "industrial": "産業",
-          "roleplay": "ロールプレイ"
+          "roleplay": "ロールプレイ",
+          "analytical": "分析力",
+          "presentation": "表現力",
+          "intelligence": "知能指数",
+          "agentic": "エージェント指数"
         },
         "columns": {
           "rank": "順位",
@@ -2905,7 +2909,7 @@
         "unavailable": "Prometheus に接続できません。cadvisor/prometheus コンテナを確認してください。",
         "unavailableTitle": "リソース監視は利用できません",
         "unavailableHint": "Prometheus サービスへの接続に失敗しました。",
-        "envHint": "ヒント: NEXT_PUBLIC_GRAFANA_BASE が未設定です。デフォルト http://127.0.0.1:3010 を使用",
+        "envHint": "ヒント: NEXT_PUBLIC_GRAFANA_BASE が未設定です。デフォルト http://127.0.0.1:3001 を使用",
         "compareTitle": "マルチテナント比較 (各テナント CPU/メモリ)",
         "rankingTitle": "テナントランキング (CPU 降順)",
         "totalTenants": "合計 {total} テナント",
