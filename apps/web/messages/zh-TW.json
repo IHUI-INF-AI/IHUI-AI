@@ -458,7 +458,7 @@
     "lecturers": "講師",
     "student": "學員中心",
     "agents": "智能體",
-    "agentWorkbench": "Agent 工作台",
+    "agentWorkbench": "Agent 工作臺",
     "distribution": "分銷",
     "oauthPlatform": "開放平臺",
     "selfMediaWechat": "公眾號文章",
@@ -22348,13 +22348,6 @@
     "downloadComplete": "下載完成",
     "downloadFailed2": "下載失敗"
   },
-  "Payment": {
-    "alreadyVip": "您已是VIP會員",
-    "notLogged": "使用者未登入",
-    "incompleteProduct": "商品信息不完整",
-    "selectPayMethod": "請選擇支付方式",
-    "notLoggedOrNoOpenId": "使用者未登入或openid不存在"
-  },
   "cmpindex": {
     "timeExpr": "時間表達式",
     "cronExpr": "Cron 表達式",
@@ -28438,6 +28431,10 @@
     "dragInsertAfter": "在此處之後插入"
   },
   "aiNews": {
+    "compare": {
+      "label": "加入對比",
+      "maxToast": "最多選擇 5 個模型進行對比"
+    },
     "leaderboard": {
       "label": "大模型排行榜",
       "title": "大模型排行榜 · Arena 評分",
@@ -28592,7 +28589,7 @@
     }
   },
   "agentWorkbench": {
-    "title": "Agent 工作台",
+    "title": "Agent 工作臺",
     "subtitle": "視覺化建立、管理和監控 AI Agent",
     "viewManagement": "管理",
     "viewRuntime": "執行時",
