@@ -4,6 +4,7 @@ import * as React from 'react'
 import {
   FileText, FolderTree, Box, Loader2, Download, Sparkles, History, GitCompare,
   Code2, CheckCircle, ListTree, Brain, Eye, EyeOff, Play, Square,
+  Workflow, AlertTriangle, GitBranch, Wand2, GitMerge, RotateCcw,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { SpecScopeType, SpecGenerateOutput } from '@ihui/types'
@@ -102,7 +103,94 @@ interface SpecWatchStatusResult {
   }>
 }
 
-type TabMode = 'spec' | 'diff' | 'codegen' | 'review' | 'tasks' | 'enhance'
+// ---------------------------------------------------------------------------
+// 2026-07-23 超越创新:全流程 / 影响分析 / 版本树 / 智能生成 类型
+// ---------------------------------------------------------------------------
+
+interface SpecPipelineStage {
+  name: string
+  status: 'pending' | 'running' | 'success' | 'failed' | 'skipped'
+  log: string
+  startedAt?: string
+  finishedAt?: string
+}
+
+interface SpecFullPipelineResult {
+  pipelineId: string
+  stages: SpecPipelineStage[]
+  overallStatus: 'running' | 'success' | 'failed' | 'partial'
+  backupDir: string
+  commitSha: string
+  error?: string
+}
+
+interface SpecPipelineStatusResult extends SpecFullPipelineResult {
+  logs?: string[]
+  ran?: boolean
+}
+
+interface SpecPipelineRollbackResult {
+  rolled: number
+  errors: string[]
+  backupDir: string
+  error?: string
+}
+
+interface SpecImpactAnalysisResult {
+  affectedFiles: string[]
+  affectedTests: string[]
+  downstreamSpecs: string[]
+  riskLevel: 'low' | 'medium' | 'high'
+  llmAnalysis: {
+    summary?: string
+    riskReason?: string
+    recommendations?: string[]
+    error?: string
+    message?: string
+  }
+  recommendations: string[]
+}
+
+interface SpecBranch {
+  specId: string
+  name: string
+  baseVersion: string
+  currentVersion: string
+  createdAt: string
+  status: 'active' | 'merged' | 'abandoned'
+  filePath?: string
+}
+
+interface SpecBranchesResult {
+  branches: SpecBranch[]
+}
+
+interface SpecBranchMergeResult {
+  merged: boolean
+  conflicts: string[]
+  mergedContent: string
+  branchName: string
+  error?: string
+}
+
+interface SpecBranchDiffResult {
+  diff: string
+  addedLines: number
+  removedLines: number
+  branchName: string
+  specId: string
+  error?: string
+}
+
+interface SpecGenerateFromRequirementResult {
+  spec: string
+  sections: Array<{ title: string; level: number }>
+  format: string
+  error?: string
+  message?: string
+}
+
+type TabMode = 'spec' | 'diff' | 'codegen' | 'review' | 'tasks' | 'enhance' | 'pipeline' | 'impact' | 'branches' | 'generate'
 
 interface ScopeOption {
   type: SpecScopeType
@@ -123,6 +211,10 @@ const TAB_OPTIONS: ReadonlyArray<{ mode: TabMode; label: string; icon: React.Com
   { mode: 'review', label: '评审', icon: CheckCircle },
   { mode: 'tasks', label: '任务拆分', icon: ListTree },
   { mode: 'enhance', label: '智能分析', icon: Brain },
+  { mode: 'pipeline', label: '全流程', icon: Workflow },
+  { mode: 'impact', label: '影响分析', icon: AlertTriangle },
+  { mode: 'branches', label: '版本树', icon: GitBranch },
+  { mode: 'generate', label: '智能生成', icon: Wand2 },
 ]
 
 // ---------------------------------------------------------------------------
@@ -161,6 +253,55 @@ const PRIORITY_BADGE: Record<string, string> = {
   P3: 'bg-muted text-muted-foreground',
 }
 
+// 2026-07-23 超越创新:风险评分 + 流水线阶段 + 分支状态 徽章
+const RISK_BADGE: Record<string, string> = {
+  low: 'bg-green-500/10 text-green-700 dark:text-green-400',
+  medium: 'bg-orange-500/10 text-orange-700 dark:text-orange-400',
+  high: 'bg-red-500/10 text-red-700 dark:text-red-400',
+}
+
+const RISK_LABEL: Record<string, string> = {
+  low: '低风险',
+  medium: '中风险',
+  high: '高风险',
+}
+
+const STAGE_STATUS_BADGE: Record<string, string> = {
+  pending: 'bg-muted text-muted-foreground',
+  running: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
+  success: 'bg-green-500/10 text-green-700 dark:text-green-400',
+  failed: 'bg-red-500/10 text-red-700 dark:text-red-400',
+  skipped: 'bg-muted/60 text-muted-foreground',
+}
+
+const STAGE_STATUS_LABEL: Record<string, string> = {
+  pending: '待执行',
+  running: '执行中',
+  success: '成功',
+  failed: '失败',
+  skipped: '跳过',
+}
+
+const STAGE_LABEL: Record<string, string> = {
+  apply_spec: '生成 patch',
+  apply_patch: '应用 patch',
+  typecheck: '类型检查',
+  test: '测试',
+  commit: '提交',
+}
+
+const BRANCH_STATUS_BADGE: Record<string, string> = {
+  active: 'bg-green-500/10 text-green-700 dark:text-green-400',
+  merged: 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
+  abandoned: 'bg-muted text-muted-foreground',
+}
+
+const BRANCH_STATUS_LABEL: Record<string, string> = {
+  active: '活跃',
+  merged: '已合并',
+  abandoned: '已废弃',
+}
+
 // ===========================================================================
 // 主组件
 // ===========================================================================
@@ -196,6 +337,33 @@ export function SpecPanel({ className }: { className?: string }) {
   // watch 状态
   const [watchStatus, setWatchStatus] = React.useState<SpecWatchStatusResult | null>(null)
   const [watchLoading, setWatchLoading] = React.useState(false)
+
+  // 2026-07-23 超越创新:全流程状态
+  const [pipelineResult, setPipelineResult] = React.useState<SpecFullPipelineResult | null>(null)
+  const [pipelineStatus, setPipelineStatus] = React.useState<SpecPipelineStatusResult | null>(null)
+  const [pipelineLoading, setPipelineLoading] = React.useState(false)
+  const [autoCommit, setAutoCommit] = React.useState(false)
+  const [pipelineIdInput, setPipelineIdInput] = React.useState('')
+
+  // 影响分析状态
+  const [impactInput, setImpactInput] = React.useState('')
+  const [impactResult, setImpactResult] = React.useState<SpecImpactAnalysisResult | null>(null)
+  const [impactLoading, setImpactLoading] = React.useState(false)
+
+  // 版本树状态
+  const [branchesResult, setBranchesResult] = React.useState<SpecBranchesResult | null>(null)
+  const [branchLoading, setBranchLoading] = React.useState(false)
+  const [newBranchName, setNewBranchName] = React.useState('')
+  const [branchBaseVersion, setBranchBaseVersion] = React.useState('latest')
+  const [branchDiffResult, setBranchDiffResult] = React.useState<SpecBranchDiffResult | null>(null)
+  const [branchDiffTarget, setBranchDiffTarget] = React.useState('')
+  const [mergeConflicts, setMergeConflicts] = React.useState<string[] | null>(null)
+
+  // 智能生成状态
+  const [requirementInput, setRequirementInput] = React.useState('')
+  const [requirementFormat, setRequirementFormat] = React.useState<'text' | 'markdown' | 'image_description'>('text')
+  const [genResult, setGenResult] = React.useState<SpecGenerateFromRequirementResult | null>(null)
+  const [genLoading, setGenLoading] = React.useState(false)
 
   const activeWorkspacePath = useAiPanelStore((s) => s.activeWorkspace?.path)
 
@@ -586,6 +754,307 @@ export function SpecPanel({ className }: { className?: string }) {
       setWatchLoading(false)
     }
   }, [refreshWatchStatus])
+
+  // -------------------------------------------------------------------------
+  // 2026-07-23 超越创新:全流程 / 影响分析 / 版本树 / 智能生成 handlers
+  // -------------------------------------------------------------------------
+
+  // 全流程:启动流水线
+  const handleRunPipeline = React.useCallback(async () => {
+    const workspacePath = activeWorkspacePath
+    if (!workspacePath || !result?.spec) {
+      toast.error('请先生成 spec')
+      return
+    }
+    setPipelineLoading(true)
+    setPipelineResult(null)
+    setPipelineStatus(null)
+    try {
+      const r = await fetchApi<SpecFullPipelineResult>('/api/spec/full-pipeline', {
+        method: 'POST',
+        body: JSON.stringify({
+          scope: currentScope,
+          workspacePath,
+          newSpec: result.spec,
+          autoCommit,
+        }),
+      })
+      if (!r.success || !r.data) {
+        toast.error('流水线执行失败', { description: r.error || '未知错误' })
+        return
+      }
+      setPipelineResult(r.data)
+      setPipelineIdInput(r.data.pipelineId)
+      toast.success('流水线执行完成', {
+        description: `状态: ${r.data.overallStatus} · commit: ${r.data.commitSha.slice(0, 8) || '(无)'}`,
+      })
+    } catch (e) {
+      toast.error('流水线执行失败', { description: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setPipelineLoading(false)
+    }
+  }, [activeWorkspacePath, result, currentScope, autoCommit])
+
+  // 全流程:刷新状态
+  const handleRefreshPipelineStatus = React.useCallback(async () => {
+    const workspacePath = activeWorkspacePath
+    const pid = pipelineIdInput || pipelineResult?.pipelineId
+    if (!workspacePath || !pid) {
+      toast.error('请先填写 pipeline ID 或启动流水线')
+      return
+    }
+    try {
+      const qs = new URLSearchParams({
+        workspacePath,
+        scopeType,
+        pipelineId: pid,
+      }).toString()
+      if (scopePath.trim()) qs.concat(`&scopePath=${encodeURIComponent(scopePath.trim())}`)
+      const r = await fetchApi<SpecPipelineStatusResult>(
+        `/api/spec/pipeline-status?${qs}`,
+      )
+      if (!r.success || !r.data) {
+        toast.error('状态查询失败', { description: r.error || '未知错误' })
+        return
+      }
+      setPipelineStatus(r.data)
+    } catch (e) {
+      toast.error('状态查询失败', { description: e instanceof Error ? e.message : String(e) })
+    }
+  }, [activeWorkspacePath, pipelineIdInput, pipelineResult, scopeType, scopePath])
+
+  // 全流程:回滚
+  const handleRollback = React.useCallback(async () => {
+    const workspacePath = activeWorkspacePath
+    const backupDir = pipelineResult?.backupDir || pipelineStatus?.backupDir
+    if (!workspacePath || !backupDir) {
+      toast.error('无备份目录可回滚')
+      return
+    }
+    setPipelineLoading(true)
+    try {
+      const r = await fetchApi<SpecPipelineRollbackResult>('/api/spec/pipeline-rollback', {
+        method: 'POST',
+        body: JSON.stringify({ workspacePath, backupDir }),
+      })
+      if (!r.success || !r.data) {
+        toast.error('回滚失败', { description: r.error || '未知错误' })
+        return
+      }
+      toast.success(`已回滚 ${r.data.rolled} 个文件`, {
+        description: r.data.errors.length ? `${r.data.errors.length} 个错误` : '无错误',
+      })
+    } catch (e) {
+      toast.error('回滚失败', { description: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setPipelineLoading(false)
+    }
+  }, [activeWorkspacePath, pipelineResult, pipelineStatus])
+
+  // 影响分析
+  const handleAnalyzeImpact = React.useCallback(async () => {
+    const workspacePath = activeWorkspacePath
+    if (!workspacePath) {
+      toast.error('未绑定工作区')
+      return
+    }
+    if (!impactInput.trim()) {
+      toast.error('请填写拟修改内容')
+      return
+    }
+    setImpactLoading(true)
+    try {
+      const r = await fetchApi<SpecImpactAnalysisResult>('/api/spec/impact-analysis', {
+        method: 'POST',
+        body: JSON.stringify({
+          scope: currentScope,
+          workspacePath,
+          proposedChanges: impactInput,
+        }),
+      })
+      if (!r.success || !r.data) {
+        toast.error('影响分析失败', { description: r.error || '未知错误' })
+        return
+      }
+      setImpactResult(r.data)
+      toast.success('影响分析完成', {
+        description: `风险: ${RISK_LABEL[r.data.riskLevel]} · 文件 ${r.data.affectedFiles.length}`,
+      })
+    } catch (e) {
+      toast.error('影响分析失败', { description: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setImpactLoading(false)
+    }
+  }, [activeWorkspacePath, impactInput, currentScope])
+
+  // 版本树:刷新分支列表
+  const refreshBranches = React.useCallback(async () => {
+    const workspacePath = activeWorkspacePath
+    if (!workspacePath) return
+    try {
+      const r = await fetchApi<SpecBranchesResult>(
+        `/api/spec/branches?workspacePath=${encodeURIComponent(workspacePath)}`,
+      )
+      if (r.success && r.data) {
+        setBranchesResult(r.data)
+      }
+    } catch {
+      // 静默
+    }
+  }, [activeWorkspacePath])
+
+  // 版本树:创建分支
+  const handleCreateBranch = React.useCallback(async () => {
+    const workspacePath = activeWorkspacePath
+    if (!workspacePath) {
+      toast.error('未绑定工作区')
+      return
+    }
+    if (!newBranchName.trim()) {
+      toast.error('请填写分支名')
+      return
+    }
+    setBranchLoading(true)
+    try {
+      const r = await fetchApi<SpecBranch>('/api/spec/branch', {
+        method: 'POST',
+        body: JSON.stringify({
+          scope: currentScope,
+          workspacePath,
+          branchName: newBranchName.trim(),
+          baseVersion: branchBaseVersion,
+        }),
+      })
+      if (!r.success || !r.data) {
+        toast.error('分支创建失败', { description: r.error || '未知错误' })
+        return
+      }
+      toast.success('分支已创建', { description: r.data.name })
+      setNewBranchName('')
+      void refreshBranches()
+    } catch (e) {
+      toast.error('分支创建失败', { description: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setBranchLoading(false)
+    }
+  }, [activeWorkspacePath, newBranchName, branchBaseVersion, currentScope, refreshBranches])
+
+  // 版本树:合并分支
+  const handleMergeBranch = React.useCallback(async (branchName: string) => {
+    const workspacePath = activeWorkspacePath
+    if (!workspacePath) return
+    setBranchLoading(true)
+    setMergeConflicts(null)
+    try {
+      const r = await fetchApi<SpecBranchMergeResult>('/api/spec/branch/merge', {
+        method: 'POST',
+        body: JSON.stringify({ scope: currentScope, workspacePath, branchName }),
+      })
+      if (!r.success || !r.data) {
+        toast.error('合并失败', { description: r.error || '未知错误' })
+        return
+      }
+      if (r.data.conflicts.length > 0) {
+        setMergeConflicts(r.data.conflicts)
+        toast.warning('合并完成但有冲突', { description: `${r.data.conflicts.length} 处冲突已用 LLM 解决` })
+      } else {
+        toast.success('分支已合并', { description: branchName })
+      }
+      void refreshBranches()
+    } catch (e) {
+      toast.error('合并失败', { description: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setBranchLoading(false)
+    }
+  }, [activeWorkspacePath, currentScope, refreshBranches])
+
+  // 版本树:废弃分支
+  const handleAbandonBranch = React.useCallback(async (branchName: string) => {
+    const workspacePath = activeWorkspacePath
+    if (!workspacePath) return
+    setBranchLoading(true)
+    try {
+      const r = await fetchApi<{ abandoned: boolean; branchName: string }>('/api/spec/branch/abandon', {
+        method: 'POST',
+        body: JSON.stringify({ scope: currentScope, workspacePath, branchName }),
+      })
+      if (!r.success || !r.data) {
+        toast.error('废弃失败', { description: r.error || '未知错误' })
+        return
+      }
+      toast.success('分支已废弃', { description: branchName })
+      void refreshBranches()
+    } catch (e) {
+      toast.error('废弃失败', { description: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setBranchLoading(false)
+    }
+  }, [activeWorkspacePath, currentScope, refreshBranches])
+
+  // 版本树:查看分支 diff
+  const handleDiffBranch = React.useCallback(async (branchName: string) => {
+    const workspacePath = activeWorkspacePath
+    if (!workspacePath) return
+    setBranchLoading(true)
+    setBranchDiffTarget(branchName)
+    try {
+      const qs = new URLSearchParams({
+        workspacePath,
+        scopeType,
+        branchName,
+      }).toString()
+      if (scopePath.trim()) qs.concat(`&scopePath=${encodeURIComponent(scopePath.trim())}`)
+      const r = await fetchApi<SpecBranchDiffResult>(`/api/spec/branch/diff?${qs}`)
+      if (!r.success || !r.data) {
+        toast.error('diff 失败', { description: r.error || '未知错误' })
+        return
+      }
+      setBranchDiffResult(r.data)
+    } catch (e) {
+      toast.error('diff 失败', { description: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setBranchLoading(false)
+    }
+  }, [activeWorkspacePath, scopeType, scopePath])
+
+  // 智能生成:从需求生成 spec 草稿
+  const handleGenerateFromRequirement = React.useCallback(async () => {
+    const workspacePath = activeWorkspacePath
+    if (!workspacePath) {
+      toast.error('未绑定工作区')
+      return
+    }
+    if (!requirementInput.trim()) {
+      toast.error('请填写需求描述')
+      return
+    }
+    setGenLoading(true)
+    try {
+      const r = await fetchApi<SpecGenerateFromRequirementResult>(
+        '/api/spec/generate-from-requirement',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            workspacePath,
+            requirement: requirementInput,
+            format: requirementFormat,
+          }),
+        },
+      )
+      if (!r.success || !r.data) {
+        toast.error('智能生成失败', { description: r.error || '未知错误' })
+        return
+      }
+      setGenResult(r.data)
+      toast.success('spec 草稿已生成', {
+        description: `${r.data.sections.length} 个章节`,
+      })
+    } catch (e) {
+      toast.error('智能生成失败', { description: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setGenLoading(false)
+    }
+  }, [activeWorkspacePath, requirementInput, requirementFormat])
 
   // 导出 markdown
   const handleDownload = React.useCallback(() => {
@@ -1002,6 +1471,470 @@ export function SpecPanel({ className }: { className?: string }) {
                 ) : (
                   <p className="text-xs text-muted-foreground p-2">
                     点击「生成智能分析」由 LLM 分析 spec,生成功能意图说明 + 潜在风险点 + 改进建议
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* 全流程标签页(2026-07-23 超越创新) */}
+            {tabMode === 'pipeline' && (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRunPipeline}
+                    disabled={pipelineLoading || !result?.spec}
+                    className={cn(
+                      'flex h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+                      'bg-primary text-primary-foreground hover:bg-primary/90',
+                      (pipelineLoading || !result?.spec) && 'cursor-not-allowed opacity-60',
+                    )}
+                  >
+                    {pipelineLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Workflow className="h-3 w-3" />}
+                    <span>{pipelineLoading ? '执行中' : '启动全流程'}</span>
+                  </button>
+                  <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={autoCommit}
+                      onChange={(e) => setAutoCommit(e.target.checked)}
+                      className="h-3 w-3"
+                    />
+                    <span>自动 commit</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={pipelineIdInput}
+                    onChange={(e) => setPipelineIdInput(e.target.value)}
+                    placeholder="pipeline ID(查询用)"
+                    className="h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRefreshPipelineStatus}
+                    className="flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60"
+                  >
+                    <History className="h-3 w-3" />
+                    <span>刷新状态</span>
+                  </button>
+                  {(pipelineResult?.backupDir || pipelineStatus?.backupDir) && (
+                    <button
+                      type="button"
+                      onClick={handleRollback}
+                      disabled={pipelineLoading}
+                      className="flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-red-600 hover:bg-red-500/10 disabled:opacity-60"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      <span>回滚</span>
+                    </button>
+                  )}
+                </div>
+                {/* 5 阶段进度条 */}
+                {(() => {
+                  const stages = pipelineStatus?.stages || pipelineResult?.stages || []
+                  if (!stages.length) {
+                    return (
+                      <p className="text-xs text-muted-foreground p-2">
+                        点击「启动全流程」执行 apply_spec → apply_patch → typecheck → test → commit,
+                        失败时自动备份可回滚
+                      </p>
+                    )
+                  }
+                  return (
+                    <div className="space-y-1 rounded-md border border-border bg-background p-2">
+                      {stages.map((stage, idx) => (
+                        <div key={idx} className="rounded-md bg-muted/40 p-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-foreground">
+                              {idx + 1}. {STAGE_LABEL[stage.name] || stage.name}
+                            </span>
+                            <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-bold', STAGE_STATUS_BADGE[stage.status] || STAGE_STATUS_BADGE.pending)}>
+                              {STAGE_STATUS_LABEL[stage.status] || stage.status}
+                            </span>
+                            {stage.finishedAt && stage.startedAt && (
+                              <span className="text-[10px] text-muted-foreground">
+                                {new Date(stage.finishedAt).getTime() - new Date(stage.startedAt).getTime()}ms
+                              </span>
+                            )}
+                          </div>
+                          {stage.log && (
+                            <pre className="mt-1 max-h-20 overflow-auto whitespace-pre-wrap break-all text-[10px] text-muted-foreground">
+                              {stage.log.slice(0, 800)}
+                            </pre>
+                          )}
+                        </div>
+                      ))}
+                      <div className="flex items-center gap-2 pt-1">
+                        <span className="text-xs text-muted-foreground">整体:</span>
+                        <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-bold', STAGE_STATUS_BADGE[(pipelineStatus?.overallStatus || pipelineResult?.overallStatus || 'pending') as string] || STAGE_STATUS_BADGE.pending)}>
+                          {STAGE_STATUS_LABEL[(pipelineStatus?.overallStatus || pipelineResult?.overallStatus || 'pending') as string] || (pipelineStatus?.overallStatus || pipelineResult?.overallStatus)}
+                        </span>
+                        {pipelineResult?.commitSha && (
+                          <span className="text-[10px] text-muted-foreground">commit: {pipelineResult.commitSha.slice(0, 8)}</span>
+                        )}
+                      </div>
+                      {/* 日志区域 */}
+                      {(pipelineStatus?.logs?.length || 0) > 0 && (
+                        <pre className="mt-2 max-h-32 overflow-auto rounded bg-muted/30 p-2 text-[10px] text-muted-foreground">
+                          {pipelineStatus?.logs?.join('\n')}
+                        </pre>
+                      )}
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+
+            {/* 影响分析标签页(2026-07-23 超越创新) */}
+            {tabMode === 'impact' && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleAnalyzeImpact}
+                    disabled={impactLoading}
+                    className={cn(
+                      'flex h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+                      'bg-primary text-primary-foreground hover:bg-primary/90',
+                      impactLoading && 'cursor-not-allowed opacity-60',
+                    )}
+                  >
+                    {impactLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <AlertTriangle className="h-3 w-3" />}
+                    <span>{impactLoading ? '分析中' : '分析影响'}</span>
+                  </button>
+                </div>
+                <textarea
+                  value={impactInput}
+                  onChange={(e) => setImpactInput(e.target.value)}
+                  placeholder="拟修改内容(支持 markdown,LLM 将分析影响范围 + 风险)"
+                  rows={5}
+                  className="w-full rounded-md border border-border bg-background p-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
+                />
+                {impactResult && (
+                  <div className="max-h-[45vh] space-y-2 overflow-auto rounded-md border border-border bg-background p-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">风险评分:</span>
+                      <span className={cn('rounded px-2 py-0.5 text-xs font-bold', RISK_BADGE[impactResult.riskLevel])}>
+                        {RISK_LABEL[impactResult.riskLevel] || impactResult.riskLevel}
+                      </span>
+                      {impactResult.llmAnalysis?.summary && (
+                        <span className="text-xs text-muted-foreground">{impactResult.llmAnalysis.summary}</span>
+                      )}
+                    </div>
+                    {impactResult.llmAnalysis?.riskReason && (
+                      <p className="text-xs text-muted-foreground">{impactResult.llmAnalysis.riskReason}</p>
+                    )}
+                    <div>
+                      <p className="text-xs font-medium text-foreground">受影响文件 ({impactResult.affectedFiles.length})</p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {impactResult.affectedFiles.slice(0, 20).map((f, i) => (
+                          <span key={i} className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {f}
+                          </span>
+                        ))}
+                        {impactResult.affectedFiles.length > 20 && (
+                          <span className="text-[10px] text-muted-foreground">+{impactResult.affectedFiles.length - 20}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-foreground">受影响测试 ({impactResult.affectedTests.length})</p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {impactResult.affectedTests.slice(0, 10).map((f, i) => (
+                          <span key={i} className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {f}
+                          </span>
+                        ))}
+                        {impactResult.affectedTests.length > 10 && (
+                          <span className="text-[10px] text-muted-foreground">+{impactResult.affectedTests.length - 10}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-foreground">下游 spec ({impactResult.downstreamSpecs.length})</p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {impactResult.downstreamSpecs.map((f, i) => (
+                          <span key={i} className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {f}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    {impactResult.recommendations.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-foreground">建议措施</p>
+                        <ul className="mt-1 space-y-0.5">
+                          {impactResult.recommendations.map((r, i) => (
+                            <li key={i} className="text-xs text-muted-foreground">
+                              <span className="text-foreground">•</span> {r}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {impactResult.llmAnalysis?.error && (
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                        LLM 不可用({impactResult.llmAnalysis.error}),仅展示静态扫描结果
+                      </p>
+                    )}
+                  </div>
+                )}
+                {!impactResult && !impactLoading && (
+                  <p className="text-xs text-muted-foreground p-2">
+                    填写拟修改内容后点击「分析影响」,LLM + 静态扫描预测影响范围 + 风险评分
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* 版本树标签页(2026-07-23 超越创新) */}
+            {tabMode === 'branches' && (
+              <div className="space-y-2">
+                {/* 创建分支表单 */}
+                <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-background p-2">
+                  <GitBranch className="h-3 w-3 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={newBranchName}
+                    onChange={(e) => setNewBranchName(e.target.value)}
+                    placeholder="分支名(如 feature/auth)"
+                    className="h-7 flex-1 rounded-md border border-border bg-background px-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
+                  />
+                  <select
+                    value={branchBaseVersion}
+                    onChange={(e) => setBranchBaseVersion(e.target.value)}
+                    className="h-7 rounded-md border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
+                    title="基线版本"
+                  >
+                    <option value="latest">最新</option>
+                    {history.map((h) => (
+                      <option key={h.timestamp} value={h.timestamp}>
+                        {h.timestamp}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleCreateBranch}
+                    disabled={branchLoading || !newBranchName.trim()}
+                    className={cn(
+                      'flex h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+                      'bg-primary text-primary-foreground hover:bg-primary/90',
+                      (branchLoading || !newBranchName.trim()) && 'cursor-not-allowed opacity-60',
+                    )}
+                  >
+                    {branchLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <GitBranch className="h-3 w-3" />}
+                    <span>创建分支</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={refreshBranches}
+                    className="flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs text-foreground hover:bg-muted/60"
+                  >
+                    <History className="h-3 w-3" />
+                    <span>刷新</span>
+                  </button>
+                </div>
+
+                {/* SVG 分支图 */}
+                {branchesResult?.branches.length ? (
+                  <div className="rounded-md border border-border bg-background p-2">
+                    <svg width="100%" height="80" viewBox="0 0 600 80" className="block">
+                      {/* main 线 */}
+                      <line x1="20" y1="40" x2="580" y2="40" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground" />
+                      <circle cx="20" cy="40" r="4" className="fill-foreground" />
+                      <text x="20" y="60" textAnchor="middle" className="fill-muted-foreground text-[10px]">main</text>
+                      {branchesResult.branches.map((b, idx) => {
+                        const x = 80 + idx * 80
+                        const isActive = b.status === 'active'
+                        return (
+                          <g key={`${b.specId}-${b.name}`}>
+                            <path
+                              d={`M 20 40 C ${x - 30} 40, ${x - 30} 15, ${x} 15`}
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              className={isActive ? 'text-green-500' : 'text-muted-foreground'}
+                            />
+                            <circle
+                              cx={x}
+                              cy={15}
+                              r="4"
+                              className={isActive ? 'fill-green-500' : b.status === 'merged' ? 'fill-blue-500' : 'fill-muted-foreground'}
+                            />
+                            <text x={x} y="8" textAnchor="middle" className="fill-muted-foreground text-[9px]">
+                              {b.name.slice(0, 8)}
+                            </text>
+                          </g>
+                        )
+                      })}
+                    </svg>
+                  </div>
+                ) : null}
+
+                {/* 分支列表 */}
+                {branchesResult?.branches.length ? (
+                  <div className="max-h-[35vh] space-y-1 overflow-auto rounded-md border border-border bg-background p-2">
+                    {branchesResult.branches.map((b, idx) => (
+                      <div key={`${b.specId}-${b.name}-${idx}`} className="rounded-md bg-muted/40 p-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <GitBranch className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs font-medium text-foreground">{b.name}</span>
+                          <span className={cn('rounded px-1.5 py-0.5 text-[10px] font-bold', BRANCH_STATUS_BADGE[b.status] || BRANCH_STATUS_BADGE.active)}>
+                            {BRANCH_STATUS_LABEL[b.status] || b.status}
+                          </span>
+                          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground" title={b.specId}>
+                            spec: {b.specId.slice(0, 8)}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            base: {b.baseVersion === 'latest' ? '最新' : b.baseVersion.slice(0, 8)}
+                          </span>
+                          <div className="ml-auto flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => void handleMergeBranch(b.name)}
+                              disabled={branchLoading || b.status !== 'active'}
+                              className="flex h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-foreground hover:bg-muted/60 disabled:opacity-60"
+                              title="合并到 main"
+                            >
+                              <GitMerge className="h-3 w-3" />
+                              <span>合并</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleDiffBranch(b.name)}
+                              disabled={branchLoading}
+                              className="flex h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-foreground hover:bg-muted/60 disabled:opacity-60"
+                              title="对比 main"
+                            >
+                              <GitCompare className="h-3 w-3" />
+                              <span>对比</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleAbandonBranch(b.name)}
+                              disabled={branchLoading || b.status !== 'active'}
+                              className="flex h-6 items-center gap-1 rounded-md border border-border bg-background px-2 text-[10px] text-red-600 hover:bg-red-500/10 disabled:opacity-60"
+                              title="废弃分支"
+                            >
+                              <Square className="h-3 w-3" />
+                              <span>废弃</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground p-2">
+                    点击「创建分支」从当前 spec 派生新分支,支持 3-way merge + LLM 冲突解决
+                  </p>
+                )}
+
+                {/* 合并冲突提示 */}
+                {mergeConflicts && mergeConflicts.length > 0 && (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2">
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                      合并冲突({mergeConflicts.length} 处,已用 LLM 自动解决)
+                    </p>
+                    <ul className="mt-1 space-y-0.5">
+                      {mergeConflicts.slice(0, 10).map((c, i) => (
+                        <li key={i} className="text-[10px] text-amber-700 dark:text-amber-400">{c}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* 分支 diff */}
+                {branchDiffResult?.diff && (
+                  <div className="rounded-md border border-border bg-background p-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-foreground">
+                        {branchDiffTarget} vs main
+                      </span>
+                      <span className="text-[10px] text-green-600">+{branchDiffResult.addedLines}</span>
+                      <span className="text-[10px] text-red-600">-{branchDiffResult.removedLines}</span>
+                    </div>
+                    <pre className="mt-1 max-h-40 overflow-auto text-[10px] leading-4 font-mono">
+                      {branchDiffResult.diff.split('\n').map((line, i) => {
+                        const isAdd = line.startsWith('+') && !line.startsWith('+++')
+                        const isDel = line.startsWith('-') && !line.startsWith('---')
+                        return (
+                          <div
+                            key={i}
+                            className={cn(
+                              'px-1 whitespace-pre-wrap break-all',
+                              isAdd && 'bg-green-500/10 text-green-700 dark:text-green-400',
+                              isDel && 'bg-red-500/10 text-red-700 dark:text-red-400',
+                              !isAdd && !isDel && 'text-muted-foreground',
+                            )}
+                          >
+                            {line || ' '}
+                          </div>
+                        )
+                      })}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 智能生成标签页(2026-07-23 超越创新) */}
+            {tabMode === 'generate' && (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Wand2 className="h-3 w-3 text-muted-foreground" />
+                  <select
+                    value={requirementFormat}
+                    onChange={(e) => setRequirementFormat(e.target.value as 'text' | 'markdown' | 'image_description')}
+                    className="h-7 rounded-md border border-border bg-background px-1 text-xs text-foreground focus:outline-none"
+                    title="需求格式"
+                  >
+                    <option value="text">纯文本</option>
+                    <option value="markdown">markdown</option>
+                    <option value="image_description">截图描述</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleGenerateFromRequirement}
+                    disabled={genLoading || !requirementInput.trim()}
+                    className={cn(
+                      'flex h-7 items-center gap-1 rounded-md px-3 text-xs font-medium transition-colors',
+                      'bg-primary text-primary-foreground hover:bg-primary/90',
+                      (genLoading || !requirementInput.trim()) && 'cursor-not-allowed opacity-60',
+                    )}
+                  >
+                    {genLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Wand2 className="h-3 w-3" />}
+                    <span>{genLoading ? '生成中' : '生成 spec 草稿'}</span>
+                  </button>
+                </div>
+                <textarea
+                  value={requirementInput}
+                  onChange={(e) => setRequirementInput(e.target.value)}
+                  placeholder={
+                    requirementFormat === 'image_description'
+                      ? '描述截图内容(如:登录页有用户名/密码输入框 + 登录按钮 + 找回密码链接)'
+                      : '需求描述(支持 markdown,LLM 生成 5 章节 spec 草稿)'
+                  }
+                  rows={6}
+                  className="w-full rounded-md border border-border bg-background p-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-foreground/20 focus:outline-none"
+                />
+                {genResult?.spec ? (
+                  <div className="max-h-[45vh] overflow-auto rounded-md border border-border bg-background p-3">
+                    {genResult.sections.length > 0 && (
+                      <div className="mb-2 flex flex-wrap gap-1">
+                        {genResult.sections.map((s, i) => (
+                          <span key={i} className="rounded bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {s.title}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <MarkdownViewer content={genResult.spec} />
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground p-2">
+                    填写需求后点击「生成 spec 草稿」,LLM 生成包含 概述 / 模块结构 / API 契约 / 数据模型 / 测试用例 的 5 章节 spec
                   </p>
                 )}
               </div>
