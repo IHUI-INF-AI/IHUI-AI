@@ -5,9 +5,8 @@ import { useTranslations, useLocale } from 'next-intl'
 import { useTheme } from 'next-themes'
 import { Sun, Moon, Monitor, Globe, Languages, Check } from 'lucide-react'
 
-import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui'
 import { Container } from '@/components/layout'
-import { Switch } from '@/components/form'
 import { cn } from '@/lib/utils'
 
 const SIDEBAR_KEY = 'sidebar-collapsed'
@@ -129,7 +128,7 @@ export default function PreferencesPage() {
             <span className="text-sm text-muted-foreground">
               {collapsed ? t('sidebarCollapsed') : t('sidebarExpanded')}
             </span>
-            <Switch checked={collapsed} onChange={toggleCollapsed} />
+            <Switch checked={collapsed} onCheckedChange={toggleCollapsed} />
           </div>
         </CardContent>
       </Card>
