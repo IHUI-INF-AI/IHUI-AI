@@ -72,6 +72,7 @@ import { findSecurityLogs } from '../db/security-logs-queries.js'
 import { createMessage } from '../db/notification-queries.js'
 import { findGenerationHistory, findGenerationTemplates } from '../db/content-generation-queries.js'
 import { mergePdfs, splitPdf, watermarkPdf } from '../services/pdf-tools.js'
+import { PDFDocument } from 'pdf-lib'
 
 const paginationSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -2036,36 +2037,6 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
 
   const PDF_UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
 
-  const pdfMergeSchema = z.object({
-    fileIds: z.array(z.string().uuid()).min(2).max(50),
-    options: z.record(z.unknown()).optional(),
-  })
-
-  const pdfSplitSchema = z.object({
-    fileId: z.string().uuid(),
-    ranges: z.string().regex(/^[\d\-, ]+$/, 'pages 格式: 1-3,5,7-9'),
-    options: z.record(z.unknown()).optional(),
-  })
-
-  const pdfWatermarkSchema = z.object({
-    fileId: z.string().uuid(),
-    text: z.string().min(1).max(200),
-    opacity: z.number().min(0).max(1).optional(),
-    fontSize: z.number().int().min(8).max(200).optional(),
-    rotation: z.number().min(-180).max(180).optional(),
-    options: z.record(z.unknown()).optional(),
-  })
-
-  // 读取 UPLOAD_DIR/<fileId> 字节;不存在则回复 404 并返回 null
-  function readPdfFile(fileId: string, reply: FastifyReply): Buffer | null {
-    const filePath = join(PDF_UPLOAD_DIR, fileId)
-    if (!existsSync(filePath)) {
-      reply.status(404).send(error(404, `文件不存在: ${fileId}`))
-      return null
-    }
-    return readFileSync(filePath)
-  }
-
   // 将处理结果写入 UPLOAD_DIR,返回下载 URL
   function savePdfResult(buffer: Buffer): string {
     if (!existsSync(PDF_UPLOAD_DIR)) mkdirSync(PDF_UPLOAD_DIR, { recursive: true })
@@ -2074,17 +2045,18 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
     return `/api/pdf-service/result/${resultId}`
   }
 
-  // POST /pdf-service/merge — 合并多个 PDF
+  // POST /pdf-service/merge — 合并多个 PDF(multipart 文件上传)
   server.post('/pdf-service/merge', async (request, reply) => {
-    const body = pdfMergeSchema.safeParse(request.body)
-    if (!body.success)
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    const parts = request.parts()
     const buffers: Buffer[] = []
-    for (const fid of body.data.fileIds) {
-      const buf = readPdfFile(fid, reply)
-      if (!buf) return
-      buffers.push(buf)
+    for await (const part of parts) {
+      if (part.type === 'file') {
+        const buf = await part.toBuffer()
+        if (buf.length > 4 && buf.subarray(0, 4).toString() === '%PDF') buffers.push(buf)
+      }
     }
+    if (buffers.length < 2)
+      return reply.status(400).send(error(400, '至少需要上传 2 个 PDF 文件'))
     try {
       const merged = await mergePdfs(buffers)
       const downloadUrl = savePdfResult(merged)
@@ -2104,23 +2076,37 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // POST /pdf-service/split — 按页码范围提取页面到新 PDF
+  // POST /pdf-service/split — 按页码范围提取页面到新 PDF(multipart 文件上传)
   server.post('/pdf-service/split', async (request, reply) => {
-    const body = pdfSplitSchema.safeParse(request.body)
-    if (!body.success)
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
-    const buf = readPdfFile(body.data.fileId, reply)
-    if (!buf) return
+    const data = await request.file()
+    if (!data) return reply.status(400).send(error(400, '缺少文件'))
+    const buf = await data.toBuffer()
+    const f = data.fields as Record<string, { type?: string; value?: string } | { type?: string; value?: string }[]>
+    const val = (n: string, d = ''): string => {
+      const v = f[n]
+      if (!v) return d
+      if (Array.isArray(v)) return v[0]?.type === 'field' ? (v[0].value ?? d) : d
+      return v.type === 'field' ? (v.value ?? d) : d
+    }
+    const mode = val('mode', 'range')
+    let ranges = val('ranges', '1')
     try {
-      const split = await splitPdf(buf, body.data.ranges)
+      if (mode === 'every') {
+        const every = Math.max(1, parseInt(val('every', '1'), 10))
+        const src = await PDFDocument.load(buf)
+        const total = src.getPageCount()
+        const parts: string[] = []
+        for (let i = 1; i <= total; i += every) parts.push(`${i}-${Math.min(i + every - 1, total)}`)
+        ranges = parts.join(',')
+      }
+      const split = await splitPdf(buf, ranges)
       const downloadUrl = savePdfResult(split)
       return reply.send(
         success({
           taskId: randomUUID(),
           operation: 'split',
           status: 'completed',
-          fileId: body.data.fileId,
-          ranges: body.data.ranges,
+          ranges,
           downloadUrl,
           completedAt: new Date().toISOString(),
         }),
@@ -2131,26 +2117,38 @@ export const frontendStubOtherRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // POST /pdf-service/watermark — 添加文本水印
+  // POST /pdf-service/watermark — 添加文本水印(multipart 文件上传)
   server.post('/pdf-service/watermark', async (request, reply) => {
-    const body = pdfWatermarkSchema.safeParse(request.body)
-    if (!body.success)
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
-    const buf = readPdfFile(body.data.fileId, reply)
-    if (!buf) return
+    const data = await request.file()
+    if (!data) return reply.status(400).send(error(400, '缺少文件'))
+    const buf = await data.toBuffer()
+    const f = data.fields as Record<string, { type?: string; value?: string } | { type?: string; value?: string }[]>
+    const val = (n: string, d = ''): string => {
+      const v = f[n]
+      if (!v) return d
+      if (Array.isArray(v)) return v[0]?.type === 'field' ? (v[0].value ?? d) : d
+      return v.type === 'field' ? (v.value ?? d) : d
+    }
+    const text = val('text')
+    if (!text) return reply.status(400).send(error(400, '水印文字不能为空'))
+    const fontSize = parseInt(val('fontSize', '50'), 10)
+    const opacity = parseFloat(val('opacity', '0.25'))
+    const rotation = parseFloat(val('rotation', '-45'))
     try {
-      const watermarked = await watermarkPdf(buf, body.data.text, {
-        opacity: body.data.opacity,
-        fontSize: body.data.fontSize,
-        rotation: body.data.rotation,
+      const watermarked = await watermarkPdf(buf, text, {
+        opacity: Math.min(1, Math.max(0, opacity)),
+        fontSize: Math.min(200, Math.max(8, fontSize)),
+        rotation: Math.min(180, Math.max(-180, rotation)),
       })
       const downloadUrl = savePdfResult(watermarked)
       return reply.send(
         success({
-          fileId: body.data.fileId,
+          taskId: randomUUID(),
+          operation: 'watermark',
+          status: 'completed',
           watermarked: true,
           downloadUrl,
-          processedAt: new Date().toISOString(),
+          completedAt: new Date().toISOString(),
         }),
       )
     } catch (e) {
