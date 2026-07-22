@@ -9,10 +9,17 @@
  * 3. rotateKey(newKey) / getActiveKey() / verifyWithGracePeriod(token)。
  * 4. 回滚：rollback 回到上一版本。
  * 5. 复用 jwt.ts 的签发/验证逻辑与 JWTPayload 结构。
+ *
+ * 2026-07-22 P1 鲁棒性加固:
+ * - 状态持久化到 Redis,防进程重启丢失轮换状态(current/previous/phase/advanceRatio)
+ * - 重启后从 Redis 恢复,避免 V2 签发的 token 全部失效
+ * - 多实例共享同一 Redis 即可同步轮换状态(发布订阅模式留作后续扩展)
+ * - Redis 故障降级到内存模式(不阻塞签发/验证)
  */
 
 import { createHash } from 'node:crypto'
 import { SignJWT, jwtVerify } from 'jose'
+import type IORedis from 'ioredis'
 import { getJwtSecret, type JWTPayload } from './jwt.js'
 
 /** 密钥版本 */
@@ -43,6 +50,55 @@ const DEFAULT_GRACE_PERIOD_SEC = 24 * 3600
 /** 灰度比例 */
 const DEFAULT_CANARY_RATIO = 0.1
 
+/** Redis 持久化 key */
+const REDIS_STATE_KEY = 'jwt:key-rotation:state'
+/** Redis state TTL = gracePeriodSec * 2(确保宽限期结束后状态自然过期) */
+
+/** 序列化用接口(Uint8Array 转 base64 便于 JSON) */
+interface SerializedKeyVersion {
+  version: number
+  keyB64: string
+  createdAt: number
+  expiresAt: number
+  fingerprint: string
+}
+interface SerializedState {
+  current: SerializedKeyVersion
+  previous: SerializedKeyVersion | null
+  phase: RotationPhase
+  advanceRatio: number
+  gracePeriodSec: number
+}
+
+/** Uint8Array → base64 字符串 */
+function bytesToB64(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString('base64')
+}
+/** base64 字符串 → Uint8Array */
+function b64ToBytes(b64: string): Uint8Array {
+  return new Uint8Array(Buffer.from(b64, 'base64'))
+}
+/** KeyVersion → SerializedKeyVersion */
+function serializeKeyVersion(kv: KeyVersion): SerializedKeyVersion {
+  return {
+    version: kv.version,
+    keyB64: bytesToB64(kv.key),
+    createdAt: kv.createdAt,
+    expiresAt: kv.expiresAt,
+    fingerprint: kv.fingerprint,
+  }
+}
+/** SerializedKeyVersion → KeyVersion */
+function deserializeKeyVersion(skv: SerializedKeyVersion): KeyVersion {
+  return {
+    version: skv.version,
+    key: b64ToBytes(skv.keyB64),
+    createdAt: skv.createdAt,
+    expiresAt: skv.expiresAt,
+    fingerprint: skv.fingerprint,
+  }
+}
+
 /**
  * JWT 密钥轮换协调器。
  *
@@ -59,9 +115,16 @@ export class JwtKeyRotator {
   private phase: RotationPhase = 'stable'
   private readonly gracePeriodSec: number
   private advanceRatio = 1.0
+  private readonly redis: IORedis | null
 
-  constructor(options: { initialKey?: Uint8Array; gracePeriodSec?: number } = {}) {
+  constructor(options: {
+    initialKey?: Uint8Array
+    gracePeriodSec?: number
+    /** Redis 客户端(可选),用于持久化轮换状态 */
+    redis?: IORedis
+  } = {}) {
     this.gracePeriodSec = options.gracePeriodSec ?? DEFAULT_GRACE_PERIOD_SEC
+    this.redis = options.redis ?? null
     const key = options.initialKey ?? getJwtSecret()
     const now = Date.now()
     this.current = {
@@ -70,6 +133,52 @@ export class JwtKeyRotator {
       createdAt: now,
       expiresAt: now + this.gracePeriodSec * 1000,
       fingerprint: fingerprint(key),
+    }
+    // 尝试从 Redis 恢复状态(异步,不阻塞构造;恢复成功会覆盖默认 current)
+    void this._loadStateFromRedis()
+  }
+
+  /**
+   * 从 Redis 加载持久化的轮换状态。
+   * Redis 故障 / key 不存在 → 保持构造函数默认值(降级到 env JWT_SECRET)。
+   */
+  private async _loadStateFromRedis(): Promise<void> {
+    if (!this.redis) return
+    try {
+      const raw = await this.redis.get(REDIS_STATE_KEY)
+      if (!raw) return
+      const state = JSON.parse(raw) as SerializedState
+      // 校验基本字段
+      if (!state.current || typeof state.current.keyB64 !== 'string') return
+      if (state.phase && !['stable', 'canary', 'rollout', 'deprecating', 'rotated', 'rolled_back'].includes(state.phase)) return
+      this.current = deserializeKeyVersion(state.current)
+      this.previous = state.previous ? deserializeKeyVersion(state.previous) : null
+      this.phase = state.phase
+      this.advanceRatio = typeof state.advanceRatio === 'number' ? state.advanceRatio : 1.0
+    } catch (err) {
+      // 降级:Redis 异常或 JSON 解析失败,保持构造函数默认值
+      console.warn('[jwt-rotation] 从 Redis 加载状态失败,使用 env 默认密钥:', err)
+    }
+  }
+
+  /**
+   * 持久化当前状态到 Redis。
+   * Redis 故障 → 仅 warn,不抛错(不阻塞业务)。
+   */
+  private async _persistStateToRedis(): Promise<void> {
+    if (!this.redis) return
+    try {
+      const state: SerializedState = {
+        current: serializeKeyVersion(this.current),
+        previous: this.previous ? serializeKeyVersion(this.previous) : null,
+        phase: this.phase,
+        advanceRatio: this.advanceRatio,
+        gracePeriodSec: this.gracePeriodSec,
+      }
+      // TTL = gracePeriodSec * 2,确保宽限期结束后状态自然过期
+      await this.redis.set(REDIS_STATE_KEY, JSON.stringify(state), 'EX', this.gracePeriodSec * 2)
+    } catch (err) {
+      console.warn('[jwt-rotation] 持久化状态到 Redis 失败(仅内存模式):', err)
     }
   }
 
@@ -126,6 +235,7 @@ export class JwtKeyRotator {
     this.current = newVersion
     this.phase = 'canary'
     this.advanceRatio = DEFAULT_CANARY_RATIO
+    void this._persistStateToRedis()
     return newVersion
   }
 
@@ -141,6 +251,7 @@ export class JwtKeyRotator {
     } else if (r > DEFAULT_CANARY_RATIO) {
       this.phase = 'rollout'
     }
+    void this._persistStateToRedis()
     return r
   }
 
@@ -151,6 +262,7 @@ export class JwtKeyRotator {
     this.previous = null
     this.phase = 'rotated'
     this.advanceRatio = 1.0
+    void this._persistStateToRedis()
   }
 
   /**
@@ -164,6 +276,7 @@ export class JwtKeyRotator {
     this.previous = null
     this.phase = 'rolled_back'
     this.advanceRatio = 1.0
+    void this._persistStateToRedis()
     return rolledBack
   }
 
