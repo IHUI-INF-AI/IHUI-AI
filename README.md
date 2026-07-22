@@ -273,7 +273,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | AI 数字人       | 腾讯混元 3D / AI 世界 / 数字人交互                                                                          |
 |                   | AI 世界         | ai-world-items + AI 排名 + 趋势同步 + AI 模块化(ai-modules)+ AI 厂商配置中心(ai-vendor-configs)             |
 |                   | AI 职业         | AI 求职助手 / 简历优化 / 模拟面试                                                                           |
-|                   | AI 资讯         | AI 资讯聚合 / 智能摘要 / ai-feed / 大模型排行榜(Arena 评分 + 8 大分类 + Elo + Bootstrap CI + 能力雷达图)+ API 中转站(10 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(25 厂商映射 + 剪贴板粘贴 + Provider 配置) |
+|                   | AI 资讯         | AI 资讯聚合 / 智能摘要 / ai-feed / 大模型排行榜(Arena 评分 + 8 大分类 + Elo + Bootstrap CI + 能力雷达图)+ API 中转站(14 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(30 厂商映射 + 剪贴板粘贴 + Provider 配置) |
 |                   | 用户级 AI 配置  | LLM 配置中心 v2(1:N provider-model + 分组 + 健康状态 + 30 天用量 + 批量导入导出 + 跨 Provider 模型对比 + 一键复制 + 结构化参数 Temperature/Max Tokens/Top P/Penalty + 4 预设 + 高级 JSON)/ CLI 配置 24 源一键导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env / Trae / Qoder / Codex Desktop / Claude Code Desktop / GitHub Copilot / Amazon Q / Continue / Tabnine / Cody / Zed / Google Antigravity)/ 用户级模型对话偏好(ai-user-model-chat)/ 用户长期记忆(user-memory)/ 用户偏好(user-preferences) |
 | **AI 工作流**     | LangGraph       | StateGraph 工作流(plan → execute → summarize)+ stub 模式 + agent_loop 多轮 tool 循环 + 任务自动分解 DAG 拓扑 |
 |                   | MCP 工具协议    | 33 内置工具(11 基础 + 12 浏览器控制 + 10 电脑控制)+ 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP / mcp-extended |
@@ -677,7 +677,7 @@ IHUI-AI/
 | **文生视频**     | 多模型混编 / 视频编辑 / 视频合成 / 转码 / ai-generation/video-tasks                 |
 | **AI 数字人**    | 腾讯混元 3D / AI 世界 / 数字人交互 / `tencent-hunyuan-3d.ts`                        |
 | **AI 求职**      | 简历优化 / 模拟面试 / 职业建议 / `ai-career/`                                       |
-| **AI 资讯**      | AI 资讯聚合 / 智能摘要 / `ai-feed.ts` + `ai-feed-posts.ts` / 大模型排行榜(`model-leaderboard` + Arena 评分 + 能力雷达图)+ API 中转站(`api-relays.ts` + 10 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(`vendor-platforms.ts` + 25 厂商映射 + `?prefill=` base64 跳转 + `ProviderFormDialog` 剪贴板粘贴按钮) |
+| **AI 资讯**      | AI 资讯聚合 / 智能摘要 / `ai-feed.ts` + `ai-feed-posts.ts` / 大模型排行榜(`model-leaderboard` + Arena 评分 + 能力雷达图)+ API 中转站(`api-relays.ts` + 14 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(`vendor-platforms.ts` + 30 厂商映射 + `?prefill=` base64 跳转 + `ProviderFormDialog` 剪贴板粘贴按钮) |
 
 ### B. AI 工作流与开发者(面向开发者)
 
