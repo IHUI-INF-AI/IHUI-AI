@@ -5,9 +5,10 @@
  */
 import { EventEmitter } from 'node:events'
 import { logger } from './logger.js'
-import { getSkillManager } from './skills.js'
+import { getSkillManager, type SkillStep } from './skills.js'
 import { getMemoryService } from './memory.js'
 import { generateCompactId } from '../../utils/crypto-random.js'
+import { callRealLlm, type LlmMessage } from '../crew-llm-adapter.js'
 
 export interface EvolutionTask {
   id: string
@@ -125,8 +126,49 @@ export class SelfEvolutionEngine extends EventEmitter {
       task.status = 'generating'
       this.emit('taskProgress', task)
 
-      // 简化实现：实际需要调用 AI 生成技能代码
       const skillName = `auto_skill_${task.id.slice(-6)}`
+
+      // 调 LLM 生成技能步骤(传入能力差距 + 现有技能上下文)
+      let steps: SkillStep[] = []
+      try {
+        const existingSkills = getSkillManager().list().slice(0, 10).map((s) => ({
+          name: s.name,
+          description: s.description,
+          stepCount: s.steps.length,
+        }))
+        const messages: LlmMessage[] = [
+          {
+            role: 'system',
+            content:
+              '你是技能代码生成器。根据能力差距描述,生成技能步骤数组。每步含:id(string),name(string),toolName(string,可选),toolParams(object,可选),condition(string,可选),outputKey(string,可选)。返回 JSON 数组:[{"id":"step1","name":"...","toolName":"...","toolParams":{}}]。只返回 JSON。',
+          },
+          {
+            role: 'user',
+            content: JSON.stringify({
+              gap: gap.description,
+              severity: gap.severity,
+              existingSkills,
+            }),
+          },
+        ]
+        const llmResult = await callRealLlm({ messages, temperature: 0.2, maxTokens: 800 })
+        const parsed = JSON.parse(
+          llmResult.content.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1] ?? llmResult.content,
+        ) as SkillStep[]
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          steps = parsed.map((s, i) => ({
+            id: s.id ?? `step_${i + 1}`,
+            name: s.name ?? `Step ${i + 1}`,
+            ...(s.toolName ? { toolName: s.toolName } : {}),
+            ...(s.toolParams ? { toolParams: s.toolParams } : {}),
+            ...(s.condition ? { condition: s.condition } : {}),
+            ...(s.outputKey ? { outputKey: s.outputKey } : {}),
+          }))
+        }
+      } catch (e) {
+        logger.warn({ err: e }, '[Evolution] LLM 生成技能步骤失败,降级为空数组')
+      }
+
       task.status = 'installing'
 
       getSkillManager().install({
@@ -134,7 +176,7 @@ export class SelfEvolutionEngine extends EventEmitter {
         description: gap.description,
         version: '0.1.0',
         category: 'auto_generated',
-        steps: [],
+        steps,
         enabled: true,
         source: 'auto_generated',
       })
