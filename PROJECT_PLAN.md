@@ -6,7 +6,38 @@
 
 ---
 
-## 当前活跃任务(2026-07-20)
+## 当前活跃任务(2026-07-22)
+
+### [ ] P0 首屏侧边栏自身 width 跳变修复(承接 061b83d79 / 54a8f8256 残留)
+
+**触发**:用户多次反馈"刚刷新打开页面时先显示的是一个宽尺寸然后已经秒后切到了我要求的正常宽度尺寸...依旧还是刚刚才的问题 没变化 没解决"。前序 commit 54a8f8256 只修了 work-area paddingLeft(zustand rehydrate 408→持久化值跳变),**没修 sidebar 自身 width 跳变**。
+
+**根因**(刚实地验证):
+- [sidebar.tsx:1541](file:///g:/IHUI-AI/apps/web/src/components/sidebar.tsx#L1541) `useState(SIDEBAR_WIDTH)` 默认 130
+- [sidebar.tsx:1549-1557](file:///g:/IHUI-AI/apps/web/src/components/sidebar.tsx#L1549-L1557) useEffect mount 后才从 localStorage 读 `sidebar-width` → setSidebarWidth → 二次 render
+- 实测用户 localStorage 存 180,导致 aside 元素 width 从 SSR 130 跳到 hydrate 后 180(200ms transition 动画可见)
+- [NavGroupSection:1123](file:///g:/IHUI-AI/apps/web/src/components/sidebar.tsx#L1123) 同样问题 `useState(false)` → useEffect 读 localStorage → 子菜单从折叠变展开,影响侧边栏高度
+
+**修复方案**(no-flash bootstrap,跟 [layout.tsx](file:///g:/IHUI-AI/apps/web/app/layout.tsx) ai-panel inline script 同模式):
+
+1. **layout.tsx inline script 扩展**:在 React hydrate 前同步读 `sidebar-width`(130-180 clamp)+ 写 `:root --sidebar-width` CSS 变量
+2. **sidebar.tsx aside 元素**:`style={{ width: 'var(--sidebar-width, 130px)' }}`,SSR/CSR 字符串字节级一致,无 hydration mismatch
+3. **删除 sidebar.tsx:1549-1557 useEffect**:不再延迟 setState(由 inline script 完成首帧预设)
+4. **NavGroupSection 同样处理**:`useState` lazy initializer 同步读 localStorage(SSR 仍 false,客户端首帧同步) + `suppressHydrationWarning` 抑制警告
+5. **拖拽保留**:onPointerDown → setSidebarWidth + `documentElement.style.setProperty('--sidebar-width', next + 'px')` 直接更新 CSS 变量(走 React 同步 CSS 变量那条 useEffect)
+
+**验证标准**:
+- `pnpm --filter @ihui/web typecheck` exit 0
+- browser 多次刷新,aside width 首帧 = localStorage 持久化值(无 130→180 跳变)
+- NavGroupSection 子菜单首帧直接是正确展开态(无 false→true 二次展开)
+
+**受影响文件**:
+- [apps/web/app/layout.tsx](file:///g:/IHUI-AI/apps/web/app/layout.tsx) — 扩展 inline script
+- [apps/web/src/components/sidebar.tsx](file:///g:/IHUI-AI/apps/web/src/components/sidebar.tsx) — aside 改 var() + 删除 useEffect + NavGroupSection lazy init
+
+**§9 平台独占**:仅 apps/web,跨端契约不变。
+
+---
 
 ### [x] ✅(2026-07-22) settings/llm v2 方案 B 完整落地 — 1:N provider-model + group 数据模型 + 深度功能集成
 
