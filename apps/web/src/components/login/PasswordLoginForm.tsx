@@ -4,14 +4,19 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Check } from 'lucide-react'
 
 import { Button, Input, Label } from '@ihui/ui'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
-import { CaptchaCanvas } from '@/components/login'
+import { CaptchaCanvas, PasswordInput } from '@/components/login'
 import { Alert } from '@/components/feedback'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
+import {
+  loadRememberedCredentials,
+  saveRememberedCredentials,
+  clearRememberedCredentials,
+} from '@/lib/remember-credentials'
 import { loginSchema, type LoginValues } from './login-schemas'
 
 interface PasswordLoginFormProps {
@@ -40,13 +45,20 @@ export function PasswordLoginForm({
   const [captchaOk, setCaptchaOk] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
 
+  // 记住密码:初始化时从 localStorage 读取已保存凭据
+  const remembered = React.useMemo(() => loadRememberedCredentials(), [])
+  const [rememberPassword, setRememberPassword] = React.useState(!!remembered)
+
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { account: '', password: '' },
+    defaultValues: {
+      account: remembered?.account ?? '',
+      password: remembered?.password ?? '',
+    },
   })
 
   React.useEffect(() => {
@@ -89,6 +101,12 @@ export function PasswordLoginForm({
         setServerError(json.message || t('loginFailed'))
         return
       }
+      // 登录成功:根据勾选状态保存或清除凭据
+      if (rememberPassword) {
+        saveRememberedCredentials(values.account, values.password)
+      } else {
+        clearRememberedCredentials()
+      }
       setToken(json.data.accessToken, json.data.refreshToken)
       if (json.data.user) setUser(json.data.user)
       onSuccess?.()
@@ -127,9 +145,8 @@ export function PasswordLoginForm({
             {t('forgotPassword')}
           </button>
         </div>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
           autoComplete="current-password"
           placeholder={t('passwordPlaceholder')}
           className="h-10"
@@ -139,6 +156,41 @@ export function PasswordLoginForm({
           <p className="text-xs text-destructive">{resolveError(errors.password.message!)}</p>
         )}
       </div>
+      {/* 记住密码复选框 */}
+      <label className="group flex cursor-pointer items-center gap-2 select-none">
+        <span
+          onClick={(e) => {
+            e.preventDefault()
+            setRememberPassword(!rememberPassword)
+          }}
+          className={[
+            'flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-all duration-200',
+            rememberPassword
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-input bg-background group-hover:border-foreground/60',
+          ].join(' ')}
+          aria-checked={rememberPassword}
+          role="checkbox"
+          tabIndex={0}
+          data-testid="remember-password-checkbox"
+          onKeyDown={(e) => {
+            if (e.key === ' ' || e.key === 'Enter') {
+              e.preventDefault()
+              setRememberPassword(!rememberPassword)
+            }
+          }}
+        >
+          {rememberPassword && <Check className="h-3 w-3" strokeWidth={3} />}
+        </span>
+        <input
+          type="checkbox"
+          className="sr-only"
+          tabIndex={-1}
+          checked={rememberPassword}
+          onChange={(e) => setRememberPassword(e.target.checked)}
+        />
+        <span className="text-xs leading-5 text-muted-foreground">{t('rememberPassword')}</span>
+      </label>
       <div className="space-y-1.5">
         <Label htmlFor="captcha">{t('captcha')}</Label>
         <div className="flex items-center gap-2">
