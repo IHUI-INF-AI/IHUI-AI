@@ -216,11 +216,16 @@ async function forwardAgentToContent(req: AgentActionRequest): Promise<DomAction
   if (typeof tabId !== 'number') {
     return { success: false, errorCode: 'TARGET_NOT_CONNECTED', error: 'no active tab' }
   }
+  const timeoutMs = req.timeout ?? 30000
   return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      resolve({ success: false, errorCode: 'TIMEOUT', error: `content script no response after ${timeoutMs}ms` })
+    }, timeoutMs)
     chrome.tabs.sendMessage(
       tabId,
       { type: 'agent.action.dom', payload: req },
       (response: DomActionResult | undefined) => {
+        clearTimeout(timer)
         const lastErr = chrome.runtime.lastError
         if (lastErr) {
           resolve({ success: false, errorCode: 'TARGET_NOT_CONNECTED', error: lastErr.message })
