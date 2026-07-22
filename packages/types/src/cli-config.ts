@@ -13,6 +13,7 @@
 /** 导入来源工具 */
 export type CliConfigSource =
   'cc-switch' | 'codex++' | 'claude-cli' | 'codex-cli' | 'gemini-cli' | 'hermes'
+  | 'cursor' | 'windsurf' | 'cline' | 'aider' | 'env-file'
 
 /** cc-switch 的 app_type(严格对齐 cc-switch Rust AppType 枚举) */
 export type CliAppType =
