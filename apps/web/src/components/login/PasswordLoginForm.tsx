@@ -105,9 +105,9 @@ export function PasswordLoginForm({
   const [rememberPassword, setRememberPassword] = React.useState(!!remembered)
   const [autoLogin, setAutoLogin] = React.useState(loadAutoLogin() && !!remembered)
 
-  // 账号历史下拉
+  // 账号历史下拉(useState 而非 useMemo,active 时重新读取 + 登录成功后实时更新)
   const [showHistory, setShowHistory] = React.useState(false)
-  const loginHistory = React.useMemo(() => loadLoginHistory(), [])
+  const [loginHistory, setLoginHistory] = React.useState<string[]>(() => loadLoginHistory())
   const accountInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const {
@@ -130,7 +130,7 @@ export function PasswordLoginForm({
     if (!active) setServerError(null)
   }, [active])
 
-  // 表单激活时重新读取已保存凭据(解决 Dialog 预挂载导致 defaultValues 为空)
+  // 表单激活时重新读取已保存凭据 + 账号历史(解决 Dialog 预挂载导致 defaultValues / loginHistory 为空)
   React.useEffect(() => {
     if (active) {
       const saved = loadRememberedCredentials()
@@ -138,6 +138,7 @@ export function PasswordLoginForm({
         setValue('account', saved.account)
         setValue('password', saved.password)
       }
+      setLoginHistory(loadLoginHistory())
     }
   }, [active, setValue])
 
@@ -202,6 +203,7 @@ export function PasswordLoginForm({
       }
       saveAutoLogin(autoLogin && rememberPassword)
       saveLoginHistory(values.account)
+      setLoginHistory(loadLoginHistory())
       setToken(json.data.accessToken, json.data.refreshToken)
       if (json.data.user) setUser(json.data.user)
       onSuccess?.()

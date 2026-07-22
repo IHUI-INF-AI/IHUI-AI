@@ -9,14 +9,20 @@ import base64
 import json
 import logging
 import os
-from typing import Any, AsyncIterator, Optional
+from typing import Any, AsyncIterator, Optional, TYPE_CHECKING
 
 import asyncpg
 import httpx
 
 from .config import settings
-from ..providers import get_provider as _get_native_provider
-from ..providers.base_provider import BaseProvider, ProviderError
+
+# TEMP-FIX(ai-feed): 循环导入临时绕过(llm_gateway → providers → base_provider → llm_gateway)
+# 跑完 LLM 批处理后回退。原代码:
+# from ..providers import get_provider as _get_native_provider
+# from ..providers.base_provider import BaseProvider, ProviderError
+if TYPE_CHECKING:
+    from ..providers import get_provider as _get_native_provider
+    from ..providers.base_provider import BaseProvider, ProviderError
 
 logger = logging.getLogger(__name__)
 
@@ -539,7 +545,7 @@ class LLMGateway:
         self,
         model: str,
         owner_uuid: Optional[str] = None,
-    ) -> BaseProvider | None:
+    ) -> "BaseProvider | None":
         """根据模型前缀返回厂商原生适配器(可选增强)。
 
         适配器封装厂商特有能力(function calling 格式 / system prompt / safety_settings),
@@ -562,6 +568,8 @@ class LLMGateway:
         if not api_key:
             return None
         try:
+            # TEMP-FIX(ai-feed): lazy import 绕过循环导入,跑完回退
+            from ..providers import get_provider as _get_native_provider
             return _get_native_provider(model, api_key, api_base)
         except Exception as e:
             logger.warning("厂商适配器初始化失败(model=%s): %s, fallback LiteLLM", model, e)
@@ -610,6 +618,8 @@ class LLMGateway:
         if "tools" in kwargs and not self._is_stub_mode():
             provider = await self._get_provider(used_model, owner_uuid)
             if provider is not None:
+                # TEMP-FIX(ai-feed): lazy import 绕过循环导入,跑完回退
+                from ..providers.base_provider import ProviderError
                 try:
                     tools = kwargs.pop("tools", None)
                     return await provider.complete(
@@ -688,10 +698,16 @@ class LLMGateway:
             return result
         except Exception as e:
             safe_msg = str(e)
-            for key_field in ("api_key", "apikey", "authorization"):
-                if key_field in safe_msg.lower():
-                    safe_msg = f"LLM 调用失败(含敏感信息已脱敏): {type(e).__name__}"
-                    break
+            err_code = "LLM_ERROR"
+            if "API key 未配置" in safe_msg or "未配置" in safe_msg:
+                err_code = "MODEL_NOT_CONFIGURED"
+            elif "NotImplemented" in safe_msg:
+                err_code = "PROVIDER_NOT_IMPLEMENTED"
+            else:
+                for key_field in ("api_key", "apikey", "authorization"):
+                    if key_field in safe_msg.lower():
+                        safe_msg = f"LLM 调用失败(含敏感信息已脱敏): {type(e).__name__}"
+                        break
             return {
                 "content": "",
                 "model": used_model,
@@ -699,6 +715,7 @@ class LLMGateway:
                 "stub": False,
                 "error": True,
                 "error_message": safe_msg,
+                "errorCode": err_code,
             }
 
     async def astream(
@@ -827,11 +844,17 @@ class LLMGateway:
             }
         except Exception as e:
             safe_msg = str(e)
-            for key_field in ("api_key", "apikey", "authorization"):
-                if key_field in safe_msg.lower():
-                    safe_msg = f"LLM 流式调用失败(含敏感信息已脱敏): {type(e).__name__}"
-                    break
-            yield {"type": "error", "message": safe_msg}
+            err_code = "LLM_ERROR"
+            if "API key 未配置" in safe_msg or "未配置" in safe_msg:
+                err_code = "MODEL_NOT_CONFIGURED"
+            elif "NotImplemented" in safe_msg:
+                err_code = "PROVIDER_NOT_IMPLEMENTED"
+            else:
+                for key_field in ("api_key", "apikey", "authorization"):
+                    if key_field in safe_msg.lower():
+                        safe_msg = f"LLM 流式调用失败(含敏感信息已脱敏): {type(e).__name__}"
+                        break
+            yield {"type": "error", "message": safe_msg, "errorCode": err_code}
 
     async def embed(
         self,
