@@ -11,6 +11,7 @@ import { eq, ilike, desc, sql } from 'drizzle-orm'
 import { paginationSchema, idParamSchema, registerCrud, fields } from './_shared.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
+import { aiServiceFetch } from '../../utils/ai-service-fetch.js'
 const statsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
 // ===========================================================================
@@ -224,8 +225,7 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
       if (!apiKey) throw new Error('API Key 未配置或解密失败')
 
       const model = row.modelIdForTest || `${row.providerCode}/test`
-      const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000'
-      const response = await fetch(`${aiServiceUrl}/api/llm/complete`, {
+      const response = await aiServiceFetch(request, '/api/llm/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
