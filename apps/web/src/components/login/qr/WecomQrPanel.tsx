@@ -24,7 +24,7 @@ export function WecomQrPanel({ refreshKey }: WecomQrPanelProps) {
   React.useEffect(() => {
     const container = containerRef.current
     const config = getPlatformConfig('enterpriseWechat')
-    if (!config.enabled || !config.appId || !config.agentId || !config.redirectUri) {
+    if (!config.enabled || !config.appId || !config.agentId) {
       setStatus('unconfigured')
       return
     }
@@ -34,6 +34,9 @@ export function WecomQrPanel({ refreshKey }: WecomQrPanelProps) {
 
     const state = generateState()
     saveOAuthState('enterpriseWechat', state)
+
+    // redirect_uri 必须与当前访问域名+端口一致,否则企业微信校验失败报"redirect_uri 参数错误"
+    const redirectUri = `${window.location.origin}/callback?platform=enterpriseWechat`
 
     loadWecomQrSdk()
       .then(() => {
@@ -47,7 +50,7 @@ export function WecomQrPanel({ refreshKey }: WecomQrPanelProps) {
             id: containerId,
             appid: config.appId!,
             agentid: config.agentId!,
-            redirect_uri: config.redirectUri,
+            redirect_uri: redirectUri,
             state,
             lang: 'zh',
           })
@@ -86,14 +89,13 @@ export function WecomQrPanel({ refreshKey }: WecomQrPanelProps) {
     return <ErrorState message={errorMsg} />
   }
 
+  // React 18 严格模式 + 第三方 SDK DOM 操作冲突修复(2026-07-22)
+  // 详见 WechatQrPanel.tsx 同名注释
   return (
-    <div
-      ref={containerRef}
-      id={containerId}
-      className="flex h-[280px] w-full items-center justify-center overflow-hidden rounded-md border bg-card"
-    >
+    <div className="relative flex h-[280px] w-full items-center justify-center overflow-hidden rounded-md border bg-card">
+      <div ref={containerRef} id={containerId} className="absolute inset-0" />
       {status === 'loading' && (
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Loader2 className="relative h-6 w-6 animate-spin text-muted-foreground" />
       )}
     </div>
   )
