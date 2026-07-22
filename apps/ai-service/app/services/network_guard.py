@@ -2,8 +2,16 @@
 
 注意:这是应用层软检查,只能拦截通过本模块发起的 HTTP 请求。
 完整网络隔离需 OS 沙箱(Linux network namespace / Windows WFP),本模块不提供。
+
+接入方式(dag_scheduler._worker_loop):
+  1. executor 启动前用 set_current_policy(policy) 注入策略到 contextvar
+  2. executor 内部 HTTP 客户端调用 check_current(url) 校验出站请求
+  3. executor 完成后 reset_current_policy(token) 清理
 """
 
+from __future__ import annotations
+
+import contextvars
 import fnmatch
 import ipaddress
 import logging
@@ -13,6 +21,11 @@ from typing import Optional
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+# 当前任务的网络策略 contextvar(asyncio.create_task 自动复制 context,executor Task 可读)
+_current_policy: contextvars.ContextVar = contextvars.ContextVar(
+    "network_egress_policy", default=None
+)
 
 
 @dataclass
@@ -115,3 +128,33 @@ def from_config(config: Optional[dict]) -> Optional[NetworkEgressPolicy]:
         domains=config.get("domains", []),
         allow_localhost=config.get("allow_localhost", True),
     )
+
+
+def set_current_policy(policy):
+    """设置当前任务的网络策略(在 executor 启动前调用)。
+
+    Returns: token,executor 完成后用 reset_current_policy(token) 清理。
+    """
+    return _current_policy.set(policy)
+
+
+def reset_current_policy(token) -> None:
+    """清理 contextvar(在 executor finally 块调用)。"""
+    _current_policy.reset(token)
+
+
+def get_current_policy():
+    """获取当前任务的网络策略(executor 内部 HTTP 客户端调用)。"""
+    return _current_policy.get()
+
+
+def check_current(url: str) -> tuple[bool, str]:
+    """检查当前 contextvar 中的策略是否允许访问 url。
+
+    无策略时返回 (True, "no policy")。
+    executor 内部的 HTTP 客户端应在每次出站请求前调用本函数。
+    """
+    policy = _current_policy.get()
+    if policy is None:
+        return True, "no policy"
+    return policy.check(url)
