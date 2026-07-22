@@ -34,7 +34,7 @@ export function useUserMenu(): UseUserMenuReturn {
     }
     return [
       { key: 'profile', label: '个人中心', href: '/user/profile' },
-      { key: 'orders', label: '我的订单', href: '/user/orders' },
+      { key: 'orders', label: '我的订单', href: '/orders' },
       { key: 'favorites', label: '我的收藏', href: '/user/favorites' },
       { key: 'settings', label: '设置', href: '/settings' },
       { key: 'logout', label: '退出登录', danger: true },
