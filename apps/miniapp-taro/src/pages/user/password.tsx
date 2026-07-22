@@ -32,10 +32,10 @@ export default function Password() {
   }
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="mx-[12px] mt-[12px] px-[16px] bg-white rounded-[8px]">
-        <View className="flex items-center py-[16px] border-b-[1px] border-solid border-[#f5f5f5]">
-          <Text className="w-[80px] text-[14px] text-[#333]">{t('user.password.oldPassword')}</Text>
+    <View className="min-h-screen bg-background">
+      <View className="mx-[12px] mt-[12px] px-[16px] bg-card rounded-[8px]">
+        <View className="flex items-center py-[16px] border-b-[1px] border-solid border-border">
+          <Text className="w-[80px] text-[14px] text-foreground">{t('user.password.oldPassword')}</Text>
           <Input
             className="flex-1 text-[14px]"
             password
@@ -44,8 +44,8 @@ export default function Password() {
             onInput={(e) => setOldPwd(e.detail.value)}
           />
         </View>
-        <View className="flex items-center py-[16px] border-b-[1px] border-solid border-[#f5f5f5]">
-          <Text className="w-[80px] text-[14px] text-[#333]">{t('user.password.newPassword')}</Text>
+        <View className="flex items-center py-[16px] border-b-[1px] border-solid border-border">
+          <Text className="w-[80px] text-[14px] text-foreground">{t('user.password.newPassword')}</Text>
           <Input
             className="flex-1 text-[14px]"
             password
@@ -55,7 +55,7 @@ export default function Password() {
           />
         </View>
         <View className="flex items-center py-[16px]">
-          <Text className="w-[80px] text-[14px] text-[#333]">
+          <Text className="w-[80px] text-[14px] text-foreground">
             {t('user.password.confirmPassword')}
           </Text>
           <Input
@@ -69,7 +69,7 @@ export default function Password() {
       </View>
       <Button
         className={`mx-[16px] mt-[30px] rounded-[20px] text-[16px] ${
-          oldPwd && newPwd && confirmPwd ? 'bg-[#07c160] text-white' : 'bg-[#ccc] text-white'
+          oldPwd && newPwd && confirmPwd ? 'bg-primary text-white' : 'bg-[#ccc] text-white'
         }`}
         disabled={!oldPwd || !newPwd || !confirmPwd}
         onClick={onSubmit}

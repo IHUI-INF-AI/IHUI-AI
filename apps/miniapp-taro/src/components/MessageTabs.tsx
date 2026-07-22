@@ -16,7 +16,7 @@ export default function MessageTabs({ tabs, active, onChange }: MessageTabsProps
   return (
     <ScrollView
       scrollX
-      className="bg-white border-b border-gray-100"
+      className="bg-card border-b border-border"
       enhanced
       showScrollbar={false}
     >
@@ -33,13 +33,13 @@ export default function MessageTabs({ tabs, active, onChange }: MessageTabsProps
               <View className="flex items-center">
                 <Text
                   className={`text-sm ${
-                    isActive ? 'text-gray-800 font-semibold' : 'text-gray-500'
+                    isActive ? 'text-foreground font-semibold' : 'text-muted-foreground'
                   }`}
                 >
                   {tab.label}
                 </Text>
                 {showUnread && (
-                  <View className="ml-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 flex items-center justify-center">
+                  <View className="ml-1 min-w-[16px] h-4 px-1 rounded-full bg-destructive flex items-center justify-center">
                     <Text className="text-[10px] text-white">
                       {tab.unread! > 99 ? '99+' : tab.unread}
                     </Text>
@@ -48,7 +48,7 @@ export default function MessageTabs({ tabs, active, onChange }: MessageTabsProps
               </View>
               <View
                 className={`mt-1.5 h-0.5 rounded-full transition-all ${
-                  isActive ? 'w-6 bg-green-600' : 'w-0'
+                  isActive ? 'w-6 bg-primary' : 'w-0'
                 }`}
               />
             </View>
