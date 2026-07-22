@@ -48,7 +48,7 @@ import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { encryptJSON, decryptJSON, isEncryptedPayload } from '../utils/crypto.js'
 import { AppError } from '../errors/AppError.js'
-import { PLATFORM_TEMPLATES, TEMPLATE_MAP, type PlatformTemplate } from './platform-templates.js'
+import { PLATFORM_TEMPLATES, TEMPLATE_MAP, type PlatformTemplate } from '../utils/platform-templates.js'
 
 // =============================================================================
 // 常量
