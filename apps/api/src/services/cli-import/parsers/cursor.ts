@@ -26,7 +26,8 @@ function str(v: unknown): string | undefined {
 function inferApiFormat(baseUrl: string, model?: string): CliApiFormat {
   const u = baseUrl.toLowerCase()
   if (u.includes('anthropic.com') || model?.startsWith('claude-')) return 'anthropic_messages'
-  if (u.includes('googleapis.com') || model?.startsWith('gemini-')) return 'gemini_native'
+  if (u.includes('googleapis.com') || u.includes('generativelanguage') || model?.startsWith('gemini-')) return 'gemini_native'
+  if (u.includes('openai.com') || u.includes('githubcopilot')) return 'openai_chat'
   return 'openai_chat'
 }
 
@@ -42,12 +43,18 @@ export async function parseCursor(input: ParserInput): Promise<ParserResult> {
     throw new Error(`Cursor settings.json 解析失败: ${(err as Error).message}`)
   }
   const apiKey = str(settings['cursor.ai.apiKey'])
-  const baseUrl = str(settings['cursor.ai.baseUrl']) ?? 'https://api.openai.com/v1'
+  const baseUrl = str(settings['cursor.ai.baseUrl'])
   const model = str(settings['cursor.ai.model'])
   if (!apiKey) {
     return {
       providers: [],
       globalWarnings: ['Cursor settings.json 中未找到 cursor.ai.apiKey'],
+    }
+  }
+  if (!baseUrl) {
+    return {
+      providers: [],
+      globalWarnings: ['Cursor settings.json 中未找到 cursor.ai.baseUrl,Cursor 无默认 API 端点'],
     }
   }
   const apiFormat = inferApiFormat(baseUrl, model)
