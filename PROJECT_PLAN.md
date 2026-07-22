@@ -176,6 +176,7 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 对标 Hermes Agent 深度升级:11 项差距分 P0/P1/P2 开发(跨端:packages/types + a...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 全项目对外开放 API 接入系统深度开发 — 105 端点 + TS/Python SDK 双语言(commit ba347294,跨端:packages/types + api + sdk + web 文档) -->
 <!-- 已归档(2026-07-22):Java SDK 补齐 — ihui-ai-java 三语言 SDK 平级(平台独占:仅 SDK 新增),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
+<!-- 已归档(2026-07-22):[x] ✅(2026-07-22) Go + .NET/C# SDK 补齐 — 五语言 SDK 全覆盖(commit 04122a8f,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_sdk-multi-language.md -->
 ### [ ] 深度鲁棒性加固 P0+P1+P2 全量 85 项(2026-07-22 立,/goal 模式)
 
 **触发**:用户要求"深度开发本项目的鲁棒性 必须达到完美"。5 路并行调研(api/web/ai-service/packages/desktop+extension+mobile)发现 85 项鲁棒性问题(P0 30 + P1 35 + P2 20)。
