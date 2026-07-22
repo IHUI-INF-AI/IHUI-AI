@@ -88,6 +88,109 @@ export interface SpecVariablesResult {
 }
 
 // ---------------------------------------------------------------------------
+// 2026-07-22 深化新增端点类型(Spec 驱动代码生成 / Watch / 评审 / 拆分 / 增强)
+// ---------------------------------------------------------------------------
+
+/** POST /spec/apply 响应 data 字段 */
+export interface SpecApplyResult {
+  patch: string
+  affectedFiles: string[]
+  summary: string
+  /** LLM 不可用时含 error 字段 */
+  error?: string
+}
+
+/** POST /spec/apply/preview 响应 data 字段 */
+export interface SpecApplyPreviewResult {
+  files: Array<{
+    path: string
+    originalLines: number
+    patchedLines: number
+    status: 'modified' | 'unchanged'
+  }>
+}
+
+/** POST /spec/apply/confirm 响应 data 字段 */
+export interface SpecApplyConfirmResult {
+  applied: string[]
+  failed: Array<{ path: string; error: string }>
+  backupDir: string
+}
+
+/** POST /spec/watch/start 响应 data 字段 */
+export interface SpecWatchStartResult {
+  watchId: string
+  status: string
+  watchPath: string
+  webhookUrl: string | null
+  /** watchdog 未安装时含 error 字段 */
+  error?: string
+}
+
+/** POST /spec/watch/stop 响应 data 字段 */
+export interface SpecWatchStopResult {
+  watchId: string
+  status: string
+}
+
+/** GET /spec/watch/status 响应 data 字段 */
+export interface SpecWatchStatusResult {
+  watchers: Array<{
+    watchId: string
+    scope: { type: string; path?: string } | null
+    workspacePath: string
+    webhookUrl: string | null
+    startedAt: string
+    watchPath: string
+  }>
+}
+
+/** POST /spec/review/* 响应 data 字段 */
+export interface SpecReviewResult {
+  spec: string
+  filePath: string
+  status: string
+  /** 错误时含 error 字段 */
+  error?: string
+  currentStatus?: string
+}
+
+/** GET /spec/pending-reviews 响应 data 字段 */
+export interface SpecPendingReviewsResult {
+  specs: Array<{
+    specId: string
+    scope: string
+    summary: string
+    filePath: string
+    reviewer: string
+    submittedAt: string
+  }>
+}
+
+/** POST /spec/split-tasks 响应 data 字段 */
+export interface SpecSplitTasksResult {
+  tasks: Array<{
+    title: string
+    description: string
+    priority: string
+    estimated_complexity: string
+  }>
+  /** 降级模式时为 true */
+  fallback?: boolean
+  error?: string
+}
+
+/** POST /spec/enhance 响应 data 字段 */
+export interface SpecEnhanceResult {
+  spec: string
+  enhancement: string
+  filePath: string
+  /** LLM 不可用时含 error 字段 */
+  error?: string
+  message?: string
+}
+
+// ---------------------------------------------------------------------------
 // 工具函数
 // ---------------------------------------------------------------------------
 
@@ -417,6 +520,250 @@ class SpecService {
     }
 
     return { variables: { author, date, version, project } }
+  }
+
+  // -------------------------------------------------------------------------
+  // 2026-07-22 深化:Spec 驱动代码生成 / Watch / 评审 / 拆分 / 增强
+  // -------------------------------------------------------------------------
+
+  /** POST /spec/apply — 对比新旧 spec,调 LLM 生成代码 patch */
+  async applySpec(
+    request: FastifyRequest,
+    input: {
+      scope: SpecScope
+      workspacePath: string
+      newSpec: string
+      oldSpec?: string
+    },
+  ): Promise<SpecApplyResult> {
+    const resp = await aiServiceFetch(request, '/api/spec/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scope: input.scope,
+        workspacePath: input.workspacePath,
+        newSpec: input.newSpec,
+        oldSpec: input.oldSpec,
+      }),
+      signal: AbortSignal.timeout(60_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecApplyResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || 'spec apply 失败')
+    }
+    return json.data
+  }
+
+  /** POST /spec/apply/preview — 预览 patch 应用效果(不写文件) */
+  async applySpecPreview(
+    request: FastifyRequest,
+    input: {
+      workspacePath: string
+      patch: string
+      affectedFiles: string[]
+    },
+  ): Promise<SpecApplyPreviewResult> {
+    const resp = await aiServiceFetch(request, '/api/spec/apply/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(30_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecApplyPreviewResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || 'patch 预览失败')
+    }
+    return json.data
+  }
+
+  /** POST /spec/apply/confirm — 确认应用 patch(写入文件,备份原文件) */
+  async applySpecConfirm(
+    request: FastifyRequest,
+    input: {
+      workspacePath: string
+      patch: string
+      affectedFiles: string[]
+    },
+  ): Promise<SpecApplyConfirmResult> {
+    const resp = await aiServiceFetch(request, '/api/spec/apply/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(30_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecApplyConfirmResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || 'patch 应用失败')
+    }
+    return json.data
+  }
+
+  /** POST /spec/watch/start — 启动文件监听(watchdog) */
+  async startWatch(
+    request: FastifyRequest,
+    input: {
+      scope: SpecScope
+      workspacePath: string
+      webhookUrl?: string
+    },
+  ): Promise<SpecWatchStartResult> {
+    const resp = await aiServiceFetch(request, '/api/spec/watch/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(10_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecWatchStartResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || 'watch 启动失败')
+    }
+    return json.data
+  }
+
+  /** POST /spec/watch/stop — 停止文件监听 */
+  async stopWatch(
+    request: FastifyRequest,
+    watchId: string,
+  ): Promise<SpecWatchStopResult> {
+    const resp = await aiServiceFetch(request, '/api/spec/watch/stop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ watchId }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecWatchStopResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || 'watch 停止失败')
+    }
+    return json.data
+  }
+
+  /** GET /spec/watch/status — 返回当前活跃的 watcher 列表 */
+  async getWatchStatus(request: FastifyRequest): Promise<SpecWatchStatusResult> {
+    const resp = await aiServiceFetch(request, '/api/spec/watch/status', {
+      method: 'GET',
+      signal: AbortSignal.timeout(10_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecWatchStatusResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || 'watch 状态获取失败')
+    }
+    return json.data
+  }
+
+  /** POST /spec/review/submit — 提交 spec 进入评审 */
+  async submitForReview(
+    request: FastifyRequest,
+    input: { scope: SpecScope; workspacePath: string },
+  ): Promise<SpecReviewResult> {
+    const resp = await aiServiceFetch(request, '/api/spec/review/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(10_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecReviewResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || '提交评审失败')
+    }
+    return json.data
+  }
+
+  /** POST /spec/review/approve — 审批通过 spec */
+  async approveSpec(
+    request: FastifyRequest,
+    input: { scope: SpecScope; workspacePath: string; reviewer?: string },
+  ): Promise<SpecReviewResult> {
+    const resp = await aiServiceFetch(request, '/api/spec/review/approve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(10_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecReviewResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || '审批失败')
+    }
+    return json.data
+  }
+
+  /** POST /spec/review/reject — 拒绝 spec */
+  async rejectSpec(
+    request: FastifyRequest,
+    input: {
+      scope: SpecScope
+      workspacePath: string
+      reviewer?: string
+      comment?: string
+    },
+  ): Promise<SpecReviewResult> {
+    const resp = await aiServiceFetch(request, '/api/spec/review/reject', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(10_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecReviewResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || '拒绝失败')
+    }
+    return json.data
+  }
+
+  /** GET /spec/pending-reviews — 返回所有 pending_review 状态的 spec 列表 */
+  async getPendingReviews(
+    request: FastifyRequest,
+    workspacePath: string,
+  ): Promise<SpecPendingReviewsResult> {
+    const resp = await aiServiceFetch(
+      request,
+      `/api/spec/pending-reviews?workspacePath=${encodeURIComponent(workspacePath)}`,
+      {
+        method: 'GET',
+        signal: AbortSignal.timeout(10_000),
+      },
+    )
+    const json = (await resp.json()) as AiServiceResponse<SpecPendingReviewsResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || '获取待评审列表失败')
+    }
+    return json.data
+  }
+
+  /** POST /spec/split-tasks — 从 spec 章节自动拆分任务 */
+  async splitTasks(
+    request: FastifyRequest,
+    input: { scope: SpecScope; workspacePath: string },
+  ): Promise<SpecSplitTasksResult> {
+    const resp = await aiServiceFetch(request, '/api/spec/split-tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(60_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecSplitTasksResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || '任务拆分失败')
+    }
+    return json.data
+  }
+
+  /** POST /spec/enhance — 对已生成的 spec 添加 LLM 智能分析章节 */
+  async enhanceSpec(
+    request: FastifyRequest,
+    input: { scope: SpecScope; workspacePath: string },
+  ): Promise<SpecEnhanceResult> {
+    const resp = await aiServiceFetch(request, '/api/spec/enhance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(60_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecEnhanceResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || 'spec 增强失败')
+    }
+    return json.data
   }
 }
 
