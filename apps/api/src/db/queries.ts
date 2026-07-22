@@ -204,3 +204,23 @@ export async function revokeAllUserRefreshTokens(userId: string): Promise<void> 
     .set({ revokedAt: new Date() })
     .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)))
 }
+
+/**
+ * 吊销指定 family 下所有未吊销的 refresh token(RFC 6749 §10.4 重用检测)。
+ *
+ * 2026-07-22 鲁棒性加固:当 refresh token 被重用(已被 revoked 的 token 再次出现),
+ * 立即吊销整个 family 所有活跃 token,迫使合法用户重新登录。
+ * 这是 OAuth2.1 强制的"refresh token rotation with reuse detection"模式。
+ *
+ * 触发场景:攻击者拿到已吊销 token 重试 → 检测到 stored.revokedAt 非空 → 调用此函数。
+ * @param familyId token family UUID
+ * @returns 吊销的 token 数量
+ */
+export async function revokeRefreshTokenFamily(familyId: string): Promise<number> {
+  const result = await db
+    .update(refreshTokens)
+    .set({ revokedAt: new Date() })
+    .where(and(eq(refreshTokens.familyId, familyId), isNull(refreshTokens.revokedAt)))
+    .returning({ id: refreshTokens.id })
+  return result.length
+}

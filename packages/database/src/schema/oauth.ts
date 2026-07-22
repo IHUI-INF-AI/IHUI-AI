@@ -4,7 +4,12 @@ import { users } from './users.js';
 /**
  * OAuth2 应用表（开发者创建的 OAuth 应用）。
  * redirectUris: 多回调白名单数组。scopes: 允许的 scope 数组。
- * clientSecret 应哈希存储（bcrypt），此处用 text 以兼容旧数据，新实现应哈希。
+ *
+ * 2026-07-22 鲁棒性加固:
+ * - 新增 clientSecretHash 列(bcrypt 哈希),逐步替代 clientSecret 明文存储
+ * - 迁移期:clientSecret 保留(向后兼容),优先用 clientSecretHash 验证
+ * - 迁移完成后:clientSecret 应清空(全部转哈希),仅保留 clientSecretHash
+ * - 破坏性:现有 OAuth 应用 clientSecret 需重新生成并写入 clientSecretHash
  */
 export const oauthApps = pgTable(
   'oauth_apps',
@@ -12,6 +17,13 @@ export const oauthApps = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     clientId: varchar('client_id', { length: 100 }).notNull(),
     clientSecret: text('client_secret').notNull(),
+    /**
+     * clientSecret 的 bcrypt 哈希(cost=12)。
+     * 写入时:hashClientSecret(plain) → 存储,同时清空 clientSecret 列
+     * 验证时:优先用 bcrypt.compare(plain, clientSecretHash),
+     *         clientSecretHash 为 null 时回退到 clientSecret 明文(向后兼容)
+     */
+    clientSecretHash: text('client_secret_hash'),
     name: varchar('name', { length: 100 }).notNull(),
     description: text('description'),
     redirectUris: jsonb('redirect_uris').notNull().default([]),
