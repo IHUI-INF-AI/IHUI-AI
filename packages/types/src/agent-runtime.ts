@@ -422,16 +422,7 @@ export interface SamplingGuardrails {
 // IM 平台 gateway 契约(P1-1)
 // ============================================================================
 
-/** IM 平台类型 */
-export type ImPlatform =
-  | 'feishu'
-  | 'wecom'
-  | 'dingtalk'
-  | 'discord'
-  | 'telegram'
-  | 'slack'
-  | 'wechat'
-  | 'webhook'
+/** IM 平台类型已扩展至 16 种,定义见文件末尾 P3-5 节(原 8 → 16,覆盖 Hermes Agent 15+ 渠道) */
 
 /** IM 消息方向 */
 export type ImMessageDirection = 'inbound' | 'outbound'
@@ -751,3 +742,470 @@ export interface TraceEvent {
   /** 错误信息(status=error 时) */
   error?: string
 }
+
+// ============================================================================
+// 记忆系统深度层契约(P3-1,2026-07-22 立)
+// 对标 Hermes Agent:FTS5 全文 + 向量双引擎 + 自动提取 + 衰减遗忘 + 用户画像
+// ============================================================================
+
+/** 记忆检索引擎(双引擎) */
+export type MemoryRetrievalEngine = 'fts5' | 'vector' | 'hybrid'
+
+/** 记忆检索请求 */
+export interface MemoryRetrievalRequest {
+  /** 用户 ID */
+  userId: string
+  /** 查询文本(语义检索 + 关键词) */
+  query: string
+  /** 检索引擎(默认 hybrid) */
+  engine?: MemoryRetrievalEngine
+  /** 作用域过滤 */
+  scope?: MemoryScope
+  /** 返回条数(默认 10) */
+  topK?: number
+  /** 相似度阈值(0-1,默认 0.7) */
+  similarityThreshold?: number
+  /** 是否包含已衰减记忆(默认 false) */
+  includeDecayed?: boolean
+}
+
+/** 记忆检索结果项 */
+export interface MemoryRetrievalResultItem {
+  /** 记忆条目 */
+  entry: MemoryEntry
+  /** 相似度分数(0-1,向量检索) */
+  similarity?: number
+  /** FTS5 rank(全文检索) */
+  ftsRank?: number
+  /** 综合得分(hybrid 模式) */
+  combinedScore?: number
+  /** 命中原因 */
+  matchedBy: 'vector' | 'fts5' | 'hybrid' | 'exact'
+}
+
+/** 记忆检索响应 */
+export interface MemoryRetrievalResponse {
+  items: MemoryRetrievalResultItem[]
+  total: number
+  engine: MemoryRetrievalEngine
+  /** 检索耗时(ms) */
+  durationMs: number
+}
+
+/** 自动记忆提取请求(从对话流中提取记忆) */
+export interface MemoryExtractionRequest {
+  /** 对话消息列表 */
+  messages: Array<{ role: string; content: string }>
+  /** 用户 ID */
+  userId: string
+  /** 会话 ID */
+  sessionId?: string
+  /** 已有记忆(避免重复提取) */
+  existingEntries?: MemoryEntry[]
+}
+
+/** 自动记忆提取结果 */
+export interface MemoryExtractionResult {
+  /** 提取出的新记忆 */
+  extracted: Array<{
+    type: MemoryEntryType
+    category: string
+    text: string
+    /** 提取置信度(0-1) */
+    confidence: number
+    /** 来源消息索引 */
+    sourceMessageIndex: number
+  }>
+  /** 提取耗时(ms) */
+  durationMs: number
+}
+
+/** 记忆衰减配置 */
+export interface MemoryDecayConfig {
+  /** 衰减策略 */
+  strategy: 'time' | 'access_frequency' | 'combined'
+  /** 半衰期(天,time 策略) */
+  halfLifeDays: number
+  /** 最小保留分数(低于此值标记为 decayed) */
+  minRetentionScore: number
+  /** 访问加分(每次访问 +x,access_frequency 策略) */
+  accessBoost: number
+}
+
+/** 记忆衰减状态 */
+export interface MemoryDecayState {
+  /** 记忆条目 ID */
+  entryId: string
+  /** 当前衰减分数(0-1) */
+  retentionScore: number
+  /** 上次访问时间(ISO) */
+  lastAccessedAt: string
+  /** 访问次数 */
+  accessCount: number
+  /** 是否已衰减(retentionScore < minRetentionScore) */
+  isDecayed: boolean
+}
+
+/** 用户画像维度 */
+export type UserProfileDimension =
+  | 'preference' // 偏好(技术栈/工具/风格)
+  | 'expertise' // 专业能力
+  | 'communication_style' // 沟通风格
+  | 'workflow' // 工作流习惯
+  | 'domain' // 领域知识
+
+/** 用户画像条目 */
+export interface UserProfileEntry {
+  /** 用户 ID */
+  userId: string
+  /** 画像维度 */
+  dimension: UserProfileDimension
+  /** 画像内容(如 "偏好 TypeScript,常用 React") */
+  content: string
+  /** 置信度(0-1,基于支持记忆数) */
+  confidence: number
+  /** 支持该画像的记忆 ID 列表 */
+  supportingMemoryIds: string[]
+  /** 最后更新时间(ISO) */
+  updatedAt: string
+}
+
+/** 用户画像聚合结果 */
+export interface UserProfileAggregate {
+  userId: string
+  entries: UserProfileEntry[]
+  /** 记忆总数 */
+  totalMemories: number
+  /** 画像完整度(0-1,基于各维度覆盖) */
+  completeness: number
+  /** 上次更新时间(ISO) */
+  updatedAt: string
+}
+
+// ============================================================================
+// 自进化闭环深度层契约(P3-2,2026-07-22 立)
+// 对标 Hermes Agent:Skill 生成后自动测试 + 反馈追踪 + 迭代优化 + 评分
+// ============================================================================
+
+/** Skill 测试用例 */
+export interface SkillTestCase {
+  /** 测试名 */
+  name: string
+  /** 测试输入 */
+  input: string
+  /** 期望输出(包含的关键词或正则) */
+  expectedPattern: string
+  /** 是否正则匹配(默认 false,字符串包含) */
+  isRegex?: boolean
+}
+
+/** Skill 测试请求 */
+export interface SkillTestRequest {
+  /** skill 名 */
+  skillName: string
+  /** skill 内容(SKILL.md 正文) */
+  skillContent: string
+  /** 测试用例列表 */
+  testCases: SkillTestCase[]
+  /** 测试超时(秒,默认 30) */
+  timeoutSeconds?: number
+}
+
+/** 单个测试用例结果 */
+export interface SkillTestCaseResult {
+  /** 测试名 */
+  name: string
+  /** 实际输出 */
+  actualOutput: string
+  /** 是否通过 */
+  passed: boolean
+  /** 失败原因(passed=false 时) */
+  failureReason?: string
+  /** 执行时长(ms) */
+  durationMs: number
+}
+
+/** Skill 测试结果 */
+export interface SkillTestResult {
+  /** skill 名 */
+  skillName: string
+  /** 测试用例结果列表 */
+  results: SkillTestCaseResult[]
+  /** 通过数 */
+  passed: number
+  /** 总数 */
+  total: number
+  /** 通过率(0-1) */
+  passRate: number
+  /** 总耗时(ms) */
+  totalDurationMs: number
+  /** 是否全部通过 */
+  allPassed: boolean
+}
+
+/** Skill 使用反馈(单次使用记录) */
+export interface SkillUsageFeedback {
+  /** skill 名 */
+  skillName: string
+  /** 使用任务 ID */
+  taskId: string
+  /** 使用时间(ISO) */
+  usedAt: string
+  /** 是否成功完成 */
+  success: boolean
+  /** 用户满意度(0-1,可选,来自用户反馈) */
+  userSatisfaction?: number
+  /** 执行时长(ms) */
+  durationMs: number
+  /** 失败原因(success=false 时) */
+  failureReason?: string
+}
+
+/** Skill 使用统计 */
+export interface SkillUsageStats {
+  /** skill 名 */
+  skillName: string
+  /** 总使用次数 */
+  totalUses: number
+  /** 成功次数 */
+  successCount: number
+  /** 成功率(0-1) */
+  successRate: number
+  /** 平均满意度(0-1) */
+  avgSatisfaction: number
+  /** 平均执行时长(ms) */
+  avgDurationMs: number
+  /** 最后使用时间(ISO) */
+  lastUsedAt: string
+  /** 当前版本 */
+  currentVersion: string
+  /** 迭代历史 */
+  iterationHistory: Array<{
+    version: string
+    iteratedAt: string
+    reason: string
+    previousPassRate: number
+    newPassRate: number
+  }>
+}
+
+/** Skill 迭代请求(基于反馈优化 skill) */
+export interface SkillIterationRequest {
+  /** skill 名 */
+  skillName: string
+  /** 当前 skill 内容 */
+  currentContent: string
+  /** 使用统计 */
+  usageStats: SkillUsageStats
+  /** 失败案例(用于改进) */
+  failureCases: Array<{ input: string; actualOutput: string; failureReason: string }>
+  /** 当前测试结果 */
+  currentTestResult: SkillTestResult
+}
+
+/** Skill 迭代结果 */
+export interface SkillIterationResult {
+  /** 是否生成新版本 */
+  shouldIterate: boolean
+  /** 新版本号(shouldIterate=true 时) */
+  newVersion?: string
+  /** 新 skill 内容 */
+  newContent?: string
+  /** 迭代理由 */
+  reason: string
+  /** 预期改进点 */
+  expectedImprovements: string[]
+}
+
+// ============================================================================
+// 调度系统深度层契约(P3-3,2026-07-22 立)
+// 对标 Hermes Agent:任务自动分解 + agent 通信 + 调度算法 + 失败重试
+// ============================================================================
+
+/** 任务分解策略 */
+export type TaskDecompositionStrategy =
+  | 'sequential' // 顺序分解(简单流水线)
+  | 'parallel' // 并行分解(独立子任务)
+  | 'dag' // DAG 分解(有依赖关系的子任务图)
+  | 'recursive' // 递归分解(复杂任务层层拆解)
+
+/** 子任务依赖关系 */
+export interface SubTaskDependency {
+  /** 依赖的子任务 ID */
+  dependsOn: string
+  /** 依赖类型 */
+  type: 'output' // 需要前置任务的输出
+  | 'completion' // 仅需前置任务完成
+  | 'resource' // 共享资源锁
+}
+
+/** 分解出的子任务 */
+export interface SubTask {
+  /** 子任务 ID */
+  id: string
+  /** 任务描述 */
+  description: string
+  /** 推荐的 agent 类型(基于能力匹配) */
+  recommendedAgentType: string
+  /** 期望的 agent 能力 */
+  requiredCapabilities: string[]
+  /** 依赖的其他子任务 */
+  dependencies: SubTaskDependency[]
+  /** 优先级(1-10,10 最高) */
+  priority: number
+  /** 预估耗时(秒) */
+  estimatedDurationSeconds?: number
+  /** 是否可重试(默认 true) */
+  retryable?: boolean
+  /** 最大重试次数(默认 3) */
+  maxRetries?: number
+}
+
+/** 任务分解请求 */
+export interface TaskDecompositionRequest {
+  /** 原始任务描述 */
+  task: string
+  /** 可用的 agent 列表(含能力描述) */
+  availableAgents: Array<{ name: string; capabilities: string[] }>
+  /** 分解策略(默认 dag) */
+  strategy?: TaskDecompositionStrategy
+  /** 最大子任务数(默认 10) */
+  maxSubTasks?: number
+}
+
+/** 任务分解结果 */
+export interface TaskDecompositionResult {
+  /** 分解出的子任务列表 */
+  subTasks: SubTask[]
+  /** 执行顺序(拓扑排序后的 ID 列表) */
+  executionOrder: string[]
+  /** 并行批次(同一批可并行执行) */
+  parallelBatches: string[][]
+  /** 分解策略 */
+  strategy: TaskDecompositionStrategy
+  /** 总预估耗时(秒) */
+  totalEstimatedDurationSeconds?: number
+}
+
+/** Agent 通信消息类型 */
+export type AgentMessageType =
+  | 'request' // 请求(向其他 agent 请求数据/操作)
+  | 'response' // 响应
+  | 'notification' // 通知(广播)
+  | 'broadcast' // 广播(所有 agent)
+  | 'handoff' // 任务移交
+
+/** Agent 间通信消息 */
+export interface AgentMessage {
+  /** 消息 ID */
+  id: string
+  /** 来源 agent 名 */
+  fromAgent: string
+  /** 目标 agent 名(broadcast 时为 '*') */
+  toAgent: string
+  /** 消息类型 */
+  type: AgentMessageType
+  /** 消息内容 */
+  content: string
+  /** 关联的子任务 ID */
+  subTaskId?: string
+  /** 时间戳(ISO) */
+  timestamp: string
+  /** 是否需要回复(request 类型) */
+  requireReply?: boolean
+}
+
+/** 共享黑板条目(agent 间共享上下文) */
+export interface BlackboardEntry {
+  /** 条目 ID */
+  id: string
+  /** 键(如 "current_design" / "shared_context") */
+  key: string
+  /** 值 */
+  value: string
+  /** 写入的 agent 名 */
+  writtenBy: string
+  /** 关联的子任务 ID */
+  subTaskId?: string
+  /** 时间戳(ISO) */
+  timestamp: string
+  /** 读取过的 agent 列表 */
+  readBy: string[]
+}
+
+/** 调度决策 */
+export interface ScheduleDecision {
+  /** 子任务 ID */
+  subTaskId: string
+  /** 分配的 agent 名 */
+  assignedAgent: string
+  /** 分配理由 */
+  reason: string
+  /** 分配分数(0-1,能力匹配度) */
+  matchScore: number
+  /** 预计开始时间(ISO) */
+  estimatedStartTime: string
+  /** 调度策略 */
+  strategy: 'capability_match' | 'load_balance' | 'priority' | 'round_robin'
+}
+
+/** 调度结果 */
+export interface SchedulingResult {
+  decisions: ScheduleDecision[]
+  /** 并发度(同时执行的 agent 数) */
+  concurrency: number
+  /** 预计总耗时(秒) */
+  estimatedTotalDurationSeconds: number
+  /** 调度策略 */
+  strategy: 'capability_match' | 'load_balance' | 'priority' | 'round_robin'
+}
+
+/** 失败重试策略 */
+export interface RetryPolicy {
+  /** 最大重试次数 */
+  maxRetries: number
+  /** 退避策略 */
+  backoff: 'fixed' | 'linear' | 'exponential'
+  /** 初始延迟(ms) */
+  initialDelayMs: number
+  /** 最大延迟(ms) */
+  maxDelayMs: number
+  /** 可重试的错误类型 */
+  retryableErrors: Array<'timeout' | 'rate_limited' | 'overloaded' | 'network' | 'unknown'>
+}
+
+/** 故障转移配置 */
+export interface FailoverConfig {
+  /** 主 agent */
+  primary: string
+  /** 备用 agent 列表 */
+  fallbacks: string[]
+  /** 触发转移的条件 */
+  triggerOn: Array<'failure' | 'timeout' | 'low_quality'>
+  /** 质量阈值(triggerOn 含 low_quality 时) */
+  qualityThreshold?: number
+}
+
+// ============================================================================
+// IM 平台扩展契约(P3-5,2026-07-22 立)
+// 对标 Hermes Agent:15+ 消息渠道(原 8 + 新增 7+ = 15+)
+// ============================================================================
+
+/** IM 平台类型(扩展 8 → 16,覆盖 Hermes Agent 15+ 渠道) */
+export type ImPlatform =
+  | 'feishu' // 飞书(原)
+  | 'wecom' // 企业微信(原)
+  | 'dingtalk' // 钉钉(原)
+  | 'discord' // Discord(原)
+  | 'telegram' // Telegram(原)
+  | 'slack' // Slack(原)
+  | 'wechat' // 微信公众号/小程序(原)
+  | 'webhook' // 通用 webhook(原)
+  | 'whatsapp' // WhatsApp Business(新增)
+  | 'line' // LINE(新增)
+  | 'kakaotalk' // KakaoTalk(新增)
+  | 'signal' // Signal(新增)
+  | 'matrix' // Matrix(新增)
+  | 'rocketchat' // Rocket.Chat(新增)
+  | 'mattermost' // Mattermost(新增)
+  | 'zulip' // Zulip(新增)
