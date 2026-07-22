@@ -40,7 +40,7 @@ test.describe('完整订单流程', () => {
   })
 
   test('下单:商品页加入购物车或立即购买(若可访问)', async ({ page }) => {
-    await page.goto('/vip-membership')
+    await page.goto('/vip')
     await page.waitForLoadState('networkidle')
     // 查找订阅/购买按钮
     const buyBtn = page.getByRole('link', { name: /订阅|购买|Subscribe|立即|Get Started/i }).first()
