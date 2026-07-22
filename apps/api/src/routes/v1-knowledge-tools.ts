@@ -330,6 +330,15 @@ const runN8nWorkflowSchema = z.object({
 })
 
 // =============================================================================
+// Fastify OpenAPI schemas(共享)
+// =============================================================================
+
+const errorResponseSchema = {
+  type: 'object',
+  properties: { code: { type: 'number' }, message: { type: 'string' } },
+}
+
+// =============================================================================
 // 辅助函数
 // =============================================================================
 
@@ -525,6 +534,14 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/knowledge/health',
     {
+      schema: {
+        description: '知识库健康检查',
+        tags: ['Knowledge'],
+        response: {
+          200: { type: 'object' },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('knowledge:read'),
@@ -542,6 +559,28 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/knowledge/documents',
     {
+      schema: {
+        description: '文档列表',
+        tags: ['Knowledge'],
+        querystring: {
+          type: 'object',
+          properties: {
+            page: { type: 'number' },
+            limit: { type: 'number' },
+            keyword: { type: 'string' },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('knowledge:read'),
@@ -579,6 +618,34 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/knowledge/documents',
     {
+      schema: {
+        description: '文档入库',
+        tags: ['Knowledge'],
+        body: {
+          type: 'object',
+          properties: {
+            title: { type: 'string' },
+            content: { type: 'string' },
+            source: { type: 'string' },
+            chunkStrategy: { type: 'string' },
+            chunkSize: { type: 'number' },
+            chunkOverlap: { type: 'number' },
+          },
+          required: ['title', 'content'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              documentId: { type: 'string' },
+              chunkCount: { type: 'number' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('knowledge:write'),
@@ -617,6 +684,26 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/knowledge/documents/upload',
     {
+      schema: {
+        description: '文件上传入库(multipart/form-data,≤10MB)',
+        tags: ['Knowledge'],
+        consumes: ['multipart/form-data'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              documentId: { type: 'string' },
+              chunkCount: { type: 'number' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+          413: errorResponseSchema,
+          415: errorResponseSchema,
+          500: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('knowledge:write'),
@@ -711,6 +798,19 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/knowledge/documents/:id',
     {
+      schema: {
+        description: '文档详情',
+        tags: ['Knowledge'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: { type: 'object' },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('knowledge:read'),
@@ -734,6 +834,25 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/knowledge/documents/:id/chunks',
     {
+      schema: {
+        description: '文档分块列表',
+        tags: ['Knowledge'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('knowledge:read'),
@@ -774,6 +893,19 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.delete(
     '/knowledge/documents/:id',
     {
+      schema: {
+        description: '删除文档',
+        tags: ['Knowledge'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: { type: 'object' },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('knowledge:write'),
@@ -797,6 +929,25 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/knowledge/documents/batch-delete',
     {
+      schema: {
+        description: '批量删除文档',
+        tags: ['Knowledge'],
+        body: {
+          type: 'object',
+          properties: {
+            documentIds: {
+              type: 'array',
+              items: { type: 'string' },
+            },
+          },
+          required: ['documentIds'],
+        },
+        response: {
+          200: { type: 'object' },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('knowledge:write'),
@@ -823,6 +974,34 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/knowledge/search',
     {
+      schema: {
+        description: '语义搜索',
+        tags: ['Knowledge'],
+        body: {
+          type: 'object',
+          properties: {
+            query: { type: 'string' },
+            topK: { type: 'number' },
+            documentIds: {
+              type: 'array',
+              items: { type: 'string' },
+            },
+            threshold: { type: 'number' },
+          },
+          required: ['query'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: { type: 'array' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('knowledge:read'),
@@ -866,6 +1045,30 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/knowledge/rag-context',
     {
+      schema: {
+        description: 'RAG 上下文检索',
+        tags: ['Knowledge'],
+        body: {
+          type: 'object',
+          properties: {
+            query: { type: 'string' },
+            topK: { type: 'number' },
+            injectSystemPrompt: { type: 'boolean' },
+          },
+          required: ['query'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              context: { type: 'string' },
+              sources: { type: 'array' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('knowledge:read'),
@@ -907,6 +1110,29 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/knowledge-graph/extract',
     {
+      schema: {
+        description: '知识图谱抽取',
+        tags: ['Knowledge Graph'],
+        body: {
+          type: 'object',
+          properties: {
+            text: { type: 'string' },
+            extractType: { type: 'string' },
+          },
+          required: ['text'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              entities: { type: 'array' },
+              relations: { type: 'array' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('knowledge:write'),
@@ -956,6 +1182,15 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/knowledge-graph/build',
     {
+      schema: {
+        description: '知识图谱构建',
+        tags: ['Knowledge Graph'],
+        body: { type: 'object' },
+        response: {
+          200: { type: 'object' },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('knowledge:write'),
@@ -971,6 +1206,20 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/knowledge-graph/data',
     {
+      schema: {
+        description: '知识图谱数据',
+        tags: ['Knowledge Graph'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              nodes: { type: 'array' },
+              edges: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('knowledge:read'),
@@ -1011,6 +1260,14 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.delete(
     '/knowledge-graph/data',
     {
+      schema: {
+        description: '清空知识图谱',
+        tags: ['Knowledge Graph'],
+        response: {
+          200: { type: 'object' },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('knowledge:write'),
@@ -1026,6 +1283,20 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/tools',
     {
+      schema: {
+        description: 'MCP 工具列表',
+        tags: ['MCP Tools'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('tools:read'),
@@ -1057,6 +1328,30 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/tools/call',
     {
+      schema: {
+        description: '调用 MCP 工具',
+        tags: ['MCP Tools'],
+        body: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            arguments: { type: 'object' },
+          },
+          required: ['name'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              toolName: { type: 'string' },
+              result: {},
+              isError: { type: 'boolean' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('tools:call'),
@@ -1090,6 +1385,20 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/resources',
     {
+      schema: {
+        description: 'MCP 资源列表',
+        tags: ['MCP Tools'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('tools:read'),
@@ -1121,6 +1430,19 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/resources/:uri',
     {
+      schema: {
+        description: 'MCP 资源详情',
+        tags: ['MCP Tools'],
+        params: {
+          type: 'object',
+          properties: { uri: { type: 'string' } },
+          required: ['uri'],
+        },
+        response: {
+          200: { type: 'object' },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('tools:read'),
@@ -1141,6 +1463,20 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/prompts',
     {
+      schema: {
+        description: '提示词列表',
+        tags: ['MCP Tools'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('tools:read'),
@@ -1182,6 +1518,28 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/prompts/invoke',
     {
+      schema: {
+        description: '调用提示词',
+        tags: ['MCP Tools'],
+        body: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            arguments: { type: 'object' },
+          },
+          required: ['name'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              messages: { type: 'array' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('tools:call'),
@@ -1222,6 +1580,20 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/skills',
     {
+      schema: {
+        description: '技能列表',
+        tags: ['MCP Tools'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('tools:read'),
@@ -1253,6 +1625,20 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/slash-commands',
     {
+      schema: {
+        description: '斜杠命令列表',
+        tags: ['MCP Tools'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('tools:read'),
@@ -1282,6 +1668,15 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/slash-commands',
     {
+      schema: {
+        description: '执行斜杠命令',
+        tags: ['MCP Tools'],
+        body: { type: 'object' },
+        response: {
+          200: { type: 'object' },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('tools:call'),
@@ -1301,6 +1696,32 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/sampling',
     {
+      schema: {
+        description: 'LLM 采样',
+        tags: ['MCP Tools'],
+        body: {
+          type: 'object',
+          properties: {
+            messages: { type: 'array' },
+            modelPreferences: { type: 'object' },
+            maxTokens: { type: 'number' },
+          },
+          required: ['messages', 'maxTokens'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              model: { type: 'string' },
+              role: { type: 'string' },
+              content: { type: 'string' },
+              stopReason: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('tools:call'),
@@ -1334,6 +1755,20 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/personas',
     {
+      schema: {
+        description: '人格列表',
+        tags: ['MCP Tools'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('tools:read'),
@@ -1365,6 +1800,19 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/personas/:name',
     {
+      schema: {
+        description: '人格详情',
+        tags: ['MCP Tools'],
+        params: {
+          type: 'object',
+          properties: { name: { type: 'string' } },
+          required: ['name'],
+        },
+        response: {
+          200: { type: 'object' },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('tools:read'),
@@ -1385,6 +1833,23 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/tools/search-codebase',
     {
+      schema: {
+        description: '搜索代码库',
+        tags: ['MCP Tools'],
+        body: {
+          type: 'object',
+          properties: {
+            query: { type: 'string' },
+            directory: { type: 'string' },
+          },
+          required: ['query'],
+        },
+        response: {
+          200: { type: 'object' },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('tools:call'),
@@ -1408,6 +1873,23 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/tools/search-web',
     {
+      schema: {
+        description: '搜索网页',
+        tags: ['MCP Tools'],
+        body: {
+          type: 'object',
+          properties: {
+            query: { type: 'string' },
+            num: { type: 'number' },
+          },
+          required: ['query'],
+        },
+        response: {
+          200: { type: 'object' },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('tools:call'),
@@ -1427,6 +1909,23 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/tools/analyze-code',
     {
+      schema: {
+        description: '分析代码',
+        tags: ['MCP Tools'],
+        body: {
+          type: 'object',
+          properties: {
+            code: { type: 'string' },
+            language: { type: 'string' },
+          },
+          required: ['code'],
+        },
+        response: {
+          200: { type: 'object' },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('tools:call'),
@@ -1446,6 +1945,33 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/screenshot',
     {
+      schema: {
+        description: '网页截图',
+        tags: ['MCP Tools'],
+        body: {
+          type: 'object',
+          properties: {
+            url: { type: 'string' },
+            width: { type: 'number' },
+            height: { type: 'number' },
+            fullPage: { type: 'boolean' },
+          },
+          required: ['url'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              image: { type: 'string' },
+              format: { type: 'string' },
+              width: { type: 'number' },
+              height: { type: 'number' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('tools:call'),
@@ -1479,6 +2005,30 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/memory',
     {
+      schema: {
+        description: '保存记忆',
+        tags: ['Memory'],
+        body: {
+          type: 'object',
+          properties: {
+            content: { type: 'string' },
+            type: { type: 'string' },
+            metadata: { type: 'object' },
+          },
+          required: ['content'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              memoryId: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('memory:write'),
@@ -1504,6 +2054,27 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/memory',
     {
+      schema: {
+        description: '召回记忆',
+        tags: ['Memory'],
+        querystring: {
+          type: 'object',
+          properties: {
+            type: { type: 'string' },
+            limit: { type: 'number' },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('memory:read'),
@@ -1539,6 +2110,24 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/memory/search',
     {
+      schema: {
+        description: '语义搜索记忆',
+        tags: ['Memory'],
+        body: {
+          type: 'object',
+          properties: {
+            query: { type: 'string' },
+            topK: { type: 'number' },
+            type: { type: 'string' },
+          },
+          required: ['query'],
+        },
+        response: {
+          200: { type: 'object' },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('memory:read'),
@@ -1562,6 +2151,28 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/memory/dream',
     {
+      schema: {
+        description: 'Dream 梦境(记忆整理)',
+        tags: ['Memory'],
+        body: {
+          type: 'object',
+          properties: {
+            mode: { type: 'string' },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              dreamId: { type: 'string' },
+              insights: { type: 'array', items: { type: 'string' } },
+              newMemories: { type: 'number' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('memory:write'),
@@ -1594,6 +2205,28 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.delete(
     '/memory',
     {
+      schema: {
+        description: '遗忘记忆',
+        tags: ['Memory'],
+        body: {
+          type: 'object',
+          properties: {
+            memoryId: { type: 'string' },
+          },
+          required: ['memoryId'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              memoryId: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('memory:write'),
@@ -1619,6 +2252,19 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/memory/working',
     {
+      schema: {
+        description: '工作记忆',
+        tags: ['Memory'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              items: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('memory:read'),
@@ -1648,6 +2294,19 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/memory/episodic',
     {
+      schema: {
+        description: '情景记忆',
+        tags: ['Memory'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              episodes: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('memory:read'),
@@ -1678,6 +2337,19 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/memory/procedural',
     {
+      schema: {
+        description: '程序记忆',
+        tags: ['Memory'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              procedures: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('memory:read'),
@@ -1708,6 +2380,32 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/messages',
     {
+      schema: {
+        description: '发布消息',
+        tags: ['Messages'],
+        body: {
+          type: 'object',
+          properties: {
+            channel: { type: 'string' },
+            content: { type: 'string' },
+            recipients: { type: 'array', items: { type: 'string' } },
+            metadata: { type: 'object' },
+          },
+          required: ['channel', 'content'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              messageId: { type: 'string' },
+              status: { type: 'string' },
+              subscriberCount: { type: 'number' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('messages:write'),
@@ -1740,6 +2438,29 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/messages/subscribe',
     {
+      schema: {
+        description: '订阅频道',
+        tags: ['Messages'],
+        body: {
+          type: 'object',
+          properties: {
+            channel: { type: 'string' },
+            callbackUrl: { type: 'string' },
+          },
+          required: ['channel', 'callbackUrl'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              subscriptionId: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('messages:write'),
@@ -1771,6 +2492,21 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.delete(
     '/messages/subscribe/:id',
     {
+      schema: {
+        description: '取消订阅',
+        tags: ['Messages'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: { type: 'object' },
+          204: { type: 'null' },
+          401: errorResponseSchema,
+          503: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('messages:write'),
@@ -1803,6 +2539,27 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/messages/:id/status',
     {
+      schema: {
+        description: '消息状态',
+        tags: ['Messages'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              messageId: { type: 'string' },
+              status: { type: 'string' },
+              deliveredCount: { type: 'number' },
+              failedCount: { type: 'number' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('messages:read'),
@@ -1833,6 +2590,30 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/files/:id',
     {
+      schema: {
+        description: '文件详情',
+        tags: ['Files'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              object: { type: 'string' },
+              filename: { type: 'string' },
+              bytes: { type: 'number' },
+              mimeType: { type: 'string' },
+              createdAt: { type: 'string' },
+              updatedAt: { type: 'string' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('files:read'),
@@ -1869,6 +2650,19 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.delete(
     '/files/:id',
     {
+      schema: {
+        description: '删除文件',
+        tags: ['Files'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: { type: 'object' },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('files:write'),
@@ -1892,6 +2686,19 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/files/:id/content',
     {
+      schema: {
+        description: '文件内容(二进制流)',
+        tags: ['Files'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: { type: 'string' },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('files:read'),
@@ -1915,6 +2722,25 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/files/:id/versions',
     {
+      schema: {
+        description: '文件版本列表',
+        tags: ['Files'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('files:read'),
@@ -1955,6 +2781,31 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/files/upload-init',
     {
+      schema: {
+        description: '分片上传初始化',
+        tags: ['Files'],
+        body: {
+          type: 'object',
+          properties: {
+            filename: { type: 'string' },
+            size: { type: 'number' },
+            mimeType: { type: 'string' },
+            chunkSize: { type: 'number' },
+          },
+          required: ['filename', 'size', 'mimeType', 'chunkSize'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              uploadId: { type: 'string' },
+              chunkCount: { type: 'number' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('files:write'),
@@ -1989,6 +2840,24 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/files/upload-chunk',
     {
+      schema: {
+        description: '上传分片',
+        tags: ['Files'],
+        body: {
+          type: 'object',
+          properties: {
+            uploadId: { type: 'string' },
+            index: { type: 'number' },
+            chunk: { type: 'string' },
+          },
+          required: ['uploadId', 'index', 'chunk'],
+        },
+        response: {
+          200: { type: 'object' },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('files:write'),
@@ -2015,6 +2884,28 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/files/complete',
     {
+      schema: {
+        description: '完成分片上传',
+        tags: ['Files'],
+        body: {
+          type: 'object',
+          properties: {
+            uploadId: { type: 'string' },
+          },
+          required: ['uploadId'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              fileId: { type: 'string' },
+              status: { type: 'string' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('files:write'),
@@ -2048,6 +2939,25 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/me',
     {
+      schema: {
+        description: '当前用户信息 + 配额',
+        tags: ['User'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              username: { type: 'string' },
+              email: { type: 'string' },
+              avatar: { type: 'string' },
+              createdAt: { type: 'string' },
+              quota: { type: 'object' },
+            },
+          },
+          401: errorResponseSchema,
+          404: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('user:read'),
@@ -2106,6 +3016,20 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/projects',
     {
+      schema: {
+        description: '项目列表',
+        tags: ['Workspace'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('workspace:read'),
@@ -2147,6 +3071,25 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/projects/:id/files',
     {
+      schema: {
+        description: '项目文件列表',
+        tags: ['Workspace'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              object: { type: 'string' },
+              data: { type: 'array' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('workspace:read'),
@@ -2190,6 +3133,28 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/workflows/:id',
     {
+      schema: {
+        description: '工作流详情',
+        tags: ['Workflows'],
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string' } },
+          required: ['id'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              id: { type: 'string' },
+              name: { type: 'string' },
+              description: { type: 'string' },
+              steps: { type: 'array' },
+              createdAt: { type: 'string' },
+            },
+          },
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('workflows:read'),
@@ -2233,6 +3198,30 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/workflows/instances',
     {
+      schema: {
+        description: '运行工作流',
+        tags: ['Workflows'],
+        body: {
+          type: 'object',
+          properties: {
+            workflowId: { type: 'string' },
+            inputs: { type: 'object' },
+          },
+          required: ['workflowId'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              instanceId: { type: 'string' },
+              status: { type: 'string' },
+              outputs: { type: 'object' },
+            },
+          },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('workflows:write'),
@@ -2268,6 +3257,23 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/workflows/coze/run',
     {
+      schema: {
+        description: 'Coze 工作流运行',
+        tags: ['Workflows'],
+        body: {
+          type: 'object',
+          properties: {
+            workflowId: { type: 'string' },
+            parameters: { type: 'object' },
+          },
+          required: ['workflowId', 'parameters'],
+        },
+        response: {
+          200: { type: 'object' },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('workflows:write'),
@@ -2294,6 +3300,23 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.post(
     '/workflows/n8n/run',
     {
+      schema: {
+        description: 'n8n 工作流运行',
+        tags: ['Workflows'],
+        body: {
+          type: 'object',
+          properties: {
+            workflowId: { type: 'string' },
+            data: { type: 'object' },
+          },
+          required: ['workflowId'],
+        },
+        response: {
+          200: { type: 'object' },
+          400: errorResponseSchema,
+          401: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('workflows:write'),
@@ -2320,6 +3343,25 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/usage',
     {
+      schema: {
+        description: '用量统计',
+        tags: ['Stats'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              apiKeyId: { type: 'string' },
+              period: { type: 'string' },
+              totalRequests: { type: 'number' },
+              byCategory: { type: 'object' },
+              byModel: { type: 'object' },
+              tokensUsed: { type: 'number' },
+            },
+          },
+          401: errorResponseSchema,
+          500: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('stats:read'),
@@ -2393,6 +3435,28 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
   server.get(
     '/usage/:vendor',
     {
+      schema: {
+        description: '厂商用量统计',
+        tags: ['Stats'],
+        params: {
+          type: 'object',
+          properties: { vendor: { type: 'string' } },
+          required: ['vendor'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              vendor: { type: 'string' },
+              requests: { type: 'number' },
+              tokens: { type: 'number' },
+              cost: { type: 'number' },
+            },
+          },
+          401: errorResponseSchema,
+          500: errorResponseSchema,
+        },
+      },
       preHandler: [
         requireApiKeyAuth,
         requireApiKeyPermission('stats:read'),
