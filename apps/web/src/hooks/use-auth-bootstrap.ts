@@ -5,6 +5,7 @@ import * as React from 'react'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
 import { fetchApi } from '@/lib/api'
+import { getRefreshTokenCookie, clearRefreshTokenCookie } from '@/lib/cookie-utils'
 
 export interface UseAuthBootstrapReturn {
   ready: boolean
@@ -13,10 +14,52 @@ export interface UseAuthBootstrapReturn {
 }
 
 /**
+ * 用 refreshToken 调 /api/auth/refresh 获取新 accessToken。
+ * 成功返回 { accessToken, refreshToken },失败返回 null 并清理 refresh cookie。
+ * 这是"自动登录"的核心:浏览器关闭再打开后,refreshToken cookie(30d)仍在,
+ * 自动换取新 token 实现免密登录。
+ */
+async function tryRefresh(): Promise<{ accessToken: string; refreshToken?: string } | null> {
+  const refreshToken = getRefreshTokenCookie()
+  if (!refreshToken) return null
+  try {
+    const res = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+    })
+    if (!res.ok) {
+      clearRefreshTokenCookie()
+      return null
+    }
+    const json = (await res.json()) as {
+      code?: number
+      data?: { accessToken?: string; refreshToken?: string }
+    }
+    if (!json.data?.accessToken) {
+      clearRefreshTokenCookie()
+      return null
+    }
+    return {
+      accessToken: json.data.accessToken,
+      refreshToken: json.data.refreshToken,
+    }
+  } catch {
+    clearRefreshTokenCookie()
+    return null
+  }
+}
+
+/**
  * 认证引导 Hook
  *
  * 应用启动时尝试用已有 token 恢复登录态并拉取用户资料，
  * 供根布局/Provider 调用以完成"静默登录"。
+ *
+ * 自动登录闭环(2026-07-22 完善):
+ *  1. 优先用 auth_token cookie 直接恢复
+ *  2. token 失效时,用 refresh_token cookie 调 /api/auth/refresh 换取新 token
+ *  3. refresh 也失败 → 清理 cookie,用户需重新登录
  */
 export function useAuthBootstrap(): UseAuthBootstrapReturn {
   const token = useAuthStore((s) => s.token)
@@ -38,16 +81,22 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
         const match = document.cookie.match(/(?:^|;\s*)auth_token=([^;]+)/)
         storedToken = match ? decodeURIComponent(match[1]!) : null
       }
+
+      // 无 accessToken:尝试用 refreshToken 自动登录(自动登录闭环)
       if (!storedToken) {
-        setReady(true)
-        return
+        const refreshed = await tryRefresh()
+        if (cancelled) return
+        if (refreshed) {
+          storedToken = refreshed.accessToken
+          setToken(refreshed.accessToken, refreshed.refreshToken ?? null)
+        } else {
+          setReady(true)
+          return
+        }
       }
 
       // 🎭 Mock 模式: token 以 mock_ 开头时,跳过 /auth/me API 调用
-      // (mock token 是前端伪造,后端不认),改从 mock_user_info 跨域 cookie 恢复 user
-      // 该 cookie 由 OAuthCallbackHandler 的 mock 分支设置,domain=.aizhs.top
       if (storedToken.startsWith('mock_')) {
-        // 同步设置 token + isAuthenticated,避免 setUser 后 isAuthenticated 仍为 false
         setToken(storedToken, null)
         const mockUserCookie = document.cookie.match(/(?:^|;\s*)mock_user_info=([^;]+)/)
         if (mockUserCookie && mockUserCookie[1]) {
@@ -62,16 +111,13 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
             }
             setUser(mockUser as never)
           } catch {
-            /* base64 解析失败时,token 仍然标记已认证,user 留空(导航不显示) */
+            /* base64 解析失败时,token 仍然标记已认证,user 留空 */
           }
         }
         if (!cancelled) setReady(true)
         return
       }
 
-      // 先把 cookie 中的 token 写入 store,使 fetchApi 能附加 Bearer header
-      // (tokenProvider 从 useAuthStore.getState().token 读取,不读 cookie)
-      // 修复前:页面刷新后 store.token 为空 → fetchApi 无 Bearer → POST 请求触发 CSRF 403
       setToken(storedToken, null)
 
       try {
@@ -87,8 +133,27 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
           })
           await fetchProfile()
         } else {
-          // token 失效
-          logout()
+          // token 失效:尝试 refreshToken 自动续期(自动登录闭环)
+          const refreshed = await tryRefresh()
+          if (cancelled) return
+          if (refreshed) {
+            setToken(refreshed.accessToken, refreshed.refreshToken ?? null)
+            const retry = await fetchApi<{ user: { id: string; nickname: string; avatar?: string; phone?: string } }>('/auth/me')
+            if (!cancelled && retry.success) {
+              const u = retry.data.user
+              setUser({
+                id: u.id,
+                nickname: u.nickname,
+                avatar: u.avatar,
+                phone: u.phone,
+              })
+              await fetchProfile()
+            } else {
+              logout()
+            }
+          } else {
+            logout()
+          }
         }
       } catch (err) {
         if (!cancelled) {
