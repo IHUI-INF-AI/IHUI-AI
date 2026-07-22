@@ -127,6 +127,14 @@ export interface ChatMessage {
   content: string
   timestamp?: number
   reasoning?: string
+  /** 图片 URL 列表(对标原 ai_assistant.vue imgUrlList) */
+  images?: string[]
+  /** 视频 URL 列表(对标原 ai_assistant.vue videoUrlList) */
+  videos?: string[]
+  /** token 消耗(对标原 ai_assistant.vue total_tokens) */
+  tokenCount?: number
+  /** 代码块内容(对标原 ai_assistant.vue content_code) */
+  codeContent?: string
 }
 
 export interface ChatOptions {
