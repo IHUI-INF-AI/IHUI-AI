@@ -11,8 +11,16 @@
 使用方式:
     from app.services.spec_generator import spec_generator
     result = await spec_generator.generate(workspace_path, scope)
+
+2026-07-22 深化(对标 Copilot Workspace / Aider):
+- Spec 驱动代码生成(apply / preview / confirm)
+- Watch 自动同步(watchdog 监听 + webhook 通知)
+- 评审工作流(draft → pending_review → approved / rejected)
+- Spec → Task 拆分(LLM 智能拆分 + 章节降级)
+- LLM 智能增强(功能意图 / 风险点 / 改进建议)
 """
 
+import asyncio
 import datetime
 import difflib
 import hashlib
@@ -20,7 +28,9 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -38,6 +48,14 @@ logger = logging.getLogger(__name__)
 MAX_SPEC_FILES = 800
 # 单文件最大读取字符数(防超大文件)
 MAX_FILE_CHARS = 200_000
+
+# LLM 模型 fallback 链(2026-07-22 深化,gpt-4o → gpt-4o-mini → 默认)
+_LLM_MODEL_CHAIN: list[Optional[str]] = ["gpt-4o", "gpt-4o-mini", None]
+
+# 活跃 watcher 状态(watch_id → { observer, scope, workspace_path, webhook_url, started_at })
+# 模块级单例,跨请求共享(2026-07-22 watch 自动同步)
+_active_watchers: dict[str, dict[str, Any]] = {}
+_watchers_lock = threading.Lock()
 
 
 @dataclass
@@ -910,5 +928,929 @@ class SpecGenerator:
             return f"目录 {scope_path or '(未指定)'}"
         return f"全工作区 {root.name}" + (f"({scope_path})" if scope_path else "")
 
+    # ------------------------------------------------------------------
+    # 2026-07-22 深化:LLM 调用 + Spec 驱动代码生成 + Watch + 评审 + 拆分 + 增强
+    # ------------------------------------------------------------------
+
+    async def _call_llm(self, prompt: str, system: Optional[str] = None) -> tuple[str, bool]:
+        """调用 LLM(gpt-4o → gpt-4o-mini → 默认模型 fallback 链)。
+
+        Returns:
+            (content, ok):ok=False 时 content 为错误信息。
+        """
+        try:
+            from ..core.llm_gateway import llm_gateway
+        except Exception as e:
+            return f"llm_gateway 导入失败: {e}", False
+
+        messages: list[dict[str, Any]] = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+
+        last_err = ""
+        for model in _LLM_MODEL_CHAIN:
+            try:
+                result = await llm_gateway.complete(messages, model=model)
+                if result.get("error"):
+                    last_err = str(result.get("error_message", "LLM 调用失败"))
+                    logger.debug("LLM 调用失败(model=%s): %s, 尝试下一个", model, last_err)
+                    continue
+                content = str(result.get("content", "") or "")
+                if content:
+                    return content, True
+                last_err = "LLM 返回空内容"
+            except Exception as e:
+                last_err = f"{type(e).__name__}: {e}"
+                logger.debug("LLM 调用异常(model=%s): %s", model, last_err)
+        return last_err, False
+
+    def _parse_frontmatter(self, spec_md: str) -> tuple[dict[str, str], str, str]:
+        """解析 spec markdown 的 YAML frontmatter。
+
+        Returns:
+            (fields, frontmatter_raw, body):frontmatter 不存在时 fields 为空 dict。
+        """
+        if not spec_md.startswith("---"):
+            return {}, "", spec_md
+        parts = spec_md.split("---", 2)
+        if len(parts) < 3:
+            return {}, "", spec_md
+        fm_raw = parts[1]
+        body = parts[2]
+        fields: dict[str, str] = {}
+        for line in fm_raw.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if ":" in line:
+                key, _, val = line.partition(":")
+                fields[key.strip()] = val.strip()
+        return fields, f"---{fm_raw}---", body
+
+    def _build_frontmatter_from_fields(
+        self, fields: dict[str, str], scope: dict[str, Any]
+    ) -> str:
+        """从字段字典重建 frontmatter(保留字段顺序 + 补充默认值)。"""
+        scope_desc = self._describe_scope(scope, Path("."))
+        defaults = {
+            "author": "Unknown",
+            "date": datetime.date.today().strftime("%Y-%m-%d"),
+            "version": "1.0.0",
+            "project": "project",
+            "scope": scope_desc,
+            "status": "draft",
+        }
+        merged = {**defaults, **fields}
+        lines = ["---"]
+        for key in ("author", "date", "version", "project", "scope",
+                     "status", "reviewer", "reviewed_at", "review_comment"):
+            if key in merged:
+                lines.append(f"{key}: {merged[key]}")
+        lines.append("---")
+        lines.append("")
+        return "\n".join(lines)
+
+    def _update_spec_frontmatter(
+        self, workspace_path: str, scope: dict[str, Any], updates: dict[str, str]
+    ) -> dict[str, Any]:
+        """更新 spec 文件的 frontmatter 字段(就地修改 + 持久化)。
+
+        Returns:
+            { spec, filePath, status }:文件不存在时 spec 为空。
+        """
+        root = Path(workspace_path).resolve()
+        scope_hash = self._compute_scope_hash(scope)
+        target = root / ".trae-cn" / "specs" / f"{scope_hash}.md"
+        if not target.is_file():
+            return {"spec": "", "filePath": "", "status": ""}
+
+        try:
+            content = target.read_text(encoding="utf-8")
+            fields, _, body = self._parse_frontmatter(content)
+            fields.update(updates)
+            new_fm = self._build_frontmatter_from_fields(fields, scope)
+            new_content = new_fm + body
+            target.write_text(new_content, encoding="utf-8")
+            return {
+                "spec": new_content,
+                "filePath": str(target.relative_to(root)).replace("\\", "/"),
+                "status": fields.get("status", ""),
+            }
+        except Exception as e:
+            logger.warning("更新 spec frontmatter 失败: %s", e)
+            return {"spec": "", "filePath": "", "status": ""}
+
+    # ------------------------------------------------------------------
+    # Spec 驱动代码生成(apply / preview / confirm)
+    # ------------------------------------------------------------------
+
+    def _extract_affected_files_from_spec(self, spec_md: str) -> list[str]:
+        """从 spec markdown 中提取受影响文件路径(反引号包裹的相对路径)。"""
+        files: list[str] = []
+        seen: set[str] = set()
+        # 匹配 ### `path/to/file` 或 | `path/to/file` |
+        for m in re.finditer(r"`([a-zA-Z0-9_./-]+\.(?:ts|tsx|js|jsx|py|go|rs|java|rb|php))`", spec_md):
+            fpath = m.group(1)
+            if fpath not in seen:
+                seen.add(fpath)
+                files.append(fpath)
+        return files[:50]  # 限制数量
+
+    async def apply_spec(
+        self,
+        workspace_path: str,
+        scope: dict[str, Any],
+        new_spec: str,
+        old_spec: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """对比新旧 spec,调 LLM 生成代码 patch(unified diff 格式)。
+
+        流程:
+        a) 如无 old_spec,从 .trae-cn/specs/ 加载上次持久化版本
+        b) 调 LLM 生成 unified diff patch
+        c) 返回 { patch, affectedFiles, summary }
+
+        降级:LLM 调用失败返回 { error: "llm_unavailable" }。
+        """
+        root = Path(workspace_path).resolve()
+        if old_spec is None:
+            old_data = self.load_spec(workspace_path, scope, "latest")
+            old_spec = old_data["spec"]
+
+        affected_files = self._extract_affected_files_from_spec(new_spec)
+
+        prompt = (
+            "你是代码生成专家。对比以下新旧 spec,生成 unified diff 格式的代码 patch。\n\n"
+            f"## 旧 spec\n{old_spec[:8000]}\n\n"
+            f"## 新 spec\n{new_spec[:8000]}\n\n"
+            f"## 受影响文件列表\n{chr(10).join(affected_files)}\n\n"
+            "## 输出要求\n"
+            "1. 输出标准 unified diff 格式(--- a/path / +++ b/path / @@ hunk)\n"
+            "2. 每个 hunk 包含上下文行(以空格开头)\n"
+            "3. 删除行以 - 开头,新增行以 + 开头\n"
+            "4. 仅输出 diff,不要额外说明\n"
+        )
+
+        content, ok = await self._call_llm(prompt, system="你是专业的代码生成助手。")
+        if not ok:
+            return {"error": "llm_unavailable", "patch": "", "affectedFiles": [], "summary": content}
+
+        # 生成摘要
+        added = sum(1 for l in content.splitlines() if l.startswith("+") and not l.startswith("+++"))
+        removed = sum(1 for l in content.splitlines() if l.startswith("-") and not l.startswith("---"))
+        summary = f"LLM 生成 patch:+{added} 行 / -{removed} 行,影响 {len(affected_files)} 个文件"
+
+        return {
+            "patch": content,
+            "affectedFiles": affected_files,
+            "summary": summary,
+        }
+
+    def apply_patch_preview(
+        self, workspace_path: str, patch: str, affected_files: list[str]
+    ) -> dict[str, Any]:
+        """预览 patch 应用效果(不写文件)。
+
+        Returns:
+            { files: [{ path, originalLines, patchedLines, status }] }
+        """
+        root = Path(workspace_path).resolve()
+        files_result: list[dict[str, Any]] = []
+        file_patches = self._parse_unified_diff(patch)
+
+        for fpath in affected_files:
+            abs_path = root / fpath
+            original = ""
+            if abs_path.is_file():
+                try:
+                    original = abs_path.read_text(encoding="utf-8", errors="replace")
+                except Exception:
+                    pass
+            patched = self._apply_patch_to_content(original, file_patches.get(fpath, []))
+            files_result.append({
+                "path": fpath,
+                "originalLines": len(original.splitlines()),
+                "patchedLines": len(patched.splitlines()),
+                "status": "modified" if patched != original else "unchanged",
+            })
+
+        return {"files": files_result}
+
+    def apply_patch_confirm(
+        self, workspace_path: str, patch: str, affected_files: list[str]
+    ) -> dict[str, Any]:
+        """确认应用 patch(写入文件,备份原文件到 .trae-cn/specs/backups/)。
+
+        Returns:
+            { applied: [...], failed: [...], backupDir }
+        """
+        root = Path(workspace_path).resolve()
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        backup_dir = root / ".trae-cn" / "specs" / "backups" / timestamp
+        backup_dir.mkdir(parents=True, exist_ok=True)
+
+        file_patches = self._parse_unified_diff(patch)
+        applied: list[str] = []
+        failed: list[dict[str, str]] = []
+
+        for fpath in affected_files:
+            abs_path = root / fpath
+            try:
+                original = ""
+                if abs_path.is_file():
+                    original = abs_path.read_text(encoding="utf-8", errors="replace")
+                    # 备份原文件
+                    backup_path = backup_dir / fpath.replace("/", "_")
+                    backup_path.parent.mkdir(parents=True, exist_ok=True)
+                    backup_path.write_text(original, encoding="utf-8")
+
+                patched = self._apply_patch_to_content(original, file_patches.get(fpath, []))
+                if patched != original:
+                    abs_path.parent.mkdir(parents=True, exist_ok=True)
+                    abs_path.write_text(patched, encoding="utf-8")
+                    applied.append(fpath)
+                else:
+                    applied.append(fpath)  # 无变化也算成功
+            except Exception as e:
+                failed.append({"path": fpath, "error": f"{type(e).__name__}: {e}"})
+
+        return {
+            "applied": applied,
+            "failed": failed,
+            "backupDir": str(backup_dir.relative_to(root)).replace("\\", "/"),
+        }
+
+    def _parse_unified_diff(self, patch: str) -> dict[str, list[tuple[int, str, str]]]:
+        """解析 unified diff,按文件分组返回 hunk 列表。
+
+        Returns:
+            { file_path: [(line_num, action, content), ...] }
+            action: '+' / '-' / ' '
+        """
+        result: dict[str, list[tuple[int, str, str]]] = {}
+        current_file: Optional[str] = None
+        current_line = 0
+        hunks: list[tuple[int, str, str]] = []
+
+        for line in patch.splitlines():
+            if line.startswith("--- "):
+                if current_file and hunks:
+                    result[current_file] = hunks
+                hunks = []
+                current_file = None
+                continue
+            if line.startswith("+++ "):
+                # +++ b/path/to/file → 提取 path
+                path = line[4:].strip()
+                if path.startswith("b/"):
+                    path = path[2:]
+                current_file = path
+                continue
+            if line.startswith("@@"):
+                # @@ -1,3 +1,4 @@ → 提取新文件起始行号 +1
+                m = re.search(r"\+(\d+)", line)
+                if m:
+                    current_line = int(m.group(1))
+                continue
+            if current_file is None:
+                continue
+            if line.startswith("+"):
+                hunks.append((current_line, "+", line[1:]))
+                current_line += 1
+            elif line.startswith("-"):
+                hunks.append((current_line, "-", line[1:]))
+            elif line.startswith(" "):
+                hunks.append((current_line, " ", line[1:]))
+                current_line += 1
+
+        if current_file and hunks:
+            result[current_file] = hunks
+        return result
+
+    def _apply_patch_to_content(
+        self, original: str, hunks: list[tuple[int, str, str]]
+    ) -> str:
+        """将 hunk 列表应用到原始内容(简化版:按行号重建)。"""
+        if not hunks:
+            return original
+        original_lines = original.splitlines(keepends=True)
+        result_lines: list[str] = []
+        orig_idx = 0  # 0-based
+
+        for line_num, action, content in hunks:
+            target_idx = line_num - 1  # 转 0-based
+            # 补齐到目标行
+            while orig_idx < target_idx and orig_idx < len(original_lines):
+                result_lines.append(original_lines[orig_idx])
+                orig_idx += 1
+            if action == "+":
+                result_lines.append(content + "\n")
+            elif action == "-":
+                if orig_idx < len(original_lines):
+                    orig_idx += 1  # 跳过删除行
+            else:  # context
+                if orig_idx < len(original_lines):
+                    result_lines.append(original_lines[orig_idx])
+                    orig_idx += 1
+
+        # 补齐剩余行
+        while orig_idx < len(original_lines):
+            result_lines.append(original_lines[orig_idx])
+            orig_idx += 1
+
+        return "".join(result_lines)
+
+    # ------------------------------------------------------------------
+    # Watch 自动同步(watchdog 监听 + webhook 通知)
+    # ------------------------------------------------------------------
+
+    def start_watch(
+        self,
+        workspace_path: str,
+        scope: dict[str, Any],
+        webhook_url: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """启动指定 scope 的文件监听(watchdog)。
+
+        降级:watchdog 不可用时返回 { error: "watchdog_not_installed" }。
+        """
+        try:
+            from watchdog.observers import Observer
+            from watchdog.events import FileSystemEventHandler
+        except ImportError:
+            return {"error": "watchdog_not_installed"}
+
+        root = Path(workspace_path).resolve()
+        scope_type = scope.get("type", "workspace")
+        scope_path = scope.get("path")
+
+        if scope_type == "file":
+            watch_path = (root / scope_path).resolve() if scope_path else root
+            watch_path = watch_path.parent if watch_path.is_file() else watch_path
+        elif scope_type == "dir":
+            watch_path = (root / scope_path).resolve() if scope_path else root
+        else:
+            watch_path = root
+
+        if not watch_path.is_dir():
+            return {"error": "watch_path_not_dir", "path": str(watch_path)}
+
+        scope_hash = self._compute_scope_hash(scope)
+        watch_id = scope_hash
+        # 如已有 watcher,先停止
+        self.stop_watch(watch_id)
+
+        # 文件变更回调(防抖:5s 内多次变更只触发一次 regen)
+        last_trigger = {"time": 0.0}
+        debounce_seconds = 5.0
+
+        class SpecRegenHandler(FileSystemEventHandler):
+            def __init__(self_outer):
+                super().__init__()
+                self_outer._workspace = workspace_path
+                self_outer._scope = scope
+                self_outer._webhook = webhook_url
+                self_outer._watch_id = watch_id
+
+            def on_any_event(self_outer, event):
+                if event.is_directory:
+                    return
+                now = time.time()
+                if now - last_trigger["time"] < debounce_seconds:
+                    return
+                last_trigger["time"] = now
+                # 在新线程中异步 regen(避免阻塞 watchdog 线程)
+                threading.Thread(
+                    target=self_outer._regen_and_notify,
+                    daemon=True,
+                ).start()
+
+            def _regen_and_notify(self_outer):
+                try:
+                    # 运行 async generate_diff in new thread
+                    loop = asyncio.new_event_loop()
+                    try:
+                        loop.run_until_complete(self_outer._do_regen())
+                    finally:
+                        loop.close()
+                except Exception as e:
+                    logger.warning("watch regen 失败: %s", e)
+
+            async def _do_regen(self_outer):
+                try:
+                    diff_result = await spec_generator.generate_diff(
+                        self_outer._workspace, self_outer._scope
+                    )
+                    if not diff_result.get("diff"):
+                        return
+                    if self_outer._webhook:
+                        import httpx
+                        async with httpx.AsyncClient(timeout=10) as client:
+                            await client.post(
+                                self_outer._webhook,
+                                json={
+                                    "event": "spec_changed",
+                                    "watchId": self_outer._watch_id,
+                                    "scope": self_outer._scope,
+                                    "diff": diff_result["diff"][:4000],
+                                    "addedLines": diff_result.get("addedLines", 0),
+                                    "removedLines": diff_result.get("removedLines", 0),
+                                },
+                            )
+                except Exception as e:
+                    logger.warning("watch regen/webhook 失败: %s", e)
+
+        observer = Observer()
+        handler = SpecRegenHandler()
+        observer.schedule(handler, str(watch_path), recursive=True)
+        observer.start()
+
+        with _watchers_lock:
+            _active_watchers[watch_id] = {
+                "observer": observer,
+                "scope": scope,
+                "workspacePath": workspace_path,
+                "webhookUrl": webhook_url,
+                "startedAt": datetime.datetime.now().isoformat(),
+                "watchPath": str(watch_path),
+            }
+
+        return {
+            "watchId": watch_id,
+            "status": "started",
+            "watchPath": str(watch_path),
+            "webhookUrl": webhook_url,
+        }
+
+    def stop_watch(self, watch_id: str) -> dict[str, Any]:
+        """停止指定 watcher。"""
+        with _watchers_lock:
+            entry = _active_watchers.pop(watch_id, None)
+        if not entry:
+            return {"watchId": watch_id, "status": "not_found"}
+        try:
+            observer = entry.get("observer")
+            if observer:
+                observer.stop()
+                observer.join(timeout=3)
+        except Exception as e:
+            logger.warning("停止 watcher 失败: %s", e)
+        return {"watchId": watch_id, "status": "stopped"}
+
+    def get_watch_status(self) -> dict[str, Any]:
+        """返回当前活跃的 watcher 列表。"""
+        with _watchers_lock:
+            watchers = []
+            for wid, entry in _active_watchers.items():
+                watchers.append({
+                    "watchId": wid,
+                    "scope": entry.get("scope"),
+                    "workspacePath": entry.get("workspacePath"),
+                    "webhookUrl": entry.get("webhookUrl"),
+                    "startedAt": entry.get("startedAt"),
+                    "watchPath": entry.get("watchPath"),
+                })
+        return {"watchers": watchers}
+
+    # ------------------------------------------------------------------
+    # 评审工作流(draft → pending_review → approved / rejected)
+    # ------------------------------------------------------------------
+
+    def submit_for_review(
+        self, workspace_path: str, scope: dict[str, Any]
+    ) -> dict[str, Any]:
+        """提交 spec 进入评审(status: draft → pending_review)。"""
+        current = self.load_spec(workspace_path, scope, "latest")
+        if not current["spec"]:
+            return {"error": "spec_not_found"}
+        fields, _, _ = self._parse_frontmatter(current["spec"])
+        if fields.get("status", "draft") not in ("draft", "rejected"):
+            return {"error": "invalid_status", "currentStatus": fields.get("status", "draft")}
+        return self._update_spec_frontmatter(workspace_path, scope, {"status": "pending_review"})
+
+    def approve_spec(
+        self, workspace_path: str, scope: dict[str, Any], reviewer: str
+    ) -> dict[str, Any]:
+        """审批通过 spec(status: pending_review → approved)。"""
+        current = self.load_spec(workspace_path, scope, "latest")
+        if not current["spec"]:
+            return {"error": "spec_not_found"}
+        fields, _, _ = self._parse_frontmatter(current["spec"])
+        if fields.get("status") != "pending_review":
+            return {"error": "invalid_status", "currentStatus": fields.get("status", "draft")}
+        return self._update_spec_frontmatter(workspace_path, scope, {
+            "status": "approved",
+            "reviewer": reviewer,
+            "reviewed_at": datetime.datetime.now().isoformat(),
+        })
+
+    def reject_spec(
+        self, workspace_path: str, scope: dict[str, Any], reviewer: str, comment: str
+    ) -> dict[str, Any]:
+        """拒绝 spec(status: pending_review → rejected)。"""
+        current = self.load_spec(workspace_path, scope, "latest")
+        if not current["spec"]:
+            return {"error": "spec_not_found"}
+        fields, _, _ = self._parse_frontmatter(current["spec"])
+        if fields.get("status") != "pending_review":
+            return {"error": "invalid_status", "currentStatus": fields.get("status", "draft")}
+        return self._update_spec_frontmatter(workspace_path, scope, {
+            "status": "rejected",
+            "reviewer": reviewer,
+            "reviewed_at": datetime.datetime.now().isoformat(),
+            "review_comment": comment.replace("\n", " ")[:500],
+        })
+
+    def get_pending_reviews(self, workspace_path: str) -> dict[str, Any]:
+        """返回所有 pending_review 状态的 spec 列表。"""
+        root = Path(workspace_path).resolve()
+        specs_dir = root / ".trae-cn" / "specs"
+        if not specs_dir.is_dir():
+            return {"specs": []}
+
+        pending: list[dict[str, Any]] = []
+        for f in specs_dir.glob("*.md"):
+            try:
+                content = f.read_text(encoding="utf-8", errors="replace")
+                fields, _, _ = self._parse_frontmatter(content)
+                if fields.get("status") == "pending_review":
+                    pending.append({
+                        "specId": f.stem,
+                        "scope": fields.get("scope", ""),
+                        "summary": self._summarize_spec(content),
+                        "filePath": str(f.relative_to(root)).replace("\\", "/"),
+                        "reviewer": fields.get("reviewer", ""),
+                        "submittedAt": fields.get("reviewed_at", ""),
+                    })
+            except Exception:
+                continue
+        return {"specs": pending}
+
+    # ------------------------------------------------------------------
+    # Spec → Task 拆分
+    # ------------------------------------------------------------------
+
+    async def split_tasks(
+        self, workspace_path: str, scope: dict[str, Any]
+    ) -> dict[str, Any]:
+        """从 spec 章节自动拆分任务(LLM 智能分析 + 章节降级)。
+
+        Returns:
+            { tasks: [{ title, description, priority, estimated_complexity }] }
+        """
+        spec_data = self.load_spec(workspace_path, scope, "latest")
+        spec_md = spec_data["spec"]
+        if not spec_md:
+            return {"error": "spec_not_found"}
+
+        # 按章节拆分
+        sections = self._split_spec_sections(spec_md)
+        if not sections:
+            return {"tasks": []}
+
+        prompt = (
+            "你是项目管理专家。从以下 spec 章节拆分任务,输出严格 JSON。\n\n"
+            f"## Spec 内容\n{spec_md[:10000]}\n\n"
+            "## 输出要求\n"
+            "1. 每个章节拆分 1-3 个任务\n"
+            "2. 任务格式:{ title, description, priority, estimated_complexity }\n"
+            "3. priority:P0(紧急)/ P1(高)/ P2(中)/ P3(低)\n"
+            "4. estimated_complexity:S(1h) / M(4h) / L(1d) / XL(3d+)\n"
+            "5. 输出 JSON: {\"tasks\": [...]}\n"
+            "6. 仅输出 JSON,不要 markdown 代码块\n"
+        )
+
+        content, ok = await self._call_llm(prompt, system="你是专业的技术项目经理。")
+        if not ok:
+            # 降级:按章节标题机械拆分
+            tasks = self._mechanical_split(sections)
+            return {"tasks": tasks, "fallback": True, "error": content}
+
+        # 解析 LLM 返回的 JSON
+        tasks = self._parse_tasks_json(content)
+        if not tasks:
+            tasks = self._mechanical_split(sections)
+            return {"tasks": tasks, "fallback": True}
+        return {"tasks": tasks}
+
+    def _split_spec_sections(self, spec_md: str) -> list[tuple[str, str]]:
+        """按 ## 标题拆分 spec 章节。"""
+        sections: list[tuple[str, str]] = []
+        current_title = ""
+        current_lines: list[str] = []
+        for line in spec_md.splitlines():
+            if line.startswith("## "):
+                if current_title:
+                    sections.append((current_title, "\n".join(current_lines)))
+                current_title = line[3:].strip()
+                current_lines = [line]
+            elif current_title:
+                current_lines.append(line)
+        if current_title:
+            sections.append((current_title, "\n".join(current_lines)))
+        return sections
+
+    def _mechanical_split(self, sections: list[tuple[str, str]]) -> list[dict[str, Any]]:
+        """降级:按章节标题机械拆分(无 LLM 智能分析)。"""
+        tasks: list[dict[str, Any]] = []
+        for idx, (title, _) in enumerate(sections):
+            tasks.append({
+                "title": f"实现 {title}",
+                "description": f"根据 spec 中「{title}」章节的描述完成开发任务",
+                "priority": "P2" if idx > 0 else "P1",
+                "estimated_complexity": "M",
+            })
+        return tasks
+
+    def _parse_tasks_json(self, content: str) -> list[dict[str, Any]]:
+        """从 LLM 输出中解析任务 JSON(容忍 markdown 代码块包裹)。"""
+        # 去除 markdown 代码块
+        cleaned = content.strip()
+        if cleaned.startswith("```"):
+            lines = cleaned.splitlines()
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].startswith("```"):
+                lines = lines[:-1]
+            cleaned = "\n".join(lines)
+
+        try:
+            data = json.loads(cleaned)
+            tasks = data.get("tasks", [])
+            if isinstance(tasks, list):
+                return [
+                    {
+                        "title": str(t.get("title", "")),
+                        "description": str(t.get("description", "")),
+                        "priority": str(t.get("priority", "P2")),
+                        "estimated_complexity": str(t.get("estimated_complexity", "M")),
+                    }
+                    for t in tasks
+                    if isinstance(t, dict)
+                ]
+        except Exception:
+            pass
+        return []
+
+    # ------------------------------------------------------------------
+    # LLM 智能增强(功能意图 / 风险点 / 改进建议)
+    # ------------------------------------------------------------------
+
+    async def enhance_spec(
+        self, workspace_path: str, scope: dict[str, Any]
+    ) -> dict[str, Any]:
+        """对已生成的 spec 添加 LLM 智能分析章节。
+
+        新增章节:
+        - 功能意图说明:LLM 分析代码推测设计意图
+        - 潜在风险点:LLM 识别可能的 bug / 安全隐患 / 性能瓶颈
+        - 改进建议:LLM 提出 3-5 条改进建议
+
+        降级:LLM 调用失败时省略智能分析章节,返回 { error }。
+        """
+        spec_data = self.load_spec(workspace_path, scope, "latest")
+        spec_md = spec_data["spec"]
+        if not spec_md:
+            return {"error": "spec_not_found"}
+
+        prompt = (
+            "你是资深架构师。分析以下 spec,生成智能分析章节。\n\n"
+            f"## Spec 内容\n{spec_md[:12000]}\n\n"
+            "## 输出要求\n"
+            "生成 markdown 格式的智能分析章节,包含:\n\n"
+            "## 智能分析\n\n"
+            "### 功能意图说明\n"
+            "(分析代码推测设计意图,2-3 段)\n\n"
+            "### 潜在风险点\n"
+            "(识别可能的 bug / 安全隐患 / 性能瓶颈,列出 3-5 条)\n\n"
+            "### 改进建议\n"
+            "(提出 3-5 条改进建议,每条含标题 + 说明)\n\n"
+            "仅输出 markdown 内容,不要额外说明。\n"
+        )
+
+        content, ok = await self._call_llm(prompt, system="你是专业的软件架构师。")
+        if not ok:
+            return {"error": "llm_unavailable", "message": content}
+
+        # 将智能分析章节追加到 spec 末尾(在 frontmatter 之后)
+        fields, _, body = self._parse_frontmatter(spec_md)
+        if "## 智能分析" in body:
+            # 已有智能分析章节,替换
+            body = re.sub(
+                r"## 智能分析[\s\S]*$",
+                content.strip() + "\n",
+                body,
+            )
+        else:
+            body = body.rstrip() + "\n\n" + content.strip() + "\n"
+
+        new_fm = self._build_frontmatter_from_fields(fields, scope)
+        new_content = new_fm + body
+
+        # 持久化
+        try:
+            root = Path(workspace_path).resolve()
+            scope_hash = self._compute_scope_hash(scope)
+            target = root / ".trae-cn" / "specs" / f"{scope_hash}.md"
+            target.write_text(new_content, encoding="utf-8")
+        except Exception as e:
+            logger.warning("增强 spec 持久化失败: %s", e)
+
+        return {
+            "spec": new_content,
+            "enhancement": content,
+            "filePath": spec_data["filePath"],
+        }
+
 
 spec_generator = SpecGenerator()
+
+
+# ---------------------------------------------------------------------------
+# 2026-07-22 深化:额外 API 路由(Spec 驱动代码生成 / Watch / 评审 / 拆分 / 增强)
+# ---------------------------------------------------------------------------
+# 路由定义在 spec_generator.py 内,避免修改 routers/spec.py。
+# 需在 main.py 注册:app.include_router(extra_router, prefix="/api", tags=["spec-extra"])
+# 或由 routers/spec.py 在未来版本中 include。
+
+try:
+    from fastapi import APIRouter  # noqa: E402
+    from pydantic import BaseModel, Field  # noqa: E402
+
+    _EXTRA_ROUTER_AVAILABLE = True
+except ImportError:
+    _EXTRA_ROUTER_AVAILABLE = False
+
+if _EXTRA_ROUTER_AVAILABLE:
+    extra_router = APIRouter()
+
+    class SpecApplyRequest(BaseModel):
+        scope: dict = Field(default_factory=lambda: {"type": "workspace"})
+        workspacePath: str = Field(..., description="工作区根路径")
+        newSpec: str = Field(..., description="修改后的 spec markdown")
+        oldSpec: Optional[str] = Field(None, description="旧 spec(为空则从持久化加载)")
+
+    @extra_router.post("/spec/apply")
+    async def spec_apply(req: SpecApplyRequest) -> dict[str, Any]:
+        """对比新旧 spec,调 LLM 生成代码 patch。"""
+        try:
+            result = await spec_generator.apply_spec(
+                req.workspacePath, req.scope, req.newSpec, req.oldSpec
+            )
+            if "error" in result:
+                return {"code": 503, "message": result.get("error", "error"), "data": result}
+            return {"code": 0, "message": "success", "data": result}
+        except Exception as e:
+            return {"code": 1, "message": f"spec apply 失败: {e}", "data": None}
+
+    class SpecApplyPatchRequest(BaseModel):
+        workspacePath: str = Field(...)
+        patch: str = Field(...)
+        affectedFiles: list[str] = Field(default_factory=list)
+
+    @extra_router.post("/spec/apply/preview")
+    async def spec_apply_preview(req: SpecApplyPatchRequest) -> dict[str, Any]:
+        """预览 patch 应用效果(不写文件)。"""
+        try:
+            result = spec_generator.apply_patch_preview(
+                req.workspacePath, req.patch, req.affectedFiles
+            )
+            return {"code": 0, "message": "success", "data": result}
+        except Exception as e:
+            return {"code": 1, "message": f"patch 预览失败: {e}", "data": None}
+
+    @extra_router.post("/spec/apply/confirm")
+    async def spec_apply_confirm(req: SpecApplyPatchRequest) -> dict[str, Any]:
+        """确认应用 patch(写入文件,备份原文件)。"""
+        try:
+            result = spec_generator.apply_patch_confirm(
+                req.workspacePath, req.patch, req.affectedFiles
+            )
+            return {"code": 0, "message": "success", "data": result}
+        except Exception as e:
+            return {"code": 1, "message": f"patch 应用失败: {e}", "data": None}
+
+    class SpecWatchStartRequest(BaseModel):
+        scope: dict = Field(default_factory=lambda: {"type": "workspace"})
+        workspacePath: str = Field(...)
+        webhookUrl: Optional[str] = Field(None)
+
+    @extra_router.post("/spec/watch/start")
+    async def spec_watch_start(req: SpecWatchStartRequest) -> dict[str, Any]:
+        """启动文件监听(watchdog)。"""
+        try:
+            result = spec_generator.start_watch(
+                req.workspacePath, req.scope, req.webhookUrl
+            )
+            if "error" in result:
+                return {"code": 501, "message": result["error"], "data": result}
+            return {"code": 0, "message": "success", "data": result}
+        except Exception as e:
+            return {"code": 1, "message": f"watch 启动失败: {e}", "data": None}
+
+    class SpecWatchStopRequest(BaseModel):
+        watchId: str = Field(...)
+
+    @extra_router.post("/spec/watch/stop")
+    async def spec_watch_stop(req: SpecWatchStopRequest) -> dict[str, Any]:
+        """停止文件监听。"""
+        try:
+            result = spec_generator.stop_watch(req.watchId)
+            return {"code": 0, "message": "success", "data": result}
+        except Exception as e:
+            return {"code": 1, "message": f"watch 停止失败: {e}", "data": None}
+
+    @extra_router.get("/spec/watch/status")
+    async def spec_watch_status() -> dict[str, Any]:
+        """返回当前活跃的 watcher 列表。"""
+        try:
+            result = spec_generator.get_watch_status()
+            return {"code": 0, "message": "success", "data": result}
+        except Exception as e:
+            return {"code": 1, "message": f"watch 状态获取失败: {e}", "data": None}
+
+    class SpecReviewRequest(BaseModel):
+        scope: dict = Field(default_factory=lambda: {"type": "workspace"})
+        workspacePath: str = Field(...)
+        reviewer: Optional[str] = Field(None)
+        comment: Optional[str] = Field(None)
+
+    @extra_router.post("/spec/review/submit")
+    async def spec_review_submit(req: SpecReviewRequest) -> dict[str, Any]:
+        """提交 spec 进入评审(draft → pending_review)。"""
+        try:
+            result = spec_generator.submit_for_review(req.workspacePath, req.scope)
+            if "error" in result:
+                return {"code": 400, "message": result["error"], "data": result}
+            return {"code": 0, "message": "success", "data": result}
+        except Exception as e:
+            return {"code": 1, "message": f"提交评审失败: {e}", "data": None}
+
+    @extra_router.post("/spec/review/approve")
+    async def spec_review_approve(req: SpecReviewRequest) -> dict[str, Any]:
+        """审批通过 spec(pending_review → approved)。"""
+        try:
+            result = spec_generator.approve_spec(
+                req.workspacePath, req.scope, req.reviewer or "anonymous"
+            )
+            if "error" in result:
+                return {"code": 400, "message": result["error"], "data": result}
+            return {"code": 0, "message": "success", "data": result}
+        except Exception as e:
+            return {"code": 1, "message": f"审批失败: {e}", "data": None}
+
+    @extra_router.post("/spec/review/reject")
+    async def spec_review_reject(req: SpecReviewRequest) -> dict[str, Any]:
+        """拒绝 spec(pending_review → rejected)。"""
+        try:
+            result = spec_generator.reject_spec(
+                req.workspacePath, req.scope, req.reviewer or "anonymous", req.comment or ""
+            )
+            if "error" in result:
+                return {"code": 400, "message": result["error"], "data": result}
+            return {"code": 0, "message": "success", "data": result}
+        except Exception as e:
+            return {"code": 1, "message": f"拒绝失败: {e}", "data": None}
+
+    class SpecReviewListRequest(BaseModel):
+        workspacePath: str = Field(...)
+
+    @extra_router.get("/spec/pending-reviews")
+    async def spec_pending_reviews(workspacePath: str) -> dict[str, Any]:
+        """返回所有 pending_review 状态的 spec 列表。"""
+        try:
+            result = spec_generator.get_pending_reviews(workspacePath)
+            return {"code": 0, "message": "success", "data": result}
+        except Exception as e:
+            return {"code": 1, "message": f"获取待评审列表失败: {e}", "data": None}
+
+    class SpecSplitTasksRequest(BaseModel):
+        scope: dict = Field(default_factory=lambda: {"type": "workspace"})
+        workspacePath: str = Field(...)
+
+    @extra_router.post("/spec/split-tasks")
+    async def spec_split_tasks(req: SpecSplitTasksRequest) -> dict[str, Any]:
+        """从 spec 章节自动拆分任务。"""
+        try:
+            result = await spec_generator.split_tasks(req.workspacePath, req.scope)
+            if "error" in result:
+                return {"code": 400, "message": result["error"], "data": result}
+            return {"code": 0, "message": "success", "data": result}
+        except Exception as e:
+            return {"code": 1, "message": f"任务拆分失败: {e}", "data": None}
+
+    class SpecEnhanceRequest(BaseModel):
+        scope: dict = Field(default_factory=lambda: {"type": "workspace"})
+        workspacePath: str = Field(...)
+
+    @extra_router.post("/spec/enhance")
+    async def spec_enhance(req: SpecEnhanceRequest) -> dict[str, Any]:
+        """对已生成的 spec 添加 LLM 智能分析章节。"""
+        try:
+            result = await spec_generator.enhance_spec(req.workspacePath, req.scope)
+            if "error" in result:
+                return {"code": 503, "message": result.get("error", "error"), "data": result}
+            return {"code": 0, "message": "success", "data": result}
+        except Exception as e:
+            return {"code": 1, "message": f"spec 增强失败: {e}", "data": None}
