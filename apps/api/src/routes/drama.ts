@@ -39,9 +39,9 @@ export const dramaRoutes: FastifyPluginAsync = async (server) => {
     }
     const title = parsed.data.title ?? `剧本 ${id}`
     createStory(id, title)
-    const consistency = checkConsistency(id)
-    const pacing = analyzePacing(id)
-    const outline = suggestChapterOutline(id, 1)
+    const consistency = await checkConsistency(id)
+    const pacing = await analyzePacing(id)
+    const outline = await suggestChapterOutline(id, 1)
     return reply.send(success({ consistency, pacing, outline }))
   })
 
