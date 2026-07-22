@@ -810,10 +810,47 @@ class WorkerPool:
                     cpu_seconds=res_limits.get("cpuSeconds"),
                     kill_on_violation=False,
                 )
-                await res_monitor.start()
-                # P0-2 修复:用 asyncio.create_task 创建 executor Task 并保存引用
-                executor_task = asyncio.create_task(self.executor_factory(task))
-                self._executing_tasks[task.id] = executor_task
+                # 缺陷 1 修复:包裹 res_monitor.start() + executor_task 创建,防止启动阶段异常泄漏资源
+                try:
+                    await res_monitor.start()
+                    # P0-2 修复:用 asyncio.create_task 创建 executor Task 并保存引用
+                    executor_task = asyncio.create_task(self.executor_factory(task))
+                    self._executing_tasks[task.id] = executor_task
+                except Exception as startup_err:  # noqa: BLE001
+                    # 启动阶段失败:清理已启动资源,标记 task 为终态,防止 worker 静默死亡
+                    watchdog_task.cancel()
+                    try:
+                        await watchdog_task
+                    except (asyncio.CancelledError, Exception):
+                        pass
+                    if res_monitor is not None and not res_monitor.terminated:
+                        try:
+                            await res_monitor.stop()
+                        except Exception:  # noqa: BLE001
+                            pass
+                    if net_token is not None:
+                        try:
+                            _reset_net_policy(net_token)
+                        except Exception:  # noqa: BLE001
+                            pass
+                    if wt_info:
+                        try:
+                            await remove_worktree(
+                                wt_info.path, wt_info.parent_id, force=True
+                            )
+                        except Exception as wt_err:  # noqa: BLE001
+                            logger.warning("worktree 清理失败: %s", wt_err)
+                    task.status = "blocked"
+                    task.error_message = f"启动失败: {startup_err}"
+                    task.completed_at = _now_iso()
+                    state.failed_count += 1
+                    self._emit("task_failed", task, worker_id)
+                    task.updated_at = _now_iso()
+                    task.worker_id = None
+                    state.status = "idle"
+                    state.current_task_id = None
+                    await self._persist(task)
+                    continue
                 try:
                     output = await asyncio.wait_for(
                         executor_task,
@@ -841,21 +878,48 @@ class WorkerPool:
                         await executor_task
                     except (asyncio.CancelledError, Exception):
                         pass
+                    # 缺陷 2 修复:资源超限导致 executor 卡死最终 timeout,标记 [RESOURCE_LIMIT]
+                    if res_monitor is not None and res_monitor.terminated:
+                        try:
+                            violations = await res_monitor.stop()
+                            vstr = "; ".join(f"{v.resource}={v.actual:.1f}>{v.limit}" for v in violations) or "unknown"
+                        except Exception:  # noqa: BLE001
+                            vstr = "unknown"
+                        task.error_message = f"[RESOURCE_LIMIT] timeout + resource violation: {vstr}"
+                    else:
+                        task.error_message = f"超时({task_timeout}s)"
                     task.status = "blocked"
-                    task.error_message = f"超时({task_timeout}s)"
                     task.completed_at = _now_iso()
                     state.failed_count += 1
                     self._emit("task_failed", task, worker_id)
                 except asyncio.CancelledError:
                     # P1-1 修复:watchdog cancel 触发,executor 被强制取消
                     task.status = "blocked"
-                    task.error_message = "watchdog 心跳超时,executor 被强制取消"
+                    # 缺陷 2 修复:资源超限导致 executor 卡死被 watchdog cancel
+                    if res_monitor is not None and res_monitor.terminated:
+                        try:
+                            violations = await res_monitor.stop()
+                            vstr = "; ".join(f"{v.resource}={v.actual:.1f}>{v.limit}" for v in violations) or "unknown"
+                        except Exception:  # noqa: BLE001
+                            vstr = "unknown"
+                        task.error_message = f"[RESOURCE_LIMIT] watchdog cancel + resource violation: {vstr}"
+                    else:
+                        task.error_message = "watchdog 心跳超时,executor 被强制取消"
                     task.completed_at = _now_iso()
                     state.failed_count += 1
                     self._emit("task_failed", task, worker_id)
                 except Exception as e:  # noqa: BLE001
                     task.status = "blocked"
-                    task.error_message = f"执行异常: {e}"
+                    # 缺陷 2 修复:资源超限导致 executor 抛异常
+                    if res_monitor is not None and res_monitor.terminated:
+                        try:
+                            violations = await res_monitor.stop()
+                            vstr = "; ".join(f"{v.resource}={v.actual:.1f}>{v.limit}" for v in violations) or "unknown"
+                        except Exception:  # noqa: BLE001
+                            vstr = "unknown"
+                        task.error_message = f"[RESOURCE_LIMIT] exception + resource violation: {vstr} (orig: {e})"
+                    else:
+                        task.error_message = f"执行异常: {e}"
                     task.completed_at = _now_iso()
                     state.failed_count += 1
                     self._emit("task_failed", task, worker_id)

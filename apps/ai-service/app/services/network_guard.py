@@ -51,11 +51,19 @@ class NetworkEgressPolicy:
         if self.mode == "open":
             return True, "open mode"
 
+        # 缺陷 1 修复:未知 mode FAIL-CLOSED(与 TS 端 checkEgress 对齐)
+        if self.mode not in ("allowlist", "blocklist"):
+            return False, f"unknown mode: {self.mode}"
+
         try:
             parsed = urlparse(url)
             host = parsed.hostname or ""
             if not host:
                 return False, "无法解析 hostname"
+
+            # 缺陷 2 修复:非 http/https 协议拒绝(与 TS 端 checkEgress 对齐)
+            if parsed.scheme not in ("http", "https"):
+                return False, f"non-http protocol: {parsed.scheme}://"
 
             # localhost 检查
             if self._is_localhost(host):
@@ -79,8 +87,6 @@ class NetworkEgressPolicy:
                 if self._match_domains(host):
                     return False, f"{host} matches blocklist"
                 return True, f"{host} not in blocklist"
-
-            return True, "unknown mode treated as open"
         except Exception as e:  # noqa: BLE001
             logger.warning("网络策略检查异常: %s, url=%s", e, url)
             return False, f"check error: {e}"
@@ -89,9 +95,9 @@ class NetworkEgressPolicy:
         """检查 host 是否匹配域名列表(支持通配符 *.example.com)。"""
         for domain in self.domains:
             if domain.startswith("*"):
-                # 通配符:*.example.com 匹配 sub.example.com
+                # 通配符:*.example.com 匹配 sub.example.com,不匹配裸域 example.com
                 pattern = domain[1:]  # 去掉 * → .example.com
-                if host.endswith(pattern) or host == domain[2:]:
+                if host.endswith(pattern) and len(host) > len(pattern):
                     return True
             elif fnmatch.fnmatch(host, domain):
                 return True
@@ -100,8 +106,20 @@ class NetworkEgressPolicy:
         return False
 
     def _is_localhost(self, host: str) -> bool:
-        """检查是否是 localhost。"""
-        return host.lower() in ("localhost", "127.0.0.1", "::1", "0.0.0.0")
+        """检查是否是 localhost / loopback 地址(与 TS 端 isLocalhost 对齐)。"""
+        h = host.lower().strip("[]")  # 去除 IPv6 方括号 [::1] → ::1
+        if h == "localhost":
+            return True
+        # IPv4 127/8 整段(loopback 网段,不只 127.0.0.1)
+        if h.startswith("127."):
+            return True
+        # IPv6 loopback 各种形式
+        if h in ("::1", "0:0:0:0:0:0:0:1", "::ffff:127.0.0.1", "0:0:0:0:0:0:ffff:7f00:1"):
+            return True
+        # 0.0.0.0(监听所有接口,视为本地)
+        if h == "0.0.0.0":
+            return True
+        return False
 
     def _is_ip(self, host: str) -> bool:
         """检查是否是 IP 地址。"""
