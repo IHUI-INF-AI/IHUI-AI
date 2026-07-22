@@ -2,6 +2,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
+import { grepFiles } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
 import {
   Search, CaseSensitive, Regex, WholeWord, Replace, ReplaceAll,
@@ -26,14 +27,7 @@ const FILE_TYPE_FILTERS: { id: FileType; labelKey?: string; label?: string; icon
   { id: 'json', label: 'JSON', icon: FileJson },
 ]
 
-const SAMPLE_RESULTS: SearchResult[] = [
-  { filename: 'ide-layout.tsx', line: 5, preview: 'import { FileExplorer } from ...', matchStart: 8, matchEnd: 20 },
-  { filename: 'ide-layout.tsx', line: 12, preview: 'export function IDELayout() {', matchStart: 7, matchEnd: 19 },
-  { filename: 'activity-bar.tsx', line: 8, preview: 'export function ActivityBar()', matchStart: 7, matchEnd: 19 },
-  { filename: 'activity-bar.tsx', line: 18, preview: 'className="flex w-12"', matchStart: 16, matchEnd: 28 },
-  { filename: 'globals.css', line: 22, preview: '.btn { color: red }', matchStart: 14, matchEnd: 26 },
-  { filename: 'tsconfig.json', line: 3, preview: '"target": "ES2022"', matchStart: 12, matchEnd: 24 },
-]
+const HISTORY_KEY = 'ide:search-history'
 
 function getExt(filename: string): string {
   return filename.split('.').pop()?.toLowerCase() ?? ''
@@ -48,9 +42,30 @@ function groupByFile(results: SearchResult[]): Map<string, SearchResult[]> {
   return map
 }
 
+/** 解析 grepFiles 返回的 results(unknown 类型,做类型断言) */
+function parseGrepResults(raw: unknown): SearchResult[] {
+  if (!Array.isArray(raw)) return []
+  const out: SearchResult[] = []
+  for (const item of raw) {
+    const r = item as Record<string, unknown>
+    const file = typeof r.file === 'string' ? r.file : typeof r.path === 'string' ? r.path : ''
+    const line = typeof r.line === 'number' ? r.line : typeof r.lineNumber === 'number' ? r.lineNumber : 0
+    const content = typeof r.content === 'string' ? r.content : typeof r.text === 'string' ? r.text : typeof r.preview === 'string' ? r.preview : ''
+    if (!file) continue
+    out.push({
+      filename: file.split('/').pop() ?? file,
+      line,
+      preview: content,
+      matchStart: typeof r.matchStart === 'number' ? r.matchStart : undefined,
+      matchEnd: typeof r.matchEnd === 'number' ? r.matchEnd : undefined,
+    })
+  }
+  return out
+}
+
 export function SearchPanel() {
   const t = useTranslations('ide')
-  const { activeView } = useIDEWorkspace()
+  const { activeView, workspacePath } = useIDEWorkspace()
   const [query, setQuery] = React.useState('')
   const [replaceValue, setReplaceValue] = React.useState('')
   const [showReplace, setShowReplace] = React.useState(false)
@@ -59,11 +74,30 @@ export function SearchPanel() {
   const [useRegex, setUseRegex] = React.useState(false)
   const [fileType, setFileType] = React.useState<FileType>('all')
   const [collapsedFiles, setCollapsedFiles] = React.useState<Set<string>>(new Set())
-  const [history, setHistory] = React.useState<string[]>(['FileExplorer', 'IDELayout', 'ActivityBar', 'useIDEWorkspace'])
+  const [results, setResults] = React.useState<SearchResult[]>([])
+  const [searched, setSearched] = React.useState(false)
+  const [loading, setLoading] = React.useState(false)
+  const [history, setHistory] = React.useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const saved = localStorage.getItem(HISTORY_KEY)
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
+    } catch {
+      // ignore
+    }
+  }, [history])
 
   if (activeView !== 'search') return null
 
-  const filtered = SAMPLE_RESULTS.filter((r) => fileType === 'all' || getExt(r.filename) === fileType)
+  const filtered = results.filter((r) => fileType === 'all' || getExt(r.filename) === fileType)
   const grouped = groupByFile(filtered)
   const totalMatches = filtered.length
   const fileCount = grouped.size
@@ -77,9 +111,31 @@ export function SearchPanel() {
     })
   }
 
-  const runSearch = () => {
-    if (!query.trim()) return
-    setHistory((prev) => [query, ...prev.filter((h) => h !== query)].slice(0, 5))
+  const runSearch = async () => {
+    const q = query.trim()
+    if (!q) return
+    if (!workspacePath) return
+    setLoading(true)
+    setSearched(true)
+    setHistory((prev) => [q, ...prev.filter((h) => h !== q)].slice(0, 5))
+    try {
+      const result = await grepFiles({
+        workspacePath,
+        pattern: q,
+        outputMode: 'content',
+        glob: fileType !== 'all' ? `*.${fileType}` : undefined,
+      })
+      if (result.success) {
+        setResults(parseGrepResults(result.data.results))
+      } else {
+        setResults([])
+      }
+    } catch (e) {
+      console.error('search error:', e)
+      setResults([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -160,7 +216,11 @@ export function SearchPanel() {
       </div>
 
       <div className="flex-1 overflow-auto">
-        {query && totalMatches > 0 ? (
+        {!workspacePath ? (
+          <div className="px-3 py-2 text-xs text-muted-foreground">请先打开工作区</div>
+        ) : loading ? (
+          <div className="px-3 py-2 text-xs text-muted-foreground">搜索中...</div>
+        ) : query && totalMatches > 0 ? (
           <div className="px-2 py-1">
             <div className="mb-1 text-xs text-muted-foreground">
               {t('searchPanel.resultSummary', { matches: totalMatches, files: fileCount })}
@@ -195,9 +255,9 @@ export function SearchPanel() {
               )
             })}
           </div>
-        ) : query ? (
+        ) : query && searched ? (
           <div className="px-3 py-2 text-xs text-muted-foreground">{t('searchPanel.noResults')}</div>
-        ) : history.length > 0 ? (
+        ) : !query && history.length > 0 ? (
           <div className="px-2 py-1">
             <div className="mb-1 flex items-center gap-1 px-1 text-xs text-muted-foreground">
               <History className="h-3 w-3" />
