@@ -1055,6 +1055,8 @@ export default {
     logout: '退出登录',
     logoutConfirm: '确定要退出登录吗?',
     vipMember: 'VIP 会员',
+    admin: '管理员',
+    normalUser: '普通用户',
     tapLogin: '点击登录',
     loginHint: '登录后享受更多服务',
     menu: {
@@ -1066,6 +1068,7 @@ export default {
       ai: 'AI 助手',
       settings: '设置',
     },
+    identity: '身份',
     avatar: {
       updateSuccess: '头像已更新',
       choose: '选择头像',
