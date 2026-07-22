@@ -65,7 +65,6 @@ const PUBLIC_PATHNAMES = [
   '/docs',
   '/forbidden',
   '/not-found',
-  '/qr-confirm',
 ]
 
 /** 公开路径前缀(以 prefix 匹配)。 */
