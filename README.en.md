@@ -662,22 +662,18 @@ IHUI-AI/
 │   ├── nginx/               # Nginx reverse proxy + blue-green upstream + SSL/security/rate-limit
 │   ├── scripts/             # deploy.sh / rollback.sh / health-check.sh / backup-db.sh / restore-db.sh / deploy_certs.sh
 │   ├── cron/                # Let's Encrypt cert auto-renewal
+│   ├── docker/              # Dockerfile.api / .web / .cli / .migrate (image build, context is repo root)
+│   ├── s3-lifecycle.yml     # S3 object storage lifecycle rules
 │   └── setup-github-secrets.sh  # GitHub Actions secrets batch configuration
 ├── docs/                    # 9 docs: architecture / CHANGELOG / CONTRIBUTING / DEPLOYMENT_RUNBOOK / SECURITY / EMAIL_SETUP / I18N / INCIDENTS / README
 ├── monitoring/              # Grafana (20 dashboards) + Loki + Prometheus + Promtail + otel-collector + Alertmanager
-├── scripts/                 # 17 guardrails + 19 i18n + 11 migration audits + 9 PowerShell launchers + ops tools
+├── scripts/                 # 17 guardrails + 19 i18n + 11 migration audits + 9 PowerShell launchers + locustfile.py load testing + ops tools
 ├── server-docs/             # Multi-tenant design docs (MULTI_TENANT.md)
 ├── .github/workflows/       # 4 CIs: build / ci / e2e / knip + GitHub Act local CI
+├── .github/loop-runtime/    # loop-daily-triage CI runtime state (STATE.md + loop-run-log.md)
 ├── .husky/                  # Git hooks (commit-msg + post-commit + pre-commit + pre-push + post-checkout + post-merge)
 ├── docker-compose.yml       # 14-service orchestration (7 business + 7 monitoring)
-├── Dockerfile.api       # Backend image (api + worker shared)
-├── Dockerfile.web       # Frontend image (Next.js standalone)
-├── Dockerfile.migrate       # One-shot migration service image
-├── locustfile.py            # Locust load testing script
-├── lighthouserc.json        # Lighthouse CI performance budget
 ├── knip.jsonc               # Knip unused code detection config
-├── noise-rules.yml          # Alertmanager noise suppression rules
-├── s3-lifecycle.yml         # S3 object storage lifecycle rules
 ├── AGENTS.md                # AI Agent collaboration spec (21 sections of mandatory rules)
 ├── PROJECT_PLAN.md          # The single source-of-truth task plan document
 ├── LICENSE                  # Apache 2.0
@@ -991,8 +987,8 @@ The project eliminates collaboration incidents through 21 pre-commit hooks + pos
 | Frontend E2E       | Playwright    | 17 spec files              | `pnpm test:e2e`                  |
 | AI Service         | pytest        | 13 files, 400+ cases       | `cd apps/ai-service && pytest`   |
 | CLI Unit           | Vitest        | 13 files                   | `pnpm --filter @ihui/cli test`   |
-| Load Testing       | Locust        | `locustfile.py`            | `locust -f locustfile.py`        |
-| Performance Budget | Lighthouse CI | `lighthouserc.json`        | CI auto-run                      |
+| Load Testing       | Locust        | `scripts/locustfile.py`    | `locust -f scripts/locustfile.py` |
+| Performance Budget | Lighthouse CI | `apps/web/lighthouserc.json` | CI auto-run                      |
 | Unused Code        | Knip          | `knip.jsonc` + CI workflow | `pnpm knip`                      |
 | Full Validation    | turbo         | 22 tasks                   | `pnpm turbo typecheck lint test` |
 
@@ -1186,7 +1182,7 @@ Full-stack observability, three pillars (metrics / logs / traces) + alerting ful
 ### Alerting (Alertmanager + noise-rules)
 
 - **Alertmanager** (:9093): Alert routing + noise suppression
-- **noise-rules.yml**: Alert noise suppression rules (root + monitoring/alertmanager/ dual-synced)
+- **monitoring/alertmanager/noise-rules.yml**: Alert noise suppression rules (single source, old root copy merged)
 
 ### Health Checks
 
