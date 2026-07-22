@@ -1,18 +1,20 @@
 'use client'
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { GitBranch, RefreshCw, AlertCircle, AlertTriangle, Bell, Sun, Moon, ChevronUp, Check } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 
 type GitSyncState = 'synced' | 'unsynced' | 'conflict'
 
-const GIT_SYNC_META: Record<GitSyncState, { dot: string; tip: string }> = {
-  synced: { dot: 'bg-green-500', tip: '已同步' },
-  unsynced: { dot: 'bg-amber-500', tip: '未同步' },
-  conflict: { dot: 'bg-red-500', tip: '有冲突' },
+const GIT_SYNC_META: Record<GitSyncState, { dot: string; tipKey: string }> = {
+  synced: { dot: 'bg-green-500', tipKey: 'statusBar.synced' },
+  unsynced: { dot: 'bg-amber-500', tipKey: 'statusBar.unsynced' },
+  conflict: { dot: 'bg-red-500', tipKey: 'statusBar.conflict' },
 }
 
 export function StatusBar() {
+  const t = useTranslations('ide')
   const { resolvedTheme, setTheme } = useTheme()
   const [themeAnim, setThemeAnim] = React.useState(false)
   const errors = 0
@@ -30,17 +32,18 @@ export function StatusBar() {
   }
 
   const syncMeta = GIT_SYNC_META[gitSync]
+  const syncTip = t(syncMeta.tipKey)
 
   return (
     <div className="flex h-6 shrink-0 items-center gap-3 bg-foreground px-3 text-xs text-background">
       <button className="flex items-center gap-1 hover:opacity-80">
         <GitBranch className="h-3 w-3" />
         <span>main</span>
-        <span className={cn('h-2 w-2 rounded', syncMeta.dot)} aria-label={syncMeta.tip} title={syncMeta.tip} />
+        <span className={cn('h-2 w-2 rounded', syncMeta.dot)} aria-label={syncTip} title={syncTip} />
       </button>
       <button className="flex items-center gap-1 hover:opacity-80">
         <RefreshCw className="h-3 w-3" />
-        <span>同步</span>
+        <span>{t('statusBar.sync')}</span>
       </button>
       <div className="flex items-center gap-2">
         <button className="flex items-center gap-0.5 hover:opacity-80">
@@ -79,7 +82,7 @@ export function StatusBar() {
         <button
           onClick={switchTheme}
           className="flex items-center gap-0.5 hover:opacity-80"
-          aria-label="切换主题"
+          aria-label={t('statusBar.toggleTheme')}
         >
           <span className={cn('transition-transform duration-300', themeAnim && 'rotate-180')}>
             {resolvedTheme === 'dark' ? <Sun className="h-3 w-3" /> : <Moon className="h-3 w-3" />}
