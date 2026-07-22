@@ -77,10 +77,13 @@
 - email_logs migration = "database 独占"
 
 **Git 同步证据**(§21):
-- 本地 commit: <待填>(本次任务)
-- origin commit: <待填>
-- 同步状态: <待填>
-- 守门脚本: `node scripts/git-push-guard.mjs` <待填>
+- 本地 commit: `54b6ad1c7` (fix(clawdbot+db): safe-condition 防 RCE parser + memory 双桶持久化 + email_logs schema drift 修复)
+- origin commit: `54b6ad1c76074fcadc6c4fa6c666c3fc1a290504`
+- 同步状态: local == remote ✅
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
+- pre-commit hook 失败因 @ihui/ui-primitives dist 陈旧(其他 agent 引入),按 §12 用 `--no-verify` 跳过
+- pre-push typecheck 失败因 @ihui/api-client client.ts:51 `mergeAbortSignals noUnusedLocals`(前序 agent commit dc32d867f 保留 polyfill 但无调用方,其他 agent 代码),git-push-guard 自动按用户规则 `--no-verify` 重试成功
+- schema drift check 通过:missing migrations = 0,dead migrations = 2(audit_logs_default/audit_logs_old,其他 agent 历史遗留,非本任务)
 
 **遗留(P1/P2,非本任务范围)**:
 - 无(本任务范围内 5 项全部完成,无遗漏)
