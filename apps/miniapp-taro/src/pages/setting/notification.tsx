@@ -41,8 +41,8 @@ export default function NotificationPage() {
   }, [])
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="mx-[12px] my-[12px] bg-white rounded-[8px] overflow-hidden">
+    <View className="min-h-screen bg-background">
+      <View className="mx-[12px] my-[12px] bg-card rounded-[8px] overflow-hidden">
         {list.map((item, idx) => (
           <View
             key={item.key}
@@ -50,7 +50,7 @@ export default function NotificationPage() {
               idx < list.length - 1 ? 'border-b border-[#f0f0f0]' : ''
             }`}
           >
-            <Text className="text-[15px] text-[#333]">{item.title}</Text>
+            <Text className="text-[15px] text-foreground">{item.title}</Text>
             <Switch checked={item.enabled} onChange={(e) => onToggle(item.key, e.detail.value)} />
           </View>
         ))}

@@ -13,8 +13,8 @@ export default function Loading({
 }: LoadingProps) {
   const spinner = (
     <View className="flex flex-col items-center justify-center">
-      <View className="w-8 h-8 border-2 border-gray-200 border-t-gray-500 rounded-full animate-spin" />
-      {text ? <Text className="mt-2 text-sm text-gray-500">{text}</Text> : null}
+      <View className="w-8 h-8 border-2 border-border border-t-gray-500 rounded-full animate-spin" />
+      {text ? <Text className="mt-2 text-sm text-muted-foreground">{text}</Text> : null}
     </View>
   )
 
@@ -25,7 +25,7 @@ export default function Loading({
           mask ? 'bg-black/40' : ''
         }`}
       >
-        <View className="flex flex-col items-center justify-center px-6 py-5 bg-white rounded-xl shadow-sm">
+        <View className="flex flex-col items-center justify-center px-6 py-5 bg-card rounded-xl shadow-sm">
           {spinner}
         </View>
       </View>
