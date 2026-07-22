@@ -12,46 +12,59 @@
 
 <!-- 已归档(2026-07-22):settings/llm v2 方案 B 完整落地,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
 
-### [x] ✅(2026-07-22) CLI 配置导入扩展至 23 源 + v2 入口 + .env 导出(跨端:packages/types + api + web + cli + desktop)
+### [x] ✅(2026-07-22) CLI 配置导入扩展至 24 源 + Google Antigravity + URL/协议深度修正 + 20 测试(跨端:packages/types + api + web + cli + desktop)
 
-**触发**:用户反馈"之前整合参考的 cc switch codex++ 项目的内容怎么没了 没有更新开发好吗 而且我希望从这些平台还有其他的 AI 变成平台可以一键导出移入用户自己配置的模型 .env 配置到本项目中",后续要求"继续拓展平台 trae traework qoder qoderwork codexdesktop claudecode桌面端 还有哪些主流平台 继续增加"。
+**触发**:用户反馈"谷歌的反重力平台怎么没加进去呢 还有你那测试好啊 所有这些平台支持的 URL 协议具体参数也都要深度分析 配置好一键切换 不可以出错搞混"。
 
-**交付内容**(2 commit,30 文件,1000+ 行新增):
+**交付内容**(3 commit 累计,最终 24 源):
 
 | Commit | 内容 |
 |---|---|
-| `832510792` | feat: 5 new parsers(env-file/cursor/windsurf/cline/aider)+ v2 入口 + .env 导出 + i18n 5 lang |
+| `832510792` | feat: 5 new parsers(env-file/cursor/windsurf/cline/aider)+ v2 入口 + .env 导出 |
 | `d1efe3e0b` | feat: 12 more AI platform parsers(trae/qoder/copilot/q/cody/zed etc)total 23 sources |
+| `78b619e72` | feat: add Google Antigravity + deep-fix all platform URL/protocol config + 20 tests |
 
-**23 个导入源全列表**:
+**Google Antigravity 平台**:
+- 2025-11 发布,2026-05 I/O 2026 发布 2.0,Agent-First 开发平台
+- 底层 Gemini 系列模型,也支持 Claude/OpenAI
+- 配置:`~/.antigravity/settings.json`,key 前缀 `antigravity`
+- 默认 baseUrl:`https://generativelanguage.googleapis.com/v1beta`
+- 默认协议:`gemini_native`
+- 默认 providerCode:`google`
 
-| # | 源 | 格式 | 说明 |
-|---|---|---|---|
-| 1-6 | cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes | db/json/toml/yaml | 已有(原始 6 源) |
-| 7 | env-file | .env | 通用 .env 解析(8 厂商前缀 + 自定义扫描) |
-| 8-11 | cursor / windsurf / cline / aider | settings.json / yaml | IDE + 扩展 |
-| 12-13 | trae / trae-work | settings.json | Trae IDE / Work |
-| 14-15 | qoder / qoder-work | settings.json | Qoder / Work |
-| 16-17 | codex-desktop / claude-code-desktop | config.json | 桌面端应用 |
-| 18 | github-copilot | settings.json | GitHub Copilot |
-| 19 | amazon-q | settings.json | Amazon Q Developer |
-| 20 | continue | config.json | Continue.dev |
-| 21 | tabnine | settings.json | Tabnine |
-| 22 | cody | settings.json | Sourcegraph Cody |
-| 23 | zed | settings.json | Zed 编辑器 |
+**深度修正(防搞混)**:
 
-**关键设计**:12 个新 IDE 平台共享 `ide-generic.ts` 工厂模式解析器(1 文件 12 parser),通过 `createIdeParser(sourceKey)` 工厂函数 + CONFIGS 映射表,每个平台仅需指定 key 前缀/名称/默认值,最小化代码量。
+| 平台 | 修正前(错误) | 修正后(正确) |
+|---|---|---|
+| Trae/Qoder/Tabnine/Cody/Amazon Q | 默认 baseUrl=api.openai.com ❌ | 无默认值,缺失则 warning ✅ |
+| Antigravity | 不存在 | gemini_native + google ✅ |
+| Claude Code Desktop | 协议从 URL 推断 | 显式 anthropic_messages ✅ |
+| Codex Desktop | 协议从 URL 推断 | 显式 openai_chat ✅ |
+| GitHub Copilot | 协议从 URL 推断 | 显式 openai_chat + api.githubcopilot.com ✅ |
+| inferApiFormat | 不识别 githubcopilot | 识别 githubcopilot ✅ |
+
+**20 个测试用例**(全部通过 ✅):
+- Antigravity → gemini_native + google(2 case)
+- Claude Code Desktop → anthropic_messages + anthropic(1 case)
+- Codex Desktop → openai_chat + openai(1 case)
+- GitHub Copilot → openai_chat + api.githubcopilot.com(1 case)
+- IDE 类无默认 baseUrl → warning(8 case)
+- 跨平台不搞混验证(7 case):Antigravity≠openai/anthropic、Claude≠gemini/openai、Trae Work≠Trae、Qoder Work≠Qoder、空输入/非 JSON 异常
 
 **入口位置**:
 - `/settings/llm` v2 header "导入 CLI 配置"按钮 → `/settings/import`
-- `/settings/import` 页面有 23 个平台选择卡片(grid-cols-3),从 `GET /api/user/cli-import/sources` 动态获取
+- `/settings/import` 页面 24 个平台选择卡片(grid-cols-3)
+
+**24 个导入源全列表**:
+cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / cursor / windsurf / cline / aider / trae / trae-work / qoder / qoder-work / codex-desktop / claude-code-desktop / github-copilot / amazon-q / continue / tabnine / cody / zed / **antigravity**
 
 **Git 同步证据**:
-- 本地 HEAD: `d1efe3e0b`
-- origin HEAD: `d1efe3e0b`
+- 本地 HEAD: `78b619e72`
+- origin HEAD: `78b619e72`
 - 同步状态: **local == remote ✅**
 - 守门脚本: exit 0 ✅
-- README 更新: "CLI 配置 23 源一键导入" ✅
+- README 更新: "CLI 配置 24 源一键导入" ✅
+- 测试: 20/20 passed ✅
 
 ---
 ### [x] ✅(2026-07-22) ai-news 入口梳理 + ai-world ?tab= query param 支持(平台独占:仅 apps/web)
