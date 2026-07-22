@@ -2,7 +2,7 @@ import { eq, and, gte, lt } from 'drizzle-orm';
 import { db } from './index.js';
 import { orders } from '@ihui/database';
 import { generateOutTradeNo } from '../services/wechat-pay.js';
-import { withAudit } from '../utils/audit.js';
+import { withAuditBoth } from '../utils/audit.js';
 
 export interface CreateOrderInput {
   userId: string;
@@ -16,13 +16,13 @@ export interface CreateOrderInput {
 
 /**
  * 创建订单。
- * @param operatorId 操作者 userId(用于 updatedBy 审计)。route handler 传 request.userId ?? null;系统异步任务传 null。
+ * @param operatorId 操作者 userId(用于 createdBy + updatedBy 审计)。route handler 传 request.userId ?? null;系统异步任务传 null。
  */
 export async function createOrder(input: CreateOrderInput, operatorId: string | null) {
   const outTradeNo = generateOutTradeNo(input.payType === 'alipay' ? 'ALI' : 'WX');
   const [order] = await db
     .insert(orders)
-    .values(withAudit({
+    .values(withAuditBoth({
       orderNo: outTradeNo,
       userId: input.userId,
       amount: input.amount,
