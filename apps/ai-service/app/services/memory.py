@@ -5,11 +5,14 @@
 """
 
 import json
+import logging
 import time
 from datetime import datetime
 from typing import Any
 
 from ..core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # redis 包未安装时降级为纯内存模式
 try:
@@ -246,6 +249,7 @@ class MemorySystem:
             entry_id = f"mem-{user_id}-{ts}-{idx}"
             entry = {
                 "id": entry_id,
+                "userId": user_id,
                 "scope": scope,
                 "type": item.get("type", "fact"),
                 "category": item.get("category", "未分类"),
@@ -310,8 +314,25 @@ class MemorySystem:
         include_decayed = request.get("includeDecayed", False)
         scope = request.get("scope", "user")
 
-        # 从 API 获取用户记忆
+        # 从 API 获取用户记忆;api 不可用时降级从 VectorMemoryStore 拉取全部 entries
         entries = await self._client.get_entries(user_id, scope=scope)
+        if not entries:
+            # 纯本地模式:api 服务未启动 / 网络故障时,从向量存储拉取所有 entries
+            # 过滤 userId + scope 匹配的条目(向量存储里 entry 含 userId/scope 字段)
+            try:
+                all_entries = self._vector_store.list_entries()
+                entries = [
+                    e for e in all_entries
+                    if str(e.get("userId", "")) == user_id
+                    and (scope == "user" or str(e.get("scope", "")) == scope)
+                ]
+                if entries:
+                    logger.info(
+                        "retrieve 降级纯本地模式:从 vector_store 拉取 %d 条 entries(user=%s)",
+                        len(entries), user_id,
+                    )
+            except Exception as e:
+                logger.warning("retrieve 降级拉取 vector_store 失败: %s", e)
 
         # 过滤已衰减记忆
         if not include_decayed:
