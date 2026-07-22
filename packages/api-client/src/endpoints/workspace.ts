@@ -236,6 +236,184 @@ export async function getRecentWorkspaces(): Promise<ApiResult<{ workspaces: Rec
 }
 
 // =============================================================================
+// FS Bridge Read/Write/Edit/Delete — 文件读写编辑删除
+// =============================================================================
+
+/** 读取文件内容(支持行号范围) */
+export async function readFile(params: {
+  path: string
+  workspacePath: string
+  startLine?: number
+  endLine?: number
+}): Promise<ApiResult<{ content: string; lines: number; path: string }>> {
+  return fetchApi<{ content: string; lines: number; path: string }>('/api/workspace/fs/read', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 写文件(自动 checkpoint) */
+export async function writeFile(params: {
+  path: string
+  workspacePath: string
+  content: string
+  createDirs?: boolean
+}): Promise<ApiResult<{ path: string; size: number }>> {
+  return fetchApi<{ path: string; size: number }>('/api/workspace/fs/write', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 编辑文件(基于 oldText/newText 替换) */
+export async function editFile(params: {
+  path: string
+  workspacePath: string
+  oldText: string
+  newText: string
+}): Promise<ApiResult<{ path: string; occurrences: number }>> {
+  return fetchApi<{ path: string; occurrences: number }>('/api/workspace/fs/edit', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 删除文件 */
+export async function deleteFile(params: {
+  path: string
+  workspacePath: string
+  recursive?: boolean
+}): Promise<ApiResult<{ path: string; deleted: boolean }>> {
+  return fetchApi<{ path: string; deleted: boolean }>('/api/workspace/fs/delete', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 文件内容搜索(grep,3 种 outputMode) */
+export async function grepFiles(params: {
+  workspacePath: string
+  pattern: string
+  path?: string
+  glob?: string
+  outputMode?: 'content' | 'files_with_matches' | 'count'
+}): Promise<ApiResult<{ results: unknown }>> {
+  return fetchApi<{ results: unknown }>('/api/workspace/fs/grep', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** glob 模式文件查找 */
+export async function globFiles(params: {
+  workspacePath: string
+  pattern: string
+  path?: string
+}): Promise<ApiResult<{ files: string[] }>> {
+  return fetchApi<{ files: string[] }>('/api/workspace/fs/glob', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 执行命令(走 sandboxExecutor 白名单) */
+export async function runCommand(params: {
+  command: string
+  workspacePath: string
+  cwd?: string
+  timeoutMs?: number
+  mode?: 'read-only' | 'workspace-write' | 'danger-full-access'
+}): Promise<ApiResult<{ stdout: string; stderr: string; exitCode: number; mode: string }>> {
+  return fetchApi<{ stdout: string; stderr: string; exitCode: number; mode: string }>(
+    '/api/workspace/fs/run',
+    {
+      method: 'POST',
+      body: JSON.stringify(params),
+    },
+  )
+}
+
+// =============================================================================
+// Sandbox — 沙箱执行环境
+// =============================================================================
+
+/** 沙箱执行(三模式:read-only / workspace-write / danger-full-access) */
+export async function executeSandbox(params: {
+  command: string
+  workspacePath: string
+  mode?: 'read-only' | 'workspace-write' | 'danger-full-access'
+  timeoutMs?: number
+}): Promise<ApiResult<{ stdout: string; stderr: string; exitCode: number; mode: string }>> {
+  return fetchApi<{ stdout: string; stderr: string; exitCode: number; mode: string }>(
+    '/api/workspace/sandbox/execute',
+    {
+      method: 'POST',
+      body: JSON.stringify(params),
+    },
+  )
+}
+
+// =============================================================================
+// Codebase Index — 代码库符号索引与搜索
+// =============================================================================
+
+/** 代码库符号索引 */
+export async function indexCodebase(params: {
+  workspacePath: string
+}): Promise<ApiResult<{ indexed: boolean; symbols: number }>> {
+  return fetchApi<{ indexed: boolean; symbols: number }>('/api/workspace/codebase/index', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** 符号搜索(GET,query 参数) */
+export async function searchCodebase(params: {
+  workspacePath: string
+  query: string
+}): Promise<ApiResult<{ symbols: unknown[] }>> {
+  const qs = buildQs({ workspacePath: params.workspacePath, q: params.query })
+  return fetchApi<{ symbols: unknown[] }>(`/api/workspace/codebase/search${qs}`)
+}
+
+// =============================================================================
+// Checkpoint — 检查点状态恢复(list / rollback / undo)
+// =============================================================================
+
+/** 列出工作区所有检查点 */
+export async function listCheckpoints(params: {
+  workspacePath: string
+}): Promise<ApiResult<{ checkpoints: unknown[] }>> {
+  return fetchApi<{ checkpoints: unknown[] }>(
+    `/api/workspace/checkpoints?workspacePath=${encodeURIComponent(params.workspacePath)}`,
+  )
+}
+
+/** 回滚到指定检查点 */
+export async function rollbackCheckpoint(params: {
+  workspacePath: string
+  checkpointId: string
+}): Promise<ApiResult<{ rolled: boolean }>> {
+  return fetchApi<{ rolled: boolean }>(
+    `/api/workspace/checkpoints/${encodeURIComponent(params.checkpointId)}/rollback`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ workspacePath: params.workspacePath }),
+    },
+  )
+}
+
+/** 撤销最近一次操作 */
+export async function undoCheckpoint(params: {
+  workspacePath: string
+}): Promise<ApiResult<{ undone: boolean }>> {
+  return fetchApi<{ undone: boolean }>('/api/workspace/checkpoints/undo', {
+    method: 'POST',
+    body: JSON.stringify({ workspacePath: params.workspacePath }),
+  })
+}
+
+// =============================================================================
 // Workspace Permissions — 工作区权限治理
 // =============================================================================
 
