@@ -468,6 +468,24 @@
 - [x] ✅(2026-07-23) app.config.ts 路由注册修复:主包 pages 数组加 'pages/community/index'(tabBar 引用但主包未注册会导致小程序运行报错);setting 分包 pages 加 'privacy'(privacy.tsx 已创建但路由未注册无法访问)。
 - [x] ✅(2026-07-23) 验证:pnpm --filter @ihui/miniapp-taro typecheck exit 0 / lint exit 0(仅 1 个无关 warning)。
 
+## miniapp-taro ChatMessageItem 增强:对标原 ai_assistant.vue 渲染层核心功能(已完成 ✅ 2026-07-23,平台独占:仅 miniapp-taro)
+
+> 用户需求:"我要的是跟原来项目页面 功能一模一样"。原项目 ai_assistant.vue(4528 行)的渲染层核心功能在当前 ChatMessageItem.tsx(原 29 行)严重缺失,本轮补齐渲染层 P0 功能。
+
+- [x] ✅(2026-07-23) ChatMessage 接口扩展(api/index.ts):新增 images?(imgUrlList)/ videos?(videoUrlList)/ tokenCount?(total_tokens)/ codeContent?(content_code)4 个可选字段,对标原 ai_assistant.vue 数据结构。
+- [x] ✅(2026-07-23) ChatMessageItem.tsx 渲染层增强(29 行 → 229 行):
+  - 内容段格式化(formatContentSegments):对标原 formatContentSegments,将纯文本拆分为 header(###)/ link(http)/ text 三类段,链接段青色可点击复制,标题段粗体块级。
+  - 移除特殊字符(removeSpecialChars):对标原 removeSpecialChars,剥离 # 前缀。
+  - 图片展示:Taro.previewImage 预览,对标原 imgUrlList + previewImage。
+  - 视频展示:Video 组件(controls/showPlayBtn/showCenterPlayBtn/enableProgressGesture/objectFit),对标原 videoUrlList。
+  - token 消耗 footer:formatTokenDisplay(>=1000 显示 K),对标原 total_tokens 显示。
+  - 复用按钮(用户消息):onReuse 回调填入输入框,对标原 copyToInput + fuyong_btn。
+  - 复制按钮(AI 消息):Taro.setClipboardData,对标原 copyHandle。
+  - 代码块(codeContent):青色可点击复制,对标原 content_code。
+- [x] ✅(2026-07-23) chat.tsx 增加 inputValue/inputKey state:handleReuse 回调设置 inputValue + setInputKey 强制 InputArea 重新挂载接收新 value + Taro.pageScrollTo 滚动到底部,对标原 copyToInput + uni.pageScrollTo。
+- [x] ✅(2026-07-23) 5 语言 i18n 同步(zh-CN/zh-TW/en/ko/ja):ai.chatMessageItem 命名空间新增 8 key(me/ai/thinkingProcess/noContent/aiGenerated/tokenCost/reuse/copy)。
+- [x] ✅(2026-07-23) 验证:pnpm --filter @ihui/miniapp-taro typecheck exit 0 / lint exit 0。
+
 ## WorkerPool 资源隔离与超时处理 22 项缺陷修复(已完成 ✅ 2026-07-23,跨端:cli+ai-service)
 
 > 3 个审查 subagent 发现 22 项缺陷(egress-guard 13 + worker-entry/pool 6 + dag_scheduler 3),本轮全部修复 + 四层防护集成测试 6/6 PASS。
