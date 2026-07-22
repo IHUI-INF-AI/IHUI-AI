@@ -3,6 +3,9 @@
 6 个预置 skill: code-review / debug-fix / test-generator / doc-writer /
 refactor-helper / api-designer。每个 skill 包含 name/description/prompt_template。
 新增:SkillEvolutionService(任务后 LLM 自评→自动生成 SKILL.md)+ SkillRegistry 自动加载 auto 目录。
+P3-2 扩展:SkillEvolutionService.evaluate 增加自动测试 + 质量门(通过率 < 0.6 拒绝落盘)+
+落盘后初始化反馈追踪;新增 SkillEvolutionLoop 整合完整闭环
+(生成→测试→落盘→反馈追踪→迭代优化)。
 """
 
 import json
@@ -230,6 +233,22 @@ class SkillEvolutionService:
             parsed["reason"] = parsed.get("reason", "") + " [skillName 为空,未落盘]"
             return parsed
 
+        # P3-2:自动测试 + 质量门(通过率 < 0.6 拒绝落盘)
+        skill_content = parsed.get("skillContent", "")
+        test_result = await self._run_quality_gate(skill_name, skill_content)
+        parsed["testResult"] = test_result
+        # 局部导入避免模块加载时循环依赖
+        from .skill_tester import SkillTester
+
+        if float(test_result.get("passRate", 0.0)) < SkillTester.QUALITY_GATE_PASS_RATE:
+            parsed["shouldCreate"] = False
+            parsed["reason"] = (
+                parsed.get("reason", "")
+                + f" [质量门未通过:通过率 {test_result.get('passRate', 0.0):.2f}"
+                f" < {SkillTester.QUALITY_GATE_PASS_RATE}]"
+            )
+            return parsed
+
         # 写入 app/skills/auto/<skillName>.md
         try:
             auto_dir = SkillRegistry._auto_dir()
@@ -244,10 +263,40 @@ class SkillEvolutionService:
             with open(os.path.join(auto_dir, f"{skill_name}.md"), "w", encoding="utf-8") as f:
                 f.write(md)
             skill_registry.reload_auto()
+            # P3-2:落盘后初始化反馈追踪(SkillFeedbackTracker 单例,空统计,
+            # 等待首次使用记录;get_stats 对未知 skill 返回零值统计)
         except Exception as e:
             parsed["shouldCreate"] = False
             parsed["reason"] = parsed.get("reason", "") + f" [落盘失败: {e}]"
         return parsed
+
+    async def _run_quality_gate(
+        self, skill_name: str, skill_content: str
+    ) -> dict:
+        """P3-2:生成测试用例 + 执行测试,返回 SkillTestResult。
+
+        降级:LLM 失败或异常返回 passRate=0 的空结果(触发质量门拒绝)。
+        """
+        from .skill_tester import skill_tester
+
+        try:
+            test_cases = await skill_tester.generate_test_cases(skill_name, skill_content)
+            return await skill_tester.run_test({
+                "skillName": skill_name,
+                "skillContent": skill_content,
+                "testCases": test_cases,
+            })
+        except Exception as e:
+            return {
+                "skillName": skill_name,
+                "results": [],
+                "passed": 0,
+                "total": 0,
+                "passRate": 0.0,
+                "totalDurationMs": 0,
+                "allPassed": False,
+                "error": str(e)[:200],
+            }
 
     @staticmethod
     def _parse_eval_output(content: str) -> dict:
@@ -301,3 +350,91 @@ class SkillEvolutionService:
 
 
 skill_evolution_service = SkillEvolutionService()
+
+
+class SkillEvolutionLoop:
+    """Skill 自进化闭环(P3-2):生成 → 测试 → 落盘 → 反馈追踪 → 迭代优化。
+
+    对标 Hermes Agent 的 Skill 生成后自动测试 + 使用反馈追踪 +
+    基于反馈迭代优化 + 评分系统,整合 SkillEvolutionService /
+    SkillTester / SkillFeedbackTracker / SkillIterator 四组件。
+    """
+
+    async def evolve(self, request: dict) -> dict:
+        """完整闭环:生成 skill → 自动测试 → 质量门落盘 → 初始化反馈追踪。
+
+        Args:
+            request: SkillEvolutionRequest 字典
+                (taskId/sessionId/goal/steps/finalResult/existingSkills)。
+
+        Returns:
+            SkillEvolutionResult 字典(含 testResult 字段记录质量门结果)。
+            shouldCreate=true 表示通过质量门并已落盘。
+        """
+        # 1+2+3+4:SkillEvolutionService.evaluate 已整合
+        # 生成 → 自动测试 → 质量门(通过率 < 0.6 拒绝)→ 落盘 → 反馈追踪初始化
+        return await skill_evolution_service.evaluate(request)
+
+    async def iterate_on_feedback(self, skill_name: str) -> dict:
+        """基于使用反馈迭代优化 skill。
+
+        流程:
+        1. 读取 skill 内容 + 使用统计 + 失败案例
+        2. 跑当前测试获取基线 passRate
+        3. 调 SkillIterator.iterate 生成新版本(内部含写回 + 测试验证 + 回滚)
+
+        Args:
+            skill_name: skill 名。
+
+        Returns:
+            SkillIterationResult 字典
+            (shouldIterate/newVersion?/newContent?/reason/expectedImprovements)。
+        """
+        # 局部导入避免模块加载时循环依赖
+        from .skill_tester import skill_tester
+        from .skill_feedback import skill_feedback_tracker
+        from .skill_iterator import skill_iterator
+
+        # 1. 读取 skill 内容
+        skill = skill_registry.get(skill_name)
+        if not skill:
+            return {
+                "shouldIterate": False,
+                "reason": f"skill 不存在: {skill_name}",
+                "expectedImprovements": [],
+            }
+        current_content = skill.prompt_template
+
+        # 2. 读取使用统计 + 失败案例
+        usage_stats = await skill_feedback_tracker.get_stats(skill_name)
+        failure_cases = await skill_feedback_tracker.get_failure_cases(skill_name)
+
+        # 3. 跑当前测试获取基线
+        try:
+            test_cases = await skill_tester.generate_test_cases(
+                skill_name, current_content
+            )
+            baseline_test = await skill_tester.run_test({
+                "skillName": skill_name,
+                "skillContent": current_content,
+                "testCases": test_cases,
+            })
+        except Exception as e:
+            return {
+                "shouldIterate": False,
+                "reason": f"基线测试失败: {type(e).__name__}: {str(e)[:200]}",
+                "expectedImprovements": [],
+            }
+
+        # 4. 调 SkillIterator.iterate(内部:生成新版本 → 写回 → 测试验证 →
+        #    通过率提升则保留,否则回滚)
+        return await skill_iterator.iterate({
+            "skillName": skill_name,
+            "currentContent": current_content,
+            "usageStats": usage_stats,
+            "failureCases": failure_cases,
+            "currentTestResult": baseline_test,
+        })
+
+
+skill_evolution_loop = SkillEvolutionLoop()
