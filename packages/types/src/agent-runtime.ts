@@ -1238,3 +1238,125 @@ export interface GitToolArgs {
 
 /** Git 工具权限级别(对应 Tool.dangerLevel) */
 export type GitToolPermission = 'read' | 'write' | 'dangerous'
+
+// ============================================================================
+// 多文件原子编辑契约(Wave 9,2026-07-22 立)
+// 对标 OpenClaw multi-file atomic edit:atomic batch + checkpoint + rollback
+// ============================================================================
+
+/** 多文件原子编辑操作类型 */
+export interface BatchEditOperation {
+  type: 'create' | 'update' | 'delete'
+  filePath: string
+  /** create/update 时必填,delete 时忽略 */
+  content?: string
+  /** 编码(默认 utf-8) */
+  encoding?: 'utf-8' | 'base64'
+}
+
+/** 多文件原子编辑请求 */
+export interface BatchEditRequest {
+  operations: BatchEditOperation[]
+  /** true = 全部成功才提交,任一失败回滚(默认 true) */
+  atomic?: boolean
+  /** true = 只返回预览,不实际写入(默认 false) */
+  dryRun?: boolean
+  /** atomic=false 时需 confirm=true 才允许部分成功;delete 操作也需 confirm=true */
+  confirm?: boolean
+}
+
+/** 多文件原子编辑结果 */
+export interface BatchEditResult {
+  success: boolean
+  appliedCount: number
+  totalCount: number
+  operations: Array<{
+    filePath: string
+    type: string
+    status: 'success' | 'failed' | 'rolled-back' | 'skipped'
+    error?: string
+    /** unified diff 预览 */
+    diff?: string
+  }>
+  /** 是否执行了回滚 */
+  rollbackPerformed?: boolean
+  /** checkpoint ID(用于 batch_undo) */
+  checkpointId?: string
+}
+
+// ============================================================================
+// LSP workspace 级工具类型(2026-07-22 立,Wave 9 多语言 LSP 深化)
+// 对标 OpenCode:workspace/symbol 全局符号搜索 + textDocument/rename + textDocument/codeAction
+// ============================================================================
+
+/** workspace/symbol 请求(全局符号搜索) */
+export interface WorkspaceSymbolRequest {
+  query: string
+  limit?: number
+  /** 限定语言,默认全部 */
+  language?: string
+}
+
+/** workspace/symbol 结果项 */
+export interface WorkspaceSymbolResult {
+  name: string
+  /** LSP SymbolKind 枚举值(1-26) */
+  kind: number
+  /** SymbolKind 可读名('Class' | 'Function' | 'Method' | 'Interface' | etc.) */
+  kindName: string
+  location: {
+    uri: string
+    range: {
+      start: { line: number; character: number }
+      end: { line: number; character: number }
+    }
+  }
+  containerName?: string
+}
+
+/** textDocument/rename 请求(符号重命名) */
+export interface SymbolRenameRequest {
+  filePath: string
+  /** 0-based 行号 */
+  line: number
+  /** 0-based 列号 */
+  character: number
+  newName: string
+  /** true = 自动应用 edits,false = 只返回预览 */
+  apply?: boolean
+  /** apply=true 时必须 confirm=true 才执行 */
+  confirm?: boolean
+}
+
+/** textDocument/rename 结果 */
+export interface SymbolRenameResult {
+  changes: Array<{
+    filePath: string
+    edits: Array<{
+      range: { start: { line: number; character: number }; end: { line: number; character: number } }
+      newText: string
+    }>
+  }>
+  applied: boolean
+}
+
+/** textDocument/codeAction 请求(快速修复/重构) */
+export interface CodeActionRequest {
+  filePath: string
+  /** 0-based 行号 */
+  line: number
+  /** 0-based 列号 */
+  character: number
+  /** 'quickfix' | 'refactor' | 'refactor.extract' | 'refactor.inline' | 'refactor.rewrite' | 'source' | 'source.organizeImports' */
+  kind?: string
+}
+
+/** textDocument/codeAction 结果项 */
+export interface CodeActionResult {
+  title: string
+  kind: string
+  /** WorkspaceEdit(LSP 标准,结构因 server 而异) */
+  edit?: unknown
+  command?: { title: string; command: string; arguments?: unknown[] }
+  isPreferred?: boolean
+}
