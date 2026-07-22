@@ -2724,6 +2724,15 @@
       "subtitle": "管理 SaaS 客户租户生命周期",
       "createTenant": "创建租户",
       "creating": "创建中...",
+      "quota": {
+        "title": "资源配额",
+        "placeholder": "占位",
+        "unavailable": "无法获取配额数据",
+        "apiCalls": "API 调用",
+        "aiTokens": "AI Token",
+        "storage": "存储空间",
+        "unlimited": "无限制"
+      },
       "search": "搜索",
       "searchPlaceholder": "搜索租户标识...",
       "filterState": "状态筛选",
@@ -2823,6 +2832,45 @@
           "actions": "操作"
         },
         "download": "下载备份"
+      },
+      "certificates": {
+        "title": "证书状态",
+        "subtitle": "扫描 Traefik acme.json,展示所有租户证书的剩余有效期",
+        "refresh": "刷新",
+        "back": "返回租户列表",
+        "empty": "暂无证书记录",
+        "acmeMissing": "未找到 acme.json:{path}。请确认 Traefik 数据卷已挂载到管理节点。",
+        "generatedAt": "扫描时间:{time}",
+        "stats": {
+          "total": "证书总数",
+          "healthy": "健康",
+          "warning": "即将到期",
+          "critical": "紧急",
+          "expired": "已过期"
+        },
+        "status": {
+          "healthy": "健康",
+          "warning": "即将到期",
+          "critical": "紧急",
+          "expired": "已过期"
+        },
+        "source": {
+          "letsencrypt": "Let's Encrypt",
+          "selfSigned": "自签",
+          "custom": "自定义"
+        },
+        "issuer": "颁发者",
+        "subject": "主体",
+        "notBefore": "生效时间",
+        "notAfter": "失效时间",
+        "daysUntilExpiry": "剩余有效期",
+        "fingerprint": "指纹",
+        "sans": "SAN:{sans}",
+        "days": {
+          "remaining": "{days} 天",
+          "today": "今天到期",
+          "expired": "已过期 {days} 天"
+        }
       },
       "metrics": {
         "pageTitle": "资源监控",
