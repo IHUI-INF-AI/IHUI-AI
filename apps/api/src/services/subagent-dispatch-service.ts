@@ -49,6 +49,16 @@ const REDIS_KEY_IDS = 'subagent:dispatch:ids' // set
 const REDIS_KEY_INBOX = 'subagent:inbox:' // list(with_communication agent 消息)
 const REDIS_KEY_CHECKPOINT = 'subagent:checkpoint:' // hash(stepId → JSON)
 const REDIS_KEY_QUEUE = 'subagent:dispatch:queue' // zset(priority score)
+/** 演化跟踪记录(role → list of AgentEvolutionRecord) */
+const REDIS_KEY_EVOLUTION = 'subagent:evolution:' // list
+/** 演化版本(role → hash field=version value=EvolutionVersion) */
+const REDIS_KEY_EVOLUTION_VERSIONS = 'subagent:evolution-versions:' // hash
+/** 拓扑统计(orchestration → hash field=mode value=TopologyStats) */
+const REDIS_KEY_TOPOLOGY_STATS = 'subagent:topology-stats:' // hash
+/** 自定义角色(id → hash field=id value=CustomRole JSON) */
+const REDIS_KEY_CUSTOM_ROLES = 'subagent:roles:custom' // hash(id → JSON)
+/** 协作记录(dispatchId → list of CollaborationMessage) */
+const REDIS_KEY_COLLABORATION = 'subagent:collaboration:' // list
 
 /** 日志最大保留条数(LTRIM) */
 const LOG_MAX_ENTRIES = 500
@@ -64,6 +74,9 @@ const CHECKPOINT_TTL_SEC = 24 * 60 * 60
 
 /** 通信轮次默认值(with_communication) */
 const DEFAULT_COMM_ROUNDS = 3
+
+/** 演化跟踪最大记录数(每种角色) */
+const EVOLUTION_MAX_RECORDS = 50
 
 /** 简单成本估算($/token,演示用) */
 const COST_PER_TOKEN_USD = 0.000001
@@ -304,6 +317,232 @@ export interface ResumeResult {
   skippedSteps: string[]
   resumedFromStep?: string
   error?: string
+}
+
+// ---------------------------------------------------------------------------
+// 自演化 / 拓扑自优化 / 角色自动生成 / 协作协议增强 类型(超越 v3 新增)
+// ---------------------------------------------------------------------------
+
+/** 用户反馈(用于演化跟踪) */
+export type UserFeedback = 'positive' | 'negative' | 'neutral' | undefined
+
+/** Agent 演化跟踪记录(单次任务) */
+export interface AgentEvolutionRecord {
+  /** 关联 dispatch ID */
+  dispatchId: string
+  /** Agent 角色(SubagentRole 或自定义角色 id) */
+  agentRole: string
+  /** 任务描述 */
+  taskDescription: string
+  /** 使用的 system prompt */
+  systemPrompt: string
+  /** 执行结果 */
+  result: string
+  /** 重试次数(高说明 prompt 可能有问题) */
+  retryCount: number
+  /** 用户满意度(可选) */
+  userFeedback: UserFeedback
+  /** 是否成功 */
+  success: boolean
+  /** 耗时 ms */
+  durationMs: number
+  /** token 用量 */
+  tokenUsage: number
+  /** 记录时间 ISO */
+  recordedAt: string
+}
+
+/** Prompt 补丁建议(LLM 复盘产出) */
+export interface PromptPatch {
+  /** 原文(待替换的片段) */
+  originalText: string
+  /** 建议替换为 */
+  suggestedReplacement: string
+  /** 原因 */
+  reason: string
+}
+
+/** 演化分析结果 */
+export interface EvolutionAnalysis {
+  /** 触发演化的角色 */
+  agentRole: string
+  /** 分析时扫描的记录数 */
+  scannedRecords: number
+  /** 是否需要应用补丁 */
+  needsEvolution: boolean
+  /** LLM 生成的补丁建议(空表示无需演化) */
+  patches: PromptPatch[]
+  /** 复盘摘要 */
+  summary: string
+  /** 分析时间 ISO */
+  analyzedAt: string
+}
+
+/** 演化版本(已应用的 prompt 版本) */
+export interface EvolutionVersion {
+  /** 版本号(v1, v2, ...) */
+  version: string
+  /** 该版本的 prompt */
+  prompt: string
+  /** 该版本应用的补丁 */
+  changes: PromptPatch[]
+  /** 创建时间 ISO */
+  createdAt: string
+}
+
+/** 演化历史(版本列表) */
+export interface EvolutionHistory {
+  agentRole: string
+  /** 当前 prompt(最新版本) */
+  currentPrompt: string
+  /** 所有版本(按时间正序) */
+  versions: EvolutionVersion[]
+  /** 最近 N 条演化跟踪记录 */
+  recentRecords: AgentEvolutionRecord[]
+}
+
+/** auto-plan 请求 */
+export interface AutoPlanRequest {
+  /** 任务描述 */
+  task: string
+  /** 约束(可选) */
+  constraints?: {
+    /** 最大 agent 数 */
+    maxAgents?: number
+    /** 最大耗时 ms */
+    maxDuration?: number
+  }
+}
+
+/** auto-plan 推荐的 agent 节点 */
+export interface AutoPlanAgent {
+  /** 角色(SubagentRole 或自定义角色 id) */
+  role: string
+  /** 该 agent 的子任务 */
+  task: string
+  /** 依赖的其他 agent role 列表 */
+  depends_on: string[]
+}
+
+/** auto-plan 推荐结果 */
+export interface AutoPlanResult {
+  /** 推荐编排模式 */
+  orchestration: OrchestrationMode
+  /** 推荐的 agent 组合 + DAG 结构 */
+  agents: AutoPlanAgent[]
+  /** 预估耗时 */
+  estimatedDuration: string
+  /** 预估成本 */
+  estimatedCost: string
+  /** 推理过程 */
+  reasoning: string
+  /** 参考的历史统计(每种模式成功率) */
+  topologyStats: Array<{ orchestration: string; successRate: number; sampleSize: number }>
+  /** 生成时间 ISO */
+  generatedAt: string
+}
+
+/** 拓扑统计(单种编排模式) */
+export interface TopologyStats {
+  /** 编排模式 */
+  orchestration: OrchestrationMode
+  /** 总尝试次数 */
+  totalAttempts: number
+  /** 成功次数 */
+  successCount: number
+  /** 失败次数 */
+  failedCount: number
+  /** 平均耗时 ms */
+  avgDurationMs: number
+  /** 平均 token */
+  avgTokens: number
+  /** 平均成本 */
+  avgCost: number
+  /** 最近更新 ISO */
+  updatedAt: string
+}
+
+/** 自定义角色 */
+export interface CustomRole {
+  /** 角色 id(kebab-case,如 drizzle-migration-expert) */
+  id: string
+  /** 角色技术名(用作 agent name) */
+  role: string
+  /** 显示名 */
+  displayName: string
+  /** system prompt */
+  systemPrompt: string
+  /** 技能标签 */
+  skills: string[]
+  /** 推荐任务类型 */
+  recommendedTasks: string[]
+  /** 创建时间 ISO */
+  createdAt: string
+  /** 更新时间 ISO */
+  updatedAt: string
+}
+
+/** 创建/更新自定义角色输入 */
+export interface CustomRoleInput {
+  role: string
+  displayName: string
+  systemPrompt: string
+  skills?: string[]
+  recommendedTasks?: string[]
+}
+
+/** 自动生成角色请求 */
+export interface AutoGenerateRoleRequest {
+  /** 任务描述 */
+  task: string
+  /** 已有角色(避免重复,可选) */
+  existingRoles?: string[]
+}
+
+/** 自动生成角色结果(LLM 产出) */
+export interface AutoGeneratedRole {
+  role: string
+  displayName: string
+  systemPrompt: string
+  skills: string[]
+  recommendedTasks: string[]
+  /** LLM 推理 */
+  reasoning: string
+}
+
+/** 扩展协作消息类型(超越 question/answer/result 三种) */
+export type CollaborationMessageType =
+  | 'question'
+  | 'answer'
+  | 'result'
+  | 'request_help'
+  | 'propose_plan'
+  | 'object'
+  | 'accept'
+  | 'delegate'
+  | 'share_context'
+
+/** 扩展协作消息(增强 with_communication) */
+export interface CollaborationMessage extends CommunicationMessage {
+  /** 扩展类型 */
+  collaborationType: CollaborationMessageType
+  /** 关联的方案 ID(propose_plan 产生,object/accept 引用) */
+  planId?: string
+  /** 委托的目标 agent(delegate 时) */
+  delegatedTo?: string
+}
+
+/** 协作记录(单次 dispatch) */
+export interface CollaborationRecord {
+  dispatchId: string
+  /** 所有协作消息(按时间正序) */
+  messages: CollaborationMessage[]
+  /** 协作轮次 */
+  rounds: number
+  /** 协作关系图(from → to 计数) */
+  relations: Array<{ from: string; to: string; count: number; types: CollaborationMessageType[] }>
+  /** 协调者介入次数 */
+  coordinatorInterventions: number
 }
 
 // ---------------------------------------------------------------------------
@@ -1098,6 +1337,75 @@ async function callAiServiceWithCommunication(
   }
 }
 
+/**
+ * 通用 LLM 分析调用(通过 ai-service /api/v1/ai/agent/run-decomposed 转发)。
+ *
+ * 用于:
+ *  - _evolve_agent_prompt:分析任务历史 → 生成 prompt 补丁
+ *  - _topology_optimizer:分析任务 → 推荐编排模式 + DAG
+ *  - _role_generator:分析任务 → 生成定制角色
+ *
+ * 降级:ai-service 不可用 → 返回空字符串(调用方各自处理)
+ */
+async function callAiServiceAnalyze(analysisPrompt: string): Promise<string> {
+  const result = await callAiServiceEndpoint(
+    '/api/v1/ai/agent/run-decomposed',
+    { task: analysisPrompt, strategy: 'dag' },
+  )
+  if (!result.ok) return ''
+  return result.finalOutput
+}
+
+/** 解析 LLM 返回的 JSON(容错:提取首个 { 到最后一个 }) */
+function parseLlmJson<T>(raw: string): T | null {
+  if (!raw || raw.trim().length === 0) return null
+  const trimmed = raw.trim()
+  // 尝试直接 parse
+  try {
+    return JSON.parse(trimmed) as T
+  } catch {
+    // 尝试提取 ```json ... ``` 代码块
+    const codeBlockMatch = trimmed.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/)
+    if (codeBlockMatch) {
+      try {
+        return JSON.parse(codeBlockMatch[1]!) as T
+      } catch {
+        // 继续尝试
+      }
+    }
+    // 尝试提取首个 { 到最后一个 }
+    const firstBrace = trimmed.indexOf('{')
+    const lastBrace = trimmed.lastIndexOf('}')
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      try {
+        return JSON.parse(trimmed.slice(firstBrace, lastBrace + 1)) as T
+      } catch {
+        // 继续尝试
+      }
+    }
+    // 尝试提取首个 [ 到最后一个 ]
+    const firstBracket = trimmed.indexOf('[')
+    const lastBracket = trimmed.lastIndexOf(']')
+    if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+      try {
+        return JSON.parse(trimmed.slice(firstBracket, lastBracket + 1)) as T
+      } catch {
+        // 继续尝试
+      }
+    }
+    return null
+  }
+}
+
+/** 默认 agent 的 system prompt 模板(用于演化跟踪基准) */
+const DEFAULT_ROLE_PROMPTS: Record<SubagentRole, string> = {
+  researcher: '你是一名研究助手,擅长信息检索、需求分析、技术调研。请基于任务描述给出结构化的研究结论。',
+  coder: '你是一名代码助手,擅长编写、修改、重构代码。请严格遵循受影响文件清单和约束边界。',
+  reviewer: '你是一名审查助手,擅长代码评审、安全审计、最佳实践检查。请给出具体的改进建议。',
+  architect: '你是一名架构师,擅长系统设计、模块拆分、技术选型。请给出可落地的架构方案。',
+  debugger: '你是一名调试助手,擅长定位 bug、分析堆栈、修复问题。请给出根因分析和修复方案。',
+}
+
 // ---------------------------------------------------------------------------
 // 服务单例
 // ---------------------------------------------------------------------------
@@ -1116,6 +1424,16 @@ async function callAiServiceWithCommunication(
  */
 class SubagentDispatchService {
   private runtimes = new Map<string, DispatchRuntime>()
+  /** 自演化跟踪记录缓存(role → records) */
+  private _evolutionCache = new Map<string, AgentEvolutionRecord[]>()
+  /** 自演化版本缓存(role → versions) */
+  private _evolutionVersionsCache = new Map<string, EvolutionVersion[]>()
+  /** 拓扑统计缓存(mode → stats) */
+  private _topologyStatsCache = new Map<OrchestrationMode, TopologyStats>()
+  /** 自定义角色缓存 */
+  private _customRolesCache: CustomRole[] = []
+  /** 协作消息缓存(dispatchId → messages) */
+  private _collaborationCache = new Map<string, CollaborationMessage[]>()
   private redisClient: Redis | null = null
   private readonly _maxConcurrent = DEFAULT_MAX_CONCURRENT
   private _stats = {
@@ -1530,6 +1848,7 @@ class SubagentDispatchService {
         runtime.completedAt = Date.now()
         runtime.hasFailed = true
         this._updateStats(runtime)
+        void this._recordCompletion(id)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -1567,6 +1886,7 @@ class SubagentDispatchService {
         runtime.completedAt = Date.now()
         runtime.hasFailed = false
         this._updateStats(runtime)
+        void this._recordCompletion(id)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -1588,6 +1908,7 @@ class SubagentDispatchService {
         runtime.completedAt = Date.now()
         runtime.hasFailed = true
         this._updateStats(runtime)
+        void this._recordCompletion(id)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -1615,6 +1936,7 @@ class SubagentDispatchService {
         dispatch.result = result.message
         runtime.completedAt = Date.now()
         this._updateStats(runtime)
+        void this._recordCompletion(id)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -1778,6 +2100,7 @@ class SubagentDispatchService {
     runtime.completedAt = Date.now()
     runtime.hasFailed = hasFailed
     this._updateStats(runtime)
+    void this._recordCompletion(id)
     await this._persistDispatch(id)
     await this._persistLog(id, {
       ts: nowIso(),
@@ -1856,6 +2179,7 @@ class SubagentDispatchService {
         runtime.completedAt = Date.now()
         runtime.hasFailed = false
         this._updateStats(runtime)
+        void this._recordCompletion(id)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -1872,6 +2196,7 @@ class SubagentDispatchService {
         runtime.completedAt = Date.now()
         runtime.hasFailed = true
         this._updateStats(runtime)
+        void this._recordCompletion(id)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -1891,6 +2216,7 @@ class SubagentDispatchService {
         dispatch.result = result.message
         runtime.completedAt = Date.now()
         this._updateStats(runtime)
+        void this._recordCompletion(id)
         await this._persistDispatch(id)
         await this._persistLog(id, {
           ts: nowIso(),
@@ -2358,6 +2684,705 @@ class SubagentDispatchService {
     }
 
     return { nodes, edges }
+  }
+
+  // ---------- 自演化:任务完成记录 + LLM 复盘 + 补丁应用 ----------
+
+  /**
+   * 任务完成时记录演化数据 + 拓扑统计(由 runDispatch* 完成路径调用)。
+   *
+   * 记录内容:
+   *  - AgentEvolutionRecord → Redis list "subagent:evolution:{role}"
+   *  - TopologyStats → Redis hash "subagent:topology-stats:{orchestration}"
+   */
+  private async _recordCompletion(id: string): Promise<void> {
+    const runtime = this.runtimes.get(id)
+    if (!runtime) return
+    const d = runtime.dispatch
+    const role = String(d.agentRole ?? 'coder')
+    const mode = d.orchestration ?? 'parallel'
+    const prompt = buildAgentPrompt(d)
+    const durationMs =
+      (runtime.completedAt ?? 0) - (runtime.startedAt ?? 0)
+    const tokens = runtime.steps.reduce((acc, s) => acc + s.tokenUsage.total, 0)
+    const retryCount = runtime.steps.length > 0
+      ? runtime.steps[runtime.steps.length - 1]!.attempt - 1
+      : 0
+    const success = d.status === 'completed'
+
+    // 跳过 not_implemented(从未真正执行)
+    if (d.result && (d.result.includes('暂未支持') || d.result.includes('暂未集成'))) {
+      return
+    }
+
+    const record: AgentEvolutionRecord = {
+      dispatchId: id,
+      agentRole: role,
+      taskDescription: d.goal,
+      systemPrompt: prompt,
+      result: (d.result ?? '').slice(0, 2000),
+      retryCount: Math.max(0, retryCount),
+      userFeedback: undefined,
+      success,
+      durationMs,
+      tokenUsage: tokens,
+      recordedAt: nowIso(),
+    }
+
+    // 内存缓存
+    if (!this._evolutionCache.has(role)) {
+      this._evolutionCache.set(role, [])
+    }
+    const cache = this._evolutionCache.get(role)!
+    cache.push(record)
+    if (cache.length > EVOLUTION_MAX_RECORDS) {
+      this._evolutionCache.set(role, cache.slice(-EVOLUTION_MAX_RECORDS))
+    }
+
+    // Redis 持久化(降级安全)
+    if (this.redisClient) {
+      try {
+        await this.redisClient.lpush(
+          `${REDIS_KEY_EVOLUTION}${role}`,
+          JSON.stringify(record),
+        )
+        await this.redisClient.ltrim(
+          `${REDIS_KEY_EVOLUTION}${role}`,
+          0,
+          EVOLUTION_MAX_RECORDS - 1,
+        )
+      } catch {
+        // Redis 不可用 → 内存降级
+      }
+    }
+
+    // 拓扑统计
+    await this._updateTopologyStats(mode, success, durationMs, tokens)
+  }
+
+  /** 更新拓扑统计(成功率/耗时/成本) */
+  private async _updateTopologyStats(
+    mode: OrchestrationMode,
+    success: boolean,
+    durationMs: number,
+    tokens: number,
+  ): Promise<void> {
+    const cost = Math.round(tokens * COST_PER_TOKEN_USD * 1e6) / 1e6
+    // 内存优先
+    const existing = this._topologyStatsCache.get(mode) ?? {
+      orchestration: mode,
+      totalAttempts: 0,
+      successCount: 0,
+      failedCount: 0,
+      avgDurationMs: 0,
+      avgTokens: 0,
+      avgCost: 0,
+      updatedAt: nowIso(),
+    }
+    existing.totalAttempts++
+    if (success) existing.successCount++
+    else existing.failedCount++
+    existing.avgDurationMs = Math.round(
+      (existing.avgDurationMs * (existing.totalAttempts - 1) + durationMs) / existing.totalAttempts,
+    )
+    existing.avgTokens = Math.round(
+      (existing.avgTokens * (existing.totalAttempts - 1) + tokens) / existing.totalAttempts,
+    )
+    existing.avgCost = Math.round(
+      (existing.avgCost * (existing.totalAttempts - 1) + cost) / existing.totalAttempts * 1e6,
+    ) / 1e6
+    existing.updatedAt = nowIso()
+    this._topologyStatsCache.set(mode, existing)
+
+    if (this.redisClient) {
+      try {
+        await this.redisClient.hset(
+          REDIS_KEY_TOPOLOGY_STATS,
+          mode,
+          JSON.stringify(existing),
+        )
+      } catch {
+        // Redis 不可用 → 内存降级
+      }
+    }
+  }
+
+  /** 获取演化跟踪记录(内存 + Redis 合并) */
+  async getEvolutionRecords(role: string): Promise<AgentEvolutionRecord[]> {
+    // 内存优先
+    const memRecords = this._evolutionCache.get(role) ?? []
+    if (memRecords.length > 0) return memRecords
+    // Redis 补充
+    if (this.redisClient) {
+      try {
+        const raw = await this.redisClient.lrange(`${REDIS_KEY_EVOLUTION}${role}`, 0, EVOLUTION_MAX_RECORDS - 1)
+        const records: AgentEvolutionRecord[] = []
+        for (const item of raw) {
+          try {
+            records.push(JSON.parse(item) as AgentEvolutionRecord)
+          } catch {
+            // 跳过损坏记录
+          }
+        }
+        this._evolutionCache.set(role, records)
+        return records
+      } catch {
+        // Redis 不可用
+      }
+    }
+    return []
+  }
+
+  /** 获取演化历史(版本列表 + 最近记录) */
+  async getEvolutionHistory(role: string): Promise<EvolutionHistory> {
+    const records = await this.getEvolutionRecords(role)
+    const versions = await this._getEvolutionVersions(role)
+    const currentPrompt = versions.length > 0
+      ? versions[versions.length - 1]!.prompt
+      : DEFAULT_ROLE_PROMPTS[role as SubagentRole] ?? `你是一名 ${role}。`
+    return {
+      agentRole: role,
+      currentPrompt,
+      versions,
+      recentRecords: records.slice(0, 10),
+    }
+  }
+
+  /** 获取演化版本列表(从 Redis hash) */
+  private async _getEvolutionVersions(role: string): Promise<EvolutionVersion[]> {
+    // 内存优先
+    const memVersions = this._evolutionVersionsCache.get(role) ?? []
+    if (memVersions.length > 0) return memVersions
+    if (this.redisClient) {
+      try {
+        const raw = await this.redisClient.hgetall(`${REDIS_KEY_EVOLUTION_VERSIONS}${role}`)
+        const versions: EvolutionVersion[] = []
+        for (const [, json] of Object.entries(raw)) {
+          try {
+            versions.push(JSON.parse(json) as EvolutionVersion)
+          } catch {
+            // 跳过损坏版本
+          }
+        }
+        versions.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+        this._evolutionVersionsCache.set(role, versions)
+        return versions
+      } catch {
+        // Redis 不可用
+      }
+    }
+    return []
+  }
+
+  /**
+   * 触发 Agent prompt 演化分析(LLM 复盘)。
+   *
+   * 触发条件:最近 10 次任务中 retryCount > 1 或 userFeedback 为负。
+   * LLM 分析任务历史 + systemPrompt → 生成补丁建议。
+   * 补丁不自动应用,需用户确认后调 applyEvolution。
+   */
+  async evolveAgentPrompt(role: string): Promise<EvolutionAnalysis> {
+    const records = (await this.getEvolutionRecords(role)).slice(0, 10)
+    const analyzedAt = nowIso()
+
+    if (records.length === 0) {
+      return {
+        agentRole: role,
+        scannedRecords: 0,
+        needsEvolution: false,
+        patches: [],
+        summary: '无历史任务记录,无法分析',
+        analyzedAt,
+      }
+    }
+
+    // 判断是否需要演化
+    const needsEvolution = records.some(
+      (r) => r.retryCount > 1 || r.userFeedback === 'negative' || !r.success,
+    )
+
+    if (!needsEvolution) {
+      return {
+        agentRole: role,
+        scannedRecords: records.length,
+        needsEvolution: false,
+        patches: [],
+        summary: '最近任务表现良好,无需演化',
+        analyzedAt,
+      }
+    }
+
+    const versions = await this._getEvolutionVersions(role)
+    const currentPrompt = versions.length > 0
+      ? versions[versions.length - 1]!.prompt
+      : DEFAULT_ROLE_PROMPTS[role as SubagentRole] ?? `你是一名 ${role}。`
+
+    // 构造 LLM 分析 prompt
+    const analysisPrompt = [
+      '你是一名 AI agent prompt 优化专家。分析以下 agent 的任务执行历史,识别 systemPrompt 中导致走偏或重试的表述,生成 prompt 补丁建议。',
+      '',
+      '## 当前 systemPrompt',
+      currentPrompt,
+      '',
+      '## 最近任务执行记录',
+      ...records.map((r, i) => [
+        `### 任务 ${i + 1}`,
+        `- 任务描述: ${r.taskDescription}`,
+        `- 是否成功: ${r.success}`,
+        `- 重试次数: ${r.retryCount}`,
+        `- 用户反馈: ${r.userFeedback ?? '无'}`,
+        `- 执行结果(摘要): ${r.result.slice(0, 300)}`,
+      ].join('\n')),
+      '',
+      '## 输出要求',
+      '请输出 JSON,格式为:',
+      '{"patches":[{"originalText":"待替换的原文片段","suggestedReplacement":"建议替换为","reason":"原因"}],"summary":"复盘摘要"}',
+      '注意:',
+      '1. originalText 必须是当前 systemPrompt 中实际存在的文本片段',
+      '2. suggestedReplacement 应该更精确、更具指导性',
+      '3. 如果没有需要修改的地方,返回 {"patches":[],"summary":"prompt 已较完善"}',
+    ].join('\n')
+
+    const llmRaw = await callAiServiceAnalyze(analysisPrompt)
+    const parsed = parseLlmJson<{ patches: PromptPatch[]; summary: string }>(llmRaw)
+
+    const patches = parsed?.patches ?? []
+    const summary = parsed?.summary ?? (llmRaw ? 'LLM 分析完成但未返回结构化结果' : 'ai-service 不可用,无法完成 LLM 分析')
+
+    return {
+      agentRole: role,
+      scannedRecords: records.length,
+      needsEvolution: patches.length > 0,
+      patches,
+      summary,
+      analyzedAt,
+    }
+  }
+
+  /**
+   * 应用 prompt 补丁(用户确认后调用)。
+   *
+   * 生成新版本 EvolutionVersion,写入 Redis hash。
+   */
+  async applyEvolution(role: string, patches: PromptPatch[]): Promise<EvolutionVersion> {
+    const versions = await this._getEvolutionVersions(role)
+    const currentPrompt = versions.length > 0
+      ? versions[versions.length - 1]!.prompt
+      : DEFAULT_ROLE_PROMPTS[role as SubagentRole] ?? `你是一名 ${role}。`
+
+    // 应用补丁(文本替换)
+    let newPrompt = currentPrompt
+    for (const patch of patches) {
+      if (patch.originalText && newPrompt.includes(patch.originalText)) {
+        newPrompt = newPrompt.replace(patch.originalText, patch.suggestedReplacement)
+      }
+    }
+
+    const versionNum = versions.length + 1
+    const version: EvolutionVersion = {
+      version: `v${versionNum}`,
+      prompt: newPrompt,
+      changes: patches,
+      createdAt: nowIso(),
+    }
+
+    // 内存缓存
+    const newVersions = [...versions, version]
+    this._evolutionVersionsCache.set(role, newVersions)
+
+    // Redis 持久化
+    if (this.redisClient) {
+      try {
+        await this.redisClient.hset(
+          `${REDIS_KEY_EVOLUTION_VERSIONS}${role}`,
+          version.version,
+          JSON.stringify(version),
+        )
+      } catch {
+        // Redis 不可用 → 内存降级
+      }
+    }
+
+    return version
+  }
+
+  /** 记录用户反馈(用于演化跟踪) */
+  async recordUserFeedback(dispatchId: string, feedback: UserFeedback): Promise<boolean> {
+    const runtime = this.runtimes.get(dispatchId)
+    if (!runtime) return false
+    const role = String(runtime.dispatch.agentRole ?? 'coder')
+    const records = this._evolutionCache.get(role) ?? []
+    // 找到对应 dispatchId 的记录并更新
+    const record = records.find((r) => r.dispatchId === dispatchId)
+    if (record) {
+      record.userFeedback = feedback
+    }
+    return true
+  }
+
+  // ---------- 拓扑自优化:LLM 推荐编排 ----------
+
+  /** 获取所有编排模式的统计 */
+  async getAllTopologyStats(): Promise<TopologyStats[]> {
+    const result: TopologyStats[] = []
+    // 内存优先
+    for (const stats of this._topologyStatsCache.values()) {
+      result.push(stats)
+    }
+    // Redis 补充
+    if (this.redisClient && result.length === 0) {
+      try {
+        const raw = await this.redisClient.hgetall(REDIS_KEY_TOPOLOGY_STATS)
+        for (const [, json] of Object.entries(raw)) {
+          try {
+            result.push(JSON.parse(json) as TopologyStats)
+          } catch {
+            // 跳过损坏记录
+          }
+        }
+      } catch {
+        // Redis 不可用
+      }
+    }
+    return result
+  }
+
+  /**
+   * 拓扑自优化:LLM 根据任务推荐编排模式 + DAG 结构。
+   *
+   * 输入:任务描述 + 可用 agent 角色 + 历史编排效果
+   * 输出:AutoPlanResult(编排模式 + agent 组合 + DAG + 预估)
+   */
+  async autoPlan(request: AutoPlanRequest): Promise<AutoPlanResult> {
+    const customRoles = await this.listCustomRoles()
+    const availableRoles = [
+      ...ALL_ROLES,
+      ...customRoles.map((r) => r.role),
+    ]
+    const allStats = await this.getAllTopologyStats()
+    const statsSummary = allStats.length > 0
+      ? allStats.map((s) => `${s.orchestration}: 成功率 ${s.totalAttempts > 0 ? Math.round((s.successCount / s.totalAttempts) * 100) : 0}%(${s.totalAttempts} 次),平均 ${s.avgDurationMs}ms`).join('\n')
+      : '暂无历史数据'
+
+    const constraintsStr = request.constraints
+      ? `约束:最多 ${request.constraints.maxAgents ?? '不限'} 个 agent,最长 ${request.constraints.maxDuration ?? '不限'} ms`
+      : '无特殊约束'
+
+    const planPrompt = [
+      '你是一名 AI agent 编排架构师。根据任务描述,推荐最佳的编排模式和 agent 组合。',
+      '',
+      '## 任务描述',
+      request.task,
+      '',
+      '## 约束',
+      constraintsStr,
+      '',
+      '## 可用 agent 角色',
+      availableRoles.join(', '),
+      '',
+      '## 历史编排统计(参考)',
+      statsSummary,
+      '',
+      '## 编排模式说明',
+      '- pipeline:串行传递结果(适合有严格顺序的流水线)',
+      '- parallel:并行处理(适合独立子任务)',
+      '- debate:多 agent 辩论 + 仲裁(适合需要多视角的决策)',
+      '- vote:多 agent 投票(适合需要民主决策)',
+      '- critique:多 agent 互相批判优化(适合需要高质量产出)',
+      '- decomposed:任务分解为 DAG(适合复杂多步骤任务)',
+      '- with_communication:agent 间通信协作(适合需要信息共享的任务)',
+      '',
+      '## 输出要求',
+      '请输出 JSON,格式为:',
+      '{"orchestration":"pipeline","agents":[{"role":"architect","task":"设计架构","depends_on":[]},{"role":"coder","task":"实现代码","depends_on":["architect"]}],"estimatedDuration":"15分钟","estimatedCost":"$0.05","reasoning":"推理过程"}',
+      '注意:',
+      '1. orchestration 必须是上述 7 种之一',
+      '2. agents 数组中 depends_on 引用的是同数组中其他 agent 的 role',
+      '3. 推理过程应参考历史统计(如有)',
+    ].join('\n')
+
+    const llmRaw = await callAiServiceAnalyze(planPrompt)
+    const parsed = parseLlmJson<Omit<AutoPlanResult, 'topologyStats' | 'generatedAt'>>(llmRaw)
+
+    const fallback: AutoPlanResult = {
+      orchestration: 'parallel',
+      agents: [{ role: 'coder', task: request.task, depends_on: [] }],
+      estimatedDuration: '未知',
+      estimatedCost: '未知',
+      reasoning: llmRaw ? 'LLM 返回格式异常,已降级为默认方案' : 'ai-service 不可用,已降级为默认方案',
+      topologyStats: allStats.map((s) => ({
+        orchestration: s.orchestration,
+        successRate: s.totalAttempts > 0 ? s.successCount / s.totalAttempts : 0,
+        sampleSize: s.totalAttempts,
+      })),
+      generatedAt: nowIso(),
+    }
+
+    if (!parsed) return fallback
+
+    return {
+      ...parsed,
+      topologyStats: allStats.map((s) => ({
+        orchestration: s.orchestration,
+        successRate: s.totalAttempts > 0 ? s.successCount / s.totalAttempts : 0,
+        sampleSize: s.totalAttempts,
+      })),
+      generatedAt: nowIso(),
+    }
+  }
+
+  // ---------- 角色自动生成 ----------
+
+  /** 列出所有自定义角色 */
+  async listCustomRoles(): Promise<CustomRole[]> {
+    // 内存优先
+    if (this._customRolesCache.length > 0) return this._customRolesCache
+    // Redis 补充
+    if (this.redisClient) {
+      try {
+        const raw = await this.redisClient.hgetall(REDIS_KEY_CUSTOM_ROLES)
+        const roles: CustomRole[] = []
+        for (const [, json] of Object.entries(raw)) {
+          try {
+            roles.push(JSON.parse(json) as CustomRole)
+          } catch {
+            // 跳过损坏记录
+          }
+        }
+        roles.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+        this._customRolesCache = roles
+        return roles
+      } catch {
+        // Redis 不可用
+      }
+    }
+    return []
+  }
+
+  /** 创建自定义角色 */
+  async createCustomRole(input: CustomRoleInput): Promise<CustomRole> {
+    const id = `role-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    const role: CustomRole = {
+      id,
+      role: input.role,
+      displayName: input.displayName,
+      systemPrompt: input.systemPrompt,
+      skills: input.skills ?? [],
+      recommendedTasks: input.recommendedTasks ?? [],
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    }
+    this._customRolesCache = [...this._customRolesCache, role]
+    if (this.redisClient) {
+      try {
+        await this.redisClient.hset(REDIS_KEY_CUSTOM_ROLES, id, JSON.stringify(role))
+      } catch {
+        // Redis 不可用 → 内存降级
+      }
+    }
+    return role
+  }
+
+  /** 更新自定义角色 */
+  async updateCustomRole(id: string, input: Partial<CustomRoleInput>): Promise<CustomRole | null> {
+    const idx = this._customRolesCache.findIndex((r) => r.id === id)
+    let role: CustomRole | null = null
+    if (idx >= 0) {
+      role = {
+        ...this._customRolesCache[idx]!,
+        ...input,
+        updatedAt: nowIso(),
+      }
+      this._customRolesCache[idx] = role
+    } else if (this.redisClient) {
+      try {
+        const raw = await this.redisClient.hget(REDIS_KEY_CUSTOM_ROLES, id)
+        if (raw) {
+          const existing = JSON.parse(raw) as CustomRole
+          role = { ...existing, ...input, updatedAt: nowIso() }
+        }
+      } catch {
+        // Redis 不可用
+      }
+    }
+    if (!role) return null
+    if (this.redisClient) {
+      try {
+        await this.redisClient.hset(REDIS_KEY_CUSTOM_ROLES, id, JSON.stringify(role))
+      } catch {
+        // Redis 不可用
+      }
+    }
+    return role
+  }
+
+  /** 删除自定义角色 */
+  async deleteCustomRole(id: string): Promise<boolean> {
+    const idx = this._customRolesCache.findIndex((r) => r.id === id)
+    if (idx >= 0) {
+      this._customRolesCache.splice(idx, 1)
+    }
+    if (this.redisClient) {
+      try {
+        await this.redisClient.hdel(REDIS_KEY_CUSTOM_ROLES, id)
+      } catch {
+        // Redis 不可用
+      }
+    }
+    return true
+  }
+
+  /**
+   * LLM 根据任务自动生成定制角色(超越固定 5 角色)。
+   */
+  async autoGenerateRole(request: AutoGenerateRoleRequest): Promise<AutoGeneratedRole> {
+    const existingRoles = request.existingRoles ?? [...ALL_ROLES]
+    const genPrompt = [
+      '你是一名 AI agent 角色设计专家。根据任务描述,生成一个定制化的 agent 角色(超越通用的 researcher/coder/reviewer/architect/debugger)。',
+      '',
+      '## 任务描述',
+      request.task,
+      '',
+      '## 已有角色(避免重复)',
+      existingRoles.join(', '),
+      '',
+      '## 输出要求',
+      '请输出 JSON,格式为:',
+      '{"role":"drizzle-migration-expert","displayName":"Drizzle 迁移专家","systemPrompt":"你擅长 Drizzle ORM schema 迁移...","skills":["drizzle","postgresql","migration"],"recommendedTasks":["schema 变更","数据迁移"],"reasoning":"推理过程"}',
+      '注意:',
+      '1. role 用 kebab-case 英文,简洁专业',
+      '2. displayName 用中文,简洁',
+      '3. systemPrompt 应包含角色定位 + 核心能力 + 行为约束',
+      '4. skills 是技术标签数组',
+      '5. recommendedTasks 是推荐任务类型数组',
+    ].join('\n')
+
+    const llmRaw = await callAiServiceAnalyze(genPrompt)
+    const parsed = parseLlmJson<AutoGeneratedRole>(llmRaw)
+
+    const fallback: AutoGeneratedRole = {
+      role: 'custom-expert',
+      displayName: '定制专家',
+      systemPrompt: `你是一名擅长处理以下任务的专家:${request.task}`,
+      skills: [],
+      recommendedTasks: [],
+      reasoning: llmRaw ? 'LLM 返回格式异常,已降级为默认角色' : 'ai-service 不可用,已降级为默认角色',
+    }
+
+    return parsed ?? fallback
+  }
+
+  // ---------- 协作协议增强 ----------
+
+  /**
+   * 记录协作消息(扩展 with_communication)。
+   *
+   * 支持 9 种协作类型:question/answer/result + request_help/propose_plan/object/accept/delegate/share_context
+   */
+  async recordCollaboration(
+    dispatchId: string,
+    msg: Omit<CollaborationMessage, 'timestamp' | 'round'>,
+  ): Promise<CollaborationMessage> {
+    const runtime = this.runtimes.get(dispatchId)
+    const fullMsg: CollaborationMessage = {
+      ...msg,
+      timestamp: nowIso(),
+      round: runtime?.messages.length ?? 0,
+      collaborationType: msg.collaborationType,
+    }
+    // 内存缓存
+    if (runtime) {
+      runtime.messages.push(fullMsg as unknown as CommunicationMessage)
+    }
+    if (!this._collaborationCache.has(dispatchId)) {
+      this._collaborationCache.set(dispatchId, [])
+    }
+    this._collaborationCache.get(dispatchId)!.push(fullMsg)
+    // Redis 持久化
+    if (this.redisClient) {
+      try {
+        await this.redisClient.lpush(
+          `${REDIS_KEY_COLLABORATION}${dispatchId}`,
+          JSON.stringify(fullMsg),
+        )
+      } catch {
+        // Redis 不可用 → 内存降级
+      }
+    }
+    return fullMsg
+  }
+
+  /** 获取协作记录(消息流 + 关系图 + 协调者介入) */
+  async getCollaboration(dispatchId: string): Promise<CollaborationRecord | null> {
+    // 内存优先
+    let messages = this._collaborationCache.get(dispatchId) ?? []
+    // with_communication 的 runtime.messages 也有数据
+    if (messages.length === 0) {
+      const runtime = this.runtimes.get(dispatchId)
+      if (runtime && runtime.messages.length > 0) {
+        messages = runtime.messages.map((m) => ({
+          ...m,
+          collaborationType: (m as unknown as CollaborationMessage).collaborationType ?? 'result',
+        }))
+      }
+    }
+    // Redis 补充
+    if (messages.length === 0 && this.redisClient) {
+      try {
+        const raw = await this.redisClient.lrange(`${REDIS_KEY_COLLABORATION}${dispatchId}`, 0, -1)
+        for (const item of raw) {
+          try {
+            messages.push(JSON.parse(item) as CollaborationMessage)
+          } catch {
+            // 跳过损坏记录
+          }
+        }
+      } catch {
+        // Redis 不可用
+      }
+    }
+
+    if (messages.length === 0) return null
+
+    // 推导协作关系图
+    const relationMap = new Map<string, { from: string; to: string; count: number; types: Set<CollaborationMessageType> }>()
+    for (const msg of messages) {
+      const key = `${msg.from}->${msg.to}`
+      const existing = relationMap.get(key)
+      if (existing) {
+        existing.count++
+        existing.types.add(msg.collaborationType)
+      } else {
+        relationMap.set(key, {
+          from: msg.from,
+          to: msg.to,
+          count: 1,
+          types: new Set([msg.collaborationType]),
+        })
+      }
+    }
+
+    // 协调者介入 = request_help + delegate 消息数
+    const coordinatorInterventions = messages.filter(
+      (m) => m.collaborationType === 'request_help' || m.collaborationType === 'delegate',
+    ).length
+
+    const rounds = messages.length > 0
+      ? Math.max(...messages.map((m) => m.round)) + 1
+      : 0
+
+    return {
+      dispatchId,
+      messages: messages.sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+      rounds,
+      relations: Array.from(relationMap.values()).map((r) => ({
+        from: r.from,
+        to: r.to,
+        count: r.count,
+        types: Array.from(r.types),
+      })),
+      coordinatorInterventions,
+    }
   }
 }
 

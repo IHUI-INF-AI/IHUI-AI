@@ -18,13 +18,15 @@ const localeOptions: { value: Locale; labelKey: string }[] = [
 export default function SettingsPage() {
   const { onLogout } = useOutletContext<Ctx>()
   const { locale, setLocale, t } = useI18n()
+  // 深色模式切换:用 `.dark` class,与 web 端 globals.css 的 `@custom-variant dark` 机制一致。
+  // 旧代码用 `data-theme` 属性,但 CSS 无规则响应,是 no-op BUG。
   const [dark, setDark] = useState(
-    typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches,
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
   )
 
   const onToggleTheme = (v: boolean) => {
     setDark(v)
-    document.documentElement.dataset.theme = v ? 'dark' : 'light'
+    document.documentElement.classList.toggle('dark', v)
   }
 
   return (

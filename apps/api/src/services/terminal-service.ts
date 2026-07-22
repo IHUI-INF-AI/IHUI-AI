@@ -21,14 +21,27 @@
 
 import { createRequire } from 'node:module'
 import { randomUUID } from 'node:crypto'
+import { execFile } from 'node:child_process'
+import type { FastifyRequest } from 'fastify'
 import IORedis from 'ioredis'
 import { config } from '../config/index.js'
+import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import type {
   TerminalSession,
   TerminalSessionStatus,
   TerminalConnectKind,
   TerminalSshParams,
   TerminalHistorySession,
+  TerminalSuggestInput,
+  TerminalSuggestResponse,
+  TerminalDiagnoseInput,
+  TerminalDiagnoseResponse,
+  TerminalAutoFixInput,
+  TerminalAutoFixResponse,
+  TerminalEvent,
+  TerminalRecording,
+  TerminalRecordingListItem,
+  TerminalHistoryEntry,
 } from '@ihui/types'
 
 /**
@@ -128,6 +141,16 @@ interface PTYEntry {
   scrollbackTimer: ReturnType<typeof setInterval> | null
   /** 已 flush 总字节数(监控用) */
   scrollbackBytes: number
+  /** 当前录制 ID(null=未录制) */
+  recordingId: string | null
+  /** 命令累积缓冲(仅含可打印字符,用于历史记录 + /suggest 上下文) */
+  commandBuffer: string
+  /** 命令是否被转义序列污染(箭头键/Ctrl+C 等),污染时本次不记录 */
+  commandTainted: boolean
+  /** 最近一条完整命令(/suggest /diagnose 上下文) */
+  lastCommand: string
+  /** 最近一次退出码(/suggest 上下文,由前端 recordHistory 更新) */
+  lastExitCode: number
 }
 
 /** 单用户最大并发终端数 */
@@ -334,7 +357,7 @@ function unregisterUserSession(userId: string, sessionId: string): void {
 
 // ==================== PTY 数据流统一处理 ====================
 
-/** 统一处理 PTY/SSH 输出:转发监听器 + 累积 scrollback 缓冲 */
+/** 统一处理 PTY/SSH 输出:转发监听器 + 累积 scrollback 缓冲 + 录制 output 事件 */
 function handlePtyData(entry: PTYEntry, data: string): void {
   entry.lastActivityAt = Date.now()
   // 1. 转发到所有 WS 监听器
@@ -352,6 +375,14 @@ function handlePtyData(entry: PTYEntry, data: string): void {
     entry.scrollbackTimer = setInterval(() => {
       flushScrollback(entry)
     }, SCROLLBACK_FLUSH_INTERVAL_MS)
+  }
+  // 3. 若正在录制,追加 output 事件
+  if (entry.recordingId) {
+    appendRecordingEvent(entry.recordingId, {
+      type: 'output',
+      data,
+      timestamp: Date.now() - getRecordingStartedAt(entry.recordingId),
+    })
   }
 }
 
@@ -471,6 +502,11 @@ function registerLocalSession(
     scrollbackBuffer: '',
     scrollbackTimer: null,
     scrollbackBytes: 0,
+    recordingId: null,
+    commandBuffer: '',
+    commandTainted: false,
+    lastCommand: '',
+    lastExitCode: 0,
   }
 
   // 本地 PTY 输出 → 统一数据流处理(转发 + scrollback 累积)
@@ -551,6 +587,11 @@ function createSshSession(
     scrollbackBuffer: '',
     scrollbackTimer: null,
     scrollbackBytes: 0,
+    recordingId: null,
+    commandBuffer: '',
+    commandTainted: false,
+    lastCommand: '',
+    lastExitCode: 0,
   }
 
   // 启动 SSH 连接(异步,ready 后才有 stream)
@@ -722,7 +763,7 @@ export function resizeSession(
   }
 }
 
-/** 关闭/杀死 PTY/SSH 会话(清理 SSH client + flush scrollback) */
+/** 关闭/杀死 PTY/SSH 会话(清理 SSH client + flush scrollback + 持久化活动录制) */
 export function closeSession(sessionId: string, userId: string): boolean {
   const entry = getSession(sessionId, userId)
   if (!entry) return false
@@ -732,6 +773,12 @@ export function closeSession(sessionId: string, userId: string): boolean {
     entry.scrollbackTimer = null
   }
   flushScrollback(entry)
+  // 若正在录制,停止并持久化(防止录制丢失)
+  if (entry.recordingId) {
+    const rid = entry.recordingId
+    entry.recordingId = null
+    void persistRecording(rid)
+  }
   // 关闭 SSH client(若有)
   if (entry.sshClient) {
     try {
@@ -800,17 +847,74 @@ export function onExit(
   return () => entry.exitListeners.delete(cb)
 }
 
-/** 向 PTY/SSH 写入输入 */
+/** 向 PTY/SSH 写入输入(同时捕获录制 input 事件 + 检测命令完成用于 /suggest 上下文) */
 export function writeInput(sessionId: string, data: string): boolean {
   const entry = sessions.get(sessionId)
   if (!entry || entry.status !== 'active') return false
   try {
     entry.pty.write(data)
     entry.lastActivityAt = Date.now()
+    // 录制 input 事件(过滤敏感命令:含 password/secret/key/token 的整条 input 跳过)
+    if (entry.recordingId && !isSensitiveInput(data)) {
+      appendRecordingEvent(entry.recordingId, {
+        type: 'input',
+        data,
+        timestamp: Date.now() - getRecordingStartedAt(entry.recordingId),
+      })
+    }
+    // 命令完成检测:仅用于更新 entry.lastCommand(/suggest /diagnose 上下文)
+    const completed = detectCommandCompletion(entry, data)
+    if (completed) {
+      entry.lastCommand = completed
+    }
     return true
   } catch {
     return false
   }
+}
+
+/** 敏感输入检测:命令包含 password/secret/key/token/credential 时跳过录制 */
+function isSensitiveInput(data: string): boolean {
+  return /(?:password|passwd|secret|api[_-]?key|access[_-]?key|token|credential|private[_-]?key)\s*[:=]/i.test(data)
+}
+
+/**
+ * 命令完成检测:累积可打印字符,遇到 \r / \n 视为命令完成。
+ *
+ * 简化策略:
+ * - 可打印字符(0x20-0x7e)+ 非 ASCII(中文等)累积到 commandBuffer
+ * - 退格(0x7f)移除最后一个字符
+ * - 转义序列开头(0x1b,如箭头键/Ctrl+C)标记本次命令"被污染",完成时不记录
+ * - 遇到 \r / \n:若未污染且 buffer 非空,返回命令文本;重置状态
+ *
+ * 注意:此函数仅更新 entry.lastCommand 用于 AI 上下文,不持久化历史
+ * (历史持久化由前端 recordHistory 主动调用,携带可观测的 exitCode)
+ */
+function detectCommandCompletion(entry: PTYEntry, data: string): string | null {
+  let completed: string | null = null
+  for (const ch of data) {
+    const code = ch.charCodeAt(0)
+    if (ch === '\r' || ch === '\n') {
+      if (!entry.commandTainted) {
+        const cmd = entry.commandBuffer.trim()
+        if (cmd) completed = cmd
+      }
+      entry.commandBuffer = ''
+      entry.commandTainted = false
+    } else if (code === 0x7f) {
+      entry.commandBuffer = entry.commandBuffer.slice(0, -1)
+    } else if (code === 0x1b) {
+      // 转义序列:标记污染(箭头键导航历史会改变实际命令,buffer 不可靠)
+      entry.commandTainted = true
+    } else if (code >= 0x20 && code <= 0x7e) {
+      if (!entry.commandTainted) entry.commandBuffer += ch
+    } else if (code >= 0x80) {
+      // 非 ASCII(中文等)
+      if (!entry.commandTainted) entry.commandBuffer += ch
+    }
+    // 其他控制字符忽略
+  }
+  return completed
 }
 
 // ==================== 公共 API:历史会话查询(REST 用) ====================
@@ -896,6 +1000,12 @@ export function killAllSessions(): void {
       entry.scrollbackTimer = null
     }
     flushScrollback(entry)
+    // 持久化活动录制
+    if (entry.recordingId) {
+      const rid = entry.recordingId
+      entry.recordingId = null
+      void persistRecording(rid)
+    }
     // 关闭 SSH client
     if (entry.sshClient) {
       try {

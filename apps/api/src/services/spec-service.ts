@@ -191,6 +191,108 @@ export interface SpecEnhanceResult {
 }
 
 // ---------------------------------------------------------------------------
+// 2026-07-23 超越 Copilot Workspace:全流程流水线 / 影响分析 / 版本树 / 智能生成
+// ---------------------------------------------------------------------------
+
+/** 流水线单阶段状态 */
+export interface SpecPipelineStage {
+  name: string
+  status: 'pending' | 'running' | 'success' | 'failed' | 'skipped'
+  log: string
+  startedAt: string | null
+  finishedAt: string | null
+}
+
+/** POST /spec/full-pipeline 响应 data 字段 */
+export interface SpecFullPipelineResult {
+  specId: string
+  stages: SpecPipelineStage[]
+  success: boolean
+  rollbacked: boolean
+  backupDir: string
+}
+
+/** GET /spec/pipeline-status 响应 data 字段(含执行日志) */
+export interface SpecPipelineStatusResult extends SpecFullPipelineResult {
+  /** 执行日志(按时间正序) */
+  logs?: string[]
+  /** 是否曾执行过 */
+  ran?: boolean
+}
+
+/** POST /spec/pipeline-rollback 响应 data 字段 */
+export interface SpecPipelineRollbackResult {
+  restored: number
+  failed: string[]
+  backupDir: string
+  error?: string
+}
+
+/** POST /spec/impact-analysis 响应 data 字段 */
+export interface SpecImpactAnalysisResult {
+  affectedFiles: string[]
+  affectedTests: string[]
+  downstreamSpecs: string[]
+  riskLevel: 'low' | 'medium' | 'high'
+  riskFactors: string[]
+  recommendation: string
+  llmSummary: string
+  /** LLM 不可用时为 true(降级扫描) */
+  fallback: boolean
+}
+
+/** Spec 分支元数据 */
+export interface SpecBranch {
+  name: string
+  baseVersion: string
+  currentVersion: string
+  createdAt: string
+  status: 'active' | 'merged' | 'abandoned'
+  filePath?: string
+  mergedAt?: string
+  abandonedAt?: string
+}
+
+/** GET /spec/branches 响应 data 字段 */
+export interface SpecBranchesResult {
+  branches: SpecBranch[]
+}
+
+/** POST /spec/branch/merge 响应 data 字段 */
+export interface SpecBranchMergeResult {
+  merged: boolean
+  conflicts: string[]
+  mergedContent: string
+  branchName: string
+  error?: string
+}
+
+/** POST /spec/branch/abandon 响应 data 字段 */
+export interface SpecBranchAbandonResult {
+  branchName: string
+  status: string
+  error?: string
+}
+
+/** GET /spec/branch/diff 响应 data 字段 */
+export interface SpecBranchDiffResult {
+  diff: string
+  addedLines: number
+  removedLines: number
+  branchName: string
+  error?: string
+}
+
+/** POST /spec/generate-from-requirement 响应 data 字段 */
+export interface SpecGenerateFromRequirementResult {
+  spec: string
+  format: string
+  requirement: string
+  error?: string
+  message?: string
+}
+
+// ---------------------------------------------------------------------------
 // 工具函数
 // ---------------------------------------------------------------------------
 
@@ -762,6 +864,239 @@ class SpecService {
     const json = (await resp.json()) as AiServiceResponse<SpecEnhanceResult>
     if (json.code !== 0 || !json.data) {
       throw new Error(json.message || 'spec 增强失败')
+    }
+    return json.data
+  }
+
+  // -------------------------------------------------------------------------
+  // 2026-07-23 超越 Copilot Workspace:全流程流水线 / 影响分析 / 版本树 / 智能生成
+  // -------------------------------------------------------------------------
+
+  /** POST /spec/full-pipeline — Spec 驱动开发全流程闭环(apply→patch→typecheck→test→commit) */
+  async runFullPipeline(
+    request: FastifyRequest,
+    input: {
+      scope: SpecScope
+      workspacePath: string
+      newSpec: string
+      autoCommit?: boolean
+    },
+  ): Promise<SpecFullPipelineResult> {
+    // 流水线含 typecheck/test 子进程,超时放宽到 10 分钟
+    const resp = await aiServiceFetch(request, '/api/spec/full-pipeline', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scope: input.scope,
+        workspacePath: input.workspacePath,
+        newSpec: input.newSpec,
+        autoCommit: input.autoCommit ?? false,
+      }),
+      signal: AbortSignal.timeout(600_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecFullPipelineResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || '全流程执行失败')
+    }
+    return json.data
+  }
+
+  /** GET /spec/pipeline-status — 获取流水线执行状态 */
+  async getPipelineStatus(
+    request: FastifyRequest,
+    workspacePath: string,
+    scope: SpecScope,
+  ): Promise<SpecPipelineStatusResult> {
+    const params = new URLSearchParams({
+      workspacePath,
+      scopeType: scope.type,
+    })
+    if (scope.path) params.set('scopePath', scope.path)
+    const resp = await aiServiceFetch(
+      request,
+      `/api/spec/pipeline-status?${params.toString()}`,
+      {
+        method: 'GET',
+        signal: AbortSignal.timeout(10_000),
+      },
+    )
+    const json = (await resp.json()) as AiServiceResponse<SpecPipelineStatusResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || '流水线状态获取失败')
+    }
+    return json.data
+  }
+
+  /** POST /spec/pipeline-rollback — 手动回滚到指定备份目录 */
+  async rollbackPipeline(
+    request: FastifyRequest,
+    workspacePath: string,
+    backupDir: string,
+  ): Promise<SpecPipelineRollbackResult> {
+    const resp = await aiServiceFetch(request, '/api/spec/pipeline-rollback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspacePath, backupDir }),
+      signal: AbortSignal.timeout(30_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecPipelineRollbackResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || '回滚失败')
+    }
+    return json.data
+  }
+
+  /** POST /spec/impact-analysis — Spec 影响分析(预测修改影响范围 + 风险评分) */
+  async analyzeImpact(
+    request: FastifyRequest,
+    input: { scope: SpecScope; workspacePath: string; proposedChanges: string },
+  ): Promise<SpecImpactAnalysisResult> {
+    const resp = await aiServiceFetch(request, '/api/spec/impact-analysis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(60_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecImpactAnalysisResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || '影响分析失败')
+    }
+    return json.data
+  }
+
+  /** POST /spec/branch — 创建 spec 分支(从指定版本 fork) */
+  async createBranch(
+    request: FastifyRequest,
+    input: {
+      scope: SpecScope
+      workspacePath: string
+      branchName: string
+      baseVersion?: string
+    },
+  ): Promise<SpecBranch> {
+    const resp = await aiServiceFetch(request, '/api/spec/branch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scope: input.scope,
+        workspacePath: input.workspacePath,
+        branchName: input.branchName,
+        baseVersion: input.baseVersion ?? 'latest',
+      }),
+      signal: AbortSignal.timeout(15_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecBranch>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || '创建分支失败')
+    }
+    return json.data
+  }
+
+  /** GET /spec/branches — 列出指定 spec 的所有分支 */
+  async listBranches(
+    request: FastifyRequest,
+    workspacePath: string,
+    scope: SpecScope,
+  ): Promise<SpecBranchesResult> {
+    const params = new URLSearchParams({
+      workspacePath,
+      scopeType: scope.type,
+    })
+    if (scope.path) params.set('scopePath', scope.path)
+    const resp = await aiServiceFetch(
+      request,
+      `/api/spec/branches?${params.toString()}`,
+      {
+        method: 'GET',
+        signal: AbortSignal.timeout(10_000),
+      },
+    )
+    const json = (await resp.json()) as AiServiceResponse<SpecBranchesResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || '分支列表获取失败')
+    }
+    return json.data
+  }
+
+  /** POST /spec/branch/merge — 合并分支(3-way merge) */
+  async mergeBranch(
+    request: FastifyRequest,
+    input: { scope: SpecScope; workspacePath: string; branchName: string },
+  ): Promise<SpecBranchMergeResult> {
+    const resp = await aiServiceFetch(request, '/api/spec/branch/merge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(60_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecBranchMergeResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || '合并分支失败')
+    }
+    return json.data
+  }
+
+  /** POST /spec/branch/abandon — 废弃分支 */
+  async abandonBranch(
+    request: FastifyRequest,
+    input: { scope: SpecScope; workspacePath: string; branchName: string },
+  ): Promise<SpecBranchAbandonResult> {
+    const resp = await aiServiceFetch(request, '/api/spec/branch/abandon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+      signal: AbortSignal.timeout(15_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecBranchAbandonResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || '废弃分支失败')
+    }
+    return json.data
+  }
+
+  /** GET /spec/branch/diff — 对比分支与主分支的差异 */
+  async diffBranch(
+    request: FastifyRequest,
+    workspacePath: string,
+    scope: SpecScope,
+    branchName: string,
+  ): Promise<SpecBranchDiffResult> {
+    const params = new URLSearchParams({
+      workspacePath,
+      branchName,
+      scopeType: scope.type,
+    })
+    if (scope.path) params.set('scopePath', scope.path)
+    const resp = await aiServiceFetch(
+      request,
+      `/api/spec/branch/diff?${params.toString()}`,
+      {
+        method: 'GET',
+        signal: AbortSignal.timeout(15_000),
+      },
+    )
+    const json = (await resp.json()) as AiServiceResponse<SpecBranchDiffResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || '分支 diff 失败')
+    }
+    return json.data
+  }
+
+  /** POST /spec/generate-from-requirement — 从需求文档/截图描述自动生成 spec 草稿 */
+  async generateFromRequirement(
+    request: FastifyRequest,
+    requirement: string,
+    format: string = 'text',
+  ): Promise<SpecGenerateFromRequirementResult> {
+    const resp = await aiServiceFetch(request, '/api/spec/generate-from-requirement', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requirement, format }),
+      signal: AbortSignal.timeout(60_000),
+    })
+    const json = (await resp.json()) as AiServiceResponse<SpecGenerateFromRequirementResult>
+    if (json.code !== 0 || !json.data) {
+      throw new Error(json.message || '智能生成失败')
     }
     return json.data
   }

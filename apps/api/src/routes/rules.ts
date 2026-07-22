@@ -9,7 +9,10 @@
  *  - GET    /api/rules/audit-log  审计日志(create/update/delete/test)
  *  - GET    /api/rules/resolved  Scope 继承链合并后的最终生效规则集
  *  - GET    /api/rules/stats     全局统计(总规则数/活跃规则/top 10)
- *  - POST   /api/rules/ab-test   A/B 测试(两条规则对同一输入分别应用)
+ *  - POST   /rules/ab-test   A/B 测试(两条规则对同一输入分别应用)
+ *  - POST   /rules/auto-generate       LLM 行为模式提炼候选规则(超越创新)
+ *  - POST   /rules/resolve-conflicts   LLM 仲裁冲突规则(超越创新)
+ *  - GET    /rules/knowledge-graph     规则关系图谱(超越创新)
  *  - GET    /api/rules/:id      获取单个规则
  *  - PATCH  /api/rules/:id      更新规则
  *  - DELETE /api/rules/:id      删除规则
@@ -88,6 +91,26 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
     ruleIdA: z.string().min(1),
     ruleIdB: z.string().min(1),
     message: z.string().min(1),
+  })
+
+  // ── 超越创新 schemas(2026-07-23)──
+  const ruleAutoGenerateSchema = z.object({
+    userId: z.string().optional(),
+  })
+
+  const ruleResolveConflictsSchema = z.object({
+    context: z.string().min(1),
+    conflictingRules: z.array(z.string().min(1)).min(2),
+  })
+
+  const rulePredictEffectSchema = z.object({
+    testPrompt: z.string().min(1),
+    context: z.string().optional(),
+  })
+
+  const ruleLearnFeedbackSchema = z.object({
+    feedback: z.enum(['helpful', 'unhelpful', 'harmful']),
+    context: z.string().optional(),
   })
 
   // GET /rules — 列出全部规则
@@ -198,6 +221,59 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
         parsed.data.ruleIdB,
         parsed.data.message,
       )
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
+
+  // ── 超越创新端点(2026-07-23,对标 Trae/Cursor Rules 超越)──────
+
+  // POST /rules/auto-generate — LLM 行为模式提炼候选规则
+  server.post('/rules/auto-generate', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = ruleAutoGenerateSchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const data = await rulesService.autoGenerateRules(parsed.data.userId)
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
+
+  // POST /rules/resolve-conflicts — LLM 仲裁冲突规则
+  server.post('/rules/resolve-conflicts', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = ruleResolveConflictsSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const data = await rulesService.resolveConflicts(
+        parsed.data.context,
+        parsed.data.conflictingRules,
+      )
+      return reply.send(success(data))
+    } catch (e) {
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
+  })
+
+  // GET /rules/knowledge-graph — 规则关系图谱(节点 + 边)
+  server.get('/rules/knowledge-graph', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    try {
+      const data = await rulesService.getKnowledgeGraph()
       return reply.send(success(data))
     } catch (e) {
       return reply.status(502).send(error(502, (e as Error).message))
@@ -380,6 +456,56 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
       if (!request.userId) return
       try {
         const data = await rulesService.getRuleStats(request.params.id)
+        return reply.send(success(data))
+      } catch (e) {
+        return reply.status(502).send(error(502, (e as Error).message))
+      }
+    },
+  )
+
+  // POST /rules/:id/predict-effect — dry-run 效果预测(应用 vs 不应用规则)
+  server.post<{ Params: { id: string } }>(
+    '/rules/:id/predict-effect',
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const parsed = rulePredictEffectSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      try {
+        const data = await rulesService.predictEffect(
+          request.params.id,
+          parsed.data.testPrompt,
+          parsed.data.context,
+        )
+        return reply.send(success(data))
+      } catch (e) {
+        return reply.status(502).send(error(502, (e as Error).message))
+      }
+    },
+  )
+
+  // POST /rules/:id/learn-feedback — 学习反馈(helpful/unhelpful/harmful)
+  server.post<{ Params: { id: string } }>(
+    '/rules/:id/learn-feedback',
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const parsed = ruleLearnFeedbackSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      try {
+        const data = await rulesService.recordLearnFeedback(
+          request.params.id,
+          parsed.data.feedback,
+          parsed.data.context,
+        )
         return reply.send(success(data))
       } catch (e) {
         return reply.status(502).send(error(502, (e as Error).message))

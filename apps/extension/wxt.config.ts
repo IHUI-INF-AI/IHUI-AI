@@ -1,7 +1,7 @@
 import { defineConfig } from 'wxt'
 
 export default defineConfig({
-  modules: ['@wxt-dev/module-react'],
+  modules: ['@wxt-dev/module-react', '@wxt-dev/module-tailwindcss'],
   manifest: {
     name: 'IHUI AI',
     description: 'IHUI AI 浏览器助手',

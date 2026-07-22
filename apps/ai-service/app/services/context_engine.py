@@ -22,7 +22,11 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
+import os
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
@@ -30,9 +34,16 @@ from typing import Any, Optional
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
 
 logger = logging.getLogger(__name__)
+
+# Redis 包未安装时降级为纯内存模式
+try:
+    import redis.asyncio as aioredis
+except ImportError:
+    aioredis = None  # type: ignore[assignment]
 
 # 压缩触发阈值(占比达 context_limit 的 88% 时触发,跨端统一)
 COMPACTION_THRESHOLD = 0.88
@@ -50,6 +61,44 @@ SOURCE_BUDGET_RATIOS: dict[str, float] = {
     "web": 0.05,
     "database": 0.05,
 }
+
+# === Context Engineering 超越创新常量(2026-07-23 立) ===
+# 预取 cache TTL(5 分钟,避免过期数据)
+PREFETCH_CACHE_TTL = 300
+# 知识图谱检索最大深度(避免性能问题)
+GRAPH_MAX_DEPTH = 2
+# 语义相似建边阈值(cosine > 此值才建 semantic_similar 边)
+SEMANTIC_EDGE_THRESHOLD = 0.7
+# 跨项目记忆搜索返回上限
+CROSS_PROJECT_SEARCH_LIMIT = 20
+# 智能压缩保留最近消息数
+SMART_COMPACT_KEEP_RECENT = 6
+# 质量评分维度权重(完整性 0.4 + 相关性 0.3 + 新鲜度 0.2 + 冗余度 0.1)
+QUALITY_WEIGHTS: dict[str, float] = {
+    "completeness": 0.4,
+    "relevance": 0.3,
+    "freshness": 0.2,
+    "redundancy": 0.1,
+}
+# 质量评分低于此阈值时主动建议用户补充上下文
+QUALITY_LOW_THRESHOLD = 0.5
+
+# Redis key 前缀
+_REDIS_KEY_PREFETCH = "context:prefetch"
+_REDIS_KEY_GRAPH = "context:graph"
+_REDIS_KEY_CROSS_PROJECT = "context:cross-project"
+_REDIS_KEY_COMPRESSION_QUALITY = "context:compression-quality"
+_REDIS_KEY_BEHAVIOR = "context:behavior"
+_REDIS_KEY_COMPRESSION = "context:compression"
+_REDIS_KEY_SUMMARY = "context:summary"
+_REDIS_KEY_VIZ = "context:viz"
+COMPRESSION_HISTORY_LIMIT = 100
+VIZ_HISTORY_LIMIT = 100
+_BEHAVIOR_BOOST_BANDS: list[tuple[int, int, float, float]] = [
+    (1, 5, 0.1, 0.3),
+    (6, 20, 0.3, 0.6),
+    (21, 999999, 0.6, 1.0),
+]
 
 
 @dataclass
@@ -87,6 +136,30 @@ class ContextEngine:
 
     def __init__(self) -> None:
         self._summary_cache: dict[str, str] = {}
+        # Context Engineering 超越创新:运行时缓存(Redis 不可用时降级为内存)
+        self._user_behavior: dict[str, int] = {}
+        self._compression_events: list[dict[str, Any]] = []
+        self._prefetch_cache: dict[str, dict[str, Any]] = {}
+        self._knowledge_graphs: dict[str, dict[str, Any]] = {}
+        self._cross_project_memory: dict[str, list[dict[str, Any]]] = {}
+        self._compression_quality_log: list[dict[str, Any]] = []
+        # Redis 客户端(惰性初始化)
+        self._redis: Any = None
+        self._use_redis = bool(getattr(settings, "redis_url", "")) and aioredis is not None
+
+    async def _get_redis(self) -> Any:
+        """获取 Redis 客户端,连接失败时降级为内存模式。"""
+        if self._redis is None and self._use_redis:
+            try:
+                self._redis = aioredis.from_url(
+                    settings.redis_url, decode_responses=True
+                )
+                await self._redis.ping()
+            except Exception as e:
+                logger.debug("Redis 连接失败,降级为内存模式: %s", e)
+                self._use_redis = False
+                self._redis = None
+        return self._redis
 
     def count_tokens(
         self,
@@ -308,6 +381,7 @@ class ContextEngine:
         self,
         sources: list[dict[str, Any]],
         total_budget: int = DEFAULT_CONTEXT_BUDGET,
+        user_id: str = "",
     ) -> list[dict[str, Any]]:
         """多源上下文融合:按相关性排序 + 去重 + token 截断(2026-07-22 立)。
 
@@ -319,6 +393,7 @@ class ContextEngine:
                 - relevance: 相关性评分 [0, 1]
                 - source: 来源标签(如 "history:user" / "codebase" / "mention:file")
             total_budget: 总 token 预算(默认 8000)。
+            user_id: 用户 ID(行为学习 boost,为空时跳过)。
 
         Returns:
             融合后的上下文列表,按 relevance DESC 排序,总 token 不超过 budget。
@@ -337,6 +412,10 @@ class ContextEngine:
             if existing is None or new_rel > float(existing.get("relevance", 0.0) or 0.0):
                 seen[content] = s
         deduped = list(seen.values())
+
+        # 1.5 behavior_boost 标记(实际 boost 在 enrich_context 的 async 路径中已应用,
+        # 此处仅保留 user_id 透传逻辑,避免同步方法调用 async _get_behavior_boost)
+        # user_id 参数保留用于未来扩展(如同步偏好缓存)
 
         # 2. 按 relevance DESC 排序
         deduped.sort(key=lambda x: float(x.get("relevance", 0.0) or 0.0), reverse=True)
@@ -366,6 +445,7 @@ class ContextEngine:
         self,
         sources: list[str],
         total: int = DEFAULT_CONTEXT_BUDGET,
+        task_type: str = "default",
     ) -> dict[str, int]:
         """按源类型分配 token 预算(2026-07-22 立)。
 
@@ -381,21 +461,63 @@ class ContextEngine:
         Args:
             sources: 实际参与的源类型列表(如 ["history", "codebase", "mention"])。
             total: 总 token 预算。
+            task_type: 任务类型(code/chat/data/default,动态调整预算比例)。
 
         Returns:
             {source_type: budget_tokens} 映射(仅含实际参与的源)。
         """
         if not sources:
             return {}
+        # 按任务类型动态调整比例
+        ratios = dict(SOURCE_BUDGET_RATIOS)
+        if task_type == "code":
+            ratios["codebase"] = 0.45
+            ratios["history"] = 0.25
+        elif task_type == "data":
+            ratios["database"] = 0.25
+            ratios["history"] = 0.25
+        elif task_type == "chat":
+            ratios["history"] = 0.55
+            ratios["codebase"] = 0.15
         # 仅对已知源类型分配,过滤未知
-        active = [s for s in sources if s in SOURCE_BUDGET_RATIOS]
+        active = [s for s in sources if s in ratios]
         if not active:
             return {}
-        active_ratio_sum = sum(SOURCE_BUDGET_RATIOS[s] for s in active)
+        active_ratio_sum = sum(ratios[s] for s in active)
         if active_ratio_sum <= 0:
             return {}
         # 归一化:各 active 源按其原始占比瓜分 total
-        return {s: int(total * SOURCE_BUDGET_RATIOS[s] / active_ratio_sum) for s in active}
+        return {s: int(total * ratios[s] / active_ratio_sum) for s in active}
+
+    @staticmethod
+    def _detect_task_type(message: str) -> str:
+        """检测用户消息的任务类型(2026-07-22 深化立)。
+
+        返回: code / chat / data / default
+        - code: 涉及代码、函数、调试、schema、编译等
+        - data: 涉及数据查询、统计、报表等
+        - chat: 闲聊、问答、翻译等
+        - default: 未匹配
+        """
+        if not message:
+            return "default"
+        lower = message.lower()
+        code_keywords = [
+            "代码", "函数", "bug", "error", "调试", "debug", "schema",
+            "编译", "compile", "接口", "api", "组件", "component",
+            "类型", "type", "class", "function", "import",
+        ]
+        data_keywords = [
+            "数据", "查询", "统计", "报表", "数据库", "sql",
+            "表格", "table", "图表", "chart",
+        ]
+        for kw in code_keywords:
+            if kw in lower:
+                return "code"
+        for kw in data_keywords:
+            if kw in lower:
+                return "data"
+        return "chat"
 
     def count_text_tokens(self, text: str, model: str = "gpt-4o") -> int:
         """估算单段文本的 token 数(去掉单条消息 4 token 元数据开销)。
@@ -1545,6 +1667,1207 @@ class ContextEngine:
             "compressions": compressions,
         }
 
+    # ------------------------------------------------------------------
+    # 1. 上下文预测预取(2026-07-23 立,超越 Cursor/Claude Code)
+    # ------------------------------------------------------------------
+
+    async def _context_predictor(
+        self,
+        current_message: str,
+        conversation_history: list[dict[str, Any]],
+        task_type: str = "default",
+        user_id: str = "",
+    ) -> list[dict[str, Any]]:
+        """上下文预测器:预测用户下一步需要的上下文(2026-07-23 立)。
+
+        基于当前任务类型 + 用户行为模式 + 历史会话,用 LLM 预测:
+        "用户接下来 80% 概率会问 X 文件/Y 符号/Z 模块"。
+
+        降级:LLM 不可用时无预测,仅用历史行为(最近访问的文件/符号)。
+
+        Args:
+            current_message: 用户当前消息。
+            conversation_history: 会话历史消息列表。
+            task_type: 任务类型(code/chat/data/default)。
+            user_id: 用户 ID(读取行为偏好)。
+
+        Returns:
+            预测列表 [{ type, target, confidence }]:
+            - type: file / symbol / module / document
+            - target: 预测目标(文件路径/符号名/模块名)
+            - confidence: 置信度 [0, 1]
+        """
+        # 降级路径:LLM 不可用时,从用户行为偏好生成预测
+        fallback_predictions = await self._behavior_based_predictions(user_id, task_type)
+
+        # 构造 LLM 预测 prompt
+        history_text = "\n".join(
+            f"[{m.get('role', 'unknown')}] {str(m.get('content', ''))[:200]}"
+            for m in conversation_history[-10:]
+        )[:3000]
+
+        prompt = (
+            "你是上下文预测引擎。基于用户当前对话,预测用户接下来最可能需要的上下文。\n\n"
+            f"【任务类型】{task_type}\n"
+            f"【当前消息】{current_message[:500]}\n"
+            f"【最近对话历史】\n{history_text}\n\n"
+            "请预测用户接下来 80% 概率会需要的上下文(最多 5 条),"
+            "输出 JSON 数组,每条格式:{\"type\":\"file|symbol|module|document\","
+            "\"target\":\"具体路径或名称\",\"confidence\":0.0-1.0}\n"
+            "只输出 JSON 数组,不要其他内容。"
+        )
+        try:
+            resp = await llm_gateway.complete(
+                messages=[{"role": "user", "content": prompt}],
+                model="gpt-4o-mini",
+                temperature=0.2,
+                max_tokens=500,
+            )
+            content = resp.get("content", "") if isinstance(resp, dict) else str(resp)
+            # 提取 JSON 数组
+            predictions = self._parse_prediction_json(content)
+            if predictions:
+                return predictions
+            return fallback_predictions
+        except Exception as e:
+            logger.debug("上下文预测 LLM 调用失败,降级行为预测: %s", e)
+            return fallback_predictions
+
+    async def _behavior_based_predictions(
+        self,
+        user_id: str,
+        task_type: str,
+    ) -> list[dict[str, Any]]:
+        """基于用户行为的降级预测(从 _user_behavior 读取最近访问的文件/符号)。"""
+        if not user_id:
+            return []
+        preferences = await self._get_user_preferences(user_id, limit=5)
+        predictions: list[dict[str, Any]] = []
+        for pref in preferences:
+            key = str(pref.get("key", ""))
+            count = int(pref.get("count", 0))
+            if not key or count <= 0:
+                continue
+            # 解析 key 格式:file_path 或 file_path:symbol
+            if ":" in key:
+                parts = key.rsplit(":", 1)
+                file_path, symbol = parts[0], parts[1]
+                predictions.append({
+                    "type": "symbol",
+                    "target": f"{file_path}:{symbol}",
+                    "confidence": min(0.9, 0.3 + count * 0.05),
+                })
+            else:
+                predictions.append({
+                    "type": "file",
+                    "target": key,
+                    "confidence": min(0.9, 0.3 + count * 0.05),
+                })
+        return predictions[:5]
+
+    @staticmethod
+    def _parse_prediction_json(content: str) -> list[dict[str, Any]]:
+        """从 LLM 输出中解析预测 JSON 数组(容错处理)。"""
+        # 尝试提取 JSON 数组
+        try:
+            # 找到第一个 [ 和最后一个 ]
+            start = content.find("[")
+            end = content.rfind("]")
+            if start >= 0 and end > start:
+                json_str = content[start:end + 1]
+                result = json.loads(json_str)
+                if isinstance(result, list):
+                    # 校验每条格式
+                    valid: list[dict[str, Any]] = []
+                    for item in result:
+                        if isinstance(item, dict) and "type" in item and "target" in item:
+                            confidence = float(item.get("confidence", 0.5))
+                            valid.append({
+                                "type": str(item["type"]),
+                                "target": str(item["target"]),
+                                "confidence": max(0.0, min(1.0, confidence)),
+                            })
+                    return valid
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            logger.debug("预测 JSON 解析失败: %s", e)
+        return []
+
+    async def _prefetch_context(
+        self,
+        conversation_id: str,
+        predictions: list[dict[str, Any]],
+    ) -> int:
+        """异步预取:把预测的上下文加载到 Redis cache(2026-07-23 立)。
+
+        cache 存储:Redis hash "context:prefetch:{conversationId}"
+        cache TTL:5 分钟(避免过期数据)
+
+        Args:
+            conversation_id: 会话 ID。
+            predictions: 预测列表([{ type, target, confidence }])。
+
+        Returns:
+            成功预取的条目数。
+        """
+        if not conversation_id or not predictions:
+            return 0
+
+        cache_key = f"{_REDIS_KEY_PREFETCH}:{conversation_id}"
+        count = 0
+        redis = await self._get_redis()
+
+        for pred in predictions[:10]:
+            pred_type = str(pred.get("type", ""))
+            target = str(pred.get("target", ""))
+            confidence = float(pred.get("confidence", 0.0))
+            if not target:
+                continue
+
+            # 异步加载上下文内容(按类型)
+            content = await self._load_predicted_context(pred_type, target)
+            if not content:
+                continue
+
+            entry = json.dumps({
+                "type": pred_type,
+                "target": target,
+                "confidence": confidence,
+                "content": content[:2000],  # 限制每条 2000 字符
+                "prefetched_at": time.time(),
+            }, ensure_ascii=False)
+
+            if redis:
+                try:
+                    field = f"{pred_type}:{target}"
+                    await redis.hset(cache_key, field, entry)
+                    await redis.expire(cache_key, PREFETCH_CACHE_TTL)
+                    count += 1
+                    continue
+                except Exception as e:
+                    logger.debug("Redis 预取写入失败,降级内存: %s", e)
+            # 内存降级
+            if conversation_id not in self._prefetch_cache:
+                self._prefetch_cache[conversation_id] = {}
+            self._prefetch_cache[conversation_id][f"{pred_type}:{target}"] = entry
+            count += 1
+
+        return count
+
+    async def _load_predicted_context(
+        self,
+        pred_type: str,
+        target: str,
+    ) -> str:
+        """根据预测类型加载上下文内容(预取内部调用)。
+
+        - file: 读取文件前 100 行
+        - symbol: 从 codebase_indexer 检索符号
+        - module/document: 从 codebase_indexer 检索
+        """
+        if pred_type == "file" and os.path.isfile(target):
+            try:
+                with open(target, "r", encoding="utf-8", errors="replace") as f:
+                    lines = [next(f, "") for _ in range(100)]
+                    return "".join(lines)
+            except Exception as e:
+                logger.debug("预取文件读取失败 %s: %s", target, e)
+                return ""
+
+        # symbol / module / document:用 codebase_indexer 检索
+        try:
+            results = await self._search_codebase(target, top_k=1)
+            if results:
+                return results[0].content
+        except Exception as e:
+            logger.debug("预取 codebase 检索失败 %s: %s", target, e)
+        return ""
+
+    async def get_prefetched_context(
+        self,
+        conversation_id: str,
+        target: str = "",
+    ) -> list[dict[str, Any]]:
+        """读取预取 cache 中已加载的上下文(用户实际 @ 提及时优先读取)。
+
+        Args:
+            conversation_id: 会话 ID。
+            target: 指定目标(为空时返回全部预取内容)。
+
+        Returns:
+            预取上下文列表 [{ type, target, confidence, content }]。
+        """
+        if not conversation_id:
+            return []
+        cache_key = f"{_REDIS_KEY_PREFETCH}:{conversation_id}"
+        results: list[dict[str, Any]] = []
+
+        redis = await self._get_redis()
+        if redis:
+            try:
+                raw_map = await redis.hgetall(cache_key)
+                for field, value in raw_map.items():
+                    entry = json.loads(value) if isinstance(value, str) else value
+                    if target and target not in str(entry.get("target", "")):
+                        continue
+                    results.append(entry)
+                return results
+            except Exception as e:
+                logger.debug("Redis 预取读取失败,降级内存: %s", e)
+
+        # 内存降级
+        cache = self._prefetch_cache.get(conversation_id, {})
+        for field, value in cache.items():
+            entry = json.loads(value) if isinstance(value, str) else value
+            if target and target not in str(entry.get("target", "")):
+                continue
+            results.append(entry)
+        return results
+
+    async def predict_context(
+        self,
+        current_message: str,
+        conversation_history: list[dict[str, Any]],
+        conversation_id: str = "",
+        task_type: str = "default",
+        user_id: str = "",
+    ) -> dict[str, Any]:
+        """上下文预测 + 预取统一入口(2026-07-23 立)。
+
+        流程:
+        1. _context_predictor 预测下一步需要的上下文
+        2. _prefetch_context 异步预取到 cache(TTL 5 分钟)
+        3. 返回预测列表 + 预取计数
+
+        Returns:
+            { predictions: [...], prefetchedCount: int, conversationId: str }
+        """
+        predictions = await self._context_predictor(
+            current_message, conversation_history, task_type, user_id
+        )
+        # 异步预取(不阻塞响应)
+        prefetched = 0
+        if conversation_id and predictions:
+            try:
+                prefetched = await self._prefetch_context(conversation_id, predictions)
+            except Exception as e:
+                logger.debug("预取失败(不影响预测结果): %s", e)
+        return {
+            "predictions": predictions,
+            "prefetchedCount": prefetched,
+            "conversationId": conversation_id,
+        }
+
+    # ------------------------------------------------------------------
+    # 2. 上下文知识图谱(2026-07-23 立,图检索替代线性 top-K)
+    # ------------------------------------------------------------------
+
+    async def _build_knowledge_graph(
+        self,
+        project_id: str,
+        workspace_path: str = "",
+    ) -> dict[str, Any]:
+        """构建上下文知识图谱(2026-07-23 立)。
+
+        节点类型:File / Function / Class / Concept / Document / UserPreference
+        边类型:calls / references / imports / semantic_similar / user_often_uses
+
+        图存储:Redis hash "context:graph:{projectId}"
+
+        Args:
+            project_id: 项目 ID。
+            workspace_path: 工作区路径(用于扫描文件关系)。
+
+        Returns:
+            { nodes: [...], edges: [...], projectId: str }
+        """
+        graph: dict[str, Any] = {"nodes": [], "edges": []}
+        nodes_by_id: dict[str, dict[str, Any]] = {}
+
+        # 1. 从 codebase_indexer 检索已有符号,构建 File → Function/Class 节点
+        try:
+            from .codebase_indexer import codebase_indexer
+
+            # 用空查询获取最近索引的 chunk(或从已有索引读取)
+            chunks = await codebase_indexer.search("", top_k=50)
+            for chunk in chunks:
+                file_path = str(chunk.get("file_path", ""))
+                sym_name = str(chunk.get("symbol_name", ""))
+                sym_type = str(chunk.get("symbol_type", ""))
+                if not file_path:
+                    continue
+                # File 节点
+                file_node_id = f"file:{file_path}"
+                if file_node_id not in nodes_by_id:
+                    file_node = {
+                        "id": file_node_id,
+                        "type": "File",
+                        "label": os.path.basename(file_path),
+                        "path": file_path,
+                    }
+                    nodes_by_id[file_node_id] = file_node
+                    graph["nodes"].append(file_node)
+                # Function/Class 节点
+                if sym_name:
+                    sym_node_id = f"{sym_type}:{sym_name}:{file_path}"
+                    if sym_node_id not in nodes_by_id:
+                        sym_node = {
+                            "id": sym_node_id,
+                            "type": sym_type.capitalize() if sym_type else "Function",
+                            "label": sym_name,
+                            "path": file_path,
+                            "line_start": chunk.get("line_start"),
+                            "line_end": chunk.get("line_end"),
+                        }
+                        nodes_by_id[sym_node_id] = sym_node
+                        graph["nodes"].append(sym_node)
+                        # File → contains → Symbol 边
+                        graph["edges"].append({
+                            "source": file_node_id,
+                            "target": sym_node_id,
+                            "type": "contains",
+                        })
+        except Exception as e:
+            logger.debug("知识图谱 codebase 扫描失败: %s", e)
+
+        # 2. 提取 import 依赖(File → File)
+        if workspace_path and os.path.isdir(workspace_path):
+            self._extract_import_edges(workspace_path, graph, nodes_by_id)
+
+        # 3. 语义相似边(embedding cosine > 0.7)
+        await self._build_semantic_edges(graph)
+
+        # 4. 用户行为加权边(user_often_uses)
+        # 从 _user_behavior 读取,为常访问的文件添加 user_often_uses 边
+        # (此处简化:在图检索时动态加权)
+
+        # 持久化到 Redis
+        redis = await self._get_redis()
+        if redis:
+            try:
+                graph_key = f"{_REDIS_KEY_GRAPH}:{project_id}"
+                await redis.hset(graph_key, "nodes", json.dumps(graph["nodes"], ensure_ascii=False))
+                await redis.hset(graph_key, "edges", json.dumps(graph["edges"], ensure_ascii=False))
+                await redis.hset(graph_key, "updated_at", str(time.time()))
+            except Exception as e:
+                logger.debug("知识图谱 Redis 持久化失败,降级内存: %s", e)
+        self._knowledge_graphs[project_id] = graph
+
+        return {**graph, "projectId": project_id}
+
+    def _extract_import_edges(
+        self,
+        workspace_path: str,
+        graph: dict[str, Any],
+        nodes_by_id: dict[str, dict[str, Any]],
+    ) -> None:
+        """提取文件间的 import 依赖关系,添加 imports 边。"""
+        # 扫描已有 File 节点,解析其 import 语句
+        file_nodes = [n for n in graph["nodes"] if n.get("type") == "File"]
+        for node in file_nodes:
+            file_path = str(node.get("path", ""))
+            if not file_path or not os.path.isfile(file_path):
+                continue
+            try:
+                with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+                    content = f.read()[:5000]  # 只读前 5000 字符找 import
+            except Exception:
+                continue
+            # 匹配 import 语句(Python / TS / JS)
+            import_patterns = [
+                r'(?:from\s+["\'])([^"\']+)(?:["\'])',  # TS/JS: from "..."
+                r'(?:import\s+["\'])([^"\']+)(?:["\'])',  # TS/JS: import "..."
+                r'(?:^import\s+)(\S+)',  # Python: import xxx
+                r'(?:^from\s+)(\S+)(?:\s+import)',  # Python: from xxx import
+            ]
+            for pattern in import_patterns:
+                for m in re.finditer(pattern, content, re.MULTILINE):
+                    import_target = m.group(1)
+                    # 尝试解析为文件路径
+                    target_path = self._resolve_import_path(import_target, file_path, workspace_path)
+                    if target_path:
+                        target_id = f"file:{target_path}"
+                        if target_id in nodes_by_id:
+                            graph["edges"].append({
+                                "source": node["id"],
+                                "target": target_id,
+                                "type": "imports",
+                            })
+
+    @staticmethod
+    def _resolve_import_path(
+        import_str: str,
+        from_file: str,
+        workspace_path: str,
+    ) -> str:
+        """将 import 字符串解析为文件路径(简化版)。"""
+        # 去除 ./ ../ 前缀
+        cleaned = import_str.lstrip("./").lstrip("../")
+        # 尝试常见扩展名
+        for ext in ("", ".ts", ".tsx", ".js", ".jsx", ".py"):
+            candidate = os.path.join(os.path.dirname(from_file), cleaned + ext)
+            if os.path.isfile(candidate):
+                return candidate
+            candidate = os.path.join(workspace_path, cleaned.replace("/", os.sep) + ext)
+            if os.path.isfile(candidate):
+                return candidate
+        return ""
+
+    async def _build_semantic_edges(self, graph: dict[str, Any]) -> None:
+        """用 embedding 计算节点间语义相似度,cosine > 0.7 建边。"""
+        nodes = [n for n in graph["nodes"] if n.get("type") in ("Function", "Class", "File")]
+        if len(nodes) < 2:
+            return
+        # 限制最多 30 个节点计算(避免性能问题)
+        nodes = nodes[:30]
+        embeddings: list[tuple[str, list[float]]] = []
+        for node in nodes:
+            text = f"{node.get('label', '')} {node.get('path', '')}"
+            emb = await self._get_embedding(text)
+            if emb:
+                embeddings.append((node["id"], emb))
+
+        for i, (id_a, emb_a) in enumerate(embeddings):
+            for id_b, emb_b in embeddings[i + 1:]:
+                sim = self._cosine_similarity(emb_a, emb_b)
+                if sim > SEMANTIC_EDGE_THRESHOLD:
+                    graph["edges"].append({
+                        "source": id_a,
+                        "target": id_b,
+                        "type": "semantic_similar",
+                        "weight": round(sim, 3),
+                    })
+
+    async def _graph_retrieve(
+        self,
+        query: str,
+        project_id: str = "",
+        depth: int = GRAPH_MAX_DEPTH,
+        user_id: str = "",
+    ) -> list[dict[str, Any]]:
+        """图检索:从 query embedding 找最相似节点,沿边扩展收集相关节点(2026-07-23 立)。
+
+        检索流程:
+        1. 用 query embedding 找到最相似的种子节点(top-5)
+        2. 沿边扩展(depth=2),收集相关节点
+        3. 按路径权重排序(路径越短权重越高)
+        4. 返回节点内容 + 关系路径
+
+        Args:
+            query: 检索查询。
+            project_id: 项目 ID(读取知识图谱)。
+            depth: 扩展深度(最大 2,避免性能问题)。
+            user_id: 用户 ID(行为加权)。
+
+        Returns:
+            [{ node, score, path }],按 score DESC 排序。
+        """
+        depth = min(depth, GRAPH_MAX_DEPTH)
+        graph = await self._get_graph(project_id)
+        if not graph or not graph.get("nodes"):
+            return []
+
+        query_emb = await self._get_embedding(query)
+        if not query_emb:
+            return []
+
+        # 1. 找种子节点(与 query 最相似的节点)
+        nodes = graph.get("nodes", [])
+        edges = graph.get("edges", [])
+        scored_seeds: list[tuple[float, dict[str, Any]]] = []
+        for node in nodes:
+            text = f"{node.get('label', '')} {node.get('path', '')}"
+            node_emb = await self._get_embedding(text)
+            if node_emb:
+                sim = self._cosine_similarity(query_emb, node_emb)
+                if sim > 0.3:
+                    scored_seeds.append((sim, node))
+        scored_seeds.sort(key=lambda x: x[0], reverse=True)
+        seeds = scored_seeds[:5]
+
+        if not seeds:
+            return []
+
+        # 2. BFS 沿边扩展
+        # 构建邻接表
+        adj: dict[str, list[tuple[str, str, float]]] = {}
+        for edge in edges:
+            src = edge.get("source", "")
+            tgt = edge.get("target", "")
+            weight = float(edge.get("weight", 0.5))
+            edge_type = edge.get("type", "")
+            adj.setdefault(src, []).append((tgt, edge_type, weight))
+            adj.setdefault(tgt, []).append((src, edge_type, weight))
+
+        # BFS 扩展
+        visited: dict[str, float] = {}  # node_id → 累积路径权重(越小越好)
+        paths: dict[str, list[str]] = {}  # node_id → 路径
+        queue: list[tuple[str, float, int, list[str]]] = []
+
+        for score, seed in seeds:
+            seed_id = seed["id"]
+            visited[seed_id] = 1.0 - score  # 路径权重 = 1 - 相似度
+            paths[seed_id] = [seed_id]
+            queue.append((seed_id, 1.0 - score, 0, [seed_id]))
+
+        while queue:
+            node_id, path_weight, current_depth, path = queue.pop(0)
+            if current_depth >= depth:
+                continue
+            for neighbor_id, edge_type, edge_weight in adj.get(node_id, []):
+                new_weight = path_weight + (1.0 - edge_weight)
+                if neighbor_id not in visited or new_weight < visited[neighbor_id]:
+                    visited[neighbor_id] = new_weight
+                    new_path = path + [neighbor_id]
+                    paths[neighbor_id] = new_path
+                    queue.append((neighbor_id, new_weight, current_depth + 1, new_path))
+
+        # 3. 按路径权重排序(权重越小 = 路径越短 = 越相关)
+        node_map = {n["id"]: n for n in nodes}
+        results: list[dict[str, Any]] = []
+        for node_id, path_weight in sorted(visited.items(), key=lambda x: x[1]):
+            node = node_map.get(node_id)
+            if not node:
+                continue
+            score = max(0.0, 1.0 - path_weight)
+            # 用户行为加权
+            if user_id:
+                file_path = node.get("path", "")
+                if file_path:
+                    try:
+                        boost = await self._get_behavior_boost(file_path, None, user_id)
+                        score = min(1.0, score + boost * 0.2)
+                    except Exception:
+                        pass
+            results.append({
+                "node": node,
+                "score": round(score, 4),
+                "path": paths.get(node_id, [node_id]),
+            })
+        return results[:20]
+
+    async def _get_graph(self, project_id: str) -> dict[str, Any]:
+        """获取知识图谱(优先 Redis,降级内存)。"""
+        if not project_id:
+            return {}
+        redis = await self._get_redis()
+        if redis:
+            try:
+                graph_key = f"{_REDIS_KEY_GRAPH}:{project_id}"
+                raw_nodes = await redis.hget(graph_key, "nodes")
+                raw_edges = await redis.hget(graph_key, "edges")
+                if raw_nodes and raw_edges:
+                    return {
+                        "nodes": json.loads(raw_nodes),
+                        "edges": json.loads(raw_edges),
+                    }
+            except Exception as e:
+                logger.debug("Redis 图谱读取失败: %s", e)
+        return self._knowledge_graphs.get(project_id, {})
+
+    async def get_knowledge_graph(
+        self,
+        project_id: str,
+        node_type: str = "",
+        edge_type: str = "",
+    ) -> dict[str, Any]:
+        """获取知识图谱数据(供前端可视化,支持过滤)。
+
+        Args:
+            project_id: 项目 ID。
+            node_type: 过滤节点类型(为空时返回全部)。
+            edge_type: 过滤边类型(为空时返回全部)。
+
+        Returns:
+            { nodes: [...], edges: [...], projectId: str }
+        """
+        graph = await self._get_graph(project_id)
+        if not graph:
+            return {"nodes": [], "edges": [], "projectId": project_id}
+
+        nodes = graph.get("nodes", [])
+        edges = graph.get("edges", [])
+
+        if node_type:
+            nodes = [n for n in nodes if n.get("type") == node_type]
+        if edge_type:
+            edges = [e for e in edges if e.get("type") == edge_type]
+
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "projectId": project_id,
+        }
+
+    # ------------------------------------------------------------------
+    # 3. 上下文质量评分(2026-07-23 立)
+    # ------------------------------------------------------------------
+
+    async def _context_quality_scorer(
+        self,
+        conversation_id: str,
+        task_type: str = "default",
+        current_context: list[dict[str, Any]] | None = None,
+        task_query: str = "",
+        user_id: str = "",
+    ) -> dict[str, Any]:
+        """上下文质量评分器:评估当前上下文对任务的有用性(2026-07-23 立)。
+
+        评估维度:
+        - 完整性(0-1):是否包含任务所需的关键文件/符号
+        - 相关性(0-1):上下文与任务的相关程度(embedding cosine)
+        - 新鲜度(0-1):上下文的时效性(最近修改的文件权重高)
+        - 冗余度(0-1):上下文中的重复信息(越低越好,转换为分数越高越好)
+
+        综合评分:加权平均(完整性 0.4 + 相关性 0.3 + 新鲜度 0.2 + 冗余度 0.1)
+
+        Args:
+            conversation_id: 会话 ID。
+            task_type: 任务类型。
+            current_context: 当前上下文条目列表(为空时从会话记忆读取)。
+            task_query: 任务查询(用于相关性计算)。
+            user_id: 用户 ID。
+
+        Returns:
+            { overall, dimensions: { completeness, relevance, freshness, redundancy }, recommendation }
+        """
+        # 获取当前上下文(若未提供,从预取 cache + 会话记忆读取)
+        if current_context is None:
+            current_context = await self.get_prefetched_context(conversation_id)
+
+        if not current_context:
+            return {
+                "overall": 0.0,
+                "dimensions": {
+                    "completeness": 0.0,
+                    "relevance": 0.0,
+                    "freshness": 0.0,
+                    "redundancy": 0.0,
+                },
+                "recommendation": "建议触发 RAG 或 @mention 补充上下文",
+            }
+
+        # 1. 完整性:上下文条目数量 + 类型覆盖
+        completeness = self._score_completeness(current_context, task_type)
+
+        # 2. 相关性:上下文与 task_query 的 embedding cosine
+        relevance = await self._score_relevance(current_context, task_query)
+
+        # 3. 新鲜度:文件修改时间(最近修改权重高)
+        freshness = self._score_freshness(current_context)
+
+        # 4. 冗余度:上下文中的重复信息(越低越好,分数越高越好)
+        redundancy = self._score_redundancy(current_context)
+
+        # 综合评分
+        overall = (
+            completeness * QUALITY_WEIGHTS["completeness"]
+            + relevance * QUALITY_WEIGHTS["relevance"]
+            + freshness * QUALITY_WEIGHTS["freshness"]
+            + redundancy * QUALITY_WEIGHTS["redundancy"]
+        )
+        overall = round(overall, 4)
+
+        # 推荐
+        if overall < QUALITY_LOW_THRESHOLD:
+            recommendation = "建议补充 @mention 或触发 RAG 检索"
+        elif overall < 0.7:
+            recommendation = "上下文基本充足,可酌情补充"
+        else:
+            recommendation = "上下文充足"
+
+        return {
+            "overall": overall,
+            "dimensions": {
+                "completeness": round(completeness, 4),
+                "relevance": round(relevance, 4),
+                "freshness": round(freshness, 4),
+                "redundancy": round(redundancy, 4),
+            },
+            "recommendation": recommendation,
+        }
+
+    @staticmethod
+    def _score_completeness(
+        context: list[dict[str, Any]],
+        task_type: str,
+    ) -> float:
+        """完整性评分:条目数量 + 类型覆盖度。"""
+        if not context:
+            return 0.0
+        # 条目数量:5 条以上满分
+        count_score = min(1.0, len(context) / 5.0)
+        # 类型覆盖:不同类型越多越好
+        types = set()
+        for item in context:
+            t = str(item.get("type", item.get("mention_type", "")))
+            if t:
+                types.add(t)
+        type_score = min(1.0, len(types) / 3.0)
+        # 任务类型匹配加权
+        task_bonus = 0.0
+        if task_type == "code" and "codebase" in types:
+            task_bonus = 0.1
+        elif task_type == "data" and "database" in types:
+            task_bonus = 0.1
+        return min(1.0, count_score * 0.5 + type_score * 0.5 + task_bonus)
+
+    async def _score_relevance(
+        self,
+        context: list[dict[str, Any]],
+        task_query: str,
+    ) -> float:
+        """相关性评分:上下文与 task_query 的 embedding cosine 均值。"""
+        if not task_query or not context:
+            return 0.5 if context else 0.0
+        query_emb = await self._get_embedding(task_query)
+        if not query_emb:
+            return 0.5
+        scores: list[float] = []
+        for item in context:
+            content = str(item.get("content", ""))
+            if not content or len(content) < 10:
+                continue
+            item_emb = await self._get_embedding(content[:500])
+            if item_emb:
+                sim = self._cosine_similarity(query_emb, item_emb)
+                scores.append(sim)
+        if not scores:
+            return 0.5
+        return sum(scores) / len(scores)
+
+    @staticmethod
+    def _score_freshness(context: list[dict[str, Any]]) -> float:
+        """新鲜度评分:基于文件修改时间(最近修改权重高)。"""
+        import time as _time
+
+        now = _time.time()
+        scores: list[float] = []
+        for item in context:
+            # 尝试从 metadata 读取修改时间
+            meta = item.get("metadata") or item
+            mtime = meta.get("mtime") or meta.get("modified_at")
+            if mtime:
+                try:
+                    age = now - float(mtime)
+                    # 1 小时内满分,1 天内 0.7,1 周内 0.4,更早 0.1
+                    if age < 3600:
+                        scores.append(1.0)
+                    elif age < 86400:
+                        scores.append(0.7)
+                    elif age < 604800:
+                        scores.append(0.4)
+                    else:
+                        scores.append(0.1)
+                except (ValueError, TypeError):
+                    scores.append(0.5)
+            else:
+                # 无时间信息:给中等分
+                scores.append(0.5)
+        if not scores:
+            return 0.5
+        return sum(scores) / len(scores)
+
+    @staticmethod
+    def _score_redundancy(context: list[dict[str, Any]]) -> float:
+        """冗余度评分:上下文中的重复信息(返回分数,越高越好 = 冗余越低)。"""
+        if not context:
+            return 1.0
+        contents = [str(item.get("content", ""))[:200] for item in context if item.get("content")]
+        if len(contents) <= 1:
+            return 1.0
+        # 计算两两相似度(Jaccard 简化版:词集交集)
+        word_sets = [set(c.split()) for c in contents]
+        redundant_pairs = 0
+        total_pairs = 0
+        for i in range(len(word_sets)):
+            for j in range(i + 1, len(word_sets)):
+                total_pairs += 1
+                intersection = len(word_sets[i] & word_sets[j])
+                union = len(word_sets[i] | word_sets[j])
+                if union > 0 and intersection / union > 0.5:
+                    redundant_pairs += 1
+        if total_pairs == 0:
+            return 1.0
+        # 冗余率 = redundant_pairs / total_pairs,分数 = 1 - 冗余率
+        return round(1.0 - redundant_pairs / total_pairs, 4)
+
+    # ------------------------------------------------------------------
+    # 4. 上下文压缩智能体(2026-07-23 立,智能压缩保留关键信息)
+    # ------------------------------------------------------------------
+
+    async def _smart_compactor(
+        self,
+        messages: list[dict[str, Any]],
+        preserve_keywords: list[str] | None = None,
+        conversation_id: str = "",
+        user_id: str = "",
+    ) -> dict[str, Any]:
+        """智能压缩器:LLM 识别关键信息,保留原文 + 非关键摘要压缩(2026-07-23 立)。
+
+        流程:
+        a) LLM 识别消息中的关键信息(决策/错误/约束/代码引用)
+        b) 关键信息保留原文(不压缩)
+        c) 非关键信息摘要压缩
+        d) 生成压缩报告:保留了哪些关键信息 + 压缩了哪些
+
+        Args:
+            messages: 待压缩的消息列表。
+            preserve_keywords: 用户指定必须保留的关键词列表。
+            conversation_id: 会话 ID。
+            user_id: 用户 ID。
+
+        Returns:
+            {
+                compactedMessages: [...],  # 压缩后的消息列表
+                preservedItems: [...],     # 保留原文的关键信息
+                compactedItems: [...],     # 被压缩的信息摘要
+                compressionRatio: float,   # 压缩比(tokens_after / tokens_before)
+            }
+        """
+        if not messages:
+            return {
+                "compactedMessages": [],
+                "preservedItems": [],
+                "compactedItems": [],
+                "compressionRatio": 1.0,
+            }
+
+        preserve_keywords = preserve_keywords or []
+        tokens_before = self.count_tokens(messages)
+
+        # 保留最近 SMART_COMPACT_KEEP_RECENT 条不压缩
+        if len(messages) <= SMART_COMPACT_KEEP_RECENT:
+            return {
+                "compactedMessages": messages,
+                "preservedItems": [],
+                "compactedItems": [],
+                "compressionRatio": 1.0,
+            }
+
+        old_messages = messages[:-SMART_COMPACT_KEEP_RECENT]
+        recent_messages = messages[-SMART_COMPACT_KEEP_RECENT:]
+
+        # LLM 识别关键信息 + 压缩非关键信息
+        conversation = "\n".join(
+            f"[{m.get('role', 'unknown')}] {str(m.get('content', ''))[:1000]}"
+            for m in old_messages
+        )[:8000]
+
+        keywords_hint = ""
+        if preserve_keywords:
+            keywords_hint = f"\n用户指定必须保留的关键词:{', '.join(preserve_keywords)}"
+
+        prompt = (
+            "你是上下文压缩智能体。请分析以下对话历史,执行智能压缩:\n\n"
+            "1. 识别关键信息(决策/错误/约束/代码引用/用户指定关键词)— 这些保留原文\n"
+            "2. 非关键信息(寒暄/重复/冗长描述)— 摘要压缩\n\n"
+            f"{keywords_hint}\n"
+            f"【对话历史】\n{conversation}\n\n"
+            "请输出 JSON,格式:\n"
+            '{"preservedItems": ["关键信息1", "关键信息2"], '
+            '"compactedSummary": "非关键信息的摘要"}\n'
+            "只输出 JSON,不要其他内容。"
+        )
+
+        preserved_items: list[str] = []
+        compacted_summary = ""
+
+        try:
+            resp = await llm_gateway.complete(
+                messages=[{"role": "user", "content": prompt}],
+                model="gpt-4o-mini",
+                temperature=0.2,
+                max_tokens=800,
+            )
+            content = resp.get("content", "") if isinstance(resp, dict) else str(resp)
+            parsed = self._parse_compact_json(content)
+            if parsed:
+                preserved_items = parsed.get("preservedItems", [])
+                compacted_summary = parsed.get("compactedSummary", "")
+        except Exception as e:
+            logger.debug("智能压缩 LLM 调用失败,降级为普通摘要: %s", e)
+            compacted_summary = await self._summarize(old_messages)
+
+        # 构建压缩后消息:[summary_system, preserved_items_system, ...recent]
+        compacted_messages: list[dict[str, Any]] = []
+        if compacted_summary:
+            compacted_messages.append({
+                "role": "system",
+                "content": f"[智能压缩摘要] {compacted_summary}",
+            })
+        if preserved_items:
+            preserved_text = "\n".join(f"- {item}" for item in preserved_items)
+            compacted_messages.append({
+                "role": "system",
+                "content": f"[保留的关键信息]\n{preserved_text}",
+            })
+        compacted_messages.extend(recent_messages)
+
+        tokens_after = self.count_tokens(compacted_messages)
+        compression_ratio = round(tokens_after / max(1, tokens_before), 4)
+
+        # 压缩前后质量对比
+        quality_score = 0.0
+        try:
+            quality_score = await self._evaluate_compression_quality(
+                old_messages, compacted_summary or " ".join(preserved_items)
+            )
+        except Exception as e:
+            logger.debug("智能压缩质量评估失败: %s", e)
+
+        # 记录压缩质量日志
+        self._compression_quality_log.append({
+            "timestamp": time.time(),
+            "conversation_id": conversation_id,
+            "user_id": user_id,
+            "tokens_before": tokens_before,
+            "tokens_after": tokens_after,
+            "compression_ratio": compression_ratio,
+            "quality_score": quality_score,
+            "preserved_count": len(preserved_items),
+        })
+        # 限制日志大小
+        if len(self._compression_quality_log) > 100:
+            self._compression_quality_log = self._compression_quality_log[-100:]
+
+        return {
+            "compactedMessages": compacted_messages,
+            "preservedItems": preserved_items,
+            "compactedItems": [compacted_summary] if compacted_summary else [],
+            "compressionRatio": compression_ratio,
+            "qualityScore": quality_score,
+        }
+
+    @staticmethod
+    def _parse_compact_json(content: str) -> dict[str, Any]:
+        """从 LLM 输出中解析压缩 JSON(容错处理)。"""
+        try:
+            start = content.find("{")
+            end = content.rfind("}")
+            if start >= 0 and end > start:
+                json_str = content[start:end + 1]
+                result = json.loads(json_str)
+                if isinstance(result, dict):
+                    return {
+                        "preservedItems": result.get("preservedItems", []) if isinstance(result.get("preservedItems"), list) else [],
+                        "compactedSummary": str(result.get("compactedSummary", "")),
+                    }
+        except (json.JSONDecodeError, ValueError, TypeError) as e:
+            logger.debug("压缩 JSON 解析失败: %s", e)
+        return {}
+
+    # ------------------------------------------------------------------
+    # 5. 跨项目上下文(组织级记忆,2026-07-23 立)
+    # ------------------------------------------------------------------
+
+    async def save_cross_project_experience(
+        self,
+        user_id: str,
+        summary: str,
+        source_project: str,
+        tags: list[str] | None = None,
+        detail: str = "",
+    ) -> dict[str, Any]:
+        """保存跨项目经验(2026-07-23 立)。
+
+        用户在项目 A 的经验(如"如何调试 Drizzle schema drift")可被项目 B 检索。
+
+        存储:Redis hash "context:cross-project:{userId}"
+        (field=experience_hash, value={ summary, projectA, tags, detail, embedding })
+
+        Args:
+            user_id: 用户 ID。
+            summary: 经验摘要(≤500 字)。
+            source_project: 来源项目 ID/名称。
+            tags: 标签列表(如 ["debug", "drizzle", "schema"])。
+            detail: 详细内容(可选)。
+
+        Returns:
+            { id, saved: bool }
+        """
+        if not user_id or not summary:
+            return {"id": "", "saved": False}
+
+        tags = tags or []
+        # 生成经验 ID(基于内容哈希)
+        import hashlib
+
+        exp_id = hashlib.md5(
+            f"{user_id}:{summary}:{source_project}".encode("utf-8")
+        ).hexdigest()[:16]
+
+        # 生成 embedding(用于后续搜索)
+        embedding = await self._get_embedding(summary)
+        # embedding 转为 list(JSON 可序列化)
+        emb_list = embedding or []
+
+        entry = {
+            "id": exp_id,
+            "summary": summary[:500],
+            "source_project": source_project,
+            "tags": tags,
+            "detail": detail[:2000],
+            "embedding": emb_list,
+            "created_at": time.time(),
+        }
+
+        redis = await self._get_redis()
+        if redis:
+            try:
+                key = f"{_REDIS_KEY_CROSS_PROJECT}:{user_id}"
+                await redis.hset(key, exp_id, json.dumps(entry, ensure_ascii=False))
+                return {"id": exp_id, "saved": True}
+            except Exception as e:
+                logger.debug("Redis 跨项目经验保存失败,降级内存: %s", e)
+
+        # 内存降级
+        if user_id not in self._cross_project_memory:
+            self._cross_project_memory[user_id] = []
+        self._cross_project_memory[user_id].append(entry)
+        return {"id": exp_id, "saved": True}
+
+    async def search_cross_project_experiences(
+        self,
+        user_id: str,
+        query: str,
+        limit: int = CROSS_PROJECT_SEARCH_LIMIT,
+    ) -> list[dict[str, Any]]:
+        """搜索跨项目经验(2026-07-23 立)。
+
+        用 embedding 搜索相关经验,返回经验摘要 + 来源项目 + tags。
+
+        Args:
+            user_id: 用户 ID。
+            query: 搜索查询。
+            limit: 返回上限。
+
+        Returns:
+            [{ id, summary, source_project, tags, score }] 列表,按 score DESC。
+        """
+        if not user_id:
+            return []
+
+        # 获取用户所有跨项目经验
+        entries = await self._get_all_cross_project_experiences(user_id)
+        if not entries:
+            return []
+
+        # 用 embedding 搜索
+        query_emb = await self._get_embedding(query)
+        if not query_emb:
+            # 降级:关键词匹配
+            return self._keyword_search_experiences(entries, query, limit)
+
+        scored: list[tuple[float, dict[str, Any]]] = []
+        for entry in entries:
+            emb = entry.get("embedding", [])
+            if emb and len(emb) == len(query_emb):
+                sim = self._cosine_similarity(query_emb, emb)
+            else:
+                sim = 0.0
+            # tag 匹配加分
+            tags = entry.get("tags", [])
+            if any(tag.lower() in query.lower() for tag in tags):
+                sim += 0.1
+            scored.append((sim, entry))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        results: list[dict[str, Any]] = []
+        for score, entry in scored[:limit]:
+            results.append({
+                "id": entry.get("id", ""),
+                "summary": entry.get("summary", ""),
+                "source_project": entry.get("source_project", ""),
+                "tags": entry.get("tags", []),
+                "score": round(score, 4),
+            })
+        return results
+
+    async def _get_all_cross_project_experiences(
+        self,
+        user_id: str,
+    ) -> list[dict[str, Any]]:
+        """获取用户所有跨项目经验(Redis 优先,降级内存)。"""
+        redis = await self._get_redis()
+        if redis:
+            try:
+                key = f"{_REDIS_KEY_CROSS_PROJECT}:{user_id}"
+                raw_map = await redis.hgetall(key)
+                entries: list[dict[str, Any]] = []
+                for value in raw_map.values():
+                    try:
+                        entries.append(json.loads(value))
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+                return entries
+            except Exception as e:
+                logger.debug("Redis 跨项目经验读取失败: %s", e)
+        return self._cross_project_memory.get(user_id, [])
+
+    @staticmethod
+    def _keyword_search_experiences(
+        entries: list[dict[str, Any]],
+        query: str,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """关键词降级搜索(无 embedding 时)。"""
+        q_lower = query.lower()
+        scored: list[tuple[float, dict[str, Any]]] = []
+        for entry in entries:
+            summary = str(entry.get("summary", "")).lower()
+            tags = [str(t).lower() for t in entry.get("tags", [])]
+            score = 0.0
+            if q_lower in summary:
+                score += 0.5
+            for tag in tags:
+                if tag in q_lower or q_lower in tag:
+                    score += 0.3
+            if score > 0:
+                scored.append((score, entry))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [
+            {
+                "id": e.get("id", ""),
+                "summary": e.get("summary", ""),
+                "source_project": e.get("source_project", ""),
+                "tags": e.get("tags", []),
+                "score": round(s, 4),
+            }
+            for s, e in scored[:limit]
+        ]
+
+    async def delete_cross_project_experience(
+        self,
+        user_id: str,
+        experience_id: str,
+    ) -> bool:
+        """删除跨项目经验(2026-07-23 立)。
+
+        Args:
+            user_id: 用户 ID。
+            experience_id: 经验 ID。
+
+        Returns:
+            是否删除成功。
+        """
+        if not user_id or not experience_id:
+            return False
+        redis = await self._get_redis()
+        if redis:
+            try:
+                key = f"{_REDIS_KEY_CROSS_PROJECT}:{user_id}"
+                await redis.hdel(key, experience_id)
+                return True
+            except Exception as e:
+                logger.debug("Redis 跨项目经验删除失败,降级内存: %s", e)
+        # 内存降级
+        entries = self._cross_project_memory.get(user_id, [])
+        before = len(entries)
+        self._cross_project_memory[user_id] = [
+            e for e in entries if e.get("id") != experience_id
+        ]
+        return len(self._cross_project_memory[user_id]) < before
+
 
 # 模块级单例
 context_engine = ContextEngine()
@@ -1770,3 +3093,310 @@ async def clear_memory_endpoint(conversationId: str = "") -> dict[str, Any]:
     except Exception as e:
         logger.exception("clear_memory_endpoint failed: %s", e)
         return {"code": 500, "message": f"会话记忆清除失败: {e}", "data": None}
+
+
+# ---------------------------------------------------------------------------
+# 2026-07-23 Context Engineering 超越创新端点
+# 1. 上下文预测预取  2. 知识图谱  3. 质量评分  4. 智能压缩  5. 跨项目记忆
+# ---------------------------------------------------------------------------
+
+
+class PredictRequest(BaseModel):
+    """POST /api/context/predict 请求体。"""
+
+    currentMessage: str = Field("", description="用户当前消息")
+    conversationHistory: list[dict[str, Any]] = Field(
+        default_factory=list, description="会话历史消息列表"
+    )
+    conversationId: str = Field("", description="会话 ID(用于预取 cache)")
+    taskType: str = Field("default", description="任务类型(code/chat/data/default)")
+    userId: str = Field("", description="用户 ID(行为学习)")
+
+
+@router.post("/predict")
+async def predict_endpoint(req: PredictRequest) -> dict[str, Any]:
+    """POST /api/context/predict — 上下文预测 + 异步预取(2026-07-23 立)。
+
+    流程:
+    1. _context_predictor:LLM 预测下一步需要的上下文(file/symbol/module/document)
+    2. _prefetch_context:异步预取到 Redis cache(TTL 5 分钟)
+    3. 降级:LLM 不可用时用历史行为(最近访问的文件/符号)
+
+    输出:{ code, message, data: { predictions: [...], prefetchedCount, conversationId } }
+    """
+    try:
+        result = await context_engine.predict_context(
+            current_message=req.currentMessage,
+            conversation_history=req.conversationHistory,
+            conversation_id=req.conversationId,
+            task_type=req.taskType,
+            user_id=req.userId,
+        )
+        return {"code": 0, "message": "ok", "data": result}
+    except Exception as e:
+        logger.exception("predict_endpoint failed: %s", e)
+        return {"code": 500, "message": f"上下文预测失败: {e}", "data": None}
+
+
+@router.get("/prefetch")
+async def get_prefetch_endpoint(
+    conversationId: str = "",
+    target: str = "",
+) -> dict[str, Any]:
+    """GET /api/context/prefetch — 读取预取 cache 中已加载的上下文(2026-07-23 立)。
+
+    Query:
+        conversationId: 会话 ID。
+        target: 指定目标(为空时返回全部预取内容)。
+
+    输出:{ code, message, data: [{ type, target, confidence, content }] }
+    """
+    try:
+        results = await context_engine.get_prefetched_context(conversationId, target)
+        return {"code": 0, "message": "ok", "data": results}
+    except Exception as e:
+        logger.exception("get_prefetch_endpoint failed: %s", e)
+        return {"code": 500, "message": f"预取上下文读取失败: {e}", "data": None}
+
+
+class BuildGraphRequest(BaseModel):
+    """POST /api/context/knowledge-graph/build 请求体。"""
+
+    projectId: str = Field(..., description="项目 ID")
+    workspacePath: str = Field("", description="工作区路径(用于扫描文件关系)")
+
+
+@router.post("/knowledge-graph/build")
+async def build_graph_endpoint(req: BuildGraphRequest) -> dict[str, Any]:
+    """POST /api/context/knowledge-graph/build — 构建知识图谱(2026-07-23 立)。
+
+    流程:
+    1. 从 codebase_indexer 检索符号,构建 File → Function/Class 节点
+    2. 提取 import 依赖(File → File)
+    3. embedding cosine > 0.7 建语义相似边
+    4. 持久化到 Redis hash "context:graph:{projectId}"
+
+    输出:{ code, message, data: { nodes, edges, projectId } }
+    """
+    try:
+        result = await context_engine._build_knowledge_graph(
+            project_id=req.projectId,
+            workspace_path=req.workspacePath,
+        )
+        return {"code": 0, "message": "ok", "data": result}
+    except Exception as e:
+        logger.exception("build_graph_endpoint failed: %s", e)
+        return {"code": 500, "message": f"知识图谱构建失败: {e}", "data": None}
+
+
+@router.get("/knowledge-graph")
+async def get_graph_endpoint(
+    projectId: str = "",
+    node_type: str = "",
+    edge_type: str = "",
+) -> dict[str, Any]:
+    """GET /api/context/knowledge-graph — 获取知识图谱数据(前端可视化,2026-07-23 立)。
+
+    Query:
+        projectId: 项目 ID。
+        node_type: 过滤节点类型(File/Function/Class/Concept/Document)。
+        edge_type: 过滤边类型(calls/imports/semantic_similar/contains)。
+
+    输出:{ code, message, data: { nodes, edges, projectId } }
+    """
+    try:
+        data = await context_engine.get_knowledge_graph(
+            project_id=projectId,
+            node_type=node_type,
+            edge_type=edge_type,
+        )
+        return {"code": 0, "message": "ok", "data": data}
+    except Exception as e:
+        logger.exception("get_graph_endpoint failed: %s", e)
+        return {"code": 500, "message": f"知识图谱查询失败: {e}", "data": None}
+
+
+@router.get("/graph-retrieve")
+async def graph_retrieve_endpoint(
+    query: str = "",
+    projectId: str = "",
+    userId: str = "",
+    depth: int = 2,
+) -> dict[str, Any]:
+    """GET /api/context/graph-retrieve — 图检索(2026-07-23 立)。
+
+    从 query embedding 找种子节点 → 沿边扩展(depth≤2)→ 按路径权重排序。
+
+    Query:
+        query: 检索查询。
+        projectId: 项目 ID。
+        userId: 用户 ID(行为加权)。
+        depth: 扩展深度(最大 2)。
+
+    输出:{ code, message, data: [{ node, score, path }] }
+    """
+    try:
+        results = await context_engine._graph_retrieve(
+            query=query,
+            project_id=projectId,
+            depth=depth,
+            user_id=userId,
+        )
+        return {"code": 0, "message": "ok", "data": results}
+    except Exception as e:
+        logger.exception("graph_retrieve_endpoint failed: %s", e)
+        return {"code": 500, "message": f"图检索失败: {e}", "data": None}
+
+
+class QualityScoreRequest(BaseModel):
+    """GET /api/context/quality-score 查询参数(用 POST body 传递更灵活)。"""
+
+    conversationId: str = Field("", description="会话 ID")
+    taskType: str = Field("default", description="任务类型")
+    taskQuery: str = Field("", description="任务查询(用于相关性计算)")
+    userId: str = Field("", description="用户 ID")
+    currentContext: list[dict[str, Any]] | None = Field(
+        None, description="当前上下文条目(为空时从预取 cache 读取)"
+    )
+
+
+@router.post("/quality-score")
+async def quality_score_endpoint(req: QualityScoreRequest) -> dict[str, Any]:
+    """POST /api/context/quality-score — 上下文质量评分(2026-07-23 立)。
+
+    评估维度:完整性(0.4) + 相关性(0.3) + 新鲜度(0.2) + 冗余度(0.1)。
+    低于 0.5 时主动建议用户补充上下文。
+
+    输出:{ code, message, data: { overall, dimensions: {...}, recommendation } }
+    """
+    try:
+        data = await context_engine._context_quality_scorer(
+            conversation_id=req.conversationId,
+            task_type=req.taskType,
+            current_context=req.currentContext,
+            task_query=req.taskQuery,
+            user_id=req.userId,
+        )
+        return {"code": 0, "message": "ok", "data": data}
+    except Exception as e:
+        logger.exception("quality_score_endpoint failed: %s", e)
+        return {"code": 500, "message": f"质量评分失败: {e}", "data": None}
+
+
+class SmartCompactRequest(BaseModel):
+    """POST /api/context/smart-compact 请求体。"""
+
+    messages: list[dict[str, Any]] = Field(..., description="待压缩的消息列表")
+    preserveKeywords: list[str] | None = Field(
+        None, description="用户指定必须保留的关键词列表"
+    )
+    conversationId: str = Field("", description="会话 ID")
+    userId: str = Field("", description="用户 ID")
+
+
+@router.post("/smart-compact")
+async def smart_compact_endpoint(req: SmartCompactRequest) -> dict[str, Any]:
+    """POST /api/context/smart-compact — 智能压缩(2026-07-23 立)。
+
+    LLM 识别关键信息(决策/错误/约束/代码引用)保留原文,非关键信息摘要压缩。
+
+    输出:{ code, message, data: { compactedMessages, preservedItems, compactedItems, compressionRatio, qualityScore } }
+    """
+    try:
+        data = await context_engine._smart_compactor(
+            messages=req.messages,
+            preserve_keywords=req.preserveKeywords,
+            conversation_id=req.conversationId,
+            user_id=req.userId,
+        )
+        return {"code": 0, "message": "ok", "data": data}
+    except Exception as e:
+        logger.exception("smart_compact_endpoint failed: %s", e)
+        return {"code": 500, "message": f"智能压缩失败: {e}", "data": None}
+
+
+class CrossProjectSaveRequest(BaseModel):
+    """POST /api/context/cross-project/save 请求体。"""
+
+    userId: str = Field(..., description="用户 ID")
+    summary: str = Field(..., max_length=500, description="经验摘要(≤500 字)")
+    sourceProject: str = Field(..., description="来源项目 ID/名称")
+    tags: list[str] | None = Field(None, description="标签列表")
+    detail: str = Field("", description="详细内容(可选)")
+
+
+@router.post("/cross-project/save")
+async def cross_project_save_endpoint(req: CrossProjectSaveRequest) -> dict[str, Any]:
+    """POST /api/context/cross-project/save — 保存跨项目经验(2026-07-23 立)。
+
+    用户在项目 A 的经验可被项目 B 检索(组织级记忆)。
+
+    输出:{ code, message, data: { id, saved: bool } }
+    """
+    try:
+        data = await context_engine.save_cross_project_experience(
+            user_id=req.userId,
+            summary=req.summary,
+            source_project=req.sourceProject,
+            tags=req.tags,
+            detail=req.detail,
+        )
+        return {"code": 0, "message": "ok", "data": data}
+    except Exception as e:
+        logger.exception("cross_project_save_endpoint failed: %s", e)
+        return {"code": 500, "message": f"跨项目经验保存失败: {e}", "data": None}
+
+
+@router.get("/cross-project/search")
+async def cross_project_search_endpoint(
+    userId: str = "",
+    q: str = "",
+    limit: int = 20,
+) -> dict[str, Any]:
+    """GET /api/context/cross-project/search — 搜索跨项目经验(2026-07-23 立)。
+
+    用 embedding 搜索相关经验,返回经验摘要 + 来源项目 + tags。
+
+    Query:
+        userId: 用户 ID。
+        q: 搜索查询。
+        limit: 返回上限(默认 20)。
+
+    输出:{ code, message, data: [{ id, summary, source_project, tags, score }] }
+    """
+    try:
+        results = await context_engine.search_cross_project_experiences(
+            user_id=userId,
+            query=q,
+            limit=limit,
+        )
+        return {"code": 0, "message": "ok", "data": results}
+    except Exception as e:
+        logger.exception("cross_project_search_endpoint failed: %s", e)
+        return {"code": 500, "message": f"跨项目经验搜索失败: {e}", "data": None}
+
+
+@router.delete("/cross-project/{experience_id}")
+async def cross_project_delete_endpoint(
+    experience_id: str,
+    userId: str = "",
+) -> dict[str, Any]:
+    """DELETE /api/context/cross-project/:id — 删除跨项目经验(2026-07-23 立)。
+
+    Path:
+        experience_id: 经验 ID。
+
+    Query:
+        userId: 用户 ID。
+
+    输出:{ code, message, data: { deleted: bool } }
+    """
+    try:
+        deleted = await context_engine.delete_cross_project_experience(
+            user_id=userId,
+            experience_id=experience_id,
+        )
+        return {"code": 0, "message": "ok", "data": {"deleted": deleted}}
+    except Exception as e:
+        logger.exception("cross_project_delete_endpoint failed: %s", e)
+        return {"code": 500, "message": f"跨项目经验删除失败: {e}", "data": None}

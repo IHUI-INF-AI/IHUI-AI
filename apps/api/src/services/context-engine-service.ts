@@ -168,6 +168,137 @@ export interface ClearMemoryResult {
   cleared: boolean
 }
 
+// === Context Engineering 超越创新类型(2026-07-23 立) ===
+
+/** 上下文预测单项 */
+export interface PredictionItem {
+  type: 'file' | 'symbol' | 'module' | 'document'
+  target: string
+  confidence: number
+}
+
+/** POST /predict 返回结构 */
+export interface PredictResult {
+  predictions: PredictionItem[]
+  prefetchedCount: number
+  conversationId: string
+}
+
+/** 预取 cache 上下文条目 */
+export interface PrefetchedContextItem {
+  type: string
+  target: string
+  confidence: number
+  content: string
+  prefetched_at?: number
+}
+
+/** 知识图谱节点 */
+export interface GraphNode {
+  id: string
+  type: string
+  label: string
+  path?: string
+  line_start?: number | null
+  line_end?: number | null
+}
+
+/** 知识图谱边 */
+export interface GraphEdge {
+  source: string
+  target: string
+  type: string
+  weight?: number
+}
+
+/** GET /knowledge-graph 返回结构 */
+export interface KnowledgeGraphResult {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  projectId: string
+}
+
+/** 图检索单项 */
+export interface GraphRetrieveItem {
+  node: GraphNode
+  score: number
+  path: string[]
+}
+
+/** 质量评分维度 */
+export interface QualityDimensions {
+  completeness: number
+  relevance: number
+  freshness: number
+  redundancy: number
+}
+
+/** POST /quality-score 返回结构 */
+export interface QualityScoreResult {
+  overall: number
+  dimensions: QualityDimensions
+  recommendation: string
+}
+
+/** 智能压缩返回结构 */
+export interface SmartCompactResult {
+  compactedMessages: Array<{ role: string; content: string }>
+  preservedItems: string[]
+  compactedItems: string[]
+  compressionRatio: number
+  qualityScore?: number
+}
+
+/** 跨项目经验保存返回 */
+export interface CrossProjectSaveResult {
+  id: string
+  saved: boolean
+}
+
+/** 跨项目经验搜索单项 */
+export interface CrossProjectExperienceItem {
+  id: string
+  summary: string
+  source_project: string
+  tags: string[]
+  score: number
+}
+
+/** 预测请求参数 */
+export interface PredictOptions {
+  currentMessage: string
+  conversationHistory: Array<{ role: string; content: string }>
+  conversationId: string
+  taskType: string
+  userId: string
+}
+
+/** 质量评分请求参数 */
+export interface QualityScoreOptions {
+  conversationId: string
+  taskType: string
+  taskQuery: string
+  userId: string
+  currentContext?: Array<Record<string, unknown>>
+}
+
+/** 智能压缩请求参数 */
+export interface SmartCompactOptions {
+  messages: Array<{ role: string; content: string }>
+  preserveKeywords?: string[]
+  conversationId: string
+  userId: string
+}
+
+/** 跨项目经验保存请求参数 */
+export interface CrossProjectSaveOptions {
+  userId: string
+  summary: string
+  sourceProject: string
+  tags?: string[]
+  detail?: string
+}
+
 /** LRU 缓存条目 */
 interface CacheEntry<T> {
   ts: number
@@ -797,6 +928,305 @@ class ContextEngineService {
       const json = (await resp.json()) as { code: number; data?: ClearMemoryResult }
       if (json.code === 0 && json.data) {
         return json.data.cleared
+      }
+      return false
+    } catch {
+      return false
+    }
+  }
+
+  // === Context Engineering 超越创新委托方法(2026-07-23 立) ===
+
+  /**
+   * 上下文预测 + 异步预取(2026-07-23 立)。
+   *
+   * 委托 ai-service POST /api/context/predict:
+   * - LLM 预测下一步需要的上下文(file/symbol/module/document)
+   * - 异步预取到 Redis cache(TTL 5 分钟)
+   * - 降级:LLM 不可用时用历史行为(最近访问的文件/符号)
+   */
+  async predict(opts: PredictOptions): Promise<PredictResult> {
+    try {
+      const resp = await aiServiceFetch(null, '/api/context/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentMessage: opts.currentMessage,
+          conversationHistory: opts.conversationHistory,
+          conversationId: opts.conversationId,
+          taskType: opts.taskType,
+          userId: opts.userId,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service /api/context/predict HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as { code: number; data?: PredictResult }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      throw new Error(`ai-service /api/context/predict 返回 code=${json.code}`)
+    } catch {
+      return { predictions: [], prefetchedCount: 0, conversationId: opts.conversationId }
+    }
+  }
+
+  /** 读取预取 cache(2026-07-23 立)。降级返回空数组。 */
+  async getPrefetched(
+    conversationId: string,
+    target: string = '',
+  ): Promise<PrefetchedContextItem[]> {
+    try {
+      const params = new URLSearchParams()
+      if (conversationId) params.set('conversationId', conversationId)
+      if (target) params.set('target', target)
+      const qs = params.toString()
+      const path = `/api/context/prefetch${qs ? `?${qs}` : ''}`
+      const resp = await aiServiceFetch(null, path, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service /api/context/prefetch HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as { code: number; data?: PrefetchedContextItem[] }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      return []
+    } catch {
+      return []
+    }
+  }
+
+  /** 构建知识图谱(2026-07-23 立)。降级返回空图谱。 */
+  async buildKnowledgeGraph(
+    projectId: string,
+    workspacePath: string = '',
+  ): Promise<KnowledgeGraphResult> {
+    try {
+      const resp = await aiServiceFetch(null, '/api/context/knowledge-graph/build', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, workspacePath }),
+        signal: AbortSignal.timeout(30_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service /api/context/knowledge-graph/build HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as { code: number; data?: KnowledgeGraphResult }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      throw new Error(`ai-service build graph 返回 code=${json.code}`)
+    } catch {
+      return { nodes: [], edges: [], projectId }
+    }
+  }
+
+  /** 获取知识图谱数据(可视化,2026-07-23 立)。降级返回空图谱。 */
+  async getKnowledgeGraph(
+    projectId: string,
+    nodeType: string = '',
+    edgeType: string = '',
+  ): Promise<KnowledgeGraphResult> {
+    try {
+      const params = new URLSearchParams()
+      if (projectId) params.set('projectId', projectId)
+      if (nodeType) params.set('node_type', nodeType)
+      if (edgeType) params.set('edge_type', edgeType)
+      const qs = params.toString()
+      const path = `/api/context/knowledge-graph${qs ? `?${qs}` : ''}`
+      const resp = await aiServiceFetch(null, path, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service /api/context/knowledge-graph HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as { code: number; data?: KnowledgeGraphResult }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      return { nodes: [], edges: [], projectId }
+    } catch {
+      return { nodes: [], edges: [], projectId }
+    }
+  }
+
+  /** 图检索(2026-07-23 立)。降级返回空数组。 */
+  async graphRetrieve(
+    query: string,
+    projectId: string = '',
+    userId: string = '',
+    depth: number = 2,
+  ): Promise<GraphRetrieveItem[]> {
+    try {
+      const params = new URLSearchParams()
+      if (query) params.set('query', query)
+      if (projectId) params.set('projectId', projectId)
+      if (userId) params.set('userId', userId)
+      params.set('depth', String(depth))
+      const path = `/api/context/graph-retrieve?${params.toString()}`
+      const resp = await aiServiceFetch(null, path, {
+        method: 'GET',
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service /api/context/graph-retrieve HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as { code: number; data?: GraphRetrieveItem[] }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      return []
+    } catch {
+      return []
+    }
+  }
+
+  /** 上下文质量评分(2026-07-23 立)。降级返回零分。 */
+  async getQualityScore(opts: QualityScoreOptions): Promise<QualityScoreResult> {
+    try {
+      const resp = await aiServiceFetch(null, '/api/context/quality-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId: opts.conversationId,
+          taskType: opts.taskType,
+          taskQuery: opts.taskQuery,
+          userId: opts.userId,
+          currentContext: opts.currentContext,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service /api/context/quality-score HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as { code: number; data?: QualityScoreResult }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      throw new Error(`ai-service quality-score 返回 code=${json.code}`)
+    } catch {
+      return {
+        overall: 0,
+        dimensions: { completeness: 0, relevance: 0, freshness: 0, redundancy: 0 },
+        recommendation: '评分服务不可用',
+      }
+    }
+  }
+
+  /** 智能压缩(2026-07-23 立)。降级返回原消息不压缩。 */
+  async smartCompact(opts: SmartCompactOptions): Promise<SmartCompactResult> {
+    try {
+      const resp = await aiServiceFetch(null, '/api/context/smart-compact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: opts.messages,
+          preserveKeywords: opts.preserveKeywords,
+          conversationId: opts.conversationId,
+          userId: opts.userId,
+        }),
+        signal: AbortSignal.timeout(20_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service /api/context/smart-compact HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as { code: number; data?: SmartCompactResult }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      throw new Error(`ai-service smart-compact 返回 code=${json.code}`)
+    } catch {
+      return {
+        compactedMessages: opts.messages,
+        preservedItems: [],
+        compactedItems: [],
+        compressionRatio: 1.0,
+      }
+    }
+  }
+
+  /** 保存跨项目经验(2026-07-23 立)。降级返回未保存。 */
+  async saveCrossProjectExperience(
+    opts: CrossProjectSaveOptions,
+  ): Promise<CrossProjectSaveResult> {
+    try {
+      const resp = await aiServiceFetch(null, '/api/context/cross-project/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: opts.userId,
+          summary: opts.summary,
+          sourceProject: opts.sourceProject,
+          tags: opts.tags,
+          detail: opts.detail,
+        }),
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service /api/context/cross-project/save HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as { code: number; data?: CrossProjectSaveResult }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      throw new Error(`ai-service cross-project save 返回 code=${json.code}`)
+    } catch {
+      return { id: '', saved: false }
+    }
+  }
+
+  /** 搜索跨项目经验(2026-07-23 立)。降级返回空数组。 */
+  async searchCrossProjectExperiences(
+    userId: string,
+    query: string,
+    limit: number = 20,
+  ): Promise<CrossProjectExperienceItem[]> {
+    try {
+      const params = new URLSearchParams()
+      if (userId) params.set('userId', userId)
+      if (query) params.set('q', query)
+      params.set('limit', String(limit))
+      const path = `/api/context/cross-project/search?${params.toString()}`
+      const resp = await aiServiceFetch(null, path, {
+        method: 'GET',
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service /api/context/cross-project/search HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as { code: number; data?: CrossProjectExperienceItem[] }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      return []
+    } catch {
+      return []
+    }
+  }
+
+  /** 删除跨项目经验(2026-07-23 立)。降级返回 false。 */
+  async deleteCrossProjectExperience(
+    userId: string,
+    experienceId: string,
+  ): Promise<boolean> {
+    try {
+      const qs = userId ? `?userId=${encodeURIComponent(userId)}` : ''
+      const path = `/api/context/cross-project/${encodeURIComponent(experienceId)}${qs}`
+      const resp = await aiServiceFetch(null, path, {
+        method: 'DELETE',
+        signal: AbortSignal.timeout(5_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service DELETE cross-project HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as { code: number; data?: { deleted: boolean } }
+      if (json.code === 0 && json.data) {
+        return json.data.deleted
       }
       return false
     } catch {
