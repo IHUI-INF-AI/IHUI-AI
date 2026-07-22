@@ -1,3 +1,5 @@
+'use client'
+
 import * as React from 'react'
 import { Check, ChevronDown, ChevronRight, Search } from 'lucide-react'
 import { cn } from '../lib/utils.js'
@@ -141,10 +143,12 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
         const hasChildren = node.children.length > 0
         const isExpanded = visibleIds ? true : expanded.has(node.id)
         return (
-          <div key={node.id}>
+          <div key={node.id} role="group">
             <div
               role="treeitem"
               aria-selected={value === node.id}
+              aria-expanded={hasChildren ? isExpanded : undefined}
+              aria-level={depth + 1}
               className={cn(
                 'flex cursor-default select-none items-center gap-1 rounded-sm py-1.5 pr-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
                 value === node.id && 'bg-accent text-accent-foreground',
@@ -208,7 +212,7 @@ const TreeSelect = React.forwardRef<HTMLButtonElement, TreeSelectProps>(
                 autoFocus
               />
             </div>
-            <div className="max-h-64 overflow-auto p-1">
+            <div className="max-h-64 overflow-auto p-1" role="tree" aria-label="树形选择">
               {tree.length === 0 ? (
                 <div className="py-6 text-center text-sm text-muted-foreground">暂无数据</div>
               ) : (
