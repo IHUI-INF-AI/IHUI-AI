@@ -55,8 +55,8 @@ const nextConfig: NextConfig = {
     return [...vueToNextRedirects]
   },
   async rewrites() {
-    const apiUrl = process.env.API_URL ?? 'http://localhost:3001'
-    const aiServiceUrl = process.env.AI_SERVICE_URL ?? 'http://localhost:8000'
+    const apiUrl = process.env.API_URL ?? 'http://localhost:3002'
+    const aiServiceUrl = process.env.AI_SERVICE_URL ?? 'http://localhost:3003'
     return [
       // AI 服务路由优先匹配,转发到 FastAPI(端口 8000)
       { source: '/api/llm/:path*', destination: `${aiServiceUrl}/api/llm/:path*` },

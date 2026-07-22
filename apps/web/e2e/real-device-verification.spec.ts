@@ -318,7 +318,7 @@ test.describe('真机验证 - 已登录状态', () => {
       const { ensureStorageState, USER_STORAGE_STATE } = await import('./fixtures')
       await ensureStorageState(
         request,
-        baseURL ?? 'http://localhost:3000',
+        baseURL ?? 'http://localhost:3001',
         {
           email: process.env.E2E_USER_EMAIL ?? 'test@ihui.ai',
           password: process.env.E2E_USER_PASSWORD ?? 'Test@123456',
@@ -370,7 +370,7 @@ test.describe('真机验证 - 已登录状态', () => {
       const { ensureStorageState, USER_STORAGE_STATE } = await import('./fixtures')
       await ensureStorageState(
         request,
-        baseURL ?? 'http://localhost:3000',
+        baseURL ?? 'http://localhost:3001',
         {
           email: process.env.E2E_USER_EMAIL ?? 'test@ihui.ai',
           password: process.env.E2E_USER_PASSWORD ?? 'Test@123456',
@@ -414,7 +414,7 @@ test.describe('真机验证 - 已登录状态', () => {
       const { ensureStorageState, USER_STORAGE_STATE } = await import('./fixtures')
       await ensureStorageState(
         request,
-        baseURL ?? 'http://localhost:3000',
+        baseURL ?? 'http://localhost:3001',
         {
           email: process.env.E2E_USER_EMAIL ?? 'test@ihui.ai',
           password: process.env.E2E_USER_PASSWORD ?? 'Test@123456',

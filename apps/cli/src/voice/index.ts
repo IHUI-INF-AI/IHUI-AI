@@ -44,7 +44,7 @@ export interface RecordAudioResult {
 
 /** 转写选项 */
 export interface TranscribeOptions {
-  /** ai-service API URL(如 http://localhost:8000) */
+  /** ai-service API URL(如 http://localhost:3003) */
   apiUrl: string;
   /** API key(可选,透传 Authorization) */
   apiKey?: string;
