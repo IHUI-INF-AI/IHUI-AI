@@ -12,7 +12,7 @@ import * as React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Download, FileJson, Loader2, Upload } from 'lucide-react'
+import { Download, FileJson, FileText, Loader2, Upload } from 'lucide-react'
 
 import {
   Button,
@@ -91,17 +91,55 @@ function buildBundle(groups: Array<{ providers: UserLlmProvider[] }>): ExportBun
   }
 }
 
+function generateEnvFile(providers: UserLlmProvider[]): string {
+  const lines: string[] = [
+    '# IHUI-AI LLM Configuration Export',
+    `# Exported at ${new Date().toISOString()}`,
+    '# NOTE: API Keys are placeholders — fill in your actual keys before use.',
+    '',
+  ]
+  for (const p of providers) {
+    const prefix = p.providerCode.toUpperCase().replace(/[^A-Z0-9]/g, '_')
+    lines.push(`# ${p.name}`)
+    lines.push(`${prefix}_API_KEY=<your-api-key>`)
+    if (p.baseUrl) lines.push(`${prefix}_BASE_URL=${p.baseUrl}`)
+    const models = p.models ?? []
+    if (models.length > 0 && models[0]?.modelId) {
+      lines.push(`${prefix}_MODEL=${models[0].modelId}`)
+    }
+    lines.push('')
+  }
+  return lines.join('\n')
+}
+
 export function BulkImportExportDialog({ open, onClose }: Props) {
   const t = useTranslations('llmSettings.v2.bulk')
   const qc = useQueryClient()
   const [tab, setTab] = React.useState<'export' | 'import'>('export')
   const [importText, setImportText] = React.useState('')
   const [parsed, setParsed] = React.useState<ExportBundle | null>(null)
+  const [exportFormat, setExportFormat] = React.useState<'json' | 'env'>('json')
 
   // 导出 mutation:不需要 mutation,直接读 cache
   const exportMut = React.useCallback(() => {
     const data = qc.getQueryData<{ groups: Array<{ providers: UserLlmProvider[] }> }>(['v2-providers'])
     const groups = data?.groups ?? []
+    const allProviders = groups.flatMap((g) => g.providers)
+    const dateStr = new Date().toISOString().slice(0, 10)
+
+    if (exportFormat === 'env') {
+      const envContent = generateEnvFile(allProviders)
+      const blob = new Blob([envContent], { type: 'text/plain' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `llm-configs-${dateStr}.env`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success(t('exportSuccess', { count: allProviders.length, models: 0 }))
+      return
+    }
+
     const bundle = buildBundle(groups)
     const json = JSON.stringify(bundle, null, 2)
     const totalModels = bundle.providers.reduce((acc, p) => acc + p.models.length, 0)
@@ -109,11 +147,11 @@ export function BulkImportExportDialog({ open, onClose }: Props) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `llm-configs-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = `llm-configs-${dateStr}.json`
     a.click()
     URL.revokeObjectURL(url)
     toast.success(t('exportSuccess', { count: bundle.providers.length, models: totalModels }))
-  }, [qc, t])
+  }, [qc, t, exportFormat])
 
   // 导入
   const importMut = useMutation({
@@ -220,6 +258,7 @@ export function BulkImportExportDialog({ open, onClose }: Props) {
       setImportText('')
       setParsed(null)
       setTab('export')
+      setExportFormat('json')
     }
   }, [open])
 
@@ -253,6 +292,29 @@ export function BulkImportExportDialog({ open, onClose }: Props) {
 
           <TabsContent value="export" className="space-y-3 pt-3">
             <p className="text-xs text-muted-foreground">{t('exportDesc')}</p>
+            <div className="space-y-1.5">
+              <Label className="text-sm">{t('formatLabel')}</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={exportFormat === 'json' ? 'default' : 'outline'}
+                  onClick={() => setExportFormat('json')}
+                >
+                  <FileJson className="mr-1.5 h-3.5 w-3.5" />
+                  {t('exportJson')}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={exportFormat === 'env' ? 'default' : 'outline'}
+                  onClick={() => setExportFormat('env')}
+                >
+                  <FileText className="mr-1.5 h-3.5 w-3.5" />
+                  {t('exportEnv')}
+                </Button>
+              </div>
+            </div>
             <Button onClick={exportMut} className="w-full">
               <Download className="mr-2 h-4 w-4" />
               {t('exportBtn')}
