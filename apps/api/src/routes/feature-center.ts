@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { eq, sql } from 'drizzle-orm'
 import { existsSync } from 'node:fs'
 import { readdir, readFile, stat } from 'node:fs/promises'
@@ -6,11 +6,37 @@ import { join, basename } from 'node:path'
 import { db } from '../db/index.js'
 import { agents, docs, sdks, aiModelConfig } from '@ihui/database'
 import { success } from '../utils/response.js'
+import { authenticate } from '../plugins/auth.js'
 
 // docs/ 目录路径(开发环境从根目录或 apps/api 启动均可,生产环境 = /app/docs)
 const DOCS_DIR = existsSync(join(process.cwd(), 'docs'))
   ? join(process.cwd(), 'docs')
   : join(process.cwd(), '../../docs')
+
+// 文档中心对外可见的白名单(普通用户/匿名可看)。
+// 其余 docs/*.md 含生产环境/凭证/守门策略等敏感信息,仅管理员可见。
+const PUBLIC_DOC_SLUGS = new Set<string>([
+  'AI_LEADERBOARD',
+  'AI_SERVICE',
+  'API_REFERENCE',
+  'architecture',
+  'AUTHENTICATION',
+  'CHANGELOG',
+  'CLI',
+  'CONTRIBUTING',
+  'DATABASE',
+  'FAQ',
+  'I18N',
+  'MULTI_END',
+  'PACKAGES',
+  'PERFORMANCE',
+  'RELEASE',
+  'SDK',
+  'SECURITY',
+  'TESTING',
+  'TROUBLESHOOTING',
+  'UI_GUIDELINES',
+])
 
 // 从 markdown 内容提取第一个 # 标题
 function extractMarkdownTitle(content: string, fallback: string): string {
@@ -19,8 +45,19 @@ function extractMarkdownTitle(content: string, fallback: string): string {
   return match[1].trim()
 }
 
+// 可选认证:尝试从 JWT 判定是否管理员(roleId >= 1)。失败/未登录返回 false,不抛错。
+async function isAdmin(request: FastifyRequest): Promise<boolean> {
+  try {
+    const payload = await authenticate(request)
+    return (payload.roleId ?? 0) >= 1
+  } catch {
+    return false
+  }
+}
+
 // 读取 docs/*.md 文件列表(运行时直读,合并到文档中心)
-async function readFileDocs(): Promise<
+// admin=true 返回全部,admin=false 只返回 PUBLIC_DOC_SLUGS 白名单
+async function readFileDocs(admin: boolean): Promise<
   Array<{
     id: string
     title: string
@@ -33,7 +70,12 @@ async function readFileDocs(): Promise<
 > {
   try {
     const files = await readdir(DOCS_DIR)
-    const mdFiles = files.filter((f) => f.endsWith('.md') && f !== 'README.md')
+    const mdFiles = files.filter(
+      (f) =>
+        f.endsWith('.md') &&
+        f !== 'README.md' &&
+        (admin || PUBLIC_DOC_SLUGS.has(f.replace(/\.md$/, ''))),
+    )
     return await Promise.all(
       mdFiles.map(async (file) => {
         const slug = file.replace(/\.md$/, '')
@@ -64,8 +106,9 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // GET /stats - 集市概览统计
   // -------------------------------------------------------------------------
-  server.get('/stats', async (_request, reply) => {
+  server.get('/stats', async (request, reply) => {
     try {
+      const admin = await isAdmin(request)
       const [apiCountRow, agentRows, docRows, sdkRows] = await Promise.all([
         db
           .select({ count: sql<number>`count(*)::int` })
@@ -79,7 +122,7 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
         db.select({ id: docs.id }).from(docs).where(eq(docs.status, 'published')).limit(1000),
         db.select({ id: sdks.id }).from(sdks).where(eq(sdks.status, 'active')).limit(1000),
       ])
-      const fileDocs = await readFileDocs()
+      const fileDocs = await readFileDocs(admin)
       const apiCount = apiCountRow[0]?.count ?? 0
 
       return reply.send(
@@ -167,9 +210,11 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
 
   // -------------------------------------------------------------------------
   // GET /documents - 文档集市列表(合并 DB docs + docs/*.md 工程文档)
+  // 普通用户/匿名只看白名单文件,管理员(roleId>=1)看全部
   // -------------------------------------------------------------------------
-  server.get('/documents', async (_request, reply) => {
+  server.get('/documents', async (request, reply) => {
     try {
+      const admin = await isAdmin(request)
       const [dbRows, fileDocs] = await Promise.all([
         db
           .select({
@@ -182,7 +227,7 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
           .from(docs)
           .where(eq(docs.status, 'published'))
           .limit(200),
-        readFileDocs(),
+        readFileDocs(admin),
       ])
       const dbList = dbRows.map((r) => ({
         id: r.id,
@@ -208,11 +253,12 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
 
   // -------------------------------------------------------------------------
   // GET /documents/:slug/content - 返回 markdown 内容(DB 优先,文件兜底)
+  // 文件文档:非管理员只能读白名单内文件,管理员可读全部
   // -------------------------------------------------------------------------
   server.get('/documents/:slug/content', async (request, reply) => {
     try {
       const slug = basename((request.params as { slug: string }).slug)
-      // 1. 先查 DB docs by slug
+      // 1. 先查 DB docs by slug(DB 文档由管理员通过 /admin/docs 管理,不做白名单限制)
       const dbRows = await db
         .select({ content: docs.content })
         .from(docs)
@@ -221,7 +267,13 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
       if (dbRows.length > 0) {
         return reply.send(success({ content: dbRows[0]?.content ?? '', source: 'db' }))
       }
-      // 2. 读 docs/${slug}.md 文件(basename 防 ../ 路径遍历)
+      // 2. 文件文档:非管理员只能读白名单内文件(basename 防 ../ 路径遍历)
+      if (!PUBLIC_DOC_SLUGS.has(slug)) {
+        const admin = await isAdmin(request)
+        if (!admin) {
+          return reply.code(404).send(success({ content: '', source: 'none' }))
+        }
+      }
       const content = await readFile(join(DOCS_DIR, `${slug}.md`), 'utf-8')
       return reply.send(success({ content, source: 'file' }))
     } catch {
