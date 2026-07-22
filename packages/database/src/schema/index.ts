@@ -152,7 +152,6 @@ export * from './agent-billings.js'
 // 5 个 supplement 文件，共 17 张新表 + 10 张已在其他文件迁移（live-extended.ts 3 / learn-extended.ts 1 / learn-extra-extended.ts 1 / relation-tables.ts 5）
 export * from './social-supplement.js'
 export * from './live-supplement.js'
-export * from './learn-homework.js'
 export * from './resource-download.js'
 export * from './admin-extended.js'
 export * from './workspace-permissions.js'
