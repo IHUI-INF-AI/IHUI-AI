@@ -23,7 +23,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { and, desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 
-import { aiModelConfig, cliProviderImports } from '@ihui/database'
+import { aiModelConfig, aiModelConfigModels, cliProviderImports } from '@ihui/database'
 import {
   type CliConfigSource,
   type ImportCommitResponse,
@@ -48,13 +48,17 @@ import {
 // Schemas
 // =============================================================================
 
+/**
+ * 24 源 zod enum,严格对齐 packages/types/src/cli-config.ts 的 CliConfigSource。
+ * 顺序与 CliConfigSource 定义保持一致,新增源时同步更新。
+ */
 const sourceSchema = z.enum([
-  'cc-switch',
-  'codex++',
-  'claude-cli',
-  'codex-cli',
-  'gemini-cli',
-  'hermes',
+  'cc-switch', 'codex++', 'claude-cli', 'codex-cli', 'gemini-cli', 'hermes',
+  'cursor', 'windsurf', 'cline', 'aider', 'env-file',
+  'trae', 'trae-work', 'qoder', 'qoder-work',
+  'codex-desktop', 'claude-code-desktop',
+  'github-copilot', 'amazon-q', 'continue', 'tabnine', 'cody', 'zed',
+  'antigravity',
 ])
 
 const parsePayloadSchema = z.object({
@@ -186,6 +190,33 @@ async function insertProvider(
       })
       .returning({ id: aiModelConfig.id })
     if (!row) return { failed: true, reason: '数据库插入失败' }
+
+    // 同步写入子表 ai_model_config_models(若 meta.models 有值)
+    const models = p.meta?.models
+    if (Array.isArray(models) && models.length > 0) {
+      try {
+        await db
+          .insert(aiModelConfigModels)
+          .values(
+            models.map((modelId, idx) => ({
+              configId: row.id,
+              modelId,
+              displayName: modelId,
+              isDefault: idx === 0,
+              sortOrder: idx,
+              enabled: true,
+            })),
+          )
+          .onConflictDoNothing({
+            target: [aiModelConfigModels.configId, aiModelConfigModels.modelId],
+          })
+      } catch (err) {
+        // 子表写入失败不阻塞主表导入,仅记录警告
+        preview.globalWarnings.push(
+          `provider ${p.name} 的 models 子表写入失败: ${(err as Error).message}`,
+        )
+      }
+    }
     return { id: row.id }
   } catch (err) {
     return { failed: true, reason: (err as Error).message }
