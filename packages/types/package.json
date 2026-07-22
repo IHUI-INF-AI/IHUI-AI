@@ -33,6 +33,10 @@
     "./api-contracts": {
       "types": "./src/api-contracts.ts",
       "import": "./dist/api-contracts.js"
+    },
+    "./subagent-dispatch": {
+      "types": "./src/subagent-dispatch.ts",
+      "import": "./dist/subagent-dispatch.js"
     }
   },
   "scripts": {
