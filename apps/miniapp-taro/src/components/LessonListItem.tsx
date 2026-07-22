@@ -32,14 +32,14 @@ export default function LessonListItem({
 }: LessonListItemProps) {
   return (
     <View
-      className={`flex items-center px-4 py-3 border-b border-gray-50 ${
-        active ? 'bg-indigo-50' : ''
+      className={`flex items-center px-4 py-3 border-b border-border ${
+        active ? 'bg-primary/10' : ''
       }`}
       onClick={onClick}
     >
       <View
         className={`flex items-center justify-center w-7 h-7 mr-3 rounded-md text-xs ${
-          active ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-500'
+          active ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
         }`}
       >
         <Text>{index + 1}</Text>
@@ -47,25 +47,25 @@ export default function LessonListItem({
 
       <View className="flex-1 min-w-0">
         <View className="flex items-center">
-          {data.type && <Text className="text-xs text-gray-400 mr-2">{TYPE_ICONS[data.type]}</Text>}
+          {data.type && <Text className="text-xs text-muted-foreground mr-2">{TYPE_ICONS[data.type]}</Text>}
           <Text
-            className={`text-sm truncate ${active ? 'text-indigo-600 font-medium' : 'text-gray-700'}`}
+            className={`text-sm truncate ${active ? 'text-primary font-medium' : 'text-foreground'}`}
           >
             {data.title}
           </Text>
         </View>
         {data.duration && (
-          <Text className="block text-xs text-gray-400 mt-0.5">{data.duration}</Text>
+          <Text className="block text-xs text-muted-foreground mt-0.5">{data.duration}</Text>
         )}
       </View>
 
       {data.isFree && (
-        <Text className="text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-500 mr-2">
+        <Text className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary mr-2">
           试看
         </Text>
       )}
-      {data.watched && <Text className="text-xs text-green-500 mr-2">✓</Text>}
-      {data.locked && <Text className="text-xs text-gray-400 mr-2">🔒</Text>}
+      {data.watched && <Text className="text-xs text-primary mr-2">✓</Text>}
+      {data.locked && <Text className="text-xs text-muted-foreground mr-2">🔒</Text>}
     </View>
   )
 }

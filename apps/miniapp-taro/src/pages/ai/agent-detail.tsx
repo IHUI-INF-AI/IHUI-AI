@@ -93,14 +93,14 @@ export default function AgentDetailPage() {
       : null
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="flex bg-white border-b border-gray-100">
+    <View className="min-h-screen bg-background">
+      <View className="flex bg-card border-b border-border">
         <View
           className={`flex-1 py-3 text-center ${tab === 'info' ? 'border-b-2 border-[var(--color-primary)]' : ''}`}
           onClick={() => setTab('info')}
         >
           <Text
-            className={`text-sm ${tab === 'info' ? 'text-[var(--color-primary)] font-medium' : 'text-gray-500'}`}
+            className={`text-sm ${tab === 'info' ? 'text-[var(--color-primary)] font-medium' : 'text-muted-foreground'}`}
           >
             {t('ai.agentDetail.promptLabel')}
           </Text>
@@ -110,7 +110,7 @@ export default function AgentDetailPage() {
           onClick={() => setTab('runtime')}
         >
           <Text
-            className={`text-sm ${tab === 'runtime' ? 'text-[var(--color-primary)] font-medium' : 'text-gray-500'}`}
+            className={`text-sm ${tab === 'runtime' ? 'text-[var(--color-primary)] font-medium' : 'text-muted-foreground'}`}
           >
             {t('ai.agentDetail.tabRuntime')}
           </Text>
@@ -120,28 +120,28 @@ export default function AgentDetailPage() {
       {tab === 'info' && (
         <View>
           {agent && (
-            <View className="mx-[12px] my-[12px] bg-white rounded-[8px] p-[16px]">
+            <View className="mx-[12px] my-[12px] bg-card rounded-[8px] p-[16px]">
               <View className="flex items-center">
                 <Image
-                  className="w-[80px] h-[80px] rounded-md bg-[#f5f5f5]"
+                  className="w-[80px] h-[80px] rounded-md bg-muted"
                   src={agent.avatar || '/static/default-agent.png'}
                   mode="aspectFill"
                 />
                 <View className="ml-[12px] flex-1">
                   <View className="flex items-center">
-                    <Text className="text-[18px] text-[#333] font-bold">{agent.name}</Text>
+                    <Text className="text-[18px] text-foreground font-bold">{agent.name}</Text>
                     {agent.isVipExclusive && (
                       <Text className="ml-[8px] text-[11px] px-[6px] py-[2px] rounded bg-amber-50 text-amber-600">
                         {t('ai.agentDetail.vipExclusive')}
                       </Text>
                     )}
                   </View>
-                  <Text className="block text-[14px] text-[#666] mt-[4px]">{agent.desc}</Text>
+                  <Text className="block text-[14px] text-muted-foreground mt-[4px]">{agent.desc}</Text>
                 </View>
               </View>
               {permLoading ? (
-                <View className="mt-[12px] py-[8px] px-[10px] rounded bg-gray-50">
-                  <Text className="text-[12px] text-gray-500">
+                <View className="mt-[12px] py-[8px] px-[10px] rounded bg-muted">
+                  <Text className="text-[12px] text-muted-foreground">
                     {t('ai.agentDetail.permissionLoading')}
                   </Text>
                 </View>
@@ -166,11 +166,11 @@ export default function AgentDetailPage() {
             </View>
           )}
           {agent?.prompt && (
-            <View className="mx-[12px] mb-[12px] bg-[#f5f5f5] rounded-[8px] p-[16px]">
-              <Text className="text-[14px] text-[#333] font-semibold mb-[8px] block">
+            <View className="mx-[12px] mb-[12px] bg-muted rounded-[8px] p-[16px]">
+              <Text className="text-[14px] text-foreground font-semibold mb-[8px] block">
                 {t('ai.agentDetail.promptLabel')}
               </Text>
-              <Text className="text-[14px] text-[#666] leading-[22px]">{agent.prompt}</Text>
+              <Text className="text-[14px] text-muted-foreground leading-[22px]">{agent.prompt}</Text>
             </View>
           )}
           {agent && (

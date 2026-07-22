@@ -47,7 +47,7 @@ export default function ProgressCircle({
       />
       {showText && (
         <View className="absolute inset-0 flex items-center justify-center">
-          <Text className="text-xs font-medium text-gray-700">
+          <Text className="text-xs font-medium text-foreground">
             {text || `${Math.floor(clamped)}%`}
           </Text>
         </View>

@@ -19,21 +19,21 @@ export default function Introduction({
   return (
     <View className="px-4 py-3">
       {content ? (
-        <Text className="block text-sm text-gray-600 leading-relaxed">{content}</Text>
+        <Text className="block text-sm text-foreground leading-relaxed">{content}</Text>
       ) : (
-        <Text className="block text-sm text-gray-400">暂无简介</Text>
+        <Text className="block text-sm text-muted-foreground">暂无简介</Text>
       )}
       {agents.length > 0 && (
-        <View className="mt-3 pt-3 border-t border-gray-50">
-          <Text className="block text-xs text-gray-400 mb-2">关联 AI 应用</Text>
+        <View className="mt-3 pt-3 border-t border-border">
+          <Text className="block text-xs text-muted-foreground mb-2">关联 AI 应用</Text>
           <View className="flex flex-wrap">
             {agents.map((agent) => (
               <View
                 key={agent.id}
-                className="mr-2 mb-1.5 px-2.5 py-1 rounded-md border border-indigo-100 bg-indigo-50"
+                className="mr-2 mb-1.5 px-2.5 py-1 rounded-md border border-indigo-100 bg-primary/10"
                 onClick={() => onAgentClick?.(agent)}
               >
-                <Text className="text-xs text-indigo-500">{agent.name}</Text>
+                <Text className="text-xs text-primary">{agent.name}</Text>
               </View>
             ))}
           </View>

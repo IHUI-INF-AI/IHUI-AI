@@ -1,10 +1,10 @@
 .page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-background);
 }
 .card {
   margin: 24rpx;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 16rpx;
   overflow: hidden;
 }
@@ -13,24 +13,24 @@
   justify-content: space-between;
   align-items: center;
   padding: 32rpx;
-  border-bottom: 2rpx solid #f5f5f5;
+  border-bottom: 2rpx solid var(--color-border);
 }
 .row.last {
   border-bottom: none;
 }
 .label {
   font-size: 28rpx;
-  color: #333;
+  color: var(--color-foreground);
 }
 .value {
   font-size: 26rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
   max-width: 60%;
   text-align: right;
   word-break: break-all;
 }
 .value.link {
-  color: #07c160;
+  color: var(--color-primary);
 }
 .tips {
   text-align: center;
@@ -38,5 +38,5 @@
 }
 .tips text {
   font-size: 22rpx;
-  color: #bbb;
+  color: var(--color-muted-foreground);
 }

@@ -37,23 +37,23 @@ export default function Settings() {
   }
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="mx-[12px] mt-[12px] bg-white rounded-[8px] overflow-hidden">
+    <View className="min-h-screen bg-background">
+      <View className="mx-[12px] mt-[12px] bg-card rounded-[8px] overflow-hidden">
         {menus.map((item, idx) => (
           <View
             key={item.path}
             className={`flex justify-between items-center px-[16px] py-[16px] ${
-              idx < menus.length - 1 ? 'border-b-[1px] border-solid border-[#f5f5f5]' : ''
+              idx < menus.length - 1 ? 'border-b-[1px] border-solid border-border' : ''
             }`}
             onClick={() => navigate(item.path)}
           >
-            <Text className="text-[14px] text-[#333]">{item.label}</Text>
-            <Text className="text-[16px] text-[#ccc]">›</Text>
+            <Text className="text-[14px] text-foreground">{item.label}</Text>
+            <Text className="text-[16px] text-muted-foreground">›</Text>
           </View>
         ))}
       </View>
       <View
-        className="mx-[12px] mt-[30px] h-[48px] leading-[48px] text-center bg-white rounded-[24px] text-[#dd524d] text-[15px]"
+        className="mx-[12px] mt-[30px] h-[48px] leading-[48px] text-center bg-card rounded-[24px] text-[#dd524d] text-[15px]"
         onClick={handleLogout}
       >
         <Text>{t('user.logout')}</Text>

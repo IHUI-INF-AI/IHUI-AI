@@ -108,18 +108,18 @@ export default function Login() {
   }
 
   return (
-    <View className="min-h-screen px-[24px] bg-white">
+    <View className="min-h-screen px-[24px] bg-card">
       <View className="pt-[80px] pb-[40px] text-center">
-        <Text className="text-[28px] font-bold text-[#07c160]">{t('login.brand')}</Text>
-        <Text className="block mt-[8px] text-[13px] text-[#999]">{t('login.slogan')}</Text>
+        <Text className="text-[28px] font-bold text-primary">{t('login.brand')}</Text>
+        <Text className="block mt-[8px] text-[13px] text-muted-foreground">{t('login.slogan')}</Text>
       </View>
 
       <View className="flex mb-[24px]">
         <View
           className={`flex-1 text-center py-[10px] text-[15px] border-b-[2px] border-solid ${
             loginType === 'phone'
-              ? 'text-[#07c160] font-semibold border-[#07c160]'
-              : 'text-[#999] border-transparent'
+              ? 'text-primary font-semibold border-primary'
+              : 'text-muted-foreground border-transparent'
           }`}
           onClick={() => setLoginType('phone')}
         >
@@ -128,8 +128,8 @@ export default function Login() {
         <View
           className={`flex-1 text-center py-[10px] text-[15px] border-b-[2px] border-solid ${
             loginType === 'password'
-              ? 'text-[#07c160] font-semibold border-[#07c160]'
-              : 'text-[#999] border-transparent'
+              ? 'text-primary font-semibold border-primary'
+              : 'text-muted-foreground border-transparent'
           }`}
           onClick={() => setLoginType('password')}
         >
@@ -137,7 +137,7 @@ export default function Login() {
         </View>
       </View>
 
-      <View className="flex items-center h-[48px] mb-[16px] border-b-[1px] border-solid border-[#eee]">
+      <View className="flex items-center h-[48px] mb-[16px] border-b-[1px] border-solid border-[var(--color-border)]">
         <Input
           className="flex-1 h-[48px] text-[15px]"
           type="number"
@@ -149,7 +149,7 @@ export default function Login() {
       </View>
 
       {loginType === 'phone' ? (
-        <View className="flex items-center h-[48px] mb-[16px] border-b-[1px] border-solid border-[#eee]">
+        <View className="flex items-center h-[48px] mb-[16px] border-b-[1px] border-solid border-[var(--color-border)]">
           <Input
             className="flex-1 h-[48px] text-[15px]"
             type="number"
@@ -159,7 +159,7 @@ export default function Login() {
             onInput={(e) => setCode(e.detail.value)}
           />
           <View
-            className={`px-[10px] text-[13px] ${codeBtnDisabled ? 'text-[#ccc]' : 'text-[#07c160]'}`}
+            className={`px-[10px] text-[13px] ${codeBtnDisabled ? 'text-muted-foreground' : 'text-primary'}`}
             onClick={sendCode}
           >
             <Text>{codeBtnText}</Text>
@@ -168,7 +168,7 @@ export default function Login() {
       ) : null}
 
       {loginType === 'password' ? (
-        <View className="flex items-center h-[48px] mb-[16px] border-b-[1px] border-solid border-[#eee]">
+        <View className="flex items-center h-[48px] mb-[16px] border-b-[1px] border-solid border-[var(--color-border)]">
           <Input
             className="flex-1 h-[48px] text-[15px]"
             password
@@ -180,7 +180,7 @@ export default function Login() {
       ) : null}
 
       <View
-        className={`h-[48px] mt-[12px] rounded-[24px] flex items-center justify-center text-white text-[16px] bg-[#07c160] ${
+        className={`h-[48px] mt-[12px] rounded-[24px] flex items-center justify-center text-white text-[16px] bg-primary ${
           isLogging ? 'opacity-60' : ''
         }`}
         onClick={handleLogin}
@@ -189,21 +189,21 @@ export default function Login() {
       </View>
 
       <View
-        className="mt-[24px] text-center text-[14px] text-[#07c160]"
+        className="mt-[24px] text-center text-[14px] text-primary"
         onClick={handleWechatLogin}
       >
         <Text>{t('login.wechatLogin')}</Text>
       </View>
 
       <View
-        className="mt-[16px] text-center text-[13px] text-[#666] border-t border-[#eee] pt-[16px]"
+        className="mt-[16px] text-center text-[13px] text-muted-foreground border-t border-[var(--color-border)] pt-[16px]"
         onClick={handleSsoLogin}
       >
         <Text>{t('login.ssoLogin')}</Text>
-        <Text className="block mt-[4px] text-[11px] text-[#999]">{t('login.ssoLoginHint')}</Text>
+        <Text className="block mt-[4px] text-[11px] text-muted-foreground">{t('login.ssoLoginHint')}</Text>
       </View>
 
-      <View className="mt-[30px] text-center text-[11px] text-[#999]">
+      <View className="mt-[30px] text-center text-[11px] text-muted-foreground">
         <Text>{t('login.agreement')}</Text>
       </View>
     </View>

@@ -32,22 +32,22 @@ export default function StudyRank() {
   })
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="p-6 text-center bg-gradient-to-br from-[#07c160] to-[#35e683]">
+    <View className="min-h-screen bg-background">
+      <View className="p-6 text-center bg-gradient-to-br from-[#00f2ff] to-[#8b5cf6]">
         <Text className="block text-white text-lg font-bold">{t('study.rankPage.title')}</Text>
         <Text className="block text-white/90 text-xs mt-1">{t('study.rankPage.subtitle')}</Text>
       </View>
 
       {list.length >= 3 && (
-        <View className="flex items-end justify-center py-4 bg-white">
+        <View className="flex items-end justify-center py-4 bg-card">
           <View className="flex flex-col items-center mx-2 relative">
             <Image
-              className="w-[55px] h-[55px] rounded-md bg-[#f5f5f5] border-2 border-[#c0c0c0]"
+              className="w-[55px] h-[55px] rounded-md bg-muted border-2 border-[#c0c0c0]"
               src={list[1]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <Text className="text-xs text-[#333] mt-1">{list[1]!.nickname}</Text>
-            <Text className="text-xs text-[#07c160] mt-0.5">
+            <Text className="text-xs text-foreground mt-1">{list[1]!.nickname}</Text>
+            <Text className="text-xs text-primary mt-0.5">
               {t('study.rankPage.minutes', { n: list[1]!.minutes })}
             </Text>
             <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-md text-white text-xs bg-[#c0c0c0]">
@@ -56,12 +56,12 @@ export default function StudyRank() {
           </View>
           <View className="flex flex-col items-center mx-2 relative">
             <Image
-              className="w-[70px] h-[70px] rounded-md bg-[#f5f5f5] border-2 border-[#ffd700]"
+              className="w-[70px] h-[70px] rounded-md bg-muted border-2 border-[#ffd700]"
               src={list[0]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <Text className="text-xs text-[#333] mt-1">{list[0]!.nickname}</Text>
-            <Text className="text-xs text-[#07c160] mt-0.5">
+            <Text className="text-xs text-foreground mt-1">{list[0]!.nickname}</Text>
+            <Text className="text-xs text-primary mt-0.5">
               {t('study.rankPage.minutes', { n: list[0]!.minutes })}
             </Text>
             <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-md text-white text-xs bg-[#ffd700]">
@@ -70,12 +70,12 @@ export default function StudyRank() {
           </View>
           <View className="flex flex-col items-center mx-2 relative">
             <Image
-              className="w-[55px] h-[55px] rounded-md bg-[#f5f5f5] border-2 border-[#cd7f32]"
+              className="w-[55px] h-[55px] rounded-md bg-muted border-2 border-[#cd7f32]"
               src={list[2]!.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <Text className="text-xs text-[#333] mt-1">{list[2]!.nickname}</Text>
-            <Text className="text-xs text-[#07c160] mt-0.5">
+            <Text className="text-xs text-foreground mt-1">{list[2]!.nickname}</Text>
+            <Text className="text-xs text-primary mt-0.5">
               {t('study.rankPage.minutes', { n: list[2]!.minutes })}
             </Text>
             <Text className="absolute -top-2 w-5 h-5 leading-5 text-center rounded-md text-white text-xs bg-[#cd7f32]">
@@ -86,20 +86,20 @@ export default function StudyRank() {
       )}
 
       {list.length > 3 && (
-        <View className="m-3 bg-white rounded-2xl overflow-hidden">
+        <View className="m-3 bg-card rounded-2xl overflow-hidden">
           {list.slice(3).map((u, i) => (
             <View
               key={u.id}
-              className="flex items-center p-3 border-b border-[#f5f5f5] last:border-b-0"
+              className="flex items-center p-3 border-b border-border last:border-b-0"
             >
-              <Text className="w-8 text-sm text-[#999]">{i + 4}</Text>
+              <Text className="w-8 text-sm text-muted-foreground">{i + 4}</Text>
               <Image
-                className="w-[30px] h-[30px] rounded-md bg-[#f5f5f5]"
+                className="w-[30px] h-[30px] rounded-md bg-muted"
                 src={u.avatar || '/static/default-avatar.png'}
                 mode="aspectFill"
               />
-              <Text className="flex-1 ml-3 text-sm text-[#333]">{u.nickname}</Text>
-              <Text className="text-sm text-[#07c160] font-semibold">
+              <Text className="flex-1 ml-3 text-sm text-foreground">{u.nickname}</Text>
+              <Text className="text-sm text-primary font-semibold">
                 {t('study.rankPage.minutes', { n: u.minutes })}
               </Text>
             </View>
@@ -108,7 +108,7 @@ export default function StudyRank() {
       )}
 
       {!loading && list.length === 0 && (
-        <View className="text-center py-16 text-[#999]">
+        <View className="text-center py-16 text-muted-foreground">
           <Text>{t('study.rankPage.empty')}</Text>
         </View>
       )}

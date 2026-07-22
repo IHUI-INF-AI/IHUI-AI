@@ -61,10 +61,10 @@ export default function TeacherList() {
   }, [load])
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       <View className="p-3">
         <Input
-          className="h-9 px-3 bg-white rounded-lg text-sm"
+          className="h-9 px-3 bg-card rounded-lg text-sm"
           placeholder={t('teacher.list.searchPlaceholder')}
           value={keyword}
           onInput={(e) => setKeyword(e.detail.value)}
@@ -76,31 +76,31 @@ export default function TeacherList() {
           {list.map((item) => (
             <View
               key={item.id}
-              className="flex bg-white rounded-2xl p-3 mb-3"
+              className="flex bg-card rounded-2xl p-3 mb-3"
               onClick={() => goDetail(item.id)}
             >
               <Image
-                className="w-[60px] h-[60px] rounded-md bg-[#f5f5f5] flex-shrink-0"
+                className="w-[60px] h-[60px] rounded-md bg-muted flex-shrink-0"
                 src={item.avatar || '/static/default-avatar.png'}
                 mode="aspectFill"
               />
               <View className="flex-1 ml-3">
                 <View className="flex items-center gap-2">
-                  <Text className="text-base text-[#333] font-semibold">{item.name}</Text>
+                  <Text className="text-base text-foreground font-semibold">{item.name}</Text>
                   {item.title && (
-                    <Text className="text-xs text-[#07c160] bg-[#e6f7ee] px-1.5 py-0.5 rounded">
+                    <Text className="text-xs text-primary bg-[var(--color-muted)] px-1.5 py-0.5 rounded">
                       {item.title}
                     </Text>
                   )}
                 </View>
-                <Text className="block text-xs text-[#999] mt-1.5 leading-relaxed">
+                <Text className="block text-xs text-muted-foreground mt-1.5 leading-relaxed">
                   {item.intro}
                 </Text>
                 <View className="flex gap-3 mt-1.5">
-                  <Text className="text-xs text-[#666]">
+                  <Text className="text-xs text-muted-foreground">
                     {t('teacher.list.courseCount', { n: item.courses || 0 })}
                   </Text>
-                  <Text className="text-xs text-[#666]">
+                  <Text className="text-xs text-muted-foreground">
                     {t('teacher.list.studentCount', { n: item.students || 0 })}
                   </Text>
                 </View>
@@ -110,12 +110,12 @@ export default function TeacherList() {
         </View>
       )}
       {!loading && list.length === 0 && (
-        <View className="text-center py-16 text-[#999] text-sm">
+        <View className="text-center py-16 text-muted-foreground text-sm">
           <Text>{t('teacher.list.empty')}</Text>
         </View>
       )}
       {loading && (
-        <View className="text-center py-16 text-[#999] text-sm">
+        <View className="text-center py-16 text-muted-foreground text-sm">
           <Text>{t('common.loading')}</Text>
         </View>
       )}

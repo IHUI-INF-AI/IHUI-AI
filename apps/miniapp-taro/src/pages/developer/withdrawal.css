@@ -1,15 +1,15 @@
 .withdrawal-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--color-background);
 }
 .page-header {
   padding: 20rpx 30rpx;
-  background: #fff;
+  background: var(--color-card);
 }
 .page-title {
   font-size: 36rpx;
   font-weight: bold;
-  color: #333;
+  color: var(--color-foreground);
 }
 .withdrawal-list {
   padding: 20rpx;
@@ -18,7 +18,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 12rpx;
   padding: 24rpx;
   margin-bottom: 16rpx;
@@ -28,14 +28,14 @@
 }
 .withdrawal-amount {
   font-size: 32rpx;
-  color: #333;
+  color: var(--color-foreground);
   font-weight: 600;
   display: block;
   margin-bottom: 8rpx;
 }
 .withdrawal-time {
   font-size: 24rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
 }
 .withdrawal-status {
   font-size: 24rpx;
@@ -57,7 +57,7 @@
 .loading-text,
 .empty-text {
   text-align: center;
-  color: #999;
+  color: var(--color-muted-foreground);
   font-size: 28rpx;
   display: block;
   padding: 60rpx 0;

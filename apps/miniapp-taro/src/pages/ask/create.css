@@ -1,32 +1,32 @@
 .page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-background);
   padding-bottom: 120rpx;
 }
 .card {
   margin: 24rpx;
   padding: 32rpx;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 16rpx;
 }
 .label {
   display: block;
   font-size: 26rpx;
-  color: #333;
+  color: var(--color-foreground);
   margin: 16rpx 0;
 }
 .input {
   width: 100%;
   padding: 16rpx 0;
   font-size: 30rpx;
-  border-bottom: 2rpx solid #f5f5f5;
+  border-bottom: 2rpx solid var(--color-border);
 }
 .textarea {
   width: 100%;
   min-height: 240rpx;
   margin-top: 16rpx;
   padding: 16rpx;
-  background: #f7f8fa;
+  background: var(--color-background);
   border-radius: 12rpx;
   font-size: 28rpx;
   box-sizing: border-box;
@@ -35,7 +35,7 @@
   display: block;
   text-align: right;
   font-size: 22rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
   margin-top: 8rpx;
 }
 .rewards {
@@ -45,14 +45,14 @@
 }
 .reward {
   padding: 12rpx 24rpx;
-  border: 2rpx solid #eee;
+  border: 2rpx solid var(--color-border);
   border-radius: 24rpx;
   font-size: 24rpx;
-  color: #666;
+  color: var(--color-muted-foreground);
 }
 .reward.active {
-  border-color: #07c160;
-  color: #07c160;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
   background: #e6f7ee;
 }
 .tips {
@@ -61,13 +61,13 @@
 .tips text {
   display: block;
   font-size: 22rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
   line-height: 1.8;
 }
 .btn {
   margin: 32rpx;
-  background: #07c160;
-  color: #fff;
+  background: var(--color-primary);
+  color: var(--color-foreground);
   border-radius: 40rpx;
   font-size: 32rpx;
 }
