@@ -180,6 +180,8 @@ import { browserRoutes } from './routes/browser.js'
 import { memoryRoutes } from './routes/memory.js'
 // Skill 持久化路由(P0-2,管理自进化生成的 skill)
 import { skillsRoutes } from './routes/skills.js'
+// IM 平台 gateway 路由(P1-1,对标 Hermes Agent 25+ 平台 gateway:webhook 接收 + 出站发送 + 适配器配置)
+import { imGatewayRoutes } from './routes/im-gateway.js'
 
 // R68 补建：M-64 ask 模块扩展端点
 import { askExtendedRoutes } from './routes/ask-extended.js'
@@ -865,8 +867,10 @@ function registerRoutes(server: FastifyInstance) {
 
   // 统一记忆读写(2026-07-22 立,P0-3:GET/POST/DELETE /api/memory)
   server.register(memoryRoutes, { prefix: '/api' })
-  // Skill 持久化(2026-07-22 立,P0-2:GET/POST /api/skills + GET/DELETE /api/skills/:name)
+  // Skill 持久化(2026-07-22 立,P0-2:GET/POST /api/skills + GET/DELETE /api/skills/:name + POST /api/skills/sync)
   server.register(skillsRoutes, { prefix: '/api' })
+  // IM 平台 gateway(2026-07-22 立,P1-1:POST /api/im-gateway/webhook/:platform + /send + GET/POST /api/im-gateway/adapters + GET /api/im-gateway/status)
+  server.register(imGatewayRoutes, { prefix: '/api' })
 
   // ===== R68 补建：M-64 ask 模块扩展端点 =====
   // M-64: ask 扩展（12端点：回答编辑/删除+点赞+收藏+评论+分类CRUD+树+统计）
