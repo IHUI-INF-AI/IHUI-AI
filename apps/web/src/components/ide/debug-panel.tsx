@@ -1,0 +1,236 @@
+'use client'
+import * as React from 'react'
+import { useIDEWorkspace } from '@/stores/ide-workspace'
+import { cn } from '@/lib/utils'
+import {
+  Play, Square, SkipForward, ArrowDown, ArrowUp, RotateCcw,
+  ChevronRight, ChevronDown, Plus, X, Circle, CircleDot, Trash2, Terminal,
+} from 'lucide-react'
+
+type DebugState = 'stopped' | 'running' | 'paused'
+
+interface Variable {
+  name: string
+  value: string
+  type: string
+  children?: Variable[]
+}
+
+interface Breakpoint {
+  id: string
+  file: string
+  line: number
+  enabled: boolean
+}
+
+const VARIABLES: Variable[] = [
+  {
+    name: 'this', value: 'IDEWorkspace', type: 'object',
+    children: [
+      { name: 'activeView', value: '"debug"', type: 'string' },
+      { name: 'openTabs', value: 'Array(1)', type: 'array', children: [
+        { name: '0', value: 'EditorTab', type: 'object' },
+      ] },
+      { name: 'fileTree', value: 'Array(3)', type: 'array' },
+    ],
+  },
+  { name: 'query', value: '"IDELayout"', type: 'string' },
+  { name: 'count', value: '12', type: 'number' },
+  { name: 'isReady', value: 'true', type: 'boolean' },
+]
+
+const INITIAL_BREAKPOINTS: Breakpoint[] = [
+  { id: 'bp1', file: 'ide-layout.tsx', line: 12, enabled: true },
+  { id: 'bp2', file: 'search-panel.tsx', line: 28, enabled: true },
+  { id: 'bp3', file: 'diff-file-list.tsx', line: 7, enabled: false },
+]
+
+const CONSOLE_LOGS = [
+  { level: 'info', text: '调试会话已启动' },
+  { level: 'log', text: 'IDELayout mounted' },
+  { level: 'warn', text: 'openTabs.length = 0' },
+  { level: 'error', text: 'Cannot read property "id" of undefined' },
+]
+
+function VariableRow({ v, depth = 0 }: { v: Variable; depth?: number }) {
+  const [expanded, setExpanded] = React.useState(depth < 1)
+  const hasChildren = (v.children?.length ?? 0) > 0
+  return (
+    <div>
+      <div
+        className="flex items-center gap-1 px-2 py-0.5 text-xs hover:bg-muted/30"
+        style={{ paddingLeft: `${8 + depth * 12}px` }}
+      >
+        {hasChildren ? (
+          <button onClick={() => setExpanded(!expanded)} className="text-muted-foreground">
+            {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          </button>
+        ) : (
+          <span className="w-3" />
+        )}
+        <span className="text-blue-600 dark:text-blue-400">{v.name}</span>
+        <span className="text-muted-foreground">:</span>
+        <span className={cn(
+          'ml-auto truncate',
+          v.type === 'string' && 'text-green-600 dark:text-green-400',
+          v.type === 'number' && 'text-purple-600 dark:text-purple-400',
+          v.type === 'boolean' && 'text-orange-600 dark:text-orange-400',
+        )}>{v.value}</span>
+      </div>
+      {hasChildren && expanded && v.children!.map((c, i) => (
+        <VariableRow key={i} v={c} depth={depth + 1} />
+      ))}
+    </div>
+  )
+}
+
+export function DebugPanel() {
+  const { activeView } = useIDEWorkspace()
+  const [debugState, setDebugState] = React.useState<DebugState>('stopped')
+  const [breakpoints, setBreakpoints] = React.useState<Breakpoint[]>(INITIAL_BREAKPOINTS)
+  const [watches, setWatches] = React.useState<string[]>(['this.activeView', 'count'])
+  const [watchInput, setWatchInput] = React.useState('')
+  const [showConsole, setShowConsole] = React.useState(true)
+
+  if (activeView !== 'debug') return null
+
+  const stateMeta: Record<DebugState, { label: string; dot: string; text: string }> = {
+    stopped: { label: '未运行', dot: 'bg-muted-foreground', text: 'text-muted-foreground' },
+    running: { label: '运行中', dot: 'bg-green-500', text: 'text-green-600 dark:text-green-400' },
+    paused: { label: '已暂停', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' },
+  }
+  const meta = stateMeta[debugState]
+
+  const toggleBreakpoint = (id: string) => {
+    setBreakpoints((prev) => prev.map((b) => b.id === id ? { ...b, enabled: !b.enabled } : b))
+  }
+  const removeBreakpoint = (id: string) => {
+    setBreakpoints((prev) => prev.filter((b) => b.id !== id))
+  }
+  const addWatch = () => {
+    if (!watchInput.trim()) return
+    setWatches((prev) => [...prev, watchInput.trim()])
+    setWatchInput('')
+  }
+  const removeWatch = (idx: number) => {
+    setWatches((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  const ctrlBtn = 'rounded p-1 transition-colors hover:bg-muted/50'
+  const enabledBreaks = breakpoints.filter((b) => b.enabled).length
+
+  return (
+    <div className="flex w-72 shrink-0 flex-col bg-muted/20">
+      <div className="flex items-center gap-1 px-2 py-1.5">
+        <button onClick={() => setDebugState('running')} className={cn(ctrlBtn, debugState === 'stopped' ? 'text-green-600' : 'text-muted-foreground')} aria-label="开始">
+          <Play className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={() => setDebugState('paused')} className={cn(ctrlBtn, 'text-amber-600')} aria-label="暂停">
+          <Square className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={() => setDebugState('stopped')} className={cn(ctrlBtn, 'text-red-600')} aria-label="停止">
+          <Square className="h-3.5 w-3.5" />
+        </button>
+        <button className={cn(ctrlBtn, 'text-muted-foreground')} aria-label="单步跳过"><SkipForward className="h-3.5 w-3.5" /></button>
+        <button className={cn(ctrlBtn, 'text-muted-foreground')} aria-label="单步进入"><ArrowDown className="h-3.5 w-3.5" /></button>
+        <button className={cn(ctrlBtn, 'text-muted-foreground')} aria-label="单步跳出"><ArrowUp className="h-3.5 w-3.5" /></button>
+        <button className={cn(ctrlBtn, 'text-muted-foreground')} aria-label="重启"><RotateCcw className="h-3.5 w-3.5" /></button>
+        <div className={cn('ml-auto flex items-center gap-1 text-xs font-medium', meta.text)}>
+          <span className={cn('h-2 w-2 rounded', meta.dot)} />
+          <span>{meta.label}</span>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto">
+        {debugState === 'stopped' ? (
+          <div className="px-3 py-2 text-xs text-muted-foreground">尚未启动调试会话</div>
+        ) : (
+          <>
+            <div className="mb-2">
+              <div className="px-2 py-1 text-xs font-medium text-muted-foreground">变量</div>
+              {VARIABLES.map((v, i) => <VariableRow key={i} v={v} />)}
+            </div>
+
+            <div className="mb-2">
+              <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground">
+                <span>监视</span>
+              </div>
+              <div className="flex items-center gap-1 px-2 pb-1">
+                <input
+                  value={watchInput}
+                  onChange={(e) => setWatchInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addWatch()}
+                  placeholder="添加监视表达式"
+                  className="flex-1 rounded border border-border bg-background px-1.5 py-0.5 text-xs focus:outline-none"
+                />
+                <button onClick={addWatch} className="rounded p-0.5 text-muted-foreground hover:bg-muted/50" aria-label="添加">
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
+              {watches.map((w, i) => (
+                <div key={i} className="group flex items-center gap-1 px-2 py-0.5 text-xs hover:bg-muted/30">
+                  <span className="truncate text-blue-600 dark:text-blue-400">{w}</span>
+                  <span className="text-muted-foreground">:</span>
+                  <span className="ml-auto truncate text-green-600 dark:text-green-400">undefined</span>
+                  <button onClick={() => removeWatch(i)} className="text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100" aria-label="删除">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="mb-2">
+              <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground">
+                <span>断点</span>
+                <span className="ml-auto text-muted-foreground">{enabledBreaks}/{breakpoints.length}</span>
+              </div>
+              {breakpoints.map((b) => (
+                <div key={b.id} className="group flex items-center gap-1.5 px-2 py-0.5 text-xs hover:bg-muted/30">
+                  <button onClick={() => toggleBreakpoint(b.id)} className="text-muted-foreground" aria-label="切换">
+                    {b.enabled ? <CircleDot className="h-3 w-3 text-red-500" /> : <Circle className="h-3 w-3" />}
+                  </button>
+                  <span className={cn('truncate', !b.enabled && 'text-muted-foreground line-through')}>{b.file}:{b.line}</span>
+                  <button onClick={() => removeBreakpoint(b.id)} className="ml-auto text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100" aria-label="删除">
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="mb-2">
+              <div className="px-2 py-1 text-xs font-medium text-muted-foreground">调用栈</div>
+              <div className="px-3 py-0.5 text-xs">
+                <span className="text-blue-600 dark:text-blue-400">IDELayout</span>
+                <span className="text-muted-foreground"> ide-layout.tsx:12</span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      <button
+        onClick={() => setShowConsole(!showConsole)}
+        className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/30"
+      >
+        {showConsole ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+        <Terminal className="h-3 w-3" />
+        <span>调试控制台</span>
+      </button>
+      {showConsole && (
+        <div className="max-h-32 overflow-auto bg-background/50 p-1.5 font-mono text-[11px]">
+          {CONSOLE_LOGS.map((log, i) => (
+            <div key={i} className={cn(
+              'px-1 py-0.5',
+              log.level === 'error' && 'text-red-600 dark:text-red-400',
+              log.level === 'warn' && 'text-amber-600 dark:text-amber-400',
+              log.level === 'info' && 'text-blue-600 dark:text-blue-400',
+              log.level === 'log' && 'text-foreground',
+            )}>
+              {log.text}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
