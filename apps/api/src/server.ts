@@ -415,7 +415,7 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(otelPlugin)
   await server.register(helmet, { contentSecurityPolicy: false })
   await server.register(cors, {
-    origin: (process.env.CORS_ORIGIN ?? 'http://localhost:3001').split(','),
+    origin: (process.env.CORS_ORIGIN ?? 'http://localhost:8801').split(','),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })

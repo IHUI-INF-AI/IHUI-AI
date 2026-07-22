@@ -17,7 +17,7 @@ import {
 } from '@ihui/api-client'
 import { getToken } from '../lib/token'
 
-const API_BASE_URL = 'http://127.0.0.1:3002'
+const API_BASE_URL = 'http://127.0.0.1:8802'
 
 export interface UseWebSocketReturn {
   /** 当前连接状态 */

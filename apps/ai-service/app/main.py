@@ -42,6 +42,11 @@ from app.sio import sio
 from app.sio.handlers import register_handlers
 from app.telemetry import setup_telemetry, shutdown_telemetry
 from app.middleware.audit import setup_audit_middleware
+from app.middleware.input_sanitizer import (
+    setup_input_sanitizer_middleware,
+    setup_rate_limit_middleware,
+)
+from app.middleware.response_sanitizer import setup_response_sanitizer_middleware
 from app.middleware.trace_context import setup_trace_context_middleware
 
 logger = logging.getLogger(__name__)
