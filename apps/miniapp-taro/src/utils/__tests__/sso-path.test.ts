@@ -47,8 +47,8 @@ describe('miniapp-taro SSO 路径修复', () => {
     expect(url).toContain('/api/auth/sso/exchange')
     // 必须不含 /api/api/(双前缀)
     expect(url).not.toContain('/api/api/')
-    // 完整 URL 应为 http://localhost:3000/api/auth/sso/exchange
-    expect(url).toBe('http://localhost:3000/api/auth/sso/exchange')
+    // 完整 URL 应为 http://localhost:3001/api/auth/sso/exchange
+    expect(url).toBe('http://localhost:3001/api/auth/sso/exchange')
   })
 
   it('validateToken 请求 URL 不含双 /api 前缀', async () => {
@@ -58,7 +58,7 @@ describe('miniapp-taro SSO 路径修复', () => {
     const url = fetchCalls[0]!.url
     expect(url).toContain('/api/auth/sso/validate')
     expect(url).not.toContain('/api/api/')
-    expect(url).toBe('http://localhost:3000/api/auth/sso/validate')
+    expect(url).toBe('http://localhost:3001/api/auth/sso/validate')
   })
 
   it('ssoLogout 请求 URL 不含双 /api 前缀', async () => {
@@ -68,7 +68,7 @@ describe('miniapp-taro SSO 路径修复', () => {
     const url = fetchCalls[0]!.url
     expect(url).toContain('/api/auth/sso/logout')
     expect(url).not.toContain('/api/api/')
-    expect(url).toBe('http://localhost:3000/api/auth/sso/logout')
+    expect(url).toBe('http://localhost:3001/api/auth/sso/logout')
   })
 
   it('exchangeSsoCode 请求体含 code + clientId', async () => {
@@ -105,7 +105,7 @@ describe('miniapp-taro SSO 路径回归防护', () => {
     expect(fetchCalls).toHaveLength(3)
     for (const call of fetchCalls) {
       expect(call.url).toMatch(
-        /^http:\/\/localhost:3000\/api\/auth\/sso\/(exchange|validate|logout)$/,
+        /^http:\/\/localhost:3001\/api\/auth\/sso\/(exchange|validate|logout)$/,
       )
     }
   })
