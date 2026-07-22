@@ -388,15 +388,18 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     const redis = request.server.redis
     if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
     const { list } = await findCategoryList({ page: 1, pageSize: 1000 })
-    await redis.set(`${CACHE_PREFIX}all`, JSON.stringify(list), 'EX', CACHE_TTL_SECONDS)
+    // 批量写入 Redis(pipeline 减少网络往返)
+    const pipeline = redis.pipeline()
+    pipeline.set(`${CACHE_PREFIX}all`, JSON.stringify(list), 'EX', CACHE_TTL_SECONDS)
     for (const cat of list) {
-      await redis.set(
+      pipeline.set(
         `${CACHE_PREFIX}category:${cat.categoryId}`,
         JSON.stringify(cat),
         'EX',
         CACHE_TTL_SECONDS,
       )
     }
+    await pipeline.exec()
     return reply.send(success({ reloaded: true, count: list.length }))
   })
 
@@ -486,12 +489,18 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
     const keys = await redis.keys(`${CACHE_PREFIX}*`)
     const entries: Record<string, unknown> = {}
-    for (const k of keys) {
-      const raw = await redis.get(k)
-      try {
-        entries[k] = raw ? JSON.parse(raw) : null
-      } catch {
-        entries[k] = raw
+    // 批量读取 Redis(MGET 减少网络往返)
+    if (keys.length > 0) {
+      const values = await redis.mget(...keys)
+      for (let i = 0; i < keys.length; i++) {
+        const raw = values[i]
+        const k = keys[i]
+        if (!k) continue
+        try {
+          entries[k] = raw ? JSON.parse(raw) : null
+        } catch {
+          entries[k] = raw
+        }
       }
     }
     return reply.send(success({ entries, count: keys.length }))
@@ -2042,16 +2051,18 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         a.usageCount * weights.usage,
     }))
 
-    // 尝试批量更新 agents.heat_score 字段(表无此字段则跳过)
+    // 批量更新 agents.heat_score 字段(PostgreSQL VALUES 语法,单次往返;表无此字段则跳过)
     let updated = 0
     if (heatScores.length > 0) {
       try {
-        for (const hs of heatScores) {
-          await db.execute(
-            sql`UPDATE agents SET heat_score = ${hs.heatScore} WHERE agent_id = ${hs.agentId}`,
-          )
-          updated++
-        }
+        const valuesSql = sql.join(
+          heatScores.map((hs) => sql`(${hs.agentId}, ${hs.heatScore})`),
+          sql`, `,
+        )
+        await db.execute(
+          sql`UPDATE agents SET heat_score = v.heat_score FROM (VALUES ${valuesSql}) AS v(agent_id, heat_score) WHERE agents.agent_id = v.agent_id`,
+        )
+        updated = heatScores.length
       } catch {
         // 表无 heat_score 字段,跳过更新
         updated = 0
