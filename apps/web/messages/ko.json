@@ -28440,7 +28440,9 @@
       "empty": "랭킹 데이터 없음",
       "sortHint": "헤더 클릭하여 정렬",
       "searchPlaceholder": "모델/벤더 검색…",
-      "allVendors": "전체 벤더"
+      "allVendors": "전체 벤더",
+      "noMatch": "일치하는 모델을 찾을 수 없습니다",
+      "clearFilter": "필터 초기화"
     },
     "hero": {
       "label": "AI 뉴스 Hero",
