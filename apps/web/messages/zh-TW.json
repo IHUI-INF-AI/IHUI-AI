@@ -441,7 +441,7 @@
     "publishPlatform": "發布平臺",
     "selfMediaKoubo": "口播稿",
     "selfMediaAutomation": "自動化",
-    "pluginMarket": "插件市場",
+    "pluginMarket": "外掛市場",
     "downloadIOS": "iOS",
     "downloadAndroidApk": "Android APK",
     "downloadWechatMiniApp": "微信小程式",
@@ -460,7 +460,6 @@
     "downloadCliDesc": "npm i -g @ihui/cli",
     "downloadMiniDesc": "微信掃碼即開",
     "mainNav": "主導航",
-    "pluginMarket": "外掛市場",
     "knowledgeBase": "知識庫",
     "knowledgeRag": "RAG 知識庫",
     "knowledgeGraph": "知識圖譜",
@@ -599,6 +598,7 @@
     "registerNow": "立即註冊",
     "forgotPassword": "忘記密碼",
     "rememberPassword": "記住密碼",
+    "accountHistory": "帳號歷史",
     "forgotSubtitle": "重設您的密碼",
     "registerTitle": "創建賬號",
     "registerSubtitle": "註冊一個新賬號",
@@ -2078,6 +2078,7 @@
         "developer": "開發者中心",
         "saas": "SaaS 部署"
       },
+      "saasCertificates": "憑證狀態",
       "saasMetrics": "資源監控",
       "aiCost": "AI 成本總覽"
     },
@@ -2822,54 +2823,6 @@
           "actions": "操作"
         },
         "download": "下載備份"
-      },
-      "certificates": {
-        "title": "憑證狀態",
-        "subtitle": "掃描 Traefik acme.json,展示所有租戶憑證的剩餘有效期",
-        "refresh": "重新整理",
-        "back": "返回租戶列表",
-        "empty": "暫無憑證記錄",
-        "acmeMissing": "未找到 acme.json:{path}。請確認 Traefik 資料卷已掛載到管理節點。",
-        "generatedAt": "掃描時間:{time}",
-        "stats": {
-          "total": "憑證總數",
-          "healthy": "健康",
-          "warning": "即將到期",
-          "critical": "緊急",
-          "expired": "已過期"
-        },
-        "status": {
-          "healthy": "健康",
-          "warning": "即將到期",
-          "critical": "緊急",
-          "expired": "已過期"
-        },
-        "source": {
-          "letsencrypt": "Let's Encrypt",
-          "selfSigned": "自簽",
-          "custom": "自訂"
-        },
-        "issuer": "頒發者",
-        "subject": "主體",
-        "notBefore": "生效時間",
-        "notAfter": "失效時間",
-        "daysUntilExpiry": "剩餘有效期",
-        "fingerprint": "指紋",
-        "sans": "SAN:{sans}",
-        "days": {
-          "remaining": "{days} 天",
-          "today": "今天到期",
-          "expired": "已過期 {days} 天"
-        }
-      },
-      "quota": {
-        "title": "資源配額",
-        "placeholder": "佔位",
-        "unavailable": "無法取得配額資料",
-        "apiCalls": "API 呼叫",
-        "aiTokens": "AI Token",
-        "storage": "儲存空間",
-        "unlimited": "無限制"
       },
       "metrics": {
         "pageTitle": "資源監控",
@@ -8466,30 +8419,6 @@
       "publishCompleteBody": "任務「{title}」發布完成:{success} 成功,{failed} 失敗",
       "publishFailed": "發布失敗",
       "publishFailedBody": "任務「{title}」發布失敗:{error}"
-    }
-  },
-  "certificate": {
-    "download": {
-      "title": "我的證書",
-      "subtitle": "查看並下載您已獲得的證書",
-      "loading": "加載中...",
-      "download": "下載證書",
-      "print": "列印為 PDF",
-      "printPdf": "列印為 PDF",
-      "noCertificates": "暫無證書",
-      "certNo": "證書編號",
-      "issueTime": "頒發時間",
-      "template": "證書模板",
-      "holder": "持有人",
-      "status": "狀態",
-      "statusValid": "有效",
-      "statusRevoked": "已撤銷",
-      "issuingOrg": "頒發機構",
-      "downloadSuccess": "證書下載成功",
-      "allowPopup": "請允許彈出窗口以列印證書",
-      "error": "下載失敗",
-      "printError": "列印失敗",
-      "certText": "茲證明 {name} 通過相關考核，特發此證。"
     }
   },
   "settings": {
