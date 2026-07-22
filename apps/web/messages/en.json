@@ -11542,7 +11542,8 @@
     "isPublic": "Public",
     "save": "Save",
     "cancel": "Cancel",
-    "deleteConfirm": "Delete this note?"
+    "deleteConfirm": "Delete this note?",
+    "attachmentsField": "Attachments"
   },
   "offlineRecords": {
     "title": "Offline Learning Records",
@@ -11559,7 +11560,13 @@
     "occurredAtField": "Date",
     "save": "Save",
     "cancel": "Cancel",
-    "deleteConfirm": "Delete this record?"
+    "deleteConfirm": "Delete this record?",
+    "attachmentsField": "Attachments"
+  },
+  "attachments": {
+    "placeholder": "Click or drag to upload attachments",
+    "uploading": "Uploading...",
+    "remove": "Remove"
   },
   "papers": {
     "title": "My Papers",
