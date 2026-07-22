@@ -8,6 +8,53 @@
 
 ## 当前活跃任务(2026-07-20)
 
+### [ ] 对标 Hermes Agent 深度升级:11 项差距分 P0/P1/P2 开发(跨端:packages/types + ai-service + cli + api 全端同步,2026-07-22 立)
+
+**触发**:用户要求"本项目跟 hermesagent 比哪里不如他,请你深度分析然后开发好要比他强"。深度调研 NousResearch/hermes-agent(v0.19.0,16,613 commits)后,对比 IHUI-AI 现状,识别出 11 项差距。Hermes 三大护城河:① 闭环学习循环(自进化 Skill + FTS5 跨会话记忆 + Honcho 用户建模)② 25+ IM 平台 gateway ③ Skills Hub 90,000+ 生态。IHUI 在这三块全部缺失,且 `agent_loop.py` 的 run() 工具循环是"第一轮就 break"的半成品(代码注释自承"生产环境可解析 tool_call 继续迭代")。
+
+**范围**(本轮 P0 三件套 + P1/P2 后续任务):
+
+#### P0(Agent 心脏,本轮全端同步开发)
+
+- **P0-1 修 agent_loop.py 工具循环**(ai-service 单端):当前 `run()` 第 136-137 行 `if i >= 1: break` 导致 tools 参数形同虚设。改为:解析 LLM 输出中的 tool_call → 执行工具 → 结果回填 messages → 继续迭代,直到无 tool_call 或达 max_iterations。参照 langgraph_service.py 的 `_should_continue` 条件边。
+- **P0-2 Skill 自进化闭环**(跨端:packages/types 契约 + ai-service 实现 + cli 加载 + api 持久化):任务结束后 LLM 自评是否提炼可复用模式 → 自动生成 SKILL.md 到 `apps/ai-service/app/skills/auto/`。SkillFrontmatter 升级:加 version/license/prerequisites/related_skills/progressiveDisclosure 字段(对齐 agentskills.io 开放标准)。
+- **P0-3 统一三端记忆**(跨端:packages/types 契约 + api 路由 + ai-service 对接 + cli 对接):当前 CLI(文件 MEMORY.md)+ ai-service(Redis 消息列表)+ api(conversations 表)三套独立。新增统一记忆接口:api `/api/memory` 路由(按 userId+scope 读写)+ ai-service UnifiedMemoryClient(Redis 优先 + api 兜底)+ cli UnifiedMemoryClient(HTTP 调 api)。
+
+#### P1(重要能力,后续任务)
+
+- **P1-1 IM 平台 gateway**:新建 `apps/api/src/routes/im-gateway.ts` + 飞书/企业微信/Discord/Telegram adapter,让 Agent 能在 IM 里对话(对标 Hermes 25+ 平台 gateway)。跨端:api + ai-service。
+- **P1-2 多 Agent 协商/辩论**:AgentOrchestrator 当前仅 pipeline(串行)+ parallel(并行),新增 debate 模式(角色间协商/投票)。ai-service 单端。
+- **P1-3 MCP Sampling 反向调用**:ai-service mcp_server.py 新增 SamplingHandler(5 层护栏:速率/白名单/轮次/超时/审计)+ `mcp serve` 反向暴露给 Claude Code。ai-service 单端。
+- **P1-4 Skill 跨端共享**:ai-service 6 静态 skill 与 cli 四级目录 skills 完全独立,新增同步机制(api /api/skills 作中枢)。跨端:api + ai-service + cli。
+
+#### P2(增强项,后续任务)
+
+- **P2-1 沙箱后端扩展**:ai-service run_command 当前仅 Local + 白黑名单,扩到 Docker/SSH/Modal(对标 Hermes 6 种后端)。ai-service 单端。
+- **P2-2 provider 扩展**:13 provider → 30+,加 MoA presets + Fallback Providers + Credential Pools。ai-service 单端。
+- **P2-3 多模态输入**:当前仅文本 + 语音 STT,新增图像/视频输入处理(vision_analyze)。ai-service 单端。
+- **P2-4 可观测性闭环**:ai-service 有 OTel,CLI/api/desktop/extension 端无埋点,端到端 trace 断裂。跨端:全端。
+
+**约束边界**:
+- P0 三件套本轮全端同步开发(packages/types + ai-service + cli + api),按 AGENTS.md §9 全端连通 + §11 多 Subagent 并行
+- 主 agent 负责 packages/types 跨端契约对齐 + 最终全链路连通验证
+- 各 Subagent 只管自己端代码 + typecheck + build,不互改文件
+- 做减法:不新建数据库表(P0-3 用 Redis + 现有 conversations 表),不引入新依赖(P0-2 Skill 自进化用现有 LLM gateway)
+- P1/P2 写入本计划作为后续任务,本轮不开发
+
+**验证标准**:
+- `pnpm --filter @ihui/types typecheck` exit 0
+- `pnpm --filter @ihui/web typecheck` exit 0(web 不直接改,但依赖 types 包)
+- `pnpm --filter @ihui/api typecheck` exit 0
+- `pnpm --filter @ihui/cli typecheck && pnpm --filter @ihui/cli test` exit 0
+- ai-service:`python -m py_compile apps/ai-service/app/services/agent_loop.py apps/ai-service/app/services/skills.py apps/ai-service/app/services/memory.py` exit 0
+- 跨端契约对齐:packages/types 新增类型在 ai-service/cli/api 三端引用一致
+
+**未覆盖(本任务不做)**:
+- P1/P2 全部 8 项(写入计划作为后续任务)
+- Web 端 UI 改动(P0 三件套是后端 + 类型层,不涉及 UI 样式,按 AGENTS.md §17 豁免 browser_use 验证)
+
+---
+
 ### [x] ✅(2026-07-22) 旧架构迁移类型定义补齐:28 组类型迁移到 packages/types(平台独占:共享包 only/跨端共享)
 
 **触发**:用户指示"接着 E:\桌面\深度分析项目代码完整性与架构迁移.md 继续去做"。该文档(4011 行)深度复核了 git commit `3ee96cf09`(旧 Python FastAPI + Vue 3 单体架构,15,844 文件)→ `092528c4f`(新 TS Monorepo)迁移完整性。结论:迁移 100% 完成,2 项真缺失已修复(resource_github_projects + chatsearchbar/useChatSearch)。审计报告 `independent-audit-frontend-api-review.md` 列出 66 个"类型定义文件未迁移"(路由已连通但类型未独立导出),建议后续集中补齐到 `packages/types/`。
@@ -1827,5 +1874,72 @@ cAdvisor(:8080) → Prometheus(:9090) → Grafana(:3001)
 - 守门脚本: post-commit 钩子自动 push 成功 + `--no-verify` 重试(pre-push typecheck 失败因其他 agent mobile-rn knowledge-rag.ts,按 §12 合法跳过)
 
 **跨端**:web + api + packages(共享类型/数据库 schema/api-client)+ 5 语言 i18n。平台独占豁免:ai-service 不涉及管理端统计;desktop/extension/mobile-rn/miniapp-taro 通过 api-client 共享 4 函数封装,无需各自实现 admin 端调用;cli 已有独立 plugin-marketplace 命令。
+
+---
+
+### [ ] IDE 工作区复刻:编辑器分类页面 + 代码比对 + 多视图面板(平台独占:仅 web,2026-07-22 立)
+
+**触发**:用户要求"在项目开发时右侧工作展示区应该有编辑器分类页面,显示所有代码,还有比对代码新旧功能,要完全复刻开发好所有完整功能,要跟 TRAE/Codex 这类程序功能完全匹配一致并且更好更深度"。
+
+**范围**(平台独占:仅 web 前端,不涉及 api/ai-service/database):
+- 在 `apps/web/src/components/ide/` 下构建完整 IDE 工作区组件
+- 复用现有 `packages/ui` 共享组件(Card/Button/Input/Tabs/Tooltip/Resizable)
+- 复用现有 `apps/web/src/components/ai/diff-preview.tsx` LCS diff 算法
+- 复用现有 `apps/web/src/components/ai/inline-diff-viewer.tsx` inline diff
+- 复用现有 `apps/web/src/components/media/CodeViewer.tsx` + `SyntaxHighlighter.tsx`
+
+**功能模块拆分(6 模块,多 subagent 并行)**:
+
+#### M1: 共享类型 + IDE Store + 布局骨架(主 agent)
+- [ ] `packages/types/src/ide-workspace.ts`:IDE 类型定义(IDETab/FileNode/EditorState/DiffState/ViewPanelType)
+- [ ] `apps/web/src/stores/ide-workspace.ts`:Zustand store(文件树/打开的 tab/diff 状态/活动视图)
+- [ ] `apps/web/src/components/ide/ide-layout.tsx`:主布局(顶部 tab 栏 + 左侧 activity bar + 中间编辑器 + 底部状态栏)
+- [ ] `apps/web/src/components/ide/index.ts`:barrel export
+
+#### M2: Activity Bar + 顶部 Tab 栏(Subagent 1)
+- [ ] `apps/web/src/components/ide/activity-bar.tsx`:5 图标竖排(文件/搜索/源代码控制/调试/应用)
+- [ ] `apps/web/src/components/ide/ide-top-bar.tsx`:顶部 tab 栏("编辑器" + 下拉菜单 8 项:文档/终端/浏览器/代码变更/Figma/智能体/MCP/设置)
+- [ ] `apps/web/src/components/ide/view-switcher.tsx`:视图切换下拉
+
+#### M3: File Explorer 文件浏览器(Subagent 2)
+- [ ] `apps/web/src/components/ide/file-explorer.tsx`:目录树容器(3 sub-tab:文件/大纲/时间线)
+- [ ] `apps/web/src/components/ide/file-tree-node.tsx`:树节点(展开/折叠/文件类型图标/右键菜单)
+- [ ] `apps/web/src/components/ide/file-icons.ts`:文件扩展名→图标映射
+
+#### M4: Code Editor 多 Tab 编辑器(Subagent 3)
+- [ ] `apps/web/src/components/ide/editor-tab-bar.tsx`:多 tab 栏(新增/关闭/切换/拖拽排序)
+- [ ] `apps/web/src/components/ide/code-editor-pane.tsx`:代码编辑器面板(语法高亮/行号/面包屑)
+- [ ] `apps/web/src/components/ide/editor-empty-state.tsx`:空状态引导(图标 + 引导文案)
+
+#### M5: Code Diff Viewer 代码比对(Subagent 4)
+- [ ] `apps/web/src/components/ide/diff-viewer-pane.tsx`:diff 主容器(side-by-side / unified 切换)
+- [ ] `apps/web/src/components/ide/diff-stats-bar.tsx`:diff 统计栏(+N -M 文件变更列表)
+- [ ] `apps/web/src/components/ide/diff-file-list.tsx`:变更文件列表(文件名/状态/行数变化)
+
+#### M6: View Panels + Status Bar(Subagent 5)
+- [ ] `apps/web/src/components/ide/search-panel.tsx`:全局搜索面板
+- [ ] `apps/web/src/components/ide/source-control-panel.tsx`:源代码控制面板(git 变更列表)
+- [ ] `apps/web/src/components/ide/debug-panel.tsx`:调试面板(断点/调用栈/变量)
+- [ ] `apps/web/src/components/ide/applications-panel.tsx`:应用面板(启动配置)
+- [ ] `apps/web/src/components/ide/status-bar.tsx`:底部状态栏(分支/同步/错误/警告/通知/主题切换)
+
+**验证标准**:
+- `pnpm --filter @ihui/web typecheck` 退出码 0
+- `pnpm --filter @ihui/web lint` 退出码 0
+- browser_use 4 态截图(default/hover/active/dark)+ DOM 数值验证
+- 所有组件复用 packages/ui,零新依赖
+
+**约束边界**:
+- 仅修改 `apps/web/src/components/ide/*` + `apps/web/src/stores/ide-workspace.ts` + `packages/types/src/ide-workspace.ts`
+- 不改 api/ai-service/database/其他端
+- 不改现有 WorkPanel/WebWorkPanel(新增 IDE 模式,与浏览器模式并行)
+- 遵守圆角守门(禁 rounded-full)、禁止分割线、禁止渐变遮罩
+- 中文字体图标对齐(依赖全局 --text-vcenter-offset)
+
+**质量要求**:
+- 每个组件 < 250 行
+- compact 紧凑、elegant 优雅,hover 用 subtle 颜色变化
+- dark mode 全适配
+- i18n 5 语言(zh-CN/en/zh-TW/ja/ko)
 
 ---
