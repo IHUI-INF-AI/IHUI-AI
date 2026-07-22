@@ -1303,6 +1303,8 @@ export interface KanbanTask {
   createdAt: string
   /** 更新时间(ISO) */
   updatedAt: string
+  /** 单任务超时秒数(覆盖 WorkerPoolConfig.taskTimeoutSeconds,不设用全局默认) */
+  timeoutSeconds?: number
 }
 
 /** Worker Pool 配置(ai-service DAG 调度器 + cli 子进程池共享) */
@@ -1317,6 +1319,8 @@ export interface WorkerPoolConfig {
   idleWorkerTtlSeconds?: number
   /** 优先级抢占(true=高优先级任务可抢占低优先级 worker) */
   preemptive?: boolean
+  /** 失败时是否保留 worktree 供调试(cli 专属,默认 false=失败也清理防磁盘泄漏) */
+  keepWorktreeOnFailure?: boolean
 }
 
 /** Worker 状态(调度器内部跟踪) */
