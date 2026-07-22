@@ -171,14 +171,14 @@ describe('voice STT 模块', () => {
         json: async () => ({ text: '你好世界', stub: false, model: 'whisper-1' }),
       }) as unknown as typeof fetch;
 
-      const result = await transcribeAudio(audioPath, { apiUrl: 'http://localhost:8000' });
+      const result = await transcribeAudio(audioPath, { apiUrl: 'http://localhost:8803' });
       expect(result.text).toBe('你好世界');
       expect(result.stub).toBe(false);
       expect(result.model).toBe('whisper-1');
       expect(result.durationMs).toBeGreaterThanOrEqual(0);
       // 验证 fetch 调用
       expect(global.fetch).toHaveBeenCalledWith(
-        'http://localhost:8000/api/voice/stt',
+        'http://localhost:8803/api/voice/stt',
         expect.objectContaining({ method: 'POST' }),
       );
     });
@@ -193,7 +193,7 @@ describe('voice STT 模块', () => {
         text: async () => 'Internal Server Error',
       }) as unknown as typeof fetch;
 
-      await expect(transcribeAudio(audioPath, { apiUrl: 'http://localhost:8000' }))
+      await expect(transcribeAudio(audioPath, { apiUrl: 'http://localhost:8803' }))
         .rejects.toThrow(/STT API 返回 500/);
     });
 
@@ -211,7 +211,7 @@ describe('voice STT 模块', () => {
         };
       }) as unknown as typeof fetch;
 
-      await transcribeAudio(audioPath, { apiUrl: 'http://localhost:8000', language: 'ja' });
+      await transcribeAudio(audioPath, { apiUrl: 'http://localhost:8803', language: 'ja' });
       expect(capturedBody).toBeDefined();
       const bodyStr = capturedBody!.toString('utf-8');
       expect(bodyStr).toContain('name="language"');
@@ -224,7 +224,7 @@ describe('voice STT 模块', () => {
 
       global.fetch = vi.fn().mockRejectedValue(new Error('network down')) as unknown as typeof fetch;
 
-      await expect(transcribeAudio(audioPath, { apiUrl: 'http://localhost:8000' }))
+      await expect(transcribeAudio(audioPath, { apiUrl: 'http://localhost:8803' }))
         .rejects.toThrow(/STT 请求失败/);
     });
 
@@ -242,7 +242,7 @@ describe('voice STT 模块', () => {
         };
       }) as unknown as typeof fetch;
 
-      await transcribeAudio(audioPath, { apiUrl: 'http://localhost:8000', apiKey: 'sk-test' });
+      await transcribeAudio(audioPath, { apiUrl: 'http://localhost:8803', apiKey: 'sk-test' });
       expect(capturedHeaders?.Authorization).toBe('Bearer sk-test');
     });
   });
@@ -270,7 +270,7 @@ describe('voice STT 模块', () => {
       const result = await voiceInput({
         durationSec: 2,
         outputPath,
-        apiUrl: 'http://localhost:8000',
+        apiUrl: 'http://localhost:8803',
       });
       expect(result.text).toBe('final text');
       expect(result.transcribe.stub).toBe(true);
@@ -301,7 +301,7 @@ describe('voice STT 模块', () => {
       await expect(voiceInput({
         durationSec: 1,
         outputPath,
-        apiUrl: 'http://localhost:8000',
+        apiUrl: 'http://localhost:8803',
       })).rejects.toThrow();
       // 临时文件应被清理(即使转写失败)
       expect(fs.existsSync(outputPath)).toBe(false);

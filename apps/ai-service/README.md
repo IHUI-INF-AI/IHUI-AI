@@ -5,8 +5,8 @@ LLM 网关 + MCP 工具 + LangGraph 工作流。
 ## 启动
 
 ```bash
-# 开发模式(默认端口 8000)
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# 开发模式(默认端口 8803)
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8803
 ```
 
 ## ASGI 拓扑
@@ -45,7 +45,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```js
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:8000", {
+const socket = io("http://localhost:8803", {
   auth: { token: "<your-access-token>" },  // JWT access token
 });
 
