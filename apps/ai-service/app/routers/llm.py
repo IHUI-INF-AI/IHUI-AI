@@ -66,10 +66,22 @@ def _inject_workspace_memory(
         marker = f"<!-- workspace:{workspace_path} -->"
         if marker in str(existing):
             return messages
-        merged = f"{existing}\n\n{marker}\n{memory_content}" if existing else memory_content
+        # 用 XML 隔离标签包裹工作区记忆,防 prompt injection:
+        # 明确告知 LLM 这部分是"项目上下文"而非用户指令,降低被注入指令劫持的风险
+        isolated_memory = (
+            f"<workspace_memory path=\"{workspace_path}\">\n"
+            f"{memory_content}\n"
+            f"</workspace_memory>"
+        )
+        merged = f"{existing}\n\n{marker}\n{isolated_memory}" if existing else isolated_memory
         new_messages[0] = {**new_messages[0], "content": merged}
     else:
-        new_messages.insert(0, {"role": "system", "content": memory_content})
+        isolated_memory = (
+            f"<workspace_memory path=\"{workspace_path}\">\n"
+            f"{memory_content}\n"
+            f"</workspace_memory>"
+        )
+        new_messages.insert(0, {"role": "system", "content": isolated_memory})
     return new_messages
 
 
