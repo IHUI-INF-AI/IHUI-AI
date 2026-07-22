@@ -35,7 +35,7 @@
 
 文件:`apps/web/app/(main)/ai-news/components/vendor-platforms.ts`
 
-覆盖 18 个厂商:Anthropic / OpenAI / Google / Meta / Moonshot / Alibaba / Z.ai / MiniMax / Bytedance / SpaceXAI / Microsoft / ElevenLabs / Voyage AI / Cohere / BAAI / Reve / Alibaba-ATH
+覆盖 25 个厂商:Anthropic / OpenAI / Google / Meta / Moonshot / Alibaba / Z.ai / MiniMax / Bytedance / SpaceXAI / Microsoft / ElevenLabs / Voyage AI / Cohere / BAAI / Reve / Alibaba-ATH / **DeepSeek** / **Baichuan** / **SenseTime(商汤)** / **Kunlun(昆仑万维)** / **Tencent(腾讯混元)** / **Huawei(华为云盘古)** / **Mistral**
 
 每个厂商映射:
 - `officialKeyUrl`:官方 API Key 申请地址
@@ -54,7 +54,8 @@
 5. `decodePrefill(encoded)` 解码为 `Partial<ProviderFormState>`
 6. 自动打开 `ProviderFormDialog`,把 `prefill` 传入
 7. `ProviderFormDialog` 的 `useEffect` 检测到 `prefill` 存在时,用预填数据覆盖默认表单( apiKey 留空,需用户手动填入)
-8. 用户填入 API Key 后提交,Provider 落库
+8. API Key 字段旁有「剪贴板粘贴」按钮(`ClipboardPaste` 图标),点击调用 `navigator.clipboard.readText()` 自动填入,4 个 toast 反馈(`pasteSuccess` / `pasteFailed` / `pasteEmpty`)
+9. 用户填入 API Key 后提交,Provider 落库
 
 ## 3. API 中转站
 
@@ -69,10 +70,22 @@
 | Together AI | https://www.together.ai/ | 海外开源模型,支持微调 | 按 token,免费试用 |
 | Fireworks AI | https://fireworks.ai/ | 海外开源模型,低延迟 | 按 token,免费试用 |
 | DeepInfra | https://deepinfra.com/ | 海外开源模型,价格低 | 按 token,送新用户额度 |
+| **火山方舟 Volc Ark** | https://www.volcengine.com/product/ark | 字节跳动旗下,聚合豆包 / DeepSeek / Kimi / Qwen | 按 token,送新用户试用额度,支持包年包月 |
+| **Replicate** | https://replicate.com/ | 海外开源模型,主打生图 / 视频 / 多模态 | 按秒计费(GPU 时长),按用量付费 |
+| **Novita AI** | https://novita.ai/ | 海外开源模型,价格低,支持生图 / LLM / 嵌入 | 按 token,送新用户免费额度 |
+| **HuggingFace Inference** | https://huggingface.co/inference-api | 全球最大模型托管平台,免费 Inference API | 免费额度有限,超出后按请求计费 |
+| **Mistral La Plateforme** | https://console.mistral.ai/ | Mistral 官方平台,支持函数调用 / JSON 模式 / 微调 | 按 token,提供免费试用额度 |
 
 每个中转站卡片有「导入」按钮,点击后跳转到 `/settings/llm?prefill=`,预填 `providerCode=openai` + `baseUrlOverride=<中转站 baseUrl>` + `name=<中转站名> 中转`。
 
-### 3.2 个人运行性质(风险提示)
+### 3.2 搜索 + 厂商筛选(2026-07-22 立升级)
+
+- **搜索框**:支持按平台名称 / 厂商 / 特点 / 计费方式 全字段模糊搜索
+- **厂商筛选 chip**:从所有平台 vendors 字段自动去重生成,点击切换筛选
+- **结果计数**:`共 {count} / {total} 个平台` 实时显示
+- **空态提示**:无匹配时显示"没有匹配的平台,试试调整搜索关键词或厂商筛选"
+
+### 3.3 个人运行性质(风险提示)
 
 个人中转站通常以"低价转售官方 API"为卖点,但存在风险:
 
@@ -100,7 +113,7 @@
 |---|---|---|
 | `leaderboard` | 4 | 排行榜标题/副标题/空态 |
 | `detailDialog` | 21 | 详情弹窗字段标签 + 官方资源 + 一键导入 |
-| `apiRelays` | 7 | API 中转站区块标题/类型/导入/风险/建议 |
+| `apiRelays` | 11 | API 中转站区块标题/类型/导入/风险/建议 + 搜索/筛选/计数/空态 |
 | 其他(hero/comparison/live/articles/feed/hotRanking/trendChart/funding/cta) | 60+ | 资讯页其他模块 |
 
 ## 5. 守门
