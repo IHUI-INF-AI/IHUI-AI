@@ -164,10 +164,10 @@ cat /etc/nginx/conf.d/nginx-blue-green.conf | head -50
 
 ```bash
 # 1. 确认端口监听
-ss -lnt | grep -E '3000|3001|8080|8081'
+ss -lnt | grep -E '8841|8843|8842|8844'
 # 2. 直接 curl 后端
-curl -v http://127.0.0.1:3001/
-curl -v http://127.0.0.1:8081/health
+curl -v http://127.0.0.1:8843/
+curl -v http://127.0.0.1:8844/health
 # 3. 看 nginx 错误日志
 tail -100 /var/log/nginx/error.log
 ```

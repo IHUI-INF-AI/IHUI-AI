@@ -192,11 +192,11 @@ cmd_status() {
   current=$(detect_active)
   echo "当前激活环境: ${current}"
   if [[ "${current}" == "blue" ]]; then
-    echo "  - web: 127.0.0.1:3000"
-    echo "  - api: 127.0.0.1:8080"
+    echo "  - web: 127.0.0.1:8841"
+    echo "  - api: 127.0.0.1:8842"
   elif [[ "${current}" == "green" ]]; then
-    echo "  - web: 127.0.0.1:3001"
-    echo "  - api: 127.0.0.1:8081"
+    echo "  - web: 127.0.0.1:8843"
+    echo "  - api: 127.0.0.1:8844"
   fi
 }
 
