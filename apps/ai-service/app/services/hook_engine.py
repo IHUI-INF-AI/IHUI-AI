@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import hashlib
 import hmac
 import json
@@ -33,7 +34,8 @@ import re
 import shlex
 import time
 import uuid
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -69,6 +71,10 @@ REDIS_LOGS_KEY_PREFIX = "hooks:logs:"  # + hook_id
 REDIS_LOGS_MAX = 1000  # 每个 hook 保留最近 1000 条日志
 REDIS_DLQ_KEY_PREFIX = "hooks:dlq:"  # + hook_id
 DLQ_MAX_ENTRIES = 100  # 每个 hook 的 DLQ 保留最近 100 条
+
+# A/B 测试 Redis key(2026-07-23 立,超越创新功能)
+REDIS_ABTEST_KEY_PREFIX = "hooks:abtest:"  # + test_id(Redis hash)
+REDIS_ABTEST_IDS_KEY = "hooks:abtest:ids"  # Redis set,所有 ab_test ID
 
 # 通知渠道(2026-07-22 扩展,toast/email/webhook + notification 兼容)
 NOTIFY_CHANNELS: tuple[str, ...] = ("toast", "email", "webhook", "notification")
@@ -108,6 +114,83 @@ try:
     import redis.asyncio as aioredis  # type: ignore[import-not-found]
 except ImportError:
     aioredis = None  # type: ignore[assignment]
+
+
+# ====================== 预置模板(2026-07-23 立,超越创新功能) ======================
+
+HOOK_TEMPLATES: dict[str, dict[str, Any]] = {
+    "webhook-notify": {
+        "name": "Webhook 通知",
+        "description": "事件触发后调用外部 webhook 通知",
+        "event": "tool.after",
+        "action": {
+            "type": "webhook",
+            "config": {
+                "method": "POST",
+                "url": "",
+                "headers": {"Content-Type": "application/json"},
+            },
+        },
+    },
+    "error-retry": {
+        "name": "错误自动重试",
+        "description": "工具执行失败时自动重试 3 次(指数退避)",
+        "event": "error",
+        "action": {
+            "type": "script",
+            "config": {"command": ""},
+            "retry_count": 3,
+            "retry_delay": 2,
+        },
+    },
+    "daily-report": {
+        "name": "每日报告",
+        "description": "每天定时生成执行报告",
+        "event": "schedule.trigger",
+        "schedule": "0 9 * * *",
+        "action": {
+            "type": "notify",
+            "config": {"channel": "email", "subject": "每日报告"},
+        },
+    },
+    "ci-cd": {
+        "name": "CI/CD 集成",
+        "description": "代码提交后触发 CI/CD 流水线",
+        "event": "tool.after",
+        "action": {
+            "type": "webhook",
+            "config": {"method": "POST", "url": "", "secret": ""},
+        },
+    },
+    "content-moderation": {
+        "name": "内容审核",
+        "description": "消息发送前进行内容审核",
+        "event": "message.send",
+        "action": {"type": "script", "config": {"command": ""}},
+    },
+}
+
+
+# ====================== A/B 测试配置(2026-07-23 立,超越创新功能) ======================
+
+
+@dataclass
+class AbTestConfig:
+    """A/B 测试配置 dataclass(类型文档,实际存储用 dict)。
+
+    - hook_a_id / hook_b_id:版本 A / B 的 hook_id
+    - traffic_split:0.0-1.0,A 占比
+    - user_bucketing:hash(默认)/ random / sticky
+    - status:running / stopped / completed
+    """
+
+    hook_a_id: str
+    hook_b_id: str
+    traffic_split: float
+    user_bucketing: str = "hash"
+    started_at: str = ""
+    ended_at: str = ""
+    status: str = "running"
 
 
 # ====================== 条件匹配(JSONLogic 简化版) ======================
@@ -1065,6 +1148,586 @@ class HookEngine:
             "lastTriggeredAt": last_triggered,
             "isStale": is_stale,
         }
+
+    # ---------- 超越创新功能(2026-07-23 立)----------
+    # 5 大功能:智能编排 + A/B 测试 + Gantt 可视化 + 预置模板 + 健康预测
+
+    # ===== LLM 调用辅助 =====
+
+    async def _call_llm(self, system_prompt: str, user_prompt: str, max_tokens: int = 2000) -> str:
+        """调用 LLM,失败返回空字符串(降级)。复用现有 llm_gateway。"""
+        try:
+            from ..core.llm_gateway import llm_gateway
+
+            messages: list[dict[str, Any]] = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
+            result = await llm_gateway.complete(messages)
+            content = str(result.get("content", "") or "")
+            return content
+        except Exception as e:
+            logger.warning("[hook_engine] LLM 调用失败,降级: %s", e)
+            return ""
+
+    def _extract_json(self, text: str) -> str | None:
+        """从 LLM 响应中提取 JSON(可能包裹在 ```json 代码块中)。"""
+        if not text:
+            return None
+        text = text.strip()
+        # 尝试直接解析
+        if text.startswith("{") or text.startswith("["):
+            return text
+        # 尝试提取 ```json ... ``` 代码块
+        match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        # 尝试找到第一个 { 和最后一个 }
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return text[start : end + 1]
+        return None
+
+    # ===== 1. 智能编排 =====
+
+    async def auto_orchestrate(self, requirement: str, event: str | None = None) -> dict[str, Any]:
+        """智能编排:用 LLM 分析自然语言需求,生成 Hook + DAG 依赖图。
+
+        LLM 失败时降级:基于关键词匹配(通知→notify, 重试→retry, 定时→schedule)。
+        返回 {hooks, dependencies, rationale, degraded}。
+        """
+        system_prompt = (
+            "你是 Hook 编排专家。分析用户需求,生成 Hook 配置 + DAG 依赖关系。\n"
+            "返回 JSON 格式:\n"
+            "{\n"
+            '  "hooks": [{"name": "", "description": "", "event": "", '
+            '"action": {"type": "webhook|script|log|notify", "config": {}}, "schedule": ""}],\n'
+            '  "dependencies": [{"from": "hook_name", "to": "hook_name"}],\n'
+            '  "rationale": "编排理由"\n'
+            "}\n"
+            "事件类型: tool.before, tool.after, message.send, message.receive, "
+            "session.start, session.end, error, schedule.trigger\n"
+            "动作类型: webhook, script, log, notify"
+        )
+        user_prompt = f"需求: {requirement}\n"
+        if event:
+            user_prompt += f"目标事件: {event}\n"
+        user_prompt += "请生成 Hook 编排方案(仅返回 JSON):"
+
+        content = await self._call_llm(system_prompt, user_prompt)
+        if content:
+            json_str = self._extract_json(content)
+            if json_str:
+                try:
+                    data = json.loads(json_str)
+                    return {
+                        "hooks": data.get("hooks", []),
+                        "dependencies": data.get("dependencies", []),
+                        "rationale": data.get("rationale", ""),
+                        "degraded": False,
+                    }
+                except (json.JSONDecodeError, Exception) as e:
+                    logger.warning("[hook_engine] LLM 返回 JSON 解析失败,降级: %s", e)
+
+        # 降级:基于关键词匹配
+        return self._auto_orchestrate_fallback(requirement, event)
+
+    def _auto_orchestrate_fallback(
+        self, requirement: str, event: str | None = None
+    ) -> dict[str, Any]:
+        """降级:基于关键词匹配生成 Hook 配置。"""
+        req_lower = requirement.lower()
+        hooks: list[dict[str, Any]] = []
+
+        if "通知" in requirement or "notify" in req_lower:
+            hooks.append({
+                "name": "通知 Hook",
+                "description": "事件触发后发送通知",
+                "event": event or "tool.after",
+                "action": {
+                    "type": "notify",
+                    "config": {"channel": "toast", "message": "Hook 触发"},
+                },
+            })
+        if "重试" in requirement or "retry" in req_lower:
+            hooks.append({
+                "name": "重试 Hook",
+                "description": "失败时自动重试",
+                "event": event or "error",
+                "action": {
+                    "type": "script",
+                    "config": {"command": ""},
+                    "retry_count": 3,
+                    "retry_delay": 2,
+                },
+            })
+        if "定时" in requirement or "schedule" in req_lower or "每天" in requirement:
+            hooks.append({
+                "name": "定时 Hook",
+                "description": "定时触发",
+                "event": "schedule.trigger",
+                "schedule": "0 9 * * *",
+                "action": {"type": "log", "config": {"message": "定时触发"}},
+            })
+        if "webhook" in req_lower or "回调" in requirement:
+            hooks.append({
+                "name": "Webhook Hook",
+                "description": "事件触发后调用 webhook",
+                "event": event or "tool.after",
+                "action": {"type": "webhook", "config": {"method": "POST", "url": ""}},
+            })
+
+        # 无匹配 → 默认 log hook
+        if not hooks:
+            hooks.append({
+                "name": "默认 Hook",
+                "description": "记录事件日志",
+                "event": event or "tool.after",
+                "action": {"type": "log", "config": {"message": "事件触发: {{event}}"}},
+            })
+
+        return {
+            "hooks": hooks,
+            "dependencies": [],
+            "rationale": f"基于关键词匹配的降级编排(需求: {requirement[:100]})",
+            "degraded": True,
+        }
+
+    # ===== 2. A/B 测试 =====
+
+    def _ab_tests_store(self) -> dict[str, dict[str, Any]]:
+        """A/B 测试内存存储(惰性初始化,避免修改 __init__)。"""
+        if not hasattr(self, "_ab_tests"):
+            self._ab_tests = {}
+        return self._ab_tests
+
+    async def _persist_ab_test(self, ab_test: dict[str, Any]) -> None:
+        """持久化 A/B 测试到 Redis hash,降级内存。"""
+        redis = await self._ensure_redis()
+        if redis is not None:
+            try:
+                key = f"{REDIS_ABTEST_KEY_PREFIX}{ab_test['id']}"
+                # HSET 存储所有字段(值转 str)
+                mapping = {k: str(v) for k, v in ab_test.items()}
+                await redis.hset(key, mapping=mapping)
+                # 添加到 ID 集合
+                await redis.sadd(REDIS_ABTEST_IDS_KEY, ab_test["id"])
+                return
+            except Exception as e:
+                logger.warning("[hook_engine] A/B 测试持久化 Redis 失败,降级内存: %s", e)
+        # 内存降级
+        self._ab_tests_store()[ab_test["id"]] = ab_test
+
+    def _parse_ab_test(self, raw: dict[str, str]) -> dict[str, Any]:
+        """解析 Redis hash 数据为 ab_test dict(类型转换)。"""
+        return {
+            "id": raw.get("id", ""),
+            "hook_a_id": raw.get("hook_a_id", ""),
+            "hook_b_id": raw.get("hook_b_id", ""),
+            "traffic_split": float(raw.get("traffic_split", 0.5)),
+            "user_bucketing": raw.get("user_bucketing", "hash"),
+            "started_at": raw.get("started_at", ""),
+            "ended_at": raw.get("ended_at", ""),
+            "status": raw.get("status", "running"),
+        }
+
+    async def create_ab_test(self, config: dict[str, Any]) -> dict[str, Any]:
+        """创建 A/B 测试,存 Redis hash 'hooks:abtest:{id}'。"""
+        test_id = f"ab-{uuid.uuid4().hex[:12]}"
+        now = datetime.utcnow().isoformat() + "Z"
+        ab_test: dict[str, Any] = {
+            "id": test_id,
+            "hook_a_id": config["hook_a_id"],
+            "hook_b_id": config["hook_b_id"],
+            "traffic_split": float(config.get("traffic_split", 0.5)),
+            "user_bucketing": config.get("user_bucketing", "hash"),
+            "started_at": now,
+            "ended_at": "",
+            "status": "running",
+        }
+        await self._persist_ab_test(ab_test)
+        logger.info(
+            "[hook_engine] 创建 A/B 测试: id=%s a=%s b=%s split=%.2f",
+            test_id, ab_test["hook_a_id"], ab_test["hook_b_id"], ab_test["traffic_split"],
+        )
+        return ab_test
+
+    async def stop_ab_test(self, test_id: str) -> dict[str, Any] | None:
+        """停止 A/B 测试,设 status=stopped。"""
+        ab_test = await self.get_ab_test(test_id)
+        if ab_test is None:
+            return None
+        ab_test["status"] = "stopped"
+        ab_test["ended_at"] = datetime.utcnow().isoformat() + "Z"
+        await self._persist_ab_test(ab_test)
+        logger.info("[hook_engine] 停止 A/B 测试: id=%s", test_id)
+        return ab_test
+
+    async def list_ab_tests(self) -> list[dict[str, Any]]:
+        """列出所有 A/B 测试。"""
+        redis = await self._ensure_redis()
+        if redis is not None:
+            try:
+                ids = await redis.smembers(REDIS_ABTEST_IDS_KEY)
+                result: list[dict[str, Any]] = []
+                for tid in ids:
+                    key = f"{REDIS_ABTEST_KEY_PREFIX}{tid}"
+                    raw = await redis.hgetall(key)
+                    if raw:
+                        result.append(self._parse_ab_test(raw))
+                return result
+            except Exception as e:
+                logger.warning("[hook_engine] A/B 测试列表读取 Redis 失败,降级内存: %s", e)
+        # 内存降级
+        return list(self._ab_tests_store().values())
+
+    async def get_ab_test(self, test_id: str) -> dict[str, Any] | None:
+        """A/B 测试详情(含 A/B 各自 stats 对比)。"""
+        ab_test: dict[str, Any] | None = None
+        redis = await self._ensure_redis()
+        if redis is not None:
+            try:
+                key = f"{REDIS_ABTEST_KEY_PREFIX}{test_id}"
+                raw = await redis.hgetall(key)
+                if raw:
+                    ab_test = self._parse_ab_test(raw)
+            except Exception as e:
+                logger.warning("[hook_engine] A/B 测试详情读取 Redis 失败,降级内存: %s", e)
+        if ab_test is None:
+            ab_test = self._ab_tests_store().get(test_id)
+        if ab_test is None:
+            return None
+        # 附加 A/B 各自 stats 对比
+        ab_test["stats_a"] = self.get_stats(ab_test["hook_a_id"])
+        ab_test["stats_b"] = self.get_stats(ab_test["hook_b_id"])
+        return ab_test
+
+    async def _get_ab_test_variant(
+        self, event: str, context: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """A/B 测试分流:根据 event 查找 running 的 ab_test,按 traffic_split 选择 hook。
+
+        返回选中的 hook 配置 dict,或 None(无 ab_test 或 Hook 不存在)。
+        此方法供 emit() 集成调用(当前 emit 未集成,需主 agent 后续接入)。
+        """
+        ab_tests = await self.list_ab_tests()
+        running_tests = [t for t in ab_tests if t.get("status") == "running"]
+        if not running_tests:
+            return None
+
+        for test in running_tests:
+            hook_a = self._hooks.get(test["hook_a_id"])
+            if hook_a and hook_a["event"] == event:
+                selected_id = self._select_ab_test_variant(test, context)
+                return self._hooks.get(selected_id)
+        return None
+
+    def _select_ab_test_variant(
+        self, ab_test: dict[str, Any], context: dict[str, Any]
+    ) -> str:
+        """按 traffic_split 和 user_bucketing 选择 A 或 B。"""
+        traffic_split = float(ab_test.get("traffic_split", 0.5))
+        bucketing = ab_test.get("user_bucketing", "hash")
+
+        if bucketing == "random":
+            import random
+            return ab_test["hook_a_id"] if random.random() < traffic_split else ab_test["hook_b_id"]
+
+        # hash(默认)/ sticky:基于标识 hash 分流
+        if bucketing == "sticky":
+            sticky_key = context.get("sessionId") or context.get("userId") or ""
+        else:
+            sticky_key = ""
+        hash_input = sticky_key or json.dumps(context, sort_keys=True, default=str)
+        bucket = int(hashlib.md5(hash_input.encode("utf-8")).hexdigest(), 16) % 100
+        return ab_test["hook_a_id"] if bucket < traffic_split * 100 else ab_test["hook_b_id"]
+
+    # ===== 3. Gantt 可视化 =====
+
+    async def execution_timeline(
+        self, hook_id: str, since: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Gantt 可视化数据:返回 hook 执行时间线。
+
+        读取 logs(hook_id),提取 {hook_id, start_time, end_time, duration_ms, status, event}。
+        按 start_time 排序(正序,最早在前)。
+        """
+        logs = self.list_logs(hook_id=hook_id, limit=1000, since=since)
+        timeline: list[dict[str, Any]] = []
+        for log in logs:
+            start_time = log.get("triggeredAt", "")
+            duration_ms = int(log.get("duration", 0))
+            end_time = self._compute_end_time(start_time, duration_ms)
+            timeline.append({
+                "hook_id": hook_id,
+                "log_id": log.get("id"),
+                "start_time": start_time,
+                "end_time": end_time,
+                "duration_ms": duration_ms,
+                "status": "success" if log.get("success") else "failed",
+                "event": log.get("event"),
+            })
+        # 按 start_time 排序(正序)
+        timeline.sort(key=lambda t: t["start_time"])
+        return timeline
+
+    def _compute_end_time(self, start_time: str, duration_ms: int) -> str:
+        """计算结束时间 = 开始时间 + 持续时间。"""
+        try:
+            start = datetime.fromisoformat(start_time.rstrip("Z"))
+            end = start + timedelta(milliseconds=duration_ms)
+            return end.isoformat() + "Z"
+        except Exception:
+            return start_time  # 解析失败,返回 start_time
+
+    # ===== 4. 预置模板 =====
+
+    def list_templates(self) -> list[dict[str, Any]]:
+        """返回 5 个预置模板。"""
+        result: list[dict[str, Any]] = []
+        for tid, tmpl in HOOK_TEMPLATES.items():
+            result.append({"id": tid, **tmpl})
+        return result
+
+    async def instantiate_template(
+        self, template_id: str, overrides: dict[str, Any]
+    ) -> dict[str, Any]:
+        """用模板创建 hook(overrides 覆盖 url/command 等)。"""
+        tmpl = HOOK_TEMPLATES.get(template_id)
+        if tmpl is None:
+            return {"error": f"模板不存在: {template_id}"}
+        payload = copy.deepcopy(tmpl)
+        # 应用 overrides(顶层字段)
+        for k in ("name", "description", "event", "schedule", "condition", "enabled"):
+            if k in overrides:
+                payload[k] = overrides[k]
+        # 覆盖 action.config 中的字段(url/command/headers 等)
+        if "action" in overrides and isinstance(overrides["action"], dict):
+            action_override = overrides["action"]
+            if "config" in action_override and isinstance(action_override["config"], dict):
+                payload.setdefault("action", {}).setdefault("config", {}).update(
+                    action_override["config"]
+                )
+            if "type" in action_override:
+                payload.setdefault("action", {})["type"] = action_override["type"]
+        # 便捷方式:直接覆盖 action.config 字段
+        if "config" in overrides and isinstance(overrides["config"], dict):
+            payload.setdefault("action", {}).setdefault("config", {}).update(overrides["config"])
+        # 创建 hook
+        return self.create_hook(payload)
+
+    # ===== 5. 健康预测 =====
+
+    async def health_forecast(self, hook_id: str, days: int = 7) -> dict[str, Any]:
+        """健康预测:LLM 分析历史日志趋势,预测未来失败率/延迟。
+
+        LLM 失败时降级:基于日志的简单线性回归(失败率 / 延迟 的趋势)。
+        返回 {hook_id, current_health, predicted_failure_rate, predicted_latency, trend, recommendation, degraded}。
+        """
+        logs = self.list_logs(hook_id=hook_id, limit=1000)
+        if not logs:
+            return {
+                "hook_id": hook_id,
+                "current_health": "unknown",
+                "predicted_failure_rate": 0.0,
+                "predicted_latency": 0,
+                "trend": "stable",
+                "recommendation": "无历史数据,无法预测",
+                "degraded": True,
+            }
+
+        # 计算当前健康状态
+        stats = self.get_stats(hook_id)
+        current_failure_rate = (
+            round(1 - (stats["success"] / stats["total"]), 4) if stats["total"] > 0 else 0.0
+        )
+        current_latency = stats["avgDuration"]
+
+        # 准备日志摘要给 LLM
+        log_summary = self._summarize_logs_for_forecast(logs)
+
+        system_prompt = (
+            "你是 Hook 健康预测专家。分析历史执行日志趋势,预测未来失败率和延迟。\n"
+            "返回 JSON:\n"
+            "{\n"
+            '  "predicted_failure_rate": 0.0-1.0,\n'
+            '  "predicted_latency": 数字(ms),\n'
+            '  "trend": "improving|stable|degrading",\n'
+            '  "recommendation": "建议"\n'
+            "}"
+        )
+        user_prompt = (
+            f"Hook ID: {hook_id}\n"
+            f"当前失败率: {current_failure_rate}\n"
+            f"当前平均延迟: {current_latency}ms\n"
+            f"预测天数: {days}\n"
+            f"日志摘要:\n{log_summary}"
+        )
+
+        content = await self._call_llm(system_prompt, user_prompt)
+        if content:
+            json_str = self._extract_json(content)
+            if json_str:
+                try:
+                    data = json.loads(json_str)
+                    return {
+                        "hook_id": hook_id,
+                        "current_health": self._health_grade(current_failure_rate),
+                        "predicted_failure_rate": float(data.get("predicted_failure_rate", 0)),
+                        "predicted_latency": int(data.get("predicted_latency", 0)),
+                        "trend": data.get("trend", "stable"),
+                        "recommendation": data.get("recommendation", ""),
+                        "degraded": False,
+                    }
+                except (json.JSONDecodeError, Exception) as e:
+                    logger.warning(
+                        "[hook_engine] 健康预测 LLM 返回解析失败,降级: %s", e
+                    )
+
+        # 降级:简单线性回归
+        return self._health_forecast_fallback(
+            hook_id, logs, current_failure_rate, current_latency, days
+        )
+
+    def _health_grade(self, failure_rate: float) -> str:
+        """根据失败率返回健康等级。"""
+        if failure_rate <= 0.05:
+            return "healthy"
+        if failure_rate <= 0.20:
+            return "degraded"
+        return "unhealthy"
+
+    def _summarize_logs_for_forecast(self, logs: list[dict[str, Any]]) -> str:
+        """汇总日志数据供 LLM 分析(按天分组)。"""
+        daily_stats: dict[str, dict[str, Any]] = {}
+        for log in logs:
+            day = log.get("triggeredAt", "")[:10]  # YYYY-MM-DD
+            if not day:
+                continue
+            if day not in daily_stats:
+                daily_stats[day] = {"total": 0, "failed": 0, "durations": []}
+            daily_stats[day]["total"] += 1
+            if not log.get("success"):
+                daily_stats[day]["failed"] += 1
+            daily_stats[day]["durations"].append(log.get("duration", 0))
+
+        lines: list[str] = []
+        for day, stats in sorted(daily_stats.items()):
+            failure_rate = stats["failed"] / stats["total"] if stats["total"] > 0 else 0
+            avg_dur = (
+                sum(stats["durations"]) / len(stats["durations"])
+                if stats["durations"]
+                else 0
+            )
+            lines.append(
+                f"{day}: total={stats['total']}, failed={stats['failed']}, "
+                f"failure_rate={failure_rate:.2%}, avg_latency={avg_dur:.0f}ms"
+            )
+        return "\n".join(lines) if lines else "无可用日志数据"
+
+    def _health_forecast_fallback(
+        self,
+        hook_id: str,
+        logs: list[dict[str, Any]],
+        current_failure_rate: float,
+        current_latency: float,
+        days: int,
+    ) -> dict[str, Any]:
+        """降级:基于日志的简单线性回归预测。"""
+        # 按天分组
+        daily_stats: dict[str, dict[str, Any]] = {}
+        for log in logs:
+            day = log.get("triggeredAt", "")[:10]
+            if not day:
+                continue
+            if day not in daily_stats:
+                daily_stats[day] = {"total": 0, "failed": 0, "durations": []}
+            daily_stats[day]["total"] += 1
+            if not log.get("success"):
+                daily_stats[day]["failed"] += 1
+            daily_stats[day]["durations"].append(log.get("duration", 0))
+
+        sorted_days = sorted(daily_stats.keys())
+        daily_failure_rates: list[tuple[int, float]] = []
+        daily_latencies: list[tuple[int, float]] = []
+        for i, day in enumerate(sorted_days):
+            stats = daily_stats[day]
+            fr = stats["failed"] / stats["total"] if stats["total"] > 0 else 0
+            avg_dur = (
+                sum(stats["durations"]) / len(stats["durations"])
+                if stats["durations"]
+                else 0
+            )
+            daily_failure_rates.append((i, fr))
+            daily_latencies.append((i, avg_dur))
+
+        # 线性回归预测
+        target_x = len(sorted_days) + days - 1
+        pred_failure_rate = self._linear_regression_predict(daily_failure_rates, target_x)
+        pred_latency = self._linear_regression_predict(daily_latencies, target_x)
+
+        # 趋势判断
+        if len(daily_failure_rates) >= 2:
+            fr_slope = self._linear_slope(daily_failure_rates)
+            lat_slope = self._linear_slope(daily_latencies)
+            if fr_slope > 0.01 or lat_slope > 5:
+                trend = "degrading"
+            elif fr_slope < -0.01 or lat_slope < -5:
+                trend = "improving"
+            else:
+                trend = "stable"
+        else:
+            trend = "stable"
+
+        # 建议
+        if trend == "degrading":
+            recommendation = (
+                f"失败率/延迟呈上升趋势,建议检查 Hook 配置和依赖服务,"
+                f"预测 {days} 天后失败率可达 {pred_failure_rate:.1%}"
+            )
+        elif trend == "improving":
+            recommendation = "失败率/延迟呈下降趋势,Hook 运行状态良好"
+        else:
+            recommendation = "Hook 运行稳定,无显著趋势变化"
+
+        return {
+            "hook_id": hook_id,
+            "current_health": self._health_grade(current_failure_rate),
+            "predicted_failure_rate": round(max(0.0, min(1.0, pred_failure_rate)), 4),
+            "predicted_latency": round(max(0, pred_latency), 2),
+            "trend": trend,
+            "recommendation": recommendation,
+            "degraded": True,
+        }
+
+    def _linear_slope(self, points: list[tuple[int, float]]) -> float:
+        """简单线性回归斜率。"""
+        n = len(points)
+        if n < 2:
+            return 0.0
+        sum_x = sum(p[0] for p in points)
+        sum_y = sum(p[1] for p in points)
+        sum_xy = sum(p[0] * p[1] for p in points)
+        sum_x2 = sum(p[0] ** 2 for p in points)
+        denom = n * sum_x2 - sum_x**2
+        if denom == 0:
+            return 0.0
+        return (n * sum_xy - sum_x * sum_y) / denom
+
+    def _linear_regression_predict(
+        self, points: list[tuple[int, float]], target_x: int
+    ) -> float:
+        """线性回归预测。"""
+        n = len(points)
+        if n == 0:
+            return 0.0
+        if n < 2:
+            return points[0][1]
+        slope = self._linear_slope(points)
+        mean_x = sum(p[0] for p in points) / n
+        mean_y = sum(p[1] for p in points) / n
+        return mean_y + slope * (target_x - mean_x)
 
 
 # 全局单例
