@@ -475,8 +475,11 @@ export class SubagentWorkerPool {
 
     const durationMs = Date.now() - entry.startedAt;
     const isTimeout = entry.timedOut || code === 2;
-    const isError = code !== 0 && code !== null;
-    const isFailed = isTimeout || isError || signal !== null;
+    // P2 修复:区分 exit 3(OOM)/ exit 4(CPU limit)语义,资源超限非代码 bug 可重试
+    const isOOM = code === 3;
+    const isCpuLimit = code === 4;
+    const isError = code !== 0 && code !== null && !isOOM && !isCpuLimit;
+    const isFailed = isTimeout || isError || isOOM || isCpuLimit || signal !== null;
 
     // 更新 state
     if (entry.state.status !== 'dead') {
@@ -496,7 +499,13 @@ export class SubagentWorkerPool {
         status: isFailed ? 'failed' : 'completed',
         output,
         error: isFailed
-          ? (isTimeout ? `timeout (exit code ${code})` : (entry.stderrBuf.trim().slice(-500) || `exit code ${code} signal ${signal}`))
+          ? (isTimeout
+              ? `timeout (exit code ${code})`
+              : isOOM
+                ? `[OOM] worker self-OOM exit, stdout: ${entry.stdoutBuf.slice(-500)}`
+                : isCpuLimit
+                  ? `[CPU_LIMIT] worker CPU limit exit, stdout: ${entry.stdoutBuf.slice(-500)}`
+                  : (entry.stderrBuf.trim().slice(-500) || `exit code ${code} signal ${signal}`))
           : undefined,
         durationMs,
       };
@@ -561,14 +570,23 @@ function parseWorkerStdout(stdout: string): {
     const trimmed = line.trim();
     if (!trimmed) continue;
     try {
-      const evt = JSON.parse(trimmed) as { type?: string; text?: string; stopReason?: string; iterations?: number };
-      if (evt.type === 'message_delta' && typeof evt.text === 'string') {
-        assistantText += evt.text;
+      const evt = JSON.parse(trimmed) as {
+        type?: string;
+        text?: string;
+        message?: string;
+        payload?: string;
+        stopReason?: string;
+        iterations?: number;
+      };
+      // P0 修复:同时识别 text 和 message 字段(worker-entry 写 message,容错多种命名)
+      const evtText = evt.text ?? evt.message ?? evt.payload;
+      if (evt.type === 'message_delta' && typeof evtText === 'string') {
+        assistantText += evtText;
       } else if (evt.type === 'complete') {
         stopReason = evt.stopReason;
         iterations = evt.iterations;
-      } else if (evt.type === 'error' && typeof evt.text === 'string') {
-        assistantText += evt.text;
+      } else if (evt.type === 'error' && typeof evtText === 'string') {
+        assistantText += evtText;
       }
     } catch {
       // 非 JSON 行,跳过
