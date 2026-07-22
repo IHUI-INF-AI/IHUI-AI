@@ -261,6 +261,46 @@ export const VENDOR_PLATFORMS: Record<string, VendorPlatform> = {
     apiFormat: 'openai_chat',
     note: 'Cerebras Wafer-Scale Engine 推理,极速低延迟,免费额度可用',
   },
+  'Lambda Labs': {
+    officialKeyUrl: 'https://cloud.lambdalabs.com/api-keys',
+    docsUrl: 'https://docs.lambdalabs.com/',
+    defaultBaseUrl: 'https://api.lambdalabs.com/v1',
+    providerCode: 'lambda',
+    apiFormat: 'openai_chat',
+    note: 'Lambda Labs 推理云,OpenAI 格式兼容,按 GPU 时长计费',
+  },
+  Modal: {
+    officialKeyUrl: 'https://modal.com/settings',
+    docsUrl: 'https://modal.com/docs',
+    defaultBaseUrl: 'https://modal.com/v1',
+    providerCode: 'modal',
+    apiFormat: 'openai_chat',
+    note: 'Modal Serverless GPU 推理,支持自定义模型部署,按毫秒计费',
+  },
+  Baseten: {
+    officialKeyUrl: 'https://app.baseten.co/settings/api_keys',
+    docsUrl: 'https://docs.baseten.co/',
+    defaultBaseUrl: 'https://api.baseten.co/v1',
+    providerCode: 'baseten',
+    apiFormat: 'openai_chat',
+    note: 'Baseten 推理平台,支持开源模型部署,按 GPU 时长计费',
+  },
+  RunPod: {
+    officialKeyUrl: 'https://www.runpod.io/console/key',
+    docsUrl: 'https://docs.runpod.io/',
+    defaultBaseUrl: 'https://api.runpod.ai/v2',
+    providerCode: 'runpod',
+    apiFormat: 'openai_chat',
+    note: 'RunPod GPU 云,支持 Serverless 推理 + 按需 GPU 实例',
+  },
+  Lepton: {
+    officialKeyUrl: 'https://dashboard.lepton.ai/api-keys',
+    docsUrl: 'https://www.lepton.ai/docs',
+    defaultBaseUrl: 'https://api.lepton.ai/v1',
+    providerCode: 'lepton',
+    apiFormat: 'openai_chat',
+    note: 'Lepton AI 推理平台,Jian Yang 创办,OpenAI 格式兼容',
+  },
 }
 
 /** 查询 vendor 平台信息,返回降级兜底 */
