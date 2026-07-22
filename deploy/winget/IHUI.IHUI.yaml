@@ -1,0 +1,68 @@
+# Winget Manifest — IHUI AI CLI
+# Schema: 1.5.0
+# 安装: winget install IHUI.IHUI
+
+PackageIdentifier: IHUI.IHUI
+PackageName: IHUI AI
+Publisher: IHUI
+PublisherUrl: https://github.com/IHUI-INF-AI/IHUI-AI
+PublisherSupportUrl: https://github.com/IHUI-INF-AI/IHUI-AI/issues
+Author: IHUI
+License: MIT
+LicenseUrl: https://github.com/IHUI-INF-AI/IHUI-AI/blob/main/LICENSE
+Copyright: Copyright (c) 2026 IHUI
+CopyrightUrl: https://github.com/IHUI-INF-AI/IHUI-AI/blob/main/LICENSE
+ShortDescription: IHUI AI Coding Agent CLI — 对标 Claude Code / Codex
+Description: |
+  IHUI AI 是全栈 AI 平台的命令行工具,提供 AI 编码代理、会话管理、
+  MCP 工具集成、子代理协作等能力。支持 9 种安装方式,跨平台运行。
+Moniker: ihui
+Tags:
+  - ai
+  - cli
+  - agent
+  - coding
+  - llm
+  - mcp
+ReleaseNotesUrl: https://github.com/IHUI-INF-AI/IHUI-AI/releases/tag/cli-v1.0.0
+# InstallationNotes: 运行 'ihui --help' 查看完整命令列表
+ManifestType: singleton
+ManifestVersion: 1.5.0
+
+Installers:
+  - Architecture: x64
+    InstallerType: zip
+    InstallerUrl: https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/cli-v1.0.0/ihui-windows-x64.zip
+    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: ihui.exe
+        PortableCommandAlias: ihui
+    InstallModes:
+      - silent
+    InstallBehavior: user
+    Scope: user
+    InstallerLocale: en-US
+    UpgradeBehavior: install
+    AppsAndFeaturesEntries:
+      - DisplayName: IHUI AI CLI
+        DisplayVersion: 1.0.0
+        Publisher: IHUI
+  - Architecture: arm64
+    InstallerType: zip
+    InstallerUrl: https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/cli-v1.0.0/ihui-windows-arm64.zip
+    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: ihui.exe
+        PortableCommandAlias: ihui
+    InstallModes:
+      - silent
+    InstallBehavior: user
+    Scope: user
+    InstallerLocale: en-US
+    UpgradeBehavior: install
+    AppsAndFeaturesEntries:
+      - DisplayName: IHUI AI CLI
+        DisplayVersion: 1.0.0
+        Publisher: IHUI

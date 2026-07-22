@@ -21,6 +21,9 @@ from .openrouter_provider import OpenrouterProvider
 from .tencent_hunyuan_provider import TencentHunyuanProvider
 from .zhipu_provider import ZhipuProvider
 from .volcengine_provider import VolcengineProvider
+from .ollama_provider import OllamaProvider
+from .lmstudio_provider import LMStudioProvider
+from .llama_cpp_provider import LlamaCppProvider
 
 __all__ = [
     "BaseProvider",
@@ -38,6 +41,9 @@ __all__ = [
     "TencentHunyuanProvider",
     "ZhipuProvider",
     "VolcengineProvider",
+    "OllamaProvider",
+    "LMStudioProvider",
+    "LlamaCppProvider",
     "get_provider",
 ]
 
@@ -84,6 +90,13 @@ def get_provider(model: str, api_key: str | None, api_base: str | None) -> BaseP
         return ZhipuProvider(api_key, api_base)
     if m.startswith("volcengine-"):
         return VolcengineProvider(api_key, api_base)
+    # 本地 LLM 专属适配器(ollama 原生 /api/chat 支持 tools;lmstudio/llamacpp OpenAI 兼容)
+    if m.startswith("ollama/"):
+        return OllamaProvider(api_key, api_base)
+    if m.startswith("lmstudio/"):
+        return LMStudioProvider(api_key, api_base)
+    if m.startswith("llamacpp/"):
+        return LlamaCppProvider(api_key, api_base)
     # 国际厂商(均为 OpenAI 兼容,catchall OpenAIProvider 可处理;此处显式列出便于未来扩展专属协议)
     # groq / mistral / cohere / perplexity / xai / replicate / stability / ai21
     # watsonx / vertex / together / cerebras / sambanova / deepinfra / friendli
