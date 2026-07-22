@@ -308,6 +308,29 @@ P2 AI 工具调用深度联动(5 修改文件):
 - 平台独占豁免:desktop/mobile-rn/miniapp-taro/extension 保持单 Tab(各端独立 store,屏幕限制不适合多 Tab)
 - 验证:web typecheck exit 0;browser_use store 逻辑 PASS(openPanel 创建 tab、newTab/closeTab/setActiveTab 正常、addFavorite/removeFavorite 正常、WorkPanel DOM panelExists=true、WebViewFrame status/mode 正确)
 
+### [ ] AI 对话内嵌浏览器工作展示区 P3+ 增强:收藏 + 历史 dropdown 面板(平台独占:仅 web,2026-07-22 立)
+
+**触发**:P3 已完成 commit `f8776381e`,用户选择继续做"P3 范围内尚未实现的功能"(原 P3 计划第 259 行明确"浏览历史作为 P3 后续任务")。
+
+**范围**(平台独占:仅 web):
+- packages/ui `work-panel.tsx`:Star 按钮旁加 ChevronDown 触发 dropdown,内部"收藏/历史"两 tab 切换,列表项点击 navigate + remove 按钮(hover 显示)+ 清空按钮
+- apps/web `web-work-panel.tsx`:传 favorites/recentUrls + onSelectFromList/onRemoveFavorite/onClearHistory props
+- apps/web `stores/work-panel.ts`:加 `clearHistory` action(清空 recentUrls)
+- 不改 packages/types(复用现有 FavoriteItem/RecentUrlItem 类型)
+- 平台独占豁免(§9):desktop/mobile-rn/miniapp-taro/extension 保持原 WorkPanel(屏幕限制不适合 dropdown,已标注平台独占)
+
+**验证标准**:
+- `pnpm --filter @ihui/web typecheck` exit 0
+- `pnpm --filter @ihui/ui typecheck` exit 0
+- browser_use 4 状态自验(默认/hover/active/dark)+ DOM 数值(dropdown exists、收藏列表渲染、amber-500 类应用、点击收藏触发 navigate)
+- 降级条件:browser_use 工具连续 2 次失败 → 按 §19 第 3 条豁免降级为源码逻辑 + store API 调用验证
+
+**约束边界**:
+- 不改 store 已有 favorites/recentUrls schema(persist 兼容)
+- 不引入第三方 dropdown 库(packages/ui 无 Dropdown 组件,自己实现最小化 click-away dropdown)
+- 遵守圆角守门(§4):dropdown 用 rounded-md(6px),禁用 rounded-full
+- 遵守中文字体+图标垂直对齐硬约束(§4):依赖全局 `--text-vcenter-offset` 自动校正
+
 ---
 
 ### [x] ✅(2026-07-22) G1 认证安全加固:oauth-keys RSA/EC 真实密钥生成 + /rotate 事务(平台独占:仅 api,/goal 模式单轮完成)
