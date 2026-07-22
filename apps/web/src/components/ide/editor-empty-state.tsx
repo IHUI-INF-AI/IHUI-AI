@@ -1,5 +1,6 @@
 'use client'
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import {
   Code2,
   FileSearch,
@@ -14,11 +15,11 @@ import { cn } from '@/lib/utils'
 import type { FileNode } from '@ihui/types'
 
 const SHORTCUTS = [
-  { keys: ['Ctrl', 'P'], label: '打开文件' },
-  { keys: ['Ctrl', 'Shift', 'F'], label: '全局搜索' },
-  { keys: ['Ctrl', 'B'], label: '切换侧栏' },
-  { keys: ['Ctrl', '`'], label: '切换终端' },
-  { keys: ['Ctrl', 'G'], label: '跳转行号' },
+  { keys: ['Ctrl', 'P'], labelKey: 'editorEmpty.scOpenFile' },
+  { keys: ['Ctrl', 'Shift', 'F'], labelKey: 'editorEmpty.scGlobalSearch' },
+  { keys: ['Ctrl', 'B'], labelKey: 'editorEmpty.scToggleSidebar' },
+  { keys: ['Ctrl', '`'], labelKey: 'editorEmpty.scToggleTerminal' },
+  { keys: ['Ctrl', 'G'], labelKey: 'editorEmpty.scGotoLine' },
 ] as const
 
 interface RecentFile {
@@ -28,22 +29,23 @@ interface RecentFile {
 }
 
 const QUICK_ACTIONS = [
-  { icon: FileSearch, label: '浏览文件', view: 'files' as const },
-  { icon: GitBranch, label: '查看变更', view: 'source-control' as const },
-  { icon: Settings, label: '设置', view: 'applications' as const },
+  { icon: FileSearch, labelKey: 'editorEmpty.browseFiles', view: 'files' as const },
+  { icon: GitBranch, labelKey: 'editorEmpty.viewChanges', view: 'source-control' as const },
+  { icon: Settings, labelKey: 'editorEmpty.settings', view: 'applications' as const },
 ]
 
 export function EditorEmptyState() {
   const { setActiveView, openFile, fileTree, openTabs } = useIDEWorkspace()
+  const t = useTranslations('ide')
 
   // 最近打开的文件:openTabs 优先,不足时从文件树补齐(最多 5 项)
   const recentFiles = React.useMemo<RecentFile[]>(() => {
     const collected: RecentFile[] = []
     const seen = new Set<string>()
-    openTabs.forEach((t) => {
-      if (!seen.has(t.fileId)) {
-        seen.add(t.fileId)
-        collected.push({ id: t.fileId, name: t.filename, path: t.path })
+    openTabs.forEach((tab) => {
+      if (!seen.has(tab.fileId)) {
+        seen.add(tab.fileId)
+        collected.push({ id: tab.fileId, name: tab.filename, path: tab.path })
       }
     })
     const walk = (nodes: FileNode[]) => {
@@ -84,20 +86,20 @@ export function EditorEmptyState() {
             <Code2 className="h-14 w-14 text-muted-foreground/70" />
           </div>
           <div className="text-center">
-            <p className="text-base font-semibold text-foreground">IHUI IDE 工作区</p>
+            <p className="text-base font-semibold text-foreground">{t('editorEmpty.title')}</p>
             <p className="mt-1 text-xs text-muted-foreground/80">
-              选择文件或从下方快捷操作开始
+              {t('editorEmpty.subtitle')}
             </p>
           </div>
           <div className="flex gap-2">
             {QUICK_ACTIONS.map((item) => (
               <button
-                key={item.label}
+                key={item.labelKey}
                 onClick={() => setActiveView(item.view)}
                 className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
               >
                 <item.icon className="h-3.5 w-3.5" />
-                <span>{item.label}</span>
+                <span>{t(item.labelKey)}</span>
               </button>
             ))}
           </div>
@@ -107,7 +109,7 @@ export function EditorEmptyState() {
         <div className="flex w-72 flex-col gap-4">
           {recentFiles.length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-medium text-muted-foreground">最近打开</p>
+              <p className="mb-2 text-xs font-medium text-muted-foreground">{t('editorEmpty.recentFiles')}</p>
               <div className="flex flex-col gap-0.5">
                 {recentFiles.map((file) => {
                   const Icon = getFileIcon(file.name)
@@ -129,12 +131,12 @@ export function EditorEmptyState() {
           <div>
             <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <Keyboard className="h-3.5 w-3.5" />
-              <span>快捷键</span>
+              <span>{t('editorEmpty.shortcuts')}</span>
             </p>
             <div className="flex flex-col gap-1.5">
               {SHORTCUTS.map((s) => (
-                <div key={s.label} className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground/80">{s.label}</span>
+                <div key={s.labelKey} className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground/80">{t(s.labelKey)}</span>
                   <div className="flex items-center gap-0.5">
                     {s.keys.map((k, i) => (
                       <React.Fragment key={i}>

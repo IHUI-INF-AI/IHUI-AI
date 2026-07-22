@@ -28183,5 +28183,26 @@
       "sync": "同期",
       "toggleTheme": "テーマ切替"
     }
+  },
+  "workPanel": {
+    "back": "戻る",
+    "forward": "進む",
+    "reload": "再読み込み",
+    "stop": "停止",
+    "addressPlaceholder": "URLまたは検索キーワードを入力...",
+    "favorite": "お気に入りに追加",
+    "unfavorite": "お気に入り解除",
+    "favoritesAndHistory": "お気に入りと履歴",
+    "openExternal": "外部ブラウザで開く",
+    "closePanel": "パネルを閉じる",
+    "newTab": "新しいタブ",
+    "removeFavorite": "お気に入りを削除",
+    "tabFavorites": "お気に入り",
+    "tabHistory": "履歴",
+    "emptyFavorites": "お気に入りはまだありません",
+    "emptyHistory": "履歴はまだありません",
+    "clearHistory": "履歴を消去",
+    "dragInsertBefore": "ここに前に挿入",
+    "dragInsertAfter": "ここに後に挿入"
   }
 }
