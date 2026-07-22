@@ -2,6 +2,7 @@ import * as React from 'react'
 import type { Metadata } from 'next'
 import { Hero } from './components/Hero'
 import { Leaderboard } from './components/Leaderboard'
+import { ApiRelaysSection } from './components/ApiRelaysSection'
 import { LiveChannelsBlock } from './components/LiveChannelsBlock'
 import { AiFeedTimeline } from './components/AiFeedTimeline'
 import { HotRanking } from './components/HotRanking'
@@ -36,6 +37,7 @@ export default async function AiNewsPage() {
     <div className="mx-auto w-full max-w-[1240px] space-y-6">
       <Hero />
       <Leaderboard entries={leaderboard} />
+      <ApiRelaysSection />
       <LiveChannelsBlock channels={channels} />
       <AiFeedTimeline items={feed.items} sources={sources} total={feed.total} />
       {hotRanking.length > 0 ? <HotRanking items={hotRanking} sources={sources} /> : null}
