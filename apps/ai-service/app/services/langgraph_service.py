@@ -10,9 +10,12 @@
 
 import asyncio
 import json
+import logging
 import time
 from datetime import datetime
 from typing import Any, TypedDict
+
+logger = logging.getLogger(__name__)
 
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway, trim_messages
@@ -166,8 +169,8 @@ class LangGraphService:
         try:
             try:
                 await memory_store.add(session_id, "user", goal)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("memory_store.add user 消息失败: %s", e)
 
             messages = [
                 {
@@ -277,8 +280,8 @@ class LangGraphService:
                 await memory_store.add(
                     session_id, "assistant", f"[步骤 {step_index + 1}] {content}"
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("memory_store.add assistant 步骤失败: %s", e)
 
             end = time.monotonic()
             trace.append(_trace_entry(
@@ -336,8 +339,8 @@ class LangGraphService:
 
             try:
                 await memory_store.add(session_id, "assistant", f"[总结] {summary}")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("memory_store.add 总结失败: %s", e)
 
             end = time.monotonic()
             trace.append(_trace_entry(
