@@ -8,6 +8,14 @@
 
 ## 当前活跃任务(2026-07-20)
 
+### [x] ✅(2026-07-22) 国内镜像同步方案落地(Gitee + GitCode 双镜像,平台独占:CI/基础设施)
+
+**交付物**:`scripts/setup-mirror-repos.mjs`(Gitee OpenAPI v5 + GitCode PRIVATE-TOKEN 鉴权)+ `.github/workflows/mirror-to-cn.yml`(push main + 每天 08:00/20:00 兜底,refspec push + LFS push)。
+**镜像地址**:Gitee https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI ✅ | GitCode https://gitcode.com/lichunchuan1/IHUI-AI ✅(main + tags + 159MB LFS 已推送)。
+**修复 bug**:GitCode 鉴权 access_token→PRIVATE-TOKEN header;push --mirror→refspec(避免 remote-tracking refs 被拒);加 git lfs push --all(GitCode 服务端要求 LFS 对象)。
+**Git 证据**:commit 8e72b9b33,local == remote ✅。
+**平台独占**(§9):CI/基础设施,不涉及业务代码跨端同步。
+
 ### [x] ✅(2026-07-22) 开发者 API Key 统一接入系统深度补齐(跨端:packages/types + api + web 全端同步,2026-07-22 立)
 
 **触发**:用户要求"本项目所有的 api 是否我们平台有统一的介入 apikey 支持用户自己申请密钥并且自己自行选择设置好对应权限 可以让其他别的平台 agent 或者自行接入连同我们平台 api"。调研发现:文档承诺齐全但实现断层——API Key 创建后无法鉴权调用、`/v1/*` 对外端点未实现、secret 明文存储、用户端自助 UI 缺失、权限点无枚举无校验、配额未启用。
