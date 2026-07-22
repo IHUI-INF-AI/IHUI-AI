@@ -2443,7 +2443,7 @@ cAdvisor(:8080) → Prometheus(:9090) → Grafana(:3001)
 
 **后续任务**(本任务范围外,留作未来迭代):
 - ~~i18n 5 语言 key 接入~~ ✅ 已完成(2026-07-22,commit `f1470615a`)
-- 真实数据接入(当前文件树/diff/搜索/断点/变量均为 mock)
+- ~~真实数据接入~~ ✅ 已完成(2026-07-22,commit `096524cd0`):6 面板移除 mock,接入 FS Bridge API(browse/read/grep/run)+ git 命令(diff/log/branch)+ localStorage(断点/启动配置);新增 LSP 转发路由(ai-service/api/v1/lsp.py);api-client 新增 13 个导出函数;store 完全重写(6 fetch actions + 懒加载文件夹 + 异步加载文件内容);typecheck(web+api-client+types)+ py_compile(lsp.py)全绿
 - ~~快捷键真实绑定~~ ✅ 已完成(2026-07-22,use-ide-shortcuts.ts hook)
 - ~~browser_use 4 态截图验证~~ ✅ 已完成(2026-07-22,keyLeak=false 全通过)
 
