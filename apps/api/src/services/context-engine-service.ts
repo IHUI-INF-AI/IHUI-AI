@@ -53,6 +53,8 @@ export interface EnrichedContextSource {
   relevance: number
   source: string
   metadata?: Record<string, unknown>
+  /** 行为 boost 加成(2026-07-22 深化立,可选) */
+  behavior_boost?: number
 }
 
 /** enrich 方法返回结构 */
@@ -65,6 +67,8 @@ export interface EnrichedContext {
   sources: EnrichedContextSource[]
   /** 会话 ID */
   conversationId: string
+  /** 检测到的任务类型(2026-07-22 深化立:code/chat/data/default) */
+  taskType?: string
 }
 
 /** getSources 方法返回结构 */
@@ -85,6 +89,83 @@ export interface EnrichOptions {
   messages?: Array<{ role: string; content: string }>
   /** 总 token 预算(默认 8000) */
   totalBudget?: number
+  /** 用户 ID(2026-07-22 深化立,行为学习 + 偏好持久化 key) */
+  userId?: string
+}
+
+/** token 可视化饼图单项(2026-07-22 深化立) */
+export interface VisualizationPieItem {
+  source: string
+  tokens: number
+}
+
+/** token 可视化历史趋势点(2026-07-22 深化立) */
+export interface VisualizationTrendPoint {
+  timestamp: number
+  total_tokens: number
+  history_tokens: number
+  codebase_tokens: number
+  mention_tokens: number
+  web_tokens: number
+  database_tokens: number
+}
+
+/** 压缩事件(2026-07-22 深化立) */
+export interface CompressionEvent {
+  timestamp: number
+  conversation_id: string
+  tokens_before: number
+  tokens_after: number
+  compression_ratio: number
+  quality_score: number
+  removed_count: number
+}
+
+/** GET /visualization 返回结构(2026-07-22 深化立) */
+export interface VisualizationResult {
+  /** 最新一条的源分布饼图 */
+  pie: VisualizationPieItem[]
+  /** 历史趋势(时间正序) */
+  trend: VisualizationTrendPoint[]
+  /** 最近 10 次压缩事件 */
+  compressions: CompressionEvent[]
+}
+
+/** POST /visualization/track 请求参数(2026-07-22 深化立) */
+export interface TrackVisualizationOptions {
+  conversationId: string
+  totalTokens: number
+  historyTokens: number
+  codebaseTokens: number
+  mentionTokens: number
+  webTokens: number
+  databaseTokens: number
+}
+
+/** GET /compression-stats 返回结构(2026-07-22 深化立) */
+export interface CompressionStatsResult {
+  totalEvents: number
+  avgCompressionRatio: number
+  avgQualityScore: number
+  recentEvents: CompressionEvent[]
+}
+
+/** 用户偏好单项(2026-07-22 深化立) */
+export interface UserPreferenceItem {
+  key: string
+  count: number
+}
+
+/** GET /memory 返回结构(2026-07-22 深化立) */
+export interface SessionMemoryResult {
+  conversationId: string
+  summary: string
+  preferences: UserPreferenceItem[]
+}
+
+/** DELETE /memory 返回结构(2026-07-22 深化立) */
+export interface ClearMemoryResult {
+  cleared: boolean
 }
 
 /** LRU 缓存条目 */
@@ -386,12 +467,14 @@ class ContextEngineService {
   }
 
   /**
-   * 两层集成入口:@ 提及结果 + RAG 检索(2026-07-22 立)。
+   * 两层集成入口:@ 提及结果 + RAG 检索(2026-07-22 立,2026-07-22 深化)。
    *
    * 委托 ai-service POST /api/context/enrich:
    * - mentions 作为额外 RAG 数据源注入检索池(relevance=1.0,用户显式选择)
+   * - symbol 提及注入完整 AST 签名 + docstring(2026-07-22 深化立)
+   * - @ 提及触发用户行为学习(_record_user_behavior,2026-07-22 深化立)
    * - ai-service 调 retrieve_and_enrich 检索 history + codebase 上下文
-   * - _merge_context 多源融合(去重 + relevance DESC 排序 + token 截断)
+   * - _merge_context 多源融合(去重 + relevance DESC 排序 + token 截断 + behavior_boost)
    *
    * 降级:ai-service 不可用 / HTTP 错误 / 响应异常 → 退化为本地拼接
    *      (仅 @ 提及内容,无 RAG 检索),保证链路不报错。
@@ -403,6 +486,7 @@ class ContextEngineService {
       mentions,
       messages = [],
       totalBudget = 8000,
+      userId = '',
     } = opts
 
     try {
@@ -415,6 +499,7 @@ class ContextEngineService {
           query: userMessage,
           messages,
           totalBudget,
+          userId,
         }),
         signal: AbortSignal.timeout(15_000),
       })
@@ -543,6 +628,179 @@ class ContextEngineService {
         return `Web: ${m.label}\nURL: ${meta.url ?? ''}`.trim()
       default:
         return `${m.type}: ${m.label}`.trim()
+    }
+  }
+
+  /**
+   * 记录当前会话 token 分布(2026-07-22 深化立)。
+   *
+   * 委托 ai-service POST /api/context/visualization/track:
+   * - 前端定期调用,记录 history/codebase/mention/web/database 各源 token 占用
+   * - ai-service 写入 Redis list "context:viz:{conversationId}"(LPUSH + LTRIM 100 条)
+   *
+   * 降级:ai-service 不可用时静默忽略(可视化数据非关键路径)。
+   */
+  async trackVisualization(opts: TrackVisualizationOptions): Promise<boolean> {
+    try {
+      const resp = await aiServiceFetch(null, '/api/context/visualization/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(opts),
+        signal: AbortSignal.timeout(5_000),
+      })
+      if (!resp.ok) return false
+      const json = (await resp.json()) as { code: number }
+      return json.code === 0
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * 获取可视化数据(2026-07-22 深化立)。
+   *
+   * 委托 ai-service GET /api/context/visualization:
+   * - pie: 最新一条的源分布饼图(history/codebase/mention/web/database token 数)
+   * - trend: 历史趋势(时间正序,最多 100 条)
+   * - compressions: 最近 10 次压缩事件(timestamp/before/after/ratio/quality)
+   *
+   * 降级:ai-service 不可用时返回空结构。
+   */
+  async getVisualization(
+    conversationId: string,
+    userId: string = '',
+  ): Promise<VisualizationResult> {
+    try {
+      const params = new URLSearchParams()
+      if (conversationId) params.set('conversationId', conversationId)
+      if (userId) params.set('userId', userId)
+      const qs = params.toString()
+      const path = `/api/context/visualization${qs ? `?${qs}` : ''}`
+      const resp = await aiServiceFetch(null, path, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service /api/context/visualization HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as {
+        code: number
+        data?: VisualizationResult
+      }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      throw new Error(`ai-service /api/context/visualization 返回 code=${json.code}`)
+    } catch {
+      return { pie: [], trend: [], compressions: [] }
+    }
+  }
+
+  /**
+   * 获取压缩统计(2026-07-22 深化立)。
+   *
+   * 委托 ai-service GET /api/context/compression-stats:
+   * - totalEvents: 事件总数
+   * - avgCompressionRatio: 平均压缩比
+   * - avgQualityScore: 平均质量分(LLM 评估)
+   * - recentEvents: 最近 10 次压缩详情
+   *
+   * 降级:ai-service 不可用时返回空统计。
+   */
+  async getCompressionStats(userId: string = ''): Promise<CompressionStatsResult> {
+    try {
+      const qs = userId ? `?userId=${encodeURIComponent(userId)}` : ''
+      const path = `/api/context/compression-stats${qs}`
+      const resp = await aiServiceFetch(null, path, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service /api/context/compression-stats HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as {
+        code: number
+        data?: CompressionStatsResult
+      }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      throw new Error(`ai-service /api/context/compression-stats 返回 code=${json.code}`)
+    } catch {
+      return {
+        totalEvents: 0,
+        avgCompressionRatio: 0,
+        avgQualityScore: 0,
+        recentEvents: [],
+      }
+    }
+  }
+
+  /**
+   * 获取会话记忆(summary + 用户偏好,2026-07-22 深化立)。
+   *
+   * 委托 ai-service GET /api/context/memory:
+   * - summary: 上次压缩的 summary(跨会话记忆)
+   * - preferences: 用户长期偏好(常访问的文件/符号,按访问次数倒序)
+   *
+   * 降级:ai-service 不可用时返回空结构。
+   */
+  async getSessionMemory(
+    conversationId: string,
+    userId: string = '',
+  ): Promise<SessionMemoryResult> {
+    try {
+      const params = new URLSearchParams()
+      if (conversationId) params.set('conversationId', conversationId)
+      if (userId) params.set('userId', userId)
+      const qs = params.toString()
+      const path = `/api/context/memory${qs ? `?${qs}` : ''}`
+      const resp = await aiServiceFetch(null, path, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service /api/context/memory HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as {
+        code: number
+        data?: SessionMemoryResult
+      }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      throw new Error(`ai-service /api/context/memory 返回 code=${json.code}`)
+    } catch {
+      return { conversationId, summary: '', preferences: [] }
+    }
+  }
+
+  /**
+   * 清除会话记忆(2026-07-22 深化立)。
+   *
+   * 委托 ai-service DELETE /api/context/memory:
+   * - 删除 Redis hash "context:summary:{conversationId}"
+   *
+   * 降级:ai-service 不可用时返回 false。
+   */
+  async clearSessionMemory(conversationId: string): Promise<boolean> {
+    try {
+      const qs = conversationId ? `?conversationId=${encodeURIComponent(conversationId)}` : ''
+      const path = `/api/context/memory${qs}`
+      const resp = await aiServiceFetch(null, path, {
+        method: 'DELETE',
+        signal: AbortSignal.timeout(5_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service DELETE /api/context/memory HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as { code: number; data?: ClearMemoryResult }
+      if (json.code === 0 && json.data) {
+        return json.data.cleared
+      }
+      return false
+    } catch {
+      return false
     }
   }
 }
