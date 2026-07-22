@@ -1209,3 +1209,32 @@ export type ImPlatform =
   | 'rocketchat' // Rocket.Chat(新增)
   | 'mattermost' // Mattermost(新增)
   | 'zulip' // Zulip(新增)
+
+// ============================================================================
+// Git 工具深化契约(Wave 8,2026-07-22 立)
+// 对标 OpenClaw/OpenCode:branch/merge/rebase/stash/conflict/tag/remote + GitHub PR
+// ============================================================================
+
+/** Git 操作枚举(只读 + 写入,对标 OpenClaw/OpenCode 完整 Git 工作流) */
+export type GitOperation =
+  | 'status' | 'diff' | 'log' | 'show' | 'branch_list'
+  | 'branch_create' | 'branch_switch' | 'branch_delete'
+  | 'merge' | 'rebase' | 'stash_push' | 'stash_pop' | 'stash_list'
+  | 'tag_create' | 'tag_list' | 'remote_add' | 'remote_list'
+  | 'conflict_status' | 'conflict_resolve'
+
+/** GitHub PR/Issue/Release 操作枚举(via gh CLI 或 REST API) */
+export type GitHubOperation =
+  | 'pr_create' | 'pr_list' | 'pr_view' | 'pr_review' | 'pr_merge'
+  | 'pr_comment' | 'pr_close' | 'pr_reopen' | 'pr_checkout'
+  | 'issue_create' | 'issue_list' | 'release_create'
+
+/** Git 工具参数(各操作特定参数用索引签名兜底) */
+export interface GitToolArgs {
+  operation: GitOperation
+  cwd?: string
+  [key: string]: unknown
+}
+
+/** Git 工具权限级别(对应 Tool.dangerLevel) */
+export type GitToolPermission = 'read' | 'write' | 'dangerous'
