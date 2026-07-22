@@ -599,6 +599,7 @@
     "forgotPassword": "忘记密码",
     "rememberPassword": "记住密码",
     "accountHistory": "账号历史",
+    "noHistory": "暂无历史记录",
     "forgotSubtitle": "重置您的密码",
     "registerTitle": "创建账号",
     "registerSubtitle": "注册一个新账号",
@@ -1082,7 +1083,11 @@
       "community": "社区",
       "communityEn": "社区",
       "knowledge": "知识库",
-      "knowledgeEn": "知识"
+      "knowledgeEn": "知识",
+      "recommend": "推荐课程",
+      "recommendEn": "推荐",
+      "hot": "热门课程",
+      "hotEn": "热门"
     },
     "units": {
       "questions": "{count}题",
