@@ -101,6 +101,8 @@ export interface WorkPanelProps {
   onTabChange: (id: string) => void
   onTabClose?: (id: string) => void
   onNewTab?: () => void
+  /** 拖拽 Tab 排序回调(P3++:HTML5 DnD) */
+  onTabReorder?: (fromId: string, toId: string) => void
   /** 内容区(各端注入 WebViewFrame 或自定义实现) */
   children?: React.ReactNode
   className?: string
@@ -139,6 +141,7 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
       onTabChange,
       onTabClose,
       onNewTab,
+      onTabReorder,
       children,
       className,
     },
@@ -149,6 +152,9 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
     const [dropdownTab, setDropdownTab] = React.useState<'favorites' | 'history'>('favorites')
     const dropdownRef = React.useRef<HTMLDivElement>(null)
     const dropdownTriggerRef = React.useRef<HTMLButtonElement>(null)
+
+    // P3++:Tab 拖拽状态(记录被拖动的 tab id,用于半透明 + 防止自己 drop 到自己)
+    const [draggedTabId, setDraggedTabId] = React.useState<string | null>(null)
 
     // click-away 关闭 dropdown
     React.useEffect(() => {
@@ -389,11 +395,37 @@ export const WorkPanel = React.forwardRef<HTMLDivElement, WorkPanelProps>(
                   key={tab.id}
                   type="button"
                   onClick={() => onTabChange(tab.id)}
+                  draggable={!!onTabReorder}
+                  onDragStart={(e) => {
+                    if (!onTabReorder) return
+                    e.dataTransfer.setData('text/plain', tab.id)
+                    e.dataTransfer.effectAllowed = 'move'
+                    setDraggedTabId(tab.id)
+                  }}
+                  onDragEnd={() => setDraggedTabId(null)}
+                  onDragOver={(e) => {
+                    if (!onTabReorder) return
+                    // 必须 preventDefault 才能触发 onDrop
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                  }}
+                  onDrop={(e) => {
+                    if (!onTabReorder) return
+                    e.preventDefault()
+                    const fromId = e.dataTransfer.getData('text/plain')
+                    setDraggedTabId(null)
+                    if (fromId && fromId !== tab.id) {
+                      onTabReorder(fromId, tab.id)
+                    }
+                  }}
                   className={cn(
                     'group inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors',
                     tab.id === activeTabId
                       ? 'bg-background text-foreground shadow-sm'
                       : 'text-muted-foreground hover:bg-muted',
+                    // P3++:拖动中半透明,drop target 高亮
+                    draggedTabId === tab.id && 'opacity-40',
+                    draggedTabId && draggedTabId !== tab.id && 'ring-1 ring-primary/30',
                   )}
                 >
                   <span className="max-w-[120px] truncate">{tab.title}</span>
