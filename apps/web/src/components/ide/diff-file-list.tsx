@@ -1,5 +1,6 @@
 'use client'
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import type { DiffFileStatus, DiffFile } from '@ihui/types'
 import { getFileIcon, getFileColor } from './file-icons'
@@ -21,11 +22,11 @@ const STATUS_COLOR: Record<DiffFileStatus, string> = {
   renamed: 'text-blue-600 dark:text-blue-400',
 }
 
-const STATUS_GROUP: { key: DiffFileStatus; label: string }[] = [
-  { key: 'modified', label: '修改' },
-  { key: 'added', label: '新增' },
-  { key: 'deleted', label: '删除' },
-  { key: 'renamed', label: '重命名' },
+const STATUS_GROUP: { key: DiffFileStatus; labelKey: string }[] = [
+  { key: 'modified', labelKey: 'diffFileList.groupModified' },
+  { key: 'added', labelKey: 'diffFileList.groupAdded' },
+  { key: 'deleted', labelKey: 'diffFileList.groupDeleted' },
+  { key: 'renamed', labelKey: 'diffFileList.groupRenamed' },
 ]
 
 interface DiffFileListProps {
@@ -44,6 +45,7 @@ export function DiffFileList({
   showActions = false,
 }: DiffFileListProps) {
   const { diffFiles, activeDiffFileId, setActiveDiffFile } = useIDEWorkspace()
+  const t = useTranslations('ide')
 
   const filtered = React.useMemo(
     () => (filter === 'all' ? diffFiles : diffFiles.filter((f) => f.status === filter)),
@@ -69,13 +71,13 @@ export function DiffFileList({
 
   return (
     <div className="flex flex-col gap-1">
-      {STATUS_GROUP.map(({ key, label }) => {
+      {STATUS_GROUP.map(({ key, labelKey }) => {
         const files = groups.get(key)
         if (!files?.length) return null
         return (
           <div key={key} className="flex flex-col gap-0.5">
             <div className="flex items-center gap-1 px-2 py-0.5 text-muted-foreground">
-              <span className="font-medium">{label}</span>
+              <span className="font-medium">{t(labelKey)}</span>
               <span className="rounded bg-muted px-1 text-[10px]">{files.length}</span>
             </div>
             {files.map((file) => (
@@ -94,7 +96,7 @@ export function DiffFileList({
         )
       })}
       {!filtered.length && (
-        <div className="px-2 py-4 text-center text-muted-foreground">无匹配文件</div>
+        <div className="px-2 py-4 text-center text-muted-foreground">{t('diffFileList.noMatch')}</div>
       )}
     </div>
   )

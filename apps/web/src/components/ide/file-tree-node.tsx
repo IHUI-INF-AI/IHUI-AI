@@ -1,5 +1,6 @@
 'use client'
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import type { FileNode } from '@ihui/types'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { getFileIcon, getFileColor, getGitStatusColor, type GitFileStatus } from './file-icons'
@@ -20,6 +21,7 @@ const MOCK_GIT_STATUS: Record<string, GitFileStatus> = {
 }
 
 export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps) {
+  const t = useTranslations('ide')
   const { expandedFolders, selectedFileId, toggleFolder, openFile, selectFile } = useIDEWorkspace()
   const [menuPos, setMenuPos] = React.useState<{ x: number; y: number } | null>(null)
   const isExpanded = node.type === 'folder' && expandedFolders.has(node.id)
@@ -68,10 +70,10 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
   }
 
   const menuItems = [
-    { label: '打开', icon: FileText, action: () => { if (node.type === 'file') { selectFile(node.id); openFile(node) } } },
-    { label: '重命名', icon: Pencil, action: () => {} },
-    { label: '删除', icon: Trash2, action: () => {} },
-    { label: '复制路径', icon: Copy, action: handleCopyPath },
+    { labelKey: 'fileTreeNode.open', icon: FileText, action: () => { if (node.type === 'file') { selectFile(node.id); openFile(node) } } },
+    { labelKey: 'fileTreeNode.rename', icon: Pencil, action: () => {} },
+    { labelKey: 'fileTreeNode.delete', icon: Trash2, action: () => {} },
+    { labelKey: 'fileTreeNode.copyPath', icon: Copy, action: handleCopyPath },
   ]
 
   return (
@@ -123,12 +125,12 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
         >
           {menuItems.map((item) => (
             <button
-              key={item.label}
+              key={item.labelKey}
               onClick={() => { item.action(); setMenuPos(null) }}
               className="flex w-full items-center gap-2 px-3 py-1 text-left hover:bg-muted"
             >
               <item.icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span>{item.label}</span>
+              <span>{t(item.labelKey)}</span>
             </button>
           ))}
         </div>
