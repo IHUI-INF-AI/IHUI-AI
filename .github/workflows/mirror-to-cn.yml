@@ -37,15 +37,16 @@ jobs:
 
       - name: 镜像到 Gitee
         id: gitee
-        continue-on-error: true
         env:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
           GITEE_OWNER: ${{ secrets.GITEE_OWNER }}
         run: |
           if [ -z "$GITEE_TOKEN" ] || [ -z "$GITEE_OWNER" ]; then
-            echo "GITEE_TOKEN / GITEE_OWNER 未配置，跳过 Gitee 镜像"
+            echo "⚠️ GITEE_TOKEN / GITEE_OWNER 未配置，跳过 Gitee 镜像"
+            echo "GITEE_OWNER 长度: ${#GITEE_OWNER}（应为 16: JLSLSSZWHYXGS_0）"
             exit 0
           fi
+          echo "GITEE_OWNER 长度: ${#GITEE_OWNER}（应非 0）"
           REMOTE="https://${GITEE_OWNER}:${GITEE_TOKEN}@gitee.com/${GITEE_OWNER}/IHUI-AI.git"
           # 不用 --mirror:推 refs/remotes/origin/* 会被 Gitee 拒绝(deny hidden ref)
           # 改用 refspec:推 branches + tags,删除远端多余,不推 remote-tracking
@@ -54,15 +55,17 @@ jobs:
 
       - name: 镜像到 GitCode
         id: gitcode
-        continue-on-error: true
+        if: always()
         env:
           GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
           GITCODE_OWNER: ${{ secrets.GITCODE_OWNER }}
         run: |
           if [ -z "$GITCODE_TOKEN" ] || [ -z "$GITCODE_OWNER" ]; then
-            echo "GITCODE_TOKEN / GITCODE_OWNER 未配置，跳过 GitCode 镜像"
+            echo "⚠️ GITCODE_TOKEN / GITCODE_OWNER 未配置，跳过 GitCode 镜像"
+            echo "GITCODE_OWNER 长度: ${#GITCODE_OWNER}（应为 7: IHUI-AI）"
             exit 0
           fi
+          echo "GITCODE_OWNER 长度: ${#GITCODE_OWNER}（应非 0）"
           REMOTE="https://${GITCODE_OWNER}:${GITCODE_TOKEN}@gitcode.com/${GITCODE_OWNER}/IHUI-AI.git"
           # GitCode 服务端 pre-receive hook 要求 LFS 对象必须存在，先推 LFS 对象
           git lfs push --all "$REMOTE" 2>&1 | sed "s|${GITCODE_TOKEN}|***|g" || true
@@ -75,5 +78,12 @@ jobs:
         run: |
           echo "## 国内镜像同步结果" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- Gitee: ${{ (steps.gitee.outcome == 'success' || steps.gitee.outcome == 'skipped') && '✅ 成功' || '❌ 失败（见上一步日志）' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- GitCode: ${{ (steps.gitcode.outcome == 'success' || steps.gitcode.outcome == 'skipped') && '✅ 成功' || '❌ 失败（见上一步日志）' }}" >> $GITHUB_STEP_SUMMARY
+          GITEE_RESULT="${{ (steps.gitee.outcome == 'success' || steps.gitee.outcome == 'skipped') && '✅ 成功' || '❌ 失败（见上一步日志）' }}"
+          GITCODE_RESULT="${{ (steps.gitcode.outcome == 'success' || steps.gitcode.outcome == 'skipped') && '✅ 成功' || '❌ 失败（见上一步日志）' }}"
+          echo "- Gitee: $GITEE_RESULT" >> $GITHUB_STEP_SUMMARY
+          echo "- GitCode: $GITCODE_RESULT" >> $GITHUB_STEP_SUMMARY
+          # 如果两个都失败，让 job failed（让失败可见，避免静默失败）
+          if [ "${{ steps.gitee.outcome }}" != "success" ] && [ "${{ steps.gitee.outcome }}" != "skipped" ] && [ "${{ steps.gitcode.outcome }}" != "success" ] && [ "${{ steps.gitcode.outcome }}" != "skipped" ]; then
+            echo "❌ Gitee 和 GitCode 都失败，job 标记为 failed" >&2
+            exit 1
+          fi
