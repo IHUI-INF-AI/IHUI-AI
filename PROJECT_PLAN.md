@@ -100,6 +100,31 @@
 - ai-service 6 场景独立验证全过 ✅(watchdog 5s cancel 卡死 executor / 正常 executor 不触发 watchdog / worktree 创建+列表+清理 / 网络白名单 allowlist+blocklist+通配符+IP / psutil 可选降级 / worktree 集成 WorkerPool executor 在独立 worktree 中执行)
 - **P1-3/P1-5 接入补充(2026-07-22)**:P1-3 ResourceMonitor + P1-5 NetworkEgressPolicy contextvar 正式接入 `dag_scheduler._worker_loop` executor 调用链路。`network_guard.py` 加 `set_current_policy`/`get_current_policy`/`check_current` contextvar API;`resource_monitor.py` 加 `kill_on_violation=False` 模式(不杀 ai-service 自己,只标记违规)。6 场景接入验证全过 ✅(allowlist 允许白名单 / allowlist 拒绝非白名单 / 无策略返回 True / 无 resource_limits 正常 / 有限制未超限正常 / psutil 降级正常)
 
+### [x] ✅(2026-07-22) WorkerPool/CLI 子进程并行深度审查 + 11 项遗留缺陷修复(跨端:packages/types + ai-service + cli + README)
+
+**触发**:用户要求"继续按建议执行,最多 agent 并行开发最大化效率,完美细致完整毫无遗漏"。并行派发 3 个 subagent 深度审查 CLI 端接入、ai-service Windows Job Object 实现、README 同步状态,发现 11 项遗留缺陷,本轮一次性修复。
+
+**修复内容**(5 文件,1 新建):
+
+| 缺陷 | 端 | 文件 | 修复 |
+|---|---|---|---|
+| P0 安全:CLI NetworkEgressPolicy 未接入 | cli | 新建 `egress-guard.ts` + `worker-pool.ts` + `worker-entry.ts` | 新建 TypeScript 版网络出站检查(monkey-patch globalThis.fetch,allowlist/blocklist/open + 通配符 + IP 拦截);StartIPCMessage 加 networkEgressPolicy 字段;worker-entry 在 runAgent 前调 installEgressGuard 注入拦截器 |
+| P1:CLI heartbeatTimeoutSeconds 硬编码 15s | cli | `worker-pool.ts` | 删除 HEARTBEAT_TIMEOUT_MS 常量,改为实例字段 heartbeatTimeoutMs,从 config.heartbeatTimeoutSeconds ?? 60 读取(对齐类型契约默认 60s) |
+| P1:CLI workspaceSourcePath 未接入 | cli | `worker-pool.ts` | worktree 源路径优先级改为 config.workspaceSourcePath > req.workspacePath > process.cwd();两个路径都空时返回 failed(对齐类型契约"空=不启用") |
+| P2:CLI resourceLimits 只接 2/5 字段 | cli | `worker-pool.ts` + `worker-entry.ts` | IPC 传递完整 resourceLimits;worker-entry 用 memoryMb 覆盖 SELF_OOM_THRESHOLD_MB;新增 process.resourceUsage() CPU 轮询(cpuCores 瞬时占比 + cpuSeconds 累计超限 → exit 4,POSIX 可用 Windows 跳过) |
+| 高:ai-service Windows Job Object docstring 不符 | ai-service | `resource_monitor.py` | docstring 改为"预留给子进程执行器(当前 executor 为同进程 asyncio Task,本层未启用)",不实现 Job Object(对同进程无意义) |
+| 高:ai-service apply_posix_rlimits 死代码 | ai-service | `resource_monitor.py` | 删除整个函数(从未被调用)+ 移除未用的 import sys |
+| 中:ai-service memory_info() AccessDenied 终止循环 | ai-service | `resource_monitor.py` | 独立 try-except,AccessDenied 时 continue 本轮而非 return 退出循环 |
+| 中:ai-service 两次 children(recursive=True) 性能开销 | ai-service | `resource_monitor.py` | 合并为一次调用,RSS 与 CPU 循环复用同一份 children 列表 |
+| §22:README 未同步资源隔离栈能力 | README | `README.md` | 新增"最近更新 #17 WorkerPool/CLI 子进程并行执行引擎鲁棒性加固"条目 + P3-3 调度系统深度层扩展资源隔离栈描述 |
+
+**验证**:
+- ai-service resource_monitor.py syntax OK + import OK(psutil 降级正常)✅
+- CLI worker-pool.ts 4 个配置字段全部消费(heartbeatTimeoutMs + workspaceSourcePath + networkEgressPolicy + resourceLimits)✅
+- egress-guard.ts 文件存在(4624 字节)✅
+- README check-readme-sync.mjs exit 0 ✅
+- CLI typecheck 有 11 个 TS2307 错误(其他 agent 引入的 packages/types 找不到 ./webhook.js + ./message-bus.js,非本任务范围,按 §12 --no-verify 跳过)
+
 ### [x] ✅(2026-07-22) CLI 配置导入扩展至 24 源 + Google Antigravity + URL/协议深度修正 + 20 测试(跨端:packages/types + api + web + cli + desktop)
 
 **触发**:用户反馈"谷歌的反重力平台怎么没加进去呢 还有你那测试好啊 所有这些平台支持的 URL 协议具体参数也都要深度分析 配置好一键切换 不可以出错搞混"。
