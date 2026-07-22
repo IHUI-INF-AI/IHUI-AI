@@ -358,7 +358,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 | **模型接入**         | LiteLLM 网关统一 100+ 模型(国际 30+ / 国产 15+ / 云厂商 10+)                                 | 一站式接入,智能路由 + 60% 缓存  |
 | **AI 编排三栈**      | LangGraph(工作流)+ MCP(工具协议)+ A2A(Agent 互通)                                            | 工作流、工具、智能体协同一体化  |
 | **自研 CLI**         | 17 命令 + 13 内置工具 + ACP Server,对标 Claude Code                                          | 命令行原生 AI 编程体验          |
-| **CLI 配置无缝导入** | cc-switch / codex++ / Claude / Codex / Gemini / Hermes 6 源一键导入                          | 跨 CLI 工具配置零迁移成本       |
+| **CLI 配置无缝导入** | 24 源一键导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env / Trae / Qoder / Codex Desktop / Claude Code Desktop / GitHub Copilot / Amazon Q / Continue / Tabnine / Cody / Zed / Google Antigravity)+ providerCode/apiFormat 智能推断(modelId 前缀优先,URL 兜底) | 跨 CLI 工具配置零迁移成本       |
 | **企业级安全**       | RBAC + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时                                 | 决策者级风险控制                |
 | **数据加密**         | AES-256-GCM(credentials 加密)+ JWT token-family 旋转 + refresh 黑名单                        | 金融级数据保护                  |
 | **可观测性**         | Prometheus + Grafana(**20 仪表盘**)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager | 全链路指标 / 日志 / 追踪 / 告警 |
@@ -1428,11 +1428,30 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 <details>
 <summary><strong>Q8:CLI 配置导入功能是什么?能导入哪些工具的配置?</strong></summary>
 
-自研 CLI 提供 6 源一键导入功能,让你从其他 AI CLI 工具无缝切换到 IHUI-AI CLI,无需重新配置 API Key / 模型 / 工作流:
+提供 24 源一键导入功能,让你从其他 AI CLI / IDE 工具无缝切换到 IHUI-AI,无需重新配置 API Key / 模型 / 协议。导入入口位于 `/settings/llm` v2 header「导入 CLI 配置」按钮 → `/settings/import` 页面选择对应平台卡片。
 
-- cc-switch / codex++ / Claude / Codex / Gemini / Hermes
+**24 源清单**:
 
-详见 `apps/cli/` 实现。
+- **CLI 工具(6)**:cc-switch / codex++ / Claude / Codex / Gemini / Hermes
+- **IDE 集成(5)**:Cursor / Windsurf / Cline / Aider / .env 通用文件
+- **桌面端(2)**:Codex Desktop / Claude Code Desktop
+- **AI 平台(9)**:Trae / Trae Work / Qoder / Qoder Work / GitHub Copilot / Amazon Q / Continue / Tabnine / Cody / Zed / Google Antigravity
+
+**providerCode / apiFormat 智能推断**(2026-07-22 修正,深度测试覆盖 230 用例):
+
+- **apiFormat** = "如何调用"(由 URL/接入点决定)
+  - Cursor / Windsurf:URL 域名优先(如 `anthropic.com` → `anthropic_messages`),modelId 前缀兜底
+  - Cline:`cline.apiProvider` 主导(如 `anthropic` → `anthropic_messages`)
+  - .env / IDE 通用:由 prefix 默认值决定(如 `ANTHROPIC_*` → `anthropic_messages`)
+- **providerCode** = "调用谁"(由 modelId / apiProvider 决定)
+  - modelId 前缀优先(`claude-*` → anthropic / `gpt-*` → openai / `gemini-*` → google / `deepseek-*` → deepseek / `glm-*` → zhipu / `qwen-*` → alibaba / `ernie-*` → baidu / `doubao-*` → bytedance)
+  - baseUrl 域名兜底(`api.openai.com` → openai / `api.anthropic.com` → anthropic / `generativelanguage.googleapis.com` → google 等 20+ 厂商)
+  - Cline 额外:`apiProvider=anthropic/gemini` 主导(避免与 apiFormat 不一致)
+  - 兜底:`custom`
+
+**设计哲学**:用户在 Cursor 配 `api.openai.com + model=deepseek-coder` → 实际用 DeepSeek 模型经 OpenAI 兼容代理接入 → `apiFormat=openai_chat`(用 OpenAI 协议调用)+ `providerCode=deepseek`(实际调的是 DeepSeek 模型),两者独立反映"调用协议"和"模型归属",不混淆。
+
+详见 `apps/api/src/services/cli-import/` 实现,测试覆盖 `apps/api/tests/cli-import/`(230 用例全绿)。
 </details>
 
 <details>
