@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react'
 
 import { Button, Input, Label } from '@ihui/ui'
 import { Alert } from '@/components/feedback'
-import { PasswordStrengthIndicator } from '@/components/login'
+import { PasswordInput, PasswordStrengthIndicator } from '@/components/login'
 import { emailSchema } from '@/components/login/login-schemas'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { useLoginDialogStore } from '@/stores/login-dialog'
@@ -186,9 +186,8 @@ export function EmailRegisterForm({
 
       <div className="space-y-1.5">
         <Label htmlFor="email-register-password">{t('password')}</Label>
-        <Input
+        <PasswordInput
           id="email-register-password"
-          type="password"
           autoComplete="new-password"
           placeholder={t('passwordPlaceholder')}
           className="h-10"
@@ -202,9 +201,8 @@ export function EmailRegisterForm({
 
       <div className="space-y-1.5">
         <Label htmlFor="email-register-confirm">{t('confirmPassword')}</Label>
-        <Input
+        <PasswordInput
           id="email-register-confirm"
-          type="password"
           autoComplete="new-password"
           placeholder={t('passwordPlaceholder')}
           className="h-10"
