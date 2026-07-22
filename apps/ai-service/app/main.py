@@ -156,6 +156,9 @@ def create_app() -> FastAPI:
     # 四层记忆 + Dream 梦境系统(2026-07-22 新增,对标 OpenClaw Mem)
     from app.api.memory import router as memory_router
     app.include_router(memory_router, prefix="/api", tags=["memory"])
+    # 多通道消息总线(5 通道 + 优先级 + 降级 + 模板 + 批量 + 限流,2026-07-22 新增,反超 OpenClaw 单 WS)
+    from app.api.message_bus import router as message_bus_router
+    app.include_router(message_bus_router, prefix="/api", tags=["message-bus"])
     app.include_router(legacy_router)
 
     # Prometheus 指标(/metrics 端点,由 prometheus-fastapi-instrumentator 自动暴露)
