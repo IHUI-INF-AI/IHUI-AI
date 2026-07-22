@@ -356,7 +356,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { href: '/admin', labelKey: 'admin', icon: Shield, adminOnly: true },
       { href: '/admin/statistics', labelKey: 'adminStatistics', icon: BarChart3, adminOnly: true },
-      { href: '/user-center', labelKey: 'userCenter', icon: UserCircle, adminOnly: true },
+      { href: '/admin/user-center', labelKey: 'userCenter', icon: UserCircle, adminOnly: true },
       { href: '/members', labelKey: 'members', icon: Users, adminOnly: true },
       { href: '/admin/workflows', labelKey: 'adminWorkflows', icon: Workflow, adminOnly: true },
       { href: '/admin/tags', labelKey: 'adminTags', icon: Tag, adminOnly: true },
