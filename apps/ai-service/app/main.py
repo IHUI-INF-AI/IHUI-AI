@@ -163,6 +163,9 @@ def create_app() -> FastAPI:
     app.include_router(screenshot.router, prefix="/api", tags=["screenshot"])
     # v1 业务流路由(对话/智能体/RAG,2026-07-20 新增)
     app.include_router(api_v1_router, prefix="/api/v1", tags=["v1"])
+    # LSP 转发路由(封装 cli LSP 能力为 HTTP 端点,供 web 端 IDE 调试面板调用,2026-07-22 新增)
+    from app.api.v1 import lsp as lsp_router_module
+    app.include_router(lsp_router_module.router, prefix="/api/v1", tags=["lsp"])
     # 四层记忆 + Dream 梦境系统(2026-07-22 新增,对标 OpenClaw Mem)
     from app.api.memory import router as memory_router
     app.include_router(memory_router, prefix="/api", tags=["memory"])

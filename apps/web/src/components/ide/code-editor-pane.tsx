@@ -36,6 +36,8 @@ export function CodeEditorPane() {
   const { openTabs, activeTabId } = useIDEWorkspace()
   const t = useTranslations('ide')
   const activeTab = openTabs.find((tab) => tab.id === activeTabId)
+  // tab 内容为空字符串表示正在异步加载
+  const isLoadingContent = Boolean(activeTab && activeTab.content === '')
   const [fontSize, setFontSize] = React.useState(DEFAULT_FONT_SIZE)
   const [showSearch, setShowSearch] = React.useState(false)
   const [query, setQuery] = React.useState('')
@@ -65,17 +67,17 @@ export function CodeEditorPane() {
   }, [activeTab])
 
   const matchCount = React.useMemo(() => {
-    if (!query || !activeTab) return 0
+    if (!query || !activeTab || isLoadingContent) return 0
     return activeTab.content.split(query).length - 1
-  }, [query, activeTab])
+  }, [query, activeTab, isLoadingContent])
 
   const minimapLines = React.useMemo(() => {
-    if (!activeTab) return []
+    if (!activeTab || isLoadingContent) return []
     return activeTab.content
       .split('\n')
       .slice(0, MINIMAP_MAX_LINES)
       .map((l) => l.trim().length)
-  }, [activeTab])
+  }, [activeTab, isLoadingContent])
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -139,6 +141,7 @@ export function CodeEditorPane() {
             <div
               className="relative flex-1 overflow-auto"
               onMouseMove={(e) => {
+                if (isLoadingContent) return
                 const rect = e.currentTarget.getBoundingClientRect()
                 const y = e.clientY - rect.top + e.currentTarget.scrollTop
                 const top = Math.floor(y / lineHeight) * lineHeight
@@ -146,63 +149,73 @@ export function CodeEditorPane() {
               }}
               onMouseLeave={() => setHoverTop(-1)}
             >
-              <div
-                className="[&_pre]:!text-[var(--editor-font-size)]"
-                style={{ '--editor-font-size': `${fontSize}px` } as React.CSSProperties}
-              >
-                <CodeViewer
-                  code={activeTab.content}
-                  language={activeTab.language}
-                  showLineNumbers
-                  showCopyButton
-                  className="rounded-none border-0"
-                />
-              </div>
-              {/* 悬停行高亮层(pointer-events-none 不拦截鼠标) */}
-              {hoverTop >= 0 && (
-                <div
-                  className="pointer-events-none absolute left-0 right-0 bg-muted/25"
-                  style={{ top: hoverTop, height: lineHeight }}
-                />
+              {isLoadingContent ? (
+                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">...</div>
+              ) : (
+                <>
+                  <div
+                    className="[&_pre]:!text-[var(--editor-font-size)]"
+                    style={{ '--editor-font-size': `${fontSize}px` } as React.CSSProperties}
+                  >
+                    <CodeViewer
+                      code={activeTab.content}
+                      language={activeTab.language}
+                      showLineNumbers
+                      showCopyButton
+                      className="rounded-none border-0"
+                    />
+                  </div>
+                  {/* 悬停行高亮层(pointer-events-none 不拦截鼠标) */}
+                  {hoverTop >= 0 && (
+                    <div
+                      className="pointer-events-none absolute left-0 right-0 bg-muted/25"
+                      style={{ top: hoverTop, height: lineHeight }}
+                    />
+                  )}
+                </>
               )}
             </div>
 
             {/* Minimap 缩略图:每行用 2px 高的色条表示代码密度 */}
-            <div className="hidden w-14 shrink-0 overflow-hidden bg-muted/15 py-2 lg:block">
-              <div className="flex flex-col gap-px px-1">
-                {minimapLines.map((len, i) => (
-                  <div
-                    key={i}
-                    className="bg-muted-foreground/30"
-                    style={{
-                      height: '2px',
-                      width: `${Math.min(100, Math.max(4, len * 1.5))}%`,
-                    }}
-                  />
-                ))}
+            {!isLoadingContent && (
+              <div className="hidden w-14 shrink-0 overflow-hidden bg-muted/15 py-2 lg:block">
+                <div className="flex flex-col gap-px px-1">
+                  {minimapLines.map((len, i) => (
+                    <div
+                      key={i}
+                      className="bg-muted-foreground/30"
+                      style={{
+                        height: '2px',
+                        width: `${Math.min(100, Math.max(4, len * 1.5))}%`,
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* 字号控制:- / 当前 / + */}
-            <div className="absolute bottom-2 right-20 z-10 flex items-center gap-0.5 rounded-md border border-border bg-background/95 px-1 py-0.5 shadow-sm">
-              <button
-                onClick={() => setFontSize((s) => Math.max(MIN_FONT_SIZE, s - 1))}
-                className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label={t('codeEditor.zoomOut')}
-              >
-                <Minus className="h-3 w-3" />
-              </button>
-              <span className="min-w-[2ch] text-center text-xs tabular-nums text-muted-foreground">
-                {fontSize}
-              </span>
-              <button
-                onClick={() => setFontSize((s) => Math.min(MAX_FONT_SIZE, s + 1))}
-                className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label={t('codeEditor.zoomIn')}
-              >
-                <Plus className="h-3 w-3" />
-              </button>
-            </div>
+            {!isLoadingContent && (
+              <div className="absolute bottom-2 right-20 z-10 flex items-center gap-0.5 rounded-md border border-border bg-background/95 px-1 py-0.5 shadow-sm">
+                <button
+                  onClick={() => setFontSize((s) => Math.max(MIN_FONT_SIZE, s - 1))}
+                  className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label={t('codeEditor.zoomOut')}
+                >
+                  <Minus className="h-3 w-3" />
+                </button>
+                <span className="min-w-[2ch] text-center text-xs tabular-nums text-muted-foreground">
+                  {fontSize}
+                </span>
+                <button
+                  onClick={() => setFontSize((s) => Math.min(MAX_FONT_SIZE, s + 1))}
+                  className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label={t('codeEditor.zoomIn')}
+                >
+                  <Plus className="h-3 w-3" />
+                </button>
+              </div>
+            )}
           </div>
         </>
       ) : (

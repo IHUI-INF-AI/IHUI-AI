@@ -2,6 +2,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
+import { runCommand } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
 import {
   Play, Plus, Terminal, Globe, Bug, X, Check, History,
@@ -16,6 +17,12 @@ interface AppConfig {
   command: string
 }
 
+interface RunHistoryItem {
+  name: string
+  time: string
+  exitCode?: number
+}
+
 const TYPE_META: Record<ConfigType, { icon: typeof Terminal; color: string }> = {
   node: { icon: Terminal, color: 'text-green-600 dark:text-green-400' },
   python: { icon: Terminal, color: 'text-blue-600 dark:text-blue-400' },
@@ -23,13 +30,8 @@ const TYPE_META: Record<ConfigType, { icon: typeof Terminal; color: string }> = 
   terminal: { icon: Terminal, color: 'text-muted-foreground' },
 }
 
-const INITIAL_CONFIGS: AppConfig[] = [
-  { id: '1', name: '启动开发服务器', type: 'node', command: 'pnpm dev' },
-  { id: '2', name: '运行测试', type: 'node', command: 'pnpm test' },
-  { id: '3', name: '类型检查', type: 'node', command: 'pnpm typecheck' },
-  { id: '4', name: 'Python 服务', type: 'python', command: 'python main.py' },
-  { id: '5', name: '浏览器预览', type: 'web', command: 'http://localhost:3000' },
-]
+const CONFIGS_KEY = 'ide:app-configs'
+const HISTORY_KEY = 'ide:app-history'
 
 function getTypeLabel(type: ConfigType, t: (k: string) => string) {
   if (type === 'terminal') return t('applications.typeTerminal')
@@ -40,20 +42,64 @@ function getTypeLabel(type: ConfigType, t: (k: string) => string) {
 
 export function ApplicationsPanel() {
   const t = useTranslations('ide')
-  const { activeView } = useIDEWorkspace()
-  const [configs, setConfigs] = React.useState<AppConfig[]>(INITIAL_CONFIGS)
-  const [history, setHistory] = React.useState<{ name: string; time: string }[]>([
-    { name: '启动开发服务器', time: '5 分钟前' },
-    { name: '类型检查', time: '12 分钟前' },
-    { name: '运行测试', time: '1 小时前' },
-  ])
+  const { activeView, workspacePath } = useIDEWorkspace()
+  const [configs, setConfigs] = React.useState<AppConfig[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const saved = localStorage.getItem(CONFIGS_KEY)
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+  const [history, setHistory] = React.useState<RunHistoryItem[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const saved = localStorage.getItem(HISTORY_KEY)
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
   const [showForm, setShowForm] = React.useState(false)
   const [form, setForm] = React.useState({ name: '', type: 'node' as ConfigType, command: '' })
 
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(CONFIGS_KEY, JSON.stringify(configs))
+    } catch {
+      // ignore
+    }
+  }, [configs])
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
+    } catch {
+      // ignore
+    }
+  }, [history])
+
   if (activeView !== 'applications') return null
 
-  const runConfig = (config: AppConfig) => {
+  const runConfig = async (config: AppConfig) => {
+    if (!workspacePath) return
     setHistory((prev) => [{ name: config.name, time: '刚刚' }, ...prev].slice(0, 5))
+    try {
+      const result = await runCommand({
+        command: config.command,
+        workspacePath,
+        mode: 'workspace-write',
+      })
+      setHistory((prev) => prev.map((h, i) =>
+        i === 0 ? { ...h, exitCode: result.success ? result.data.exitCode : -1 } : h,
+      ))
+    } catch (e) {
+      console.error('runConfig error:', e)
+      setHistory((prev) => prev.map((h, i) =>
+        i === 0 ? { ...h, exitCode: -1 } : h,
+      ))
+    }
   }
 
   const submitForm = () => {
