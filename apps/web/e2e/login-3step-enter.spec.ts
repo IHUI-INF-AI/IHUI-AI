@@ -198,7 +198,7 @@ test.describe('i18n 翻译完整性守门', () => {
 
     for (const locale of locales) {
       await page.goto(`${BASE_URL}/${locale === 'zh-CN' ? '' : locale}`)
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
 
       // 触发协议通知窗
       const loginBtn = page.getByRole('button', { name: /登录|login|ログイン|로그인/i }).first()
