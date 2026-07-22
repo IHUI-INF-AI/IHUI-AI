@@ -16,6 +16,7 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react'
+import { RevealOnView } from '@/components/common'
 
 interface FeatureItem {
   icon: LucideIcon
@@ -115,7 +116,10 @@ export function HomeFeatureGrid() {
 
   return (
     <section className="space-y-5">
-      <div className="space-y-2">
+      <RevealOnView
+        as="div"
+        className="space-y-2"
+      >
         <div className="space-y-1 text-center">
           <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{t('title')}</h2>
           <h3 className="font-edix text-xs uppercase tracking-wider text-muted-foreground">
@@ -125,30 +129,35 @@ export function HomeFeatureGrid() {
             {t('subtitle')}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
-          {features.map(({ icon: Icon, title, description, benefit }) => (
-            <div
-              key={title}
-              className="flex flex-col items-center gap-1.5 rounded-lg border bg-card p-3 text-center transition-colors hover:border-primary/40 hover:bg-primary/5 sm:p-3.5"
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Icon className="h-4 w-4" aria-hidden="true" />
-              </div>
-              <div className="space-y-0.5">
-                <h3 className="text-xs font-semibold leading-tight sm:text-sm">{title}</h3>
-                <p className="line-clamp-2 text-[10px] text-muted-foreground sm:text-[11px]">
-                  {description}
-                </p>
-                <p className="line-clamp-2 rounded bg-primary/5 px-1.5 py-0.5 text-[10px] font-medium text-primary sm:text-[11px]">
-                  {benefit}
-                </p>
-              </div>
+      </RevealOnView>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
+        {features.map(({ icon: Icon, title, description, benefit }, i) => (
+          <RevealOnView
+            key={title}
+            delay={0.05 * (i + 1)}
+            className="group flex flex-col items-center gap-1.5 rounded-lg border bg-card p-3 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md sm:p-3.5"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary transition-transform duration-300 group-hover:scale-110">
+              <Icon className="h-4 w-4" aria-hidden="true" />
             </div>
-          ))}
-        </div>
+            <div className="space-y-0.5">
+              <h3 className="text-xs font-semibold leading-tight sm:text-sm">{title}</h3>
+              <p className="line-clamp-2 text-[10px] text-muted-foreground sm:text-[11px]">
+                {description}
+              </p>
+              <p className="line-clamp-2 rounded bg-primary/5 px-1.5 py-0.5 text-[10px] font-medium text-primary sm:text-[11px]">
+                {benefit}
+              </p>
+            </div>
+          </RevealOnView>
+        ))}
       </div>
 
-      <div className="space-y-2">
+      <RevealOnView
+        as="div"
+        delay={0.1}
+        className="space-y-2"
+      >
         <div className="space-y-1 text-center">
           <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{ta('title')}</h2>
           <h3 className="font-edix text-xs uppercase tracking-wider text-muted-foreground">
@@ -158,27 +167,28 @@ export function HomeFeatureGrid() {
             {ta('subtitle')}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
-          {advantages.map(({ icon: Icon, title, description, evidence }) => (
-            <div
-              key={title}
-              className="flex flex-col items-center gap-1.5 rounded-xl border bg-muted/40 p-3 text-center transition-colors hover:border-primary/40 hover:bg-primary/5 sm:p-3.5"
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Icon className="h-4 w-4" aria-hidden="true" />
-              </div>
-              <div className="space-y-0.5">
-                <h3 className="text-xs font-semibold leading-tight sm:text-sm">{title}</h3>
-                <p className="line-clamp-2 text-[10px] text-muted-foreground sm:text-[11px]">
-                  {description}
-                </p>
-                <p className="mt-1 line-clamp-2 rounded bg-muted/60 px-1.5 py-0.5 text-[10px] italic text-muted-foreground/80 sm:text-[11px]">
-                  {evidence}
-                </p>
-              </div>
+      </RevealOnView>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-3">
+        {advantages.map(({ icon: Icon, title, description, evidence }, i) => (
+          <RevealOnView
+            key={title}
+            delay={0.15 + 0.05 * (i + 1)}
+            className="group flex flex-col items-center gap-1.5 rounded-xl border bg-muted/40 p-3 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md sm:p-3.5"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary transition-transform duration-300 group-hover:scale-110">
+              <Icon className="h-4 w-4" aria-hidden="true" />
             </div>
-          ))}
-        </div>
+            <div className="space-y-0.5">
+              <h3 className="text-xs font-semibold leading-tight sm:text-sm">{title}</h3>
+              <p className="line-clamp-2 text-[10px] text-muted-foreground sm:text-[11px]">
+                {description}
+              </p>
+              <p className="mt-1 line-clamp-2 rounded bg-muted/60 px-1.5 py-0.5 text-[10px] italic text-muted-foreground/80 sm:text-[11px]">
+                {evidence}
+              </p>
+            </div>
+          </RevealOnView>
+        ))}
       </div>
     </section>
   )
