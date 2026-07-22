@@ -25891,7 +25891,9 @@
       "title": "Model Leaderboard · Arena Score",
       "subtitle": "Ref: arena.ai · Elo + Bootstrap CI",
       "empty": "No leaderboard data",
-      "sortHint": "Click header to sort"
+      "sortHint": "Click header to sort",
+      "searchPlaceholder": "Search model/vendor…",
+      "allVendors": "All vendors"
     },
     "hero": {
       "label": "AI News Hero",
@@ -25999,7 +26001,13 @@
       "copyBaseUrl": "Copy Base URL",
       "baseUrlCopied": "Base URL copied to clipboard",
       "copyFailed": "Copy failed, please copy manually",
-      "copyAndImport": "Copy & Import"
+      "copyAndImport": "Copy & Import",
+      "tagLongContext": "Long Context",
+      "tagLargeOutput": "Large Output",
+      "tagLowCost": "Low Cost",
+      "tagHighWinRate": "High Win Rate",
+      "tagTopTier": "Top Tier",
+      "tagMultimodal": "Multimodal"
     },
     "apiRelays": {
       "title": "API Relays",
@@ -26018,7 +26026,10 @@
       "billingToken": "Per Token",
       "billingFree": "Free Tier",
       "billingGpu": "GPU Time",
-      "billingSubscription": "Subscription"
+      "billingSubscription": "Subscription",
+      "sortLabel": "Sort",
+      "sortByName": "By Name",
+      "sortByBilling": "By Billing"
     },
     "cta": {
       "label": "Bottom CTA",
