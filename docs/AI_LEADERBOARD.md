@@ -35,7 +35,7 @@
 
 文件:`apps/web/app/(main)/ai-news/components/vendor-platforms.ts`
 
-覆盖 30 个厂商:Anthropic / OpenAI / Google / Meta / Moonshot / Alibaba / Z.ai / MiniMax / Bytedance / SpaceXAI / Microsoft / ElevenLabs / Voyage AI / Cohere / BAAI / Reve / Alibaba-ATH / DeepSeek / Baichuan / SenseTime(商汤) / Kunlun(昆仑万维) / Tencent(腾讯混元) / Huawei(华为云盘古) / Mistral / **01.AI(零一万物)** / **StepFun(阶跃星辰)** / **Perplexity** / **Groq** / **Cerebras**
+覆盖 35 个厂商:Anthropic / OpenAI / Google / Meta / Moonshot / Alibaba / Z.ai / MiniMax / Bytedance / SpaceXAI / Microsoft / ElevenLabs / Voyage AI / Cohere / BAAI / Reve / Alibaba-ATH / DeepSeek / Baichuan / SenseTime(商汤) / Kunlun(昆仑万维) / Tencent(腾讯混元) / Huawei(华为云盘古) / Mistral / 01.AI(零一万物) / StepFun(阶跃星辰) / Perplexity / Groq / Cerebras / **Lambda Labs** / **Modal** / **Baseten** / **RunPod** / **Lepton**
 
 每个厂商映射:
 - `officialKeyUrl`:官方 API Key 申请地址
@@ -79,6 +79,10 @@
 | **GroqCloud** | https://groq.com/ | Groq LPU 推理引擎,极速低延迟(>500 tokens/s) | 每日 100 万 tokens 免费 |
 | **Cerebras Inference** | https://cerebras.ai/ | Cerebras WSE 推理,极速低延迟(>2000 tokens/s) | 免费额度可用,付费按 token |
 | **Anyscale Endpoints** | https://www.anyscale.com/ | Ray 框架厂商,支持推理 + 微调训练 | 按 token,送新用户免费额度 |
+| **TitanML** | https://titanml.co/ | 英国推理优化厂商,低延迟 + 高吞吐,企业级部署 | 按 token,提供免费试用 |
+| **AI/ML API** | https://aimlapi.com/ | 聚合 100+ 模型,统一 OpenAI 格式,价格比官方低 30-50% | 按 token,送新用户额度,支持按月套餐 |
+| **Predibase** | https://predibase.com/ | LoRA 微调专家,支持开源模型 fine-tune + 推理 | 按 token,微调按 GPU 时长 |
+| **Lepton AI** | https://www.lepton.ai/ | Lepton AI 推理平台,Jian Yang 创办,支持自定义模型部署 | 按 token,提供免费试用额度 |
 
 每个中转站卡片有「导入」按钮,点击后跳转到 `/settings/llm?prefill=`,预填 `providerCode=openai` + `baseUrlOverride=<中转站 baseUrl>` + `name=<中转站名> 中转`。
 
