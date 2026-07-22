@@ -26117,7 +26117,8 @@
     "sourceContinue": "Continue.dev",
     "sourceTabnine": "Tabnine",
     "sourceCody": "Sourcegraph Cody",
-    "sourceZed": "Zed"
+    "sourceZed": "Zed",
+    "sourceAntigravity": "Google Antigravity"
   },
   "llmSettings": {
     "title": "My LLM Configs",
