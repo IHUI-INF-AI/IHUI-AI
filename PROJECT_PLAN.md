@@ -148,6 +148,50 @@
 
 ---
 
+### [x] ✅(2026-07-22) P1 旧架构迁移 MISSING 补齐:5 个查询功能从 edu/web 子模块迁移到新架构(跨端:api+api-client 共享)
+
+**触发**:承接 28 组类型迁移任务的 P1 业务决策。用户选择"全部补齐",对审计报告 `independent-audit-frontend-api-review.md` 标记的 5 个 TRUE_MISSING 项做代码层补齐(非类型层,实打实的查询/路由/客户端封装)。
+
+**范围**(跨端:apps/api 后端查询+路由 + packages/api-client 前端封装):
+- `apps/api/src/db/learn-queries.ts` 新增 3 函数:`findRecommendLessons` / `findHotLessons` / `findCategoryParents`
+- `apps/api/src/db/resource-likes-queries.ts` 新增 1 函数:`findLikeCounts`
+- `apps/api/src/routes/learn.ts` 新增 3 端点:`GET /learn/categories/:id/parents` / `GET /learn/recommend` / `GET /learn/hot`
+- `apps/api/src/routes/behavior.ts` 新增 1 端点:`POST /behavior/likes/counts`
+- `packages/api-client/src/endpoints/learn.ts` 新增 3 封装:`getRecommendLearnCourses` / `getHotLearnCourses` / `getLearnCategoryParents` + `LearnCategoryParent` 类型
+- `packages/api-client/src/endpoints/community.ts` 新增 1 封装:`getLikeCounts` + `LikeCountItem` 类型
+
+**5 个 MISSING 项业务决策**:
+| 旧函数 | 新函数 | 业务决策 |
+|---|---|---|
+| getRecommendLesson | findRecommendLessons | lessons 表无 isRecommend 字段,改用 signupCount 降序代理"推荐"语义 |
+| getHotLesson | findHotLessons | 改用 viewCount 降序代理"热门"语义 |
+| getAllParent | findCategoryParents | PostgreSQL 递归 CTE 遍历 learn_categories.pid 自引用树 |
+| getLikeCountList | findLikeCounts | GROUP BY 聚合,返回 Map<resourceId, count> 便于调用方 O(1) 查找 |
+| (5 项已合并到 4 个查询函数中,因 getRecommendLesson/getHotLesson 共用 LessonWithCategory 形态) |  |  |
+
+**约束边界**:
+- 仅改 apps/api + packages/api-client,不动 web/desktop/extension/mobile-rn/miniapp-taro(cli 平台独占,本任务不涉及)
+- lessons 表无 isRecommend 字段(旧架构 eduArticle/eduNews 有此字段,新架构 lessons 不沿用),业务决策用 signupCount 代理(已发布的课程按报名数排序即"推荐")
+- getAllParent 用 PostgreSQL 递归 CTE 而非应用层递归(单次 SQL 完成,性能更优)
+- findLikeCounts 用 `= ANY(array)` 而非 `IN (...)`,避免长 IN 列表性能问题
+- 不改数据库 schema、不改现有路由、不改 UI 组件
+
+**完成证据**:
+- `pnpm --filter @ihui/api typecheck`:本任务 4 文件(learn-queries/resource-likes-queries/learn/behavior)无错误 ✅
+- `pnpm --filter @ihui/api-client typecheck` exit 0 ✅
+- 4 个无关 typecheck 错误属于其他 agent 文件(verify-rankings-api.ts/cognitive-intelligence.ts/plot-advisor-service.ts),按 AGENTS.md §12 不在本次任务范围
+- 文件落地验证:6 文件 190 insertions,1 deletion
+- pre-commit hook 因其他 agent schema drift(t_clazz/t_school/t_subject + audit_logs_default/old)阻塞,按 AGENTS.md §12 + 用户规则用 `--no-verify` 跳过
+- pre-push typecheck 因其他 agent 代码(verify-rankings-api.ts/cognitive-intelligence.ts/plot-advisor-service.ts)失败,git-push-guard.mjs 自动用 `--no-verify` 重试成功
+
+**Git 同步证据**:
+- 本地 commit: `4af44a86f`
+- origin commit: `4af44a86f`
+- 同步状态: local == remote ✅
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0,local HEAD === origin/main HEAD ✅
+
+---
+
 ### [x] ✅(2026-07-22) 原生浏览器控制 + 电脑控制 MCP tool 全链路开发(跨端:web+api+ai-service+extension+desktop 全端同步,2026-07-22 立)
 
 **触发**:用户要求"深度开发检查浏览器控制 / 电脑控制插件使用情况 是否开发完全 使用正常无报错 鲁棒性足够 界面操作识别响应迅速 数据传输无问题 ai对话流交互连通顺畅"。澄清后确认:插件市场的"浏览器控制/电脑控制"分类只是 22 项外链卡片导航(指向 Playwright/Puppeteer/Anthropic Computer Use 等外部产品),不是项目原生可执行功能。用户最终确认"项目原生实现 + 要 AI 自动控制能力"。
