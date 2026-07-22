@@ -26117,7 +26117,7 @@
   },
   "cliImport": {
     "title": "CLI 配置导入",
-    "desc": "从 cc-switch / codex++ / Claude / Codex / Gemini / Hermes 等本地工具一键导入",
+    "desc": "从 cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env 等本地工具一键导入",
     "sources": "支持的来源",
     "sourceCcSwitch": "cc-switch",
     "sourceCodexPlus": "codex++",
@@ -26165,7 +26165,12 @@
     "errorNoFile": "请上传配置文件",
     "errorNoSource": "请选择导入来源",
     "errorPreviewExpired": "预览已过期,请重新解析",
-    "errorParseFailed": "解析失败"
+    "errorParseFailed": "解析失败",
+    "sourceEnvFile": ".env 通用配置",
+    "sourceCursor": "Cursor IDE",
+    "sourceWindsurf": "Windsurf (Codeium)",
+    "sourceCline": "Cline (VSCode)",
+    "sourceAider": "Aider"
   },
   "llmSettings": {
     "title": "我的 LLM 配置",
@@ -26317,7 +26322,26 @@
       "deleteProviderConfirm": "确认删除 Provider「{name}」?其下所有 Model 也会被删除。",
       "deleteModelConfirm": "确认删除 Model「{id}」?",
       "bulk": {
-        "title": "批量导入/导出"
+        "title": "批量导入/导出",
+        "exportTitle": "导出配置",
+        "importTitle": "导入配置",
+        "exportDesc": "导出所有 Provider + Model 为 JSON 文件,API Key 自动脱敏",
+        "importDesc": "从 JSON 文件导入 Provider + Model,API Key 留空,需手动补填",
+        "export": "导出",
+        "import": "导入",
+        "exportBtn": "导出 JSON",
+        "importFile": "上传 JSON 文件",
+        "importPlaceholder": "或粘贴 JSON 内容到这里...",
+        "importSubmit": "开始导入",
+        "importConfirmDesc": "将创建 {providers} 个 Provider 和 {models} 个 Model,API Key 留空",
+        "exportSuccess": "已导出 {count} 个 Provider / {models} 个 Model",
+        "importSuccess": "成功导入 {providers} 个 Provider / {models} 个 Model",
+        "importFailed": "导入失败:{error}",
+        "invalidJson": "JSON 格式错误,请检查文件内容",
+        "cancel": "取消",
+        "formatLabel": "导出格式",
+        "exportJson": "JSON 格式",
+        "exportEnv": ".env 格式"
       },
       "sidebar": {
         "title": "分组",
@@ -26409,25 +26433,6 @@
         "responseFormat": "Response Format",
         "systemPrompt": "System Prompt",
         "systemPromptPlaceholder": "你是一个有帮助的助手..."
-      },
-      "bulk": {
-        "title": "批量导入/导出",
-        "exportTitle": "导出配置",
-        "importTitle": "导入配置",
-        "exportDesc": "导出所有 Provider + Model 为 JSON 文件,API Key 自动脱敏",
-        "importDesc": "从 JSON 文件导入 Provider + Model,API Key 留空,需手动补填",
-        "export": "导出",
-        "import": "导入",
-        "exportBtn": "导出 JSON",
-        "importFile": "上传 JSON 文件",
-        "importPlaceholder": "或粘贴 JSON 内容到这里...",
-        "importSubmit": "开始导入",
-        "importConfirmDesc": "将创建 {providers} 个 Provider 和 {models} 个 Model,API Key 留空",
-        "exportSuccess": "已导出 {count} 个 Provider / {models} 个 Model",
-        "importSuccess": "成功导入 {providers} 个 Provider / {models} 个 Model",
-        "importFailed": "导入失败:{error}",
-        "invalidJson": "JSON 格式错误,请检查文件内容",
-        "cancel": "取消"
       },
       "compareDialog": {
         "title": "模型对比",
