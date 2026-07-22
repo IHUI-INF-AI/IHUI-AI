@@ -4,7 +4,7 @@
  * 简易客户端估算:英文 ~4 字符/token,中文 ~1.5 字符/token。
  * 与服务端 tiktoken 精确计数存在 ±10% 误差,仅用于 UI 进度条展示。
  *
- * 从 hooks/use-context-manager.ts 提取为共享工具,供 ContextUsageRing 等组件复用。
+ * 供 ContextUsageRing 等组件复用。
  */
 
 import type { ChatMessage } from '@/stores/chat'
