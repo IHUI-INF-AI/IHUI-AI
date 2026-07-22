@@ -22,6 +22,10 @@ import httpx
 logger = logging.getLogger(__name__)
 
 
+class SandboxError(Exception):
+    """沙箱安全异常(灾难性命令拦截,2026-07-22 立)。"""
+
+
 @dataclass
 class SandboxResult:
     """沙箱执行结果。"""
@@ -72,6 +76,19 @@ _ALLOWED_PREFIXES = {
     "head", "tail", "date", "whoami", "pwd", "which", "where", "env",
     "uname", "ver", "dir", "type", "getopt",
 }
+
+# 灾难性命令模式(补充黑名单,匹配即抛 SandboxError,防止 python -c 等绕过,2026-07-22 立)
+# 与 _DANGEROUS_PATTERNS 区别:后者返回错误结果,前者直接抛异常(灾难性不可恢复)
+_DESTRUCTIVE_PATTERNS: list[tuple[str, str]] = [
+    (r"rm\s+-rf?\s+/(?:\s|$|/.*)", "rm -rf / (删除根目录)"),
+    (r"rm\s+-rf?\s+~(?:\s|$)", "rm -rf ~ (删除家目录)"),
+    (r"rm\s+-rf?\s+\$HOME(?:\s|$)", "rm -rf $HOME (删除家目录)"),
+    (r"\bmkfs\b", "mkfs (格式化文件系统)"),
+    (r"dd\s+.*\bof=/dev/", "dd of=/dev/ (写入块设备)"),
+    (r":\s*\(\)\s*\{\s*:\|.*?\}\s*;", ":(){:|:&};: (fork bomb)"),
+    (r">\s*/dev/sd", "> /dev/sda (覆写磁盘设备)"),
+    (r"chmod\s+-R\s+777\s+/(?:\s|$)", "chmod -R 777 / (全盘权限开放)"),
+]
 
 
 class SandboxExecutor:
@@ -140,6 +157,22 @@ class SandboxExecutor:
             backend, command[:200], exit_code, duration_ms,
         )
 
+    @staticmethod
+    def _check_dangerous_patterns(cmd: str) -> list[str]:
+        """检测灾难性命令模式(补充黑名单,防止 python -c 等绕过,2026-07-22 立)。
+
+        与 _DANGEROUS_PATTERNS 黑名单互补:黑名单拦截 Shell 注入和一般危险操作(返回错误结果),
+        本方法拦截不可恢复的灾难性命令(调用方应抛 SandboxError)。
+
+        Returns:
+            匹配到的模式描述列表,空列表表示无匹配。
+        """
+        matched: list[str] = []
+        for pattern, desc in _DESTRUCTIVE_PATTERNS:
+            if re.search(pattern, cmd):
+                matched.append(desc)
+        return matched
+
     async def _execute_local(
         self,
         command: str,
@@ -147,8 +180,16 @@ class SandboxExecutor:
         workdir: str,
         env: dict[str, str] | None,
     ) -> SandboxResult:
-        """本地执行(白黑名单 + subprocess)。"""
+        """本地执行(白黑名单 + subprocess)。
+
+        Local backend 无法隔离网络(无容器边界),仅靠黑名单 + 危险模式拦截防护。
+        如需网络隔离,请使用 docker backend(--network=none)。
+        """
         start = time.monotonic()
+        # 0. 灾难性命令拦截(补充黑名单,防止 python -c 等绕过,2026-07-22 立)
+        destructive = self._check_dangerous_patterns(command)
+        if destructive:
+            raise SandboxError(f"危险命令被拦截: {destructive}")
         # 1. 危险模式检查(Shell 注入 + 破坏性操作)
         for pat in _DANGEROUS_PATTERNS:
             if re.search(pat, command):
@@ -240,11 +281,12 @@ class SandboxExecutor:
     ) -> SandboxResult:
         """Docker 容器执行(通过 docker run CLI)。
 
-        构造:docker run --rm -w <workdir> [-e KEY=VAL...] <image> sh -c "<command>"
+        构造:docker run --rm --network=none -w <workdir> [-e KEY=VAL...] <image> sh -c "<command>"
         不挂载宿主机文件系统(安全隔离),如需文件传递用 stdin。
+        --network=none:完全禁止容器网络访问,防止 agent 泄露数据或被 SSRF 攻击(2026-07-22 立)
         """
         start = time.monotonic()
-        args: list[str] = ["docker", "run", "--rm", "-w", workdir]
+        args: list[str] = ["docker", "run", "--rm", "--network=none", "-w", workdir]
         if env:
             for k, v in env.items():
                 args.extend(["-e", f"{k}={v}"])
