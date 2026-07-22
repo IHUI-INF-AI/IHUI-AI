@@ -25887,7 +25887,26 @@
       "categoryProduct": "AI Products",
       "categoryIndustry": "Industry",
       "categoryPaper": "Papers",
-      "categoryTip": "Tips"
+      "categoryTip": "Tips",
+      "searchPlaceholder": "Search title or summary…",
+      "searchEmpty": "No matching articles, try a different keyword",
+      "trendBtn": "Trend",
+      "moreHint": "Showing {shown}/{total} articles, adjust filters for more"
+    },
+    "hotRanking": {
+      "label": "Hot Ranking",
+      "title": "AI News Hot Top 10",
+      "subtitle": "Sorted by real-time hotness"
+    },
+    "trendChart": {
+      "subtitle": "7/14 day hotness trend curve",
+      "days": "d",
+      "loading": "Loading trend data…",
+      "noData": "Data accumulating",
+      "noDataHint": "Need ≥2 days of snapshots to draw trends, available after tomorrow's cron",
+      "stable": "Stable",
+      "rankDelta": "Rank change",
+      "hotValue": "Hotness"
     },
     "funding": {
       "label": "Mega Funding & Acquisitions",
