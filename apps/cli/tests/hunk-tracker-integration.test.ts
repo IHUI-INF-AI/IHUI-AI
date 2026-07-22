@@ -222,7 +222,7 @@ describe('HunkTracker 集成:subagent 透传', () => {
     // 此处仅验证类型契约,不启动真实 LLM
     const tool = createSubagentTool({
       modelId: 'test-model',
-      apiUrl: 'http://localhost:8000',
+      apiUrl: 'http://localhost:8803',
       apiKey: 'k',
       workspacePath: '/tmp',
       hunkTracker: new HunkTracker(),

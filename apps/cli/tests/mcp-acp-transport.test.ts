@@ -62,7 +62,7 @@ describe('ACP x.ai/mcp/listServers', () => {
   beforeEach(() => {
     clearManagedClients();
     agent = new IhuiAcpAgent({
-      apiUrl: 'http://localhost:8000',
+      apiUrl: 'http://localhost:8803',
       modelId: 'test',
       maxIterations: 10,
     });
@@ -116,7 +116,7 @@ describe('ACP x.ai/mcp/serverStatus', () => {
   beforeEach(() => {
     clearManagedClients();
     agent = new IhuiAcpAgent({
-      apiUrl: 'http://localhost:8000',
+      apiUrl: 'http://localhost:8803',
       modelId: 'test',
       maxIterations: 10,
     });
@@ -176,7 +176,7 @@ describe('ACP x.ai/mcp/callTool', () => {
   beforeEach(() => {
     clearManagedClients();
     agent = new IhuiAcpAgent({
-      apiUrl: 'http://localhost:8000',
+      apiUrl: 'http://localhost:8803',
       modelId: 'test',
       maxIterations: 10,
     });
@@ -286,7 +286,7 @@ describe('ACP MCP 扩展方法 feature flag 关闭行为', () => {
     // feature flag 关闭时 managedClients 为空(未调用 registerManagedClient)
     clearManagedClients();
     agent = new IhuiAcpAgent({
-      apiUrl: 'http://localhost:8000',
+      apiUrl: 'http://localhost:8803',
       modelId: 'test',
       maxIterations: 10,
     });

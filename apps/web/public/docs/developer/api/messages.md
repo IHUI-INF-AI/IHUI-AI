@@ -46,7 +46,7 @@ const result = await client.messages.publish({
 ```
 
 ```bash
-curl -X POST http://localhost:3001/v1/messages \
+curl -X POST http://localhost:8802/v1/messages \
   -H "Authorization: Bearer ihui_xxx" \
   -H "Content-Type: application/json" \
   -d '{"channel":"notifications","content":"新版本已发布"}'

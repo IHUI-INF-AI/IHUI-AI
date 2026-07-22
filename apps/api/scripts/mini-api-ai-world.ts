@@ -15,7 +15,7 @@ async function main() {
 
   // CORS(允许 web 端 3001 访问)
   await app.register(import('@fastify/cors'), {
-    origin: ['http://localhost:3001', 'http://127.0.0.1:3001'],
+    origin: ['http://localhost:8801', 'http://127.0.0.1:8801'],
     credentials: true,
   })
 

@@ -178,13 +178,13 @@ API Key 创建时需从以下 **27 个** 权限点中选择授予。每个权限
 
 ```bash
 # 主鉴权方式
-curl -X POST http://localhost:3001/v1/chat/completions \
+curl -X POST http://localhost:8802/v1/chat/completions \
   -H "Authorization: Bearer ihui_xxx" \
   -H "Content-Type: application/json" \
   -d '{"model":"gpt-4","messages":[{"role":"user","content":"你好"}]}'
 
 # 备选方式 + Secret 二次校验
-curl -X POST http://localhost:3001/v1/chat/completions \
+curl -X POST http://localhost:8802/v1/chat/completions \
   -H "X-Api-Key: ihui_xxx" \
   -H "X-Api-Secret: sk_xxx" \
   -H "Content-Type: application/json" \
@@ -199,7 +199,7 @@ import { createClient } from '@ihui/sdk'
 const client = createClient({
   apiKey: 'ihui_xxx',
   secret: 'sk_xxx', // 可选,启用 Secret 二次校验
-  baseUrl: 'http://localhost:3001',
+  baseUrl: 'http://localhost:8802',
 })
 
 const response = await client.ai.completions({
@@ -217,7 +217,7 @@ from ihui_ai import create_client
 client = create_client({
     "apiKey": "ihui_xxx",
     "secret": "sk_xxx",  # 可选,启用 Secret 二次校验
-    "baseUrl": "http://localhost:3001",
+    "baseUrl": "http://localhost:8802",
 })
 
 response = client.ai.completions(

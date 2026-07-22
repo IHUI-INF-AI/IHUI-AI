@@ -56,7 +56,7 @@ console.log(task.taskId)
 ```
 
 ```bash
-curl -X POST http://localhost:3001/v1/videos/generations \
+curl -X POST http://localhost:8802/v1/videos/generations \
   -H "Authorization: Bearer ihui_xxx" \
   -H "Content-Type: application/json" \
   -d '{"model":"kling-v1","prompt":"一只猫追蝴蝶","vendor":"kling"}'

@@ -72,7 +72,7 @@ print(task["taskId"])
 **cURL**
 
 ```bash
-curl -X POST http://localhost:3001/v1/3d/generations \
+curl -X POST http://localhost:8802/v1/3d/generations \
   -H "Authorization: Bearer ihui_xxx" \
   -H "Content-Type: application/json" \
   -d '{"model":"threed-v1","input":"一把椅子","format":"glb"}'

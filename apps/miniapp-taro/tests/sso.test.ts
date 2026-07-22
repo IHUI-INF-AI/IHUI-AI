@@ -87,7 +87,7 @@ describe('miniapp-taro SSO 流程', () => {
       const result = await exchangeSsoCode('valid-code')
       expect(result).toEqual(mockTokenData)
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3001/api/auth/sso/exchange',
+        'http://localhost:8801/api/auth/sso/exchange',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -180,7 +180,7 @@ describe('miniapp-taro SSO 流程', () => {
       const result = await ssoLogout('valid-token')
       expect(result).toBe(true)
       expect(mockFetch).toHaveBeenCalledWith(
-        'http://localhost:3001/api/auth/sso/logout',
+        'http://localhost:8801/api/auth/sso/logout',
         expect.objectContaining({
           method: 'POST',
           headers: { Authorization: 'Bearer valid-token' },
