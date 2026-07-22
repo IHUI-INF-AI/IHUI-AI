@@ -1,5 +1,6 @@
 'use client'
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import type { DiffFile } from '@ihui/types'
 import { DiffStatsBar, type DiffFilterType } from './diff-stats-bar'
@@ -11,6 +12,7 @@ import { ChevronDown, ChevronRight, ChevronUp, Maximize2, Minimize2, Plus, Minus
 
 export function DiffViewerPane() {
   const { diffFiles, activeDiffFileId, diffViewMode, setActiveDiffFile } = useIDEWorkspace()
+  const t = useTranslations('ide')
   const [showFileList, setShowFileList] = React.useState(true)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
   const [filter, setFilter] = React.useState<DiffFilterType>('all')
@@ -51,7 +53,7 @@ export function DiffViewerPane() {
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="flex items-center gap-1 px-2 py-1 text-xs">
             <button onClick={() => setShowFileList(!showFileList)} className="flex items-center rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground">{showFileList ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}</button>
-            <span className="truncate text-muted-foreground">{activeDiff?.filename ?? '选择文件'}</span>
+            <span className="truncate text-muted-foreground">{activeDiff?.filename ?? t('diffViewer.selectFile')}</span>
             {activeDiff && (
               <div className="flex items-center gap-0.5">
                 <button onClick={goPrev} disabled={activeIdx <= 0} className="rounded p-0.5 text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:opacity-30"><ChevronUp className="h-3 w-3" /></button>
@@ -79,7 +81,7 @@ export function DiffViewerPane() {
             )}
             {!activeDiff && (
               <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                选择文件查看差异
+                {t('diffViewer.selectToCompare')}
               </div>
             )}
           </div>
@@ -90,6 +92,7 @@ export function DiffViewerPane() {
 }
 
 function ChangeSummary({ file }: { file: DiffFile }) {
+  const t = useTranslations('ide')
   const total = file.additions + file.deletions
   const pct = total > 0 ? Math.round((file.additions / total) * 100) : 0
   const blocks = React.useMemo(() => countChangeBlocks(file.oldContent, file.newContent), [file])
@@ -109,13 +112,13 @@ function ChangeSummary({ file }: { file: DiffFile }) {
             <div className="h-full bg-green-500/70" style={{ width: `${pct}%` }} />
             <div className="h-full bg-red-500/70" style={{ width: `${100 - pct}%` }} />
           </div>
-          <span className="text-muted-foreground">{pct}% 新增</span>
+          <span className="text-muted-foreground">{t('diffViewer.addPct', { pct })}</span>
         </div>
-        <span className="text-muted-foreground">{blocks} 个变更块</span>
+        <span className="text-muted-foreground">{t('diffViewer.changeBlocks', { count: blocks })}</span>
       </div>
       {preview && (
         <div className="flex flex-wrap items-center gap-0.5 font-mono text-[11px]">
-          <span className="text-muted-foreground">词级变更:</span>
+          <span className="text-muted-foreground">{t('diffViewer.wordLevel')}</span>
           {preview.map((tok, i) => (
             <span
               key={i}
