@@ -39,6 +39,7 @@ import {
 import { registerCapabilitiesCommand } from './commands/capabilities.js';
 import { registerCheckpointCommand } from './commands/checkpoint.js';
 import { registerHooksCommand } from './commands/hooks.js';
+import { registerHooksAutoCommand } from './commands/hooks-auto.js';
 import { registerImportCommand } from './commands/import.js';
 import { startAcpServer } from './acp/server.js';
 import { CheckpointManager } from './checkpoints/index.js';
@@ -474,6 +475,9 @@ registerCheckpointCommand(program);
 
 // hooks 子命令组
 registerHooksCommand(program);
+
+// hooks-auto 子命令组 — Wave 3 W3-4 自动发现 5 目录 hooks(对标 OpenClaw hooks 系统)
+registerHooksAutoCommand(program);
 
 // import 子命令组 — CLI 配置导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)
 registerImportCommand(program);
