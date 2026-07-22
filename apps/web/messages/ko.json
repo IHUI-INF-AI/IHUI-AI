@@ -28195,5 +28195,26 @@
       "sync": "동기화",
       "toggleTheme": "테마 전환"
     }
+  },
+  "workPanel": {
+    "back": "뒤로",
+    "forward": "앞으로",
+    "reload": "새로 고침",
+    "stop": "중지",
+    "addressPlaceholder": "URL 또는 검색어 입력...",
+    "favorite": "즐겨찾기에 추가",
+    "unfavorite": "즐겨찾기 해제",
+    "favoritesAndHistory": "즐겨찾기 및 기록",
+    "openExternal": "외부 브라우저에서 열기",
+    "closePanel": "패널 닫기",
+    "newTab": "새 탭",
+    "removeFavorite": "즐겨찾기 제거",
+    "tabFavorites": "즐겨찾기",
+    "tabHistory": "기록",
+    "emptyFavorites": "즐겨찾기 없음",
+    "emptyHistory": "기록 없음",
+    "clearHistory": "기록 지우기",
+    "dragInsertBefore": "여기 앞에 삽입",
+    "dragInsertAfter": "여기 뒤에 삽입"
   }
 }
