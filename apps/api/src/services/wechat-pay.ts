@@ -19,6 +19,10 @@ import { env } from 'node:process'
 
 const API_BASE = env.WX_API_BASE ?? 'https://api.mch.weixin.qq.com'
 
+// 2026-07-22 P0 Round 3 鲁棒性加固:所有微信支付 fetch 调用统一 10s 超时
+// 防止网络挂起导致请求堆积(支付场景对超时敏感,10s 足够覆盖正常网络延迟)
+const WX_PAY_FETCH_TIMEOUT_MS = 10_000
+
 export function isWechatPayConfigured(): boolean {
   if (!env.WX_SHOP_ID || !env.WX_PAY_V3_KEY) return false
   if (env.WX_PAY_PRIVATE_KEY) return true
@@ -138,6 +142,7 @@ export async function jsapiPrepay(params: {
       Authorization: buildAuthorization('POST', url, body),
     },
     body,
+    signal: AbortSignal.timeout(WX_PAY_FETCH_TIMEOUT_MS),
   })
   if (!resp.ok) throw new Error(`WechatPay jsapi failed: ${resp.status} ${await resp.text()}`)
   const data = (await resp.json()) as { prepay_id: string }
@@ -169,6 +174,7 @@ export async function appPrepay(params: {
       Authorization: buildAuthorization('POST', url, body),
     },
     body,
+    signal: AbortSignal.timeout(WX_PAY_FETCH_TIMEOUT_MS),
   })
   if (!resp.ok) throw new Error(`WechatPay app failed: ${resp.status} ${await resp.text()}`)
   return (await resp.json()) as Record<string, string>
@@ -204,6 +210,7 @@ export async function h5Prepay(params: {
       Authorization: buildAuthorization('POST', url, body),
     },
     body,
+    signal: AbortSignal.timeout(WX_PAY_FETCH_TIMEOUT_MS),
   })
   if (!resp.ok) throw new Error(`WechatPay h5 failed: ${resp.status} ${await resp.text()}`)
   const data = (await resp.json()) as { h5_url: string }
@@ -235,6 +242,7 @@ export async function nativePrepay(params: {
       Authorization: buildAuthorization('POST', url, body),
     },
     body,
+    signal: AbortSignal.timeout(WX_PAY_FETCH_TIMEOUT_MS),
   })
   if (!resp.ok) throw new Error(`WechatPay native failed: ${resp.status} ${await resp.text()}`)
   const data = (await resp.json()) as { code_url: string }
@@ -260,6 +268,7 @@ export async function queryOrder(outTradeNo: string): Promise<Record<string, unk
   const url = `/v3/pay/transactions/out-trade-no/${outTradeNo}?mchid=${mchid}`
   const resp = await fetch(`${API_BASE}${url}`, {
     headers: { Authorization: buildAuthorization('GET', url, '') },
+    signal: AbortSignal.timeout(WX_PAY_FETCH_TIMEOUT_MS),
   })
   if (!resp.ok) throw new Error(`WechatPay query failed: ${resp.status}`)
   return (await resp.json()) as Record<string, unknown>
@@ -277,6 +286,7 @@ export async function closeOrder(outTradeNo: string): Promise<void> {
       Authorization: buildAuthorization('POST', url, body),
     },
     body,
+    signal: AbortSignal.timeout(WX_PAY_FETCH_TIMEOUT_MS),
   })
   if (!resp.ok) throw new Error(`WechatPay close failed: ${resp.status}`)
 }
@@ -305,6 +315,7 @@ export async function refund(params: {
       Authorization: buildAuthorization('POST', url, body),
     },
     body,
+    signal: AbortSignal.timeout(WX_PAY_FETCH_TIMEOUT_MS),
   })
   if (!resp.ok) throw new Error(`WechatPay refund failed: ${resp.status} ${await resp.text()}`)
   return (await resp.json()) as Record<string, unknown>
@@ -318,10 +329,13 @@ export async function downloadBill(
   const url = `/v3/bill/tradebill?bill_date=${billDate}&bill_type=${billType}`
   const resp = await fetch(`${API_BASE}${url}`, {
     headers: { Authorization: buildAuthorization('GET', url, '') },
+    signal: AbortSignal.timeout(WX_PAY_FETCH_TIMEOUT_MS),
   })
   if (!resp.ok) throw new Error(`WechatPay bill failed: ${resp.status}`)
   const data = (await resp.json()) as { download_url: string }
-  const csvResp = await fetch(data.download_url)
+  const csvResp = await fetch(data.download_url, {
+    signal: AbortSignal.timeout(WX_PAY_FETCH_TIMEOUT_MS),
+  })
   return csvResp.text()
 }
 
@@ -350,6 +364,7 @@ async function requestV3<T = unknown>(
       Authorization: buildAuthorization(method, path, bodyStr),
     },
     ...(body !== undefined ? { body: bodyStr } : {}),
+    signal: AbortSignal.timeout(WX_PAY_FETCH_TIMEOUT_MS),
   })
   if (!resp.ok) {
     throw new Error(`WechatPay V3 ${method} ${path} failed: ${resp.status} ${await resp.text()}`)

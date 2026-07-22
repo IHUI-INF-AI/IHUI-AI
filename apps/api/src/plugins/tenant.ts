@@ -96,7 +96,17 @@ const tenantPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
     const identifier = resolveTenantIdentifier(request)
     if (!identifier) {
-      // 未携带租户标识：非严格模式放行（单租户兼容）
+      // 2026-07-22 P0 Round 3 鲁棒性加固:多租户环境 fail-closed
+      // TENANT_STRICT_MODE=true 时,未携带租户标识 → 401 拒绝(防绕过租户隔离)
+      // 默认 false(单租户兼容,向后兼容)
+      if (process.env.TENANT_STRICT_MODE === 'true') {
+        reply.status(401).send({
+          code: 401,
+          message: '多租户严格模式已启用,请求必须携带租户标识(X-Tenant-Id 或 Authorization)',
+        })
+        return
+      }
+      // 非严格模式放行(单租户兼容)
       return
     }
 
