@@ -87,3 +87,61 @@ class MemoryStore:
 
 
 memory_store = MemoryStore()
+
+
+class UnifiedMemoryClient:
+    """统一记忆客户端:对接 api /api/memory 路由,实现跨端记忆同步。
+
+    Redis 优先(现有 memory_store 负责会话内消息),api 持久化兜底(跨端同步)。
+    网络失败时降级(返回空/None,不抛错,不影响主流程)。
+    """
+
+    def __init__(self, api_base_url: str | None = None) -> None:
+        self._api_base_url = api_base_url or settings.api_service_url
+
+    async def get_entries(
+        self,
+        user_id: str,
+        scope: str = "session",
+        session_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """从 api 读取统一记忆条目。失败时返回空列表(降级,不抛错)。"""
+        try:
+            import httpx
+
+            params: dict[str, str] = {"userId": user_id, "scope": scope}
+            if session_id:
+                params["sessionId"] = session_id
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(
+                    f"{self._api_base_url}/api/memory", params=params
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                if isinstance(data, dict):
+                    entries = data.get("data", [])
+                    return entries if isinstance(entries, list) else []
+            return []
+        except Exception:
+            return []
+
+    async def add_entry(self, user_id: str, entry: dict[str, Any]) -> dict[str, Any] | None:
+        """向 api 写入统一记忆条目。失败时返回 None(降级,不抛错)。"""
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.post(
+                    f"{self._api_base_url}/api/memory",
+                    json={"userId": user_id, "entry": entry},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                if isinstance(data, dict):
+                    return data.get("data")
+                return data
+        except Exception:
+            return None
+
+
+unified_memory_client = UnifiedMemoryClient()
