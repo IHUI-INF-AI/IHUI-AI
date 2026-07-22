@@ -296,6 +296,22 @@ import { codebaseSearchRoutes } from './routes/v1-codebase-search.js'
 // P3 深度层:DAP debug 代理路由(代理到 ai-service /api/v1/debug/*,2026-07-22 立)
 import { debugRoutes } from './routes/debug.js'
 
+// P3 深度层 Wave 11:6 大对标能力(2026-07-22 立,对标 Codex/Trae/Qoder)
+// 终端集成(对标 Codex/OpenCode 内置终端,REST CRUD + WebSocket 双向流 + 进程退出清理)
+import { terminalRoutes } from './routes/terminal.js'
+import { wsTerminal } from './plugins/terminal-ws.js'
+import terminalCleanup from './plugins/terminal-cleanup.js'
+// Rules 引擎(对标 Trae Rules,文件存储 .trae-cn/rules/*.md + 热加载 + 4 种匹配)
+import { rulesRoutes } from './routes/rules.js'
+// Hook 服务(对标 Trae Hooks,事件总线 + JSONLogic 条件 + 4 执行器)
+import hooksRoutes from './routes/hooks.js'
+// Plan/Spec 模式(对标 Trae Plan/Spec,spec 生成 + 模板)
+import { specRoutes } from './routes/spec.js'
+// Context Engineering(对标 Qoder,多维 @ 提及 file/database/symbol/folder/web)
+import { contextMentionRoutes } from './routes/context-mentions.js'
+// Subagent 派单 UI(对标 Trae Subagent,落地 AGENTS.md §11 派单格式)
+import { subagentDispatchRoutes } from './routes/subagent-dispatch.js'
+
 import { setFastify } from './utils/logger.js'
 import { isAppError } from './errors/index.js'
 import { config } from './config/index.js'
@@ -1070,4 +1086,20 @@ function registerRoutes(server: FastifyInstance) {
   server.register(codebaseSearchRoutes, { prefix: '/api/v1/codebase' })
   // P3 深度层:DAP debug 代理(10 端点:launch/attach/sessions CRUD/breakpoints/continue/step/stack/variables/eval,2026-07-22 立)
   server.register(debugRoutes, { prefix: '/api/debug' })
+
+  // P3 深度层 Wave 11:6 大对标能力(2026-07-22 立,对标 Codex/Trae/Qoder)
+  // 终端集成(REST CRUD + WebSocket 双向流 + 进程退出清理)
+  server.register(terminalRoutes, { prefix: '/api' })
+  server.register(wsTerminal)
+  server.register(terminalCleanup)
+  // Rules 引擎(CRUD + 测试,文件存储 .trae-cn/rules/*.md)
+  server.register(rulesRoutes, { prefix: '/api' })
+  // Hook 服务(CRUD + 测试 + 日志,事件总线 + 4 执行器 webhook/script/log/notify)
+  server.register(hooksRoutes, { prefix: '/api' })
+  // Plan/Spec 模式(spec 生成 + 模板,tree-sitter AST 反向生成 spec markdown)
+  server.register(specRoutes, { prefix: '/api' })
+  // Context Engineering(多维 @ 提及 file/database/symbol/folder/web + LRU 缓存)
+  server.register(contextMentionRoutes, { prefix: '/api/context' })
+  // Subagent 派单 UI(AGENTS.md §11 派单格式 + mesh 拓扑可视化)
+  server.register(subagentDispatchRoutes, { prefix: '/api' })
 }
