@@ -209,7 +209,10 @@ export class RedisAuthorizationCodeStore implements AuthorizationCodeStore {
     const raw = await this.redis.getdel(key);
     if (!raw) return null;
     try {
-      const entry = JSON.parse(raw) as StoredAuthorizationCode;
+      // JSON.parse 后 expiresAt 是 ISO 字符串(JSON.stringify 把 Date 转字符串),
+      // 需 new Date() 还原,否则 .getTime() 抛 TypeError 导致 consume 永远返回 null
+      const parsed = JSON.parse(raw) as Omit<StoredAuthorizationCode, 'expiresAt'> & { expiresAt: string };
+      const entry: StoredAuthorizationCode = { ...parsed, expiresAt: new Date(parsed.expiresAt) };
       if (entry.expiresAt.getTime() < Date.now()) return null;
       return entry;
     } catch {
