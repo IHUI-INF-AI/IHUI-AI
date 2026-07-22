@@ -335,6 +335,11 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _now_ts() -> float:
+    """当前 UTC timestamp(P1-1 watchdog 用)。"""
+    return datetime.now(timezone.utc).timestamp()
+
+
 def _parse_ts(s: Optional[str]) -> float:
     """ISO 字符串 → timestamp(优先级队列排序用,空值返回 0)。"""
     if not s:
@@ -373,6 +378,9 @@ class KanbanTask:
     updated_at: str = ""
     # P2-4 修复:单任务超时(覆盖 WorkerPoolConfig.task_timeout_seconds,None 用全局默认)
     timeout_seconds: Optional[float] = None
+    # P1-2 修复:独立工作区路径(git worktree,空=用主仓库)
+    workspace_path: Optional[str] = None
+    workspace_branch: Optional[str] = None
 
     def to_camel_dict(self) -> dict:
         return {
@@ -394,6 +402,8 @@ class KanbanTask:
             "createdAt": self.created_at,
             "updatedAt": self.updated_at,
             "timeoutSeconds": self.timeout_seconds,
+            "workspacePath": self.workspace_path,
+            "workspaceBranch": self.workspace_branch,
         }
 
 
@@ -408,6 +418,14 @@ class WorkerPoolConfig:
     preemptive: bool = False
     # P1-4 修复:对齐 TS 端 keepWorktreeOnFailure(ai-service 不用 worktree,字段保留对齐类型契约)
     keep_worktree_on_failure: bool = False
+    # P1-2 修复:worktree 源仓库路径(空=不启用 worktree 隔离)
+    workspace_source_path: Optional[str] = None
+    # P1-1 修复:watchdog 心跳超时秒数(默认 60,executor 超此时长无心跳判定卡死)
+    heartbeat_timeout_seconds: float = 60.0
+    # P1-3 修复:资源限制(可选,不设=不限)
+    resource_limits: Optional[dict] = None  # {memoryMb?, cpuCores?, cpuSeconds?}
+    # P1-5 修复:网络出站策略(可选,不设=open 不限制)
+    network_egress_policy: Optional[dict] = None  # {mode, domains[], allowLocalhost}
 
     def to_camel_dict(self) -> dict:
         return {
@@ -417,6 +435,10 @@ class WorkerPoolConfig:
             "idleWorkerTtlSeconds": self.idle_worker_ttl_seconds,
             "preemptive": self.preemptive,
             "keepWorktreeOnFailure": self.keep_worktree_on_failure,
+            "workspaceSourcePath": self.workspace_source_path,
+            "heartbeatTimeoutSeconds": self.heartbeat_timeout_seconds,
+            "resourceLimits": self.resource_limits,
+            "networkEgressPolicy": self.network_egress_policy,
         }
 
 
@@ -736,15 +758,38 @@ class WorkerPool:
                 state.status = "busy"
                 state.current_task_id = task.id
                 state.last_heartbeat_at = _now_iso()
+                # P1-2 修复:创建 worktree 隔离(若配置了 workspace_source_path)
+                wt_info = None
+                if self.config.workspace_source_path:
+                    try:
+                        from app.services.worktree import create_worktree, remove_worktree
+                        wt_info = await create_worktree(
+                            self.config.workspace_source_path, task.id
+                        )
+                        task.workspace_path = wt_info.path
+                        task.workspace_branch = wt_info.branch
+                    except Exception as wt_err:  # noqa: BLE001
+                        task.status = "blocked"
+                        task.error_message = f"worktree 创建失败: {wt_err}"
+                        task.completed_at = _now_iso()
+                        task.updated_at = _now_iso()
+                        self._wait_retries.pop(task.id, None)
+                        await self._persist(task)
+                        self._emit("task_failed", task, worker_id)
+                        state.failed_count += 1
+                        state.status = "idle"
+                        state.current_task_id = None
+                        continue
                 await self._persist(task)
                 self._emit("task_status_changed", task, worker_id)
                 # P2-4 修复:task 级超时覆盖全局(task.timeout_seconds 优先,无则用 config 默认)
                 task_timeout = task.timeout_seconds if task.timeout_seconds is not None else self.config.task_timeout_seconds
+                # P1-1 修复:启动 watchdog coroutine 检测 executor 心跳超时
+                # watchdog 每 5 秒检查 state.last_heartbeat_at,超时则 cancel executor Task
+                watchdog_task = asyncio.create_task(
+                    self._watchdog(task.id, worker_id)
+                )
                 # P0-2 修复:用 asyncio.create_task 创建 executor Task 并保存引用
-                # 这样超时后可强制 cancel(比 wait_for 默认 cancel 更明确),
-                # 且 shutdown 时可主动取消所有运行中任务(解决 P0-5 shutdown 阻塞 300s)
-                # 注意:若 executor 内部跑 sync 阻塞代码(阻塞 event loop),cancel 仍无效
-                # 根本约束:executor_factory 必须 async,sync 代码必须 asyncio.to_thread() 包装
                 executor_task = asyncio.create_task(self.executor_factory(task))
                 self._executing_tasks[task.id] = executor_task
                 try:
@@ -769,6 +814,13 @@ class WorkerPool:
                     task.completed_at = _now_iso()
                     state.failed_count += 1
                     self._emit("task_failed", task, worker_id)
+                except asyncio.CancelledError:
+                    # P1-1 修复:watchdog cancel 触发,executor 被强制取消
+                    task.status = "blocked"
+                    task.error_message = "watchdog 心跳超时,executor 被强制取消"
+                    task.completed_at = _now_iso()
+                    state.failed_count += 1
+                    self._emit("task_failed", task, worker_id)
                 except Exception as e:  # noqa: BLE001
                     task.status = "blocked"
                     task.error_message = f"执行异常: {e}"
@@ -778,8 +830,25 @@ class WorkerPool:
                 finally:
                     # P0-2 修复:清理 executor Task 引用
                     # P2-1 修复:清理 _wait_retries(task 到达终态,不再需要等待重试计数)
+                    # P1-1 修复:停止 watchdog
                     self._executing_tasks.pop(task.id, None)
                     self._wait_retries.pop(task.id, None)
+                    watchdog_task.cancel()
+                    try:
+                        await watchdog_task
+                    except (asyncio.CancelledError, Exception):
+                        pass
+                    # P1-2 修复:清理 worktree(成功或失败,除非 keep_worktree_on_failure=True 且失败)
+                    if wt_info:
+                        is_failed = task.status == "blocked"
+                        should_clean = not (is_failed and self.config.keep_worktree_on_failure)
+                        if should_clean:
+                            try:
+                                await remove_worktree(
+                                    wt_info.path, wt_info.parent_id, force=True
+                                )
+                            except Exception as wt_err:  # noqa: BLE001
+                                logger.warning("worktree 清理失败: %s", wt_err)
                 task.updated_at = _now_iso()
                 task.worker_id = None
                 state.status = "idle"
@@ -788,6 +857,47 @@ class WorkerPool:
                 await self._persist(task)
             finally:
                 self._queue.task_done()
+
+    async def _watchdog(self, task_id: str, worker_id: str) -> None:
+        """P1-1 修复:心跳 watchdog coroutine。
+
+        每 5 秒检查 state.last_heartbeat_at,超过 heartbeat_timeout_seconds 未更新 →
+        判定 executor 卡死,强制 cancel executor Task(对 async executor 有效;
+        sync 阻塞代码阻塞 event loop 时 watchdog 也无法运行,根本方案是
+        executor_factory 必须 async + sync 代码用 asyncio.to_thread() 包装)。
+
+        executor 内部应通过更新 state.last_heartbeat_at 上报进度(例如每完成一个步骤)。
+        若 executor 不更新心跳,watchdog 将在 heartbeat_timeout_seconds 后触发 cancel。
+        """
+        state = self._workers_state.get(worker_id)
+        if state is None:
+            return
+        check_interval = 5.0
+        timeout = self.config.heartbeat_timeout_seconds
+        while True:
+            await asyncio.sleep(check_interval)
+            if self._shutdown:
+                return
+            # 检查 executor 是否仍在运行
+            executor_task = self._executing_tasks.get(task_id)
+            if executor_task is None or executor_task.done():
+                return  # executor 已完成或不存在,退出 watchdog
+            # 检查心跳超时
+            last_hb = _parse_ts(state.last_heartbeat_at)
+            now_ts = _now_ts()
+            if now_ts - last_hb > timeout:
+                logger.warning(
+                    "P1-1 watchdog:task %s 心跳超时(%.1fs > %.1fs),强制 cancel executor",
+                    task_id,
+                    now_ts - last_hb,
+                    timeout,
+                )
+                executor_task.cancel()
+                try:
+                    await executor_task
+                except (asyncio.CancelledError, Exception):
+                    pass
+                return
 
     def _emit(
         self, event_type: str, task: KanbanTask, worker_id: Optional[str] = None
