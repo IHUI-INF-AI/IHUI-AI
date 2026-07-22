@@ -40,12 +40,6 @@ const VARIABLES: Variable[] = [
   { name: 'isReady', value: 'true', type: 'boolean' },
 ]
 
-const INITIAL_BREAKPOINTS: Breakpoint[] = [
-  { id: 'bp1', file: 'ide-layout.tsx', line: 12, enabled: true },
-  { id: 'bp2', file: 'search-panel.tsx', line: 28, enabled: true },
-  { id: 'bp3', file: 'diff-file-list.tsx', line: 7, enabled: false },
-]
-
 const CONSOLE_LOGS = [
   { level: 'info', text: '调试会话已启动' },
   { level: 'log', text: 'IDELayout mounted' },
@@ -58,6 +52,9 @@ const STATE_META: Record<DebugState, { labelKey: string; dot: string; text: stri
   running: { labelKey: 'debug.stateRunning', dot: 'bg-green-500', text: 'text-green-600 dark:text-green-400' },
   paused: { labelKey: 'debug.statePaused', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' },
 }
+
+const BREAKPOINTS_KEY = 'ide:breakpoints'
+const WATCHES_KEY = 'ide:watches'
 
 function VariableRow({ v, depth = 0 }: { v: Variable; depth?: number }) {
   const [expanded, setExpanded] = React.useState(depth < 1)
@@ -95,10 +92,42 @@ export function DebugPanel() {
   const t = useTranslations('ide')
   const { activeView } = useIDEWorkspace()
   const [debugState, setDebugState] = React.useState<DebugState>('stopped')
-  const [breakpoints, setBreakpoints] = React.useState<Breakpoint[]>(INITIAL_BREAKPOINTS)
-  const [watches, setWatches] = React.useState<string[]>(['this.activeView', 'count'])
+  const [breakpoints, setBreakpoints] = React.useState<Breakpoint[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const saved = localStorage.getItem(BREAKPOINTS_KEY)
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+  const [watches, setWatches] = React.useState<string[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const saved = localStorage.getItem(WATCHES_KEY)
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
   const [watchInput, setWatchInput] = React.useState('')
   const [showConsole, setShowConsole] = React.useState(true)
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(BREAKPOINTS_KEY, JSON.stringify(breakpoints))
+    } catch {
+      // ignore
+    }
+  }, [breakpoints])
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(WATCHES_KEY, JSON.stringify(watches))
+    } catch {
+      // ignore
+    }
+  }, [watches])
 
   if (activeView !== 'debug') return null
 
