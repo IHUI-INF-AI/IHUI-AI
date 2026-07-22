@@ -28549,7 +28549,8 @@
       "noQuickImport": "暫不支援一鍵匯入",
       "copyBaseUrl": "複製 Base URL",
       "baseUrlCopied": "Base URL 已複製到剪貼簿",
-      "copyFailed": "複製失敗,請手動複製"
+      "copyFailed": "複製失敗,請手動複製",
+      "copyAndImport": "複製並匯入"
     },
     "apiRelays": {
       "title": "API 中轉站",
