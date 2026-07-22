@@ -329,31 +329,27 @@ test('P4-5: drop indicator DOM 渲染(before/after position)', async ({ page }) 
   })
   await page.waitForTimeout(500)
 
-  // 2. 模拟 dragover 在第一个 tab 的左半边 → 应触发 before indicator
-  const beforeIndicatorShown = await page.evaluate(() => {
-    // 找到第一个 tab button(包含 max-w-[120px] 的 span)
-    const tabBtns = Array.from(document.querySelectorAll('button')).filter((b) =>
-      b.querySelector('span.max-w-\\[120px\\]'),
-    )
-    if (tabBtns.length === 0) return { found: false }
-    const firstTab = tabBtns[0] as HTMLElement
-    const rect = firstTab.getBoundingClientRect()
-    // dragover 在 tab 内的左 1/4 → midpoint 左侧 → before
-    const event = new DragEvent('dragover', {
-      bubbles: true,
-      cancelable: true,
-      clientX: rect.left + rect.width * 0.25,
-      clientY: rect.top + rect.height / 2,
-    })
-    firstTab.dispatchEvent(event)
-    return { found: true }
+  // 2. 用 Playwright 的 dispatchEvent 触发 React 17+ 合成事件链路
+  // (用 new DragEvent + dispatchEvent 在 React 17+ 不走 root 委托,会失败)
+  const firstTab = page
+    .locator('button:has(span.max-w-\\[120px\\])')
+    .first()
+  const firstTabCount = await firstTab.count()
+  test.skip(firstTabCount === 0, 'tab buttons 未渲染,跳过')
+
+  // 3. 拿到第一个 tab 的中心点,模拟鼠标在左半边(dragover → before)
+  const box = await firstTab.boundingBox()
+  test.skip(!box, 'tab bounding box 不可用,跳过')
+  await firstTab.dispatchEvent('dragover', {
+    dataTransfer: await page.evaluateHandle(() => new DataTransfer()),
+    clientX: box!.x + box!.width * 0.25,
+    clientY: box!.y + box!.height / 2,
   })
-  test.skip(beforeIndicatorShown.found !== true, 'tab buttons 未渲染,跳过')
 
-  // 3. 等 React 状态更新
-  await page.waitForTimeout(100)
+  // 4. 等 React 状态更新 + 动画
+  await page.waitForTimeout(300)
 
-  // 4. 验证 drop indicator 存在(pointer-events-none 的 div,带 aria-label)
+  // 5. 验证 drop indicator 存在(pointer-events-none 的 div,带 aria-label)
   const indicators = await page.evaluate(() => {
     const els = Array.from(document.querySelectorAll('div[aria-label]'))
     return els
