@@ -87,7 +87,7 @@ export default function MemberSubscriptionPage() {
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12 text-center">
           <CreditCard className="h-8 w-8 text-muted-foreground opacity-40" />
           <p className="text-sm text-muted-foreground">{t('noSubscription')}</p>
-          <Button onClick={() => router.push('/member/upgrade')}>{t('subscribeNow')}</Button>
+          <Button onClick={() => router.push('/vip')}>{t('subscribeNow')}</Button>
         </div>
       ) : (
         <>
