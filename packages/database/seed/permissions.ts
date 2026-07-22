@@ -18,7 +18,7 @@ const db = createDb(process.env.DATABASE_URL ?? 'postgres://postgres:postgres@lo
  * - 自动绑定到 admin 角色（name='admin'，若不存在则跳过绑定）
  *
  * 数据来源：apps/web 下所有 .tsx 中 <HasPermi code="..."> 静态扫描结果。
- * 详见 permissions-seed.json（212 条权限码）。
+ * 详见 permissions-seed.json（214 条权限码）。
  */
 export async function seedPermissions(): Promise<void> {
   console.log(`[permissions] 准备导入 ${seedData.length} 条权限点...`)
