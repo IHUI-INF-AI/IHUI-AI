@@ -386,3 +386,17 @@
 - [x] ✅(2026-07-23) 修复 zh-TW 简体残留 2 处(Agent 工作台 → Agent 工作臺)。
 - [x] ✅(2026-07-23) 文档同步:AGENTS.md 守门速查表第 2 项 + README i18n 章节 + 本文件记录。
 - [x] ✅(2026-07-23) 验证:check-i18n-keys exit 0(parity OK)/ scan-zh-residue zh-TW exit 0 / check-broken-en exit 0 / 5 JSON valid。
+
+## miniapp-taro 页面功能对标原 uniapp 项目:tabBar 5 tab + 智汇社区页 + 首页社区流 + ranking/detail + setting/privacy + profile 身份标签(已完成 ✅ 2026-07-23,平台独占:仅 miniapp-taro)
+
+> 用户需求:"我要的是跟原来项目页面 功能一模一样 除非我们新增的功能"。原项目 D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue(uniapp + Vue2,54 页)→ 当前 Taro 4(130 页),本轮补齐原项目缺失的页面与功能,保留当前新增模块。
+
+- [x] ✅(2026-07-23) tabBar 从 4 tab(首页/课程/直播/我的)改为 5 tab 融合(首页/智汇社区/课程/直播/我的),恢复原项目"智汇社区"tab,保留新增"课程/直播"tab。custom-tab-bar/index.tsx 重写为 5 tab,i18n key 从 tabBar.* 改为 nav.*(nav 命名空间已有 home/community/courses/live/profile)。
+- [x] ✅(2026-07-23) 新建智汇社区 tab 页(pages/community/index.tsx + .config.ts + .css),对标原项目 ai_index.vue 基础版:8 类模型切换(AI对话/AI绘图/AI视频/AI语音/智能体/数字人/模型广场/更多工具)+ 快捷入口(我的创作/AIGC作品/排行榜/AI团队)+ 社区动态流(getCircleList API)。
+- [x] ✅(2026-07-23) 首页(pages/index/index.tsx)增加智汇社区动态预览区块(在直播预告前),getCircleList({page:1,pageSize:3}) 拉取 3 条预览,点击跳转 community tab,实现"首页融合社区流"方案。修复 Circle[] → Record<string,unknown>[] 类型转换(改用 unknown 中转)。
+- [x] ✅(2026-07-23) 补齐排行榜详情子页(pages/ranking/detail.tsx + .config.ts + .css),对标原项目 ranking-detail.vue(424 行):useRouter 接收 id → getRankingList 后按 id 筛选 → 11 行结构(Logo+标题/4列信息/细分类别/产品形式/所属机构/官方网址点击复制/图片/详细介绍)→ 深色赛博朋克风 tech-card。
+- [x] ✅(2026-07-23) 补齐隐私权限设置页(pages/setting/privacy.tsx + .config.ts + .css),对标原项目 settings/privacy:系统权限列表(麦克风/相机/相册/位置/通知,Taro.getSetting + Taro.openSetting)+ 隐私开关(消息免打扰/推荐内容/个性化推荐,Switch + Taro.setStorageSync)+ 底部隐私政策链接。
+- [x] ✅(2026-07-23) 增强 pages/user/profile.tsx 身份标签区块(对标原项目 settings/account):VIP 紫色徽章 + 管理员青色徽章 + 普通用户灰色徽章,根据 form.isVip / form.roleId 动态显示。
+- [x] ✅(2026-07-23) 5 语言 i18n 同步(zh-CN/zh-TW/en/ko/ja):user 命名空间新增 admin/normalUser/identity key。
+- [x] ✅(2026-07-23) app.config.ts 路由注册修复:主包 pages 数组加 'pages/community/index'(tabBar 引用但主包未注册会导致小程序运行报错);setting 分包 pages 加 'privacy'(privacy.tsx 已创建但路由未注册无法访问)。
+- [x] ✅(2026-07-23) 验证:pnpm --filter @ihui/miniapp-taro typecheck exit 0 / lint exit 0(仅 1 个无关 warning)。

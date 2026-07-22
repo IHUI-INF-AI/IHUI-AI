@@ -1055,6 +1055,8 @@ export default {
     logout: '로그아웃',
     logoutConfirm: '로그아웃하시겠습니까?',
     vipMember: 'VIP 회원',
+    admin: '관리자',
+    normalUser: '일반 사용자',
     tapLogin: '탭하여 로그인',
     loginHint: '로그인 후 더 많은 서비스',
     menu: {
@@ -1066,6 +1068,7 @@ export default {
       ai: 'AI 어시스턴트',
       settings: '설정',
     },
+    identity: '신원',
     avatar: {
       updateSuccess: '아바타 업데이트',
       choose: '아바타 선택',
