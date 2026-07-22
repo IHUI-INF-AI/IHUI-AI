@@ -482,6 +482,28 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 全项目对外开放 API 接入系统深度开发 — 105 端点 + TS/Python SDK 双语言(commit ba347294,跨端:packages/types + api + sdk + web 文档) -->
 <!-- 已归档(2026-07-22):Java SDK 补齐 — ihui-ai-java 三语言 SDK 平级(平台独占:仅 SDK 新增),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) Go + .NET/C# SDK 补齐 — 五语言 SDK 全覆盖(commit 04122a8f,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_sdk-multi-language.md -->
+
+### [x] ✅(2026-07-22) 浏览器插件使用界面深度修复 — i18n/bridge/manifest/dedupe/守门(平台独占:仅 apps/extension)
+
+**触发**:用户询问"本项目浏览器插件使用界面的深度开发好了吗"。调研发现完成度约 75%,存在 P0-P2 共 7 项问题。
+
+**修复内容**(22 文件):
+
+| 优先级 | 问题 | 文件 | 修复 |
+|---|---|---|---|
+| P0 | i18n key 严重缺失(UI 显示原始 key 乱码) | `src/i18n/messages/*.ts`(5 语言) | 新增 104 key,9 新命名空间(popup/wordbook/notification/agent/course/order/profile/wallet/login) |
+| P0 | 13 个组件硬编码中文未迁移 i18n | `entrypoints/sidepanel/pages/*.tsx` + `NotificationPanel.tsx` + `AgentRuntimePanel.tsx` | 97 处硬编码迁移到 `t()` 函数 |
+| P1 | `BRIDGE_BASE_URL` 硬编码 `127.0.0.1:8802` 与 `API_BASE_URL` 不一致 | `lib/config.ts` + `lib/agent-control-bridge.ts` | config.ts 新增 `BRIDGE_BASE_URL` 从 `API_BASE_URL` 派生;bridge 改 import |
+| P2 | `background.ts` 与 `agent-control-bridge.ts` agent action 执行逻辑重复 | `lib/agent-control.ts` + `entrypoints/background.ts` + `lib/agent-control-bridge.ts` | 抽取 `executeAgentActionRequest` + `forwardRequestToContentScript` 共享函数,两端共用 |
+| P2 | `wxt.config.ts` 缺 `icons` 和 `minimum_chrome_version` | `wxt.config.ts` | 补充 manifest 配置(sidePanel 需 Chrome 114+) |
+| P2 | 缺少 `background.ts` / `agent-control.ts` 单元测试 | `tests/background.test.ts` + `tests/agent-control.test.ts` | 新建 2 测试文件(17 用例:type guards + executeBackgroundAction) |
+| P2 | extension 未纳入 i18n 守门 | `tests/i18n-parity.test.ts` | 新建 5 语言 key parity 守门测试(6 用例,基准 zh-CN) |
+
+**验证**:
+- typecheck:无新错误(全部 pre-existing WXT/tsconfig 环境问题:`defineBackground`/`browser` 全局 / `wxt/browser` 模块解析 / `esModuleInterop` 标志)
+- test:**100/100 全绿**(94 原有 + 6 新 i18n parity)
+- i18n parity:5 语言各 **164 key**,完美一致(zh-CN=164, en=164, ja=164, ko=164, zh-TW=164)
+
 ### [ ] 深度鲁棒性加固 P0+P1+P2 全量 85 项(2026-07-22 立,/goal 模式)
 
 **触发**:用户要求"深度开发本项目的鲁棒性 必须达到完美"。5 路并行调研(api/web/ai-service/packages/desktop+extension+mobile)发现 85 项鲁棒性问题(P0 30 + P1 35 + P2 20)。

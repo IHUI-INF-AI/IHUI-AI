@@ -165,15 +165,17 @@ const spacerStyle: CSSProperties = {
   flex: 1,
 }
 
-const STATUS_TEXT: Record<AgentStatus, string> = {
-  idle: '空闲',
-  running: '运行中',
-  completed: '已完成',
-  failed: '失败',
-}
-
 export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
   const { t } = useI18n()
+  const getStatusText = (status: AgentStatus) => {
+    const map: Record<AgentStatus, string> = {
+      idle: t('agent.statusIdle'),
+      running: t('agent.statusRunning'),
+      completed: t('agent.statusCompleted'),
+      failed: t('agent.statusFailed'),
+    }
+    return map[status]
+  }
   const [status, setStatus] = useState<AgentStatus>('idle')
   const [input, setInput] = useState('')
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -269,7 +271,7 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
         )}
         <span style={statusRowStyle}>
           <span style={statusDotStyle} aria-hidden />
-          <span>{STATUS_TEXT[status]}</span>
+          <span>{getStatusText(status)}</span>
         </span>
         <span style={spacerStyle} />
         <button
@@ -278,14 +280,14 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
           onClick={handleClear}
           disabled={status === 'running'}
         >
-          清空
+          {t('agent.clear')}
         </button>
       </div>
 
       <div style={bodyStyle}>
         {plan && (
           <section style={planStyle}>
-            <div style={sectionTitleStyle}>执行计划</div>
+            <div style={sectionTitleStyle}>{t('agent.executePlan')}</div>
             <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: 12, lineHeight: 1.5 }}>
               {plan}
             </pre>
@@ -294,30 +296,30 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
 
         {permission && (
           <section style={permissionStyle}>
-            <div style={sectionTitleStyle}>权限决策: {permission.decision}</div>
+            <div style={sectionTitleStyle}>{t('agent.permissionDecision') + ': '}{permission.decision}</div>
             <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-              工具: {permission.toolName ?? 'unknown'} · 等级:
-              {permission.dangerLevel ?? 'read'} · 模式: {permission.mode}
+              {t('agent.tool') + ': '}{permission.toolName ?? 'unknown'} · {t('agent.level') + ':'}
+              {permission.dangerLevel ?? 'read'} · {t('agent.mode') + ': '}{permission.mode}
             </div>
           </section>
         )}
 
         {output && (
           <section>
-            <div style={sectionTitleStyle}>输出</div>
+            <div style={sectionTitleStyle}>{t('agent.output')}</div>
             <div style={outputStyle}>{output}</div>
           </section>
         )}
 
         {error && (
           <section style={errorSectionStyle}>
-            <div style={{ fontSize: 11, fontWeight: 500 }}>错误</div>
+            <div style={{ fontSize: 11, fontWeight: 500 }}>{t('agent.error')}</div>
             <div style={{ marginTop: 4, fontSize: 11 }}>{error}</div>
           </section>
         )}
 
         {!plan && !output && !error && !permission && (
-          <div style={emptyStyle}>输入任务,开始 Agent 执行</div>
+          <div style={emptyStyle}>{t('agent.inputTaskHint')}</div>
         )}
       </div>
 
@@ -331,7 +333,7 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
               void handleSend()
             }
           }}
-          placeholder="输入任务..."
+          placeholder={t('agent.inputTaskPlaceholder')}
           disabled={status === 'running'}
           rows={2}
           style={textareaStyle}
@@ -344,7 +346,7 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
             onClick={handleStop}
             data-testid="agent-runtime-stop"
           >
-            停止
+            {t('agent.stop')}
           </button>
         ) : (
           <button
@@ -354,7 +356,7 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
             disabled={!input.trim()}
             data-testid="agent-runtime-send"
           >
-            执行
+            {t('agent.execute')}
           </button>
         )}
       </div>
