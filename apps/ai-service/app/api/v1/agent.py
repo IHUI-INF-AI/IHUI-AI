@@ -24,6 +24,7 @@ from ...services.agent_orchestrator import (
     AgentDefinition,
     agent_orchestrator,
 )
+from ...services.task_decomposer import task_decomposer
 
 router = APIRouter()
 
@@ -180,3 +181,79 @@ async def register_agent(req: RegisterAgentRequest) -> dict[str, Any]:
         "message": "ok",
         "data": agent.to_dict(),
     }
+
+
+# ---------------------------------------------------------------------------
+# P3-3 调度系统端点:任务分解 + 分解式执行
+# ---------------------------------------------------------------------------
+
+
+class DecomposeRequest(BaseModel):
+    """任务分解请求(P3-3)。"""
+
+    task: str = Field(..., description="任务描述")
+    available_agents: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="可用 agent 列表 [{name, capabilities: []}]",
+    )
+    strategy: str = Field("dag", description="分解策略:sequential/parallel/dag/recursive")
+    max_sub_tasks: int = Field(10, ge=1, le=50, description="最大子任务数")
+
+
+class RunDecomposedRequest(BaseModel):
+    """分解式执行请求(P3-3)。"""
+
+    task: str = Field(..., description="任务描述")
+    strategy: str = Field("dag", description="分解策略:sequential/parallel/dag/recursive")
+    session_id: str | None = Field(None, description="会话 ID")
+
+
+@router.post("/agent/decompose")
+async def agent_decompose(req: DecomposeRequest) -> dict[str, Any]:
+    """任务分解:LLM 驱动分解为子任务 + 拓扑排序 + 并行批次计算。
+
+    返回 TaskDecompositionResult(subTasks / executionOrder / parallelBatches / strategy)。
+    """
+    try:
+        result = await task_decomposer.decompose({
+            "task": req.task,
+            "availableAgents": req.available_agents,
+            "strategy": req.strategy,
+            "maxSubTasks": req.max_sub_tasks,
+        })
+        return {
+            "code": 0,
+            "message": "ok",
+            "data": result.to_dict(),
+        }
+    except Exception as e:
+        return {
+            "code": 500,
+            "message": f"任务分解失败: {e}",
+            "data": {"error": str(e)},
+        }
+
+
+@router.post("/agent/run-decomposed")
+async def agent_run_decomposed(req: RunDecomposedRequest) -> dict[str, Any]:
+    """分解式执行:任务分解 → 调度分配 → 按并行批次执行 → 重试/故障转移 → 汇总。
+
+    返回 OrchestrationResult(steps / finalOutput / status / totalDurationMs / trace)。
+    """
+    try:
+        result = await agent_orchestrator.run_decomposed(
+            task=req.task,
+            strategy=req.strategy,
+            session_id=req.session_id,
+        )
+        return {
+            "code": 0 if result.status == "completed" else 1,
+            "message": "ok" if result.status == "completed" else "decomposed run failed",
+            "data": agent_orchestrator.orchestration_to_dict(result),
+        }
+    except Exception as e:
+        return {
+            "code": 500,
+            "message": f"分解式执行失败: {e}",
+            "data": {"error": str(e)},
+        }
