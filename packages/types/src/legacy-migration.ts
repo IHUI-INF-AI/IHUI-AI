@@ -932,3 +932,321 @@ export interface KnowledgeSearchRequest {
   threshold?: number
   filters?: Record<string, unknown>
 }
+
+// ═══════════════════════════════════════════════════════════
+// 29. App(zhs_api_app)模块 — 旧 app 表元数据
+// ═══════════════════════════════════════════════════════════
+
+/** 旧架构 zhs_api_app 表元数据(版本/平台/强制更新/下载地址) */
+export interface ZhsApp {
+  id: string
+  platform: 'ios' | 'android' | 'web' | 'mp' | 'desktop'
+  version: string
+  buildNumber: number
+  minSupportedVersion?: string
+  downloadUrl?: string
+  releaseNotes?: string
+  forceUpdate?: boolean
+  status?: number
+  createdAt: string
+  updatedAt?: string
+  [key: string]: unknown
+}
+
+// ═══════════════════════════════════════════════════════════
+// 30. Article 模块 — 文章(对应旧架构 article.ts)
+// ═══════════════════════════════════════════════════════════
+
+/** 文章 */
+export interface Article {
+  id: string
+  title: string
+  content?: string
+  summary?: string
+  coverImage?: string
+  categoryId?: string
+  categoryName?: string
+  authorId?: string
+  authorName?: string
+  viewCount?: number
+  likeCount?: number
+  commentCount?: number
+  isPinned?: boolean
+  isPublished?: boolean
+  publishTime?: string
+  createdAt: string
+  updatedAt?: string
+  [key: string]: unknown
+}
+
+/** 旧架构 findList 输入参数 */
+export interface FindArticleListInput {
+  page?: number
+  pageSize?: number
+  categoryId?: string
+  keyword?: string
+  authorId?: string
+  isPublished?: boolean
+  [key: string]: unknown
+}
+
+// ═══════════════════════════════════════════════════════════
+// 31. News 模块 — 资讯(对应旧架构 news.ts)
+// ═══════════════════════════════════════════════════════════
+
+/** 资讯 */
+export interface News {
+  id: string
+  title: string
+  content?: string
+  summary?: string
+  coverImage?: string
+  source?: string
+  categoryId?: string
+  categoryName?: string
+  viewCount?: number
+  likeCount?: number
+  isTop?: boolean
+  isPinned?: boolean
+  isPublished?: boolean
+  publishTime?: string
+  createdAt: string
+  updatedAt?: string
+  [key: string]: unknown
+}
+
+/** 旧架构 findList 输入参数 */
+export interface FindNewsListInput {
+  page?: number
+  pageSize?: number
+  categoryId?: string
+  keyword?: string
+  isTop?: boolean
+  isPublished?: boolean
+  [key: string]: unknown
+}
+
+// ═══════════════════════════════════════════════════════════
+// 32. Private Letter 模块 — 私信(对应旧架构 message/letter.ts)
+// ═══════════════════════════════════════════════════════════
+
+/** 私信会员(会话联系人) */
+export interface LetterMember {
+  memberId: string
+  nickname: string
+  avatar?: string
+  lastMessage?: string
+  lastMessageTime?: string
+  unreadCount?: number
+  [key: string]: unknown
+}
+
+/** 私信消息 */
+export interface PrivateLetter {
+  id: string
+  fromUserId: string
+  toUserId: string
+  content: string
+  type?: 'text' | 'image' | 'file'
+  isRead?: boolean
+  readTime?: string
+  createdAt: string
+  [key: string]: unknown
+}
+
+/** 系统通知 */
+export interface Notice {
+  id: string
+  userId: string
+  type: 'system' | 'announcement' | 'reply' | 'like' | 'follow'
+  title: string
+  content: string
+  isRead?: boolean
+  readTime?: string
+  createdAt: string
+  [key: string]: unknown
+}
+
+// ═══════════════════════════════════════════════════════════
+// 33. Point 模块 — 积分(对应旧架构 point/index.ts)
+// ═══════════════════════════════════════════════════════════
+
+/** 积分账户 */
+export interface PointAccount {
+  userId: string
+  totalPoints: number
+  availablePoints: number
+  frozenPoints: number
+  level?: number
+  [key: string]: unknown
+}
+
+/** 积分记录 */
+export interface PointRecord {
+  id: string
+  userId: string
+  type: 'earn' | 'spend' | 'freeze' | 'unfreeze' | 'expire'
+  amount: number
+  balance?: number
+  reason: string
+  relatedId?: string
+  createdAt: string
+  [key: string]: unknown
+}
+
+// ═══════════════════════════════════════════════════════════
+// 34. Search 模块 — 搜索(对应旧架构 search/index.ts)
+// ═══════════════════════════════════════════════════════════
+
+/** 搜索类型 */
+export interface SearchType {
+  type: string
+  label: string
+  icon?: string
+  [key: string]: unknown
+}
+
+/** 热词 */
+export interface HotWord {
+  keyword: string
+  rank: number
+  searchCount?: number
+  trend?: 'up' | 'down' | 'stable'
+  [key: string]: unknown
+}
+
+/** 搜索结果项(多类型联合) */
+export interface SearchContentItem {
+  id: string
+  type: 'lesson' | 'live' | 'article' | 'news' | 'ask' | 'resource' | 'exam'
+  title: string
+  summary?: string
+  coverImage?: string
+  url?: string
+  highlight?: string
+  score?: number
+  [key: string]: unknown
+}
+
+// ═══════════════════════════════════════════════════════════
+// 35. Agreement 模块 — 协议(对应旧架构 agreement.ts)
+// ═══════════════════════════════════════════════════════════
+
+/** 用户协议 */
+export interface Agreement {
+  id: string
+  type: 'user' | 'privacy' | 'member' | 'payment' | 'service'
+  title: string
+  content: string
+  version: string
+  effectiveTime?: string
+  isCurrent?: boolean
+  createdAt: string
+  updatedAt?: string
+  [key: string]: unknown
+}
+
+// ═══════════════════════════════════════════════════════════
+// 36. Carousel 模块 — 轮播图(对应旧架构 carousel.ts)
+// ═══════════════════════════════════════════════════════════
+
+/** 轮播图 */
+export interface Carousel {
+  id: string
+  title: string
+  imageUrl: string
+  linkUrl?: string
+  linkType?: 'internal' | 'external' | 'none'
+  sort?: number
+  isActive?: boolean
+  startTime?: string
+  endTime?: string
+  createdAt: string
+  updatedAt?: string
+  [key: string]: unknown
+}
+
+// ═══════════════════════════════════════════════════════════
+// 37. Edu-Web 旧函数名 — deprecated 桥接类型
+// ═══════════════════════════════════════════════════════════
+//
+// 旧架构 client/src/api/{category,question,article,news,letter,point,search,agreement,carousel,like}.ts
+// 中存在 17 个旧函数名,新架构已重命名(见下方新名映射)。
+// 本节仅保留类型定义,新代码请使用新 lib 中的对应函数。
+// 旧调用方可通过 apps/web/src/lib/legacy-edu-api.ts 的桥接层继续使用。
+
+/** @deprecated 使用 {@link getCategories} from @ihui/api-client → system.ts */
+export type LegacyFindCategoryListAlias<T> = T
+/** @deprecated 使用 {@link getCategoryTree} from @ihui/api-client → system.ts */
+export type LegacyToTreeAlias<T> = T
+/** @deprecated 使用 {@link getLearnCategoryParents} from @ihui/api-client → learn.ts */
+export type LegacyGetAllParentAlias<T> = T
+/** @deprecated 使用 {@link getAsks} from @ihui/api-client → community.ts */
+export type LegacyGetQuestionListAlias<T> = T
+/** @deprecated 使用 {@link createAsk} from @ihui/api-client → community.ts */
+export type LegacySaveQuestionAlias<T> = T
+/** @deprecated 使用 {@link getAnswers} from @ihui/api-client → community.ts */
+export type LegacyGetAnswerListAlias<T> = T
+/** @deprecated 使用 {@link createAnswer} from @ihui/api-client → community.ts */
+export type LegacySaveAnswerAlias<T> = T
+/** @deprecated 使用 {@link recordBehavior} from @ihui/api-client → system.ts */
+export type LegacySaveLikeAlias<T> = T
+/** @deprecated 使用 {@link getMyAsks} from @ihui/api-client → community.ts */
+export type LegacyGetMemberQuestionListAlias<T> = T
+/** @deprecated 使用 {@link getMyAnswers} from @ihui/api-client → community.ts */
+export type LegacyGetMemberAnswerListAlias<T> = T
+/** @deprecated 使用 {@link getNews} from @ihui/api-client → community.ts */
+export type LegacyFindListAlias<T> = T
+/** @deprecated 使用 {@link getNewsById} from @ihui/api-client → community.ts */
+export type LegacyGetArticleAlias<T> = T
+/** @deprecated 使用 {@link getNewsById} from @ihui/api-client → community.ts */
+export type LegacyGetNewsAlias<T> = T
+/** @deprecated 使用 {@link getNews} from @ihui/api-client → community.ts */
+export type LegacyFindTopListAlias<T> = T
+/** @deprecated 使用 {@link getNews} from @ihui/api-client → community.ts */
+export type LegacyFindRecommendListAlias<T> = T
+/** @deprecated 使用 {@link getPrivateLetterMembers} from @ihui/api-client → private-letters.ts */
+export type LegacyGetLetterMemberAlias<T> = T
+/** @deprecated 使用 {@link getPrivateLetterList} from @ihui/api-client → private-letters.ts */
+export type LegacyGetLetterListAlias<T> = T
+/** @deprecated 使用 {@link getCertificates} from @ihui/api-client → resource.ts */
+export type LegacyFindCertificateListAlias<T> = T
+
+/** 旧→新函数名映射表(开发查阅) */
+export const LEGACY_EDU_API_RENAMES = {
+  findCategoryList: 'getCategories (system.ts)',
+  toTree: 'getCategoryTree (system.ts)',
+  getAllParent: 'getLearnCategoryParents (learn.ts)',
+  saveLike: 'recordBehavior (system.ts)',
+  getMemberLikeList: 'getMyAsks + type=like (community.ts)',
+  getQuestionList: 'getAsks (community.ts)',
+  saveQuestion: 'createAsk (community.ts)',
+  getAnswerList: 'getAnswers (community.ts)',
+  saveAnswer: 'createAnswer (community.ts)',
+  getMemberQuestionList: 'getMyAsks (community.ts)',
+  getMemberAnswerList: 'getMyAnswers (community.ts)',
+  findList: 'getNews (community.ts)',
+  getArticle: 'getNewsById (community.ts)',
+  getNews: 'getNewsById (community.ts)',
+  findTopList: 'getNews + isTop=true (community.ts)',
+  findRecommendList: 'getNews + isRecommend=true (community.ts)',
+  countMemberArticle: 'countMyQuestions (community.ts)',
+  saveArticle: 'createNews (community.ts)',
+  findCertificateList: 'getCertificates (resource.ts)',
+  getMemberList: 'getPrivateLetterMembers (private-letters.ts)',
+  getLetterMember: 'getPrivateLetterMembers (private-letters.ts)',
+  getLetterList: 'getPrivateLetterList (private-letters.ts)',
+  getNewLetterList: 'getPrivateLetterList + sort=desc (private-letters.ts)',
+  sendPrivateLetter: 'sendPrivateLetter (private-letters.ts,同函数名)',
+  getNoticeList: 'getAnnouncements (notification.ts)',
+  countMemberPoint: 'getMyPoints / getPointAccount (user.ts/wallet.ts)',
+  getRecordList: 'getPointRecords (wallet.ts)',
+  getSearchTypeList: 'getSearchTypes (misc.ts 或本文件 search 端点)',
+  getHotWordList: 'getSearchHotWords (本文件 search 端点)',
+  getSearchContentList: 'searchContent (本文件 search 端点)',
+  getAgreement: 'getCurrentAgreement (misc.ts)',
+  getCarousel: 'getActiveCarousels (misc.ts)',
+  getHotLesson: 'getHotLearnCourses (learn.ts)',
+  getRecommendLesson: 'getRecommendLearnCourses (learn.ts)',
+} as const
+export type LegacyEduApiRenameKey = keyof typeof LEGACY_EDU_API_RENAMES
