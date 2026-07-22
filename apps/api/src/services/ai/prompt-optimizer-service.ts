@@ -8,10 +8,11 @@
  * - 提供示例（few-shot，可选）
  *
  * 优化策略：
- * 1. 规则模板：按 prompt 类型套用预定义模板
- * 2. 关键词增强：识别模糊词（"好一点"）并替换为可量化表述
- * 3. 结构化：自动添加"输出格式"段落
+ * 1. LLM 驱动：传入原 prompt + 类型模板作为 system prompt,由 LLM 生成优化版本
+ * 2. 规则降级：LLM 不可用时回退到模板拼接
  */
+
+import { callRealLlm, type LlmMessage } from '../crew-llm-adapter.js'
 
 export type PromptType = 'text' | 'image' | 'code' | 'summary' | 'translation' | 'default'
 
@@ -71,50 +72,6 @@ function replaceVagueTerms(prompt: string): { text: string; replaced: number } {
   return { text: result, replaced }
 }
 
-/** 优化 prompt。 */
-export function optimize(prompt: string, options: OptimizeOptions = {}): OptimizeResult {
-  const type = options.type ?? detectType(prompt)
-  const improvements: string[] = []
-
-  // 1. 替换模糊词
-  const { text: clarifiedText, replaced } = replaceVagueTerms(prompt)
-  if (replaced > 0) improvements.push(`替换 ${replaced} 处模糊表述`)
-
-  // 2. 套用类型模板
-  const template = TYPE_TEMPLATES[type]
-  improvements.push(`应用 ${type} 类型模板`)
-
-  // 3. 角色设定
-  const role = options.role ?? defaultRoleForType(type)
-  improvements.push(`设定角色：${role}`)
-
-  // 4. 输出格式约束
-  const formatConstraint = buildFormatConstraint(options)
-  if (formatConstraint) improvements.push(`约束输出格式：${options.outputFormat ?? 'markdown'}`)
-
-  // 5. 长度约束
-  const lengthConstraint = options.maxLength ? `请将输出控制在 ${options.maxLength} 字以内。` : ''
-
-  // 6. 语言约束
-  const langConstraint = options.language ? `请使用${langName(options.language)}输出。` : ''
-
-  const parts = [
-    `# 角色设定\n${role}`,
-    `# 任务\n${clarifiedText}`,
-    `# 要求\n${template}`,
-    formatConstraint,
-    lengthConstraint,
-    langConstraint,
-  ].filter(Boolean)
-
-  return {
-    original: prompt,
-    optimized: parts.join('\n\n'),
-    improvements,
-    type,
-  }
-}
-
 function defaultRoleForType(type: PromptType): string {
   switch (type) {
     case 'image':
@@ -145,7 +102,88 @@ function langName(lang: 'zh' | 'en' | 'ja' | 'ko'): string {
   return { zh: '中文', en: '英文', ja: '日文', ko: '韩文' }[lang]
 }
 
+/** 规则版优化(LLM 降级用)。 */
+function optimizeRuleBased(prompt: string, options: OptimizeOptions, type: PromptType): OptimizeResult {
+  const improvements: string[] = []
+
+  const { text: clarifiedText, replaced } = replaceVagueTerms(prompt)
+  if (replaced > 0) improvements.push(`替换 ${replaced} 处模糊表述`)
+
+  const template = TYPE_TEMPLATES[type]
+  improvements.push(`应用 ${type} 类型模板`)
+
+  const role = options.role ?? defaultRoleForType(type)
+  improvements.push(`设定角色：${role}`)
+
+  const formatConstraint = buildFormatConstraint(options)
+  if (formatConstraint) improvements.push(`约束输出格式：${options.outputFormat ?? 'markdown'}`)
+
+  const lengthConstraint = options.maxLength ? `请将输出控制在 ${options.maxLength} 字以内。` : ''
+  const langConstraint = options.language ? `请使用${langName(options.language)}输出。` : ''
+
+  const parts = [
+    `# 角色设定\n${role}`,
+    `# 任务\n${clarifiedText}`,
+    `# 要求\n${template}`,
+    formatConstraint,
+    lengthConstraint,
+    langConstraint,
+  ].filter(Boolean)
+
+  return {
+    original: prompt,
+    optimized: parts.join('\n\n'),
+    improvements,
+    type,
+  }
+}
+
+/** 优化 prompt(LLM 驱动,规则降级)。 */
+export async function optimize(
+  prompt: string,
+  options: OptimizeOptions = {},
+): Promise<OptimizeResult> {
+  const type = options.type ?? detectType(prompt)
+  const role = options.role ?? defaultRoleForType(type)
+  const template = TYPE_TEMPLATES[type]
+
+  // 构建 system prompt:规则模板作为 LLM 的参考指令
+  const constraints: string[] = [template]
+  if (options.outputFormat && options.outputFormat !== 'plain') {
+    constraints.push(buildFormatConstraint(options))
+  }
+  if (options.maxLength) constraints.push(`输出控制在 ${options.maxLength} 字以内`)
+  if (options.language) constraints.push(`使用${langName(options.language)}输出`)
+
+  try {
+    const messages: LlmMessage[] = [
+      {
+        role: 'system',
+        content: `${role}。你是 Prompt 优化专家。将用户给定的原始 prompt 优化为更高质量、更结构化的版本。优化要求:${constraints.join('; ')}。直接返回优化后的 prompt 全文,不要解释。`,
+      },
+      { role: 'user', content: prompt },
+    ]
+    const result = await callRealLlm({ messages, temperature: 0.3, maxTokens: 800 })
+    const optimized = result.content.trim()
+    if (optimized && optimized !== prompt) {
+      return {
+        original: prompt,
+        optimized,
+        improvements: ['LLM 优化', `应用 ${type} 类型模板`, `设定角色：${role}`],
+        type,
+      }
+    }
+  } catch {
+    // LLM 不可用,降级到规则优化
+  }
+
+  return optimizeRuleBased(prompt, options, type)
+}
+
 /** 批量优化多个 prompt。 */
-export function optimizeBatch(prompts: string[], options?: OptimizeOptions): OptimizeResult[] {
-  return prompts.map((p) => optimize(p, options))
+export async function optimizeBatch(
+  prompts: string[],
+  options?: OptimizeOptions,
+): Promise<OptimizeResult[]> {
+  return Promise.all(prompts.map((p) => optimize(p, options)))
 }
