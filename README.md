@@ -267,14 +267,15 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | AI 职业         | AI 求职助手 / 简历优化 / 模拟面试                                                                           |
 |                   | AI 资讯         | AI 资讯聚合 / 智能摘要 / ai-feed                                                                            |
 |                   | 用户级 AI 配置  | 用户级模型对话偏好(ai-user-model-chat)/ 用户长期记忆(user-memory)/ 用户偏好(user-preferences)             |
-| **AI 工作流**     | LangGraph       | StateGraph 工作流(plan → execute → summarize)+ stub 模式                                                    |
-|                   | MCP 工具协议    | 11 内置工具 + 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP / mcp-extended                                    |
+| **AI 工作流**     | LangGraph       | StateGraph 工作流(plan → execute → summarize)+ stub 模式 + agent_loop 多轮 tool 循环 + 任务自动分解 DAG 拓扑 |
+|                   | MCP 工具协议    | 33 内置工具(11 基础 + 12 浏览器控制 + 10 电脑控制)+ 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP / mcp-extended |
 |                   | A2A 协议        | Agent-to-Agent 互通 / Redis 持久化 + 内存降级                                                               |
 |                   | 知识库 RAG      | 文档向量化 / 语义搜索 / 引用追溯 / knowledge-base + knowledge-rag                                           |
 |                   | 知识图谱        | knowledge-graph schema + 节点关系图谱 / 跨文档实体链接(开源 AI 平台中少见)                                   |
 |                   | pgvector 向量库 | 0123_pgvector_embedding 迁移 / 原生 PostgreSQL 向量索引 / 无需独立向量数据库                                 |
 |                   | 工作流编排      | 可视化工作流 / CrewAI 集成 / N8N 代理 / workflows                                                           |
-|                   | 向量记忆        | 余弦相似度语义搜索 / 跨会话长期记忆 / vector-memory                                                         |
+|                   | 向量记忆        | 余弦相似度语义搜索 / 跨会话长期记忆 / vector-memory / pgvector + FTS5 双引擎 + 自动记忆提取 + 用户画像建模  |
+|                   | 自进化 Agent    | Skill 自生成 + 自动测试 + 反馈迭代(v1→v2→v3)+ 评分系统 / 统一三端记忆 / 任务自动分解 + DAG 调度(对标 Hermes) |
 | **多智能体生态**  | 智能体市场      | 购买 / 审核 / 结算 / 提现 / 分类 / 推荐 / 排行 / 精选                                                       |
 |                   | 开发者中心      | API Keys / 调用日志 / 团队管理 / 收益分析 / 13 子页                                                         |
 |                   | Coze SDK 代理   | Bot / 对话 / 工作流 / 数据集 / 模板 / 变量 / 工作空间 / OAuth                                               |
@@ -1231,7 +1232,6 @@ pnpm turbo build typecheck lint test
 我们**不否认**以下事实,并将其作为后续优化方向:
 
 - 5 端(desktop / extension / mobile-rn / miniapp-taro / cli)完成度低于 web/api/ai-service,核心场景已通但业务页面覆盖度不足(见[项目状态矩阵](#项目状态矩阵))
-- ai-service 的 LangGraph 编排目前是"工作流级",尚未实现"自主技能生成 + 长期记忆 + 自我进化"这类深度 Agent 能力
 - 开源社区生态刚起步,贡献者数量、Issue 沉淀、最佳实践远不如 LangChain / Dify / Claude Code 等成熟项目
 
 ---
@@ -1499,6 +1499,119 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - 21 pre-commit 守门 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动
 - 企业级安全(RBAC + 多租户 + RLS + SSO + AES-256-GCM + JWT token-family + CSRF + XSS + GDPR + 2FA)
 - 339+ 数据库表 + 128+ 迁移 + 13 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
+
+### 最近更新(2026-07-22)
+
+> 以下为本轮集中交付的核心能力,均通过全端 typecheck + 跨端链路连通验证,详见 [PROJECT_PLAN.md](PROJECT_PLAN.md)。
+
+#### 1. AI 对话内嵌浏览器工作展示区(全 8 端同步 · P0→P3++ 四阶段)
+
+- **P0 基础设施**:packages/types 跨端契约(WorkPanelTab / WebViewState / NavigateOptions)+ packages/ui 3 通用组件(Resizable / WorkPanel / WebViewFrame,抽象自 ai-side-panel)+ web Zustand store + GlobalShell 右侧布局 + markdown URL 拦截 + iframe 智能降级
+- **P1 后端截图流**:ai-service Playwright headless 截图引擎(Windows SelectorEventLoop 修复 + sync_playwright + run_in_executor)+ api `/api/browser/screenshot` + `/api/browser/proxy` 转发路由 + web 主动探测降级
+- **P2 AI 工具调用深度联动**:packages/api-client onToolCall 回调 + ToolCallEvent 类型(解析 Vercel AI SDK type 2/7 + 自定义 tool_result)+ chat store addToolCall/updateToolCall + use-chat.ts createToolCallHandler(browser_navigate 等 8 工具命中即 openPanel)+ ToolCallCard URL 提取与"在工作展示区打开"按钮
+- **P3 多 Tab + 收藏 + 历史**:tabs 数组 + activeTabId + favorites + recentUrls(persist 持久化,清除 screenshot 体积)+ packages/ui Star 收藏按钮 + ChevronDown dropdown(收藏/历史两 tab + click-away + ESC 关闭 + 清空历史)
+- **P3++ Tab 拖拽排序**:HTML5 DnD(onDragStart/onDragOver/onDrop + 半透明 + drop target 高亮)+ reorderTabs store action + Playwright E2E 5 场景守门(openPanel/newTab/favorite/dropdown/drag-sort)
+- **8 端实现**:web(iframe + 降级)/ desktop(Tauri WebView2 子 webview,绕过 X-Frame-Options)/ mobile-rn(react-native-webview)/ miniapp-taro(web-view)/ extension(WXT browser.tabs.create)/ api + ai-service(截图服务)
+
+#### 2. 原生浏览器控制 + 电脑控制 MCP tool 全链路(5 端同步)
+
+- **22 MCP tool**:ai-service 新增 12 个 `browser_control.*`(screenshot / click_element / type_text / scroll / extract_dom / navigate / wait_for_element / get_attribute / hover / select_option / switch_tab / close_tab)+ 10 个 `computer_control.*`(screenshot_screen / mouse_move / mouse_click / keyboard_type / mouse_scroll / keyboard_press / keyboard_hotkey / active_window / clipboard_get / clipboard_set)
+- **跨端执行器**:extension background `agent.action` 消息 + content script DOM 操作执行器 + 截图回传;desktop Tauri 10+ `#[tauri::command]`(screenshots + enigo + arboard crate)+ capabilities/default.json 权限声明
+- **多轮 tool loop**:ai-service llm.py 单轮 → 多轮循环(max_iterations=3,支持 AI 连续操作:截图→分析→点击→再截图)+ SSE tool-call-start/tool-result 事件加 iteration 字段 + 前端 ToolCallCard 显示"第 N 轮"徽章
+- **鲁棒性增强**:extension bridge requestId 去重(_processedIds Set,防 WS 重连重复执行)+ desktop bridge withTimeout wrapper(防 invoke() 卡住 Promise)+ LLM 幻觉防护(工具失败显式标注 + repair_messages 规避)+ tool 异常 try/catch 保护 SSE 流不崩溃 + AGENT_CONTROL_INTERNAL_SECRET 模块加载时序 bug 修复
+
+#### 3. 对标 Hermes Agent 深度反超(11 项差距 + P3 深度层)
+
+> 触发:用户要求"本项目跟 hermesagent 比哪里不如他,请你深度分析然后开发好要比他强"。深度调研 NousResearch/hermes-agent(v0.19.0,16,613 commits)后识别 11 项差距。
+
+- **P0 三件套(Agent 心脏)**:① `agent_loop.py` 工具循环修复(原 `if i >= 1: break` 半成品 → 解析 tool_call → 执行 → 结果回填 → 继续迭代,直到无 tool_call 或达 max_iterations)② Skill 自进化闭环(任务结束 LLM 自评 → 自动生成 SKILL.md 到 `apps/ai-service/app/skills/auto/`,SkillFrontmatter 升级 version/license/prerequisites/related_skills/progressiveDisclosure 对齐 agentskills.io 开放标准)③ 统一三端记忆(CLI 文件 + ai-service Redis + api conversations 三套独立 → api `/api/memory` 路由 + ai-service UnifiedMemoryClient(Redis 优先 + api 兜底)+ cli UnifiedMemoryClient(HTTP 调 api))
+- **P1 四件套**:① IM 平台 gateway(飞书/企业微信/Discord/Telegram adapter,对标 Hermes 25+ 平台)② 多 Agent 协商/辩论(debate 模式 + 角色间协商/投票)③ MCP Sampling 反向调用(5 层护栏:速率/白名单/轮次/超时/审计 + `mcp serve` 反向暴露给 Claude Code)④ Skill 跨端共享(api `/api/skills` 作中枢,ai-service 6 静态 skill 与 cli 四级目录同步)
+- **P2 四件套**:① 沙箱后端扩展(Local/Docker/SSH/Modal/Daytona/Singularity 6 种,对标 Hermes)② provider 扩展(13 → 30+,MoA presets + Fallback Providers + Credential Pools)③ 多模态输入(图像/视频输入处理 vision_analyze)④ 可观测性闭环(端到端 trace,补 CLI/api/desktop/extension 端埋点)
+- **P3 三大核心壁垒深度层(真正超越 Hermes)**:
+  - **P3-1 记忆系统深度层**:pgvector 向量 + FTS5 全文双引擎 + 自动记忆提取(从对话流提取偏好/决策/事实)+ 衰减遗忘(时间 + 访问频率)+ 用户画像建模(5 维度聚合)
+  - **P3-2 自进化闭环深度层**:Skill 生成后自动测试(跑测试用例验证有效性)+ 使用反馈追踪(使用次数 + 成功率 + 满意度)+ 基于反馈迭代优化(v1→v2→v3)+ 评分系统
+  - **P3-3 调度系统深度层**:任务自动分解(LLM 分解 + DAG 拓扑排序 + 并行批次)+ agent 通信机制(消息队列 + 共享黑板)+ 调度算法(能力匹配 + 负载均衡 + 优先级)+ 失败重试 + 故障转移
+  - **P3-4 沙箱 6 后端完整实现**:Modal 无服务器 + Daytona 云开发 + Singularity HPC 集群
+  - **P3-5 IM 渠道扩展**:8 → 16 平台(新增 WhatsApp / LINE / KakaoTalk / Signal / Matrix / Rocket.Chat / Mattermost / Zulip)
+- 跨端:packages/types 契约层扩展 ~470 行 P3 类型
+
+#### 4. 深度鲁棒性加固 P0+P1+P2 全量 85 项(/goal 模式)
+
+> 5 路并行调研(api/web/ai-service/packages/desktop+extension+mobile)发现 85 项鲁棒性问题(P0 30 + P1 35 + P2 20)。
+
+- **Round 1 packages/auth + packages/database 安全核心(7 项)**:Refresh Token 轮换重用检测 + family 撤销(RFC 6749 §10.4)/ Access Token TTL 7d → 15min(破坏性)/ 黑名单 Redis fail-open → fail-closed / trackUserToken 改存 fingerprint(原始 JWT 不入库)/ OAuth clientSecret bcrypt 哈希化 / OAuth 私钥字段加密框架(KMS 占位)/ RLS `SET LOCAL` 字符串拼接 → `set_config($1, $2, true)` 参数化
+- **Round 2 ai-service MCP 安全(6 项)**:MCP 路径白名单 / 权限矩阵强制 / JWT_SECRET fail-fast / 内部密钥 env 化 / Windows shell 注入修复 / workspace 记忆 XML 隔离
+- **Round 3 api 后端安全(8 项)**:SQL 注入参数化 / webhook-secret requireAdmin / 微信支付 + LLM + OAuth fetch 超时 / 租户 fail-closed / 限流降级 / Map LRU 化
+- **Round 4 web 前端安全(3 项)**:路由级 error.tsx / API 客户端超时 / useTaskWebsocket 重连心跳
+- **Round 5 desktop/extension/mobile/miniapp 收紧(6 项)**:Tauri panic 兜底 / extension matches 收窄 / mobile-rn NetInfo / miniapp-taro onNetworkStatusChange
+
+#### 5. CLI Wave 1 + Wave 2 智能深度反超(对标 Claude Code)
+
+- **Wave 1 P0 Agent 内核**:LSP 集成(Language Server Protocol,代码 intelligence)+ Client/Server 架构(分离 UI 与引擎)+ TUI 终端界面(fuzzy-file / 交互式 REPL)
+- **Wave 2 P1 智能深度**:四层记忆 + 梦境(短时 / 工作区 / 长期 / 跨会话 + 离线记忆整合)/ Plan-Build-Review 三模(planning / building / reviewing 状态机)/ undo-redo-share(会话回滚 + 分享)/ Subagent 对等协作(主从 → 平等协商)
+
+#### 6. 深度代码质量治理(2 轮 /goal 模式)
+
+- **Round 1**:43 处 requireAuth 重复定义收敛(共享 `checkAuth` boolean 语义)+ 5 处签到工具函数合并(checkin-helpers.ts)+ 签到时区 bug 修复(UTC+8 vs UTC 不一致)+ react-hooks/exhaustive-deps 12 处修复 + ai-world-sync.ts 55 处 console.log → logger + knip.jsonc 补全(7 → 16 workspace)+ 4 处 `<img>` → `next/image` + 隐藏 bug:`chat-skills.ts` 鉴权失败后 handler 仍执行(本地 requireAuth 返回 void 但 `if (authResult) return` 恒 false)
+- **Round 2**:**严重安全** `blacklist.ts` 存储完整 JWT 到 Redis(与文件头注释矛盾)→ 改为存储 fingerprint / **隐藏 bug** `oauth2.ts` RedisAuthorizationCodeStore Date 序列化(JSON.parse 还原为字符串,`entry.expiresAt.getTime()` 抛 TypeError,OAuth2 code exchange 静默失效)→ 加 `new Date()` 还原 / `check-in.ts` 死文件删除(365 行未被 server.ts 注册)/ `main.py` shutdown_telemetry() 重复调用 / `rls.ts` SET LOCAL 字符串拼接安全说明
+
+#### 7. 计费资金安全核心修复(G2 → G8 系列)
+
+- **G2 印钞机/幂等/事务/行锁/权限**:LLM 扣费链路 5 项核心修复(防印钞漏洞)
+- **G3 LLM 扣费链路接通**:ai-callback-worker 集中扣费 + 幂等
+- **G7 CrewAI 绕过扣费修复**:crew-llm-adapter 加 recordAiCost + crew-orchestrator 加 usage 累计 + crew.ts 集中扣费(幂等键 `crew:sessionId`)
+- **G8 rechargeToken 订单状态校验**:补 JOIN orders 验证 `status=paid`,堵充值 token 旁路支付漏洞
+
+#### 8. AI 世界页 6 次打磨(5 大榜单全生产可用)
+
+- OpenCompass Playwright 渲染接通(Windows SelectorEventLoop 修复)
+- SuperCLUE Gradio 数据源接通 + GITHUB_TOKEN 文档
+- 5 大抓取器改真实数据源(311 条真实数据)+ GitHub Token
+- 排行榜全链路打通(数据写库 + 前端显示)
+
+#### 9. AI 资讯源精简 + LLM 分类生产就绪
+
+- 信源配置精简至 27 条原生 RSS + 本地 DailyHotApi,采集成功率 96.3%
+- LLM 分类生产就绪:988 NULL 重处理(0 NULL)+ 分布验证 + 4 状态 browser 自验 PASS(1660 条 cards=50 darkMode=PASS)
+
+#### 10. 旧架构迁移补齐(类型层 + 业务层)
+
+- **类型层**:28 组类型定义迁移到 packages/types(P0 21 组路由已连通但类型未独立导出 + P3 7 组 FastAPI/监控/OAuth + P2 3 组归档保留)
+- **业务层**:5 个 MISSING 功能项补齐(findRecommendLessons / findHotLessons / findCategoryParents 递归 CTE / findLikeCounts GROUP BY 聚合,新架构 lib 已替代但旧函数名补齐)
+- **审计追溯**:4 表加 updatedBy + commission_flows 补 updatedAt + withAudit helper 自动注入
+
+#### 11. IDE 工作区复刻(平台独占:仅 web)
+
+- 仿 TRAE / Codex 完整编辑器 + 代码比对 + 多视图面板(平台独占,仅 web)
+
+#### 12. 登录体验增强
+
+- 密码输入框密码显隐切换(eye-fill 动画 + 5 语言 a11y,修复 fill-mode 缺失导致眼睛图标消失)
+- 记住密码功能(自动填充 + localStorage 存储 + 5 语言 i18n)
+- 邮箱 / 验证码 / 扫码登录加自动登录 + 记住 token 30 天 + 账号设置可配自动续期
+- 登录弹窗三步 Enter 交互回归修复 + Apple 登录按钮置灰移到末位
+
+#### 13. PDF 工具端到端连通
+
+- 后端改 multipart 文件上传 + 前端端点路径修正 + convert 页改为不可用提示
+- merge / split / watermark 基于 pdf-lib 真实实现,print / sign 返回 501
+
+#### 14. 数据库 G5 → G11 系列修复
+
+- **G5**:agent_tasks 加 FK + 4 表 CASCADE 转 SET NULL
+- **G6**:jsonb 预留字段填充(13 个 P0 字段加 default + 回填 NULL)
+- **G9**:三端断连资源收口(agents.py is_disconnected + agent-runtime AbortController + crew-orchestrator cancel)
+- **G10**:审计追溯字段补齐(4 表加 updatedBy + commission_flows 补 updatedAt)
+- **G11**:snapshot / journal drift 修复(drizzle-kit generate 同步 schema 源和 snapshot)
+
+#### 15. 其他重要修复
+
+- 15 个 TODO echo 桩端点接入真实 DB + message.ts 已读标记 + agents.ts 移除 WHERE 1=0
+- sse-parse reasoning 优先级 + extension version 1.0.0 + ai-capability-invoke LLM 真实化 + MCP 工具查询代理 ai-service
+- desktop WindowInfo 契约对齐 windowId + drama.ts async 调用补 await
+- 充实 ui-primitives design tokens + 扩充 ui-native 5 组件(dialog / avatar / badge / tabs / switch)
+- 知识库 / RAG 知识库 / 知识图谱从 AI 教育分组调整到 AI 分组
+- 插件市场和自动化按钮默认态去掉灰底背景
 
 ### 进行中
 
