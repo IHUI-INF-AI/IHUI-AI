@@ -264,7 +264,7 @@ const MESSAGES_CHILDREN: NavItem[] = [
 const USER_CHILDREN: NavItem[] = [
   { href: '/user/profile', labelKey: 'userProfile', icon: User },
   { href: '/user/security', labelKey: 'userSecurity', icon: Shield },
-  { href: '/user/notifications', labelKey: 'userNotifications', icon: Bell },
+  { href: '/notifications', labelKey: 'userNotifications', icon: Bell },
   { href: '/user/realname', labelKey: 'userRealname', icon: ShieldCheck },
   { href: '/user/subscription', labelKey: 'userSubscription', icon: CreditCard },
   { href: '/user/learn-record', labelKey: 'userLearnRecord', icon: BookOpen },
@@ -296,7 +296,7 @@ const MEMBER_ITEMS: NavItem[] = [
   { href: '/member/benefits', labelKey: 'memberBenefits', icon: Award },
   { href: '/member/coupons', labelKey: 'memberCoupons', icon: Ticket },
   { href: '/member/subscription', labelKey: 'memberSubscription', icon: CreditCard },
-  { href: '/member/refunds', labelKey: 'memberRefunds', icon: RotateCcw },
+  { href: '/refund', labelKey: 'memberRefunds', icon: RotateCcw },
   { href: '/member/addresses', labelKey: 'memberAddresses', icon: MapPin },
   { href: '/member/favorites', labelKey: 'memberFavorites', icon: Heart },
   { href: '/member/history', labelKey: 'memberHistory', icon: History },
