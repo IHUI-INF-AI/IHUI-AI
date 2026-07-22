@@ -265,7 +265,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       }
 
       const user = await findUserByUsername(username)
-      if (!user || !user.passwordHash || !bcrypt.compareSync(password, user.passwordHash)) {
+      if (!user || !user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
         const remaining = await recordLoginFailure(username, ip)
         if (remaining === 0) {
           const lockDurationMs = ACCOUNT_LOCKOUT_CONFIG.lockDurationSec * 1000
@@ -352,7 +352,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const emailPrefix = email.split('@')[0] ?? 'user'
       const user = await createUser({
         email,
-        passwordHash: bcrypt.hashSync(password, 10),
+        passwordHash: await bcrypt.hash(password, 10),
         nickname: nickname ?? `用户${emailPrefix.slice(0, 12)}`,
         roleId: 0,
         status: 1,
@@ -514,10 +514,10 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     }
     if (newPwd.length < 6) return reply.status(400).send(error(400, '新密码至少 6 位'))
     const user = await findUserById(request.userId!)
-    if (!user?.passwordHash || !bcrypt.compareSync(oldPwd, user.passwordHash)) {
+    if (!user?.passwordHash || !(await bcrypt.compare(oldPwd, user.passwordHash))) {
       return reply.status(400).send(error(400, '旧密码错误'))
     }
-    await updateUser(request.userId!, { passwordHash: bcrypt.hashSync(newPwd, 10) })
+    await updateUser(request.userId!, { passwordHash: await bcrypt.hash(newPwd, 10) })
     return reply.send(success({ success: true, updated: true }))
   })
 
@@ -846,7 +846,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       }
       const user = await createUser({
         phone,
-        passwordHash: bcrypt.hashSync(password, 10),
+        passwordHash: await bcrypt.hash(password, 10),
         nickname: nickname ?? `用户${phone.slice(-4)}`,
         roleId: 0,
         status: 1,

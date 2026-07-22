@@ -158,7 +158,7 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
         nickname: b.data.nickname,
         phone: b.data.phone,
         email: b.data.email,
-        passwordHash: bcrypt.hashSync(b.data.password, 10),
+        passwordHash: await bcrypt.hash(b.data.password, 10),
         roleId: b.data.roleId ?? 0,
         status: b.data.status ?? 1,
         level: b.data.level ?? 0,
