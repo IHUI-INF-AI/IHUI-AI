@@ -20,6 +20,8 @@ type Provider = {
   mono?: boolean
   /** 未配置时禁用（仅 google 需要后端配置探测） */
   needsBackendConfig?: boolean
+  /** 强制禁用（始终不可用，如 Apple 登录尚未上线） */
+  forceDisabled?: boolean
 }
 
 /**
@@ -106,7 +108,6 @@ export function ThirdPartyLoginButtons() {
       icon: '/images/oauth-providers/google.svg',
       needsBackendConfig: true,
     },
-    { key: 'apple', label: t('appleLogin'), icon: '/images/oauth-providers/apple.svg', mono: true },
     { key: 'dingtalk', label: t('dingtalkLogin'), icon: '/images/oauth-providers/dingtalk.svg' },
     {
       key: 'enterpriseWechat',
@@ -122,6 +123,13 @@ export function ThirdPartyLoginButtons() {
     },
     { key: 'feishu', label: t('feishuLogin'), icon: '/images/loginSANFANG/feishu.png' },
     { key: 'alipay', label: t('alipayLogin'), icon: '/images/oauth-providers/alipay.svg' },
+    {
+      key: 'apple',
+      label: t('appleLogin'),
+      icon: '/images/oauth-providers/apple.svg',
+      mono: true,
+      forceDisabled: true,
+    },
   ]
 
   const handleProviderClick = (platform: ThirdPartyPlatform) => {
@@ -138,16 +146,20 @@ export function ThirdPartyLoginButtons() {
         {providers.map((p) => {
           const googleDisabled = p.needsBackendConfig && googleConfigured === false
           const platformDisabled = !isPlatformEnabled(p.key)
-          const disabled = googleDisabled || platformDisabled || handlingCallback
+          const disabled = p.forceDisabled || googleDisabled || platformDisabled || handlingCallback
           const isBusy = isLoading && currentPlatform === p.key
-          const tooltipContent =
-            googleDisabled || platformDisabled ? t('googleNotConfigured') : undefined
+          const tooltipContent = p.forceDisabled
+            ? t('appleComingSoon')
+            : googleDisabled || platformDisabled
+              ? t('googleNotConfigured')
+              : undefined
           const button = (
             <Button
               type="button"
               variant="outline"
               disabled={disabled}
               onClick={() => handleProviderClick(p.key)}
+              className={cn(p.forceDisabled && 'grayscale opacity-50')}
             >
               {isBusy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
