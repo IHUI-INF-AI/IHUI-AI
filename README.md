@@ -39,6 +39,14 @@
   </sub>
 </p>
 
+<p align="center">
+  <strong>国内镜像</strong> ·
+  <a href="https://gitee.com/IHUI-INF-AI/IHUI-AI">Gitee</a> ·
+  <a href="https://gitcode.com/IHUI-INF-AI/IHUI-AI">GitCode</a>
+  <br/>
+  <sub>国内用户克隆/下载更快，与 GitHub 自动同步</sub>
+</p>
+
 ---
 
 ## 技术栈与项目规模速览(AI 检索友好)
@@ -53,7 +61,7 @@
 | **Monorepo** | pnpm 9.15 workspace + Turborepo 2.3 + 13 共享包(@ihui/auth / database / types / ui 等) |
 | **多端实现** | 8 端**独立代码**(非"一套代码编译适配"),各端完成度详见[项目状态矩阵](#项目状态矩阵) |
 | **代码规模** | 8 端代码 / 100+ schema 文件 / **339+ 数据库表**(实测 339 张 pgTable)/ 128+ 迁移 / **1168+ API 端点**(实测 grep)/ 200+ Web 页面 / 13 共享包 / 5 语言 i18n parity |
-| **工程守门** | **21 pre-commit 钩子**(实测,见 [.husky/pre-commit](./.husky/pre-commit))+ post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动 |
+| **工程守门** | **22 pre-commit 钩子**(实测,见 [.husky/pre-commit](./.husky/pre-commit))+ post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动 |
 | **测试覆盖** | **237 API 测试 + 63 e2e spec**(实测,见 [apps/api/tests/](./apps/api/tests/) + [apps/web/e2e/](./apps/web/e2e/))+ pytest(AI 服务)+ Locust 压测 + Lighthouse 性能 |
 | **可观测性** | Prometheus + Grafana(**20 仪表盘**实测,见 [monitoring/grafana/dashboards/](./monitoring/grafana/dashboards/))+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager |
 | **AI 编排** | LangGraph 真接入(21 文件使用:`langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`),不是"接入级编排" |
@@ -158,7 +166,7 @@ IHUI-AI 的定位由"用户价值 → 产品形态 → 技术护城河"三层金
    第 3 层       │  技术护城河(How)                                 │
    技术护城河    │  • 8 端 / 339+ 表 / 128+ 迁移 / 1168+ API 端点    │
    (How)        │  • LangGraph + MCP + A2A 三栈协同                 │
-                 │  • 13 共享包 / 21 pre-commit 守门 / 5 语言 i18n   │
+                 │  • 13 共享包 / 22 pre-commit 守门 / 5 语言 i18n   │
                  │  • 三支柱可观测性 + 20 Grafana 仪表盘             │
                  │  • 企业级安全栈(RBAC + RLS + SSO + AES-256-GCM)  │
                  │  • Apache 2.0 License,商用零限制                │
@@ -175,7 +183,7 @@ IHUI-AI 的定位由"用户价值 → 产品形态 → 技术护城河"三层金
 | **目标用户**  | 个人开发者(私有 AI 助手)/ 中小企业(AI 中台)/ AI 服务商(商业产品)/ 教育机构(AI 教学全栈)/ 内容创作者(14 平台发布)/ 企业决策者(企业级 AI 平台)                       |
 | **License**   | Apache 2.0(商用友好,无传染性,允许闭源商用,无任何 copyleft 约束)                                                                                                |
 | **部署模式**  | 完全自托管,Docker Compose 一键启动 14 服务,数据 100% 主权,凭证 AES-256-GCM 加密,不被任何大厂窥探                                                                   |
-| **代码规模**  | 8 端代码 / 100+ schema 文件 / 339+ 数据库表 / 128+ 迁移 / 1168+ API 端点 / 200+ Web 页面 / 13 共享包 / 21 pre-commit 守门 / 5 语言 i18n parity                         |
+| **代码规模**  | 8 端代码 / 100+ schema 文件 / 339+ 数据库表 / 128+ 迁移 / 1168+ API 端点 / 200+ Web 页面 / 13 共享包 / 22 pre-commit 守门 / 5 语言 i18n parity                         |
 | **替代价值**  | 替代 Stripe($84/月)+ Auth0($35/月)+ Mailgun($35/月)+ Mixpanel($20/月)+ Dify($59/月)+ Claude Code($20/月)+ 蚁客($50/月)≈ $303/月,IHUI-AI 自托管 $0/月             |
 
 ### IHUI-AI 不是什么
@@ -328,7 +336,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | 对象存储        | OSS 多厂商驱动 / 凭证加密 / 分块上传 / 文件版本 / chunked-upload                                            |
 |                   | 邮件短信        | SMTP / 短信网关 / 邮件模板 / 验证码 / mail + message-templates                                              |
 |                   | 国际化          | 5 语言 parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n 工具链 + 4 守门脚本                                    |
-|                   | 工程守门        | 21 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动                                |
+|                   | 工程守门        | 22 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动                                |
 |                   | 测试覆盖        | 268 + 400+ 用例 / Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能                              |
 |                   | 部署运维        | Docker Compose(14 服务)/ 蓝绿部署 / Nginx upstream 切换 / 健康检查 / 回滚 / 备份 / 证书续期 cron            |
 |                   | 性能 CI         | Knip 未使用代码检测 + Lighthouse CI 性能预算 + GitHub Act 本地 CI                                           |
@@ -348,7 +356,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 | **企业级安全**       | RBAC + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时                                 | 决策者级风险控制                |
 | **数据加密**         | AES-256-GCM(credentials 加密)+ JWT token-family 旋转 + refresh 黑名单                        | 金融级数据保护                  |
 | **可观测性**         | Prometheus + Grafana(**20 仪表盘**)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager | 全链路指标 / 日志 / 追踪 / 告警 |
-| **工程守门**         | 21 pre-commit + post-commit 自动 push + git-push-guard + 11 迁移审计                         | 杜绝协作事故,99.9% SLA          |
+| **工程守门**         | 22 pre-commit + post-commit 自动 push + git-push-guard + 11 迁移审计                         | 杜绝协作事故,99.9% SLA          |
 | **国际化**           | zh-CN / zh-TW / en / ko / ja 5 语言 parity + 19 i18n 工具链                                  | 5 语言键集合强一致性            |
 | **数据库**           | **339+ 表 + 128+ 迁移** + 100 schema 文件 + Drizzle ORM + RLS + 租户路由 + pgvector         | 单库 PostgreSQL 15,schema 隔离  |
 | **API 规模**         | 1168+ 端点(api 1080 + ai-service 55)+ 12 WebSocket + 95+ 路由文件                            | 远超源项目 331 端点             |
@@ -883,7 +891,7 @@ IHUI-AI/
 
 **品牌翻译策略**:优先官方英文名(智谱清言 → Zhipu AI,百度文心 → Baidu ERNIE,火山引擎 → Volcengine 等),机器可读映射表见 `scripts/brand-glossary.json`。
 
-#### E4. 工程守门(21 pre-commit + post-commit + 11 迁移审计)
+#### E4. 工程守门(22 pre-commit + post-commit + 11 迁移审计)
 
 项目通过 21 个 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计脚本杜绝协作事故:
 
@@ -1213,7 +1221,7 @@ pnpm turbo build typecheck lint test
 
 1. **写代码前**:AGENTS.md 21 节强制规则 + §11 多 Subagent 并行开发任务分配格式 + §9 全端连通强制
 2. **写代码中**:§17 样式改动强制 browser_use 验证 + §19 UI 改动交付前自验 4 状态截图 + §14 Agent 自主验证
-3. **写代码后**:`pnpm turbo build typecheck lint test` 全量验证 + 21 pre-commit 钩子 + pre-push typecheck 闸门 + post-commit 自动 push + git-push-guard 验证
+3. **写代码后**:`pnpm turbo build typecheck lint test` 全量验证 + 22 pre-commit 钩子 + pre-push typecheck 闸门 + post-commit 自动 push + git-push-guard 验证
 
 ### AI 生成代码的针对性反制
 
@@ -1224,7 +1232,7 @@ pnpm turbo build typecheck lint test
 | 业务逻辑断裂 | 业务流程集成测试(`test_business_flow_integration.py`)+ saga 事务模式 + outbox 事务发件箱 |
 | 类型安全漏洞 | TypeScript strict + Zod 端到端校验 + @ihui/types 跨端契约 |
 | 文档与代码 drift | §13 文件修改持久化强制 Read 验证 + check-project-plan-archive 守门 |
-| 风格不一致 | ESLint + Prettier + 21 pre-commit 钩子 + check-rounded-full / check-i18n-keys / check-api-routes 等 |
+| 风格不一致 | ESLint + Prettier + 22 pre-commit 钩子 + check-rounded-full / check-i18n-keys / check-api-routes 等 |
 | 协作事故 | §12 多会话并行规则 + §16 push 阶段跨 Agent 改动保护 + git-push-guard + post-commit 自动 push |
 
 ### 客观承认的不足
@@ -1496,7 +1504,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - BI 仪表盘 + 错误仪表盘 + 灰度发布 + i18n 仪表盘
 - 5 语言 i18n parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n 工具链 + 4 守门
 - 全栈可观测性(Prometheus + Grafana 20 仪表盘 + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager)
-- 21 pre-commit 守门 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动
+- 22 pre-commit 守门 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动
 - 企业级安全(RBAC + 多租户 + RLS + SSO + AES-256-GCM + JWT token-family + CSRF + XSS + GDPR + 2FA)
 - 339+ 数据库表 + 128+ 迁移 + 13 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
 
@@ -1528,11 +1536,12 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **P1 四件套**:① IM 平台 gateway(飞书/企业微信/Discord/Telegram adapter,对标 Hermes 25+ 平台)② 多 Agent 协商/辩论(debate 模式 + 角色间协商/投票)③ MCP Sampling 反向调用(5 层护栏:速率/白名单/轮次/超时/审计 + `mcp serve` 反向暴露给 Claude Code)④ Skill 跨端共享(api `/api/skills` 作中枢,ai-service 6 静态 skill 与 cli 四级目录同步)
 - **P2 四件套**:① 沙箱后端扩展(Local/Docker/SSH/Modal/Daytona/Singularity 6 种,对标 Hermes)② provider 扩展(13 → 30+,MoA presets + Fallback Providers + Credential Pools)③ 多模态输入(图像/视频输入处理 vision_analyze)④ 可观测性闭环(端到端 trace,补 CLI/api/desktop/extension 端埋点)
 - **P3 三大核心壁垒深度层(真正超越 Hermes)**:
-  - **P3-1 记忆系统深度层**:pgvector 向量 + FTS5 全文双引擎 + 自动记忆提取(从对话流提取偏好/决策/事实)+ 衰减遗忘(时间 + 访问频率)+ 用户画像建模(5 维度聚合)
-  - **P3-2 自进化闭环深度层**:Skill 生成后自动测试(跑测试用例验证有效性)+ 使用反馈追踪(使用次数 + 成功率 + 满意度)+ 基于反馈迭代优化(v1→v2→v3)+ 评分系统
-  - **P3-3 调度系统深度层**:任务自动分解(LLM 分解 + DAG 拓扑排序 + 并行批次)+ agent 通信机制(消息队列 + 共享黑板)+ 调度算法(能力匹配 + 负载均衡 + 优先级)+ 失败重试 + 故障转移
+  - **P3-1 记忆系统深度层**:pgvector 向量 + FTS5 全文双引擎 + 自动记忆提取(从对话流提取偏好/决策/事实)+ 衰减遗忘(时间 + 访问频率)+ 用户画像建模(5 维度聚合)+ **向量持久化**(JSON 原子写 + 异步 + hydrate 启动加载)+ **纯本地降级**(api 服务不可用时从 VectorMemoryStore.list_entries 拉取,userId+scope 过滤,闭环不中断)
+  - **P3-2 自进化闭环深度层**:Skill 生成后自动测试(跑测试用例验证有效性)+ 使用反馈追踪(使用次数 + 成功率 + 满意度)+ 基于反馈迭代优化(v1→v2→v3,semver minor+1)+ 评分系统 + **质量门**(通过率 <0.6 拒绝落盘)+ **LLM 输出解析三层容错**(markdown 代码块剥离 + 裸换行符转义 + 兜底默认不迭代)
+  - **P3-3 调度系统深度层**:任务自动分解(LLM 分解 + DAG 拓扑排序 + 并行批次)+ agent 通信机制(消息队列 + 共享黑板)+ 调度算法(能力匹配 + 负载均衡 + 优先级 + 轮询 4 策略)+ 失败重试(fixed/linear/exponential 3 退避)+ 故障转移(LLM 质量评估触发)+ **API 路由暴露**(`POST /agent/decompose` 任务分解 + `POST /agent/run-decomposed` 端到端分解式执行)
   - **P3-4 沙箱 6 后端完整实现**:Modal 无服务器 + Daytona 云开发 + Singularity HPC 集群
   - **P3-5 IM 渠道扩展**:8 → 16 平台(新增 WhatsApp / LINE / KakaoTalk / Signal / Matrix / Rocket.Chat / Mattermost / Zulip)
+  - **真实 LLM 端到端验证(2026-07-22)**:stepfun/step-3.7-flash 真实调用三大壁垒闭环全跑通 — 记忆提取 6 条 + 向量持久化 18235B / Skill 生成 passRate=1.0 + iterate 正确解析 LLM 反馈 / 任务分解 7 子任务 6 批 + 端到端 10 步执行完成,总耗时 ~7 分钟无 API 错误
 - 跨端:packages/types 契约层扩展 ~470 行 P3 类型
 
 #### 4. 深度鲁棒性加固 P0+P1+P2 全量 85 项(/goal 模式)
@@ -1864,7 +1873,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 | **数据库**          | 339+ 表 + 100 schema 文件 + 128+ 迁移 + RLS + 多租户路由 + pgvector + 知识图谱                          | 通常 1 个 DBA + 2-3 个后端      |
 | **API 规模**        | 1168+ 端点 + 12 WebSocket + 95+ 路由文件                                                               | 通常 5-8 个后端工程师           |
 | **前端规模**        | 200+ 页面 + 5 语言 i18n parity + 暗黑模式 + PWA + SEO                                                  | 通常 4-6 个前端工程师           |
-| **工程守门**        | 21 pre-commit + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动                                | 通常 1-2 个 DevOps 工程师       |
+| **工程守门**        | 22 pre-commit + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动                                | 通常 1-2 个 DevOps 工程师       |
 | **可观测性**        | Prometheus + Grafana(20 仪表盘)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager               | 通常 1-2 个 SRE 工程师          |
 | **业务模块**        | 14 平台一键发布 + AI 教育全栈 + 完整计费交易闭环 + 智能体市场 + 社区互动 + 运营增长 + 客服 + BI 仪表盘 | 通常 30-50 人的产品研发团队     |
 
