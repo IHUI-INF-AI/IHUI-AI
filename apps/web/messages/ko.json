@@ -656,6 +656,7 @@
     "usernameExists": "사용자명이 이미 존재합니다",
     "dingtalkLogin": "딩톡",
     "appleLogin": "애플",
+    "appleComingSoon": "Apple 로그인 곧 출시 예정",
     "githubLogin": "깃허브",
     "feishuLogin": "페이슈",
     "qrLogin": "QR코드 로그인",
