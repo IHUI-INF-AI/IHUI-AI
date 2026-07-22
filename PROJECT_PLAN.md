@@ -734,8 +734,11 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 **验证**:
 - `@tailwindcss/vite` + `tailwindcss` 已安装到 `apps/extension/node_modules/` ✅(pnpm install 成功)
 - test:**100/100 全绿**(9 测试文件,vitest run)
-- typecheck/build:⚠️ 因预存 `browser-tab.ts` 缺 default export bug(其他 agent commit `559e98cf1` 引入,`wxt prepare` 在 entrypoint 导入阶段失败,`.wxt/tsconfig.json` 无法生成)无法验证;本任务改动文件均通过 Read 验证语法正确;`wxt.config.ts` 的 `@tailwindcss/vite` import 与现有 `wxt/browser` import 是同一 moduleResolution 问题,非新引入错误
-- 按 AGENTS.md §12,不修改其他 agent 代码,预存 bug 由引入方修复
+- typecheck:**从 20+ 错误降到 1 个**(仅剩 `content.ts` 的 `exclude_matches` 预存拼写错误,非本任务引入)
+- wxt prepare:**成功** ✅(生成 .wxt/tsconfig.json)
+- wxt build:**成功** ✅(生成完整 extension:popup.html + sidepanel.html + background.js + content.js + **Tailwind CSS 18.03 kB**)
+- CSS token 验证:编译产物 `style-*.css` 包含 `--color-background` / `--color-primary` / `--text-vcenter-offset` / `.dark` / `HarmonyOS Sans SC` ✅
+- 阻塞修复:`browser-tab.ts` 从 `entrypoints/` 移到 `lib/`(它是工具模块非 entrypoint,缺 default export 导致 wxt 失败)+ 创建 `popup/index.html` + `sidepanel/index.html`(WXT HTML 入口文件,之前缺失导致 popup/sidepanel 未被构建)
 
 ### [x] ✅(2026-07-22) 深度鲁棒性加固 P0+P1+P2 — 85/85 完美收官,STATE.md=achieved;P2 Batch 3(11 项 eslint/tsconfig 严格化)已补齐(2026-07-22 立,/goal 模式)
 
