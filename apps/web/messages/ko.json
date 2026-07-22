@@ -28438,7 +28438,9 @@
       "title": "모델 리더보드 · Arena 점수",
       "subtitle": "참조: arena.ai · Elo + Bootstrap CI",
       "empty": "랭킹 데이터 없음",
-      "sortHint": "헤더 클릭하여 정렬"
+      "sortHint": "헤더 클릭하여 정렬",
+      "searchPlaceholder": "모델/벤더 검색…",
+      "allVendors": "전체 벤더"
     },
     "hero": {
       "label": "AI 뉴스 Hero",
@@ -28546,7 +28548,13 @@
       "copyBaseUrl": "Base URL 복사",
       "baseUrlCopied": "Base URL이 클립보드에 복사되었습니다",
       "copyFailed": "복사 실패, 수동으로 복사해주세요",
-      "copyAndImport": "복사 후 가져오기"
+      "copyAndImport": "복사 후 가져오기",
+      "tagLongContext": "롱 컨텍스트",
+      "tagLargeOutput": "대용량 출력",
+      "tagLowCost": "저비용",
+      "tagHighWinRate": "고승률",
+      "tagTopTier": "최상위 모델",
+      "tagMultimodal": "멀티모달"
     },
     "apiRelays": {
       "title": "API 릴레이",
@@ -28565,7 +28573,10 @@
       "billingToken": "토큰당",
       "billingFree": "무료 한도",
       "billingGpu": "GPU 시간",
-      "billingSubscription": "구독제"
+      "billingSubscription": "구독제",
+      "sortLabel": "정렬",
+      "sortByName": "이름순",
+      "sortByBilling": "과금순"
     },
     "cta": {
       "label": "하단 CTA",

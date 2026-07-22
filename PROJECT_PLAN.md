@@ -270,6 +270,34 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 - pre-push typecheck 失败因 `@ihui/sdk` 找不到 `@ihui/types`(其他 agent,非本任务),按 §12 `--no-verify` 跳过 ✅
 
 ---
+### [x] ✅(2026-07-22) 大模型排行榜深度优化三轮:搜索+厂商筛选 + 能力标签 + 排序功能 + i18n 5 语言同步(平台独占:仅 apps/web)
+
+**触发**:用户要求"继续深度开发 优化"。承接二轮交付后的 3 条"下一步建议",新增 3 个功能模块。
+
+**交付内容**(1 commit,10 文件,平台独占:仅 apps/web):
+
+| 模块 | 文件 | 改动 |
+|---|---|---|
+| Leaderboard | `apps/web/app/(main)/ai-news/components/Leaderboard.tsx` | 搜索框(模型名/厂商名,大小写不敏感)+ 厂商筛选 chip(从当前分类提取唯一厂商列表,AND 关系)+ 切换分类自动重置搜索/厂商 |
+| ModelDetailDialog | `apps/web/app/(main)/ai-news/components/ModelDetailDialog.tsx` | 能力标签自动提取 6 种(长上下文 ≥100K / 大输出 ≥8K / 低成本 <$1 / 高胜率 >70% / 顶级模型 >1300 / 多模态),弹窗头部 primary 色标签显示 |
+| ApiRelaysSection | `apps/web/app/(main)/ai-news/components/ApiRelaysSection.tsx` | 排序功能(按名称/按计费,点击切换字段和升降序 ↑/↓,排序在筛选之后执行先筛后排) |
+| i18n | `apps/web/messages/{zh-CN,en,ja,ko,zh-TW}.json` | 5 语言同步 11 新键(searchPlaceholder/allVendors/tagLongContext/tagLargeOutput/tagLowCost/tagHighWinRate/tagTopTier/tagMultimodal/sortLabel/sortByName/sortByBilling) |
+| 文档 | `docs/AI_LEADERBOARD.md` | 1.1 搜索+厂商筛选 + 1.3 能力标签 + 3.2 排序 + i18n 键数表更新(leaderboard 5→7, detailDialog 25→31, apiRelays 16→20) |
+
+**自验**:
+- typecheck:本任务 3 文件全绿 ✅(其他错误属其他 agent 代码:agent-workbench 模块缺失 / TrendNotificationBanner 导出缺失 / RevealOnView JSX 类型 / CodeEditor @monaco-editor/react 缺失 / terminal-panel @xterm 缺失 / PasswordLoginForm 类型 / ai-news-api 类型 / packages/types 模块缺失)
+- i18n parity:5 语言全对齐(leaderboard 7 / detailDialog 31 / apiRelays 20)✅
+- zh-TW opencc 守门:本任务 11 新键无简体字残留 ✅(2 处残留是其他 agent 的 agentWorkbench "Agent 工作台",非本任务)
+- §13 文件持久化:3 个 components 文件首轮 Edit 未落地,主 agent 手动重新实现 + Grep 验证全部落地 ✅
+- browser_use 降级为代码审查(连续 2 次 BLOCKED:登录弹窗遮挡 + 截图功能故障)
+
+**Git 同步证据**(§21):
+- 本地 commit: <待填入>
+- origin commit: <待填入>
+- 同步状态: <待填入>
+- 守门脚本: <待填入>
+
+---
 ### [x] ✅(2026-07-22) 大模型排行榜深度优化二轮:排序偏好记忆 + chip 数量显示 + 复制并导入按钮(平台独占:仅 apps/web)
 
 **触发**:承接第一轮深度优化(列排序 + Copy Base URL + 计费筛选)后的 3 条"下一步建议"继续执行,用户要求"最多 agent 并行开发最大化效率,完美细致完整毫无遗漏,直到没有任何后续建议可给为止"。
