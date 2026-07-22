@@ -3,7 +3,10 @@
 import * as React from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { useTheme } from 'next-themes'
+import Link from 'next/link'
+import { KeyRound } from 'lucide-react'
 
+import { Card, CardContent } from '@ihui/ui'
 import { Container } from '@/components/layout'
 import { Alert } from '@/components/feedback'
 import {
@@ -20,8 +23,7 @@ import { ThemeCard } from './ThemeCard'
 import { LanguageCard } from './LanguageCard'
 import { SidebarCard } from './SidebarCard'
 import { MiniappQrCard } from './MiniappQrCard'
-import { SubPageGrid } from './SubPageGrid'
-import { SIDEBAR_KEY } from './helpers'
+import { SIDEBAR_KEY, SUB_PAGES } from './helpers'
 
 export default function SettingsPage() {
   const t = useTranslations('settings')
@@ -74,7 +76,39 @@ export default function SettingsPage() {
       <div className="space-y-2 pt-2">
         <h2 className="text-lg font-semibold tracking-tight">{t('subPagesTitle')}</h2>
       </div>
-      <SubPageGrid t={t} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Link href="/settings/api-keys">
+          <Card className="transition-colors hover:bg-accent">
+            <CardContent className="flex items-start gap-3 p-4">
+              <div className="rounded-lg bg-muted p-2">
+                <KeyRound className="h-4 w-4" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">API 密钥</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">管理开发者 API 密钥</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        {SUB_PAGES.map((item) => {
+          const Icon = item.icon
+          return (
+            <Link key={item.href} href={item.href}>
+              <Card className="transition-colors hover:bg-accent">
+                <CardContent className="flex items-start gap-3 p-4">
+                  <div className="rounded-lg bg-muted p-2">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{t(item.titleKey)}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{t(item.descKey)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          )
+        })}
+      </div>
     </Container>
   )
 }
