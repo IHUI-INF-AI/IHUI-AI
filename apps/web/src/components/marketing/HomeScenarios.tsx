@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { BookOpen, Lightbulb, Target, TrendingUp, Zap, type LucideIcon } from 'lucide-react'
+import { RevealOnView } from '@/components/common'
 
 /**
  * 第 3 页:5 大决策者场景 — 痛点 → 解决 → 收益
@@ -13,6 +14,8 @@ import { BookOpen, Lightbulb, Target, TrendingUp, Zap, type LucideIcon } from 'l
  * - 后续如果再扩展场景(从 5 → 6/7)无需重构,直接扩 SCENARIO_KEYS 即可
  *
  * 让决策者一眼看到 5 大场景:降本 / 提效 / 学习 / 创新 / 决策,每个有具体收益。
+ *
+ * 2026-07-23 改:卡片入场 staggered + hover 上浮 + 图标弹动。
  */
 
 interface ScenarioItem {
@@ -44,7 +47,7 @@ export function HomeScenarios() {
 
   return (
     <section className="space-y-5">
-      <div className="space-y-2 text-center">
+      <RevealOnView as="div" className="space-y-2 text-center">
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('title')}</h2>
         <h3 className="font-edix text-xs uppercase tracking-wider text-muted-foreground">
           {t('titleEn')}
@@ -52,16 +55,17 @@ export function HomeScenarios() {
         <p className="mx-auto max-w-3xl text-sm text-muted-foreground sm:text-base">
           {t('subtitle')}
         </p>
-      </div>
+      </RevealOnView>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-5">
-        {scenarios.map(({ icon: Icon, title, painPoint, description, benefit }) => (
-          <div
+        {scenarios.map(({ icon: Icon, title, painPoint, description, benefit }, i) => (
+          <RevealOnView
             key={title}
-            className="flex flex-col gap-2 rounded-lg border bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-primary/5 sm:p-5"
+            delay={0.05 * (i + 1)}
+            className="group flex flex-col gap-2 rounded-lg border bg-card p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md sm:p-5"
           >
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-transform duration-300 group-hover:scale-110">
                 <Icon className="h-4 w-4" aria-hidden="true" />
               </div>
               <h3 className="text-sm font-semibold leading-tight sm:text-base">{title}</h3>
@@ -73,7 +77,7 @@ export function HomeScenarios() {
             <p className="rounded bg-primary/5 px-2 py-1.5 text-xs font-medium text-primary sm:text-sm">
               {benefit}
             </p>
-          </div>
+          </RevealOnView>
         ))}
       </div>
     </section>
