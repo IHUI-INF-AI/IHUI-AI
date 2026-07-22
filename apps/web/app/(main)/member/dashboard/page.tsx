@@ -72,7 +72,7 @@ export default function MemberDashboardPage() {
       labelKey: 'points' as const,
       value: summary.points ?? 0,
       icon: Coins,
-      href: '/member/points',
+      href: '/points',
       cls: 'text-emerald-600 dark:text-emerald-400',
     },
     {
@@ -86,7 +86,7 @@ export default function MemberDashboardPage() {
       labelKey: 'orders' as const,
       value: summary.orderCount ?? 0,
       icon: ShoppingBag,
-      href: '/member/orders',
+      href: '/orders',
       cls: 'text-teal-600 dark:text-teal-400',
     },
   ]
@@ -130,7 +130,7 @@ export default function MemberDashboardPage() {
               </span>
             </span>
             <Link
-              href="/member/upgrade"
+              href="/vip"
               className="text-amber-600 hover:underline dark:text-amber-400"
             >
               {t('renew')}
@@ -144,7 +144,7 @@ export default function MemberDashboardPage() {
           <div className="flex items-center justify-between border-b px-4 py-2.5">
             <h2 className="text-sm font-semibold">{t('recentOrders')}</h2>
             <Link
-              href="/member/orders"
+              href="/orders"
               className="inline-flex items-center text-xs text-muted-foreground hover:text-foreground"
             >
               {t('viewAll')}
