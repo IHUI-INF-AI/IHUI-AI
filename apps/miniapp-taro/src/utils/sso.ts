@@ -35,7 +35,7 @@ export function clearSsoCode(): void {
 }
 
 export function getSsoLoginUrl(redirectUri: string): string {
-  const webBase = process.env.TARO_APP_WEB_URL || 'http://localhost:3001'
+  const webBase = process.env.TARO_APP_WEB_URL || 'http://localhost:8801'
   const params = new URLSearchParams({
     redirect: redirectUri,
     client_id: SSO_CLIENT_ID,
