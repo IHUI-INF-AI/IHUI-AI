@@ -35,7 +35,7 @@
 
 文件:`apps/web/app/(main)/ai-news/components/vendor-platforms.ts`
 
-覆盖 39 个厂商:Anthropic / OpenAI / Google / Meta / Moonshot / Alibaba / Z.ai / MiniMax / Bytedance / SpaceXAI / Microsoft / ElevenLabs / Voyage AI / Cohere / BAAI / Reve / Alibaba-ATH / DeepSeek / Baichuan / SenseTime(商汤) / Kunlun(昆仑万维) / Tencent(腾讯混元) / Huawei(华为云盘古) / Mistral / 01.AI(零一万物) / StepFun(阶跃星辰) / Perplexity / Groq / Cerebras / Lambda Labs / Modal / Baseten / RunPod / Lepton / **OpenRouter** / **Together AI** / **Fireworks AI** / **SiliconFlow**(聚合平台 4 家)
+覆盖 43 个厂商:Anthropic / OpenAI / Google / Meta / Moonshot / Alibaba / Z.ai / MiniMax / Bytedance / SpaceXAI / Microsoft / ElevenLabs / Voyage AI / Cohere / BAAI / Reve / Alibaba-ATH / DeepSeek / Baichuan / SenseTime(商汤) / Kunlun(昆仑万维) / Tencent(腾讯混元) / Huawei(华为云盘古) / Mistral / 01.AI(零一万物) / StepFun(阶跃星辰) / Perplexity / Groq / Cerebras / Lambda Labs / Modal / Baseten / RunPod / Lepton / OpenRouter / Together AI / Fireworks AI / SiliconFlow(聚合平台 4 家)/ **Baidu ERNIE**(百度文心)/ **iFlytek Spark**(科大讯飞星火)/ **360 Zhinao**(360 智脑)/ **NetEase Youdao**(网易有道子曰)
 
 每个厂商映射:
 - `officialKeyUrl`:官方 API Key 申请地址
@@ -87,6 +87,9 @@
 | **MonsterAPI** | https://monsterapi.ai/ | 海外开源模型聚合,主打生图 + LLM,支持模型微调 | 按 token,送新用户免费额度,支持按月套餐 |
 | **Chub AI** | https://chub.ai/ | 海外聚合平台,支持角色扮演 / 对话类模型 | 按 token,提供免费试用额度,支持按月套餐 |
 | **FallAI** | https://fallai.ai/ | 海外开源模型聚合,主打低延迟推理,支持流式输出 | 按 token,提供免费试用额度,送新用户额度 |
+| **AutoDL** | https://www.autodl.com/ | 国内 GPU 算力租用平台,按小时计费租卡 + 模型部署 | 按 GPU 时长(元/小时),送新用户代金券,支持包日/周/月 |
+| **矩池云 Matpool** | https://matpool.com/ | 国内 GPU 算力租用平台,主打学生 / 学术优惠 | 按 GPU 时长(元/小时),学生认证更优惠,送新用户额度 |
+| **极客云 GeekCloud** | https://www.geekyun.com/ | 国内 GPU 算力租用平台,主流 GPU 型号,按需 + 长期租赁 | 按 GPU 时长(元/小时),送新用户代金券,支持包日/月套餐 |
 
 每个中转站卡片有「导入」按钮,点击后跳转到 `/settings/llm?prefill=`,预填 `providerCode=openai` + `baseUrlOverride=<中转站 baseUrl>` + `name=<中转站名> 中转`。
 
