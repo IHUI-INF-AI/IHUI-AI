@@ -11,6 +11,7 @@ import type { ToolCall } from '@/stores/chat'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useAiPanelStore } from '@/stores/ai-panel'
+import { useModeStore } from '@/stores/mode'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { useApplyDiff } from '@/hooks/use-apply-diff'
 import { createConversation, sendMessage as persistMessage, persistQuestion } from '@/lib/chat-api'
@@ -597,6 +598,8 @@ export function useChat(): UseChatReturn {
             userId,
             messageId: assistantId,
           },
+          // 模式透传(2026-07-22 立,对标 Trae Plan/Spec):build/plan/review/spec
+          extraBody: { mode: useModeStore.getState().currentMode },
           workspacePath,
           // 跨端统一 88% 阈值自动压缩:从模型 ID 推断 contextLimit,API 端调用共享包压缩
           contextLimit: getModelContextCapacity(model),
@@ -750,7 +753,12 @@ export function useChat(): UseChatReturn {
         model,
         messages: history,
         path: '/ai/chat/answer',
-        extraBody: { questionId: pending.questionId, answer: trimmed },
+        extraBody: {
+          questionId: pending.questionId,
+          answer: trimmed,
+          // 模式透传(2026-07-22 立,对标 Trae Plan/Spec):build/plan/review/spec
+          mode: useModeStore.getState().currentMode,
+        },
         signal: controller.signal,
         metadata: {
           conversationId: store.conversationId ?? undefined,
