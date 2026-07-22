@@ -8,44 +8,33 @@ import { X, TrendingUp, TrendingDown, Minus, ExternalLink, Zap, Copy } from 'luc
 import type { LeaderboardEntry } from '@/lib/ai-news-api'
 import { CapabilityRadar } from './CapabilityRadar'
 import { getVendorPlatform, encodePrefill } from './vendor-platforms'
+import { parseNumeric, highlight, CAPABILITY_THRESHOLDS } from './text-utils'
 
 interface Props {
   entry: LeaderboardEntry
   open: boolean
   onClose: () => void
+  /** 搜索关键词(可选):从 Leaderboard 搜索后打开弹窗时传入,高亮模型名/厂商名 */
+  searchQuery?: string
 }
 
-/** 简化版数值解析:支持 "128K" / "1.5M" 后缀 */
-function parseNum(raw: string | number | null | undefined): number | null {
-  if (raw === null || raw === undefined || raw === '') return null
-  if (typeof raw === 'number') return raw
-  const s = String(raw).trim().toLowerCase()
-  const m = s.match(/([\d.]+)\s*([km])?/)
-  if (!m || !m[1]) return null
-  const n = parseFloat(m[1])
-  if (isNaN(n)) return null
-  if (m[2] === 'k') return n * 1_000
-  if (m[2] === 'm') return n * 1_000_000
-  return n
-}
-
-/** 从模型数据自动提取能力标签 */
+/** 从模型数据自动提取能力标签(阈值引用 CAPABILITY_THRESHOLDS 配置常量) */
 function extractCapabilityTags(entry: LeaderboardEntry): Array<{ key: string; label: string }> {
   const tags: Array<{ key: string; label: string }> = []
-  const ctx = parseNum(entry.contextWindow)
-  if (ctx !== null && ctx >= 100_000) tags.push({ key: 'tagLongContext', label: 'tagLongContext' })
-  const out = parseNum(entry.maxOutput)
-  if (out !== null && out >= 8_000) tags.push({ key: 'tagLargeOutput', label: 'tagLargeOutput' })
-  const inPrice = parseNum(entry.inputPrice)
-  if (inPrice !== null && inPrice < 1) tags.push({ key: 'tagLowCost', label: 'tagLowCost' })
-  if (entry.winRate !== null && entry.winRate > 70) tags.push({ key: 'tagHighWinRate', label: 'tagHighWinRate' })
-  if (entry.arenaScore !== null && entry.arenaScore > 1300) tags.push({ key: 'tagTopTier', label: 'tagTopTier' })
+  const ctx = parseNumeric(entry.contextWindow)
+  if (ctx !== null && ctx >= CAPABILITY_THRESHOLDS.longContext) tags.push({ key: 'tagLongContext', label: 'tagLongContext' })
+  const out = parseNumeric(entry.maxOutput)
+  if (out !== null && out >= CAPABILITY_THRESHOLDS.largeOutput) tags.push({ key: 'tagLargeOutput', label: 'tagLargeOutput' })
+  const inPrice = parseNumeric(entry.inputPrice)
+  if (inPrice !== null && inPrice < CAPABILITY_THRESHOLDS.lowCost) tags.push({ key: 'tagLowCost', label: 'tagLowCost' })
+  if (entry.winRate !== null && entry.winRate > CAPABILITY_THRESHOLDS.highWinRate) tags.push({ key: 'tagHighWinRate', label: 'tagHighWinRate' })
+  if (entry.arenaScore !== null && entry.arenaScore > CAPABILITY_THRESHOLDS.topTier) tags.push({ key: 'tagTopTier', label: 'tagTopTier' })
   if (entry.category === 'multimodal') tags.push({ key: 'tagMultimodal', label: 'tagMultimodal' })
   return tags
 }
 
 /** 模型详情弹窗:评分 + 核心参数 + 能力雷达图 + 官方 Key + 一键导入 */
-export function ModelDetailDialog({ entry, open, onClose }: Props) {
+export function ModelDetailDialog({ entry, open, onClose, searchQuery = '' }: Props) {
   const router = useRouter()
   const t = useTranslations('aiNews.detailDialog')
 
@@ -135,7 +124,7 @@ export function ModelDetailDialog({ entry, open, onClose }: Props) {
         <div className="flex items-start gap-3 bg-muted/30 px-5 py-4">
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex items-center gap-2">
-              <h3 className="text-base font-semibold leading-tight">{entry.modelName}</h3>
+              <h3 className="text-base font-semibold leading-tight">{highlight(entry.modelName, searchQuery)}</h3>
               {rankDelta !== null && rankDelta > 0 ? (
                 <span className="inline-flex items-center gap-0.5 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600">
                   <TrendingUp className="h-2.5 w-2.5" />{rankDelta}
@@ -151,7 +140,7 @@ export function ModelDetailDialog({ entry, open, onClose }: Props) {
               ) : null}
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>{entry.vendor}</span>
+              <span>{highlight(entry.vendor, searchQuery)}</span>
               <span>·</span>
               <span>{entry.arenaRank ? `#${entry.arenaRank}` : '-'}</span>
               {entry.arenaScore ? (
