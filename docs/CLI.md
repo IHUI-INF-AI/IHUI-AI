@@ -12,7 +12,7 @@
 - **自主 Agent**:单条命令驱动多步任务,带权限守卫、检查点、撤销重做
 - **24 源配置导入**:从 Claude Code / Codex / Cursor / Windsurf 等 24 个 AI 工具的本地配置一键导入供应商
 - **subagent 并行**:fork 子进程真并行,4 种协作拓扑(star / mesh / chain / hierarchical)
-- **skills / plugins**:四级目录平面加载 skills + 插件市场 + 工具 / 钩子 / 命令扩展
+- **skills / plugins**:六级目录平面加载 skills + 插件市场 + 工具 / 钩子 / 命令扩展
 - **多端嵌入**:ACP 协议嵌入 Zed / VSCode / Cursor;server 模式供手机 / 网页远程驱动
 
 完整源码位于 `apps/cli/src/`(50+ 子目录),测试位于 `apps/cli/tests/`。
@@ -258,7 +258,7 @@ ihui subagent-parallel \
 
 `apps/cli/src/skills/index.ts` + `sync.ts` 实现 skills 平面加载机制,灵感来自 Claude Code / Cursor 的 skills。
 
-### 四级目录扫描(优先级从高到低)
+### 六级目录扫描(优先级从高到低)
 
 | 优先级 | 目录 | 说明 |
 | --- | --- | --- |
