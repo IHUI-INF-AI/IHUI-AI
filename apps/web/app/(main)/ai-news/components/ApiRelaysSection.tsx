@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { ExternalLink, Zap, Building2, User, AlertTriangle, Lightbulb, Search, ArrowUp, ArrowDown } from 'lucide-react'
 import { COMPANY_RELAYS, PERSONAL_RELAY_NOTE } from './api-relays'
 import { encodePrefill } from './vendor-platforms'
+import { highlight } from './text-utils'
 
 /** 从所有公司平台中提取去重后的厂商列表 */
 function useUniqueVendors(): string[] {
@@ -246,7 +247,7 @@ export function ApiRelaysSection() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 space-y-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium">{relay.name}</span>
+                      <span className="text-sm font-medium">{highlight(relay.name, query)}</span>
                       <a
                         href={relay.url}
                         target="_blank"
@@ -257,7 +258,7 @@ export function ApiRelaysSection() {
                       </a>
                     </div>
                     <p className="text-[10px] leading-relaxed text-muted-foreground">
-                      {relay.features}
+                      {highlight(relay.features, query)}
                     </p>
                     <div className="flex flex-wrap gap-1">
                       {relay.vendors.slice(0, 4).map((v) => (
@@ -265,7 +266,7 @@ export function ApiRelaysSection() {
                           key={v}
                           className="rounded bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground"
                         >
-                          {v}
+                          {highlight(v, query)}
                         </span>
                       ))}
                       {relay.vendors.length > 4 ? (
@@ -274,7 +275,7 @@ export function ApiRelaysSection() {
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-[10px] text-muted-foreground/80">{relay.billing}</p>
+                    <p className="text-[10px] text-muted-foreground/80">{highlight(relay.billing, query)}</p>
                   </div>
                   <button
                     type="button"
