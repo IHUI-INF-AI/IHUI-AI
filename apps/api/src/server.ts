@@ -70,6 +70,7 @@ import { authExtendedRoutes } from './routes/auth-extended.js'
 import { authSsoRoutes } from './routes/auth-sso.js'
 import { vipRoutes, adminVipRoutes } from './routes/vip.js'
 import { agentsRoutes } from './routes/agents.js'
+import { agentsKanbanRoutes } from './routes/agents-kanban.js'
 import { oauthKeysRoutes } from './routes/oauth-keys.js'
 import { plazaRoutes } from './routes/plaza.js'
 import { cozeVariablesRoutes } from './routes/coze-variables.js'
@@ -686,6 +687,7 @@ function registerRoutes(server: FastifyInstance) {
   server.register(dictPublicRoutes, { prefix: '/api/dict' })
   // 代理 / 广场 / Coze 变量 / Agent 服务
   server.register(agentsRoutes, { prefix: '/api' })
+  server.register(agentsKanbanRoutes, { prefix: '/api' })
   // OAuth 私钥管理(多租户 JWT/RS256 签名密钥轮转):/api/oauth-keys/generate|rotate|revoke|list|active
   server.register(oauthKeysRoutes, { prefix: '/api/oauth-keys' })
   server.register(plazaRoutes, { prefix: '/api/plaza' })
