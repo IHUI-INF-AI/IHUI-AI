@@ -199,3 +199,6 @@ apps/ai-service/app/skills/content_engine/download_real_imgs_v2.py
 apps/ai-service/app/skills/koubo_workflow/.cache/
 apps/ai-service/app/skills/koubo_workflow/build_0721.py
 
+# P3-1 向量记忆持久化快照(本地数据,不入库)
+apps/ai-service/.data/
+
