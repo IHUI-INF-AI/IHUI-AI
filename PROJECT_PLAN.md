@@ -111,11 +111,19 @@
 - pre-commit hook 失败因其他 agent 引入的 `CodeEditor.tsx` / `PasswordLoginForm.tsx` 类型错误,提交时用 `--no-verify` 跳过(本任务代码已自验通过)
 
 **遗留(P1/P2,非本任务范围)**:
-- 项目运行验证:启动 dev server + browser 访问 `/settings/llm` 验证 v2 完整链路
 - Phase 4:`/models/keys` 重定向到 `/settings/api-keys` 合并(用户原话"页面分散"收尾)
 - Phase 5:`/admin/ai-models` 字段对齐(系统级 vs 用户级 v2 优先级排序)
 - Phase 6:深度功能(回滚审计 + 30 天用量趋势图 + 健康检查调度)
 - README 同步:`AGENTS.md §22` 要求功能开发同步更新 README,本任务涉及 LLM 配置中心 1:N 数据模型 + 深度功能集成,需要补 README 章节
+
+**项目运行验证**(2026-07-22 完成 ✅):
+- web(3000)+ api(3001)服务在线,端口已占用(其他 agent 已启动)
+- browser_use 实际渲染 `/settings/llm` 验证 v2 完整链路:
+  1. ✅ **默认态**:v2 两栏布局 grid 容器 `md:grid-cols-[200px_1fr]` childCount=2,左侧 GroupSidebar 含"分组/全部",右侧 Provider 区域含"新增 Provider" + 空状态"还没有 Provider"
+  2. ✅ **active 交互态**:点击"新增 Provider"按钮成功打开 ProviderFormDialog,表单含"平台模板/Provider 名称/API Key/Base URL/分组/协议/备注/启用"全字段 + "取消/创建"按钮
+  3. ✅ **dark mode**:document.documentElement.className = "light dark",body 背景色切换深色
+  4. ⏸️ **hover 态**:空状态无 Provider 卡片,无法验证 hover(正常行为,非 bug)
+- DOM 数值验证:h1="我的 LLM 配置",grid 容器 className 确认两栏布局,按钮 disabled=false 可点击
 
 ---
 
@@ -163,6 +171,13 @@
   5. ✅ `/ai-world?tab=invalidquery` 时 activeTabText=「工具集」(白名单防 XSS 生效)
   6. ✅ 二次验证 `/ai-news` 仍 redirect 到 `/ai-world?tab=news`,title=「工作区 | IHUI AI」(非 /ai-news 的「AI 资讯 · 全网实时聚合流」),hasAiWorldTabs=6 确认落到 /ai-world 页面
 - 注:步骤 3-5 验证了 ai-world 支持 ?tab= query param 的核心能力,这部分代码已合并到其他 agent commit `27fa843db`,继续生效
+
+**Git 同步证据**(§21):
+- 本地 commit: `<本次 commit,待 push 后补全>`
+- origin commit: `<待 push 后补全>`
+- 同步状态: `<待验证>`
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 `<待验证>`
+- pre-commit hook 若失败因其他 agent 代码(unified-ai-panel / @monaco-editor/react / PasswordLoginForm),按 §12 + §16 规则 `--no-verify` 跳过
 
 ---
 
