@@ -31,6 +31,7 @@ import {
 
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
+import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 
 // ===== 类型定义 =====
 
@@ -472,11 +473,12 @@ async function callLlm(prompt: string, content: string, timeoutMs = 15000): Prom
   const baseUrl = process.env.AI_SERVICE_URL
   if (!baseUrl) return null
   try {
-    const res = await fetchWithTimeout(`${baseUrl}/llm/complete`, {
+    const res = await aiServiceFetch(null, '/llm/complete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt, content }),
-    }, timeoutMs)
+      signal: AbortSignal.timeout(timeoutMs),
+    })
     if (!res.ok) {
       if (!llmErrorLogged) {
         logger.warn(`[ai-world-sync] LLM 调用失败 status=${res.status}(后续静默)`)
@@ -939,15 +941,12 @@ async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
     return []
   }
   try {
-    const res = await fetchWithTimeout(
-      `${baseUrl}/api/opencompass/scrape`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      },
-      180000, // Playwright 渲染 OpenCompass 司南 SPA 较慢,180s 超时
-    )
+    const res = await aiServiceFetch(null, '/api/opencompass/scrape', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+      signal: AbortSignal.timeout(180000), // Playwright 渲染 OpenCompass 司南 SPA 较慢,180s 超时
+    })
     if (!res.ok) {
       logger.warn(`[ai-world-sync] OpenCompass scrape HTTP ${res.status}, skip`)
       return []

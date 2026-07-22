@@ -2,10 +2,10 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { repairMessages } from '@ihui/types'
 import { compressContextIfNeeded, type ChatMessage } from '@ihui/context-compaction'
-import { config } from '../config/index.js'
 import { checkAuth } from '../plugins/auth.js'
 import { error, success } from '../utils/response.js'
 import { createMessage, patchConversationMetadata } from '../db/chat-queries.js'
+import { aiServiceFetchStream } from '../utils/ai-service-fetch.js'
 
 const chatStreamSchema = z.object({
   messages: z
@@ -95,7 +95,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         userId: opts.metadata?.userId ?? request.userId,
         messageId: opts.metadata?.messageId,
       }
-      const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete/stream`, {
+      const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

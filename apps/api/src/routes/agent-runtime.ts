@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { config } from '../config/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { aiServiceFetchStream } from '../utils/ai-service-fetch.js'
 import { SessionManager } from '../services/clawdbot/session-manager.js'
 import {
   parsePermissionMode,
@@ -72,15 +72,13 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
     }
     sessionManager.appendMessage(session.id, { role: 'user', content: message })
 
-    const upstreamUrl = `${config.AI_SERVICE_URL}/api/agent-runtime/execute/stream`
-
     // G9: 客户端断连检测,中途中断 upstream fetch,避免 LLM token 浪费
     const controller = new AbortController()
     const onClose = () => controller.abort()
     req.raw.on('close', onClose)
 
     try {
-      const upstream = await fetch(upstreamUrl, {
+      const upstream = await aiServiceFetchStream(req, '/api/agent-runtime/execute/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
