@@ -130,23 +130,23 @@ export default function VerifyCodeModal({
     <View className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
       <View className="absolute inset-0 bg-black/40" />
       <View
-        className="relative bg-white rounded-xl mx-8 px-5 py-4 max-w-xs w-full"
+        className="relative bg-card rounded-xl mx-8 px-5 py-4 max-w-xs w-full"
         onClick={(e) => e.stopPropagation()}
       >
         <View className="flex items-center justify-between mb-3">
-          <Text className="text-base font-medium text-gray-800">获取验证码</Text>
-          <Text className="text-sm text-gray-400" onClick={onClose}>
+          <Text className="text-base font-medium text-foreground">获取验证码</Text>
+          <Text className="text-sm text-muted-foreground" onClick={onClose}>
             关闭
           </Text>
         </View>
-        <Text className="block text-xs text-gray-500 mb-3 leading-relaxed">
+        <Text className="block text-xs text-muted-foreground mb-3 leading-relaxed">
           验证码已发送至 {phone}
         </Text>
         <View className="flex justify-between mb-3">
           {codes.map((c, idx) => (
             <Input
               key={idx}
-              className="w-9 h-11 text-center text-base border border-gray-200 rounded-md"
+              className="w-9 h-11 text-center text-base border border-border rounded-md"
               type="number"
               maxlength={1}
               focus={visible && idx === currentIndex}
@@ -156,18 +156,18 @@ export default function VerifyCodeModal({
           ))}
         </View>
         <View
-          className={`text-center text-sm mb-4 ${countdown > 0 ? 'text-gray-400' : 'text-indigo-500'}`}
+          className={`text-center text-sm mb-4 ${countdown > 0 ? 'text-muted-foreground' : 'text-primary'}`}
           onClick={onSendCode}
         >
           <Text>{sendText}</Text>
         </View>
         <View className="flex space-x-3">
-          <View className="flex-1 py-2.5 rounded-md bg-gray-100 text-center" onClick={onClose}>
-            <Text className="text-sm text-gray-600">取消</Text>
+          <View className="flex-1 py-2.5 rounded-md bg-muted text-center" onClick={onClose}>
+            <Text className="text-sm text-foreground">取消</Text>
           </View>
           <View
             className={`flex-1 py-2.5 rounded-md text-center ${
-              submitting ? 'bg-gray-300' : 'bg-indigo-500'
+              submitting ? 'bg-muted' : 'bg-primary'
             }`}
             onClick={submitting ? undefined : verifyCode}
           >
