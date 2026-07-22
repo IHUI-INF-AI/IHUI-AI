@@ -26060,7 +26060,19 @@
     "sourceCursor": "Cursor IDE",
     "sourceWindsurf": "Windsurf (Codeium)",
     "sourceCline": "Cline (VSCode)",
-    "sourceAider": "Aider"
+    "sourceAider": "Aider",
+    "sourceTrae": "Trae IDE",
+    "sourceTraeWork": "Trae Work",
+    "sourceQoder": "Qoder",
+    "sourceQoderWork": "Qoder Work",
+    "sourceCodexDesktop": "Codex Desktop",
+    "sourceClaudeCodeDesktop": "Claude Code Desktop",
+    "sourceGithubCopilot": "GitHub Copilot",
+    "sourceAmazonQ": "Amazon Q Developer",
+    "sourceContinue": "Continue.dev",
+    "sourceTabnine": "Tabnine",
+    "sourceCody": "Sourcegraph Cody",
+    "sourceZed": "Zed"
   },
   "llmSettings": {
     "title": "マイLLM設定",
