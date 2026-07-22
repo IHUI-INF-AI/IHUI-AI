@@ -171,7 +171,7 @@ export function EmailCodeLoginForm({
         error={showAgreeErr && !agreed}
       />
       {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
-      <Button type="submit" className="h-10 w-full" disabled={emailSubmitting || !agreed}>
+      <Button type="submit" className="h-10 w-full" disabled={emailSubmitting}>
         {emailSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {t('loginBtn')}
       </Button>
