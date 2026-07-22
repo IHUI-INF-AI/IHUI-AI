@@ -25,9 +25,13 @@ function str(v: unknown): string | undefined {
 
 function inferApiFormat(baseUrl: string, model?: string): CliApiFormat {
   const u = baseUrl.toLowerCase()
-  if (u.includes('anthropic.com') || model?.startsWith('claude-')) return 'anthropic_messages'
-  if (u.includes('googleapis.com') || u.includes('generativelanguage') || model?.startsWith('gemini-')) return 'gemini_native'
+  // URL 优先(接入点决定协议,如用户用 OpenAI 兼容代理调 Claude,apiFormat 应为 openai_chat)
+  if (u.includes('anthropic.com')) return 'anthropic_messages'
+  if (u.includes('googleapis.com') || u.includes('generativelanguage')) return 'gemini_native'
   if (u.includes('openai.com') || u.includes('githubcopilot')) return 'openai_chat'
+  // model 兜底(URL 未知时用 model 前缀推断)
+  if (model?.startsWith('claude-')) return 'anthropic_messages'
+  if (model?.startsWith('gemini-')) return 'gemini_native'
   return 'openai_chat'
 }
 
