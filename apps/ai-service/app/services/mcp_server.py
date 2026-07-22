@@ -37,9 +37,12 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     "computer_clipboard_get", "computer_clipboard_set",
 }
 
-# agent_control 内部调用密钥(从 env 读取,api 层用 secrets.compare_digest 校验)
-# 2026-07-22 修复:原硬编码 "internal-service" → env 化
-_AGENT_CONTROL_SECRET: str = os.environ.get("AGENT_CONTROL_INTERNAL_SECRET", "")
+# agent_control 内部调用密钥(从 settings 读取,确保 .env 配置生效)
+# 2026-07-22 修复:原 os.environ.get 在模块加载时求值,main.py 同步 os.environ 晚于本模块导入 → 永远为空
+# 改为函数调用时动态读取,确保 .env 配置已加载
+def _get_agent_control_secret() -> str:
+    from ..core.config import settings
+    return settings.agent_control_internal_secret or os.environ.get("AGENT_CONTROL_INTERNAL_SECRET", "")
 
 
 def _validate_path_in_workspace(path: str) -> tuple[bool, str]:
@@ -1163,7 +1166,7 @@ async def _tool_agent_control(
     tool_name = f"{category}_{action}"
     # 内部服务密钥从 env 读取(2026-07-22 修复:原硬编码 "internal-service")
     # api 层用 secrets.compare_digest 校验,密钥未配置时拒绝调用(fail-closed)
-    if not _AGENT_CONTROL_SECRET:
+    if not _get_agent_control_secret():
         return {
             "tool": tool_name,
             "ok": False,
@@ -1175,7 +1178,7 @@ async def _tool_agent_control(
             response = await client.post(
                 _AGENT_CONTROL_API_URL,
                 json=request,
-                headers={"Authorization": f"Bearer {_AGENT_CONTROL_SECRET}"},
+                headers={"Authorization": f"Bearer {_get_agent_control_secret()}"},
             )
             response.raise_for_status()
             payload = response.json()
