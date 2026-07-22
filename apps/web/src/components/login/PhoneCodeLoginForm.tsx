@@ -4,13 +4,15 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Loader2, Check } from 'lucide-react'
 
-import { Button, Input, Label } from '@ihui/ui'
+import { Button, Label } from '@ihui/ui'
 import { useAuthStore, type AuthUser } from '@/stores/auth'
 import { fetchApi } from '@/lib/api'
 import { Alert } from '@/components/feedback'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { phoneSchema, type TokenResult } from './login-schemas'
 import { OtpInput } from './OtpInput'
+import { AccountHistoryInput } from './AccountHistoryInput'
+import { saveLoginHistory } from '@/lib/remember-credentials'
 import { loadLocalLoginPrefs, saveLocalLoginPrefs } from '@/lib/login-preferences'
 
 interface PhoneCodeLoginFormProps {
@@ -133,6 +135,7 @@ export function PhoneCodeLoginForm({
           if (r.success) setUser(r.data.user)
         })
       }
+      saveLoginHistory(phone)
       onSuccess?.()
     } catch {
       setErr(t('loginFailed'))
@@ -146,14 +149,15 @@ export function PhoneCodeLoginForm({
       {err && <Alert variant="danger" description={err} />}
       <div className="space-y-1.5">
         <Label htmlFor="phone">{t('phone')}</Label>
-        <Input
+        <AccountHistoryInput
           id="phone"
           type="tel"
           autoComplete="tel"
           placeholder={t('phonePlaceholder')}
           className="h-10"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={setPhone}
+          active={active}
         />
       </div>
       <div className="space-y-1.5">

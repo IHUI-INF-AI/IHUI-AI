@@ -4,13 +4,15 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Loader2, Check } from 'lucide-react'
 
-import { Button, Input, Label } from '@ihui/ui'
+import { Button, Label } from '@ihui/ui'
 import { useAuthStore, type AuthUser } from '@/stores/auth'
 import { fetchApi } from '@/lib/api'
 import { Alert } from '@/components/feedback'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
 import { emailSchema, type TokenResult } from './login-schemas'
 import { OtpInput } from './OtpInput'
+import { AccountHistoryInput } from './AccountHistoryInput'
+import { saveLoginHistory } from '@/lib/remember-credentials'
 import { loadLocalLoginPrefs, saveLocalLoginPrefs } from '@/lib/login-preferences'
 
 interface EmailCodeLoginFormProps {
@@ -121,6 +123,7 @@ export function EmailCodeLoginForm({
           if (r.success) setUser(r.data.user)
         }).catch(() => {})
       }
+      saveLoginHistory(email)
       onSuccess?.()
     } catch {
       setEmailErr(t('loginFailed'))
@@ -134,14 +137,15 @@ export function EmailCodeLoginForm({
       {emailErr && <Alert variant="danger" description={emailErr} />}
       <div className="space-y-1.5">
         <Label htmlFor="email">{t('email')}</Label>
-        <Input
+        <AccountHistoryInput
           id="email"
           type="email"
           autoComplete="email"
           placeholder={t('emailPlaceholder')}
           className="h-10"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={setEmail}
+          active={active}
         />
       </div>
       <div className="space-y-1.5">
