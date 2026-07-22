@@ -35,7 +35,22 @@ export interface McpCallResult {
 }
 
 export class McpClient extends EventEmitter {
-  /** 内存 MCP 服务器注册表 — 需后续建表持久化(mcpServers 表缺少 transport/tools/resources 字段) */
+  /**
+   * 内存 MCP 服务器注册表 + 工具/资源缓存。
+   *
+   * 持久化现状(2026-07-22 评估):
+   *   - 现有 `mcp_servers` 表 schema 不匹配:仅 name/description/endpoint/status,
+   *     缺少 transport(stdio/http/sse)/ version/ tools/ resources 字段
+   *   - 运行时状态(active connection、registered tools)本质是进程级,不应入库
+   *   - 仅"服务器配置"部分值得持久化(用户重启后能 reconnect)
+   *
+   * 迁移规格(未来需要时):
+   *   1. 扩展 `mcp_servers` 表:加 transport(varchar) / version(varchar) /
+   *      enabled(boolean) / tools(jsonb) / resources(jsonb) / config(jsonb)
+   *   2. 新增 listFromDb()/getFromDb(id) 方法读配置
+   *   3. connect() 时同步写 DB;disconnect() 时软删除(enabled=false)
+   *   4. 启动时从 DB 加载所有 enabled=true 的服务器自动 reconnect
+   */
   private servers = new Map<string, McpServerConfig>()
   private tools = new Map<string, McpTool & { serverId: string }>()
   private resources = new Map<string, McpResource & { serverId: string }>()
