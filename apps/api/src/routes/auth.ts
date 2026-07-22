@@ -1193,7 +1193,4 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(parseLoginPreferences(list)))
     },
   )
-
-  // GET /qr/status 与 POST /qr/generate 已迁移至 auth-extended.ts
-  // (统一在 /api/auth/qr/* 路径下,提供完整状态机 + dataURL 二维码 + /qr/confirm 确认端点)
 }
