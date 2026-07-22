@@ -207,6 +207,10 @@ class VectorMemoryStore:
         """列出所有 entry_id(调试 / 测试用)。"""
         return list(self._entries.keys())
 
+    def list_entries(self) -> list[dict[str, Any]]:
+        """列出所有 entry 完整数据(供 MemorySystem 纯本地降级检索用)。"""
+        return [dict(e) for e in self._entries.values()]
+
 
 # 全局单例(供 memory.py 的 MemorySystem 导入)
 vector_memory = VectorMemoryStore()
