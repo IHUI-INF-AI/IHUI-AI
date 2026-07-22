@@ -47,7 +47,7 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         {/* 头部 */}
-        <div className="flex items-start gap-2 border-b px-5 py-4">
+        <div className="flex items-start gap-2 bg-muted/30 px-5 py-4">
           <div className="min-w-0 flex-1 space-y-1">
             <h3 className="line-clamp-2 text-sm font-semibold leading-tight">{title}</h3>
             <p className="text-[10px] text-muted-foreground">{t('trendChart.subtitle')}</p>
