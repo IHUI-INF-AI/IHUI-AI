@@ -17,7 +17,7 @@ export default function UnreadBadge({
     if (!showZero) return null
     return (
       <View
-        className={`flex items-center justify-center bg-gray-300 rounded-md ${
+        className={`flex items-center justify-center bg-muted rounded-md ${
           size === 'sm' ? 'w-4 h-4' : 'w-5 h-5'
         }`}
       >
@@ -29,14 +29,14 @@ export default function UnreadBadge({
   const display = count > max ? `${max}+` : `${count}`
   const isDot = count > 0 && count < 1
   if (isDot) {
-    return <View className="w-2 h-2 rounded-full bg-red-500" />
+    return <View className="w-2 h-2 rounded-full bg-destructive" />
   }
 
   const minWidth = display.length > 1 ? `${16 + (display.length - 1) * 6}px` : '16px'
 
   return (
     <View
-      className="flex items-center justify-center bg-red-500 rounded-md px-1"
+      className="flex items-center justify-center bg-destructive rounded-md px-1"
       style={{ minWidth, height: size === 'sm' ? 16 : 20 }}
     >
       <Text className={`text-white ${size === 'sm' ? 'text-[10px]' : 'text-xs'}`}>{display}</Text>

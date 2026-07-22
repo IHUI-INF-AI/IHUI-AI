@@ -1,11 +1,11 @@
-.page { min-height: 100vh; background: #f7f8fa; }
+.page { min-height: 100vh; background: var(--color-background); }
 .search-bar { padding: 24rpx 32rpx; }
-.search-input { height: 72rpx; padding: 0 24rpx; background: #fff; border-radius: 36rpx; font-size: 26rpx; }
+.search-input { height: 72rpx; padding: 0 24rpx; background: var(--color-card); border-radius: 36rpx; font-size: 26rpx; }
 .list { padding: 0 24rpx; }
-.item { background: #fff; border-radius: 16rpx; margin-bottom: 16rpx; overflow: hidden; }
+.item { background: var(--color-card); border-radius: 16rpx; margin-bottom: 16rpx; overflow: hidden; }
 .item-head { display: flex; justify-content: space-between; align-items: center; padding: 32rpx; }
-.title { font-size: 28rpx; color: #333; }
-.arrow { color: #ccc; font-size: 32rpx; transform: rotate(90deg); }
+.title { font-size: 28rpx; color: var(--color-foreground); }
+.arrow { color: var(--color-muted-foreground); font-size: 32rpx; transform: rotate(90deg); }
 .arrow.open { transform: rotate(-90deg); }
-.content { padding: 0 32rpx 32rpx; font-size: 26rpx; color: #666; line-height: 1.6; }
-.empty { text-align: center; padding: 120rpx 0; color: #999; }
+.content { padding: 0 32rpx 32rpx; font-size: 26rpx; color: var(--color-muted-foreground); line-height: 1.6; }
+.empty { text-align: center; padding: 120rpx 0; color: var(--color-muted-foreground); }

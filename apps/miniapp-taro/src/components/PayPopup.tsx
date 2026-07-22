@@ -29,24 +29,24 @@ export default function PayPopup({ visible = false, pay = {}, onClose, onPay }: 
     <View className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
       <View className="absolute inset-0 bg-black/40" />
       <View
-        className="relative bg-white rounded-t-2xl w-full px-6 pb-6 pt-4"
+        className="relative bg-card rounded-t-2xl w-full px-6 pb-6 pt-4"
         onClick={(e) => e.stopPropagation()}
       >
         <View className="flex items-center justify-between mb-4">
-          <Text className="text-base font-medium text-gray-800">{pay.title || '购买内容'}</Text>
-          <Text className="text-sm text-gray-400" onClick={onClose}>
+          <Text className="text-base font-medium text-foreground">{pay.title || '购买内容'}</Text>
+          <Text className="text-sm text-muted-foreground" onClick={onClose}>
             关闭
           </Text>
         </View>
         <View className="mb-4">
           {isFree ? (
-            <Text className="text-2xl font-bold text-green-500">免费</Text>
+            <Text className="text-2xl font-bold text-primary">免费</Text>
           ) : isLimitFree ? (
-            <Text className="text-2xl font-bold text-orange-500">限时免费</Text>
+            <Text className="text-2xl font-bold text-[#f59e0b]">限时免费</Text>
           ) : isVipFree ? (
-            <Text className="text-2xl font-bold text-yellow-600">会员免费</Text>
+            <Text className="text-2xl font-bold text-[#f59e0b]">会员免费</Text>
           ) : (
-            <Text className="text-2xl font-bold text-red-500">¥{displayAmount}</Text>
+            <Text className="text-2xl font-bold text-destructive">¥{displayAmount}</Text>
           )}
         </View>
         <View className="flex space-x-3">
@@ -55,11 +55,11 @@ export default function PayPopup({ visible = false, pay = {}, onClose, onPay }: 
               className="flex-1 py-3 rounded-md border border-yellow-400 bg-yellow-50 text-center"
               onClick={onPay}
             >
-              <Text className="text-sm text-yellow-600">会员免费</Text>
+              <Text className="text-sm text-[#f59e0b]">会员免费</Text>
             </View>
           )}
           {isPaid && (
-            <View className="flex-1 py-3 rounded-md bg-indigo-500 text-center" onClick={onPay}>
+            <View className="flex-1 py-3 rounded-md bg-primary text-center" onClick={onPay}>
               <Text className="text-sm text-white">立即购买</Text>
             </View>
           )}

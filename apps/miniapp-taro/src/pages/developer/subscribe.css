@@ -1,12 +1,12 @@
 .page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--color-background);
   padding-bottom: 140rpx;
 }
 .banner {
   padding: 60rpx 40rpx;
   background: linear-gradient(135deg, #4e8cff, #6a5cff);
-  color: #fff;
+  color: var(--color-foreground);
 }
 .banner-title {
   font-size: 44rpx;
@@ -21,11 +21,11 @@
   padding: 24rpx;
 }
 .plan-card {
-  background: #fff;
+  background: var(--color-card);
   border-radius: 16rpx;
   padding: 32rpx;
   margin-bottom: 20rpx;
-  border: 2rpx solid #eee;
+  border: 2rpx solid var(--color-border);
   position: relative;
 }
 .plan-card.active {
@@ -37,7 +37,7 @@
   top: 0;
   right: 24rpx;
   background: #4e8cff;
-  color: #fff;
+  color: var(--color-foreground);
   font-size: 20rpx;
   padding: 4rpx 14rpx;
   border-radius: 0 0 10rpx 10rpx;
@@ -50,15 +50,15 @@
 .plan-name {
   font-size: 32rpx;
   font-weight: 600;
-  color: #333;
+  color: var(--color-foreground);
 }
 .plan-period {
   font-size: 22rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
 }
 .plan-price {
   font-size: 44rpx;
-  color: #dd524d;
+  color: var(--color-destructive);
   font-weight: 700;
   margin: 16rpx 0 4rpx;
 }
@@ -72,13 +72,13 @@
 }
 .plan-feature {
   font-size: 26rpx;
-  color: #666;
+  color: var(--color-muted-foreground);
   padding: 6rpx 0;
 }
 .loading-text,
 .empty-text {
   text-align: center;
-  color: #999;
+  color: var(--color-muted-foreground);
   font-size: 28rpx;
   display: block;
   padding: 80rpx 0;
@@ -89,11 +89,11 @@
   left: 32rpx;
   right: 32rpx;
   background: #4e8cff;
-  color: #fff;
+  color: var(--color-foreground);
   border-radius: 40rpx;
   font-size: 32rpx;
 }
 .btn[disabled] {
   background: #b0c8ff;
-  color: #fff;
+  color: var(--color-foreground);
 }

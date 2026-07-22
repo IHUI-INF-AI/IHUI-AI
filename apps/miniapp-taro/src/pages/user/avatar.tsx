@@ -37,7 +37,7 @@ export default function Avatar() {
   }
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa] px-[16px] pt-[30px]">
+    <View className="min-h-screen bg-background px-[16px] pt-[30px]">
       <View
         className="w-[100px] h-[100px] mx-auto rounded-md overflow-hidden"
         style={{ boxShadow: '0 2px 10px rgba(0,0,0,.1)' }}
@@ -49,16 +49,16 @@ export default function Avatar() {
         />
       </View>
       <Button
-        className="mt-[30px] mb-[16px] bg-[#07c160] text-white rounded-[20px] text-[15px]"
+        className="mt-[30px] mb-[16px] bg-primary text-white rounded-[20px] text-[15px]"
         onClick={chooseImg}
       >
         {t('user.avatar.choose')}
       </Button>
       <View className="text-center">
-        <Text className="block text-[11px] text-[#999] leading-[1.8]">
+        <Text className="block text-[11px] text-muted-foreground leading-[1.8]">
           {t('user.avatar.formatHint')}
         </Text>
-        <Text className="block text-[11px] text-[#999] leading-[1.8]">
+        <Text className="block text-[11px] text-muted-foreground leading-[1.8]">
           {t('user.avatar.sizeHint')}
         </Text>
       </View>
