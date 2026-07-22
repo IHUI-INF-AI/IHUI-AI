@@ -74,15 +74,10 @@ def _evict_if_needed() -> None:
 
 
 def _get_or_create_session(session_id: str | None, bot_id: str) -> SessionState:
-    """获取或创建会话:内存命中 → Redis 回填 → 新建。"""
+    """获取或创建会话:内存命中 → 新建(写入时持久化 Redis)。"""
     new_id = session_id or str(uuid.uuid4())
     if new_id in _sessions:
         return _sessions[new_id]
-    session = _load_session_redis(new_id)
-    if session is not None:
-        _sessions[new_id] = session
-        _evict_if_needed()
-        return session
     session = SessionState(id=new_id, botId=bot_id)
     _sessions[new_id] = session
     _evict_if_needed()
