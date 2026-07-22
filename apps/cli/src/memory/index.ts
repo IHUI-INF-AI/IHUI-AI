@@ -280,12 +280,12 @@ function extractMemoryEntry(data: unknown): UnifiedMemoryEntry | null {
  * 网络失败时降级为纯文件模式,不抛错,不影响主流程。
  *
  * 用法:
- *   const client = new UnifiedMemoryClient('http://127.0.0.1:3001');
+ *   const client = new UnifiedMemoryClient('http://127.0.0.1:8801');
  *   const entries = await client.getEntries(userId, 'session', sessionId);
  *   const entry = await client.addEntry(userId, { scope, type, category, text, source });
  */
 export class UnifiedMemoryClient {
-  constructor(private apiBaseUrl: string = 'http://127.0.0.1:3001') {}
+  constructor(private apiBaseUrl: string = 'http://127.0.0.1:8801') {}
 
   /**
    * 拉取指定用户/作用域的记忆条目。
