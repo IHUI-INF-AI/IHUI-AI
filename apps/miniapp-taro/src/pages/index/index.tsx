@@ -8,12 +8,23 @@ import { useI18n } from '@/i18n'
 const defaultAvatar =
   'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
 
+// 教育快捷入口
 const entries = [
   { icon: '📚', key: 'home.entry.course', path: '/pages/course/list' },
   { icon: '📺', key: 'home.entry.live', path: '/pages/live/list' },
   { icon: '🤖', key: 'home.entry.ai', path: '/pages/ai/chat' },
   { icon: '📋', key: 'home.entry.order', path: '/pages/user/orders' },
   { icon: '⚙️', key: 'home.entry.setting', path: '/pages/user/settings' },
+]
+
+// AI 应用入口(融合原项目 AI 应用商店概念)
+const aiEntries = [
+  { icon: '💬', label: 'AI对话', path: '/pages/ai/chat' },
+  { icon: '🎨', label: 'AI绘图', path: '/pages/ai/image' },
+  { icon: '🎙️', label: 'AI语音', path: '/pages/ai/voice' },
+  { icon: '🎬', label: 'AI视频', path: '/pages/ai/video' },
+  { icon: '⚡', label: '智能体', path: '/pages/ai/agent' },
+  { icon: '🏛️', label: '模型广场', path: '/pages/model-plaza/index' },
 ]
 
 interface StudyStats {
@@ -107,10 +118,10 @@ export default function Index() {
 
   return (
     <View className="min-h-screen pb-[20px]">
-      {/* 顶部用户信息条 */}
+      {/* 顶部用户信息条 — 青→紫赛博朋克渐变 + 科技网格 */}
       <View
-        className="flex items-center pt-[60px] px-[16px] pb-[16px]"
-        style={{ background: 'linear-gradient(135deg, #07c160, #35e683)' }}
+        className="flex items-center pt-[60px] px-[16px] pb-[16px] tech-grid"
+        style={{ background: 'linear-gradient(135deg, #00f2ff, #8b5cf6)' }}
       >
         <Image
           className="w-[40px] h-[40px] rounded-md border-[1px] border-solid border-white"
@@ -135,9 +146,9 @@ export default function Index() {
         </View>
       </View>
 
-      {/* 轮播图 */}
+      {/* 轮播图 — 科技渐变描边 */}
       <Swiper
-        className="h-[140px] mx-[16px] my-[12px] rounded-[8px] overflow-hidden"
+        className="h-[140px] mx-[16px] my-[12px] rounded-[12px] overflow-hidden tech-card"
         indicatorDots
         autoplay
         interval={4000}
@@ -150,22 +161,22 @@ export default function Index() {
         ))}
         {bannerList.length === 0 ? (
           <SwiperItem>
-            <View className="w-full h-full flex items-center justify-center bg-white text-[#07c160] text-[15px]">
-              <Text>{t('home.slogan')}</Text>
+            <View className="w-full h-full flex items-center justify-center tech-card text-[15px]">
+              <Text className="text-neon">{t('home.slogan')}</Text>
             </View>
           </SwiperItem>
         ) : null}
       </Swiper>
 
-      {/* 学习进度(登录后) */}
+      {/* 学习进度(登录后)— 玻璃拟态卡片 */}
       {showLearningSection && study ? (
-        <View className="mx-[16px] mb-[12px] bg-white rounded-[8px] px-[12px] py-[12px]">
+        <View className="mx-[16px] mb-[12px] glass px-[12px] py-[12px]">
           <View className="flex justify-between items-center">
-            <Text className="text-[15px] text-[#333] font-semibold">
+            <Text className="text-[15px] text-white font-semibold">
               {t('home.learningProgress')}
             </Text>
             <Text
-              className="text-[12px] text-[#999]"
+              className="text-[12px] text-muted-foreground"
               onClick={() => Taro.navigateTo({ url: '/pages/study/my-study/index' })}
             >
               {t('home.more')} {'>'}
@@ -173,32 +184,32 @@ export default function Index() {
           </View>
           <View className="flex mt-[10px]">
             <View className="flex-1 text-center">
-              <Text className="block text-[18px] text-[#07c160] font-bold">
+              <Text className="block text-[18px] text-neon font-bold">
                 {study.todayMinutes}
               </Text>
-              <Text className="text-[11px] text-[#999] mt-[2px]">
+              <Text className="text-[11px] text-muted-foreground mt-[2px]">
                 {t('home.todayMinutes', { n: '' })}
               </Text>
             </View>
             <View className="flex-1 text-center">
-              <Text className="block text-[18px] text-[#07c160] font-bold">
+              <Text className="block text-[18px] text-neon font-bold">
                 {study.totalMinutes}
               </Text>
-              <Text className="text-[11px] text-[#999] mt-[2px]">
+              <Text className="text-[11px] text-muted-foreground mt-[2px]">
                 {t('home.totalMinutes', { n: '' })}
               </Text>
             </View>
             <View className="flex-1 text-center">
-              <Text className="block text-[18px] text-[#07c160] font-bold">
+              <Text className="block text-[18px] text-neon font-bold">
                 {study.continuousDays}
               </Text>
-              <Text className="text-[11px] text-[#999] mt-[2px]">
+              <Text className="text-[11px] text-muted-foreground mt-[2px]">
                 {t('home.continuousDays', { n: '' })}
               </Text>
             </View>
             <View className="flex-1 text-center">
-              <Text className="block text-[18px] text-[#07c160] font-bold">{study.courses}</Text>
-              <Text className="text-[11px] text-[#999] mt-[2px]">
+              <Text className="block text-[18px] text-neon font-bold">{study.courses}</Text>
+              <Text className="text-[11px] text-muted-foreground mt-[2px]">
                 {t('home.coursesCount', { n: '' })}
               </Text>
             </View>
@@ -206,12 +217,39 @@ export default function Index() {
         </View>
       ) : null}
 
+      {/* AI 应用入口(融合原项目 AI 应用商店概念)— 赛博朋克网格 */}
+      <View className="mx-[16px] my-[12px] tech-card p-[12px]">
+        <View className="flex justify-between items-center mb-[10px]">
+          <Text className="text-[15px] font-semibold text-neon">AI 应用</Text>
+          <Text
+            className="text-[12px] text-muted-foreground"
+            onClick={() => goPage('/pages/ai/agent')}
+          >
+            {t('home.more')} {'>'}
+          </Text>
+        </View>
+        <View className="flex flex-wrap">
+          {aiEntries.map((entry) => (
+            <View
+              key={entry.path}
+              className="w-1/3 flex flex-col items-center py-[10px]"
+              onClick={() => goPage(entry.path)}
+            >
+              <View className="w-[44px] h-[44px] rounded-[10px] gradient-cyber flex items-center justify-center mb-[4px]">
+                <Text className="text-[22px]">{entry.icon}</Text>
+              </View>
+              <Text className="text-[11px] text-white">{entry.label}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
       {/* 直播预告 */}
       {livePreview.length > 0 ? (
-        <View className="mx-[16px] my-[12px] bg-white rounded-[8px] px-[12px] py-[12px]">
+        <View className="mx-[16px] my-[12px] tech-card px-[12px] py-[12px]">
           <View className="flex justify-between items-center">
-            <Text className="text-[15px] text-[#333] font-semibold">{t('home.livePreview')}</Text>
-            <Text className="text-[12px] text-[#999]" onClick={() => goPage('/pages/live/list')}>
+            <Text className="text-[15px] text-white font-semibold">{t('home.livePreview')}</Text>
+            <Text className="text-[12px] text-muted-foreground" onClick={() => goPage('/pages/live/list')}>
               {t('home.more')} {'>'}
             </Text>
           </View>
@@ -223,16 +261,16 @@ export default function Index() {
                   className="inline-block w-[160px] mr-[10px] flex-shrink-0"
                   onClick={() => goLiveDetail(live.id)}
                 >
-                  <View className="relative w-[160px] h-[90px] rounded-[6px] overflow-hidden">
+                  <View className="relative w-[160px] h-[90px] rounded-[8px] overflow-hidden">
                     <Image className="w-full h-full" src={live.coverUrl} mode="aspectFill" />
-                    <View className="absolute top-1 right-1 px-[4px] py-[1px] bg-[#f0ad4e] text-white text-[10px] rounded-[3px]">
+                    <View className="absolute top-1 right-1 px-[4px] py-[1px] bg-[#f59e0b] text-white text-[10px] rounded-[3px]">
                       <Text>{t('live.preview')}</Text>
                     </View>
                   </View>
-                  <Text className="block mt-[6px] text-[12px] text-[#333] truncate">
+                  <Text className="block mt-[6px] text-[12px] text-white truncate">
                     {live.title}
                   </Text>
-                  <Text className="block text-[10px] text-[#999] truncate">
+                  <Text className="block text-[10px] text-muted-foreground truncate">
                     {live.startTime ? `${t('home.startTime')}: ${live.startTime}` : ''}
                   </Text>
                 </View>
@@ -242,8 +280,8 @@ export default function Index() {
         </View>
       ) : null}
 
-      {/* 快捷入口 */}
-      <View className="flex flex-wrap px-[16px] py-[10px] bg-white mx-[16px] rounded-[8px]">
+      {/* 教育快捷入口 */}
+      <View className="flex flex-wrap px-[16px] py-[10px] tech-card mx-[16px] rounded-[12px]">
         {entries.map((entry) => (
           <View
             key={entry.path}
@@ -251,7 +289,7 @@ export default function Index() {
             onClick={() => goPage(entry.path)}
           >
             <Text className="text-[22px]">{entry.icon}</Text>
-            <Text className="mt-[3px] text-[11px] text-[#333]">{t(entry.key)}</Text>
+            <Text className="mt-[3px] text-[11px] text-white">{t(entry.key)}</Text>
           </View>
         ))}
       </View>
@@ -259,8 +297,8 @@ export default function Index() {
       {/* 推荐课程 */}
       <View className="mx-[16px] my-[12px]">
         <View className="flex justify-between items-center mb-[10px]">
-          <Text className="text-[15px] font-semibold text-[#333]">{t('home.hotCourses')}</Text>
-          <Text className="text-[12px] text-[#999]" onClick={() => goPage('/pages/course/list')}>
+          <Text className="text-[15px] font-semibold text-neon">{t('home.hotCourses')}</Text>
+          <Text className="text-[12px] text-muted-foreground" onClick={() => goPage('/pages/course/list')}>
             {t('home.more')} {'>'}
           </Text>
         </View>
@@ -269,14 +307,14 @@ export default function Index() {
             {courseList.map((c) => (
               <View
                 key={c.id}
-                className="inline-block w-[140px] mr-[10px] bg-white rounded-[8px] overflow-hidden flex-shrink-0"
+                className="inline-block w-[140px] mr-[10px] tech-card rounded-[12px] overflow-hidden flex-shrink-0"
                 onClick={() => goCourseDetail(c.id)}
               >
                 <Image className="w-full h-[80px]" src={c.coverUrl} mode="aspectFill" />
-                <Text className="block px-[6px] pt-[6px] text-[12px] text-[#333] truncate">
+                <Text className="block px-[6px] pt-[6px] text-[12px] text-white truncate">
                   {c.title}
                 </Text>
-                <Text className="block px-[6px] pb-[6px] text-[13px] text-[#dd524d] font-semibold">
+                <Text className="block px-[6px] pb-[6px] text-[13px] text-neon font-semibold">
                   ¥{c.price ?? 0}
                 </Text>
               </View>
