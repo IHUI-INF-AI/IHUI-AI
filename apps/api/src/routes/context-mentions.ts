@@ -37,7 +37,7 @@ const symbolQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 })
 
-/** POST /enrich 请求体 schema(2026-07-22 立) */
+/** POST /enrich 请求体 schema(2026-07-22 立,2026-07-22 深化加 userId) */
 const enrichBodySchema = z.object({
   userMessage: z.string().max(8000).default(''),
   conversationId: z.string().max(255).default(''),
@@ -62,6 +62,37 @@ const enrichBodySchema = z.object({
     )
     .optional(),
   totalBudget: z.coerce.number().int().min(500).max(32000).default(8000),
+  userId: z.string().max(255).default(''),
+})
+
+/** GET /visualization + GET /memory + GET /compression-stats 查询参数 schema(2026-07-22 深化立) */
+const visualizationQuerySchema = z.object({
+  conversationId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
+  userId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
+})
+
+const memoryQuerySchema = z.object({
+  conversationId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
+  userId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
+})
+
+const compressionStatsQuerySchema = z.object({
+  userId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
+})
+
+const clearMemoryQuerySchema = z.object({
+  conversationId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
+})
+
+/** POST /visualization/track 请求体 schema(2026-07-22 深化立) */
+const trackVisualizationBodySchema = z.object({
+  conversationId: z.string().max(255),
+  totalTokens: z.coerce.number().int().min(0).default(0),
+  historyTokens: z.coerce.number().int().min(0).default(0),
+  codebaseTokens: z.coerce.number().int().min(0).default(0),
+  mentionTokens: z.coerce.number().int().min(0).default(0),
+  webTokens: z.coerce.number().int().min(0).default(0),
+  databaseTokens: z.coerce.number().int().min(0).default(0),
 })
 
 export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
@@ -162,7 +193,7 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // POST /enrich — @ 提及结果 + RAG 检索两层集成(2026-07-22 立)
+  // POST /enrich — @ 提及结果 + RAG 检索两层集成(2026-07-22 立,2026-07-22 深化加 userId)
   // 转发到 context-engine-service.enrich,委托 ai-service /api/context/enrich
   // 降级:ai-service 不可用时仅返回 @ 提及内容(无 RAG 检索)
   server.post('/enrich', async (request, reply) => {
@@ -175,7 +206,7 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
         .status(400)
         .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { userMessage, conversationId, mentions, messages, totalBudget } = parsed.data
+    const { userMessage, conversationId, mentions, messages, totalBudget, userId } = parsed.data
     try {
       const enriched = await contextEngineService.enrich({
         userMessage,
@@ -183,6 +214,8 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
         mentions,
         messages,
         totalBudget,
+        // 优先使用请求体 userId,为空时回退到 JWT 解析的 request.userId
+        userId: userId || request.userId,
       })
       return reply.send(success(enriched))
     } catch (e) {
@@ -204,6 +237,126 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '源类型查询失败'))
+    }
+  })
+
+  // POST /visualization/track — 记录当前会话 token 分布(2026-07-22 深化立)
+  // 前端定期调用,转发到 ai-service POST /api/context/visualization/track
+  // 数据存 Redis list "context:viz:{conversationId}"(LPUSH + LTRIM 100 条)
+  server.post('/visualization/track', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = trackVisualizationBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const recorded = await contextEngineService.trackVisualization(parsed.data)
+      return reply.send(success({ recorded }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '可视化记录失败'))
+    }
+  })
+
+  // GET /visualization — 返回可视化数据(2026-07-22 深化立)
+  // 转发到 ai-service GET /api/context/visualization
+  // 返回饼图 + 历史趋势 + 压缩事件
+  server.get('/visualization', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = visualizationQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { conversationId, userId } = parsed.data
+    try {
+      const data = await contextEngineService.getVisualization(
+        conversationId,
+        userId || request.userId,
+      )
+      return reply.send(success(data))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '可视化查询失败'))
+    }
+  })
+
+  // GET /compression-stats — 返回压缩统计(2026-07-22 深化立)
+  // 转发到 ai-service GET /api/context/compression-stats
+  // 返回平均压缩比、平均质量分、最近 10 次压缩详情
+  server.get('/compression-stats', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = compressionStatsQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { userId } = parsed.data
+    try {
+      const data = await contextEngineService.getCompressionStats(userId || request.userId)
+      return reply.send(success(data))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '压缩统计查询失败'))
+    }
+  })
+
+  // GET /memory — 返回会话记忆(summary + 用户偏好,2026-07-22 深化立)
+  // 转发到 ai-service GET /api/context/memory
+  // 返回上次压缩的 summary + 用户长期偏好(常访问的文件/符号)
+  server.get('/memory', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = memoryQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { conversationId, userId } = parsed.data
+    try {
+      const data = await contextEngineService.getSessionMemory(
+        conversationId,
+        userId || request.userId,
+      )
+      return reply.send(success(data))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '会话记忆查询失败'))
+    }
+  })
+
+  // DELETE /memory — 清除会话记忆(2026-07-22 深化立)
+  // 转发到 ai-service DELETE /api/context/memory
+  // 删除 Redis hash "context:summary:{conversationId}"
+  server.delete('/memory', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = clearMemoryQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { conversationId } = parsed.data
+    try {
+      const cleared = await contextEngineService.clearSessionMemory(conversationId)
+      return reply.send(success({ cleared }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '会话记忆清除失败'))
     }
   })
 }
