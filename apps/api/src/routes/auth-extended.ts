@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
+import { eq } from 'drizzle-orm'
 import { generateShortCode } from '../utils/crypto-random.js'
 import {
   signAccessToken,
@@ -14,6 +15,20 @@ import {
 } from '@ihui/auth'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { encryptJSON, decryptJSON } from '../utils/crypto.js'
+import { db } from '../db/index.js'
+import { users } from '@ihui/database'
+import {
+  generateSecret,
+  verifyTotp,
+  buildOtpauthUri,
+  generateQrCodeDataUrl,
+  generateBackupCodes,
+  hashBackupCode,
+  verifyBackupCode,
+  base32Encode,
+  verifyChallengeToken,
+} from '../services/totp-service.js'
 import {
   recordLoginFailure,
   clearLoginFailures,
@@ -142,6 +157,35 @@ async function buildTokenPair(user: {
     refreshExpiresIn: REFRESH_TOKEN_TTL_SECONDS,
   }
 }
+
+// ============================================================
+// 2FA (TOTP RFC 6238) 辅助
+// ============================================================
+// 密钥存储方案:20 字节原始 secret → base64 字符串 → encryptJSON (AES-256-GCM)
+// → EncryptedPayload {iv,ciphertext,tag} → JSON 序列化为 Buffer → bytea 列
+// 解密时反向:bytea → Buffer → JSON.parse → EncryptedPayload → decryptJSON → base64 → Buffer
+// 复用 apps/api/src/utils/crypto.ts 的 AES-256-GCM 实现,key 来自 CREDENTIALS_ENCRYPTION_KEY env。
+
+function encryptTwoFactorSecret(secret: Buffer): Buffer {
+  const encrypted = encryptJSON(secret.toString('base64'))
+  return Buffer.from(JSON.stringify(encrypted), 'utf8')
+}
+
+function decryptTwoFactorSecret(stored: Buffer | null): Buffer | null {
+  if (!stored || stored.length === 0) return null
+  try {
+    const payload = JSON.parse(stored.toString('utf8'))
+    const base64 = decryptJSON(payload) as string
+    return Buffer.from(base64, 'base64')
+  } catch {
+    return null
+  }
+}
+
+// Challenge token 签发/校验由 totp-service.ts 统一实现:
+// - signChallengeToken(payload) → 5min 短期 JWT,type='challenge'
+// - verifyChallengeToken(token) → 校验 type='challenge',返回 {userId,...} 或 null
+// challenge token 只能用于 /auth/2fa/login-verify,其他端点由 plugins/auth.ts 拒绝。
 
 const loginByEmailSchema = z.object({
   email: z.string().email(),
@@ -2162,24 +2206,318 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ userId: user.id, ...tokens, tokenType: 'Bearer' }))
   })
 
-  // 双因素认证（2FA）桩：返回禁用状态，避免前端设置页 404
-  server.get('/auth/2fa/status', async (request, reply) => {
-    await authenticate(request)
-    return reply.send(success({ enabled: false }))
+  // ============================================================
+  // 双因素认证 (2FA/MFA) - TOTP (RFC 6238)
+  // ============================================================
+  // 启用流程:setup(生成密钥+QR) → verify(输入 6 位码,启用 + 返回 backup codes 明文,只此一次)
+  // 登录流程:密码校验通过 + twoFactorEnabled=true → 返回 challengeToken(5min)
+  //         前端用 challengeToken 调 /auth/2fa/login-verify(POST,接收 TOTP 或 backup code)
+
+  // GET /api/auth/2fa/status — 查询当前用户 2FA 状态
+  server.get('/auth/2fa/status', {
+    preHandler: [authenticate],
+    schema: {
+      summary: '查询 2FA 状态',
+      tags: ['auth', '2fa'],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            code: { type: 'number' },
+            message: { type: 'string' },
+            data: {
+              type: 'object',
+              properties: {
+                enabled: { type: 'boolean' },
+                hasBackupCodes: { type: 'boolean' },
+                enabledAt: { type: 'string', nullable: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const user = await findUserById(request.userId!)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    return reply.send(success({
+      enabled: user.twoFactorEnabled,
+      hasBackupCodes: (user.twoFactorBackupCodes?.length ?? 0) > 0,
+      enabledAt: user.twoFactorEnabledAt ? user.twoFactorEnabledAt.toISOString() : null,
+    }))
   })
-  server.post('/auth/2fa/setup', async (request, reply) => {
-    await authenticate(request)
-    const secret = randomBytes(20).toString('hex')
-    return reply.send(success({ secret, qrCode: '', backupCodes: [] }))
+
+  // POST /api/auth/2fa/setup — 生成 TOTP 密钥 + QR 码(扫码确认前 enabled 仍为 false)
+  server.post('/auth/2fa/setup', {
+    preHandler: [authenticate],
+    schema: {
+      summary: '生成 2FA 密钥 + QR 码',
+      tags: ['auth', '2fa'],
+      body: {
+        type: 'object',
+        properties: {
+          accountName: { type: 'string', description: 'Authenticator 显示的账号名(可选,默认用 email/phone)' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            code: { type: 'number' },
+            message: { type: 'string' },
+            data: {
+              type: 'object',
+              properties: {
+                secret: { type: 'string', description: 'Base32 编码的密钥(可手动输入)' },
+                uri: { type: 'string', description: 'otpauth:// URI' },
+                qrCode: { type: 'string', description: 'data:image/png;base64,... QR 码' },
+              },
+            },
+          },
+        },
+        400: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
+    const userId = request.userId!
+    const user = await findUserById(userId)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    if (user.twoFactorEnabled) {
+      return reply.status(400).send(error(400, '2FA 已启用,如需重置请先禁用'))
+    }
+
+    const secret = generateSecret() // 20 bytes CSPRNG
+    const accountName = (request.body as { accountName?: string } | null)?.accountName
+      ?? user.email ?? user.phone ?? userId
+    const uri = buildOtpauthUri({ secret, accountName, issuer: 'IHUI-AI' })
+    const qrCode = await generateQrCodeDataUrl(uri)
+
+    // 加密存储 secret 到 bytea(此时 twoFactorEnabled 仍为 false,等 /verify 确认后才置 true)
+    const encryptedBuf = encryptTwoFactorSecret(secret)
+    await db.update(users).set({
+      twoFactorSecret: encryptedBuf,
+      updatedAt: new Date(),
+    }).where(eq(users.id, userId))
+
+    return reply.send(success({
+      secret: base32Encode(secret),
+      uri,
+      qrCode,
+    }))
   })
-  server.post('/auth/2fa/verify', async (request, reply) => {
-    await authenticate(request)
-    const { code } = z.object({ code: z.string().length(6) }).parse(request.body)
-    return reply.send(success({ verified: true, code, backupCodes: [] }))
+
+  // POST /api/auth/2fa/verify — 校验 TOTP 6 位码,启用 2FA + 返回 backup codes(明文,只此一次)
+  server.post('/auth/2fa/verify', {
+    preHandler: [authenticate],
+    schema: {
+      summary: '校验 TOTP 并启用 2FA',
+      tags: ['auth', '2fa'],
+      body: {
+        type: 'object',
+        required: ['code'],
+        properties: { code: { type: 'string', description: '6 位 TOTP 码' } },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            code: { type: 'number' },
+            message: { type: 'string' },
+            data: {
+              type: 'object',
+              properties: {
+                verified: { type: 'boolean' },
+                backupCodes: { type: 'array', items: { type: 'string' }, description: '10 个 backup code(明文,只此一次)' },
+              },
+            },
+          },
+        },
+        400: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+        401: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
+    const parsed = z.object({ code: z.string().length(6) }).safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '验证码必须为 6 位数字'))
+    }
+    const userId = request.userId!
+    const user = await findUserById(userId)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    if (!user.twoFactorSecret) {
+      return reply.status(400).send(error(400, '请先调用 /auth/2fa/setup 生成密钥'))
+    }
+    if (user.twoFactorEnabled) {
+      return reply.status(400).send(error(400, '2FA 已启用,如需重新启用请先禁用'))
+    }
+
+    const secret = decryptTwoFactorSecret(user.twoFactorSecret)
+    if (!secret) {
+      return reply.status(500).send(error(500, '密钥解密失败,请重新 setup'))
+    }
+    if (!verifyTotp(parsed.data.code, secret)) {
+      return reply.status(401).send(error(401, '验证码错误或已过期'))
+    }
+
+    // 启用 2FA + 生成 10 个 backup code(明文返回一次,sha256 hash 存库)
+    const backupCodes = generateBackupCodes(10)
+    const hashes = backupCodes.map(hashBackupCode)
+    await db.update(users).set({
+      twoFactorEnabled: true,
+      twoFactorEnabledAt: new Date(),
+      twoFactorBackupCodes: hashes,
+      updatedAt: new Date(),
+    }).where(eq(users.id, userId))
+
+    return reply.send(success({
+      verified: true,
+      backupCodes,
+    }))
   })
-  server.post('/auth/2fa/disable', async (request, reply) => {
-    await authenticate(request)
+
+  // POST /api/auth/2fa/disable — 禁用 2FA(需密码二次确认)
+  server.post('/auth/2fa/disable', {
+    preHandler: [authenticate],
+    schema: {
+      summary: '禁用 2FA(需密码二次确认)',
+      tags: ['auth', '2fa'],
+      body: {
+        type: 'object',
+        required: ['password'],
+        properties: { password: { type: 'string', description: '当前密码(二次确认)' } },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            code: { type: 'number' },
+            message: { type: 'string' },
+            data: { type: 'object', properties: { disabled: { type: 'boolean' } } },
+          },
+        },
+        400: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+        401: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+      },
+    },
+  }, async (request, reply) => {
+    const parsed = z.object({ password: z.string().min(1) }).safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '密码不能为空'))
+    }
+    const userId = request.userId!
+    const user = await findUserById(userId)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    if (!user.twoFactorEnabled) {
+      return reply.status(400).send(error(400, '2FA 未启用'))
+    }
+    if (!user.passwordHash || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) {
+      return reply.status(401).send(error(401, '密码错误'))
+    }
+
+    await db.update(users).set({
+      twoFactorEnabled: false,
+      twoFactorSecret: null,
+      twoFactorBackupCodes: [],
+      twoFactorEnabledAt: null,
+      updatedAt: new Date(),
+    }).where(eq(users.id, userId))
+
     return reply.send(success({ disabled: true }))
+  })
+
+  // POST /api/auth/2fa/login-verify — 登录 2FA challenge 校验(TOTP 或 backup code)
+  // 输入 challengeToken(由 /auth/login 在用户启用 2FA 时返回的短期 5min token)
+  //       + 6 位 TOTP token 或 backup code(8 位字母数字,格式 XXXX-XXXX)
+  // 校验通过后签发完整 access + refresh token 对
+  server.post('/auth/2fa/login-verify', {
+    schema: {
+      summary: '登录 2FA 校验(TOTP 或 backup code)',
+      tags: ['auth', '2fa'],
+      body: {
+        type: 'object',
+        required: ['challengeToken'],
+        properties: {
+          challengeToken: { type: 'string', description: '/auth/login 返回的 2FA challenge token (5min)' },
+          token: { type: 'string', description: '6 位 TOTP 码(与 backupCode 二选一)' },
+          backupCode: { type: 'string', description: '8 位 backup code XXXX-XXXX(与 token 二选一)' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            code: { type: 'number' },
+            message: { type: 'string' },
+            data: { type: 'object', additionalProperties: true },
+          },
+        },
+        400: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+        401: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+      },
+    },
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+  }, async (request, reply) => {
+    const parsed = z.object({
+      challengeToken: z.string().min(1),
+      token: z.string().optional(),
+      backupCode: z.string().optional(),
+    }).safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { challengeToken, token, backupCode } = parsed.data
+    if (!token && !backupCode) {
+      return reply.status(400).send(error(400, '请提供 token (TOTP) 或 backupCode'))
+    }
+
+    // 校验 challenge token(type='challenge',5min 有效)
+    const challenge = await verifyChallengeToken(challengeToken)
+    if (!challenge) {
+      return reply.status(401).send(error(401, 'challenge token 无效或已过期'))
+    }
+
+    const userId = challenge.userId
+    const user = await findUserById(userId)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+
+    // 校验 TOTP 或 backup code
+    let verified = false
+    if (token) {
+      // TOTP 路径
+      const secret = decryptTwoFactorSecret(user.twoFactorSecret)
+      if (secret && verifyTotp(token, secret)) {
+        verified = true
+      }
+    } else if (backupCode) {
+      // backup code 路径:校验通过后立即从数组移除(单次使用)
+      const hashes = user.twoFactorBackupCodes ?? []
+      if (verifyBackupCode(backupCode, hashes)) {
+        const usedHash = hashBackupCode(backupCode)
+        const remaining = hashes.filter((h) => h !== usedHash)
+        await db.update(users).set({
+          twoFactorBackupCodes: remaining,
+          updatedAt: new Date(),
+        }).where(eq(users.id, userId))
+        verified = true
+      }
+    }
+
+    if (!verified) {
+      return reply.status(401).send(error(401, '2FA 验证失败:token 或 backup code 错误'))
+    }
+
+    // 校验通过 → 签发完整 access + refresh token 对
+    request.skipResponseSanitization = true
+    const familyId = createFamilyId()
+    const tokens = await buildTokenPair({
+      id: user.id,
+      phone: user.phone,
+      roleId: user.roleId,
+      familyId,
+    })
+
+    return reply.send(success(tokens))
   })
 
   // SSO 端点 GET 兼容：前端 lib/sso.ts 中字面量路径被脚本扫描为 GET，实际调用为 POST
