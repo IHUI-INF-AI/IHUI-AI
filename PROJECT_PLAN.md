@@ -295,6 +295,32 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 - pre-push typecheck 失败因 `@ihui/sdk` 找不到 `@ihui/types`(其他 agent,非本任务),按 §12 `--no-verify` 跳过 ✅
 
 ---
+### [x] ✅(2026-07-22) 大模型排行榜深度优化四轮:搜索关键词高亮 + 空状态优化 + i18n 5 语言同步(平台独占:仅 apps/web)
+
+**触发**:用户要求"继续深度开发 优化"。承接三轮交付后的 2 条"下一步建议",聚焦 UX 细节优化。
+
+**交付内容**(1 commit,7 文件,平台独占:仅 apps/web):
+
+| 模块 | 文件 | 改动 |
+|---|---|---|
+| Leaderboard | `apps/web/app/(main)/ai-news/components/Leaderboard.tsx` | `highlight` 函数(大小写不敏感,正则特殊字符转义,`<mark>` 黄色背景 dark mode 适配)+ 模型名/厂商名高亮 + 空状态优化(搜索/筛选无结果时显示 noMatch 提示 + clearFilter 清空按钮) |
+| i18n | `apps/web/messages/{zh-CN,en,ja,ko,zh-TW}.json` | 5 语言同步 2 新键(noMatch/clearFilter),parity 9/31/20 全对齐 |
+| 文档 | `docs/AI_LEADERBOARD.md` | 1.1 搜索关键词高亮 + 空状态优化 + i18n 键数表更新(leaderboard 7→9) |
+
+**自验**:
+- typecheck:Leaderboard.tsx 全绿 ✅(其他错误属其他 agent 代码:agent-workbench 模块缺失 / CodeEditor @monaco-editor/react 缺失 / terminal-panel @xterm 缺失 / PasswordLoginForm 类型 / packages/types 模块缺失)
+- i18n parity:5 语言全对齐(leaderboard 9 / detailDialog 31 / apiRelays 20)✅
+- zh-TW opencc 守门:本任务 2 新键("未找到匹配的模型"/"清空篩選")无简体字残留 ✅(exit 1 是其他 agent 的 agentWorkbench "Agent 工作台")
+- §13 文件持久化:全部 Edit 已 Grep 验证落地 ✅
+- browser_use 降级为代码审查(连续 3 次 BLOCKED:截图功能 "browser tab is not visible on screen")
+
+**Git 同步证据**(§21):
+- 本地 commit: <待填入>
+- origin commit: <待填入>
+- 同步状态: <待填入>
+- 守门脚本: <待填入>
+
+---
 ### [x] ✅(2026-07-22) 大模型排行榜深度优化三轮:搜索+厂商筛选 + 能力标签 + 排序功能 + i18n 5 语言同步(平台独占:仅 apps/web)
 
 **触发**:用户要求"继续深度开发 优化"。承接二轮交付后的 3 条"下一步建议",新增 3 个功能模块。
