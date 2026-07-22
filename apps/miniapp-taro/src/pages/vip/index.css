@@ -1,10 +1,10 @@
 .page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-background);
 }
 .header {
   padding: 60rpx 40rpx;
-  color: #fff;
+  color: var(--color-foreground);
 }
 .level {
   font-size: 44rpx;
@@ -18,13 +18,13 @@
 .card {
   margin: 24rpx;
   padding: 32rpx;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 16rpx;
 }
 .card-title {
   font-size: 30rpx;
   font-weight: 600;
-  color: #333;
+  color: var(--color-foreground);
   margin-bottom: 24rpx;
 }
 .grid {
@@ -44,13 +44,13 @@
   line-height: 72rpx;
   text-align: center;
   border-radius: 16rpx;
-  background: #fff5e6;
-  color: #f2b04a;
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--color-warning);
   font-size: 32rpx;
 }
 .gtext {
   font-size: 22rpx;
-  color: #666;
+  color: var(--color-muted-foreground);
   margin-top: 8rpx;
 }
 .plans {
@@ -61,30 +61,30 @@
   flex: 1;
   margin: 0 8rpx;
   padding: 24rpx 0;
-  border: 2rpx solid #eee;
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
   text-align: center;
 }
 .plan.active {
-  border-color: #f2b04a;
-  background: #fff5e6;
+  border-color: var(--color-warning);
+  background: rgba(245, 158, 11, 0.1);
 }
 .plan-name {
   display: block;
   font-size: 26rpx;
-  color: #333;
+  color: var(--color-foreground);
 }
 .plan-price {
   display: block;
   font-size: 32rpx;
-  color: #dd524d;
+  color: var(--color-destructive);
   font-weight: 600;
   margin-top: 8rpx;
 }
 .btn {
   margin-top: 32rpx;
-  background: #f2b04a;
-  color: #fff;
+  background: var(--color-warning);
+  color: var(--color-foreground);
   border-radius: 40rpx;
   font-size: 30rpx;
 }
@@ -93,12 +93,12 @@
   padding: 12rpx 0;
   text-align: center;
   font-size: 24rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
 }
 .desc-text {
   display: block;
   font-size: 24rpx;
-  color: #666;
+  color: var(--color-muted-foreground);
   line-height: 1.8;
   white-space: pre-line;
 }

@@ -111,7 +111,7 @@ export default function VideoDetailPage() {
   }
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       <VideoPlayer src={info.playUrl} poster={info.coverUrl} loading={loading} />
 
       <VideoInfo
@@ -136,7 +136,7 @@ export default function VideoDetailPage() {
         onShare={handleShare}
       />
 
-      <View className="mx-3 mt-3 bg-white rounded-xl overflow-hidden">
+      <View className="mx-3 mt-3 bg-card rounded-xl overflow-hidden">
         <VideoTabs
           tabs={[
             {

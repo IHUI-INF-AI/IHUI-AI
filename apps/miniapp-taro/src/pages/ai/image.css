@@ -1,6 +1,6 @@
 .page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-background);
   display: flex;
   flex-direction: column;
 }
@@ -28,7 +28,7 @@
 }
 .empty-text {
   font-size: 26rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
   margin-top: 24rpx;
 }
 .examples {
@@ -36,7 +36,7 @@
 }
 .ex-title {
   font-size: 24rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
 }
 .ex-list {
   display: flex;
@@ -46,20 +46,20 @@
 }
 .ex-item {
   padding: 12rpx 24rpx;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 24rpx;
   font-size: 24rpx;
-  color: #666;
+  color: var(--color-muted-foreground);
 }
 .form {
   padding: 24rpx 32rpx;
-  background: #fff;
+  background: var(--color-card);
 }
 .input {
   width: 100%;
   min-height: 120rpx;
   padding: 20rpx;
-  background: #f7f8fa;
+  background: var(--color-background);
   border-radius: 12rpx;
   font-size: 28rpx;
   box-sizing: border-box;
@@ -77,18 +77,18 @@
 }
 .size {
   padding: 8rpx 16rpx;
-  border: 2rpx solid #eee;
+  border: 2rpx solid var(--color-border);
   border-radius: 8rpx;
   font-size: 24rpx;
-  color: #666;
+  color: var(--color-muted-foreground);
 }
 .size.active {
-  border-color: #07c160;
-  color: #07c160;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 .btn {
-  background: #07c160;
-  color: #fff;
+  background: var(--color-primary);
+  color: var(--color-foreground);
   border-radius: 40rpx;
   font-size: 28rpx;
   padding: 0 32rpx;

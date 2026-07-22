@@ -62,7 +62,7 @@ export default function CompanyPage() {
   const navigateTo = (url: string) => Taro.navigateTo({ url })
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       <View className="bg-gradient-to-b from-[#1f2937] to-[#374151] px-4 pt-8 pb-6 text-white">
         <Text className="block text-sm opacity-80">{t('distribution.company.title')}</Text>
         <Text className="block text-2xl font-bold mt-2">
@@ -90,12 +90,12 @@ export default function CompanyPage() {
         </View>
       </View>
 
-      <View className="mx-3 mt-3 bg-white rounded-xl p-4">
+      <View className="mx-3 mt-3 bg-card rounded-xl p-4">
         <View className="flex items-center justify-between mb-3">
-          <Text className="text-sm font-medium text-gray-800">
+          <Text className="text-sm font-medium text-foreground">
             {t('distribution.company.teamMembers')}
           </Text>
-          <Text className="text-xs text-gray-400">
+          <Text className="text-xs text-muted-foreground">
             {t('distribution.company.memberCount', { n: members.length })}
           </Text>
         </View>
@@ -103,69 +103,69 @@ export default function CompanyPage() {
           <View className="py-4">
             {Array.from({ length: 3 }).map((_, i) => (
               <View key={i} className="flex items-center py-2 animate-pulse">
-                <View className="w-9 h-9 mr-3 rounded-lg bg-gray-100" />
-                <View className="flex-1 h-3 bg-gray-100 rounded" />
+                <View className="w-9 h-9 mr-3 rounded-lg bg-muted" />
+                <View className="flex-1 h-3 bg-muted rounded" />
               </View>
             ))}
           </View>
         ) : members.length === 0 ? (
           <View className="flex items-center justify-center py-8">
-            <Text className="text-sm text-gray-400">{t('distribution.company.empty')}</Text>
+            <Text className="text-sm text-muted-foreground">{t('distribution.company.empty')}</Text>
           </View>
         ) : (
           members.map((m) => (
             <View
               key={m.id}
-              className="flex items-center py-2.5 border-b border-gray-50 last:border-0"
+              className="flex items-center py-2.5 border-b border-border last:border-0"
               onClick={() => navigateTo(`/pages/distribution/member-detail/index?id=${m.id}`)}
             >
               {m.avatar ? (
                 <Image
-                  className="w-9 h-9 mr-3 rounded-lg bg-gray-50"
+                  className="w-9 h-9 mr-3 rounded-lg bg-muted"
                   src={m.avatar}
                   mode="aspectFill"
                 />
               ) : (
-                <View className="flex items-center justify-center w-9 h-9 mr-3 rounded-lg bg-gray-50">
-                  <Text className="text-xs text-gray-500">{m.nickname.charAt(0)}</Text>
+                <View className="flex items-center justify-center w-9 h-9 mr-3 rounded-lg bg-muted">
+                  <Text className="text-xs text-muted-foreground">{m.nickname.charAt(0)}</Text>
                 </View>
               )}
               <View className="flex-1 min-w-0">
-                <Text className="block text-sm text-gray-700 truncate">{m.nickname}</Text>
-                <Text className="block text-xs text-gray-400 mt-0.5">
+                <Text className="block text-sm text-foreground truncate">{m.nickname}</Text>
+                <Text className="block text-xs text-muted-foreground mt-0.5">
                   {t('distribution.company.joinTime', { time: m.joinTime })}
                 </Text>
               </View>
-              <Text className="text-xs text-gray-400">V{m.level}</Text>
+              <Text className="text-xs text-muted-foreground">V{m.level}</Text>
             </View>
           ))
         )}
       </View>
 
-      <View className="mx-3 mt-3 bg-white rounded-xl p-4">
+      <View className="mx-3 mt-3 bg-card rounded-xl p-4">
         <View className="grid grid-cols-3 gap-3">
           <View
-            className="flex flex-col items-center py-3 rounded-lg bg-gray-50"
+            className="flex flex-col items-center py-3 rounded-lg bg-muted"
             onClick={() => navigateTo('/pages/distribution/team')}
           >
             <Text className="text-xl">👥</Text>
-            <Text className="text-xs text-gray-600 mt-1">{t('distribution.company.menuTeam')}</Text>
+            <Text className="text-xs text-foreground mt-1">{t('distribution.company.menuTeam')}</Text>
           </View>
           <View
-            className="flex flex-col items-center py-3 rounded-lg bg-gray-50"
+            className="flex flex-col items-center py-3 rounded-lg bg-muted"
             onClick={() => navigateTo('/pages/distribution/commission')}
           >
             <Text className="text-xl">💰</Text>
-            <Text className="text-xs text-gray-600 mt-1">
+            <Text className="text-xs text-foreground mt-1">
               {t('distribution.company.menuCommission')}
             </Text>
           </View>
           <View
-            className="flex flex-col items-center py-3 rounded-lg bg-gray-50"
+            className="flex flex-col items-center py-3 rounded-lg bg-muted"
             onClick={() => navigateTo('/pages/distribution/withdraw')}
           >
             <Text className="text-xl">💸</Text>
-            <Text className="text-xs text-gray-600 mt-1">
+            <Text className="text-xs text-foreground mt-1">
               {t('distribution.company.menuWithdraw')}
             </Text>
           </View>
