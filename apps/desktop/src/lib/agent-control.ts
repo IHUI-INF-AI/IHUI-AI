@@ -28,7 +28,7 @@ export interface OkResult {
 export interface WindowInfo {
   title: string
   appName: string
-  bounds: [number, number, number, number]
+  windowId: string
 }
 export interface ActiveWindowResult {
   window: WindowInfo
