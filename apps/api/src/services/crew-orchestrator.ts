@@ -105,6 +105,24 @@ class CrewOrchestrator {
   /** G7: 会话级 usage 累计(会话结束清理) */
   private _sessionUsage = new Map<string, UsageAccumulator>()
 
+  /** G9: 会话取消标记(外部可通过 cancel(sessionId) 中断正在执行的 generator) */
+  private _cancelled = new Set<string>()
+
+  /** G9: 标记会话为已取消,executeSessionStreaming 各循环内 check */
+  cancel(sessionId: string): void {
+    this._cancelled.add(sessionId)
+  }
+
+  /** G9: 检查会话是否已被取消(generator 内部调用) */
+  isCancelled(sessionId: string): boolean {
+    return this._cancelled.has(sessionId)
+  }
+
+  /** G9: 清理已结束会话的取消标记(防止 Set 无限增长) */
+  private clearCancelled(sessionId: string): void {
+    this._cancelled.delete(sessionId)
+  }
+
   /** G7: 初始化会话 usage 累计器 */
   private initUsage(sessionId: string): UsageAccumulator {
     const u: UsageAccumulator = {
@@ -213,6 +231,7 @@ class CrewOrchestrator {
 
     const config = (session.config ?? {}) as SessionConfig
     this.initUsage(sessionId) // G7: 初始化 usage 累计
+    this.clearCancelled(sessionId) // G9: 重置取消标记(允许重连后重新执行)
     yield { type: 'start', content: '多智能体协作开始', sessionId }
 
     try {
@@ -228,6 +247,8 @@ class CrewOrchestrator {
       const results: Record<string, string> = {}
 
       for (let i = 0; i < taskPlan.length; i++) {
+        // G9: 客户端断连/主动取消检测,中止后续 step
+        if (this.isCancelled(sessionId)) break
         const plan = taskPlan[i]!
         const cfg = agentRegistry.getRole(plan.role)
         if (!cfg) continue
@@ -282,6 +303,19 @@ class CrewOrchestrator {
         }
       }
 
+      // G9: 区分正常完成 vs 客户端取消
+      if (this.isCancelled(sessionId)) {
+        await this.updateSessionStatus(sessionId, 'cancelled', '客户端断开连接,会话已取消')
+        yield {
+          type: 'error',
+          content: '客户端断开连接,会话已取消',
+          sessionId,
+          usage: this.clearUsage(sessionId),
+          userId: session.userId,
+        }
+        return
+      }
+
       const finalResult = results['reporter'] ?? results['executor'] ?? '无结果'
       await this.updateSessionStatus(sessionId, 'completed', finalResult)
       // 保存最终产物
@@ -303,6 +337,10 @@ class CrewOrchestrator {
         usage: this.clearUsage(sessionId),
         userId: session.userId,
       }
+    } finally {
+      // G9: 兜底清理,避免客户端断连导致的 _sessionUsage / _cancelled 泄漏
+      this.clearUsage(sessionId)
+      this.clearCancelled(sessionId)
     }
   }
 
