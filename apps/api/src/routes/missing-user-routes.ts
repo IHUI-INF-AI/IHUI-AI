@@ -1529,12 +1529,15 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     if (available < parsed.data.amount) {
       return reply.status(400).send(error(400, '可提现余额不足'))
     }
-    const flow = await applyWithdrawal({
-      userId: request.userId!,
-      amount: parsed.data.amount,
-      method: parsed.data.method,
-      accountInfo: parsed.data.accountInfo ?? {},
-    })
+    const flow = await applyWithdrawal(
+      {
+        userId: request.userId!,
+        amount: parsed.data.amount,
+        method: parsed.data.method,
+        accountInfo: parsed.data.accountInfo ?? {},
+      },
+      request.userId ?? null,
+    )
     return reply.status(201).send(success({ success: true, flow }))
   })
 
@@ -1577,7 +1580,7 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     if (roleId < 1) return reply.status(403).send(error(403, '需要管理员权限'))
     const id = parseIdParam(request, reply)
     if (id === null) return
-    const flow = await approveWithdrawal(id)
+    const flow = await approveWithdrawal(id, request.userId ?? null)
     if (!flow) return reply.status(400).send(error(400, '提现记录不存在或已处理'))
     return reply.send(success({ success: true, flow }))
   })
