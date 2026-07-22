@@ -24,6 +24,7 @@ from .volcengine_provider import VolcengineProvider
 from .ollama_provider import OllamaProvider
 from .lmstudio_provider import LMStudioProvider
 from .llama_cpp_provider import LlamaCppProvider
+from .qwen_local_provider import QwenLocalProvider
 
 __all__ = [
     "BaseProvider",
@@ -44,6 +45,7 @@ __all__ = [
     "OllamaProvider",
     "LMStudioProvider",
     "LlamaCppProvider",
+    "QwenLocalProvider",
     "get_provider",
 ]
 
@@ -97,6 +99,9 @@ def get_provider(model: str, api_key: str | None, api_base: str | None) -> BaseP
         return LMStudioProvider(api_key, api_base)
     if m.startswith("llamacpp/"):
         return LlamaCppProvider(api_key, api_base)
+    # Qwen3.5 本地主打适配器(ChatML stop tokens + 32K ctx 优化,基于 Ollama 原生协议)
+    if m.startswith("qwen-local/"):
+        return QwenLocalProvider(api_key, api_base)
     # 国际厂商(均为 OpenAI 兼容,catchall OpenAIProvider 可处理;此处显式列出便于未来扩展专属协议)
     # groq / mistral / cohere / perplexity / xai / replicate / stability / ai21
     # watsonx / vertex / together / cerebras / sambanova / deepinfra / friendli

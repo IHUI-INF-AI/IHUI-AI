@@ -41,6 +41,8 @@ import { registerCheckpointCommand } from './commands/checkpoint.js';
 import { registerHooksCommand } from './commands/hooks.js';
 import { registerHooksAutoCommand } from './commands/hooks-auto.js';
 import { registerImportCommand } from './commands/import.js';
+import { registerServeCommand } from './commands/serve.js';
+import { registerConnectCommand } from './commands/connect.js';
 import { startAcpServer } from './acp/server.js';
 import { registerSubagentParallelCommand } from './commands/subagent-parallel.js';
 import { CheckpointManager } from './checkpoints/index.js';
@@ -579,64 +581,13 @@ program
     await connection.closed;
   });
 
-// server 子命令 — 启动 Agent 内核 HTTP/WS server,支持远程驱动(对标 OpenCode client/server 架构)
-program
-  .command('server')
-  .description('启动 Agent 内核 HTTP/WS server,支持远程驱动(本机跑内核,手机/网页/其他端连接控制)')
-  .option('-p, --port <port>', '监听端口', '7788')
-  .option('--host <host>', '监听地址', '127.0.0.1')
-  .action(async (serverOpts: OptionValues) => {
-    const opts = program.opts();
-    const cfg = resolveEffectiveConfig({
-      cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
-      cliApiKey: typeof opts.apiKey === 'string' ? opts.apiKey : undefined,
-      cliModel: typeof opts.model === 'string' ? opts.model : undefined,
-      cliMaxIterations: typeof opts.maxIterations === 'string' ? opts.maxIterations : undefined,
-      cliAllowDangerous: opts.allowDangerous === true ? true : undefined,
-      cliMcp: opts.mcp === true ? true : undefined,
-      cliPermissionMode: typeof opts.permissionMode === 'string' ? opts.permissionMode : undefined,
-    });
-    const { AgentCore, startAgentServer, attachWsBridge } = await import('./server/index.js');
-    const core = new AgentCore({
-      workspacePath: opts.workspace,
-      model: cfg.model,
-      apiUrl: cfg.apiUrl,
-      apiKey: cfg.apiKey,
-      maxIterations: cfg.maxIterations,
-      permissionMode: cfg.permissionMode as ReturnType<typeof resolveEffectiveConfig>['permissionMode'],
-      enableMcp: cfg.enableMcp,
-      allowDangerous: cfg.allowDangerous,
-    });
-    const port = Number(serverOpts.port) || 7788;
-    const handle = await startAgentServer(core, {
-      port,
-      token: process.env.IHUI_AGENT_TOKEN,
-    });
-    attachWsBridge(core, { server: handle.server, path: '/ws' });
-    console.info(
-      chalk.green(`🚀 IHUI Agent server 监听 http://127.0.0.1:${port} (WS /ws)`),
-    );
-    console.info(chalk.dim(`   model=${cfg.model}  workspace=${opts.workspace}`));
-    if (process.env.IHUI_AGENT_TOKEN) {
-      console.info(chalk.dim('   鉴权:Bearer IHUI_AGENT_TOKEN'));
-    } else {
-      console.info(chalk.yellow('   ⚠ 未设 IHUI_AGENT_TOKEN,无鉴权(仅本地开发)'));
-    }
-    console.info(chalk.dim('   POST /message (SSE) · GET /sessions · GET /health'));
-    process.on('SIGINT', () => handle.close());
-    process.on('SIGTERM', () => handle.close());
-  });
+// serve 子命令 — 启动 Agent 内核 HTTP/WS server,支持远程驱动(对标 OpenCode client/server 架构)
+// 平台独占:仅 cli
+registerServeCommand(program);
 
-// remote 子命令 — 作为 TUI client 连接远程 Agent server(对标 OpenCode 远程驱动)
-program
-  .command('remote <url>')
-  .description('作为 TUI client 连接远程 Agent server(如 ihui server 启动的内核)')
-  .option('-t, --token <token>', 'Bearer 鉴权 token', process.env.IHUI_AGENT_TOKEN || '')
-  .action(async (url: string, remoteOpts: OptionValues) => {
-    const { startTuiInteractive } = await import('./client/index.js');
-    const token = typeof remoteOpts.token === 'string' ? remoteOpts.token : '';
-    await startTuiInteractive({ url, token });
-  });
+// connect 子命令 — 作为 TUI client 连接远程 Agent server(对标 OpenCode 远程驱动)
+// 平台独占:仅 cli
+registerConnectCommand(program);
 
 // ============================================================================
 // Wave 2 命令 — 智能深度反超(对标 OpenClaw Mem + OpenCode Plan/Build)

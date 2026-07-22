@@ -761,6 +761,42 @@
       "input_price": 0
     },
     {
+      "_seed_2026_07_22_w4_2": "OpenClaw 对标 Wave 4 W4-2:Qwen3.5 本地主打适配(ChatML stop + 32K ctx 优化,基于 Ollama 原生协议)",
+      "id": "qwen-local/qwen2.5:7b",
+      "name": "Qwen3.5 7B 本地(主打推荐,4GB 显存)",
+      "provider": "qwen_local",
+      "context_length": 32768,
+      "input_price": 0
+    },
+    {
+      "id": "qwen-local/qwen2.5:14b",
+      "name": "Qwen3.5 14B 本地(中量级,8GB 显存)",
+      "provider": "qwen_local",
+      "context_length": 32768,
+      "input_price": 0
+    },
+    {
+      "id": "qwen-local/qwen2.5:32b",
+      "name": "Qwen3.5 32B 本地(重量级,16GB 显存)",
+      "provider": "qwen_local",
+      "context_length": 32768,
+      "input_price": 0
+    },
+    {
+      "id": "qwen-local/qwen2.5:72b",
+      "name": "Qwen3.5 72B 本地(旗舰,40GB 显存)",
+      "provider": "qwen_local",
+      "context_length": 32768,
+      "input_price": 0
+    },
+    {
+      "id": "qwen-local/qwen2.5-coder:7b",
+      "name": "Qwen3.5 Coder 7B 本地(代码专精)",
+      "provider": "qwen_local",
+      "context_length": 32768,
+      "input_price": 0
+    },
+    {
       "id": "upstage/solar-pro",
       "name": "Solar Pro",
       "provider": "upstage",
