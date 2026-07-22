@@ -654,6 +654,7 @@
     "usernameExists": "Username already exists",
     "dingtalkLogin": "DingTalk",
     "appleLogin": "Apple",
+    "appleComingSoon": "Apple login coming soon",
     "githubLogin": "GitHub",
     "feishuLogin": "Feishu",
     "qrLogin": "Scan QR",

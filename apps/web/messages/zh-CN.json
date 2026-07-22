@@ -655,6 +655,7 @@
     "usernameExists": "用户名已存在",
     "dingtalkLogin": "钉钉",
     "appleLogin": "Apple",
+    "appleComingSoon": "Apple 登录即将上线",
     "githubLogin": "GitHub",
     "feishuLogin": "飞书",
     "qrLogin": "扫码登录",
