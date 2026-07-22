@@ -1956,8 +1956,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           const wxAppId = process.env.WECHAT_APP_ID
           const wxSecret = process.env.WECHAT_APP_SECRET
           if (!wxAppId || !wxSecret) return reply.status(400).send(error(400, '微信 OAuth 未配置'))
+          // 2026-07-22 P0 Round 3:微信 API 限制 secret 必须在 query(官方设计),
+          // 通过 HTTPS 传输保护 + 10s 超时防挂起(无法移到 POST body)
           const tokenRes = await fetch(
             `https://api.weixin.qq.com/sns/oauth2/access_token?appid=${wxAppId}&secret=${wxSecret}&code=${code}&grant_type=authorization_code`,
+            { signal: AbortSignal.timeout(10_000) },
           )
           const tokenData = (await tokenRes.json()) as {
             access_token?: string
@@ -1969,6 +1972,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
             return reply.status(400).send(error(400, '微信授权码无效'))
           const userRes = await fetch(
             `https://api.weixin.qq.com/sns/userinfo?access_token=${tokenData.access_token}&openid=${tokenData.openid}`,
+            { signal: AbortSignal.timeout(10_000) },
           )
           const wxUser = (await userRes.json()) as {
             openid: string
