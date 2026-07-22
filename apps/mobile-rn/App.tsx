@@ -5,20 +5,32 @@ import { NavigationContainer } from '@react-navigation/native'
 import { StatusBar } from 'expo-status-bar'
 import { AuthProvider } from './src/context/AuthContext'
 import { I18nProvider } from './src/i18n'
+import { NetworkProvider, useNetwork } from './src/context/NetworkContext'
+import { OfflineBanner } from './src/components/OfflineBanner'
 import { RootNavigator } from './src/navigation/RootNavigator'
 
-export default function App() {
-  // 跟随系统主题 toggle .dark class（对齐 web 端 next-themes .dark 策略）
-  const isDark = useColorScheme() === 'dark'
+function AppInner() {
+  const { isOnline } = useNetwork()
+  return (
+    <>
+      <OfflineBanner isOnline={isOnline} />
+      <NavigationContainer>
+        <RootNavigator />
+      </NavigationContainer>
+    </>
+  )
+}
 
+export default function App() {
+  const isDark = useColorScheme() === 'dark'
   return (
     <View className={isDark ? 'dark' : ''} style={{ flex: 1 }}>
       <SafeAreaProvider>
         <I18nProvider>
           <AuthProvider>
-            <NavigationContainer>
-              <RootNavigator />
-            </NavigationContainer>
+            <NetworkProvider>
+              <AppInner />
+            </NetworkProvider>
           </AuthProvider>
         </I18nProvider>
         <StatusBar style="auto" />
