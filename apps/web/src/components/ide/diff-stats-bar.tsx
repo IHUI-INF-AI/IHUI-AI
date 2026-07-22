@@ -1,5 +1,6 @@
 'use client'
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import type { DiffFileStatus } from '@ihui/types'
 import { cn } from '@/lib/utils'
@@ -13,15 +14,16 @@ interface DiffStatsBarProps {
   onCommit?: () => void
 }
 
-const FILTER_OPTIONS: { value: DiffFilterType; label: string }[] = [
-  { value: 'all', label: '全部' },
-  { value: 'modified', label: '修改' },
-  { value: 'added', label: '新增' },
-  { value: 'deleted', label: '删除' },
+const FILTER_OPTIONS: { value: DiffFilterType; labelKey: string }[] = [
+  { value: 'all', labelKey: 'diffStats.filterAll' },
+  { value: 'modified', labelKey: 'diffStats.filterModified' },
+  { value: 'added', labelKey: 'diffStats.filterAdded' },
+  { value: 'deleted', labelKey: 'diffStats.filterDeleted' },
 ]
 
 export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffStatsBarProps) {
   const { diffFiles, diffViewMode, setDiffViewMode } = useIDEWorkspace()
+  const t = useTranslations('ide')
   const totalAdd = diffFiles.reduce((s, f) => s + f.additions, 0)
   const totalDel = diffFiles.reduce((s, f) => s + f.deletions, 0)
   const total = totalAdd + totalDel
@@ -38,7 +40,7 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
           )}
         >
           <Columns2 className="h-3.5 w-3.5" />
-          <span>对比</span>
+          <span>{t('diffStats.split')}</span>
         </button>
         <button
           onClick={() => setDiffViewMode('unified')}
@@ -48,7 +50,7 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
           )}
         >
           <Rows2 className="h-3.5 w-3.5" />
-          <span>合并</span>
+          <span>{t('diffStats.unified')}</span>
         </button>
       </div>
       <div className="flex h-1.5 w-20 overflow-hidden rounded-sm bg-muted">
@@ -63,7 +65,7 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
           <Minus className="h-3 w-3" />{totalDel}
         </span>
       </div>
-      <span className="text-muted-foreground">{diffFiles.length} 个文件</span>
+      <span className="text-muted-foreground">{t('diffStats.fileCount', { count: diffFiles.length })}</span>
       {onFilterChange && (
         <div className="flex items-center gap-0.5">
           {FILTER_OPTIONS.map((opt) => (
@@ -75,7 +77,7 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
                 filter === opt.value ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              <span>{opt.label}</span>
+              <span>{t(opt.labelKey)}</span>
             </button>
           ))}
         </div>
@@ -86,7 +88,7 @@ export function DiffStatsBar({ filter = 'all', onFilterChange, onCommit }: DiffS
           className="ml-auto flex items-center gap-1 rounded bg-foreground px-2 py-0.5 text-background transition-colors hover:bg-foreground/90"
         >
           <GitCommit className="h-3 w-3" />
-          <span>提交变更</span>
+          <span>{t('diffStats.commit')}</span>
         </button>
       )}
     </div>
