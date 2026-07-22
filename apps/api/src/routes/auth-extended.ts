@@ -2,7 +2,6 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
-import QRCode from 'qrcode'
 import { generateShortCode } from '../utils/crypto-random.js'
 import {
   signAccessToken,
@@ -108,24 +107,9 @@ import {
 // 之前硬编码 7d 与 jwt.ts 实际 15min 不符,返回给客户端的 expiresIn 撒谎,
 // 导致前端 tokenUtils.startAutoRefresh 提前 5min 续期时 token 已失效 14min45s。
 
-// QR 扫码登录会话内存存储(ticket → 会话)。生产环境应迁移 Redis。
-interface QrSession {
-  ticket: string
-  status: 'pending' | 'scanned' | 'confirming' | 'success' | 'expired' | 'failed'
-  token?: string
-  userId?: string
-  createdAt: number
-  expiresAt: number
-}
-const qrStore = new Map<string, QrSession>()
-const QR_TTL_MS = 5 * 60 * 1000 // 5 分钟有效
-
-function cleanupExpiredQr(): void {
-  const now = Date.now()
-  for (const [ticket, s] of qrStore) {
-    if (s.expiresAt < now && s.status !== 'success') qrStore.delete(ticket)
-  }
-}
+// 注:旧版"模拟二维码登录"(qrStore + /auth/qr/generate + /auth/qr/status + /auth/qr/confirm)
+// 已移除(2026-07-22),改为前端内嵌各厂商官方扫码 SDK(微信 WxLogin / 企业微信 wwLogin /
+// 钉钉 DTFrameLogin / 飞书 QRLogin),扫码成功后走标准 OAuth callback:POST /api/auth/:platform/callback
 
 async function buildTokenPair(user: {
   id: string
@@ -2176,79 +2160,6 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
     const tokens = await buildTokenPair(user)
     return reply.send(success({ userId: user.id, ...tokens, tokenType: 'Bearer' }))
-  })
-
-  // 二维码登录:生成 ticket + dataURL 二维码图片(扫码后跳转到 /qr-confirm 确认)
-  server.get('/auth/qr/generate', async (request, reply) => {
-    cleanupExpiredQr()
-    const ticket = randomBytes(32).toString('base64url')
-    const now = Date.now()
-    qrStore.set(ticket, {
-      ticket,
-      status: 'pending',
-      createdAt: now,
-      expiresAt: now + QR_TTL_MS,
-    })
-    // 二维码内容 = 扫码确认页 URL(用户扫码后访问该页面点"确认登录")
-    const origin = `${request.protocol}://${request.hostname}`
-    const confirmUrl = `${origin}/qr-confirm?ticket=${ticket}`
-    let qrCodeUrl = ''
-    try {
-      qrCodeUrl = await QRCode.toDataURL(confirmUrl, { width: 240, margin: 1 })
-    } catch (e) {
-      request.log.error({ err: e }, '生成二维码失败')
-    }
-    return reply.send(success({ ticket, qrCodeUrl, expiresIn: QR_TTL_MS / 1000 }))
-  })
-
-  // 二维码登录:轮询扫码状态
-  server.get('/auth/qr/status', async (request, reply) => {
-    const { ticket } = z.object({ ticket: z.string().min(1) }).parse(request.query)
-    const session = qrStore.get(ticket)
-    if (!session) {
-      return reply.status(404).send(error(404, '二维码不存在或已过期'))
-    }
-    if (session.expiresAt < Date.now() && session.status !== 'success') {
-      session.status = 'expired'
-    }
-    return reply.send(
-      success({
-        status: session.status,
-        token: session.token,
-        userId: session.userId,
-      }),
-    )
-  })
-
-  // 二维码登录:扫码确认(扫码端访问 /qr-confirm 页面后调用)
-  server.post('/auth/qr/confirm', async (request, reply) => {
-    const { ticket } = z.object({ ticket: z.string().min(1) }).parse(request.query)
-    const session = qrStore.get(ticket)
-    if (!session || session.expiresAt < Date.now()) {
-      return reply.status(404).send(error(404, '二维码不存在或已过期'))
-    }
-    if (session.status === 'success') {
-      return reply.send(success({ confirmed: true, message: '已确认,请返回原页面' }))
-    }
-    // 创建/获取扫码登录专用 demo 用户(username=qr-demo)
-    // 生产环境应替换为 OAuth 授权(微信/钉钉/飞书等)获取真实用户身份
-    let user = await findUserByUsername('qr-demo')
-    if (!user) {
-      user = await createUser({
-        username: 'qr-demo',
-        nickname: '扫码登录用户',
-        roleId: 0,
-        status: 1,
-      } as any)
-    }
-    if (user.status !== 1) {
-      return reply.status(403).send(error(403, '账号已被禁用'))
-    }
-    const tokens = await buildTokenPair(user)
-    session.status = 'success'
-    session.token = tokens.accessToken
-    session.userId = user.id
-    return reply.send(success({ confirmed: true, message: '已确认,请返回原页面' }))
   })
 
   // 双因素认证（2FA）桩：返回禁用状态，避免前端设置页 404
