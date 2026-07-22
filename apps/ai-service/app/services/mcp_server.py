@@ -134,6 +134,8 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     pattern = arguments.get("pattern", "")
     max_results = int(arguments.get("max_results", 50))
     symbol_type = arguments.get("symbol_type", "").strip().lower()
+    # 2026-07-22 新增:语义搜索开关(默认 True,失败/无结果时 fallback 到 regex)
+    use_semantic = arguments.get("use_semantic", True)
 
     # 默认代码文件扩展名(若未指定 pattern)
     _CODE_EXTS = {
@@ -170,6 +172,45 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             "message": "搜索关键词为空",
             "ok": False,
         }
+
+    # 2026-07-22 新增:语义搜索路径(pgvector ANN,优先于 regex)
+    # 失败或无结果时静默 fallback 到下方 regex 路径
+    if use_semantic:
+        try:
+            from .codebase_indexer import codebase_indexer
+            semantic_results = await codebase_indexer.search(query, top_k=max_results)
+            if semantic_results:
+                matches: list[dict[str, Any]] = []
+                for r in semantic_results[:max_results]:
+                    content_preview = r.get("content", "")
+                    if len(content_preview) > 500:
+                        content_preview = content_preview[:500]
+                    matches.append({
+                        "path": r.get("filePath", ""),
+                        "file": r.get("filePath", "").rsplit("/", 1)[-1],
+                        "line": r.get("lineStart", 0),
+                        "symbol_type": r.get("symbolType", "semantic"),
+                        "symbol_name": r.get("symbolName", ""),
+                        "code": content_preview[:200],
+                        "preview": content_preview,
+                        "score": round(r.get("score", 0), 4),
+                    })
+                return {
+                    "tool": "search_codebase",
+                    "query": query,
+                    "path": path,
+                    "use_semantic": True,
+                    "matches": matches,
+                    "total": len(matches),
+                    "truncated": False,
+                    "message": f"语义搜索找到 {len(matches)} 个匹配(pgvector ANN)",
+                    "ok": True,
+                }
+        except Exception as e:
+            import logging as _logging
+            _logging.getLogger(__name__).debug(
+                "semantic search failed, fallback to regex: %s", e
+            )
 
     try:
         from pathlib import Path
@@ -908,14 +949,16 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
 async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
     """git_operations: Git 操作(真实 git 命令执行)。
 
-    支持的 action: status/diff/log/branch/show/stash/list
-    其他 action 返回错误,避免执行危险操作(push/force/reset 等)。
+    支持的 action:
+      只读(所有用户): status/diff/log/branch(show)/show/stash(list)/list
+      写操作(需 admin,role >= 1): branch_create/branch_switch/branch_delete/merge/
+                                  rebase/stash_push/stash_pop/tag_create/tag_list
     """
     action = arguments.get("action", "status")
     repo = arguments.get("repo", ".")
 
-    # 白名单:仅允许只读/安全操作
-    _ALLOWED_ACTIONS = {
+    # 只读操作白名单(所有用户可用)
+    _READONLY_ACTIONS = {
         "status": ["status", "--short", "--branch"],
         "diff": ["diff", "--stat"],
         "log": ["log", "--oneline", "-20"],
@@ -925,15 +968,40 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
         "list": ["ls-files"],
     }
 
-    if action not in _ALLOWED_ACTIONS:
+    # 写操作集合(admin only,role >= 1)Wave 8 新增
+    _WRITE_ACTIONS = {
+        "branch_create", "branch_switch", "branch_delete", "merge",
+        "rebase", "stash_push", "stash_pop", "tag_create", "tag_list",
+    }
+
+    if action not in _READONLY_ACTIONS and action not in _WRITE_ACTIONS:
         return {
             "tool": "git_operations",
             "action": action,
             "repo": repo,
             "output": "",
-            "message": f"不允许的 git 操作: {action}。允许: {', '.join(sorted(_ALLOWED_ACTIONS))}",
+            "message": (
+                f"不允许的 git 操作: {action}。允许: "
+                f"只读={', '.join(sorted(_READONLY_ACTIONS))}; "
+                f"写操作(admin)={', '.join(sorted(_WRITE_ACTIONS))}"
+            ),
             "ok": False,
         }
+
+    # 写操作 admin 权限校验(defense-in-depth,call_tool 层已校验 _ADMIN_ONLY_TOOLS,
+    # 此处再校验 __user_role 以防绕过)
+    if action in _WRITE_ACTIONS:
+        user_role = arguments.get("__user_role", 0)
+        if user_role < 1:
+            return {
+                "tool": "git_operations",
+                "action": action,
+                "repo": repo,
+                "output": "",
+                "message": f"写操作 '{action}' 需要 admin 权限(role >= 1),当前 role={user_role}",
+                "ok": False,
+                "error": "PERMISSION_DENIED",
+            }
 
     try:
         import subprocess
@@ -951,11 +1019,24 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
             }
 
         # 构造 git 命令参数
-        git_args = list(_ALLOWED_ACTIONS[action])
-        # show 命令需要 ref 参数
-        if action == "show":
-            ref = arguments.get("ref", "HEAD")
-            git_args.append(ref)
+        if action in _READONLY_ACTIONS:
+            git_args = list(_READONLY_ACTIONS[action])
+            # show 命令需要 ref 参数
+            if action == "show":
+                ref = arguments.get("ref", "HEAD")
+                git_args.append(ref)
+        else:
+            # 写操作:根据 action 构造命令参数
+            git_args = _build_write_action_args(action, arguments)
+            if git_args is None:
+                return {
+                    "tool": "git_operations",
+                    "action": action,
+                    "repo": repo,
+                    "output": "",
+                    "message": f"写操作 '{action}' 参数无效或缺失必填参数",
+                    "ok": False,
+                }
 
         result = subprocess.run(
             ["git"] + git_args,
@@ -1009,6 +1090,102 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
             "ok": False,
             "error": str(e),
         }
+
+
+def _build_write_action_args(action: str, arguments: dict[str, Any]) -> list[str] | None:
+    """构造写操作的 git 命令参数(Wave 8 新增)。
+
+    Returns:
+        git 命令参数列表,或 None(参数无效/缺失必填)。
+    """
+    if action == "branch_create":
+        name = arguments.get("name")
+        if not name:
+            return None
+        args = ["branch", str(name)]
+        from_ref = arguments.get("from")
+        if from_ref:
+            args.append(str(from_ref))
+        return args
+
+    if action == "branch_switch":
+        name = arguments.get("name")
+        if not name:
+            return None
+        create = arguments.get("create", False)
+        args = ["checkout"]
+        if create:
+            args.append("-b")
+        args.append(str(name))
+        return args
+
+    if action == "branch_delete":
+        name = arguments.get("name")
+        if not name:
+            return None
+        force = arguments.get("force", False)
+        return ["branch", "-D" if force else "-d", str(name)]
+
+    if action == "merge":
+        branch = arguments.get("branch")
+        if not branch:
+            return None
+        args = ["merge"]
+        if arguments.get("no_ff"):
+            args.append("--no-ff")
+        if arguments.get("squash"):
+            args.append("--squash")
+        message = arguments.get("message")
+        if message:
+            args.extend(["-m", str(message)])
+        args.append(str(branch))
+        return args
+
+    if action == "rebase":
+        upstream = arguments.get("upstream")
+        if not upstream:
+            return None
+        args = ["rebase", str(upstream)]
+        branch = arguments.get("branch")
+        if branch:
+            args.append(str(branch))
+        return args
+
+    if action == "stash_push":
+        args = ["stash", "push"]
+        message = arguments.get("message")
+        if message:
+            args.extend(["-m", str(message)])
+        if arguments.get("include_untracked"):
+            args.append("-u")
+        return args
+
+    if action == "stash_pop":
+        index = arguments.get("index", 0)
+        apply = arguments.get("apply", False)
+        return ["stash", "apply" if apply else "pop", f"stash@{{{int(index)}}}"]
+
+    if action == "tag_create":
+        name = arguments.get("name")
+        if not name:
+            return None
+        args = ["tag"]
+        if arguments.get("annotated"):
+            args.extend(["-a", str(name)])
+            message = arguments.get("message")
+            args.extend(["-m", str(message) if message else f"Tag {name}"])
+        else:
+            args.append(str(name))
+        return args
+
+    if action == "tag_list":
+        args = ["tag", "-l"]
+        pattern = arguments.get("pattern")
+        if pattern:
+            args.append(str(pattern))
+        return args
+
+    return None
 
 
 async def _tool_db_query(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -1405,6 +1582,7 @@ _TOOLS: list[MCPTool] = [
                 "pattern": {"type": "string", "description": "文件名 glob 限定(逗号分隔,默认按代码扩展名过滤)"},
                 "symbol_type": {"type": "string", "description": "符号类型过滤(def/class/func/function/interface/type,默认空=全部)"},
                 "max_results": {"type": "integer", "description": "最大返回数", "default": 50},
+                "use_semantic": {"type": "boolean", "description": "是否使用语义搜索(pgvector ANN,默认 True;失败/无结果时自动 fallback 到 regex)", "default": True},
             },
             "required": ["query"],
         },
@@ -1521,13 +1699,39 @@ _TOOLS: list[MCPTool] = [
     ),
     MCPTool(
         name="git_operations",
-        description="Git 操作(真实 git 命令,白名单: status/diff/log/branch/show/stash/list)",
+        description=(
+            "Git 操作(真实 git 命令)。只读(所有用户): status/diff/log/branch/show/stash/list; "
+            "写操作(需 admin): branch_create/branch_switch/branch_delete/merge/rebase/"
+            "stash_push/stash_pop/tag_create/tag_list"
+        ),
         input_schema={
             "type": "object",
             "properties": {
-                "action": {"type": "string", "description": "git 操作: status/diff/log/branch/show/stash/list", "default": "status"},
+                "action": {
+                    "type": "string",
+                    "description": (
+                        "git 操作。只读: status/diff/log/branch/show/stash/list; "
+                        "写(admin): branch_create/branch_switch/branch_delete/merge/rebase/"
+                        "stash_push/stash_pop/tag_create/tag_list"
+                    ),
+                    "default": "status",
+                },
                 "repo": {"type": "string", "description": "仓库路径(默认当前目录)", "default": "."},
                 "ref": {"type": "string", "description": "git 引用(仅 show 操作使用,默认 HEAD)", "default": "HEAD"},
+                "name": {"type": "string", "description": "分支名/标签名(branch_create/branch_switch/branch_delete/tag_create 必填)"},
+                "from": {"type": "string", "description": "起点引用(branch_create,默认 HEAD)"},
+                "create": {"type": "boolean", "description": "不存在时创建(branch_switch)"},
+                "force": {"type": "boolean", "description": "强制删除未合并分支(branch_delete,-D)"},
+                "branch": {"type": "string", "description": "要合并的分支(merge)或变基目标分支(rebase)"},
+                "upstream": {"type": "string", "description": "上游分支(rebase 必填,如 origin/main)"},
+                "no_ff": {"type": "boolean", "description": "禁用 fast-forward(merge,--no-ff)"},
+                "squash": {"type": "boolean", "description": "压缩合并(merge,--squash)"},
+                "message": {"type": "string", "description": "提交信息(merge/tag_create/stash_push)"},
+                "include_untracked": {"type": "boolean", "description": "包含未跟踪文件(stash_push,-u)"},
+                "index": {"type": "integer", "description": "暂存索引(stash_pop,默认 0)", "default": 0},
+                "apply": {"type": "boolean", "description": "仅应用不删除(stash_pop,--apply)"},
+                "annotated": {"type": "boolean", "description": "创建附注标签(tag_create,-a)"},
+                "pattern": {"type": "string", "description": "glob 匹配模式(tag_list,如 v*)"},
             },
             "required": [],
         },
@@ -2056,8 +2260,12 @@ class MCPServer:
                 "errorCode": "PERMISSION_DENIED",
             }
         try:
+            # Wave 8:注入 __user_role 供 handler 内的写操作权限校验使用
+            # (git_operations 写操作在 handler 内部做 defense-in-depth 校验)
+            args_with_role = dict(arguments or {})
+            args_with_role["__user_role"] = user_role
             # 2026-07-22 P1 鲁棒性加固:全局超时,防 handler 无限挂起
-            return await asyncio.wait_for(handler(arguments or {}), timeout=MCP_GLOBAL_TIMEOUT)
+            return await asyncio.wait_for(handler(args_with_role), timeout=MCP_GLOBAL_TIMEOUT)
         except asyncio.TimeoutError:
             return {"ok": False, "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)"}
         except Exception as e:
