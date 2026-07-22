@@ -8,6 +8,7 @@ export {
   extractAgentId,
   getSSEErrorInfo,
   formatSSEError,
+  mergeAbortSignals,
 } from './client.js'
 export type {
   TokenProvider,
