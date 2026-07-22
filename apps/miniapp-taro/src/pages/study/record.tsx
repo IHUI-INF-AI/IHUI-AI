@@ -46,22 +46,22 @@ export default function StudyRecord() {
   }, [load])
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       {list.length > 0 && (
         <View className="p-3">
           {list.map((r) => (
-            <View key={r.id} className="bg-white rounded-2xl p-3 mb-3">
-              <Text className="text-sm text-[#333] font-semibold">{r.courseTitle}</Text>
+            <View key={r.id} className="bg-card rounded-2xl p-3 mb-3">
+              <Text className="text-sm text-foreground font-semibold">{r.courseTitle}</Text>
               <View className="flex justify-between mt-1.5">
-                <Text className="text-xs text-[#07c160]">
+                <Text className="text-xs text-primary">
                   {t('study.recordPage.duration', { n: r.duration })}
                 </Text>
-                <Text className="text-xs text-[#999]">{r.time}</Text>
+                <Text className="text-xs text-muted-foreground">{r.time}</Text>
               </View>
-              <View className="h-1 bg-[#f5f5f5] rounded mt-2">
-                <View className="h-full bg-[#07c160] rounded" style={{ width: `${r.progress}%` }} />
+              <View className="h-1 bg-muted rounded mt-2">
+                <View className="h-full bg-primary rounded" style={{ width: `${r.progress}%` }} />
               </View>
-              <Text className="block text-xs text-[#999] mt-1">
+              <Text className="block text-xs text-muted-foreground mt-1">
                 {t('study.recordPage.progress', { n: r.progress })}
               </Text>
             </View>
@@ -69,12 +69,12 @@ export default function StudyRecord() {
         </View>
       )}
       {!loading && list.length === 0 && (
-        <View className="text-center py-16 text-[#999] text-sm">
+        <View className="text-center py-16 text-muted-foreground text-sm">
           <Text>{t('study.recordPage.empty')}</Text>
         </View>
       )}
       {loading && (
-        <View className="text-center py-16 text-[#999] text-sm">
+        <View className="text-center py-16 text-muted-foreground text-sm">
           <Text>{t('common.loading')}</Text>
         </View>
       )}

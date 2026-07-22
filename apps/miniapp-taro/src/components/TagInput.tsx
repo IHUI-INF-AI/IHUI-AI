@@ -29,14 +29,14 @@ export default function TagInput({
   }
 
   return (
-    <View className="flex flex-wrap items-center px-3 py-2 bg-gray-50 rounded-lg">
+    <View className="flex flex-wrap items-center px-3 py-2 bg-muted rounded-lg">
       {value.map((tag, idx) => (
         <View
           key={idx}
-          className="flex items-center mr-2 mb-1.5 px-2.5 py-1 rounded-md bg-indigo-50"
+          className="flex items-center mr-2 mb-1.5 px-2.5 py-1 rounded-md bg-primary/10"
         >
-          <Text className="text-xs text-indigo-600 mr-1">{tag}</Text>
-          <Text className="text-xs text-indigo-400" onClick={() => removeTag(idx)}>
+          <Text className="text-xs text-primary mr-1">{tag}</Text>
+          <Text className="text-xs text-primary" onClick={() => removeTag(idx)}>
             ×
           </Text>
         </View>

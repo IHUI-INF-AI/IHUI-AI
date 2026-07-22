@@ -87,23 +87,23 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
   }, [])
 
   return (
-    <View className="flex flex-col bg-white rounded-lg">
-      <View className="flex items-center px-3 py-2 border-b border-gray-100">
-        <Text className="text-sm font-semibold text-gray-800">
+    <View className="flex flex-col bg-card rounded-lg">
+      <View className="flex items-center px-3 py-2 border-b border-border">
+        <Text className="text-sm font-semibold text-foreground">
           {t('ai.agentDetail.runtimeTitle')}
         </Text>
-        {sessionId && <Text className="ml-2 text-xs text-gray-400">#{sessionId.slice(0, 8)}</Text>}
+        {sessionId && <Text className="ml-2 text-xs text-muted-foreground">#{sessionId.slice(0, 8)}</Text>}
         {status === 'running' && (
-          <Text className="ml-2 text-xs text-blue-500">{t('ai.common.loading')}</Text>
+          <Text className="ml-2 text-xs text-primary">{t('ai.common.loading')}</Text>
         )}
         {status === 'completed' && <Text className="ml-2 text-xs text-emerald-600">✓</Text>}
-        {status === 'failed' && <Text className="ml-2 text-xs text-red-500">✗</Text>}
+        {status === 'failed' && <Text className="ml-2 text-xs text-destructive">✗</Text>}
         <View className="flex-1" />
         <Button
           size="mini"
           onClick={handleClear}
           disabled={status === 'running'}
-          className="text-xs text-gray-500 bg-gray-50 rounded-md"
+          className="text-xs text-muted-foreground bg-muted rounded-md"
         >
           {t('ai.agentDetail.runtimeClear')}
         </Button>
@@ -111,11 +111,11 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
 
       <ScrollView scrollY className="p-3" style={{ maxHeight: '40vh', minHeight: '120px' }}>
         {plan && (
-          <View className="mb-3 p-3 rounded-md bg-gray-50 border border-gray-100">
-            <Text className="block mb-1.5 text-xs font-medium text-gray-500">
+          <View className="mb-3 p-3 rounded-md bg-muted border border-border">
+            <Text className="block mb-1.5 text-xs font-medium text-muted-foreground">
               {t('ai.agentDetail.runtimePlan')}
             </Text>
-            <Text className="block text-xs leading-relaxed text-gray-700 whitespace-pre-wrap">
+            <Text className="block text-xs leading-relaxed text-foreground whitespace-pre-wrap">
               {plan}
             </Text>
           </View>
@@ -126,7 +126,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
             <Text className="block mb-1.5 text-xs font-medium text-amber-700">
               {t('ai.agentDetail.runtimePermission')}: {permission.decision}
             </Text>
-            <Text className="block text-xs text-gray-600">
+            <Text className="block text-xs text-foreground">
               {t('ai.agentDetail.runtimePermissionTool')}: {permission.toolName ?? 'unknown'} ·{' '}
               {t('ai.agentDetail.runtimePermissionLevel')}:{permission.dangerLevel ?? 'read'} ·{' '}
               {t('ai.agentDetail.runtimePermissionMode')}:{permission.mode}
@@ -136,32 +136,32 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
 
         {output && (
           <View className="mb-3">
-            <Text className="block mb-1.5 text-xs font-medium text-gray-500">
+            <Text className="block mb-1.5 text-xs font-medium text-muted-foreground">
               {t('ai.agentDetail.runtimeOutput')}
             </Text>
-            <Text className="block text-sm leading-relaxed text-gray-800 whitespace-pre-wrap">
+            <Text className="block text-sm leading-relaxed text-foreground whitespace-pre-wrap">
               {output}
             </Text>
           </View>
         )}
 
         {error && (
-          <View className="mb-3 p-3 rounded-md bg-red-50 border border-red-200">
+          <View className="mb-3 p-3 rounded-md bg-destructive/10 border border-red-200">
             <Text className="block mb-1 text-xs font-medium text-red-700">
               {t('ai.agentDetail.runtimeError')}
             </Text>
-            <Text className="block text-xs text-red-600">{error}</Text>
+            <Text className="block text-xs text-destructive">{error}</Text>
           </View>
         )}
 
         {!plan && !output && !error && !permission && (
           <View className="py-8 text-center">
-            <Text className="text-sm text-gray-400">{t('ai.agentDetail.runtimeEmpty')}</Text>
+            <Text className="text-sm text-muted-foreground">{t('ai.agentDetail.runtimeEmpty')}</Text>
           </View>
         )}
       </ScrollView>
 
-      <View className="p-3 border-t border-gray-100">
+      <View className="p-3 border-t border-border">
         <View className="flex items-end">
           <Textarea
             value={input}
@@ -169,12 +169,12 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
             placeholder={t('ai.agentDetail.runtimeInputPlaceholder')}
             disabled={status === 'running'}
             maxlength={-1}
-            className="flex-1 min-h-[60px] p-2 text-sm rounded-md border border-gray-200 bg-white"
+            className="flex-1 min-h-[60px] p-2 text-sm rounded-md border border-border bg-card"
           />
           {status === 'running' ? (
             <Button
               onClick={handleStop}
-              className="ml-2 h-9 px-3 text-xs text-white bg-red-500 rounded-md"
+              className="ml-2 h-9 px-3 text-xs text-white bg-destructive rounded-md"
             >
               {t('ai.agentDetail.runtimeStop')}
             </Button>

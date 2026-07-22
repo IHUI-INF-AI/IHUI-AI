@@ -32,22 +32,22 @@ export default function VipBenefitsPopup({
   return (
     <View className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
       <View className="absolute inset-0 bg-black/50" />
-      <View className="relative bg-white rounded-t-2xl w-full" onClick={(e) => e.stopPropagation()}>
+      <View className="relative bg-card rounded-t-2xl w-full" onClick={(e) => e.stopPropagation()}>
         <View className="flex items-center justify-between px-4 py-3">
-          <Text className="text-base font-medium text-yellow-600">会员权益</Text>
-          <Text className="text-sm text-gray-400" onClick={onClose}>
+          <Text className="text-base font-medium text-[#f59e0b]">会员权益</Text>
+          <Text className="text-sm text-muted-foreground" onClick={onClose}>
             关闭
           </Text>
         </View>
         <ScrollView scrollY className="px-4 py-2" style={{ maxHeight: '50vh' }}>
           {benefits.map((b) => (
-            <View key={b.id} className="flex items-start py-3 border-b border-gray-50">
+            <View key={b.id} className="flex items-start py-3 border-b border-border">
               <View className="flex items-center justify-center w-8 h-8 mr-3 rounded-lg bg-yellow-50">
                 <Text className="text-base">★</Text>
               </View>
               <View className="flex-1">
-                <Text className="block text-sm font-medium text-gray-800">{b.title}</Text>
-                {b.desc && <Text className="block text-xs text-gray-400 mt-0.5">{b.desc}</Text>}
+                <Text className="block text-sm font-medium text-foreground">{b.title}</Text>
+                {b.desc && <Text className="block text-xs text-muted-foreground mt-0.5">{b.desc}</Text>}
               </View>
             </View>
           ))}
