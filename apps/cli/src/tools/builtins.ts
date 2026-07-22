@@ -25,6 +25,13 @@ import type { Tool, ToolContext, ToolResult } from './index.js';
 import { todo_write } from './todo-write.js';
 import { ask_user_question } from './ask-user.js';
 import { matchDangerousCommand, isReadonlyCommand } from './command-safety.js';
+import {
+  terminal_open,
+  terminal_send,
+  terminal_read,
+  terminal_resize,
+  terminal_close,
+} from './terminal.js';
 
 const MAX_READ_LINES = 500;
 const MAX_GREP_RESULTS = 50;
@@ -600,6 +607,11 @@ export const BUILTIN_TOOLS: Tool[] = [
   get_command_output,
   wait_command,
   kill_command,
+  terminal_open,
+  terminal_send,
+  terminal_read,
+  terminal_resize,
+  terminal_close,
   todo_write,
   ask_user_question,
 ];
