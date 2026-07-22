@@ -86,6 +86,34 @@
 
 ---
 
+### [ ] ai-news 孤儿页面清理 + redirect 接通(2026-07-22 立,平台独占:仅 apps/web)
+
+**触发**:用户反馈"`http://localhost:3000/ai-news` 这个页面的入口在哪里啊 怎么点击左侧侧边栏的AI世界 跟他不是一个页面呢 那这个页面是什么作用 怎么个逻辑使用 跳转 怎么乱七八糟的 懵了 而且这个页面的AI资讯广场按钮点击后 怎么跳转到其他别人的网站去了 你这是什么设定啊"。用户后续指示"继续按你的建议去做执行,要求完美细致完整毫无遗漏"。
+
+**根因分析**:
+- `/ai-news` 路由是**孤儿页面**,无任何 sidebar 入口,只能直接敲 URL 访问
+- [sidebar.tsx#L347](file:///g:/IHUI-AI/apps/web/src/components/sidebar.tsx#L347) 的「AI 世界」按钮跳的是 `/ai-world`(7 tab 聚合页),不是 `/ai-news`
+- 项目里 4 处「AI 资讯」能力重叠:`/ai-world?tab=news` / `/ai-news`(孤儿) / `/news`(新闻中心) / `/models` 里的 `AiNewsStrip`
+- 「AI 资讯广场」按钮跳别人网站 = 用户误点了下方资讯卡片([AiFeedTimeline.tsx#L305-313](file:///g:/IHUI-AI/apps/web/app/(main)/ai-news/components/AiFeedTimeline.tsx#L305-L313) 的 `<a href={it.url} target="_blank">`),不是 Hero 主按钮([Hero.tsx#L48-53](file:///g:/IHUI-AI/apps/web/app/(main)/ai-news/components/Hero.tsx#L48-L53) 跳站内 `/news`)
+
+**方案 A 执行(做减法,推荐)**:
+1. 删除 `/ai-news` 整个目录(`apps/web/app/(main)/ai-news/`)+ `apps/web/src/lib/ai-news-api.ts`(已确认仅被该目录使用)
+2. 删除 5 语言 i18n 的 `aiNews` 命名空间(zh-CN/zh-TW/ko/ja/en)
+3. 在 [redirects.config.ts](file:///g:/IHUI-AI/apps/web/src/config/redirects.config.ts) 加 `/ai-news` → `/ai-world?tab=news`(301 永久重定向,避免 SEO 404)
+4. 改造 [/ai-world/page.tsx](file:///g:/IHUI-AI/apps/web/app/(main)/ai-world/page.tsx) 支持 `?tab=` query param(白名单防 XSS),让 redirect 落到 news tab
+5. 不补内容:`/ai-world?tab=news` 已通过 `ItemList kind="news"` + `ItemCard` 覆盖核心资讯功能(外链卡片行为与 `/ai-news` 一致),其他"精华"(Hero 营销文案/对比表/融资榜/CTA)属重叠或营销内容,无需保留
+
+**§7 删除安全规则审查**:
+1. `/ai-news` 承载的功能 = AI 资讯聚合落地页
+2. 等价实现 = `/ai-world?tab=news`(资讯 tab 用 `ItemList kind="news"` 渲染相同外链卡片)+ `/news`(新闻中心列表)+ `/models` 的 `AiNewsStrip`(模型页资讯条带)
+3. **有等价实现 → 可以删除**
+
+**§9 平台独占豁免**:本任务仅改 `apps/web/` 下文件,标注"平台独占:仅 apps/web"
+
+**README 同步评估**:README 第 276 行「AI 资讯」条目描述的是后端 ai-feed API 能力,本次删除的是前端孤儿页面,不影响能力清单 → 无需改 README(§22 豁免:纯重构,不改变功能契约)
+
+---
+
 ### [x] ✅(2026-07-22) email_logs schema drift 修复 + 删除合规性审查 + clawdbot 4 service 持久化(承接前序 agent 3.txt 收尾)
 
 **触发**:用户指示"接着以下其他agent对话文件的完整上下文继续去做 E:\桌面\3.txt" + "继续按你的建议去做执行,要求完美细致完整毫无遗漏 但是你删除的内容遵守agent.md要求了吗 别删错了 或者我们预留的以后有用的"。承接前序 agent 3 轮交付(50 问题 + 17 commit),处理其报告末尾"后续最优建议"中 5 项阻塞/待办。
