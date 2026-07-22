@@ -114,7 +114,6 @@
 - Phase 4:`/models/keys` 重定向到 `/settings/api-keys` 合并(用户原话"页面分散"收尾)
 - Phase 5:`/admin/ai-models` 字段对齐(系统级 vs 用户级 v2 优先级排序)
 - Phase 6:深度功能(回滚审计 + 30 天用量趋势图 + 健康检查调度)
-- README 同步:`AGENTS.md §22` 要求功能开发同步更新 README,本任务涉及 LLM 配置中心 1:N 数据模型 + 深度功能集成,需要补 README 章节
 
 **项目运行验证**(2026-07-22 完成 ✅):
 - web(3000)+ api(3001)服务在线,端口已占用(其他 agent 已启动)
