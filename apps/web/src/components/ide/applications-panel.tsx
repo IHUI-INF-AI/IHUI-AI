@@ -1,5 +1,6 @@
 'use client'
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { cn } from '@/lib/utils'
 import {
@@ -15,11 +16,11 @@ interface AppConfig {
   command: string
 }
 
-const TYPE_META: Record<ConfigType, { icon: typeof Terminal; color: string; label: string }> = {
-  node: { icon: Terminal, color: 'text-green-600 dark:text-green-400', label: 'Node' },
-  python: { icon: Terminal, color: 'text-blue-600 dark:text-blue-400', label: 'Python' },
-  web: { icon: Globe, color: 'text-purple-600 dark:text-purple-400', label: 'Web' },
-  terminal: { icon: Terminal, color: 'text-muted-foreground', label: '终端' },
+const TYPE_META: Record<ConfigType, { icon: typeof Terminal; color: string }> = {
+  node: { icon: Terminal, color: 'text-green-600 dark:text-green-400' },
+  python: { icon: Terminal, color: 'text-blue-600 dark:text-blue-400' },
+  web: { icon: Globe, color: 'text-purple-600 dark:text-purple-400' },
+  terminal: { icon: Terminal, color: 'text-muted-foreground' },
 }
 
 const INITIAL_CONFIGS: AppConfig[] = [
@@ -30,7 +31,15 @@ const INITIAL_CONFIGS: AppConfig[] = [
   { id: '5', name: '浏览器预览', type: 'web', command: 'http://localhost:3000' },
 ]
 
+function getTypeLabel(type: ConfigType, t: (k: string) => string) {
+  if (type === 'terminal') return t('applications.typeTerminal')
+  if (type === 'node') return 'Node'
+  if (type === 'python') return 'Python'
+  return 'Web'
+}
+
 export function ApplicationsPanel() {
+  const t = useTranslations('ide')
   const { activeView } = useIDEWorkspace()
   const [configs, setConfigs] = React.useState<AppConfig[]>(INITIAL_CONFIGS)
   const [history, setHistory] = React.useState<{ name: string; time: string }[]>([
@@ -57,11 +66,11 @@ export function ApplicationsPanel() {
   return (
     <div className="flex w-72 shrink-0 flex-col bg-muted/20">
       <div className="flex items-center gap-1 px-2 py-1.5">
-        <span className="text-xs font-medium">应用</span>
+        <span className="text-xs font-medium">{t('applications.title')}</span>
         <button
           onClick={() => setShowForm(!showForm)}
           className={cn('ml-auto rounded p-1 transition-colors', showForm ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50')}
-          aria-label="新建配置"
+          aria-label={t('applications.newConfig')}
         >
           <Plus className="h-3.5 w-3.5" />
         </button>
@@ -72,23 +81,23 @@ export function ApplicationsPanel() {
           <input
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="配置名称"
+            placeholder={t('applications.configNamePlaceholder')}
             className="mb-1 w-full rounded border border-border bg-background px-1.5 py-1 text-xs focus:outline-none"
           />
           <div className="mb-1 flex gap-1">
-            {(Object.keys(TYPE_META) as ConfigType[]).map((t) => {
-              const Icon = TYPE_META[t].icon
+            {(Object.keys(TYPE_META) as ConfigType[]).map((typeKey) => {
+              const Icon = TYPE_META[typeKey].icon
               return (
                 <button
-                  key={t}
-                  onClick={() => setForm({ ...form, type: t })}
+                  key={typeKey}
+                  onClick={() => setForm({ ...form, type: typeKey })}
                   className={cn(
                     'flex items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors',
-                    form.type === t ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50',
+                    form.type === typeKey ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50',
                   )}
                 >
-                  <Icon className={cn('h-3 w-3', TYPE_META[t].color)} />
-                  <span>{TYPE_META[t].label}</span>
+                  <Icon className={cn('h-3 w-3', TYPE_META[typeKey].color)} />
+                  <span>{getTypeLabel(typeKey, t)}</span>
                 </button>
               )
             })}
@@ -97,23 +106,23 @@ export function ApplicationsPanel() {
             value={form.command}
             onChange={(e) => setForm({ ...form, command: e.target.value })}
             onKeyDown={(e) => e.key === 'Enter' && submitForm()}
-            placeholder="命令"
+            placeholder={t('applications.commandPlaceholder')}
             className="mb-1.5 w-full rounded border border-border bg-background px-1.5 py-1 text-xs focus:outline-none"
           />
           <div className="flex justify-end gap-1">
-            <button onClick={() => setShowForm(false)} className="rounded p-1 text-muted-foreground hover:bg-muted/50" aria-label="取消">
+            <button onClick={() => setShowForm(false)} className="rounded p-1 text-muted-foreground hover:bg-muted/50" aria-label={t('applications.cancel')}>
               <X className="h-3.5 w-3.5" />
             </button>
             <button onClick={submitForm} className="flex items-center gap-1 rounded bg-foreground px-2 py-1 text-xs text-background hover:bg-foreground/90">
               <Check className="h-3 w-3" />
-              <span>添加</span>
+              <span>{t('applications.add')}</span>
             </button>
           </div>
         </div>
       )}
 
       <div className="flex-1 overflow-auto p-1">
-        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">启动配置</div>
+        <div className="px-2 py-1 text-xs font-medium text-muted-foreground">{t('applications.launchConfigs')}</div>
         {configs.map((config) => {
           const meta = TYPE_META[config.type]
           const Icon = meta.icon
@@ -128,14 +137,14 @@ export function ApplicationsPanel() {
                 <button
                   onClick={() => runConfig(config)}
                   className="rounded p-1 text-green-600 hover:bg-muted/50"
-                  aria-label="运行"
+                  aria-label={t('applications.run')}
                 >
                   <Play className="h-3.5 w-3.5" />
                 </button>
                 <button
                   onClick={() => runConfig(config)}
                   className="rounded p-1 text-amber-600 hover:bg-muted/50"
-                  aria-label="调试"
+                  aria-label={t('applications.debug')}
                 >
                   <Bug className="h-3.5 w-3.5" />
                 </button>
@@ -148,7 +157,7 @@ export function ApplicationsPanel() {
           <div className="mt-3">
             <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground">
               <History className="h-3 w-3" />
-              <span>最近运行</span>
+              <span>{t('applications.recentRuns')}</span>
             </div>
             {history.map((h, i) => (
               <div key={i} className="flex items-center gap-2 rounded px-2 py-1 text-xs hover:bg-muted/30">
