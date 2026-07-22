@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { loginByAccount, type LoginResult } from '@ihui/api-client'
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui'
+import { useI18n } from '../../../src/i18n'
 
 interface Props {
   onSuccess: (result: LoginResult) => void | Promise<void>
 }
 
 export default function LoginPage({ onSuccess }: Props) {
+  const { t } = useI18n()
   const [account, setAccount] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -15,7 +17,7 @@ export default function LoginPage({ onSuccess }: Props) {
   const onLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!account || !password) {
-      setError('请输入账号和密码')
+      setError(t('login.requireInput'))
       return
     }
     setLoading(true)
@@ -25,10 +27,10 @@ export default function LoginPage({ onSuccess }: Props) {
       if (res.success) {
         await onSuccess(res.data)
       } else {
-        setError(res.error || '登录失败')
+        setError(res.error || t('login.loadFailed'))
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '登录失败')
+      setError(err instanceof Error ? err.message : t('login.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -38,23 +40,23 @@ export default function LoginPage({ onSuccess }: Props) {
     <div className="sp-login">
       <Card>
         <CardHeader>
-          <CardTitle>登录 IHUI AI</CardTitle>
+          <CardTitle>{t('login.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={onLogin} className="sp-form">
             <div className="field">
-              <Label htmlFor="sp-account">账号</Label>
+              <Label htmlFor="sp-account">{t('login.account')}</Label>
               <Input
                 id="sp-account"
                 type="text"
                 value={account}
                 onChange={(e) => setAccount(e.target.value)}
-                placeholder="手机号 / 邮箱"
+                placeholder={t('login.phoneOrEmailHint')}
                 disabled={loading}
               />
             </div>
             <div className="field">
-              <Label htmlFor="sp-password">密码</Label>
+              <Label htmlFor="sp-password">{t('login.password')}</Label>
               <Input
                 id="sp-password"
                 type="password"
@@ -65,7 +67,7 @@ export default function LoginPage({ onSuccess }: Props) {
             </div>
             {error ? <div className="error-banner">{error}</div> : null}
             <Button type="submit" disabled={loading}>
-              {loading ? '登录中...' : '登录'}
+              {loading ? t('login.loading') : t('login.button')}
             </Button>
           </form>
         </CardContent>

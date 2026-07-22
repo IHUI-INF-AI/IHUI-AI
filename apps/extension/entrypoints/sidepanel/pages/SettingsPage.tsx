@@ -8,11 +8,11 @@ interface Ctx {
 }
 
 const localeOptions: { value: Locale; labelKey: string }[] = [
-  { value: 'zh-CN', labelKey: 'setting.zhCN' },
-  { value: 'en', labelKey: 'setting.en' },
-  { value: 'ja', labelKey: 'setting.ja' },
-  { value: 'ko', labelKey: 'setting.ko' },
-  { value: 'zh-TW', labelKey: 'setting.zhTW' },
+  { value: 'zh-CN', labelKey: 'settings.zhCN' },
+  { value: 'en', labelKey: 'settings.en' },
+  { value: 'ja', labelKey: 'settings.ja' },
+  { value: 'ko', labelKey: 'settings.ko' },
+  { value: 'zh-TW', labelKey: 'settings.zhTW' },
 ]
 
 export default function SettingsPage() {
@@ -30,15 +30,15 @@ export default function SettingsPage() {
   return (
     <div className="sp-page">
       <div className="sp-page-header">
-        <h3>{t('setting.title')}</h3>
+        <h3>{t('settings.title')}</h3>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>{t('setting.language')}</CardTitle>
+          <CardTitle>{t('settings.language')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="sp-setting-row">
-            <span>{t('setting.language')}</span>
+            <span>{t('settings.language')}</span>
             <select
               value={locale}
               onChange={(e) => setLocale(e.target.value as Locale)}
@@ -55,18 +55,18 @@ export default function SettingsPage() {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>{t('setting.appearance')}</CardTitle>
+          <CardTitle>{t('settings.appearance')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="sp-setting-row">
-            <span>{t('setting.darkMode')}</span>
+            <span>{t('settings.darkMode')}</span>
             <Switch checked={dark} onCheckedChange={onToggleTheme} />
           </div>
         </CardContent>
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>{t('setting.account')}</CardTitle>
+          <CardTitle>{t('settings.account')}</CardTitle>
         </CardHeader>
         <CardContent>
           <button type="button" onClick={onLogout} className="sp-danger-btn">
