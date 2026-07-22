@@ -1,5 +1,6 @@
 'use client'
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { EditorEmptyState } from './editor-empty-state'
 import { EditorTabBar } from './editor-tab-bar'
@@ -33,7 +34,8 @@ const MINIMAP_MAX_LINES = 200
 
 export function CodeEditorPane() {
   const { openTabs, activeTabId } = useIDEWorkspace()
-  const activeTab = openTabs.find((t) => t.id === activeTabId)
+  const t = useTranslations('ide')
+  const activeTab = openTabs.find((tab) => tab.id === activeTabId)
   const [fontSize, setFontSize] = React.useState(DEFAULT_FONT_SIZE)
   const [showSearch, setShowSearch] = React.useState(false)
   const [query, setQuery] = React.useState('')
@@ -114,11 +116,11 @@ export function CodeEditorPane() {
                   autoFocus
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="查找..."
+                  placeholder={t('codeEditor.findPlaceholder')}
                   className="w-40 bg-transparent text-xs outline-none placeholder:text-muted-foreground/60"
                 />
                 <span className="shrink-0 text-xs tabular-nums text-muted-foreground/70">
-                  {matchCount} 匹配
+                  {t('codeEditor.matchCount', { count: matchCount })}
                 </span>
                 <button
                   onClick={() => {
@@ -126,7 +128,7 @@ export function CodeEditorPane() {
                     setQuery('')
                   }}
                   className="rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  aria-label="关闭搜索"
+                  aria-label={t('codeEditor.closeSearch')}
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -186,7 +188,7 @@ export function CodeEditorPane() {
               <button
                 onClick={() => setFontSize((s) => Math.max(MIN_FONT_SIZE, s - 1))}
                 className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="缩小字号"
+                aria-label={t('codeEditor.zoomOut')}
               >
                 <Minus className="h-3 w-3" />
               </button>
@@ -196,7 +198,7 @@ export function CodeEditorPane() {
               <button
                 onClick={() => setFontSize((s) => Math.min(MAX_FONT_SIZE, s + 1))}
                 className="rounded-sm p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="放大字号"
+                aria-label={t('codeEditor.zoomIn')}
               >
                 <Plus className="h-3 w-3" />
               </button>
