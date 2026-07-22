@@ -630,6 +630,118 @@ program
     await startTuiInteractive({ url, token });
   });
 
+// ============================================================================
+// Wave 2 命令 — 智能深度反超(对标 OpenClaw Mem + OpenCode Plan/Build)
+// ============================================================================
+
+// undo 子命令 — 多步回滚文件改动(对标 OpenCode undo,支持多步)
+program
+  .command('undo [steps]')
+  .description('回滚最近 N 步文件改动(默认 1 步,需在 agent 会话工作区内执行)')
+  .option('-s, --session <id>', '指定会话 ID(默认最近会话)')
+  .action(async (stepsArg: string | undefined, opts: { session?: string }) => {
+    const { UndoRedoManager } = await import('./commands/undo-redo.js');
+    const steps = Number(stepsArg) || 1;
+    const sessionId =
+      opts.session ?? getMostRecentSession()?.id ?? 'adhoc';
+    const mgr = new UndoRedoManager(process.cwd());
+    const result = await mgr.undo(sessionId, steps);
+    if (result.undoneSteps === 0) {
+      console.info(chalk.yellow('无可回滚的改动'));
+      return;
+    }
+    console.info(
+      chalk.green(`✓ 已回滚 ${result.undoneSteps} 步改动(剩余可回滚 ${result.remaining} 步):`),
+    );
+    for (const c of result.changes) {
+      console.info(chalk.dim(`  · ${c.toolName} → ${c.filePath}`));
+    }
+  });
+
+// redo 子命令 — 重做被 undo 的改动
+program
+  .command('redo [steps]')
+  .description('重做最近 N 步被 undo 的改动(默认 1 步)')
+  .option('-s, --session <id>', '指定会话 ID(默认最近会话)')
+  .action(async (stepsArg: string | undefined, opts: { session?: string }) => {
+    const { UndoRedoManager } = await import('./commands/undo-redo.js');
+    const steps = Number(stepsArg) || 1;
+    const sessionId =
+      opts.session ?? getMostRecentSession()?.id ?? 'adhoc';
+    const mgr = new UndoRedoManager(process.cwd());
+    const result = await mgr.redo(sessionId, steps);
+    if (result.redoneSteps === 0) {
+      console.info(chalk.yellow('无可重做的改动'));
+      return;
+    }
+    console.info(
+      chalk.green(`✓ 已重做 ${result.redoneSteps} 步改动(剩余可重做 ${result.remaining} 步):`),
+    );
+    for (const c of result.changes) {
+      console.info(chalk.dim(`  · ${c.toolName} → ${c.filePath}`));
+    }
+  });
+
+// share 子命令 — 生成可分享的会话快照(对标 OpenClaw share,增强 SHA-256 防篡改)
+program
+  .command('share [session-id]')
+  .description('生成可分享的会话快照(markdown+HTML+短链+二维码)')
+  .option('-f, --format <fmt>', '输出格式: markdown|html|json', 'markdown')
+  .option('--no-tools', '排除工具调用详情(默认包含)')
+  .option('--include-files', '包含文件内容(可能泄露敏感信息,默认关闭)')
+  .option('-t, --title <title>', '快照标题')
+  .action(async (sessionIdArg: string | undefined, opts: {
+    format: string;
+    tools: boolean;
+    includeFiles?: boolean;
+    title?: string;
+  }) => {
+    const { ShareManager } = await import('./commands/share.js');
+    const sessionId = sessionIdArg ?? getMostRecentSession()?.id;
+    if (!sessionId) {
+      console.info(chalk.red('未找到会话,请先用 ihui agent 跑一个会话'));
+      process.exit(1);
+    }
+    const mgr = new ShareManager(process.cwd());
+    const result = await mgr.share(sessionId, {
+      format: opts.format as 'markdown' | 'html' | 'json',
+      includeToolCalls: opts.tools,
+      includeFiles: opts.includeFiles === true,
+      title: opts.title,
+    });
+    console.info(chalk.green('✓ 会话快照已生成'));
+    console.info(chalk.dim(`  短链: ${result.url}`));
+    console.info(chalk.dim(`  防篡改 hash: ${result.hash}`));
+    console.info(chalk.dim(`  大小: ${result.sizeBytes} bytes`));
+    if (result.qrCode) {
+      console.info(chalk.dim('  二维码:已生成(data URL)'));
+    } else {
+      console.info(chalk.dim('  二维码:降级模式(需引入 qr 库启用)'));
+    }
+  });
+
+// mode 子命令 — 切换 Plan/Build/Review 交互模式(对标 OpenCode Plan/Build,增强 Review 模式)
+program
+  .command('mode [mode]')
+  .description('查看或切换交互模式: plan(只读调研) | build(执行修改) | review(审查 diff)')
+  .action(async (modeArg: string | undefined) => {
+    const { ModeManager } = await import('./tui/index.js');
+    const mgr = new ModeManager();
+    if (!modeArg) {
+      console.info(chalk.cyan(`当前模式: ${mgr.renderIndicator()}`));
+      console.info(chalk.dim('可用模式: plan(只读) / build(执行) / review(审查)'));
+      console.info(chalk.dim('用法: ihui mode build  # 切换到 build 模式'));
+      return;
+    }
+    const validModes = ['plan', 'build', 'review'] as const;
+    if (!validModes.includes(modeArg as (typeof validModes)[number])) {
+      console.info(chalk.red(`未知模式: ${modeArg}(可选: plan/build/review)`));
+      process.exit(1);
+    }
+    mgr.setMode(modeArg as (typeof validModes)[number]);
+    console.info(mgr.getModeBanner());
+  });
+
 // audit 子命令组 — 查询/过滤审计日志(~/.ihui/audit.jsonl)
 const auditCmd = program.command('audit').description('查询/过滤审计日志');
 
