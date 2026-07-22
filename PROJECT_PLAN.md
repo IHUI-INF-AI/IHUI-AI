@@ -26,6 +26,27 @@
 
 **验证**:web typecheck 我的文件零错误(11 个预先存在错误均为其他模块)、eslint 零错误、browser 验证 /vip✅ /vip-membership 404✅ /invitations✅ /orders✅ /points 3 tab✅。
 
+### [x] ✅(2026-07-23) 前端冗余页面整合 P1(平台独占:仅 web 端)
+
+**触发**:用户要求"再深度分析思考别出问题 要细致完美 然后开始吧"。P0 批次后继续执行 P1 批次(中等重复组 + API 修正)。
+
+**整合内容**(删除 4 页面 + 重写 2 页面 + 修改 10 文件):
+
+| 重复组 | 删除 | 保留/合并 |
+|---|---|---|
+| 通知中心双重 | user/notifications | /notifications(6tab+timeline,功能全) |
+| 退款列表双重 | member/refunds | /refund(重写:修正API /api/refund→/api/refunds/me + Card样式+reason+图标状态) |
+| 粉丝列表双重 | member/fans | /user/fans(重写:修正API /api/users/:id/followers→/api/follows/followers + 保留关注按钮) |
+| 个人资料双重 | settings/profile | /user/profile(头像+统计+AI使用量,功能全) |
+
+**关键修正**:发现 3 个页面调用了**不存在的 API**(refund/page.tsx 调 /api/refund、user/fans/page.tsx 调 /api/users/:id/followers),整合时同步修正为正确 API。
+
+**同步修改**:sidebar 2 处 href 修正(/user/notifications→/notifications、/member/refunds→/refund)、settings/helpers + settings/dashboard + bug-scan + use-tag-dirty 共 4 处引用更新 /settings/profile→/user/profile、5 语言 i18n 补 listReason key。
+
+**验证**:web typecheck 我的文件零错误、browser 验证 8/8 通过(/notifications✅ /user/notifications 404✅ /refund✅ /member/refunds 404✅ /user/fans✅ /member/fans 404✅ /settings/profile 404✅ /user/profile✅)。
+
+**Git 同步证据**:本地 commit 97eaa15f2 → origin/main 09690e799(local == remote ✅)。
+
 ### [x] ✅(2026-07-22) 多 Agent 并行提效全栈打通(跨端:packages/types + ai-service + cli + api + web)
 
 **触发**:用户要求"继续深入开发多 agent 提高效率"。深度分析对标 Codex/Claude Code/Trae/HermesAgent 后,4 端均有基础但需补全并行执行能力。
@@ -336,10 +357,10 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 - §13 文件持久化:全部 Edit 已 Grep 验证落地 ✅
 
 **Git 同步证据**(§21):
-- 本地 commit: <待填入>
-- origin commit: <待填入>
-- 同步状态: <待填入>
-- 守门脚本: <待填入>
+- 本地 commit: `09690e799` refactor(ai-news): highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证通过
+- origin commit: `09690e799`
+- 同步状态: **local == remote ✅**(HEAD = origin/main = 09690e799)
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
 
 ---
 ### [x] ✅(2026-07-22) 大模型排行榜深度优化四轮:搜索关键词高亮 + 空状态优化 + i18n 5 语言同步(平台独占:仅 apps/web)
