@@ -1229,6 +1229,223 @@ export type GitHubOperation =
   | 'pr_comment' | 'pr_close' | 'pr_reopen' | 'pr_checkout'
   | 'issue_create' | 'issue_list' | 'release_create'
 
+// ============================================================================
+// 多 Agent 并行执行契约(2026-07-22 立,对标 Hermes Kanban + Claude Agent Teams)
+// 跨端共享:ai-service(DAG worker pool)+ cli(子进程并行)+ api(Kanban API)+ web(工作台 UI)
+// ============================================================================
+
+/**
+ * Agent 任务 Kanban 状态机(6 列,对标 Hermes Agent Kanban)。
+ *
+ * 状态流转:
+ *   triage → todo → ready → in_progress → done
+ *                    ↓           ↓
+ *                 blocked ←──────┘
+ *
+ * - triage: 新建未分类(待 librarian/主 agent 评估优先级和分派)
+ * - todo: 已分类待执行(优先级已定,等待 worker 空闲)
+ * - ready: 已就绪可执行(依赖已满足,等待 worker pick)
+ * - in_progress: 执行中(worker 已 pick)
+ * - blocked: 阻塞中(依赖未满足 / 工具失败 / 等待人工)
+ * - done: 已完成(成功 or 失败,终态)
+ */
+export type AgentTaskStatus =
+  | 'triage'
+  | 'todo'
+  | 'ready'
+  | 'in_progress'
+  | 'blocked'
+  | 'done'
+
+/** Kanban 列定义(Web 工作台渲染用) */
+export interface KanbanColumn {
+  /** 列状态 */
+  status: AgentTaskStatus
+  /** 列标题(i18n key,如 'agents.kanban.triage') */
+  titleKey: string
+  /** 列内任务(按 priority 降序) */
+  tasks: KanbanTask[]
+}
+
+/** Kanban 任务(跨端统一,对齐 packages/database agent_tasks 表;与 ai.ts AgentTask 区分,本类型面向 Kanban 工作台) */
+export interface KanbanTask {
+  /** 任务 ID(uuid) */
+  id: string
+  /** 关联 Agent ID */
+  agentId: string
+  /** 任务名(≤200 字符) */
+  name: string
+  /** 任务描述 */
+  description?: string
+  /** Kanban 状态(默认 triage) */
+  status: AgentTaskStatus
+  /** 优先级(数值越大越优先,默认 0) */
+  priority: number
+  /** 任务负载(输入参数,JSON) */
+  payload: Record<string, unknown>
+  /** 任务结果(终态有值) */
+  result?: Record<string, unknown>
+  /** 计划执行时间(ISO,定时任务) */
+  scheduledAt?: string
+  /** 实际开始时间(ISO) */
+  startedAt?: string
+  /** 完成时间(ISO) */
+  completedAt?: string
+  /** 错误信息(status=blocked/done 且失败时有值) */
+  errorMessage?: string
+  /** 依赖任务 ID 列表(DAG 调度用,空=无依赖) */
+  dependencies?: string[]
+  /** 分配的 worker ID(in_progress 时有值) */
+  workerId?: string
+  /** 创建者 ID */
+  createdBy?: string
+  /** 创建时间(ISO) */
+  createdAt: string
+  /** 更新时间(ISO) */
+  updatedAt: string
+}
+
+/** Worker Pool 配置(ai-service DAG 调度器 + cli 子进程池共享) */
+export interface WorkerPoolConfig {
+  /** 最大并发 worker 数(默认 4) */
+  maxWorkers: number
+  /** 单任务超时秒数(默认 300) */
+  taskTimeoutSeconds: number
+  /** 任务队列最大长度(默认 100,超限拒绝入队) */
+  maxQueueSize: number
+  /** 空闲 worker 存活秒数(cli 子进程用,默认 60) */
+  idleWorkerTtlSeconds?: number
+  /** 优先级抢占(true=高优先级任务可抢占低优先级 worker) */
+  preemptive?: boolean
+}
+
+/** Worker 状态(调度器内部跟踪) */
+export interface WorkerState {
+  /** Worker ID */
+  workerId: string
+  /** Worker 类型(ai-service-worker / cli-subprocess / api-dispatcher) */
+  type: 'ai-service-worker' | 'cli-subprocess' | 'api-dispatcher'
+  /** 当前状态(idle/busy/dead) */
+  status: 'idle' | 'busy' | 'dead'
+  /** 当前执行任务 ID(busy 时有值) */
+  currentTaskId?: string
+  /** 已完成任务数 */
+  completedCount: number
+  /** 失败任务数 */
+  failedCount: number
+  /** 启动时间(ISO) */
+  startedAt: string
+  /** 最后心跳时间(ISO) */
+  lastHeartbeatAt: string
+}
+
+/** SSE 实时流事件(web 工作台订阅) */
+export interface AgentSSEEvent {
+  /** 事件类型 */
+  type:
+    | 'task_created' // 新任务入队
+    | 'task_status_changed' // 状态流转
+    | 'task_progress' // 进度更新(in_progress 时)
+    | 'task_completed' // 完成
+    | 'task_failed' // 失败
+    | 'worker_status' // worker 状态变化
+    | 'dag_level_advanced' // DAG 层级推进
+    | 'log' // 日志输出
+  /** 关联任务 ID */
+  taskId?: string
+  /** 关联 worker ID */
+  workerId?: string
+  /** 事件负载(类型相关) */
+  payload: Record<string, unknown>
+  /** 时间戳(ISO) */
+  timestamp: string
+}
+
+/** 并行执行结果(DAG 调度器返回) */
+export interface ParallelExecutionResult {
+  /** 执行 ID(uuid) */
+  executionId: string
+  /** 总状态(success/partial/failed) */
+  status: 'success' | 'partial' | 'failed'
+  /** 所有任务结果(taskId -> result) */
+  taskResults: Record<string, KanbanTask>
+  /** 总耗时(ms) */
+  totalDurationMs: number
+  /** 并发 worker 数 */
+  workerCount: number
+  /** DAG 层级轨迹 */
+  trace: Array<{
+    level: number
+    nodeIds: string[]
+    status: 'success' | 'failed' | 'skipped'
+    durationMs: number
+  }>
+}
+
+/** CLI 子进程 spawn 请求(cli 端 SubagentSpawnRequest) */
+export interface SubagentSpawnRequest {
+  /** 子 agent 角色(researcher/coder/reviewer/planner/general) */
+  persona: SubagentPersona
+  /** 任务描述 */
+  task: string
+  /** 工作区路径(默认主 agent 工作区) */
+  workspacePath?: string
+  /** 模型覆盖 */
+  model?: string
+  /** 能力模式(默认 read-write) */
+  capability?: CapabilityMode
+  /** 隔离模式(默认 none,可选 worktree) */
+  isolation?: IsolationMode
+  /** 最大迭代次数(默认 25) */
+  maxIterations?: number
+  /** 超时秒数(默认 300) */
+  timeoutSeconds?: number
+}
+
+/** CLI 子进程 spawn 响应 */
+export interface SubagentSpawnResponse {
+  /** 子 agent ID */
+  subagentId: string
+  /** 子进程 PID */
+  pid: number
+  /** 状态(spawned/running/completed/failed) */
+  status: 'spawned' | 'running' | 'completed' | 'failed'
+  /** 输出内容(completed 时有值) */
+  output?: string
+  /** 错误信息(failed 时有值) */
+  error?: string
+  /** 耗时(ms) */
+  durationMs?: number
+}
+
+/** Kanban 任务流转请求(api 端) */
+export interface KanbanTransitionRequest {
+  /** 任务 ID */
+  taskId: string
+  /** 目标状态 */
+  toStatus: AgentTaskStatus
+  /** 操作者 ID(审计用) */
+  operatedBy?: string
+  /** 流转理由(可选,blocked 时必填) */
+  reason?: string
+}
+
+/** Kanban 任务流转响应 */
+export interface KanbanTransitionResponse {
+  /** 任务 ID */
+  taskId: string
+  /** 流转前状态 */
+  fromStatus: AgentTaskStatus
+  /** 流转后状态 */
+  toStatus: AgentTaskStatus
+  /** 流转时间(ISO) */
+  transitionedAt: string
+  /** 是否合法流转(非法流转拒绝) */
+  allowed: boolean
+  /** 拒绝原因(allowed=false 时有值) */
+  reason?: string
+}
+
 /** Git 工具参数(各操作特定参数用索引签名兜底) */
 export interface GitToolArgs {
   operation: GitOperation
