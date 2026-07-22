@@ -23,8 +23,9 @@ import { type Tool, type ToolResult, type ToolContext, checkPathWritePermission 
 import { seekSequence, type MatchLevel } from './seek-sequence.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
+import { createBatchEditTools } from './file-batch-edit.js';
 
-interface EditToolContext extends ToolContext {
+export interface EditToolContext extends ToolContext {
   checkpoints?: CheckpointManager;
   /** HunkTracker(可选,启用后记录每次改动的行范围归属 + 写入前检测冲突) */
   hunkTracker?: HunkTracker;
@@ -77,7 +78,7 @@ function recordHunk(ctx: EditToolContext, abs: string, startLine: number, endLin
   }
 }
 
-function resolvePath(ctx: ToolContext, filePath: string): string {
+export function resolvePath(ctx: ToolContext, filePath: string): string {
   return path.isAbsolute(filePath) ? filePath : path.resolve(ctx.workspacePath, filePath);
 }
 
@@ -91,7 +92,7 @@ function snapshotBeforeEdit(ctx: EditToolContext, files: string[], reason: strin
 }
 
 /** 计算简化 unified diff(公共前缀/后缀法,零依赖) */
-function computeUnifiedDiff(original: string, modified: string, filePath: string): string {
+export function computeUnifiedDiff(original: string, modified: string, filePath: string): string {
   const orig = original.split('\n');
   const mod = modified.split('\n');
   let start = 0;
@@ -287,5 +288,6 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
 }
 
 export function createFileEditTools(ctx: EditToolContext): Tool[] {
-  return [createWriteFileTool(ctx), createEditFileTool(ctx), createDeleteFileTool(ctx)];
+  // Wave 9: batch_edit + batch_undo + batch_preview(多文件原子编辑,对标 OpenClaw)
+  return [createWriteFileTool(ctx), createEditFileTool(ctx), createDeleteFileTool(ctx), ...createBatchEditTools(ctx)];
 }

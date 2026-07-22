@@ -1,10 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
-import { config } from '../config/index.js'
 import { wsAuth } from './ws-helpers.js'
 import { cloneTimbre } from '../routes/ai-vendors.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
+import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
 
 const send = (socket: WebSocket, obj: unknown): void => {
   try {
@@ -115,7 +115,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         send(socket, { event: 'start', ts: Date.now(), agentId: streamAgentId })
 
         try {
-          const resp = await fetch(`${config.AI_SERVICE_URL}/agent/stream`, {
+          const resp = await aiServiceFetchStream(request, '/agent/stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: userId, bot_id: botId, text, stream: true }),
@@ -267,7 +267,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             return
           }
           try {
-            const resp = await fetch(`${config.AI_SERVICE_URL}/asr/pcm`, {
+            const resp = await aiServiceFetch(request, '/asr/pcm', {
               method: 'POST',
               headers: { 'Content-Type': 'application/octet-stream', 'X-User-Id': userId },
               body: pcm,
@@ -382,7 +382,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
 
         let accumulated = ''
         try {
-          const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete/stream`, {
+          const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -519,7 +519,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
 
           let accumulated = ''
           try {
-            const resp = await fetch(`${config.AI_SERVICE_URL}/api/llm/complete/stream`, {
+            const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
