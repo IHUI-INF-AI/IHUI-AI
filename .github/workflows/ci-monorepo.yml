@@ -184,10 +184,10 @@ jobs:
         include:
           - target: api
             context: .
-            file: ./Dockerfile.api
+            file: ./deploy/docker/Dockerfile.api
           - target: web
             context: .
-            file: ./Dockerfile.web
+            file: ./deploy/docker/Dockerfile.web
           - target: ai-service
             context: apps/ai-service
             file: apps/ai-service/Dockerfile
