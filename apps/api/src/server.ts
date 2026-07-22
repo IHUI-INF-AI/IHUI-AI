@@ -313,6 +313,8 @@ import terminalCleanup from './plugins/terminal-cleanup.js'
 import { rulesRoutes } from './routes/rules.js'
 // Hook 服务(对标 Trae Hooks,事件总线 + JSONLogic 条件 + 4 执行器)
 import hooksRoutes from './routes/hooks.js'
+// 多通道消息总线(Wave 3 W3-2,飞书/钉钉/TG/Slack/Discord/微信 统一消息总线)
+import { messageBusRoutes } from './routes/message-bus.js'
 // Plan/Spec 模式(对标 Trae Plan/Spec,spec 生成 + 模板)
 import { specRoutes } from './routes/spec.js'
 // Context Engineering(对标 Qoder,多维 @ 提及 file/database/symbol/folder/web)
@@ -1117,6 +1119,8 @@ function registerRoutes(server: FastifyInstance) {
   server.register(rulesRoutes, { prefix: '/api' })
   // Hook 服务(CRUD + 测试 + 日志,事件总线 + 4 执行器 webhook/script/log/notify)
   server.register(hooksRoutes, { prefix: '/api' })
+  // 多通道消息总线(Wave 3 W3-2,6 渠道统一发送 + webhook 接收)
+  server.register(messageBusRoutes, { prefix: '/api' })
   // Plan/Spec 模式(spec 生成 + 模板,tree-sitter AST 反向生成 spec markdown)
   server.register(specRoutes, { prefix: '/api' })
   // Context Engineering(多维 @ 提及 file/database/symbol/folder/web + LRU 缓存)

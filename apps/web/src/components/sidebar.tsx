@@ -91,6 +91,7 @@ import {
   Circle as CircleIcon,
   Network,
   Database,
+  Activity,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
@@ -344,6 +345,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       // /models 整合原 ModelsSidebar 15 项(主功能/业务/财务/资源四组扁平化为三级子菜单)
       { href: '/models', labelKey: 'models', icon: Bot, children: MODELS_CHILDREN },
       { href: '/agents', labelKey: 'agents', icon: Bot },
+      { href: '/agent-workbench', labelKey: 'agentWorkbench', icon: Activity },
       { href: '/ai-world', labelKey: 'aiWorld', icon: Globe },
       { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
       { href: '/knowledge-base', labelKey: 'knowledgeBase', icon: BookOpen },
