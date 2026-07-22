@@ -37,6 +37,7 @@ dependencies = [
     "mammoth>=1.8.0",
     "pdfplumber>=0.11.0",
     "playwright>=1.48.0",
+    "slowapi>=0.1.9",
 ]
 
 [build-system]

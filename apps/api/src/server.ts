@@ -290,6 +290,8 @@ import v1KnowledgeToolsRoutes from './routes/v1-knowledge-tools.js'
 import { aiApplyDiffRoutes } from './routes/v1-apply-diff.js'
 // P3 深度层:代码库语义搜索路由(POST /api/v1/codebase/search 等,2026-07-22 立)
 import { codebaseSearchRoutes } from './routes/v1-codebase-search.js'
+// P3 深度层:DAP debug 代理路由(代理到 ai-service /api/v1/debug/*,2026-07-22 立)
+import { debugRoutes } from './routes/debug.js'
 
 import { setFastify } from './utils/logger.js'
 import { isAppError } from './errors/index.js'
@@ -415,7 +417,7 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(otelPlugin)
   await server.register(helmet, { contentSecurityPolicy: false })
   await server.register(cors, {
-    origin: (process.env.CORS_ORIGIN ?? 'http://localhost:3001').split(','),
+    origin: (process.env.CORS_ORIGIN ?? 'http://localhost:8801').split(','),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })
@@ -1057,4 +1059,6 @@ function registerRoutes(server: FastifyInstance) {
   server.register(aiApplyDiffRoutes, { prefix: '/api' })
   // P3 深度层:代码库语义搜索(POST /api/v1/codebase/search 等,2026-07-22 立)
   server.register(codebaseSearchRoutes, { prefix: '/api/v1/codebase' })
+  // P3 深度层:DAP debug 代理(10 端点:launch/attach/sessions CRUD/breakpoints/continue/step/stack/variables/eval,2026-07-22 立)
+  server.register(debugRoutes, { prefix: '/api/debug' })
 }

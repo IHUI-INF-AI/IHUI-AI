@@ -8,7 +8,7 @@
  * - memory_forget:查看/触发遗忘曲线衰减
  *
  * 策略:
- *   - 通过 cli config 的 apiUrl(默认 http://localhost:8000)调用 ai-service
+ *   - 通过 cli config 的 apiUrl(默认 http://localhost:8803)调用 ai-service
  *   - 网络失败优雅降级(返回 errorType='network',不阻塞主流程)
  *   - dangerLevel='read'(记忆操作无破坏性,dream/forget 也是幂等衰减)
  */
@@ -24,10 +24,10 @@ interface MemoryApiResponse<T> {
   data: T;
 }
 
-/** 获取 ai-service base URL(从 cli config apiUrl,默认 http://localhost:8000) */
+/** 获取 ai-service base URL(从 cli config apiUrl,默认 http://localhost:8803) */
 function getBaseUrl(): string {
   const config = loadConfig();
-  return config.apiUrl || 'http://localhost:8000';
+  return config.apiUrl || 'http://localhost:8803';
 }
 
 /** 调用 ai-service /api/memory/* 端点(GET) */
