@@ -35,22 +35,13 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import type { SkillFrontmatter, SkillPrerequisites, SkillSource } from '@ihui/types';
 
-/** Skill frontmatter 元信息(参考行业 Agent 框架的 Skills 规范) */
-export interface SkillFrontmatter {
-  /** skill 名(覆盖文件名 stem,缺省回退到文件名) */
-  name?: string;
-  /** 一句话描述 */
-  description?: string;
-  /** 工具白名单(可选,对应 frontmatter 的 allowed-tools) */
-  allowedTools?: string[];
-  /** 工具白名单(行业兼容字段,等价于 allowedTools,对应 frontmatter 的 tools) */
-  tools?: string[];
-  /** 指定模型(可选) */
-  model?: string;
-  /** 分类标签(可选) */
-  tags?: string[];
-}
+/**
+ * Skill frontmatter 元信息由 `@ihui/types` 统一维护(P0-2 对齐 packages/types 契约),
+ * 此处 re-export 供现有消费方(../tests/skills.test.ts 等)按原路径 import。
+ */
+export type { SkillFrontmatter, SkillPrerequisites, SkillSource };
 
 /** 解析后的 skill 定义(原始结构,含路径与 frontmatter) */
 export interface SkillDefinition {
@@ -146,7 +137,123 @@ function parseFrontmatterArray(front: string, key: string): string[] | undefined
   return undefined;
 }
 
-/** 解析 frontmatter 文本块为 SkillFrontmatter 对象(无法识别的内容跳过,不抛错) */
+/** 按 multiple 候选 key(kebab/camel)解析单值字段,返回首个命中 */
+function parseFrontmatterFieldAny(front: string, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const v = parseFrontmatterField(front, key);
+    if (v) return v;
+  }
+  return undefined;
+}
+
+/** 按 multiple 候选 key(kebab/camel)解析数组字段,返回首个命中且非空 */
+function parseFrontmatterArrayAny(front: string, keys: string[]): string[] | undefined {
+  for (const key of keys) {
+    const v = parseFrontmatterArray(front, key);
+    if (v && v.length > 0) return v;
+  }
+  return undefined;
+}
+
+/** 按 multiple 候选 key 解析布尔字段(true/yes→true,false/no→false),未命中返回 undefined */
+function parseFrontmatterBool(front: string, keys: string[]): boolean | undefined {
+  for (const key of keys) {
+    const re = new RegExp(`^${key}:\\s*(.+?)\\s*$`, 'm');
+    const m = front.match(re);
+    if (m) {
+      const v = m[1]!.trim().toLowerCase().replace(/^["']|["']$/g, '');
+      if (v === 'true' || v === 'yes') return true;
+      if (v === 'false' || v === 'no') return false;
+    }
+  }
+  return undefined;
+}
+
+/** SkillSource 合法值(builtin/user/auto/hub),用于校验 frontmatter source 字段 */
+const SKILL_SOURCE_VALUES: ReadonlySet<string> = new Set(['builtin', 'user', 'auto', 'hub']);
+
+/** 把 inline 数组字面量 "a, b, c" 拆为 string[](去引号/trim/滤空) */
+function splitArrayLiteral(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((s) => s.trim().replace(/^["']|["']$/g, ''))
+    .filter((s) => s.length > 0);
+}
+
+/** 把 block 数组文本("  - a\n  - b")拆为 string[](去引号/trim/滤空) */
+function parseBlockArray(raw: string): string[] {
+  return raw
+    .split('\n')
+    .map((l) => l.match(/^[ \t]*-\s+(.+?)\s*$/))
+    .filter((m): m is RegExpMatchArray => m !== null)
+    .map((m) => m[1]!.replace(/^["']|["']$/g, '').trim());
+}
+
+/**
+ * 解析 prerequisites 对象(支持嵌套块 + inline 两种写法)。
+ *
+ * 嵌套块(inline 数组):
+ *   prerequisites:
+ *     commands: [curl, jq]
+ *     env: [GITHUB_TOKEN]
+ *
+ * 嵌套块(block 数组):
+ *   prerequisites:
+ *     commands:
+ *       - curl
+ *       - jq
+ *
+ * inline(尽力解析):
+ *   prerequisites: {commands: [curl], env: [TOKEN]}
+ *
+ * 解析失败或无内容时返回 undefined,不抛错。
+ */
+function parsePrerequisites(front: string): SkillPrerequisites | undefined {
+  // inline: prerequisites: {commands: [curl], env: [TOKEN]}
+  const inlineRe = /^prerequisites:\s*\{([^}]*)\}\s*$/m;
+  const inlineMatch = front.match(inlineRe);
+  if (inlineMatch) {
+    const inner = inlineMatch[1]!;
+    const result: SkillPrerequisites = {};
+    const cmds = inner.match(/commands:\s*\[([^\]]*)\]/);
+    if (cmds) result.commands = splitArrayLiteral(cmds[1]!);
+    const envs = inner.match(/env:\s*\[([^\]]*)\]/);
+    if (envs) result.env = splitArrayLiteral(envs[1]!);
+    return result.commands || result.env ? result : undefined;
+  }
+
+  // 嵌套块:prerequisites:\n  commands: ...\n  env: ...
+  const blockRe = /^prerequisites:\s*\n((?:[ \t]+\S[^\n]*\n?)+)/m;
+  const blockMatch = front.match(blockRe);
+  if (!blockMatch) return undefined;
+  const block = blockMatch[1]!;
+  const result: SkillPrerequisites = {};
+
+  // commands:inline [a,b] 或 block 数组
+  const cmdInline = block.match(/^[ \t]+commands:\s*\[([^\]]*)\]\s*$/m);
+  if (cmdInline) {
+    result.commands = splitArrayLiteral(cmdInline[1]!);
+  } else {
+    const cmdBlock = block.match(/^[ \t]+commands:\s*\n((?:[ \t]+-\s+.+\n?)+)/m);
+    if (cmdBlock) result.commands = parseBlockArray(cmdBlock[1]!);
+  }
+
+  // env:inline 或 block 数组
+  const envInline = block.match(/^[ \t]+env:\s*\[([^\]]*)\]\s*$/m);
+  if (envInline) {
+    result.env = splitArrayLiteral(envInline[1]!);
+  } else {
+    const envBlock = block.match(/^[ \t]+env:\s*\n((?:[ \t]+-\s+.+\n?)+)/m);
+    if (envBlock) result.env = parseBlockArray(envBlock[1]!);
+  }
+
+  return result.commands || result.env ? result : undefined;
+}
+
+/**
+ * 解析 frontmatter 文本块为 SkillFrontmatter 对象(无法识别的内容跳过,不抛错)。
+ * 向后兼容:无新字段的旧 skill 文件仍能正常解析。
+ */
 function parseFrontmatter(front: string): SkillFrontmatter {
   const fm: SkillFrontmatter = {};
   const name = parseFrontmatterField(front, 'name');
@@ -161,6 +268,29 @@ function parseFrontmatter(front: string): SkillFrontmatter {
   if (model) fm.model = model;
   const tags = parseFrontmatterArray(front, 'tags');
   if (tags) fm.tags = tags;
+
+  // P0-2 新字段(对齐 packages/types SkillFrontmatter 契约)
+  const version = parseFrontmatterField(front, 'version');
+  if (version) fm.version = version;
+  const license = parseFrontmatterField(front, 'license');
+  if (license) fm.license = license;
+  const sourceRaw = parseFrontmatterField(front, 'source');
+  if (sourceRaw && SKILL_SOURCE_VALUES.has(sourceRaw)) {
+    fm.source = sourceRaw as SkillSource;
+  }
+  const relatedSkills = parseFrontmatterArrayAny(front, ['related-skills', 'relatedSkills']);
+  if (relatedSkills) fm.relatedSkills = relatedSkills;
+  const progressiveDisclosure = parseFrontmatterBool(front, ['progressive-disclosure', 'progressiveDisclosure']);
+  if (progressiveDisclosure !== undefined) fm.progressiveDisclosure = progressiveDisclosure;
+  const prerequisites = parsePrerequisites(front);
+  if (prerequisites) fm.prerequisites = prerequisites;
+  const autoGeneratedAt = parseFrontmatterFieldAny(front, ['auto-generated-at', 'autoGeneratedAt']);
+  if (autoGeneratedAt) fm.autoGeneratedAt = autoGeneratedAt;
+  const autoGeneratedFromTask = parseFrontmatterFieldAny(front, [
+    'auto-generated-from-task',
+    'autoGeneratedFromTask',
+  ]);
+  if (autoGeneratedFromTask) fm.autoGeneratedFromTask = autoGeneratedFromTask;
   return fm;
 }
 
