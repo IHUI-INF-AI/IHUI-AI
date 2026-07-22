@@ -38,9 +38,9 @@ export interface OrderOperationResult {
   reason?: string
 }
 
-/** 下单：创建一笔 pending 订单。 */
-export async function placeOrder(input: PlaceOrderInput): Promise<Order> {
-  return createOrderRow(input)
+/** 下单：创建一笔 pending 订单。系统调用 operatorId 传 null(由上层 route 显式调用 createOrder 时传 userId 即可)。 */
+export async function placeOrder(input: PlaceOrderInput, operatorId: string | null = null): Promise<Order> {
+  return createOrderRow(input, operatorId)
 }
 
 /** 查询订单详情。 */

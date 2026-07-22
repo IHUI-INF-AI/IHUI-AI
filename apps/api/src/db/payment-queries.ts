@@ -2,6 +2,7 @@ import { eq, and, gte, lt } from 'drizzle-orm';
 import { db } from './index.js';
 import { orders } from '@ihui/database';
 import { generateOutTradeNo } from '../services/wechat-pay.js';
+import { withAudit } from '../utils/audit.js';
 
 export interface CreateOrderInput {
   userId: string;
@@ -13,11 +14,15 @@ export interface CreateOrderInput {
   description?: string;
 }
 
-export async function createOrder(input: CreateOrderInput) {
+/**
+ * 创建订单。
+ * @param operatorId 操作者 userId(用于 updatedBy 审计)。route handler 传 request.userId ?? null;系统异步任务传 null。
+ */
+export async function createOrder(input: CreateOrderInput, operatorId: string | null) {
   const outTradeNo = generateOutTradeNo(input.payType === 'alipay' ? 'ALI' : 'WX');
   const [order] = await db
     .insert(orders)
-    .values({
+    .values(withAudit({
       orderNo: outTradeNo,
       userId: input.userId,
       amount: input.amount,
@@ -26,7 +31,7 @@ export async function createOrder(input: CreateOrderInput) {
       paymentMethod: input.payType,
       orderType: input.orderType,
       productId: input.productId,
-    })
+    }, operatorId))
     .returning();
   return order!;
 }
@@ -36,16 +41,22 @@ export async function findOrderByNo(orderNo: string) {
   return rows[0];
 }
 
+/**
+ * 更新订单状态。
+ * @param operatorId 操作者 userId(用于 updatedBy 审计)。route handler 传 request.userId ?? null;系统异步任务(支付回调、定时清理)传 null。
+ */
 export async function updateOrderStatus(
   orderNo: string,
   status: string,
   _paymentStatus?: string,
+  operatorId: string | null = null,
 ) {
   const values: Record<string, unknown> = {
     status,
     updatedAt: new Date(),
   };
   if (status === 'paid') values.paidAt = new Date();
+  values.updatedBy = operatorId;
   await db.update(orders).set(values).where(eq(orders.orderNo, orderNo));
 }
 

@@ -804,7 +804,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         amount,
         method: 'bank',
         accountInfo: { bankAccount, bankName },
-      })
+      }, userId)
       return reply.send(success(flow))
     },
   )
@@ -827,7 +827,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         amount,
         method: 'wechat',
         accountInfo: {},
-      })
+      }, request.userId ?? null)
       return reply.send(success(flow))
     },
   )

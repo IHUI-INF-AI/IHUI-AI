@@ -11,6 +11,7 @@ import {
   type CommissionFlow,
   type WithdrawalFlow,
 } from '@ihui/database'
+import { withAudit } from '../utils/audit.js'
 
 // ============================================================================
 // Token 钱包
@@ -189,18 +190,25 @@ export async function commissionSummary(beneficiaryId: string, windowDays = 7) {
   }
 }
 
-export async function createCommissionFlow(input: {
-  beneficiaryId: string
-  invitedUserId?: string
-  orderId?: string
-  amount: number
-  token: number
-  type: number
-  remark?: string
-}): Promise<CommissionFlow> {
+/**
+ * 记录佣金流水。
+ * @param operatorId 操作者 userId(用于 updatedBy 审计)。route handler 传 request.userId ?? null;系统自动分佣传 null。
+ */
+export async function createCommissionFlow(
+  input: {
+    beneficiaryId: string
+    invitedUserId?: string
+    orderId?: string
+    amount: number
+    token: number
+    type: number
+    remark?: string
+  },
+  operatorId: string | null,
+): Promise<CommissionFlow> {
   const [flow] = await db
     .insert(commissionFlows)
-    .values({
+    .values(withAudit({
       beneficiaryId: input.beneficiaryId,
       invitedUserId: input.invitedUserId,
       orderId: input.orderId,
@@ -209,7 +217,7 @@ export async function createCommissionFlow(input: {
       type: input.type,
       status: 1,
       remark: input.remark,
-    })
+    }, operatorId))
     .returning()
   return flow!
 }
@@ -247,17 +255,24 @@ export async function getActiveProportion() {
 // 提现
 // ============================================================================
 
-export async function applyWithdrawal(input: {
-  userId: string
-  amount: number
-  method: string
-  accountInfo: Record<string, unknown>
-}): Promise<WithdrawalFlow> {
+/**
+ * 申请提现。
+ * @param operatorId 操作者 userId(用于 updatedBy 审计)。route handler 传 request.userId ?? null。
+ */
+export async function applyWithdrawal(
+  input: {
+    userId: string
+    amount: number
+    method: string
+    accountInfo: Record<string, unknown>
+  },
+  operatorId: string | null,
+): Promise<WithdrawalFlow> {
   const fee = Math.floor(input.amount * 0.02)
   const actualAmount = input.amount - fee
   const [flow] = await db
     .insert(withdrawalFlows)
-    .values({
+    .values(withAudit({
       userId: input.userId,
       amount: actualAmount,
       fee,
@@ -266,7 +281,7 @@ export async function applyWithdrawal(input: {
       method: input.method,
       accountInfo: input.accountInfo,
       partnerTradeNo: `WD${Date.now()}`,
-    })
+    }, operatorId))
     .returning()
   return flow!
 }
@@ -293,22 +308,43 @@ export async function getWithdrawalById(id: string): Promise<WithdrawalFlow | un
   return rows[0]
 }
 
-export async function approveWithdrawal(id: string): Promise<WithdrawalFlow | undefined> {
+/**
+ * 审批通过提现。
+ * @param operatorId 操作者 userId(用于 updatedBy 审计)。admin route handler 传 request.userId ?? null。
+ */
+export async function approveWithdrawal(
+  id: string,
+  operatorId: string | null,
+): Promise<WithdrawalFlow | undefined> {
   const rows = await db
     .update(withdrawalFlows)
-    .set({ status: 2, processedAt: new Date(), updatedAt: new Date() })
+    .set(withAudit({
+      status: 2,
+      processedAt: new Date(),
+      updatedAt: new Date(),
+    }, operatorId))
     .where(and(eq(withdrawalFlows.id, id), eq(withdrawalFlows.status, 0)))
     .returning()
   return rows[0]
 }
 
+/**
+ * 驳回提现。
+ * @param operatorId 操作者 userId(用于 updatedBy 审计)。admin route handler 传 request.userId ?? null。
+ */
 export async function rejectWithdrawal(
   id: string,
   reason: string,
+  operatorId: string | null,
 ): Promise<WithdrawalFlow | undefined> {
   const rows = await db
     .update(withdrawalFlows)
-    .set({ status: 3, rejectReason: reason, processedAt: new Date(), updatedAt: new Date() })
+    .set(withAudit({
+      status: 3,
+      rejectReason: reason,
+      processedAt: new Date(),
+      updatedAt: new Date(),
+    }, operatorId))
     .where(and(eq(withdrawalFlows.id, id), eq(withdrawalFlows.status, 0)))
     .returning()
   return rows[0]
