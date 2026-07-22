@@ -38,6 +38,7 @@ export function WebWorkPanel() {
     newTab,
     closeTab,
     setActiveTab,
+    reorderTabs,
     addFavorite,
     removeFavorite,
     clearHistory,
@@ -134,6 +135,7 @@ export function WebWorkPanel() {
       activeTabId={activeTabId}
       onTabChange={setActiveTab}
       onTabClose={closeTab}
+      onTabReorder={reorderTabs}
       onNewTab={() => newTab()}
       className={isResizing ? 'select-none' : undefined}
     >
