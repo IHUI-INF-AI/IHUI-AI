@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from ..core.sse_buffer import sse_buffer
 from ..services.agent_loop import agent_executor
+from ..services.agent_orchestrator import AgentOrchestrator, agent_orchestrator
 from ..services.langgraph_service import langgraph_service
 from ..services.memory import memory_store
 from ..services.skills import skill_evolution_service
@@ -115,6 +116,9 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                     session_id=req.session_id,
                     model=req.model,
                 ):
+                    # G9: 客户端断连则停止 LLM 生成,避免 token + buffer 浪费
+                    if await request.is_disconnected():
+                        break
                     eid = sse_buffer.append(task_id, event)
                     yield _format_sse(eid, event)
             except Exception:
@@ -126,6 +130,9 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                     max_iterations=req.max_iterations,
                     tools=req.tools,
                 ):
+                    # G9: 客户端断连则停止 LLM 生成
+                    if await request.is_disconnected():
+                        break
                     eid = sse_buffer.append(task_id, event)
                     yield _format_sse(eid, event)
 
@@ -138,8 +145,8 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
             eid = sse_buffer.append(task_id, err_event)
             yield _format_sse(eid, err_event)
         finally:
-            # 延迟清理缓冲区(给重连留时间,TTL 会最终回收)
-            pass
+            # G9: 立即清理缓冲区,避免已完成会话的过期事件占内存(TTL 仍兜底重连场景)
+            sse_buffer.clear(task_id)
 
     return StreamingResponse(
         event_generator(),
@@ -226,3 +233,45 @@ async def trigger_skill_evolution(request: Request) -> dict[str, Any]:
     body = await request.json()
     result = await skill_evolution_service.evaluate(body)
     return {"code": 0, "message": "ok", "data": result}
+
+
+@router.post("/agents/debate")
+async def agent_debate(request: Request) -> dict[str, Any]:
+    """多 Agent 协商辩论(debate/vote/critique 三模式,P1-2)。
+
+    body: AgentDebateRequest 字典(mode/agents/topic/maxRounds/sessionId/modelOverride)。
+    - mode="debate":多 Agent 多轮交替发言,LLM 综合结论
+    - mode="vote":每个 Agent 出方案,所有 Agent 投票选最佳
+    - mode="critique":第一个 Agent 出方案,其余批判,迭代改进
+    """
+    body = await request.json()
+    mode = body.get("mode", "debate")
+    agents = body.get("agents", [])
+    topic = body.get("topic", "")
+    max_rounds = int(body.get("maxRounds", 3))
+    session_id = body.get("sessionId")
+    model_override = body.get("modelOverride")
+
+    if len(agents) < 2:
+        return {"code": 400, "message": "至少需要 2 个 Agent", "data": None}
+
+    if mode == "debate":
+        result = await agent_orchestrator.run_debate(
+            agents, topic, max_rounds, session_id, model_override
+        )
+    elif mode == "vote":
+        result = await agent_orchestrator.run_vote(
+            agents, topic, session_id, model_override
+        )
+    elif mode == "critique":
+        result = await agent_orchestrator.run_critique(
+            agents, topic, max_rounds, session_id, model_override
+        )
+    else:
+        return {"code": 400, "message": f"不支持的 mode: {mode}", "data": None}
+
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": AgentOrchestrator.orchestration_to_dict(result),
+    }
