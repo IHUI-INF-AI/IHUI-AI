@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import {
   findAgreements,
@@ -10,8 +10,6 @@ import {
   updateAgreement,
   deleteAgreement,
 } from '../db/agreements-queries.js'
-
-const ADMIN_ROLE_ID = 1
 
 const AGREEMENT_TYPES = ['user-agreement', 'privacy-policy', 'terms-of-service'] as const
 
@@ -65,17 +63,7 @@ export const agreementPublicRoutes: FastifyPluginAsync = async (server) => {
 
 /** 管理路由：CRUD */
 export const adminAgreementsRoutes: FastifyPluginAsync = async (server) => {
-  server.addHook('preHandler', async (request, reply) => {
-    try {
-      await authenticate(request)
-    } catch {
-      return reply.status(401).send(error(401, '未授权'))
-    }
-    const roleId = request.jwtPayload?.roleId ?? 0
-    if (roleId < ADMIN_ROLE_ID) {
-      return reply.status(403).send(error(403, '需要管理员权限'))
-    }
-  })
+  server.addHook('preHandler', requireAdmin)
 
   // GET /agreements — 列表
   server.get('/agreements', async (request, reply) => {
