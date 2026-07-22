@@ -332,7 +332,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | 操作日志        | 登录日志 / 操作日志 / 回调日志 / audit + security-logs                                                      |
 |                   | 监控告警        | Prometheus + Grafana(20 仪表盘)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                    |
 | **工程基础设施**  | 数据库          | PostgreSQL 15 / **339+ 表** / 100 schema 文件 / **128+ 迁移** / Drizzle ORM + RLS + 租户路由 + **pgvector** |
-|                   | 队列缓存        | Redis 7 + BullMQ / 独立 worker 进程(:8081)                                                                  |
+|                   | 队列缓存        | Redis 7 + BullMQ / 独立 worker 进程(:8830)                                                                  |
 |                   | 对象存储        | OSS 多厂商驱动 / 凭证加密 / 分块上传 / 文件版本 / chunked-upload                                            |
 |                   | 邮件短信        | SMTP / 短信网关 / 邮件模板 / 验证码 / mail + message-templates                                              |
 |                   | 国际化          | 5 语言 parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n 工具链 + 4 守门脚本                                    |
@@ -535,7 +535,7 @@ cd IHUI-AI && docker compose up -d
                                                   │
                                             ┌─────▼─────┐  ┌──────────┐
                                             │  Redis 7  │  │ Worker   │  BullMQ 独立进程
-                                            │ Pub/Sub   │  │ :8081    │  异步任务调度
+                                            │ Pub/Sub   │  │ :8830    │  异步任务调度
                                             └───────────┘  └──────────┘
 ```
 
@@ -1121,17 +1121,17 @@ pnpm turbo build typecheck lint test
 | 20  | tenant-usage     | 租户使用        |
 | 21  | ws               | WebSocket       |
 
-- **Node Exporter**(:9100):主机 CPU / 内存 / 磁盘 / 网络指标
+- **Node Exporter**(:8817):主机 CPU / 内存 / 磁盘 / 网络指标
 
 ### 日志(Loki + Promtail)
 
-- **Loki**(:3100):日志聚合后端
+- **Loki**(:8818):日志聚合后端
 - **Promtail**:自动发现带 `logging=promtail` 标签的 Docker 容器,采集 Docker + Nginx + API 应用日志
 
 ### 追踪(OpenTelemetry + Jaeger)
 
-- **OpenTelemetry Collector**(:4318):接收 OTLP 追踪 / 指标,导出到 Jaeger + Prometheus
-- **Jaeger UI**(:16686):分布式追踪可视化,API ↔ AI 服务 ↔ 数据库全链路
+- **OpenTelemetry Collector**(:8813):接收 OTLP 追踪 / 指标,导出到 Jaeger + Prometheus
+- **Jaeger UI**(:8814):分布式追踪可视化,API ↔ AI 服务 ↔ 数据库全链路
 
 ### 告警(Alertmanager + noise-rules)
 
