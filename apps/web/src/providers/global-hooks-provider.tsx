@@ -51,6 +51,16 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   React.useEffect(() => {
     const openChatHandler = () => setShowCommandPalette(true)
     window.addEventListener('global-shortcut:open-chat', openChatHandler)
+
+    // inline-edit 兜底:若收到事件时焦点已离开 Monaco(竞态),回退到命令面板
+    const inlineEditFallback = () => {
+      const active = document.activeElement
+      if (!active?.closest('.monaco-editor')) {
+        window.dispatchEvent(new CustomEvent('global-shortcut:open-chat'))
+      }
+    }
+    window.addEventListener('global-shortcut:inline-edit', inlineEditFallback)
+
     const handlers: Array<[string, () => void]> = Object.entries(SHORTCUT_ROUTES).map(
       ([event, path]) => {
         const handler = () => {
@@ -63,6 +73,7 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
     )
     return () => {
       window.removeEventListener('global-shortcut:open-chat', openChatHandler)
+      window.removeEventListener('global-shortcut:inline-edit', inlineEditFallback)
       for (const [event, handler] of handlers) {
         window.removeEventListener(event, handler)
       }

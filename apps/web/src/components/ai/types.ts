@@ -170,6 +170,8 @@ export interface InlineDiffInfo {
   old_content: string
   new_content: string
   is_new_file?: boolean
+  /** Apply 工作流状态:pending=待确认 / applied=已应用 / rejected=已拒绝 */
+  applyStatus?: 'pending' | 'applied' | 'rejected'
 }
 
 /** Diff 行 */

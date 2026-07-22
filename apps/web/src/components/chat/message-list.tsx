@@ -6,8 +6,9 @@ import { Sparkles, AlertCircle, Loader2, ChevronDown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import type { ChatMessage } from '@/stores/chat'
+import type { InlineDiffInfo } from '@/components/ai/types'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
-import { ToolCallCard } from '@/components/ai/tool-call-card'
+import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { cn } from '@/lib/utils'
 
@@ -52,6 +53,11 @@ interface MessageListProps {
   assistantLabel: string
   loadingLabel?: string
   onTemplateSelect?: (content: string) => void
+  /** Inline Diff Accept 回调:把 edit_file/write_file 的 diff 写入文件系统
+   *  2026-07-22 立,P3 Inline Diff 卡片 Apply 工作流 */
+  onApplyDiff?: (messageId: string, toolCallId: string, diffInfo: InlineDiffInfo) => Promise<void>
+  /** Inline Diff Reject 回调:纯前端标记为 rejected */
+  onRejectDiff?: (messageId: string, toolCallId: string) => void
 }
 
 export function MessageList({
@@ -63,6 +69,8 @@ export function MessageList({
   assistantLabel,
   loadingLabel,
   onTemplateSelect,
+  onApplyDiff,
+  onRejectDiff,
 }: MessageListProps) {
   const t = useTranslations('chat')
   const bottomRef = React.useRef<HTMLDivElement>(null)
@@ -181,18 +189,38 @@ export function MessageList({
                   ) : (
                     <div className="space-y-2">
                       {m.reasoning && <ReasoningBlock reasoning={m.reasoning} />}
-                      {m.toolCalls?.map((tc) => (
-                        <ToolCallCard
-                          key={tc.id}
-                          toolName={tc.toolName}
-                          args={tc.args}
-                          result={tc.result}
-                          status={tc.status}
-                          duration={tc.duration}
-                          error={tc.error}
-                          iteration={tc.iteration}
-                        />
-                      ))}
+                      {m.toolCalls?.map((tc) => {
+                        // edit_file/write_file:为 Accept/Reject 回调构造 diffInfo
+                        // 优先用 store 中的 tc.diffInfo,否则从 args 推导(与 ToolCallCard 内部逻辑一致)
+                        const effectiveDiffInfo =
+                          tc.diffInfo ?? deriveDiffInfo(tc.toolName, tc.args) ?? undefined
+                        const hasDiff = !!effectiveDiffInfo
+                        return (
+                          <ToolCallCard
+                            key={tc.id}
+                            toolName={tc.toolName}
+                            args={tc.args}
+                            result={tc.result}
+                            status={tc.status}
+                            duration={tc.duration}
+                            error={tc.error}
+                            iteration={tc.iteration}
+                            diffInfo={tc.diffInfo}
+                            applyStatus={tc.applyStatus}
+                            applyError={tc.applyError}
+                            onApply={
+                              hasDiff && onApplyDiff
+                                ? () => onApplyDiff(m.id, tc.id, effectiveDiffInfo!)
+                                : undefined
+                            }
+                            onReject={
+                              hasDiff && onRejectDiff
+                                ? () => onRejectDiff(m.id, tc.id)
+                                : undefined
+                            }
+                          />
+                        )
+                      })}
                       <MarkdownStream content={m.content} isStreaming={streamingThis} />
                     </div>
                   )}
