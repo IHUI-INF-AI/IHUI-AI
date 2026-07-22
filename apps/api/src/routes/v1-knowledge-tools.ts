@@ -10,11 +10,12 @@
  *   成功响应 { code:0, message:'success', data } 自动拆壳返回 data。
  * - ai-service 路由:fetch 直接转发到 config.AI_SERVICE_URL,透传 JSON。
  *
- * 端点清单(57 个):
- * === Knowledge/RAG(13)===
+ * 端点清单(58 个):
+ * === Knowledge/RAG(14)===
  * 1.  GET    /v1/knowledge/health                  — 健康检查(knowledge:read)
  * 2.  GET    /v1/knowledge/documents               — 文档列表(knowledge:read)
  * 3.  POST   /v1/knowledge/documents               — 文档入库(knowledge:write)
+ * 3b. POST   /v1/knowledge/documents/upload        — 文件上传入库(knowledge:write,multipart)
  * 4.  GET    /v1/knowledge/documents/:id           — 文档详情(knowledge:read)
  * 5.  GET    /v1/knowledge/documents/:id/chunks     — 文档分块(knowledge:read)
  * 6.  DELETE /v1/knowledge/documents/:id            — 删除文档(knowledge:write)
@@ -131,6 +132,9 @@ import { error } from '../utils/response.js'
 import { config } from '../config/index.js'
 import { dbRead } from '../db/index.js'
 import { users, apiLogs, apiKeyQuotas, llmCallLogs, aiCostRecords } from '@ihui/database'
+import { knowledgeRagService } from '../services/knowledge-rag-service.js'
+import { UnsupportedFormatError, FileTooLargeError } from '../services/document-parser.js'
+import { XlsxFileTooLargeError } from '../services/xlsx-parser.js'
 
 // =============================================================================
 // 常量
@@ -138,6 +142,25 @@ import { users, apiLogs, apiKeyQuotas, llmCallLogs, aiCostRecords } from '@ihui/
 
 /** 内部 /api/* 路由 base url(保持 API Key 鉴权隔离,不混用用户 JWT)。 */
 const INTERNAL_BASE = `http://localhost:${process.env.PORT || 3001}`
+
+/** /knowledge/documents/upload 单文件大小上限 10MB(Excel 大文件应走数据导入) */
+const UPLOAD_MAX_SIZE = 10 * 1024 * 1024
+
+/** /knowledge/documents/upload 允许的文件扩展名白名单 */
+const ALLOWED_UPLOAD_EXTS = new Set([
+  'xlsx',
+  'xlsm',
+  'xls',
+  'csv',
+  'pdf',
+  'docx',
+  'md',
+  'markdown',
+  'txt',
+  'log',
+  'html',
+  'htm',
+])
 
 /** 鉴权后注入 request 的 API Key 上下文(与 AuthenticatedApiKey 结构一致)。 */
 interface ApiKeyContext {
@@ -585,6 +608,102 @@ const v1KnowledgeToolsRoutes: FastifyPluginAsync = async (server) => {
         }
         return result
       })
+    },
+  )
+
+  // ===== 3b. POST /knowledge/documents/upload — 文件上传入库(multipart/form-data) =====
+  // 支持 .xlsx/.xlsm/.xls/.csv/.pdf/.docx/.md/.txt/.html,单文件 ≤10MB
+  // 直接调用 knowledgeRagService.ingestFile(解析→切片→embedding→入库),不走内部 HTTP 转发
+  server.post(
+    '/knowledge/documents/upload',
+    {
+      preHandler: [
+        requireApiKeyAuth,
+        requireApiKeyPermission('knowledge:write'),
+        requireApiKeyQuota(),
+      ],
+    },
+    async (request, reply) => {
+      const userId = getUserId(request, reply)
+      if (!userId) return
+
+      if (!request.isMultipart()) {
+        return reply.status(400).send(error(400, 'Request must be multipart/form-data'))
+      }
+
+      const data = await request.file().catch(() => null)
+      if (!data) {
+        return reply.status(400).send(error(400, 'No file uploaded'))
+      }
+
+      const buffer = await data.toBuffer()
+      if (buffer.length === 0) {
+        return reply.status(400).send(error(400, 'File is empty'))
+      }
+
+      // 文件大小限制 10MB
+      if (buffer.length > UPLOAD_MAX_SIZE) {
+        return reply
+          .status(413)
+          .send(error(413, `File too large: ${buffer.length} bytes (max ${UPLOAD_MAX_SIZE} bytes)`))
+      }
+
+      // 扩展名白名单校验
+      const filename = data.filename ?? 'untitled'
+      const ext = /\.([a-z0-9]+)$/i.exec(filename)?.[1]?.toLowerCase() ?? ''
+      if (!ext || !ALLOWED_UPLOAD_EXTS.has(ext)) {
+        return reply
+          .status(415)
+          .send(
+            error(
+              415,
+              `Unsupported file type: .${ext || 'unknown'} (allowed: xlsx/xlsm/xls/csv/pdf/docx/md/txt/html)`,
+            ),
+          )
+      }
+
+      // 读取可选 form 字段:title / collectionName
+      const titleField = data.fields?.title
+      const collectionField = data.fields?.collectionName
+      const formTitle = Array.isArray(titleField) ? titleField[0] : titleField
+      const formCollection = Array.isArray(collectionField) ? collectionField[0] : collectionField
+      const titleRaw =
+        formTitle && typeof formTitle === 'object' && 'value' in formTitle
+          ? (formTitle as { value: string }).value
+          : ''
+      const collectionRaw =
+        formCollection && typeof formCollection === 'object' && 'value' in formCollection
+          ? (formCollection as { value: string }).value
+          : ''
+
+      const title = (titleRaw && titleRaw.trim()) || filename.replace(/\.[^.]+$/, '') || 'untitled'
+      const collectionName = (collectionRaw && collectionRaw.trim()) || 'default'
+
+      try {
+        const result = await knowledgeRagService.ingestFile({
+          ownerUuid: userId,
+          title,
+          buffer,
+          mimeType: data.mimetype ?? 'application/octet-stream',
+          filename,
+          collectionName,
+        })
+        const response: V1IngestDocumentResponse = {
+          documentId: String(result.docId),
+          chunkCount: result.chunkCount,
+          status: 'ingested',
+        }
+        return reply.send(response)
+      } catch (e) {
+        if (e instanceof UnsupportedFormatError) {
+          return reply.status(415).send(error(415, e.message))
+        }
+        if (e instanceof FileTooLargeError || e instanceof XlsxFileTooLargeError) {
+          return reply.status(413).send(error(413, e.message))
+        }
+        request.log.error(e)
+        return reply.status(500).send(error(500, (e as Error).message || '文件解析失败'))
+      }
     },
   )
 

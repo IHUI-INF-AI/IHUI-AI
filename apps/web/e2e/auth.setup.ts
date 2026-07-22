@@ -22,7 +22,7 @@ import {
 setup('authenticate as user', async ({ request, baseURL }) => {
   await apiLoginAndSaveStorageState(
     request,
-    baseURL ?? 'http://localhost:3000',
+    baseURL ?? 'http://localhost:3001',
     TEST_USER,
     USER_STORAGE_STATE,
   )
@@ -33,7 +33,7 @@ setup('authenticate as user', async ({ request, baseURL }) => {
 setup('authenticate as admin', async ({ request, baseURL }) => {
   await apiLoginAndSaveStorageState(
     request,
-    baseURL ?? 'http://localhost:3000',
+    baseURL ?? 'http://localhost:3001',
     ADMIN_USER,
     ADMIN_STORAGE_STATE,
   )

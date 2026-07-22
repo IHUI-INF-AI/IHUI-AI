@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import fp from 'fastify-plugin'
 import jwtPlugin from '@fastify/jwt'
+import { decodeJwt } from 'jose'
 import { verifyAccessToken, type JWTPayload } from '@ihui/auth'
 import type { AuthenticatedApiKey } from '@ihui/types'
 import { config } from '../config/index.js'
@@ -56,6 +57,19 @@ export async function authenticate(request: FastifyRequest): Promise<JWTPayload>
     payload = await verifyAccessToken(token)
   } catch {
     const err = new Error('Invalid or expired token')
+    ;(err as Error & { statusCode: number }).statusCode = 401
+    throw err
+  }
+
+  // 2FA 安全加固(Wave 10, 2026-07-22):拒绝 challenge token 用作普通 access token。
+  // challenge token (type='challenge') 是登录 2FA 流程的短期 JWT (5min),
+  // 只能用于 POST /auth/2fa/login-verify 端点,不能访问其他受 authenticate() 保护的端点。
+  // verifyAccessToken 只拒绝 type='refresh',不拒绝 type='challenge'(因 @ihui/auth 不感知 2FA 语义),
+  // 此处补充检查:验签通过后 decode payload 检 type 字段。
+  // 安全性:token 已由 verifyAccessToken 验签,decodeJwt 仅读取(不重新验签),无伪造风险。
+  const rawPayload = decodeJwt(token)
+  if (rawPayload.type === 'challenge') {
+    const err = new Error('Challenge token cannot be used for this endpoint')
     ;(err as Error & { statusCode: number }).statusCode = 401
     throw err
   }
