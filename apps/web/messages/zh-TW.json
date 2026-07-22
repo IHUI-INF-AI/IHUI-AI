@@ -20478,6 +20478,7 @@
     "listStatusApproved": "已通過",
     "listStatusRejected": "已拒絕",
     "listStatusCompleted": "已完成",
+    "listReason": "原因: {reason}",
     "detailTitle": "退款詳情",
     "detailNotFound": "退款記錄不存在",
     "detailBack": "返回",
@@ -28513,7 +28514,12 @@
       "trendRising": "上升",
       "trendCooling": "下降",
       "trendNew": "新晉",
-      "moreHint": "已展示 {shown}/{total} 條,更多資訊請調整篩選條件"
+      "moreHint": "已展示 {shown}/{total} 條,更多資訊請調整篩選條件",
+      "trendNotifyTitle": "{count} 資訊熱度爆發",
+      "trendNotifyExpand": "展開全部",
+      "trendNotifyCollapse": "收起",
+      "trendNotifyClose": "關閉",
+      "langSwitch": "切換標題語言為{lang}"
     },
     "hotRanking": {
       "label": "熱度排行榜",
@@ -28567,6 +28573,19 @@
       "tagHighWinRate": "高勝率",
       "tagTopTier": "頂級模型",
       "tagMultimodal": "多模態"
+    },
+    "compare": {
+      "label": "模型對比",
+      "selected": "已選 {count} 個",
+      "clear": "清空",
+      "startCompare": "開始對比",
+      "maxToast": "最多對比 5 個模型,請先移除其他模型",
+      "colModel": "對比維度",
+      "cheapest": "最低",
+      "priceChartTitle": "價格可視化",
+      "priceChartHint": "輸入價 / 輸出價(每 1M tokens)",
+      "capabilityOverlay": "能力雷達疊加",
+      "noPriceData": "所選模型均無價格資料"
     },
     "apiRelays": {
       "title": "API 中轉站",
