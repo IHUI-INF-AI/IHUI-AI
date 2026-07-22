@@ -1055,6 +1055,8 @@ export default {
     logout: 'ログアウト',
     logoutConfirm: 'ログアウトしますか?',
     vipMember: 'VIP会員',
+    admin: '管理者',
+    normalUser: '一般ユーザー',
     tapLogin: 'タップしてログイン',
     loginHint: 'ログインで更多サービス',
     menu: {
@@ -1066,6 +1068,7 @@ export default {
       ai: 'AI アシスタント',
       settings: '設定',
     },
+    identity: '身份',
     avatar: {
       updateSuccess: 'アバター更新',
       choose: 'アバター選択',
