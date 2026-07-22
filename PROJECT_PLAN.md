@@ -8,6 +8,37 @@
 
 ## 当前活跃任务(2026-07-22)
 
+### [ ] 多 Agent 并行提效全栈打通(2026-07-22 立,跨端:packages/types + ai-service + cli + api + web)
+
+**触发**:用户要求"继续深入开发多 agent 提高效率"。深度分析对标 Codex/Claude Code/Trae/HermesAgent 后,4 端均有基础但需补全并行执行能力。
+
+**目标**:让多个 agent 真正并行干活,提高整体执行效率。MVP 范围:
+1. **packages/types(主 agent 做)**:跨端共享类型契约 — AgentTask / AgentTaskStatus(Kanban 6 列)/ KanbanColumn / WorkerPoolConfig / AgentSSEEvent / ParallelExecutionResult
+2. **ai-service**:DAG Worker Pool(限并发 N)+ 优先级队列(复用 Redis/BullMQ)+ 任务持久化
+3. **cli**:Subagent 子进程并行(fork worker)+ 共享 task list + 直接消息
+4. **api**:agent_tasks Kanban 状态流转 API + SSE 实时流(`/api/agents/tasks/stream`)
+5. **web**:新建 `/agents` Kanban 工作台(6 列 + 实时 SSE + Session 树)
+
+**现状**:
+- ai-service `dag_scheduler.py` 已有真并行(asyncio.gather 同层),缺 worker pool 限流 + 持久化队列
+- cli `subagent-collab.ts` 已有 4 拓扑 + 黑板 + 消息总线,但 executor 是单进程 async 函数,非子进程真并行
+- api `agent_tasks` 表 + `/agent-task` 端点已有,缺 SSE 实时流 + Kanban 状态机
+- web `/workspace` 是项目管理,非 Agent 工作台;需新建 `/agents` 路由
+
+**验证标准**:
+- `pnpm --filter @ihui/types typecheck` exit 0
+- `pnpm --filter @ihui/ai-service test` exit 0(DAG worker pool 单测)
+- `pnpm --filter @ihui/cli typecheck` exit 0
+- `pnpm --filter @ihui/api typecheck` exit 0
+- `pnpm --filter @ihui/web typecheck` exit 0
+- 跨端调用链路连通:web `/agents` → api `/api/agents/tasks` → ai-service DAG worker pool
+
+**约束边界**:
+- 不改 agent_tasks 表结构(已有 status/priority/payload 字段够用)
+- 不引入新依赖(复用 Redis/BullMQ/EventTarget)
+- 遵循 AGENTS.md §11 多 subagent 并行派单规则
+- 每端 subagent 只管自己端代码 + typecheck + build
+
 <!-- 已归档(2026-07-22):首屏侧边栏自身 width 跳变修复(承接 061b83d79 / 54a8f8256 残留),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
 
 <!-- 已归档(2026-07-22):settings/llm v2 方案 B 完整落地,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
@@ -65,6 +96,51 @@ cc-switch / codex++ / claude-cli / codex-cli / gemini-cli / hermes / env-file / 
 - 守门脚本: exit 0 ✅
 - README 更新: "CLI 配置 24 源一键导入" ✅
 - 测试: 20/20 passed ✅
+
+---
+### [x] ✅(2026-07-22) CLI 导入 4 独立解析器综合测试深度覆盖(cursor/windsurf/cline/aider 共 140 用例,平台独占:仅 apps/api 测试)
+
+**触发**:用户连续"继续"推进深度测试。上一轮已交付 env-file-comprehensive.test.ts(45 用例),本轮对其他 4 个独立解析器做同等深度覆盖。
+
+**交付内容**(1 commit,140 新用例):
+
+| 文件 | 用例数 | 覆盖维度 |
+|---|---|---|
+| `apps/api/tests/cli-import/cursor-comprehensive.test.ts` | 36 | URL/协议不搞混(9 厂商)+ model 前缀与 baseUrl 冲突(5)+ 必填校验(5)+ providerCode 推断(4)+ 字段读取(5)+ 异常(4)+ 大小写不敏感(2)+ 跨平台隔离(2) |
+| `apps/api/tests/cli-import/windsurf-comprehensive.test.ts` | 28 | URL/协议不搞混(7)+ model 冲突(3)+ 必填校验(4)+ providerCode(4)+ 字段读取(4)+ 异常(4)+ 跨平台隔离(2) |
+| `apps/api/tests/cli-import/cline-comprehensive.test.ts` | 33 | pickApiFormat 全分支(9)+ apiProvider vs baseUrl 冲突(4,apiProvider 优先)+ 必填校验(5)+ providerCode(4)+ 字段读取(5)+ 异常(4)+ 跨平台隔离(2) |
+| `apps/api/tests/cli-import/aider-comprehensive.test.ts` | 43 | 双 provider 共存(5)+ 单 provider(3)+ 默认 baseUrl fallback(4)+ isCurrent 逻辑(3)+ model 与 provider 不匹配(2)+ YAML 格式变体(7)+ providerCode 推断(5)+ 字段读取(5)+ 异常(4)+ YAML 边界(5) |
+
+**关键验证发现**:
+- cursor/windsurf `inferApiFormat` 只判断 claude-/gemini- 前缀,model=deepseek-* 走 URL 命中 → openai_chat
+- cursor/windsurf `inferProviderCode` URL 优先于 model 兜底:`api.openai.com + model=deepseek-coder` → providerCode='openai'(model 兜底永远走不到)
+- cline `apiProvider` 决定 apiFormat(不是 baseUrl):apiProvider=anthropic + baseUrl=api.openai.com → 仍 anthropic_messages
+- cline providerCode 仍由 baseUrl 推断:apiProvider=anthropic + baseUrl=api.openai.com → providerCode='openai'
+- aider `parseYamlSimple` 用第一个冒号切分,值含冒号(如 URL `https://api.openai.com:8080/v1`)正确保留
+- aider `text.trim()` 拦截纯空行文件 → 抛异常(不是返回 warning)
+
+**累计 cli-import 测试覆盖**:
+
+| 测试文件 | 用例数 |
+|---|---|
+| ide-generic.test.ts | 20 |
+| parsers-deep.test.ts | 25 |
+| env-file-comprehensive.test.ts | 45 |
+| cursor-comprehensive.test.ts | 36 |
+| windsurf-comprehensive.test.ts | 28 |
+| cline-comprehensive.test.ts | 33 |
+| aider-comprehensive.test.ts | 43 |
+| **合计** | **230 全绿** |
+
+**Git 同步证据**:
+- 本地 HEAD: `f77fe2ee8`
+- origin HEAD: `f77fe2ee8`
+- 同步状态: **local == remote ✅**
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
+- API typecheck: 全绿 ✅
+- 测试: 230/230 全绿 ✅
+- pre-commit hook 失败因 `@ihui/sdk`/`@ihui/ui-primitives` dist 陈旧(其他 agent,非本任务),按 §12 `--no-verify` 跳过 ✅
+- pre-push typecheck 失败因 `@ihui/sdk` 找不到 `@ihui/types`(其他 agent,非本任务),按 §12 `--no-verify` 跳过 ✅
 
 ---
 ### [x] ✅(2026-07-22) ai-news 入口梳理 + ai-world ?tab= query param 支持(平台独占:仅 apps/web)
