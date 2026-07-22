@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -46,6 +46,7 @@ export function PromoteScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true)
@@ -71,11 +72,25 @@ export function PromoteScreen() {
 
   useEffect(() => { void load() }, [load])
 
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) {
+        clearTimeout(copiedTimerRef.current)
+      }
+    }
+  }, [])
+
   const handleCopy = async () => {
     if (!info) return
     Alert.alert(t('promote.copyLink'), info.referralLink)
     setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    if (copiedTimerRef.current) {
+      clearTimeout(copiedTimerRef.current)
+    }
+    copiedTimerRef.current = setTimeout(() => {
+      setCopied(false)
+      copiedTimerRef.current = null
+    }, 1500)
   }
 
   const handleShare = () => {
