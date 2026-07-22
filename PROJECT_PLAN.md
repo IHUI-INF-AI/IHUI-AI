@@ -876,6 +876,46 @@ Playwright E2E:
 
 ---
 
+### [x] ✅(2026-07-22) G13 API 层 createdBy+updatedBy 联合注入:`withAuditBoth` 助手 + 4 表 createdBy schema/migration(平台独占:database + api,共享包 only/跨端共享,已完成)
+
+**触发**:G12 只补了 `updatedBy`(最近修改者),但审计场景需要追溯"创建者是谁"——`createdBy`(系统自动分佣 vs 管理员手动补发 vs 用户自助提现)。G10 段为 4 表(orders/commissionFlows/withdrawalFlows/agentTasks)只补 `updatedBy`,遗留"创建者"审计盲区。
+
+**范围**:**3 个 database 文件 + 1 个新工具扩展 + 2 个新测试 + 4 个 api 文件修改 = 10 个文件**。
+
+**实施决策**:
+- **方案 A(本任务实施)**:
+  1. **database 层**:4 表 schema 加 `createdBy` 字段(与 `updatedBy` 同样的 uuid + FK + set null)+ 新建手写 migration `20260722160000_g13_created_by.sql`(IF NOT EXISTS + DO $$ EXCEPTION 守门,安全重复执行)
+  2. **api 层**:扩展 `withAudit` 助手为 `withAuditBoth<T>(values, operatorId): T & { createdBy, updatedBy }`,专用于 insert 场景(纯 update 场景仍用 `withAudit`,只动 `updatedBy`)
+  3. **业务层**:3 个 query insert 函数(createOrder / createCommissionFlow / applyWithdrawal)+ agentTasks insert 全部改用 `withAuditBoth`,保证 `createdBy = updatedBy = operatorId`(insert 一次性创建语义)
+  4. **测试层**:单元测试覆盖 8 个 case(用户操作 / 系统操作 / 纯函数 / 字段覆盖 / 业务字段不变 / jsonb 嵌套)+ 端到端集成测试 5 个 case(route → service → db.insert 完整链路用 vi.mock 拦截 db 验证 values 包含 createdBy+updatedBy)
+- **方案 B(放弃)**:用现有 `withAudit` + 手工 spread 加 createdBy 字段,会污染 update 场景(只动 updatedBy)+ 重复代码
+- **不变更**:Fastify hook / ALS 方案继续放弃(G12 已论证);route handler 传 `request.userId ?? null`,系统任务传 `null`
+
+**完成证据**:
+- `packages/database/src/schema/{agent-tasks,billing,commission}.ts`:4 表加 `createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' })` + 文档注释 "G13:补 createdBy 字段"
+- `packages/database/drizzle/20260722160000_g13_created_by.sql` 新建(52 行,4 段幂等 SQL,orders/commission_flows/withdrawal_flows/agent_tasks 加 created_by 字段 + FK)
+- `apps/api/src/utils/audit.ts` 扩展(15 → 28 行):新增 `withAuditBoth<T extends Record<string, unknown>>(values: T, operatorId: string | null): T & { createdBy: string | null; updatedBy: string | null }`,纯展开,不修改原对象
+- `apps/api/src/db/payment-queries.ts`:`createOrder` 用 `withAuditBoth` 替换 `withAudit`(insert 场景需要 createdBy+updatedBy)
+- `apps/api/src/db/commission-queries.ts`:`createCommissionFlow` + `applyWithdrawal` 改用 `withAuditBoth`;`approveWithdrawal` / `rejectWithdrawal` 仍用 `withAudit`(纯 update 场景)
+- `apps/api/src/routes/frontend-stub-admin-routes.ts` line 1401:agentTasks insert 改用 `withAuditBoth({ ...body }, request.userId ?? null)`
+- `apps/api/src/utils/__tests__/audit.test.ts` 删除(28 行):旧位置改为 `apps/api/tests/audit-helper.test.ts`,与 vitest 规范一致(项目统一 `tests/` 目录,非 `__tests__`)
+- `apps/api/tests/audit-helper.test.ts` 新建(92 行):12 个 vitest case 覆盖 `withAudit`(5)+ `withAuditBoth`(7,含 null/覆盖/嵌套 jsonb/业务字段不变)
+- `apps/api/tests/audit-helper-integration.test.ts` 新建(135 行):5 个端到端 case 用 `vi.mock` 拦截 drizzle db 验证 createOrder/applyWithdrawal/createCommissionFlow → withAuditBoth → db.insert().values() 完整链路;mock 使用宽松 `table: unknown` + try-catch 提取表名(避免 drizzle 内部结构耦合)
+- `pnpm --filter @ihui/api test -- audit-helper`:**2 test files, 17 tests passed** ✅
+- `pnpm --filter @ihui/api test -- audit-helper audit-helper-integration audit-chain`:**3 test files, 38 tests passed** ✅
+- `pnpm --filter @ihui/database db:check`:"Everything's fine 🐶🔥" ✅(schema 与 migration 一致)
+- `pnpm --filter @ihui/database build` exit 0 ✅
+- `pnpm --filter @ihui/api typecheck`:本任务改动文件 0 错误(剩余 3 个错误均在 `services/clawdbot/*`,其他 agent 缺 `safe-condition.js` 模块问题,按 AGENTS.md §12 不在本任务范围)
+- Git 同步证据:commit `93143f0de`,`git rev-parse HEAD` === `git rev-parse origin/main` === `93143f0de4f4293cef6e5a0bde9919e32fdc4d1d` ✅
+
+**遗留(P1/P2,非本任务范围)**:
+- P1:routes/agents.ts user_token_balance 双账本问题(G2 遗留,持续)
+- P2:agent_rule.agentId varchar→uuid 修复(需数据审计 + 迁移策略,见 G10 段)
+- P2:createdBy/updatedBy 索引优化(高频审计查询场景可加 B-Tree 索引 `(created_by, created_at DESC)` 加速按创建者分页,但当前无明确性能瓶颈,留待审计日志增长后视情况)
+- P2:其他表的 createdBy 字段扩展(community/content/exam 等已有 createdBy 但未在 query 函数显式传递,见 community.ts:31 / content.ts:20 / exam.ts:58,后续可统一用 withAuditBoth 模式)
+
+---
+
 ### [x] ✅(2026-07-22) G11 snapshot/journal drift 修复 — drizzle-kit generate 同步 schema 源和最新 snapshot(平台独占:仅 database,已完成)
 
 **触发**:G10 遗留 P2"drizzle-kit generate 跑通后 snapshot / _journal.json 仍需同步(G11 收尾)"。多 agent 并行下,12 个手写 SQL 文件(`20260720*` / `20260721*` / `20260722*`)+ 4 个手写 migration(`2026072212*` / `2026072215*`)都缺对应 journal 条目,且 schema 源与 0126 snapshot 不同步(G10 改的 4 表 `updatedBy` + 其他 agent 改的 `ai_world_rankings` / `trending_score` / `clientSecretHash` / `encryptionKeyId` / `t_clazz` / `agent_memory_*` 等 568 表定义)。
