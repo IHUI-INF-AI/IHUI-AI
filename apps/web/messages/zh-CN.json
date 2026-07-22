@@ -1202,9 +1202,6 @@
       "routines": "例行程序",
       "folders": "文件夹"
     },
-    "openLocalFolder": "打开本地文件夹",
-    "openedWorkspace": "已打开的工作区",
-    "reopenPermission": "重新配置权限",
     "selectWorkspace": "选择工作区",
     "recentWorkspaces": "最近的工作区",
     "folderPicker": {
@@ -26012,6 +26009,38 @@
       "label": "重磅融资与收购",
       "title": "重磅融资与收购",
       "subtitle": "7 月 AI 行业资本动作:SpaceX 600 亿美元收购 Cursor、DeepSeek 500 亿元融资"
+    },
+    "detailDialog": {
+      "arenaScore": "Arena 评分",
+      "rank": "排名",
+      "rankDelta": "排名变化",
+      "stable": "持平",
+      "winRate": "胜率",
+      "voteCount": "投票数",
+      "contextWindow": "上下文窗口",
+      "maxOutput": "最大输出",
+      "inputPrice": "输入价格",
+      "outputPrice": "输出价格",
+      "releaseDate": "发布时间",
+      "license": "License",
+      "coreParams": "核心参数",
+      "highlight": "核心亮点",
+      "capabilityRadar": "能力雷达",
+      "noCapabilityData": "暂无能力评分数据",
+      "officialResources": "官方资源",
+      "getApiKey": "获取 API Key",
+      "officialDocs": "官方文档",
+      "quickImport": "一键导入",
+      "noQuickImport": "暂不支持一键导入"
+    },
+    "apiRelays": {
+      "title": "API 中转站",
+      "subtitle": "主流 API 聚合平台 + 个人中转站风险提示,支持一键导入到 Provider 配置",
+      "companyType": "公司平台性质",
+      "personalType": "个人运行性质",
+      "import": "导入",
+      "riskTitle": "风险提示",
+      "tipsTitle": "使用建议"
     },
     "cta": {
       "label": "底部 CTA",
