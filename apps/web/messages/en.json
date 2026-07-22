@@ -25861,6 +25861,12 @@
     }
   },
   "aiNews": {
+    "leaderboard": {
+      "label": "Model Leaderboard",
+      "title": "Model Leaderboard · Arena Score",
+      "subtitle": "Ref: arena.ai · Elo + Bootstrap CI",
+      "empty": "No leaderboard data"
+    },
     "hero": {
       "label": "AI News Hero",
       "badge": "July 2026 Real-Time Feed",
