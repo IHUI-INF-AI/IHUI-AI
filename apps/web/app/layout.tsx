@@ -57,6 +57,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale} suppressHydrationWarning>
       <body className="font-sans antialiased">
+        {/*
+          No-flash bootstrap(2026-07-22 立,修复首屏侧边栏宽度闪烁):
+          在 React hydrate 之前同步执行,从 localStorage 读取 AI 面板持久化 width,
+          预设 --ai-panel-occupy CSS 变量,让 GlobalShell 的 work-area 首帧 paddingLeft
+          就是用户持久化值,而非 store 默认值(408px)。
+          - 解决 zustand persist rehydrate 引起的首帧 408px → 持久化值跳变
+          - 与 next-themes 的 suppressHydrationWarning 同模式(只设 CSS 变量,不触发 mismatch)
+          - GlobalShell 运行时通过 useEffect 继续同步该 CSS 变量(跟随用户拖拽/关闭)
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var raw=localStorage.getItem('ihui-ai-panel');if(raw){var p=JSON.parse(raw);var w=p&&p.state&&p.state.width;if(typeof w==='number'&&w>=320&&w<=720){document.documentElement.style.setProperty('--ai-panel-occupy',(w+8)+'px');return;}}}catch(e){}document.documentElement.style.setProperty('--ai-panel-occupy','408px');})();`,
+          }}
+        />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
