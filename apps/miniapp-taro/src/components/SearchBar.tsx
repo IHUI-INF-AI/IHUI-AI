@@ -16,8 +16,8 @@ export default function SearchBar({
   onClear,
 }: SearchBarProps) {
   return (
-    <View className="flex items-center px-3 py-2 mx-3 my-2 bg-gray-50 rounded-md">
-      <Text className="text-sm text-gray-400 mr-2">🔍</Text>
+    <View className="flex items-center px-3 py-2 mx-3 my-2 bg-muted rounded-md">
+      <Text className="text-sm text-muted-foreground mr-2">🔍</Text>
       <Input
         className="flex-1 text-sm"
         placeholder={placeholder}
@@ -26,7 +26,7 @@ export default function SearchBar({
         onConfirm={() => onSearch?.()}
       />
       {value && (
-        <Text className="text-sm text-gray-400 ml-2" onClick={onClear}>
+        <Text className="text-sm text-muted-foreground ml-2" onClick={onClear}>
           ×
         </Text>
       )}

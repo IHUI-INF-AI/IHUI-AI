@@ -94,11 +94,11 @@ export default function LiveList() {
 
   return (
     <View className="min-h-screen p-3">
-      <View className="flex mb-3 bg-white rounded-xl">
+      <View className="flex mb-3 bg-card rounded-xl">
         {tabs.map((tab) => (
           <View
             key={tab.key}
-            className={`flex-1 text-center py-2.5 text-sm ${status === tab.key ? 'text-[#07c160] font-semibold' : 'text-[#666]'}`}
+            className={`flex-1 text-center py-2.5 text-sm ${status === tab.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
             onClick={() => switchStatus(tab.key)}
           >
             <Text>{t(tab.labelKey)}</Text>
@@ -111,7 +111,7 @@ export default function LiveList() {
           {list.map((item) => (
             <View
               key={item.id}
-              className="bg-white rounded-2xl overflow-hidden mb-3"
+              className="bg-card rounded-2xl overflow-hidden mb-3"
               onClick={() => goDetail(item.id)}
             >
               <View className="relative w-full h-[160px]">
@@ -129,13 +129,13 @@ export default function LiveList() {
                 </View>
               </View>
               <View className="p-2.5">
-                <Text className="text-base text-[#333] font-semibold">{item.title}</Text>
+                <Text className="text-base text-foreground font-semibold">{item.title}</Text>
                 <View className="flex justify-between mt-1.5">
-                  {item.anchor && <Text className="text-xs text-[#07c160]">{item.anchor}</Text>}
-                  {item.startTime && <Text className="text-xs text-[#999]">{item.startTime}</Text>}
+                  {item.anchor && <Text className="text-xs text-primary">{item.anchor}</Text>}
+                  {item.startTime && <Text className="text-xs text-muted-foreground">{item.startTime}</Text>}
                 </View>
                 {item.watchCount !== undefined && (
-                  <Text className="block mt-1 text-xs text-[#999]">
+                  <Text className="block mt-1 text-xs text-muted-foreground">
                     {t('live.viewers', { n: item.watchCount })}
                   </Text>
                 )}
@@ -146,13 +146,13 @@ export default function LiveList() {
       )}
 
       {!loading && list.length === 0 && (
-        <View className="text-center py-16 text-[#999] text-sm">
+        <View className="text-center py-16 text-muted-foreground text-sm">
           <Text>{t('live.empty')}</Text>
         </View>
       )}
 
       {loading && (
-        <View className="text-center py-16 text-[#999] text-sm">
+        <View className="text-center py-16 text-muted-foreground text-sm">
           <Text>{t('common.loading')}</Text>
         </View>
       )}

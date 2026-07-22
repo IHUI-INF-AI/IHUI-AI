@@ -76,11 +76,11 @@ export default function UserIndex() {
   }))
 
   return (
-    <View className="min-h-screen">
-      {/* 用户信息头部 */}
+    <View className="min-h-screen pb-[20px]">
+      {/* 用户信息头部 — 青→紫赛博朋克渐变 + 科技网格 */}
       <View
-        className="pt-[60px] px-[16px] pb-[24px]"
-        style={{ background: 'linear-gradient(135deg, #07c160, #35e683)' }}
+        className="pt-[60px] px-[16px] pb-[24px] tech-grid"
+        style={{ background: 'linear-gradient(135deg, #00f2ff, #8b5cf6)' }}
       >
         {userInfo ? (
           <View className="flex items-center">
@@ -99,7 +99,7 @@ export default function UserIndex() {
                 </Text>
               ) : null}
               {userInfo.isVip ? (
-                <Text className="inline-block mt-[6px] px-[8px] py-[2px] bg-[#f0ad4e] text-white text-[10px] rounded-[10px]">
+                <Text className="inline-block mt-[6px] px-[8px] py-[2px] bg-[#8b5cf6] text-white text-[10px] rounded-[10px]">
                   {t('user.vipMember')}
                 </Text>
               ) : null}
@@ -124,8 +124,8 @@ export default function UserIndex() {
         )}
       </View>
 
-      {/* 快捷入口(订单/收藏/关注/订阅) */}
-      <View className="mx-[16px] my-[12px] bg-white rounded-[8px] py-[14px]">
+      {/* 快捷入口(订单/收藏/关注/订阅)— tech-card */}
+      <View className="mx-[16px] my-[12px] tech-card py-[14px]">
         <View className="flex">
           {quickEntries.map((entry) => (
             <View
@@ -134,33 +134,33 @@ export default function UserIndex() {
               onClick={() => goPage(entry.path)}
             >
               <Text className="text-[22px]">{entry.icon}</Text>
-              <Text className="mt-[3px] text-[12px] text-[#333]">{t(entry.key)}</Text>
+              <Text className="mt-[3px] text-[12px] text-white">{t(entry.key)}</Text>
             </View>
           ))}
         </View>
       </View>
 
-      {/* 功能列表 */}
-      <View className="mx-[16px] my-[12px] bg-white rounded-[8px] overflow-hidden">
+      {/* 功能列表 — tech-card + list-cell-cyber 分隔 */}
+      <View className="mx-[16px] my-[12px] tech-card overflow-hidden">
         {menus.map((item, idx) => (
           <View
             key={item.path}
             className={`flex items-center px-[16px] py-[16px] ${
-              idx < menus.length - 1 ? 'border-b-[1px] border-solid border-[#f5f5f5]' : ''
+              idx < menus.length - 1 ? 'border-b-[1px] border-solid border-[var(--color-border)]' : ''
             }`}
             onClick={() => goPage(item.path)}
           >
             <Text className="text-[20px]">{item.icon}</Text>
-            <Text className="flex-1 ml-[10px] text-[15px] text-[#333]">{t(item.key)}</Text>
-            <Text className="text-[13px] text-[#ccc]">{'>'}</Text>
+            <Text className="flex-1 ml-[10px] text-[15px] text-white">{t(item.key)}</Text>
+            <Text className="text-[13px] text-[var(--color-primary)]">{'>'}</Text>
           </View>
         ))}
       </View>
 
-      {/* 退出登录 */}
+      {/* 退出登录 — btn-outline */}
       {isLogin ? (
         <View
-          className="mx-[16px] my-[24px] h-[48px] leading-[48px] text-center bg-white rounded-[24px] text-[#dd524d] text-[15px]"
+          className="mx-[16px] my-[24px] h-[48px] leading-[48px] text-center btn-outline text-[15px]"
           onClick={handleLogout}
         >
           <Text>{t('user.logout')}</Text>

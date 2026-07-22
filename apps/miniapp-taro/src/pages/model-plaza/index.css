@@ -1,21 +1,21 @@
 .model-plaza-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--color-background);
 }
 .page-header {
   padding: 20rpx 30rpx;
-  background: #fff;
+  background: var(--color-card);
 }
 .page-title {
   font-size: 36rpx;
   font-weight: bold;
-  color: #333;
+  color: var(--color-foreground);
 }
 .model-list {
   padding: 20rpx;
 }
 .model-item {
-  background: #fff;
+  background: var(--color-card);
   border-radius: 12rpx;
   padding: 24rpx;
   margin-bottom: 16rpx;
@@ -29,24 +29,24 @@
 .model-name {
   font-size: 30rpx;
   font-weight: 600;
-  color: #333;
+  color: var(--color-foreground);
 }
 .model-tag {
   font-size: 22rpx;
-  color: #07c160;
+  color: var(--color-primary);
   background: rgba(7, 193, 96, 0.1);
   padding: 4rpx 12rpx;
   border-radius: 6rpx;
 }
 .model-desc {
   font-size: 26rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
   display: block;
 }
 .loading-text,
 .empty-text {
   text-align: center;
-  color: #999;
+  color: var(--color-muted-foreground);
   font-size: 28rpx;
   display: block;
   padding: 60rpx 0;

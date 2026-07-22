@@ -28,7 +28,7 @@ export default function Avatar({
   if (src) {
     return (
       <Image
-        className={`${sizeClass} ${shapeClass} bg-gray-100`}
+        className={`${sizeClass} ${shapeClass} bg-muted`}
         src={src}
         mode="aspectFill"
         onClick={onClick}
@@ -38,10 +38,10 @@ export default function Avatar({
 
   return (
     <View
-      className={`flex items-center justify-center ${sizeClass} ${shapeClass} bg-indigo-50`}
+      className={`flex items-center justify-center ${sizeClass} ${shapeClass} bg-primary/10`}
       onClick={onClick}
     >
-      <Text className="text-indigo-500 font-medium">{name.charAt(0) || '?'}</Text>
+      <Text className="text-primary font-medium">{name.charAt(0) || '?'}</Text>
     </View>
   )
 }

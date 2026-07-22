@@ -63,7 +63,7 @@ export default function LiveDetail() {
 
   if (!live) {
     return (
-      <View className="flex items-center justify-center h-screen text-[#999]">
+      <View className="flex items-center justify-center h-screen text-muted-foreground">
         <Text>{t('live.detail.loading')}</Text>
       </View>
     )
@@ -113,21 +113,21 @@ export default function LiveDetail() {
 
       {/* 直播信息 */}
       <View className="p-3">
-        <Text className="text-lg text-[#333] font-semibold">{live.title}</Text>
+        <Text className="text-lg text-foreground font-semibold">{live.title}</Text>
         <View className="flex justify-between items-center mt-2">
           {live.anchor && (
-            <Text className="text-sm text-[#07c160]">
+            <Text className="text-sm text-primary">
               {t('live.detail.anchor', { name: live.anchor })}
             </Text>
           )}
           {live.watchCount !== undefined ? (
-            <Text className="text-sm text-[#999]">{t('live.viewers', { n: live.watchCount })}</Text>
+            <Text className="text-sm text-muted-foreground">{t('live.viewers', { n: live.watchCount })}</Text>
           ) : null}
         </View>
         {live.status === 'upcoming' ? (
           <View
             className={`mt-3 h-9 leading-9 text-center text-white text-sm rounded-md ${
-              subscribed ? 'bg-[#999]' : 'bg-[#07c160]'
+              subscribed ? 'bg-muted' : 'bg-primary'
             }`}
             onClick={handleSubscribe}
           >

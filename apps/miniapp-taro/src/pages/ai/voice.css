@@ -1,6 +1,6 @@
 .page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-background);
   display: flex;
   flex-direction: column;
 }
@@ -24,28 +24,28 @@
   line-height: 1.6;
 }
 .msg.assistant .msg-text {
-  background: #fff;
-  color: #333;
+  background: var(--color-card);
+  color: var(--color-foreground);
 }
 .msg.user .msg-text {
-  background: #07c160;
-  color: #fff;
+  background: var(--color-primary);
+  color: var(--color-foreground);
 }
 .input-bar {
   padding: 24rpx 32rpx;
-  background: #fff;
-  border-top: 2rpx solid #f5f5f5;
+  background: var(--color-card);
+  border-top: 2rpx solid var(--color-border);
 }
 .voice-btn {
   height: 100rpx;
   line-height: 100rpx;
   text-align: center;
-  background: #f7f8fa;
+  background: var(--color-background);
   border-radius: 50rpx;
   font-size: 28rpx;
-  color: #333;
+  color: var(--color-foreground);
 }
 .voice-btn.recording {
-  background: #dd524d;
-  color: #fff;
+  background: var(--color-destructive);
+  color: var(--color-foreground);
 }

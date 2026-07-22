@@ -17,9 +17,9 @@ const STATUS_KEY: Record<string, string> = {
 }
 
 const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
-  upcoming: { bg: 'bg-[#fff5e6]', color: 'text-[#ff9a3c]' },
-  living: { bg: 'bg-[#ffe6e6]', color: 'text-[#dd524d]' },
-  ended: { bg: 'bg-[#f5f5f5]', color: 'text-[#999]' },
+  upcoming: { bg: 'bg-[#f59e0b]/10', color: 'text-[#f59e0b]' },
+  living: { bg: 'bg-destructive/10', color: 'text-destructive' },
+  ended: { bg: 'bg-muted', color: 'text-muted-foreground' },
 }
 
 export default function LiveCalendar() {
@@ -49,39 +49,39 @@ export default function LiveCalendar() {
   const statusText = (s: string) => (STATUS_KEY[s] ? t(STATUS_KEY[s]) : t('live.ended'))
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       <View className="px-[12px] py-[12px]">
-        <Text className="text-[16px] text-[#333] font-semibold">
+        <Text className="text-[16px] text-foreground font-semibold">
           {t('live.calendar.title', { n: new Date().getMonth() + 1 })}
         </Text>
       </View>
       {list.map((group) => (
         <View key={group.date} className="mb-[12px]">
           <View className="px-[12px] py-[8px]">
-            <Text className="text-[14px] text-[#333] font-semibold">{group.date}</Text>
+            <Text className="text-[14px] text-foreground font-semibold">{group.date}</Text>
           </View>
           {group.lives.map((l) => {
-            const st = STATUS_STYLE[l.status] || { bg: 'bg-[#f5f5f5]', color: 'text-[#999]' }
+            const st = STATUS_STYLE[l.status] || { bg: 'bg-muted', color: 'text-muted-foreground' }
             return (
               <View
                 key={l.id}
-                className="mx-[12px] mb-[12px] bg-white rounded-[8px] p-[12px]"
+                className="mx-[12px] mb-[12px] bg-card rounded-[8px] p-[12px]"
                 onClick={() => goDetail(l.id)}
               >
                 <Image
-                  className="w-full h-[120px] rounded-[8px] bg-[#f5f5f5]"
+                  className="w-full h-[120px] rounded-[8px] bg-muted"
                   src={l.coverUrl}
                   mode="aspectFill"
                 />
                 <View className="mt-[8px] flex items-center justify-between">
-                  <Text className="text-[15px] text-[#333] font-semibold flex-1">{l.title}</Text>
+                  <Text className="text-[15px] text-foreground font-semibold flex-1">{l.title}</Text>
                   <View className={`ml-[8px] px-[8px] py-[2px] rounded-[4px] ${st.bg}`}>
                     <Text className={`text-[12px] ${st.color}`}>{statusText(l.status)}</Text>
                   </View>
                 </View>
                 <View className="mt-[6px] flex items-center justify-between">
-                  {l.anchor && <Text className="text-[13px] text-[#666]">{l.anchor}</Text>}
-                  {l.startTime && <Text className="text-[12px] text-[#999]">{l.startTime}</Text>}
+                  {l.anchor && <Text className="text-[13px] text-muted-foreground">{l.anchor}</Text>}
+                  {l.startTime && <Text className="text-[12px] text-muted-foreground">{l.startTime}</Text>}
                 </View>
               </View>
             )
@@ -90,7 +90,7 @@ export default function LiveCalendar() {
       ))}
       {list.length === 0 && (
         <View className="text-center py-[64px]">
-          <Text className="text-[14px] text-[#999]">{t('live.calendar.empty')}</Text>
+          <Text className="text-[14px] text-muted-foreground">{t('live.calendar.empty')}</Text>
         </View>
       )}
     </View>
