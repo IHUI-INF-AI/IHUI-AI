@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Chocolatey nuspec for IHUI CLI
+     打包: choco pack choco.nuspec
+     安装: choco install ihui-ai -s .
+     依赖: 自动安装 Node.js 20+(nodejs.install)
+-->
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>ihui-ai</id>
+    <version>1.0.0</version>
+    <title>IHUI AI Coding Agent CLI</title>
+    <authors>IHUI</authors>
+    <owners>IHUI</owners>
+    <projectUrl>https://ihui.ai</projectUrl>
+    <licenseUrl>https://ihui.ai/license</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>IHUI AI Coding Agent CLI — 对标 Claude Code / Codex。交互式 REPL + Agent 模式 + MCP + Skills + Hooks。</description>
+    <summary>AI Coding Agent CLI with REPL, agent mode, MCP, skills, hooks, and client/server remote driving.</summary>
+    <tags>ai coding-agent cli llm agent cli mcp ai-coding</tags>
+    <dependencies>
+      <dependency id="nodejs.install" version="20.0.0" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>
