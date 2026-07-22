@@ -10,6 +10,7 @@ import { QrCodeLogin } from './QrCodeLogin'
 import { PasswordLoginForm } from './PasswordLoginForm'
 import { EmailCodeLoginForm } from './EmailCodeLoginForm'
 import { PhoneCodeLoginForm } from './PhoneCodeLoginForm'
+import { AgreementNoticeDialog } from './AgreementNoticeDialog'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 
 type LoginTab = 'email' | 'phone' | 'password' | 'qr'
@@ -25,11 +26,50 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
   const [tab, setTab] = React.useState<LoginTab>('email')
   const [agreed, setAgreed] = React.useState(false)
   const [showAgreeErr, setShowAgreeErr] = React.useState(false)
+  const [noticeOpen, setNoticeOpen] = React.useState(false)
 
   const handleSuccess = () => {
     onSuccess?.()
     qc.invalidateQueries({ queryKey: ['header'] })
     qc.invalidateQueries({ queryKey: ['announcements'] })
+  }
+
+  const handleRequireAgree = React.useCallback(() => {
+    setShowAgreeErr(true)
+    setNoticeOpen(true)
+  }, [])
+
+  const handleAgree = React.useCallback(() => {
+    setAgreed(true)
+    setShowAgreeErr(false)
+    setNoticeOpen(false)
+    // 弹窗关闭后,把焦点恢复到表单最后一个输入框
+    // 三步 Enter 的第 3 步需要焦点在表单内才能触发 submit
+    requestAnimationFrame(() => {
+      const dialog = document.querySelector('[data-testid="login-dialog"]')
+      const form = dialog?.querySelector('form')
+      if (form) {
+        const inputs = form.querySelectorAll(
+          'input:not([type="hidden"]):not([disabled])',
+        )
+        const lastInput = inputs[inputs.length - 1] as HTMLInputElement | null
+        lastInput?.focus()
+      }
+    })
+  }, [])
+
+  const handleCancelNotice = React.useCallback(() => {
+    setNoticeOpen(false)
+  }, [])
+
+  const agreedProps = {
+    agreed,
+    onAgreedChange: (v: boolean) => {
+      setAgreed(v)
+      if (v) setShowAgreeErr(false)
+    },
+    onRequireAgree: handleRequireAgree,
+    showAgreeErr,
   }
 
   return (
@@ -51,44 +91,18 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
         </TabsList>
 
         <TabsContent value="email">
-          <EmailCodeLoginForm
-            active={tab === 'email'}
-            onSuccess={handleSuccess}
-            agreed={agreed}
-            onAgreedChange={(v) => {
-              setAgreed(v)
-              if (v) setShowAgreeErr(false)
-            }}
-            onRequireAgree={() => setShowAgreeErr(true)}
-            showAgreeErr={showAgreeErr}
-          />
+          <EmailCodeLoginForm active={tab === 'email'} onSuccess={handleSuccess} {...agreedProps} />
         </TabsContent>
 
         <TabsContent value="phone">
-          <PhoneCodeLoginForm
-            active={tab === 'phone'}
-            onSuccess={handleSuccess}
-            agreed={agreed}
-            onAgreedChange={(v) => {
-              setAgreed(v)
-              if (v) setShowAgreeErr(false)
-            }}
-            onRequireAgree={() => setShowAgreeErr(true)}
-            showAgreeErr={showAgreeErr}
-          />
+          <PhoneCodeLoginForm active={tab === 'phone'} onSuccess={handleSuccess} {...agreedProps} />
         </TabsContent>
 
         <TabsContent value="password">
           <PasswordLoginForm
             active={tab === 'password'}
             onSuccess={handleSuccess}
-            agreed={agreed}
-            onAgreedChange={(v) => {
-              setAgreed(v)
-              if (v) setShowAgreeErr(false)
-            }}
-            onRequireAgree={() => setShowAgreeErr(true)}
-            showAgreeErr={showAgreeErr}
+            {...agreedProps}
           />
         </TabsContent>
 
@@ -109,6 +123,8 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
           {t('registerNow')}
         </button>
       </p>
+
+      <AgreementNoticeDialog open={noticeOpen} onAgree={handleAgree} onCancel={handleCancelNotice} />
     </div>
   )
 }
