@@ -79,6 +79,22 @@ class EmitRequest(BaseModel):
     context: dict[str, Any] = Field(default_factory=dict)
 
 
+class AutoOrchestrateBody(BaseModel):
+    requirement: str = Field(...)
+    event: str | None = None
+
+
+class CreateAbTestBody(BaseModel):
+    hook_a_id: str
+    hook_b_id: str
+    traffic_split: float = Field(0.5, ge=0.0, le=1.0)
+    user_bucketing: str = "hash"
+
+
+class InstantiateTemplateBody(BaseModel):
+    overrides: dict = Field(default_factory=dict)
+
+
 # ---------------------------------------------------------------------------
 # 校验 helper
 # ---------------------------------------------------------------------------
@@ -143,6 +159,46 @@ async def create_hook(req: CreateHookRequest) -> dict[str, Any]:
     }
     hook = hook_engine.create_hook(payload)
     return {"code": 0, "message": "ok", "data": hook}
+
+
+@router.post("/hooks/auto-orchestrate")
+async def auto_orchestrate(body: AutoOrchestrateBody) -> dict[str, Any]:
+    """智能编排:用 LLM 分析自然语言需求,生成 Hook + DAG 依赖图。"""
+    try:
+        data = await hook_engine.auto_orchestrate(body.requirement, body.event)
+        return {"code": 0, "message": "success", "data": data}
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
+
+
+@router.post("/hooks/ab-test")
+async def create_ab_test(body: CreateAbTestBody) -> dict[str, Any]:
+    """创建 A/B 测试。"""
+    try:
+        data = await hook_engine.create_ab_test(body.model_dump())
+        return {"code": 0, "message": "success", "data": data}
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
+
+
+@router.get("/hooks/ab-tests")
+async def list_ab_tests() -> dict[str, Any]:
+    """列出所有 A/B 测试。"""
+    try:
+        data = await hook_engine.list_ab_tests()
+        return {"code": 0, "message": "success", "data": data}
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
+
+
+@router.get("/hooks/templates")
+async def list_hook_templates() -> dict[str, Any]:
+    """列出预置 Hook 模板。"""
+    try:
+        data = hook_engine.list_templates()
+        return {"code": 0, "message": "success", "data": data}
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
 
 
 @router.get("/hooks/{hook_id}")
@@ -241,3 +297,61 @@ async def emit_event(req: EmitRequest) -> dict[str, Any]:
         "message": "ok",
         "data": {"triggered_count": len(logs), "logs": logs},
     }
+
+
+@router.get("/hooks/ab-test/{test_id}")
+async def get_ab_test(test_id: str) -> dict[str, Any]:
+    """A/B 测试详情(含 A/B 各自 stats 对比)。"""
+    try:
+        data = await hook_engine.get_ab_test(test_id)
+        return {"code": 0, "message": "success", "data": data}
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
+
+
+@router.post("/hooks/ab-test/{test_id}/stop")
+async def stop_ab_test(test_id: str) -> dict[str, Any]:
+    """停止 A/B 测试,设 status=stopped。"""
+    try:
+        data = await hook_engine.stop_ab_test(test_id)
+        return {"code": 0, "message": "success", "data": data}
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
+
+
+@router.post("/hooks/templates/{template_id}/instantiate")
+async def instantiate_template(
+    template_id: str, body: InstantiateTemplateBody
+) -> dict[str, Any]:
+    """用模板创建 Hook(overrides 覆盖 url/command 等)。"""
+    try:
+        data = await hook_engine.instantiate_template(template_id, body.overrides)
+        return {"code": 0, "message": "success", "data": data}
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
+
+
+@router.get("/hooks/{hook_id}/execution-timeline")
+async def execution_timeline(
+    hook_id: str,
+    since: str | None = Query(None, description="起始时间 ISO8601"),
+) -> dict[str, Any]:
+    """返回 Hook 执行时间线(Gantt 可视化数据)。"""
+    try:
+        data = await hook_engine.execution_timeline(hook_id, since)
+        return {"code": 0, "message": "success", "data": data}
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
+
+
+@router.get("/hooks/{hook_id}/health-forecast")
+async def health_forecast(
+    hook_id: str,
+    days: int = Query(7, ge=1, le=90, description="预测天数"),
+) -> dict[str, Any]:
+    """Hook 健康预测:LLM 分析历史日志趋势,预测未来失败率/延迟。"""
+    try:
+        data = await hook_engine.health_forecast(hook_id, days)
+        return {"code": 0, "message": "success", "data": data}
+    except Exception as e:
+        return {"code": 500, "message": str(e), "data": None}
