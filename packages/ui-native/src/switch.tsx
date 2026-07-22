@@ -1,0 +1,9 @@
+import type { ComponentProps } from 'react'
+import { Switch as RNSwitch } from 'react-native'
+import { cn } from '@ihui/ui-primitives'
+
+export type SwitchProps = ComponentProps<typeof RNSwitch>
+
+export function Switch({ className, ...props }: SwitchProps) {
+  return <RNSwitch className={cn(className)} {...props} />
+}
