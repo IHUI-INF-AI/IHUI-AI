@@ -28441,7 +28441,9 @@
       "empty": "ランキングデータなし",
       "sortHint": "ヘッダーをクリックでソート",
       "searchPlaceholder": "モデル/ベンダーを検索…",
-      "allVendors": "全ベンダー"
+      "allVendors": "全ベンダー",
+      "noMatch": "一致するモデルが見つかりません",
+      "clearFilter": "フィルターをクリア"
     },
     "hero": {
       "label": "AI ニュース Hero",
