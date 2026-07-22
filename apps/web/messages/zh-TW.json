@@ -26011,7 +26011,7 @@
   },
   "cliImport": {
     "title": "CLI 配置匯入",
-    "desc": "從 cc-switch / codex++ / Claude / Codex / Gemini / Hermes 等本地工具一鍵匯入",
+    "desc": "從 cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env 等本地工具一键匯入",
     "sources": "支援的來源",
     "sourceCcSwitch": "cc-switch",
     "sourceCodexPlus": "codex++",
@@ -26059,7 +26059,12 @@
     "errorNoFile": "請上傳設定檔",
     "errorNoSource": "請選擇匯入來源",
     "errorPreviewExpired": "預覽已過期,請重新解析",
-    "errorParseFailed": "解析失敗"
+    "errorParseFailed": "解析失敗",
+    "sourceEnvFile": ".env 通用設定",
+    "sourceCursor": "Cursor IDE",
+    "sourceWindsurf": "Windsurf (Codeium)",
+    "sourceCline": "Cline (VSCode)",
+    "sourceAider": "Aider"
   },
   "llmSettings": {
     "title": "我的 LLM 配置",
@@ -26227,7 +26232,10 @@
         "importSuccess": "成功匯入 {providers} 個 Provider / {models} 個 Model",
         "importFailed": "匯入失敗:{error}",
         "invalidJson": "JSON 格式錯誤，請檢查檔案內容",
-        "cancel": "取消"
+        "cancel": "取消",
+        "formatLabel": "匯出格式",
+        "exportJson": "JSON 格式",
+        "exportEnv": ".env 格式"
       },
       "sidebar": {
         "title": "分組",
