@@ -20429,6 +20429,7 @@
     "listStatusApproved": "Approved",
     "listStatusRejected": "Rejected",
     "listStatusCompleted": "Completed",
+    "listReason": "Reason: {reason}",
     "detailTitle": "Refund Details",
     "detailNotFound": "Refund record not found",
     "detailBack": "Back",
@@ -25964,7 +25965,12 @@
       "trendRising": "Rising",
       "trendCooling": "Cooling",
       "trendNew": "New",
-      "moreHint": "Showing {shown}/{total} articles, adjust filters for more"
+      "moreHint": "Showing {shown}/{total} articles, adjust filters for more",
+      "trendNotifyTitle": "{count} articles trending hot",
+      "trendNotifyExpand": "Show all",
+      "trendNotifyCollapse": "Collapse",
+      "trendNotifyClose": "Close",
+      "langSwitch": "Switch title language to {lang}"
     },
     "hotRanking": {
       "label": "Hot Ranking",
@@ -26018,6 +26024,19 @@
       "tagHighWinRate": "High Win Rate",
       "tagTopTier": "Top Tier",
       "tagMultimodal": "Multimodal"
+    },
+    "compare": {
+      "label": "Model Compare",
+      "selected": "{count} selected",
+      "clear": "Clear",
+      "startCompare": "Start Compare",
+      "maxToast": "Max 5 models to compare, please remove others first",
+      "colModel": "Dimension",
+      "cheapest": "Lowest",
+      "priceChartTitle": "Price Visualization",
+      "priceChartHint": "Input / Output price (per 1M tokens)",
+      "capabilityOverlay": "Capability Radar Overlay",
+      "noPriceData": "Selected models have no price data"
     },
     "apiRelays": {
       "title": "API Relays",
