@@ -9,6 +9,7 @@ import {
   type LlmModel,
 } from '@ihui/api-client'
 import { useOutletContext } from 'react-router-dom'
+import { useI18n } from '../../../src/i18n'
 import type { ChatMessage } from './types'
 
 interface Ctx {
@@ -112,6 +113,7 @@ const FALLBACK_MODELS: LlmModel[] = [
 
 export default function ChatPage() {
   const { onLogout } = useOutletContext<Ctx>()
+  const { t } = useI18n()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -172,7 +174,11 @@ export default function ChatPage() {
       contextLimit: getModelContextCapacity(model),
       onCompaction: (info) => {
         setNotice(
-          `上下文已自动压缩:${formatTokenCount(info.tokensBefore)} → ${formatTokenCount(info.tokensAfter)}(移除 ${info.removedCount} 条历史)`,
+          t('chat.compactionNotice', {
+            before: formatTokenCount(info.tokensBefore),
+            after: formatTokenCount(info.tokensAfter),
+            removed: info.removedCount,
+          }),
         )
       },
       onDelta: (delta) => {
@@ -221,13 +227,13 @@ export default function ChatPage() {
   return (
     <div className="sp-chat">
       <div className="sp-page-header">
-        <h3>AI 对话</h3>
+        <h3>{t('chat.title')}</h3>
         <select
           className="sp-model-select"
           value={model}
           onChange={(e) => setModel(e.target.value)}
           disabled={streaming}
-          aria-label="选择模型"
+          aria-label={t('chat.selectModel')}
         >
           {models.map((m) => (
             <option key={m.id} value={m.id}>
@@ -236,12 +242,12 @@ export default function ChatPage() {
           ))}
         </select>
         <button type="button" onClick={onLogout} className="link-btn">
-          退出
+          {t('chat.exit')}
         </button>
       </div>
       <div className="sp-chat-list" ref={scrollRef} data-testid="chat-list">
         {messages.length === 0 ? (
-          <div className="empty-state">输入消息开始对话</div>
+          <div className="empty-state">{t('chat.emptyHint')}</div>
         ) : (
           messages.map((m) => (
             <div key={m.id} className={`sp-bubble ${m.role}`}>
@@ -265,11 +271,11 @@ export default function ChatPage() {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="说点什么..."
+          placeholder={t('chat.inputPlaceholder')}
           disabled={streaming}
         />
         <button type="submit" disabled={!input.trim() || streaming}>
-          发送
+          {t('chat.send')}
         </button>
       </form>
     </div>
