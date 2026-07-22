@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import {
   findSensitiveWords,
@@ -10,8 +10,6 @@ import {
   deleteSensitiveWord,
   filterSensitiveContent,
 } from '../db/sensitive-words-queries.js'
-
-const ADMIN_ROLE_ID = 1
 
 // 分类 ID 使用中性英文标识符,避免敏感词进入 LLM 上下文(同步前端 helpers.ts)
 // 历史 DB 数据若含旧值(porn/abuse),需运行迁移:UPDATE sensitive_words SET category='explicit' WHERE category='porn'; SET category='harassment' WHERE category='abuse';
@@ -51,17 +49,7 @@ const filterSchema = z.object({
 
 export const adminSensitiveWordsRoutes: FastifyPluginAsync = async (server) => {
   // 统一管理员鉴权
-  server.addHook('preHandler', async (request, reply) => {
-    try {
-      await authenticate(request)
-    } catch {
-      return reply.status(401).send(error(401, '未授权'))
-    }
-    const roleId = request.jwtPayload?.roleId ?? 0
-    if (roleId < ADMIN_ROLE_ID) {
-      return reply.status(403).send(error(403, '需要管理员权限'))
-    }
-  })
+  server.addHook('preHandler', requireAdmin)
 
   // GET /sensitive-words — 列表
   server.get('/sensitive-words', async (request, reply) => {

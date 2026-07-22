@@ -7,6 +7,7 @@
 
 import asyncio
 import json
+import logging
 import re
 import time
 import uuid
@@ -19,6 +20,8 @@ from .memory import memory_store
 from .mcp_server import mcp_server
 from .project_memory import build_system_prompt
 
+logger = logging.getLogger(__name__)
+
 
 class AgentExecutor:
     """Agent 循环执行器。"""
@@ -26,6 +29,8 @@ class AgentExecutor:
     def __init__(self) -> None:
         # 运行中任务: task_id -> 状态信息
         self._running: dict[str, dict[str, Any]] = {}
+        # 持有 create_task 引用,防止 CPython GC 回收未完成的 task
+        self._pending_tasks: set[asyncio.Task] = set()
 
     @staticmethod
     def _now() -> str:
@@ -227,7 +232,7 @@ class AgentExecutor:
                 from .skills import SkillEvolutionService, skill_registry
 
                 evolution = SkillEvolutionService()
-                asyncio.create_task(evolution.evaluate({
+                task = asyncio.create_task(evolution.evaluate({
                     "taskId": task_id,
                     "sessionId": sid,
                     "goal": goal,
@@ -235,8 +240,10 @@ class AgentExecutor:
                     "finalResult": final_content,
                     "existingSkills": [s.name for s in skill_registry.list()],
                 }))
-            except Exception:
-                pass  # 自进化失败不影响主流程
+                self._pending_tasks.add(task)
+                task.add_done_callback(self._pending_tasks.discard)
+            except Exception as e:
+                logger.warning("Skill 自进化评估启动失败: %s", e)
 
         return {
             "task_id": task_id,

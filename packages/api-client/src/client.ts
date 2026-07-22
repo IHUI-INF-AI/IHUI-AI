@@ -47,7 +47,7 @@ export function normalizeUrlPublic(url: string): string {
  * AbortSignal.any() 需要 ES2024 lib,mobile-rn(ES2023)不可用。
  * 任一 signal abort 时,合并 signal 也 abort。
  */
-function mergeAbortSignals(signals: (AbortSignal | undefined)[]): AbortSignal {
+function mergeAbortSignals(signals: (AbortSignal | null | undefined)[]): AbortSignal {
   const controller = new AbortController()
   const onAbort = () => controller.abort()
   for (const sig of signals) {
