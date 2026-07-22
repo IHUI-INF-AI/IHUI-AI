@@ -1469,30 +1469,23 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     }
   })
 
-  // 2. GET /cozeZhsApi/agents/callback/test - 真实返回最近测试记录
+  // 2. GET /cozeZhsApi/agents/callback/test - 返回最近回调记录
   server.get('/cozeZhsApi/agents/callback/test', async (_request, reply) => {
     try {
-      // 查询 agent_callbacks 表中类型为 test 的最近 20 条
       const records = await dbRead
         .select()
-        .from(agentCallbacks ?? agentBillings)
-        .where(sql`1=0`) // agent_callbacks 表无 test 标记列, 此处返回空集合理
+        .from(agentCallbacks)
+        .orderBy(desc(agentCallbacks.createdAt))
         .limit(20)
       return reply.send(
         success({
           list: records,
           total: records.length,
-          message: '返回最近 20 条测试回调记录(若无 agent_callbacks 表则为空集)',
+          message: '返回最近 20 条回调记录',
         }),
       )
-    } catch {
-      return reply.send(
-        success({
-          list: [],
-          total: 0,
-          message: 'agent_callbacks 表暂未实现 test 标记列, 端点已就绪待接入',
-        }),
-      )
+    } catch (e) {
+      return reply.status(500).send(error(500, `查询回调记录失败: ${(e as Error).message}`))
     }
   })
 
