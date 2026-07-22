@@ -212,6 +212,8 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
 
     req.raw.on('close', () => {
       clearInterval(heartbeat)
+      // G9: 客户端断开时通知 orchestrator 中止 LLM 流,避免 _sessionUsage 泄漏 + session 永远 'running'
+      crewOrchestrator.cancel(id)
     })
 
     try {
