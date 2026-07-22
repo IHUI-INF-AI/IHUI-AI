@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
-import { Loader2, Check, ChevronDown, X } from 'lucide-react'
+import { Loader2, Check } from 'lucide-react'
 
 import { Button, Input, Label } from '@ihui/ui'
 import { useAuthStore } from '@/stores/auth'
@@ -19,12 +19,10 @@ import {
   loadAutoLogin,
   saveAutoLogin,
   clearAutoLogin,
-  loadLoginHistory,
   saveLoginHistory,
-  removeFromLoginHistory,
-  clearLoginHistory,
 } from '@/lib/remember-credentials'
 import { loginSchema, type LoginValues } from './login-schemas'
+import { AccountHistoryInput } from './AccountHistoryInput'
 
 interface PasswordLoginFormProps {
   active: boolean
@@ -107,16 +105,11 @@ export function PasswordLoginForm({
   const [rememberPassword, setRememberPassword] = React.useState(!!remembered)
   const [autoLogin, setAutoLogin] = React.useState(loadAutoLogin() && !!remembered)
 
-  // 账号历史下拉(useState 而非 useMemo,active 时重新读取 + 登录成功后实时更新)
-  const [showHistory, setShowHistory] = React.useState(false)
-  const [loginHistory, setLoginHistory] = React.useState<string[]>(() => loadLoginHistory())
-  const [activeHistoryIndex, setActiveHistoryIndex] = React.useState(-1)
-  const accountInputRef = React.useRef<HTMLInputElement | null>(null)
-
   const {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -126,14 +119,13 @@ export function PasswordLoginForm({
     },
   })
 
-  // 分离 RHF ref 和本地 ref,避免覆盖导致 setValue 无法更新 DOM
-  const { ref: rhfAccountRef, ...accountReg } = register('account')
+  const account = watch('account')
 
   React.useEffect(() => {
     if (!active) setServerError(null)
   }, [active])
 
-  // 表单激活时重新读取已保存凭据 + 账号历史(解决 Dialog 预挂载导致 defaultValues / loginHistory 为空)
+  // 表单激活时重新读取已保存凭据(解决 Dialog 预挂载导致 defaultValues 为空)
   React.useEffect(() => {
     if (active) {
       const saved = loadRememberedCredentials()
@@ -141,22 +133,8 @@ export function PasswordLoginForm({
         setValue('account', saved.account)
         setValue('password', saved.password)
       }
-      setLoginHistory(loadLoginHistory())
     }
   }, [active, setValue])
-
-  // 点击外部关闭历史下拉
-  React.useEffect(() => {
-    if (!showHistory) return
-    const handler = (e: MouseEvent) => {
-      const target = e.target as HTMLElement
-      if (!target.closest('[data-account-history-container]')) {
-        setShowHistory(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [showHistory])
 
   const resolveError = (key: string) => {
     if (key === 'auth.invalidAccount') return t('invalidAccount')
@@ -206,7 +184,6 @@ export function PasswordLoginForm({
       }
       saveAutoLogin(autoLogin && rememberPassword)
       saveLoginHistory(values.account)
-      setLoginHistory(loadLoginHistory())
       // 用 setTokenWithPrefs:autoLogin=true 时 refreshToken cookie max-age=30d,
       // 浏览器关闭再打开仍能保持登录(自动登录闭环)
       setTokenWithPrefs(
@@ -229,128 +206,19 @@ export function PasswordLoginForm({
       {/* 账号输入框 + 历史下拉 */}
       <div className="space-y-1.5">
         <Label htmlFor="account">{t('account')}</Label>
-        <div className="relative" data-account-history-container>
-          <Input
-            id="account"
-            type="text"
-            autoComplete="username"
-            placeholder={t('accountPlaceholder')}
-            className="h-10"
-            {...accountReg}
-            ref={(el) => {
-              rhfAccountRef(el)
-              accountInputRef.current = el
-            }}
-            onDoubleClick={(e) => {
-              e.preventDefault()
-              setShowHistory((v) => {
-                if (!v) setActiveHistoryIndex(-1)
-                return !v
-              })
-            }}
-            onKeyDown={(e) => {
-              if (!showHistory || loginHistory.length === 0) return
-              if (e.key === 'ArrowDown') {
-                e.preventDefault()
-                setActiveHistoryIndex((i) => (i + 1) % loginHistory.length)
-              } else if (e.key === 'ArrowUp') {
-                e.preventDefault()
-                setActiveHistoryIndex((i) => (i - 1 + loginHistory.length) % loginHistory.length)
-              } else if (e.key === 'Enter' && activeHistoryIndex >= 0) {
-                e.preventDefault()
-                const selected = loginHistory[activeHistoryIndex]
-                if (selected) {
-                  setValue('account', selected)
-                  if (remembered?.account === selected) {
-                    setValue('password', remembered.password)
-                  }
-                  setShowHistory(false)
-                  setActiveHistoryIndex(-1)
-                  accountInputRef.current?.focus()
-                }
-              } else if (e.key === 'Escape') {
-                setShowHistory(false)
-                setActiveHistoryIndex(-1)
-              }
-            }}
-          />
-          <button
-            type="button"
-            tabIndex={-1}
-            onClick={() => {
-              setShowHistory((v) => {
-                if (!v) setActiveHistoryIndex(-1)
-                return !v
-              })
-            }}
-            className="absolute inset-y-0 right-0 flex w-8 items-center justify-center text-muted-foreground hover:text-foreground"
-            aria-label={t('accountHistory')}
-          >
-            <ChevronDown className={`h-4 w-4 transition-transform ${showHistory ? 'rotate-180' : ''}`} />
-          </button>
-          {showHistory && (
-            <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border border-border bg-popover shadow-md">
-              {loginHistory.length > 0 ? (
-                <>
-                  {loginHistory.map((account, idx) => (
-                    <div
-                      key={account}
-                      data-history-index={idx}
-                      onMouseEnter={() => setActiveHistoryIndex(idx)}
-                      onClick={() => {
-                        setValue('account', account)
-                        if (remembered?.account === account) {
-                          setValue('password', remembered.password)
-                        }
-                        setShowHistory(false)
-                        setActiveHistoryIndex(-1)
-                        accountInputRef.current?.focus()
-                      }}
-                      className={[
-                        'flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors',
-                        activeHistoryIndex === idx
-                          ? 'bg-accent text-accent-foreground'
-                          : 'hover:bg-accent hover:text-accent-foreground',
-                      ].join(' ')}
-                    >
-                      <span className="truncate">{account}</span>
-                      <button
-                        type="button"
-                        tabIndex={-1}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setLoginHistory(removeFromLoginHistory(account))
-                          if (loginHistory.length <= 1) {
-                            setShowHistory(false)
-                          }
-                        }}
-                        className="shrink-0 rounded p-0.5 text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
-                        aria-label={t('removeAccount')}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => {
-                      clearLoginHistory()
-                      setLoginHistory([])
-                      setShowHistory(false)
-                      setActiveHistoryIndex(-1)
-                    }}
-                    className="mt-1 w-full px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                  >
-                    {t('clearHistory')}
-                  </button>
-                </>
-              ) : (
-                <div className="px-3 py-2 text-sm text-muted-foreground">{t('noHistory')}</div>
-              )}
-            </div>
-          )}
-        </div>
+        <AccountHistoryInput
+          id="account"
+          type="text"
+          autoComplete="username"
+          placeholder={t('accountPlaceholder')}
+          className="h-10"
+          value={account}
+          onChange={(v) => setValue('account', v)}
+          onSelect={(v) => {
+            if (remembered?.account === v) setValue('password', remembered.password)
+          }}
+          active={active}
+        />
         {errors.account && (
           <p className="text-xs text-destructive">{resolveError(errors.account.message!)}</p>
         )}
