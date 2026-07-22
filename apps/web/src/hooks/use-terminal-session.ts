@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useAuthStore } from '@/stores/auth'
 import { useTerminalStore } from '@/stores/terminal'
+import type { TerminalSplitDirection } from '@/stores/terminal'
 import { fetchApi } from '@/lib/api'
 import type {
   TerminalSession,
@@ -13,21 +14,29 @@ import type {
   TerminalRenameInput,
   TerminalRenameResponse,
   TerminalWSServerMessage,
+  TerminalHistoryListResponse,
+  TerminalScrollbackResponse,
 } from '@ihui/types'
 
 /**
- * 终端会话管理 Hook — 封装 REST API 调用 + WebSocket 连接生命周期。
+ * 终端会话管理 Hook — 封装 REST API 调用 + WebSocket 连接生命周期 + 分屏 pane 管理。
  *
  * REST 调用:
- *   createSession(cwd?)  → POST /terminal/sessions
- *   refreshSessions()    → GET  /terminal/sessions
- *   closeSession(id)     → DELETE /terminal/sessions/:id
- *   resizeSession(id,...)→ POST /terminal/sessions/:id/resize
- *   renameSession(id,...)→ PUT  /terminal/sessions/:id/rename
+ *   createSession(opts?)  → POST /terminal/sessions(支持本地 PTY 与 SSH 远程)
+ *   refreshSessions()      → GET  /terminal/sessions
+ *   closeSession(id)       → DELETE /terminal/sessions/:id
+ *   resizeSession(id,...)  → POST /terminal/sessions/:id/resize
+ *   renameSession(id,...)  → PUT  /terminal/sessions/:id/rename
+ *   getScrollback(id)     → GET  /terminal/sessions/:id/scrollback(回滚恢复)
+ *   listHistorySessions() → GET  /terminal/sessions/history(最近 7 天历史会话)
  *
  * WebSocket:
  *   connectWS(sessionId) → ws(s)://host/ws/terminal/:sessionId?token=xxx
  *   返回 { ws, send, close } 供 terminal-panel 组件使用。
+ *
+ * 分屏 pane(2026-07-22):
+ *   addPane / removePane / setActivePane / getPanes / getSplitDirection
+ *   每个 pane 独立 xterm 实例,共享同一 WS 数据流(后端 PTY 广播给所有 WS 连接)。
  */
 
 export interface TerminalWSHandle {
@@ -54,6 +63,9 @@ export function useTerminalSession() {
     activeSessionId,
     loading,
     error,
+    panes,
+    activePaneId,
+    splitDirections,
     setSessions,
     addSession,
     removeSession,
@@ -61,6 +73,11 @@ export function useTerminalSession() {
     setLoading,
     setError,
     renameSession: renameSessionInStore,
+    addPane: addPaneInStore,
+    removePane: removePaneInStore,
+    setActivePane: setActivePaneInStore,
+    getPanes: getPanesInStore,
+    getSplitDirection: getSplitDirectionInStore,
   } = useTerminalStore()
 
   const activeSession = React.useMemo(
@@ -241,6 +258,82 @@ export function useTerminalSession() {
     [token],
   )
 
+  /** 获取会话 scrollback(REST,用于前端独立恢复历史输出) */
+  const getScrollback = React.useCallback(
+    async (sessionId: string): Promise<string[]> => {
+      try {
+        const result = await fetchApi<TerminalScrollbackResponse>(
+          `/terminal/sessions/${sessionId}/scrollback`,
+        )
+        if (result.success) {
+          return result.data.lines
+        }
+        return []
+      } catch {
+        /* 路由未注册或服务端降级,返回空 */
+        return []
+      }
+    },
+    [],
+  )
+
+  /** 列出最近 7 天的历史会话(REST,从 Redis 扫描 terminal:session:* keys) */
+  const listHistorySessions = React.useCallback(async (): Promise<
+    TerminalHistoryListResponse['sessions']
+  > => {
+    try {
+      const result = await fetchApi<TerminalHistoryListResponse>(
+        '/terminal/sessions/history',
+      )
+      if (result.success) {
+        return result.data.sessions
+      }
+      return []
+    } catch {
+      /* 路由未注册或 Redis 不可用,返回空 */
+      return []
+    }
+  }, [])
+
+  // ==================== 分屏 pane 操作(转发 store,提供 paneId 透传) ====================
+
+  /** 新增 pane(Ctrl+Shift+D 垂直分割 / Ctrl+Shift+H 水平分割) */
+  const addPane = React.useCallback(
+    (sessionId: string, direction?: TerminalSplitDirection): string => {
+      return addPaneInStore(sessionId, direction)
+    },
+    [addPaneInStore],
+  )
+
+  /** 移除 pane(关闭 pane 不影响其他 pane 和 session) */
+  const removePane = React.useCallback(
+    (sessionId: string, paneId: string): void => {
+      removePaneInStore(sessionId, paneId)
+    },
+    [removePaneInStore],
+  )
+
+  /** 切换激活 pane(Alt+ArrowLeft/Right/Up/Down 焦点切换) */
+  const setActivePane = React.useCallback(
+    (paneId: string): void => {
+      setActivePaneInStore(paneId)
+    },
+    [setActivePaneInStore],
+  )
+
+  /** 获取 session 的所有 pane id */
+  const getPanes = React.useCallback(
+    (sessionId: string): string[] => getPanesInStore(sessionId),
+    [getPanesInStore],
+  )
+
+  /** 获取 session 的分屏方向 */
+  const getSplitDirection = React.useCallback(
+    (sessionId: string): TerminalSplitDirection =>
+      getSplitDirectionInStore(sessionId),
+    [getSplitDirectionInStore],
+  )
+
   return {
     // State
     sessions,
@@ -248,13 +341,26 @@ export function useTerminalSession() {
     activeSessionId,
     loading,
     error,
-    // Actions
+    // Pane state
+    panes,
+    activePaneId,
+    splitDirections,
+    // Actions — session
     createSession,
     refreshSessions,
     closeSession: closeSessionById,
     resizeSession,
     renameSession,
     setActive,
+    // Actions — pane
+    addPane,
+    removePane,
+    setActivePane,
+    getPanes,
+    getSplitDirection,
+    // Scrollback / history(REST)
+    getScrollback,
+    listHistorySessions,
     // WebSocket
     connectWS,
     // Token availability
