@@ -221,6 +221,46 @@ export const VENDOR_PLATFORMS: Record<string, VendorPlatform> = {
     apiFormat: 'openai_chat',
     note: 'Mistral 系列官方厂商(法国),OpenAI 格式兼容,需海外信用卡',
   },
+  '01.AI': {
+    officialKeyUrl: 'https://platform.lingyiwanwu.com/apikeys',
+    docsUrl: 'https://platform.lingyiwanwu.com/docs',
+    defaultBaseUrl: 'https://api.lingyiwanwu.com/v1',
+    providerCode: 'yi',
+    apiFormat: 'openai_chat',
+    note: '零一万物 Yi 系列官方厂商(李开复创办),国内可直连注册',
+  },
+  StepFun: {
+    officialKeyUrl: 'https://platform.stepfun.com/console/apikey',
+    docsUrl: 'https://platform.stepfun.com/docs',
+    defaultBaseUrl: 'https://api.stepfun.com/v1',
+    providerCode: 'stepfun',
+    apiFormat: 'openai_chat',
+    note: '阶跃星辰 Step 系列官方厂商,国内可直连注册',
+  },
+  Perplexity: {
+    officialKeyUrl: 'https://www.perplexity.ai/settings/api',
+    docsUrl: 'https://docs.perplexity.ai/',
+    defaultBaseUrl: 'https://api.perplexity.ai',
+    providerCode: 'perplexity',
+    apiFormat: 'openai_chat',
+    note: 'Perplexity Sonar 系列(联网搜索 RAG),OpenAI 格式兼容',
+  },
+  Groq: {
+    officialKeyUrl: 'https://console.groq.com/keys',
+    docsUrl: 'https://console.groq.com/docs',
+    defaultBaseUrl: 'https://api.groq.com/openai/v1',
+    providerCode: 'groq',
+    apiFormat: 'openai_chat',
+    note: 'Groq LPU 推理引擎,极速低延迟(>500 tokens/s),免费额度可用',
+  },
+  Cerebras: {
+    officialKeyUrl: 'https://cloud.cerebras.ai/',
+    docsUrl: 'https://inference-docs.cerebras.ai/',
+    defaultBaseUrl: 'https://api.cerebras.ai/v1',
+    providerCode: 'cerebras',
+    apiFormat: 'openai_chat',
+    note: 'Cerebras Wafer-Scale Engine 推理,极速低延迟,免费额度可用',
+  },
 }
 
 /** 查询 vendor 平台信息,返回降级兜底 */
