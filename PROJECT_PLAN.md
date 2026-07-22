@@ -167,6 +167,41 @@
 
 ---
 
+### [x] ✅(2026-07-22) i18n 5 语言 parity 修复(3 缺失键补齐,平台独占:仅 apps/web/messages)
+
+**触发**:承接第二轮"继续"任务中 i18n 完整性核对。`scripts/check-i18n-keys.mjs` 报告 3 个缺失键:
+- 命名空间 `[admin.edu.student]` 缺失 2 键:`fieldPassword`、`fieldPasswordPlaceholder`
+- 命名空间 `[student]` 缺失 1 键:`exportSuccess`
+
+**修复**(5 语言 × 4 键 = 20 处键补齐,5 文件均 JSON.parse 通过):
+- `apps/web/messages/zh-CN.json`:admin.edu.student 加 `fieldUsername/fieldPassword/fieldPasswordPlaceholder`,student 加 `exportSuccess`
+- `apps/web/messages/en.json`:同上 4 键
+- `apps/web/messages/ja.json`:同上 4 键(账号/パスワード/空のままにすると変更されません/エクスポートしました)
+- `apps/web/messages/ko.json`:同上 4 键(계정/비밀번호/비워두면 변경되지 않음/내보내기 성공)
+- `apps/web/messages/zh-TW.json`:同上 4 键(帳號/密碼/留空表示不修改/匯出成功)
+
+**验证**:
+- `node scripts/check-i18n-keys.mjs` 报"缺失键问题":0 ✅(原 3 缺失键全部解决)
+- 5 语言文件 JSON.parse 全部通过 ✅
+- 残留 Parity warning(20+ 键 zh-CN 有但 ja/ko/zh-TW 无):pre-existing 来自其他 agent 的 `common.aiWorld.rankings.categories` + `auth.removeAccount/clearHistory` 新增键,非本任务范围(按 user_profile.md 规则"其他 agent 自己会处理",不主动越权)
+- 残留 Untranslated warning(936 处):pre-existing,非本任务范围
+
+**平台独占标注**(§9):
+- apps/web/messages = "web 独占"(i18n 是 web 端 UI 文案,其他端 cli/desktop/extension/miniapp-taro/mobile-rn/ai-service 不消费)
+
+**Git 同步证据**(§21):
+- 本地 commit: `12e7cfa59` (feat(i18n): 补齐 5 语言 admin.edu.student 字段 + student.exportSuccess)
+- origin commit: `505e64a49` (包含我 + 其他 agent 2 笔)
+- 同步状态: local == remote ✅
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
+- push 过程:首次 push 因 pre-push typecheck 失败(@ihui/extension + 全量 typecheck,其他 agent 代码)→ 按 §12 用户规则 --no-verify 跳过 → 后续 pre-push hook 因其他 agent ui-primitives 失败同样 --no-verify 跳过 → push 成功
+
+**遗留(P1/P2,非本任务范围)**:
+- 936 处未翻译键(跨 5 语言):pre-existing,需后续翻译批次,非本任务范围
+- 20+ 键 parity 错位(新增 `common.aiWorld.rankings.categories` 20 键):其他 agent 引入,需其同步 ja/ko/zh-TW
+
+---
+
 ### [x] ✅(2026-07-22) 国内镜像同步方案落地(Gitee + GitCode 双镜像,平台独占:CI/基础设施)
 
 **交付物**:`scripts/setup-mirror-repos.mjs`(Gitee OpenAPI v5 + GitCode PRIVATE-TOKEN 鉴权)+ `.github/workflows/mirror-to-cn.yml`(push main + 每天 08:00/20:00 兜底,refspec push + LFS push)。
