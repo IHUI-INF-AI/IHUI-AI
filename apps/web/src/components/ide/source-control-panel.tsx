@@ -9,23 +9,27 @@ import {
   Plus, Minus, ArrowUp, ArrowDown, GitCommit,
 } from 'lucide-react'
 
-const BRANCHES = ['main', 'develop', 'feature/ide-m6', 'fix/ui-tweak']
-
-const COMMITS = [
-  { id: 'a1b2c3', message: 'feat(ide): 添加搜索面板', author: 'Li Si', time: '2 小时前' },
-  { id: 'd4e5f6', message: 'fix(diff): 修复状态色', author: 'Wang Wu', time: '5 小时前' },
-  { id: '7g8h9i', message: 'refactor(store): 拆分状态', author: 'Zhang San', time: '昨天' },
-  { id: 'j1k2l3', message: 'docs: 更新架构说明', author: 'Li Si', time: '2 天前' },
-  { id: 'm4n5o6', message: 'chore: 升级依赖', author: 'Zhang San', time: '3 天前' },
-]
-
 export function SourceControlPanel() {
   const t = useTranslations('ide')
-  const { activeView, diffFiles } = useIDEWorkspace()
-  const [branch, setBranch] = React.useState('main')
+  const {
+    activeView,
+    diffFiles,
+    gitCommits,
+    gitBranches,
+    gitCurrentBranch,
+    fetchGitLog,
+    fetchGitBranches,
+    fetchDiffFiles,
+  } = useIDEWorkspace()
+  const [branch, setBranch] = React.useState(gitCurrentBranch)
   const [branchOpen, setBranchOpen] = React.useState(false)
-  const [stagedIds, setStagedIds] = React.useState<Set<string>>(new Set(['diff-1']))
+  const [stagedIds, setStagedIds] = React.useState<Set<string>>(new Set())
+  const [refreshing, setRefreshing] = React.useState(false)
   const branchRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    setBranch(gitCurrentBranch)
+  }, [gitCurrentBranch])
 
   React.useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -43,6 +47,15 @@ export function SourceControlPanel() {
   const addPct = (totalAdd / total) * 100
   const ahead = 2
   const behind = 0
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    try {
+      await Promise.all([fetchGitLog(), fetchGitBranches(), fetchDiffFiles()])
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const toggleStage = (id: string) => {
     setStagedIds((prev) => {
@@ -94,7 +107,7 @@ export function SourceControlPanel() {
           </button>
           {branchOpen && (
             <div className="absolute left-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-border bg-popover p-1 shadow-md">
-              {BRANCHES.map((b) => (
+              {gitBranches.map((b) => (
                 <button
                   key={b}
                   onClick={() => { setBranch(b); setBranchOpen(false) }}
@@ -120,7 +133,9 @@ export function SourceControlPanel() {
           </span>
         </div>
         <div className="ml-auto flex gap-1">
-          <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" aria-label={t('sourceControl.refresh')}><RefreshCw className="h-3.5 w-3.5" /></button>
+          <button onClick={handleRefresh} className="rounded p-1 text-muted-foreground hover:bg-muted/50" aria-label={t('sourceControl.refresh')}>
+            <RefreshCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
+          </button>
           <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" aria-label={t('sourceControl.more')}><MoreHorizontal className="h-3.5 w-3.5" /></button>
         </div>
       </div>
@@ -175,14 +190,14 @@ export function SourceControlPanel() {
             <GitCommit className="h-3 w-3" />
             <span>{t('sourceControl.commitHistory')}</span>
           </div>
-          {COMMITS.map((c) => (
+          {gitCommits.map((c) => (
             <div key={c.id} className="rounded px-2 py-1 text-xs hover:bg-muted/30">
               <div className="truncate">{c.message}</div>
               <div className="flex items-center gap-1 text-muted-foreground">
                 <span className="truncate">{c.author}</span>
                 <span>·</span>
                 <span>{c.time}</span>
-                <span className="ml-auto font-mono text-[10px]">{c.id}</span>
+                <span className="ml-auto font-mono text-[10px]">{c.id.slice(0, 7)}</span>
               </div>
             </div>
           ))}

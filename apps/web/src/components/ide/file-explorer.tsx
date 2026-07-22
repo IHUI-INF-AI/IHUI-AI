@@ -14,21 +14,11 @@ import type { FileNode, OutlineNode, TimelineEntry } from '@ihui/types'
 
 type SubTab = 'files' | 'outline' | 'timeline'
 
-/** mock 大纲数据 */
-const MOCK_OUTLINE: OutlineNode[] = [
-  { id: 'o1', label: 'IDELayout', type: 'function', line: 8, children: [{ id: 'o1-1', label: 'className', type: 'variable', line: 10 }] },
-  { id: 'o2', label: 'ActivityBar', type: 'class', line: 20 },
-  { id: 'o3', label: 'FileExplorer', type: 'function', line: 30 },
-  { id: 'o4', label: 'EditorTabBar', type: 'interface', line: 40 },
-]
+/** mock 大纲数据(占位,待接入 codebase LSP 解析) */
+const MOCK_OUTLINE: OutlineNode[] = []
 
-/** mock 时间线数据 */
-const MOCK_TIMELINE: TimelineEntry[] = [
-  { id: 't1', label: '编辑 ide-layout.tsx', timestamp: Date.now() - 1000 * 60 * 5, type: 'edit', author: 'AI' },
-  { id: 't2', label: '保存 activity-bar.tsx', timestamp: Date.now() - 1000 * 60 * 15, type: 'save', author: 'AI' },
-  { id: 't3', label: '提交 feat: IDE layout', timestamp: Date.now() - 1000 * 60 * 60 * 2, type: 'commit', author: 'User' },
-  { id: 't4', label: '编辑 file-explorer.tsx', timestamp: Date.now() - 1000 * 60 * 60 * 5, type: 'edit', author: 'AI' },
-]
+/** mock 时间线数据(占位,待接入 git log / file history) */
+const MOCK_TIMELINE: TimelineEntry[] = []
 
 const OUTLINE_ICON: Record<string, typeof FunctionSquare> = {
   function: FunctionSquare,
@@ -80,7 +70,7 @@ function highlightMatch(name: string, term: string) {
 export function FileExplorer() {
   const t = useTranslations('ide')
   const locale = useLocale()
-  const { fileTree, activeView, openFile, selectFile } = useIDEWorkspace()
+  const { fileTree, activeView, openFile, selectFile, loading, error, workspacePath, fetchFileTree } = useIDEWorkspace()
   const [subTab, setSubTab] = React.useState<SubTab>('files')
   const [search, setSearch] = React.useState('')
 
@@ -131,7 +121,11 @@ export function FileExplorer() {
           <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" title={t('fileExplorer.newFile')}>
             <FilePlus className="h-3.5 w-3.5" />
           </button>
-          <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" title={t('fileExplorer.refresh')}>
+          <button
+            onClick={() => void fetchFileTree()}
+            className="rounded p-1 text-muted-foreground hover:bg-muted/50"
+            title={t('fileExplorer.refresh')}
+          >
             <RefreshCw className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -155,12 +149,24 @@ export function FileExplorer() {
                 </div>
               )
             })
-          ) : fileTree.map((node) => (
-            <FileTreeNode key={node.id} node={node} depth={0} />
-          ))
+          ) : !workspacePath ? (
+            <div className="px-3 py-2 text-xs text-muted-foreground">{t('editorEmpty.subtitle')}</div>
+          ) : loading ? (
+            <div className="px-3 py-2 text-xs text-muted-foreground">...</div>
+          ) : error ? (
+            <div className="px-3 py-2 text-xs text-red-500">{error}</div>
+          ) : fileTree.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-muted-foreground">{t('fileExplorer.noMatch')}</div>
+          ) : (
+            fileTree.map((node) => (
+              <FileTreeNode key={node.id} node={node} depth={0} />
+            ))
+          )
         )}
 
-        {subTab === 'outline' && MOCK_OUTLINE.map((item) => {
+        {subTab === 'outline' && (MOCK_OUTLINE.length === 0 ? (
+          <div className="px-3 py-2 text-xs text-muted-foreground">{t('fileExplorer.noMatch')}</div>
+        ) : MOCK_OUTLINE.map((item) => {
           const OIcon = OUTLINE_ICON[item.type] ?? FunctionSquare
           return (
             <div key={item.id}>
@@ -181,7 +187,7 @@ export function FileExplorer() {
                     className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted/50"
                     style={{ paddingLeft: 28 }}
                   >
-                    <CIcon className="h-3 w-3 shrink-0" />
+                    <CIcon className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">{c.label}</span>
                     <span className="ml-auto">{c.line}</span>
                   </div>
@@ -189,9 +195,11 @@ export function FileExplorer() {
               })}
             </div>
           )
-        })}
+        }))}
 
-        {subTab === 'timeline' && MOCK_TIMELINE.map((item) => {
+        {subTab === 'timeline' && (MOCK_TIMELINE.length === 0 ? (
+          <div className="px-3 py-2 text-xs text-muted-foreground">{t('fileExplorer.noMatch')}</div>
+        ) : MOCK_TIMELINE.map((item) => {
           const TIcon = TIMELINE_ICON[item.type] ?? FileEdit
           return (
             <div
@@ -205,7 +213,7 @@ export function FileExplorer() {
               </div>
             </div>
           )
-        })}
+        }))}
       </div>
     </div>
   )
