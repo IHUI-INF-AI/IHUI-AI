@@ -587,12 +587,12 @@ cd IHUI-AI && docker compose up -d
                                        │       │
                           ┌────────────▼─┐   ┌─▼──────────────┐
                           │  PostgreSQL  │   │  apps/ai-service│  FastAPI + Socket.IO
-                          │  15 (339 表) │   │  :8000          │  LangGraph + LiteLLM + MCP + A2A
+                          │  15 (339 表) │   │  :8803          │  LangGraph + LiteLLM + MCP + A2A
                           └──────────────┘   └────┬────────────┘  5 provider + 14 publish adapter
                                                   │
                                             ┌─────▼─────┐  ┌──────────┐
                                             │  Redis 7  │  │ Worker   │  BullMQ 独立プロセス
-                                            │ Pub/Sub   │  │ :8081    │  非同期タスクスケジュール
+                                            │ Pub/Sub   │  │ :8830    │  非同期タスクスケジュール
                                             └───────────┘  └──────────┘
 ```
 
@@ -1033,13 +1033,13 @@ docker compose up -d
 | サービス     | URL                              | 説明                                                                         |
 | ------------ | -------------------------------- | ---------------------------------------------------------------------------- |
 | Web          | http://localhost:3000            | Next.js フロントエンド                                                       |
-| API          | http://localhost:8080/api/health | Fastify バックエンドヘルスチェック                                           |
-| Worker       | http://localhost:8081            | BullMQ 非同期タスクプロセス                                                  |
-| AI サービス  | http://localhost:8000/health     | FastAPI AI サービスヘルスチェック                                            |
-| Grafana      | http://localhost:3001            | デフォルトアカウント admin / パスワード変更(20 ダッシュボード自動 provision) |
+| API          | http://localhost:8802/api/health | Fastify バックエンドヘルスチェック                                           |
+| Worker       | http://localhost:8830            | BullMQ 非同期タスクプロセス                                                  |
+| AI サービス  | http://localhost:8803/health     | FastAPI AI サービスヘルスチェック                                            |
+| Grafana      | http://localhost:8816            | デフォルトアカウント admin / パスワード変更(20 ダッシュボード自動 provision) |
 | Prometheus   | http://localhost:9091            | 指標収集                                                                     |
-| Jaeger UI    | http://localhost:16686           | 分散トレース                                                                 |
-| Loki         | http://localhost:3100            | ログ集計                                                                     |
+| Jaeger UI    | http://localhost:8814           | 分散トレース                                                                 |
+| Loki         | http://localhost:8818            | ログ集計                                                                     |
 | Alertmanager | http://localhost:9093            | アラートルーティング                                                         |
 
 ### 開発モード(ローカル)
@@ -1171,17 +1171,17 @@ pnpm turbo build typecheck lint test
 | 20  | tenant-usage     | テナント使用        |
 | 21  | ws               | WebSocket           |
 
-- **Node Exporter**(:9100):ホスト CPU / メモリ / ディスク / ネットワーク指標
+- **Node Exporter**(:8817):ホスト CPU / メモリ / ディスク / ネットワーク指標
 
 ### ログ(Loki + Promtail)
 
-- **Loki**(:3100):ログ集計バックエンド
+- **Loki**(:8818):ログ集計バックエンド
 - **Promtail**:`logging=promtail` ラベル付 Docker コンテナを自動検出、Docker + Nginx + API アプリログを収集
 
 ### トレース(OpenTelemetry + Jaeger)
 
-- **OpenTelemetry Collector**(:4318):OTLP トレース / 指標を受信、Jaeger + Prometheus へエクスポート
-- **Jaeger UI**(:16686):分散トレース可視化、API ↔ AI サービス ↔ データベースのフルリンク
+- **OpenTelemetry Collector**(:8813):OTLP トレース / 指標を受信、Jaeger + Prometheus へエクスポート
+- **Jaeger UI**(:8814):分散トレース可視化、API ↔ AI サービス ↔ データベースのフルリンク
 
 ### アラート(Alertmanager + noise-rules)
 
@@ -1324,20 +1324,31 @@ docker compose up -d
 
 | タイプ | サービス       | ポート | 用途                                       |
 | ------ | -------------- | ------ | ------------------------------------------ |
-| 業務   | api            | 8080   | Fastify バックエンド                       |
-| 業務   | worker         | 8081   | BullMQ 独立 worker プロセス                |
-| 業務   | web            | 3000   | Next.js フロントエンド(standalone)         |
-| 業務   | ai-service     | 8000   | FastAPI AI サービス                        |
-| 業務   | db             | 5432   | PostgreSQL 15                              |
-| 業務   | redis          | 6379   | Redis 7                                    |
+| 業務   | api            | 8802   | Fastify バックエンド                       |
+| 業務   | worker         | 8830   | BullMQ 独立 worker プロセス                |
+| 業務   | web            | 8801   | Next.js フロントエンド(standalone)         |
+| 業務   | ai-service     | 8803   | FastAPI AI サービス                        |
+| 業務   | db             | 8810   | PostgreSQL 15                              |
+| 業務   | redis          | 8811   | Redis 7                                    |
 | 業務   | migrate        | -      | 一次性マイグレーションサービス(完了後終了) |
-| 監視   | jaeger         | 16686  | 分散トレース UI                            |
-| 監視   | otel-collector | 4318   | OpenTelemetry Collector                    |
+| 監視   | jaeger         | 8814   | 分散トレース UI                            |
+| 監視   | otel-collector | 8813   | OpenTelemetry Collector                    |
 | 監視   | prometheus     | 9091   | 指標収集                                   |
-| 監視   | grafana        | 3001   | 可視化(20 ダッシュボード)                  |
-| 監視   | node-exporter  | 9100   | ホスト指標                                 |
-| 監視   | loki           | 3100   | ログ集計                                   |
+| 監視   | grafana        | 8816   | 可視化(20 ダッシュボード)                  |
+| 監視   | node-exporter  | 8817   | ホスト指標                                 |
+| 監視   | loki           | 8818   | ログ集計                                   |
 | 監視   | promtail       | -      | ログ収集                                   |
+
+### ポート管理ルール
+
+本プロジェクトの全サービスは `88xx` ポート帯を統一使用し、システムサービスとの競合を回避します:
+
+| ポート帯   | 用途             | 説明                                                  |
+| ---------- | ---------------- | ----------------------------------------------------- |
+| 8801-8809  | アプリサービス   | Web / API / AI Service / Taro H5 / Metro / Desktop 等 |
+| 8810-8819  | インフラ         | PostgreSQL(8810)/ Redis(8811)/ OTel(8812-8813)/ Jaeger(8814)/ Prometheus(8815)/ Grafana(8816)/ Node Exporter(8817)/ Loki(8818) |
+| 8820-8829  | 補助ツール       | Storybook(8820)等の開発補助ツール                      |
+| 8830-8839  | SaaS デプロイ    | Admin API(8830)等の SaaS 化デプロイサービス            |
 
 ### 本番デプロイ
 

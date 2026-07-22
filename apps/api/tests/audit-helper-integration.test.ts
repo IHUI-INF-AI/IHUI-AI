@@ -9,9 +9,9 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // hoisted:env 在所有 import 前注入
 vi.hoisted(() => {
-  process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:5432/test'
+  process.env.DATABASE_URL ??= 'postgresql://test:test@localhost:8810/test'
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
-  process.env.REDIS_URL ??= 'redis://localhost:6379/0'
+  process.env.REDIS_URL ??= 'redis://localhost:8811/0'
 })
 
 // 捕获每次 insert 调用的 values 与 returning

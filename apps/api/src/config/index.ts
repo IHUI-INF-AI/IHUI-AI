@@ -19,7 +19,7 @@ const envSchema = z.object({
     (v) => (v === '' ? undefined : v),
     z.string().url().optional(),
   ),
-  REDIS_URL: z.string().url().default('redis://localhost:6379'),
+  REDIS_URL: z.string().url().default('redis://localhost:8811'),
   JWT_SECRET: z
     .string()
     .min(32, 'JWT_SECRET 必须至少 32 字符')
@@ -59,7 +59,7 @@ const envSchema = z.object({
       { message: 'CREDENTIALS_ENCRYPTION_KEY 不能使用弱默认值/全相同字符/已知占位符' },
     ),
 
-  AI_SERVICE_URL: z.string().url().default('http://localhost:3003'),
+  AI_SERVICE_URL: z.string().url().default('http://localhost:8803'),
 
   // AI 回调共享密钥(可选,为空则不校验;配置后 ai-service 回调需带 X-Internal-Secret 头)
   AI_CALLBACK_SECRET: z.string().default(''),

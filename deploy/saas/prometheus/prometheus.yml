@@ -1,7 +1,7 @@
 # Prometheus 全局配置(P1-2.3)
 # 抓取目标:
 #   - cadvisor(端口 8080): 所有 Docker 容器运行时指标
-#   - admin-api(端口 8081): 业务级指标(预留)
+#   - admin-api(端口 8830): 业务级指标(预留)
 #   - traefik(端口 8082): HTTP 路由指标(预留)
 
 global:
@@ -23,11 +23,11 @@ scrape_configs:
   # ==================== admin-api — 业务指标(预留)====================
   - job_name: admin-api
     static_configs:
-      - targets: ['admin-api:8081']
+      - targets: ['admin-api:8830']
     metrics_path: /metrics
     # admin-api 当前未暴露 /metrics,启用后会话式
 
   # ==================== Prometheus 自身 ====================
   - job_name: prometheus
     static_configs:
-      - targets: ['localhost:9090']
+      - targets: ['localhost:8815']

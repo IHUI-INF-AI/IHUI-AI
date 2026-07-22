@@ -78,7 +78,7 @@ export async function rollbackCanary(reason: string): Promise<void> {
  * 若 Prometheus 不可达，返回 0（假设健康，避免误回滚）。
  */
 async function fetchCanaryErrorRate(): Promise<number> {
-  const prometheusUrl = process.env.PROMETHEUS_URL ?? 'http://localhost:9090'
+  const prometheusUrl = process.env.PROMETHEUS_URL ?? 'http://localhost:8815'
   const query = encodeURIComponent(
     'sum(rate(http_requests_by_status{status=~"5..",served_by="canary"}[1m])) / ' +
       'sum(rate(http_requests_by_status{served_by="canary"}[1m]))',

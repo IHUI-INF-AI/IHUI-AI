@@ -23,7 +23,7 @@ import { test, expect } from '@playwright/test'
  *  - apps/web/messages/{zh-CN,zh-TW,en,ko,ja}.json
  */
 
-const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:3001'
+const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8801'
 
 test.describe('登录弹窗 3 步 Enter 键盘交互流', () => {
   test.beforeEach(async ({ page }) => {
