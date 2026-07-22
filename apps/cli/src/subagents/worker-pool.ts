@@ -16,7 +16,7 @@
  * 仅依赖 Node.js 内置 + 现有 worktree 模块,不引入新依赖。
  */
 
-import { fork, type ChildProcess } from 'node:child_process';
+import { fork, type ChildProcess, type ForkOptions } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -45,7 +45,7 @@ const STDERR_RATE_LIMIT_LINES_PER_SEC = 100;
 
 /** 子进程 → 父进程 IPC 消息 */
 type WorkerIPCMessage =
-  | { type: 'heartbeat' }
+  | { type: 'heartbeat'; rss?: number; heapUsed?: number }
   | { type: 'progress'; payload?: Record<string, unknown> };
 
 /** 父进程 → 子进程 IPC 消息 */
@@ -258,11 +258,21 @@ export class SubagentWorkerPool {
     const workerId = `w${this.nextWorkerSeq++}`;
     const startedAt = Date.now();
 
-    const proc = fork(this.entryPath, [], {
+    // P1-3 修复:V8 heap 软限制(跨平台,覆盖子 agent 90% JS heap 内存)
+    // 不覆盖 native 模块内存,但比无限好;完整限制需 OS 沙箱(Job Object / setrlimit)
+    // 注意:@types/node 22.x 的 ForkOptions 缺少 resourceLimits 类型定义,但 Node.js 12+ 运行时支持
+    const forkOptions: ForkOptions = {
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
       env: { ...process.env, IHUI_SUBAGENT_ID: subagentId },
       execArgv: process.execArgv, // 继承 tsx loader flags(dev 模式)
-    });
+    };
+    if (this.config.resourceLimits) {
+      (forkOptions as Record<string, unknown>).resourceLimits = {
+        maxOldGenerationSizeMb: this.config.resourceLimits.maxOldGenerationSizeMb,
+        maxYoungGenerationSizeMb: this.config.resourceLimits.maxYoungGenerationSizeMb,
+      };
+    }
+    const proc = fork(this.entryPath, [], forkOptions);
 
     const entry: WorkerEntry = {
       subagentId,
@@ -296,6 +306,17 @@ export class SubagentWorkerPool {
       if (msg.type === 'heartbeat') {
         entry.lastHeartbeatAt = Date.now();
         entry.state.lastHeartbeatAt = new Date().toISOString();
+        // P1-3 修复:记录子进程 RSS(用于监控内存趋势)
+        if (msg.rss) {
+          const rssMb = msg.rss / 1024 / 1024;
+          const limitMb = this.config.resourceLimits?.memoryMb;
+          if (limitMb && rssMb > limitMb * 0.8) {
+            // 接近 80% 阈值时告警(第二层软监控,第一层在子进程内自退出)
+            process.stderr.write(
+              `[subagent ${subagentId}] RSS 接近上限: ${rssMb.toFixed(0)}MB / ${limitMb}MB\n`,
+            );
+          }
+        }
       }
     });
 
