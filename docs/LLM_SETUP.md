@@ -37,23 +37,23 @@ LITELLM_MODEL=groq/llama-3.3-70b-versatile   # 推荐 Groq(免费 + 极速)
 
 ```bash
 # 停止旧进程
-Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue |
+Get-NetTCPConnection -LocalPort 8803 -State Listen -ErrorAction SilentlyContinue |
   ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
 
 # 启动新进程
 cd g:\IHUI-AI\apps\ai-service
-.\.venv\Scripts\uvicorn.exe app.main:app --host 0.0.0.0 --port 8000
+.\.venv\Scripts\uvicorn.exe app.main:app --host 0.0.0.0 --port 8803
 ```
 
 ### Step 3: 验证连通性
 
 ```bash
 # 健康检查
-curl http://localhost:8000/health
+curl http://localhost:8803/health
 # 期望:{"status":"ok","service":"ihui-ai-service"}
 
 # 模型列表
-curl http://localhost:8000/api/llm/models
+curl http://localhost:8803/api/llm/models
 # 期望:返回 4-5 个模型,带价格和上下文长度
 ```
 
@@ -61,17 +61,17 @@ curl http://localhost:8000/api/llm/models
 
 ## 3. 端到端测试
 
-打开 http://localhost:3000/chat,选择模型(默认 `stepfun/step-3.7-flash`),输入消息测试。
+打开 http://localhost:8801/chat,选择模型(默认 `stepfun/step-3.7-flash`),输入消息测试。
 
 或通过 API:
 
 ```bash
-TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/login \
+TOKEN=$(curl -s -X POST http://localhost:8801/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"account":"test@ihui.ai","password":"Test@123456"}' | \
   jq -r '.data.accessToken')
 
-curl -X POST http://localhost:3001/api/ai/chat \
+curl -X POST http://localhost:8802/api/ai/chat \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN" \
   -d '{"model":"groq/llama-3.3-70b-versatile","message":"你好"}'

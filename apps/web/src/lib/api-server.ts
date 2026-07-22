@@ -21,7 +21,7 @@ export async function fetchApiServer<T>(
   url: string,
   options: RequestInit = {},
 ): Promise<ApiResult<T>> {
-  const base = (process.env.API_URL ?? 'http://localhost:3001').replace(/\/$/, '')
+  const base = (process.env.API_URL ?? 'http://localhost:8802').replace(/\/$/, '')
   const full = /^https?:\/\//i.test(url) ? url : `${base}${url.startsWith('/') ? '' : '/'}${url}`
 
   try {

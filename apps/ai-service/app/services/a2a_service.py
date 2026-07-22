@@ -154,7 +154,7 @@ class A2AServer:
         try:
             import redis.asyncio as aioredis
 
-            redis_url = getattr(settings, "redis_url", None) or "redis://localhost:6379/0"
+            redis_url = getattr(settings, "redis_url", None) or "redis://localhost:8811/0"
             self._redis = aioredis.from_url(redis_url, decode_responses=True)
             await self._redis.ping()
             self._redis_available = True

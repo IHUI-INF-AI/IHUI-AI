@@ -210,7 +210,7 @@ async function main() {
   log('▶ 后续步骤:')
   log('  1. 确认 .env.production 中 WX_PAY_PLATFORM_CERT_PATH 已指向该文件')
   log('  2. 重启 API: pnpm --filter @ihui/api start')
-  log('  3. 验证: curl http://localhost:3001/api/health/ready | jq .checks.wechatPay')
+  log('  3. 验证: curl http://localhost:8802/api/health/ready | jq .checks.wechatPay')
   log('     期望输出: { "status": "ok" }')
 }
 

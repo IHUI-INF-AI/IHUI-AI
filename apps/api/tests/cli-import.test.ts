@@ -12,7 +12,7 @@ import { describe, it, expect, vi } from 'vitest'
 vi.mock('../src/config/index.js', () => ({
   config: {
     CREDENTIALS_ENCRYPTION_KEY: 'a'.repeat(32),
-    REDIS_URL: 'redis://localhost:6379',
+    REDIS_URL: 'redis://localhost:8811',
   },
 }))
 
@@ -58,7 +58,7 @@ describe('cli-import/mapper', () => {
 
     it('localhost / 127.0.0.1 → local', () => {
       expect(inferProviderCode('http://127.0.0.1:11434/v1', 'openai_chat')).toBe('local')
-      expect(inferProviderCode('http://localhost:8080', 'openai_chat')).toBe('local')
+      expect(inferProviderCode('http://localhost:8802', 'openai_chat')).toBe('local')
     })
 
     it('模型名兜底:baseUrl 未知但 model 前缀命中', () => {
