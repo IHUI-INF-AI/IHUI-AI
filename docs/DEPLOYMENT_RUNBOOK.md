@@ -162,10 +162,10 @@ curl -s http://localhost:8802/api/health/ready | jq . && curl -s http://localhos
 
 ## 6. 蓝绿部署流程
 
-蓝绿通过两份 compose 文件维护两套环境,Nginx upstream 切换流量。配置:`deploy/nginx/upstream-{blue,green}.conf`(`server 127.0.0.1:8081` / `8082`)。
+蓝绿通过两份 compose 文件维护两套环境,Nginx upstream 切换流量。配置:`deploy/nginx/upstream-{blue,green}.conf`(`server 127.0.0.1:8842` / `8844`)。
 
 ```bash
-# 1. 准备(两份 compose,改容器名与端口避免冲突:blue→8081,green→8082)
+# 1. 准备(两份 compose,改容器名与端口避免冲突:blue→8842,green→8844)
 cp docker-compose.yml docker-compose.blue.yml && cp docker-compose.yml docker-compose.green.yml
 
 # 2. 部署 Green(不动 Blue),验证 ready
