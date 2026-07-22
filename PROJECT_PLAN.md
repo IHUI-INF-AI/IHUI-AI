@@ -58,11 +58,12 @@
 - 注:步骤 3-5 验证了 ai-world 支持 ?tab= query param 的核心能力,这部分代码已合并到其他 agent commit `27fa843db`,继续生效
 
 **Git 同步证据**(§21):
-- 本地 commit: `<本次 commit,待 push 后补全>`
-- origin commit: `<待 push 后补全>`
-- 同步状态: `<待验证>`
-- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 `<待验证>`
-- pre-commit hook 若失败因其他 agent 代码(unified-ai-panel / @monaco-editor/react / PasswordLoginForm),按 §12 + §16 规则 `--no-verify` 跳过
+- 本地 commit: `52595ad1b` docs(plan): ai-news 入口梳理 + ai-world ?tab= query param 支持 + PROJECT_PLAN.md 体积守门精简(归档 5 个早前完成任务)
+- origin commit: `5e2b0bd`(后续其他 agent 基于本任务 commit 继续推送,本地与远端同步)
+- 同步状态: local == remote ✅(post-commit 钩子自动 push 成功,pre-push hook 失败因其他 agent 代码 @ihui/sdk + @ihui/ui-primitives dist 缺失,按 §12/§16 规则 --no-verify 重试成功)
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
+- 本任务改动文件: PROJECT_PLAN.md(M) + .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md(A,2 files changed,833 insertions,227 deletions)
+- pre-commit hook 若失败因其他 agent 代码(unified-ai-panel / @monaco-editor/react / PasswordLoginForm / @ihui/sdk dist / @ihui/ui-primitives dist),按 §12 + §16 规则 `--no-verify` 跳过
 
 ---
 
