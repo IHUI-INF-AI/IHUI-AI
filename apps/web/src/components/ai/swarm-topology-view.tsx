@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * SwarmTopologyView - Swarm mesh 拓扑可视化(2026-07-22 立,2026-07-22 深化 v2)。
+ * SwarmTopologyView - Swarm mesh 拓扑可视化(2026-07-22 立,2026-07-22 深化 v2,2026-07-23 超越 v3)。
  *
  * 渲染:
  *  - SVG 画布(w-full h-72,viewBox 自适应)
@@ -19,6 +19,11 @@
  *  - with_communication 模式:环形 + 动画通信边
  *  - 节点点击详情面板(agent + 状态 + 耗时 + token + DAG 节点状态)
  *
+ * 超越 v3(新增 3 个导出组件):
+ *  - CollaborationStream:协作消息流(SVG 时间轴,9 种协作类型颜色区分)
+ *  - TopologyRecommendation:拓扑推荐视图(LLM 推荐编排方案可视化)
+ *  - EvolutionTimeline:演化时间轴(agent prompt 版本演进)
+ *
  * AGENTS.md §4 UI 约束:
  *  - 禁 rounded-full(用 rounded-md rect)
  *  - 禁蓝色发光边框
@@ -28,6 +33,7 @@
 
 import * as React from 'react'
 import { useSwarmTopology } from '@/hooks/use-subagent-dispatch'
+import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type {
   SwarmTopology,
@@ -35,6 +41,7 @@ import type {
   TopologyEdge,
   TopologyNodeStatus,
   TopologyEdgeType,
+  OrchestrationMode,
 } from '@ihui/types/subagent-dispatch'
 
 /** 扩展 dispatch 状态(增加 preempted / quota_exceeded) */
@@ -546,6 +553,468 @@ export function SwarmTopologyView({
         @keyframes topo-flow { 0%{stroke-dashoffset:0} 100%{stroke-dashoffset:-14} }
         .topo-comm-flow { animation: topo-flow 1s linear infinite; }
       `}</style>
+    </div>
+  )
+}
+
+// ===========================================================================
+// 超越 v3:协作消息流 + 拓扑推荐视图 + 演化时间轴
+// ===========================================================================
+
+/** 协作消息类型(9 种) */
+type CollaborationMessageType =
+  | 'question'
+  | 'answer'
+  | 'result'
+  | 'request_help'
+  | 'propose_plan'
+  | 'object'
+  | 'accept'
+  | 'delegate'
+  | 'share_context'
+
+/** 协作消息 */
+interface CollaborationMessage {
+  from: string
+  to: string
+  collaborationType: CollaborationMessageType
+  content: string
+  timestamp: string
+  round: number
+  planId?: string
+  delegatedTo?: string
+}
+
+/** 协作记录 */
+interface CollaborationRecord {
+  dispatchId: string
+  messages: CollaborationMessage[]
+  relations: Array<{
+    from: string
+    to: string
+    count: number
+    types: CollaborationMessageType[]
+  }>
+}
+
+/** 智能规划结果 */
+interface AutoPlanAgent {
+  role: string
+  task: string
+  depends_on: string[]
+}
+interface AutoPlanResult {
+  orchestration: OrchestrationMode
+  agents: AutoPlanAgent[]
+  estimatedDuration: string
+  estimatedCost: string
+  reasoning: string
+  topologyStats: Array<{ orchestration: string; successRate: number; sampleSize: number }>
+  generatedAt: string
+}
+
+/** 演化版本 */
+interface PromptPatch {
+  originalText: string
+  suggestedReplacement: string
+  reason: string
+}
+interface EvolutionVersion {
+  version: string
+  prompt: string
+  changes: PromptPatch[]
+  createdAt: string
+}
+interface AgentEvolutionRecord {
+  dispatchId: string
+  agentRole: string
+  taskDescription: string
+  result: string
+  retryCount: number
+  userFeedback: string | undefined
+  success: boolean
+  durationMs: number
+  tokenUsage: number
+  recordedAt: string
+}
+interface EvolutionHistory {
+  agentRole: string
+  currentPrompt: string
+  versions: EvolutionVersion[]
+  recentRecords: AgentEvolutionRecord[]
+}
+
+/** 协作消息类型 → 颜色 + 中文标签 */
+const COLLAB_TYPE_STYLE: Record<
+  CollaborationMessageType,
+  { color: string; bg: string; label: string }
+> = {
+  question: { color: 'text-blue-600', bg: 'bg-blue-500/15', label: '提问' },
+  answer: { color: 'text-green-600', bg: 'bg-green-500/15', label: '回答' },
+  result: { color: 'text-emerald-600', bg: 'bg-emerald-500/15', label: '结果' },
+  request_help: { color: 'text-orange-600', bg: 'bg-orange-500/15', label: '求助' },
+  propose_plan: { color: 'text-violet-600', bg: 'bg-violet-500/15', label: '提案' },
+  object: { color: 'text-red-600', bg: 'bg-red-500/15', label: '反对' },
+  accept: { color: 'text-teal-600', bg: 'bg-teal-500/15', label: '接受' },
+  delegate: { color: 'text-amber-600', bg: 'bg-amber-500/15', label: '委派' },
+  share_context: { color: 'text-cyan-600', bg: 'bg-cyan-500/15', label: '共享' },
+}
+
+// ---------------------------------------------------------------------------
+// CollaborationStream - 协作消息流(SVG 时间轴)
+// ---------------------------------------------------------------------------
+
+interface CollaborationStreamProps {
+  dispatchId: string
+  className?: string
+}
+
+export function CollaborationStream({ dispatchId, className }: CollaborationStreamProps) {
+  const [record, setRecord] = React.useState<CollaborationRecord | null>(null)
+  const [loading, setLoading] = React.useState(false)
+
+  React.useEffect(() => {
+    if (!dispatchId) return
+    let cancelled = false
+    const load = async () => {
+      setLoading(true)
+      try {
+        const r = await fetchApi<CollaborationRecord>(
+          `/api/subagents/${dispatchId}/collaboration`,
+        )
+        if (!cancelled && r.success && r.data) setRecord(r.data)
+        else if (!cancelled) setRecord(null)
+      } catch {
+        if (!cancelled) setRecord(null)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [dispatchId])
+
+  if (loading) {
+    return (
+      <div className={cn('rounded-md border border-border bg-card p-3 text-xs text-muted-foreground', className)}>
+        加载协作记录中…
+      </div>
+    )
+  }
+
+  if (!record || record.messages.length === 0) {
+    return (
+      <div className={cn('rounded-md border border-border bg-card p-3 text-xs text-muted-foreground', className)}>
+        暂无协作消息
+      </div>
+    )
+  }
+
+  return (
+    <div className={cn('space-y-2 rounded-md border border-border bg-card p-2.5', className)}>
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-medium text-foreground">协作消息流({record.messages.length})</span>
+        <span className="text-[10px] text-muted-foreground">{record.relations.length} 条关系</span>
+      </div>
+      {/* 消息时间轴 */}
+      <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+        {record.messages.map((msg, i) => {
+          const style: { color: string; bg: string; label: string } =
+            COLLAB_TYPE_STYLE[msg.collaborationType] ?? { color: 'text-emerald-600', bg: 'bg-emerald-500/15', label: '结果' }
+          return (
+            <div key={i} className="flex items-start gap-1.5">
+              {/* 时间轴线 + 圆点 */}
+              <div className="flex flex-col items-center pt-0.5">
+                <span className={cn('inline-block h-2 w-2 rounded-sm', style.bg)} />
+                {i < record.messages.length - 1 && (
+                  <span className="mt-0.5 h-full w-px bg-border" />
+                )}
+              </div>
+              {/* 消息内容 */}
+              <div className="flex-1 pb-1.5">
+                <div className="flex items-center gap-1 text-[10px]">
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[9px]">{msg.from}</code>
+                  <span className="text-muted-foreground">→</span>
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[9px]">{msg.to}</code>
+                  <span className={cn('rounded-sm px-1 py-0.5 text-[9px] font-medium', style.bg, style.color)}>
+                    {style.label}
+                  </span>
+                  <span className="text-muted-foreground/60">R{msg.round}</span>
+                </div>
+                <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
+                  {msg.content}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {/* 关系图摘要 */}
+      {record.relations.length > 0 && (
+        <div className="space-y-0.5 rounded-sm border border-border bg-muted/30 px-2 py-1">
+          <div className="text-[10px] font-medium text-muted-foreground">关系图</div>
+          {record.relations.map((rel, i) => (
+            <div key={i} className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              <code className="font-mono">{rel.from}</code>
+              <span>→</span>
+              <code className="font-mono">{rel.to}</code>
+              <span className="text-muted-foreground/60">({rel.count} 次)</span>
+              <div className="flex gap-0.5">
+                {rel.types.map((t) => {
+                  const s: { color: string; bg: string; label: string } =
+                    COLLAB_TYPE_STYLE[t] ?? { color: 'text-emerald-600', bg: 'bg-emerald-500/15', label: '结果' }
+                  return (
+                    <span key={t} className={cn('rounded-sm px-0.5 text-[8px]', s.bg, s.color)}>
+                      {s.label}
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// TopologyRecommendation - 拓扑推荐视图
+// ---------------------------------------------------------------------------
+
+interface TopologyRecommendationProps {
+  plan: AutoPlanResult
+  className?: string
+}
+
+/** 编排模式 → 中文标签 + 颜色 */
+const ORCH_MODE_STYLE: Record<string, { color: string; bg: string; label: string }> = {
+  pipeline: { color: 'text-slate-600', bg: 'bg-slate-500/15', label: '串行' },
+  parallel: { color: 'text-slate-600', bg: 'bg-slate-500/15', label: '并行' },
+  debate: { color: 'text-red-600', bg: 'bg-red-500/15', label: '辩论' },
+  vote: { color: 'text-green-600', bg: 'bg-green-500/15', label: '投票' },
+  critique: { color: 'text-orange-600', bg: 'bg-orange-500/15', label: '批判' },
+  decomposed: { color: 'text-violet-600', bg: 'bg-violet-500/15', label: '分解' },
+  with_communication: { color: 'text-blue-600', bg: 'bg-blue-500/15', label: '协作通信' },
+}
+
+export function TopologyRecommendation({ plan, className }: TopologyRecommendationProps) {
+  const modeStyle: { color: string; bg: string; label: string } =
+    ORCH_MODE_STYLE[plan.orchestration] ?? { color: 'text-slate-600', bg: 'bg-slate-500/15', label: '并行' }
+
+  // 推导 agent 依赖层级(简单拓扑排序)
+  const layers = React.useMemo(() => {
+    const visited = new Set<string>()
+    const result: AutoPlanAgent[][] = []
+    while (visited.size < plan.agents.length) {
+      const layer = plan.agents.filter(
+        (a) => !visited.has(a.role) && a.depends_on.every((d) => visited.has(d)),
+      )
+      if (layer.length === 0) break
+      for (const a of layer) visited.add(a.role)
+      result.push(layer)
+    }
+    return result
+  }, [plan.agents])
+
+  return (
+    <div className={cn('space-y-2 rounded-md border border-border bg-card p-2.5 text-xs', className)}>
+      {/* 头部:编排模式 + 预估 */}
+      <div className="flex items-center gap-2">
+        <span className={cn('rounded-sm px-1.5 py-0.5 text-[10px] font-medium', modeStyle.bg, modeStyle.color)}>
+          {modeStyle.label}({plan.orchestration})
+        </span>
+        <span className="text-[10px] text-muted-foreground">
+          预估 {plan.estimatedDuration} · {plan.estimatedCost}
+        </span>
+      </div>
+
+      {/* DAG 层级可视化 */}
+      <div className="space-y-1.5">
+        {layers.map((layer, layerIdx) => (
+          <div key={layerIdx} className="flex items-center gap-2">
+            <span className="w-8 shrink-0 text-[9px] text-muted-foreground/60">L{layerIdx + 1}</span>
+            <div className="flex flex-wrap gap-1.5">
+              {layer.map((agent) => (
+                <div
+                  key={agent.role}
+                  className="rounded-md border border-border bg-background px-2 py-1"
+                >
+                  <div className="flex items-center gap-1">
+                    <code className="font-mono text-[10px] text-foreground">{agent.role}</code>
+                    {agent.depends_on.length > 0 && (
+                      <span className="text-[8px] text-muted-foreground/60">
+                        ← {agent.depends_on.join(',')}
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 line-clamp-1 text-[10px] text-muted-foreground">
+                    {agent.task}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {layerIdx < layers.length - 1 && (
+              <span className="text-muted-foreground/40">↓</span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* 推理 */}
+      <div className="rounded-sm border border-border bg-muted/30 px-2 py-1 text-[11px] text-muted-foreground">
+        <span className="font-medium text-foreground">推理:</span>{plan.reasoning}
+      </div>
+
+      {/* 历史统计 */}
+      {plan.topologyStats.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {plan.topologyStats.map((s, i) => (
+            <span key={i} className="rounded-sm bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground">
+              {s.orchestration}: {Math.round(s.successRate * 100)}%({s.sampleSize})
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// EvolutionTimeline - 演化时间轴
+// ---------------------------------------------------------------------------
+
+interface EvolutionTimelineProps {
+  role: string
+  className?: string
+}
+
+export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
+  const [history, setHistory] = React.useState<EvolutionHistory | null>(null)
+  const [loading, setLoading] = React.useState(false)
+
+  React.useEffect(() => {
+    if (!role) return
+    let cancelled = false
+    const load = async () => {
+      setLoading(true)
+      try {
+        const r = await fetchApi<EvolutionHistory>(
+          `/api/subagents/agents/${role}/evolution-history`,
+        )
+        if (!cancelled && r.success && r.data) setHistory(r.data)
+        else if (!cancelled) setHistory(null)
+      } catch {
+        if (!cancelled) setHistory(null)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void load()
+    return () => { cancelled = true }
+  }, [role])
+
+  if (loading) {
+    return (
+      <div className={cn('rounded-md border border-border bg-card p-3 text-xs text-muted-foreground', className)}>
+        加载演化历史中…
+      </div>
+    )
+  }
+
+  if (!history || history.versions.length === 0) {
+    return (
+      <div className={cn('rounded-md border border-border bg-card p-3 text-xs text-muted-foreground', className)}>
+        暂无演化版本(角色 {role} 未演过)
+      </div>
+    )
+  }
+
+  return (
+    <div className={cn('space-y-2 rounded-md border border-border bg-card p-2.5 text-xs', className)}>
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-medium text-foreground">
+          {role} 演化时间轴({history.versions.length} 版)
+        </span>
+        <span className="text-[10px] text-muted-foreground">
+          最近 {history.recentRecords.length} 次任务
+        </span>
+      </div>
+
+      {/* 版本时间轴 */}
+      <div className="flex items-stretch gap-1 overflow-x-auto pb-1">
+        {history.versions.map((v, i) => (
+          <React.Fragment key={v.version}>
+            <div className="flex min-w-[100px] flex-col rounded-md border border-border bg-background px-1.5 py-1">
+              <div className="flex items-center gap-1">
+                <span className="inline-block h-1.5 w-1.5 rounded-sm bg-violet-500" />
+                <code className="font-mono text-[10px] font-medium text-foreground">{v.version}</code>
+              </div>
+              <div className="mt-0.5 text-[9px] text-muted-foreground/60">
+                {new Date(v.createdAt).toLocaleDateString('zh-CN')}
+              </div>
+              <div className="mt-0.5 line-clamp-2 text-[9px] text-muted-foreground">
+                {v.changes.length > 0
+                  ? `${v.changes.length} 个补丁`
+                  : '初始版本'}
+              </div>
+            </div>
+            {i < history.versions.length - 1 && (
+              <div className="flex items-center text-muted-foreground/40">→</div>
+            )}
+          </React.Fragment>
+        ))}
+      </div>
+
+      {/* 当前 prompt */}
+      <div className="rounded-sm border border-border bg-muted/30 px-2 py-1">
+        <div className="text-[10px] font-medium text-muted-foreground">
+          当前 Prompt(版本 {history.versions[history.versions.length - 1]!.version})
+        </div>
+        <div className="mt-0.5 line-clamp-3 text-[11px] text-muted-foreground">
+          {history.currentPrompt}
+        </div>
+      </div>
+
+      {/* 最近任务记录 */}
+      {history.recentRecords.length > 0 && (
+        <div className="space-y-0.5">
+          <div className="text-[10px] font-medium text-muted-foreground">最近任务</div>
+          {history.recentRecords.slice(0, 5).map((r, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-1.5 rounded-sm border border-border bg-background px-1.5 py-0.5 text-[10px]"
+            >
+              <span className={r.success ? 'text-green-600' : 'text-red-500'}>
+                {r.success ? '✓' : '✗'}
+              </span>
+              <span className="flex-1 truncate text-muted-foreground">{r.taskDescription}</span>
+              {r.retryCount > 0 && (
+                <span className="text-orange-500">重试{r.retryCount}</span>
+              )}
+              <span className="text-muted-foreground/60">
+                {Math.round(r.durationMs / 1000)}s
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 最新版本的变更详情 */}
+      {history.versions.length > 0 &&
+        history.versions[history.versions.length - 1]!.changes.length > 0 && (
+          <div className="space-y-0.5 rounded-sm border border-amber-500/30 bg-amber-500/5 px-2 py-1">
+            <div className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
+              最新补丁({history.versions[history.versions.length - 1]!.version})
+            </div>
+            {history.versions[history.versions.length - 1]!.changes.map((c, i) => (
+              <div key={i} className="text-[10px]">
+                <div className="text-red-500">- {c.originalText.slice(0, 50)}</div>
+                <div className="text-green-600">+ {c.suggestedReplacement.slice(0, 50)}</div>
+              </div>
+            ))}
+          </div>
+        )}
     </div>
   )
 }
