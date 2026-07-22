@@ -599,6 +599,7 @@
     "forgotPassword": "忘記密碼",
     "rememberPassword": "記住密碼",
     "accountHistory": "帳號歷史",
+    "noHistory": "暫無歷史記錄",
     "forgotSubtitle": "重設您的密碼",
     "registerTitle": "創建賬號",
     "registerSubtitle": "註冊一個新賬號",
@@ -1082,7 +1083,11 @@
       "community": "社區",
       "communityEn": "社區",
       "knowledge": "知識庫",
-      "knowledgeEn": "知識"
+      "knowledgeEn": "知識",
+      "recommend": "推薦課程",
+      "recommendEn": "推薦",
+      "hot": "熱門課程",
+      "hotEn": "熱門"
     },
     "units": {
       "questions": "{count}題",
