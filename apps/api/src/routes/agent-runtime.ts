@@ -73,6 +73,12 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
     sessionManager.appendMessage(session.id, { role: 'user', content: message })
 
     const upstreamUrl = `${config.AI_SERVICE_URL}/api/agent-runtime/execute/stream`
+
+    // G9: 客户端断连检测,中途中断 upstream fetch,避免 LLM token 浪费
+    const controller = new AbortController()
+    const onClose = () => controller.abort()
+    req.raw.on('close', onClose)
+
     try {
       const upstream = await fetch(upstreamUrl, {
         method: 'POST',
@@ -81,6 +87,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
           Accept: 'text/event-stream',
         },
         body: JSON.stringify({ message, mode: permMode, sessionId: session.id, botId }),
+        signal: controller.signal,
       })
 
       if (!upstream.ok || !upstream.body) {
@@ -134,6 +141,11 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
       }
       return reply.raw.end()
     } catch (err) {
+      // G9: 客户端主动断开是正常行为,不写 error 事件,仅记录日志
+      if ((err as Error).name === 'AbortError') {
+        req.log.info({ sessionId: session.id }, '[agent-runtime] 客户端断开,中止 upstream fetch')
+        return
+      }
       reply.raw.write(
         `event: error\ndata: ${JSON.stringify({
           message: 'upstream connection failed',
@@ -141,6 +153,9 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
         })}\n\n`,
       )
       return reply.raw.end()
+    } finally {
+      // G9: 清理 close listener,避免泄漏
+      req.raw.off('close', onClose)
     }
   })
 
