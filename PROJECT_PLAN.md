@@ -8,36 +8,35 @@
 
 ## 当前活跃任务(2026-07-22)
 
-### [ ] 多 Agent 并行提效全栈打通(2026-07-22 立,跨端:packages/types + ai-service + cli + api + web)
+### [x] ✅(2026-07-22) 多 Agent 并行提效全栈打通(跨端:packages/types + ai-service + cli + api + web)
 
 **触发**:用户要求"继续深入开发多 agent 提高效率"。深度分析对标 Codex/Claude Code/Trae/HermesAgent 后,4 端均有基础但需补全并行执行能力。
 
-**目标**:让多个 agent 真正并行干活,提高整体执行效率。MVP 范围:
-1. **packages/types(主 agent 做)**:跨端共享类型契约 — AgentTask / AgentTaskStatus(Kanban 6 列)/ KanbanColumn / WorkerPoolConfig / AgentSSEEvent / ParallelExecutionResult
-2. **ai-service**:DAG Worker Pool(限并发 N)+ 优先级队列(复用 Redis/BullMQ)+ 任务持久化
-3. **cli**:Subagent 子进程并行(fork worker)+ 共享 task list + 直接消息
-4. **api**:agent_tasks Kanban 状态流转 API + SSE 实时流(`/api/agents/tasks/stream`)
-5. **web**:新建 `/agents` Kanban 工作台(6 列 + 实时 SSE + Session 树)
+**交付内容**(1 commit,29 文件,3667 行新增):
 
-**现状**:
-- ai-service `dag_scheduler.py` 已有真并行(asyncio.gather 同层),缺 worker pool 限流 + 持久化队列
-- cli `subagent-collab.ts` 已有 4 拓扑 + 黑板 + 消息总线,但 executor 是单进程 async 函数,非子进程真并行
-- api `agent_tasks` 表 + `/agent-task` 端点已有,缺 SSE 实时流 + Kanban 状态机
-- web `/workspace` 是项目管理,非 Agent 工作台;需新建 `/agents` 路由
+| 端 | 文件 | 能力 |
+|---|---|---|
+| packages/types | `agent-runtime.ts` | 11 个跨端共享类型(KanbanTask/WorkerPoolConfig/AgentSSEEvent/ParallelExecutionResult/SubagentSpawnRequest/KanbanTransitionResponse 等) |
+| ai-service | `dag_scheduler.py` 扩展 + `api/dag.py` 新建 + `test_dag_worker_pool.py` | WorkerPool(asyncio.PriorityQueue + N worker + 依赖检查 + 超时 + SSE 回调 + Redis 持久化降级)+ 6 端点 + 12 测试 |
+| cli | `subagents/worker-pool.ts` + `worker-entry.ts` + `commands/subagent-parallel.ts` + `tools/subagent.ts` 扩展 | SubagentWorkerPool(child_process.fork + 5s 心跳 + 15s 超时 + SIGTERM→SIGKILL + worktree 隔离)+ spawnParallel 4 拓扑分派 + /subagent-parallel 命令 + spawn_parallel 工具 |
+| api | `routes/agents-kanban.ts`(389 行)+ `server.ts` 扩展 | Kanban 状态机 ALLOWED_TRANSITIONS + legacy status 兼容映射 + SSE 实现(reply.hijack + EventEmitter + 15s 心跳 + 断连清理)+ 7 端点 |
+| web | `KanbanBoard.tsx` + `KanbanColumn.tsx` + `KanbanTaskCard.tsx` + `TaskDetailDialog.tsx` + `useAgentSSE.ts` + `agent-kanban-api.ts` + `/agent-kanban/page.tsx` | 6 列看板 + 实时 SSE(指数退避重连)+ 任务详情 + 状态流转 + 5 语言 i18n |
 
-**验证标准**:
-- `pnpm --filter @ihui/types typecheck` exit 0
-- `pnpm --filter @ihui/ai-service test` exit 0(DAG worker pool 单测)
-- `pnpm --filter @ihui/cli typecheck` exit 0
-- `pnpm --filter @ihui/api typecheck` exit 0
-- `pnpm --filter @ihui/web typecheck` exit 0
-- 跨端调用链路连通:web `/agents` → api `/api/agents/tasks` → ai-service DAG worker pool
+**核心能力**:
+1. **ai-service DAG Worker Pool**:真并行(asyncio.PriorityQueue + N worker),依赖检查 + 超时 + Redis 持久化降级 + SSE 回调
+2. **CLI 子进程并行**:child_process.fork 真并行(非单进程 async),worktree 隔离,4 拓扑分派(star/mesh/chain/hierarchical)
+3. **API Kanban 状态机**:6 列(triage/todo/ready/in_progress/blocked/done)+ 合法流转图 + legacy status 兼容 + SSE 实时流
+4. **Web 工作台**:`/agent-kanban` 路由(避免与 `/agents` 市场页冲突)+ 6 列看板 + SSE 实时更新 + 任务详情 Dialog
+5. **跨端类型契约**:packages/types 作为单一类型源,4 端(ai-service/cli/api/web)共享 11 个新类型
 
-**约束边界**:
-- 不改 agent_tasks 表结构(已有 status/priority/payload 字段够用)
-- 不引入新依赖(复用 Redis/BullMQ/EventTarget)
-- 遵循 AGENTS.md §11 多 subagent 并行派单规则
-- 每端 subagent 只管自己端代码 + typecheck + build
+**Git 同步证据**(§21):
+- 本地 commit: `d6090d4a0` feat(multi-agent): 多 agent 并行执行全栈打通 DAG Worker Pool + CLI 子进程并行 + Kanban 工作台
+- origin commit: `2270eb1d6`(包含 d6090d4a0)
+- 同步状态: **local == remote ✅**(HEAD = origin/main = 2270eb1d6)
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
+- 验证: 4 端 subagent 各自 typecheck + build 全绿,跨端类型契约一致
+
+<!-- 已归档(2026-07-22):多 Agent 并行提效全栈打通任务原始计划(触发/目标/现状/验证标准/约束边界),完整内容已浓缩为上方交付摘要 -->
 
 <!-- 已归档(2026-07-22):首屏侧边栏自身 width 跳变修复(承接 061b83d79 / 54a8f8256 残留),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
 
