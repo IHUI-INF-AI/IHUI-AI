@@ -6,6 +6,8 @@
 """
 
 import asyncio
+import json
+import re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -14,6 +16,7 @@ from typing import Any
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
 from .memory import memory_store
+from .mcp_server import mcp_server
 from .project_memory import build_system_prompt
 
 
@@ -52,6 +55,41 @@ class AgentExecutor:
         info["updated_at"] = self._now()
         info["message"] = "任务已被取消"
         return True
+
+    @staticmethod
+    def _parse_tool_calls(llm_result: dict[str, Any], content: str) -> list[dict[str, Any]]:
+        """解析 LLM 输出中的 tool_call。
+
+        优先 OpenAI function calling 原生格式(llm_gateway 已提取 tool_calls 字段),
+        降级解析 ```tool_call\\n{"name":...,"arguments":{...}}\\n``` 文本块。
+        返回 [{"name": str, "arguments": dict}] 列表。
+        """
+        calls: list[dict[str, Any]] = []
+        # 1. OpenAI function calling 原生格式
+        raw = llm_result.get("tool_calls")
+        if raw and isinstance(raw, list):
+            for tc in raw:
+                fn = tc.get("function", {}) if isinstance(tc, dict) else {}
+                name = fn.get("name", "")
+                args_str = fn.get("arguments", "")
+                try:
+                    args = json.loads(args_str) if args_str else {}
+                except (json.JSONDecodeError, TypeError):
+                    args = {}
+                if name:
+                    calls.append({"name": name, "arguments": args})
+            if calls:
+                return calls
+        # 2. 降级:解析 ```tool_call``` 文本块
+        for m in re.finditer(r"```tool_call\s*(\{.*?\})\s*```", content, re.DOTALL):
+            try:
+                obj = json.loads(m.group(1))
+                name = obj.get("name", "")
+                if name:
+                    calls.append({"name": name, "arguments": obj.get("arguments", {}) or {}})
+            except (json.JSONDecodeError, TypeError):
+                continue
+        return calls
 
     async def run(
         self,
@@ -130,11 +168,47 @@ class AgentExecutor:
                     final_content = assistant_content
                     break
 
-                # 真实模式: 简单策略 — 第一轮后即认为完成(避免无限循环)
-                # 生产环境可解析 LLM 输出中的 tool_call 并继续迭代
-                final_content = assistant_content
-                if i >= 1:
+                # 解析 tool_call(优先 OpenAI function calling,降级 ```tool_call``` 文本块)
+                tool_calls = self._parse_tool_calls(llm_result, assistant_content)
+                if not tool_calls:
+                    # 无 tool_call: LLM 认为任务完成
+                    final_content = assistant_content
                     break
+
+                # 执行工具(白名单过滤),结果回填 memory,继续下一轮迭代
+                for tc in tool_calls:
+                    tool_name = tc["name"]
+                    tool_args = tc["arguments"]
+                    if tool_name not in tools:
+                        skip_msg = f"工具 {tool_name} 不在白名单 {tools} 内,跳过"
+                        steps.append({
+                            "iteration": i + 1,
+                            "type": "tool",
+                            "tool_name": tool_name,
+                            "tool_args": tool_args,
+                            "content": skip_msg,
+                            "status": "skipped",
+                        })
+                        await memory_store.add(sid, "tool", skip_msg, {"tool_name": tool_name, "tool_args": tool_args})
+                        continue
+                    try:
+                        tool_result = await mcp_server.call_tool(tool_name, tool_args)
+                        tool_content = json.dumps(tool_result, ensure_ascii=False, default=str)
+                        step_status = "ok"
+                    except Exception as e:
+                        # 工具执行失败: 错误回填给 LLM 让它决定下一步,不中断循环
+                        tool_content = f"工具 {tool_name} 执行失败: {e}"
+                        step_status = "error"
+                    steps.append({
+                        "iteration": i + 1,
+                        "type": "tool",
+                        "tool_name": tool_name,
+                        "tool_args": tool_args,
+                        "content": tool_content,
+                        "status": step_status,
+                    })
+                    await memory_store.add(sid, "tool", tool_content, {"tool_name": tool_name, "tool_args": tool_args})
+                # 有 tool_call 已执行,继续下一轮迭代(让 LLM 基于工具结果决定下一步)
 
             if self._running[task_id]["status"] != "canceled":
                 self._running[task_id]["status"] = "completed"
@@ -146,6 +220,23 @@ class AgentExecutor:
 
         self._running[task_id]["updated_at"] = self._now()
         self._running[task_id]["steps"] = steps
+
+        # 任务完成后异步触发 Skill 自进化评估(不阻塞返回)
+        if self._running[task_id]["status"] == "completed":
+            try:
+                from .skills import SkillEvolutionService, skill_registry
+
+                evolution = SkillEvolutionService()
+                asyncio.create_task(evolution.evaluate({
+                    "taskId": task_id,
+                    "sessionId": sid,
+                    "goal": goal,
+                    "steps": steps,
+                    "finalResult": final_content,
+                    "existingSkills": [s.name for s in skill_registry.list()],
+                }))
+            except Exception:
+                pass  # 自进化失败不影响主流程
 
         return {
             "task_id": task_id,
