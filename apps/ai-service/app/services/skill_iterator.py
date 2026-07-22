@@ -165,11 +165,50 @@ class SkillIterator:
 
     @staticmethod
     def _parse_iterate_output(content: str) -> dict[str, Any]:
-        """解析 LLM 迭代输出为 SkillIterationResult 字典(容错)。"""
-        match = re.search(r"\{.*\}", content, re.DOTALL)
-        if match:
+        """解析 LLM 迭代输出为 SkillIterationResult 字典(容错)。
+
+        增强容错(2026-07-22):
+        1. 剥离 markdown 代码块包裹(```json ... ```)
+        2. 修复 newContent 字段内未转义换行符(JSON 字符串不能含裸 \n)
+        3. 提取失败时默认 shouldIterate=false(避免格式问题误触发迭代)
+        """
+        # 1. 剥离 markdown 代码块
+        cleaned = content.strip()
+        if cleaned.startswith("```"):
+            # 去掉首行 ```json 或 ```
+            lines = cleaned.split("\n")
+            if len(lines) > 2:
+                cleaned = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+
+        # 2. 提取最外层 {...}
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        if not match:
+            return {
+                "shouldIterate": False,
+                "reason": "LLM 输出未包含 JSON 对象",
+                "expectedImprovements": [],
+            }
+
+        raw = match.group()
+        try:
+            obj = json.loads(raw)
+            if isinstance(obj, dict):
+                return {
+                    "shouldIterate": bool(obj.get("shouldIterate", False)),
+                    "newContent": str(obj.get("newContent", "")),
+                    "reason": str(obj.get("reason", "")),
+                    "expectedImprovements": list(obj.get("expectedImprovements", []) or []),
+                }
+        except json.JSONDecodeError:
+            # 3. 尝试修复:newContent 字段内的裸换行符转义为 \\n
             try:
-                obj = json.loads(match.group())
+                fixed = re.sub(
+                    r'("newContent"\s*:\s*")(.*?)"(\s*[,\}])',
+                    lambda m: m.group(1) + m.group(2).replace("\n", "\\n").replace('"', '\\"') + '"' + m.group(3),
+                    raw,
+                    flags=re.DOTALL,
+                )
+                obj = json.loads(fixed)
                 if isinstance(obj, dict):
                     return {
                         "shouldIterate": bool(obj.get("shouldIterate", False)),
@@ -179,9 +218,11 @@ class SkillIterator:
                     }
             except (json.JSONDecodeError, TypeError):
                 pass
+
+        # 4. 兜底:解析失败默认不迭代(避免格式问题误触发)
         return {
             "shouldIterate": False,
-            "reason": "LLM 输出无法解析为 JSON",
+            "reason": f"LLM 输出无法解析为 JSON(前 100 字:{raw[:100]})",
             "expectedImprovements": [],
         }
 
