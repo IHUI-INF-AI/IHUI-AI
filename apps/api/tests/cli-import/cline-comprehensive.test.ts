@@ -133,8 +133,10 @@ describe('cline parser 全参数综合测试', () => {
   // 2. apiProvider vs baseUrl 冲突场景(apiProvider 优先)
   //   注意:与 cursor/windsurf 不同,cline 的 apiFormat 完全由 apiProvider 决定
   // ===========================================================================
-  describe('apiProvider vs baseUrl 冲突(apiProvider 优先)', () => {
-    it('apiProvider=anthropic 但 baseUrl=api.openai.com → 仍 anthropic_messages', async () => {
+  describe('apiProvider vs baseUrl 冲突(2026-07-22 修正后:apiProvider 主导 providerCode)', () => {
+    it('apiProvider=anthropic 但 baseUrl=api.openai.com → apiFormat=anthropic_messages + providerCode=anthropic (一致)', async () => {
+      // 修正前:providerCode=openai(baseUrl 推断),与 apiFormat=anthropic_messages 不一致
+      // 修正后:providerCode=anthropic(apiProvider 主导),与 apiFormat 一致
       const res = await parseCline(
         makeSettings({
           'cline.apiProvider': 'anthropic',
@@ -142,13 +144,12 @@ describe('cline parser 全参数综合测试', () => {
           'cline.openAiBaseUrl': 'https://api.openai.com/v1',
         }),
       )
-      // apiProvider 优先,baseUrl 不影响 apiFormat
       expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
-      // 但 providerCode 仍由 baseUrl 推断
-      expect(res.providers[0]!.providerCode).toBe('openai')
+      expect(res.providers[0]!.providerCode).toBe('anthropic')
     })
 
-    it('apiProvider=openai 但 baseUrl=api.anthropic.com → 仍 openai_chat', async () => {
+    it('apiProvider=openai 但 baseUrl=api.anthropic.com → 仍 openai_chat + providerCode=anthropic (baseUrl 推断)', async () => {
+      // apiProvider=openai 不主导 providerCode(因 openai 兼容多家),用 baseUrl 推断
       const res = await parseCline(
         makeSettings({
           'cline.apiProvider': 'openai',
@@ -157,11 +158,12 @@ describe('cline parser 全参数综合测试', () => {
         }),
       )
       expect(res.providers[0]!.apiFormat).toBe('openai_chat')
-      // providerCode 由 baseUrl 推断 → anthropic
+      // apiProvider=openai → 走 inferProviderCode(baseUrl, apiFormat, model)
+      // baseUrl=anthropic.com → providerCode=anthropic
       expect(res.providers[0]!.providerCode).toBe('anthropic')
     })
 
-    it('apiProvider=gemini 但 baseUrl=api.openai.com → 仍 gemini_native', async () => {
+    it('apiProvider=gemini 但 baseUrl=api.openai.com → 仍 gemini_native + providerCode=google (apiProvider 主导)', async () => {
       const res = await parseCline(
         makeSettings({
           'cline.apiProvider': 'gemini',
@@ -170,9 +172,13 @@ describe('cline parser 全参数综合测试', () => {
         }),
       )
       expect(res.providers[0]!.apiFormat).toBe('gemini_native')
+      // 修正后:apiProvider=gemini → providerCode=google(apiProvider 主导)
+      expect(res.providers[0]!.providerCode).toBe('google')
     })
 
-    it('apiProvider=anthropic 但 baseUrl=googleapis.com → 仍 anthropic_messages + providerCode=google', async () => {
+    it('apiProvider=anthropic 但 baseUrl=googleapis.com → 仍 anthropic_messages + providerCode=anthropic (apiProvider 主导)', async () => {
+      // 修正前:providerCode=google(baseUrl 推断),与 apiFormat=anthropic_messages 不一致
+      // 修正后:providerCode=anthropic(apiProvider 主导),与 apiFormat 一致
       const res = await parseCline(
         makeSettings({
           'cline.apiProvider': 'anthropic',
@@ -181,7 +187,7 @@ describe('cline parser 全参数综合测试', () => {
         }),
       )
       expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
-      expect(res.providers[0]!.providerCode).toBe('google')
+      expect(res.providers[0]!.providerCode).toBe('anthropic')
     })
   })
 
