@@ -228,71 +228,61 @@ const FALLBACK_FUNDING: AiFundingItem[] = [
 
 const FALLBACK_COMPARISON: ComparisonTable = {
   models: [
-    {
-      id: 'gpt-5-6',
-      name: 'GPT-5.6',
-      vendor: 'OpenAI',
-      highlight: 'Sol 旗舰 / Terra 均衡 / Luna 轻量',
-    },
-    { id: 'gemini-3-5', name: 'Gemini 3.5 Pro', vendor: 'Google', highlight: '前端代码生成王者' },
-    {
-      id: 'claude-sonnet-5',
-      name: 'Claude Sonnet 5',
-      vendor: 'Anthropic',
-      highlight: '智能体能力最强',
-    },
-    { id: 'kimi-k3', name: 'Kimi K3', vendor: 'Moonshot', highlight: '2.8 万亿开源' },
+    { id: 'gemini-3-6-flash', name: 'Gemini 3.6 Flash', vendor: 'Google', highlight: '07-21 GA · 成本最低' },
+    { id: 'qwen-3-8', name: 'Qwen3.8-Max', vendor: 'Alibaba', highlight: '2.4T 全模态开源旗舰' },
+    { id: 'kimi-k3', name: 'Kimi K3', vendor: 'Moonshot', highlight: '2.8T 原生视觉理解' },
     { id: 'deepseek-v4', name: 'DeepSeek V4', vendor: 'DeepSeek', highlight: '峰谷定价 + DSpark' },
+    { id: 'gpt-5-6', name: 'GPT-5.6', vendor: 'OpenAI', highlight: 'Sol 旗舰 Coding Index 80' },
   ],
   rows: [
     {
       label: '上下文窗口',
       values: {
-        'gpt-5-6': '1.05M',
-        'gemini-3-5': '2M',
-        'claude-sonnet-5': '1M',
+        'gemini-3-6-flash': '1M',
+        'qwen-3-8': '1M',
         'kimi-k3': '1M',
         'deepseek-v4': '128K',
+        'gpt-5-6': '1.05M',
       },
     },
     {
       label: '最大输出',
       values: {
-        'gpt-5-6': '128K',
-        'gemini-3-5': '64K',
-        'claude-sonnet-5': '64K',
+        'gemini-3-6-flash': '64K',
+        'qwen-3-8': '32K',
         'kimi-k3': '32K',
         'deepseek-v4': '16K',
+        'gpt-5-6': '128K',
       },
     },
     {
       label: '价格 (Input/Output)',
       values: {
-        'gpt-5-6': '$5 / $30',
-        'gemini-3-5': '$3 / $12',
-        'claude-sonnet-5': '$3 / $15',
+        'gemini-3-6-flash': '$0.15 / $0.6',
+        'qwen-3-8': '¥2 / ¥6',
         'kimi-k3': '开源',
         'deepseek-v4': '¥3-6 / ¥6-12',
+        'gpt-5-6': '$5 / $30',
       },
     },
     {
       label: '核心亮点',
       values: {
-        'gpt-5-6': 'Coding Index 80 分',
-        'gemini-3-5': 'SVG 一次生成',
-        'claude-sonnet-5': 'BrowseComp / OSWorld',
+        'gemini-3-6-flash': '知识截止 2026-03 · agent planning',
+        'qwen-3-8': '全模态 · 对手 1/10 价格',
         'kimi-k3': '原生视觉理解',
         'deepseek-v4': 'DSpark 加速 85%',
+        'gpt-5-6': 'Coding Index 80 分',
       },
     },
     {
       label: '发布时间',
       values: {
-        'gpt-5-6': '2026-07-09',
-        'gemini-3-5': '2026-07-17',
-        'claude-sonnet-5': '2026-07-01',
+        'gemini-3-6-flash': '2026-07-21',
+        'qwen-3-8': '2026-07-19',
         'kimi-k3': '2026-07-17',
         'deepseek-v4': '2026-07-17',
+        'gpt-5-6': '2026-07-09',
       },
     },
   ],
@@ -476,24 +466,72 @@ export async function fetchAiFeedItems(
   }
 }
 
-/**
- * 拉取热度排行榜 Top N(对接 /api/ai-feed/hot)。
- * 综合热度排序:有 currentHot 用 currentHot,否则用 currentRank 反推(排名越靠前热度越高)。
- * 拉取 pageSize=limit*5 扩大候选池,客户端排序后取 Top N。
- */
+// aihot API(权威 AI 资讯源,公开匿名可访,数据最新最准)
+// 本地数据库 LLM 分类质量差(ithome 非 AI 内容被误分到 ai-models),不可靠,优先用 aihot
+const AIHOT_API = 'https://aihot.virxact.com/api/public'
+const AIHOT_UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+
+interface AihotItem {
+  id: string
+  title: string
+  url: string
+  source: string
+  publishedAt: string | null
+  summary: string | null
+  category: string | null
+}
+
 export async function fetchAiFeedHot(
   limit = 10,
 ): Promise<Array<{ id: string; title: string; sourceCode: string; currentHot: number | null; currentRank: number | null; url: string | null; llmCategory: string | null }>> {
-  const params = new URLSearchParams({ page: '1', pageSize: String(limit * 5) })
+  // 1. 优先调用 aihot API(精选 AI 模型资讯,按发布时间倒序,最近 7 天)
+  try {
+    const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
+    const url = `${AIHOT_API}/items?mode=selected&category=ai-models&since=${since}&take=${limit * 2}`
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 8000)
+    try {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': AIHOT_UA, Accept: 'application/json' },
+        signal: controller.signal,
+        cache: 'no-store',
+      })
+      if (res.ok) {
+        const json = (await res.json()) as { items?: AihotItem[] }
+        const items = (json.items ?? []).filter((it) => it.title && it.url)
+        if (items.length > 0) {
+          return items.slice(0, limit).map((it) => ({
+            id: `aihot-${it.id}`,
+            title: it.title,
+            sourceCode: 'aihot',
+            currentHot: null,
+            currentRank: null,
+            url: it.url,
+            llmCategory: it.category,
+          }))
+        }
+      }
+    } finally {
+      clearTimeout(timer)
+    }
+  } catch {
+    // 静默 fallback 到本地数据库
+  }
+
+  // 2. Fallback:本地数据库 + category=ai-models 过滤 + 关键词二次过滤(排除 LLM 误分类的非 AI 内容)
+  const params = new URLSearchParams({ page: '1', pageSize: String(limit * 5), category: 'ai-models' })
   const data = await safeApi<{ list: ApiFeedItemRaw[]; total: number }>(
     `/api/ai-feed/hot?${params.toString()}`,
   )
   if (!data?.list) return []
+  // 排除明显非 AI 标题(电影/手机/汽车/微信/广告/法务/雷军等 LLM 误分类)
+  const BLOCK_KEYWORDS = /电影|票房|手机|汽车|销量|运-20|微信|广告|雷军|小米|华为\s*Mate|REDMI|SU7|法务|博主被判|撞测试|澎程|油耗|功夫女足|周星驰|储能|NAS|麒麟\s*90|原神/i
   return data.list
+    .filter((it) => !BLOCK_KEYWORDS.test(it.title))
     .map((it) => {
       const hot = it.currentHot ?? null
       const rank = it.currentRank ?? null
-      // 综合热度分:有 hot 用 hot,否则用 rank 反推(100000 - rank*100,排名 1 ≈ 99900)
       const score = hot !== null && hot > 0 ? hot : rank !== null && rank > 0 ? 100000 - rank * 100 : 0
       return { it, score }
     })
