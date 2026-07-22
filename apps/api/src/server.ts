@@ -208,6 +208,8 @@ import { dramaRoutes } from './routes/drama.js'
 import { distributionRoutes } from './routes/distribution.js'
 // 用户级 LLM 平台配置（每用户独立 API Key + 模板 + 测试连通 + 拉取模型）
 import { userLlmConfigRoutes } from './routes/user-llm-configs.js'
+// 用户级 LLM 平台配置 v2(2026-07-22 立,1:N provider-model,与 v1 并存)
+import { userLlmConfigV2Routes } from './routes/user-llm-configs-v2.js'
 import { cliImportRoutes } from './routes/cli-import.js'
 // 自媒体 skill(公众号文章 + 口播稿,2026-07-20 新增)
 import { selfMediaRoutes } from './routes/self-media-routes.js'
@@ -935,6 +937,9 @@ function registerRoutes(server: FastifyInstance) {
   server.register(distributionRoutes, { prefix: '/api' })
   // 用户级 LLM 平台配置：模板/CRUD/测试/拉取模型（/api/user/llm-configs/*）
   server.register(userLlmConfigRoutes, { prefix: '/api/user' })
+  // 用户级 LLM 配置中心 v2（/api/v2/user/llm-providers/* + llm-groups/*）
+  // 1:N provider-model + group 数据模型，与 v1 路由并存，不破坏现有接口
+  server.register(userLlmConfigV2Routes, { prefix: '/api/v2/user' })
   // CLI 配置导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes)
   // 端点:/api/user/cli-import/{sources,parse-file,parse-payload,commit,preview/:id,history}
   server.register(cliImportRoutes, { prefix: '/api/user' })
