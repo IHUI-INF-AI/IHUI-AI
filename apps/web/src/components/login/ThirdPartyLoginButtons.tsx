@@ -138,7 +138,7 @@ export function ThirdPartyLoginButtons() {
 
   return (
     <>
-      <div className="mt-2 mb-4 flex justify-center text-xs uppercase">
+      <div className="mt-3 mb-4 flex justify-center text-xs uppercase">
         <span className="text-muted-foreground">{t('thirdPartyLogin')}</span>
       </div>
 
