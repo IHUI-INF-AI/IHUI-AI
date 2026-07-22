@@ -4,7 +4,7 @@ import * as React from 'react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { Check, CheckCircle2, ChevronDown, Loader2, Settings, TriangleAlert } from 'lucide-react'
+import { Check, CheckCircle2, ChevronDown, Loader2, Settings, Sparkles, TriangleAlert } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { fetchModels } from '@ihui/api-client'
@@ -27,6 +27,16 @@ export interface ModelOption {
   vendor?: string
   /** 自定义图标 URL(可选,优先于 vendor) */
   iconUrl?: string
+}
+
+/** 智能路由模型选项(2026-07-22 立,对标 Qoder Auto 模型调度)
+ * value='auto' 表示由后端根据任务类型自动选择最优模型,
+ * 在下拉列表中作为独立分组置顶显示 */
+const AUTO_OPTION: ModelOption = {
+  value: 'auto',
+  label: '智能路由',
+  descriptionKey: 'modelAutoRoute',
+  vendor: 'auto',
 }
 
 interface ModelSelectorProps {
@@ -219,6 +229,28 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
             {grouped.length > 0 && (
               <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
             )}
+          </DropdownMenu.Group>
+          {/* 智能路由选项(独立分组,置顶于所有模型分组之前,2026-07-22 立)
+              value='auto' 时后端根据任务类型自动选择最优模型(对标 Qoder Auto 模型调度) */}
+          <DropdownMenu.Group>
+            <DropdownMenu.Item
+              onSelect={() => onChange(AUTO_OPTION.value)}
+              className={cn(
+                'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none',
+                'focus:bg-accent focus:text-accent-foreground',
+                '[&>span]:translate-y-[var(--text-vcenter-offset)]',
+              )}
+            >
+              <Check
+                className={cn('h-4 w-4 shrink-0', value === AUTO_OPTION.value ? 'opacity-100' : 'opacity-0')}
+              />
+              <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate font-medium">{AUTO_OPTION.label}</span>
+                <span className="truncate text-xs text-muted-foreground">自动选择最优模型</span>
+              </div>
+            </DropdownMenu.Item>
+            <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
           </DropdownMenu.Group>
           {grouped.map(([vendor, items]) => (
             <DropdownMenu.Group key={vendor}>
