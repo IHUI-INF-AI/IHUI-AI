@@ -14,6 +14,10 @@
 /**
  * API Key 权限点枚举。
  * 与 /v1/* 对外路由一一对应,新增端点必须同步新增权限点。
+ *
+ * 前端(DeveloperKeyDialog / PermissionSelector)展示全部权限点供用户勾选,
+ * 后端 isValidApiKeyPermission 用于过滤写入防御。部分权限点对应的 /v1/* 端点
+ * 可能尚未实现(前瞻性枚举),不影响契约层类型安全。
  */
 export const API_KEY_PERMISSIONS = [
   /** 读取 Agent 列表/详情:GET /v1/agents, GET /v1/agents/:id */
@@ -26,10 +30,54 @@ export const API_KEY_PERMISSIONS = [
   'chat:write',
   /** 读取模型列表:GET /v1/models */
   'models:read',
+  /** 管理自定义模型:POST/PUT/DELETE /v1/models/* */
+  'models:write',
+  /** 生成 Embedding:POST /v1/embeddings */
+  'embeddings:write',
   /** 读取文件列表/详情:GET /v1/files, GET /v1/files/:id */
   'files:read',
   /** 上传/管理文件:POST /v1/files, DELETE /v1/files/:id */
   'files:write',
+  /** 读取音色列表:GET /v1/audio/voices */
+  'audio:read',
+  /** 语音合成/识别:POST /v1/audio/speech, POST /v1/audio/transcriptions */
+  'audio:write',
+  /** 生成/编辑图片:POST /v1/images/generations, POST /v1/images/edits */
+  'images:write',
+  /** 生成/编排视频:POST /v1/videos/generations */
+  'videos:write',
+  /** 查询视频任务:GET /v1/videos/:id */
+  'videos:read',
+  /** 生成 3D 模型:POST /v1/3d/generations */
+  'threed:write',
+  /** 生成队列入队/查询:POST /v1/generation/queue, GET /v1/generation/queue/:id */
+  'generation:write',
+  /** 读取知识库:GET /v1/knowledge */
+  'knowledge:read',
+  /** 管理知识库:POST/PUT/DELETE /v1/knowledge/* */
+  'knowledge:write',
+  /** 读取工具/资源:GET /v1/tools */
+  'tools:read',
+  /** 调用工具:POST /v1/tools/:id/call */
+  'tools:call',
+  /** 读取记忆:GET /v1/memory */
+  'memory:read',
+  /** 写入记忆:POST/PUT /v1/memory */
+  'memory:write',
+  /** 查询消息状态:GET /v1/messages/:id */
+  'messages:read',
+  /** 发布/订阅消息:POST /v1/messages, WS /v1/messages/subscribe */
+  'messages:write',
+  /** 读取当前用户:GET /v1/user */
+  'user:read',
+  /** 读取工作区:GET /v1/workspace */
+  'workspace:read',
+  /** 读取工作流:GET /v1/workflows */
+  'workflows:read',
+  /** 执行工作流:POST /v1/workflows/:id/execute */
+  'workflows:write',
+  /** 读取使用量统计:GET /v1/stats */
+  'stats:read',
 ] as const
 
 /** 权限点类型(联合类型,编译期枚举校验)。 */
