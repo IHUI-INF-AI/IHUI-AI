@@ -43,9 +43,9 @@
 ## 技术栈
 
 - **API协议** - RESTful API
-- **认证方式** - Bearer Token
+- **认证方式** - API Key（Header），支持 `Authorization: Bearer ihui_xxx` 或 `X-Api-Key: ihui_xxx` 两种方式
 - **数据格式** - JSON
-- **响应格式** - 统一响应结构
+- **字段命名** - camelCase
 
 ## 支持的语言
 
