@@ -6,7 +6,7 @@ on:
     paths:
       - 'apps/web/**'
       - 'packages/**'
-      - 'lighthouserc.json'
+      - 'apps/web/lighthouserc.json'
   workflow_dispatch:
 
 jobs:
@@ -45,7 +45,7 @@ jobs:
       - name: Run Lighthouse CI
         run: |
           npm install -g @lhci/cli@0.13
-          lhci autorun || echo "LHCI warnings treated as non-fatal"
+          lhci autorun --config=apps/web/lighthouserc.json || echo "LHCI warnings treated as non-fatal"
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
 

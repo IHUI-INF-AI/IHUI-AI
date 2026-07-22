@@ -7,7 +7,7 @@
   4. 文件上传类（/api/files/upload）
 
 用法：
-  locust -f locustfile.py --headless \
+  locust -f scripts/locustfile.py --headless \
       --host http://localhost:3000 \
       --users 100 --spawn-rate 10 --run-time 60s
 

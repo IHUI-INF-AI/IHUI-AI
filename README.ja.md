@@ -662,22 +662,18 @@ IHUI-AI/
 │   ├── nginx/               # Nginx リバースプロキシ + ブルーグリーン upstream + SSL/security/rate-limit
 │   ├── scripts/             # deploy.sh / rollback.sh / health-check.sh / backup-db.sh / restore-db.sh / deploy_certs.sh
 │   ├── cron/                # Let's Encrypt 証明書自動更新
+│   ├── docker/              # Dockerfile.api / .web / .cli / .migrate(イメージ構築、context はリポジトリルート)
+│   ├── s3-lifecycle.yml     # S3 オブジェクトストレージライフサイクルルール
 │   └── setup-github-secrets.sh  # GitHub Actions secrets 一括設定
 ├── docs/                    # 9 ドキュメント:architecture / CHANGELOG / CONTRIBUTING / DEPLOYMENT_RUNBOOK / SECURITY / EMAIL_SETUP / I18N / INCIDENTS / README
 ├── monitoring/              # Grafana(20 ダッシュボード)+ Loki + Prometheus + Promtail + otel-collector + Alertmanager
-├── scripts/                 # 17 ゲート + 19 i18n + 11 マイグレーション監査 + 9 PowerShell 起動 + 運用ツール
+├── scripts/                 # 17 ゲート + 19 i18n + 11 マイグレーション監査 + 9 PowerShell 起動 + locustfile.py 負荷テスト + 運用ツール
 ├── server-docs/             # マルチテナント設計ドキュメント(MULTI_TENANT.md)
 ├── .github/workflows/       # 4 CI:build / ci / e2e / knip + GitHub Act ローカル CI
+├── .github/loop-runtime/    # loop-daily-triage CI 実行状態(STATE.md + loop-run-log.md)
 ├── .husky/                  # Git hooks (commit-msg + post-commit + pre-commit + pre-push + post-checkout + post-merge)
 ├── docker-compose.yml       # 14 サービスオーケストレーション(7 業務 + 7 監視)
-├── Dockerfile.api       # バックエンドイメージ(api + worker 共用)
-├── Dockerfile.web       # フロントエンドイメージ(Next.js standalone)
-├── Dockerfile.migrate       # マイグレーション一次性サービスイメージ
-├── locustfile.py            # Locust 負荷テストスクリプト
-├── lighthouserc.json        # Lighthouse CI 性能予算
 ├── knip.jsonc               # Knip 未使用コード検出設定
-├── noise-rules.yml          # Alertmanager ノイズ抑制ルール
-├── s3-lifecycle.yml         # S3 オブジェクトストレージライフサイクルルール
 ├── AGENTS.md                # AI Agent 協作規範(21 節強制ルール)
 ├── PROJECT_PLAN.md          # プロジェクト唯一のタスク計画ドキュメント
 ├── LICENSE                  # Apache 2.0
@@ -991,8 +987,8 @@ LiteLLM ゲートウェイで統一接続、インテリジェントルーティ
 | フロントエンド E2E   | Playwright     | 17 spec ファイル           | `pnpm test:e2e`                  |
 | AI サービス          | pytest         | 13 ファイル、400+ ケース   | `cd apps/ai-service && pytest`   |
 | CLI ユニット         | Vitest         | 13 ファイル                | `pnpm --filter @ihui/cli test`   |
-| 負荷テスト           | Locust         | `locustfile.py`            | `locust -f locustfile.py`        |
-| 性能予算             | Lighthouse CI  | `lighthouserc.json`        | CI 自動実行                      |
+| 負荷テスト           | Locust         | `scripts/locustfile.py`    | `locust -f scripts/locustfile.py` |
+| 性能予算             | Lighthouse CI  | `apps/web/lighthouserc.json` | CI 自動実行                      |
 | 未使用コード         | Knip           | `knip.jsonc` + CI workflow | `pnpm knip`                      |
 | 全量検証             | turbo          | 22 tasks                   | `pnpm turbo typecheck lint test` |
 
@@ -1186,7 +1182,7 @@ pnpm turbo build typecheck lint test
 ### アラート(Alertmanager + noise-rules)
 
 - **Alertmanager**(:9093):アラートルーティング + ノイズ抑制
-- **noise-rules.yml**:アラートノイズ抑制ルール(ルート + monitoring/alertmanager/ の二重同期)
+- **monitoring/alertmanager/noise-rules.yml**:アラートノイズ抑制ルール(単一ソース、旧ルートコピーは統合済み)
 
 ### ヘルスチェック
 

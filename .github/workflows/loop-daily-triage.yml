@@ -5,7 +5,7 @@ name: loop-daily-triage
 # - 代码卫生: TODO/FIXME/XXX 计数
 # - 静态分析: eslint 告警
 # - 依赖健康: npm audit
-# - 写 STATE.md (commit 回分支, 不触发完整 CI)
+# - 写 .github/loop-runtime/STATE.md (commit 回分支, 不触发完整 CI)
 
 on:
   schedule:
@@ -112,6 +112,7 @@ jobs:
         id: verifier
         run: |
           set -e
+          mkdir -p .github/loop-runtime
           ts=$(TZ=Asia/Shanghai date -u +%Y-%m-%dT%H:%M:%S%z)
           trigger="${{ github.event_name }}"
 
@@ -119,8 +120,8 @@ jobs:
           signals=$(cat .loop-tmp/env.json 2>/dev/null || echo '{}')
 
           # 初始化 STATE.md (若不存在)
-          if [ ! -f STATE.md ]; then
-            cat > STATE.md <<'EOF'
+          if [ ! -f .github/loop-runtime/STATE.md ]; then
+            cat > .github/loop-runtime/STATE.md <<'EOF'
           # STATE.md (loop-daily-triage 自动维护)
           last_run: init
           last_status: init
@@ -133,7 +134,7 @@ jobs:
           node -e "
             const fs=require('fs');
             const ts='$ts';const signals=JSON.parse('$signals');
-            let t=fs.readFileSync('STATE.md','utf8');
+            let t=fs.readFileSync('.github/loop-runtime/STATE.md','utf8');
             t=t.replace(/last_run:\s*.*/, 'last_run: '+ts);
             // 判定状态: eslint/tsc/npm 任一非零则 degraded
             const bad=(+signals.eslint_warnings||0)+(+(signals.tsc_errors||0))+(+(signals.npm_high_critical||0));
@@ -146,12 +147,12 @@ jobs:
             } else {
               t=t.replace(/consecutive_degraded:\s*\d+/, 'consecutive_degraded: 0');
             }
-            fs.writeFileSync('STATE.md', t);
+            fs.writeFileSync('.github/loop-runtime/STATE.md', t);
             console.log('status='+status);
           " | tee -a $GITHUB_OUTPUT
 
           # 追加到 loop-run-log.md
-          if [ ! -f loop-run-log.md ]; then echo "# loop-run-log.md" > loop-run-log.md; fi
+          if [ ! -f .github/loop-runtime/loop-run-log.md ]; then echo "# loop-run-log.md" > .github/loop-runtime/loop-run-log.md; fi
           {
             echo ""
             echo "## Run $ts (Asia/Shanghai)"
@@ -160,7 +161,7 @@ jobs:
             echo "- level: L1"
             cat .loop-tmp/env | sed 's/^/- /'
             echo ""
-          } >> loop-run-log.md
+          } >> .github/loop-runtime/loop-run-log.md
 
       # ============================================================
       # 提交 STATE.md / loop-run-log.md
@@ -171,7 +172,7 @@ jobs:
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add STATE.md loop-run-log.md 2>/dev/null || true
+          git add .github/loop-runtime/STATE.md .github/loop-runtime/loop-run-log.md 2>/dev/null || true
           ts=$(TZ=Asia/Shanghai date -u +%Y-%m-%dT%H:%M:%S%z)
           git commit -m "loop: L1 daily-triage @ $ts (report-only)" || echo "nothing to commit"
           git push || echo "push skipped (可能无变更)"
@@ -182,8 +183,8 @@ jobs:
         with:
           name: loop-triage-run
           path: |
-            loop-run-log.md
-            STATE.md
+            .github/loop-runtime/loop-run-log.md
+            .github/loop-runtime/STATE.md
             .loop-tmp/
           if-no-files-found: ignore
 
