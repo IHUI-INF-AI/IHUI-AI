@@ -119,7 +119,7 @@ export function MentionPopover({ open, onSelect, onClose, workspacePath }: Menti
   return (
     <div className="absolute bottom-full left-0 z-popover mb-2 w-64 max-h-72 overflow-hidden rounded-md border border-border bg-popover shadow-md">
       {/* Tab 切换条 */}
-      <div className="flex items-center gap-0.5 border-b border-border/60 px-1 py-1">
+      <div className="flex items-center gap-0.5 bg-muted/40 px-1 py-1">
         {MENTION_TABS.map((tab) => {
           const Icon = tab.icon
           const isActive = activeType === tab.type
@@ -148,7 +148,7 @@ export function MentionPopover({ open, onSelect, onClose, workspacePath }: Menti
         })}
       </div>
       {/* 搜索框 */}
-      <div className="flex items-center gap-2 border-b border-border/60 px-2 py-1.5">
+      <div className="flex items-center gap-2 bg-muted/40 px-2 py-1.5">
         <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <Input
           ref={inputRef}
