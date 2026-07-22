@@ -7,7 +7,7 @@ import {
   countProjects,
   countActiveSessions,
   findUsers,
-  findUserById,
+  findUserByIdAdmin,
   updateUserRole,
   updateUserStatus,
   updateUserDept,
@@ -284,7 +284,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const user = await findUserById(parsed.data.id)
+      const user = await findUserByIdAdmin(parsed.data.id)
       if (!user) {
         return reply.status(404).send(error(404, '用户不存在'))
       }
@@ -360,7 +360,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '系统内置管理员不可修改'))
       }
 
-      const existing = await findUserById(parsedParams.data.id)
+      const existing = await findUserByIdAdmin(parsedParams.data.id)
       if (!existing) {
         return reply.status(404).send(error(404, '用户不存在'))
       }
@@ -621,7 +621,7 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     if (!bodyParsed.success) {
       return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const user = await findUserById(paramParsed.data.id)
+    const user = await findUserByIdAdmin(paramParsed.data.id)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     const passwordHash = await bcrypt.hash(bodyParsed.data.newPassword, 10)
     const { db } = await import('../db/index.js')

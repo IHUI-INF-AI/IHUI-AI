@@ -110,8 +110,9 @@ export async function findUsers(
 
 /**
  * 按 ID 查询用户（不含 password_hash）。
+ * 命名加 Admin 后缀以区分 queries.ts 的 findUserById（含 password_hash）。
  */
-export async function findUserById(id: string): Promise<AdminUser | undefined> {
+export async function findUserByIdAdmin(id: string): Promise<AdminUser | undefined> {
   const rows = await db.select(userPublicFields).from(users).where(eq(users.id, id)).limit(1)
   return rows[0]
 }
