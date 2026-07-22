@@ -1202,9 +1202,6 @@
       "routines": "Routines",
       "folders": "Folders"
     },
-    "openLocalFolder": "Open Local Folder",
-    "openedWorkspace": "Opened Workspace",
-    "reopenPermission": "Reconfigure Permissions",
     "selectWorkspace": "Select Workspace",
     "recentWorkspaces": "Recent Workspaces",
     "folderPicker": {
@@ -25947,6 +25944,38 @@
       "label": "Mega Funding & Acquisitions",
       "title": "Mega Funding & Acquisitions",
       "subtitle": "July 2026 capital moves: SpaceX acquires Cursor for $60B, DeepSeek raises $7B"
+    },
+    "detailDialog": {
+      "arenaScore": "Arena Score",
+      "rank": "Rank",
+      "rankDelta": "Rank Change",
+      "stable": "Stable",
+      "winRate": "Win Rate",
+      "voteCount": "Votes",
+      "contextWindow": "Context Window",
+      "maxOutput": "Max Output",
+      "inputPrice": "Input Price",
+      "outputPrice": "Output Price",
+      "releaseDate": "Release Date",
+      "license": "License",
+      "coreParams": "Core Params",
+      "highlight": "Highlight",
+      "capabilityRadar": "Capability Radar",
+      "noCapabilityData": "No capability data",
+      "officialResources": "Official Resources",
+      "getApiKey": "Get API Key",
+      "officialDocs": "Official Docs",
+      "quickImport": "Quick Import",
+      "noQuickImport": "Quick import not supported"
+    },
+    "apiRelays": {
+      "title": "API Relays",
+      "subtitle": "Mainstream API aggregators + personal relay risk tips, supports one-click import to Provider config",
+      "companyType": "Company Platform",
+      "personalType": "Personal Relay",
+      "import": "Import",
+      "riskTitle": "Risk Warning",
+      "tipsTitle": "Usage Tips"
     },
     "cta": {
       "label": "Bottom CTA",
