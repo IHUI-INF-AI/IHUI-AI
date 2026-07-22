@@ -185,22 +185,27 @@ async def llm_complete(req: LLMCompleteRequest) -> dict[str, Any]:
     # 错误前置返回(P1 错误标准化,2026-07-22 立):
     # 之前 LLM 错误一律 HTTP 200 + result.error:True,网关/监控层无法通过状态码识别失败,
     # 必须在调用方解析 result 字段才能区分成功/失败,影响 ELK/Prometheus 错误率统计。
-    # 现在:错误统一返回 HTTP 4xx + 结构化 {code, message, model} JSON,
-    # 前端 api-client 已具备 HTTP 非 2xx 自动 throw SSEError 的能力(errorCode 字段透传),
-    # 无需改前端即可识别 422/501/502 错误。
-    # SSE 流式端点(/llm/complete/stream)本轮不动:StreamingResponse 一旦开始 yield,
-    # HTTP 状态码已锁定为 200,无法中途变更;流内仍推送 event: error(已有),等下一轮做。
+    # 现在:错误统一返回 HTTP 4xx + 结构化 {errorCode, message, model} JSON,
+    # 前端 api-client streamChat 在 resp.ok=false 时自动 throw SSEError,
+    # attachErrorMeta 从 parsedBody.errorCode 透传到 Error.errorCode,
+    # formatSSEError 按状态码 422/501/502 选 severity → toast。
     if result.get("error"):
         err_msg = str(result.get("error_message") or "LLM 调用失败")
-        if "API key 未配置" in err_msg or "未配置" in err_msg:
-            err_code = "MODEL_NOT_CONFIGURED"
-            status_code = 422
-        elif "NotImplemented" in err_msg:
-            err_code = "PROVIDER_NOT_IMPLEMENTED"
-            status_code = 501
-        else:
-            err_code = "LLM_ERROR"
-            status_code = 502
+        # 优先用 llm_gateway 已分类的 errorCode,兜底重新分类(双保险)
+        err_code = result.get("errorCode")
+        if not err_code:
+            if "API key 未配置" in err_msg or "未配置" in err_msg:
+                err_code = "MODEL_NOT_CONFIGURED"
+            elif "NotImplemented" in err_msg:
+                err_code = "PROVIDER_NOT_IMPLEMENTED"
+            else:
+                err_code = "LLM_ERROR"
+        status_map = {
+            "MODEL_NOT_CONFIGURED": 422,
+            "PROVIDER_NOT_IMPLEMENTED": 501,
+            "LLM_ERROR": 502,
+        }
+        status_code = status_map.get(err_code, 502)
         logger.warning(
             "llm_complete failed: model=%s code=%s status=%d msg=%s",
             req.model, err_code, status_code, err_msg,
@@ -208,7 +213,7 @@ async def llm_complete(req: LLMCompleteRequest) -> dict[str, Any]:
         return JSONResponse(
             status_code=status_code,
             content={
-                "code": err_code,
+                "errorCode": err_code,
                 "message": err_msg,
                 "model": req.model,
             },
@@ -243,14 +248,22 @@ async def list_models() -> dict[str, Any]:
     }
 
 
-@router.post("/llm/complete/stream")
-async def complete_stream(req: LLMCompleteRequest, request: Request) -> StreamingResponse:
+@router.post("/llm/complete/stream", response_model=None)
+async def complete_stream(req: LLMCompleteRequest, request: Request) -> StreamingResponse | JSONResponse:
     """流式 LLM 调用(原生 token 级流式 + SSE event 字段 + 心跳保活)。
 
     事件类型:
     - event: chunk  — 逐 token 内容 {"content": "..."}
     - event: done   — 完成 {"model": ..., "usage": ..., "stub": bool, "metadata": {...}}
-    - event: error  — 错误 {"message": "..."}
+    - event: error  — 错误 {"message": "...", "errorCode": "..."}
+
+    错误标准化(P1 流式配套,2026-07-22 立):
+    - MODEL_NOT_CONFIGURED(api_key 缺失):在返回 StreamingResponse 前做 pre-flight check,
+      直接返回 HTTP 422 + JSON,不进入流(因为 StreamingResponse 一旦开始 yield,
+      HTTP 状态码已锁定 200,无法中途变更)。
+    - PROVIDER_NOT_IMPLEMENTED / LLM_ERROR(运行时错误):无法 pre-flight,仍走流内
+      event: error(含 errorCode 字段),前端 api-client parseStreamLine → attachErrorMeta
+      透传 errorCode 到 Error 对象 → onError 回调。
     """
 
     accumulated: dict[str, Any] = {"content": "", "reasoning": "", "model": req.model, "usage": None, "stub": False}
@@ -261,6 +274,33 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     compaction_info: dict[str, Any] | None = None
     if req.context_limit and req.context_limit > 0:
         messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
+
+    # P1 流式配套 pre-flight check:检测 api_key 缺失(MODEL_NOT_CONFIGURED),
+    # 在返回 StreamingResponse 前直接返回 422 JSON,避免流式开始后只能推 event: error。
+    # stub 模式下无需 api_key(返回模拟响应),跳过 pre-flight。
+    if not llm_gateway._is_stub_mode():
+        try:
+            _api_key, _, _ = await llm_gateway._resolve(req.model, owner_uuid)
+        except Exception as e:
+            logger.warning("stream pre-flight _resolve failed: %s", e)
+            _api_key = None
+        if not _api_key:
+            err_msg = (
+                f"模型 {req.model or settings.litellm_model} 对应的 provider API key 未配置,"
+                f"请在 .env 或 ai_model_config 表中设置"
+            )
+            logger.warning(
+                "stream pre-flight blocked: model=%s code=MODEL_NOT_CONFIGURED",
+                req.model,
+            )
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "errorCode": "MODEL_NOT_CONFIGURED",
+                    "message": err_msg,
+                    "model": req.model,
+                },
+            )
 
     async def gen():
         # 提问标记解析器:检测 LLM 输出中的 [[ASK_USER:JSON]] 标记,转换为结构化 question 事件
@@ -306,7 +346,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         )
                         # complete() 错误检查
                         if complete_result.get("error"):
-                            err_evt = {"type": "error", "message": complete_result.get("error_message", "LLM 调用失败")}
+                            err_evt = {
+                                "type": "error",
+                                "message": complete_result.get("error_message", "LLM 调用失败"),
+                                "errorCode": complete_result.get("errorCode", "LLM_ERROR"),
+                            }
                             yield f"event: error\ndata: {json.dumps(err_evt, ensure_ascii=False)}\n\n"
                             return
 
@@ -562,7 +606,19 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             logger.info("SSE generator cancelled by client disconnect")
             raise
         except Exception as e:
-            err = {"type": "error", "message": str(e)}
+            # 流内运行时错误(PROVIDER_NOT_IMPLEMENTED / LLM_ERROR)无法 pre-flight,
+            # 推送 event: error 含 errorCode,前端 attachErrorMeta 透传到 Error.errorCode
+            err_msg = str(e)
+            err_code = "LLM_ERROR"
+            if "NotImplemented" in err_msg:
+                err_code = "PROVIDER_NOT_IMPLEMENTED"
+            elif "API key 未配置" in err_msg or "未配置" in err_msg:
+                err_code = "MODEL_NOT_CONFIGURED"
+            err = {"type": "error", "message": err_msg, "errorCode": err_code}
+            logger.warning(
+                "stream gen error: model=%s code=%s msg=%s",
+                req.model, err_code, err_msg,
+            )
             yield f"event: error\ndata: {json.dumps(err, ensure_ascii=False)}\n\n"
             return
 
