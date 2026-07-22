@@ -109,8 +109,9 @@ describe('windsurf parser 全参数综合测试', () => {
   // ===========================================================================
   // 2. model 前缀与 baseUrl 冲突
   // ===========================================================================
-  describe('model 前缀与 baseUrl 冲突', () => {
-    it('model=claude-* + openai.com → anthropic_messages (model 优先)', async () => {
+  describe('model 前缀与 baseUrl 冲突(2026-07-22 修正后)', () => {
+    it('model=claude-* + openai.com → apiFormat=openai_chat (URL 优先) + providerCode=anthropic (model 优先)', async () => {
+      // 修正后:apiFormat 由 URL 决定(接入点协议),providerCode 由 model 决定(实际模型归属)
       const res = await parseWindsurf(
         makeSettings({
           'windsurf.ai.apiKey': 'sk-xxx',
@@ -118,10 +119,11 @@ describe('windsurf parser 全参数综合测试', () => {
           'windsurf.ai.model': 'claude-3-opus',
         }),
       )
-      expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
+      expect(res.providers[0]!.apiFormat).toBe('openai_chat')
+      expect(res.providers[0]!.providerCode).toBe('anthropic')
     })
 
-    it('model=gemini-* + openai.com → gemini_native (model 优先)', async () => {
+    it('model=gemini-* + openai.com → apiFormat=openai_chat (URL 优先) + providerCode=google (model 优先)', async () => {
       const res = await parseWindsurf(
         makeSettings({
           'windsurf.ai.apiKey': 'sk-xxx',
@@ -129,7 +131,8 @@ describe('windsurf parser 全参数综合测试', () => {
           'windsurf.ai.model': 'gemini-1.5-pro',
         }),
       )
-      expect(res.providers[0]!.apiFormat).toBe('gemini_native')
+      expect(res.providers[0]!.apiFormat).toBe('openai_chat')
+      expect(res.providers[0]!.providerCode).toBe('google')
     })
 
     it('无 model + anthropic.com → anthropic_messages', async () => {
