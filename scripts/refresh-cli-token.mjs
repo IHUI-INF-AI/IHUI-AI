@@ -57,7 +57,7 @@ function saveSettings(filePath, data) {
 
 /**
  * 用 node:http 发送请求(避免 Node 24 global fetch 在 Windows 上的栈溢出 + IPv6 问题)
- * @param {string} baseUrl  例如 http://127.0.0.1:3001
+ * @param {string} baseUrl  例如 http://127.0.0.1:8802
  * @param {string} pathname 例如 /api/auth/refresh
  * @param {{ method?: string, body?: any, headers?: Record<string,string> }} opts
  * @returns {Promise<{ status: number, body: any }>}

@@ -52,8 +52,8 @@ upstream active_api { server 127.0.0.1:8080 max_fails=3 fail_timeout=30s; }
 Create `upstream-green.conf`:
 
 ```nginx
-upstream active_web { server 127.0.0.1:3001 max_fails=3 fail_timeout=30s; }
-upstream active_api { server 127.0.0.1:8081 max_fails=3 fail_timeout=30s; }
+upstream active_web { server 127.0.0.1:8843 max_fails=3 fail_timeout=30s; }
+upstream active_api { server 127.0.0.1:8844 max_fails=3 fail_timeout=30s; }
 ```
 
 ### 2. Update main config to use include
