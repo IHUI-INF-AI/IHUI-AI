@@ -1,18 +1,18 @@
 .page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-background);
 }
 .user-info {
   display: flex;
   align-items: center;
   padding: 60rpx 32rpx;
-  background: #fff;
+  background: var(--color-card);
 }
 .avatar {
   width: 120rpx;
   height: 120rpx;
   border-radius: 8px;
-  background: #f5f5f5;
+  background: var(--color-background);
 }
 .info {
   margin-left: 24rpx;
@@ -20,13 +20,13 @@
 .name {
   display: block;
   font-size: 32rpx;
-  color: #333;
+  color: var(--color-foreground);
   font-weight: 600;
 }
 .phone {
   display: block;
   font-size: 24rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
   margin-top: 8rpx;
 }
 .menu-group {
@@ -36,11 +36,11 @@
   display: block;
   padding: 0 32rpx 16rpx;
   font-size: 24rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
 }
 .menu {
   margin: 0 24rpx;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 16rpx;
   overflow: hidden;
 }
@@ -49,20 +49,20 @@
   justify-content: space-between;
   align-items: center;
   padding: 32rpx;
-  border-bottom: 2rpx solid #f5f5f5;
+  border-bottom: 2rpx solid var(--color-border);
   font-size: 28rpx;
-  color: #333;
+  color: var(--color-foreground);
 }
 .menu-item:last-child {
   border-bottom: none;
 }
 .arrow {
-  color: #ccc;
+  color: var(--color-muted-foreground);
 }
 .logout {
   margin: 60rpx 32rpx;
-  background: #fff;
-  color: #dd524d;
+  background: var(--color-card);
+  color: var(--color-destructive);
   border-radius: 40rpx;
   font-size: 30rpx;
 }

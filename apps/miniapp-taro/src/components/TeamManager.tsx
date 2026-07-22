@@ -26,16 +26,16 @@ export default function TeamManager({
   onViewDetail,
 }: TeamManagerProps) {
   return (
-    <View className="bg-white mx-3 my-3 rounded-xl overflow-hidden">
-      <View className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-        <Text className="text-sm font-medium text-gray-800">我的团队</Text>
-        <Text className="text-xs text-gray-400">{totalCount ?? members.length} 人</Text>
+    <View className="bg-card mx-3 my-3 rounded-xl overflow-hidden">
+      <View className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <Text className="text-sm font-medium text-foreground">我的团队</Text>
+        <Text className="text-xs text-muted-foreground">{totalCount ?? members.length} 人</Text>
       </View>
 
       <ScrollView scrollY style={{ maxHeight: '40vh' }}>
         {loading ? (
           <View className="py-8 text-center">
-            <Text className="text-sm text-gray-400">加载中...</Text>
+            <Text className="text-sm text-muted-foreground">加载中...</Text>
           </View>
         ) : members.length === 0 ? (
           <EmptyState text="暂无团队成员" />
@@ -43,33 +43,33 @@ export default function TeamManager({
           members.map((member) => (
             <View
               key={member.id}
-              className="flex items-center px-4 py-3 border-b border-gray-50"
+              className="flex items-center px-4 py-3 border-b border-border"
               onClick={() => onViewDetail?.(member)}
             >
               <Avatar src={member.avatar} name={member.name} size="md" />
               <View className="flex-1 ml-3 min-w-0">
                 <View className="flex items-center">
-                  <Text className="text-sm font-medium text-gray-800 truncate">{member.name}</Text>
+                  <Text className="text-sm font-medium text-foreground truncate">{member.name}</Text>
                   {member.level && (
-                    <Text className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-500">
+                    <Text className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
                       L{member.level}
                     </Text>
                   )}
                 </View>
                 {member.joinedAt && (
-                  <Text className="block text-xs text-gray-400 mt-0.5">
+                  <Text className="block text-xs text-muted-foreground mt-0.5">
                     加入于 {member.joinedAt}
                   </Text>
                 )}
               </View>
               <View className="text-right">
                 {member.earnings !== undefined && (
-                  <Text className="block text-sm font-medium text-green-600">
+                  <Text className="block text-sm font-medium text-primary">
                     ¥{member.earnings.toFixed(2)}
                   </Text>
                 )}
                 <Text
-                  className={`text-xs ${member.status === 'active' ? 'text-green-500' : 'text-gray-400'}`}
+                  className={`text-xs ${member.status === 'active' ? 'text-primary' : 'text-muted-foreground'}`}
                 >
                   {member.status === 'active' ? '活跃' : '不活跃'}
                 </Text>
