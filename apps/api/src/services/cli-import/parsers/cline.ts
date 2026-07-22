@@ -31,6 +31,34 @@ function pickApiFormat(apiProvider?: string): CliApiFormat {
   return 'openai_chat'
 }
 
+/**
+ * providerCode 由 apiProvider 主导(2026-07-22 修正)。
+ *
+ * 修正前问题:providerCode = inferProviderCode(baseUrl, apiFormat, model)
+ *   - apiProvider=anthropic + baseUrl=api.openai.com → apiFormat=anthropic_messages
+ *     但 providerCode=openai(apiFormat 与 providerCode 不一致,用户困惑)
+ *
+ * 修正后:
+ *   - apiProvider=anthropic → providerCode=anthropic(与 apiFormat 一致)
+ *   - apiProvider=gemini/google → providerCode=google(与 apiFormat 一致)
+ *   - apiProvider=openai 或其他 → 用 inferProviderCode 兜底(openai 兼容多家,无法从 apiProvider 判断)
+ *   - 无 apiProvider → 用 inferProviderCode 兜底
+ */
+function pickProviderCode(
+  apiProvider: string | undefined,
+  baseUrl: string,
+  apiFormat: CliApiFormat,
+  model: string | undefined,
+): string {
+  if (apiProvider) {
+    const r = apiProvider.toLowerCase()
+    if (r === 'anthropic') return 'anthropic'
+    if (r === 'gemini' || r === 'google') return 'google'
+    // openai 或其他 → 用 baseUrl + model 推断(openai 兼容多家)
+  }
+  return inferProviderCode(baseUrl, apiFormat, model)
+}
+
 export async function parseCline(input: ParserInput): Promise<ParserResult> {
   const text = input.text ?? (input.buffer ? input.buffer.toString('utf8') : '')
   if (!text.trim()) {
@@ -62,7 +90,7 @@ export async function parseCline(input: ParserInput): Promise<ParserResult> {
   const provider: ImportedProvider = {
     sourceId: 'cline-default',
     name: sanitizeProviderName('Cline'),
-    providerCode: inferProviderCode(baseUrl, apiFormat, model),
+    providerCode: pickProviderCode(apiProvider, baseUrl, apiFormat, model),
     baseUrl,
     apiKey,
     apiFormat,
