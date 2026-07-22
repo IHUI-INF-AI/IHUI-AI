@@ -1,8 +1,7 @@
 'use client'
 
 import { Monitor } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
-import { Switch } from '@/components/form'
+import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui'
 
 interface Props {
   t: (k: string) => string
@@ -24,7 +23,7 @@ export function SidebarCard({ t, collapsed, onToggle }: Props) {
           <span className="text-sm text-muted-foreground">
             {collapsed ? t('sidebarCollapsed') : t('sidebarExpanded')}
           </span>
-          <Switch checked={collapsed} onChange={onToggle} />
+          <Switch checked={collapsed} onCheckedChange={onToggle} />
         </div>
       </CardContent>
     </Card>

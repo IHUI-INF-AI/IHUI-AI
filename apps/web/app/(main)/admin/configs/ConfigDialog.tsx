@@ -18,8 +18,9 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
+  Switch,
 } from '@ihui/ui'
-import { Radio, Switch, Textarea } from '@/components/form'
+import { Radio, Textarea } from '@/components/form'
 import { CATEGORIES, TYPES, selectClass } from './helpers'
 import type { Category, CfgType, Config, ConfigForm } from './types'
 
@@ -123,7 +124,7 @@ export function ConfigDialog({
             />
           </div>
           <div className="flex items-center gap-2">
-            <Switch checked={form.isPublic} onChange={(v) => setForm({ ...form, isPublic: v })} />
+            <Switch checked={form.isPublic} onCheckedChange={(v) => setForm({ ...form, isPublic: v })} />
             <span className="text-sm">{t('fieldPublic')}</span>
           </div>
           <DialogFooter>
