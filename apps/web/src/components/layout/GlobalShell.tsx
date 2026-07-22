@@ -13,6 +13,7 @@ import { Button } from '@ihui/ui'
 import { useAiPanelStore, AI_PANEL_DEFAULT_WIDTH } from '@/stores/ai-panel'
 import { useMounted } from '@/hooks/use-mounted'
 import { useAuthStore } from '@/stores/auth'
+import { startAutoRefresh } from '@/lib/tokenUtils'
 
 /**
  * GlobalShell — 真正的全局外壳(2026-07-19 立)
@@ -78,6 +79,24 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
       // localStorage 不可用
     }
   }, [])
+
+  // 页面刷新后:从 cookie 恢复 refreshToken + 按偏好启动自动续期(实现"记住 30 天")
+  React.useEffect(() => {
+    if (!mounted) return
+    const store = useAuthStore.getState()
+    store.hydrateRefreshToken()
+    const { refreshToken, isAuthenticated } = useAuthStore.getState()
+    if (isAuthenticated && refreshToken) {
+      // 读 autoRenew 偏好,决定是否恢复自动续期
+      try {
+        const raw = localStorage.getItem('ihui-login-prefs')
+        const autoRenew = raw ? (JSON.parse(raw).autoRenew ?? true) : true
+        if (autoRenew) startAutoRefresh()
+      } catch {
+        startAutoRefresh()
+      }
+    }
+  }, [mounted])
 
   React.useEffect(() => {
     try {
