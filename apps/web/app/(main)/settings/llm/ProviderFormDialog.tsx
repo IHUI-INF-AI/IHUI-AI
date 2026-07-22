@@ -46,6 +46,8 @@ interface Props {
   templates: PlatformTemplate[]
   /** 用户已存在的分组(供下拉选择) */
   existingGroups: { group: string; groupLabel: string }[]
+  /** 从外部预填(如排行榜一键导入),仅新建时生效 */
+  prefill?: Partial<ProviderFormState> | null
   onClose: () => void
   onSaved: () => void
 }
@@ -55,6 +57,7 @@ export function ProviderFormDialog({
   provider,
   templates,
   existingGroups,
+  prefill,
   onClose,
   onSaved,
 }: Props) {
@@ -65,6 +68,14 @@ export function ProviderFormDialog({
     if (open) {
       if (provider) {
         setForm(providerToForm(provider, provider.providerCode))
+      } else if (prefill) {
+        // 外部预填(如排行榜一键导入):覆盖默认表单
+        setForm({
+          ...EMPTY_PROVIDER_FORM,
+          ...prefill,
+          id: null,
+          apiKey: '',
+        })
       } else {
         const tpl = templates[0]
         setForm({
@@ -75,7 +86,7 @@ export function ProviderFormDialog({
         })
       }
     }
-  }, [open, provider, templates])
+  }, [open, provider, prefill, templates])
 
   const saveMut = useMutation({
     mutationFn: async (f: ProviderFormState) => {
