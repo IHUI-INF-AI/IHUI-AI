@@ -1,0 +1,65 @@
+# OpenTelemetry Collector 配置(2026-07-22 立)
+# 接收 OTLP → 处理(batch/内存限制)→ 导出到 Jaeger + Prometheus
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # 内存限制(防 OOM)
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+  # 批量处理(提高导出效率)
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # 资源属性增强(自动标注服务名)
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: development
+        action: upsert
+
+exporters:
+  # 导出到 Jaeger(OTLP 格式)
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  # 导出到 Prometheus(metrics)
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: ihui
+
+  # 日志(调试用)
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    # Trace 管道:OTLP 接收 → 内存+批量 → Jaeger
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp/jaeger, debug]
+
+    # Metrics 管道:OTLP 接收 → 内存+批量 → Prometheus
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus, debug]
+
+  # Collector 自身指标
+  telemetry:
+    metrics:
+      address: 0.0.0.0:8888
