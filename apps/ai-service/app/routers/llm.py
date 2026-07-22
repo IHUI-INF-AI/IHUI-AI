@@ -6,7 +6,7 @@
 - 请求可选携带 metadata(dict)和 callback_url(str)
 - metadata 透传到 done 事件,用于调用方关联会话/消息
 - 若提供 callback_url,推理完成后异步 POST 完整结果到该 URL
-- callback_url 默认值由 config.api_service_url 构造(如 http://api:8080/api/ai/callback)
+- callback_url 默认值由 config.api_service_url 构造(如 http://api:8802/api/ai/callback)
 """
 
 import asyncio
