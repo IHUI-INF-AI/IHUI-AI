@@ -207,7 +207,7 @@
 2. 查看 api 日志 (最近 200 行)
    docker-compose logs --tail=200 api
 3. 检查健康检查
-   curl http://localhost:8080/api/health
+   curl http://localhost:8802/api/health
 4. 若容器 OOM 或异常退出 → 重启
    docker-compose restart api
 5. 若 QPS 过高 → 扩容

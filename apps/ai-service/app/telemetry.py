@@ -58,7 +58,7 @@ def init_telemetry() -> Any | None:
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-    endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4318")
+    endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:8813")
     service_name = os.environ.get("OTEL_SERVICE_NAME", "@ihui/ai-service")
 
     resource = Resource.create(
