@@ -9,7 +9,7 @@ import { useTagsViewStore } from '@/stores/tags-view'
  * 关闭标签 / closeOther / closeAll 会自动清理脏状态,无需手动解绑。
  *
  * 用法:
- *   useTagDirty('/settings/profile', form.dirty)
+ *   useTagDirty('/user/profile', form.dirty)
  */
 export function useTagDirty(path: string, dirty: boolean): void {
   const setDirty = useTagsViewStore((s) => s.setDirty)

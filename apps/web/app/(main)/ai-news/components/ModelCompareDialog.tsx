@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 import type { LeaderboardEntry, ModelCapabilities } from '@/lib/ai-news-api'
-import { parseNumeric } from './Leaderboard'
+import { parseNumeric } from './text-utils'
 import { PriceChart } from './PriceChart'
 
 interface Props {
