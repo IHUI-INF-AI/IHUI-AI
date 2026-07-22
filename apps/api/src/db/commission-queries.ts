@@ -11,7 +11,7 @@ import {
   type CommissionFlow,
   type WithdrawalFlow,
 } from '@ihui/database'
-import { withAudit } from '../utils/audit.js'
+import { withAudit, withAuditBoth } from '../utils/audit.js'
 
 // ============================================================================
 // Token 钱包
@@ -192,7 +192,7 @@ export async function commissionSummary(beneficiaryId: string, windowDays = 7) {
 
 /**
  * 记录佣金流水。
- * @param operatorId 操作者 userId(用于 updatedBy 审计)。route handler 传 request.userId ?? null;系统自动分佣传 null。
+ * @param operatorId 操作者 userId(用于 createdBy + updatedBy 审计)。route handler 传 request.userId ?? null;系统自动分佣传 null。
  */
 export async function createCommissionFlow(
   input: {
@@ -208,7 +208,7 @@ export async function createCommissionFlow(
 ): Promise<CommissionFlow> {
   const [flow] = await db
     .insert(commissionFlows)
-    .values(withAudit({
+    .values(withAuditBoth({
       beneficiaryId: input.beneficiaryId,
       invitedUserId: input.invitedUserId,
       orderId: input.orderId,
@@ -257,7 +257,7 @@ export async function getActiveProportion() {
 
 /**
  * 申请提现。
- * @param operatorId 操作者 userId(用于 updatedBy 审计)。route handler 传 request.userId ?? null。
+ * @param operatorId 操作者 userId(用于 createdBy + updatedBy 审计)。route handler 传 request.userId ?? null。
  */
 export async function applyWithdrawal(
   input: {
@@ -272,7 +272,7 @@ export async function applyWithdrawal(
   const actualAmount = input.amount - fee
   const [flow] = await db
     .insert(withdrawalFlows)
-    .values(withAudit({
+    .values(withAuditBoth({
       userId: input.userId,
       amount: actualAmount,
       fee,
