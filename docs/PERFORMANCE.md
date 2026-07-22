@@ -58,7 +58,7 @@
 |------|---------|---------------------|
 | API 连接池 | `min(并发用户数 × 0.3, 50)` | 300 连接需求,池 50,依赖排队 |
 | Redis 内存 | `(活跃会话数 × 2KB) + (热点缓存键数 × 平均 value 大小)` | 10 万会话 ≈ 200MB |
-| PostgreSQL 连接 | `max(API 实例数 × pool_size, 20)` | 2 实例 × 25 = 50,触发读副本分流 |
+| PostgreSQL 连接 | `max(API 实例数 × pool_size, 20)` | 2 实例 × 10 = 20,触发读副本分流 |
 | AI 服务并发流 | `min(LLM 上游 QPS 限额, CPU 核数 × 4)` | 4C → 16 并发流(超出排队) |
 | WebSocket 连接 | `活跃用户数 × 在线率(0.3)` | 1 万用户 × 0.3 = 3000 WS 连接/实例 |
 
@@ -135,7 +135,7 @@
 
 | 参数 | 推荐值 | 说明 |
 |------|--------|------|
-| `max` | 25 | 单 API 实例连接池上限(2 实例 = 50,匹配 DB `max_connections`) |
+| `max` | 10 | 单 API 实例连接池上限(2 实例 = 20,匹配 DB `max_connections`;`packages/database/src/client.ts` 默认值) |
 | `idle_timeout` | 30s | 空闲连接回收 |
 | `connection_timeout` | 5s | 排队等待上限,超时返回 503 |
 | `max_lifetime` | 30min | 防止长连接累积 PostgreSQL 端 prepared statement |
