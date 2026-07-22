@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ExternalLink, Zap, Building2, User, AlertTriangle, Lightbulb, Search } from 'lucide-react'
+import { ExternalLink, Zap, Building2, User, AlertTriangle, Lightbulb, Search, ArrowUp, ArrowDown } from 'lucide-react'
 import { COMPANY_RELAYS, PERSONAL_RELAY_NOTE } from './api-relays'
 import { encodePrefill } from './vendor-platforms'
 
@@ -18,6 +18,10 @@ function useUniqueVendors(): string[] {
 
 /** 计费模式分类(从 billing 自由文本提取) */
 type BillingMode = 'token' | 'gpu' | 'free' | 'subscription'
+
+/** 排序字段 */
+type RelaySortField = 'name' | 'billing'
+type RelaySortDir = 'asc' | 'desc'
 
 const BILLING_FILTERS: Array<{ key: BillingMode | 'all'; labelKey: string }> = [
   { key: 'all', labelKey: 'allBilling' },
@@ -46,11 +50,13 @@ export function ApiRelaysSection() {
   const [query, setQuery] = React.useState('')
   const [activeVendor, setActiveVendor] = React.useState<string | null>(null)
   const [activeBilling, setActiveBilling] = React.useState<BillingMode | 'all'>('all')
+  const [sortField, setSortField] = React.useState<RelaySortField>('name')
+  const [sortDir, setSortDir] = React.useState<RelaySortDir>('asc')
   const allVendors = useUniqueVendors()
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase()
-    return COMPANY_RELAYS.filter((r) => {
+    const list = COMPANY_RELAYS.filter((r) => {
       if (q) {
         const hit =
           r.name.toLowerCase().includes(q) ||
@@ -63,7 +69,24 @@ export function ApiRelaysSection() {
       if (activeBilling !== 'all' && !matchBillingMode(r.billing, activeBilling)) return false
       return true
     })
-  }, [query, activeVendor, activeBilling])
+    // 排序:在筛选之后执行(先筛后排)
+    const dir = sortDir === 'asc' ? 1 : -1
+    list.sort((a, b) => {
+      if (sortField === 'name') return a.name.localeCompare(b.name) * dir
+      return a.billing.localeCompare(b.billing) * dir
+    })
+    return list
+  }, [query, activeVendor, activeBilling, sortField, sortDir])
+
+  /** 切换排序:同字段切方向,不同字段切字段并默认升序 */
+  function toggleRelaySort(field: RelaySortField) {
+    if (field === sortField) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortDir('asc')
+    }
+  }
 
   // 每个计费模式下的平台数量
   const billingCounts = React.useMemo(() => {
@@ -171,6 +194,38 @@ export function ApiRelaysSection() {
                   </span>
                 </button>
               ))}
+            </div>
+            {/* 排序 */}
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="text-[10px] text-muted-foreground/70">{t('sortLabel')}:</span>
+              <button
+                type="button"
+                onClick={() => toggleRelaySort('name')}
+                className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                  sortField === 'name'
+                    ? 'bg-foreground text-background'
+                    : 'bg-muted text-muted-foreground hover:bg-accent'
+                }`}
+              >
+                {t('sortByName')}
+                {sortField === 'name' ? (
+                  sortDir === 'asc' ? <ArrowUp className="h-2 w-2" /> : <ArrowDown className="h-2 w-2" />
+                ) : null}
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleRelaySort('billing')}
+                className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                  sortField === 'billing'
+                    ? 'bg-foreground text-background'
+                    : 'bg-muted text-muted-foreground hover:bg-accent'
+                }`}
+              >
+                {t('sortByBilling')}
+                {sortField === 'billing' ? (
+                  sortDir === 'asc' ? <ArrowUp className="h-2 w-2" /> : <ArrowDown className="h-2 w-2" />
+                ) : null}
+              </button>
             </div>
             <p className="text-[10px] text-muted-foreground/80">
               {t('resultCount', { count: filtered.length, total: COMPANY_RELAYS.length })}
