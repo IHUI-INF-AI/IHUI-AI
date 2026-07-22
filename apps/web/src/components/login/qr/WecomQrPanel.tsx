@@ -24,7 +24,7 @@ export function WecomQrPanel({ refreshKey }: WecomQrPanelProps) {
   React.useEffect(() => {
     const container = containerRef.current
     const config = getPlatformConfig('enterpriseWechat')
-    if (!config.enabled || !config.appId || !config.agentId || !config.redirectUri) {
+    if (!config.enabled || !config.appId || !config.agentId) {
       setStatus('unconfigured')
       return
     }
@@ -34,6 +34,9 @@ export function WecomQrPanel({ refreshKey }: WecomQrPanelProps) {
 
     const state = generateState()
     saveOAuthState('enterpriseWechat', state)
+
+    // redirect_uri 必须与当前访问域名+端口一致,否则企业微信校验失败报"redirect_uri 参数错误"
+    const redirectUri = `${window.location.origin}/callback?platform=enterpriseWechat`
 
     loadWecomQrSdk()
       .then(() => {
@@ -47,7 +50,7 @@ export function WecomQrPanel({ refreshKey }: WecomQrPanelProps) {
             id: containerId,
             appid: config.appId!,
             agentid: config.agentId!,
-            redirect_uri: config.redirectUri,
+            redirect_uri: redirectUri,
             state,
             lang: 'zh',
           })
