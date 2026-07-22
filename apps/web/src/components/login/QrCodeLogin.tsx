@@ -4,10 +4,11 @@ import * as React from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Loader2, RefreshCw, CheckCircle2, XCircle, Clock } from 'lucide-react'
+import { Loader2, RefreshCw, CheckCircle2, XCircle, Clock, Check } from 'lucide-react'
 
 import { Button } from '@ihui/ui'
 import { useAuthStore } from '@/stores/auth'
+import { loadLocalLoginPrefs, saveLocalLoginPrefs } from '@/lib/login-preferences'
 
 type QrStatus = 'pending' | 'scanned' | 'confirming' | 'success' | 'failed' | 'expired'
 
@@ -31,6 +32,7 @@ export function QrCodeLogin({ onSwitchMethod }: { onSwitchMethod?: () => void })
   const [status, setStatus] = React.useState<QrStatus>('pending')
   const [loading, setLoading] = React.useState(true)
   const [countdown, setCountdown] = React.useState(120)
+  const [autoLogin, setAutoLogin] = React.useState(loadLocalLoginPrefs().autoLogin)
 
   const generate = React.useCallback(async () => {
     setLoading(true)
@@ -145,11 +147,44 @@ export function QrCodeLogin({ onSwitchMethod }: { onSwitchMethod?: () => void })
         {status === 'confirming' && <Loader2 className="h-4 w-4 animate-spin" />}
       </div>
 
+      <div className="flex justify-center">
+        <MiniCheckbox
+          checked={autoLogin}
+          onChange={(v) => {
+            setAutoLogin(v)
+            saveLocalLoginPrefs({ autoLogin: v })
+          }}
+          label={t('autoLogin')}
+        />
+      </div>
+
       {onSwitchMethod && (
         <Button type="button" variant="link" size="sm" onClick={onSwitchMethod}>
           {t('qrSwitchMethod')}
         </Button>
       )}
     </div>
+  )
+}
+
+function MiniCheckbox({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <label className="group flex cursor-pointer items-center gap-2 select-none">
+      <span
+        onClick={(e) => { e.preventDefault(); onChange(!checked) }}
+        className={[
+          'flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border transition-all duration-200',
+          checked ? 'border-primary bg-primary text-primary-foreground' : 'border-input bg-background group-hover:border-foreground/60',
+        ].join(' ')}
+        role="checkbox"
+        aria-checked={checked}
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onChange(!checked) } }}
+      >
+        {checked && <Check className="h-3 w-3" strokeWidth={3} />}
+      </span>
+      <input type="checkbox" className="sr-only" tabIndex={-1} checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="text-xs leading-5 text-muted-foreground">{label}</span>
+    </label>
   )
 }
