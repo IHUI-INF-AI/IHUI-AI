@@ -39,6 +39,7 @@ export const plans = pgTable('plans', {
  * user_id 可空：用户删除时保留订单财务凭证，userId 置 NULL；plan_id 默认 NO ACTION（有订单时禁止删除方案）。
  * orderType: 1=membership 2=token 3=activity 4=identity（0=未分类）。
  * G10:补 updatedBy 字段(审计追溯,用户删除时 SET NULL)
+ * G13:补 createdBy 字段(创建者审计,与 updatedBy 区分)
  */
 export const orders = pgTable('orders', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -53,6 +54,7 @@ export const orders = pgTable('orders', {
   productId: varchar('product_id', { length: 64 }),
   paidAt: timestamp('paid_at', { withTimezone: true }),
   expiresAt: timestamp('expires_at', { withTimezone: true }),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
   updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
