@@ -1,5 +1,6 @@
 'use client'
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { cn } from '@/lib/utils'
 import {
@@ -17,8 +18,8 @@ interface SearchResult {
 
 type FileType = 'all' | 'tsx' | 'ts' | 'css' | 'json'
 
-const FILE_TYPE_FILTERS: { id: FileType; label: string; icon: typeof FileCode }[] = [
-  { id: 'all', label: '全部', icon: FileText },
+const FILE_TYPE_FILTERS: { id: FileType; labelKey?: string; label?: string; icon: typeof FileCode }[] = [
+  { id: 'all', labelKey: 'searchPanel.filterAll', icon: FileText },
   { id: 'tsx', label: 'TSX', icon: FileCode },
   { id: 'ts', label: 'TS', icon: FileCode },
   { id: 'css', label: 'CSS', icon: Hash },
@@ -48,6 +49,7 @@ function groupByFile(results: SearchResult[]): Map<string, SearchResult[]> {
 }
 
 export function SearchPanel() {
+  const t = useTranslations('ide')
   const { activeView } = useIDEWorkspace()
   const [query, setQuery] = React.useState('')
   const [replaceValue, setReplaceValue] = React.useState('')
@@ -93,7 +95,7 @@ export function SearchPanel() {
         <button
           onClick={() => setShowReplace(!showReplace)}
           className="rounded p-1 text-muted-foreground hover:bg-muted/50"
-          aria-label="切换替换"
+          aria-label={t('searchPanel.toggleReplace')}
         >
           <ChevronRight className={cn('h-3 w-3 transition-transform', showReplace && 'rotate-90')} />
         </button>
@@ -103,17 +105,17 @@ export function SearchPanel() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="搜索"
+            placeholder={t('searchPanel.searchPlaceholder')}
             className="w-full rounded-md border border-border bg-background py-1 pl-7 pr-2 text-xs focus:outline-none"
           />
         </div>
-        <button onClick={() => setCaseSensitive(!caseSensitive)} className={toggleBtn(caseSensitive)} aria-label="区分大小写">
+        <button onClick={() => setCaseSensitive(!caseSensitive)} className={toggleBtn(caseSensitive)} aria-label={t('searchPanel.caseSensitive')}>
           <CaseSensitive className="h-3.5 w-3.5" />
         </button>
-        <button onClick={() => setWholeWord(!wholeWord)} className={toggleBtn(wholeWord)} aria-label="全词匹配">
+        <button onClick={() => setWholeWord(!wholeWord)} className={toggleBtn(wholeWord)} aria-label={t('searchPanel.wholeWord')}>
           <WholeWord className="h-3.5 w-3.5" />
         </button>
-        <button onClick={() => setUseRegex(!useRegex)} className={toggleBtn(useRegex)} aria-label="正则表达式">
+        <button onClick={() => setUseRegex(!useRegex)} className={toggleBtn(useRegex)} aria-label={t('searchPanel.useRegex')}>
           <Regex className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -125,14 +127,14 @@ export function SearchPanel() {
             <input
               value={replaceValue}
               onChange={(e) => setReplaceValue(e.target.value)}
-              placeholder="替换"
+              placeholder={t('searchPanel.replacePlaceholder')}
               className="w-full rounded-md border border-border bg-background py-1 pl-7 pr-2 text-xs focus:outline-none"
             />
           </div>
-          <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" aria-label="替换">
+          <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" aria-label={t('searchPanel.replace')}>
             <Replace className="h-3.5 w-3.5" />
           </button>
-          <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" aria-label="全部替换">
+          <button className="rounded p-1 text-muted-foreground hover:bg-muted/50" aria-label={t('searchPanel.replaceAll')}>
             <ReplaceAll className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -151,7 +153,7 @@ export function SearchPanel() {
               )}
             >
               <Icon className="h-3 w-3" />
-              <span>{f.label}</span>
+              <span>{f.labelKey ? t(f.labelKey) : f.label}</span>
             </button>
           )
         })}
@@ -161,7 +163,7 @@ export function SearchPanel() {
         {query && totalMatches > 0 ? (
           <div className="px-2 py-1">
             <div className="mb-1 text-xs text-muted-foreground">
-              {totalMatches} 个结果 · {fileCount} 个文件
+              {t('searchPanel.resultSummary', { matches: totalMatches, files: fileCount })}
             </div>
             {Array.from(grouped.entries()).map(([filename, items]) => {
               const collapsed = collapsedFiles.has(filename)
@@ -194,12 +196,12 @@ export function SearchPanel() {
             })}
           </div>
         ) : query ? (
-          <div className="px-3 py-2 text-xs text-muted-foreground">未找到结果</div>
+          <div className="px-3 py-2 text-xs text-muted-foreground">{t('searchPanel.noResults')}</div>
         ) : history.length > 0 ? (
           <div className="px-2 py-1">
             <div className="mb-1 flex items-center gap-1 px-1 text-xs text-muted-foreground">
               <History className="h-3 w-3" />
-              <span>最近搜索</span>
+              <span>{t('searchPanel.recentSearches')}</span>
             </div>
             {history.map((h, i) => (
               <div
@@ -213,7 +215,7 @@ export function SearchPanel() {
                 <button
                   onClick={() => setHistory((prev) => prev.filter((_, idx) => idx !== i))}
                   className="text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100"
-                  aria-label="移除"
+                  aria-label={t('searchPanel.remove')}
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -221,7 +223,7 @@ export function SearchPanel() {
             ))}
           </div>
         ) : (
-          <div className="px-3 py-2 text-xs text-muted-foreground">输入关键词搜索</div>
+          <div className="px-3 py-2 text-xs text-muted-foreground">{t('searchPanel.inputHint')}</div>
         )}
       </div>
     </div>

@@ -28172,5 +28172,26 @@
       "sync": "Sync",
       "toggleTheme": "Toggle theme"
     }
+  },
+  "workPanel": {
+    "back": "Back",
+    "forward": "Forward",
+    "reload": "Reload",
+    "stop": "Stop",
+    "addressPlaceholder": "Enter URL or search...",
+    "favorite": "Add to favorites",
+    "unfavorite": "Remove from favorites",
+    "favoritesAndHistory": "Favorites & History",
+    "openExternal": "Open in external browser",
+    "closePanel": "Close panel",
+    "newTab": "New tab",
+    "removeFavorite": "Remove favorite",
+    "tabFavorites": "Favorites",
+    "tabHistory": "History",
+    "emptyFavorites": "No favorites yet",
+    "emptyHistory": "No history yet",
+    "clearHistory": "Clear history",
+    "dragInsertBefore": "Insert before here",
+    "dragInsertAfter": "Insert after here"
   }
 }

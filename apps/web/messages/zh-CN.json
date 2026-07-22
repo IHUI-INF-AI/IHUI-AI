@@ -28141,5 +28141,26 @@
       "sync": "同步",
       "toggleTheme": "切换主题"
     }
+  },
+  "workPanel": {
+    "back": "后退",
+    "forward": "前进",
+    "reload": "刷新",
+    "stop": "停止",
+    "addressPlaceholder": "输入网址或搜索...",
+    "favorite": "添加收藏",
+    "unfavorite": "取消收藏",
+    "favoritesAndHistory": "收藏和历史",
+    "openExternal": "在外部浏览器打开",
+    "closePanel": "关闭面板",
+    "newTab": "新建标签页",
+    "removeFavorite": "移除收藏",
+    "tabFavorites": "收藏",
+    "tabHistory": "历史",
+    "emptyFavorites": "暂无收藏",
+    "emptyHistory": "暂无历史",
+    "clearHistory": "清空历史",
+    "dragInsertBefore": "在此处之前插入",
+    "dragInsertAfter": "在此处之后插入"
   }
 }

@@ -1,45 +1,49 @@
 'use client'
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import type { IDETabType } from '@ihui/types'
 import { ChevronDown, FileText, Terminal, Globe, GitCompare, Figma, Bot, Settings, Plug, Plus, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type OptionItem = { id: IDETabType; icon: typeof FileText; label: string; shortcut: string }
-type OptionGroup = { title: string; items: OptionItem[] }
+type OptionItem = { id: IDETabType; icon: typeof FileText; labelKey?: string; label?: string; shortcut: string }
+type OptionGroup = { titleKey: string; items: OptionItem[] }
 
 const TAB_GROUPS: OptionGroup[] = [
   {
-    title: '视图',
+    titleKey: 'viewSwitcher.groupView',
     items: [
-      { id: 'document', icon: FileText, label: '文档', shortcut: 'Ctrl+1' },
-      { id: 'browser', icon: Globe, label: '浏览器', shortcut: 'Ctrl+2' },
+      { id: 'document', icon: FileText, labelKey: 'topBar.document', shortcut: 'Ctrl+1' },
+      { id: 'browser', icon: Globe, labelKey: 'topBar.browser', shortcut: 'Ctrl+2' },
       { id: 'figma', icon: Figma, label: 'Figma', shortcut: 'Ctrl+3' },
     ],
   },
   {
-    title: '工具',
+    titleKey: 'viewSwitcher.groupTools',
     items: [
-      { id: 'terminal', icon: Terminal, label: '终端', shortcut: 'Ctrl+`' },
-      { id: 'code-changes', icon: GitCompare, label: '代码变更', shortcut: 'Ctrl+4' },
-      { id: 'agent', icon: Bot, label: '智能体', shortcut: 'Ctrl+5' },
+      { id: 'terminal', icon: Terminal, labelKey: 'topBar.terminal', shortcut: 'Ctrl+`' },
+      { id: 'code-changes', icon: GitCompare, labelKey: 'topBar.codeChanges', shortcut: 'Ctrl+4' },
+      { id: 'agent', icon: Bot, labelKey: 'topBar.agent', shortcut: 'Ctrl+5' },
       { id: 'mcp', icon: Plug, label: 'MCP', shortcut: 'Ctrl+6' },
     ],
   },
   {
-    title: '设置',
+    titleKey: 'viewSwitcher.groupSettings',
     items: [
-      { id: 'settings', icon: Settings, label: '设置', shortcut: 'Ctrl+,' },
+      { id: 'settings', icon: Settings, labelKey: 'topBar.settings', shortcut: 'Ctrl+,' },
     ],
   },
 ]
 
 export function ViewSwitcher() {
+  const t = useTranslations('ide')
   const { activeTopTab, setActiveTopTab } = useIDEWorkspace()
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
   const ref = React.useRef<HTMLDivElement>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
+
+  const itemLabel = (item: OptionItem) => (item.labelKey ? t(item.labelKey) : item.label ?? '')
 
   React.useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -63,10 +67,11 @@ export function ViewSwitcher() {
       .map((g) => ({
         ...g,
         items: g.items.filter(
-          (i) => i.label.toLowerCase().includes(q) || i.id.toLowerCase().includes(q),
+          (i) => itemLabel(i).toLowerCase().includes(q) || i.id.toLowerCase().includes(q),
         ),
       }))
       .filter((g) => g.items.length > 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query])
 
   return (
@@ -87,18 +92,18 @@ export function ViewSwitcher() {
                 ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="搜索视图..."
+                placeholder={t('viewSwitcher.searchPlaceholder')}
                 className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
               />
             </div>
           </div>
           {filteredGroups.length === 0 ? (
-            <div className="px-3 py-3 text-center text-xs text-muted-foreground">无匹配项</div>
+            <div className="px-3 py-3 text-center text-xs text-muted-foreground">{t('viewSwitcher.noMatch')}</div>
           ) : (
             filteredGroups.map((group) => (
-              <div key={group.title} className="px-1 pb-1 pt-1">
+              <div key={group.titleKey} className="px-1 pb-1 pt-1">
                 <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {group.title}
+                  {t(group.titleKey)}
                 </div>
                 {group.items.map((opt) => (
                   <button
@@ -112,7 +117,7 @@ export function ViewSwitcher() {
                     )}
                   >
                     <opt.icon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="flex-1 text-left">{opt.label}</span>
+                    <span className="flex-1 text-left">{itemLabel(opt)}</span>
                     <span className="text-[10px] text-muted-foreground/80">{opt.shortcut}</span>
                   </button>
                 ))}
