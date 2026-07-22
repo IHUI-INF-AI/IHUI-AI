@@ -459,14 +459,32 @@ async function registerPlugins(server: FastifyInstance) {
     timeWindow: '1 minute',
   })
   await server.register(underPressure, { maxEventLoopDelay: 1000 })
-  // 2026-07-21 安全审计第十轮加固:Swagger / OpenAPI 文档仅在显式启用时暴露
+  // Swagger / OpenAPI 文档:开发环境默认开放,生产环境需 SWAGGER_ENABLED=true
   // 原因:Swagger 暴露全部 API 路由 + schema + 参数 + 返回类型,等同内部 API 文档
-  // 攻击者可基于此快速枚举端点构造攻击载荷(尤其 admin 路由)
-  // 生产环境必须 SWAGGER_ENABLED=true 才挂载 /docs(默认 false)
-  if (config.SWAGGER_ENABLED) {
+  // 开发环境默认开放便于联调;生产环境必须 SWAGGER_ENABLED=true 才挂载 /docs(默认 false)
+  const swaggerEnabled = config.SWAGGER_ENABLED || process.env.NODE_ENV !== 'production'
+  if (swaggerEnabled) {
     await server.register(swagger, {
       openapi: {
-        info: { title: 'IHUI AI API', version: '1.0.0' },
+        info: {
+          title: 'IHUI AI API',
+          description: 'IHUI AI 平台 API 文档 — 对外公开 API(v1)+ 内部 API',
+          version: '1.0.0',
+        },
+        servers: [
+          { url: '/api', description: 'API 网关' },
+        ],
+        tags: [
+          { name: 'Agents', description: 'Agent 管理与调用' },
+          { name: 'Chat', description: '聊天补全(OpenAI 兼容)' },
+          { name: 'Models', description: '模型列表' },
+          { name: 'Files', description: '文件管理' },
+          { name: 'AI Core', description: 'AI 核心能力(嵌入/视觉/MOA)' },
+          { name: 'Multimodal', description: '多模态(图片/视频生成)' },
+          { name: 'Knowledge', description: '知识库工具' },
+          { name: 'Debug', description: 'DAP 调试器' },
+          { name: 'Terminal', description: '终端 PTY 管理' },
+        ],
       },
     })
     await server.register(swaggerUi, { routePrefix: '/docs' })
