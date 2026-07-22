@@ -946,7 +946,7 @@ async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       },
-      60000, // Playwright 渲染较慢,60s 超时
+      180000, // Playwright 渲染 OpenCompass 司南 SPA 较慢,180s 超时
     )
     if (!res.ok) {
       logger.warn(`[ai-world-sync] OpenCompass scrape HTTP ${res.status}, skip`)
