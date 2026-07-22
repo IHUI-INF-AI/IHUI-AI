@@ -1,9 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { randomUUID } from 'node:crypto'
-import { eq, desc, sql } from 'drizzle-orm'
-import { db, dbRead } from '../db/index.js'
-import { developerApiKeys, apiLogs } from '@ihui/database'
+import { isValidApiKeyPermission } from '@ihui/types'
 import { requireAuth } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { createOrder } from '../db/payment-queries.js'
@@ -12,6 +9,7 @@ import {
   activateDeveloperSubscription,
   getMyDeveloperSubscription,
 } from '../db/developer-queries.js'
+import * as apiKeysService from '../services/developer-api-keys-service.js'
 
 // =============================================================================
 // Zod schemas
@@ -19,15 +17,19 @@ import {
 
 const idParamSchema = z.object({ id: z.string().uuid('无效的 ID') })
 
+const permissionsSchema = z
+  .array(z.string())
+  .refine((arr) => arr.every(isValidApiKeyPermission), '包含非法权限点')
+
 const createKeySchema = z.object({
   name: z.string().min(1).max(100),
-  permissions: z.array(z.string()).default([]),
+  permissions: permissionsSchema.default([]),
   rateLimit: z.number().int().min(1).max(10000).optional(),
 })
 
 const updateKeySchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  permissions: z.array(z.string()).optional(),
+  permissions: permissionsSchema.optional(),
   rateLimit: z.number().int().min(1).max(10000).optional(),
   status: z.enum(['active', 'revoked']).optional(),
 })
@@ -49,20 +51,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
   // GET /api-keys — 列出当前用户的 API 密钥
   server.get('/api-keys', async (request, reply) => {
     const userId = request.userId!
-    const list = await db
-      .select({
-        id: developerApiKeys.id,
-        name: developerApiKeys.name,
-        key: developerApiKeys.key,
-        permissions: developerApiKeys.permissions,
-        status: developerApiKeys.status,
-        lastUsedAt: developerApiKeys.lastUsedAt,
-        rateLimit: developerApiKeys.rateLimit,
-        createdAt: developerApiKeys.createdAt,
-      })
-      .from(developerApiKeys)
-      .where(eq(developerApiKeys.userId, userId))
-      .orderBy(desc(developerApiKeys.createdAt))
+    const list = await apiKeysService.listKeys(userId)
     return reply.send(success({ list }))
   })
 
@@ -73,29 +62,15 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    // 生成 key（公开标识）与 secret（仅创建时返回）
-    const apiKey = `ihui_${randomUUID().replace(/-/g, '').slice(0, 24)}`
-    const apiSecret = `sk_${randomUUID().replace(/-/g, '')}`
-    const [record] = await db
-      .insert(developerApiKeys)
-      .values({
-        userId,
-        name: parsed.data.name,
-        key: apiKey,
-        secret: apiSecret,
-        permissions: parsed.data.permissions,
-        rateLimit: parsed.data.rateLimit ?? 60,
-      })
-      .returning()
+    const { apiKey, secret } = await apiKeysService.createKey(userId, {
+      name: parsed.data.name,
+      permissions: parsed.data.permissions,
+      rateLimit: parsed.data.rateLimit,
+    })
     // 仅此一次返回完整 secret，后续不再提供
     // 跳过响应脱敏,否则 secret 会被 response-sanitizer 误伤为 '***'
     request.skipResponseSanitization = true
-    return reply.status(201).send(
-      success({
-        apiKey: record,
-        secret: apiSecret,
-      }),
-    )
+    return reply.status(201).send(success({ apiKey, secret }))
   })
 
   // DELETE /api-keys/:id — 删除 API 密钥
@@ -105,15 +80,8 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const [deleted] = await db
-      .delete(developerApiKeys)
-      .where(eq(developerApiKeys.id, parsed.data.id))
-      .returning()
-    if (!deleted) return reply.status(404).send(error(404, 'API 密钥不存在'))
-    // 仅允许删除自己的密钥
-    if (deleted.userId !== userId) {
-      return reply.status(403).send(error(403, '无权删除此 API 密钥'))
-    }
+    const ok = await apiKeysService.deleteKey(parsed.data.id, userId)
+    if (!ok) return reply.status(404).send(error(404, 'API 密钥不存在或无权操作'))
     return reply.send(success({ ok: true }))
   })
 
@@ -128,21 +96,8 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    // 校验归属权
-    const [existing] = await db
-      .select()
-      .from(developerApiKeys)
-      .where(eq(developerApiKeys.id, idParsed.data.id))
-      .limit(1)
-    if (!existing) return reply.status(404).send(error(404, 'API 密钥不存在'))
-    if (existing.userId !== userId) {
-      return reply.status(403).send(error(403, '无权修改此 API 密钥'))
-    }
-    const [updated] = await db
-      .update(developerApiKeys)
-      .set({ ...parsed.data, updatedAt: new Date() })
-      .where(eq(developerApiKeys.id, idParsed.data.id))
-      .returning()
+    const updated = await apiKeysService.updateKey(idParsed.data.id, userId, parsed.data)
+    if (!updated) return reply.status(404).send(error(404, 'API 密钥不存在或无权操作'))
     return reply.send(success({ apiKey: updated }))
   })
 
@@ -153,47 +108,13 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
     }
-    // 校验归属权
-    const [existing] = await dbRead
-      .select()
-      .from(developerApiKeys)
-      .where(eq(developerApiKeys.id, idParsed.data.id))
-      .limit(1)
-    if (!existing) return reply.status(404).send(error(404, 'API 密钥不存在'))
-    if (existing.userId !== userId) {
-      return reply.status(403).send(error(403, '无权查看此 API 密钥'))
-    }
-    // api_logs 通过 userId 关联（密钥使用时以密钥所有者身份记录）
-    const [countRow] = await dbRead
-      .select({ callCount: sql<number>`count(*)::int` })
-      .from(apiLogs)
-      .where(eq(apiLogs.userId, userId))
-
-    const [lastRow] = await dbRead
-      .select({ lastUsedAt: apiLogs.createdAt })
-      .from(apiLogs)
-      .where(eq(apiLogs.userId, userId))
-      .orderBy(desc(apiLogs.createdAt))
-      .limit(1)
-
-    // Top 5 端点
-    const topEndpoints = await dbRead
-      .select({
-        path: apiLogs.path,
-        method: apiLogs.method,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(apiLogs)
-      .where(eq(apiLogs.userId, userId))
-      .groupBy(apiLogs.path, apiLogs.method)
-      .orderBy(desc(sql`count(*)::int`))
-      .limit(5)
-
+    const usage = await apiKeysService.getUsage(idParsed.data.id, userId)
+    if (!usage) return reply.status(404).send(error(404, 'API 密钥不存在或无权查看'))
     return reply.send(
       success({
-        callCount: countRow?.callCount ?? 0,
-        lastUsedAt: lastRow?.lastUsedAt ?? existing.lastUsedAt,
-        topEndpoints,
+        callCount: usage.callCount,
+        lastUsedAt: usage.lastUsedAt,
+        topEndpoints: usage.topEndpoints,
       }),
     )
   })

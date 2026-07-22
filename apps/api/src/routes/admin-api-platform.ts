@@ -5,22 +5,27 @@ import { db, dbRead } from '../db/index.js'
 import { developerApiKeys, plans, orders, commissionFlows, auditLogs } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
-import { generateApiKey } from '../utils/crypto-random.js'
+import { isValidApiKeyPermission } from '@ihui/types'
+import { generateApiKey, hashSecret } from '../utils/api-key-hash.js'
 
 // =============================================================================
 // Zod schemas
 // =============================================================================
 
+const permissionsSchema = z
+  .array(z.string())
+  .refine((arr) => arr.every(isValidApiKeyPermission), '包含非法权限点')
+
 const createAppSchema = z.object({
   name: z.string().min(1).max(100),
   userId: z.string().uuid(),
-  permissions: z.array(z.string()).default([]),
+  permissions: permissionsSchema.default([]),
   rateLimit: z.number().int().min(1).max(10000).default(60),
 })
 
 const updateAppSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  permissions: z.array(z.string()).optional(),
+  permissions: permissionsSchema.optional(),
   rateLimit: z.number().int().min(1).max(10000).optional(),
   status: z.enum(['active', 'revoked']).optional(),
 })
@@ -93,15 +98,14 @@ export const adminApiPlatformRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { name, userId, permissions, rateLimit } = parsed.data
-    const key = `ihui_${Date.now().toString(36)}`
-    // 2026-07-21 安全审计加固:用 CSPRNG 替换 Math.random 生成 API key,
-    // Math.random 可预测,攻击者可从少量样本预测其他用户密钥
-    const secret = generateApiKey()
+    // 2026-07-22 安全加固:secret 用 sha256 哈希存储,明文仅此一次返回给调用方
+    const { key, secret } = generateApiKey()
     const [created] = await db
       .insert(developerApiKeys)
-      .values({ name, userId, key, secret, permissions, rateLimit })
+      .values({ name, userId, key, secret: hashSecret(secret), permissions, rateLimit })
       .returning()
-    return reply.send(success(created))
+    // 返回明文 secret 供 Admin 一次性查看(skipResponseSanitization 已在 onRequest hook 全局设置)
+    return reply.send(success({ ...created, secret }))
   })
 
   server.patch('/api-platform/apps/:id', async (request, reply) => {
