@@ -406,3 +406,7 @@ function closeUnbalancedBrackets(s: string): string {
   }
   return result;
 }
+
+// Undo/Redo + Share 集成入口(主 agent 在 index.ts 调用)
+export { UndoRedoManager } from './undo-redo.js';
+export { ShareManager } from './share.js';
