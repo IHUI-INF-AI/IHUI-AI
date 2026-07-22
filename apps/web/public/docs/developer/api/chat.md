@@ -1,21 +1,24 @@
-# 对话API
+# 对话 API
 
-## 端点
+> 所需权限：`chat:write`
+
+## 发起对话补全
+
+### 端点
 
 ```
-POST /v1/chat
+POST /v1/chat/completions
 ```
 
-## 请求参数
+**实现状态**：转发到 ai-service（LiteLLM），OpenAI 兼容格式
 
-### Headers
+### 请求
 
 ```http
-Authorization: Bearer YOUR_API_KEY
+POST /v1/chat/completions
+Authorization: Bearer ihui_xxx
 Content-Type: application/json
 ```
-
-### Body
 
 ```json
 {
@@ -27,7 +30,7 @@ Content-Type: application/json
     }
   ],
   "temperature": 0.7,
-  "max_tokens": 1000,
+  "maxTokens": 1000,
   "stream": false
 }
 ```
@@ -37,43 +40,40 @@ Content-Type: application/json
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | model | string | 是 | 模型名称 |
-| messages | array | 是 | 消息列表 |
+| messages | array | 是 | 消息列表，每项含 `role` 和 `content` |
 | temperature | number | 否 | 温度参数（0-2） |
-| max_tokens | number | 否 | 最大token数 |
-| stream | boolean | 否 | 是否流式输出 |
+| maxTokens | number | 否 | 最大生成 token 数 |
+| stream | boolean | 否 | 是否流式输出，默认 false |
 
-## 响应格式
+> **注意**：字段使用 camelCase（`maxTokens`），非 OpenAI 的 snake_case（`max_tokens`）。
 
-### 成功响应
+### 响应
 
 ```json
 {
-  "code": 200,
-  "success": true,
-  "message": "Success",
-  "data": {
-    "id": "chatcmpl-123",
-    "object": "chat.completion",
-    "created": 1677652288,
-    "model": "gpt-4",
-    "choices": [
-      {
-        "index": 0,
-        "message": {
-          "role": "assistant",
-          "content": "Hello! I'm doing well, thank you for asking."
-        },
-        "finish_reason": "stop"
-      }
-    ],
-    "usage": {
-      "prompt_tokens": 10,
-      "completion_tokens": 20,
-      "total_tokens": 30
+  "id": "chatcmpl-123",
+  "object": "chat.completion",
+  "created": 1677652288,
+  "model": "gpt-4",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Hello! I'm doing well, thank you for asking."
+      },
+      "finishReason": "stop"
     }
+  ],
+  "usage": {
+    "promptTokens": 10,
+    "completionTokens": 20,
+    "totalTokens": 30
   }
 }
 ```
+
+> **字段命名**：`finishReason`（非 `finish_reason`）、`promptTokens`（非 `prompt_tokens`）、`completionTokens`（非 `completion_tokens`）、`totalTokens`（非 `total_tokens`）。
 
 ## 流式输出
 
@@ -87,17 +87,17 @@ Content-Type: application/json
 }
 ```
 
-响应为Server-Sent Events (SSE)格式。
+响应为 Server-Sent Events (SSE) 格式，每个 chunk 的 `choices[].delta` 包含增量内容。
 
 ## 代码示例
 
 ### JavaScript
 
 ```javascript
-const response = await fetch('https://api.example.com/v1/chat', {
+const response = await fetch('https://api.example.com/v1/chat/completions', {
   method: 'POST',
   headers: {
-    'Authorization': 'Bearer YOUR_API_KEY',
+    'Authorization': 'Bearer ihui_xxx',
     'Content-Type': 'application/json'
   },
   body: JSON.stringify({
@@ -109,7 +109,7 @@ const response = await fetch('https://api.example.com/v1/chat', {
 })
 
 const data = await response.json()
-console.log(data.data.choices[0].message.content)
+console.log(data.choices[0].message.content)
 ```
 
 ### Python
@@ -118,7 +118,7 @@ console.log(data.data.choices[0].message.content)
 import requests
 
 headers = {
-    'Authorization': 'Bearer YOUR_API_KEY',
+    'Authorization': 'Bearer ihui_xxx',
     'Content-Type': 'application/json'
 }
 
@@ -130,15 +130,15 @@ data = {
 }
 
 response = requests.post(
-    'https://api.example.com/v1/chat',
+    'https://api.example.com/v1/chat/completions',
     headers=headers,
     json=data
 )
 
 result = response.json()
-print(result['data']['choices'][0]['message']['content'])
+print(result['choices'][0]['message']['content'])
 ```
 
 ---
 
-*最后更新: 2026-01-10*
+*最后更新: 2026-07-22*
