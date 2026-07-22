@@ -31,7 +31,6 @@ export interface UseAiHelpersReturn {
   filterSpecialMarkers: (content: string) => string
   pushData: (datas: AgentContentListItem) => void
   clearInput: () => void
-  refreshTokenBalance: () => Promise<void>
   clearThinkingProcessLogic: () => void
   processListsData: (res: { lists?: unknown[] }) => ListItem[]
   getaudio: (
@@ -77,7 +76,6 @@ export function useAiHelpers(options: UseAiHelpersOptions = {}): UseAiHelpersRet
   const progressIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
   const progressIntervalaRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
   const agentContent1TimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-  const refreshTokenTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const audioPollingRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
   const videoPollingRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -119,25 +117,13 @@ export function useAiHelpers(options: UseAiHelpersOptions = {}): UseAiHelpersRet
     }
   }, [])
 
-  const refreshTokenBalance = React.useCallback(async (): Promise<void> => {
-    // TODO: 后端 getAgentInfo / 智汇值余额接口校准后补充余额更新逻辑
-    void fetchApi<unknown>('/api/user/info')
-  }, [])
-
   const clearInput = React.useCallback(() => {
     promptRef.current = ''
     setImgsListState([])
     imgsListRef.current = []
     setDisplayedTexts([])
     setDisplayedThinkingTexts([])
-    if (refreshTokenTimerRef.current) {
-      clearTimeout(refreshTokenTimerRef.current)
-      refreshTokenTimerRef.current = null
-    }
-    refreshTokenTimerRef.current = setTimeout(() => {
-      void refreshTokenBalance()
-    }, 500)
-  }, [refreshTokenBalance])
+  }, [])
 
   const clearThinkingProcessLogic = React.useCallback(() => {
     if (progressIntervalRef.current) {
@@ -266,7 +252,6 @@ export function useAiHelpers(options: UseAiHelpersOptions = {}): UseAiHelpersRet
       if (progressIntervalRef.current) clearInterval(progressIntervalRef.current)
       if (progressIntervalaRef.current) clearInterval(progressIntervalaRef.current)
       if (agentContent1TimerRef.current) clearTimeout(agentContent1TimerRef.current)
-      if (refreshTokenTimerRef.current) clearTimeout(refreshTokenTimerRef.current)
     }
   }, [])
 
@@ -281,7 +266,6 @@ export function useAiHelpers(options: UseAiHelpersOptions = {}): UseAiHelpersRet
     filterSpecialMarkers,
     pushData,
     clearInput,
-    refreshTokenBalance,
     clearThinkingProcessLogic,
     processListsData,
     getaudio,

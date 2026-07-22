@@ -37,9 +37,8 @@ export function Tooltip({
           该属性是 Radix 内部 a11y 增强,不影响功能,只在这一行压制 hydration 检查即可彻底根除 warning。 */}
       <TooltipPrimitive.Trigger asChild aria-describedby={tipId}>
         {React.cloneElement(children, {
-          // @ts-expect-error: 将 suppressHydrationWarning 透传到 Radix Slot 上的具体子元素
           suppressHydrationWarning: true,
-        })}
+        } as React.HTMLAttributes<HTMLElement>)}
       </TooltipPrimitive.Trigger>
       <TooltipPrimitive.Portal>
         <TooltipPrimitive.Content

@@ -15,13 +15,15 @@ export interface TabsProps extends Omit<ComponentProps<typeof View>, 'children'>
 
 export function Tabs({ tabs, value, onChange, className, ...props }: TabsProps) {
   return (
-    <View className={cn('flex-row rounded-lg bg-muted p-1', className)} {...props}>
+    <View className={cn('flex-row rounded-lg bg-muted p-1', className)} accessibilityRole="tablist" {...props}>
       {tabs.map((tab) => {
         const active = tab.value === value
         return (
           <Pressable
             key={tab.value}
             onPress={() => onChange?.(tab.value)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
             className={cn(
               'flex-1 items-center justify-center rounded-md py-1.5',
               active && 'bg-background',
