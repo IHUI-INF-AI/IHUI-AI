@@ -1317,7 +1317,7 @@ async def _tool_db_query(arguments: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 # api 层 agent-control 端点(转发到 extension/desktop 端执行)
-_AGENT_CONTROL_API_URL = "http://127.0.0.1:3001/api/agent-control/execute"
+_AGENT_CONTROL_API_URL = "http://127.0.0.1:8801/api/agent-control/execute"
 
 
 async def _tool_agent_control(
@@ -1404,7 +1404,7 @@ def _make_agent_control_handler(category: str, action: str):
 # 调用 api 层 /api/self-media/automation/tasks/:taskId/config
 # ---------------------------------------------------------------------------
 
-_AUTOMATION_API_BASE = "http://127.0.0.1:3001/api/self-media/automation/tasks"
+_AUTOMATION_API_BASE = "http://127.0.0.1:8801/api/self-media/automation/tasks"
 
 
 # ---------------------------------------------------------------------------

@@ -4,9 +4,9 @@
   "private": true,
   "main": "App.tsx",
   "scripts": {
-    "start": "expo start --port 3005",
-    "android": "expo start --android --port 3005",
-    "ios": "expo start --ios --port 3005",
+    "start": "expo start --port 8805",
+    "android": "expo start --android --port 8805",
+    "ios": "expo start --ios --port 8805",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run"

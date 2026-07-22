@@ -102,7 +102,7 @@ cd g:\IHUI-AI
 pnpm cert:fetch                              # 拉取 platform_cert.pem
 pnpm cert:check                              # 验证所有证书 + 匹配性
 pnpm --filter @ihui/api start                # 启动 API
-curl http://localhost:3001/api/health/ready  # 验证
+curl http://localhost:8802/api/health/ready  # 验证
 # 期望: checks.wechatPay.status === "ok"
 ```
 
@@ -135,7 +135,7 @@ curl http://localhost:3001/api/health/ready  # 验证
 
 ```bash
 # API 启动后,Prometheus / Grafana / Uptime Kuma 监控:
-curl -fsS http://localhost:3001/api/health/ready | jq '.checks.wechatPay'
+curl -fsS http://localhost:8802/api/health/ready | jq '.checks.wechatPay'
 # 期望: { "status": "ok" }
 ```
 

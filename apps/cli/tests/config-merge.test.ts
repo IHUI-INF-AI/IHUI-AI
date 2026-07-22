@@ -432,7 +432,7 @@ describe('loadConfig', () => {
 
   it('某层缺失时跳过:无 global / project 文件,仍返回 defaults', () => {
     const r = loadConfig({ cwd: tmpCwd })
-    expect(r.apiUrl).toBe('http://localhost:8000')
+    expect(r.apiUrl).toBe('http://localhost:8803')
     expect(r.maxIterations).toBe(25)
     expect(r.auditEnabled).toBe(true)
   })
@@ -445,7 +445,7 @@ describe('loadConfig', () => {
     )
     const r = loadConfig({ cwd: tmpCwd })
     // global 损坏 → 降级,apiUrl 回退到 defaults
-    expect(r.apiUrl).toBe('http://localhost:8000')
+    expect(r.apiUrl).toBe('http://localhost:8803')
   })
 
   it('project 层损坏也不阻塞', () => {
@@ -455,7 +455,7 @@ describe('loadConfig', () => {
       'not a json',
     )
     const r = loadConfig({ cwd: tmpCwd })
-    expect(r.apiUrl).toBe('http://localhost:8000')
+    expect(r.apiUrl).toBe('http://localhost:8803')
   })
 
   it('CLI 最高优先级:覆盖 env / session / project / global / defaults', () => {
@@ -512,7 +512,7 @@ describe('loadConfig', () => {
   })
 
   it('DEFAULT_SETTINGS 包含所有默认字段', () => {
-    expect(DEFAULT_SETTINGS.apiUrl).toBe('http://localhost:8000')
+    expect(DEFAULT_SETTINGS.apiUrl).toBe('http://localhost:8803')
     expect(DEFAULT_SETTINGS.defaultModel).toBe('default')
     expect(DEFAULT_SETTINGS.maxIterations).toBe(25)
     expect(DEFAULT_SETTINGS.auditEnabled).toBe(true)
