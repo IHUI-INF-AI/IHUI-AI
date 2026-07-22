@@ -3,6 +3,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { GitBranch, RefreshCw, AlertCircle, AlertTriangle, Bell, Sun, Moon, ChevronUp, Check } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { cn } from '@/lib/utils'
 
 type GitSyncState = 'synced' | 'unsynced' | 'conflict'
@@ -16,6 +17,7 @@ const GIT_SYNC_META: Record<GitSyncState, { dot: string; tipKey: string }> = {
 export function StatusBar() {
   const t = useTranslations('ide')
   const { resolvedTheme, setTheme } = useTheme()
+  const { gitCurrentBranch } = useIDEWorkspace()
   const [themeAnim, setThemeAnim] = React.useState(false)
   const errors = 0
   const warnings = 0
@@ -38,7 +40,7 @@ export function StatusBar() {
     <div className="flex h-6 shrink-0 items-center gap-3 bg-foreground px-3 text-xs text-background">
       <button className="flex items-center gap-1 hover:opacity-80">
         <GitBranch className="h-3 w-3" />
-        <span>main</span>
+        <span>{gitCurrentBranch}</span>
         <span className={cn('h-2 w-2 rounded', syncMeta.dot)} aria-label={syncTip} title={syncTip} />
       </button>
       <button className="flex items-center gap-1 hover:opacity-80">

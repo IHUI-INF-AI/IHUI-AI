@@ -1,8 +1,12 @@
 /**
- * IDE 工作区跨端类型契约(2026-07-22 立)
+ * IDE 工作区跨端类型契约(2026-07-22 立,2026-07-22 修订前后端连通)
  *
  * 仿 TRAE/Codex IDE 界面的类型定义,供 web 端 IDE 组件使用。
- * 平台独占:仅 web 前端,不涉及 api/ai-service/database。
+ * 前后端连通:web 端消费类型,api 端通过 /api/workspace/fs/* 端点提供数据。
+ * - FileNode / EditorTab / SearchResult / GitChange → 由 FS Bridge 端点提供数据
+ * - Breakpoint / StackFrame / DebugVariable / LaunchConfig → 前端内存/localStorage
+ * - OutlineNode → 可由 /api/workspace/codebase/search 提供数据
+ * - DiffFile → 由 git diff 数据转换
  */
 
 /** 左侧 activity bar 视图类型 */
