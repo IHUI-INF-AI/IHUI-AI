@@ -2909,7 +2909,7 @@
         "unavailable": "Prometheus unavailable. Please check cadvisor/prometheus containers.",
         "unavailableTitle": "Resource monitoring unavailable",
         "unavailableHint": "Failed to connect to Prometheus. Container metrics are unreachable.",
-        "envHint": "Hint: NEXT_PUBLIC_GRAFANA_BASE is not set; iframe uses default http://127.0.0.1:3001",
+        "envHint": "Hint: NEXT_PUBLIC_GRAFANA_BASE is not set; iframe uses default http://127.0.0.1:8816",
         "compareTitle": "Multi-tenant Comparison (CPU/Memory overlay)",
         "rankingTitle": "Tenant Ranking (by CPU desc)",
         "totalTenants": "{total} tenants in total",
@@ -28185,7 +28185,8 @@
       "toggle": "Toggle",
       "breakpoints": "Breakpoints",
       "callStack": "Call Stack",
-      "debugConsole": "Debug Console"
+      "debugConsole": "Debug Console",
+      "launchFailed": "Debug operation failed"
     },
     "applications": {
       "title": "Applications",
