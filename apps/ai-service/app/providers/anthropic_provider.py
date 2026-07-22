@@ -14,6 +14,7 @@ from typing import Any, AsyncIterator
 import httpx
 
 from .base_provider import BaseProvider, ProviderError
+from ..core.llm_gateway import get_http_client
 
 _ANTHROPIC_VERSION = "2023-06-01"
 
@@ -146,32 +147,33 @@ class AnthropicProvider(BaseProvider):
     ) -> AsyncIterator[dict[str, Any]]:
         payload = self._build_payload(messages, model, tools=tools, stream=True, **kwargs)
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                async with client.stream(
-                    "POST", f"{self.base_url}/v1/messages", headers=self._headers(), json=payload
-                ) as resp:
-                    if resp.status_code >= 400:
-                        body = await resp.aread()
-                        raise ProviderError(
-                            f"Anthropic 流式调用失败: {resp.status_code} {body[:300]!r}",
-                            resp.status_code,
-                        )
-                    async for line in resp.aiter_lines():
-                        if not line.startswith("data: "):
-                            continue
-                        try:
-                            event = json.loads(line[6:])
-                        except json.JSONDecodeError:
-                            continue
-                        etype = event.get("type")
-                        if etype == "content_block_delta":
-                            delta = event.get("delta", {})
-                            if delta.get("type") == "text_delta":
-                                yield {"type": "chunk", "content": delta.get("text", "")}
-                            elif delta.get("type") == "input_json_delta":
-                                yield {"type": "tool_call_delta", "partial_json": delta.get("partial_json", "")}
-                        elif etype == "message_stop":
-                            yield {"type": "done", "model": model, "usage": {}, "stub": False}
+            client = get_http_client()
+            async with client.stream(
+                "POST", f"{self.base_url}/v1/messages", headers=self._headers(), json=payload,
+                timeout=self.timeout,
+            ) as resp:
+                if resp.status_code >= 400:
+                    body = await resp.aread()
+                    raise ProviderError(
+                        f"Anthropic 流式调用失败: {resp.status_code} {body[:300]!r}",
+                        resp.status_code,
+                    )
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    try:
+                        event = json.loads(line[6:])
+                    except json.JSONDecodeError:
+                        continue
+                    etype = event.get("type")
+                    if etype == "content_block_delta":
+                        delta = event.get("delta", {})
+                        if delta.get("type") == "text_delta":
+                            yield {"type": "chunk", "content": delta.get("text", "")}
+                        elif delta.get("type") == "input_json_delta":
+                            yield {"type": "tool_call_delta", "partial_json": delta.get("partial_json", "")}
+                    elif etype == "message_stop":
+                        yield {"type": "done", "model": model, "usage": {}, "stub": False}
         except httpx.HTTPError as e:
             yield {"type": "error", "message": f"Anthropic 流式网络异常: {e}"}
         except ProviderError as e:
