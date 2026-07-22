@@ -22,13 +22,13 @@ export default function LearningStreak({
   onSign,
 }: LearningStreakProps) {
   return (
-    <View className="bg-white rounded-xl px-4 py-4">
+    <View className="bg-card rounded-xl px-4 py-4">
       <View className="flex items-center justify-between mb-3">
         <View className="flex items-center">
-          <Text className="text-base font-semibold text-gray-800">学习连签</Text>
-          <Text className="ml-2 text-xs text-orange-500">🔥 连续 {streakDays} 天</Text>
+          <Text className="text-base font-semibold text-foreground">学习连签</Text>
+          <Text className="ml-2 text-xs text-[#f59e0b]">🔥 连续 {streakDays} 天</Text>
         </View>
-        <Text className="text-xs text-gray-400">累计 {totalSigned} 天</Text>
+        <Text className="text-xs text-muted-foreground">累计 {totalSigned} 天</Text>
       </View>
 
       <View className="flex justify-between mb-4">
@@ -37,16 +37,16 @@ export default function LearningStreak({
             key={idx}
             className={`flex flex-col items-center justify-center w-9 h-12 rounded-lg ${
               day.signed
-                ? 'bg-orange-50'
+                ? 'bg-[#f59e0b]/10'
                 : day.isToday
-                  ? 'bg-gray-100 border border-dashed border-gray-300'
-                  : 'bg-gray-50'
+                  ? 'bg-muted border border-dashed border-border'
+                  : 'bg-muted'
             }`}
           >
-            <Text className={`text-[10px] ${day.signed ? 'text-orange-500' : 'text-gray-400'}`}>
+            <Text className={`text-[10px] ${day.signed ? 'text-[#f59e0b]' : 'text-muted-foreground'}`}>
               {day.date}
             </Text>
-            <Text className={`text-sm mt-0.5 ${day.signed ? 'text-orange-500' : 'text-gray-300'}`}>
+            <Text className={`text-sm mt-0.5 ${day.signed ? 'text-[#f59e0b]' : 'text-muted-foreground'}`}>
               {day.signed ? '✓' : '·'}
             </Text>
           </View>
@@ -56,7 +56,7 @@ export default function LearningStreak({
       <View
         className={`w-full py-2 rounded-md text-center text-sm ${
           signedToday
-            ? 'bg-gray-100 text-gray-400'
+            ? 'bg-muted text-muted-foreground'
             : 'bg-gradient-to-r from-orange-500 to-red-500 text-white'
         }`}
         onClick={() => !signedToday && onSign?.()}

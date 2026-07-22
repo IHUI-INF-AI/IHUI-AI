@@ -43,43 +43,43 @@ export default function VipPriceSelector({
           <View
             key={opt.id}
             className={`flex-1 relative px-3 py-3 rounded-xl border-2 ${
-              selected ? 'border-yellow-400 bg-yellow-50' : 'border-gray-100 bg-white'
+              selected ? 'border-yellow-400 bg-yellow-50' : 'border-border bg-card'
             }`}
             onClick={() => onSelect?.(opt)}
           >
             {opt.popular && (
               <View
-                className="absolute -top-2 left-1/2 px-2 py-0.5 rounded-md bg-red-500"
+                className="absolute -top-2 left-1/2 px-2 py-0.5 rounded-md bg-destructive"
                 style={{ transform: 'translateX(-50%)' }}
               >
                 <Text className="text-[10px] text-white">热门</Text>
               </View>
             )}
             <Text
-              className={`block text-sm font-medium text-center ${selected ? 'text-yellow-700' : 'text-gray-700'}`}
+              className={`block text-sm font-medium text-center ${selected ? 'text-yellow-700' : 'text-foreground'}`}
             >
               {opt.name}
             </Text>
             <View className="flex items-baseline justify-center mt-1">
-              <Text className="text-xs text-gray-400">¥</Text>
+              <Text className="text-xs text-muted-foreground">¥</Text>
               <Text
-                className={`text-xl font-bold ${selected ? 'text-yellow-700' : 'text-gray-800'}`}
+                className={`text-xl font-bold ${selected ? 'text-yellow-700' : 'text-foreground'}`}
               >
                 {opt.price}
               </Text>
             </View>
             {opt.originalPrice && (
-              <Text className="block text-xs text-gray-400 line-through text-center mt-0.5">
+              <Text className="block text-xs text-muted-foreground line-through text-center mt-0.5">
                 ¥{opt.originalPrice}
               </Text>
             )}
-            <Text className="block text-xs text-gray-400 text-center mt-1">{opt.period}</Text>
+            <Text className="block text-xs text-muted-foreground text-center mt-1">{opt.period}</Text>
             {opt.discount && (
               <View
-                className="mt-1.5 px-1.5 py-0.5 rounded bg-orange-50 inline-block"
+                className="mt-1.5 px-1.5 py-0.5 rounded bg-[#f59e0b]/10 inline-block"
                 style={{ display: 'block', textAlign: 'center' }}
               >
-                <Text className="text-[10px] text-orange-500">{opt.discount}</Text>
+                <Text className="text-[10px] text-[#f59e0b]">{opt.discount}</Text>
               </View>
             )}
           </View>
