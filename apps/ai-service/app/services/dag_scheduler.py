@@ -522,6 +522,11 @@ class WorkerPool:
         self._workers: list[asyncio.Task] = []
         self._workers_state: dict[str, WorkerState] = {}
         self._wait_retries: dict[str, int] = {}  # 依赖等待重试计数(防死循环)
+        # P0-2 修复:保存运行中 executor 的 asyncio.Task 对象,用于超时强制 cancel + shutdown 取消
+        # 解决 sync 阻塞代码卡死 event loop 时 asyncio.wait_for 无法触发的问题
+        # 注意:对真正 sync 阻塞(sync 代码在 coroutine 内跑阻塞 loop)cancel 仍无效
+        # 根本方案是 executor_factory 必须 async,sync 代码必须 asyncio.to_thread() 包装
+        self._executing_tasks: dict[str, asyncio.Task] = {}  # task_id -> executor Task
         self._seq = 0
         self._shutdown = False
         self._started = False
@@ -627,8 +632,14 @@ class WorkerPool:
         )
 
     async def shutdown(self) -> None:
-        """优雅关闭:拒绝新任务,等待当前任务完成 + worker 退出。"""
+        """优雅关闭:拒绝新任务,强制取消运行中 executor + 等待 worker 退出。
+
+        P0-5 修复:原实现等 executor 自然完成或超时(300s),FastAPI shutdown 钩子 30s 超时
+        会强杀进程导致任务状态丢失。现主动 cancel 所有运行中 executor Task,最长阻塞秒级。
+        """
         self._shutdown = True
+        # P0-5 修复:强制取消所有运行中 executor Task,避免 shutdown 阻塞 300s
+        await self._cancel_executing_tasks()
         if self._workers:
             await asyncio.gather(*self._workers, return_exceptions=True)
             self._workers.clear()
@@ -639,6 +650,19 @@ class WorkerPool:
             except Exception:
                 pass
             self._redis = None
+
+    async def _cancel_executing_tasks(self) -> None:
+        """P0-5 修复:强制取消所有运行中 executor Task。
+
+        cancel 后 await gather 等待取消完成(对 async executor 有效,
+        sync 阻塞代码仍需 executor 内部用 asyncio.to_thread 包装才能被中断)。
+        """
+        tasks_to_cancel = list(self._executing_tasks.values())
+        for t in tasks_to_cancel:
+            t.cancel()
+        if tasks_to_cancel:
+            await asyncio.gather(*tasks_to_cancel, return_exceptions=True)
+        self._executing_tasks.clear()
 
     def _check_deps(self, task: KanbanTask) -> str:
         """依赖检查。返回 'ready' | 'wait' | 'blocked:<reason>'。"""
@@ -704,9 +728,16 @@ class WorkerPool:
                 state.last_heartbeat_at = _now_iso()
                 await self._persist(task)
                 self._emit("task_status_changed", task, worker_id)
+                # P0-2 修复:用 asyncio.create_task 创建 executor Task 并保存引用
+                # 这样超时后可强制 cancel(比 wait_for 默认 cancel 更明确),
+                # 且 shutdown 时可主动取消所有运行中任务(解决 P0-5 shutdown 阻塞 300s)
+                # 注意:若 executor 内部跑 sync 阻塞代码(阻塞 event loop),cancel 仍无效
+                # 根本约束:executor_factory 必须 async,sync 代码必须 asyncio.to_thread() 包装
+                executor_task = asyncio.create_task(self.executor_factory(task))
+                self._executing_tasks[task.id] = executor_task
                 try:
                     output = await asyncio.wait_for(
-                        self.executor_factory(task),
+                        executor_task,
                         timeout=self.config.task_timeout_seconds,
                     )
                     task.status = "done"
@@ -715,6 +746,12 @@ class WorkerPool:
                     state.completed_count += 1
                     self._emit("task_completed", task, worker_id)
                 except asyncio.TimeoutError:
+                    # P0-2 修复:超时后强制 cancel executor Task
+                    executor_task.cancel()
+                    try:
+                        await executor_task
+                    except (asyncio.CancelledError, Exception):
+                        pass
                     task.status = "blocked"
                     task.error_message = f"超时({self.config.task_timeout_seconds}s)"
                     task.completed_at = _now_iso()
@@ -726,6 +763,9 @@ class WorkerPool:
                     task.completed_at = _now_iso()
                     state.failed_count += 1
                     self._emit("task_failed", task, worker_id)
+                finally:
+                    # P0-2 修复:清理 executor Task 引用
+                    self._executing_tasks.pop(task.id, None)
                 task.updated_at = _now_iso()
                 task.worker_id = None
                 state.status = "idle"
