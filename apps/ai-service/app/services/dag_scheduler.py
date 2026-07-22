@@ -371,6 +371,8 @@ class KanbanTask:
     created_by: Optional[str] = None
     created_at: str = ""
     updated_at: str = ""
+    # P2-4 修复:单任务超时(覆盖 WorkerPoolConfig.task_timeout_seconds,None 用全局默认)
+    timeout_seconds: Optional[float] = None
 
     def to_camel_dict(self) -> dict:
         return {
@@ -391,6 +393,7 @@ class KanbanTask:
             "createdBy": self.created_by,
             "createdAt": self.created_at,
             "updatedAt": self.updated_at,
+            "timeoutSeconds": self.timeout_seconds,
         }
 
 
@@ -403,6 +406,8 @@ class WorkerPoolConfig:
     max_queue_size: int = 100
     idle_worker_ttl_seconds: Optional[float] = 60.0
     preemptive: bool = False
+    # P1-4 修复:对齐 TS 端 keepWorktreeOnFailure(ai-service 不用 worktree,字段保留对齐类型契约)
+    keep_worktree_on_failure: bool = False
 
     def to_camel_dict(self) -> dict:
         return {
@@ -411,6 +416,7 @@ class WorkerPoolConfig:
             "maxQueueSize": self.max_queue_size,
             "idleWorkerTtlSeconds": self.idle_worker_ttl_seconds,
             "preemptive": self.preemptive,
+            "keepWorktreeOnFailure": self.keep_worktree_on_failure,
         }
 
 
@@ -698,6 +704,8 @@ class WorkerPool:
                         task.error_message = "依赖等待超时(重试 200 次)"
                         task.updated_at = _now_iso()
                         task.completed_at = _now_iso()
+                        # P2-1 修复:终态后清理 _wait_retries(防长跑小内存泄漏)
+                        self._wait_retries.pop(task.id, None)
                         await self._persist(task)
                         self._emit("task_failed", task, worker_id)
                         state.failed_count += 1
@@ -714,6 +722,8 @@ class WorkerPool:
                     task.error_message = dep_status.split(":", 1)[1]
                     task.updated_at = _now_iso()
                     task.completed_at = _now_iso()
+                    # P2-1 修复:终态后清理 _wait_retries
+                    self._wait_retries.pop(task.id, None)
                     await self._persist(task)
                     self._emit("task_failed", task, worker_id)
                     state.failed_count += 1
@@ -728,6 +738,8 @@ class WorkerPool:
                 state.last_heartbeat_at = _now_iso()
                 await self._persist(task)
                 self._emit("task_status_changed", task, worker_id)
+                # P2-4 修复:task 级超时覆盖全局(task.timeout_seconds 优先,无则用 config 默认)
+                task_timeout = task.timeout_seconds if task.timeout_seconds is not None else self.config.task_timeout_seconds
                 # P0-2 修复:用 asyncio.create_task 创建 executor Task 并保存引用
                 # 这样超时后可强制 cancel(比 wait_for 默认 cancel 更明确),
                 # 且 shutdown 时可主动取消所有运行中任务(解决 P0-5 shutdown 阻塞 300s)
@@ -738,7 +750,7 @@ class WorkerPool:
                 try:
                     output = await asyncio.wait_for(
                         executor_task,
-                        timeout=self.config.task_timeout_seconds,
+                        timeout=task_timeout,
                     )
                     task.status = "done"
                     task.result = output if isinstance(output, dict) else {"value": output}
@@ -753,7 +765,7 @@ class WorkerPool:
                     except (asyncio.CancelledError, Exception):
                         pass
                     task.status = "blocked"
-                    task.error_message = f"超时({self.config.task_timeout_seconds}s)"
+                    task.error_message = f"超时({task_timeout}s)"
                     task.completed_at = _now_iso()
                     state.failed_count += 1
                     self._emit("task_failed", task, worker_id)
@@ -765,7 +777,9 @@ class WorkerPool:
                     self._emit("task_failed", task, worker_id)
                 finally:
                     # P0-2 修复:清理 executor Task 引用
+                    # P2-1 修复:清理 _wait_retries(task 到达终态,不再需要等待重试计数)
                     self._executing_tasks.pop(task.id, None)
+                    self._wait_retries.pop(task.id, None)
                 task.updated_at = _now_iso()
                 task.worker_id = None
                 state.status = "idle"
