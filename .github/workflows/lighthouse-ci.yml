@@ -31,7 +31,7 @@ jobs:
       - name: Build web
         run: pnpm -F @ihui/web build
         env:
-          NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8801
           NEXT_TELEMETRY_DISABLED: '1'
 
       - name: Start web preview

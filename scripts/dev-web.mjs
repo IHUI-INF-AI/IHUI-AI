@@ -7,7 +7,7 @@
 // 退出时不会把 next-server 的子进程(workers)带走,反复重启会积累 35+ 僵尸 node 进程。
 //
 // 本脚本:
-// 1. 启动前 taskkill /F /T 杀掉端口 3000 上残留进程树(避免 EADDRINUSE)
+// 1. 启动前 taskkill /F /T 杀掉端口 8801 上残留进程树(避免 EADDRINUSE)
 // 2. 用 child_process.spawn 跟踪 pnpm 进程,而不是 Start-Process detached
 // 3. 注册 SIGINT / SIGTERM / exit handler,退出时用 taskkill /F /T 杀整棵进程树
 // 4. 启动后实时 stdout 显示,失败立即抛错
@@ -15,7 +15,7 @@
 // 用法:
 //   node scripts/dev-web.mjs                          # 启动 web
 //   node scripts/dev-web.mjs --clean                  # 启动前清 .next 缓存
-//   node scripts/dev-web.mjs --port 3001              # 指定端口
+//   node scripts/dev-web.mjs --port 8802              # 指定端口
 //   Ctrl+C 退出时自动清理进程树
 //
 // 不要在 dev server 假死时裸用 Start-Process pnpm dev 启动下一轮,永远用本脚本!
@@ -26,7 +26,7 @@ import { join } from 'node:path'
 
 const ROOT = process.cwd()
 const PORT = (process.argv.find((a) => a.startsWith('--port='))?.split('=')[1]) ||
-             (process.argv.includes('--port') ? process.argv[process.argv.indexOf('--port') + 1] : '3000')
+             (process.argv.includes('--port') ? process.argv[process.argv.indexOf('--port') + 1] : '8801')
 const CLEAN = process.argv.includes('--clean')
 
 console.log(`[dev-web] target port: ${PORT}`)
