@@ -28,6 +28,7 @@ export function WebWorkPanel() {
     tabs,
     activeTabId,
     favorites,
+    recentUrls,
     closePanel,
     navigate,
     back,
@@ -39,6 +40,7 @@ export function WebWorkPanel() {
     setActiveTab,
     addFavorite,
     removeFavorite,
+    clearHistory,
     setWidth,
     setResizing,
     setAddressInput,
@@ -119,6 +121,11 @@ export function WebWorkPanel() {
       onOpenExternal={handleOpenExternal}
       isFavorite={isFavorite}
       onToggleFavorite={handleToggleFavorite}
+      favorites={favorites}
+      recentUrls={recentUrls}
+      onSelectFromList={(url) => navigate(url, 'user')}
+      onRemoveFavorite={removeFavorite}
+      onClearHistory={clearHistory}
       canBack={canBack}
       canForward={canForward}
       isLoading={isLoading}
