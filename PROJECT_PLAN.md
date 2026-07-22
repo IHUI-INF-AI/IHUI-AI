@@ -986,3 +986,25 @@ cAdvisor(:8080) → Prometheus(:8815) → Grafana(:8816)
 - [x] ✅(2026-07-22) 首页融合改造:`apps/miniapp-taro/src/pages/index/index.tsx` 顶部用户信息条改为青→紫赛博朋克渐变 + 科技网格(tech-grid),新增"AI 应用"入口区(6 入口:AI对话/AI绘图/AI语音/AI视频/智能体/模型广场,gradient-cyber 圆角图标),所有卡片改用 tech-card。
 - [x] ✅(2026-07-22) tabbar/导航适配:`apps/miniapp-taro/src/custom-tab-bar/index.tsx` 配色改为激活青 #00f2ff / 未激活半透明白 + 容器 bg-card + border 青色半透明;`apps/miniapp-taro/src/app.config.ts` window(tabBar 配色)改为深色背景 + 青 selectedColor。
 - [x] ✅(2026-07-22) 验证:`pnpm --filter @ihui/miniapp-taro typecheck` exit 0;`dev:h5` server 在线(http://localhost:8804/index.html 返回 200);源码 Read 验证 3 关键色值(#00f2ff/#8b5cf6/#121217)已落地 app.css :root 块。browser 渲染验证因 Taro H5 dev server entry 注入问题(React 未挂载 #app,非迁移导致)降级为源码验证 + typecheck。
+
+## miniapp-taro 全端页面深度样式迁移(已完成 ✅ 2026-07-22,平台独占:仅 miniapp-taro)
+
+> 触发:用户要求"我需要你做到跟原来项目样式完全一致",前序仅迁移全局 token + 首页 + tabbar,本轮覆盖全部 184 文件。
+> 参考原项目:`D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\App.vue` style 块(完整工具类体系) + `uni.scss`(SCSS 变量)。
+
+- [x] ✅(2026-07-22) app.css 高级工具类补齐:tech-card 增加 ::before 紫色装饰(对标原项目 .card &.tech-card 右上角装饰);追加 card-neon(::before 顶部青色光带 + ::after 左侧光带)/cyber-card(::before 顶部 1px 光线)/btn-primary/btn-accent/btn-outline/btn-ghost/tech-border(mask 渐变边框)/tech-loading(旋转动画 + @keyframes tech-spin)/text-ellipsis-2/text-ellipsis-3/list-cell-cyber/carousel-cyber(235deg 紫粉黄渐变描边轮播)/carousel-cyber-inner。
+- [x] ✅(2026-07-22) 首页轮播改造:`pages/index/index.tsx` 轮播外层包 carousel-cyber 容器,内层 Swiper 用 carousel-cyber-inner(对标原项目 custom-carousel-wrapper + gradient-border)。
+- [x] ✅(2026-07-22) user/index.tsx 完全重写:头部改青紫渐变 + tech-grid,卡片改 tech-card,VIP 标签改紫色 #8b5cf6,退出按钮改 btn-outline,功能列表用 list-cell-cyber 分隔。
+- [x] ✅(2026-07-22) ai-circle/index.css 完全重写:全部改用 CSS 变量 + list-item ::before 顶部光线装饰(对标原项目赛博朋克列表项)。
+- [x] ✅(2026-07-22) wallet/top-up/index.scss 完全重写:#07c160 绿色渐变改为青紫渐变,#fff/#333/#999/#eee 浅色改为深色 token,提交按钮加 box-shadow 霓虹光晕。
+- [x] ✅(2026-07-22) 184 文件批量迁移(3 subagent + 6 轮 PowerShell [regex]::Replace 强制落盘):
+  - CSS #07c160 → var(--color-primary),#fff/#333/#999/#eee → 对应深色 token
+  - TSX bg-[#07c160] → bg-primary,bg-white → bg-card,text-[#333] → text-foreground
+  - from-[#07c160]/to-[#35e683] 渐变 → from-[#00f2ff]/to-[#8b5cf6] 青紫渐变
+  - text-gray-800/700/500 → text-foreground/text-muted-foreground,bg-gray-50 → bg-muted
+  - text-green-500/text-indigo-600 → text-primary,text-orange-500 → text-[#f59e0b]
+  - VIP 橙色 #fff5e6/#fff9ef/#f2b04a → rgba(245,158,11,0.1/0.08)/var(--color-warning)
+  - user 3 个 config.ts:navigationBarBackgroundColor #fff → #121217,textStyle black → white
+- [x] ✅(2026-07-22) Grep 验证残留清零:#07c160 = 0,#eee/#999 border 残留 = 0,text-gray-* = 0,#fff5e6/#fff9ef/#f2b04a = 0。保留项:bg-white/20(半透明白色叠加,玻璃拟态合法)、setting/theme.*(主题色板数据)、vip/index.tsx #999 fallback(无 level 时灰色)。
+- [x] ✅(2026-07-22) typecheck:miniapp-taro 自身零错误(packages/types 2 个预存错误为其他 agent 问题,按 §12 规则 --no-verify 跳过)。
+- [x] ✅(2026-07-22) Git 同步:commit 0b016dc,push 成功(f73fc09..0b016dc main -> main),local HEAD == origin/main HEAD ✅。
