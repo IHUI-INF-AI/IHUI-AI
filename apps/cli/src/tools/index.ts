@@ -488,3 +488,9 @@ registerLspTools();
 import { registerMemoryTools } from './memory.js';
 export { registerMemoryTools };
 registerMemoryTools();
+
+// ==================== Git 工作流深化工具(Wave 8,2026-07-22 新增,对标 OpenClaw/OpenCode)====================
+// 高级 Git 工具(branch/merge/rebase/stash/conflict/tag/remote)+ GitHub PR 工具(PR/Issue/Release)
+// 通过 git.ts 的 GIT_TOOLS 统一注册到 agent.ts,GIT_ADVANCED_TOOLS/GITHUB_PR_TOOLS 在此 re-export 供按需导入
+export { GIT_ADVANCED_TOOLS } from './git-advanced.js';
+export { GITHUB_PR_TOOLS } from './github-pr.js';
