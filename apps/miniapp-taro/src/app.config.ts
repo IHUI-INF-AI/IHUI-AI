@@ -155,17 +155,17 @@ export default defineAppConfig({
   ],
   window: {
     backgroundTextStyle: 'light',
-    navigationBarBackgroundColor: '#fff',
+    navigationBarBackgroundColor: '#121217',
     navigationBarTitleText: '智汇AI',
-    navigationBarTextStyle: 'black',
-    backgroundColor: '#f7f8fa',
+    navigationBarTextStyle: 'white',
+    backgroundColor: '#121217',
   },
   tabBar: {
     custom: true,
-    color: '#999999',
-    selectedColor: '#07c160',
-    borderStyle: 'black',
-    backgroundColor: '#ffffff',
+    color: 'rgba(255,255,255,0.5)',
+    selectedColor: '#00f2ff',
+    borderStyle: 'white',
+    backgroundColor: '#1f1f28',
     list: [
       {
         pagePath: 'pages/index/index',
