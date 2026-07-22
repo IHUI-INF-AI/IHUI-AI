@@ -35,7 +35,7 @@
 
 文件:`apps/web/app/(main)/ai-news/components/vendor-platforms.ts`
 
-覆盖 25 个厂商:Anthropic / OpenAI / Google / Meta / Moonshot / Alibaba / Z.ai / MiniMax / Bytedance / SpaceXAI / Microsoft / ElevenLabs / Voyage AI / Cohere / BAAI / Reve / Alibaba-ATH / **DeepSeek** / **Baichuan** / **SenseTime(商汤)** / **Kunlun(昆仑万维)** / **Tencent(腾讯混元)** / **Huawei(华为云盘古)** / **Mistral**
+覆盖 30 个厂商:Anthropic / OpenAI / Google / Meta / Moonshot / Alibaba / Z.ai / MiniMax / Bytedance / SpaceXAI / Microsoft / ElevenLabs / Voyage AI / Cohere / BAAI / Reve / Alibaba-ATH / DeepSeek / Baichuan / SenseTime(商汤) / Kunlun(昆仑万维) / Tencent(腾讯混元) / Huawei(华为云盘古) / Mistral / **01.AI(零一万物)** / **StepFun(阶跃星辰)** / **Perplexity** / **Groq** / **Cerebras**
 
 每个厂商映射:
 - `officialKeyUrl`:官方 API Key 申请地址
@@ -75,6 +75,10 @@
 | **Novita AI** | https://novita.ai/ | 海外开源模型,价格低,支持生图 / LLM / 嵌入 | 按 token,送新用户免费额度 |
 | **HuggingFace Inference** | https://huggingface.co/inference-api | 全球最大模型托管平台,免费 Inference API | 免费额度有限,超出后按请求计费 |
 | **Mistral La Plateforme** | https://console.mistral.ai/ | Mistral 官方平台,支持函数调用 / JSON 模式 / 微调 | 按 token,提供免费试用额度 |
+| **ModelScope 魔搭社区** | https://modelscope.cn/ | 阿里达摩院,国内最大开源模型社区,DashScope 兼容 | 免费额度充足,部分模型完全免费 |
+| **GroqCloud** | https://groq.com/ | Groq LPU 推理引擎,极速低延迟(>500 tokens/s) | 每日 100 万 tokens 免费 |
+| **Cerebras Inference** | https://cerebras.ai/ | Cerebras WSE 推理,极速低延迟(>2000 tokens/s) | 免费额度可用,付费按 token |
+| **Anyscale Endpoints** | https://www.anyscale.com/ | Ray 框架厂商,支持推理 + 微调训练 | 按 token,送新用户免费额度 |
 
 每个中转站卡片有「导入」按钮,点击后跳转到 `/settings/llm?prefill=`,预填 `providerCode=openai` + `baseUrlOverride=<中转站 baseUrl>` + `name=<中转站名> 中转`。
 
