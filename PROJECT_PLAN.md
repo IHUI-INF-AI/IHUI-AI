@@ -452,7 +452,7 @@ P2 AI 工具调用深度联动(5 修改文件):
 - 遵守圆角守门(§4):dropdown 用 rounded-md(6px),禁用 rounded-full
 - 遵守中文字体+图标垂直对齐硬约束(§4):依赖全局 `--text-vcenter-offset` 自动校正
 
-### [ ] AI 对话内嵌浏览器工作展示区 P3++ Tab 拖拽排序 + Playwright E2E 补证据(平台独占:仅 web,2026-07-22 立)
+### [x] ✅(2026-07-22) AI 对话内嵌浏览器工作展示区 P3++ Tab 拖拽排序 + Playwright E2E 补证据(平台独占:仅 web)
 
 **触发**:P3+ dropdown 已完成 commit `c2f7c7c47`,用户要求按建议继续做(1) Tab 拖拽排序补完 P3 增强 + (2) 补 Playwright E2E 补齐 P3+P3+ 100% 视觉/DOM 证据,彻底解决 browser_use 工具稳定性限制。
 
