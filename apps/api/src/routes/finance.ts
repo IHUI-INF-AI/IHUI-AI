@@ -263,7 +263,7 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
         amount: amountCents,
         method: 'wechat',
         accountInfo: {},
-      })
+      }, request.userId ?? null)
     }
 
     // 分布式锁防并发重复提现；锁不可用时降级直接执行

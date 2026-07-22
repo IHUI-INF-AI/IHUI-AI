@@ -128,20 +128,23 @@ export async function createCommissionFlows(
       token,
       type: 0,
       remark: '普通用户返佣',
-    });
+    }, null); // 系统自动分佣,operatorId = null
   } else {
     // VIP/操盘手：按金额返佣
     const isTrader = parent.isVip === 2;
     const amount = calcReturnVip(order.amount, order.orderType, productId, isTrader, proportion);
-    await createCommissionFlow({
-      beneficiaryId: parent.userId,
-      invitedUserId: user.id,
-      orderId: order.id,
-      amount,
-      token: 0,
-      type: 1,
-      remark: isTrader ? '操盘手返佣' : 'VIP返佣',
-    });
+    await createCommissionFlow(
+      {
+        beneficiaryId: parent.userId,
+        invitedUserId: user.id,
+        orderId: order.id,
+        amount,
+        token: 0,
+        type: 1,
+        remark: isTrader ? '操盘手返佣' : 'VIP返佣',
+      },
+      null,
+    ); // 系统自动分佣,operatorId = null
   }
   created++;
 
@@ -158,7 +161,7 @@ export async function createCommissionFlows(
         token: 0,
         type: 2,
         remark: '祖父级返佣',
-      });
+      }, null); // 系统自动分佣,operatorId = null
       created++;
     }
   }
