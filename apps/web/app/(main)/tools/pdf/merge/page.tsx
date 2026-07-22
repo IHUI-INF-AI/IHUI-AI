@@ -20,7 +20,7 @@ interface FileItem {
 export default function PdfMergePage() {
   const [items, setItems] = React.useState<FileItem[]>([])
   const [dragIndex, setDragIndex] = React.useState<number | null>(null)
-  const { loading, progress, result, error, run } = useProcessApi('/api/tools/pdf/merge')
+  const { loading, progress, result, error, run } = useProcessApi('/api/pdf-service/merge')
 
   const addFiles = (files: File[]) => {
     const next = files.map((file) => ({
