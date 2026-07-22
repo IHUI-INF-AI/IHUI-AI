@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
-const BASE = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3100'
+const BASE = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8801'
 const PAGES = [
   '/',
   '/sso/login',

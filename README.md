@@ -983,13 +983,13 @@ docker compose up -d
 | 服务         | URL                              | 说明                                               |
 | ------------ | -------------------------------- | -------------------------------------------------- |
 | Web          | http://localhost:3000            | Next.js 前端                                       |
-| API          | http://localhost:8080/api/health | Fastify 后端健康检查                               |
-| Worker       | http://localhost:8081            | BullMQ 异步任务进程                                |
-| AI 服务      | http://localhost:8000/health     | FastAPI AI 服务健康检查                            |
-| Grafana      | http://localhost:3001            | 默认账号 admin / 修改密码(20 仪表盘自动 provision) |
+| API          | http://localhost:8802/api/health | Fastify 后端健康检查                               |
+| Worker       | http://localhost:8830            | BullMQ 异步任务进程                                |
+| AI 服务      | http://localhost:8803/health     | FastAPI AI 服务健康检查                            |
+| Grafana      | http://localhost:8816            | 默认账号 admin / 修改密码(20 仪表盘自动 provision) |
 | Prometheus   | http://localhost:9091            | 指标采集                                           |
-| Jaeger UI    | http://localhost:16686           | 分布式追踪                                         |
-| Loki         | http://localhost:3100            | 日志聚合                                           |
+| Jaeger UI    | http://localhost:8814            | 分布式追踪                                         |
+| Loki         | http://localhost:8818            | 日志聚合                                           |
 | Alertmanager | http://localhost:9093            | 告警路由                                           |
 
 ### 开发模式(本地)
@@ -1273,20 +1273,31 @@ docker compose up -d
 
 | 类型 | 服务           | 端口  | 用途                       |
 | ---- | -------------- | ----- | -------------------------- |
-| 业务 | api            | 8080  | Fastify 后端               |
-| 业务 | worker         | 8081  | BullMQ 独立 worker 进程    |
-| 业务 | web            | 3000  | Next.js 前端(standalone)   |
-| 业务 | ai-service     | 8000  | FastAPI AI 服务            |
-| 业务 | db             | 5432  | PostgreSQL 15              |
-| 业务 | redis          | 6379  | Redis 7                    |
+| 业务 | api            | 8802  | Fastify 后端               |
+| 业务 | worker         | 8830  | BullMQ 独立 worker 进程    |
+| 业务 | web            | 8801  | Next.js 前端(standalone)   |
+| 业务 | ai-service     | 8803  | FastAPI AI 服务            |
+| 业务 | db             | 8810  | PostgreSQL 15              |
+| 业务 | redis          | 8811  | Redis 7                    |
 | 业务 | migrate        | -     | 一次性迁移服务(完成后退出) |
-| 监控 | jaeger         | 16686 | 分布式追踪 UI              |
-| 监控 | otel-collector | 4318  | OpenTelemetry Collector    |
+| 监控 | jaeger         | 8814  | 分布式追踪 UI              |
+| 监控 | otel-collector | 8813  | OpenTelemetry Collector    |
 | 监控 | prometheus     | 9091  | 指标采集                   |
-| 监控 | grafana        | 3001  | 可视化(20 仪表盘)          |
-| 监控 | node-exporter  | 9100  | 主机指标                   |
-| 监控 | loki           | 3100  | 日志聚合                   |
+| 监控 | grafana        | 8816  | 可视化(20 仪表盘)          |
+| 监控 | node-exporter  | 8817  | 主机指标                   |
+| 监控 | loki           | 8818  | 日志聚合                   |
 | 监控 | promtail       | -     | 日志采集                   |
+
+### 端口管理规则
+
+本项目所有服务统一使用 `88xx` 端口段,避免与系统服务冲突:
+
+| 端口段     | 用途               | 说明                                    |
+| ---------- | ------------------ | --------------------------------------- |
+| 8801-8809  | 八端应用服务       | Web / API / AI Service / Taro H5 / Metro / Desktop 等 |
+| 8810-8819  | 基础设施           | PostgreSQL(8810)/ Redis(8811)/ OTel(8812-8813)/ Jaeger(8814)/ Prometheus(8815)/ Grafana(8816)/ Node Exporter(8817)/ Loki(8818) |
+| 8820-8829  | 辅助工具           | Storybook(8820)等开发辅助工具           |
+| 8830-8839  | SaaS 部署          | Admin API(8830)等 SaaS 化部署服务       |
 
 ### 生产部署
 

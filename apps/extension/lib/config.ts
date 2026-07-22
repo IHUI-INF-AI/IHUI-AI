@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'http://localhost:3001'
+export const API_BASE_URL = 'http://localhost:8801'
 export const TOKEN_STORAGE_KEY = 'ihui_token'
 export const REFRESH_TOKEN_STORAGE_KEY = 'ihui_refresh_token'
 export const EXPIRES_IN_STORAGE_KEY = 'ihui_token_expires_in'
