@@ -16,6 +16,28 @@ function useUniqueVendors(): string[] {
   }, [])
 }
 
+/** 计费模式分类(从 billing 自由文本提取) */
+type BillingMode = 'token' | 'gpu' | 'free' | 'subscription'
+
+const BILLING_FILTERS: Array<{ key: BillingMode | 'all'; labelKey: string }> = [
+  { key: 'all', labelKey: 'allBilling' },
+  { key: 'token', labelKey: 'billingToken' },
+  { key: 'free', labelKey: 'billingFree' },
+  { key: 'gpu', labelKey: 'billingGpu' },
+  { key: 'subscription', labelKey: 'billingSubscription' },
+]
+
+/** 判断一个平台的计费模式是否匹配筛选 */
+function matchBillingMode(billing: string, mode: BillingMode): boolean {
+  const s = billing.toLowerCase()
+  switch (mode) {
+    case 'token': return s.includes('按 token') || s.includes('按token') || s.includes('per token')
+    case 'gpu': return s.includes('gpu') || s.includes('按秒') || s.includes('算力')
+    case 'free': return s.includes('免费') || s.includes('free')
+    case 'subscription': return s.includes('套餐') || s.includes('包月') || s.includes('包年')
+  }
+}
+
 /** API 中转站区块:公司平台 + 个人运行说明 */
 export function ApiRelaysSection() {
   const router = useRouter()
@@ -23,6 +45,7 @@ export function ApiRelaysSection() {
 
   const [query, setQuery] = React.useState('')
   const [activeVendor, setActiveVendor] = React.useState<string | null>(null)
+  const [activeBilling, setActiveBilling] = React.useState<BillingMode | 'all'>('all')
   const allVendors = useUniqueVendors()
 
   const filtered = React.useMemo(() => {
@@ -37,9 +60,10 @@ export function ApiRelaysSection() {
         if (!hit) return false
       }
       if (activeVendor && !r.vendors.includes(activeVendor)) return false
+      if (activeBilling !== 'all' && !matchBillingMode(r.billing, activeBilling)) return false
       return true
     })
-  }, [query, activeVendor])
+  }, [query, activeVendor, activeBilling])
 
   function handleRelayImport(baseUrl: string, name: string) {
     const payload = encodePrefill({
@@ -111,6 +135,24 @@ export function ApiRelaysSection() {
                   }`}
                 >
                   {v}
+                </button>
+              ))}
+            </div>
+            {/* 计费模式筛选 */}
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="text-[10px] text-muted-foreground/70">{t('billingLabel')}:</span>
+              {BILLING_FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setActiveBilling((cur) => (cur === f.key ? 'all' : f.key))}
+                  className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                    activeBilling === f.key
+                      ? 'bg-foreground text-background'
+                      : 'bg-muted text-muted-foreground hover:bg-accent'
+                  }`}
+                >
+                  {t(f.labelKey)}
                 </button>
               ))}
             </div>
