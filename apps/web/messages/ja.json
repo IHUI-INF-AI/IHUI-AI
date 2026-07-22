@@ -28437,7 +28437,8 @@
       "label": "モデルリーダーボード",
       "title": "モデルリーダーボード · Arena スコア",
       "subtitle": "参考: arena.ai · Elo + Bootstrap CI",
-      "empty": "ランキングデータなし"
+      "empty": "ランキングデータなし",
+      "sortHint": "ヘッダーをクリックでソート"
     },
     "hero": {
       "label": "AI ニュース Hero",
@@ -28541,7 +28542,10 @@
       "getApiKey": "API Key 取得",
       "officialDocs": "公式ドキュメント",
       "quickImport": "ワンクリックインポート",
-      "noQuickImport": "ワンクリックインポート非対応"
+      "noQuickImport": "ワンクリックインポート非対応",
+      "copyBaseUrl": "Base URL をコピー",
+      "baseUrlCopied": "Base URL をクリップボードにコピーしました",
+      "copyFailed": "コピー失敗、手動でコピーしてください"
     },
     "apiRelays": {
       "title": "API リレー",
@@ -28554,7 +28558,13 @@
       "searchPlaceholder": "プラットフォーム名 / ベンダー / 特徴 / 課金方式で検索...",
       "allVendors": "すべて",
       "resultCount": "{count} / {total} プラットフォーム",
-      "emptyResult": "一致するプラットフォームがありません。検索キーワードまたはベンダーフィルターを調整してください。"
+      "emptyResult": "一致するプラットフォームがありません。検索キーワードまたはベンダーフィルターを調整してください。",
+      "billingLabel": "課金",
+      "allBilling": "すべて",
+      "billingToken": "トークン単位",
+      "billingFree": "無料枠",
+      "billingGpu": "GPU 時間",
+      "billingSubscription": "定額制"
     },
     "cta": {
       "label": "ボトム CTA",
