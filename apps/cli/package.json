@@ -25,11 +25,16 @@
     "dotenv": "^16.4.7",
     "gpt-tokenizer": "^3.4.0",
     "inquirer": "^12.3.0",
-    "ora": "^8.1.0"
+    "ora": "^8.1.0",
+    "vscode-jsonrpc": "^8.2.1",
+    "vscode-languageclient": "^9.0.1",
+    "vscode-languageserver-protocol": "^3.17.5",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
     "@types/node": "^22.10.0",
+    "@types/ws": "^8.5.13",
     "rimraf": "^6.0.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
