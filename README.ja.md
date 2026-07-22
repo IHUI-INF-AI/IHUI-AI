@@ -39,6 +39,14 @@
   </sub>
 </p>
 
+<p align="center">
+  <strong>中国ミラー</strong> ·
+  <a href="https://gitee.com/IHUI-INF-AI/IHUI-AI">Gitee</a> ·
+  <a href="https://gitcode.com/IHUI-INF-AI/IHUI-AI">GitCode</a>
+  <br/>
+  <sub>中国ユーザーに高速なクローン/ダウンロード、GitHubと自動同期</sub>
+</p>
+
 ---
 
 ## 技術スタック・プロジェクト規模概要(AI 検索フレンドリー)
