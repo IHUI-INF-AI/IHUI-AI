@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslations } from 'next-intl'
-import { Loader2, Check, ChevronDown } from 'lucide-react'
+import { Loader2, Check, ChevronDown, X } from 'lucide-react'
 
 import { Button, Input, Label } from '@ihui/ui'
 import { useAuthStore } from '@/stores/auth'
@@ -21,6 +21,8 @@ import {
   clearAutoLogin,
   loadLoginHistory,
   saveLoginHistory,
+  removeFromLoginHistory,
+  clearLoginHistory,
 } from '@/lib/remember-credentials'
 import { loginSchema, type LoginValues } from './login-schemas'
 
@@ -92,7 +94,7 @@ export function PasswordLoginForm({
   showAgreeErr,
 }: PasswordLoginFormProps) {
   const t = useTranslations('auth')
-  const setToken = useAuthStore((s) => s.setToken)
+  const setTokenWithPrefs = useAuthStore((s) => s.setTokenWithPrefs)
   const setUser = useAuthStore((s) => s.setUser)
 
   const [serverError, setServerError] = React.useState<string | null>(null)
@@ -108,6 +110,7 @@ export function PasswordLoginForm({
   // 账号历史下拉(useState 而非 useMemo,active 时重新读取 + 登录成功后实时更新)
   const [showHistory, setShowHistory] = React.useState(false)
   const [loginHistory, setLoginHistory] = React.useState<string[]>(() => loadLoginHistory())
+  const [activeHistoryIndex, setActiveHistoryIndex] = React.useState(-1)
   const accountInputRef = React.useRef<HTMLInputElement | null>(null)
 
   const {
@@ -204,7 +207,13 @@ export function PasswordLoginForm({
       saveAutoLogin(autoLogin && rememberPassword)
       saveLoginHistory(values.account)
       setLoginHistory(loadLoginHistory())
-      setToken(json.data.accessToken, json.data.refreshToken)
+      // 用 setTokenWithPrefs:autoLogin=true 时 refreshToken cookie max-age=30d,
+      // 浏览器关闭再打开仍能保持登录(自动登录闭环)
+      setTokenWithPrefs(
+        json.data.accessToken,
+        json.data.refreshToken ?? null,
+        autoLogin && rememberPassword,
+      )
       if (json.data.user) setUser(json.data.user)
       onSuccess?.()
     } catch {
@@ -232,12 +241,48 @@ export function PasswordLoginForm({
               rhfAccountRef(el)
               accountInputRef.current = el
             }}
-            onDoubleClick={() => setShowHistory((v) => !v)}
+            onDoubleClick={(e) => {
+              e.preventDefault()
+              setShowHistory((v) => {
+                if (!v) setActiveHistoryIndex(-1)
+                return !v
+              })
+            }}
+            onKeyDown={(e) => {
+              if (!showHistory || loginHistory.length === 0) return
+              if (e.key === 'ArrowDown') {
+                e.preventDefault()
+                setActiveHistoryIndex((i) => (i + 1) % loginHistory.length)
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault()
+                setActiveHistoryIndex((i) => (i - 1 + loginHistory.length) % loginHistory.length)
+              } else if (e.key === 'Enter' && activeHistoryIndex >= 0) {
+                e.preventDefault()
+                const selected = loginHistory[activeHistoryIndex]
+                if (selected) {
+                  setValue('account', selected)
+                  if (remembered?.account === selected) {
+                    setValue('password', remembered.password)
+                  }
+                  setShowHistory(false)
+                  setActiveHistoryIndex(-1)
+                  accountInputRef.current?.focus()
+                }
+              } else if (e.key === 'Escape') {
+                setShowHistory(false)
+                setActiveHistoryIndex(-1)
+              }
+            }}
           />
           <button
             type="button"
             tabIndex={-1}
-            onClick={() => setShowHistory((v) => !v)}
+            onClick={() => {
+              setShowHistory((v) => {
+                if (!v) setActiveHistoryIndex(-1)
+                return !v
+              })
+            }}
             className="absolute inset-y-0 right-0 flex w-8 items-center justify-center text-muted-foreground hover:text-foreground"
             aria-label={t('accountHistory')}
           >
@@ -246,23 +291,60 @@ export function PasswordLoginForm({
           {showHistory && (
             <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-md border border-border bg-popover shadow-md">
               {loginHistory.length > 0 ? (
-                loginHistory.map((account) => (
+                <>
+                  {loginHistory.map((account, idx) => (
+                    <div
+                      key={account}
+                      data-history-index={idx}
+                      onMouseEnter={() => setActiveHistoryIndex(idx)}
+                      onClick={() => {
+                        setValue('account', account)
+                        if (remembered?.account === account) {
+                          setValue('password', remembered.password)
+                        }
+                        setShowHistory(false)
+                        setActiveHistoryIndex(-1)
+                        accountInputRef.current?.focus()
+                      }}
+                      className={[
+                        'flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors',
+                        activeHistoryIndex === idx
+                          ? 'bg-accent text-accent-foreground'
+                          : 'hover:bg-accent hover:text-accent-foreground',
+                      ].join(' ')}
+                    >
+                      <span className="truncate">{account}</span>
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setLoginHistory(removeFromLoginHistory(account))
+                          if (loginHistory.length <= 1) {
+                            setShowHistory(false)
+                          }
+                        }}
+                        className="shrink-0 rounded p-0.5 text-muted-foreground/60 hover:bg-destructive/10 hover:text-destructive"
+                        aria-label={t('removeAccount')}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
                   <button
-                    key={account}
                     type="button"
-                    className="flex w-full items-center px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                    tabIndex={-1}
                     onClick={() => {
-                      setValue('account', account)
-                      if (remembered?.account === account) {
-                        setValue('password', remembered.password)
-                      }
+                      clearLoginHistory()
+                      setLoginHistory([])
                       setShowHistory(false)
-                      accountInputRef.current?.focus()
+                      setActiveHistoryIndex(-1)
                     }}
+                    className="mt-1 w-full px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                   >
-                    <span className="truncate">{account}</span>
+                    {t('clearHistory')}
                   </button>
-                ))
+                </>
               ) : (
                 <div className="px-3 py-2 text-sm text-muted-foreground">{t('noHistory')}</div>
               )}
