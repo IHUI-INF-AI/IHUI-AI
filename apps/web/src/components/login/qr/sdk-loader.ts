@@ -27,25 +27,37 @@ export interface WechatQrOptions {
   href?: string
 }
 
-export interface WecomLoginPanelOptions {
-  /** 容器 DOM selector(如 '#ww-login') */
-  el: string
-  params: {
-    login_type: 'CorpApp' | 'ServiceApp'
-    /** 企业 corp_id */
-    appid: string
-    agentid: string
-    redirect_uri: string
-    state?: string
-    /** callback=回调模式;top=整页跳转(默认) */
-    redirect_type?: 'callback' | 'top'
-    lang?: 'zh' | 'en'
-  }
+/**
+ * 企业微信 wwLogin-1.2.7.js 扫码登录 SDK 配置参数。
+ *
+ * 官方文档:https://developer.work.weixin.qq.com/document/path/91022
+ * SDK 通过 UMD 模块挂载到 window.WwLogin(大写 W,构造函数)。
+ *
+ * 字段会被 SDK 序列化为 OAuth URL query 参数(排除 id),
+ * 因此字段名必须与 https://open.work.weixin.qq.com/wwopen/sso/qrConnect 参数一致。
+ */
+export interface WecomLoginOptions {
+  /** 容器 DOM id(SDK 内部 getElementById) */
+  id: string
+  /** 企业 CorpID */
+  appid: string
+  /** 应用 AgentId */
+  agentid: string
+  /** 授权回调地址(必须 urlencode) */
+  redirect_uri: string
+  /** 防 CSRF,OAuth state */
+  state?: string
+  /** 自定义二维码样式 CSS URL */
+  href?: string
+  /** 'zh' / 'en' */
+  lang?: 'zh' | 'en'
+  /** 是否手机端,true 则整页跳转不渲染 iframe */
+  is_mobile?: boolean
 }
 
-export interface WecomLoginPanelInstance {
-  destroy?: () => void
-  setParams?: (params: WecomLoginPanelOptions['params']) => void
+export interface WecomLoginInstance {
+  /** 销毁实例,移除 message 监听 */
+  destroyed?: () => void
 }
 
 export interface FeishuQrOptions {
@@ -118,9 +130,7 @@ export interface DingtalkFrameInstance {
 declare global {
   interface Window {
     WxLogin?: new (opts: WechatQrOptions) => unknown
-    ww?: {
-      createWWLoginPanel: (opts: WecomLoginPanelOptions) => WecomLoginPanelInstance
-    }
+    WwLogin?: new (opts: WecomLoginOptions) => WecomLoginInstance
     QRLogin?: new (opts: FeishuQrOptions) => FeishuQrInstance
     DTFrameLogin?: (
       opts: DingtalkFrameOptions,
@@ -134,9 +144,10 @@ declare global {
 // ---- SDK URL 常量 ----
 
 const WECHAT_SDK_URL = 'https://res.wx.qq.com/connect/zh_CN/htmledition/js/wxLogin.js'
-// 2026-07-22 修复:旧 URL https://wwopen.wsopen.qq.com/wwopen/wwopen/js/wecom-login-1.0.0.js 已下线(connection closed)
-// 新 URL 来自 https://developer.work.weixin.qq.com/document/path/91022 官方文档推荐 jssdk
-const WECOM_SDK_URL = 'https://wwcdn.weixin.qq.com/node/open/js/wecom-jssdk-2.0.2.js'
+// 企业微信官方扫码登录 SDK(wwLogin-1.2.7.js,2026-07-22 修复)
+// 旧 URL https://wwopen.wsopen.qq.com/wwopen/wwopen/js/wecom-login-1.0.0.js 已下线(connection closed)
+// ⚠️ wwcdn.weixin.qq.com 不返回 CORS header,loadScript 不能加 crossOrigin='anonymous',否则浏览器拒绝加载
+const WECOM_SDK_URL = 'https://wwcdn.weixin.qq.com/node/wework/wwopen/js/wwLogin-1.2.7.js'
 const FEISHU_SDK_URL =
   'https://lf-package-cn.feishucdn.com/obj/feishu-static/lark/passport/qrcode/LarkSSOSDKWebQRCode-1.0.3.js'
 // 2026-07-22 修复:旧 URL https://g.alicdn.com/dingding/dinglogin/0.1.8/dinglogin.js 已 404
@@ -169,7 +180,9 @@ function loadScript(src: string): Promise<void> {
     script.src = src
     script.async = true
     script.defer = true
-    script.crossOrigin = 'anonymous'
+    // 不设 crossOrigin='anonymous':
+    // 微信/钉钉/飞书 CDN 都返回 Access-Control-Allow-Origin,但企业微信 wwcdn.weixin.qq.com 不返回,
+    // 加 crossOrigin 会导致浏览器拒绝加载企业微信 SDK。脚本本身挂载 window 全局变量不需要 CORS。
     script.onload = () => {
       script.setAttribute('data-loaded', 'true')
       resolve()
@@ -191,9 +204,7 @@ export function loadWechatQrSdk(): Promise<void> {
 
 export function loadWecomQrSdk(): Promise<void> {
   return loadScript(WECOM_SDK_URL).then(() => {
-    if (!window.ww?.createWWLoginPanel) {
-      throw new Error('wecom SDK 加载完成但 createWWLoginPanel 未挂载到 window')
-    }
+    if (!window.WwLogin) throw new Error('WwLogin SDK 加载完成但未挂载到 window')
   })
 }
 
