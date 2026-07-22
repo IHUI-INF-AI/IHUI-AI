@@ -396,14 +396,14 @@ export default function MessageIndex() {
       {showSettings && (
         <View className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowSettings(false)}>
           <View
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[80vh] overflow-y-auto"
+            className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <View className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <Text className="text-sm font-medium text-gray-800">
+            <View className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <Text className="text-sm font-medium text-foreground">
                 {t('message.notificationSettings')}
               </Text>
-              <Text className="text-sm text-gray-400" onClick={() => setShowSettings(false)}>
+              <Text className="text-sm text-muted-foreground" onClick={() => setShowSettings(false)}>
                 {t('message.close')}
               </Text>
             </View>

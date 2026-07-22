@@ -1,16 +1,17 @@
 .top-up-page {
   min-height: 100vh;
-  background: #f7f8fa;
+  background: var(--color-background);
 }
 
 .top-up-balance {
   margin: 24rpx;
   padding: 32rpx;
-  background: linear-gradient(135deg, #07c160 0%, #0a9d52 100%);
+  background: linear-gradient(135deg, #00f2ff 0%, #8b5cf6 100%);
   border-radius: 16rpx;
   color: #fff;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 0 24rpx rgba(0, 242, 255, 0.25);
 
   &__label {
     font-size: 26rpx;
@@ -22,6 +23,7 @@
     font-weight: 700;
     margin-top: 12rpx;
     line-height: 1.2;
+    text-shadow: 0 0 10rpx rgba(255, 255, 255, 0.4);
   }
 
   &__err {
@@ -34,13 +36,14 @@
 .top-up-card {
   margin: 24rpx;
   padding: 32rpx;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 16rpx;
+  border: 1px solid var(--color-border);
 
   &__title {
     display: block;
     font-size: 28rpx;
-    color: #333;
+    color: var(--color-foreground);
     font-weight: 600;
     margin-bottom: 24rpx;
   }
@@ -58,7 +61,7 @@
   &__custom-label {
     display: block;
     font-size: 26rpx;
-    color: #999;
+    color: var(--color-muted-foreground);
     margin-bottom: 12rpx;
   }
 }
@@ -68,18 +71,19 @@
   padding: 24rpx 0;
   text-align: center;
   border-radius: 12rpx;
-  border: 2rpx solid #eee;
-  background: #fff;
+  border: 2rpx solid var(--color-border);
+  background: var(--color-secondary);
 
   &--active {
-    border-color: #07c160;
-    background: rgba(7, 193, 96, 0.05);
+    border-color: var(--color-primary);
+    background: rgba(0, 242, 255, 0.08);
+    box-shadow: 0 0 12rpx rgba(0, 242, 255, 0.3);
   }
 
   &__text {
     display: block;
     font-size: 36rpx;
-    color: #333;
+    color: var(--color-foreground);
     font-weight: 700;
   }
 }
@@ -88,13 +92,15 @@
   height: 80rpx;
   padding: 0 24rpx;
   font-size: 28rpx;
-  border: 2rpx solid #eee;
+  border: 2rpx solid var(--color-border);
   border-radius: 12rpx;
-  background: #fff;
+  background: var(--color-secondary);
+  color: var(--color-foreground);
 
   &--active {
-    border-color: #07c160;
-    background: rgba(7, 193, 96, 0.05);
+    border-color: var(--color-primary);
+    background: rgba(0, 242, 255, 0.08);
+    box-shadow: 0 0 12rpx rgba(0, 242, 255, 0.3);
   }
 }
 
@@ -114,7 +120,7 @@
     text-align: center;
     border-radius: 16rpx;
     font-size: 28rpx;
-    background: #f5f5f5;
+    background: var(--color-muted);
 
     &--wx {
       color: #09bb07;
@@ -129,20 +135,21 @@
     flex: 1;
     margin-left: 24rpx;
     font-size: 28rpx;
-    color: #333;
+    color: var(--color-foreground);
   }
 
   &__radio {
     width: 36rpx;
     height: 36rpx;
     border-radius: 8rpx;
-    border: 2rpx solid #ddd;
-    background: #fff;
+    border: 2rpx solid var(--color-border);
+    background: var(--color-secondary);
 
     &--on {
-      border-color: #07c160;
-      background: #07c160;
+      border-color: var(--color-primary);
+      background: var(--color-primary);
       position: relative;
+      box-shadow: 0 0 12rpx rgba(0, 242, 255, 0.5);
 
       &::after {
         content: '';
@@ -151,7 +158,7 @@
         top: 6rpx;
         width: 10rpx;
         height: 16rpx;
-        border: 2rpx solid #fff;
+        border: 2rpx solid var(--color-primary-foreground);
         border-top: 0;
         border-left: 0;
         transform: rotate(45deg);
@@ -165,8 +172,9 @@
   bottom: 32rpx;
   left: 32rpx;
   right: 32rpx;
-  background: #07c160;
-  color: #fff;
+  background: linear-gradient(135deg, #00f2ff 0%, #8b5cf6 100%);
+  color: var(--color-primary-foreground);
   border-radius: 40rpx;
   font-size: 32rpx;
+  box-shadow: 0 0 24rpx rgba(0, 242, 255, 0.4);
 }

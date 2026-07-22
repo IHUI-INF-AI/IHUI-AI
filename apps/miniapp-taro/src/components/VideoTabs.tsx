@@ -26,7 +26,7 @@ export default function VideoTabs({
   onChange,
 }: VideoTabsProps) {
   return (
-    <View className="flex bg-white border-b border-gray-100">
+    <View className="flex bg-card border-b border-border">
       {tabs.map((tab) => {
         const isActive = tab.key === active
         return (
@@ -36,17 +36,17 @@ export default function VideoTabs({
             onClick={() => onChange?.(tab.key)}
           >
             <Text
-              className={`text-sm ${isActive ? 'text-indigo-600 font-medium' : 'text-gray-500'}`}
+              className={`text-sm ${isActive ? 'text-primary font-medium' : 'text-muted-foreground'}`}
             >
               {tab.label}
               {tab.count !== undefined && tab.count > 0 && (
-                <Text className="text-xs ml-1 text-gray-400">{tab.count}</Text>
+                <Text className="text-xs ml-1 text-muted-foreground">{tab.count}</Text>
               )}
             </Text>
             {isActive && (
               <View
                 className="absolute bottom-0"
-                style={{ width: '24px', height: '2px', backgroundColor: '#6366f1' }}
+                style={{ width: '24px', height: '2px', backgroundColor: '#00f2ff' }}
               />
             )}
           </View>

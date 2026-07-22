@@ -60,12 +60,12 @@ export default function DistributionWithdraw() {
   })
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="mx-[12px] mt-[12px] bg-white rounded-[8px] p-[16px]">
-        <Text className="text-[12px] text-[#999]">{t('distribution.withdraw.available')}</Text>
-        <Text className="block text-[40px] text-[#333] font-bold mt-[4px]">¥{available}</Text>
-        <View className="flex items-center py-[12px] mt-[8px] border-t-[1px] border-[#f5f5f5]">
-          <Text className="text-[24px] text-[#333] font-semibold">¥</Text>
+    <View className="min-h-screen bg-background">
+      <View className="mx-[12px] mt-[12px] bg-card rounded-[8px] p-[16px]">
+        <Text className="text-[12px] text-muted-foreground">{t('distribution.withdraw.available')}</Text>
+        <Text className="block text-[40px] text-foreground font-bold mt-[4px]">¥{available}</Text>
+        <View className="flex items-center py-[12px] mt-[8px] border-t-[1px] border-border">
+          <Text className="text-[24px] text-foreground font-semibold">¥</Text>
           <Input
             className="flex-1 ml-[8px] text-[24px]"
             type="digit"
@@ -81,12 +81,12 @@ export default function DistributionWithdraw() {
           </Button>
         </View>
         <View className="mt-[16px]">
-          <Text className="text-[12px] text-[#999]">{t('distribution.withdraw.method')}</Text>
+          <Text className="text-[12px] text-muted-foreground">{t('distribution.withdraw.method')}</Text>
           <View className="flex mt-[8px] gap-[12px]">
             {payTypes.map((pt) => (
               <View
                 key={pt.value}
-                className={`flex-1 py-[10px] text-center rounded-[8px] text-[14px] ${payType === pt.value ? 'bg-[#ff6b35] text-white' : 'bg-[#f5f5f5] text-[#333]'}`}
+                className={`flex-1 py-[10px] text-center rounded-[8px] text-[14px] ${payType === pt.value ? 'bg-[#ff6b35] text-white' : 'bg-muted text-foreground'}`}
                 onClick={() => setPayType(pt.value)}
               >
                 <Text>{pt.label}</Text>

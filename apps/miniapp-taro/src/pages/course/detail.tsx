@@ -105,7 +105,7 @@ export default function CourseDetail() {
 
   if (!course) {
     return (
-      <View className="flex items-center justify-center h-screen text-[#999]">
+      <View className="flex items-center justify-center h-screen text-muted-foreground">
         <Text>{t('common.loading')}</Text>
       </View>
     )
@@ -141,34 +141,34 @@ export default function CourseDetail() {
   ]
 
   return (
-    <View className="min-h-screen pb-[80px] bg-[#f7f8fa]">
+    <View className="min-h-screen pb-[80px] bg-background">
       <CourseHeader
         data={headerData}
         onTeacherClick={() => Taro.showToast({ title: t('course.viewTeacher'), icon: 'none' })}
       />
 
-      <View className="flex items-center justify-around mx-3 my-3 bg-white rounded-xl p-4">
+      <View className="flex items-center justify-around mx-3 my-3 bg-card rounded-xl p-4">
         <View className="flex flex-col items-center">
           <ProgressCircle percent={learningProgress} size={60} />
-          <Text className="text-xs text-gray-500 mt-2">{t('course.learningProgress')}</Text>
+          <Text className="text-xs text-muted-foreground mt-2">{t('course.learningProgress')}</Text>
         </View>
         <View className="flex flex-col items-center" onClick={() => setShowNote(true)}>
-          <View className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center">
+          <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
             <Text className="text-xl">📝</Text>
           </View>
-          <Text className="text-xs text-gray-500 mt-2">{t('course.note')}</Text>
+          <Text className="text-xs text-muted-foreground mt-2">{t('course.note')}</Text>
         </View>
         <View className="flex flex-col items-center" onClick={() => setShowRating(true)}>
-          <View className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center">
+          <View className="w-12 h-12 rounded-xl bg-[#f59e0b]/10 flex items-center justify-center">
             <Text className="text-xl">⭐</Text>
           </View>
-          <Text className="text-xs text-gray-500 mt-2">{t('course.rating')}</Text>
+          <Text className="text-xs text-muted-foreground mt-2">{t('course.rating')}</Text>
         </View>
         <View className="flex flex-col items-center" onClick={() => setShowShare(true)}>
-          <View className="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center">
+          <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
             <Text className="text-xl">📤</Text>
           </View>
-          <Text className="text-xs text-gray-500 mt-2">{t('course.share')}</Text>
+          <Text className="text-xs text-muted-foreground mt-2">{t('course.share')}</Text>
         </View>
       </View>
 
@@ -233,13 +233,13 @@ export default function CourseDetail() {
         />
       </View>
 
-      <View className="fixed left-0 right-0 bottom-0 h-[60px] bg-white flex items-center px-4 shadow-[0_-2rpx_12rpx_rgba(0,0,0,0.06)]">
+      <View className="fixed left-0 right-0 bottom-0 h-[60px] bg-card flex items-center px-4 shadow-[0_-2rpx_12rpx_rgba(0,0,0,0.06)]">
         <View className="flex-1">
           <Text className="text-sm text-[#dd524d]">¥</Text>
           <Text className="text-2xl text-[#dd524d] font-bold">{course.price ?? 0}</Text>
         </View>
         <View
-          className="px-7 h-10 leading-10 bg-[#07c160] text-white rounded-lg text-sm"
+          className="px-7 h-10 leading-10 bg-primary text-white rounded-lg text-sm"
           onClick={handleBuy}
         >
           <Text>{t('course.buyNow')}</Text>
@@ -259,7 +259,7 @@ export default function CourseDetail() {
       {showShare && (
         <View className="fixed inset-0 z-50 bg-black/50" onClick={() => setShowShare(false)}>
           <View
-            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl"
+            className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <QrCodeShare

@@ -20,19 +20,19 @@ export interface CourseHeaderProps {
 
 export default function CourseHeader({ data = { title: '' }, onTeacherClick }: CourseHeaderProps) {
   return (
-    <View className="bg-white">
+    <View className="bg-card">
       {data.cover && (
         <Image className="w-full" style={{ height: '180px' }} src={data.cover} mode="aspectFill" />
       )}
       <View className="px-4 py-3">
-        <Text className="block text-base font-medium text-gray-800">{data.title}</Text>
+        <Text className="block text-base font-medium text-foreground">{data.title}</Text>
 
         {data.tags && data.tags.length > 0 && (
           <View className="flex flex-wrap mt-2">
             {data.tags.map((tag, i) => (
               <Text
                 key={i}
-                className="text-[11px] px-2 py-0.5 mr-1.5 mb-1 rounded bg-indigo-50 text-indigo-500"
+                className="text-[11px] px-2 py-0.5 mr-1.5 mb-1 rounded bg-primary/10 text-primary"
               >
                 {tag}
               </Text>
@@ -44,32 +44,32 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
           <View className="flex items-center" onClick={onTeacherClick}>
             {data.teacherAvatar && (
               <Image
-                className="w-7 h-7 mr-2 rounded-md bg-gray-100"
+                className="w-7 h-7 mr-2 rounded-md bg-muted"
                 src={data.teacherAvatar}
                 mode="aspectFill"
               />
             )}
-            {data.teacher && <Text className="text-xs text-gray-600 mr-3">{data.teacher}</Text>}
+            {data.teacher && <Text className="text-xs text-foreground mr-3">{data.teacher}</Text>}
           </View>
           <View className="flex items-center">
             {data.lessonCount !== undefined && (
-              <Text className="text-xs text-gray-400 mr-2">{data.lessonCount} 节</Text>
+              <Text className="text-xs text-muted-foreground mr-2">{data.lessonCount} 节</Text>
             )}
             {data.studentCount !== undefined && (
-              <Text className="text-xs text-gray-400 mr-2">{data.studentCount} 人学</Text>
+              <Text className="text-xs text-muted-foreground mr-2">{data.studentCount} 人学</Text>
             )}
             {data.rating !== undefined && (
-              <Text className="text-xs text-orange-500">★ {data.rating.toFixed(1)}</Text>
+              <Text className="text-xs text-[#f59e0b]">★ {data.rating.toFixed(1)}</Text>
             )}
           </View>
         </View>
 
         {data.price !== undefined && (
           <View className="flex items-baseline mt-2">
-            <Text className="text-xs text-red-500 mr-1">¥</Text>
-            <Text className="text-xl font-bold text-red-500">{data.price}</Text>
+            <Text className="text-xs text-destructive mr-1">¥</Text>
+            <Text className="text-xl font-bold text-destructive">{data.price}</Text>
             {data.originalPrice && (
-              <Text className="text-xs text-gray-400 line-through ml-2">¥{data.originalPrice}</Text>
+              <Text className="text-xs text-muted-foreground line-through ml-2">¥{data.originalPrice}</Text>
             )}
           </View>
         )}

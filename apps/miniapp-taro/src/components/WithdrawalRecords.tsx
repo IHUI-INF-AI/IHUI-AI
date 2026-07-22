@@ -19,10 +19,10 @@ export interface WithdrawalRecordsProps {
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  pending: { label: '审核中', color: 'text-orange-500' },
+  pending: { label: '审核中', color: 'text-[#f59e0b]' },
   approved: { label: '已通过', color: 'text-primary' },
-  rejected: { label: '已驳回', color: 'text-red-500' },
-  completed: { label: '已完成', color: 'text-green-500' },
+  rejected: { label: '已驳回', color: 'text-destructive' },
+  completed: { label: '已完成', color: 'text-primary' },
 }
 
 export default function WithdrawalRecords({
@@ -32,9 +32,9 @@ export default function WithdrawalRecords({
   onReachBottom,
 }: WithdrawalRecordsProps) {
   return (
-    <View className="bg-white mx-3 my-3 rounded-xl overflow-hidden">
-      <View className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-        <Text className="text-sm font-medium text-gray-800">提现记录</Text>
+    <View className="bg-card mx-3 my-3 rounded-xl overflow-hidden">
+      <View className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <Text className="text-sm font-medium text-foreground">提现记录</Text>
       </View>
 
       <ScrollView
@@ -45,41 +45,41 @@ export default function WithdrawalRecords({
       >
         {loading ? (
           <View className="py-8 text-center">
-            <Text className="text-sm text-gray-400">加载中...</Text>
+            <Text className="text-sm text-muted-foreground">加载中...</Text>
           </View>
         ) : records.length === 0 ? (
           <EmptyState text="暂无提现记录" />
         ) : (
           records.map((record) => {
-            const status = STATUS_MAP[record.status] ?? { label: '未知', color: 'text-gray-500' }
+            const status = STATUS_MAP[record.status] ?? { label: '未知', color: 'text-muted-foreground' }
             return (
               <View
                 key={record.id}
-                className="flex items-center px-4 py-3 border-b border-gray-50"
+                className="flex items-center px-4 py-3 border-b border-border"
                 onClick={() => onViewDetail?.(record)}
               >
                 <View className="flex-1">
                   <View className="flex items-center">
-                    <Text className="text-sm font-medium text-gray-800">
+                    <Text className="text-sm font-medium text-foreground">
                       ¥{record.amount.toFixed(2)}
                     </Text>
                     <Text className={`ml-2 text-xs ${status.color}`}>{status.label}</Text>
                   </View>
                   <View className="flex items-center mt-0.5">
                     {record.method && (
-                      <Text className="text-xs text-gray-400 mr-2">{record.method}</Text>
+                      <Text className="text-xs text-muted-foreground mr-2">{record.method}</Text>
                     )}
                     {record.createdAt && (
-                      <Text className="text-xs text-gray-400">{record.createdAt}</Text>
+                      <Text className="text-xs text-muted-foreground">{record.createdAt}</Text>
                     )}
                   </View>
                   {record.remark && (
-                    <Text className="block text-xs text-gray-400 mt-0.5 truncate">
+                    <Text className="block text-xs text-muted-foreground mt-0.5 truncate">
                       {record.remark}
                     </Text>
                   )}
                 </View>
-                <Text className="text-xs text-gray-300">›</Text>
+                <Text className="text-xs text-muted-foreground">›</Text>
               </View>
             )
           })

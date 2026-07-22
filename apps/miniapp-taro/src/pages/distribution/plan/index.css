@@ -1,21 +1,21 @@
 .page-container {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--color-background);
 }
 .page-header {
   padding: 24rpx;
-  background: #fff;
+  background: var(--color-card);
 }
 .page-title {
   font-size: 36rpx;
   font-weight: 600;
-  color: #333;
+  color: var(--color-foreground);
 }
 .page-content {
   padding: 24rpx;
 }
 .info-card {
-  background: #fff;
+  background: var(--color-card);
   border-radius: 12rpx;
   padding: 24rpx;
 }
@@ -30,15 +30,15 @@
 }
 .info-label {
   font-size: 28rpx;
-  color: #666;
+  color: var(--color-muted-foreground);
 }
 .info-value {
   font-size: 28rpx;
-  color: #333;
+  color: var(--color-foreground);
   font-weight: 500;
 }
 .empty {
   text-align: center;
-  color: #999;
+  color: var(--color-muted-foreground);
   padding: 80rpx 0;
 }

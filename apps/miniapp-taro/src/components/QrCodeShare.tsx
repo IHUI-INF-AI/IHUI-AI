@@ -39,15 +39,15 @@ export default function QrCodeShare({
 
   return (
     <View className="flex flex-col items-center px-6 py-8">
-      <Text className="text-base font-semibold text-gray-800">{title}</Text>
-      <Text className="text-xs text-gray-400 mt-1">{desc}</Text>
+      <Text className="text-base font-semibold text-foreground">{title}</Text>
+      <Text className="text-xs text-muted-foreground mt-1">{desc}</Text>
 
-      <View className="relative mt-5 w-56 h-56 bg-white rounded-2xl shadow-sm flex items-center justify-center">
+      <View className="relative mt-5 w-56 h-56 bg-card rounded-2xl shadow-sm flex items-center justify-center">
         {qrUrl ? (
           <Image src={qrUrl} className="w-48 h-48" mode="aspectFit" />
         ) : (
-          <View className="w-48 h-48 bg-gray-100 rounded-lg flex items-center justify-center">
-            <Text className="text-xs text-gray-400">二维码加载中</Text>
+          <View className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center">
+            <Text className="text-xs text-muted-foreground">二维码加载中</Text>
           </View>
         )}
         {logoUrl && (
@@ -59,17 +59,17 @@ export default function QrCodeShare({
         )}
       </View>
 
-      {userName && <Text className="mt-4 text-sm text-gray-700">来自:{userName}</Text>}
+      {userName && <Text className="mt-4 text-sm text-foreground">来自:{userName}</Text>}
 
       <View className="flex gap-3 mt-6 w-full">
         <Button
-          className="flex-1 !bg-gray-100 !text-gray-700 text-sm rounded-md"
+          className="flex-1 !bg-muted !text-foreground text-sm rounded-md"
           onClick={handleShare}
         >
           分享给好友
         </Button>
         <Button
-          className="flex-1 !bg-green-600 !text-white text-sm rounded-md"
+          className="flex-1 !bg-primary !text-white text-sm rounded-md"
           onClick={handleSave}
         >
           保存图片
