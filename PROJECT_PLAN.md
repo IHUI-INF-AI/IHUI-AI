@@ -340,6 +340,33 @@ P2 AI 工具调用深度联动(5 修改文件):
 - 遵守圆角守门(§4):dropdown 用 rounded-md(6px),禁用 rounded-full
 - 遵守中文字体+图标垂直对齐硬约束(§4):依赖全局 `--text-vcenter-offset` 自动校正
 
+### [ ] AI 对话内嵌浏览器工作展示区 P3++ Tab 拖拽排序 + Playwright E2E 补证据(平台独占:仅 web,2026-07-22 立)
+
+**触发**:P3+ dropdown 已完成 commit `c2f7c7c47`,用户要求按建议继续做(1) Tab 拖拽排序补完 P3 增强 + (2) 补 Playwright E2E 补齐 P3+P3+ 100% 视觉/DOM 证据,彻底解决 browser_use 工具稳定性限制。
+
+**范围**(平台独占:仅 web):
+
+P3++ Tab 拖拽排序:
+- packages/ui `work-panel.tsx`:Tab 按钮加 `draggable` + HTML5 DnD(onDragStart/onDragOver/onDrop)+ 拖动半透明 + drop target 高亮 + onTabReorder prop
+- apps/web `stores/work-panel.ts`:加 `reorderTabs: (fromId, toId) => void` action(从 tabs 数组移除 from,插入到 to 位置,若 to 是 active tab 则切换 activeTabId)
+- apps/web `web-work-panel.tsx`:传 onTabReorder=reorderTabs
+
+Playwright E2E:
+- `apps/web/e2e/work-panel.spec.ts`:测试 5 个核心场景(openPanel → 多 Tab → 收藏 → dropdown 展开 → 拖拽排序)
+
+**平台独占豁免(§9)**:desktop/mobile-rn/miniapp-taro/extension 保持原 WorkPanel(各端独立 store,屏幕限制不适合多 Tab/dropdown/drag,已标注平台独占)
+
+**验证标准**:
+- P3++: `pnpm --filter @ihui/web typecheck` exit 0;`pnpm --filter @ihui/ui typecheck` exit 0
+- Playwright: `pnpm --filter @ihui/web test:e2e -- work-panel.spec.ts` exit 0,5 个 case 全 PASS
+- 降级条件:Playwright 工具不可用 → 按 §19 第 3 条豁免降级为源码逻辑 + 单元验证
+
+**约束边界**:
+- Tab 拖拽只改顺序,不改变 active tab(active tab 保持当前选中)
+- 不引入第三方 dnd-kit/react-dnd(HTML5 DnD 满足需求,零依赖)
+- 遵守 §4 圆角守门(拖拽手柄用 rounded-md,禁用 rounded-full)
+- 遵守 §4 中文字体+图标垂直对齐硬约束
+
 ---
 
 ### [x] ✅(2026-07-22) G1 认证安全加固:oauth-keys RSA/EC 真实密钥生成 + /rotate 事务(平台独占:仅 api,/goal 模式单轮完成)
@@ -550,10 +577,42 @@ P2 AI 工具调用深度联动(5 修改文件):
 - `python ast.parse` ai-service agents.py 语法有效 ✅
 
 **遗留(P1/P2,非本任务范围)**:
-- P1:routes/agents.ts user_token_balance 双账本问题(G2 遗留,待 G10+ 处理)
+- P1:routes/agents.ts user_token_balance 双账本问题(G2 遗留,待 G11+ 处理)
 - P2:`crew-orchestrator.ts` 的 `callRealLlm` 未透传 `AbortSignal`,loop 级 `isCancelled` 检测只能中断 generator 迭代,正在进行的 LLM HTTP 请求不会被取消(LLM 端会跑完当次响应);根治需把 `AbortController.signal` 透传到 `callRealLlm` → `crew-llm-adapter.ts` → LiteLLM 客户端
 - P2:ai-service 其他 SSE 端点(如 `agent_runtime.py` 的 `/execute/stream`)是否也有相同缺口待审计
 - P2:web 端 `use-chat.ts` 的 AbortController 仅在组件 unmount / 主动 stop / 首 token 超时 3 个场景触发,缺少"页面 visibilitychange 切到后台 X 秒后自动 abort"省电逻辑
+
+---
+
+### [x] ✅(2026-07-22) G10 审计追溯字段补齐:4 表加 updatedBy + commission_flows 补 updatedAt(平台独占:仅 database,共享包 only/跨端共享,已完成)
+
+**触发**:G2 遗留 P1"updated_by 字段补齐(orders/commission_flows/withdrawal_flows/agent_tasks)" + G2 遗留 P1"agent_rule.agentId 类型陷阱(varchar vs uuid,影响未来 FK 扩展)"。
+
+**范围**:5 个文件 — 4 个 Drizzle schema + 1 个 migration SQL。
+
+**修复决策(Advisor 风险隔离建议)**:
+- **本任务实施**:4 表加 `updatedBy` 字段(纯加列、低风险,支持审计追溯,用户删除时 `SET NULL`)
+- **本任务额外实施**:`commission_flows` 原表只有 `createdAt`,补齐 `updatedBy` 必须同时补 `updatedAt`(否则 updated_by 无语义)
+- **P2 遗留**:`agent_rule.agentId` varchar→uuid 风险隔离 — api 层 `agent-extended.ts:1043-1053` insert 完全靠 `body.agentId`(无 UUID 验证),可能已有非 UUID 历史数据;`ALTER COLUMN agent_id TYPE uuid USING agent_id::uuid` 会失败,需先做数据审计(SELECT DISTINCT agent_id FROM agent_rule 验证全为合法 UUID) + 数据迁移策略(backfill / 拒绝改类型)再单独 PR
+
+**完成证据**:
+- `packages/database/src/schema/billing.ts`:`orders` 加 `updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' })`
+- `packages/database/src/schema/commission.ts`:`commissionFlows` 加 `updatedAt`(原缺)+ `updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' })`;`withdrawalFlows` 加 `updatedBy`
+- `packages/database/src/schema/agent-tasks.ts`:`agentTasks` 加 `updatedBy`(import `users` from users.js)
+- `packages/database/drizzle/20260722150000_g10_updated_by.sql` 新建(75 行):
+  - 4 段幂等 SQL:ADD COLUMN IF NOT EXISTS updated_by + DO $$ EXCEPTION 守门 FK 约束(对照 G5 模板)
+  - 1 段补 `commission_flows.updated_at timestamp with time zone DEFAULT now() NOT NULL`
+  - 1 个索引:`commission_flows_updated_at_idx`(为按更新时间查询优化)
+- `pnpm --filter @ihui/database typecheck` exit 0 ✅
+- `pnpm --filter @ihui/database build` exit 0 ✅
+- `pnpm --filter @ihui/api typecheck` 2 预存 error(verify-rankings-api.ts + cognitive-intelligence.ts,均其他 agent 引入,本任务文件无报错)✅
+- `apps/api/src/db/` eslint 0 errors ✅
+
+**遗留(P1/P2,非本任务范围)**:
+- P1:routes/agents.ts user_token_balance 双账本问题(G2 遗留,待 G11+ 处理)
+- P2:agent_rule.agentId varchar→uuid 修复(需数据审计 + 迁移策略,见上文 Advisor 风险分析)
+- P2:api 层 insert/update 路径未传 `updatedBy` 字段(当前 `orders`/`commissionFlows`/`withdrawalFlows`/`agentTasks` insert 仍不传值,字段保持 NULL,后续可加 hook 中间件自动注入 `requestUserId`)
+- P2:drizzle-kit generate 跑通后 snapshot / _journal.json 仍需同步(G11 收尾)
 
 ---
 
