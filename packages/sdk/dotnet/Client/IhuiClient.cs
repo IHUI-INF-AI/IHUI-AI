@@ -8,7 +8,7 @@ namespace Ihui.AI;
 /// <code>
 /// var client = IhuiClient.CreateBuilder()
 ///     .WithApiKey("ihui_xxx")
-///     .WithBaseUrl("http://localhost:3001")
+///     .WithBaseUrl("http://localhost:8802")
 ///     .Build();
 ///
 /// var resp = await client.Ai.CompletionsAsync(new ChatCompletionRequest
@@ -137,7 +137,7 @@ public sealed class IhuiClient : IDisposable
         }
 
         /// <summary>设置基础 URL。</summary>
-        /// <param name="baseUrl">基础 URL(默认 http://localhost:3001)</param>
+        /// <param name="baseUrl">基础 URL(默认 http://localhost:8802)</param>
         /// <returns>当前 builder</returns>
         public Builder WithBaseUrl(string baseUrl)
         {
