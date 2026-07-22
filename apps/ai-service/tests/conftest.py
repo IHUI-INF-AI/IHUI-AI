@@ -85,15 +85,17 @@ def _isolate_vector_memory(monkeypatch):
     - conftest 默认 REDIS_URL 仍是 settings.redis_url(测试环境通常无 Redis)
     - vector_memory 默认 _use_redis=True,_get_redis 会尝试连接,失败后才降级
       (会卡住测试几秒,影响速度)
-    - _next_id 需要重置,避免跨测试 id 递增
+    - VectorMemoryStore 重构后用 _entries + _vectors(原 _store / _next_id 已移除)
     """
     from app.services.vector_memory import vector_memory
 
     def _force_memory_mode():
         vector_memory._use_redis = False
         vector_memory._redis = None
-        vector_memory._store.clear()
-        vector_memory._next_id = 1
+        vector_memory._entries.clear()
+        vector_memory._vectors.clear()
+        vector_memory._dirty = False
+        vector_memory._hydrated = False
 
     _force_memory_mode()
     yield
