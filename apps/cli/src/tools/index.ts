@@ -478,3 +478,8 @@ export function checkPathWritePermission(
   }
   return { allowed: true };
 }
+
+// ==================== LSP Tools(Wave 1 P0:对标 OpenCode 开箱即用 LSP)====================
+import { registerLspTools } from './lsp.js';
+export { registerLspTools };
+registerLspTools();
