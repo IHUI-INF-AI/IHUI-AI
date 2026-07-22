@@ -1,5 +1,6 @@
 'use client'
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { cn } from '@/lib/utils'
 import {
@@ -52,6 +53,12 @@ const CONSOLE_LOGS = [
   { level: 'error', text: 'Cannot read property "id" of undefined' },
 ]
 
+const STATE_META: Record<DebugState, { labelKey: string; dot: string; text: string }> = {
+  stopped: { labelKey: 'debug.stateStopped', dot: 'bg-muted-foreground', text: 'text-muted-foreground' },
+  running: { labelKey: 'debug.stateRunning', dot: 'bg-green-500', text: 'text-green-600 dark:text-green-400' },
+  paused: { labelKey: 'debug.statePaused', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' },
+}
+
 function VariableRow({ v, depth = 0 }: { v: Variable; depth?: number }) {
   const [expanded, setExpanded] = React.useState(depth < 1)
   const hasChildren = (v.children?.length ?? 0) > 0
@@ -85,6 +92,7 @@ function VariableRow({ v, depth = 0 }: { v: Variable; depth?: number }) {
 }
 
 export function DebugPanel() {
+  const t = useTranslations('ide')
   const { activeView } = useIDEWorkspace()
   const [debugState, setDebugState] = React.useState<DebugState>('stopped')
   const [breakpoints, setBreakpoints] = React.useState<Breakpoint[]>(INITIAL_BREAKPOINTS)
@@ -94,12 +102,7 @@ export function DebugPanel() {
 
   if (activeView !== 'debug') return null
 
-  const stateMeta: Record<DebugState, { label: string; dot: string; text: string }> = {
-    stopped: { label: '未运行', dot: 'bg-muted-foreground', text: 'text-muted-foreground' },
-    running: { label: '运行中', dot: 'bg-green-500', text: 'text-green-600 dark:text-green-400' },
-    paused: { label: '已暂停', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' },
-  }
-  const meta = stateMeta[debugState]
+  const meta = STATE_META[debugState]
 
   const toggleBreakpoint = (id: string) => {
     setBreakpoints((prev) => prev.map((b) => b.id === id ? { ...b, enabled: !b.enabled } : b))
@@ -122,48 +125,48 @@ export function DebugPanel() {
   return (
     <div className="flex w-72 shrink-0 flex-col bg-muted/20">
       <div className="flex items-center gap-1 px-2 py-1.5">
-        <button onClick={() => setDebugState('running')} className={cn(ctrlBtn, debugState === 'stopped' ? 'text-green-600' : 'text-muted-foreground')} aria-label="开始">
+        <button onClick={() => setDebugState('running')} className={cn(ctrlBtn, debugState === 'stopped' ? 'text-green-600' : 'text-muted-foreground')} aria-label={t('debug.start')}>
           <Play className="h-3.5 w-3.5" />
         </button>
-        <button onClick={() => setDebugState('paused')} className={cn(ctrlBtn, 'text-amber-600')} aria-label="暂停">
+        <button onClick={() => setDebugState('paused')} className={cn(ctrlBtn, 'text-amber-600')} aria-label={t('debug.pause')}>
           <Square className="h-3.5 w-3.5" />
         </button>
-        <button onClick={() => setDebugState('stopped')} className={cn(ctrlBtn, 'text-red-600')} aria-label="停止">
+        <button onClick={() => setDebugState('stopped')} className={cn(ctrlBtn, 'text-red-600')} aria-label={t('debug.stop')}>
           <Square className="h-3.5 w-3.5" />
         </button>
-        <button className={cn(ctrlBtn, 'text-muted-foreground')} aria-label="单步跳过"><SkipForward className="h-3.5 w-3.5" /></button>
-        <button className={cn(ctrlBtn, 'text-muted-foreground')} aria-label="单步进入"><ArrowDown className="h-3.5 w-3.5" /></button>
-        <button className={cn(ctrlBtn, 'text-muted-foreground')} aria-label="单步跳出"><ArrowUp className="h-3.5 w-3.5" /></button>
-        <button className={cn(ctrlBtn, 'text-muted-foreground')} aria-label="重启"><RotateCcw className="h-3.5 w-3.5" /></button>
+        <button className={cn(ctrlBtn, 'text-muted-foreground')} aria-label={t('debug.stepOver')}><SkipForward className="h-3.5 w-3.5" /></button>
+        <button className={cn(ctrlBtn, 'text-muted-foreground')} aria-label={t('debug.stepInto')}><ArrowDown className="h-3.5 w-3.5" /></button>
+        <button className={cn(ctrlBtn, 'text-muted-foreground')} aria-label={t('debug.stepOut')}><ArrowUp className="h-3.5 w-3.5" /></button>
+        <button className={cn(ctrlBtn, 'text-muted-foreground')} aria-label={t('debug.restart')}><RotateCcw className="h-3.5 w-3.5" /></button>
         <div className={cn('ml-auto flex items-center gap-1 text-xs font-medium', meta.text)}>
           <span className={cn('h-2 w-2 rounded', meta.dot)} />
-          <span>{meta.label}</span>
+          <span>{t(meta.labelKey)}</span>
         </div>
       </div>
 
       <div className="flex-1 overflow-auto">
         {debugState === 'stopped' ? (
-          <div className="px-3 py-2 text-xs text-muted-foreground">尚未启动调试会话</div>
+          <div className="px-3 py-2 text-xs text-muted-foreground">{t('debug.noSession')}</div>
         ) : (
           <>
             <div className="mb-2">
-              <div className="px-2 py-1 text-xs font-medium text-muted-foreground">变量</div>
+              <div className="px-2 py-1 text-xs font-medium text-muted-foreground">{t('debug.variables')}</div>
               {VARIABLES.map((v, i) => <VariableRow key={i} v={v} />)}
             </div>
 
             <div className="mb-2">
               <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground">
-                <span>监视</span>
+                <span>{t('debug.watch')}</span>
               </div>
               <div className="flex items-center gap-1 px-2 pb-1">
                 <input
                   value={watchInput}
                   onChange={(e) => setWatchInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addWatch()}
-                  placeholder="添加监视表达式"
+                  placeholder={t('debug.watchPlaceholder')}
                   className="flex-1 rounded border border-border bg-background px-1.5 py-0.5 text-xs focus:outline-none"
                 />
-                <button onClick={addWatch} className="rounded p-0.5 text-muted-foreground hover:bg-muted/50" aria-label="添加">
+                <button onClick={addWatch} className="rounded p-0.5 text-muted-foreground hover:bg-muted/50" aria-label={t('debug.add')}>
                   <Plus className="h-3 w-3" />
                 </button>
               </div>
@@ -172,7 +175,7 @@ export function DebugPanel() {
                   <span className="truncate text-blue-600 dark:text-blue-400">{w}</span>
                   <span className="text-muted-foreground">:</span>
                   <span className="ml-auto truncate text-green-600 dark:text-green-400">undefined</span>
-                  <button onClick={() => removeWatch(i)} className="text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100" aria-label="删除">
+                  <button onClick={() => removeWatch(i)} className="text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100" aria-label={t('debug.delete')}>
                     <X className="h-3 w-3" />
                   </button>
                 </div>
@@ -181,16 +184,16 @@ export function DebugPanel() {
 
             <div className="mb-2">
               <div className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-muted-foreground">
-                <span>断点</span>
+                <span>{t('debug.breakpoints')}</span>
                 <span className="ml-auto text-muted-foreground">{enabledBreaks}/{breakpoints.length}</span>
               </div>
               {breakpoints.map((b) => (
                 <div key={b.id} className="group flex items-center gap-1.5 px-2 py-0.5 text-xs hover:bg-muted/30">
-                  <button onClick={() => toggleBreakpoint(b.id)} className="text-muted-foreground" aria-label="切换">
+                  <button onClick={() => toggleBreakpoint(b.id)} className="text-muted-foreground" aria-label={t('debug.toggle')}>
                     {b.enabled ? <CircleDot className="h-3 w-3 text-red-500" /> : <Circle className="h-3 w-3" />}
                   </button>
                   <span className={cn('truncate', !b.enabled && 'text-muted-foreground line-through')}>{b.file}:{b.line}</span>
-                  <button onClick={() => removeBreakpoint(b.id)} className="ml-auto text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100" aria-label="删除">
+                  <button onClick={() => removeBreakpoint(b.id)} className="ml-auto text-muted-foreground opacity-0 hover:text-foreground group-hover:opacity-100" aria-label={t('debug.delete')}>
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </div>
@@ -198,7 +201,7 @@ export function DebugPanel() {
             </div>
 
             <div className="mb-2">
-              <div className="px-2 py-1 text-xs font-medium text-muted-foreground">调用栈</div>
+              <div className="px-2 py-1 text-xs font-medium text-muted-foreground">{t('debug.callStack')}</div>
               <div className="px-3 py-0.5 text-xs">
                 <span className="text-blue-600 dark:text-blue-400">IDELayout</span>
                 <span className="text-muted-foreground"> ide-layout.tsx:12</span>
@@ -214,7 +217,7 @@ export function DebugPanel() {
       >
         {showConsole ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
         <Terminal className="h-3 w-3" />
-        <span>调试控制台</span>
+        <span>{t('debug.debugConsole')}</span>
       </button>
       {showConsole && (
         <div className="max-h-32 overflow-auto bg-background/50 p-1.5 font-mono text-[11px]">
