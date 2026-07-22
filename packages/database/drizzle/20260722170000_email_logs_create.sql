@@ -5,6 +5,12 @@
 -- 影响:新数据库 apply 全部 migrations 后,email-service.ts 运行时报
 --       "relation email_logs does not exist" 错误,所有邮件发送审计写日志失败。
 -- 修复:补 CREATE TABLE,与 email-logs.ts schema 完全对齐,IF NOT EXISTS 守门可重复执行。
+--
+-- 执行方式(与项目 20260722* 系列手写 migration 一致,不登记到 _journal.json):
+--   pnpm tsx packages/database/scripts/apply-migration.mjs drizzle/20260722170000_email_logs_create.sql
+-- 或直接 psql:
+--   psql "$DATABASE_URL" -f packages/database/drizzle/20260722170000_email_logs_create.sql
+-- apply-migration.mjs 的 splitSqlStatements 正确处理 DO $$ ... $$ 块,可安全使用。
 
 CREATE TABLE IF NOT EXISTS "email_logs" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
