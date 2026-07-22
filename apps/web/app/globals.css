@@ -716,6 +716,25 @@ h6 {
   }
 }
 
+/* 密码输入框眼睛切换动画(2026-07-22 立)
+   复用 styled-components 实现的 keyframes-fill 行为:scale 0→1.2→1,opacity 0→1。
+   - 切换显示/隐藏时图标做弹性放大(0.5s),与 Lucide 风格保持一致;
+   - 静态态不动画,只在 visible 切换时触发;使用 inline keyframe 名称 eye-fill 避免污染全局 namespace;
+   - 遵守 prefers-reduced-motion 媒体查询(globals.css 第 391-400 行)自动收敛。 */
+@keyframes eye-fill {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 /* ============================================================
  * z-index utility 暴露层 (2026-07-19 立,根因修复登录框被 AI 面板遮盖)
  * ============================================================
@@ -767,6 +786,90 @@ h6 {
   }
   .z-max {
     z-index: var(--z-max);
+  }
+}
+
+/* ============================================================
+ * 复选框样式系统(2026-07-22 立)
+ * 借鉴 styled-components 样例的 3D 翻转 + hover 缩放动画风格
+ * 融入项目 primary token 设计系统,适配 light/dark mode
+ * 同时服务 Radix Checkbox(packages/ui)和自定义 AgreementCheckbox
+ * ============================================================ */
+
+.ihui-checkbox {
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    color 0.3s ease,
+    transform 0.3s ease;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+/* hover 态:边框加深 + 浅背景 + 轻微放大(仅未选中时) */
+.ihui-checkbox[data-state='unchecked']:hover {
+  border-color: var(--color-foreground);
+  background-color: var(--color-muted);
+  transform: scale(1.08);
+}
+
+/* 选中态:背景填充 primary + 边框 primary + 3D 翻转动画 */
+.ihui-checkbox[data-state='checked'] {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+  animation: ihui-checkbox-check 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+/* 取消勾选:反向缩回(无翻转,避免视觉过载) */
+.ihui-checkbox[data-state='unchecked'] {
+  animation: ihui-checkbox-uncheck 0.2s ease forwards;
+}
+
+/* 半选态(indeterminate):背景填充 primary,无翻转动画(中间态直接显示) */
+.ihui-checkbox[data-state='indeterminate'] {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+/* checkmark 内 ✓ 图标弹入(Radix Indicator 或自定义 span) */
+.ihui-checkbox[data-state='checked'] .ihui-checkbox-indicator {
+  animation: ihui-checkbox-indicator-in 0.4s ease forwards;
+}
+
+/* focus 态:用项目 ring,不要蓝色发光边框 */
+.ihui-checkbox:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--color-background),
+    0 0 0 4px var(--color-ring);
+}
+
+/* 禁用态 */
+.ihui-checkbox:disabled,
+.ihui-checkbox[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* prefers-reduced-motion:关闭翻转动画,保留颜色过渡 */
+@media (prefers-reduced-motion: reduce) {
+  .ihui-checkbox[data-state='checked'] {
+    animation: none;
+    transform: scale(1.05);
+  }
+  .ihui-checkbox[data-state='unchecked'] {
+    animation: none;
+    transform: scale(1);
+  }
+  .ihui-checkbox[data-state='checked'] .ihui-checkbox-indicator {
+    animation: none;
+    opacity: 1;
+  }
+  .ihui-checkbox[data-state='unchecked']:hover {
+    transform: none;
   }
 }
 
