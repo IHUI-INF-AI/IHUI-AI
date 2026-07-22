@@ -63,6 +63,22 @@ function MainContent() {
 
 export function IDELayout() {
   useIDEShortcuts()
+  const { workspacePath, setWorkspacePath, fetchFileTree, fetchDiffFiles, fetchGitLog, fetchGitBranches } = useIDEWorkspace()
+
+  // 工作区初始化:从 localStorage 恢复路径,有路径则 fetch 数据
+  React.useEffect(() => {
+    if (!workspacePath) {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('ide:workspacePath') : null
+      if (saved) setWorkspacePath(saved)
+      return
+    }
+    // 有路径时 fetch 数据(fetch 函数是稳定的,不放入依赖)
+    void fetchFileTree()
+    void fetchDiffFiles()
+    void fetchGitLog()
+    void fetchGitBranches()
+  }, [workspacePath, setWorkspacePath, fetchFileTree, fetchDiffFiles, fetchGitLog, fetchGitBranches])
+
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-background">
       <IDETopBar />

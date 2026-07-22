@@ -1,4 +1,10 @@
 import { create } from 'zustand'
+import {
+  browseDirectory,
+  readFile,
+  runCommand,
+  type BrowseEntry,
+} from '@ihui/api-client'
 import type {
   ViewPanelType,
   IDETabType,
@@ -8,155 +14,68 @@ import type {
   DiffViewMode,
 } from '@ihui/types'
 
-/** 示例文件树(模拟项目结构) */
-const SAMPLE_FILE_TREE: FileNode[] = [
-  {
-    id: 'src',
-    name: 'src',
-    path: '/src',
-    type: 'folder',
-    children: [
-      {
-        id: 'src-components',
-        name: 'components',
-        path: '/src/components',
-        type: 'folder',
-        children: [
-          {
-            id: 'src-components-ide',
-            name: 'ide',
-            path: '/src/components/ide',
-            type: 'folder',
-            children: [
-              {
-                id: 'ide-layout',
-                name: 'ide-layout.tsx',
-                path: '/src/components/ide/ide-layout.tsx',
-                type: 'file',
-                language: 'tsx',
-                content: `import * as React from 'react'\nimport { ActivityBar } from './activity-bar'\nimport { IDETopBar } from './ide-top-bar'\nimport { FileExplorer } from './file-explorer'\nimport { EditorTabBar } from './editor-tab-bar'\nimport { CodeEditorPane } from './code-editor-pane'\nimport { StatusBar } from './status-bar'\n\nexport function IDELayout() {\n  return (\n    <div className="flex h-full flex-col">\n      <IDETopBar />\n      <div className="flex flex-1 overflow-hidden">\n        <ActivityBar />\n        <FileExplorer />\n        <div className="flex flex-1 flex-col">\n          <EditorTabBar />\n          <CodeEditorPane />\n        </div>\n      </div>\n      <StatusBar />\n    </div>\n  )\n}`,
-              },
-              {
-                id: 'activity-bar',
-                name: 'activity-bar.tsx',
-                path: '/src/components/ide/activity-bar.tsx',
-                type: 'file',
-                language: 'tsx',
-                content: `import * as React from 'react'\nimport { FileSearch, Search, GitBranch, Bug, AppWindow } from 'lucide-react'\n\nconst ITEMS = [\n  { id: 'files', icon: FileSearch, label: '文件' },\n  { id: 'search', icon: Search, label: '搜索' },\n  { id: 'source-control', icon: GitBranch, label: '源代码控制' },\n  { id: 'debug', icon: Bug, label: '调试' },\n  { id: 'applications', icon: AppWindow, label: '应用' },\n] as const\n\nexport function ActivityBar() {\n  return (\n    <div className="flex w-12 flex-col items-center gap-1 py-2">\n      {ITEMS.map((item) => (\n        <button key={item.id} className="rounded-md p-2 hover:bg-muted">\n          <item.icon className="h-5 w-5" />\n        </button>\n      ))}\n    </div>\n  )\n}`,
-              },
-              {
-                id: 'file-explorer',
-                name: 'file-explorer.tsx',
-                path: '/src/components/ide/file-explorer.tsx',
-                type: 'file',
-                language: 'tsx',
-                content: `import * as React from 'react'\nimport { Folder, FileText } from 'lucide-react'\n\nexport function FileExplorer() {\n  return (\n    <div className="w-60 overflow-auto">\n      <div className="p-2 text-xs font-medium text-muted-foreground">文件</div>\n    </div>\n  )\n}`,
-              },
-              {
-                id: 'editor-tab-bar',
-                name: 'editor-tab-bar.tsx',
-                path: '/src/components/ide/editor-tab-bar.tsx',
-                type: 'file',
-                language: 'tsx',
-                content: `export function EditorTabBar() {\n  return (\n    <div className="flex h-9 items-center gap-1 px-2">\n      <span className="text-sm">editor-tab-bar</span>\n    </div>\n  )\n}`,
-              },
-              {
-                id: 'code-editor-pane',
-                name: 'code-editor-pane.tsx',
-                path: '/src/components/ide/code-editor-pane.tsx',
-                type: 'file',
-                language: 'tsx',
-                content: `export function CodeEditorPane() {\n  return (\n    <div className="flex-1 overflow-auto">\n      <pre className="p-4 text-sm">code here</pre>\n    </div>\n  )\n}`,
-              },
-              {
-                id: 'status-bar',
-                name: 'status-bar.tsx',
-                path: '/src/components/ide/status-bar.tsx',
-                type: 'file',
-                language: 'tsx',
-                content: `export function StatusBar() {\n  return (\n    <div className="flex h-6 items-center px-3 text-xs">\n      <span>main</span>\n    </div>\n  )\n}`,
-              },
-            ],
-          },
-        ],
-      },
-      {
-        id: 'src-stores',
-        name: 'stores',
-        path: '/src/stores',
-        type: 'folder',
-        children: [
-          {
-            id: 'ide-workspace-store',
-            name: 'ide-workspace.ts',
-            path: '/src/stores/ide-workspace.ts',
-            type: 'file',
-            language: 'ts',
-            content: `import { create } from 'zustand'\n\nexport const useIDEWorkspace = create(() => ({}))`,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'package-json',
-    name: 'package.json',
-    path: '/package.json',
-    type: 'file',
-    language: 'json',
-    content: `{\n  "name": "@ihui/web",\n  "version": "1.0.0",\n  "private": true\n}`,
-  },
-  {
-    id: 'tsconfig',
-    name: 'tsconfig.json',
-    path: '/tsconfig.json',
-    type: 'file',
-    language: 'json',
-    content: `{\n  "compilerOptions": {\n    "target": "ES2022",\n    "module": "ESNext",\n    "jsx": "preserve"\n  }\n}`,
-  },
-]
+/** 扩展名 → 语言映射 */
+const EXT_LANG: Record<string, string> = {
+  ts: 'typescript', tsx: 'tsx', js: 'javascript', jsx: 'jsx',
+  json: 'json', css: 'css', scss: 'scss', html: 'html', md: 'markdown',
+  py: 'python', go: 'go', rs: 'rust', sh: 'shell', yml: 'yaml', yaml: 'yaml',
+  sql: 'sql', xml: 'xml', svg: 'xml', vue: 'vue', svelte: 'svelte',
+}
 
-/** 示例 diff 文件 */
-const SAMPLE_DIFF_FILES: DiffFile[] = [
-  {
-    id: 'diff-1',
-    filename: 'src/components/ide/ide-layout.tsx',
-    status: 'added',
-    oldContent: '',
-    newContent: `import * as React from 'react'\nimport { ActivityBar } from './activity-bar'\nimport { IDETopBar } from './ide-top-bar'\nimport { FileExplorer } from './file-explorer'\nimport { EditorTabBar } from './editor-tab-bar'\nimport { CodeEditorPane } from './code-editor-pane'\nimport { StatusBar } from './status-bar'\n\nexport function IDELayout() {\n  return (\n    <div className="flex h-full flex-col">\n      <IDETopBar />\n      <div className="flex flex-1 overflow-hidden">\n        <ActivityBar />\n        <FileExplorer />\n        <div className="flex flex-1 flex-col">\n          <EditorTabBar />\n          <CodeEditorPane />\n        </div>\n      </div>\n      <StatusBar />\n    </div>\n  )\n}`,
-    additions: 18,
-    deletions: 0,
-    language: 'tsx',
-  },
-  {
-    id: 'diff-2',
-    filename: 'src/components/ide/activity-bar.tsx',
-    status: 'modified',
-    oldContent: `export function ActivityBar() {\n  return (\n    <div className="w-12">\n      <span>Activity</span>\n    </div>\n  )\n}`,
-    newContent: `import * as React from 'react'\nimport { FileSearch, Search, GitBranch, Bug, AppWindow } from 'lucide-react'\n\nexport function ActivityBar() {\n  return (\n    <div className="flex w-12 flex-col items-center gap-1 py-2">\n      <button className="rounded-md p-2 hover:bg-muted">\n        <FileSearch className="h-5 w-5" />\n      </button>\n    </div>\n  )\n}`,
-    additions: 8,
-    deletions: 3,
-    language: 'tsx',
-  },
-  {
-    id: 'diff-3',
-    filename: 'src/stores/ide-workspace.ts',
-    status: 'modified',
-    oldContent: `import { create } from 'zustand'\n\nexport const useIDEWorkspace = create(() => ({}))`,
-    newContent: `import { create } from 'zustand'\nimport type { FileNode, EditorTab } from '@ihui/types'\n\ninterface IDEState {\n  fileTree: FileNode[]\n  openTabs: EditorTab[]\n  activeTabId: string | null\n}\n\nexport const useIDEWorkspace = create<IDEState>(() => ({\n  fileTree: [],\n  openTabs: [],\n  activeTabId: null,\n}))`,
-    additions: 8,
-    deletions: 1,
-    language: 'ts',
-  },
-]
+/** BrowseEntry → FileNode */
+function entryToFileNode(entry: BrowseEntry, parentId: string): FileNode {
+  const ext = entry.name.split('.').pop()?.toLowerCase() ?? ''
+  return {
+    id: `${parentId}/${entry.name}`,
+    name: entry.name,
+    path: entry.path,
+    type: entry.isDir ? 'folder' : 'file',
+    language: entry.isDir ? undefined : (EXT_LANG[ext] ?? 'text'),
+    size: entry.size || undefined,
+    lastModified: entry.modified || undefined,
+    children: entry.isDir ? [] : undefined,
+  }
+}
+
+/** 在树中查找节点 */
+function findNode(nodes: FileNode[], id: string): FileNode | null {
+  for (const n of nodes) {
+    if (n.id === id) return n
+    if (n.children) {
+      const found = findNode(n.children, id)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+/** 更新树中指定节点的 children */
+function updateTreeChildren(nodes: FileNode[], folderId: string, children: FileNode[]): FileNode[] {
+  return nodes.map((n) => {
+    if (n.id === folderId) return { ...n, children }
+    if (n.children) return { ...n, children: updateTreeChildren(n.children, folderId, children) }
+    return n
+  })
+}
+
+export interface GitCommit {
+  id: string
+  message: string
+  author: string
+  time: string
+}
 
 interface IDEWorkspaceState {
-  /** 当前活动视图(files/search/source-control/debug/applications) */
+  /** 当前活动视图 */
   activeView: ViewPanelType
   /** 顶部 tab 类型 */
   activeTopTab: IDETabType
+  /** 工作区路径 */
+  workspacePath: string
   /** 文件树 */
   fileTree: FileNode[]
+  /** 已加载子项的文件夹 id 集合 */
+  loadedFolders: Set<string>
   /** 展开的文件夹 id 集合 */
   expandedFolders: Set<string>
   /** 选中的文件 id */
@@ -171,10 +90,21 @@ interface IDEWorkspaceState {
   activeDiffFileId: string | null
   /** diff 视图模式 */
   diffViewMode: DiffViewMode
+  /** git 提交历史 */
+  gitCommits: GitCommit[]
+  /** git 分支列表 */
+  gitBranches: string[]
+  /** git 当前分支 */
+  gitCurrentBranch: string
+  /** 加载状态 */
+  loading: boolean
+  /** 错误信息 */
+  error: string | null
 
-  // Actions
+  // UI Actions
   setActiveView: (view: ViewPanelType) => void
   setActiveTopTab: (tab: IDETabType) => void
+  setWorkspacePath: (path: string) => void
   toggleFolder: (folderId: string) => void
   selectFile: (fileId: string) => void
   openFile: (file: FileNode) => void
@@ -182,72 +112,253 @@ interface IDEWorkspaceState {
   setActiveTab: (tabId: string) => void
   setActiveDiffFile: (fileId: string) => void
   setDiffViewMode: (mode: DiffViewMode) => void
+
+  // Fetch Actions
+  fetchFileTree: () => Promise<void>
+  fetchFolderChildren: (folderId: string) => Promise<void>
+  fetchFileContent: (filePath: string) => Promise<string>
+  fetchDiffFiles: () => Promise<void>
+  fetchGitLog: () => Promise<void>
+  fetchGitBranches: () => Promise<void>
 }
 
-export const useIDEWorkspace = create<IDEWorkspaceState>((set) => ({
+export const useIDEWorkspace = create<IDEWorkspaceState>((set, get) => ({
   activeView: 'files',
   activeTopTab: 'editor',
-  fileTree: SAMPLE_FILE_TREE,
-  expandedFolders: new Set(['src', 'src-components', 'src-components-ide']),
-  selectedFileId: 'ide-layout',
-  openTabs: [
-    {
-      id: 'tab-ide-layout',
-      fileId: 'ide-layout',
-      filename: 'ide-layout.tsx',
-      path: '/src/components/ide/ide-layout.tsx',
-      language: 'tsx',
-      content: SAMPLE_FILE_TREE[0]?.children?.[0]?.children?.[0]?.children?.[0]?.content ?? '',
-      isDirty: false,
-    },
-  ],
-  activeTabId: 'tab-ide-layout',
-  diffFiles: SAMPLE_DIFF_FILES,
-  activeDiffFileId: 'diff-1',
+  workspacePath: '',
+  fileTree: [],
+  loadedFolders: new Set<string>(),
+  expandedFolders: new Set<string>(),
+  selectedFileId: null,
+  openTabs: [],
+  activeTabId: null,
+  diffFiles: [],
+  activeDiffFileId: null,
   diffViewMode: 'split',
+  gitCommits: [],
+  gitBranches: [],
+  gitCurrentBranch: 'main',
+  loading: false,
+  error: null,
 
   setActiveView: (view) => set({ activeView: view }),
   setActiveTopTab: (tab) => set({ activeTopTab: tab }),
-  toggleFolder: (folderId) =>
-    set((state) => {
-      const next = new Set(state.expandedFolders)
-      if (next.has(folderId)) next.delete(folderId)
-      else next.add(folderId)
-      return { expandedFolders: next }
-    }),
+  setWorkspacePath: (path) => set({ workspacePath: path }),
+
+  toggleFolder: (folderId) => {
+    const state = get()
+    const next = new Set(state.expandedFolders)
+    if (next.has(folderId)) {
+      next.delete(folderId)
+    } else {
+      next.add(folderId)
+      // 如果文件夹子项未加载,异步加载
+      if (!state.loadedFolders.has(folderId)) {
+        get().fetchFolderChildren(folderId)
+      }
+    }
+    set({ expandedFolders: next })
+  },
+
   selectFile: (fileId) => set({ selectedFileId: fileId }),
-  openFile: (file) =>
-    set((state) => {
-      if (file.type !== 'file') return state
-      const existing = state.openTabs.find((t) => t.fileId === file.id)
-      if (existing) return { activeTabId: existing.id, selectedFileId: file.id }
-      const newTab: EditorTab = {
-        id: `tab-${file.id}`,
-        fileId: file.id,
-        filename: file.name,
-        path: file.path,
-        language: file.language ?? 'text',
-        content: file.content ?? '',
-        isDirty: false,
-      }
-      return {
-        openTabs: [...state.openTabs, newTab],
-        activeTabId: newTab.id,
-        selectedFileId: file.id,
-      }
-    }),
-  closeTab: (tabId) =>
-    set((state) => {
-      const idx = state.openTabs.findIndex((t) => t.id === tabId)
-      if (idx === -1) return state
-      const tabs = state.openTabs.filter((t) => t.id !== tabId)
-      let activeTabId = state.activeTabId
-      if (state.activeTabId === tabId) {
-        activeTabId = tabs[Math.min(idx, tabs.length - 1)]?.id ?? null
-      }
-      return { openTabs: tabs, activeTabId }
-    }),
+
+  openFile: (file) => {
+    if (file.type !== 'file') return
+    const state = get()
+    const existing = state.openTabs.find((t) => t.fileId === file.id)
+    if (existing) {
+      set({ activeTabId: existing.id, selectedFileId: file.id })
+      return
+    }
+    const newTab: EditorTab = {
+      id: `tab-${file.id}`,
+      fileId: file.id,
+      filename: file.name,
+      path: file.path,
+      language: file.language ?? 'text',
+      content: '',
+      isDirty: false,
+    }
+    set({
+      openTabs: [...state.openTabs, newTab],
+      activeTabId: newTab.id,
+      selectedFileId: file.id,
+    })
+    // 异步加载文件内容
+    get().fetchFileContent(file.path).then((content) => {
+      set((s) => ({
+        openTabs: s.openTabs.map((t) => (t.id === newTab.id ? { ...t, content } : t)),
+      }))
+    })
+  },
+
+  closeTab: (tabId) => {
+    const state = get()
+    const idx = state.openTabs.findIndex((t) => t.id === tabId)
+    if (idx === -1) return
+    const tabs = state.openTabs.filter((t) => t.id !== tabId)
+    let activeTabId = state.activeTabId
+    if (state.activeTabId === tabId) {
+      activeTabId = tabs[Math.min(idx, tabs.length - 1)]?.id ?? null
+    }
+    set({ openTabs: tabs, activeTabId })
+  },
+
   setActiveTab: (tabId) => set({ activeTabId: tabId }),
   setActiveDiffFile: (fileId) => set({ activeDiffFileId: fileId }),
   setDiffViewMode: (mode) => set({ diffViewMode: mode }),
+
+  // ============ Fetch Actions ============
+
+  fetchFileTree: async () => {
+    const { workspacePath } = get()
+    if (!workspacePath) return
+    set({ loading: true, error: null })
+    try {
+      const result = await browseDirectory(workspacePath)
+      if (result.success) {
+        const tree = result.data.entries.map((e) => entryToFileNode(e, workspacePath))
+        set({ fileTree: tree, loading: false })
+      } else {
+        set({ loading: false, error: result.error ?? '加载文件树失败' })
+      }
+    } catch (e) {
+      set({ loading: false, error: (e as Error).message })
+    }
+  },
+
+  fetchFolderChildren: async (folderId: string) => {
+    const state = get()
+    if (!state.workspacePath) return
+    const folder = findNode(state.fileTree, folderId)
+    if (!folder || folder.type !== 'folder') return
+    try {
+      const result = await browseDirectory(folder.path)
+      if (result.success) {
+        const children = result.data.entries.map((e) => entryToFileNode(e, folder.id))
+        set({
+          fileTree: updateTreeChildren(state.fileTree, folderId, children),
+          loadedFolders: new Set(state.loadedFolders).add(folderId),
+        })
+      }
+    } catch (e) {
+      console.error('fetchFolderChildren error:', e)
+    }
+  },
+
+  fetchFileContent: async (filePath: string) => {
+    const { workspacePath } = get()
+    if (!workspacePath) return ''
+    try {
+      const result = await readFile({ path: filePath, workspacePath })
+      if (result.success) return result.data.content
+      return ''
+    } catch (e) {
+      console.error('fetchFileContent error:', e)
+      return ''
+    }
+  },
+
+  fetchDiffFiles: async () => {
+    const { workspacePath } = get()
+    if (!workspacePath) return
+    try {
+      // 获取 git diff --name-status 变更文件列表
+      const result = await runCommand({
+        command: 'git diff --name-status HEAD',
+        workspacePath,
+      })
+      if (!result.success || !result.data.stdout.trim()) {
+        set({ diffFiles: [] })
+        return
+      }
+      // 解析变更列表
+      const lines = result.data.stdout.trim().split('\n').filter(Boolean)
+      const diffFiles: DiffFile[] = []
+      for (const line of lines) {
+        const [status, filename] = line.split('\t')
+        if (!filename) continue
+        const ext = filename.split('.').pop()?.toLowerCase() ?? ''
+        const statusMap: Record<string, DiffFile['status']> = {
+          A: 'added', M: 'modified', D: 'deleted', R: 'renamed',
+        }
+        // 获取 diff 统计
+        const statResult = await runCommand({
+          command: `git diff --numstat HEAD -- "${filename}"`,
+          workspacePath,
+        })
+        let additions = 0
+        let deletions = 0
+        if (statResult.success && statResult.data.stdout.trim()) {
+          const parts = statResult.data.stdout.trim().split('\t')
+          additions = parseInt(parts[0] ?? '0', 10) || 0
+          deletions = parseInt(parts[1] ?? '0', 10) || 0
+        }
+        diffFiles.push({
+          id: `diff-${filename}`,
+          filename,
+          status: statusMap[status?.[0] ?? 'M'] ?? 'modified',
+          oldContent: '',
+          newContent: '',
+          additions,
+          deletions,
+          language: EXT_LANG[ext] ?? 'text',
+        })
+      }
+      set({ diffFiles, activeDiffFileId: diffFiles[0]?.id ?? null })
+    } catch (e) {
+      console.error('fetchDiffFiles error:', e)
+      set({ diffFiles: [] })
+    }
+  },
+
+  fetchGitLog: async () => {
+    const { workspacePath } = get()
+    if (!workspacePath) return
+    try {
+      const result = await runCommand({
+        command: 'git log -20 --pretty=format:%H%x00%an%x00%ar%x00%s',
+        workspacePath,
+      })
+      if (!result.success || !result.data.stdout.trim()) {
+        set({ gitCommits: [] })
+        return
+      }
+      const commits = result.data.stdout
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => {
+          const [id, author, time, ...msgParts] = line.split('\x00')
+          return {
+            id: id ?? '',
+            message: msgParts.join('\x00'),
+            author: author ?? '',
+            time: time ?? '',
+          }
+        })
+      set({ gitCommits: commits })
+    } catch (e) {
+      console.error('fetchGitLog error:', e)
+      set({ gitCommits: [] })
+    }
+  },
+
+  fetchGitBranches: async () => {
+    const { workspacePath } = get()
+    if (!workspacePath) return
+    try {
+      const result = await runCommand({
+        command: 'git branch --list',
+        workspacePath,
+      })
+      if (!result.success) return
+      const lines = result.data.stdout.trim().split('\n').filter(Boolean)
+      const branches = lines.map((l) => l.replace(/^\*?\s+/, '').trim()).filter(Boolean)
+      const current = lines.find((l) => l.startsWith('*'))?.replace(/^\*\s+/, '').trim() ?? 'main'
+      set({ gitBranches: branches, gitCurrentBranch: current })
+    } catch (e) {
+      console.error('fetchGitBranches error:', e)
+    }
+  },
 }))
