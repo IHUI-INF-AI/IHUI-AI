@@ -41,6 +41,8 @@ export function Avatar({ source, name, size = 'md', shape = 'circle', className,
         shape === 'circle' ? 'rounded-full' : 'rounded-lg',
         className,
       )}
+      accessibilityRole="image"
+      accessibilityLabel={name ?? '头像'}
       {...props}
     >
       {source ? (
