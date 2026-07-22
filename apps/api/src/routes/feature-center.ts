@@ -45,6 +45,34 @@ function extractMarkdownTitle(content: string, fallback: string): string {
   return match[1].trim()
 }
 
+// 从 markdown 内容提取摘要:去掉标题/代码块/链接/图片/表格标记,取前 ~120 字符
+function extractExcerpt(content: string): string {
+  const lines = content.split('\n')
+  const bodyLines: string[] = []
+  let inCodeBlock = false
+  for (const line of lines) {
+    if (line.startsWith('```')) {
+      inCodeBlock = !inCodeBlock
+      continue
+    }
+    if (inCodeBlock) continue
+    // 跳过标题行、引用块、分割线、表格分隔行、空行
+    if (/^(#{1,6}\s|>\s|---|\*\*\*|\s*$)/.test(line)) continue
+    if (/^\|[\s-:|]+\|?\s*$/.test(line)) continue // 表格分隔行 |---|---|
+    bodyLines.push(line)
+    if (bodyLines.length >= 3) break
+  }
+  const text = bodyLines
+    .join(' ')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '') // 图片
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // 链接保留文字
+    .replace(/\|/g, ' ') // 表格列分隔符
+    .replace(/[*`_~]/g, '') // 强调/代码标记
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text.length > 120 ? text.slice(0, 120) + '…' : text
+}
+
 // 可选认证:尝试从 JWT 判定是否管理员(roleId >= 1)。失败/未登录返回 false,不抛错。
 async function isAdmin(request: FastifyRequest): Promise<boolean> {
   try {
@@ -62,6 +90,7 @@ async function readFileDocs(admin: boolean): Promise<
     id: string
     title: string
     description: string
+    excerpt: string
     category: string
     format: 'markdown'
     url: string
@@ -85,6 +114,7 @@ async function readFileDocs(admin: boolean): Promise<
           id: `file:${slug}`,
           title: extractMarkdownTitle(content, slug),
           description: '',
+          excerpt: extractExcerpt(content),
           category: 'guide',
           format: 'markdown' as const,
           url: '',
@@ -222,6 +252,7 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
             title: docs.title,
             category: docs.category,
             slug: docs.slug,
+            content: docs.content,
             updatedAt: docs.updatedAt,
           })
           .from(docs)
@@ -233,6 +264,7 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
         id: r.id,
         title: r.title,
         description: '',
+        excerpt: extractExcerpt(r.content ?? ''),
         category: r.category,
         format: 'markdown' as const,
         url: `/docs/${r.slug}`,
