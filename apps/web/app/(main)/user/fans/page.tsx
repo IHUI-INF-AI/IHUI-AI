@@ -6,12 +6,12 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Users, UserPlus, UserCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { fetchApi } from '@/lib/api'
-import { useAuthStore } from '@/stores/auth'
 import { Avatar } from '@/components/data'
 import { Button } from '@ihui/ui'
 
 interface FanUser {
   id: string
+  userId: string
   nickname?: string | null
   avatar?: string | null
   bio?: string | null
@@ -28,19 +28,16 @@ export default function FansPage() {
   const t = useTranslations('user.fans')
   const locale = useLocale()
   const qc = useQueryClient()
-  const user = useAuthStore((s) => s.user)
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['user', 'fans', user?.id],
-    enabled: !!user?.id,
+    queryKey: ['user', 'fans'],
     queryFn: async (): Promise<FanUser[]> => {
-      const r = await fetchApi<{ list?: FanUser[] } | FanUser[]>(`/api/users/${user!.id}/followers`)
+      const r = await fetchApi<{ list?: FanUser[] }>(`/api/follows/followers?page=1&pageSize=100`)
       if (!r.success) {
         if (r.status === 404) return []
         throw new Error(r.error)
       }
-      const d = r.data
-      return Array.isArray(d) ? d : (d.list ?? [])
+      return r.data.list ?? []
     },
   })
 
@@ -98,7 +95,7 @@ export default function FansPage() {
       ) : (
         <ul className="space-y-2">
           {items.map((fan) => {
-            const isFollowed = followedIds.has(fan.id)
+            const isFollowed = followedIds.has(fan.userId)
             return (
               <li
                 key={fan.id}
@@ -121,7 +118,7 @@ export default function FansPage() {
                     size="sm"
                     variant={isFollowed ? 'outline' : 'default'}
                     disabled={followMut.isPending}
-                    onClick={() => followMut.mutate(fan.id)}
+                    onClick={() => followMut.mutate(fan.userId)}
                   >
                     {isFollowed ? (
                       <>
