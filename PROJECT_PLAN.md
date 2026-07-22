@@ -82,7 +82,32 @@
 <!-- 已归档(2026-07-23):WorkerPool/CLI 子进程并行深度审查 + 11 项遗留缺陷修复(跨端:packages/types + ai...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-23):CLI 配置导入扩展至 24 源 + Google Antigravity + URL/协议深度修正 + 20 测试(跨...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-23):CLI 导入 providerCode/apiFormat 推断逻辑深度修正 + README §22 同步(跨端:pa...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-23):CLI 导入 4 独立解析器综合测试深度覆盖(cursor/windsurf/cline/aider 共 140 用例,...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-23):CLI 导入 4 独立解析器综合测试深度覆盖(cursor/windsurf/cline/aider 共 140 用例,...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->---
+### [x] ✅(2026-07-22) 大模型排行榜深度优化六轮:能力标签阈值配置化 + ModelDetailDialog 高亮延续(平台独占:仅 apps/web)
+
+**触发**:用户要求"继续按你的建议去做执行,最多 agent 并行开发最大化效率,完美细致完整毫无遗漏"。承接五轮交付后的 2 条"下一步建议"。
+
+**交付内容**(1 commit,4 文件,平台独占:仅 apps/web):
+
+| 模块 | 文件 | 改动 |
+|---|---|---|
+| 共享 utils | `apps/web/app/(main)/ai-news/components/text-utils.tsx` | 新增 `CAPABILITY_THRESHOLDS` 配置常量(5 阈值)+ `CAPABILITY_TAG_KEYS` 标签 key 列表 |
+| ModelDetailDialog | `apps/web/app/(main)/ai-news/components/ModelDetailDialog.tsx` | 删除本地 parseNum(复用 text-utils parseNumeric)+ extractCapabilityTags 引用 CAPABILITY_THRESHOLDS + Props 新增 searchQuery + 模型名/厂商名应用 highlight |
+| Leaderboard | `apps/web/app/(main)/ai-news/components/Leaderboard.tsx` | ModelDetailDialog 调用处传入 searchQuery prop |
+| 文档 | `docs/AI_LEADERBOARD.md` | 1.3 能力标签阈值配置化 + 搜索高亮延续说明 |
+
+**自验**:
+- typecheck:本任务 3 文件全绿 ✅(其他错误属其他 agent 代码:CodeEditor @monaco-editor/react 缺失 / terminal-panel @xterm 缺失 / PasswordLoginForm 类型 / packages/types 模块缺失)
+- browser_use 降级为代码审查(登录弹窗遮挡 + 预算耗尽,BLOCKED)
+- §13 文件持久化:全部 Edit 已 Grep 验证落地 ✅
+
+**Git 同步证据**(§21):
+- 本地 commit: <待填入>
+- origin commit: <待填入>
+- 同步状态: <待填入>
+- 守门脚本: <待填入>
+
+---
 ### [x] ✅(2026-07-22) 大模型排行榜深度优化五轮:highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证(平台独占:仅 apps/web)
 
 **触发**:用户要求"继续按你的建议去做执行,最多 agent 并行开发最大化效率,完美细致完整毫无遗漏"。承接四轮交付后的 2 条"下一步建议"。
