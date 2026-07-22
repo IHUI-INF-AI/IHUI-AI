@@ -218,7 +218,7 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
       orderType: 5,
       productId: pricing.id,
       payType: paymentMethod,
-    })
+    }, request.userId ?? null)
     if (process.env.NODE_ENV === 'development') {
       await activateDeveloperSubscription({
         userId,
