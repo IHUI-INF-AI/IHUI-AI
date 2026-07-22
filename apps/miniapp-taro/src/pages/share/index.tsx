@@ -53,7 +53,7 @@ export default function SharePage() {
   const shareInfo = getShareInfo('/pages/share/index', info.name)
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       <NavBar title={t('share.navTitle')} showBack />
       <View className="bg-gradient-to-b from-[#6366f1] to-[#818cf8] px-4 pt-10 pb-8 text-white text-center">
         <View className="flex justify-center mb-4">
@@ -76,25 +76,25 @@ export default function SharePage() {
         )}
       </View>
 
-      <View className="mx-3 mt-4 bg-white rounded-xl p-4">
-        <Text className="block text-sm font-medium text-gray-800 mb-3">
+      <View className="mx-3 mt-4 bg-card rounded-xl p-4">
+        <Text className="block text-sm font-medium text-foreground mb-3">
           {t('share.shareToFriends')}
         </Text>
         <View className="flex items-center justify-center my-4">
-          <View className="w-40 h-40 bg-gray-50 rounded-lg flex items-center justify-center border border-gray-100">
-            <Text className="text-xs text-gray-400">{t('share.qrcode')}</Text>
+          <View className="w-40 h-40 bg-muted rounded-lg flex items-center justify-center border border-border">
+            <Text className="text-xs text-muted-foreground">{t('share.qrcode')}</Text>
           </View>
         </View>
-        <Text className="block text-xs text-gray-400 text-center mb-4">{t('share.scanHint')}</Text>
+        <Text className="block text-xs text-muted-foreground text-center mb-4">{t('share.scanHint')}</Text>
         <View className="flex gap-2">
           <Button
-            className="flex-1 text-sm rounded-lg bg-gray-800 text-white"
+            className="flex-1 text-sm rounded-lg bg-secondary text-white"
             onClick={handleShare}
           >
             {t('share.shareFriend')}
           </Button>
           <Button
-            className="flex-1 text-sm rounded-lg bg-gray-100 text-gray-700"
+            className="flex-1 text-sm rounded-lg bg-muted text-foreground"
             onClick={handleSaveImage}
           >
             {t('share.saveImage')}
@@ -102,9 +102,9 @@ export default function SharePage() {
         </View>
       </View>
 
-      <View className="mx-3 mt-3 bg-white rounded-xl p-4">
-        <Text className="block text-sm font-medium text-gray-800 mb-2">{t('share.sharePath')}</Text>
-        <Text className="block text-xs text-gray-400 break-all">{shareInfo.path}</Text>
+      <View className="mx-3 mt-3 bg-card rounded-xl p-4">
+        <Text className="block text-sm font-medium text-foreground mb-2">{t('share.sharePath')}</Text>
+        <Text className="block text-xs text-muted-foreground break-all">{shareInfo.path}</Text>
       </View>
     </View>
   )

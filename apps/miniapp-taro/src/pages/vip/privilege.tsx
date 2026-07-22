@@ -30,28 +30,28 @@ export default function PrivilegePage() {
   }
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       <View className="bg-gradient-to-b from-[#2c2c2c] to-[#1a1a1a] px-[24px] py-[40px]">
         <Text className="block text-white text-[40px] font-bold">VIP 会员特权</Text>
         <Text className="block text-[#d4af6a] text-[26px] mt-[12px]">尊享专属权益，开启高品质体验</Text>
       </View>
       <View className="p-[12px]">
         {list.map(p => (
-          <View key={p.id} className="bg-white rounded-[8px] p-[16px] mb-[12px]">
+          <View key={p.id} className="bg-card rounded-[8px] p-[16px] mb-[12px]">
             <View className="flex items-center">
               <Text className="text-[40px] mr-[12px]">★</Text>
-              <Text className="text-[30px] text-[#333] font-semibold">{p.title}</Text>
+              <Text className="text-[30px] text-foreground font-semibold">{p.title}</Text>
             </View>
-            <Text className="block text-[26px] text-[#999] mt-[12px]">{p.desc}</Text>
+            <Text className="block text-[26px] text-muted-foreground mt-[12px]">{p.desc}</Text>
           </View>
         ))}
         {!loading && !list.length ? (
-          <View className="text-center py-[120px] text-[#999]">
+          <View className="text-center py-[120px] text-muted-foreground">
             <Text>暂无特权信息</Text>
           </View>
         ) : null}
       </View>
-      <View className="fixed bottom-0 left-0 right-0 p-[24px] bg-white">
+      <View className="fixed bottom-0 left-0 right-0 p-[24px] bg-card border-t border-border">
         <Button
           className="w-full bg-gradient-to-r from-[#d4af6a] to-[#b8860b] text-white text-[32px] rounded-[8px] py-[20px]"
           onClick={goUpgrade}

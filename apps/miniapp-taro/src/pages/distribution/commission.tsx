@@ -66,21 +66,21 @@ export default function DistributionCommission() {
   })
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
-      <View className="mx-[12px] mt-[12px] bg-white rounded-[8px] p-[16px]">
-        <Text className="text-[12px] text-[#999]">{t('distribution.commission.total')}</Text>
-        <Text className="block text-[32px] text-[#333] font-bold mt-[4px]">¥{totalCommission}</Text>
+    <View className="min-h-screen bg-background">
+      <View className="mx-[12px] mt-[12px] bg-card rounded-[8px] p-[16px]">
+        <Text className="text-[12px] text-muted-foreground">{t('distribution.commission.total')}</Text>
+        <Text className="block text-[32px] text-foreground font-bold mt-[4px]">¥{totalCommission}</Text>
       </View>
       {list.length > 0 && (
         <View className="p-[12px]">
           {list.map((r) => (
             <View
               key={r.id}
-              className="flex justify-between items-center bg-white p-[12px] mb-[12px] rounded-[8px]"
+              className="flex justify-between items-center bg-card p-[12px] mb-[12px] rounded-[8px]"
             >
               <View className="flex-1">
-                <Text className="block text-[14px] text-[#333]">{r.type}</Text>
-                <Text className="block text-[12px] text-[#999] mt-[4px]">
+                <Text className="block text-[14px] text-foreground">{r.type}</Text>
+                <Text className="block text-[12px] text-muted-foreground mt-[4px]">
                   {r.time}
                   {r.nickname ? ` · ${r.nickname}` : ''}
                 </Text>
@@ -95,12 +95,12 @@ export default function DistributionCommission() {
         </View>
       )}
       {list.length === 0 && !loading && (
-        <View className="text-center py-[60px] text-[#999]">
+        <View className="text-center py-[60px] text-muted-foreground">
           <Text>{t('distribution.commission.empty')}</Text>
         </View>
       )}
       {loading && (
-        <View className="text-center py-[20px] text-[#999]">
+        <View className="text-center py-[20px] text-muted-foreground">
           <Text>{t('distribution.commission.loading')}</Text>
         </View>
       )}

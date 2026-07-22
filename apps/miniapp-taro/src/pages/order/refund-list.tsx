@@ -62,26 +62,26 @@ export default function RefundList() {
   })
 
   return (
-    <View className="min-h-screen bg-[#f7f8fa]">
+    <View className="min-h-screen bg-background">
       {list.length > 0 && (
         <View className="p-[24rpx]">
           {list.map((o) => (
             <View
               key={o.id}
-              className="bg-white rounded-[16rpx] p-[32rpx] mb-[24rpx]"
+              className="bg-card rounded-[16rpx] p-[32rpx] mb-[24rpx]"
               onClick={() => goRefund(o)}
             >
               <View className="flex justify-between items-center">
-                <Text className="text-[30rpx] text-[#333] font-semibold">{o.title}</Text>
-                <Text className={`text-[24rpx] ${STATUS_COLOR[o.status] || 'text-[#999]'}`}>
+                <Text className="text-[30rpx] text-foreground font-semibold">{o.title}</Text>
+                <Text className={`text-[24rpx] ${STATUS_COLOR[o.status] || 'text-muted-foreground'}`}>
                   {statusText(o.status)}
                 </Text>
               </View>
-              <Text className="block text-[22rpx] text-[#999] mt-[12rpx]">
+              <Text className="block text-[22rpx] text-muted-foreground mt-[12rpx]">
                 {t('order.refundList.orderNo', { no: o.orderNo })}
               </Text>
               <View className="flex justify-between mt-[16rpx]">
-                <Text className="text-[24rpx] text-[#999]">{o.createTime}</Text>
+                <Text className="text-[24rpx] text-muted-foreground">{o.createTime}</Text>
                 <Text className="text-[32rpx] text-[#dd524d] font-semibold">¥{o.amount}</Text>
               </View>
             </View>
@@ -89,12 +89,12 @@ export default function RefundList() {
         </View>
       )}
       {list.length === 0 && !loading && (
-        <View className="text-center py-[120rpx] text-[#999]">
+        <View className="text-center py-[120rpx] text-muted-foreground">
           <Text>{t('order.refundList.empty')}</Text>
         </View>
       )}
       {loading && (
-        <View className="text-center py-[120rpx] text-[#999]">
+        <View className="text-center py-[120rpx] text-muted-foreground">
           <Text>{t('common.loading')}</Text>
         </View>
       )}
