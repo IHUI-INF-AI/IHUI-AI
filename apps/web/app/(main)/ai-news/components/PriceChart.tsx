@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import type { LeaderboardEntry } from '@/lib/ai-news-api'
-import { parseNumeric } from './Leaderboard'
+import { parseNumeric } from './text-utils'
 
 interface Props {
   entries: LeaderboardEntry[]

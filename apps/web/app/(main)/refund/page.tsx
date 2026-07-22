@@ -1,56 +1,68 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { useTranslations } from 'next-intl'
-import { Loader2, RotateCcw } from 'lucide-react'
+import { useLocale, useTranslations } from 'next-intl'
+import { Loader2, RotateCcw, Clock, CheckCircle, XCircle, Wallet } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { formatDate } from '@/lib/date-utils'
+import { Card, CardContent, Button } from '@ihui/ui'
+import { cn } from '@/lib/utils'
 
-import {
-  Card,
-  CardContent,
-  Button,
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from '@ihui/ui'
+type RefundStatus = 'pending' | 'approved' | 'rejected' | 'completed'
 
 interface RefundItem {
   id: string
   orderNo: string
-  amount: number
-  status: 'pending' | 'approved' | 'rejected' | 'completed'
+  refundAmount: string
+  status: RefundStatus
   createdAt: string
+  reason?: string | null
 }
 
-type StatusKey = RefundItem['status']
+const STATUS_CONFIG: Record<RefundStatus, { icon: typeof Clock; cls: string; labelKey: string }> = {
+  pending: {
+    icon: Clock,
+    cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500',
+    labelKey: 'listStatusPending',
+  },
+  approved: {
+    icon: CheckCircle,
+    cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500',
+    labelKey: 'listStatusApproved',
+  },
+  rejected: {
+    icon: XCircle,
+    cls: 'bg-red-500/10 text-red-600 dark:text-red-500',
+    labelKey: 'listStatusRejected',
+  },
+  completed: {
+    icon: Wallet,
+    cls: 'bg-primary/10 text-primary',
+    labelKey: 'listStatusCompleted',
+  },
+}
 
 export default function RefundPage() {
   const t = useTranslations('refund')
-  const { data: list = [], isLoading } = useQuery({
+  const locale = useLocale()
+  const { data, isLoading, error } = useQuery({
     queryKey: ['refund'],
     queryFn: async () => {
-      const r = await fetchApi<RefundItem[]>('/api/refund')
-      if (r.success && r.data) return r.data
+      const r = await fetchApi<{ list: RefundItem[] }>('/api/refunds/me')
+      if (r.success && r.data) return r.data.list ?? []
       return []
     },
   })
 
-  const fmtDate = (v: string) => {
-    const d = new Date(v)
-    return Number.isNaN(d.getTime()) ? '-' : formatDate(d)
-  }
-
-  const STATUS_LABEL: Record<StatusKey, string> = {
-    pending: t('listStatusPending'),
-    approved: t('listStatusApproved'),
-    rejected: t('listStatusRejected'),
-    completed: t('listStatusCompleted'),
-  }
+  const items = data ?? []
+  const dateFmt = new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  const currencyFmt = new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' })
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
@@ -68,45 +80,54 @@ export default function RefundPage() {
         </Button>
       </header>
 
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-16 text-muted-foreground">
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              {t('listLoading')}
-            </div>
-          ) : list.length === 0 ? (
-            <p className="py-16 text-center text-sm text-muted-foreground">{t('listEmpty')}</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="px-4 py-2.5">{t('listOrderNo')}</TableHead>
-                  <TableHead className="px-4 py-2.5 text-right">{t('listAmount')}</TableHead>
-                  <TableHead className="px-4 py-2.5">{t('listStatus')}</TableHead>
-                  <TableHead className="px-4 py-2.5">{t('listApplyTime')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {list.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="px-4 py-2.5 font-medium">{item.orderNo}</TableCell>
-                    <TableCell className="px-4 py-2.5 text-right">
-                      ¥{item.amount.toFixed(2)}
-                    </TableCell>
-                    <TableCell className="px-4 py-2.5">
-                      {STATUS_LABEL[item.status] ?? item.status}
-                    </TableCell>
-                    <TableCell className="px-4 py-2.5 text-muted-foreground">
-                      {fmtDate(item.createdAt)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16 text-muted-foreground">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          {t('listLoading')}
+        </div>
+      ) : error ? (
+        <div className="py-10 text-center text-destructive">{(error as Error).message}</div>
+      ) : items.length === 0 ? (
+        <p className="py-16 text-center text-sm text-muted-foreground">{t('listEmpty')}</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item) => {
+            const sc = STATUS_CONFIG[item.status] ?? STATUS_CONFIG.pending
+            const StatusIcon = sc.icon
+            return (
+              <Card key={item.id} className="transition-colors hover:bg-accent">
+                <CardContent className="space-y-2 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-xs text-muted-foreground">{item.orderNo}</span>
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
+                        sc.cls,
+                      )}
+                    >
+                      <StatusIcon className="h-3 w-3" />
+                      {t(sc.labelKey)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-semibold text-primary">
+                      {currencyFmt.format(Number(item.refundAmount))}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {dateFmt.format(new Date(item.createdAt))}
+                    </span>
+                  </div>
+                  {item.reason && (
+                    <p className="truncate text-xs text-muted-foreground">
+                      {t('listReason', { reason: item.reason })}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
