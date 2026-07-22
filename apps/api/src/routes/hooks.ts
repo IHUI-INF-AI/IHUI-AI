@@ -27,25 +27,36 @@
  */
 
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
+import type { WebSocket } from '@fastify/websocket'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
+import { wsAuth } from '../plugins/ws-helpers.js'
 import { success, error } from '../utils/response.js'
 import {
+  autoOrchestrateHooks,
   batchToggleHooks,
   clearHookDlq,
+  createAbTest,
   createHook,
   deleteHook,
+  getAbTest,
+  getExecutionTimeline,
   getHook,
   getHookDag,
+  getHookHealthForecast,
   getHookStats,
   getHooksHealth,
+  instantiateHookTemplate,
+  listAbTests,
   listAllHookLogs,
   listHookDlq,
   listHookLogs,
+  listHookTemplates,
   listHooks,
   replayAllHookLogs,
   replayHookLog,
   reprocessDlqEntry,
+  stopAbTest,
   testHook,
   toggleHook,
   triggerHookHealthCheck,
@@ -137,6 +148,42 @@ const batchToggleSchema = z.object({
 })
 
 const idParamSchema = z.object({ id: z.string().min(1) })
+
+// ---------- P3 Hook 超越创新 schema(2026-07-23 立)----------
+
+/** Hook 智能编排请求体 */
+const autoOrchestrateSchema = z.object({
+  intent: z.string().min(1).max(4000, '意图描述过长'),
+  events: z.array(z.string().min(1).max(64)).max(20).optional(),
+})
+
+/** A/B 测试创建请求体 */
+const createAbTestSchema = z.object({
+  event: HOOK_EVENTS_ENUM,
+  variants: z.array(z.string().min(1).max(64)).min(2, '至少 2 个变体').max(5),
+  trafficSplit: z.array(z.number().min(0).max(1)).min(2).max(5),
+  metrics: z.array(z.string().min(1).max(32)).max(10).optional(),
+  description: z.string().max(500).optional(),
+})
+
+/** 模板实例化请求体(覆盖字段,全部可选) */
+const instantiateTemplateSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().max(2000).optional(),
+  event: HOOK_EVENTS_ENUM.optional(),
+  condition: z.string().max(8192).nullable().optional(),
+  action: z
+    .object({
+      type: HOOK_ACTION_TYPES_ENUM,
+      config: actionConfigSchema.default({}),
+    })
+    .optional(),
+  enabled: z.boolean().optional(),
+})
+
+/** ab-test / template 路径参数(复用 id 字段) */
+const abTestIdParamSchema = z.object({ id: z.string().min(1).max(64) })
+const templateIdParamSchema = z.object({ id: z.string().min(1).max(64) })
 
 /**
  * 从 query string 解析日志过滤参数(2026-07-22 立)。
@@ -258,6 +305,189 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
     const health = await getHooksHealth(request)
     return reply.send(success(health))
   })
+
+  // ---------- P3 Hook 超越创新(2026-07-23 立,对标 GitHub Actions / Zapier)----------
+  // 所有静态路径必须先于 /hooks/:id 注册,避免 'auto-orchestrate' / 'ab-test' /
+  // 'ab-tests' / 'templates' / 'execution-stream' 被当作 hook_id 截获。
+
+  // P3-1. POST /hooks/auto-orchestrate — Hook 智能编排(LLM 自动生成 DAG)
+  //       输入:{intent, events?} → LLM 解析意图生成节点 + 依赖关系 + Hook 草稿
+  //       LLM 不可用时返回 503(由 ai-service 返回 {error: "llm_unavailable"})
+  server.post('/hooks/auto-orchestrate', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = autoOrchestrateSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = await autoOrchestrateHooks(request, parsed.data.intent, parsed.data.events)
+    if (result === null) {
+      return reply.status(503).send(error(503, 'Hook 引擎不可用(ai-service 无响应)'))
+    }
+    // ai-service 返回 {error: "llm_unavailable"} → api 层映射 503
+    if (result.error === 'llm_unavailable') {
+      return reply.status(503).send(error(503, 'LLM 服务不可用,无法生成 DAG'))
+    }
+    if (result.error === 'llm_parse_failed') {
+      return reply.status(502).send(error(502, 'LLM 输出解析失败,请重试或简化意图描述'))
+    }
+    return reply.send(success(result))
+  })
+
+  // P3-2. POST /hooks/ab-test — 创建 A/B 测试
+  //       输入:{event, variants, trafficSplit, metrics?, description?}
+  server.post('/hooks/ab-test', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const parsed = createAbTestSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const abTest = await createAbTest(request, parsed.data)
+    if (abTest === null) {
+      return reply.status(503).send(error(503, 'Hook 引擎不可用(ai-service 无响应)'))
+    }
+    return reply.send(success(abTest))
+  })
+
+  // P3-3. GET /hooks/ab-tests — 列出所有 A/B 测试(可选 ?status=running|completed|stopped)
+  //       必须先于 /hooks/:id 注册,否则 'ab-tests' 被当作 hook_id
+  server.get('/hooks/ab-tests', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const status = (request.query as { status?: string }).status
+    const data = await listAbTests(request, status)
+    return reply.send(success(data))
+  })
+
+  // P3-4. GET /hooks/ab-test/:id — 获取 A/B 测试详情 + 实时结果(各变体指标对比)
+  //       静态前缀 /hooks/ab-test/ 优先匹配,不会与 /hooks/:id 冲突
+  server.get('/hooks/ab-test/:id', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const params = abTestIdParamSchema.safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, '无效的 A/B 测试 ID'))
+    }
+    const data = await getAbTest(request, params.data.id)
+    if (data === null) {
+      return reply.status(404).send(error(404, 'A/B 测试不存在或服务不可用'))
+    }
+    return reply.send(success(data))
+  })
+
+  // P3-5. POST /hooks/ab-test/:id/stop — 停止 A/B 测试 + 选出最优变体
+  server.post('/hooks/ab-test/:id/stop', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const params = abTestIdParamSchema.safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, '无效的 A/B 测试 ID'))
+    }
+    const result = await stopAbTest(request, params.data.id)
+    if (result === null) {
+      return reply.status(404).send(error(404, 'A/B 测试不存在或服务不可用'))
+    }
+    return reply.send(success(result))
+  })
+
+  // P3-6. GET /hooks/templates — 列出所有 Hook 模板(可选 ?tag=过滤)
+  //       必须先于 /hooks/:id 注册,否则 'templates' 被当作 hook_id
+  server.get('/hooks/templates', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const tag = (request.query as { tag?: string }).tag
+    const data = await listHookTemplates(request, tag)
+    return reply.send(success(data))
+  })
+
+  // P3-7. POST /hooks/templates/:id/instantiate — 从模板创建 Hook(可覆盖配置)
+  server.post('/hooks/templates/:id/instantiate', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const params = templateIdParamSchema.safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, '无效的模板 ID'))
+    }
+    const parsed = instantiateTemplateSchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const hook = await instantiateHookTemplate(request, params.data.id, parsed.data)
+    if (hook === null) {
+      return reply.status(404).send(error(404, '模板不存在或服务不可用'))
+    }
+    return reply.send(success(hook))
+  })
+
+  // P3-8. GET /hooks/execution-stream — WebSocket 实时推送执行事件(start/end/error)
+  //       复用 @fastify/websocket,JWT 鉴权 via wsAuth(token from query)
+  //       必须先于 /hooks/:id 注册,否则 'execution-stream' 被当作 hook_id
+  //       实现策略:ai-service 跨进程无法直接订阅,采用轮询 execution-timeline + diff 推送
+  server.get(
+    '/hooks/execution-stream',
+    { websocket: true },
+    async (socket: WebSocket, request) => {
+      const query = request.query as { token?: string; hookId?: string }
+      const userId = await wsAuth(socket, query.token)
+      if (!userId) return // 鉴权失败已 close
+
+      // 发送连接成功欢迎
+      socket.send(
+        JSON.stringify({
+          type: 'connected',
+          userId,
+          ts: Date.now(),
+        }),
+      )
+
+      // 轮询 ai-service 拉取 realtime 状态(1s 一次),diff 后推送
+      // 注:ai-service 跨进程无法直接订阅 in-memory callback,采用轮询降级方案
+      let lastStatus = ''
+      const pollIntervalMs = 1000
+      const poll = setInterval(() => {
+        // 1 = WebSocket.OPEN,0=CONNECTING/2=CLOSING/3=CLOSED
+        if (socket.readyState !== 1) {
+          clearInterval(poll)
+          return
+        }
+        void getExecutionTimeline(request, query.hookId ?? '').then(
+          (timeline) => {
+            if (socket.readyState !== 1) return
+            if (!timeline) return
+            const statusJson = JSON.stringify(timeline.realtimeStatus ?? {})
+            if (statusJson === lastStatus) return
+            lastStatus = statusJson
+            try {
+              socket.send(
+                JSON.stringify({
+                  type: 'status',
+                  status: timeline.realtimeStatus,
+                  ts: Date.now(),
+                }),
+              )
+            } catch {
+              // socket 已关闭或异常,停止轮询
+              clearInterval(poll)
+            }
+          },
+          () => {
+            // 静默失败,继续轮询(ai-service 可能短暂不可用)
+          },
+        )
+      }, pollIntervalMs)
+
+      // 客户端断开 / 异常 → 清理
+      socket.on('close', () => clearInterval(poll))
+      socket.on('error', () => clearInterval(poll))
+    },
+  )
 
   // 3. GET /hooks/:id — 详情
   server.get('/hooks/:id', async (request, reply) => {
@@ -461,6 +691,42 @@ export const hooksRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, 'Hook 不存在或服务不可用'))
     }
     return reply.send(success(health))
+  })
+
+  // ---------- P3 动态子路径路由(2026-07-23 立)----------
+  // /hooks/:id/* 子路径路由,Fastify 路由匹配按完整路径长度优先,不与 /hooks/:id 冲突。
+
+  // P3-9. GET /hooks/:id/execution-timeline — Hook 执行时间线
+  //       返回:Gantt(执行时段)+ 依赖图 + 实时执行状态(currentlyRunning/queued)
+  server.get('/hooks/:id/execution-timeline', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const params = idParamSchema.safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, '无效的 Hook ID'))
+    }
+    const data = await getExecutionTimeline(request, params.data.id)
+    if (data === null) {
+      return reply.status(404).send(error(404, 'Hook 不存在或服务不可用'))
+    }
+    return reply.send(success(data))
+  })
+
+  // P3-10. GET /hooks/:id/health-forecast — Hook 健康预测
+  //        基于 30 天历史数据 + LLM 趋势分析,返回 {forecast, trend, recommendation}
+  //        LLM 不可用时降级为规则预测(成功率高 → 继续观察 / 低 → 建议禁用)
+  server.get('/hooks/:id/health-forecast', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const params = idParamSchema.safeParse(request.params)
+    if (!params.success) {
+      return reply.status(400).send(error(400, '无效的 Hook ID'))
+    }
+    const data = await getHookHealthForecast(request, params.data.id)
+    if (data === null) {
+      return reply.status(404).send(error(404, 'Hook 不存在或服务不可用'))
+    }
+    return reply.send(success(data))
   })
 }
 

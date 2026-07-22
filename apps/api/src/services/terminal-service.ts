@@ -21,14 +21,26 @@
 
 import { createRequire } from 'node:module'
 import { randomUUID } from 'node:crypto'
+import { execFile } from 'node:child_process'
+import type { FastifyRequest } from 'fastify'
 import IORedis from 'ioredis'
 import { config } from '../config/index.js'
+import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import type {
   TerminalSession,
   TerminalSessionStatus,
   TerminalConnectKind,
   TerminalSshParams,
   TerminalHistorySession,
+  TerminalSuggestInput,
+  TerminalSuggestResponse,
+  TerminalDiagnoseInput,
+  TerminalDiagnoseResponse,
+  TerminalAutoFixResponse,
+  TerminalEvent,
+  TerminalRecording,
+  TerminalRecordingListItem,
+  TerminalHistoryEntry,
 } from '@ihui/types'
 
 /**
@@ -128,6 +140,16 @@ interface PTYEntry {
   scrollbackTimer: ReturnType<typeof setInterval> | null
   /** 已 flush 总字节数(监控用) */
   scrollbackBytes: number
+  /** 当前录制 ID(null=未录制) */
+  recordingId: string | null
+  /** 命令累积缓冲(仅含可打印字符,用于历史记录 + /suggest 上下文) */
+  commandBuffer: string
+  /** 命令是否被转义序列污染(箭头键/Ctrl+C 等),污染时本次不记录 */
+  commandTainted: boolean
+  /** 最近一条完整命令(/suggest /diagnose 上下文) */
+  lastCommand: string
+  /** 最近一次退出码(/suggest 上下文,由前端 recordHistory 更新) */
+  lastExitCode: number
 }
 
 /** 单用户最大并发终端数 */
@@ -334,7 +356,7 @@ function unregisterUserSession(userId: string, sessionId: string): void {
 
 // ==================== PTY 数据流统一处理 ====================
 
-/** 统一处理 PTY/SSH 输出:转发监听器 + 累积 scrollback 缓冲 */
+/** 统一处理 PTY/SSH 输出:转发监听器 + 累积 scrollback 缓冲 + 录制 output 事件 */
 function handlePtyData(entry: PTYEntry, data: string): void {
   entry.lastActivityAt = Date.now()
   // 1. 转发到所有 WS 监听器
@@ -352,6 +374,14 @@ function handlePtyData(entry: PTYEntry, data: string): void {
     entry.scrollbackTimer = setInterval(() => {
       flushScrollback(entry)
     }, SCROLLBACK_FLUSH_INTERVAL_MS)
+  }
+  // 3. 若正在录制,追加 output 事件
+  if (entry.recordingId) {
+    appendRecordingEvent(entry.recordingId, {
+      type: 'output',
+      data,
+      timestamp: Date.now() - getRecordingStartedAt(entry.recordingId),
+    })
   }
 }
 
@@ -471,6 +501,11 @@ function registerLocalSession(
     scrollbackBuffer: '',
     scrollbackTimer: null,
     scrollbackBytes: 0,
+    recordingId: null,
+    commandBuffer: '',
+    commandTainted: false,
+    lastCommand: '',
+    lastExitCode: 0,
   }
 
   // 本地 PTY 输出 → 统一数据流处理(转发 + scrollback 累积)
@@ -551,6 +586,11 @@ function createSshSession(
     scrollbackBuffer: '',
     scrollbackTimer: null,
     scrollbackBytes: 0,
+    recordingId: null,
+    commandBuffer: '',
+    commandTainted: false,
+    lastCommand: '',
+    lastExitCode: 0,
   }
 
   // 启动 SSH 连接(异步,ready 后才有 stream)
@@ -722,7 +762,7 @@ export function resizeSession(
   }
 }
 
-/** 关闭/杀死 PTY/SSH 会话(清理 SSH client + flush scrollback) */
+/** 关闭/杀死 PTY/SSH 会话(清理 SSH client + flush scrollback + 持久化活动录制) */
 export function closeSession(sessionId: string, userId: string): boolean {
   const entry = getSession(sessionId, userId)
   if (!entry) return false
@@ -732,6 +772,12 @@ export function closeSession(sessionId: string, userId: string): boolean {
     entry.scrollbackTimer = null
   }
   flushScrollback(entry)
+  // 若正在录制,停止并持久化(防止录制丢失)
+  if (entry.recordingId) {
+    const rid = entry.recordingId
+    entry.recordingId = null
+    void persistRecording(rid)
+  }
   // 关闭 SSH client(若有)
   if (entry.sshClient) {
     try {
@@ -800,17 +846,74 @@ export function onExit(
   return () => entry.exitListeners.delete(cb)
 }
 
-/** 向 PTY/SSH 写入输入 */
+/** 向 PTY/SSH 写入输入(同时捕获录制 input 事件 + 检测命令完成用于 /suggest 上下文) */
 export function writeInput(sessionId: string, data: string): boolean {
   const entry = sessions.get(sessionId)
   if (!entry || entry.status !== 'active') return false
   try {
     entry.pty.write(data)
     entry.lastActivityAt = Date.now()
+    // 录制 input 事件(过滤敏感命令:含 password/secret/key/token 的整条 input 跳过)
+    if (entry.recordingId && !isSensitiveInput(data)) {
+      appendRecordingEvent(entry.recordingId, {
+        type: 'input',
+        data,
+        timestamp: Date.now() - getRecordingStartedAt(entry.recordingId),
+      })
+    }
+    // 命令完成检测:仅用于更新 entry.lastCommand(/suggest /diagnose 上下文)
+    const completed = detectCommandCompletion(entry, data)
+    if (completed) {
+      entry.lastCommand = completed
+    }
     return true
   } catch {
     return false
   }
+}
+
+/** 敏感输入检测:命令包含 password/secret/key/token/credential 时跳过录制 */
+function isSensitiveInput(data: string): boolean {
+  return /(?:password|passwd|secret|api[_-]?key|access[_-]?key|token|credential|private[_-]?key)\s*[:=]/i.test(data)
+}
+
+/**
+ * 命令完成检测:累积可打印字符,遇到 \r / \n 视为命令完成。
+ *
+ * 简化策略:
+ * - 可打印字符(0x20-0x7e)+ 非 ASCII(中文等)累积到 commandBuffer
+ * - 退格(0x7f)移除最后一个字符
+ * - 转义序列开头(0x1b,如箭头键/Ctrl+C)标记本次命令"被污染",完成时不记录
+ * - 遇到 \r / \n:若未污染且 buffer 非空,返回命令文本;重置状态
+ *
+ * 注意:此函数仅更新 entry.lastCommand 用于 AI 上下文,不持久化历史
+ * (历史持久化由前端 recordHistory 主动调用,携带可观测的 exitCode)
+ */
+function detectCommandCompletion(entry: PTYEntry, data: string): string | null {
+  let completed: string | null = null
+  for (const ch of data) {
+    const code = ch.charCodeAt(0)
+    if (ch === '\r' || ch === '\n') {
+      if (!entry.commandTainted) {
+        const cmd = entry.commandBuffer.trim()
+        if (cmd) completed = cmd
+      }
+      entry.commandBuffer = ''
+      entry.commandTainted = false
+    } else if (code === 0x7f) {
+      entry.commandBuffer = entry.commandBuffer.slice(0, -1)
+    } else if (code === 0x1b) {
+      // 转义序列:标记污染(箭头键导航历史会改变实际命令,buffer 不可靠)
+      entry.commandTainted = true
+    } else if (code >= 0x20 && code <= 0x7e) {
+      if (!entry.commandTainted) entry.commandBuffer += ch
+    } else if (code >= 0x80) {
+      // 非 ASCII(中文等)
+      if (!entry.commandTainted) entry.commandBuffer += ch
+    }
+    // 其他控制字符忽略
+  }
+  return completed
 }
 
 // ==================== 公共 API:历史会话查询(REST 用) ====================
@@ -896,6 +999,12 @@ export function killAllSessions(): void {
       entry.scrollbackTimer = null
     }
     flushScrollback(entry)
+    // 持久化活动录制
+    if (entry.recordingId) {
+      const rid = entry.recordingId
+      entry.recordingId = null
+      void persistRecording(rid)
+    }
     // 关闭 SSH client
     if (entry.sshClient) {
       try {
@@ -918,4 +1027,618 @@ export function killAllSessions(): void {
 /** 获取活跃 session 总数(监控用) */
 export function getActiveSessionCount(): number {
   return sessions.size
+}
+
+// ==================== 操作录制与回放(2026-07-23 立) ====================
+//
+// 超越 asciinema 的"只录不改":录制期间捕获 input/output 事件,停止后持久化到
+// Redis list(events)+ hash(meta),保留 30 天。支持 list/get/play/edit/delete。
+// 回放在新 PTY session 中按 timestamp 顺序写入 input 事件(单次延迟上限 2s),
+// output 事件不写入 PTY(由新 PTY 重新执行命令产生新输出)。
+// 敏感命令(password/secret/key/token)的 input 事件在 writeInput 中已被过滤。
+// Redis 不可用时降级到 persistedRecordingsMemory(Map)。
+
+interface ActiveRecording {
+  events: TerminalEvent[]
+  startedAt: number
+  sessionId: string
+  userId: string
+  title?: string
+}
+
+const activeRecordings = new Map<string, ActiveRecording>()
+/** Redis 不可用时的录制持久化降级存储 */
+const persistedRecordingsMemory = new Map<string, TerminalRecording>()
+
+const RECORDING_TTL_SECONDS = 30 * 24 * 3600
+const RECORDING_MAX_EVENTS = 50000
+
+function recordingEventsKey(recordingId: string): string {
+  return `terminal:recording:${recordingId}`
+}
+function recordingMetaKey(recordingId: string): string {
+  return `terminal:recording:meta:${recordingId}`
+}
+
+/** 追加录制事件(由 handlePtyData / writeInput 调用) */
+function appendRecordingEvent(recordingId: string, event: TerminalEvent): void {
+  const ar = activeRecordings.get(recordingId)
+  if (!ar) return
+  if (ar.events.length >= RECORDING_MAX_EVENTS) return // 安全上限,防失控
+  ar.events.push(event)
+}
+
+/** 获取录制开始时间(用于计算 event.timestamp 相对偏移) */
+function getRecordingStartedAt(recordingId: string): number {
+  return activeRecordings.get(recordingId)?.startedAt ?? 0
+}
+
+/** 持久化录制到 Redis(或内存降级)。由 stopRecording / closeSession / killAllSessions 调用 */
+async function persistRecording(recordingId: string): Promise<void> {
+  const ar = activeRecordings.get(recordingId)
+  if (!ar) return
+  const recording: TerminalRecording = {
+    id: recordingId,
+    sessionId: ar.sessionId,
+    userId: ar.userId,
+    events: ar.events,
+    startedAt: ar.startedAt,
+    durationMs: Date.now() - ar.startedAt,
+    title: ar.title,
+  }
+  activeRecordings.delete(recordingId)
+  const redis = getRedis()
+  if (!redis) {
+    persistedRecordingsMemory.set(recordingId, recording)
+    return
+  }
+  try {
+    const eventsKey = recordingEventsKey(recordingId)
+    const metaKey = recordingMetaKey(recordingId)
+    // events → Redis list(RPUSH 保持时序,oldest → newest)
+    if (recording.events.length > 0) {
+      const args = recording.events.map((e) => JSON.stringify(e))
+      await redis.rpush(eventsKey, ...args)
+      await redis.expire(eventsKey, RECORDING_TTL_SECONDS)
+    }
+    await redis.hset(metaKey, {
+      id: recording.id,
+      sessionId: recording.sessionId,
+      userId: recording.userId,
+      startedAt: String(recording.startedAt),
+      durationMs: String(recording.durationMs),
+      title: recording.title ?? '',
+      eventCount: String(recording.events.length),
+    })
+    await redis.expire(metaKey, RECORDING_TTL_SECONDS)
+  } catch {
+    // Redis 故障:降级内存
+    persistedRecordingsMemory.set(recordingId, recording)
+  }
+}
+
+/** 开始录制(绑定到 session,同一 session 仅一个活动录制) */
+export function startRecording(
+  sessionId: string,
+  userId: string,
+  title?: string,
+): { recordingId: string; sessionId: string } | null {
+  const entry = getSession(sessionId, userId)
+  if (!entry) return null
+  if (entry.recordingId) {
+    // 已在录制:返回现有 recordingId(幂等)
+    return { recordingId: entry.recordingId, sessionId }
+  }
+  const recordingId = randomUUID()
+  activeRecordings.set(recordingId, {
+    events: [],
+    startedAt: Date.now(),
+    sessionId,
+    userId,
+    title,
+  })
+  entry.recordingId = recordingId
+  return { recordingId, sessionId }
+}
+
+/** 停止录制并持久化(返回完整录制) */
+export async function stopRecording(
+  sessionId: string,
+  userId: string,
+): Promise<TerminalRecording | null> {
+  const entry = getSession(sessionId, userId)
+  if (!entry || !entry.recordingId) return null
+  const rid = entry.recordingId
+  entry.recordingId = null
+  await persistRecording(rid)
+  return await getRecording(rid, userId)
+}
+
+/** 列出用户所有录制(内存降级 + Redis 合并,按开始时间降序) */
+export async function listRecordings(
+  userId: string,
+): Promise<TerminalRecordingListItem[]> {
+  const result: TerminalRecordingListItem[] = []
+  const seen = new Set<string>()
+  // 内存降级优先
+  for (const [, r] of persistedRecordingsMemory) {
+    if (r.userId !== userId) continue
+    result.push({
+      id: r.id,
+      sessionId: r.sessionId,
+      title: r.title,
+      startedAt: r.startedAt,
+      durationMs: r.durationMs,
+      eventCount: r.events.length,
+    })
+    seen.add(r.id)
+  }
+  // Redis
+  const redis = getRedis()
+  if (redis) {
+    try {
+      let cursor = '0'
+      do {
+        const [next, keys] = await redis.scan(
+          cursor,
+          'MATCH',
+          'terminal:recording:meta:*',
+          'COUNT',
+          100,
+        )
+        cursor = next
+        for (const key of keys) {
+          const meta = await redis.hgetall(key)
+          if (!meta || !meta.userId || meta.userId !== userId) continue
+          const id = meta.id ?? key.replace('terminal:recording:meta:', '')
+          if (seen.has(id)) continue
+          seen.add(id)
+          result.push({
+            id,
+            sessionId: meta.sessionId ?? '',
+            title: meta.title || undefined,
+            startedAt: Number(meta.startedAt ?? 0),
+            durationMs: Number(meta.durationMs ?? 0),
+            eventCount: Number(meta.eventCount ?? 0),
+          })
+        }
+      } while (cursor !== '0')
+    } catch {
+      /* Redis 故障,仅返回内存数据 */
+    }
+  }
+  result.sort((a, b) => b.startedAt - a.startedAt)
+  return result
+}
+
+/** 获取录制详情(含完整 events,校验 userId 归属) */
+export async function getRecording(
+  recordingId: string,
+  userId: string,
+): Promise<TerminalRecording | null> {
+  // 内存降级优先
+  const mem = persistedRecordingsMemory.get(recordingId)
+  if (mem && mem.userId === userId) return mem
+  const redis = getRedis()
+  if (!redis) return null
+  try {
+    const meta = await redis.hgetall(recordingMetaKey(recordingId))
+    if (!meta || !meta.userId || meta.userId !== userId) return null
+    const eventsRaw = await redis.lrange(recordingEventsKey(recordingId), 0, -1)
+    const events: TerminalEvent[] = []
+    for (const s of eventsRaw) {
+      try {
+        events.push(JSON.parse(s) as TerminalEvent)
+      } catch {
+        /* 损坏的事件跳过 */
+      }
+    }
+    return {
+      id: meta.id ?? recordingId,
+      sessionId: meta.sessionId ?? '',
+      userId: meta.userId,
+      events,
+      startedAt: Number(meta.startedAt ?? 0),
+      durationMs: Number(meta.durationMs ?? 0),
+      title: meta.title || undefined,
+    }
+  } catch {
+    return null
+  }
+}
+
+/** 删除录制(校验归属后删除 Redis keys / 内存条目) */
+export async function deleteRecording(
+  recordingId: string,
+  userId: string,
+): Promise<boolean> {
+  const rec = await getRecording(recordingId, userId)
+  if (!rec) return false
+  persistedRecordingsMemory.delete(recordingId)
+  activeRecordings.delete(recordingId)
+  const redis = getRedis()
+  if (!redis) return true
+  try {
+    await redis.del(recordingEventsKey(recordingId), recordingMetaKey(recordingId))
+  } catch {
+    /* ignore */
+  }
+  return true
+}
+
+/** 编辑录制(整体替换 events,可选更新 title;重新计算 durationMs) */
+export async function editRecording(
+  recordingId: string,
+  userId: string,
+  events: TerminalEvent[],
+  title?: string,
+): Promise<TerminalRecording | null> {
+  const rec = await getRecording(recordingId, userId)
+  if (!rec) return null
+  const newTitle = title ?? rec.title
+  const newDuration =
+    events.length > 0 ? events.reduce((m, e) => Math.max(m, e.timestamp), 0) : 0
+  const updated: TerminalRecording = {
+    ...rec,
+    events,
+    title: newTitle,
+    durationMs: newDuration,
+  }
+  persistedRecordingsMemory.delete(recordingId)
+  const redis = getRedis()
+  if (!redis) {
+    persistedRecordingsMemory.set(recordingId, updated)
+    return updated
+  }
+  try {
+    const eventsKey = recordingEventsKey(recordingId)
+    const metaKey = recordingMetaKey(recordingId)
+    await redis.del(eventsKey)
+    if (events.length > 0) {
+      const args = events.map((e) => JSON.stringify(e))
+      await redis.rpush(eventsKey, ...args)
+      await redis.expire(eventsKey, RECORDING_TTL_SECONDS)
+    }
+    await redis.hset(metaKey, {
+      id: updated.id,
+      sessionId: updated.sessionId,
+      userId: updated.userId,
+      startedAt: String(updated.startedAt),
+      durationMs: String(updated.durationMs),
+      title: updated.title ?? '',
+      eventCount: String(updated.events.length),
+    })
+    await redis.expire(metaKey, RECORDING_TTL_SECONDS)
+  } catch {
+    persistedRecordingsMemory.set(recordingId, updated)
+  }
+  return updated
+}
+
+/**
+ * 回放录制:创建新 PTY session,按 timestamp 顺序写入 input 事件。
+ *
+ * - output 事件不写入 PTY(由新 PTY 重新执行命令产生新输出)
+ * - 单次事件间延迟上限 2s(避免长录制回放耗时过久)
+ * - 返回新 sessionId + 回放事件数
+ */
+export async function playRecording(
+  recordingId: string,
+  userId: string,
+): Promise<{ sessionId: string; replayedEvents: number } | null> {
+  const rec = await getRecording(recordingId, userId)
+  if (!rec) return null
+  const session = createSession(userId, {})
+  let replayed = 0
+  let lastTs = 0
+  for (const ev of rec.events) {
+    if (ev.type !== 'input') continue // 仅回放 input 事件
+    const delay = Math.max(0, Math.min(2000, ev.timestamp - lastTs))
+    lastTs = ev.timestamp
+    const data = ev.data
+    setTimeout(() => {
+      writeInput(session.id, data)
+    }, delay)
+    replayed++
+  }
+  return { sessionId: session.id, replayedEvents: replayed }
+}
+
+// ==================== AI 辅助终端(2026-07-23 立) ====================
+//
+// 三端点(suggest / diagnose / autoFix)超越 GitHub Copilot CLI 的"单点翻译"模式:
+// - suggest:基于 cwd/lastCommand/exitCode 调 LLM 给 3 个候选命令
+// - diagnose:分析 stderr 生成 rootCause + suggestedFix + fixCommand
+// - autoFix:将 fixCommand 写入 PTY 一键执行
+// LLM 调用通过 aiServiceFetch 转发到 ai-service /api/terminal/ai-*,不在 api 端直连 LLM。
+// 降级:ai-service 不可用时抛 statusCode=503 + errorCode='ai_unavailable'。
+
+/** AI 命令建议(转发到 ai-service /api/terminal/ai-suggest) */
+export async function suggestCommand(
+  sessionId: string,
+  userId: string,
+  input: TerminalSuggestInput,
+  request: FastifyRequest | null,
+): Promise<TerminalSuggestResponse> {
+  const entry = getSession(sessionId, userId)
+  // 合并 entry 上下文(若 input 字段缺失,用 session 现场数据兜底)
+  const merged: TerminalSuggestInput = {
+    cwd: input.cwd || entry?.cwd || process.cwd(),
+    lastCommand: input.lastCommand ?? entry?.lastCommand,
+    stdout: input.stdout,
+    exitCode: input.exitCode ?? entry?.lastExitCode,
+  }
+  let res: Response
+  try {
+    res = await aiServiceFetch(request, '/api/terminal/ai-suggest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(merged),
+    })
+  } catch (e) {
+    throw aiUnavailableError(`AI 服务调用失败: ${(e as Error).message}`)
+  }
+  if (!res.ok) {
+    throw aiUnavailableError(`AI 服务不可用 (${res.status})`)
+  }
+  try {
+    return (await res.json()) as TerminalSuggestResponse
+  } catch (e) {
+    throw aiUnavailableError(`AI 响应解析失败: ${(e as Error).message}`)
+  }
+}
+
+/** AI 错误诊断(转发到 ai-service /api/terminal/ai-diagnose) */
+export async function diagnoseError(
+  sessionId: string,
+  userId: string,
+  input: TerminalDiagnoseInput,
+  request: FastifyRequest | null,
+): Promise<TerminalDiagnoseResponse> {
+  const entry = getSession(sessionId, userId)
+  const merged: TerminalDiagnoseInput = {
+    command: input.command,
+    stderr: input.stderr,
+    exitCode: input.exitCode,
+    cwd: input.cwd || entry?.cwd || process.cwd(),
+  }
+  let res: Response
+  try {
+    res = await aiServiceFetch(request, '/api/terminal/ai-diagnose', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(merged),
+    })
+  } catch (e) {
+    throw aiUnavailableError(`AI 服务调用失败: ${(e as Error).message}`)
+  }
+  if (!res.ok) {
+    throw aiUnavailableError(`AI 服务不可用 (${res.status})`)
+  }
+  try {
+    return (await res.json()) as TerminalDiagnoseResponse
+  } catch (e) {
+    throw aiUnavailableError(`AI 响应解析失败: ${(e as Error).message}`)
+  }
+}
+
+/** AI 自动修复(将 diagnose 返回的 fixCommand 写入 PTY 执行) */
+export function autoFix(
+  sessionId: string,
+  userId: string,
+  fixCommand: string,
+): TerminalAutoFixResponse {
+  const entry = getSession(sessionId, userId)
+  if (!entry || entry.status !== 'active') {
+    return { applied: false, message: '终端会话不存在或已关闭' }
+  }
+  const cmd = fixCommand.trim()
+  if (!cmd) {
+    return { applied: false, message: '修复命令为空' }
+  }
+  const ok = writeInput(sessionId, cmd + '\r')
+  return ok
+    ? { applied: true, message: '修复命令已写入终端' }
+    : { applied: false, message: '写入终端失败' }
+}
+
+/** 构造 AI 不可用错误(503 + errorCode='ai_unavailable') */
+function aiUnavailableError(message: string): Error & { statusCode: number; errorCode: string } {
+  const err = new Error(message) as Error & { statusCode: number; errorCode: string }
+  err.statusCode = 503
+  err.errorCode = 'ai_unavailable'
+  return err
+}
+
+// ==================== 智能命令历史(2026-07-23 立) ====================
+//
+// 超越按时间排序:每条命令记录 { command, cwd, gitBranch, timestamp, exitCode, frequency },
+// 智能排序按相关性打分:
+//   cwd 匹配 +50 / gitBranch 匹配 +30 / 最近 24h +20 / frequency * 5 / exitCode=0 +10
+// 持久化:Redis hash `terminal:history:{userId}`(field=commandHash, value=JSON entry),
+// 同命令累加 frequency。降级:内存数组(每用户最多 1000 条,FIFO)。
+// 历史记录由前端在命令完成后主动调用 recordHistory(携带可观测的 exitCode)。
+
+/** 内存降级历史(每用户最多 1000 条) */
+const memoryHistory = new Map<string, TerminalHistoryEntry[]>()
+const MEMORY_HISTORY_MAX = 1000
+
+function historyKey(userId: string): string {
+  return `terminal:history:${userId}`
+}
+
+/** 命令规范化(去首尾空白 + 折叠多余空格)用于频次去重 */
+function normalizeCommand(cmd: string): string {
+  return cmd.trim().replace(/\s+/g, ' ')
+}
+
+/** 简单哈希(用于 Redis hash field,避免超长 key) */
+function commandHash(cmd: string): string {
+  const normalized = normalizeCommand(cmd)
+  let h = 0
+  for (let i = 0; i < normalized.length; i++) {
+    h = ((h << 5) - h + normalized.charCodeAt(i)) | 0
+  }
+  return `c${Math.abs(h).toString(36)}`
+}
+
+/** 记录命令执行(由前端在命令完成后调用,累积频次 + 更新退出码) */
+export async function recordHistory(
+  userId: string,
+  sessionId: string,
+  command: string,
+  exitCode: number,
+  gitBranch?: string,
+): Promise<void> {
+  const ptyEntry = getSession(sessionId, userId)
+  const cwd = ptyEntry?.cwd ?? process.cwd()
+  const branch = gitBranch ?? (await detectGitBranch(cwd))
+  const now = Date.now()
+  const normalized = normalizeCommand(command)
+  if (!normalized) return
+  // 更新 ptyEntry.lastExitCode(/suggest 上下文)
+  if (ptyEntry) ptyEntry.lastExitCode = exitCode
+
+  const entryData: TerminalHistoryEntry = {
+    command: normalized,
+    cwd,
+    gitBranch: branch ?? undefined,
+    timestamp: now,
+    exitCode,
+    frequency: 1,
+  }
+
+  const redis = getRedis()
+  if (!redis) {
+    // 内存降级:合并同命令频次
+    const list = memoryHistory.get(userId) ?? []
+    const idx = list.findIndex((e) => e.command === normalized)
+    if (idx >= 0) {
+      const existing = list[idx]!
+      existing.frequency += 1
+      existing.timestamp = now
+      existing.exitCode = exitCode
+      existing.cwd = cwd
+      existing.gitBranch = branch ?? undefined
+    } else {
+      list.push(entryData)
+      if (list.length > MEMORY_HISTORY_MAX) list.shift()
+    }
+    memoryHistory.set(userId, list)
+    return
+  }
+  try {
+    const key = historyKey(userId)
+    const field = commandHash(normalized)
+    const existing = await redis.hget(key, field)
+    if (existing) {
+      try {
+        const prev = JSON.parse(existing) as TerminalHistoryEntry
+        entryData.frequency = (prev.frequency ?? 0) + 1
+      } catch {
+        /* 损坏数据,按新条目处理(frequency=1) */
+      }
+    }
+    await redis.hset(key, field, JSON.stringify(entryData))
+    await redis.expire(key, RECORDING_TTL_SECONDS)
+  } catch {
+    /* Redis 故障静默 */
+  }
+}
+
+/** 智能命令历史(按相关性打分排序,返回最近 100 条) */
+export async function getSmartHistory(
+  sessionId: string,
+  userId: string,
+): Promise<{ cwd: string; gitBranch?: string; entries: TerminalHistoryEntry[] }> {
+  const ptyEntry = getSession(sessionId, userId)
+  const cwd = ptyEntry?.cwd ?? process.cwd()
+  const branch = await detectGitBranch(cwd)
+  const now = Date.now()
+  const DAY_MS = 24 * 3600 * 1000
+
+  // 收集所有历史条目(Redis + 内存合并去重)
+  const all: TerminalHistoryEntry[] = []
+  const seenCmds = new Set<string>()
+  const redis = getRedis()
+  if (redis) {
+    try {
+      const data = await redis.hgetall(historyKey(userId))
+      for (const v of Object.values(data)) {
+        try {
+          const e = JSON.parse(v) as TerminalHistoryEntry
+          all.push(e)
+          seenCmds.add(e.command)
+        } catch {
+          /* 损坏数据跳过 */
+        }
+      }
+    } catch {
+      /* Redis 故障,合并内存 */
+    }
+  }
+  // 合并内存降级(Redis 之前故障时写入的数据)
+  const mem = memoryHistory.get(userId) ?? []
+  for (const e of mem) {
+    if (!seenCmds.has(e.command)) {
+      all.push({ ...e })
+      seenCmds.add(e.command)
+    }
+  }
+
+  // 相关性打分
+  const scored = all.map((e) => {
+    let score = 0
+    if (e.cwd === cwd) score += 50
+    if (branch && e.gitBranch === branch) score += 30
+    if (now - e.timestamp < DAY_MS) score += 20
+    score += (e.frequency ?? 0) * 5
+    if (e.exitCode === 0) score += 10
+    return { ...e, score }
+  })
+  scored.sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+  return {
+    cwd,
+    gitBranch: branch ?? undefined,
+    entries: scored.slice(0, 100),
+  }
+}
+
+// git 分支检测缓存:cwd → { branch, expiresAt }
+const gitBranchCache = new Map<string, { branch: string | null; expiresAt: number }>()
+const GIT_BRANCH_CACHE_TTL = 60 * 1000
+
+/** 探测 cwd 所在的 git 分支(2s 超时,缓存 60s,失败返回 null) */
+function detectGitBranch(cwd: string): Promise<string | null> {
+  const cached = gitBranchCache.get(cwd)
+  if (cached && cached.expiresAt > Date.now()) {
+    return Promise.resolve(cached.branch)
+  }
+  return new Promise((resolve) => {
+    try {
+      const proc = execFile(
+        'git',
+        ['rev-parse', '--abbrev-ref', 'HEAD'],
+        { cwd, timeout: 2000, windowsHide: true },
+        (err, stdout) => {
+          const branch = !err && stdout ? stdout.trim() : null
+          gitBranchCache.set(cwd, {
+            branch: branch && branch !== 'HEAD' ? branch : null,
+            expiresAt: Date.now() + GIT_BRANCH_CACHE_TTL,
+          })
+          resolve(branch && branch !== 'HEAD' ? branch : null)
+        },
+      )
+      // 兜底:proc 启动失败(git 未安装等)时 resolve null
+      proc.on('error', () => {
+        gitBranchCache.set(cwd, {
+          branch: null,
+          expiresAt: Date.now() + GIT_BRANCH_CACHE_TTL,
+        })
+        resolve(null)
+      })
+    } catch {
+      resolve(null)
+    }
+  })
 }

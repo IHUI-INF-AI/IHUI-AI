@@ -22343,13 +22343,6 @@
     "downloadComplete": "다운로드완료",
     "downloadFailed2": "다운로드 실패"
   },
-  "Payment": {
-    "alreadyVip": "이미VIP 주의소회원",
-    "notLogged": "사용자미로그인",
-    "incompleteProduct": "프로젝트Info아님",
-    "selectPayMethod": "선택해 주세요결제파티방법",
-    "notLoggedOrNoOpenId": "사용자미로그인또는openid아님중"
-  },
   "cmpindex": {
     "timeExpr": "시간도달",
     "cronExpr": "Cron 도달",
@@ -28433,6 +28426,10 @@
     "dragInsertAfter": "여기 뒤에 삽입"
   },
   "aiNews": {
+    "compare": {
+      "label": "비교에 추가",
+      "maxToast": "최대 5개 모델까지 비교할 수 있습니다"
+    },
     "leaderboard": {
       "label": "모델 리더보드",
       "title": "모델 리더보드 · Arena 점수",

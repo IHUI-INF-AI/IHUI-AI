@@ -21,7 +21,8 @@
  *  - GET    /api/rules/:id/stats    规则效果统计
  *  - POST   /api/rules/match    匹配规则(供 agent loop 调用)
  *
- * 静态路由(/conflicts、/templates、/audit-log、/resolved、/stats、/ab-test)
+ * 静态路由(/conflicts、/templates、/audit-log、/resolved、/stats、/ab-test、
+ * /auto-generate、/resolve-conflicts、/knowledge-graph)
  * 在 Fastify find-my-way 中优先于参数路由(/:id),无需担心顺序冲突。
  *
  * 在 server.ts 注册:server.register(rulesRoutes, { prefix: '/api' })

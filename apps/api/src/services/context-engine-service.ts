@@ -168,6 +168,137 @@ export interface ClearMemoryResult {
   cleared: boolean
 }
 
+// === 2026-07-23 Context Engineering 超越创新接口 ===
+
+/** 单条上下文预测结果 */
+export interface PredictionItem {
+  type: 'file' | 'symbol' | 'module' | 'document'
+  target: string
+  confidence: number
+}
+
+/** POST /predict 返回结构 */
+export interface PredictResult {
+  predictions: PredictionItem[]
+  prefetchedCount: number
+  conversationId: string
+}
+
+/** 预取 cache 单条 */
+export interface PrefetchedContextItem {
+  type: string
+  target: string
+  confidence: number
+  content: string
+  prefetched_at?: number
+}
+
+/** 知识图谱节点 */
+export interface GraphNode {
+  id: string
+  type: string
+  label: string
+  path?: string
+  line_start?: number | null
+  line_end?: number | null
+}
+
+/** 知识图谱边 */
+export interface GraphEdge {
+  source: string
+  target: string
+  type: string
+  weight?: number
+}
+
+/** 知识图谱查询结果 */
+export interface KnowledgeGraphResult {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  projectId: string
+}
+
+/** 图检索单条结果 */
+export interface GraphRetrieveItem {
+  node: GraphNode
+  score: number
+  path: string[]
+}
+
+/** 质量评分 4 维度 */
+export interface QualityDimensions {
+  completeness: number
+  relevance: number
+  freshness: number
+  redundancy: number
+}
+
+/** POST /quality-score 返回结构 */
+export interface QualityScoreResult {
+  overall: number
+  dimensions: QualityDimensions
+  recommendation: string
+}
+
+/** POST /smart-compact 返回结构 */
+export interface SmartCompactResult {
+  compactedMessages: Array<{ role: string; content: string }>
+  preservedItems: string[]
+  compactedItems: string[]
+  compressionRatio: number
+  qualityScore?: number | null
+}
+
+/** POST /cross-project/save 返回结构 */
+export interface CrossProjectSaveResult {
+  id: string
+  saved: boolean
+}
+
+/** 跨项目经验单条 */
+export interface CrossProjectExperienceItem {
+  id: string
+  summary: string
+  source_project: string
+  tags: string[]
+  score: number
+}
+
+/** predict 方法请求参数 */
+export interface PredictOptions {
+  currentMessage: string
+  conversationHistory: Array<{ role: string; content: string }>
+  conversationId: string
+  taskType: string
+  userId: string
+}
+
+/** getQualityScore 方法请求参数 */
+export interface QualityScoreOptions {
+  conversationId: string
+  taskType: string
+  taskQuery: string
+  userId: string
+  currentContext?: Array<Record<string, unknown>>
+}
+
+/** smartCompact 方法请求参数 */
+export interface SmartCompactOptions {
+  messages: Array<{ role: string; content: string }>
+  preserveKeywords?: string[]
+  conversationId: string
+  userId: string
+}
+
+/** saveCrossProjectExperience 方法请求参数 */
+export interface CrossProjectSaveOptions {
+  userId: string
+  summary: string
+  sourceProject: string
+  tags?: string[]
+  detail?: string
+}
+
 /** LRU 缓存条目 */
 interface CacheEntry<T> {
   ts: number
@@ -797,6 +928,390 @@ class ContextEngineService {
       const json = (await resp.json()) as { code: number; data?: ClearMemoryResult }
       if (json.code === 0 && json.data) {
         return json.data.cleared
+      }
+      return false
+    } catch {
+      return false
+    }
+  }
+
+  // === 2026-07-23 Context Engineering 超越创新:委托 ai-service 端点 ===
+
+  /**
+   * 上下文预测 + 异步预取(POST /api/context/predict)。
+   *
+   * LLM 预测下一步需要的上下文 + 异步预取到 Redis cache(TTL 5 分钟)。
+   * 降级:ai-service 不可用时返回空预测。
+   */
+  async predict(opts: PredictOptions): Promise<PredictResult> {
+    try {
+      const resp = await aiServiceFetch(null, '/api/context/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentMessage: opts.currentMessage,
+          conversationHistory: opts.conversationHistory,
+          conversationId: opts.conversationId,
+          taskType: opts.taskType,
+          userId: opts.userId,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service POST /api/context/predict HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as { code: number; data?: PredictResult }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      throw new Error(`ai-service /api/context/predict 返回 code=${json.code}`)
+    } catch {
+      return { predictions: [], prefetchedCount: 0, conversationId: opts.conversationId }
+    }
+  }
+
+  /**
+   * 读取预取 cache(GET /api/context/prefetch)。
+   * 降级:ai-service 不可用时返回空数组。
+   */
+  async getPrefetched(
+    conversationId: string,
+    target: string,
+  ): Promise<PrefetchedContextItem[]> {
+    try {
+      const qs = `?conversationId=${encodeURIComponent(conversationId)}&target=${encodeURIComponent(target)}`
+      const resp = await aiServiceFetch(null, `/api/context/prefetch${qs}`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5_000),
+      })
+      if (!resp.ok) {
+        throw new Error(`ai-service GET /api/context/prefetch HTTP ${resp.status}`)
+      }
+      const json = (await resp.json()) as {
+        code: number
+        data?: PrefetchedContextItem[]
+      }
+      if (json.code === 0 && Array.isArray(json.data)) {
+        return json.data
+      }
+      return []
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * 构建知识图谱(POST /api/context/knowledge-graph/build)。
+   * 节点:File/Function/Class/Concept/Document/UserPreference;边:calls/references/imports/semantic_similar。
+   */
+  async buildKnowledgeGraph(
+    projectId: string,
+    workspacePath: string,
+  ): Promise<KnowledgeGraphResult> {
+    try {
+      const resp = await aiServiceFetch(
+        null,
+        '/api/context/knowledge-graph/build',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId, workspacePath }),
+          signal: AbortSignal.timeout(30_000),
+        },
+      )
+      if (!resp.ok) {
+        throw new Error(
+          `ai-service POST /api/context/knowledge-graph/build HTTP ${resp.status}`,
+        )
+      }
+      const json = (await resp.json()) as {
+        code: number
+        data?: KnowledgeGraphResult
+      }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      throw new Error(`ai-service knowledge-graph/build 返回 code=${json.code}`)
+    } catch {
+      return { nodes: [], edges: [], projectId }
+    }
+  }
+
+  /**
+   * 获取知识图谱(GET /api/context/knowledge-graph),支持按 node_type/edge_type 过滤。
+   * 降级:ai-service 不可用时返回空图。
+   */
+  async getKnowledgeGraph(
+    projectId: string,
+    node_type: string,
+    edge_type: string,
+  ): Promise<KnowledgeGraphResult> {
+    try {
+      const qs = `?projectId=${encodeURIComponent(projectId)}&node_type=${encodeURIComponent(node_type)}&edge_type=${encodeURIComponent(edge_type)}`
+      const resp = await aiServiceFetch(
+        null,
+        `/api/context/knowledge-graph${qs}`,
+        {
+          method: 'GET',
+          signal: AbortSignal.timeout(5_000),
+        },
+      )
+      if (!resp.ok) {
+        throw new Error(
+          `ai-service GET /api/context/knowledge-graph HTTP ${resp.status}`,
+        )
+      }
+      const json = (await resp.json()) as {
+        code: number
+        data?: KnowledgeGraphResult
+      }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      throw new Error(`ai-service knowledge-graph 返回 code=${json.code}`)
+    } catch {
+      return { nodes: [], edges: [], projectId }
+    }
+  }
+
+  /**
+   * 图检索(GET /api/context/graph-retrieve),BFS 遍历深度限制 2。
+   * 降级:ai-service 不可用时返回空数组。
+   */
+  async graphRetrieve(
+    query: string,
+    projectId: string,
+    userId: string,
+    depth: number,
+  ): Promise<GraphRetrieveItem[]> {
+    try {
+      const qs =
+        `?query=${encodeURIComponent(query)}&projectId=${encodeURIComponent(projectId)}` +
+        `&userId=${encodeURIComponent(userId)}&depth=${depth}`
+      const resp = await aiServiceFetch(
+        null,
+        `/api/context/graph-retrieve${qs}`,
+        {
+          method: 'GET',
+          signal: AbortSignal.timeout(10_000),
+        },
+      )
+      if (!resp.ok) {
+        throw new Error(
+          `ai-service GET /api/context/graph-retrieve HTTP ${resp.status}`,
+        )
+      }
+      const json = (await resp.json()) as {
+        code: number
+        data?: GraphRetrieveItem[]
+      }
+      if (json.code === 0 && Array.isArray(json.data)) {
+        return json.data
+      }
+      return []
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * 上下文质量评分(POST /api/context/quality-score)。
+   * 4 维度:完整性 0.4 + 相关性 0.3 + 新鲜度 0.2 + 冗余度 0.1,低于 0.5 主动建议。
+   */
+  async getQualityScore(
+    opts: QualityScoreOptions,
+  ): Promise<QualityScoreResult> {
+    try {
+      const resp = await aiServiceFetch(null, '/api/context/quality-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationId: opts.conversationId,
+          taskType: opts.taskType,
+          taskQuery: opts.taskQuery,
+          userId: opts.userId,
+          currentContext: opts.currentContext,
+        }),
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (!resp.ok) {
+        throw new Error(
+          `ai-service POST /api/context/quality-score HTTP ${resp.status}`,
+        )
+      }
+      const json = (await resp.json()) as {
+        code: number
+        data?: QualityScoreResult
+      }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      throw new Error(`ai-service quality-score 返回 code=${json.code}`)
+    } catch {
+      return {
+        overall: 0,
+        dimensions: {
+          completeness: 0,
+          relevance: 0,
+          freshness: 0,
+          redundancy: 0,
+        },
+        recommendation: '质量评分不可用',
+      }
+    }
+  }
+
+  /**
+   * 智能压缩(POST /api/context/smart-compact)。
+   * LLM 识别关键信息保留原文 + 非关键摘要压缩,记录压缩前后质量对比。
+   */
+  async smartCompact(opts: SmartCompactOptions): Promise<SmartCompactResult> {
+    try {
+      const resp = await aiServiceFetch(null, '/api/context/smart-compact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: opts.messages,
+          preserveKeywords: opts.preserveKeywords,
+          conversationId: opts.conversationId,
+          userId: opts.userId,
+        }),
+        signal: AbortSignal.timeout(20_000),
+      })
+      if (!resp.ok) {
+        throw new Error(
+          `ai-service POST /api/context/smart-compact HTTP ${resp.status}`,
+        )
+      }
+      const json = (await resp.json()) as {
+        code: number
+        data?: SmartCompactResult
+      }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      throw new Error(`ai-service smart-compact 返回 code=${json.code}`)
+    } catch {
+      // 降级:原样返回(messages 不变,压缩比 1.0)
+      return {
+        compactedMessages: opts.messages,
+        preservedItems: [],
+        compactedItems: [],
+        compressionRatio: 1.0,
+        qualityScore: null,
+      }
+    }
+  }
+
+  /**
+   * 保存跨项目经验(POST /api/context/cross-project/save)。
+   * 持久化到 Redis hash "context:cross-project:{userId}",降级内存。
+   */
+  async saveCrossProjectExperience(
+    opts: CrossProjectSaveOptions,
+  ): Promise<CrossProjectSaveResult> {
+    try {
+      const resp = await aiServiceFetch(
+        null,
+        '/api/context/cross-project/save',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: opts.userId,
+            summary: opts.summary,
+            sourceProject: opts.sourceProject,
+            tags: opts.tags,
+            detail: opts.detail,
+          }),
+          signal: AbortSignal.timeout(10_000),
+        },
+      )
+      if (!resp.ok) {
+        throw new Error(
+          `ai-service POST /api/context/cross-project/save HTTP ${resp.status}`,
+        )
+      }
+      const json = (await resp.json()) as {
+        code: number
+        data?: CrossProjectSaveResult
+      }
+      if (json.code === 0 && json.data) {
+        return json.data
+      }
+      throw new Error(`ai-service cross-project/save 返回 code=${json.code}`)
+    } catch {
+      return { id: '', saved: false }
+    }
+  }
+
+  /**
+   * 搜索跨项目经验(GET /api/context/cross-project/search),embedding 相似度检索。
+   * 降级:ai-service 不可用时返回空数组。
+   */
+  async searchCrossProjectExperiences(
+    userId: string,
+    q: string,
+    limit: number,
+  ): Promise<CrossProjectExperienceItem[]> {
+    try {
+      const qs =
+        `?userId=${encodeURIComponent(userId)}&q=${encodeURIComponent(q)}&limit=${limit}`
+      const resp = await aiServiceFetch(
+        null,
+        `/api/context/cross-project/search${qs}`,
+        {
+          method: 'GET',
+          signal: AbortSignal.timeout(10_000),
+        },
+      )
+      if (!resp.ok) {
+        throw new Error(
+          `ai-service GET /api/context/cross-project/search HTTP ${resp.status}`,
+        )
+      }
+      const json = (await resp.json()) as {
+        code: number
+        data?: CrossProjectExperienceItem[]
+      }
+      if (json.code === 0 && Array.isArray(json.data)) {
+        return json.data
+      }
+      return []
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * 删除跨项目经验(DELETE /api/context/cross-project/:id)。
+   * 降级:ai-service 不可用时返回 false。
+   */
+  async deleteCrossProjectExperience(
+    userId: string,
+    experienceId: string,
+  ): Promise<boolean> {
+    try {
+      const qs = `?userId=${encodeURIComponent(userId)}`
+      const resp = await aiServiceFetch(
+        null,
+        `/api/context/cross-project/${encodeURIComponent(experienceId)}${qs}`,
+        {
+          method: 'DELETE',
+          signal: AbortSignal.timeout(5_000),
+        },
+      )
+      if (!resp.ok) {
+        throw new Error(
+          `ai-service DELETE /api/context/cross-project/:id HTTP ${resp.status}`,
+        )
+      }
+      const json = (await resp.json()) as {
+        code: number
+        data?: { deleted: boolean }
+      }
+      if (json.code === 0 && json.data) {
+        return json.data.deleted
       }
       return false
     } catch {

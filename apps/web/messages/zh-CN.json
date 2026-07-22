@@ -22364,13 +22364,6 @@
     "downloadComplete": "下载完成",
     "downloadFailed2": "下载失败"
   },
-  "Payment": {
-    "alreadyVip": "您已是VIP会员",
-    "notLogged": "用户未登录",
-    "incompleteProduct": "商品信息不完整",
-    "selectPayMethod": "请选择支付方式",
-    "notLoggedOrNoOpenId": "用户未登录或openid不存在"
-  },
   "cmpindex": {
     "timeExpr": "时间表达式",
     "cronExpr": "Cron 表达式",
@@ -25951,6 +25944,10 @@
     }
   },
   "aiNews": {
+    "compare": {
+      "label": "加入对比",
+      "maxToast": "最多选择 5 个模型进行对比"
+    },
     "leaderboard": {
       "label": "大模型排行榜",
       "title": "大模型排行榜 · Arena 评分",

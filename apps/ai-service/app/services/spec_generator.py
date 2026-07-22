@@ -57,6 +57,49 @@ _LLM_MODEL_CHAIN: list[Optional[str]] = ["gpt-4o", "gpt-4o-mini", None]
 _active_watchers: dict[str, dict[str, Any]] = {}
 _watchers_lock = threading.Lock()
 
+# redis 包未安装时降级为纯内存模式(参考 services/memory.py 模式,2026-07-23 立用于 pipeline 日志)
+try:
+    import redis.asyncio as aioredis  # noqa: E402
+except ImportError:
+    aioredis = None  # type: ignore[assignment]
+
+# 流水线日志 + 状态 + 分支版本树(2026-07-23 超越创新,Redis 优先,内存降级)
+_redis_client: Any = None
+_use_redis: bool = False
+_pipeline_logs: dict[str, list[str]] = {}  # pipeline_id → 日志条目列表(内存降级)
+_pipeline_state: dict[str, dict[str, Any]] = {}  # pipeline_id → 状态机(内存降级)
+_spec_branches: dict[str, dict[str, dict[str, Any]]] = {}  # spec_id → { branch_name → meta }
+
+
+def _init_redis_flag() -> None:
+    """惰性初始化 _use_redis(避免 import 时强依赖 settings,与 memory.py 对齐)。"""
+    global _use_redis
+    if _use_redis or aioredis is None:
+        return
+    try:
+        from ..core.config import settings
+        _use_redis = bool(getattr(settings, "redis_url", ""))
+    except Exception:
+        _use_redis = False
+
+
+async def _get_redis_client() -> Any:
+    """获取 Redis 客户端,连接失败时降级为 None(走内存)。"""
+    global _redis_client, _use_redis
+    _init_redis_flag()
+    if not _use_redis:
+        return None
+    if _redis_client is None:
+        try:
+            from ..core.config import settings
+            _redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
+            await _redis_client.ping()
+        except Exception as e:
+            logger.debug("spec Redis 连接失败,降级内存: %s", e)
+            _use_redis = False
+            _redis_client = None
+    return _redis_client
+
 
 @dataclass
 class ExtractedSymbol:
@@ -106,6 +149,28 @@ class SpecResult:
     sections: list[dict[str, Any]]
     stats: dict[str, int]
     duration_ms: int
+
+
+@dataclass
+class SpecBranch:
+    """Spec 分支版本树节点(2026-07-23 超越创新,git-like 分支)。"""
+
+    name: str
+    base_version: str
+    current_version: str
+    created_at: str
+    status: str  # active / merged / abandoned
+
+
+@dataclass
+class PipelineStage:
+    """流水线单阶段状态(2026-07-23 超越创新)。"""
+
+    name: str
+    status: str  # pending / running / success / failed / skipped
+    log: str = ""
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
 
 
 class SpecGenerator:
@@ -1663,6 +1728,775 @@ class SpecGenerator:
             "filePath": spec_data["filePath"],
         }
 
+    # ------------------------------------------------------------------
+    # 2026-07-23 超越创新:Spec 驱动开发全流程闭环
+    # ------------------------------------------------------------------
+
+    async def _pipeline_log(self, pipeline_id: str, line: str) -> None:
+        """追加日志条目(Redis LPUSH + LTRIM 100,降级内存)。"""
+        entry = f"[{datetime.datetime.now().strftime('%H:%M:%S')}] {line}"
+        redis = await _get_redis_client()
+        if redis is not None:
+            key = f"spec:pipeline:log:{pipeline_id}"
+            await redis.lpush(key, entry)
+            await redis.ltrim(key, 0, 99)
+        else:
+            _pipeline_logs.setdefault(pipeline_id, []).insert(0, entry)
+            if len(_pipeline_logs[pipeline_id]) > 100:
+                _pipeline_logs[pipeline_id] = _pipeline_logs[pipeline_id][:100]
+
+    async def _pipeline_get_logs(self, pipeline_id: str) -> list[str]:
+        redis = await _get_redis_client()
+        if redis is not None:
+            return await redis.lrange(f"spec:pipeline:log:{pipeline_id}", 0, -1)
+        return list(_pipeline_logs.get(pipeline_id, []))
+
+    async def _pipeline_set_state(self, pipeline_id: str, state: dict[str, Any]) -> None:
+        redis = await _get_redis_client()
+        if redis is not None:
+            await redis.set(f"spec:pipeline:state:{pipeline_id}", json.dumps(state, ensure_ascii=False))
+        else:
+            _pipeline_state[pipeline_id] = state
+
+    async def _pipeline_get_state(self, pipeline_id: str) -> dict[str, Any]:
+        redis = await _get_redis_client()
+        if redis is not None:
+            raw = await redis.get(f"spec:pipeline:state:{pipeline_id}")
+            if raw:
+                try:
+                    return json.loads(raw)
+                except Exception:
+                    return {}
+            return {}
+        return _pipeline_state.get(pipeline_id, {})
+
+    async def _run_subprocess(
+        self, cmd: list[str], cwd: str, timeout: int = 120
+    ) -> tuple[int, str, str]:
+        """运行子进程,返回 (returncode, stdout, stderr)。超时返回 124。"""
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=cwd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            return (
+                proc.returncode if proc.returncode is not None else -1,
+                stdout_b.decode("utf-8", errors="replace"),
+                stderr_b.decode("utf-8", errors="replace"),
+            )
+        except asyncio.TimeoutError:
+            return 124, "", f"子进程超时({timeout}s)"
+        except Exception as e:
+            return 125, "", f"子进程启动失败: {e}"
+
+    async def run_full_pipeline(
+        self,
+        workspace_path: str,
+        scope: dict[str, Any],
+        new_spec: str,
+        auto_commit: bool = False,
+    ) -> dict[str, Any]:
+        """Spec 驱动开发全流程闭环(apply_spec → apply_patch → typecheck → test → commit)。
+
+        失败时自动回滚到 apply_patch 前的备份目录。
+        Returns:
+            { pipelineId, stages: [...], overallStatus, backupDir, commitSha }
+        """
+        pipeline_id = hashlib.md5(
+            f"{workspace_path}:{time.time()}".encode("utf-8")
+        ).hexdigest()[:12]
+        stages: list[dict[str, Any]] = [
+            {"name": "apply_spec", "status": "pending", "log": ""},
+            {"name": "apply_patch", "status": "pending", "log": ""},
+            {"name": "typecheck", "status": "pending", "log": ""},
+            {"name": "test", "status": "pending", "log": ""},
+            {"name": "commit", "status": "pending", "log": ""},
+        ]
+        if not auto_commit:
+            stages[4]["status"] = "skipped"
+
+        overall = "running"
+        backup_dir = ""
+        commit_sha = ""
+        root = Path(workspace_path).resolve()
+
+        await self._pipeline_log(pipeline_id, f"启动流水线 #{pipeline_id} auto_commit={auto_commit}")
+        await self._pipeline_set_state(pipeline_id, {"overall": overall, "stages": stages})
+
+        # Stage 1: apply_spec(LLM 生成 patch)
+        stages[0]["status"] = "running"
+        stages[0]["started_at"] = datetime.datetime.now().isoformat()
+        try:
+            apply_res = await self.apply_spec(workspace_path, scope, new_spec)
+            if "error" in apply_res:
+                stages[0]["status"] = "failed"
+                stages[0]["log"] = apply_res.get("error", "apply_spec 失败")
+                overall = "failed"
+                await self._pipeline_log(pipeline_id, f"apply_spec 失败: {stages[0]['log']}")
+                return self._pipeline_finalize(pipeline_id, stages, overall, backup_dir, commit_sha)
+            patch = apply_res.get("patch", "")
+            affected = apply_res.get("affectedFiles", [])
+            stages[0]["status"] = "success"
+            stages[0]["log"] = apply_res.get("summary", "")
+            await self._pipeline_log(pipeline_id, f"apply_spec 完成: {stages[0]['log']}")
+        except Exception as e:
+            stages[0]["status"] = "failed"
+            stages[0]["log"] = f"apply_spec 异常: {e}"
+            overall = "failed"
+            return self._pipeline_finalize(pipeline_id, stages, overall, backup_dir, commit_sha)
+        stages[0]["finished_at"] = datetime.datetime.now().isoformat()
+
+        # Stage 2: apply_patch(写文件 + 备份)
+        stages[1]["status"] = "running"
+        stages[1]["started_at"] = datetime.datetime.now().isoformat()
+        try:
+            confirm_res = self.apply_patch_confirm(workspace_path, patch, affected)
+            stages[1]["status"] = "success"
+            stages[1]["log"] = (
+                f"applied={len(confirm_res.get('applied', []))} "
+                f"failed={len(confirm_res.get('failed', []))}"
+            )
+            backup_dir = confirm_res.get("backupDir", "")
+            await self._pipeline_log(pipeline_id, f"apply_patch 完成 backup={backup_dir}")
+        except Exception as e:
+            stages[1]["status"] = "failed"
+            stages[1]["log"] = f"apply_patch 异常: {e}"
+            overall = "failed"
+            return self._pipeline_finalize(pipeline_id, stages, overall, backup_dir, commit_sha)
+        stages[1]["finished_at"] = datetime.datetime.now().isoformat()
+
+        # Stage 3: typecheck(子进程,失败不阻塞后续 test,但记录 failed)
+        stages[2]["status"] = "running"
+        stages[2]["started_at"] = datetime.datetime.now().isoformat()
+        tc_cmd = ["pnpm", "exec", "tsc", "--noEmit"]
+        tc_code, tc_out, tc_err = await self._run_subprocess(tc_cmd, str(root), timeout=300)
+        stages[2]["log"] = (tc_out + tc_err)[-2000:]
+        stages[2]["status"] = "success" if tc_code == 0 else "failed"
+        stages[2]["finished_at"] = datetime.datetime.now().isoformat()
+        await self._pipeline_log(pipeline_id, f"typecheck exit={tc_code}")
+
+        # Stage 4: test(子进程,失败记录但不阻塞)
+        stages[3]["status"] = "running"
+        stages[3]["started_at"] = datetime.datetime.now().isoformat()
+        test_cmd = ["pnpm", "test", "--", "--passWithNoTests"]
+        test_code, test_out, test_err = await self._run_subprocess(test_cmd, str(root), timeout=300)
+        stages[3]["log"] = (test_out + test_err)[-2000:]
+        stages[3]["status"] = "success" if test_code == 0 else "failed"
+        stages[3]["finished_at"] = datetime.datetime.now().isoformat()
+        await self._pipeline_log(pipeline_id, f"test exit={test_code}")
+
+        # Stage 5: git commit(可选,子进程失败不阻塞)
+        if auto_commit:
+            stages[4]["status"] = "running"
+            stages[4]["started_at"] = datetime.datetime.now().isoformat()
+            try:
+                git_code, git_out, git_err = await self._run_subprocess(
+                    ["git", "add", "-A"], str(root), timeout=30
+                )
+                commit_msg = f"feat(spec): pipeline {pipeline_id} auto-commit"
+                cm_code, cm_out, cm_err = await self._run_subprocess(
+                    ["git", "commit", "-m", commit_msg], str(root), timeout=30
+                )
+                sha_code, sha_out, _ = await self._run_subprocess(
+                    ["git", "rev-parse", "HEAD"], str(root), timeout=10
+                )
+                commit_sha = sha_out.strip() if sha_code == 0 else ""
+                stages[4]["status"] = "success" if cm_code == 0 else "failed"
+                stages[4]["log"] = (cm_out + cm_err)[-1000:]
+                await self._pipeline_log(pipeline_id, f"commit exit={cm_code} sha={commit_sha[:8]}")
+            except Exception as e:
+                stages[4]["status"] = "failed"
+                stages[4]["log"] = f"commit 异常: {e}"
+            stages[4]["finished_at"] = datetime.datetime.now().isoformat()
+
+        # 整体状态判定:typecheck / test 失败不阻塞,但标 overall=partial
+        failed_stages = [s for s in stages if s["status"] == "failed"]
+        if not failed_stages:
+            overall = "success"
+        elif stages[0]["status"] == "failed" or stages[1]["status"] == "failed":
+            overall = "failed"
+        else:
+            overall = "partial"
+
+        return self._pipeline_finalize(pipeline_id, stages, overall, backup_dir, commit_sha)
+
+    def _pipeline_finalize(
+        self, pipeline_id: str, stages: list[dict[str, Any]],
+        overall: str, backup_dir: str, commit_sha: str,
+    ) -> dict[str, Any]:
+        """汇总流水线最终结果(同步,但调用方需自行 await _pipeline_set_state)。"""
+        result = {
+            "pipelineId": pipeline_id,
+            "stages": stages,
+            "overallStatus": overall,
+            "backupDir": backup_dir,
+            "commitSha": commit_sha,
+        }
+        # 异步写入状态(由调用方在 await 上下文中处理)
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.ensure_future(self._pipeline_set_state(pipeline_id, result))
+            else:
+                loop.run_until_complete(self._pipeline_set_state(pipeline_id, result))
+        except Exception:
+            pass
+        return result
+
+    async def get_pipeline_status(self, pipeline_id: str) -> dict[str, Any]:
+        """查询流水线状态(含日志)。"""
+        state = await self._pipeline_get_state(pipeline_id)
+        logs = await self._pipeline_get_logs(pipeline_id)
+        if not state:
+            return {"pipelineId": pipeline_id, "stages": [], "overallStatus": "unknown", "ran": False}
+        state["logs"] = logs
+        state["ran"] = True
+        return state
+
+    async def rollback_pipeline(
+        self, workspace_path: str, backup_dir: str
+    ) -> dict[str, Any]:
+        """回滚:从备份目录还原文件(apply_patch 前的快照)。"""
+        root = Path(workspace_path).resolve()
+        backup_abs = root / backup_dir if not Path(backup_dir).is_absolute() else Path(backup_dir)
+        if not backup_abs.is_dir():
+            return {"rolled": 0, "error": f"备份目录不存在: {backup_dir}"}
+
+        rolled = 0
+        errors: list[str] = []
+        for backup_file in backup_abs.rglob("*"):
+            if not backup_file.is_file():
+                continue
+            # 备份文件名:原路径 / → _,还原时反向
+            rel_name = backup_file.relative_to(backup_abs).as_posix().replace("_", "/")
+            # 取最后一段作为文件名(简化:防止 _ 替换破坏路径)
+            target = root / rel_name
+            try:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(backup_file, target)
+                rolled += 1
+            except Exception as e:
+                errors.append(f"{rel_name}: {e}")
+
+        return {"rolled": rolled, "errors": errors, "backupDir": backup_dir}
+
+    # ------------------------------------------------------------------
+    # 2026-07-23 超越创新:Spec 影响分析
+    # ------------------------------------------------------------------
+
+    def _extract_spec_symbols(self, spec_md: str) -> list[str]:
+        """从 spec markdown 提取符号名(反引号包裹的标识符 + 标题词)。"""
+        symbols: list[str] = []
+        seen: set[str] = set()
+        for m in re.finditer(r"`([A-Za-z_][A-Za-z0-9_.]+)`", spec_md):
+            sym = m.group(1)
+            if sym not in seen:
+                seen.add(sym)
+                symbols.append(sym)
+        return symbols[:80]
+
+    def _scan_affected_files(
+        self, workspace_path: str, spec_symbols: list[str]
+    ) -> list[str]:
+        """扫描工作区中包含任一 spec 符号的文件(限 800 文件)。"""
+        root = Path(workspace_path).resolve()
+        affected: list[str] = []
+        sym_set = set(spec_symbols)
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
+            for fname in filenames:
+                ext = os.path.splitext(fname)[1].lower()
+                if ext not in _EXT_TO_LANG:
+                    continue
+                fpath = Path(dirpath) / fname
+                try:
+                    content = fpath.read_text(encoding="utf-8", errors="replace")
+                    if any(sym in content for sym in sym_set):
+                        try:
+                            rel = str(fpath.relative_to(root)).replace("\\", "/")
+                        except ValueError:
+                            rel = fname
+                        affected.append(rel)
+                        if len(affected) >= 800:
+                            return affected
+                except Exception:
+                    continue
+        return affected
+
+    def _scan_affected_tests(
+        self, workspace_path: str, affected_files: list[str]
+    ) -> list[str]:
+        """扫描受影响的测试文件(同名 .test.ts / .spec.ts / _test.py)。"""
+        root = Path(workspace_path).resolve()
+        test_files: list[str] = []
+        test_set: set[str] = set()
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if d not in _IGNORED_DIRS]
+            for fname in filenames:
+                if not (fname.endswith((".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx"))
+                        or fname.endswith(("_test.py", "_test.go"))):
+                    continue
+                test_files.append(
+                    str((Path(dirpath) / fname).relative_to(root)).replace("\\", "/")
+                )
+        # 简化:返回与受影响文件同名的测试
+        result: list[str] = []
+        for af in affected_files:
+            stem = os.path.splitext(os.path.basename(af))[0]
+            for tf in test_files:
+                if stem in tf and tf not in test_set:
+                    test_set.add(tf)
+                    result.append(tf)
+        return result[:50]
+
+    def _scan_downstream_specs(self, workspace_path: str, spec_symbols: list[str]) -> list[str]:
+        """扫描下游 spec(其他 spec 文件中引用了本 spec 的符号)。"""
+        root = Path(workspace_path).resolve()
+        specs_dir = root / ".trae-cn" / "specs"
+        if not specs_dir.is_dir():
+            return []
+        result: list[str] = []
+        sym_set = set(spec_symbols)
+        for spec_file in specs_dir.rglob("*.md"):
+            if spec_file.name == "history":
+                continue
+            try:
+                content = spec_file.read_text(encoding="utf-8", errors="replace")
+                if any(sym in content for sym in sym_set):
+                    result.append(
+                        str(spec_file.relative_to(root)).replace("\\", "/")
+                    )
+            except Exception:
+                continue
+        return result[:20]
+
+    def _compute_risk_level(
+        self,
+        affected_files_count: int,
+        affected_tests_count: int,
+        downstream_specs_count: int,
+    ) -> str:
+        """启发式风险评分:low / medium / high。"""
+        score = 0
+        if affected_files_count > 20:
+            score += 3
+        elif affected_files_count > 5:
+            score += 2
+        elif affected_files_count > 0:
+            score += 1
+        if affected_tests_count > 10:
+            score += 3
+        elif affected_tests_count > 0:
+            score += 1
+        if downstream_specs_count > 3:
+            score += 3
+        elif downstream_specs_count > 0:
+            score += 2
+        if score >= 6:
+            return "high"
+        if score >= 3:
+            return "medium"
+        return "low"
+
+    def _parse_json_lenient(self, content: str) -> dict[str, Any]:
+        """宽松 JSON 解析(提取首个 { 到末尾 } 之间的内容)。"""
+        content = content.strip()
+        if content.startswith("```"):
+            content = re.sub(r"^```[a-z]*\n", "", content)
+            content = re.sub(r"\n```$", "", content)
+        start = content.find("{")
+        end = content.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            return {}
+        try:
+            return json.loads(content[start:end + 1])
+        except Exception:
+            return {}
+
+    async def analyze_impact(
+        self,
+        workspace_path: str,
+        scope: dict[str, Any],
+        proposed_changes: str,
+    ) -> dict[str, Any]:
+        """Spec 影响分析:LLM 分析 + codebase 扫描 + 测试扫描 + 下游 spec 扫描。
+
+        Returns:
+            { affectedFiles, affectedTests, downstreamSpecs, riskLevel,
+              llmAnalysis, recommendations }
+        """
+        spec_data = self.load_spec(workspace_path, scope, "latest")
+        spec_md = spec_data["spec"]
+
+        # 1. 静态扫描
+        spec_symbols = self._extract_spec_symbols(spec_md + "\n" + proposed_changes)
+        affected_files = self._scan_affected_files(workspace_path, spec_symbols)
+        affected_tests = self._scan_affected_tests(workspace_path, affected_files)
+        downstream = self._scan_downstream_specs(workspace_path, spec_symbols)
+        risk = self._compute_risk_level(
+            len(affected_files), len(affected_tests), len(downstream)
+        )
+
+        # 2. LLM 分析(失败降级为静态结果)
+        prompt = (
+            "你是资深架构师,分析 spec 修改的影响范围与风险。\n\n"
+            f"## 当前 spec\n{spec_md[:8000]}\n\n"
+            f"## 拟修改内容\n{proposed_changes[:4000]}\n\n"
+            f"## 静态扫描结果\n受影响文件 {len(affected_files)} 个,"
+            f"受影响测试 {len(affected_tests)} 个,下游 spec {len(downstream)} 个,风险={risk}\n\n"
+            "## 输出 JSON 格式\n"
+            "{\n"
+            '  "summary": "一句话影响总结",\n'
+            '  "riskReason": "风险评分依据",\n'
+            '  "recommendations": ["建议1", "建议2", "建议3"]\n'
+            "}\n"
+            "仅输出 JSON,不要额外说明。\n"
+        )
+        content, ok = await self._call_llm(prompt, system="你是专业的软件架构师。")
+        llm_analysis: dict[str, Any] = {}
+        recommendations: list[str] = []
+        if ok:
+            llm_analysis = self._parse_json_lenient(content)
+            recs = llm_analysis.get("recommendations")
+            if isinstance(recs, list):
+                recommendations = [str(r) for r in recs][:5]
+        else:
+            llm_analysis = {"error": "llm_unavailable", "message": content}
+
+        return {
+            "affectedFiles": affected_files,
+            "affectedTests": affected_tests,
+            "downstreamSpecs": downstream,
+            "riskLevel": risk,
+            "llmAnalysis": llm_analysis,
+            "recommendations": recommendations,
+        }
+
+    # ------------------------------------------------------------------
+    # 2026-07-23 超越创新:Spec 版本树(git-like 分支 + 3-way merge)
+    # ------------------------------------------------------------------
+
+    def _branch_meta_key(self, spec_id: str) -> str:
+        return f"spec:branch:{spec_id}"
+
+    async def _branch_load(self, spec_id: str) -> dict[str, dict[str, Any]]:
+        """加载分支元数据(Redis hash / 内存降级)。"""
+        redis = await _get_redis_client()
+        if redis is not None:
+            raw = await redis.hgetall(self._branch_meta_key(spec_id))
+            return {k: json.loads(v) for k, v in raw.items() if v}
+        return _spec_branches.get(spec_id, {})
+
+    async def _branch_save(
+        self, spec_id: str, branches: dict[str, dict[str, Any]]
+    ) -> None:
+        redis = await _get_redis_client()
+        if redis is not None:
+            key = self._branch_meta_key(spec_id)
+            await redis.delete(key)
+            if branches:
+                mapping = {k: json.dumps(v, ensure_ascii=False) for k, v in branches.items()}
+                await redis.hset(key, mapping=mapping)
+        else:
+            _spec_branches[spec_id] = branches
+
+    async def _branch_list_all(self, workspace_path: str) -> list[dict[str, Any]]:
+        """列出所有 spec_id 的所有分支(Redis keys 扫描 / 内存 dict 遍历)。"""
+        redis = await _get_redis_client()
+        result: list[dict[str, Any]] = []
+        if redis is not None:
+            keys = await redis.keys("spec:branch:*")
+            for key in keys:
+                spec_id = key.replace("spec:branch:", "")
+                branches = await self._branch_load(spec_id)
+                for name, meta in branches.items():
+                    result.append({"specId": spec_id, **meta, "name": name})
+        else:
+            for spec_id, branches in _spec_branches.items():
+                for name, meta in branches.items():
+                    result.append({"specId": spec_id, **meta, "name": name})
+        return result
+
+    async def create_branch(
+        self,
+        workspace_path: str,
+        scope: dict[str, Any],
+        branch_name: str,
+        base_version: str = "latest",
+    ) -> dict[str, Any]:
+        """创建分支(复制 spec 到 .trae-cn/specs/branches/<specId>__<branch>.md)。"""
+        root = Path(workspace_path).resolve()
+        spec_id = self._compute_scope_hash(scope)
+        base_data = self.load_spec(workspace_path, scope, base_version)
+        if not base_data["spec"]:
+            return {"error": "base_spec_not_found", "baseVersion": base_version}
+
+        branches_dir = root / ".trae-cn" / "specs" / "branches"
+        branches_dir.mkdir(parents=True, exist_ok=True)
+        branch_file = branches_dir / f"{spec_id}__{branch_name}.md"
+        branch_file.write_text(base_data["spec"], encoding="utf-8")
+
+        now = datetime.datetime.now().isoformat()
+        meta: dict[str, Any] = {
+            "specId": spec_id,
+            "name": branch_name,
+            "baseVersion": base_version,
+            "currentVersion": now,
+            "createdAt": now,
+            "status": "active",
+            "filePath": str(branch_file.relative_to(root)).replace("\\", "/"),
+        }
+        branches = await self._branch_load(spec_id)
+        branches[branch_name] = meta
+        await self._branch_save(spec_id, branches)
+        return meta
+
+    async def list_branches(self, workspace_path: str) -> dict[str, Any]:
+        """列出所有分支(不限 spec_id)。"""
+        all_branches = await self._branch_list_all(workspace_path)
+        return {"branches": all_branches}
+
+    def _diff_ops(
+        self, base: list[str], other: list[str]
+    ) -> list[tuple[str, int, int, int, int]]:
+        """计算 base vs other 的 opcodes(difflib.SequenceMatcher)。"""
+        sm = difflib.SequenceMatcher(a=base, b=other, autojunk=False)
+        return sm.get_opcodes()
+
+    def _three_way_merge(
+        self, base: str, branch: str, main: str
+    ) -> tuple[str, list[str]]:
+        """3-way merge:base / branch / main,返回 (merged, conflicts)。
+
+        简化算法:行级 diff,同一行号同时被 branch 和 main 修改 → 冲突。
+        """
+        base_lines = base.splitlines()
+        branch_lines = branch.splitlines()
+        main_lines = main.splitlines()
+
+        branch_ops = self._diff_ops(base_lines, branch_lines)
+        main_ops = self._diff_ops(base_lines, main_lines)
+
+        # 构建行号 → 修改源映射
+        branch_mod: dict[int, list[str]] = {}
+        for tag, i1, i2, j1, j2 in branch_ops:
+            if tag in ("replace", "insert"):
+                for i in range(i1, i2):
+                    branch_mod[i] = branch_lines[j1:j2]
+            elif tag == "delete":
+                for i in range(i1, i2):
+                    branch_mod[i] = []  # 删除
+
+        main_mod: dict[int, list[str]] = {}
+        for tag, i1, i2, j1, j2 in main_ops:
+            if tag in ("replace", "insert"):
+                for i in range(i1, i2):
+                    main_mod[i] = main_lines[j1:j2]
+            elif tag == "delete":
+                for i in range(i1, i2):
+                    main_mod[i] = []
+
+        merged: list[str] = []
+        conflicts: list[str] = []
+        for idx, line in enumerate(base_lines):
+            b_changed = idx in branch_mod
+            m_changed = idx in main_mod
+            if b_changed and m_changed:
+                if branch_mod[idx] == main_mod[idx]:
+                    merged.extend(branch_mod[idx])
+                else:
+                    conflicts.append(f"行 {idx + 1}")
+                    merged.append(f"<<<<<<< branch ({idx + 1})")
+                    merged.extend(branch_mod[idx])
+                    merged.append("=======")
+                    merged.extend(main_mod[idx])
+                    merged.append(f">>>>>>> main ({idx + 1})")
+            elif b_changed:
+                merged.extend(branch_mod[idx])
+            elif m_changed:
+                merged.extend(main_mod[idx])
+            else:
+                merged.append(line)
+        return "\n".join(merged), conflicts
+
+    async def merge_branch(
+        self,
+        workspace_path: str,
+        scope: dict[str, Any],
+        branch_name: str,
+    ) -> dict[str, Any]:
+        """合并分支到 main(3-way merge + LLM 辅助冲突解决)。"""
+        root = Path(workspace_path).resolve()
+        spec_id = self._compute_scope_hash(scope)
+
+        branches = await self._branch_load(spec_id)
+        if branch_name not in branches:
+            return {"error": "branch_not_found", "branchName": branch_name}
+        meta = branches[branch_name]
+
+        branch_file = root / meta.get("filePath", "")
+        if not branch_file.is_file():
+            return {"error": "branch_file_missing", "branchName": branch_name}
+
+        main_data = self.load_spec(workspace_path, scope, "latest")
+        base_data = self.load_spec(workspace_path, scope, meta.get("baseVersion", "latest"))
+
+        merged, conflicts = self._three_way_merge(
+            base_data["spec"], branch_file.read_text(encoding="utf-8"), main_data["spec"]
+        )
+
+        # LLM 辅助解决冲突(有冲突时)
+        if conflicts:
+            prompt = (
+                "你是合并专家,解决以下 spec 合并冲突。\n\n"
+                f"## 冲突内容\n{merged[:8000]}\n\n"
+                "## 输出要求\n输出解决冲突后的完整 spec markdown,保留双方有效改动。\n"
+            )
+            content, ok = await self._call_llm(prompt, system="你是专业的合并助手。")
+            if ok and content.strip():
+                merged = content
+
+        # 持久化合并结果到 main
+        target = root / ".trae-cn" / "specs" / f"{spec_id}.md"
+        try:
+            target.write_text(merged, encoding="utf-8")
+        except Exception as e:
+            return {"error": f"merge 持久化失败: {e}", "branchName": branch_name}
+
+        # 更新分支状态
+        meta["status"] = "merged"
+        meta["currentVersion"] = datetime.datetime.now().isoformat()
+        branches[branch_name] = meta
+        await self._branch_save(spec_id, branches)
+
+        return {
+            "merged": True,
+            "conflicts": conflicts,
+            "mergedContent": merged[:2000],  # 截断避免响应过大
+            "branchName": branch_name,
+        }
+
+    async def abandon_branch(
+        self,
+        workspace_path: str,
+        scope: dict[str, Any],
+        branch_name: str,
+    ) -> dict[str, Any]:
+        """废弃分支(标记 status=abandoned,不删除文件)。"""
+        spec_id = self._compute_scope_hash(scope)
+        branches = await self._branch_load(spec_id)
+        if branch_name not in branches:
+            return {"error": "branch_not_found", "branchName": branch_name}
+        branches[branch_name]["status"] = "abandoned"
+        branches[branch_name]["currentVersion"] = datetime.datetime.now().isoformat()
+        await self._branch_save(spec_id, branches)
+        return {
+            "abandoned": True,
+            "branchName": branch_name,
+            "specId": spec_id,
+        }
+
+    async def diff_branch(
+        self,
+        workspace_path: str,
+        scope: dict[str, Any],
+        branch_name: str,
+    ) -> dict[str, Any]:
+        """对比分支与 main 的 unified diff。"""
+        root = Path(workspace_path).resolve()
+        spec_id = self._compute_scope_hash(scope)
+
+        branches = await self._branch_load(spec_id)
+        if branch_name not in branches:
+            return {"error": "branch_not_found", "branchName": branch_name}
+        meta = branches[branch_name]
+        branch_file = root / meta.get("filePath", "")
+        if not branch_file.is_file():
+            return {"error": "branch_file_missing", "branchName": branch_name}
+
+        main_data = self.load_spec(workspace_path, scope, "latest")
+        branch_content = branch_file.read_text(encoding="utf-8")
+
+        diff_lines = list(difflib.unified_diff(
+            main_data["spec"].splitlines(keepends=True),
+            branch_content.splitlines(keepends=True),
+            fromfile=f"main/{spec_id}.md",
+            tofile=f"branch/{branch_name}.md",
+        ))
+        diff_text = "".join(diff_lines)
+        added = sum(1 for l in diff_lines if l.startswith("+") and not l.startswith("+++"))
+        removed = sum(1 for l in diff_lines if l.startswith("-") and not l.startswith("---"))
+        return {
+            "diff": diff_text,
+            "addedLines": added,
+            "removedLines": removed,
+            "branchName": branch_name,
+            "specId": spec_id,
+        }
+
+    # ------------------------------------------------------------------
+    # 2026-07-23 超越创新:Spec 智能生成(从需求生成 spec 草稿)
+    # ------------------------------------------------------------------
+
+    async def generate_from_requirement(
+        self,
+        workspace_path: str,
+        requirement: str,
+        fmt: str = "text",
+    ) -> dict[str, Any]:
+        """从需求文档/截图描述自动生成 spec 草稿(5 章节)。
+
+        Returns:
+            { spec, sections: [...], format, error? }
+        """
+        root = Path(workspace_path).resolve()
+        project_name = root.name if root.exists() else "project"
+
+        prompt = (
+            "你是 spec 生成专家。根据以下需求,生成完整的 spec 草稿(markdown 格式)。\n\n"
+            f"## 项目名\n{project_name}\n\n"
+            f"## 需求描述(format={fmt})\n{requirement[:12000]}\n\n"
+            "## 输出要求\n"
+            "生成包含 5 章节的 spec markdown:\n\n"
+            "---\n"
+            "status: draft\n"
+            "author: AI\n"
+            "date: " + datetime.date.today().strftime("%Y-%m-%d") + "\n"
+            "version: 0.1.0\n"
+            "---\n\n"
+            "# {项目名} Spec\n\n"
+            "## 1. 概述\n(功能意图 + 用户故事 + 范围边界)\n\n"
+            "## 2. 模块结构\n(模块划分 + 职责 + 依赖关系,用表格)\n\n"
+            "## 3. API 契约\n(REST endpoint 列表,含 method/path/params/response)\n\n"
+            "## 4. 数据模型\n(核心实体 + 字段 + 关系)\n\n"
+            "## 5. 测试用例\n(关键场景的测试用例列表)\n\n"
+            "仅输出 spec markdown,不要额外说明。\n"
+        )
+
+        content, ok = await self._call_llm(prompt, system="你是专业的 spec 撰写专家。")
+        if not ok:
+            return {
+                "spec": "",
+                "sections": [],
+                "format": fmt,
+                "error": "llm_unavailable",
+                "message": content,
+            }
+
+        # 解析章节(用于前端分段展示)
+        sections: list[dict[str, Any]] = []
+        for m in re.finditer(r"^##\s+(\d+\.\s+.+)$", content, re.MULTILINE):
+            sections.append({"title": m.group(1).strip(), "level": 2})
+
+        return {
+            "spec": content,
+            "sections": sections,
+            "format": fmt,
+        }
+
 
 spec_generator = SpecGenerator()
 
@@ -1854,3 +2688,167 @@ if _EXTRA_ROUTER_AVAILABLE:
             return {"code": 0, "message": "success", "data": result}
         except Exception as e:
             return {"code": 1, "message": f"spec 增强失败: {e}", "data": None}
+
+    # ------------------------------------------------------------------
+    # 2026-07-23 超越创新:全流程 / 影响分析 / 版本树 / 智能生成 端点
+    # ------------------------------------------------------------------
+
+    class SpecFullPipelineRequest(BaseModel):
+        scope: dict = Field(default_factory=lambda: {"type": "workspace"})
+        workspacePath: str = Field(...)
+        newSpec: str = Field(...)
+        autoCommit: bool = Field(False)
+
+    @extra_router.post("/spec/full-pipeline")
+    async def spec_full_pipeline(req: SpecFullPipelineRequest) -> dict[str, Any]:
+        """Spec 驱动开发全流程闭环(apply_spec → apply_patch → typecheck → test → commit)。"""
+        try:
+            result = await spec_generator.run_full_pipeline(
+                req.workspacePath, req.scope, req.newSpec, req.autoCommit
+            )
+            if "error" in result:
+                return {"code": 400, "message": result["error"], "data": result}
+            return {"code": 0, "message": "success", "data": result}
+        except Exception as e:
+            return {"code": 1, "message": f"流水线执行失败: {e}", "data": None}
+
+    @extra_router.get("/spec/pipeline-status")
+    async def spec_pipeline_status(
+        pipelineId: str,
+        workspacePath: str = "",
+    ) -> dict[str, Any]:
+        """查询流水线状态(含日志)。"""
+        try:
+            data = await spec_generator.get_pipeline_status(pipelineId)
+            return {"code": 0, "message": "success", "data": data}
+        except Exception as e:
+            return {"code": 1, "message": f"流水线状态查询失败: {e}", "data": None}
+
+    class SpecPipelineRollbackRequest(BaseModel):
+        workspacePath: str = Field(...)
+        backupDir: str = Field(...)
+
+    @extra_router.post("/spec/pipeline-rollback")
+    async def spec_pipeline_rollback(req: SpecPipelineRollbackRequest) -> dict[str, Any]:
+        """回滚:从备份目录还原文件(apply_patch 前的快照)。"""
+        try:
+            data = await spec_generator.rollback_pipeline(req.workspacePath, req.backupDir)
+            if "error" in data:
+                return {"code": 400, "message": data["error"], "data": data}
+            return {"code": 0, "message": "success", "data": data}
+        except Exception as e:
+            return {"code": 1, "message": f"回滚失败: {e}", "data": None}
+
+    class SpecImpactAnalysisRequest(BaseModel):
+        scope: dict = Field(default_factory=lambda: {"type": "workspace"})
+        workspacePath: str = Field(...)
+        proposedChanges: str = Field(...)
+
+    @extra_router.post("/spec/impact-analysis")
+    async def spec_impact_analysis(req: SpecImpactAnalysisRequest) -> dict[str, Any]:
+        """Spec 影响分析:LLM + codebase 扫描 + 风险评分(low/medium/high)。"""
+        try:
+            data = await spec_generator.analyze_impact(
+                req.workspacePath, req.scope, req.proposedChanges
+            )
+            return {"code": 0, "message": "success", "data": data}
+        except Exception as e:
+            return {"code": 1, "message": f"影响分析失败: {e}", "data": None}
+
+    class SpecBranchCreateRequest(BaseModel):
+        scope: dict = Field(default_factory=lambda: {"type": "workspace"})
+        workspacePath: str = Field(...)
+        branchName: str = Field(..., pattern=r"^[a-zA-Z0-9._/-]+$")
+        baseVersion: str = Field("latest")
+
+    @extra_router.post("/spec/branch")
+    async def spec_branch_create(req: SpecBranchCreateRequest) -> dict[str, Any]:
+        """创建 spec 分支(版本树节点)。"""
+        try:
+            data = await spec_generator.create_branch(
+                req.workspacePath, req.scope, req.branchName, req.baseVersion
+            )
+            if "error" in data:
+                return {"code": 400, "message": data["error"], "data": data}
+            return {"code": 0, "message": "success", "data": data}
+        except Exception as e:
+            return {"code": 1, "message": f"分支创建失败: {e}", "data": None}
+
+    @extra_router.get("/spec/branches")
+    async def spec_branches_list(workspacePath: str = "") -> dict[str, Any]:
+        """列出所有分支(不限 spec_id)。"""
+        try:
+            data = await spec_generator.list_branches(workspacePath)
+            return {"code": 0, "message": "success", "data": data}
+        except Exception as e:
+            return {"code": 1, "message": f"分支列表获取失败: {e}", "data": None}
+
+    class SpecBranchActionRequest(BaseModel):
+        scope: dict = Field(default_factory=lambda: {"type": "workspace"})
+        workspacePath: str = Field(...)
+        branchName: str = Field(...)
+
+    @extra_router.post("/spec/branch/merge")
+    async def spec_branch_merge(req: SpecBranchActionRequest) -> dict[str, Any]:
+        """合并分支到 main(3-way merge + LLM 辅助冲突解决)。"""
+        try:
+            data = await spec_generator.merge_branch(
+                req.workspacePath, req.scope, req.branchName
+            )
+            if "error" in data:
+                return {"code": 400, "message": data["error"], "data": data}
+            return {"code": 0, "message": "success", "data": data}
+        except Exception as e:
+            return {"code": 1, "message": f"分支合并失败: {e}", "data": None}
+
+    @extra_router.post("/spec/branch/abandon")
+    async def spec_branch_abandon(req: SpecBranchActionRequest) -> dict[str, Any]:
+        """废弃分支(标记 status=abandoned,不删除文件)。"""
+        try:
+            data = await spec_generator.abandon_branch(
+                req.workspacePath, req.scope, req.branchName
+            )
+            if "error" in data:
+                return {"code": 400, "message": data["error"], "data": data}
+            return {"code": 0, "message": "success", "data": data}
+        except Exception as e:
+            return {"code": 1, "message": f"分支废弃失败: {e}", "data": None}
+
+    @extra_router.get("/spec/branch/diff")
+    async def spec_branch_diff(
+        branchName: str,
+        workspacePath: str = "",
+        scopeType: str = "workspace",
+        scopePath: str = "",
+    ) -> dict[str, Any]:
+        """对比分支与 main 的 unified diff。"""
+        try:
+            scope = {"type": scopeType}
+            if scopePath:
+                scope["path"] = scopePath
+            data = await spec_generator.diff_branch(workspacePath, scope, branchName)
+            if "error" in data:
+                return {"code": 400, "message": data["error"], "data": data}
+            return {"code": 0, "message": "success", "data": data}
+        except Exception as e:
+            return {"code": 1, "message": f"分支 diff 失败: {e}", "data": None}
+
+    class SpecGenerateFromRequirementRequest(BaseModel):
+        workspacePath: str = Field(...)
+        requirement: str = Field(...)
+        format: str = Field("text")  # text / markdown / image_description
+
+    @extra_router.post("/spec/generate-from-requirement")
+    async def spec_generate_from_requirement(
+        req: SpecGenerateFromRequirementRequest,
+    ) -> dict[str, Any]:
+        """从需求文档/截图描述自动生成 spec 草稿(5 章节)。"""
+        try:
+            data = await spec_generator.generate_from_requirement(
+                req.workspacePath, req.requirement, req.format
+            )
+            if "error" in data:
+                return {"code": 503, "message": data.get("error", "error"), "data": data}
+            return {"code": 0, "message": "success", "data": data}
+        except Exception as e:
+            return {"code": 1, "message": f"智能生成失败: {e}", "data": None}

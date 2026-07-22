@@ -216,8 +216,61 @@ if (!isStaged || messagesChanged) {
 
 // 翻译完整性检查:对非 en 的语言,值 === en 值 且仅含 ASCII 字母,标记为"未翻译"
 // 仅作为 WARNING(不阻塞),用于发现历史上 i18n 复制粘贴导致的英文 fallback
+// 豁免:品牌名/技术术语/占位符/短缩写(按 AGENTS.md §20 翻译策略应保留英文)
 const untranslatedValueIssues = []
 const TRANSLATABLE_LANGS = ['ja', 'ko', 'zh-CN', 'zh-TW']
+
+// 加载 brand-glossary.json 的 canonical 英文名作为白名单
+const BRAND_CANONICAL_SET = new Set()
+try {
+  const glossary = JSON.parse(readFileSync(join(ROOT, 'scripts/brand-glossary.json'), 'utf8'))
+  if (glossary.brands) {
+    for (const v of Object.values(glossary.brands)) {
+      if (typeof v === 'string') BRAND_CANONICAL_SET.add(v)
+    }
+  }
+} catch {
+  // glossary 加载失败不阻塞,继续空集合
+}
+
+// 豁免规则:值匹配以下任一条件则保留英文,不标记为"未翻译"
+function isExemptFromTranslation(value, key) {
+  if (typeof value !== 'string' || value.length === 0) return true
+  const v = value.trim()
+  // 1. 短缩写(≤5 字符且全大写字母/数字,如 AI/ID/IP/PV/UV/CPU/QPS/VIP/GPT/MCP/SSO/RBAC/RLS/SSE/H5/PC/DAU/KB)
+  if (/^[A-Z][A-Z0-9]{0,4}$/.test(v)) return true
+  // 2. 占位符/示例值(含 ... / :// / @ / 纯数字 / 货币符号 / 文件路径)
+  if (/(\.\.\.|:\/\/|@|^\$|^\d+[.,]?\d*$|^\/|\.txt$|\.json$|\.md$)/.test(v)) return true
+  // 3. 技术术语(含 . 或连字符的组合,如 npm/i -g/next.config/sk-.../User-Agent/Base URL/Model ID/Client ID)
+  if (/^[A-Za-z]+(\s|-)[A-Z]/.test(v) && v.length <= 30) return true
+  // 4. 错误码/内部标识(含数字+字母混合且无空格,如 POL-001/aliGener21/Api1/Arch1)
+  if (/^[A-Za-z]+[0-9]/.test(v) || /^[A-Za-z]+-[0-9]/.test(v)) return true
+  // 5. 已知品牌名/产品名(从 brand-glossary.json 的 canonical 值加载)
+  if (BRAND_CANONICAL_SET.has(v)) return true
+  // 6. 纯大写英文标题(全大写且含空格,如 "LATEST NEWS" / "CHOOSE YOUR PLAN" — 有意为之的英文设计标题)
+  if (/^[A-Z][A-Z\s]+$/.test(v) && v.length >= 4) return true
+  // 7. 编程语言/框架名(TypeScript/Python/Vue.js/React 等)
+  if (/^(TypeScript|JavaScript|Python|Java|Go|Rust|Vue\.js|Vue|React|HTML|CSS|Markdown|Word|Excel|PPT|PDF|TXT|JSON|YAML|XML)$/.test(v)) return true
+  // 8. 文件格式扩展名描述(如 "Word (docx)")
+  if (/^[A-Za-z]+\s*\([a-z0-9]+\)$/.test(v)) return true
+  // 9. key 名暗示应保留英文(含 slug/id/key/url/ip/ua/qps/token/placeholder 的 key)
+  if (/(slug|placeholder|ip|ua|url|id|key|token|qps|example|formatExample)$/i.test(key)) return true
+  // 10. 比例/分辨率格式(如 16:9, 9:16, 1:1, 4:3)
+  if (/^\d+:\d+$/.test(v)) return true
+  // 11. 含 $ 或 SLA 的价格/指标(如 "99.9% SLA", "Input $/1K", "Output $/1K")
+  if (/[\$]|SLA/i.test(v)) return true
+  // 12. 含 / 的组合术语(如 "macOS / Windows / Linux", "README / GitHub", "Windsurf (Codeium)")
+  if (/\s\/\s/.test(v)) return true
+  // 13. 已知技术术语集合(Webhook/Pipeline/Tokens/Bucket/Endpoint/Hooks/Diff/License/Provider/Context/Temperature/max_tokens/tokens)
+  if (/^(Webhook|Webhooks|Pipeline|Tokens|tokens|Bucket|Endpoint|Hooks|Diff|License|Provider|Context|Temperature|max_tokens|AppSecret|AppID|AccessToken|RefreshToken|OpenID|Client ID|Client Secret|API Key|Base URL|Model ID|Context Length|Max Tokens|Top P|Frequency Penalty|Presence Penalty|Response Format|System Prompt|AgenticAI|RAG|Swagger|OpenAPI|Bearer|JWT|OAuth|SAML|LDAP|URL|URI|UUID|GUID|CRUD|DDL|DML|DCL|TCL|ACID|BASE|CAP|CRDT|WAL|WAF|CDN|DNS|DHCP|TCP|UDP|HTTP|HTTPS|TLS|SSL|SSH|SFTP|FTP|SMTP|IMAP|POP3|DNS|API|SDK|CLI|GUI|TUI|REPL|IDE|VM|OS|FS|IO|CPU|GPU|RAM|ROM|SSD|HDD|USB|HDMI|VGA|DP|PCI|BIOS|UEFI|GPT|MBR)$/.test(v)) return true
+  // 14. 下划线分隔的技术标识符(如 cc-switch, codex++, GoogleAP, max_tokens)
+  if (/^[a-z][a-zA-Z0-9]*[-_+][a-zA-Z0-9+_-]*$/.test(v) && !/\s/.test(v)) return true
+  // 15. 品牌名后缀组合(如 "Windsurf (Codeium)", "Cline (VSCode)", "IBM watsonx", "TII Falcon", "Ai2 Allen")
+  if (/^[A-Z][A-Za-z]+\s\([A-Za-z]+\)$/.test(v)) return true
+  if (/^[A-Z][A-Za-z]+\s[a-z][a-z]+$/.test(v) && v.length <= 25) return true
+  return false
+}
+
 if (!isStaged || messagesChanged) {
   const enLeaves = collectLeafValues(messages.en || {})
   for (const lang of TRANSLATABLE_LANGS) {
@@ -227,6 +280,7 @@ if (!isStaged || messagesChanged) {
     for (const [key, enValue] of enLeaves) {
       if (typeof enValue !== 'string' || enValue.length < 2) continue
       if (!/^[A-Za-z0-9 ._!?'",:;\-/()&+@#$%^*=]+$/.test(enValue)) continue
+      if (isExemptFromTranslation(enValue, key)) continue
       const langValue = langValues.get(key)
       if (langValue === enValue) {
         untranslated.push({ key, value: enValue })

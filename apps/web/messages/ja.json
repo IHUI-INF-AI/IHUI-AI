@@ -22344,13 +22344,6 @@
     "downloadComplete": "ダウンロード",
     "downloadFailed2": "ダウンロード"
   },
-  "Payment": {
-    "alreadyVip": "ですVIPアドレス",
-    "notLogged": "ユーザーログイン",
-    "incompleteProduct": "プロジェクトInfo",
-    "selectPayMethod": "してくださいいメソッド",
-    "notLoggedOrNoOpenId": "ユーザーログインまたはopenid"
-  },
   "cmpindex": {
     "timeExpr": "時間表現",
     "cronExpr": "Cron",
@@ -28434,6 +28427,10 @@
     "dragInsertAfter": "ここに後に挿入"
   },
   "aiNews": {
+    "compare": {
+      "label": "比較に追加",
+      "maxToast": "比較できるモデルは最大 5 つまでです"
+    },
     "leaderboard": {
       "label": "モデルリーダーボード",
       "title": "モデルリーダーボード · Arena スコア",

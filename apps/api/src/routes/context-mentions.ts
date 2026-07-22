@@ -95,6 +95,84 @@ const trackVisualizationBodySchema = z.object({
   databaseTokens: z.coerce.number().int().min(0).default(0),
 })
 
+// === Context Engineering 超越创新 schema(2026-07-23 立) ===
+
+/** POST /predict 请求体 schema */
+const predictBodySchema = z.object({
+  currentMessage: z.string().max(8000).default(''),
+  conversationHistory: z
+    .array(z.object({ role: z.string(), content: z.string() }))
+    .default([]),
+  conversationId: z.string().max(255).default(''),
+  taskType: z.string().max(50).default('default'),
+  userId: z.string().max(255).default(''),
+})
+
+/** GET /prefetch 查询参数 schema */
+const prefetchQuerySchema = z.object({
+  conversationId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
+  target: z.preprocess(emptyToUndefined, z.string().max(512)).default(''),
+})
+
+/** POST /knowledge-graph/build 请求体 schema */
+const buildGraphBodySchema = z.object({
+  projectId: z.string().min(1).max(255),
+  workspacePath: z.string().max(512).default(''),
+})
+
+/** GET /knowledge-graph 查询参数 schema */
+const knowledgeGraphQuerySchema = z.object({
+  projectId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
+  node_type: z.preprocess(emptyToUndefined, z.string().max(100)).default(''),
+  edge_type: z.preprocess(emptyToUndefined, z.string().max(100)).default(''),
+})
+
+/** GET /graph-retrieve 查询参数 schema */
+const graphRetrieveQuerySchema = z.object({
+  query: z.preprocess(emptyToUndefined, z.string().max(1000)).default(''),
+  projectId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
+  userId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
+  depth: z.coerce.number().int().min(1).max(2).default(2),
+})
+
+/** POST /quality-score 请求体 schema */
+const qualityScoreBodySchema = z.object({
+  conversationId: z.string().max(255).default(''),
+  taskType: z.string().max(50).default('default'),
+  taskQuery: z.string().max(8000).default(''),
+  userId: z.string().max(255).default(''),
+  currentContext: z.array(z.record(z.string(), z.unknown())).optional(),
+})
+
+/** POST /smart-compact 请求体 schema */
+const smartCompactBodySchema = z.object({
+  messages: z.array(z.object({ role: z.string(), content: z.string() })).min(1),
+  preserveKeywords: z.array(z.string().max(200)).optional(),
+  conversationId: z.string().max(255).default(''),
+  userId: z.string().max(255).default(''),
+})
+
+/** POST /cross-project/save 请求体 schema */
+const crossProjectSaveBodySchema = z.object({
+  userId: z.string().min(1).max(255),
+  summary: z.string().min(1).max(500),
+  sourceProject: z.string().min(1).max(255),
+  tags: z.array(z.string().max(100)).optional(),
+  detail: z.string().max(2000).default(''),
+})
+
+/** GET /cross-project/search 查询参数 schema */
+const crossProjectSearchQuerySchema = z.object({
+  userId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
+  q: z.preprocess(emptyToUndefined, z.string().max(1000)).default(''),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+})
+
+/** DELETE /cross-project/:id 查询参数 schema */
+const crossProjectDeleteQuerySchema = z.object({
+  userId: z.preprocess(emptyToUndefined, z.string().max(255)).default(''),
+})
+
 export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
   const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
     try {
@@ -357,6 +435,271 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '会话记忆清除失败'))
+    }
+  })
+
+  // === Context Engineering 超越创新路由(2026-07-23 立) ===
+
+  // POST /predict — 上下文预测 + 异步预取
+  // 转发到 ai-service POST /api/context/predict
+  // LLM 预测下一步需要的上下文 + 异步预取到 Redis cache(TTL 5 分钟)
+  server.post('/predict', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = predictBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { currentMessage, conversationHistory, conversationId, taskType, userId } = parsed.data
+    try {
+      const result = await contextEngineService.predict({
+        currentMessage,
+        conversationHistory,
+        conversationId,
+        taskType,
+        userId: userId || request.userId,
+      })
+      return reply.send(success(result))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '上下文预测失败'))
+    }
+  })
+
+  // GET /prefetch — 读取预取 cache
+  // 转发到 ai-service GET /api/context/prefetch
+  server.get('/prefetch', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = prefetchQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { conversationId, target } = parsed.data
+    try {
+      const data = await contextEngineService.getPrefetched(conversationId, target)
+      return reply.send(success({ items: data, total: data.length }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '预取上下文读取失败'))
+    }
+  })
+
+  // POST /knowledge-graph/build — 构建知识图谱
+  // 转发到 ai-service POST /api/context/knowledge-graph/build
+  server.post('/knowledge-graph/build', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = buildGraphBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { projectId, workspacePath } = parsed.data
+    try {
+      const data = await contextEngineService.buildKnowledgeGraph(projectId, workspacePath)
+      return reply.send(success(data))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '知识图谱构建失败'))
+    }
+  })
+
+  // GET /knowledge-graph — 获取知识图谱数据(可视化)
+  // 转发到 ai-service GET /api/context/knowledge-graph
+  server.get('/knowledge-graph', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = knowledgeGraphQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { projectId, node_type, edge_type } = parsed.data
+    try {
+      const data = await contextEngineService.getKnowledgeGraph(
+        projectId,
+        node_type,
+        edge_type,
+      )
+      return reply.send(success(data))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '知识图谱查询失败'))
+    }
+  })
+
+  // GET /graph-retrieve — 图检索
+  // 转发到 ai-service GET /api/context/graph-retrieve
+  server.get('/graph-retrieve', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = graphRetrieveQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { query, projectId, userId, depth } = parsed.data
+    try {
+      const data = await contextEngineService.graphRetrieve(
+        query,
+        projectId,
+        userId || request.userId,
+        depth,
+      )
+      return reply.send(success({ items: data, total: data.length }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '图检索失败'))
+    }
+  })
+
+  // POST /quality-score — 上下文质量评分
+  // 转发到 ai-service POST /api/context/quality-score
+  server.post('/quality-score', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = qualityScoreBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { conversationId, taskType, taskQuery, userId, currentContext } = parsed.data
+    try {
+      const data = await contextEngineService.getQualityScore({
+        conversationId,
+        taskType,
+        taskQuery,
+        userId: userId || request.userId,
+        currentContext,
+      })
+      return reply.send(success(data))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '质量评分失败'))
+    }
+  })
+
+  // POST /smart-compact — 智能压缩
+  // 转发到 ai-service POST /api/context/smart-compact
+  server.post('/smart-compact', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = smartCompactBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { messages, preserveKeywords, conversationId, userId } = parsed.data
+    try {
+      const data = await contextEngineService.smartCompact({
+        messages,
+        preserveKeywords,
+        conversationId,
+        userId: userId || request.userId,
+      })
+      return reply.send(success(data))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '智能压缩失败'))
+    }
+  })
+
+  // POST /cross-project/save — 保存跨项目经验
+  // 转发到 ai-service POST /api/context/cross-project/save
+  server.post('/cross-project/save', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = crossProjectSaveBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { summary, sourceProject, tags, detail } = parsed.data
+    try {
+      const data = await contextEngineService.saveCrossProjectExperience({
+        userId: request.userId,
+        summary,
+        sourceProject,
+        tags,
+        detail,
+      })
+      return reply.send(success(data))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '跨项目经验保存失败'))
+    }
+  })
+
+  // GET /cross-project/search — 搜索跨项目经验
+  // 转发到 ai-service GET /api/context/cross-project/search
+  server.get('/cross-project/search', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const parsed = crossProjectSearchQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { q, limit } = parsed.data
+    try {
+      const data = await contextEngineService.searchCrossProjectExperiences(
+        request.userId,
+        q,
+        limit,
+      )
+      return reply.send(success({ items: data, total: data.length }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '跨项目经验搜索失败'))
+    }
+  })
+
+  // DELETE /cross-project/:id — 删除跨项目经验
+  // 转发到 ai-service DELETE /api/context/cross-project/:id
+  server.delete('/cross-project/:id', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const { id } = request.params as { id: string }
+    if (!id) {
+      return reply.status(400).send(error(400, '经验 ID 不能为空'))
+    }
+    const parsed = crossProjectDeleteQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const deleted = await contextEngineService.deleteCrossProjectExperience(
+        request.userId,
+        id,
+      )
+      return reply.send(success({ deleted }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '跨项目经验删除失败'))
     }
   })
 }

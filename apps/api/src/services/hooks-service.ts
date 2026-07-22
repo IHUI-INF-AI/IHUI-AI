@@ -597,3 +597,286 @@ export async function triggerHookHealthCheck(
     { method: 'POST' },
   )
 }
+
+// ============================================================================
+// P3 Hook 超越创新:Hook 智能编排 / A/B 测试 / 可视化 / 模板 / 健康预测
+// (2026-07-23 立,对标 GitHub Actions / Zapier)
+// ============================================================================
+
+// ---------- Hook 智能编排(LLM 自动生成 DAG)----------
+
+export interface OrchestrateHookNode {
+  id: string
+  action: string
+  event?: string
+  name?: string
+  config?: Record<string, unknown>
+  depends_on?: string[]
+}
+
+export interface OrchestrateHookEdge {
+  source: string
+  target: string
+}
+
+export interface OrchestrateHookDraft {
+  name: string
+  description: string
+  event: string
+  condition: string | null
+  action: { type: string; config: Record<string, unknown> }
+  enabled: boolean
+  depends_on: string[]
+}
+
+export interface AutoOrchestrateResult {
+  intent: string
+  nodes: OrchestrateHookNode[]
+  edges: OrchestrateHookEdge[]
+  hookDrafts: OrchestrateHookDraft[]
+  llmUsed: boolean
+  llmStub?: boolean
+  /** LLM 不可用时填,error=llm_unavailable / llm_parse_failed */
+  error?: string
+  detail?: string
+  raw?: string
+}
+
+/**
+ * Hook 智能编排:LLM 根据自然语言意图自动生成 Hook DAG(2026-07-23 立)。
+ *
+ * 把"配置 Hook"变成"描述意图":用户描述目标,LLM 解析意图生成 DAG 节点 + 依赖关系。
+ * 失败降级返回 { error: 'llm_unavailable' }(由调用方映射 503)。
+ */
+export async function autoOrchestrateHooks(
+  request: FastifyRequest | null,
+  intent: string,
+  events?: string[],
+): Promise<AutoOrchestrateResult | null> {
+  const payload: Record<string, unknown> = { intent }
+  if (events && events.length > 0) payload.events = events
+  return callAiHooks<AutoOrchestrateResult>(request, '/api/hooks/auto-orchestrate', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+// ---------- A/B 测试 ----------
+
+export interface AbTestConfig {
+  id: string
+  event: string
+  variants: string[]
+  trafficSplit: number[]
+  metrics: string[]
+  createdAt: string
+  status: 'running' | 'completed' | 'stopped'
+  stoppedAt: string | null
+  winner: string | null
+  description?: string
+}
+
+export interface AbTestVariantMetric {
+  variantId: string
+  totalRuns: number
+  avgDuration: number
+  successRate: number
+  avgTokenCost: number
+}
+
+export interface AbTestResult extends AbTestConfig {
+  variantMetrics: AbTestVariantMetric[]
+  recommendedWinner: string | null
+}
+
+export interface AbTestStopResult {
+  test: AbTestConfig
+  results: AbTestResult | null
+  winner: string | null
+}
+
+export interface AbTestListResponse {
+  tests: AbTestConfig[]
+  count: number
+}
+
+/** 创建 A/B 测试(指定 event + variants + traffic_split)。失败降级返回 null。 */
+export async function createAbTest(
+  request: FastifyRequest | null,
+  payload: {
+    event: string
+    variants: string[]
+    trafficSplit: number[]
+    metrics?: string[]
+    description?: string
+  },
+): Promise<AbTestConfig | null> {
+  return callAiHooks<AbTestConfig>(request, '/api/hooks/ab-test', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+/** 获取 A/B 测试结果(各变体指标对比 + 最优变体推荐)。失败降级返回 null。 */
+export async function getAbTest(
+  request: FastifyRequest | null,
+  testId: string,
+): Promise<AbTestResult | null> {
+  return callAiHooks<AbTestResult>(
+    request,
+    `/api/hooks/ab-test/${encodeURIComponent(testId)}`,
+    { method: 'GET' },
+  )
+}
+
+/** 列出所有 A/B 测试(可选按 status 过滤)。失败降级返回空列表。 */
+export async function listAbTests(
+  request: FastifyRequest | null,
+  status?: string,
+): Promise<AbTestListResponse> {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : ''
+  const data = await callAiHooks<AbTestListResponse>(
+    request,
+    `/api/hooks/ab-tests${qs}`,
+    { method: 'GET' },
+  )
+  return data ?? { tests: [], count: 0 }
+}
+
+/** 停止 A/B 测试 + 选出最优变体。失败降级返回 null。 */
+export async function stopAbTest(
+  request: FastifyRequest | null,
+  testId: string,
+): Promise<AbTestStopResult | null> {
+  return callAiHooks<AbTestStopResult>(
+    request,
+    `/api/hooks/ab-test/${encodeURIComponent(testId)}/stop`,
+    { method: 'POST' },
+  )
+}
+
+// ---------- Hook 链可视化数据(Gantt + 依赖图 + 实时执行流)----------
+
+export interface GanttEntry {
+  hookId: string
+  start: number
+  end: number
+  status: 'success' | 'error'
+  duration: number
+  logId: string | null
+}
+
+export interface DagGraphNode {
+  id: string
+  name: string
+}
+
+export interface DagGraphEdge {
+  source: string
+  target: string
+}
+
+export interface ExecutionTimelineResponse {
+  hookId: string
+  gantt: GanttEntry[]
+  dependencyGraph: {
+    nodes: DagGraphNode[]
+    edges: DagGraphEdge[]
+  }
+  realtimeStatus: {
+    currentlyRunning: Array<{ hookId: string; startedAt: number }>
+    queued: unknown[]
+  }
+  totalEvents: number
+}
+
+/**
+ * 获取指定 Hook 的执行时间线(Gantt + 依赖图 + 实时执行状态,2026-07-23 立)。
+ *
+ * 失败降级返回空时间线。
+ */
+export async function getExecutionTimeline(
+  request: FastifyRequest | null,
+  hookId: string,
+): Promise<ExecutionTimelineResponse | null> {
+  return callAiHooks<ExecutionTimelineResponse>(
+    request,
+    `/api/hooks/${encodeURIComponent(hookId)}/execution-timeline`,
+    { method: 'GET' },
+  )
+}
+
+// ---------- Hook 模板库 ----------
+
+export interface HookTemplate {
+  id: string
+  name: string
+  description: string
+  event: string
+  action: { type: string; config: Record<string, unknown> }
+  condition: string | null
+  tags: string[]
+}
+
+export interface HookTemplateListResponse {
+  templates: HookTemplate[]
+  count: number
+}
+
+/** 列出所有 Hook 模板(可选按 tag 过滤)。失败降级返回空列表。 */
+export async function listHookTemplates(
+  request: FastifyRequest | null,
+  tag?: string,
+): Promise<HookTemplateListResponse> {
+  const qs = tag ? `?tag=${encodeURIComponent(tag)}` : ''
+  const data = await callAiHooks<HookTemplateListResponse>(
+    request,
+    `/api/hooks/templates${qs}`,
+    { method: 'GET' },
+  )
+  return data ?? { templates: [], count: 0 }
+}
+
+/** 从模板创建 Hook(可覆盖配置)。失败降级返回 null。 */
+export async function instantiateHookTemplate(
+  request: FastifyRequest | null,
+  templateId: string,
+  overrides?: Record<string, unknown>,
+): Promise<unknown | null> {
+  return callAiHooks<unknown>(
+    request,
+    `/api/hooks/templates/${encodeURIComponent(templateId)}/instantiate`,
+    {
+      method: 'POST',
+      body: JSON.stringify(overrides ?? {}),
+    },
+  )
+}
+
+// ---------- Hook 健康预测(LLM 趋势分析)----------
+
+export interface HookHealthForecast {
+  hookId: string
+  forecast: string
+  trend: string
+  recommendation: '继续观察' | '需要优化' | '建议禁用' | string
+  samples: number
+  windowDays: number
+  llmUsed: boolean
+}
+
+/**
+ * 基于历史数据预测 Hook 健康趋势(2026-07-23 立,P3 超越创新)。
+ *
+ * 失败降级返回 null。
+ */
+export async function getHookHealthForecast(
+  request: FastifyRequest | null,
+  hookId: string,
+): Promise<HookHealthForecast | null> {
+  return callAiHooks<HookHealthForecast>(
+    request,
+    `/api/hooks/${encodeURIComponent(hookId)}/health-forecast`,
+    { method: 'GET' },
+  )
+}
