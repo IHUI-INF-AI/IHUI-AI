@@ -3,6 +3,16 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
 
+/**
+ * 表单 Switch 组件 (2026-07-22 重设)
+ *
+ * 视觉规范 (与 @ihui/ui Switch 同步):
+ *   - Track: rounded (4px) 替代 capsule rounded-full,符合 AGENTS.md §4 圆角守门
+ *   - Thumb: rounded-sm (2px) — 方形微圆角,符合"圆按钮改为正方形"用户要求
+ *   - Thumb 颜色: bg-primary-foreground 亮/暗模式恒白
+ *   - Thumb 阴影: shadow-sm 替代 shadow-lg
+ *   - 内边距: p-[2px] 替代 border-2 border-transparent
+ */
 interface SwitchProps {
   checked: boolean
   onChange: (checked: boolean) => void
@@ -29,7 +39,7 @@ export function Switch({ checked, onChange, disabled = false, size = 'md', label
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={cn(
-          'relative inline-flex shrink-0 items-center rounded-full border-2 border-transparent transition-colors',
+          'relative inline-flex shrink-0 items-center rounded p-[2px] transition-colors',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           s.track,
           checked ? 'bg-primary' : 'bg-input',
@@ -37,7 +47,7 @@ export function Switch({ checked, onChange, disabled = false, size = 'md', label
       >
         <span
           className={cn(
-            'pointer-events-none block rounded-full bg-background shadow-lg ring-0 transition-transform',
+            'pointer-events-none block rounded-sm bg-primary-foreground shadow-sm ring-0 transition-transform',
             s.thumb,
             checked ? s.translate : 'translate-x-0',
           )}
