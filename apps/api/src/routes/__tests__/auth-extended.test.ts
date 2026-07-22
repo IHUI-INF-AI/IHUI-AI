@@ -283,4 +283,114 @@ describe('Auth Extended API', () => {
       expect(res.json().message).toContain('code_verifier')
     })
   })
+
+  // ============================================================================
+  // 第三方登录统一回调 POST /api/auth/:platform/callback
+  // 验证 4 扫码平台(微信/企业微信/钉钉/飞书)+ github + alipay 路由注册 + 参数校验 +
+  // 未配置场景 + 平台枚举校验。承接上一 agent "下一步建议 — OAuthCallbackHandler 4 平台
+  // code 交换联调",补全 /auth/:platform/callback 路由的测试覆盖。
+  // ============================================================================
+  describe('POST /api/auth/:platform/callback — 第三方登录统一回调', () => {
+    const supportedPlatforms = [
+      'wechat',
+      'enterpriseWechat',
+      'dingtalk',
+      'feishu',
+      'google',
+      'github',
+      'apple',
+      'alipay',
+    ] as const
+
+    it('路由注册:8 平台均返回非 404(参数缺失时 400,未配置时 400)', async () => {
+      for (const platform of supportedPlatforms) {
+        const res = await app.inject({
+          method: 'POST',
+          url: `/api/auth/${platform}/callback`,
+          payload: {},
+        })
+        expect(res.statusCode, `${platform} should not 404`).not.toBe(404)
+      }
+    })
+
+    it('参数校验:缺 code 返回 400 + 参数错误', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/wechat/callback',
+        payload: {},
+      })
+      expect(res.statusCode).toBe(400)
+      const body = res.json()
+      expect(body.code).toBe(400)
+    })
+
+    it('参数校验:缺 state 返回 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/wechat/callback',
+        payload: { code: 'fake-code' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('平台枚举:不支持的 platform 返回 400 + "不支持的平台"', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/unknown_platform/callback',
+        payload: { code: 'fake', state: 'fake' },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('不支持的平台')
+    })
+
+    it('微信未配置:返回 400 + "微信 OAuth 未配置"', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/wechat/callback',
+        payload: { code: 'fake', state: 'fake' },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('微信')
+    })
+
+    it('企业微信未配置:返回 400 + "企业微信未配置"', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/enterpriseWechat/callback',
+        payload: { code: 'fake', state: 'fake' },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('企业微信')
+    })
+
+    it('钉钉未配置:返回 400 + "钉钉 OAuth 未配置"', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/dingtalk/callback',
+        payload: { code: 'fake', state: 'fake' },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('钉钉')
+    })
+
+    it('飞书未配置:返回 400 + "飞书 OAuth 未配置"', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/auth/feishu/callback',
+        payload: { code: 'fake', state: 'fake' },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('飞书')
+    })
+
+    it('GET 兼容版本:GET /api/auth/wechat/callback?code=fake&state=fake 同样可路由(转发到 POST)', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/auth/wechat/callback?code=fake&state=fake',
+      })
+      // GET 版本内部转发到 POST handler,应返回相同结果(400 微信未配置)
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('微信')
+    })
+  })
 })
