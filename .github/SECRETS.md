@@ -80,9 +80,9 @@
 > 仅用 Personal Access Token，不接收明文密码。配置后 push 到 main 会自动镜像到 Gitee + GitCode（每天 08:00/20:00 北京时间兜底同步一次）。
 
 - `GITEE_TOKEN` — Gitee Personal Access Token（生成：https://gitee.com/profile/personal_access_tokens，勾选 `projects`）
-- `GITEE_OWNER` — Gitee 用户名或组织名（镜像仓库归属方）
+- `GITEE_OWNER` — Gitee 用户名或组织名（当前值：`JLSLSSZWHYXGS_0`）
 - `GITCODE_TOKEN` — GitCode Personal Access Token（生成：https://gitcode.com/profile/personal_access_tokens，勾选 `api`）
-- `GITCODE_OWNER` — GitCode 用户名或组织名
+- `GITCODE_OWNER` — GitCode 用户名或组织名（当前值：`IHUI-AI`，注：原用户名 `lichunchuan1` 已改名，旧地址有 redirect 但 GitHub Actions 环境可能不跟随 redirect 导致同步静默失败）
 
 > 首次创建镜像仓库可本地运行 `node scripts/setup-mirror-repos.mjs`（调用各平台官方 REST API 创建，已存在则跳过）。
 
