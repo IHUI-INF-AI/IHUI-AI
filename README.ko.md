@@ -42,7 +42,7 @@
 <p align="center">
   <strong>중국 미러</strong> ·
   <a href="https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI">Gitee</a> ·
-  <a href="https://gitcode.com/lichunchuan1/IHUI-AI">GitCode</a>
+  <a href="https://gitcode.com/IHUI-AI/IHUI-AI">GitCode</a>
   <br/>
   <sub>중국 사용자에게 더 빠른 클론/다운로드, GitHub과 자동 동기화</sub>
 </p>

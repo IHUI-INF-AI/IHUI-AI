@@ -42,7 +42,7 @@
 <p align="center">
   <strong>国内镜像</strong> ·
   <a href="https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI">Gitee</a> ·
-  <a href="https://gitcode.com/lichunchuan1/IHUI-AI">GitCode</a>
+  <a href="https://gitcode.com/IHUI-AI/IHUI-AI">GitCode</a>
   <br/>
   <sub>国内用户克隆/下载更快，与 GitHub 自动同步</sub>
 </p>
