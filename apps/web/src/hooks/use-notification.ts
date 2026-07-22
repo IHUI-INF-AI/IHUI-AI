@@ -94,7 +94,14 @@ export function useNotification(): UseNotificationReturn {
   )
   const notificationsRef = React.useRef(notifications)
   notificationsRef.current = notifications
+  const mountedRef = React.useRef(true)
   const { lastMessage } = useWebSocket()
+
+  React.useEffect(() => {
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   const setSoundEnabled = React.useCallback((enabled: boolean) => {
     setSoundNotificationEnabled(enabled)
@@ -189,6 +196,7 @@ export function useNotification(): UseNotificationReturn {
     setNotifications((p) => p.map((n) => (n.id === id ? { ...n, isRead: true } : n)))
     // 后端 PATCH /api/notifications/:id/read (notifications.ts:176)
     const res = await fetchApi(`/api/notifications/${id}/read`, { method: 'PATCH' })
+    if (!mountedRef.current) return
     if (!res.success) setNotifications(prev)
   }, [])
 
@@ -196,6 +204,7 @@ export function useNotification(): UseNotificationReturn {
     const prev = notificationsRef.current
     setNotifications([])
     const res = await fetchApi('/api/notifications', { method: 'DELETE' })
+    if (!mountedRef.current) return
     if (!res.success) setNotifications(prev)
   }, [])
 

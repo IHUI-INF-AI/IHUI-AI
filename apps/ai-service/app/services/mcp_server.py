@@ -4,11 +4,15 @@
 工具实现为真实文件系统/网络操作,无外部依赖时返回降级结果。
 """
 
+import asyncio
 import os
 import re
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import parse_qs, quote_plus, urlparse
+
+# 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
+MCP_GLOBAL_TIMEOUT = 120
 
 from .skills import skill_registry
 
@@ -2052,7 +2056,10 @@ class MCPServer:
                 "errorCode": "PERMISSION_DENIED",
             }
         try:
-            return await handler(arguments or {})
+            # 2026-07-22 P1 鲁棒性加固:全局超时,防 handler 无限挂起
+            return await asyncio.wait_for(handler(arguments or {}), timeout=MCP_GLOBAL_TIMEOUT)
+        except asyncio.TimeoutError:
+            return {"ok": False, "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)"}
         except Exception as e:
             return {"ok": False, "error": f"工具 {name} 执行失败: {e}"}
 
