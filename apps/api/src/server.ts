@@ -145,6 +145,7 @@ import { learnVideoRoutes } from './routes/learn/get-lesson-video.js'
 import { adminContentCrudRoutes } from './routes/admin/content/crud.js'
 // P0-3/P0-4 补建：AI 资讯聚合 + AI 教育模块
 import aiFeedRoutes from './routes/ai-feed.js'
+import leaderboardRoutes from './routes/leaderboard.js'
 import aiEducationRoutes from './routes/ai-education.js'
 import { fileVersionRoutes } from './routes/file-version.js'
 import { callbackLogRoutes } from './routes/callback-log.js'
@@ -843,6 +844,9 @@ function registerRoutes(server: FastifyInstance) {
   // ===== P0-3/P0-4 补建：AI 资讯聚合 + AI 教育模块 =====
   // AI 资讯聚合：/api/ai-feed/sources /items /trends /stats + collect/summarize/translate（管理）
   server.register(aiFeedRoutes, { prefix: '/api/ai-feed' })
+  // 大模型排行榜(参考 arena.ai):/api/model-leaderboard?category=llm&subcategory=coding
+  // 用 model-leaderboard 避免与 gamification 的 /api/leaderboard(积分排行榜)冲突
+  server.register(leaderboardRoutes, { prefix: '/api' })
   // AI 教育模块：5 张表 CRUD（policy/teacher-certification/aigc-tool/k12-curriculum/university-course）
   server.register(aiEducationRoutes, { prefix: '/api/ai-education' })
 
