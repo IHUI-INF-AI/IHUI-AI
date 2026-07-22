@@ -8,6 +8,18 @@
 
 ## 当前活跃任务(2026-07-20)
 
+### [ ] 对标 Hermes Agent 深度层 P3:三大核心壁垒真正超越(跨端:packages/types + ai-service + api,2026-07-22 立)
+
+P0/P1/P2 是脚手架层(已 ✅),P3 是真正超越 Hermes Agent 三大核心壁垒的深度层:
+
+- **P3-1 记忆系统深度层**(ai-service):pgvector 向量 + FTS5 全文双引擎 + 自动记忆提取(从对话流提取偏好/决策/事实)+ 衰减遗忘(时间 + 访问频率)+ 用户画像建模(5 维度聚合)
+- **P3-2 自进化闭环深度层**(ai-service):Skill 生成后自动测试(跑测试用例验证有效性)+ 使用反馈追踪(记录使用次数 + 成功率 + 满意度)+ 基于反馈迭代优化(v1→v2→v3)+ 评分系统
+- **P3-3 调度系统深度层**(ai-service):任务自动分解(LLM 分解 + DAG 拓扑排序 + 并行批次)+ agent 通信机制(消息队列 + 共享黑板)+ 调度算法(能力匹配 + 负载均衡 + 优先级)+ 失败重试 + 故障转移
+- **P3-4 沙箱 6 后端完整实现**(ai-service):Modal 无服务器 + Daytona 云开发 + Singularity HPC 集群(原 Local/Docker/SSH 已实现)
+- **P3-5 IM 渠道扩展**(api):补齐 8 → 16 平台(新增 WhatsApp/LINE/KakaoTalk/Signal/Matrix/Rocket.Chat/Mattermost/Zulip)
+
+跨端:packages/types 契约层已扩展 ~470 行 P3 类型。
+
 ### [x] ✅(2026-07-22) 对标 Hermes Agent 深度升级:11 项差距分 P0/P1/P2 开发(跨端:packages/types + ai-service + cli + api 全端同步,2026-07-22 立)
 
 **触发**:用户要求"本项目跟 hermesagent 比哪里不如他,请你深度分析然后开发好要比他强"。深度调研 NousResearch/hermes-agent(v0.19.0,16,613 commits)后,对比 IHUI-AI 现状,识别出 11 项差距。Hermes 三大护城河:① 闭环学习循环(自进化 Skill + FTS5 跨会话记忆 + Honcho 用户建模)② 25+ IM 平台 gateway ③ Skills Hub 90,000+ 生态。IHUI 在这三块全部缺失,且 `agent_loop.py` 的 run() 工具循环是"第一轮就 break"的半成品(代码注释自承"生产环境可解析 tool_call 继续迭代")。
@@ -713,6 +725,36 @@ Playwright E2E:
 - P2:agent_rule.agentId varchar→uuid 修复(需数据审计 + 迁移策略,见上文 Advisor 风险分析)
 - P2:api 层 insert/update 路径未传 `updatedBy` 字段(当前 `orders`/`commissionFlows`/`withdrawalFlows`/`agentTasks` insert 仍不传值,字段保持 NULL,后续可加 hook 中间件自动注入 `requestUserId`)
 - P2:drizzle-kit generate 跑通后 snapshot / _journal.json 仍需同步(G11 收尾)
+
+---
+
+### [x] ✅(2026-07-22) G11 snapshot/journal drift 修复 — drizzle-kit generate 同步 schema 源和最新 snapshot(平台独占:仅 database,已完成)
+
+**触发**:G10 遗留 P2"drizzle-kit generate 跑通后 snapshot / _journal.json 仍需同步(G11 收尾)"。多 agent 并行下,12 个手写 SQL 文件(`20260720*` / `20260721*` / `20260722*`)+ 4 个手写 migration(`2026072212*` / `2026072215*`)都缺对应 journal 条目,且 schema 源与 0126 snapshot 不同步(G10 改的 4 表 `updatedBy` + 其他 agent 改的 `ai_world_rankings` / `trending_score` / `clientSecretHash` / `encryptionKeyId` / `t_clazz` / `agent_memory_*` 等 568 表定义)。
+
+**范围**:3 个 database 文件 — `packages/database/drizzle/0127_dazzling_master_mold.sql` + `packages/database/drizzle/meta/0127_snapshot.json` + `packages/database/drizzle/meta/_journal.json`。
+
+**执行方案**:
+1. **备份**:0127_ai-world-rankings-trending.sql + 0128_robustness_p0_security.sql 备份到 `.trae-cn/tmp/g11-backup/`(generate 可能覆盖)
+2. **generate**:`pnpm --filter @ihui/database db:generate` → exit 0,自动产出 idx 127 综合迁移 `0127_dazzling_master_mold.sql`(涵盖 ai_world_rankings + trending + clientSecretHash + encryptionKeyId + 4 表 updatedBy + t_clazz + agent_memory_* + token_flows unique 索引 + 12 个 jsonb default 修复 + 6 个 FK constraint 重建)
+3. **同步**:journal 自动添加 idx 127 → 0126 引用;0127 snapshot 反映最新 schema
+4. **验证**:typecheck exit 0 / build exit 0 / `db:check` "Everything's fine" (drizzle-kit check 全绿)
+
+**完成证据**:
+- `packages/database/drizzle/0127_dazzling_master_mold.sql` 新建(196 行综合迁移,涵盖 568 → 569 表 drift 全部)
+- `packages/database/drizzle/meta/0127_snapshot.json` 新建(包含全部 drift)
+- `packages/database/drizzle/meta/_journal.json` 新增 idx 127 → 0126_reflective_greymalkin
+- `pnpm --filter @ihui/database typecheck` exit 0 ✅
+- `pnpm --filter @ihui/database build` exit 0 ✅
+- `pnpm --filter @ihui/database db:check` "Everything's fine" ✅
+- git commit `4f15b09` 已 push origin/main,local HEAD === origin/main HEAD ✅
+
+**遗留(P1/P2,非本任务范围)**:
+- P1:routes/agents.ts user_token_balance 双账本问题(G2 遗留,持续)
+- P2:agent_rule.agentId varchar→uuid 修复(需数据审计 + 迁移策略,见 G10 段)
+- P2:api 层 insert/update 路径未传 `updatedBy` 字段(后续可加 hook 中间件自动注入 `requestUserId`,见 G10 段)
+- P2:`email_logs` 幻影表 — TS schema + 4 个 snapshot 都有但无 migration SQL 创建(历史遗留,新数据库 apply 全部 migrations 会缺这张表;根治需补一个早期 CREATE TABLE 迁移或删 schema 定义,跨表影响待评估,本任务不动)
+- P2:12 个 `2026*` 手写 migration 清理 — G11 生成的 `0127_dazzling_master_mold.sql` 已涵盖其全部内容,但旧文件保留(部分环境已 apply,删文件会污染历史),需全环境统一回滚到 0126 再 apply 0127 后才能清
 
 ---
 
