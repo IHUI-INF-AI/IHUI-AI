@@ -1,7 +1,13 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { logout as apiLogout, type AuthUser as ApiAuthUser } from '@ihui/api-client'
-import { setAuthCookie } from '@/lib/cookie-utils'
+import {
+  setAuthCookie,
+  setRefreshTokenCookie,
+  getRefreshTokenCookie,
+  clearRefreshTokenCookie,
+  REMEMBER_MAX_AGE,
+} from '@/lib/cookie-utils'
 import { createPersistConfig } from './persist-helpers'
 
 /** 与共享层 @ihui/api-client AuthUser 完全一致,确保 5 端用户类型统一 */
@@ -20,7 +26,15 @@ interface AuthState {
   isAuthenticated: boolean
   user: AuthUser | null
   setToken: (token: string | null, refreshOrPair?: string | TokenPair | null) => void
+  /** 带 autoLogin 偏好的 setToken:autoLogin=true 时 refreshToken cookie max-age=30d */
+  setTokenWithPrefs: (
+    token: string,
+    refreshOrPair: string | TokenPair,
+    autoLogin: boolean,
+  ) => void
   setUser: (user: AuthUser | null) => void
+  /** 从 cookie 恢复 refreshToken(页面刷新后调用,实现"记住 30 天") */
+  hydrateRefreshToken: () => void
   logout: () => void
 }
 
@@ -35,10 +49,13 @@ export const useAuthStore = create<AuthState>()(
       setToken: (token, refreshOrPair) => {
         setAuthCookie(token)
         if (refreshOrPair === null || refreshOrPair === undefined) {
+          clearRefreshTokenCookie()
           set({ token, isAuthenticated: !!token, refreshToken: null, expiresIn: null })
           return
         }
         if (typeof refreshOrPair === 'string') {
+          // 默认 session cookie(浏览器关闭失效);autoLogin 由 setTokenWithPrefs 控制
+          setRefreshTokenCookie(refreshOrPair || null)
           set({
             token,
             isAuthenticated: !!token,
@@ -47,12 +64,31 @@ export const useAuthStore = create<AuthState>()(
           })
           return
         }
+        setRefreshTokenCookie(refreshOrPair.refreshToken ?? null)
         set({
           token,
           isAuthenticated: !!token,
           refreshToken: refreshOrPair.refreshToken ?? null,
           expiresIn: refreshOrPair.expiresIn ?? null,
         })
+      },
+      setTokenWithPrefs: (token, refreshOrPair, autoLogin) => {
+        const refreshToken =
+          typeof refreshOrPair === 'string' ? refreshOrPair : refreshOrPair.refreshToken
+        const expiresIn =
+          typeof refreshOrPair === 'string' ? null : (refreshOrPair.expiresIn ?? null)
+        const cookieMaxAge = autoLogin ? REMEMBER_MAX_AGE : undefined
+        setAuthCookie(token, { maxAge: cookieMaxAge })
+        setRefreshTokenCookie(refreshToken ?? null, { maxAge: cookieMaxAge })
+        set({ token, isAuthenticated: !!token, refreshToken: refreshToken ?? null, expiresIn })
+      },
+      hydrateRefreshToken: () => {
+        const { refreshToken } = get()
+        if (refreshToken) return // 内存已有,无需恢复
+        const fromCookie = getRefreshTokenCookie()
+        if (fromCookie) {
+          set({ refreshToken: fromCookie })
+        }
       },
       setUser: (user) => set({ user }),
       logout: () => {
@@ -61,6 +97,7 @@ export const useAuthStore = create<AuthState>()(
           void apiLogout(refreshToken).catch(() => {})
         }
         setAuthCookie(null)
+        clearRefreshTokenCookie()
         set({
           token: null,
           refreshToken: null,
