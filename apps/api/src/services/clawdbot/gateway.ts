@@ -53,6 +53,7 @@ export class ClawdbotGateway extends EventEmitter {
   private config: GatewayConfig = DEFAULT_CONFIG
   private state: ConnectionState = 'disconnected'
   private modelRouterIndex = 0
+  /** 运行时延迟统计(非持久化数据,重启后重新采集) */
   private latencyStats = new Map<string, number[]>()
   private connected = false
 
@@ -64,7 +65,9 @@ export class ClawdbotGateway extends EventEmitter {
     if (this.connected) return
     this.state = 'connecting'
     logger.info('[Gateway] Connecting')
-    // 简化实现：实际需建立 WebSocket 连接
+    // 简化实现:未建立真实 WebSocket 连接到 ai-service
+    // TODO: 需建立真实 WebSocket 连接到 ai-service(ws://localhost:8000/gateway)
+    logger.warn('[Gateway] 简化实现:未建立真实 WebSocket 连接,仅标记为 connected')
     this.state = 'connected'
     this.connected = true
     this.emit('connected')
