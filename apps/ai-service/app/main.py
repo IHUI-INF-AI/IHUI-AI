@@ -49,7 +49,8 @@ logger = logging.getLogger(__name__)
 # 仅在变量未设置时 setdefault,不覆盖运行时注入的值(如测试 monkeypatch)。
 for _key in ("REDIS_URL", "DATABASE_URL", "JWT_SECRET", "AI_CALLBACK_SECRET",
              "STEPFUN_API_KEY", "STEPFUN_API_BASE",
-             "AGNES_API_KEY", "AGNES_API_BASE"):
+             "AGNES_API_KEY", "AGNES_API_BASE",
+             "AGENT_CONTROL_INTERNAL_SECRET"):
     _val = getattr(settings, _key.lower(), None)
     if _val:
         os.environ.setdefault(_key, _val)
