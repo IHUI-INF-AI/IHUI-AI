@@ -28442,7 +28442,9 @@
       "empty": "暫無排行資料",
       "sortHint": "點擊表頭排序",
       "searchPlaceholder": "搜尋模型/廠商…",
-      "allVendors": "全部廠商"
+      "allVendors": "全部廠商",
+      "noMatch": "未找到匹配的模型",
+      "clearFilter": "清空篩選"
     },
     "hero": {
       "label": "AI 資訊 Hero",
