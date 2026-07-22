@@ -88,6 +88,7 @@ export class ClawdbotService extends EventEmitter {
 
   private initialized = false
   private config: ClawdbotConfig = {}
+  /** 内存对话历史 — 需后续建表持久化(clawdbotSessions 表需 botId,当前接口未传 botId) */
   private conversations = new Map<string, ConversationMessage[]>()
 
   constructor() {
