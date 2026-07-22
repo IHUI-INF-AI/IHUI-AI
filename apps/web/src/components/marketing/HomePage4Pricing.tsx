@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Check, Sparkles } from 'lucide-react'
 import { Button, Card } from '@ihui/ui'
+import { RevealOnView } from '@/components/common'
 
 interface PricingPlan {
   id: 'basic' | 'professional' | 'enterprise' | 'flagship'
@@ -85,36 +86,39 @@ export function HomePage4Pricing() {
   return (
     // 2026-07-20 改:去掉 max-w-7xl mx-auto,容器改 w-full 撑满营销区域
     <section className="w-full px-4 py-4 sm:py-6">
-      <div className="mb-4 text-center sm:mb-5">
+      <RevealOnView as="div" className="mb-4 text-center sm:mb-5">
         <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{t('title')}</h2>
         <h3 className="font-edix mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
           {t('titleEn')}
         </h3>
         <p className="mt-1 text-xs text-muted-foreground sm:text-sm">{t('subtitle')}</p>
-      </div>
+      </RevealOnView>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-3">
-        {PRICING_PLANS.map((plan) => {
+        {PRICING_PLANS.map((plan, i) => {
           const isRecommended = plan.recommended
           return (
-            <Card
+            <RevealOnView
               key={plan.id}
-              className={
-                isRecommended
-                  ? 'relative flex flex-col overflow-hidden rounded-xl border-2 border-primary bg-card shadow-md transition-colors hover:border-primary/80 hover:bg-primary/5'
-                  : 'relative flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-colors hover:border-primary/40 hover:bg-primary/5'
-              }
+              delay={0.05 * (i + 1)}
+              className="group h-full"
             >
-              {isRecommended && (
-                <div className="absolute right-2 top-2 z-10">
-                  <span className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm">
-                    <Sparkles className="h-3 w-3" />
-                    {t('recommended')}
-                  </span>
-                </div>
-              )}
+              <Card
+                className={
+                  isRecommended
+                    ? 'relative flex h-full flex-col overflow-hidden rounded-xl border-2 border-primary bg-card p-4 shadow-md transition-all duration-300 animate-pulse-glow-light group-hover:-translate-y-1 group-hover:border-primary/80 group-hover:bg-primary/5 group-hover:shadow-lg'
+                    : 'relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card p-4 shadow-sm transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:bg-primary/5 group-hover:shadow-md'
+                }
+              >
+                {isRecommended && (
+                  <div className="absolute right-2 top-2 z-10">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm">
+                      <Sparkles className="h-3 w-3" />
+                      {t('recommended')}
+                    </span>
+                  </div>
+                )}
 
-              <div className="flex flex-1 flex-col p-4">
                 <div className="mb-2">
                   <h3 className="text-base font-bold leading-tight tracking-tight">
                     {t(plan.nameKey)}
@@ -142,8 +146,8 @@ export function HomePage4Pricing() {
                 <Button asChild className="w-full rounded-md" size="sm">
                   <Link href={plan.href}>{t('cta')}</Link>
                 </Button>
-              </div>
-            </Card>
+              </Card>
+            </RevealOnView>
           )
         })}
       </div>

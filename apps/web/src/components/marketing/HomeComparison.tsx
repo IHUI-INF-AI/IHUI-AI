@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Check, X } from 'lucide-react'
+import { RevealOnView } from '@/components/common'
 
 /**
  * 第 5 页:智汇 AI vs Claude Code vs Cursor vs ChatGPT 8 行竞品对比表
@@ -14,6 +15,8 @@ import { Check, X } from 'lucide-react'
  *
  * 8 行对比维度:端覆盖 / 大模型数量 / AI 技术栈 / API 端点 / 教育模块 /
  *              决策者社群 / 中文优化 / 智能体广场
+ *
+ * 2026-07-23 改:表头 + 每行 staggered 入场。
  */
 
 const COMPARISON_ROWS = [1, 2, 3, 4, 5, 6, 7, 8] as const
@@ -23,7 +26,7 @@ export function HomeComparison() {
 
   return (
     <section className="space-y-5">
-      <div className="space-y-2 text-center">
+      <RevealOnView as="div" className="space-y-2 text-center">
         <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('title')}</h2>
         <h3 className="font-edix text-xs uppercase tracking-wider text-muted-foreground">
           {t('titleEn')}
@@ -31,9 +34,9 @@ export function HomeComparison() {
         <p className="mx-auto max-w-3xl text-sm text-muted-foreground sm:text-base">
           {t('subtitle')}
         </p>
-      </div>
+      </RevealOnView>
 
-      <div className="overflow-hidden rounded-lg border">
+      <RevealOnView as="div" delay={0.1} className="overflow-hidden rounded-lg border">
         <table className="w-full text-left text-xs sm:text-sm">
           <thead className="bg-muted/60">
             <tr>
@@ -47,10 +50,15 @@ export function HomeComparison() {
             </tr>
           </thead>
           <tbody>
-            {COMPARISON_ROWS.map((n) => {
+            {COMPARISON_ROWS.map((n, i) => {
               const us = t(`row${n}Us`)
               return (
-                <tr key={n} className="border-t">
+                <RevealOnView
+                  key={n}
+                  as="tr"
+                  delay={0.15 + 0.05 * (i + 1)}
+                  className="border-t transition-colors hover:bg-primary/5"
+                >
                   <td className="px-3 py-2.5 font-medium sm:px-4 sm:py-3">
                     {t(`row${n}Feature`)}
                   </td>
@@ -93,12 +101,12 @@ export function HomeComparison() {
                       <span>{t(`row${n}Chatgpt`)}</span>
                     </div>
                   </td>
-                </tr>
+                </RevealOnView>
               )
             })}
           </tbody>
         </table>
-      </div>
+      </RevealOnView>
     </section>
   )
 }
