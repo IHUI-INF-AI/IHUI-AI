@@ -140,14 +140,13 @@ export function QrCodeLogin({ onSwitchMethod }: { onSwitchMethod?: () => void })
         )}
       </div>
 
-      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        {status === 'pending' && <Clock className="h-4 w-4" />}
-        {status === 'pending' && <span>{t('qrScanTip', { time: `${mm}:${ss}` })}</span>}
-        {status === 'scanned' && <span className="text-emerald-600">{t('qrScanned')}</span>}
-        {status === 'confirming' && <Loader2 className="h-4 w-4 animate-spin" />}
-      </div>
-
-      <div className="flex justify-center">
+      <div className="flex w-full items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          {status === 'pending' && <Clock className="h-4 w-4" />}
+          {status === 'pending' && <span>{t('qrScanTip', { time: `${mm}:${ss}` })}</span>}
+          {status === 'scanned' && <span className="text-emerald-600">{t('qrScanned')}</span>}
+          {status === 'confirming' && <Loader2 className="h-4 w-4 animate-spin" />}
+        </div>
         <MiniCheckbox
           checked={autoLogin}
           onChange={(v) => {
