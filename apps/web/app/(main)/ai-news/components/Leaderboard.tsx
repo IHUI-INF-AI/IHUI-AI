@@ -77,23 +77,23 @@ function writeCompareList(entries: LeaderboardEntry[]) {
   }
 }
 
-/** 分类 Tab 配置 */
-const CATEGORY_TABS: Array<{ key: LeaderboardCategory; label: string; icon: string }> = [
-  { key: 'overall', label: '总榜', icon: '🏆' },
-  { key: 'llm', label: '大语言模型', icon: '💬' },
-  { key: 'image', label: '生图模型', icon: '🎨' },
-  { key: 'video', label: '视频模型', icon: '🎬' },
-  { key: 'multimodal', label: '多模态', icon: '🔮' },
-  { key: 'agent', label: 'Agent', icon: '🤖' },
-  { key: 'audio', label: '语音模型', icon: '🎵' },
-  { key: 'embedding', label: '嵌入模型', icon: '📐' },
+/** 分类 Tab 配置(labelKey 指向 i18n 键,运行时用 t() 读取) */
+const CATEGORY_TABS: Array<{ key: LeaderboardCategory; labelKey: string; icon: string }> = [
+  { key: 'overall', labelKey: 'leaderboard.categoryOverall', icon: '🏆' },
+  { key: 'llm', labelKey: 'leaderboard.categoryLlm', icon: '💬' },
+  { key: 'image', labelKey: 'leaderboard.categoryImage', icon: '🎨' },
+  { key: 'video', labelKey: 'leaderboard.categoryVideo', icon: '🎬' },
+  { key: 'multimodal', labelKey: 'leaderboard.categoryMultimodal', icon: '🔮' },
+  { key: 'agent', labelKey: 'leaderboard.categoryAgent', icon: '🤖' },
+  { key: 'audio', labelKey: 'leaderboard.categoryAudio', icon: '🎵' },
+  { key: 'embedding', labelKey: 'leaderboard.categoryEmbedding', icon: '📐' },
 ]
 
 /** LLM 子分类 Tab */
-const LLM_SUBCATS: Array<{ key: string; label: string }> = [
-  { key: 'general', label: '通用对话' },
-  { key: 'coding', label: '代码编程' },
-  { key: 'reasoning', label: '推理思考' },
+const LLM_SUBCATS: Array<{ key: string; labelKey: string }> = [
+  { key: 'general', labelKey: 'leaderboard.subcatGeneral' },
+  { key: 'coding', labelKey: 'leaderboard.subcatCoding' },
+  { key: 'reasoning', labelKey: 'leaderboard.subcatReasoning' },
 ]
 
 /** 排名颜色:Top 3 高亮 */
@@ -300,7 +300,7 @@ export function Leaderboard({ entries }: Props) {
             }`}
           >
             <span className="text-[10px]">{tab.icon}</span>
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -549,6 +549,7 @@ export function Leaderboard({ entries }: Props) {
           entry={selectedEntry}
           open={!!selectedEntry}
           onClose={() => setSelectedEntry(null)}
+          searchQuery={searchQuery}
         />
       ) : null}
     </section>
