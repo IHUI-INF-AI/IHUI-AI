@@ -376,7 +376,9 @@
     "copyCode": "Copy code",
     "collapse": "Collapse",
     "expand": "Expand",
-    "breadcrumb": "Breadcrumb"
+    "breadcrumb": "Breadcrumb",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "nav": {
     "title": "Main Navigation",
@@ -594,6 +596,7 @@
     "noAccount": "Don't have an account?",
     "registerNow": "Sign up",
     "forgotPassword": "Forgot password?",
+    "rememberPassword": "Remember password",
     "forgotSubtitle": "Reset your password",
     "registerTitle": "Create Account",
     "registerSubtitle": "Register a new account",
@@ -27976,5 +27979,184 @@
     "charCount": "{count} chars",
     "feedbackBuildSuccess": "Extracted {entities} entities and {relations} relations",
     "feedbackClearSuccess": "Graph cleared"
+  },
+  "ide": {
+    "activityBar": {
+      "files": "Files",
+      "search": "Search",
+      "sourceControl": "Source Control",
+      "debug": "Debug",
+      "applications": "Applications",
+      "settings": "Settings"
+    },
+    "topBar": {
+      "editor": "Editor",
+      "codeChanges": "Code Changes",
+      "document": "Document",
+      "terminal": "Terminal",
+      "browser": "Browser",
+      "agent": "Agent",
+      "settings": "Settings",
+      "close": "Close"
+    },
+    "viewSwitcher": {
+      "groupView": "View",
+      "groupTools": "Tools",
+      "groupSettings": "Settings",
+      "searchPlaceholder": "Search views...",
+      "noMatch": "No match"
+    },
+    "layout": {
+      "documentView": "Document View",
+      "terminalView": "Terminal View",
+      "browserView": "Browser View",
+      "figmaView": "Figma View",
+      "agentView": "Agent View",
+      "mcpView": "MCP View",
+      "settingsView": "Settings View"
+    },
+    "fileExplorer": {
+      "tabFiles": "Files",
+      "tabOutline": "Outline",
+      "tabTimeline": "Timeline",
+      "searchPlaceholder": "Search files",
+      "newFile": "New File",
+      "refresh": "Refresh",
+      "noMatch": "No matching files",
+      "justNow": "Just now",
+      "minutesAgo": "{count} minutes ago",
+      "hoursAgo": "{count} hours ago"
+    },
+    "fileTreeNode": {
+      "open": "Open",
+      "rename": "Rename",
+      "delete": "Delete",
+      "copyPath": "Copy Path"
+    },
+    "codeEditor": {
+      "findPlaceholder": "Find...",
+      "matchCount": "{count} matches",
+      "closeSearch": "Close search",
+      "zoomOut": "Zoom out",
+      "zoomIn": "Zoom in"
+    },
+    "editorEmpty": {
+      "title": "IHUI IDE Workspace",
+      "subtitle": "Select a file or start from quick actions below",
+      "browseFiles": "Browse Files",
+      "viewChanges": "View Changes",
+      "settings": "Settings",
+      "recentFiles": "Recent",
+      "shortcuts": "Shortcuts",
+      "scOpenFile": "Open File",
+      "scGlobalSearch": "Global Search",
+      "scToggleSidebar": "Toggle Sidebar",
+      "scToggleTerminal": "Toggle Terminal",
+      "scGotoLine": "Go to Line"
+    },
+    "editorTabBar": {
+      "closeTab": "Close tab",
+      "unpin": "Unpin",
+      "pin": "Pin Tab",
+      "close": "Close",
+      "closeOthers": "Close Others",
+      "closeAll": "Close All",
+      "copyPath": "Copy Path"
+    },
+    "diffViewer": {
+      "selectFile": "Select file",
+      "selectToCompare": "Select a file to view differences",
+      "addPct": "{pct}% added",
+      "changeBlocks": "{count} change blocks",
+      "wordLevel": "Word-level changes:"
+    },
+    "diffStats": {
+      "split": "Split",
+      "unified": "Unified",
+      "fileCount": "{count} files",
+      "filterAll": "All",
+      "filterModified": "Modified",
+      "filterAdded": "Added",
+      "filterDeleted": "Deleted",
+      "commit": "Commit Changes"
+    },
+    "diffFileList": {
+      "groupModified": "Modified",
+      "groupAdded": "Added",
+      "groupDeleted": "Deleted",
+      "groupRenamed": "Renamed",
+      "noMatch": "No matching files"
+    },
+    "searchPanel": {
+      "filterAll": "All",
+      "searchPlaceholder": "Search",
+      "replacePlaceholder": "Replace",
+      "toggleReplace": "Toggle replace",
+      "caseSensitive": "Case sensitive",
+      "wholeWord": "Whole word",
+      "useRegex": "Regex",
+      "replace": "Replace",
+      "replaceAll": "Replace All",
+      "resultSummary": "{matches} results · {files} files",
+      "noResults": "No results found",
+      "recentSearches": "Recent searches",
+      "remove": "Remove",
+      "inputHint": "Type to search"
+    },
+    "sourceControl": {
+      "commitPlaceholder": "Commit message",
+      "commit": "Commit",
+      "changeStats": "Change stats",
+      "staged": "Staged ({count})",
+      "changes": "Changes ({count})",
+      "noChanges": "No changes",
+      "commitHistory": "Commit History",
+      "unstage": "Unstage",
+      "stage": "Stage",
+      "refresh": "Refresh",
+      "more": "More"
+    },
+    "debug": {
+      "stateStopped": "Stopped",
+      "stateRunning": "Running",
+      "statePaused": "Paused",
+      "start": "Start",
+      "pause": "Pause",
+      "stop": "Stop",
+      "stepOver": "Step Over",
+      "stepInto": "Step Into",
+      "stepOut": "Step Out",
+      "restart": "Restart",
+      "noSession": "No debug session started",
+      "variables": "Variables",
+      "watch": "Watch",
+      "watchPlaceholder": "Add watch expression",
+      "add": "Add",
+      "delete": "Delete",
+      "toggle": "Toggle",
+      "breakpoints": "Breakpoints",
+      "callStack": "Call Stack",
+      "debugConsole": "Debug Console"
+    },
+    "applications": {
+      "title": "Applications",
+      "newConfig": "New configuration",
+      "configNamePlaceholder": "Configuration name",
+      "commandPlaceholder": "Command",
+      "cancel": "Cancel",
+      "add": "Add",
+      "launchConfigs": "Launch Configurations",
+      "run": "Run",
+      "debug": "Debug",
+      "recentRuns": "Recent Runs",
+      "typeTerminal": "Terminal"
+    },
+    "statusBar": {
+      "synced": "Synced",
+      "unsynced": "Not synced",
+      "conflict": "Conflict",
+      "sync": "Sync",
+      "toggleTheme": "Toggle theme"
+    }
   }
 }
