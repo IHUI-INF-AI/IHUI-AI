@@ -116,6 +116,11 @@ function isImageMime(mime: string): boolean {
   return mime.startsWith('image/')
 }
 
+/** 根据文件名扩展名判断是否为图片(用于 FileItem 渲染图标) */
+function isImageFilename(name: string): boolean {
+  return /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(name)
+}
+
 export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upload(
   {
     value = [],
@@ -385,7 +390,7 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
               key={item.key}
               className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2 text-xs"
             >
-              {isImageMime(item.name) ? (
+              {isImageFilename(item.name) ? (
                 <ImageIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               ) : (
                 <FileIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
