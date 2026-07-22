@@ -7,7 +7,7 @@ import { fetchApi } from '@/lib/api'
 
 export interface PdfWatermarkInput {
   fileId: string
-  text?: string
+  text: string
   imageBase64?: string
   opacity?: number
   rotation?: number
