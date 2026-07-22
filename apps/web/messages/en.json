@@ -599,6 +599,7 @@
     "forgotPassword": "Forgot password?",
     "rememberPassword": "Remember password",
     "accountHistory": "Account History",
+    "noHistory": "No history",
     "forgotSubtitle": "Reset your password",
     "registerTitle": "Create Account",
     "registerSubtitle": "Register a new account",
@@ -1082,7 +1083,11 @@
       "community": "Community",
       "communityEn": "Community",
       "knowledge": "Knowledge Base",
-      "knowledgeEn": "Knowledge"
+      "knowledgeEn": "Knowledge",
+      "recommend": "Recommended",
+      "recommendEn": "Recommended",
+      "hot": "Popular",
+      "hotEn": "Popular"
     },
     "units": {
       "questions": "{count} Q",

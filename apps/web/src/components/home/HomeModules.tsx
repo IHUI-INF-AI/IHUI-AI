@@ -10,10 +10,12 @@ import {
   MessageCircle,
   Users,
   BookOpen,
+  Award,
+  Flame,
 } from 'lucide-react'
 import { ModuleSection } from './ModuleSection'
 import { fetchApi } from '@/lib/api'
-import { getLearnCourses } from '@/lib/learn-api'
+import { getLearnCourses, getRecommendLearnCourses, getHotLearnCourses } from '@/lib/learn-api'
 import { getLiveList } from '@/lib/live-api'
 import { getExams } from '@/lib/exam-api'
 import { getNews, getAsks, getCircles } from '@/lib/community-api'
@@ -46,6 +48,40 @@ export function HomeModules() {
         queryFn={async () => {
           const d = unwrap(await getLearnCourses({ page: 1, pageSize: 4 }))
           return d.list.map((c) => ({
+            id: c.id,
+            title: c.title,
+            cover: c.coverImage ?? undefined,
+            meta: c.teacherName,
+            href: `/learn/${c.id}`,
+          }))
+        }}
+      />
+      <ModuleSection
+        title={t('recommend')}
+        englishTitle={t('recommendEn')}
+        icon={Award}
+        href="/learn"
+        queryKey={['home', 'recommend']}
+        queryFn={async () => {
+          const list = unwrap(await getRecommendLearnCourses(4))
+          return list.map((c) => ({
+            id: c.id,
+            title: c.title,
+            cover: c.coverImage ?? undefined,
+            meta: c.teacherName,
+            href: `/learn/${c.id}`,
+          }))
+        }}
+      />
+      <ModuleSection
+        title={t('hot')}
+        englishTitle={t('hotEn')}
+        icon={Flame}
+        href="/learn"
+        queryKey={['home', 'hot']}
+        queryFn={async () => {
+          const list = unwrap(await getHotLearnCourses(4))
+          return list.map((c) => ({
             id: c.id,
             title: c.title,
             cover: c.coverImage ?? undefined,
