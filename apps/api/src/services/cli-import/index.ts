@@ -28,6 +28,11 @@ import { parseCline } from './parsers/cline.js'
 import { parseCursor } from './parsers/cursor.js'
 import { parseEnvFile } from './parsers/env-file.js'
 import { parseWindsurf } from './parsers/windsurf.js'
+import {
+  parseTrae, parseTraeWork, parseQoder, parseQoderWork,
+  parseCodexDesktop, parseClaudeCodeDesktop,
+  parseGithubCopilot, parseAmazonQ, parseContinue, parseTabnine, parseCody, parseZed,
+} from './parsers/ide-generic.js'
 import type { ParserFn, ParserInput, ParserResult } from './parsers/types.js'
 
 interface ParserEntry {
@@ -124,6 +129,90 @@ const PARSERS: ParserEntry[] = [
     inputKind: 'text',
     filePatterns: [/aider.*\.ya?ml$/i, /\.aider\.conf\.ya?ml$/i],
     description: 'Aider AI 配置 YAML',
+  },
+  {
+    source: 'trae',
+    fn: parseTrae,
+    inputKind: 'text',
+    filePatterns: [/trae.*settings\.json$/i, /trae.*\.json$/i],
+    description: 'Trae IDE AI 配置',
+  },
+  {
+    source: 'trae-work',
+    fn: parseTraeWork,
+    inputKind: 'text',
+    filePatterns: [/trae-work.*settings\.json$/i, /trae.work.*\.json$/i],
+    description: 'Trae Work AI 配置',
+  },
+  {
+    source: 'qoder',
+    fn: parseQoder,
+    inputKind: 'text',
+    filePatterns: [/qoder.*settings\.json$/i, /qoder.*\.json$/i],
+    description: 'Qoder AI 配置',
+  },
+  {
+    source: 'qoder-work',
+    fn: parseQoderWork,
+    inputKind: 'text',
+    filePatterns: [/qoder-work.*settings\.json$/i, /qoder.work.*\.json$/i],
+    description: 'Qoder Work AI 配置',
+  },
+  {
+    source: 'codex-desktop',
+    fn: parseCodexDesktop,
+    inputKind: 'text',
+    filePatterns: [/codex.*desktop.*\.json$/i, /codex.*config.*\.json$/i],
+    description: 'Codex Desktop 配置',
+  },
+  {
+    source: 'claude-code-desktop',
+    fn: parseClaudeCodeDesktop,
+    inputKind: 'text',
+    filePatterns: [/claude.*desktop.*\.json$/i, /claude.*config.*\.json$/i],
+    description: 'Claude Code Desktop 配置',
+  },
+  {
+    source: 'github-copilot',
+    fn: parseGithubCopilot,
+    inputKind: 'text',
+    filePatterns: [/copilot.*settings\.json$/i, /github.*copilot.*\.json$/i],
+    description: 'GitHub Copilot 配置',
+  },
+  {
+    source: 'amazon-q',
+    fn: parseAmazonQ,
+    inputKind: 'text',
+    filePatterns: [/amazon.*q.*\.json$/i, /aws.*q.*\.json$/i],
+    description: 'Amazon Q Developer 配置',
+  },
+  {
+    source: 'continue',
+    fn: parseContinue,
+    inputKind: 'text',
+    filePatterns: [/continue.*config.*\.json$/i, /\.continue.*\.json$/i],
+    description: 'Continue.dev 配置',
+  },
+  {
+    source: 'tabnine',
+    fn: parseTabnine,
+    inputKind: 'text',
+    filePatterns: [/tabnine.*settings\.json$/i, /tabnine.*\.json$/i],
+    description: 'Tabnine 配置',
+  },
+  {
+    source: 'cody',
+    fn: parseCody,
+    inputKind: 'text',
+    filePatterns: [/cody.*settings\.json$/i, /sourcegraph.*\.json$/i],
+    description: 'Sourcegraph Cody 配置',
+  },
+  {
+    source: 'zed',
+    fn: parseZed,
+    inputKind: 'text',
+    filePatterns: [/zed.*settings\.json$/i, /zed.*\.json$/i],
+    description: 'Zed 编辑器 AI 配置',
   },
 ]
 

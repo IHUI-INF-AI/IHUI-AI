@@ -14,6 +14,9 @@
 export type CliConfigSource =
   'cc-switch' | 'codex++' | 'claude-cli' | 'codex-cli' | 'gemini-cli' | 'hermes'
   | 'cursor' | 'windsurf' | 'cline' | 'aider' | 'env-file'
+  | 'trae' | 'trae-work' | 'qoder' | 'qoder-work'
+  | 'codex-desktop' | 'claude-code-desktop'
+  | 'github-copilot' | 'amazon-q' | 'continue' | 'tabnine' | 'cody' | 'zed'
 
 /** cc-switch 的 app_type(严格对齐 cc-switch Rust AppType 枚举) */
 export type CliAppType =
