@@ -15,6 +15,7 @@ import httpx
 
 from .base_provider import ProviderError
 from .openai_provider import OpenAIProvider
+from ..core.llm_gateway import get_http_client
 
 
 class DoubaoProvider(OpenAIProvider):
@@ -59,40 +60,40 @@ class DoubaoProvider(OpenAIProvider):
     ) -> AsyncIterator[dict[str, Any]]:
         payload = self._build_payload(messages, model, tools=tools, stream=True, **kwargs)
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                async with client.stream(
-                    "POST", f"{self.base_url}/chat/completions",
-                    headers=self._headers(), json=payload,
-                ) as resp:
-                    if resp.status_code >= 400:
-                        body = await resp.aread()
-                        raise ProviderError(
-                            f"Doubao 流式调用失败: {resp.status_code} {body[:300]!r}",
-                            resp.status_code,
-                        )
-                    async for line in resp.aiter_lines():
-                        if not line.startswith("data: "):
-                            continue
-                        chunk_str = line[6:]
-                        if chunk_str.strip() == "[DONE]":
-                            break
-                        try:
-                            chunk = json.loads(chunk_str)
-                        except json.JSONDecodeError:
-                            continue
-                        choice = chunk.get("choices", [{}])[0]
-                        delta = choice.get("delta", {})
-                        if delta.get("content"):
-                            yield {"type": "chunk", "content": delta["content"]}
-                        if delta.get("tool_calls"):
-                            yield {"type": "tool_call", "tool_calls": delta["tool_calls"]}
-                        if chunk.get("usage"):
-                            yield {
-                                "type": "done",
-                                "model": chunk.get("model", model),
-                                "usage": chunk["usage"],
-                                "stub": False,
-                            }
+            client = get_http_client()
+            async with client.stream(
+                "POST", f"{self.base_url}/chat/completions",
+                headers=self._headers(), json=payload, timeout=self.timeout,
+            ) as resp:
+                if resp.status_code >= 400:
+                    body = await resp.aread()
+                    raise ProviderError(
+                        f"Doubao 流式调用失败: {resp.status_code} {body[:300]!r}",
+                        resp.status_code,
+                    )
+                async for line in resp.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    chunk_str = line[6:]
+                    if chunk_str.strip() == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(chunk_str)
+                    except json.JSONDecodeError:
+                        continue
+                    choice = chunk.get("choices", [{}])[0]
+                    delta = choice.get("delta", {})
+                    if delta.get("content"):
+                        yield {"type": "chunk", "content": delta["content"]}
+                    if delta.get("tool_calls"):
+                        yield {"type": "tool_call", "tool_calls": delta["tool_calls"]}
+                    if chunk.get("usage"):
+                        yield {
+                            "type": "done",
+                            "model": chunk.get("model", model),
+                            "usage": chunk["usage"],
+                            "stub": False,
+                        }
         except httpx.HTTPError as e:
             yield {"type": "error", "message": f"Doubao 流式网络异常: {e}"}
         except ProviderError as e:
