@@ -139,18 +139,13 @@ report.json
 .tmp_*.html
 .tmp-*
 .tmp-test-out.txt
+_tmp-*
+_tmp_*.html
 
 # ============================================================================
 # Trae IDE shell integration 残留(自动注入的怪异文件名,防回潮)
 # ============================================================================
 *ourcesappoutvsworkbench*shellIntegration*
-
-# 一次性调试/校验产物(本地 Playwright 截图 + ad-hoc 验证脚本)
-.verify-*.png
-.verify-*.mjs
-.tmp_*.html
-.tmp-*
-.tmp-test-out.txt
 
 # Agent 工具隔离诊断临时文件(本地标记, 不入库)
 .iso-test-*.txt
