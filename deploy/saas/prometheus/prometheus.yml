@@ -30,4 +30,4 @@ scrape_configs:
   # ==================== Prometheus 自身 ====================
   - job_name: prometheus
     static_configs:
-      - targets: ['localhost:8815']
+      - targets: ['localhost:9090']
