@@ -72,8 +72,7 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
           className={cn(
             'absolute right-0 top-0 flex h-10 w-10 items-center justify-center',
             'rounded-r-md text-foreground/60 transition-colors duration-200',
-            'hover:bg-accent hover:text-foreground',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background',
+            'hover:text-foreground focus-visible:outline-none',
           )}
         >
           {/* 单一 SVG,根据 visible 切换 d 属性 — 无嵌套 span,无 opacity 切换,
