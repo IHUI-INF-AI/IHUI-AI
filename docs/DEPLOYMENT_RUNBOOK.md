@@ -86,7 +86,7 @@ grep -E '<your-|<generate-' .env.production  # 应无输出(校验占位符)
 # 1. 启动 db + redis,等待 healthy
 docker compose up -d db redis && docker compose ps
 
-# 2. 应用迁移(docker-compose.yml 中 migrate 服务基于 Dockerfile.migrate,
+# 2. 应用迁移(docker-compose.yml 中 migrate 服务基于 deploy/docker/Dockerfile.migrate,
 #    api depends_on migrate completed_successfully 才启动)
 docker compose up -d migrate
 # 手动(本地 Node 20 + pnpm 9):
