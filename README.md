@@ -1590,13 +1590,17 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 
 工程文档同步到 Web 端「特性中心 → 文档」页面(`/feature-center/documents`),无需手动录入:
 
-- 后端 `GET /api/feature-center/documents` 合并 DB `docs` 表(published)+ `docs/*.md` 文件(34 个,README.md 除外),DB slug 优先去重
+- 后端 `GET /api/feature-center/documents` 合并 DB `docs` 表(published)+ `docs/*.md` 文件,DB slug 优先去重
 - 后端 `GET /api/feature-center/documents/:slug/content` 返回 markdown 内容(DB 优先,文件兜底,`basename` 防 `../` 路径遍历)
 - 前端用 `react-markdown` + `remark-gfm` 直接渲染(替代 iframe,避免 `X-Frame-Options: DENY` 冲突)
 - 分类按钮从返回数据动态生成(不再硬编码,适配 DB `category` enum 与文件 `guide` 默认值)
 - 生产容器 `Dockerfile.api` 已 `COPY docs/ ./docs`,部署后即可访问
 
-管理员登录后可在 `/admin/docs` 管理 DB 文档(含 draft),普通用户通过文档中心页查看所有 published DB 文档 + 全部 `docs/*.md` 工程文档。
+**权限分级(防越线)**:`docs/*.md` 按敏感度分两级:
+- **普通用户/匿名可见**(白名单 20 篇):AI_LEADERBOARD / AI_SERVICE / API_REFERENCE / architecture / AUTHENTICATION / CHANGELOG / CLI / CONTRIBUTING / DATABASE / FAQ / I18N / MULTI_END / PACKAGES / PERFORMANCE / RELEASE / SDK / SECURITY / TESTING / TROUBLESHOOTING / UI_GUIDELINES
+- **仅管理员可见**(14 篇,含生产环境/凭证/守门策略):CREDENTIAL_ROTATION_RUNBOOK / INCIDENTS / WECHAT_PAY_ACTIVATION_REPORT / GATEKEEPERS / DEPLOYMENT_RUNBOOK / MONITORING / DEVELOPMENT / LLM_SETUP / EMAIL_SETUP / PRODUCTION_INFRASTRUCTURE / port-management / INFRASTRUCTURE_DECISION / migration-audit-frontend / I18N-COMPLETION-PLAN
+
+管理员登录后(`roleId >= 1`)可查看全部 34 篇工程文档 + 所有 published DB 文档,普通用户只能看白名单 20 篇。DB `docs` 表内容由管理员通过 `/admin/docs` 管理,不受文件白名单限制。
 
 ### 项目与架构
 
