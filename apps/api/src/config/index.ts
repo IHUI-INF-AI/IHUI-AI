@@ -9,10 +9,10 @@ const optionalUrl = (def: string) =>
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.coerce.number().default(8080),
+  PORT: z.coerce.number().default(8802),
   HOST: z.string().default('0.0.0.0'),
   LOG_LEVEL: z.string().default('info'),
-  CORS_ORIGIN: z.string().default('http://localhost:3001'),
+  CORS_ORIGIN: z.string().default('http://localhost:8801'),
 
   DATABASE_URL: z.string().url(),
   DATABASE_READ_REPLICA_URL: z.preprocess(
