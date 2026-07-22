@@ -1,7 +1,7 @@
 # S3 存储生命周期分层规则 — 等价自旧架构 server/config/s3-lifecycle.yml
 # 策略：Standard 0-30d → Glacier Instant 30-180d → Deep Archive 180d+
 # 按前缀分级：logs 90d / metrics 365d / audit 永久 / canary-reports 365d / backups 730d
-# 用法：通过 `aws s3api put-bucket-lifecycle-configuration --bucket <bucket> --lifecycle-configuration file://s3-lifecycle.yml` 应用
+# 用法：通过 `aws s3api put-bucket-lifecycle-configuration --bucket <bucket> --lifecycle-configuration file://deploy/s3-lifecycle.yml` 应用
 # 漂移检测：见 .github/workflows/s3-lifecycle-drift.yml
 
 Rules:

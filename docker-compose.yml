@@ -5,7 +5,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile.api
+      dockerfile: deploy/docker/Dockerfile.api
     image: ihui-api:latest
     container_name: ihui-api
     restart: unless-stopped
@@ -93,7 +93,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: Dockerfile.api
+      dockerfile: deploy/docker/Dockerfile.api
     image: ihui-api:latest
     container_name: ihui-worker
     restart: unless-stopped
@@ -141,7 +141,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: Dockerfile.web
+      dockerfile: deploy/docker/Dockerfile.web
     image: ihui-web:latest
     container_name: ihui-web
     restart: unless-stopped
@@ -234,7 +234,7 @@ services:
   migrate:
     build:
       context: .
-      dockerfile: Dockerfile.migrate
+      dockerfile: deploy/docker/Dockerfile.migrate
     image: ihui-migrate:latest
     container_name: ihui-migrate
     environment:
