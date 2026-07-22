@@ -1,0 +1,107 @@
+'use client'
+
+import * as React from 'react'
+import { Loader2 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
+
+import { getPlatformConfig } from '@/lib/third-party-config'
+import { generateState, saveOAuthState } from '@/lib/oauth-utils'
+import { loadFeishuQrSdk, type FeishuQrInstance } from './sdk-loader'
+import { UnconfiguredState, ErrorState } from './WechatQrPanel'
+
+interface FeishuQrPanelProps {
+  refreshKey: number
+}
+
+export function FeishuQrPanel({ refreshKey }: FeishuQrPanelProps) {
+  const t = useTranslations('auth')
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const containerId = React.useId().replace(/[:]/g, '')
+  const qrRef = React.useRef<FeishuQrInstance | null>(null)
+  const [status, setStatus] = React.useState<'loading' | 'ready' | 'error' | 'unconfigured'>('loading')
+  const [errorMsg, setErrorMsg] = React.useState('')
+
+  React.useEffect(() => {
+    const container = containerRef.current
+    const config = getPlatformConfig('feishu')
+    const clientId = config.clientId || config.appId
+    if (!config.enabled || !clientId || !config.redirectUri) {
+      setStatus('unconfigured')
+      return
+    }
+
+    let cancelled = false
+    setStatus('loading')
+
+    const state = generateState()
+    saveOAuthState('feishu', state)
+
+    // 飞书 QRLogin SDK 通过 goto 参数指定完整 OAuth 授权 URL,
+    // 扫码成功后整页跳转到 redirect_uri?code=xxx&state=xxx
+    const gotoUrl = `https://passport.feishu.cn/suite/passport/oauth/authorize?${new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: config.redirectUri,
+      response_type: 'code',
+      state,
+      scope: config.scope || 'contact:user.base:readonly',
+    }).toString()}`
+
+    loadFeishuQrSdk()
+      .then(() => {
+        if (cancelled || !window.QRLogin || !container) return
+        container.innerHTML = ''
+        try {
+          qrRef.current = new window.QRLogin({
+            id: containerId,
+            goto: gotoUrl,
+            width: '280',
+            height: '280',
+            style: 'width:280px;height:280px;border:none;',
+          })
+          if (!cancelled) setStatus('ready')
+        } catch (e) {
+          if (cancelled) return
+          const msg = e instanceof Error ? e.message : String(e)
+          setErrorMsg(msg)
+          setStatus('error')
+        }
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return
+        const msg = e instanceof Error ? e.message : String(e)
+        setErrorMsg(msg)
+        setStatus('error')
+      })
+
+    return () => {
+      cancelled = true
+      try {
+        qrRef.current?.destroy?.()
+      } catch {
+        /* ignore */
+      }
+      qrRef.current = null
+      if (container) container.innerHTML = ''
+    }
+  }, [containerId, refreshKey])
+
+  if (status === 'unconfigured') {
+    return <UnconfiguredState platform={t('feishuLogin')} />
+  }
+
+  if (status === 'error') {
+    return <ErrorState message={errorMsg} />
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      id={containerId}
+      className="flex h-[280px] w-full items-center justify-center overflow-hidden rounded-md border bg-card"
+    >
+      {status === 'loading' && (
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      )}
+    </div>
+  )
+}
