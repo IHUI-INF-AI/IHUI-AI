@@ -445,3 +445,115 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
     },
   };
 }
+
+// ───────────────────────────── spawn_parallel 工具 ─────────────────────────────
+// 扩展:让 Agent 能并行 fork N 个子进程跑子 agent(真并行,非单进程 async)。
+// 与 dispatch_subagent(单进程 async executor)互补:需要 OS 级真并行时用 spawn_parallel。
+
+import { spawnParallel as spawnParallelTopology, type Topology } from '../commands/subagent-collab.js';
+import type { SubagentSpawnRequest, SubagentSpawnResponse } from '@ihui/types';
+
+/**
+ * 创建 spawn_parallel 工具 — 让 Agent 能并行 fork N 个子进程跑子 agent。
+ *
+ * dangerLevel: 'dangerous'(fork 子进程,消耗系统资源)。
+ *
+ * 与 dispatch_subagent 区别:
+ *   - dispatch_subagent:单进程 async executor(共享事件循环,非真并行)
+ *   - spawn_parallel:fork 子进程(OS 级真并行,独立 V8 isolate + 事件循环)
+ *
+ * 参数:
+ *   - requests: SubagentSpawnRequest[](每个含 persona/task/model/isolation/maxIterations/timeoutSeconds)
+ *   - topology: 协作拓扑(star/mesh/chain/hierarchical,默认 star)
+ *   - maxWorkers: 最大并发(默认 4)
+ */
+export function createSpawnParallelTool(parentOpts: SubagentParentOptions): Tool {
+  return {
+    name: 'spawn_parallel',
+    description:
+      '并行 fork N 个子进程跑子 agent(真并行,OS 级独立进程,非单进程 async)。适合需要真正并行的多子任务场景。每个请求含 persona(角色)/task(任务)/model(模型)/isolation(none/worktree)/maxIterations/timeoutSeconds。可选 topology(star/mesh/chain/hierarchical)和 maxWorkers(并发上限)。',
+    dangerLevel: 'dangerous',
+    parameters: {
+      requests: {
+        type: 'array',
+        description: '子 agent spawn 请求数组',
+        items: {
+          type: 'object',
+          description: '子 agent spawn 请求',
+          properties: {
+            persona: {
+              type: 'string',
+              enum: ['researcher', 'coder', 'reviewer', 'planner', 'general'],
+              description: '子代理角色预设',
+            },
+            task: { type: 'string', description: '任务描述' },
+            model: { type: 'string', description: '模型覆盖(可选)' },
+            isolation: {
+              type: 'string',
+              enum: ['none', 'worktree'],
+              description: '隔离模式(默认 none)',
+            },
+            maxIterations: { type: 'number', description: '最大迭代数(可选)' },
+            timeoutSeconds: { type: 'number', description: '超时秒数(可选,默认 300)' },
+          },
+          required: ['persona', 'task'],
+        },
+      },
+      topology: {
+        type: 'string',
+        enum: ['star', 'mesh', 'chain', 'hierarchical'],
+        description: '协作拓扑(默认 star)',
+      },
+      maxWorkers: {
+        type: 'number',
+        description: '最大并发 worker 数(默认 4)',
+      },
+    },
+    required: ['requests'],
+    async execute(args): Promise<ToolResult> {
+      const requests = args.requests as SubagentSpawnRequest[] | undefined;
+      if (!requests || !Array.isArray(requests) || requests.length === 0) {
+        return { success: false, output: '', error: '缺少 requests 参数(非空数组)' };
+      }
+
+      const topology = (args.topology as Topology) ?? 'star';
+      const maxWorkers = (args.maxWorkers as number) ?? 4;
+
+      // 注入默认 workspacePath 和 model(子 agent 默认在主 agent 工作区跑,用主 agent 模型)
+      const reqsWithWorkspace: SubagentSpawnRequest[] = requests.map((r) => ({
+        ...r,
+        workspacePath: r.workspacePath ?? parentOpts.workspacePath,
+        model: r.model ?? parentOpts.modelId,
+      }));
+
+      try {
+        const results: SubagentSpawnResponse[] = await spawnParallelTopology(reqsWithWorkspace, {
+          topology,
+          maxWorkers,
+        });
+
+        const summary = results
+          .map(
+            (r, i) =>
+              `[${i + 1}] ${r.subagentId} (PID ${r.pid}) — ${r.status}${r.error ? ` ERROR: ${r.error}` : ''}`,
+          )
+          .join('\n');
+
+        const allCompleted = results.every((r) => r.status === 'completed');
+        return {
+          success: allCompleted,
+          output: `并行 spawn ${results.length} 个子 agent(topology=${topology}):\n${summary}`,
+          error: allCompleted
+            ? undefined
+            : `${results.filter((r) => r.status !== 'completed').length} 个子 agent 失败`,
+        };
+      } catch (err) {
+        return {
+          success: false,
+          output: '',
+          error: `spawn_parallel 失败: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+    },
+  };
+}
