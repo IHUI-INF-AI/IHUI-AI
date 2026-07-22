@@ -705,7 +705,7 @@
     "unknownCallbackType": "알 수 없음 콜백유형",
     "usernameOrPhoneOrEmail": "입력해 주세요계정",
     "passwordHint": "비밀번호를 입력하세요",
-    "autoLogin": "에서로그인",
+    "autoLogin": "자동 로그인",
     "autoRenew": "자동 갱신",
     "captchaAlt": "코드",
     "clickToRefresh": "클릭하여 새로고침",
