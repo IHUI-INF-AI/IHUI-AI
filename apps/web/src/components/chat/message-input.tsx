@@ -13,10 +13,12 @@ import { ModelSelector } from '@/components/chat/model-selector'
 import { ContextUsageRing } from '@/components/ai/context-usage-ring'
 import { FileMentionPopover } from '@/components/ai/file-mention-popover'
 import { SkillLibrary } from '@/components/chat/skill-library'
+import { SelectedToolsPanel, type SelectedToolItem } from '@/components/chat/selected-tools-panel'
 import { Popover, Tooltip } from '@/components/feedback'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
 import { getRecentFilesForMention } from '@/lib/workspace-api'
 import { useChatStore } from '@/stores/chat'
+import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@plugins-data'
 
 const MAX_LENGTH = 10000
 const MAX_HEIGHT_PX = 320 // 最大约 16 行,超出后滚动
@@ -112,6 +114,22 @@ export function MessageInput({
   // 消费 chat store 中的 draftInput(由 PromptTemplates 等外部触发),填充到 textarea 后清空
   const draftInput = useChatStore((s) => s.draftInput)
   const clearDraftInput = useChatStore((s) => s.clearDraftInput)
+  // 已选工具(用户从插件市场点击"+"添加到对话的 pluginId 列表)
+  const selectedToolsIds = useChatStore((s) => s.selectedTools)
+  const removeSelectedTool = useChatStore((s) => s.removeSelectedTool)
+  // 把 pluginId 解析成 chip 展示所需的 SelectedToolItem(name + integration 标记)
+  const selectedToolItems: SelectedToolItem[] = React.useMemo(() => {
+    const all = [...PROJECT_PLUGINS, ...MARKET_PLUGINS]
+    const byId = new Map(all.map((p) => [p.id, p]))
+    return selectedToolsIds.map((id) => {
+      const p = byId.get(id)
+      return {
+        id,
+        name: p?.name ?? id,
+        integration: getPluginIntegration(id),
+      }
+    })
+  }, [selectedToolsIds])
   React.useEffect(() => {
     if (draftInput) {
       setValue(draftInput)
@@ -354,6 +372,11 @@ export function MessageInput({
         {references.length > 0 && (
           <div className="mb-2">
             <ContextReferencePanel references={references} onRemove={removeReference} />
+          </div>
+        )}
+        {selectedToolItems.length > 0 && (
+          <div className="mb-2">
+            <SelectedToolsPanel tools={selectedToolItems} onRemove={removeSelectedTool} />
           </div>
         )}
         <SlashCommandPalette
