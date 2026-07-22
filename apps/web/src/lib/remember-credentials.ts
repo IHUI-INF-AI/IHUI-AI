@@ -120,3 +120,14 @@ export function clearLoginHistory(): void {
     // 静默失败
   }
 }
+
+/** 删除单个历史账号,返回更新后的列表 */
+export function removeFromLoginHistory(account: string): string[] {
+  try {
+    const list = loadLoginHistory().filter((a) => a !== account)
+    localStorage.setItem(HISTORY_KEY, encode(list))
+    return list
+  } catch {
+    return loadLoginHistory()
+  }
+}
