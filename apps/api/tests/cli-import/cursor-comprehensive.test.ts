@@ -129,8 +129,10 @@ describe('cursor parser 全参数综合测试', () => {
   // ===========================================================================
   // 2. model 前缀与 baseUrl 冲突时的协议推断
   // ===========================================================================
-  describe('model 前缀与 baseUrl 冲突', () => {
-    it('model=claude-* + openai.com → anthropic_messages (model 优先)', async () => {
+  describe('model 前缀与 baseUrl 冲突(2026-07-22 修正后)', () => {
+    it('model=claude-* + openai.com → apiFormat=openai_chat (URL 优先) + providerCode=anthropic (model 优先)', async () => {
+      // 修正后设计:apiFormat 由 URL 决定(接入点协议),providerCode 由 model 决定(实际模型归属)
+      // 用户用 OpenAI 兼容代理调 Claude:apiFormat=openai_chat(用 OpenAI 协议),providerCode=anthropic(实际是 Claude)
       const res = await parseCursor(
         makeSettings({
           'cursor.ai.apiKey': 'sk-xxx',
@@ -138,11 +140,11 @@ describe('cursor parser 全参数综合测试', () => {
           'cursor.ai.model': 'claude-3-opus',
         }),
       )
-      // model=claude- 命中 anthropic_messages 分支(在 openai.com 之前判断)
-      expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
+      expect(res.providers[0]!.apiFormat).toBe('openai_chat')
+      expect(res.providers[0]!.providerCode).toBe('anthropic')
     })
 
-    it('model=gemini-* + openai.com → gemini_native (model 优先)', async () => {
+    it('model=gemini-* + openai.com → apiFormat=openai_chat (URL 优先) + providerCode=google (model 优先)', async () => {
       const res = await parseCursor(
         makeSettings({
           'cursor.ai.apiKey': 'sk-xxx',
@@ -150,7 +152,8 @@ describe('cursor parser 全参数综合测试', () => {
           'cursor.ai.model': 'gemini-1.5-pro',
         }),
       )
-      expect(res.providers[0]!.apiFormat).toBe('gemini_native')
+      expect(res.providers[0]!.apiFormat).toBe('openai_chat')
+      expect(res.providers[0]!.providerCode).toBe('google')
     })
 
     it('model=gpt-* + anthropic.com → anthropic_messages (URL 优先)', async () => {
@@ -161,8 +164,10 @@ describe('cursor parser 全参数综合测试', () => {
           'cursor.ai.model': 'gpt-4',
         }),
       )
-      // URL 命中 anthropic.com,在 model gpt- 前缀之前判断
+      // URL 命中 anthropic.com → anthropic_messages(接入点决定协议)
       expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
+      // model=gpt- 优先 → providerCode=openai(但用户用 Anthropic 接入点调 GPT,model 反映实际模型)
+      expect(res.providers[0]!.providerCode).toBe('openai')
     })
 
     it('无 model + anthropic.com → anthropic_messages (URL 判定)', async () => {
@@ -175,7 +180,9 @@ describe('cursor parser 全参数综合测试', () => {
       expect(res.providers[0]!.apiFormat).toBe('anthropic_messages')
     })
 
-    it('model=deepseek-* + openai.com → openai_chat + providerCode=openai (URL 优先于 model 兜底)', async () => {
+    it('model=deepseek-* + openai.com → apiFormat=openai_chat (URL 优先) + providerCode=deepseek (model 优先)', async () => {
+      // 修正前:providerCode=openai(URL 优先,model 兜底走不到)
+      // 修正后:providerCode=deepseek(model 优先,反映实际模型归属)
       const res = await parseCursor(
         makeSettings({
           'cursor.ai.apiKey': 'sk-xxx',
@@ -183,11 +190,8 @@ describe('cursor parser 全参数综合测试', () => {
           'cursor.ai.model': 'deepseek-coder',
         }),
       )
-      // inferApiFormat 只判断 claude-/gemini-,deepseek- 走 openai.com 命中 → openai_chat
       expect(res.providers[0]!.apiFormat).toBe('openai_chat')
-      // providerCode: inferProviderCode 先匹配 baseUrl 域名 'openai.com' → 'openai'(URL 优先)
-      // model 'deepseek-' 兜底永远走不到(因 URL 已命中)
-      expect(res.providers[0]!.providerCode).toBe('openai')
+      expect(res.providers[0]!.providerCode).toBe('deepseek')
     })
   })
 
