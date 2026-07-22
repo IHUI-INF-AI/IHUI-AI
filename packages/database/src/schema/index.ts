@@ -176,3 +176,5 @@ export * from './question-bank-supplement.js'
 export * from './course-recommend-supplement.js'
 // 四层记忆 + Dream 梦境系统(2026-07-22 立,对标 OpenClaw Mem:episodic/semantic/procedural 3 表)
 export * from './memory.js'
+// 代码库语义索引(2026-07-22 新增,AST 切片 + pgvector 向量检索)
+export * from './codebase-index.js'
