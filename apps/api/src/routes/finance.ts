@@ -72,6 +72,22 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
       .object({ quantity: z.coerce.number(), outTradeNo: z.string() })
       .parse(request.query)
     const userId = request.userId!
+    // G8: 补 JOIN orders 校验,确认 outTradeNo 对应已支付订单,堵住"凭任意订单号印钞"漏洞
+    const orderRows = await db
+      .select({ status: orders.status, userId: orders.userId })
+      .from(orders)
+      .where(eq(orders.orderNo, outTradeNo))
+      .limit(1)
+    const order = orderRows[0]
+    if (!order) {
+      return reply.status(400).send(error(400, '订单不存在'))
+    }
+    if (order.status !== 'paid') {
+      return reply.status(400).send(error(400, `订单状态非已支付(当前: ${order.status})`))
+    }
+    if (order.userId !== userId) {
+      return reply.status(403).send(error(403, '订单归属与当前用户不匹配'))
+    }
     const balance = await rechargeToken(userId, quantity, outTradeNo)
     return reply.send(success({ balance }))
   })
