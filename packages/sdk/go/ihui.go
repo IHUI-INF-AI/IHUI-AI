@@ -1,4 +1,4 @@
-// Package ihui 提供 IHUI-AI 平台的 Go SDK,封装 106 个 /v1/* 对外开放 API 端点。
+// Package ihui 提供 IHUI-AI 平台的 Go SDK,封装 105 个 /v1/* 对外开放 API 端点。
 //
 // 用法:
 //
