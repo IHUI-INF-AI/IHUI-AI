@@ -106,13 +106,19 @@ export function HomePage4Pricing() {
               <Card
                 className={
                   isRecommended
-                    ? 'relative flex h-full flex-col overflow-hidden rounded-xl border-2 border-primary bg-card p-4 shadow-md transition-all duration-300 animate-pulse-glow-light group-hover:-translate-y-1 group-hover:border-primary/80 group-hover:bg-primary/5 group-hover:shadow-lg'
-                    : 'relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card p-4 shadow-sm transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:bg-primary/5 group-hover:shadow-md'
+                    ? 'relative flex h-full flex-col overflow-hidden rounded-xl border-2 border-primary bg-card p-4 shadow-lg shadow-primary/20 transition-all duration-300 animate-pulse-glow-light group-hover:-translate-y-2 group-hover:border-primary group-hover:bg-primary/5 group-hover:shadow-xl group-hover:shadow-primary/30'
+                    : 'relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card p-4 shadow-sm transition-all duration-300 group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:bg-primary/5 group-hover:shadow-lg group-hover:shadow-primary/10'
                 }
               >
+                {/* 卡片顶部渐变高光(所有卡片 hover 时显现) */}
+                <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                {/* 推荐计划专属:顶部强光晕 */}
+                {isRecommended && (
+                  <span className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent opacity-80" />
+                )}
                 {isRecommended && (
                   <div className="absolute right-2 top-2 z-10">
-                    <span className="inline-flex items-center gap-1 rounded-md bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-sm">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-gradient-to-r from-primary to-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-primary-foreground shadow-md shadow-primary/30">
                       <Sparkles className="h-3 w-3" />
                       {t('recommended')}
                     </span>
@@ -128,7 +134,11 @@ export function HomePage4Pricing() {
 
                 <div className="mb-3 flex items-baseline gap-1">
                   <span className="text-sm font-semibold text-muted-foreground">¥</span>
-                  <span className="text-2xl font-bold leading-none tracking-tight">
+                  <span className={
+                    isRecommended
+                      ? 'bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-2xl font-bold leading-none tracking-tight text-transparent'
+                      : 'text-2xl font-bold leading-none tracking-tight'
+                  }>
                     {plan.price}
                   </span>
                   <span className="text-xs text-muted-foreground">{t('period')}</span>
