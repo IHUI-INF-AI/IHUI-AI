@@ -267,10 +267,13 @@ async function doPull(cwd: string): Promise<{ pulled: number; tombstoned: number
 }
 
 /**
- * 执行双向同步:调用 /skills/sync 一次完成 push + tombstone + pull
+ * 执行双向同步:调用 /skills/db-sync 一次完成 push + tombstone + pull
  * - 推送本地 skills(upsert,基于 contentHash 跳过未变更;contentHash 不同则复活已软删除的)
  * - tombstone:本地不存在的远端活跃 skill,远端软删除
  * - 拉取远端所有 skills(含已软删除的),CLI 据此删本地文件
+ *
+ * 注意:使用 /skills/db-sync(DB 版,tombstone + contentHash)而非 /skills/sync(Redis 版,action-based)。
+ *       两者契约不同,/skills/sync 已在 routes/skills.ts 中注册实现 SkillSyncRequest/Response canonical 契约。
  */
 async function doSync(cwd: string): Promise<SyncStats> {
   const stats: SyncStats = { pushed: 0, pulled: 0, tombstoned: 0, skipped: 0, errors: [] };
@@ -283,7 +286,7 @@ async function doSync(cwd: string): Promise<SyncStats> {
     pulled: RemoteSkill[];
     tombstoned: string[];
     tombstonedCount: number;
-  }>('/skills/sync', {
+  }>('/skills/db-sync', {
     method: 'POST',
     body: JSON.stringify({ localSkills: localItems }),
   });
