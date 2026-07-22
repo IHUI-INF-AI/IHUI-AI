@@ -351,7 +351,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD 未配置,请在 .env 设置强密码(≥16 字符)}
       - GF_USERS_ALLOW_SIGN_UP=false
     ports:
-      - '${GRAFANA_PORT:-3001}:3000'
+      - '${GRAFANA_PORT:-3010}:3000'
     networks:
       - ihui-net
     healthcheck:
