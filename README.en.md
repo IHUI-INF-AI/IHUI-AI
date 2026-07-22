@@ -39,6 +39,14 @@
   </sub>
 </p>
 
+<p align="center">
+  <strong>China Mirrors</strong> ·
+  <a href="https://gitee.com/IHUI-INF-AI/IHUI-AI">Gitee</a> ·
+  <a href="https://gitcode.com/IHUI-INF-AI/IHUI-AI">GitCode</a>
+  <br/>
+  <sub>Faster clone & download for users in China, auto-synced with GitHub</sub>
+</p>
+
 ---
 
 ## Tech Stack & Project Scale Overview (AI Search Friendly)
