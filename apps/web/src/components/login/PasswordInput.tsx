@@ -76,23 +76,25 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
           )}
         >
           {/*
-           * 双 SVG 容器:同一坐标内只显示其中一个,切换时整组带 eye-fill 动画。
-           * 用 absolute 让两个图标完全重叠,显示控制由 visibility(非 display,保留动画空间)。
+           * 双 SVG 始终在 DOM(opacity 切换显示)避免 hidden 模式影响布局 +
+           * eye-fill 动画结束后被 fill-mode: none 拉回 0% 关键帧(包含 opacity:0)。
+           * span 持有 key 变化让 React 重新挂载 → 重新触发动画;
+           * 父级 inline-flex 让 span 始终是 16x16 容器,SVG 用 absolute 居中。
            */}
           <span
             key={visible ? 'on' : 'off'}
-            className="relative inline-flex h-4 w-4 items-center justify-center"
-            style={{ animation: 'eye-fill 0.5s ease' }}
+            className="pointer-events-none relative inline-flex h-4 w-4 items-center justify-center"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 576 512"
               fill="currentColor"
-              className={cn(
-                'absolute inset-0 m-auto h-4 w-4',
-                visible ? 'hidden' : 'block',
-              )}
               aria-hidden="true"
+              className={cn(
+                'absolute inset-0 m-auto h-4 w-4 transition-opacity duration-200',
+                visible ? 'opacity-0' : 'opacity-100',
+              )}
+              style={{ animation: 'eye-fill 0.45s ease both' }}
             >
               <path d={EYE_OPEN_PATH} />
             </svg>
@@ -100,11 +102,12 @@ export const PasswordInput = React.forwardRef<HTMLInputElement, PasswordInputPro
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 640 512"
               fill="currentColor"
-              className={cn(
-                'absolute inset-0 m-auto h-4 w-4',
-                visible ? 'block' : 'hidden',
-              )}
               aria-hidden="true"
+              className={cn(
+                'absolute inset-0 m-auto h-4 w-4 transition-opacity duration-200',
+                visible ? 'opacity-100' : 'opacity-0',
+              )}
+              style={{ animation: 'eye-fill 0.45s ease both' }}
             >
               <path d={EYE_SLASH_PATH} />
             </svg>

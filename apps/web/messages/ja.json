@@ -703,7 +703,7 @@
     "unknownCallbackType": "のコールバックタイプ",
     "usernameOrPhoneOrEmail": "してくださいアカウント",
     "passwordHint": "してくださいパスワード",
-    "autoLogin": "からログイン",
+    "autoLogin": "自動ログイン",
     "autoRenew": "自動更新",
     "captchaAlt": "コード",
     "clickToRefresh": "クリックして更新",
