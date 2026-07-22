@@ -9,6 +9,7 @@ import { useAuthStore, type AuthUser } from '@/stores/auth'
 import { fetchApi } from '@/lib/api'
 import { Alert } from '@/components/feedback'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
+import { PasswordInput } from '@/components/login'
 import { usernameSchema, type TokenResult } from './login-schemas'
 
 interface UsernameLoginFormProps {
@@ -100,9 +101,8 @@ export function UsernameLoginForm({
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="username-password">{t('password')}</Label>
-        <Input
+        <PasswordInput
           id="username-password"
-          type="password"
           autoComplete="current-password"
           placeholder={t('passwordPlaceholder')}
           className="h-10"
