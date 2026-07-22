@@ -54,7 +54,7 @@ export default defineConfig(async (merge) => {
         },
       },
     },
-    rn: { appName: 'taroDemo', postcss: { cssModules: { enable: false } } },
+    rn: { appName: 'ihui-miniapp', postcss: { cssModules: { enable: false } } },
   }
   return merge({}, base, process.env.NODE_ENV === 'development' ? devConfig : prodConfig)
 })
