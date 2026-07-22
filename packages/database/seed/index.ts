@@ -6,6 +6,7 @@ import { seedUsers } from './users.js'
 import { seedAiFresh2026 } from './ai-fresh-2026.js'
 import { seedCrossDomain } from './seed-cross-domain.js'
 import { seedAiFeedSources } from './ai-feed-sources.js'
+import { seedLeaderboard } from './leaderboard-seed.js'
 
 interface SeedStep {
   /** 步骤编号(1-based) */
@@ -76,6 +77,12 @@ const STEPS: SeedStep[] = [
     name: 'AI 资讯信源',
     description: '17 条国内外信源(国内 8 + 国外 4 + RSS 5),配合 ai-feed-collect cron 每 6 小时采集',
     fn: seedAiFeedSources,
+  },
+  {
+    index: 9,
+    name: '大模型排行榜',
+    description: '89 条 arena.ai 真实数据(8 大分类 + LLM 3 子分类 + 总榜)',
+    fn: seedLeaderboard,
   },
 ]
 
