@@ -20,7 +20,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fetchApi } from '@ihui/api-client';
 
-const VALID_SOURCES = ['cc-switch', 'codex++', 'claude-cli', 'codex-cli', 'gemini-cli', 'hermes', 'env-file', 'cursor', 'windsurf', 'cline', 'aider'] as const;
+const VALID_SOURCES = ['cc-switch', 'codex++', 'claude-cli', 'codex-cli', 'gemini-cli', 'hermes', 'env-file', 'cursor', 'windsurf', 'cline', 'aider', 'trae', 'trae-work', 'qoder', 'qoder-work', 'codex-desktop', 'claude-code-desktop', 'github-copilot', 'amazon-q', 'continue', 'tabnine', 'cody', 'zed'] as const;
 type Source = (typeof VALID_SOURCES)[number];
 
 const STRATEGIES = ['overwrite', 'skip', 'clone'] as const;
