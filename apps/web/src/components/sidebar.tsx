@@ -1118,9 +1118,22 @@ function ExpandableNavItem({
   const children = item.children ?? []
   const parentActive = children.some((child) => isActive(child.href))
   const storageKey = `sidebar-expand-${item.href}`
-  // 初始值固定 false,确保 SSR 与客户端首次渲染一致,避免 hydration mismatch。
-  // 真实展开状态在 hydration 后由 useEffect 读取(parentActive 优先,其次 localStorage)。
-  const [open, setOpen] = React.useState(false)
+  // 2026-07-22 修复首屏父菜单子菜单展开闪烁:
+  // 原方案 useState(false) → useEffect 读 localStorage → setOpen → 二次 render
+  // 会有子菜单从折叠变展开的高度动画 + 子项 stagger 进入动画,视觉上算"闪烁"。
+  // 新方案:useState lazy initializer 在首次 render 时同步读 localStorage,
+  // - SSR(无 window):返回 false(避免 hydration mismatch 字符串差异)
+  // - CSR 首次 render(有 window):同步读 localStorage 返回真实状态
+  //   实际首帧 DOM 就是正确状态,无 false → true 二次跳变
+  // 父级 <button> 加 suppressHydrationWarning 抑制 React 警告(SSR=false vs CSR=true 必然不一致)
+  const [open, setOpen] = React.useState(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      return window.localStorage.getItem(storageKey) === '1'
+    } catch {
+      return false
+    }
+  })
   // 静态派生 listId(不含 useId),保证 SSR/CSR 字节级一致 + DOM 唯一 id。
   // React 18 useId 在两个 React 树(桌面/移动 aside)间偶发漂移会导致 hydration mismatch + Radix aria-controls 失效。
   const listId = `exp-list-${scope}-${item.href.replace(/[^a-z0-9]+/gi, '-')}`
@@ -1136,18 +1149,11 @@ function ExpandableNavItem({
     return 0
   }
 
-  // hydration 后读取真实展开状态
+  // 2026-07-22 简化:删除原 useEffect 延迟读取(open 已由 lazy initializer 同步设置)。
+  // 仅在 parentActive 变化时同步处理(URL 命中子项时父菜单应展开)。
   React.useEffect(() => {
-    if (parentActive) {
-      setOpen(true)
-      return
-    }
-    try {
-      setOpen(localStorage.getItem(storageKey) === '1')
-    } catch {
-      // localStorage 不可用
-    }
-  }, [parentActive, storageKey])
+    if (parentActive && !open) setOpen(true)
+  }, [parentActive, open])
 
   // 持久化展开状态到 localStorage
   React.useEffect(() => {
@@ -1260,6 +1266,10 @@ function ExpandableNavItem({
         aria-expanded={open}
         aria-haspopup="menu"
         aria-controls={listId}
+        // 2026-07-22 修复首屏父菜单子菜单展开闪烁:
+        // 父级 button 加 suppressHydrationWarning 抑制 SSR=false vs CSR=true 的 hydration 警告。
+        // 实际 DOM 已被 client value 覆盖,首帧就是正确展开态,无 false → true 跳变。
+        suppressHydrationWarning
         className={parentClassName}
       >
         <Icon className="h-5 w-5 shrink-0" />
@@ -1370,33 +1380,27 @@ function NavGroupSection({
     return false
   })
 
-  // SSR-safe: 初始 false,hydration 后读真实状态
-  const [open, setOpen] = React.useState(false)
-
-  // mount-once effect:用 ref 捕获挂载时的初始值,后续 groupActive 变化由下方 effect 单独处理
-  const initialGroupActive = React.useRef(groupActive)
-  const initialStorageKey = React.useRef(storageKey)
-  const initialDefaultOpen = React.useRef(defaultOpen)
-
-  // 仅在挂载后读一次真实状态(默认值 / localStorage / groupActive 三者择一)。
-  // 不在 open 变化时回写 localStorage — 那会让"默认值生效"被误判为"用户切换",污染下次访问。
-  // 用户主动 toggle 时,由 handleToggle 显式写入 localStorage。
-  React.useEffect(() => {
-    if (initialGroupActive.current) {
-      setOpen(true)
-      return
-    }
+  // SSR-safe + no-flash(2026-07-22 修复首屏 sidebar 子菜单展开闪烁):
+  // - SSR 阶段:无 window,fallback 到 defaultOpen(AI / admin 默认 true,其余 false),
+  //   与 SSR HTML 一致,无 hydration mismatch
+  // - 首次 client render:lazy initializer 同步读 localStorage,持久化值已就位,
+  //   首帧 open 就是持久化值 / defaultOpen,无需 useEffect 二次设置
+  // - 用户持久化 stored='0'/'1' 时,client 首 render 可能与 SSR defaultOpen 不一致 →
+  //   对 button 的 aria-expanded 加 suppressHydrationWarning(仅此属性,不影响交互)
+  // 之前:open 初始固定 false,useEffect 读 defaultOpen=true 后 setOpen(true),
+  //       触发 grid-rows 0fr→1fr 过渡(0px → 302px),用户看到"先收起后展开"闪烁
+  // 本次:open 首帧就是 defaultOpen(AI / admin 已是 true),无过渡,无闪烁
+  const [open, setOpen] = React.useState(() => {
+    if (typeof window === 'undefined') return defaultOpen
     try {
-      const stored = window.localStorage.getItem(initialStorageKey.current)
-      if (stored === '1') setOpen(true)
-      else if (stored === '0') setOpen(false)
-      else setOpen(initialDefaultOpen.current)
+      const stored = window.localStorage.getItem(storageKey)
+      if (stored === '1') return true
+      if (stored === '0') return false
+      return defaultOpen
     } catch {
-      setOpen(initialDefaultOpen.current)
+      return defaultOpen
     }
-    // 故意只跑一次:依赖项固定为挂载时常量。groupActive/storageKey/defaultOpen 在挂载后不变,
-    // 即便变化(如路由切换导致 groupActive 变化)也由下方 groupActive effect 单独处理。
-  }, [])
+  })
 
   // 路由切换后,若新路由命中本组,强制展开(覆盖用户上次折叠的偏好)
   React.useEffect(() => {
@@ -1483,6 +1487,10 @@ function NavGroupSection({
         aria-expanded={open}
         aria-label={groupLabel}
         data-testid={`nav-group-${group.label}-toggle`}
+        // suppressHydrationWarning: client 首 render 的 open 可能与 SSR defaultOpen 不一致
+        // (用户持久化 stored='0'/'1' 场景),允许 React 在此属性上 mismatch,避免 console warning。
+        // 不影响交互和 grid-rows 展开行为(首帧 open 已是正确值,无过渡闪烁)。
+        suppressHydrationWarning
         className="group/grp flex w-full items-center gap-1 px-2.5 pb-1 pt-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
       >
         <ChevronDown
@@ -1540,7 +1548,13 @@ export function Sidebar({
   const mobileNavRef = React.useRef<HTMLElement>(null)
   const itemRefs = React.useRef<Map<string, HTMLElement>>(new Map())
 
-  // 桌面端展开态拖拽调整宽度(130-180px),localStorage 持久化
+  // 桌面端展开态拖拽调整宽度(130-180px),localStorage 持久化。
+  // 2026-07-22 修复首屏 width 闪烁:
+  // - 删除原 useEffect 延迟读取(原 1549-1557 行),由 layout.tsx inline script 在 React hydrate 前
+  //   同步预设 :root --sidebar-width CSS 变量,首帧 aside width = 持久化值,无 130 → 180 跳变。
+  // - aside 元素 width 改为 `var(--sidebar-width, 130px)` 字符串引用(SSR/CSR 字节级一致),
+  //   React 不解析 CSS 变量,只比较 style 字符串,无 hydration mismatch 警告。
+  // - 拖拽时 setSidebarWidth + useEffect 同步 CSS 变量保留(运行时宽度变化仍平滑过渡)。
   const [sidebarWidth, setSidebarWidth] = React.useState(SIDEBAR_WIDTH)
   const [isResizing, setIsResizing] = React.useState(false)
 
@@ -1549,18 +1563,23 @@ export function Sidebar({
   const desktopNavId = id ? `${id}-desktop` : 'sidebar-nav-desktop'
   const mobileNavId = id ? `${id}-mobile` : 'sidebar-nav-mobile'
 
-  React.useEffect(() => {
-    const saved = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY)
-    if (saved) {
-      const n = Number(saved)
-      if (Number.isFinite(n)) {
-        setSidebarWidth(Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, n)))
-      }
-    }
-  }, [])
+  // 2026-07-22 修复首屏 width 闪烁:删除原 useEffect 延迟读取(由 layout.tsx inline script
+  // 在 React hydrate 前同步预设 --sidebar-width CSS 变量完成,首帧 aside width = 持久化值)。
+  // 原代码(已删除):
+  //   React.useEffect(() => {
+  //     const saved = window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY)
+  //     if (saved) {
+  //       const n = Number(saved)
+  //       if (Number.isFinite(n)) {
+  //         setSidebarWidth(Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, n)))
+  //       }
+  //     }
+  //   }, [])
 
   // 同步当前实际宽度(折叠态用 60px,展开态用 sidebarWidth)到 :root 的 --sidebar-width CSS 变量,
   // 供 AISidePanel 等 fixed 定位组件通过 left: var(--sidebar-width) 紧贴 Sidebar 右侧。
+  // 2026-07-22 升级:首帧值由 layout.tsx inline script 预设(读 localStorage),
+  // 此 useEffect 仅负责运行时同步(用户拖拽/折叠变化),不会触发首屏跳变。
   React.useEffect(() => {
     const effective = collapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth
     document.documentElement.style.setProperty('--sidebar-width', `${effective}px`)
@@ -1895,11 +1914,16 @@ export function Sidebar({
           'relative hidden h-screen shrink-0 flex-col overflow-visible bg-background transition-[width] duration-200 lg:flex',
           collapsed && 'w-[60px]',
         )}
+        // 2026-07-22 修复首屏 width 闪烁:
+        // width 改为 `var(--sidebar-width, 130px)` 字符串引用 CSS 变量。
+        // - SSR/CSR 字节级一致(都是同一字符串),无 hydration mismatch 警告
+        // - 实际渲染 width = layout.tsx inline script 预设的 --sidebar-width 值
+        // - 折叠态直接 60px inline 覆盖 CSS 变量(避免与 var() 计算冲突)
         style={
           collapsed
             ? { width: SIDEBAR_COLLAPSED_WIDTH }
             : {
-                width: sidebarWidth,
+                width: 'var(--sidebar-width, 130px)',
                 transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)',
               }
         }
