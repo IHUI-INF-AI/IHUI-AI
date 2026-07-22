@@ -65,12 +65,18 @@ export function HomeRoi() {
           <RevealOnView
             key={title}
             delay={0.05 * (i + 1)}
-            className="group flex flex-col items-center gap-1.5 rounded-lg border bg-muted/40 p-4 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/5 hover:shadow-md sm:p-5"
+            className="group relative flex flex-col items-center gap-1.5 overflow-hidden rounded-lg border bg-muted/40 p-4 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:bg-primary/5 hover:shadow-lg hover:shadow-primary/10 sm:p-5"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary transition-transform duration-300 group-hover:scale-110">
-              <Icon className="h-4 w-4" aria-hidden="true" />
+            {/* 卡片顶部渐变高光 */}
+            <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+            {/* 图标背景圆 - 渐变背景 + hover 放大旋转 */}
+            <div className="relative flex h-10 w-10 items-center justify-center">
+              <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/20 to-emerald-500/10 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-6" />
+              <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary transition-transform duration-300 group-hover:scale-110">
+                <Icon className="h-4 w-4" aria-hidden="true" />
+              </div>
             </div>
-            <span className="text-base font-bold leading-tight tracking-tight text-primary transition-transform duration-300 group-hover:scale-105 sm:text-lg">
+            <span className="bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-base font-bold leading-tight tracking-tight text-transparent transition-transform duration-300 group-hover:scale-105 sm:text-lg">
               {value}
             </span>
             <h3 className="text-xs font-semibold leading-tight sm:text-sm">{title}</h3>
