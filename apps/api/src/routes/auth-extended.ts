@@ -2235,6 +2235,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
             },
           },
         },
+        404: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
       },
     },
   }, async (request, reply) => {
@@ -2276,6 +2277,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           },
         },
         400: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+        404: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
       },
     },
   }, async (request, reply) => {
@@ -2334,6 +2336,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         },
         400: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
         401: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+        404: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+        500: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
       },
     },
   }, async (request, reply) => {
@@ -2397,6 +2401,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         },
         400: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
         401: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+        404: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
       },
     },
   }, async (request, reply) => {
@@ -2453,6 +2458,8 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         },
         400: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
         401: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+        403: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+        404: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
       },
     },
     config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
