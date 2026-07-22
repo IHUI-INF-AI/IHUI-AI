@@ -20,7 +20,7 @@ import { useTranslations } from 'next-intl'
 import { Button, Card, CardContent } from '@ihui/ui'
 import { Container } from '@/components/layout'
 import { Alert } from '@/components/feedback'
-import { KeyRound, Loader2, PackagePlus, Sparkles, Wand2 } from 'lucide-react'
+import { KeyRound, Loader2, PackagePlus, Sparkles, Upload, Wand2 } from 'lucide-react'
 
 import { GroupSidebar } from './GroupSidebar'
 import { ProviderCardV2 } from './ProviderCardV2'
@@ -169,6 +169,12 @@ export default function UserLlmConfigsPage() {
           <Button onClick={() => setBulkOpen(true)} size="sm" variant="outline">
             <PackagePlus className="mr-1.5 h-4 w-4" />
             {tV2('bulk.title')}
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <a href="/settings/import">
+              <Upload className="mr-1.5 h-4 w-4" />
+              {t('importCliConfig')}
+            </a>
           </Button>
           <Button onClick={openCreateProvider} size="sm">
             <Sparkles className="mr-1.5 h-4 w-4" />

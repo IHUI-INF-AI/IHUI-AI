@@ -26052,7 +26052,7 @@
   },
   "cliImport": {
     "title": "CLI Config Import",
-    "desc": "One-click import from cc-switch / codex++ / Claude / Codex / Gemini / Hermes local tools",
+    "desc": "Import from cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env",
     "sources": "Supported sources",
     "sourceCcSwitch": "cc-switch",
     "sourceCodexPlus": "codex++",
@@ -26100,7 +26100,12 @@
     "errorNoFile": "Please upload a config file",
     "errorNoSource": "Please select an import source",
     "errorPreviewExpired": "Preview expired, please re-parse",
-    "errorParseFailed": "Parse failed"
+    "errorParseFailed": "Parse failed",
+    "sourceEnvFile": ".env Generic Config",
+    "sourceCursor": "Cursor IDE",
+    "sourceWindsurf": "Windsurf (Codeium)",
+    "sourceCline": "Cline (VSCode)",
+    "sourceAider": "Aider"
   },
   "llmSettings": {
     "title": "My LLM Configs",
@@ -26252,7 +26257,26 @@
       "deleteProviderConfirm": "Delete provider \"{name}\"? All attached models will be removed too.",
       "deleteModelConfirm": "Delete model \"{id}\"?",
       "bulk": {
-        "title": "Bulk Import/Export"
+        "title": "Bulk Import/Export",
+        "exportTitle": "Export Configs",
+        "importTitle": "Import Configs",
+        "exportDesc": "Export all providers + models as a JSON file. API keys are automatically masked.",
+        "importDesc": "Import providers + models from a JSON file. API keys are left blank and must be filled in manually.",
+        "export": "Export",
+        "import": "Import",
+        "exportBtn": "Export JSON",
+        "importFile": "Upload JSON file",
+        "importPlaceholder": "Or paste JSON content here...",
+        "importSubmit": "Start import",
+        "importConfirmDesc": "Will create {providers} providers and {models} models. API keys are left blank.",
+        "exportSuccess": "Exported {count} providers / {models} models",
+        "importSuccess": "Imported {providers} providers / {models} models",
+        "importFailed": "Import failed: {error}",
+        "invalidJson": "Invalid JSON, please check the file",
+        "cancel": "Cancel",
+        "formatLabel": "Export Format",
+        "exportJson": "JSON Format",
+        "exportEnv": ".env Format"
       },
       "sidebar": {
         "title": "Groups",
@@ -26344,25 +26368,6 @@
         "responseFormat": "Response Format",
         "systemPrompt": "System Prompt",
         "systemPromptPlaceholder": "You are a helpful assistant..."
-      },
-      "bulk": {
-        "title": "Bulk Import/Export",
-        "exportTitle": "Export Configs",
-        "importTitle": "Import Configs",
-        "exportDesc": "Export all providers + models as a JSON file. API keys are automatically masked.",
-        "importDesc": "Import providers + models from a JSON file. API keys are left blank and must be filled in manually.",
-        "export": "Export",
-        "import": "Import",
-        "exportBtn": "Export JSON",
-        "importFile": "Upload JSON file",
-        "importPlaceholder": "Or paste JSON content here...",
-        "importSubmit": "Start import",
-        "importConfirmDesc": "Will create {providers} providers and {models} models. API keys are left blank.",
-        "exportSuccess": "Exported {count} providers / {models} models",
-        "importSuccess": "Imported {providers} providers / {models} models",
-        "importFailed": "Import failed: {error}",
-        "invalidJson": "Invalid JSON, please check the file",
-        "cancel": "Cancel"
       },
       "compareDialog": {
         "title": "Model Comparison",
