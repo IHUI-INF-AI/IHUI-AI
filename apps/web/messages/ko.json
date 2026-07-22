@@ -26006,7 +26006,7 @@
   },
   "cliImport": {
     "title": "CLI 설정 가져오기",
-    "desc": "cc-switch / codex++ / Claude / Codex / Gemini / Hermes 등 로컬 도구에서 원클릭 가져오기",
+    "desc": "cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env에서 일괄 가져오기",
     "sources": "지원되는 소스",
     "sourceCcSwitch": "cc-switch",
     "sourceCodexPlus": "codex++",
@@ -26054,7 +26054,12 @@
     "errorNoFile": "설정 파일을 업로드하세요",
     "errorNoSource": "가져오기 소스를 선택하세요",
     "errorPreviewExpired": "미리보기 만료, 다시 파싱하세요",
-    "errorParseFailed": "파싱 실패"
+    "errorParseFailed": "파싱 실패",
+    "sourceEnvFile": ".env 범용 설정",
+    "sourceCursor": "Cursor IDE",
+    "sourceWindsurf": "Windsurf (Codeium)",
+    "sourceCline": "Cline (VSCode)",
+    "sourceAider": "Aider"
   },
   "llmSettings": {
     "title": "내 LLM 설정",
@@ -26222,7 +26227,10 @@
         "importSuccess": "{providers}개 프로바이더 / {models}개 모델 가져옴",
         "importFailed": "가져오기 실패: {error}",
         "invalidJson": "잘못된 JSON입니다. 파일을 확인하세요",
-        "cancel": "취소"
+        "cancel": "취소",
+        "formatLabel": "내보내기 형식",
+        "exportJson": "JSON 형식",
+        "exportEnv": ".env 형式"
       },
       "sidebar": {
         "title": "그룹",

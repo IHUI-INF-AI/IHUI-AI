@@ -82,6 +82,11 @@ export function sourceLabelKey(source: CliConfigSource): string {
     'codex-cli': 'sourceCodexCli',
     'gemini-cli': 'sourceGeminiCli',
     hermes: 'sourceHermes',
+    'env-file': 'sourceEnvFile',
+    cursor: 'sourceCursor',
+    windsurf: 'sourceWindsurf',
+    cline: 'sourceCline',
+    aider: 'sourceAider',
   }
   return map[source]
 }
