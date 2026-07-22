@@ -1,0 +1,73 @@
+# 国内镜像自动同步：push 到 main 后自动镜像到 Gitee + GitCode
+# 仅用 git 官方 CLI，不依赖第三方 action，透明可控。
+# 所需 Secrets：GITEE_TOKEN / GITEE_OWNER / GITCODE_TOKEN / GITCODE_OWNER
+# 详见 .github/SECRETS.md「国内镜像同步」一节。
+name: Mirror to CN
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # 每天北京时间 08:00 / 20:00 兜底同步（UTC 00:00 / 12:00）
+    - cron: '0 0,12 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mirror-to-cn
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout（全历史）
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 配置 git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: 镜像到 Gitee
+        id: gitee
+        continue-on-error: true
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          GITEE_OWNER: ${{ secrets.GITEE_OWNER }}
+        run: |
+          if [ -z "$GITEE_TOKEN" ] || [ -z "$GITEE_OWNER" ]; then
+            echo "GITEE_TOKEN / GITEE_OWNER 未配置，跳过 Gitee 镜像"
+            exit 0
+          fi
+          REMOTE="https://${GITEE_OWNER}:${GITEE_TOKEN}@gitee.com/${GITEE_OWNER}/IHUI-AI.git"
+          git push --mirror "$REMOTE" 2>&1 | sed "s|${GITEE_TOKEN}|***|g"
+          echo "✅ Gitee 镜像推送完成"
+
+      - name: 镜像到 GitCode
+        id: gitcode
+        continue-on-error: true
+        env:
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+          GITCODE_OWNER: ${{ secrets.GITCODE_OWNER }}
+        run: |
+          if [ -z "$GITCODE_TOKEN" ] || [ -z "$GITCODE_OWNER" ]; then
+            echo "GITCODE_TOKEN / GITCODE_OWNER 未配置，跳过 GitCode 镜像"
+            exit 0
+          fi
+          REMOTE="https://${GITCODE_OWNER}:${GITCODE_TOKEN}@gitcode.com/${GITCODE_OWNER}/IHUI-AI.git"
+          git push --mirror "$REMOTE" 2>&1 | sed "s|${GITCODE_TOKEN}|***|g"
+          echo "✅ GitCode 镜像推送完成"
+
+      - name: 同步结果汇总
+        if: always()
+        run: |
+          echo "## 国内镜像同步结果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Gitee: ${{ (steps.gitee.outcome == 'success' || steps.gitee.outcome == 'skipped') && '✅ 成功' || '❌ 失败（见上一步日志）' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- GitCode: ${{ (steps.gitcode.outcome == 'success' || steps.gitcode.outcome == 'skipped') && '✅ 成功' || '❌ 失败（见上一步日志）' }}" >> $GITHUB_STEP_SUMMARY
