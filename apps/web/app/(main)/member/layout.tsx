@@ -21,7 +21,7 @@ export default function MemberLayout({ children }: { children: React.ReactNode }
           </p>
         </div>
         <Link
-          href="/member/upgrade"
+          href="/vip"
           className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-600 transition-colors hover:bg-amber-500/20 dark:text-amber-400"
         >
           <User className="h-3.5 w-3.5" />

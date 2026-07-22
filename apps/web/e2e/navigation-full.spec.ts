@@ -22,7 +22,7 @@ const TOP_LEVEL_PAGES = [
   '/learn',
   '/exam',
   '/points',
-  '/vip-membership',
+  '/vip',
   '/docs',
   '/search',
 ] as const

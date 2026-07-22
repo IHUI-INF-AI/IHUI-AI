@@ -222,7 +222,7 @@ function PaymentConfirmContent() {
         {isPaid ? (
           <>
             <Button onClick={() => router.push('/learn')}>{t('actions.backToLearn')}</Button>
-            <Button variant="outline" onClick={() => router.push('/user/orders')}>
+            <Button variant="outline" onClick={() => router.push('/orders')}>
               {t('actions.viewOrders')}
             </Button>
           </>
@@ -233,7 +233,7 @@ function PaymentConfirmContent() {
         ) : (
           <>
             <Button onClick={() => router.push('/learn')}>{t('actions.repurchase')}</Button>
-            <Button variant="outline" onClick={() => router.push('/user/orders')}>
+            <Button variant="outline" onClick={() => router.push('/orders')}>
               {t('actions.viewOrders')}
             </Button>
           </>
