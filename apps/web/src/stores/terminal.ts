@@ -26,6 +26,8 @@ interface TerminalState {
   setActive: (id: string | null) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
+  /** 重命名会话(乐观更新 store,REST 失败由调用方回滚) */
+  renameSession: (id: string, name: string) => void
   reset: () => void
 }
 
@@ -65,6 +67,13 @@ export const useTerminalStore = create<TerminalState>((set) => ({
   setLoading: (loading) => set({ loading }),
 
   setError: (error) => set({ error }),
+
+  renameSession: (id, name) =>
+    set((s) => ({
+      sessions: s.sessions.map((sess) =>
+        sess.id === id ? { ...sess, name } : sess,
+      ),
+    })),
 
   reset: () => set({ sessions: [], activeSessionId: null, loading: false, error: null }),
 }))
