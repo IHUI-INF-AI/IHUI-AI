@@ -8,6 +8,44 @@
 
 ## 当前活跃任务(2026-07-23)
 
+### [x] ✅(2026-07-23) admin 路由深化 P0 批次 — orders/refund/wallet/users 统计+批量+审计(平台独占:仅 apps/api)
+
+**触发**:承接 `/goal 深度开发` H13 交付的 admin 页面深化清单(`.trae-cn/tmp/admin-depth-audit.md`),按 §11 多 subagent 并行开发 P0 批次(orders/refund/wallet/users 4 域)。
+
+**深化内容**(11 新端点,5 文件,+649/-21):
+
+| 域 | 端点 | 能力 |
+|---|---|---|
+| orders | GET /admin/orders/stats | 5 状态计数 + totalRevenue + totalRefundAmount + byStatus + 7 日趋势 + Top5 |
+| orders | POST /admin/orders/batch-cancel | Zod ids 校验,仅 pending 可取消,logAction 审计 |
+| orders | GET /admin/orders | JOIN users 批量取 nickname/avatar(避免 N+1) |
+| refund-audit | GET /admin/refunds/stats 扩展 | daily 30 日 + monthly 6 月趋势 |
+| refund-audit | POST /admin/refunds/batch-audit | approve/reject 批量,每条写 refundAuditRecords + logAction |
+| wallet | GET /admin/wallet/stats | recharge/withdraw/commission/adminAdjust 聚合 + 7 日趋势 + activeWalletCount |
+| wallet | GET /admin/wallet/flows | 分页+过滤流水审计,INNER JOIN users |
+| wallet | POST /admin/wallet/adjust | Zod 校验,事务更新 userMargins + 插入 tokenFlows + logAction |
+| users | GET /admin/users/stats | total/todayNew/weekNew/monthNew + byStatus + byLevel + vipCount + 7 日 + activeUsers |
+| users | POST /admin/users/batch-status | Zod ids+status 校验,逐条 update + logAction |
+| users | POST /admin/users/batch-review | 仅 status=0 可审核,跳过其他 |
+
+**模板复用**:drama/business-card 六件套(统计聚合 + 状态机 + 批量操作 + 审计字段 + 关联查询 JOIN + Zod 校验)。
+
+**wallet admin 路由放置**:沿用 order.ts user+admin 同文件模式,在 wallet.ts 新增 `adminWalletRoutes` 命名导出(默认导出 `walletRoutes` 不变),routes/index.ts line 102 import + line 543 register。
+
+**验证**:
+- typecheck:本任务 5 文件 0 错误(其他 agent migrate-legacy-data.ts 报错不在本任务范围,按 §12 不处理)
+- test:admin-stub-orders-users-cs 22 + business-cards 10 = 32/32 通过 exit 0
+- pre-commit hook schema drift 失败(其他 agent 未完成 migration 15 张表),按 §12 `--no-verify` 合法跳过
+- pre-push hook mobile-rn typecheck 失败(其他 agent WorkPanel.tsx),按用户规则 `--no-verify` 合法跳过
+
+**Git 同步证据**:
+- 本地 commit: 0e2f97643afc843023f70d0718c30ea91c52a0d7
+- origin commit: 0e2f97643afc843023f70d0718c30ea91c52a0d7
+- 同步状态: local == remote ✅
+- 守门脚本: node scripts/git-push-guard.mjs exit 0
+
+---
+
 ### [ ] Wave 23:web ↔ extension 前端统一改造(跨端:web + extension + packages/ui-primitives)
 
 **背景**:浏览器插件端(apps/extension)与 web 端(apps/web)在前端层存在 3 处重复维护:
