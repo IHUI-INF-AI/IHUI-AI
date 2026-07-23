@@ -14595,6 +14595,7 @@
     "ecosystem": "生態合作",
     "icp": "吉ICP備2025027274號",
     "copyright": "© 2025 智匯AI集團 · 中國",
+    "modelRecord": "模型備案",
     "platforms": {
       "n8n": "n8n",
       "coze": "Coze"
@@ -28410,7 +28411,12 @@
       "colOutputPrice": "輸出價",
       "colReleaseDate": "發佈",
       "footerDataRef": "📊 數據參考 arena.ai/leaderboard · Elo 評分 + Bootstrap 置信區間",
-      "footerClickHint": "點擊行查看模型詳情 + 能力雷達圖"
+      "footerClickHint": "點擊行查看模型詳情 + 能力雷達圖",
+      "favAll": "全部",
+      "favOnly": "收藏",
+      "favToggle": "收藏/取消收藏",
+      "colVisibility": "列顯隱",
+      "colVisibilityHint": "勾選顯示列"
     },
     "hero": {
       "label": "AI 資訊 Hero",
@@ -28485,7 +28491,8 @@
     "hotRanking": {
       "label": "熱度排行榜",
       "title": "AI 資訊熱度榜 Top 10",
-      "subtitle": "依即時熱度排序"
+      "subtitle": "依即時熱度排序",
+      "empty": "暫無熱門資訊"
     },
     "trendChart": {
       "subtitle": "7/14 天熱度趨勢曲線",
@@ -28495,12 +28502,14 @@
       "noDataHint": "需 ≥2 天快照才能繪製趨勢,明天 cron 後自動有",
       "stable": "平穩",
       "rankDelta": "排名變化",
-      "hotValue": "熱度值"
+      "hotValue": "熱度值",
+      "close": "關閉"
     },
     "funding": {
       "label": "重磅融資與收購",
       "title": "重磅融資與收購",
-      "subtitle": "7 月 AI 產業資本動作:SpaceX 600 億美元收購 Cursor、DeepSeek 500 億元融資"
+      "subtitle": "7 月 AI 產業資本動作:SpaceX 600 億美元收購 Cursor、DeepSeek 500 億元融資",
+      "empty": "暫無融資動態"
     },
     "detailDialog": {
       "arenaScore": "Arena 評分",
