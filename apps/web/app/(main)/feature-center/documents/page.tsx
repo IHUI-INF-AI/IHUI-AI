@@ -11,6 +11,10 @@ import {
   Clock,
   Copy,
   Check,
+  List,
+  X,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import ReactMarkdown from 'react-markdown'
@@ -178,6 +182,8 @@ export default function DocumentsPage() {
   const [activeHeadingId, setActiveHeadingId] = React.useState<string | null>(null)
   // 阅读进度百分比(0-100)
   const [progress, setProgress] = React.useState(0)
+  // 移动端 TOC 抽屉开关(md 以下小屏才显示)
+  const [showTocDrawer, setShowTocDrawer] = React.useState(false)
 
   // 动态生成分类按钮(从返回数据的 unique category 值)
   const categories = React.useMemo(() => {
@@ -247,6 +253,23 @@ export default function DocumentsPage() {
   // 从当前显示内容提取 TOC
   const tocItems = React.useMemo(() => extractToc(displayContent), [displayContent])
 
+  // 阅读时长估算:中文按 300 字/分钟(英文按字符近似估算)
+  const readingTime = React.useMemo(() => {
+    if (!displayContent) return 0
+    const chars = displayContent.replace(/\s+/g, '').length
+    return Math.max(1, Math.ceil(chars / 300))
+  }, [displayContent])
+
+  // 当前预览文档在 list 中的索引(navigatedSlug 跳转不影响,基于 previewDoc 位置)
+  const navIndex = React.useMemo(() => {
+    if (!previewDoc) return -1
+    return list.findIndex((d) => d.id === previewDoc.id)
+  }, [list, previewDoc])
+  // 上一篇 / 下一篇文档(提取为局部变量以便 TS 类型收窄)
+  const navPrev = navIndex > 0 ? list[navIndex - 1] : undefined
+  const navNext =
+    navIndex >= 0 && navIndex < list.length - 1 ? list[navIndex + 1] : undefined
+
   // 点击 TOC 项:滚动到对应标题
   function scrollToHeading(id: string) {
     const container = contentRef.current
@@ -281,10 +304,11 @@ export default function DocumentsPage() {
     setActiveHeadingId(current)
   }
 
-  // 切换文档(navigatedSlug 或 previewSlug 变化)时重置进度与高亮
+  // 切换文档(navigatedSlug 或 previewSlug 变化)时重置进度、高亮,并滚动到顶部
   React.useEffect(() => {
     setProgress(0)
     setActiveHeadingId(null)
+    contentRef.current?.scrollTo(0, 0)
   }, [displaySlug])
 
   // ESC 关闭预览 modal
@@ -340,6 +364,12 @@ export default function DocumentsPage() {
   // 关闭预览时清空 navigated 状态
   function closePreview() {
     setPreviewId(null)
+    setNavigatedSlug(null)
+  }
+
+  // 上一篇/下一篇导航:切换 previewId 并清空 navigated 状态(滚动到顶部由 displaySlug effect 处理)
+  function goToDoc(doc: DocItem) {
+    setPreviewId(doc.id)
     setNavigatedSlug(null)
   }
 
@@ -447,24 +477,42 @@ export default function DocumentsPage() {
       {previewDoc && (
         <Card className="fixed inset-4 z-modal flex flex-col overflow-hidden md:inset-x-1/4 md:top-1/4 md:bottom-1/4">
           <CardContent className="flex flex-1 flex-col gap-3 p-6">
-            <div className="flex shrink-0 items-center justify-between">
-              <h3 className="flex items-center gap-2 text-lg font-semibold">
-                <FileText className="h-5 w-5 text-primary" />
-                {previewDoc.title}
+            <div className="flex shrink-0 items-center justify-between gap-2">
+              <h3 className="flex min-w-0 flex-1 items-center gap-2 text-lg font-semibold">
+                <FileText className="h-5 w-5 shrink-0 text-primary" />
+                <span className="truncate">{previewDoc.title}</span>
+                {readingTime > 0 && (
+                  <span className="shrink-0 text-xs font-normal text-muted-foreground">
+                    {readingTime} 分钟阅读
+                  </span>
+                )}
                 {navigatedSlug && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setNavigatedSlug(null)}
-                    className="ml-2 h-7 px-2 text-xs"
+                    className="h-7 shrink-0 px-2 text-xs"
                   >
                     返回原文
                   </Button>
                 )}
               </h3>
-              <Button variant="ghost" size="sm" onClick={closePreview}>
-                {t('close')}
-              </Button>
+              <div className="flex shrink-0 items-center gap-1">
+                {tocItems.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowTocDrawer(true)}
+                    className="md:hidden"
+                    aria-label="打开目录"
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={closePreview}>
+                  {t('close')}
+                </Button>
+              </div>
             </div>
             {/* 阅读进度条:2px 高,随内容滚动百分比填充 */}
             <div className="h-0.5 shrink-0 overflow-hidden rounded-sm bg-muted">
@@ -473,6 +521,47 @@ export default function DocumentsPage() {
                 style={{ width: `${progress}%` }}
               />
             </div>
+            {/* 上一篇 / 下一篇文档导航 */}
+            {navIndex >= 0 && (navPrev || navNext) && (
+              <div className="flex shrink-0 items-center justify-between gap-2">
+                {navPrev ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => goToDoc(navPrev)}
+                    className="min-w-0"
+                  >
+                    <ChevronLeft className="h-4 w-4 shrink-0" />
+                    <span className="max-w-[200px] truncate">
+                      上一篇:{navPrev.title}
+                    </span>
+                  </Button>
+                ) : (
+                  <Button variant="ghost" size="sm" disabled>
+                    <ChevronLeft className="h-4 w-4" />
+                    上一篇
+                  </Button>
+                )}
+                {navNext ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => goToDoc(navNext)}
+                    className="min-w-0"
+                  >
+                    <span className="max-w-[200px] truncate">
+                      下一篇:{navNext.title}
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0" />
+                  </Button>
+                ) : (
+                  <Button variant="ghost" size="sm" disabled>
+                    下一篇
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            )}
             {displayLoading ? (
               <div className="flex items-center justify-center py-8 text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -601,6 +690,52 @@ export default function DocumentsPage() {
                     {displayContent}
                   </ReactMarkdown>
                 </div>
+                {/* 移动端 TOC 抽屉:fixed 覆盖在内容区上方 */}
+                {showTocDrawer && tocItems.length > 0 && (
+                  <div className="fixed inset-y-0 right-0 z-10 w-64 overflow-y-auto bg-card p-3 shadow-lg md:hidden">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        目录
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowTocDrawer(false)}
+                        className="h-7 w-7 p-0"
+                        aria-label="关闭目录"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <ul className="space-y-0.5">
+                      {tocItems.map((item) => (
+                        <li
+                          key={item.id}
+                          style={{
+                            paddingLeft: `${(item.level - 2) * 12}px`,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              scrollToHeading(item.id)
+                              setShowTocDrawer(false)
+                            }}
+                            className={
+                              'block w-full truncate rounded px-2 py-1 text-left text-xs transition-colors ' +
+                              (activeHeadingId === item.id
+                                ? 'bg-primary/10 font-medium text-primary'
+                                : 'text-muted-foreground hover:bg-muted hover:text-foreground')
+                            }
+                            title={item.text}
+                          >
+                            {item.text}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
