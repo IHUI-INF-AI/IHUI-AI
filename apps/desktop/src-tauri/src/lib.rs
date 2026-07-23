@@ -459,6 +459,219 @@ fn active_window() -> Result<ActiveWindowResult, String> {
     })
 }
 
+// ================== 本地文件访问 ==================
+
+#[derive(Serialize)]
+struct FileInfo {
+    path: String,
+    name: String,
+    size: u64,
+    is_dir: bool,
+    extension: String,
+}
+
+#[derive(Serialize)]
+struct ReadTextResult {
+    content: String,
+    size: u64,
+}
+
+#[derive(Serialize)]
+struct ReadBinaryResult {
+    base64: String,
+    size: u64,
+    mime: String,
+}
+
+#[derive(Serialize)]
+struct DirListResult {
+    entries: Vec<FileInfo>,
+}
+
+/// 读取文本文件(UTF-8)。
+#[tauri::command]
+fn read_text_file(path: String) -> Result<ReadTextResult, String> {
+    let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
+    let size = metadata.len();
+    let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    Ok(ReadTextResult { content, size })
+}
+
+/// 读取二进制文件,返回 base64 + MIME(用于图片/附件预览)。
+#[tauri::command]
+fn read_binary_file(path: String) -> Result<ReadBinaryResult, String> {
+    let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
+    let size = metadata.len();
+    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    let base64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    let mime = mime_from_extension(&path);
+    Ok(ReadBinaryResult { base64, size, mime })
+}
+
+/// 写入文本文件(覆盖)。父目录不存在时自动创建。
+#[tauri::command]
+fn write_text_file(path: String, content: String) -> Result<OkResult, String> {
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&path, content).map_err(|e| e.to_string())?;
+    Ok(OkResult { ok: true })
+}
+
+/// 列出目录下的文件/子目录(非递归)。
+#[tauri::command]
+fn list_dir(path: String) -> Result<DirListResult, String> {
+    let mut entries = Vec::new();
+    let dir = std::fs::read_dir(&path).map_err(|e| e.to_string())?;
+    for entry in dir {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let metadata = entry.metadata().map_err(|e| e.to_string())?;
+        let path_str = entry.path().to_string_lossy().to_string();
+        let name = entry.file_name().to_string_lossy().to_string();
+        let extension = entry
+            .path()
+            .extension()
+            .map(|e| e.to_string_lossy().to_string())
+            .unwrap_or_default();
+        entries.push(FileInfo {
+            path: path_str,
+            name,
+            size: metadata.len(),
+            is_dir: metadata.is_dir(),
+            extension,
+        });
+    }
+    // 文件在前,目录在后,各自按名称排序
+    entries.sort_by(|a, b| {
+        b.is_dir
+            .cmp(&a.is_dir)
+            .reverse()
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    });
+    Ok(DirListResult { entries })
+}
+
+/// 获取单个文件/目录的元信息。
+#[tauri::command]
+fn stat_file(path: String) -> Result<FileInfo, String> {
+    let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
+    let path_obj = std::path::Path::new(&path);
+    let name = path_obj
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let extension = path_obj
+        .extension()
+        .map(|e| e.to_string_lossy().to_string())
+        .unwrap_or_default();
+    Ok(FileInfo {
+        path,
+        name,
+        size: metadata.len(),
+        is_dir: metadata.is_dir(),
+        extension,
+    })
+}
+
+/// 从文件扩展名推断 MIME 类型(常用类型)。
+fn mime_from_extension(path: &str) -> String {
+    let ext = std::path::Path::new(path)
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+    match ext.as_str() {
+        "png" => "image/png".to_string(),
+        "jpg" | "jpeg" => "image/jpeg".to_string(),
+        "gif" => "image/gif".to_string(),
+        "webp" => "image/webp".to_string(),
+        "svg" => "image/svg+xml".to_string(),
+        "bmp" => "image/bmp".to_string(),
+        "pdf" => "application/pdf".to_string(),
+        "txt" | "md" | "log" | "csv" | "json" | "xml" | "yml" | "yaml" | "toml" => {
+            "text/plain".to_string()
+        }
+        "mp3" | "wav" | "ogg" | "m4a" => "audio/mpeg".to_string(),
+        "mp4" | "webm" | "mov" | "avi" | "mkv" => "video/mp4".to_string(),
+        "zip" | "gz" | "tar" | "rar" | "7z" => "application/zip".to_string(),
+        _ => "application/octet-stream".to_string(),
+    }
+}
+
+// ================== 窗口状态持久化 ==================
+
+use tauri_plugin_store::StoreExt;
+
+const WINDOW_STORE_FILE: &str = "window-state.json";
+const KEY_WIN_X: &str = "window.x";
+const KEY_WIN_Y: &str = "window.y";
+const KEY_WIN_W: &str = "window.width";
+const KEY_WIN_H: &str = "window.height";
+const KEY_WIN_MAX: &str = "window.maximized";
+
+/// 保存主窗口当前位置 / 尺寸 / 最大化状态到 store。
+#[tauri::command]
+fn save_window_state(app: tauri::AppHandle) -> Result<OkResult, String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "main window not found".to_string())?;
+    let store = app
+        .store(WINDOW_STORE_FILE)
+        .map_err(|e| e.to_string())?;
+    let pos = window.outer_position().map_err(|e| e.to_string())?;
+    let size = window.outer_size().map_err(|e| e.to_string())?;
+    let maximized = window.is_maximized().unwrap_or(false);
+    store.set(KEY_WIN_X, pos.x);
+    store.set(KEY_WIN_Y, pos.y);
+    store.set(KEY_WIN_W, size.width);
+    store.set(KEY_WIN_H, size.height);
+    store.set(KEY_WIN_MAX, maximized);
+    store.save().map_err(|e| e.to_string())?;
+    Ok(OkResult { ok: true })
+}
+
+/// 从 store 恢复主窗口位置 / 尺寸 / 最大化状态(应用启动时调用)。
+#[tauri::command]
+fn restore_window_state(app: tauri::AppHandle) -> Result<OkResult, String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "main window not found".to_string())?;
+    let store = app
+        .store(WINDOW_STORE_FILE)
+        .map_err(|e| e.to_string())?;
+    // 优先恢复最大化状态
+    if let Some(true) = store.get(KEY_WIN_MAX).and_then(|v| v.as_bool()) {
+        let _ = window.maximize();
+        return Ok(OkResult { ok: true });
+    }
+    let x = store.get(KEY_WIN_X).and_then(|v| v.as_i64());
+    let y = store.get(KEY_WIN_Y).and_then(|v| v.as_i64());
+    let w = store.get(KEY_WIN_W).and_then(|v| v.as_u64());
+    let h = store.get(KEY_WIN_H).and_then(|v| v.as_u64());
+    if let (Some(x), Some(y), Some(w), Some(h)) = (x, y, w, h) {
+        use tauri::PhysicalPosition;
+        use tauri::PhysicalSize;
+        // 先设置 size,再设置 position,避免最大化状态下 set_position 失效
+        let _ = window.set_size(PhysicalSize::new(w as u32, h as u32));
+        let _ = window.set_position(PhysicalPosition::new(x as i32, y as i32));
+    }
+    Ok(OkResult { ok: true })
+}
+
+/// 重置窗口状态(清除 store 中的窗口记录,下次启动用默认尺寸)。
+#[tauri::command]
+fn reset_window_state(app: tauri::AppHandle) -> Result<OkResult, String> {
+    let store = app
+        .store(WINDOW_STORE_FILE)
+        .map_err(|e| e.to_string())?;
+    store.delete(KEY_WIN_X);
+    store.delete(KEY_WIN_Y);
+    store.delete(KEY_WIN_W);
+    store.delete(KEY_WIN_H);
+    store.delete(KEY_WIN_MAX);
+    store.save().map_err(|e| e.to_string())?;
+    Ok(OkResult { ok: true })
+}
+
 #[tauri::command]
 fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String> {
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
@@ -552,6 +765,22 @@ pub fn run() {
                 if window.label() == "main" {
                     api.prevent_close();
                     let _ = window.hide();
+                    // 隐藏到托盘时持久化窗口状态
+                    let app = window.app_handle().clone();
+                    let _ = save_window_state(app);
+                }
+            }
+            // 窗口移动 / 缩放结束时持久化(避免每次拖动都写盘)
+            if let tauri::WindowEvent::Resized(_) = event {
+                if window.label() == "main" {
+                    let app = window.app_handle().clone();
+                    let _ = save_window_state(app);
+                }
+            }
+            if let tauri::WindowEvent::Moved(_) = event {
+                if window.label() == "main" {
+                    let app = window.app_handle().clone();
+                    let _ = save_window_state(app);
                 }
             }
         })
@@ -564,6 +793,8 @@ pub fn run() {
             }
             let _ = build_app_menu(app.handle().clone());
             let _ = build_tray(app.handle());
+            // 应用启动时恢复上次窗口状态(位置/尺寸/最大化)
+            let _ = restore_window_state(app.handle().clone());
             // 注册全局快捷键 Ctrl+Shift+I 唤起/隐藏主窗口
             let _ = app.global_shortcut().on_desktop("Ctrl+Shift+I", |app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
@@ -593,7 +824,15 @@ pub fn run() {
             keyboard_hotkey,
             active_window,
             clipboard_get,
-            clipboard_set
+            clipboard_set,
+            read_text_file,
+            read_binary_file,
+            write_text_file,
+            list_dir,
+            stat_file,
+            save_window_state,
+            restore_window_state,
+            reset_window_state
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {
