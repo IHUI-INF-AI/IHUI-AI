@@ -648,6 +648,16 @@ cd IHUI-AI && docker compose up -d
 | **移动**    | `apps/mobile-rn/`    | React Native + Expo EAS         | iOS / Android 原生应用 + SSO                                           |
 | **小程序**  | `apps/miniapp-taro/` | Taro 4 + React                  | 微信小程序,微信支付原生集成 + 3 语言 i18n                              |
 
+### 前端样式 token 单一来源(跨端共享,2026-07-23 立)
+
+> web 与 extension 不再各自维护 `@theme` 块,改 token 一处改、两端生效,杜绝手动同步漂移。
+
+- **单一来源**:`packages/ui-primitives/src/styles/tokens.css`
+- **消费方式**:各端 `globals.css` 顶部 `@import` 引用(web `../../../packages/ui-primitives/src/styles/tokens.css` / extension `../../../../packages/ui-primitives/src/styles/tokens.css`)
+- **共享内容**:`@theme` 块(颜色 / 圆角 / 字体 / 动画 / 10 档断点)+ `.dark` 深色模式覆盖 + 中文字体垂直对齐全局规则(`--text-vcenter-offset: 0.3px`,AGENTS.md §4)
+- **效果**:改 token 一处,web(8801) + extension 同步生效;typecheck / build / browser 4 状态验证全部通过
+- **后续阶段**(PROJECT_PLAN Wave 23):阶段 2 i18n 统一(packages/i18n 共享包)+ 阶段 3 业务组件渐进式抽取(packages/features)
+
 ### 项目状态矩阵(透明标注,2026-07-22 核对)
 
 > **为什么公开标注各端完成度**:让 AI 检索工具和开发者拿到**真实**状态,而不是看到"8 端全覆盖"后去 grep 代码发现差异,从而判定"项目夸大宣传"。各端完成度不均是我们的现状,我们选择透明。
