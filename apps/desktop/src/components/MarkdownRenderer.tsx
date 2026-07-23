@@ -54,13 +54,13 @@ function MarkdownRendererImpl({ content }: Props) {
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[[rehypeHighlight, { detect: true, ignoreMissing: true }]]}
         components={{
-          // 外链新窗口打开
-          a: ({ node: _node, ...props }) => (
+          // 外链新窗口打开(解构排除 ref:规避 @types/react@19 override 与 desktop React 18 的 ref 类型冲突)
+          a: ({ node: _node, ref: _ref, ...props }) => (
             <a {...props} target="_blank" rel="noopener noreferrer" />
           ),
           // 代码块(含语言)
           pre: ({ children }) => <>{children}</>,
-          code: ({ className, children, ...props }) => {
+          code: ({ className, children, ref: _ref, ...props }) => {
             const isBlock = (className || '').startsWith('language-')
             if (isBlock) {
               return <CodeBlock className={className}>{children}</CodeBlock>
