@@ -444,6 +444,24 @@ export async function buildServer(): Promise<FastifyInstance> {
 }
 
 async function registerPlugins(server: FastifyInstance) {
+  // 支付宝异步回调用 application/x-www-form-urlencoded,Fastify 默认只解析 JSON
+  // 注册 content type parser,把 form-urlencoded 解析成 key-value 对象
+  // Fastify 5 回调签名是 (req, body, done),body 是 string(parseAs: 'string')
+  server.addContentTypeParser(
+    'application/x-www-form-urlencoded',
+    { parseAs: 'string' },
+    (_req, body, done) => {
+      try {
+        const bodyStr = typeof body === 'string' ? body : String(body ?? '')
+        const params = new URLSearchParams(bodyStr)
+        const obj: Record<string, string> = {}
+        params.forEach((value, key) => { obj[key] = value })
+        done(null, obj)
+      } catch (err) {
+        done(err as Error)
+      }
+    },
+  )
   // OpenTelemetry 追踪（最先注册，最大化 instrument 覆盖；OTEL_ENABLED=false 时自动跳过）
   await server.register(otelPlugin)
   await server.register(helmet, { contentSecurityPolicy: false })

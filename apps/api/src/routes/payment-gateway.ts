@@ -583,12 +583,13 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       })
       if (!isAlipayConfigured())
         return reply.send(success({ outTradeNo: order.orderNo, mock: true }))
-      const bizContent = {
+      const bizContent: Record<string, unknown> = {
         out_trade_no: order.orderNo,
         total_amount: amountYuan.toFixed(2),
         subject,
         product_code: 'FAST_INSTANT_TRADE_PAY',
       }
+      if (env.ALIPAY_NOTIFY_URL) bizContent.notify_url = env.ALIPAY_NOTIFY_URL
       const payUrl = buildSignedUrl(bizContent, 'alipay.trade.page.pay')
       return reply.send(success({ outTradeNo: order.orderNo, payUrl }))
     },

@@ -117,6 +117,12 @@ export default {
     error: '更新失敗',
     idle: '點擊檢查是否有新版本',
   },
+  desktop: {
+    title: '桌面功能',
+    autostart: '開機自啟',
+    shortcut: '全域快捷鍵',
+    autostartToggleFailed: '設定開機自啟失敗',
+  },
   error: {
     network: '網路錯誤',
     server: '伺服器錯誤',
