@@ -21,6 +21,7 @@ import {
 import { useConversations } from '../hooks/use-conversations'
 import ConversationSidebar from '../components/ConversationSidebar'
 import MarkdownRenderer from '../components/MarkdownRenderer'
+import { exportConversationToFile, type ExportFormat } from '../lib/export-conversation'
 import { useI18n } from '../i18n'
 
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'])
@@ -146,9 +147,20 @@ export default function ChatPage({ onLogout }: Props) {
   const messagesRef = useRef<ChatMessage[]>([])
   messagesRef.current = messages
 
+  // 对话导出菜单
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+
   useEffect(() => {
     document.title = 'IHUI AI 桌面端 - 对话'
   }, [])
+
+  // 点击外部关闭导出菜单
+  useEffect(() => {
+    if (!exportMenuOpen) return
+    const onDocClick = () => setExportMenuOpen(false)
+    document.addEventListener('click', onDocClick)
+    return () => document.removeEventListener('click', onDocClick)
+  }, [exportMenuOpen])
 
   useEffect(() => {
     let cancelled = false
@@ -264,6 +276,28 @@ export default function ChatPage({ onLogout }: Props) {
       }
     },
     [],
+  )
+
+  // 对话导出
+  const onExportConversation = useCallback(
+    async (format: ExportFormat) => {
+      setExportMenuOpen(false)
+      if (streaming || messages.length === 0) return
+      const firstUser = messages.find((m) => m.role === 'user')
+      const title = firstUser
+        ? firstUser.content.slice(0, 40).replace(/\n/g, ' ')
+        : t('chat.newChat')
+      try {
+        const path = await exportConversationToFile({ format, title, messages })
+        if (path) {
+          setNotice(`${t('chat.exportDone')}:${path}`)
+          setError('')
+        }
+      } catch (err) {
+        setError(`${t('chat.exportFailed')}:${err instanceof Error ? err.message : String(err)}`)
+      }
+    },
+    [streaming, messages, t],
   )
 
   /** 从扩展名判断是否图片。 */
@@ -581,8 +615,34 @@ export default function ChatPage({ onLogout }: Props) {
                 {t('chat.newChat')}
               </button>
             ) : null}
+            <div className="export-dropdown">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setExportMenuOpen((v) => !v)
+                }}
+                disabled={streaming || messages.length === 0}
+                title={t('chat.exportConversation')}
+              >
+                {t('chat.exportConversation')}
+              </button>
+              {exportMenuOpen ? (
+                <div className="export-menu" onClick={(e) => e.stopPropagation()}>
+                  <button type="button" onClick={() => void onExportConversation('markdown')}>
+                    {t('chat.exportAsMarkdown')}
+                  </button>
+                  <button type="button" onClick={() => void onExportConversation('json')}>
+                    {t('chat.exportAsJson')}
+                  </button>
+                  <button type="button" onClick={() => void onExportConversation('txt')}>
+                    {t('chat.exportAsTxt')}
+                  </button>
+                </div>
+              ) : null}
+            </div>
             <button type="button" onClick={onClear} disabled={streaming || messages.length === 0}>
-              清空
+              {t('chat.clear')}
             </button>
             <button type="button" onClick={onLogout}>
               退出登录
