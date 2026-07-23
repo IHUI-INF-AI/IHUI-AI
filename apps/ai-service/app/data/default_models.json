@@ -1,24 +1,24 @@
 {
-  "_comment": "AI-service 默认模型清单(与前端 apps/web/app/(main)/models/helpers.ts FALLBACK_MODELS 保持一致)",
-  "_note": "运行时由 llm.py 按需加载,按 id 去重;修改本文件无需重启 Python 进程",
+  "_comment": "AI-service 默认模型清单(与前端 apps/web/src/components/chat/fallback-models.ts FALLBACK_MODELS 保持一致)",
+  "_note": "运行时由 llm.py 按需加载,按 id 去重;修改本文件无需重启 Python 进程。默认主力 step-router-v1(智能路由,适合 tool calling)",
   "models": [
     {
+      "id": "stepfun/step-router-v1",
+      "name": "Step Router v1 (StepFun 智能路由,默认主力)",
+      "provider": "stepfun",
+      "context_length": 128000,
+      "input_price": 0
+    },
+    {
       "id": "stepfun/step-3.7-flash",
-      "name": "Step 3.7 Flash (StepFun)",
+      "name": "Step 3.7 Flash (StepFun,轻量快版)",
       "provider": "stepfun",
       "context_length": 128000,
       "input_price": 0
     },
     {
       "id": "stepfun/step-3.5-flash",
-      "name": "Step 3.5 Flash (StepFun)",
-      "provider": "stepfun",
-      "context_length": 128000,
-      "input_price": 0
-    },
-    {
-      "id": "stepfun/step-router-v1",
-      "name": "Step Router v1 (StepFun 智能路由)",
+      "name": "Step 3.5 Flash (StepFun,旧版)",
       "provider": "stepfun",
       "context_length": 128000,
       "input_price": 0

@@ -62,8 +62,12 @@ class Settings(BaseSettings):
     # Alibaba Cloud International Model Studio(1M tokens/模型免费)
     alibaba_intl_api_key: str = ""  # https://bailian.console.alibabacloud.com/
 
-    litellm_model: str = "stepfun/step-3.7-flash"  # 默认用 stepfun(已验证连通)
-    max_agent_iterations: int = 10
+    # 默认主力模型:step-router-v1(StepFun 智能路由,自动选 plan 套餐内最优模型,
+    # 比 step-3.7-flash 更适合复杂 tool calling 决策;两者均已实测连通)
+    litellm_model: str = "stepfun/step-router-v1"
+    # Agent tool loop 最大轮数(被 llm.py /llm/complete/stream 读取,2026-07-24 修复硬编码 3 的 bug)
+    # 8 轮可覆盖"截图→识别→点击→再截图→输入→提交"等多步操作,同时留 2 轮余量防失控
+    max_agent_iterations: int = 8
     # Sliding window:系统消息始终保留 + 最近 N 轮 user/assistant + 当前输入
     # 默认 6 轮,总消息数 ≤ 13(1 system + 12 turn + 1 current,实际 N*2+1)
     chat_history_window: int = 6

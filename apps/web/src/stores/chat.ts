@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-import { createPersistConfig } from './persist-helpers'
+import { ssrStorage } from './persist-helpers'
 import type { SubAgentActivity, InlineDiffInfo } from '@/components/ai/types'
 
 export type ChatRole = 'user' | 'assistant' | 'system'
@@ -150,7 +150,9 @@ export const useChatStore = create<ChatState>()(
   persist(
     (set) => ({
       messages: [],
-      currentModel: 'stepfun/step-3.7-flash',
+      // 2026-07-24 升级:与 ai-service default_models.json 首位 + FALLBACK_MODELS 首位对齐
+      // 原 step-3.7-flash 降为备选,step-router-v1 智能路由更适合 tool calling 决策
+      currentModel: 'stepfun/step-router-v1',
       isStreaming: false,
       error: null,
       conversationId: null,
@@ -324,10 +326,27 @@ export const useChatStore = create<ChatState>()(
           }),
         })),
     }),
-    createPersistConfig<ChatState>('ihui-chat', (s) => ({
-      currentModel: s.currentModel,
-      conversationId: s.conversationId,
-      draftInput: s.draftInput,
-    })),
+    {
+      name: 'ihui-chat',
+      storage: ssrStorage,
+      partialize: (s: ChatState) => ({
+        currentModel: s.currentModel,
+        conversationId: s.conversationId,
+        draftInput: s.draftInput,
+      }),
+      // 2026-07-24 立:旧版本无 version,localStorage 中 currentModel='stepfun/step-3.7-flash'
+      // 是历史默认值(非显式选择)。version=2 migrate 把旧默认值升级到 step-router-v1。
+      // 用户若显式选了其他模型(gpt-4o / claude 等),migrate 不动,保留原值。
+      version: 2,
+      migrate: (persisted: unknown, version: number) => {
+        if (version < 2 && persisted && typeof persisted === 'object') {
+          const s = persisted as { currentModel?: string }
+          if (s.currentModel === 'stepfun/step-3.7-flash') {
+            s.currentModel = 'stepfun/step-router-v1'
+          }
+        }
+        return persisted
+      },
+    },
   ),
 )

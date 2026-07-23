@@ -338,7 +338,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     # ===== 多轮 tool loop(2026-07-22 升级,支持 AI 连续操作:截图→分析→点击→再截图)=====
                     # 每轮:complete(tools) → 执行 tool_calls → 回灌结果
                     # 直到 LLM 不再决策 tool_calls 或达到 max_iterations → 归一化 → astream 生成最终回复
-                    max_iterations = 3
+                    # 2026-07-24 修复:从 settings.max_agent_iterations 读取(原硬编码 3,无法覆盖多步操作)
+                    max_iterations = settings.max_agent_iterations
                     for _tool_iter in range(max_iterations):
                         complete_result = await llm_gateway.complete(
                             messages, model=req.model, owner_uuid=owner_uuid,
