@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useRef } from 'react'
 import { Search } from 'lucide-react'
 import { Input } from '@ihui/ui'
 import type { SearchResult } from '@/hooks/use-chat-search'
@@ -51,6 +52,10 @@ export function ChatSearchBar({
   onSearch,
   onScrollToMessage,
 }: ChatSearchBarProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (show) inputRef.current?.focus()
+  }, [show])
   if (!show) return null
 
   return (
@@ -58,11 +63,11 @@ export function ChatSearchBar({
       <div className="flex items-center gap-2 px-3 py-2">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
         <Input
+          ref={inputRef}
           value={value}
           onChange={(e) => onSearch(e.target.value)}
           placeholder="搜索对话内容..."
           className="h-7 border-none bg-transparent px-0 shadow-none focus-visible:ring-0"
-          autoFocus
         />
       </div>
       {results.length > 0 && (

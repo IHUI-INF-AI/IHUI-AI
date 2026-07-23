@@ -90,6 +90,7 @@ export function DatabaseMentionList({
                   e.stopPropagation()
                   handleToggleExpand(tableName)
                 }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); handleToggleExpand(tableName) } }}
                 className="shrink-0 text-muted-foreground hover:text-foreground"
                 aria-label={isExpanded ? '收起列定义' : '展开列定义'}
               >

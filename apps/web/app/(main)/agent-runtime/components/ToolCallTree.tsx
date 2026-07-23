@@ -62,7 +62,7 @@ function TreeRow({
         )}
         <span className={meta.color}>{meta.icon}</span>
         <span className="font-medium">{node.tool}</span>
-        {node.duration != null && (
+        {node.duration !== null && node.duration !== undefined && (
           <span className="text-muted-foreground">{node.duration}ms</span>
         )}
         {node.params && Object.keys(node.params).length > 0 && (
