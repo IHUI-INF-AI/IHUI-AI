@@ -8,6 +8,7 @@ import type {
   SharedMenuItem,
 } from '@ihui/app'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 
 type Tab = 'about' | 'profile' | 'settings'
 
@@ -20,6 +21,7 @@ const MOCK_STATS = { courseCount: 12, favoriteCount: 34, followingCount: 56, fan
  */
 export function SharedDemoScreen() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const [tab, setTab] = useState<Tab>('about')
   const [locale, setLocale] = useState('zh-CN')
   const [theme, setTheme] = useState('system')
@@ -68,6 +70,7 @@ export function SharedDemoScreen() {
           user={MOCK_USER}
           stats={MOCK_STATS}
           orderCount={5}
+          colorScheme={resolvedTheme}
           menuSections={menuSections}
           onNavigate={(key) => console.log('nav:', key)}
           onLogout={() => console.log('logout')}
@@ -84,6 +87,7 @@ export function SharedDemoScreen() {
           theme={theme}
           themeOptions={themeOptions}
           onSelectTheme={(th) => setTheme(th)}
+          colorScheme={resolvedTheme}
           notifications={notifications}
           onToggleNotification={(k, v) => setNotifications((prev) => ({ ...prev, [k]: v }))}
           onChangePassword={async (o, n) => {
