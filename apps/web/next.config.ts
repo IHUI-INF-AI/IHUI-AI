@@ -16,6 +16,13 @@ const nextConfig: NextConfig = {
   turbopack: {
     resolveAlias: {
       'react-native': 'react-native-web',
+      // 2026-07-23 修复 next-intl 3.26.5 在 Turbopack 下的兼容性:
+      // plugin.js 用 process.env.TURBOPACK 检测 Turbopack 模式(Next 15.5 的 --turbopack
+      // flag 不设置该变量),且 Turbopack 分支写已弃用的 experimental.turbo(被顶层 turbopack
+      // 取代)。双重 bug 导致 'next-intl/config' alias 在 Turbopack 下不生效,报
+      // "Couldn't find next-intl config file"。手动在顶层 turbopack.resolveAlias 设置 alias,
+      // webpack 模式仍由 plugin 的 webpack 分支自动处理(config.resolve.alias)。
+      'next-intl/config': './src/i18n/request.ts',
     },
   },
   webpack: (config) => {
