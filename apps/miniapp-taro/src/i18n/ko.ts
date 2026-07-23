@@ -1072,9 +1072,22 @@ export default {
       confirm: '확인',
     },
     team: {
-      joinTime: '가입: {{time}}',
+      title: '내 팀',
+      member: '멤버',
+      searchPlaceholder: '팀원 검색',
+      totalMembers: '팀 총원',
+      sortByOrderNum: '주문 수',
+      sortByDate: '초대 시간',
+      transactionVolume: '거래액',
+      commission: '수수료',
+      orderNum: '주문 수',
+      joinTime: '초대 시간',
+      viewSubordinates: '하위 보기',
       empty: '팀원 없음',
       loading: '로딩 중…',
+      noMore: '더 이상 없음',
+      error: '로딩 실패',
+      retry: '탭하여 재시도',
     },
     commission: {
       total: '누적 수수료',
@@ -1493,6 +1506,13 @@ export default {
     empty: '뉴스 없음',
     loading: '로딩 중…',
     readCount: '{{n}} 읽음',
+    detail: {
+      like: '좋아요',
+      comment: '댓글',
+      share: '공유',
+      related: '관련 추천',
+      commentSoon: '댓글 기능 준비 중',
+    },
   },
   plaza: {
     setNeed: {
