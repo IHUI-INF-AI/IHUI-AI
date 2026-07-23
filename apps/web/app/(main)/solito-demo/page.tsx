@@ -191,6 +191,7 @@ export default function SolitoDemoPage() {
               console.log('[menu]', key)
             }}
             appVersion="1.0.0"
+            onEditProfile={() => setActiveTab('profile')}
             onBack={() => setActiveTab('about')}
           />
         ) : null}
