@@ -34,6 +34,13 @@ export default function VipIndexPage() {
   const [showPayConfirm, setShowPayConfirm] = useState(false)
   const [payMethod, setPayMethod] = useState<'wechat' | 'alipay'>('wechat')
   const [autoRenew, setAutoRenew] = useState(false)
+  // 5 弹窗 state
+  const [showIntroduce, setShowIntroduce] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [showNotice, setShowNotice] = useState(false)
+  const [showPayMethod, setShowPayMethod] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [noticeAgreed, setNoticeAgreed] = useState(false)
 
   function dispatchVipPay(payInfo: VipPayInfo, orderNo: string) {
     if (
@@ -121,12 +128,47 @@ export default function VipIndexPage() {
     setShowBenefits(true)
   }, [])
 
+  // 5 弹窗流程 handlers
+  const onIntroduceClick = useCallback(() => setShowIntroduce(true), [])
+  const onIntroduceSubscribe = useCallback(() => {
+    if (!selectedPlan) {
+      Taro.showToast({ title: t('vip.selectPlanFirst'), icon: 'none' })
+      return
+    }
+    setShowIntroduce(false)
+    setShowConfirm(true)
+  }, [selectedPlan, t])
+  const onConfirmNext = useCallback(() => {
+    setShowConfirm(false)
+    setNoticeAgreed(false)
+    setShowNotice(true)
+  }, [])
+  const onNoticeAgree = useCallback(() => {
+    if (!noticeAgreed) {
+      Taro.showToast({ title: t('vip.index.agreeFirst'), icon: 'none' })
+      return
+    }
+    setShowNotice(false)
+    setShowPayMethod(true)
+  }, [noticeAgreed, t])
+  const onPayMethodConfirm = useCallback(() => {
+    setShowPayMethod(false)
+    setShowSuccess(true)
+  }, [])
+  const onSuccessViewBenefits = useCallback(() => {
+    setShowSuccess(false)
+    setShowBenefits(true)
+  }, [])
+
   useDidShow(load)
 
   return (
     <View className="page">
       <View className="header" style={{ background: info.level ? gradient : '#999' }}>
-        <View className="level">{info.level ? info.name : t('vip.notOpened')}</View>
+        <View className="level-row">
+          <View className="level">{info.level ? info.name : t('vip.notOpened')}</View>
+          <Text className="intro-link" onClick={onIntroduceClick}>{t('vip.index.introduce')}</Text>
+        </View>
         {info.expireTime ? (
           <View className="expire">{t('vip.expireTime', { time: info.expireTime })}</View>
         ) : (
@@ -204,6 +246,102 @@ export default function VipIndexPage() {
         onCancel={() => setShowPayConfirm(false)}
         onMethodChange={setPayMethod}
       />
+
+      {/* 弹窗1: 等级介绍 */}
+      {showIntroduce && (
+        <View className="pp-mask" onClick={() => setShowIntroduce(false)}>
+          <View className="pp-card" onClick={(e) => e.stopPropagation()}>
+            <View className="pp-title">{t('vip.index.introduceTitle')}</View>
+            <View className="pp-body">
+              <Text className="pp-text">{t('vip.index.introduceDesc')}</Text>
+            </View>
+            <Button className="pp-btn" onClick={onIntroduceSubscribe}>{t('vip.subscribe')}</Button>
+          </View>
+        </View>
+      )}
+
+      {/* 弹窗2: 确认购买 */}
+      {showConfirm && selectedPlan && (
+        <View className="pp-mask" onClick={() => setShowConfirm(false)}>
+          <View className="pp-card" onClick={(e) => e.stopPropagation()}>
+            <View className="pp-title">{t('vip.index.confirmTitle')}</View>
+            <View className="pp-body">
+              <View className="pp-plan">
+                <Text className="pp-plan-name">{selectedPlan.name} VIP</Text>
+                <Text className="pp-plan-price">¥{selectedPlan.price}</Text>
+                <Text className="pp-plan-period">{selectedPlan.period}</Text>
+              </View>
+            </View>
+            <Button className="pp-btn" onClick={onConfirmNext}>
+              {t('vip.index.payNow')} ¥{selectedPlan.price}
+            </Button>
+          </View>
+        </View>
+      )}
+
+      {/* 弹窗3: 购买须知 */}
+      {showNotice && (
+        <View className="pp-mask" onClick={() => setShowNotice(false)}>
+          <View className="pp-card" onClick={(e) => e.stopPropagation()}>
+            <View className="pp-title">{t('vip.index.noticeTitle')}</View>
+            <View className="pp-body">
+              <Text className="pp-text">1. VIP 会员服务为虚拟商品,开通后不支持退款。</Text>
+              <Text className="pp-text">2. 会员有效期自开通之日起计算。</Text>
+              <Text className="pp-text">3. 会员权益以实际提供为准,平台保留解释权。</Text>
+              <Text className="pp-text">4. 严禁利用会员服务从事违法违规行为。</Text>
+              <View className="pp-check" onClick={() => setNoticeAgreed(!noticeAgreed)}>
+                <View className={`pp-checkbox ${noticeAgreed ? 'checked' : ''}`}>
+                  {noticeAgreed && <Text className="pp-check-mark">✓</Text>}
+                </View>
+                <Text className="pp-check-text">{t('vip.index.noticeAgree')}</Text>
+              </View>
+            </View>
+            <Button className="pp-btn" onClick={onNoticeAgree}>{t('vip.index.continuePay')}</Button>
+          </View>
+        </View>
+      )}
+
+      {/* 弹窗4: 支付方式选择 */}
+      {showPayMethod && (
+        <View className="pp-mask" onClick={() => setShowPayMethod(false)}>
+          <View className="pp-card" onClick={(e) => e.stopPropagation()}>
+            <View className="pp-title">{t('vip.index.payMethodTitle')}</View>
+            <View className="pp-body">
+              <View
+                className={`pp-pay-item ${payMethod === 'wechat' ? 'active' : ''}`}
+                onClick={() => setPayMethod('wechat')}
+              >
+                <View className="pp-pay-icon wechat">微</View>
+                <Text className="pp-pay-name">{t('vip.index.wechatPay')}</Text>
+                <Text className="pp-pay-check">{payMethod === 'wechat' ? '✓' : ''}</Text>
+              </View>
+              <View
+                className={`pp-pay-item ${payMethod === 'alipay' ? 'active' : ''}`}
+                onClick={() => setPayMethod('alipay')}
+              >
+                <View className="pp-pay-icon alipay">付</View>
+                <Text className="pp-pay-name">{t('vip.index.alipay')}</Text>
+                <Text className="pp-pay-check">{payMethod === 'alipay' ? '✓' : ''}</Text>
+              </View>
+            </View>
+            <Button className="pp-btn" onClick={onPayMethodConfirm}>{t('vip.index.confirmPay')}</Button>
+          </View>
+        </View>
+      )}
+
+      {/* 弹窗5: 开通成功 */}
+      {showSuccess && (
+        <View className="pp-mask">
+          <View className="pp-card">
+            <View className="pp-success-icon">✓</View>
+            <View className="pp-title">{t('vip.index.successTitle')}</View>
+            <View className="pp-body">
+              <Text className="pp-text">{t('vip.index.successDesc')}</Text>
+            </View>
+            <Button className="pp-btn" onClick={onSuccessViewBenefits}>{t('vip.index.viewBenefits')}</Button>
+          </View>
+        </View>
+      )}
     </View>
   )
 }
