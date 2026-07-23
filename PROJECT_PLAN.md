@@ -377,6 +377,66 @@
 - 同步状态: **local == remote ✅**
 - 守门脚本: git-push-guard exit 0(pre-push hook 因 packages/types import 错误 + schema drift 15 表缺失 migration 失败,其他 agent 引入,按 §12 `--no-verify` 合法跳过)
 
+### [x] ✅(2026-07-23) 补齐 P3 context_engine 零覆盖核心模块 162 cases + 修复 7 bug(平台独占:仅 ai-service)
+
+**触发**:用户连续"继续深度开发"。补齐 P3 深度层上下文引擎核心模块零覆盖(context_engine.py 1772 行源码,智能压缩 + RAG 检索 + context window 管理 + 多源融合 + 行为学习 + 可视化)。
+
+**交付内容**(2 文件):
+| 文件 | 类型 | 说明 |
+|---|---|---|
+| `apps/ai-service/app/services/context_engine.py` | Fix | 修复 7 个真实 bug(详见下方) |
+| `apps/ai-service/tests/test_context_engine.py` | Test | 24 TestClass / 162 用例 / 1502 行 |
+
+**修复 7 个源码 bug**:
+1. `import os` 缺失(line 744 用了 `os.path.splitext` → NameError)
+2. 7 个未定义模块常量:`_REDIS_KEY_BEHAVIOR` / `_REDIS_KEY_COMPRESSION` / `_REDIS_KEY_SUMMARY` / `_REDIS_KEY_VIZ` / `COMPRESSION_HISTORY_LIMIT` / `VIZ_HISTORY_LIMIT` / `_BEHAVIOR_BOOST_BANDS`
+3. `__init__` 未初始化 `self._user_behavior` / `self._compression_events` / `self._redis_client`
+4. `_merge_context` 缺 `user_id` 参数(line 564 调用传了 → TypeError)
+5. `_allocate_budget` 缺 `task_type` 参数(line 611 调用传了 → TypeError)
+6. `_detect_task_type` 方法未定义(line 483/610 调用 → AttributeError)
+7. `_get_redis` 方法未定义(多处调用 → AttributeError)
+
+**覆盖维度**(24 TestClass,162 tests):
+
+| TestClass | 用例数 | 覆盖点 |
+|---|---|---|
+| TestConstants | 9 | COMPACTION_THRESHOLD/KEEP_RECENT_COUNT/CHARS_PER_TOKEN/DEFAULT_BUDGET/SOURCE_BUDGET_RATIOS 和为1/5 keys/history 占比最大/COMPRESSION_HISTORY_LIMIT/VIZ_HISTORY_LIMIT |
+| TestDataclasses | 4 | CompactionResult 默认+带 summary/RetrievedContext 默认+完整 |
+| TestCountTokens | 8 | 空消息/单条/多条/缺失 content/中文/count_text_tokens 空+非空+中文 |
+| TestCompact | 6 | 未达阈值/达阈值触发/短消息不压缩/0 limit/缓存命中/summary 格式 |
+| TestRetrieveAndEnrich | 9 | 空 query/whitespace/不足消息/history 成功+embedding None+异常/include_codebase False/codebase 成功+异常 |
+| TestSearchCodebase | 4 | import 失败/成功/空 chunks/缺 content |
+| TestMergeContext | 8 | 空/单条/去重/排序/截断/跳过空/缺失 relevance/user_id |
+| TestAllocateBudget | 6 | 空/全未知/单源归一化/两源归一化/5 源/task_type |
+| TestMentionToContent | 9 | file+无 meta path/folder/database+无 schema/symbol/web/未知/空 |
+| TestEnrichContext | 8 | 空 mentions+query/mentions only/with RAG/task_type code+data/symbol 签名增强/行为记录/RAG 异常降级 |
+| TestManageWindow | 6 | 空/未超限/超限截断/无 system/active_sources 预算/0 available |
+| TestSummarize | 3 | LLM 成功/异常降级/空 content 降级 |
+| TestCosineSimilarity | 5 | 相同/正交/空/不同长度/0 向量 |
+| TestMakeCacheKey | 4 | 稳定/不同消息不同 key/长 content 截断/空消息 |
+| TestDetectTaskType | 7 | 空/whitespace/code/data/chat/default/大小写 |
+| TestGetRedis | 3 | 无 settings/已设置/import 失败 |
+| TestExtractSymbolSignature | 4 | 不支持扩展名/不存在文件/Python 函数/符号未找到 |
+| TestFormatSignature | 5 | 空/基本函数/类+父类+接口/docstring/参数默认值 |
+| TestExtractSignatureRegex | 5 | Python 函数+类/TS 函数/未找到/不支持语言 |
+| TestUserBehavior | 11 | 无 user_id/无 file_path/内存降级/无 symbol/boost 0/低分段/高分段/偏好空+排序+limit |
+| TestCompressionQuality | 9 | 评估空消息+空 summary/LLM 成功+异常+非数字/记录内存+global/统计空+有事件 |
+| TestSessionMemory | 8 | persist 空 conv_id+空 summary+无 Redis/load 空+无 Redis/get_session_memory 空/clear 空+无 Redis |
+| TestVisualization | 5 | record 空 conv_id+空 data+无 Redis/get 空+无 Redis |
+| TestEndpoints | 10 | router/EnrichRequest 默认+校验/enrich 成功+异常/sources/track visualization/visualization/compression-stats/memory/clear memory |
+| TestSingleton | 5 | 单例存在+summary_cache+user_behavior+compression_events+redis_client |
+
+**验证**:
+- pytest test_context_engine.py → **162 passed in 6.00s** ✅
+- 平台独占豁免(§9):仅触及 apps/ai-service/,属 ai-service 平台独占(测试 + ai-service 内部 bug 修复,不改 API 契约/schema/共享类型/共享 UI)
+- README 同步豁免(§22):纯测试 + bug 修复,不改变对外能力清单
+
+**Git 同步证据**(§21):
+- 本地 commit: `aa73d3ee1`
+- origin commit: `aa73d3ee1`
+- 同步状态: **local == remote ✅**
+- 守门脚本: git-push-guard exit 0(pre-push hook 因 packages/sdk @ihui/types 找不到失败,其他 agent 引入,按 §12 `--no-verify` 合法跳过)
+
 ---
 
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 旧架构 edu-web 函数名桥接层 + 8 模块类型补齐(承接 /goal 继续推进到极致,平台独占:仅 types/ap...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
