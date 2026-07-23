@@ -134,8 +134,8 @@ export function I18nProvider({ children }: I18nProviderProps) {
     t,
   }
 
-  if (!ready) return null
-
+  // 2026-07-23 修复:原代码 !ready 时 return null → popup 整个空白(用户反馈"啥也没出来")
+  // 改为渲染 children + 默认 locale 的 t,确保 popup/sidepanel 始终有内容
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }
 
