@@ -1773,6 +1773,8 @@
     "durationDays": "{days} 天",
     "featuresTitle": "VIP专属特权",
     "buyButton": "立即开通",
+    "limitedOffer": "限时优惠",
+    "buyPrompt": "立即开通 VIP，解锁全部专属权益",
     "purchaseTitle": "确认购买",
     "purchaseDesc": "确认您的VIP会员购买信息",
     "confirmPayment": "确认支付",
