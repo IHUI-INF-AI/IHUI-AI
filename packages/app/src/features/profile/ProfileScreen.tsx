@@ -24,7 +24,7 @@ export function ProfileScreen({
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#10B981" />
+        <ActivityIndicator size="large" color={tokens.brand.DEFAULT} />
       </View>
     )
   }
