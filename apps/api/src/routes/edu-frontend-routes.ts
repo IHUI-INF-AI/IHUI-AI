@@ -96,7 +96,7 @@ const lessonCompleteSchema = z.object({
   progress: z.number().int().min(0).max(100).optional(),
 })
 
-export const frontendStubEduRoutes: FastifyPluginAsync = async (server) => {
+export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     if (!(await checkAuth(request, reply))) return
   })
