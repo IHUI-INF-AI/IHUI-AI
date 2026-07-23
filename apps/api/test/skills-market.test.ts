@@ -199,6 +199,134 @@ describe('Skills Market API', () => {
       expect(res.statusCode).toBe(404)
       expect(res.json().code).toBe(404)
     })
+
+    it('install 同时写入用户私有库 Hash skills:<userId>', async () => {
+      // 清空用户库 Hash,确保干净
+      mockRedis.hashes.delete('skills:1')
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/skills/code-reviewer/install',
+      })
+      expect(res.statusCode).toBe(200)
+      // 验证用户私有库 Hash 已写入
+      const userLib = mockRedis.hashes.get('skills:1')
+      expect(userLib).toBeTruthy()
+      expect(userLib!.has('code-reviewer')).toBe(true)
+      const stored = JSON.parse(userLib!.get('code-reviewer')!)
+      expect(stored.name).toBe('code-reviewer')
+      expect(stored.installCount).toBeGreaterThan(0)
+    })
+
+    it('install 不破坏 installCount++ 行为', async () => {
+      const before = await app.inject({
+        method: 'GET',
+        url: '/api/skills/market?q=figma-to-code',
+      })
+      const beforeCount = before.json().data.items[0].installCount
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/skills/figma-to-code/install',
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.installCount).toBe(beforeCount + 1)
+      // 用户库 Hash 也写入
+      expect(mockRedis.hashes.get('skills:1')?.has('figma-to-code')).toBe(true)
+    })
+  })
+
+  // ===================== POST /skills/market =====================
+  describe('POST /api/skills/market', () => {
+    it('发布新 skill 到市场,返回 201 + 条目(初始 0)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/skills/market',
+        payload: {
+          name: 'my-custom-skill',
+          description: '我自己的技能',
+          tags: ['code', 'custom'],
+          author: 'tester',
+          version: '0.1.0',
+          license: 'MIT',
+          content: '# skill body\nstep1 ...',
+        },
+      })
+      expect(res.statusCode).toBe(201)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data).toEqual({
+        name: 'my-custom-skill',
+        description: '我自己的技能',
+        tags: ['code', 'custom'],
+        author: 'tester',
+        version: '0.1.0',
+        license: 'MIT',
+        installCount: 0,
+        rating: 0,
+        ratingCount: 0,
+        createdAt: expect.any(String),
+        updatedAt: expect.any(String),
+      })
+
+      // 验证可被市场搜索到
+      const list = await app.inject({
+        method: 'GET',
+        url: '/api/skills/market?q=my-custom-skill',
+      })
+      expect(list.json().data.total).toBe(1)
+      expect(list.json().data.items[0].name).toBe('my-custom-skill')
+    })
+
+    it('与市场已有 name 冲突返回 409', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/skills/market',
+        payload: {
+          name: 'code-reviewer',
+          description: 'dup',
+          tags: [],
+          author: 'x',
+          version: '1.0.0',
+          license: 'MIT',
+          content: 'x',
+        },
+      })
+      expect(res.statusCode).toBe(409)
+      expect(res.json().code).toBe(409)
+    })
+
+    it('name 缺失返回 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/skills/market',
+        payload: {
+          description: 'no name',
+          tags: [],
+          author: 'x',
+          version: '1.0.0',
+          license: 'MIT',
+          content: 'x',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().code).toBe(400)
+    })
+
+    it('content 缺失返回 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/skills/market',
+        payload: {
+          name: 'no-content',
+          description: 'd',
+          tags: [],
+          author: 'x',
+          version: '1.0.0',
+          license: 'MIT',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+    })
   })
 
   // ===================== POST /skills/:name/rate =====================
