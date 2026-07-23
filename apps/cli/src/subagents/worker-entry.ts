@@ -46,11 +46,14 @@ let selfOomThresholdMb = parseInt(
 let cpuCoresLimit: number | undefined;
 let cpuSecondsLimit: number | undefined;
 let cumulativeCpuSeconds = 0;
-let lastCpuUsage = process.resourceUsage();
+// P1 修复:typeof 守卫(老版本 Node 可能无 process.resourceUsage,降级为 noop 不抛错)
+let lastCpuUsage = typeof process.resourceUsage === 'function' ? process.resourceUsage() : null;
 let lastCpuCheckAt = Date.now();
 
 /** 心跳定时器:每 5s 向父进程发 heartbeat(携带 RSS,父进程超 heartbeatTimeoutSeconds 标记 dead) */
 const heartbeatTimer = setInterval(() => {
+  // P1 修复:拆分为两个独立 try-catch,heartbeat 失败不停 CPU 监控,CPU 监控失败不停 heartbeat
+  // 1. heartbeat 发送 + RSS 自检(独立 try-catch)
   try {
     if (typeof process.send === 'function') {
       // P1-3 修复:heartbeat 携带 RSS + heapUsed,父进程可监控内存趋势
@@ -63,63 +66,84 @@ const heartbeatTimer = setInterval(() => {
       // P1-3 第一层软限制:子进程自检 RSS,超阈值优雅退出
       const rssMb = mem.rss / 1024 / 1024;
       if (rssMb > selfOomThresholdMb) {
+        // P0 修复:exit 前双写 stdout(JSON)+ stderr(纯文本),父进程 stderrBuf 保留诊断信息
         process.stdout.write(
           JSON.stringify({
             type: 'error',
+            code: 'OOM',
             message: `self OOM: rss=${rssMb.toFixed(0)}MB > threshold=${selfOomThresholdMb}MB`,
+            exitCode: 3,
           }) + '\n',
         );
+        process.stderr.write('[worker-entry] self-OOM exit 3\n');
         process.exit(3); // 3 = self-OOM 优雅退出
-      }
-      // P1-3 修复:CPU 限制轮询(POSIX 可用,Windows 跳过;exit code 4 = CPU 超限)
-      if (process.platform !== 'win32' && (cpuCoresLimit || cpuSecondsLimit)) {
-        const now = Date.now();
-        const usage = process.resourceUsage();
-        const cpuMicros =
-          (usage.userCPUTime - lastCpuUsage.userCPUTime) +
-          (usage.systemCPUTime - lastCpuUsage.systemCPUTime);
-        const cpuSecs = cpuMicros / 1_000_000;
-        const wallSecs = (now - lastCpuCheckAt) / 1000;
-        // cpuCores:瞬时 CPU 占比(累计 CPU 时间 / wall 时间)超核心数 → 退出
-        if (cpuCoresLimit && wallSecs > 0 && cpuSecs / wallSecs > cpuCoresLimit) {
-          process.stdout.write(
-            JSON.stringify({
-              type: 'error',
-              message: `cpu cores exceeded: ${cpuSecs.toFixed(2)}/${wallSecs.toFixed(2)}s > ${cpuCoresLimit} cores`,
-            }) + '\n',
-          );
-          process.exit(4);
-        }
-        // cpuSeconds:累计 CPU 时间超限 → 退出
-        cumulativeCpuSeconds += cpuSecs;
-        if (cpuSecondsLimit && cumulativeCpuSeconds > cpuSecondsLimit) {
-          process.stdout.write(
-            JSON.stringify({
-              type: 'error',
-              message: `cpu seconds exceeded: ${cumulativeCpuSeconds.toFixed(2)}s > ${cpuSecondsLimit}s`,
-            }) + '\n',
-          );
-          process.exit(4);
-        }
-        lastCpuUsage = usage;
-        lastCpuCheckAt = now;
       }
     }
   } catch {
     // IPC 通道已关闭,停止心跳
     clearInterval(heartbeatTimer);
   }
+  // 2. CPU 限制轮询(独立 try-catch,不依赖 heartbeat)
+  try {
+    // P1 修复:去掉 Windows 平台跳过(process.resourceUsage 跨平台可用,只做 typeof 守卫)
+    if (
+      (cpuCoresLimit || cpuSecondsLimit) &&
+      typeof process.resourceUsage === 'function' &&
+      lastCpuUsage
+    ) {
+      const now = Date.now();
+      const usage = process.resourceUsage();
+      const cpuMicros =
+        (usage.userCPUTime - lastCpuUsage.userCPUTime) +
+        (usage.systemCPUTime - lastCpuUsage.systemCPUTime);
+      const cpuSecs = cpuMicros / 1_000_000;
+      const wallSecs = (now - lastCpuCheckAt) / 1000;
+      // cpuCores:瞬时 CPU 占比(累计 CPU 时间 / wall 时间)超核心数 → 退出
+      if (cpuCoresLimit && wallSecs > 0 && cpuSecs / wallSecs > cpuCoresLimit) {
+        process.stdout.write(
+          JSON.stringify({
+            type: 'error',
+            code: 'CPU_LIMIT',
+            message: `cpu cores exceeded: ${cpuSecs.toFixed(2)}/${wallSecs.toFixed(2)}s > ${cpuCoresLimit} cores`,
+            exitCode: 4,
+          }) + '\n',
+        );
+        process.stderr.write('[worker-entry] CPU limit exit 4\n');
+        process.exit(4);
+      }
+      // cpuSeconds:累计 CPU 时间超限 → 退出
+      cumulativeCpuSeconds += cpuSecs;
+      if (cpuSecondsLimit && cumulativeCpuSeconds > cpuSecondsLimit) {
+        process.stdout.write(
+          JSON.stringify({
+            type: 'error',
+            code: 'CPU_LIMIT',
+            message: `cpu seconds exceeded: ${cumulativeCpuSeconds.toFixed(2)}s > ${cpuSecondsLimit}s`,
+            exitCode: 4,
+          }) + '\n',
+        );
+        process.stderr.write('[worker-entry] CPU limit exit 4\n');
+        process.exit(4);
+      }
+      lastCpuUsage = usage;
+      lastCpuCheckAt = now;
+    }
+  } catch {
+    // CPU 监控异常不影响 heartbeat,静默继续
+  }
 }, HEARTBEAT_INTERVAL_MS);
 
 // 父进程关闭 IPC 通道(进程被 kill)时优雅退出
 process.on('disconnect', () => {
   clearInterval(heartbeatTimer);
+  process.stderr.write('[worker-entry] IPC disconnect exit 2\n');
   process.exit(2);
 });
 
 // SIGTERM(父进程超时或 shutdown 时发送)→ 退出码 2(timeout)
 process.on('SIGTERM', () => {
   clearInterval(heartbeatTimer);
+  process.stderr.write('[worker-entry] SIGTERM exit 2\n');
   process.exit(2);
 });
 
@@ -128,14 +152,31 @@ process.on('message', async (msg: StartMessage) => {
   const { subagentId, task, workspacePath, model, maxIterations } = msg;
 
   // P1-3 修复:用 IPC 传入的 memoryMb 覆盖默认 OOM 阈值(替代硬编码 SELF_OOM_THRESHOLD_MB)
+  // P2 修复:负数 limit 值校验,< 0 记 warning 并视为 undefined(不启用该限制)
   if (msg.resourceLimits?.memoryMb) {
-    selfOomThresholdMb = msg.resourceLimits.memoryMb;
+    if (msg.resourceLimits.memoryMb > 0) {
+      selfOomThresholdMb = msg.resourceLimits.memoryMb;
+    } else {
+      process.stderr.write(`[worker-entry] invalid memoryMb=${msg.resourceLimits.memoryMb} (negative), skipping\n`);
+    }
   }
   // P1-3 修复:读取 CPU 限制并重置轮询基线(从任务起点计)
-  if (msg.resourceLimits?.cpuCores) cpuCoresLimit = msg.resourceLimits.cpuCores;
-  if (msg.resourceLimits?.cpuSeconds) cpuSecondsLimit = msg.resourceLimits.cpuSeconds;
+  if (msg.resourceLimits?.cpuCores) {
+    if (msg.resourceLimits.cpuCores > 0) {
+      cpuCoresLimit = msg.resourceLimits.cpuCores;
+    } else {
+      process.stderr.write(`[worker-entry] invalid cpuCores=${msg.resourceLimits.cpuCores} (negative), skipping\n`);
+    }
+  }
+  if (msg.resourceLimits?.cpuSeconds) {
+    if (msg.resourceLimits.cpuSeconds > 0) {
+      cpuSecondsLimit = msg.resourceLimits.cpuSeconds;
+    } else {
+      process.stderr.write(`[worker-entry] invalid cpuSeconds=${msg.resourceLimits.cpuSeconds} (negative), skipping\n`);
+    }
+  }
   if (cpuCoresLimit || cpuSecondsLimit) {
-    lastCpuUsage = process.resourceUsage();
+    lastCpuUsage = typeof process.resourceUsage === 'function' ? process.resourceUsage() : null;
     lastCpuCheckAt = Date.now();
     cumulativeCpuSeconds = 0;
   }
