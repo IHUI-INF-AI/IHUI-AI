@@ -18,7 +18,7 @@ export default {
     failed: 'Operation failed',
     user: 'User',
     uploading: 'Uploading',
-    noMore: 'No more',
+    noMore: 'No more'
   },
   nav: {
     home: 'Home',
@@ -30,7 +30,7 @@ export default {
     orders: 'Orders',
     wallet: 'Wallet',
     settings: 'Settings',
-    community: 'Community',
+    community: 'Community'
   },
   auth: {
     login: 'Log in',
@@ -43,7 +43,7 @@ export default {
     getCode: 'Get code',
     wechatLogin: 'WeChat login',
     appleLogin: 'Apple login',
-    phoneLogin: 'Phone login',
+    phoneLogin: 'Phone login'
   },
   login: {
     loginSuccess: 'Login successful',
@@ -65,7 +65,7 @@ export default {
     wechatOnly: 'Only WeChat login is supported',
     ssoLogin: 'SSO login',
     ssoLoginHint: 'One-click enterprise login',
-    agreement: 'I have read and agree to the Terms of Service and Privacy Policy',
+    agreement: 'I have read and agree to the Terms of Service and Privacy Policy'
   },
   forgot: {
     title: 'Recover password',
@@ -91,12 +91,12 @@ export default {
     passwordMismatch: 'Passwords do not match',
     resetting: 'Resetting…',
     submit: 'Confirm reset',
-    resetSuccess: 'Password reset successful',
+    resetSuccess: 'Password reset successful'
   },
   home: {
     welcome: 'Welcome to IHUI AI',
     greeting: 'Hello, {{name}}',
-    todayRecommend: "Today's picks",
+    todayRecommend: 'Today\'s picks',
     hotCourses: 'Hot courses',
     liveNow: 'Live now',
     tapLogin: 'Tap to log in',
@@ -106,7 +106,7 @@ export default {
       live: 'Live',
       ai: 'AI Assistant',
       order: 'Orders',
-      setting: 'Settings',
+      setting: 'Settings'
     },
     todayMinutes: '{{n}} min today',
     continuousDays: '{{n}} day streak',
@@ -123,11 +123,11 @@ export default {
       aiVoice: 'AI Voice',
       aiVideo: 'AI Video',
       agent: 'Agent',
-      modelPlaza: 'Model Plaza',
+      modelPlaza: 'Model Plaza'
     },
     knowledgePlanet: 'Knowledge Planet',
     knowledgePlanetDesc: 'Join the Knowledge Planet and grow with creators',
-    planetMembers: 'members',
+    planetMembers: 'members'
   },
   course: {
     title: 'Courses',
@@ -146,9 +146,9 @@ export default {
     goldTeacher: 'Top instructor',
     followed: 'Following',
     noIntro: 'No introduction',
-    objectives: ['Master core knowledge', 'Boost practical skills', 'Complete a real project'],
-    suitableFor: ['Beginners', 'Intermediate learners', 'Working professionals'],
-    highlights: ['Expert instructors', 'Case-driven', 'Community Q&A'],
+    objectives: null,
+    suitableFor: null,
+    highlights: null,
     nextLesson: 'Next: {{title}}',
     startLearning: 'Start learning',
     buyNow: 'Buy now',
@@ -162,12 +162,12 @@ export default {
     noteTitle: '{{title}} — Notes',
     scanCourse: 'Scan to view course',
     loadFailed: 'Course load failed',
-    weekDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    weekDays: null,
     list: {
       searchPlaceholder: 'Search courses',
       search: 'Search',
-      empty: 'No courses',
-    },
+      empty: 'No courses'
+    }
   },
   live: {
     title: 'Live',
@@ -186,7 +186,7 @@ export default {
       ended: 'Live ended',
       connecting: 'Connecting to live room…',
       enter: 'Enter live room',
-      anchor: 'Host: {{name}}',
+      anchor: 'Host: {{name}}'
     },
     subscribe: {
       subscribe: 'Subscribe',
@@ -195,19 +195,38 @@ export default {
       loadFailed: 'Subscribe failed',
       empty: 'No subscriptions',
       entry: 'My subscriptions',
+      unsubscribed: 'Unsubscribed',
+      reminderSaved: 'Settings saved',
+      reminder: 'Pre-live reminder',
+      reminderDesc: 'Get notified 10 minutes before the live stream starts',
+      unsubscribe: 'Unsubscribe',
+      discover: 'Discover live streams'
     },
     history: {
       anchor: 'Host: {{name}}',
       replay: 'Watch replay',
       empty: 'No past live sessions',
       loading: 'Loading…',
+      hour: 'h',
+      anchorLabel: 'Anchor',
+      watchDuration: 'Watched',
+      rewatch: 'Rewatch',
+      continue: 'Continue watching'
     },
     calendar: {
       title: '{{n}} live calendar',
       loadFailed: 'Calendar load failed',
       empty: 'No live sessions this month',
       entry: 'Calendar',
-    },
+      prevMonth: '‹',
+      year: '',
+      month: '',
+      nextMonth: '›',
+      monthStat: 'This month',
+      sessions: 'sessions',
+      liveList: 'Live schedule',
+      noLive: 'No live sessions scheduled today'
+    }
   },
   profile: {
     title: 'Profile',
@@ -222,7 +241,7 @@ export default {
     privacy: 'Privacy Policy',
     terms: 'Terms',
     logout: 'Log out',
-    nickname: 'Nickname',
+    nickname: 'Nickname'
   },
   order: {
     title: 'Orders',
@@ -233,7 +252,7 @@ export default {
       refunding: 'Refunding',
       refunded: 'Refunded',
       completed: 'Completed',
-      failed: 'Failed',
+      failed: 'Failed'
     },
     create: 'Create order',
     cancel: 'Cancel order',
@@ -256,19 +275,41 @@ export default {
       reasonPlaceholder: 'Please enter the refund reason',
       submit: 'Submit',
       submitted: 'Refund submitted',
+      selectReasonFirst: 'Please select a refund reason',
+      productLabel: 'Product name',
+      orderTimeLabel: 'Order time',
+      refundAmount: 'Refund amount',
+      amountReadOnly: 'Not editable',
+      contactLabel: 'Contact information',
+      contactPlaceholder: 'Please enter phone number or email'
     },
     refundList: {
       orderNo: 'Order No.: {{no}}',
       empty: 'No refund records',
+      tabRefunding: 'Refunding',
+      tabRefunded: 'Refunded',
+      tabRejected: 'Rejected',
+      statusRefunding: 'Refunding',
+      statusRejected: 'Rejected',
+      stepApply: 'Apply for refund',
+      stepReview: 'Under review',
+      estimateTip: 'Estimated arrival time',
+      collapse: 'Collapse progress',
+      viewProgress: 'View progress',
+      viewOrder: 'Order details'
     },
     tabs: {
-      cancelled: 'Cancelled',
+      cancelled: 'Cancelled'
     },
     searchPlaceholder: 'Search orders',
     notFound: 'No orders found',
     cancelConfirm: 'Are you sure you want to cancel this order?',
     cancelSuccess: 'Order cancelled',
     cancelFailed: 'Failed to cancel order',
+    list: {
+      orderTime: 'Order time',
+      refundTime: 'Refund time'
+    }
   },
   wallet: {
     title: 'Wallet',
@@ -291,6 +332,8 @@ export default {
         amount: 'Amount',
         backHome: 'Back to home',
         backWallet: 'Back to wallet',
+        tipsTitle: 'Notice',
+        arriveTime: 'Arrival time'
       },
       fail: {
         title: 'Recharge failed',
@@ -298,7 +341,14 @@ export default {
         retry: 'Retry',
         backWallet: 'Back to wallet',
         orderNoLabel: 'Order No.',
+        hintTitle: 'Notice',
+        contactService: 'Contact customer service',
+        faqQ: 'Will I be charged if recharge fails?'
       },
+      tokenRate: '1 CNY = {{n}} IHUI points',
+      activityTitle: 'Limited-time event',
+      activityPlaceholder: 'Please enter the event recharge amount',
+      activitySubmit: 'Limited-time discount recharge'
     },
     topUp: {
       balanceLabel: 'Account balance',
@@ -312,17 +362,17 @@ export default {
       methodAlipay: 'Alipay',
       submit: 'Recharge',
       submitting: 'Recharging…',
-      invalidAmount: 'Please enter a valid amount',
+      invalidAmount: 'Please enter a valid amount'
     },
     withdrawal: {
       amountLabel: 'Withdrawal amount',
-      records: 'Withdrawal records',
+      records: 'Withdrawal records'
     },
     commission: {
-      today: "Today's commission",
+      today: 'Today\'s commission',
       available: 'Available commission',
-      records: 'Commission records',
-    },
+      records: 'Commission records'
+    }
   },
   community: {
     title: 'Community',
@@ -340,26 +390,26 @@ export default {
       agent: 'Agent',
       digitalHuman: 'Digital Human',
       modelPlaza: 'Model Plaza',
-      moreTools: 'More Tools',
+      moreTools: 'More Tools'
     },
     quickEntries: {
       myCreation: 'My Creations',
       aigcWorks: 'AIGC Works',
       ranking: 'Ranking',
-      aiTeam: 'AI Team',
-    },
+      aiTeam: 'AI Team'
+    }
   },
   agent: {
     title: 'Agents',
     create: 'New agent',
-    runtime: 'Runtime',
+    runtime: 'Runtime'
   },
   chat: {
     placeholder: 'Type a message…',
     send: 'Send',
     newConversation: 'New chat',
     history: 'History',
-    stop: 'Stop',
+    stop: 'Stop'
   },
   settings: {
     title: 'Settings',
@@ -369,7 +419,7 @@ export default {
     language: 'Language',
     theme: 'Theme',
     about: 'About IHUI AI',
-    version: 'Version',
+    version: 'Version'
   },
   setting: {
     hint: 'Hint',
@@ -397,18 +447,18 @@ export default {
       tip1: 'Clearing cache will not affect your account data',
       tip2: 'Recommended on Wi-Fi',
       alreadyClean: 'Already up to date',
-      clearing: 'Cleaning',
+      clearing: 'Cleaning'
     },
     language: {
       chooseHint: 'Choose app language',
-      tip: 'Language switch will be saved and take effect automatically',
+      tip: 'Language switch will be saved and take effect automatically'
     },
     notification: {
       categoryTitle: 'Notification categories',
       empty: 'No notification settings',
       moreTitle: 'More',
       detail: 'Notification details',
-      detailDesc: 'View past notifications',
+      detailDesc: 'View past notifications'
     },
     accountBinding: 'Account & security',
     changePhone: 'Change phone',
@@ -429,6 +479,15 @@ export default {
     messageNotificationOff: 'Off — you may miss important messages',
     openSettingHint: 'Please enable notification permission in system settings',
     cacheCleared: 'Cache cleared',
+    theme: {
+      hintTitle: 'Theme notes',
+      switchHint: 'Theme change will be saved and applied globally immediately',
+      autoHint: 'Follow System will adapt to your device light/dark mode'
+    },
+    notifOpenHint: 'To receive notifications, please enable notification permission in system settings',
+    notifOn: 'Notifications enabled',
+    notifOff: 'Notifications disabled',
+    accountSecurity: 'Account & security'
   },
   error: {
     network: 'Network error',
@@ -436,20 +495,20 @@ export default {
     unauthorized: 'Please log in first',
     forbidden: 'No permission',
     notFound: 'Not found',
-    unknown: 'Unknown error',
+    unknown: 'Unknown error'
   },
   success: {
     saved: 'Saved',
     deleted: 'Deleted',
     submitted: 'Submitted',
-    copied: 'Copied',
+    copied: 'Copied'
   },
   ai: {
     title: 'AI Assistant',
-    welcomeTitle: "Hi, I'm your IHUI AI assistant",
+    welcomeTitle: 'Hi, I\'m your IHUI AI assistant',
     welcomeDesc: 'How can I help you?',
     inputPlaceholder: 'Ask a question…',
-    suggestions: ['Write me a poem', 'Explain quantum computing', 'Recommend a book', "How's the weather today"],
+    suggestions: null,
     thinking: 'Thinking…',
     stop: 'Stop',
     clear: 'Clear',
@@ -459,13 +518,13 @@ export default {
     materialLoadFailed: 'Material load failed',
     agentLoadFailed: 'Agent load failed',
     common: {
-      loading: 'Loading…',
+      loading: 'Loading…'
     },
     tishi: {
       title: 'Agent guide',
       view: 'View',
       close: 'Close',
-      needInput: 'Please provide the following information for more precise assistance',
+      needInput: 'Please provide the following information for more precise assistance'
     },
     chatMessageItem: {
       me: 'Me',
@@ -484,23 +543,23 @@ export default {
       share: 'Share',
       viewDigitalHuman: 'View Digital Human',
       voiceMessage: 'Voice Message',
-      playVoice: 'Play',
+      playVoice: 'Play'
     },
     favorite: {
       title: 'Favorites',
-      empty: 'No favorites',
+      empty: 'No favorites'
     },
     history: {
       title: 'Chat History',
       empty: 'No history',
       clearConfirm: 'Clear all chat history?',
-      cleared: 'History cleared',
+      cleared: 'History cleared'
     },
     inputArea: {
       placeholder: 'Ask a question…',
       releaseToSend: 'Release to send',
       holdToSpeak: 'Hold to speak',
-      send: 'Send',
+      send: 'Send'
     },
     materialPopup: {
       title: 'Select material',
@@ -511,14 +570,14 @@ export default {
       tabText: 'Text',
       tabImage: 'Image',
       tabVideo: 'Video',
-      tabAudio: 'Audio',
+      tabAudio: 'Audio'
     },
     skillsPopup: {
       title: 'Select skill',
       searchPlaceholder: 'Search skills',
       uses: '{{n}} uses',
       notFound: 'No skills found',
-      empty: 'No skills available',
+      empty: 'No skills available'
     },
     voice: {
       welcome: 'Hi, press and hold the button below to start a voice chat',
@@ -529,9 +588,12 @@ export default {
       releaseToSend: 'Release to send',
       holdToSpeak: 'Hold to speak',
       recordFailed: 'Recording failed, please retry',
+      clearChat: 'Clear conversation',
+      speed: 'Speed',
+      timbre: 'Timbre'
     },
     image: {
-      examples: ['A cute cat', 'Mountain sunset painting', 'Futuristic city at night', 'Abstract art pattern'],
+      examples: null,
       emptyHint: 'Describe an image to generate',
       tryThese: 'Try these',
       placeholder: 'Describe the image you want',
@@ -547,13 +609,13 @@ export default {
       empty: 'No generations yet',
       size: 'Size',
       style: 'Style',
-      styles: ['Default', 'Cartoon', 'Realistic', 'Oil painting', 'Watercolor'],
+      styles: null,
       generateFailed: 'Generation failed, please retry',
       promptRequired: 'Please enter a description',
       downloadSuccess: 'Saved to album',
       downloadFailed: 'Download failed, please retry',
       favoriteAdded: 'Added to favorites',
-      favoriteRemoved: 'Removed from favorites',
+      favoriteRemoved: 'Removed from favorites'
     },
     video: {
       title: 'Video Generation',
@@ -587,15 +649,15 @@ export default {
         doubao: 'Doubao',
         doubaoDesc: 'ByteDance Doubao video',
         dashscope: 'Dashscope',
-        dashscopeDesc: 'Alibaba Tongyi Wanxiang',
-      },
+        dashscopeDesc: 'Alibaba Tongyi Wanxiang'
+      }
     },
     agent: {
       searchPlaceholder: 'Search agents',
       count: '{{n}}',
       notFound: 'No agents found',
       empty: 'No agents',
-      inputPlaceholder: 'Ask a question…',
+      inputPlaceholder: 'Ask a question…'
     },
     agentDetail: {
       runtimeTitle: 'Runtime',
@@ -634,7 +696,7 @@ export default {
       exampleDialog: 'Example dialog',
       reviews: 'Reviews',
       reviewCount: '{{n}} reviews',
-      ratingDistribution: 'Rating distribution',
+      ratingDistribution: 'Rating distribution'
     },
     agentList: {
       categories: {
@@ -643,7 +705,7 @@ export default {
         writing: 'Writing',
         coding: 'Coding',
         education: 'Education',
-        life: 'Lifestyle',
+        life: 'Lifestyle'
       },
       useCount: '{{n}} uses',
       noResult: 'No agents found',
@@ -658,7 +720,7 @@ export default {
       hotRecommend: 'Hot recommendations',
       createAgent: 'Create agent',
       emptyFavorites: 'No favorite agents',
-      emptyRecent: 'No recently used agents',
+      emptyRecent: 'No recently used agents'
     },
     historyPage: {
       title: 'Chat history',
@@ -667,6 +729,9 @@ export default {
       clearAll: 'Clear all',
       clearConfirm: 'Clear all chat history?',
       cleared: 'Cleared',
+      refreshSuccess: 'Refreshed successfully',
+      startNew: 'Start new conversation',
+      msgCount: '{{n}} messages'
     },
     special: {
       hint: 'Special AI model entries — tap to open the related feature page',
@@ -675,27 +740,36 @@ export default {
       nanobanana: {
         name: 'NanoBanana',
         desc: 'Google image editing model, supports natural-language image editing',
-        capabilities: ['Image editing', 'Natural language', 'Local repaint'],
-        apiStatus: 'Tap to open AI Image',
+        capabilities: null,
+        apiStatus: 'Tap to open AI Image'
       },
       veo3: {
         name: 'Veo3',
         desc: 'Google video generation model, supports high-quality text-to-video',
-        capabilities: ['Text-to-video', 'HD output', 'Long video'],
-        apiStatus: 'Tap to open AI Video',
+        capabilities: null,
+        apiStatus: 'Tap to open AI Video'
       },
       httpmodel: {
         name: 'HttpModel',
         desc: 'Generic HTTP model proxy, supports custom model integration',
-        capabilities: ['Custom model', 'HTTP proxy', 'Generic API'],
-        apiStatus: 'Tap to open AI Chat',
+        capabilities: null,
+        apiStatus: 'Tap to open AI Chat'
       },
       geminiFlash: {
         name: 'Gemini-2.5-flash',
         desc: 'Google Gemini 2.5 Flash text model, fast response',
-        capabilities: ['Text chat', 'Multimodal input', 'Fast response'],
-        apiStatus: 'Available via AI Chat',
+        capabilities: null,
+        apiStatus: 'Available via AI Chat'
       },
+      cat: {
+        image: 'AI Drawing',
+        video: 'AI Video',
+        voice: 'AI Voice',
+        plaza: 'Model Plaza'
+      },
+      historySoon: 'History coming soon',
+      featured: 'Featured',
+      useBtn: 'Use now'
     },
     chat: {
       agentTipTitle: 'Agent Guide',
@@ -709,8 +783,8 @@ export default {
       agentTipInput: 'Enter Question',
       agentTipInputDesc: 'Type your question in the input box at the bottom and press send',
       agentTipHistory: 'History',
-      agentTipHistoryDesc: 'View conversation history',
-    },
+      agentTipHistoryDesc: 'View conversation history'
+    }
   },
   share: {
     appTitle: 'IHUI AI — Learn smarter',
@@ -743,7 +817,7 @@ export default {
       goHome: 'Back home',
       history: 'History',
       emptyHistory: 'No history',
-      models: 'Models',
+      models: 'Models'
     },
     creation: {
       title: 'AI Creation Share',
@@ -758,8 +832,8 @@ export default {
       regenerate: 'Regenerate',
       shareFriend: 'Share to friends',
       voiceAnswer: '🔊 Voice answer',
-      modelDefault: 'AI Model',
-    },
+      modelDefault: 'AI Model'
+    }
   },
   aiGroup: {
     title: 'Agent plaza',
@@ -772,7 +846,7 @@ export default {
     tabEducation: 'Education',
     tabLife: 'Life',
     loadFailed: 'Load failed',
-    useCount: '{n} users',
+    useCount: '{n} users'
   },
   aiCircle: {
     title: 'AI Circle',
@@ -780,14 +854,14 @@ export default {
     empty: 'No content',
     loadFailed: 'Load failed',
     anonymous: 'Anonymous',
-    noMore: 'No more',
+    noMore: 'No more'
   },
   aiCareer: {
     title: 'AI Career',
     guide: 'Guide',
     empty: 'No content',
     loadFailed: 'Load failed',
-    useCount: '{n} users',
+    useCount: '{n} users'
   },
   aiChatDetail: {
     title: 'Chat history',
@@ -797,7 +871,7 @@ export default {
     sendFailed: 'Send failed, please retry',
     loadFailed: 'Load failed',
     thinking: 'Thinking…',
-    inputPlaceholder: 'Type a message…',
+    inputPlaceholder: 'Type a message…'
   },
   aiAssistantN8n: {
     title: 'AI Assistant',
@@ -809,7 +883,7 @@ export default {
     statusUnknown: 'Unknown',
     noUrl: 'No access URL',
     loadFailed: 'Load failed',
-    openWorkflow: 'Open workflow',
+    openWorkflow: 'Open workflow'
   },
   agentDialogue: {
     title: 'Agent dialogue',
@@ -828,7 +902,7 @@ export default {
     clickPlay: 'Tap to play',
     fileMessage: 'File message',
     clickView: 'Tap to view',
-    read: 'Read',
+    read: 'Read'
   },
   accountCancel: {
     title: 'Delete account',
@@ -858,14 +932,14 @@ export default {
     codePlaceholder: 'Enter verification code',
     getCode: 'Get code',
     confirmLabel: 'Confirmation text',
-    confirmPlaceholder: 'Enter the text above',
+    confirmPlaceholder: 'Enter the text above'
   },
   ask: {
     search: 'Search questions',
     tabs: {
       new: 'Latest',
       hot: 'Hot',
-      unanswered: 'Unanswered',
+      unanswered: 'Unanswered'
     },
     answers: '{{n}} answers',
     empty: 'No questions',
@@ -875,7 +949,7 @@ export default {
       answered: 'Answered',
       answerCount: '{{n}} answers',
       placeholder: 'Type your answer…',
-      answer: 'Answer',
+      answer: 'Answer'
     },
     create: {
       published: 'Question published',
@@ -886,7 +960,16 @@ export default {
       detailPlaceholder: 'Describe your question in detail for better answers',
       rewardLabel: 'Reward points',
       submit: 'Publish',
-    },
+      draftRestored: 'Draft restored',
+      maxImages: 'Up to 3 images',
+      contentRequired: 'Please enter your question',
+      contentTooShort: 'Description must be at least 5 characters',
+      pageTitle: 'Ask',
+      categoryPlaceholder: 'Select category',
+      imageLabel: 'Image',
+      anonymousLabel: 'Post anonymously',
+      anonymousDesc: 'Your nickname will not be shown'
+    }
   },
   aigc: {
     publish: {
@@ -908,7 +991,7 @@ export default {
       uploadOk: 'Upload successful',
       uploadFail: 'Upload failed',
       needFile: 'Please upload at least one file',
-      publishFail: 'Publish failed',
+      publishFail: 'Publish failed'
     },
     list: {
       title: 'Works plaza',
@@ -924,8 +1007,8 @@ export default {
       invalidAudio: 'Invalid audio URL',
       audioFail: 'Audio playback failed',
       untitled: 'Text content',
-      promptLabel: 'Prompt',
-    },
+      promptLabel: 'Prompt'
+    }
   },
   coursePlanet: {
     title: 'Course Planet',
@@ -935,7 +1018,7 @@ export default {
     teacher: 'Instructor',
     free: 'Free',
     studentsUnit: 'learning',
-    loadingMore: 'Loading…',
+    loadingMore: 'Loading…'
   },
   following: {
     cancel: 'Unfollow',
@@ -944,22 +1027,28 @@ export default {
     delete: 'Delete',
     loadMore: 'Load more',
     noMore: 'No more',
+    people: 'people',
+    sortByFollowed: 'Follow time',
+    sortByRecent: 'Recently active',
+    followedAt: 'Followed at',
+    searchEmpty: 'No matching users found',
+    goDiscover: 'Discover more'
   },
   webview: {
     title: 'Web page',
-    missingUrl: 'Missing link, cannot open',
+    missingUrl: 'Missing link, cannot open'
   },
   carte: {
     shareHint: 'Please save the image before sharing',
     noQrcode: 'No QR code',
     anonymous: 'Anonymous user',
-    cardSuffix: "'s card",
+    cardSuffix: '\'s card',
     introLabel: 'Intro',
     phone: 'Phone',
     email: 'Email',
     scanHint: 'Scan to view card',
     shareCard: 'Share card',
-    saveQrcode: 'Save QR code',
+    saveQrcode: 'Save QR code'
   },
   exam: {
     questions: '{{n}} questions',
@@ -983,6 +1072,16 @@ export default {
       rankValue: '#{{n}} of {{total}}',
       goList: 'View exam list',
       goStudy: 'Continue learning',
+      correct: 'Correct',
+      wrong: 'Wrong',
+      pageTitle: 'Exam result',
+      reviewTitle: 'Question review',
+      reviewCorrect: 'Correct',
+      reviewWrong: 'Wrong',
+      myAnswer: 'My answer',
+      correctAnswer: 'Correct answer',
+      analysis: 'Analysis',
+      noReview: 'No questions to review'
     },
     detail: {
       loadFailed: 'Exam load failed',
@@ -998,15 +1097,25 @@ export default {
       notice3: 'Do not exit the app during the exam',
       notice4: 'Score will be calculated automatically after submission',
       start: 'Start exam',
+      startFailed: 'Failed to start exam',
+      rule3: 'Screen switching is prohibited; the exam will auto-submit after 5 switches',
+      pageTitle: 'Exam details',
+      participants: 'Participants',
+      passedCount: 'Passed',
+      historyTitle: 'History scores',
+      historyPassed: 'Passed',
+      historyNotPassed: 'Not passed',
+      historyEmpty: 'No history scores',
+      starting: 'Entering exam…'
     },
     answer: {
-      judgmentOptions: ['True', 'False'],
+      judgmentOptions: null,
       loadFailed: 'Paper load failed',
       answerPlaceholder: 'Type your answer',
       prev: 'Previous',
       next: 'Next',
-      submit: 'Submit',
-    },
+      submit: 'Submit'
+    }
   },
   favorites: {
     cancel: 'Unfavorite',
@@ -1015,6 +1124,16 @@ export default {
     delete: 'Delete',
     loadMore: 'Load more',
     noMore: 'No more',
+    batchCancel: 'Batch unfavorite',
+    items: 'items',
+    unsupported: 'Navigation not supported',
+    itemsUnit: 'items',
+    done: 'Done',
+    manage: 'Manage',
+    selectAll: 'Select all',
+    collectedAt: 'Collected at',
+    searchEmpty: 'No matching content found',
+    goDiscover: 'Discover'
   },
   distribution: {
     withdraw: {
@@ -1028,7 +1147,7 @@ export default {
       amountPlaceholder: 'Enter withdrawal amount',
       all: 'Withdraw all',
       method: 'Withdrawal method',
-      submit: 'Submit',
+      submit: 'Submit'
     },
     index: {
       menuTeam: 'My team',
@@ -1069,7 +1188,7 @@ export default {
       verifyTitle: 'Identity verification',
       idPlaceholder: 'Enter ID number',
       namePlaceholder: 'Enter name',
-      confirm: 'Confirm',
+      confirm: 'Confirm'
     },
     team: {
       title: 'My Team',
@@ -1087,12 +1206,12 @@ export default {
       loading: 'Loading…',
       noMore: 'No more',
       error: 'Load failed',
-      retry: 'Tap to retry',
+      retry: 'Tap to retry'
     },
     commission: {
       total: 'Total commission',
       empty: 'No commission records',
-      loading: 'Loading…',
+      loading: 'Loading…'
     },
     plan: {
       title: 'Distribution plan',
@@ -1125,7 +1244,7 @@ export default {
       totalEarnings: 'Total earnings',
       inviteCount: 'Invites',
       rulesTitle: 'Commission rules',
-      openVipBtn: 'Open VIP membership to join commission plan',
+      openVipBtn: 'Open VIP membership to join commission plan'
     },
     memberDetail: {
       title: 'Member detail',
@@ -1140,7 +1259,7 @@ export default {
       contribution: 'Contribution',
       error: 'Load failed',
       retry: 'Tap to retry',
-      noMore: 'No more',
+      noMore: 'No more'
     },
     orderList: {
       title: 'Distribution orders',
@@ -1152,7 +1271,7 @@ export default {
       commission: 'Commission',
       error: 'Load failed',
       retry: 'Tap to retry',
-      noMore: 'No more',
+      noMore: 'No more'
     },
     company: {
       title: 'My company',
@@ -1165,21 +1284,114 @@ export default {
       joinTime: 'Joined: {{time}}',
       menuTeam: 'Team',
       menuCommission: 'Commission',
-      menuWithdraw: 'Withdraw',
+      menuWithdraw: 'Withdraw'
     },
     rank: {
       title: 'Distribution Leaderboard',
-      empty: 'No ranking data',
-    },
+      empty: 'No ranking data'
+    }
   },
   about: {
     version: 'Version {{version}}',
-    protocol: 'User agreement',
-    privacy: 'Privacy policy',
+    protocol: {
+      s2: {
+        t1: '2.1 User Qualifications and Usage Restrictions',
+        t2: '2.2 Service Updates and Changes',
+        t3: '2.3 Service Suspension and Restrictions',
+        t4: '2.4 Authorization and Access Restrictions',
+        t5: '2.5 Terminal Device and Network Requirements',
+        t6: '2.6 Usage Rights and Reserved Rights',
+        t7: '2.7 Content Quality and Feedback Mechanism'
+      },
+      s3: {
+        t1: '3.1 Account Registration and Usage',
+        t2: '3.2 Account Cancellation',
+        t3: '3.3 Account Guidelines',
+        t4: '3.4 Account Ownership and Usage',
+        t5: '3.5 Account Security',
+        t6: '3.6 Password Recovery',
+        t7: '3.7 Real Identity Information',
+        t8: '3.8 Account Information Management',
+        t9: '3.9 Account Recycling'
+      },
+      s5: {
+        t1: '5.1 User Code of Conduct',
+        t2: '5.2 Information Content Guidelines',
+        t3: '5.3 Complaints and Reports'
+      },
+      mainTitle: 'Service Agreement',
+      title: 'User Agreement'
+    },
+    privacy: {
+      overviewTitle: 'IHUI AI Privacy Policy Overview',
+      coreTitle: 'Privacy policy key points:',
+      mainTitle: 'Privacy Policy',
+      updateDate: 'Updated: June 21, 2025',
+      effectiveDate: 'Effective: June 21, 2025',
+      s1: {
+        t1: '1.1 Registration and Login',
+        t2: '1.2 Intelligent Conversation Service',
+        t3: '1.3 Intelligent Search Service',
+        t4: '1.4 User Feedback and Service Improvement',
+        t5: '1.5 Message Notification Service',
+        t6: '1.6 Operations and Security Assurance',
+        t7: '1.7 Changes to Purposes of Collecting and Using Personal Information',
+        t8: '1.8 Exceptions to Obtaining Authorization Consent'
+      },
+      s2: {
+        t1: '2.1 Ensuring Safe and Efficient Operation of Products and Services',
+        t2: '2.2 Improving Your Access Convenience',
+        t3: '2.3 About Cookie Clearance'
+      },
+      s3: {
+        t1: '3.1 Data Sharing and Partners',
+        t2: '3.2 Data Transfer',
+        t3: '3.3 Data Disclosure',
+        t4: '3.4 Exemption Circumstances'
+      },
+      s4: {
+        t1: '4.1 Storage Location and Cross-border Transfer',
+        t2: '4.2 Storage Period and Deletion'
+      },
+      s5: {
+        t1: '5.1 Security Assurance Commitment',
+        t2: '5.2 Encryption and Anonymization Technology',
+        t3: '5.3 Security Management System',
+        t4: '5.4 Security Risk Notice',
+        t5: '5.5 Emergency Response Mechanism',
+        t6: '5.6 Information Security Outside the Service'
+      },
+      s9: {
+        t1: '9.1 360 Reinforcement',
+        t2: '9.2 ZIP4J Package',
+        t3: '9.3 Chromium',
+        t4: '9.4 AndroidGifDrawable',
+        t5: '9.5 iik Video Player',
+        t6: '9.6 Bolts',
+        t7: '9.7 Glide',
+        t8: '9.8 Fresco',
+        t9: '9.9 Huawei Push',
+        t10: '9.10 UniversalImageLoader',
+        t11: '9.11 SamsungLook',
+        t12: '9.12 Taobao Weex',
+        t13: '9.13 Okhttp3',
+        t14: '9.14 Okio',
+        t15: '9.15 DCloud SDK',
+        t16: '9.16 MAC Address Collection'
+      }
+    },
     help: {
       title: 'Help center',
       search: 'Search help',
       empty: 'No help content',
+      phoneRequired: 'Please enter your contact information',
+      contextRequired: 'Please enter feedback details',
+      feedbackTitle: 'Feedback',
+      username: 'Name',
+      usernamePlaceholder: 'Please enter your name',
+      context: 'Issue description',
+      contextPlaceholder: 'Please enter feedback details',
+      submitFailed: 'Feedback submission failed, please try again later'
     },
     contact: {
       title: 'Contact us',
@@ -1188,14 +1400,23 @@ export default {
       qq: 'QQ',
       address: 'Address',
       workTime: 'Work hours: Mon–Fri 9:00–18:00',
+      addressCopied: 'Address copied',
+      headerSub: 'We are here to help',
+      callBtn: 'Call',
+      copyBtn: 'Copy',
+      workTimeLabel: 'Working hours',
+      responseLabel: 'Response time',
+      responseTime: 'Replied within 24 hours on working days',
+      callNow: 'Call customer service now'
     },
     businessLicense: {
-      labels: ['USCC', 'Name', 'Type', 'Legal representative', 'Registered capital', 'Established', 'Business term', 'Business scope'],
+      labels: null,
       scopeTitle: 'Business scope',
       footer: 'For reference only, subject to business registration',
+      tapToView: 'Tap to view business license'
     },
     icpRecord: {
-      labels: ['Filing No.', 'Filing subject', 'Approved', 'Filing type'],
+      labels: null,
       footer: 'Sourced from MIIT filing system',
       icpNo: 'ICP filing No.',
       policeNo: 'Public security filing No.',
@@ -1204,29 +1425,33 @@ export default {
       domain: 'Domain',
       recordDate: 'Filing date',
       query: 'Query on MIIT',
+      icpLabel: 'ICP filing/license number'
     },
     usageRules: {
-      titles: ['1. Account rules', '2. Content rules', '3. Platform rules', '4. Disclaimer'],
-      account: ['Real-name registration required', 'No transfer or sale of accounts', 'Keep your password safe'],
-      content: ['No illegal content', 'No ads or spam', 'Respect intellectual property'],
-      usage: ['No fake orders', 'No traffic manipulation', 'No attacks on the platform'],
-      disclaimer: ['Platform is not responsible for content accuracy', 'Users are responsible for their actions', 'Platform reserves the right of final interpretation'],
+      titles: null,
+      account: null,
+      content: null,
+      usage: null,
+      disclaimer: null,
       footer: 'Effective from the date of publication',
       titleAccount: '1. Account usage',
       titleContent: '2. Content rules',
       titleForbid: '3. Prohibited behavior',
       titleIP: '4. Intellectual property',
       titleDisclaimer: '5. Disclaimer',
+      s2: {
+        sub1: '(1) Permitted Actions',
+        sub2: '(2) Prohibited Actions (Red Line Terms)'
+      },
+      s6: {
+        sub1: '(1) Platform Rights and Obligations',
+        sub2: '(2) User Rights and Obligations',
+        sub3: '(3) Disclaimer Terms'
+      }
     },
     appPermission: {
-      names: ['Storage', 'Camera', 'Microphone', 'Location', 'Notifications'],
-      descs: [
-        'Save learning materials locally',
-        'Scan to log in and upload avatars',
-        'Voice chat and live streaming',
-        'Recommend nearby learning resources',
-        'Receive study and event notifications',
-      ],
+      names: null,
+      descs: null,
       intro: 'IHUI AI needs the following permissions to provide full functionality',
       required: 'Required',
       optional: 'Optional',
@@ -1234,9 +1459,10 @@ export default {
       albumName: 'Album permission',
       albumDesc: 'Save and upload images to the album',
       goSetting: 'Open settings',
+      openAllSetting: 'Open system settings'
     },
     modelRecord: {
-      labels: ['Model', 'Version', 'Provider', 'Updated', 'Capabilities'],
+      labels: null,
       noticeTitle: 'Model information',
       noticeText: 'This app uses AI technology. Below is the model information.',
       footer: 'For reference only',
@@ -1246,6 +1472,7 @@ export default {
       algoType: 'Algorithm type',
       recordDate: 'Filing date',
       tableTitle: 'LLM filing information',
+      imageUnavailable: 'Record image not uploaded yet'
     },
     apiSettings: {
       apiUrl: 'API URL',
@@ -1255,10 +1482,25 @@ export default {
       diagnose: 'Network diagnostics',
       test: 'Test connection',
       footer: 'Current API configuration',
+      requiredTip: 'Please complete the API configuration',
+      savedTip: 'Saved successfully',
+      resetTip: 'Reset to default',
+      testSuccess: 'Connection successful',
+      testFailed: 'Connection failed',
+      cozeTitle: 'Coze API Configuration',
+      apiToken: 'API Token',
+      tokenPlaceholder: 'Please enter your Coze API token',
+      workflowId: 'Workflow ID',
+      workflowPlaceholder: 'Please enter the workflow ID',
+      saveBtn: 'Save settings',
+      resetBtn: 'Reset to default',
+      diagnoseTitle: 'Network diagnostics'
     },
+    introFallback: 'IHUI AI is dedicated to building a one-stop AI service platform',
+    copyright: '© 2026 IHUI AI. All rights reserved.'
   },
   aboutProtocol: {
-    loadFailed: 'Protocol load failed',
+    loadFailed: 'Protocol load failed'
   },
   businessCard: {
     saved: 'Card saved',
@@ -1271,6 +1513,16 @@ export default {
     save: 'Save',
     edit: 'Edit',
     loading: 'Loading…',
+    uploaded: 'Business card uploaded',
+    savedToAlbum: 'Saved to album',
+    saveFailed: 'Save failed',
+    shareTitle: 'My community card',
+    customEntry: 'Community card customization entry',
+    reupload: 'Re-upload',
+    saveToAlbum: 'Save to album',
+    shareWx: 'Share to friends',
+    sharePyq: 'Share to Moments',
+    uploadPlaceholder: 'Upload business card'
   },
   cart: {
     title: 'Cart',
@@ -1282,7 +1534,7 @@ export default {
     deleteConfirm: 'Delete this item?',
     selectFirst: 'Please select items',
     loadFailed: 'Load failed',
-    total: 'Total',
+    total: 'Total'
   },
   categoryDetail: {
     categoryId: 'Category {{id}}',
@@ -1291,13 +1543,13 @@ export default {
     new: 'New',
     empty: 'No content',
     noDesc: 'No description',
-    useCount: '{{n}} uses',
+    useCount: '{{n}} uses'
   },
   circle: {
     tabs: {
       recommend: 'Recommended',
       follow: 'Following',
-      hot: 'Hot',
+      hot: 'Hot'
     },
     empty: 'No content',
     createForm: {
@@ -1306,14 +1558,33 @@ export default {
       contentPlaceholder: 'Share your thoughts…',
       topicLabel: 'Topic',
       selectTopic: 'Select topic',
-      publish: 'Publish',
+      publish: 'Publish'
     },
     detail: {
       followed: 'Following',
       shareHint: 'Copy link to share',
       follow: 'Follow',
       share: 'Share',
+      unfollowed: 'Unfollowed',
+      commentSent: 'Comment posted',
+      aigcTag: 'AI Work',
+      commentsTitle: 'Comments',
+      viewMore: 'View more',
+      noComments: 'No comments yet, be the first',
+      commentPlaceholder: 'Say something…'
     },
+    create: {
+      contentRequired: 'Please enter post content',
+      imagesLabel: 'Images',
+      moreTopics: 'More',
+      aigcLabel: 'Link AI work',
+      selectAigc: 'Select AI work (optional)',
+      noAigc: 'No AI works available to link',
+      allowComments: 'Allow comments'
+    },
+    index: {
+      goPublish: 'Publish'
+    }
   },
   devEnter: {
     cover: {
@@ -1336,7 +1607,7 @@ export default {
       devNotice: 'Developer Notice',
       faqTitle: 'A series of Q&A for developers?',
       copy: 'Copy',
-      copySuccess: 'Copied',
+      copySuccess: 'Copied'
     },
     n8nModel: {
       title: 'N8N model',
@@ -1376,7 +1647,7 @@ export default {
       createSuccess: 'Agent created successfully',
       mockSuccess: 'API not yet available. Mock creation completed',
       submitting: 'Creating…',
-      submit: 'Create Agent',
+      submit: 'Create Agent'
     },
     modelEdit: {
       saved: 'Saved',
@@ -1410,14 +1681,14 @@ export default {
       submitting: 'Submitting…',
       submit: 'Submit for review',
       submitSuccess: 'Submitted successfully',
-      mockSuccess: 'API not yet available. Mock submission completed',
-    },
+      mockSuccess: 'API not yet available. Mock submission completed'
+    }
   },
   developer: {
     withdrawal: {
       title: 'Withdrawal records',
       processing: 'Processing',
-      empty: 'No withdrawal records',
+      empty: 'No withdrawal records'
     },
     subscribe: {
       monthly: 'Monthly',
@@ -1428,6 +1699,23 @@ export default {
       empty: 'No subscription plans',
       submitting: 'Submitting…',
       priceLabel: '¥{{price}}/{{period}}',
+      devName: 'Developer',
+      unfollowed: 'Unfollowed',
+      noContact: 'No contact information',
+      bioDefault: 'No bio',
+      subscribedBtn: 'Following',
+      subscribeBtn: '+ Follow',
+      statSubscribers: 'Subscribers',
+      statModels: 'Models',
+      statUses: 'Total uses',
+      modelsTitle: 'Developer models',
+      noModels: 'No models',
+      notifyTitle: 'Notification settings',
+      notifyNew: 'New model release alerts',
+      notifyUpdate: 'Model update alerts',
+      postsTitle: 'Developer posts',
+      noPosts: 'No posts',
+      contact: 'Contact developer'
     },
     income: {
       title: 'Income overview',
@@ -1470,7 +1758,7 @@ export default {
       noMore: 'No more',
       cashEmpty: 'No withdrawal records',
       moreMethod: 'More withdrawal methods in official APP',
-      wechat: 'WeChat',
+      wechat: 'WeChat'
     },
     index: {
       title: 'Developer center',
@@ -1491,14 +1779,14 @@ export default {
       typeLabel: 'Type',
       editBtn2: 'Edit',
       editBtn: 'Settings',
-      noMore: 'No more',
-    },
+      noMore: 'No more'
+    }
   },
   modelPlaza: {
     title: 'Model plaza',
     unnamed: 'Untitled model',
     noDesc: 'No description',
-    empty: 'No models',
+    empty: 'No models'
   },
   news: {
     search: 'Search news',
@@ -1511,21 +1799,27 @@ export default {
       comment: 'Comment',
       share: 'Share',
       related: 'Related',
-      commentSoon: 'Comments coming soon',
+      commentSoon: 'Comments coming soon'
     },
+    cat: {
+      announce: 'Announcements',
+      activity: 'Activities',
+      info: 'News',
+      tutorial: 'Tutorials'
+    }
   },
   plaza: {
     setNeed: {
-      categories: ['Skills', 'Career', 'Hobbies', 'Certifications', 'Other'],
-      levels: ['Beginner', 'Intermediate', 'Advanced', 'Expert'],
-      budgets: ['¥0–100', '¥100–500', '¥500–1000', '¥1000+'],
+      categories: null,
+      levels: null,
+      budgets: null,
       selectAtLeast: 'Please select at least one',
       saved: 'Saved',
       directionTitle: 'Learning direction',
       directionDesc: 'Pick what interests you',
       levelTitle: 'Current level',
       budgetTitle: 'Budget range',
-      save: 'Save',
+      save: 'Save'
     },
     index: {
       title: 'Model plaza',
@@ -1551,7 +1845,7 @@ export default {
       detailTrack: 'Track',
       detailStatus: 'Status',
       detailAuthor: 'Author',
-      identityTitle: 'Switch identity',
+      identityTitle: 'Switch identity'
     },
     cover: {
       title: 'Cover selection',
@@ -1573,8 +1867,8 @@ export default {
       expire: 'Expire',
       renew: 'Renew',
       continueOrder: 'Continue taking orders',
-      qaTitle: 'FAQ',
-    },
+      qaTitle: 'FAQ'
+    }
   },
   ranking: {
     title: 'Leaderboard',
@@ -1606,8 +1900,8 @@ export default {
       url: 'Website',
       copyHint: 'Tap to copy',
       contentTitle: 'Details',
-      loadFailed: 'Get detail',
-    },
+      loadFailed: 'Get detail'
+    }
   },
   recruitment: {
     applied: 'Application submitted',
@@ -1620,7 +1914,7 @@ export default {
     monthlyIncome: 'Monthly',
     yearlyIncome: 'Yearly',
     submitting: 'Submitting…',
-    apply: 'Apply now',
+    apply: 'Apply now'
   },
   register: {
     enterPhone: 'Please enter your phone number',
@@ -1648,26 +1942,26 @@ export default {
     userAgreement: '《User Agreement》',
     privacyPolicy: '《Privacy Policy》',
     hasAccount: 'Already have an account?',
-    toLogin: 'Log in',
+    toLogin: 'Log in'
   },
   message: {
     tabs: {
       all: 'All',
       system: 'System',
       interaction: 'Interactions',
-      private: 'Direct',
+      private: 'Direct'
     },
     notifLabels: {
       system: 'System notifications',
       interaction: 'Interaction messages',
       private: 'Direct messages',
-      marketing: 'Marketing',
+      marketing: 'Marketing'
     },
     notifDescs: {
       system: 'Account, order, and security notifications',
       interaction: 'Likes, comments, and follows',
       private: 'Direct messages from other users',
-      marketing: 'Promotions and new releases',
+      marketing: 'Promotions and new releases'
     },
     hello: 'Hi, I am {{name}}',
     justNow: 'Just now',
@@ -1690,8 +1984,8 @@ export default {
       replyComment: 'replied to your comment: Great explanation!',
       followYou: 'followed you',
       targetReact: 'React Intro Lesson 3',
-      targetAi: 'AI LLM in Practice',
-    },
+      targetAi: 'AI LLM in Practice'
+    }
   },
   member: {
     index: {
@@ -1705,19 +1999,29 @@ export default {
       myCoupons: 'My coupons',
       couponCenter: 'Coupon center',
       vip: 'VIP member',
+      permanentVip: 'Permanent',
+      usageStats: 'Usage statistics',
+      openVipDesc: 'Enjoy more privileges and enhanced AI experience',
+      permanentActive: 'You are a permanent VIP member',
+      allPrivileges: 'All privileges unlocked',
+      upgradePermanent: 'Upgrade to permanent VIP',
+      upgradeHint: 'You are a VIP member; upgrade to permanent VIP',
+      upgradeNow: 'Upgrade to permanent VIP',
+      contactTitle: 'Having issues?',
+      contactText: 'Customer service WeChat: AIXHS_Service'
     },
     integral: {
       current: 'Current points',
       empty: 'No point records',
       loading: 'Loading…',
       loadFailed: 'Load failed',
-      noMore: 'No more',
+      noMore: 'No more'
     },
     benefits: {
       empty: 'No benefits',
       myBenefits: 'My exclusive benefits',
       loadFailed: 'Load failed',
-      tierCatalog: 'Tier benefits',
+      tierCatalog: 'Tier benefits'
     },
     coupon: {
       unused: 'Unused',
@@ -1732,7 +2036,7 @@ export default {
       thresholdText: 'Spend {threshold}+',
       expireText: 'Valid until {time}',
       use: 'Use now',
-      loadMore: 'Pull up to load more',
+      loadMore: 'Pull up to load more'
     },
     couponList: {
       received: 'Claimed',
@@ -1744,14 +2048,14 @@ export default {
       empty: 'No coupons available',
       loadFailed: 'Load failed',
       thresholdText: 'Spend {threshold} CNY+',
-      expireText: 'Valid until {time}',
-    },
+      expireText: 'Valid until {time}'
+    }
   },
   pay: {
     result: {
       paid: 'Payment successful',
       pending: 'Payment processing',
-      failed: 'Payment failed',
+      failed: 'Payment failed'
     },
     backHome: 'Back to home',
     viewOrders: 'View orders',
@@ -1764,6 +2068,18 @@ export default {
     missingParams: 'Missing payment params',
     useWechatScan: 'Use WeChat to scan and pay',
     configNotReady: 'Payment config not ready. Contact admin.',
+    balanceInsufficient: 'Insufficient balance, please recharge',
+    noCoupon: 'No coupons available',
+    couponNone: 'No coupon',
+    orderExpired: 'Order expired, please place a new order',
+    alipayNotReady: 'Alipay is not available yet',
+    countdownTip: 'Remaining payment time {{time}}',
+    couponSaved: 'Saved ¥{{n}}',
+    goodsName: 'Product name',
+    vipSubscription: 'VIP subscription',
+    balanceAmount: 'Balance ¥{{n}}',
+    recharge: 'Recharge',
+    couponAvailable: '{{n}} available'
   },
   study: {
     todayMinutes: '{{n}} min today',
@@ -1783,29 +2099,43 @@ export default {
       statusDone: 'Done',
       statusInProgress: 'In progress',
       empty: 'No study plans',
-      add: 'Add plan',
+      add: 'Add plan'
     },
     rankPage: {
       title: 'Study leaderboard',
       subtitle: 'See who studies hardest',
       minutes: '{{n}} min',
-      empty: 'No ranking data',
+      empty: 'No ranking data'
     },
     recordPage: {
       duration: 'Studied {{n}} min',
       progress: 'Progress {{n}}%',
       empty: 'No study records',
+      statusLearning: 'Learning',
+      statusAbandon: 'Abandoned',
+      statTotal: 'Total study',
+      unitMin: 'min',
+      statDays: 'Streak days',
+      unitDay: 'days',
+      statCourses: 'Completed courses',
+      unitCourse: 'courses',
+      statPoints: 'Points earned',
+      unitPoint: 'pts',
+      tabCompleted: 'Completed',
+      tabAbandoned: 'Abandoned',
+      coverFallback: 'Course',
+      continue: 'Continue learning'
     },
     videoDetail: {
       me: 'Me',
       justNow: 'Just now',
       tabsCatalog: 'Catalog',
       tabsIntro: 'Intro',
-      tabsComment: 'Comments',
+      tabsComment: 'Comments'
     },
     publish: {
-      categories: ['Insights', 'Experience', 'Help', 'Resources'],
-      visibilityOptions: ['Public', 'Friends only', 'Private'],
+      categories: null,
+      visibilityOptions: null,
       enterTitle: 'Please enter a title',
       enterContent: 'Please enter content',
       published: 'Published',
@@ -1814,7 +2144,7 @@ export default {
       category: 'Category',
       visibility: 'Visibility',
       tagsPlaceholder: 'Add tags',
-      submit: 'Publish',
+      submit: 'Publish'
     },
     myStudy: {
       title: 'My study',
@@ -1825,8 +2155,8 @@ export default {
       favoritedEmpty: 'No favorited courses',
       loadFailed: 'Load failed',
       progress: 'Progress',
-      lastTime: 'Last studied',
-    },
+      lastTime: 'Last studied'
+    }
   },
   subscriptions: {
     cancel: 'Cancel subscription',
@@ -1834,25 +2164,49 @@ export default {
     empty: 'No subscriptions',
     delete: 'Delete',
     loadMore: 'Load more',
-    noMore: 'No more',
+    noMore: 'No more'
   },
   teacher: {
     list: {
       searchPlaceholder: 'Search instructors',
       courseCount: '{{n}} courses',
       studentCount: '{{n}} students',
-      empty: 'No instructors',
+      empty: 'No instructors'
     },
     detail: {
       courses: 'Courses',
       students: 'Students',
       intro: 'Intro',
       viewCourses: 'View courses',
-    },
+      unfollowed: 'Unfollowed',
+      contactMessage: 'Message',
+      contactPhone: 'Call',
+      phoneHint: 'Contact information copied',
+      fans: 'Fans',
+      goldBadge: 'Gold instructor',
+      collapse: 'Collapse',
+      expand: 'Expand',
+      courseSection: 'Courses',
+      learnUnit: 'learners',
+      noCourses: 'No courses',
+      reviewSection: 'Reviews',
+      noReviews: 'No reviews',
+      contact: 'Contact instructor'
+    }
   },
   topic: {
     count: '{{n}} posts',
     empty: 'No topics',
+    detail: {
+      unfollowed: 'Unfollowed',
+      followSuccess: 'Followed successfully',
+      followFailed: 'Operation failed',
+      pageTitle: 'Topic details',
+      publishPlaceholder: 'Share your thoughts on this topic…'
+    },
+    list: {
+      pageTitle: 'Topics'
+    }
   },
   token: {
     balance: {
@@ -1864,8 +2218,8 @@ export default {
       agentConsume: 'Agent consumption',
       ordersConsume: 'Model consumption',
       costTime: 'Time spent:',
-      noMore: 'No more',
-    },
+      noMore: 'No more'
+    }
   },
   user: {
     loggedOut: 'Logged out',
@@ -1883,7 +2237,7 @@ export default {
       subscriptions: 'My Subscriptions',
       courses: 'All Courses',
       ai: 'AI Assistant',
-      settings: 'Settings',
+      settings: 'Settings'
     },
     identity: 'Identity',
     avatar: {
@@ -1891,6 +2245,12 @@ export default {
       choose: 'Choose avatar',
       formatHint: 'JPG or PNG',
       sizeHint: 'Recommended 200×200',
+      updateFailed: 'Failed to update avatar',
+      chooseFailed: 'Failed to choose image',
+      tapPreview: 'Tap to view full size',
+      fromAlbum: 'Choose from album',
+      takePhoto: 'Take photo',
+      previewHint: 'Tap avatar to view full size'
     },
     email: {
       emailInvalid: 'Invalid email',
@@ -1910,7 +2270,7 @@ export default {
       codeSendFailed: 'Code send failed',
       codeLength: 'Please enter the 6-digit code',
       binding: 'Binding…',
-      unbound: 'Not bound',
+      unbound: 'Not bound'
     },
     nickname: {
       enterNickname: 'Please enter a nickname',
@@ -1919,6 +2279,11 @@ export default {
       newNickname: 'New nickname',
       nicknamePlaceholder: 'Enter a new nickname',
       save: 'Save',
+      invalidChar: 'Nickname supports only letters, Chinese, numbers and underscores',
+      randomNickname: '🎲 Random nickname',
+      ruleChar: 'Letters, Chinese and numbers',
+      ruleSymbol: 'No special symbols',
+      saving: 'Saving…'
     },
     orders: {
       statusPending: 'Pending',
@@ -1931,7 +2296,7 @@ export default {
       tabsPaid: 'Paid',
       tabsCancelled: 'Cancelled',
       orderNo: 'Order No.',
-      empty: 'No orders',
+      empty: 'No orders'
     },
     password: {
       enterOld: 'Please enter the old password',
@@ -1950,7 +2315,7 @@ export default {
       confirmError: 'Passwords do not match',
       sameAsOld: 'New password cannot be the same as the old one',
       submitting: 'Changing…',
-      modifySuccess: 'Password changed',
+      modifySuccess: 'Password changed'
     },
     phone: {
       phoneInvalid: 'Invalid phone number',
@@ -1977,6 +2342,11 @@ export default {
       unbound: 'Not bound',
       noticeTitle: 'Impact of changing phone',
       noticeDesc: 'The old phone will no longer be available for login or password recovery. Please make sure the new phone is usable.',
+      noCurrent: 'No phone number bound',
+      alreadyRegistered: 'This phone number is already registered, please use another',
+      step1Title: 'Verify current phone number',
+      step2Title: 'Bind new phone number',
+      verifiedTip: 'Current phone number verified'
     },
     profile: {
       avatar: 'Avatar',
@@ -1991,7 +2361,7 @@ export default {
       unverified: 'Unverified',
       feedback: 'Feedback',
       avatarUploading: 'Uploading...',
-      avatarUpdateFailed: 'Avatar update failed',
+      avatarUpdateFailed: 'Avatar update failed'
     },
     realname: {
       enterRealName: 'Please enter your real name',
@@ -2003,7 +2373,17 @@ export default {
       idCard: 'ID number',
       idCardPlaceholder: 'Enter your ID number',
       submit: 'Submit',
-    },
+      uploadFailed: 'Upload failed',
+      uploadRequired: 'Please upload both sides of your ID card',
+      verifiedNote: 'Real-name info is verified and cannot be modified',
+      privacyPromise: 'Your identity info is used only for real-name verification and kept strictly confidential',
+      reviewing: 'Under review, please wait',
+      rejected: 'Verification failed',
+      idCardPhotos: 'ID card photos',
+      frontPhoto: 'Front side',
+      backPhoto: 'Back side',
+      uploadHint: 'Please ensure photos are clear, complete and unobstructed'
+    }
   },
   vipTrader: {
     enterName: 'Please enter your name',
@@ -2026,6 +2406,21 @@ export default {
     reasonLabel: 'Reason',
     reasonPlaceholder: 'Why do you want to be a reseller?',
     submit: 'Submit',
+    openTitle: 'Open membership',
+    openTrader: 'Open trader membership',
+    consultHint: 'Advisor connected',
+    subscribeConfirm: 'Confirm subscription',
+    oncePay: 'One-time payment,',
+    lifetimeUse: 'Lifetime use',
+    introSection: 'Trader intro',
+    collapse: 'Collapse',
+    expand: 'Expand all',
+    capabilitySection: 'Core capabilities',
+    performanceSection: 'Track record',
+    featureSection: 'Trader benefits',
+    serviceSection: 'Service packages',
+    reviewsSection: 'User reviews',
+    consult: 'Consult now'
   },
   vip: {
     selectPlanFirst: 'Please select a plan',
@@ -2079,18 +2474,18 @@ export default {
       privateBenefit2: 'Closed-door salon access',
       privateBenefit3: 'Private networking with industry experts',
       privateBenefit4: 'Premium resource matchmaking',
-      privateBenefit5: 'Customized solutions',
+      privateBenefit5: 'Customized solutions'
     },
     upgrade: {
       bannerTitle: 'Upgrade to VIP',
       bannerDesc: 'Unlock more exclusive privileges',
       rightsTitle: 'Member benefits',
-      rights: ['All courses free', 'Unlimited AI chat', 'Priority support', 'Member-only discount', 'HD video downloads'],
+      rights: null,
       loadFailed: 'Load failed',
       operationFailed: 'Operation failed',
       originalPrice: 'Original ¥{{n}}',
       upgrade: 'Upgrade now',
-      configNotReady: 'Payment config not ready. Contact admin.',
+      configNotReady: 'Payment config not ready. Contact admin.'
     },
     index: {
       autoRenew: 'Enable auto-renewal (monthly, cancel anytime)',
@@ -2121,6 +2516,7 @@ export default {
       successTitle: 'Activated',
       successDesc: 'Congratulations! VIP membership activated',
       viewBenefits: 'View Benefits',
+      brandTitle: 'IHUI AI Membership'
     },
     details: {
       title: 'VIP Benefits Comparison',
@@ -2135,19 +2531,38 @@ export default {
         modelAccess: 'Model Access',
         prioritySupport: 'Priority Support',
         exclusiveGroup: 'Exclusive Group',
-        adExperience: 'Ad Experience',
+        adExperience: 'Ad Experience'
       },
       monthlyPlan: 'Monthly Plan',
       yearlyPlan: 'Yearly Plan',
       monthlyAllBenefits: 'All Monthly Benefits',
       highCommission: 'High Commission',
+      benefit: {
+        chatDesc: 'Unlimited access to top-tier models',
+        draw: 'AI Drawing',
+        drawDesc: '100 times/day, HD, no watermark',
+        video: 'Video generation',
+        videoDesc: '60 minutes of video generation',
+        modelDesc: 'Unlock all paid models',
+        support: 'Priority support',
+        supportDesc: '7x24 dedicated service',
+        group: 'Exclusive community',
+        groupDesc: 'VIP members-only group'
+      },
+      benefitsTitle: 'Benefits details'
     },
     success: {
       desc: 'Congratulations! Your VIP membership is now active',
       planName: 'Plan',
       amount: 'Amount',
       payTime: 'Payment time',
-    },
+      payAlipay: 'Alipay',
+      payWechat: 'WeChat Pay',
+      quarterlyPlan: 'Quarterly membership',
+      activationNotice: 'Membership activated, enjoy all privileges now',
+      shareTitle: 'Share with friends to earn commission',
+      shareDesc: 'Invite friends to join membership and earn 20% cash commission'
+    }
   },
   learnDevelop: {
     title: 'Learning & development',
@@ -2160,7 +2575,7 @@ export default {
     loadFailed: 'Load failed',
     teacher: 'Instructor',
     free: 'Free',
-    rankEntry: 'Study leaderboard',
+    rankEntry: 'Study leaderboard'
   },
   settingPrivacy: {
     permissions: {
@@ -2168,12 +2583,12 @@ export default {
       camera: 'Camera',
       album: 'Album',
       location: 'Location',
-      notification: 'Notifications',
+      notification: 'Notifications'
     },
     status: {
       granted: 'On',
       denied: 'Denied',
-      unknown: 'Off',
+      unknown: 'Off'
     },
     systemPermissions: 'System permissions',
     privacySettings: 'Privacy settings',
@@ -2184,18 +2599,76 @@ export default {
     recommendDesc: 'Get premium content recommendations',
     personalize: 'Personalized recommendations',
     personalizeDesc: 'Personalized content based on your interests',
-    privacyPolicy: 'Privacy policy',
+    privacyPolicy: 'Privacy policy'
   },
   page: {
-    index: { title: 'Home', welcome: 'Welcome to IHUI AI' },
-    community: { title: 'Community', post: 'Post', comment: 'Comment' },
-    message: { title: 'Messages', system: 'System', interaction: 'Interactions', private: 'Direct' },
-    ranking: { title: 'Rankings', weekly: 'Weekly', monthly: 'Monthly', total: 'All-time' },
-    share: { title: 'Share', shareToFriend: 'Share to friends', poster: 'Generate poster' },
-    pay: { title: 'Payment', orderDetail: 'Order details', payMethod: 'Payment method', confirm: 'Confirm payment' },
-    member: { title: 'Membership', benefits: 'Member benefits', points: 'Points', coupons: 'Coupons' },
-    setting: { title: 'Settings', general: 'General', clearCache: 'Clear cache', about: 'About us' },
-    vip: { title: 'VIP Membership', openVip: 'Subscribe', privileges: 'VIP privileges', openNow: 'Subscribe now', dayUnit: ' days' },
-    about: { title: 'About us', userAgreement: 'User agreement', privacy: 'Privacy policy' },
+    index: {
+      title: 'Home',
+      welcome: 'Welcome to IHUI AI'
+    },
+    community: {
+      title: 'Community',
+      post: 'Post',
+      comment: 'Comment'
+    },
+    message: {
+      title: 'Messages',
+      system: 'System',
+      interaction: 'Interactions',
+      private: 'Direct'
+    },
+    ranking: {
+      title: 'Rankings',
+      weekly: 'Weekly',
+      monthly: 'Monthly',
+      total: 'All-time'
+    },
+    share: {
+      title: 'Share',
+      shareToFriend: 'Share to friends',
+      poster: 'Generate poster'
+    },
+    pay: {
+      title: 'Payment',
+      orderDetail: 'Order details',
+      payMethod: 'Payment method',
+      confirm: 'Confirm payment'
+    },
+    member: {
+      title: 'Membership',
+      benefits: 'Member benefits',
+      points: 'Points',
+      coupons: 'Coupons'
+    },
+    setting: {
+      title: 'Settings',
+      general: 'General',
+      clearCache: 'Clear cache',
+      about: 'About us'
+    },
+    vip: {
+      title: 'VIP Membership',
+      openVip: 'Subscribe',
+      privileges: 'VIP privileges',
+      openNow: 'Subscribe now',
+      dayUnit: ' days'
+    },
+    about: {
+      title: 'About us',
+      userAgreement: 'User agreement',
+      privacy: 'Privacy policy'
+    }
   },
+  feedback: {
+    types: {
+      complaint: 'Complaint',
+      suggestion: 'Suggestion',
+      bug: 'Bug'
+    },
+    uploadFailed: 'Upload failed',
+    type: 'Type',
+    content: 'Content',
+    contact: 'Contact',
+    contactPlaceholder: 'Please enter contact information (optional)'
+  }
 }
