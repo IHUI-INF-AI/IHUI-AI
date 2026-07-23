@@ -28,6 +28,9 @@ export const tokens = {
     bg: '#FEE2E2',
     text: '#B91C1C',
   },
+  overlay: {
+    modal: 'rgba(0,0,0,0.4)',
+  },
 } as const
 
 export type AppTokens = typeof tokens
