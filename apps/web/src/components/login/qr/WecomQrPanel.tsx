@@ -35,8 +35,8 @@ export function WecomQrPanel({ refreshKey }: WecomQrPanelProps) {
     const state = generateState()
     saveOAuthState('enterpriseWechat', state)
 
-    // redirect_uri 必须与当前访问域名+端口一致,否则企业微信校验失败报"redirect_uri 参数错误"
-    const redirectUri = `${window.location.origin}/callback?platform=enterpriseWechat`
+    // redirect_uri 优先读 env(生产配 bsm.aizhs.top 分域 SSO),env 留空时 fallback 到当前 origin
+    const redirectUri = config.redirectUri
 
     loadWecomQrSdk()
       .then(() => {
