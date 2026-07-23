@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@babel/runtime": "^7.29.0",
     "@ihui/api-client": "workspace:*",
     "@ihui/app": "workspace:*",
     "@ihui/shared": "workspace:*",
@@ -34,6 +35,7 @@
     "nativewind": "^4.0.0",
     "react": "19.0.0",
     "react-native": "0.79.6",
+    "react-native-css-interop": "0.2.6",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "4.11.1",
     "react-native-video": "^6.4.5",
@@ -50,6 +52,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "jsdom": "^25.0.1",
     "react-dom": "19.0.0",
+    "tailwindcss": "3.4.19",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }
