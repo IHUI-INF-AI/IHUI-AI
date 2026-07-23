@@ -49,6 +49,27 @@
 
 ---
 
+### [x] ✅(2026-07-23) Wave 22:desktop typecheck 3 errors → 0(MarkdownRenderer ref 类型冲突 + rehype-highlight 链接)(平台独占:仅 desktop)
+
+**触发**:W19 lint 清零后全端 typecheck 巡检,发现 desktop 端 3 个 pre-existing typecheck 错误(web/api/cli/extension 均已 exit 0)。
+
+**根因**:
+1. TS2307:`rehype-highlight` 声明在 package.json 但 node_modules 缺 junction 链接(install 不完整)
+2. TS2322 ×2:root `pnpm.overrides` 强制 `@types/react: 19.2.17`(为 web React 19 统一),但 desktop 跑 React 18 → react-markdown components 回调 `...props` 含 ref,React 18/19 ref 类型签名不兼容("Two different types with this name exist, but they are unrelated")
+
+**交付**(`apps/desktop/src/components/MarkdownRenderer.tsx`,2 处解构排除 ref):
+- `a` 组件:`({ node: _node, ...props })` → `({ node: _node, ref: _ref, ...props })`
+- `code` 组件:`({ className, children, ...props })` → `({ className, children, ref: _ref, ...props })`
+- `_ref` 以 `_` 前缀规避 `noUnusedLocals`
+- 环境修复:补建 rehype-highlight junction(`.pnpm/rehype-highlight@7.0.2` → `desktop/node_modules/rehype-highlight`),正常 pnpm install 不出此问题
+
+**§9 平台独占**:仅 desktop typecheck,desktop 单端 UI 组件改动,豁免全端同步。
+**§22 README 豁免**:纯 bug 修复,不改变对外能力。
+
+**验证**:`pnpm --filter @ihui/desktop typecheck` EXIT 0(3 errors → 0)。全端 typecheck:web/api/cli/extension/desktop 全绿。
+
+---
+
 <!-- 已归档(2026-07-23):Wave 20:ai-service pytest 覆盖强化 — 10 模块 275 用例(平台独占:仅 apps/ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 <!-- 已归档(2026-07-23):AI Skills TOP 19 个 skill 集成 + 19 真集成(全部实装,无占位),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
@@ -98,112 +119,15 @@
 
 ---
 
-### [x] ✅(2026-07-23) 桌面端模型持久化 + 代码块主题跟随 + 快捷短语模板深度开发(平台独占:仅 desktop)
-
-**触发**:用户 `/goal 继续啊 你怎么总停呢 你就去做就好了 一直去做 深度开发`,要求不停顿深度开发桌面端能力。
-
-**交付**(第十二轮):
-- `apps/desktop/src/hooks/use-model-persist.ts`(新建):模型选择持久化 hook
-  - `STORAGE_KEY = 'ihui-model-id'` + `readPersistedModel(fallback)` + `persistModel(id)`
-  - `useModelPersist(initial)`:返回 `[model, setModel]`,自动 localStorage 持久化
-- `apps/desktop/src/hooks/use-code-theme.ts`(新建):代码块语法高亮主题跟随 hook
-  - `initCodeTheme()`:React 渲染前同步加载对应 CSS(避免首屏闪烁)
-  - `useCodeTheme()`:监听 useTheme.isDark,主题切换时动态修改 `<link>` href
-  - light → `highlight.js/styles/github.css?url` / dark → `highlight.js/styles/github-dark.css?url`
-- `apps/desktop/src/components/PromptTemplates.tsx`(新建):快捷短语模板面板
-  - 3 分组 8 项预设 prompt(对话开场 2 + 代码相关 3 + 写作辅助 3)
-  - ✨ 按钮触发浮层,点击短语插入到 input(支持追加到已有内容)
-  - 点击外部关闭 + stopPropagation
-- `apps/desktop/src/main.tsx`(修改):移除静态 `import 'highlight.js/styles/github.css'`,改用 `initCodeTheme()` 同步初始化
-- `apps/desktop/src/pages/ChatPage.tsx`(修改):
-  - 替换 `useState<string>` 为 `useModelPersist`(自动持久化)
-  - `useCodeTheme()` 在组件内调用,主题切换时自动更新
-  - 模型 select 改为 `<optgroup>` 按 provider 分组(避免长列表难找)
-  - 表单加 `<PromptTemplates>` 按钮,点击短语插入到 input
-  - `fetchModels` 优先用 persisted model,其次 API default,最后列表首个
-- `apps/desktop/src/app.css`(修改):新增 `.prompt-templates*` 样式(13 类:wrap/btn/menu/header/group/group-title/list/item/item-label + dark mode + optgroup 样式)
-- `apps/desktop/src/vite-env.d.ts`(新建):声明 `*.css?url` 模块类型
-- `apps/desktop/src/i18n/messages/*.ts`(5 语言):
-  - chat 命名空间 +1 key(modelSelect)
-  - 新增 prompts 命名空间(17 key:title + 3 groupTitle + 8 label + 8 content)
-- `README.md`:3 处同步更新(8 端框架表 + 技术栈表 + 项目状态矩阵),桌面端能力追加"模型选择持久化 + 代码块语法主题跟随 + 快捷短语模板"
-
-**§9 平台独占**:模型持久化(localStorage)+ 代码块主题跟随 + 快捷短语模板均为 desktop 单端 UI 能力,豁免全端同步。
-
-**验证**:desktop typecheck 零错误(退出码 0);commit 推送成功;git-push-guard exit 0。
+<!-- 已归档(2026-07-23):桌面端模型持久化代码块主题快捷短语(平台独占),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
 ---
 
-### [x] ✅(2026-07-23) 桌面端消息时间戳 + 会话重命名 + 快捷键帮助面板深度开发(平台独占:仅 desktop)
-
-**触发**:用户 `/goal 继续啊 你怎么总停呢 你就去做就好了 一直去做 深度开发`,要求不停顿深度开发桌面端能力。
-
-**交付**(第十一轮):
-- `apps/desktop/src/lib/types.ts`:ChatMessage 加 `createdAt?: number` 字段(用户消息发送时设置,AI 消息 onDone 回填,`??` 避免覆盖)
-- `apps/desktop/src/pages/ChatPage.tsx`:
-  - 新增 `formatMsgTime(ts, locale)` 工具函数:Intl.DateTimeFormat + locale 感知(同一天 HH:MM,跨天 MM-DD HH:MM),zh-CN/zh-TW→zh-CN,en→en-US
-  - onSend/onRegenerate/onSubmitEdit 时设置 `createdAt: Date.now()`
-  - onDone 回填 AI 消息完成时间 `createdAt: last.createdAt ?? doneAt`
-  - 渲染时用 msg-header 包裹 role + msg-time,hover title 显示完整本地时间
-  - 集成 ConversationSidebar onRename prop
-- `apps/desktop/src/hooks/use-conversations.ts`:新增 `rename(id, newTitle)` 方法(loadConversation 拿原消息 → saveConversation 覆盖落地 + 更新 list title/updatedAt)
-- `apps/desktop/src/components/ConversationSidebar.tsx`:加 renamingId/renameValue state + renameInputRef,双击 conv-item-title 进入重命名模式(input autoFocus + select 全文),Enter 提交 / Esc 取消 / onBlur 提交(空值或未改动不提交)
-- `apps/desktop/src/components/ShortcutHelpDialog.tsx`(新建):快捷键帮助模态,3 分组 8 项(对话/视图/系统),Esc 关闭 + 点击 overlay 关闭 + stopPropagation,`<kbd>` 元素等宽字体
-- `apps/desktop/src/App.tsx`:加 ShortcutHelpTrigger 组件(全局 keydown 监听 Ctrl+/ 或 Ctrl+?,触发 ShortcutHelpDialog)
-- `apps/desktop/src/app.css`:新增 msg-header / role / msg-time / conv-rename-input / shortcut-overlay / shortcut-dialog / shortcut-header / shortcut-body / shortcut-group-title / shortcut-list / shortcut-item / shortcut-keys 样式 + dark mode
-- `apps/desktop/src/i18n/messages/*.ts`(5 语言):chat 命名空间 +2 key(renameConversation / renameHint)+ 新增 shortcuts 命名空间(13 key:groupChat/groupView/groupSystem + sendMessage/closeDialog/renameConversation + fontZoomIn/fontZoomOut/fontReset + showHelp/devTools + title)
-- `README.md`:3 处同步更新(8 端框架表 + 技术栈表 + 项目状态矩阵),桌面端能力追加"消息时间戳(locale 感知 Intl.DateTimeFormat)+ 会话重命名(双击 inline 编辑)+ 快捷键帮助面板(Ctrl+/ 模态)"
-
-**§9 平台独占**:消息时间戳 + 会话重命名 + 快捷键帮助面板均为 desktop 单端 UI 能力,豁免全端同步。
-
-**验证**:desktop typecheck 零错误(退出码 0);commit `f8849f115` 推送成功(local HEAD == remote HEAD);git-push-guard exit 0。
+<!-- 已归档(2026-07-23):桌面端消息时间戳会话重命名快捷键帮助(平台独占),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
 ---
 
-<!-- 已归档(2026-07-23):桌面端消息编辑重发 + 停止生成修复 + i18n 清理深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
-
----
-
-### [x] ✅(2026-07-23) 桌面端字号缩放 + 快捷键 + 持久化深度开发(平台独占:仅 desktop)
-
-**目标**:第十轮深度开发 — 字号缩放(Ctrl +/- / Ctrl 0 全局快捷键 + 设置页 +/- 按钮)+ localStorage 持久化 + CSS 变量 `--font-scale` 动态应用。
-
-**交付**(字号缩放 hook):
-- `apps/desktop/src/hooks/use-font-size.ts`(新建):
-  - `STORAGE_KEY = 'ihui-font-scale'` + `MIN_SCALE=0.8` / `MAX_SCALE=1.6` / `DEFAULT_SCALE=1` / `STEP=0.1`
-  - `parseScale(v)`:限制范围 + 四舍五入到 2 位小数
-  - `applyFontSize(scale)`:设置 `documentElement.style.setProperty('--font-scale', scale)`
-  - `initFontSize()`:在 React 渲染前调用,避免首屏布局跳动
-  - `useFontSize()` hook:返回 `{ scale, zoomIn, zoomOut, reset, setScale }`,自动 localStorage 持久化
-
-**交付**(集成):
-- `apps/desktop/src/main.tsx`(修改):加 `initFontSize()` 调用(与 initTheme 并列)
-- `apps/desktop/src/app.css`(修改):`:root` 加 `--font-scale: 1` CSS 变量 + `font-size: calc(14px * var(--font-scale))` 动态缩放
-- `apps/desktop/src/App.tsx`(修改):
-  - 加 `FontSizeShortcutHandler` 组件(全局 keydown 监听)
-  - Ctrl + = / + → zoomIn,Ctrl + - / _ → zoomOut,Ctrl + 0 → reset
-  - preventDefault 阻止浏览器默认缩放
-  - 放在 BrowserRouter 内,与 DeepLinkHandler 并列
-
-**交付**(设置页 UI):
-- `apps/desktop/src/pages/SettingsPage.tsx`(修改):
-  - 引入 useFontSize + MIN_SCALE / MAX_SCALE
-  - appearance Card 加字号控制行(− 按钮 + 百分比显示 + + 按钮 + 重置按钮)
-  - 按钮禁用边界:scale <= MIN_SCALE 禁用 −,scale >= MAX_SCALE 禁用 +,scale === 1 禁用重置
-
-**交付**(CSS):
-- `apps/desktop/src/app.css`(修改):新增 `.font-size-controls`(flex row gap)+ `.font-size-controls button`(min-width 28px)+ `.font-size-value`(min-width 44px, muted)样式
-
-**交付**(i18n 5 语言 parity):
-- `apps/desktop/src/i18n/messages/zh-CN.ts` / `en.ts` / `ja.ts` / `ko.ts` / `zh-TW.ts`:settings 命名空间新增 4 个 key(fontSize / fontZoomIn / fontZoomOut / fontReset)
-
-**§9 平台独占**:字号缩放为 desktop 单端 UI 能力,豁免全端同步。
-
-**验证**:desktop typecheck 零错误(退出码 0)、README 3 处同步更新(加"字号缩放")。
-
----
-
-<!-- 已归档(2026-07-23):miniapp-taro SSE done 事件 tokenCount 打通(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
+<!-- 已归档(2026-07-23):桌面端字号缩放快捷键持久化(平台独占),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
 ### [x] ✅(2026-07-23) 前端冗余页面整合 P0(平台独占:仅 web 端)
 
@@ -361,80 +285,15 @@
 
 <!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:P3 Skill 系统 155 用例(平台独占:仅 apps/ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
-### [x] ✅(2026-07-23) ai-service 测试覆盖补齐:P3 Skill Tester 59 用例(平台独占:仅 apps/ai-service)
-
-**触发**:用户连续"继续深度开发"。补齐 P3 深度层 Skill 测试器(skill_tester.py,对标 Hermes Agent 自动化测试生成 + 评分)核心模块测试覆盖。
-
-**交付内容**(1 commit `9778283`,1 文件):
-
-| 测试文件 | 用例数 | 覆盖维度 |
-|---|---|---|
-| `apps/ai-service/tests/test_skill_tester.py` | 59 | NoTestCase(4)+ BuildGenPrompt(6)+ GenerateTestCases(6:LLM+smoke降级+异常)+ ParseTestCases(9:plain JSON/code fence/无JSON/缺name/缺pattern/缺description/默认值/非list/空)+ RunTest(5:LLM异常/超时降级/error降级/smoke兜底/正常)+ RunSingle(7:超时/异常/error/failed默认/skipped状态/match空pattern smoke/match关键词/match正则)+ Match(4:空pattern/关键词/正则不匹配/None兜底)+ Fail(3:超时/异常/error/默认reason)+ GlobalSingleton(3) |
-
-**关键修复**(1 类断言匹配源码实际行为):
-- `str(None)` 陷阱:源码 `str(feedback.get("skillName", ""))` 中,`None` 被 `str()` 转成非空字符串 `"None"`,不会被 `if not skill_name` 跳过。测试断言 `skill_name == "None"` 匹配源码实际行为
-
-**验证**:
-- pytest test_skill_tester.py → **59 passed** ✅
-- 平台独占豁免(§9):仅触及 apps/ai-service/tests/,属 ai-service 平台独占
-- README 同步豁免(§22):纯测试改动
-
-**Git 同步证据**(§21):
-- 本地 commit: `9778283`
-- origin commit: `9778283`
-- 同步状态: **local == remote ✅**
+<!-- 已归档(2026-07-23):ai-service Skill Tester 59 用例(平台独占),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
 ---
 
-### [x] ✅(2026-07-23) ai-service 测试覆盖补齐:P3 Skill Feedback 58 用例(平台独占:仅 apps/ai-service)
-
-**触发**:用户连续"继续深度开发"。补齐 P3 深度层 Skill 反馈追踪器(skill_feedback.py,对标 Hermes Agent 使用统计 + 失败案例聚合)核心模块测试覆盖。
-
-**交付内容**(1 commit `f58fdfd40`,1 文件):
-
-| 测试文件 | 用例数 | 覆盖维度 |
-|---|---|---|
-| `apps/ai-service/tests/test_skill_feedback.py` | 58 | RecordUsage(8:Redis优先/内存降级/异常兜底/参数校验/空skillName/空result/success False/extra元数据)+ GetStats(7:空统计/有数据/Redis异常降级/聚合total/successRate/passRate/failRate计算)+ GetFailureCases(6:空/有数据/limit截断/倒序/Redis异常降级/只含failed)+ RecordIteration(6:Redis优先/内存降级/异常兜底/空version/空reason/多次记录追加)+ ReadSkillVersion(5:有frontmatter/无version/无frontmatter/异常返回unknown/whitespace)+ Store/IterStore(4:Redis SET/GET/EXPIRE/异常降级内存dict/空key)+ GlobalSingleton(3)+ EdgeCases(19:parametrized 空值/None/类型强转边界) |
-
-**关键修复**(1 类陷阱):
-- `@staticmethod` + monkeypatch 陷阱:源码 `_read_skill_version` 是 `@staticmethod`,monkeypatch 替换时必须用 `staticmethod(lambda: ...)` 包装,否则 lambda 会绑定 self 导致 TypeError
-
-**验证**:
-- pytest test_skill_feedback.py → **58 passed** ✅
-- 平台独占豁免(§9):仅触及 apps/ai-service/tests/,属 ai-service 平台独占
-- README 同步豁免(§22):纯测试改动
-
-**Git 同步证据**(§21):
-- 本地 commit: `f58fdfd40`
-- origin commit: `f58fdfd40`
-- 同步状态: **local == remote ✅**
+<!-- 已归档(2026-07-23):ai-service Skill Feedback 58 用例(平台独占),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
 ---
 
-### [x] ✅(2026-07-23) ai-service 测试覆盖补齐:P3 Skill Iterator 68 用例(平台独占:仅 apps/ai-service)
-
-**触发**:用户连续"继续深度开发"。补齐 P3 深度层 Skill 迭代优化器(skill_iterator.py 367 行,对标 Hermes Agent 基于反馈迭代优化 + 评分)核心模块测试覆盖。
-
-**交付内容**(1 commit `44723fe7a`,1 文件,+694 行):
-
-| 测试文件 | 用例数 | 覆盖维度 |
-|---|---|---|
-| `apps/ai-service/tests/test_skill_iterator.py` | 68 | NoIterate(4)+ BumpVersion(9:正常/minor+1/2段/1段兜底/空串/无效/4段取前2/whitespace/major=0)+ ExtractVersion(5:提取/无version/无frontmatter/trailing/body中)+ BuildIteratePrompt(8:结构/role/约束/skill_name/content截断4000/usage_stats/failure_cases截断5)+ ParseIterateOutput(13:plain JSON/code fence/周围文本/无JSON/无效JSON/缺shouldIterate/非list/null/默认值/非dict/int强转/空串强转/字符串转字符列表)+ ReadSkillFile(3)+ WriteSkillFile(3:成功/创建目录/异常)+ RewriteSkillMd(6:替换version+body/无frontmatter重建/无version追加/Instructions header/替换旧指令/relatedSkills保留)+ Iterate(9:LLM异常/shouldIterate False透传/空content不落盘/不可解析/写盘失败/成功保留/通过率下降回滚/通过率持平保留/验证异常回滚)+ VerifyAndMaybeRollback(4:通过率提升保留/持平保留/下降回滚/测试异常回滚)+ GlobalSingleton(3) |
-
-**关键修复**(2 类陷阱):
-1. `list("string" or [])` 陷阱:源码 `list(data.get("expectedImprovements") or [])` 中,truthy 字符串被 `list()` 转成字符列表(非空列表),与 `list(None or [])` 返回空列表行为不同。拆分为两个测试分别断言字符列表和空列表
-2. `@staticmethod` + monkeypatch 陷阱:`_auto_dir` 是 `@staticmethod`,替换时必须用 `staticmethod(lambda: ...)` 包装
-
-**验证**:
-- pytest test_skill_iterator.py → **68 passed in 0.41s** ✅
-- 平台独占豁免(§9):仅触及 apps/ai-service/tests/,属 ai-service 平台独占
-- README 同步豁免(§22):纯测试改动
-
-**Git 同步证据**(§21):
-- 本地 commit: `44723fe7a`
-- origin commit: `44723fe7a`
-- 同步状态: **local == remote ✅**
-- 守门脚本: git-push-guard 自动 push 成功(pre-push hook 因其他 agent 引入的 mobile-rn typecheck 失败,按 §12 `--no-verify` 合法跳过)
+<!-- 已归档(2026-07-23):ai-service Skill Iterator 68 用例(平台独占),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
 ---
 
