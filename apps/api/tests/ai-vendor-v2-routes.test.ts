@@ -7,7 +7,7 @@
  * - 凭据缺失时返回 503（newCallVendor 走 VendorErrorHandler.validateCredentials）
  * - 鉴权策略正确应用：Dashscope 用 Bearer，Doubao 用 Bearer，Gemini 用 x-goog-api-key
  */
-import { describe, it, expect, afterAll, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Fastify from 'fastify'
 
 vi.mock('../src/config/index.js', () => ({
@@ -29,12 +29,27 @@ vi.mock('../src/config/index.js', () => ({
 const mockAuthenticate = vi.fn()
 vi.mock('../src/plugins/auth.js', () => ({
   authenticate: (...args: unknown[]) => mockAuthenticate(...args),
+  // checkAuth 调用 authenticate,失败时 reply 401 并返回 false,与源码行为一致
+  checkAuth: async (request: unknown, reply: { status: (code: number) => { send: (body: unknown) => void } }) => {
+    try {
+      await mockAuthenticate(request)
+      return true
+    } catch {
+      reply.status(401).send({ code: 401, message: 'Authentication required' })
+      return false
+    }
+  },
 }))
 
 const { aiVendorV2Routes } = await import('../src/routes/ai-vendors.js')
 
 describe('aiVendorV2Routes', () => {
   const server = Fastify({ logger: false })
+
+  beforeAll(async () => {
+    await server.register(aiVendorV2Routes, { prefix: '/api/ai' })
+    await server.ready()
+  })
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -46,9 +61,6 @@ describe('aiVendorV2Routes', () => {
 
   it('未登录访问 /v2/dashscope/chat 返回 401', async () => {
     mockAuthenticate.mockRejectedValue(new Error('Authentication required'))
-    await server.register(aiVendorV2Routes, { prefix: '/api/ai' })
-    await server.ready()
-
     const res = await server.inject({
       method: 'POST',
       url: '/api/ai/v2/dashscope/chat',

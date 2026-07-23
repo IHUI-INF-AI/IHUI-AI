@@ -4,6 +4,7 @@ import Fastify from 'fastify'
 // =============================================================================
 // Mock config 避免 env 校验触发 process.exit(1)
 // =============================================================================
+vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
@@ -39,6 +40,8 @@ vi.mock('@ihui/auth', () => ({
     roleId: 0,
   }),
   createFamilyId: vi.fn().mockReturnValue('00000000-0000-0000-0000-000000000002'),
+  ACCESS_TOKEN_TTL_SECONDS: 15 * 60,
+  REFRESH_TOKEN_TTL_SECONDS: 30 * 24 * 60 * 60,
 }))
 
 // =============================================================================
