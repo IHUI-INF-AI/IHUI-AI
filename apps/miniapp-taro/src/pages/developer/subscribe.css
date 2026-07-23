@@ -1,99 +1,264 @@
 .page {
   min-height: 100vh;
   background: var(--color-background);
-  padding-bottom: 140rpx;
+  padding-bottom: 60rpx;
 }
-.banner {
-  padding: 60rpx 40rpx;
-  background: linear-gradient(135deg, #4e8cff, #6a5cff);
-  color: var(--color-foreground);
-}
-.banner-title {
-  font-size: 44rpx;
-  font-weight: 700;
-}
-.banner-desc {
-  font-size: 26rpx;
-  margin-top: 12rpx;
-  opacity: 0.9;
-}
-.plan-list {
-  padding: 24rpx;
-}
-.plan-card {
-  background: var(--color-card);
-  border-radius: 16rpx;
-  padding: 32rpx;
-  margin-bottom: 20rpx;
-  border: 2rpx solid var(--color-border);
-  position: relative;
-}
-.plan-card.active {
-  border-color: #4e8cff;
-  background: #f0f5ff;
-}
-.plan-tag {
-  position: absolute;
-  top: 0;
-  right: 24rpx;
-  background: #4e8cff;
-  color: var(--color-foreground);
-  font-size: 20rpx;
-  padding: 4rpx 14rpx;
-  border-radius: 0 0 10rpx 10rpx;
-}
-.plan-head {
+
+/* ===== 开发者头部 ===== */
+.dev-header {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24rpx;
+  padding: 32rpx 28rpx;
+  margin: 24rpx;
+  background: linear-gradient(135deg, rgba(0, 242, 255, 0.12), rgba(0, 242, 255, 0.03));
+  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  border-radius: 12rpx;
 }
-.plan-name {
-  font-size: 32rpx;
-  font-weight: 600;
+.dev-avatar-wrap {
+  flex-shrink: 0;
+}
+.dev-avatar {
+  width: 112rpx;
+  height: 112rpx;
+  border-radius: 12rpx;
+  background: var(--color-muted);
+}
+.dev-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dev-avatar-text {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.dev-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+.dev-name {
+  font-size: 34rpx;
+  font-weight: 700;
   color: var(--color-foreground);
 }
-.plan-period {
+.dev-bio {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.5;
+}
+.dev-sub-btn {
+  align-self: flex-start;
+  margin-top: 8rpx;
+  padding: 0 28rpx;
+  height: 60rpx;
+  line-height: 60rpx;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  background: var(--color-primary);
+  border-radius: 8rpx;
+  border: none;
+}
+.dev-sub-btn::after {
+  border: none;
+}
+.dev-sub-btn[disabled] {
+  opacity: 0.6;
+  color: var(--color-foreground);
+}
+.dev-sub-btn-active {
+  background: var(--color-card);
+  color: var(--color-muted-foreground);
+  border: 2rpx solid rgba(0, 242, 255, 0.2);
+}
+
+/* ===== 订阅统计 ===== */
+.dev-stats {
+  display: flex;
+  margin: 0 24rpx;
+  padding: 24rpx 0;
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 12rpx;
+}
+.dev-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8rpx;
+}
+.dev-stat-num {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.dev-stat-label {
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
-.plan-price {
-  font-size: 44rpx;
-  color: var(--color-destructive);
-  font-weight: 700;
-  margin: 16rpx 0 4rpx;
+
+/* ===== 通用区块 ===== */
+.dev-section {
+  margin: 24rpx;
 }
-.plan-price::before {
-  content: '¥';
-  font-size: 26rpx;
-  font-weight: 400;
-}
-.plan-features {
-  margin-top: 16rpx;
-}
-.plan-feature {
-  font-size: 26rpx;
-  color: var(--color-muted-foreground);
-  padding: 6rpx 0;
-}
-.loading-text,
-.empty-text {
-  text-align: center;
-  color: var(--color-muted-foreground);
-  font-size: 28rpx;
+.dev-section-title {
   display: block;
-  padding: 80rpx 0;
-}
-.btn {
-  position: fixed;
-  bottom: 32rpx;
-  left: 32rpx;
-  right: 32rpx;
-  background: #4e8cff;
+  font-size: 30rpx;
+  font-weight: 600;
   color: var(--color-foreground);
-  border-radius: 40rpx;
+  margin-bottom: 16rpx;
+}
+
+/* ===== 模型列表 ===== */
+.dev-model-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.dev-model-card {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx;
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 12rpx;
+}
+.dev-model-left {
+  flex-shrink: 0;
+}
+.dev-model-icon {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 10rpx;
+  background: var(--color-muted);
+}
+.dev-model-icon-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-primary);
 }
-.btn[disabled] {
-  background: #b0c8ff;
+.dev-model-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+.dev-model-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+.dev-model-name {
+  font-size: 28rpx;
+  font-weight: 600;
   color: var(--color-foreground);
+}
+.dev-model-uses {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
+}
+.dev-model-desc {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dev-model-btn {
+  flex-shrink: 0;
+  padding: 10rpx 24rpx;
+  font-size: 24rpx;
+  color: var(--color-primary);
+  background: rgba(0, 242, 255, 0.1);
+  border: 2rpx solid rgba(0, 242, 255, 0.3);
+  border-radius: 8rpx;
+}
+
+/* ===== 通知设置 ===== */
+.dev-notify-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx;
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 10rpx;
+  margin-bottom: 16rpx;
+}
+.dev-notify-label {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+
+/* ===== 动态/公告 ===== */
+.dev-post-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.dev-post-card {
+  padding: 24rpx;
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 10rpx;
+}
+.dev-post-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.dev-post-content {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.5;
+}
+.dev-post-time {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 联系开发者 / 状态文案 ===== */
+.dev-contact-btn {
+  margin: 24rpx;
+  height: 84rpx;
+  line-height: 84rpx;
+  font-size: 30rpx;
+  color: var(--color-foreground);
+  background: var(--color-primary);
+  border-radius: 10rpx;
+  border: none;
+}
+.dev-contact-btn::after {
+  border: none;
+}
+.dev-empty {
+  display: block;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  padding: 60rpx 0;
+}
+.dev-loading {
+  display: block;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  padding: 40rpx 0;
 }
