@@ -41,9 +41,9 @@
 - web build 全量未通过 ⚠️:卡在 `packages/api-client/src/endpoints/resource.ts` / `share.ts` "stream did not contain valid UTF-8"(Python 定位:resource.ts 第 2069 字节、share.ts 第 964 字节孤立续接字节,其他 agent GBK 工具编辑损坏,§12 范围外不修)
 
 **Git 同步证据**(§21):
-- 本地 commit: (待填)
-- origin commit: (待填)
-- 同步状态: local == remote ✅(待 push 后确认)
+- 本地 commit: `0b6e62af8`
+- origin commit: `0b6e62af8`
+- 同步状态: **local == remote ✅**(0b6e62af8b13cb54525045ef6a479357f1fd677f 双向对齐)
 
 ### [x] ✅(2026-07-23) /goal 对标 TRAE Work 三大工作台体验缺口补齐:Skills 技能市场 + 三端联动调度 + Design 模式 MVP(跨端:web + api + desktop + mobile-rn + packages/shared)
 
