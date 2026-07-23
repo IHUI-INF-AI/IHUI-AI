@@ -50,12 +50,20 @@ const CATEGORY_ICON: Record<AiSkillMeta['category'], React.ComponentType<{ class
   'ai-top': Sparkles,
 }
 
-/** 把变量名映射到 i18n key(已知的 4 个) */
+/** 把变量名映射到 i18n key(13 个已知变量,覆盖全部 19 个真集成 skill) */
 const VARIABLE_LABEL_KEY: Record<string, string> = {
   content: 'inputContent',
   style: 'inputStyle',
   requirements: 'inputRequirements',
   topic: 'inputTopic',
+  domain: 'inputDomain',
+  platform: 'inputPlatform',
+  concept: 'inputConcept',
+  title: 'inputTitle',
+  subtitle: 'inputSubtitle',
+  platforms: 'inputPlatforms',
+  usecase: 'inputUsecase',
+  task: 'inputTask',
 }
 
 const VARIABLE_PLACEHOLDER_KEY: Record<string, string> = {
@@ -63,6 +71,14 @@ const VARIABLE_PLACEHOLDER_KEY: Record<string, string> = {
   style: 'placeholderStyle',
   requirements: 'placeholderRequirements',
   topic: 'placeholderTopic',
+  domain: 'placeholderDomain',
+  platform: 'placeholderPlatform',
+  concept: 'placeholderConcept',
+  title: 'placeholderTitle',
+  subtitle: 'placeholderSubtitle',
+  platforms: 'placeholderPlatforms',
+  usecase: 'placeholderUsecase',
+  task: 'placeholderTask',
 }
 
 /** 已知变量的多行大小限制(防止超长输入) */
@@ -71,6 +87,14 @@ const VARIABLE_MAX_LEN: Record<string, number> = {
   style: 200,
   requirements: 1000,
   topic: 500,
+  domain: 200,
+  platform: 100,
+  concept: 500,
+  title: 200,
+  subtitle: 200,
+  platforms: 500,
+  usecase: 500,
+  task: 500,
 }
 
 /** 解析 promptTemplate 中的 {key} 变量,去重保序 */
@@ -247,7 +271,7 @@ export default function AiSkillDetailPage() {
 
           <div className="space-y-2.5">
             {renderVars.map((key) => {
-              const isLong = key === 'content' || key === 'requirements' || key === 'topic'
+              const isLong = key === 'content' || key === 'requirements' || key === 'topic' || key === 'platforms'
               const maxLen = VARIABLE_MAX_LEN[key] ?? 1000
               const labelKey = (VARIABLE_LABEL_KEY[key] ?? `input${key.charAt(0).toUpperCase()}${key.slice(1)}`) as 'inputContent'
               const placeholderKey = (VARIABLE_PLACEHOLDER_KEY[key] ?? `placeholder${key.charAt(0).toUpperCase()}${key.slice(1)}`) as 'placeholderContent'
