@@ -8,39 +8,39 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
     "./auth/*": {
-      "types": "./src/auth/*.ts",
+      "types": "./dist/auth/*.d.ts",
       "import": "./dist/auth/*.js"
     },
     "./notifications/*": {
-      "types": "./src/notifications/*.ts",
+      "types": "./dist/notifications/*.d.ts",
       "import": "./dist/notifications/*.js"
     },
     "./validation/*": {
-      "types": "./src/validation/*.ts",
+      "types": "./dist/validation/*.d.ts",
       "import": "./dist/validation/*.js"
     },
     "./workflows/*": {
-      "types": "./src/workflows/*.ts",
+      "types": "./dist/workflows/*.d.ts",
       "import": "./dist/workflows/*.js"
     },
     "./utils/*": {
-      "types": "./src/utils/*.ts",
+      "types": "./dist/utils/*.d.ts",
       "import": "./dist/utils/*.js"
     },
     "./skills/*": {
-      "types": "./src/skills/*.ts",
+      "types": "./dist/skills/*.d.ts",
       "import": "./dist/skills/*.js"
     },
     "./tasks/*": {
-      "types": "./src/tasks/*.ts",
+      "types": "./dist/tasks/*.d.ts",
       "import": "./dist/tasks/*.js"
     },
     "./design/*": {
-      "types": "./src/design/*.ts",
+      "types": "./dist/design/*.d.ts",
       "import": "./dist/design/*.js"
     }
   },
