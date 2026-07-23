@@ -1,6 +1,6 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useRouter, useDidShow } from '@tarojs/taro'
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   chatStream,
   type ChatMessage,
@@ -48,6 +48,9 @@ export default function ChatPage() {
   const [currentAgentId, setCurrentAgentId] = useState(routeAgentId)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [thinking, setThinking] = useState(false)
+  // 思考进度条(对标原 ai_assistant.vue thinkingProgress:120ms 定时器 +Math.random()*1,上限 99,完成时设 100)
+  const [thinkingProgress, setThinkingProgress] = useState(0)
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [sessionId, setSessionId] = useState('')
   const [currentModel, setCurrentModel] = useState('')
@@ -76,6 +79,35 @@ export default function ChatPage() {
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => setScrollTop((s) => (s === 99998 ? 99999 : 99998)), 50)
+  }, [])
+
+  /** 启动思考进度定时器(对标原 ai_assistant.vue:120ms +Math.random()*1,上限 99) */
+  const startThinkingProgress = useCallback(() => {
+    setThinkingProgress(0)
+    if (progressTimerRef.current) clearInterval(progressTimerRef.current)
+    progressTimerRef.current = setInterval(() => {
+      setThinkingProgress((p) => (p < 99 ? p + Math.random() * 1 : p))
+    }, 120)
+  }, [])
+
+  /** 停止思考进度定时器(对标原 ai_assistant.vue:完成时设 100,然后清理) */
+  const stopThinkingProgress = useCallback(() => {
+    if (progressTimerRef.current) {
+      clearInterval(progressTimerRef.current)
+      progressTimerRef.current = null
+    }
+    setThinkingProgress(100)
+    setTimeout(() => setThinkingProgress(0), 500)
+  }, [])
+
+  // 组件卸载时清理定时器,避免内存泄漏
+  useEffect(() => {
+    return () => {
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current)
+        progressTimerRef.current = null
+      }
+    }
   }, [])
 
   const loadModels = useCallback(async () => {
@@ -150,6 +182,7 @@ export default function ChatPage() {
       const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: Date.now() }
       setMessages((prev) => [...prev, userMsg, assistantMsg])
       setThinking(true)
+      startThinkingProgress()
       scrollToBottom()
       const controller = new AbortController()
       abortRef.current = controller
@@ -208,6 +241,7 @@ export default function ChatPage() {
       } finally {
         abortRef.current = null
         setThinking(false)
+        stopThinkingProgress()
         scrollToBottom()
       }
     },
@@ -216,6 +250,8 @@ export default function ChatPage() {
       sessionId,
       messages,
       scrollToBottom,
+      startThinkingProgress,
+      stopThinkingProgress,
       currentModel,
       activeAgentId,
       selectedMaterial,
@@ -225,7 +261,8 @@ export default function ChatPage() {
 
   const stopGeneration = useCallback(() => {
     abortRef.current?.abort()
-  }, [])
+    stopThinkingProgress()
+  }, [stopThinkingProgress])
 
   const handleSuggestion = useCallback(
     (text: string) => {
@@ -362,6 +399,35 @@ export default function ChatPage() {
             <View className="avatar assistant">AI</View>
             <View className="bubble">
               <Text className="bubble-text">{t('ai.thinking')}</Text>
+              {/* 思考进度条(对标原 ai_assistant.vue thinking-progress-container) */}
+              <View
+                className="thinking-progress-container"
+                style={{ position: 'relative', marginTop: '8rpx', height: '36rpx' }}
+              >
+                <View
+                  className="thinking-progress-bar"
+                  style={{
+                    width: `${Math.floor(thinkingProgress)}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #00f2ff, #8b5cf6)',
+                    borderRadius: '4rpx',
+                    transition: 'width 120ms linear',
+                  }}
+                />
+                <Text
+                  style={{
+                    position: 'absolute',
+                    left: '50%',
+                    top: '0',
+                    lineHeight: '36rpx',
+                    transform: 'translateX(-50%)',
+                    color: '#000',
+                    fontSize: '24rpx',
+                  }}
+                >
+                  {Math.floor(thinkingProgress)}%
+                </Text>
+              </View>
             </View>
           </View>
         ) : null}
