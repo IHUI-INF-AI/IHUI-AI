@@ -26,6 +26,10 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
   const [loading, setLoading] = React.useState(false)
   const [window, setWindow] = React.useState(14)
 
+  const dialogRef = React.useRef<HTMLDivElement>(null)
+  const closeButtonRef = React.useRef<HTMLButtonElement>(null)
+  const titleId = React.useId()
+
   React.useEffect(() => {
     if (!open || !itemId) return
     setLoading(true)
@@ -33,6 +37,40 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
       .then(setData)
       .finally(() => setLoading(false))
   }, [open, itemId, window])
+
+  // 无障碍:ESC 关闭 + focus trap + 焦点还原
+  React.useEffect(() => {
+    if (!open) return
+    const previouslyFocused = document.activeElement as HTMLElement | null
+    closeButtonRef.current?.focus()
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        onClose()
+        return
+      }
+      if (e.key === 'Tab' && dialogRef.current) {
+        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+        if (focusable.length === 0) return
+        const first = focusable[0]!
+        const last = focusable[focusable.length - 1]!
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      previouslyFocused?.focus()
+    }
+  }, [open, onClose])
 
   if (!open) return null
 
@@ -43,6 +81,10 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="w-full max-w-lg rounded-xl border bg-card shadow-lg"
         onClick={(e) => e.stopPropagation()}
       >
@@ -158,7 +200,7 @@ function SimpleLineChart({ points }: { points: Array<{ snapshotDate: string; hot
   return (
     <div className="space-y-1">
       <div className="text-[10px] font-medium text-muted-foreground">{t('trendChart.hotValue')}</div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="xMidYMid meet" role="img" aria-label={t('trendChart.hotValue')}>
         {/* 横轴 */}
         <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} className="stroke-muted" strokeWidth={0.5} />
         {/* 折线 */}

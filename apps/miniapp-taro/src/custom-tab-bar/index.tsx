@@ -1,5 +1,5 @@
 /**
- * 自定义 TabBar — 4 Tab:首页 / 课程 / 直播 / 我的
+ * 自定义 TabBar — 5 Tab:首页 / 智汇社区 / 课程 / 直播 / 我的
  *
  * 配置位置:app.config.ts 的 tabBar.custom = true
  * 小程序要求:此文件路径固定为 custom-tab-bar/index,
@@ -20,25 +20,31 @@ interface TabItem {
 const TABS: TabItem[] = [
   {
     pagePath: '/pages/index/index',
-    i18nKey: 'tabBar.home',
+    i18nKey: 'nav.home',
     icon: 'assets/tabbar/home.png',
     activeIcon: 'assets/tabbar/home-active.png',
   },
   {
+    pagePath: '/pages/community/index',
+    i18nKey: 'nav.community',
+    icon: 'assets/tabbar/community.png',
+    activeIcon: 'assets/tabbar/community-active.png',
+  },
+  {
     pagePath: '/pages/course/list',
-    i18nKey: 'tabBar.course',
+    i18nKey: 'nav.courses',
     icon: 'assets/tabbar/course.png',
     activeIcon: 'assets/tabbar/course-active.png',
   },
   {
     pagePath: '/pages/live/list',
-    i18nKey: 'tabBar.live',
+    i18nKey: 'nav.live',
     icon: 'assets/tabbar/live.png',
     activeIcon: 'assets/tabbar/live-active.png',
   },
   {
     pagePath: '/pages/user/index',
-    i18nKey: 'tabBar.user',
+    i18nKey: 'nav.profile',
     icon: 'assets/tabbar/user.png',
     activeIcon: 'assets/tabbar/user-active.png',
   },
