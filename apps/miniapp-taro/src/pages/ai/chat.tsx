@@ -230,6 +230,19 @@ export default function ChatPage() {
               duration: 2500,
             })
           },
+          // done 回调:把 ai-service event:done 下发的 usage.total_tokens 写入最后一条 assistant 消息
+          // 对标原 ai_assistant.vue obj.total_tokens → this.$set(agent_content_list[idx], 'total_tokens', obj.total_tokens)
+          (doneInfo) => {
+            if (typeof doneInfo.totalTokens === 'number') {
+              setMessages((prev) =>
+                prev.map((m, i) =>
+                  i === prev.length - 1 && m.role === 'assistant'
+                    ? { ...m, tokenCount: doneInfo.totalTokens! }
+                    : m,
+                ),
+              )
+            }
+          },
         )
       } catch (e) {
         if ((e as Error)?.name !== 'AbortError') {
