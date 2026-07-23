@@ -9,6 +9,7 @@ import {
   type LlmModel,
 } from '@ihui/api-client'
 import type { ChatMessage } from '../lib/types'
+import { sendDesktopNotification } from '../lib/desktop'
 
 const FALLBACK_MODELS: LlmModel[] = [
   {
@@ -202,6 +203,10 @@ export default function ChatPage({ onLogout }: Props) {
       onDone: () => {
         window.clearTimeout(timeoutId)
         setStreaming(false)
+        // 窗口隐藏(最小化到托盘)时发送系统通知
+        if (document.hidden) {
+          sendDesktopNotification('AI 回复完成', '点击托盘图标查看新消息')
+        }
       },
     }
     try {

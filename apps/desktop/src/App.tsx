@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom'
+import { listen } from '@tauri-apps/api/event'
 import { getProfile, type AuthUser } from '@ihui/api-client'
 import { initApi, getToken } from './lib/token'
 import { useAgentControlBridge } from './hooks/use-agent-control-bridge'
@@ -103,6 +104,7 @@ function AppInner() {
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Route>
       </Routes>
+      <DeepLinkHandler />
       <NotificationPanel />
       <DesktopWorkPanel />
     </BrowserRouter>
@@ -121,4 +123,30 @@ export default function App() {
 
 function ChatWithLogout() {
   return <ChatPage onLogout={() => window.location.assign('/login')} />
+}
+
+/** 监听 ihui:// deep-link 协议,收到 URL 后路由跳转(ihui://chat → /chat)。 */
+function DeepLinkHandler() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    void (async () => {
+      try {
+        unlisten = await listen<{ url: string }>('tauri://deep-link', (event) => {
+          // ihui://chat → /chat, ihui://chat/123 → /chat/123, ihui://settings → /settings
+          const route = (event.payload.url.replace(/^ihui:\/\//, '').split('?')[0] ?? '').replace(/^\/+/, '')
+          const path = '/' + route
+          if (path && path !== '/') {
+            navigate(path)
+          }
+        })
+      } catch {
+        // 非 Tauri 环境忽略
+      }
+    })()
+    return () => {
+      unlisten?.()
+    }
+  }, [navigate])
+  return null
 }
