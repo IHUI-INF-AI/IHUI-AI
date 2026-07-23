@@ -1769,6 +1769,10 @@ export default {
         exclusiveGroup: 'Exclusive Group',
         adExperience: 'Ad Experience',
       },
+      monthlyPlan: 'Monthly Plan',
+      yearlyPlan: 'Yearly Plan',
+      monthlyAllBenefits: 'All Monthly Benefits',
+      highCommission: 'High Commission',
     },
     success: {
       desc: 'Congratulations! Your VIP membership is now active',

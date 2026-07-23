@@ -29,10 +29,11 @@ export default function ExamList() {
       setPapers(pRes.list || [])
       setRecords(rRes.list || [])
     } catch {
+      Taro.showToast({ title: t('exam.detail.loadFailed'), icon: 'none' })
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useDidShow(() => {
     load()
@@ -102,14 +103,16 @@ export default function ExamList() {
 
   return (
     <View className="min-h-screen bg-background">
-      <View className="flex bg-card border-b border-[var(--color-border)]">
+      <View className="flex bg-card">
         {TAB_KEYS.map((item) => (
           <View
             key={item.key}
-            className={`flex-1 py-3 text-center text-sm ${tab === item.key ? 'text-primary font-semibold border-b-2 border-primary' : 'text-muted-foreground'}`}
+            className={`flex-1 py-3 text-center text-sm ${tab === item.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
             onClick={() => setTab(item.key)}
           >
-            {t(item.labelKey)}
+            <View className={`inline-block px-2 py-0.5 rounded-md ${tab === item.key ? 'bg-primary/10' : ''}`}>
+              {t(item.labelKey)}
+            </View>
           </View>
         ))}
       </View>
