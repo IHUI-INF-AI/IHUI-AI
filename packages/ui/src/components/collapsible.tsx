@@ -61,8 +61,7 @@ const Collapsible = React.forwardRef<HTMLDivElement, CollapsibleProps>(
 )
 Collapsible.displayName = 'Collapsible'
 
-export interface CollapsibleTriggerProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {}
+export type CollapsibleTriggerProps = React.ButtonHTMLAttributes<HTMLButtonElement>
 
 const CollapsibleTrigger = React.forwardRef<
   HTMLButtonElement,
