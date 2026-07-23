@@ -472,6 +472,22 @@ textarea:focus {
   padding: 16px 24px;
 }
 
+/* 启用会话侧边栏时改为横向 flex */
+.chat-page--with-sidebar {
+  flex-direction: row;
+  padding: 0;
+  gap: 0;
+}
+
+.chat-page--with-sidebar .chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px 24px;
+  min-width: 0;
+}
+
 .chat-list {
   flex: 1;
   overflow: auto;
@@ -532,6 +548,143 @@ textarea:focus {
   outline: 2px dashed var(--accent, #4a90e2);
   outline-offset: -4px;
   background: var(--drag-bg, rgba(74, 144, 226, 0.04));
+}
+
+/* ============== 会话侧边栏 ============== */
+
+.conv-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-right: 1px solid var(--border);
+  background: var(--sidebar-bg, rgba(0, 0, 0, 0.02));
+}
+
+.conv-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.conv-sidebar-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.conv-new-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+  border-radius: 6px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.conv-new-btn:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.05));
+}
+
+.conv-list {
+  flex: 1;
+  overflow: auto;
+  padding: 8px;
+}
+
+.conv-empty {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.conv-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  margin-bottom: 2px;
+}
+
+.conv-item:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.05));
+}
+
+.conv-item--active {
+  background: var(--active-bg, rgba(74, 144, 226, 0.08));
+}
+
+.conv-item--active:hover {
+  background: var(--active-bg, rgba(74, 144, 226, 0.12));
+}
+
+.conv-item-title {
+  font-size: 13px;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.conv-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.conv-item-count {
+  padding: 1px 6px;
+  background: var(--badge-bg, rgba(0, 0, 0, 0.06));
+  border-radius: 8px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.conv-item-delete {
+  margin-left: auto;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease;
+  border-radius: 4px;
+}
+
+.conv-item:hover .conv-item-delete,
+.conv-item--active .conv-item-delete {
+  opacity: 1;
+}
+
+.conv-item-delete:hover {
+  color: var(--danger, #dc2626);
+  background: var(--danger-bg, rgba(220, 38, 38, 0.08));
+}
+
+/* Dark mode 调整 */
+:root[data-theme='dark'] .conv-sidebar {
+  background: var(--sidebar-bg, rgba(255, 255, 255, 0.02));
+}
+
+:root[data-theme='dark'] .conv-item--active {
+  background: var(--active-bg, rgba(255, 255, 255, 0.06));
 }
 
 .empty-state-hint {
