@@ -20,12 +20,17 @@
  */
 
 import { createSign, createVerify, createHash, X509Certificate, randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { env } from 'node:process';
 import { join } from 'node:path';
 
 const GATEWAY = env.ALIPAY_GATEWAY ?? 'https://openapi.alipay.com/gateway.do';
-const CERTS_DIR = env.ALIPAY_CERTS_DIR ?? join(process.cwd(), 'apps', 'api', 'certs');
+// 自适应:pnpm filter 运行时 cwd=apps/api(用 certs/),项目根运行时用 apps/api/certs/
+const CERTS_DIR = env.ALIPAY_CERTS_DIR ?? (
+  existsSync(join(process.cwd(), 'certs'))
+    ? join(process.cwd(), 'certs')
+    : join(process.cwd(), 'apps', 'api', 'certs')
+);
 
 export function isAlipayConfigured(): boolean {
   return Boolean(env.ALIPAY_APP_ID && (env.ALIPAY_PRIVATE_KEY || env.ALIPAY_PRIVATE_KEY_PATH));
@@ -50,28 +55,55 @@ function getPrivateKey(): string {
   return '';
 }
 
-/** 证书 issuer 格式化:按换行/逗号分割,反转顺序,用逗号连接 */
+/**
+ * 证书 issuer 格式化:按换行/逗号分割,trim,反转顺序,用逗号连接。
+ *
+ * 算法对齐支付宝官方 Java SDK(AlipaySignature.getCertSN / AlipaySignature.getRootCertSN):
+ * - Java X509Certificate.getIssuerX500Principal().getName() 返回 RFC2253 倒序(CN→C),如
+ *   "CN=Ant Financial Certification Authority R1,OU=Certification Authority,O=Ant Financial,C=CN"。
+ * - Node X509Certificate.issuer 返回正序(C→CN,用 \n 分隔),如
+ *   "C=CN\nO=Ant Financial\nOU=Certification Authority\nCN=Ant Financial Certification Authority R1"。
+ * - 反转后得到倒序(CN→C),与 Java getName() 输出一致,MD5 才能匹配。
+ *
+ * 修复记录(2026-07-23):
+ * - 第一版:reverse() + 十六进制 serial → 失败(serial 进制错误)
+ * - 第二版:去 reverse() + 十六进制 serial → 失败(issuer 顺序错误)
+ * - 第三版:去 reverse() + 十进制 serial → 失败(issuer 顺序错误)
+ * - 第四版(当前):reverse() + 十进制 serial → 对齐 Java SDK,验证通过
+ */
 function formatIssuer(issuer: string): string {
   const parts = issuer.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
   return parts.reverse().join(',');
 }
 
-/** 计算单个证书序列号:MD5(issuer_formatted + serialNumber) */
-function getCertSN(certPem: string): string {
-  const x509 = new X509Certificate(certPem);
-  const content = formatIssuer(x509.issuer) + x509.serialNumber;
-  return createHash('md5').update(content).digest('hex').toUpperCase();
+/**
+ * 十六进制 serial 转十进制。
+ *
+ * 对齐支付宝官方 Java SDK(AntCertFormatUtil):Java X509Certificate.getSerialNumber()
+ * 返回 BigInteger,toString() 默认十进制。Node X509Certificate.serialNumber 返回十六进制,
+ * 需转十进制后才能与 Java SDK 的 MD5 输入一致。
+ */
+function toDecimalSerial(hexSerial: string): string {
+  return BigInt('0x' + hexSerial).toString();
 }
 
-/** 计算根证书序列号:只取 RSA 类型证书,多个用 _ 连接 */
+/** 计算单个证书序列号:MD5(issuer_formatted + decimalSerial),小写 hex(对齐官方 SDK) */
+function getCertSN(certPem: string): string {
+  const x509 = new X509Certificate(certPem);
+  const content = formatIssuer(x509.issuer) + toDecimalSerial(x509.serialNumber);
+  // 官方 alipay-sdk (antcertutil.js) 用 .digest('hex') 返回小写,支付宝侧大小写敏感
+  return createHash('md5').update(content).digest('hex');
+}
+
+/** 计算根证书序列号:只取 RSA 类型证书,多个用 _ 连接,小写 hex */
 function getRootCertSNFromPem(rootCertPem: string): string {
   const blocks = rootCertPem.match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g) ?? [];
   const sns: string[] = [];
   for (const block of blocks) {
     const cert = new X509Certificate(block);
     if (cert.publicKey.asymmetricKeyType === 'rsa') {
-      const content = formatIssuer(cert.issuer) + cert.serialNumber;
-      sns.push(createHash('md5').update(content).digest('hex').toUpperCase());
+      const content = formatIssuer(cert.issuer) + toDecimalSerial(cert.serialNumber);
+      sns.push(createHash('md5').update(content).digest('hex'));
     }
   }
   return sns.join('_');
