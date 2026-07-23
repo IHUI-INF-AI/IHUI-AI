@@ -77,7 +77,7 @@
 </p>
 
 <p align="center">
-  <sub><strong>i18n 国际化</strong>:5 语言键集合 100% parity(zh-CN / zh-TW / en / ko / ja)+ 9 守门脚本(4 web + 4 extension + 1 AI 翻译流水线 blocking:opencc 字形检测 / 字符范围检测 / 破碎机翻检测 / key parity 校验 × 2 端 / AI agent 自主翻译)+ AI 翻译流水线(i18n-diff → AI agent 翻译 → i18n-apply,零 LLM API 调用,开发成本降 70%+)</sub>
+  <sub><strong>i18n 国际化</strong>:5 语言键集合 100% parity(zh-CN / zh-TW / en / ko / ja)+ 10 守门脚本(4 web + 4 extension + 2 AI 翻译流水线 blocking × 2 端:opencc 字形检测 / 字符范围检测 / 破碎机翻检测 / key parity 校验 × 2 端 / AI agent 自主翻译)+ AI 翻译流水线(i18n-diff → AI agent 翻译 → i18n-apply,零 LLM API 调用,支持 web/extension/miniapp-taro 三端,开发成本降 70%+)</sub>
 </p>
 
 <p align="center">
