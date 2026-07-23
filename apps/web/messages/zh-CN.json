@@ -26093,7 +26093,11 @@
       "billingSubscription": "套餐",
       "sortLabel": "排序",
       "sortByName": "按名称",
-      "sortByBilling": "按计费"
+      "sortByBilling": "按计费",
+      "speedTest": "测速",
+      "speedTesting": "测速中...",
+      "sortBySpeed": "按延迟",
+      "speedError": "超时"
     },
     "cta": {
       "label": "底部 CTA",
