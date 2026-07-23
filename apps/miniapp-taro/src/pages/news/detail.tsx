@@ -1,10 +1,13 @@
 import { View, Text, RichText } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { getNewsDetail, type News } from '@/api'
+import { NavBar } from '@/components'
+import { useI18n } from '@/i18n'
 import './detail.css'
 
 export default function NewsDetailPage() {
+  const { t } = useI18n()
   const [news, setNews] = useState<News>({} as News)
   const [loading, setLoading] = useState(true)
   const [id, setId] = useState('')
@@ -32,26 +35,45 @@ export default function NewsDetailPage() {
     if (id) load()
   }, [id, load])
 
+  useShareAppMessage(() => ({
+    title: news.title || t('share.appTitle'),
+    path: `/pages/news/detail?id=${id}`,
+    imageUrl: news.coverUrl || '',
+  }))
+  useShareTimeline(() => ({
+    title: news.title || t('share.timelineTitle'),
+    query: `id=${id}`,
+  }))
+
   return (
     <View className="page">
-      {news.title ? (
+      <NavBar showBack />
+      {loading ? (
+        <View className="loading">
+          <Text>{t('common.loading')}</Text>
+        </View>
+      ) : null}
+
+      {!loading && news.title ? (
         <View className="head">
           <Text className="title">{news.title}</Text>
           <View className="meta">
             <Text>{news.createTime}</Text>
-            <Text>{news.views || 0}阅读</Text>
+            <Text>{t('news.readCount', { n: news.views || 0 })}</Text>
           </View>
         </View>
       ) : null}
 
-      {news.content ? (
+      {!loading && news.content ? (
         <View className="content">
           <RichText nodes={news.content} />
         </View>
       ) : null}
 
-      {loading ? (
-        <View className="loading"><Text>加载中...</Text></View>
+      {!loading && !news.title ? (
+        <View className="loading">
+          <Text>{t('common.empty')}</Text>
+        </View>
       ) : null}
     </View>
   )
