@@ -318,6 +318,8 @@ import { subagentDispatchRoutes } from './subagent-dispatch.js'
 import { orchestrationRoutes } from './orchestration.js'
 // A 套壳:SaaS Admin API 代理(迁移自 web 端 app/api/admin-saas/[...path]/route.ts)
 import { adminSaasProxyRoutes } from './admin-saas-proxy.js'
+// 资源上游自动同步中心(2026-07-24 立,CRUD + 同步触发 + webhook 接收 + BullMQ 每 6h 定时拉取)
+import { registrySyncRoutes } from './registry-sync.js'
 
 export function registerRoutes(server: FastifyInstance) {
   server.register(healthRoutes, { prefix: '/api' })
@@ -875,4 +877,7 @@ export function registerRoutes(server: FastifyInstance) {
 
   // A 套壳:SaaS Admin API 代理(透传到 admin-api 8830,迁移自 web 端 API route)
   server.register(adminSaasProxyRoutes, { prefix: '/api/admin-saas' })
+
+  // 资源上游自动同步中心(8 端点:items/sync-logs/sync/webhooks/webhook/install/upgrade-all + BullMQ 每 6h 定时拉取)
+  server.register(registrySyncRoutes, { prefix: '/api' })
 }

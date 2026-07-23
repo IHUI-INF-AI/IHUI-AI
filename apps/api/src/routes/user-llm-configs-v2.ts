@@ -49,6 +49,7 @@ import { success, error } from '../utils/response.js'
 import { encryptJSON, decryptJSON, isEncryptedPayload } from '../utils/crypto.js'
 import { AppError } from '../errors/AppError.js'
 import { PLATFORM_TEMPLATES, TEMPLATE_MAP, type PlatformTemplate } from '../utils/platform-templates.js'
+import { fetchProviderModels, SUPPORTED_PROVIDERS } from '../services/provider-models.js'
 
 // =============================================================================
 // 常量
@@ -139,6 +140,12 @@ const createGroupSchema = z.object({
 const updateGroupSchema = z.object({
   label: z.string().min(1).max(64).optional(),
   sortOrder: z.number().int().min(-10000).max(10000).optional(),
+})
+
+/** 按 provider 名称拉取上游模型(7 个预置 provider) */
+const fetchModelsByProviderSchema = z.object({
+  provider: z.string().min(1).max(64),
+  apiKey: z.string().min(1).max(500).optional(),
 })
 
 // =============================================================================
@@ -661,6 +668,25 @@ export const userLlmConfigV2Routes: FastifyPluginAsync = async (server) => {
         message: `已拉取 ${result.models.length} 个模型`,
       }),
     )
+  })
+
+  // ---------------------------------------------------------------------------
+  // A. 按 provider 名称拉取上游模型(7 个预置 provider,Redis 缓存 24h,失败降级 FALLBACK)
+  //    POST /llm-providers/fetch-models  body: { provider, apiKey? }
+  //    与上面的 :id/fetch-models 区别:此处按 provider 名称(非用户已保存配置),
+  //    使用环境变量 API key(或 body 传入),命中 Redis 缓存优先返回。
+  // ---------------------------------------------------------------------------
+  server.post('/llm-providers/fetch-models', async (request, reply) => {
+    const body = fetchModelsByProviderSchema.safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { provider, apiKey } = body.data
+    if (!SUPPORTED_PROVIDERS.includes(provider)) {
+      return reply.status(400).send(error(400, `不支持的 provider: ${provider}`))
+    }
+    const result = await fetchProviderModels(provider, apiKey, server.redis)
+    return reply.send(success(result))
   })
 
   // ---------------------------------------------------------------------------
