@@ -170,6 +170,10 @@ import { browserRoutes } from './browser.js'
 import { memoryRoutes } from './memory.js'
 // Skill 持久化路由(P0-2,管理自进化生成的 skill)
 import { skillsRoutes } from './skills.js'
+// Design 预览路由(P3 深度层,desktop 画布 + 预览:POST /design/preview + GET /design/previews)
+import { designRoutes } from './design.js'
+// 三端联动任务调度(P3 深度层,mobile-rn → api WS → desktop 执行:dispatch/result/list/devices)
+import { tasksRoutes } from './tasks.js'
 // IM 平台 gateway 路由(P1-1,对标 Hermes Agent 25+ 平台 gateway:webhook 接收 + 出站发送 + 适配器配置)
 import { imGatewayRoutes } from './im-gateway.js'
 
@@ -653,6 +657,10 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(memoryRoutes, { prefix: '/api' })
   // Skill 持久化(2026-07-22 立,P0-2:GET/POST /api/skills + GET/DELETE /api/skills/:name + POST /api/skills/sync)
   server.register(skillsRoutes, { prefix: '/api' })
+  // Design 预览(P3 深度层:POST /api/design/preview + GET /api/design/previews)
+  server.register(designRoutes, { prefix: '/api' })
+  // 三端联动任务调度(P3 深度层:POST /api/tasks/dispatch + POST /api/tasks/result + GET /api/tasks + GET /api/tasks/devices)
+  server.register(tasksRoutes, { prefix: '/api' })
   // IM 平台 gateway(2026-07-22 立,P1-1:POST /api/im-gateway/webhook/:platform + /send + GET/POST /api/im-gateway/adapters + GET /api/im-gateway/status)
   server.register(imGatewayRoutes, { prefix: '/api' })
 
