@@ -1,9 +1,28 @@
-import { setTokenProvider, fetchApi as fetchApiShared } from '@ihui/api-client'
+import { setTokenProvider, setBaseUrl, fetchApi as fetchApiShared } from '@ihui/api-client'
 import type { ApiResult } from '@ihui/types'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 
 setTokenProvider({ getToken: () => useAuthStore.getState().token })
+
+// A 套壳:rewrites 失效后(output: 'export'),前端直连 apps/api
+// - Tauri 环境:直连 http://127.0.0.1:8802(本地 API server)
+// - 浏览器环境:用 NEXT_PUBLIC_API_BASE_URL 环境变量(开发时设 http://localhost:8802)
+// - 未设置时 baseUrl 为空,依赖同源反代(如 Nginx)
+// 只在客户端执行(build/SSR 时跳过,避免循环依赖导致模块导出未初始化)
+function detectApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    // Tauri 2 环境:window.__TAURI_INTERNALS__ 或 window.__TAURI__
+    if ('__TAURI_INTERNALS__' in window || '__TAURI__' in window) {
+      return 'http://127.0.0.1:8802'
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_BASE_URL || ''
+}
+
+if (typeof window !== 'undefined') {
+  setBaseUrl(detectApiBaseUrl())
+}
 
 /**
  * 公开路径白名单 — 这些页面的 401 不弹登录窗。
