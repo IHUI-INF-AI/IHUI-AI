@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
   },
   logoutText: { fontSize: 14, fontWeight: '600', color: tokens.error.text },
   versionText: { textAlign: 'center', fontSize: 11, color: tokens.text.tertiary, marginTop: 4 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 },
+  modalOverlay: { flex: 1, backgroundColor: tokens.overlay.modal, justifyContent: 'center', padding: 24 },
   modalCard: { backgroundColor: tokens.surface.light, borderRadius: 12, padding: 20, gap: 10 },
   modalTitle: { fontSize: 16, fontWeight: '600', color: tokens.text.primary, marginBottom: 4 },
   pwdInput: {
