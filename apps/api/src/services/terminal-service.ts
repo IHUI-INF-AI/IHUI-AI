@@ -38,6 +38,7 @@ import type {
  * 安装命令:pnpm --filter @ihui/api add node-pty
  */
 const require = createRequire(import.meta.url)
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports -- 动态加载可选依赖,需用 import() 取类型
 type NodePtyModule = typeof import('node-pty')
 let ptyMod: NodePtyModule | null = null
 try {
@@ -630,7 +631,7 @@ function createSshSession(
  * ready 后由 attachSshStream 把 stream 挂到内部字段,write/resize 才真正生效。
  */
 function createSshPtyWrapper(client: Ssh2ClientLike): IPty {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- stream 字段动态挂载
+   
   const wrapper: IPty & { _sshStream?: Ssh2StreamLike } = {
     write: (data: string) => {
       try {
