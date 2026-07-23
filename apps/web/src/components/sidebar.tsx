@@ -827,6 +827,15 @@ function SidebarUserRow({
                 onCloseMobile()
               },
             },
+            {
+              key: 'vip',
+              label: t('vip'),
+              icon: Crown,
+              onSelect: () => {
+                router.push('/vip')
+                onCloseMobile()
+              },
+            },
             { key: 'div2', divider: true },
             {
               key: 'logout',
