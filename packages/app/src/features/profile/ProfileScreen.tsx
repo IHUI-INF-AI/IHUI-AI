@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native'
 import { TextLink } from 'solito/link'
 import type { ProfileScreenProps, SharedUserStatistics } from '../../types'
+import { tokens } from '../../theme/tokens'
 
 /**
  * ProfileScreen — 跨端共享「个人资料」页。
@@ -122,7 +123,7 @@ function buildStatsCells(
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.light },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: {
     flexDirection: 'row',
@@ -131,31 +132,31 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
   },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  errorBar: { marginHorizontal: 16, marginBottom: 8, padding: 10, borderRadius: 8, backgroundColor: '#FEE2E2' },
-  errorText: { fontSize: 12, color: '#B91C1C' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
+  errorBar: { marginHorizontal: 16, marginBottom: 8, padding: 10, borderRadius: 8, backgroundColor: tokens.error.bg },
+  errorText: { fontSize: 12, color: tokens.error.text },
   body: { padding: 16, gap: 12 },
   userCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderRadius: 8,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: tokens.surface.muted,
     gap: 12,
   },
   avatar: {
     width: 56,
     height: 56,
     borderRadius: 8,
-    backgroundColor: '#10B981',
+    backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontSize: 22, fontWeight: '700', color: '#FFFFFF' },
+  avatarText: { fontSize: 22, fontWeight: '700', color: tokens.surface.light },
   userMeta: { flex: 1, gap: 2 },
-  nickname: { fontSize: 16, fontWeight: '600', color: '#111827' },
-  subText: { fontSize: 12, color: '#6B7280' },
+  nickname: { fontSize: 16, fontWeight: '600', color: tokens.text.primary },
+  subText: { fontSize: 12, color: tokens.text.secondary },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -166,25 +167,25 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: tokens.surface.muted,
     alignItems: 'center',
   },
-  statsValue: { fontSize: 18, fontWeight: '700', color: '#111827' },
-  statsLabel: { marginTop: 2, fontSize: 11, color: '#6B7280' },
+  statsValue: { fontSize: 18, fontWeight: '700', color: tokens.text.primary },
+  statsLabel: { marginTop: 2, fontSize: 11, color: tokens.text.secondary },
   menuSection: { gap: 8 },
-  sectionTitle: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  menuCard: { borderRadius: 8, backgroundColor: '#F9FAFB', padding: 4 },
+  sectionTitle: { fontSize: 13, fontWeight: '600', color: tokens.text.medium },
+  menuCard: { borderRadius: 8, backgroundColor: tokens.surface.muted, padding: 4 },
   menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, gap: 10 },
-  menuItemGap: { marginTop: 4, backgroundColor: '#FFFFFF', borderRadius: 6 },
+  menuItemGap: { marginTop: 4, backgroundColor: tokens.surface.light, borderRadius: 6 },
   menuIcon: { fontSize: 16 },
-  menuLabel: { flex: 1, fontSize: 14, color: '#111827' },
-  menuArrow: { fontSize: 18, color: '#9CA3AF' },
+  menuLabel: { flex: 1, fontSize: 14, color: tokens.text.primary },
+  menuArrow: { fontSize: 18, color: tokens.text.tertiary },
   logoutBtn: {
     marginTop: 8,
     padding: 14,
     borderRadius: 8,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: tokens.error.bg,
     alignItems: 'center',
   },
-  logoutText: { fontSize: 14, fontWeight: '600', color: '#B91C1C' },
+  logoutText: { fontSize: 14, fontWeight: '600', color: tokens.error.text },
 })
