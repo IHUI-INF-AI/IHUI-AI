@@ -5,6 +5,27 @@ import { useRouter, useSearchParams } from 'next/navigation'
 
 import { useLoginDialogStore } from '@/stores/login-dialog'
 
+// 公开路径:首页 / 登录注册 / 找回密码 / 营销页 / 健康检查
+// 这些路径即使携带 login_redirect cookie 也不弹窗(避免刷新进项目即弹窗)
+const PUBLIC_PATHS = new Set<string>([
+  '/',
+  '/login',
+  '/register',
+  '/sso/login',
+  '/sso/register',
+  '/forgot-password',
+  '/reset-password',
+  '/about',
+  '/contact',
+  '/pricing',
+  '/docs',
+  '/api/health',
+])
+
+function isPublicPath(path: string): boolean {
+  return PUBLIC_PATHS.has(path)
+}
+
 /**
  * 监听 middleware / SSR 设置的 `login_redirect` cookie 或 `?reauth=1&next=...` 查询参数,
  * 自动打开 LoginDialog。挂在根 layout 客户端组件树中,首屏 hydration 后读取一次,
@@ -43,8 +64,8 @@ export function LoginRedirectListener() {
     const target = decodeURIComponent(match[1] ?? '')
     document.cookie = 'login_redirect=; path=/; max-age=0'
     // 仅当用户访问的是需要登录的受保护路由时才弹窗
-    // 首页 / 等公开路径不弹窗(2026-07-23:用户要求"刷新进项目不要弹窗")
-    if (target && target !== '/') {
+    // 首页 / 登录 / 注册等公开路径不弹窗(2026-07-23:用户要求"刷新进项目不要弹窗")
+    if (target && !isPublicPath(target)) {
       open('login', target)
     }
   }, [open, router, searchParams])
