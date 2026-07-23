@@ -1,45 +1,27 @@
 {
   "cli": {
-    "version": ">= 12.0.0",
+    "version": ">= 5.0.0",
     "appVersionSource": "remote"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development",
       "ios": {
         "simulator": true
       }
     },
     "preview": {
-      "distribution": "internal",
-      "channel": "preview",
-      "ios": {
-        "simulator": true
-      }
+      "distribution": "internal"
     },
     "production": {
-      "channel": "production",
       "autoIncrement": true,
-      "ios": {
-        "simulator": false
-      },
-      "android": {
-        "buildType": "app-bundle"
+      "env": {
+        "WX_APP_APPID": "wx85fa429a9331b5c8"
       }
     }
   },
   "submit": {
-    "production": {
-      "ios": {
-        "appleId": "REPLACE_WITH_APPLE_ID",
-        "ascAppId": "REPLACE_WITH_ASC_APP_ID"
-      },
-      "android": {
-        "serviceAccountKeyPath": "./google-service-account.json",
-        "track": "internal"
-      }
-    }
+    "production": {}
   }
 }
