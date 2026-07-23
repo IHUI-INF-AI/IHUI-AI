@@ -275,7 +275,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | AI 数字人       | 腾讯混元 3D / AI 世界 / 数字人交互                                                                          |
 |                   | AI 世界         | ai-world-items + AI 排名 + 趋势同步 + AI 模块化(ai-modules)+ AI 厂商配置中心(ai-vendor-configs)             |
 |                   | AI 职业         | AI 求职助手 / 简历优化 / 模拟面试                                                                           |
-|                   | AI 资讯         | AI 资讯聚合 / 智能摘要 / ai-feed / 大模型排行榜(Arena 评分 + 8 大分类 + Elo + Bootstrap CI + 能力雷达图 + 模型对比勾选 + PriceChart 价格可视化 + 能力雷达叠加)+ API 中转站(29 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(47 厂商映射 + 剪贴板粘贴 + Provider 配置)+ 资讯标题多语言切换(中/EN/日/한)+ 趋势爆发通知 Banner(60s 轮询 + 可见性感知 + 数据通路修复)+ 趋势筛选 Tab(全部/上升/下降/新晋)+ 性能优化(Intl 提取 + parseNumeric 预计算 + 日期 locale 本地化)+ 对比列表 localStorage 持久化 |
+|                   | AI 资讯         | AI 资讯聚合 / 智能摘要 / ai-feed / 大模型排行榜(Arena 评分 + 8 大分类 + Elo + Bootstrap CI + 能力雷达图 + 模型对比勾选 + PriceChart 价格可视化 + 能力雷达叠加)+ API 中转站(29 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(47 厂商映射 + 剪贴板粘贴 + Provider 配置)+ 资讯标题多语言切换(中/EN/日/한)+ 趋势爆发通知 Banner(60s 轮询 + 可见性感知 + 数据通路修复)+ 趋势筛选 Tab(全部/上升/下降/新晋)+ 性能优化(Intl 提取 + parseNumeric 预计算 + 日期 locale 本地化 + formatHot compact 表示法)+ 对比列表 localStorage 持久化 + Leaderboard i18n 全面国际化(25 键:分类/子分类/表头/底部说明 5 语言同步)+ 收藏功能(Star localStorage 持久化 + 仅看收藏筛选)+ 列显隐(齿轮 dropdown + 8 字段可隐藏 + localStorage 持久化) |
 |                   | 用户级 AI 配置  | LLM 配置中心 v2(1:N provider-model + 分组 + 健康状态 + 30 天用量 + 批量导入导出 + 跨 Provider 模型对比 + 一键复制 + 结构化参数 Temperature/Max Tokens/Top P/Penalty + 4 预设 + 高级 JSON)/ CLI 配置 24 源一键导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env / Trae / Qoder / Codex Desktop / Claude Code Desktop / GitHub Copilot / Amazon Q / Continue / Tabnine / Cody / Zed / Google Antigravity)/ 用户级模型对话偏好(ai-user-model-chat)/ 用户长期记忆(user-memory)/ 用户偏好(user-preferences) |
 | **AI 工作流**     | LangGraph       | StateGraph 工作流(plan → execute → summarize)+ stub 模式 + agent_loop 多轮 tool 循环 + 任务自动分解 DAG 拓扑 |
 |                   | MCP 工具协议    | 33 内置工具(11 基础 + 12 浏览器控制 + 10 电脑控制)+ 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP / mcp-extended |
@@ -901,7 +901,7 @@ IHUI-AI/
 | **文生视频**     | 多模型混编 / 视频编辑 / 视频合成 / 转码 / ai-generation/video-tasks                 |
 | **AI 数字人**    | 腾讯混元 3D / AI 世界 / 数字人交互 / `tencent-hunyuan-3d.ts`                        |
 | **AI 求职**      | 简历优化 / 模拟面试 / 职业建议 / `ai-career/`                                       |
-| **AI 资讯**      | AI 资讯聚合 / 智能摘要 / `ai-feed.ts` + `ai-feed-posts.ts` / 大模型排行榜(`model-leaderboard` + Arena 评分 + 能力雷达图 + 模型对比勾选 + `ModelCompareBar` + `ModelCompareDialog` + `PriceChart` SVG 柱状图 + 能力雷达叠加)+ API 中转站(`api-relays.ts` + 29 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(`vendor-platforms.ts` + 47 厂商映射 + `?prefill=` base64 跳转 + `ProviderFormDialog` 剪贴板粘贴按钮)+ 资讯标题多语言切换(中/EN/日/한 4 语言 + `titleEn/titleJa/titleKo` schema 字段)+ 趋势爆发通知 Banner(`TrendNotificationBanner` + 60s 轮询 + `/api/ai-feed/notifications`) |
+| **AI 资讯**      | AI 资讯聚合 / 智能摘要 / `ai-feed.ts` + `ai-feed-posts.ts` / 大模型排行榜(`model-leaderboard` + Arena 评分 + 能力雷达图 + 模型对比勾选 + `ModelCompareBar` + `ModelCompareDialog` + `PriceChart` SVG 柱状图 + 能力雷达叠加)+ API 中转站(`api-relays.ts` + 29 公司平台 + 搜索/厂商筛选 + 个人运行风险提示 + 一键测速 `fetch no-cors` RTT + 延迟 badge 绿/黄/红 + 按延迟排序)+ 官方 Key 一键导入(`vendor-platforms.ts` + 47 厂商映射 + `?prefill=` base64 跳转 + `ProviderFormDialog` 剪贴板粘贴按钮)+ 资讯标题多语言切换(中/EN/日/한 4 语言 + `titleEn/titleJa/titleKo` schema 字段)+ 趋势爆发通知 Banner(`TrendNotificationBanner` + 60s 轮询 + `/api/ai-feed/notifications`) |
 
 ### B. AI 工作流与开发者(面向开发者)
 
@@ -1743,6 +1743,8 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - 卡片含 format 标签(Markdown)+ excerpt 缩略预览(前 120 字符,自动剥离 markdown 语法)
 - 生产容器 `Dockerfile.api` 已 `COPY docs/ ./docs`,部署后即可访问
 - **markdown 图片代理**:后端 `GET /api/feature-center/documents/asset/*` 端点返回 docs/ 下的图片字节(png/jpg/gif/webp/svg),前端 ReactMarkdown 的 `img` 组件把相对路径 `./images/x.png` 改写为 `/api/feature-center/documents/asset/<dirBase>/images/x.png`,使文档预览时图片可正常显示(权限与文档一致:子目录全公开,顶层需管理员)
+- **markdown 内部链接导航**:ReactMarkdown 的 `a` 组件拦截 `.md` 相对链接(`./xxx.md` / `../xxx.md` / `dir/xxx.md`),通过 `resolveMdLink()` 基于 displaySlug 推导目标 slug(支持 `./` 同级、`../` 上级回退、无前缀同级),点击时加载目标文档内容替换预览(不跳转 URL),支持"返回原文"按钮回退;外部 http(s) 链接正常新窗口打开
+- **预览 TOC 侧边栏**:从 markdown `##`/`###` 标题自动提取目录(extractToc),h2/h3 组件注入 id(slugifyHeading),TOC 项按层级缩进(level-2)*12px,点击 `scrollIntoView({behavior:'smooth'})` 滚动定位,内容滚动时 `onScroll` 高亮当前可视标题(bg-primary/10 + text-primary);TOC 仅 md+ 屏幕显示,无标题时不渲染
 
 **权限分级(防越线)**:`docs/**/*.md` 按位置分两级:
 - **子目录文档全公开**(`developer/*` / `user/*` / `enterprise-service/*`):用户指南、开发者 API 文档、企业服务白皮书等

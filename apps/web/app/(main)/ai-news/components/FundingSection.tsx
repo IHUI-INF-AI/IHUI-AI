@@ -7,6 +7,7 @@ import { Card, CardContent } from '@ihui/ui'
 import { Badge } from '@/components/data'
 import { getFormatters } from '@/lib/date-utils'
 import type { AiFundingItem } from '@/lib/ai-news-api'
+import { EmptyState } from './EmptyState'
 
 interface Props {
   items: AiFundingItem[]
@@ -20,7 +21,13 @@ export function FundingSection({ items }: Props) {
   }, [])
   const fmt = React.useMemo(() => getFormatters(locale), [locale])
 
-  if (items.length === 0) return null
+  if (items.length === 0) {
+    return (
+      <section aria-label={t('funding.label')}>
+        <EmptyState icon={<TrendingUp className="h-6 w-6" />} message={t('funding.empty')} />
+      </section>
+    )
+  }
 
   return (
     <section

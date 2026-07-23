@@ -298,3 +298,52 @@
   color: var(--color-muted-foreground);
   line-height: 1.5;
 }
+
+/* 智能体引导说明(对标原 ai_assistant.vue tishi_block + tishi_box) */
+.tishi-block {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 24rpx;
+  margin: 12rpx 16rpx;
+  background: var(--color-card);
+  border-radius: 8rpx;
+}
+.tishi-block-icon {
+  margin-right: 12rpx;
+  font-size: 28rpx;
+}
+.tishi-block-text {
+  font-size: 26rpx;
+  color: var(--color-primary);
+}
+.tishi-box {
+  margin: 12rpx 16rpx;
+  padding: 20rpx;
+  background: var(--color-card);
+  border-radius: 8rpx;
+}
+.tishi-title {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+.tishi-title-icon {
+  margin-right: 10rpx;
+  font-size: 28rpx;
+}
+.tishi-title-text {
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  font-weight: 500;
+}
+.tishi-content {
+  padding: 12rpx 16rpx;
+  background: var(--color-background);
+  border-radius: 6rpx;
+}
+.tishi-content-line {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.6;
+}
