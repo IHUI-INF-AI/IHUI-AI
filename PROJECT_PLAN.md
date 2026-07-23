@@ -8,18 +8,19 @@
 
 ## 当前活跃任务(2026-07-23)
 
-### [x] ✅(2026-07-23) AI Skills TOP 19 个 skill 集成 + 10 真集成(用户可选调用)
+### [x] ✅(2026-07-23) AI Skills TOP 19 个 skill 集成 + 19 真集成(全部实装,无占位)
 
 **触发**:用户提供 2 张图(CODEX 10+GitHub 10,去重 19 个),要求全装到项目并支持列表里选调。
 
-**交付**(4 轮 + 4 subagent):
+**交付**(5 轮 + 4 subagent):
 - **R1-3**:`apps/ai-service/{skills.py,ai_skills.py}` + `skill-library.tsx` + 5 语言 i18n。`f933e9261`
 - **R4-S2(7 真集成)**:auto-redbook-skills/superpowers/caveman/graphify/agent-skills/awesome-claude-skills/taste-skill 升级,InvokeResponse 扩字段
 - **R4-S3(Scheduler)**:`apps/ai-service/app/services/skill_scheduler.py` + 30 测试全绿。`b511ce4ff`
 - **R4-S4(独立页面)**:`ai-skills/{page,[id]/page}.tsx` + 弹窗查看全部。`5ab971b5d`
 - **README 同步**:A4 行 4→10 真集成。`678519932`
+- **R5(9 占位→真集成,真集成数 10→19)**:agent-reach/horizon/media-crawler/generative-media-skills/guizang-social-card-skill/social-auto-upload/obsidian-skills/claude-plugins-official/awesome-agent-skills 全部从占位升级为真集成(基于 llm_gateway 调用 LLM),19 个 ai-top skill 无占位。test_skills.py parametrize 从 6 扩到 15 + count 断言升级为 19;test_skills.py 34 + test_skill_scheduler.py 5 = 39 passed
 
-**验证**:30 passed;4 commits 推送;git-push-guard exit 0。
+**验证**:39 passed(本轮);5 commits 推送(R1-4 + R5);git-push-guard exit 0。
 ---
 
 ### [x] ✅(2026-07-23) (main) 目录页面整合 P0/P1:ask/article 重复路由改重定向 + agent-kanban 确认
