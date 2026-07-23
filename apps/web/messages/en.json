@@ -23,7 +23,20 @@
       "installSuccess": "Installed successfully",
       "installFailed": "Install failed",
       "rateSuccess": "Rated successfully",
-      "rateFailed": "Rating failed"
+      "rateFailed": "Rating failed",
+      "publishButton": "Publish Skill",
+      "publishTitle": "Publish Skill to Market",
+      "publishName": "Skill Name",
+      "publishDescription": "Description",
+      "publishTags": "Tags (comma-separated)",
+      "publishAuthor": "Author",
+      "publishVersion": "Version",
+      "publishLicense": "License",
+      "publishContent": "Skill Content",
+      "publishContentPlaceholder": "Write the skill body (Markdown/JSON)...",
+      "publishSubmit": "Publish",
+      "publishSuccess": "Published successfully",
+      "publishFailed": "Publish failed"
     }
   },
   "common": {

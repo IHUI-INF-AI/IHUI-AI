@@ -23,7 +23,20 @@
       "installSuccess": "설치 완료",
       "installFailed": "설치 실패",
       "rateSuccess": "평가 완료",
-      "rateFailed": "평가 실패"
+      "rateFailed": "평가 실패",
+      "publishButton": "스킬 게시",
+      "publishTitle": "스킬을 마켓에 게시",
+      "publishName": "스킬 이름",
+      "publishDescription": "설명",
+      "publishTags": "태그 (쉼표 구분)",
+      "publishAuthor": "작성자",
+      "publishVersion": "버전",
+      "publishLicense": "라이선스",
+      "publishContent": "스킬 본문",
+      "publishContentPlaceholder": "스킬 본문을 작성하세요 (Markdown/JSON)...",
+      "publishSubmit": "게시",
+      "publishSuccess": "게시 완료",
+      "publishFailed": "게시 실패"
     }
   },
   "common": {
