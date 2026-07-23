@@ -38,8 +38,8 @@ export function DingtalkQrPanel({ refreshKey }: DingtalkQrPanelProps) {
     const state = generateState()
     saveOAuthState('dingtalk', state)
 
-    // redirect_uri 必须与当前访问域名+端口一致,否则钉钉 OAuth 校验失败,SDK 收不到 authCode 显示"二维码过期"
-    const redirectUri = `${window.location.origin}/callback?platform=dingtalk`
+    // redirect_uri 优先读 env(生产配 bsm.aizhs.top 分域 SSO),env 留空时 fallback 到当前 origin(localhost dev)
+    const redirectUri = config.redirectUri
 
     loadDingtalkQrSdk()
       .then(() => {
