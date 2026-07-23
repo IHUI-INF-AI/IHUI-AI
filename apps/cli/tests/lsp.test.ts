@@ -10,10 +10,11 @@ import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import type * as childProcess from 'node:child_process';
 
 // Mock child_process.spawn + spawnSync(在所有 import 之前 hoist)
 vi.mock('node:child_process', async (importOriginal) => {
-  const actual = (await importOriginal()) as typeof import('node:child_process');
+  const actual = (await importOriginal()) as typeof childProcess;
   return { ...actual, spawn: vi.fn(), spawnSync: vi.fn() };
 });
 
@@ -26,7 +27,6 @@ vi.mock('../src/tools/github-pr.js', () => ({ GITHUB_PR_TOOLS: [] }));
 import '../src/tools/index.js';
 import { spawn, spawnSync } from 'node:child_process';
 import {
-  LspClient,
   getLspClientForFile,
   getLspClientByLanguage,
   disposeLspClient,
@@ -45,7 +45,6 @@ import {
   findLspConfigByLanguage,
   isLspServerAvailable,
   listAvailableLspServers,
-  type LspServerConfig,
 } from '../src/tools/lsp-languages.js';
 import type { ToolContext } from '../src/tools/index.js';
 
@@ -705,7 +704,7 @@ describe('lsp_workspace_symbol(workspace/symbol 请求 + query 透传)', () => {
 
 describe('lsp_rename_symbol(textDocument/rename 请求 + newName 透传)', () => {
   it('发送 rename 请求,newName 透传(预览模式)', async () => {
-    const filePath = writeFile('src/auth.ts', 'class AuthService {}\n');
+    const _filePath = writeFile('src/auth.ts', 'class AuthService {}\n');
     const r = await lsp_rename_symbol.execute(
       { file: 'src/auth.ts', line: 0, character: 6, newName: 'NewAuth' },
       ctx,
@@ -933,7 +932,7 @@ describe('错误处理:LSP server 未安装时降级', () => {
   }, 20_000);
 
   it('dispose 清理子进程和连接', () => {
-    const client = getLspClientByLanguage(workspace, 'typescript')!;
+    const _client = getLspClientByLanguage(workspace, 'typescript')!;
     // dispose 不应抛异常
     expect(() => disposeLspClient()).not.toThrow();
   });
