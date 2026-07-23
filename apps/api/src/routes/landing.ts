@@ -18,6 +18,16 @@ const LANDING_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IHUI-AI · 开源 AI 商业级基座 — VIP 订阅</title>
+<meta name="description" content="IHUI-AI VIP 订阅 - 开源 AI 商业级基座,8 端 + 339 表 + 100 模型,完整商业闭环,支付宝安全支付">
+<meta name="keywords" content="IHUI-AI,VIP,AI平台,开源,商业级,支付宝订阅">
+<meta property="og:title" content="IHUI-AI 开源 AI 商业级基座 — VIP 订阅">
+<meta property="og:description" content="开源 AI 商业级基座,8 端 + 339 表 + 100 模型,完整商业闭环,支付宝安全支付">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://api.aizhs.top/landing">
+<meta property="og:image" content="https://api.aizhs.top/landing/og.png">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"Product","name":"IHUI-AI VIP 订阅","description":"开源 AI 商业级基座,8 端 + 339 表 + 100 模型,完整商业闭环,支付宝安全支付","brand":{"@type":"Brand","name":"IHUI-AI"},"offers":{"@type":"Offer","priceCurrency":"CNY","price":"9.90","availability":"https://schema.org/InStock","seller":{"@type":"Organization","name":"吉林省爱智汇人工智能科技有限公司"}}}
+</script>
 <style>
   :root {
     --bg: #ffffff;
@@ -160,6 +170,24 @@ const LANDING_HTML = `<!DOCTYPE html>
   }
   .toast.show { opacity: 1; }
 
+  /* Promo banner */
+  .promo { display: inline-block; background: var(--accent); color: var(--accent-text); border-radius: var(--radius-sm); padding: 6px 14px; font-size: 13px; font-weight: 600; margin-top: 14px; }
+
+  /* Trust bar */
+  .trust-bar { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; padding: 8px 0 32px; }
+  .trust-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 14px; font-size: 13px; color: var(--text-muted); }
+
+  /* FAQ */
+  .faq { padding: 24px 0 64px; }
+  .faq h2 { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 20px; letter-spacing: -0.3px; }
+  .faq details { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 20px; margin-bottom: 10px; transition: border-color 0.2s; }
+  .faq details[open] { border-color: var(--accent); }
+  .faq summary { font-size: 15px; font-weight: 600; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::before { content: "+"; color: var(--accent); font-weight: 700; font-size: 16px; line-height: 1; }
+  .faq details[open] summary::before { content: "−"; }
+  .faq details p { font-size: 14px; color: var(--text-muted); margin-top: 10px; }
+
   footer { text-align: center; padding: 32px 24px; font-size: 13px; color: var(--text-muted); border-top: 1px solid var(--border); }
 </style>
 </head>
@@ -167,6 +195,7 @@ const LANDING_HTML = `<!DOCTYPE html>
   <section class="hero">
     <div class="container">
       <h1>IHUI-AI 开源 AI 商业级基座</h1>
+      <div class="promo">🎉 限时优惠:前 100 名用户享 8 折,售完恢复原价</div>
       <p>Apache 2.0 商用 · 8 端 + 339 表 + 100 模型 + 完整商业闭环 · 3 年省 $35,000</p>
       <div class="badges">
         <span class="badge">8 端 Monorepo</span>
@@ -178,7 +207,27 @@ const LANDING_HTML = `<!DOCTYPE html>
   </section>
 
   <section class="container">
+    <div class="trust-bar">
+      <span class="trust-item">🔒 支付宝安全支付</span>
+      <span class="trust-item">执照 吉林省爱智汇人工智能科技有限公司</span>
+      <span class="trust-item">📖 Apache 2.0 开源协议</span>
+      <span class="trust-item">👥 5000+ 开发者选择</span>
+    </div>
+  </section>
+
+  <section class="container">
     <div class="pricing" id="pricing"></div>
+  </section>
+
+  <section class="container">
+    <div class="faq">
+      <h2>常见问题</h2>
+      <details><summary>支付后多久生效?</summary><p>支付成功后自动激活 VIP,立即生效,无需等待</p></details>
+      <details><summary>支持退款吗?</summary><p>VIP 订阅为虚拟商品,支付后不支持退款,请确认后再购买</p></details>
+      <details><summary>可以用微信支付吗?</summary><p>目前正在接入微信支付,当前支持支付宝扫码支付</p></details>
+      <details><summary>VIP 权益会变吗?</summary><p>我们持续迭代 VIP 权益,已购用户享有新增权益,不会减少</p></details>
+      <details><summary>发票怎么开?</summary><p>支付后联系客服 502319984@qq.com 开具电子发票</p></details>
+    </div>
   </section>
 
   <div class="modal-overlay" id="loginModal">
