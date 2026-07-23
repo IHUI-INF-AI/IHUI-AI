@@ -46,7 +46,7 @@ describe('usePaginatedList 分页 hook', () => {
       expect(result.current.loading).toBe(false)
     })
     expect(result.current.items).toHaveLength(1)
-    expect(result.current.items[0].name).toBe('A')
+    expect(result.current.items[0]!.name).toBe('A')
     expect(fetcher).toHaveBeenCalledWith({ page: 1, pageSize: 20 })
   })
 
@@ -82,8 +82,8 @@ describe('usePaginatedList 分页 hook', () => {
     })
 
     expect(result.current.items).toHaveLength(2)
-    expect(result.current.items[0].name).toBe('A')
-    expect(result.current.items[1].name).toBe('B')
+    expect(result.current.items[0]!.name).toBe('A')
+    expect(result.current.items[1]!.name).toBe('B')
     expect(fetcher).toHaveBeenLastCalledWith({ page: 2, pageSize: 20 })
   })
 
@@ -158,7 +158,7 @@ describe('usePaginatedList 分页 hook', () => {
     })
 
     expect(result.current.items).toHaveLength(1)
-    expect(result.current.items[0].name).toBe('B')
+    expect(result.current.items[0]!.name).toBe('B')
   })
 
   it('refresh 后 total 更新为最新值', async () => {
@@ -186,6 +186,6 @@ describe('usePaginatedList 分页 hook', () => {
     })
 
     expect(result.current.items).toHaveLength(2)
-    expect(result.current.items[0].name).toBe('B')
+    expect(result.current.items[0]!.name).toBe('B')
   })
 })
