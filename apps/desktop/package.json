@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@ihui/api-client": "workspace:*",
+    "@ihui/shared": "workspace:*",
     "@ihui/types": "workspace:*",
     "@ihui/ui": "workspace:*",
     "@tauri-apps/api": "^2.1.1",

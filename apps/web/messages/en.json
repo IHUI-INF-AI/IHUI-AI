@@ -1,4 +1,31 @@
 {
+  "skills": {
+    "market": {
+      "title": "Skill Market",
+      "subtitle": "Browse, install and rate skill extensions",
+      "searchPlaceholder": "Search skills...",
+      "tagAll": "All",
+      "install": "Install",
+      "installed": "Installed",
+      "rating": "Rating",
+      "rate": "Rate",
+      "comment": "Comment",
+      "commentPlaceholder": "Write your review...",
+      "submit": "Submit",
+      "cancel": "Cancel",
+      "empty": "No skills found",
+      "loading": "Loading...",
+      "page": "Page {page}/{total}",
+      "prev": "Prev",
+      "next": "Next",
+      "total": "{total} skills",
+      "installs": "{count} installs",
+      "installSuccess": "Installed successfully",
+      "installFailed": "Install failed",
+      "rateSuccess": "Rated successfully",
+      "rateFailed": "Rating failed"
+    }
+  },
   "common": {
     "login": "Login",
     "register": "Register",
