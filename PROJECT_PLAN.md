@@ -185,11 +185,12 @@
 - [x] ✅ typecheck + build 两端验证(web typecheck 0 错误 / extension typecheck 0 错误 / extension build 成功 54.36 kB CSS;web build `✓ Compiled successfully in 5.6min`,后续 `output:export` + `generateStaticParams` 缺失错误是 pre-existing 与 CSS 改造无关)
 - [x] ✅ dev server + browser_use 验证样式无破坏(§17/§19):DOM 验证 vcenter `matrix(1, 0, 0, 1, 0, 0.3)` 在"新建任务"按钮完美生效;@theme token(`--text-vcenter-offset: 0.3px` / `--radius: 0.5rem` / `--font-sans` 含 HarmonyOS Sans SC)+ vcenter 全局规则 + .dark 块覆盖(页面 dark mode 下 `--color-background` 正确读为 `hsl(0 0% 14%)` ≈ `#242424`)全部生效;4 状态截图无破坏
 
-**阶段 2 — i18n 统一**:
-- [ ] 创建 packages/i18n 共享包,统一消息文件到 JSON 格式
-- [ ] 合并 extension 独有命名空间(popup/translate/vocab)到主消息文件
-- [ ] extension 改用共享消息文件(保留自研 Context runtime,读 JSON)
-- [ ] 扩展 i18n parity 测试跨端校验
+**阶段 2(已完成 ✅ 2026-07-23)— i18n 统一**:
+- [x] ✅ 创建 packages/i18n 共享包,统一消息文件到 JSON 格式(@ihui/i18n workspace 包,5 语言 × extension 子目录布局)
+- [x] ✅ 合并 extension 独有命名空间(popup/translate/vocab/wordbook/chat/settings/notification/agent/course/order/profile/wallet/login/error/success + common/nav/auth,共 17 namespace × 5 语言)到 packages/i18n/messages/extension/
+- [x] ✅ extension 改用共享消息文件(`@ihui/i18n/messages/extension/{locale}.json` import),保留自研 Context runtime(useI18n / readLocale / writeLocale + browser.storage.local + localStorage 双回退)
+- [x] ✅ 扩展 i18n parity 测试跨端校验:check-i18n-keys / scan-i18n-zh-residue(zh-TW + ko)/ check-i18n-broken-en 添加 `--target=web|extension` 参数;pre-commit 添加 4 个 extension warn-only 守门项(2f-2i);添加 LANGUAGE_AUTOGLOSSONYMS 白名单(简体中文/繁體中文/繁体中文/中文/日本語/日本语)解决语言选择器 autoglossonym 误报
+- [x] ✅ 验证:extension typecheck exit 0 / extension build exit 0(产物 616.4 kB,manifest.json + popup.html + sidepanel.html + chunks 含翻译字符串)/ 4 个 extension 守门脚本全绿 / build 产物 grep 验证 i18n 翻译已正确打包(55 处 autoglossonym + 30 处 i18n key 命中)
 
 **阶段 3 — 页面组件渐进式抽取**:
 - [ ] 创建 packages/features 共享业务组件包
