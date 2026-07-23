@@ -83,6 +83,10 @@ export default {
     exportAsTxt: '匯出為純文字',
     exportDone: '已匯出',
     exportFailed: '匯出失敗',
+    search: '搜尋',
+    searchPlaceholder: '搜尋對話內容…',
+    noSearchResults: '未找到符合「{{query}}」的訊息',
+    regenerate: '重新生成',
   },
   profile: {
     title: '我的',
