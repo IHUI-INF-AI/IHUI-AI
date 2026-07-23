@@ -21,13 +21,15 @@
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
-    "react-native": "^0.74.0 || ^0.76.0 || ^0.79.0"
+    "react-native": "^0.74.0 || ^0.76.0 || ^0.79.0",
+    "solito": "^4.3.0"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
     "@types/react": "^19.0.0",
     "react": "^19.0.0",
     "react-native": "^0.79.0",
+    "solito": "4.3.0",
     "typescript": "^5.7.2"
   }
 }
