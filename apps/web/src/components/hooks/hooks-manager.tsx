@@ -348,6 +348,7 @@ function HookEditor({
 }: HookEditorProps) {
   const isEdit = mode === 'edit'
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <div
       role="dialog"
       aria-modal="true"
@@ -630,6 +631,7 @@ function HookLogsDialog({
 }) {
   const { logs, isLoading } = useHookLogs(hookId)
   return (
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <div
       role="dialog"
       aria-modal="true"

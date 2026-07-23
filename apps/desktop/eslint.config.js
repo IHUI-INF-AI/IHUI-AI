@@ -1,6 +1,5 @@
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
-import path from 'node:path'
 
 // 通过 base config 的 package 路径解析 plugin,避免 node-linker=isolated 模式下
 // apps/desktop/node_modules 找不到 eslint-plugin-react-hooks

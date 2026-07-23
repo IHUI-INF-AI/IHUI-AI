@@ -8,10 +8,11 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import type * as childProcess from 'node:child_process';
 
 // Mock child_process.spawn(在所有 import 之前 hoist)
 vi.mock('node:child_process', async (importOriginal) => {
-  const actual = (await importOriginal()) as typeof import('node:child_process');
+  const actual = (await importOriginal()) as typeof childProcess;
   return { ...actual, spawn: vi.fn() };
 });
 
