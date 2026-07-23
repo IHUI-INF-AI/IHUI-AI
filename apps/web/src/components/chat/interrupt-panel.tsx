@@ -54,7 +54,7 @@ function extractInterrupt(evt: SSEEvent | null): InterruptEvent | null {
 }
 
 function formatPayload(payload: unknown): string {
-  if (payload == null) return '—'
+  if (payload === null || payload === undefined) return '—'
   if (typeof payload === 'string') return payload
   try {
     return JSON.stringify(payload, null, 2)
@@ -162,7 +162,7 @@ export function InterruptPanel({
       </div>
 
       {/* payload 展示 */}
-      {interrupt.payload != null && (
+      {interrupt.payload !== null && interrupt.payload !== undefined && (
         <div className="mt-2 rounded-md bg-background/70 p-2 text-xs">
           <div className="mb-1 font-medium text-foreground">Payload</div>
           <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-muted-foreground">
@@ -173,10 +173,11 @@ export function InterruptPanel({
 
       {/* resume 输入 */}
       <div className="mt-2 flex flex-col gap-1.5">
-        <label className="text-[11px] font-medium text-muted-foreground">
+        <label htmlFor="resume-value" className="text-[11px] font-medium text-muted-foreground">
           恢复参数(可选,JSON 或纯文本)
         </label>
         <Input
+          id="resume-value"
           value={resumeValue}
           onChange={(e) => setResumeValue(e.target.value)}
           placeholder='例如 {"approved": true}'
