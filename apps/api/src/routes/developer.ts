@@ -1,8 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import { isValidApiKeyPermission } from '@ihui/types'
+import { userMargins, tokenFlows } from '@ihui/database'
 import { requireAuth } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
+import { db } from '../db/index.js'
 import { createOrder } from '../db/payment-queries.js'
 import {
   findDeveloperPricingById,
@@ -38,6 +41,15 @@ const subscribeBody = z.object({
   pricingId: z.string().uuid('无效的套餐 ID'),
   period: z.enum(['monthly', 'yearly']).optional(),
   paymentMethod: z.string().optional().default('wechat'),
+})
+
+const withdrawBodySchema = z.object({
+  amount: z.number().int().min(1, '提现金额必须大于 0'),
+})
+
+const withdrawalListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
 
 // =============================================================================
@@ -164,6 +176,136 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!
     const subscription = await getMyDeveloperSubscription(userId)
     return reply.send(success({ subscription: subscription ?? null }))
+  })
+
+  // GET /income — 开发者收入概览(累计收入 / 可提现 / 已提现 / 近 20 条收入明细)
+  // 收入分润用 opType=4(佣金),已提现用 opType=1 且 quantity<0
+  server.get('/income', async (request, reply) => {
+    const userId = request.userId!
+
+    const [margin] = await db
+      .select()
+      .from(userMargins)
+      .where(eq(userMargins.userId, userId))
+      .limit(1)
+    const available = (margin?.tokenQuantity ?? 0) - (margin?.frozenQuantity ?? 0)
+
+    const [incomeRow] = await db
+      .select({ total: sql<number>`coalesce(sum(${tokenFlows.quantity}), 0)::int` })
+      .from(tokenFlows)
+      .where(and(eq(tokenFlows.userId, userId), eq(tokenFlows.opType, 4)))
+
+    const [withdrawnRow] = await db
+      .select({ total: sql<number>`coalesce(sum(-${tokenFlows.quantity}), 0)::int` })
+      .from(tokenFlows)
+      .where(
+        and(
+          eq(tokenFlows.userId, userId),
+          eq(tokenFlows.opType, 1),
+          sql`${tokenFlows.quantity} < 0`,
+        ),
+      )
+
+    const rows = await db
+      .select()
+      .from(tokenFlows)
+      .where(and(eq(tokenFlows.userId, userId), eq(tokenFlows.opType, 4)))
+      .orderBy(desc(tokenFlows.createdAt))
+      .limit(20)
+
+    const list = rows.map((f) => ({
+      id: f.id,
+      title: f.remark ?? '智能体收入',
+      time: f.createdAt.toISOString(),
+      amount: f.quantity,
+    }))
+
+    return reply.send(
+      success({
+        total: incomeRow?.total ?? 0,
+        available,
+        withdrawn: withdrawnRow?.total ?? 0,
+        list,
+      }),
+    )
+  })
+
+  // GET /withdrawals — 当前用户提现记录列表(分页)
+  server.get('/withdrawals', async (request, reply) => {
+    const userId = request.userId!
+    const parsed = withdrawalListQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { page, pageSize } = parsed.data
+    const offset = (page - 1) * pageSize
+
+    const where = and(
+      eq(tokenFlows.userId, userId),
+      eq(tokenFlows.opType, 1),
+      sql`${tokenFlows.quantity} < 0`,
+    )
+
+    const list = await db
+      .select()
+      .from(tokenFlows)
+      .where(where)
+      .orderBy(desc(tokenFlows.createdAt))
+      .limit(pageSize)
+      .offset(offset)
+
+    const [countRow] = await db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(tokenFlows)
+      .where(where)
+
+    return reply.send(success({ list, total: countRow?.total ?? 0, page, pageSize }))
+  })
+
+  // POST /withdrawals — 发起提现申请(冻结余额 + 记录 opType=1 负向流水)
+  server.post('/withdrawals', async (request, reply) => {
+    const userId = request.userId!
+    const parsed = withdrawBodySchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { amount } = parsed.data
+
+    const [margin] = await db
+      .select()
+      .from(userMargins)
+      .where(eq(userMargins.userId, userId))
+      .limit(1)
+    const balance = margin?.tokenQuantity ?? 0
+    const frozen = margin?.frozenQuantity ?? 0
+    const available = balance - frozen
+    if (available < amount) {
+      return reply.status(400).send(error(400, '可用余额不足'))
+    }
+
+    if (margin) {
+      await db
+        .update(userMargins)
+        .set({ frozenQuantity: margin.frozenQuantity + amount, updatedAt: new Date() })
+        .where(eq(userMargins.userId, userId))
+    } else {
+      await db
+        .insert(userMargins)
+        .values({ userId, tokenQuantity: 0, frozenQuantity: amount })
+    }
+
+    const [flow] = await db
+      .insert(tokenFlows)
+      .values({
+        userId,
+        opType: 1,
+        quantity: -amount,
+        balanceAfter: balance - amount,
+        remark: '提现申请',
+      })
+      .returning()
+
+    return reply.status(201).send(success({ flow, status: 'pending' }))
   })
 }
 
