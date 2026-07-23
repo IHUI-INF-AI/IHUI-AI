@@ -5,12 +5,14 @@
  * 并可扩展到 ja / vi / th 等任意非中文 locale。
  *
  * 用法:
- *   node scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme]
+ *   node scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme] [--target=web|extension]
  *
  * 参数:
  *   <locale>  必填，翻译文件名 (不含 .json)，如 ko / ja / zh-TW / vi
  *   --staged  可选，仅当对应 locale 文件在 git 暂存区时检查 (pre-commit 用)
  *   --readme  可选，扫描根目录 README.<locale>.md 而非 apps/web/messages/<locale>.json
+ *   --target  可选，扫描目标 web(默认 apps/web/messages/) | extension(packages/i18n/messages/extension/)
+ *             与 --readme 互斥(--readme 优先扫描 README)
  *
  * 检测逻辑 (按 locale 分支):
  *   - zh-TW: 用 opencc-js 简→繁字形转换检测 (字形变化即简体字残留)
@@ -54,22 +56,37 @@ const HAN_RE = /[\u4e00-\u9fff]/
 // 匹配 i18n json 行: `  "key": "value",` (value 内不含转义双引号场景，与现有脚本一致)
 const LINE_RE = /^(\s+)"([^"]+)":\s+"([^"]*)"\s*,?\s*$/
 
+// 语言原生名称(autoglossonym)白名单 — 语言选择器中显示各语言的本名,
+// 即使在非中文 locale 文件中也保留原文字符(如 ko.json 中 "ja": "日本語")。
+// 这些值含汉字但非"中文残留",应跳过检测。
+// 典型场景:extension 端语言选择器显示 "简体中文/繁體中文/日本語" 等本名。
+const LANGUAGE_AUTOGLOSSONYMS = new Set([
+  '简体中文', '繁體中文', '繁体中文', '中文',
+  '日本語', '日本语',
+])
+
 function parseArgs(argv) {
   const positional = []
   let isStaged = false
   let isReadme = false
+  let target = 'web'
   for (const arg of argv) {
     if (arg === '--staged') {
       isStaged = true
     } else if (arg === '--readme') {
       isReadme = true
+    } else if (arg.startsWith('--target=')) {
+      const val = arg.split('=')[1]
+      if (val === 'web' || val === 'extension') {
+        target = val
+      }
     } else if (arg.startsWith('--')) {
       // 忽略未知 flag，避免误判
     } else {
       positional.push(arg)
     }
   }
-  return { locale: positional[0], isStaged, isReadme }
+  return { locale: positional[0], isStaged, isReadme, target }
 }
 
 function isFileStaged(relPath) {
@@ -97,6 +114,7 @@ function scanZhTw(text) {
     const key = m[2]
     const value = m[3]
     if (!value) continue
+    if (LANGUAGE_AUTOGLOSSONYMS.has(value)) continue
     if (!HAN_RE.test(value)) continue
     const converted = converter(value)
     if (converted !== value) {
@@ -117,6 +135,7 @@ function scanCharRange(text, localRe) {
     const key = m[2]
     const value = m[3]
     if (!value) continue
+    if (LANGUAGE_AUTOGLOSSONYMS.has(value)) continue
     if (!HAN_RE.test(value)) continue
     if (localRe && localRe.test(value)) {
       // 含汉字且含本地字符 → 半翻译
@@ -139,6 +158,7 @@ function scanWarnOnly(text) {
     const key = m[2]
     const value = m[3]
     if (!value) continue
+    if (LANGUAGE_AUTOGLOSSONYMS.has(value)) continue
     if (!HAN_RE.test(value)) continue
     half.push({ line: i + 1, key, value })
   }
@@ -205,18 +225,30 @@ function scanMarkdown(text, config) {
 }
 
 function main() {
-  const { locale, isStaged, isReadme } = parseArgs(process.argv.slice(2))
+  const { locale, isStaged, isReadme, target } = parseArgs(process.argv.slice(2))
 
   if (!locale) {
-    console.error('用法: node scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme]')
+    console.error('用法: node scripts/scan-i18n-zh-residue.mjs <locale> [--staged] [--readme] [--target=web|extension]')
     console.error('  <locale>: ko / ja / zh-TW / vi ...')
     console.error('  --readme: 扫描根目录 README.<locale>.md')
+    console.error('  --target: web (默认) | extension')
     process.exit(2)
   }
 
-  const relPath = isReadme ? `README.${locale}.md` : `apps/web/messages/${locale}.json`
+  // --readme 优先扫描 README.<locale>.md;否则按 target 选择 JSON 路径
+  let relPath
+  let fileLabel
+  if (isReadme) {
+    relPath = `README.${locale}.md`
+    fileLabel = `README.${locale}.md`
+  } else if (target === 'extension') {
+    relPath = `packages/i18n/messages/extension/${locale}.json`
+    fileLabel = `extension/${locale}.json`
+  } else {
+    relPath = `apps/web/messages/${locale}.json`
+    fileLabel = `${locale}.json`
+  }
   const file = path.resolve(relPath)
-  const fileLabel = isReadme ? `README.${locale}.md` : `${locale}.json`
 
   if (isStaged) {
     if (!isFileStaged(relPath)) {

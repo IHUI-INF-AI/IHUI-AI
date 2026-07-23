@@ -16,10 +16,11 @@
  *   - 占位符：{var} / {{var}} / %s
  *
  * 用法：
- *   node scripts/check-i18n-broken-en.mjs              # 全量扫描 apps/web/messages/en.json
- *   node scripts/check-i18n-broken-en.mjs --staged     # 仅扫描 staged 改动
- *   node scripts/check-i18n-broken-en.mjs --fix        # 输出修复建议（不写文件）
- *   node scripts/check-i18n-broken-en.mjs --readme     # 扫描根目录 README.en.md
+ *   node scripts/check-i18n-broken-en.mjs                          # 全量扫描 apps/web/messages/en.json
+ *   node scripts/check-i18n-broken-en.mjs --staged                 # 仅扫描 staged 改动
+ *   node scripts/check-i18n-broken-en.mjs --fix                    # 输出修复建议（不写文件）
+ *   node scripts/check-i18n-broken-en.mjs --readme                 # 扫描根目录 README.en.md
+ *   node scripts/check-i18n-broken-en.mjs --target=extension       # 扫描 packages/i18n/messages/extension/en.json
  *
  * Markdown 模式 (--readme):
  *   扫描 README.en.md 检测破碎机翻英文，跳过:
@@ -49,11 +50,22 @@ const WHITELIST_TOKENS = [
   'PR', 'MR', 'CR', 'LGTM',
 ]
 
+// 语言原生名称(autoglossonym)白名单 — 语言选择器中显示各语言的本名,
+// 即使在非中文 locale 文件中也保留原文字符(如 en.json 中 "zhCN": "简体中文")。
+// 这些值含汉字但非"中文残留",应跳过检测。
+// 典型场景:extension 端语言选择器显示 "简体中文/繁體中文/日本語" 等本名。
+const LANGUAGE_AUTOGLOSSONYMS = new Set([
+  '简体中文', '繁體中文', '繁体中文', '中文',
+  '日本語', '日本语',
+])
+
 // 检测规则（按优先级，避免误报优先）
 function detectBroken(value) {
   if (!value || typeof value !== 'string') return null
   const v = value.trim()
   if (v.length < 4) return null
+  // 语言原生名称白名单(语言选择器本名,非中文残留)
+  if (LANGUAGE_AUTOGLOSSONYMS.has(v)) return null
   // 中文残留（兜底）
   if (/[\u4e00-\u9fff]/.test(v)) return 'zh-residue'
   // 全空格分隔的英文不检
@@ -171,8 +183,18 @@ function main() {
   const staged = args.includes('--staged')
   const fix = args.includes('--fix')
   const readme = args.includes('--readme')
+  const targetArg = args.find((a) => a.startsWith('--target='))
+  const target = targetArg ? targetArg.split('=')[1] : 'web'
+  const isExtension = target === 'extension'
 
-  const relPath = readme ? 'README.en.md' : 'apps/web/messages/en.json'
+  let relPath
+  if (readme) {
+    relPath = 'README.en.md'
+  } else if (isExtension) {
+    relPath = 'packages/i18n/messages/extension/en.json'
+  } else {
+    relPath = 'apps/web/messages/en.json'
+  }
   const targetFile = path.resolve(relPath)
 
   if (staged) {
