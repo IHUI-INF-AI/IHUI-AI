@@ -11,6 +11,7 @@
  */
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import * as os from 'node:os';
+import type * as nodeModule from 'node:module';
 
 // ==================== 虚拟 PTY 类型(供测试中访问 mock 状态)====================
 
@@ -76,7 +77,7 @@ const mockState = vi.hoisted(() => {
 // terminal.ts 用 createRequire(import.meta.url) 创建独立 require,vi.mock('node-pty') 无法拦截 CJS require,
 // 必须从 createRequire 入口拦截,否则真实 node-pty 加载后调用 conpty 失败(Windows 环境无 TTY)。
 vi.mock('node:module', async (importOriginal) => {
-  const actual = (await importOriginal()) as typeof import('node:module');
+  const actual = (await importOriginal()) as typeof nodeModule;
   return {
     ...actual,
     createRequire: (url: string) => {
