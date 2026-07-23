@@ -141,6 +141,7 @@ import { useI18n } from '../i18n'
 import { WorkPanelScreen, setWorkPanelNavigator } from '../components/WorkPanel'
 import { TaskDispatchPage } from '../pages/TaskDispatchPage'
 import { SharedDemoScreen } from '../screens/SharedDemoScreen'
+import { tokens } from '@ihui/app'
 
 export type RootStackParamList = {
   Login: undefined
@@ -372,7 +373,7 @@ function MainTabs() {
     <Tabs.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#10B981',
+        tabBarActiveTintColor: tokens.brand.DEFAULT,
         tabBarInactiveTintColor: '#737373',
         tabBarStyle: { backgroundColor: 'white' },
         tabBarLabelStyle: { fontSize: 11 },

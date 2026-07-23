@@ -8,6 +8,35 @@
 
 ## 当前活跃任务(2026-07-24)
 
+### [x] ✅(2026-07-24) i18n AI 翻译流水线(零 LLM API 调用,开发成本降 70%+)(跨端:web+scripts)
+
+**触发**:用户困惑 i18n 开发成本太高(每个文本写 5 遍 + 各种翻译 + key 引用),要求建流水线降低成本。硬约束:不耗费用户自己算力(StepFun 等),翻译由 AI 编程 agent 在开发流程中自带完成。
+
+**交付内容**(7 文件):
+
+| 文件 | 改造 |
+|---|---|
+| `scripts/i18n-diff.mjs` | 新建。i18n AI 翻译流水线 - 差异检测器(零 LLM API)。检测 missing key + 未翻译值 + ASCII fallback,输出 `.trae-cn/tmp/i18n-pending.json`(含 glossary + workflow + translationRules)。ja untranslated 跳过(汉字词合法),ASCII fallback 降级 reviewAscii(品牌名有意为之) |
+| `scripts/i18n-apply.mjs` | 新建。翻译结果应用器。读取 `.trae-cn/tmp/i18n-translations.json`,应用到 4 语言 locale 文件,按 zh-CN 基准重排 key 顺序,应用后自动 parity 校验 |
+| `.husky/pre-commit` | 第 2f-web 项 warn-only 守门:检测 pending 清单非空提醒 AI agent 跑翻译流水线 |
+| `AGENTS.md` | §20 添加"AI 翻译流水线"子章节(设计理念/触发条件/执行步骤/翻译规则/守门集成/收益)+ 守门速查表 2f-web 行 |
+| `README.md` | 3 处更新:8→9 守门脚本,99.7%→100% parity,新增 AI 翻译流水线描述 |
+| `apps/web/messages/{en,ja,ko,zh-TW}.json` | 154 处 missing key 翻译补齐(en:41 + ja:36 + ko:36 + zh-TW:41)+ en.json 删除 5 个历史遗留 routes.* 垃圾键(memory/subagents/context/spec/plan,无代码引用) |
+| `.trae-cn/tmp/i18n-pending.json` / `i18n-translations.json` | 流水线中间产物(gitignore,不入 commit) |
+
+**实测验证**:
+- `node scripts/i18n-diff.mjs` 检测 154 处 missing(en 41 + ja 36 + ko 36 + zh-TW 41)✅
+- subagent 自主翻译 154 处到 4 语言(结合 brand-glossary 保证品牌名一致)✅
+- `node scripts/i18n-apply.mjs` 应用 154 处,0 错误,4 locale 文件已更新 ✅
+- `node scripts/check-i18n-keys.mjs` parity 全绿(5 语言 key 集合 100% 一致)✅
+- `node scripts/scan-i18n-zh-residue.mjs ko/zh-TW` 无残留 ✅
+- en.json 5 个 routes.* 垃圾键清理(258→253,恢复 parity)✅
+
+**设计理念**(用户硬约束:不耗费自己算力):
+- 脚本零 LLM API 调用,翻译能力由 AI 编程 agent 自带
+- 工作流: i18n-diff(检测) → AI agent 翻译(零 API) → i18n-apply(应用) → check-i18n-keys(校验)
+- 新增文案时只需维护 zh-CN.json 一份,其他 4 语言由 AI agent 自动翻译补齐
+
 ### [x] ✅(2026-07-24) miniapp-taro Round17:i18n 5 语言补全 387 key(zh-CN/zh-TW/en/ko/ja parity 2229 keys)(平台独占:仅 apps/miniapp-taro)
 
 **触发**:承接 Round16(8 页边界页面深化收尾)后,推进 Round14-Round16 共 46 页深化产生的 386 个 `tt(k, fb)` fallback key 的 5 语言正式翻译补全,让多语言环境显示正确译文而非中文 fallback。
