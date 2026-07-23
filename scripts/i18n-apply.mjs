@@ -24,6 +24,7 @@
  *   node scripts/i18n-apply.mjs --input <path>   # 自定义翻译结果路径
  *   node scripts/i18n-apply.mjs --check          # 只校验 parity,不写入
  *   node scripts/i18n-apply.mjs --target=extension  # 操作 extension i18n
+ *   node scripts/i18n-apply.mjs --target=miniapp-taro  # 操作 miniapp-taro i18n(读写 .ts)
  *
  * 退出码:
  *   0 = 成功应用 / check 通过
@@ -32,6 +33,7 @@
  */
 import fs from 'node:fs'
 import path from 'node:path'
+import ts from 'typescript'
 
 const ROOT = process.cwd()
 const isCheck = process.argv.includes('--check')
@@ -39,17 +41,24 @@ const inputIdx = process.argv.indexOf('--input')
 const customInput = inputIdx >= 0 ? process.argv[inputIdx + 1] : null
 const targetArg = process.argv.find((a) => a.startsWith('--target='))
 const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
-const isExtension = TARGET === 'extension'
 
-const MESSAGES_DIR = isExtension
-  ? path.join(ROOT, 'packages/i18n/messages/extension')
-  : path.join(ROOT, 'apps/web/messages')
+// target → 目录 + 文件扩展名(与 i18n-diff.mjs 保持一致)
+const TARGET_CONFIG = {
+  web: { dir: 'apps/web/messages', ext: '.json' },
+  extension: { dir: 'packages/i18n/messages/extension', ext: '.json' },
+  'miniapp-taro': { dir: 'apps/miniapp-taro/src/i18n', ext: '.ts' },
+}
+const TARGET_CFG = TARGET_CONFIG[TARGET] || TARGET_CONFIG.web
+const isMiniappTaro = TARGET === 'miniapp-taro'
+
+const MESSAGES_DIR = path.join(ROOT, TARGET_CFG.dir)
 const TMP_DIR = path.join(ROOT, '.trae-cn/tmp')
 const DEFAULT_INPUT = path.join(TMP_DIR, 'i18n-translations.json')
 const INPUT_FILE = customInput || DEFAULT_INPUT
 
 const BASE_LANG = 'zh-CN'
 const TARGET_LANGS = ['en', 'ja', 'ko', 'zh-TW']
+const MESSAGE_EXT = TARGET_CFG.ext
 
 const C = {
   red: '\x1b[31m',
@@ -70,6 +79,103 @@ function loadJson(file) {
     console.error(`   ${e.message}`)
     return null
   }
+}
+
+// 解析 .ts 文件中的 `export default { ... }` 对象字面量为普通 JS 对象
+// 用 typescript 包走 AST(禁止 eval/new Function),逻辑与 i18n-diff.mjs 一致
+function parseTsObject(filePath) {
+  const content = fs.readFileSync(filePath, 'utf8')
+  const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true)
+  let exportAssignment = null
+  for (const stmt of sourceFile.statements) {
+    if (ts.isExportAssignment(stmt)) {
+      exportAssignment = stmt
+      break
+    }
+  }
+  if (!exportAssignment) return null
+  const expr = exportAssignment.expression
+  if (!ts.isObjectLiteralExpression(expr)) return null
+  return extractTsObject(expr)
+}
+
+function extractTsObject(node) {
+  const obj = {}
+  for (const prop of node.properties) {
+    if (!ts.isPropertyAssignment(prop)) continue
+    const name = prop.name
+    const key = ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)
+      ? name.text
+      : String(name.text || '')
+    obj[key] = extractTsValue(prop.initializer)
+  }
+  return obj
+}
+
+function extractTsValue(node) {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text
+  if (ts.isNumericLiteral(node)) return Number(node.text)
+  if (node.kind === ts.SyntaxKind.TrueKeyword) return true
+  if (node.kind === ts.SyntaxKind.FalseKeyword) return false
+  if (node.kind === ts.SyntaxKind.NullKeyword) return null
+  if (ts.isObjectLiteralExpression(node)) return extractTsObject(node)
+  if (ts.isArrayLiteralExpression(node)) return node.elements.map(extractTsValue)
+  return null
+}
+
+// 提取 .ts 文件头部 `// ...` 注释行(export default 之前)
+function extractHeaderComment(content) {
+  const lines = content.split(/\r?\n/)
+  const comments = []
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (trimmed.startsWith('//')) {
+      comments.push(line)
+    } else if (trimmed === '') {
+      continue
+    } else {
+      break
+    }
+  }
+  return comments.length > 0 ? comments.join('\n') : null
+}
+
+// 将 JS 对象序列化为 TypeScript 对象字面量(单引号字符串,2 空格缩进)
+function serializeTsObject(obj, indent = 0) {
+  const keys = Object.keys(obj)
+  if (keys.length === 0) return '{}'
+  const pad = '  '.repeat(indent + 1)
+  const closePad = '  '.repeat(indent)
+  const lines = keys.map((k) => {
+    const keyStr = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(k) ? k : `'${k}'`
+    return `${pad}${keyStr}: ${serializeTsValue(obj[k], indent + 1)}`
+  })
+  return `{\n${lines.join(',\n')}\n${closePad}}`
+}
+
+function serializeTsValue(value, indent) {
+  if (value === null) return 'null'
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  if (typeof value === 'number') return String(value)
+  if (typeof value === 'string') {
+    const escaped = value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    return `'${escaped}'`
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return '[]'
+    return `[${value.map((v) => serializeTsValue(v, indent + 1)).join(', ')}]`
+  }
+  if (typeof value === 'object') return serializeTsObject(value, indent)
+  return 'null'
+}
+
+// 写回 .ts 文件:保留原头部注释 + export default { ... }
+function writeTsObject(filePath, obj, headerComment) {
+  const body = serializeTsObject(obj, 0)
+  const content = headerComment
+    ? `${headerComment}\nexport default ${body}\n`
+    : `export default ${body}\n`
+  fs.writeFileSync(filePath, content, 'utf8')
 }
 
 function collectLeafEntries(obj, prefix = '') {
@@ -122,7 +228,7 @@ function reorderToBase(baseObj, targetObj) {
 function applyTranslations(translations, messages) {
   const base = messages[BASE_LANG]
   if (!base) {
-    console.error(`${C.red}❌ 基准语言 ${BASE_LANG}.json 不存在${C.reset}`)
+    console.error(`${C.red}❌ 基准语言 ${BASE_LANG}${MESSAGE_EXT} 不存在${C.reset}`)
     return { applied: 0, skipped: 0, errors: [] }
   }
 
@@ -136,7 +242,7 @@ function applyTranslations(translations, messages) {
       continue
     }
     if (!messages[lang]) {
-      errors.push(`${lang}.json 不存在,跳过`)
+      errors.push(`${lang}${MESSAGE_EXT} 不存在,跳过`)
       continue
     }
 
@@ -197,18 +303,19 @@ function main() {
 
   const messages = {}
   for (const entry of fs.readdirSync(MESSAGES_DIR)) {
-    if (!entry.endsWith('.json')) continue
+    if (!entry.endsWith(MESSAGE_EXT)) continue
     try {
-      messages[entry.replace('.json', '')] = JSON.parse(
-        fs.readFileSync(path.join(MESSAGES_DIR, entry), 'utf8'),
-      )
+      const filePath = path.join(MESSAGES_DIR, entry)
+      messages[entry.replace(MESSAGE_EXT, '')] = isMiniappTaro
+        ? parseTsObject(filePath)
+        : JSON.parse(fs.readFileSync(filePath, 'utf8'))
     } catch {
       // 解析失败跳过
     }
   }
 
   if (!messages[BASE_LANG]) {
-    console.error(`${C.red}❌ 基准语言 ${BASE_LANG}.json 不存在或解析失败${C.reset}`)
+    console.error(`${C.red}❌ 基准语言 ${BASE_LANG}${MESSAGE_EXT} 不存在或解析失败${C.reset}`)
     process.exit(1)
   }
 
@@ -246,10 +353,16 @@ function main() {
   for (const lang of TARGET_LANGS) {
     if (!messages[lang]) continue
     if (!translations[lang]) continue
-    const file = path.join(MESSAGES_DIR, `${lang}.json`)
-    fs.writeFileSync(file, JSON.stringify(messages[lang], null, 2) + '\n', 'utf8')
+    const file = path.join(MESSAGES_DIR, `${lang}${MESSAGE_EXT}`)
+    if (isMiniappTaro) {
+      const original = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : ''
+      const header = extractHeaderComment(original)
+      writeTsObject(file, messages[lang], header)
+    } else {
+      fs.writeFileSync(file, JSON.stringify(messages[lang], null, 2) + '\n', 'utf8')
+    }
     written++
-    console.log(`  ${C.green}✅${C.reset} ${lang}.json 已更新`)
+    console.log(`  ${C.green}✅${C.reset} ${lang}${MESSAGE_EXT} 已更新`)
   }
 
   console.log('')
