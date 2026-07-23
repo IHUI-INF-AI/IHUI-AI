@@ -45,7 +45,7 @@ export function FundingSection({ items }: Props) {
       </div>
       <div className="grid gap-4 p-6 pt-3 md:grid-cols-3">
         {items.map((item) => (
-          <Card key={item.id} className="overflow-hidden transition-colors hover:bg-accent">
+          <Card key={item.id} className="overflow-hidden transition duration-200 hover:bg-accent hover:-translate-y-0.5 hover:shadow-md">
             <CardContent className="space-y-2 p-4">
               <div className="flex items-center justify-between gap-2">
                 <Badge variant="success">{item.amount}</Badge>
