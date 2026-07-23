@@ -1470,7 +1470,8 @@
       "invokePlaceholderRequirements": "例:ログインページ HTML、ミニマル",
       "invokeMissingVariable": "必須パラメータを入力してください",
       "invokeError": "呼び出しに失敗しました",
-      "comingSoonHint": "この skill は近日公開予定です。GitHub で詳細を確認できます。"
+      "comingSoonHint": "この skill は近日公開予定です。GitHub で詳細を確認できます。",
+      "viewAll": "すべて表示"
     },
     "tpl": {
       "email": {
@@ -8285,7 +8286,9 @@
       "current": "のデバイス",
       "loginTime": "ログイン",
       "lastActive": "アクティブ",
-      "remove": "ログアウト"
+      "remove": "ログアウト",
+      "lastLoginLabel": "最終ログイン",
+      "manage": "管理"
     },
     "ip": {
       "title": "IPホワイトリスト",
@@ -8302,7 +8305,8 @@
       "location": "位置",
       "status": "ステータス",
       "success": "成功",
-      "failed": "失敗"
+      "failed": "失敗",
+      "viewAll": "すべて表示"
     },
     "score": {
       "title": "セキュリティスコア",
@@ -8316,7 +8320,9 @@
       "title": "セッション",
       "empty": "アクティブなセッションはありません",
       "current": "のセッション",
-      "end": "終了"
+      "end": "終了",
+      "activeCount": "{count} 件のアクティブセッション",
+      "manage": "管理"
     },
     "twofa": {
       "title": "二要素認証",
@@ -28677,5 +28683,49 @@
     "toolCalls": "回",
     "noToolCalls": "ツール呼び出しなし",
     "operationInProgress": "操作中..."
+  },
+  "aiSkillsPage": {
+    "title": "AI Skills TOP",
+    "subtitle": "CODEX セルフメディア必須 + GitHub 週間人気 AI スキルの厳選コレクション",
+    "tabAll": "すべて",
+    "tabAvailable": "公開済み",
+    "tabComingSoon": "近日公開",
+    "searchPlaceholder": "スキル名・説明・タグで検索…",
+    "viewDetail": "詳細を見る",
+    "loading": "読み込み中…",
+    "loadFailed": "AI Skills の読み込みに失敗しました",
+    "empty": "一致する AI Skill がありません",
+    "totalCount": "全 {total} 件、{available} 件公開済み",
+    "availableCount": "公開済み {count}",
+    "comingCount": "近日公開 {count}",
+    "categoryCode": "コード",
+    "categoryMedia": "メディア",
+    "categoryAiTop": "AI 人気"
+  },
+  "aiSkillDetail": {
+    "backToList": "一覧に戻る",
+    "notFound": "AI Skill が見つかりません",
+    "sectionMeta": "メタデータ",
+    "sectionInvoke": "呼び出し",
+    "invokeButton": "呼び出し",
+    "invokeRunning": "実行中…",
+    "invokeError": "呼び出しに失敗しました",
+    "invokeMissingVariable": "必須項目を入力してください",
+    "inputContent": "本文",
+    "inputStyle": "ターゲットスタイル",
+    "inputRequirements": "要件",
+    "inputTopic": "トピック",
+    "placeholderContent": "以下の文章をターゲットスタイルに書き換え…",
+    "placeholderStyle": "例:ユーモラス、プロフェッショナル、文芸的",
+    "placeholderRequirements": "例:ミニマルなログインページ HTML",
+    "placeholderTopic": "例:小紅書 5 つの写真ポーズ",
+    "result": "結果",
+    "resultEmpty": "(内容なし)",
+    "fillToChat": "チャットに挿入",
+    "comingSoonTitle": "このスキルは近日公開",
+    "comingSoonHint": "このスキルはまだ本プラットフォームに統合されていません。GitHub で詳細を確認するか、次の統合をお待ちください。",
+    "openGitHub": "GitHub を開く",
+    "statusAvailable": "公開済み",
+    "statusComingSoon": "近日公開"
   }
 }
