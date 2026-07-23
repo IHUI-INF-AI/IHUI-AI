@@ -28575,7 +28575,11 @@
       "billingSubscription": "구독제",
       "sortLabel": "정렬",
       "sortByName": "이름순",
-      "sortByBilling": "과금순"
+      "sortByBilling": "과금순",
+      "speedTest": "속도 측정",
+      "speedTesting": "측정 중...",
+      "sortBySpeed": "지연 시간순",
+      "speedError": "시간 초과"
     },
     "cta": {
       "label": "하단 CTA",

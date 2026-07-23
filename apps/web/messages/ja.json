@@ -28576,7 +28576,11 @@
       "billingSubscription": "定額制",
       "sortLabel": "ソート",
       "sortByName": "名前順",
-      "sortByBilling": "課金順"
+      "sortByBilling": "課金順",
+      "speedTest": "測速",
+      "speedTesting": "測速中...",
+      "sortBySpeed": "遅延順",
+      "speedError": "タイムアウト"
     },
     "cta": {
       "label": "ボトム CTA",
