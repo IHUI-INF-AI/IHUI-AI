@@ -293,12 +293,14 @@ function main() {
     process.exit(0)
   }
 
-  // staged 模式:仅当 zh-CN 或任一 target locale 在暂存区时才检测
+  // staged 模式:仅当 zh-CN.json 在暂存区时才检测(避免多 agent 并行误伤)
+  // 设计:只有改 zh-CN.json(基准语言)的 agent 才需要跑翻译流水线
+  // 其他 agent 改 target locale 文件时不会触发阻塞
   if (isStaged) {
     const stagedLocales = getStagedLocales()
-    if (stagedLocales.length === 0) {
+    if (!stagedLocales.includes(BASE_LANG)) {
       if (!isQuiet) {
-        console.log(`${C.green}[i18n AI 翻译流水线] 暂存区无 i18n JSON 改动,跳过${C.reset}`)
+        console.log(`${C.green}[i18n AI 翻译流水线] 暂存区未改动 ${BASE_LANG}.json,跳过(仅 zh-CN 改动时触发)${C.reset}`)
       }
       process.exit(0)
     }
