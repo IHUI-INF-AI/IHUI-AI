@@ -664,6 +664,8 @@ class LLMGateway:
             call_kwargs["api_key"] = api_key
             if api_base:
                 call_kwargs["api_base"] = api_base
+            call_kwargs["timeout"] = 30
+            call_kwargs["num_retries"] = 2
             call_kwargs.update(kwargs)
             response = await litellm.acompletion(**call_kwargs)
             usage = response.usage
