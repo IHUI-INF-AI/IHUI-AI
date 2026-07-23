@@ -71,21 +71,23 @@ def test_registry_exists_unknown_returns_false():
 
 
 def test_registry_list_returns_all():
-    """list 返回全部 6 个 skill。"""
+    """list 返回全部 skill(6 个预置 + 19 个 AI Skills TOP + auto 动态 = 至少 25)。"""
     skills = skill_registry.list()
-    assert len(skills) == 6
+    # 2026-07-23 新增 19 个 AI Skills TOP 后,总数从 6 提升到至少 25
+    assert len(skills) >= 25
     names = {s.name for s in skills}
-    assert names == {
-        "code-review", "debug-fix", "test-generator",
-        "doc-writer", "refactor-helper", "api-designer",
-    }
+    # 老 6 个预置必须全部存在(向后兼容)
+    assert {"code-review", "debug-fix", "test-generator",
+            "doc-writer", "refactor-helper", "api-designer"}.issubset(names)
+    # 4 个真集成 ai-top 必须存在(2026-07-23)
+    assert {"nuwa-skill", "hugshu-design", "guizang-ppt-skill", "auto-redbook-skills"}.issubset(names)
 
 
 def test_registry_list_returns_copy():
     """list 返回的列表是副本,修改不影响内部状态。"""
     lst = skill_registry.list()
     lst.clear()
-    assert len(skill_registry.list()) == 6
+    assert len(skill_registry.list()) >= 25
 
 
 def test_registry_independent_instance():
