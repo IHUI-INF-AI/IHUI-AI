@@ -183,25 +183,40 @@ export const useChatStore = create<ChatState>()(
         return id
       },
 
+      // P0 流式性能优化(2026-07-23):用 findIndex 替代 map,
+      // 只更新目标消息引用,其他消息引用不变 → 配合 React.memo 避免全量重渲染
       appendToMessage: (id, delta) =>
-        set((s) => ({
-          messages: s.messages.map((m) => (m.id === id ? { ...m, content: m.content + delta } : m)),
-        })),
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === id)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target) return s
+          const next = s.messages.slice()
+          next[idx] = { ...target, content: target.content + delta }
+          return { messages: next }
+        }),
 
       appendReasoningToMessage: (id, delta) =>
-        set((s) => ({
-          messages: s.messages.map((m) =>
-            m.id === id ? { ...m, reasoning: (m.reasoning || '') + delta } : m,
-          ),
-        })),
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === id)
+          if (idx === -1) return s
+          const target = s.messages[idx]
+          if (!target) return s
+          const next = s.messages.slice()
+          next[idx] = { ...target, reasoning: (target.reasoning || '') + delta }
+          return { messages: next }
+        }),
 
       setMessageError: (id, error) =>
-        set((s) => ({
-          messages: s.messages.map((m) =>
-            m.id === id ? { ...m, error: true, content: m.content || error } : m,
-          ),
-          error,
-        })),
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === id)
+          if (idx === -1) return { error }
+          const target = s.messages[idx]
+          if (!target) return { error }
+          const next = s.messages.slice()
+          next[idx] = { ...target, error: true, content: target.content || error }
+          return { messages: next, error }
+        }),
 
       clearMessages: () => set({ messages: [], error: null }),
 
