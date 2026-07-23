@@ -79,16 +79,16 @@ const parsePayloadSchema = z.object({
       extraConfig: z.record(z.unknown()).optional(),
       meta: z.record(z.unknown()).optional(),
       isCurrent: z.boolean().default(false),
-      warnings: z.array(z.string()).default([]),
+      warnings: z.array(z.string()).max(100).default([]),
     }),
-  ),
-  mcpServers: z.array(z.any()).optional(),
-  globalWarnings: z.array(z.string()).default([]),
+  ).max(1000),
+  mcpServers: z.array(z.any()).max(1000).optional(),
+  globalWarnings: z.array(z.string()).max(1000).default([]),
 })
 
 const commitSchema = z.object({
   previewId: z.string().min(1).max(128),
-  selectedProviderIds: z.array(z.string()).default([]),
+  selectedProviderIds: z.array(z.string()).max(1000).default([]),
   conflictStrategy: z.enum(['overwrite', 'skip', 'clone']),
 })
 

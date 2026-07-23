@@ -16,6 +16,10 @@ on:
         type: boolean
         default: false
 
+# Security: least-privilege GITHUB_TOKEN (CWE-250). Deployment uses SSH secrets, not GITHUB_TOKEN write perms.
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
