@@ -285,10 +285,10 @@ export default function VipIndexPage() {
           <View className="pp-card" onClick={(e) => e.stopPropagation()}>
             <View className="pp-title">{t('vip.index.noticeTitle')}</View>
             <View className="pp-body">
-              <Text className="pp-text">1. VIP 会员服务为虚拟商品,开通后不支持退款。</Text>
-              <Text className="pp-text">2. 会员有效期自开通之日起计算。</Text>
-              <Text className="pp-text">3. 会员权益以实际提供为准,平台保留解释权。</Text>
-              <Text className="pp-text">4. 严禁利用会员服务从事违法违规行为。</Text>
+              <Text className="pp-text">{t('vip.index.noticeRule1')}</Text>
+              <Text className="pp-text">{t('vip.index.noticeRule2')}</Text>
+              <Text className="pp-text">{t('vip.index.noticeRule3')}</Text>
+              <Text className="pp-text">{t('vip.index.noticeRule4')}</Text>
               <View className="pp-check" onClick={() => setNoticeAgreed(!noticeAgreed)}>
                 <View className={`pp-checkbox ${noticeAgreed ? 'checked' : ''}`}>
                   {noticeAgreed && <Text className="pp-check-mark">✓</Text>}
