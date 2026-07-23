@@ -1,5 +1,5 @@
 import { View, Text } from '@tarojs/components'
-import { useReachBottom } from '@tarojs/taro'
+import Taro, { useReachBottom } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getStudyRecords, type StudyRecord } from '@/api'
 import { useI18n } from '@/i18n'
@@ -32,11 +32,15 @@ export default function StudyRecord() {
       hasMoreRef.current = lenRef.current < res.total
       pageRef.current++
     } catch {
-      // 统一提示
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     } finally {
       loadingRef.current = false
       setLoading(false)
     }
+  }, [t])
+
+  const goCourse = useCallback((courseId: string) => {
+    if (courseId) Taro.navigateTo({ url: `/pages/course/detail?id=${courseId}` })
   }, [])
 
   useReachBottom(() => load())
@@ -50,7 +54,7 @@ export default function StudyRecord() {
       {list.length > 0 && (
         <View className="p-3">
           {list.map((r) => (
-            <View key={r.id} className="bg-card rounded-2xl p-3 mb-3">
+            <View key={r.id} className="bg-card rounded-2xl p-3 mb-3" onClick={() => goCourse(r.courseId)}>
               <Text className="text-sm text-foreground font-semibold">{r.courseTitle}</Text>
               <View className="flex justify-between mt-1.5">
                 <Text className="text-xs text-primary">
