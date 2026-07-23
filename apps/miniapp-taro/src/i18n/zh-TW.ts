@@ -1072,9 +1072,22 @@ export default {
       confirm: '確認',
     },
     team: {
-      joinTime: '加入時間:{{time}}',
+      title: '我的團隊',
+      member: '成員',
+      searchPlaceholder: '搜尋我的團友',
+      totalMembers: '團隊總人數',
+      sortByOrderNum: '成交訂單數',
+      sortByDate: '邀請時間',
+      transactionVolume: '成交額',
+      commission: '取得佣金',
+      orderNum: '成交訂單數',
+      joinTime: '邀請時間',
+      viewSubordinates: '查看下級',
       empty: '暫無團隊成員',
       loading: '載入中…',
+      noMore: '沒有更多了',
+      error: '載入失敗',
+      retry: '點擊重試',
     },
     commission: {
       total: '累計佣金',
@@ -1493,6 +1506,13 @@ export default {
     empty: '暫無資訊',
     loading: '載入中…',
     readCount: '{{n}}閱讀',
+    detail: {
+      like: '點讚',
+      comment: '評論',
+      share: '分享',
+      related: '相關推薦',
+      commentSoon: '評論功能即將開放',
+    },
   },
   plaza: {
     setNeed: {
