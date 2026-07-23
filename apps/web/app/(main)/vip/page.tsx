@@ -7,6 +7,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Crown, Check, Loader2, Sparkles } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useAnalytics } from '@/hooks/use-analytics'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
 import { Badge } from '@/components/data'
 import { cn } from '@/lib/utils'
@@ -52,6 +53,7 @@ export default function VipPage() {
   const t = useTranslations('vip')
   const tc = useTranslations('common')
   const locale = useLocale()
+  const { track } = useAnalytics()
 
   const {
     data: levelsData,
@@ -99,11 +101,21 @@ export default function VipPage() {
         <div className="flex flex-col items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-50/40 p-4 sm:flex-row">
           <div className="flex items-center gap-2 text-sm">
             <Sparkles className="h-4 w-4 shrink-0 text-amber-500" />
-            <span className="font-medium text-amber-700">限时优惠</span>
-            <span className="text-muted-foreground">立即开通 VIP,解锁全部专属权益</span>
+            <span className="font-medium text-amber-700">{t('limitedOffer')}</span>
+            <span className="text-muted-foreground">{t('buyPrompt')}</span>
           </div>
           <Button asChild className="shrink-0">
-            <a href="https://api.aizhs.top/landing" target="_blank" rel="noopener noreferrer">
+            <a
+              href="https://api.aizhs.top/landing"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() =>
+                track({
+                  name: 'vip_buy_landing_click',
+                  props: { location: 'vip_page', target: 'landing' },
+                })
+              }
+            >
               <Crown className="h-4 w-4" />
               {t('buyButton')}
             </a>
