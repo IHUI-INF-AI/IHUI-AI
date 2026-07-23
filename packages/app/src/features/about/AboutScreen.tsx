@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { TextLink } from 'solito/link'
 import type { AboutScreenProps, SharedAppInfo } from '../../types'
+import { tokens } from '../../theme/tokens'
 
 const DEFAULT_APP_INFO: Required<SharedAppInfo> = {
   appName: 'IHUI AI',
@@ -70,7 +71,7 @@ export function AboutScreen({ t, appInfo, onBack }: AboutScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.light },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -78,35 +79,35 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
   },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   body: { padding: 16 },
   logoCard: {
     padding: 20,
     marginBottom: 12,
     borderRadius: 8,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: tokens.surface.muted,
     alignItems: 'center',
   },
   logo: {
     width: 72,
     height: 72,
     borderRadius: 8,
-    backgroundColor: '#10B981',
+    backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoText: { fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
-  appName: { marginTop: 12, fontSize: 16, fontWeight: '600', color: '#111827' },
-  appTagline: { marginTop: 4, fontSize: 12, color: '#6B7280', textAlign: 'center' },
-  infoCard: { padding: 12, borderRadius: 8, backgroundColor: '#F9FAFB' },
+  logoText: { fontSize: 18, fontWeight: '700', color: tokens.surface.light },
+  appName: { marginTop: 12, fontSize: 16, fontWeight: '600', color: tokens.text.primary },
+  appTagline: { marginTop: 4, fontSize: 12, color: tokens.text.secondary, textAlign: 'center' },
+  infoCard: { padding: 12, borderRadius: 8, backgroundColor: tokens.surface.muted },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 10,
   },
-  rowDivider: { borderTopColor: '#E5E7EB', borderTopWidth: 1 },
-  label: { fontSize: 12, color: '#6B7280' },
-  value: { fontSize: 13, color: '#111827', maxWidth: 200 },
+  rowDivider: { borderTopColor: tokens.border.light, borderTopWidth: 1 },
+  label: { fontSize: 12, color: tokens.text.secondary },
+  value: { fontSize: 13, color: tokens.text.primary, maxWidth: 200 },
 })
