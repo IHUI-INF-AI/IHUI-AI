@@ -256,6 +256,24 @@ export default {
     loadPreview: 'プレビュー読み込み',
     loadFailed: '読み込み失敗',
     previewName: 'プレビュー名',
+    componentTree: {
+      title: 'コンポーネントツリー',
+      empty: 'キャンバスに要素なし',
+    },
+    comments: {
+      title: 'コメント',
+      empty: 'コメントを表示するにはプレビューを保存してください',
+      noComments: 'コメントなし',
+      loadingFailed: 'コメントの読み込みに失敗',
+      send: 'コメントを送信',
+    },
+    aiGenerate: {
+      button: 'AI生成',
+      placeholder: '生成したいページを記述…',
+      generating: '生成中…',
+      success: '生成してキャンバスに注入しました',
+      failed: 'AI生成に失敗',
+    },
   },
   taskReceiver: {
     title: 'タスク受信',

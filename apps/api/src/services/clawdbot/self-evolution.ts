@@ -9,6 +9,7 @@ import { getSkillManager, type SkillStep } from './skills.js'
 import { getMemoryService } from './memory.js'
 import { generateCompactId } from '../../utils/crypto-random.js'
 import { callRealLlm, type LlmMessage } from '../crew-llm-adapter.js'
+import { config } from '../../config/index.js'
 
 export interface EvolutionTask {
   id: string
@@ -44,6 +45,50 @@ export interface CapabilityGap {
   detectedAt: number
   severity: 'low' | 'medium' | 'high'
   resolved: boolean
+}
+
+/**
+ * 将自进化生成的 skill 同步发布到技能市场(POST /api/skills/market)。
+ * 形成"进化→市场→使用→反馈→再进化"闭环:进化产物可被市场搜索/安装/评分。
+ * 失败不阻塞主流程,仅 logger.warn。
+ */
+async function publishEvolvedSkillToMarket(params: {
+  name: string
+  description: string
+  version: string
+  steps: SkillStep[]
+}): Promise<void> {
+  const baseUrl = `http://localhost:${config.PORT}`
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (config.AI_CALLBACK_SECRET) {
+    headers['X-Internal-Secret'] = config.AI_CALLBACK_SECRET
+  }
+  try {
+    const resp = await fetch(`${baseUrl}/api/skills/market`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        name: params.name,
+        description: params.description,
+        tags: ['auto_generated', 'evolution'],
+        author: 'clawdbot-self-evolution',
+        version: params.version,
+        license: 'MIT',
+        content: JSON.stringify(params.steps),
+      }),
+    })
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '')
+      logger.warn(
+        { status: resp.status, body: text, skillName: params.name },
+        '[Evolution] 同步 skill 到市场失败:HTTP 非 2xx',
+      )
+    } else {
+      logger.info({ skillName: params.name }, '[Evolution] skill 已同步到市场')
+    }
+  } catch (e) {
+    logger.warn({ err: e, skillName: params.name }, '[Evolution] 同步 skill 到市场失败:网络错误')
+  }
 }
 
 export class SelfEvolutionEngine extends EventEmitter {
@@ -187,6 +232,14 @@ export class SelfEvolutionEngine extends EventEmitter {
         content: `Evolved skill "${skillName}" for gap: ${gap.description}`,
         importance: 0.8,
         tags: ['evolution', 'skill', skillName],
+      })
+
+      // 同步到技能市场:让进化产物可被搜索/安装/评分(失败不阻塞)
+      await publishEvolvedSkillToMarket({
+        name: skillName,
+        description: gap.description,
+        version: '0.1.0',
+        steps,
       })
 
       task.status = 'completed'
