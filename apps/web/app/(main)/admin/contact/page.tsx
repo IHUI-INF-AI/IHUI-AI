@@ -94,7 +94,7 @@ export default function ContactPage() {
       t('exportName'),
       EXPORT_COLS,
     )
-    if (!ok) alert(t('exportFailed'))
+    if (!ok) toast.error(t('exportFailed'))
   }
 
   const list = data?.list ?? []
