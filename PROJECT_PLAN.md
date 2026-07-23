@@ -277,6 +277,37 @@
 - 守门脚本: git-push-guard 自动 push 成功(pull --rebase 后 post-commit hook 自动推送)
 
 ---
+### [x] ✅(2026-07-23) ai-news 组件深度优化十轮:HotRanking/FundingSection hover 微动画 + TrendChartDialog 小屏响应式(平台独占:仅 apps/web)
+
+**触发**:用户要求"继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏 直到没有任何后续建议可给到我为止"。承接九轮交付后的 P3 建议。
+
+**交付内容**(1 commit `3605ed7`,1 文件实际改动 + 2 文件已被其他 agent commit,平台独占:仅 apps/web):
+
+| 模块 | 文件 | 改动 | 状态 |
+|---|---|---|---|
+| TrendChartDialog | `apps/web/app/(main)/ai-news/components/TrendChartDialog.tsx` | X 轴日期 text 加 `max-[374px]:hidden`,小屏(<375px)隐藏不可读日期文字,保留折线+数据点;注释说明适配策略 | 本 commit ✅ |
+| HotRanking | `apps/web/app/(main)/ai-news/components/HotRanking.tsx` | 列表项 hover 微动画(`transition duration-200 hover:bg-accent/40 hover:-translate-y-0.5`) | 其他 agent 已 commit ✅ |
+| FundingSection | `apps/web/app/(main)/ai-news/components/FundingSection.tsx` | 卡片 hover 微动画(`transition duration-200 hover:bg-accent hover:-translate-y-0.5 hover:shadow-md`) | 其他 agent 已 commit ✅ |
+
+**并行开发**:2 个 subagent 并行(§11),subagent A 负责 hover 微动画,subagent B 负责响应式适配。subagent A 改动未落地(§13 文件持久化问题),主 agent 用 PowerShell 手动修复;subagent B 改动落地后被 stash pop 覆盖,主 agent 重新应用。
+
+**自验**:
+- typecheck 本任务文件零错误 ✅(剩余 learn/review/page.tsx 错误为其他 agent 代码,§12 不归本 agent 管)
+- browser_use subagent 4 状态验证 5/6 通过 ✅:
+  - 默认态:页面加载成功,HotRanking + FundingSection 存在 ✅
+  - HotRanking hover:transitionProperty=all, transitionDuration=0.2s, hover:-translate-y-0.5 类已应用 ✅
+  - FundingSection hover:hover:-translate-y-0.5 hover:shadow-md 类已应用,boxShadow 生效 ✅
+  - Dark mode:dark 类切换成功 ✅
+  - TrendChartDialog CSS:@media not (min-width: 374px) { .max-[374px]:hidden { display: none; } } 规则已生成 ✅
+  - 小屏 320px 截图:BLOCKED(标签可见性限制,CSS 规则已通过步骤 5 验证)
+
+**Git 同步证据**(§21):
+- 本地 commit: `3605ed7`
+- origin commit: `3605ed7`
+- 同步状态: local == remote ✅(ahead 0, behind 0)
+- 守门脚本: git-push-guard 自动 push 成功 ✅
+
+---
 <!-- 已归档(2026-07-23):大模型排行榜深度优化五轮:highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ---
