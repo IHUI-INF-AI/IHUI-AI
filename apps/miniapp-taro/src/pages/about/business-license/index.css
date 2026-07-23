@@ -1,7 +1,38 @@
 .page {
   min-height: 100vh;
   background: var(--color-background);
+  padding-bottom: 48rpx;
 }
+
+.license-wrap {
+  margin: 24rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  overflow: hidden;
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.license-image {
+  width: 100%;
+  display: block;
+  border-radius: 8rpx;
+}
+
+.license-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 400rpx;
+  background: var(--color-muted);
+  border-radius: 8rpx;
+}
+
+.license-fallback-text {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+}
+
 .card {
   margin: 24rpx;
   background: var(--color-card);
