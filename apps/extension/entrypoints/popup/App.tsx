@@ -30,14 +30,25 @@ export default function App() {
   const [copyHint, setCopyHint] = useState('')
 
   useEffect(() => {
-    initApi().then(async () => {
-      if (getToken()) {
-        const res = await getMe()
-        if (res.success) setUser(res.data.user)
-        else await clearAllTokens()
-      }
-      setReady(true)
-    })
+    // 2026-07-23 修复:原代码 initApi() reject 时 setReady(true) 永不触发 → popup 卡在 loading
+    // 改为 .catch 兜底,确保即使 API 初始化失败也能显示登录界面
+    initApi()
+      .then(async () => {
+        if (getToken()) {
+          try {
+            const res = await getMe()
+            if (res.success) setUser(res.data.user)
+            else await clearAllTokens()
+          } catch {
+            await clearAllTokens()
+          }
+        }
+        setReady(true)
+      })
+      .catch(() => {
+        // initApi 失败(chrome.storage 不可用等)也要显示 UI,不能卡在 loading
+        setReady(true)
+      })
     startAutoRefresh()
 
     // 查询当前 tab(用于"复制 URL" / "打赏作者" 等)
