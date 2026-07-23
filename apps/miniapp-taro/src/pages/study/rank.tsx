@@ -86,11 +86,11 @@ export default function StudyRank() {
       )}
 
       {list.length > 3 && (
-        <View className="m-3 bg-card rounded-2xl overflow-hidden">
+        <View className="m-3 bg-card rounded-2xl p-2 flex flex-col gap-1">
           {list.slice(3).map((u, i) => (
             <View
               key={u.id}
-              className="flex items-center p-3 border-b border-border last:border-b-0"
+              className="flex items-center p-3"
             >
               <Text className="w-8 text-sm text-muted-foreground">{i + 4}</Text>
               <Image
