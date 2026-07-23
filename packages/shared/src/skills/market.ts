@@ -68,3 +68,18 @@ export interface SkillPublishRequest {
 
 /** 发布端点响应(返回新建的市场条目) */
 export interface SkillPublishResponse extends SkillMarketEntry {}
+
+/** 订阅状态查询响应 */
+export interface SkillSubscriptionResponse {
+  subscribed: boolean
+  subscriberCount: number
+}
+
+/** Skill 更新通知(存储于 Redis List skill-notifications:<userId>) */
+export interface SkillNotification {
+  id: string
+  skillName: string
+  message: string
+  version?: string
+  timestamp: string
+}
