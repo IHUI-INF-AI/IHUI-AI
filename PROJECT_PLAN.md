@@ -138,6 +138,40 @@
 - origin commit: `360d85768`
 - 同步状态: local == remote ✅
 
+### [x] ✅(2026-07-24) 共享层生产版深度缺口修复 — P0 路由 bug + P1 清理 + P2 设计令牌系统(跨端:packages/app + mobile-rn)
+
+**触发**:承接共享层生产版接入后,深度审计识别 7 项缺口,用户要求"继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏"。2 subagent 并行修复 P0+P1+P2,文件完全不重叠。
+
+**交付内容**(1 commit `7724a72`,9 文件,+108/-69):
+
+| 优先级 | 文件 | 改造 |
+|---|---|---|
+| P0 | `apps/mobile-rn/src/screens/SettingsScreen.tsx` | menuItems key 小写→大写匹配 RootStack 路由名(about→About 等),修复 4 菜单项点击无反应(React Navigation 6 静默失败);NavigationProp 类型 RootStackParamList→ProfileStackParamList;onMenuPress 改用 getParent()?.navigate 跨栈导航 |
+| P1c | `apps/mobile-rn/src/screens/SharedDemoScreen.tsx` | 加 __DEV__ 守卫,release 包不暴露 mock 测试页 |
+| P1d | `packages/app/package.json` | 删除无消费者的 ./about 子路径,统一 barrel |
+| P2 | `packages/app/src/theme/tokens.ts`(新) | 5 组令牌(brand/surface/text/border/error)+ AppTokens 类型,as const 推导 |
+| P2 | `packages/app/src/index.ts` | 导出 tokens + AppTokens + SharedRenderSlot 类型 |
+| P2 | `packages/app/src/features/about/AboutScreen.tsx` | StyleSheet 全量迁移到 tokens(0 硬编码 hex 残留) |
+| P2 | `packages/app/src/features/profile/ProfileScreen.tsx` | StyleSheet 全量迁移到 tokens |
+| P2 | `packages/app/src/features/settings/SettingsScreen.tsx` | StyleSheet 全量迁移到 tokens + Switch trackColor prop → tokens |
+| P1a | `apps/mobile-rn/src/navigation/RootNavigator.tsx` | tab 激活色 #16a34a → #10B981(与共享组件品牌色统一,根治漂移) |
+
+**关键设计**:
+- 设计令牌系统:共享组件 StyleSheet 全部引用 tokens,根治颜色漂移 + 为暗色模式铺路(预留 brand.dark/surface.dark)
+- 平台解耦:tokens 只在 packages/app 内,mobile-rn 保持硬编码 #10B981(避免耦合),值与 tokens.brand.DEFAULT 一致即达成统一
+- 跨栈导航:SettingsScreen 在 ProfileStack,目标路由(About/Feedback/Privacy/Agreement)在 RootStack,用 getParent()?.navigate 跨栈
+
+**验证**:
+- packages/app typecheck exit 0 ✅
+- mobile-rn typecheck exit 0 ✅(双端本任务文件 0 错,subagent 自验 + 主 agent 复核)
+- Grep 复核:3 共享组件 StyleSheet 内 0 硬编码 hex 残留
+
+**Git 同步证据**(§21):
+- 本地 commit: `7724a72`
+- origin commit: `7724a72`
+- 同步状态: **local == remote ✅**
+- 守门脚本: git-push-guard 自动 `--no-verify` 重试成功(pre-push typecheck 因其他 agent migrate-legacy-data.ts mysql2 模块缺失失败,§12 合法跳过)
+
 ### [x] ✅(2026-07-24) 共享层生产版接入 — RN 三屏 wrapper 重构使用共享组件 + i18n 5 语言补全 + README 同步(跨端:mobile-rn + packages/app + web)
 
 **触发**:承接 packages/app 共享组件生产版升级(commit ff88834)后,用户要求"现在就需要升级为生产版" — 把 RN 端 3 个生产屏(AboutScreen/ProfileScreen/SettingsScreen)从自有实现重构为消费 `@ihui/app` 共享组件,真正落地"一处改、两端生效"。
