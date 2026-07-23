@@ -80,6 +80,22 @@
 **验证**:39 passed(本轮);5 commits 推送(R1-4 + R5);git-push-guard exit 0。
 ---
 
+### [x] ✅(2026-07-23) AI Skills 系列后续增强:SkillLibrary 弹窗动态变量 + 详情页 12→15 变量 + DRY 抽共享模块(平台独占:仅 web)
+
+**触发**:用户"延续 AI Skills 系列做后续增强"。
+
+**交付**:
+- 新建 `apps/web/src/lib/ai-skill-variables.ts`(15 变量映射 + parseVariables/getLabelKey/getPlaceholderKey/getMaxLen/isLongText)
+- 详情页 `ai-skills/[id]/page.tsx`:12→15 变量(+text/language/input),支持 caveman/graphify/taste-skill/agent-skills/awesome-claude-skills;改用共享模块删内联定义
+- SkillLibrary 弹窗 `skill-library.tsx` AiSkillInvokeDialog 重构:删 4 个硬编码 skill 分支 + 4 个独立 useState,改 `parseVariables(promptTemplate)` 动态渲染全部 19 skill 变量;复用 `aiSkillDetail` 命名空间替代 `chat.skillLibrary.invoke*`
+- 5 语言 i18n:`aiSkillDetail` +6 key;`chat.skillLibrary` -9 unused key;`en.json` 补 15 缺失 AI Skills TOP key 修预存 parity 缺口
+
+**§9 平台独占**:纯前端单端改动,豁免全端同步。
+
+**验证**:typecheck 0 错误;i18n parity 完美(aiSkillDetail 46 keys + chat.skillLibrary 56 keys 5 语言对齐);zh-TW/broken-en 通过;browser 4 状态 PASS(默认/hover/active/dark),DOM 验证 /ai-skills/caveman 渲染 1 个 textarea,placeholder="把以下文本压缩、提取或改写…"。
+
+---
+
 ### [x] ✅(2026-07-23) (main) 目录页面整合 P0/P1:ask/article 重复路由改重定向 + agent-kanban 确认
 
 **触发**:用户 `/goal 继续 必须秉承着尽量不删除 尽量开发完整 多agent最大化效率去做`。
@@ -172,50 +188,7 @@
 
 ---
 
-### [x] ✅(2026-07-23) 桌面端消息编辑重发 + 停止生成修复 + i18n 清理深度开发(平台独占:仅 desktop)
-
-**目标**:第九轮深度开发 — 消息编辑+重发(inline edit 删除后续 + 重发)+ 停止生成按钮真正 abort 流式请求(修复仅 setStreaming(false) 不 abort 的 bug)+ ChatPage 硬编码字符串 i18n 化。
-
-**交付**(停止生成修复):
-- `apps/desktop/src/pages/ChatPage.tsx`(修改):
-  - 新增 `abortRef = useRef<AbortController | null>(null)`,在 runStream 中赋值 `abortRef.current = controller`
-  - runStream 加 `finally { abortRef.current = null }` 清理
-  - onStop 重构:调 `abortRef.current?.abort()` 真正中断 fetch 流,再 `setStreaming(false)`
-  - 修复前:onStop 只 setStreaming(false),流仍在后台继续接收 delta 并写入 messages(用户看到"已停止"但消息仍在增长)
-
-**交付**(消息编辑 + 重发):
-- `apps/desktop/src/pages/ChatPage.tsx`(修改):
-  - 新增 `editingMsgId` / `editContent` state
-  - 新增 `onStartEdit(m)`:设置 editingMsgId + editContent 为消息原内容
-  - 新增 `onCancelEdit()`:清空 editingMsgId + editContent
-  - 新增 `onSubmitEdit()`:findIndex 找编辑消息,保留之前消息,替换为编辑后内容,加空 AI 占位,调 runStream 重发
-  - 用户消息(非 streaming、非编辑中、有 content)显示"编辑"按钮,点击进入 inline 编辑
-  - 编辑态:textarea(autoFocus, 3 rows)+ 保存(t('common.save'))/取消(t('common.cancel'))按钮
-  - 编辑期间隐藏复制按钮和编辑按钮(editingMsgId !== m.id 检查)
-
-**交付**(i18n 清理 — ChatPage 硬编码字符串):
-- `apps/desktop/src/pages/ChatPage.tsx`(修改):
-  - "AI 对话" → `t('chat.title')`
-  - "退出登录" → `t('auth.logout')`
-  - "输入消息开始对话" → `t('chat.emptyState')`
-  - "支持拖拽文件..." → `t('desktop.dragHint')`
-  - "添加附件" aria-label → `t('desktop.attachFile')`
-  - "选择本地文件..." title → `t('desktop.attachFile')`
-  - "移除附件" aria-label → `t('desktop.removeAttachment')`
-  - "输入消息内容(附件已就绪)..." → `t('chat.placeholderWithAttachments')`
-  - "说点什么..." → `t('chat.placeholder')`
-  - "停止" → `t('chat.stop')`
-  - "发送" → `t('chat.send')`
-
-**交付**(CSS):
-- `apps/desktop/src/app.css`(修改):新增 `.msg-edit-btn`(hover 变 accent 色)+ `.msg-edit-form`(flex column)+ `.msg-edit-textarea`(min-height 60px, resize vertical)+ `.msg-edit-actions`(flex row gap)+ `.msg-edit-actions button` 样式(共 5 类)
-
-**交付**(i18n 5 语言 parity):
-- `apps/desktop/src/i18n/messages/zh-CN.ts` / `en.ts` / `ja.ts` / `ko.ts` / `zh-TW.ts`:chat 命名空间新增 5 个 key(title / emptyState / edit / editHint / placeholderWithAttachments)
-
-**§9 平台独占**:消息编辑重发 + 停止生成修复 + i18n 清理均为 desktop 单端 UI 能力,豁免全端同步。
-
-**验证**:desktop typecheck 零错误(退出码 0)、README 3 处同步更新(加"消息编辑重发 + 停止生成修复")。
+<!-- 已归档(2026-07-23):桌面端消息编辑重发 + 停止生成修复 + i18n 清理深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v7.md -->
 
 ---
 
