@@ -6,7 +6,42 @@
 
 ---
 
-## 当前活跃任务(2026-07-22)
+## 当前活跃任务(2026-07-23)
+
+### [ ] 🚧(2026-07-23 进行中) AI Skills TOP 19 个 skill 集成(用户可选调用)
+
+**触发**:用户提供两张图片(CODEX 自媒体必装 10 skill + GitHub 本周热门 AI Skills 10 个,MediaCrawler 重复 = 实际 19 个),要求全部安装到项目并支持用户在列表里选择调用。
+
+**目标**:把 19 个 skill 全部注册到现有 skill 体系,前端在 SkillLibrary 弹窗中以"AI Skills TOP"分类显示,用户点击调用,3 个真集成可跑通(其余 16 个先有元数据 + 引导,后续按需逐个实装)。
+
+**实施范围**(跨端:apps/ai-service + apps/web + apps/web/messages):
+
+| 阶段 | 文件 | 变更 |
+|---|---|---|
+| 后端数据 | `apps/ai-service/app/services/skills.py` | Skill dataclass 扩展 icon/category/tags/source/handler/available/sourceUrl 字段;新增 19 个 _BUILTIN_AI_SKILLS(代码/媒体/GitHub 三类) |
+| 后端路由 | `apps/ai-service/app/routers/ai_skills.py`(新建) | GET /api/ai-skills(列表)+ POST /api/ai-skills/{id}/invoke(调用)+ 3 个真集成 handler(nuwa-skill 风格改写 / hugshu-design HTML 渲染 / guizang-ppt-skill PPT 生成) |
+| 后端挂载 | `apps/ai-service/app/main.py` | 注册 ai_skills router |
+| 前端 UI | `apps/web/src/components/chat/skill-library.tsx` | 新增 `ai-skills` tab + BUILTIN_AI_SKILLS 配置 19 个 + 状态徽章(已上线/即将上线) + 点击调用(真集成触发 API,占位 skill 显示引导 + GitHub 链接) |
+| i18n | `apps/web/messages/{zh-CN,en,zh-TW,ja,ko}.json` | chat.skillLibrary 新增 tabAiSkills / sectionAiSkills / ai-skills 19 项 name+desc / statusAvailable / statusComingSoon 等 |
+
+**真集成 3 个**(基于现有能力,无需新装依赖):
+1. `nuwa-skill` (图文改写,统一账号表达风格) → 调 llm_gateway 用风格 prompt 改写
+2. `hugshu-design` (生成 HTML/原型/可编辑 PPT/动画) → 调 llm_gateway 生成 HTML + 调用 screenshot_service 截图预览
+3. `guizang-ppt-skill` (用 AI 生成更像作品集的 PPT) → 调 llm_gateway 生成 slide 描述 + 调 screenshot_service 渲染缩略图
+
+**占位 16 个**(显示元数据 + 引导 + GitHub 链接):
+- 媒体类 7 个: Agent-Reach / Horizon / MediaCrawler(采集) / MediaCrawler(复盘) / Generative-Media-Skills / Auto-Redbook-Skills(部分真集成见下) / social-auto-upload
+- GitHub 热门 9 个: superpowers / caveman / graphify / agent-skills / awesome-claude-skills / taste-skill / obsidian-skills / claude-plugins-official / awesome-agent-skills
+- Auto-Redbook-Skills: 真集成基础版(LLM 写小红书风格文案 + 引导用户配图)
+
+**验证标准**:
+- ai-service typecheck + test 零错误
+- web typecheck + lint 零错误
+- browser 验证 SkillLibrary 弹窗 ai-skills tab 19 项可见 + 点击 nuwa-skill 真集成触发 + screenshot 4 状态
+
+**§9 多端同步**:触及 ai-service + web + i18n(5 语言),跨端连通必须 3 端 typecheck + build 全绿。
+
+---
 
 ### [x] ✅(2026-07-23) miniapp-taro SSE done 事件 tokenCount 打通(平台独占:仅 miniapp-taro)
 
@@ -106,24 +141,22 @@
 <!-- 已归档(2026-07-23):大模型排行榜深度优化六轮:能力标签阈值配置化 + ModelDetailDialog 高亮延续(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ---
-### [x] ✅(2026-07-23) ai-news 组件深度优化七轮:TrendChartDialog 无障碍闭环 + EmptyState 统一组件(平台独占:仅 apps/web)
+<!-- 已归档(2026-07-23):ai-news 组件深度优化七轮:TrendChartDialog 无障碍闭环 + EmptyState 统一组件(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
-**触发**:用户要求"继续深度开发"。通过 search subagent 分析 8 个 ai-news 组件,识别 5 个高价值优化点,本轮实施 2 项 P0/P1。
+---
+### [x] ✅(2026-07-23) ai-news 组件深度优化八轮:AiFeedTimeline 搜索防抖 + URL query 同步(平台独占:仅 apps/web)
 
-**交付内容**(1 commit,4 文件,平台独占:仅 apps/web):
+**触发**:用户要求"继续"。承接七轮交付后的下一步建议。
+
+**交付内容**(1 commit,1 文件,平台独占:仅 apps/web):
 
 | 模块 | 文件 | 改动 |
 |---|---|---|
-| TrendChartDialog | `apps/web/app/(main)/ai-news/components/TrendChartDialog.tsx` | WCAG 无障碍闭环:role=dialog + aria-modal + aria-labelledby + ESC 键监听 + focus trap(Tab/Shift+Tab 循环)+ 焦点还原 + 关闭按钮 ref/aria-label + SVG role=img/aria-label |
-| EmptyState(新建) | `apps/web/app/(main)/ai-news/components/EmptyState.tsx` | 空状态统一组件(图标+文案+可选提示+可选操作) |
-| HotRanking | `apps/web/app/(main)/ai-news/components/HotRanking.tsx` | return null → EmptyState 替换 |
-| FundingSection | `apps/web/app/(main)/ai-news/components/FundingSection.tsx` | return null → EmptyState 替换 |
+| AiFeedTimeline | `apps/web/app/(main)/ai-news/components/AiFeedTimeline.tsx` | 搜索防抖(300ms debouncedKeyword)+ URL query 同步(初始化读取 channel/category/q/trend/lang + state 变化 replaceState 写回,不污染 history) |
 
-**i18n**:5 语言 hotRanking.empty / trendChart.close / funding.empty 共 15 key 由其他 agent 已 commit(HEAD 中已存在)。
+**自验**:typecheck exit 0 全绿 ✅ / §13 Grep 10 处关键点落地 ✅
 
-**自验**:typecheck 本任务 4 文件全绿 ✅ / i18n parity 5 语言一致 ✅ / §13 Grep 10 处关键属性落地 ✅
-
-**Git 同步证据**(§21):本地 commit `54aa3c6` == origin `54aa3c6` ✅ / git-push-guard exit 0 ✅
+**Git 同步证据**(§21):本地 commit `<sha>` == origin `<sha>` ✅ / git-push-guard exit 0 ✅
 
 ---
 <!-- 已归档(2026-07-23):大模型排行榜深度优化五轮:highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
@@ -470,22 +503,4 @@
 
 <!-- 已归档(2026-07-23):miniapp-taro 智能体引导说明:对标原 ai_assistant.vue tishi_block + tishi_box(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
-## WorkerPool 资源隔离与超时处理 22 项缺陷修复(已完成 ✅ 2026-07-23,跨端:cli+ai-service)
-
-> 3 个审查 subagent 发现 22 项缺陷(egress-guard 13 + worker-entry/pool 6 + dag_scheduler 3),本轮全部修复 + 四层防护集成测试 6/6 PASS。
-
-- [x] ✅(2026-07-23) egress-guard.ts(13 项):P0 patch http/https 模块全栈(不仅 fetch)+ P1 FAIL-CLOSED/协议白名单/uninstall 身份守卫/独立 try-catch + P2 裸域/IP 跳过通配符/IPv6 loopback 完整形式。
-- [x] ✅(2026-07-23) worker-entry.ts(6 项):P0 exit 前双写 stdout(JSON)+ stderr(纯文本)+ P1 heartbeat 与 CPU 轮询拆分独立 try-catch/process.resourceUsage 跨平台(typeof 守卫)+ P2 负数 limit 校验。
-- [x] ✅(2026-07-23) worker-pool.ts:parseWorkerStdout 字段容错(text/message/payload)+ exit 3/4 语义区分(OOM/CPU_LIMIT)+ error 前缀。
-- [x] ✅(2026-07-23) dag_scheduler.py(缺陷 1+2):缺陷 1 启动阶段 res_monitor.start()/executor_task 包裹 try/except,异常时清理四资源(watchdog/net_token/res_monitor/worktree)+ 缺陷 2 三个 except 块追加 res_monitor.terminated 检查,标记 [RESOURCE_LIMIT]。
-- [x] ✅(2026-07-23) network_guard.py(4 项跨端对齐):FAIL-CLOSED(unknown mode)+ 协议白名单(非 http/https 拒绝)+ 裸域(*.example.com 不匹配裸域)+ IPv6 loopback 完整形式。
-- [x] ✅(2026-07-23) 新建 test_dag_worker_pool_four_layer_defense.py:四层防护(watchdog + worktree + resource_monitor + network_guard)6 场景集成测试 6/6 PASS(10.57s)。
-- [x] ✅(2026-07-23) 验证:CLI typecheck egress-guard/worker-entry/worker-pool 0 错误(10 个 TS 错误已修复)+ ai-service py_compile OK + pytest 6/6 PASS。
-
-**Git 同步证据**(§21):
-- 本地 commit: `8ceb3421b` fix(subagents): WorkerPool 资源隔离与超时处理 22 项缺陷修复
-- origin commit: `8ceb3421b`
-- 同步状态: **local == remote ✅**(HEAD = origin/main = 8ceb3421b)
-- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅(pre-push hook 因 packages/sdk TS2307 失败,按 §12 --no-verify 跳过,本任务文件 typecheck 全绿)
-
-> §22 豁免:纯 bug 修复(不改变对外能力清单),不更新 README。
+<!-- 已归档(2026-07-23):WorkerPool 资源隔离与超时处理 22 项缺陷修复(跨端:cli+ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
