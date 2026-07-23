@@ -1,5 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
-import Taro, { useReachBottom } from '@tarojs/taro'
+import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getLiveHistory, type Live } from '@/api'
 import { useI18n } from '@/i18n'
@@ -32,18 +32,22 @@ export default function LiveHistory() {
       hasMoreRef.current = lenRef.current < res.total
       pageRef.current++
     } catch {
-      // 统一提示
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     } finally {
       loadingRef.current = false
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   const goDetail = useCallback((id: string | number) => {
     Taro.navigateTo({ url: `/pages/live/detail?id=${id}` })
   }, [])
 
   useReachBottom(() => load())
+
+  usePullDownRefresh(() => {
+    load(true).finally(() => Taro.stopPullDownRefresh())
+  })
 
   useEffect(() => {
     load(true)
