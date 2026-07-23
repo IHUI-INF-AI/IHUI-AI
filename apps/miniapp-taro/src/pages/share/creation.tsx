@@ -6,6 +6,7 @@ import { showShareMenu } from '@/utils/share'
 import { logger } from '@/utils/logger'
 import { NavBar } from '@/components'
 import ErrorView from '@/components/ErrorView'
+import { useI18n } from '@/i18n'
 
 interface ShareAnswer {
   thinking?: string
@@ -49,6 +50,7 @@ const fmtTime = (iso: string) => {
 }
 
 export default function ShareCreationPage() {
+  const { t } = useI18n()
   const [content, setContent] = useState<ShareContent | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -60,7 +62,7 @@ export default function ShareCreationPage() {
 
   const load = useCallback(async () => {
     if (!code) {
-      setError('缺少分享码')
+      setError(t('share.creation.missingCode'))
       setLoading(false)
       return
     }
@@ -71,11 +73,11 @@ export default function ShareCreationPage() {
       setContent(res)
     } catch (e) {
       logger.error('share/index', '获取分享内容', e)
-      setError(e instanceof Error ? e.message : '加载失败')
+      setError(e instanceof Error ? e.message : t('share.creation.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [code])
+  }, [code, t])
 
   useDidShow(() => {
     load()
@@ -83,7 +85,7 @@ export default function ShareCreationPage() {
   })
 
   useShareAppMessage(() => ({
-    title: content?.question || content?.modelName || 'AI 创作分享',
+    title: content?.question || content?.modelName || t('share.creation.title'),
     path: `/pages/share/creation?code=${code}`,
     imageUrl: content?.answer?.images?.[0] || content?.modelIcon || '',
   }))
@@ -98,15 +100,15 @@ export default function ShareCreationPage() {
 
   const onShareFriend = useCallback(() => {
     Taro.showShareMenu({ withShareTicket: true })
-    Taro.showToast({ title: '点击右上角分享给好友', icon: 'none' })
-  }, [])
+    Taro.showToast({ title: t('share.creation.clickShare'), icon: 'none' })
+  }, [t])
 
   if (loading) {
     return (
       <View className="min-h-screen bg-background">
-        <NavBar title="AI 创作分享" showBack />
+        <NavBar title={t('share.creation.title')} showBack />
         <View className="flex items-center justify-center py-20">
-          <Text className="text-sm text-muted-foreground">加载中...</Text>
+          <Text className="text-sm text-muted-foreground">{t('share.creation.loading')}</Text>
         </View>
       </View>
     )
@@ -114,8 +116,8 @@ export default function ShareCreationPage() {
   if (error || !content) {
     return (
       <View className="min-h-screen bg-background">
-        <NavBar title="AI 创作分享" showBack />
-        <ErrorView title="加载失败" desc={error || '分享内容不存在'} onRetry={load} />
+        <NavBar title={t('share.creation.title')} showBack />
+        <ErrorView title={t('share.creation.loadFailed')} desc={error || t('share.creation.contentNotExist')} onRetry={load} />
       </View>
     )
   }
@@ -126,7 +128,7 @@ export default function ShareCreationPage() {
 
   return (
     <View className="min-h-screen bg-background">
-      <NavBar title="AI 创作分享" showBack />
+      <NavBar title={t('share.creation.title')} showBack />
       <ScrollView scrollY className="h-screen">
         <View className="mx-3 mt-3 bg-card rounded-lg p-4">
           <View className="flex items-center mb-3">
@@ -139,12 +141,12 @@ export default function ShareCreationPage() {
             ) : null}
             <View className="flex-1 min-w-0">
               <Text className="block text-sm font-medium text-foreground truncate">
-                {content.modelName || 'AI 模型'}
+                {content.modelName || t('share.creation.modelDefault')}
               </Text>
               <Text className="block text-xs text-muted-foreground">{fmtTime(content.createdAt)}</Text>
             </View>
             {content.tokenCost ? (
-              <Text className="text-xs text-muted-foreground">消耗 {content.tokenCost} 智汇值</Text>
+              <Text className="text-xs text-muted-foreground">{t('share.creation.tokenCost', { n: content.tokenCost })}</Text>
             ) : null}
           </View>
           {content.userName ? (
@@ -166,7 +168,7 @@ export default function ShareCreationPage() {
 
         {answer.thinking ? (
           <View className="mx-3 mt-2 bg-card rounded-lg p-4">
-            <Text className="block text-xs text-muted-foreground mb-2">思考过程</Text>
+            <Text className="block text-xs text-muted-foreground mb-2">{t('share.creation.thinkingProcess')}</Text>
             <Text className="block text-xs text-foreground whitespace-pre-wrap">
               {answer.thinking}
             </Text>
@@ -174,7 +176,7 @@ export default function ShareCreationPage() {
         ) : null}
 
         <View className="mx-3 mt-2 bg-card rounded-lg p-4">
-          <Text className="block text-xs text-muted-foreground mb-2">AI 回答</Text>
+          <Text className="block text-xs text-muted-foreground mb-2">{t('share.creation.aiAnswer')}</Text>
           {answer.text ? (
             <Text className="block text-sm text-foreground whitespace-pre-wrap leading-relaxed">
               {answer.text}
@@ -207,7 +209,7 @@ export default function ShareCreationPage() {
           ) : null}
           {answer.audio?.url ? (
             <View className="mt-3 p-2 bg-muted rounded-md flex items-center">
-              <Text className="text-xs text-foreground flex-1">🔊 语音回答</Text>
+              <Text className="text-xs text-foreground flex-1">{t('share.creation.voiceAnswer')}</Text>
               <Text className="text-xs text-muted-foreground">
                 {answer.audio.duration ? `${answer.audio.duration}s` : ''}
               </Text>
@@ -235,13 +237,13 @@ export default function ShareCreationPage() {
             className="flex-1 text-sm rounded-md !bg-primary !text-white"
             onClick={onRegenerate}
           >
-            再生成一个
+            {t('share.creation.regenerate')}
           </Button>
           <Button
             className="flex-1 text-sm rounded-md !bg-muted !text-foreground"
             onClick={onShareFriend}
           >
-            分享给好友
+            {t('share.creation.shareFriend')}
           </Button>
         </View>
       </ScrollView>
