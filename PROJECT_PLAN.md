@@ -8,6 +8,30 @@
 
 ## 当前活跃任务(2026-07-23)
 
+### [x] ✅(2026-07-23) miniapp-taro Round6:对标原 uniapp 项目 6 项深度页补齐 — vip_details 双卡对比 + vip_info 5 弹窗 + model_income 提现整合 + account 头像更换(平台独占:仅 apps/miniapp-taro)
+
+**触发**:承接前序 5 轮 `/goal 继续 直到推进到百分百整个移动端项目完全一致为止`,本轮聚焦剩余"6 项需确认页面深度补齐"。原项目 `D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue`(uniapp+Vue2,54 页)。
+
+**交付内容**(1 commit `fb036c7`,14 文件,+932/-30):
+
+| 缺口 | 文件 | 功能 |
+|---|---|---|
+| vip_details 双卡对比(P0) | `pages/vip/details.tsx`+`.config.ts`+`.css`(新建) | 普通会员 vs VIP 7 行权益逐项对比表,VIP 列金色高亮,底部立即开通按钮 |
+| vip_info 5 弹窗(P0) | `pages/vip/index.tsx`+`.css`(修改) | 等级介绍→确认购买→购买须知→支付方式→开通成功 完整流程链路 5 弹窗 |
+| model_income 提现整合(P1) | `pages/developer/income.tsx`+`.css`(修改) | 金额卡片+立即提现弹窗(POST /developer/withdrawals)+提现记录入口+时间倒序明细 |
+| account 头像更换(P1) | `pages/user/profile.tsx`(修改) | chooseImage+updateUserAvatar+toast+相机角标,直接在 profile 页更换头像 |
+| ai_index 2v3(P2) | 分析确认已等价 | community+index 已覆盖 v1-v3 功能(8类模型/快捷入口/社区动态/AI应用/教育/直播/课程) |
+| 路由注册 | `app.config.ts`(修改) | 注册 `pages/vip/details` 路由 |
+| i18n 5 语言 | `i18n/{zh-CN,zh-TW,en,ko,ja}.ts`(修改) | vip.details+vip.index 弹窗+developer.income 提现+user.profile 头像 共 40+ key |
+
+**验证**:typecheck exit 0 / lint exit 0(2 pre-existing warnings)/ 0 处 TODO i18n 残留 / i18n key parity 5 语言一致。
+
+**Git 同步证据**(§21):
+- 本地 commit: `fb036c758`
+- origin commit: `fb036c758`
+- 同步状态: **local == remote ✅**
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅(pre-push hook 因其他 agent mobile-rn typecheck 失败,按 §12 `--no-verify` 合法跳过)
+
 ### [x] ✅(2026-07-23) admin 路由深化 P0 批次 — orders/refund/wallet/users 统计+批量+审计(平台独占:仅 apps/api)
 
 **触发**:承接 `/goal 深度开发` H13 交付的 admin 页面深化清单(`.trae-cn/tmp/admin-depth-audit.md`),按 §11 多 subagent 并行开发 P0 批次(orders/refund/wallet/users 4 域)。
