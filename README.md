@@ -1744,6 +1744,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - 生产容器 `Dockerfile.api` 已 `COPY docs/ ./docs`,部署后即可访问
 - **markdown 图片代理**:后端 `GET /api/feature-center/documents/asset/*` 端点返回 docs/ 下的图片字节(png/jpg/gif/webp/svg),前端 ReactMarkdown 的 `img` 组件把相对路径 `./images/x.png` 改写为 `/api/feature-center/documents/asset/<dirBase>/images/x.png`,使文档预览时图片可正常显示(权限与文档一致:子目录全公开,顶层需管理员)
 - **markdown 内部链接导航**:ReactMarkdown 的 `a` 组件拦截 `.md` 相对链接(`./xxx.md` / `../xxx.md` / `dir/xxx.md`),通过 `resolveMdLink()` 基于 displaySlug 推导目标 slug(支持 `./` 同级、`../` 上级回退、无前缀同级),点击时加载目标文档内容替换预览(不跳转 URL),支持"返回原文"按钮回退;外部 http(s) 链接正常新窗口打开
+- **预览 TOC 侧边栏**:从 markdown `##`/`###` 标题自动提取目录(extractToc),h2/h3 组件注入 id(slugifyHeading),TOC 项按层级缩进(level-2)*12px,点击 `scrollIntoView({behavior:'smooth'})` 滚动定位,内容滚动时 `onScroll` 高亮当前可视标题(bg-primary/10 + text-primary);TOC 仅 md+ 屏幕显示,无标题时不渲染
 
 **权限分级(防越线)**:`docs/**/*.md` 按位置分两级:
 - **子目录文档全公开**(`developer/*` / `user/*` / `enterprise-service/*`):用户指南、开发者 API 文档、企业服务白皮书等
