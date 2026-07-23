@@ -1,34 +1,26 @@
-.privacy-page {
+.protocol-page {
   height: 100vh;
   background: var(--color-card);
 }
 
-.privacy-content {
+.protocol-content {
   padding: 32rpx 32rpx 60rpx;
 }
 
-.privacy-main-title {
+.protocol-main-title {
   display: block;
   font-size: 40rpx;
   font-weight: 700;
   color: var(--color-foreground);
   text-align: center;
-  margin-bottom: 20rpx;
+  margin-bottom: 32rpx;
 }
 
-.privacy-update-time {
-  display: block;
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
-  text-align: center;
-  margin-bottom: 12rpx;
-}
-
-.privacy-section {
+.protocol-section {
   margin-bottom: 40rpx;
 }
 
-.privacy-subtitle {
+.protocol-subtitle {
   display: block;
   font-size: 32rpx;
   font-weight: 700;
@@ -36,11 +28,11 @@
   margin-bottom: 20rpx;
 }
 
-.privacy-paragraph-wrap {
+.protocol-paragraph-wrap {
   margin-bottom: 20rpx;
 }
 
-.privacy-paragraph-title {
+.protocol-paragraph-title {
   display: block;
   font-size: 30rpx;
   font-weight: 600;
@@ -48,7 +40,7 @@
   margin-bottom: 16rpx;
 }
 
-.privacy-paragraph {
+.protocol-paragraph {
   display: block;
   font-size: 28rpx;
   color: var(--color-foreground);

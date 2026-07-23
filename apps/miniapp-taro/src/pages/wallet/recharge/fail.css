@@ -1,0 +1,151 @@
+.rf-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding-bottom: 80rpx;
+}
+
+.rf-head {
+  padding: 120rpx 60rpx 60rpx;
+  text-align: center;
+}
+.rf-icon {
+  width: 160rpx;
+  height: 160rpx;
+  margin: 0 auto;
+  border-radius: 16rpx;
+  background: rgba(255, 59, 59, 0.12);
+  border: 2rpx solid rgba(255, 59, 59, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rf-icon-mark {
+  font-size: 80rpx;
+  color: var(--color-destructive);
+  line-height: 1;
+}
+.rf-title {
+  display: block;
+  font-size: 36rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
+  margin-top: 32rpx;
+}
+.rf-desc {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 12rpx;
+  line-height: 1.6;
+}
+
+.rf-hint {
+  margin: 0 32rpx 24rpx;
+  padding: 24rpx 28rpx;
+  background: rgba(245, 158, 11, 0.08);
+  border-radius: 12rpx;
+}
+.rf-hint-title {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-warning);
+  font-weight: 600;
+  margin-bottom: 12rpx;
+}
+.rf-hint-text {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.6;
+}
+
+.rf-card {
+  margin: 24rpx 32rpx;
+  padding: 8rpx 32rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+}
+.rf-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 28rpx 0;
+  gap: 24rpx;
+}
+.rf-row + .rf-row {
+  margin-top: 8rpx;
+}
+.rf-row-label {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
+}
+.rf-row-value {
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  text-align: right;
+  word-break: break-all;
+}
+.rf-row-value--reason {
+  color: var(--color-destructive);
+  font-size: 24rpx;
+}
+.rf-row-value--mono {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.rf-row-value--amount {
+  color: var(--color-foreground);
+  font-weight: 600;
+}
+
+.rf-actions {
+  padding: 48rpx 60rpx 0;
+}
+.rf-btn {
+  margin-top: 24rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  text-align: center;
+  border: none;
+  padding: 0;
+}
+.rf-btn::after {
+  border: none;
+}
+.rf-btn--primary {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+.rf-btn--ghost {
+  background: var(--color-card);
+  color: var(--color-foreground);
+  border: 2rpx solid var(--color-border);
+}
+.rf-btn--contact {
+  background: transparent;
+  color: var(--color-muted-foreground);
+  font-size: 26rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+}
+
+.rf-faq {
+  margin: 32rpx 32rpx 0;
+  padding: 24rpx 28rpx;
+  background: var(--color-card);
+  border-radius: 12rpx;
+}
+.rf-faq-q {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
+  margin-bottom: 12rpx;
+}
+.rf-faq-a {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.6;
+}
