@@ -8,6 +8,24 @@
 
 ## 当前活跃任务(2026-07-22)
 
+### [x] ✅(2026-07-23) miniapp-taro SSE done 事件 tokenCount 打通(平台独占:仅 miniapp-taro)
+
+**触发**:延续"功能一模一样"对标原 ai_assistant.vue,ChatMessageItem 的 tokenCount 字段已声明但无数据流入。深度排查发现:ai-service `/api/llm/complete/stream` **已在 `event:done` 中下发 `usage.total_tokens`**,但前端 `parseSSEChunk` 在 L47 直接丢弃 `event:` 行,导致 done 事件的 JSON 被当作无 type 字段处理 → return null → **usage 数据完全丢失**。
+
+**根因**:parseSSEChunk 是逐行解析的简化实现,不识别 SSE 标准的 `event:` + `data:` 配对;done 事件的 JSON `{"type":"done","usage":{...}}` 因 parseLine 无 done 分支被丢弃。
+
+**修复内容**(3 文件,纯前端,无需改后端 — api 已透传 + ai-service 已下发):
+
+| 文件 | 变更 |
+|---|---|
+| `apps/miniapp-taro/src/utils/sse-parse.ts` | SSEEvent 接口新增 `usage?` + `model?` 字段;parseLine 新增 `json.type === 'done'` 分支,从 `usage.prompt_tokens/completion_tokens/total_tokens` 映射到 `usage.promptTokens/completionTokens/totalTokens`(snake → camel) |
+| `apps/miniapp-taro/src/api/index.ts` | chatStream 第9参新增 `onDone?: (info: {totalTokens?, promptTokens?, completionTokens?, model?}) => void`;dispatch 处理 `evt.type === 'done'` 调用 onDone |
+| `apps/miniapp-taro/src/pages/ai/chat.tsx` | chatStream 调用末尾传入 onDone 回调,把 `doneInfo.totalTokens` 写入最后一条 assistant 消息的 `tokenCount` 字段(对标原 ai_assistant.vue `this.$set(agent_content_list[idx], 'total_tokens', obj.total_tokens)`) |
+
+**images/videos 字段说明**:ChatMessage 接口保留 images/videos 字段供未来扩展,但当前架构下图片/视频生成是独立 API(generateImageDashscope / generateVideoKling 等),不在 chat stream 中下发,无需 SSE 扩展。
+
+**验证**:miniapp-taro typecheck exit 0 ✅。
+
 ### [x] ✅(2026-07-23) 前端冗余页面整合 P0(平台独占:仅 web 端)
 
 **触发**:用户要求"本项目有没有重复冗余页面,可以整合的尽量整合"。深度分析 200+ 页面后发现 10 组严重重复,本次执行 P0 批次。
@@ -72,6 +90,8 @@
 
 **Git 同步证据**:本地 commit e083d7ec9 → origin/main 93a28d0d2(local == remote ✅)。
 
+<!-- 已归档(2026-07-23):前端冗余页面整合 P3:settings 6 孤儿页面清理(平台独占:仅 web 端),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
+
 <!-- 已归档(2026-07-23):多 Agent 并行提效全栈打通(跨端:packages/types + ai-service + cli + api ...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-22):多 Agent 并行提效全栈打通任务原始计划(触发/目标/现状/验证标准/约束边界),完整内容已浓缩为上方交付摘要 -->
 <!-- 已归档(2026-07-22):首屏侧边栏自身 width 跳变修复(承接 061b83d79 / 54a8f8256 残留),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
@@ -82,34 +102,31 @@
 <!-- 已归档(2026-07-23):WorkerPool/CLI 子进程并行深度审查 + 11 项遗留缺陷修复(跨端:packages/types + ai...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-23):CLI 配置导入扩展至 24 源 + Google Antigravity + URL/协议深度修正 + 20 测试(跨...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-23):CLI 导入 providerCode/apiFormat 推断逻辑深度修正 + README §22 同步(跨端:pa...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-23):CLI 导入 4 独立解析器综合测试深度覆盖(cursor/windsurf/cline/aider 共 140 用例,...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-### [x] ✅(2026-07-22) 大模型排行榜深度优化五轮:highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证(平台独占:仅 apps/web)
+<!-- 已归档(2026-07-23):CLI 导入 4 独立解析器综合测试深度覆盖(cursor/windsurf/cline/aider 共 140 用例,...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->---
+<!-- 已归档(2026-07-23):大模型排行榜深度优化六轮:能力标签阈值配置化 + ModelDetailDialog 高亮延续(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
-**触发**:用户要求"继续按你的建议去做执行,最多 agent 并行开发最大化效率,完美细致完整毫无遗漏"。承接四轮交付后的 2 条"下一步建议"。
+---
+### [x] ✅(2026-07-23) ai-news 组件深度优化七轮:TrendChartDialog 无障碍闭环 + EmptyState 统一组件(平台独占:仅 apps/web)
 
-**交付内容**(1 commit,6 文件,平台独占:仅 apps/web):
+**触发**:用户要求"继续深度开发"。通过 search subagent 分析 8 个 ai-news 组件,识别 5 个高价值优化点,本轮实施 2 项 P0/P1。
+
+**交付内容**(1 commit,4 文件,平台独占:仅 apps/web):
 
 | 模块 | 文件 | 改动 |
 |---|---|---|
-| 共享 utils | `apps/web/app/(main)/ai-news/components/text-utils.tsx`(新建) | 提取 `parseNumeric` + `highlight` 到共享文件,跨组件复用 |
-| Leaderboard | `apps/web/app/(main)/ai-news/components/Leaderboard.tsx` | 删除本地 parseNumeric/highlight 定义,改为从 text-utils 导入 + re-export 向后兼容 |
-| PriceChart | `apps/web/app/(main)/ai-news/components/PriceChart.tsx` | 导入路径从 `./Leaderboard` 改为 `./text-utils` |
-| ModelCompareDialog | `apps/web/app/(main)/ai-news/components/ModelCompareDialog.tsx` | 导入路径从 `./Leaderboard` 改为 `./text-utils` |
-| ApiRelaysSection | `apps/web/app/(main)/ai-news/components/ApiRelaysSection.tsx` | 从 text-utils 导入 highlight + 应用到平台名/特点/计费/厂商标签(4 处) |
-| 文档 | `docs/AI_LEADERBOARD.md` | 3.2 搜索关键词高亮说明 |
+| TrendChartDialog | `apps/web/app/(main)/ai-news/components/TrendChartDialog.tsx` | WCAG 无障碍闭环:role=dialog + aria-modal + aria-labelledby + ESC 键监听 + focus trap(Tab/Shift+Tab 循环)+ 焦点还原 + 关闭按钮 ref/aria-label + SVG role=img/aria-label |
+| EmptyState(新建) | `apps/web/app/(main)/ai-news/components/EmptyState.tsx` | 空状态统一组件(图标+文案+可选提示+可选操作) |
+| HotRanking | `apps/web/app/(main)/ai-news/components/HotRanking.tsx` | return null → EmptyState 替换 |
+| FundingSection | `apps/web/app/(main)/ai-news/components/FundingSection.tsx` | return null → EmptyState 替换 |
 
-**自验**:
-- typecheck:本任务 5 文件全绿 ✅(其他错误属其他 agent 代码)
-- browser_use 验证(2 轮全 PASS):
-  - Leaderboard 搜索高亮 + 空状态 9 项全 PASS(markCount=2,className 包含 bg-yellow-200/70 + dark:bg-yellow-500/30,清空筛选按钮功能正常)
-  - ApiRelaysSection 搜索高亮 4 项全 PASS(平台名/特点/计费/厂商标签 4 处高亮,清空后 mark 消失,dark mode 适配)
-- §13 文件持久化:全部 Edit 已 Grep 验证落地 ✅
+**i18n**:5 语言 hotRanking.empty / trendChart.close / funding.empty 共 15 key 由其他 agent 已 commit(HEAD 中已存在)。
 
-**Git 同步证据**(§21):
-- 本地 commit: `09690e799` refactor(ai-news): highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证通过
-- origin commit: `09690e799`
-- 同步状态: **local == remote ✅**(HEAD = origin/main = 09690e799)
-- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
+**自验**:typecheck 本任务 4 文件全绿 ✅ / i18n parity 5 语言一致 ✅ / §13 Grep 10 处关键属性落地 ✅
+
+**Git 同步证据**(§21):本地 commit `54aa3c6` == origin `54aa3c6` ✅ / git-push-guard exit 0 ✅
+
+---
+<!-- 已归档(2026-07-23):大模型排行榜深度优化五轮:highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ---
 <!-- 已归档(2026-07-23):大模型排行榜深度优化四轮:搜索关键词高亮 + 空状态优化 + i18n 5 语言同步(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
@@ -310,6 +327,66 @@
 - 同步状态: **local == remote ✅**
 - 守门脚本: git-push-guard exit 0(pre-push hook 因 packages/types import 错误 + schema drift 15 表缺失 migration 失败,其他 agent 引入,按 §12 `--no-verify` 合法跳过)
 
+### [x] ✅(2026-07-23) 补齐 P3 context_engine 零覆盖核心模块 162 cases + 修复 7 bug(平台独占:仅 ai-service)
+
+**触发**:用户连续"继续深度开发"。补齐 P3 深度层上下文引擎核心模块零覆盖(context_engine.py 1772 行源码,智能压缩 + RAG 检索 + context window 管理 + 多源融合 + 行为学习 + 可视化)。
+
+**交付内容**(2 文件):
+| 文件 | 类型 | 说明 |
+|---|---|---|
+| `apps/ai-service/app/services/context_engine.py` | Fix | 修复 7 个真实 bug(详见下方) |
+| `apps/ai-service/tests/test_context_engine.py` | Test | 24 TestClass / 162 用例 / 1502 行 |
+
+**修复 7 个源码 bug**:
+1. `import os` 缺失(line 744 用了 `os.path.splitext` → NameError)
+2. 7 个未定义模块常量:`_REDIS_KEY_BEHAVIOR` / `_REDIS_KEY_COMPRESSION` / `_REDIS_KEY_SUMMARY` / `_REDIS_KEY_VIZ` / `COMPRESSION_HISTORY_LIMIT` / `VIZ_HISTORY_LIMIT` / `_BEHAVIOR_BOOST_BANDS`
+3. `__init__` 未初始化 `self._user_behavior` / `self._compression_events` / `self._redis_client`
+4. `_merge_context` 缺 `user_id` 参数(line 564 调用传了 → TypeError)
+5. `_allocate_budget` 缺 `task_type` 参数(line 611 调用传了 → TypeError)
+6. `_detect_task_type` 方法未定义(line 483/610 调用 → AttributeError)
+7. `_get_redis` 方法未定义(多处调用 → AttributeError)
+
+**覆盖维度**(24 TestClass,162 tests):
+
+| TestClass | 用例数 | 覆盖点 |
+|---|---|---|
+| TestConstants | 9 | COMPACTION_THRESHOLD/KEEP_RECENT_COUNT/CHARS_PER_TOKEN/DEFAULT_BUDGET/SOURCE_BUDGET_RATIOS 和为1/5 keys/history 占比最大/COMPRESSION_HISTORY_LIMIT/VIZ_HISTORY_LIMIT |
+| TestDataclasses | 4 | CompactionResult 默认+带 summary/RetrievedContext 默认+完整 |
+| TestCountTokens | 8 | 空消息/单条/多条/缺失 content/中文/count_text_tokens 空+非空+中文 |
+| TestCompact | 6 | 未达阈值/达阈值触发/短消息不压缩/0 limit/缓存命中/summary 格式 |
+| TestRetrieveAndEnrich | 9 | 空 query/whitespace/不足消息/history 成功+embedding None+异常/include_codebase False/codebase 成功+异常 |
+| TestSearchCodebase | 4 | import 失败/成功/空 chunks/缺 content |
+| TestMergeContext | 8 | 空/单条/去重/排序/截断/跳过空/缺失 relevance/user_id |
+| TestAllocateBudget | 6 | 空/全未知/单源归一化/两源归一化/5 源/task_type |
+| TestMentionToContent | 9 | file+无 meta path/folder/database+无 schema/symbol/web/未知/空 |
+| TestEnrichContext | 8 | 空 mentions+query/mentions only/with RAG/task_type code+data/symbol 签名增强/行为记录/RAG 异常降级 |
+| TestManageWindow | 6 | 空/未超限/超限截断/无 system/active_sources 预算/0 available |
+| TestSummarize | 3 | LLM 成功/异常降级/空 content 降级 |
+| TestCosineSimilarity | 5 | 相同/正交/空/不同长度/0 向量 |
+| TestMakeCacheKey | 4 | 稳定/不同消息不同 key/长 content 截断/空消息 |
+| TestDetectTaskType | 7 | 空/whitespace/code/data/chat/default/大小写 |
+| TestGetRedis | 3 | 无 settings/已设置/import 失败 |
+| TestExtractSymbolSignature | 4 | 不支持扩展名/不存在文件/Python 函数/符号未找到 |
+| TestFormatSignature | 5 | 空/基本函数/类+父类+接口/docstring/参数默认值 |
+| TestExtractSignatureRegex | 5 | Python 函数+类/TS 函数/未找到/不支持语言 |
+| TestUserBehavior | 11 | 无 user_id/无 file_path/内存降级/无 symbol/boost 0/低分段/高分段/偏好空+排序+limit |
+| TestCompressionQuality | 9 | 评估空消息+空 summary/LLM 成功+异常+非数字/记录内存+global/统计空+有事件 |
+| TestSessionMemory | 8 | persist 空 conv_id+空 summary+无 Redis/load 空+无 Redis/get_session_memory 空/clear 空+无 Redis |
+| TestVisualization | 5 | record 空 conv_id+空 data+无 Redis/get 空+无 Redis |
+| TestEndpoints | 10 | router/EnrichRequest 默认+校验/enrich 成功+异常/sources/track visualization/visualization/compression-stats/memory/clear memory |
+| TestSingleton | 5 | 单例存在+summary_cache+user_behavior+compression_events+redis_client |
+
+**验证**:
+- pytest test_context_engine.py → **162 passed in 6.00s** ✅
+- 平台独占豁免(§9):仅触及 apps/ai-service/,属 ai-service 平台独占(测试 + ai-service 内部 bug 修复,不改 API 契约/schema/共享类型/共享 UI)
+- README 同步豁免(§22):纯测试 + bug 修复,不改变对外能力清单
+
+**Git 同步证据**(§21):
+- 本地 commit: `aa73d3ee1`
+- origin commit: `aa73d3ee1`
+- 同步状态: **local == remote ✅**
+- 守门脚本: git-push-guard exit 0(pre-push hook 因 packages/sdk @ihui/types 找不到失败,其他 agent 引入,按 §12 `--no-verify` 合法跳过)
+
 ---
 
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) 旧架构 edu-web 函数名桥接层 + 8 模块类型补齐(承接 /goal 继续推进到极致,平台独占:仅 types/ap...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
@@ -386,3 +463,29 @@
 - [x] ✅(2026-07-23) 修复 zh-TW 简体残留 2 处(Agent 工作台 → Agent 工作臺)。
 - [x] ✅(2026-07-23) 文档同步:AGENTS.md 守门速查表第 2 项 + README i18n 章节 + 本文件记录。
 - [x] ✅(2026-07-23) 验证:check-i18n-keys exit 0(parity OK)/ scan-zh-residue zh-TW exit 0 / check-broken-en exit 0 / 5 JSON valid。
+
+<!-- 已归档(2026-07-23):miniapp-taro 页面功能对标原 uniapp 项目:tabBar 5 tab + 智汇社区页 + ranking/detail + setting/privacy + profile 身份标签(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
+
+<!-- 已归档(2026-07-23):miniapp-taro ChatMessageItem 增强:对标原 ai_assistant.vue 渲染层核心功能(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
+
+<!-- 已归档(2026-07-23):miniapp-taro 智能体引导说明:对标原 ai_assistant.vue tishi_block + tishi_box(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
+
+## WorkerPool 资源隔离与超时处理 22 项缺陷修复(已完成 ✅ 2026-07-23,跨端:cli+ai-service)
+
+> 3 个审查 subagent 发现 22 项缺陷(egress-guard 13 + worker-entry/pool 6 + dag_scheduler 3),本轮全部修复 + 四层防护集成测试 6/6 PASS。
+
+- [x] ✅(2026-07-23) egress-guard.ts(13 项):P0 patch http/https 模块全栈(不仅 fetch)+ P1 FAIL-CLOSED/协议白名单/uninstall 身份守卫/独立 try-catch + P2 裸域/IP 跳过通配符/IPv6 loopback 完整形式。
+- [x] ✅(2026-07-23) worker-entry.ts(6 项):P0 exit 前双写 stdout(JSON)+ stderr(纯文本)+ P1 heartbeat 与 CPU 轮询拆分独立 try-catch/process.resourceUsage 跨平台(typeof 守卫)+ P2 负数 limit 校验。
+- [x] ✅(2026-07-23) worker-pool.ts:parseWorkerStdout 字段容错(text/message/payload)+ exit 3/4 语义区分(OOM/CPU_LIMIT)+ error 前缀。
+- [x] ✅(2026-07-23) dag_scheduler.py(缺陷 1+2):缺陷 1 启动阶段 res_monitor.start()/executor_task 包裹 try/except,异常时清理四资源(watchdog/net_token/res_monitor/worktree)+ 缺陷 2 三个 except 块追加 res_monitor.terminated 检查,标记 [RESOURCE_LIMIT]。
+- [x] ✅(2026-07-23) network_guard.py(4 项跨端对齐):FAIL-CLOSED(unknown mode)+ 协议白名单(非 http/https 拒绝)+ 裸域(*.example.com 不匹配裸域)+ IPv6 loopback 完整形式。
+- [x] ✅(2026-07-23) 新建 test_dag_worker_pool_four_layer_defense.py:四层防护(watchdog + worktree + resource_monitor + network_guard)6 场景集成测试 6/6 PASS(10.57s)。
+- [x] ✅(2026-07-23) 验证:CLI typecheck egress-guard/worker-entry/worker-pool 0 错误(10 个 TS 错误已修复)+ ai-service py_compile OK + pytest 6/6 PASS。
+
+**Git 同步证据**(§21):
+- 本地 commit: `8ceb3421b` fix(subagents): WorkerPool 资源隔离与超时处理 22 项缺陷修复
+- origin commit: `8ceb3421b`
+- 同步状态: **local == remote ✅**(HEAD = origin/main = 8ceb3421b)
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅(pre-push hook 因 packages/sdk TS2307 失败,按 §12 --no-verify 跳过,本任务文件 typecheck 全绿)
+
+> §22 豁免:纯 bug 修复(不改变对外能力清单),不更新 README。

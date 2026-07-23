@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
@@ -50,6 +51,25 @@ SOURCE_BUDGET_RATIOS: dict[str, float] = {
     "web": 0.05,
     "database": 0.05,
 }
+
+# Redis key 前缀(2026-07-22 深化立)
+_REDIS_KEY_BEHAVIOR = "context:behavior"
+_REDIS_KEY_COMPRESSION = "context:compression"
+_REDIS_KEY_SUMMARY = "context:summary"
+_REDIS_KEY_VIZ = "context:viz"
+
+# 历史/可视化记录上限
+COMPRESSION_HISTORY_LIMIT = 100
+VIZ_HISTORY_LIMIT = 100
+
+# 用户行为 boost 分段(2026-07-22 深化立)
+# (count_low, count_high, boost_low, boost_high)
+_BEHAVIOR_BOOST_BANDS: list[tuple[int, int, float, float]] = [
+    (0, 0, 0.0, 0.0),
+    (1, 5, 0.1, 0.3),
+    (6, 20, 0.3, 0.6),
+    (21, 100000, 0.6, 1.0),
+]
 
 
 @dataclass
@@ -87,6 +107,12 @@ class ContextEngine:
 
     def __init__(self) -> None:
         self._summary_cache: dict[str, str] = {}
+        # 用户行为记录(内存降级):{file:symbol: count}
+        self._user_behavior: dict[str, int] = {}
+        # 压缩事件历史(内存降级)
+        self._compression_events: list[dict[str, Any]] = []
+        # Redis 客户端(惰性创建)
+        self._redis_client: Any = None
 
     def count_tokens(
         self,
@@ -308,6 +334,7 @@ class ContextEngine:
         self,
         sources: list[dict[str, Any]],
         total_budget: int = DEFAULT_CONTEXT_BUDGET,
+        user_id: str = "",
     ) -> list[dict[str, Any]]:
         """多源上下文融合:按相关性排序 + 去重 + token 截断(2026-07-22 立)。
 
@@ -366,6 +393,7 @@ class ContextEngine:
         self,
         sources: list[str],
         total: int = DEFAULT_CONTEXT_BUDGET,
+        task_type: str = "default",
     ) -> dict[str, int]:
         """按源类型分配 token 预算(2026-07-22 立)。
 
@@ -381,6 +409,7 @@ class ContextEngine:
         Args:
             sources: 实际参与的源类型列表(如 ["history", "codebase", "mention"])。
             total: 总 token 预算。
+            task_type: 任务类型(code/chat/data/default,预留用于未来动态调整比例)。
 
         Returns:
             {source_type: budget_tokens} 映射(仅含实际参与的源)。
@@ -698,6 +727,56 @@ class ContextEngine:
 
         raw = "|".join(str(m.get("content", ""))[:100] for m in messages)
         return hashlib.md5(raw.encode("utf-8")).hexdigest()
+
+    # ------------------------------------------------------------------
+    # 任务类型检测 + Redis 客户端(2026-07-23 补齐)
+    # ------------------------------------------------------------------
+
+    def _detect_task_type(self, message: str) -> str:
+        """检测用户消息的任务类型(code/chat/data/default)。"""
+        if not message or not message.strip():
+            return "default"
+        lower = message.lower()
+        code_keywords = [
+            "代码", "函数", "实现", "bug", "修复", "refactor", "code",
+            "function", "implement", "fix", "class", "方法", "接口",
+        ]
+        if any(kw in lower for kw in code_keywords):
+            return "code"
+        data_keywords = [
+            "数据", "查询", "统计", "报表", "data", "query", "stats",
+            "report", "sql", "数据库",
+        ]
+        if any(kw in lower for kw in data_keywords):
+            return "data"
+        chat_keywords = [
+            "聊天", "对话", "聊聊", "chat", "talk", "你好", "hello",
+        ]
+        if any(kw in lower for kw in chat_keywords):
+            return "chat"
+        return "default"
+
+    async def _get_redis(self) -> Any:
+        """获取 Redis 客户端(惰性从 settings 创建,降级 None)。"""
+        if self._redis_client is not None:
+            return self._redis_client
+        try:
+            from ..core.config import settings
+            if not getattr(settings, "redis_url", ""):
+                return None
+            try:
+                import redis.asyncio as aioredis  # type: ignore[import-not-found]
+            except ImportError:
+                return None
+            self._redis_client = aioredis.from_url(
+                settings.redis_url, decode_responses=True
+            )
+            await self._redis_client.ping()
+            return self._redis_client
+        except Exception as e:
+            logger.debug("Redis 不可用,降级内存: %s", e)
+            self._redis_client = None
+            return None
 
     # ------------------------------------------------------------------
     # AST 符号签名提取(2026-07-22 深化立)

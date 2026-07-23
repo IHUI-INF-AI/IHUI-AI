@@ -1,6 +1,6 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useRouter, useDidShow } from '@tarojs/taro'
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   chatStream,
   type ChatMessage,
@@ -36,6 +36,8 @@ interface AgentInfo {
   desc: string
   avatar?: string
   prompt: string
+  /** 智能体开场白(对标原 ai_assistant.vue prologue,引导说明内容) */
+  prologue?: string
 }
 
 const MATERIAL_PAGE_SIZE = 20
@@ -48,6 +50,9 @@ export default function ChatPage() {
   const [currentAgentId, setCurrentAgentId] = useState(routeAgentId)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [thinking, setThinking] = useState(false)
+  // 思考进度条(对标原 ai_assistant.vue thinkingProgress:120ms 定时器 +Math.random()*1,上限 99,完成时设 100)
+  const [thinkingProgress, setThinkingProgress] = useState(0)
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [sessionId, setSessionId] = useState('')
   const [currentModel, setCurrentModel] = useState('')
@@ -64,15 +69,49 @@ export default function ChatPage() {
   const [materialTab, setMaterialTab] = useState<MaterialTab>(1)
   const [agentDrawerVisible, setAgentDrawerVisible] = useState(false)
   const [agent, setAgent] = useState<AgentInfo | null>(null)
+  // 智能体引导说明(对标原 ai_assistant.vue tishi_show + tishi_content)
+  const [tishiShow, setTishiShow] = useState(false)
   const [skillsPopupVisible, setSkillsPopupVisible] = useState(false)
   const [agents, setAgents] = useState<AgentItem[]>([])
   const [agentsLoading, setAgentsLoading] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  // 复用问题到输入框(对标原 ai_assistant.vue copyToInput)
+  const [inputValue, setInputValue] = useState('')
+  const [inputKey, setInputKey] = useState(0)
 
   const activeAgentId = currentAgentId || routeAgentId
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => setScrollTop((s) => (s === 99998 ? 99999 : 99998)), 50)
+  }, [])
+
+  /** 启动思考进度定时器(对标原 ai_assistant.vue:120ms +Math.random()*1,上限 99) */
+  const startThinkingProgress = useCallback(() => {
+    setThinkingProgress(0)
+    if (progressTimerRef.current) clearInterval(progressTimerRef.current)
+    progressTimerRef.current = setInterval(() => {
+      setThinkingProgress((p) => (p < 99 ? p + Math.random() * 1 : p))
+    }, 120)
+  }, [])
+
+  /** 停止思考进度定时器(对标原 ai_assistant.vue:完成时设 100,然后清理) */
+  const stopThinkingProgress = useCallback(() => {
+    if (progressTimerRef.current) {
+      clearInterval(progressTimerRef.current)
+      progressTimerRef.current = null
+    }
+    setThinkingProgress(100)
+    setTimeout(() => setThinkingProgress(0), 500)
+  }, [])
+
+  // 组件卸载时清理定时器,避免内存泄漏
+  useEffect(() => {
+    return () => {
+      if (progressTimerRef.current) {
+        clearInterval(progressTimerRef.current)
+        progressTimerRef.current = null
+      }
+    }
   }, [])
 
   const loadModels = useCallback(async () => {
@@ -147,6 +186,7 @@ export default function ChatPage() {
       const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: Date.now() }
       setMessages((prev) => [...prev, userMsg, assistantMsg])
       setThinking(true)
+      startThinkingProgress()
       scrollToBottom()
       const controller = new AbortController()
       abortRef.current = controller
@@ -190,6 +230,19 @@ export default function ChatPage() {
               duration: 2500,
             })
           },
+          // done 回调:把 ai-service event:done 下发的 usage.total_tokens 写入最后一条 assistant 消息
+          // 对标原 ai_assistant.vue obj.total_tokens → this.$set(agent_content_list[idx], 'total_tokens', obj.total_tokens)
+          (doneInfo) => {
+            if (typeof doneInfo.totalTokens === 'number') {
+              setMessages((prev) =>
+                prev.map((m, i) =>
+                  i === prev.length - 1 && m.role === 'assistant'
+                    ? { ...m, tokenCount: doneInfo.totalTokens! }
+                    : m,
+                ),
+              )
+            }
+          },
         )
       } catch (e) {
         if ((e as Error)?.name !== 'AbortError') {
@@ -205,6 +258,7 @@ export default function ChatPage() {
       } finally {
         abortRef.current = null
         setThinking(false)
+        stopThinkingProgress()
         scrollToBottom()
       }
     },
@@ -213,6 +267,8 @@ export default function ChatPage() {
       sessionId,
       messages,
       scrollToBottom,
+      startThinkingProgress,
+      stopThinkingProgress,
       currentModel,
       activeAgentId,
       selectedMaterial,
@@ -222,7 +278,8 @@ export default function ChatPage() {
 
   const stopGeneration = useCallback(() => {
     abortRef.current?.abort()
-  }, [])
+    stopThinkingProgress()
+  }, [stopThinkingProgress])
 
   const handleSuggestion = useCallback(
     (text: string) => {
@@ -296,6 +353,14 @@ export default function ChatPage() {
     Taro.showToast({ title: `上传 Tab${tab} 素材`, icon: 'none' })
   }, [])
 
+  /** 复用问题到输入框(对标原 ai_assistant.vue copyToInput) */
+  const handleReuse = useCallback((question: string) => {
+    if (!question) return
+    setInputValue(question)
+    setInputKey((k) => k + 1)
+    Taro.pageScrollTo({ scrollTop: 100000, duration: 300 })
+  }, [])
+
   const openModelDrawer = useCallback(() => {
     setModelDrawerVisible(true)
     if (!models.length) loadModels()
@@ -328,6 +393,37 @@ export default function ChatPage() {
       </View>
 
       <ScrollView className="msg-list" scrollY scrollTop={scrollTop} scrollWithAnimation>
+        {/* 智能体引导说明(对标原 ai_assistant.vue tishi_block + tishi_box,仅选中智能体时显示) */}
+        {agent ? (
+          <View className="tishi-block" onClick={() => setTishiShow((v) => !v)}>
+            <Text className="tishi-block-icon">{tishiShow ? '✕' : '💡'}</Text>
+            <Text className="tishi-block-text">
+              {tishiShow ? t('ai.tishi.close') : t('ai.tishi.view')} {t('ai.tishi.title')}
+            </Text>
+          </View>
+        ) : null}
+        {agent && tishiShow && agent.prologue ? (
+          <View className="tishi-box">
+            <View className="tishi-title">
+              <Text className="tishi-title-icon">📋</Text>
+              <Text className="tishi-title-text">{t('ai.tishi.needInput')}</Text>
+            </View>
+            <View className="tishi-content">
+              {/* 对标原 v-html tishi_content,prologue 中的 \n 替换为换行展示 */}
+              {agent.prologue
+                .replace(/\\n/g, '\n')
+                .replace(/<br\s*\/?>/g, '\n')
+                .split('\n')
+                .map((line, i) => (
+                  <Text key={i} className="tishi-content-line">
+                    {line}
+                    {'\n'}
+                  </Text>
+                ))}
+            </View>
+          </View>
+        ) : null}
+
         {!messages.length ? (
           <View className="welcome">
             <Text className="welcome-title">{t('ai.welcomeTitle')}</Text>
@@ -343,7 +439,7 @@ export default function ChatPage() {
         ) : null}
 
         {messages.map((msg, idx) => (
-          <ChatMessageItem key={idx} msg={msg} />
+          <ChatMessageItem key={idx} msg={msg} onReuse={handleReuse} />
         ))}
 
         {thinking && messages[messages.length - 1]?.role !== 'assistant' ? (
@@ -351,6 +447,35 @@ export default function ChatPage() {
             <View className="avatar assistant">AI</View>
             <View className="bubble">
               <Text className="bubble-text">{t('ai.thinking')}</Text>
+              {/* 思考进度条(对标原 ai_assistant.vue thinking-progress-container) */}
+              <View
+                className="thinking-progress-container"
+                style={{ position: 'relative', marginTop: '8rpx', height: '36rpx' }}
+              >
+                <View
+                  className="thinking-progress-bar"
+                  style={{
+                    width: `${Math.floor(thinkingProgress)}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #00f2ff, #8b5cf6)',
+                    borderRadius: '4rpx',
+                    transition: 'width 120ms linear',
+                  }}
+                />
+                <Text
+                  style={{
+                    position: 'absolute',
+                    left: '50%',
+                    top: '0',
+                    lineHeight: '36rpx',
+                    transform: 'translateX(-50%)',
+                    color: '#000',
+                    fontSize: '24rpx',
+                  }}
+                >
+                  {Math.floor(thinkingProgress)}%
+                </Text>
+              </View>
             </View>
           </View>
         ) : null}
@@ -375,6 +500,8 @@ export default function ChatPage() {
           </Text>
         </View>
         <InputArea
+          key={inputKey}
+          value={inputValue}
           placeholder={t('ai.inputPlaceholder')}
           disabled={thinking}
           onSend={(text) => sendMessage(text)}
