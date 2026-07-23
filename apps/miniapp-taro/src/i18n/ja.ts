@@ -328,6 +328,22 @@ export default {
     common: {
       loading: '読み込み中…',
     },
+    tishi: {
+      title: 'エージェントガイド',
+      view: '表示',
+      close: '閉じる',
+      needInput: 'より正確なサポートのため、以下の情報を入力してください',
+    },
+    chatMessageItem: {
+      me: '私',
+      ai: 'AI',
+      thinkingProcess: '思考プロセス',
+      noContent: 'コピーする内容がありません',
+      aiGenerated: 'AI生成',
+      tokenCost: 'トークン: {{n}}',
+      reuse: '再利用',
+      copy: 'コピー',
+    },
     inputArea: {
       placeholder: '質問を入力…',
       releaseToSend: '離して送信',
@@ -1055,6 +1071,8 @@ export default {
     logout: 'ログアウト',
     logoutConfirm: 'ログアウトしますか?',
     vipMember: 'VIP会員',
+    admin: '管理者',
+    normalUser: '一般ユーザー',
     tapLogin: 'タップしてログイン',
     loginHint: 'ログインで更多サービス',
     menu: {
@@ -1066,6 +1084,7 @@ export default {
       ai: 'AI アシスタント',
       settings: '設定',
     },
+    identity: '身份',
     avatar: {
       updateSuccess: 'アバター更新',
       choose: 'アバター選択',
