@@ -597,6 +597,81 @@ fn mime_from_extension(path: &str) -> String {
     }
 }
 
+// ================== 窗口状态持久化 ==================
+
+use tauri_plugin_store::StoreExt;
+
+const WINDOW_STORE_FILE: &str = "window-state.json";
+const KEY_WIN_X: &str = "window.x";
+const KEY_WIN_Y: &str = "window.y";
+const KEY_WIN_W: &str = "window.width";
+const KEY_WIN_H: &str = "window.height";
+const KEY_WIN_MAX: &str = "window.maximized";
+
+/// 保存主窗口当前位置 / 尺寸 / 最大化状态到 store。
+#[tauri::command]
+fn save_window_state(app: tauri::AppHandle) -> Result<OkResult, String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "main window not found".to_string())?;
+    let store = app
+        .store(WINDOW_STORE_FILE)
+        .map_err(|e| e.to_string())?;
+    let pos = window.outer_position().map_err(|e| e.to_string())?;
+    let size = window.outer_size().map_err(|e| e.to_string())?;
+    let maximized = window.is_maximized().unwrap_or(false);
+    store.set(KEY_WIN_X, pos.x);
+    store.set(KEY_WIN_Y, pos.y);
+    store.set(KEY_WIN_W, size.width);
+    store.set(KEY_WIN_H, size.height);
+    store.set(KEY_WIN_MAX, maximized);
+    store.save().map_err(|e| e.to_string())?;
+    Ok(OkResult { ok: true })
+}
+
+/// 从 store 恢复主窗口位置 / 尺寸 / 最大化状态(应用启动时调用)。
+#[tauri::command]
+fn restore_window_state(app: tauri::AppHandle) -> Result<OkResult, String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "main window not found".to_string())?;
+    let store = app
+        .store(WINDOW_STORE_FILE)
+        .map_err(|e| e.to_string())?;
+    // 优先恢复最大化状态
+    if let Some(true) = store.get(KEY_WIN_MAX).and_then(|v| v.as_bool()) {
+        let _ = window.maximize();
+        return Ok(OkResult { ok: true });
+    }
+    let x = store.get(KEY_WIN_X).and_then(|v| v.as_i64());
+    let y = store.get(KEY_WIN_Y).and_then(|v| v.as_i64());
+    let w = store.get(KEY_WIN_W).and_then(|v| v.as_u64());
+    let h = store.get(KEY_WIN_H).and_then(|v| v.as_u64());
+    if let (Some(x), Some(y), Some(w), Some(h)) = (x, y, w, h) {
+        use tauri::PhysicalPosition;
+        use tauri::PhysicalSize;
+        // 先设置 size,再设置 position,避免最大化状态下 set_position 失效
+        let _ = window.set_size(PhysicalSize::new(w as u32, h as u32));
+        let _ = window.set_position(PhysicalPosition::new(x as i32, y as i32));
+    }
+    Ok(OkResult { ok: true })
+}
+
+/// 重置窗口状态(清除 store 中的窗口记录,下次启动用默认尺寸)。
+#[tauri::command]
+fn reset_window_state(app: tauri::AppHandle) -> Result<OkResult, String> {
+    let store = app
+        .store(WINDOW_STORE_FILE)
+        .map_err(|e| e.to_string())?;
+    store.delete(KEY_WIN_X);
+    store.delete(KEY_WIN_Y);
+    store.delete(KEY_WIN_W);
+    store.delete(KEY_WIN_H);
+    store.delete(KEY_WIN_MAX);
+    store.save().map_err(|e| e.to_string())?;
+    Ok(OkResult { ok: true })
+}
+
 #[tauri::command]
 fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String> {
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
@@ -690,6 +765,22 @@ pub fn run() {
                 if window.label() == "main" {
                     api.prevent_close();
                     let _ = window.hide();
+                    // 隐藏到托盘时持久化窗口状态
+                    let app = window.app_handle().clone();
+                    let _ = save_window_state(app);
+                }
+            }
+            // 窗口移动 / 缩放结束时持久化(避免每次拖动都写盘)
+            if let tauri::WindowEvent::Resized(_) = event {
+                if window.label() == "main" {
+                    let app = window.app_handle().clone();
+                    let _ = save_window_state(app);
+                }
+            }
+            if let tauri::WindowEvent::Moved(_) = event {
+                if window.label() == "main" {
+                    let app = window.app_handle().clone();
+                    let _ = save_window_state(app);
                 }
             }
         })
@@ -702,6 +793,8 @@ pub fn run() {
             }
             let _ = build_app_menu(app.handle().clone());
             let _ = build_tray(app.handle());
+            // 应用启动时恢复上次窗口状态(位置/尺寸/最大化)
+            let _ = restore_window_state(app.handle().clone());
             // 注册全局快捷键 Ctrl+Shift+I 唤起/隐藏主窗口
             let _ = app.global_shortcut().on_desktop("Ctrl+Shift+I", |app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
@@ -736,7 +829,10 @@ pub fn run() {
             read_binary_file,
             write_text_file,
             list_dir,
-            stat_file
+            stat_file,
+            save_window_state,
+            restore_window_state,
+            reset_window_state
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

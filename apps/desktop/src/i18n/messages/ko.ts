@@ -130,6 +130,10 @@ export default {
     removeAttachment: '첨부 파일 제거',
     dragHint: '파일 드래그 / 이미지 붙여넣기 / 📎 버튼으로 선택',
     attachmentReady: '첨부 파일 준비됨',
+    windowLayout: '창 레이아웃',
+    resetWindowLayout: '창 레이아웃 초기화',
+    windowResetDone: '초기화 완료, 다음 실행 시 적용',
+    windowResetFailed: '창 레이아웃 초기화 실패',
   },
   error: {
     network: '네트워크 오류',
