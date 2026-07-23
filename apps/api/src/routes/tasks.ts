@@ -37,12 +37,34 @@ import type {
   TaskDeviceRegisterResponse,
   TaskDeviceListResponse,
   TaskCancelResponse,
+  TaskFilePayload,
 } from '@ihui/shared'
 
 const dispatchSchema = z.object({
   toDevice: z.string().min(1).max(100),
   command: z.string().min(1).max(10_000),
+  filePayload: z
+    .object({
+      filename: z.string().min(1).max(255),
+      size: z.number().int().nonnegative(),
+      mimeType: z.string().min(1).max(100),
+      content: z.string().min(1),
+    })
+    .optional(),
 })
+
+/** base64 解码后最大字节数(1MB,2026-07-24 P2-c 跨端文件传输) */
+const FILE_PAYLOAD_MAX_BYTES = 1_048_576
+
+/** Node.js atob 兼容(15+ 原生支持);解码 base64 → 字节数 */
+function base64DecodedBytes(b64: string): number {
+  try {
+    const bin = atob(b64)
+    return bin.length
+  } catch {
+    return -1
+  }
+}
 
 const resultSchema = z.object({
   taskId: z.string().min(1).max(100),
@@ -210,7 +232,21 @@ export const tasksRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
-    const { toDevice, command } = parsed.data
+    const { toDevice, command, filePayload } = parsed.data
+
+    // 二次校验:base64 解码后字节数 >1MB 返回 413(2026-07-24 P2-c 跨端文件传输)
+    if (filePayload) {
+      const bytes = base64DecodedBytes(filePayload.content)
+      if (bytes < 0) {
+        return reply.status(400).send(error(400, '附件 base64 解码失败'))
+      }
+      if (bytes > FILE_PAYLOAD_MAX_BYTES) {
+        return reply
+          .status(413)
+          .send(error(413, `文件过大(限制 1MB,当前 ${bytes} 字节)`))
+      }
+    }
+
     const now = new Date().toISOString()
     const task: TaskDispatch = {
       id: randomUUID(),
@@ -221,6 +257,9 @@ export const tasksRoutes: FastifyPluginAsync = async (server) => {
       status: 'pending',
       createdAt: now,
       updatedAt: now,
+    }
+    if (filePayload) {
+      task.filePayload = filePayload as TaskFilePayload
     }
 
     const key = userKey(userId)
