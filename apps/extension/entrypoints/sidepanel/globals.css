@@ -1,103 +1,22 @@
 /**
- * Extension 全局样式 — 与 web 端 design token 统一(2026-07-22 立)。
+ * Extension 全局样式 — 共享 token 引用 packages/ui-primitives/src/styles/tokens.css(2026-07-23 升级)。
  *
  * 作用:
  * 1. 启用 Tailwind CSS 4(CSS-first 配置)
- * 2. 定义与 apps/web/app/globals.css 一致的设计 token(颜色/圆角/字体)
+ * 2. @import 共享 token(@theme + .dark + vcenter),与 web 端单一来源
  * 3. 让 @ihui/ui 的 Card/Button/Switch/Input 等组件在 extension 中正确渲染
- * 4. 中文字体垂直对齐硬约束(AGENTS.md §4):--text-vcenter-offset + 全局 :where 规则
  *
  * 深色模式:通过 .dark class 切换(与 web 端一致),不再用 prefers-color-scheme。
  */
 
 @import 'tailwindcss';
-
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* 让 Tailwind 扫描 @ihui/ui 共享包的 className */
-@source '../../../packages/ui/src';
+@source '../../../../packages/ui/src';
 
-/* ===== Tailwind 4 @theme token(与 web 端 globals.css 一致) ===== */
-
-@theme {
-  --font-sans: 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-sans-sc: 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Source Han Sans SC', system-ui, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-
-  --radius: 0.5rem;
-
-  /* 中文字体垂直对齐(AGENTS.md §4 硬约束) */
-  --text-vcenter-offset: 0.3px;
-
-  /* 颜色 token — 亮色模式 */
-  --color-background: hsl(0 0% 96.1%);
-  --color-foreground: hsl(0 0% 3.9%);
-  --color-card: hsl(0 0% 100%);
-  --color-card-foreground: hsl(0 0% 3.9%);
-  --color-popover: hsl(0 0% 100%);
-  --color-popover-foreground: hsl(0 0% 3.9%);
-  --color-primary: hsl(142 71% 45%);
-  --color-primary-foreground: hsl(0 0% 100%);
-  --color-secondary: hsl(0 0% 96.1%);
-  --color-secondary-foreground: hsl(0 0% 9%);
-  --color-muted: hsl(0 0% 92%);
-  --color-muted-foreground: hsl(0 0% 40%);
-  --color-accent: hsl(0 0% 88%);
-  --color-accent-foreground: hsl(0 0% 9%);
-  --color-destructive: hsl(0 100% 60%);
-  --color-destructive-foreground: hsl(0 0% 98%);
-  --color-border: hsl(0 0% 89.8%);
-  --color-input: hsl(0 0% 89.8%);
-  --color-ring: hsl(0 0% 70%);
-  --color-success: hsl(142 71% 45%);
-  --color-success-foreground: hsl(0 0% 98%);
-  --color-warning: hsl(38 92% 50%);
-  --color-warning-foreground: hsl(0 0% 98%);
-  --color-info: hsl(199 89% 48%);
-  --color-info-foreground: hsl(0 0% 98%);
-
-  /* Sidebar 专用色 */
-  --color-sidebar: hsl(0 0% 96.1%);
-  --color-sidebar-foreground: hsl(0 0% 9%);
-  --color-sidebar-hover: hsl(218 14% 92%);
-  --color-sidebar-active: hsl(222 13% 86%);
-
-  /* 业务品牌色 */
-  --color-vip-gold-start: #ffd700;
-  --color-vip-gold-end: #ffaa00;
-}
-
-/* ===== 颜色变量 — 深色模式(.dark class,与 web 端一致) ===== */
-
-.dark {
-  --color-background: hsl(0 0% 14%);
-  --color-foreground: hsl(0 0% 98%);
-  --color-card: hsl(0 0% 10%);
-  --color-card-foreground: hsl(0 0% 98%);
-  --color-popover: hsl(0 0% 11%);
-  --color-popover-foreground: hsl(0 0% 98%);
-  --color-primary: hsl(142 65% 50%);
-  --color-primary-foreground: hsl(0 0% 100%);
-  --color-secondary: hsl(0 0% 14.9%);
-  --color-secondary-foreground: hsl(0 0% 98%);
-  --color-muted: hsl(0 0% 14.9%);
-  --color-muted-foreground: hsl(0 0% 63.9%);
-  --color-accent: hsl(0 0% 17%);
-  --color-accent-foreground: hsl(0 0% 98%);
-  --color-destructive: hsl(0 100% 60%);
-  --color-destructive-foreground: hsl(0 0% 98%);
-  --color-border: hsl(0 0% 22%);
-  --color-input: hsl(0 0% 22%);
-  --color-ring: hsl(0 0% 35%);
-  --color-success: hsl(142 65% 50%);
-  --color-warning: hsl(38 85% 55%);
-  --color-info: hsl(199 80% 55%);
-
-  --color-sidebar: hsl(226 13% 19%);
-  --color-sidebar-foreground: hsl(0 0% 98%);
-  --color-sidebar-hover: hsl(222 14% 14%);
-  --color-sidebar-active: hsl(228 21% 8%);
-}
+/* 共享 design token(颜色/圆角/字体/vcenter/动画/断点)— 与 web 端单一来源 */
+@import '../../../../packages/ui-primitives/src/styles/tokens.css';
 
 /* ===== 基础 reset ===== */
 
@@ -115,18 +34,4 @@ body {
   font-size: 14px;
   background: var(--color-background);
   color: var(--color-foreground);
-}
-
-/* ===== 中文字体垂直对齐硬约束(AGENTS.md §4,2026-07-19 立) ===== */
-/* HarmonyOS Sans SC ascent(≈11px) ≠ descent(≈3px) 不对称,14px 字号下 ink 几何中心比 line-box 中心低 0.4-0.5px */
-/* 所有 button/a 内 "icon + 中文 span" 同行布局自动应用 0.3px GPU 视觉位移 */
-
-:where(button, a, [role='button'], [role='menuitem']):has(>svg):has(>span) > span {
-  transform: translateY(var(--text-vcenter-offset));
-}
-
-/* text-xs (12px) 专用 0.7px 规则 */
-:where(button, a, [role='button'], [role='menuitem']).text-xs:has(>svg):has(>span) > span,
-button.text-xs:has(>svg):has(>span) > span {
-  transform: translateY(0.7px);
 }
