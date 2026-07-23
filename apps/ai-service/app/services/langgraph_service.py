@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway, trim_messages
 from .memory import memory_store
+from .memory_service import memory_service
 
 
 class GraphState(TypedDict, total=False):
@@ -27,6 +28,7 @@ class GraphState(TypedDict, total=False):
 
     goal: str
     session_id: str
+    user_id: str
     model: str | None
     plan: list[str]
     results: list[dict[str, Any]]
@@ -36,6 +38,7 @@ class GraphState(TypedDict, total=False):
     iterations: int
     status: str
     trace: list[dict[str, Any]]
+    memory_context: str
 
 
 class WorkflowState:
@@ -45,6 +48,7 @@ class WorkflowState:
         self.goal = goal
         self.session_id = session_id
         self.model = model
+        self.user_id: str = ""
         self.plan: list[str] = []
         self.results: list[dict[str, Any]] = []
         self.summary: str = ""
@@ -54,6 +58,7 @@ class WorkflowState:
         self.max_iterations: int = settings.max_agent_iterations
         self.status: str = "planning"
         self.trace: list[dict[str, Any]] = []
+        self.memory_context: str = ""
 
 
 def _trace_entry(
@@ -98,7 +103,16 @@ class LangGraphService:
         self._init_graph()
 
     def _init_graph(self):
-        """尝试初始化 LangGraph 图,失败则降级。"""
+        """尝试初始化 LangGraph 图,失败则降级。
+
+        图结构(对标 TRAE Work Memory 自动读写):
+            START → memory_load → plan →(条件)→ execute*→ summarize → memory_save → END
+                                                            ↘ error → END
+
+        - memory_load: 图入口,从 API 加载用户跨会话记忆 → state.memory_context
+        - memory_save: 图出口(summarize 之后、END 之前),从对话提取记忆写回 API
+        - error 分支不经过 memory_save(避免保存错误状态)
+        """
         try:
             from langgraph.graph import StateGraph, END
 
@@ -106,13 +120,18 @@ class LangGraphService:
             workflow = StateGraph(GraphState)
 
             # 添加节点
+            workflow.add_node("memory_load", self._memory_load_node)
             workflow.add_node("plan", self._plan_node)
             workflow.add_node("execute", self._execute_node)
             workflow.add_node("summarize", self._summarize_node)
+            workflow.add_node("memory_save", self._memory_save_node)
             workflow.add_node("error", self._error_node)
 
-            # 设置入口
-            workflow.set_entry_point("plan")
+            # 设置入口:memory_load 为图入口(对话开始时加载用户记忆)
+            workflow.set_entry_point("memory_load")
+
+            # memory_load → plan(无条件,加载完记忆后进入规划)
+            workflow.add_edge("memory_load", "plan")
 
             # 条件边:plan 后判断是否需要执行
             workflow.add_conditional_edges(
@@ -136,8 +155,10 @@ class LangGraphService:
                 },
             )
 
-            # summarize 和 error 后结束
-            workflow.add_edge("summarize", END)
+            # summarize → memory_save → END(对话结束后保存提取的记忆)
+            workflow.add_edge("summarize", "memory_save")
+            workflow.add_edge("memory_save", END)
+            # error 分支直接结束(不保存记忆,避免错误状态污染)
             workflow.add_edge("error", END)
 
             # 编译图
@@ -369,6 +390,76 @@ class LangGraphService:
         return {**state, "status": "failed", "trace": trace}
 
     # =========================================================================
+    # 记忆节点(对标 TRAE Work Memory:对话开始 load,结束 save)
+    # =========================================================================
+
+    async def _memory_load_node(self, state: GraphState) -> GraphState:
+        """图入口节点:从 API 加载用户跨会话记忆,注入 state.memory_context。
+
+        失败不阻塞对话:logger.warning 后 memory_context 保持空字符串。
+        """
+        start = time.monotonic()
+        trace = list(state.get("trace", []))
+        user_id = state.get("user_id", "")
+        session_id = state.get("session_id", "")
+        status = "ok"
+        error_msg: str | None = None
+        memory_context = ""
+
+        try:
+            memory_context = await memory_service.load_context_for_conversation(
+                user_id=user_id, session_id=session_id or None
+            )
+        except Exception as e:
+            # load 失败不阻塞对话,继续用空 memory_context
+            status = "error"
+            error_msg = str(e)
+            logger.warning("memory_load 失败(user=%s): %s", user_id, e)
+
+        end = time.monotonic()
+        trace.append(_trace_entry(
+            "memory_load", start, end,
+            status=status, error=error_msg,
+            memory_loaded=bool(memory_context),
+            memory_length=len(memory_context),
+        ))
+        return {**state, "memory_context": memory_context, "trace": trace}
+
+    async def _memory_save_node(self, state: GraphState) -> GraphState:
+        """图出口节点:从对话提取记忆写回 API。
+
+        失败不阻塞对话:logger.warning 后继续,图直接进入 END。
+        """
+        start = time.monotonic()
+        trace = list(state.get("trace", []))
+        user_id = state.get("user_id", "")
+        session_id = state.get("session_id", "")
+        status = "ok"
+        error_msg: str | None = None
+
+        try:
+            # 从 working memory 收集本轮对话消息
+            history = await memory_store.get(session_id)
+            if history:
+                await memory_service.save_insights_from_conversation(
+                    user_id=user_id,
+                    messages=history,
+                    session_id=session_id or None,
+                )
+        except Exception as e:
+            # save 失败不阻塞,图照常进入 END
+            status = "error"
+            error_msg = str(e)
+            logger.warning("memory_save 失败(user=%s): %s", user_id, e)
+
+        end = time.monotonic()
+        trace.append(_trace_entry(
+            "memory_save", start, end,
+            status=status, error=error_msg,
+        ))
+        return {**state, "trace": trace}
+
+    # =========================================================================
     # 条件边函数
     # =========================================================================
 
@@ -402,22 +493,38 @@ class LangGraphService:
     # =========================================================================
 
     async def run_graph(
-        self, goal: str, session_id: str | None = None, model: str | None = None
+        self,
+        goal: str,
+        session_id: str | None = None,
+        model: str | None = None,
+        user_id: str = "",
     ) -> dict[str, Any]:
-        """运行完整工作流:plan → execute → summarize。"""
+        """运行完整工作流:memory_load → plan → execute → summarize → memory_save。
+
+        Args:
+            goal: 用户目标。
+            session_id: 会话 ID(为空自动生成)。
+            model: LLM 模型名(为空用默认)。
+            user_id: 用户 ID(为空时不加载/保存跨会话记忆,向后兼容)。
+        """
         session_id = session_id or f"session-{int(datetime.utcnow().timestamp())}"
 
         if self._available and self._graph:
-            return await self._run_with_graph(goal, session_id, model)
-        return await self._run_manual(goal, session_id, model)
+            return await self._run_with_graph(goal, session_id, model, user_id)
+        return await self._run_manual(goal, session_id, model, user_id)
 
     async def _run_with_graph(
-        self, goal: str, session_id: str, model: str | None
+        self, goal: str, session_id: str, model: str | None, user_id: str = ""
     ) -> dict[str, Any]:
-        """使用真正的 LangGraph 图执行。"""
+        """使用真正的 LangGraph 图执行。
+
+        图结构:memory_load → plan → execute* → summarize → memory_save → END
+        memory_context 由 memory_load 节点填充,各节点从 state 读取。
+        """
         initial_state: GraphState = {
             "goal": goal,
             "session_id": session_id,
+            "user_id": user_id,
             "model": model,
             "plan": [],
             "results": [],
@@ -427,6 +534,7 @@ class LangGraphService:
             "iterations": 0,
             "status": "planning",
             "trace": [],
+            "memory_context": "",
         }
 
         try:
@@ -449,12 +557,28 @@ class LangGraphService:
             }
 
     async def _run_manual(
-        self, goal: str, session_id: str, model: str | None
+        self, goal: str, session_id: str, model: str | None, user_id: str = ""
     ) -> dict[str, Any]:
-        """降级:手动状态机执行(LangGraph 不可用时)。"""
+        """降级:手动状态机执行(LangGraph 不可用时)。
+
+        完整流程对标 graph 模式:
+        memory_load → plan → execute → summarize → memory_save
+        """
         state = WorkflowState(goal, session_id, model)
+        state.user_id = user_id
 
         try:
+            # memory_load:对话开始加载用户跨会话记忆
+            if user_id:
+                try:
+                    state.memory_context = (
+                        await memory_service.load_context_for_conversation(
+                            user_id=user_id, session_id=session_id
+                        )
+                    )
+                except Exception as e:
+                    logger.warning("memory_load 失败(user=%s): %s", user_id, e)
+
             await memory_store.add(session_id, "user", goal)
 
             state.status = "planning"
@@ -473,6 +597,20 @@ class LangGraphService:
             await self._summarize_manual(state)
 
             state.status = "completed" if not state.error else "failed"
+
+            # memory_save:对话结束提取记忆写回 API(失败不阻塞)
+            if user_id and not state.error:
+                try:
+                    history = await memory_store.get(session_id)
+                    if history:
+                        await memory_service.save_insights_from_conversation(
+                            user_id=user_id,
+                            messages=history,
+                            session_id=session_id,
+                        )
+                except Exception as e:
+                    logger.warning("memory_save 失败(user=%s): %s", user_id, e)
+
             return self._build_result(state)
         except asyncio.CancelledError:
             state.status = "canceled"
@@ -483,13 +621,37 @@ class LangGraphService:
             return self._build_result(state)
 
     async def run_graph_stream(
-        self, goal: str, session_id: str | None = None, model: str | None = None
+        self,
+        goal: str,
+        session_id: str | None = None,
+        model: str | None = None,
+        user_id: str = "",
     ):
-        """流式运行工作流,yield 每个节点的事件(含 trace)。"""
+        """流式运行工作流,yield 每个节点的事件(含 trace)。
+
+        完整流程:memory_load → plan → execute → summarize → memory_save
+        """
         session_id = session_id or f"session-{int(datetime.utcnow().timestamp())}"
         state = WorkflowState(goal, session_id, model)
+        state.user_id = user_id
 
         try:
+            # memory_load:对话开始加载用户跨会话记忆
+            if user_id:
+                try:
+                    state.memory_context = (
+                        await memory_service.load_context_for_conversation(
+                            user_id=user_id, session_id=session_id
+                        )
+                    )
+                    if state.memory_context:
+                        yield {
+                            "type": "memory_context",
+                            "content": state.memory_context,
+                        }
+                except Exception as e:
+                    logger.warning("memory_load 失败(user=%s): %s", user_id, e)
+
             await memory_store.add(session_id, "user", goal)
             yield {"type": "message", "role": "user", "content": goal}
             yield {"type": "status", "status": "planning"}
@@ -539,6 +701,35 @@ class LangGraphService:
                 "results_count": len(state.results),
             }
 
+            # memory_save:对话结束提取记忆写回 API(失败不阻塞)
+            if user_id and not state.error:
+                save_start = time.monotonic()
+                save_status = "ok"
+                save_err: str | None = None
+                try:
+                    history = await memory_store.get(session_id)
+                    if history:
+                        await memory_service.save_insights_from_conversation(
+                            user_id=user_id,
+                            messages=history,
+                            session_id=session_id,
+                        )
+                except Exception as e:
+                    save_status = "error"
+                    save_err = str(e)
+                    logger.warning("memory_save 失败(user=%s): %s", user_id, e)
+                save_end = time.monotonic()
+                state.trace.append(_trace_entry(
+                    "memory_save", save_start, save_end,
+                    status=save_status, error=save_err,
+                ))
+                yield {
+                    "type": "trace",
+                    "node": "memory_save",
+                    "duration_ms": round((save_end - save_start) * 1000, 2),
+                    "status": save_status,
+                }
+
             yield {"type": "status", "status": "completed"}
             # 最终 trace 汇总事件
             yield {
@@ -563,11 +754,15 @@ class LangGraphService:
         """手动模式:规划节点。"""
         start = time.monotonic()
         try:
+            system_content = (
+                "你是一个任务规划助手。分析用户的目标,分解为 1-5 个可执行步骤。"
+                "用 JSON 数组返回,每个元素是一个步骤描述字符串。"
+            )
+            # 注入跨会话记忆(若有):个性化规划
+            if state.memory_context:
+                system_content = f"{state.memory_context}\n\n{system_content}"
             messages = [
-                {
-                    "role": "system",
-                    "content": "你是一个任务规划助手。分析用户的目标,分解为 1-5 个可执行步骤。用 JSON 数组返回,每个元素是一个步骤描述字符串。",
-                },
+                {"role": "system", "content": system_content},
                 {
                     "role": "user",
                     "content": f"目标: {state.goal}\n\n请返回执行步骤(JSON 数组):",
@@ -608,16 +803,15 @@ class LangGraphService:
         messages = trim_messages(
             [{"role": m["role"], "content": m["content"]} for m in history]
         )
-        messages.append(
-            {
-                "role": "system",
-                "content": (
-                    "你正在执行以下计划:\n"
-                    f"{json.dumps(state.plan, ensure_ascii=False)}\n"
-                    f"当前步骤 {state.step_index + 1}/{len(state.plan)}"
-                ),
-            }
+        exec_system = (
+            "你正在执行以下计划:\n"
+            f"{json.dumps(state.plan, ensure_ascii=False)}\n"
+            f"当前步骤 {state.step_index + 1}/{len(state.plan)}"
         )
+        # 注入跨会话记忆(若有):个性化执行
+        if state.memory_context:
+            exec_system = f"{state.memory_context}\n\n{exec_system}"
+        messages.append({"role": "system", "content": exec_system})
 
         for i, step in enumerate(state.plan):
             start = time.monotonic()
@@ -673,6 +867,9 @@ class LangGraphService:
         messages = trim_messages(
             [{"role": m["role"], "content": m["content"]} for m in history]
         )
+        # 注入跨会话记忆(若有):个性化执行(流式)
+        if state.memory_context:
+            messages.append({"role": "system", "content": state.memory_context})
 
         for i, step in enumerate(state.plan):
             start = time.monotonic()
@@ -793,12 +990,14 @@ class LangGraphService:
             "status": state.status,
             "goal": state.goal,
             "session_id": state.session_id,
+            "user_id": state.user_id,
             "plan": state.plan,
             "results": state.results,
             "summary": state.summary,
             "error": state.error,
             "iterations": state.iterations,
             "langgraph_available": self._available,
+            "memory_context": state.memory_context,
             "trace": state.trace,
             "trace_summary": {
                 "total_nodes": len(state.trace),
@@ -816,12 +1015,14 @@ class LangGraphService:
             "status": state.get("status", "completed"),
             "goal": state.get("goal", ""),
             "session_id": state.get("session_id", ""),
+            "user_id": state.get("user_id", ""),
             "plan": state.get("plan", []),
             "results": state.get("results", []),
             "summary": state.get("summary", ""),
             "error": state.get("error"),
             "iterations": state.get("iterations", 0),
             "langgraph_available": True,
+            "memory_context": state.get("memory_context", ""),
             "trace": trace,
             "trace_summary": {
                 "total_nodes": len(trace),

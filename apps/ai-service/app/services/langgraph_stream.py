@@ -123,6 +123,38 @@ def _normalize_stream_modes(stream_modes: Optional[list[str]]) -> list[str]:
     return list(stream_modes)
 
 
+def _inject_memory_context(graph_input: Any) -> Any:
+    """把 graph_input.memory_context 注入到 messages 开头(作为 system 消息)。
+
+    对标 TRAE Work:对话开始前,把用户跨会话记忆(偏好/决策/反馈)注入
+    到 system message,使 LLM 在后续推理中个性化响应。
+
+    规则:
+    - graph_input 非 dict 或无 memory_context:原样返回(不修改)。
+    - graph_input.memory_context 非空 且 graph_input.messages 是 list:
+      返回 graph_input 副本,messages 前面插入
+      {"role":"system","content": memory_context}。
+    - graph_input 含 memory_context 但无 messages:原样返回
+      (由 graph 内部节点用 memory_context 字段,如 LangGraphService 的图)。
+
+    Returns:
+        可能被修改的 graph_input(原对象不被修改,改动在副本上)。
+    """
+    if not isinstance(graph_input, dict):
+        return graph_input
+    memory_context = graph_input.get("memory_context")
+    if not memory_context or not isinstance(memory_context, str):
+        return graph_input
+    messages = graph_input.get("messages")
+    if not isinstance(messages, list):
+        # graph 用 GraphState(goal/session_id/...)而非 messages:
+        # memory_context 由 graph 内部节点(如 memory_load)读取使用
+        return graph_input
+    # 复制一份,避免修改调用方传入对象
+    new_messages = [{"role": "system", "content": memory_context}] + list(messages)
+    return {**graph_input, "messages": new_messages}
+
+
 def _extract_node_name(chunk_key: str) -> Optional[str]:
     """从 graph.astream 的 chunk key 提取节点名。
 
@@ -185,11 +217,30 @@ async def stream_agent_execution(
         {"threadId": thread_id, "streamModes": modes, "input": _safe_value(graph_input)},
     )
 
+    # 1.5 注入 memory_context 到 graph_input(若存在且含 messages)
+    # 对标 TRAE Work:对话开始前把用户跨会话记忆注入 system message
+    effective_input = _inject_memory_context(graph_input)
+    injected_memory = (
+        isinstance(graph_input, dict)
+        and bool(graph_input.get("memory_context"))
+    )
+    if injected_memory:
+        memory_len = len(str(graph_input.get("memory_context", "")))
+        yield _make_event(
+            "custom",
+            thread_id,
+            {
+                "event": "memory_context_injected",
+                "memoryLength": memory_len,
+                "injectedToMessages": effective_input is not graph_input,
+            },
+        )
+
     try:
         # 2. 执行 graph.astream(stream_mode=[...])
         # stream_mode 多模式时,每个 chunk 形如 (mode, payload)
         async for chunk in graph.astream(
-            graph_input, config=base_config, stream_mode=modes
+            effective_input, config=base_config, stream_mode=modes
         ):
             # 多 stream_mode:chunk 是 (mode, data) 元组
             # 单 stream_mode:chunk 是 data
