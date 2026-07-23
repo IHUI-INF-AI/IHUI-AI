@@ -1,0 +1,128 @@
+.page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: 24rpx;
+  padding-bottom: 48rpx;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin: 24rpx 8rpx 16rpx;
+}
+.section-title:first-child {
+  margin-top: 8rpx;
+}
+
+.status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60rpx 0;
+  color: var(--color-muted-foreground);
+  font-size: 26rpx;
+}
+.retry {
+  margin-top: 16rpx;
+  padding: 8rpx 32rpx;
+  font-size: 24rpx;
+  color: var(--color-primary);
+}
+
+.my-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+.my-card {
+  width: calc(50% - 8rpx);
+  background: var(--color-card);
+  border-radius: 16rpx;
+  padding: 24rpx 16rpx;
+  text-align: center;
+}
+.my-icon {
+  display: block;
+  font-size: 48rpx;
+}
+.my-title {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.my-desc {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+
+.tier {
+  background: var(--color-card);
+  border-radius: 16rpx;
+  overflow: hidden;
+  margin-bottom: 24rpx;
+}
+.tier-head {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  color: #ffffff;
+}
+.tier.normal .tier-head {
+  background: linear-gradient(135deg, #6b7280, #9ca3af);
+}
+.tier.silver .tier-head {
+  background: linear-gradient(135deg, #b8c0c8, #e8edf2);
+  color: #1f1f28;
+}
+.tier.gold .tier-head {
+  background: linear-gradient(135deg, #d4af6a, #f5d98a);
+  color: #1f1f28;
+}
+.tier.diamond .tier-head {
+  background: linear-gradient(135deg, #6ec1e4, #b9f2ff);
+  color: #1f1f28;
+}
+.tier-icon {
+  font-size: 40rpx;
+  margin-right: 16rpx;
+}
+.tier-name {
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.tier-body {
+  padding: 8rpx 0;
+}
+.tier-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 32rpx;
+}
+.tier-item-icon {
+  font-size: 36rpx;
+  width: 48rpx;
+  text-align: center;
+  flex-shrink: 0;
+}
+.tier-item-text {
+  flex: 1;
+  margin-left: 16rpx;
+}
+.tier-item-title {
+  display: block;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  font-weight: 500;
+}
+.tier-item-desc {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
