@@ -79,3 +79,31 @@ export function formatCurrency(input: number | null | undefined, locale = 'zh-CN
   if (input === null || input === undefined || Number.isNaN(input)) return '-'
   return getFormatters(locale).currencyFormatter.format(input)
 }
+
+// ---------------------------------------------------------------------------
+// 相对时间(用于资讯列表/直播/通知等"X 分钟前"场景)
+// ---------------------------------------------------------------------------
+
+const RTF_CACHE = new Map<string, Intl.RelativeTimeFormat>()
+
+export function formatRelativeTime(
+  input: string | number | Date | null | undefined,
+  locale = 'zh-CN',
+): string {
+  if (!input) return '-'
+  const then = input instanceof Date ? input.getTime() : new Date(input).getTime()
+  if (Number.isNaN(then)) return '-'
+  let rtf = RTF_CACHE.get(locale)
+  if (!rtf) {
+    rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
+    RTF_CACHE.set(locale, rtf)
+  }
+  const diffSec = Math.round((then - Date.now()) / 1000)
+  const absDiff = Math.abs(diffSec)
+  if (absDiff < 60) return rtf.format(Math.round(diffSec), 'second')
+  if (absDiff < 3600) return rtf.format(Math.round(diffSec / 60), 'minute')
+  if (absDiff < 86400) return rtf.format(Math.round(diffSec / 3600), 'hour')
+  if (absDiff < 2592000) return rtf.format(Math.round(diffSec / 86400), 'day')
+  if (absDiff < 31536000) return rtf.format(Math.round(diffSec / 2592000), 'month')
+  return rtf.format(Math.round(diffSec / 31536000), 'year')
+}
