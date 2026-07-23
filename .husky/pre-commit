@@ -205,12 +205,13 @@ run('📋 打印 staged 文件清单(info)...', 'node scripts/check-staged-files
 // 不阻塞 commit, 提醒 agent 按 docs/port-management.md §3 端口分配规则使用 88xx
 run('🔌 检查端口注册表守门(warn-only)...', 'node scripts/check-port-registry.mjs')
 
-// 25. 项目外路径违规守门(warn-only, 2026-07-23 立, AGENTS.md §15 项目外路径禁令)
-// 扫描 .trae-cn/tmp/ 下的脚本(.ps1/.py/.js/.mjs/.cjs/.ts/.tsx/.sh/.bat)
-// 检测硬编码 C:\temp\ihui-* / $env:LOCALAPPDATA\Temp\ihui-* 等项目外路径引用
-// 不阻塞 commit, 提醒 agent 用 $PSScriptRoot / import.meta.url 推导项目根
-// 历史教训: 2026-07-23 扩展验证时 agent 把构建产物复制到 C:\temp\ihui-ext2, 用户质问"为什么不放项目内"
-run('🧹 检查项目外路径违规(warn-only)...', 'node scripts/check-workspace-hygiene.mjs')
+// 25. 项目外路径违规守门(阻塞, 2026-07-23 v2 根治, AGENTS.md §15 项目外路径禁令)
+// 扫描 staged 脚本文件(.ps1/.py/.js/.mjs/.cjs/.ts/.tsx/.sh/.bat/.json/.yaml/.yml)
+// BLOCKING: 项目外路径写入(C:\temp\ihui-* / $env:TEMP\ / \AppData\... / ..\.. 写入)→ exit 1 阻塞
+// WARNING: 硬编码中文绝对路径(GBK 会乱码)→ 提醒不阻塞
+// 白名单: 守门脚本自身 / AGENTS.md / 注释行 / .log 文件 / --redirect 参数
+// 历史教训: 2026-07-23 agent 把 WXT 构建产物复制到 C:\temp\ihui-ext2, 用户质问"为什么不放项目内"
+run('🧹 检查项目外路径违规(blocking)...', 'node scripts/check-workspace-hygiene.mjs --staged')
 
 // 16. 条件 typecheck 闸门(仅 staged 涉及 apps/web 时跑 web typecheck)
 // 防止"commit 通过但 push 失败"的循环(f21dc473 commit 漏掉 import 的教训)
