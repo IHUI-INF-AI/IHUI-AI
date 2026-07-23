@@ -336,7 +336,13 @@ export function SiteFooter({ className }: { className?: string }) {
             className="h-3 w-3 object-contain"
             {...IMG_EAGER}
           />
-          <span>{t('icp')}</span>
+          <Link href="/settings/icp-record" className="transition-colors hover:text-primary">
+            {t('icp')}
+          </Link>
+          <span className="text-border">·</span>
+          <Link href="/settings/model-record" className="transition-colors hover:text-primary">
+            {t('modelRecord')}
+          </Link>
           <span className="text-border">·</span>
           <span>{t('copyright')}</span>
         </div>

@@ -328,6 +328,22 @@ export default {
     common: {
       loading: 'Loading…',
     },
+    tishi: {
+      title: 'Agent guide',
+      view: 'View',
+      close: 'Close',
+      needInput: 'Please provide the following information for more precise assistance',
+    },
+    chatMessageItem: {
+      me: 'Me',
+      ai: 'AI',
+      thinkingProcess: 'Thinking process',
+      noContent: 'Nothing to copy',
+      aiGenerated: 'AI generated',
+      tokenCost: 'Tokens: {{n}}',
+      reuse: 'Reuse',
+      copy: 'Copy',
+    },
     inputArea: {
       placeholder: 'Ask a question…',
       releaseToSend: 'Release to send',
@@ -1055,6 +1071,8 @@ export default {
     logout: 'Log out',
     logoutConfirm: 'Are you sure you want to log out?',
     vipMember: 'VIP member',
+    admin: 'Admin',
+    normalUser: 'User',
     tapLogin: 'Tap to log in',
     loginHint: 'Log in for more services',
     menu: {
@@ -1066,6 +1084,7 @@ export default {
       ai: 'AI Assistant',
       settings: 'Settings',
     },
+    identity: 'Identity',
     avatar: {
       updateSuccess: 'Avatar updated',
       choose: 'Choose avatar',
