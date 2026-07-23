@@ -69,7 +69,7 @@ export function HotRanking({ items, sources }: Props) {
               href={it.url ?? '#'}
               target={it.url ? '_blank' : undefined}
               rel={it.url ? 'noopener noreferrer' : undefined}
-              className="group flex items-center gap-3 bg-card px-5 py-2.5 transition-colors hover:bg-accent/40"
+              className="group flex items-center gap-3 bg-card px-5 py-2.5 transition duration-200 hover:bg-accent/40 hover:-translate-y-0.5"
             >
               <span className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-bold tabular-nums ${rankColor(idx)}`}>
                 {idx + 1}
