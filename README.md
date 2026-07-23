@@ -670,7 +670,7 @@ cd IHUI-AI && docker compose up -d
 
 ### RN ↔ Web 跨端共享组件层(packages/app,2026-07-24 立)
 
-> React Native 与 Web 不再各自维护 About/Profile/Settings 三屏,改 props 注入式跨端共享组件,一处改、两端生效,杜绝 UI 双份维护漂移。基于 Solito + react-native primitives + StyleSheet 架构(预留 NativeWind 类型支持)。
+> React Native 与 Web 不再各自维护 About/Profile/Settings 三屏,改 props 注入式跨端共享组件,一处改、两端生效,杜绝 UI 双份维护漂移。基于 Solito + react-native primitives + StyleSheet 架构(未接入 NativeWind,未来接入需补 className 类型扩展)。
 
 - **共享包**:`packages/app/`(平台无关,只依赖 react-native primitives + StyleSheet + solito TextLink)
 - **共享组件**:3 个生产级跨端屏
@@ -691,7 +691,7 @@ cd IHUI-AI && docker compose up -d
   - `apps/mobile-rn/src/screens/SettingsScreen.tsx` — 注入 t + Alert.alert + 真实 updatePassword API + 导航 + locale/theme/notifications 状态
 - **Web 端验证页**:`apps/web/app/(main)/solito-demo/page.tsx` — tab 切换展示 3 共享组件,用 mock 数据 + t fallback 函数
 - **架构边界**:web 生产页(/about、/settings、/user/profile 等)保留独立 Next.js + shadcn/ui 实现,共享组件仅用于 RN 生产 + web /solito-demo 验证页。理由:web 生产页 UI 复杂度远超共享组件(如 settings 有 SecurityScore/TwoFactorAuth/DeviceManager 等安全模块),强制接入会降级体验。共享组件的合理定位是 RN 内部共享 + web 验证页。
-- **i18n 5 语言补全**:`apps/mobile-rn/src/i18n/messages/{zh-CN,zh-TW,en,ko,ja}.ts` 扩展 settings namespace(notifPush/changePassword/pwd*/logoutConfirm 等 24 key)+ 新增 about/menu namespace(11 key)
+- **i18n 5 语言补全**:`apps/mobile-rn/src/i18n/messages/{zh-CN,zh-TW,en,ko,ja}.ts` 扩展 settings namespace(notifPush/changePassword/pwd*/logoutConfirm 等 23 key)+ 新增 about/menu namespace(11 key)
 - **验证**:packages/app typecheck ✅ / mobile-rn typecheck(本任务文件 0 错)/ web typecheck(本任务文件 0 错)/ SharedDemoScreen RN 集成验证 / solito-demo web 集成验证
 
 ### 项目状态矩阵(透明标注,2026-07-22 核对)
