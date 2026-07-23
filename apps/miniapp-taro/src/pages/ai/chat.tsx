@@ -82,6 +82,8 @@ export default function ChatPage() {
   const [agents, setAgents] = useState<AgentItem[]>([])
   const [agentsLoading, setAgentsLoading] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  // 待分享消息(对标原 ai_assistant.vue 分享对话,长按消息后存入,useShareAppMessage 动态读取)
+  const shareMsgRef = useRef<ChatMessage | null>(null)
   // 复用问题到输入框(对标原 ai_assistant.vue copyToInput)
   const [inputValue, setInputValue] = useState('')
   const [inputKey, setInputKey] = useState(0)
@@ -206,7 +208,8 @@ export default function ChatPage() {
   })
 
   useShareAppMessage(() => ({
-    title: t('ai.share.title'),
+    // 若有待分享消息(长按消息→分享),用消息内容前 50 字符作为 title(对标原 ai_assistant.vue 分享)
+    title: shareMsgRef.current ? (shareMsgRef.current.content || '').slice(0, 50) || t('ai.share.title') : t('ai.share.title'),
     path: '/pages/ai/chat',
   }))
 
@@ -487,6 +490,12 @@ export default function ChatPage() {
     Taro.navigateTo({ url: '/pages/wallet/recharge/index' })
   }, [])
 
+  /** TTS 朗读(对标原 ai_assistant.vue 朗读,简化实现:跳转 voice 页传 text 参数) */
+  const handleSpeak = useCallback((content: string) => {
+    if (!content) return
+    Taro.navigateTo({ url: '/pages/ai/voice?text=' + encodeURIComponent(content) })
+  }, [])
+
   const handleRegenerate = useCallback(() => {
     const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
     if (lastUserIdx < 0) return
@@ -503,6 +512,7 @@ export default function ChatPage() {
           t('ai.messageAction.copy'),
           t('ai.messageAction.reuse'),
           t('ai.messageAction.delete'),
+          t('ai.chatMessageItem.share'),
         ],
         success: (res) => {
           if (res.tapIndex === 0) {
@@ -511,6 +521,11 @@ export default function ChatPage() {
             if (msg.role === 'user') handleReuse(msg.content)
           } else if (res.tapIndex === 2) {
             setMessages((prev) => prev.filter((_, i) => i !== idx))
+          } else if (res.tapIndex === 3) {
+            // 分享对话(对标原 ai_assistant.vue 分享):存入待分享消息,显示分享菜单,用户点右上角···分享
+            shareMsgRef.current = msg
+            Taro.showShareMenu({ withShareTicket: true })
+            Taro.showToast({ title: t('ai.chatMessageItem.share'), icon: 'none' })
           }
         },
       })
@@ -668,6 +683,7 @@ export default function ChatPage() {
             onEdit={msg.role === 'user' ? () => handleEdit(msg, idx) : undefined}
             isFavorited={msg.role === 'assistant' && msg.timestamp ? favoritedMsgs.has(String(msg.timestamp)) : undefined}
             onToggleFavorite={msg.role === 'assistant' && msg.timestamp ? () => toggleFavorite(msg) : undefined}
+            onSpeak={msg.role === 'assistant' ? handleSpeak : undefined}
           />
         ))}
 
