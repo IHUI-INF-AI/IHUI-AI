@@ -14494,6 +14494,7 @@
     "ecosystem": "エコシステムパートナー",
     "icp": "吉ICP備2025027274号",
     "copyright": "© 2025 智匯AIグループ · 中国",
+    "modelRecord": "モデル届出",
     "platforms": {
       "n8n": "n8n",
       "coze": "Coze"
@@ -28409,7 +28410,12 @@
       "colOutputPrice": "出力価格",
       "colReleaseDate": "公開",
       "footerDataRef": "📊 データ参考 arena.ai/leaderboard · Elo + Bootstrap CI",
-      "footerClickHint": "行クリックでモデル詳細 + 能力レーダー"
+      "footerClickHint": "行クリックでモデル詳細 + 能力レーダー",
+      "favAll": "全て",
+      "favOnly": "お気に入り",
+      "favToggle": "お気に入り切替",
+      "colVisibility": "列表示",
+      "colVisibilityHint": "表示列を選択"
     },
     "hero": {
       "label": "AI ニュース Hero",
@@ -28484,7 +28490,8 @@
     "hotRanking": {
       "label": "ホットランキング",
       "title": "AI ニュース ホット Top 10",
-      "subtitle": "リアルタイムホット度順"
+      "subtitle": "リアルタイムホット度順",
+      "empty": "ホットニュースなし"
     },
     "trendChart": {
       "subtitle": "7/14 日ホット度トレンド曲線",
@@ -28494,12 +28501,14 @@
       "noDataHint": "トレンド描画には ≥2 日のスナップショットが必要、明日の cron 後に利用可能",
       "stable": "安定",
       "rankDelta": "順位変動",
-      "hotValue": "ホット度"
+      "hotValue": "ホット度",
+      "close": "閉じる"
     },
     "funding": {
       "label": "大型資金調達・買収",
       "title": "大型資金調達・買収",
-      "subtitle": "7 月 AI 業界資本動向:SpaceX が Cursor を 600 億ドルで買収、DeepSeek が 500 億元資金調達"
+      "subtitle": "7 月 AI 業界資本動向:SpaceX が Cursor を 600 億ドルで買収、DeepSeek が 500 億元資金調達",
+      "empty": "資金調達情報なし"
     },
     "detailDialog": {
       "arenaScore": "Arena スコア",

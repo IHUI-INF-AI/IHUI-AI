@@ -14449,6 +14449,7 @@
     "ecosystem": "Ecosystem Partners",
     "icp": "Ji ICP No. 2025027274",
     "copyright": "© 2025 Zhihui AI Group · China",
+    "modelRecord": "Model Filing",
     "platforms": {
       "n8n": "n8n",
       "coze": "Coze"
@@ -25861,7 +25862,12 @@
       "colOutputPrice": "Output Price",
       "colReleaseDate": "Released",
       "footerDataRef": "📊 Data from arena.ai/leaderboard · Elo + Bootstrap CI",
-      "footerClickHint": "Click row for model details + capability radar"
+      "footerClickHint": "Click row for model details + capability radar",
+      "favAll": "All",
+      "favOnly": "Favorites",
+      "favToggle": "Toggle favorite",
+      "colVisibility": "Columns",
+      "colVisibilityHint": "Select columns to show"
     },
     "hero": {
       "label": "AI News Hero",
@@ -25936,7 +25942,8 @@
     "hotRanking": {
       "label": "Hot Ranking",
       "title": "AI News Hot Top 10",
-      "subtitle": "Sorted by real-time hotness"
+      "subtitle": "Sorted by real-time hotness",
+      "empty": "No hot news yet"
     },
     "trendChart": {
       "subtitle": "7/14 day hotness trend curve",
@@ -25946,12 +25953,14 @@
       "noDataHint": "Need ≥2 days of snapshots to draw trends, available after tomorrow's cron",
       "stable": "Stable",
       "rankDelta": "Rank change",
-      "hotValue": "Hotness"
+      "hotValue": "Hotness",
+      "close": "Close"
     },
     "funding": {
       "label": "Mega Funding & Acquisitions",
       "title": "Mega Funding & Acquisitions",
-      "subtitle": "July 2026 capital moves: SpaceX acquires Cursor for $60B, DeepSeek raises $7B"
+      "subtitle": "July 2026 capital moves: SpaceX acquires Cursor for $60B, DeepSeek raises $7B",
+      "empty": "No funding updates"
     },
     "detailDialog": {
       "arenaScore": "Arena Score",
