@@ -706,6 +706,24 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ id, deleted: true }))
     },
   )
+  server.get('/admin/users/:id', { preHandler: requireAdmin }, async (request, reply) => {
+    const { id } = parseOrThrow(idParamSchema, request.params)
+    const [row] = await db
+      .select({
+        id: users.id,
+        nickname: users.nickname,
+        phone: users.phone,
+        email: users.email,
+        level: users.level,
+        status: users.status,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '用户不存在'))
+    return reply.send(success({ user: row }))
+  })
   server.put('/admin/users/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
     const body = parseOrThrow(updateUserSchema, request.body)
