@@ -26,12 +26,43 @@
 .arrow {
   color: var(--color-muted-foreground);
 }
+.progress-card {
+  margin: 24rpx;
+  padding: 32rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+}
+.progress-bar {
+  width: 100%;
+  height: 12rpx;
+  background: var(--color-border);
+  border-radius: 6rpx;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  transition: width 0.1s ease;
+}
+.progress-text {
+  display: block;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 16rpx;
+  text-align: center;
+}
 .btn {
   margin: 60rpx 32rpx;
   background: var(--color-primary);
   color: var(--color-foreground);
   border-radius: 40rpx;
   font-size: 32rpx;
+}
+.btn[disabled] {
+  opacity: 0.6;
+}
+.btn::after {
+  border: none;
 }
 .tips {
   padding: 0 32rpx;
