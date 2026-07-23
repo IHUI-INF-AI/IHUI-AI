@@ -229,6 +229,31 @@
 **Git 同步证据**(§21):本地 commit `ec01f66` == origin `ec01f66` ✅ / git-push-guard exit 0 ✅
 
 ---
+### [x] ✅(2026-07-23) ai-news 组件深度优化九轮:封面图占位 + TrendBanner closed 持久化 + formatRelativeTime 公共化(平台独占:仅 apps/web)
+
+**触发**:用户要求"继续"。承接八轮交付后的下一步建议(P1 NewsGrid/LiveChannelsBlock 封面图占位 + 相对时间 + P2 TrendNotificationBanner closed 持久化)。
+
+**交付内容**(1 commit `3919f28e`,5 文件,平台独占:仅 apps/web):
+
+| 模块 | 文件 | 改动 |
+|---|---|---|
+| date-utils | `apps/web/src/lib/date-utils.ts` | 新增 formatRelativeTime 公共函数(迁移自 KanbanTaskCard,带 RTF_CACHE,支持 string/number/Date 输入) |
+| KanbanTaskCard | `apps/web/src/components/agents/KanbanTaskCard.tsx` | 移除本地 formatRelativeTime + RTF_CACHE 实现,re-export 自 date-utils(零冗余,TaskDetailDialog 等下游 import 兼容) |
+| LiveChannelsBlock | `apps/web/app/(main)/ai-news/components/LiveChannelsBlock.tsx` | 新增 CoverImage 子组件:Image 加载前 animate-skeleton-pulse shimmer 占位,加载后 opacity 淡入(300ms transition) |
+| TrendNotificationBanner | `apps/web/app/(main)/ai-news/components/TrendNotificationBanner.tsx` | 修复 closed 后立即恢复 bug(用 dismissedIds Set 替代 closed boolean)+ localStorage 持久化 dismissedIds(6h TTL,刷新不重复弹出,MAX_DISMISSED=50 上限)+ 折叠态/展开态显示 lastSeenAt 相对时间 |
+| TrendChartDialog | `apps/web/app/(main)/ai-news/components/TrendChartDialog.tsx` | 修复 SimpleLineChart 子组件引用主组件 locale 的作用域 bug(子组件自调 getLocale,主组件移除冗余声明) |
+
+**作废**:NewsGrid.tsx 封面图占位 + 相对时间改动(其他 agent 重构 ai-news 落地页删除了 NewsGrid.tsx,不再被引用,改动自然作废)。
+
+**自验**:typecheck 本任务 5 文件零错误(剩余 admin/contact/page.tsx toast 错误为其他 agent 代码,§12 不归本 agent 管)/ §13 Grep 验证 5 文件关键点全部落地(date-utils 4 处 + KanbanTaskCard 3 处 + LiveChannelsBlock 4 处 + TrendNotificationBanner 20 处 + TrendChartDialog 1 处)✅
+
+**Git 同步证据**(§21):
+- 本地 commit: `3919f28e`
+- origin commit: `3919f28e`
+- 同步状态: local == remote ✅(ahead 0, behind 0)
+- 守门脚本: git-push-guard 自动 push 成功(pull --rebase 后 post-commit hook 自动推送)
+
+---
 <!-- 已归档(2026-07-23):大模型排行榜深度优化五轮:highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ---
