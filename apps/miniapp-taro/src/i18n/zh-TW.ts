@@ -328,6 +328,22 @@ export default {
     common: {
       loading: '載入中…',
     },
+    tishi: {
+      title: '智能體引導說明',
+      view: '查看',
+      close: '關閉',
+      needInput: '小方需要您輸入以下相關內容,以便於更精準的解決您的需求',
+    },
+    chatMessageItem: {
+      me: '我',
+      ai: 'AI',
+      thinkingProcess: '思考過程',
+      noContent: '沒有可複製的內容',
+      aiGenerated: '智匯AI生成',
+      tokenCost: '消耗智匯值:{{n}}',
+      reuse: '復用',
+      copy: '複製',
+    },
     inputArea: {
       placeholder: '輸入你的問題…',
       releaseToSend: '鬆開傳送',
@@ -1055,6 +1071,8 @@ export default {
     logout: '登出',
     logoutConfirm: '確定要登出嗎?',
     vipMember: 'VIP 會員',
+    admin: '管理員',
+    normalUser: '普通用戶',
     tapLogin: '點擊登入',
     loginHint: '登入後享受更多服務',
     menu: {
@@ -1066,6 +1084,7 @@ export default {
       ai: 'AI 助手',
       settings: '設定',
     },
+    identity: '身份',
     avatar: {
       updateSuccess: '頭像已更新',
       choose: '選擇頭像',

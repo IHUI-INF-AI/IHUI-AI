@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Trophy, TrendingUp, TrendingDown, Minus, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, GitCompare, Search } from 'lucide-react'
+import { Trophy, TrendingUp, TrendingDown, Minus, ChevronRight, ArrowUp, ArrowDown, ArrowUpDown, GitCompare, Search, Star, Settings2 } from 'lucide-react'
 import type { LeaderboardEntry, LeaderboardCategory } from '@/lib/ai-news-api'
 import { ModelDetailDialog } from './ModelDetailDialog'
 import { ModelCompareBar } from './ModelCompareBar'
@@ -77,23 +77,77 @@ function writeCompareList(entries: LeaderboardEntry[]) {
   }
 }
 
-/** 分类 Tab 配置 */
-const CATEGORY_TABS: Array<{ key: LeaderboardCategory; label: string; icon: string }> = [
-  { key: 'overall', label: '总榜', icon: '🏆' },
-  { key: 'llm', label: '大语言模型', icon: '💬' },
-  { key: 'image', label: '生图模型', icon: '🎨' },
-  { key: 'video', label: '视频模型', icon: '🎬' },
-  { key: 'multimodal', label: '多模态', icon: '🔮' },
-  { key: 'agent', label: 'Agent', icon: '🤖' },
-  { key: 'audio', label: '语音模型', icon: '🎵' },
-  { key: 'embedding', label: '嵌入模型', icon: '📐' },
+/** localStorage 收藏列表:存 id 数组 */
+const FAV_KEY = 'ai-news-fav-list'
+
+function readFavList(): string[] {
+  try {
+    const raw = localStorage.getItem(FAV_KEY)
+    if (!raw) return []
+    return JSON.parse(raw) as string[]
+  } catch {
+    return []
+  }
+}
+
+function writeFavList(ids: string[]) {
+  try {
+    localStorage.setItem(FAV_KEY, JSON.stringify(ids))
+  } catch {
+    // SSR / 隐私模式 / 配额溢出,静默降级
+  }
+}
+
+/** localStorage 列显隐:存被隐藏的字段数组 */
+const COLS_KEY = 'ai-news-col-hidden'
+
+/** 可隐藏的 sortable 列(模型/厂商/变化/排名/操作不可隐藏) */
+const HIDABLE_COLS: SortField[] = [
+  'arenaScore',
+  'winRate',
+  'voteCount',
+  'contextWindow',
+  'maxOutput',
+  'inputPrice',
+  'outputPrice',
+  'releaseDate',
+]
+
+function readColHidden(): string[] {
+  try {
+    const raw = localStorage.getItem(COLS_KEY)
+    if (!raw) return []
+    return JSON.parse(raw) as string[]
+  } catch {
+    return []
+  }
+}
+
+function writeColHidden(fields: string[]) {
+  try {
+    localStorage.setItem(COLS_KEY, JSON.stringify(fields))
+  } catch {
+    // SSR / 隐私模式 / 配额溢出,静默降级
+  }
+}
+
+/** 分类 Tab 配置(labelKey 指向 i18n 键,运行时用 t() 读取) */
+const CATEGORY_TABS: Array<{ key: LeaderboardCategory; labelKey: string; icon: string }> = [
+  { key: 'overall', labelKey: 'leaderboard.categoryOverall', icon: '🏆' },
+  { key: 'llm', labelKey: 'leaderboard.categoryLlm', icon: '💬' },
+  { key: 'image', labelKey: 'leaderboard.categoryImage', icon: '🎨' },
+  { key: 'video', labelKey: 'leaderboard.categoryVideo', icon: '🎬' },
+  { key: 'multimodal', labelKey: 'leaderboard.categoryMultimodal', icon: '🔮' },
+  { key: 'agent', labelKey: 'leaderboard.categoryAgent', icon: '🤖' },
+  { key: 'audio', labelKey: 'leaderboard.categoryAudio', icon: '🎵' },
+  { key: 'embedding', labelKey: 'leaderboard.categoryEmbedding', icon: '📐' },
 ]
 
 /** LLM 子分类 Tab */
-const LLM_SUBCATS: Array<{ key: string; label: string }> = [
-  { key: 'general', label: '通用对话' },
-  { key: 'coding', label: '代码编程' },
-  { key: 'reasoning', label: '推理思考' },
+const LLM_SUBCATS: Array<{ key: string; labelKey: string }> = [
+  { key: 'general', labelKey: 'leaderboard.subcatGeneral' },
+  { key: 'coding', labelKey: 'leaderboard.subcatCoding' },
+  { key: 'reasoning', labelKey: 'leaderboard.subcatReasoning' },
 ]
 
 /** 排名颜色:Top 3 高亮 */
@@ -137,6 +191,12 @@ export function Leaderboard({ entries }: Props) {
   const [showCompareDialog, setShowCompareDialog] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState('')
   const [activeVendor, setActiveVendor] = React.useState<string | null>(null)
+  // 收藏:id 集合 + 仅看收藏筛选
+  const [favIds, setFavIds] = React.useState<Set<string>>(() => new Set(readFavList()))
+  const [favOnly, setFavOnly] = React.useState(false)
+  // 列显隐:被隐藏的字段集合 + dropdown 开关
+  const [colHidden, setColHidden] = React.useState<Set<string>>(() => new Set(readColHidden()))
+  const [showColMenu, setShowColMenu] = React.useState(false)
 
   // 按当前 Tab 过滤 + 搜索 + 厂商筛选
   const filtered = React.useMemo(() => {
@@ -159,8 +219,12 @@ export function Leaderboard({ entries }: Props) {
     if (activeVendor) {
       list = list.filter((e) => e.vendor === activeVendor)
     }
+    // 仅看收藏
+    if (favOnly) {
+      list = list.filter((e) => favIds.has(e.id))
+    }
     return list
-  }, [entries, activeCategory, activeSubcat, searchQuery, activeVendor])
+  }, [entries, activeCategory, activeSubcat, searchQuery, activeVendor, favOnly, favIds])
 
   // 当前分类下唯一厂商列表(用于厂商筛选 chip)
   const vendors = React.useMemo(() => {
@@ -231,6 +295,39 @@ export function Leaderboard({ entries }: Props) {
     })
   }
 
+  /** 切换收藏 */
+  function toggleFav(entry: LeaderboardEntry) {
+    setFavIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(entry.id)) {
+        next.delete(entry.id)
+      } else {
+        next.add(entry.id)
+      }
+      writeFavList(Array.from(next))
+      return next
+    })
+  }
+
+  /** 切换列显隐 */
+  function toggleCol(field: SortField) {
+    setColHidden((prev) => {
+      const next = new Set(prev)
+      if (next.has(field)) {
+        next.delete(field)
+      } else {
+        next.add(field)
+      }
+      writeColHidden(Array.from(next))
+      return next
+    })
+  }
+
+  /** 列是否可见 */
+  function colVisible(field: SortField): boolean {
+    return !colHidden.has(field)
+  }
+
   // 切换分类时重置子分类 + 恢复该分类的排序偏好 + 重置搜索/厂商筛选
   React.useEffect(() => {
     if (activeCategory !== 'llm') setActiveSubcat('')
@@ -259,7 +356,8 @@ export function Leaderboard({ entries }: Props) {
   }
 
   /** 可排序表头 props */
-  function sortableTh(field: SortField, label: string, align: 'left' | 'right' = 'right') {
+  function sortableTh(field: SortField, labelKey: string, align: 'left' | 'right' = 'right') {
+    if (!colVisible(field)) return null
     return (
       <th
         className={`px-3 py-2 ${align === 'right' ? 'text-right' : 'text-left'} font-medium cursor-pointer select-none hover:text-foreground transition-colors`}
@@ -267,7 +365,7 @@ export function Leaderboard({ entries }: Props) {
         title={t('leaderboard.sortHint')}
       >
         <span className="inline-flex items-center">
-          {label}
+          {t(labelKey)}
           <SortIcon field={field} />
         </span>
       </th>
@@ -300,7 +398,7 @@ export function Leaderboard({ entries }: Props) {
             }`}
           >
             <span className="text-[10px]">{tab.icon}</span>
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -308,7 +406,7 @@ export function Leaderboard({ entries }: Props) {
       {/* LLM 子分类 Tab */}
       {activeCategory === 'llm' ? (
         <div className="flex items-center gap-1 bg-muted/10 px-3 py-1.5">
-          <span className="mr-1 text-[10px] text-muted-foreground">LLM 细分:</span>
+          <span className="mr-1 text-[10px] text-muted-foreground">{t('leaderboard.llmSubcatLabel')}</span>
           {LLM_SUBCATS.map((sub) => (
             <button
               key={sub.key}
@@ -320,7 +418,7 @@ export function Leaderboard({ entries }: Props) {
                   : 'text-muted-foreground hover:bg-accent'
               }`}
             >
-              {sub.label}
+              {t(sub.labelKey)}
             </button>
           ))}
         </div>
@@ -376,6 +474,99 @@ export function Leaderboard({ entries }: Props) {
             ))}
           </div>
         ) : null}
+
+        {/* 收藏筛选 + 列显隐 */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+          {/* 收藏筛选 Tab */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setFavOnly(false)}
+              className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] transition-colors ${
+                !favOnly
+                  ? 'bg-foreground/10 text-foreground font-semibold'
+                  : 'text-muted-foreground/70 hover:bg-accent/60 hover:text-foreground'
+              }`}
+            >
+              {t('leaderboard.favAll')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setFavOnly(true)}
+              disabled={favIds.size === 0}
+              className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] transition-colors ${
+                favOnly
+                  ? 'bg-amber-500/15 text-amber-700 font-semibold dark:text-amber-400'
+                  : 'text-muted-foreground/70 hover:bg-accent/60 hover:text-foreground'
+              } ${favIds.size === 0 ? 'cursor-not-allowed opacity-40' : ''}`}
+            >
+              <Star className={`h-2.5 w-2.5 ${favOnly ? 'fill-current' : ''}`} />
+              {t('leaderboard.favOnly')}
+              {favIds.size > 0 ? (
+                <span className="tabular-nums">{favIds.size}</span>
+              ) : null}
+            </button>
+          </div>
+
+          {/* 列显隐 dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowColMenu((v) => !v)}
+              className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] text-muted-foreground/70 transition-colors hover:bg-accent/60 hover:text-foreground"
+              aria-label={t('leaderboard.colVisibility')}
+            >
+              <Settings2 className="h-2.5 w-2.5" />
+              {t('leaderboard.colVisibility')}
+            </button>
+            {showColMenu ? (
+              <>
+                {/* 点击外部关闭 */}
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowColMenu(false)}
+                />
+                <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-md border bg-popover p-1 shadow-md">
+                  <p className="px-2 py-1 text-[9px] uppercase tracking-wide text-muted-foreground">
+                    {t('leaderboard.colVisibilityHint')}
+                  </p>
+                  {HIDABLE_COLS.map((field) => {
+                    const visible = colVisible(field)
+                    const labelKeyMap: Record<SortField, string> = {
+                      arenaScore: 'leaderboard.colArenaScore',
+                      winRate: 'leaderboard.colWinRate',
+                      voteCount: 'leaderboard.colVoteCount',
+                      contextWindow: 'leaderboard.colContextWindow',
+                      maxOutput: 'leaderboard.colMaxOutput',
+                      inputPrice: 'leaderboard.colInputPrice',
+                      outputPrice: 'leaderboard.colOutputPrice',
+                      releaseDate: 'leaderboard.colReleaseDate',
+                    }
+                    return (
+                      <button
+                        key={field}
+                        type="button"
+                        onClick={() => toggleCol(field)}
+                        className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-[11px] transition-colors hover:bg-accent"
+                      >
+                        <span
+                          className={`inline-flex h-3 w-3 items-center justify-center rounded-sm border ${
+                            visible
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'border-muted-foreground/40'
+                          }`}
+                        >
+                          {visible ? '✓' : ''}
+                        </span>
+                        {t(labelKeyMap[field])}
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       {/* 表格 — 竖向排列模型行,参数横向排列 */}
@@ -386,25 +577,28 @@ export function Leaderboard({ entries }: Props) {
               <th className="w-8 px-2 py-2 text-center">
                 <GitCompare className="inline h-3 w-3 text-muted-foreground" />
               </th>
+              <th className="w-8 px-2 py-2 text-center">
+                <Star className="inline h-3 w-3 text-muted-foreground" />
+              </th>
               <th className="px-3 py-2 text-left font-medium">#</th>
-              <th className="px-3 py-2 text-left font-medium">模型</th>
-              <th className="px-3 py-2 text-left font-medium">厂商</th>
-              {sortableTh('arenaScore', 'Arena 评分')}
-              {sortableTh('winRate', '胜率')}
-              {sortableTh('voteCount', '投票')}
-              {sortableTh('contextWindow', '上下文')}
-              {sortableTh('maxOutput', '最大输出')}
-              {sortableTh('inputPrice', '输入价')}
-              {sortableTh('outputPrice', '输出价')}
-              <th className="px-3 py-2 text-center font-medium">变化</th>
-              {sortableTh('releaseDate', '发布', 'left')}
+              <th className="px-3 py-2 text-left font-medium">{t('leaderboard.colModel')}</th>
+              <th className="px-3 py-2 text-left font-medium">{t('leaderboard.colVendor')}</th>
+              {sortableTh('arenaScore', 'leaderboard.colArenaScore')}
+              {sortableTh('winRate', 'leaderboard.colWinRate')}
+              {sortableTh('voteCount', 'leaderboard.colVoteCount')}
+              {sortableTh('contextWindow', 'leaderboard.colContextWindow')}
+              {sortableTh('maxOutput', 'leaderboard.colMaxOutput')}
+              {sortableTh('inputPrice', 'leaderboard.colInputPrice')}
+              {sortableTh('outputPrice', 'leaderboard.colOutputPrice')}
+              <th className="px-3 py-2 text-center font-medium">{t('leaderboard.colChange')}</th>
+              {sortableTh('releaseDate', 'leaderboard.colReleaseDate', 'left')}
               <th className="px-3 py-2 text-right font-medium"></th>
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 ? (
               <tr>
-                <td colSpan={14} className="px-3 py-8 text-center text-xs text-muted-foreground">
+                <td colSpan={15} className="px-3 py-8 text-center text-xs text-muted-foreground">
                   {searchQuery || activeVendor ? (
                     <div className="space-y-2">
                       <p>{t('leaderboard.noMatch')}</p>
@@ -440,6 +634,23 @@ export function Leaderboard({ entries }: Props) {
                         aria-label={t('compare.label')}
                       />
                     </td>
+                    {/* 收藏 */}
+                    <td className="px-2 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => toggleFav(entry)}
+                        className="inline-flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-accent"
+                        aria-label={t('leaderboard.favToggle')}
+                      >
+                        <Star
+                          className={`h-3.5 w-3.5 transition-colors ${
+                            favIds.has(entry.id)
+                              ? 'fill-amber-400 text-amber-500'
+                              : 'text-muted-foreground/40 hover:text-amber-400'
+                          }`}
+                        />
+                      </button>
+                    </td>
                     {/* 排名 */}
                     <td className="px-3 py-2.5">
                       <span className={`inline-flex h-6 w-6 items-center justify-center rounded text-[11px] font-bold tabular-nums ${rankBg(idx)}`}>
@@ -453,6 +664,7 @@ export function Leaderboard({ entries }: Props) {
                     {/* 厂商 */}
                     <td className="px-3 py-2.5 text-xs text-muted-foreground">{highlight(entry.vendor, searchQuery)}</td>
                     {/* Arena 评分 */}
+                    {colVisible('arenaScore') ? (
                     <td className="px-3 py-2.5 text-right">
                       {entry.arenaScore ? (
                         <div className="flex flex-col items-end">
@@ -465,30 +677,43 @@ export function Leaderboard({ entries }: Props) {
                         <span className="text-xs text-muted-foreground">-</span>
                       )}
                     </td>
+                    ) : null}
                     {/* 胜率 */}
+                    {colVisible('winRate') ? (
                     <td className="px-3 py-2.5 text-right text-xs tabular-nums">
                       {entry.winRate !== null ? `${entry.winRate.toFixed(1)}%` : '-'}
                     </td>
+                    ) : null}
                     {/* 投票数 */}
+                    {colVisible('voteCount') ? (
                     <td className="px-3 py-2.5 text-right text-[10px] tabular-nums text-muted-foreground">
                       {formatVotes(entry.voteCount) || '-'}
                     </td>
+                    ) : null}
                     {/* 上下文窗口 */}
+                    {colVisible('contextWindow') ? (
                     <td className="px-3 py-2.5 text-right text-xs tabular-nums">
                       {entry.contextWindow ?? '-'}
                     </td>
+                    ) : null}
                     {/* 最大输出 */}
+                    {colVisible('maxOutput') ? (
                     <td className="px-3 py-2.5 text-right text-xs tabular-nums">
                       {entry.maxOutput ?? '-'}
                     </td>
+                    ) : null}
                     {/* 输入价 */}
+                    {colVisible('inputPrice') ? (
                     <td className="px-3 py-2.5 text-right text-xs tabular-nums">
                       {entry.inputPrice ?? '-'}
                     </td>
+                    ) : null}
                     {/* 输出价 */}
+                    {colVisible('outputPrice') ? (
                     <td className="px-3 py-2.5 text-right text-xs tabular-nums">
                       {entry.outputPrice ?? '-'}
                     </td>
+                    ) : null}
                     {/* 排名变化 */}
                     <td className="px-3 py-2.5">
                       <div className="flex justify-center">
@@ -496,9 +721,11 @@ export function Leaderboard({ entries }: Props) {
                       </div>
                     </td>
                     {/* 发布时间 */}
+                    {colVisible('releaseDate') ? (
                     <td className="px-3 py-2.5 text-[10px] tabular-nums text-muted-foreground">
                       {entry.releaseDate ?? '-'}
                     </td>
+                    ) : null}
                     {/* 展开箭头 */}
                     <td className="px-3 py-2.5">
                       <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
@@ -513,8 +740,8 @@ export function Leaderboard({ entries }: Props) {
 
       {/* 底部说明 */}
       <div className="flex items-center gap-2 bg-muted/10 px-4 py-2 text-[10px] text-muted-foreground">
-        <span>📊 数据参考 arena.ai/leaderboard · Elo 评分 + Bootstrap 置信区间</span>
-        <span className="ml-auto">{t('leaderboard.sortHint')} · 点击行查看模型详情 + 能力雷达图</span>
+        <span>{t('leaderboard.footerDataRef')}</span>
+        <span className="ml-auto">{t('leaderboard.sortHint')} · {t('leaderboard.footerClickHint')}</span>
       </div>
 
       {/* 对比栏 */}
@@ -549,6 +776,7 @@ export function Leaderboard({ entries }: Props) {
           entry={selectedEntry}
           open={!!selectedEntry}
           onClose={() => setSelectedEntry(null)}
+          searchQuery={searchQuery}
         />
       ) : null}
     </section>
