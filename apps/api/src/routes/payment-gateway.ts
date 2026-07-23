@@ -47,6 +47,8 @@ const notifyUrl = (type?: string): string => {
 }
 
 const ADMIN_ROLE_ID = 1
+// 2026-07-24 安全防护:支付金额上限(分,100 万元,防异常大额 CWE-841)
+const MAX_PAYMENT_AMOUNT_CENTS = 100_000_000
 
 // =============================================================================
 // Zod schemas
@@ -156,6 +158,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const resolvedOpenId = openId || userId
       if (!amountCents || amountCents <= 0)
         return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
       const order = await placeOrder({
         userId,
         amount: amountCents,
@@ -197,6 +201,10 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         description,
       } = wechatAndroidCreateQuery.parse(request.query)
       const userId = request.userId!
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
       const order = await placeOrder({
         userId,
         amount: amountCents,
@@ -237,6 +245,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const userId = request.userId!
       if (!amountCents || amountCents <= 0)
         return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
       const order = await placeOrder({
         userId,
         amount: amountCents,
@@ -278,6 +288,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const userId = request.userId!
       if (!amountCents || amountCents <= 0)
         return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
       const order = await placeOrder({
         userId,
         amount: amountCents,
@@ -312,6 +324,15 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
       const { amount: amountCents, courseId } = wechatCourseCreateQuery.parse(request.query)
       const userId = request.userId!
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
+      // TODO: 生产环境必须根据 courseId 查询课程真实价格,忽略客户端传入的 amount
+      request.log.warn(
+        { courseId, amountCents, userId },
+        '课程支付使用客户端金额,需人工审计异常订单',
+      )
       const order = await placeOrder({
         userId,
         amount: amountCents,
@@ -363,11 +384,29 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         out_trade_no: string
         trade_state: string
         transaction_id?: string
+        amount?: { total?: number }
       }
       const { out_trade_no, trade_state, transaction_id } = decrypted
       if (trade_state === 'SUCCESS') {
-        // 支付幂等：用 transaction_id 作幂等键，防止微信重复回调导致重复处理
-        const idemKey = transaction_id ?? out_trade_no
+        // 2026-07-24 安全防护:校验回调金额与订单金额一致(防金额篡改)
+        const localOrder = await getOrder(out_trade_no)
+        if (!localOrder) {
+          return reply.code(400).send({ code: 'FAIL', message: '订单不存在' })
+        }
+        const callbackAmount = decrypted.amount?.total
+        if (callbackAmount !== undefined && callbackAmount !== localOrder.amount) {
+          request.log.error(
+            { orderNo: out_trade_no, callbackAmount, orderAmount: localOrder.amount },
+            '回调金额与订单金额不一致',
+          )
+          return reply.code(400).send({ code: 'FAIL', message: '金额不匹配' })
+        }
+        // 2026-07-24 安全加固:必须用 transaction_id 作幂等键,缺失则拒绝(防重复支付)
+        if (!transaction_id) {
+          request.log.warn({ orderNo: out_trade_no }, 'wechat callback missing transaction_id')
+          return reply.code(400).send({ code: 'FAIL', message: 'missing transaction_id' })
+        }
+        const idemKey = transaction_id
         const idem = await server.paymentIdempotency.acquire(out_trade_no, idemKey)
         if (idem.status === 'completed') {
           return reply.send({ code: 'SUCCESS', message: 'OK (duplicate)' })
@@ -576,6 +615,10 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const { amount: amountYuan, orderType, subject, productId } = alipayCreateQuery.parse(request.query)
       const userId = request.userId!
       const amountCents = Math.round(amountYuan * 100)
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
       const order = await placeOrder({
         userId,
         amount: amountCents,
@@ -611,6 +654,10 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const { amount: amountYuan, orderType, subject } = alipayCreateQuery.parse(request.query)
       const userId = request.userId!
       const amountCents = Math.round(amountYuan * 100)
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
       const order = await placeOrder({
         userId,
         amount: amountCents,
@@ -641,6 +688,22 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const tradeStatus = params.trade_status ?? ''
       const outTradeNo = params.out_trade_no ?? ''
       if (['TRADE_SUCCESS', 'TRADE_FINISHED'].includes(tradeStatus)) {
+        // 2026-07-24 安全防护:校验回调金额与订单金额一致(防金额篡改)
+        const localOrder = await getOrder(outTradeNo)
+        if (!localOrder) {
+          return reply.type('text/plain').send('fail')
+        }
+        const callbackAmountYuan = parseFloat(params.total_amount ?? '0')
+        if (
+          !Number.isNaN(callbackAmountYuan) &&
+          Math.round(callbackAmountYuan * 100) !== localOrder.amount
+        ) {
+          request.log.error(
+            { orderNo: outTradeNo, callbackAmountYuan, orderAmountCents: localOrder.amount },
+            '回调金额与订单金额不一致',
+          )
+          return reply.type('text/plain').send('fail')
+        }
         // 支付幂等：用支付宝 trade_no 作幂等键，防止重复回调
         const idemKey = params.trade_no ?? outTradeNo
         const idem = await server.paymentIdempotency.acquire(outTradeNo, idemKey)
@@ -727,6 +790,9 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '无权操作此订单'))
       }
       if (order.status !== 'paid') return reply.status(400).send(error(400, '订单状态不允许退款'))
+      // 2026-07-24 安全防护:退款金额不能超过订单金额(单位:元)
+      if (amountYuan * 100 > order.amount)
+        return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
       if (isAlipayConfigured()) {
         const result = await aliRefundOrder({ outTradeNo, refundAmount: amountYuan, reason })
         if (!result.success) return reply.status(500).send(error(500, '退款失败'))
@@ -754,6 +820,10 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const { amount: amountYuan, orderType, productId } = fundCreateOrderQuery.parse(request.query)
       const userId = request.userId!
       const amountCents = Math.round(amountYuan * 100)
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
       const order = await placeOrder({
         userId,
         amount: amountCents,
@@ -802,6 +872,10 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
       const { amount, bankAccount, bankName } = transferQuery.parse(request.query)
       const userId = request.userId!
+      // 2026-07-24 安全防护:提现金额不能超过用户余额(CWE-841)
+      const balance = await getBalance(userId)
+      if (amount > balance)
+        return reply.status(400).send(error(400, '提现金额不能超过可用余额'))
       const flow = await applyWithdrawal({
         userId,
         amount,
@@ -825,6 +899,10 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
       const { amount } = withdrawalQuery.parse(request.query)
       const userId = request.userId!
+      // 2026-07-24 安全防护:提现金额不能超过用户余额(CWE-841)
+      const balance = await getBalance(userId)
+      if (amount > balance)
+        return reply.status(400).send(error(400, '提现金额不能超过可用余额'))
       const flow = await applyWithdrawal({
         userId,
         amount,
