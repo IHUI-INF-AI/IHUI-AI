@@ -328,6 +328,12 @@ export default {
     common: {
       loading: '読み込み中…',
     },
+    tishi: {
+      title: 'エージェントガイド',
+      view: '表示',
+      close: '閉じる',
+      needInput: 'より正確なサポートのため、以下の情報を入力してください',
+    },
     chatMessageItem: {
       me: '私',
       ai: 'AI',
