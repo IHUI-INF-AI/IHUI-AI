@@ -22,7 +22,7 @@ function isUuid(s: string): boolean {
   return uuidSchema.safeParse(s).success
 }
 
-export const eduStubRoutes: FastifyPluginAsync = async (server) => {
+export const eduSupplementaryRoutes: FastifyPluginAsync = async (server) => {
   server.get('/edu/courses/:id/assignments', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = idParamSchema.safeParse(request.params)
