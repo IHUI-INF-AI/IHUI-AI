@@ -53,17 +53,27 @@ export default function VideoDetailPage() {
   const load = useCallback(async () => {
     const pages = Taro.getCurrentPages()
     const current = pages[pages.length - 1]
-    const id = (current?.options?.id || '') as string
-    if (!id) {
+    const options = current?.options || {}
+    const id = (options.id || '') as string
+    const courseId = (options.courseId || '') as string
+    const lessonIdx = Number(options.lessonIdx)
+    // 优先用 id,若 id 不存在则用 courseId 从课程章节列表加载
+    const videoId = id || courseId
+    if (!videoId) {
       setLoading(false)
       return
     }
     setLoading(true)
     try {
-      const res = (await getVideoDetail(id)) as VideoData
+      const res = (await getVideoDetail(videoId)) as VideoData
       setInfo(res)
-      const firstChapter = res.chapters?.[0]
-      if (firstChapter) setCurrentChapter(firstChapter.id)
+      // 若有 lessonIdx,从课程章节列表中查找对应 lesson;否则默认首个章节
+      const chapters = res.chapters || []
+      const targetChapter =
+        !Number.isNaN(lessonIdx) && lessonIdx >= 0 && lessonIdx < chapters.length
+          ? chapters[lessonIdx]
+          : chapters[0]
+      if (targetChapter) setCurrentChapter(targetChapter.id)
       setPayInfo({
         payType: res.payType,
         payCrowd: res.payCrowd,
