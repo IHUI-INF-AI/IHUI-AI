@@ -130,6 +130,10 @@ export default {
     removeAttachment: '移除附件',
     dragHint: '支援拖曳檔案 / 貼上圖片 / 點擊 📎 按鈕選擇檔案',
     attachmentReady: '附件已就緒',
+    windowLayout: '視窗版面',
+    resetWindowLayout: '重置視窗版面',
+    windowResetDone: '已重置,下次啟動生效',
+    windowResetFailed: '重置視窗版面失敗',
   },
   error: {
     network: '網路錯誤',
