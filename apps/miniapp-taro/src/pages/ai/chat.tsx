@@ -36,6 +36,8 @@ interface AgentInfo {
   desc: string
   avatar?: string
   prompt: string
+  /** 智能体开场白(对标原 ai_assistant.vue prologue,引导说明内容) */
+  prologue?: string
 }
 
 const MATERIAL_PAGE_SIZE = 20
@@ -67,6 +69,8 @@ export default function ChatPage() {
   const [materialTab, setMaterialTab] = useState<MaterialTab>(1)
   const [agentDrawerVisible, setAgentDrawerVisible] = useState(false)
   const [agent, setAgent] = useState<AgentInfo | null>(null)
+  // 智能体引导说明(对标原 ai_assistant.vue tishi_show + tishi_content)
+  const [tishiShow, setTishiShow] = useState(false)
   const [skillsPopupVisible, setSkillsPopupVisible] = useState(false)
   const [agents, setAgents] = useState<AgentItem[]>([])
   const [agentsLoading, setAgentsLoading] = useState(false)
@@ -376,6 +380,37 @@ export default function ChatPage() {
       </View>
 
       <ScrollView className="msg-list" scrollY scrollTop={scrollTop} scrollWithAnimation>
+        {/* 智能体引导说明(对标原 ai_assistant.vue tishi_block + tishi_box,仅选中智能体时显示) */}
+        {agent ? (
+          <View className="tishi-block" onClick={() => setTishiShow((v) => !v)}>
+            <Text className="tishi-block-icon">{tishiShow ? '✕' : '💡'}</Text>
+            <Text className="tishi-block-text">
+              {tishiShow ? t('ai.tishi.close') : t('ai.tishi.view')} {t('ai.tishi.title')}
+            </Text>
+          </View>
+        ) : null}
+        {agent && tishiShow && agent.prologue ? (
+          <View className="tishi-box">
+            <View className="tishi-title">
+              <Text className="tishi-title-icon">📋</Text>
+              <Text className="tishi-title-text">{t('ai.tishi.needInput')}</Text>
+            </View>
+            <View className="tishi-content">
+              {/* 对标原 v-html tishi_content,prologue 中的 \n 替换为换行展示 */}
+              {agent.prologue
+                .replace(/\\n/g, '\n')
+                .replace(/<br\s*\/?>/g, '\n')
+                .split('\n')
+                .map((line, i) => (
+                  <Text key={i} className="tishi-content-line">
+                    {line}
+                    {'\n'}
+                  </Text>
+                ))}
+            </View>
+          </View>
+        ) : null}
+
         {!messages.length ? (
           <View className="welcome">
             <Text className="welcome-title">{t('ai.welcomeTitle')}</Text>
