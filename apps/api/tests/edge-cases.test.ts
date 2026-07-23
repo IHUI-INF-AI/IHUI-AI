@@ -4,6 +4,7 @@ import Fastify from 'fastify';
 // =============================================================================
 // Mock config 避免 env 校验触发 process.exit(1)
 // =============================================================================
+vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
