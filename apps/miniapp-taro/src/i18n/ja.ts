@@ -70,6 +70,15 @@ export default {
     more: 'もっと見る',
     livePreview: 'ライブ予定',
     startTime: '開始時間',
+    aiAppTitle: 'AIアプリ',
+    aiEntries: {
+      aiChat: 'AIチャット',
+      aiImage: 'AI画像',
+      aiVoice: 'AI音声',
+      aiVideo: 'AI動画',
+      agent: 'エージェント',
+      modelPlaza: 'モデルプラザ',
+    },
   },
   course: {
     title: 'コース',
@@ -104,6 +113,7 @@ export default {
     noteTitle: '{{title}} - ノート',
     scanCourse: 'スキャンしてコースを見る',
     loadFailed: 'コースの読み込みに失敗',
+    weekDays: ['月', '火', '水', '木', '金', '土', '日'],
     list: {
       searchPlaceholder: 'コースを検索',
       search: '検索',
@@ -247,6 +257,22 @@ export default {
     like: 'いいね',
     favorite: 'お気に入り',
     share: '共有',
+    modelTypes: {
+      aiChat: 'AIチャット',
+      aiImage: 'AI画像',
+      aiVideo: 'AI動画',
+      aiVoice: 'AI音声',
+      agent: 'エージェント',
+      digitalHuman: 'デジタルヒューマン',
+      modelPlaza: 'モデルプラザ',
+      moreTools: 'その他ツール',
+    },
+    quickEntries: {
+      myCreation: 'マイ作成',
+      aigcWorks: 'AIGC作品',
+      ranking: 'ランキング',
+      aiTeam: 'AIチーム',
+    },
   },
   agent: {
     title: 'エージェント',
@@ -376,6 +402,7 @@ export default {
       thinking: '考え中…',
       releaseToSend: '離して送信',
       holdToSpeak: '長押しで話す',
+      recordFailed: '録音失敗、再試行してください',
     },
     image: {
       examples: ['可愛い猫', '夕日の山水画', '未来都市の夜景', '抽象アート'],
@@ -416,6 +443,35 @@ export default {
       permissionDenied: '拒否',
       startChat: 'チャット開始',
     },
+    special: {
+      hint: '特別な AI モデルの入口,対応する機能ページに移動',
+      available: '利用可能',
+      pageError: '操作失敗',
+      nanobanana: {
+        name: 'NanoBanana',
+        desc: 'Google 画像編集モデル,自然言語指示で画像編集をサポート',
+        capabilities: ['画像編集', '自然言語', '部分再描画'],
+        apiStatus: 'AI画像ページへ移動',
+      },
+      veo3: {
+        name: 'Veo3',
+        desc: 'Google 動画生成モデル,高品質なテキストto動画をサポート',
+        capabilities: ['テキストto動画', 'HD出力', '長動画'],
+        apiStatus: 'AI動画生成ページへ移動',
+      },
+      httpmodel: {
+        name: 'HttpModel',
+        desc: '汎用 HTTP モデルプロキシ,カスタムモデル連携をサポート',
+        capabilities: ['カスタムモデル', 'HTTPプロキシ', '汎用インターフェース'],
+        apiStatus: 'AIチャットページへ移動',
+      },
+      geminiFlash: {
+        name: 'Gemini-2.5-flash',
+        desc: 'Google Gemini 2.5 Flash テキストモデル,高速応答',
+        capabilities: ['テキストチャット', 'マルチモーダル入力', '高速応答'],
+        apiStatus: 'AIチャットで利用可能',
+      },
+    },
   },
   share: {
     appTitle: 'IHUI AI — 学習をより効率的に',
@@ -434,6 +490,21 @@ export default {
     shareFriend: 'WeChat友達に共有',
     saveImage: '画像を保存',
     sharePath: '共有パス',
+    creation: {
+      title: 'AI作成共有',
+      missingCode: '共有コードが不足',
+      loadFailed: '読み込み失敗',
+      loading: '読み込み中…',
+      clickShare: '右上をタップして友達に共有',
+      contentNotExist: '共有コンテンツが存在しません',
+      tokenCost: '{{n}} トークン消費',
+      thinkingProcess: '思考プロセス',
+      aiAnswer: 'AI回答',
+      regenerate: '再生成',
+      shareFriend: '友達に共有',
+      voiceAnswer: '🔊 音声回答',
+      modelDefault: 'AIモデル',
+    },
   },
   aiGroup: {
     title: 'エージェント広場',
@@ -673,6 +744,10 @@ export default {
       menuCommission: 'コミッション',
       menuWithdraw: '出金申請',
     },
+    rank: {
+      title: 'ディストリビューションランキング',
+      empty: 'ランキングデータなし',
+    },
   },
   about: {
     version: 'バージョン {{version}}',
@@ -854,6 +929,8 @@ export default {
     search: 'ニュース検索',
     views: '{{n}} 回閲覧',
     empty: 'ニュースなし',
+    loading: '読み込み中…',
+    readCount: '{{n}} 閲覧',
   },
   plaza: {
     setNeed: {
@@ -882,6 +959,19 @@ export default {
   ranking: {
     title: 'ランキング',
     empty: 'データなし',
+    detail: {
+      attention: 'フォロー数',
+      category: 'カテゴリ',
+      price: '価格',
+      status: 'ステータス',
+      subCategory: 'サブカテゴリ',
+      productForm: '商品形式',
+      org: '所属機関',
+      url: '公式URL',
+      copyHint: 'タップしてコピー',
+      contentTitle: '詳細紹介',
+      loadFailed: '詳細の取得失敗',
+    },
   },
   recruitment: {
     applied: '応募送信済み',
@@ -942,6 +1032,16 @@ export default {
     settings: '設定',
     notificationSettings: '通知設定',
     close: '閉じる',
+    demo: {
+      zhangsan: '張三',
+      lisi: '李四',
+      wangwu: '王五',
+      likeNote: 'があなたの学習ノートにいいねしました',
+      replyComment: 'があなたのコメントに返信しました:とても分かりやすい!',
+      followYou: 'があなたをフォローしました',
+      targetReact: 'React 入門 第3回',
+      targetAi: 'AI 大モデル実戦',
+    },
   },
   member: {
     index: {
