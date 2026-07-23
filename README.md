@@ -312,6 +312,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | 业务名片        | 名片创建 / 编辑 / 收藏 / 分享 / business-cards                                                              |
 | **AI 教育全栈**   | 课程学习        | 课程 / 章节 / 学习路径 / 学习地图 / 进度跟踪 / 笔记 / zhs-course                                            |
 |                   | 题库与考试      | 多题型 / 自动批改 / 章节练习 / 错题本 / 试卷上传 / exam-marking                                             |
+|                   | **AI 教育引擎** | **P3 深度层(2026-07-23 立)**:SM-2 间隔复习系统(easeFactor 2.5 / interval / repetition / dueDate / lastReviewAt 5 字段 + 5 档评分 0/2/3/4/5 + EF 自适应)+ AI 助教(7 学科 persona:数学/物理/化学/生物/英语/历史/地理 + 未知学科兜底 + 3 模式 explain/hint/quiz + JSON 容错三级解析)+ AI 批改主观题(ai_grading_record 表 + 教师审核状态机)+ AI 出题(ai_generated_question 表 + 人工审核 + 知识点关联) |
 |                   | 直播流媒体(SRS) | RTMP/HLS/WebRTC 直播推流                                                                                             |
 |                   | 直播教学        | 签到 / 互动 / 回放 / AI 辅助 / live-chat                                                                    |
 |                   | 学习报告        | 行为分析 / 个性化建议 / 证书发放                                                                            |
