@@ -98,7 +98,21 @@ export function MessageInput({
 }: MessageInputProps) {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
-  const [value, setValue] = React.useState('')
+  // P1 草稿自动保存(2026-07-23):刷新/路由切换不丢失未发送内容
+  const DRAFT_KEY = 'chat:draft'
+  const [value, setValue] = React.useState(() => {
+    if (typeof window === 'undefined') return ''
+    return localStorage.getItem(DRAFT_KEY) ?? ''
+  })
+  // 防抖写入 localStorage(避免每个 keystroke 写入)
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(DRAFT_KEY, value)
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [value])
   const [slashOpen, setSlashOpen] = React.useState(false)
   const [mentionOpen, setMentionOpen] = React.useState(false)
   const [references, setReferences] = React.useState<ReferenceItem[]>([])
@@ -354,6 +368,7 @@ export function MessageInput({
       if (r.thumbnail) URL.revokeObjectURL(r.thumbnail)
     })
     setValue('')
+    if (typeof window !== 'undefined') localStorage.removeItem(DRAFT_KEY)
     setReferences([])
     requestAnimationFrame(resize)
   }
