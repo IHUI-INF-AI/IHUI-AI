@@ -99,7 +99,7 @@ import webhooksRoutes from './webhooks.js'
 import webhookTriggerRoutes from './webhooks-trigger.js'
 import packagesRoutes from './packages.js'
 import fundRoutes from './fund.js'
-import walletRoutes from './wallet.js'
+import walletRoutes, { adminWalletRoutes } from './wallet.js'
 import traderRoutes from './trader.js'
 import sdksRoutes from './sdks.js'
 import miniprogramRoutes from './miniprogram.js'
@@ -539,6 +539,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(fundRoutes, { prefix: '/api/fund' })
   // 钱包管理：/api/wallet/*
   server.register(walletRoutes, { prefix: '/api/wallet' })
+  // 钱包管理后台(统计聚合 + 全量流水审计 + 管理员余额调整)
+  server.register(adminWalletRoutes, { prefix: '/api/admin/wallet' })
   // 交易员管理：/api/trader/*
   server.register(traderRoutes, { prefix: '/api/trader' })
   // SDK 管理：/api/sdks/*
