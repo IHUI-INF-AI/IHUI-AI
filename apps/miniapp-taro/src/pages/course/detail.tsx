@@ -1,7 +1,7 @@
 import { View, Text } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
-import { getCourseDetail, type Course } from '@/api'
+import { getCourseDetail, post, type Course } from '@/api'
 import { useI18n } from '@/i18n'
 import {
   CourseHeader,
@@ -59,9 +59,31 @@ export default function CourseDetail() {
     query: `id=${router.params.id || ''}`,
   }))
 
-  const handleBuy = useCallback(() => {
-    Taro.showToast({ title: t('course.buyDeveloping'), icon: 'none' })
-  }, [t])
+  const handleBuy = useCallback(async () => {
+    const courseId = course?.id
+    if (courseId == null) return
+    try {
+      const res = await post<{ orderId?: string; orderNo?: string; amount?: number }>(
+        '/courses/buy',
+        { courseId },
+      )
+      const orderId = res?.orderId || res?.orderNo || ''
+      const amount = res?.amount ?? course?.price ?? 0
+      Taro.navigateTo({
+        url: `/pages/pay/index?orderId=${orderId}&amount=${amount}`,
+      })
+    } catch {
+      // 后端无购买端点,toast 提示 + mock
+      Taro.showToast({ title: t('course.buyDeveloping'), icon: 'none' })
+    }
+  }, [course?.id, course?.price, t])
+
+  const handleTeacherClick = useCallback(() => {
+    const teacherId =
+      (course as (Course & { teacherId?: string | number }) | null)?.teacherId ?? course?.id ?? ''
+    if (!teacherId) return
+    Taro.navigateTo({ url: `/pages/teacher/detail?id=${teacherId}` })
+  }, [course])
 
   const handleSign = useCallback(() => {
     Taro.showToast({ title: t('course.signSuccess'), icon: 'success' })
@@ -199,7 +221,7 @@ export default function CourseDetail() {
         rating={4.8}
         isFollowing={false}
         onFollow={() => Taro.showToast({ title: t('course.followed'), icon: 'success' })}
-        onClick={() => Taro.navigateTo({ url: '/pages/teacher/detail?id=1' })}
+        onClick={handleTeacherClick}
       />
 
       <CourseIntro
