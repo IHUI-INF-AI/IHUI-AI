@@ -431,7 +431,7 @@ const rateListQuerySchema = z.object({
 
 const updateAccessSchema = z.object({
   accessType: z.enum(['all', 'tag', 'group', 'member']),
-  accessValues: z.array(z.string()).default([]),
+  accessValues: z.array(z.string()).max(100).default([]),
 })
 
 const createMapSchema = z.object({
@@ -440,7 +440,7 @@ const createMapSchema = z.object({
   cover: z.string().max(500).nullable().optional(),
   content: z.any().optional(),
   isPublished: z.boolean().optional(),
-  topicIds: z.array(z.string().uuid()).default([]),
+  topicIds: z.array(z.string().uuid()).max(100).default([]),
 })
 
 const updateMapSchema = z.object({
@@ -450,7 +450,7 @@ const updateMapSchema = z.object({
   content: z.any().optional(),
   sort: z.number().int().min(0).optional(),
   isPublished: z.boolean().optional(),
-  topicIds: z.array(z.string().uuid()).optional(),
+  topicIds: z.array(z.string().uuid()).max(100).optional(),
 })
 
 const mapListQuerySchema = z.object({

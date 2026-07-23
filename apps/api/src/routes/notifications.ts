@@ -71,9 +71,9 @@ const sendTargetedSchema = z
   .object({
     title: z.string().min(1).max(255),
     content: z.string().min(1).max(5000),
-    userIds: z.array(z.string().uuid()).nullable(),
-    roleFilter: z.array(z.string().min(1)).nullable(),
-    channels: z.array(z.enum(['in_app', 'email', 'sms'])).min(1),
+    userIds: z.array(z.string().uuid()).max(500).nullable(),
+    roleFilter: z.array(z.string().min(1)).max(100).nullable(),
+    channels: z.array(z.enum(['in_app', 'email', 'sms'])).min(1).max(20),
     msgType: z.enum(NOTIFICATION_TYPES),
   })
   .refine(

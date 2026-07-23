@@ -45,7 +45,7 @@ const ragContextSchema = z.object({
 })
 
 const batchDeleteSchema = z.object({
-  docIds: z.array(z.number().int().positive()),
+  docIds: z.array(z.number().int().positive()).max(100),
   ownerUuid: z.string().min(1),
 })
 

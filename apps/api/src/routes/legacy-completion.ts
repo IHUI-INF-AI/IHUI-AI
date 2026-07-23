@@ -317,7 +317,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
 
   // ========== D9: 各模块 by-ids 批量查询 (统一端点) ==========
   fastify.post('/batch/lessons', { preHandler: authenticate }, async (request) => {
-    const { ids } = z.object({ ids: z.array(z.string()) }).parse(request.body)
+    const { ids } = z.object({ ids: z.array(z.string()).max(100) }).parse(request.body)
     const list = await db
       .select()
       .from(lessons)
@@ -326,7 +326,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   fastify.post('/batch/exams', { preHandler: authenticate }, async (request) => {
-    const { ids } = z.object({ ids: z.array(z.string()) }).parse(request.body)
+    const { ids } = z.object({ ids: z.array(z.string()).max(100) }).parse(request.body)
     const list = await db
       .select()
       .from(examPapers)
@@ -335,7 +335,7 @@ export const legacyCompletionRoutes: FastifyPluginAsync = async (fastify: Fastif
   })
 
   fastify.post('/batch/channels', { preHandler: authenticate }, async (request) => {
-    const { ids } = z.object({ ids: z.array(z.string()) }).parse(request.body)
+    const { ids } = z.object({ ids: z.array(z.string()).max(100) }).parse(request.body)
     const list = await db
       .select()
       .from(liveChannels)

@@ -55,7 +55,7 @@ const createTicketSchema = z.object({
   categoryId: z.string().uuid().nullable().optional(),
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
   source: z.string().max(16).optional(),
-  attachments: z.array(z.unknown()).optional(),
+  attachments: z.array(z.unknown()).max(20).optional(),
 })
 
 const updateTicketSchema = z.object({
@@ -75,7 +75,7 @@ const assignSchema = z.object({
 
 const createCommentSchema = z.object({
   content: z.string().min(1, '回复内容不能为空').max(5000),
-  attachments: z.array(z.unknown()).optional(),
+  attachments: z.array(z.unknown()).max(20).optional(),
 })
 
 const createCategorySchema = z.object({
@@ -94,7 +94,7 @@ const createAgentSchema = z.object({
   nickname: z.string().min(1).max(64),
   avatar: z.string().max(500).nullable().optional(),
   maxConcurrent: z.number().int().min(1).max(100).optional(),
-  skills: z.array(z.string()).optional(),
+  skills: z.array(z.string()).max(100).optional(),
 })
 
 const updateAgentStatusSchema = z.object({
