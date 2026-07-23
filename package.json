@@ -72,6 +72,9 @@
       "ignoreMissing": [
         "@opentelemetry/api"
       ]
+    },
+    "patchedDependencies": {
+      "solito@4.3.0": "patches/solito@4.3.0.patch"
     }
   },
   "lint-staged": {
