@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 
 /** 能力雷达图 5 维评分(0-100) */
 interface Props {
@@ -16,15 +17,16 @@ interface Props {
 
 /** SVG 雷达图(5 维能力,不引入 chart 库,做减法原则) */
 export function CapabilityRadar({ capabilities, size = 200 }: Props) {
+  const t = useTranslations('aiNews.capabilityRadar')
   const cx = size / 2
   const cy = size / 2
   const radius = size / 2 - 30
   const labels = [
-    { key: 'coding' as const, label: '代码' },
-    { key: 'math' as const, label: '数学' },
-    { key: 'reasoning' as const, label: '推理' },
-    { key: 'creative' as const, label: '创意' },
-    { key: 'chinese' as const, label: '中文' },
+    { key: 'coding' as const, labelKey: 'coding' },
+    { key: 'math' as const, labelKey: 'math' },
+    { key: 'reasoning' as const, labelKey: 'reasoning' },
+    { key: 'creative' as const, labelKey: 'creative' },
+    { key: 'chinese' as const, labelKey: 'chinese' },
   ]
   const angleStep = (Math.PI * 2) / labels.length
   const startAngle = -Math.PI / 2
@@ -39,7 +41,7 @@ export function CapabilityRadar({ capabilities, size = 200 }: Props) {
     return {
       x: cx + Math.cos(angle) * radius * val,
       y: cy + Math.sin(angle) * radius * val,
-      label: l.label,
+      label: t(l.labelKey),
       val: capabilities[l.key],
     }
   })
@@ -121,7 +123,7 @@ export function CapabilityRadar({ capabilities, size = 200 }: Props) {
               fontSize={9}
               fontWeight={500}
             >
-              {l.label}
+              {t(l.labelKey)}
             </text>
             <text
               x={x}

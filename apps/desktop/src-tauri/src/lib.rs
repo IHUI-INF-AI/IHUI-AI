@@ -672,6 +672,166 @@ fn reset_window_state(app: tauri::AppHandle) -> Result<OkResult, String> {
     Ok(OkResult { ok: true })
 }
 
+// ================== 会话历史持久化 ==================
+
+const CONVERSATION_STORE_FILE: &str = "conversations.json";
+const KEY_CONVERSATIONS: &str = "conversations";
+const KEY_ACTIVE_CONV: &str = "activeConversationId";
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct StoredMessage {
+    id: String,
+    role: String,
+    content: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct ConversationSummary {
+    id: String,
+    title: String,
+    created_at: i64,
+    updated_at: i64,
+    message_count: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct Conversation {
+    id: String,
+    title: String,
+    created_at: i64,
+    updated_at: i64,
+    messages: Vec<StoredMessage>,
+}
+
+#[derive(Serialize)]
+struct ConversationListResult {
+    conversations: Vec<ConversationSummary>,
+    active_id: Option<String>,
+}
+
+#[derive(Serialize)]
+struct ConversationLoadResult {
+    conversation: Option<Conversation>,
+}
+
+/// 列出所有会话摘要 + 当前活跃会话 ID(按 updated_at 倒序)。
+#[tauri::command]
+fn list_conversations(app: tauri::AppHandle) -> Result<ConversationListResult, String> {
+    let store = app.store(CONVERSATION_STORE_FILE).map_err(|e| e.to_string())?;
+    let active_id = store
+        .get(KEY_ACTIVE_CONV)
+        .and_then(|v| v.as_str().map(|s| s.to_string()));
+    let conversations: Vec<Conversation> = store
+        .get(KEY_CONVERSATIONS)
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    let mut summaries: Vec<ConversationSummary> = conversations
+        .iter()
+        .map(|c| ConversationSummary {
+            id: c.id.clone(),
+            title: c.title.clone(),
+            created_at: c.created_at,
+            updated_at: c.updated_at,
+            message_count: c.messages.len(),
+        })
+        .collect();
+    summaries.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+    Ok(ConversationListResult {
+        conversations: summaries,
+        active_id,
+    })
+}
+
+/// 加载指定会话的完整消息列表。
+#[tauri::command]
+fn load_conversation(app: tauri::AppHandle, id: String) -> Result<ConversationLoadResult, String> {
+    let store = app.store(CONVERSATION_STORE_FILE).map_err(|e| e.to_string())?;
+    let conversations: Vec<Conversation> = store
+        .get(KEY_CONVERSATIONS)
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    let conversation = conversations.into_iter().find(|c| c.id == id);
+    Ok(ConversationLoadResult { conversation })
+}
+
+/// 保存/更新会话(id 已存在则覆盖,否则新增)。限制最多 50 个会话。
+#[tauri::command]
+fn save_conversation(
+    app: tauri::AppHandle,
+    id: String,
+    title: String,
+    messages: Vec<StoredMessage>,
+) -> Result<OkResult, String> {
+    let store = app.store(CONVERSATION_STORE_FILE).map_err(|e| e.to_string())?;
+    let mut conversations: Vec<Conversation> = store
+        .get(KEY_CONVERSATIONS)
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    if let Some(existing) = conversations.iter_mut().find(|c| c.id == id) {
+        existing.title = title;
+        existing.updated_at = now;
+        existing.messages = messages;
+    } else {
+        conversations.push(Conversation {
+            id: id.clone(),
+            title,
+            created_at: now,
+            updated_at: now,
+            messages,
+        });
+    }
+    if conversations.len() > 50 {
+        conversations.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+        conversations.truncate(50);
+    }
+    let json = serde_json::to_value(&conversations).map_err(|e| e.to_string())?;
+    store.set(KEY_CONVERSATIONS, json);
+    store.set(KEY_ACTIVE_CONV, id);
+    store.save().map_err(|e| e.to_string())?;
+    Ok(OkResult { ok: true })
+}
+
+/// 删除指定会话。
+#[tauri::command]
+fn delete_conversation(app: tauri::AppHandle, id: String) -> Result<OkResult, String> {
+    let store = app.store(CONVERSATION_STORE_FILE).map_err(|e| e.to_string())?;
+    let mut conversations: Vec<Conversation> = store
+        .get(KEY_CONVERSATIONS)
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    conversations.retain(|c| c.id != id);
+    let json = serde_json::to_value(&conversations).map_err(|e| e.to_string())?;
+    store.set(KEY_CONVERSATIONS, json);
+    if let Some(active) = store
+        .get(KEY_ACTIVE_CONV)
+        .and_then(|v| v.as_str().map(|s| s.to_string()))
+    {
+        if active == id {
+            store.delete(KEY_ACTIVE_CONV);
+        }
+    }
+    store.save().map_err(|e| e.to_string())?;
+    Ok(OkResult { ok: true })
+}
+
+/// 设置当前活跃会话 ID(用于下次启动时恢复)。
+#[tauri::command]
+fn set_active_conversation(app: tauri::AppHandle, id: Option<String>) -> Result<OkResult, String> {
+    let store = app.store(CONVERSATION_STORE_FILE).map_err(|e| e.to_string())?;
+    match id {
+        Some(id) => store.set(KEY_ACTIVE_CONV, id),
+        None => {
+            store.delete(KEY_ACTIVE_CONV);
+        }
+    }
+    store.save().map_err(|e| e.to_string())?;
+    Ok(OkResult { ok: true })
+}
+
 #[tauri::command]
 fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String> {
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
@@ -832,7 +992,12 @@ pub fn run() {
             stat_file,
             save_window_state,
             restore_window_state,
-            reset_window_state
+            reset_window_state,
+            list_conversations,
+            load_conversation,
+            save_conversation,
+            delete_conversation,
+            set_active_conversation
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {
