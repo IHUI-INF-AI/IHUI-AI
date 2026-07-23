@@ -247,5 +247,15 @@ export default {
       failed: '失敗',
       cancelled: 'キャンセル',
     },
+    cancel: {
+      cancelButton: 'タスクをキャンセル',
+      cancelling: 'キャンセル中',
+      cancelSuccess: 'タスクをキャンセルしました',
+      cancelFailed: 'タスクのキャンセルに失敗しました',
+    },
+    reconnect: {
+      reconnecting: 'タスクを同期中',
+      reconnectSuccess: 'タスクを同期しました',
+    },
   },
 }
