@@ -15,6 +15,13 @@
   margin-top: 12rpx;
   opacity: 0.9;
 }
+.brand-title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--color-foreground);
+  margin-bottom: 16rpx;
+}
 .card {
   margin: 24rpx;
   padding: 32rpx;
