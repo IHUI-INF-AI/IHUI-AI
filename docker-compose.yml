@@ -16,12 +16,12 @@ services:
       - LOG_LEVEL=info
       - CORS_ORIGIN=http://${DOMAIN:-localhost}
       - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@redis:6379/0
-      - JWT_SECRET=${JWT_SECRET}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置,请在 .env 设置强密钥(≥32 字符)}
       - JWT_EXPIRES_IN=7d
-      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?CREDENTIALS_ENCRYPTION_KEY 未配置,请在 .env 设置 32 字符随机密钥}
       - AI_SERVICE_URL=http://ai-service:8000
-      - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:-}
+      - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:?AI_CALLBACK_SECRET 未配置,请在 .env 设置 32 字符随机密钥}
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USER=${SMTP_USER:-}
@@ -102,11 +102,11 @@ services:
       - NODE_ENV=production
       - LOG_LEVEL=info
       - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@redis:6379/0
-      - JWT_SECRET=${JWT_SECRET}
-      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置,请在 .env 设置强密钥(≥32 字符)}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?CREDENTIALS_ENCRYPTION_KEY 未配置,请在 .env 设置 32 字符随机密钥}
       - AI_SERVICE_URL=http://ai-service:8000
-      - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:-}
+      - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:?AI_CALLBACK_SECRET 未配置,请在 .env 设置 32 字符随机密钥}
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USER=${SMTP_USER:-}
@@ -175,7 +175,7 @@ services:
       - LOG_LEVEL=info
       - CORS_ORIGIN=http://${DOMAIN:-localhost}
       - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@redis:6379/0
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
@@ -187,7 +187,7 @@ services:
       - STEPFUN_API_BASE=${STEPFUN_API_BASE:-https://api.stepfun.com/step_plan/v1}
       - LITELLM_MODEL=${LITELLM_MODEL:-stepfun/step-3.7-flash}
       - API_SERVICE_URL=http://api:8080
-      - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:-}
+      - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:?AI_CALLBACK_SECRET 未配置,请在 .env 设置 32 字符随机密钥}
     depends_on:
       db:
         condition: service_healthy
@@ -214,13 +214,15 @@ services:
     container_name: ihui-db
     restart: unless-stopped
     environment:
+      # 2026-07-24 安全审计:强制 DB_PASSWORD 必填(空值启动失败),杜绝弱密码默认
       POSTGRES_USER: ${DB_USER:-ihui}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 未配置,请在 .env 设置强密码(≥16 字符)}
       POSTGRES_DB: ${DB_NAME:-ihui}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    # 2026-07-24 安全审计:DB 端口仅绑定 127.0.0.1,禁止暴露到 0.0.0.0(防外网扫描爆破)
     ports:
-      - '${DB_PORT:-8810}:5432'
+      - '127.0.0.1:${DB_PORT:-8810}:5432'
     networks:
       - ihui-net
     healthcheck:
@@ -252,15 +254,17 @@ services:
     image: redis:7-alpine
     container_name: ihui-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass $REDIS_PASSWORD}
+    # 2026-07-24 安全审计:强制 REDIS_PASSWORD 必填,禁止无密码运行(防未授权访问 + 持久化攻击)
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD 未配置,请在 .env 设置强密码(≥16 字符)}
     volumes:
       - redisdata:/data
+    # 2026-07-24 安全审计:Redis 端口仅绑定 127.0.0.1,禁止暴露到 0.0.0.0(防未授权访问 + RCE)
     ports:
-      - '${REDIS_PORT:-8811}:6379'
+      - '127.0.0.1:${REDIS_PORT:-8811}:6379'
     networks:
       - ihui-net
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ['CMD-SHELL', 'redis-cli -a "$REDIS_PASSWORD" ping | grep PONG']
       interval: 10s
       timeout: 5s
       retries: 5
