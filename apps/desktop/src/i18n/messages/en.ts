@@ -148,6 +148,10 @@ export default {
     ja: 'Japanese',
     ko: 'Korean',
     about: 'About IHUI AI',
+    fontSize: 'Font size',
+    fontZoomIn: 'Zoom in',
+    fontZoomOut: 'Zoom out',
+    fontReset: 'Reset',
   },
   update: {
     title: 'Software Update',
