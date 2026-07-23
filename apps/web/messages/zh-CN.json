@@ -9078,8 +9078,6 @@
       "clearAllData": "清除所有数据",
       "deleteAccount": "注销账户",
       "about": "关于",
-      "appPermission": "应用权限",
-      "businessLicense": "营业执照",
       "chatHistory": "聊天记录",
       "checkUpdate": "检查更新",
       "commissionPlan": "佣金方案",
@@ -9095,7 +9093,6 @@
       "privacySettings": "隐私设置",
       "recruitment": "招聘",
       "statistics": "统计",
-      "usageRules": "使用规则",
       "viewMiniapp": "查看小程序",
       "webVersion": "网页版",
       "withdrawRecords": "提现记录"
@@ -9123,8 +9120,6 @@
       "clearAllData": "删除所有聊天记录、设置和个人数据",
       "deleteAccount": "永久删除您的账户和所有相关数据",
       "about": "关于",
-      "appPermission": "应用权限",
-      "businessLicense": "营业执照",
       "chatHistory": "聊天记录",
       "checkUpdate": "检查更新",
       "commissionPlan": "佣金方案",
@@ -9140,7 +9135,6 @@
       "privacySettings": "隐私设置",
       "recruitment": "招聘",
       "statistics": "统计",
-      "usageRules": "使用规则",
       "viewMiniapp": "查看小程序",
       "webVersion": "网页版",
       "withdrawRecords": "提现记录"
