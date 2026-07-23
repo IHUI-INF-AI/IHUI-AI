@@ -14611,6 +14611,7 @@
     "ecosystem": "生态合作",
     "icp": "吉ICP备2025027274号",
     "copyright": "© 2025 智汇AI集团 · 中国",
+    "modelRecord": "模型备案",
     "platforms": {
       "n8n": "n8n",
       "coze": "Coze"
@@ -25926,7 +25927,12 @@
       "colOutputPrice": "输出价",
       "colReleaseDate": "发布",
       "footerDataRef": "📊 数据参考 arena.ai/leaderboard · Elo 评分 + Bootstrap 置信区间",
-      "footerClickHint": "点击行查看模型详情 + 能力雷达图"
+      "footerClickHint": "点击行查看模型详情 + 能力雷达图",
+      "favAll": "全部",
+      "favOnly": "收藏",
+      "favToggle": "收藏/取消收藏",
+      "colVisibility": "列显隐",
+      "colVisibilityHint": "勾选显示列"
     },
     "hero": {
       "label": "AI 资讯 Hero",
@@ -26001,7 +26007,8 @@
     "hotRanking": {
       "label": "热度排行榜",
       "title": "AI 资讯热度榜 Top 10",
-      "subtitle": "按实时热度排序"
+      "subtitle": "按实时热度排序",
+      "empty": "暂无热门资讯"
     },
     "trendChart": {
       "subtitle": "7/14 天热度趋势曲线",
@@ -26011,12 +26018,14 @@
       "noDataHint": "需 ≥2 天快照才能绘制趋势,明天 cron 后自动有",
       "stable": "平稳",
       "rankDelta": "排名变化",
-      "hotValue": "热度值"
+      "hotValue": "热度值",
+      "close": "关闭"
     },
     "funding": {
       "label": "重磅融资与收购",
       "title": "重磅融资与收购",
-      "subtitle": "7 月 AI 行业资本动作:SpaceX 600 亿美元收购 Cursor、DeepSeek 500 亿元融资"
+      "subtitle": "7 月 AI 行业资本动作:SpaceX 600 亿美元收购 Cursor、DeepSeek 500 亿元融资",
+      "empty": "暂无融资动态"
     },
     "detailDialog": {
       "arenaScore": "Arena 评分",
