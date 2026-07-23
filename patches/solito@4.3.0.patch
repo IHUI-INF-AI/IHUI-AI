@@ -1,0 +1,13 @@
+diff --git a/build/link/core.js b/build/link/core.js
+index f476237223ef85b4e6a36fb496f2bd64c9c405ce..a1b5d32ad1f6210e538898bdc077e07b8f608931 100644
+--- a/build/link/core.js
++++ b/build/link/core.js
+@@ -6,7 +6,7 @@ import { NextLink } from './next-link';
+ import { useLink } from './use-custom-link';
+ function LinkCore({ children, href, as, componentProps, Component, replace, experimental, target, rel, ...props }) {
+     if (Platform.OS === 'web') {
+-        return (_jsx(NextLink, { ...props, replace: replace, href: href, as: as, passHref: true, legacyBehavior: true, children: _jsx(Component, { ...componentProps, ...(target && { hrefAttrs: { target, rel } }), children: children }) }));
++        return (_jsx(NextLink, { ...props, replace: replace, href: href, as: as, children: _jsx(Component, { ...componentProps, ...(target && { hrefAttrs: { target, rel } }), children: children }) }));
+     }
+     // eslint-disable-next-line react-hooks/rules-of-hooks
+     const linkTo = useLink({
