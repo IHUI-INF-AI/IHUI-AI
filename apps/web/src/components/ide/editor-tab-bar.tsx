@@ -143,12 +143,15 @@ export function EditorTabBar() {
         return (
           <div
             key={tab.id}
+            role="button"
+            tabIndex={0}
             draggable
             onDragStart={handleDragStart(tab.id)}
             onDragOver={handleDragOver(tab.id)}
             onDrop={handleDrop(tab.id)}
             onDragEnd={handleDragEnd}
             onClick={() => setActiveTab(tab.id)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab(tab.id) } }}
             onContextMenu={(e) => {
               e.preventDefault()
               setMenu({ x: e.clientX, y: e.clientY, tabId: tab.id })
@@ -190,6 +193,7 @@ export function EditorTabBar() {
         )
       })}
       {menu && (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
           className="fixed z-50 min-w-[160px] rounded-md border border-border bg-popover py-1 text-xs shadow-md"
           style={{ left: menu.x, top: menu.y }}

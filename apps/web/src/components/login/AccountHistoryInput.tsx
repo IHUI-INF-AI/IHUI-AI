@@ -158,9 +158,12 @@ export function AccountHistoryInput({
               {loginHistory.map((account, idx) => (
                 <div
                   key={account}
+                  role="button"
+                  tabIndex={0}
                   data-history-index={idx}
                   onMouseEnter={() => setActiveHistoryIndex(idx)}
                   onClick={() => selectAccount(account)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectAccount(account) } }}
                   className={[
                     'flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors',
                     activeHistoryIndex === idx

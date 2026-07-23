@@ -190,7 +190,7 @@ function extractHttpUrl(
  * 解析 URL → checkEgress → 通过则调原始函数,不通过则抛 Error。
  */
 function wrapHttpMethod(
-  original: Function,
+  original: (...args: any[]) => any,
   policy: NetworkEgressPolicy,
   defaultProtocol: string,
 ): (url: any, options?: any, callback?: any) => any {
