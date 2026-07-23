@@ -148,6 +148,10 @@ export default {
     ja: '日文',
     ko: '韓文',
     about: '關於智匯 AI',
+    fontSize: '字號',
+    fontZoomIn: '放大',
+    fontZoomOut: '縮小',
+    fontReset: '重設',
   },
   update: {
     title: '軟體更新',
