@@ -31,6 +31,37 @@ import { logger } from '../utils/logger.js'
 const SPEC_GENERATE_PATH = '/api/spec/generate'
 const SPEC_TEMPLATES_PATH = '/api/spec/templates'
 
+/**
+ * 本地预置模板(与 ai-service app/routers/spec.py _BUILTIN_TEMPLATES 保持一致)。
+ * ai-service 不可用时降级返回,确保 Web 端 /spec 页面永远有模板列表。
+ */
+const BUILTIN_TEMPLATES: SpecTemplate[] = [
+  {
+    id: 'full',
+    name: '完整规格',
+    description: '概述 + 模块结构 + API 契约 + 数据模型 + 依赖关系(默认)',
+    sections: ['概述', '模块结构', 'API 契约', '数据模型', '依赖关系'],
+  },
+  {
+    id: 'api-only',
+    name: 'API 契约',
+    description: '仅提取 API endpoint,生成接口文档',
+    sections: ['概述', 'API 契约'],
+  },
+  {
+    id: 'schema-only',
+    name: '数据模型',
+    description: '仅提取数据库表 / schema,生成数据字典',
+    sections: ['概述', '数据模型'],
+  },
+  {
+    id: 'module-overview',
+    name: '模块概览',
+    description: '仅模块结构与符号清单,快速了解代码组织',
+    sections: ['概述', '模块结构'],
+  },
+]
+
 /** spec 生成超时(30s,生成耗时较长) */
 const SPEC_TIMEOUT_MS = 30_000
 
@@ -368,8 +399,11 @@ class SpecService {
       }
       return json.data.templates
     } catch (e) {
-      logger.warn(`[spec-service.getTemplates] 调用 ai-service 失败: ${(e as Error).message}`)
-      throw e
+      // 降级:ai-service 不可用时返回本地预置模板(与 ai-service spec.py _BUILTIN_TEMPLATES 保持一致)
+      logger.warn(
+        `[spec-service.getTemplates] ai-service 不可用,降级返回本地预置模板: ${(e as Error).message}`,
+      )
+      return BUILTIN_TEMPLATES
     }
   }
 
