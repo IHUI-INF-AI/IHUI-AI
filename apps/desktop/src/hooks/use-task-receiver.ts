@@ -1,7 +1,7 @@
 /**
  * Task Receiver React hook(desktop 端,2026-07-23 立)。
  *
- * 监听 WebSocket task-dispatch / task-result / task-progress 消息,
+ * 监听 WebSocket task-dispatch / task-result / task-progress / task-cancelled 消息,
  * 把移动端下发的任务累积到本地数组,供 TaskReceiverPage 渲染。
  *
  * 基于 use-agent-control-bridge 模式:复用 useNotificationWebSocket 建连,
@@ -12,6 +12,11 @@
  * - token 有效时调 POST /tasks/register-device 注册 + 30s 心跳保活
  * - hook unmount 或 token 失效时调 DELETE /tasks/devices/:deviceId 注销
  * - 收到 task-dispatch 后按 toDevice 过滤(只处理给自己的任务)
+ *
+ * 断网恢复闭环(2026-07-23 升级,P0):
+ * - lastSeenTs 持久化到 localStorage(`task-last-seen-ts`),刷新不丢
+ * - WS 重连(connected: false→true)时调 GET /tasks?since=<lastSeenTs> 补拉断线期间错过的任务
+ * - 收到 task-cancelled 消息时把对应任务状态置为 cancelled(执行中任务据此中止)
  */
 import { useEffect, useRef, useState } from 'react'
 import type { TaskDispatch, TaskResult, TaskWsMessage } from '@ihui/shared'
@@ -19,6 +24,8 @@ import { useNotificationWebSocket } from './use-websocket'
 
 const API_BASE_URL = 'http://127.0.0.1:8802'
 const DEVICE_ID_STORAGE_KEY = 'ihui-device-id'
+/** 最近一次见到任务的 updatedAt 时间戳(ms),用于 WS 重连后增量补拉 */
+const LAST_SEEN_TS_KEY = 'task-last-seen-ts'
 const HEARTBEAT_INTERVAL_MS = 30_000
 
 export interface UseTaskReceiverReturn {
@@ -52,12 +59,85 @@ function loadOrCreateDeviceId(): string {
   }
 }
 
+/** 读取持久化的 lastSeenTs,失败返回 0(首拉视为全量补) */
+function loadLastSeenTs(): number {
+  try {
+    const raw = window.localStorage?.getItem(LAST_SEEN_TS_KEY)
+    const n = raw ? Number.parseInt(raw, 10) : NaN
+    return Number.isFinite(n) && n >= 0 ? n : 0
+  } catch {
+    return 0
+  }
+}
+
+/** 持久化 lastSeenTs,失败静默 */
+function saveLastSeenTs(ts: number): void {
+  try {
+    window.localStorage?.setItem(LAST_SEEN_TS_KEY, String(ts))
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 统一 { code, message, data } 响应,返回 data 字段 */
+async function apiData<T>(path: string, token: string): Promise<T | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) return null
+    const json = (await res.json()) as { data?: T }
+    return json?.data ?? (json as unknown as T)
+  } catch {
+    return null
+  }
+}
+
+/** 把增量补拉的任务 upsert 进本地数组(尊重 toDevice 过滤 + seenIds 去重) */
+function upsertIncremental(
+  prev: TaskDispatch[],
+  incoming: TaskDispatch[],
+  deviceId: string,
+  seenIds: Set<string>,
+): TaskDispatch[] {
+  const byId = new Map<string, TaskDispatch>()
+  // 先放已有,保证顺序
+  for (const t of prev) byId.set(t.id, t)
+  let changed = false
+  for (const task of incoming) {
+    // 设备寻址过滤:只处理给自己的任务
+    if (task.toDevice !== deviceId && task.toDevice !== 'all') continue
+    const existing = byId.get(task.id)
+    if (!existing) {
+      // 新任务:前置插入(到达时间倒序)
+      byId.set(task.id, task)
+      seenIds.add(task.id)
+      changed = true
+    } else {
+      // 已有:按 updatedAt 较新者覆盖
+      if (Date.parse(task.updatedAt) > Date.parse(existing.updatedAt)) {
+        byId.set(task.id, task)
+        changed = true
+      }
+    }
+  }
+  if (!changed) return prev
+  // 重建数组:新加入的在前,原有顺序保持
+  const prevIds = new Set(prev.map((t) => t.id))
+  const fresh = [...byId.values()].filter((t) => !prevIds.has(t.id))
+  const updatedPrev = prev.map((t) => byId.get(t.id) ?? t)
+  return [...fresh, ...updatedPrev]
+}
+
 export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
   const { connected, lastMessage } = useNotificationWebSocket(token)
   const [tasks, setTasks] = useState<TaskDispatch[]>([])
   const seenIds = useRef(new Set<string>())
   const [deviceId] = useState<string>(loadOrCreateDeviceId)
   const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const lastSeenTsRef = useRef<number>(loadLastSeenTs())
+  // 记录上一次 connected 状态,用于检测 false→true 重连
+  const prevConnectedRef = useRef<boolean>(false)
 
   // 注册 + 心跳:token 有效时启动,token 失效或 unmount 时注销
   useEffect(() => {
@@ -105,12 +185,55 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
     }
   }, [token, deviceId])
 
-  // 消息接收 + toDevice 过滤 + upsert
+  // WS 重连补拉:connected 从 false→true 时,GET /tasks?since=<lastSeenTs> 补拉断线期间错过的任务
+  useEffect(() => {
+    if (!token) {
+      prevConnectedRef.current = false
+      return
+    }
+    const wasConnected = prevConnectedRef.current
+    prevConnectedRef.current = connected
+    // 仅在重连(false→true)时触发补拉,首次连接 lastSeenTs=0 时会全量拉
+    if (!connected || wasConnected) return
+    if (lastSeenTsRef.current <= 0) return
+
+    void (async () => {
+      const since = lastSeenTsRef.current
+      const data = await apiData<{ tasks: TaskDispatch[] } | TaskDispatch[]>(
+        `/api/tasks?since=${since}`,
+        token,
+      )
+      if (!data) return
+      const list = Array.isArray(data) ? data : data.tasks ?? []
+      if (list.length === 0) return
+      setTasks((prev) => {
+        const next = upsertIncremental(prev, list, deviceId, seenIds.current)
+        // 更新 lastSeenTs 为补拉任务中的最大 updatedAt
+        const maxTs = list.reduce(
+          (max, t) => Math.max(max, Date.parse(t.updatedAt) || 0),
+          since,
+        )
+        if (maxTs > lastSeenTsRef.current) {
+          lastSeenTsRef.current = maxTs
+          saveLastSeenTs(maxTs)
+        }
+        return next
+      })
+    })()
+  }, [connected, token, deviceId])
+
+  // 消息接收 + toDevice 过滤 + upsert + task-cancelled 处理
   useEffect(() => {
     if (!lastMessage) return
     const msg = lastMessage.data as unknown as TaskWsMessage
     const kind = msg.type
-    if (kind !== 'task-dispatch' && kind !== 'task-result' && kind !== 'task-progress') return
+    if (
+      kind !== 'task-dispatch' &&
+      kind !== 'task-result' &&
+      kind !== 'task-progress' &&
+      kind !== 'task-cancelled'
+    )
+      return
     const taskId = msg.taskId
     if (!taskId) return
 
@@ -129,9 +252,34 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
           const arr = Array.from(seenIds.current)
           seenIds.current = new Set(arr.slice(-100))
         }
+        // 更新 lastSeenTs
+        const ts = Date.parse(task.updatedAt)
+        if (Number.isFinite(ts) && ts > lastSeenTsRef.current) {
+          lastSeenTsRef.current = ts
+          saveLastSeenTs(ts)
+        }
         return [task, ...prev]
       }
+      if (kind === 'task-cancelled') {
+        // 把对应任务状态置为 cancelled;执行中任务据此中止(本 hook 无执行逻辑,仅更新状态)
+        const cancelledTask = msg.payload as TaskDispatch
+        const ts = Date.parse(cancelledTask.updatedAt)
+        if (Number.isFinite(ts) && ts > lastSeenTsRef.current) {
+          lastSeenTsRef.current = ts
+          saveLastSeenTs(ts)
+        }
+        return prev.map((x) =>
+          x.id === taskId
+            ? { ...x, status: 'cancelled', updatedAt: cancelledTask.updatedAt }
+            : x,
+        )
+      }
       const result = msg.payload as TaskResult
+      const ts = Date.parse(result.finishedAt)
+      if (Number.isFinite(ts) && ts > lastSeenTsRef.current) {
+        lastSeenTsRef.current = ts
+        saveLastSeenTs(ts)
+      }
       return prev.map((x) => (x.id === taskId ? { ...x, status: result.status, result } : x))
     })
   }, [lastMessage, deviceId])

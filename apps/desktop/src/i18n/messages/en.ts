@@ -256,6 +256,24 @@ export default {
     loadPreview: 'Load Preview',
     loadFailed: 'Failed to load previews',
     previewName: 'Preview Name',
+    componentTree: {
+      title: 'Component Tree',
+      empty: 'No elements on canvas',
+    },
+    comments: {
+      title: 'Comments',
+      empty: 'Save preview first to view comments',
+      noComments: 'No comments yet',
+      loadingFailed: 'Failed to load comments',
+      send: 'Send Comment',
+    },
+    aiGenerate: {
+      button: 'AI Generate',
+      placeholder: 'Describe the page you want to generate…',
+      generating: 'Generating…',
+      success: 'Generated and injected to canvas',
+      failed: 'AI generation failed',
+    },
   },
   taskReceiver: {
     title: 'Task Receiver',

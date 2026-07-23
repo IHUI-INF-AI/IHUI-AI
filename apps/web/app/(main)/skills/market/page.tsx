@@ -4,11 +4,11 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Search, Star, Loader2, ChevronLeft, ChevronRight, Download, Check } from 'lucide-react'
+import { Search, Star, Loader2, ChevronLeft, ChevronRight, Download, Check, Upload } from 'lucide-react'
 import { Card, CardContent, Button, Input, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
 import { cn } from '@/lib/utils'
 import type { SkillMarketEntry } from '@ihui/shared/skills/market'
-import { fetchSkillsMarket, fetchSkillRatings, installSkill, rateSkill, SKILL_MARKET_PAGE_SIZE } from '@/lib/skills-market-api'
+import { fetchSkillsMarket, fetchSkillRatings, installSkill, rateSkill, publishSkill, SKILL_MARKET_PAGE_SIZE } from '@/lib/skills-market-api'
 
 const TAGS = ['code', 'content', 'devops', 'design', 'media', 'video', 'ai', 'docs']
 
@@ -21,6 +21,7 @@ export default function SkillsMarketPage() {
   const [page, setPage] = React.useState(1)
   const [installed, setInstalled] = React.useState<Set<string>>(new Set())
   const [ratingFor, setRatingFor] = React.useState<SkillMarketEntry | null>(null)
+  const [publishOpen, setPublishOpen] = React.useState(false)
 
   React.useEffect(() => {
     const tm = setTimeout(() => { setDebounced(q); setPage(1) }, 300)
@@ -49,8 +50,15 @@ export default function SkillsMarketPage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5">
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold">{t('title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+        <div className="flex items-center justify-between gap-3">
+          <div className="space-y-1">
+            <h1 className="text-xl font-semibold">{t('title')}</h1>
+            <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
+          </div>
+          <Button onClick={() => setPublishOpen(true)}>
+            <Upload className="h-4 w-4" /><span>{t('publishButton')}</span>
+          </Button>
+        </div>
       </div>
       <div className="space-y-3">
         <div className="relative w-full max-w-sm">
@@ -107,6 +115,7 @@ export default function SkillsMarketPage() {
       )}
 
       <RatingDialog skill={ratingFor} onClose={() => setRatingFor(null)} />
+      <PublishDialog open={publishOpen} onClose={() => setPublishOpen(false)} />
     </div>
   )
 }
@@ -239,6 +248,102 @@ function RatingDialog({ skill, onClose }: { skill: SkillMarketEntry | null; onCl
         <DialogFooter>
           <Button variant="outline" onClick={onClose}><span>{t('cancel')}</span></Button>
           <Button disabled={rateMut.isPending} onClick={() => rateMut.mutate()}>{rateMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}<span>{t('submit')}</span></Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const t = useTranslations('skills.market')
+  const qc = useQueryClient()
+  const [name, setName] = React.useState('')
+  const [description, setDescription] = React.useState('')
+  const [tags, setTags] = React.useState('')
+  const [author, setAuthor] = React.useState('')
+  const [version, setVersion] = React.useState('1.0.0')
+  const [license, setLicense] = React.useState('MIT')
+  const [content, setContent] = React.useState('')
+
+  React.useEffect(() => {
+    if (open) {
+      setName(''); setDescription(''); setTags(''); setAuthor(''); setVersion('1.0.0'); setLicense('MIT'); setContent('')
+    }
+  }, [open])
+
+  const publishMut = useMutation({
+    mutationFn: () =>
+      publishSkill({
+        name: name.trim(),
+        description: description.trim(),
+        tags: tags.split(',').map((s) => s.trim()).filter(Boolean),
+        author: author.trim() || 'anonymous',
+        version: version.trim() || '1.0.0',
+        license: license.trim() || 'MIT',
+        content: content.trim(),
+      }),
+    onSuccess: () => {
+      toast.success(t('publishSuccess'))
+      qc.invalidateQueries({ queryKey: ['skills', 'market'] })
+      onClose()
+    },
+    onError: (e: Error) => toast.error(t('publishFailed'), { description: e.message }),
+  })
+
+  const canSubmit = name.trim() && description.trim() && content.trim() && !publishMut.isPending
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{t('publishTitle')}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <label className="text-sm font-medium">{t('publishName')}</label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="my-skill" />
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium">{t('publishDescription')}</label>
+            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('publishDescription')} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">{t('publishTags')}</label>
+              <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="code, ai" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">{t('publishAuthor')}</label>
+              <Input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="your-name" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">{t('publishVersion')}</label>
+              <Input value={version} onChange={(e) => setVersion(e.target.value)} placeholder="1.0.0" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">{t('publishLicense')}</label>
+              <Input value={license} onChange={(e) => setLicense(e.target.value)} placeholder="MIT" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium">{t('publishContent')}</label>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder={t('publishContentPlaceholder')}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              rows={5}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}><span>{t('cancel')}</span></Button>
+          <Button disabled={!canSubmit} onClick={() => publishMut.mutate()}>
+            {publishMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            <span>{t('publishSubmit')}</span>
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
