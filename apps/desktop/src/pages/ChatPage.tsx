@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   streamChat,
   fetchModels,
@@ -18,6 +18,9 @@ import {
   readTextFile,
   sendDesktopNotification,
 } from '../lib/desktop'
+import { useConversations } from '../hooks/use-conversations'
+import ConversationSidebar from '../components/ConversationSidebar'
+import { useI18n } from '../i18n'
 
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'])
 const TEXT_EXTENSIONS = new Set(['txt', 'md', 'log', 'csv', 'json', 'xml', 'yml', 'yaml', 'toml'])
@@ -134,6 +137,13 @@ export default function ChatPage({ onLogout }: Props) {
   const [dragOver, setDragOver] = useState(false)
   const [busyFile, setBusyFile] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const { t } = useI18n()
+  // 会话历史(仅 Tauri 启用)
+  const conv = useConversations()
+  const [currentConvId, setCurrentConvId] = useState<string | null>(null)
+  // messages ref:onDone 闭包需要拿最新值持久化(streaming 累积的内容不在闭包内 messages 里)
+  const messagesRef = useRef<ChatMessage[]>([])
+  messagesRef.current = messages
 
   useEffect(() => {
     document.title = 'IHUI AI 桌面端 - 对话'
@@ -157,6 +167,88 @@ export default function ChatPage({ onLogout }: Props) {
       cancelled = true
     }
   }, [])
+
+  // 首次加载:hook ready 后,若存在 activeId,自动加载历史会话
+  useEffect(() => {
+    if (!conv.ready || !conv.enabled) return
+    if (currentConvId !== null) return // 已加载过
+    if (conv.activeId) {
+      void conv.select(conv.activeId).then((c) => {
+        if (c && c.messages.length > 0) {
+          setMessages(
+            c.messages.map((m) => ({
+              id: m.id,
+              role: m.role as 'user' | 'assistant',
+              content: m.content,
+            })),
+          )
+          setCurrentConvId(c.id)
+        }
+      })
+    }
+  }, [conv.ready, conv.enabled, conv.activeId, currentConvId, conv])
+
+  // 切换会话:加载该会话消息,同步 currentConvId
+  const onSelectConversation = useCallback(
+    async (id: string) => {
+      if (streaming) return
+      if (id === currentConvId) return
+      const c = await conv.select(id)
+      setMessages(
+        c?.messages?.length
+          ? c.messages.map((m) => ({
+              id: m.id,
+              role: m.role as 'user' | 'assistant',
+              content: m.content,
+            }))
+          : [],
+      )
+      setCurrentConvId(id)
+      setError('')
+      setNotice('')
+    },
+    [streaming, currentConvId, conv],
+  )
+
+  // 新建会话:清空 messages + activeId
+  const onNewConversation = useCallback(async () => {
+    if (streaming) return
+    await conv.startNew()
+    setMessages([])
+    setCurrentConvId(null)
+    setError('')
+    setNotice('')
+  }, [streaming, conv])
+
+  // 删除会话:若删的是当前,清空 messages
+  const onDeleteConversation = useCallback(
+    async (id: string) => {
+      await conv.remove(id)
+      if (id === currentConvId) {
+        setMessages([])
+        setCurrentConvId(null)
+      }
+    },
+    [conv, currentConvId],
+  )
+
+  // 持久化当前会话(发完一条消息后调用)
+  const persistConversation = useCallback(
+    async (msgs: ChatMessage[]) => {
+      if (!conv.enabled || msgs.length === 0) return
+      const id = currentConvId ?? `c-${Date.now()}`
+      const firstUser = msgs.find((m) => m.role === 'user')
+      const title = firstUser ? firstUser.content.slice(0, 40).replace(/\n/g, ' ') : '新会话'
+      const stored = msgs.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+      }))
+      await conv.persist(id, title, stored)
+      if (currentConvId === null) setCurrentConvId(id)
+    },
+    [conv, currentConvId],
+  )
 
   /** 从扩展名判断是否图片。 */
   const isImageExt = (ext: string): boolean => IMAGE_EXTENSIONS.has(ext.toLowerCase())
@@ -415,6 +507,8 @@ export default function ChatPage({ onLogout }: Props) {
         if (document.hidden) {
           sendDesktopNotification('AI 回复完成', '点击托盘图标查看新消息')
         }
+        // 持久化会话(非阻塞)
+        void persistConversation(messagesRef.current)
       },
     }
     try {
@@ -431,40 +525,58 @@ export default function ChatPage({ onLogout }: Props) {
 
   const onClear = () => {
     if (streaming) return
-    setMessages([])
-    setError('')
+    void onNewConversation()
   }
 
   return (
-    <div className="chat-page">
-      <header className="page-header">
-        <h2>AI 对话</h2>
-        <div className="header-actions">
-          <select
-            className="model-select"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            disabled={streaming}
-            aria-label="选择模型"
-          >
-            {models.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name || m.id}
-              </option>
-            ))}
-          </select>
-          <button type="button" onClick={onClear} disabled={streaming || messages.length === 0}>
-            清空
-          </button>
-          <button type="button" onClick={onLogout}>
-            退出登录
-          </button>
-        </div>
-      </header>
+    <div className={`chat-page${conv.enabled ? ' chat-page--with-sidebar' : ''}`}>
+      {conv.enabled ? (
+        <ConversationSidebar
+          list={conv.list}
+          activeId={currentConvId}
+          onSelect={(id) => void onSelectConversation(id)}
+          onDelete={(id) => void onDeleteConversation(id)}
+          onNew={() => void onNewConversation()}
+        />
+      ) : null}
+      <div className="chat-main">
+        <header className="page-header">
+          <h2>AI 对话</h2>
+          <div className="header-actions">
+            <select
+              className="model-select"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              disabled={streaming}
+              aria-label="选择模型"
+            >
+              {models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name || m.id}
+                </option>
+              ))}
+            </select>
+            {conv.enabled ? (
+              <button
+                type="button"
+                onClick={() => void onNewConversation()}
+                disabled={streaming}
+              >
+                {t('chat.newChat')}
+              </button>
+            ) : null}
+            <button type="button" onClick={onClear} disabled={streaming || messages.length === 0}>
+              清空
+            </button>
+            <button type="button" onClick={onLogout}>
+              退出登录
+            </button>
+          </div>
+        </header>
 
-      <div
-        className={`chat-list${dragOver ? ' chat-list--drag-over' : ''}`}
-        data-testid="chat-list"
+        <div
+          className={`chat-list${dragOver ? ' chat-list--drag-over' : ''}`}
+          data-testid="chat-list"
         onDragOver={(e) => {
           e.preventDefault()
           if (!dragOver) setDragOver(true)
@@ -588,6 +700,7 @@ export default function ChatPage({ onLogout }: Props) {
           </button>
         )}
       </form>
+      </div>
     </div>
   )
 }
