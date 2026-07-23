@@ -88,6 +88,7 @@ export function ProfileScreen() {
         if (item) onNavigate(item)
       }}
       onLogout={() => void logout()}
+      onBack={() => navigation.goBack()}
     />
   )
 }
