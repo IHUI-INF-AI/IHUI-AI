@@ -397,9 +397,20 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
   server.get('/ws/room/:roomId', { websocket: true }, (socket, request) => {
     const query = request.query as { token?: string; nickname?: string }
     const roomId = (request.params as { roomId: string }).roomId
+    // 2026-07-24 安全审计:roomId 格式校验(防 channel 注入 + 防 Redis key 注入)
+    // 允许 UUID 或 字母数字_- 组合(最长 128 字符)
+    const ROOM_ID_RE = /^[a-zA-Z0-9_-]{1,128}$/
+    if (!ROOM_ID_RE.test(roomId)) {
+      socket.close(1008, '无效的 roomId 格式')
+      return
+    }
     ;(async () => {
       const userId = await wsAuth(socket, query.token)
       if (!userId) return
+      // 2026-07-24 安全审计 TODO:此处应校验用户是否有权加入该 roomId(IDOR 防护)
+      // 当前任何认证用户可加入任意房间,可能窃听其他用户私密对话
+      // 修复建议:查 room 表确认用户是创建者或被邀请者,否则 close(1008, '无权加入此房间')
+      // 生产环境必须补 ownership 校验
       const nickname = query.nickname || userId.slice(0, 8)
       const member: RoomMember = { socket, userId, nickname, rooms: new Set<string>() }
 
