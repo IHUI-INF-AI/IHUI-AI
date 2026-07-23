@@ -8,6 +8,49 @@
 
 ## 当前活跃任务(2026-07-23)
 
+### [ ] Wave 23:web ↔ extension 前端统一改造(跨端:web + extension + packages/ui-primitives)
+
+**背景**:浏览器插件端(apps/extension)与 web 端(apps/web)在前端层存在 3 处重复维护:
+1. **样式 token**:globals.css 手动同步 3 份副本(web 853 行主源 / extension 132 行子集 / packages/ui-primitives/src/tokens.ts TS 副本),extension 注释声称"一致"实际缺 30+ 业务样式块
+2. **i18n 系统**:完全分裂两套(web 用 next-intl + 997KB JSON,extension 用自研 Context + 150 key TS),key 集合不一致
+3. **页面组件**:Login/Chat/Settings 等 9 个页面在两端各写一遍,仅共享 @ihui/ui 低层组件
+
+**后端已统一**:extension 和 web 都通过 @ihui/api-client 调同一套 apps/api/src/routes/,无需改造。
+
+**阶段 1(先行)— 样式 token 单一来源**:
+- [ ] 在 packages/ui-primitives/src/styles/tokens.css 抽出共享 token(@theme 块 + .dark 深色覆盖 + vcenter 全局规则 + 基础 reset)
+- [ ] 更新 packages/ui-primitives/package.json exports 添加 CSS 导出
+- [ ] apps/web/app/globals.css 改为 @import 共享 token + web 专属样式(字体声明/子 CSS/login-scope/chat-markdown 等)
+- [ ] apps/extension/entrypoints/sidepanel/globals.css 改为 @import 共享 token + extension 专属样式(@source/sp-*/popup-*)
+- [ ] typecheck + build 两端验证
+- [ ] dev server + browser_use 验证样式无破坏(§17/§19)
+
+**阶段 2 — i18n 统一**:
+- [ ] 创建 packages/i18n 共享包,统一消息文件到 JSON 格式
+- [ ] 合并 extension 独有命名空间(popup/translate/vocab)到主消息文件
+- [ ] extension 改用共享消息文件(保留自研 Context runtime,读 JSON)
+- [ ] 扩展 i18n parity 测试跨端校验
+
+**阶段 3 — 页面组件渐进式抽取**:
+- [ ] 创建 packages/features 共享业务组件包
+- [ ] 抽取真正复用的业务组件(LoginFormFields/ChatMessageList/ModelSelector 等)
+- [ ] 各端 page 文件改为瘦布局层 + 共享业务组件
+- [ ] 不强行抽取业务范围差异巨大的页面(web admin 后台/extension popup)
+
+**验证标准**:
+- 阶段 1:改 tokens.css 一处,web + extension 两端 @theme token 同步生效;两端 typecheck + build 全绿;browser 截图验证 4 状态(默认/hover/active/dark)无样式回归
+- 阶段 2:改 i18n 消息一处,两端翻译同步;跨端 parity 测试全绿
+- 阶段 3:共享业务组件被两端引用,页面文件行数显著减少
+
+**约束边界**:
+- 后端不改动(已统一)
+- 不破坏现有功能,渐进式改造
+- 遵守 §17/§19 样式改动强制验证
+- 遵守 §9 多端同步(web + extension + packages 同步改动)
+- §22 README 同步:阶段完成后更新 README 架构章节
+
+---
+
 ### [ ] Wave 21:桌面端架构收敛 + 安装更新链路闭环(跨端:web + desktop)
 
 **背景**:桌面端已完成 12 轮深度开发(自动更新代码层 + 4 大核心能力 + 聊天全套 + 原生集成),但存在两个相互关联的未决问题,须一起决策避免返工:
@@ -92,6 +135,30 @@
 **§22 README 豁免**:纯 bug 修复,不改变对外能力。
 
 **验证**:`pnpm --filter @ihui/desktop typecheck` EXIT 0(3 errors → 0)。全端 typecheck:web/api/cli/extension/desktop 全绿。
+
+### [x] ✅(2026-07-23) Wave 24:web 包体积优化 — hls.js 动态导入 + 移除 9 个冗余依赖(平台独占:仅 web)
+
+**触发**:W22 全端 typecheck 清零后,转向包体积优化。审计发现 web 端 9 个大型依赖中 8 个已用 next/dynamic 或 await import 按需加载,唯独 hls.js(~200KB)静态打进主 bundle;另有 9 个声明但未使用/冗余的依赖。
+
+**交付**(`apps/web/src/components/media/LivePlayer.tsx` + `apps/web/package.json` + `pnpm-lock.yaml`):
+
+1. **hls.js 动态导入**:`import Hls from 'hls.js'` → `import type Hls from 'hls.js'`(type-only,零运行时)+ `attachHls` 内 `const { default: HlsImpl } = await import('hls.js')`(仅 HLS 路由按需加载);`attachHls` 改 async + `videoRef.current !== video` 二次校验防卸载竞态;所有 `Hls.isSupported()` / `new Hls()` / `Hls.Events` / `Hls.ErrorTypes` 改用 `HlsImpl.*`
+
+2. **移除 9 个冗余依赖**(depcheck 脚本 + 全仓 grep 验证):
+   - 5 个确认未使用(全仓 NOT FOUND):`fuse.js` / `spark-md5` / `@ai-sdk/anthropic` / `@ai-sdk/openai` / `ai`
+   - 3 个与 packages/ui 重复(web 未直接 import,仅通过 @ihui/ui 间接引用):`@radix-ui/react-label` / `@radix-ui/react-slot` / `class-variance-authority`
+   - 1 个冗余类型包(dompurify 自带 `types=./dist/purify.cjs.d.ts`):`@types/dompurify`
+
+**§9 平台独占**:仅 web 包体积优化,不改跨端契约,豁免全端同步。
+**§22 README 豁免**:纯重构(不改功能契约),hls.js 仍可用,仅加载时机改为按需;不改变对外能力清单。
+
+**验证**:
+- `pnpm --filter @ihui/web typecheck` EXIT 0
+- `pnpm exec eslint src/components/media/LivePlayer.tsx` EXIT 0
+- `pnpm install --no-frozen-lockfile` 成功(18.5s,lockfile 已更新,9 依赖从 web node_modules 剪除)
+- 注:web 全量 lint 仍有 3 个 pre-existing errors(interrupt-panel.tsx 的 eqeqeq + jsx-a11y,其他 agent 代码,非本任务引入)
+
+**Git 同步**:本地 commit `a962c3bfc`(rebase 到 origin/main `e77159e42` 之上)→ push 成功 → local == remote == `a962c3bfc` → `git-push-guard.mjs` exit 0
 
 ---
 
