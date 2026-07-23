@@ -29,7 +29,7 @@ const roleChangeStatusBodySchema = z.object({
 const roleDataScopeBodySchema = z.object({
   roleId: z.number().int(),
   dataScope: z.string().optional(),
-  deptIds: z.array(z.number().int()).optional(),
+  deptIds: z.array(z.number().int()).max(500).optional(),
 })
 
 export const roleRoutes: FastifyPluginAsync = async (s) => {
