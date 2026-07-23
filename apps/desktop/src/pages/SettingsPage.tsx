@@ -8,10 +8,17 @@ import { readFile } from '@tauri-apps/plugin-fs'
 import { fetchApi } from '@ihui/api-client'
 import { UpdateChecker } from '../components/UpdateChecker'
 import { enableAutostart, disableAutostart, isAutostartEnabled, resetWindowState } from '../lib/desktop'
+import { useTheme, type Theme } from '../hooks/use-theme'
 
 interface Ctx {
   onLogout: () => void
 }
+
+const themeOptions: { value: Theme; labelKey: string }[] = [
+  { value: 'light', labelKey: 'setting.themeLight' },
+  { value: 'dark', labelKey: 'setting.themeDark' },
+  { value: 'system', labelKey: 'setting.themeSystem' },
+]
 
 const localeOptions: { value: Locale; labelKey: string }[] = [
   { value: 'zh-CN', labelKey: 'setting.zhCN' },
@@ -51,9 +58,7 @@ const IMPORT_SOURCES = [
 export default function SettingsPage() {
   const { onLogout } = useOutletContext<Ctx>()
   const { locale, setLocale, t } = useI18n()
-  const [dark, setDark] = useState(
-    typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches,
-  )
+  const { theme, setTheme } = useTheme()
   const [importSource, setImportSource] = useState<string>('cc-switch')
   const [importBusy, setImportBusy] = useState(false)
   const [importMsg, setImportMsg] = useState<string>('')
@@ -77,11 +82,6 @@ export default function SettingsPage() {
     } finally {
       setResettingWindow(false)
     }
-  }
-
-  const onToggleTheme = (v: boolean) => {
-    setDark(v)
-    document.documentElement.dataset.theme = v ? 'dark' : 'light'
   }
 
   const onToggleAutostart = async (v: boolean) => {
@@ -190,8 +190,19 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent>
             <div className="setting-row">
-              <span>{t('setting.darkMode')}</span>
-              <Switch checked={dark} onCheckedChange={onToggleTheme} />
+              <span>{t('setting.theme')}</span>
+              <select
+                value={theme}
+                onChange={(e) => setTheme(e.target.value as Theme)}
+                className="locale-select"
+                aria-label={t('setting.theme')}
+              >
+                {themeOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {t(opt.labelKey)}
+                  </option>
+                ))}
+              </select>
             </div>
           </CardContent>
         </Card>
