@@ -1773,6 +1773,8 @@
     "durationDays": "{days}",
     "featuresTitle": "VIPアドレス",
     "buyButton": "すぐ",
+    "limitedOffer": "期間限定",
+    "buyPrompt": "今すぐVIPに加入して、すべての専属特典をアンロック",
     "purchaseTitle": "確認購入",
     "purchaseDesc": "のVIPアドレスInfo",
     "confirmPayment": "い",
