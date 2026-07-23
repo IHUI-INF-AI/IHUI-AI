@@ -1,0 +1,228 @@
+.refund-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--color-background);
+}
+
+/* ===== 状态筛选 tab ===== */
+.refund-tabs {
+  flex-shrink: 0;
+  display: flex;
+  gap: 16rpx;
+  padding: 20rpx 24rpx;
+  background: var(--color-background);
+}
+.refund-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64rpx;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 10rpx;
+}
+.refund-tab-active {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ===== 滚动区 ===== */
+.refund-scroll {
+  flex: 1;
+  height: 0;
+}
+
+/* ===== 退款卡片 ===== */
+.refund-list {
+  padding: 8rpx 24rpx 40rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+.refund-card {
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 12rpx;
+  padding: 28rpx;
+}
+.refund-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.refund-order-no {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.refund-status {
+  font-size: 24rpx;
+  font-weight: 600;
+}
+.refund-status-refunding {
+  color: #f59e0b;
+}
+.refund-status-refunded {
+  color: #10b981;
+}
+.refund-status-rejected {
+  color: var(--color-destructive);
+}
+
+.refund-card-body {
+  margin-top: 16rpx;
+}
+.refund-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.refund-reason {
+  margin-top: 12rpx;
+  display: flex;
+  align-items: baseline;
+  gap: 12rpx;
+}
+.refund-reason-label {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
+}
+.refund-reason-text {
+  font-size: 24rpx;
+  color: var(--color-foreground);
+  flex: 1;
+}
+
+.refund-card-foot {
+  margin-top: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.refund-time {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.refund-amount {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--color-destructive);
+}
+
+/* ===== 预计到账提示 ===== */
+.refund-tip {
+  margin-top: 16rpx;
+  padding: 16rpx 20rpx;
+  background: rgba(16, 185, 129, 0.08);
+  border: 2rpx solid rgba(16, 185, 129, 0.2);
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  color: #10b981;
+}
+
+/* ===== 卡片操作区 ===== */
+.refund-card-actions {
+  margin-top: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16rpx;
+}
+.refund-action-btn {
+  padding: 10rpx 24rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  background: var(--color-background);
+  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  border-radius: 8rpx;
+}
+.refund-action-primary {
+  color: var(--color-primary);
+  background: rgba(0, 242, 255, 0.1);
+  border-color: rgba(0, 242, 255, 0.3);
+}
+
+/* ===== 退款进度时间线 ===== */
+.refund-timeline {
+  margin-top: 20rpx;
+  padding: 24rpx;
+  background: var(--color-background);
+  border: 2rpx solid rgba(0, 242, 255, 0.08);
+  border-radius: 10rpx;
+}
+.refund-step {
+  display: flex;
+}
+.refund-step-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 32rpx;
+  flex-shrink: 0;
+}
+.refund-step-dot {
+  width: 18rpx;
+  height: 18rpx;
+  border-radius: 8rpx;
+  background: var(--color-muted);
+  flex-shrink: 0;
+}
+.refund-step-line {
+  width: 2rpx;
+  flex: 1;
+  min-height: 32rpx;
+  background: rgba(0, 242, 255, 0.15);
+  margin: 6rpx 0;
+}
+.refund-step-done .refund-step-dot {
+  background: #10b981;
+}
+.refund-step-active .refund-step-dot {
+  background: #f59e0b;
+}
+.refund-step-content {
+  flex: 1;
+  padding-left: 16rpx;
+  padding-bottom: 20rpx;
+}
+.refund-step-title {
+  font-size: 26rpx;
+  color: var(--color-foreground);
+}
+.refund-step-todo .refund-step-title {
+  color: var(--color-muted-foreground);
+}
+.refund-step-time {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 状态文案 ===== */
+.refund-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 140rpx 0 80rpx;
+}
+.refund-empty-icon {
+  font-size: 80rpx;
+}
+.refund-empty-text {
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+}
+.refund-loading,
+.refund-no-more {
+  display: block;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  padding: 40rpx 0;
+}
