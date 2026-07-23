@@ -125,7 +125,7 @@ export default function SubagentsListPage() {
                       variant="ghost"
                       size="sm"
                       className="shrink-0"
-                      onClick={() => router.push(`/subagents/${d.id}`)}
+                      onClick={() => router.push(`/subagents/detail?id=${d.id}`)}
                     >
                       <Eye className="h-3.5 w-3.5" />
                     </Button>
