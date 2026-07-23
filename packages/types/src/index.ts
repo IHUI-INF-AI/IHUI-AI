@@ -66,3 +66,9 @@ export * from './context-mention.js'
 
 // 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
 export * from './orchestration.js'
+
+// P3 深度层:LangGraph 升级跨端契约(2026-07-23 立,PostgresSaver + interrupt HITL + 5 模式 streaming + Time Travel)
+export * from './langgraph.js'
+
+// P3 深度层:AI 教育引擎跨端契约(2026-07-23 立,SM-2 间隔重复 + AI 助教 + AI 批改 + AI 出题)
+export * from './education.js'

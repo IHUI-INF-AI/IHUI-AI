@@ -1,5 +1,5 @@
 import { View, Text, ScrollView } from '@tarojs/components'
-import Taro, { useRouter, useDidShow } from '@tarojs/taro'
+import Taro, { useRouter, useDidShow, useShareAppMessage } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   chatStream,
@@ -15,10 +15,12 @@ import {
   InputArea,
   SkillsPopup,
   MaterialPopup,
+  IntelligentAssistant,
   type AgentItem,
   type MaterialTab,
 } from '@/components'
 import { useI18n } from '@/i18n'
+import { useUserStore } from '@/stores/user'
 import ChatMessageItem from './ChatMessageItem'
 import { ModelDrawer, AgentDrawer } from './ChatDrawers'
 import './chat.css'
@@ -46,6 +48,7 @@ export default function ChatPage() {
   const router = useRouter()
   const { t, tList } = useI18n()
   const suggestions = tList('ai.suggestions')
+  const user = useUserStore((s) => s.user)
   const routeAgentId = router.params.agentId || ''
   const [currentAgentId, setCurrentAgentId] = useState(routeAgentId)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -176,12 +179,62 @@ export default function ChatPage() {
 
   useDidShow(() => {
     if (routeAgentId) loadAgent()
+    Taro.showShareMenu({ withShareTicket: true })
   })
+
+  useShareAppMessage(() => ({
+    title: t('ai.share.title'),
+    path: '/pages/ai/chat',
+  }))
+
+  const checkSpecialModel = useCallback(
+    (text: string): boolean => {
+      if (/画|生成图|画图|绘图|画一个|画张|画幅/.test(text)) {
+        Taro.showModal({
+          title: t('ai.specialModel.hint'),
+          content: t('ai.specialModel.confirm'),
+          success: (res) => {
+            if (res.confirm) {
+              Taro.navigateTo({ url: '/pages/ai/image?prompt=' + encodeURIComponent(text) })
+            }
+          },
+        })
+        return true
+      }
+      if (/语音|朗读|说一段|读一段|播报/.test(text)) {
+        Taro.showModal({
+          title: t('ai.specialModel.hint'),
+          content: t('ai.specialModel.confirm'),
+          success: (res) => {
+            if (res.confirm) {
+              Taro.navigateTo({ url: '/pages/ai/voice?text=' + encodeURIComponent(text) })
+            }
+          },
+        })
+        return true
+      }
+      if (/生成视频|做个视频|视频生成/.test(text)) {
+        Taro.showModal({
+          title: t('ai.specialModel.hint'),
+          content: t('ai.specialModel.confirm'),
+          success: (res) => {
+            if (res.confirm) {
+              Taro.navigateTo({ url: '/pages/ai/video?prompt=' + encodeURIComponent(text) })
+            }
+          },
+        })
+        return true
+      }
+      return false
+    },
+    [t],
+  )
 
   const sendMessage = useCallback(
     async (overrideText?: string) => {
       const text = (overrideText ?? '').trim()
       if (!text || thinking) return
+      if (checkSpecialModel(text)) return
       const userMsg: ChatMessage = { role: 'user', content: text, timestamp: Date.now() }
       const assistantMsg: ChatMessage = { role: 'assistant', content: '', timestamp: Date.now() }
       setMessages((prev) => [...prev, userMsg, assistantMsg])
@@ -273,6 +326,7 @@ export default function ChatPage() {
       activeAgentId,
       selectedMaterial,
       t,
+      checkSpecialModel,
     ],
   )
 
@@ -314,6 +368,28 @@ export default function ChatPage() {
 
   const selectSkill = useCallback(
     (a: AgentItem) => {
+      if (messages.length > 0 && a.id !== activeAgentId) {
+        Taro.showModal({
+          title: t('common.hint'),
+          content: t('ai.switchAgent.confirm'),
+          success: (res) => {
+            if (!res.confirm) return
+            setMessages([])
+            setSessionId('')
+            setCurrentAgentId(a.id)
+            setSkillsPopupVisible(false)
+            setAgent({
+              id: a.id,
+              name: a.name,
+              desc: a.desc || '',
+              avatar: a.avatar,
+              prompt: '',
+            })
+            loadAgent()
+          },
+        })
+        return
+      }
       setCurrentAgentId(a.id)
       setSkillsPopupVisible(false)
       setAgent({
@@ -325,7 +401,7 @@ export default function ChatPage() {
       })
       loadAgent()
     },
-    [loadAgent],
+    [loadAgent, messages.length, activeAgentId, t],
   )
 
   const openSkillsPopup = useCallback(() => {
@@ -358,6 +434,49 @@ export default function ChatPage() {
     if (!question) return
     setInputValue(question)
     setInputKey((k) => k + 1)
+    Taro.pageScrollTo({ scrollTop: 100000, duration: 300 })
+  }, [])
+
+  const handleRecharge = useCallback(() => {
+    Taro.navigateTo({ url: '/pages/wallet/recharge/index' })
+  }, [])
+
+  const handleRegenerate = useCallback(() => {
+    const lastUserIdx = messages.map((m) => m.role).lastIndexOf('user')
+    if (lastUserIdx < 0) return
+    const lastUserMsg = messages[lastUserIdx]
+    if (!lastUserMsg?.content) return
+    setMessages((prev) => prev.slice(0, lastUserIdx))
+    setTimeout(() => sendMessage(lastUserMsg.content), 100)
+  }, [messages, sendMessage])
+
+  const handleLongPress = useCallback(
+    (msg: ChatMessage, idx: number) => {
+      Taro.showActionSheet({
+        itemList: [
+          t('ai.messageAction.copy'),
+          t('ai.messageAction.reuse'),
+          t('ai.messageAction.delete'),
+        ],
+        success: (res) => {
+          if (res.tapIndex === 0) {
+            Taro.setClipboardData({ data: msg.content })
+          } else if (res.tapIndex === 1) {
+            if (msg.role === 'user') handleReuse(msg.content)
+          } else if (res.tapIndex === 2) {
+            setMessages((prev) => prev.filter((_, i) => i !== idx))
+          }
+        },
+      })
+    },
+    [t, handleReuse],
+  )
+
+  const handleEdit = useCallback((msg: ChatMessage, idx: number) => {
+    if (msg.role !== 'user') return
+    setInputValue(msg.content)
+    setInputKey((k) => k + 1)
+    setMessages((prev) => prev.slice(0, idx))
     Taro.pageScrollTo({ scrollTop: 100000, duration: 300 })
   }, [])
 
@@ -426,6 +545,13 @@ export default function ChatPage() {
 
         {!messages.length ? (
           <View className="welcome">
+            {!agent ? (
+              <IntelligentAssistant
+                tokenBalance={(user as Record<string, unknown>)?.tokenBalance as number | undefined}
+                isLoggedIn={!!user}
+                onRecharge={handleRecharge}
+              />
+            ) : null}
             <Text className="welcome-title">{t('ai.welcomeTitle')}</Text>
             <Text className="welcome-desc">{t('ai.welcomeDesc')}</Text>
             <View className="suggest-list">
@@ -439,7 +565,14 @@ export default function ChatPage() {
         ) : null}
 
         {messages.map((msg, idx) => (
-          <ChatMessageItem key={idx} msg={msg} onReuse={handleReuse} />
+          <ChatMessageItem
+            key={idx}
+            msg={msg}
+            onReuse={handleReuse}
+            onRegenerate={msg.role === 'assistant' ? handleRegenerate : undefined}
+            onLongPress={() => handleLongPress(msg, idx)}
+            onEdit={msg.role === 'user' ? () => handleEdit(msg, idx) : undefined}
+          />
         ))}
 
         {thinking && messages[messages.length - 1]?.role !== 'assistant' ? (

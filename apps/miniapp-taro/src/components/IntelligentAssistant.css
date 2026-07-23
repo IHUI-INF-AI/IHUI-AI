@@ -1,0 +1,66 @@
+.ia-card {
+  display: flex;
+  align-items: center;
+  margin: 16rpx;
+  padding: 24rpx;
+  background: var(--color-card);
+  border-radius: 24rpx;
+}
+
+.ia-robot {
+  font-size: 64rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.ia-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.ia-greeting {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+
+.ia-subtitle {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+
+.ia-token-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12rpx;
+}
+
+.ia-token-text {
+  font-size: 24rpx;
+  color: var(--color-foreground);
+}
+
+.ia-recharge-btn {
+  font-size: 24rpx;
+  color: var(--color-primary);
+}
+
+@keyframes ia-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6rpx);
+  }
+}
+
+.ia-float {
+  animation: ia-float 3s ease-in-out infinite;
+}
