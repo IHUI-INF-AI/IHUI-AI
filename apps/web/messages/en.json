@@ -26028,7 +26028,11 @@
       "billingSubscription": "Subscription",
       "sortLabel": "Sort",
       "sortByName": "By Name",
-      "sortByBilling": "By Billing"
+      "sortByBilling": "By Billing",
+      "speedTest": "Speed Test",
+      "speedTesting": "Testing...",
+      "sortBySpeed": "By Latency",
+      "speedError": "Timeout"
     },
     "cta": {
       "label": "Bottom CTA",
