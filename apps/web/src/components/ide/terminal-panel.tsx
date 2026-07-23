@@ -865,6 +865,7 @@ function TerminalViewport({
   }, [commandHistory, historyQuery])
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       className={cn(
         'relative flex h-full w-full flex-col overflow-hidden',
@@ -1294,6 +1295,7 @@ function TerminalViewport({
 
       {/* 右键菜单 */}
       {contextMenu && (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
           className="fixed z-50 min-w-36 overflow-hidden rounded-md border border-border bg-popover py-0.5 shadow-md"
           style={{ left: contextMenu.x, top: contextMenu.y }}
