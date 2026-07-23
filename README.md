@@ -370,7 +370,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | AI 服务         | FastAPI + LangGraph + LiteLLM + MCP + A2A / 215+ 端点 / 17 provider 适配                                      |
 |                   | CLI             | Node.js / 21 命令 / 36 内置工具 / 24 源配置导入 / ACP Server                                                 |
 |                   | 浏览器扩展      | WXT / 上下文菜单 / 侧边栏 / Chrome + Edge + Firefox                                                         |
-|                   | 移动 RN         | React Native + Expo EAS / iOS + Android / SSO                                                               |
+|                   | 移动 RN         | React Native + Expo EAS / iOS + Android / SSO + 微信支付 APP 支付                                          |
 |                   | 小程序          | Taro 4 / 微信支付原生集成 / 3 语言(i18n)                                                                    |
 | **企业级能力**    | 工作空间权限    | 3 模式 + 7 端点运行时拦截 + 60s 审计超时 + workspace-ai-tasks                                               |
 |                   | RBAC + 多租户   | 角色 / 部门 / 组织 / 租户隔离 / 菜单权限 / data-scope 5 级                                                  |
@@ -670,7 +670,7 @@ cd IHUI-AI && docker compose up -d
 | **AI 服务** | `apps/ai-service/` | 🟢 生产级 | 21 LangGraph 文件 / 215+ 端点 | pytest + 集成测试 | LLM 网关 + Agent 执行 + MCP + A2A |
 | **CLI** | `apps/cli/` | 🟡 核心场景级 | ~1500 行 / 21 命令 / 36 工具 | 单元测试 | 自研 AI 编程助手,ACP Server |
 | **扩展** | `apps/extension/` | 🟡 核心场景级 | WXT + React | 基础测试 | 上下文菜单 + 侧边栏 + 浏览器控制 |
-| **移动 RN** | `apps/mobile-rn/` | 🟡 核心场景级 | Expo EAS + iOS/Android | 基础测试 | Chat + WorkPanel + SSO |
+| **移动 RN** | `apps/mobile-rn/` | 🟡 核心场景级 | Expo EAS + iOS/Android | 基础测试 | Chat + WorkPanel + SSO + 微信支付 APP |
 | **小程序** | `apps/miniapp-taro/` | 🟡 核心场景级 | Taro 4 + 微信支付 | 基础测试 | Chat + WebView + 微信支付 |
 
 **完成度定义**:
