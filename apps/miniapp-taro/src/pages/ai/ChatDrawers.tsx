@@ -1,6 +1,8 @@
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text, Image, ScrollView } from '@tarojs/components'
+import Taro from '@tarojs/taro'
 import { DrawerComponent, ModelList, type ModelItem } from '@/components'
 import { useI18n } from '@/i18n'
+import type { ChatMessage } from '@/api'
 
 interface MaterialItem {
   id: string
@@ -14,6 +16,26 @@ interface AgentInfo {
   desc: string
   avatar?: string
   prompt: string
+}
+
+/** 历史对话条目(对标原 ai_assistant.vue 历史抽屉) */
+export interface ChatHistoryEntry {
+  id: string
+  title: string
+  preview: string
+  timestamp: number
+  messages: ChatMessage[]
+}
+
+/** 历史时间格式化(对标原 ai_assistant.vue 历史列表时间显示) */
+function formatHistoryTime(timestamp: number): string {
+  try {
+    const d = new Date(timestamp)
+    const pad = (n: number) => (n < 10 ? '0' + n : '' + n)
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  } catch {
+    return ''
+  }
 }
 
 export function ModelDrawer({
@@ -127,6 +149,63 @@ export function AgentDrawer({
           <Text>{t('common.loading')}</Text>
         </View>
       )}
+    </DrawerComponent>
+  )
+}
+
+/** 历史对话抽屉(对标原 ai_assistant.vue 历史抽屉,导航栏点击历史图标滑出) */
+export function HistoryDrawer({
+  visible,
+  onClose,
+  histories,
+  onSelect,
+  onClear,
+}: {
+  visible: boolean
+  onClose: () => void
+  histories: ChatHistoryEntry[]
+  onSelect: (h: ChatHistoryEntry) => void
+  onClear: () => void
+}) {
+  const { t } = useI18n()
+  /** 清空历史(对标原 ai_assistant.vue clearHistory,带二次确认) */
+  function handleClear() {
+    Taro.showModal({
+      title: t('common.hint'),
+      content: t('ai.history.clearConfirm'),
+      success: (res) => {
+        if (res.confirm) {
+          onClear()
+          Taro.showToast({ title: t('ai.history.cleared'), icon: 'none' })
+        }
+      },
+    })
+  }
+  return (
+    <DrawerComponent visible={visible} onClose={onClose} height="60vh">
+      <View className="drawer-header">
+        <Text className="drawer-title">{t('ai.history.title')}</Text>
+      </View>
+      {histories.length ? (
+        <ScrollView scrollY className="history-list">
+          {histories.map((h) => (
+            <View key={h.id} className="history-item" onClick={() => onSelect(h)}>
+              <Text className="history-item-title">{h.title}</Text>
+              <Text className="history-item-preview">{h.preview}</Text>
+              <Text className="history-item-time">{formatHistoryTime(h.timestamp)}</Text>
+            </View>
+          ))}
+        </ScrollView>
+      ) : (
+        <View className="drawer-empty">
+          <Text>{t('ai.history.empty')}</Text>
+        </View>
+      )}
+      {histories.length ? (
+        <View className="history-clear-btn" onClick={handleClear}>
+          <Text>{t('ai.clear')}</Text>
+        </View>
+      ) : null}
     </DrawerComponent>
   )
 }
