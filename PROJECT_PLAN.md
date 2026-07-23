@@ -43,6 +43,24 @@
 
 ---
 
+### [x] ✅(2026-07-23) (main) 目录页面整合 P0/P1:ask/article 重复路由改重定向 + agent-kanban 确认
+
+**触发**:用户 `/goal 继续 必须秉承着尽量不删除 尽量开发完整 多agent最大化效率去做`。
+
+**交付**(P0 ask→asks + P1 article→articles + P1 agent-kanban 确认):
+- `apps/web/app/(main)/ask/page.tsx`(319行完整 Q&A)→ `redirect('/asks')`,与 asks/ 功能重叠,不删除文件保留路由兼容
+- `apps/web/app/(main)/article/page.tsx`(114行静态路由)→ `redirect('/articles')`,已有 articles/ 动态路由详情页
+- `apps/web/app/(main)/agent-kanban/page.tsx` 确认完整(KanbanBoard 277行,含 SSE+useQuery+useMutation+6列状态+创建Dialog+错误处理+任务详情对话框)
+- 深度半成品检查:search agent 检查 30+ 页面,3 个 admin 页面 alert 提示为误报(实际是完整页面的错误处理)
+
+**约束遵循**:"尽量不删除"→ 两个重复路由文件保留改为重定向;"尽量开发完整"→ agent-kanban 已完整无需改;"多 agent 最大化效率"→ search subagent 并行深度检查。
+
+**§9 多端同步**:触及 web 单端(路由重定向),平台独占豁免(纯前端路由层改动,无 API/schema/共享类型变更)。
+
+**验证**:本任务文件 typecheck 零错误(错误都在其他 agent 的 ai-news/feature-center 文件);commit 4400fa54b 推送成功(local == remote);git-push-guard exit 0。
+
+---
+
 ### [x] ✅(2026-07-23) 桌面端 Tauri 2 自动更新链路代码层(平台独占:仅 desktop)
 
 **触发**:用户启用 goal 命令"深度开发"桌面端自动更新链路。
@@ -73,6 +91,22 @@
 **§9 平台独占**:系统托盘/单实例/自动启动/全局快捷键均为 desktop 天生独占能力,豁免全端同步。
 
 **验证**:desktop typecheck 零错误(commit 待 push)。
+
+---
+
+### [x] ✅(2026-07-23) 桌面端 3 项增强能力深度开发(平台独占:仅 desktop)
+
+**触发**:用户 `/goal 继续啊 你就去做就好了 一直去做 深度开发`,要求持续深度开发桌面端能力。
+
+**交付**(窗口最小化到托盘 + 原生通知 + 深度链接 handler):
+- `apps/desktop/src-tauri/src/lib.rs`:on_window_event 拦截 main 窗口 CloseRequested → prevent_close + hide(关闭=最小化到托盘)
+- `apps/desktop/src/lib/desktop.ts`:加 sendDesktopNotification(title, body)— invoke 封装 notification plugin(权限请求 + notify)
+- `apps/desktop/src/pages/ChatPage.tsx`:onDone 回调中检查 document.hidden,窗口隐藏时发送系统通知
+- `apps/desktop/src/App.tsx`:DeepLinkHandler 组件,监听 `tauri://deep-link` 事件,ihui://chat → /chat 路由跳转
+
+**§9 平台独占**:窗口管理/原生通知/深度链接均为 desktop 天生独占能力,豁免全端同步。
+
+**验证**:desktop typecheck 零错误、README + PROJECT_PLAN 同步。
 
 ---
 
