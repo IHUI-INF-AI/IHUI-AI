@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, type RefObject } from 'react'
+import { useState, useCallback, useRef, useMemo, type RefObject } from 'react'
 
 /** 搜索结果项 */
 export interface SearchResult {
@@ -85,6 +85,15 @@ export function useChatSearch<T extends SearchableMessage>({
     [messages, searchQuery],
   )
 
+  // P1 防抖(2026-07-23):200ms 防抖,避免长对话搜索卡顿
+  const debouncedSearch = useMemo(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null
+    return (query?: string) => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => handleSearch(query), 200)
+    }
+  }, [handleSearch])
+
   /** 滚动到指定消息：平滑滚动到消息中心，高亮 2 秒后取消 */
   const scrollToMessage = useCallback(
     (messageId: string) => {
@@ -108,7 +117,7 @@ export function useChatSearch<T extends SearchableMessage>({
     searchResults,
     selectedMessageId,
     toggleSearch,
-    handleSearch,
+    debouncedSearch,
     scrollToMessage,
     setSearchQuery,
   }
