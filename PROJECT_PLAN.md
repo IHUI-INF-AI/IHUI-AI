@@ -37,6 +37,13 @@
 - 工作流: i18n-diff(检测) → AI agent 翻译(零 API) → i18n-apply(应用) → check-i18n-keys(校验)
 - 新增文案时只需维护 zh-CN.json 一份,其他 4 语言由 AI agent 自动翻译补齐
 
+**集成 pre-commit 阻塞守门**(2026-07-24 立,用户要求"集成"):
+- 第 2f-web 项从 warn-only 升级为 blocking(阻塞 commit)
+- 仅当 staged 涉及 `apps/web/messages/zh-CN.json` 时检测(避免多 agent 并行误伤)
+- 有 pending → 阻塞 commit,提示 AI agent 跑翻译流水线(5 步指引)
+- 实测验证:未改 zh-CN.json → 跳过 exit 0 ✅;staged zh-CN.json 新增 key → 阻塞 exit 1 ✅
+- AGENTS.md §20 守门集成 + 速查表 2f-web 行同步更新为 blocking
+
 ### [x] ✅(2026-07-24) miniapp-taro Round17:i18n 5 语言补全 387 key(zh-CN/zh-TW/en/ko/ja parity 2229 keys)(平台独占:仅 apps/miniapp-taro)
 
 **触发**:承接 Round16(8 页边界页面深化收尾)后,推进 Round14-Round16 共 46 页深化产生的 386 个 `tt(k, fb)` fallback key 的 5 语言正式翻译补全,让多语言环境显示正确译文而非中文 fallback。
