@@ -4,7 +4,7 @@
 
 /* 对齐 web 端 design-tokens（apps/web/app/globals.css @theme + .dark 块） */
 :root {
-  --color-background: hsl(0 0% 100%);
+  --color-background: hsl(0 0% 96.1%);
   --color-foreground: hsl(0 0% 3.9%);
   --color-card: hsl(0 0% 100%);
   --color-card-foreground: hsl(0 0% 3.9%);
@@ -14,9 +14,9 @@
   --color-primary-foreground: hsl(0 0% 100%);
   --color-secondary: hsl(0 0% 96.1%);
   --color-secondary-foreground: hsl(0 0% 9%);
-  --color-muted: hsl(0 0% 96.1%);
+  --color-muted: hsl(0 0% 92%);
   --color-muted-foreground: hsl(0 0% 40%);
-  --color-accent: hsl(0 0% 96.1%);
+  --color-accent: hsl(0 0% 88%);
   --color-accent-foreground: hsl(0 0% 9%);
   --color-destructive: hsl(0 84.2% 60.2%);
   --color-destructive-foreground: hsl(0 0% 98%);
@@ -32,11 +32,11 @@
 }
 
 .dark {
-  --color-background: hsl(0 0% 3.9%);
+  --color-background: hsl(0 0% 14%);
   --color-foreground: hsl(0 0% 98%);
-  --color-card: hsl(0 0% 3.9%);
+  --color-card: hsl(0 0% 10%);
   --color-card-foreground: hsl(0 0% 98%);
-  --color-popover: hsl(0 0% 7%);
+  --color-popover: hsl(0 0% 11%);
   --color-popover-foreground: hsl(0 0% 98%);
   --color-primary: hsl(142 65% 50%);
   --color-primary-foreground: hsl(0 0% 100%);
@@ -46,7 +46,7 @@
   --color-muted-foreground: hsl(0 0% 63.9%);
   --color-accent: hsl(0 0% 14.9%);
   --color-accent-foreground: hsl(0 0% 98%);
-  --color-destructive: hsl(0 62.8% 30.6%);
+  --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
   --color-border: hsl(0 0% 22%);
   --color-input: hsl(0 0% 22%);
