@@ -1,53 +1,341 @@
-.page {
+.member-page {
   min-height: 100vh;
   background: var(--color-background);
+  padding-bottom: 60rpx;
+  box-sizing: border-box;
 }
-.head {
-  padding: 60rpx 40rpx;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary));
-  color: var(--color-foreground);
+
+/* ===== Header:用户信息 + VIP 状态 ===== */
+.member-header {
+  padding: 60rpx 40rpx 40rpx;
+  background: linear-gradient(135deg, var(--color-primary), rgba(0, 242, 255, 0.6));
 }
-.level-tag {
-  display: inline-block;
-  padding: 8rpx 24rpx;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 20rpx;
-  font-size: 26rpx;
-}
-.stat-row {
+.member-user {
   display: flex;
-  margin-top: 40rpx;
+  align-items: center;
 }
-.stat {
+.member-avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 12rpx;
+  background: #fff;
+  margin-right: 24rpx;
+  flex-shrink: 0;
+}
+.member-user-detail {
   flex: 1;
-  text-align: center;
+  min-width: 0;
 }
-.stat-num {
+.member-nickname {
   display: block;
-  font-size: 40rpx;
+  font-size: 36rpx;
   font-weight: 700;
+  color: #fff;
+  margin-bottom: 12rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.stat-label {
+.member-vip-badge {
+  display: inline-flex;
+  align-items: center;
+}
+.member-vip-text {
+  background: #ffd700;
+  color: #333;
+  font-size: 24rpx;
+  font-weight: 700;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  margin-right: 12rpx;
+}
+.member-vip-expire {
+  font-size: 24rpx;
+  color: #fff;
+}
+.member-normal-user {
+  font-size: 26rpx;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ===== 通用卡片 ===== */
+.member-card {
+  margin: 24rpx;
+  padding: 32rpx;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: 16rpx;
+}
+.member-card-title {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--color-foreground);
+  margin-bottom: 28rpx;
+}
+
+/* ===== 会员等级梯度 ===== */
+.member-level-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+.member-level-item {
+  flex: 1 1 calc(50% - 16rpx);
+  min-width: 260rpx;
+  padding: 24rpx;
+  background: var(--color-background);
+  border: 2rpx solid var(--color-border);
+  border-radius: 12rpx;
+  box-sizing: border-box;
+}
+.member-level-current {
+  border-color: var(--color-primary);
+  background: rgba(0, 242, 255, 0.08);
+}
+.member-level-name {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--color-foreground);
+  margin-bottom: 8rpx;
+}
+.member-level-current .member-level-name {
+  color: var(--color-primary);
+}
+.member-level-threshold {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  margin-bottom: 8rpx;
+}
+.member-level-perks {
   display: block;
   font-size: 24rpx;
-  margin-top: 8rpx;
-  opacity: 0.9;
+  color: var(--color-foreground);
 }
-.menu {
+.member-level-silver .member-level-name {
+  color: #9ca3af;
+}
+.member-level-gold .member-level-name {
+  color: #d4a017;
+}
+.member-level-diamond .member-level-name {
+  color: #6366f1;
+}
+
+/* ===== 使用统计 ===== */
+.member-stats {
+  display: flex;
+  justify-content: space-around;
+}
+.member-stat {
+  text-align: center;
+}
+.member-stat-num {
+  display: block;
+  font-size: 48rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: 8rpx;
+}
+.member-stat-label {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 会员特权列表 ===== */
+.member-benefits {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+.member-benefit-item {
+  display: flex;
+  align-items: center;
+}
+.member-benefit-icon {
+  width: 72rpx;
+  height: 72rpx;
+  margin-right: 20rpx;
+  background: rgba(0, 242, 255, 0.12);
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.member-benefit-icon-text {
+  font-size: 36rpx;
+  color: var(--color-primary);
+}
+.member-benefit-content {
+  flex: 1;
+  min-width: 0;
+}
+.member-benefit-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.member-benefit-desc {
+  display: block;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 4rpx;
+}
+.member-benefit-status {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+.member-benefit-active {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+/* ===== VIP CTA 卡片 ===== */
+.member-vip-cta,
+.member-vip-section {
+  margin: 24rpx;
+  padding: 32rpx;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: 16rpx;
+}
+.member-vip-info {
+  margin-bottom: 24rpx;
+}
+.member-vip-title {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--color-foreground);
+  margin-bottom: 8rpx;
+}
+.member-vip-desc {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  margin-bottom: 16rpx;
+}
+.member-vip-price {
+  display: flex;
+  align-items: center;
+}
+.member-price-label {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  margin-bottom: 12rpx;
+}
+.member-price-display {
+  display: flex;
+  align-items: center;
+}
+.member-current-price {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #ff6b00;
+  margin-right: 16rpx;
+}
+.member-original-price {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+  text-decoration: line-through;
+}
+.member-vip-button,
+.member-cta-button {
+  width: 100%;
+  background: var(--color-primary);
+  color: #1a1a2e;
+  height: 80rpx;
+  line-height: 80rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  border-radius: 12rpx;
+}
+.member-cta-outlined {
+  background: transparent;
+  color: var(--color-primary);
+  border: 2rpx solid var(--color-primary);
+}
+.member-vip-permanent {
+  background: linear-gradient(135deg, #ffd700, #ffc107);
+  border-color: #ffd700;
+}
+.member-permanent-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16rpx;
+}
+.member-crown {
+  font-size: 40rpx;
+  color: #fff;
+  margin-right: 12rpx;
+}
+.member-permanent-text {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #fff;
+}
+.member-cta-text {
+  display: block;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+}
+
+/* ===== 快捷入口菜单 ===== */
+.member-menu {
   margin: 24rpx;
   background: var(--color-card);
+  border: 2rpx solid var(--color-border);
   border-radius: 16rpx;
   overflow: hidden;
 }
-.menu-item {
+.member-menu-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 32rpx;
-  border-bottom: 2rpx solid var(--color-border);
+  padding: 28rpx 32rpx;
   font-size: 28rpx;
   color: var(--color-foreground);
 }
-.arrow {
+.member-menu-item + .member-menu-item {
+  border-top: 2rpx solid var(--color-border);
+}
+.member-arrow {
+  color: var(--color-muted-foreground);
+  font-size: 32rpx;
+}
+
+/* ===== 联系客服 ===== */
+.member-contact {
+  margin: 24rpx;
+  padding: 24rpx;
+  text-align: center;
+}
+.member-contact-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--color-foreground);
+  margin-bottom: 8rpx;
+}
+.member-contact-text {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== Loading ===== */
+.member-loading {
+  padding: 40rpx;
+  text-align: center;
+  font-size: 26rpx;
   color: var(--color-muted-foreground);
 }
