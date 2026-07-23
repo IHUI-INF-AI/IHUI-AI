@@ -126,6 +126,9 @@ import { pricingRoutes } from './routes/pricing.js'
 // M-22 补建：散点缺失路由
 import { aiUserModelChatRoutes } from './routes/ai-user-model-chat.js'
 import { adminFaqRoutes } from './routes/admin-faq.js'
+// P3 深度层:AI 教育引擎(SRS 间隔复习)+ LangGraph 升级(interrupt HITL + streaming)
+import { srsReviewRoutes } from './routes/srs-review.js'
+import { agentLanggraphRoutes } from './routes/agent-langgraph.js'
 import { adminZoneRoutes } from './routes/admin-zone.js'
 import { adminDemandSquareRoutes } from './routes/admin-demand-square.js'
 import { zhsCourseRoutes, adminZhsCourseRoutes } from './routes/zhs-course.js'
@@ -1167,4 +1170,7 @@ function registerRoutes(server: FastifyInstance) {
   server.register(subagentDispatchRoutes, { prefix: '/api' })
   // 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
   server.register(orchestrationRoutes, { prefix: '/api' })
+  // P3 深度层:AI 教育引擎 SRS 间隔复习(SM-2 算法)+ LangGraph 升级(interrupt HITL + 5 模式 streaming + Time Travel)
+  server.register(srsReviewRoutes, { prefix: '/api/srs-review' })
+  server.register(agentLanggraphRoutes, { prefix: '/api/agent-langgraph' })
 }
