@@ -14,6 +14,8 @@ export interface ChatMessageItemProps {
   isFavorited?: boolean
   /** 切换收藏状态(仅 AI 消息,对标原 ai_assistant.vue toggleFavorite) */
   onToggleFavorite?: () => void
+  /** TTS 朗读(仅 AI 消息,对标原 ai_assistant.vue 朗读功能) */
+  onSpeak?: (content: string) => void
 }
 
 /** 内容段类型(对标原 ai_assistant.vue formatContentSegments) */
@@ -74,17 +76,58 @@ function formatTokenDisplay(count: number): string {
   return String(count)
 }
 
-export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPress, onEdit, isFavorited, onToggleFavorite }: ChatMessageItemProps) {
+export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPress, onEdit, isFavorited, onToggleFavorite, onSpeak }: ChatMessageItemProps) {
   const { t } = useI18n()
   const [expanded, setExpanded] = useState(false)
   const [codeCollapsed, setCodeCollapsed] = useState(false)
   const [codeCopied, setCodeCopied] = useState(false)
+  // TTS 朗读状态(对标原 ai_assistant.vue 朗读/停止)
+  const [speaking, setSpeaking] = useState(false)
+  // 语音气泡播放状态(对标原 ai_assistant.vue 语音消息播放)
+  const [voicePlaying, setVoicePlaying] = useState(false)
 
   /** 内容段(对标原 ai_assistant.vue formatContentSegments) */
   const segments = useMemo(
     () => formatContentSegments(removeSpecialChars(msg.content)),
     [msg.content],
   )
+
+  /** 数字人关键词检测(对标原 ai_assistant.vue 数字人跳转) */
+  const hasDigitalHuman = useMemo(() => /数字人|虚拟人|avatar|digital\s*human/i.test(msg.content || ''), [msg.content])
+
+  /** 语音消息 audioUrl(可选属性扩展,不破坏 ChatMessage 接口) */
+  const audioUrl = (msg as { audioUrl?: string }).audioUrl
+  /** 语音时长(可选,秒) */
+  const audioDuration = (msg as { audioDuration?: number }).audioDuration
+
+  /** 点击朗读(对标原 ai_assistant.vue 朗读按钮,触发父级 TTS 跳转) */
+  function handleSpeak() {
+    if (!onSpeak || !msg.content) return
+    if (speaking) {
+      setSpeaking(false)
+      return
+    }
+    setSpeaking(true)
+    onSpeak(msg.content)
+    // 简化实现:朗读状态由用户手动停止,或跳转后自动重置
+    setTimeout(() => setSpeaking(false), 3000)
+  }
+
+  /** 播放语音气泡(对标原 ai_assistant.vue 语音消息播放) */
+  function playVoice() {
+    if (!audioUrl) return
+    const audio = Taro.createInnerAudioContext()
+    audio.src = audioUrl
+    setVoicePlaying(true)
+    audio.onEnded(() => setVoicePlaying(false))
+    audio.onError(() => setVoicePlaying(false))
+    audio.play()
+  }
+
+  /** 跳转数字人页(对标原 ai_assistant.vue 数字人跳转) */
+  function goDigitalHuman() {
+    Taro.navigateTo({ url: '/pages/ai/agent' })
+  }
 
   /** 复制内容到剪贴板(对标原 ai_assistant.vue copyHandle) */
   function copyContent(content: string) {
@@ -242,6 +285,33 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
             ))
           : null}
 
+        {/* 语音消息气泡(对标原 ai_assistant.vue 语音气泡,audioUrl 可选属性) */}
+        {audioUrl ? (
+          <View
+            className={`voice-bubble ${msg.role}`}
+            style={{ display: 'flex', alignItems: 'center', gap: '16rpx', padding: '16rpx 24rpx', borderRadius: '12rpx', marginTop: '10rpx', background: msg.role === 'user' ? '#95ec69' : '#f5f5f5' }}
+            onClick={playVoice}
+          >
+            <Text className="voice-play-icon" style={{ fontSize: '36rpx' }}>
+              {voicePlaying ? '⏸' : '▶'}
+            </Text>
+            <Text className="voice-duration" style={{ fontSize: '24rpx', color: '#666' }}>
+              {audioDuration ? `${audioDuration}"` : t('ai.chatMessageItem.voiceMessage')}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* 数字人跳转按钮(对标原 ai_assistant.vue 数字人跳转,仅 AI 消息含关键词) */}
+        {msg.role === 'assistant' && hasDigitalHuman ? (
+          <View
+            className="digital-human-btn"
+            style={{ marginTop: '12rpx', padding: '8rpx 16rpx', background: '#f0f7ff', color: '#1888ee', borderRadius: '6rpx', fontSize: '24rpx', display: 'inline-flex', alignItems: 'center' }}
+            onClick={goDigitalHuman}
+          >
+            {t('ai.chatMessageItem.viewDigitalHuman')} →
+          </View>
+        ) : null}
+
         {/* 操作按钮区(对标原 ai_assistant.vue action-buttons) */}
         <View className="bubble-actions" style={{ justifyContent: 'space-between', marginTop: '8rpx' }}>
           {/* token 消耗(仅 AI 消息,对标原 ai_assistant.vue total_tokens) */}
@@ -307,6 +377,16 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
                   onClick={onToggleFavorite}
                 >
                   {isFavorited ? '♥' : '♡'}
+                </Text>
+              ) : null}
+              {/* TTS 朗读按钮(对标原 ai_assistant.vue 朗读,仅 AI 消息) */}
+              {onSpeak ? (
+                <Text
+                  className="bubble-speak"
+                  style={{ fontSize: '24rpx', color: '#1888ee', marginLeft: '20rpx' }}
+                  onClick={handleSpeak}
+                >
+                  🔊 {speaking ? t('ai.chatMessageItem.stopSpeak') : t('ai.chatMessageItem.speak')}
                 </Text>
               ) : null}
             </View>
