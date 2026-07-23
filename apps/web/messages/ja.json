@@ -23,7 +23,20 @@
       "installSuccess": "インストール成功",
       "installFailed": "インストール失敗",
       "rateSuccess": "評価成功",
-      "rateFailed": "評価失敗"
+      "rateFailed": "評価失敗",
+      "publishButton": "スキルを公開",
+      "publishTitle": "スキルを市場に公開",
+      "publishName": "スキル名",
+      "publishDescription": "説明",
+      "publishTags": "タグ（カンマ区切り）",
+      "publishAuthor": "作者",
+      "publishVersion": "バージョン",
+      "publishLicense": "ライセンス",
+      "publishContent": "スキル本文",
+      "publishContentPlaceholder": "スキルの本文を書く（Markdown/JSON）...",
+      "publishSubmit": "公開",
+      "publishSuccess": "公開成功",
+      "publishFailed": "公開失敗"
     }
   },
   "common": {
