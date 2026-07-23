@@ -215,3 +215,32 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
 }
+
+// ================== 窗口状态持久化 ==================
+
+/** 保存当前主窗口位置/尺寸/最大化状态(下次启动时恢复)。 */
+export async function saveWindowState(): Promise<void> {
+  try {
+    await invoke('save_window_state')
+  } catch {
+    // 非 Tauri 环境静默忽略
+  }
+}
+
+/** 从 store 恢复主窗口状态(应用启动时由 Rust 端自动调用)。 */
+export async function restoreWindowState(): Promise<void> {
+  try {
+    await invoke('restore_window_state')
+  } catch {
+    // 非 Tauri 环境静默忽略
+  }
+}
+
+/** 重置窗口状态(清除 store 中的窗口记录,下次启动用默认尺寸)。 */
+export async function resetWindowState(): Promise<void> {
+  try {
+    await invoke('reset_window_state')
+  } catch {
+    // 非 Tauri 环境静默忽略
+  }
+}
