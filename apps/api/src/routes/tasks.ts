@@ -11,6 +11,12 @@
  *  - POST /tasks/result      回传结果(更新状态 + WS 推送)
  *  - GET  /tasks             列出用户任务
  *  - GET  /tasks/devices     返回在线设备列表
+ *
+ * 设备在线注册表(2026-07-23 立,P1 设备寻址闭环):
+ *  - POST /tasks/register-device      desktop 启动注册 deviceId(30s 心跳刷新 lastSeen + 60s TTL)
+ *  - DELETE /tasks/devices/:deviceId  设备下线清理
+ *  - GET /tasks/devices               返回真实在线设备列表(过滤 lastSeen 距今 >60s 为 offline)
+ * Redis key 格式:devices:<userId>(Hash 结构,field=deviceId → value=TaskDevice JSON)
  */
 import type {
   FastifyPluginAsync,
@@ -27,6 +33,9 @@ import type {
   TaskResult,
   TaskDispatchResponse,
   TaskWsMessage,
+  TaskDevice,
+  TaskDeviceRegisterResponse,
+  TaskDeviceListResponse,
 } from '@ihui/shared'
 
 const dispatchSchema = z.object({
@@ -41,8 +50,29 @@ const resultSchema = z.object({
   error: z.string().max(10_000).optional(),
 })
 
+const deviceTypeSchema = z.enum([
+  'desktop',
+  'web',
+  'mobile',
+  'cloud',
+  'extension',
+  'cli',
+])
+
+const registerSchema = z.object({
+  deviceId: z.string().min(1).max(100),
+  name: z.string().min(1).max(100),
+  type: deviceTypeSchema,
+})
+
+/** 设备在线判定阈值:lastSeen 距今超过此值视为 offline(毫秒) */
+const DEVICE_ONLINE_TTL_MS = 60_000
+
 /** Redis 不可用时的进程内降级存储:userId → tasks[] */
 const tasksFallback = new Map<string, TaskDispatch[]>()
+
+/** Redis 不可用时的设备注册表降级存储:userId → (deviceId → TaskDevice) */
+const devicesFallback = new Map<string, Map<string, TaskDevice>>()
 
 function userKey(userId: string): string {
   return `tasks:${userId}`
@@ -70,6 +100,68 @@ async function writeTasks(
     await redis.set(key, JSON.stringify(tasks))
   } catch {
     tasksFallback.set(key, tasks)
+  }
+}
+
+function deviceKey(userId: string): string {
+  return `devices:${userId}`
+}
+
+/** 读取用户全部设备(从 Redis Hash);Redis 不可用时降级进程内 Map。 */
+async function readDevices(
+  redis: {
+    hgetall: (k: string) => Promise<Record<string, string>>
+  },
+  key: string,
+): Promise<Map<string, TaskDevice>> {
+  try {
+    const raw = await redis.hgetall(key)
+    const map = new Map<string, TaskDevice>()
+    for (const [deviceId, json] of Object.entries(raw)) {
+      try {
+        map.set(deviceId, JSON.parse(json) as TaskDevice)
+      } catch {
+        /* 单个设备 JSON 损坏,跳过 */
+      }
+    }
+    return map
+  } catch {
+    return devicesFallback.get(key) ?? new Map<string, TaskDevice>()
+  }
+}
+
+/** 写入/刷新单个设备(Redis HSET + EXPIRE 60s);Redis 不可用时降级进程内 Map。 */
+async function writeDevice(
+  redis: {
+    hset: (k: string, field: string, value: string) => Promise<unknown>
+    expire: (k: string, ttl: number) => Promise<unknown>
+  },
+  key: string,
+  device: TaskDevice,
+): Promise<void> {
+  try {
+    await redis.hset(key, device.deviceId, JSON.stringify(device))
+    await redis.expire(key, 60)
+  } catch {
+    let inner = devicesFallback.get(key)
+    if (!inner) {
+      inner = new Map<string, TaskDevice>()
+      devicesFallback.set(key, inner)
+    }
+    inner.set(device.deviceId, device)
+  }
+}
+
+/** 删除单个设备(Redis HDEL);Redis 不可用时降级进程内 Map delete。 */
+async function removeDevice(
+  redis: { hdel: (k: string, ...fields: string[]) => Promise<unknown> },
+  key: string,
+  deviceId: string,
+): Promise<void> {
+  try {
+    await redis.hdel(key, deviceId)
+  } catch {
+    devicesFallback.get(key)?.delete(deviceId)
   }
 }
 
@@ -186,26 +278,73 @@ export const tasksRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ tasks, total: tasks.length }))
   })
 
-  // GET /tasks/devices — 返回在线设备列表
+  // POST /tasks/register-device — 设备上线注册/心跳刷新(Hash 结构 + 60s TTL)
+  server.post(
+    '/tasks/register-device',
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!(await checkAuth(request, reply))) return
+      const userId = request.userId!
+
+      const parsed = registerSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const { deviceId, name, type } = parsed.data
+      const now = new Date().toISOString()
+      const device: TaskDevice = {
+        deviceId,
+        name,
+        type,
+        lastSeen: now,
+        online: true,
+      }
+
+      const key = deviceKey(userId)
+      await writeDevice(server.redis, key, device)
+
+      const response: TaskDeviceRegisterResponse = { device }
+      return reply.status(201).send(success(response))
+    },
+  )
+
+  // DELETE /tasks/devices/:deviceId — 设备下线清理
+  server.delete<{ Params: { deviceId: string } }>(
+    '/tasks/devices/:deviceId',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const userId = request.userId!
+
+      const { deviceId } = request.params
+      const key = deviceKey(userId)
+      await removeDevice(server.redis, key, deviceId)
+
+      return reply.send(success({ removed: true }))
+    },
+  )
+
+  // GET /tasks/devices — 返回真实在线设备列表(lastSeen >60s 标记为 offline 但仍返回)
   server.get('/tasks/devices', async (request: FastifyRequest, reply: FastifyReply) => {
     if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
 
-    // 尝试从 Redis 读取设备列表,失败则返回硬编码默认值
-    const devicesKey = `devices:${userId}`
-    let devices: string[] = ['desktop', 'web']
-    try {
-      const raw = await server.redis.get(devicesKey)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          devices = parsed as string[]
-        }
-      }
-    } catch {
-      /* Redis 不可用,返回默认设备列表 */
+    const key = deviceKey(userId)
+    const deviceMap = await readDevices(server.redis, key)
+    const now = Date.now()
+    const devices: TaskDevice[] = []
+    for (const device of deviceMap.values()) {
+      const lastSeenMs = Date.parse(device.lastSeen)
+      const isOnline =
+        !Number.isNaN(lastSeenMs) && now - lastSeenMs <= DEVICE_ONLINE_TTL_MS
+      devices.push({ ...device, online: isOnline })
     }
 
-    return reply.send(success({ devices }))
+    const response: TaskDeviceListResponse = {
+      devices,
+      total: devices.length,
+    }
+    return reply.send(success(response))
   })
 }
