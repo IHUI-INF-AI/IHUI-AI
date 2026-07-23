@@ -63,7 +63,7 @@ describe('useNotificationWebSocket WS 连接/断线/重连', () => {
   it('有 token 时建立连接', () => {
     renderHook(() => useNotificationWebSocket('test-token'))
     expect(mockCreateClient).toHaveBeenCalledTimes(1)
-    expect(clients[0].connect).toHaveBeenCalled()
+    expect(clients[0]!.connect).toHaveBeenCalled()
   })
 
   it('无 token 时不建立连接', () => {
@@ -76,7 +76,7 @@ describe('useNotificationWebSocket WS 连接/断线/重连', () => {
     expect(result.current.connected).toBe(false)
 
     act(() => {
-      clients[0].callbacks.onOpen?.()
+      clients[0]!.callbacks.onOpen?.()
     })
 
     expect(result.current.connected).toBe(true)
@@ -86,12 +86,12 @@ describe('useNotificationWebSocket WS 连接/断线/重连', () => {
     const { result } = renderHook(() => useNotificationWebSocket('test-token'))
 
     act(() => {
-      clients[0].callbacks.onOpen?.()
+      clients[0]!.callbacks.onOpen?.()
     })
     expect(result.current.connected).toBe(true)
 
     act(() => {
-      clients[0].callbacks.onClose?.()
+      clients[0]!.callbacks.onClose?.()
     })
 
     expect(result.current.connected).toBe(false)
@@ -101,7 +101,7 @@ describe('useNotificationWebSocket WS 连接/断线/重连', () => {
     const { result } = renderHook(() => useNotificationWebSocket('test-token'))
 
     act(() => {
-      clients[0].callbacks.onMessage?.({ type: 'test', data: 'hello' })
+      clients[0]!.callbacks.onMessage?.({ type: 'test', data: 'hello' })
     })
 
     expect(result.current.lastMessage).toEqual({ type: 'test', data: 'hello' })
@@ -109,7 +109,7 @@ describe('useNotificationWebSocket WS 连接/断线/重连', () => {
 
   it('unmount 时断开连接', () => {
     const { unmount } = renderHook(() => useNotificationWebSocket('test-token'))
-    const client = clients[0]
+    const client = clients[0]!
 
     unmount()
 
@@ -127,7 +127,7 @@ describe('useNotificationWebSocket WS 连接/断线/重连', () => {
     rerender({ token: 'new-token' })
 
     expect(mockCreateClient).toHaveBeenCalledTimes(1)
-    expect(clients[0].connect).toHaveBeenCalled()
+    expect(clients[0]!.connect).toHaveBeenCalled()
   })
 
   it('token 变化时断开旧连接建立新连接', () => {
@@ -136,12 +136,12 @@ describe('useNotificationWebSocket WS 连接/断线/重连', () => {
       { initialProps: { token: 'token-1' } },
     )
 
-    const oldClient = clients[0]
+    const oldClient = clients[0]!
     expect(oldClient.connect).toHaveBeenCalled()
 
     rerender({ token: 'token-2' })
 
     expect(oldClient.disconnect).toHaveBeenCalled()
-    expect(clients[1].connect).toHaveBeenCalled()
+    expect(clients[1]!.connect).toHaveBeenCalled()
   })
 })
