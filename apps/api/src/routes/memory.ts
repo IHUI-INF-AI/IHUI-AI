@@ -18,7 +18,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import type { MemoryEntry, MemoryScope, MemoryEntryType } from '@ihui/types'
-import { checkAuth } from '../plugins/auth.js'
+import { checkAuthOrInternalService } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 
 const SCOPES: MemoryScope[] = ['global', 'user', 'session', 'project']
@@ -93,7 +93,7 @@ async function writeEntries(
 export const memoryRoutes: FastifyPluginAsync = async (server) => {
   // GET /memory — 查询当前用户记忆
   server.get('/memory', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await checkAuth(request, reply))) return
+    if (!(await checkAuthOrInternalService(request, reply))) return
     const userId = request.userId!
 
     const parsed = listQuerySchema.safeParse(request.query)
@@ -120,7 +120,7 @@ export const memoryRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /memory — 写入一条记忆
   server.post('/memory', async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!(await checkAuth(request, reply))) return
+    if (!(await checkAuthOrInternalService(request, reply))) return
     const userId = request.userId!
 
     const parsed = createEntrySchema.safeParse(request.body)
@@ -153,7 +153,7 @@ export const memoryRoutes: FastifyPluginAsync = async (server) => {
   server.delete<{ Params: { id: string } }>(
     '/memory/:id',
     async (request, reply) => {
-      if (!(await checkAuth(request, reply))) return
+      if (!(await checkAuthOrInternalService(request, reply))) return
       const userId = request.userId!
 
       const parsed = deleteQuerySchema.safeParse(request.query)
