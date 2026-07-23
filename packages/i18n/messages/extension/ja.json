@@ -1,0 +1,202 @@
+{
+  "common": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "delete": "削除",
+    "edit": "編集",
+    "back": "戻る",
+    "confirm": "確認",
+    "loading": "読み込み中…",
+    "empty": "データなし",
+    "retry": "再試行",
+    "submit": "送信",
+    "search": "検索",
+    "all": "すべて",
+    "failed": "失敗"
+  },
+  "nav": {
+    "home": "ホーム",
+    "chat": "AI チャット",
+    "translate": "翻訳",
+    "vocab": "単語帳",
+    "settings": "設定",
+    "about": "について",
+    "agents": "AI アシスタント",
+    "vocabulary": "単語帳",
+    "profile": "マイページ",
+    "wallet": "ウォレット",
+    "courses": "コース",
+    "notifications": "通知",
+    "tabRuntime": "ランタイム"
+  },
+  "auth": {
+    "login": "ログイン",
+    "logout": "ログアウト",
+    "register": "登録",
+    "loginSuccess": "ログインしました",
+    "loginRequired": "アカウントとパスワードを入力してください",
+    "phoneOrEmail": "電話番号 / メール",
+    "password": "パスワード",
+    "roleAdmin": "管理者",
+    "roleUser": "一般ユーザー"
+  },
+  "popup": {
+    "copyFailed": "コピー失敗",
+    "copySuccess": "コピーしました",
+    "openWeb": "ウェブ版を開く",
+    "quickActions": "クイック操作",
+    "openChat": "AI チャット",
+    "openSidePanel": "サイドパネルを開く"
+  },
+  "translate": {
+    "title": "イマーシブ翻訳",
+    "source": "原文",
+    "target": "翻訳先",
+    "auto": "自動検出",
+    "translating": "翻訳中…",
+    "result": "翻訳結果",
+    "copy": "コピー",
+    "swap": "交換"
+  },
+  "vocab": {
+    "title": "単語帳",
+    "add": "単語を追加",
+    "word": "単語",
+    "meaning": "意味",
+    "example": "例文",
+    "empty": "単語なし",
+    "review": "復習",
+    "mastered": "習得済み",
+    "inputPlaceholder": "単語を入力して検索...",
+    "lookup": "検索",
+    "saved": "単語帳に保存"
+  },
+  "wordbook": {
+    "title": "単語帳",
+    "countLabel": "全 {{count}} 語",
+    "searchPlaceholder": "単語を検索...",
+    "noMatchHint": "一致する単語が見つかりません",
+    "emptyHint": "単語帳は空です,単語を検索して保存してください"
+  },
+  "chat": {
+    "placeholder": "メッセージを入力…",
+    "send": "送信",
+    "newConversation": "新規会話",
+    "history": "履歴",
+    "stop": "停止",
+    "title": "AI チャット",
+    "exit": "終了",
+    "selectModel": "モデルを選択",
+    "emptyHint": "メッセージを入力して開始",
+    "inputPlaceholder": "何か入力してください...",
+    "compactionNotice": "コンテキストを自動圧縮しました:{{before}} → {{after}}({{removed}} 件の履歴を削除)"
+  },
+  "settings": {
+    "title": "設定",
+    "language": "インターフェース言語",
+    "targetLanguage": "翻訳先の言語",
+    "apiKey": "API キー",
+    "theme": "テーマ",
+    "about": "IHUI AI について",
+    "version": "バージョン",
+    "feedback": "フィードバック",
+    "appearance": "外観",
+    "darkMode": "ダークモード",
+    "account": "アカウント",
+    "zhCN": "简体中文",
+    "en": "English",
+    "ja": "日本語",
+    "ko": "한국어",
+    "zhTW": "繁體中文"
+  },
+  "notification": {
+    "title": "通知",
+    "connected": "接続済み",
+    "disconnected": "切断されました",
+    "markAllRead": "すべて既読",
+    "clearAll": "すべて消去",
+    "close": "閉じる",
+    "empty": "通知なし"
+  },
+  "agent": {
+    "useCount": "使用回数",
+    "rating": "評価",
+    "permission": "権限",
+    "statusIdle": "アイドル",
+    "statusRunning": "実行中",
+    "statusCompleted": "完了",
+    "statusFailed": "失敗",
+    "clear": "クリア",
+    "executePlan": "実行計画",
+    "permissionDecision": "権限決定",
+    "tool": "ツール",
+    "level": "レベル",
+    "mode": "モード",
+    "output": "出力",
+    "error": "エラー",
+    "inputTaskHint": "タスクを入力して Agent の実行を開始",
+    "inputTaskPlaceholder": "タスクを入力...",
+    "stop": "停止",
+    "execute": "実行",
+    "detailTab": "詳細",
+    "usable": "使用可能",
+    "needVip": "VIP が必要",
+    "needPurchase": "購入が必要",
+    "loadFailed": "読み込み失敗"
+  },
+  "course": {
+    "title": "コース",
+    "empty": "コースなし",
+    "free": "無料",
+    "loadFailed": "読み込み失敗"
+  },
+  "order": {
+    "title": "注文履歴",
+    "empty": "注文なし",
+    "loadFailed": "読み込み失敗",
+    "statusPending": "支払い待ち",
+    "statusPaid": "支払済み",
+    "statusCancelled": "キャンセル済み",
+    "statusRefunding": "返金処理中",
+    "statusRefunded": "返金済み",
+    "statusCompleted": "完了",
+    "statusFailed": "失敗"
+  },
+  "profile": {
+    "title": "マイページ",
+    "noNickname": "ニックネーム未設定",
+    "idLabel": "ID",
+    "emailLabel": "メール",
+    "phoneLabel": "電話番号",
+    "loadFailed": "読み込み失敗"
+  },
+  "wallet": {
+    "title": "ウォレット",
+    "balance": "利用可能残高",
+    "totalRecharge": "累計チャージ",
+    "loadFailed": "読み込み失敗"
+  },
+  "login": {
+    "title": "IHUI AI にログイン",
+    "account": "アカウント",
+    "password": "パスワード",
+    "phoneOrEmailHint": "電話番号 / メール",
+    "loading": "ログイン中...",
+    "requireInput": "アカウントとパスワードを入力してください",
+    "button": "ログイン",
+    "loadFailed": "ログイン失敗"
+  },
+  "error": {
+    "network": "ネットワークエラー",
+    "server": "サーバーエラー",
+    "unauthorized": "ログインしてください",
+    "forbidden": "権限なし",
+    "notFound": "見つかりません",
+    "unknown": "不明なエラー"
+  },
+  "success": {
+    "saved": "保存しました",
+    "deleted": "削除しました",
+    "copied": "コピーしました"
+  }
+}

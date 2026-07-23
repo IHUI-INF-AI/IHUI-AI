@@ -77,7 +77,7 @@
 </p>
 
 <p align="center">
-  <sub><strong>i18n 国际化</strong>:5 语言键集合 99.7% 一致(zh-CN 587 key / zh-TW 585 / en 586 / ko 586 / ja 586)+ 4 守门脚本(opencc 字形检测 / 字符范围检测 / 破碎机翻检测 / key parity 校验)</sub>
+  <sub><strong>i18n 国际化</strong>:5 语言键集合 99.7% 一致(zh-CN 587 key / zh-TW 585 / en 586 / ko 586 / ja 586)+ 8 守门脚本(4 web + 4 extension:opencc 字形检测 / 字符范围检测 / 破碎机翻检测 / key parity 校验 × 2 端)</sub>
 </p>
 
 <p align="center">
@@ -303,7 +303,7 @@ IHUI-AI 的定位由"用户价值 → 产品形态 → 技术护城河"三层金
 7. **企业级安全栈**:RBAC + 多租户 + RLS(Row-Level Security)+ SSO(OAuth2 + Apple + Google + PKCE)+ AES-256-GCM + JWT token-family + 工作空间 3 模式权限 + 7 端点运行时拦截 + 60s 审计超时 + GDPR + 2FA + IDOR 防护 — 开源 AI 平台中**唯一**完整企业级安全栈
 8. **21 道工程守门 + 11 迁移审计 + post-commit 自动 push**:从机制上杜绝协作事故 — 开源 AI 项目中**唯一**把工程守门做到机制级(Dify/FastGPT 仅有基础 lint)
 9. **三支柱可观测性 + 21 Grafana 仪表盘**:Prometheus + Grafana + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager — 开源 AI 平台中**唯一**带完整 SRE 级可观测性栈(其他项目最多基础日志)
-10. **5 语言 i18n parity + 4 守门脚本**:zh-CN / zh-TW / en / ko / ja 键集合 99.7% 一致(5 语言差 1-2 key,守门脚本持续校验),opencc 字形检测 + 字符范围检测 + 破碎机翻检测 — 开源 AI 项目中**唯一**把 i18n 做到 parity + 守门级(其他项目最多中英文)
+10. **5 语言 i18n parity + 8 守门脚本(4 web + 4 extension)**:zh-CN / zh-TW / en / ko / ja 键集合 99.7% 一致(5 语言差 1-2 key,守门脚本持续校验),opencc 字形检测 + 字符范围检测 + 破碎机翻检测 + key parity 校验 × 2 端(web + extension 各 4 守门)— 开源 AI 项目中**唯一**把 i18n 做到 parity + 守门级(其他项目最多中英文)
 
 ### 记忆点标语(可传播)
 
@@ -411,7 +411,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | 队列缓存        | Redis 7 + BullMQ / 独立 worker 进程(:8830)                                                                  |
 |                   | 对象存储        | OSS 多厂商驱动 / 凭证加密 / 分块上传 / 文件版本 / chunked-upload                                            |
 |                   | 邮件短信        | SMTP / 短信网关 / 邮件模板 / 验证码 / mail + message-templates                                              |
-|                   | 国际化          | 5 语言 parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n 工具链 + 4 守门脚本                                    |
+|                   | 国际化          | 5 语言 parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n 工具链 + 8 守门(4 web + 4 ext)                          |
 |                   | 工程守门        | 30+ pre-commit 钩子 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动                                |
 |                   | 测试覆盖        | 268 + 400+ 用例 / Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能                              |
 |                   | 部署运维        | Docker Compose(14 服务)/ 蓝绿部署 / Nginx upstream 切换 / 健康检查 / 回滚 / 备份 / 证书续期 cron            |
@@ -471,7 +471,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 | **内容发布**        | **14 平台 + 14 adapter**                                             | 无             | 无               | 无               | 无             | 无             | 无            | 无            | 无             | 无            | 无            |
 | **可观测性**        | **三支柱 + 21 仪表盘**                                               | -              | 基础             | 无               | 基础           | -             | 无            | 无            | 无             | -            | -             |
 | **工程守门**        | **17 钩子 + 11 迁移审计 + 自动 push**                                | -              | 基础             | 基础             | 基础           | -             | 无            | 无            | 无             | -            | -             |
-| **i18n**            | **5 语言 parity + 4 守门**                                           | 多语言         | 中英文           | 英文             | 中英文         | 多语言         | 英文          | 多语言        | 多语言         | 多语言        | N/A           |
+| **i18n**            | **5 语言 parity + 8 守门(4+4)**                                       | 多语言         | 中英文           | 英文             | 中英文         | 多语言         | 英文          | 多语言        | 多语言         | 多语言        | N/A           |
 | **数据库**          | **340 表 + 144 迁移 + RLS + pgvector**                             | SaaS 内        | 基础             | 无               | pgvector       | SaaS 内        | 无            | 无            | 无             | SaaS 内       | SaaS 内       |
 | **共享包**          | **13 packages**                                                      | 无             | 无               | 1 库             | 无             | -             | 无            | 无            | 无             | 无            | 1 SDK         |
 | **月度成本(5 人)** | **$0**(自托管,仅服务器)                                            | $125+          | $59+             | $0(自集成)      | $0(自集成)    | SaaS 内        | $100          | $100          | $95            | 免费(教育)   | $149+         |
@@ -656,7 +656,17 @@ cd IHUI-AI && docker compose up -d
 - **消费方式**:各端 `globals.css` 顶部 `@import` 引用(web `../../../packages/ui-primitives/src/styles/tokens.css` / extension `../../../../packages/ui-primitives/src/styles/tokens.css`)
 - **共享内容**:`@theme` 块(颜色 / 圆角 / 字体 / 动画 / 10 档断点)+ `.dark` 深色模式覆盖 + 中文字体垂直对齐全局规则(`--text-vcenter-offset: 0.3px`,AGENTS.md §4)
 - **效果**:改 token 一处,web(8801) + extension 同步生效;typecheck / build / browser 4 状态验证全部通过
-- **后续阶段**(PROJECT_PLAN Wave 23):阶段 2 i18n 统一(packages/i18n 共享包)+ 阶段 3 业务组件渐进式抽取(packages/features)
+
+### 前端 i18n 单一来源(跨端共享,2026-07-23 立)
+
+> web 与 extension 不再各自维护 i18n 消息源,extension 翻译 JSON 一处改、单一来源,杜绝 key 集合漂移。
+
+- **单一来源**:`packages/i18n/messages/extension/{zh-CN,en,ja,ko,zh-TW}.json`(5 语言 × 17 namespace / 202-203 行每语言)
+- **消费方式**:extension `src/i18n/index.tsx` 顶部 `import zhCN from '@ihui/i18n/messages/extension/zh-CN.json'`(其余 4 语言同),保留自研 Context runtime(useI18n / readLocale / writeLocale + browser.storage.local + localStorage 双回退),仅数据源切换、运行时逻辑不变
+- **守门扩展**:原 4 个 i18n 守门脚本(check-i18n-keys / scan-i18n-zh-residue × 2 语言 / check-i18n-broken-en)添加 `--target=web|extension` 参数,extension 模式扫 `packages/i18n/messages/extension/`;pre-commit 添加 4 个 extension warn-only 守门项(2f-2i);添加 LANGUAGE_AUTOGLOSSONYMS 白名单解决语言选择器 autoglossonym 误报(简体中文/繁體中文/日本語)
+- **效果**:extension i18n 消息源从 5 个本地 TS(203 行/语言)迁移到共享包 JSON;typecheck / build / 4 个 extension 守门脚本全绿;build 产物 grep 验证 i18n 翻译已正确打包(55 处 autoglossonym + 30 处 i18n key 命中)
+- **web 端保持原状**:web 用 next-intl(587 namespace / 28,800 行 JSON),体积量级与 extension 差异 200×,强行统一会引入 next-intl 运行时依赖到 extension(浏览器扩展 WXT 0.19 不友好),保留双 runtime 但共享包可在未来扩展到 desktop 等端
+- **后续阶段**(PROJECT_PLAN Wave 23):阶段 3 业务组件渐进式抽取(packages/features)
 
 ### 项目状态矩阵(透明标注,2026-07-22 核对)
 
