@@ -14,11 +14,11 @@ import type { FileNode, OutlineNode, TimelineEntry } from '@ihui/types'
 
 type SubTab = 'files' | 'outline' | 'timeline'
 
-/** mock 大纲数据(占位,待接入 codebase LSP 解析) */
-const MOCK_OUTLINE: OutlineNode[] = []
+/** 大纲数据占位(待接入 /api/symbols 或 codebase LSP 解析后替换为 useQuery 结果) */
+const EMPTY_OUTLINE: OutlineNode[] = []
 
-/** mock 时间线数据(占位,待接入 git log / file history) */
-const MOCK_TIMELINE: TimelineEntry[] = []
+/** 时间线数据占位(待接入 /api/file-history 或 git log API 后替换为 useQuery 结果) */
+const EMPTY_TIMELINE: TimelineEntry[] = []
 
 const OUTLINE_ICON: Record<string, typeof FunctionSquare> = {
   function: FunctionSquare,
@@ -167,9 +167,9 @@ export function FileExplorer() {
           )
         )}
 
-        {subTab === 'outline' && (MOCK_OUTLINE.length === 0 ? (
+        {subTab === 'outline' && (EMPTY_OUTLINE.length === 0 ? (
           <div className="px-3 py-2 text-xs text-muted-foreground">{t('fileExplorer.noMatch')}</div>
-        ) : MOCK_OUTLINE.map((item) => {
+        ) : EMPTY_OUTLINE.map((item) => {
           const OIcon = OUTLINE_ICON[item.type] ?? FunctionSquare
           return (
             <div key={item.id}>
@@ -200,9 +200,9 @@ export function FileExplorer() {
           )
         }))}
 
-        {subTab === 'timeline' && (MOCK_TIMELINE.length === 0 ? (
+        {subTab === 'timeline' && (EMPTY_TIMELINE.length === 0 ? (
           <div className="px-3 py-2 text-xs text-muted-foreground">{t('fileExplorer.noMatch')}</div>
-        ) : MOCK_TIMELINE.map((item) => {
+        ) : EMPTY_TIMELINE.map((item) => {
           const TIcon = TIMELINE_ICON[item.type] ?? FileEdit
           return (
             <div
