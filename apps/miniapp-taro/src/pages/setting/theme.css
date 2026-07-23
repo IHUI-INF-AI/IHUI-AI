@@ -1,71 +1,97 @@
-.page {
+.theme-page {
   min-height: 100vh;
   background: var(--color-background);
+  padding: 24rpx 24rpx 48rpx;
+  box-sizing: border-box;
 }
-.preview {
-  padding: 60rpx 0;
-  display: flex;
-  justify-content: center;
-}
-.phone {
-  width: 240rpx;
-  height: 400rpx;
-  border-radius: 32rpx;
-  border: 8rpx solid #333;
-  overflow: hidden;
-  background: var(--color-card);
-}
-.phone.dark {
-  background: #1a1a1a;
-}
-.status-bar {
-  height: 60rpx;
-  background: var(--color-primary);
-}
-.phone.dark .status-bar {
-  background: #06ad56;
-}
-.content-area {
-  flex: 1;
-  padding: 16rpx;
-}
-.phone.light .content-area {
-  background: var(--color-background);
-}
-.phone.dark .content-area {
-  background: #2a2a2a;
-}
-.list {
-  margin: 24rpx;
-  background: var(--color-card);
-  border-radius: 16rpx;
-  overflow: hidden;
-}
-.item {
+/* ===== 当前主题卡 ===== */
+.theme-current {
+  margin-bottom: 24rpx;
+  padding: 40rpx 32rpx;
   display: flex;
   align-items: center;
-  padding: 32rpx;
-  border-bottom: 2rpx solid var(--color-border);
-}
-.item:last-child {
-  border-bottom: none;
-}
-.item.active {
-  background: #e6f7ee;
-}
-.color {
-  width: 60rpx;
-  height: 60rpx;
+  background: var(--color-card);
   border-radius: 12rpx;
-  border: 2rpx solid var(--color-border);
 }
-.name {
+.theme-current-icon {
+  margin-right: 24rpx;
+  font-size: 64rpx;
+  flex-shrink: 0;
+}
+.theme-current-info {
   flex: 1;
-  margin-left: 24rpx;
+  min-width: 0;
+}
+.theme-current-name {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.theme-current-desc {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: var(--color-muted-foreground);
+}
+/* ===== 主题列表 ===== */
+.theme-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+.theme-item {
+  display: flex;
+  align-items: center;
+  padding: 28rpx 32rpx;
+  background: var(--color-card);
+  border-radius: 12rpx;
+}
+.theme-item.active {
+  background: rgba(0, 242, 255, 0.06);
+}
+.theme-item-icon {
+  margin-right: 24rpx;
+  font-size: 44rpx;
+  flex-shrink: 0;
+}
+.theme-item-info {
+  flex: 1;
+  min-width: 0;
+}
+.theme-item-name {
+  display: block;
   font-size: 28rpx;
   color: var(--color-foreground);
 }
-.check {
-  color: var(--color-primary);
-  font-size: 32rpx;
+.theme-item-desc {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  line-height: 1.5;
+  color: var(--color-muted-foreground);
+}
+.theme-radio {
+  margin-left: 16rpx;
+  flex-shrink: 0;
+}
+/* ===== 主题说明 ===== */
+.theme-hint {
+  padding: 24rpx 32rpx;
+  background: var(--color-card);
+  border-radius: 12rpx;
+}
+.theme-hint-title {
+  display: block;
+  margin-bottom: 12rpx;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+.theme-hint-line {
+  display: block;
+  font-size: 24rpx;
+  line-height: 1.9;
+  color: var(--color-muted-foreground);
 }

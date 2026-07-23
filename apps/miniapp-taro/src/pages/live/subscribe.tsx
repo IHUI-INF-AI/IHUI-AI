@@ -1,94 +1,161 @@
 import { logger } from '@/utils/logger'
-import { View, Text, Image, Button } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import { View, Text, Image, Switch } from '@tarojs/components'
+import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { subscribeLive, getLiveList, type Live } from '@/api'
+import { getLiveList, type Live } from '@/api'
+import { del } from '@/utils/request'
 import { useI18n } from '@/i18n'
+import './subscribe.css'
+
+const REMINDER_KEY = 'live_reminder_enabled'
+
+const STATUS_BADGE: Record<Live['status'], string> = {
+  upcoming: 'sub-badge-upcoming',
+  living: 'sub-badge-living',
+  ended: 'sub-badge-ended',
+}
+
+const STATUS_LABEL: Record<Live['status'], { key: string; fb: string }> = {
+  upcoming: { key: 'live.calendar.upcoming', fb: '即将开始' },
+  living: { key: 'live.liveNow', fb: '进行中' },
+  ended: { key: 'live.ended', fb: '已结束' },
+}
 
 export default function LiveSubscribe() {
   const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+
   const [list, setList] = useState<Live[]>([])
-  const [subscribed, setSubscribed] = useState<Set<string | number>>(new Set())
+  const [loading, setLoading] = useState(false)
+  const [reminder, setReminder] = useState<boolean>(
+    Taro.getStorageSync(REMINDER_KEY) === 'true',
+  )
 
   const load = useCallback(async () => {
+    setLoading(true)
     try {
       const res = await getLiveList({ status: 'upcoming' })
       setList(res.list || [])
     } catch (e) {
-      logger.error('live/subscribe', '获取直播列表', e)
-      Taro.showToast({ title: t('live.subscribe.loadFailed'), icon: 'none' })
+      logger.error('live/subscribe', '获取订阅列表', e)
+      Taro.showToast({
+        title: tt('live.subscribe.loadFailed', '订阅操作失败'),
+        icon: 'none',
+      })
+    } finally {
+      setLoading(false)
     }
-  }, [t])
+  }, [tt])
 
   useDidShow(() => {
     load()
   })
 
-  const onSubscribe = useCallback(
+  usePullDownRefresh(() => {
+    load().finally(() => Taro.stopPullDownRefresh())
+  })
+
+  const onUnsubscribe = useCallback(
     async (id: string | number) => {
       try {
-        await subscribeLive(id)
-        setSubscribed((prev) => {
-          const next = new Set(prev)
-          next.add(id)
-          return next
+        await del(`/live/${id}/unsubscribe`)
+        setList((prev) => prev.filter((l) => l.id !== id))
+        Taro.showToast({
+          title: tt('live.subscribe.unsubscribed', '已取消订阅'),
+          icon: 'success',
         })
-        Taro.showToast({ title: t('live.subscribe.subscribeSuccess'), icon: 'success' })
       } catch (e) {
-        logger.error('live/subscribe', '订阅直播', e)
-        Taro.showToast({ title: t('live.subscribe.loadFailed'), icon: 'none' })
+        logger.error('live/subscribe', '取消订阅', e)
       }
     },
-    [t],
+    [tt],
   )
 
-  const goDetail = useCallback((id: string | number) => {
+  const toggleReminder = (val: boolean) => {
+    setReminder(val)
+    Taro.setStorageSync(REMINDER_KEY, String(val))
+    Taro.showToast({
+      title: tt('live.subscribe.reminderSaved', '设置已保存'),
+      icon: 'success',
+    })
+  }
+
+  const goDetail = (id: string | number) =>
     Taro.navigateTo({ url: `/pages/live/detail?id=${id}` })
-  }, [])
+
+  const goDiscover = () => Taro.navigateTo({ url: '/pages/live/list' })
+
+  const statusText = (s: Live['status']) =>
+    tt(STATUS_LABEL[s].key, STATUS_LABEL[s].fb)
 
   return (
-    <View className="min-h-screen bg-background">
+    <View className="sub-page">
+      <View className="sub-stat">
+        <Text>{tt('live.subscribe.count', '已订阅')}</Text>
+        <Text className="sub-stat-num">{list.length}</Text>
+        <Text>{tt('live.subscribe.unit', '场')}</Text>
+      </View>
+
+      <View className="sub-reminder">
+        <View>
+          <Text className="sub-reminder-label">
+            {tt('live.subscribe.reminder', '开播前提醒')}
+          </Text>
+          <Text className="sub-reminder-desc">
+            {tt('live.subscribe.reminderDesc', '订阅直播开播前 10 分钟通知')}
+          </Text>
+        </View>
+        <Switch checked={reminder} onChange={(e) => toggleReminder(e.detail.value)} />
+      </View>
+
       {list.length > 0 ? (
-        <View className="p-[12px]">
-          {list.map((l) => {
-            const isSubscribed = subscribed.has(l.id)
-            return (
-              <View
-                key={l.id}
-                className="flex items-center bg-card rounded-[8px] p-[12px] mb-[12px]"
-              >
-                <View className="flex items-center flex-1 min-w-0" onClick={() => goDetail(l.id)}>
-                  <Image
-                    className="w-[80px] h-[60px] rounded-[8px] bg-muted flex-shrink-0"
-                    src={l.coverUrl}
-                    mode="aspectFill"
-                  />
-                  <View className="flex-1 ml-[12px] min-w-0">
-                    <Text className="text-[15px] text-foreground font-semibold">{l.title}</Text>
-                    {l.startTime && (
-                      <Text className="block text-[12px] text-muted-foreground mt-[4px]">{l.startTime}</Text>
-                    )}
-                    {l.anchor && (
-                      <Text className="block text-[12px] text-muted-foreground mt-[2px]">{l.anchor}</Text>
-                    )}
-                  </View>
+        <View className="sub-list">
+          {list.map((l) => (
+            <View key={l.id} className="sub-card">
+              <Image
+                className="sub-card-cover"
+                src={l.coverUrl}
+                mode="aspectFill"
+                onClick={() => goDetail(l.id)}
+              />
+              <View className="sub-card-body" onClick={() => goDetail(l.id)}>
+                <Text className="sub-card-title">{l.title}</Text>
+                {l.anchor && <Text className="sub-card-meta">{l.anchor}</Text>}
+                {l.startTime && (
+                  <Text className="sub-card-meta">{l.startTime}</Text>
+                )}
+                <View className="sub-card-bottom">
+                  <Text className={`sub-badge ${STATUS_BADGE[l.status]}`}>
+                    {statusText(l.status)}
+                  </Text>
+                  <Text
+                    className="sub-cancel-btn"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onUnsubscribe(l.id)
+                    }}
+                  >
+                    {tt('live.subscribe.unsubscribe', '取消订阅')}
+                  </Text>
                 </View>
-                <Button
-                  className={`ml-[8px] text-[12px] rounded-[4px] h-[30px] leading-[30px] px-[12px] flex-shrink-0 ${
-                    isSubscribed ? 'bg-muted text-muted-foreground' : 'bg-primary text-white'
-                  }`}
-                  disabled={isSubscribed}
-                  onClick={() => onSubscribe(l.id)}
-                >
-                  {isSubscribed ? t('live.subscribe.subscribed') : t('live.subscribe.subscribe')}
-                </Button>
               </View>
-            )
-          })}
+            </View>
+          ))}
         </View>
       ) : (
-        <View className="text-center py-[64px]">
-          <Text className="text-[14px] text-muted-foreground">{t('live.subscribe.empty')}</Text>
+        <View className="sub-empty">
+          <Text className="sub-empty-text">
+            {tt('live.subscribe.empty', '暂无订阅')}
+          </Text>
+          <Text className="sub-discover-btn" onClick={goDiscover}>
+            {tt('live.subscribe.discover', '去发现直播')}
+          </Text>
+        </View>
+      )}
+
+      {loading && (
+        <View className="sub-loading">
+          <Text>{tt('common.loading', '加载中…')}</Text>
         </View>
       )}
     </View>
