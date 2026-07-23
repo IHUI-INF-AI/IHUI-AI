@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { View, Text, Switch, TextInput, TouchableOpacity, Modal, StyleSheet } from 'react-native'
 import { TextLink } from 'solito/link'
 import type { SettingsScreenProps, SharedNotificationToggles } from '../../types'
+import { tokens } from '../../theme/tokens'
 
 type NotifKey = keyof SharedNotificationToggles
 
@@ -138,7 +139,7 @@ export function SettingsScreen({
               <Switch
                 value={notifications[row.key]}
                 onValueChange={(v) => onToggleNotification(row.key, v)}
-                trackColor={{ false: '#D1D5DB', true: '#10B981' }}
+                trackColor={{ false: tokens.border.medium, true: tokens.brand.DEFAULT }}
               />
             </View>
           ))}
@@ -236,7 +237,7 @@ function PwdInput({ placeholder, value, onChange }: { placeholder: string; value
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: tokens.surface.light },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -244,33 +245,33 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
   },
-  backText: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
+  backText: { fontSize: 14, color: tokens.text.medium },
+  title: { fontSize: 18, fontWeight: '600', color: tokens.text.primary },
   body: { padding: 16, gap: 12 },
   userCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderRadius: 8,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: tokens.surface.muted,
     gap: 12,
   },
   avatar: {
     width: 48,
     height: 48,
     borderRadius: 8,
-    backgroundColor: '#10B981',
+    backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontSize: 20, fontWeight: '700', color: '#FFFFFF' },
+  avatarText: { fontSize: 20, fontWeight: '700', color: tokens.surface.light },
   userMeta: { flex: 1, gap: 2 },
-  nickname: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  subText: { fontSize: 12, color: '#6B7280' },
-  arrow: { fontSize: 18, color: '#9CA3AF' },
+  nickname: { fontSize: 15, fontWeight: '600', color: tokens.text.primary },
+  subText: { fontSize: 12, color: tokens.text.secondary },
+  arrow: { fontSize: 18, color: tokens.text.tertiary },
   section: { gap: 8 },
-  sectionTitle: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  sectionCard: { borderRadius: 8, backgroundColor: '#F9FAFB', padding: 4 },
+  sectionTitle: { fontSize: 13, fontWeight: '600', color: tokens.text.medium },
+  sectionCard: { borderRadius: 8, backgroundColor: tokens.surface.muted, padding: 4 },
   plainRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -278,8 +279,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
   },
-  rowLabel: { fontSize: 14, color: '#111827' },
-  checkMark: { fontSize: 16, color: '#10B981', fontWeight: '700' },
+  rowLabel: { fontSize: 14, color: tokens.text.primary },
+  checkMark: { fontSize: 16, color: tokens.brand.DEFAULT, fontWeight: '700' },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -291,27 +292,27 @@ const styles = StyleSheet.create({
     marginTop: 8,
     padding: 14,
     borderRadius: 8,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: tokens.error.bg,
     alignItems: 'center',
   },
-  logoutText: { fontSize: 14, fontWeight: '600', color: '#B91C1C' },
-  versionText: { textAlign: 'center', fontSize: 11, color: '#9CA3AF', marginTop: 4 },
+  logoutText: { fontSize: 14, fontWeight: '600', color: tokens.error.text },
+  versionText: { textAlign: 'center', fontSize: 11, color: tokens.text.tertiary, marginTop: 4 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 },
-  modalCard: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 20, gap: 10 },
-  modalTitle: { fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 4 },
+  modalCard: { backgroundColor: tokens.surface.light, borderRadius: 12, padding: 20, gap: 10 },
+  modalTitle: { fontSize: 16, fontWeight: '600', color: tokens.text.primary, marginBottom: 4 },
   pwdInput: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: tokens.border.light,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: '#111827',
+    color: tokens.text.primary,
   },
   modalActions: { flexDirection: 'row', gap: 10, marginTop: 6 },
   modalBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-  modalBtnSecondary: { backgroundColor: '#F3F4F6' },
-  modalBtnSecondaryText: { fontSize: 14, fontWeight: '600', color: '#374151' },
-  modalBtnPrimary: { backgroundColor: '#10B981' },
-  modalBtnPrimaryText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  modalBtnSecondary: { backgroundColor: tokens.surface.card },
+  modalBtnSecondaryText: { fontSize: 14, fontWeight: '600', color: tokens.text.medium },
+  modalBtnPrimary: { backgroundColor: tokens.brand.DEFAULT },
+  modalBtnPrimaryText: { fontSize: 14, fontWeight: '600', color: tokens.surface.light },
 })
