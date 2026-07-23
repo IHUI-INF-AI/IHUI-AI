@@ -116,6 +116,8 @@ export * from './endpoints/workspace.js'
 // 架构迁移审计 P2 v2 补开发:5 个新端点共享封装(private-letters / wrong-questions / mail / auth-codes / exam-marking)
 export * from './endpoints/auth-codes.js'
 export * from './endpoints/chat-skills.js'
+// AI Skills TOP 19 个 skill 端点(2026-07-23 新增,跨端共享)
+export * from './endpoints/ai-skills.js'
 export * from './endpoints/exam-marking.js'
 export * from './endpoints/mail.js'
 export * from './endpoints/private-letters.js'
