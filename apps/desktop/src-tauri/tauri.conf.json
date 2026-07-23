@@ -37,7 +37,11 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' data: asset: http://127.0.0.1:8802 https:; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:8802 http://localhost:8802 http://localhost:8803 http://127.0.0.1:8803 https:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:"
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' data: asset: http://127.0.0.1:8802 https:; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:8802 http://localhost:8802 http://127.0.0.1:8803 http://localhost:8803 https:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:"
+    },
+    "updater": {
+      "endpoints": ["https://releases.ihui.ai/desktop/latest.json"],
+      "pubkey": ""
     }
   },
   "bundle": {
