@@ -52,6 +52,46 @@ const FORMAT_LABELS: Record<string, string> = {
   html: 'HTML',
 }
 
+// TOC 标题项
+interface TocItem {
+  level: number
+  text: string
+  id: string
+}
+
+// 标题文本 → HTML id(slug)
+function slugifyHeading(text: string): string {
+  return (
+    text
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s-]/gu, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '') || 'heading'
+  )
+}
+
+// 从 markdown 提取 TOC 标题(仅 ## 和 ###,避免 # 一级标题过多)
+function extractToc(content: string): TocItem[] {
+  const lines = content.split('\n')
+  const items: TocItem[] = []
+  let inCodeBlock = false
+  for (const line of lines) {
+    if (line.startsWith('```')) {
+      inCodeBlock = !inCodeBlock
+      continue
+    }
+    if (inCodeBlock) continue
+    const m = line.match(/^(#{2,3})\s+(.+?)\s*$/)
+    if (!m || !m[1] || !m[2]) continue
+    const level = m[1].length
+    const text = m[2].replace(/[*`_~]/g, '').trim()
+    if (!text) continue
+    items.push({ level, text, id: slugifyHeading(text) })
+  }
+  return items
+}
+
 export default function DocumentsPage() {
   const t = useTranslations('featureCenter.documents')
   const { data, isLoading } = useQuery({
@@ -63,6 +103,10 @@ export default function DocumentsPage() {
   const [previewId, setPreviewId] = React.useState<string | null>(null)
   // 用户通过点击 markdown 内部 .md 链接跳转的目标 slug(覆盖 previewSlug)
   const [navigatedSlug, setNavigatedSlug] = React.useState<string | null>(null)
+  // 预览内容区 ref,用于 TOC 点击滚动
+  const contentRef = React.useRef<HTMLDivElement>(null)
+  // 当前滚动高亮的 TOC 项 id
+  const [activeHeadingId, setActiveHeadingId] = React.useState<string | null>(null)
 
   // 动态生成分类按钮(从返回数据的 unique category 值)
   const categories = React.useMemo(() => {
@@ -128,6 +172,37 @@ export default function DocumentsPage() {
   const displayContent = navigatedSlug ? (navigatedContent ?? '') : (previewContent ?? '')
   const displaySlug = navigatedSlug ?? previewSlug
   const displayLoading = navigatedSlug ? navigatedLoading : previewLoading
+
+  // 从当前显示内容提取 TOC
+  const tocItems = React.useMemo(() => extractToc(displayContent), [displayContent])
+
+  // 点击 TOC 项:滚动到对应标题
+  function scrollToHeading(id: string) {
+    const container = contentRef.current
+    if (!container) return
+    const el = container.querySelector(`#${CSS.escape(id)}`) as HTMLElement | null
+    if (!el) return
+    setActiveHeadingId(id)
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  // 内容滚动时高亮当前可视标题(IntersectionObserver 替代方案:监听 scroll)
+  function handleContentScroll() {
+    const container = contentRef.current
+    if (!container || tocItems.length === 0) return
+    const scrollTop = container.scrollTop
+    // 找到第一个顶部位置 <= scrollTop+80 的标题(倒序遍历)
+    let current: string | null = null
+    for (const item of tocItems) {
+      const el = container.querySelector(`#${CSS.escape(item.id)}`) as HTMLElement | null
+      if (!el) continue
+      const top = el.offsetTop
+      if (top <= scrollTop + 80) {
+        current = item.id
+      }
+    }
+    setActiveHeadingId(current)
+  }
 
   // 把 markdown 中的相对 .md 链接改写为可点击的内部导航
   // ./xxx.md 或 ./dir/xxx.md → 基于 displaySlug 推导 dirBase,组合成绝对 slug
@@ -274,9 +349,9 @@ export default function DocumentsPage() {
       )}
 
       {previewDoc && (
-        <Card className="fixed inset-4 z-modal overflow-auto md:inset-x-1/4 md:top-1/4 md:bottom-1/4">
-          <CardContent className="space-y-3 p-6">
-            <div className="flex items-center justify-between">
+        <Card className="fixed inset-4 z-modal flex flex-col overflow-hidden md:inset-x-1/4 md:top-1/4 md:bottom-1/4">
+          <CardContent className="flex flex-1 flex-col gap-3 p-6">
+            <div className="flex shrink-0 items-center justify-between">
               <h3 className="flex items-center gap-2 text-lg font-semibold">
                 <FileText className="h-5 w-5 text-primary" />
                 {previewDoc.title}
@@ -301,74 +376,127 @@ export default function DocumentsPage() {
                 {t('loading')}
               </div>
             ) : (
-              <div className="prose prose-sm dark:prose-invert max-w-none overflow-auto">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    img: ({ src, alt, ...props }) => {
-                      if (!src) return <img src={src} alt={alt} {...props} />
-                      const isHttp = /^(https?:)?\/\//.test(String(src))
-                      const isAbsolute = String(src).startsWith('/')
-                      let finalSrc = String(src)
-                      if (!isHttp && !isAbsolute && displaySlug) {
-                        const dirBase = displaySlug.includes('/')
-                          ? displaySlug.slice(0, displaySlug.lastIndexOf('/'))
-                          : ''
-                        const cleanSrc = String(src)
-                          .replace(/^\.\//, '')
-                          .replace(/^\.\.\//, '')
-                        finalSrc = dirBase
-                          ? `/api/feature-center/documents/asset/${dirBase}/${cleanSrc}`
-                          : `/api/feature-center/documents/asset/${cleanSrc}`
-                      }
-                      return (
-                        <img
-                          src={finalSrc}
-                          alt={alt}
-                          {...props}
-                          className="max-h-[480px] w-auto rounded-md"
-                        />
-                      )
-                    },
-                    a: ({ href, children, ...props }) => {
-                      if (!href) return <a href={href}>{children}</a>
-                      // 拦截 .md 内部链接,点击加载目标文档
-                      const targetSlug = resolveMdLink(String(href))
-                      if (targetSlug) {
-                        return (
-                          <a
-                            href={`#doc-${targetSlug}`}
-                            onClick={(e) => {
-                              e.preventDefault()
-                              setNavigatedSlug(targetSlug)
-                            }}
-                            className="text-primary underline underline-offset-2 hover:opacity-80"
-                            {...props}
+              <div className="flex flex-1 gap-4 overflow-hidden">
+                {/* TOC 侧边栏(仅当有标题时显示) */}
+                {tocItems.length > 0 && (
+                  <nav className="hidden w-56 shrink-0 overflow-y-auto rounded-md bg-muted/40 p-2 md:block">
+                    <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      目录
+                    </div>
+                    <ul className="space-y-0.5">
+                      {tocItems.map((item) => (
+                        <li
+                          key={item.id}
+                          style={{
+                            paddingLeft: `${(item.level - 2) * 12}px`,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => scrollToHeading(item.id)}
+                            className={
+                              'block w-full truncate rounded px-2 py-1 text-left text-xs transition-colors ' +
+                              (activeHeadingId === item.id
+                                ? 'bg-primary/10 font-medium text-primary'
+                                : 'text-muted-foreground hover:bg-muted hover:text-foreground')
+                            }
+                            title={item.text}
                           >
-                            {children}
-                          </a>
-                        )
-                      }
-                      // 外部 http 链接正常打开新窗口
-                      const isHttp = /^(https?:)?\/\//.test(String(href))
-                      if (isHttp) {
-                        return (
-                          <a
-                            href={String(href)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            {...props}
-                          >
-                            {children}
-                          </a>
-                        )
-                      }
-                      return <a href={String(href)}>{children}</a>
-                    },
-                  }}
+                            {item.text}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </nav>
+                )}
+                {/* 内容区 */}
+                <div
+                  ref={contentRef}
+                  onScroll={handleContentScroll}
+                  className="prose prose-sm dark:prose-invert max-w-none flex-1 overflow-y-auto pr-2"
                 >
-                  {displayContent}
-                </ReactMarkdown>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      h2: ({ children, ...props }) => {
+                        const text = String(children ?? '')
+                        return (
+                          <h2 id={slugifyHeading(text)} {...props}>
+                            {children}
+                          </h2>
+                        )
+                      },
+                      h3: ({ children, ...props }) => {
+                        const text = String(children ?? '')
+                        return (
+                          <h3 id={slugifyHeading(text)} {...props}>
+                            {children}
+                          </h3>
+                        )
+                      },
+                      img: ({ src, alt, ...props }) => {
+                        if (!src) return <img src={src} alt={alt} {...props} />
+                        const isHttp = /^(https?:)?\/\//.test(String(src))
+                        const isAbsolute = String(src).startsWith('/')
+                        let finalSrc = String(src)
+                        if (!isHttp && !isAbsolute && displaySlug) {
+                          const dirBase = displaySlug.includes('/')
+                            ? displaySlug.slice(0, displaySlug.lastIndexOf('/'))
+                            : ''
+                          const cleanSrc = String(src)
+                            .replace(/^\.\//, '')
+                            .replace(/^\.\.\//, '')
+                          finalSrc = dirBase
+                            ? `/api/feature-center/documents/asset/${dirBase}/${cleanSrc}`
+                            : `/api/feature-center/documents/asset/${cleanSrc}`
+                        }
+                        return (
+                          <img
+                            src={finalSrc}
+                            alt={alt}
+                            {...props}
+                            className="max-h-[480px] w-auto rounded-md"
+                          />
+                        )
+                      },
+                      a: ({ href, children, ...props }) => {
+                        if (!href) return <a href={href}>{children}</a>
+                        const targetSlug = resolveMdLink(String(href))
+                        if (targetSlug) {
+                          return (
+                            <a
+                              href={`#doc-${targetSlug}`}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                setNavigatedSlug(targetSlug)
+                              }}
+                              className="text-primary underline underline-offset-2 hover:opacity-80"
+                              {...props}
+                            >
+                              {children}
+                            </a>
+                          )
+                        }
+                        const isHttp = /^(https?:)?\/\//.test(String(href))
+                        if (isHttp) {
+                          return (
+                            <a
+                              href={String(href)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              {...props}
+                            >
+                              {children}
+                            </a>
+                          )
+                        }
+                        return <a href={String(href)}>{children}</a>
+                      },
+                    }}
+                  >
+                    {displayContent}
+                  </ReactMarkdown>
+                </div>
               </div>
             )}
           </CardContent>
