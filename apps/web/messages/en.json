@@ -1447,7 +1447,8 @@
         "kouboScript": "Voice-over Script",
         "kouboScriptDesc": "8 daily Douyin voice-over scripts + dual-gate validation",
         "kouboScriptTemplate": "Please generate 8 Douyin voice-over scripts for today. Requirements:\n1. Date: MMDD\n2. Topic direction:\n3. Dual-gate validation (ambiguity compression / cross-script glossary / full validation / phrasing errors / hot-topic coverage)\nUse the koubo-workflow pipeline (constraint-first writing)."
-      }
+      },
+      "viewAll": "View all"
     },
     "tpl": {
       "email": {
@@ -8262,7 +8263,9 @@
       "current": "Current device",
       "loginTime": "Login time",
       "lastActive": "Last active",
-      "remove": "Log out"
+      "remove": "Log out",
+      "lastLoginLabel": "Last Login",
+      "manage": "Manage"
     },
     "ip": {
       "title": "IP Whitelist",
@@ -8279,7 +8282,8 @@
       "location": "Location",
       "status": "Status",
       "success": "Success",
-      "failed": "Failed"
+      "failed": "Failed",
+      "viewAll": "View All"
     },
     "score": {
       "title": "Security Score",
@@ -8293,7 +8297,9 @@
       "title": "Session Management",
       "empty": "No active sessions",
       "current": "Current session",
-      "end": "End"
+      "end": "End",
+      "activeCount": "{count} active sessions",
+      "manage": "Manage"
     },
     "twofa": {
       "title": "Two-Factor Authentication",
@@ -28657,5 +28663,49 @@
     "toolCalls": "calls",
     "noToolCalls": "No tool calls",
     "operationInProgress": "Operating..."
+  },
+  "aiSkillsPage": {
+    "title": "AI Skills TOP",
+    "subtitle": "Curated collection of must-have CODEX self-media + trending GitHub AI skills",
+    "tabAll": "All",
+    "tabAvailable": "Available",
+    "tabComingSoon": "Coming Soon",
+    "searchPlaceholder": "Search by name, description or tag…",
+    "viewDetail": "View detail",
+    "loading": "Loading…",
+    "loadFailed": "Failed to load AI Skills",
+    "empty": "No matching AI skills",
+    "totalCount": "{total} skills total, {available} available",
+    "availableCount": "Available {count}",
+    "comingCount": "Coming soon {count}",
+    "categoryCode": "Code",
+    "categoryMedia": "Media",
+    "categoryAiTop": "AI Top"
+  },
+  "aiSkillDetail": {
+    "backToList": "Back to list",
+    "notFound": "AI skill not found",
+    "sectionMeta": "Metadata",
+    "sectionInvoke": "Invoke",
+    "invokeButton": "Invoke",
+    "invokeRunning": "Running…",
+    "invokeError": "Invocation failed",
+    "invokeMissingVariable": "Please fill in all required fields",
+    "inputContent": "Content",
+    "inputStyle": "Target style",
+    "inputRequirements": "Requirements",
+    "inputTopic": "Topic",
+    "placeholderContent": "Rewrite the following text into the target style…",
+    "placeholderStyle": "e.g. humorous, professional, literary",
+    "placeholderRequirements": "e.g. login page HTML in minimalist style",
+    "placeholderTopic": "e.g. 5 photo poses for Xiaohongshu",
+    "result": "Result",
+    "resultEmpty": "(no content returned)",
+    "fillToChat": "Fill to chat",
+    "comingSoonTitle": "This skill is coming soon",
+    "comingSoonHint": "This skill is not yet integrated into the platform. Visit GitHub for details or wait for the next integration batch.",
+    "openGitHub": "Open GitHub",
+    "statusAvailable": "Available",
+    "statusComingSoon": "Coming soon"
   }
 }
