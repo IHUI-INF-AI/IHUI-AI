@@ -130,6 +130,10 @@ export default {
     removeAttachment: 'Remove attachment',
     dragHint: 'Drag files / paste images / click 📎 to select files',
     attachmentReady: 'Attachment ready',
+    windowLayout: 'Window layout',
+    resetWindowLayout: 'Reset window layout',
+    windowResetDone: 'Reset done, takes effect next launch',
+    windowResetFailed: 'Failed to reset window layout',
   },
   error: {
     network: 'Network error',
