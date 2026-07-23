@@ -1,19 +1,27 @@
 import { View, Text, Input, Image } from '@tarojs/components'
-import Taro, { usePullDownRefresh, useReachBottom, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
+import Taro, {
+  usePullDownRefresh,
+  useReachBottom,
+  useShareAppMessage,
+  useShareTimeline,
+  useRouter,
+} from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getCourseList, type Course } from '@/api'
 import { useI18n } from '@/i18n'
 
 export default function CourseList() {
   const { t } = useI18n()
+  const router = useRouter()
+  const initialKeyword = router.params.keyword || ''
   const [list, setList] = useState<Course[]>([])
   const [loading, setLoading] = useState(false)
-  const [keyword, setKeyword] = useState('')
+  const [keyword, setKeyword] = useState(initialKeyword)
   const pageRef = useRef(1)
   const hasMoreRef = useRef(true)
   const loadingRef = useRef(false)
   const lenRef = useRef(0)
-  const keywordRef = useRef('')
+  const keywordRef = useRef(initialKeyword)
 
   const load = useCallback(async (reset = false) => {
     if (loadingRef.current) return

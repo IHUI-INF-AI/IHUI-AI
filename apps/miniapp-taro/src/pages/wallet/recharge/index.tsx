@@ -3,15 +3,17 @@ import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { createRecharge } from '@/api'
 import { useI18n } from '@/i18n'
-import { requestWxPayment, type AnyPayParams } from '@/utils/pay'
+import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 
 const PRESET_AMOUNTS = [10, 50, 100, 500, 1000]
+type PayMethod = 'wechat' | 'alipay'
 
 export default function RechargePage() {
   const { t } = useI18n()
   const [preset, setPreset] = useState(100)
   const [custom, setCustom] = useState('')
   const [useCustom, setUseCustom] = useState(false)
+  const [payMethod, setPayMethod] = useState<PayMethod>('wechat')
   const [submitting, setSubmitting] = useState(false)
 
   const customNum = Number(custom) || 0
@@ -27,6 +29,8 @@ export default function RechargePage() {
     setUseCustom(true)
   }
 
+  const onSelectMethod = (m: PayMethod) => setPayMethod(m)
+
   const onSubmit = useCallback(async () => {
     if (!finalAmount || finalAmount < 1) {
       Taro.showToast({ title: t('wallet.recharge.invalidAmount'), icon: 'none' })
@@ -34,24 +38,32 @@ export default function RechargePage() {
     }
     setSubmitting(true)
     try {
-      const res = await createRecharge(finalAmount, 'wechat')
+      const res = await createRecharge(finalAmount, payMethod)
       const orderNo = res.outTradeNo || ''
       if (res.payParams) {
         try {
-          await requestWxPayment(res.payParams as AnyPayParams)
-          Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` })
+          if (payMethod === 'alipay') {
+            await requestAliPayment(res.payParams as AnyPayParams)
+          } else {
+            await requestWxPayment(res.payParams as AnyPayParams)
+          }
+          Taro.redirectTo({
+            url: `/pages/wallet/recharge/success?orderNo=${orderNo}&amount=${finalAmount}`,
+          })
         } catch {
           Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` })
         }
       } else {
-        Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` })
+        Taro.redirectTo({
+          url: `/pages/wallet/recharge/success?orderNo=${orderNo}&amount=${finalAmount}`,
+        })
       }
     } catch {
       Taro.redirectTo({ url: '/pages/wallet/recharge/fail?orderNo=' })
     } finally {
       setSubmitting(false)
     }
-  }, [finalAmount, t])
+  }, [finalAmount, payMethod, t])
 
   return (
     <View className="min-h-screen bg-background pb-[160rpx]">
@@ -94,14 +106,41 @@ export default function RechargePage() {
         <Text className="block text-[28rpx] text-foreground font-semibold mb-[24rpx]">
           {t('wallet.recharge.method')}
         </Text>
-        <View className="flex items-center py-[16rpx]">
+        <View
+          className={`flex items-center py-[16rpx] ${
+            payMethod === 'wechat' ? 'bg-[#00f2ff0d]' : ''
+          }`}
+          onClick={() => onSelectMethod('wechat')}
+        >
           <View className="w-[60rpx] h-[60rpx] leading-[60rpx] text-center bg-muted rounded-md text-[28rpx] text-[#09bb07]">
             微
           </View>
           <Text className="flex-1 ml-[24rpx] text-[28rpx] text-foreground">
             {t('wallet.recharge.methodWechat')}
           </Text>
-          <View className="w-[36rpx] h-[36rpx] rounded-md border-[2rpx] bg-primary border-primary" />
+          <View
+            className={`w-[36rpx] h-[36rpx] rounded-md border-[2rpx] ${
+              payMethod === 'wechat' ? 'bg-primary border-primary' : 'border-[var(--color-border)]'
+            }`}
+          />
+        </View>
+        <View
+          className={`flex items-center py-[16rpx] ${
+            payMethod === 'alipay' ? 'bg-[#00f2ff0d]' : ''
+          }`}
+          onClick={() => onSelectMethod('alipay')}
+        >
+          <View className="w-[60rpx] h-[60rpx] leading-[60rpx] text-center bg-muted rounded-md text-[28rpx] text-[#1677ff]">
+            支
+          </View>
+          <Text className="flex-1 ml-[24rpx] text-[28rpx] text-foreground">
+            {t('wallet.recharge.methodAlipay')}
+          </Text>
+          <View
+            className={`w-[36rpx] h-[36rpx] rounded-md border-[2rpx] ${
+              payMethod === 'alipay' ? 'bg-primary border-primary' : 'border-[var(--color-border)]'
+            }`}
+          />
         </View>
       </View>
 

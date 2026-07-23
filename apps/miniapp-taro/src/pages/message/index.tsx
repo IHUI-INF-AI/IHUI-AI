@@ -10,6 +10,8 @@ import {
   type AggregateMessages,
   type NotificationPreferences,
 } from '@/api'
+import { getUserInfo } from '@/utils/auth'
+import { logger } from '@/utils/logger'
 import {
   NavBar,
   MessageTabs,
@@ -266,16 +268,49 @@ export default function MessageIndex() {
 
   const onTabChange = (k: string) => setActiveTab(k)
 
-  const onOpenPrivate = (item: PrivateMessageItem) => {
+  const onOpenPrivate = async (item: PrivateMessageItem) => {
     setSelectedPrivate(item)
-    setDetailMessages([
-      {
-        id: 'm1',
-        content: t('message.hello', { name: item.userName }),
-        createdAt: item.lastTime,
-        self: false,
-      },
-    ])
+    setDetailMessages([])
+    try {
+      const params: { page?: number; pageSize?: number; peerId?: string } = {
+        peerId: item.userId,
+        page: 1,
+        pageSize: 50,
+      }
+      const res = await getPrivateMessages(params)
+      const me = String(getUserInfo()?.id ?? '')
+      const msgs: MessageDetailItem[] = (res.list || [])
+        .slice()
+        .reverse()
+        .map((p) => ({
+          id: String(p.id),
+          content: p.content,
+          createdAt: p.createdAt,
+          self: String(p.senderId) === me,
+        }))
+      setDetailMessages(
+        msgs.length
+          ? msgs
+          : [
+              {
+                id: 'm1',
+                content: t('message.hello', { name: item.userName }),
+                createdAt: item.lastTime,
+                self: false,
+              },
+            ],
+      )
+    } catch (e) {
+      logger.error('message', '加载历史消息', e)
+      setDetailMessages([
+        {
+          id: 'm1',
+          content: t('message.hello', { name: item.userName }),
+          createdAt: item.lastTime,
+          self: false,
+        },
+      ])
+    }
   }
 
   const onSendDetail = () => {

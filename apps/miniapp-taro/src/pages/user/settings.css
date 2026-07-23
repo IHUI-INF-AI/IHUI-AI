@@ -1,0 +1,73 @@
+.settings-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: 24rpx 24rpx 48rpx;
+  box-sizing: border-box;
+}
+.settings-section {
+  margin-bottom: 32rpx;
+}
+.section-title {
+  display: block;
+  padding: 0 8rpx 16rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.section-card {
+  background: var(--color-card);
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+.settings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 24rpx;
+}
+.settings-item-divider {
+  border-bottom: 1rpx solid var(--color-border);
+}
+.settings-item:active {
+  background: var(--color-muted);
+}
+.settings-item-switch {
+  /* 与 divider 一致 */
+}
+.settings-item-disabled {
+  /* 不可点击项 */
+}
+.settings-item-disabled:active {
+  background: transparent;
+}
+.item-label {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  flex: 1;
+}
+.item-value {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  margin: 0 16rpx;
+  max-width: 320rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.arrow-icon {
+  font-size: 36rpx;
+  color: var(--color-muted-foreground);
+  font-weight: 300;
+  line-height: 1;
+}
+.settings-section-logout {
+  margin-top: 24rpx;
+  margin-bottom: 48rpx;
+}
+.section-card-logout .settings-item {
+  padding: 32rpx 24rpx;
+  justify-content: center;
+}
+.logout-label {
+  color: var(--color-destructive, #e64340);
+  font-size: 28rpx;
+}
