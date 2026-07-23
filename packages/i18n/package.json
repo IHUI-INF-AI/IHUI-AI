@@ -1,0 +1,19 @@
+{
+  "name": "@ihui/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "description": "IHUI-AI 共享 i18n 消息源 — extension / desktop 等端单一来源(2026-07-23 立,Wave 23 阶段2)",
+  "type": "module",
+  "exports": {
+    "./messages/extension/zh-CN.json": "./messages/extension/zh-CN.json",
+    "./messages/extension/en.json": "./messages/extension/en.json",
+    "./messages/extension/ja.json": "./messages/extension/ja.json",
+    "./messages/extension/ko.json": "./messages/extension/ko.json",
+    "./messages/extension/zh-TW.json": "./messages/extension/zh-TW.json"
+  },
+  "scripts": {
+    "typecheck": "node -e \"console.log('i18n 包为 JSON 数据源,无需 typecheck')\"",
+    "lint": "echo 'i18n 包为 JSON 数据源,无需 lint'",
+    "clean": "echo 'nothing to clean'"
+  }
+}
