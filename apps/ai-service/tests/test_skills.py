@@ -81,6 +81,9 @@ def test_registry_list_returns_all():
             "doc-writer", "refactor-helper", "api-designer"}.issubset(names)
     # 4 个真集成 ai-top 必须存在(2026-07-23)
     assert {"nuwa-skill", "hugshu-design", "guizang-ppt-skill", "auto-redbook-skills"}.issubset(names)
+    # 6 个新真集成 ai-top 必须存在(2026-07-23,真集成数 4→10)
+    assert {"superpowers", "caveman", "graphify", "agent-skills",
+            "awesome-claude-skills", "taste-skill"}.issubset(names)
 
 
 def test_registry_list_returns_copy():
@@ -102,3 +105,46 @@ def test_builtin_skill_prompt_template_has_placeholders():
     for s in _BUILTIN_SKILLS:
         # 每个预置 skill 模板至少含一个占位符
         assert "{" in s.prompt_template, f"{s.name} 模板无占位符"
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "superpowers",
+        "caveman",
+        "graphify",
+        "agent-skills",
+        "awesome-claude-skills",
+        "taste-skill",
+    ],
+)
+def test_new_real_integration_skill_available(name):
+    """6 个新真集成 skill 必须 available=True 且 prompt_template 非占位(2026-07-23)。"""
+    s = skill_registry.get(name)
+    assert s is not None, f"{name} 未注册"
+    assert s.available is True, f"{name} 未标记为 available=True"
+    # 非占位 prompt_template:不以 "(元数据占位" / "(GitHub 外部项目" 开头
+    assert not s.prompt_template.startswith("(元数据占位"), \
+        f"{name} prompt_template 仍是占位符"
+    assert not s.prompt_template.startswith("(GitHub 外部项目"), \
+        f"{name} prompt_template 仍是占位符"
+    # 必须含至少一个 {key} 占位符
+    assert "{" in s.prompt_template, f"{name} prompt_template 无 {key} 变量"
+
+
+def test_ai_top_real_integration_count_at_least_10():
+    """ai-top 类别真集成数 ≥ 10(2026-07-23,4 老 + 6 新)。"""
+    real_skills = [
+        s for s in skill_registry.list_ai_top() if s.available
+    ]
+    assert len(real_skills) >= 10, \
+        f"期望 ≥ 10 个真集成 ai-top,实际 {len(real_skills)}"
+    # 显式列举 10 个
+    expected = {
+        "nuwa-skill", "hugshu-design", "auto-redbook-skills",
+        "guizang-ppt-skill", "superpowers", "caveman",
+        "graphify", "agent-skills", "awesome-claude-skills", "taste-skill",
+    }
+    actual_names = {s.name for s in real_skills}
+    assert expected.issubset(actual_names), \
+        f"缺失真集成 skill: {expected - actual_names}"
