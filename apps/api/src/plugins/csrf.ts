@@ -131,6 +131,9 @@ const csrfPlugin: FastifyPluginAsync<CsrfPluginOptions> = async (
     const auth = request.headers.authorization ?? ''
     if (auth.toLowerCase().startsWith('bearer ')) return
 
+    // Internal service token 请求豁免(服务间调用,非浏览器,无 CSRF 风险)
+    if (request.headers['x-internal-service-token']) return
+
     const cookieValue = (request as FastifyRequest & { cookies?: Record<string, string> })
       .cookies?.[CSRF_COOKIE_NAME]
     const rawHeader = request.headers[CSRF_HEADER_NAME]
