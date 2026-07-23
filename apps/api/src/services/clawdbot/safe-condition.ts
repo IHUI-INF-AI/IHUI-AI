@@ -380,7 +380,7 @@ class Parser {
 function lookup(path: string[], context: Record<string, unknown>): unknown {
   let cur: unknown = context
   for (const key of path) {
-    if (cur == null || typeof cur !== 'object') return undefined
+    if (cur === null || cur === undefined || typeof cur !== 'object') return undefined
     cur = (cur as Record<string, unknown>)[key]
   }
   return cur
@@ -450,7 +450,7 @@ function toNumber(v: unknown): number {
   if (typeof v === 'number') return v
   if (typeof v === 'boolean') return v ? 1 : 0
   if (typeof v === 'string') return Number(v)
-  if (v == null) return 0
+  if (v === null || v === undefined) return 0
   return NaN
 }
 
@@ -464,8 +464,8 @@ function compare(l: unknown, r: unknown): number {
 
 function looseEquals(l: unknown, r: unknown): boolean {
   // 模拟 JS == 语义(null == undefined)
-  if (l == null && r == null) return true
-  if (l == null || r == null) return false
+  if ((l === null || l === undefined) && (r === null || r === undefined)) return true
+  if (l === null || l === undefined || r === null || r === undefined) return false
   if (typeof l === typeof r) return strictEquals(l, r)
   // 数字与字符串比较:转数字
   if (typeof l === 'number' && typeof r === 'string') return l === Number(r)
@@ -478,7 +478,7 @@ function looseEquals(l: unknown, r: unknown): boolean {
 
 function strictEquals(l: unknown, r: unknown): boolean {
   if (typeof l !== typeof r) return false
-  if (typeof l === 'number' || typeof l === 'string' || typeof l === 'boolean' || l == null) {
+  if (typeof l === 'number' || typeof l === 'string' || typeof l === 'boolean' || l === null || l === undefined) {
     return l === r
   }
   // 对象:仅引用相等
