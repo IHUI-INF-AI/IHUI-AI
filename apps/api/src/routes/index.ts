@@ -316,6 +316,8 @@ import { contextMentionRoutes } from './context-mentions.js'
 import { subagentDispatchRoutes } from './subagent-dispatch.js'
 // 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
 import { orchestrationRoutes } from './orchestration.js'
+// A 套壳:SaaS Admin API 代理(迁移自 web 端 app/api/admin-saas/[...path]/route.ts)
+import { adminSaasProxyRoutes } from './admin-saas-proxy.js'
 
 export function registerRoutes(server: FastifyInstance) {
   server.register(healthRoutes, { prefix: '/api' })
@@ -870,4 +872,7 @@ export function registerRoutes(server: FastifyInstance) {
   // P3 深度层:AI 教育引擎 SRS 间隔复习(SM-2 算法)+ LangGraph 升级(interrupt HITL + 5 模式 streaming + Time Travel)
   server.register(srsReviewRoutes, { prefix: '/api/srs-review' })
   server.register(agentLanggraphRoutes, { prefix: '/api/agent-langgraph' })
+
+  // A 套壳:SaaS Admin API 代理(透传到 admin-api 8830,迁移自 web 端 API route)
+  server.register(adminSaasProxyRoutes, { prefix: '/api/admin-saas' })
 }
