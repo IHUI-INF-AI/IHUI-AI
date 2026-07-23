@@ -74,7 +74,9 @@ describe('Tasks Dispatch API', () => {
   let app: FastifyInstance
 
   beforeAll(async () => {
-    app = Fastify({ logger: false })
+    // bodyLimit 5MB:测试 base64 编码的 1MB 二进制附件(约 1.4MB base64 文本)
+    // 不被 Fastify 默认 1MB body parser 提前拦截,以便验证应用层 1MB 守门逻辑
+    app = Fastify({ logger: false, bodyLimit: 5_000_000 })
     app.decorate('redis', mockRedis as never)
     app.decorate('pushNotification', mockPushNotification as never)
     await app.register(tasksRoutes, { prefix: '/api' })
@@ -144,6 +146,195 @@ describe('Tasks Dispatch API', () => {
         payload: { toDevice: 'desktop-001' },
       })
       expect(res.statusCode).toBe(400)
+    })
+
+    // ===================== filePayload 跨端文件传输(2026-07-24 P2-c)=====================
+    /** base64 编码 "hello" = "aGVsbG8=" (5 字节解码) */
+    const B64_HELLO = 'aGVsbG8='
+    /** 1MB+1 字节的 base64:用 Buffer 生成,确保 >1MB 解码后字节数 */
+    const OVERSIZED_B64 = Buffer.alloc(1_048_577, 65).toString('base64') // 'AAAA...' 1MB+1 字节
+
+    it('携带 filePayload 创建任务并存储 filePayload 字段', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: {
+          toDevice: 'desktop-001',
+          command: 'run script with attachment',
+          filePayload: {
+            filename: 'notes.txt',
+            size: 5,
+            mimeType: 'text/plain',
+            content: B64_HELLO,
+          },
+        },
+      })
+      expect(res.statusCode).toBe(201)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data.task.toDevice).toBe('desktop-001')
+      expect(body.data.task.command).toBe('run script with attachment')
+      expect(body.data.task.filePayload).toMatchObject({
+        filename: 'notes.txt',
+        size: 5,
+        mimeType: 'text/plain',
+        content: B64_HELLO,
+      })
+    })
+
+    it('携带 filePayload 时 WS 推送 task-dispatch 消息携带 filePayload', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: {
+          toDevice: 'desktop-001',
+          command: 'with attachment',
+          filePayload: {
+            filename: 'data.bin',
+            size: 5,
+            mimeType: 'application/octet-stream',
+            content: B64_HELLO,
+          },
+        },
+      })
+      expect(res.statusCode).toBe(201)
+      expect(mockPushNotification).toHaveBeenCalledWith(
+        '1',
+        expect.objectContaining({
+          type: 'task-dispatch',
+          payload: expect.objectContaining({
+            filePayload: expect.objectContaining({ filename: 'data.bin' }),
+          }),
+        }),
+      )
+    })
+
+    it('filePayload 解码后 >1MB 返回 413', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: {
+          toDevice: 'desktop-001',
+          command: 'oversized',
+          filePayload: {
+            filename: 'big.bin',
+            size: 1_048_577,
+            mimeType: 'application/octet-stream',
+            content: OVERSIZED_B64,
+          },
+        },
+      })
+      expect(res.statusCode).toBe(413)
+      expect(res.json().code).toBe(413)
+    })
+
+    it('filePayload 解码恰好 1MB 通过(边界值)', async () => {
+      const exactly1MB = Buffer.alloc(1_048_576, 65).toString('base64')
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: {
+          toDevice: 'desktop-001',
+          command: 'exactly 1MB',
+          filePayload: {
+            filename: 'edge.bin',
+            size: 1_048_576,
+            mimeType: 'application/octet-stream',
+            content: exactly1MB,
+          },
+        },
+      })
+      expect(res.statusCode).toBe(201)
+      expect(res.json().data.task.filePayload.size).toBe(1_048_576)
+    })
+
+    it('filePayload 非法 base64 返回 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: {
+          toDevice: 'desktop-001',
+          command: 'bad b64',
+          filePayload: {
+            filename: 'bad.txt',
+            size: 1,
+            mimeType: 'text/plain',
+            content: '@@@not-valid-base64@@@',
+          },
+        },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().code).toBe(400)
+    })
+
+    it('filePayload 缺少 filename 返回 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: {
+          toDevice: 'desktop-001',
+          command: 'missing filename',
+          filePayload: {
+            size: 5,
+            mimeType: 'text/plain',
+            content: B64_HELLO,
+          },
+        },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('filePayload 缺少 content 返回 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: {
+          toDevice: 'desktop-001',
+          command: 'missing content',
+          filePayload: {
+            filename: 'x.txt',
+            size: 5,
+            mimeType: 'text/plain',
+          },
+        },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('无 filePayload 的旧任务仍正常(向后兼容)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: { toDevice: 'desktop-001', command: 'no attachment' },
+      })
+      expect(res.statusCode).toBe(201)
+      expect(res.json().data.task.filePayload).toBeUndefined()
+    })
+
+    it('携带 filePayload 的任务在 GET /tasks 列表中也含 filePayload', async () => {
+      await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: {
+          toDevice: 'desktop-001',
+          command: 'list check',
+          filePayload: {
+            filename: 'a.txt',
+            size: 5,
+            mimeType: 'text/plain',
+            content: B64_HELLO,
+          },
+        },
+      })
+      const list = await app.inject({ method: 'GET', url: '/api/tasks' })
+      const found = list
+        .json()
+        .data.tasks.find(
+          (t: { command: string; filePayload?: { filename: string } }) =>
+            t.command === 'list check',
+        )
+      expect(found.filePayload.filename).toBe('a.txt')
+      expect(found.filePayload.content).toBe(B64_HELLO)
     })
   })
 
