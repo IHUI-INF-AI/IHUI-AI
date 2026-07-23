@@ -1,6 +1,6 @@
 # 发布流程
 
-> IHUI-AI 跨 14 平台发布:web/api/ai-service Docker 镜像 + desktop 4 包管理器 + extension Chrome Web Store + mobile-rn EAS + miniapp-taro 微信审核 + cli 4 包管理器 + sdk 5 语言包管理器,由 Git tag 触发 GitHub Actions 自动构建,蓝绿部署上线。
+> IHUI-AI 跨 14 平台发布:web/api/ai-service Docker 镜像 + desktop 手动 tauri build(无自动发布)+ extension Chrome Web Store + mobile-rn EAS + miniapp-taro 微信审核 + cli(npm + 6 二进制 + winget/scoop/homebrew/snap 4 manifest)+ sdk 5 语言包管理器,由 Git tag 触发 GitHub Actions 自动构建,蓝绿部署上线。
 
 ---
 
@@ -22,10 +22,11 @@ IHUI-AI 采用 **Git tag 驱动**的发布模型:打 tag → 触发 GitHub Actio
 | migrate | Docker 镜像(迁移工具) | `v*` tag → `build.yml` | `deploy/docker/Dockerfile.migrate` |
 | cli(npm) | npm 包 | `cli-v*` tag → `release-cli.yml` | `apps/cli/package.json` |
 | cli(二进制) | GitHub Release 6 包 | `cli-v*` tag → `release-cli.yml` | `release-cli.yml` matrix |
-| desktop(winget) | winget manifest | 手动提交 PR | `deploy/winget/IHUI.IHUI.yaml` |
-| desktop(scoop) | scoop manifest | 手动提交 PR | `deploy/scoop/ihui.json` |
-| desktop(homebrew) | Homebrew formula | 手动提交 PR | `deploy/homebrew/ihui.rb` |
-| desktop(snap) | Snapcraft | 手动 `snapcraft` | `deploy/snap/snapcraft.yaml` |
+| cli(winget) | winget manifest | 手动提交 PR | `deploy/winget/IHUI.IHUI.yaml` |
+| cli(scoop) | scoop manifest | 手动提交 PR | `deploy/scoop/ihui.json` |
+| cli(homebrew) | Homebrew formula | 手动提交 PR | `deploy/homebrew/ihui.rb` |
+| cli(snap) | Snapcraft | 手动 `snapcraft` | `deploy/snap/snapcraft.yaml` |
+| desktop | 手动 `tauri build`(无自动发布、无自动更新) | 手动构建 | `apps/desktop/src-tauri/tauri.conf.json` |
 | extension | Chrome Web Store | 手动上传 zip | `apps/extension/package.json` + `wxt.config.ts` |
 | mobile-rn | EAS + App Store + Play Store | `eas build` / `eas submit` | `apps/mobile-rn/eas.json` |
 | miniapp-taro | 微信小程序审核 | 微信开发者工具上传 | `apps/miniapp-taro/package.json` |
@@ -306,7 +307,7 @@ curl -s https://api.your-domain.com/health
 
 ## 多端发布矩阵
 
-### desktop(winget + scoop + homebrew + snap)
+### cli(winget + scoop + homebrew + snap)
 
 | 工具 | 配置文件 | 发布命令 | 审核流程 |
 | --- | --- | --- | --- |
@@ -376,7 +377,7 @@ matrix:
     - { os: windows, arch: arm64, asset: ihui-windows-arm64.zip }
 ```
 
-二进制上传到 GitHub Release 后,再更新 winget / scoop / homebrew / snap 的 manifest(见 desktop 矩阵)。
+二进制上传到 GitHub Release 后,再更新 winget / scoop / homebrew / snap 的 manifest(见 cli 矩阵)。
 
 ### sdk(5 语言包管理器)
 
