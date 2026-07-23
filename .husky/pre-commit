@@ -74,6 +74,22 @@ if (!run('🌐 检查 i18n AI 翻译流水线(blocking)...', 'node scripts/i18n-
   process.exit(1)
 }
 
+// 2f-miniapp-taro. i18n AI 翻译流水线守门(blocking, 2026-07-24 立, AGENTS.md §20)
+// 仅当 staged 涉及 apps/miniapp-taro/src/i18n/zh-CN.ts 时检测(避免多 agent 并行误伤)
+// 有 pending → 阻塞 commit,提示 AI agent 跑翻译流水线
+// 工作流: i18n-diff --target=miniapp-taro → AI agent 翻译 → i18n-apply --target=miniapp-taro → i18n-diff 复验
+if (!run('🌐 [miniapp-taro] 检查 i18n AI 翻译流水线(blocking)...', 'node scripts/i18n-diff.mjs --staged --target=miniapp-taro')) {
+  console.log('')
+  console.log('  💡 miniapp-taro zh-CN.ts 有改动但 i18n pending 非空,请先跑翻译流水线:')
+  console.log('     1. node scripts/i18n-diff.mjs --target=miniapp-taro  (检测差异,生成 pending 清单)')
+  console.log('     2. AI agent 翻译 → .trae-cn/tmp/i18n-translations.json')
+  console.log('     3. node scripts/i18n-apply.mjs --target=miniapp-taro  (应用翻译)')
+  console.log('     4. node scripts/i18n-diff.mjs --target=miniapp-taro   (复验 parity,应无 pending)')
+  console.log('     5. git add apps/miniapp-taro/src/i18n/{en,ja,ko,zh-TW}.ts 重新 commit')
+  console.log('')
+  process.exit(1)
+}
+
 // === extension i18n 守门(warn-only,2026-07-23 立) ===
 // packages/i18n/messages/extension/*.json 为 extension 端共享 i18n 消息,与 web 的 apps/web/messages/*.json
 // 格式相同(标准 JSON),但 key 集合不同(extension 17 个 namespace,web 587 个 namespace)。
