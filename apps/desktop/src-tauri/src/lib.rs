@@ -546,6 +546,15 @@ pub fn run() {
         ))
         // 全局快捷键 plugin(handler 在 setup 中通过 on_desktop 注册)
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .on_window_event(|window, event| {
+            // 关闭主窗口时最小化到托盘,而不是退出应用(真正退出走托盘菜单"退出")
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
         .setup(|app| {
             #[cfg(debug_assertions)]
             {
