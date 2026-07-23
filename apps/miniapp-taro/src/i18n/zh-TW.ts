@@ -328,6 +328,12 @@ export default {
     common: {
       loading: '載入中…',
     },
+    tishi: {
+      title: '智能體引導說明',
+      view: '查看',
+      close: '關閉',
+      needInput: '小方需要您輸入以下相關內容,以便於更精準的解決您的需求',
+    },
     chatMessageItem: {
       me: '我',
       ai: 'AI',

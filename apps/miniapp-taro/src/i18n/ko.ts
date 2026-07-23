@@ -328,6 +328,12 @@ export default {
     common: {
       loading: '로딩 중…',
     },
+    tishi: {
+      title: '에이전트 가이드',
+      view: '보기',
+      close: '닫기',
+      needInput: '더 정확한 도움을 위해 다음 정보를 입력해 주세요',
+    },
     chatMessageItem: {
       me: '나',
       ai: 'AI',

@@ -742,6 +742,8 @@ interface AgentRawRow {
   usageCount: number
   isVipExclusive: boolean | null
   agentPrompt: string | null
+  /** 智能体开场白(对标原 ai_assistant.vue prologue,引导说明内容) */
+  prologue?: string | null
 }
 
 /**
@@ -777,6 +779,7 @@ export const getAgentDetail = (id: string | number) =>
     desc: a.description ?? '',
     avatar: a.avatar ?? undefined,
     prompt: a.agentPrompt ?? '',
+    prologue: a.prologue ?? '',
     config: undefined,
     isVipExclusive: a.isVipExclusive ?? false,
   }))
