@@ -46,6 +46,9 @@ from app.routers import orchestration
 # Context Engineering 路由(对标 Qoder,多维 @ 提及 + 跨会话 RAG + 多源融合)
 from app.services.context_engine import router as context_engine_router
 from app.routers.legacy import router as legacy_router
+# P3 深度层:AI 教育引擎(AI 助教)+ LangGraph 升级(PostgresSaver + interrupt HITL + streaming)
+from app.routers.ai_tutor import router as ai_tutor_router
+from app.routers.langgraph import router as langgraph_router
 from app.sio import sio
 from app.sio.handlers import register_handlers
 from app.telemetry import setup_telemetry, shutdown_telemetry
@@ -219,6 +222,9 @@ def create_app() -> FastAPI:
     # 跨支柱编排中枢(2026-07-23 立,6 大超越支柱协同决策 + LLM 预算治理 + 统一遥测)
     app.include_router(orchestration.router, prefix="/api", tags=["orchestration"])
     app.include_router(legacy_router)
+    # P3 深度层:AI 助教(学科讲解/提示/出题)+ LangGraph(interrupt/resume/state/history/stream)
+    app.include_router(ai_tutor_router)
+    app.include_router(langgraph_router)
 
     # 审计日志查询端点(调试用,返回最近审计记录,2026-07-22 立)
     @app.get("/api/audit/recent", tags=["audit"])
