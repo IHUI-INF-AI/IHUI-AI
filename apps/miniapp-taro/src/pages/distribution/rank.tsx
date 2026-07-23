@@ -2,6 +2,7 @@ import { View, Text, Image } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getDistributionRank } from '@/api'
+import { useI18n } from '@/i18n'
 
 interface RankUser {
   id: string
@@ -23,6 +24,8 @@ const RANK_BORDER: Record<string, string> = {
 }
 
 export default function DistributionRank() {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   const [list, setList] = useState<RankUser[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -47,7 +50,7 @@ export default function DistributionRank() {
   return (
     <View className="min-h-screen bg-background">
       <View className="py-[20px] text-center bg-gradient-to-b from-[#ff6b35] to-[#ff8e53]">
-        <Text className="text-white text-[18px] font-bold">分销排行榜</Text>
+        <Text className="text-white text-[18px] font-bold">{tt('distribution.rankTitle', '分销排行榜')}</Text>
       </View>
       {top3.length >= 3 && (
         <View className="flex items-end justify-center py-[24px] bg-card">
@@ -122,7 +125,7 @@ export default function DistributionRank() {
       )}
       {!loading && list.length === 0 && (
         <View className="text-center py-[60px] text-muted-foreground">
-          <Text>暂无排行数据</Text>
+          <Text>{tt('distribution.rankEmpty', '暂无排行数据')}</Text>
         </View>
       )}
     </View>
