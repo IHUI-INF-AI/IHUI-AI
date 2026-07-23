@@ -666,7 +666,7 @@ cd IHUI-AI && docker compose up -d
 - **守门扩展**:原 4 个 i18n 守门脚本(check-i18n-keys / scan-i18n-zh-residue × 2 语言 / check-i18n-broken-en)添加 `--target=web|extension` 参数,extension 模式扫 `packages/i18n/messages/extension/`;pre-commit 添加 4 个 extension warn-only 守门项(2f-2i);添加 LANGUAGE_AUTOGLOSSONYMS 白名单解决语言选择器 autoglossonym 误报(简体中文/繁體中文/日本語)
 - **效果**:extension i18n 消息源从 5 个本地 TS(203 行/语言)迁移到共享包 JSON;typecheck / build / 4 个 extension 守门脚本全绿;build 产物 grep 验证 i18n 翻译已正确打包(55 处 autoglossonym + 30 处 i18n key 命中)
 - **web 端保持原状**:web 用 next-intl(587 namespace / 28,800 行 JSON),体积量级与 extension 差异 200×,强行统一会引入 next-intl 运行时依赖到 extension(浏览器扩展 WXT 0.19 不友好),保留双 runtime 但共享包可在未来扩展到 desktop 等端
-- **后续阶段**(PROJECT_PLAN Wave 23):阶段 3 业务组件渐进式抽取(packages/features)
+- **阶段 3(经评估暂不抽取)**:全量扫描 9 个 sidepanel 页面 + popup + content-toolbar,**0 个页面可抽取共享业务组件**。根因是技术栈分裂根本性(web: Next.js App Router + next-intl + zustand + react-query + shadcn vs extension: WXT + react-router-dom + 自研 Context + useState + 内联 CSSProperties),路由/i18n/状态/UI 4 个维度全部分裂。阶段 1+2 已消除最高频的"改一处同步两端"痛点,阶段 3 边际收益不显著,强行抽取会引入 4 套适配层复杂度。后续前置条件:需先做技术栈收敛(类似 Wave 21 阶段 2 的路线比选)
 
 ### 项目状态矩阵(透明标注,2026-07-22 核对)
 
