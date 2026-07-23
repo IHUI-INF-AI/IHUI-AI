@@ -130,6 +130,10 @@ export default {
     removeAttachment: '添付ファイルを削除',
     dragHint: 'ファイルをドラッグ / 画像を貼り付け / 📎 ボタンで選択',
     attachmentReady: '添付ファイル準備完了',
+    windowLayout: 'ウィンドウレイアウト',
+    resetWindowLayout: 'ウィンドウレイアウトをリセット',
+    windowResetDone: 'リセット済み、次回起動時に有効',
+    windowResetFailed: 'ウィンドウレイアウトのリセット失敗',
   },
   error: {
     network: 'ネットワークエラー',

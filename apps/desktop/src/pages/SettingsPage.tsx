@@ -7,7 +7,7 @@ import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { readFile } from '@tauri-apps/plugin-fs'
 import { fetchApi } from '@ihui/api-client'
 import { UpdateChecker } from '../components/UpdateChecker'
-import { enableAutostart, disableAutostart, isAutostartEnabled } from '../lib/desktop'
+import { enableAutostart, disableAutostart, isAutostartEnabled, resetWindowState } from '../lib/desktop'
 
 interface Ctx {
   onLogout: () => void
@@ -58,12 +58,26 @@ export default function SettingsPage() {
   const [importBusy, setImportBusy] = useState(false)
   const [importMsg, setImportMsg] = useState<string>('')
   const [autostart, setAutostart] = useState(false)
+  const [resettingWindow, setResettingWindow] = useState(false)
 
   useEffect(() => {
     isAutostartEnabled()
       .then(setAutostart)
       .catch(() => setAutostart(false))
   }, [])
+
+  const onResetWindowLayout = async () => {
+    if (resettingWindow) return
+    setResettingWindow(true)
+    try {
+      await resetWindowState()
+      setImportMsg(t('desktop.windowResetDone'))
+    } catch (err) {
+      setImportMsg(`${t('desktop.windowResetFailed')}: ${(err as Error).message}`)
+    } finally {
+      setResettingWindow(false)
+    }
+  }
 
   const onToggleTheme = (v: boolean) => {
     setDark(v)
@@ -255,6 +269,18 @@ export default function SettingsPage() {
               <span>{t('desktop.shortcut')}</span>
               <span className="muted">Ctrl+Shift+I</span>
             </div>
+            <div className="setting-row">
+              <span>{t('desktop.windowLayout')}</span>
+              <button
+                type="button"
+                onClick={() => void onResetWindowLayout()}
+                disabled={resettingWindow}
+                className="btn-secondary"
+              >
+                {resettingWindow ? t('common.loading') : t('desktop.resetWindowLayout')}
+              </button>
+            </div>
+            {importMsg ? <div className="setting-msg">{importMsg}</div> : null}
           </CardContent>
         </Card>
         <UpdateChecker />
