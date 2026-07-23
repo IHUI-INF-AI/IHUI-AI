@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { ExternalLink, Zap, Building2, User, AlertTriangle, Lightbulb, Search, ArrowUp, ArrowDown } from 'lucide-react'
+import { ExternalLink, Zap, Building2, User, AlertTriangle, Lightbulb, Search, ArrowUp, ArrowDown, Gauge } from 'lucide-react'
 import { COMPANY_RELAYS, PERSONAL_RELAY_NOTE } from './api-relays'
 import { encodePrefill } from './vendor-platforms'
 import { highlight } from './text-utils'
@@ -21,8 +21,23 @@ function useUniqueVendors(): string[] {
 type BillingMode = 'token' | 'gpu' | 'free' | 'subscription'
 
 /** 排序字段 */
-type RelaySortField = 'name' | 'billing'
+type RelaySortField = 'name' | 'billing' | 'speed'
 type RelaySortDir = 'asc' | 'desc'
+
+/** 测速:fetch no-cors + AbortController 超时,返回 RTT(ms),失败返回 -1 */
+async function testRelaySpeed(baseUrl: string, timeoutMs = 5000): Promise<number> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  const start = performance.now()
+  try {
+    await fetch(baseUrl, { mode: 'no-cors', cache: 'no-store', signal: controller.signal })
+    return Math.round(performance.now() - start)
+  } catch {
+    return -1
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
 const BILLING_FILTERS: Array<{ key: BillingMode | 'all'; labelKey: string }> = [
   { key: 'all', labelKey: 'allBilling' },
@@ -53,6 +68,9 @@ export function ApiRelaysSection() {
   const [activeBilling, setActiveBilling] = React.useState<BillingMode | 'all'>('all')
   const [sortField, setSortField] = React.useState<RelaySortField>('name')
   const [sortDir, setSortDir] = React.useState<RelaySortDir>('asc')
+  // 测速:name → 延迟 ms(-1 = 失败/超时)
+  const [speedMap, setSpeedMap] = React.useState<Map<string, number>>(new Map())
+  const [testing, setTesting] = React.useState(false)
   const allVendors = useUniqueVendors()
 
   const filtered = React.useMemo(() => {
@@ -74,10 +92,16 @@ export function ApiRelaysSection() {
     const dir = sortDir === 'asc' ? 1 : -1
     list.sort((a, b) => {
       if (sortField === 'name') return a.name.localeCompare(b.name) * dir
-      return a.billing.localeCompare(b.billing) * dir
+      if (sortField === 'billing') return a.billing.localeCompare(b.billing) * dir
+      // 按延迟排序:未测/失败排末尾,数值越小越前(asc)
+      const la = speedMap.get(a.name)
+      const lb = speedMap.get(b.name)
+      const na = la === undefined || la === -1 ? Infinity : la
+      const nb = lb === undefined || lb === -1 ? Infinity : lb
+      return (na - nb) * dir
     })
     return list
-  }, [query, activeVendor, activeBilling, sortField, sortDir])
+  }, [query, activeVendor, activeBilling, sortField, sortDir, speedMap])
 
   /** 切换排序:同字段切方向,不同字段切字段并默认升序 */
   function toggleRelaySort(field: RelaySortField) {
@@ -110,6 +134,34 @@ export function ApiRelaysSection() {
       apiFormat: 'openai_chat',
     })
     router.push(`/settings/llm?prefill=${payload}`)
+  }
+
+  /** 一键测速:并行测试所有筛选结果,更新 speedMap */
+  async function handleSpeedTestAll() {
+    if (testing || filtered.length === 0) return
+    setTesting(true)
+    setSpeedMap(new Map())
+    const results = await Promise.all(
+      filtered.map(async (relay) => {
+        const latency = await testRelaySpeed(relay.baseUrl)
+        return [relay.name, latency] as const
+      }),
+    )
+    const next = new Map<string, number>()
+    results.forEach(([name, latency]) => next.set(name, latency))
+    setSpeedMap(next)
+    setTesting(false)
+    // 测速完成后自动切换为按延迟升序排序
+    setSortField('speed')
+    setSortDir('asc')
+  }
+
+  /** 延迟 badge 配色:<200 绿 / <500 黄 / >=500 红 / -1 灰 */
+  function latencyBadge(latency: number): { text: string; className: string } {
+    if (latency === -1) return { text: t('speedError'), className: 'bg-muted text-muted-foreground' }
+    if (latency < 200) return { text: `${latency}ms`, className: 'bg-emerald-500/10 text-emerald-600' }
+    if (latency < 500) return { text: `${latency}ms`, className: 'bg-amber-500/10 text-amber-600' }
+    return { text: `${latency}ms`, className: 'bg-rose-500/10 text-rose-600' }
   }
 
   return (
@@ -227,6 +279,31 @@ export function ApiRelaysSection() {
                   sortDir === 'asc' ? <ArrowUp className="h-2 w-2" /> : <ArrowDown className="h-2 w-2" />
                 ) : null}
               </button>
+              {speedMap.size > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => toggleRelaySort('speed')}
+                  className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] transition-colors ${
+                    sortField === 'speed'
+                      ? 'bg-foreground text-background'
+                      : 'bg-muted text-muted-foreground hover:bg-accent'
+                  }`}
+                >
+                  {t('sortBySpeed')}
+                  {sortField === 'speed' ? (
+                    sortDir === 'asc' ? <ArrowUp className="h-2 w-2" /> : <ArrowDown className="h-2 w-2" />
+                  ) : null}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={handleSpeedTestAll}
+                disabled={testing || filtered.length === 0}
+                className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+              >
+                <Gauge className={`h-2.5 w-2.5 ${testing ? 'animate-spin' : ''}`} />
+                <span>{testing ? t('speedTesting') : t('speedTest')}</span>
+              </button>
             </div>
             <p className="text-[10px] text-muted-foreground/80">
               {t('resultCount', { count: filtered.length, total: COMPANY_RELAYS.length })}
@@ -276,6 +353,11 @@ export function ApiRelaysSection() {
                       ) : null}
                     </div>
                     <p className="text-[10px] text-muted-foreground/80">{highlight(relay.billing, query)}</p>
+                    {speedMap.has(relay.name) ? (
+                      <span className={`inline-block rounded px-1.5 py-0.5 text-[9px] font-medium tabular-nums ${latencyBadge(speedMap.get(relay.name)!).className}`}>
+                        {latencyBadge(speedMap.get(relay.name)!).text}
+                      </span>
+                    ) : null}
                   </div>
                   <button
                     type="button"
