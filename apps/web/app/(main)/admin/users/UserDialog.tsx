@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Camera, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Avatar } from '@/components/data/Avatar'
 import { Modal, Drawer, ConfirmDialog } from '@/components/feedback'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
@@ -70,7 +71,7 @@ export function UserDialog({
       })
       onAvatarUploaded({ ...detailUser, avatar: resp.user.avatar ?? detailUser.avatar })
     } catch (err) {
-      alert(err instanceof Error ? err.message : '上传失败')
+      toast.error(err instanceof Error ? err.message : '上传失败')
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
