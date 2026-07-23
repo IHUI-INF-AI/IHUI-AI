@@ -73,6 +73,14 @@
 </p>
 
 <p align="center">
+  <sub><strong>功能维度对标 40+ 国际/国内产品</strong>(指功能覆盖度参考,非性能/精度对标 — 详见 <a href="#与同类项目对比">对比矩阵</a>):OpenAI ChatGPT · OpenAI Codex · Anthropic Claude · Google Gemini · Microsoft Copilot · Dify · FastGPT · Langflow · RAGFlow · Coze(扣子)· LangChain · LangGraph · LlamaIndex · AutoGen · CrewAI · Claude Code · Cursor · Windsurf · Trae SOLO · GitHub Copilot · Amazon Q · Cline · Aider · Cody · Tabnine · Continue · Zed AI · JetBrains AI · Khan Academy · Coursera · Jasper · Stripe · PayPal · Auth0 · Clerk · Supabase · Mailgun · SendGrid · Mixpanel · Amplitude · PostHog · 蚁客 · 新媒体管家 · 百度千帆 · 阿里百炼 · 腾讯混元 · 字节豆包 · 智谱开放平台 · 讯飞星火 · DeepSeek · 月之暗面 Kimi · Tauri · Electron · Expo · React Native · Taro · WXT</sub>
+</p>
+
+<p align="center">
+  <sub><strong>i18n 国际化</strong>:5 语言键集合 99.7% 一致(zh-CN 587 key / zh-TW 585 / en 586 / ko 586 / ja 586)+ 4 守门脚本(opencc 字形检测 / 字符范围检测 / 破碎机翻检测 / key parity 校验)</sub>
+</p>
+
+<p align="center">
   <sub>
     <a href="README.md">简体中文</a> ·
     <a href="README.en.md">英文</a> ·
