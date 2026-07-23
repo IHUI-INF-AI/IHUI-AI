@@ -347,7 +347,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | OpenClaw        | 开源 Agent 框架接入 / clawdbot / openclaw-routes                                                            |
 |                   | Skills 系统     | content_engine(build_gpt56_sol / export_csdn_md / full_audit / publish_pipeline)+ koubo_workflow(10+ tools) |
 | **8 端框架**      | Web             | Next.js 15 / 200+ 页面 / PWA / SEO / 暗黑模式 / 5 语言                                                      |
-|                   | 桌面            | Tauri 2 + Rust / 系统托盘(最小化到托盘)+ 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 / 本地文件访问 + 文件拖拽 + 粘贴 + 附件预览 + 窗口状态持久化 + 会话历史持久化 + Markdown 渲染(GFM/代码高亮/复制按钮) + 对话导出(MD/JSON/TXT 三格式原生保存) + 主题持久化(light/dark/system 三态 localStorage) + 对话搜索(实时过滤+高亮匹配) + 消息重新生成 + 消息编辑重发(inline edit + 重发)+ 停止生成(abort 流式请求)+ 字号缩放(Ctrl +/- / Ctrl 0 全局快捷键 + 持久化) |
+|                   | 桌面            | Tauri 2 + Rust / 系统托盘(最小化到托盘)+ 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 / 本地文件访问 + 文件拖拽 + 粘贴 + 附件预览 + 窗口状态持久化 + 会话历史持久化 + Markdown 渲染(GFM/代码高亮/复制按钮) + 对话导出(MD/JSON/TXT 三格式原生保存) + 主题持久化(light/dark/system 三态 localStorage) + 对话搜索(实时过滤+高亮匹配) + 消息重新生成 + 消息编辑重发(inline edit + 重发)+ 停止生成(abort 流式请求)+ 字号缩放(Ctrl +/- / Ctrl 0 全局快捷键 + 持久化) + 消息时间戳(locale 感知 Intl.DateTimeFormat)+ 会话重命名(双击 inline 编辑)+ 快捷键帮助面板(Ctrl+/ 模态) |
 |                   | API             | Fastify 5 / ~1300 端点 / 12 WebSocket 端点 / 95+ 路由文件 / OpenAPI                                         |
 |                   | AI 服务         | FastAPI + LangGraph + LiteLLM + MCP + A2A / 215+ 端点 / 17 provider 适配                                      |
 |                   | CLI             | Node.js / 21 命令 / 36 内置工具 / 24 源配置导入 / ACP Server                                                 |
@@ -624,7 +624,7 @@ cd IHUI-AI && docker compose up -d
 | **Web**     | `apps/web/`          | Next.js 15 + React 19           | 主前端,200+ 页面,5 语言 i18n,PWA,SEO                                   |
 | **API**     | `apps/api/`          | Fastify 5 + Drizzle             | 业务管理 + 多厂商代理 + 认证 + WebSocket,~1300 端点 / 95+ 路由文件     |
 | **AI 服务** | `apps/ai-service/`   | FastAPI + LangGraph + Socket.IO | LLM 网关 + Agent 执行 + MCP 工具 + A2A 协议 + 14 发布 adapter,~55 端点 |
-| **桌面**    | `apps/desktop/`      | Tauri 2 + Rust + React          | 跨平台桌面应用,系统托盘(最小化到托盘)+ 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件访问(读文本/二进制/列目录/拖拽/粘贴)+ 窗口状态持久化 + 会话历史持久化 + Markdown 渲染 + 对话导出(MD/JSON/TXT) + 主题持久化(light/dark/system) + 对话搜索 + 消息重新生成 + 消息编辑重发 + 停止生成 + 字号缩放(Ctrl +/-/0) |
+| **桌面**    | `apps/desktop/`      | Tauri 2 + Rust + React          | 跨平台桌面应用,系统托盘(最小化到托盘)+ 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件访问(读文本/二进制/列目录/拖拽/粘贴)+ 窗口状态持久化 + 会话历史持久化 + Markdown 渲染 + 对话导出(MD/JSON/TXT) + 主题持久化(light/dark/system) + 对话搜索 + 消息重新生成 + 消息编辑重发 + 停止生成 + 字号缩放(Ctrl +/-/0) + 消息时间戳(locale 感知)+ 会话重命名(双击)+ 快捷键帮助(Ctrl+/) |
 | **CLI**     | `apps/cli/`          | Node.js + Commander             | 自研命令行 AI 编程助手,21 命令 + 36 工具 + ACP Server + 24 源配置导入   |
 | **扩展**    | `apps/extension/`    | WXT + React                     | 浏览器扩展,上下文菜单 + 侧边栏 + Chrome/Edge/Firefox                   |
 | **移动**    | `apps/mobile-rn/`    | React Native + Expo EAS         | iOS / Android 原生应用 + SSO                                           |
@@ -637,7 +637,7 @@ cd IHUI-AI && docker compose up -d
 | 端 | 目录 | 完成度 | 代码量 | 测试覆盖 | 核心场景 |
 |---|---|---|---|---|---|
 | **Web** | `apps/web/` | 🟢 生产级 | 200+ 页面 / 完整业务 | 63 e2e spec + Vitest | 主前端,所有业务模块 |
-| **桌面** | `apps/desktop/` | 🟡 核心场景级 | Tauri 2 + Rust + React | 基础测试 | 系统托盘 + 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件(读/写/列目录/拖拽/粘贴附件)+ 窗口状态持久化 + 会话历史持久化 + Markdown 渲染 + 对话导出(MD/JSON/TXT) + 主题持久化 + 对话搜索 + 消息重新生成 + 消息编辑重发 + 停止生成 + 字号缩放 + WorkPanel |
+| **桌面** | `apps/desktop/` | 🟡 核心场景级 | Tauri 2 + Rust + React | 基础测试 | 系统托盘 + 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件(读/写/列目录/拖拽/粘贴附件)+ 窗口状态持久化 + 会话历史持久化 + Markdown 渲染 + 对话导出(MD/JSON/TXT) + 主题持久化 + 对话搜索 + 消息重新生成 + 消息编辑重发 + 停止生成 + 字号缩放 + WorkPanel + 消息时间戳(locale 感知 Intl.DateTimeFormat)+ 会话重命名(双击 inline 编辑)+ 快捷键帮助面板(Ctrl+/ 模态) |
 | **API** | `apps/api/` | 🟢 生产级 | 1300+ 端点 / 95+ 路由文件 | 237 .test.ts | 业务管理 + 认证 + 计费 + WebSocket |
 | **AI 服务** | `apps/ai-service/` | 🟢 生产级 | 21 LangGraph 文件 / 215+ 端点 | pytest + 集成测试 | LLM 网关 + Agent 执行 + MCP + A2A |
 | **CLI** | `apps/cli/` | 🟡 核心场景级 | ~1500 行 / 21 命令 / 36 工具 | 单元测试 | 自研 AI 编程助手,ACP Server |
