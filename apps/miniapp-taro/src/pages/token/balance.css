@@ -1,77 +1,109 @@
 .token-page {
   min-height: 100vh;
   background: var(--color-background);
+  padding-bottom: 40rpx;
 }
+
 .balance-card {
   margin: 20rpx;
   padding: 40rpx 30rpx;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary));
+  background: var(--color-card);
+  border: 1rpx solid var(--color-border);
   border-radius: 16rpx;
 }
 .balance-label {
-  font-size: 26rpx;
-  color: rgba(255, 255, 255, 0.8);
   display: block;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
   margin-bottom: 16rpx;
 }
 .balance-value {
+  display: block;
   font-size: 64rpx;
-  color: var(--color-foreground);
-  font-weight: bold;
+  font-weight: 700;
+  color: var(--color-primary);
 }
-.records-section {
+
+.func-bar {
+  display: flex;
+  gap: 16rpx;
   padding: 0 20rpx 20rpx;
 }
-.section-title {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: var(--color-foreground);
-  display: block;
-  padding: 20rpx 0;
-}
-.record-list {
+.func-btn {
+  flex: 1;
+  text-align: center;
+  padding: 18rpx 0;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
   background: var(--color-card);
   border-radius: 12rpx;
-  overflow: hidden;
+}
+.func-btn.active {
+  color: var(--color-primary-foreground);
+  background: var(--color-primary);
+}
+
+.tab-bar {
+  display: flex;
+  gap: 12rpx;
+  padding: 0 20rpx 20rpx;
+}
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 14rpx 0;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  background: var(--color-card);
+  border-radius: 10rpx;
+}
+.tab-item.active {
+  color: var(--color-primary);
+  background: var(--color-muted);
+}
+
+.records-section {
+  padding: 0 20rpx;
 }
 .record-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: var(--color-card);
+  border-radius: 12rpx;
   padding: 24rpx;
-  border-bottom: 1rpx solid #f0f0f0;
-}
-.record-item:last-child {
-  border-bottom: none;
+  margin-bottom: 16rpx;
 }
 .record-info {
   flex: 1;
 }
 .record-title {
+  display: block;
   font-size: 28rpx;
   color: var(--color-foreground);
-  display: block;
-  margin-bottom: 8rpx;
+  margin-bottom: 10rpx;
 }
 .record-time {
+  display: block;
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
-.record-amount {
-  font-size: 30rpx;
+.record-count {
+  font-size: 32rpx;
   font-weight: 600;
+  color: var(--color-destructive);
 }
-.record-amount.plus {
-  color: #34c759;
-}
-.record-amount.minus {
-  color: #ff3b30;
-}
-.loading-text,
-.empty-text {
+
+.load-more {
   text-align: center;
+  padding: 24rpx 0;
+  font-size: 22rpx;
   color: var(--color-muted-foreground);
-  font-size: 28rpx;
+}
+.empty-text {
   display: block;
-  padding: 60rpx 0;
+  text-align: center;
+  padding: 120rpx 0;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
 }
