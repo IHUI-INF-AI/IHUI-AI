@@ -1072,9 +1072,22 @@ export default {
       confirm: '確認',
     },
     team: {
-      joinTime: '参加: {{time}}',
+      title: 'マイチーム',
+      member: 'メンバー',
+      searchPlaceholder: 'チームメンバーを検索',
+      totalMembers: 'チーム総人数',
+      sortByOrderNum: '注文数',
+      sortByDate: '招待日時',
+      transactionVolume: '取引額',
+      commission: 'コミッション',
+      orderNum: '注文数',
+      joinTime: '招待日時',
+      viewSubordinates: '下位を表示',
       empty: 'チームメンバーなし',
       loading: '読み込み中…',
+      noMore: 'これ以上なし',
+      error: '読み込み失敗',
+      retry: 'タップして再試行',
     },
     commission: {
       total: '累計コミッション',
@@ -1493,6 +1506,13 @@ export default {
     empty: 'ニュースなし',
     loading: '読み込み中…',
     readCount: '{{n}} 閲覧',
+    detail: {
+      like: 'いいね',
+      comment: 'コメント',
+      share: '共有',
+      related: '関連おすすめ',
+      commentSoon: 'コメント機能準備中',
+    },
   },
   plaza: {
     setNeed: {
