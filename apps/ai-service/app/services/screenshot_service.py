@@ -14,12 +14,93 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import ipaddress
 import logging
+import socket
 import threading
 import time
 from typing import Any
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# SSRF 防护(2026-07-24 安全加固,CWE-918)
+# ---------------------------------------------------------------------------
+# 攻击场景:用户调 screenshot_url 工具传 http://169.254.169.254/ 窃取云元数据,
+# 或 file:///etc/passwd 读本地文件,或 http://127.0.0.1:8801/ 探测内网 API。
+# 防护:协议白名单 + 端口白名单 + IP 黑名单(内网/保留/链路本地)+ DNS 解析校验。
+
+_ALLOWED_SCHEMES = {"http", "https"}
+_ALLOWED_PORTS = {80, 443, 8080, 8443, 3000, 8801}
+
+
+def _is_private_ip(ip: str) -> bool:
+    """检查 IP 是否为内网/保留地址(SSRF 黑名单)。
+
+    覆盖:私有(10/172.16/192.168)/ 回环(127)/ 链路本地(169.254 云元数据)/
+          保留 / 未指定 / 多播。命中任一即视为危险。
+    """
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return True  # 无效 IP 视为危险(fail-closed)
+    return (
+        addr.is_private
+        or addr.is_loopback
+        or addr.is_link_local  # 含 169.254.x.x(云元数据 IP)
+        or addr.is_reserved
+        or addr.is_unspecified
+        or addr.is_multicast
+    )
+
+
+def _validate_url_ssrf(url: str) -> tuple[bool, str]:
+    """SSRF 防护:校验 URL 协议、域名、IP、端口。
+
+    Returns:
+        (True, "") 或 (False, reason)
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception as e:
+        return False, f"URL 解析失败: {e}"
+
+    # 1. 协议白名单(禁止 file:// / gopher:// / dict:// / ftp:// 等)
+    if parsed.scheme not in _ALLOWED_SCHEMES:
+        return False, f"协议 {parsed.scheme!r} 不被允许(仅 http/https)"
+
+    hostname = parsed.hostname
+    if not hostname:
+        return False, "URL 缺少 hostname"
+
+    # 2. 端口白名单(若显式指定端口)
+    if parsed.port is not None and parsed.port not in _ALLOWED_PORTS:
+        return False, f"端口 {parsed.port} 不在允许列表(80/443/8080/8443/3000/8801)"
+
+    # 3. IP 校验:hostname 是 IP 直接校验;是域名则 DNS 解析后校验所有结果
+    try:
+        ipaddress.ip_address(hostname)
+        if _is_private_ip(hostname):
+            return False, f"目标 IP {hostname} 是内网/保留地址,禁止访问"
+    except ValueError:
+        # 域名:DNS 解析后校验(防 attacker.com 解析到 127.0.0.1)
+        try:
+            addrs = socket.getaddrinfo(hostname, None)
+        except socket.gaierror:
+            return False, f"DNS 解析失败: {hostname}"
+        seen: set[str] = set()
+        for _family, _type, _proto, _canon, sockaddr in addrs:
+            ip = sockaddr[0]
+            if ip in seen:
+                continue
+            seen.add(ip)
+            # IPv6 sockaddr 可能是 (host, port, flowinfo, scopeid)
+            if _is_private_ip(ip):
+                return False, f"域名 {hostname} 解析到内网 IP {ip},禁止访问"
+
+    return True, ""
 
 # === sync 单例 Browser(核心实现,不受 EventLoop 限制)===
 _browser: Any = None
@@ -181,6 +262,18 @@ async def take_screenshot(
     timeout: int = 15000,
 ) -> dict[str, Any]:
     """异步截图:在线程池中运行同步截图,不受 EventLoop policy 限制。"""
+    # 2026-07-24 安全加固:SSRF 防护(校验协议/IP/端口,防内网探测 + 云元数据窃取)
+    ok, reason = _validate_url_ssrf(url)
+    if not ok:
+        return {
+            "screenshot": "",
+            "title": "",
+            "url": url,
+            "can_embed": False,
+            "captured_at": int(time.time() * 1000),
+            "ssrf_blocked": True,
+            "error": reason,
+        }
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(
         None,
@@ -196,6 +289,10 @@ async def take_screenshot(
 
 async def probe_can_embed(url: str) -> dict[str, Any]:
     """异步探测:在线程池中运行同步探测。"""
+    # 2026-07-24 安全加固:SSRF 防护(与 take_screenshot 同一校验入口)
+    ok, reason = _validate_url_ssrf(url)
+    if not ok:
+        return {"url": url, "can_embed": False, "ssrf_blocked": True, "error": reason}
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, _probe_can_embed_sync, url)
 
