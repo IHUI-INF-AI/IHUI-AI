@@ -1,26 +1,34 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Input } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { getOrderList, type Order } from '@/api'
 import { useI18n } from '@/i18n'
 
 const STATUS_COLOR: Record<string, string> = {
   paid: 'text-primary',
   pending: 'text-[#f59e0b]',
+  refunding: 'text-[#f59e0b]',
   refunded: 'text-muted-foreground',
+  cancelled: 'text-muted-foreground',
+  completed: 'text-primary',
+  failed: 'text-destructive',
 }
 
 const STATUS_KEYS: Record<string, string> = {
   pending: 'order.status.pending',
   paid: 'order.status.paid',
   cancelled: 'order.status.cancelled',
+  refunding: 'order.status.refunding',
   refunded: 'order.status.refunded',
+  completed: 'order.status.completed',
+  failed: 'order.status.failed',
 }
 
 const TABS = [
   { value: '', labelKey: 'order.tabs.all' },
   { value: 'pending', labelKey: 'order.tabs.pending' },
   { value: 'paid', labelKey: 'order.tabs.paid' },
+  { value: 'cancelled', labelKey: 'order.tabs.cancelled' },
   { value: 'refunded', labelKey: 'order.tabs.refunded' },
 ]
 
@@ -31,6 +39,7 @@ export default function OrderList() {
   const [list, setList] = useState<Order[]>([])
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
+  const [keyword, setKeyword] = useState('')
   const statusRef = useRef('')
   const pageRef = useRef(1)
   const hasMoreRef = useRef(true)
@@ -70,6 +79,18 @@ export default function OrderList() {
     load(true)
   }
 
+  const onSearch = (kw: string) => {
+    setKeyword(kw)
+  }
+
+  const filtered = useMemo(() => {
+    const kw = keyword.trim()
+    if (!kw) return list
+    return list.filter(
+      (o) => (o.title || '').includes(kw) || (o.orderNo || '').includes(kw),
+    )
+  }, [list, keyword])
+
   const goDetail = (id: string | number) => {
     Taro.navigateTo({ url: `/pages/order/detail?id=${id}` })
   }
@@ -94,16 +115,24 @@ export default function OrderList() {
         {TABS.map((tab) => (
           <Text
             key={tab.value}
-            className={`flex-1 text-center text-[26rpx] py-[24rpx] ${status === tab.value ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
+            className={`flex-1 text-center text-[24rpx] py-[24rpx] ${status === tab.value ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
             onClick={() => switchTab(tab.value)}
           >
             {t(tab.labelKey)}
           </Text>
         ))}
       </View>
-      {list.length > 0 && (
+      <View className="px-[24rpx] py-[16rpx] bg-background">
+        <Input
+          className="h-[64rpx] px-[24rpx] bg-card rounded-[32rpx] text-[26rpx]"
+          placeholder={t('order.searchPlaceholder')}
+          value={keyword}
+          onInput={(e) => onSearch(e.detail.value)}
+        />
+      </View>
+      {filtered.length > 0 && (
         <View className="p-[24rpx]">
-          {list.map((o) => (
+          {filtered.map((o) => (
             <View
               key={o.id}
               className="bg-card rounded-[16rpx] p-[32rpx] mb-[24rpx]"
@@ -139,9 +168,9 @@ export default function OrderList() {
           ))}
         </View>
       )}
-      {list.length === 0 && !loading && (
+      {filtered.length === 0 && !loading && (
         <View className="text-center py-[120rpx] text-muted-foreground">
-          <Text>{t('order.empty')}</Text>
+          <Text>{keyword ? t('order.notFound') : t('order.empty')}</Text>
         </View>
       )}
       {loading && (
