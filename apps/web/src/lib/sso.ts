@@ -1,82 +1,28 @@
-export interface SsoTokenResponse {
-  accessToken: string
-  refreshToken: string
-  expiresIn: number
-  refreshExpiresIn: number
-  user: {
-    id: string
-    phone: string
-    email: string
-    nickname: string
-    avatar: string
-    roleId: number
-    status: number
-  }
-}
+/**
+ * Web 端 SSO 接入:核心逻辑复用 @ihui/shared/auth/sso-core,仅保留 web 独占
+ * (getRedirectUrl / getSsoCode 依赖 window.location)。
+ */
+export {
+  exchangeSsoCode,
+  validateToken,
+  ssoLogout,
+  extractSsoCode,
+  buildSsoLoginUrl as getSsoLoginUrl,
+  SSO_ENDPOINTS,
+} from '@ihui/shared/auth/sso-core'
+export type { SsoTokenData, SsoValidateResponse, SsoUser } from '@ihui/shared/auth/sso-core'
 
-export interface SsoValidateResponse {
-  valid: boolean
-  user: {
-    id: string
-    phone: string
-    email: string
-    nickname: string
-    avatar: string
-    roleId: number
-    status: number
-  }
-}
+// 兼容旧类型名(web 原用 SsoTokenResponse)
+export type { SsoTokenData as SsoTokenResponse } from '@ihui/shared/auth/sso-core'
 
-export const SSO_ENDPOINTS = {
-  code: '/api/auth/sso/code',
-  exchange: '/api/auth/sso/exchange',
-  logout: '/api/auth/sso/logout',
-  validate: '/api/auth/sso/validate',
-} as const
-
+/** web 独占:从当前 location 读取 redirect 参数 */
 export function getRedirectUrl(): string {
   if (typeof window === 'undefined') return '/'
   return new URLSearchParams(window.location.search).get('redirect') || '/'
 }
 
+/** web 独占:从当前 location 读取 sso_code */
 export function getSsoCode(): string | null {
   if (typeof window === 'undefined') return null
   return new URLSearchParams(window.location.search).get('sso_code')
-}
-
-export async function exchangeSsoCode(
-  apiBase: string,
-  code: string,
-  clientId: string,
-): Promise<SsoTokenResponse | null> {
-  const resp = await fetch(`${apiBase}${SSO_ENDPOINTS.exchange}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, clientId }),
-  })
-  if (!resp.ok) return null
-  const data = await resp.json()
-  if (data.code !== 200 || !data.data) return null
-  return data.data as SsoTokenResponse
-}
-
-export async function validateToken(
-  apiBase: string,
-  token: string,
-): Promise<SsoValidateResponse | null> {
-  const resp = await fetch(`${apiBase}${SSO_ENDPOINTS.validate}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (!resp.ok) return null
-  const data = await resp.json()
-  if (data.code !== 200 || !data.data) return null
-  return data.data as SsoValidateResponse
-}
-
-export async function ssoLogout(apiBase: string, token: string): Promise<boolean> {
-  const resp = await fetch(`${apiBase}${SSO_ENDPOINTS.logout}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  return resp.ok
 }
