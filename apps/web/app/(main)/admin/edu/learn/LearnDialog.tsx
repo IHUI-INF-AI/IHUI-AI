@@ -21,8 +21,14 @@ import {
 } from '@ihui/ui'
 import { selectClass } from '@/lib/edu'
 import { ImageUpload } from '@/components/form/ImageUpload'
-import { TiptapRichText } from '@/components/form/TiptapRichText'
+import dynamic from 'next/dynamic'
 import type { Category, LForm, Lesson } from './types'
+
+// 动态导入 tiptap 富文本编辑器(~500KB,9 个扩展),仅 admin 页按需加载
+const TiptapRichText = dynamic(
+  () => import('@/components/form/TiptapRichText').then((m) => m.TiptapRichText),
+  { ssr: false, loading: () => <div className="min-h-[200px] rounded-lg border" /> },
+)
 
 function splitIds(v: string): string[] {
   return v
