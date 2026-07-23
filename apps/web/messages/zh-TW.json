@@ -1773,6 +1773,8 @@
     "durationDays": "{days} 天",
     "featuresTitle": "VIP專屬特權",
     "buyButton": "立即開通",
+    "limitedOffer": "限時優惠",
+    "buyPrompt": "立即開通 VIP，解鎖全部專屬權益",
     "purchaseTitle": "確認購買",
     "purchaseDesc": "確認您的VIP會員購買信息",
     "confirmPayment": "確認支付",
