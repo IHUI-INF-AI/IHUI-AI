@@ -1,158 +1,117 @@
-.pl-page {
+.plan-page {
   min-height: 100vh;
   background: var(--color-background);
   padding: 24rpx;
-  padding-bottom: 60rpx;
+  padding-bottom: 200rpx;
 }
 
-/* ===== 概览卡片 ===== */
-.pl-overview {
-  padding: 28rpx;
+/* ===== 介绍区域 ===== */
+.plan-intro {
   background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.15);
-  border-radius: 12rpx;
+  border: 1px solid var(--color-border);
+  border-radius: 16rpx;
+  padding: 40rpx 32rpx;
+  margin-bottom: 24rpx;
 }
-.pl-overview-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12rpx 0;
-}
-.pl-overview-label {
-  font-size: 28rpx;
-  color: var(--color-muted-foreground);
-}
-.pl-overview-value {
-  font-size: 28rpx;
-  font-weight: 600;
+.plan-intro-title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 700;
   color: var(--color-foreground);
 }
-.pl-overview-accent {
-  color: #00f2ff;
-  font-size: 32rpx;
+.plan-intro-desc {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 16rpx;
+  line-height: 1.6;
 }
 
-/* ===== 新建计划按钮 ===== */
-.pl-new-btn {
-  margin-top: 24rpx;
-  padding: 24rpx;
-  background: linear-gradient(135deg, rgba(0, 242, 255, 0.12), rgba(139, 92, 246, 0.12));
-  border: 2rpx solid rgba(0, 242, 255, 0.3);
-  border-radius: 12rpx;
+/* ===== 统计区域 ===== */
+.plan-stats {
+  display: flex;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 16rpx;
+  padding: 32rpx 0;
+  margin-bottom: 24rpx;
+}
+.plan-stats-item {
+  flex: 1;
   text-align: center;
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #00f2ff;
+}
+.plan-stats-num {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.plan-stats-label {
+  display: block;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 12rpx;
 }
 
-/* ===== 计划列表 ===== */
-.pl-list-section {
-  margin-top: 28rpx;
+/* ===== 分佣规则 ===== */
+.plan-rules {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 16rpx;
+  padding: 32rpx;
 }
-.pl-list-title {
+.plan-rules-title {
   display: block;
   font-size: 30rpx;
   font-weight: 600;
   color: var(--color-foreground);
-  margin-bottom: 16rpx;
+  margin-bottom: 24rpx;
 }
-.pl-list {
+.plan-rules-list {
   display: flex;
   flex-direction: column;
   gap: 16rpx;
 }
-.pl-plan-card {
-  padding: 28rpx;
-  background: var(--color-card);
-  border: 2rpx solid rgba(0, 242, 255, 0.1);
-  border-radius: 12rpx;
-}
-.pl-plan-card-inactive {
-  opacity: 0.6;
-}
-.pl-plan-header {
+.plan-rules-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
 }
-.pl-plan-name {
-  font-size: 28rpx;
+.plan-rules-index {
+  font-size: 26rpx;
+  color: var(--color-primary);
   font-weight: 600;
-  color: var(--color-foreground);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
-}
-.pl-plan-status {
-  font-size: 24rpx;
-  font-weight: 600;
-  margin-left: 16rpx;
+  margin-right: 12rpx;
   flex-shrink: 0;
-  padding: 4rpx 16rpx;
-  border-radius: 6rpx;
+  line-height: 1.6;
 }
-.pl-status-active {
-  color: #22c55e;
-  background: rgba(34, 197, 94, 0.12);
-}
-.pl-status-inactive {
-  color: var(--color-muted-foreground);
-  background: rgba(255, 255, 255, 0.06);
-}
-.pl-plan-meta {
-  display: flex;
-  align-items: center;
-  margin-top: 20rpx;
-}
-.pl-plan-meta-item {
+.plan-rules-text {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.pl-plan-meta-label {
-  font-size: 22rpx;
-  color: var(--color-muted-foreground);
-}
-.pl-plan-meta-value {
-  font-size: 28rpx;
-  font-weight: 600;
+  font-size: 26rpx;
   color: var(--color-foreground);
-  margin-top: 6rpx;
-}
-.pl-plan-rate {
-  color: #00f2ff;
-}
-.pl-plan-arrow {
-  color: var(--color-muted-foreground);
-  font-size: 36rpx;
-  line-height: 1;
+  line-height: 1.6;
 }
 
-/* ===== 状态文案 ===== */
-.pl-empty,
-.pl-loading,
-.pl-no-more {
-  display: block;
+/* ===== 底部固定按钮 ===== */
+.plan-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 24rpx 32rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+  background: var(--color-card);
+  box-shadow: 0 -4rpx 16rpx rgba(0,0,0,0.3);
+}
+.plan-footer-btn {
+  height: 88rpx;
+  line-height: 88rpx;
   text-align: center;
-  font-size: 26rpx;
-  color: var(--color-muted-foreground);
-  padding: 80rpx 0;
+  background: linear-gradient(90deg, #00f2ff, #8b5cf6);
+  color: #121217;
+  font-size: 30rpx;
+  font-weight: 600;
+  border-radius: 12rpx;
 }
-.pl-error {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 60rpx 0;
-}
-.pl-error-text {
-  font-size: 26rpx;
-  color: var(--color-destructive);
-}
-.pl-error-retry {
-  font-size: 26rpx;
-  color: #00f2ff;
-  margin-top: 12rpx;
+.plan-footer-btn:active {
+  opacity: 0.85;
 }
