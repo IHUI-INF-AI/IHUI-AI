@@ -105,6 +105,18 @@ export default {
     theme: '主题',
     about: '关于智汇 AI',
   },
+  update: {
+    title: '软件更新',
+    check: '检查更新',
+    checking: '检查中…',
+    available: '发现新版本 {{version}}',
+    download: '下载并安装',
+    downloading: '下载中…',
+    done: '更新已安装,重启后生效',
+    latest: '已是最新版本',
+    error: '更新失败',
+    idle: '点击检查是否有新版本',
+  },
   error: {
     network: '网络错误',
     server: '服务器错误',
