@@ -30,19 +30,6 @@ const LOCALES = [
   { value: 'zh-TW', label: '繁體中文' },
 ]
 
-const MOCK_ENTRIES: CompareEntry[] = [
-  { key: 'common.save', namespace: 'common', left: '保存', right: 'Save' },
-  { key: 'common.cancel', namespace: 'common', left: '取消', right: 'Cancel' },
-  { key: 'common.confirm', namespace: 'common', left: '确认', right: undefined },
-  { key: 'common.delete', namespace: 'common', left: '删除', right: 'Delete' },
-  { key: 'menu.dashboard', namespace: 'menu', left: '仪表盘', right: 'Dashboard' },
-  { key: 'menu.settings', namespace: 'menu', left: '设置', right: undefined },
-  { key: 'home.welcome', namespace: 'home', left: '欢迎', right: 'Welcome' },
-  { key: 'user.profile', namespace: 'user', left: '个人资料', right: 'Profile' },
-  { key: 'articles.title', namespace: 'articles', left: '文章', right: 'Articles' },
-  { key: 'articles.empty', namespace: 'articles', left: '暂无文章', right: undefined },
-]
-
 export default function I18nComparePage() {
   const [left, setLeft] = React.useState('zh-CN')
   const [right, setRight] = React.useState('en')
@@ -52,14 +39,14 @@ export default function I18nComparePage() {
     queryFn: async () => {
       const qs = new URLSearchParams({ left, right })
       const r = await fetchApi<CompareData>(`/api/admin/i18n-dashboard/compare?${qs.toString()}`)
-      return r.success && r.data
-        ? r.data
-        : { entries: MOCK_ENTRIES, leftLocale: left, rightLocale: right }
+      if (r.success && r.data) return r.data
+      // API 失败时返回空 entries,UI 显示"加载失败"空状态(不再降级到 mock 数据)
+      return { entries: [], leftLocale: left, rightLocale: right }
     },
     staleTime: 60_000,
   })
 
-  const entries = data?.entries ?? MOCK_ENTRIES
+  const entries = data?.entries ?? []
 
   const selectClass =
     'h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
@@ -125,8 +112,8 @@ export default function I18nComparePage() {
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b bg-muted/30">
+                <thead className="bg-muted/30">
+                  <tr>
                     <th className="px-4 py-2 text-left font-medium text-muted-foreground">Key</th>
                     <th className="px-4 py-2 text-left font-medium text-muted-foreground">
                       {LOCALES.find((l) => l.value === left)?.label ?? left}
@@ -136,40 +123,48 @@ export default function I18nComparePage() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y">
-                  {entries.map((e) => {
-                    const missing = !e.left || !e.right
-                    return (
-                      <tr
-                        key={`${e.namespace}-${e.key}`}
-                        className={cn(
-                          'transition-colors hover:bg-muted/30',
-                          missing && 'bg-amber-500/5',
-                        )}
-                      >
-                        <td className="px-4 py-2">
-                          <div className="font-mono text-xs text-muted-foreground">
-                            {e.namespace}
-                          </div>
-                          <div className="font-mono text-sm">{e.key}</div>
-                        </td>
-                        <td className="px-4 py-2">
-                          {e.left ? (
-                            <span>{e.left}</span>
-                          ) : (
-                            <span className="text-xs text-amber-600">缺失</span>
+                <tbody>
+                  {entries.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">
+                        暂无对比数据(可能是 API 调用失败或翻译文件为空)
+                      </td>
+                    </tr>
+                  ) : (
+                    entries.map((e) => {
+                      const missing = !e.left || !e.right
+                      return (
+                        <tr
+                          key={`${e.namespace}-${e.key}`}
+                          className={cn(
+                            'transition-colors hover:bg-muted/30',
+                            missing && 'bg-amber-500/5',
                           )}
-                        </td>
-                        <td className="px-4 py-2">
-                          {e.right ? (
-                            <span>{e.right}</span>
-                          ) : (
-                            <span className="text-xs text-amber-600">缺失</span>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
+                        >
+                          <td className="px-4 py-2">
+                            <div className="font-mono text-xs text-muted-foreground">
+                              {e.namespace}
+                            </div>
+                            <div className="font-mono text-sm">{e.key}</div>
+                          </td>
+                          <td className="px-4 py-2">
+                            {e.left ? (
+                              <span>{e.left}</span>
+                            ) : (
+                              <span className="text-xs text-amber-600">缺失</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2">
+                            {e.right ? (
+                              <span>{e.right}</span>
+                            ) : (
+                              <span className="text-xs text-amber-600">缺失</span>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
