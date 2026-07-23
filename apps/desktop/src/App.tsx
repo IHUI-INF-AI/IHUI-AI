@@ -9,6 +9,7 @@ import { NotificationProvider, useNotificationStore } from './stores/notificatio
 import { I18nProvider, useI18n } from './i18n'
 import Layout from './components/Layout'
 import NotificationPanel from './components/NotificationPanel'
+import ShortcutHelpDialog from './components/ShortcutHelpDialog'
 import { DesktopWorkPanel } from './components/work-panel/DesktopWorkPanel'
 import AdminLayout from './components/admin/AdminLayout'
 import AdminGuard from './components/admin/AdminGuard'
@@ -107,6 +108,7 @@ function AppInner() {
       </Routes>
       <DeepLinkHandler />
       <FontSizeShortcutHandler />
+      <ShortcutHelpTrigger />
       <NotificationPanel />
       <DesktopWorkPanel />
     </BrowserRouter>
@@ -174,4 +176,20 @@ function FontSizeShortcutHandler() {
     return () => window.removeEventListener('keydown', onKey)
   }, [zoomIn, zoomOut, reset])
   return null
+}
+
+/** 快捷键帮助面板触发器:Ctrl + / 切换显示。 */
+function ShortcutHelpTrigger() {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === '/' || e.key === '?')) {
+        e.preventDefault()
+        setOpen((v) => !v)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+  return <ShortcutHelpDialog open={open} onClose={() => setOpen(false)} />
 }

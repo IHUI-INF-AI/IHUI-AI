@@ -14,6 +14,8 @@ export interface ChatMessage {
   content: string
   /** 用户消息可携带附件(图片 base64 / 文本内容),AI 回复无附件。 */
   attachments?: ChatAttachment[]
+  /** 创建时间戳(ms)。用户消息发送时设置,AI 消息在 onDone 时设置。 */
+  createdAt?: number
 }
 
 export interface ChatAttachment {
