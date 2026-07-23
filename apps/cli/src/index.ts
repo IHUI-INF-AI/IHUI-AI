@@ -488,6 +488,10 @@ registerImportCommand(program);
 // subagent-parallel 子命令 — 并行 fork N 个子 agent(真子进程并行,支持 4 拓扑)
 registerSubagentParallelCommand(program);
 
+// registry 子命令 — 资源上游同步中心(MCP/Skill/Plugin 四源拉取 + 双路径触发 + 全量自动更新)
+import { registryCommand } from './commands/registry-index.js';
+program.addCommand(registryCommand());
+
 // skills 子命令 — 列出/查看已加载的 skills(从 .ihui/.agents/.claude/.cursor/skills 平面加载)
 const skillsCmd = program.command('skills').description('管理/查看 skills(.ihui/skills/*.md 等四级目录平面加载)');
 

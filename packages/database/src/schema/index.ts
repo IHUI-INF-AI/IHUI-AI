@@ -180,3 +180,5 @@ export * from './memory.js'
 export * from './codebase-index.js'
 // 大模型排行榜(2026-07-22 新增,参考 arena.ai,6 类模型 + Agent 智能体 + 总榜)
 export * from './model-leaderboard.js'
+// 资源上游自动同步中心 schema(2026-07-24 立,3 表)
+export * from './registry.js'
