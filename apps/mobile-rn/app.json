@@ -13,7 +13,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "ai.ihui.mobile",
       "infoPlist": {
-        "LSApplicationQueriesSchemes": ["weixin", "weixinULAPI"],
+        "LSApplicationQueriesSchemes": ["weixin", "wechat", "weixinULAPI"],
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false
         }

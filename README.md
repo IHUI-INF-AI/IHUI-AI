@@ -670,7 +670,7 @@ cd IHUI-AI && docker compose up -d
 | **AI 服务** | `apps/ai-service/` | 🟢 生产级 | 21 LangGraph 文件 / 215+ 端点 | pytest + 集成测试 | LLM 网关 + Agent 执行 + MCP + A2A |
 | **CLI** | `apps/cli/` | 🟡 核心场景级 | ~1500 行 / 21 命令 / 36 工具 | 单元测试 | 自研 AI 编程助手,ACP Server |
 | **扩展** | `apps/extension/` | 🟡 核心场景级 | WXT + React | 基础测试 | 上下文菜单 + 侧边栏 + 浏览器控制 |
-| **移动 RN** | `apps/mobile-rn/` | 🟡 核心场景级 | Expo EAS + iOS/Android | 基础测试 | Chat + WorkPanel + SSO + 微信支付 APP |
+| **移动 RN** | `apps/mobile-rn/` | 🟡 核心场景级 | Expo EAS + iOS/Android | 基础测试 | Chat + WorkPanel + SSO + 微信支付 APP(react-native-wechat-lib + config plugin + EAS Build) |
 | **小程序** | `apps/miniapp-taro/` | 🟡 核心场景级 | Taro 4 + 微信支付 | 基础测试 | Chat + WebView + 微信支付 |
 
 **完成度定义**:
