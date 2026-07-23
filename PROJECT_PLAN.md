@@ -17,13 +17,13 @@
 
 **后端已统一**:extension 和 web 都通过 @ihui/api-client 调同一套 apps/api/src/routes/,无需改造。
 
-**阶段 1(先行)— 样式 token 单一来源**:
-- [ ] 在 packages/ui-primitives/src/styles/tokens.css 抽出共享 token(@theme 块 + .dark 深色覆盖 + vcenter 全局规则 + 基础 reset)
-- [ ] 更新 packages/ui-primitives/package.json exports 添加 CSS 导出
-- [ ] apps/web/app/globals.css 改为 @import 共享 token + web 专属样式(字体声明/子 CSS/login-scope/chat-markdown 等)
-- [ ] apps/extension/entrypoints/sidepanel/globals.css 改为 @import 共享 token + extension 专属样式(@source/sp-*/popup-*)
-- [ ] typecheck + build 两端验证
-- [ ] dev server + browser_use 验证样式无破坏(§17/§19)
+**阶段 1(先行,已完成 ✅ 2026-07-23)— 样式 token 单一来源**:
+- [x] ✅ 在 packages/ui-primitives/src/styles/tokens.css 抽出共享 token(@theme 块 + .dark 深色覆盖 + vcenter 全局规则 + 基础 reset)
+- [x] ✅ 更新 packages/ui-primitives/package.json exports 添加 `./styles/tokens.css` CSS 导出
+- [x] ✅ apps/web/app/globals.css 改为 @import 共享 token + web 专属样式(@font-face / login-scope / chat-markdown / 滚动条 / IHUI AI 视觉特效层等),删除原 @theme/vcenter/.dark 块(约 155 行)
+- [x] ✅ apps/extension/entrypoints/sidepanel/globals.css 改为 @import 共享 token + extension 专属样式(@source / 基础 reset),从 132 行简化为 38 行
+- [x] ✅ typecheck + build 两端验证(web typecheck 0 错误 / extension typecheck 0 错误 / extension build 成功 54.36 kB CSS;web build `✓ Compiled successfully in 5.6min`,后续 `output:export` + `generateStaticParams` 缺失错误是 pre-existing 与 CSS 改造无关)
+- [x] ✅ dev server + browser_use 验证样式无破坏(§17/§19):DOM 验证 vcenter `matrix(1, 0, 0, 1, 0, 0.3)` 在"新建任务"按钮完美生效;@theme token(`--text-vcenter-offset: 0.3px` / `--radius: 0.5rem` / `--font-sans` 含 HarmonyOS Sans SC)+ vcenter 全局规则 + .dark 块覆盖(页面 dark mode 下 `--color-background` 正确读为 `hsl(0 0% 14%)` ≈ `#242424`)全部生效;4 状态截图无破坏
 
 **阶段 2 — i18n 统一**:
 - [ ] 创建 packages/i18n 共享包,统一消息文件到 JSON 格式
