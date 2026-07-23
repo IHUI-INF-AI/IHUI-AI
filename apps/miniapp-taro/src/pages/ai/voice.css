@@ -41,7 +41,7 @@
   line-height: 100rpx;
   text-align: center;
   background: var(--color-background);
-  border-radius: 50rpx;
+  border-radius: 12rpx;
   font-size: 28rpx;
   color: var(--color-foreground);
 }
