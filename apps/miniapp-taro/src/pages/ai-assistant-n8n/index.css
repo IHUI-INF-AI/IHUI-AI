@@ -14,11 +14,90 @@
 .page-content {
   padding: 24rpx;
 }
-.list-item {
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.workflow-card {
   padding: 24rpx;
   background: var(--color-card);
   border-radius: 12rpx;
-  margin-bottom: 16rpx;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.workflow-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.status-tag {
+  padding: 4rpx 16rpx;
+  border-radius: 6rpx;
+  font-size: 22rpx;
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+.status-active {
+  color: #16a34a;
+  background: rgba(22, 163, 74, 0.1);
+}
+.status-draft {
+  color: var(--color-muted-foreground);
+  background: rgba(107, 114, 128, 0.1);
+}
+.status-inactive {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+}
+.status-unknown {
+  color: var(--color-muted-foreground);
+  background: rgba(107, 114, 128, 0.1);
+}
+.workflow-desc {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.card-footer {
+  margin-top: 16rpx;
+}
+.open-link {
+  font-size: 24rpx;
+  color: var(--color-primary);
+}
+.state-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 0;
+}
+.state-text {
+  text-align: center;
+  color: var(--color-muted-foreground);
+  font-size: 26rpx;
+}
+.retry-btn {
+  margin-top: 24rpx;
+  padding: 16rpx 48rpx;
+  background: var(--color-primary);
+  color: var(--color-foreground);
+  text-align: center;
+  border-radius: 12rpx;
+  font-size: 26rpx;
 }
 .empty {
   text-align: center;
