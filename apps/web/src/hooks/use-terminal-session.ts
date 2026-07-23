@@ -270,50 +270,80 @@ export function useTerminalSession() {
       }
 
       let ws: WebSocket | null = null
-      try {
-        ws = new WebSocket(buildWsUrl(sessionId, token))
-      } catch (e) {
-        handlers.onError?.((e as Error).message)
-        return { ws: null, send: () => {}, close: () => {}, readyState: WebSocket.CLOSED }
-      }
+      // P0 自动重连(2026-07-23):网络抖动/服务重启后自动恢复终端连接
+      let closedByUser = false
+      let reconnectAttempt = 0
+      const maxReconnectAttempts = 5
+      let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
-      const handle: TerminalWSHandle = {
-        ws,
-        send: (msg: unknown) => {
-          if (ws?.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify(msg))
-          }
-        },
-        close: () => {
-          if (ws && ws.readyState !== WebSocket.CLOSED) {
-            ws.close(1000, 'client disconnect')
-          }
-        },
-        readyState: ws.readyState,
-      }
-
-      ws.onopen = () => {
-        handle.readyState = WebSocket.OPEN
-        handlers.onOpen?.()
-      }
-
-      ws.onmessage = (e) => {
+      const connect = () => {
         try {
-          const msg = JSON.parse(e.data as string) as TerminalWSServerMessage
-          handlers.onMessage?.(msg)
-        } catch {
-          /* 非 JSON 消息(如 pong 心跳)忽略 */
+          ws = new WebSocket(buildWsUrl(sessionId, token))
+        } catch (e) {
+          handlers.onError?.((e as Error).message)
+          return
         }
+
+        const handle: TerminalWSHandle = {
+          ws,
+          send: (msg: unknown) => {
+            if (ws?.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify(msg))
+            }
+          },
+          close: () => {
+            closedByUser = true
+            if (reconnectTimer) {
+              clearTimeout(reconnectTimer)
+              reconnectTimer = null
+            }
+            if (ws && ws.readyState !== WebSocket.CLOSED) {
+              ws.close(1000, 'client disconnect')
+            }
+          },
+          readyState: ws.readyState,
+        }
+
+        ws.onopen = () => {
+          handle.readyState = WebSocket.OPEN
+          reconnectAttempt = 0
+          handlers.onOpen?.()
+        }
+
+        ws.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data as string) as TerminalWSServerMessage
+            handlers.onMessage?.(msg)
+          } catch {
+            /* 非 JSON 消息(如 pong 心跳)忽略 */
+          }
+        }
+
+        ws.onclose = () => {
+          handle.readyState = WebSocket.CLOSED
+          handlers.onClose?.()
+          // 自动重连(用户未主动关闭 + 未达最大重试次数)
+          if (!closedByUser && reconnectAttempt < maxReconnectAttempts) {
+            const delay = Math.min(1000 * 2 ** reconnectAttempt, 15000)
+            reconnectAttempt += 1
+            reconnectTimer = setTimeout(connect, delay)
+          }
+        }
+
+        ws.onerror = () => {
+          handle.readyState = WebSocket.CLOSED
+          // 不直接 onError,等 onclose 触发重连
+          if (reconnectAttempt >= maxReconnectAttempts) {
+            handlers.onError?.('WebSocket 连接失败(已达最大重连次数)')
+          }
+        }
+
+        return handle
       }
 
-      ws.onclose = () => {
-        handle.readyState = WebSocket.CLOSED
-        handlers.onClose?.()
-      }
-
-      ws.onerror = () => {
-        handle.readyState = WebSocket.CLOSED
-        handlers.onError?.('WebSocket 连接失败')
+      const handle = connect()
+      if (!handle) {
+        return { ws: null, send: () => {}, close: () => {}, readyState: WebSocket.CLOSED }
       }
 
       return handle
