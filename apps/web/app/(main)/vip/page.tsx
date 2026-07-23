@@ -94,6 +94,23 @@ export default function VipPage() {
         <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
       </header>
 
+      {/* 立即购买 VIP — 跳转收款落地页(支付宝支付) */}
+      {!myVip && (
+        <div className="flex flex-col items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-50/40 p-4 sm:flex-row">
+          <div className="flex items-center gap-2 text-sm">
+            <Sparkles className="h-4 w-4 shrink-0 text-amber-500" />
+            <span className="font-medium text-amber-700">限时优惠</span>
+            <span className="text-muted-foreground">立即开通 VIP,解锁全部专属权益</span>
+          </div>
+          <Button asChild className="shrink-0">
+            <a href="https://api.aizhs.top/landing" target="_blank" rel="noopener noreferrer">
+              <Crown className="h-4 w-4" />
+              {t('buyButton')}
+            </a>
+          </Button>
+        </div>
+      )}
+
       {myVip ? (
         <Card className="border-amber-500/40 bg-amber-50/40">
           <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
