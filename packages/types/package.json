@@ -37,6 +37,10 @@
     "./subagent-dispatch": {
       "types": "./src/subagent-dispatch.ts",
       "import": "./dist/subagent-dispatch.js"
+    },
+    "./orchestration": {
+      "types": "./src/orchestration.ts",
+      "import": "./dist/orchestration.js"
     }
   },
   "scripts": {
