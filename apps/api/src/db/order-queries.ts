@@ -128,7 +128,11 @@ export async function findOrders(
   if (status) conds.push(eq(eduOrders.status, status))
   if (orderType) conds.push(eq(eduOrders.orderType, orderType))
   if (userId) conds.push(eq(eduOrders.userId, userId))
-  if (orderNo) conds.push(ilike(eduOrders.orderNo, `%${orderNo}%`))
+  if (orderNo) {
+    // 2026-07-24 安全加固:转义 ilike 通配符 % _ \ 防止 wildcard injection DoS
+    const escapedOrderNo = orderNo.replace(/[%_\\]/g, '\\$&')
+    conds.push(ilike(eduOrders.orderNo, `%${escapedOrderNo}%`))
+  }
 
   const list = await db
     .select()
