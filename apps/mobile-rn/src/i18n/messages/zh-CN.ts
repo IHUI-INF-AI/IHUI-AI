@@ -247,5 +247,15 @@ export default {
       failed: '失败',
       cancelled: '已取消',
     },
+    cancel: {
+      cancelButton: '取消任务',
+      cancelling: '取消中',
+      cancelSuccess: '任务已取消',
+      cancelFailed: '取消任务失败',
+    },
+    reconnect: {
+      reconnecting: '正在同步任务',
+      reconnectSuccess: '任务已同步',
+    },
   },
 }
