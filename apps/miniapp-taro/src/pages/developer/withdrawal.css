@@ -11,6 +11,29 @@
   font-weight: bold;
   color: var(--color-foreground);
 }
+.summary-card {
+  display: flex;
+  margin: 20rpx;
+  background: var(--color-card);
+  border-radius: 12rpx;
+  padding: 24rpx 0;
+}
+.summary-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.summary-label {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+.summary-value {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-top: 8rpx;
+}
 .withdrawal-list {
   padding: 20rpx;
 }
@@ -36,6 +59,13 @@
 .withdrawal-time {
   font-size: 24rpx;
   color: var(--color-muted-foreground);
+  display: block;
+}
+.withdrawal-reason {
+  font-size: 22rpx;
+  color: #ff3b30;
+  margin-top: 6rpx;
+  display: block;
 }
 .withdrawal-status {
   font-size: 24rpx;
@@ -45,6 +75,10 @@
 .status-pending {
   color: #ff9500;
   background: rgba(255, 149, 0, 0.1);
+}
+.status-processing {
+  color: #007aff;
+  background: rgba(0, 122, 255, 0.1);
 }
 .status-success {
   color: #34c759;
