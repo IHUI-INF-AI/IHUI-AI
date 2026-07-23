@@ -1698,7 +1698,7 @@ For the complete task plan and historical archive, see [PROJECT_PLAN.md](PROJECT
 | **Brand Name**              | Zhihui AI Group                                                                           |
 | **Company Address**         | No. 107 Yueda Road, High-tech Zone, Changchun, Jilin Province · AI Talent Incubation Base |
 | **Contact Phone**           | 18643389808                                                                               |
-| **Email**                   | 502319984@qq.com · lizong@aizhs.top                                                       |
+| **Email**                   | 502319984@qq.com                                                                          |
 | **WeChat Customer Service** | ok502319984 (search on WeChat to add)                                                     |
 | **ICP Filing**              | 吉ICP备2025027274号                                                                       |
 | **Copyright**               | © 2025 Zhihui AI Group · China                                                            |
@@ -1713,7 +1713,7 @@ For the complete task plan and historical archive, see [PROJECT_PLAN.md](PROJECT
 | Issue Feedback      | https://github.com/IHUI-INF-AI/IHUI-AI/issues |
 | PR Contribution     | https://github.com/IHUI-INF-AI/IHUI-AI/pulls  |
 
-> For partnership inquiries, enterprise integration, or technical exchange, please scan the WeChat QR code above or email lizong@aizhs.top. We will reply within 24 hours.
+> For partnership inquiries, enterprise integration, or technical exchange, please scan the WeChat QR code above or email 502319984@qq.com. We will reply within 24 hours.
 
 ---
 
@@ -1932,7 +1932,7 @@ If you've read this far, we'd like to say a few things to you:
 
 **To enterprise decision-makers** — Use it to build your enterprise AI middle platform instead of paying millions in annual subscriptions to closed-source platforms. RBAC + multi-tenancy + RLS + audit logs + AES-256-GCM encryption—the enterprise-grade security is already done for you.
 
-**To investors** — We are still looking for partners who truly understand open source, understand AI, and understand long-term value. If this story moved you, even for a second, please reach out ([lizong@aizhs.top](mailto:lizong@aizhs.top) / WeChat `ok502319984`). We don't lack stories. We don't lack code. We don't lack execution. We lack someone willing to walk the long road with us.
+**To investors** — We are still looking for partners who truly understand open source, understand AI, and understand long-term value. If this story moved you, even for a second, please reach out ([502319984@qq.com](mailto:502319984@qq.com) / WeChat `ok502319984`). We don't lack stories. We don't lack code. We don't lack execution. We lack someone willing to walk the long road with us.
 
 **To content creators** — 14-platform one-click publishing + AES-256-GCM credential encryption is your content production line.
 
