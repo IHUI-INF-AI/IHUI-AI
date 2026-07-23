@@ -12,6 +12,7 @@ const STATUS_KEY: Record<Live['status'], string> = {
 
 export default function LiveList() {
   const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   const [list, setList] = useState<Live[]>([])
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState('')
@@ -99,13 +100,13 @@ export default function LiveList() {
           className="flex-1 bg-card rounded-xl py-2.5 flex items-center justify-center"
           onClick={() => Taro.navigateTo({ url: '/pages/live/calendar' })}
         >
-          <Text className="text-sm text-foreground">📅 日历</Text>
+          <Text className="text-sm text-foreground">{tt('live.calendarBtn', '📅 日历')}</Text>
         </View>
         <View
           className="flex-1 bg-card rounded-xl py-2.5 flex items-center justify-center"
           onClick={() => Taro.navigateTo({ url: '/pages/live/subscribe' })}
         >
-          <Text className="text-sm text-foreground">🔔 我的订阅</Text>
+          <Text className="text-sm text-foreground">{tt('live.mySubscriptionBtn', '🔔 我的订阅')}</Text>
         </View>
       </View>
       <View className="flex mb-3 bg-card rounded-xl">
