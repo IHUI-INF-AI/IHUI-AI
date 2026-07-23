@@ -1,55 +1,109 @@
-.page {
+.lang-page {
   min-height: 100vh;
   background: var(--color-background);
+  padding: 24rpx 24rpx 80rpx;
 }
-.group-title {
-  padding: 32rpx 32rpx 16rpx;
+
+.lang-current {
+  display: flex;
+  align-items: center;
+  padding: 32rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  gap: 24rpx;
 }
-.group-title text {
+.lang-current-icon {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 12rpx;
+  background: rgba(0, 242, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.lang-current-globe {
+  font-size: 44rpx;
+  line-height: 1;
+}
+.lang-current-info {
+  flex: 1;
+}
+.lang-current-label {
+  display: block;
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
-.list {
-  margin: 0 24rpx;
-  background: var(--color-card);
-  border-radius: 16rpx;
-  overflow: hidden;
-}
-.item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 32rpx;
-  border-bottom: 2rpx solid var(--color-border);
-}
-.item:last-child {
-  border-bottom: none;
-}
-.item.active {
-  background: rgba(0, 185, 107, 0.06);
-}
-.lang-info {
-  flex: 1;
-}
-.lang-native {
-  font-size: 30rpx;
+.lang-current-name {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 600;
   color: var(--color-foreground);
+  margin-top: 8rpx;
 }
-.lang-value {
+.lang-current-sub {
   display: block;
   font-size: 22rpx;
   color: var(--color-muted-foreground);
   margin-top: 6rpx;
 }
-.check {
-  color: var(--color-primary);
-  font-size: 36rpx;
+
+.lang-group-title {
+  padding: 32rpx 8rpx 16rpx;
 }
-.tips {
-  padding: 32rpx;
+.lang-group-title text {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
 }
-.tips text {
+
+.lang-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.lang-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 32rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  gap: 24rpx;
+}
+.lang-item--active {
+  background: rgba(0, 242, 255, 0.08);
+}
+.lang-item-info {
+  flex: 1;
+}
+.lang-item-native {
+  font-size: 30rpx;
+  color: var(--color-foreground);
+}
+.lang-item-en {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 6rpx;
+}
+.lang-item-radio {
+  flex-shrink: 0;
+}
+
+.lang-tips {
+  padding: 32rpx 8rpx;
+}
+.lang-tips-text {
+  display: block;
   font-size: 22rpx;
   color: var(--color-muted-foreground);
   line-height: 1.6;
+}
+.lang-tips-note {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.6;
+  margin-top: 8rpx;
+  opacity: 0.8;
 }

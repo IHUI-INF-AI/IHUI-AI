@@ -1,10 +1,73 @@
-.page { min-height: 100vh; background: var(--color-background); }
-.logo-box { padding: 80rpx 0; text-align: center; background: var(--color-card); }
-.logo { width: 160rpx; height: 160rpx; }
-.name { display: block; font-size: 32rpx; color: var(--color-foreground); font-weight: 600; margin-top: 24rpx; }
-.version { display: block; font-size: 24rpx; color: var(--color-muted-foreground); margin-top: 8rpx; }
-.card { margin: 24rpx; padding: 32rpx; background: var(--color-card); border-radius: 16rpx; }
-.intro { font-size: 26rpx; color: var(--color-muted-foreground); line-height: 1.8; }
-.menu { margin: 24rpx; background: var(--color-card); border-radius: 16rpx; overflow: hidden; }
-.menu-item { display: flex; justify-content: space-between; align-items: center; padding: 32rpx; border-bottom: 2rpx solid var(--color-border); font-size: 28rpx; color: var(--color-foreground); }
-.arrow { color: var(--color-muted-foreground); }
+.page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding-bottom: 60rpx;
+}
+.logo-box {
+  padding: 80rpx 0 60rpx;
+  text-align: center;
+  background: var(--color-card);
+}
+.logo {
+  width: 160rpx;
+  height: 160rpx;
+}
+.name {
+  display: block;
+  font-size: 32rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
+  margin-top: 24rpx;
+}
+.version {
+  display: block;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 8rpx;
+}
+.card {
+  margin: 24rpx;
+  padding: 32rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+}
+.intro {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.8;
+}
+.menu {
+  margin: 24rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+.menu-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 32rpx;
+  border-bottom: 2rpx solid var(--color-border);
+}
+.menu-item:last-child {
+  border-bottom: none;
+}
+.menu-item:active {
+  background: var(--color-background);
+}
+.menu-label {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+.arrow {
+  color: var(--color-muted-foreground);
+  font-size: 32rpx;
+}
+.footer {
+  text-align: center;
+  padding: 40rpx 24rpx 20rpx;
+}
+.footer-text {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}

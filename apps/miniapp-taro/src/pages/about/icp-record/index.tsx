@@ -1,11 +1,13 @@
 import { View, Text, Button } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { useCallback } from 'react'
 import { useI18n } from '@/i18n'
 import './index.css'
 
+const ICP_NO = '吉ICP备2025027274号-7A'
+
 const VALUES = [
-  '粤ICP备2026000001号-1',
+  ICP_NO,
   '粤公网安备44010602000001号',
   '广州智汇科技有限公司',
   '企业',
@@ -25,6 +27,10 @@ export default function IcpRecord() {
     [t],
   )
 
+  useDidShow(() => {
+    Taro.setNavigationBarTitle({ title: tt('about.icpRecord.title', 'ICP备案') })
+  })
+
   const labels = [
     tt('about.icpRecord.icpNo', 'ICP 备案号'),
     tt('about.icpRecord.policeNo', '公安备案号'),
@@ -39,8 +45,24 @@ export default function IcpRecord() {
     Taro.navigateTo({ url: `/pages/webview/index?url=${encodeURIComponent(QUERY_URL)}` })
   }, [])
 
+  const copyIcpNo = useCallback(() => {
+    Taro.setClipboardData({ data: ICP_NO })
+  }, [])
+
   return (
     <View className="page">
+      <View className="icp-card">
+        <Text className="icp-label">
+          {tt('about.icpRecord.icpLabel', 'ICP备案/许可证号')}
+        </Text>
+        <Text className="icp-value" onClick={copyIcpNo}>
+          {ICP_NO}
+        </Text>
+        <Text className="icp-copy-hint">
+          {tt('about.icpRecord.copyHint', '点击编号可复制')}
+        </Text>
+      </View>
+
       <View className="card">
         {info.map((item, idx) => (
           <View key={item.label} className={`row${idx === info.length - 1 ? ' last' : ''}`}>
@@ -49,13 +71,15 @@ export default function IcpRecord() {
           </View>
         ))}
       </View>
+
       <View className="query-wrap">
         <Button className="query-btn" onClick={onQuery}>
           {tt('about.icpRecord.query', '前往工信部查询')}
         </Button>
       </View>
+
       <View className="tips">
-        <Text>{t('about.icpRecord.footer')}</Text>
+        <Text>{tt('about.icpRecord.footer', '以上信息来自工信部备案查询系统')}</Text>
       </View>
     </View>
   )

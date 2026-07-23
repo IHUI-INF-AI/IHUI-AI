@@ -1,6 +1,7 @@
 .page {
   min-height: 100vh;
   background: var(--color-background);
+  padding-bottom: 60rpx;
 }
 .intro {
   margin: 24rpx;
@@ -28,6 +29,9 @@
 .row.last {
   border-bottom: none;
 }
+.row:active {
+  background: var(--color-background);
+}
 .body {
   flex: 1;
   margin-right: 16rpx;
@@ -35,6 +39,8 @@
 .head {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
 }
 .name {
   font-size: 28rpx;
@@ -43,14 +49,32 @@
 }
 .tag {
   font-size: 20rpx;
-  color: var(--color-foreground);
+  color: #fff;
   background: #ff6b6b;
   padding: 2rpx 12rpx;
   border-radius: 6rpx;
-  margin-left: 16rpx;
 }
 .tag.opt {
   background: #ccc;
+  color: #fff;
+}
+.status {
+  font-size: 22rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 6rpx;
+  margin-left: auto;
+}
+.status-granted {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+}
+.status-denied {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+.status-unknown {
+  color: var(--color-muted-foreground);
+  background: var(--color-background);
 }
 .desc {
   display: block;
@@ -71,6 +95,14 @@
 }
 .setting-btn::after {
   border: none;
+}
+.label {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+.arrow {
+  color: var(--color-muted-foreground);
+  font-size: 32rpx;
 }
 .tips {
   text-align: center;
