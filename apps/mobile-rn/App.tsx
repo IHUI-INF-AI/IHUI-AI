@@ -8,13 +8,14 @@ import { I18nProvider } from './src/i18n'
 import { NetworkProvider, useNetwork } from './src/context/NetworkContext'
 import { OfflineBanner } from './src/components/OfflineBanner'
 import { RootNavigator } from './src/navigation/RootNavigator'
+import { linking } from './src/navigation/linking'
 
 function AppInner() {
   const { isOnline } = useNetwork()
   return (
     <>
       <OfflineBanner isOnline={isOnline} />
-      <NavigationContainer>
+      <NavigationContainer linking={linking}>
         <RootNavigator />
       </NavigationContainer>
     </>
