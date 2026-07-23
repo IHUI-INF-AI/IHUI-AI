@@ -19,7 +19,10 @@ cryptography>=43.0.0
 redis[hiredis]>=5.2.0
 
 # --- AI / LLM ---
-langgraph>=0.2.0
+# P3 深度层升级(2026-07-23 立):PostgresSaver checkpointer + interrupt() HITL + 5 模式 streaming + Time Travel
+langgraph>=0.5.0
+langgraph-checkpoint-postgres>=2.0.0
+psycopg[binary]>=3.2.0
 langchain>=0.3.0
 langchain-core>=0.3.0
 langchain-openai>=0.2.0
