@@ -68,14 +68,6 @@ const MOCK_MODELS: ModelDisplay[] = [
   { id: 'm14', name: 'glm-4', provider: '智谱', desc: '智谱清言 GLM-4 旗舰大模型', inputPrice: '0.05', outputPrice: '0.15', tags: ['GLM-4', '128K上下文'], payMode: '按量计费', type: 'text', contextLength: 128000 },
 ]
 
-/** 类型 tab(全部用现有 common.all,其他文案为修复严重缺失直接硬编码) */
-const TYPE_TABS: { key: TypeFilter; label: string }[] = [
-  { key: 'all', label: '全部' },
-  { key: 'text', label: '文本' },
-  { key: 'image', label: '图像' },
-  { key: 'av', label: '音视频' },
-]
-
 function inferType(model: LlmModel): ModelType {
   const name = (model.name || '').toLowerCase()
   if (/dall-?e|stable|sdxl|wanx|vl|vision|kling|jimeng|draw|img|sora|veo/.test(name)) return 'image'
@@ -83,48 +75,58 @@ function inferType(model: LlmModel): ModelType {
   return 'text'
 }
 
-function inferTags(model: LlmModel): string[] {
-  const tags: string[] = []
-  const name = (model.name || '').toLowerCase()
-  if (/gpt-?4|gpt4/.test(name)) tags.push('GPT-4')
-  else if (/gpt-?3/.test(name)) tags.push('GPT-3.5')
-  else if (/claude/.test(name)) tags.push('Claude')
-  else if (/gemini/.test(name)) tags.push('Gemini')
-  else if (/qwen/.test(name)) tags.push('Qwen')
-  else if (/glm/.test(name)) tags.push('GLM')
-  else if (/doubao/.test(name)) tags.push('豆包')
-  else if (/ernie|wenxin/.test(name)) tags.push('ERNIE')
-  else if (/step/.test(name)) tags.push('Step')
-  if (model.context_length > 0) {
-    const k = model.context_length / 1000
-    tags.push(k >= 1000 ? `${k / 1000}M上下文` : `${k}K上下文`)
-  }
-  return tags
-}
-
-function normalizeModel(raw: LlmModel): ModelDisplay {
-  return {
-    id: String(raw.id ?? Math.random().toString(36).slice(2)),
-    name: raw.name || '',
-    provider: raw.provider || 'Unknown',
-    desc: `${raw.provider || ''} ${raw.name || ''} 模型`,
-    inputPrice: String(raw.input_price ?? 0),
-    outputPrice: '-',
-    tags: inferTags(raw),
-    payMode: '按量计费',
-    type: inferType(raw),
-    contextLength: raw.context_length ?? 0,
-  }
-}
-
-function typeLabel(t: ModelType): string {
-  if (t === 'image') return '图像'
-  if (t === 'av') return '音视频'
-  return '文本'
-}
-
 export default function ModelPlazaIndex() {
   const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+
+  /** 类型 tab(全部用现有 common.all,其他文案为修复严重缺失直接硬编码) */
+  const TYPE_TABS: { key: TypeFilter; label: string }[] = [
+    { key: 'all', label: tt('modelPlaza.tabAll', '全部') },
+    { key: 'text', label: tt('modelPlaza.tabText', '文本') },
+    { key: 'image', label: tt('modelPlaza.tabImage', '图像') },
+    { key: 'av', label: tt('modelPlaza.tabAv', '音视频') },
+  ]
+
+  function inferTags(model: LlmModel): string[] {
+    const tags: string[] = []
+    const name = (model.name || '').toLowerCase()
+    if (/gpt-?4|gpt4/.test(name)) tags.push('GPT-4')
+    else if (/gpt-?3/.test(name)) tags.push('GPT-3.5')
+    else if (/claude/.test(name)) tags.push('Claude')
+    else if (/gemini/.test(name)) tags.push('Gemini')
+    else if (/qwen/.test(name)) tags.push('Qwen')
+    else if (/glm/.test(name)) tags.push('GLM')
+    else if (/doubao/.test(name)) tags.push('Doubao')
+    else if (/ernie|wenxin/.test(name)) tags.push('ERNIE')
+    else if (/step/.test(name)) tags.push('Step')
+    if (model.context_length > 0) {
+      const k = model.context_length / 1000
+      tags.push(k >= 1000 ? `${k / 1000}M${tt('modelPlaza.contextLength', '上下文')}` : `${k}K${tt('modelPlaza.contextLength', '上下文')}`)
+    }
+    return tags
+  }
+
+  function normalizeModel(raw: LlmModel): ModelDisplay {
+    return {
+      id: String(raw.id ?? Math.random().toString(36).slice(2)),
+      name: raw.name || '',
+      provider: raw.provider || 'Unknown',
+      desc: `${raw.provider || ''} ${raw.name || ''} ${tt('modelPlaza.providerModel', '模型')}`,
+      inputPrice: String(raw.input_price ?? 0),
+      outputPrice: '-',
+      tags: inferTags(raw),
+      payMode: tt('modelPlaza.payMode', '按量计费'),
+      type: inferType(raw),
+      contextLength: raw.context_length ?? 0,
+    }
+  }
+
+  function typeLabel(type: ModelType): string {
+    if (type === 'image') return tt('modelPlaza.tabImage', '图像')
+    if (type === 'av') return tt('modelPlaza.tabAv', '音视频')
+    return tt('modelPlaza.tabText', '文本')
+  }
+
   const [models, setModels] = useState<ModelDisplay[]>([])
   const [providerId, setProviderId] = useState<string>('')
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
@@ -232,8 +234,8 @@ export default function ModelPlazaIndex() {
           {providerId || '-'}
         </Text>
         <Text className="provider-meta">
-          共 {currentProviderCount} 个模型
-          {currentProviderCount > filteredList.length ? `（已同步 ${filteredList.length} 条）` : ''}
+          {tt('modelPlaza.modelCount', '共 {{n}} 个模型').replace('{{n}}', String(currentProviderCount))}
+          {currentProviderCount > filteredList.length ? tt('modelPlaza.synced', '已同步 {{n}} 条').replace('{{n}}', String(filteredList.length)) : ''}
         </Text>
       </View>
 
@@ -269,12 +271,12 @@ export default function ModelPlazaIndex() {
               </View>
               <View className="card-price">
                 <Text className="price-label">Input</Text>
-                <Text className="price-value">¥{m.inputPrice}/千token</Text>
+                <Text className="price-value">¥{m.inputPrice}/{tt('modelPlaza.perKTokens', '千token')}</Text>
                 {m.outputPrice !== '-' ? (
                   <>
                     <Text className="price-divider">|</Text>
                     <Text className="price-label">Output</Text>
-                    <Text className="price-value">¥{m.outputPrice}/千token</Text>
+                    <Text className="price-value">¥{m.outputPrice}/{tt('modelPlaza.perKTokens', '千token')}</Text>
                   </>
                 ) : (
                   <Text className="price-extra">({m.payMode})</Text>
@@ -303,7 +305,7 @@ export default function ModelPlazaIndex() {
 
         {!loading && !hasMore && visibleList.length > 0 ? (
           <View className="state-wrap small">
-            <Text className="state-text">— 没有更多了 —</Text>
+            <Text className="state-text">{tt('modelPlaza.noMore', '— 没有更多了 —')}</Text>
           </View>
         ) : null}
       </View>

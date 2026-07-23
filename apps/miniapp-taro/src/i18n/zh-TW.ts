@@ -167,7 +167,13 @@ export default {
       searchPlaceholder: '搜尋課程',
       search: '搜尋',
       empty: '暫無課程'
-    }
+    },
+    ratingTitle: '評價課程',
+    ratingLabels: ['', '很差', '較差', '一般', '不錯', '很好'],
+    ratingPlaceholder: '請評分',
+    ratingDescLabel: '寫下你的評價',
+    ratingInputPlaceholder: '課程怎麼樣?分享你的感受...',
+    ratingSubmit: '提交評價'
   },
   live: {
     title: '直播',
@@ -226,7 +232,9 @@ export default {
       sessions: '場直播',
       liveList: '直播安排',
       noLive: '當日暫無直播安排'
-    }
+    },
+    calendarBtn: '📅 日曆',
+    mySubscriptionBtn: '🔔 我的訂閱'
   },
   profile: {
     title: '我的',
@@ -1289,7 +1297,9 @@ export default {
     rank: {
       title: '分銷排行榜',
       empty: '暫無排行資料'
-    }
+    },
+    rankTitle: '分銷排行榜',
+    rankEmpty: '暫無排行數據'
   },
   about: {
     version: '版本 {{version}}',
@@ -1786,7 +1796,18 @@ export default {
     title: '模型廣場',
     unnamed: '未命名模型',
     noDesc: '暫無描述',
-    empty: '暫無模型'
+    empty: '暫無模型',
+    tabAll: '全部',
+    tabText: '文本',
+    tabImage: '圖像',
+    tabAv: '音視頻',
+    payMode: '按量計費',
+    modelCount: '共 {{n}} 個模型',
+    synced: '已同步 {{n}} 條',
+    perKTokens: '千token',
+    noMore: '— 沒有更多了 —',
+    contextLength: '上下文',
+    providerModel: '模型'
   },
   news: {
     search: '搜尋資訊',
@@ -1985,7 +2006,10 @@ export default {
       followYou: '關注了你',
       targetReact: 'React 入門第 3 節',
       targetAi: 'AI 大模型實戰'
-    }
+    },
+    startConversation: '開始你們的對話',
+    inputPlaceholder: '輸入消息...',
+    sendBtn: '發送'
   },
   member: {
     index: {
@@ -2156,7 +2180,11 @@ export default {
       loadFailed: '載入失敗',
       progress: '進度',
       lastTime: '上次學習'
-    }
+    },
+    noteTitle: '學習筆記',
+    noteClose: '關閉',
+    notePlaceholder: '記錄你的學習心得...',
+    noteCountUnit: '字'
   },
   subscriptions: {
     cancel: '取消訂閱',
@@ -2670,5 +2698,37 @@ export default {
     content: '內容',
     contact: '聯絡方式',
     contactPlaceholder: '請輸入聯絡方式(選填)'
+  },
+  comment: {
+    loading: '載入中...',
+    empty: '暫無評論,快來搶沙發',
+    reply: '回覆',
+    placeholder: '寫評論...',
+    send: '發送'
+  },
+  subscription: {
+    statusActive: '生效中',
+    statusPending: '待生效',
+    statusCancelled: '已解約',
+    statusExpired: '已過期',
+    chargeSuccess: '扣款成功',
+    chargeFailed: '扣款失敗',
+    chargePending: '扣款中',
+    cancelTitle: '解約確認',
+    cancelContent: '確認取消該自動續費簽約?取消後不再自動扣款。',
+    cancelConfirmBtn: '確認解約',
+    cancelThinkBtn: '再想想',
+    processing: '處理中',
+    cancelSuccess: '已解約',
+    cancelFailed: '解約失敗',
+    contractsTitle: '自動續費管理',
+    autoRenew: '自動續費',
+    planLabel: '套餐',
+    nextCharge: '下次扣款',
+    lastCharge: '上次扣款',
+    signTime: '簽約時間',
+    cancelBtn: '解約',
+    contractsEmpty: '暫無自動續費簽約',
+    loadingText: '載入中...'
   }
 }
