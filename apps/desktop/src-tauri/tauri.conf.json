@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.ihui.desktop",
   "build": {
-    "beforeDevCommand": "pnpm exec vite",
-    "beforeBuildCommand": "pnpm exec vite build",
-    "devUrl": "http://localhost:8806",
-    "frontendDist": "../dist"
+    "beforeDevCommand": "pnpm --filter @ihui/web dev",
+    "beforeBuildCommand": "pnpm --filter @ihui/web build",
+    "devUrl": "http://localhost:8801",
+    "frontendDist": "../web/out"
   },
   "app": {
     "windows": [
