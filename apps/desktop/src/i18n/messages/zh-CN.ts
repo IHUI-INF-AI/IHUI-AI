@@ -148,6 +148,10 @@ export default {
     ja: '日本語',
     ko: '한국어',
     about: '关于智汇 AI',
+    fontSize: '字号',
+    fontZoomIn: '放大',
+    fontZoomOut: '缩小',
+    fontReset: '重置',
   },
   update: {
     title: '软件更新',
