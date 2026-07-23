@@ -140,7 +140,7 @@
 
 **自验**:typecheck exit 0 全绿 ✅ / §13 Grep 10 处关键点落地 ✅
 
-**Git 同步证据**(§21):本地 commit `<sha>` == origin `<sha>` ✅ / git-push-guard exit 0 ✅
+**Git 同步证据**(§21):本地 commit `ec01f66` == origin `ec01f66` ✅ / git-push-guard exit 0 ✅
 
 ---
 <!-- 已归档(2026-07-23):大模型排行榜深度优化五轮:highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
