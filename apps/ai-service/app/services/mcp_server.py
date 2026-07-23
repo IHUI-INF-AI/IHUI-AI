@@ -30,7 +30,7 @@ _WORKSPACE_ROOTS: list[str] = [
 ]
 
 # 工具权限矩阵:admin 专属工具(role >= 1),其他工具所有用户可用
-# 危险工具:写文件 / 执行命令 / 数据库查询 / git 操作 / 自动化配置 / 电脑控制
+# 危险工具:写文件 / 执行命令 / 数据库查询 / git 操作 / 自动化配置 / 电脑控制 / 截图(SSRF 入口)
 _ADMIN_ONLY_TOOLS: set[str] = {
     "write_file", "run_command", "db_query", "git_operations",
     "configure_automation_task",
@@ -39,6 +39,9 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     "computer_keyboard_type", "computer_mouse_scroll", "computer_keyboard_press",
     "computer_keyboard_hotkey", "computer_active_window",
     "computer_clipboard_get", "computer_clipboard_set",
+    # 2026-07-24 安全加固:screenshot_url 是 SSRF 入口(Playwright 访问任意 URL),
+    # 即使有 _validate_url_ssrf 校验,仍限定 admin 调用,defense-in-depth
+    "screenshot_url",
 }
 
 # agent_control 内部调用密钥(从 settings 读取,确保 .env 配置生效)
@@ -76,6 +79,44 @@ def _validate_path_in_workspace(path: str) -> tuple[bool, str]:
         )
     except Exception as e:
         return False, f"路径解析失败: {e}"
+
+
+# 2026-07-24 安全加固:敏感文件读取黑名单(防 MCP read_file 泄露凭证)
+# 匹配文件名(basename)或路径片段,命中即拒绝读取。
+_SENSITIVE_FILE_PATTERNS = (
+    ".env",                # .env / .env.production / .env.local
+    ".npmrc",              # npm token
+    ".pypirc",             # pip token
+    ".netrc",              # HTTP 凭证
+    "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519",  # SSH 私钥
+    "credentials.json",    # GCP/AWS 凭证
+    "service_account.json",  # GCP 服务账号
+)
+_SENSITIVE_FILE_EXTENSIONS = (
+    ".key", ".pem", ".crt", ".pfx", ".p12",  # 私钥/证书
+    ".keystore", ".jks",  # Java 密钥库
+    ".kdbx",  # KeePass 数据库
+)
+
+
+def _is_sensitive_file(path: str) -> bool:
+    """检查路径是否为敏感文件(可能含 API key/私钥/凭证)。
+
+    匹配规则:
+      1. 文件名 basename 命中 _SENSITIVE_FILE_PATTERNS(含前缀匹配,如 .env.production)
+      2. 扩展名命中 _SENSITIVE_FILE_EXTENSIONS
+    """
+    import os
+    basename = os.path.basename(path).lower()
+    # 精确匹配 + 前缀匹配(如 .env 匹配 .env / .env.local / .env.production)
+    for pat in _SENSITIVE_FILE_PATTERNS:
+        if basename == pat or basename.startswith(pat + ".") or basename.startswith(pat + "_"):
+            return True
+    # 扩展名匹配
+    for ext in _SENSITIVE_FILE_EXTENSIONS:
+        if basename.endswith(ext):
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -359,6 +400,17 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
     if not ok:
         return {"tool": "read_file", "path": path, "content": "", "ok": False, "error": info}
     resolved_path = info
+    # 2026-07-24 安全加固:敏感文件读取拦截(防 .env/*.key/*.pem 泄露 API key/私钥)
+    # 工作区白名单只防路径穿越,不防敏感文件内容泄露;此处补敏感文件名黑名单。
+    if _is_sensitive_file(resolved_path):
+        return {
+            "tool": "read_file",
+            "path": resolved_path,
+            "content": "",
+            "ok": False,
+            "error": "拒绝读取敏感文件(可能含 API key/私钥/凭证)",
+            "errorCode": "SENSITIVE_FILE_BLOCKED",
+        }
     try:
         with open(resolved_path, encoding="utf-8") as f:
             content = f.read()
