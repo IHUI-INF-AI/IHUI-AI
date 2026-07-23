@@ -77,15 +77,15 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
   })
 
   const dagSchema = z.object({
-    nodes: z.array(dagNodeSchema).min(1),
-    edges: z.array(dagEdgeSchema).default([]),
+    nodes: z.array(dagNodeSchema).min(1).max(100),
+    edges: z.array(dagEdgeSchema).max(100).default([]),
   })
 
   const dispatchSchema = z.object({
     goal: z.string().min(1, '任务目标不能为空'),
-    affectedFiles: z.array(z.string().min(1)).min(1, '至少一个受影响文件'),
-    forbidden: z.array(z.string()).optional(),
-    verifyCommands: z.array(z.string()).default([]),
+    affectedFiles: z.array(z.string().min(1)).min(1, '至少一个受影响文件').max(100),
+    forbidden: z.array(z.string()).max(100).optional(),
+    verifyCommands: z.array(z.string()).max(100).default([]),
     constraints: z.string().min(1, '约束边界不能为空'),
     deliverables: z.string().min(1, '交付物不能为空'),
     agentRole: z
