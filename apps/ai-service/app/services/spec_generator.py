@@ -1081,14 +1081,16 @@ class SpecGenerator:
         new_spec: str,
         old_spec: Optional[str] = None,
     ) -> dict[str, Any]:
-        """对比新旧 spec,调 LLM 生成代码 patch(unified diff 格式)。
+        """根据 spec markdown 生成代码 patch(unified diff 格式)。
 
         流程:
-        a) 如无 old_spec,从 .trae-cn/specs/ 加载上次持久化版本
-        b) 调 LLM 生成 unified diff patch
-        c) 返回 { patch, affectedFiles, summary }
+        1. 解析 new_spec 的 sections(## API 契约 / ## 数据模型 等)
+        2. 用 LLM 生成 unified diff 格式的 patch
+        3. 解析 patch 得到 affectedFiles 列表
+        4. 返回 { patch, affectedFiles, summary }
 
-        降级:LLM 调用失败返回 { error: "llm_unavailable" }。
+        LLM 不可用时返回 { patch: '', affectedFiles: [], summary: 'llm_unavailable', error: 'llm_unavailable' }。
+        字段名用 camelCase(affectedFiles)以匹配 API 端 spec-service.ts 契约。
         """
         root = Path(workspace_path).resolve()
         if old_spec is None:
@@ -1098,7 +1100,7 @@ class SpecGenerator:
         affected_files = self._extract_affected_files_from_spec(new_spec)
 
         prompt = (
-            "你是代码生成专家。对比以下新旧 spec,生成 unified diff 格式的代码 patch。\n\n"
+            "对比以下新旧 spec,生成 unified diff 格式的代码 patch。\n\n"
             f"## 旧 spec\n{old_spec[:8000]}\n\n"
             f"## 新 spec\n{new_spec[:8000]}\n\n"
             f"## 受影响文件列表\n{chr(10).join(affected_files)}\n\n"
@@ -1109,9 +1111,60 @@ class SpecGenerator:
             "4. 仅输出 diff,不要额外说明\n"
         )
 
-        content, ok = await self._call_llm(prompt, system="你是专业的代码生成助手。")
-        if not ok:
-            return {"error": "llm_unavailable", "patch": "", "affectedFiles": [], "summary": content}
+        # LLM 调用:用 config.litellm_model(默认 stepfun/step-3.7-flash),30s 超时
+        # LLM 不可用(导入失败/超时/异常/返回错误/空内容)统一返回 llm_unavailable,不抛异常
+        try:
+            from ..core.llm_gateway import llm_gateway
+            from ..core.config import settings
+        except Exception as e:
+            return {
+                "error": "llm_unavailable",
+                "patch": "",
+                "affectedFiles": [],
+                "summary": f"llm_unavailable: {type(e).__name__}: {e}",
+            }
+
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": "你是代码生成专家,根据 spec 生成 unified diff patch"},
+            {"role": "user", "content": prompt},
+        ]
+
+        try:
+            result = await asyncio.wait_for(
+                llm_gateway.complete(messages, model=settings.litellm_model),
+                timeout=30,
+            )
+        except asyncio.TimeoutError:
+            return {
+                "error": "llm_unavailable",
+                "patch": "",
+                "affectedFiles": [],
+                "summary": "llm_unavailable: LLM 调用超时 (30s)",
+            }
+        except Exception as e:
+            return {
+                "error": "llm_unavailable",
+                "patch": "",
+                "affectedFiles": [],
+                "summary": f"llm_unavailable: {type(e).__name__}: {e}",
+            }
+
+        if result.get("error"):
+            return {
+                "error": "llm_unavailable",
+                "patch": "",
+                "affectedFiles": [],
+                "summary": f"llm_unavailable: {result.get('error_message', 'LLM 调用失败')}",
+            }
+
+        content = str(result.get("content", "") or "")
+        if not content:
+            return {
+                "error": "llm_unavailable",
+                "patch": "",
+                "affectedFiles": [],
+                "summary": "llm_unavailable: LLM 返回空内容",
+            }
 
         # 生成摘要
         added = sum(1 for l in content.splitlines() if l.startswith("+") and not l.startswith("+++"))
@@ -1724,24 +1777,7 @@ except ImportError:
 if _EXTRA_ROUTER_AVAILABLE:
     extra_router = APIRouter()
 
-    class SpecApplyRequest(BaseModel):
-        scope: dict = Field(default_factory=lambda: {"type": "workspace"})
-        workspacePath: str = Field(..., description="工作区根路径")
-        newSpec: str = Field(..., description="修改后的 spec markdown")
-        oldSpec: Optional[str] = Field(None, description="旧 spec(为空则从持久化加载)")
-
-    @extra_router.post("/spec/apply")
-    async def spec_apply(req: SpecApplyRequest) -> dict[str, Any]:
-        """对比新旧 spec,调 LLM 生成代码 patch。"""
-        try:
-            result = await spec_generator.apply_spec(
-                req.workspacePath, req.scope, req.newSpec, req.oldSpec
-            )
-            if "error" in result:
-                return {"code": 503, "message": result.get("error", "error"), "data": result}
-            return {"code": 0, "message": "success", "data": result}
-        except Exception as e:
-            return {"code": 1, "message": f"spec apply 失败: {e}", "data": None}
+    # /spec/apply 端点已移至 routers/spec.py(复用已注册的 spec.router,无需额外注册 extra_router)
 
     class SpecApplyPatchRequest(BaseModel):
         workspacePath: str = Field(...)

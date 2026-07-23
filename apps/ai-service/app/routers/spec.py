@@ -3,9 +3,10 @@
 端点:
 - POST /spec/generate   → 从代码 AST 反向生成 spec 文档(markdown)
 - GET  /spec/templates  → 返回预置 spec 模板列表
+- POST /spec/apply      → 根据 spec markdown 生成代码 patch(unified diff,对标 Trae Work)
 
 注册到 app.include_router(spec.router, prefix="/api", tags=["spec"]),
-对外路径为 /api/spec/generate、/api/spec/templates。
+对外路径为 /api/spec/generate、/api/spec/templates、/api/spec/apply。
 """
 
 from typing import Any, Optional
@@ -32,6 +33,18 @@ class SpecGenerateRequest(BaseModel):
     workspacePath: str = Field(..., description="工作区根路径(绝对路径)")
     includeDependencies: bool = Field(True, description="是否包含依赖关系分析")
     languages: Optional[list[str]] = Field(None, description="目标语言过滤(为空则全语言)")
+
+
+class SpecApplyRequest(BaseModel):
+    """Spec apply 请求(契约与 apps/api spec-service.ts SpecApplyResult 对齐)。
+
+    根据 spec markdown 生成代码 patch,对标 Trae Work 的 spec/apply 链路。
+    """
+
+    workspacePath: str = Field(..., description="工作区根路径(绝对路径)")
+    scope: SpecScopeModel = Field(default_factory=SpecScopeModel)
+    newSpec: str = Field(..., description="修改后的 spec markdown")
+    oldSpec: Optional[str] = Field(None, description="旧 spec(为空则从 .trae-cn/specs/ 加载持久化版本)")
 
 
 class SpecTemplateModel(BaseModel):
@@ -115,3 +128,28 @@ async def spec_templates() -> dict[str, Any]:
             "templates": [t.model_dump() for t in _BUILTIN_TEMPLATES],
         },
     }
+
+
+@router.post("/spec/apply")
+async def spec_apply(req: SpecApplyRequest) -> dict[str, Any]:
+    """根据 spec markdown 生成代码 patch(unified diff 格式,对标 Trae Work)。
+
+    调 spec_generator.apply_spec,LLM 不可用时 result 含 error='llm_unavailable',
+    端点仍返回 code=0(不抛异常),由 API 端 spec-service.ts 检查 data.error 降级处理。
+
+    响应 data 字段:{ patch, affectedFiles, summary, error? }
+    """
+    try:
+        result = await spec_generator.apply_spec(
+            workspace_path=req.workspacePath,
+            scope=req.scope.model_dump(),
+            new_spec=req.newSpec,
+            old_spec=req.oldSpec,
+        )
+        return {"code": 0, "message": "success", "data": result}
+    except Exception as e:
+        return {
+            "code": 1,
+            "message": f"spec apply 失败: {type(e).__name__}: {str(e)[:200]}",
+            "data": None,
+        }
