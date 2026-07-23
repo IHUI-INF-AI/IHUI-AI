@@ -167,7 +167,13 @@ export default {
       searchPlaceholder: 'Search courses',
       search: 'Search',
       empty: 'No courses'
-    }
+    },
+    ratingTitle: 'Rate Course',
+    ratingLabels: ['', 'Very Bad', 'Poor', 'Fair', 'Good', 'Excellent'],
+    ratingPlaceholder: 'Please rate',
+    ratingDescLabel: 'Write your review',
+    ratingInputPlaceholder: 'How was the course? Share your thoughts...',
+    ratingSubmit: 'Submit Review'
   },
   live: {
     title: 'Live',
@@ -226,7 +232,9 @@ export default {
       sessions: 'sessions',
       liveList: 'Live schedule',
       noLive: 'No live sessions scheduled today'
-    }
+    },
+    calendarBtn: '📅 Calendar',
+    mySubscriptionBtn: '🔔 My Subscriptions'
   },
   profile: {
     title: 'Profile',
@@ -1289,7 +1297,9 @@ export default {
     rank: {
       title: 'Distribution Leaderboard',
       empty: 'No ranking data'
-    }
+    },
+    rankTitle: 'Distribution Ranking',
+    rankEmpty: 'No ranking data'
   },
   about: {
     version: 'Version {{version}}',
@@ -1786,7 +1796,18 @@ export default {
     title: 'Model plaza',
     unnamed: 'Untitled model',
     noDesc: 'No description',
-    empty: 'No models'
+    empty: 'No models',
+    tabAll: 'All',
+    tabText: 'Text',
+    tabImage: 'Image',
+    tabAv: 'Audio/Video',
+    payMode: 'Pay per use',
+    modelCount: '{{n}} models',
+    synced: '{{n}} synced',
+    perKTokens: 'per 1K tokens',
+    noMore: '— No more —',
+    contextLength: 'Context',
+    providerModel: 'model'
   },
   news: {
     search: 'Search news',
@@ -1985,7 +2006,10 @@ export default {
       followYou: 'followed you',
       targetReact: 'React Intro Lesson 3',
       targetAi: 'AI LLM in Practice'
-    }
+    },
+    startConversation: 'Start your conversation',
+    inputPlaceholder: 'Type a message...',
+    sendBtn: 'Send'
   },
   member: {
     index: {
@@ -2156,7 +2180,11 @@ export default {
       loadFailed: 'Load failed',
       progress: 'Progress',
       lastTime: 'Last studied'
-    }
+    },
+    noteTitle: 'Study Notes',
+    noteClose: 'Close',
+    notePlaceholder: 'Record your study notes...',
+    noteCountUnit: 'chars'
   },
   subscriptions: {
     cancel: 'Cancel subscription',
@@ -2670,5 +2698,37 @@ export default {
     content: 'Content',
     contact: 'Contact',
     contactPlaceholder: 'Please enter contact information (optional)'
+  },
+  comment: {
+    loading: 'Loading...',
+    empty: 'No comments yet, be the first!',
+    reply: 'Reply',
+    placeholder: 'Write a comment...',
+    send: 'Send'
+  },
+  subscription: {
+    statusActive: 'Active',
+    statusPending: 'Pending',
+    statusCancelled: 'Cancelled',
+    statusExpired: 'Expired',
+    chargeSuccess: 'Charged',
+    chargeFailed: 'Charge Failed',
+    chargePending: 'Charging',
+    cancelTitle: 'Cancel Confirmation',
+    cancelContent: 'Confirm cancellation of this auto-renewal? No more automatic charges after cancellation.',
+    cancelConfirmBtn: 'Confirm Cancel',
+    cancelThinkBtn: 'Think Again',
+    processing: 'Processing',
+    cancelSuccess: 'Cancelled',
+    cancelFailed: 'Cancel Failed',
+    contractsTitle: 'Auto-renewal Management',
+    autoRenew: 'Auto-renewal',
+    planLabel: 'Plan',
+    nextCharge: 'Next Charge',
+    lastCharge: 'Last Charge',
+    signTime: 'Signed At',
+    cancelBtn: 'Cancel',
+    contractsEmpty: 'No auto-renewal contracts',
+    loadingText: 'Loading...'
   }
 }
