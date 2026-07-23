@@ -283,7 +283,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /categories/batch-query - 批量查询
   server.post('/categories/batch-query', async (request, reply) => {
-    const body = z.object({ ids: z.array(z.string()).optional() }).parse(request.body)
+    const body = z.object({ ids: z.array(z.string()).max(100).optional() }).parse(request.body)
     const ids = body?.ids ?? []
     const list = await findCategoriesByIds(ids)
     return reply.send(success({ list, total: list.length }))
@@ -708,7 +708,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /settlement/batch-delete - 批量删除
   server.post('/settlement/batch-delete', async (request, reply) => {
-    const body = z.object({ ids: z.array(z.string()).optional() }).parse(request.body)
+    const body = z.object({ ids: z.array(z.string()).max(100).optional() }).parse(request.body)
     const ids = body?.ids ?? []
     const deleted = await deleteSettlements(ids)
     return reply.send(success({ deleted }))
@@ -861,7 +861,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // POST /examine/batch-reject - 批量拒绝
   server.post('/examine/batch-reject', async (request, reply) => {
     const body = z
-      .object({ recordIds: z.array(z.string()).optional(), reason: z.string().optional() })
+      .object({ recordIds: z.array(z.string()).max(100).optional(), reason: z.string().optional() })
       .parse(request.body)
     const recordIds = body?.recordIds ?? []
     if (recordIds.length === 0) {

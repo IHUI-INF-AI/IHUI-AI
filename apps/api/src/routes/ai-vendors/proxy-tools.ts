@@ -47,7 +47,7 @@ const videoTasksQuery = z.object({
 
 const cozeChatBody = z.object({
   botId: z.string().optional(),
-  messages: z.array(z.unknown()).optional(),
+  messages: z.array(z.unknown()).max(100).optional(),
 })
 
 const cozeWorkflowRunBody = z.object({
@@ -96,7 +96,7 @@ const klingIdentifyBody = z.object({
 
 const klingTaskCreateBody = z.object({
   sessionId: z.string().min(1),
-  faceChoose: z.array(z.record(z.unknown())).min(1),
+  faceChoose: z.array(z.record(z.unknown())).min(1).max(100),
   externalTaskId: z.string().optional(),
   callbackUrl: z.string().optional(),
 })

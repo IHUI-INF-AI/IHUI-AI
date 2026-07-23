@@ -164,7 +164,7 @@ const createLevelBody = z.object({
   levelValue: z.number().optional().default(1),
   price: z.number(),
   durationDays: z.number().optional().default(30),
-  benefits: z.array(z.unknown()).optional().default([]),
+  benefits: z.array(z.unknown()).max(100).optional().default([]),
 })
 const updateLevelBody = z.object({
   levelName: z.string().optional(),

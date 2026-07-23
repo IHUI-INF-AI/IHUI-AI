@@ -47,7 +47,7 @@ const skillsRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return reply.status(401).send(error(401, '未登录'))
     const body = z
       .object({
-        skills: z.array(skillSyncItemSchema),
+        skills: z.array(skillSyncItemSchema).max(100),
       })
       .safeParse(request.body)
     if (!body.success) return reply.status(400).send(error(400, '参数错误'))
@@ -109,7 +109,7 @@ const skillsRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return reply.status(401).send(error(401, '未登录'))
     const body = z
       .object({
-        localSkills: z.array(skillSyncItemSchema),
+        localSkills: z.array(skillSyncItemSchema).max(100),
       })
       .safeParse(request.body)
     if (!body.success) return reply.status(400).send(error(400, '参数错误'))
