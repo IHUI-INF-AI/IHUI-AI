@@ -5,7 +5,7 @@
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { eq, and, desc, count, inArray } from 'drizzle-orm'
+import { eq, and, desc, count, inArray, sum } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import {
   agentRule,
@@ -28,6 +28,8 @@ import {
   certificateTemplates,
   certificates,
   examRecords,
+  userCourseEnrollments,
+  userLearnRecords,
   eduClassesMembers,
   monitorAlerts,
   sysJobs,
@@ -724,7 +726,7 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(users.id, id))
       .limit(1)
     if (!row) return reply.status(404).send(error(404, '用户不存在'))
-    // 聚合查询：证书数(有效) + 考试数
+    // 聚合查询：证书数(有效) + 考试数 + 报名数(有效) + 学习总时长(秒) + 近 5 课时进度
     const [certRow] = await db
       .select({ cnt: count() })
       .from(certificates)
@@ -733,12 +735,29 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
       .select({ cnt: count() })
       .from(examRecords)
       .where(eq(examRecords.userId, id))
+    const [signupRow] = await db
+      .select({ cnt: count() })
+      .from(userCourseEnrollments)
+      .where(and(eq(userCourseEnrollments.userId, id), eq(userCourseEnrollments.status, 1)))
+    const [learnRow] = await db
+      .select({ total: sum(userLearnRecords.studyDuration) })
+      .from(userLearnRecords)
+      .where(eq(userLearnRecords.userId, id))
+    const lessonRows = await db
+      .select({ id: userLearnRecords.lessonId, progress: userLearnRecords.progress })
+      .from(userLearnRecords)
+      .where(eq(userLearnRecords.userId, id))
+      .orderBy(desc(userLearnRecords.updatedAt))
+      .limit(5)
     return reply.send(
       success({
         user: {
           ...row,
           certCount: certRow?.cnt ?? 0,
           examCount: examRow?.cnt ?? 0,
+          signupCount: signupRow?.cnt ?? 0,
+          learnHours: Number(learnRow?.total ?? 0),
+          lessons: lessonRows.map((l) => ({ id: l.id, progress: l.progress })),
         },
       }),
     )
