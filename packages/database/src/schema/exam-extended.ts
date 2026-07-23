@@ -7,6 +7,7 @@ import {
   boolean,
   timestamp,
   jsonb,
+  real,
   index,
   unique,
 } from 'drizzle-orm/pg-core'
@@ -97,6 +98,17 @@ export const examWrongQuestion = pgTable(
     wrongCount: integer('wrong_count').default(1).notNull(),
     lastWrongTime: timestamp('last_wrong_time', { withTimezone: true }),
     isMastered: boolean('is_mastered').default(false).notNull(),
+    // P3 深度层 SRS(SM-2 间隔重复系统)字段,2026-07-23 立
+    // ease_factor:难度因子(初始 2.5,范围 1.3~5.0)
+    // interval:间隔天数(下次复习距上次复习的天数)
+    // repetition:重复次数(答对累计次数,SM-2 状态机用)
+    // due_date:下次复习日期(SM-2 到期日)
+    // last_review_at:上次复习日期
+    easeFactor: real('ease_factor').default(2.5).notNull(),
+    interval: integer('interval').default(0).notNull(),
+    repetition: integer('repetition').default(0).notNull(),
+    dueDate: timestamp('due_date', { withTimezone: true }),
+    lastReviewAt: timestamp('last_review_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -104,6 +116,8 @@ export const examWrongQuestion = pgTable(
     userIdx: index('exam_wrong_question_user_idx').on(t.userId),
     questionIdx: index('exam_wrong_question_question_idx').on(t.questionId),
     userQuestionUniq: unique('exam_wrong_question_user_question_unique').on(t.userId, t.questionId),
+    // P3 SRS 到期日索引(供"今日待复习"查询)
+    dueDateIdx: index('exam_wrong_question_due_date_idx').on(t.dueDate),
   }),
 )
 
