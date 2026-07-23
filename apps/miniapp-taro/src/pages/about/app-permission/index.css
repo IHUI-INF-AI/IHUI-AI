@@ -21,7 +21,7 @@
 }
 .row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   padding: 28rpx 32rpx;
   border-bottom: 2rpx solid var(--color-border);
 }
@@ -30,6 +30,7 @@
 }
 .body {
   flex: 1;
+  margin-right: 16rpx;
 }
 .head {
   display: flex;
@@ -57,6 +58,19 @@
   color: var(--color-muted-foreground);
   margin-top: 8rpx;
   line-height: 1.6;
+}
+.setting-btn {
+  flex-shrink: 0;
+  font-size: 24rpx;
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: 8rpx;
+  padding: 0 20rpx;
+  line-height: 56rpx;
+  margin: 0;
+}
+.setting-btn::after {
+  border: none;
 }
 .tips {
   text-align: center;
