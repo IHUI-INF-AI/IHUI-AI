@@ -159,9 +159,7 @@ export interface ComputerKeyboardHotkeyParams {
   keys: string[]
 }
 
-export interface ComputerActiveWindowParams {
-  // 无参数,占位接口
-}
+export type ComputerActiveWindowParams = Record<string, never>
 
 export interface ComputerClipboardGetParams {
   /** 剪贴板格式,默认 'text' */
