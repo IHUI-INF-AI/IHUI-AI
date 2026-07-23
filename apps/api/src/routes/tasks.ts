@@ -36,6 +36,7 @@ import type {
   TaskDevice,
   TaskDeviceRegisterResponse,
   TaskDeviceListResponse,
+  TaskCancelResponse,
 } from '@ihui/shared'
 
 const dispatchSchema = z.object({
@@ -48,6 +49,16 @@ const resultSchema = z.object({
   status: z.enum(['pending', 'running', 'completed', 'failed', 'cancelled']),
   output: z.string().max(100_000).optional(),
   error: z.string().max(10_000).optional(),
+})
+
+/** POST /tasks/:id/cancel body:可空或 { reason?: string }(2026-07-23 立) */
+const cancelSchema = z.object({
+  reason: z.string().max(1_000).optional(),
+})
+
+/** GET /tasks?since=<timestamp> 查询参数(2026-07-23 立) */
+const sinceSchema = z.object({
+  since: z.coerce.number().int().nonnegative().optional(),
 })
 
 const deviceTypeSchema = z.enum([
@@ -172,7 +183,7 @@ async function removeDevice(
 function publishTaskWs(
   server: FastifyInstance,
   userId: string,
-  channel: 'task-dispatch' | 'task-result',
+  channel: 'task-dispatch' | 'task-result' | 'task-cancelled',
   message: TaskWsMessage,
 ): void {
   const fullChannel = `${channel}:${userId}`
@@ -268,15 +279,75 @@ export const tasksRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ task }))
   })
 
-  // GET /tasks — 列出用户任务
+  // GET /tasks — 列出用户任务(支持 ?since=<timestamp> 增量拉取,2026-07-23 立)
+  // 不传 since 时返回全量;传 since 时返回 updatedAt > since 的任务(用于 WS 重连后补拉断线期间错过的任务)
   server.get('/tasks', async (request: FastifyRequest, reply: FastifyReply) => {
     if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
 
+    const parsed = sinceSchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const since = parsed.data.since
+
     const key = userKey(userId)
-    const tasks = await readTasks(server.redis, key)
+    const allTasks = await readTasks(server.redis, key)
+    const tasks =
+      since !== undefined
+        ? allTasks.filter((t) => Date.parse(t.updatedAt) > since)
+        : allTasks
     return reply.send(success({ tasks, total: tasks.length }))
   })
+
+  // POST /tasks/:id/cancel — 取消任务(2026-07-23 立,P0 跨端任务取消)
+  // 鉴权:复用 authenticate preHandler。
+  // 校验:task 存在 + 属于当前用户 + 状态 ∈ {pending, running}(否则 409)。
+  // 执行:更新 status=cancelled + updatedAt=now + WS 推送 task-cancelled:<userId> 消息。
+  server.post<{ Params: { id: string } }>(
+    '/tasks/:id/cancel',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const userId = request.userId!
+      const { id: taskId } = request.params
+
+      const parsed = cancelSchema.safeParse(request.body ?? {})
+      if (!parsed.success) {
+        return reply
+          .status(400)
+          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+
+      const key = userKey(userId)
+      const tasks = await readTasks(server.redis, key)
+      const idx = tasks.findIndex((t) => t.id === taskId)
+      if (idx < 0) {
+        return reply.status(404).send(error(404, '任务不存在'))
+      }
+
+      const task = tasks[idx]!
+      // 仅 pending / running 可取消;completed/failed/cancelled 返回 409
+      if (task.status !== 'pending' && task.status !== 'running') {
+        return reply.status(409).send(error(409, `任务已处于 ${task.status} 状态,无法取消`))
+      }
+
+      const now = new Date().toISOString()
+      task.status = 'cancelled'
+      task.updatedAt = now
+      await writeTasks(server.redis, key, tasks)
+
+      // WS 推送 task-cancelled:<userId> 消息:taskId + 携带发起方设备标识(fromDevice)
+      publishTaskWs(server, userId, 'task-cancelled', {
+        type: 'task-cancelled',
+        taskId,
+        deviceId: task.fromDevice,
+        payload: task,
+      })
+
+      const response: TaskCancelResponse = { task }
+      return reply.send(success(response))
+    },
+  )
 
   // POST /tasks/register-device — 设备上线注册/心跳刷新(Hash 结构 + 60s TTL)
   server.post(

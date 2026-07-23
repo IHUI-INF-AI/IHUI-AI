@@ -247,5 +247,15 @@ export default {
       failed: 'Failed',
       cancelled: 'Cancelled',
     },
+    cancel: {
+      cancelButton: 'Cancel Task',
+      cancelling: 'Cancelling',
+      cancelSuccess: 'Task cancelled',
+      cancelFailed: 'Failed to cancel task',
+    },
+    reconnect: {
+      reconnecting: 'Syncing tasks',
+      reconnectSuccess: 'Tasks synced',
+    },
   },
 }
