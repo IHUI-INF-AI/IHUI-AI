@@ -472,6 +472,22 @@ textarea:focus {
   padding: 16px 24px;
 }
 
+/* 启用会话侧边栏时改为横向 flex */
+.chat-page--with-sidebar {
+  flex-direction: row;
+  padding: 0;
+  gap: 0;
+}
+
+.chat-page--with-sidebar .chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px 24px;
+  min-width: 0;
+}
+
 .chat-list {
   flex: 1;
   overflow: auto;
@@ -532,6 +548,405 @@ textarea:focus {
   outline: 2px dashed var(--accent, #4a90e2);
   outline-offset: -4px;
   background: var(--drag-bg, rgba(74, 144, 226, 0.04));
+}
+
+/* ============== 会话侧边栏 ============== */
+
+.conv-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-right: 1px solid var(--border);
+  background: var(--sidebar-bg, rgba(0, 0, 0, 0.02));
+}
+
+.conv-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.conv-sidebar-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.conv-new-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+  border-radius: 6px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.conv-new-btn:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.05));
+}
+
+.conv-list {
+  flex: 1;
+  overflow: auto;
+  padding: 8px;
+}
+
+.conv-empty {
+  padding: 24px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.conv-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  margin-bottom: 2px;
+}
+
+.conv-item:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.05));
+}
+
+.conv-item--active {
+  background: var(--active-bg, rgba(74, 144, 226, 0.08));
+}
+
+.conv-item--active:hover {
+  background: var(--active-bg, rgba(74, 144, 226, 0.12));
+}
+
+.conv-item-title {
+  font-size: 13px;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.conv-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.conv-item-count {
+  padding: 1px 6px;
+  background: var(--badge-bg, rgba(0, 0, 0, 0.06));
+  border-radius: 8px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.conv-item-delete {
+  margin-left: auto;
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease;
+  border-radius: 4px;
+}
+
+.conv-item:hover .conv-item-delete,
+.conv-item--active .conv-item-delete {
+  opacity: 1;
+}
+
+.conv-item-delete:hover {
+  color: var(--danger, #dc2626);
+  background: var(--danger-bg, rgba(220, 38, 38, 0.08));
+}
+
+/* Dark mode 调整 */
+:root[data-theme='dark'] .conv-sidebar {
+  background: var(--sidebar-bg, rgba(255, 255, 255, 0.02));
+}
+
+:root[data-theme='dark'] .conv-item--active {
+  background: var(--active-bg, rgba(255, 255, 255, 0.06));
+}
+
+/* ============== 对话导出下拉菜单 ============== */
+
+.export-dropdown {
+  position: relative;
+  display: inline-flex;
+}
+
+.export-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 180px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  z-index: 50;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.export-menu button {
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.export-menu button:hover {
+  background: var(--muted-bg);
+}
+
+:root[data-theme='dark'] .export-menu {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* ============== Markdown 渲染 ============== */
+
+.md-body {
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.md-body p {
+  margin: 0 0 8px;
+}
+
+.md-body p:last-child {
+  margin-bottom: 0;
+}
+
+.md-body h1,
+.md-body h2,
+.md-body h3,
+.md-body h4,
+.md-body h5,
+.md-body h6 {
+  margin: 12px 0 6px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.md-body h1 {
+  font-size: 18px;
+}
+
+.md-body h2 {
+  font-size: 16px;
+}
+
+.md-body h3 {
+  font-size: 15px;
+}
+
+.md-body h4,
+.md-body h5,
+.md-body h6 {
+  font-size: 14px;
+}
+
+.md-body ul,
+.md-body ol {
+  margin: 6px 0;
+  padding-left: 20px;
+}
+
+.md-body li {
+  margin-bottom: 4px;
+}
+
+.md-body a {
+  color: var(--link, #2563eb);
+  text-decoration: none;
+}
+
+.md-body a:hover {
+  text-decoration: underline;
+}
+
+.md-body blockquote {
+  margin: 8px 0;
+  padding: 4px 12px;
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+  background: var(--blockquote-bg, rgba(0, 0, 0, 0.02));
+}
+
+.md-body hr {
+  margin: 12px 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+/* 行内代码(非代码块) */
+.md-body code:not(.hljs):not([class*='language-']) {
+  padding: 1px 5px;
+  background: var(--inline-code-bg, rgba(0, 0, 0, 0.06));
+  border-radius: 3px;
+  font-family: ui-monospace, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+/* 代码块容器 */
+.md-code-block {
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--code-bg, #f6f8fa);
+}
+
+.md-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  background: var(--code-header-bg, rgba(0, 0, 0, 0.04));
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+
+.md-code-lang {
+  color: var(--muted);
+  text-transform: lowercase;
+  letter-spacing: 0.3px;
+}
+
+.md-code-copy {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.md-code-copy:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+  color: var(--fg);
+}
+
+.md-code-block pre {
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  font-size: 12.5px;
+  line-height: 1.5;
+  font-family: ui-monospace, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+}
+
+.md-code-block pre code {
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* 表格 */
+.md-table-wrap {
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.md-body table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+
+.md-body th,
+.md-body td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.md-body th {
+  background: var(--th-bg, rgba(0, 0, 0, 0.03));
+  font-weight: 600;
+}
+
+/* 用户消息纯文本(不渲染 markdown) */
+.md-plain {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 消息复制按钮(hover 显示) */
+.msg-copy-btn {
+  align-self: flex-end;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.chat-bubble:hover .msg-copy-btn {
+  opacity: 1;
+}
+
+.msg-copy-btn:hover {
+  background: var(--hover-bg, rgba(0, 0, 0, 0.06));
+  color: var(--fg);
+}
+
+/* Dark mode 调整 */
+:root[data-theme='dark'] .md-body blockquote {
+  background: var(--blockquote-bg, rgba(255, 255, 255, 0.03));
+}
+
+:root[data-theme='dark'] .md-body code:not(.hljs):not([class*='language-']) {
+  background: var(--inline-code-bg, rgba(255, 255, 255, 0.1));
+}
+
+:root[data-theme='dark'] .md-code-block {
+  background: var(--code-bg, #0d1117);
+}
+
+:root[data-theme='dark'] .md-code-header {
+  background: var(--code-header-bg, rgba(255, 255, 255, 0.04));
+}
+
+:root[data-theme='dark'] .md-body th {
+  background: var(--th-bg, rgba(255, 255, 255, 0.04));
 }
 
 .empty-state-hint {
