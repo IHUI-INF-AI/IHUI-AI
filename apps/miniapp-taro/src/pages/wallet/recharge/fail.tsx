@@ -1,10 +1,17 @@
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
-import { useI18n } from '@/i18n'
+
+// 充值失败页文案(wallet.recharge.fail.* i18n key 暂未定义,沿用原项目硬编码中文模式)
+const FAIL_TEXT = {
+  title: '充值失败',
+  desc: '充值未成功,请稍后重试',
+  retry: '重新充值',
+  backWallet: '返回钱包',
+  orderNoLabel: '订单号',
+}
 
 export default function RechargeFail() {
-  const { t } = useI18n()
   const router = useRouter()
   const [orderNo, setOrderNo] = useState('')
 
@@ -27,14 +34,14 @@ export default function RechargeFail() {
           ×
         </View>
         <Text className="block text-[36rpx] text-foreground font-semibold mt-[32rpx]">
-          {t('wallet.recharge.fail.title')}
+          {FAIL_TEXT.title}
         </Text>
         <Text className="block text-[26rpx] text-muted-foreground mt-[12rpx] px-[60rpx]">
-          {t('wallet.recharge.fail.desc')}
+          {FAIL_TEXT.desc}
         </Text>
         {orderNo ? (
           <Text className="block text-[22rpx] text-[#bbb] mt-[24rpx] px-[60rpx]">
-            {t('order.orderNo')} {orderNo}
+            {FAIL_TEXT.orderNoLabel} {orderNo}
           </Text>
         ) : null}
       </View>
@@ -43,13 +50,13 @@ export default function RechargeFail() {
           className="mt-[32rpx] bg-primary text-white rounded-[40rpx] text-[30rpx]"
           onClick={retry}
         >
-          {t('wallet.recharge.fail.retry')}
+          {FAIL_TEXT.retry}
         </Button>
         <Button
           className="mt-[32rpx] bg-card text-foreground rounded-[40rpx] text-[30rpx]"
           onClick={goBack}
         >
-          {t('wallet.recharge.fail.backWallet')}
+          {FAIL_TEXT.backWallet}
         </Button>
       </View>
     </View>
