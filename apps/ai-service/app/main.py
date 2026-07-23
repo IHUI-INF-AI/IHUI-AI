@@ -37,6 +37,8 @@ from app.routers import self_media
 from app.routers import publish
 from app.routers import opencompass
 from app.routers import screenshot
+# 2026-07-23 新增:AI Skills TOP 19 个 skill 路由(用户可选调用)
+from app.routers import ai_skills
 # P3 深度层 Wave 11:6 大对标能力(2026-07-22 立,对标 Codex/Trae/Qoder)
 from app.routers import rules, hooks, spec
 # 跨支柱编排中枢(2026-07-23 立,事件总线 + 联合决策 + 预算治理 + 统一遥测)
@@ -181,6 +183,8 @@ def create_app() -> FastAPI:
     app.include_router(voice_stt.router, prefix="/api", tags=["voice"])
     # 自媒体 skill(公众号文章 + 口播稿,2026-07-20 新增)
     app.include_router(self_media.router, prefix="/api", tags=["self-media"])
+    # AI Skills TOP 19 个 skill 路由(2026-07-23 新增,用户可选调用)
+    app.include_router(ai_skills.router, prefix="/api", tags=["ai-skills"])
     # 多平台一键发布(14 平台 + AES-256-GCM 凭证加密 + 调度器,2026-07-20 新增)
     app.include_router(publish.router, prefix="/api", tags=["publish"])
     # OpenCompass 排行榜抓取(Playwright 渲染,2026-07-22 新增,供 api ai-world-sync 调用)
