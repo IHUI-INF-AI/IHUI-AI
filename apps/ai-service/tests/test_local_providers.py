@@ -151,3 +151,4 @@ def _make_openai_stream_lines() -> list[str]:
         'data: {"choices":[{"delta":{"content":" there"}}]}',
         'data: {"choices":[],"usage":{"prompt_tokens":5,"completion_tokens":8,"total_tokens":13},"model":"local-model"}',
         "data: [DONE]",
+    ]
