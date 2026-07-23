@@ -24,10 +24,16 @@ const nextConfig: NextConfig = {
       // webpack 模式仍由 plugin 的 webpack 分支自动处理(config.resolve.alias)。
       'next-intl/config': './src/i18n/request.ts',
     },
+    // solito 用 .web.js 平台扩展名(web 版 vs native 版),必须配置 resolveExtensions
+    // 让 Turbopack 优先解析 .web.js/.web.tsx,否则 solito 的 next-link.web.js 不被加载,
+    // TextLink 在 web 端无法渲染为 <a> 标签
+    resolveExtensions: ['.web.js', '.web.jsx', '.web.ts', '.web.tsx', '.js', '.jsx', '.ts', '.tsx', '.json', '.mjs'],
   },
   webpack: (config) => {
     config.resolve.alias = config.resolve.alias || {}
     config.resolve.alias['react-native$'] = 'react-native-web'
+    // solito .web.js 平台扩展名解析(webpack 模式)
+    config.resolve.extensions = ['.web.js', '.web.jsx', '.web.ts', '.web.tsx', ...config.resolve.extensions || []]
     return config
   },
   experimental: {
