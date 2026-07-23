@@ -19,12 +19,12 @@ const entries = [
 
 // AI 应用入口(融合原项目 AI 应用商店概念)
 const aiEntries = [
-  { icon: '💬', label: 'AI对话', path: '/pages/ai/chat' },
-  { icon: '🎨', label: 'AI绘图', path: '/pages/ai/image' },
-  { icon: '🎙️', label: 'AI语音', path: '/pages/ai/voice' },
-  { icon: '🎬', label: 'AI视频', path: '/pages/ai/video' },
-  { icon: '⚡', label: '智能体', path: '/pages/ai/agent' },
-  { icon: '🏛️', label: '模型广场', path: '/pages/model-plaza/index' },
+  { icon: '💬', key: 'home.aiEntries.aiChat', path: '/pages/ai/chat' },
+  { icon: '🎨', key: 'home.aiEntries.aiImage', path: '/pages/ai/image' },
+  { icon: '🎙️', key: 'home.aiEntries.aiVoice', path: '/pages/ai/voice' },
+  { icon: '🎬', key: 'home.aiEntries.aiVideo', path: '/pages/ai/video' },
+  { icon: '⚡', key: 'home.aiEntries.agent', path: '/pages/ai/agent' },
+  { icon: '🏛️', key: 'home.aiEntries.modelPlaza', path: '/pages/model-plaza/index' },
 ]
 
 interface StudyStats {
@@ -228,7 +228,7 @@ export default function Index() {
       {/* AI 应用入口(融合原项目 AI 应用商店概念)— 赛博朋克网格 */}
       <View className="mx-[16px] my-[12px] tech-card p-[12px]">
         <View className="flex justify-between items-center mb-[10px]">
-          <Text className="text-[15px] font-semibold text-neon">AI 应用</Text>
+          <Text className="text-[15px] font-semibold text-neon">{t('home.aiAppTitle')}</Text>
           <Text
             className="text-[12px] text-muted-foreground"
             onClick={() => goPage('/pages/ai/agent')}
@@ -246,7 +246,7 @@ export default function Index() {
               <View className="w-[44px] h-[44px] rounded-[10px] gradient-cyber flex items-center justify-center mb-[4px]">
                 <Text className="text-[22px]">{entry.icon}</Text>
               </View>
-              <Text className="text-[11px] text-white">{entry.label}</Text>
+              <Text className="text-[11px] text-white">{t(entry.key)}</Text>
             </View>
           ))}
         </View>
