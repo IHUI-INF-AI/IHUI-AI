@@ -167,7 +167,13 @@ export default {
       searchPlaceholder: '강의 검색',
       search: '검색',
       empty: '강의 없음'
-    }
+    },
+    ratingTitle: '코스 평가',
+    ratingLabels: ['', '매우 나쁨', '나쁨', '보통', '좋음', '매우 좋음'],
+    ratingPlaceholder: '평가해주세요',
+    ratingDescLabel: '리뷰를 작성하세요',
+    ratingInputPlaceholder: '코스는 어땠나요? 생각을 공유하세요...',
+    ratingSubmit: '리뷰 제출'
   },
   live: {
     title: '라이브',
@@ -226,7 +232,9 @@ export default {
       sessions: '회 라이브',
       liveList: '라이브 일정',
       noLive: '오늘 라이브 일정이 없습니다'
-    }
+    },
+    calendarBtn: '📅 달력',
+    mySubscriptionBtn: '🔔 내 구독'
   },
   profile: {
     title: '마이페이지',
@@ -1289,7 +1297,9 @@ export default {
     rank: {
       title: '배포 랭킹',
       empty: '랭킹 데이터 없음'
-    }
+    },
+    rankTitle: '배포 랭킹',
+    rankEmpty: '랭킹 데이터 없음'
   },
   about: {
     version: '버전 {{version}}',
@@ -1786,7 +1796,18 @@ export default {
     title: '모델 광장',
     unnamed: '제목 없는 모델',
     noDesc: '설명 없음',
-    empty: '모델 없음'
+    empty: '모델 없음',
+    tabAll: '전체',
+    tabText: '텍스트',
+    tabImage: '이미지',
+    tabAv: '오디오/비디오',
+    payMode: '사용량 기준',
+    modelCount: '{{n}}개 모델',
+    synced: '{{n}}개 동기화',
+    perKTokens: '천 토큰',
+    noMore: '— 더 이상 없음 —',
+    contextLength: '컨텍스트',
+    providerModel: '모델'
   },
   news: {
     search: '뉴스 검색',
@@ -1985,7 +2006,10 @@ export default {
       followYou: '회원님을 팔로우했습니다',
       targetReact: 'React 입문 3강',
       targetAi: 'AI 대모델 실전'
-    }
+    },
+    startConversation: '대화를 시작하세요',
+    inputPlaceholder: '메시지를 입력하세요...',
+    sendBtn: '전송'
   },
   member: {
     index: {
@@ -2156,7 +2180,11 @@ export default {
       loadFailed: '로딩 실패',
       progress: '진행도',
       lastTime: '지난 학습'
-    }
+    },
+    noteTitle: '학습 노트',
+    noteClose: '닫기',
+    notePlaceholder: '학습 내용을 기록하세요...',
+    noteCountUnit: '자'
   },
   subscriptions: {
     cancel: '구독 취소',
@@ -2670,5 +2698,37 @@ export default {
     content: '내용',
     contact: '연락처',
     contactPlaceholder: '연락처를 입력하세요(선택)'
+  },
+  comment: {
+    loading: '로딩 중...',
+    empty: '댓글이 없어요, 첫 댓글을 남겨보세요!',
+    reply: '답글',
+    placeholder: '댓글을 입력하세요...',
+    send: '전송'
+  },
+  subscription: {
+    statusActive: '활성',
+    statusPending: '대기중',
+    statusCancelled: '해지됨',
+    statusExpired: '만료',
+    chargeSuccess: '결제 성공',
+    chargeFailed: '결제 실패',
+    chargePending: '결제 중',
+    cancelTitle: '해지 확인',
+    cancelContent: '이 자동 갱신 계약을 취소하시겠습니까? 취소 후 자동 결제되지 않습니다.',
+    cancelConfirmBtn: '해지 확인',
+    cancelThinkBtn: '다시 생각해보기',
+    processing: '처리 중',
+    cancelSuccess: '해지됨',
+    cancelFailed: '해지 실패',
+    contractsTitle: '자동 갱신 관리',
+    autoRenew: '자동 갱신',
+    planLabel: '플랜',
+    nextCharge: '다음 결제',
+    lastCharge: '이전 결제',
+    signTime: '계약 시간',
+    cancelBtn: '해지',
+    contractsEmpty: '자동 갱신 계약 없음',
+    loadingText: '로딩 중...'
   }
 }
