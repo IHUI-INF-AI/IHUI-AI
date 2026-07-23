@@ -1,77 +1,215 @@
 .vip-trader-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding-bottom: 160rpx;
+  padding-bottom: 180rpx;
 }
+.trader-scroll {
+  height: 100vh;
+}
+
+/* ===== 操盘手头部 ===== */
 .trader-header {
-  padding: 80rpx 40rpx 60rpx;
+  padding: 60rpx 32rpx 40rpx;
   background: linear-gradient(135deg, #f8d486, var(--color-warning));
+}
+.trader-header-main {
+  display: flex;
+  align-items: center;
+}
+.trader-avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 16rpx;
+  background: rgba(255, 255, 255, 0.4);
+  margin-right: 24rpx;
+  flex-shrink: 0;
+}
+.trader-header-info {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
-.trader-title {
-  font-size: 48rpx;
+.trader-name-row {
+  display: flex;
+  align-items: center;
+}
+.trader-name {
+  font-size: 36rpx;
   font-weight: 700;
   color: var(--color-foreground);
 }
-.trader-subtitle {
-  margin-top: 16rpx;
-  font-size: 26rpx;
+.trader-badge {
+  margin-left: 12rpx;
+  padding: 4rpx 12rpx;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 6rpx;
+}
+.trader-badge-text {
+  font-size: 20rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
+}
+.trader-title-text {
+  margin-top: 8rpx;
+  font-size: 24rpx;
   color: rgba(255, 255, 255, 0.9);
-  line-height: 1.5;
 }
 .trader-price-wrap {
+  margin-top: 12rpx;
   display: flex;
-  align-items: flex-start;
-  margin-top: 24rpx;
+  align-items: baseline;
+  flex-wrap: wrap;
 }
 .trader-price-symbol {
-  font-size: 32rpx;
-  color: var(--color-foreground);
+  font-size: 26rpx;
   font-weight: 700;
-  line-height: 1;
-  margin-top: 12rpx;
+  color: var(--color-foreground);
 }
 .trader-price {
-  font-size: 72rpx;
-  color: var(--color-foreground);
+  font-size: 56rpx;
   font-weight: 700;
+  color: var(--color-foreground);
+  margin-left: 4rpx;
   line-height: 1;
-  margin-left: 8rpx;
 }
+.trader-price-suffix {
+  margin-left: 8rpx;
+  font-size: 22rpx;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ===== 通用 Section ===== */
 .trader-section {
   margin: 24rpx;
-  padding: 32rpx;
+  padding: 28rpx;
   background: var(--color-card);
   border-radius: 16rpx;
 }
 .section-title {
-  font-size: 32rpx;
+  font-size: 30rpx;
   font-weight: 600;
   color: var(--color-foreground);
   display: block;
-  margin-bottom: 24rpx;
+  margin-bottom: 20rpx;
 }
+
+/* ===== 简介 ===== */
+.trader-intro {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.trader-intro-expanded {
+  -webkit-line-clamp: unset;
+  display: block;
+}
+.trader-intro-toggle {
+  margin-top: 12rpx;
+  text-align: right;
+}
+.trader-intro-toggle-text {
+  font-size: 24rpx;
+  color: var(--color-primary);
+}
+
+/* ===== 能力标签 ===== */
+.trader-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+.trader-tag {
+  padding: 8rpx 20rpx;
+  background: rgba(0, 242, 255, 0.08);
+  border: 2rpx solid rgba(0, 242, 255, 0.2);
+  border-radius: 8rpx;
+}
+.trader-tag-text {
+  font-size: 24rpx;
+  color: var(--color-primary);
+}
+
+/* ===== 历史业绩 ===== */
+.trader-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+.trader-metric {
+  flex: 1;
+  min-width: 40%;
+  padding: 16rpx;
+  background: var(--color-background);
+  border-radius: 12rpx;
+}
+.trader-metric-value {
+  font-size: 32rpx;
+  font-weight: 700;
+  display: block;
+}
+.trader-metric-up {
+  color: #16a34a;
+}
+.trader-metric-down {
+  color: #dc2626;
+}
+.trader-metric-label {
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  display: block;
+}
+.trader-chart {
+  margin-top: 24rpx;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 120rpx;
+  padding: 0 8rpx;
+}
+.trader-chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.trader-chart-bar {
+  width: 32rpx;
+  background: linear-gradient(180deg, #f8d486, var(--color-warning));
+  border-radius: 6rpx 6rpx 0 0;
+}
+.trader-chart-label {
+  margin-top: 8rpx;
+  font-size: 20rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 权益列表 ===== */
 .feature-list {
   display: flex;
   flex-direction: column;
-  gap: 24rpx;
+  gap: 20rpx;
 }
 .feature-item {
   display: flex;
   align-items: flex-start;
 }
 .feature-icon {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 16rpx;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 12rpx;
   background: rgba(245, 158, 11, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-right: 20rpx;
   flex-shrink: 0;
-  font-size: 36rpx;
+  font-size: 32rpx;
 }
 .feature-content {
   flex: 1;
@@ -79,53 +217,164 @@
   flex-direction: column;
 }
 .feature-title {
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 600;
   color: var(--color-foreground);
 }
 .feature-desc {
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.5;
+}
+
+/* ===== 服务包 ===== */
+.trader-packages {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.trader-package {
+  padding: 24rpx;
+  background: var(--color-background);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 12rpx;
+}
+.trader-package-highlight {
+  border-color: var(--color-warning);
+}
+.trader-package-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.trader-package-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.trader-package-tag {
+  padding: 4rpx 12rpx;
+  background: var(--color-warning);
+  border-radius: 6rpx;
+}
+.trader-package-tag-text {
+  font-size: 20rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
+}
+.trader-package-period {
   margin-top: 8rpx;
   font-size: 24rpx;
   color: var(--color-muted-foreground);
-  line-height: 1.6;
+  display: block;
 }
+.trader-package-price-row {
+  margin-top: 12rpx;
+  display: flex;
+  align-items: baseline;
+}
+.trader-package-symbol {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: var(--color-warning);
+}
+.trader-package-price {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--color-warning);
+  margin-left: 4rpx;
+}
+.trader-package-btn {
+  margin-top: 16rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  padding: 0;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.3);
+  border-radius: 10rpx;
+}
+.trader-package-btn-primary {
+  color: var(--color-foreground);
+  background: var(--color-warning);
+  border-color: var(--color-warning);
+}
+
+/* ===== 用户评价 ===== */
+.trader-reviews {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+.trader-review {
+  display: flex;
+  padding: 20rpx;
+  background: var(--color-background);
+  border-radius: 12rpx;
+}
+.trader-review-avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 10rpx;
+  background: var(--color-muted);
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+.trader-review-main {
+  flex: 1;
+  min-width: 0;
+}
+.trader-review-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.trader-review-name {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.trader-review-stars {
+  font-size: 22rpx;
+  color: var(--color-warning);
+}
+.trader-review-content {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.5;
+}
+
+/* ===== 底部操作栏 ===== */
 .trader-footer {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
   display: flex;
-  align-items: center;
+  gap: 16rpx;
   padding: 20rpx 32rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.06);
 }
-.footer-price {
-  display: flex;
-  align-items: flex-start;
-  margin-right: 24rpx;
-}
-.footer-price-symbol {
-  font-size: 26rpx;
-  color: var(--color-warning);
-  font-weight: 700;
-  line-height: 1;
-  margin-top: 12rpx;
-}
-.footer-price-value {
-  font-size: 48rpx;
-  color: var(--color-warning);
-  font-weight: 700;
-  line-height: 1;
-  margin-left: 4rpx;
-}
 .footer-btn {
   flex: 1;
-  background: var(--color-warning);
-  color: var(--color-foreground);
-  font-size: 32rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  padding: 0;
+  font-size: 30rpx;
   font-weight: 600;
-  border-radius: 16rpx;
+  border-radius: 12rpx;
   border: none;
+}
+.footer-btn-ghost {
+  color: var(--color-warning);
+  background: rgba(245, 158, 11, 0.1);
+}
+.footer-btn-primary {
+  color: var(--color-foreground);
+  background: var(--color-warning);
 }

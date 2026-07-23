@@ -1,0 +1,196 @@
+.cal-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: 24rpx;
+  padding-bottom: 60rpx;
+  box-sizing: border-box;
+}
+
+/* ===== 月份导航 ===== */
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+.cal-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: var(--color-foreground);
+}
+.cal-nav-btn {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+  color: var(--color-primary);
+  background: rgba(0, 242, 255, 0.1);
+  border: 2rpx solid rgba(0, 242, 255, 0.3);
+  border-radius: 8rpx;
+}
+.cal-today-btn {
+  padding: 8rpx 20rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  border-radius: 8rpx;
+}
+
+/* ===== 统计 ===== */
+.cal-stat {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+.cal-stat-num {
+  font-weight: 700;
+  color: var(--color-primary);
+  margin: 0 6rpx;
+}
+
+/* ===== 星期表头 ===== */
+.cal-week {
+  display: flex;
+  margin-top: 20rpx;
+}
+.cal-week-cell {
+  flex: 1;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  padding: 12rpx 0;
+}
+
+/* ===== 日历网格 ===== */
+.cal-grid {
+  display: flex;
+  flex-wrap: wrap;
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+.cal-cell,
+.cal-cell-empty {
+  width: 14.285%;
+  min-height: 84rpx;
+  box-sizing: border-box;
+}
+.cal-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8rpx 0;
+}
+.cal-cell-active {
+  background: rgba(0, 242, 255, 0.06);
+}
+.cal-cell-num {
+  font-size: 26rpx;
+  color: var(--color-foreground);
+}
+.cal-cell-active .cal-cell-num {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+.cal-dot {
+  width: 10rpx;
+  height: 10rpx;
+  background: var(--color-primary);
+  border-radius: 4rpx;
+  margin-top: 6rpx;
+}
+
+/* ===== 选中日期直播列表 ===== */
+.cal-section-title {
+  margin: 24rpx 0 16rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.cal-card {
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 12rpx;
+  padding: 20rpx;
+  margin-bottom: 16rpx;
+}
+.cal-card-cover {
+  width: 100%;
+  height: 220rpx;
+  background: var(--color-muted);
+  border-radius: 8rpx;
+}
+.cal-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12rpx;
+}
+.cal-card-title {
+  flex: 1;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.cal-badge {
+  padding: 4rpx 14rpx;
+  border-radius: 6rpx;
+  font-size: 22rpx;
+  margin-left: 12rpx;
+}
+.cal-badge-upcoming {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+}
+.cal-badge-living {
+  background: rgba(221, 82, 77, 0.12);
+  color: #dd524d;
+}
+.cal-badge-ended {
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
+}
+.cal-card-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.cal-action {
+  display: block;
+  margin-top: 16rpx;
+  padding: 12rpx 0;
+  text-align: center;
+  font-size: 26rpx;
+  border-radius: 8rpx;
+}
+.cal-action-upcoming {
+  color: var(--color-primary);
+  background: rgba(0, 242, 255, 0.1);
+  border: 2rpx solid rgba(0, 242, 255, 0.3);
+}
+.cal-action-living {
+  color: #fff;
+  background: #dd524d;
+}
+.cal-action-ended {
+  color: var(--color-primary);
+  background: rgba(0, 242, 255, 0.06);
+  border: 2rpx solid rgba(0, 242, 255, 0.2);
+}
+.cal-empty {
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  padding: 80rpx 0;
+}
