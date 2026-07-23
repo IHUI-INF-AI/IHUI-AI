@@ -35,6 +35,7 @@
     "@ihui/auth": "workspace:*",
     "@ihui/context-compaction": "workspace:*",
     "@ihui/database": "workspace:*",
+    "@ihui/shared": "workspace:*",
     "@ihui/types": "workspace:*",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/auto-instrumentations-node": "^0.78.0",
