@@ -48,7 +48,7 @@ export default {
     wechat: 'WeChat',
   },
   home: {
-    welcome: '智汇 AI へようこそ',
+    welcome: 'IHUI AI へようこそ',
     greeting: 'こんにちは、{{name}}',
     todayRecommend: '今日のおすすめ',
     hotCourses: '人気コース',
@@ -207,7 +207,7 @@ export default {
     privacy: 'プライバシー',
     language: '言語',
     theme: 'テーマ',
-    about: '智汇 AI について',
+    about: 'IHUI AI について',
     version: 'バージョン',
     clearCache: 'キャッシュをクリア',
     update: '更新を確認',
