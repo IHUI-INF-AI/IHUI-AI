@@ -110,16 +110,34 @@ def test_builtin_skill_prompt_template_has_placeholders():
 @pytest.mark.parametrize(
     "name",
     [
+        # 第一批 6 个(2026-07-23 上轮已实装)
         "superpowers",
         "caveman",
         "graphify",
         "agent-skills",
         "awesome-claude-skills",
         "taste-skill",
+        # 第二批 9 个(2026-07-23 本轮从占位升级为真集成)
+        "agent-reach",
+        "horizon",
+        "media-crawler",
+        "generative-media-skills",
+        "guizang-social-card-skill",
+        "social-auto-upload",
+        "obsidian-skills",
+        "claude-plugins-official",
+        "awesome-agent-skills",
     ],
 )
 def test_new_real_integration_skill_available(name):
-    """6 个新真集成 skill 必须 available=True 且 prompt_template 非占位(2026-07-23)。"""
+    """15 个新真集成 skill 必须 available=True 且 prompt_template 非占位(2026-07-23)。
+
+    第一批 6 个:上轮已实装(superpowers/caveman/graphify/agent-skills/awesome-claude-skills/taste-skill)。
+    第二批 9 个:本轮从占位升级为真集成
+    (agent-reach/horizon/media-crawler/generative-media-skills/
+    guizang-social-card-skill/social-auto-upload/obsidian-skills/
+    claude-plugins-official/awesome-agent-skills)。
+    """
     s = skill_registry.get(name)
     assert s is not None, f"{name} 未注册"
     assert s.available is True, f"{name} 未标记为 available=True"
@@ -129,22 +147,45 @@ def test_new_real_integration_skill_available(name):
     assert not s.prompt_template.startswith("(GitHub 外部项目"), \
         f"{name} prompt_template 仍是占位符"
     # 必须含至少一个 {key} 占位符
-    assert "{" in s.prompt_template, f"{name} prompt_template 无 {key} 变量"
+    assert "{" in s.prompt_template, f"{name} prompt_template 无 {{key}} 变量"
 
 
-def test_ai_top_real_integration_count_at_least_10():
-    """ai-top 类别真集成数 ≥ 10(2026-07-23,4 老 + 6 新)。"""
-    real_skills = [
-        s for s in skill_registry.list_ai_top() if s.available
-    ]
-    assert len(real_skills) >= 10, \
-        f"期望 ≥ 10 个真集成 ai-top,实际 {len(real_skills)}"
-    # 显式列举 10 个
-    expected = {
-        "nuwa-skill", "hugshu-design", "auto-redbook-skills",
-        "guizang-ppt-skill", "superpowers", "caveman",
-        "graphify", "agent-skills", "awesome-claude-skills", "taste-skill",
+def test_ai_top_real_integration_count_is_19():
+    """ai-top 类别真集成数 = 19(2026-07-23,全部实装,无占位)。
+
+    10 个老真集成(上轮已实装):
+        nuwa-skill / hugshu-design / auto-redbook-skills / guizang-ppt-skill /
+        superpowers / caveman / graphify / agent-skills /
+        awesome-claude-skills / taste-skill
+    9 个新真集成(本轮从占位升级):
+        agent-reach / horizon / media-crawler / generative-media-skills /
+        guizang-social-card-skill / social-auto-upload / obsidian-skills /
+        claude-plugins-official / awesome-agent-skills
+    """
+    all_ai_top = skill_registry.list_ai_top()
+    real_skills = [s for s in all_ai_top if s.available]
+    placeholder_skills = [s for s in all_ai_top if not s.available]
+
+    # 19 个全部真集成,0 个占位
+    assert len(real_skills) == 19, \
+        f"期望 19 个真集成 ai-top,实际 {len(real_skills)}"
+    assert len(placeholder_skills) == 0, \
+        f"期望 0 个占位 ai-top,实际有 {len(placeholder_skills)} 个: " \
+        f"{[s.name for s in placeholder_skills]}"
+
+    # 显式列举全部 19 个真集成 skill 名
+    expected_19 = {
+        # CODEX 自媒体 10 个
+        "agent-reach", "horizon", "media-crawler", "hugshu-design",
+        "auto-redbook-skills", "generative-media-skills", "nuwa-skill",
+        "guizang-social-card-skill", "social-auto-upload",
+        # GitHub 热门 9 个(guizang-ppt-skill 也归入此类)
+        "superpowers", "caveman", "graphify", "agent-skills",
+        "awesome-claude-skills", "taste-skill", "obsidian-skills",
+        "claude-plugins-official", "awesome-agent-skills", "guizang-ppt-skill",
     }
     actual_names = {s.name for s in real_skills}
-    assert expected.issubset(actual_names), \
-        f"缺失真集成 skill: {expected - actual_names}"
+    missing = expected_19 - actual_names
+    extra = actual_names - expected_19
+    assert not missing, f"缺失真集成 skill: {missing}"
+    assert not extra, f"多出未列举的 skill: {extra}"
