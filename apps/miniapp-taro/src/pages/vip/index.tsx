@@ -24,8 +24,18 @@ import './index.css'
 
 const gradient = 'linear-gradient(135deg, #f8d486, var(--color-warning))'
 
+const DEFAULT_PLANS: PriceOption[] = [
+  { id: 'monthly', name: '月度会员', price: 30, period: '30天' },
+  { id: 'quarterly', name: '季度会员', price: 88, period: '90天' },
+  { id: 'yearly', name: '年度会员', price: 299, period: '365天' },
+]
+
 export default function VipIndexPage() {
   const { t } = useI18n()
+  const tt = (k: string, fb: string) => {
+    const v = t(k)
+    return v === k ? fb : v
+  }
   const [info, setInfo] = useState<VipInfo>({} as VipInfo)
   const [benefits, setBenefits] = useState<VipBenefit[]>([])
   const [priceOptions, setPriceOptions] = useState<PriceOption[]>([])
@@ -84,10 +94,13 @@ export default function VipIndexPage() {
         price: l.price / 100,
         period: `${l.durationDays}${t('page.vip.dayUnit')}`,
       })) as PriceOption[]
-      setPriceOptions(opts)
-      setSelectedPlan((prev) => prev ?? opts[0] ?? null)
+      const finalOpts = opts.length > 0 ? opts : DEFAULT_PLANS
+      setPriceOptions(finalOpts)
+      setSelectedPlan((prev) => prev ?? finalOpts[0] ?? null)
     } catch (e) {
       logger.error('vip/index', '获取VIP信息', e)
+      setPriceOptions(DEFAULT_PLANS)
+      setSelectedPlan((prev) => prev ?? DEFAULT_PLANS[0] ?? null)
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
     } finally {
       Taro.hideLoading()
@@ -166,6 +179,7 @@ export default function VipIndexPage() {
   return (
     <View className="page">
       <View className="header" style={{ background: info.level ? gradient : '#999' }}>
+        <Text className="brand-title">{tt('vip.index.brandTitle', 'AI智汇社 会员')}</Text>
         <View className="level-row">
           <View className="level">{info.level ? info.name : t('vip.notOpened')}</View>
           <Text className="intro-link" onClick={onIntroduceClick}>{t('vip.index.introduce')}</Text>

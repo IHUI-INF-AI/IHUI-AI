@@ -38,6 +38,16 @@ export default function VipDetailsPage() {
     { label: t('vip.details.features.adExperience'), normal: '有广告', vip: '免广告' },
   ]
 
+  // 权益详情(对标原 vip/details.vue 权益图标 + 标题 + 描述)
+  const BENEFIT_DETAILS = [
+    { icon: '💬', title: tt('vip.details.benefit.chat', '无限 AI 对话'), desc: tt('vip.details.benefit.chatDesc', '畅享顶级模型,不限次数') },
+    { icon: '🎨', title: tt('vip.details.benefit.draw', 'AI 绘图'), desc: tt('vip.details.benefit.drawDesc', '100次/天,高清无水印') },
+    { icon: '🎬', title: tt('vip.details.benefit.video', '视频生成'), desc: tt('vip.details.benefit.videoDesc', '60分钟视频生成时长') },
+    { icon: '🤖', title: tt('vip.details.benefit.model', '全部模型'), desc: tt('vip.details.benefit.modelDesc', '解锁所有付费模型') },
+    { icon: '🎧', title: tt('vip.details.benefit.support', '优先客服'), desc: tt('vip.details.benefit.supportDesc', '7×24 小时专属服务') },
+    { icon: '👥', title: tt('vip.details.benefit.group', '专属社群'), desc: tt('vip.details.benefit.groupDesc', 'VIP 会员专属交流群') },
+  ]
+
   const PLANS: VipPlan[] = [
     {
       type: 'monthly',
@@ -78,8 +88,29 @@ export default function VipDetailsPage() {
   return (
     <View className="page">
       <View className="banner">
+        <View className="banner-back" onClick={() => Taro.navigateBack()}>
+          <Text className="banner-back-icon">‹</Text>
+          <Text className="banner-back-text">{tt('common.back', '返回')}</Text>
+        </View>
         <Text className="banner-title">{t('vip.details.title')}</Text>
         <Text className="banner-desc">{t('vip.upgrade.bannerDesc')}</Text>
+      </View>
+
+      <View className="benefits">
+        <Text className="benefits-title">{tt('vip.details.benefitsTitle', '权益详情')}</Text>
+        <View className="benefits-list">
+          {BENEFIT_DETAILS.map((b) => (
+            <View key={b.title} className="benefit-item">
+              <View className="benefit-icon">
+                <Text>{b.icon}</Text>
+              </View>
+              <View className="benefit-content">
+                <Text className="benefit-title">{b.title}</Text>
+                <Text className="benefit-desc">{b.desc}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
       </View>
 
       {/* 套餐选择(对标原项目月度/年度卡片) */}
