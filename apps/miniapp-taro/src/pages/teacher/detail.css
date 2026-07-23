@@ -1,0 +1,308 @@
+.tdetail-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: 24rpx;
+  padding-bottom: 60rpx;
+  box-sizing: border-box;
+}
+
+/* ===== 教师头部卡片 ===== */
+.tdetail-header {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.12);
+  border-radius: 16rpx;
+  padding: 28rpx 24rpx;
+}
+.tdetail-header-top {
+  display: flex;
+  align-items: center;
+}
+.tdetail-avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 12rpx;
+  background: var(--color-muted);
+  flex-shrink: 0;
+}
+.tdetail-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40rpx;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+.tdetail-header-info {
+  flex: 1;
+  min-width: 0;
+  margin-left: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+.tdetail-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+.tdetail-name {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tdetail-badge {
+  padding: 2rpx 12rpx;
+  font-size: 20rpx;
+  font-weight: 600;
+  color: #5a4500;
+  background: #ffd700;
+  border-radius: 6rpx;
+  flex-shrink: 0;
+}
+.tdetail-title {
+  font-size: 26rpx;
+  color: var(--color-primary);
+}
+.tdetail-follow-btn {
+  align-self: flex-start;
+  margin-left: 24rpx;
+  padding: 12rpx 28rpx;
+  font-size: 26rpx;
+  color: var(--color-primary);
+  background: rgba(0, 242, 255, 0.1);
+  border: 2rpx solid rgba(0, 242, 255, 0.3);
+  border-radius: 8rpx;
+  flex-shrink: 0;
+}
+.tdetail-follow-btn-active {
+  color: var(--color-muted-foreground);
+  background: var(--color-muted);
+  border-color: var(--color-muted);
+}
+
+/* ===== 数据统计 ===== */
+.tdetail-stats {
+  margin-top: 24rpx;
+  display: flex;
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 12rpx;
+  padding: 24rpx 16rpx;
+  gap: 12rpx;
+}
+.tdetail-stat-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.tdetail-stat-num {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--color-foreground);
+  line-height: 1.2;
+}
+.tdetail-stat-label {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 教师简介 ===== */
+.tdetail-intro {
+  margin-top: 24rpx;
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 12rpx;
+  padding: 24rpx;
+}
+.tdetail-section-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.tdetail-intro-text {
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.6;
+}
+.tdetail-intro-text-collapsed {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+.tdetail-intro-toggle {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: var(--color-primary);
+  align-self: flex-start;
+}
+
+/* ===== 主讲课程 ===== */
+.tdetail-section {
+  margin-top: 24rpx;
+}
+.tdetail-course-list {
+  margin-top: 16rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.tdetail-course-card {
+  display: flex;
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 12rpx;
+  padding: 20rpx;
+}
+.tdetail-course-cover {
+  width: 160rpx;
+  height: 120rpx;
+  border-radius: 10rpx;
+  background: var(--color-muted);
+  flex-shrink: 0;
+}
+.tdetail-course-body {
+  flex: 1;
+  min-width: 0;
+  margin-left: 20rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.tdetail-course-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tdetail-course-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.tdetail-course-price {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #ff6b35;
+}
+.tdetail-course-price-free {
+  color: #4caf50;
+}
+.tdetail-course-students {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 学员评价 ===== */
+.tdetail-review-list {
+  margin-top: 16rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.tdetail-review-card {
+  display: flex;
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 12rpx;
+  padding: 20rpx;
+}
+.tdetail-review-avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 10rpx;
+  background: var(--color-muted);
+  flex-shrink: 0;
+}
+.tdetail-review-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+.tdetail-review-body {
+  flex: 1;
+  min-width: 0;
+  margin-left: 16rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+.tdetail-review-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.tdetail-review-name {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.tdetail-review-stars {
+  font-size: 22rpx;
+  color: #ffd700;
+}
+.tdetail-review-content {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.5;
+}
+.tdetail-review-time {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* ===== 底部按钮 ===== */
+.tdetail-actions {
+  margin-top: 32rpx;
+  display: flex;
+  gap: 16rpx;
+}
+.tdetail-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80rpx;
+  font-size: 28rpx;
+  border-radius: 10rpx;
+}
+.tdetail-action-primary {
+  color: #fff;
+  background: var(--color-primary);
+}
+.tdetail-action-secondary {
+  color: var(--color-primary);
+  background: rgba(0, 242, 255, 0.1);
+  border: 2rpx solid rgba(0, 242, 255, 0.3);
+}
+
+/* ===== 状态文案 ===== */
+.tdetail-empty,
+.tdetail-loading {
+  display: block;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  padding: 40rpx 0;
+}
+.tdetail-skeleton {
+  display: block;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  padding: 80rpx 0;
+}
