@@ -1,7 +1,7 @@
 .vs-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: 80rpx 32rpx 32rpx;
+  padding: 80rpx 32rpx 48rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -34,11 +34,38 @@
   font-size: 26rpx;
   color: var(--color-muted-foreground);
   margin-top: 12rpx;
+  text-align: center;
 }
+
+/* ===== 会员权益激活提示 ===== */
+.vs-activation {
+  margin-top: 32rpx;
+  padding: 20rpx 28rpx;
+  background: rgba(0, 242, 255, 0.08);
+  border: 2rpx solid rgba(0, 242, 255, 0.25);
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  max-width: 100%;
+}
+.vs-activation-icon {
+  font-size: 32rpx;
+  color: var(--color-primary);
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+.vs-activation-text {
+  flex: 1;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  line-height: 1.5;
+}
+
+/* ===== 订单信息卡片 ===== */
 .vs-info-card {
   width: 100%;
-  margin-top: 48rpx;
-  padding: 32rpx;
+  margin-top: 40rpx;
+  padding: 24rpx 32rpx;
   background: var(--color-card);
   border: 2rpx solid rgba(0, 242, 255, 0.15);
   border-radius: 16rpx;
@@ -49,23 +76,36 @@
   align-items: center;
   padding: 20rpx 0;
 }
+.vs-info-row + .vs-info-row {
+  border-top: 2rpx solid var(--color-border);
+}
 .vs-info-label {
   font-size: 28rpx;
   color: var(--color-muted-foreground);
+  flex-shrink: 0;
+  margin-right: 24rpx;
 }
 .vs-info-value {
   font-size: 28rpx;
   color: var(--color-foreground);
   font-weight: 500;
   text-align: right;
-}
-.vs-order-no {
-  font-size: 24rpx;
-  max-width: 320rpx;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.vs-amount {
+  color: #ff6b00;
+  font-weight: 700;
+  font-size: 32rpx;
+}
+.vs-order-no {
+  font-size: 24rpx;
+  max-width: 360rpx;
+}
+
+/* ===== 主操作按钮 ===== */
 .vs-btn-group {
   width: 100%;
   margin-top: 48rpx;
@@ -86,4 +126,52 @@
   border: 2rpx solid rgba(0, 242, 255, 0.4);
   border-radius: 12rpx;
   font-size: 32rpx;
+}
+
+/* ===== 分享好友赚佣金入口 ===== */
+.vs-share {
+  width: 100%;
+  margin-top: 32rpx;
+  padding: 24rpx;
+  background: var(--color-card);
+  border: 2rpx solid rgba(255, 214, 0, 0.3);
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+}
+.vs-share-icon {
+  width: 64rpx;
+  height: 64rpx;
+  background: rgba(255, 214, 0, 0.15);
+  border-radius: 10rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 20rpx;
+}
+.vs-share-icon-text {
+  font-size: 32rpx;
+}
+.vs-share-content {
+  flex: 1;
+  min-width: 0;
+}
+.vs-share-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.vs-share-desc {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 4rpx;
+}
+.vs-share-arrow {
+  font-size: 32rpx;
+  color: var(--color-muted-foreground);
+  margin-left: 12rpx;
+  flex-shrink: 0;
 }
