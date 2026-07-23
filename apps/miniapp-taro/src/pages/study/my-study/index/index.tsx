@@ -29,7 +29,7 @@ export default function MyStudy() {
   })
 
   const onItemClick = useCallback((id: string) => {
-    Taro.navigateTo({ url: `/pages/study/record?id=${id}` })
+    Taro.navigateTo({ url: `/pages/course/detail?id=${id}` })
   }, [])
 
   return (

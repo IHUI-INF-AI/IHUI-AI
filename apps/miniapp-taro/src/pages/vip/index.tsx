@@ -42,7 +42,8 @@ export default function VipIndexPage() {
   const [showSuccess, setShowSuccess] = useState(false)
   const [noticeAgreed, setNoticeAgreed] = useState(false)
 
-  function dispatchVipPay(payInfo: VipPayInfo, orderNo: string) {
+  function dispatchVipPay(payInfo: VipPayInfo, orderNo: string, amount: number, planName: string) {
+    const successUrl = `/pages/vip/success?orderNo=${orderNo}&amount=${amount}&planName=${encodeURIComponent(planName)}`
     if (
       payInfo.method === 'jsapi' &&
       payInfo.timeStamp &&
@@ -52,7 +53,7 @@ export default function VipIndexPage() {
       payInfo.paySign
     ) {
       requestWxPayment(payInfo as AnyPayParams)
-        .then(() => Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` }))
+        .then(() => Taro.redirectTo({ url: successUrl }))
         .catch(() => Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` }))
       return
     }
@@ -63,7 +64,7 @@ export default function VipIndexPage() {
     if (payInfo.mock && payInfo.error) {
       Taro.showToast({ title: t('vip.index.configNotReady'), icon: 'none' })
     }
-    Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` })
+    Taro.redirectTo({ url: successUrl })
   }
 
   const load = useCallback(async () => {
@@ -117,7 +118,7 @@ export default function VipIndexPage() {
         return
       }
       const res = await upgradeVip(selectedPlan.id)
-      dispatchVipPay(res.payInfo, res.orderNo)
+      dispatchVipPay(res.payInfo, res.orderNo, selectedPlan.price, selectedPlan.name)
     } catch (e) {
       logger.error('vip/index', '开通VIP', e)
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
