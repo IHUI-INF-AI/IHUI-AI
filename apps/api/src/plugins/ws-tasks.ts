@@ -67,6 +67,12 @@ const wsTasksPlugin: FastifyPluginAsync = async (server) => {
 
   server.get('/ws/tasks/:taskId', { websocket: true }, (socket, request) => {
     const { taskId } = request.params as { taskId: string }
+    // 2026-07-24 安全审计:taskId UUID 格式校验(防 channel 注入 + 防 Redis key 注入)
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!UUID_RE.test(taskId)) {
+      socket.close(1008, '无效的 taskId 格式')
+      return
+    }
     const token = (request.query as { token?: string }).token
     ;(async () => {
       let userId: string | null
@@ -76,6 +82,11 @@ const wsTasksPlugin: FastifyPluginAsync = async (server) => {
         return
       }
       if (!userId) return
+
+      // 2026-07-24 安全审计 TODO:此处应校验 taskId 是否归属当前 userId(IDOR 防护)
+      // 需查询 task 表(agent_tasks/content_generation_tasks/export_tasks/workspace_ai_tasks)
+      // 确认 task.userId === 当前 userId,否则 close(1008, '无权访问此任务')
+      // 当前仅校验认证 + UUID 格式,生产环境必须补 ownership 校验
 
       if (!connections.has(taskId)) connections.set(taskId, new Set())
       connections.get(taskId)!.add(socket)
