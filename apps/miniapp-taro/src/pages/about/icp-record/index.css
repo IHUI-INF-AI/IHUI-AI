@@ -1,37 +1,72 @@
 .page {
   min-height: 100vh;
   background: var(--color-background);
+  padding-bottom: 48rpx;
 }
-.card {
+
+.icp-card {
   margin: 24rpx;
+  padding: 32rpx 24rpx;
   background: var(--color-card);
   border-radius: 16rpx;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
 }
+
+.icp-label {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+
+.icp-value {
+  font-size: 34rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
+}
+
+.icp-copy-hint {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+
+.card {
+  margin: 24rpx;
+  padding: 0 32rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
 .row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 32rpx;
-  border-bottom: 2rpx solid var(--color-border);
+  padding: 28rpx 0;
 }
-.row.last {
-  border-bottom: none;
-}
+
 .label {
   font-size: 28rpx;
   color: var(--color-muted-foreground);
+  flex-shrink: 0;
 }
+
 .value {
   font-size: 28rpx;
   color: var(--color-foreground);
   text-align: right;
+  margin-left: 24rpx;
   max-width: 60%;
   word-break: break-all;
 }
+
 .query-wrap {
   padding: 24rpx 32rpx 0;
 }
+
 .query-btn {
   width: 100%;
   background: var(--color-primary);
@@ -40,12 +75,15 @@
   font-size: 30rpx;
   line-height: 80rpx;
 }
+
 .query-btn::after {
   border: none;
 }
+
 .tips {
   padding: 24rpx 32rpx;
 }
+
 .tips text {
   font-size: 22rpx;
   color: var(--color-muted-foreground);

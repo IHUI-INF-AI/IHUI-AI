@@ -1,0 +1,281 @@
+.exam-result-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  display: flex;
+  flex-direction: column;
+}
+
+.exam-result-body {
+  flex: 1;
+  padding: 24rpx;
+  padding-bottom: 180rpx;
+  box-sizing: border-box;
+}
+
+.exam-result-loading {
+  text-align: center;
+  padding: 120rpx 0;
+  color: var(--color-muted-foreground);
+  font-size: 26rpx;
+}
+
+/* 成绩展示区 */
+.exam-result-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 48rpx 32rpx;
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.exam-result-hero.passed {
+  background: linear-gradient(135deg, #4caf50, #66bb6a);
+}
+
+.exam-result-hero.failed {
+  background: linear-gradient(135deg, #dd524d, #e57373);
+}
+
+.exam-result-badge {
+  width: 96rpx;
+  height: 96rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 16rpx;
+  font-size: 48rpx;
+  color: #fff;
+  font-weight: 700;
+}
+
+.exam-result-status {
+  font-size: 30rpx;
+  color: #fff;
+  font-weight: 600;
+  margin-top: 20rpx;
+}
+
+.exam-result-score {
+  font-size: 64rpx;
+  color: #fff;
+  font-weight: 700;
+  margin-top: 12rpx;
+}
+
+.exam-result-total {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 8rpx;
+}
+
+.exam-result-rank {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 8rpx;
+}
+
+/* 答题统计 */
+.exam-result-stats {
+  display: flex;
+  flex-wrap: wrap;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  padding: 28rpx 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.exam-result-stat-item {
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12rpx 0;
+}
+
+.exam-result-stat-value {
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.exam-result-stat-value.correct {
+  color: #4caf50;
+}
+
+.exam-result-stat-value.wrong {
+  color: #dd524d;
+}
+
+.exam-result-stat-value.unanswered {
+  color: var(--color-muted-foreground);
+}
+
+.exam-result-stat-value.duration {
+  color: var(--color-primary);
+}
+
+.exam-result-stat-label {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 8rpx;
+}
+
+/* 通用卡片 */
+.exam-result-card {
+  background: var(--color-card);
+  border-radius: 16rpx;
+  padding: 28rpx;
+  margin-bottom: 20rpx;
+}
+
+.exam-result-card-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-bottom: 20rpx;
+}
+
+/* 题目回顾 */
+.exam-result-review-item {
+  padding: 20rpx 0;
+}
+
+.exam-result-review-item:not(:last-child) {
+  margin-bottom: 16rpx;
+}
+
+.exam-result-review-header {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 12rpx;
+}
+
+.exam-result-review-idx {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.exam-result-review-status {
+  font-size: 22rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 6rpx;
+}
+
+.exam-result-review-status.correct {
+  color: #4caf50;
+  background: rgba(76, 175, 80, 0.12);
+}
+
+.exam-result-review-status.wrong {
+  color: #dd524d;
+  background: rgba(221, 82, 77, 0.12);
+}
+
+.exam-result-review-score {
+  margin-left: auto;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+
+.exam-result-review-title {
+  display: block;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  line-height: 1.5;
+  margin-bottom: 12rpx;
+}
+
+.exam-result-review-row {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 8rpx;
+}
+
+.exam-result-review-label {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  margin-right: 8rpx;
+  flex-shrink: 0;
+}
+
+.exam-result-review-answer {
+  font-size: 26rpx;
+  flex: 1;
+}
+
+.exam-result-review-answer.correct {
+  color: #4caf50;
+}
+
+.exam-result-review-answer.wrong {
+  color: #dd524d;
+}
+
+.exam-result-review-analysis {
+  background: var(--color-background);
+  border-radius: 10rpx;
+  padding: 16rpx;
+  margin-top: 12rpx;
+}
+
+.exam-result-review-analysis-label {
+  display: block;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-bottom: 8rpx;
+}
+
+.exam-result-review-analysis-text {
+  display: block;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.6;
+}
+
+.exam-result-review-empty {
+  display: block;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  padding: 32rpx 0;
+}
+
+/* 底部按钮 */
+.exam-result-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 16rpx;
+  padding: 20rpx 24rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  background: var(--color-card);
+  z-index: 10;
+}
+
+.exam-result-btn {
+  flex: 1;
+  height: 80rpx;
+  line-height: 80rpx;
+  font-size: 28rpx;
+  border-radius: 10rpx;
+  border: none;
+  padding: 0;
+}
+
+.exam-result-btn-primary {
+  background: var(--color-primary);
+  color: var(--color-foreground);
+  font-weight: 600;
+}
+
+.exam-result-btn-secondary {
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
