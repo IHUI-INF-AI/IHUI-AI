@@ -2,6 +2,7 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getVipPrivilege } from '@/api'
+import { useI18n } from '@/i18n'
 
 interface Privilege {
   id: string
@@ -10,6 +11,7 @@ interface Privilege {
 }
 
 export default function PrivilegePage() {
+  const { t } = useI18n()
   const [list, setList] = useState<Privilege[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -32,8 +34,8 @@ export default function PrivilegePage() {
   return (
     <View className="min-h-screen bg-background">
       <View className="bg-gradient-to-b from-[#2c2c2c] to-[#1a1a1a] px-[24px] py-[40px]">
-        <Text className="block text-white text-[40px] font-bold">VIP 会员特权</Text>
-        <Text className="block text-[#d4af6a] text-[26px] mt-[12px]">尊享专属权益，开启高品质体验</Text>
+        <Text className="block text-white text-[40px] font-bold">{t('vip.privilege.title')}</Text>
+        <Text className="block text-[#d4af6a] text-[26px] mt-[12px]">{t('vip.privilege.desc')}</Text>
       </View>
       <View className="p-[12px]">
         {list.map(p => (
@@ -47,16 +49,16 @@ export default function PrivilegePage() {
         ))}
         {!loading && !list.length ? (
           <View className="text-center py-[120px] text-muted-foreground">
-            <Text>暂无特权信息</Text>
+            <Text>{t('vip.privilege.empty')}</Text>
           </View>
         ) : null}
       </View>
-      <View className="fixed bottom-0 left-0 right-0 p-[24px] bg-card border-t border-border">
+      <View className="fixed bottom-0 left-0 right-0 p-[24px] bg-card">
         <Button
           className="w-full bg-gradient-to-r from-[#d4af6a] to-[#b8860b] text-white text-[32px] rounded-[8px] py-[20px]"
           onClick={goUpgrade}
         >
-          立即升级
+          {t('vip.privilege.upgrade')}
         </Button>
       </View>
     </View>
