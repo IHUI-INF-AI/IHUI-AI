@@ -75,7 +75,10 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
       onDragOver={(e) => { if (node.type === 'folder') { e.preventDefault(); e.dataTransfer.dropEffect = 'move' } }}
     >
       <div
+        role="button"
+        tabIndex={0}
         onClick={handleClick}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick() } }}
         onContextMenu={handleContextMenu}
         className={cn(
           'flex cursor-pointer items-center gap-1 rounded-sm py-0.5 pr-2 text-xs transition-colors',
@@ -109,6 +112,7 @@ export function FileTreeNode({ node, depth, searchTerm = '' }: FileTreeNodeProps
       )}
 
       {menuPos && (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
           className="fixed z-50 min-w-36 rounded-md border border-border bg-popover py-1 text-xs shadow-md"
           style={{ left: menuPos.x, top: menuPos.y }}
