@@ -5,6 +5,7 @@ import { sql } from 'drizzle-orm'
 import { createWriteStream, existsSync, mkdirSync, renameSync, unlinkSync } from 'node:fs'
 import { join, extname } from 'node:path'
 import { pipeline } from 'node:stream/promises'
+import { Readable } from 'node:stream'
 import { randomUUID } from 'node:crypto'
 import { authenticate } from '../plugins/auth.js'
 import { findUserById, findUserByPhone, isSystemAdminUser, updateUser } from '../db/queries.js'
@@ -12,6 +13,7 @@ import { countFollowing, countFollowers, countFavorites } from '../db/social-que
 import { updateUserPassword } from '../db/usercenter-queries.js'
 import { success, error } from '../utils/response.js'
 import { verifyCode } from '../utils/code-store.js'
+import { validateUploadFile, sanitizeFilename } from '../utils/file-type-validator.js'
 import { db } from '../db/index.js'
 
 const ADMIN_ROLE_ID = 1
@@ -265,6 +267,15 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '仅支持 JPG/PNG/WebP/GIF 格式'))
     }
 
+    // 2026-07-24 安全加固:读取 buffer 后用 validateUploadFile 校验扩展名 + MIME 一致性 + magic number + 大小
+    // 防御 Content-Type 伪造(CWE-434):仅校验 data.mimetype 可被攻击者绕过,必须读文件头 magic number
+    const buffer = await data.toBuffer()
+    const filename = sanitizeFilename(data.filename ?? 'avatar.jpg')
+    const valid = validateUploadFile(buffer, filename, mimeType, AVATAR_MAX_SIZE)
+    if (!valid.ok) {
+      return reply.status(400).send(error(400, valid.reason))
+    }
+
     if (!existsSync(AVATAR_DIR)) mkdirSync(AVATAR_DIR, { recursive: true })
 
     const fileId = randomUUID()
@@ -272,16 +283,8 @@ export const usersRoutes: FastifyPluginAsync = async (server) => {
     const tmpPath = join(AVATAR_DIR, `${fileId}.tmp`)
     const finalPath = join(AVATAR_DIR, `${fileId}${ext}`)
 
-    let totalSize = 0
     try {
-      data.file.on('data', (chunk: Buffer) => {
-        totalSize += chunk.length
-      })
-      await pipeline(data.file, createWriteStream(tmpPath))
-      if (totalSize > AVATAR_MAX_SIZE) {
-        if (existsSync(tmpPath)) unlinkSync(tmpPath)
-        return reply.status(400).send(error(400, '头像大小不能超过 2MB'))
-      }
+      await pipeline(Readable.from(buffer), createWriteStream(tmpPath))
       renameSync(tmpPath, finalPath)
     } catch (err) {
       try {
