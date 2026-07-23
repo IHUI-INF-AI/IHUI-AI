@@ -277,7 +277,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | AI 职业         | AI 求职助手 / 简历优化 / 模拟面试                                                                           |
 |                   | AI 资讯         | AI 资讯聚合 / 智能摘要 / ai-feed / 大模型排行榜(Arena 评分 + 8 大分类 + Elo + Bootstrap CI + 能力雷达图 + 模型对比勾选 + PriceChart 价格可视化 + 能力雷达叠加)+ API 中转站(29 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(47 厂商映射 + 剪贴板粘贴 + Provider 配置)+ 资讯标题多语言切换(中/EN/日/한)+ 趋势爆发通知 Banner(60s 轮询 + 可见性感知 + 数据通路修复)+ 趋势筛选 Tab(全部/上升/下降/新晋)+ 性能优化(Intl 提取 + parseNumeric 预计算 + 日期 locale 本地化 + formatHot compact 表示法 + 共享 formatCompact number-format.ts 消除硬编码亿/万 + LiveChannelsBlock next/image sizes 响应式 srcset)+ 对比列表 localStorage 持久化 + Leaderboard i18n 全面国际化(25 键:分类/子分类/表头/底部说明 5 语言同步 + CapabilityRadar 5 维标签 i18n 5 语言 + page.tsx generateMetadata i18n)+ 收藏功能(Star localStorage 持久化 + 仅看收藏筛选)+ 列显隐(齿轮 dropdown + 8 字段可隐藏 + localStorage 持久化)+ FundingSection 搜索+排序(按日期/按金额 + parseNumeric 金额提取 + 动态 i18n 键)+ page.tsx Promise.allSettled 6 路降级(任一 fetch 失败不阻塞整页)+ 死代码清理(NewsGrid/ComparisonTable 已删除)|
 |                   | 用户级 AI 配置  | LLM 配置中心 v2(1:N provider-model + 分组 + 健康状态 + 30 天用量 + 批量导入导出 + 跨 Provider 模型对比 + 一键复制 + 结构化参数 Temperature/Max Tokens/Top P/Penalty + 4 预设 + 高级 JSON)/ CLI 配置 24 源一键导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env / Trae / Qoder / Codex Desktop / Claude Code Desktop / GitHub Copilot / Amazon Q / Continue / Tabnine / Cody / Zed / Google Antigravity)/ 用户级模型对话偏好(ai-user-model-chat)/ 用户长期记忆(user-memory)/ 用户偏好(user-preferences) |
-| **AI 工作流**     | LangGraph       | StateGraph 工作流(plan → execute → summarize)+ stub 模式 + agent_loop 多轮 tool 循环 + 任务自动分解 DAG 拓扑 |
+| **AI 工作流**     | LangGraph       | StateGraph 工作流(plan → execute → summarize)+ stub 模式 + agent_loop 多轮 tool 循环 + 任务自动分解 DAG 拓扑 + **P3 深度层升级(2026-07-23 立)**:PostgresSaver 节点级 checkpointer(AsyncPostgresSaver 双层存储:LangGraph 原生表 + 自定义 langgraph_checkpoints/langgraph_writes 表)+ interrupt() HITL 人工介入(节点内 interrupt 暂停 + Command(resume=...) 恢复)+ 5 模式 streaming(values/updates/messages/events/debug)+ subgraphs 子图 + Time Travel(get_state_history 历史回溯)+ 12 类 SSE 事件(session/token/node_start/node_end/tool_call/tool_result/state_update/plan/interrupt/done/error/custom)+ 软依赖降级(psycopg/langgraph 缺失仍可 import,运行时才抛错) |
 |                   | MCP 工具协议    | 33 内置工具(11 基础 + 12 浏览器控制 + 10 电脑控制)+ 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP / mcp-extended |
 |                   | A2A 协议        | Agent-to-Agent 互通 / Redis 持久化 + 内存降级                                                               |
 |                   | 知识库 RAG      | 文档向量化 / 语义搜索 / 引用追溯 / knowledge-base + knowledge-rag                                           |
@@ -295,7 +295,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | API             | Fastify 5 / ~1080 端点 / 12 WebSocket 端点 / 95+ 路由文件 / OpenAPI                                         |
 |                   | AI 服务         | FastAPI + LangGraph + LiteLLM + MCP + A2A / 55+ 端点 / 5 provider 适配                                      |
 |                   | CLI             | Node.js / 17 命令 / 13 内置工具 / 6 源配置导入 / ACP Server                                                 |
-|                   | 桌面            | Tauri 2 + Rust / 系统托盘(最小化到托盘)+ 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 / 本地文件访问 + 文件拖拽 + 粘贴 + 附件预览 + 窗口状态持久化 + 会话历史持久化 + Markdown 渲染(GFM/代码高亮/复制按钮) + 对话导出(MD/JSON/TXT 三格式原生保存) + 主题持久化(light/dark/system 三态 localStorage) |
+|                   | 桌面            | Tauri 2 + Rust / 系统托盘(最小化到托盘)+ 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 / 本地文件访问 + 文件拖拽 + 粘贴 + 附件预览 + 窗口状态持久化 + 会话历史持久化 + Markdown 渲染(GFM/代码高亮/复制按钮) + 对话导出(MD/JSON/TXT 三格式原生保存) + 主题持久化(light/dark/system 三态 localStorage) + 对话搜索(实时过滤+高亮匹配) + 消息重新生成 |
 |                   | 浏览器扩展      | WXT / 上下文菜单 / 侧边栏 / Chrome + Edge + Firefox                                                         |
 |                   | 移动 RN         | React Native + Expo EAS / iOS + Android / SSO                                                               |
 |                   | 小程序          | Taro 4 / 微信支付原生集成 / 3 语言(i18n)                                                                    |
@@ -569,7 +569,7 @@ cd IHUI-AI && docker compose up -d
 | **API**     | `apps/api/`          | Fastify 5 + Drizzle             | 业务管理 + 多厂商代理 + 认证 + WebSocket,~1080 端点 / 95+ 路由文件     |
 | **AI 服务** | `apps/ai-service/`   | FastAPI + LangGraph + Socket.IO | LLM 网关 + Agent 执行 + MCP 工具 + A2A 协议 + 14 发布 adapter,~55 端点 |
 | **CLI**     | `apps/cli/`          | Node.js + Commander             | 自研命令行 AI 编程助手,17 命令 + 13 工具 + ACP Server + 6 源配置导入   |
-| **桌面**    | `apps/desktop/`      | Tauri 2 + Rust + React          | 跨平台桌面应用,系统托盘(最小化到托盘)+ 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件访问(读文本/二进制/列目录/拖拽/粘贴)+ 窗口状态持久化 + 会话历史持久化 + Markdown 渲染 + 对话导出(MD/JSON/TXT) + 主题持久化(light/dark/system) |
+| **桌面**    | `apps/desktop/`      | Tauri 2 + Rust + React          | 跨平台桌面应用,系统托盘(最小化到托盘)+ 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件访问(读文本/二进制/列目录/拖拽/粘贴)+ 窗口状态持久化 + 会话历史持久化 + Markdown 渲染 + 对话导出(MD/JSON/TXT) + 主题持久化(light/dark/system) + 对话搜索 + 消息重新生成 |
 | **扩展**    | `apps/extension/`    | WXT + React                     | 浏览器扩展,上下文菜单 + 侧边栏 + Chrome/Edge/Firefox                   |
 | **移动**    | `apps/mobile-rn/`    | React Native + Expo EAS         | iOS / Android 原生应用 + SSO                                           |
 | **小程序**  | `apps/miniapp-taro/` | Taro 4 + React                  | 微信小程序,微信支付原生集成 + 3 语言 i18n                              |
@@ -584,7 +584,7 @@ cd IHUI-AI && docker compose up -d
 | **API** | `apps/api/` | 🟢 生产级 | 1168+ 端点 / 95+ 路由文件 | 237 .test.ts | 业务管理 + 认证 + 计费 + WebSocket |
 | **AI 服务** | `apps/ai-service/` | 🟢 生产级 | 21 LangGraph 文件 / 55+ 端点 | pytest + 集成测试 | LLM 网关 + Agent 执行 + MCP + A2A |
 | **CLI** | `apps/cli/` | 🟡 核心场景级 | ~1500 行 / 17 命令 / 13 工具 | 单元测试 | 自研 AI 编程助手,ACP Server |
-| **桌面** | `apps/desktop/` | 🟡 核心场景级 | Tauri 2 + Rust + React | 基础测试 | 系统托盘 + 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件(读/写/列目录/拖拽/粘贴附件)+ 窗口状态持久化 + 会话历史持久化 + Markdown 渲染 + 对话导出(MD/JSON/TXT) + 主题持久化 + WorkPanel |
+| **桌面** | `apps/desktop/` | 🟡 核心场景级 | Tauri 2 + Rust + React | 基础测试 | 系统托盘 + 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件(读/写/列目录/拖拽/粘贴附件)+ 窗口状态持久化 + 会话历史持久化 + Markdown 渲染 + 对话导出(MD/JSON/TXT) + 主题持久化 + 对话搜索 + 消息重新生成 + WorkPanel |
 | **扩展** | `apps/extension/` | 🟡 核心场景级 | WXT + React | 基础测试 | 上下文菜单 + 侧边栏 + 浏览器控制 |
 | **移动 RN** | `apps/mobile-rn/` | 🟡 核心场景级 | Expo EAS + iOS/Android | 基础测试 | Chat + WorkPanel + SSO |
 | **小程序** | `apps/miniapp-taro/` | 🟡 核心场景级 | Taro 4 + 微信支付 | 基础测试 | Chat + WebView + 微信支付 |
