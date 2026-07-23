@@ -91,7 +91,6 @@ interface I18nProviderProps {
 
 export function I18nProvider({ children }: I18nProviderProps) {
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE)
-  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -99,7 +98,6 @@ export function I18nProvider({ children }: I18nProviderProps) {
       const stored = await readLocale()
       if (!cancelled) {
         setLocaleState(stored)
-        setReady(true)
       }
     })()
     return () => {
