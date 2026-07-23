@@ -1,9 +1,11 @@
-export interface MenuItem {
-  key: string
-  labelKey: string
-  icon: string
-  viaParent?: boolean
-}
+import type { ProfileStackParamList, RootStackParamList } from '../navigation/RootNavigator'
+
+type ProfileRoute = keyof ProfileStackParamList
+type RootRoute = keyof RootStackParamList
+
+export type MenuItem =
+  | { key: ProfileRoute; labelKey: string; icon: string; viaParent?: false }
+  | { key: RootRoute; labelKey: string; icon: string; viaParent: true }
 
 export interface MenuSection {
   titleKey: string
