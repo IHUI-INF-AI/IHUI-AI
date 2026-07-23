@@ -6,12 +6,16 @@ import { useI18n } from '@/i18n'
 
 const STATUS_COLOR: Record<string, string> = {
   pending: 'text-[#ff9a3c]',
+  refunding: 'text-[#f59e0b]',
   refunded: 'text-[#f44336]',
+  failed: 'text-muted-foreground',
 }
 
 const STATUS_KEY: Record<string, string> = {
-  pending: 'order.refundList.status.pending',
-  refunded: 'order.refundList.status.refunded',
+  pending: 'order.status.pending',
+  refunding: 'order.status.refunding',
+  refunded: 'order.status.refunded',
+  failed: 'order.status.failed',
 }
 
 const PAGE_SIZE = 10
@@ -51,7 +55,7 @@ export default function RefundList() {
   }
 
   const goRefund = (o: Order) => {
-    Taro.navigateTo({ url: `/pages/order/refund?id=${o.id}` })
+    Taro.navigateTo({ url: `/pages/order/refund?orderNo=${o.orderNo}` })
   }
 
   useDidShow(() => {

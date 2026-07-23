@@ -94,6 +94,20 @@ export default function LiveList() {
 
   return (
     <View className="min-h-screen p-3">
+      <View className="flex mb-3 gap-2">
+        <View
+          className="flex-1 bg-card rounded-xl py-2.5 flex items-center justify-center"
+          onClick={() => Taro.navigateTo({ url: '/pages/live/calendar' })}
+        >
+          <Text className="text-sm text-foreground">📅 日历</Text>
+        </View>
+        <View
+          className="flex-1 bg-card rounded-xl py-2.5 flex items-center justify-center"
+          onClick={() => Taro.navigateTo({ url: '/pages/live/subscribe' })}
+        >
+          <Text className="text-sm text-foreground">🔔 我的订阅</Text>
+        </View>
+      </View>
       <View className="flex mb-3 bg-card rounded-xl">
         {tabs.map((tab) => (
           <View
