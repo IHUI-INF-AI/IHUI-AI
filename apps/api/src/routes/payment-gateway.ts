@@ -97,6 +97,7 @@ const alipayCreateQuery = z.object({
   amount: z.coerce.number(),
   orderType: z.coerce.number().optional().default(0),
   subject: z.string().optional().default('订单支付'),
+  productId: z.string().optional(),
 })
 
 const alipayRefundQuery = z.object({
@@ -572,7 +573,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       await authenticate(request)
-      const { amount: amountYuan, orderType, subject } = alipayCreateQuery.parse(request.query)
+      const { amount: amountYuan, orderType, subject, productId } = alipayCreateQuery.parse(request.query)
       const userId = request.userId!
       const amountCents = Math.round(amountYuan * 100)
       const order = await placeOrder({
@@ -580,6 +581,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         amount: amountCents,
         orderType,
         payType: 'alipay',
+        productId,
       })
       if (!isAlipayConfigured())
         return reply.send(success({ outTradeNo: order.orderNo, mock: true }))
