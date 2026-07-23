@@ -1,64 +1,100 @@
-.ranking-page {
+.rkg-page {
   min-height: 100vh;
   background: var(--color-background);
 }
-.page-header {
-  padding: 20rpx 30rpx;
+
+.rkg-header {
+  padding: 24rpx 32rpx 16rpx;
   background: var(--color-card);
 }
-.page-title {
+
+.rkg-title {
   font-size: 36rpx;
-  font-weight: bold;
+  font-weight: 600;
   color: var(--color-foreground);
 }
-.ranking-list {
-  padding: 20rpx;
-}
-.ranking-item {
-  display: flex;
-  align-items: center;
+
+.rkg-tabs {
+  white-space: nowrap;
+  padding: 16rpx 24rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
-  padding: 24rpx;
-  margin-bottom: 16rpx;
 }
-.rank-no {
-  width: 56rpx;
-  height: 56rpx;
-  line-height: 56rpx;
-  text-align: center;
-  font-size: 28rpx;
-  font-weight: bold;
+
+.rkg-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12rpx 32rpx;
+  margin-right: 16rpx;
+  background: var(--color-background);
+  border-radius: 8rpx;
+}
+
+.rkg-tab text {
+  font-size: 26rpx;
   color: var(--color-muted-foreground);
-  background: var(--color-secondary);
-  border-radius: 16rpx;
-  margin-right: 24rpx;
 }
-.rank-top {
+
+.rkg-tab.active {
+  background: var(--color-primary);
+}
+
+.rkg-tab.active text {
   color: var(--color-foreground);
-  background: #ff9500;
 }
-.rank-info {
-  flex: 1;
+
+.rkg-mine {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin: 24rpx;
+  padding: 24rpx 32rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
 }
-.rank-name {
-  font-size: 30rpx;
-  color: var(--color-foreground);
-  font-weight: 500;
+
+.rkg-mine-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
 }
-.rank-score {
-  font-size: 28rpx;
-  color: var(--color-primary);
-  font-weight: 600;
-}
-.loading-text,
-.empty-text {
-  text-align: center;
+
+.rkg-mine-label {
+  font-size: 24rpx;
   color: var(--color-muted-foreground);
-  font-size: 28rpx;
+}
+
+.rkg-mine-rank {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.rkg-mine-score {
+  display: flex;
+  align-items: baseline;
+  gap: 6rpx;
+}
+
+.rkg-mine-score-val {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.rkg-mine-score-unit {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+
+.rkg-list {
+  padding: 0 24rpx 48rpx;
+}
+
+.rkg-empty {
   display: block;
-  padding: 60rpx 0;
+  text-align: center;
+  padding: 80rpx 0;
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
 }
