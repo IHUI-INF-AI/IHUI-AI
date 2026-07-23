@@ -1,10 +1,78 @@
-/* 排行榜详情页 - 深色赛博朋克风 */
+/* 排行榜详情页 - 赛博朋克风(遵守 AGENTS.md §4:无 rounded-full/无 hr/无单边 border 分割线/无渐变遮罩) */
 .detail-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: 24rpx;
-  padding-bottom: 60rpx;
+  display: flex;
+  flex-direction: column;
 }
+
+/* 导航栏(对标原项目 NavBar:title=detailData.title/name/"详情页", showMenu, showFenLei, backPage) */
+.detail-nav {
+  display: flex;
+  align-items: center;
+  height: 88rpx;
+  padding: 0 24rpx;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.detail-nav-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 8rpx;
+  background: var(--color-background);
+}
+
+.detail-nav-back text {
+  font-size: 40rpx;
+  color: var(--color-foreground);
+  line-height: 1;
+}
+
+.detail-nav-title {
+  flex: 1;
+  margin: 0 16rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-nav-actions {
+  display: flex;
+  gap: 12rpx;
+}
+
+.detail-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 56rpx;
+  padding: 0 20rpx;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 8rpx;
+}
+
+.detail-nav-btn text {
+  font-size: 24rpx;
+  color: var(--color-primary);
+}
+
+/* 滚动内容区 */
+.detail-body {
+  flex: 1;
+  height: 0;
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
 .loading-text {
   display: block;
   text-align: center;
@@ -13,13 +81,14 @@
   padding: 80rpx 0;
 }
 
-/* 第一行:Logo + 标题简介 */
+/* row-1:Logo + 标题简介 + 元信息(机构/关注度) */
 .head-card {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   padding: 32rpx;
   margin-bottom: 24rpx;
 }
+
 .logo {
   width: 120rpx;
   height: 120rpx;
@@ -27,17 +96,20 @@
   background: var(--color-background);
   flex-shrink: 0;
 }
+
 .head-info {
   flex: 1;
   margin-left: 24rpx;
   overflow: hidden;
 }
+
 .title {
   display: block;
   font-size: 36rpx;
   font-weight: 700;
   line-height: 1.4;
 }
+
 .desc {
   display: block;
   margin-top: 12rpx;
@@ -46,32 +118,41 @@
   line-height: 1.5;
 }
 
-/* 第二行:4 列等宽信息 */
+.head-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx 24rpx;
+  margin-top: 16rpx;
+}
+
+.head-meta-item {
+  font-size: 22rpx;
+  color: var(--color-accent);
+}
+
+/* row-2:4 列等宽信息(关注度/类别/价格/状态) */
 .info-row {
   display: flex;
+  gap: 12rpx;
   margin-bottom: 24rpx;
 }
+
 .info-cell {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 24rpx 8rpx;
-  margin: 0 6rpx;
   background: var(--color-card);
   border: 1px solid var(--color-border);
   border-radius: 12rpx;
 }
-.info-cell:first-child {
-  margin-left: 0;
-}
-.info-cell:last-child {
-  margin-right: 0;
-}
+
 .info-label {
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
+
 .info-value {
   margin-top: 8rpx;
   font-size: 28rpx;
@@ -81,42 +162,45 @@
   word-break: break-all;
 }
 
-/* 通用字段卡片 */
+/* row-common:细分类别/产品形式/所属机构/官方网址(用 gap 间距分隔,不用单边 border 分割线) */
 .field-card {
-  padding: 8rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  padding: 24rpx 32rpx;
   margin-bottom: 24rpx;
 }
+
 .field-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24rpx 0;
-  border-bottom: 2rpx solid var(--color-border);
+  gap: 24rpx;
 }
-.field-item:last-child {
-  border-bottom: none;
-}
+
 .field-label {
   font-size: 28rpx;
   color: var(--color-muted-foreground);
   flex-shrink: 0;
 }
+
 .field-value {
   font-size: 28rpx;
   color: var(--color-foreground);
   text-align: right;
-  margin-left: 24rpx;
   word-break: break-all;
+  flex: 1;
 }
+
 .link-value {
   color: var(--color-primary);
 }
+
 .copy-hint {
   display: block;
   text-align: right;
   font-size: 22rpx;
   color: var(--color-accent);
-  padding-bottom: 16rpx;
 }
 
 /* 图片 */
@@ -124,6 +208,7 @@
   padding: 24rpx;
   margin-bottom: 24rpx;
 }
+
 .cover {
   width: 100%;
   border-radius: 8rpx;
@@ -132,16 +217,73 @@
 /* 详细介绍 */
 .content-card {
   padding: 32rpx;
+  margin-bottom: 24rpx;
 }
+
 .content-title {
   display: block;
   font-size: 30rpx;
   font-weight: 600;
   margin-bottom: 20rpx;
 }
+
 .content-text {
   display: block;
   font-size: 28rpx;
   color: var(--color-foreground);
   line-height: 1.8;
+}
+
+.detail-bottom-spacer {
+  height: 40rpx;
+  flex-shrink: 0;
+}
+
+/* 侧边栏抽屉内容 */
+.drawer-content {
+  padding: 24rpx 32rpx 40rpx;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-title {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-bottom: 24rpx;
+}
+
+.drawer-list {
+  flex: 1;
+  height: 0;
+}
+
+.drawer-item {
+  padding: 24rpx 0;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 8rpx;
+  padding-left: 24rpx;
+  padding-right: 24rpx;
+  margin-bottom: 12rpx;
+}
+
+.drawer-item-text {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+
+.drawer-empty {
+  display: block;
+  text-align: center;
+  padding: 60rpx 0;
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
 }
