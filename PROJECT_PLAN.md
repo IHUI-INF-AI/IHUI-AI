@@ -269,6 +269,39 @@
 - origin commit: `a28e14b72`
 - 同步状态: local == remote ✅(`a28e14b72df45c63b6106f0aceb8fac007864d22` 双向对齐)
 
+---
+
+### [x] ✅(2026-07-24) Wave 21 Phase 2 SSR 消除静态导出收尾 — robots/sitemap force-static + LoginRedirectListener/Sidebar Suspense 包裹 + next.config compiler 类型(跨端:web)
+
+**触发**:承接 Wave 24e UTF-8 编码修复后,web build 推进到 "Collecting page data" 阶段连续报错。根因:Next.js 15.5.20 `output: 'export'` 模式对路由处理器与客户端钩子有严格静态化要求,前期 SSR 消除迁移遗漏 3 类边界场景。
+
+**交付内容**(4 文件):
+
+| 文件 | 修复 |
+|---|---|
+| `apps/web/app/layout.tsx` | `LoginRedirectListener` 用 `useSearchParams()` 未包裹 `<Suspense>` → 报错 `/about useSearchParams() should be wrapped in a suspense boundary`。根 layout 加 `<Suspense fallback={null}>` 包裹 |
+| `apps/web/src/components/layout/GlobalShell.tsx` | `Sidebar` 内部 `useSearchParams()`(line 909)未包裹 Suspense。GlobalShell 中 Sidebar 外层加 `<React.Suspense fallback={null}>` |
+| `apps/web/next.config.ts` | webpack 插件 `apply(compiler)` 参数缺类型注解(TS7006),改为 `apply(compiler: import('webpack').Compiler)` |
+| `PROJECT_PLAN.md` | 记录 Wave 21 Phase 2 收尾修复 |
+
+**注**:robots.ts/sitemap.ts 的 force-static 修复在构建验证阶段生效,但构建完成后文件被迁移为 `public/robots.txt` + `public/sitemap.xml` 静态文件(等效功能,更简单的静态导出方案),由其他 agent/脚本处理,按 §12 不干涉。
+
+**验证**:
+- web build 全量成功 ✅:
+  - `✓ Compiled successfully in 7.0min`
+  - `✓ Generating static pages (594/594)`
+  - `✓ Exporting (2/2)`
+  - `apps/web/out/` 目录 2158 文件,供 Tauri WebView 加载
+  - 退出码 0
+- typecheck:`next.config.ts` 类型错误已修复 ✅;剩余 46 个错误均为预存 `__tests__/` 测试文件问题(`ChildNode.getAttribute` / `TS6133 unused`),与 SSR 消除无关
+- 非阻塞警告:i18n MISSING_MESSAGE(commissionPlan/distribution/agents/tokenValue 等命名空间部分 key 缺失),不影响构建,运行时 fallback 到 key 字符串
+
+**SSR 消除迁移完整闭环**:本轮修复标志着 Wave 21 Phase 2(SSR 消除)从"代码迁移完成"进入"构建验证通过"状态。60+ 服务端组件已转为 PageClient 模式,`output: 'export'` 静态导出全链路打通。
+
+**Git 同步证据**(§21):待 commit + push 后补充
+
+---
+
 ### [x] ✅(2026-07-24) Wave 24e 跨范围 UTF-8 编码修复 — api-client resource.ts/share.ts 15 处损坏还原 + next.config transpilePackages 加 @ihui/api-client(跨端:web + packages/api-client)
 
 **触发**:承接 Wave 24d 桌面架构 Option A(web output:export 静态导出供 Tauri WebView 加载),web build 卡在 `packages/api-client/src/endpoints/resource.ts` / `share.ts` "stream did not contain valid UTF-8"。根因:其他 agent 用 GBK 工具编辑 UTF-8 文件,UTF-8 三字节序列尾字节(0x80-0xBF)被替换为 '?'(0x3f)。用户授权"我跨范围修复编码"。
