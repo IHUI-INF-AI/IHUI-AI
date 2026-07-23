@@ -43,23 +43,7 @@
 
 ---
 
-### [x] ✅(2026-07-23) miniapp-taro SSE done 事件 tokenCount 打通(平台独占:仅 miniapp-taro)
-
-**触发**:延续"功能一模一样"对标原 ai_assistant.vue,ChatMessageItem 的 tokenCount 字段已声明但无数据流入。深度排查发现:ai-service `/api/llm/complete/stream` **已在 `event:done` 中下发 `usage.total_tokens`**,但前端 `parseSSEChunk` 在 L47 直接丢弃 `event:` 行,导致 done 事件的 JSON 被当作无 type 字段处理 → return null → **usage 数据完全丢失**。
-
-**根因**:parseSSEChunk 是逐行解析的简化实现,不识别 SSE 标准的 `event:` + `data:` 配对;done 事件的 JSON `{"type":"done","usage":{...}}` 因 parseLine 无 done 分支被丢弃。
-
-**修复内容**(3 文件,纯前端,无需改后端 — api 已透传 + ai-service 已下发):
-
-| 文件 | 变更 |
-|---|---|
-| `apps/miniapp-taro/src/utils/sse-parse.ts` | SSEEvent 接口新增 `usage?` + `model?` 字段;parseLine 新增 `json.type === 'done'` 分支,从 `usage.prompt_tokens/completion_tokens/total_tokens` 映射到 `usage.promptTokens/completionTokens/totalTokens`(snake → camel) |
-| `apps/miniapp-taro/src/api/index.ts` | chatStream 第9参新增 `onDone?: (info: {totalTokens?, promptTokens?, completionTokens?, model?}) => void`;dispatch 处理 `evt.type === 'done'` 调用 onDone |
-| `apps/miniapp-taro/src/pages/ai/chat.tsx` | chatStream 调用末尾传入 onDone 回调,把 `doneInfo.totalTokens` 写入最后一条 assistant 消息的 `tokenCount` 字段(对标原 ai_assistant.vue `this.$set(agent_content_list[idx], 'total_tokens', obj.total_tokens)`) |
-
-**images/videos 字段说明**:ChatMessage 接口保留 images/videos 字段供未来扩展,但当前架构下图片/视频生成是独立 API(generateImageDashscope / generateVideoKling 等),不在 chat stream 中下发,无需 SSE 扩展。
-
-**验证**:miniapp-taro typecheck exit 0 ✅。
+<!-- 已归档(2026-07-23):miniapp-taro SSE done 事件 tokenCount 打通(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ### [x] ✅(2026-07-23) 前端冗余页面整合 P0(平台独占:仅 web 端)
 
