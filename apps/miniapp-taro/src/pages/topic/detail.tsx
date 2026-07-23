@@ -1,7 +1,9 @@
 import { View, Text, Image } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
+import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { getTopicDetail } from '@/api'
+import { NavBar } from '@/components'
+import { useI18n } from '@/i18n'
 import './detail.css'
 
 interface TopicPost {
@@ -20,6 +22,7 @@ interface TopicData {
 }
 
 export default function TopicDetailPage() {
+  const { t } = useI18n()
   const [topic, setTopic] = useState<TopicData>({})
   const [loading, setLoading] = useState(true)
   const [id, setId] = useState('')
@@ -27,7 +30,7 @@ export default function TopicDetailPage() {
   const load = useCallback(async () => {
     if (!id) return
     try {
-      const res = await getTopicDetail(id) as TopicData
+      const res = (await getTopicDetail(id)) as TopicData
       setTopic(res)
     } finally {
       setLoading(false)
@@ -48,22 +51,39 @@ export default function TopicDetailPage() {
     if (id) load()
   }, [id, load])
 
+  useShareAppMessage(() => ({
+    title: topic.name ? `#${topic.name}` : t('share.appTitle'),
+    path: `/pages/topic/detail?id=${id}`,
+  }))
+  useShareTimeline(() => ({
+    title: topic.name ? `#${topic.name}` : t('share.timelineTitle'),
+    query: `id=${id}`,
+  }))
+
   const goCircle = useCallback((cid: string) => {
     Taro.navigateTo({ url: `/pages/circle/detail?id=${cid}` })
   }, [])
 
+  const postsLen = topic.posts?.length || 0
+
   return (
     <View className="page">
+      <NavBar showBack />
+
       {topic.name ? (
         <View className="head">
           <Text className="title">#{topic.name}</Text>
-          <Text className="count">{topic.posts?.length || 0}篇内容</Text>
+          <Text className="count">{t('topic.count', { n: postsLen })}</Text>
         </View>
       ) : null}
 
-      {topic.posts?.length ? (
+      {loading ? (
+        <View className="empty"><Text>{t('common.loading')}</Text></View>
+      ) : null}
+
+      {!loading && postsLen ? (
         <View className="list">
-          {topic.posts.map(p => (
+          {topic.posts?.map((p) => (
             <View key={p.id} className="item" onClick={() => goCircle(p.id)}>
               <View className="user">
                 <Image className="avatar" src={p.avatar || '/static/default-avatar.png'} mode="aspectFill" />
@@ -77,8 +97,8 @@ export default function TopicDetailPage() {
         </View>
       ) : null}
 
-      {!loading && !topic.posts?.length ? (
-        <View className="empty"><Text>暂无内容</Text></View>
+      {!loading && !postsLen ? (
+        <View className="empty"><Text>{t('common.empty')}</Text></View>
       ) : null}
     </View>
   )
