@@ -217,6 +217,10 @@ def create_app() -> FastAPI:
     app.include_router(hooks.router, prefix="/api", tags=["hooks"])
     # P3 Wave 11:Plan/Spec 模式(对标 Trae Plan/Spec,tree-sitter AST 反向生成 spec markdown)
     app.include_router(spec.router, prefix="/api", tags=["spec"])
+    # P3 Wave 11:Spec 扩展端点(apply preview/confirm + watch + review + split-tasks + enhance)
+    # 路由定义在 services/spec_generator.py 末尾,打通 api 端 spec-service.ts 转发层(2026-07-24 立)
+    from app.services.spec_generator import extra_router as spec_extra_router
+    app.include_router(spec_extra_router, prefix="/api", tags=["spec-extended"])
     # P3 Wave 11:Context Engineering(对标 Qoder,多维 @ 提及 + 跨会话 RAG + 多源融合 + token 预算分配)
     app.include_router(context_engine_router, prefix="/api/context", tags=["context-engine"])
     # 跨支柱编排中枢(2026-07-23 立,6 大超越支柱协同决策 + LLM 预算治理 + 统一遥测)
