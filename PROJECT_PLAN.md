@@ -176,6 +176,47 @@
 
 **验证**:desktop typecheck 零错误(退出码 0)、README 3 处同步更新(加"Markdown 渲染")。
 
+### [x] ✅(2026-07-23) 桌面端对话导出 + 主题持久化深度开发(平台独占:仅 desktop)
+
+**目标**:第七轮深度开发 — 对话导出(3 格式原生保存对话框)+ 主题持久化(light/dark/system 三态 localStorage 持久化)。
+
+**交付**(对话导出):
+- `apps/desktop/src/lib/export-conversation.ts`(新建):
+  - `ExportFormat = 'markdown' | 'json' | 'txt'` 三种格式
+  - `serializeConversation(messages, format, title)` 序列化:
+    - markdown:带 emoji + 附件列表
+    - json:结构化对象(包含 id/role/content/attachments)
+    - txt:纯文本(用户/AI 标签 + 分隔线)
+  - `exportConversationToFile(opts)`:Tauri 环境走原生保存对话框(pickSavePath + writeTextFile),浏览器降级走 Blob 下载
+  - `formatTimestamp(ts)` 生成文件名友好时间戳(2026-07-23_15-30)
+  - 内部函数:`toMarkdown` / `toJSON` / `toPlainText` / `formatSize` / `downloadBlob`
+- `apps/desktop/src/pages/ChatPage.tsx`(修改):
+  - 加 `exportMenuOpen` state + 点击外部关闭 useEffect
+  - 加 `onExportConversation(format)` 函数:调 `exportConversationToFile`,成功 setNotice(路径),失败 setError
+  - header-actions 加 `.export-dropdown`(按钮 + absolute 定位菜单),三个格式按钮(markdown/json/txt)
+  - 把硬编码"清空"改为 i18n `t('chat.clear')`
+
+**交付**(主题持久化):
+- `apps/desktop/src/hooks/use-theme.ts`(新建):
+  - `Theme = 'light' | 'dark' | 'system'` 三态
+  - `STORAGE_KEY = 'ihui-theme'`(localStorage 持久化 key)
+  - `initTheme()`:在 React 渲染前调用避免 FOUC(无样式闪烁),读 localStorage 优先,system 跟随 mql
+  - `useTheme()` hook:返回 `{ theme, setTheme, toggle, isDark }`,内部 useEffect 监听系统 mql 变化
+  - `applyTheme(theme, isSystemDark)`:同时 toggle .dark class + 设置 data-theme(对齐 SettingsPage 既有 :root[data-theme] 选择器)
+- `apps/desktop/src/main.tsx`(修改):用 `initTheme()` 替代原 mql 跟随系统主题逻辑
+- `apps/desktop/src/pages/SettingsPage.tsx`(修改):
+  - 引入 useTheme + Theme 类型,加 `themeOptions` 常量
+  - 删除原 `dark` state + `onToggleTheme` 函数 + Switch 主题切换
+  - 改为 select 三态选择(themeLight/themeDark/themeSystem)
+- `apps/desktop/src/app.css`(修改):新增 `.export-dropdown` / `.export-menu` / `.export-menu button` / dark mode 调整(共 5 类)
+
+**交付**(i18n 5 语言 parity):
+- `apps/desktop/src/i18n/messages/zh-CN.ts` / `en.ts` / `ja.ts` / `ko.ts` / `zh-TW.ts`:chat 命名空间新增 7 个 key(clear / exportConversation / exportAsMarkdown / exportAsJson / exportAsTxt / exportDone / exportFailed);settings 命名空间补全 17 个 key(themeLight / themeDark / themeSystem / appearance / darkMode / data / clearCache / clearCacheConfirm / cacheCleared / clearCacheFailed / account / desktopApp / zhCN / zhTW / en / ja / ko)— 解决 SettingsPage 引用 key 但缺失翻译的历史问题
+
+**§9 平台独占**:对话导出(原生保存对话框)+ 主题持久化(localStorage)均为 desktop 单端能力,豁免全端同步。
+
+**验证**:desktop typecheck 零错误(退出码 0)、README 3 处同步更新(加"对话导出 + 主题持久化")。
+
 ---
 
 <!-- 已归档(2026-07-23):miniapp-taro SSE done 事件 tokenCount 打通(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->

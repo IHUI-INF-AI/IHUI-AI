@@ -687,6 +687,50 @@ textarea:focus {
   background: var(--active-bg, rgba(255, 255, 255, 0.06));
 }
 
+/* ============== 对话导出下拉菜单 ============== */
+
+.export-dropdown {
+  position: relative;
+  display: inline-flex;
+}
+
+.export-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 180px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  z-index: 50;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.export-menu button {
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.export-menu button:hover {
+  background: var(--muted-bg);
+}
+
+:root[data-theme='dark'] .export-menu {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
 /* ============== Markdown 渲染 ============== */
 
 .md-body {
