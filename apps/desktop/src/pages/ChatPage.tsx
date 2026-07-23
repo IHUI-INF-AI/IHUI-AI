@@ -127,6 +127,27 @@ interface Props {
   onLogout: () => void
 }
 
+/** 格式化消息时间戳:同一天显示 HH:MM,跨天显示 MM-DD HH:MM。 */
+function formatMsgTime(ts: number | undefined, locale: string): string {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const now = new Date()
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  const intlLocale = locale === 'zh-CN' || locale === 'zh-TW' ? 'zh-CN' : locale === 'en' ? 'en-US' : locale
+  if (sameDay) {
+    return new Intl.DateTimeFormat(intlLocale, { hour: '2-digit', minute: '2-digit' }).format(d)
+  }
+  return new Intl.DateTimeFormat(intlLocale, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(d)
+}
+
 export default function ChatPage({ onLogout }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -139,7 +160,7 @@ export default function ChatPage({ onLogout }: Props) {
   const [dragOver, setDragOver] = useState(false)
   const [busyFile, setBusyFile] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   // 会话历史(仅 Tauri 启用)
   const conv = useConversations()
   const [currentConvId, setCurrentConvId] = useState<string | null>(null)
@@ -543,6 +564,16 @@ export default function ChatPage({ onLogout }: Props) {
       onDone: () => {
         window.clearTimeout(timeoutId)
         setStreaming(false)
+        // 标记最后一条 AI 消息的完成时间(用于时间戳显示)
+        const doneAt = Date.now()
+        setMessages((cur) => {
+          const copy = [...cur]
+          const last = copy[copy.length - 1]
+          if (last?.role === 'assistant') {
+            copy[copy.length - 1] = { ...last, createdAt: last.createdAt ?? doneAt }
+          }
+          return copy
+        })
         // 窗口隐藏(最小化到托盘)时发送系统通知
         if (document.hidden) {
           sendDesktopNotification('AI 回复完成', '点击托盘图标查看新消息')
@@ -589,8 +620,9 @@ export default function ChatPage({ onLogout }: Props) {
         role: 'user',
         content: userContent || '(仅附件)',
         attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
+        createdAt: Date.now(),
       },
-      { id: `a-${Date.now()}`, role: 'assistant', content: '' },
+      { id: `a-${Date.now()}`, role: 'assistant', content: '', createdAt: Date.now() },
     ]
     setMessages(next)
     setAttachments([])
@@ -612,7 +644,7 @@ export default function ChatPage({ onLogout }: Props) {
     const retained = messages.slice(0, lastUserIdx + 1)
     const next: ChatMessage[] = [
       ...retained,
-      { id: `a-${Date.now()}`, role: 'assistant', content: '' },
+      { id: `a-${Date.now()}`, role: 'assistant', content: '', createdAt: Date.now() },
     ]
     setMessages(next)
     await runStream(next)
@@ -648,8 +680,8 @@ export default function ChatPage({ onLogout }: Props) {
     const retained = messages.slice(0, editIdx)
     const next: ChatMessage[] = [
       ...retained,
-      { id: `u-${Date.now()}`, role: 'user', content: text },
-      { id: `a-${Date.now()}`, role: 'assistant', content: '' },
+      { id: `u-${Date.now()}`, role: 'user', content: text, createdAt: Date.now() },
+      { id: `a-${Date.now()}`, role: 'assistant', content: '', createdAt: Date.now() },
     ]
     setMessages(next)
     setEditingMsgId(null)
@@ -671,6 +703,7 @@ export default function ChatPage({ onLogout }: Props) {
           onSelect={(id) => void onSelectConversation(id)}
           onDelete={(id) => void onDeleteConversation(id)}
           onNew={() => void onNewConversation()}
+          onRename={(id, title) => conv.rename(id, title)}
         />
       ) : null}
       <div className="chat-main">
@@ -802,9 +835,16 @@ export default function ChatPage({ onLogout }: Props) {
         ) : (
           filteredMessages.map((m) => (
             <div key={m.id} className={`chat-bubble ${m.role}${searchQuery && m.content.toLowerCase().includes(searchQuery.toLowerCase()) ? ' chat-bubble--match' : ''}`}>
-              <span className="role">
-                {m.role === 'user' ? t('chat.roleUser') : t('chat.roleAI')}
-              </span>
+              <div className="msg-header">
+                <span className="role">
+                  {m.role === 'user' ? t('chat.roleUser') : t('chat.roleAI')}
+                </span>
+                {m.createdAt ? (
+                  <span className="msg-time" title={new Date(m.createdAt).toLocaleString(locale)}>
+                    {formatMsgTime(m.createdAt, locale)}
+                  </span>
+                ) : null}
+              </div>
               <div className="content">
                 {editingMsgId === m.id ? (
                   <div className="msg-edit-form">
