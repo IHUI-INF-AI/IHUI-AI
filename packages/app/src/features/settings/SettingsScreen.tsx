@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { View, Text, Switch, TouchableOpacity, StyleSheet } from 'react-native'
+import { TextLink } from 'solito/link'
 
 interface SettingsScreenProps {
   /** 通知开关初始状态 */
@@ -60,7 +61,11 @@ export function SettingsScreen({
           <TouchableOpacity style={styles.backButton} onPress={onBack}>
             <Text style={styles.backButtonText}>← 返回</Text>
           </TouchableOpacity>
-        ) : null}
+        ) : (
+          <TextLink href="/" textProps={{ style: styles.backButtonText }}>
+            ← 返回
+          </TextLink>
+        )}
         <Text style={styles.title}>设置</Text>
       </View>
 
