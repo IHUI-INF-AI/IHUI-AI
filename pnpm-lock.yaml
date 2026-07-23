@@ -109,6 +109,9 @@ importers:
       '@ihui/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@ihui/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@ihui/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -363,6 +366,9 @@ importers:
       '@ihui/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@ihui/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@ihui/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -723,9 +729,6 @@ importers:
       react-native-wechat-lib:
         specifier: ^3.0.7
         version: 3.0.7(js-sha1@0.7.0)(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0)
-      solito:
-        specifier: ^4.4.1
-        version: 4.4.1
     devDependencies:
       '@ihui/eslint-config':
         specifier: workspace:*
@@ -913,9 +916,6 @@ importers:
       sharp:
         specifier: ^0.33.5
         version: 0.33.5
-      solito:
-        specifier: ^4.4.1
-        version: 4.4.1
       sonner:
         specifier: ^2.0.7
         version: 2.0.7(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -16956,9 +16956,6 @@ packages:
 
   solid-js@1.9.14:
     resolution: {integrity: sha512-sAEXC0Kk0S1EDg+8ysEWJDbYhA3RRoEjwuySUGlKIemeo0I5YZfOyumNjNs9Sv3y2nmhD+0rW66ag2HsMuQiGQ==}
-
-  solito@4.4.1:
-    resolution: {integrity: sha512-5+XtaaOjRPV+q6uV9DruD2VRwtPpoLkZevQW3INGgRpsJNjulbd6JKlHoNeFRAvEJLJNU+nKbtv6Tq2pTxu2Aw==}
 
   sonic-boom@4.2.1:
     resolution: {integrity: sha512-w6AxtubXa2wTXAUsZMMWERrsIRAdrK0Sc+FUytWvYAhBJLyuI4llrMIC1DtlNSdI99EI86KZum2MMq3EAZlF9Q==}
@@ -38453,10 +38450,6 @@ snapshots:
       csstype: 3.2.3
       seroval: 1.5.5
       seroval-plugins: 1.5.5(seroval@1.5.5)
-
-  solito@4.4.1:
-    dependencies:
-      typescript: 5.9.3
 
   sonic-boom@4.2.1:
     dependencies:
