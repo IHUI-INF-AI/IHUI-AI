@@ -83,6 +83,10 @@ export default {
     exportAsTxt: '일반 텍스트로 내보내기',
     exportDone: '내보내기 완료',
     exportFailed: '내보내기 실패',
+    search: '검색',
+    searchPlaceholder: '메시지 검색…',
+    noSearchResults: '"{{query}}"와 일치하는 메시지가 없습니다',
+    regenerate: '재생성',
   },
   profile: {
     title: '마이페이지',

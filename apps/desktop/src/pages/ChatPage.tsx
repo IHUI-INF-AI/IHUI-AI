@@ -149,6 +149,21 @@ export default function ChatPage({ onLogout }: Props) {
 
   // 对话导出菜单
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  // 对话搜索
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  // 过滤后的消息(搜索时只显示匹配项)
+  const filteredMessages = searchQuery
+    ? messages.filter((m) => m.content.toLowerCase().includes(searchQuery.toLowerCase()))
+    : messages
+  // 最后一条 AI 消息 id(用于显示"重新生成"按钮)
+  const lastAssistantId = (() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m && m.role === 'assistant') return m.id
+    }
+    return null
+  })()
 
   useEffect(() => {
     document.title = 'IHUI AI 桌面端 - 对话'
@@ -471,44 +486,13 @@ export default function ChatPage({ onLogout }: Props) {
     setAttachments((cur) => cur.filter((_, i) => i !== idx))
   }
 
-  const onSend = async () => {
-    const text = input.trim()
-    if ((!text && attachments.length === 0) || streaming) return
-    setInput('')
+  /** 启动流式聊天(共享给 onSend / onRegenerate)。 */
+  const runStream = async (next: ChatMessage[]) => {
+    setStreaming(true)
     setError('')
     setNotice('')
-    // 拼接附件摘要到消息内容,便于 LLM 理解
-    const attSummary =
-      attachments.length > 0
-        ? attachments
-            .map((a) =>
-              a.isImage
-                ? `[图片:${a.name}]`
-                : a.isImage === false && a.mime.startsWith('text/')
-                  ? `\n\n--- 附件:${a.name} ---\n${a.data.slice(0, 2000)}${a.data.length > 2000 ? '\n...(已截断)' : ''}\n--- 附件结束 ---`
-                  : `[附件:${a.name}(${a.mime})]`,
-            )
-            .join('\n')
-        : ''
-    const userContent = attSummary ? `${text}\n${attSummary}` : text
-    const pendingAttachments = attachments
-    const next: ChatMessage[] = [
-      ...messages,
-      {
-        id: `u-${Date.now()}`,
-        role: 'user',
-        content: userContent || '(仅附件)',
-        attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
-      },
-      { id: `a-${Date.now()}`, role: 'assistant', content: '' },
-    ]
-    setMessages(next)
-    setAttachments([])
-    setStreaming(true)
-
     const controller = new AbortController()
     const timeoutId = window.setTimeout(() => controller.abort(), 15_000)
-
     const opts: StreamChatOptions = {
       model,
       messages: next
@@ -571,6 +555,61 @@ export default function ChatPage({ onLogout }: Props) {
     }
   }
 
+  const onSend = async () => {
+    const text = input.trim()
+    if ((!text && attachments.length === 0) || streaming) return
+    setInput('')
+    // 拼接附件摘要到消息内容,便于 LLM 理解
+    const attSummary =
+      attachments.length > 0
+        ? attachments
+            .map((a) =>
+              a.isImage
+                ? `[图片:${a.name}]`
+                : a.isImage === false && a.mime.startsWith('text/')
+                  ? `\n\n--- 附件:${a.name} ---\n${a.data.slice(0, 2000)}${a.data.length > 2000 ? '\n...(已截断)' : ''}\n--- 附件结束 ---`
+                  : `[附件:${a.name}(${a.mime})]`,
+            )
+            .join('\n')
+        : ''
+    const userContent = attSummary ? `${text}\n${attSummary}` : text
+    const pendingAttachments = attachments
+    const next: ChatMessage[] = [
+      ...messages,
+      {
+        id: `u-${Date.now()}`,
+        role: 'user',
+        content: userContent || '(仅附件)',
+        attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
+      },
+      { id: `a-${Date.now()}`, role: 'assistant', content: '' },
+    ]
+    setMessages(next)
+    setAttachments([])
+    await runStream(next)
+  }
+
+  /** 重新生成最后一条 AI 消息:删除其后所有消息,用最后一条 user 消息重发。 */
+  const onRegenerate = async () => {
+    if (streaming) return
+    let lastUserIdx = -1
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i]
+      if (m && m.role === 'user') {
+        lastUserIdx = i
+        break
+      }
+    }
+    if (lastUserIdx === -1) return
+    const retained = messages.slice(0, lastUserIdx + 1)
+    const next: ChatMessage[] = [
+      ...retained,
+      { id: `a-${Date.now()}`, role: 'assistant', content: '' },
+    ]
+    setMessages(next)
+    await runStream(next)
+  }
+
   const onStop = () => setStreaming(false)
 
   const onClear = () => {
@@ -615,6 +654,16 @@ export default function ChatPage({ onLogout }: Props) {
                 {t('chat.newChat')}
               </button>
             ) : null}
+            <button
+              type="button"
+              onClick={() => setSearchOpen((v) => !v)}
+              disabled={messages.length === 0}
+              title={t('chat.search')}
+              aria-label={t('chat.search')}
+              className={searchOpen ? 'active' : undefined}
+            >
+              {t('chat.search')}
+            </button>
             <div className="export-dropdown">
               <button
                 type="button"
@@ -650,6 +699,35 @@ export default function ChatPage({ onLogout }: Props) {
           </div>
         </header>
 
+        {searchOpen ? (
+          <div className="chat-search-bar">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('chat.searchPlaceholder')}
+              autoFocus
+              aria-label={t('chat.search')}
+            />
+            <span className="chat-search-count">
+              {searchQuery
+                ? `${filteredMessages.length}/${messages.length}`
+                : ''}
+            </span>
+            <button
+              type="button"
+              className="chat-search-close"
+              onClick={() => {
+                setSearchOpen(false)
+                setSearchQuery('')
+              }}
+              aria-label={t('common.close')}
+            >
+              ×
+            </button>
+          </div>
+        ) : null}
+
         <div
           className={`chat-list${dragOver ? ' chat-list--drag-over' : ''}`}
           data-testid="chat-list"
@@ -672,9 +750,13 @@ export default function ChatPage({ onLogout }: Props) {
               支持拖拽文件 / 粘贴图片 / 点击 📎 按钮选择文件
             </span>
           </div>
+        ) : filteredMessages.length === 0 && searchQuery ? (
+          <div className="empty-state">
+            {t('chat.noSearchResults', { query: searchQuery })}
+          </div>
         ) : (
-          messages.map((m) => (
-            <div key={m.id} className={`chat-bubble ${m.role}`}>
+          filteredMessages.map((m) => (
+            <div key={m.id} className={`chat-bubble ${m.role}${searchQuery && m.content.toLowerCase().includes(searchQuery.toLowerCase()) ? ' chat-bubble--match' : ''}`}>
               <span className="role">
                 {m.role === 'user' ? t('chat.roleUser') : t('chat.roleAI')}
               </span>
@@ -719,6 +801,17 @@ export default function ChatPage({ onLogout }: Props) {
                   title={t('chat.copyMessage')}
                 >
                   {copiedMsgId === m.id ? t('chat.copied') : t('chat.copy')}
+                </button>
+              ) : null}
+              {m.role === 'assistant' && m.content && m.id === lastAssistantId && !streaming ? (
+                <button
+                  type="button"
+                  className="msg-regenerate-btn"
+                  onClick={() => void onRegenerate()}
+                  aria-label={t('chat.regenerate')}
+                  title={t('chat.regenerate')}
+                >
+                  {t('chat.regenerate')}
                 </button>
               ) : null}
             </div>
