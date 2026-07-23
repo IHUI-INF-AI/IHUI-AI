@@ -15,6 +15,7 @@ export interface JWTPayload {
 }
 
 const ISSUER = 'ihui-ai'
+const AUDIENCE = 'ihui-ai-users'
 const ALG = 'HS256'
 
 /**
@@ -85,6 +86,7 @@ export function signAccessToken(payload: JWTPayload): Promise<string> {
     .setProtectedHeader({ alg: ALG })
     .setSubject(payload.userId)
     .setIssuer(ISSUER)
+    .setAudience(AUDIENCE) // 2026-07-24 安全加固:加 aud claim 防跨服务 token 误用
     .setIssuedAt()
     .setExpirationTime(ttlToExpirationString(ACCESS_TOKEN_TTL_SECONDS))
     .sign(getJwtSecret())
@@ -104,6 +106,7 @@ export function signRefreshToken(payload: JWTPayload): Promise<string> {
     .setProtectedHeader({ alg: ALG })
     .setSubject(payload.userId)
     .setIssuer(ISSUER)
+    .setAudience(AUDIENCE) // 2026-07-24 安全加固:加 aud claim 防跨服务 token 误用
     .setIssuedAt()
     .setExpirationTime(ttlToExpirationString(REFRESH_TOKEN_TTL_SECONDS))
     .sign(getJwtSecret())
@@ -116,6 +119,7 @@ export function signRefreshToken(payload: JWTPayload): Promise<string> {
 export async function verifyAccessToken(token: string): Promise<JWTPayload> {
   const { payload } = await jwtVerify(token, getJwtSecret(), {
     issuer: ISSUER,
+    audience: AUDIENCE, // 2026-07-24 安全加固:校验 aud claim
     algorithms: [ALG],
   })
 
@@ -147,6 +151,7 @@ export async function verifyAccessToken(token: string): Promise<JWTPayload> {
 export async function verifyRefreshToken(token: string): Promise<JWTPayload> {
   const { payload } = await jwtVerify(token, getJwtSecret(), {
     issuer: ISSUER,
+    audience: AUDIENCE, // 2026-07-24 安全加固:校验 aud claim
     algorithms: [ALG],
   })
 
