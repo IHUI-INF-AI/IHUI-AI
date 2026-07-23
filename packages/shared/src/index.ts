@@ -1,4 +1,5 @@
 export * from './auth'
+export * from './notifications'
 export * from './validation'
 export * from './workflows'
 export * from './utils'
