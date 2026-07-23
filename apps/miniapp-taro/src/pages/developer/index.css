@@ -130,7 +130,16 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.agent-stat {
+.agent-desc {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  display: block;
+  margin-bottom: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-type {
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
@@ -144,10 +153,26 @@
 }
 .agent-status {
   font-size: 24rpx;
-  color: #34c759;
-  background: rgba(52, 199, 89, 0.1);
   padding: 4rpx 16rpx;
   border-radius: 6rpx;
+  color: #8a8a8e;
+  background: rgba(138, 138, 142, 0.12);
+}
+.agent-status.status-1 {
+  color: #d99a00;
+  background: rgba(217, 154, 0, 0.12);
+}
+.agent-status.status-2 {
+  color: #34c759;
+  background: rgba(52, 199, 89, 0.12);
+}
+.agent-status.status-4 {
+  color: #dd524d;
+  background: rgba(221, 82, 77, 0.12);
+}
+.agent-status.status-5 {
+  color: #8a8a8e;
+  background: rgba(138, 138, 142, 0.12);
 }
 .agent-actions {
   display: flex;
