@@ -906,6 +906,23 @@ class SpecGenerator:
 
         duration_ms = int((time.time() - start_ts) * 1000)
 
+        # 发射 spec.generated 事件
+        try:
+            from .orchestration_hub import orchestration_hub
+            await orchestration_hub.emit(
+                event_type="spec.generated",
+                source_pillar="spec",
+                payload={
+                    "workspace": workspace_path,
+                    "scope_type": scope.get("type", ""),
+                    "file_count": len(files),
+                    "spec_hash": self._compute_scope_hash(scope),
+                },
+                severity="info",
+            )
+        except Exception:
+            pass
+
         return SpecResult(
             spec=spec_md,
             sections=sections,
@@ -1175,6 +1192,28 @@ class SpecGenerator:
             except Exception as e:
                 failed.append({"path": fpath, "error": f"{type(e).__name__}: {e}"})
 
+        # 发射 spec.patch_applied 事件
+        try:
+            from .orchestration_hub import orchestration_hub
+            spec_hash = hashlib.md5(patch.encode("utf-8")).hexdigest()[:12]
+            success = len(failed) == 0
+            severity = "info" if success else "warning"
+            try:
+                loop = asyncio.get_running_loop()
+                loop.create_task(orchestration_hub.emit(
+                    event_type="spec.patch_applied",
+                    source_pillar="spec",
+                    payload={
+                        "spec_hash": spec_hash,
+                        "files_patched": len(applied),
+                        "success": success,
+                    },
+                    severity=severity,
+                ))
+            except RuntimeError:
+                pass  # 无运行中的事件循环,跳过
+        except Exception:
+            pass
         return {
             "applied": applied,
             "failed": failed,

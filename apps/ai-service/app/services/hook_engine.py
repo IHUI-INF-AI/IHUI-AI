@@ -581,6 +581,21 @@ class HookEngine:
                 )
                 triggered_logs.append(err_log)
                 self._append_log(err_log)
+        # 发射 hook.emitted 事件
+        try:
+            from .orchestration_hub import orchestration_hub
+            await orchestration_hub.emit(
+                event_type="hook.emitted",
+                source_pillar="hook",
+                payload={
+                    "event": event,
+                    "hook_count": len(triggered_logs),
+                    "success_count": sum(1 for r in triggered_logs if r.get("success")),
+                },
+                severity="info",
+            )
+        except Exception:
+            pass
         return triggered_logs
 
     async def _execute_hook(
@@ -656,6 +671,21 @@ class HookEngine:
         # 重试耗尽仍失败 → 入 DLQ(2026-07-22 立)
         if not success:
             await self._push_dlq(hook["id"], context, last_err or "未知错误", retry_count)
+            # 发射 hook.failed 事件(重试耗尽后)
+            try:
+                from .orchestration_hub import orchestration_hub
+                await orchestration_hub.emit(
+                    event_type="hook.failed",
+                    source_pillar="hook",
+                    payload={
+                        "hook_id": hook["id"],
+                        "event": event,
+                        "error": (last_err or "未知错误")[:200],
+                    },
+                    severity="warning",
+                )
+            except Exception:
+                pass
         return log
 
     def _resolve_retry_count(self, action_type: str, config: dict[str, Any]) -> int:
@@ -1087,6 +1117,30 @@ class HookEngine:
             "unhealthy": sum(1 for r in results if r["status"] == "unhealthy"),
             "stale": sum(1 for r in results if r["status"] == "stale"),
         }
+        # 发射 hook.health_degraded 事件(非 healthy 状态)
+        for r in results:
+            status = r.get("status", "healthy")
+            if status == "healthy":
+                continue
+            try:
+                from .orchestration_hub import orchestration_hub
+                severity = "warning" if status == "degraded" else "critical"
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(orchestration_hub.emit(
+                        event_type="hook.health_degraded",
+                        source_pillar="hook",
+                        payload={
+                            "hook_id": r.get("hookId", ""),
+                            "status": status,
+                            "success_rate": r.get("successRate", 0.0),
+                        },
+                        severity=severity,
+                    ))
+                except RuntimeError:
+                    pass  # 无运行中的事件循环,跳过
+            except Exception:
+                pass
         return {"summary": summary, "hooks": results}
 
     def _check_one_health(self, hook: dict[str, Any]) -> dict[str, Any]:
