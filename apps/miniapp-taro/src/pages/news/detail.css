@@ -1,5 +1,5 @@
 .page { min-height: 100vh; background: var(--color-card); padding: 32rpx; }
-.head { padding-bottom: 32rpx; border-bottom: 2rpx solid var(--color-border); }
+.head { padding-bottom: 32rpx; }
 .title { font-size: 40rpx; color: var(--color-foreground); font-weight: 700; line-height: 1.4; }
 .meta { display: flex; gap: 24rpx; margin-top: 24rpx; font-size: 22rpx; color: var(--color-muted-foreground); }
 .content { padding: 32rpx 0; font-size: 30rpx; color: var(--color-foreground); line-height: 1.8; }
