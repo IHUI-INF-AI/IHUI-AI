@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@ihui/api-client": "workspace:*",
+    "@ihui/i18n": "workspace:*",
     "@ihui/types": "workspace:*",
     "@ihui/ui": "workspace:*",
     "@ihui/ui-primitives": "workspace:*",
