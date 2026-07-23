@@ -216,9 +216,9 @@ export default function ShareCreationPage() {
             </View>
           ) : null}
           {lists.length ? (
-            <View className="mt-3">
+            <View className="mt-3 flex flex-col gap-2">
               {lists.map((item, i) => (
-                <View key={i} className="py-2 border-t border-border first:border-t-0">
+                <View key={i} className="py-2">
                   {item.type === 'image' ? (
                     <Image className="w-full rounded-md" src={item.content} mode="widthFix" />
                   ) : (
