@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import type { SkillMarketEntry } from '@ihui/shared/skills/market'
 import { fetchSkillsMarket, fetchSkillRatings, installSkill, rateSkill, SKILL_MARKET_PAGE_SIZE } from '@/lib/skills-market-api'
 
-const TAGS = ['code', 'test', 'design', 'publish', 'data', 'media', 'system']
+const TAGS = ['code', 'content', 'devops', 'design', 'media', 'video', 'ai', 'docs']
 
 export default function SkillsMarketPage() {
   const t = useTranslations('skills.market')
