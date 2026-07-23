@@ -207,3 +207,6 @@ export type { SkillsPopupProps, AgentItem, SkillCategory } from './SkillsPopup'
 
 export { default as MaterialPopup } from './MaterialPopup'
 export type { MaterialPopupProps, MaterialItem, MaterialTab } from './MaterialPopup'
+
+export { default as IntelligentAssistant } from './IntelligentAssistant'
+export type { IntelligentAssistantProps } from './IntelligentAssistant'
