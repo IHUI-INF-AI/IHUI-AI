@@ -19,7 +19,7 @@ export default function SubagentDispatchPage() {
     onSuccess: (data) => {
       if (data.outcome === 'success' && data.dispatch?.id) {
         qc.invalidateQueries({ queryKey: ['subagents'] })
-        router.push(`/subagents/${data.dispatch.id}`)
+        router.push(`/subagents/detail?id=${data.dispatch.id}`)
       } else if (data.outcome === 'concurrent_limit') {
         setError(data.error ?? '并发派单数已达上限')
       } else if (data.outcome === 'cyclic_dependency') {
