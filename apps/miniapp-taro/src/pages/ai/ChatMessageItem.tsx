@@ -10,6 +10,10 @@ export interface ChatMessageItemProps {
   onRegenerate?: () => void
   onLongPress?: () => void
   onEdit?: () => void
+  /** 是否已收藏(仅 AI 消息,对标原 ai_assistant.vue 收藏状态) */
+  isFavorited?: boolean
+  /** 切换收藏状态(仅 AI 消息,对标原 ai_assistant.vue toggleFavorite) */
+  onToggleFavorite?: () => void
 }
 
 /** 内容段类型(对标原 ai_assistant.vue formatContentSegments) */
@@ -70,7 +74,7 @@ function formatTokenDisplay(count: number): string {
   return String(count)
 }
 
-export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPress, onEdit }: ChatMessageItemProps) {
+export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPress, onEdit, isFavorited, onToggleFavorite }: ChatMessageItemProps) {
   const { t } = useI18n()
   const [expanded, setExpanded] = useState(false)
   const [codeCollapsed, setCodeCollapsed] = useState(false)
@@ -277,7 +281,7 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
             </View>
           ) : null}
 
-          {/* 复制 + 重新生成按钮(仅 AI 消息) */}
+          {/* 复制 + 重新生成 + 收藏按钮(仅 AI 消息) */}
           {msg.role === 'assistant' && msg.content ? (
             <View style={{ display: 'flex', gap: '20rpx' }}>
               <Text
@@ -294,6 +298,15 @@ export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPres
                   onClick={onRegenerate}
                 >
                   {t('ai.chatMessageItem.regenerate')}
+                </Text>
+              ) : null}
+              {onToggleFavorite ? (
+                <Text
+                  className="bubble-favorite"
+                  style={{ fontSize: '24rpx', color: isFavorited ? '#ff4d4f' : '#999' }}
+                  onClick={onToggleFavorite}
+                >
+                  {isFavorited ? '♥' : '♡'}
                 </Text>
               ) : null}
             </View>
