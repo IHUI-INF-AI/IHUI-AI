@@ -66,6 +66,8 @@ const nextConfig: NextConfig = {
       { source: '/api/tools/:path*', destination: `${aiServiceUrl}/api/tools/:path*` },
       { source: '/api/mcp/:path*', destination: `${aiServiceUrl}/api/mcp/:path*` },
       { source: '/api/a2a/:path*', destination: `${aiServiceUrl}/api/a2a/:path*` },
+      // 2026-07-23 新增:AI Skills TOP 19 个 skill 路由(转发到 ai-service)
+      { source: '/api/ai-skills/:path*', destination: `${aiServiceUrl}/api/ai-skills/:path*` },
       // v1 业务流(对话/智能体/RAG/知识图谱,挂在 ai-service /api/v1/ai/ 前缀)
       { source: '/api/ai/:path*', destination: `${aiServiceUrl}/api/v1/ai/:path*` },
       // 其余 /api/* 转发到 Fastify 后端(端口 8080)
