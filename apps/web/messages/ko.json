@@ -1773,6 +1773,8 @@
     "durationDays": "{days}일",
     "featuresTitle": "VIP 주의소",
     "buyButton": "지금 가입",
+    "limitedOffer": "한정 특가",
+    "buyPrompt": "지금 VIP 가입하고 모든 전용 혜택을 잠금해제",
     "purchaseTitle": "확인구매",
     "purchaseDesc": "확인 VIP 주의소회원구매Info",
     "confirmPayment": "확인결제",
