@@ -68,6 +68,35 @@
 - 同步状态: local == remote ✅
 - 守门脚本: node scripts/git-push-guard.mjs exit 0
 
+### [x] ✅(2026-07-23) admin 路由深化 P0 批次单元测试 — wallet/batch/stats 50 用例(平台独占:仅 apps/api)
+
+**触发**:承接 P0 批次 11 新端点,subagent 自评识别测试缺口,按 §11 多 subagent 并行补齐单元测试。
+
+**交付内容**(3 文件,50 用例,+1325):
+
+| 文件 | 用例 | 覆盖场景 |
+|---|---|---|
+| admin-deep-p0-wallet.test.ts | 15 | 8 路 Promise.all 聚合 + 分页过滤 + 事务边界(update/insert 双路径)+ 余额不足回滚 + 4 类 Zod 校验 + logAction 审计 + operatorId 透传 |
+| admin-deep-p0-batch.test.ts | 21 | orders/batch-cancel(全部取消/部分跳过/全部跳过)+ refunds/batch-audit(approve/reject)+ users/batch-status + users/batch-review(status=0 过滤)+ Zod 校验 + logAction |
+| admin-deep-p0-stats.test.ts | 14 | orders/stats(空表/单条/多状态/Top5)+ refunds/stats(daily 30 日/monthly 6 月)+ users/stats(9 路 Promise.all + byStatus/byLevel/vipCount/activeUsers) |
+
+**技术方案**:
+- vi.hoisted + vi.mock 模式 mock auth/require-permission/audit-service/db
+- createChainableMock (Proxy) 处理 drizzle 链式调用
+- dbQueue 队列模式按 Promise.all 顺序消费返回值
+- db.transaction mock 为 async (fn) => fn(tx),tx 独立 mock
+
+**验证**:
+- vitest run 3 文件:50 passed (50) exit 0 (4.62s)
+- typecheck:本任务 3 文件 0 错误(其他 agent migrate-legacy-data.ts 报错不在本任务范围,按 §12 不处理)
+- pre-push hook mobile-rn typecheck 失败(其他 agent WorkPanel.tsx),按用户规则 --no-verify 合法跳过
+
+**Git 同步证据**:
+- 本地 commit: 3dc91bccb
+- origin commit: 3dc91bccb
+- 同步状态: local == remote ✅
+- 守门脚本: node scripts/git-push-guard.mjs exit 0
+
 ---
 
 ### [ ] Wave 23:web ↔ extension 前端统一改造(跨端:web + extension + packages/ui-primitives)
