@@ -19,8 +19,11 @@ import {
   sendDesktopNotification,
 } from '../lib/desktop'
 import { useConversations } from '../hooks/use-conversations'
+import { useModelPersist } from '../hooks/use-model-persist'
+import { useCodeTheme } from '../hooks/use-code-theme'
 import ConversationSidebar from '../components/ConversationSidebar'
 import MarkdownRenderer from '../components/MarkdownRenderer'
+import PromptTemplates from '../components/PromptTemplates'
 import { exportConversationToFile, type ExportFormat } from '../lib/export-conversation'
 import { useI18n } from '../i18n'
 
@@ -154,7 +157,9 @@ export default function ChatPage({ onLogout }: Props) {
   const [streaming, setStreaming] = useState(false)
   const [error, setError] = useState('')
   const [models, setModels] = useState<LlmModel[]>(FALLBACK_MODELS)
-  const [model, setModel] = useState<string>(FALLBACK_MODELS[0]!.id)
+  const [model, setModel] = useModelPersist(FALLBACK_MODELS[0]!.id)
+  // 代码块语法高亮主题跟随应用主题(light→github.css / dark→github-dark.css)
+  useCodeTheme()
   const [notice, setNotice] = useState('')
   const [attachments, setAttachments] = useState<ChatAttachment[]>([])
   const [dragOver, setDragOver] = useState(false)
@@ -210,8 +215,13 @@ export default function ChatPage({ onLogout }: Props) {
         if (cancelled) return
         const list = res?.models?.length ? res.models : FALLBACK_MODELS
         setModels(list)
-        const def =
-          res.default && list.some((m) => m.id === res.default) ? res.default : list[0]!.id
+        // persisted model 优先,其次 API default,最后列表首个
+        const persistedValid = list.some((m) => m.id === model)
+        const def = persistedValid
+          ? model
+          : res.default && list.some((m) => m.id === res.default)
+            ? res.default
+            : list[0]!.id
         setModel(def)
       })
       .catch(() => {
@@ -220,6 +230,7 @@ export default function ChatPage({ onLogout }: Props) {
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // 首次加载:hook ready 后,若存在 activeId,自动加载历史会话
@@ -715,13 +726,28 @@ export default function ChatPage({ onLogout }: Props) {
               value={model}
               onChange={(e) => setModel(e.target.value)}
               disabled={streaming}
-              aria-label="选择模型"
+              aria-label={t('chat.modelSelect')}
+              title={t('chat.modelSelect')}
             >
-              {models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name || m.id}
-                </option>
-              ))}
+              {(() => {
+                // 按 provider 分组,提升浏览体验(避免长列表)
+                const groups = new Map<string, LlmModel[]>()
+                for (const m of models) {
+                  const p = m.provider || 'other'
+                  const arr = groups.get(p)
+                  if (arr) arr.push(m)
+                  else groups.set(p, [m])
+                }
+                return Array.from(groups.entries()).map(([provider, list]) => (
+                  <optgroup key={provider} label={provider}>
+                    {list.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name || m.id}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))
+              })()}
             </select>
             {conv.enabled ? (
               <button
@@ -987,6 +1013,13 @@ export default function ChatPage({ onLogout }: Props) {
         >
           {busyFile ? '⏳' : '📎'}
         </button>
+        <PromptTemplates
+          disabled={streaming}
+          onPick={(text) => {
+            setInput((cur) => (cur ? `${cur}\n${text}` : text))
+            inputRef.current?.focus()
+          }}
+        />
         <input
           ref={inputRef}
           type="text"
