@@ -539,6 +539,9 @@ importers:
       '@ihui/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@ihui/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@ihui/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -639,6 +642,9 @@ importers:
       '@ihui/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@ihui/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@ihui/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -3335,7 +3341,7 @@ packages:
 
   '@expo/bunyan@4.0.1':
     resolution: {integrity: sha512-+Lla7nYSiHZirgK+U/uYzsLv/X+HaJienbD5AKX1UQZHYfWaP+9uuQluRB4GrEVWF0GZ7vEVp/jzaOT9k/SQlg==}
-    engines: {'0': node >=0.10.0}
+    engines: {node: '>=0.10.0'}
 
   '@expo/cli@0.18.31':
     resolution: {integrity: sha512-v9llw9fT3Uv+TCM6Xllo54t672CuYtinEQZ2LPJ2EJsCwuTc4Cd2gXQaouuIVD21VoeGQnr5JtJuWbF97sBKzQ==}

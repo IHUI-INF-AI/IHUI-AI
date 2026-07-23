@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ihui/api-client": "workspace:*",
+    "@ihui/shared": "workspace:*",
     "@ihui/types": "workspace:*",
     "@ihui/ui-native": "workspace:*",
     "@ihui/ui-primitives": "workspace:*",

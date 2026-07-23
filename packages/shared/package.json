@@ -11,6 +11,10 @@
       "types": "./src/index.ts",
       "import": "./dist/index.js"
     },
+    "./auth/*": {
+      "types": "./src/auth/*.ts",
+      "import": "./dist/auth/*.js"
+    },
     "./validation/*": {
       "types": "./src/validation/*.ts",
       "import": "./dist/validation/*.js"
