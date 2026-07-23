@@ -28434,6 +28434,8 @@
     "dragInsertAfter": "ここに後に挿入"
   },
   "aiNews": {
+    "metaTitle": "AI ニュース · 全網リアルタイム集約ストリーム",
+    "metaDescription": "国内外 41 の権威ある情報源(微博/知乎/36Kr/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等)を集約、6 時間ごとに自動収集、モデル/製品/業界/論文カテゴリとトレンド信号をリアルタイム更新。",
     "leaderboard": {
       "label": "モデルリーダーボード",
       "title": "モデルリーダーボード · Arena スコア",
@@ -28566,7 +28568,19 @@
       "label": "大型資金調達・買収",
       "title": "大型資金調達・買収",
       "subtitle": "7 月 AI 業界資本動向:SpaceX が Cursor を 600 億ドルで買収、DeepSeek が 500 億元資金調達",
-      "empty": "資金調達情報なし"
+      "empty": "資金調達情報なし",
+      "sortLabel": "ソート",
+      "sortByDate": "日付順",
+      "sortByAmount": "金額順",
+      "searchPlaceholder": "タイトル / 概要 / 出典を検索…",
+      "resultCount": "{count} / {total} 件"
+    },
+    "capabilityRadar": {
+      "coding": "コード",
+      "math": "数学",
+      "reasoning": "推論",
+      "creative": "創意",
+      "chinese": "中国語"
     },
     "detailDialog": {
       "arenaScore": "Arena スコア",
