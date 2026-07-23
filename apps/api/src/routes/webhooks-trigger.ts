@@ -113,11 +113,11 @@ function verifySignature(payload: string, signature: string, secret: string): bo
 
 /** 按 dotted 路径取值('data.type' → payload.data.type),取不到返回 undefined */
 function getValueByPath(obj: unknown, path: string): unknown {
-  if (obj == null) return undefined
+  if (obj === null || obj === undefined) return undefined
   const parts = path.split('.')
   let current: unknown = obj
   for (const part of parts) {
-    if (current == null || typeof current !== 'object') return undefined
+    if (current === null || current === undefined || typeof current !== 'object') return undefined
     current = (current as Record<string, unknown>)[part]
   }
   return current
