@@ -12,9 +12,9 @@ import type {
 import { updatePassword } from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
 import { useI18n, type Locale } from '../i18n'
-import type { RootStackParamList } from '../navigation/RootNavigator'
+import type { ProfileStackParamList } from '../navigation/RootNavigator'
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+type NavigationProp = NativeStackNavigationProp<ProfileStackParamList>
 
 type ThemeKey = 'light' | 'dark' | 'system'
 
@@ -50,10 +50,10 @@ export default function SettingsScreen() {
   ]
 
   const menuItems: SharedMenuItem[] = [
-    { key: 'about', label: t('menu.about') },
-    { key: 'feedback', label: t('menu.feedback') },
-    { key: 'privacy', label: t('menu.privacy') },
-    { key: 'agreement', label: t('menu.agreement') },
+    { key: 'About', label: t('menu.about') },
+    { key: 'Feedback', label: t('menu.feedback') },
+    { key: 'Privacy', label: t('menu.privacy') },
+    { key: 'Agreement', label: t('menu.agreement') },
   ]
 
   const onSelectLocale = (v: string) => {
@@ -88,7 +88,9 @@ export default function SettingsScreen() {
   }
 
   const onMenuPress = (key: string) => {
-    navigation.navigate(key as never)
+    // 目标路由(About/Feedback/Privacy/Agreement)在 RootStack 而非 ProfileStack,
+    // 需通过 getParent() 跨栈导航;as never 因跨栈类型推断复杂而保留
+    navigation.getParent()?.navigate(key as never)
   }
 
   return (
