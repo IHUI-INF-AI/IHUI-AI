@@ -1,114 +1,216 @@
-import { View, Text, ScrollView } from '@tarojs/components'
-import { useState, useCallback } from 'react'
-import { useDidShow } from '@tarojs/taro'
-import { getRankingList } from '@/api'
-import { Ranking, Loading, type RankingItem } from '@/components'
+import { View, Text, Input, Image, ScrollView } from '@tarojs/components'
+import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import * as api from '@/api'
 import { useI18n } from '@/i18n'
 import './index.css'
 
-/** 排行榜类型 tab(对标原项目:创作/学习/分销) */
-type RankType = 'creation' | 'learning' | 'distribution'
+/** AI 工具榜单条目(后端字段命名不统一,pick 函数兼容多命名) */
+interface ToolItem {
+  id: string | number
+  [key: string]: unknown
+}
 
-const TYPE_TABS: { key: RankType; labelKey: string }[] = [
-  { key: 'creation', labelKey: 'ranking.tabCreation' },
-  { key: 'learning', labelKey: 'ranking.tabLearning' },
-  { key: 'distribution', labelKey: 'ranking.tabDistribution' },
+interface ListResponse {
+  list: ToolItem[]
+  total?: number
+}
+
+/** 文件类型 tab:全部(0)/文本(1)/音频(2)/图片(3)/视频(4) */
+type FileType = 0 | 1 | 2 | 3 | 4
+
+const FILE_TABS: { key: FileType; labelKey: string; fallback: string }[] = [
+  { key: 0, labelKey: 'ranking.tabAll', fallback: '全部' },
+  { key: 1, labelKey: 'ranking.tabText', fallback: '文本' },
+  { key: 2, labelKey: 'ranking.tabAudio', fallback: '音频' },
+  { key: 3, labelKey: 'ranking.tabImage', fallback: '图片' },
+  { key: 4, labelKey: 'ranking.tabVideo', fallback: '视频' },
 ]
 
-interface RankingListResponse {
-  list: RankingItem[]
-  total?: number
-  myRank?: number
-  myScore?: number
+const PAGE_SIZE = 10
+
+/** 取字段值,兼容后端返回的多种命名 */
+const pick = (obj: Record<string, unknown>, keys: string[]): string => {
+  for (const k of keys) {
+    const v = obj[k]
+    if (v !== undefined && v !== null && v !== '') return String(v)
+  }
+  return ''
 }
 
 export default function RankingIndex() {
   const { t } = useI18n()
-  const [list, setList] = useState<RankingItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [type, setType] = useState<RankType>('creation')
-  const [myRank, setMyRank] = useState<number | null>(null)
-  const [myScore, setMyScore] = useState<number>(0)
+  /** i18n 兜底:key 未命中时返回 fallback */
+  const tt = useCallback(
+    (k: string, fb: string) => (t(k) === k ? fb : t(k)),
+    [t],
+  )
 
-  const load = useCallback(
-    async (t2: RankType) => {
-      setLoading(true)
+  const [list, setList] = useState<ToolItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [fileType, setFileType] = useState<FileType>(0)
+  const [keyword, setKeyword] = useState('')
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+
+  const fetchPage = useCallback(
+    async (curPage: number, ft: FileType, kw: string): Promise<boolean> => {
       try {
-        const res = (await getRankingList(t2)) as RankingListResponse
-        setList(res?.list || [])
-        setMyRank(res?.myRank ?? null)
-        setMyScore(res?.myScore ?? 0)
+        const res = (await api.get('/ranking/list', {
+          fileType: ft,
+          page: curPage,
+          pageSize: PAGE_SIZE,
+          keyword: kw,
+        })) as ListResponse | undefined
+        const newList = res?.list || []
+        setList((prev) => (curPage === 1 ? newList : [...prev, ...newList]))
+        const total = res?.total ?? newList.length
+        const more = newList.length >= PAGE_SIZE && curPage * PAGE_SIZE < total
+        setHasMore(more)
+        return more
       } catch {
-        // ignore
-      } finally {
-        setLoading(false)
+        // 兜底:走现有 getRankingList(无分页,只取首页)
+        if (curPage === 1) {
+          try {
+            const res = (await api.getRankingList()) as ListResponse | undefined
+            setList(res?.list || [])
+            setHasMore(false)
+          } catch {
+            setList([])
+            setHasMore(false)
+          }
+        }
+        return false
       }
     },
     [],
   )
 
-  useDidShow(() => {
-    load(type)
-  })
-
-  const onTypeChange = useCallback(
-    (t2: RankType) => {
-      if (t2 === type) return
-      setType(t2)
-      load(t2)
+  const reload = useCallback(
+    async (ft: FileType, kw: string) => {
+      setLoading(true)
+      setPage(1)
+      await fetchPage(1, ft, kw)
+      setLoading(false)
     },
-    [type, load],
+    [fetchPage],
   )
 
-  const unitMap: Record<RankType, string> = {
-    creation: t('ranking.unitCreation'),
-    learning: t('ranking.unitLearning'),
-    distribution: t('ranking.unitDistribution'),
-  }
+  const reloadRef = useRef(reload)
+  reloadRef.current = reload
+  useEffect(() => {
+    void reloadRef.current(0, '')
+  }, [])
+
+  const onTabChange = useCallback(
+    (ft: FileType) => {
+      if (ft === fileType) return
+      setFileType(ft)
+      void reload(ft, keyword)
+    },
+    [fileType, keyword, reload],
+  )
+
+  const onSearchConfirm = useCallback(() => {
+    void reload(fileType, keyword)
+  }, [fileType, keyword, reload])
+
+  const onScrollToLower = useCallback(() => {
+    if (loading || !hasMore) return
+    const next = page + 1
+    setLoading(true)
+    void fetchPage(next, fileType, keyword).then(() => {
+      setPage(next)
+      setLoading(false)
+    })
+  }, [loading, hasMore, page, fileType, keyword, fetchPage])
+
+  useReachBottom(onScrollToLower)
+  usePullDownRefresh(() => {
+    void reload(fileType, keyword).finally(() => Taro.stopPullDownRefresh())
+  })
+
+  const goDetail = useCallback((id: string | number) => {
+    Taro.navigateTo({ url: `/pages/ranking/detail?id=${id}` })
+  }, [])
 
   return (
     <View className="rkg-page">
       <View className="rkg-header">
-        <Text className="rkg-title">{t('ranking.title')}</Text>
+        <Text className="rkg-title">{tt('ranking.listTitle', 'AI榜单')}</Text>
       </View>
 
-      {/* 类型筛选 tab */}
+      {/* 搜索框 */}
+      <View className="rkg-search">
+        <Input
+          className="rkg-search-input"
+          placeholder={tt('ranking.searchPlaceholder', '搜索 AI 工具')}
+          value={keyword}
+          onInput={(e) => setKeyword(e.detail.value)}
+          onConfirm={onSearchConfirm}
+        />
+      </View>
+
+      {/* 文件类型筛选 tab */}
       <ScrollView scrollX className="rkg-tabs">
-        {TYPE_TABS.map((tab) => (
+        {FILE_TABS.map((tab) => (
           <View
             key={tab.key}
-            className={`rkg-tab${type === tab.key ? ' active' : ''}`}
-            onClick={() => onTypeChange(tab.key)}
+            className={`rkg-tab${fileType === tab.key ? ' active' : ''}`}
+            onClick={() => onTabChange(tab.key)}
           >
-            <Text>{t(tab.labelKey)}</Text>
+            <Text>{tt(tab.labelKey, tab.fallback)}</Text>
           </View>
         ))}
       </ScrollView>
 
-      {/* 我的排名卡片 */}
-      <View className="rkg-mine">
-        <View className="rkg-mine-info">
-          <Text className="rkg-mine-label">{t('ranking.myRank')}</Text>
-          <Text className="rkg-mine-rank">
-            {myRank !== null ? `#${myRank}` : t('ranking.notRanked')}
-          </Text>
+      {/* 榜单列表 */}
+      {list.length ? (
+        <View className="rkg-list">
+          {list.map((item) => {
+            const raw = item as Record<string, unknown>
+            const logo = pick(raw, ['logo', 'avatar', 'icon', 'field1'])
+            const name = pick(raw, ['name', 'title'])
+            const desc = pick(raw, ['desc', 'description', 'intro', 'summary'])
+            const attention = pick(raw, ['attention', 'viewCount', 'collectCount'])
+            const category =
+              pick(raw, ['category', 'cate']) || tt('ranking.generalHelper', '通用助手')
+            const price = pick(raw, ['price']) || tt('ranking.free', '免费')
+            return (
+              <View key={item.id} className="rkg-item" onClick={() => goDetail(item.id)}>
+                {logo ? <Image className="rkg-item-logo" src={logo} mode="aspectFill" /> : null}
+                <View className="rkg-item-body">
+                  <Text className="rkg-item-title">{name || '-'}</Text>
+                  {desc ? <Text className="rkg-item-desc">{desc}</Text> : null}
+                  <View className="rkg-item-meta">
+                    <Text className="rkg-item-attention">
+                      {tt('ranking.detail.attention', '关注度')}: {attention || '-'}
+                    </Text>
+                    <Text className="rkg-item-category">
+                      {tt('ranking.detail.category', '类别')}: {category}
+                    </Text>
+                    <Text className="rkg-item-price">
+                      {tt('ranking.detail.price', '价格')}: {price}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )
+          })}
         </View>
-        <View className="rkg-mine-score">
-          <Text className="rkg-mine-score-val">{myScore}</Text>
-          <Text className="rkg-mine-score-unit">{unitMap[type]}</Text>
-        </View>
-      </View>
+      ) : null}
 
-      {/* 排行榜列表 */}
-      <View className="rkg-list">
-        {loading ? (
-          <Loading text={t('common.loading')} />
-        ) : list.length ? (
-          <Ranking list={list} unit={unitMap[type]} />
-        ) : (
-          <Text className="rkg-empty">{t('ranking.empty')}</Text>
-        )}
-      </View>
+      {!loading && !list.length ? (
+        <View className="rkg-empty">
+          <Text>{tt('ranking.empty', '暂无数据')}</Text>
+        </View>
+      ) : null}
+
+      {loading ? (
+        <View className="rkg-loading">
+          <Text>{tt('common.loading', '加载中...')}</Text>
+        </View>
+      ) : null}
     </View>
   )
 }
