@@ -246,7 +246,33 @@ async function registerPlugins(server: FastifyInstance) {
 
   // WebSocket 实时通知推送：/ws/notifications + server.pushNotification 装饰器
   // 内部使用 Redis Pub/Sub 支持多实例横向扩展
-  await server.register(websocket)
+  // 2026-07-24 安全加固:verifyClient 校验 Origin(CSWFH 防护,CWE-346)
+  // 攻击场景:恶意网站 JS 用用户浏览器发起 WebSocket 连接窃听消息。
+  // 防护:Origin 必须在 CORS_ORIGIN 白名单内;缺失 Origin(非浏览器客户端)允许通过,
+  // 因为 ws-chat/ws-tasks 等已有 JWT wsAuth 认证,无 cookie 自动携带风险。
+  const wsAllowedOrigins = new Set(
+    (process.env.CORS_ORIGIN ?? 'http://localhost:8801')
+      .split(',')
+      .map((o) => o.trim().toLowerCase())
+      .filter(Boolean),
+  )
+  await server.register(websocket, {
+    options: {
+      // verifyClient callback:next(res: boolean, code?, reason?) — res=true 允许,res=false 拒绝
+      verifyClient: (
+        info: { origin: string },
+        next: (res: boolean, code?: number, reason?: string) => void,
+      ) => {
+        const origin = (info.origin ?? '').toLowerCase()
+        // 缺失 Origin(非浏览器/curl/服务端客户端):允许,依赖 JWT wsAuth
+        if (!origin || wsAllowedOrigins.has(origin)) {
+          next(true)
+        } else {
+          next(false, 403, 'Origin not allowed')
+        }
+      },
+    },
+  })
   await server.register(wsNotifications)
   // WebSocket AI 能力:agent_stream / tts_stream / realtime_pcm(1:1 流式连接)
   await server.register(wsAi)
