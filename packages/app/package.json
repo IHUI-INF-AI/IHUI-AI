@@ -9,10 +9,6 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
-    },
-    "./about": {
-      "types": "./src/features/about/AboutScreen.tsx",
-      "import": "./src/features/about/AboutScreen.tsx"
     }
   },
   "scripts": {
