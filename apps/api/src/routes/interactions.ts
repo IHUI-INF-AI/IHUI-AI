@@ -39,7 +39,7 @@ const commentCreateSchema = z.object({
   resourceId: z.string().min(1).max(128),
   content: z.string().min(1).max(2000),
   parentId: z.string().uuid().optional(),
-  mentions: z.array(z.string().uuid()).optional(),
+  mentions: z.array(z.string().uuid()).max(50).optional(),
 })
 
 const commentListQuerySchema = z.object({
