@@ -36,7 +36,19 @@
       "publishContentPlaceholder": "スキルの本文を書く（Markdown/JSON）...",
       "publishSubmit": "公開",
       "publishSuccess": "公開成功",
-      "publishFailed": "公開失敗"
+      "publishFailed": "公開失敗",
+      "subscribe": "購読",
+      "subscribed": "購読中",
+      "unsubscribe": "購読解除",
+      "subscribers": "{count} 購読者",
+      "notifications": "通知",
+      "noNotifications": "通知はありません",
+      "markRead": "既読にする",
+      "markedRead": "既読にしました",
+      "skillUpdated": "{name} が {version} に更新されました",
+      "subscribeSuccess": "購読しました",
+      "unsubscribeSuccess": "購読を解除しました",
+      "subscribeFailed": "操作に失敗しました"
     }
   },
   "common": {
