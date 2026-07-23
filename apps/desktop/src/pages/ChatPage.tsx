@@ -20,6 +20,7 @@ import {
 } from '../lib/desktop'
 import { useConversations } from '../hooks/use-conversations'
 import ConversationSidebar from '../components/ConversationSidebar'
+import MarkdownRenderer from '../components/MarkdownRenderer'
 import { useI18n } from '../i18n'
 
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'])
@@ -248,6 +249,21 @@ export default function ChatPage({ onLogout }: Props) {
       if (currentConvId === null) setCurrentConvId(id)
     },
     [conv, currentConvId],
+  )
+
+  // 消息复制
+  const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null)
+  const onCopyMessage = useCallback(
+    async (m: ChatMessage) => {
+      try {
+        await navigator.clipboard.writeText(m.content)
+        setCopiedMsgId(m.id)
+        window.setTimeout(() => setCopiedMsgId(null), 1500)
+      } catch {
+        // 静默
+      }
+    },
+    [],
   )
 
   /** 从扩展名判断是否图片。 */
@@ -599,9 +615,19 @@ export default function ChatPage({ onLogout }: Props) {
         ) : (
           messages.map((m) => (
             <div key={m.id} className={`chat-bubble ${m.role}`}>
-              <span className="role">{m.role === 'user' ? '你' : 'AI'}</span>
+              <span className="role">
+                {m.role === 'user' ? t('chat.roleUser') : t('chat.roleAI')}
+              </span>
               <div className="content">
-                {m.content || (m.role === 'assistant' ? '...' : '')}
+                {m.role === 'assistant' ? (
+                  m.content ? (
+                    <MarkdownRenderer content={m.content} />
+                  ) : (
+                    '...'
+                  )
+                ) : (
+                  <div className="md-plain">{m.content}</div>
+                )}
                 {m.attachments && m.attachments.length > 0 ? (
                   <div className="msg-attachments">
                     {m.attachments.map((att, i) => (
@@ -624,6 +650,17 @@ export default function ChatPage({ onLogout }: Props) {
                   </div>
                 ) : null}
               </div>
+              {m.content ? (
+                <button
+                  type="button"
+                  className="msg-copy-btn"
+                  onClick={() => void onCopyMessage(m)}
+                  aria-label={t('chat.copyMessage')}
+                  title={t('chat.copyMessage')}
+                >
+                  {copiedMsgId === m.id ? t('chat.copied') : t('chat.copy')}
+                </button>
+              ) : null}
             </div>
           ))
         )}
