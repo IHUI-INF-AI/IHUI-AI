@@ -318,7 +318,7 @@ export default defineContentScript({
   matches: ['<all_urls>'],
   // 2026-07-22 P0 Round 5 鲁棒性加固:排除银行/支付/政府等敏感网站
   // 防止 content script 注入到敏感页面拦截银行卡号/密码/验证码等
-  exclude_matches: [
+  excludeMatches: [
     '*://*.icbc.com.cn/*',      // 工商银行
     '*://*.cmbchina.com/*',     // 招商银行
     '*://*.abchina.com/*',      // 农业银行
