@@ -145,7 +145,7 @@ const llmChatBody = z
   .passthrough()
 const mcpToolCallBody = z.object({ name: z.string().min(1) }).passthrough()
 
-export const frontendStubAiRoutes: FastifyPluginAsync = async (server) => {
+export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
   // 统一鉴权:所有 ai 模块路由均需登录
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     try {

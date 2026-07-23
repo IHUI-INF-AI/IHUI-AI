@@ -52,7 +52,7 @@ vi.mock('../src/db/index.js', () => ({
   dbClient: {},
 }))
 
-import { frontendStubAdminRoutes } from '../src/routes/frontend-stub-admin-routes.js'
+import { frontendAdminRoutes as frontendStubAdminRoutes } from '../src/routes/admin-extended/index.js'
 import { db } from '../src/db/index.js'
 
 const PREFIX = '/api'
