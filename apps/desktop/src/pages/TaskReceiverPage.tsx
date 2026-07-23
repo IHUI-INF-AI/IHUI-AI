@@ -20,14 +20,6 @@ const STATUS_STYLE: Record<TaskStatus, { color: string; dot?: boolean }> = {
   cancelled: { color: 'var(--muted)' },
 }
 
-const STATUS_LABEL: Record<TaskStatus, string> = {
-  pending: '待执行',
-  running: '执行中',
-  completed: '已完成',
-  failed: '失败',
-  cancelled: '已取消',
-}
-
 const timeFmt = new Intl.DateTimeFormat('zh-CN', {
   month: '2-digit',
   day: '2-digit',
@@ -54,11 +46,11 @@ export default function TaskReceiverPage() {
       })
       setMsg(
         res.success
-          ? `任务 ${task.id.slice(0, 8)} 执行完成,结果已回传`
-          : `回传失败: ${res.error}`,
+          ? t('taskReceiver.executed', { id: task.id.slice(0, 8) })
+          : t('taskReceiver.callbackFailed', { error: res.error }),
       )
     } catch (err) {
-      setMsg(`异常: ${(err as Error).message}`)
+      setMsg(`${t('taskReceiver.errorPrefix')}: ${(err as Error).message}`)
     } finally {
       setBusyId(null)
     }
@@ -67,16 +59,16 @@ export default function TaskReceiverPage() {
   const onCopyDeviceId = async () => {
     try {
       await navigator.clipboard?.writeText(deviceId)
-      setMsg(`设备 ID 已复制:${deviceId}`)
+      setMsg(t('taskReceiver.deviceIdCopied', { id: deviceId }))
     } catch {
-      setMsg(`设备 ID:${deviceId}`)
+      setMsg(t('taskReceiver.deviceIdShow', { id: deviceId }))
     }
   }
 
   return (
     <div className="page" style={{ maxWidth: 1100 }}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>{t('nav.agents')} · 任务接收</h2>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>{t('nav.agents')} · {t('taskReceiver.title')}</h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             type="button"
@@ -92,10 +84,10 @@ export default function TaskReceiverPage() {
               fontFamily: 'monospace',
             }}
           >
-            设备 {deviceId.slice(0, 8)}…
+            {t('taskReceiver.deviceLabel')} {deviceId.slice(0, 8)}…
           </button>
           <span style={{ fontSize: 12, color: isConnected ? 'var(--accent)' : 'var(--muted)' }}>
-            {isConnected ? 'WS 已连接' : 'WS 断开'}
+            {isConnected ? t('taskReceiver.wsConnected') : t('taskReceiver.wsDisconnected')}
           </span>
         </div>
       </header>
@@ -113,7 +105,7 @@ export default function TaskReceiverPage() {
             background: 'var(--card)',
           }}
         >
-          等待移动端下发任务
+          {t('taskReceiver.emptyWaiting')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -139,12 +131,12 @@ export default function TaskReceiverPage() {
                     {st.dot && (
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', display: 'inline-block' }} />
                     )}
-                    {STATUS_LABEL[task.status]}
+                    {t(`taskReceiver.status.${task.status}`)}
                   </span>
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--muted)', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <span>来源: {task.fromDevice}</span>
-                  <span>下发至: {task.toDevice}</span>
+                  <span>{t('taskReceiver.source')}: {task.fromDevice}</span>
+                  <span>{t('taskReceiver.target')}: {task.toDevice}</span>
                   <span>{timeFmt.format(new Date(task.createdAt))}</span>
                 </div>
                 {task.result?.output && (
@@ -155,7 +147,7 @@ export default function TaskReceiverPage() {
                 {canRun && (
                   <div>
                     <button type="button" onClick={() => onExecute(task)} disabled={busyId === task.id}>
-                      {busyId === task.id ? t('common.loading') : '执行'}
+                      {busyId === task.id ? t('common.loading') : t('taskReceiver.execute')}
                     </button>
                   </div>
                 )}
