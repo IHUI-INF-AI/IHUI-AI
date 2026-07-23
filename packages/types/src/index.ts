@@ -63,3 +63,6 @@ export * from './hooks.js'
 export * from './spec.js'
 // Context Engineering(对标 Qoder)
 export * from './context-mention.js'
+
+// 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
+export * from './orchestration.js'
