@@ -49,6 +49,22 @@
 
 ---
 
+### [x] ✅(2026-07-23) Wave 20:ai-service pytest 覆盖强化 — 10 模块 275 用例(平台独占:仅 apps/ai-service)
+
+**触发**:W19 lint 清零后,脚本差集分析 171 源 / 57 有 test / 122 无 test,核心 middleware/config/services 治理层有盲区(避开 llm_gateway/jwt_auth/compaction 等已有充分测试模块)。
+
+**交付**(3 subagent 并行,10 新 test 文件 + 1 语法修复,commit `e56042358`):
+- middleware 安全链:input_sanitizer(45)+ response_sanitizer(28)+ audit(19)
+- 指标追踪+配置日志:llm_metrics(21)+ trace_context(27)+ config(45)+ logging(30)
+- services 治理:audit_service(15)+ network_guard(27)+ resource_monitor(18)
+- 修复 test_local_providers.py 第 149 行 SyntaxError(`'[' was never closed`,pre-existing 半成品阻塞全量收集)
+
+**验证**:10 新文件 275 passed(1.29s)+ 针对性回归含 test_middleware 376 passed(2.12s)。全量回归 pre-existing 慢测试卡住(非本 Wave 引入)。§9 平台独占 + §22 豁免(纯测试)。
+
+**Git 同步**:commit `e56042358` + post-commit 自动 push,local == remote ✅。
+
+---
+
 ### [x] ✅(2026-07-23) AI Skills TOP 19 个 skill 集成 + 19 真集成(全部实装,无占位)
 
 **触发**:用户提供 2 张图(CODEX 10+GitHub 10,去重 19 个),要求全装到项目并支持列表里选调。
