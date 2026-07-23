@@ -138,6 +138,7 @@ import { HistoryScreen } from '../screens/HistoryScreen'
 import { BookmarkScreen } from '../screens/BookmarkScreen'
 import { ShareScreen } from '../screens/ShareScreen'
 import { useI18n } from '../i18n'
+import { useTheme } from '../context/ThemeContext'
 import { WorkPanelScreen, setWorkPanelNavigator } from '../components/WorkPanel'
 import { TaskDispatchPage } from '../pages/TaskDispatchPage'
 import { SharedDemoScreen } from '../screens/SharedDemoScreen'
@@ -369,13 +370,14 @@ function ProfileTabStack() {
 
 function MainTabs() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   return (
     <Tabs.Navigator
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: tokens.brand.DEFAULT,
-        tabBarInactiveTintColor: '#737373',
-        tabBarStyle: { backgroundColor: 'white' },
+        tabBarInactiveTintColor: resolvedTheme === 'dark' ? tokens.text.tertiary : '#737373',
+        tabBarStyle: { backgroundColor: resolvedTheme === 'dark' ? tokens.surface.dark : tokens.surface.light },
         tabBarLabelStyle: { fontSize: 11 },
       }}
     >
@@ -414,6 +416,7 @@ function WorkPanelNavBridge() {
 
 function RootNavigatorInner() {
   const { token, ready } = useAuth()
+  const { resolvedTheme } = useTheme()
   const ws = useNotificationWebSocket(token)
   const { setConnected, addFromWs } = useNotificationStore()
 
@@ -427,7 +430,7 @@ function RootNavigatorInner() {
 
   if (!ready) {
     return (
-      <View className="flex-1 bg-white items-center justify-center">
+      <View className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}>
         <Text className="text-gray-500">加载中...</Text>
       </View>
     )
