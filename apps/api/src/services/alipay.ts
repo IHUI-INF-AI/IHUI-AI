@@ -22,14 +22,22 @@ export function isAlipayConfigured(): boolean {
   return Boolean(env.ALIPAY_APP_ID && (env.ALIPAY_PRIVATE_KEY || env.ALIPAY_PRIVATE_KEY_PATH));
 }
 
+/** 把支付宝密钥工具生成的裸 base64(PKCS8)自动包装成 PEM 格式(Node crypto 需要) */
+function wrapPem(raw: string, type: 'PRIVATE KEY' | 'PUBLIC KEY'): string {
+  const trimmed = raw.trim();
+  if (trimmed.includes('-----BEGIN')) return trimmed;
+  const body = trimmed.replace(/\s/g, '').match(/.{1,64}/g)?.join('\n') ?? trimmed;
+  return `-----BEGIN ${type}-----\n${body}\n-----END ${type}-----`;
+}
+
 function getPrivateKey(): string {
-  if (env.ALIPAY_PRIVATE_KEY) return env.ALIPAY_PRIVATE_KEY;
+  if (env.ALIPAY_PRIVATE_KEY) return wrapPem(env.ALIPAY_PRIVATE_KEY, 'PRIVATE KEY');
   if (env.ALIPAY_PRIVATE_KEY_PATH) return readFileSync(env.ALIPAY_PRIVATE_KEY_PATH, 'utf-8');
   return '';
 }
 
 function getPublicKey(): string {
-  if (env.ALIPAY_PUBLIC_KEY) return env.ALIPAY_PUBLIC_KEY;
+  if (env.ALIPAY_PUBLIC_KEY) return wrapPem(env.ALIPAY_PUBLIC_KEY, 'PUBLIC KEY');
   if (env.ALIPAY_PUBLIC_KEY_PATH) return readFileSync(env.ALIPAY_PUBLIC_KEY_PATH, 'utf-8');
   return '';
 }
