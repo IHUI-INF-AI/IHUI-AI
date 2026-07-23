@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Info, Plus, Download } from 'lucide-react'
+import { toast } from 'sonner'
 import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Button } from '@ihui/ui'
@@ -88,7 +89,7 @@ export default function AboutUsPage() {
       t('title'),
       COLS.map((c) => ({ key: c.key, title: t(c.label) })),
     )
-    if (!ok) alert(t('exportFailed'))
+    if (!ok) toast.error(t('exportFailed'))
   }
 
   const list = data?.list ?? []
