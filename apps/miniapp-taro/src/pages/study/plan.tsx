@@ -1,7 +1,7 @@
-import { View, Text, Button } from '@tarojs/components'
+import { View, Text, Button, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { getStudyPlan } from '@/api'
+import { getStudyPlan, post } from '@/api'
 import { useI18n } from '@/i18n'
 
 interface PlanItem {
@@ -15,21 +15,48 @@ export default function StudyPlan() {
   const { t } = useI18n()
   const [list, setList] = useState<PlanItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [showAdd, setShowAdd] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [newTarget, setNewTarget] = useState('30')
+  const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
     try {
       const res = await getStudyPlan()
       setList(res.list || [])
     } catch {
-      // 统一提示
+      Taro.showToast({ title: t('common.failed'), icon: 'none' })
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   const onAdd = useCallback(() => {
-    Taro.showToast({ title: t('study.planPage.addFailed'), icon: 'none' })
-  }, [t])
+    setNewTitle('')
+    setNewTarget('30')
+    setShowAdd(true)
+  }, [])
+
+  const submitAdd = useCallback(async () => {
+    const title = newTitle.trim()
+    if (!title) {
+      Taro.showToast({ title: t('study.publish.enterTitle'), icon: 'none' })
+      return
+    }
+    const target = Number(newTarget) || 30
+    setSaving(true)
+    try {
+      await post('/study/plan', { title, target })
+      setShowAdd(false)
+      Taro.showToast({ title: t('common.success'), icon: 'success' })
+      setLoading(true)
+      await load()
+    } catch {
+      Taro.showToast({ title: t('study.planPage.addFailed'), icon: 'none' })
+    } finally {
+      setSaving(false)
+    }
+  }, [newTitle, newTarget, load, t])
 
   useDidShow(() => {
     load()
@@ -77,6 +104,50 @@ export default function StudyPlan() {
       >
         {t('study.planPage.add')}
       </Button>
+
+      {showAdd && (
+        <View className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowAdd(false)}>
+          <View
+            className="mx-6 w-full max-w-[300px] bg-card rounded-xl p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Text className="block text-base text-foreground font-semibold mb-3">
+              {t('study.planPage.add')}
+            </Text>
+            <Input
+              className="h-9 px-3 bg-background rounded-md text-sm mb-3"
+              placeholder={t('study.publish.titlePlaceholder')}
+              value={newTitle}
+              onInput={(e) => setNewTitle(e.detail.value)}
+            />
+            <View className="flex items-center mb-3">
+              <Input
+                className="h-9 px-3 bg-background rounded-md text-sm flex-1"
+                type="number"
+                placeholder={t('study.planPage.target', { n: 30 })}
+                value={newTarget}
+                onInput={(e) => setNewTarget(e.detail.value)}
+              />
+            </View>
+            <View className="flex gap-3">
+              <Button
+                className="flex-1 h-9 leading-9 bg-muted text-foreground rounded-md text-sm"
+                onClick={() => setShowAdd(false)}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                className="flex-1 h-9 leading-9 bg-primary text-white rounded-md text-sm"
+                loading={saving}
+                disabled={saving}
+                onClick={submitAdd}
+              >
+                {t('common.confirm')}
+              </Button>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   )
 }
