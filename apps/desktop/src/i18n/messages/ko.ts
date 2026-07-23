@@ -117,6 +117,12 @@ export default {
     error: '업데이트 실패',
     idle: '클릭하여 업데이트 확인',
   },
+  desktop: {
+    title: '데스크톱 기능',
+    autostart: '시작 시 자동 실행',
+    shortcut: '전역 단축키',
+    autostartToggleFailed: '자동 시작 설정 실패',
+  },
   error: {
     network: '네트워크 오류',
     server: '서버 오류',
