@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Flame, TrendingUp, TrendingDown, ExternalLink, Rss, Search, LineChart } from 'lucide-react'
 import type { AiFeedTimelineItem } from '@/lib/ai-news-api'
+import { formatCompact, getLocale } from '@/lib/number-format'
 import { TrendChartDialog } from './TrendChartDialog'
 import { TrendNotificationBanner } from './TrendNotificationBanner'
 
@@ -81,12 +82,6 @@ function formatDayLabel(date: Date, t: (k: string) => string, locale: string): s
   return new Intl.DateTimeFormat(locale, { month: 'long', day: 'numeric' }).format(date)
 }
 
-function formatHot(n: number | null, locale: string): string {
-  if (n === null || n === 0) return ''
-  // 用 Intl.NumberFormat compact 表示法,自动适配 locale(zh:亿/万, en:B/M, ja:億/万, ko:억/만)
-  return new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }).format(n)
-}
-
 function sourceInitial(name: string): string {
   const ch = name.trim().charAt(0)
   return ch || '?'
@@ -127,7 +122,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
   const [activeTrend, setActiveTrend] = React.useState<string>('')
 
   // locale + 时间格式化器提取到循环外(性能优化:50 条数据从 50 次实例化降为 1 次)
-  const locale = typeof document !== 'undefined' ? document.documentElement.lang || 'zh-CN' : 'zh-CN'
+  const locale = getLocale()
   const timeFormatter = React.useMemo(
     () => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }),
     [locale],
@@ -369,7 +364,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                 {group.items.map((it) => {
                   const source = sourceMap.get(it.sourceCode)
                   const time = timeFormatter.format(new Date(it.lastSeenAt))
-                  const hot = formatHot(it.currentHot, locale)
+                  const hot = formatCompact(it.currentHot, locale)
                   const isRising = it.trendTag === 'rising'
                   const isCooling = it.trendTag === 'cooling'
                   const srcColor = source?.color ?? '#888'
