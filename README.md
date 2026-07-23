@@ -2100,6 +2100,16 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **跨端类型契约(packages/types)**:新增 WorkerResourceLimits + NetworkEgressPolicy 接口;KanbanTask 加 timeoutSeconds/workspacePath/workspaceBranch;WorkerPoolConfig 加 resourceLimits/networkEgressPolicy/workspaceSourcePath/heartbeatTimeoutSeconds
 - **验证**:CLI typecheck + build exit 0;ai-service 6 场景独立验证全过
 
+#### 18. 对标 TRAE Work 三大工作台体验缺口补齐(跨端:web + api + desktop + mobile-rn + packages/shared,2026-07-23)
+
+> 触发:深度调研 TRAE Work(Web/Desktop/Mobile 三端 AI 工作台 + Work/Code 双模式 + Skills 市场 + 跨端任务编排)后,识别 IHUI-AI 在工作台体验层 3 项 P0/P1 缺口。本轮 /goal 模式多 Subagent 并行补齐。
+
+- **Skills 技能市场(web + api)**:`packages/shared/src/skills/market.ts` 跨端类型契约(SkillMarketEntry / SkillRating / SkillMarketListResponse / SkillInstallResponse)+ `apps/api/src/routes/skills.ts` 扩展 4 端点(`GET /skills/market` 搜索/标签/分页 + `POST /skills/:name/install` 安装计数自增 + `POST /skills/:name/rate` 评分 + `GET /skills/:name/ratings` 评分列表)+ 7 个种子 skill(content_engine / koubo_workflow / code-reviewer / test-writer / figma-to-code / doc-summarizer / api-mock-gen)+ `apps/web/app/(main)/skills/market/page.tsx` 响应式市场页(搜索框 + 标签筛选 + 技能卡片网格 + 分页 + 安装/评分弹窗)+ `apps/web/src/lib/skills-market-api.ts` API 客户端 + 5 语言 i18n parity
+- **三端联动调度(mobile-rn → api WS → desktop)**:`packages/shared/src/tasks/dispatch.ts` 跨端类型(TaskDispatch / TaskResult / TaskWsMessage / TaskDispatchResponse)+ `apps/api/src/routes/tasks.ts` 4 端点(`POST /tasks/dispatch` 下发 + WS 推送 task-dispatch 频道 + `POST /tasks/result` 回传 + WS 推送 task-result + `GET /tasks` 列表 + `GET /tasks/devices` 在线设备)+ Redis 持久化 + 进程内 Map 降级 + `apps/mobile-rn/src/pages/TaskDispatchPage.tsx` 移动端下发页(设备选择 + 指令输入 + 任务列表)+ `apps/desktop/src/pages/TaskReceiverPage.tsx` 桌面端接收页 + `apps/desktop/src/hooks/use-task-receiver.ts` WS 守护 hook(监听 task-dispatch + 执行 + 回传 result)
+- **Design 模式 MVP(desktop)**:`packages/shared/src/design/element.ts` 跨端类型(DesignPreview / DesignElement / DesignPreviewResponse)+ `apps/api/src/routes/design.ts` 2 端点(`POST /design/preview` 保存 HTML 产物 + `GET /design/previews` 列表)+ `apps/desktop/src/pages/DesignPage.tsx` 三栏画布(左侧代码输入 + 中间 iframe 实时预览 + 右侧 CSS 面板)+ postMessage 元素选择器(click 选中 + outline 高亮)+ CSS 属性编辑 + 评论反馈到对话闭环
+- **验证**:5 端 typecheck 本任务文件全绿(shared ✅ / desktop ✅ / mobile-rn ✅ / api 本任务文件 0 错 / web 本任务文件 0 错,其余报错均为其他 agent 文件按 §12 不阻塞);curl 实测 6 端点全通(auth/login → skills/market 返回 7 skill + tasks/dispatch 创建 pending → tasks/result 更新 completed → design/preview 保存 + skills/install 计数 3120→3121 + skills/rate 评分入库);browser DOM 验证 web /skills/market 页面合规(搜索框/标签/卡片均 rounded-md/lg 无 rounded-full 违规、无 hr/divide-* 分割线、hover:bg-accent subtle 无蓝光边框、max-w-6xl 适配内容)
+- **跨端契约对齐**:packages/shared 新增 3 模块(skills/tasks/design)经 package.json exports 映射 + index.ts re-export,api/web/desktop/mobile-rn 统一引用 @ihui/shared 单一类型源,杜绝内联类型漂移
+
 ### 进行中
 
 - 内容发布平台 11 平台真实凭证调通(代码已就绪,需用户提供凭证)

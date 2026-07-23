@@ -1,4 +1,31 @@
 {
+  "skills": {
+    "market": {
+      "title": "スキルマーケット",
+      "subtitle": "スキル拡張を閲覧・インストール・評価",
+      "searchPlaceholder": "スキルを検索...",
+      "tagAll": "すべて",
+      "install": "インストール",
+      "installed": "インストール済み",
+      "rating": "評価",
+      "rate": "評価",
+      "comment": "コメント",
+      "commentPlaceholder": "レビューを書く...",
+      "submit": "送信",
+      "cancel": "キャンセル",
+      "empty": "スキルがありません",
+      "loading": "読み込み中...",
+      "page": "{page}/{total} ページ",
+      "prev": "前へ",
+      "next": "次へ",
+      "total": "全 {total} 件",
+      "installs": "{count} インストール",
+      "installSuccess": "インストール成功",
+      "installFailed": "インストール失敗",
+      "rateSuccess": "評価成功",
+      "rateFailed": "評価失敗"
+    }
+  },
   "common": {
     "login": "ログイン",
     "register": "登録",
