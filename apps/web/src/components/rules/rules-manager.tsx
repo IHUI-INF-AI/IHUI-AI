@@ -564,15 +564,17 @@ function RuleEditDialog() {
           </button>
         </div>
         <div className="space-y-2">
-          <label className="text-xs text-muted-foreground">名称</label>
+          <label htmlFor="rule-name" className="text-xs text-muted-foreground">名称</label>
           <Input
+            id="rule-name"
             value={name}
             onChange={(e) => setName(e.target.value.slice(0, 128))}
             placeholder="规则名称"
             className="h-8 text-sm"
           />
-          <label className="text-xs text-muted-foreground">描述(可选)</label>
+          <label htmlFor="rule-desc" className="text-xs text-muted-foreground">描述(可选)</label>
           <Input
+            id="rule-desc"
             value={description}
             onChange={(e) => setDescription(e.target.value.slice(0, 256))}
             placeholder="简短描述"
@@ -580,8 +582,9 @@ function RuleEditDialog() {
           />
           <div className="flex gap-2">
             <div className="flex-1">
-              <label className="text-xs text-muted-foreground">作用域</label>
+              <label htmlFor="rule-scope" className="text-xs text-muted-foreground">作用域</label>
               <select
+                id="rule-scope"
                 value={scope}
                 onChange={(e) => setScope(e.target.value as RuleScope)}
                 className="mt-0.5 w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none"
@@ -592,8 +595,9 @@ function RuleEditDialog() {
               </select>
             </div>
             <div className="w-24">
-              <label className="text-xs text-muted-foreground">优先级</label>
+              <label htmlFor="rule-priority" className="text-xs text-muted-foreground">优先级</label>
               <Input
+                id="rule-priority"
                 type="number"
                 min={0}
                 max={100}
@@ -609,8 +613,9 @@ function RuleEditDialog() {
           </div>
           <div className="flex gap-2">
             <div className="flex-1">
-              <label className="text-xs text-muted-foreground">匹配类型</label>
+              <label htmlFor="rule-match-type" className="text-xs text-muted-foreground">匹配类型</label>
               <select
+                id="rule-match-type"
                 value={matchType}
                 onChange={(e) => setMatchType(e.target.value as RuleMatchType)}
                 className="mt-0.5 w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none"
@@ -623,10 +628,11 @@ function RuleEditDialog() {
             </div>
             {matchType !== 'always' && (
               <div className="flex-1">
-                <label className="text-xs text-muted-foreground">
+                <label htmlFor="rule-match-pattern" className="text-xs text-muted-foreground">
                   匹配模式
                 </label>
                 <Input
+                  id="rule-match-pattern"
                   value={matchPattern}
                   onChange={(e) => setMatchPattern(e.target.value)}
                   placeholder={
@@ -641,8 +647,9 @@ function RuleEditDialog() {
               </div>
             )}
           </div>
-          <label className="text-xs text-muted-foreground">规则正文</label>
+          <label htmlFor="rule-content" className="text-xs text-muted-foreground">规则正文</label>
           <textarea
+            id="rule-content"
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="规则正文(markdown,作为 prompt 注入到 agent)..."
@@ -712,8 +719,9 @@ function RuleTestDialog() {
           </button>
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs text-muted-foreground">输入消息</label>
+          <label htmlFor="rule-test-msg" className="text-xs text-muted-foreground">输入消息</label>
           <textarea
+            id="rule-test-msg"
             value={testMessage}
             onChange={(e) => setTestMessage(e.target.value)}
             placeholder="输入测试消息..."
@@ -864,10 +872,11 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
               检测到 {conflicts.length} 处冲突,输入上下文后可 LLM 协商
             </p>
             <div className="space-y-1">
-              <label className="text-[10px] text-muted-foreground">
+              <label htmlFor="rule-arb-ctx" className="text-[10px] text-muted-foreground">
                 协商上下文(当前对话/代码片段)
               </label>
               <textarea
+                id="rule-arb-ctx"
                 value={arbitrationContext}
                 onChange={(e) => setArbitrationContext(e.target.value)}
                 placeholder="输入上下文供 LLM 仲裁..."
@@ -1698,8 +1707,9 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <label className="text-[10px] text-muted-foreground">规则 A</label>
+            <label htmlFor="rule-cmp-a" className="text-[10px] text-muted-foreground">规则 A</label>
             <select
+              id="rule-cmp-a"
               value={ruleIdA}
               onChange={(e) => setRuleIdA(e.target.value)}
               className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none"
@@ -1713,8 +1723,9 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-[10px] text-muted-foreground">规则 B</label>
+            <label htmlFor="rule-cmp-b" className="text-[10px] text-muted-foreground">规则 B</label>
             <select
+              id="rule-cmp-b"
               value={ruleIdB}
               onChange={(e) => setRuleIdB(e.target.value)}
               className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none"
@@ -1730,8 +1741,9 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] text-muted-foreground">测试消息</label>
+          <label htmlFor="rule-cmp-msg" className="text-[10px] text-muted-foreground">测试消息</label>
           <textarea
+            id="rule-cmp-msg"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="输入测试消息..."
