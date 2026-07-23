@@ -23,6 +23,7 @@
  *   node scripts/i18n-diff.mjs --output <path>  # 自定义输出路径
  *   node scripts/i18n-diff.mjs --quiet          # 只输出 JSON,不打印报告
  *   node scripts/i18n-diff.mjs --target=extension  # 扫描 extension i18n(packages/i18n/messages/extension/)
+ *   node scripts/i18n-diff.mjs --target=miniapp-taro  # 扫描 miniapp-taro i18n(apps/miniapp-taro/src/i18n/,解析 .ts)
  *
  * 退出码:
  *   0 = 无 pending
@@ -32,6 +33,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execSync } from 'node:child_process'
+import ts from 'typescript'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
@@ -40,20 +42,25 @@ const outputIdx = process.argv.indexOf('--output')
 const customOutput = outputIdx >= 0 ? process.argv[outputIdx + 1] : null
 const targetArg = process.argv.find((a) => a.startsWith('--target='))
 const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
-const isExtension = TARGET === 'extension'
 
-const MESSAGES_DIR = isExtension
-  ? path.join(ROOT, 'packages/i18n/messages/extension')
-  : path.join(ROOT, 'apps/web/messages')
+// target → 目录 + 文件扩展名 + staged 前缀
+const TARGET_CONFIG = {
+  web: { dir: 'apps/web/messages', ext: '.json', stagedPrefix: 'apps/web/messages/' },
+  extension: { dir: 'packages/i18n/messages/extension', ext: '.json', stagedPrefix: 'packages/i18n/messages/extension/' },
+  'miniapp-taro': { dir: 'apps/miniapp-taro/src/i18n', ext: '.ts', stagedPrefix: 'apps/miniapp-taro/src/i18n/' },
+}
+const TARGET_CFG = TARGET_CONFIG[TARGET] || TARGET_CONFIG.web
+const isMiniappTaro = TARGET === 'miniapp-taro'
+
+const MESSAGES_DIR = path.join(ROOT, TARGET_CFG.dir)
 const TMP_DIR = path.join(ROOT, '.trae-cn/tmp')
 const DEFAULT_OUTPUT = path.join(TMP_DIR, 'i18n-pending.json')
 const OUTPUT_FILE = customOutput || DEFAULT_OUTPUT
 
 const BASE_LANG = 'zh-CN'
 const TARGET_LANGS = ['en', 'ja', 'ko', 'zh-TW']
-const STAGED_MESSAGES_PREFIX = isExtension
-  ? 'packages/i18n/messages/extension/'
-  : 'apps/web/messages/'
+const STAGED_MESSAGES_PREFIX = TARGET_CFG.stagedPrefix
+const MESSAGE_EXT = TARGET_CFG.ext
 
 const C = {
   red: '\x1b[31m',
@@ -80,15 +87,58 @@ function loadGlossary() {
   }
 }
 
+// 解析 .ts 文件中的 `export default { ... }` 对象字面量为普通 JS 对象
+// 用 typescript 包走 AST(禁止 eval/new Function),支持嵌套对象/字符串/数字/布尔/null
+function parseTsObject(filePath) {
+  const content = fs.readFileSync(filePath, 'utf8')
+  const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true)
+  let exportAssignment = null
+  for (const stmt of sourceFile.statements) {
+    if (ts.isExportAssignment(stmt)) {
+      exportAssignment = stmt
+      break
+    }
+  }
+  if (!exportAssignment) return null
+  const expr = exportAssignment.expression
+  if (!ts.isObjectLiteralExpression(expr)) return null
+  return extractTsObject(expr)
+}
+
+function extractTsObject(node) {
+  const obj = {}
+  for (const prop of node.properties) {
+    if (!ts.isPropertyAssignment(prop)) continue
+    const name = prop.name
+    const key = ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)
+      ? name.text
+      : String(name.text || '')
+    obj[key] = extractTsValue(prop.initializer)
+  }
+  return obj
+}
+
+function extractTsValue(node) {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text
+  if (ts.isNumericLiteral(node)) return Number(node.text)
+  if (node.kind === ts.SyntaxKind.TrueKeyword) return true
+  if (node.kind === ts.SyntaxKind.FalseKeyword) return false
+  if (node.kind === ts.SyntaxKind.NullKeyword) return null
+  if (ts.isObjectLiteralExpression(node)) return extractTsObject(node)
+  if (ts.isArrayLiteralExpression(node)) return node.elements.map(extractTsValue)
+  return null
+}
+
 function loadMessages() {
   const langs = {}
   if (!fs.existsSync(MESSAGES_DIR)) return langs
   for (const entry of fs.readdirSync(MESSAGES_DIR)) {
-    if (!entry.endsWith('.json')) continue
+    if (!entry.endsWith(MESSAGE_EXT)) continue
     try {
-      langs[entry.replace('.json', '')] = JSON.parse(
-        fs.readFileSync(path.join(MESSAGES_DIR, entry), 'utf8'),
-      )
+      const filePath = path.join(MESSAGES_DIR, entry)
+      langs[entry.replace(MESSAGE_EXT, '')] = isMiniappTaro
+        ? parseTsObject(filePath)
+        : JSON.parse(fs.readFileSync(filePath, 'utf8'))
     } catch {
       // 解析失败跳过
     }
@@ -118,8 +168,8 @@ function getStagedLocales() {
     const staged = output.split('\n').filter(Boolean)
     const locales = new Set()
     for (const f of staged) {
-      if (f.startsWith(STAGED_MESSAGES_PREFIX) && f.endsWith('.json')) {
-        const locale = path.basename(f, '.json')
+      if (f.startsWith(STAGED_MESSAGES_PREFIX) && f.endsWith(MESSAGE_EXT)) {
+        const locale = path.basename(f, MESSAGE_EXT)
         locales.add(locale)
       }
     }
@@ -300,7 +350,7 @@ function main() {
     const stagedLocales = getStagedLocales()
     if (!stagedLocales.includes(BASE_LANG)) {
       if (!isQuiet) {
-        console.log(`${C.green}[i18n AI 翻译流水线] 暂存区未改动 ${BASE_LANG}.json,跳过(仅 zh-CN 改动时触发)${C.reset}`)
+        console.log(`${C.green}[i18n AI 翻译流水线] 暂存区未改动 ${BASE_LANG}${MESSAGE_EXT},跳过(仅 zh-CN 改动时触发)${C.reset}`)
       }
       process.exit(0)
     }
