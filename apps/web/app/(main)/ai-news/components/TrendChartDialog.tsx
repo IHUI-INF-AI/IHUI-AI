@@ -209,11 +209,11 @@ function SimpleLineChart({ points }: { points: Array<{ snapshotDate: string; hot
         <line x1={PAD} y1={H - PAD} x2={W - PAD} y2={H - PAD} className="stroke-muted" strokeWidth={0.5} />
         {/* 折线 */}
         <path d={pathD} fill="none" className="stroke-primary" strokeWidth={1.5} />
-        {/* 数据点 */}
+        {/* 数据点 + X 轴日期。小屏(<375px)隐藏日期文字避免不可读 */}
         {coords.map((c, i) => (
           <g key={i}>
             <circle cx={c.x} cy={c.y} r={2.5} className="fill-primary" />
-            <text x={c.x} y={H - PAD + 12} textAnchor="middle" className="fill-muted-foreground" fontSize={7}>
+            <text x={c.x} y={H - PAD + 12} textAnchor="middle" className="fill-muted-foreground max-[374px]:hidden" fontSize={7}>
               {c.date.slice(5)}
             </text>
           </g>
