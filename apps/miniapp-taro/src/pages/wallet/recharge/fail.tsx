@@ -1,23 +1,22 @@
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
-
-// 充值失败页文案(wallet.recharge.fail.* i18n key 暂未定义,沿用原项目硬编码中文模式)
-const FAIL_TEXT = {
-  title: '充值失败',
-  desc: '充值未成功,请稍后重试',
-  retry: '重新充值',
-  backWallet: '返回钱包',
-  orderNoLabel: '订单号',
-}
+import { useI18n } from '@/i18n'
+import './fail.css'
 
 export default function RechargeFail() {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   const router = useRouter()
   const [orderNo, setOrderNo] = useState('')
+  const [amount, setAmount] = useState(0)
+  const [reason, setReason] = useState('')
 
   useEffect(() => {
-    setOrderNo(router.params.orderNo || '')
-  }, [router.params.orderNo])
+    setOrderNo(decodeURIComponent(router.params.orderNo || ''))
+    setAmount(Number(router.params.amount) || 0)
+    setReason(decodeURIComponent(router.params.reason || ''))
+  }, [router.params.orderNo, router.params.amount, router.params.reason])
 
   const retry = () => {
     Taro.redirectTo({ url: '/pages/wallet/recharge/index' })
@@ -27,37 +26,76 @@ export default function RechargeFail() {
     Taro.navigateBack({ fail: () => Taro.switchTab({ url: '/pages/user/index' }) })
   }
 
+  const viewDetail = () => {
+    Taro.navigateTo({ url: '/pages/token/balance' })
+  }
+
   return (
-    <View className="min-h-screen bg-background">
-      <View className="pt-[120rpx] pb-[80rpx] text-center">
-        <View className="w-[160rpx] h-[160rpx] leading-[160rpx] mx-auto rounded-md text-[80rpx] text-white bg-[#dd524d]">
-          ×
+    <View className="rf-page">
+      <View className="rf-head">
+        <View className="rf-icon">
+          <Text className="rf-icon-mark">✕</Text>
         </View>
-        <Text className="block text-[36rpx] text-foreground font-semibold mt-[32rpx]">
-          {FAIL_TEXT.title}
-        </Text>
-        <Text className="block text-[26rpx] text-muted-foreground mt-[12rpx] px-[60rpx]">
-          {FAIL_TEXT.desc}
-        </Text>
-        {orderNo ? (
-          <Text className="block text-[22rpx] text-[#bbb] mt-[24rpx] px-[60rpx]">
-            {FAIL_TEXT.orderNoLabel} {orderNo}
-          </Text>
-        ) : null}
+        <Text className="rf-title">{tt('wallet.recharge.fail.title', '充值失败')}</Text>
+        <Text className="rf-desc">{tt('wallet.recharge.fail.desc', '充值未成功,请稍后重试')}</Text>
       </View>
-      <View className="px-[60rpx]">
-        <Button
-          className="mt-[32rpx] bg-primary text-white rounded-[40rpx] text-[30rpx]"
-          onClick={retry}
-        >
-          {FAIL_TEXT.retry}
+
+      <View className="rf-hint">
+        <Text className="rf-hint-title">{tt('wallet.recharge.fail.hintTitle', '温馨提示')}</Text>
+        <Text className="rf-hint-text">
+          {tt(
+            'wallet.recharge.fail.hintText',
+            '如充值未到账,请确认支付是否完成。款项将在 1-3 个工作日内原路退回,或联系客服协助处理。',
+          )}
+        </Text>
+      </View>
+
+      {(reason || orderNo || amount > 0) && (
+        <View className="rf-card">
+          {reason ? (
+            <View className="rf-row">
+              <Text className="rf-row-label">{tt('wallet.recharge.fail.reasonLabel', '失败原因')}</Text>
+              <Text className="rf-row-value rf-row-value--reason">{reason}</Text>
+            </View>
+          ) : null}
+          {orderNo ? (
+            <View className="rf-row">
+              <Text className="rf-row-label">{tt('wallet.recharge.fail.orderNoLabel', '订单号')}</Text>
+              <Text className="rf-row-value rf-row-value--mono">{orderNo}</Text>
+            </View>
+          ) : null}
+          {amount > 0 ? (
+            <View className="rf-row">
+              <Text className="rf-row-label">{tt('wallet.recharge.fail.amountLabel', '充值金额')}</Text>
+              <Text className="rf-row-value rf-row-value--amount">¥{amount.toFixed(2)}</Text>
+            </View>
+          ) : null}
+        </View>
+      )}
+
+      <View className="rf-actions">
+        <Button className="rf-btn rf-btn--primary" onClick={retry}>
+          {tt('wallet.recharge.fail.retry', '重新充值')}
         </Button>
-        <Button
-          className="mt-[32rpx] bg-card text-foreground rounded-[40rpx] text-[30rpx]"
-          onClick={goBack}
-        >
-          {FAIL_TEXT.backWallet}
+        <Button className="rf-btn rf-btn--ghost" onClick={goBack}>
+          {tt('wallet.recharge.fail.backWallet', '返回钱包')}
         </Button>
+        <Button className="rf-btn rf-btn--ghost" onClick={viewDetail}>
+          {tt('wallet.recharge.fail.viewDetail', '查看明细')}
+        </Button>
+        <Button className="rf-btn rf-btn--contact" openType="contact">
+          {tt('wallet.recharge.fail.contactService', '联系客服')}
+        </Button>
+      </View>
+
+      <View className="rf-faq">
+        <Text className="rf-faq-q">{tt('wallet.recharge.fail.faqQ', '充值失败会扣款吗?')}</Text>
+        <Text className="rf-faq-a">
+          {tt(
+            'wallet.recharge.fail.faqA',
+            '若支付未完成则不会扣款;若已扣款但显示失败,款项将原路退回,请留意账户变动。',
+          )}
+        </Text>
       </View>
     </View>
   )
