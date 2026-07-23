@@ -18,5 +18,4 @@ export type {
   AboutScreenProps,
   ProfileScreenProps,
   SettingsScreenProps,
-  SharedRenderSlot,
 } from './types'

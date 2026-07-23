@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
-import { AboutScreen, ProfileScreen, SettingsScreen } from '@ihui/app'
+import { AboutScreen, ProfileScreen, SettingsScreen, tokens } from '@ihui/app'
 import type {
   SharedMenuSection,
   SharedLocaleOption,
@@ -105,7 +105,7 @@ export function SharedDemoScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   tabs: { flexDirection: 'row', padding: 8, gap: 8 },
-  tab: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#F3F4F6' },
-  tabActive: { backgroundColor: '#10B981' },
-  tabText: { fontSize: 14, fontWeight: '500', color: '#374151' },
+  tab: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 8, backgroundColor: tokens.surface.card },
+  tabActive: { backgroundColor: tokens.brand.DEFAULT },
+  tabText: { fontSize: 14, fontWeight: '500', color: tokens.text.medium },
 })
