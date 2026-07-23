@@ -199,13 +199,13 @@ const ingestDocumentSchema = z.object({
 })
 
 const batchDeleteSchema = z.object({
-  documentIds: z.array(z.string().min(1)).min(1),
+  documentIds: z.array(z.string().min(1)).min(1).max(100),
 })
 
 const knowledgeSearchSchema = z.object({
   query: z.string().min(1),
   topK: z.number().int().positive().optional(),
-  documentIds: z.array(z.string()).optional(),
+  documentIds: z.array(z.string()).max(100).optional(),
   threshold: z.number().min(0).max(1).optional(),
 })
 
@@ -231,10 +231,10 @@ const promptInvokeSchema = z.object({
 })
 
 const samplingSchema = z.object({
-  messages: z.array(z.object({ role: z.string(), content: z.string() })).min(1),
+  messages: z.array(z.object({ role: z.string(), content: z.string() })).min(1).max(100),
   modelPreferences: z
     .object({
-      hints: z.array(z.string()).optional(),
+      hints: z.array(z.string()).max(20).optional(),
       costPriority: z.number().optional(),
       speedPriority: z.number().optional(),
       intelligencePriority: z.number().optional(),
@@ -288,7 +288,7 @@ const forgetMemorySchema = z.object({
 const publishMessageSchema = z.object({
   channel: z.string().min(1),
   content: z.string().min(1),
-  recipients: z.array(z.string()).optional(),
+  recipients: z.array(z.string()).max(100).optional(),
   metadata: z.record(z.unknown()).optional(),
 })
 

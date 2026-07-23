@@ -54,7 +54,7 @@ const createThemeColorSchema = z.object({
 const updateThemeColorSchema = createThemeColorSchema.partial()
 
 const bulkUpdateThemeColorsSchema = z.object({
-  colors: z.array(updateThemeColorSchema.extend({ id: z.string().uuid() })),
+  colors: z.array(updateThemeColorSchema.extend({ id: z.string().uuid() })).max(500),
 })
 
 const createThemeFontSchema = z.object({

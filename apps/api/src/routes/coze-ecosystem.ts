@@ -206,7 +206,7 @@ export const cozeEcosystemRoutes: FastifyPluginAsync = async (server) => {
       .object({
         user_id: z.string().min(1),
         conversation_id: z.string().optional(),
-        additional_messages: z.array(z.record(z.string(), z.unknown())).optional(),
+        additional_messages: z.array(z.record(z.string(), z.unknown())).max(100).optional(),
         stream: z.boolean().optional(),
         auto_save_history: z.boolean().optional(),
       })

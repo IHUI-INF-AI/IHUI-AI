@@ -123,10 +123,10 @@ const createResourceSchema = z.object({
   status: z.number().int().min(0).optional(),
   type: z.string().max(50).nullable().optional(),
   productId: z.preprocess(emptyToUndefined, z.string().uuid().nullable()).optional(),
-  tagIdList: z.array(z.string().uuid()).nullable().optional(),
+  tagIdList: z.array(z.string().uuid()).max(100).nullable().optional(),
   image: z.string().max(500).nullable().optional(),
   introduction: z.string().nullable().optional(),
-  cidList: z.array(z.string().uuid()).nullable().optional(),
+  cidList: z.array(z.string().uuid()).max(100).nullable().optional(),
 })
 
 const updateResourceSchema = z.object({
@@ -141,10 +141,10 @@ const updateResourceSchema = z.object({
   status: z.number().int().min(0).optional(),
   type: z.string().max(50).nullable().optional(),
   productId: z.preprocess(emptyToUndefined, z.string().uuid().nullable()).optional(),
-  tagIdList: z.array(z.string().uuid()).nullable().optional(),
+  tagIdList: z.array(z.string().uuid()).max(100).nullable().optional(),
   image: z.string().max(500).nullable().optional(),
   introduction: z.string().nullable().optional(),
-  cidList: z.array(z.string().uuid()).nullable().optional(),
+  cidList: z.array(z.string().uuid()).max(100).nullable().optional(),
 })
 
 const publishResourceSchema = z.object({
