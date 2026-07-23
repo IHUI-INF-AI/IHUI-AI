@@ -3,7 +3,16 @@
 command -v git-lfs >/dev/null 2>&1 || { printf >&2 "\n%s\n\n" "This repository is configured for Git LFS but 'git-lfs' was not found on your path. If you no longer wish to use Git LFS, remove this hook by deleting the 'post-commit' file in the hooks directory (set by 'core.hookspath'; usually '.git/hooks')."; exit 2; }
 git lfs post-commit "$@"
 
-# ─── 2. 自动 push guard(AGENTS.md §21, 2026-07-20 立) ──────
+# ─── 2. 自动归档已完成任务(2026-07-23 立, AGENTS.md §1) ──────
+# commit 后自动扫描 PROJECT_PLAN.md, 把完成 ≥7 天的已完成任务条目归档到 .trae-cn/archive/
+# 防递归: 归档 commit 自身设 IHUI_ARCHIVE_COMMIT=1, 此处检测到则跳过归档脚本
+# 跳过: HUSKY_SKIP_ARCHIVE=1(手动跳过归档, 紧急场景)
+cd "$(git rev-parse --show-toplevel)" || { printf '%s\n' "❌ 无法定位仓库根目录" >&2; exit 1; }
+if [ "${IHUI_ARCHIVE_COMMIT:-0}" != "1" ] && [ "${HUSKY_SKIP_ARCHIVE:-0}" != "1" ]; then
+  node scripts/archive-completed-tasks.mjs --auto-commit 2>/dev/null || true
+fi
+
+# ─── 3. 自动 push guard(AGENTS.md §21, 2026-07-20 立) ──────
 # 背景: 历史上多次出现 agent "commit 后忘记 push" 协作事故。
 # 任何 `git commit` 成功后, 自动检测本地 ahead, 立即推送, 并验证 local == remote HEAD。
 # 跳过: HUSKY_SKIP_PUSH=1(紧急本地暂存场景, 不推荐)
