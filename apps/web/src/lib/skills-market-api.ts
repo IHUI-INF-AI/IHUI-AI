@@ -5,6 +5,8 @@ import type {
   SkillRating,
   SkillMarketQuery,
   SkillRateRequest,
+  SkillPublishRequest,
+  SkillMarketEntry,
 } from '@ihui/shared/skills/market'
 
 export const SKILL_MARKET_PAGE_SIZE = 20
@@ -40,4 +42,11 @@ export function rateSkill(name: string, body: SkillRateRequest): Promise<SkillRa
 
 export function fetchSkillRatings(name: string): Promise<SkillRating[]> {
   return api<SkillRating[]>(`/api/skills/${encodeURIComponent(name)}/ratings`)
+}
+
+export function publishSkill(body: SkillPublishRequest): Promise<SkillMarketEntry> {
+  return api<SkillMarketEntry>(`/api/skills/market`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
 }
