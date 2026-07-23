@@ -439,7 +439,7 @@ function DispatchForm({ onOpenChange }: { onOpenChange: (open: boolean) => void 
       </div>
       {/* 重试 */}
       <div className="space-y-1.5 rounded-md border border-border bg-card px-2.5 py-2">
-        <label className="text-xs font-medium text-foreground">失败重试</label>
+        <span className="text-xs font-medium text-foreground">失败重试</span>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
             <span className="text-[11px] text-muted-foreground">重试次数</span>
