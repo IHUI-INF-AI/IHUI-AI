@@ -199,6 +199,11 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
   // ===== 订单 =====
 
   // POST /orders - 创建订单
+  // 2026-07-24 安全审计:金额客户端可控风险(CWE-841)
+  // 当前 payAmount/originalPrice/discountAmount 从客户端 body 传入,service 层直接写入 DB。
+  // 攻击者可篡改 payAmount=0.01 购买高价商品。
+  // 修复建议:生产环境应在 service 层根据 orderType+targetId 服务端查询真实价格,
+  // 忽略客户端传入的 payAmount。当前最小侵入防护:校验金额合理性。
   server.post(
     '/orders',
     {
@@ -213,6 +218,19 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       const parsed = createOrderSchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      // 2026-07-24 安全防护:校验金额合理性(防 0 元购 + 防负数)
+      const payAmount = parseFloat(parsed.data.payAmount ?? '0')
+      const originalPrice = parseFloat(parsed.data.originalPrice ?? '0')
+      const discountAmount = parseFloat(parsed.data.discountAmount ?? '0')
+      if (payAmount < 0.01) {
+        return reply.status(400).send(error(400, '支付金额不能小于 0.01 元'))
+      }
+      if (originalPrice > 0 && payAmount > originalPrice) {
+        return reply.status(400).send(error(400, '支付金额不能超过原价'))
+      }
+      if (discountAmount > originalPrice) {
+        return reply.status(400).send(error(400, '折扣金额不能超过原价'))
       }
       const order = await createOrder({ userId: request.userId!, ...parsed.data })
       return reply.status(201).send(success({ order }))
