@@ -1,9 +1,109 @@
-.page { min-height: 100vh; background: var(--color-background); }
-.card { margin: 24rpx; background: var(--color-card); border-radius: 16rpx; overflow: hidden; }
-.row { display: flex; align-items: center; padding: 32rpx; border-bottom: 2rpx solid var(--color-border); }
-.icon { font-size: 40rpx; }
-.body { margin-left: 24rpx; }
-.label { display: block; font-size: 22rpx; color: var(--color-muted-foreground); }
-.value { display: block; font-size: 28rpx; color: var(--color-foreground); margin-top: 4rpx; }
-.tips { text-align: center; padding: 32rpx; }
-.tips text { font-size: 22rpx; color: var(--color-muted-foreground); }
+.page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding-bottom: 60rpx;
+}
+.header {
+  padding: 60rpx 32rpx 40rpx;
+  text-align: center;
+  background: var(--color-card);
+}
+.header-title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.header-sub {
+  display: block;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 12rpx;
+}
+.card {
+  margin: 24rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+.row {
+  display: flex;
+  align-items: center;
+  padding: 32rpx;
+  border-bottom: 2rpx solid var(--color-border);
+}
+.row.last {
+  border-bottom: none;
+}
+.row:active {
+  background: var(--color-background);
+}
+.icon {
+  font-size: 40rpx;
+  flex-shrink: 0;
+}
+.body {
+  flex: 1;
+  margin-left: 24rpx;
+  margin-right: 16rpx;
+}
+.label {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+.value {
+  display: block;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  margin-top: 4rpx;
+  word-break: break-all;
+}
+.action-text {
+  font-size: 24rpx;
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+.work-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28rpx 32rpx;
+  border-bottom: 2rpx solid var(--color-border);
+}
+.work-row.last {
+  border-bottom: none;
+}
+.work-label {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+.work-value {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  text-align: right;
+}
+.footer {
+  padding: 32rpx 24rpx 16rpx;
+}
+.call-btn {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 30rpx;
+  border-radius: 12rpx;
+  margin: 0;
+}
+.call-btn::after {
+  border: none;
+}
+.tips {
+  text-align: center;
+  padding: 32rpx;
+}
+.tips text {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
