@@ -5,15 +5,29 @@ import { getDeveloperWithdrawalList } from '@/api'
 import { useI18n } from '@/i18n'
 import './withdrawal.css'
 
+// 开发者提现记录项(getDeveloperWithdrawalList 后端未类型化,按页面使用字段定义)
+interface WithdrawalItem {
+  id: string
+  amount: number
+  time?: string
+  status?: string
+  statusText?: string
+}
+
+// 开发者提现列表响应
+interface WithdrawalListResponse {
+  list?: WithdrawalItem[]
+}
+
 export default function DeveloperWithdrawal() {
   const { t } = useI18n()
-  const [list, setList] = useState<Record<string, unknown>[]>([])
+  const [list, setList] = useState<WithdrawalItem[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     try {
-      const res = (await getDeveloperWithdrawalList()) as Record<string, unknown>
-      setList((res?.list as Record<string, unknown>[]) || [])
+      const res = (await getDeveloperWithdrawalList()) as WithdrawalListResponse
+      setList(res?.list || [])
     } catch {
       // ignore
     } finally {
@@ -33,14 +47,14 @@ export default function DeveloperWithdrawal() {
           <Text className="loading-text">{t('common.loading')}</Text>
         ) : list.length ? (
           list.map((item) => (
-            <View key={item.id as string} className="withdrawal-item">
+            <View key={item.id} className="withdrawal-item">
               <View className="withdrawal-info">
-                <Text className="withdrawal-amount">¥{item.amount as number}</Text>
-                <Text className="withdrawal-time">{(item.time as string) || ''}</Text>
+                <Text className="withdrawal-amount">¥{item.amount}</Text>
+                <Text className="withdrawal-time">{item.time || ''}</Text>
               </View>
-              <Text className={`withdrawal-status status-${(item.status as string) || 'pending'}`}>
-                {(item.statusText as string) ||
-                  (item.status as string) ||
+              <Text className={`withdrawal-status status-${item.status || 'pending'}`}>
+                {item.statusText ||
+                  item.status ||
                   t('developer.withdrawal.processing')}
               </Text>
             </View>
