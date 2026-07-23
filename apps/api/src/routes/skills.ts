@@ -22,6 +22,8 @@ import type {
   SkillMarketListResponse,
   SkillInstallResponse,
   SkillPublishRequest,
+  SkillSubscriptionResponse,
+  SkillNotification,
 } from '@ihui/shared'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
@@ -261,6 +263,113 @@ async function writeRatings(
     await redis.set(key, JSON.stringify(ratings))
   } catch {
     ratingsFallback.set(key, ratings)
+  }
+}
+
+// ---------- 订阅/通知存储(双向索引 + 用户通知 List) ----------
+// Redis key 格式:
+//   skill-subscribers:<skillName>  → Set<userId>  (skill → 订阅者集合)
+//   user-subscriptions:<userId>     → Set<skillName> (user → 已订阅 skill 集合)
+//   skill-notifications:<userId>    → List<notification JSON> (LPUSH 头插,LRANGE 读取)
+// 进程内降级:setsFallback(Map<key, Set<string>>) + notifFallback(Map<key, string[]>)
+
+const setsFallback = new Map<string, Set<string>>()
+const notifFallback = new Map<string, string[]>()
+
+function subKey(skillName: string): string {
+  return `skill-subscribers:${skillName}`
+}
+function userSubsKey(userId: string): string {
+  return `user-subscriptions:${userId}`
+}
+function notifKey(userId: string): string {
+  return `skill-notifications:${userId}`
+}
+
+interface RedisSetOps {
+  sadd: (key: string, ...members: string[]) => Promise<number>
+  srem: (key: string, ...members: string[]) => Promise<number>
+  sismember: (key: string, member: string) => Promise<number>
+  smembers: (key: string) => Promise<string[]>
+}
+
+async function setAdd(
+  redis: RedisSetOps,
+  key: string,
+  member: string,
+): Promise<void> {
+  try {
+    await redis.sadd(key, member)
+  } catch {
+    if (!setsFallback.has(key)) setsFallback.set(key, new Set())
+    setsFallback.get(key)!.add(member)
+  }
+}
+
+async function setRemove(
+  redis: RedisSetOps,
+  key: string,
+  member: string,
+): Promise<void> {
+  try {
+    await redis.srem(key, member)
+  } catch {
+    setsFallback.get(key)?.delete(member)
+  }
+}
+
+async function setIsMember(
+  redis: RedisSetOps,
+  key: string,
+  member: string,
+): Promise<boolean> {
+  try {
+    return (await redis.sismember(key, member)) === 1
+  } catch {
+    return setsFallback.get(key)?.has(member) ?? false
+  }
+}
+
+async function setMembers(
+  redis: RedisSetOps,
+  key: string,
+): Promise<string[]> {
+  try {
+    return await redis.smembers(key)
+  } catch {
+    return Array.from(setsFallback.get(key) ?? [])
+  }
+}
+
+interface RedisListOps {
+  lpush: (key: string, value: string) => Promise<number>
+  lrange: (key: string, start: number, stop: number) => Promise<string[]>
+  del: (key: string) => Promise<number>
+}
+
+/** 向 skill 的所有订阅者推送一条更新通知 */
+async function notifySubscribers(
+  redis: RedisListOps & RedisSetOps,
+  skillName: string,
+  version: string,
+): Promise<void> {
+  const subscribers = await setMembers(redis, subKey(skillName))
+  if (subscribers.length === 0) return
+  const notification: SkillNotification = {
+    id: randomUUID(),
+    skillName,
+    message: `${skillName} 更新到 ${version}`,
+    version,
+    timestamp: new Date().toISOString(),
+  }
+  const payload = JSON.stringify(notification)
+  for (const userId of subscribers) {
+    try {
+      await redis.lpush(notifKey(userId), payload)
+    } catch {
+      if (!notifFallback.has(notifKey(userId))) notifFallback.set(notifKey(userId), [])
+      notifFallback.get(notifKey(userId))!.unshift(payload)
+    }
   }
 }
 
@@ -544,8 +653,28 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     const body = parsed.data as SkillPublishRequest
 
     const entries = await readMarket(server.redis, MARKET_KEY)
-    if (entries.some((e) => e.name === body.name)) {
-      return reply.status(409).send(error(409, '同名 Skill 已存在于市场'))
+    const existingIdx = entries.findIndex((e) => e.name === body.name)
+
+    // 同名 + 同作者 → 视为版本更新(更新条目 + 通知订阅者)
+    if (existingIdx >= 0) {
+      const existing = entries[existingIdx]!
+      if (existing.author !== body.author) {
+        return reply.status(409).send(error(409, '同名 Skill 已存在且作者不同'))
+      }
+      // 版本更新:刷新 description/tags/version/updatedAt,保留 installCount/rating
+      const prevVersion = existing.version
+      existing.description = body.description
+      existing.tags = body.tags
+      existing.version = body.version
+      existing.license = body.license
+      existing.updatedAt = new Date().toISOString()
+      await writeMarket(server.redis, MARKET_KEY, entries)
+
+      // 通知所有订阅者(LPUSH 到各用户通知 List)
+      if (body.version !== prevVersion) {
+        await notifySubscribers(server.redis, body.name, body.version)
+      }
+      return reply.send(success(existing))
     }
 
     const now = new Date().toISOString()
@@ -634,4 +763,119 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ ratings, total: ratings.length }))
     },
   )
+
+  // ===================== 订阅/通知(P2-d) =====================
+
+  // POST /skills/:name/subscribe — 订阅 skill(双向索引)
+  server.post<{ Params: { name: string } }>(
+    '/skills/:name/subscribe',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const userId = request.userId!
+
+      const parsed = nameParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const skillName = parsed.data.name
+
+      // 校验 skill 存在
+      const entries = await readMarket(server.redis, MARKET_KEY)
+      if (!entries.some((e) => e.name === skillName)) {
+        return reply.status(404).send(error(404, '市场 Skill 不存在'))
+      }
+
+      await setAdd(server.redis, subKey(skillName), userId)
+      await setAdd(server.redis, userSubsKey(userId), skillName)
+
+      const subscriberCount = (await setMembers(server.redis, subKey(skillName))).length
+      const resp: SkillSubscriptionResponse = { subscribed: true, subscriberCount }
+      return reply.status(201).send(success(resp))
+    },
+  )
+
+  // DELETE /skills/:name/subscribe — 取消订阅
+  server.delete<{ Params: { name: string } }>(
+    '/skills/:name/subscribe',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const userId = request.userId!
+
+      const parsed = nameParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const skillName = parsed.data.name
+
+      await setRemove(server.redis, subKey(skillName), userId)
+      await setRemove(server.redis, userSubsKey(userId), skillName)
+
+      const subscriberCount = (await setMembers(server.redis, subKey(skillName))).length
+      const resp: SkillSubscriptionResponse = { subscribed: false, subscriberCount }
+      return reply.send(success(resp))
+    },
+  )
+
+  // GET /skills/:name/subscription — 查询订阅状态 + 订阅人数
+  server.get<{ Params: { name: string } }>(
+    '/skills/:name/subscription',
+    async (request, reply) => {
+      if (!(await checkAuth(request, reply))) return
+      const userId = request.userId!
+
+      const parsed = nameParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const skillName = parsed.data.name
+
+      const subscribed = await setIsMember(server.redis, subKey(skillName), userId)
+      const subscriberCount = (await setMembers(server.redis, subKey(skillName))).length
+      const resp: SkillSubscriptionResponse = { subscribed, subscriberCount }
+      return reply.send(success(resp))
+    },
+  )
+
+  // GET /skills/notifications — 当前用户的通知列表(LRANGE 0 -1)
+  server.get('/skills/notifications', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+
+    const key = notifKey(userId)
+    let raws: string[]
+    try {
+      raws = await server.redis.lrange(key, 0, -1)
+    } catch {
+      raws = notifFallback.get(key) ?? []
+    }
+    const items: SkillNotification[] = raws
+      .map((r) => {
+        try {
+          return JSON.parse(r) as SkillNotification
+        } catch {
+          return null
+        }
+      })
+      .filter((n): n is SkillNotification => n !== null)
+    return reply.send(success(items))
+  })
+
+  // POST /skills/notifications/read — 标记全部已读(DEL 通知 List)
+  server.post('/skills/notifications/read', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+
+    const key = notifKey(userId)
+    let count = 0
+    try {
+      // 先读取条数再删除
+      const existing = await server.redis.lrange(key, 0, -1)
+      count = existing.length
+      if (count > 0) await server.redis.del(key)
+    } catch {
+      count = notifFallback.get(key)?.length ?? 0
+      notifFallback.delete(key)
+    }
+    return reply.send(success({ marked: count }))
+  })
 }

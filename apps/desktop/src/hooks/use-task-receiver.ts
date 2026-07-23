@@ -18,7 +18,7 @@
  * - WS 重连(connected: false→true)时调 GET /tasks?since=<lastSeenTs> 补拉断线期间错过的任务
  * - 收到 task-cancelled 消息时把对应任务状态置为 cancelled(执行中任务据此中止)
  */
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TaskDispatch, TaskResult, TaskWsMessage } from '@ihui/shared'
 import { useNotificationWebSocket } from './use-websocket'
 
@@ -35,6 +35,8 @@ export interface UseTaskReceiverReturn {
   isConnected: boolean
   /** 当前设备持久化 ID(供 UI 显示 + 对外标识) */
   deviceId: string
+  /** 下载指定任务的附件(2026-07-24 P2-c 跨端文件传输)。返回下载结果文案供 UI 显示。 */
+  downloadAttachment: (taskId: string) => { ok: boolean; message: string }
 }
 
 /** 生成或读取持久化 deviceId,兼容非 secure context(crypto.randomUUID 降级) */
@@ -284,5 +286,50 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
     })
   }, [lastMessage, deviceId])
 
-  return { tasks, isConnected: connected, deviceId }
+  /**
+   * 下载指定任务的附件(2026-07-24 P2-c 跨端文件传输)。
+   * 流程:从本地 tasks 数组查找 task.filePayload → atob 解码 base64 → Uint8Array →
+   * Blob(URL.createObjectURL)→ 创建 <a> 元素 + click() 触发浏览器下载。
+   * 失败返回 ok=false + 错误文案,供 UI 提示。
+   */
+  const downloadAttachment = useCallback(
+    (taskId: string): { ok: boolean; message: string } => {
+      const task = tasks.find((x) => x.id === taskId)
+      if (!task) {
+        return { ok: false, message: 'Task not found' }
+      }
+      const fp = task.filePayload
+      if (!fp) {
+        return { ok: false, message: 'No attachment on this task' }
+      }
+      try {
+        // atob 解码 base64 → 二进制字符串 → Uint8Array
+        const binary = atob(fp.content)
+        const bytes = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i)
+        }
+        // Uint8Array → Blob → ObjectURL → 触发下载
+        const blob = new Blob([bytes], { type: fp.mimeType })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = fp.filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        // 释放 ObjectURL(浏览器异步下载已触发,可立即释放)
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+        return { ok: true, message: `Downloaded ${fp.filename}` }
+      } catch (err) {
+        return {
+          ok: false,
+          message: `Download failed: ${err instanceof Error ? err.message : String(err)}`,
+        }
+      }
+    },
+    [tasks],
+  )
+
+  return { tasks, isConnected: connected, deviceId, downloadAttachment }
 }
