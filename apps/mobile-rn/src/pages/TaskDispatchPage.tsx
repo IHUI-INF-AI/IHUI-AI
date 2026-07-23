@@ -18,6 +18,7 @@ import type {
   TaskDispatch,
   TaskDispatchRequest,
   TaskDispatchResponse,
+  TaskFilePayload,
   TaskResult,
   TaskStatus,
   TaskWsMessage,
@@ -32,6 +33,9 @@ type Props = NativeStackScreenProps<RootStackParamList, 'TaskDispatch'>
 
 /** AsyncStorage 持久化键:最近一次见到任务的 updatedAt 时间戳(ms),用于 WS 重连后增量补拉 */
 const LAST_SEEN_TS_KEY = 'task-last-seen-ts'
+
+/** 附件 base64 解码后最大字节数(1MB,与服务端一致) */
+const FILE_MAX_BYTES = 1_048_576
 
 const STATUS_META: Record<TaskStatus, { badge: string }> = {
   pending: { badge: 'bg-gray-100 text-gray-600' },
@@ -129,6 +133,12 @@ export function TaskDispatchPage(_: Props) {
   const [error, setError] = useState('')
   const [cancellingId, setCancellingId] = useState<string>('')
   const [reconnecting, setReconnecting] = useState(false)
+  // 附件面板相关状态(2026-07-24 P2-c 跨端文件传输)
+  const [attachOpen, setAttachOpen] = useState(false)
+  const [fileFilename, setFileFilename] = useState('')
+  const [fileMime, setFileMime] = useState('text/plain')
+  const [fileContent, setFileContent] = useState('')
+  const [fileError, setFileError] = useState('')
   const lastSeenTsRef = useRef<number>(0)
 
   const loadTasks = useCallback(async () => {
@@ -277,6 +287,35 @@ export function TaskDispatchPage(_: Props) {
     setRefreshing(false)
   }, [loadTasks, loadDevices])
 
+  // 解码 base64 后字节数;非法 base64 返回 -1
+  const b64DecodedBytes = useCallback((b64: string): number => {
+    try {
+      // RN 全局无 atob,但 WebSocket 等 API 提供兼容;尝试用 fetch+data URL 解码兜底
+      // 这里用 RN 内置的 base64 兼容:简单 decode(仅 ASCII 范围)
+      const cleaned = b64.replace(/\s/g, '')
+      if (!/^[A-Za-z0-9+/=]*$/.test(cleaned)) return -1
+      // 估算字节数:base64 每 4 字符 → 3 字节,需处理 padding
+      const padding = cleaned.endsWith('==') ? 2 : cleaned.endsWith('=') ? 1 : 0
+      return Math.floor(cleaned.length * 0.75) - padding
+    } catch {
+      return -1
+    }
+  }, [])
+
+  // 当前附件面板中已构造的 filePayload(null = 无附件或校验失败)
+  const pendingFilePayload: TaskFilePayload | null = (() => {
+    if (!fileFilename.trim() || !fileContent.trim()) return null
+    const bytes = b64DecodedBytes(fileContent)
+    if (bytes < 0) return null
+    if (bytes > FILE_MAX_BYTES) return null
+    return {
+      filename: fileFilename.trim(),
+      size: bytes,
+      mimeType: fileMime.trim() || 'application/octet-stream',
+      content: fileContent.trim(),
+    }
+  })()
+
   const onSend = useCallback(async () => {
     const cmd = command.trim()
     if (!cmd || sending) return
@@ -284,9 +323,30 @@ export function TaskDispatchPage(_: Props) {
       setError(t('taskDispatch.selectDeviceFirst'))
       return
     }
+    // 附件校验:已填但非法时拒绝
+    if (fileFilename.trim() || fileContent.trim()) {
+      const bytes = b64DecodedBytes(fileContent)
+      if (bytes < 0) {
+        setFileError(t('taskDispatch.file.invalidBase64'))
+        return
+      }
+      if (bytes > FILE_MAX_BYTES) {
+        setFileError(t('taskDispatch.file.tooLarge'))
+        return
+      }
+      if (!fileFilename.trim()) {
+        setFileError(t('taskDispatch.file.missingFilename'))
+        return
+      }
+    }
+
     setSending(true)
     setError('')
+    setFileError('')
     const body: TaskDispatchRequest = { toDevice, command: cmd }
+    if (pendingFilePayload) {
+      body.filePayload = pendingFilePayload
+    }
     const data = await apiData<TaskDispatchResponse>('/api/tasks/dispatch', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -303,7 +363,19 @@ export function TaskDispatchPage(_: Props) {
       void saveLastSeenTs(ts)
     }
     setCommand('')
-  }, [command, toDevice, sending, t])
+    // 清空附件面板
+    setAttachOpen(false)
+    setFileFilename('')
+    setFileContent('')
+    setFileMime('text/plain')
+  }, [command, toDevice, sending, t, fileFilename, fileContent, fileMime, pendingFilePayload, b64DecodedBytes])
+
+  /** 格式化附件大小显示 */
+  const formatFileSize = useCallback((bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+  }, [])
 
   // 取消任务:POST /tasks/:id/cancel(仅 pending/running 可取消)
   const onCancel = useCallback(
@@ -379,15 +451,69 @@ export function TaskDispatchPage(_: Props) {
               })
             )}
             <Pressable
+              onPress={() => setAttachOpen((v) => !v)}
+              className={`ml-auto flex-row items-center gap-1.5 rounded-md px-3 py-1.5 ${attachOpen || pendingFilePayload ? 'bg-indigo-600' : 'bg-gray-100'}`}
+              accessibilityRole="button"
+            >
+              <Text className={`text-xs font-semibold ${attachOpen || pendingFilePayload ? 'text-white' : 'text-gray-600'}`}>
+                {t('taskDispatch.file.attach')}
+              </Text>
+            </Pressable>
+            <Pressable
               onPress={onSend}
               disabled={!canSend}
-              className={`ml-auto rounded-md px-4 py-1.5 ${canSend ? 'bg-green-600' : 'bg-gray-300'}`}
+              className={`rounded-md px-4 py-1.5 ${canSend ? 'bg-green-600' : 'bg-gray-300'}`}
             >
               <Text className="text-xs font-semibold text-white">
                 {sending ? t('taskDispatch.sending') : t('taskDispatch.send')}
               </Text>
             </Pressable>
           </View>
+          {attachOpen ? (
+            <View className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3">
+              <TextInput
+                value={fileFilename}
+                onChangeText={setFileFilename}
+                placeholder={t('taskDispatch.file.filenamePlaceholder')}
+                placeholderTextColor="#9ca3af"
+                className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900"
+              />
+              <View className="mt-2 flex-row gap-2">
+                <TextInput
+                  value={fileMime}
+                  onChangeText={setFileMime}
+                  placeholder={t('taskDispatch.file.mimePlaceholder')}
+                  placeholderTextColor="#9ca3af"
+                  className="flex-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900"
+                />
+                {pendingFilePayload ? (
+                  <Text className="self-center text-xs text-gray-500">
+                    {formatFileSize(pendingFilePayload.size)}
+                  </Text>
+                ) : null}
+              </View>
+              <TextInput
+                value={fileContent}
+                onChangeText={setFileContent}
+                placeholder={t('taskDispatch.file.contentPlaceholder')}
+                placeholderTextColor="#9ca3af"
+                multiline
+                className="mt-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900"
+                style={{ minHeight: 60, textAlignVertical: 'top' }}
+              />
+              {pendingFilePayload ? (
+                <Text className="mt-2 text-xs text-green-700">
+                  {t('taskDispatch.file.attached', {
+                    filename: pendingFilePayload.filename,
+                    size: formatFileSize(pendingFilePayload.size),
+                  })}
+                </Text>
+              ) : null}
+              {fileError ? (
+                <Text className="mt-1 text-xs text-red-600">{fileError}</Text>
+              ) : null}
+            </View>
+          ) : null}
           {error ? <Text className="mt-2 text-xs text-red-600">{error}</Text> : null}
         </View>
 
@@ -424,6 +550,17 @@ export function TaskDispatchPage(_: Props) {
                     <Text className="text-xs text-gray-500">{`${t('taskDispatch.target')}: ${deviceName(item.toDevice)}`}</Text>
                     <Text className="text-xs text-gray-400">{formatTime(item.createdAt)}</Text>
                   </View>
+                  {item.filePayload ? (
+                    <View className="mt-2 flex-row items-center gap-2 rounded-md bg-indigo-50 px-2 py-1.5">
+                      <View className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                      <Text className="text-xs text-indigo-700" numberOfLines={1}>
+                        {t('taskDispatch.file.attached', {
+                          filename: item.filePayload.filename,
+                          size: formatFileSize(item.filePayload.size),
+                        })}
+                      </Text>
+                    </View>
+                  ) : null}
                   {item.result?.output ? (
                     <Text className="mt-2 text-xs text-gray-600" numberOfLines={3}>
                       {item.result.output}
