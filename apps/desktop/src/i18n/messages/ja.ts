@@ -105,6 +105,18 @@ export default {
     theme: 'テーマ',
     about: '智汇 AI について',
   },
+  update: {
+    title: 'ソフトウェアアップデート',
+    check: 'アップデートを確認',
+    checking: '確認中…',
+    available: '新バージョン {{version}} が利用可能',
+    download: 'ダウンロードしてインストール',
+    downloading: 'ダウンロード中…',
+    done: 'アップデート完了、再起動して適用',
+    latest: '最新バージョンです',
+    error: 'アップデート失敗',
+    idle: 'クリックしてアップデートを確認',
+  },
   error: {
     network: 'ネットワークエラー',
     server: 'サーバーエラー',
