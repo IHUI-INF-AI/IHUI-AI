@@ -88,6 +88,26 @@
 <!-- 已归档(2026-07-23):大模型排行榜深度优化六轮:能力标签阈值配置化 + ModelDetailDialog 高亮延续(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ---
+### [x] ✅(2026-07-23) ai-news 组件深度优化七轮:TrendChartDialog 无障碍闭环 + EmptyState 统一组件(平台独占:仅 apps/web)
+
+**触发**:用户要求"继续深度开发"。通过 search subagent 分析 8 个 ai-news 组件,识别 5 个高价值优化点,本轮实施 2 项 P0/P1。
+
+**交付内容**(1 commit,4 文件,平台独占:仅 apps/web):
+
+| 模块 | 文件 | 改动 |
+|---|---|---|
+| TrendChartDialog | `apps/web/app/(main)/ai-news/components/TrendChartDialog.tsx` | WCAG 无障碍闭环:role=dialog + aria-modal + aria-labelledby + ESC 键监听 + focus trap(Tab/Shift+Tab 循环)+ 焦点还原 + 关闭按钮 ref/aria-label + SVG role=img/aria-label |
+| EmptyState(新建) | `apps/web/app/(main)/ai-news/components/EmptyState.tsx` | 空状态统一组件(图标+文案+可选提示+可选操作) |
+| HotRanking | `apps/web/app/(main)/ai-news/components/HotRanking.tsx` | return null → EmptyState 替换 |
+| FundingSection | `apps/web/app/(main)/ai-news/components/FundingSection.tsx` | return null → EmptyState 替换 |
+
+**i18n**:5 语言 hotRanking.empty / trendChart.close / funding.empty 共 15 key 由其他 agent 已 commit(HEAD 中已存在)。
+
+**自验**:typecheck 本任务 4 文件全绿 ✅ / i18n parity 5 语言一致 ✅ / §13 Grep 10 处关键属性落地 ✅
+
+**Git 同步证据**(§21):本地 commit `54aa3c6` == origin `54aa3c6` ✅ / git-push-guard exit 0 ✅
+
+---
 <!-- 已归档(2026-07-23):大模型排行榜深度优化五轮:highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ---
