@@ -1,47 +1,28 @@
+/**
+ * RN 端 SSO 接入:核心逻辑复用 @ihui/shared/auth/sso-core,
+ * 仅保留 RN 独占(expo-web-browser 打开登录页 + expo-linking deep link 监听)。
+ */
 import * as WebBrowser from 'expo-web-browser'
 import * as Linking from 'expo-linking'
 import { WEB_BASE_URL, SSO_CLIENT_ID, SSO_REDIRECT_URI, API_BASE_URL } from './config'
-import type { AuthUser } from '@ihui/api-client'
+import {
+  exchangeSsoCode as exchangeSsoCodeCore,
+  extractSsoCode,
+  buildSsoLoginUrl,
+} from '@ihui/shared/auth/sso-core'
+import type { SsoTokenData } from '@ihui/shared/auth/sso-core'
 
-/**
- * SSO 登录数据(与后端 /api/auth/sso/exchange 响应结构对齐)
- */
-export interface SsoTokenData {
-  accessToken: string
-  refreshToken: string
-  expiresIn: number
-  refreshExpiresIn: number
-  user: AuthUser
-}
+// 重新导出类型(保持 RN 调用方 SsoTokenData 类型名不变)
+export type { SsoTokenData } from '@ihui/shared/auth/sso-core'
 
-/**
- * 生成 web SSO 登录中心 URL(供 openAuthSession 打开)
- */
-export function getSsoLoginUrl(): string {
-  const params = new URLSearchParams({
-    redirect: SSO_REDIRECT_URI,
-    client_id: SSO_CLIENT_ID,
-  })
-  return `${WEB_BASE_URL}/sso/login?${params.toString()}`
-}
-
-/**
- * 调 SSO exchange 端点,用 code 换 token
- */
+/** RN 封装:内部用 API_BASE_URL + SSO_CLIENT_ID */
 export async function exchangeSsoCode(code: string): Promise<SsoTokenData | null> {
-  try {
-    const resp = await fetch(`${API_BASE_URL}/api/auth/sso/exchange`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, clientId: SSO_CLIENT_ID }),
-    })
-    if (!resp.ok) return null
-    const data = await resp.json()
-    if (data.code !== 200 || !data.data) return null
-    return data.data as SsoTokenData
-  } catch {
-    return null
-  }
+  return exchangeSsoCodeCore(API_BASE_URL, code, SSO_CLIENT_ID)
+}
+
+/** RN 独占:生成 SSO 登录中心 URL */
+export function getSsoLoginUrl(): string {
+  return buildSsoLoginUrl(WEB_BASE_URL, SSO_REDIRECT_URI, SSO_CLIENT_ID)
 }
 
 /**
@@ -57,21 +38,10 @@ export async function openSsoLogin(): Promise<string | null> {
   return null
 }
 
-/**
- * 从 deep link URL 解析 sso_code
- */
-export function extractSsoCode(url: string): string | null {
-  try {
-    const parsed = new URL(url)
-    return parsed.searchParams.get('sso_code')
-  } catch {
-    return null
-  }
-}
+// extractSsoCode 直接 re-export
+export { extractSsoCode }
 
-/**
- * 监听 deep link(应用已启动时,系统把 ihui://sso/callback?sso_code=xxx 转给本回调)
- */
+/** RN 独占:监听 deep link(应用已启动时,系统把 ihui://sso/callback?sso_code=xxx 转给本回调) */
 export function subscribeSsoDeepLink(callback: (ssoCode: string) => void): () => void {
   const subscription = Linking.addEventListener('url', ({ url }) => {
     const code = extractSsoCode(url)
@@ -80,9 +50,7 @@ export function subscribeSsoDeepLink(callback: (ssoCode: string) => void): () =>
   return () => subscription.remove()
 }
 
-/**
- * 应用冷启动时检查初始 deep link(若因 deep link 唤起,这里拿到 URL)
- */
+/** RN 独占:应用冷启动时检查初始 deep link(若因 deep link 唤起,这里拿到 URL) */
 export async function getInitialSsoCode(): Promise<string | null> {
   try {
     const url = await Linking.getInitialURL()
