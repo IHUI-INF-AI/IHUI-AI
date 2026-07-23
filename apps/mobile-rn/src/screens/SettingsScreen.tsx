@@ -11,12 +11,11 @@ import type {
 } from '@ihui/app'
 import { updatePassword } from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
+import { useTheme } from '../context/ThemeContext'
 import { useI18n, type Locale } from '../i18n'
 import type { ProfileStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<ProfileStackParamList>
-
-type ThemeKey = 'light' | 'dark' | 'system'
 
 const APP_VERSION = '1.0.0'
 
@@ -28,7 +27,7 @@ export default function SettingsScreen() {
   const { t, locale, setLocale } = useI18n()
   const { user, logout } = useAuth()
   const navigation = useNavigation<NavigationProp>()
-  const [theme, setTheme] = useState<ThemeKey>('system')
+  const { themeMode, setThemeMode } = useTheme()
   const [notifications, setNotifications] = useState<SharedNotificationToggles>({
     push: true,
     message: true,
@@ -63,7 +62,7 @@ export default function SettingsScreen() {
   }
 
   const onSelectTheme = (v: string) => {
-    setTheme(v as ThemeKey)
+    setThemeMode(v as 'light' | 'dark' | 'system')
     Alert.alert(t('settings.themeChanged'))
   }
 
@@ -89,8 +88,8 @@ export default function SettingsScreen() {
 
   const onMenuPress = (key: string) => {
     // 目标路由(About/Feedback/Privacy/Agreement)在 RootStack 而非 ProfileStack,
-    // 需通过 getParent() 跨栈导航;as never 因跨栈类型推断复杂而保留
-    navigation.getParent()?.navigate(key as never)
+    // 需通过 getParent() 跨栈导航
+    navigation.getParent()?.navigate(key)
   }
 
   return (
@@ -110,7 +109,7 @@ export default function SettingsScreen() {
       locale={locale}
       localeOptions={localeOptions}
       onSelectLocale={onSelectLocale}
-      theme={theme}
+      theme={themeMode}
       themeOptions={themeOptions}
       onSelectTheme={onSelectTheme}
       notifications={notifications}
