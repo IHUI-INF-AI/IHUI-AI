@@ -1,27 +1,272 @@
-.page-container {
+/* n8n-model - 深色赛博朋克风(列表 + 创建表单) */
+.nm-page {
   min-height: 100vh;
   background: var(--color-background);
+  display: flex;
+  flex-direction: column;
 }
-.page-header {
+.nm-header {
+  display: flex;
+  align-items: center;
   padding: 24rpx;
   background: var(--color-card);
+  gap: 24rpx;
 }
-.page-title {
-  font-size: 36rpx;
+.nm-back {
+  font-size: 28rpx;
+  color: var(--color-primary);
+}
+.nm-title {
+  flex: 1;
+  font-size: 34rpx;
   font-weight: 600;
   color: var(--color-foreground);
 }
-.page-content {
+.nm-create-btn {
+  font-size: 28rpx;
+  color: var(--color-primary);
+  padding: 8rpx 20rpx;
+  background: rgba(0, 242, 255, 0.1);
+  border-radius: 12rpx;
+}
+.nm-content {
   padding: 24rpx;
 }
-.list-item {
+.nm-list-item {
   padding: 24rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: 16rpx;
   margin-bottom: 16rpx;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  border: 1px solid var(--color-border);
 }
-.empty {
+.nm-empty {
   text-align: center;
   color: var(--color-muted-foreground);
   padding: 80rpx 0;
+  font-size: 26rpx;
+}
+.nm-body {
+  flex: 1;
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+.nm-label {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  margin: 24rpx 0 16rpx;
+}
+/* 头像上传 */
+.nm-avatar-wrap {
+  display: flex;
+  justify-content: center;
+}
+.nm-avatar {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 16rpx;
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+}
+.nm-avatar-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.nm-avatar-text {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  text-align: center;
+  padding: 0 16rpx;
+}
+/* 输入框 */
+.nm-input {
+  width: 100%;
+  padding: 20rpx 24rpx;
+  background: var(--color-card);
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+}
+.nm-textarea {
+  width: 100%;
+  min-height: 160rpx;
+  padding: 20rpx 24rpx;
+  background: var(--color-card);
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+}
+/* n8n 文件上传 */
+.nm-file-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24rpx;
+  background: var(--color-card);
+  border-radius: 12rpx;
+  border: 1px dashed var(--color-border);
+}
+.nm-file-text {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+.nm-file-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16rpx;
+  padding: 16rpx 20rpx;
+  background: rgba(0, 242, 255, 0.08);
+  border-radius: 12rpx;
+  border: 1px solid var(--color-border);
+}
+.nm-file-name {
+  flex: 1;
+  font-size: 24rpx;
+  color: var(--color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nm-file-remove {
+  font-size: 24rpx;
+  color: var(--color-destructive);
+  padding: 0 8rpx;
+  margin-left: 16rpx;
+}
+/* 参数列表 */
+.nm-params {
+  margin-top: 8rpx;
+}
+.nm-param {
+  background: var(--color-card);
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  border: 1px solid var(--color-border);
+}
+.nm-param-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+.nm-param-idx {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.nm-param-del {
+  font-size: 24rpx;
+  color: var(--color-destructive);
+  padding: 4rpx 12rpx;
+}
+.nm-param-field {
+  margin-bottom: 20rpx;
+}
+.nm-param-field:last-child {
+  margin-bottom: 0;
+}
+.nm-field-label {
+  display: block;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  margin-bottom: 12rpx;
+}
+.nm-field-input {
+  width: 100%;
+  padding: 14rpx 20rpx;
+  background: var(--color-secondary);
+  border-radius: 10rpx;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  min-height: 64rpx;
+}
+.nm-field-textarea {
+  width: 100%;
+  min-height: 120rpx;
+  padding: 14rpx 20rpx;
+  background: var(--color-secondary);
+  border-radius: 10rpx;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+}
+/* 类型选择条 */
+.nm-type-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+.nm-type {
+  padding: 10rpx 20rpx;
+  background: var(--color-secondary);
+  border-radius: 10rpx;
+  font-size: 24rpx;
+  color: var(--color-secondary-foreground);
+  border: 1px solid var(--color-border);
+}
+.nm-type-active {
+  background: rgba(0, 242, 255, 0.12);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+/* 布尔选择 */
+.nm-bool {
+  display: flex;
+  gap: 16rpx;
+}
+.nm-bool-opt {
+  flex: 1;
+  padding: 14rpx;
+  background: var(--color-secondary);
+  border-radius: 10rpx;
+  font-size: 26rpx;
+  color: var(--color-secondary-foreground);
+  text-align: center;
+  border: 1px solid var(--color-border);
+}
+.nm-bool-active {
+  background: rgba(0, 242, 255, 0.12);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+/* 添加参数 */
+.nm-add-param {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24rpx;
+  background: var(--color-card);
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: var(--color-primary);
+  border: 1px dashed var(--color-border);
+}
+/* 提交 */
+.nm-submit {
+  margin-top: 40rpx;
+  padding: 26rpx;
+  background: linear-gradient(90deg, #00f2ff, #8b5cf6);
+  color: #121217;
+  text-align: center;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+.nm-submit-disabled {
+  opacity: 0.6;
+}
+.nm-bottom-space {
+  height: 60rpx;
 }
