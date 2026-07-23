@@ -29,6 +29,20 @@
   max-width: 60%;
   word-break: break-all;
 }
+.query-wrap {
+  padding: 24rpx 32rpx 0;
+}
+.query-btn {
+  width: 100%;
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+  line-height: 80rpx;
+}
+.query-btn::after {
+  border: none;
+}
 .tips {
   padding: 24rpx 32rpx;
 }

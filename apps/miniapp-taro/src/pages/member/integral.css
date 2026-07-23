@@ -1,0 +1,88 @@
+.page {
+  min-height: 100vh;
+  background: var(--color-background);
+}
+
+.balance {
+  padding: 60rpx 40rpx;
+  background: linear-gradient(135deg, #2c2c2c, #1a1a1a);
+  text-align: center;
+}
+.balance-num {
+  display: block;
+  font-size: 60rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+.balance-label {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 26rpx;
+  color: #d4af6a;
+}
+
+.list {
+  padding: 24rpx;
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  padding: 28rpx 24rpx;
+  margin-bottom: 16rpx;
+}
+.item-left {
+  display: flex;
+  flex-direction: column;
+}
+.item-type {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+.item-time {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+.item-amt {
+  font-size: 34rpx;
+  font-weight: 600;
+}
+.item-amt.income {
+  color: var(--color-success);
+}
+.item-amt.expense {
+  color: var(--color-destructive);
+}
+
+.status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 0;
+  color: var(--color-muted-foreground);
+  font-size: 26rpx;
+}
+.retry {
+  margin-top: 16rpx;
+  padding: 8rpx 32rpx;
+  font-size: 24rpx;
+  color: var(--color-primary);
+}
+
+.empty {
+  text-align: center;
+  padding: 120rpx 0;
+  color: var(--color-muted-foreground);
+  font-size: 26rpx;
+}
+
+.load-more {
+  text-align: center;
+  padding: 24rpx 0;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}

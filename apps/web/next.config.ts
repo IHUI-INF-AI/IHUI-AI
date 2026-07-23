@@ -12,7 +12,17 @@ const nextConfig: NextConfig = {
   // 关闭 Next.js 15 自带的左下角 N 圆圈 dev indicator (2026-07-21)
   // 它会在浏览器左下角出现一个黑色圆圈,遮挡内容;改用自定义的侧边栏开发者工具按钮
   devIndicators: false,
-  transpilePackages: ['@ihui/ui', '@ihui/types', '@ihui/config', '@ihui/auth'],
+  transpilePackages: ['@ihui/ui', '@ihui/types', '@ihui/config', '@ihui/auth', '@ihui/app', 'react-native-web'],
+  turbopack: {
+    resolveAlias: {
+      'react-native': 'react-native-web',
+    },
+  },
+  webpack: (config) => {
+    config.resolve.alias = config.resolve.alias || {}
+    config.resolve.alias['react-native$'] = 'react-native-web'
+    return config
+  },
   experimental: {
     optimizePackageImports: [
       'lucide-react',
