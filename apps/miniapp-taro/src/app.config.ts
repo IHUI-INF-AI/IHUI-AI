@@ -17,6 +17,7 @@ export default defineAppConfig({
     'pages/vip/index',
     'pages/vip/privilege',
     'pages/vip/upgrade',
+    'pages/vip/details',
     'pages/pay/index',
     'pages/pay/result',
     'pages/order/list',
