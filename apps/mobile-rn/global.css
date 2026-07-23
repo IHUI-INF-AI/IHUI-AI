@@ -2,7 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 对齐 web 端 design-tokens（apps/web/app/globals.css @theme + .dark 块） */
+/* 对齐 web 端 design-tokens(packages/ui-primitives/src/styles/tokens.css @theme + .dark 块)
+ * 注:NativeWind 4.x 仅支持 Tailwind v3,不兼容 v4 的 @theme 语法,无法直接 @import tokens.css。
+ * 此处手抄 v3 兼容的 :root + .dark CSS 变量,值必须与 tokens.css 严格一致(值漂移即 bug)。
+ */
 :root {
   --color-background: hsl(0 0% 96.1%);
   --color-foreground: hsl(0 0% 3.9%);
@@ -18,7 +21,7 @@
   --color-muted-foreground: hsl(0 0% 40%);
   --color-accent: hsl(0 0% 88%);
   --color-accent-foreground: hsl(0 0% 9%);
-  --color-destructive: hsl(0 84.2% 60.2%);
+  --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
   --color-border: hsl(0 0% 89.8%);
   --color-input: hsl(0 0% 89.8%);
@@ -44,7 +47,7 @@
   --color-secondary-foreground: hsl(0 0% 98%);
   --color-muted: hsl(0 0% 14.9%);
   --color-muted-foreground: hsl(0 0% 63.9%);
-  --color-accent: hsl(0 0% 14.9%);
+  --color-accent: hsl(0 0% 17%);
   --color-accent-foreground: hsl(0 0% 98%);
   --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
