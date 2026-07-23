@@ -1,49 +1,301 @@
 .aigc-list-page {
   min-height: 100vh;
   background: var(--color-background);
+  padding-bottom: 40rpx;
 }
+
+/* ===== 顶部标题栏 ===== */
 .page-header {
-  padding: 20rpx 30rpx;
+  padding: 24rpx 30rpx;
   background: var(--color-card);
 }
 .page-title {
   font-size: 36rpx;
-  font-weight: bold;
+  font-weight: 600;
   color: var(--color-foreground);
+  background: linear-gradient(135deg, #00f2ff, #8b5cf6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
-.aigc-grid {
-  padding: 20rpx;
+
+/* ===== 分类 tab 横向滚动 ===== */
+.category-bar {
+  width: 100%;
+  white-space: nowrap;
+  background: var(--color-card);
+  padding: 16rpx 24rpx;
+  box-sizing: border-box;
 }
-.aigc-card {
+.category-inner {
+  display: inline-flex;
+  gap: 16rpx;
+  padding: 4rpx 0;
+}
+.category-tab {
+  flex-shrink: 0;
+  padding: 14rpx 28rpx;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  background: var(--color-secondary);
+  border-radius: 8rpx;
+  border: 1rpx solid transparent;
+  transition: all 0.2s ease;
+}
+.category-tab.active {
+  color: var(--color-primary);
+  background: rgba(0, 242, 255, 0.1);
+  border: 1rpx solid rgba(0, 242, 255, 0.3);
+  box-shadow: 0 0 12rpx rgba(0, 242, 255, 0.2);
+}
+
+/* ===== 内容区 ===== */
+.content-area {
+  padding: 20rpx 20rpx 0;
+}
+.state-wrap {
+  padding: 120rpx 24rpx;
+  text-align: center;
+}
+.state-wrap.small {
+  padding: 32rpx 24rpx;
+}
+.state-text {
+  color: var(--color-muted-foreground);
+  font-size: 26rpx;
+}
+
+/* ===== 瀑布流双列布局 ===== */
+.waterfall {
+  display: flex;
+  gap: 16rpx;
+}
+.waterfall-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.waterfall-card {
   background: var(--color-card);
   border-radius: 12rpx;
   overflow: hidden;
-  margin-bottom: 20rpx;
+  border: 1rpx solid var(--color-border);
+  position: relative;
+  transition: transform 0.2s ease;
 }
-.aigc-cover {
+.waterfall-card:active {
+  transform: scale(0.98);
+}
+.waterfall-cover {
   width: 100%;
-  height: 320rpx;
+  display: block;
   background: var(--color-muted);
 }
-.aigc-info {
-  padding: 20rpx 24rpx;
+.video-cover-wrap {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
 }
-.aigc-title {
-  font-size: 30rpx;
+.video-placeholder {
+  width: 100%;
+  height: 320rpx;
+  background: linear-gradient(135deg, #1a1a23 0%, #2a1a3a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.placeholder-icon {
+  font-size: 64rpx;
+  opacity: 0.6;
+}
+.play-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 72rpx;
+  height: 72rpx;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx solid rgba(0, 242, 255, 0.4);
+}
+.play-icon {
+  color: #00f2ff;
+  font-size: 28rpx;
+  margin-left: 4rpx;
+}
+.card-info {
+  padding: 16rpx 20rpx 20rpx;
+}
+.card-title {
+  display: block;
+  font-size: 26rpx;
   font-weight: 500;
   color: var(--color-foreground);
-  display: block;
   margin-bottom: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.aigc-author {
-  font-size: 24rpx;
-  color: var(--color-muted-foreground);
+.card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
-.loading-text,
-.empty-text {
-  text-align: center;
+.card-author {
+  font-size: 22rpx;
   color: var(--color-muted-foreground);
-  font-size: 28rpx;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.card-likes {
+  font-size: 22rpx;
+  color: rgba(255, 100, 130, 0.85);
+  flex-shrink: 0;
+  margin-left: 12rpx;
+}
+
+/* ===== 列表布局(文本 + 音频)===== */
+.list-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+/* 文本卡片 */
+.text-card {
+  background: var(--color-card);
+  border-radius: 12rpx;
+  padding: 24rpx;
+  border: 1rpx solid var(--color-border);
+}
+.text-title {
   display: block;
-  padding: 60rpx 0;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-bottom: 12rpx;
+}
+.text-content {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.6;
+  margin-bottom: 16rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+}
+.text-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* 音频卡片 */
+.audio-card {
+  background: var(--color-card);
+  border-radius: 12rpx;
+  padding: 24rpx;
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  border: 1rpx solid var(--color-border);
+}
+.audio-record {
+  width: 120rpx;
+  height: 120rpx;
+  flex-shrink: 0;
+  position: relative;
+  border-radius: 12rpx;
+  overflow: hidden;
+}
+.audio-record.rotating {
+  animation: aigc-audio-rotate 4s linear infinite;
+}
+@keyframes aigc-audio-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.audio-cover {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.audio-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #8b5cf6 0%, #00f2ff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.audio-cover-icon {
+  font-size: 48rpx;
+}
+.audio-play-btn {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 56rpx;
+  height: 56rpx;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1rpx solid rgba(0, 242, 255, 0.5);
+}
+.audio-play-icon {
+  color: #00f2ff;
+  font-size: 24rpx;
+}
+.audio-info {
+  flex: 1;
+  overflow: hidden;
+}
+.audio-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--color-foreground);
+  margin-bottom: 12rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.audio-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+.audio-progress-bar {
+  flex: 1;
+  height: 4rpx;
+  background: var(--color-secondary);
+  border-radius: 2rpx;
+  overflow: hidden;
+}
+.audio-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00f2ff, #8b5cf6);
+  transition: width 0.3s ease;
+}
+.audio-duration {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
 }

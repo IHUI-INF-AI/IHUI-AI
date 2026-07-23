@@ -1,0 +1,96 @@
+.wc-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: 24rpx;
+  padding-bottom: 180rpx;
+}
+.wc-stats {
+  display: flex;
+  gap: 16rpx;
+}
+.wc-stat-item {
+  flex: 1;
+  padding: 24rpx 12rpx;
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  border-radius: 12rpx;
+  text-align: center;
+}
+.wc-stat-label {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+.wc-stat-value {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #00f2ff;
+  margin-top: 8rpx;
+}
+.wc-list-section {
+  margin-top: 24rpx;
+}
+.wc-list-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-bottom: 16rpx;
+}
+.wc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.wc-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx;
+  background: var(--color-card);
+  border-radius: 12rpx;
+}
+.wc-item-info {
+  flex: 1;
+}
+.wc-item-type {
+  display: block;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+.wc-item-time {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 6rpx;
+}
+.wc-item-amount.positive {
+  color: #34c759;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+.wc-item-amount.negative {
+  color: #ff3b30;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+.wc-empty,
+.wc-loading {
+  display: block;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  padding: 60rpx 0;
+}
+.wc-withdraw-btn {
+  position: fixed;
+  bottom: 32rpx;
+  left: 32rpx;
+  right: 32rpx;
+  background: #00f2ff;
+  color: #1a1a2e;
+  border-radius: 12rpx;
+  font-size: 32rpx;
+  font-weight: 700;
+}

@@ -1,39 +1,183 @@
-.page-container {
+/* model-edit - 深色赛博朋克风表单 */
+.me-page {
   min-height: 100vh;
   background: var(--color-background);
+  display: flex;
+  flex-direction: column;
 }
-.page-header {
+.me-header {
+  display: flex;
+  align-items: center;
   padding: 24rpx;
   background: var(--color-card);
+  gap: 24rpx;
 }
-.page-title {
-  font-size: 36rpx;
+.me-back {
+  font-size: 28rpx;
+  color: var(--color-primary);
+}
+.me-title {
+  font-size: 34rpx;
   font-weight: 600;
   color: var(--color-foreground);
 }
-.page-content {
+.me-body {
+  flex: 1;
   padding: 24rpx;
+  box-sizing: border-box;
 }
-.list-item {
+.me-agent {
+  display: flex;
+  align-items: center;
+  background: var(--color-card);
   padding: 24rpx;
+  border-radius: 16rpx;
+  margin-bottom: 16rpx;
+  gap: 20rpx;
+  border: 1px solid var(--color-border);
+}
+.me-avatar {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 16rpx;
+  background: var(--color-secondary);
+  flex-shrink: 0;
+}
+.me-avatar-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-primary);
+  font-size: 36rpx;
+  font-weight: 600;
+}
+.me-agent-info {
+  flex: 1;
+  overflow: hidden;
+}
+.me-agent-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  display: block;
+}
+.me-agent-desc {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 8rpx;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.me-loading {
+  display: block;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  text-align: center;
+  padding: 16rpx 0;
+}
+.me-label {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  margin: 24rpx 0 16rpx;
+}
+.me-tag-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+.me-tag {
+  padding: 12rpx 24rpx;
   background: var(--color-card);
   border-radius: 12rpx;
-  margin-bottom: 16rpx;
+  font-size: 24rpx;
+  color: var(--color-secondary-foreground);
+  border: 1px solid var(--color-border);
 }
-.empty {
-  text-align: center;
-  color: var(--color-muted-foreground);
-  padding: 80rpx 0;
+.me-tag-active {
+  background: rgba(0, 242, 255, 0.12);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
-.btn {
-  margin-top: 24rpx;
-  padding: 20rpx;
-  background: var(--color-primary);
-  color: var(--color-foreground);
-  text-align: center;
+.me-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+  background: var(--color-card);
   border-radius: 12rpx;
   font-size: 28rpx;
+  color: var(--color-foreground);
+  border: 1px solid var(--color-border);
 }
-.btn.disabled {
+.me-picker-arrow {
+  color: var(--color-muted-foreground);
+  font-size: 24rpx;
+}
+.me-opt-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+.me-opt {
+  padding: 14rpx 28rpx;
+  background: var(--color-card);
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: var(--color-secondary-foreground);
+  border: 1px solid var(--color-border);
+}
+.me-opt-active {
+  background: rgba(0, 242, 255, 0.12);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.me-card {
+  background: var(--color-card);
+  border-radius: 16rpx;
+  padding: 8rpx 24rpx 24rpx;
+  margin-top: 8rpx;
+  border: 1px solid var(--color-border);
+}
+.me-price-row {
+  margin-top: 8rpx;
+}
+.me-price-input {
+  display: flex;
+  align-items: center;
+  background: var(--color-secondary);
+  border-radius: 12rpx;
+  padding: 0 20rpx;
+  margin-top: 12rpx;
+  border: 1px solid var(--color-border);
+}
+.me-yuan {
+  font-size: 32rpx;
+  color: var(--color-primary);
+  margin-right: 12rpx;
+  font-weight: 600;
+}
+.me-input {
+  flex: 1;
+  height: 72rpx;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+.me-submit {
+  margin-top: 40rpx;
+  padding: 26rpx;
+  background: linear-gradient(90deg, #00f2ff, #8b5cf6);
+  color: #121217;
+  text-align: center;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+}
+.me-submit-disabled {
   opacity: 0.6;
+}
+.me-bottom-space {
+  height: 60rpx;
 }
