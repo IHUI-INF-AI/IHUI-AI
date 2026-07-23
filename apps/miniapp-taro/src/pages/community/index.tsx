@@ -11,22 +11,22 @@ const defaultAvatar =
 
 // 8 类模型切换(对标原项目 ai_index.vue 的 8 类:skills/talk/image/video/audio/videoa/other/sck)
 const modelTypes = [
-  { icon: '💬', label: 'AI对话', path: '/pages/ai/chat' },
-  { icon: '🎨', label: 'AI绘图', path: '/pages/ai/image' },
-  { icon: '🎬', label: 'AI视频', path: '/pages/ai/video' },
-  { icon: '🎙️', label: 'AI语音', path: '/pages/ai/voice' },
-  { icon: '⚡', label: '智能体', path: '/pages/ai/agent' },
-  { icon: '🧠', label: '数字人', path: '/pages/ai/special' },
-  { icon: '🏛️', label: '模型广场', path: '/pages/model-plaza/index' },
-  { icon: '🔧', label: '更多工具', path: '/pages/ai/agent' },
+  { icon: '💬', key: 'community.modelTypes.aiChat', path: '/pages/ai/chat' },
+  { icon: '🎨', key: 'community.modelTypes.aiImage', path: '/pages/ai/image' },
+  { icon: '🎬', key: 'community.modelTypes.aiVideo', path: '/pages/ai/video' },
+  { icon: '🎙️', key: 'community.modelTypes.aiVoice', path: '/pages/ai/voice' },
+  { icon: '⚡', key: 'community.modelTypes.agent', path: '/pages/ai/agent' },
+  { icon: '🧠', key: 'community.modelTypes.digitalHuman', path: '/pages/ai/special' },
+  { icon: '🏛️', key: 'community.modelTypes.modelPlaza', path: '/pages/model-plaza/index' },
+  { icon: '🔧', key: 'community.modelTypes.moreTools', path: '/pages/ai/agent' },
 ]
 
 // 快捷入口
 const quickEntries = [
-  { icon: '📝', label: '我的创作', path: '/pages/aigc/list' },
-  { icon: '🎨', label: 'AIGC作品', path: '/pages/aigc/publish' },
-  { icon: '🏆', label: '排行榜', path: '/pages/ranking/index' },
-  { icon: '👥', label: 'AI团队', path: '/pages/ai-group/index' },
+  { icon: '📝', key: 'community.quickEntries.myCreation', path: '/pages/aigc/list' },
+  { icon: '🎨', key: 'community.quickEntries.aigcWorks', path: '/pages/aigc/publish' },
+  { icon: '🏆', key: 'community.quickEntries.ranking', path: '/pages/ranking/index' },
+  { icon: '👥', key: 'community.quickEntries.aiTeam', path: '/pages/ai-group/index' },
 ]
 
 interface CircleItem {
@@ -124,14 +124,14 @@ export default function Community() {
         <View className="flex flex-wrap">
           {modelTypes.map((item) => (
             <View
-              key={item.path + item.label}
+              key={item.path + item.key}
               className="w-1/4 flex flex-col items-center py-[10px]"
               onClick={() => goPage(item.path)}
             >
               <View className="w-[44px] h-[44px] rounded-[10px] gradient-cyber flex items-center justify-center mb-[4px]">
                 <Text className="text-[22px]">{item.icon}</Text>
               </View>
-              <Text className="text-[11px] text-white">{item.label}</Text>
+              <Text className="text-[11px] text-white">{t(item.key)}</Text>
             </View>
           ))}
         </View>
@@ -142,12 +142,12 @@ export default function Community() {
         <View className="flex">
           {quickEntries.map((entry) => (
             <View
-              key={entry.path + entry.label}
+              key={entry.path + entry.key}
               className="flex-1 flex flex-col items-center py-[8px]"
               onClick={() => goPage(entry.path)}
             >
               <Text className="text-[22px]">{entry.icon}</Text>
-              <Text className="mt-[3px] text-[11px] text-white">{entry.label}</Text>
+              <Text className="mt-[3px] text-[11px] text-white">{t(entry.key)}</Text>
             </View>
           ))}
         </View>

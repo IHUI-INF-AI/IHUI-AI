@@ -31,7 +31,7 @@ export default function PayIndex() {
         return
       }
       if (!res.payInfo) {
-        Taro.showToast({ title: '支付参数缺失', icon: 'none' })
+        Taro.showToast({ title: t('pay.missingParams'), icon: 'none' })
         return
       }
       dispatchPay(res.payInfo, orderNo)
@@ -61,11 +61,11 @@ export default function PayIndex() {
       return
     }
     if (payInfo.method === 'native') {
-      Taro.showToast({ title: '请使用微信扫码支付', icon: 'none' })
+      Taro.showToast({ title: t('pay.useWechatScan'), icon: 'none' })
       return
     }
     if (payInfo.mock && payInfo.error) {
-      Taro.showToast({ title: '支付配置未就绪,请联系管理员', icon: 'none' })
+      Taro.showToast({ title: t('pay.configNotReady'), icon: 'none' })
     }
     Taro.redirectTo({ url: `/pages/pay/result?orderNo=${no}` })
   }
