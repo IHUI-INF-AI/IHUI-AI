@@ -188,6 +188,37 @@ const LANDING_HTML = `<!DOCTYPE html>
   .faq details[open] summary::before { content: "−"; }
   .faq details p { font-size: 14px; color: var(--text-muted); margin-top: 10px; }
 
+  /* Why choose */
+  .why { padding: 24px 0 48px; }
+  .why h2 { font-size: 22px; font-weight: 700; text-align: center; margin-bottom: 20px; letter-spacing: -0.3px; }
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  .feature-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 18px;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .feature-card:hover { border-color: var(--accent); }
+  .feature-card .icon { font-size: 22px; line-height: 1; margin-bottom: 10px; }
+  .feature-card .title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .feature-card .desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+  /* Payment methods */
+  .payment { padding: 0 0 48px; }
+  .payment h2 { font-size: 18px; font-weight: 700; text-align: center; margin-bottom: 16px; letter-spacing: -0.3px; }
+  .payment-badges { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .pay-badge {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .pay-badge.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .pay-badge.upcoming { background: var(--bg-card); color: var(--text-muted); }
+  .pay-badge.secure { background: var(--bg-card); color: var(--text); }
+
   footer { text-align: center; padding: 32px 24px; font-size: 13px; color: var(--text-muted); border-top: 1px solid var(--border); }
 </style>
 </head>
@@ -217,6 +248,45 @@ const LANDING_HTML = `<!DOCTYPE html>
 
   <section class="container">
     <div class="pricing" id="pricing"></div>
+  </section>
+
+  <section class="container">
+    <div class="why">
+      <h2>为什么选择 IHUI-AI</h2>
+      <div class="features">
+        <div class="feature-card">
+          <div class="icon">🏗️</div>
+          <div class="title">8 端 Monorepo</div>
+          <div class="desc">一次开发,8 端同步(web/api/ai-service/desktop/extension/mobile/miniapp/cli)</div>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🗄️</div>
+          <div class="title">339 张数据库表</div>
+          <div class="desc">完整商业闭环,3 年省 $35,000 开发成本</div>
+        </div>
+        <div class="feature-card">
+          <div class="icon">🤖</div>
+          <div class="title">100+ AI 模型</div>
+          <div class="desc">集成 GPT/Claude/Gemini/通义/文心等主流模型</div>
+        </div>
+        <div class="feature-card">
+          <div class="icon">📄</div>
+          <div class="title">Apache 2.0 商用</div>
+          <div class="desc">开源协议,商用无忧,无 vendor lock-in</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="container">
+    <div class="payment">
+      <h2>支付方式说明</h2>
+      <div class="payment-badges">
+        <span class="pay-badge active">✅ 支付宝</span>
+        <span class="pay-badge upcoming">🚧 微信支付(即将开放)</span>
+        <span class="pay-badge secure">🔒 安全支付(官方网关,数据加密)</span>
+      </div>
+    </div>
   </section>
 
   <section class="container">
