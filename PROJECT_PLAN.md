@@ -32,6 +32,34 @@
 - 同步状态: **local == remote ✅**
 - 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅(pre-push hook 因其他 agent mobile-rn typecheck 失败,按 §12 `--no-verify` 合法跳过)
 
+### [x] ✅(2026-07-23) miniapp-taro Round6 后续:developer 提现链路 404 修复 + vip 购买须知 i18n 补齐(跨端:api + miniapp-taro)
+
+**触发**:承接 Round6 交付报告 2 项本任务范围内后续 — `POST /developer/withdrawals` 后端端点确认 + vip/index.tsx 弹窗3 购买须知 4 条硬编码 i18n 补齐。
+
+**交付内容**(1 commit `f562c68`,7 文件,+166/-4):
+
+| 缺口 | 文件 | 修复 |
+|---|---|---|
+| 后端 3 端点 404 | `apps/api/src/routes/developer.ts`(修改) | 新增 GET /income(收入概览 opType=4)+ GET /withdrawals(分页提现记录)+ POST /withdrawals(冻结+流水),复用 fund.ts 的 userMargins+tokenFlows 模式 |
+| vip 购买须知 i18n | `apps/miniapp-taro/src/pages/vip/index.tsx`(修改) | 弹窗3 购买须知 4 条硬编码中文替换为 t('vip.index.noticeRule1-4') 调用 |
+| i18n 5 语言同步 | `apps/miniapp-taro/src/i18n/{zh-CN,zh-TW,en,ko,ja}.ts`(修改) | 新增 4 个 key (noticeRule1-4) 5 语言 parity 一致 |
+
+**关键技术决策**:收入查询用 `opType=4`(佣金,正数)而非任务字面的 `opType=2`(过期清零,负数),依据 `apps/api/src/routes/wallet.ts` line 14 权威注释 + `apps/api/src/db/commission-queries.ts` line 120-126 实际写入,避免前端 `+¥-100` 显示错乱。
+
+**§9 跨端**:api + miniapp-taro 两端同步改动,后端 3 端点与前端 income.tsx + api/index.ts 契约对齐。
+**§22 README 豁免**:纯 bug 修复(404 → 端点实现)+ 纯 i18n 补齐,不改变对外能力清单。
+
+**验证**:
+- typecheck:`apps/api/src/routes/developer.ts` + `developer-queries.ts` 0 错误(其他 agent migrate-legacy-data.ts 报错不在本任务范围);`apps/miniapp-taro` 0 错误 0 warning
+- pre-commit hook schema drift 失败(其他 agent 15 表 migration 缺失),按 §12 `--no-verify` 合法跳过
+- pre-push hook mobile-rn typecheck 失败(其他 agent WorkPanel.tsx),git-push-guard 自动 `--no-verify` 重试成功
+
+**Git 同步证据**(§21):
+- 本地 commit: `f562c6841`
+- origin commit: `f562c6841`
+- 同步状态: **local == remote ✅**
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
+
 ### [x] ✅(2026-07-23) admin 路由深化 P0 批次 — orders/refund/wallet/users 统计+批量+审计(平台独占:仅 apps/api)
 
 **触发**:承接 `/goal 深度开发` H13 交付的 admin 页面深化清单(`.trae-cn/tmp/admin-depth-audit.md`),按 §11 多 subagent 并行开发 P0 批次(orders/refund/wallet/users 4 域)。
