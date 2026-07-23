@@ -5,8 +5,8 @@
   "main": "App.tsx",
   "scripts": {
     "start": "expo start --port 8805",
-    "android": "expo start --android --port 8805",
-    "ios": "expo start --ios --port 8805",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run"
