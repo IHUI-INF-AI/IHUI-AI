@@ -137,13 +137,15 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS
+    # CORS — 启动时校验(生产环境必填,任何环境禁止 "*" 通配符)
+    settings.validate_cors_origin()
+    _cors_origins = [o.strip() for o in settings.cors_origin.split(",") if o.strip()]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origin.split(","),
+        allow_origins=_cors_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-Internal-Secret"],
     )
 
     # JWT 认证中间件（与 apps/api 共享 JWT_SECRET，SSO 跨服务认证）

@@ -28,7 +28,7 @@ const channelSchema = z.enum(CHANNELS)
 const sendSchema = z.object({
   channel: channelSchema,
   content: z.string().min(1),
-  mentions: z.array(z.string()).optional(),
+  mentions: z.array(z.string()).max(50).optional(),
 })
 
 /** 渠道显示名 + 配置检测用的环境变量 key */

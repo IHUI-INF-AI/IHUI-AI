@@ -80,8 +80,8 @@ function findEndpointByCategory(category: 'browser' | 'computer'): RegisteredEnd
 const capabilitySchema = z.object({
   endpoint: z.enum(['extension', 'desktop']),
   instanceId: z.string().min(1).max(100),
-  browserActions: z.array(z.string()).optional(),
-  computerActions: z.array(z.string()).optional(),
+  browserActions: z.array(z.string()).max(100).optional(),
+  computerActions: z.array(z.string()).max(100).optional(),
   version: z.string().optional(),
   reportedAt: z.string(),
 })

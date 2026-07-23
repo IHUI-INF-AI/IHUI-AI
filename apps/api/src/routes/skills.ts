@@ -49,7 +49,7 @@ const skillSchema = z.object({
   version: z.string().default('1.0.0'),
   license: z.string().default('MIT'),
   source: z.enum(['builtin', 'user', 'auto', 'hub']).default('user'),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).max(20).optional(),
 })
 
 const nameParamSchema = z.object({
