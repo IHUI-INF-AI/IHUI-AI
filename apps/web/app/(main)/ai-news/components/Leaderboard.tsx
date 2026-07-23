@@ -522,6 +522,7 @@ export function Leaderboard({ entries }: Props) {
             {showColMenu ? (
               <>
                 {/* 点击外部关闭 */}
+                {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
                 <div
                   className="fixed inset-0 z-10"
                   onClick={() => setShowColMenu(false)}
@@ -592,7 +593,7 @@ export function Leaderboard({ entries }: Props) {
               {sortableTh('outputPrice', 'leaderboard.colOutputPrice')}
               <th className="px-3 py-2 text-center font-medium">{t('leaderboard.colChange')}</th>
               {sortableTh('releaseDate', 'leaderboard.colReleaseDate', 'left')}
-              <th className="px-3 py-2 text-right font-medium"></th>
+              <th className="px-3 py-2 text-right font-medium" />
             </tr>
           </thead>
           <tbody>
