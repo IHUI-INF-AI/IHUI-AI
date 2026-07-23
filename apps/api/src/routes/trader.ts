@@ -21,7 +21,7 @@ const applySchema = z.object({
 const updateTraderSchema = z.object({
   status: z.enum(['pending', 'approved', 'rejected', 'banned']).optional(),
   commissionRate: z.number().int().min(0).max(100).optional(),
-  specialties: z.array(z.string()).optional(),
+  specialties: z.array(z.string()).max(100).optional(),
   intro: z.string().max(500).optional(),
   performance: z.record(z.string(), z.unknown()).optional(),
 })

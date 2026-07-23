@@ -353,7 +353,7 @@ const updateCompanyTypeSchema = z.object({
 })
 
 const batchUploadSchema = z.object({
-  members: z.array(z.record(z.unknown())).min(0),
+  members: z.array(z.record(z.unknown())).min(0).max(1000),
 })
 
 // 会员批量导入结果项类型
