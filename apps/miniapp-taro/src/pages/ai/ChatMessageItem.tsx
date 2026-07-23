@@ -6,8 +6,10 @@ import { useI18n } from '@/i18n'
 
 export interface ChatMessageItemProps {
   msg: ChatMessage
-  /** 复用问题到输入框(对标原 ai_assistant.vue copyToInput) */
   onReuse?: (question: string) => void
+  onRegenerate?: () => void
+  onLongPress?: () => void
+  onEdit?: () => void
 }
 
 /** 内容段类型(对标原 ai_assistant.vue formatContentSegments) */
@@ -68,9 +70,11 @@ function formatTokenDisplay(count: number): string {
   return String(count)
 }
 
-export default function ChatMessageItem({ msg, onReuse }: ChatMessageItemProps) {
+export default function ChatMessageItem({ msg, onReuse, onRegenerate, onLongPress, onEdit }: ChatMessageItemProps) {
   const { t } = useI18n()
   const [expanded, setExpanded] = useState(false)
+  const [codeCollapsed, setCodeCollapsed] = useState(false)
+  const [codeCopied, setCodeCopied] = useState(false)
 
   /** 内容段(对标原 ai_assistant.vue formatContentSegments) */
   const segments = useMemo(
@@ -97,6 +101,26 @@ export default function ChatMessageItem({ msg, onReuse }: ChatMessageItemProps) 
     }
   }
 
+  function copyCode() {
+    if (!msg.codeContent) return
+    Taro.setClipboardData({
+      data: msg.codeContent,
+      success: () => {
+        setCodeCopied(true)
+        Taro.showToast({ title: t('success.copied'), icon: 'none' })
+        setTimeout(() => setCodeCopied(false), 1500)
+      },
+    })
+  }
+
+  function handleLongPress() {
+    if (onLongPress) onLongPress()
+  }
+
+  function handleEdit() {
+    if (msg.role === 'user' && onEdit) onEdit()
+  }
+
   /** 预览图片(对标原 ai_assistant.vue previewImage) */
   function previewImage(currentUrl: string, urlList: string[]) {
     Taro.previewImage({ current: currentUrl, urls: urlList })
@@ -110,7 +134,7 @@ export default function ChatMessageItem({ msg, onReuse }: ChatMessageItemProps) 
   }
 
   return (
-    <View className={`msg-item ${msg.role}`}>
+    <View className={`msg-item ${msg.role}`} onLongPress={handleLongPress}>
       <View className={`avatar ${msg.role}`}>
         {msg.role === 'user' ? t('ai.chatMessageItem.me') : t('ai.chatMessageItem.ai')}
       </View>
@@ -125,15 +149,44 @@ export default function ChatMessageItem({ msg, onReuse }: ChatMessageItemProps) 
           </View>
         ) : null}
 
-        {/* 代码块(对标原 ai_assistant.vue content_code,可点击复制) */}
+        {/* 代码块(对标原 ai_assistant.vue content_code,可折叠 + 复制按钮) */}
         {msg.codeContent ? (
-          <Text
-            className="bubble-code"
-            style={{ color: '#1888ee', display: 'block', marginTop: '4px' }}
-            onClick={() => copyContent(msg.codeContent!)}
-          >
-            {msg.codeContent}
-          </Text>
+          <View className="bubble-code-wrap" style={{ marginTop: '8rpx', borderRadius: '8rpx', overflow: 'hidden' }}>
+            <View
+              className="bubble-code-header"
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '8rpx 16rpx',
+                background: '#f5f5f5',
+                borderBottom: '1rpx solid #e5e5e5',
+              }}
+            >
+              <Text
+                className="bubble-code-lang"
+                style={{ fontSize: '24rpx', color: '#666' }}
+                onClick={() => setCodeCollapsed((v) => !v)}
+              >
+                {codeCollapsed ? '▸' : '▾'} {t('ai.chatMessageItem.collapse')}
+              </Text>
+              <Text
+                className="bubble-code-copy"
+                style={{ fontSize: '24rpx', color: codeCopied ? '#52c41a' : '#1888ee' }}
+                onClick={copyCode}
+              >
+                {codeCopied ? t('ai.chatMessageItem.copy') + ' ✓' : t('ai.chatMessageItem.copy')}
+              </Text>
+            </View>
+            {!codeCollapsed ? (
+              <Text
+                className="bubble-code"
+                style={{ color: '#1888ee', display: 'block', padding: '12rpx 16rpx', fontSize: '26rpx', background: '#fafafa', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
+              >
+                {msg.codeContent}
+              </Text>
+            ) : null}
+          </View>
         ) : null}
 
         {/* 内容段渲染(对标原 ai_assistant.vue formatContentSegments) */}
@@ -200,26 +253,50 @@ export default function ChatMessageItem({ msg, onReuse }: ChatMessageItemProps) 
             </Text>
           ) : null}
 
-          {/* 复用按钮(仅用户消息,对标原 ai_assistant.vue fuyong_btn) */}
-          {msg.role === 'user' && onReuse ? (
-            <Text
-              className="bubble-reuse"
-              style={{ fontSize: '24rpx', color: '#1888ee' }}
-              onClick={handleReuse}
-            >
-              {t('ai.chatMessageItem.reuse')}
-            </Text>
+          {/* 复用 + 编辑按钮(仅用户消息) */}
+          {msg.role === 'user' ? (
+            <View style={{ display: 'flex', gap: '20rpx' }}>
+              {onReuse ? (
+                <Text
+                  className="bubble-reuse"
+                  style={{ fontSize: '24rpx', color: '#1888ee' }}
+                  onClick={handleReuse}
+                >
+                  {t('ai.chatMessageItem.reuse')}
+                </Text>
+              ) : null}
+              {onEdit ? (
+                <Text
+                  className="bubble-edit"
+                  style={{ fontSize: '24rpx', color: '#1888ee' }}
+                  onClick={handleEdit}
+                >
+                  {t('ai.chatMessageItem.edit')}
+                </Text>
+              ) : null}
+            </View>
           ) : null}
 
-          {/* 复制按钮(仅 AI 消息,对标原 ai_assistant.vue copyHandle) */}
+          {/* 复制 + 重新生成按钮(仅 AI 消息) */}
           {msg.role === 'assistant' && msg.content ? (
-            <Text
-              className="bubble-copy"
-              style={{ fontSize: '24rpx', color: '#1888ee' }}
-              onClick={() => copyContent(msg.content)}
-            >
-              {t('ai.chatMessageItem.copy')}
-            </Text>
+            <View style={{ display: 'flex', gap: '20rpx' }}>
+              <Text
+                className="bubble-copy"
+                style={{ fontSize: '24rpx', color: '#1888ee' }}
+                onClick={() => copyContent(msg.content)}
+              >
+                {t('ai.chatMessageItem.copy')}
+              </Text>
+              {onRegenerate ? (
+                <Text
+                  className="bubble-regenerate"
+                  style={{ fontSize: '24rpx', color: '#1888ee' }}
+                  onClick={onRegenerate}
+                >
+                  {t('ai.chatMessageItem.regenerate')}
+                </Text>
+              ) : null}
+            </View>
           ) : null}
         </View>
       </View>
