@@ -72,47 +72,7 @@
 
 **Git 同步证据**:本地 commit e083d7ec9 → origin/main 93a28d0d2(local == remote ✅)。
 
-### [x] ✅(2026-07-23) 前端冗余页面整合 P3(平台独占:仅 web 端)
-
-**触发**:用户要求"继续 多agentAgent goal命令去处理"。P2 批次后深度分析 settings 目录,发现 6 个完全不可达的"孤儿页面"(0 引用,不在 sidebar/SUB_PAGES/CommandPalette 任何导航中)。
-
-**深度分析**(search subagent + 主 agent Grep 验证):
-- settings 目录共 22 个子页面,其中 17 个可达(SUB_PAGES 16 + api-keys 硬编码 1)
-- 6 个孤儿页面:change-phone / app-permission / business-license / model-record / icp-record / usage-rules
-- 逐一验证 API 调用 + 功能重叠:
-  - change-phone(73行,2步验证改手机号)→ user/security/PhoneSection 已有改手机号功能(调 /api/users/change-phone),重复
-  - app-permission(97行,7种App权限静态表格)→ App端概念,web端无意义
-  - business-license(102行,营业执照占位图)→ 占位图无实际信息,法律展示应在 SiteFooter
-  - usage-rules(55行,5段使用规范文本)→ 与 AgreementDialog 用户协议功能重叠(SiteFooter 已有弹窗)
-  - model-record(65行,大模型备案信息)→ 法律要求,含真实备案号,保留
-  - icp-record(82行,ICP备案信息)→ 法律要求,SiteFooter 只有简短文字,保留
-
-**整合内容**(删除 4 页面 6 文件 + 清理 5 语言 i18n):
-
-| 孤儿页面 | 行数 | 处理 | 理由 |
-|---|---|---|---|
-| change-phone(+Step1+Step2) | 73+子组件 | 删除 | user/security/PhoneSection 已有改手机号功能 |
-| app-permission | 97 | 删除 | App端概念,web端无意义,0引用 |
-| business-license | 102 | 删除 | 占位图无实际信息,0引用 |
-| usage-rules | 55 | 删除 | 与AgreementDialog用户协议重叠,0引用 |
-
-**保留**(法律备案页面,不加入导航保持现状):
-- model-record / icp-record — 法律要求展示,含真实备案号,未来可在 SiteFooter 加链接
-
-**i18n 清理**(5 语言 × 58 key = 290 key 删除):
-- settings namespace 下:businessLicense*(7) + usageRules*(13) + appPermission*(15) + changePhone*(23) = 58 key/语言
-- 保留 user.security namespace 的 changePhone/changePhoneDesc(被 user/security/PhoneSection 使用)
-- 保留 icpRecord*/modelRecord* key(法律备案页面保留)
-- 保留 routes namespace 的 key(保守处理)
-- 多 agent 并行:主 agent 清理 zh-CN.json + subagent 清理 4 语言(zh-TW/en/ja/ko)
-
-**验证**:
-- web typecheck 我的文件零错误(管道过滤 changePhone/appPermission/businessLicense/usageRules 关键词无匹配)
-- i18n parity:5 语言 key 集合一致(只剩 1 个预先存在的 opencompass 问题,与本次无关)
-- JSON 合法性:5 文件全部 VALID(ConvertFrom-Json 成功)
-- dev server 8801 被其他 agent 占用且不响应,适用 §19 豁免(纯删除+配置清理,typecheck+i18n parity 已验证)
-
-**Git 同步证据**:本地 commit e17f77a7e → origin/main e17f77a7e(local == remote ✅)。
+<!-- 已归档(2026-07-23):前端冗余页面整合 P3:settings 6 孤儿页面清理(平台独占:仅 web 端),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 <!-- 已归档(2026-07-23):多 Agent 并行提效全栈打通(跨端:packages/types + ai-service + cli + api ...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-22):多 Agent 并行提效全栈打通任务原始计划(触发/目标/现状/验证标准/约束边界),完整内容已浓缩为上方交付摘要 -->
@@ -125,58 +85,10 @@
 <!-- 已归档(2026-07-23):CLI 配置导入扩展至 24 源 + Google Antigravity + URL/协议深度修正 + 20 测试(跨...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-23):CLI 导入 providerCode/apiFormat 推断逻辑深度修正 + README §22 同步(跨端:pa...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-23):CLI 导入 4 独立解析器综合测试深度覆盖(cursor/windsurf/cline/aider 共 140 用例,...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->---
-### [x] ✅(2026-07-22) 大模型排行榜深度优化六轮:能力标签阈值配置化 + ModelDetailDialog 高亮延续(平台独占:仅 apps/web)
-
-**触发**:用户要求"继续按你的建议去做执行,最多 agent 并行开发最大化效率,完美细致完整毫无遗漏"。承接五轮交付后的 2 条"下一步建议"。
-
-**交付内容**(1 commit,4 文件,平台独占:仅 apps/web):
-
-| 模块 | 文件 | 改动 |
-|---|---|---|
-| 共享 utils | `apps/web/app/(main)/ai-news/components/text-utils.tsx` | 新增 `CAPABILITY_THRESHOLDS` 配置常量(5 阈值)+ `CAPABILITY_TAG_KEYS` 标签 key 列表 |
-| ModelDetailDialog | `apps/web/app/(main)/ai-news/components/ModelDetailDialog.tsx` | 删除本地 parseNum(复用 text-utils parseNumeric)+ extractCapabilityTags 引用 CAPABILITY_THRESHOLDS + Props 新增 searchQuery + 模型名/厂商名应用 highlight |
-| Leaderboard | `apps/web/app/(main)/ai-news/components/Leaderboard.tsx` | ModelDetailDialog 调用处传入 searchQuery prop |
-| 文档 | `docs/AI_LEADERBOARD.md` | 1.3 能力标签阈值配置化 + 搜索高亮延续说明 |
-
-**自验**:
-- typecheck:本任务 3 文件全绿 ✅(其他错误属其他 agent 代码:CodeEditor @monaco-editor/react 缺失 / terminal-panel @xterm 缺失 / PasswordLoginForm 类型 / packages/types 模块缺失)
-- browser_use 降级为代码审查(登录弹窗遮挡 + 预算耗尽,BLOCKED)
-- §13 文件持久化:全部 Edit 已 Grep 验证落地 ✅
-
-**Git 同步证据**(§21):
-- 本地 commit: `69bbbb50f` refactor(ai-news): 能力标签阈值配置化 + ModelDetailDialog 高亮延续
-- origin commit: `69bbbb50f`
-- 同步状态: **local == remote ✅**(HEAD = origin/main = 69bbbb50f)
-- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
+<!-- 已归档(2026-07-23):大模型排行榜深度优化六轮:能力标签阈值配置化 + ModelDetailDialog 高亮延续(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ---
-### [x] ✅(2026-07-22) 大模型排行榜深度优化五轮:highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证(平台独占:仅 apps/web)
-
-**触发**:用户要求"继续按你的建议去做执行,最多 agent 并行开发最大化效率,完美细致完整毫无遗漏"。承接四轮交付后的 2 条"下一步建议"。
-
-**交付内容**(1 commit,6 文件,平台独占:仅 apps/web):
-
-| 模块 | 文件 | 改动 |
-|---|---|---|
-| 共享 utils | `apps/web/app/(main)/ai-news/components/text-utils.tsx`(新建) | 提取 `parseNumeric` + `highlight` 到共享文件,跨组件复用 |
-| Leaderboard | `apps/web/app/(main)/ai-news/components/Leaderboard.tsx` | 删除本地 parseNumeric/highlight 定义,改为从 text-utils 导入 + re-export 向后兼容 |
-| PriceChart | `apps/web/app/(main)/ai-news/components/PriceChart.tsx` | 导入路径从 `./Leaderboard` 改为 `./text-utils` |
-| ModelCompareDialog | `apps/web/app/(main)/ai-news/components/ModelCompareDialog.tsx` | 导入路径从 `./Leaderboard` 改为 `./text-utils` |
-| ApiRelaysSection | `apps/web/app/(main)/ai-news/components/ApiRelaysSection.tsx` | 从 text-utils 导入 highlight + 应用到平台名/特点/计费/厂商标签(4 处) |
-| 文档 | `docs/AI_LEADERBOARD.md` | 3.2 搜索关键词高亮说明 |
-
-**自验**:
-- typecheck:本任务 5 文件全绿 ✅(其他错误属其他 agent 代码)
-- browser_use 验证(2 轮全 PASS):
-  - Leaderboard 搜索高亮 + 空状态 9 项全 PASS(markCount=2,className 包含 bg-yellow-200/70 + dark:bg-yellow-500/30,清空筛选按钮功能正常)
-  - ApiRelaysSection 搜索高亮 4 项全 PASS(平台名/特点/计费/厂商标签 4 处高亮,清空后 mark 消失,dark mode 适配)
-- §13 文件持久化:全部 Edit 已 Grep 验证落地 ✅
-
-**Git 同步证据**(§21):
-- 本地 commit: `09690e799` refactor(ai-news): highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证通过
-- origin commit: `09690e799`
-- 同步状态: **local == remote ✅**(HEAD = origin/main = 09690e799)
-- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
+<!-- 已归档(2026-07-23):大模型排行榜深度优化五轮:highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ---
 <!-- 已归档(2026-07-23):大模型排行榜深度优化四轮:搜索关键词高亮 + 空状态优化 + i18n 5 语言同步(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
