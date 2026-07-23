@@ -45,8 +45,8 @@ export default function AboutIndexPage() {
 
   const menus = useMemo<MenuItem[]>(
     () => [
-      { key: 'protocol', label: tt('about.protocol', '用户协议'), url: '/pages/about/protocol' },
-      { key: 'privacy', label: tt('about.privacy', '隐私政策'), url: '/pages/about/privacy' },
+      { key: 'protocol', label: tt('about.protocol.title', '用户协议'), url: '/pages/about/protocol' },
+      { key: 'privacy', label: tt('about.privacy.mainTitle', '隐私政策'), url: '/pages/about/privacy' },
       {
         key: 'businessLicense',
         label: tt('about.businessLicense.title', '营业执照'),
