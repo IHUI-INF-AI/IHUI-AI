@@ -19,6 +19,7 @@ const MOCK_STATS = { courseCount: 12, favoriteCount: 34, followingCount: 56, fan
  * 引用 packages/app 的 3 个生产级共享组件,注入 t 函数 + 模拟数据 + 回调。
  */
 export function SharedDemoScreen() {
+  if (!__DEV__) return null
   const { t } = useI18n()
   const [tab, setTab] = useState<Tab>('about')
   const [locale, setLocale] = useState('zh-CN')
