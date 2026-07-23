@@ -103,7 +103,7 @@ function extractToc(content: string): TocItem[] {
 
 // 把 ReactNode 拍平为纯文本(用于代码块复制按钮)
 function extractText(node: React.ReactNode): string {
-  if (node == null || node === false) return ''
+  if (node === null || node === undefined || node === false) return ''
   if (typeof node === 'string') return node
   if (typeof node === 'number') return String(node)
   if (Array.isArray(node)) return node.map(extractText).join('')
@@ -115,6 +115,7 @@ function extractText(node: React.ReactNode): string {
 
 // 代码块:语言徽章 + 一键复制按钮(重写 pre 组件,inline code 不受影响)
 function CodeBlock({ children, ...props }: React.ComponentProps<'pre'>) {
+  const [copied, setCopied] = React.useState(false)
   const childArr = React.Children.toArray(children)
   const codeEl = childArr.find(
     (c): c is React.ReactElement<{ className?: string; children?: React.ReactNode }> =>
@@ -125,7 +126,6 @@ function CodeBlock({ children, ...props }: React.ComponentProps<'pre'>) {
   const match = /language-([\w-]+)/.exec(className)
   const lang = match?.[1] ?? ''
   const rawText = extractText(codeEl.props.children)
-  const [copied, setCopied] = React.useState(false)
 
   function handleCopy() {
     if (!rawText) return
