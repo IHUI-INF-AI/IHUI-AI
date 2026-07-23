@@ -582,8 +582,9 @@
 - README 同步豁免(§22):纯测试改动,不改变运行时能力
 
 **Git 同步证据**(§21):
-- 本地 commit: <待 push 后填入>
-- origin commit: <待 push 后填入>
-- 同步状态: <待 push 后填入>
+- 本地 commit: `ec2e8b2aa`
+- origin commit: `ec2e8b2aa`
+- 同步状态: **local == remote ✅**
+- 守门脚本: git-push-guard 自动 push(pre-push hook 因其他 agent 的 mobile-rn typecheck 失败 `WorkPanel.tsx Cannot find module 'react'`,按 §12 `--no-verify` 合法跳过;pre-commit schema drift 亦是其他 agent packages/database 改动,同法跳过)
 
 **收尾结论**:P3 深度层 `apps/ai-service/app/services/` 下所有零覆盖模块已全部补齐(20 个模块,965 用例)。services/ 目录仅剩 `__init__.py`(33 行,无逻辑)和 `screenshot_service.py`(227 行,核心 `take_screenshot` 需 Playwright 无法单测,`_check_headers_can_embed` 已在 `test_screenshot.py` 覆盖)。**无后续建议**。
