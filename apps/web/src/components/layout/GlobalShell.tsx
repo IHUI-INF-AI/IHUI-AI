@@ -131,13 +131,16 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <div className="flex h-screen overflow-hidden">
-        <Sidebar
-          id={sidebarId}
-          collapsed={collapsed}
-          onToggleCollapse={() => setCollapsed((c) => !c)}
-          mobileOpen={mobileOpen}
-          onCloseMobile={() => setMobileOpen(false)}
-        />
+        {/* output: 'export' 模式:Sidebar 内部 useSearchParams() 需 Suspense 包裹 */}
+        <React.Suspense fallback={null}>
+          <Sidebar
+            id={sidebarId}
+            collapsed={collapsed}
+            onToggleCollapse={() => setCollapsed((c) => !c)}
+            mobileOpen={mobileOpen}
+            onCloseMobile={() => setMobileOpen(false)}
+          />
+        </React.Suspense>
         {/*
           work-area-portal-root:作为 Sidebar 搜索弹层(SearchNavItem)的 portal 目标。
           原本只在 MainShell 中存在(仅 (main) 路由可用),现在提升到 GlobalShell,
