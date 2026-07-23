@@ -14,6 +14,18 @@ function run(label, cmd) {
   }
 }
 
+// warn-only 版本:失败时打印 ⚠️ 但不阻塞 commit(用于新守门项观察期)
+function runWarnOnly(label, cmd) {
+  console.log(label)
+  try {
+    execSync(cmd, { stdio: 'inherit', cwd: process.cwd() })
+    return true
+  } catch (e) {
+    console.warn(`⚠️ ${label}失败 (warn-only,不阻塞 commit)`)
+    return false
+  }
+}
+
 // 1. API key 泄露检查
 if (!run('🔐 检查 API key 泄露...', 'node scripts/check-api-key-leak.mjs --staged')) {
   process.exit(1)
@@ -45,6 +57,37 @@ run('🔍 检查 ja.json 中文残留(warn-only)...', 'node scripts/scan-i18n-zh
 if (!run('🔍 检查 en.json 破碎英文...', 'node scripts/check-i18n-broken-en.mjs --staged')) {
   process.exit(1)
 }
+
+// === extension i18n 守门(warn-only,2026-07-23 立) ===
+// packages/i18n/messages/extension/*.json 为 extension 端共享 i18n 消息,与 web 的 apps/web/messages/*.json
+// 格式相同(标准 JSON),但 key 集合不同(extension 17 个 namespace,web 587 个 namespace)。
+// 复用 3 个 web 守门脚本,通过 --target=extension 切换扫描路径。
+// warn-only:新守门项先观察,稳定后再改阻塞(避免误报阻塞 extension 开发)。
+
+// 2f. extension i18n 键完整性(key parity,5 语言 key 集合一致,基准 zh-CN)
+// extension 模式跳过源码使用检测(useI18n() 不是 useTranslations())与翻译完整性检测(已人工校对)
+runWarnOnly(
+  '🌐 [extension] 检查 i18n 键完整性(warn-only)...',
+  'node scripts/check-i18n-keys.mjs --target=extension --staged',
+)
+
+// 2g. extension zh-TW 简体字残留(opencc-js cn→tw 字形转换检测)
+runWarnOnly(
+  '🔍 [extension] 检查 zh-TW 简体字残留(warn-only)...',
+  'node scripts/scan-i18n-zh-residue.mjs zh-TW --target=extension --staged',
+)
+
+// 2h. extension ko.json 中文残留(字符范围检测)
+runWarnOnly(
+  '🔍 [extension] 检查 ko.json 中文残留(warn-only)...',
+  'node scripts/scan-i18n-zh-residue.mjs ko --target=extension --staged',
+)
+
+// 2i. extension en.json 破碎机翻英文(防止 AgentDevPlatform 等机翻拼接积累)
+runWarnOnly(
+  '🔍 [extension] 检查 en.json 破碎英文(warn-only)...',
+  'node scripts/check-i18n-broken-en.mjs --target=extension --staged',
+)
 
 // 3. schema drift 检查（TS schema 表名 vs migration SQL 表名）
 if (!run('🗄️ 检查 schema drift...', 'node scripts/check-db-schema-drift.mjs --staged')) {
