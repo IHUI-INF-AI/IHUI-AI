@@ -95,6 +95,7 @@ import {
   deleteUserPreference,
 } from '../db/user-preferences-queries.js'
 import { findSecurityLogs } from '../db/security-logs-queries.js'
+import { findActiveSessions, revokeSession } from '../db/authorizations-queries.js'
 import {
   createExportTask,
   findLatestExportTask,
@@ -817,6 +818,24 @@ export const missingUserRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(
       success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
     )
+  })
+
+  // 会话管理 — 查询用户活跃会话(已登录的设备/浏览器)
+  server.get('/settings/authorizations', async (request, reply) => {
+    const q = parsePagination(request, reply)
+    if (!q) return
+    const result = await findActiveSessions(request.userId!, q.page, q.pageSize)
+    return reply.send(
+      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
+    )
+  })
+
+  // 会话管理 — 撤销指定会话(远程注销)
+  server.delete('/settings/authorizations/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const ok = await revokeSession(request.userId!, id)
+    if (!ok) return reply.code(404).send({ code: 404, message: 'Session not found', data: null })
+    return reply.send(success({ revoked: true }))
   })
 
   server.get('/settings/export', async (request, reply) => {
