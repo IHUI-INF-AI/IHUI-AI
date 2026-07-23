@@ -3,6 +3,8 @@ import { persist } from 'zustand/middleware'
 
 import type { WSNotification } from '@/hooks/use-websocket'
 import type { NotificationItem, MessageItem } from '@/lib/notification-api'
+import { transformWsNotification } from '@ihui/shared/notifications/ws-notification-adapter'
+import type { WsNotificationLike } from '@ihui/shared/notifications/ws-notification-adapter'
 
 interface NotificationState {
   notifications: NotificationItem[]
@@ -90,21 +92,10 @@ export const useNotificationStore = create<NotificationState>()(
     set({ unreadCount: counts.notifications, unreadMessageCount: counts.messages }),
 
   handleWsMessage: (msg) => {
-    if (!msg || msg.type !== 'notification' || !msg.data) return
-    const data = msg.data
-    const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
-
-    useNotificationStore.getState().addNotification({
-      id: str(data.id) ?? `${Date.now()}`,
-      type: data.type,
-      title: str(data.title) ?? (data.type === 'ai_response' ? 'AI 回复' : '新通知'),
-      content:
-        str(data.content) ??
-        str((data as { message?: { content?: string } }).message?.content) ??
-        '',
-      isRead: false,
-      createdAt: str(data.createdAt) ?? new Date().toISOString(),
-    })
+    const entry = transformWsNotification(msg as unknown as WsNotificationLike)
+    if (entry) {
+      useNotificationStore.getState().addNotification(entry as NotificationItem)
+    }
   },
     }),
     {
