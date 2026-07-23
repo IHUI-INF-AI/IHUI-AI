@@ -20,6 +20,8 @@ export interface FallbackModel {
 }
 
 export const FALLBACK_MODELS: FallbackModel[] = [
+  // === 默认主力(与 ai-service default_models.json 第 1 位对齐)===
+  { value: 'stepfun/step-router-v1', label: 'Step Router v1', vendor: 'stepfun' },
   // === 国际原厂 ===
   // OpenAI(7 个)
   { value: 'gpt-4o', label: 'GPT-4o', vendor: 'openai' },
@@ -166,10 +168,9 @@ export const FALLBACK_MODELS: FallbackModel[] = [
   // Doubao 豆包(2 个)
   { value: 'doubao-1-6-pro', label: 'Doubao 1.6 Pro', vendor: 'doubao' },
   { value: 'doubao-pro-32k', label: 'Doubao Pro 32K', vendor: 'doubao' },
-  // StepFun 阶跃星辰(3 个)
+  // StepFun 阶跃星辰(2 个)
   { value: 'stepfun/step-3.7-flash', label: 'Step 3.7 Flash', vendor: 'stepfun' },
   { value: 'stepfun/step-3.5-flash', label: 'Step 3.5 Flash', vendor: 'stepfun' },
-  { value: 'stepfun/step-router-v1', label: 'Step Router v1', vendor: 'stepfun' },
   // Tencent Hunyuan 腾讯混元(2 个)
   { value: 'hunyuan-pro', label: 'Hunyuan Pro', vendor: 'hunyuan' },
   { value: 'hunyuan-turbo', label: 'Hunyuan Turbo', vendor: 'hunyuan' },
