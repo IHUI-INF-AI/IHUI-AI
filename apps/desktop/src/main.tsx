@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import 'highlight.js/styles/github.css'
 import App from './App'
 
 // 跟随系统主题 toggle .dark class（对齐 web 端 next-themes .dark 策略）

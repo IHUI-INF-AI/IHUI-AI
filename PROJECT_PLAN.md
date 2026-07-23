@@ -152,6 +152,31 @@
 
 ---
 
+### [x] ✅(2026-07-23) 桌面端 Markdown 渲染 + 代码高亮 + 消息复制深度开发(平台独占:仅 desktop)
+
+**触发**:用户 `/goal 继续啊 你怎么总停呢 你就去做就好了 一直去做 深度开发`,要求不停顿深度开发桌面端能力。AI 回复含 markdown/code block,纯文本显示体验差。
+
+**交付**(Markdown 渲染 + 代码高亮 + 复制按钮):
+- `apps/desktop/package.json`:新增 4 依赖(react-markdown / remark-gfm / rehype-highlight / highlight.js)
+- `apps/desktop/src/components/MarkdownRenderer.tsx`(新建):Markdown 渲染器
+  - GFM(表格/删除线/任务列表)+ 代码高亮(highlight.js)
+  - 代码块加复制按钮 + 语言标签(CodeBlock 子组件,copied 状态 1.5s 自动恢复)
+  - 链接 target=_blank + rel=noreferrer
+  - 表格横向滚动包裹层
+- `apps/desktop/src/pages/ChatPage.tsx`:集成 MarkdownRenderer
+  - AI 回复(role=assistant)用 MarkdownRenderer 渲染
+  - 用户消息(role=user)用 .md-plain 纯文本(不渲染 markdown,避免指令注入)
+  - 消息级复制按钮(hover 显示,copiedMsgId 状态 1.5s 自动恢复)
+- `apps/desktop/src/main.tsx`:导入 highlight.js/styles/github.css(代码主题)
+- `apps/desktop/src/app.css`:新增 Markdown 样式(40+ 类:md-body p/h1-6/ul/ol/li/a/blockquote/hr/code/md-code-block/md-code-header/md-code-lang/md-code-copy/pre/table/md-table-wrap/md-plain/msg-copy-btn + dark mode 调整)
+- `apps/desktop/src/i18n/messages/*.ts`:5 语言 chat 命名空间新增 6 个 key(roleUser / roleAI / copy / copied / copyMessage / copyCode)
+
+**§9 平台独占**:Markdown 渲染 + 代码高亮为 desktop 单端 UI 能力,豁免全端同步。
+
+**验证**:desktop typecheck 零错误(退出码 0)、README 3 处同步更新(加"Markdown 渲染")。
+
+---
+
 <!-- 已归档(2026-07-23):miniapp-taro SSE done 事件 tokenCount 打通(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ### [x] ✅(2026-07-23) 前端冗余页面整合 P0(平台独占:仅 web 端)
