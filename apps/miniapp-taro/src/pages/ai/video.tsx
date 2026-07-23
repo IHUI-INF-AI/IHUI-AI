@@ -1,6 +1,6 @@
 import { View, Text, Textarea, Button, ScrollView } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useCallback } from 'react'
+import Taro, { useDidShow, useRouter, useShareAppMessage } from '@tarojs/taro'
+import { useState, useCallback, useMemo } from 'react'
 import {
   generateVideoKling,
   generateVideoDoubao,
@@ -8,6 +8,7 @@ import {
   soraRequestEnd,
 } from '@/api'
 import { logger } from '@/utils/logger'
+import { useI18n } from '@/i18n'
 import VideoPlayer from '@/components/VideoPlayer'
 import EmptyState from '@/components/EmptyState'
 import ErrorView from '@/components/ErrorView'
@@ -15,27 +16,31 @@ import ErrorView from '@/components/ErrorView'
 type Vendor = 'sora2' | 'kling' | 'doubao' | 'dashscope'
 type Status = 'idle' | 'pending' | 'running' | 'succeeded' | 'failed'
 
-const VENDORS: Array<{ key: Vendor; name: string; desc: string; available: boolean }> = [
-  { key: 'sora2', name: 'Sora2', desc: 'OpenAI 视频模型', available: false },
-  { key: 'kling', name: '可灵', desc: '快手可灵视频', available: true },
-  { key: 'doubao', name: '豆包', desc: '字节豆包视频', available: true },
-  { key: 'dashscope', name: 'Dashscope', desc: '阿里通义万相', available: true },
+interface VendorMeta {
+  key: Vendor
+  nameKey: string
+  descKey: string
+  available: boolean
+}
+
+const VENDORS: VendorMeta[] = [
+  { key: 'sora2', nameKey: 'ai.video.vendors.sora2', descKey: 'ai.video.vendors.sora2Desc', available: false },
+  { key: 'kling', nameKey: 'ai.video.vendors.kling', descKey: 'ai.video.vendors.klingDesc', available: true },
+  { key: 'doubao', nameKey: 'ai.video.vendors.doubao', descKey: 'ai.video.vendors.doubaoDesc', available: true },
+  { key: 'dashscope', nameKey: 'ai.video.vendors.dashscope', descKey: 'ai.video.vendors.dashscopeDesc', available: true },
 ]
 
-const PARAMS: Array<{ label: string; key: 'duration' | 'resolution' | 'fps'; options: string[] }> =
-  [
-    { label: '时长(秒)', key: 'duration', options: ['5', '10'] },
-    { label: '分辨率', key: 'resolution', options: ['720p', '1080p'] },
-    { label: '帧率', key: 'fps', options: ['24', '30'] },
-  ]
-
-const STATUS_TEXT: Record<Status, string> = {
-  idle: '',
-  pending: '排队中...',
-  running: '生成中...',
-  succeeded: '生成完成',
-  failed: '生成失败',
+interface ParamMeta {
+  labelKey: string
+  key: 'duration' | 'resolution' | 'fps'
+  options: string[]
 }
+
+const PARAMS: ParamMeta[] = [
+  { labelKey: 'ai.video.duration', key: 'duration', options: ['5', '10'] },
+  { labelKey: 'ai.video.resolution', key: 'resolution', options: ['720p', '1080p'] },
+  { labelKey: 'ai.video.fps', key: 'fps', options: ['24', '30'] },
+]
 
 const STORAGE_KEY = 'ihui_video_history'
 
@@ -82,6 +87,7 @@ const fmtTime = (ts: number) =>
     hour: '2-digit',
     minute: '2-digit',
   }).format(ts)
+
 const API_MAP: Record<Vendor, (data: unknown) => Promise<unknown>> = {
   sora2: soraRequestEnd,
   kling: generateVideoKling,
@@ -90,6 +96,8 @@ const API_MAP: Record<Vendor, (data: unknown) => Promise<unknown>> = {
 }
 
 export default function VideoPage() {
+  const { t } = useI18n()
+  const router = useRouter()
   const [vendor, setVendor] = useState<Vendor>('kling')
   const [prompt, setPrompt] = useState('')
   const [params, setParams] = useState({ duration: '5', resolution: '720p', fps: '24' })
@@ -98,13 +106,38 @@ export default function VideoPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [history, setHistory] = useState<HistoryItem[]>([])
 
-  useDidShow(() => setHistory(loadHistory()))
+  useDidShow(() => {
+    setHistory(loadHistory())
+    const incoming = router.params.prompt
+    if (incoming) setPrompt(decodeURIComponent(incoming))
+  })
+
+  useShareAppMessage(() => ({
+    title: t('ai.video.title'),
+    path: '/pages/ai/video',
+  }))
 
   const currentVendor = VENDORS.find((v) => v.key === vendor)!
+
+  const statusText = useMemo(() => {
+    switch (status) {
+      case 'pending':
+        return t('ai.video.pending')
+      case 'running':
+        return t('ai.video.generating')
+      case 'succeeded':
+        return t('ai.video.succeeded')
+      case 'failed':
+        return t('ai.video.failed')
+      default:
+        return ''
+    }
+  }, [status, t])
+
   const onGenerate = useCallback(async () => {
     if (!prompt || status === 'pending' || status === 'running') return
     if (!currentVendor.available) {
-      Taro.showToast({ title: '该模型 API 暂未开放', icon: 'none' })
+      Taro.showToast({ title: t('ai.video.modelUnavailable'), icon: 'none' })
       return
     }
     setStatus('pending')
@@ -130,14 +163,14 @@ export default function VideoPage() {
         setHistory(next)
         saveHistory(next)
       } else {
-        Taro.showToast({ title: '任务已提交,请稍后查看历史', icon: 'none' })
+        Taro.showToast({ title: t('ai.video.taskSubmitted'), icon: 'none' })
       }
     } catch (e) {
       logger.error('ai/video', '生成视频', e)
       setStatus('failed')
-      setErrorMsg(e instanceof Error ? e.message : '生成失败')
+      setErrorMsg(e instanceof Error ? e.message : t('ai.video.generateFailed'))
     }
-  }, [prompt, status, currentVendor, vendor, params])
+  }, [prompt, status, currentVendor, vendor, params, t])
 
   const replayHistory = useCallback((item: HistoryItem) => {
     setVendor(item.vendor)
@@ -147,6 +180,26 @@ export default function VideoPage() {
       setStatus('succeeded')
     }
   }, [])
+
+  const onDownload = useCallback(async () => {
+    if (!resultUrl) return
+    try {
+      const res = await Taro.downloadFile({ url: resultUrl })
+      await Taro.saveVideoToPhotosAlbum({ filePath: res.tempFilePath })
+      Taro.showToast({ title: t('ai.video.downloadSuccess'), icon: 'success' })
+    } catch (e) {
+      logger.error('ai/video', '下载视频', e)
+      Taro.showToast({ title: t('ai.video.downloadFailed'), icon: 'none' })
+    }
+  }, [resultUrl, t])
+
+  const onShare = useCallback(() => {
+    Taro.showShareMenu({
+      withShareTicket: true,
+      menus: ['shareAppMessage', 'shareTimeline'],
+    } as Parameters<typeof Taro.showShareMenu>[0])
+  }, [])
+
   return (
     <View className="min-h-screen bg-background">
       <ScrollView scrollY className="h-screen">
@@ -159,17 +212,19 @@ export default function VideoPage() {
               }`}
               onClick={() => setVendor(v.key)}
             >
-              <Text className="block">{v.name}</Text>
-              {!v.available ? <Text className="block text-[10px] opacity-70">未开放</Text> : null}
+              <Text className="block">{t(v.nameKey)}</Text>
+              {!v.available ? (
+                <Text className="block text-[10px] opacity-70">{t('ai.video.notAvailable')}</Text>
+              ) : null}
             </View>
           ))}
         </View>
 
         <View className="mx-3 mt-2 bg-card rounded-lg p-3">
-          <Text className="block text-xs text-muted-foreground mb-2">{currentVendor.desc}</Text>
+          <Text className="block text-xs text-muted-foreground mb-2">{t(currentVendor.descKey)}</Text>
           <Textarea
             className="w-full min-h-[120rpx] p-2 text-sm bg-background rounded-md box-border"
-            placeholder="描述你想要生成的视频内容..."
+            placeholder={t('ai.video.promptPlaceholder')}
             maxlength={500}
             value={prompt}
             onInput={(e) => setPrompt(e.detail.value)}
@@ -177,7 +232,7 @@ export default function VideoPage() {
           <View className="flex gap-2 mt-3">
             {PARAMS.map((p) => (
               <View key={p.key} className="flex-1">
-                <Text className="block text-xs text-muted-foreground mb-1">{p.label}</Text>
+                <Text className="block text-xs text-muted-foreground mb-1">{t(p.labelKey)}</Text>
                 <View className="flex gap-1">
                   {p.options.map((opt) => (
                     <Text
@@ -201,48 +256,67 @@ export default function VideoPage() {
             disabled={!prompt || status === 'pending' || status === 'running'}
             onClick={onGenerate}
           >
-            {status === 'pending' || status === 'running' ? STATUS_TEXT[status] : '生成视频'}
+            {status === 'pending' || status === 'running' ? statusText : t('ai.video.generate')}
           </Button>
         </View>
 
         {status !== 'idle' && status !== 'failed' ? (
           <View className="mx-3 mt-2 bg-card rounded-lg p-3">
-            <Text className="block text-sm font-medium text-foreground mb-2">
-              {STATUS_TEXT[status]}
-            </Text>
+            <Text className="block text-sm font-medium text-foreground mb-2">{statusText}</Text>
             {resultUrl ? (
               <VideoPlayer src={resultUrl} />
             ) : (
               <View className="h-[210px] flex items-center justify-center bg-black rounded-md">
-                <Text className="text-sm text-muted-foreground">{STATUS_TEXT[status]}</Text>
+                <Text className="text-sm text-muted-foreground">{statusText}</Text>
               </View>
             )}
+            {resultUrl ? (
+              <View className="flex gap-2 mt-3">
+                <Button
+                  className="flex-1 text-sm rounded-md !bg-muted !text-foreground"
+                  onClick={onDownload}
+                >
+                  {t('ai.video.download')}
+                </Button>
+                <Button
+                  className="flex-1 text-sm rounded-md !bg-muted !text-foreground"
+                  onClick={onShare}
+                  openType="share"
+                >
+                  {t('ai.video.share')}
+                </Button>
+              </View>
+            ) : null}
           </View>
         ) : null}
 
         {status === 'failed' ? (
           <View className="mx-3 mt-2">
-            <ErrorView title="生成失败" desc={errorMsg} onRetry={onGenerate} />
+            <ErrorView title={t('ai.video.failed')} desc={errorMsg} onRetry={onGenerate} />
           </View>
         ) : null}
 
         <View className="mx-3 mt-3 mb-6 bg-card rounded-lg p-3">
-          <Text className="block text-sm font-medium text-foreground mb-2">历史记录</Text>
+          <Text className="block text-sm font-medium text-foreground mb-2">
+            {t('ai.video.history')}
+          </Text>
           {history.length ? (
-            history.map((h) => (
-              <View
-                key={h.id}
-                className="flex items-center py-2 border-b border-border last:border-b-0"
-                onClick={() => replayHistory(h)}
-              >
-                <Text className="flex-1 text-xs text-foreground truncate">{h.prompt}</Text>
-                <Text className="text-[10px] text-muted-foreground ml-2">
-                  {VENDORS.find((v) => v.key === h.vendor)?.name} · {fmtTime(h.createdAt)}
-                </Text>
-              </View>
-            ))
+            <View className="flex flex-col gap-2">
+              {history.map((h) => (
+                <View
+                  key={h.id}
+                  className="flex items-center py-2 bg-background rounded-md px-2"
+                  onClick={() => replayHistory(h)}
+                >
+                  <Text className="flex-1 text-xs text-foreground truncate">{h.prompt}</Text>
+                  <Text className="text-[10px] text-muted-foreground ml-2">
+                    {t(VENDORS.find((v) => v.key === h.vendor)?.nameKey ?? '')} · {fmtTime(h.createdAt)}
+                  </Text>
+                </View>
+              ))}
+            </View>
           ) : (
-            <EmptyState text="暂无历史记录" />
+            <EmptyState text={t('ai.video.emptyHistory')} />
           )}
         </View>
       </ScrollView>
