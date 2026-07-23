@@ -6,6 +6,7 @@ import { useI18n, type Locale } from '../i18n'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { readFile } from '@tauri-apps/plugin-fs'
 import { fetchApi } from '@ihui/api-client'
+import { UpdateChecker } from '../components/UpdateChecker'
 
 interface Ctx {
   onLogout: () => void
@@ -223,6 +224,7 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+        <UpdateChecker />
         <Card>
           <CardHeader>
             <CardTitle>{t('setting.about')}</CardTitle>
