@@ -1,4 +1,5 @@
 import { View, Text, Image, Textarea } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface MessageDetailItem {
   id: string
@@ -24,12 +25,14 @@ export default function MessageDetail({
   onInput,
   onSend,
 }: MessageDetailProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   return (
     <View className="flex flex-col h-full bg-muted">
       <View className="flex-1 px-3 py-3 overflow-y-auto">
         {messages.length === 0 && (
           <View className="flex items-center justify-center py-12">
-            <Text className="text-sm text-muted-foreground">开始你们的对话</Text>
+            <Text className="text-sm text-muted-foreground">{tt('message.startConversation', '开始你们的对话')}</Text>
           </View>
         )}
         {messages.map((msg) => (
@@ -66,7 +69,7 @@ export default function MessageDetail({
         <Textarea
           value={inputValue}
           onInput={(e) => onInput(e.detail.value)}
-          placeholder="输入消息..."
+          placeholder={tt('message.inputPlaceholder', '输入消息...')}
           className="flex-1 bg-muted rounded-md px-4 py-2 text-sm"
           maxlength={500}
           autoHeight
@@ -77,7 +80,7 @@ export default function MessageDetail({
           }`}
           onClick={() => inputValue.trim() && onSend()}
         >
-          发送
+          {tt('message.sendBtn', '发送')}
         </View>
       </View>
     </View>
