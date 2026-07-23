@@ -275,7 +275,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | AI 数字人       | 腾讯混元 3D / AI 世界 / 数字人交互                                                                          |
 |                   | AI 世界         | ai-world-items + AI 排名 + 趋势同步 + AI 模块化(ai-modules)+ AI 厂商配置中心(ai-vendor-configs)             |
 |                   | AI 职业         | AI 求职助手 / 简历优化 / 模拟面试                                                                           |
-|                   | AI 资讯         | AI 资讯聚合 / 智能摘要 / ai-feed / 大模型排行榜(Arena 评分 + 8 大分类 + Elo + Bootstrap CI + 能力雷达图 + 模型对比勾选 + PriceChart 价格可视化 + 能力雷达叠加)+ API 中转站(29 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(47 厂商映射 + 剪贴板粘贴 + Provider 配置)+ 资讯标题多语言切换(中/EN/日/한)+ 趋势爆发通知 Banner(60s 轮询 + 可见性感知 + 数据通路修复)+ 趋势筛选 Tab(全部/上升/下降/新晋)+ 性能优化(Intl 提取 + parseNumeric 预计算 + 日期 locale 本地化 + formatHot compact 表示法 + 共享 formatCompact number-format.ts 消除硬编码亿/万)+ 对比列表 localStorage 持久化 + Leaderboard i18n 全面国际化(25 键:分类/子分类/表头/底部说明 5 语言同步 + CapabilityRadar 5 维标签 i18n 5 语言 + page.tsx generateMetadata i18n)+ 收藏功能(Star localStorage 持久化 + 仅看收藏筛选)+ 列显隐(齿轮 dropdown + 8 字段可隐藏 + localStorage 持久化) |
+|                   | AI 资讯         | AI 资讯聚合 / 智能摘要 / ai-feed / 大模型排行榜(Arena 评分 + 8 大分类 + Elo + Bootstrap CI + 能力雷达图 + 模型对比勾选 + PriceChart 价格可视化 + 能力雷达叠加)+ API 中转站(29 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(47 厂商映射 + 剪贴板粘贴 + Provider 配置)+ 资讯标题多语言切换(中/EN/日/한)+ 趋势爆发通知 Banner(60s 轮询 + 可见性感知 + 数据通路修复)+ 趋势筛选 Tab(全部/上升/下降/新晋)+ 性能优化(Intl 提取 + parseNumeric 预计算 + 日期 locale 本地化 + formatHot compact 表示法 + 共享 formatCompact number-format.ts 消除硬编码亿/万 + LiveChannelsBlock next/image sizes 响应式 srcset)+ 对比列表 localStorage 持久化 + Leaderboard i18n 全面国际化(25 键:分类/子分类/表头/底部说明 5 语言同步 + CapabilityRadar 5 维标签 i18n 5 语言 + page.tsx generateMetadata i18n)+ 收藏功能(Star localStorage 持久化 + 仅看收藏筛选)+ 列显隐(齿轮 dropdown + 8 字段可隐藏 + localStorage 持久化)+ FundingSection 搜索+排序(按日期/按金额 + parseNumeric 金额提取 + 动态 i18n 键)+ page.tsx Promise.allSettled 6 路降级(任一 fetch 失败不阻塞整页)+ 死代码清理(NewsGrid/ComparisonTable 已删除)|
 |                   | 用户级 AI 配置  | LLM 配置中心 v2(1:N provider-model + 分组 + 健康状态 + 30 天用量 + 批量导入导出 + 跨 Provider 模型对比 + 一键复制 + 结构化参数 Temperature/Max Tokens/Top P/Penalty + 4 预设 + 高级 JSON)/ CLI 配置 24 源一键导入(cc-switch / codex++ / Claude / Codex / Gemini / Hermes / Cursor / Windsurf / Cline / Aider / .env / Trae / Qoder / Codex Desktop / Claude Code Desktop / GitHub Copilot / Amazon Q / Continue / Tabnine / Cody / Zed / Google Antigravity)/ 用户级模型对话偏好(ai-user-model-chat)/ 用户长期记忆(user-memory)/ 用户偏好(user-preferences) |
 | **AI 工作流**     | LangGraph       | StateGraph 工作流(plan → execute → summarize)+ stub 模式 + agent_loop 多轮 tool 循环 + 任务自动分解 DAG 拓扑 |
 |                   | MCP 工具协议    | 33 内置工具(11 基础 + 12 浏览器控制 + 10 电脑控制)+ 3 资源 + 3 提示词 / 自定义工具 / 项目级 MCP / mcp-extended |
@@ -295,7 +295,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | API             | Fastify 5 / ~1080 端点 / 12 WebSocket 端点 / 95+ 路由文件 / OpenAPI                                         |
 |                   | AI 服务         | FastAPI + LangGraph + LiteLLM + MCP + A2A / 55+ 端点 / 5 provider 适配                                      |
 |                   | CLI             | Node.js / 17 命令 / 13 内置工具 / 6 源配置导入 / ACP Server                                                 |
-|                   | 桌面            | Tauri 2 + Rust / 系统托盘(最小化到托盘)+ 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 / 本地文件访问 + 文件拖拽 + 粘贴 + 附件预览 + 窗口状态持久化 |
+|                   | 桌面            | Tauri 2 + Rust / 系统托盘(最小化到托盘)+ 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 / 本地文件访问 + 文件拖拽 + 粘贴 + 附件预览 + 窗口状态持久化 + 会话历史持久化 + Markdown 渲染(GFM/代码高亮/复制按钮) + 对话导出(MD/JSON/TXT 三格式原生保存) + 主题持久化(light/dark/system 三态 localStorage) |
 |                   | 浏览器扩展      | WXT / 上下文菜单 / 侧边栏 / Chrome + Edge + Firefox                                                         |
 |                   | 移动 RN         | React Native + Expo EAS / iOS + Android / SSO                                                               |
 |                   | 小程序          | Taro 4 / 微信支付原生集成 / 3 语言(i18n)                                                                    |
@@ -569,7 +569,7 @@ cd IHUI-AI && docker compose up -d
 | **API**     | `apps/api/`          | Fastify 5 + Drizzle             | 业务管理 + 多厂商代理 + 认证 + WebSocket,~1080 端点 / 95+ 路由文件     |
 | **AI 服务** | `apps/ai-service/`   | FastAPI + LangGraph + Socket.IO | LLM 网关 + Agent 执行 + MCP 工具 + A2A 协议 + 14 发布 adapter,~55 端点 |
 | **CLI**     | `apps/cli/`          | Node.js + Commander             | 自研命令行 AI 编程助手,17 命令 + 13 工具 + ACP Server + 6 源配置导入   |
-| **桌面**    | `apps/desktop/`      | Tauri 2 + Rust + React          | 跨平台桌面应用,系统托盘(最小化到托盘)+ 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件访问(读文本/二进制/列目录/拖拽/粘贴)+ 窗口状态持久化 |
+| **桌面**    | `apps/desktop/`      | Tauri 2 + Rust + React          | 跨平台桌面应用,系统托盘(最小化到托盘)+ 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件访问(读文本/二进制/列目录/拖拽/粘贴)+ 窗口状态持久化 + 会话历史持久化 + Markdown 渲染 + 对话导出(MD/JSON/TXT) + 主题持久化(light/dark/system) |
 | **扩展**    | `apps/extension/`    | WXT + React                     | 浏览器扩展,上下文菜单 + 侧边栏 + Chrome/Edge/Firefox                   |
 | **移动**    | `apps/mobile-rn/`    | React Native + Expo EAS         | iOS / Android 原生应用 + SSO                                           |
 | **小程序**  | `apps/miniapp-taro/` | Taro 4 + React                  | 微信小程序,微信支付原生集成 + 3 语言 i18n                              |
@@ -584,7 +584,7 @@ cd IHUI-AI && docker compose up -d
 | **API** | `apps/api/` | 🟢 生产级 | 1168+ 端点 / 95+ 路由文件 | 237 .test.ts | 业务管理 + 认证 + 计费 + WebSocket |
 | **AI 服务** | `apps/ai-service/` | 🟢 生产级 | 21 LangGraph 文件 / 55+ 端点 | pytest + 集成测试 | LLM 网关 + Agent 执行 + MCP + A2A |
 | **CLI** | `apps/cli/` | 🟡 核心场景级 | ~1500 行 / 17 命令 / 13 工具 | 单元测试 | 自研 AI 编程助手,ACP Server |
-| **桌面** | `apps/desktop/` | 🟡 核心场景级 | Tauri 2 + Rust + React | 基础测试 | 系统托盘 + 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件(读/写/列目录/拖拽/粘贴附件)+ 窗口状态持久化 + WorkPanel |
+| **桌面** | `apps/desktop/` | 🟡 核心场景级 | Tauri 2 + Rust + React | 基础测试 | 系统托盘 + 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件(读/写/列目录/拖拽/粘贴附件)+ 窗口状态持久化 + 会话历史持久化 + Markdown 渲染 + 对话导出(MD/JSON/TXT) + 主题持久化 + WorkPanel |
 | **扩展** | `apps/extension/` | 🟡 核心场景级 | WXT + React | 基础测试 | 上下文菜单 + 侧边栏 + 浏览器控制 |
 | **移动 RN** | `apps/mobile-rn/` | 🟡 核心场景级 | Expo EAS + iOS/Android | 基础测试 | Chat + WorkPanel + SSO |
 | **小程序** | `apps/miniapp-taro/` | 🟡 核心场景级 | Taro 4 + 微信支付 | 基础测试 | Chat + WebView + 微信支付 |
@@ -787,7 +787,7 @@ IHUI-AI 应用功能全景
 | **A AI 能力** | A1 模型接入 | 100+ 模型统一调用 | `apps/ai-service/app/providers/` |
 | | A2 三栈协同 | LangGraph + MCP + A2A | `services/langgraph_service.py` |
 | | A3 多模态创作 | 文生图/语音/视频/数字人 | `apps/api/src/routes/ai-*` |
-| | **A4 AI Skills TOP** | **19 个 skill 元数据(CODEX 自媒体 10 + GitHub 热门 9)+ 4 个真集成可调(nuwa-skill 风格改写 / hugshu-design HTML 渲染 / auto-redbook-skills 小红书文案 / guizang-ppt-skill PPT 大纲)+ 15 个元数据占位带 GitHub 引导** | **`apps/ai-service/app/routers/ai_skills.py` + `apps/web/src/components/chat/skill-library.tsx`** |
+| | **A4 AI Skills TOP** | **19 个 skill 全部真集成(CODEX 自媒体 10 + GitHub 热门 9,基于 llm_gateway 调用 LLM,无占位):nuwa-skill 风格改写 / hugshu-design HTML 渲染 / auto-redbook-skills 小红书文案 / guizang-ppt-skill PPT 大纲 / superpowers 工作流拆解 / caveman 文本压缩 / graphify 知识图谱 / agent-skills 工程化建议 / awesome-claude-skills 任务路由 / taste-skill 去 AI 模板味 / agent-reach 多平台热点 / horizon 趋势简报 / media-crawler 采集计划 / generative-media-skills 多模态脚本 / guizang-social-card-skill 卡片 HTML / social-auto-upload 发布计划 / obsidian-skills Markdown 笔记 / claude-plugins-official 插件推荐 / awesome-agent-skills skill 导航 + LangGraph SkillScheduler 调度器(指数退避重试 + 链式 context 传递 + token 累计) + 独立页面 /ai-skills(列表 + Tab 筛选 + 搜索)+ 详情页 /ai-skills/[id](动态参数输入 + 4 类结果渲染 + 填入对话) + SkillLibrary 弹窗 ai-skills tab + 查看全部入口** | **`apps/ai-service/app/routers/ai_skills.py` + `apps/ai-service/app/services/skill_scheduler.py` + `apps/web/app/(main)/ai-skills/page.tsx` + `apps/web/app/(main)/ai-skills/[id]/page.tsx` + `apps/web/src/components/chat/skill-library.tsx`** |
 | **B 工作流** | B1 自研 CLI | 17 命令 + 13 工具 + ACP | `apps/cli/src/` |
 | | B2 工作空间权限 | 3 模式 + 7 端点拦截 | `apps/api/src/routes/workspace-ai*` |
 | | B3 智能体市场 | 购买/审核/结算/Coze/Crew | `apps/api/src/routes/agent-*` |

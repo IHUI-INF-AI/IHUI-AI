@@ -25863,6 +25863,8 @@
     }
   },
   "aiNews": {
+    "metaTitle": "AI News · Real-time Aggregation",
+    "metaDescription": "Aggregating 41 authoritative sources (Weibo/Zhihu/36Kr/HackerNews/TechCrunch/OpenAI Blog/Arxiv etc.), auto-collecting every 6 hours, with model/product/industry/paper categories and real-time trend signals.",
     "leaderboard": {
       "label": "Model Leaderboard",
       "title": "Model Leaderboard · Arena Score",
@@ -25995,7 +25997,19 @@
       "label": "Mega Funding & Acquisitions",
       "title": "Mega Funding & Acquisitions",
       "subtitle": "July 2026 capital moves: SpaceX acquires Cursor for $60B, DeepSeek raises $7B",
-      "empty": "No funding updates"
+      "empty": "No funding updates",
+      "sortLabel": "Sort",
+      "sortByDate": "By Date",
+      "sortByAmount": "By Amount",
+      "searchPlaceholder": "Search title / summary / source…",
+      "resultCount": "{count} / {total} entries"
+    },
+    "capabilityRadar": {
+      "coding": "Code",
+      "math": "Math",
+      "reasoning": "Reasoning",
+      "creative": "Creative",
+      "chinese": "Chinese"
     },
     "detailDialog": {
       "arenaScore": "Arena Score",
