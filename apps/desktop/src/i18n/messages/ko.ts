@@ -256,6 +256,24 @@ export default {
     loadPreview: '미리보기 불러오기',
     loadFailed: '불러오기 실패',
     previewName: '미리보기 이름',
+    componentTree: {
+      title: '컴포넌트 트리',
+      empty: '캔버스에 요소 없음',
+    },
+    comments: {
+      title: '댓글',
+      empty: '댓글을 보려면 미리보기를 먼저 저장하세요',
+      noComments: '댓글 없음',
+      loadingFailed: '댓글 로드 실패',
+      send: '댓글 보내기',
+    },
+    aiGenerate: {
+      button: 'AI 생성',
+      placeholder: '생성할 페이지를 설명…',
+      generating: '생성 중…',
+      success: '생성되어 캔버스에 주입됨',
+      failed: 'AI 생성 실패',
+    },
   },
   taskReceiver: {
     title: '작업 수신',

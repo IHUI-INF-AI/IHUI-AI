@@ -42,9 +42,34 @@ export interface TaskResultRequest {
 }
 
 export interface TaskWsMessage {
-  type: 'task-dispatch' | 'task-result' | 'task-progress'
+  type: 'task-dispatch' | 'task-result' | 'task-progress' | 'task-cancelled'
   taskId: string
+  /** 取消操作发起方设备标识(仅 task-cancelled 消息携带) */
+  deviceId?: string
   payload: TaskDispatch | TaskResult
+}
+
+/**
+ * 任务取消请求(2026-07-23 立,P0 断网恢复 + 任务取消)。
+ * POST /tasks/:id/cancel,body 可空或 { reason?: string }。
+ */
+export interface TaskCancelRequest {
+  reason?: string
+}
+
+/** POST /tasks/:id/cancel 响应 */
+export interface TaskCancelResponse {
+  task: TaskDispatch
+}
+
+/**
+ * 任务增量拉取查询参数(2026-07-23 立,P0 断网恢复)。
+ * GET /tasks?since=<timestamp>,返回 updatedAt > since 的任务。
+ * 不传 since 时返回全量。
+ * 用途:WS 重连后补拉断线期间错过的任务。
+ */
+export interface TaskIncrementalQuery {
+  since?: number
 }
 
 /**
