@@ -68,6 +68,32 @@
 - 同步状态: **local == remote ✅**
 - 守门脚本: `git push --no-verify` exit 0(pre-push typecheck 因其他 agent packages/app AboutScreen.tsx solito/link 失败,按 §12 合法跳过)
 
+### [x] ✅(2026-07-23) 三大缺口深度补齐 — API 11 端点 32 单元测试 + Design 模式撤销重做/预览列表 + 2 页面 i18n 化(跨端:api + desktop)
+
+**触发**:承接 TRAE Work 三大缺口 + 设备寻址闭环后,深度审计发现 3 项工程/产品/规范深度缺口:API 11 端点零测试覆盖、Design 模式缺撤销重做与预览列表、desktop 新页面大量硬编码中文。3 subagent 并行补齐。
+
+**交付内容**(1 commit `7b1789a`,10 文件,+1211/-40):
+
+| 维度 | 文件 | 内容 |
+|---|---|---|
+| API 测试 | `apps/api/test/skills-market.test.ts`(新) | 11 用例:GET /skills/market(默认7种子/q过滤/tag过滤/分页)+ install(自增/404)+ rate(入库+重算均值/Zod/404)+ ratings(列表/空) |
+| | `apps/api/test/tasks-dispatch.test.ts`(新) | 16 用例:dispatch(创建+WS/Zod)+ result(更新+WS/404/Zod/enum)+ GET tasks(列表/空)+ register-device(注册/Zod/enum)+ DELETE devices(删除/幂等)+ GET devices(注册前空/注册后online) |
+| | `apps/api/test/design-preview.test.ts`(新) | 5 用例:POST preview(保存/Zod)+ GET previews(列表/空) |
+| Design 深化 | `apps/desktop/src/pages/DesignPage.tsx` | 撤销重做历史栈(stack+index 原子状态 + Ctrl+Z/Y 快捷键 + disabled 守卫)+ 预览列表侧栏(GET /design/previews + 点击加载 + Intl.DateTimeFormat)+ 全 i18n 化(design 命名空间 20 key) |
+| i18n 化 | `apps/desktop/src/pages/TaskReceiverPage.tsx` | 硬编码中文抽取到 taskReceiver 命名空间(15 key)+ STATUS_LABEL 改 t() 动态 key |
+| 5 语言 parity | `apps/desktop/src/i18n/messages/{zh-CN,zh-TW,en,ko,ja}.ts` | 新增 design(20 key)+ taskReceiver(15 key)命名空间,zh-TW 全繁体/ko 无中文残留 |
+
+**验证**:
+- API 测试:3 文件 32 用例 vitest run 全绿(2.31s)✅
+- desktop typecheck 全绿 ✅
+- zh-TW 无简体字 + ko 无中文残留(人工逐字校验)✅
+
+**Git 同步证据**(§21):
+- 本地 commit: `7b1789ad1`
+- origin commit: `7b1789ad1`
+- 同步状态: **local == remote ✅**
+- 守门脚本: `git push --no-verify` exit 0(pre-push typecheck 因其他 agent mobile-rn RootNavigator SharedDemo 类型失败,按 §12 合法跳过)
+
 ### [x] ✅(2026-07-23) /goal 架构方案第一阶段:NativeWind + Solito + 共享层 — packages/shared 创建 + SSO/WS notification 抽取 + mobile-rn 设计令牌对齐(跨端:web + mobile-rn + miniapp-taro + packages/shared)
 
 **触发**:用户决策采用 NativeWind + Solito + 共享层架构(排除 uniapp/Taro/Tamagui/Tauri Mobile/Capacitor),触发 `/goal` 执行第一阶段:抽取共享层消除多端重复。
