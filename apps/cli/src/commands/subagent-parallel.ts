@@ -17,7 +17,7 @@
  *   - --json: JSON 格式输出(便于管道处理)
  */
 
-import { Command, type OptionValues } from 'commander';
+import type { Command, OptionValues } from 'commander';
 import chalk from 'chalk';
 import { spawnParallel, type Topology } from './subagent-collab.js';
 import type { SubagentSpawnRequest, SubagentPersona, IsolationMode } from '@ihui/types';
