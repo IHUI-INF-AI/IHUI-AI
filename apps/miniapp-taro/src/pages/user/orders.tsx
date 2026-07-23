@@ -4,11 +4,24 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { getOrderList, type Order } from '@/api'
 import { useI18n } from '@/i18n'
 
-const statusColors: Record<Order['status'], string> = {
-  paid: 'text-[#4cd964]',
-  pending: 'text-[#f0ad4e]',
+const STATUS_COLOR: Record<string, string> = {
+  paid: 'text-primary',
+  pending: 'text-[#f59e0b]',
+  refunding: 'text-[#f59e0b]',
+  refunded: 'text-muted-foreground',
   cancelled: 'text-muted-foreground',
-  refunded: 'text-[#dd524d]',
+  completed: 'text-primary',
+  failed: 'text-destructive',
+}
+
+const STATUS_KEY: Record<string, string> = {
+  pending: 'order.status.pending',
+  paid: 'order.status.paid',
+  cancelled: 'order.status.cancelled',
+  refunding: 'order.status.refunding',
+  refunded: 'order.status.refunded',
+  completed: 'order.status.completed',
+  failed: 'order.status.failed',
 }
 
 export default function Orders() {
@@ -20,15 +33,7 @@ export default function Orders() {
   const [hasMore, setHasMore] = useState(true)
   const pageSize = 10
 
-  function statusText(s: Order['status']) {
-    const map: Record<Order['status'], string> = {
-      pending: t('user.orders.statusPending'),
-      paid: t('user.orders.statusPaid'),
-      cancelled: t('user.orders.statusCancelled'),
-      refunded: t('user.orders.statusRefunded'),
-    }
-    return map[s] || s
-  }
+  const statusText = (s: string) => (STATUS_KEY[s] ? t(STATUS_KEY[s]) : s)
 
   const load = useCallback(
     async (reset = false) => {
@@ -64,7 +69,11 @@ export default function Orders() {
   }
 
   function handlePay(item: Order) {
-    Taro.showToast({ title: `${t('user.orders.pay')} ${item.orderNo}`, icon: 'none' })
+    Taro.navigateTo({ url: `/pages/pay/index?orderNo=${item.orderNo}&amount=${item.amount}` })
+  }
+
+  function goDetail(item: Order) {
+    Taro.navigateTo({ url: `/pages/order/detail?id=${item.id}` })
   }
 
   const mountedRef = useRef(false)
@@ -87,6 +96,7 @@ export default function Orders() {
     { key: 'pending', label: t('user.orders.tabsPending') },
     { key: 'paid', label: t('user.orders.tabsPaid') },
     { key: 'cancelled', label: t('user.orders.tabsCancelled') },
+    { key: 'refunded', label: t('order.status.refunded') },
   ]
 
   return (
@@ -110,13 +120,17 @@ export default function Orders() {
       {list.length > 0 ? (
         <View>
           {list.map((item) => (
-            <View key={item.id} className="bg-card rounded-[8px] px-[12px] py-[12px] mb-[12px]">
+            <View
+              key={item.id}
+              className="bg-card rounded-[8px] px-[12px] py-[12px] mb-[12px]"
+              onClick={() => goDetail(item)}
+            >
               <View className="flex justify-between items-center">
                 <Text className="text-[12px] text-muted-foreground">
                   {t('user.orders.orderNo')}
                   {item.orderNo}
                 </Text>
-                <Text className={`text-[13px] ${statusColors[item.status]}`}>
+                <Text className={`text-[13px] ${STATUS_COLOR[item.status] || 'text-muted-foreground'}`}>
                   {statusText(item.status)}
                 </Text>
               </View>
@@ -124,7 +138,7 @@ export default function Orders() {
                 <Text className="text-[15px] text-foreground font-semibold">{item.title}</Text>
                 <Text className="mt-[4px] text-[12px] text-muted-foreground">{item.type}</Text>
               </View>
-              <View className="flex items-center pt-[10px] border-t-[1px] border-solid border-border">
+              <View className="flex items-center pt-[10px]">
                 <Text className="flex-1 text-[12px] text-muted-foreground">{item.createTime}</Text>
                 <View className="mr-[12px]">
                   <Text className="text-[12px] text-[#dd524d]">¥</Text>
@@ -132,8 +146,11 @@ export default function Orders() {
                 </View>
                 {item.status === 'pending' ? (
                   <View
-                    className="px-[16px] py-[5px] bg-primary text-white rounded-[15px] text-[13px]"
-                    onClick={() => handlePay(item)}
+                    className="px-[16px] py-[5px] bg-primary text-white rounded-[6px] text-[13px]"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handlePay(item)
+                    }}
                   >
                     <Text>{t('user.orders.pay')}</Text>
                   </View>

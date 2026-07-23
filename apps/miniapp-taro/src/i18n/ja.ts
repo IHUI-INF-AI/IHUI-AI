@@ -17,6 +17,8 @@ export default {
     success: '成功',
     failed: '操作に失敗しました',
     user: 'ユーザー',
+    uploading: 'アップロード中',
+    noMore: 'これ以上なし',
   },
   nav: {
     home: 'ホーム',
@@ -79,6 +81,9 @@ export default {
       agent: 'エージェント',
       modelPlaza: 'モデルプラザ',
     },
+    knowledgePlanet: 'ナレッジプラネット',
+    knowledgePlanetDesc: 'ナレッジプラネットに参加してクリエイターと共に成長しましょう',
+    planetMembers: '人',
   },
   course: {
     title: 'コース',
@@ -145,6 +150,7 @@ export default {
       subscribeSuccess: '購読しました',
       loadFailed: '購読操作に失敗',
       empty: '購読なし',
+      entry: 'マイ購読',
     },
     history: {
       anchor: '配信者: {{name}}',
@@ -156,6 +162,7 @@ export default {
       title: '{{n}} 月のライブカレンダー',
       loadFailed: 'カレンダーの読み込みに失敗',
       empty: '今月のライブ予定なし',
+      entry: 'カレンダー',
     },
   },
   profile: {
