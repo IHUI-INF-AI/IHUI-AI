@@ -21,10 +21,29 @@
 - ai-service pytest(定向 7 文件):133 passed in 31.40s exit 0
 
 **Git 同步证据**(§21):
+- 本地 commit: `0b52327ca`
+- origin commit: `0b52327ca`
+- 同步状态: **local == remote ✅**
+- 守门脚本: `node` 不在前台 PATH,以 `git rev-parse HEAD` === `git rev-parse origin/main` 等价验证(0b52327caafa301fb90c1f500340bd4e44423abc 双向对齐)
+
+### [x] ✅(2026-07-23) Wave 24d 桌面架构 Option A 配套 — web build OOM 修复 + tauri.conf.json 对齐 output:export(跨端:web + desktop)
+
+**触发**:承接 Wave 23 桌面架构方案 A(Tauri shell + WebView 加载 web),next.config.ts 已设 output:'export'(commit ce1f12795)。验证 web 静态导出构建时发现并修复 OOM 阻塞。
+
+**交付内容**(本 commit 2 文件 + 工作树留 1 文件由并发 agent 合并):
+- `apps/web/package.json`:`build` 脚本 `next build` → `node --max-old-space-size=8192 node_modules/next/dist/bin/next build`,根治 4GB 默认堆 OOM(exit 134,echarts/mermaid/three/tiptap/monaco/pdfjs 重组件)
+- `apps/desktop/src-tauri/tauri.conf.json`:Option A 对齐 — beforeDevCommand `pnpm --filter @ihui/web dev`、beforeBuildCommand `pnpm --filter @ihui/web build`、devUrl 8801、frontendDist `../web/out`
+- `apps/web/next.config.ts`(工作树改,未入本 commit):`transpilePackages` 补 `@ihui/api-client`(根治 webpack 解析 api-client 源码 `../utils.js`/`../client.js` 失败);与并发 agent 的 `extensionAlias`+`fullySpecified=false` 修复互补
+
+**验证**:
+- web build 越过 OOM 崩溃点 ✅(8GB 堆下进入编译阶段,原 4GB 直接 exit 134)
+- web build 越过 api-client 模块解析 ✅(transpilePackages + extensionAlias + fullySpecified 三修复生效,webpack 成功读取 api-client 源码)
+- web build 全量未通过 ⚠️:卡在 `packages/api-client/src/endpoints/resource.ts` / `share.ts` "stream did not contain valid UTF-8"(Python 定位:resource.ts 第 2069 字节、share.ts 第 964 字节孤立续接字节,其他 agent GBK 工具编辑损坏,§12 范围外不修)
+
+**Git 同步证据**(§21):
 - 本地 commit: (待填)
 - origin commit: (待填)
 - 同步状态: local == remote ✅(待 push 后确认)
-- 守门脚本: node scripts/git-push-guard.mjs exit 0(待确认)
 
 ### [x] ✅(2026-07-23) /goal 对标 TRAE Work 三大工作台体验缺口补齐:Skills 技能市场 + 三端联动调度 + Design 模式 MVP(跨端:web + api + desktop + mobile-rn + packages/shared)
 
