@@ -317,9 +317,34 @@
 - `pnpm --filter @ihui/web typecheck` EXIT 0
 - `pnpm exec eslint src/components/media/LivePlayer.tsx` EXIT 0
 - `pnpm install --no-frozen-lockfile` 成功(18.5s,lockfile 已更新,9 依赖从 web node_modules 剪除)
-- 注:web 全量 lint 仍有 3 个 pre-existing errors(interrupt-panel.tsx 的 eqeqeq + jsx-a11y,其他 agent 代码,非本任务引入)
+- 注:web 全量 lint 3 个 pre-existing errors(interrupt-panel.tsx)已在后续 commit `79dd74bb9` 修复(见下方 Wave 24b)
 
 **Git 同步**:本地 commit `a962c3bfc`(rebase 到 origin/main `e77159e42` 之上)→ push 成功 → local == remote == `a962c3bfc` → `git-push-guard.mjs` exit 0
+
+### [x] ✅(2026-07-23) Wave 24b:全端测试覆盖深化 + web lint 清零(平台独占:多端独立)
+
+**触发**:用户"继续全面开发所有项 多agent最大化效率"。W24 包体积优化后,并行推进测试覆盖 + lint 清零。
+
+**交付**(4 项,多 subagent 并行):
+
+1. **web lint 3 errors → 0**(commit `79dd74bb9`):`interrupt-panel.tsx` 修复 eqeqeq(`==`→`===`/`!=`→`!==`)+ jsx-a11y(label htmlFor + Input id 关联)
+
+2. **ai-service pytest 6 模块 206 用例**(commit `ed8dc636f`,subagent A 交付):
+   - test_credentials_crypto(25) + test_content_parser(31) + test_context_compaction(32) + test_api_client(54) + test_base_provider(28) + test_base_adapter(36)
+   - 注:test_agent_comm/test_agent_graph 已由另一 agent 推送(75+ cases),不重复
+   - 验证:pytest 92 passed in 0.25s(3 文件抽样)
+
+3. **API vitest 4 路由 88 用例 + vitest.config 修复**(commit `abb266830`,subagent B 交付):
+   - test/auth.test.ts(28) + test/users.test.ts(27) + test/agents.test.ts(19) + test/health.test.ts(14)
+   - vitest.config.ts include 新增 `'test/**/*.test.ts'`(原仅含 `tests/` 复数,`test/` 单数目录测试不被发现)
+   - 验证:vitest 88 passed(exit 0)
+
+4. **全端 typecheck 巡检**:web/api/desktop/extension/cli 全部 EXIT 0 ✅;mobile-rn 也已 EXIT 0(W19 后修复)
+
+**§9 平台独占**:各 subagent 仅管自己端(ai-service/api),豁免全端同步。
+**§22 README 豁免**:纯测试补充 + lint 修复,不改变对外能力。
+
+**Git 同步**:3 commits 全部 push → local == remote == `abb266830` → `git-push-guard.mjs` exit 0
 
 ---
 
