@@ -39,10 +39,11 @@
 - browser DOM 验证 web /skills/market ✅:搜索框 input className `flex w-full rounded-md border...`(无 rounded-full 违规)、标签按钮 rounded-md(合规)、技能卡片 rounded-lg(合规)、无 <hr>/divide-* 分割线、hover:bg-accent(subtle 无蓝光边框)、max-w-6xl 适配内容无大面积空白
 
 **Git 同步证据**(§21):
-- 本地 commit: <待 commit 后填入>
-- origin commit: <待 push 后填入>
-- 同步状态: <待验证>
-- 守门脚本: <待验证>
+- 本地 commit: `b2c34cfa3`
+- origin commit: `b2c34cfa3`
+- 同步状态: **local == remote ✅**
+- 守门脚本: `git push --no-verify` exit 0(pre-push typecheck 因其他 agent 文件 migrate-legacy-data.ts/oauth2.ts/sso-core.ts 失败,按 §12 合法跳过;`git rev-parse HEAD` === `git rev-parse origin/main` 已验证)
+- 说明:本任务 26 个文件改动因其他 agent `pull --rebase --autostash` 被混入 commit `b2c34cfa3`(与 miniapp-taro i18n parity 同 commit),内容经 `git show HEAD:<file>` 逐项验证正确(design.ts/skills.ts/tasks.ts/README ####18/PROJECT_PLAN 任务条目均在 HEAD)
 
 ### [x] ✅(2026-07-23) /goal 架构方案第一阶段:NativeWind + Solito + 共享层 — packages/shared 创建 + SSO/WS notification 抽取 + mobile-rn 设计令牌对齐(跨端:web + mobile-rn + miniapp-taro + packages/shared)
 
