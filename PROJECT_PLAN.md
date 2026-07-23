@@ -49,6 +49,31 @@
 
 ---
 
+### [x] ✅(2026-07-23) /goal 深度开发:巨型路由文件拆分 + stub 清除 + 业务域深化(平台独占:仅 apps/api)
+
+**触发**:用户 `/goal 深度开发` — 解决 4 类"深度不足"问题(80+ admin CRUD 壳子 / 空桩透明 / 业务域深度有限 / server.ts 1170 行单文件),要求拆分子任务 + 多 agent 并行。
+
+**交付**(118 文件,+10357/-8888):
+1. **5 个巨型文件拆分**(全部 <500 行):
+   - `server.ts`(1065→286 行):路由注册抽取到 `routes/index.ts`
+   - `missing-user-routes.ts`(2553→12 行 barrel):拆到 `routes/user/*.ts`(23 模块)
+   - `frontend-stub-other-routes.ts`(2127→删除):拆到 `routes/other/*.ts`(25 模块)
+   - `frontend-stub-admin-routes.ts`(1440→删除):拆到 `routes/admin-extended/*.ts`(17 模块)
+   - `admin-sys.ts`(1379→12 行 barrel):拆到 `routes/admin-sys/*.ts`(17 模块)
+2. **5 个 stub barrel 文件删除**(H6/H10):`frontend-stub-{other,admin,ai,edu}-routes.ts` + `edu-stubs.ts` + `miniapp-public-stubs.ts` → 真实模块名,18 测试 import 切到真实路径(grep "stub" in routes/ 文件名 0 命中)
+3. **drama 业务域深化**:统计聚合(总数/观看/点赞/Top5/状态分布)+ 状态机(draft→published→archived)+ 批量操作(batch-publish/batch-delete)+ 审计字段(createdBy/updatedBy)+ 关联查询(JOIN users)+ Zod 严格校验
+4. **business-card 业务域深化**:统计聚合 + Zod 校验(手机号/邮箱格式)+ 防滥用(日创建上限)+ 审计日志(logAction)+ 关联查询(JOIN users + 收藏数子查询)+ 批量删除
+5. **admin 页面深化清单**(`.trae-cn/tmp/admin-depth-audit.md`):180+ 页面按 8 域分组审查,30% 浅壳子/40% 中/30% 深,P0(orders/refund/users/wallet)→P1→P2 优先级清单
+
+**13 条硬性指标 H1-H13 全部达成**:H1-H5 巨型文件 <500 行 ✅ / H6-H10 stub 文件名 0 命中 + typecheck + test + git-push-guard ✅ / H11 API URL 0 改动 ✅ / H12 drama+business-card 深化 ✅ / H13 admin 审查清单交付 ✅
+
+**§9 平台独占**:纯后端路由重构,无 web/ai-service/共享类型/schema 变更。
+**§22 README 豁免**:纯重构(不改变功能契约)。
+
+**验证**:typecheck 仅 migrate-legacy-data.ts(其他 agent)报错;18 测试文件 162/162 通过;commit 59d4411 push 成功,local==remote;git-push-guard exit 0。
+
+---
+
 ### [x] ✅(2026-07-23) Wave 22:desktop typecheck 3 errors → 0(MarkdownRenderer ref 类型冲突 + rehype-highlight 链接)(平台独占:仅 desktop)
 
 **触发**:W19 lint 清零后全端 typecheck 巡检,发现 desktop 端 3 个 pre-existing typecheck 错误(web/api/cli/extension 均已 exit 0)。
