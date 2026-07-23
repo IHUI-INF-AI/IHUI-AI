@@ -570,22 +570,32 @@ class SpecService {
       oldSpec?: string
     },
   ): Promise<SpecApplyResult> {
-    const resp = await aiServiceFetch(request, '/api/spec/apply', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        scope: input.scope,
-        workspacePath: input.workspacePath,
-        newSpec: input.newSpec,
-        oldSpec: input.oldSpec,
-      }),
-      signal: AbortSignal.timeout(60_000),
-    })
-    const json = (await resp.json()) as AiServiceResponse<SpecApplyResult>
-    if (json.code !== 0 || !json.data) {
-      throw new Error(json.message || 'spec apply 失败')
+    try {
+      const resp = await aiServiceFetch(request, '/api/spec/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scope: input.scope,
+          workspacePath: input.workspacePath,
+          newSpec: input.newSpec,
+          oldSpec: input.oldSpec,
+        }),
+        signal: AbortSignal.timeout(60_000),
+      })
+      const json = (await resp.json()) as AiServiceResponse<SpecApplyResult>
+      if (json.code !== 0 || !json.data) {
+        throw new Error(json.message || 'spec apply 失败')
+      }
+      return json.data
+    } catch (e) {
+      // 降级:ai-service 不可用时返回 llm_unavailable,让 API 端返回 503(与 ai-service 端契约一致)
+      logger.warn(
+        `[spec-service.applySpec] ai-service 不可用,降级返回 llm_unavailable: ${(e as Error).message}`,
+      )
+      const err = new Error('llm_unavailable') as Error & { code?: string }
+      err.code = 'llm_unavailable'
+      throw err
     }
-    return json.data
   }
 
   /** POST /spec/apply/preview — 预览 patch 应用效果(不写文件) */
