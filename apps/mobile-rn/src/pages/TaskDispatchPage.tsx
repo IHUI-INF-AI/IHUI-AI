@@ -22,18 +22,19 @@ import type {
   TaskWsMessage,
 } from '@ihui/shared'
 import { useAuth } from '../context/AuthContext'
+import { useI18n } from '../i18n'
 import { getToken } from '../lib/token'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TaskDispatch'>
 
-const STATUS_META: Record<TaskStatus, { label: string; badge: string }> = {
-  pending: { label: '待执行', badge: 'bg-gray-100 text-gray-600' },
-  running: { label: '执行中', badge: 'bg-indigo-100 text-indigo-700' },
-  completed: { label: '已完成', badge: 'bg-green-100 text-green-700' },
-  failed: { label: '失败', badge: 'bg-red-100 text-red-700' },
-  cancelled: { label: '已取消', badge: 'bg-gray-100 text-gray-600' },
+const STATUS_META: Record<TaskStatus, { badge: string }> = {
+  pending: { badge: 'bg-gray-100 text-gray-600' },
+  running: { badge: 'bg-indigo-100 text-indigo-700' },
+  completed: { badge: 'bg-green-100 text-green-700' },
+  failed: { badge: 'bg-red-100 text-red-700' },
+  cancelled: { badge: 'bg-gray-100 text-gray-600' },
 }
 
 function formatTime(iso: string): string {
@@ -71,6 +72,7 @@ async function apiData<T>(path: string, init?: RequestInit): Promise<T | null> {
 
 export function TaskDispatchPage(_: Props) {
   const { token } = useAuth()
+  const { t } = useI18n()
   const [command, setCommand] = useState('')
   const [toDevice, setToDevice] = useState<string>('')
   const [devices, setDevices] = useState<TaskDevice[]>([])
@@ -84,17 +86,17 @@ export function TaskDispatchPage(_: Props) {
     setError('')
     const data = await apiData<TaskDispatch[] | { list: TaskDispatch[] }>('/api/tasks')
     if (!data) {
-      setError('加载任务失败')
+      setError(t('taskDispatch.loadTasksFailed'))
       return
     }
     const list = Array.isArray(data) ? data : data.list ?? []
     setTasks(list)
-  }, [])
+  }, [t])
 
   const loadDevices = useCallback(async () => {
     const data = await apiData<TaskDeviceListResponse>('/api/tasks/devices')
     if (!data) {
-      setError('加载设备失败')
+      setError(t('taskDispatch.loadDevicesFailed'))
       return
     }
     const list = Array.isArray(data.devices) ? data.devices : []
@@ -106,7 +108,7 @@ export function TaskDispatchPage(_: Props) {
       const firstOnline = list.find((d) => d.online)
       return firstOnline?.deviceId || list[0]?.deviceId || ''
     })
-  }, [])
+  }, [t])
 
   useEffect(() => {
     Promise.all([loadTasks(), loadDevices()]).finally(() => setLoading(false))
@@ -133,22 +135,22 @@ export function TaskDispatchPage(_: Props) {
       }
       if (!msg?.taskId) return
       setTasks((prev) =>
-        prev.map((t) => {
-          if (t.id !== msg.taskId) return t
+        prev.map((task) => {
+          if (task.id !== msg.taskId) return task
           const p = msg.payload as Partial<TaskResult> & Partial<TaskDispatch>
-          const status: TaskStatus = (p.status as TaskStatus) || t.status
+          const status: TaskStatus = (p.status as TaskStatus) || task.status
           const hasResult =
             p.output !== undefined || p.error !== undefined || p.finishedAt !== undefined
           const result: TaskResult | undefined = hasResult
             ? {
-                taskId: t.id,
+                taskId: task.id,
                 status,
                 output: p.output,
                 error: p.error,
                 finishedAt: p.finishedAt || new Date().toISOString(),
               }
-            : t.result
-          return { ...t, status, result }
+            : task.result
+          return { ...task, status, result }
         }),
       )
     }
@@ -171,7 +173,7 @@ export function TaskDispatchPage(_: Props) {
     const cmd = command.trim()
     if (!cmd || sending) return
     if (!toDevice) {
-      setError('请先选择设备')
+      setError(t('taskDispatch.selectDeviceFirst'))
       return
     }
     setSending(true)
@@ -183,12 +185,12 @@ export function TaskDispatchPage(_: Props) {
     })
     setSending(false)
     if (!data?.task) {
-      setError('下发失败')
+      setError(t('taskDispatch.dispatchFailed'))
       return
     }
     setTasks((prev) => [data.task, ...prev])
     setCommand('')
-  }, [command, toDevice, sending])
+  }, [command, toDevice, sending, t])
 
   const canSend = !sending && command.trim().length > 0
 
@@ -201,11 +203,11 @@ export function TaskDispatchPage(_: Props) {
     <View className="flex-1 bg-gray-50">
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
         <View className="bg-white px-4 py-3">
-          <Text className="mb-2 text-base font-semibold text-gray-900">任务下发</Text>
+          <Text className="mb-2 text-base font-semibold text-gray-900">{t('taskDispatch.title')}</Text>
           <TextInput
             value={command}
             onChangeText={setCommand}
-            placeholder="输入任务指令,例如:运行单元测试"
+            placeholder={t('taskDispatch.inputPlaceholder')}
             placeholderTextColor="#9ca3af"
             multiline
             className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900"
@@ -213,7 +215,7 @@ export function TaskDispatchPage(_: Props) {
           />
           <View className="mt-3 flex-row flex-wrap items-center gap-2">
             {devices.length === 0 ? (
-              <Text className="text-xs text-gray-400">暂无在线设备</Text>
+              <Text className="text-xs text-gray-400">{t('taskDispatch.noDevices')}</Text>
             ) : (
               devices.map((d) => {
                 const selected = toDevice === d.deviceId
@@ -238,7 +240,9 @@ export function TaskDispatchPage(_: Props) {
               disabled={!canSend}
               className={`ml-auto rounded-md px-4 py-1.5 ${canSend ? 'bg-green-600' : 'bg-gray-300'}`}
             >
-              <Text className="text-xs font-semibold text-white">{sending ? '发送中' : '发送任务'}</Text>
+              <Text className="text-xs font-semibold text-white">
+                {sending ? t('taskDispatch.sending') : t('taskDispatch.send')}
+              </Text>
             </Pressable>
           </View>
           {error ? <Text className="mt-2 text-xs text-red-600">{error}</Text> : null}
@@ -256,7 +260,7 @@ export function TaskDispatchPage(_: Props) {
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             ListEmptyComponent={
               <View className="items-center py-16">
-                <Text className="text-sm text-gray-400">已下发的任务会显示在这里</Text>
+                <Text className="text-sm text-gray-400">{t('taskDispatch.emptyTasks')}</Text>
               </View>
             }
             renderItem={({ item }) => {
@@ -268,11 +272,11 @@ export function TaskDispatchPage(_: Props) {
                       {item.command}
                     </Text>
                     <View className={`rounded-md px-2 py-0.5 ${meta.badge}`}>
-                      <Text className="text-xs">{meta.label}</Text>
+                      <Text className="text-xs">{t(`taskDispatch.status.${item.status}`)}</Text>
                     </View>
                   </View>
                   <View className="mt-2 flex-row items-center gap-3">
-                    <Text className="text-xs text-gray-500">{`目标: ${deviceName(item.toDevice)}`}</Text>
+                    <Text className="text-xs text-gray-500">{`${t('taskDispatch.target')}: ${deviceName(item.toDevice)}`}</Text>
                     <Text className="text-xs text-gray-400">{formatTime(item.createdAt)}</Text>
                   </View>
                   {item.result?.output ? (
