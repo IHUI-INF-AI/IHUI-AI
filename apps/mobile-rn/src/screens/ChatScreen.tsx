@@ -281,7 +281,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
             <Text className="text-sm text-gray-500">钱包</Text>
           </Pressable>
           <Pressable
-            onPress={() => navigation.getParent()?.navigate('Tabs' as never)}
+            onPress={() => navigation.getParent()?.navigate('Tabs')}
             hitSlop={8}
           >
             <Text className="text-sm text-gray-500">课程</Text>
@@ -290,7 +290,7 @@ export function ChatScreen({ navigation }: NativeStackScreenProps<RootStackParam
             <Text className="text-sm text-gray-500">订单</Text>
           </Pressable>
           <Pressable
-            onPress={() => navigation.getParent()?.navigate('Tabs' as never)}
+            onPress={() => navigation.getParent()?.navigate('Tabs')}
             hitSlop={8}
           >
             <Text className="text-sm text-gray-500">我的</Text>
