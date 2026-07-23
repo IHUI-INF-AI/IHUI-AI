@@ -328,6 +328,22 @@ export default {
     common: {
       loading: '加载中…',
     },
+    tishi: {
+      title: '智能体引导说明',
+      view: '查看',
+      close: '关闭',
+      needInput: '小方需要您输入以下相关内容,以便于更精准的解决您的需求',
+    },
+    chatMessageItem: {
+      me: '我',
+      ai: 'AI',
+      thinkingProcess: '思考过程',
+      noContent: '没有可复制的内容',
+      aiGenerated: '智汇AI生成',
+      tokenCost: '消耗智汇值:{{n}}',
+      reuse: '复用',
+      copy: '复制',
+    },
     inputArea: {
       placeholder: '输入你的问题…',
       releaseToSend: '松开发送',
@@ -1055,6 +1071,8 @@ export default {
     logout: '退出登录',
     logoutConfirm: '确定要退出登录吗?',
     vipMember: 'VIP 会员',
+    admin: '管理员',
+    normalUser: '普通用户',
     tapLogin: '点击登录',
     loginHint: '登录后享受更多服务',
     menu: {
@@ -1066,6 +1084,7 @@ export default {
       ai: 'AI 助手',
       settings: '设置',
     },
+    identity: '身份',
     avatar: {
       updateSuccess: '头像已更新',
       choose: '选择头像',
