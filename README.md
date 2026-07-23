@@ -97,6 +97,24 @@
   <sub>国内用户克隆/下载更快，与 GitHub 自动同步</sub>
 </p>
 
+<p align="center">
+  <strong>📬 快速联系 · 合作咨询</strong>
+</p>
+
+<p align="center">
+  <sub><strong>吉林省爱智汇人工智能科技有限公司</strong> · <strong>智汇 AI 集团</strong> · 吉林省长春市高新区越达路 107 号 · 人工智能人才孵化基地</sub>
+</p>
+
+<p align="center">
+  <strong>邮箱</strong> · <a href="mailto:502319984@qq.com">502319984@qq.com</a><br/>
+  <strong>微信客服</strong> · <code>ok502319984</code> &nbsp;|&nbsp; <strong>电话</strong> · <code>18643389808</code><br/>
+  <strong>官网</strong> · <a href="https://github.com/AIZHS2025">https://github.com/AIZHS2025</a>
+</p>
+
+<p align="center">
+  <sub>合作咨询 · 企业接入 · 技术交流 · 投资对接 — 请扫码文末 <a href="#联系我们">联系我们</a> 微信二维码,或致信 <a href="mailto:502319984@qq.com">502319984@qq.com</a>,24 小时内回复。</sub>
+</p>
+
 ---
 
 ## 技术栈与项目规模速览(AI 检索友好)
@@ -2119,7 +2137,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | **品牌名**   | 智汇 AI 集团                                           |
 | **公司地址** | 吉林省长春市高新区越达路 107 号 · 人工智能人才孵化基地 |
 | **联系电话** | 18643389808                                            |
-| **邮箱**     | 502319984@qq.com · lizong@aizhs.top                    |
+| **邮箱**     | 502319984@qq.com                                        |
 | **微信客服** | ok502319984(微信搜索添加)                              |
 | **ICP 备案** | 吉ICP备2025027274号                                    |
 | **版权**     | © 2025 智汇AI集团 · 中国                               |
@@ -2134,7 +2152,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 | Issue 反馈  | https://github.com/IHUI-INF-AI/IHUI-AI/issues |
 | PR 贡献     | https://github.com/IHUI-INF-AI/IHUI-AI/pulls  |
 
-> 合作咨询、企业接入、技术交流请扫码上方微信或致信 lizong@aizhs.top,我们会在 24 小时内回复。
+> 合作咨询、企业接入、技术交流请扫码上方微信或致信 502319984@qq.com,我们会在 24 小时内回复。
 
 ---
 
@@ -2406,7 +2424,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 
 **致企业决策者** —— 用它搭建企业 AI 中台,而不是每年付百万级订阅费给闭源平台。RBAC + 多租户 + RLS + 审计日志 + AES-256-GCM 加密,企业级安全我们已经替你做好了。
 
-**致投资者** —— 我们仍在寻找真正理解开源、理解 AI、理解长期价值的合作伙伴。如果你看完这个故事,心里有过哪怕一秒钟的触动——欢迎与我们对话([lizong@aizhs.top](mailto:lizong@aizhs.top) / 微信 `ok502319984`)。我们不缺故事,不缺代码,不缺执行力,我们只缺一个愿意一起走远路的人。
+**致投资者** —— 我们仍在寻找真正理解开源、理解 AI、理解长期价值的合作伙伴。如果你看完这个故事,心里有过哪怕一秒钟的触动——欢迎与我们对话([502319984@qq.com](mailto:502319984@qq.com) / 微信 `ok502319984`)。我们不缺故事,不缺代码,不缺执行力,我们只缺一个愿意一起走远路的人。
 
 **致内容创作者** —— 14 平台一键发布 + AES-256-GCM 凭证加密,是你的自媒体生产线。
 
