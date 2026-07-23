@@ -31,6 +31,7 @@
     "@hookform/resolvers": "^3.9.1",
     "@ihui/api-client": "workspace:*",
     "@ihui/auth": "workspace:*",
+    "@ihui/shared": "workspace:*",
     "@ihui/types": "workspace:*",
     "@ihui/ui": "workspace:*",
     "@lobehub/icons": "^5.14.0",
