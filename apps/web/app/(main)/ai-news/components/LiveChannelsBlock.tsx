@@ -15,6 +15,26 @@ interface Props {
   channels: AiLiveChannel[]
 }
 
+// 封面图占位:Image 加载完成前显示 shimmer,加载后淡入
+function CoverImage({ src, alt, sizes }: { src: string; alt: string; sizes: string }) {
+  const [loaded, setLoaded] = React.useState(false)
+  return (
+    <>
+      {!loaded ? (
+        <div className="absolute inset-0 animate-skeleton-pulse bg-muted" aria-hidden />
+      ) : null}
+      <Image
+        fill
+        src={src}
+        alt={alt}
+        sizes={sizes}
+        className={`object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        onLoad={() => setLoaded(true)}
+      />
+    </>
+  )
+}
+
 export function LiveChannelsBlock({ channels }: Props) {
   const t = useTranslations('aiNews')
   const locale = React.useMemo(() => {
@@ -60,13 +80,7 @@ export function LiveChannelsBlock({ channels }: Props) {
             <Link href={`/live/${c.id}`} className="block">
               <div className="relative aspect-video overflow-hidden bg-muted">
                 {c.coverImage ? (
-                  <Image
-                    fill
-                    src={c.coverImage}
-                    alt={c.title}
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 280px"
-                  />
+                  <CoverImage src={c.coverImage} alt={c.title} sizes="(max-width: 768px) 100vw, 280px" />
                 ) : null}
                 {c.isLive ? (
                   <div className="absolute left-2 top-2">
