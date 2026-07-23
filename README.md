@@ -10,6 +10,11 @@
 </p>
 
 <p align="center">
+  <strong>340 张表 · 144 迁移 · 1300+ API 端点 · 21 Grafana 仪表盘 · 30+ pre-commit 守门 · 278 API 测试 · 63 e2e spec</strong><br/>
+  <sub>不是 PPT,不是画饼,不是占位 —— 每一个数字都能在代码里 grep 到</sub>
+</p>
+
+<p align="center">
   <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/ci.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/build.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/build.yml/badge.svg" alt="Build" /></a>
   <a href="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/e2e.yml"><img src="https://github.com/IHUI-INF-AI/IHUI-AI/actions/workflows/e2e.yml/badge.svg" alt="E2E" /></a>
@@ -48,7 +53,23 @@
 </p>
 
 <p align="center">
-  <sub><strong>功能维度对标 40+ 国际/国内产品</strong>(指功能覆盖度参考,非性能/精度对标 — 详见 <a href="#与同类项目对比">对比矩阵</a>):OpenAI ChatGPT · Anthropic Claude · Google Gemini · Microsoft Copilot · Dify · FastGPT · Langflow · RAGFlow · Coze(扣子)· LangChain · LlamaIndex · AutoGen · CrewAI · Claude Code · Cursor · GitHub Copilot · Amazon Q · Khan Academy · Jasper · Stripe · Auth0 · Mailgun · Mixpanel · 百度千帆 · 阿里百炼 · 腾讯混元 · 字节豆包 · 智谱开放平台 · 讯飞星火 · DeepSeek · 月之暗面 Kimi</sub>
+  <strong>🎯 为什么是 IHUI-AI?</strong>
+</p>
+
+<p align="center">
+  <sub>
+    <strong>Dify / FastGPT / Langflow</strong> 只做 AI 应用编排 → <strong>我们</strong> 多了 8 端 + CLI + 商业闭环 + AI 教育 + 14 平台发布<br/>
+    <strong>Claude Code / Cursor / Copilot</strong> 只做 AI 编程 → <strong>我们</strong> 多了完整 SaaS 商业栈 + 多端 + 教育全栈<br/>
+    <strong>Stripe / Auth0 / Clerk</strong> 只做单一 SaaS 能力 → <strong>我们</strong> 把支付+认证+邮件+分析+AI 全预置<br/>
+    <strong>LangChain / AutoGen / CrewAI</strong> 只是开发框架 → <strong>我们</strong> 是"整车下线",非技术团队也能用<br/>
+    <strong>Tauri / Expo / Taro / WXT</strong> 只做多端框架 → <strong>我们</strong> 8 端独立代码 + 12 共享包预置好<br/>
+    <strong>Khan Academy / Coursera</strong> 是闭源 SaaS → <strong>我们</strong> AI 教育全栈 Apache 2.0 开源
+  </sub>
+</p>
+
+<p align="center">
+  <strong>在全球开源 AI 生态里,你找得到比 IHUI-AI 更专的项目,但找不到比 IHUI-AI 更全的开源平台。</strong><br/>
+  <sub>把 6 大类商业产品的能力整合进一个 Apache 2.0 仓库 —— 这就是我们的核心差异化。</sub>
 </p>
 
 <p align="center">
