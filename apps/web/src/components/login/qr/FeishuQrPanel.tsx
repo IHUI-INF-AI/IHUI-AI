@@ -36,8 +36,8 @@ export function FeishuQrPanel({ refreshKey }: FeishuQrPanelProps) {
     const state = generateState()
     saveOAuthState('feishu', state)
 
-    // redirect_uri 必须与当前访问域名+端口一致,否则飞书 OAuth 校验失败
-    const redirectUri = `${window.location.origin}/callback?platform=feishu`
+    // redirect_uri 优先读 env(生产配 bsm.aizhs.top 分域 SSO),env 留空时 fallback 到当前 origin(localhost dev)
+    const redirectUri = config.redirectUri
 
     // 飞书 QRLogin SDK 通过 goto 参数指定完整 OAuth 授权 URL,
     // 扫码成功后 SDK 通过 postMessage 通知父窗口跳转(不会自动整页跳转)
