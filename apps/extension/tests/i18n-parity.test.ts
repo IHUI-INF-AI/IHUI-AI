@@ -7,11 +7,11 @@
  * 运行: pnpm --filter @ihui/extension test
  */
 import { describe, it, expect } from 'vitest'
-import zhCN from '../src/i18n/messages/zh-CN'
-import en from '../src/i18n/messages/en'
-import ja from '../src/i18n/messages/ja'
-import ko from '../src/i18n/messages/ko'
-import zhTW from '../src/i18n/messages/zh-TW'
+import zhCN from '@ihui/i18n/messages/extension/zh-CN.json'
+import en from '@ihui/i18n/messages/extension/en.json'
+import ja from '@ihui/i18n/messages/extension/ja.json'
+import ko from '@ihui/i18n/messages/extension/ko.json'
+import zhTW from '@ihui/i18n/messages/extension/zh-TW.json'
 
 type MsgObj = Record<string, unknown>
 
