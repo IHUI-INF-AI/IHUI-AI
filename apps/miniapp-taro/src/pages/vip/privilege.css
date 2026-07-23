@@ -1,0 +1,311 @@
+/* 会员权益介绍页样式 — 金色系，深色模式 token 适配 */
+
+.page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding-bottom: 140rpx;
+}
+
+/* ============ 顶部会员等级展示区 ============ */
+.header {
+  padding: 60rpx 40rpx 48rpx;
+  background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
+}
+.header-title {
+  display: block;
+  font-size: 44rpx;
+  font-weight: 700;
+  color: #ffffff;
+}
+.header-level-row {
+  display: flex;
+  align-items: center;
+  margin-top: 24rpx;
+}
+.level-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8rpx 24rpx;
+  background: linear-gradient(135deg, #f8d486 0%, #d4af6a 100%);
+  color: #1a1a1a;
+  font-size: 28rpx;
+  font-weight: 600;
+  border-radius: 8rpx;
+}
+.level-badge.closed {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.7);
+}
+.level-icon {
+  width: 48rpx;
+  height: 48rpx;
+  line-height: 48rpx;
+  text-align: center;
+  font-size: 32rpx;
+  color: #d4af6a;
+  margin-right: 12rpx;
+}
+.header-expire {
+  display: block;
+  font-size: 24rpx;
+  color: rgba(212, 175, 106, 0.85);
+  margin-top: 16rpx;
+}
+
+/* ============ 入口卡片区域 ============ */
+.entry-section {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 24rpx 24rpx 0;
+  gap: 16rpx;
+}
+.entry-card {
+  flex: 1;
+  min-width: 200rpx;
+  padding: 28rpx 20rpx;
+  background: var(--color-card);
+  border-radius: 12rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.entry-icon {
+  width: 64rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  text-align: center;
+  font-size: 36rpx;
+  background: rgba(212, 175, 106, 0.12);
+  color: #d4af6a;
+  border-radius: 12rpx;
+  margin-bottom: 12rpx;
+}
+.entry-title {
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  font-weight: 500;
+  text-align: center;
+}
+
+/* ============ 权益列表 ============ */
+.section-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  padding: 32rpx 24rpx 16rpx;
+}
+.privilege-list {
+  padding: 0 24rpx;
+}
+.privilege-card {
+  display: flex;
+  align-items: flex-start;
+  padding: 28rpx 24rpx;
+  background: var(--color-card);
+  border-radius: 12rpx;
+  margin-bottom: 16rpx;
+}
+.privilege-icon {
+  width: 56rpx;
+  height: 56rpx;
+  line-height: 56rpx;
+  text-align: center;
+  font-size: 32rpx;
+  color: #d4af6a;
+  background: rgba(212, 175, 106, 0.1);
+  border-radius: 10rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+.privilege-body {
+  flex: 1;
+  min-width: 0;
+}
+.privilege-title {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.privilege-desc {
+  display: block;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 8rpx;
+  line-height: 1.6;
+}
+.empty-state {
+  text-align: center;
+  padding: 120rpx 0;
+  color: var(--color-muted-foreground);
+  font-size: 26rpx;
+}
+
+/* ============ 底部升级栏 ============ */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20rpx 40rpx;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  background: var(--color-card);
+  z-index: 10;
+}
+.upgrade-btn {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  background: linear-gradient(135deg, #f8d486 0%, #b8860b 100%);
+  color: #ffffff;
+  font-size: 32rpx;
+  font-weight: 600;
+  border-radius: 12rpx;
+  border: none;
+  text-align: center;
+}
+
+/* ============ 弹窗通用 ============ */
+.popup-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.popup-card {
+  width: 640rpx;
+  max-height: 80vh;
+  background: var(--color-card);
+  border-radius: 12rpx;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32rpx 32rpx 20rpx;
+  flex-shrink: 0;
+}
+.popup-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--color-foreground);
+}
+.popup-close {
+  width: 48rpx;
+  height: 48rpx;
+  line-height: 48rpx;
+  text-align: center;
+  font-size: 36rpx;
+  color: var(--color-muted-foreground);
+}
+.popup-body {
+  padding: 0 32rpx 24rpx;
+  overflow-y: auto;
+  flex: 1;
+}
+.popup-footer {
+  padding: 20rpx 32rpx 32rpx;
+  flex-shrink: 0;
+}
+.popup-action-btn {
+  width: 100%;
+  height: 84rpx;
+  line-height: 84rpx;
+  background: linear-gradient(135deg, #f8d486 0%, #b8860b 100%);
+  color: #ffffff;
+  font-size: 30rpx;
+  font-weight: 600;
+  border-radius: 10rpx;
+  border: none;
+  text-align: center;
+}
+
+/* ============ 等级对比矩阵 ============ */
+.matrix {
+  display: flex;
+  flex-direction: column;
+}
+.matrix-row {
+  display: flex;
+  align-items: center;
+}
+.matrix-row.header-row {
+  background: rgba(212, 175, 106, 0.08);
+  border-radius: 8rpx;
+}
+.matrix-cell {
+  flex: 1;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--color-foreground);
+  padding: 20rpx 8rpx;
+}
+.matrix-cell.label {
+  flex: 1.3;
+  text-align: left;
+  padding-left: 16rpx;
+  color: var(--color-muted-foreground);
+  font-size: 24rpx;
+}
+.matrix-cell.level-cell {
+  font-weight: 600;
+  color: #d4af6a;
+}
+.matrix-cell.highlight {
+  color: #d4af6a;
+  font-weight: 600;
+}
+.matrix-desc {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 20rpx;
+  line-height: 1.7;
+}
+
+/* ============ 权益说明列表（操盘手/私董会） ============ */
+.benefit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+.benefit-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 20rpx 24rpx;
+  background: rgba(212, 175, 106, 0.06);
+  border-radius: 10rpx;
+}
+.benefit-check {
+  width: 36rpx;
+  height: 36rpx;
+  line-height: 36rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: #d4af6a;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+.benefit-text {
+  flex: 1;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  line-height: 1.6;
+}
+.benefit-intro {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.8;
+  margin-bottom: 24rpx;
+}
