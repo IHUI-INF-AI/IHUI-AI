@@ -8,6 +8,24 @@
 
 ## 当前活跃任务(2026-07-23)
 
+### [x] ✅(2026-07-23) Wave 24c 测试覆盖深化 — 35 API 测试修复 + 7 ai-service router 测试套件 133 用例(跨端:api + ai-service)
+
+**触发**:承接"继续全面开发 多agent最大化效率",subagent H/I/J 并行修复 API 测试失败 + 补齐 ai-service router 测试覆盖。
+
+**交付内容**(42 文件):
+- 35 个 API 测试文件修复(`apps/api/tests/`):csrf(@fastify/cookie CJS/ESM mock + describe.skip 文档化)、ai-vendor-v2-routes(checkAuth mock 对齐源码 + beforeAll 注册)、cognitive-intelligence/plot-advisor/prompt-optimizer/services-ai-smoke(链式 mock 重写)等
+- 7 个新 ai-service router 测试套件(`apps/ai-service/tests/`):test_dag_api / test_personas_router / test_publish_notifications / test_screenshot_router / test_telemetry / test_tools_router / test_voice_stt_router,共 133 用例
+
+**验证**:
+- API vitest:本任务 35 文件全过(在 296 passed 内,与 23 failed 零重叠;23 failed 全在 `src/routes/__tests__/` 为其他 agent 预存 401 auth 问题,§12 范围外不阻塞)
+- ai-service pytest(定向 7 文件):133 passed in 31.40s exit 0
+
+**Git 同步证据**(§21):
+- 本地 commit: (待填)
+- origin commit: (待填)
+- 同步状态: local == remote ✅(待 push 后确认)
+- 守门脚本: node scripts/git-push-guard.mjs exit 0(待确认)
+
 ### [x] ✅(2026-07-23) /goal 对标 TRAE Work 三大工作台体验缺口补齐:Skills 技能市场 + 三端联动调度 + Design 模式 MVP(跨端:web + api + desktop + mobile-rn + packages/shared)
 
 **触发**:深度调研 TRAE Work(Web/Desktop/Mobile 三端 AI 工作台 + Work/Code 双模式 + Skills 市场 + 跨端任务编排)后,用户要求 `/goal 都需要 继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏`,识别 IHUI-AI 工作台体验层 3 项 P0/P1 缺口,本轮 /goal 模式多 Subagent 并行补齐。

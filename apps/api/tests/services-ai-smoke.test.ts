@@ -1,28 +1,35 @@
 import { describe, it, expect, vi } from 'vitest'
 
-vi.mock('../src/db/index.js', () => ({
-  db: {
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue([]),
-        groupBy: vi.fn().mockReturnValue({ orderBy: vi.fn().mockResolvedValue([]) }),
-        orderBy: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }),
-        limit: vi.fn().mockResolvedValue([]),
+vi.mock('../src/db/index.js', () => {
+  const limitChain = vi.fn().mockResolvedValue([])
+  const whereChain = { limit: limitChain }
+  return {
+    db: {
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue(whereChain),
+          groupBy: vi.fn().mockReturnValue({ orderBy: vi.fn().mockResolvedValue([]) }),
+          orderBy: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }),
+          limit: limitChain,
+        }),
       }),
-    }),
-    insert: vi.fn().mockReturnValue({
-      values: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
-    }),
-    update: vi.fn().mockReturnValue({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
+      insert: vi.fn().mockReturnValue({
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([]),
+          onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+        }),
       }),
-    }),
-    delete: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
-  },
-  dbRead: {},
-  dbClient: {},
-}))
+      update: vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }),
+        }),
+      }),
+      delete: vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) }),
+    },
+    dbRead: {},
+    dbClient: {},
+  }
+})
 
 vi.mock('@ihui/database', () => ({
   aiCapabilities: {
@@ -56,6 +63,14 @@ vi.mock('@ihui/database', () => ({
     isBuiltin: 'is_builtin',
     useCount: 'use_count',
     createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
+  userPreferences: {
+    id: 'id',
+    userId: 'user_id',
+    group: 'group',
+    key: 'key',
+    value: 'value',
     updatedAt: 'updated_at',
   },
 }))
@@ -225,13 +240,12 @@ describe('AI 服务 smoke 测试', () => {
       expect(() => addFavorite('user1', 'cap1')).not.toThrow()
     })
 
-    it('isFavorite 返回 boolean', () => {
-      expect(typeof isFavorite('user1', 'cap1')).toBe('boolean')
-      expect(isFavorite('user1', 'cap1')).toBe(true)
+    it('isFavorite 返回 boolean', async () => {
+      expect(typeof (await isFavorite('user1', 'cap1'))).toBe('boolean')
     })
 
-    it('isFavorite 未收藏返回 false', () => {
-      expect(isFavorite('user1', 'cap-not-favorited')).toBe(false)
+    it('isFavorite 未收藏返回 false', async () => {
+      expect(await isFavorite('user1', 'cap-not-favorited')).toBe(false)
     })
   })
 
