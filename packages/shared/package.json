@@ -30,6 +30,18 @@
     "./utils/*": {
       "types": "./src/utils/*.ts",
       "import": "./dist/utils/*.js"
+    },
+    "./skills/*": {
+      "types": "./src/skills/*.ts",
+      "import": "./dist/skills/*.js"
+    },
+    "./tasks/*": {
+      "types": "./src/tasks/*.ts",
+      "import": "./dist/tasks/*.js"
+    },
+    "./design/*": {
+      "types": "./src/design/*.ts",
+      "import": "./dist/design/*.js"
     }
   },
   "scripts": {

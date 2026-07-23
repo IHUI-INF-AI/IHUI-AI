@@ -139,6 +139,7 @@ import { BookmarkScreen } from '../screens/BookmarkScreen'
 import { ShareScreen } from '../screens/ShareScreen'
 import { useI18n } from '../i18n'
 import { WorkPanelScreen, setWorkPanelNavigator } from '../components/WorkPanel'
+import { TaskDispatchPage } from '../pages/TaskDispatchPage'
 
 export type RootStackParamList = {
   Login: undefined
@@ -269,6 +270,7 @@ export type RootStackParamList = {
   Bookmark: undefined
   Share: { targetType: string; targetId: string; title: string }
   WorkPanel: { url: string }
+  TaskDispatch: undefined
 }
 
 export type HomeStackParamList = {
@@ -544,6 +546,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Bookmark" component={BookmarkScreen} />
             <RootStack.Screen name="Share" component={ShareScreen} />
             <RootStack.Screen name="WorkPanel" component={WorkPanelScreen} />
+            <RootStack.Screen name="TaskDispatch" component={TaskDispatchPage} />
           </>
         ) : (
           <>
