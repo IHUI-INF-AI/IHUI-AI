@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Ban, Play, Loader2 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
@@ -16,10 +16,6 @@ import {
 import { DagGraph } from '@/components/subagents/DagGraph'
 import { AgentMessageList } from '@/components/subagents/AgentMessageList'
 import type { DispatchStatus, AgentRole, DispatchPriority } from '@ihui/shared/subagents/index'
-
-export function generateStaticParams() {
-  return []
-}
 
 const STATUS_BADGE: Record<DispatchStatus, string> = {
   pending: 'bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300',
@@ -77,8 +73,9 @@ function QuotaBar({ label, used, total, unit }: { label: string; used: number; t
   )
 }
 
-export default function SubagentDetailPage() {
-  const { id } = useParams<{ id: string }>()
+export default function SubagentDetailClient() {
+  const searchParams = useSearchParams()
+  const id = searchParams.get('id') ?? ''
   const router = useRouter()
   const qc = useQueryClient()
 
@@ -87,11 +84,12 @@ export default function SubagentDetailPage() {
     queryFn: fetchActiveDispatches,
     refetchInterval: 5000,
   })
-  const dagQ = useQuery({ queryKey: ['subagents', id, 'dag'], queryFn: () => fetchDispatchDag(id) })
-  const quotasQ = useQuery({ queryKey: ['subagents', id, 'quotas'], queryFn: () => fetchDispatchQuotas(id) })
+  const dagQ = useQuery({ queryKey: ['subagents', id, 'dag'], queryFn: () => fetchDispatchDag(id), enabled: !!id })
+  const quotasQ = useQuery({ queryKey: ['subagents', id, 'quotas'], queryFn: () => fetchDispatchQuotas(id), enabled: !!id })
   const msgsQ = useQuery({
     queryKey: ['subagents', id, 'messages'],
     queryFn: () => fetchDispatchMessages(id),
+    enabled: !!id,
     refetchInterval: 3000,
   })
 
@@ -105,6 +103,12 @@ export default function SubagentDetailPage() {
     mutationFn: () => resumeDispatch(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['subagents'] }),
   })
+
+  if (!id) {
+    return (
+      <div className="py-10 text-center text-sm text-muted-foreground">缺少派单 ID 参数</div>
+    )
+  }
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4">
