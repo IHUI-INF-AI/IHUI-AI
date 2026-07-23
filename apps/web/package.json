@@ -77,7 +77,6 @@
     "react-syntax-highlighter": "^15.6.1",
     "remark-gfm": "^4.0.0",
     "sharp": "^0.33.5",
-    "solito": "^4.4.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
