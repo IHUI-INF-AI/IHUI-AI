@@ -1470,7 +1470,7 @@
       "invokePlaceholderRequirements": "例如:登入頁 HTML,極簡風格",
       "invokeMissingVariable": "請填寫必填參數",
       "invokeError": "呼叫失敗",
-      "comingSoonHint": "該 skill 即將上線,可前往 GitHub 了解詳情",
+      "comingSoonHint": "該 skill 即將上線,可前往 GitHub 瞭解詳情",
       "viewAll": "查看全部"
     },
     "tpl": {
@@ -28431,6 +28431,8 @@
     "dragInsertAfter": "在此處之後插入"
   },
   "aiNews": {
+    "metaTitle": "AI 資訊 · 全網即時聚合流",
+    "metaDescription": "聚合國內外 41 個權威信源(微博/知乎/36氪/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等),每 6 小時自動採集,模型/產品/行業/論文分類與趨勢信號即時更新。",
     "compare": {
       "label": "加入對比",
       "maxToast": "最多選擇 5 個模型進行對比"
@@ -28567,7 +28569,19 @@
       "label": "重磅融資與收購",
       "title": "重磅融資與收購",
       "subtitle": "7 月 AI 產業資本動作:SpaceX 600 億美元收購 Cursor、DeepSeek 500 億元融資",
-      "empty": "暫無融資動態"
+      "empty": "暫無融資動態",
+      "sortLabel": "排序",
+      "sortByDate": "按日期",
+      "sortByAmount": "按金額",
+      "searchPlaceholder": "搜尋標題 / 摘要 / 來源…",
+      "resultCount": "共 {count} / {total} 條"
+    },
+    "capabilityRadar": {
+      "coding": "程式碼",
+      "math": "數學",
+      "reasoning": "推理",
+      "creative": "創意",
+      "chinese": "中文"
     },
     "detailDialog": {
       "arenaScore": "Arena 評分",
@@ -28724,7 +28738,7 @@
     "resultEmpty": "（無回傳內容）",
     "fillToChat": "填入對話",
     "comingSoonTitle": "該技能即將上線",
-    "comingSoonHint": "該 skill 尚未接入本平台,可前往 GitHub 了解詳情,或等待下一批整合",
+    "comingSoonHint": "該 skill 尚未接入本平臺,可前往 GitHub 瞭解詳情,或等待下一批整合",
     "openGitHub": "開啟 GitHub",
     "statusAvailable": "已上線",
     "statusComingSoon": "即將上線"
