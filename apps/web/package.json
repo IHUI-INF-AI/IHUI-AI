@@ -9,7 +9,7 @@
     "dev:clean": "rimraf .next .dev.lock && node scripts/check-lock.js dev && next dev --turbopack -p 8801",
     "dev:stable": "rimraf .next .dev.lock && node scripts/check-lock.js dev && next dev -p 8801",
     "prebuild": "node scripts/check-lock.js build",
-    "build": "next build",
+    "build": "node --max-old-space-size=8192 node_modules/next/dist/bin/next build",
     "build:analyze": "pnpm exec next experimental-analyze",
     "start": "next start -p 8801",
     "lint": "eslint .",
