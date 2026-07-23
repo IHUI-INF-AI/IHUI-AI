@@ -4,22 +4,23 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { updateUserNickname, getProfile } from '@/api'
 import { useI18n } from '@/i18n'
+import './nickname.css'
 
-const MAX_LENGTH = 8
+const MIN_LENGTH = 2
+const MAX_LENGTH = 20
+// 允许:中文 / 字母 / 数字 / 下划线,禁止其他特殊符号
+const VALID_REG = /^[\u4e00-\u9fa5A-Za-z0-9_]+$/
+const RANDOM_POOL = [
+  '智汇小达人', 'AI探索者', '学习委员', '知识海绵', '深夜读书人',
+  '代码搬运工', '灵感制造机', '云端漫步者', '效率先锋', '思考的芦苇',
+]
 
 export default function Nickname() {
   const { t } = useI18n()
+  const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
   const [nickname, setNickname] = useState('')
   const [original, setOriginal] = useState('')
-
-  // 本地 fallback:maxLength 提示 key 待主 agent 补,未命中时返回 fb
-  const tt = useCallback(
-    (k: string, fb: string) => {
-      const v = t(k)
-      return v === k ? fb : v
-    },
-    [t],
-  )
+  const [submitting, setSubmitting] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -37,54 +38,97 @@ export default function Nickname() {
     load()
   })
 
+  const onInput = (e: { detail: { value: string } }) => {
+    setNickname((e.detail.value || '').slice(0, MAX_LENGTH))
+  }
+
+  const fillRandom = () => {
+    const pick = RANDOM_POOL[Math.floor(Math.random() * RANDOM_POOL.length)]
+    setNickname(pick ?? '')
+  }
+
+  const validate = (val: string): string => {
+    const v = val.trim()
+    if (!v) return tt('user.nickname.enterNickname', '请输入昵称')
+    if (v.length < MIN_LENGTH) return tt('user.nickname.tooShort', `昵称不能少于${MIN_LENGTH}个字符`)
+    if (v.length > MAX_LENGTH) return tt('user.nickname.maxLength', `昵称不能超过${MAX_LENGTH}个字符`)
+    if (!VALID_REG.test(v)) return tt('user.nickname.invalidChar', '昵称仅支持中英文、数字和下划线')
+    if (original && v === original) return tt('user.nickname.sameAsCurrent', '新昵称与当前昵称相同')
+    return ''
+  }
+
   async function onSubmit() {
-    const val = nickname.trim()
-    if (!val) {
-      return Taro.showToast({ title: t('user.nickname.enterNickname'), icon: 'none' })
+    const err = validate(nickname)
+    if (err) {
+      Taro.showToast({ title: err, icon: 'none' })
+      return
     }
-    // 对标原项目 account.vue:昵称不能超过 8 个字符
-    if (val.length > MAX_LENGTH) {
-      return Taro.showToast({ title: tt('user.nickname.maxLength', '昵称不能超过8个字符'), icon: 'none' })
-    }
+    setSubmitting(true)
     try {
-      await updateUserNickname(val)
+      await updateUserNickname(nickname.trim())
       Taro.showToast({ title: t('user.nickname.saveSuccess'), icon: 'success' })
-      setTimeout(() => Taro.navigateBack(), 1000)
+      setTimeout(() => Taro.navigateBack(), 800)
     } catch (e) {
       logger.error('user/nickname', '修改昵称', e)
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
+    } finally {
+      setSubmitting(false)
     }
   }
 
+  const err = validate(nickname)
+  const canSubmit = !err && !submitting
+
   return (
-    <View className="min-h-screen bg-background">
-      <View className="mx-[12px] mt-[12px] px-[16px] bg-card rounded-[8px]">
-        <View className="flex items-center py-[16px] border-b-[1px] border-solid border-border">
-          <Text className="w-[80px] text-[14px] text-foreground">{t('user.nickname.current')}</Text>
-          <Text className="flex-1 text-[14px] text-muted-foreground">
-            {original || t('user.profile.notSet')}
-          </Text>
-        </View>
-        <View className="flex items-center py-[16px]">
-          <Text className="w-[80px] text-[14px] text-foreground">{t('user.nickname.newNickname')}</Text>
-          <Input
-            className="flex-1 text-[14px]"
-            type="text"
-            maxlength={MAX_LENGTH}
-            placeholder={t('user.nickname.nicknamePlaceholder')}
-            value={nickname}
-            onInput={(e) => setNickname(e.detail.value)}
-          />
+    <View className="nick-page">
+      <View className="nick-card">
+        <View className="nick-row">
+          <Text className="nick-label">{t('user.nickname.current')}</Text>
+          <Text className="nick-value">{original || t('user.profile.notSet')}</Text>
         </View>
       </View>
+
+      <View className="nick-card">
+        <View className="nick-input-head">
+          <Text className="nick-label">{t('user.nickname.newNickname')}</Text>
+          <Text className="nick-count">{nickname.length}/{MAX_LENGTH}</Text>
+        </View>
+        <Input
+          className="nick-input"
+          type="text"
+          maxlength={MAX_LENGTH}
+          placeholder={t('user.nickname.nicknamePlaceholder')}
+          value={nickname}
+          onInput={onInput}
+        />
+        <View className="nick-random" onClick={fillRandom}>
+          <Text className="nick-random-text">
+            {tt('user.nickname.randomNickname', '🎲 随机推荐昵称')}
+          </Text>
+        </View>
+      </View>
+
+      <View className="nick-rules">
+        <Text className="nick-rules-title">
+          {tt('user.nickname.rulesTitle', '昵称规则')}
+        </Text>
+        <Text className="nick-rules-line">
+          • {tt('user.nickname.ruleLength', `${MIN_LENGTH}-${MAX_LENGTH} 个字符`)}
+        </Text>
+        <Text className="nick-rules-line">
+          • {tt('user.nickname.ruleChar', '支持中英文、数字')}
+        </Text>
+        <Text className="nick-rules-line">
+          • {tt('user.nickname.ruleSymbol', '禁止特殊符号')}
+        </Text>
+      </View>
+
       <Button
-        className={`mx-[16px] mt-[30px] rounded-[20px] text-[16px] ${
-          nickname.trim() ? 'bg-primary text-white' : 'bg-[#ccc] text-white'
-        }`}
-        disabled={!nickname.trim()}
+        className={`nick-submit${canSubmit ? '' : ' disabled'}`}
+        disabled={!canSubmit}
         onClick={onSubmit}
       >
-        {t('user.nickname.save')}
+        {submitting ? tt('user.nickname.saving', '保存中…') : t('user.nickname.save')}
       </Button>
     </View>
   )
