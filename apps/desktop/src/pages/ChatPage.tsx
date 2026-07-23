@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   streamChat,
   fetchModels,
@@ -8,8 +8,20 @@ import {
   type StreamChatOptions,
   type LlmModel,
 } from '@ihui/api-client'
-import type { ChatMessage } from '../lib/types'
-import { sendDesktopNotification } from '../lib/desktop'
+import type { ChatAttachment, ChatMessage } from '../lib/types'
+import {
+  FILE_FILTERS,
+  formatFileSize,
+  isTauri,
+  pickFile,
+  readBinaryFile,
+  readTextFile,
+  sendDesktopNotification,
+} from '../lib/desktop'
+
+const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'])
+const TEXT_EXTENSIONS = new Set(['txt', 'md', 'log', 'csv', 'json', 'xml', 'yml', 'yaml', 'toml'])
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10 MB 单文件上限
 
 const FALLBACK_MODELS: LlmModel[] = [
   {
@@ -118,6 +130,10 @@ export default function ChatPage({ onLogout }: Props) {
   const [models, setModels] = useState<LlmModel[]>(FALLBACK_MODELS)
   const [model, setModel] = useState<string>(FALLBACK_MODELS[0]!.id)
   const [notice, setNotice] = useState('')
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([])
+  const [dragOver, setDragOver] = useState(false)
+  const [busyFile, setBusyFile] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     document.title = 'IHUI AI 桌面端 - 对话'
@@ -142,18 +158,210 @@ export default function ChatPage({ onLogout }: Props) {
     }
   }, [])
 
+  /** 从扩展名判断是否图片。 */
+  const isImageExt = (ext: string): boolean => IMAGE_EXTENSIONS.has(ext.toLowerCase())
+
+  /** 从扩展名判断是否文本。 */
+  const isTextExt = (ext: string): boolean => TEXT_EXTENSIONS.has(ext.toLowerCase())
+
+  /** 处理单个文件路径,读取内容生成 ChatAttachment。 */
+  const ingestFile = async (filePath: string): Promise<ChatAttachment | null> => {
+    const name = filePath.split(/[\\/]/).pop() || filePath
+    const ext = name.split('.').pop() || ''
+    try {
+      if (isImageExt(ext)) {
+        const r = await readBinaryFile(filePath)
+        if (r.size > MAX_FILE_SIZE) {
+          setError(`文件过大(> ${formatFileSize(MAX_FILE_SIZE)}):${name}`)
+          return null
+        }
+        return {
+          name,
+          mime: r.mime,
+          size: r.size,
+          data: `data:${r.mime};base64,${r.base64}`,
+          isImage: true,
+        }
+      }
+      if (isTextExt(ext)) {
+        const r = await readTextFile(filePath)
+        if (r.size > MAX_FILE_SIZE) {
+          setError(`文件过大(> ${formatFileSize(MAX_FILE_SIZE)}):${name}`)
+          return null
+        }
+        return {
+          name,
+          mime: ext === 'json' ? 'application/json' : 'text/plain',
+          size: r.size,
+          data: r.content,
+          isImage: false,
+        }
+      }
+      // 其他二进制文件:读 base64,但限制 1 MB(避免超长 base64 拖慢聊天)
+      if (isTauri()) {
+        const stat = await readBinaryFile(filePath)
+        if (stat.size > 1024 * 1024) {
+          setError(`二进制文件过大(> 1 MB):${name}`)
+          return null
+        }
+        return {
+          name,
+          mime: stat.mime,
+          size: stat.size,
+          data: `data:${stat.mime};base64,${stat.base64}`,
+          isImage: false,
+        }
+      }
+      setError(`暂不支持的文件类型:${ext}`)
+      return null
+    } catch (e) {
+      setError(`读取文件失败:${e instanceof Error ? e.message : String(e)}`)
+      return null
+    }
+  }
+
+  /** 文件选择按钮(打开原生对话框)。 */
+  const onPickFile = async () => {
+    if (busyFile || streaming) return
+    setBusyFile(true)
+    setError('')
+    try {
+      const filePath = await pickFile([FILE_FILTERS.images, FILE_FILTERS.text, FILE_FILTERS.pdf, FILE_FILTERS.all])
+      if (!filePath) {
+        setBusyFile(false)
+        return
+      }
+      const att = await ingestFile(filePath)
+      if (att) {
+        setAttachments((cur) => [...cur, att])
+      }
+    } finally {
+      setBusyFile(false)
+    }
+  }
+
+  /** 拖拽放置处理。 */
+  const onDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setDragOver(false)
+    if (streaming || busyFile) return
+    // Tauri 拖拽事件:files 是文件路径(通过 dataTransfer.items 或 effectAllowed)
+    // 实际 Tauri 2 中,拖拽文件路径通过 getCurrentWebview().onDragDropEvent 在 Rust 端监听
+    // Web Drop API 在 Tauri 中 dataTransfer.files 为空,改用 Rust 事件 — 这里保留兜底
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length === 0) return
+    setBusyFile(true)
+    setError('')
+    try {
+      // Tauri 2 拖拽:file 对象的 path 属性可用
+      const paths = files.map((f) => (f as unknown as { path?: string }).path).filter(Boolean) as string[]
+      if (paths.length === 0) {
+        setError('拖拽文件需要桌面端环境(Tauri),浏览器无法获取文件路径')
+        return
+      }
+      for (const p of paths) {
+        const att = await ingestFile(p)
+        if (att) {
+          setAttachments((cur) => [...cur, att])
+        }
+      }
+    } finally {
+      setBusyFile(false)
+    }
+  }
+
+  /** 粘贴处理(支持图片 + 文件路径文本)。 */
+  const onPaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
+    if (streaming || busyFile) return
+    const items = e.clipboardData?.items
+    if (!items) return
+    let handled = false
+    setBusyFile(true)
+    setError('')
+    try {
+      for (const item of Array.from(items)) {
+        if (item.kind === 'file') {
+          const file = item.getAsFile()
+          if (!file) continue
+          // 浏览器 File API:读取为 base64 / text
+          const ext = (file.name.split('.').pop() || '').toLowerCase()
+          if (file.size > MAX_FILE_SIZE) {
+            setError(`文件过大(> ${formatFileSize(MAX_FILE_SIZE)}):${file.name}`)
+            continue
+          }
+          if (isImageExt(ext) || file.type.startsWith('image/')) {
+            const dataUrl = await readFileAsDataURL(file)
+            setAttachments((cur) => [
+              ...cur,
+              {
+                name: file.name,
+                mime: file.type || 'image/png',
+                size: file.size,
+                data: dataUrl,
+                isImage: true,
+              },
+            ])
+            handled = true
+          } else if (isTextExt(ext) || file.type.startsWith('text/')) {
+            const text = await file.text()
+            setAttachments((cur) => [
+              ...cur,
+              {
+                name: file.name,
+                mime: file.type || 'text/plain',
+                size: file.size,
+                data: text,
+                isImage: false,
+              },
+            ])
+            handled = true
+          }
+        }
+      }
+    } finally {
+      setBusyFile(false)
+      if (handled) e.preventDefault()
+    }
+  }
+
+  /** 删除附件。 */
+  const onRemoveAttachment = (idx: number) => {
+    setAttachments((cur) => cur.filter((_, i) => i !== idx))
+  }
+
   const onSend = async () => {
     const text = input.trim()
-    if (!text || streaming) return
+    if ((!text && attachments.length === 0) || streaming) return
     setInput('')
     setError('')
     setNotice('')
+    // 拼接附件摘要到消息内容,便于 LLM 理解
+    const attSummary =
+      attachments.length > 0
+        ? attachments
+            .map((a) =>
+              a.isImage
+                ? `[图片:${a.name}]`
+                : a.isImage === false && a.mime.startsWith('text/')
+                  ? `\n\n--- 附件:${a.name} ---\n${a.data.slice(0, 2000)}${a.data.length > 2000 ? '\n...(已截断)' : ''}\n--- 附件结束 ---`
+                  : `[附件:${a.name}(${a.mime})]`,
+            )
+            .join('\n')
+        : ''
+    const userContent = attSummary ? `${text}\n${attSummary}` : text
+    const pendingAttachments = attachments
     const next: ChatMessage[] = [
       ...messages,
-      { id: `u-${Date.now()}`, role: 'user', content: text },
+      {
+        id: `u-${Date.now()}`,
+        role: 'user',
+        content: userContent || '(仅附件)',
+        attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined,
+      },
       { id: `a-${Date.now()}`, role: 'assistant', content: '' },
     ]
     setMessages(next)
+    setAttachments([])
     setStreaming(true)
 
     const controller = new AbortController()
@@ -254,14 +462,56 @@ export default function ChatPage({ onLogout }: Props) {
         </div>
       </header>
 
-      <div className="chat-list" data-testid="chat-list">
+      <div
+        className={`chat-list${dragOver ? ' chat-list--drag-over' : ''}`}
+        data-testid="chat-list"
+        onDragOver={(e) => {
+          e.preventDefault()
+          if (!dragOver) setDragOver(true)
+        }}
+        onDragLeave={(e) => {
+          if (e.currentTarget === e.target) setDragOver(false)
+        }}
+        onDrop={(e) => {
+          void onDrop(e)
+        }}
+      >
         {messages.length === 0 ? (
-          <div className="empty-state">输入消息开始对话</div>
+          <div className="empty-state">
+            输入消息开始对话
+            <br />
+            <span className="empty-state-hint">
+              支持拖拽文件 / 粘贴图片 / 点击 📎 按钮选择文件
+            </span>
+          </div>
         ) : (
           messages.map((m) => (
             <div key={m.id} className={`chat-bubble ${m.role}`}>
               <span className="role">{m.role === 'user' ? '你' : 'AI'}</span>
-              <div className="content">{m.content || (m.role === 'assistant' ? '...' : '')}</div>
+              <div className="content">
+                {m.content || (m.role === 'assistant' ? '...' : '')}
+                {m.attachments && m.attachments.length > 0 ? (
+                  <div className="msg-attachments">
+                    {m.attachments.map((att, i) => (
+                      <div key={`${m.id}-att-${i}`} className="msg-attachment">
+                        {att.isImage ? (
+                          <img
+                            src={att.data}
+                            alt={att.name}
+                            className="msg-attachment-img"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="msg-attachment-file">
+                            <span className="msg-attachment-name">{att.name}</span>
+                            <span className="msg-attachment-size">{formatFileSize(att.size)}</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </div>
           ))
         )}
@@ -270,6 +520,35 @@ export default function ChatPage({ onLogout }: Props) {
       {notice ? <div className="notice-banner">{notice}</div> : null}
       {error ? <div className="error-banner">{error}</div> : null}
 
+      {attachments.length > 0 ? (
+        <div className="attachment-preview" data-testid="attachment-preview">
+          {attachments.map((att, idx) => (
+            <div key={`att-${idx}`} className="attachment-item">
+              {att.isImage ? (
+                <img src={att.data} alt={att.name} className="attachment-thumb" />
+              ) : (
+                <div className="attachment-file-icon">📄</div>
+              )}
+              <div className="attachment-info">
+                <div className="attachment-name" title={att.name}>
+                  {att.name}
+                </div>
+                <div className="attachment-size">{formatFileSize(att.size)}</div>
+              </div>
+              <button
+                type="button"
+                className="attachment-remove"
+                onClick={() => onRemoveAttachment(idx)}
+                aria-label="移除附件"
+                disabled={streaming}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <form
         className="chat-input"
         onSubmit={(e) => {
@@ -277,11 +556,25 @@ export default function ChatPage({ onLogout }: Props) {
           void onSend()
         }}
       >
+        <button
+          type="button"
+          className="attach-btn"
+          onClick={() => void onPickFile()}
+          disabled={busyFile || streaming}
+          aria-label="添加附件"
+          title="选择本地文件(图片/文本/PDF)"
+        >
+          {busyFile ? '⏳' : '📎'}
+        </button>
         <input
+          ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="说点什么..."
+          onPaste={(e) => {
+            void onPaste(e)
+          }}
+          placeholder={attachments.length > 0 ? '输入消息内容(附件已就绪)...' : '说点什么...'}
           disabled={streaming}
           autoFocus
         />
@@ -290,11 +583,21 @@ export default function ChatPage({ onLogout }: Props) {
             停止
           </button>
         ) : (
-          <button type="submit" disabled={!input.trim()}>
+          <button type="submit" disabled={!input.trim() && attachments.length === 0}>
             发送
           </button>
         )}
       </form>
     </div>
   )
+}
+
+/** 浏览器 File API:读为 data URL(用于粘贴的图片)。 */
+function readFileAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
 }

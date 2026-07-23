@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import {
   Bot,
@@ -353,6 +354,13 @@ export function SkillLibrary({ onSelect, onClose }: SkillLibraryProps) {
         <div className="flex items-center gap-1.5">
           <Sparkles className="h-3.5 w-3.5 text-primary" />
           <span className="text-xs font-semibold text-foreground">{t('title')}</span>
+          <Link
+            href="/ai-skills"
+            className="ml-0.5 inline-flex items-center gap-0.5 rounded-sm px-1 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            {t('viewAll')}
+            <span aria-hidden>→</span>
+          </Link>
         </div>
         {isAuthenticated && (
           <button

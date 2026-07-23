@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { TrendingUp, TrendingDown, Minus, X } from 'lucide-react'
 import { fetchAiTrendChart, type TrendChartData } from '@/lib/ai-news-api'
+import { formatCompact, getLocale } from '@/lib/number-format'
 
 interface Props {
   itemId: string
@@ -177,6 +178,7 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
 /** 简易 SVG 折线图(热度曲线),不引入 chart 库 */
 function SimpleLineChart({ points }: { points: Array<{ snapshotDate: string; hotValue: number | null }> }) {
   const t = useTranslations('aiNews')
+  const locale = getLocale()
   const W = 440
   const H = 120
   const PAD = 30
@@ -218,10 +220,10 @@ function SimpleLineChart({ points }: { points: Array<{ snapshotDate: string; hot
         ))}
         {/* Y 轴标签 */}
         <text x={PAD - 5} y={PAD} textAnchor="end" className="fill-muted-foreground" fontSize={7}>
-          {maxVal >= 10000 ? `${(maxVal / 10000).toFixed(0)}万` : maxVal}
+          {formatCompact(maxVal, locale) || maxVal}
         </text>
         <text x={PAD - 5} y={H - PAD} textAnchor="end" className="fill-muted-foreground" fontSize={7}>
-          {minVal >= 10000 ? `${(minVal / 10000).toFixed(0)}万` : minVal}
+          {formatCompact(minVal, locale) || minVal}
         </text>
       </svg>
     </div>
