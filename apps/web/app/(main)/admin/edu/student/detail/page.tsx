@@ -47,8 +47,8 @@ interface Detail {
   level: number
   status: number
   createdAt: string
-  // 聚合字段暂未在后端 GET /api/admin/users/:id 实现,显示 0 占位
-  // 真正聚合数据走 GET /api/admin/edu/students/:userId/report/export?format=json
+  // 聚合字段：certCount/examCount 已接入后端真实查询(certificates/exam_records 表)
+  // signupCount/learnHours/lessons 暂无对应新架构表(旧 edu_sign_up/edu_lesson_study_record 用 integer memberId)
   signupCount?: number
   learnHours?: number
   examCount?: number
