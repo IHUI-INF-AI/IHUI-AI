@@ -174,6 +174,16 @@ export const HIGHLIGHT_MODEL_IDS = new Set<string>([
  * 与 apps/ai-service/app/routers/llm.py 中的 default_models 保持一致
  */
 export const FALLBACK_MODELS: Model[] = [
+  // === 默认主力(与 ai-service default_models.json 第 1 位对齐)===
+  {
+    id: 'stepfun/step-router-v1',
+    name: 'Step Router v1',
+    provider: 'stepfun',
+    description: 'model.stepfun-router-v1.description',
+    contextLength: 128000,
+    inputPrice: 0,
+    features: ['Plan', 'Auto-Route'],
+  },
   // === OpenAI(7 个) ===
   {
     id: 'openrouter/auto',
@@ -910,7 +920,7 @@ export const FALLBACK_MODELS: Model[] = [
     inputPrice: 0.05,
     features: ['Chinese-Optimized', 'Fast'],
   },
-  // === StepFun 阶跃星辰(3 个) ===
+  // === StepFun 阶跃星辰(2 个) ===
   {
     id: 'stepfun/step-3.7-flash',
     name: 'Step 3.7 Flash',
@@ -928,15 +938,6 @@ export const FALLBACK_MODELS: Model[] = [
     contextLength: 128000,
     inputPrice: 0,
     features: ['Plan', 'Fast'],
-  },
-  {
-    id: 'stepfun/step-router-v1',
-    name: 'Step Router v1',
-    provider: 'stepfun',
-    description: 'model.stepfun-router-v1.description',
-    contextLength: 128000,
-    inputPrice: 0,
-    features: ['Plan', 'Auto-Route'],
   },
   // === Tencent Hunyuan 腾讯混元(2 个) ===
   {
@@ -1796,6 +1797,10 @@ export const FALLBACK_MODELS: Model[] = [
 ]
 
 export const MODEL_DESCRIPTIONS: Record<string, { description: string; features: string[] }> = {
+  'stepfun/step-router-v1': {
+    description: 'StepFun 智能路由,默认主力,适合 tool calling',
+    features: ['Plan', 'Auto-Route'],
+  },
   'stepfun/step-3.7-flash': {
     description: 'model.stepfun-3-7-flash.description',
     features: ['Plan', 'Fast', 'Chinese-Optimized'],
@@ -1803,10 +1808,6 @@ export const MODEL_DESCRIPTIONS: Record<string, { description: string; features:
   'stepfun/step-3.5-flash': {
     description: 'model.stepfun-3-5-flash.description',
     features: ['Plan', 'Fast'],
-  },
-  'stepfun/step-router-v1': {
-    description: 'model.stepfun-router-v1.description',
-    features: ['Plan', 'Auto-Route'],
   },
   'agnes/gpt-4o': {
     description: 'model.agnes-gpt-4o.description',
