@@ -178,10 +178,10 @@ export class InMemoryAuthorizationCodeStore implements AuthorizationCodeStore {
       const timer = setTimeout(() => {
         this.store.delete(entry.code);
         this.timers.delete(entry.code);
-      }, ttl);
+      }, ttl) as unknown as NodeJS.Timeout;
       // Node.js 事件循环不持有 ref 的 timer 不会阻止进程退出
       timer.unref?.();
-      this.timers.set(entry.code, timer);
+      this.timers.set(entry.code, timer as unknown as NodeJS.Timeout);
     } else {
       this.store.delete(entry.code);
     }
