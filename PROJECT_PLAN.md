@@ -53,6 +53,42 @@
 
 ---
 
+### [x] ✅(2026-07-23) 桌面端模型持久化 + 代码块主题跟随 + 快捷短语模板深度开发(平台独占:仅 desktop)
+
+**触发**:用户 `/goal 继续啊 你怎么总停呢 你就去做就好了 一直去做 深度开发`,要求不停顿深度开发桌面端能力。
+
+**交付**(第十二轮):
+- `apps/desktop/src/hooks/use-model-persist.ts`(新建):模型选择持久化 hook
+  - `STORAGE_KEY = 'ihui-model-id'` + `readPersistedModel(fallback)` + `persistModel(id)`
+  - `useModelPersist(initial)`:返回 `[model, setModel]`,自动 localStorage 持久化
+- `apps/desktop/src/hooks/use-code-theme.ts`(新建):代码块语法高亮主题跟随 hook
+  - `initCodeTheme()`:React 渲染前同步加载对应 CSS(避免首屏闪烁)
+  - `useCodeTheme()`:监听 useTheme.isDark,主题切换时动态修改 `<link>` href
+  - light → `highlight.js/styles/github.css?url` / dark → `highlight.js/styles/github-dark.css?url`
+- `apps/desktop/src/components/PromptTemplates.tsx`(新建):快捷短语模板面板
+  - 3 分组 8 项预设 prompt(对话开场 2 + 代码相关 3 + 写作辅助 3)
+  - ✨ 按钮触发浮层,点击短语插入到 input(支持追加到已有内容)
+  - 点击外部关闭 + stopPropagation
+- `apps/desktop/src/main.tsx`(修改):移除静态 `import 'highlight.js/styles/github.css'`,改用 `initCodeTheme()` 同步初始化
+- `apps/desktop/src/pages/ChatPage.tsx`(修改):
+  - 替换 `useState<string>` 为 `useModelPersist`(自动持久化)
+  - `useCodeTheme()` 在组件内调用,主题切换时自动更新
+  - 模型 select 改为 `<optgroup>` 按 provider 分组(避免长列表难找)
+  - 表单加 `<PromptTemplates>` 按钮,点击短语插入到 input
+  - `fetchModels` 优先用 persisted model,其次 API default,最后列表首个
+- `apps/desktop/src/app.css`(修改):新增 `.prompt-templates*` 样式(13 类:wrap/btn/menu/header/group/group-title/list/item/item-label + dark mode + optgroup 样式)
+- `apps/desktop/src/vite-env.d.ts`(新建):声明 `*.css?url` 模块类型
+- `apps/desktop/src/i18n/messages/*.ts`(5 语言):
+  - chat 命名空间 +1 key(modelSelect)
+  - 新增 prompts 命名空间(17 key:title + 3 groupTitle + 8 label + 8 content)
+- `README.md`:3 处同步更新(8 端框架表 + 技术栈表 + 项目状态矩阵),桌面端能力追加"模型选择持久化 + 代码块语法主题跟随 + 快捷短语模板"
+
+**§9 平台独占**:模型持久化(localStorage)+ 代码块主题跟随 + 快捷短语模板均为 desktop 单端 UI 能力,豁免全端同步。
+
+**验证**:desktop typecheck 零错误(退出码 0);commit 推送成功;git-push-guard exit 0。
+
+---
+
 ### [x] ✅(2026-07-23) 桌面端消息时间戳 + 会话重命名 + 快捷键帮助面板深度开发(平台独占:仅 desktop)
 
 **触发**:用户 `/goal 继续啊 你怎么总停呢 你就去做就好了 一直去做 深度开发`,要求不停顿深度开发桌面端能力。

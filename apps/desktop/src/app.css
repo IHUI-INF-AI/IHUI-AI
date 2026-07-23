@@ -1971,3 +1971,136 @@ textarea:focus {
   color: #fcd34d;
   border-color: #fcd34d;
 }
+
+/* ============== 快捷短语/模板面板 ============== */
+
+.prompt-templates {
+  position: relative;
+  display: inline-flex;
+}
+
+.prompt-templates-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.prompt-templates-btn:hover:not(:disabled) {
+  background: var(--accent-bg, var(--muted-bg, var(--bg-secondary, #f5f5f5)));
+  border-color: var(--accent, var(--border));
+}
+
+.prompt-templates-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.prompt-templates-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 280px;
+  max-width: 380px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+  padding: 4px 0;
+}
+
+.prompt-templates-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 12px 4px;
+}
+
+.prompt-templates-group {
+  padding: 4px 0;
+}
+
+.prompt-templates-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 6px 12px 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.prompt-templates-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.prompt-templates-list li {
+  margin: 0;
+}
+
+.prompt-templates-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--fg);
+  cursor: pointer;
+  display: block;
+  transition: background-color 0.12s;
+}
+
+.prompt-templates-item:hover {
+  background: var(--accent-bg, var(--muted-bg, var(--bg-secondary, #f5f5f5)));
+}
+
+.prompt-templates-item-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dark .prompt-templates-btn {
+  background: var(--bg);
+  border-color: var(--border);
+}
+
+.dark .prompt-templates-menu {
+  background: var(--card);
+  border-color: var(--border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.dark .prompt-templates-item:hover {
+  background: var(--accent-bg, rgba(255, 255, 255, 0.08));
+}
+
+/* ============== 模型选择 optgroup 样式 ============== */
+
+.model-select optgroup {
+  font-weight: 600;
+  font-style: normal;
+  color: var(--muted);
+}
+
+.model-select optgroup option {
+  font-weight: normal;
+  color: var(--fg);
+}
+
