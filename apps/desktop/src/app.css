@@ -508,10 +508,23 @@ textarea:focus {
   align-self: flex-end;
 }
 
+.chat-bubble .msg-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
 .chat-bubble .role {
   font-size: 11px;
   color: var(--muted);
-  margin-bottom: 4px;
+}
+
+.chat-bubble .msg-time {
+  font-size: 10px;
+  color: var(--muted);
+  opacity: 0.7;
+  margin-left: auto;
 }
 
 .chat-bubble .content {
@@ -677,6 +690,118 @@ textarea:focus {
 .conv-item-delete:hover {
   color: var(--danger, #dc2626);
   background: var(--danger-bg, rgba(220, 38, 38, 0.08));
+}
+
+.conv-rename-input {
+  width: 100%;
+  font-size: 13px;
+  padding: 2px 4px;
+  margin-bottom: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--accent, var(--border));
+  border-radius: 4px;
+}
+
+/* ============== 快捷键帮助面板 ============== */
+
+.shortcut-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.shortcut-dialog {
+  width: 100%;
+  max-width: 480px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16);
+  display: flex;
+  flex-direction: column;
+}
+
+.shortcut-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.shortcut-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.shortcut-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px 10px;
+  cursor: pointer;
+  color: var(--muted);
+  border-radius: 4px;
+}
+
+.shortcut-close:hover {
+  background: var(--muted-bg);
+}
+
+.shortcut-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.shortcut-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.shortcut-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shortcut-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.shortcut-label {
+  color: var(--fg);
+}
+
+.shortcut-keys {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+  padding: 2px 8px;
+  background: var(--muted-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--fg);
 }
 
 /* Dark mode 调整 */
