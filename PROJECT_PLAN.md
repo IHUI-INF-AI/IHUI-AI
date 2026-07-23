@@ -8,6 +8,93 @@
 
 ## 当前活跃任务(2026-07-24)
 
+### [ ] /goal 资源上游自动同步中心 — MCP/Skill/Plugin/Provider 配置四源拉取 + 双路径触发 + 全量自动更新(跨端:api + ai-service + web + cli + packages/database + packages/types)
+
+**触发**:用户需求"我希望我的项目有自动获取最新最热最优 MCP/插件/Skill 的能力,并且自动获取更新上游最新所有参数配置等所有信息的能力并且自动更新"。
+
+**用户决策对齐**(2026-07-24):
+- 上游源:GitHub 官方仓库 + npm registry + 自建 registry + MCP marketplace API(四源全接)
+- 触发方式:定时拉取(每 6h)+ webhook 推送 双路径(推荐方案)
+- 自动更新范围:全量自动 + 配置自动迁移(最激进,需兼容性校验 + 回滚)
+- 执行节奏:立即按 P0→P1→P2 顺序全做完
+
+**现状调研结论**(调研 agent 实证):
+- MCP 85% 完整:`apps/web/src/lib/mcp-curated.ts` 是静态硬编码,无上游同步
+- Plugin 60% 完整:无 catalog 后端,前端静态数据
+- Skill 90% 完整:无远程仓库集成,无自动 pull
+- 上游配置 75% 完整:无自动同步,无模型列表动态拉取
+- 自动更新 50% 完整:5 个调度器分散,webhook 内存未落库
+
+**P0 基础设施(必做)**:
+
+- [ ] P0-1 数据库 schema(`packages/database/src/schema/registry.ts` 新建):
+  - `registry_items` 表(id/source_type[mcp|skill|plugin]/source_id/name/description/version/author/homepage/repo_url/download_url/categories/jsonb/tags/jsonb/install_count/heat_score/quality_score/latest_synced_at/payload/jsonb/created_at/updated_at)
+  - `registry_sync_logs` 表(id/source_type/source_name/status[success|fail|skipped]/error_message/payload_hash/old_version/new_version/duration_ms/started_at/finished_at)
+  - `webhook_triggers` 表(id/name/event_type/source_signature_hmac/event_payload/jsonb/condition_logic/jsonb/received_at/processed_at/status) — 持久化 `webhooks-trigger.ts` 内存 Map
+  - 迁移文件 `apps/api/src/db/migrations/XXXX_add_registry_sync.sql`
+- [ ] P0-2 API 后端 `apps/api/src/routes/registry-sync.ts`:
+  - GET /api/registry/items?source_type=&sort=latest|hot|best&page= — 列表(最新/最热/最优三排序)
+  - POST /api/registry/sync — 手动触发同步(管理员)
+  - GET /api/registry/sync-logs — 同步日志
+  - POST /api/registry/webhook/:source — 接收上游 webhook(GitHub/npm/mcp_marketplace/custom HMAC 校验)
+  - GET /api/registry/webhooks — webhook 触发器列表(管理员)
+- [ ] P0-3 上游拉取适配器 `apps/api/src/services/registry-sync/`:
+  - `github-adapter.ts` — GitHub API(modelcontextprotocol/servers + anthropics/skills + awesome-* 仓库,readme 解析)
+  - `npm-adapter.ts` — npm registry 搜索(@modelcontextprotocol/* / ihui-skill-* / ihui-plugin-* 包)
+  - `mcp-marketplace-adapter.ts` — mcp.so / smithery.ai / glama.ai API 聚合
+  - `custom-registry-adapter.ts` — 自建 registry 协议(可对接 api 自身或外部 URL)
+  - `index.ts` — 统一调度器 + 热度/质量评分计算(install_count + github stars + recent_releases)
+- [ ] P0-4 触发机制:
+  - 定时任务:复用 `apps/ai-service/app/services/scheduler.py` 模式,API 后端 BullMQ 6h 重复 job(`registry-sync-queue`)
+  - webhook 入口:`POST /api/registry/webhook/:source` HMAC-SHA256 签名校验 + 落库 `webhook_triggers`
+  - 双路径合并去重(payload_hash 对比)
+
+**P1 上游配置同步**:
+
+- [ ] P1-1 Provider 模型列表动态拉取:
+  - `apps/api/src/routes/user-llm-configs-v2.ts` 补 `/v1/models` 调用骨架(已有,补全 stepfun/agnes/groq/gemini/openrouter 实现)
+  - Redis 缓存 24h TTL(key=`provider:models:<provider>:<userId>`)
+  - 失败降级到 FALLBACK_MODELS
+- [ ] P1-2 配置变更检测 + 自动迁移:
+  - `apps/api/src/services/registry-sync/config-drift-detector.ts` — hash 对比 .env.example / config.py 上游版本
+  - `apps/api/src/services/registry-sync/config-migrator.ts` — 自动迁移(含 schema 兼容性校验 + 失败回滚 + 备份)
+  - 管理员审批队列(高危变更需人工确认)
+
+**P2 用户侧能力**:
+
+- [ ] P2-1 Web 端"更新中心"页面 `apps/web/app/(main)/registry/page.tsx`:
+  - 三 tab:最新(latest)/ 最热(hot)/ 最优(best)
+  - 卡片列表 + 一键安装/升级按钮
+  - 顶部 banner:"有 N 个新版本可用,一键全部升级"
+  - 同步日志查看 + 手动触发同步按钮(管理员)
+- [ ] P2-2 CLI 端 `ihui registry sync` 命令(`apps/cli/src/commands/registry-sync.ts`):
+  - `ihui registry sync` — 立即同步
+  - `ihui registry list --sort=latest|hot|best` — 列表
+  - `ihui registry install <name>` — 安装
+  - `ihui registry upgrade [--all]` — 升级
+  - 订阅自动 pull(已有订阅通知机制,补"上游有新版本自动拉取"逻辑)
+
+**跨端约束**:
+- 共享类型 `packages/types/src/registry.ts`(RegistryItem / RegistrySyncLog / WebhookTrigger / ProviderModelInfo / ConfigDriftReport)
+- 共享 UI 组件复用 `packages/ui` Card/Button/Input
+- 路由注册到 `apps/api/src/routes/index.ts` + `apps/web/app/(main)/` 路由组
+- 数据库 schema 走 `packages/database/src/schema/` 单一来源
+
+**验证标准**:
+- `pnpm turbo build typecheck lint test` 全绿
+- `node scripts/check-api-routes.mjs` 路由一致性通过
+- `node scripts/check-multi-end-sync.mjs` 无 warn
+- browser_use 实际渲染 `/registry` 页面,4 状态自验(默认/hover/active/dark)
+- API curl 链路验证:`POST /api/registry/sync` 返回 200 + 同步日志记录 + DB 有数据
+- webhook 链路:curl 模拟 GitHub webhook → HMAC 校验通过 → 落库 → 触发同步
+
+**质量约束**:
+- 最小化代码,复用现有调度器/BullMQ/Redis 模式
+- 不创建文档文件(除非明确要求)
+- 不加 copyright/license header
+- 不引入新依赖(GitHub API 用 fetch,npm registry 用 fetch,MCP marketplace 用 fetch)
+- 配置自动迁移必须有回滚机制,失败不破坏现有 .env
+
 ### [x] ✅(2026-07-24) /goal 3 项技术债彻底清零 — 主题切换 DarkTheme + AsyncStorage + as never 全清理 + metro 注释优化(平台独占:mobile-rn)
 
 **触发**:用户要求"这些已知技术债也都要深度 goal 命令最大化 subagent 处理完整百分百",处理 3 项已知技术债:主题切换空操作 + metro monkey-patch + mobile-rn as never。
