@@ -8,6 +8,47 @@
 
 ## 当前活跃任务(2026-07-23)
 
+### [ ] Wave 21:桌面端架构收敛 + 安装更新链路闭环(跨端:web + desktop)
+
+**背景**:桌面端已完成 12 轮深度开发(自动更新代码层 + 4 大核心能力 + 聊天全套 + 原生集成),但存在两个相互关联的未决问题,须一起决策避免返工:
+
+1. **架构冗余**:web(Next.js 15 + React 19,80+ 路由)与 desktop(Tauri + Vite + React 18,8 页独立重写)页面层双重维护,功能范围严重不对等(desktop 缺 70+ 页面)。根因是技术栈不兼容(Next App Router 依赖 `next/*` API,Vite 无法直接 import)。
+2. **自动更新链路未闭环**:代码层已就位([updater.ts](apps/desktop/src/lib/updater.ts) + [UpdateChecker.tsx](apps/desktop/src/components/UpdateChecker.tsx) 7 态状态机 + [release-desktop.yml](.github/workflows/release-desktop.yml) + [tauri.conf.json](apps/desktop/src-tauri/tauri.conf.json) updater 占位),但缺签名密钥对(pubkey 空)、endpoints 实际部署、代码签名证书,无法真正自动更新。
+
+**耦合关系**:架构路线(套壳 vs 双份)决定打包内容与签名对象;签名/分发无论哪条路都要做,可先行不阻塞架构决策。套壳路线下 desktop 8 个 UI 页面会删除,R3-R12 部分 UI 工作迁移/废弃;Tauri 原生能力(托盘/快捷键/deep-link/自动更新/文件拖拽)两条路线都保留。
+
+**阶段 1(不阻塞,先行)— 安装更新链路闭环**:
+- [ ] 生成 Tauri 签名密钥对(`tauri signer generate -w ~/.tauri/ihui.key`),pubkey 填入 tauri.conf.json,私钥存 GitHub Secrets(不入库)
+- [ ] release-desktop.yml 启用 `createUpdaterArtifacts: true` + 签名 + 上传 GitHub Release + 生成 latest.json
+- [ ] updater endpoints 指向真实 CDN(替换占位 `https://releases.ihui.ai/desktop/latest.json`)
+- [ ] 代码签名(Windows Authenticode / macOS Developer ID)方案确定 + 证书接入
+- [ ] 分发渠道:winget/scoop/homebrew 的 desktop manifest(现有 4 个是 CLI 的)
+
+**阶段 2(架构决策,需用户拍板)— web/desktop 页面收敛**:
+- [ ] SSR 用量盘点:统计 web 端对 Server Components / Server Actions / API routes / `next/image` / `next/link` / `next/navigation` 的依赖,评估迁移到 `output: 'export'` 静态导出的成本
+- [ ] 路线比选(三选一,出报告):
+  - A. **Tauri 套壳加载 web**(页面 100% 复用,放弃 Next SSR,desktop 8 页删除,原生能力通过 `window.__TAURI__` 注入)
+  - B. **抽共享页面包**到 `packages/app-pages`(剥离 next/* 依赖,对齐 React 18↔19)
+  - C. **保持双份**(desktop 补齐 70+ 缺失页面,长期追 web 尾巴)
+- [ ] 用户拍板后按选定路线出详细迁移方案
+
+**阶段 3(依赖阶段 2)— 执行收敛**:按选定路线落地,同步删除 desktop 冗余页面或迁移专属能力到 Tauri 注入层。
+
+**验证标准**:
+- 阶段 1:`tauri build` 产出签名安装包 + `latest.json` 可被 UpdateChecker 拉取验证;tag 触发 CI 自动构建发布;pubkey 非空
+- 阶段 2:SSR 用量盘点报告产出 + 路线决策记录入 PROJECT_PLAN
+- 阶段 3:选定路线落地,typecheck/build 全绿,页面单份维护
+
+**约束边界**:
+- 阶段 1 不生成真实签名密钥入库(只填 pubkey + 私钥进 Secrets)
+- 阶段 2 盘点不改代码,仅产出分析报告
+- 阶段 3 触及 web 架构(SSR → 静态导出)属 P0 重构,需单独立项排期
+- 平台独占能力(托盘/快捷键/deep-link/自动更新)无论哪条路线都保留在 Tauri 层
+
+**§22 README 同步**:阶段 1 完成后同步 README 桌面端分发章节;阶段 3 完成后同步架构章节。
+
+---
+
 ### [x] ✅(2026-07-23) AI Skills TOP 19 个 skill 集成 + 19 真集成(全部实装,无占位)
 
 **触发**:用户提供 2 张图(CODEX 10+GitHub 10,去重 19 个),要求全装到项目并支持列表里选调。
