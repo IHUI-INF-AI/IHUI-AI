@@ -43,6 +43,39 @@
 
 ---
 
+### [x] ✅(2026-07-23) 桌面端 Tauri 2 自动更新链路代码层(平台独占:仅 desktop)
+
+**触发**:用户启用 goal 命令"深度开发"桌面端自动更新链路。
+
+**交付**:
+- `apps/desktop/src/lib/updater.ts`:封装 @tauri-apps/plugin-updater check(),导出 checkForUpdate
+- `apps/desktop/src/components/UpdateChecker.tsx`:检查/下载/安装三态 UI
+- `apps/desktop/src/pages/SettingsPage.tsx`:集成 UpdateChecker
+- `.github/workflows/release-desktop.yml`:CI 工作流(tag desktop-v* 触发,matrix 构建 + latest.json)
+- `docs/RELEASE.md`:补"desktop 自动更新启用指南"小节
+
+**验证**:desktop typecheck 零错误、YAML 语法合法、commit beb2fdf5a 推送成功。
+
+---
+
+### [x] ✅(2026-07-23) 桌面端 4 大核心能力深度开发(平台独占:仅 desktop)
+
+**触发**:用户 `/goal 继续啊 你就去做就好了 一直去做 深度开发`,要求不停顿深度开发桌面端核心能力。
+
+**交付**(系统托盘 + 单实例 + 自动启动 + 全局快捷键):
+- `apps/desktop/src-tauri/Cargo.toml`:加 3 个 plugin 依赖(autostart/global-shortcut/single-instance)
+- `apps/desktop/src-tauri/src/lib.rs`:注册 4 大能力(build_tray 函数 + 单实例 callback + autostart plugin + global-shortcut plugin + Ctrl+Shift+I 唤起/隐藏)
+- `apps/desktop/src-tauri/capabilities/default.json`:加 autostart:default + global-shortcut:default 权限
+- `apps/desktop/src/lib/desktop.ts`(新建):封装 autostart enable/disable/isEnabled + 窗口控制
+- `apps/desktop/src/pages/SettingsPage.tsx`:集成 desktop Card(autostart Switch + 全局快捷键展示)
+- `apps/desktop/src/i18n/messages/*.ts`:5 语言加 `desktop` 命名空间(4 key × 5)
+
+**§9 平台独占**:系统托盘/单实例/自动启动/全局快捷键均为 desktop 天生独占能力,豁免全端同步。
+
+**验证**:desktop typecheck 零错误(commit 待 push)。
+
+---
+
 <!-- 已归档(2026-07-23):miniapp-taro SSE done 事件 tokenCount 打通(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ### [x] ✅(2026-07-23) 前端冗余页面整合 P0(平台独占:仅 web 端)

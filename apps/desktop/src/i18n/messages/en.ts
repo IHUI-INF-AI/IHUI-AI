@@ -117,6 +117,12 @@ export default {
     error: 'Update failed',
     idle: 'Click to check for updates',
   },
+  desktop: {
+    title: 'Desktop',
+    autostart: 'Launch at startup',
+    shortcut: 'Global shortcut',
+    autostartToggleFailed: 'Failed to toggle autostart',
+  },
   error: {
     network: 'Network error',
     server: 'Server error',
