@@ -42,7 +42,8 @@
     "archive": "node scripts/archive-completed-tasks.mjs",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "turbo run build && changeset publish"
+    "release": "turbo run build && changeset publish",
+    "nativewind:status": "node scripts/check-nativewind-status.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.9",
