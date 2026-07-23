@@ -1,0 +1,54 @@
+.page {
+  min-height: 100vh;
+  background: var(--color-background);
+}
+.group-title {
+  padding: 32rpx 32rpx 16rpx;
+}
+.group-title text {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.card {
+  margin: 0 24rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+.empty {
+  padding: 60rpx 32rpx;
+  text-align: center;
+}
+.empty text {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 32rpx;
+  border-bottom: 2rpx solid var(--color-border);
+}
+.row.last {
+  border-bottom: none;
+}
+.row-info {
+  flex: 1;
+  margin-right: 16rpx;
+}
+.row-title {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+.row-desc {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 6rpx;
+  line-height: 1.5;
+}
+.arrow {
+  font-size: 32rpx;
+  color: var(--color-muted-foreground);
+}
