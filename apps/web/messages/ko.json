@@ -14493,6 +14493,7 @@
     "ecosystem": "생태계 파트너",
     "icp": "Ji ICP 2025027274호",
     "copyright": "© 2025 Zhihui AI 그룹 · 중국",
+    "modelRecord": "모델 신고",
     "platforms": {
       "n8n": "n8n",
       "coze": "Coze"
@@ -28408,7 +28409,12 @@
       "colOutputPrice": "출력 가격",
       "colReleaseDate": "출시",
       "footerDataRef": "📊 데이터 참조 arena.ai/leaderboard · Elo + Bootstrap CI",
-      "footerClickHint": "행 클릭 시 모델 상세 + 능력 레이더"
+      "footerClickHint": "행 클릭 시 모델 상세 + 능력 레이더",
+      "favAll": "전체",
+      "favOnly": "즐겨찾기",
+      "favToggle": "즐겨찾기 전환",
+      "colVisibility": "열 표시",
+      "colVisibilityHint": "표시할 열 선택"
     },
     "hero": {
       "label": "AI 뉴스 Hero",
@@ -28483,7 +28489,8 @@
     "hotRanking": {
       "label": "핫 랭킹",
       "title": "AI 뉴스 핫 Top 10",
-      "subtitle": "실시간 인기순"
+      "subtitle": "실시간 인기순",
+      "empty": "핫 뉴스 없음"
     },
     "trendChart": {
       "subtitle": "7/14일 인기 트렌드 곡선",
@@ -28493,12 +28500,14 @@
       "noDataHint": "트렌드 그리려면 ≥2일 스냅샷 필요, 내일 cron 후 이용 가능",
       "stable": "안정",
       "rankDelta": "순위 변동",
-      "hotValue": "인기도"
+      "hotValue": "인기도",
+      "close": "닫기"
     },
     "funding": {
       "label": "대형 자금 조달·인수",
       "title": "대형 자금 조달·인수",
-      "subtitle": "7월 AI 업계 자본 동향: SpaceX가 Cursor를 600억 달러에 인수, DeepSeek 500억 위안 조달"
+      "subtitle": "7월 AI 업계 자본 동향: SpaceX가 Cursor를 600억 달러에 인수, DeepSeek 500억 위안 조달",
+      "empty": "자금 조달 소식 없음"
     },
     "detailDialog": {
       "arenaScore": "Arena 점수",
