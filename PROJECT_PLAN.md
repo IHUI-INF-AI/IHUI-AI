@@ -6,7 +6,69 @@
 
 ---
 
-## 当前活跃任务(2026-07-23)
+## 当前活跃任务(2026-07-24)
+
+### [x] ✅(2026-07-24) 共享层生产版接入 — RN 三屏 wrapper 重构使用共享组件 + i18n 5 语言补全 + README 同步(跨端:mobile-rn + packages/app + web)
+
+**触发**:承接 packages/app 共享组件生产版升级(commit ff88834)后,用户要求"现在就需要升级为生产版" — 把 RN 端 3 个生产屏(AboutScreen/ProfileScreen/SettingsScreen)从自有实现重构为消费 `@ihui/app` 共享组件,真正落地"一处改、两端生效"。
+
+**交付内容**(8 文件):
+
+| 文件 | 改造 |
+|---|---|
+| `apps/mobile-rn/src/screens/AboutScreen.tsx` | 重构为 wrapper:从自有 200 行 UI(Card + rows)精简到 16 行,注入 t + navigation.goBack,渲染共享 AboutScreen |
+| `apps/mobile-rn/src/screens/ProfileScreen.tsx` | 重构为 wrapper:保留 useEffect/API 调用(getUserStatistics/getOrders)+ MENU_SECTIONS 映射为 SharedMenuSection[],注入 t + user + stats + orderCount + loading + error + onNavigate(viaParent 处理)+ onLogout,渲染共享 ProfileScreen |
+| `apps/mobile-rn/src/screens/SettingsScreen.tsx` | 重构为 wrapper:从自有 450 行 UI(SectionCard/SwitchRow/Modal)精简到 127 行,注入 t + localeOptions + themeOptions + notifications + onChangePassword(真实 updatePassword API)+ onAlert(Alert.alert)+ onConfirm(Alert.alert 带 cancel/confirm 按钮)+ onMenuPress(navigation.navigate),渲染共享 SettingsScreen(内置密码修改 Modal) |
+| `apps/mobile-rn/src/i18n/messages/zh-CN.ts` | settings namespace 扩展 24 key(notifPush/notifMessage/notifEmail/changePassword/oldPassword/newPassword/confirmPassword/pwdFieldsRequired/pwdTooShort/pwdNotMatch/pwdChanged/pwdChangeFailed/logoutConfirm/lang_zhCN-zhTW/theme_light-dark-system/languageChanged/themeChanged)+ 新增 about namespace(7 key)+ menu namespace(4 key) |
+| `apps/mobile-rn/src/i18n/messages/en.ts` | 同上 24+7+4 key 英文翻译 |
+| `apps/mobile-rn/src/i18n/messages/ja.ts` | 同上 24+7+4 key 日文翻译 |
+| `apps/mobile-rn/src/i18n/messages/ko.ts` | 同上 24+7+4 key 韩文翻译 |
+| `apps/mobile-rn/src/i18n/messages/zh-TW.ts` | 同上 24+7+4 key 繁中翻译(全繁体) |
+| `README.md` | 新增"RN ↔ Web 跨端共享组件层(packages/app)"章节(§22 触发:对外能力清单变化) |
+
+**关键设计**:
+- 平台解耦:共享组件只渲染纯 UI(react-native primitives + StyleSheet),所有平台依赖通过 props 注入
+- 零 breaking change:3 屏 export 签名不变(AboutScreen/ProfileScreen named export / SettingsScreen default export),导航注册零改动
+- 真实 API 接入:ProfileScreen 调 getUserStatistics/getOrders,SettingsScreen 调 updatePassword,不是 mock
+- i18n 兜底:t 函数找不到 key 时返回 key path(已有逻辑),新增 key 让共享组件在 RN 端有正确翻译
+
+**验证**:
+- packages/app typecheck exit 0 ✅
+- mobile-rn typecheck:本任务 3 wrapper + 5 i18n 文件 0 错(其余 5 错在 TaskDispatchPage.tsx 为其他 agent 文件,§12 范围外不阻塞)✅
+- web typecheck:本任务 solito-demo/page.tsx 0 错(其余 2 错在 packages/auth/oauth2.ts 为其他 agent 文件)✅
+
+### [x] ✅(2026-07-24) 共享层 packages/app 生产版升级 — props 注入式跨端共享组件 + 类型契约 + RN/web 集成验证(跨端:packages/app + mobile-rn + web)
+
+**触发**:承接 Solito + NativeWind + 共享层架构 PoC 闭环后,用户要求"现在就需要升级为生产版" — 把 packages/app 从 PoC(硬编码 demo 组件)升级为生产级 props 注入式跨端共享组件。
+
+**交付内容**(1 commit `ff88834`,9 文件,+833/-429):
+
+| 文件 | 改造 |
+|---|---|
+| `packages/app/src/types.ts`(新) | 平台无关类型契约:TFunction / SharedUser / SharedUserStatistics / SharedMenuItem / SharedMenuSection / SharedLocaleOption / SharedThemeOption / SharedAppInfo / SharedNotificationToggles + AboutScreenProps / ProfileScreenProps / SettingsScreenProps |
+| `packages/app/src/nativewind-env.d.ts`(新) | NativeWind 类型引用(让 RN 组件支持 className) |
+| `packages/app/src/features/about/AboutScreen.tsx` | 重写为 props 注入式(t / appInfo / onBack),DEFAULT_APP_INFO 兜底,solito TextLink 跨端导航(onBack 不传时) |
+| `packages/app/src/features/profile/ProfileScreen.tsx` | 重写为 props 注入式(t / user / stats / orderCount / loading / error / menuSections / onNavigate / onLogout / onBack),loading + error 态 + stats 网格 + menu sections 列表 |
+| `packages/app/src/features/settings/SettingsScreen.tsx` | 重写为 props 注入式(t / user / locale / localeOptions / theme / themeOptions / notifications / onChangePassword / onAlert / onConfirm / menuItems 等),内置密码修改 Modal + 校验 |
+| `packages/app/src/index.ts` | 导出 3 组件 + 12 类型 |
+| `packages/app/package.json` | 加 nativewind ^4.2.6 devDependency |
+| `apps/mobile-rn/src/screens/SharedDemoScreen.tsx` | 用新 props 契约集成验证 3 共享组件(mock 数据 + t 注入) |
+| `apps/web/app/(main)/solito-demo/page.tsx` | 用新 props 契约集成验证 3 共享组件(mock 数据 + t fallback 函数 + tab 切换) |
+
+**关键设计**:平台解耦 — 共享组件只负责纯 UI 渲染(react-native primitives + StyleSheet),所有平台依赖(i18n t / 数据 / 导航 / Alert/Confirm / API 调用)通过 props 回调注入。web 端通过 react-native-web 渲染,RN 端原生渲染,导航用 solito TextLink(onBack 不传时)或注入回调。
+
+**验证**:
+- packages/app typecheck exit 0 ✅
+- mobile-rn typecheck exit 0 ✅(含 SharedDemoScreen 新 props 契约)
+- web typecheck 仅其他 agent `packages/auth/src/oauth2.ts` unref 错(本任务 solito-demo/page.tsx 0 错)✅
+
+**数据丢失事故**:本任务首轮改动(types.ts / nativewind-env.d.ts + 3 组件重写 + RN wrappers + web demo)被其他 agent 的 git 操作抹除(types.ts/nativewind-env.d.ts MISSING,3 组件回退到 PoC 旧版)。本轮基于 summary 重建并立即 commit + push,避免再被抹除。教训:多 agent 并行时,未 commit 的改动随时可能被其他 agent 的 `git restore`/`clean -f`/`reset --hard` 抹除,完成即 commit。
+
+**Git 同步证据**(§21):
+- 本地 commit: `ff8883446`
+- origin commit: `ff8883446`
+- 同步状态: **local == remote ✅**
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅(pre-push typecheck 因其他 agent miniapp-taro refund.tsx + auth/oauth2.ts 失败,git-push-guard 自动 `--no-verify` 重试成功,§12 合法跳过)
 
 ### [x] ✅(2026-07-23) Wave 24c 测试覆盖深化 — 35 API 测试修复 + 7 ai-service router 测试套件 133 用例(跨端:api + ai-service)
 

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Card } from '@ihui/ui-native'
+import { ProfileScreen as SharedProfileScreen } from '@ihui/app'
+import type { SharedMenuSection } from '@ihui/app'
 import { getOrders, getUserStatistics, type UserStatistics } from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
@@ -11,6 +11,10 @@ import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
 
 type NavigationProp = NativeStackNavigationProp<ProfileStackParamList>
 
+/**
+ * RN 端 Profile 包装器 — 注入 t + 真实 API 数据(user/stats/orderCount)+ 导航回调,
+ * 渲染共享 ProfileScreen。menuSections 从本地 profileMenuData 映射为共享契约格式。
+ */
 export function ProfileScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
@@ -34,7 +38,7 @@ export function ProfileScreen() {
       if (statsRes.success) setStats(statsRes.data)
       if (orderRes.success) setOrderCount(orderRes.data.total)
       if (!statsRes.success && !orderRes.success) {
-        setError(statsRes.error || orderRes.error || t('common.networkError'))
+        setError(statsRes.error || orderRes.error || t('error.network'))
       }
       setLoading(false)
     })()
@@ -51,110 +55,39 @@ export function ProfileScreen() {
     }
   }
 
-  if (loading) {
-    return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator />
-      </View>
-    )
-  }
+  const menuSections: SharedMenuSection[] = MENU_SECTIONS.map((section) => ({
+    title: t(section.titleKey),
+    items: section.items.map((m) => ({
+      key: m.key,
+      label: t(m.labelKey),
+      icon: m.icon,
+    })),
+  }))
 
   return (
-    <ScrollView
-      className="flex-1 bg-white dark:bg-black"
-      contentContainerStyle={{ paddingBottom: 32 }}
-    >
-      <View className="px-4 pt-12 pb-4">
-        <Text className="text-2xl font-semibold text-neutral-900 dark:text-neutral-50">
-          {t('profile.title')}
-        </Text>
-      </View>
-
-      <View className="px-4">
-        <Card>
-          <Text className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-            {user?.nickname || user?.phone || t('profile.notLoggedIn')}
-          </Text>
-          {user?.id ? <Text className="mt-1 text-xs text-neutral-500">ID: {user.id}</Text> : null}
-          <View className="mt-3 flex-row items-center gap-3">
-            <View className="rounded-md bg-emerald-50 px-3 py-1.5">
-              <Text className="text-[10px] text-emerald-700">{t('profile.points')}</Text>
-              <Text className="text-sm font-semibold text-emerald-700">{stats?.points ?? 0}</Text>
-            </View>
-            <View className="rounded-md bg-blue-50 px-3 py-1.5">
-              <Text className="text-[10px] text-blue-700">{t('profile.studyHours')}</Text>
-              <Text className="text-sm font-semibold text-blue-700">{stats?.studyHours ?? 0}</Text>
-            </View>
-          </View>
-        </Card>
-      </View>
-
-      {error ? (
-        <View className="px-4 py-2">
-          <Text className="text-sm text-red-600">{error}</Text>
-        </View>
-      ) : null}
-
-      <View className="px-4 mt-4">
-        <Text className="mb-2 text-base font-semibold text-neutral-900 dark:text-neutral-50">
-          {t('profile.statistics')}
-        </Text>
-        <Card>
-          <View className="flex-row justify-between">
-            <View className="items-center">
-              <Text className="text-lg font-semibold text-neutral-900">
-                {stats?.courseCount ?? 0}
-              </Text>
-              <Text className="text-[10px] text-neutral-500">{t('profile.courseCount')}</Text>
-            </View>
-            <View className="items-center">
-              <Text className="text-lg font-semibold text-neutral-900">{orderCount}</Text>
-              <Text className="text-[10px] text-neutral-500">{t('nav.orders')}</Text>
-            </View>
-            <View className="items-center">
-              <Text className="text-lg font-semibold text-neutral-900">
-                {stats?.favoriteCount ?? 0}
-              </Text>
-              <Text className="text-[10px] text-neutral-500">{t('profile.favoriteCount')}</Text>
-            </View>
-          </View>
-        </Card>
-      </View>
-
-      {MENU_SECTIONS.map((section) => (
-        <View key={section.titleKey} className="mt-4 px-4">
-          <Text className="mb-2 text-xs font-semibold uppercase text-neutral-500">
-            {t(section.titleKey)}
-          </Text>
-          <View className="rounded-lg bg-neutral-50 dark:bg-neutral-900 p-1">
-            {section.items.map((m) => (
-              <TouchableOpacity
-                key={m.key}
-                onPress={() => onNavigate(m)}
-                activeOpacity={0.7}
-                className="p-3"
-              >
-                <View className="flex-row items-center">
-                  <Text className="text-lg">{m.icon}</Text>
-                  <Text className="ml-3 flex-1 text-sm text-neutral-900 dark:text-neutral-50">
-                    {t(m.labelKey)}
-                  </Text>
-                  <Text className="text-neutral-400">›</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      ))}
-
-      <View className="mt-4 px-4">
-        <TouchableOpacity
-          onPress={() => void logout()}
-          className="rounded-lg border border-red-200 bg-red-50 p-3"
-        >
-          <Text className="text-center text-sm text-red-600">{t('auth.logout')}</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+    <SharedProfileScreen
+      t={t}
+      user={
+        user
+          ? {
+              id: user.id,
+              nickname: user.nickname,
+              avatar: user.avatar ?? null,
+              email: user.email,
+              phone: user.phone,
+            }
+          : null
+      }
+      stats={stats}
+      orderCount={orderCount}
+      loading={loading}
+      error={error}
+      menuSections={menuSections}
+      onNavigate={(key) => {
+        const item = MENU_SECTIONS.flatMap((s) => s.items).find((m) => m.key === key)
+        if (item) onNavigate(item)
+      }}
+      onLogout={() => void logout()}
+    />
   )
 }
