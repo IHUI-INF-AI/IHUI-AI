@@ -27,8 +27,12 @@ import {
   deleteInvoiceApplication,
   findInvoiceApplications,
 } from '../db/order-queries.js'
+import { eq, sql, gte, desc, inArray } from 'drizzle-orm'
+import { db, dbRead } from '../db/index.js'
+import { eduOrders, eduRefunds, users } from '@ihui/database'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { completeOrderWithSaga } from '../services/order-service.js'
+import { logAction } from '../services/audit-service.js'
 
 const ADMIN_ROLE_ID = 1
 
@@ -145,6 +149,10 @@ const invoiceAppStatusSchema = z.object({
 const completeOrderSagaSchema = z.object({
   orderNo: z.string().min(1).max(64),
   tradeNo: z.string().max(128).optional(),
+})
+
+const batchCancelSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1, '至少选择 1 条').max(100, '单次最多 100 条'),
 })
 
 // =============================================================================
@@ -659,7 +667,139 @@ export const adminOrderRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const result = await findOrders(parsed.data)
-      return reply.send(success(result))
+      const userIds = [...new Set(result.list.map((o) => o.userId))]
+      const userMap = new Map<string, { nickname: string | null; avatar: string | null }>()
+      if (userIds.length > 0) {
+        const userRows = await dbRead
+          .select({ id: users.id, nickname: users.nickname, avatar: users.avatar })
+          .from(users)
+          .where(inArray(users.id, userIds))
+        for (const u of userRows) userMap.set(u.id, { nickname: u.nickname, avatar: u.avatar })
+      }
+      const list = result.list.map((o) => ({
+        ...o,
+        author: userMap.get(o.userId)?.nickname ?? null,
+        authorAvatar: userMap.get(o.userId)?.avatar ?? null,
+      }))
+      return reply.send(success({ ...result, list }))
+    },
+  )
+
+  // GET /admin/orders/stats — 订单统计聚合
+  server.get(
+    '/orders/stats',
+    { schema: { summary: '订单统计聚合', tags: ['order'], response: okResponse } },
+    async (_request, reply) => {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000)
+      const [statusRows, revenueRow, refundRow, dailyRows, top5] = await Promise.all([
+        dbRead
+          .select({ status: eduOrders.status, count: sql<number>`count(*)::int` })
+          .from(eduOrders)
+          .groupBy(eduOrders.status),
+        dbRead
+          .select({ total: sql<string>`coalesce(sum(${eduOrders.payAmount}), 0)` })
+          .from(eduOrders)
+          .where(eq(eduOrders.status, 'paid')),
+        dbRead
+          .select({ total: sql<string>`coalesce(sum(${eduRefunds.refundAmount}), 0)` })
+          .from(eduRefunds)
+          .where(eq(eduRefunds.status, 'completed')),
+        dbRead
+          .select({
+            date: sql<string>`to_char(${eduOrders.createdAt}, 'YYYY-MM-DD')`,
+            count: sql<number>`count(*)::int`,
+            revenue: sql<string>`coalesce(sum(${eduOrders.payAmount}), 0)`,
+          })
+          .from(eduOrders)
+          .where(gte(eduOrders.createdAt, sevenDaysAgo))
+          .groupBy(sql`to_char(${eduOrders.createdAt}, 'YYYY-MM-DD')`)
+          .orderBy(sql`to_char(${eduOrders.createdAt}, 'YYYY-MM-DD')`),
+        dbRead
+          .select({
+            id: eduOrders.id,
+            orderNo: eduOrders.orderNo,
+            targetTitle: eduOrders.targetTitle,
+            payAmount: eduOrders.payAmount,
+            status: eduOrders.status,
+          })
+          .from(eduOrders)
+          .orderBy(desc(eduOrders.payAmount))
+          .limit(5),
+      ])
+
+      const byStatus: Record<string, number> = {}
+      let totalCount = 0
+      for (const r of statusRows) {
+        byStatus[r.status] = r.count
+        totalCount += r.count
+      }
+
+      return reply.send(
+        success({
+          totalCount,
+          paidCount: byStatus['paid'] ?? 0,
+          pendingCount: byStatus['pending'] ?? 0,
+          cancelledCount: byStatus['cancelled'] ?? 0,
+          refundedCount: byStatus['refunded'] ?? 0,
+          byStatus,
+          totalRevenue: revenueRow[0]?.total ?? '0',
+          totalRefundAmount: refundRow[0]?.total ?? '0',
+          daily: dailyRows,
+          top5,
+        }),
+      )
+    },
+  )
+
+  // POST /admin/orders/batch-cancel — 批量取消(仅 pending 可取消)
+  server.post(
+    '/orders/batch-cancel',
+    {
+      schema: {
+        summary: '批量取消订单',
+        tags: ['order'],
+        body: { type: 'object', additionalProperties: true },
+        response: okResponse,
+      },
+    },
+    async (request, reply) => {
+      const body = batchCancelSchema.safeParse(request.body)
+      if (!body.success) {
+        return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { ids } = body.data
+      const fetched = await dbRead
+        .select({ id: eduOrders.id, status: eduOrders.status })
+        .from(eduOrders)
+        .where(inArray(eduOrders.id, ids))
+      const foundMap = new Map(fetched.map((o) => [o.id, o]))
+      const cancellableIds: string[] = []
+      const skipped: Array<{ id: string; reason: string }> = []
+      for (const id of ids) {
+        const o = foundMap.get(id)
+        if (!o) {
+          skipped.push({ id, reason: '订单不存在' })
+          continue
+        }
+        if (o.status !== 'pending') {
+          skipped.push({ id, reason: `状态 ${o.status} 不可取消` })
+          continue
+        }
+        cancellableIds.push(id)
+      }
+      if (cancellableIds.length > 0) {
+        await db
+          .update(eduOrders)
+          .set({ status: 'cancelled', cancelTime: new Date(), updatedAt: new Date() })
+          .where(inArray(eduOrders.id, cancellableIds))
+      }
+      await logAction({
+        userId: request.userId,
+        action: 'order.batch_cancel',
+        resourceType: 'order',
+        details: { requested: ids.length, cancelled: cancellableIds.length, skipped },
+      })
+      return reply.send(success({ cancelled: cancellableIds.length, skipped }))
     },
   )
 
