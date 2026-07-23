@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native'
+import { TextLink } from 'solito/link'
 
 interface ProfileScreenProps {
   /** 用户昵称(表单初始值) */
@@ -53,7 +54,11 @@ export function ProfileScreen({ name, email, phone, onBack, onSave }: ProfileScr
           <TouchableOpacity style={styles.backButton} onPress={onBack}>
             <Text style={styles.backButtonText}>← 返回</Text>
           </TouchableOpacity>
-        ) : null}
+        ) : (
+          <TextLink href="/" textProps={{ style: styles.backButtonText }}>
+            ← 返回
+          </TextLink>
+        )}
         <Text style={styles.title}>个人资料</Text>
       </View>
 
