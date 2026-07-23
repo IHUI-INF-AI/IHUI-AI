@@ -1470,7 +1470,8 @@
       "invokePlaceholderRequirements": "例如:登录页 HTML,极简风格",
       "invokeMissingVariable": "请填写必填参数",
       "invokeError": "调用失败",
-      "comingSoonHint": "该 skill 即将上线,可访问 GitHub 了解详情"
+      "comingSoonHint": "该 skill 即将上线,可访问 GitHub 了解详情",
+      "viewAll": "查看全部"
     },
     "tpl": {
       "email": {
@@ -8599,7 +8600,9 @@
       "current": "当前设备",
       "loginTime": "登录时间",
       "lastActive": "最近活跃",
-      "remove": "踢下线"
+      "remove": "踢下线",
+      "lastLoginLabel": "最近登录",
+      "manage": "管理设备"
     },
     "ip": {
       "title": "IP 白名单",
@@ -8616,7 +8619,8 @@
       "location": "位置",
       "status": "状态",
       "success": "成功",
-      "failed": "失败"
+      "failed": "失败",
+      "viewAll": "查看全部"
     },
     "score": {
       "title": "安全评分",
@@ -8630,7 +8634,9 @@
       "title": "会话管理",
       "empty": "暂无在线会话",
       "current": "当前会话",
-      "end": "结束"
+      "end": "结束",
+      "activeCount": "{count} 个活跃会话",
+      "manage": "管理会话"
     },
     "twofa": {
       "title": "双因素认证",
@@ -28681,5 +28687,49 @@
     "toolCalls": "次",
     "noToolCalls": "暂无工具调用",
     "operationInProgress": "操作中..."
+  },
+  "aiSkillsPage": {
+    "title": "AI Skills TOP",
+    "subtitle": "精选 CODEX 自媒体必装 + GitHub 本周热门 AI 技能合集",
+    "tabAll": "全部",
+    "tabAvailable": "已上线",
+    "tabComingSoon": "即将上线",
+    "searchPlaceholder": "搜索技能名称、描述或标签…",
+    "viewDetail": "查看详情",
+    "loading": "加载中…",
+    "loadFailed": "加载 AI Skills 失败",
+    "empty": "没有匹配的 AI Skill",
+    "totalCount": "共 {total} 个技能,{available} 个已上线",
+    "availableCount": "已上线 {count}",
+    "comingCount": "即将上线 {count}",
+    "categoryCode": "代码类",
+    "categoryMedia": "媒体类",
+    "categoryAiTop": "AI 热门"
+  },
+  "aiSkillDetail": {
+    "backToList": "返回列表",
+    "notFound": "未找到该 AI Skill",
+    "sectionMeta": "元数据",
+    "sectionInvoke": "在线调用",
+    "invokeButton": "调用",
+    "invokeRunning": "调用中…",
+    "invokeError": "调用失败",
+    "invokeMissingVariable": "请填写必填参数",
+    "inputContent": "原文",
+    "inputStyle": "目标风格",
+    "inputRequirements": "需求描述",
+    "inputTopic": "主题",
+    "placeholderContent": "把以下文本改写为目标风格…",
+    "placeholderStyle": "例如:幽默、专业、文艺、口语化",
+    "placeholderRequirements": "例如:登录页 HTML,极简风格",
+    "placeholderTopic": "例如:小红书 5 个拍照姿势",
+    "result": "调用结果",
+    "resultEmpty": "（无返回内容）",
+    "fillToChat": "填入对话",
+    "comingSoonTitle": "该技能即将上线",
+    "comingSoonHint": "该 skill 尚未接入本平台,可访问 GitHub 了解详情,或等待下一批集成",
+    "openGitHub": "打开 GitHub",
+    "statusAvailable": "已上线",
+    "statusComingSoon": "即将上线"
   }
 }

@@ -1470,7 +1470,8 @@
       "invokePlaceholderRequirements": "例如:登入頁 HTML,極簡風格",
       "invokeMissingVariable": "請填寫必填參數",
       "invokeError": "呼叫失敗",
-      "comingSoonHint": "該 skill 即將上線,可前往 GitHub 了解詳情"
+      "comingSoonHint": "該 skill 即將上線,可前往 GitHub 了解詳情",
+      "viewAll": "查看全部"
     },
     "tpl": {
       "email": {
@@ -8583,7 +8584,9 @@
       "current": "當前設備",
       "loginTime": "登入時間",
       "lastActive": "最近活躍",
-      "remove": "踢下線"
+      "remove": "踢下線",
+      "lastLoginLabel": "最近登入",
+      "manage": "管理裝置"
     },
     "ip": {
       "title": "IP 白名單",
@@ -8600,7 +8603,8 @@
       "location": "位置",
       "status": "狀態",
       "success": "成功",
-      "failed": "失敗"
+      "failed": "失敗",
+      "viewAll": "查看全部"
     },
     "score": {
       "title": "安全評分",
@@ -8614,7 +8618,9 @@
       "title": "會話管理",
       "empty": "暫無在線會話",
       "current": "當前會話",
-      "end": "結束"
+      "end": "結束",
+      "activeCount": "{count} 個活躍會話",
+      "manage": "管理會話"
     },
     "twofa": {
       "title": "雙因素認證",
@@ -28678,5 +28684,49 @@
     "toolCalls": "次",
     "noToolCalls": "暫無工具呼叫",
     "operationInProgress": "操作中..."
+  },
+  "aiSkillsPage": {
+    "title": "AI Skills TOP",
+    "subtitle": "精選 CODEX 自媒體必裝 + GitHub 本週熱門 AI 技能合輯",
+    "tabAll": "全部",
+    "tabAvailable": "已上線",
+    "tabComingSoon": "即將上線",
+    "searchPlaceholder": "搜尋技能名稱、描述或標籤…",
+    "viewDetail": "查看詳情",
+    "loading": "載入中…",
+    "loadFailed": "載入 AI Skills 失敗",
+    "empty": "沒有符合的 AI Skill",
+    "totalCount": "共 {total} 個技能,{available} 個已上線",
+    "availableCount": "已上線 {count}",
+    "comingCount": "即將上線 {count}",
+    "categoryCode": "程式類",
+    "categoryMedia": "媒體類",
+    "categoryAiTop": "AI 熱門"
+  },
+  "aiSkillDetail": {
+    "backToList": "返回列表",
+    "notFound": "找不到此 AI Skill",
+    "sectionMeta": "元資料",
+    "sectionInvoke": "線上呼叫",
+    "invokeButton": "呼叫",
+    "invokeRunning": "呼叫中…",
+    "invokeError": "呼叫失敗",
+    "invokeMissingVariable": "請填寫必填參數",
+    "inputContent": "原文",
+    "inputStyle": "目標風格",
+    "inputRequirements": "需求描述",
+    "inputTopic": "主題",
+    "placeholderContent": "將以下文字改寫為目標風格…",
+    "placeholderStyle": "例如:幽默、專業、文藝",
+    "placeholderRequirements": "例如:登入頁 HTML,極簡風格",
+    "placeholderTopic": "例如:小紅書 5 個拍照姿勢",
+    "result": "呼叫結果",
+    "resultEmpty": "（無回傳內容）",
+    "fillToChat": "填入對話",
+    "comingSoonTitle": "該技能即將上線",
+    "comingSoonHint": "該 skill 尚未接入本平台,可前往 GitHub 了解詳情,或等待下一批整合",
+    "openGitHub": "開啟 GitHub",
+    "statusAvailable": "已上線",
+    "statusComingSoon": "即將上線"
   }
 }

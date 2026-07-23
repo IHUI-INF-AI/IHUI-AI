@@ -2,43 +2,36 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { History, Loader2 } from 'lucide-react'
+import Link from 'next/link'
+import { History, Loader2, ChevronRight } from 'lucide-react'
 
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
 import { fetchApi } from '@/lib/api'
+import { buildQs, type PageData } from '@/lib/edu'
 
-interface LoginRecord {
+interface SecurityLogItem {
   id: string
   time: string
   ip: string
   device: string
-  location: string
+  event: string
   status: 'success' | 'failed'
 }
 
-/**
- * 登录历史：时间 / IP / 设备 / 位置 / 状态。
- */
+/** 登录历史概览：显示最近一条登录记录，点击进入完整安全日志页面。 */
 export function LoginHistory() {
   const t = useTranslations('settings')
-  const [records, setRecords] = React.useState<LoginRecord[]>([])
+  const [recent, setRecent] = React.useState<SecurityLogItem | null>(null)
   const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
-    void fetchApi<LoginRecord[]>('/api/user/login-history')
+    fetchApi<PageData<SecurityLogItem>>(
+      '/settings/security-logs' + buildQs({ page: 1, pageSize: 1 }),
+    )
       .then((res) => {
-        if (res.success && res.data) setRecords(res.data)
+        if (res.success && res.data.list?.length > 0) {
+          setRecent(res.data.list[0] ?? null)
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -54,46 +47,29 @@ export function LoginHistory() {
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="flex justify-center py-6">
+          <div className="flex justify-center py-4">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
-        ) : records.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">{t('history.empty')}</p>
+        ) : recent ? (
+          <Link
+            href="/settings/security-log"
+            className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-accent"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-muted-foreground">{recent.time}</p>
+              <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                <span className="font-mono">{recent.ip}</span>
+                <span className="text-border">·</span>
+                <span>{recent.device}</span>
+              </p>
+            </div>
+            <span className="flex items-center gap-1 text-sm font-medium text-primary">
+              {t('history.viewAll')}
+              <ChevronRight className="h-4 w-4" />
+            </span>
+          </Link>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('history.time')}</TableHead>
-                  <TableHead>IP</TableHead>
-                  <TableHead>{t('history.device')}</TableHead>
-                  <TableHead>{t('history.location')}</TableHead>
-                  <TableHead>{t('history.status')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="whitespace-nowrap text-xs">{r.time}</TableCell>
-                    <TableCell className="font-mono text-xs">{r.ip}</TableCell>
-                    <TableCell className="text-xs">{r.device}</TableCell>
-                    <TableCell className="text-xs">{r.location}</TableCell>
-                    <TableCell>
-                      <span
-                        className={
-                          r.status === 'success'
-                            ? 'rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-600'
-                            : 'rounded bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive'
-                        }
-                      >
-                        {r.status === 'success' ? t('history.success') : t('history.failed')}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+          <p className="py-4 text-center text-sm text-muted-foreground">{t('history.empty')}</p>
         )}
       </CardContent>
     </Card>

@@ -1470,7 +1470,8 @@
       "invokePlaceholderRequirements": "예: 로그인 페이지 HTML, 미니멀",
       "invokeMissingVariable": "필수 매개변수를 입력하세요",
       "invokeError": "호출 실패",
-      "comingSoonHint": "이 skill은 곧 출시됩니다. GitHub에서 자세한 내용을 확인하세요."
+      "comingSoonHint": "이 skill은 곧 출시됩니다. GitHub에서 자세한 내용을 확인하세요.",
+      "viewAll": "전체 보기"
     },
     "tpl": {
       "email": {
@@ -8285,7 +8286,9 @@
       "current": "현재 기기",
       "loginTime": "로그인 시간",
       "lastActive": "마지막 활동",
-      "remove": "로그아웃"
+      "remove": "로그아웃",
+      "lastLoginLabel": "최근 로그인",
+      "manage": "관리"
     },
     "ip": {
       "title": "IP 화이트리스트",
@@ -8302,7 +8305,8 @@
       "location": "장소",
       "status": "상태",
       "success": "성공",
-      "failed": "실패"
+      "failed": "실패",
+      "viewAll": "전체 보기"
     },
     "score": {
       "title": "보안 점수",
@@ -8316,7 +8320,9 @@
       "title": "세션 관리",
       "empty": "활성 세션이 없습니다",
       "current": "현재 세션",
-      "end": "종료"
+      "end": "종료",
+      "activeCount": "{count}개 활성 세션",
+      "manage": "관리"
     },
     "twofa": {
       "title": "2단계 인증",
@@ -28676,5 +28682,49 @@
     "toolCalls": "회",
     "noToolCalls": "도구 호출 없음",
     "operationInProgress": "작업 중..."
+  },
+  "aiSkillsPage": {
+    "title": "AI Skills TOP",
+    "subtitle": "CODEX 셀프미디어 필수 + GitHub 주간 인기 AI 스킬 엄선 컬렉션",
+    "tabAll": "전체",
+    "tabAvailable": "출시됨",
+    "tabComingSoon": "곧 출시",
+    "searchPlaceholder": "스킬 이름, 설명 또는 태그 검색…",
+    "viewDetail": "상세 보기",
+    "loading": "로드 중…",
+    "loadFailed": "AI Skills 로드 실패",
+    "empty": "일치하는 AI Skill이 없습니다",
+    "totalCount": "총 {total}개 스킬, {available}개 출시됨",
+    "availableCount": "출시됨 {count}",
+    "comingCount": "곧 출시 {count}",
+    "categoryCode": "코드",
+    "categoryMedia": "미디어",
+    "categoryAiTop": "AI 인기"
+  },
+  "aiSkillDetail": {
+    "backToList": "목록으로",
+    "notFound": "AI Skill을 찾을 수 없습니다",
+    "sectionMeta": "메타데이터",
+    "sectionInvoke": "호출",
+    "invokeButton": "호출",
+    "invokeRunning": "실행 중…",
+    "invokeError": "호출 실패",
+    "invokeMissingVariable": "필수 항목을 입력하세요",
+    "inputContent": "내용",
+    "inputStyle": "목표 스타일",
+    "inputRequirements": "요구사항",
+    "inputTopic": "주제",
+    "placeholderContent": "다음 텍스트를 목표 스타일로 다시 쓰기…",
+    "placeholderStyle": "예: 유머러스, 전문적, 문학적",
+    "placeholderRequirements": "예: 미니멀 로그인 페이지 HTML",
+    "placeholderTopic": "예: 샤오홍슈 5가지 사진 포즈",
+    "result": "결과",
+    "resultEmpty": "(내용 없음)",
+    "fillToChat": "채팅에 채우기",
+    "comingSoonTitle": "이 스킬은 곧 출시됩니다",
+    "comingSoonHint": "이 스킬은 아직 플랫폼에 통합되지 않았습니다. GitHub에서 자세한 내용을 확인하거나 다음 통합 배치를 기다려 주세요.",
+    "openGitHub": "GitHub 열기",
+    "statusAvailable": "출시됨",
+    "statusComingSoon": "곧 출시"
   }
 }
