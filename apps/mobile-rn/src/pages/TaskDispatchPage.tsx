@@ -12,6 +12,8 @@ import {
 } from 'react-native'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import type {
+  TaskDevice,
+  TaskDeviceListResponse,
   TaskDispatch,
   TaskDispatchRequest,
   TaskDispatchResponse,
@@ -25,12 +27,6 @@ import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TaskDispatch'>
-
-const DEVICES = [
-  { key: 'desktop', label: '桌面端' },
-  { key: 'web', label: '网页端' },
-  { key: 'cloud', label: '云端' },
-] as const
 
 const STATUS_META: Record<TaskStatus, { label: string; badge: string }> = {
   pending: { label: '待执行', badge: 'bg-gray-100 text-gray-600' },
@@ -51,10 +47,6 @@ function formatTime(iso: string): string {
   } catch {
     return iso
   }
-}
-
-function deviceLabel(key: string): string {
-  return DEVICES.find((d) => d.key === key)?.label || key
 }
 
 /** 统一走 { code, message, data } 格式,返回 data 字段 */
@@ -80,7 +72,8 @@ async function apiData<T>(path: string, init?: RequestInit): Promise<T | null> {
 export function TaskDispatchPage(_: Props) {
   const { token } = useAuth()
   const [command, setCommand] = useState('')
-  const [toDevice, setToDevice] = useState<string>('desktop')
+  const [toDevice, setToDevice] = useState<string>('')
+  const [devices, setDevices] = useState<TaskDevice[]>([])
   const [tasks, setTasks] = useState<TaskDispatch[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -98,9 +91,26 @@ export function TaskDispatchPage(_: Props) {
     setTasks(list)
   }, [])
 
+  const loadDevices = useCallback(async () => {
+    const data = await apiData<TaskDeviceListResponse>('/api/tasks/devices')
+    if (!data) {
+      setError('加载设备失败')
+      return
+    }
+    const list = Array.isArray(data.devices) ? data.devices : []
+    setDevices(list)
+    // 若当前选中设备失效或未选,自动选中第一个 online 设备
+    setToDevice((prev) => {
+      const stillValid = !!prev && list.some((d) => d.deviceId === prev)
+      if (stillValid) return prev
+      const firstOnline = list.find((d) => d.online)
+      return firstOnline?.deviceId || list[0]?.deviceId || ''
+    })
+  }, [])
+
   useEffect(() => {
-    loadTasks().finally(() => setLoading(false))
-  }, [loadTasks])
+    Promise.all([loadTasks(), loadDevices()]).finally(() => setLoading(false))
+  }, [loadTasks, loadDevices])
 
   // WebSocket 实时监听 task-result / task-progress 频道
   useEffect(() => {
@@ -153,13 +163,17 @@ export function TaskDispatchPage(_: Props) {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
-    await loadTasks()
+    await Promise.all([loadTasks(), loadDevices()])
     setRefreshing(false)
-  }, [loadTasks])
+  }, [loadTasks, loadDevices])
 
   const onSend = useCallback(async () => {
     const cmd = command.trim()
     if (!cmd || sending) return
+    if (!toDevice) {
+      setError('请先选择设备')
+      return
+    }
     setSending(true)
     setError('')
     const body: TaskDispatchRequest = { toDevice, command: cmd }
@@ -178,6 +192,11 @@ export function TaskDispatchPage(_: Props) {
 
   const canSend = !sending && command.trim().length > 0
 
+  const deviceName = useCallback(
+    (deviceId: string) => devices.find((d) => d.deviceId === deviceId)?.name || deviceId,
+    [devices],
+  )
+
   return (
     <View className="flex-1 bg-gray-50">
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
@@ -193,17 +212,27 @@ export function TaskDispatchPage(_: Props) {
             style={{ minHeight: 72, textAlignVertical: 'top' }}
           />
           <View className="mt-3 flex-row flex-wrap items-center gap-2">
-            {DEVICES.map((d) => (
-              <Pressable
-                key={d.key}
-                onPress={() => setToDevice(d.key)}
-                className={`rounded-md px-3 py-1.5 ${toDevice === d.key ? 'bg-gray-900' : 'bg-gray-100'}`}
-              >
-                <Text className={`text-xs ${toDevice === d.key ? 'text-white' : 'text-gray-600'}`}>
-                  {d.label}
-                </Text>
-              </Pressable>
-            ))}
+            {devices.length === 0 ? (
+              <Text className="text-xs text-gray-400">暂无在线设备</Text>
+            ) : (
+              devices.map((d) => {
+                const selected = toDevice === d.deviceId
+                return (
+                  <Pressable
+                    key={d.deviceId}
+                    onPress={() => setToDevice(d.deviceId)}
+                    className={`flex-row items-center gap-1.5 rounded-md px-3 py-1.5 ${selected ? 'bg-gray-900' : 'bg-gray-100'}`}
+                  >
+                    <View
+                      className={`h-2 w-2 rounded-full ${d.online ? 'bg-green-500' : 'bg-gray-300'}`}
+                    />
+                    <Text className={`text-xs ${selected ? 'text-white' : 'text-gray-600'}`}>
+                      {d.name}
+                    </Text>
+                  </Pressable>
+                )
+              })
+            )}
             <Pressable
               onPress={onSend}
               disabled={!canSend}
@@ -243,7 +272,7 @@ export function TaskDispatchPage(_: Props) {
                     </View>
                   </View>
                   <View className="mt-2 flex-row items-center gap-3">
-                    <Text className="text-xs text-gray-500">{`目标: ${deviceLabel(item.toDevice)}`}</Text>
+                    <Text className="text-xs text-gray-500">{`目标: ${deviceName(item.toDevice)}`}</Text>
                     <Text className="text-xs text-gray-400">{formatTime(item.createdAt)}</Text>
                   </View>
                   {item.result?.output ? (
