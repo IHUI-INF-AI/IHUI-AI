@@ -12,6 +12,8 @@
     "core:window:allow-set-focus",
     "deep-link:default",
     "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
     "autostart:default",
     "global-shortcut:default",
     {

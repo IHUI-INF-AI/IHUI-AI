@@ -9,9 +9,10 @@ P3-2 扩展:SkillEvolutionService.evaluate 增加自动测试 + 质量门(通过
 
 2026-07-23 扩展:Skill dataclass 增加 icon/category/tags/source/sourceUrl/available
 扩展字段,新增 19 个 AI Skills TOP(CODEX 自媒体 + GitHub 热门合集),供前端
-SkillLibrary 弹窗 ai-skills tab 展示,3 个真集成(nuwa-skill / hugshu-design /
-guizang-ppt-skill),其余 16 个以元数据 + GitHub 链接占位,后续按需逐个实装。
-"""
+SkillLibrary 弹窗 ai-skills tab 展示,10 个真集成(nuwa-skill / hugshu-design /
+auto-redbook-skills / guizang-ppt-skill / superpowers / caveman / graphify /
+agent-skills / awesome-claude-skills / taste-skill),其余 9 个以元数据 +
+GitHub 链接占位,后续按需逐个实装。"""
 from __future__ import annotations  # 2026-07-23:SkillRegistry.list() 方法名 shadow 内置 list,注解 lazy 化避免 class body 内 list[Skill] 求值失败
 
 import json
@@ -232,68 +233,181 @@ _AI_TOP_SKILLS: list[Skill] = [
     Skill(
         name="superpowers",
         description="AI 从聊天框变成可复用工作流(248k stars, Shell)",
-        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        prompt_template=(
+            "你是一名工作流设计专家。请将以下任务拆解为可执行的工作流步骤,"
+            "每步明确输入、产出、依赖关系,适合直接交给 AI Agent 按序执行。\n\n"
+            "任务: {task}\n\n"
+            "输出 JSON 数组(不要 markdown 包裹),每步结构:\n"
+            '{"step": 1, "name": "步骤名", "input": "输入", '
+            '"output": "产出", "dependsOn": [前序 step 号], "tool": "可选工具"}\n\n'
+            "约束:\n"
+            "1. 步骤数控制在 3-10 步\n"
+            "2. 每步必须可单独执行,不要笼统的'开发'/'测试'\n"
+            "3. 依赖关系要明确(dependsOn)\n"
+            "4. 失败回退步骤用 step=0 标注(回滚/清理)"
+        ),
         icon="zap",
         category="ai-top",
         tags=["工作流", "Shell", "开源"],
         source="ai-top",
         source_url="https://github.com/obra/superpowers",
-        available=False,
+        available=True,  # 真集成:llm_gateway 工作流拆解
     ),
     Skill(
         name="caveman",
         description="让 Claude Code 用更少 token 做事(81k stars, JavaScript)",
-        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        prompt_template=(
+            "你是一名文本压缩专家。请将以下文本压缩到原字数的 50% 左右,"
+            "保留全部核心信息,删除冗余修饰、重复说明、空话套话。\n\n"
+            "原文:\n{text}\n\n"
+            "要求:\n"
+            "1. 压缩后字数控制在原文的 45%-55% 之间\n"
+            "2. 保留所有数字、专有名词、关键结论\n"
+            "3. 删除'在这个时代'/'让我们一起'/'总而言之'等空话\n"
+            "4. 保留原始段落顺序与逻辑关系\n"
+            "5. 只输出压缩后的文本,不要加'压缩后:'之类前缀"
+        ),
         icon="cpu",
         category="ai-top",
         tags=["节省 token", "JavaScript", "Claude"],
         source="ai-top",
         source_url="https://github.com/NkxxkN/caveman",
-        available=False,
+        available=True,  # 真集成:llm_gateway 文本压缩
     ),
     Skill(
         name="graphify",
         description="把代码、文档变成 AI 可查知识图谱(75k stars, Python)",
-        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        prompt_template=(
+            "你是一名知识图谱构建专家。请从以下文本中提取实体(Entities)"
+            "和实体间关系(Relations),输出结构化 JSON 知识图谱。\n\n"
+            "文本:\n{text}\n\n"
+            "输出 JSON(不要 markdown 包裹),严格遵循以下结构:\n"
+            "{\n"
+            '  "entities": [\n'
+            '    {"id": "e1", "name": "实体名", "type": "Person|Concept|Tool|Event|Place|Org", "attrs": {"key": "value"}}\n'
+            "  ],\n"
+            '  "relations": [\n'
+            '    {"from": "e1", "to": "e2", "type": "uses|creates|belongs_to|related_to|cites", "weight": 0.0-1.0}\n'
+            "  ]\n"
+            "}\n\n"
+            "约束:\n"
+            "1. 实体数量控制在 5-20 个,优先保留核心概念\n"
+            "2. 关系必须指向真实存在的实体 id\n"
+            "3. weight 表示关系强度(0-1)\n"
+            "4. attrs 仅放文本中明确出现的属性"
+        ),
         icon="git-branch",
         category="ai-top",
         tags=["知识图谱", "Python", "AI 可查"],
         source="ai-top",
         source_url="https://github.com/bartolli/graphify",
-        available=False,
+        available=True,  # 真集成:llm_gateway 实体关系抽取
     ),
     Skill(
         name="agent-skills",
         description="给 AI 编程助手装上工程能力(70k stars, Shell)",
-        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        prompt_template=(
+            "你是一名资深软件工程师 + 工程化顾问。请针对以下编程任务给出"
+            "工程化最佳实践建议,覆盖代码组织、测试、可观测性、CI/CD、"
+            "安全、可维护性 6 个维度。\n\n"
+            "任务: {task}\n"
+            "技术栈: {language}\n\n"
+            "输出 JSON(不要 markdown 包裹),结构:\n"
+            "{\n"
+            '  "codeStructure": {"建议": "...", "理由": "..."},\n'
+            '  "testing": {"建议": "...", "理由": "..."},\n'
+            '  "observability": {"建议": "...", "理由": "..."},\n'
+            '  "cicd": {"建议": "...", "理由": "..."},\n'
+            '  "security": {"建议": "...", "理由": "..."},\n'
+            '  "maintainability": {"建议": "...", "理由": "..."}\n'
+            "}\n\n"
+            "约束:\n"
+            "1. 每条建议必须可落地(具体到工具/库/命令)\n"
+            "2. 理由解释为什么这个建议对本任务有价值\n"
+            "3. 不要泛泛而谈'写好测试',要给出'用 pytest + factory_boy 写集成测试'\n"
+            "4. 优先给出开源免费工具"
+        ),
         icon="wrench",
         category="ai-top",
         tags=["工程", "Shell", "AI 编程"],
         source="ai-top",
         source_url="https://github.com/VoltAgent/agent-skills",
-        available=False,
+        available=True,  # 真集成:llm_gateway 工程化建议
     ),
     Skill(
         name="awesome-claude-skills",
         description="Claude Skills 入口目录,一次收藏(68k stars, Python)",
-        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        prompt_template=(
+            "你是 Skill 路由专家。请根据用户的输入,推荐最合适的 1-3 个 skill "
+            "来执行该任务,并说明推荐理由。\n\n"
+            "用户输入: {input}\n\n"
+            "可选 Skill 池:\n"
+            "- code-review: 代码审查\n"
+            "- debug-fix: 调试修复\n"
+            "- test-generator: 测试生成\n"
+            "- doc-writer: 文档撰写\n"
+            "- refactor-helper: 重构辅助\n"
+            "- api-designer: API 设计\n"
+            "- nuwa-skill: 图文改写(风格统一)\n"
+            "- hugshu-design: HTML/原型/PPT 设计\n"
+            "- auto-redbook-skills: 小红书文案\n"
+            "- guizang-ppt-skill: PPT 大纲\n"
+            "- superpowers: 工作流拆解\n"
+            "- caveman: 文本压缩\n"
+            "- graphify: 知识图谱\n"
+            "- agent-skills: 工程化建议\n"
+            "- taste-skill: 去模板味\n\n"
+            "输出 JSON(不要 markdown 包裹):\n"
+            "{\n"
+            '  "recommendations": [\n'
+            '    {"skill": "skill-name", "confidence": 0.0-1.0, "reason": "为什么推荐", "params": {"key": "value"}}\n'
+            "  ],\n"
+            '  "fallback": "若都不合适的兜底建议"\n'
+            "}\n\n"
+            "约束:\n"
+            "1. 推荐数量 1-3 个,按 confidence 降序\n"
+            "2. params 字段填入该 skill 实际需要的输入变量值\n"
+            "3. 若用户输入模糊,confidence 全部 < 0.5 并给出澄清问题"
+        ),
         icon="book-marked",
         category="ai-top",
         tags=["合集", "Claude", "目录"],
         source="ai-top",
         source_url="https://github.com/ComposioHQ/awesome-claude-skills",
-        available=False,
+        available=True,  # 真集成:llm_gateway 任务路由
     ),
     Skill(
         name="taste-skill",
         description="让 AI 少些模板味,多一点审美(52k stars, JavaScript)",
-        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        prompt_template=(
+            "你是一名有审美的文字编辑。请去除以下文本中的 AI 模板味,"
+            "替换为有温度、有节奏感的人话表达。\n\n"
+            "原文:\n{text}\n\n"
+            "需要替换的 AI 味词汇(高频,看到就改):\n"
+            "- 在这个时代 / 当今社会\n"
+            "- 让我们一起 / 让我们共同\n"
+            "- 总而言之 / 综上所述 / 不得不说\n"
+            "- 深入探讨 / 全面解析 / 详细解读\n"
+            "- 重要性不言而喻 / 值得我们关注\n"
+            "- 开启了新篇章 / 迈向了新台阶\n"
+            "- 众所周知 / 显而易见\n"
+            "- 赋能 / 抓手 / 闭环 / 链路\n"
+            "- 重磅 / 炸裂 / 绝绝子 / yyds\n\n"
+            "替换原则:\n"
+            "1. 用具体事实代替空话(原'在这个时代,AI 改变生活' → '去年 ChatGPT 上线后,"
+            "我发现自己查资料的方式变了')\n"
+            "2. 用主动句代替被动结构\n"
+            "3. 用短句代替长句(20 字以内的句子比例 ≥ 50%)\n"
+            "4. 允许口语化(我/你/咱们),禁止公文式表达\n"
+            "5. 保留原文核心信息和情绪基调\n\n"
+            "只输出去模板味后的文本,不加'改写后:'之类前缀"
+        ),
         icon="palette",
         category="ai-top",
         tags=["审美", "JavaScript", "去模板"],
         source="ai-top",
         source_url="https://github.com/rohitg00/taste-skill",
-        available=False,
+        available=True,  # 真集成:llm_gateway 去 AI 味
     ),
     Skill(
         name="obsidian-skills",
