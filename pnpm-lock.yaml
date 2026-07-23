@@ -472,6 +472,9 @@ importers:
       '@ihui/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@ihui/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@ihui/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -1144,6 +1147,8 @@ importers:
       typescript-eslint:
         specifier: ^8.18.0
         version: 8.63.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+
+  packages/i18n: {}
 
   packages/sdk:
     dependencies:
