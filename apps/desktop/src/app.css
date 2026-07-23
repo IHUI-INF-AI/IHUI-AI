@@ -526,6 +526,154 @@ textarea:focus {
   flex: 1;
 }
 
+/* ============== 附件 / 拖拽 ============== */
+
+.chat-list--drag-over {
+  outline: 2px dashed var(--accent, #4a90e2);
+  outline-offset: -4px;
+  background: var(--drag-bg, rgba(74, 144, 226, 0.04));
+}
+
+.empty-state-hint {
+  font-size: 12px;
+  color: var(--muted);
+  opacity: 0.7;
+  display: inline-block;
+  margin-top: 8px;
+}
+
+.attachment-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card-bg, rgba(0, 0, 0, 0.03));
+  max-width: 220px;
+}
+
+.attachment-thumb {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.attachment-file-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.attachment-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.attachment-name {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.attachment-size {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.attachment-remove {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.attachment-remove:hover:not(:disabled) {
+  color: var(--danger, #e25353);
+}
+
+.attachment-remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.attach-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 10px;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.attach-btn:hover:not(:disabled) {
+  background: var(--card-bg, rgba(0, 0, 0, 0.04));
+  color: var(--fg, inherit);
+}
+
+.attach-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 消息内附件渲染 */
+.msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.msg-attachment {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.msg-attachment-img {
+  max-width: 200px;
+  max-height: 200px;
+  display: block;
+}
+
+.msg-attachment-file {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px;
+  font-size: 12px;
+  min-width: 120px;
+}
+
+.msg-attachment-name {
+  font-weight: 500;
+}
+
+.msg-attachment-size {
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 2px;
+}
+
 /* ============== Profile ============== */
 .profile-grid {
   display: grid;
