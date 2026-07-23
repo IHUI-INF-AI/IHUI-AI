@@ -12,11 +12,17 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, waitFor, fireEvent } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
 
-const { apiMocks } = vi.hoisted(() => ({
+const { apiMocks, wechatPayMock } = vi.hoisted(() => ({
   apiMocks: {
     getPaymentOrders: vi.fn(),
     syncPaymentStatus: vi.fn(),
     cancelPaymentOrder: vi.fn(),
+    createWechatAppPayment: vi.fn(),
+  },
+  wechatPayMock: {
+    openWeChatPayment: vi.fn(),
+    registerWeChat: vi.fn(),
+    isWeChatInstalled: vi.fn(),
   },
 }))
 
@@ -24,7 +30,10 @@ vi.mock('@ihui/api-client', () => ({
   getPaymentOrders: apiMocks.getPaymentOrders,
   syncPaymentStatus: apiMocks.syncPaymentStatus,
   cancelPaymentOrder: apiMocks.cancelPaymentOrder,
+  createWechatAppPayment: apiMocks.createWechatAppPayment,
 }))
+
+vi.mock('../src/lib/wechat-pay', () => wechatPayMock)
 
 vi.mock('../src/i18n', () => {
   const t = (key: string) => key
@@ -223,10 +232,105 @@ describe('PaymentScreen 支付流程', () => {
       success: true,
       data: { list: [mockOrder({ status: 'paid' })], total: 1 },
     })
+
     const { queryByText } = render(<PaymentScreen />)
 
     await waitFor(() => expect(apiMocks.getPaymentOrders).toHaveBeenCalled())
     expect(queryByText('payment.syncStatus')).toBeNull()
     expect(queryByText('payment.cancelOrder')).toBeNull()
+  })
+
+  it('去支付:创建订单+调起微信支付成功,显示成功 toast 并刷新', async () => {
+    apiMocks.getPaymentOrders.mockResolvedValue({
+      success: true,
+      data: { list: [mockOrder()], total: 1 },
+    })
+    apiMocks.createWechatAppPayment.mockResolvedValue({
+      success: true,
+      data: {
+        outTradeNo: 'ORD-NEW',
+        prepayData: {
+          appid: 'wx85fa429a9331b5c8',
+          partnerid: '1714645682',
+          prepayid: 'wxprepayid',
+          package: 'Sign=WXPay',
+          noncestr: 'abc',
+          timestamp: '123',
+          sign: 'sig',
+        },
+      },
+    })
+    wechatPayMock.openWeChatPayment.mockResolvedValue(true)
+
+    const { getByText } = render(<PaymentScreen />)
+    await waitFor(() => expect(getByText('测试订单')).toBeTruthy())
+
+    fireEvent.click(getByText('payment.payNow'))
+    await waitFor(() =>
+      expect(apiMocks.createWechatAppPayment).toHaveBeenCalledWith({
+        amount: 9950,
+        description: '测试订单',
+      }),
+    )
+    await waitFor(() => expect(wechatPayMock.openWeChatPayment).toHaveBeenCalled())
+    await waitFor(() => expect(getByText('payment.paySuccess')).toBeTruthy())
+  })
+
+  it('去支付:用户取消支付,显示取消 toast', async () => {
+    apiMocks.getPaymentOrders.mockResolvedValue({
+      success: true,
+      data: { list: [mockOrder()], total: 1 },
+    })
+    apiMocks.createWechatAppPayment.mockResolvedValue({
+      success: true,
+      data: {
+        outTradeNo: 'ORD-NEW',
+        prepayData: {
+          appid: 'wx85fa429a9331b5c8',
+          partnerid: '1714645682',
+          prepayid: 'wxprepayid',
+          package: 'Sign=WXPay',
+          noncestr: 'abc',
+          timestamp: '123',
+          sign: 'sig',
+        },
+      },
+    })
+    wechatPayMock.openWeChatPayment.mockResolvedValue(false)
+
+    const { getByText } = render(<PaymentScreen />)
+    await waitFor(() => expect(getByText('测试订单')).toBeTruthy())
+
+    fireEvent.click(getByText('payment.payNow'))
+    await waitFor(() => expect(getByText('payment.payCancelled')).toBeTruthy())
+  })
+
+  it('去支付:微信未安装,显示未安装 toast', async () => {
+    apiMocks.getPaymentOrders.mockResolvedValue({
+      success: true,
+      data: { list: [mockOrder()], total: 1 },
+    })
+    apiMocks.createWechatAppPayment.mockResolvedValue({
+      success: true,
+      data: {
+        outTradeNo: 'ORD-NEW',
+        prepayData: {
+          appid: 'wx85fa429a9331b5c8',
+          partnerid: '1714645682',
+          prepayid: 'wxprepayid',
+          package: 'Sign=WXPay',
+          noncestr: 'abc',
+          timestamp: '123',
+          sign: 'sig',
+        },
+      },
+    })
+    wechatPayMock.openWeChatPayment.mockRejectedValue(new Error('WECHAT_NOT_INSTALLED'))
+
+    const { getByText } = render(<PaymentScreen />)
+    await waitFor(() => expect(getByText('测试订单')).toBeTruthy())
+
+    fireEvent.click(getByText('payment.payNow'))
+    await waitFor(() => expect(getByText('payment.wechatNotInstalled')).toBeTruthy())
   })
 })
