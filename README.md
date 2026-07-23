@@ -668,6 +668,30 @@ cd IHUI-AI && docker compose up -d
 - **web 端保持原状**:web 用 next-intl(587 namespace / 28,800 行 JSON),体积量级与 extension 差异 200×,强行统一会引入 next-intl 运行时依赖到 extension(浏览器扩展 WXT 0.19 不友好),保留双 runtime 但共享包可在未来扩展到 desktop 等端
 - **阶段 3(经评估暂不抽取)**:全量扫描 9 个 sidepanel 页面 + popup + content-toolbar,**0 个页面可抽取共享业务组件**。根因是技术栈分裂根本性(web: Next.js App Router + next-intl + zustand + react-query + shadcn vs extension: WXT + react-router-dom + 自研 Context + useState + 内联 CSSProperties),路由/i18n/状态/UI 4 个维度全部分裂。阶段 1+2 已消除最高频的"改一处同步两端"痛点,阶段 3 边际收益不显著,强行抽取会引入 4 套适配层复杂度。后续前置条件:需先做技术栈收敛(类似 Wave 21 阶段 2 的路线比选)
 
+### RN ↔ Web 跨端共享组件层(packages/app,2026-07-24 立)
+
+> React Native 与 Web 不再各自维护 About/Profile/Settings 三屏,改 props 注入式跨端共享组件,一处改、两端生效,杜绝 UI 双份维护漂移。基于 NativeWind + Solito 架构。
+
+- **共享包**:`packages/app/`(平台无关,只依赖 react-native primitives + StyleSheet + solito TextLink)
+- **共享组件**:3 个生产级跨端屏
+  - `AboutScreen` — 关于页(appInfo + onBack 注入)
+  - `ProfileScreen` — 个人资料页(user/stats/orderCount/loading/error/menuSections/onNavigate/onLogout/onBack 注入)
+  - `SettingsScreen` — 设置页(locale/theme/notifications/onChangePassword/onAlert/onConfirm/menuItems 等注入,内置密码修改 Modal + 校验)
+- **类型契约**:`packages/app/src/types.ts` 定义 TFunction / SharedUser / SharedUserStatistics / SharedMenuSection / SharedLocaleOption / SharedThemeOption / SharedNotificationToggles 等 12 个平台无关类型
+- **平台解耦设计**:共享组件只负责纯 UI 渲染,所有平台依赖通过 props 回调注入
+  - **i18n**:t 函数注入(RN 用自研 Context / web 用 next-intl 或 fallback)
+  - **数据**:user/stats/orderCount 注入(RN 用 @ihui/api-client / web 用 mock 或 react-query)
+  - **导航**:onBack/onNavigate 注入(RN 用 react-navigation / web 用 solito TextLink)
+  - **弹窗**:onAlert/onConfirm 注入(RN 用 Alert.alert / web 用自定义 Modal)
+  - **API**:onChangePassword 注入(RN 用 updatePassword / web 用 mock)
+- **RN 端 wrapper**(生产接入):
+  - `apps/mobile-rn/src/screens/AboutScreen.tsx` — 注入 t + navigation.goBack
+  - `apps/mobile-rn/src/screens/ProfileScreen.tsx` — 注入 t + 真实 getUserStatistics/getOrders API + 菜单导航(viaParent 处理)+ logout
+  - `apps/mobile-rn/src/screens/SettingsScreen.tsx` — 注入 t + Alert.alert + 真实 updatePassword API + 导航 + locale/theme/notifications 状态
+- **Web 端验证页**:`apps/web/app/(main)/solito-demo/page.tsx` — tab 切换展示 3 共享组件,用 mock 数据 + t fallback 函数
+- **i18n 5 语言补全**:`apps/mobile-rn/src/i18n/messages/{zh-CN,zh-TW,en,ko,ja}.ts` 扩展 settings namespace(notifPush/changePassword/pwd*/logoutConfirm 等 24 key)+ 新增 about/menu namespace(11 key)
+- **验证**:packages/app typecheck ✅ / mobile-rn typecheck(本任务文件 0 错)/ web typecheck(本任务文件 0 错)/ SharedDemoScreen RN 集成验证 / solito-demo web 集成验证
+
 ### 项目状态矩阵(透明标注,2026-07-22 核对)
 
 > **为什么公开标注各端完成度**:让 AI 检索工具和开发者拿到**真实**状态,而不是看到"8 端全覆盖"后去 grep 代码发现差异,从而判定"项目夸大宣传"。各端完成度不均是我们的现状,我们选择透明。
