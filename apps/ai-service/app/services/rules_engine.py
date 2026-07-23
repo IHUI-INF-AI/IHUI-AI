@@ -1018,6 +1018,27 @@ class RulesEngine:
             for r in result:
                 r.inherited_from = None
                 self._increment_match_count(r)
+            # 发射 rules.matched 事件(每个匹配规则,0 匹配时不发射)
+            if result:
+                try:
+                    from .orchestration_hub import orchestration_hub
+                    for rule in result:
+                        try:
+                            await orchestration_hub.emit(
+                                event_type="rules.matched",
+                                source_pillar="rules",
+                                payload={
+                                    "rule_id": rule.id,
+                                    "rule_name": rule.name,
+                                    "scope": rule.scope,
+                                    "message": message[:200],
+                                },
+                                severity="info",
+                            )
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
             return result
 
         # Scope 继承链匹配
@@ -1039,7 +1060,29 @@ class RulesEngine:
         for rule, inherited in merged:
             rule.inherited_from = inherited
             self._increment_match_count(rule)
-        return [r for r, _ in merged]
+        result = [r for r, _ in merged]
+        # 发射 rules.matched 事件(每个匹配规则,0 匹配时不发射)
+        if result:
+            try:
+                from .orchestration_hub import orchestration_hub
+                for rule in result:
+                    try:
+                        await orchestration_hub.emit(
+                            event_type="rules.matched",
+                            source_pillar="rules",
+                            payload={
+                                "rule_id": rule.id,
+                                "rule_name": rule.name,
+                                "scope": rule.scope,
+                                "message": message[:200],
+                            },
+                            severity="info",
+                        )
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+        return result
 
     async def _match_semantic_async(self, rule: Rule, message: str) -> bool:
         """异步语义匹配(使用 _get_embedding_async LRU 缓存)。"""
@@ -1721,6 +1764,21 @@ class RulesEngine:
                     "confidence": confidence,
                 }
             )
+        # 发射 rules.auto_generated 事件
+        try:
+            from .orchestration_hub import orchestration_hub
+            await orchestration_hub.emit(
+                event_type="rules.auto_generated",
+                source_pillar="rules",
+                payload={
+                    "user_id": user_id,
+                    "draft_count": len(drafts),
+                    "patterns": [d["pattern"] for d in drafts[:3]],
+                },
+                severity="info",
+            )
+        except Exception:
+            pass
         return drafts
 
     async def _auto_resolve_conflicts(
@@ -1755,6 +1813,23 @@ class RulesEngine:
                 if arr_match:
                     resolutions = json.loads(arr_match.group())
                     if isinstance(resolutions, list):
+                        # 发射 rules.conflict_resolved 事件
+                        try:
+                            from .orchestration_hub import orchestration_hub
+                            await orchestration_hub.emit(
+                                event_type="rules.conflict_resolved",
+                                source_pillar="rules",
+                                payload={
+                                    "conflict_count": len(conflicts),
+                                    "resolutions": [
+                                        {"resolution": r.get("resolution", ""), "reason": r.get("reason", "")}
+                                        for r in resolutions[:5]
+                                    ],
+                                },
+                                severity="info",
+                            )
+                        except Exception:
+                            pass
                         return resolutions
         except Exception as e:
             logger.debug("[rules_engine] LLM 冲突仲裁降级: %s", e)
@@ -1783,6 +1858,23 @@ class RulesEngine:
                     ),
                 }
             )
+        # 发射 rules.conflict_resolved 事件
+        try:
+            from .orchestration_hub import orchestration_hub
+            await orchestration_hub.emit(
+                event_type="rules.conflict_resolved",
+                source_pillar="rules",
+                payload={
+                    "conflict_count": len(conflicts),
+                    "resolutions": [
+                        {"resolution": r.get("resolution", ""), "reason": r.get("reason", "")}
+                        for r in resolutions[:5]
+                    ],
+                },
+                severity="info",
+            )
+        except Exception:
+            pass
         return resolutions
 
     async def predict_effect(
