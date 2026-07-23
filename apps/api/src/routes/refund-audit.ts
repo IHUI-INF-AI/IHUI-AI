@@ -1,11 +1,12 @@
-﻿import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, desc, sql, ilike } from 'drizzle-orm'
+import { eq, and, desc, sql, ilike, gte, inArray } from 'drizzle-orm'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { db } from '../db/index.js'
 import { eduRefunds, eduOrders, refundAuditRecords, type EduRefund } from '@ihui/database'
 import { findRefundById, findRefunds, processRefund } from '../db/order-queries.js'
+import { logAction } from '../services/audit-service.js'
 
 // =============================================================================
 // Zod schemas
@@ -32,6 +33,12 @@ const auditBodySchema = z.object({
 })
 
 const rejectBodySchema = z.object({
+  reason: z.string().max(500).nullable().optional(),
+})
+
+const batchAuditSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1, '至少选择 1 条').max(100, '单次最多 100 条'),
+  action: z.enum(['approve', 'reject']),
   reason: z.string().max(500).nullable().optional(),
 })
 
@@ -229,19 +236,45 @@ export const adminRefundAuditRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // GET /refunds/stats - 退款统计
+  // GET /refunds/stats - 退款统计(含日/月趋势)
   server.get(
     '/refunds/stats',
-    { schema: { summary: '退款统计', tags: ['refund-audit'] } },
+    { schema: { summary: '退款统计(含日/月趋势)', tags: ['refund-audit'] } },
     async (_request, reply) => {
-      const statusCounts = await db
-        .select({
-          status: eduRefunds.status,
-          count: sql<number>`count(*)::int`,
-          totalAmount: sql<string>`coalesce(sum(${eduRefunds.refundAmount}), 0)`,
-        })
-        .from(eduRefunds)
-        .groupBy(eduRefunds.status)
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 86400_000)
+      const sixMonthsAgo = new Date()
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
+
+      const [statusCounts, dailyRows, monthlyRows] = await Promise.all([
+        db
+          .select({
+            status: eduRefunds.status,
+            count: sql<number>`count(*)::int`,
+            totalAmount: sql<string>`coalesce(sum(${eduRefunds.refundAmount}), 0)`,
+          })
+          .from(eduRefunds)
+          .groupBy(eduRefunds.status),
+        db
+          .select({
+            date: sql<string>`to_char(${eduRefunds.createdAt}, 'YYYY-MM-DD')`,
+            count: sql<number>`count(*)::int`,
+            totalAmount: sql<string>`coalesce(sum(${eduRefunds.refundAmount}), 0)`,
+          })
+          .from(eduRefunds)
+          .where(gte(eduRefunds.createdAt, thirtyDaysAgo))
+          .groupBy(sql`to_char(${eduRefunds.createdAt}, 'YYYY-MM-DD')`)
+          .orderBy(sql`to_char(${eduRefunds.createdAt}, 'YYYY-MM-DD')`),
+        db
+          .select({
+            month: sql<string>`to_char(${eduRefunds.createdAt}, 'YYYY-MM')`,
+            count: sql<number>`count(*)::int`,
+            totalAmount: sql<string>`coalesce(sum(${eduRefunds.refundAmount}), 0)`,
+          })
+          .from(eduRefunds)
+          .where(gte(eduRefunds.createdAt, sixMonthsAgo))
+          .groupBy(sql`to_char(${eduRefunds.createdAt}, 'YYYY-MM')`)
+          .orderBy(sql`to_char(${eduRefunds.createdAt}, 'YYYY-MM')`),
+      ])
 
       const byStatus: Record<string, { count: number; totalAmount: string }> = {}
       let totalCount = 0
@@ -261,8 +294,67 @@ export const adminRefundAuditRoutes: FastifyPluginAsync = async (server) => {
           approvedCount: byStatus['approved']?.count ?? 0,
           rejectedCount: byStatus['rejected']?.count ?? 0,
           completedCount: byStatus['completed']?.count ?? 0,
+          daily: dailyRows,
+          monthly: monthlyRows,
         }),
       )
+    },
+  )
+
+  // POST /refunds/batch-audit — 批量审核(approve/reject,仅 pending 可审核)
+  server.post(
+    '/refunds/batch-audit',
+    {
+      schema: {
+        summary: '批量审核退款',
+        tags: ['refund-audit'],
+        body: { type: 'object', additionalProperties: true },
+      },
+    },
+    async (request, reply) => {
+      const body = batchAuditSchema.safeParse(request.body)
+      if (!body.success) {
+        return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { ids, action, reason } = body.data
+      const newStatus = action === 'approve' ? 'approved' : 'rejected'
+      const fetched = await db
+        .select({ id: eduRefunds.id, status: eduRefunds.status })
+        .from(eduRefunds)
+        .where(inArray(eduRefunds.id, ids))
+      const foundMap = new Map(fetched.map((r) => [r.id, r]))
+      const processed: string[] = []
+      const skipped: Array<{ id: string; reason: string }> = []
+      for (const id of ids) {
+        const refund = foundMap.get(id)
+        if (!refund) {
+          skipped.push({ id, reason: '退款记录不存在' })
+          continue
+        }
+        if (refund.status !== 'pending') {
+          skipped.push({ id, reason: `状态 ${refund.status} 不可审核` })
+          continue
+        }
+        const updated = await processRefund(id, newStatus, reason)
+        if (!updated) {
+          skipped.push({ id, reason: '审核失败' })
+          continue
+        }
+        await createAuditRecord(updated, request.userId!, action, reason)
+        processed.push(id)
+      }
+      await logAction({
+        userId: request.userId,
+        action: `refund.batch_${action}`,
+        resourceType: 'refund',
+        details: {
+          requested: ids.length,
+          processed: processed.length,
+          skipped: skipped.length,
+          reason,
+        },
+      })
+      return reply.send(success({ processed: processed.length, skipped }))
     },
   )
 }
