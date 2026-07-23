@@ -83,6 +83,10 @@ export default {
     exportAsTxt: 'Export as plain text',
     exportDone: 'Exported',
     exportFailed: 'Export failed',
+    search: 'Search',
+    searchPlaceholder: 'Search messages…',
+    noSearchResults: 'No messages matching "{{query}}"',
+    regenerate: 'Regenerate',
   },
   profile: {
     title: 'Profile',
