@@ -1072,9 +1072,22 @@ export default {
       confirm: 'Confirm',
     },
     team: {
-      joinTime: 'Joined: {{time}}',
+      title: 'My Team',
+      member: 'Member',
+      searchPlaceholder: 'Search team members',
+      totalMembers: 'Total team members',
+      sortByOrderNum: 'Order count',
+      sortByDate: 'Join date',
+      transactionVolume: 'Transaction volume',
+      commission: 'Commission',
+      orderNum: 'Order count',
+      joinTime: 'Join date',
+      viewSubordinates: 'View subordinates',
       empty: 'No team members',
       loading: 'Loading…',
+      noMore: 'No more',
+      error: 'Load failed',
+      retry: 'Tap to retry',
     },
     commission: {
       total: 'Total commission',
@@ -1493,6 +1506,13 @@ export default {
     empty: 'No news',
     loading: 'Loading…',
     readCount: '{{n}} reads',
+    detail: {
+      like: 'Like',
+      comment: 'Comment',
+      share: 'Share',
+      related: 'Related',
+      commentSoon: 'Comments coming soon',
+    },
   },
   plaza: {
     setNeed: {
