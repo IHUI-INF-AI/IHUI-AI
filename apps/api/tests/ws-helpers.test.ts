@@ -4,6 +4,7 @@ const { mockVerifyAccessToken } = vi.hoisted(() => ({
   mockVerifyAccessToken: vi.fn(),
 }))
 
+vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('@ihui/auth', () => ({
   verifyAccessToken: mockVerifyAccessToken,
 }))

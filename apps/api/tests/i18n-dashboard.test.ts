@@ -6,6 +6,7 @@ vi.hoisted(() => {
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
 })
 
+vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('@ihui/auth', () => ({
   verifyAccessToken: vi.fn().mockResolvedValue({ userId: 'mock-admin-id', roleId: 1 }),
 }))
