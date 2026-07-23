@@ -23,6 +23,7 @@ import { useI18n } from '@/i18n'
 import { useUserStore } from '@/stores/user'
 import ChatMessageItem from './ChatMessageItem'
 import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
+import AgentTipDialog from './AgentTipDialog'
 import './chat.css'
 
 const HISTORY_STORAGE_KEY = 'ai_chat_history'
@@ -92,6 +93,8 @@ export default function ChatPage() {
   // 历史对话(对标原 ai_assistant.vue 历史抽屉)
   const [chatHistories, setChatHistories] = useState<ChatHistoryEntry[]>([])
   const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false)
+  // 智能体提示说明弹窗(对标原 ai_index.vue,首次进入自动弹 + "?" 手动触发)
+  const [agentTipVisible, setAgentTipVisible] = useState(false)
 
   const activeAgentId = currentAgentId || routeAgentId
 
@@ -125,6 +128,16 @@ export default function ChatPage() {
         clearInterval(progressTimerRef.current)
         progressTimerRef.current = null
       }
+    }
+  }, [])
+
+  // 首次进入页面自动弹出智能体提示说明(对标原 ai_index.vue,localStorage 标记 ai_agent_tip_shown)
+  useEffect(() => {
+    try {
+      const shown = Taro.getStorageSync('ai_agent_tip_shown')
+      if (!shown) setAgentTipVisible(true)
+    } catch {
+      // 存储读取失败忽略
     }
   }, [])
 
@@ -596,6 +609,16 @@ export default function ChatPage() {
     if (!materials.length) loadMaterials()
   }, [materials.length, loadMaterials])
 
+  /** 关闭智能体提示说明弹窗(对标原 ai_index.vue,关闭后设置 localStorage 标记 ai_agent_tip_shown=1) */
+  const closeAgentTip = useCallback(() => {
+    setAgentTipVisible(false)
+    try {
+      Taro.setStorageSync('ai_agent_tip_shown', '1')
+    } catch {
+      // 存储写入失败忽略
+    }
+  }, [])
+
   return (
     <View className="page">
       <View className="nav-bar safe-area-bottom">
@@ -609,6 +632,13 @@ export default function ChatPage() {
               {agent.name}
             </Text>
           ) : null}
+          <Text
+            className="nav-history"
+            style={{ fontSize: '30rpx', fontWeight: '600' }}
+            onClick={() => setAgentTipVisible(true)}
+          >
+            ?
+          </Text>
           <Text className="nav-history" onClick={() => setHistoryDrawerVisible(true)}>
             📜
           </Text>
@@ -817,6 +847,7 @@ export default function ChatPage() {
         onSelect={handleSelectHistory}
         onClear={handleClearHistory}
       />
+      <AgentTipDialog visible={agentTipVisible} onClose={closeAgentTip} />
     </View>
   )
 }
