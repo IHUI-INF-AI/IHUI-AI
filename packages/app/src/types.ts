@@ -1,5 +1,3 @@
-import type { ReactNode } from 'react'
-
 /**
  * 共享层类型定义 — packages/app
  *
@@ -115,6 +113,3 @@ export interface SettingsScreenProps {
   appVersion?: string
   onBack?: () => void
 }
-
-/** 通用渲染槽(预留) */
-export type SharedRenderSlot = ReactNode
