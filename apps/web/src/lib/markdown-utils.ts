@@ -69,12 +69,30 @@ const URL_ATTRS = new Set(['href', 'src'])
 /** 净化 HTML 字符串，移除危险标签与属性 */
 export function sanitizeHtml(html: string): string {
   if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
-    // SSR 降级：用正则做最简单的清理
+    // SSR 降级:用严格正则清理(2026-07-24 安全审计加固)
+    // 注意:SSR 输出会在客户端 hydrate 时被 DOMParser 重新净化,但 SSR HTML 若被搜索引擎
+    // 爬虫直接抓取或用户在 hydrate 前看到,可能存在 XSS 风险,因此 SSR 也必须严格过滤
     return html
+      // 1. 移除所有 script/style/iframe/object/embed/link 标签及内容
       .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+      .replace(/<object[\s\S]*?<\/object>/gi, '')
+      .replace(/<embed[\s\S]*?<\/embed>/gi, '')
+      .replace(/<link[^>]*>/gi, '')
+      .replace(/<meta[^>]*>/gi, '')
+      // 2. 移除所有 on* 事件属性(双引号/单引号/无引号三种形式)
       .replace(/\son\w+\s*=\s*"[^"]*"/gi, '')
       .replace(/\son\w+\s*=\s*'[^']*'/gi, '')
-      .replace(/javascript:/gi, '')
+      .replace(/\son\w+\s*=\s*[^\s>]+/gi, '')
+      // 3. 移除 javascript: 协议(href/src 属性值)
+      .replace(/(href|src)\s*=\s*["']?\s*javascript:/gi, '$1="')
+      // 4. 移除 data:text/html 协议(可含脚本)
+      .replace(/(href|src)\s*=\s*["']?\s*data:text\/html/gi, '$1="')
+      // 5. 移除 vbscript: 协议(IE 老攻击向量)
+      .replace(/(href|src)\s*=\s*["']?\s*vbscript:/gi, '$1="')
+      // 6. 移除 SVG 中的 onload/onerror 等(SVG 自身可含脚本)
+      .replace(/<svg[\s\S]*?<\/svg>/gi, '')
   }
   const doc = new DOMParser().parseFromString(html, 'text/html')
   cleanNode(doc.body)
