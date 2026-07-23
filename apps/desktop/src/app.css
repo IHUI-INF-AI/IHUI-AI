@@ -797,6 +797,62 @@ textarea:focus {
   border-color: var(--accent);
 }
 
+/* 编辑按钮(用户消息) */
+.msg-edit-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 4px;
+  align-self: flex-start;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.msg-edit-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* 消息编辑表单(inline edit) */
+.msg-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.msg-edit-textarea {
+  width: 100%;
+  min-height: 60px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.msg-edit-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.msg-edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.msg-edit-actions button {
+  font-size: 12px;
+  padding: 4px 12px;
+}
+
 /* ============== Markdown 渲染 ============== */
 
 .md-body {
