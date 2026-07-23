@@ -1,0 +1,100 @@
+name: NativeWind Upgrade Monitor
+
+# 每月 1 号 00:00 UTC (北京时间 08:00) 检查 NativeWind 5.0 stable 是否发布。
+# scripts/check-nativewind-status.mjs 退出码语义:
+#   - exit 0: 未发布 (仍 4.x 或 5.x-preview),workflow 成功,无操作
+#   - exit 1: 5.0 stable 已发布,创建 Issue 提醒升级 + workflow 失败 (触发 Actions 通知)
+#   - exit 2: 网络 / npm registry 异常,workflow 成功 (不误报)
+#
+# 升级步骤详见 scripts/check-nativewind-status.mjs 输出。
+
+on:
+  schedule:
+    - cron: '0 0 1 * *' # 每月 1 号 00:00 UTC = 北京时间 08:00
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  monitor:
+    name: 检查 NativeWind 5.0 stable
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 检查 NativeWind 升级就绪状态
+        id: check
+        continue-on-error: true
+        run: |
+          set +e
+          node scripts/check-nativewind-status.mjs
+          code=$?
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          # 仅 exit 1 (5.0 stable 已发布) 标记 step 失败;
+          # exit 2 (网络异常) 视为成功,避免误报。
+          if [ "$code" -eq 1 ]; then
+            exit 1
+          fi
+          exit 0
+
+      - name: 5.0 stable 已发布 - 创建 Issue 提醒升级
+        if: steps.check.outputs.exit_code == '1'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const date = new Date().toISOString().slice(0, 10);
+            const runUrl = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
+            const title = `NativeWind 5.0 stable 已发布 - 请升级并移除 metro.config.js monkey-patch (${date})`;
+            const body = [
+              '## NativeWind 5.0 stable 已发布',
+              '',
+              '监控脚本 `scripts/check-nativewind-status.mjs` 检测到 `npm view nativewind dist-tags` 的 `latest` 已变为 5.x stable。',
+              '',
+              '### 升级步骤',
+              '',
+              '1. 升级 `apps/mobile-rn` 中 `nativewind` 到 5.x stable',
+              '2. 移除 `apps/mobile-rn/metro.config.js` 中的 `Module._resolveFilename` monkey-patch',
+              '3. 删除 `apps/mobile-rn` 本地 `tailwindcss@3` 依赖',
+              '4. 27 + 11 文件 className 全链路冒烟测试',
+              '',
+              '### 参考',
+              '',
+              '- 监控脚本: `scripts/check-nativewind-status.mjs`',
+              `- 触发 workflow: ${runUrl}`,
+              '- 本地复验: `pnpm nativewind:status`',
+            ].join('\n');
+
+            try {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['dependencies', 'mobile-rn'],
+              });
+              core.info('Issue 创建成功 (带标签)');
+            } catch (err) {
+              // 标签可能不存在,降级为无标签创建
+              core.warning(`带标签创建失败 (${err.status}): ${err.message},降级为无标签创建`);
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+              });
+            }
+
+      - name: 标记 workflow 失败 (触发 Actions 邮件通知)
+        if: steps.check.outputs.exit_code == '1'
+        run: exit 1
