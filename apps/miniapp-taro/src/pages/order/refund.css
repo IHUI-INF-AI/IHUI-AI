@@ -1,0 +1,141 @@
+.rfd-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: 24rpx 24rpx 160rpx;
+}
+
+.rfd-order-card {
+  background: var(--color-card);
+  border-radius: 16rpx;
+  padding: 32rpx;
+}
+.rfd-order-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-bottom: 24rpx;
+}
+.rfd-order-loading {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+.rfd-order-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+.rfd-order-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24rpx;
+}
+.rfd-order-label {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
+}
+.rfd-order-value {
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  text-align: right;
+  word-break: break-all;
+}
+.rfd-order-value--mono {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.rfd-order-value--amount {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.rfd-section {
+  margin-top: 24rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  padding: 32rpx;
+}
+.rfd-section-label {
+  display: block;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  margin-bottom: 20rpx;
+}
+
+.rfd-amount-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.rfd-amount-num {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.rfd-amount-tag {
+  font-size: 22rpx;
+  color: var(--color-warning);
+  padding: 6rpx 16rpx;
+  background: rgba(245, 158, 11, 0.12);
+  border-radius: 8rpx;
+}
+
+.rfd-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+.rfd-radio-item {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+.rfd-radio-text {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+
+.rfd-textarea {
+  width: 100%;
+  min-height: 180rpx;
+  padding: 20rpx;
+  background: var(--color-background);
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  box-sizing: border-box;
+}
+.rfd-input {
+  width: 100%;
+  height: 80rpx;
+  padding: 0 20rpx;
+  background: var(--color-background);
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  box-sizing: border-box;
+}
+
+.rfd-submit {
+  position: fixed;
+  bottom: 32rpx;
+  left: 32rpx;
+  right: 32rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 16rpx;
+  font-size: 32rpx;
+  text-align: center;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border: none;
+  padding: 0;
+}
+.rfd-submit::after {
+  border: none;
+}
+.rfd-submit--disabled {
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
+}
