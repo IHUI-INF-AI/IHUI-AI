@@ -1,39 +1,169 @@
 .page-container {
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
   background: var(--color-background);
 }
 .page-header {
   padding: 24rpx;
   background: var(--color-card);
+  flex-shrink: 0;
 }
 .page-title {
   font-size: 36rpx;
   font-weight: 600;
   color: var(--color-foreground);
 }
-.page-content {
-  padding: 24rpx;
-}
-.list-item {
-  padding: 24rpx;
+
+/* tab 栏 */
+.tab-bar {
+  display: flex;
   background: var(--color-card);
-  border-radius: 12rpx;
-  margin-bottom: 16rpx;
+  padding: 0 24rpx;
+  flex-shrink: 0;
 }
-.empty {
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 20rpx 0;
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+  position: relative;
+}
+.tab-item.active {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48rpx;
+  height: 4rpx;
+  background: var(--color-primary);
+  border-radius: 2rpx;
+}
+
+/* 内容区 */
+.page-content {
+  flex: 1;
+  min-height: 0;
+  padding: 24rpx;
+}
+.loading-text {
+  display: block;
   text-align: center;
   color: var(--color-muted-foreground);
   padding: 80rpx 0;
 }
+.empty-text {
+  display: block;
+  text-align: center;
+  color: var(--color-muted-foreground);
+  padding: 40rpx 0;
+}
+.empty-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 120rpx 0;
+}
+.empty-icon {
+  font-size: 80rpx;
+  margin-bottom: 16rpx;
+}
 .btn {
-  margin-top: 24rpx;
-  padding: 20rpx;
+  display: inline-block;
+  margin: 24rpx auto 0;
+  padding: 16rpx 48rpx;
   background: var(--color-primary);
   color: var(--color-foreground);
   text-align: center;
   border-radius: 12rpx;
   font-size: 28rpx;
 }
-.btn.disabled {
-  opacity: 0.6;
+
+/* 学习课程卡片 */
+.study-card {
+  display: flex;
+  padding: 24rpx;
+  background: var(--color-card);
+  border-radius: 12rpx;
+  margin-bottom: 16rpx;
+}
+.study-cover {
+  width: 160rpx;
+  height: 100rpx;
+  border-radius: 8rpx;
+  flex-shrink: 0;
+  background: var(--color-muted);
+}
+.study-cover.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.placeholder-icon {
+  font-size: 40rpx;
+}
+.study-info {
+  flex: 1;
+  margin-left: 16rpx;
+  display: flex;
+  flex-direction: column;
+}
+.study-title {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 进度条 */
+.progress-section {
+  display: flex;
+  align-items: center;
+  margin-top: 12rpx;
+}
+.progress-bar-wrapper {
+  flex: 1;
+  height: 8rpx;
+  background: var(--color-muted);
+  border-radius: 4rpx;
+  overflow: hidden;
+  margin-right: 12rpx;
+}
+.progress-bar-inner {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 4rpx;
+  transition: width 0.3s ease;
+}
+.progress-text {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
+}
+
+.study-time {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 8rpx;
+}
+
+/* 继续学习按钮 */
+.continue-btn {
+  align-self: flex-start;
+  margin-top: 12rpx;
+  padding: 8rpx 32rpx;
+  background: var(--color-primary);
+  color: var(--color-foreground);
+  border-radius: 8rpx;
+  font-size: 24rpx;
 }

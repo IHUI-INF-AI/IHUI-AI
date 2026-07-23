@@ -4,13 +4,8 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getNotificationSettings, updateNotificationSettings } from '@/api'
 import { useI18n } from '@/i18n'
+import './notification.css'
 
-/**
- * 通知设置项(用户在设置页开关的通知类别)。
- * 与 @ihui/types 的 NotificationItem(通知列表项:id/type/title/content/isRead/createdAt)语义不同 ——
- * 此处是设置项,含 key / title / enabled 字段,非通知数据本身。
- * 命名为 NotificationSettingItem 避免与 @ihui/types NotificationItem 命名冲突。
- */
 interface NotificationSettingItem {
   key: string
   title: string
@@ -20,40 +15,95 @@ interface NotificationSettingItem {
 export default function NotificationPage() {
   const { t } = useI18n()
   const [list, setList] = useState<NotificationSettingItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const tt = useCallback(
+    (k: string, fb: string) => {
+      const v = t(k)
+      return v === k ? fb : v
+    },
+    [t],
+  )
 
   const load = useCallback(async () => {
+    setLoading(true)
     try {
       const res = await getNotificationSettings()
       setList(res.list || [])
     } catch (e) {
       logger.error('setting/notification', '获取通知设置', e)
-      Taro.showToast({ title: t('setting.operationFailed'), icon: 'none' })
+      Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+    } finally {
+      setLoading(false)
     }
-  }, [t])
+  }, [t, tt])
 
   useDidShow(() => {
     load()
   })
 
-  const onToggle = useCallback((key: string, value: boolean) => {
-    setList((prev) => prev.map((item) => (item.key === key ? { ...item, enabled: value } : item)))
-    updateNotificationSettings({ [key]: value }).catch(() => {})
+  const onToggle = useCallback(
+    (key: string, value: boolean) => {
+      setList((prev) => prev.map((item) => (item.key === key ? { ...item, enabled: value } : item)))
+      updateNotificationSettings({ [key]: value }).catch((e) => {
+        logger.error('setting/notification', '更新通知设置', e)
+        Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+      })
+    },
+    [tt],
+  )
+
+  const onDetail = useCallback(() => {
+    Taro.navigateTo({ url: '/pages/message/index' })
   }, [])
 
   return (
-    <View className="min-h-screen bg-background">
-      <View className="mx-[12px] my-[12px] bg-card rounded-[8px] overflow-hidden">
-        {list.map((item, idx) => (
-          <View
-            key={item.key}
-            className={`flex items-center justify-between px-[16px] py-[14px] ${
-              idx < list.length - 1 ? 'border-b border-[#f0f0f0]' : ''
-            }`}
-          >
-            <Text className="text-[15px] text-foreground">{item.title}</Text>
-            <Switch checked={item.enabled} onChange={(e) => onToggle(item.key, e.detail.value)} />
+    <View className="page">
+      <View className="group-title">
+        <Text>{tt('setting.notification.categoryTitle', '通知分类')}</Text>
+      </View>
+      <View className="card">
+        {loading ? (
+          <View className="empty">
+            <Text>{tt('common.loading', '加载中…')}</Text>
           </View>
-        ))}
+        ) : list.length === 0 ? (
+          <View className="empty">
+            <Text>{tt('setting.notification.empty', '暂无通知设置项')}</Text>
+          </View>
+        ) : (
+          list.map((item, idx) => (
+            <View
+              key={item.key}
+              className={`row${idx === list.length - 1 ? ' last' : ''}`}
+            >
+              <View className="row-info">
+                <Text className="row-title">{item.title}</Text>
+              </View>
+              <Switch
+                checked={item.enabled}
+                color="#00b96b"
+                onChange={(e) => onToggle(item.key, e.detail.value)}
+              />
+            </View>
+          ))
+        )}
+      </View>
+
+      <View className="group-title">
+        <Text>{tt('setting.notification.moreTitle', '更多')}</Text>
+      </View>
+      <View className="card">
+        <View className="row last" onClick={onDetail}>
+          <View className="row-info">
+            <Text className="row-title">
+              {tt('setting.notification.detail', '通知详情')}
+            </Text>
+            <Text className="row-desc">
+              {tt('setting.notification.detailDesc', '查看历史通知消息')}
+            </Text>
+          </View>
+          <Text className="arrow">›</Text>
+        </View>
       </View>
     </View>
   )

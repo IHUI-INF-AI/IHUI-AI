@@ -1,27 +1,149 @@
-.page-container {
+.md-page {
   min-height: 100vh;
   background: var(--color-background);
-}
-.page-header {
   padding: 24rpx;
-  background: var(--color-card);
+  padding-bottom: 60rpx;
 }
-.page-title {
-  font-size: 36rpx;
+
+/* ===== 统计卡片 ===== */
+.md-stats {
+  display: flex;
+  gap: 16rpx;
+}
+.md-stat-item {
+  flex: 1;
+  padding: 28rpx 12rpx;
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  border-radius: 12rpx;
+  text-align: center;
+}
+.md-stat-value {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #00f2ff;
+}
+.md-stat-label {
+  display: block;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 8rpx;
+}
+
+/* ===== 成员列表 ===== */
+.md-list-section {
+  margin-top: 28rpx;
+}
+.md-list-title {
+  display: block;
+  font-size: 30rpx;
   font-weight: 600;
   color: var(--color-foreground);
-}
-.page-content {
-  padding: 24rpx;
-}
-.list-item {
-  padding: 24rpx;
-  background: var(--color-card);
-  border-radius: 12rpx;
   margin-bottom: 16rpx;
 }
-.empty {
+.md-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.md-member-card {
+  display: flex;
+  align-items: center;
+  padding: 24rpx;
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 12rpx;
+}
+.md-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 8rpx;
+  background: var(--color-muted);
+  flex-shrink: 0;
+}
+.md-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.md-avatar-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+.md-member-info {
+  flex: 1;
+  margin-left: 20rpx;
+  min-width: 0;
+}
+.md-member-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.md-member-name {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.md-member-level {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #8b5cf6;
+  margin-left: 16rpx;
+  flex-shrink: 0;
+}
+.md-member-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10rpx;
+}
+.md-member-time {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.md-member-contribution {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #22c55e;
+  margin-left: 16rpx;
+  flex-shrink: 0;
+}
+
+/* ===== 状态文案 ===== */
+.md-empty,
+.md-loading,
+.md-no-more {
+  display: block;
   text-align: center;
+  font-size: 26rpx;
   color: var(--color-muted-foreground);
   padding: 80rpx 0;
+}
+.md-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60rpx 0;
+}
+.md-error-text {
+  font-size: 26rpx;
+  color: var(--color-destructive);
+}
+.md-error-retry {
+  font-size: 26rpx;
+  color: #00f2ff;
+  margin-top: 12rpx;
 }

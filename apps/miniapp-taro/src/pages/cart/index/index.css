@@ -1,6 +1,7 @@
 .page-container {
   min-height: 100vh;
   background: var(--color-background);
+  padding-bottom: 120rpx;
 }
 .page-header {
   padding: 24rpx;
@@ -14,20 +15,32 @@
 .page-content {
   padding: 24rpx;
 }
-.list-item {
-  padding: 24rpx;
-  background: var(--color-card);
-  border-radius: 12rpx;
-  margin-bottom: 16rpx;
-}
-.empty {
+.loading-text {
+  display: block;
   text-align: center;
   color: var(--color-muted-foreground);
   padding: 80rpx 0;
 }
+.empty-text {
+  display: block;
+  text-align: center;
+  color: var(--color-muted-foreground);
+  padding: 40rpx 0;
+}
+.empty-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 120rpx 0;
+}
+.empty-icon {
+  font-size: 80rpx;
+  margin-bottom: 16rpx;
+}
 .btn {
+  display: inline-block;
   margin-top: 24rpx;
-  padding: 20rpx;
+  padding: 16rpx 48rpx;
   background: var(--color-primary);
   color: var(--color-foreground);
   text-align: center;
@@ -35,5 +48,174 @@
   font-size: 28rpx;
 }
 .btn.disabled {
-  opacity: 0.6;
+  opacity: 0.5;
+}
+
+/* 购物车商品项 */
+.cart-item-wrapper {
+  position: relative;
+  margin-bottom: 16rpx;
+  overflow: hidden;
+  border-radius: 12rpx;
+}
+.cart-item {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  padding: 24rpx;
+  background: var(--color-card);
+  border-radius: 12rpx;
+  transition: transform 0.2s ease;
+}
+.cart-item.swiped {
+  transform: translateX(-140rpx);
+}
+.cart-item-delete-action {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 140rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f44336;
+  border-radius: 12rpx;
+}
+.delete-action-text {
+  color: #fff;
+  font-size: 28rpx;
+}
+
+/* 复选框 */
+.checkbox {
+  width: 40rpx;
+  height: 40rpx;
+  border: 2rpx solid var(--color-muted-foreground);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 16rpx;
+}
+.checkbox.checked {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.checkbox-icon {
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: bold;
+}
+
+/* 商品封面 */
+.cart-item-cover {
+  width: 140rpx;
+  height: 140rpx;
+  border-radius: 8rpx;
+  flex-shrink: 0;
+  background: var(--color-muted);
+}
+.cart-item-cover.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.placeholder-icon {
+  font-size: 48rpx;
+}
+
+/* 商品信息 */
+.cart-item-info {
+  flex: 1;
+  margin-left: 16rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 140rpx;
+}
+.cart-item-title {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cart-item-price {
+  font-size: 32rpx;
+  color: #f44336;
+  font-weight: 600;
+  margin-top: 8rpx;
+}
+
+/* 数量控制 */
+.quantity-control {
+  display: flex;
+  align-items: center;
+  margin-top: 8rpx;
+}
+.quantity-btn {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2rpx solid var(--color-border);
+  border-radius: 8rpx;
+  font-size: 32rpx;
+  color: var(--color-foreground);
+  background: var(--color-card);
+}
+.quantity-btn.disabled {
+  opacity: 0.4;
+}
+.quantity-value {
+  min-width: 64rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+
+/* 底部结算栏 */
+.cart-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  padding: 16rpx 24rpx;
+  background: var(--color-card);
+  border-top: 2rpx solid var(--color-border);
+  z-index: 100;
+}
+.select-all-label {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  margin-right: 16rpx;
+}
+.footer-total {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-right: 16rpx;
+}
+.total-label {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.total-price {
+  font-size: 36rpx;
+  color: #f44336;
+  font-weight: 700;
+}
+.checkout-btn {
+  margin-top: 0;
+  padding: 16rpx 40rpx;
+  flex-shrink: 0;
 }
