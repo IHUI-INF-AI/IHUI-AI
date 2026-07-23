@@ -321,6 +321,8 @@ import { specRoutes } from './routes/spec.js'
 import { contextMentionRoutes } from './routes/context-mentions.js'
 // Subagent 派单 UI(对标 Trae Subagent,落地 AGENTS.md §11 派单格式)
 import { subagentDispatchRoutes } from './routes/subagent-dispatch.js'
+// 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
+import { orchestrationRoutes } from './routes/orchestration.js'
 
 import { setFastify } from './utils/logger.js'
 import { isAppError } from './errors/index.js'
@@ -1145,4 +1147,6 @@ function registerRoutes(server: FastifyInstance) {
   server.register(contextMentionRoutes, { prefix: '/api/context' })
   // Subagent 派单 UI(AGENTS.md §11 派单格式 + mesh 拓扑可视化)
   server.register(subagentDispatchRoutes, { prefix: '/api' })
+  // 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
+  server.register(orchestrationRoutes, { prefix: '/api' })
 }
