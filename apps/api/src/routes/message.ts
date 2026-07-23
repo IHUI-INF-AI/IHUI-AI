@@ -332,7 +332,7 @@ export const messageRoutes: FastifyPluginAsync = async (server) => {
       },
     },
     async (request, reply) => {
-      const body = z.object({ ids: z.array(z.string().uuid()).min(1) }).parse(request.body)
+      const body = z.object({ ids: z.array(z.string().uuid()).min(1).max(100) }).parse(request.body)
       const userId = request.userId!
       await db
         .delete(eduMessages)

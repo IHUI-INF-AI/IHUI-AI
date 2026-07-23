@@ -226,8 +226,8 @@ const captchaVerifySchema = z.object({
 const oauthAppCreateSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().optional(),
-  redirectUris: z.array(z.string().url()).min(1),
-  scopes: z.array(z.string()).optional(),
+  redirectUris: z.array(z.string().url()).min(1).max(20),
+  scopes: z.array(z.string()).max(100).optional(),
   icon: z.string().optional(),
 })
 

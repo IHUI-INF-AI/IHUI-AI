@@ -43,7 +43,7 @@ const submitSchema = z
       .max(8 * 1024 * 1024)
       .optional(),
     ImageUrl: z.string().url().max(2048).optional(),
-    MultiViewImages: z.array(viewImageSchema).optional(),
+    MultiViewImages: z.array(viewImageSchema).max(20).optional(),
     ResultFormat: z.enum(['OBJ', 'GLB', 'STL', 'USDZ', 'FBX', 'MP4']).default('OBJ'),
     EnablePBR: z.boolean().default(false),
     user_uuid: z.string().min(1, 'user_uuid 必填'),
