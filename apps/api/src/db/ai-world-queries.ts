@@ -57,8 +57,10 @@ export async function listAiWorldItems(opts: ListItemsOptions = {}): Promise<AiW
   }
 
   if (opts.search) {
+    // 2026-07-24 安全加固:转义 ilike 通配符 % _ \ 防止 wildcard injection DoS
+    const escapedSearch = opts.search.replace(/[%_\\]/g, '\\$&')
     conditions.push(
-      sql`(${aiWorldItems.title} ILIKE ${`%${opts.search}%`} OR ${aiWorldItems.summary} ILIKE ${`%${opts.search}%`})`,
+      sql`(${aiWorldItems.title} ILIKE ${`%${escapedSearch}%`} OR ${aiWorldItems.summary} ILIKE ${`%${escapedSearch}%`})`,
     )
   }
 
@@ -87,7 +89,9 @@ export async function countAiWorldItems(opts: Pick<ListItemsOptions, 'kind' | 'c
     if (cat) conditions.push(eq(aiWorldItems.categoryId, cat.id))
   }
   if (opts.search) {
-    conditions.push(ilike(aiWorldItems.title, `%${opts.search}%`))
+    // 2026-07-24 安全加固:转义 ilike 通配符 % _ \ 防止 wildcard injection DoS
+    const escapedSearch = opts.search.replace(/[%_\\]/g, '\\$&')
+    conditions.push(ilike(aiWorldItems.title, `%${escapedSearch}%`))
   }
   const rows = await db
     .select({ count: sql<number>`count(*)::int` })
