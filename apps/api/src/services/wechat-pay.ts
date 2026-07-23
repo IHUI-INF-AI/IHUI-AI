@@ -149,13 +149,48 @@ export async function jsapiPrepay(params: {
   return data.prepay_id
 }
 
-/** APP 预下单 */
+/** APP 支付签名参数(传给 react-native-wechat-lib 等 RN SDK 直接调起) */
+export interface AppPaySignData {
+  appid: string
+  partnerid: string
+  prepayid: string
+  package: string
+  noncestr: string
+  timestamp: string
+  sign: string
+}
+
+/**
+ * APP 支付二次签名。
+ * 签名串格式(微信 V3 APP 支付): appid\ntimestamp\nnoncestr\nprepayid\n
+ * 返回 RN SDK 调起支付所需的完整参数(react-native-wechat-lib openWXAppPayment)。
+ */
+export function buildAppSign(prepayId: string): AppPaySignData {
+  const appid = env.WX_APP_APPID ?? env.WX_MINI_APPID ?? ''
+  const partnerid = env.WX_SHOP_ID ?? ''
+  const timestamp = Math.floor(Date.now() / 1000).toString()
+  const noncestr = randomBytes(16).toString('hex')
+  const signStr = `${appid}\n${timestamp}\n${noncestr}\n${prepayId}\n`
+  const sign = createSign('RSA-SHA256')
+  sign.update(signStr, 'utf-8')
+  return {
+    appid,
+    partnerid,
+    prepayid: prepayId,
+    package: 'Sign=WXPay',
+    noncestr,
+    timestamp,
+    sign: sign.sign(getPrivateKey(), 'base64'),
+  }
+}
+
+/** APP 预下单(返回 RN SDK 直接可用的完整签名参数) */
 export async function appPrepay(params: {
   outTradeNo: string
   amount: number
   description: string
   notifyUrl: string
-}): Promise<Record<string, string>> {
+}): Promise<AppPaySignData> {
   const appid = env.WX_APP_APPID ?? env.WX_MINI_APPID ?? ''
   const mchid = env.WX_SHOP_ID ?? ''
   const body = JSON.stringify({
@@ -177,7 +212,8 @@ export async function appPrepay(params: {
     signal: AbortSignal.timeout(WX_PAY_FETCH_TIMEOUT_MS),
   })
   if (!resp.ok) throw new Error(`WechatPay app failed: ${resp.status} ${await resp.text()}`)
-  return (await resp.json()) as Record<string, string>
+  const data = (await resp.json()) as { prepay_id: string }
+  return buildAppSign(data.prepay_id)
 }
 
 /** H5 预下单(返回 h5_url 跳转链接,移动端浏览器使用) */

@@ -201,6 +201,48 @@ export async function getPaymentOrderDetail(orderNo: string): Promise<ApiResult<
   return fetchApi<PaymentOrder>(`/api/payment/orders/${orderNo}`)
 }
 
+// ===================== wechat-app（移动端 RN APP 支付） =====================
+
+/** 微信 APP 支付签名参数（后端 appPrepay 返回，直接传给 react-native-wechat-lib） */
+export interface WechatAppPaySignData {
+  appid: string
+  partnerid: string
+  prepayid: string
+  package: string
+  noncestr: string
+  timestamp: string
+  sign: string
+}
+
+/** 微信 APP 支付下单响应 */
+export interface WechatAppPayResponse {
+  outTradeNo: string
+  amount?: number
+  /** 未配置微信支付时为 true（DEV 环境 mock） */
+  mock?: boolean
+  /** 签名参数（mock 模式下为空） */
+  prepayData?: WechatAppPaySignData
+}
+
+/**
+ * 创建微信 APP 支付订单（mobile-rn 端调用）。
+ * amount 单位：分（整数）。返回 prepayData 直接传给 react-native-wechat-lib 调起支付。
+ */
+export async function createWechatAppPayment(params: {
+  amount: number
+  orderType?: number
+  description?: string
+}): Promise<ApiResult<WechatAppPayResponse>> {
+  return fetchApi<WechatAppPayResponse>(
+    `/api/payments/wechat/android/create${buildQs({
+      amount: params.amount,
+      orderType: params.orderType,
+      description: params.description,
+    })}`,
+    { method: 'POST' },
+  )
+}
+
 // ===================== ali-pay（支付宝=====================
 
 /** 创建支付宝支*/
