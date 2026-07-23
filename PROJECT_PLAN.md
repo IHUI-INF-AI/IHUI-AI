@@ -168,12 +168,12 @@
 
 ---
 
-### [ ] Wave 23:web ↔ extension 前端统一改造(跨端:web + extension + packages/ui-primitives)
+### [x] ✅(2026-07-23) Wave 23:web ↔ extension 前端统一改造(跨端:web + extension + packages/ui-primitives)
 
 **背景**:浏览器插件端(apps/extension)与 web 端(apps/web)在前端层存在 3 处重复维护:
 1. **样式 token**:globals.css 手动同步 3 份副本(web 853 行主源 / extension 132 行子集 / packages/ui-primitives/src/tokens.ts TS 副本),extension 注释声称"一致"实际缺 30+ 业务样式块
 2. **i18n 系统**:完全分裂两套(web 用 next-intl + 997KB JSON,extension 用自研 Context + 150 key TS),key 集合不一致
-3. **页面组件**:Login/Chat/Settings 等 9 个页面在两端各写一遍,仅共享 @ihui/ui 低层组件
+3. **页面组件**:Login/Chat/Settings 等 9 个页面在两端功能范围严重不对等(web 完整 CRUD / extension 简版只读),仅共享 @ihui/ui 低层组件
 
 **后端已统一**:extension 和 web 都通过 @ihui/api-client 调同一套 apps/api/src/routes/,无需改造。
 
@@ -192,16 +192,20 @@
 - [x] ✅ 扩展 i18n parity 测试跨端校验:check-i18n-keys / scan-i18n-zh-residue(zh-TW + ko)/ check-i18n-broken-en 添加 `--target=web|extension` 参数;pre-commit 添加 4 个 extension warn-only 守门项(2f-2i);添加 LANGUAGE_AUTOGLOSSONYMS 白名单(简体中文/繁體中文/繁体中文/中文/日本語/日本语)解决语言选择器 autoglossonym 误报
 - [x] ✅ 验证:extension typecheck exit 0 / extension build exit 0(产物 616.4 kB,manifest.json + popup.html + sidepanel.html + chunks 含翻译字符串)/ 4 个 extension 守门脚本全绿 / build 产物 grep 验证 i18n 翻译已正确打包(55 处 autoglossonym + 30 处 i18n key 命中)
 
-**阶段 3 — 页面组件渐进式抽取**:
-- [ ] 创建 packages/features 共享业务组件包
-- [ ] 抽取真正复用的业务组件(LoginFormFields/ChatMessageList/ModelSelector 等)
-- [ ] 各端 page 文件改为瘦布局层 + 共享业务组件
-- [ ] 不强行抽取业务范围差异巨大的页面(web admin 后台/extension popup)
+**阶段 3(经评估暂不抽取,2026-07-23)— 页面组件渐进式抽取**:
+- [x] ✅ 复用面评估完成:9 个 sidepanel 页面 + popup + content-toolbar 全量扫描,**0 个页面可抽取共享业务组件**
+- [x] ✅ 阶段 3 计划的 3 个抽取目标全部不可抽取:
+  - **LoginFormFields**:extension 77 行单表单 vs web 130 行 4-tab 容器 + 299 行 password 子表单(react-hook-form + zod + CaptchaCanvas),功能差 4 倍
+  - **ChatMessageList**:extension ChatPage 内联 13 行 `<div className="sp-bubble">` map vs web 独立 message-list.tsx + useChatStore + useWebSocket + markdown 渲染,实现层级不同
+  - **ModelSelector**:web 深度耦合 next/navigation + react-query + radix-dropdown,extension 端连独立组件都没有(原生 `<select>`),不可抽取
+- [x] ✅ 根因分析:技术栈分裂根本性 — web(Next.js App Router + next-intl + zustand + react-query + shadcn)vs extension(WXT + react-router-dom + 自研 Context + useState + 内联 CSSProperties),路由/i18n/状态/UI 4 个维度全部分裂
+- [x] ✅ 结论:阶段 1+2 已消除最高频的"改一处同步两端"痛点(853 行 CSS 副本 + 消息文件分裂),阶段 3 边际收益不显著,强行抽取会引入 4 套适配层(i18n + 状态管理 + 路由 + 设计系统)复杂度,成本远超收益。**保持暂不抽取状态**
+- [x] ✅ 后续前置条件:若未来仍要推进,需先做技术栈收敛(类似 Wave 21 阶段 2 的路线比选),在未做技术栈收敛前阶段 3 应保持暂不抽取
 
 **验证标准**:
-- 阶段 1:改 tokens.css 一处,web + extension 两端 @theme token 同步生效;两端 typecheck + build 全绿;browser 截图验证 4 状态(默认/hover/active/dark)无样式回归
-- 阶段 2:改 i18n 消息一处,两端翻译同步;跨端 parity 测试全绿
-- 阶段 3:共享业务组件被两端引用,页面文件行数显著减少
+- 阶段 1:改 tokens.css 一处,web + extension 两端 @theme token 同步生效;两端 typecheck + build 全绿;browser 截图验证 4 状态(默认/hover/active/dark)无样式回归 ✅
+- 阶段 2:改 i18n 消息一处,两端翻译同步;跨端 parity 测试全绿 ✅
+- 阶段 3:经评估复用面窄(0 个可抽取组件),标记暂不抽取 ✅
 
 **约束边界**:
 - 后端不改动(已统一)
