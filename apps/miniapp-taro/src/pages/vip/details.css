@@ -1,0 +1,41 @@
+.page { min-height: 100vh; background: var(--color-background); padding-bottom: 140rpx; }
+
+.banner {
+  padding: 56rpx 40rpx 40rpx;
+  background: linear-gradient(135deg, #f8d486, var(--color-warning));
+  color: var(--color-foreground);
+}
+.banner-title { display: block; font-size: 44rpx; font-weight: 700; }
+.banner-desc { display: block; font-size: 26rpx; margin-top: 12rpx; opacity: .9; }
+
+.compare {
+  margin: 24rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  overflow: hidden;
+  border: 2rpx solid var(--color-border);
+}
+.row { display: flex; align-items: stretch; }
+.row.head { background: rgba(245, 158, 11, 0.12); }
+.row:nth-child(even) { background: var(--color-background); }
+
+.cell { flex: 1; padding: 24rpx 16rpx; font-size: 26rpx; text-align: center; }
+.cell.label { flex: 1.4; text-align: left; color: var(--color-foreground); font-weight: 500; }
+.cell.normal { color: var(--color-muted-foreground); }
+.cell.vip { color: var(--color-warning); font-weight: 600; background: rgba(245, 158, 11, 0.08); }
+
+.row.head .cell { font-size: 28rpx; font-weight: 700; }
+.row.head .cell.normal { color: var(--color-muted-foreground); }
+.row.head .cell.vip { color: var(--color-warning); }
+
+.btn {
+  position: fixed;
+  bottom: 32rpx;
+  left: 32rpx;
+  right: 32rpx;
+  background: var(--color-warning);
+  color: var(--color-foreground);
+  border-radius: 16rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+}
