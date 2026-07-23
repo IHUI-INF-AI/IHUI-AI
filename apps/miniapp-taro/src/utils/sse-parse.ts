@@ -14,6 +14,14 @@ export interface SSEEvent {
     removedCount: number
     usageRatio: number
   }
+  /** done 事件携带的 token 用量(对标原 ai_assistant.vue total_tokens,ai-service event:done 下发) */
+  usage?: {
+    promptTokens?: number
+    completionTokens?: number
+    totalTokens?: number
+  }
+  /** done 事件携带的模型名 */
+  model?: string
 }
 
 function applyErrorMeta(evt: SSEEvent, json: Record<string, unknown>): void {
@@ -102,6 +110,24 @@ function parseLine(line: string): SSEEvent | null {
     if (typeof json?.text === 'string') return { type: 'chunk', content: json.text }
     if (json?.type === 'meta' && typeof json?.sessionId === 'string') {
       return { type: 'meta', sessionId: json.sessionId }
+    }
+    // done 事件:ai-service 在流末尾下发 {"type":"done","model":"...","usage":{"prompt_tokens":..,"completion_tokens":..,"total_tokens":..}}
+    // 解析 usage.total_tokens 填充到消息的 tokenCount(对标原 ai_assistant.vue total_tokens 显示)
+    if (json?.type === 'done') {
+      const rawUsage = json.usage as Record<string, unknown> | undefined
+      const usage = rawUsage
+        ? {
+            promptTokens: typeof rawUsage.prompt_tokens === 'number' ? rawUsage.prompt_tokens : undefined,
+            completionTokens:
+              typeof rawUsage.completion_tokens === 'number' ? rawUsage.completion_tokens : undefined,
+            totalTokens: typeof rawUsage.total_tokens === 'number' ? rawUsage.total_tokens : undefined,
+          }
+        : undefined
+      return {
+        type: 'done',
+        usage,
+        model: typeof json.model === 'string' ? json.model : undefined,
+      }
     }
     if (typeof json?.sessionId === 'string') {
       return { type: 'meta', sessionId: json.sessionId }
