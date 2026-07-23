@@ -306,6 +306,15 @@ const LANDING_HTML = `<!DOCTYPE html>
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + token }
       });
+      // 401: token 过期/无效,清除并弹登录框让用户重新登录
+      if (resp.status === 401) {
+        localStorage.removeItem('ihui_token');
+        pendingProduct = { productId, amount, name };
+        document.getElementById('loginModal').classList.add('active');
+        document.getElementById('account').focus();
+        showToast('登录已过期,请重新登录');
+        return;
+      }
       const json = await resp.json();
       if (json.code === 0 && json.data && json.data.payUrl) {
         showToast('正在跳转支付宝...');
