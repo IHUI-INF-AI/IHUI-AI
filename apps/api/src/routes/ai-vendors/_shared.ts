@@ -25,7 +25,7 @@ export const aigcRecordsQuery = z.object({
 export const tokenQuery = z.object({ token: z.string().optional() })
 
 export const chatBody = z.object({
-  messages: z.array(z.unknown()).optional(),
+  messages: z.array(z.unknown()).max(100).optional(),
   model: z.string().optional(),
   temperature: z.number().optional(),
 })
@@ -46,7 +46,7 @@ export const promptModelBody = z.object({
 })
 export const textModelBody = z.object({ text: z.string().optional(), model: z.string().optional() })
 export const multimodalBody = z.object({
-  messages: z.array(z.unknown()).optional(),
+  messages: z.array(z.unknown()).max(100).optional(),
   model: z.string().optional(),
 })
 export const promptOnlyBody = z.object({ prompt: z.string().optional() })
