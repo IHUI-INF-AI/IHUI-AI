@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import Hls from 'hls.js'
+import type Hls from 'hls.js'
 import { Play, Pause, Volume2, VolumeX, Maximize, Loader2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -51,7 +51,7 @@ export function LivePlayer({
   }, [])
 
   const attachHls = React.useCallback(
-    (url: string) => {
+    async (url: string) => {
       const video = videoRef.current
       if (!video) return
 
@@ -66,8 +66,13 @@ export function LivePlayer({
       }
 
       if (isHlsStream(url)) {
-        if (Hls.isSupported()) {
-          const hls = new Hls({
+        // 动态导入 hls.js(~200KB),仅 HLS 路由按需加载,避免打进主 bundle
+        const { default: HlsImpl } = await import('hls.js')
+        // 二次校验:异步加载期间组件可能已卸载或 url 已变
+        if (videoRef.current !== video) return
+
+        if (HlsImpl.isSupported()) {
+          const hls = new HlsImpl({
             enableWorker: true,
             lowLatencyMode: true,
             backBufferLength: 90,
@@ -75,13 +80,13 @@ export function LivePlayer({
           hlsRef.current = hls
           hls.loadSource(url)
           hls.attachMedia(video)
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          hls.on(HlsImpl.Events.MANIFEST_PARSED, () => {
             setLoading(false)
             if (autoPlay) video.play().catch(() => {})
           })
-          hls.on(Hls.Events.ERROR, (_event, data) => {
+          hls.on(HlsImpl.Events.ERROR, (_event, data) => {
             if (data.fatal) {
-              if (data.type === Hls.ErrorTypes.NETWORK_ERROR && retryCount.current < 5) {
+              if (data.type === HlsImpl.ErrorTypes.NETWORK_ERROR && retryCount.current < 5) {
                 retryCount.current += 1
                 retryTimer.current = setTimeout(
                   () => {
@@ -89,7 +94,7 @@ export function LivePlayer({
                   },
                   Math.min(1000 * Math.pow(2, retryCount.current), 8000),
                 )
-              } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+              } else if (data.type === HlsImpl.ErrorTypes.MEDIA_ERROR) {
                 hls.recoverMediaError()
               } else {
                 setError(`直播流错误: ${data.details}`)
