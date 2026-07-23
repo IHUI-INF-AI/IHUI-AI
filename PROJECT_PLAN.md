@@ -196,10 +196,57 @@
 - pre-push hook mobile-rn typecheck 失败(其他 agent WorkPanel.tsx),按用户规则 `--no-verify` 合法跳过
 
 **Git 同步证据**(§21):
-- 本地 commit: <待 commit>
-- origin commit: <待 push>
-- 同步状态: <待验证>
-- 守门脚本: <待验证>
+- 本地 commit: c8431f72c(Round8 合并提交,含 Round7 改动)
+- origin commit: c8431f72c
+- 同步状态: local == remote ✅(已被后续 commit 推进)
+- 守门脚本: node scripts/git-push-guard.mjs exit 0
+
+---
+
+### [x] ✅(2026-07-23) miniapp-taro Round9:5 subagent 并行修复 P1 缺口 + i18n 5 语言 parity(平台独占:仅 apps/miniapp-taro)
+
+**触发**:承接 `/goal 继续 最多化subagent去做`,5 subagent 并行修复 Round7 全量扫描发现的剩余 P1 缺口(50 项中的关键批次)+ ja.ts i18n parity 补全。
+
+**交付内容**(1 commit `eda6ae0`,28 文件,+975/-173):
+
+| 域 | P1 缺口 | 文件 | 修复 |
+|---|---|---|---|
+| 认证设置 | setting/index 菜单结构空壳 | `pages/setting/index.tsx`+`.css`(修改) | 完整 3 组 10 项菜单(账号/通用/其他)+ 用户信息条 + tt() fallback |
+| 认证设置 | setting/privacy + theme + about/privacy | 3 文件(修改) | i18n 完善 + 隐私权限/主题切换逻辑 |
+| 认证设置 | user/nickname 无字符限制 | `pages/user/nickname.tsx`(修改) | 8 字符限制 + 当前昵称展示 + tt() fallback |
+| 认证设置 | user/feedback 表单空壳 | `pages/user/feedback.tsx`(修改) | 完善反馈表单 |
+| 认证设置 | subscriptions 列表空壳 | `pages/subscriptions/index.tsx`(修改) | 订阅列表完善 |
+| 首页AI社区 | community 无模型切换 | `pages/community/index.tsx`(修改) | 8 类模型切换 + 4 快捷入口 + 分页加载 + 下拉刷新 + 分享 |
+| 首页AI社区 | news/detail 无分享 | `pages/news/detail.tsx`+`.css`(修改) | i18n + useShareAppMessage + useShareTimeline + NavBar + 移除分割线 |
+| 首页AI社区 | topic/detail 无 loading | `pages/topic/detail.tsx`(修改) | i18n + loading + 分享 + NavBar |
+| 首页AI社区 | share/creation 用分割线 | `pages/share/creation.tsx`(修改) | 移除 border-t 分割线改用 gap-2 间距 |
+| 课程直播 | live/history 无分页 | `pages/live/history.tsx`(修改) | useRef 防抖 + 分页 + 下拉刷新 + i18n |
+| 课程直播 | live/subscribe 空壳 | `pages/live/subscribe.tsx`(修改) | 订阅日历完善 |
+| 课程直播 | exam/list 无 tab | `pages/exam/list.tsx`(修改) | 3 tab(全部/待答/已答)+ useMemo 过滤 + 完整渲染 |
+| 课程直播 | study/plan 无 CRUD | `pages/study/plan.tsx`(修改) | 学习计划 CRUD + 进度条 + 弹窗表单 |
+| 课程直播 | study/record 空壳 | `pages/study/record.tsx`(修改) | 学习记录完善 |
+| 钱包VIP | vip/details 双卡对比空壳 | `pages/vip/details.tsx`+`.css`(修改) | 双卡对比(月度¥39.9/年度¥299)+ 7 行权益表 + tt() fallback |
+| 钱包VIP | token/balance 字段不容错 | `pages/token/balance.tsx`(修改) | 余额卡片 + 记录列表 + 4 字段容错(title/description/remark/reason) |
+| 钱包VIP | developer/withdrawal 空壳 | `pages/developer/withdrawal.tsx`+`.css`(修改) | 提现记录页完善 |
+| i18n parity | ja.ts 缺 132 key | `i18n/ja.ts`(修改) | 补全 login/forgot/order/wallet/setting/aigc/ranking/register/user 等 132 key |
+| i18n parity | 5 语言缺 vip.details 4 key | `i18n/{zh-CN,zh-TW,en,ko,ja}.ts`(修改) | 新增 monthlyPlan/yearlyPlan/monthlyAllBenefits/highCommission 4 key × 5 语言 |
+
+**多 subagent 并行模式(§11)**:5 subagent 按域拆分(认证设置/首页AI社区/课程直播/钱包VIP/i18n parity),每个 subagent 只改自己域的页面文件,不碰共享文件(i18n/*.ts),主 agent 统一补全 vip.details 4 key × 5 语言。
+
+**§9 平台独占**:仅 apps/miniapp-taro 端改动,无 api/ai-service/web 跨端契约变更。
+**§22 README 豁免**:纯功能补齐(对标原项目已有功能)+ 纯 i18n 补齐,不改变对外能力清单。
+
+**验证**:
+- typecheck:`pnpm --filter @ihui/miniapp-taro typecheck` exit 0 ✅(0 错误 0 warning)
+- pre-commit hook schema drift 失败(其他 agent 15 表 migration 缺失),按 §12 `--no-verify` 合法跳过
+- pre-push hook 全量 typecheck 失败(其他 agent apps/api migrate-legacy-data.ts TS2307),按用户规则 `--no-verify` 合法跳过
+
+**Git 同步证据**(§21):
+- 本地 commit: eda6ae0e3
+- origin commit: eda6ae0e3
+- 同步状态: local == remote ✅
+- 守门脚本: node scripts/git-push-guard.mjs exit 0 ✅
+- 注:push 前需 git rebase --autostash origin/main(远端有 2 个其他 agent commit:Wave 21 SSR + TiptapRichText 动态导入),rebase 无冲突,autostash 自动恢复其他 agent unstaged 改动
 
 ---
 
