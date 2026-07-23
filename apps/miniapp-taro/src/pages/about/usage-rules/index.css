@@ -20,11 +20,13 @@
   align-items: flex-start;
   margin-bottom: 16rpx;
 }
-.dot {
-  font-size: 28rpx;
+.num {
+  font-size: 26rpx;
   color: var(--color-primary);
   margin-right: 12rpx;
   line-height: 1.7;
+  flex-shrink: 0;
+  min-width: 40rpx;
 }
 .rule-text {
   flex: 1;
