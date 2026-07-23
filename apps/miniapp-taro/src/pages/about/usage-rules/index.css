@@ -1,44 +1,82 @@
 .page {
-  min-height: 100vh;
+  height: 100vh;
   background: var(--color-background);
 }
-.card {
-  margin: 24rpx;
-  padding: 32rpx;
+
+.content {
+  padding: 24rpx 24rpx 60rpx;
+}
+
+.intro-card {
+  margin-bottom: 32rpx;
+  padding: 28rpx 24rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.intro-text {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.75;
+  text-align: justify;
+}
+
+.section-card {
+  margin-bottom: 32rpx;
+  padding: 28rpx 24rpx;
   background: var(--color-card);
   border-radius: 16rpx;
 }
+
 .section-title {
   display: block;
-  font-size: 30rpx;
-  color: var(--color-foreground);
+  font-size: 32rpx;
   font-weight: 600;
+  color: var(--color-foreground);
   margin-bottom: 20rpx;
+  line-height: 1.4;
 }
-.rule-item {
-  display: flex;
-  align-items: flex-start;
+
+.block-wrap {
   margin-bottom: 16rpx;
 }
-.num {
-  font-size: 26rpx;
-  color: var(--color-primary);
-  margin-right: 12rpx;
-  line-height: 1.7;
-  flex-shrink: 0;
-  min-width: 40rpx;
+
+.block-wrap:last-of-type {
+  margin-bottom: 0;
 }
-.rule-text {
-  flex: 1;
+
+.block-subtitle {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-bottom: 12rpx;
+  margin-top: 8rpx;
+}
+
+.block-text {
+  display: block;
   font-size: 26rpx;
   color: var(--color-muted-foreground);
-  line-height: 1.7;
+  line-height: 1.75;
+  text-align: justify;
 }
-.tips {
-  text-align: center;
-  padding: 24rpx 32rpx 48rpx;
+
+.footer {
+  margin-top: 24rpx;
+  padding-top: 20rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
 }
-.tips text {
-  font-size: 22rpx;
+
+.footer-text {
+  display: block;
+  font-size: 24rpx;
   color: var(--color-muted-foreground);
+  line-height: 1.8;
 }
