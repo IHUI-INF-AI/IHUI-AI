@@ -347,3 +347,55 @@
   color: var(--color-muted-foreground);
   line-height: 1.6;
 }
+
+/* 历史入口按钮(对标原 ai_assistant.vue 导航栏历史图标) */
+.nav-history {
+  font-size: 32rpx;
+  padding: 0 12rpx;
+  margin-right: 16rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* 历史对话抽屉列表(对标原 ai_assistant.vue 历史抽屉) */
+.history-list {
+  padding: 16rpx 32rpx;
+  max-height: 50vh;
+}
+.history-item {
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  background: var(--color-background);
+  border-radius: 12rpx;
+}
+.history-item-title {
+  display: block;
+  font-size: 28rpx;
+  color: #333;
+  font-weight: bold;
+}
+.history-item-preview {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 8rpx;
+}
+.history-item-time {
+  display: block;
+  font-size: 22rpx;
+  color: #ccc;
+  margin-top: 8rpx;
+}
+
+/* 历史清空按钮(对标原 ai_assistant.vue clearHistory) */
+.history-clear-btn {
+  text-align: center;
+  padding: 24rpx;
+  color: #ff4d4f;
+  font-size: 28rpx;
+}
+
+/* 收藏按钮(对标原 ai_assistant.vue 收藏爱心图标) */
+.bubble-favorite {
+  font-size: 24rpx;
+  margin-left: 20rpx;
+}
