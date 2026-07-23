@@ -10,17 +10,115 @@
  *   - 左侧组件树面板(DOMParser 解析 HTML 字符串生成,点击节点高亮 iframe 元素)
  *   - 协同评论持久化(POST /design/comments + GET /design/comments/:previewId,Redis List)
  *   - AI 生成 UI(输入 prompt → /ai/llm/chat 生成 HTML → 注入画布 + 加入撤销栈)
+ *   - 导出代码(HTML→React/Vue/HTML 组件代码下载,纯前端转换)
  *
  * 自研实现,不引入新依赖。遵循 AGENTS.md §4(禁圆角/禁分割线/禁渐变遮罩)。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { fetchApi } from '@ihui/api-client'
 import type { DesignComment, DesignPreview, DesignPreviewResponse } from '@ihui/shared'
 import { useI18n } from '../i18n'
 import { useTheme } from '../hooks/use-theme'
-import { createComment, generateHtml, listComments } from '../lib/design-api'
+import { createComment, exportCode, generateHtml, listComments } from '../lib/design-api'
+import type { ExportFormat } from '../lib/code-exporter'
+import { applySnap, computeGuides } from '../lib/alignment-guides'
+import type { ElementRect } from '../lib/alignment-guides'
 
-const STYLE_PROPS = ['color', 'background', 'fontSize', 'padding', 'margin', 'width', 'height', 'display'] as const
+type CssGroupId = 'layout' | 'boxModel' | 'typography' | 'background' | 'effects' | 'responsive'
+type CssPropType = 'text' | 'number' | 'select' | 'color'
+
+interface CssProperty {
+  key: string
+  label: string
+  type: CssPropType
+  unit?: string
+  options?: string[]
+  group: CssGroupId
+}
+
+interface CssGroup {
+  id: CssGroupId
+  label: string
+  props: CssProperty[]
+}
+
+const CSS_GROUPS: CssGroup[] = [
+  {
+    id: 'layout',
+    label: 'design.cssGroup.layout',
+    props: [
+      { key: 'display', label: 'design.css.display', type: 'select', group: 'layout', options: ['block', 'inline', 'inline-block', 'flex', 'inline-flex', 'grid', 'inline-grid', 'none'] },
+      { key: 'flexDirection', label: 'design.css.flexDirection', type: 'select', group: 'layout', options: ['row', 'row-reverse', 'column', 'column-reverse'] },
+      { key: 'justifyContent', label: 'design.css.justifyContent', type: 'select', group: 'layout', options: ['flex-start', 'flex-end', 'center', 'space-between', 'space-around', 'space-evenly'] },
+      { key: 'alignItems', label: 'design.css.alignItems', type: 'select', group: 'layout', options: ['flex-start', 'flex-end', 'center', 'baseline', 'stretch'] },
+      { key: 'gap', label: 'design.css.gap', type: 'text', group: 'layout' },
+      { key: 'flexWrap', label: 'design.css.flexWrap', type: 'select', group: 'layout', options: ['nowrap', 'wrap', 'wrap-reverse'] },
+      { key: 'position', label: 'design.css.position', type: 'select', group: 'layout', options: ['static', 'relative', 'absolute', 'fixed', 'sticky'] },
+      { key: 'top', label: 'design.css.top', type: 'text', group: 'layout' },
+      { key: 'right', label: 'design.css.right', type: 'text', group: 'layout' },
+      { key: 'bottom', label: 'design.css.bottom', type: 'text', group: 'layout' },
+      { key: 'left', label: 'design.css.left', type: 'text', group: 'layout' },
+      { key: 'zIndex', label: 'design.css.zIndex', type: 'number', group: 'layout' },
+    ],
+  },
+  {
+    id: 'boxModel',
+    label: 'design.cssGroup.boxModel',
+    props: [
+      { key: 'width', label: 'design.css.width', type: 'text', group: 'boxModel' },
+      { key: 'height', label: 'design.css.height', type: 'text', group: 'boxModel' },
+      { key: 'padding', label: 'design.css.padding', type: 'text', group: 'boxModel' },
+      { key: 'margin', label: 'design.css.margin', type: 'text', group: 'boxModel' },
+      { key: 'border', label: 'design.css.border', type: 'text', group: 'boxModel' },
+      { key: 'borderRadius', label: 'design.css.borderRadius', type: 'text', group: 'boxModel' },
+      { key: 'boxSizing', label: 'design.css.boxSizing', type: 'select', group: 'boxModel', options: ['content-box', 'border-box'] },
+    ],
+  },
+  {
+    id: 'typography',
+    label: 'design.cssGroup.typography',
+    props: [
+      { key: 'color', label: 'design.css.color', type: 'color', group: 'typography' },
+      { key: 'fontSize', label: 'design.css.fontSize', type: 'text', group: 'typography' },
+      { key: 'fontWeight', label: 'design.css.fontWeight', type: 'select', group: 'typography', options: ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900'] },
+      { key: 'lineHeight', label: 'design.css.lineHeight', type: 'text', group: 'typography' },
+      { key: 'textAlign', label: 'design.css.textAlign', type: 'select', group: 'typography', options: ['left', 'right', 'center', 'justify'] },
+      { key: 'letterSpacing', label: 'design.css.letterSpacing', type: 'text', group: 'typography' },
+    ],
+  },
+  {
+    id: 'background',
+    label: 'design.cssGroup.background',
+    props: [
+      { key: 'background', label: 'design.css.background', type: 'text', group: 'background' },
+      { key: 'backgroundColor', label: 'design.css.backgroundColor', type: 'color', group: 'background' },
+      { key: 'backgroundImage', label: 'design.css.backgroundImage', type: 'text', group: 'background' },
+    ],
+  },
+  {
+    id: 'effects',
+    label: 'design.cssGroup.effects',
+    props: [
+      { key: 'opacity', label: 'design.css.opacity', type: 'number', group: 'effects' },
+      { key: 'boxShadow', label: 'design.css.boxShadow', type: 'text', group: 'effects' },
+      { key: 'transform', label: 'design.css.transform', type: 'text', group: 'effects' },
+      { key: 'transition', label: 'design.css.transition', type: 'text', group: 'effects' },
+      { key: 'cursor', label: 'design.css.cursor', type: 'select', group: 'effects', options: ['auto', 'default', 'pointer', 'text', 'wait', 'move', 'not-allowed'] },
+      { key: 'overflow', label: 'design.css.overflow', type: 'select', group: 'effects', options: ['visible', 'hidden', 'scroll', 'auto'] },
+    ],
+  },
+  {
+    id: 'responsive',
+    label: 'design.cssGroup.responsive',
+    props: [
+      { key: 'minWidth', label: 'design.css.minWidth', type: 'text', group: 'responsive' },
+      { key: 'maxWidth', label: 'design.css.maxWidth', type: 'text', group: 'responsive' },
+    ],
+  },
+]
+
+const ALL_CSS_KEYS = CSS_GROUPS.flatMap((g) => g.props.map((p) => p.key))
 
 const DEFAULT_HTML = `<div style="padding:24px;font-family:sans-serif">
   <h1>Hello Design</h1>
@@ -60,27 +158,80 @@ type RightPanelTab = 'css' | 'comments'
 function buildSrcDoc(html: string, isDark: boolean): string {
   const bg = isDark ? '#0a0a0a' : '#ffffff'
   const fg = isDark ? '#f5f5f5' : '#111111'
-  const script = `<script>(function(){
+  // camelCase → kebab-case for getComputedStyle keys
+  const propsJson = JSON.stringify(ALL_CSS_KEYS)
+  const script = `<script data-ihui-injected="true">(function(){
 document.documentElement.style.background='${bg}';
 document.documentElement.style.color='${fg}';
-var PROPS=['color','background','fontSize','padding','margin','width','height','display'];
+var PROPS=${propsJson};
+function toKebab(s){return s.replace(/([A-Z])/g,function(m){return '-'+m.toLowerCase();});}
 var selected=null;
-function gs(el){var s={};var cs=getComputedStyle(el);PROPS.forEach(function(p){s[p]=cs.getPropertyValue(p)});return s;}
+var dragging=null;
+var dragStarted=false;
+var suppressClick=false;
+var dragThreshold=3;
+var guideOverlay=null;
+function gs(el){var s={};var cs=getComputedStyle(el);PROPS.forEach(function(p){var k=toKebab(p);s[p]=cs.getPropertyValue(k);});return s;}
 function notify(){if(selected){parent.postMessage({__ihui:true,type:'select',elementId:selected.id||'',tagName:selected.tagName,text:(selected.textContent||'').slice(0,80),style:gs(selected)},'*');}}
 function highlight(el){if(selected) selected.style.outline='';selected=el;selected.style.outline='2px solid hsl(142 71% 45%)';selected.scrollIntoView({block:'center',behavior:'smooth'});notify();}
+function ensureOverlay(){if(!guideOverlay){guideOverlay=document.createElement('div');guideOverlay.setAttribute('data-ihui-injected','true');guideOverlay.style.cssText='position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:99999;';document.body.appendChild(guideOverlay);}return guideOverlay;}
+function renderGuides(guides){var ov=ensureOverlay();ov.innerHTML='';for(var i=0;i<guides.length;i++){var g=guides[i];var line=document.createElement('div');line.style.cssText='position:absolute;background:#ef4444;';if(g.type==='h'){line.style.left=g.start+'px';line.style.top=g.position+'px';line.style.width=(g.end-g.start)+'px';line.style.height='1px';}else{line.style.left=g.position+'px';line.style.top=g.start+'px';line.style.width='1px';line.style.height=(g.end-g.start)+'px';}ov.appendChild(line);}}
+function clearGuides(){if(guideOverlay){guideOverlay.innerHTML='';}}
+function collectSiblings(el){var sibs=[];var p=el.parentElement;if(!p)return sibs;var ch=p.children;for(var i=0;i<ch.length;i++){var c=ch[i];if(c===el)continue;if(c.tagName==='SCRIPT'||c.tagName==='STYLE')continue;if(c.getAttribute&&c.getAttribute('data-ihui-injected')==='true')continue;var r=c.getBoundingClientRect();if(r.width<=0||r.height<=0)continue;sibs.push({id:c.id||('el'+i),x:r.left,y:r.top,width:r.width,height:r.height});}return sibs;}
 document.addEventListener('click',function(e){
+if(suppressClick){e.preventDefault();e.stopPropagation();suppressClick=false;return;}
 e.preventDefault();e.stopPropagation();
 highlight(e.target);
 },true);
+document.addEventListener('mousedown',function(e){
+var el=e.target;
+if(el===document.body||el===document.documentElement)return;
+if(el.tagName==='SCRIPT'||el.tagName==='STYLE')return;
+if(el.getAttribute&&el.getAttribute('data-ihui-injected')==='true')return;
+var pos=getComputedStyle(el).position;
+if(pos==='static'){el.style.position='relative';}
+dragging={el:el,startX:e.clientX,startY:e.clientY,origLeft:el.offsetLeft,origTop:el.offsetTop,id:el.id||'',snapOffsetX:0,snapOffsetY:0};
+dragStarted=false;
+},true);
+document.addEventListener('mousemove',function(e){
+if(!dragging)return;
+var dx=e.clientX-dragging.startX;
+var dy=e.clientY-dragging.startY;
+if(!dragStarted){if(Math.abs(dx)<dragThreshold&&Math.abs(dy)<dragThreshold)return;dragStarted=true;}
+e.preventDefault();
+dragging.el.style.left=(dragging.origLeft+dx+dragging.snapOffsetX)+'px';
+dragging.el.style.top=(dragging.origTop+dy+dragging.snapOffsetY)+'px';
+var myRect=dragging.el.getBoundingClientRect();
+parent.postMessage({__ihui:true,type:'drag-move',elementId:dragging.id,rect:{id:dragging.id,x:myRect.left,y:myRect.top,width:myRect.width,height:myRect.height},others:collectSiblings(dragging.el)},'*');
+},true);
+document.addEventListener('mouseup',function(e){
+if(!dragging)return;
+if(dragStarted){
+e.preventDefault();
+suppressClick=true;
+var clone=document.body.cloneNode(true);
+var injected=clone.querySelectorAll('[data-ihui-injected="true"]');
+for(var i=0;i<injected.length;i++){injected[i].parentNode.removeChild(injected[i]);}
+parent.postMessage({__ihui:true,type:'drag-end',html:clone.innerHTML},'*');
+clearGuides();
+}
+dragging=null;
+dragStarted=false;
+},true);
 window.addEventListener('message',function(e){
 var d=e.data;if(!d||d.__ihui!==true)return;
-if(d.type==='update-style'){if(selected){Object.keys(d.style).forEach(function(k){selected.style[k]=d.style[k];});}return;}
+if(d.type==='update-style'){if(selected){Object.keys(d.style).forEach(function(k){selected.style.setProperty(toKebab(k),d.style[k]);});}return;}
+if(d.type==='reset-style'){if(selected){PROPS.forEach(function(p){selected.style.removeProperty(toKebab(p));});notify();}return;}
 if(d.type==='scroll-to-element'){
 var target=null;
 if(d.elementId){target=document.getElementById(d.elementId);}
 else if(d.tagName){var els=document.getElementsByTagName(d.tagName);target=els[d.index]||els[0];}
 if(target){highlight(target);}
+return;
 }
+if(d.type==='render-guides'){renderGuides(d.guides||[]);return;}
+if(d.type==='clear-guides'){clearGuides();return;}
+if(d.type==='apply-snap'){if(dragging&&dragStarted){var cr=dragging.el.getBoundingClientRect();var dX=d.x-cr.left;var dY=d.y-cr.top;dragging.snapOffsetX+=dX;dragging.snapOffsetY+=dY;var cl=parseFloat(dragging.el.style.left)||0;var ct=parseFloat(dragging.el.style.top)||0;dragging.el.style.left=(cl+dX)+'px';dragging.el.style.top=(ct+dY)+'px';}return;}
 });
 })();<\/script>`
   return html + script
@@ -179,6 +330,157 @@ function TreeView({
   )
 }
 
+/** 把 rgb()/rgba() 转 #hex,便于 <input type="color"> 回填;非颜色值原样返回。 */
+function normalizeColorHex(v: string): string {
+  if (!v) return ''
+  const m = v.match(/rgba?\(([^)]+)\)/i)
+  if (!m || !m[1]) return v
+  const parts = m[1].split(',').map((s) => s.trim())
+  if (parts.length < 3) return v
+  const toHex = (n: string) => {
+    const num = parseFloat(n)
+    if (Number.isNaN(num)) return '00'
+    return Math.max(0, Math.min(255, Math.round(num))).toString(16).padStart(2, '0')
+  }
+  return '#' + toHex(parts[0] ?? '0') + toHex(parts[1] ?? '0') + toHex(parts[2] ?? '0')
+}
+
+/** 从带单位字符串中提取数字部分(用于 number 输入回填)。 */
+function extractNumber(v: string): string {
+  if (!v) return ''
+  const m = v.match(/^-?\d*\.?\d+/)
+  return m ? m[0] : ''
+}
+
+/** 单行 CSS 属性编辑控件:按 type 渲染 select/number/text/color。 */
+function CssPropRow({
+  prop,
+  value,
+  onChange,
+  t,
+}: {
+  prop: CssProperty
+  value: string
+  onChange: (v: string) => void
+  t: (key: string, params?: Record<string, string | number>) => string
+}) {
+  const labelEl = (
+    <label style={{ flex: '0 0 92px', fontSize: 12, color: 'var(--muted)' }}>{t(prop.label)}</label>
+  )
+  let inputEl: ReactNode
+  if (prop.type === 'select' && prop.options) {
+    inputEl = (
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ flex: 1, fontSize: 12, minWidth: 0 }}
+      >
+        <option value="">—</option>
+        {prop.options.map((opt) => (
+          <option key={opt} value={opt}>{opt}</option>
+        ))}
+      </select>
+    )
+  } else if (prop.type === 'color') {
+    const hex = normalizeColorHex(value)
+    inputEl = (
+      <div style={{ display: 'flex', gap: 4, flex: 1, minWidth: 0 }}>
+        <input
+          type="color"
+          value={hex || '#000000'}
+          onChange={(e) => onChange(e.target.value)}
+          style={{ width: 32, height: 24, padding: 0, border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer' }}
+        />
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={t('design.css.placeholder')}
+          style={{ flex: 1, fontSize: 12, minWidth: 0 }}
+        />
+      </div>
+    )
+  } else if (prop.type === 'number') {
+    inputEl = (
+      <input
+        type="number"
+        value={extractNumber(value)}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={t('design.css.placeholder')}
+        style={{ flex: 1, fontSize: 12, minWidth: 0 }}
+      />
+    )
+  } else {
+    inputEl = (
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={t('design.css.placeholder')}
+        style={{ flex: 1, fontSize: 12, minWidth: 0 }}
+      />
+    )
+  }
+  return (
+    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      {labelEl}
+      {inputEl}
+    </div>
+  )
+}
+
+/** 可折叠 CSS 分组面板(Accordion 风格)。 */
+function CssGroupSection({
+  group,
+  values,
+  onChange,
+  t,
+}: {
+  group: CssGroup
+  values: Record<string, string>
+  onChange: (key: string, value: string) => void
+  t: (key: string, params?: Record<string, string | number>) => string
+}) {
+  const [collapsed, setCollapsed] = useState(false)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          width: '100%',
+          padding: '4px 6px',
+          border: 'none',
+          background: 'transparent',
+          borderRadius: 4,
+          textAlign: 'left',
+          fontSize: 12,
+          fontWeight: 600,
+          cursor: 'pointer',
+          color: 'var(--text, inherit)',
+        }}
+      >
+        <span style={{ width: 10, fontSize: 10, color: 'var(--muted)' }}>{collapsed ? '▶' : '▼'}</span>
+        <span>{t(group.label)}</span>
+      </button>
+      {!collapsed && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 8 }}>
+          {group.props.map((prop) => (
+            <CssPropRow
+              key={prop.key}
+              prop={prop}
+              value={values[prop.key] ?? ''}
+              onChange={(v) => onChange(prop.key, v)}
+              t={t}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function DesignPage({ onComment }: DesignPageProps) {
   const { t } = useI18n()
   const { isDark } = useTheme()
@@ -206,11 +508,17 @@ export default function DesignPage({ onComment }: DesignPageProps) {
   const [commentsError, setCommentsError] = useState('')
   const [commentPosting, setCommentPosting] = useState(false)
   const [rightTab, setRightTab] = useState<RightPanelTab>('css')
+  const [guidesEnabled, setGuidesEnabled] = useState(true)
 
   // AI 生成相关
   const [aiPrompt, setAiPrompt] = useState('')
   const [aiGenerating, setAiGenerating] = useState(false)
   const [aiMsg, setAiMsg] = useState('')
+
+  // 导出代码相关
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  const [exportMsg, setExportMsg] = useState('')
+  const exportRef = useRef<HTMLDivElement>(null)
 
   const srcDoc = useMemo(() => buildSrcDoc(renderedHtml, isDark), [renderedHtml, isDark])
   const tree = useMemo(() => parseHtmlToTree(renderedHtml), [renderedHtml])
@@ -297,10 +605,50 @@ export default function DesignPage({ onComment }: DesignPageProps) {
     return () => window.removeEventListener('message', handler)
   }, [])
 
+  // P1-c: 拖拽消息处理 — 接收 iframe 拖拽位置,计算参考线 + 吸附,回传 iframe 绘制
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      const d = e.data
+      if (!d || d.__ihui !== true) return
+      if (d.type === 'drag-move' && d.rect && d.others) {
+        if (guidesEnabled) {
+          const dragged = d.rect as ElementRect
+          const others = d.others as ElementRect[]
+          const guides = computeGuides(dragged, others)
+          iframeRef.current?.contentWindow?.postMessage(
+            { __ihui: true, type: 'render-guides', guides },
+            '*',
+          )
+          const snap = applySnap(dragged, guides)
+          if (Math.abs(snap.x - dragged.x) > 0.5 || Math.abs(snap.y - dragged.y) > 0.5) {
+            iframeRef.current?.contentWindow?.postMessage(
+              { __ihui: true, type: 'apply-snap', x: snap.x, y: snap.y },
+              '*',
+            )
+          }
+        }
+      } else if (d.type === 'drag-end' && typeof d.html === 'string') {
+        setHtml(d.html)
+        setRenderedHtml(d.html)
+        pushHistory(d.html)
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [guidesEnabled, pushHistory])
+
   const onStyleChange = (prop: string, value: string) => {
     setStyleEdits((prev) => ({ ...prev, [prop]: value }))
     iframeRef.current?.contentWindow?.postMessage(
       { __ihui: true, type: 'update-style', style: { [prop]: value } },
+      '*',
+    )
+  }
+
+  const onResetStyles = () => {
+    setStyleEdits({})
+    iframeRef.current?.contentWindow?.postMessage(
+      { __ihui: true, type: 'reset-style' },
       '*',
     )
   }
@@ -463,6 +811,30 @@ export default function DesignPage({ onComment }: DesignPageProps) {
     }
   }
 
+  useEffect(() => {
+    if (!exportMenuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setExportMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [exportMenuOpen])
+
+  /** 导出代码:把画布 HTML 转为 React/Vue/HTML 组件并触发下载。 */
+  const onExport = async (format: ExportFormat) => {
+    setExportMenuOpen(false)
+    setExportMsg('')
+    const name = previewName.trim() || t('design.previewNamePlaceholder')
+    try {
+      const { filename } = await exportCode(format, renderedHtml, name)
+      setExportMsg(t('design.export.exportSuccess', { filename }))
+    } catch (err) {
+      setExportMsg(err instanceof Error ? err.message : String(err))
+    }
+  }
+
   const canUndo = history.index > 0
   const canRedo = history.index < history.stack.length - 1
 
@@ -495,13 +867,129 @@ export default function DesignPage({ onComment }: DesignPageProps) {
           <button type="button" onClick={onSavePreview} disabled={saving}>
             {saving ? t('common.loading') : t('design.savePreview')}
           </button>
+          <div ref={exportRef} style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => setExportMenuOpen((v) => !v)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              aria-label={t('design.export.exportButton')}
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>{t('design.export.exportButton')}</span>
+            </button>
+            {exportMenuOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '100%',
+                  marginTop: 4,
+                  zIndex: 10,
+                  minWidth: 140,
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                  background: 'var(--card)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                  overflow: 'hidden',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => onExport('react')}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    padding: '6px 10px',
+                    border: 'none',
+                    background: 'transparent',
+                    textAlign: 'left',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    color: 'var(--text, inherit)',
+                  }}
+                >
+                  {t('design.export.exportReact')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onExport('vue')}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    padding: '6px 10px',
+                    border: 'none',
+                    background: 'transparent',
+                    textAlign: 'left',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    color: 'var(--text, inherit)',
+                  }}
+                >
+                  {t('design.export.exportVue')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onExport('html')}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    padding: '6px 10px',
+                    border: 'none',
+                    background: 'transparent',
+                    textAlign: 'left',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    color: 'var(--text, inherit)',
+                  }}
+                >
+                  {t('design.export.exportHtml')}
+                </button>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setGuidesEnabled((v) => !v)}
+            title={guidesEnabled ? t('design.layout.hideGuides') : t('design.layout.showGuides')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            aria-label={guidesEnabled ? t('design.layout.hideGuides') : t('design.layout.showGuides')}
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+            <span>{guidesEnabled ? t('design.layout.hideGuides') : t('design.layout.showGuides')}</span>
+          </button>
         </div>
       </header>
-      {(saveMsg || aiMsg) && (
+      {(saveMsg || aiMsg || exportMsg) && (
         <p style={{ margin: '0 0 8px', fontSize: 12, color: 'var(--muted)' }}>
-          {saveMsg}
-          {saveMsg && aiMsg ? ' · ' : ''}
-          {aiMsg}
+          {[saveMsg, aiMsg, exportMsg].filter(Boolean).join(' · ')}
         </p>
       )}
 
@@ -637,19 +1125,27 @@ export default function DesignPage({ onComment }: DesignPageProps) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, overflow: 'auto', flex: 1, padding: 8, border: '1px solid var(--border)', borderTop: 'none', borderRadius: '0 0 6px 6px' }}>
               {selected ? (
                 <>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                    {selected.tagName}
-                    {selected.elementId ? `#${selected.elementId}` : ''}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                      {selected.tagName}
+                      {selected.elementId ? `#${selected.elementId}` : ''}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={onResetStyles}
+                      style={{ fontSize: 11, padding: '2px 8px', border: '1px solid var(--border)', borderRadius: 4, background: 'transparent', cursor: 'pointer', color: 'var(--muted)' }}
+                    >
+                      {t('design.css.reset')}
+                    </button>
                   </div>
-                  {STYLE_PROPS.map((prop) => (
-                    <div key={prop} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <label style={{ flex: '0 0 86px', fontSize: 12, color: 'var(--muted)' }}>{prop}</label>
-                      <input
-                        value={styleEdits[prop] ?? ''}
-                        onChange={(e) => onStyleChange(prop, e.target.value)}
-                        style={{ flex: 1, fontSize: 12, minWidth: 0 }}
-                      />
-                    </div>
+                  {CSS_GROUPS.map((group) => (
+                    <CssGroupSection
+                      key={group.id}
+                      group={group}
+                      values={styleEdits}
+                      onChange={onStyleChange}
+                      t={t}
+                    />
                   ))}
                   <button type="button" onClick={() => setCommentOpen((v) => !v)} style={{ marginTop: 8 }}>
                     {t('design.commentToChat')}
