@@ -1,0 +1,347 @@
+/* AI资讯分享页 - 对齐原 uniapp pages/table/share/index.vue */
+
+.share-page {
+  min-height: 100vh;
+  background: var(--color-background);
+}
+
+/* ===== 排行榜入口视图(activeNavbar=false) ===== */
+.share-rank-wrap {
+  padding: 24rpx 0;
+}
+.share-rank-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 32rpx 24rpx;
+}
+.share-rank-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.share-rank-enter {
+  padding: 12rpx 28rpx;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  font-size: 26rpx;
+  border-radius: 8rpx;
+}
+
+/* ===== 主容器 ===== */
+/* navbar 高度由内联 style 动态设置(基于 getMenuButtonBoundingClientRect) */
+
+/* 顶部导航栏(自定义,对标原 viscosity 吸顶),用阴影替代单边 border 分割线 */
+.share-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24rpx;
+  background: var(--color-card);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.12);
+}
+.share-navbar-title {
+  flex: 1;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.share-navbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64rpx;
+  height: 64rpx;
+  font-size: 36rpx;
+  color: var(--color-foreground);
+}
+.share-navbar-btn-text {
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  padding: 0 8rpx;
+}
+
+/* ===== Tabs(对标原 TitleSwitch) ===== */
+.share-tabs {
+  display: flex;
+  background: var(--color-card);
+  padding: 0 24rpx;
+}
+.share-tab {
+  flex: 1;
+  text-align: center;
+  padding: 20rpx 0;
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+  position: relative;
+}
+.share-tab.active {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.share-tab.active::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 8rpx;
+  transform: translateX(-50%);
+  width: 48rpx;
+  height: 4rpx;
+  background: var(--color-primary);
+  border-radius: 2rpx;
+}
+
+/* ===== 资讯列表 ===== */
+.share-list {
+  padding: 16rpx 24rpx 96rpx;
+}
+
+/* 搜索栏 */
+.share-search {
+  padding: 16rpx 24rpx;
+  background: var(--color-card);
+}
+.share-search-input {
+  height: 64rpx;
+  padding: 0 24rpx;
+  background: var(--color-background);
+  border-radius: 8rpx;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+}
+.share-item {
+  display: flex;
+  background: var(--color-card);
+  border-radius: 12rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+}
+.share-item-cover {
+  width: 200rpx;
+  height: 140rpx;
+  border-radius: 8rpx;
+  flex-shrink: 0;
+  background: var(--color-background);
+}
+.share-item-body {
+  flex: 1;
+  margin-left: 24rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+.share-item-title {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.share-item-summary {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 8rpx;
+  line-height: 1.4;
+}
+.share-item-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8rpx;
+}
+.share-item-time,
+.share-item-views {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+.share-empty {
+  text-align: center;
+  padding: 120rpx 0;
+  color: var(--color-muted-foreground);
+  font-size: 26rpx;
+}
+.share-loading {
+  text-align: center;
+  padding: 32rpx 0;
+  color: var(--color-muted-foreground);
+  font-size: 24rpx;
+}
+.share-nomore {
+  text-align: center;
+  padding: 24rpx 0;
+  color: var(--color-muted-foreground);
+  font-size: 22rpx;
+}
+
+/* ===== 侧边栏(简化 DrawerComponent) ===== */
+.share-drawer-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(0, 0, 0, 0.4);
+  transition: opacity 0.25s ease;
+}
+.share-drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 91;
+  width: 80%;
+  max-width: 600rpx;
+  background: var(--color-card);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+}
+.share-drawer.open {
+  transform: translateX(0);
+}
+.share-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32rpx 24rpx 16rpx;
+}
+.share-drawer-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.share-drawer-close {
+  font-size: 40rpx;
+  color: var(--color-muted-foreground);
+  padding: 0 8rpx;
+}
+.share-drawer-actions {
+  display: flex;
+  gap: 16rpx;
+  padding: 16rpx 24rpx;
+}
+.share-drawer-btn {
+  flex: 1;
+  text-align: center;
+  padding: 18rpx 0;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  font-size: 26rpx;
+  border-radius: 8rpx;
+}
+.share-drawer-btn.secondary {
+  background: var(--color-muted);
+  color: var(--color-foreground);
+}
+.share-drawer-section-title {
+  padding: 16rpx 24rpx 8rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.share-drawer-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24rpx 24rpx;
+}
+.share-drawer-item {
+  padding: 16rpx 0;
+}
+.share-drawer-item-title {
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  line-height: 1.4;
+}
+.share-drawer-item-time {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 4rpx;
+}
+.share-drawer-empty {
+  text-align: center;
+  padding: 48rpx 0;
+  color: var(--color-muted-foreground);
+  font-size: 24rpx;
+}
+
+/* ===== 分类弹层(对标原 tagWrapShow) ===== */
+.share-tag-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 89;
+  background: rgba(0, 0, 0, 0.4);
+}
+.share-tag-panel {
+  position: fixed;
+  top: 88rpx;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  background: var(--color-card);
+  padding: 24rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+.share-tag-item {
+  padding: 12rpx 28rpx;
+  background: var(--color-muted);
+  color: var(--color-foreground);
+  font-size: 24rpx;
+  border-radius: 8rpx;
+}
+.share-tag-item.active {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+/* ===== 返回顶部(对标原 toodown) ===== */
+.share-to-top {
+  position: fixed;
+  right: 32rpx;
+  bottom: 96rpx;
+  z-index: 60;
+  width: 80rpx;
+  height: 80rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+  color: var(--color-primary);
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.2);
+}
+
+/* ===== 浮动入口(float-box 简化) ===== */
+.share-float {
+  position: fixed;
+  right: 32rpx;
+  bottom: 200rpx;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.share-float-btn {
+  width: 80rpx;
+  height: 80rpx;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+}
+
+/* ===== 页面滚动锁定覆盖层(对标原 scroll-lock-overlay) ===== */
+.share-scroll-lock {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: transparent;
+}
