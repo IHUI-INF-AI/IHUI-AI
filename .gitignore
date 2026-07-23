@@ -216,9 +216,9 @@ __gate_result.txt
 .iso-test-*.json
 
 # ============================================================================
-# 临时补丁和 i18n 扫描产物(不纳入版本库)
+# i18n 扫描产物(不纳入版本库)
+# 注意:patches/ 目录是 pnpm patch 持久化补丁,必须入库(package.json patchedDependencies 引用)
 # ============================================================================
-patches/
 unfound-zh.txt
 unfound-en.txt
 unfound-ja.txt

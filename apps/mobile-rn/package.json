@@ -39,7 +39,8 @@
     "react-native-video": "^6.4.5",
     "react-native-view-shot": "^4.0.3",
     "react-native-webview": "13.13.5",
-    "react-native-wechat-lib": "^3.0.7"
+    "react-native-wechat-lib": "^3.0.7",
+    "solito": "4.3.0"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
