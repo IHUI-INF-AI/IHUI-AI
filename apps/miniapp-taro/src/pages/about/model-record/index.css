@@ -1,7 +1,9 @@
 .page {
   min-height: 100vh;
   background: var(--color-background);
+  padding-bottom: 48rpx;
 }
+
 .table-title {
   padding: 32rpx 32rpx 0;
 }
@@ -37,6 +39,35 @@
   color: var(--color-foreground);
   word-break: break-all;
 }
+
+.card-wrap {
+  margin: 24rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  overflow: hidden;
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.record-image {
+  width: 100%;
+  display: block;
+  border-radius: 8rpx;
+  margin-bottom: 24rpx;
+}
+
+.image-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 300rpx;
+}
+
+.image-fallback-text {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+
 .notice-card {
   padding: 32rpx;
 }
