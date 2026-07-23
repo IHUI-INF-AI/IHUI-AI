@@ -1,4 +1,31 @@
 {
+  "skills": {
+    "market": {
+      "title": "技能市場",
+      "subtitle": "瀏覽、安裝並評分技能擴展能力",
+      "searchPlaceholder": "搜尋技能...",
+      "tagAll": "全部",
+      "install": "安裝",
+      "installed": "已安裝",
+      "rating": "評分",
+      "rate": "評分",
+      "comment": "評論",
+      "commentPlaceholder": "寫下你的評價...",
+      "submit": "提交",
+      "cancel": "取消",
+      "empty": "暫無技能",
+      "loading": "載入中...",
+      "page": "第 {page}/{total} 頁",
+      "prev": "上一頁",
+      "next": "下一頁",
+      "total": "共 {total} 個技能",
+      "installs": "{count} 次安裝",
+      "installSuccess": "安裝成功",
+      "installFailed": "安裝失敗",
+      "rateSuccess": "評分成功",
+      "rateFailed": "評分失敗"
+    }
+  },
   "common": {
     "login": "登入",
     "register": "註冊",
