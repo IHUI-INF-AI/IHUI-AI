@@ -140,6 +140,7 @@ import { ShareScreen } from '../screens/ShareScreen'
 import { useI18n } from '../i18n'
 import { WorkPanelScreen, setWorkPanelNavigator } from '../components/WorkPanel'
 import { TaskDispatchPage } from '../pages/TaskDispatchPage'
+import { SharedDemoScreen } from '../screens/SharedDemoScreen'
 
 export type RootStackParamList = {
   Login: undefined
@@ -271,6 +272,7 @@ export type RootStackParamList = {
   Share: { targetType: string; targetId: string; title: string }
   WorkPanel: { url: string }
   TaskDispatch: undefined
+  SharedDemo: undefined
 }
 
 export type HomeStackParamList = {
@@ -547,6 +549,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Share" component={ShareScreen} />
             <RootStack.Screen name="WorkPanel" component={WorkPanelScreen} />
             <RootStack.Screen name="TaskDispatch" component={TaskDispatchPage} />
+            <RootStack.Screen name="SharedDemo" component={SharedDemoScreen} />
           </>
         ) : (
           <>
