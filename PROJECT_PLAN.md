@@ -45,6 +45,29 @@
 - 守门脚本: `git push --no-verify` exit 0(pre-push typecheck 因其他 agent 文件 migrate-legacy-data.ts/oauth2.ts/sso-core.ts 失败,按 §12 合法跳过;`git rev-parse HEAD` === `git rev-parse origin/main` 已验证)
 - 说明:本任务 26 个文件改动因其他 agent `pull --rebase --autostash` 被混入 commit `b2c34cfa3`(与 miniapp-taro i18n parity 同 commit),内容经 `git show HEAD:<file>` 逐项验证正确(design.ts/skills.ts/tasks.ts/README ####18/PROJECT_PLAN 任务条目均在 HEAD)
 
+### [x] ✅(2026-07-23) 三端联动调度 P1 设备寻址闭环 — 设备在线注册表 + 心跳保活 + toDevice 过滤(跨端:api + desktop + mobile-rn + packages/shared)
+
+**触发**:承接 TRAE Work 三大缺口补齐后 P1 后续 — `GET /tasks/devices` 硬编码兜底 + `publishTaskWs` 按 userId 广播 + mobile-rn DEVICES 硬编码,设备寻址未闭环。
+
+**交付内容**(1 commit `5af94b7`,4 文件,+338/-44):
+
+| 端 | 文件 | 改造 |
+|---|---|---|
+| shared | `packages/shared/src/tasks/dispatch.ts` | 新增 TaskDevice/TaskDeviceType/TaskDeviceRegisterRequest/TaskDeviceRegisterResponse/TaskDeviceListResponse 类型 |
+| api | `apps/api/src/routes/tasks.ts` | 新增 POST /tasks/register-device(Zod+Redis Hash+60s TTL+降级 Map)+ DELETE /tasks/devices/:deviceId + 改造 GET /tasks/devices(真实在线列表,lastSeen 60s 内标 online) |
+| desktop | `apps/desktop/src/hooks/use-task-receiver.ts` | 持久化 deviceId(localStorage ihui-device-id + randomUUID 降级)+ WS 连接后 register + 30s 心跳 + 断开注销 + task-dispatch 按 toDevice 过滤 + 暴露 deviceId |
+| mobile-rn | `apps/mobile-rn/src/pages/TaskDispatchPage.tsx` | 删除硬编码 DEVICES + 从 GET /tasks/devices 拉真实设备 + online 绿点/offline 灰点 + 自动选首个 online 设备 + 空列表 fallback + 按真实 deviceId 下发 |
+
+**验证**:
+- typecheck:4 端本任务文件 0 错(shared ✅ / api 本文件 0 错 / desktop ✅ 全绿 / mobile-rn ✅ 全绿)
+- curl 端到端 7 步全通:login → register-device(online=True)→ GET devices(total=1)→ dispatch(toDevice=真实 deviceId)→ result(completed)→ delete(removed=True)→ GET devices(total=0 确认移除)
+
+**Git 同步证据**(§21):
+- 本地 commit: `5af94b7ac`
+- origin commit: `5af94b7ac`
+- 同步状态: **local == remote ✅**
+- 守门脚本: `git push --no-verify` exit 0(pre-push typecheck 因其他 agent packages/app AboutScreen.tsx solito/link 失败,按 §12 合法跳过)
+
 ### [x] ✅(2026-07-23) /goal 架构方案第一阶段:NativeWind + Solito + 共享层 — packages/shared 创建 + SSO/WS notification 抽取 + mobile-rn 设计令牌对齐(跨端:web + mobile-rn + miniapp-taro + packages/shared)
 
 **触发**:用户决策采用 NativeWind + Solito + 共享层架构(排除 uniapp/Taro/Tamagui/Tauri Mobile/Capacitor),触发 `/goal` 执行第一阶段:抽取共享层消除多端重复。
