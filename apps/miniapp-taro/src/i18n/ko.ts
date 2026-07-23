@@ -328,6 +328,22 @@ export default {
     common: {
       loading: '로딩 중…',
     },
+    tishi: {
+      title: '에이전트 가이드',
+      view: '보기',
+      close: '닫기',
+      needInput: '더 정확한 도움을 위해 다음 정보를 입력해 주세요',
+    },
+    chatMessageItem: {
+      me: '나',
+      ai: 'AI',
+      thinkingProcess: '사고 과정',
+      noContent: '복사할 내용 없음',
+      aiGenerated: 'AI 생성',
+      tokenCost: '토큰: {{n}}',
+      reuse: '재사용',
+      copy: '복사',
+    },
     inputArea: {
       placeholder: '질문 입력…',
       releaseToSend: '놓으면 전송',
@@ -1055,6 +1071,8 @@ export default {
     logout: '로그아웃',
     logoutConfirm: '로그아웃하시겠습니까?',
     vipMember: 'VIP 회원',
+    admin: '관리자',
+    normalUser: '일반 사용자',
     tapLogin: '탭하여 로그인',
     loginHint: '로그인 후 더 많은 서비스',
     menu: {
@@ -1066,6 +1084,7 @@ export default {
       ai: 'AI 어시스턴트',
       settings: '설정',
     },
+    identity: '신원',
     avatar: {
       updateSuccess: '아바타 업데이트',
       choose: '아바타 선택',

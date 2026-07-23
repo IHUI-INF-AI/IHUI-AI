@@ -32,7 +32,8 @@
 - **能力雷达图**:5 维 SVG 雷达图
 - **核心亮点**:模型一句话亮点
 - **官方资源**:厂商官方 API Key 申请链接 + 官方文档链接 + **复制 Base URL** 按钮(2026-07-22 立升级,`navigator.clipboard.writeText` + toast 反馈)+ **复制并导入** 按钮(2026-07-22 立升级,一键复制 Base URL + 构建 prefill payload + 新标签页跳转 `/settings/llm?prefill=<base64>`,形成"查看 → 复制 → 预填导入"UX 闭环)
-- **能力标签**(2026-07-22 立升级):从模型数据自动提取 6 种能力标签(长上下文 ≥100K / 大输出 ≥8K / 低成本 <$1 / 高胜率 >70% / 顶级模型 >1300 / 多模态),在弹窗头部以 primary 色标签显示,增强信息密度
+- **能力标签**(2026-07-22 立升级):从模型数据自动提取 6 种能力标签(长上下文 ≥100K / 大输出 ≥8K / 低成本 <$1 / 高胜率 >70% / 顶级模型 >1300 / 多模态),在弹窗头部以 primary 色标签显示,增强信息密度。阈值提取为 `CAPABILITY_THRESHOLDS` 配置常量(2026-07-22 立升级,位于 `text-utils.tsx`),方便后续调整或 i18n 化
+- **搜索高亮延续**(2026-07-22 立升级):从 Leaderboard 搜索后打开详情弹窗时,弹窗头部的模型名/厂商名会延续高亮搜索关键词(复用 `highlight` 函数),保持搜索上下文一致性
 - **一键导入**:跳转到 `/settings/llm?prefill=<base64>`,预填 Provider 表单
 
 ### 1.4 模型对比(ModelCompareBar + ModelCompareDialog + PriceChart)
