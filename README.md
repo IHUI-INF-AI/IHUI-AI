@@ -901,7 +901,7 @@ IHUI-AI/
 | **文生视频**     | 多模型混编 / 视频编辑 / 视频合成 / 转码 / ai-generation/video-tasks                 |
 | **AI 数字人**    | 腾讯混元 3D / AI 世界 / 数字人交互 / `tencent-hunyuan-3d.ts`                        |
 | **AI 求职**      | 简历优化 / 模拟面试 / 职业建议 / `ai-career/`                                       |
-| **AI 资讯**      | AI 资讯聚合 / 智能摘要 / `ai-feed.ts` + `ai-feed-posts.ts` / 大模型排行榜(`model-leaderboard` + Arena 评分 + 能力雷达图 + 模型对比勾选 + `ModelCompareBar` + `ModelCompareDialog` + `PriceChart` SVG 柱状图 + 能力雷达叠加)+ API 中转站(`api-relays.ts` + 29 公司平台 + 搜索/厂商筛选 + 个人运行风险提示)+ 官方 Key 一键导入(`vendor-platforms.ts` + 47 厂商映射 + `?prefill=` base64 跳转 + `ProviderFormDialog` 剪贴板粘贴按钮)+ 资讯标题多语言切换(中/EN/日/한 4 语言 + `titleEn/titleJa/titleKo` schema 字段)+ 趋势爆发通知 Banner(`TrendNotificationBanner` + 60s 轮询 + `/api/ai-feed/notifications`) |
+| **AI 资讯**      | AI 资讯聚合 / 智能摘要 / `ai-feed.ts` + `ai-feed-posts.ts` / 大模型排行榜(`model-leaderboard` + Arena 评分 + 能力雷达图 + 模型对比勾选 + `ModelCompareBar` + `ModelCompareDialog` + `PriceChart` SVG 柱状图 + 能力雷达叠加)+ API 中转站(`api-relays.ts` + 29 公司平台 + 搜索/厂商筛选 + 个人运行风险提示 + 一键测速 `fetch no-cors` RTT + 延迟 badge 绿/黄/红 + 按延迟排序)+ 官方 Key 一键导入(`vendor-platforms.ts` + 47 厂商映射 + `?prefill=` base64 跳转 + `ProviderFormDialog` 剪贴板粘贴按钮)+ 资讯标题多语言切换(中/EN/日/한 4 语言 + `titleEn/titleJa/titleKo` schema 字段)+ 趋势爆发通知 Banner(`TrendNotificationBanner` + 60s 轮询 + `/api/ai-feed/notifications`) |
 
 ### B. AI 工作流与开发者(面向开发者)
 

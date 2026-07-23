@@ -28577,7 +28577,11 @@
       "billingSubscription": "套餐",
       "sortLabel": "排序",
       "sortByName": "按名稱",
-      "sortByBilling": "按計費"
+      "sortByBilling": "按計費",
+      "speedTest": "測速",
+      "speedTesting": "測速中...",
+      "sortBySpeed": "按延遲",
+      "speedError": "逾時"
     },
     "cta": {
       "label": "底部 CTA",
