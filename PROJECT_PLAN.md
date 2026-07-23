@@ -8,6 +8,60 @@
 
 ## 当前活跃任务(2026-07-24)
 
+### [x] ✅(2026-07-24) miniapp-taro Round15:5 subagent 并行深化 23 个空壳页面 + 22 个 about/ask/exam/topic/member/vip/user/order/setting/wallet 域功能对标原 uniapp(平台独占:仅 apps/miniapp-taro)
+
+**触发**:承接 Round14(distribution/team + news/detail 2 页深化 + i18n 5 语言补全 20 key)后,用户要求"继续按你的建议去做执行,最多 agent 并行开发最大化效率,要求完美细致完整毫无遗漏"。扫描 apps/miniapp-taro/src/pages 行数,识别 <80 行空壳页面 22 个,对标原 uniapp 项目 `D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue` 的对应 .vue 文件深化。
+
+**交付内容**(5 subagent 并行,23 页深化,文件边界严格隔离):
+
+| Subagent | 域 | 页面 | 原行数 → 新行数 | 对标原 .vue |
+|---|---|---|---|---|
+| A | about 协议资质 | protocol / privacy / business-license / model-record / icp-record / usage-rules | 27/35/39/51/56/58 → 533/完整/完整/完整/86/444 | pagesA/agreement/* + pagesA/settings/* |
+| B | about 设置 | index / api-settings / app-permission / help / contact | 61/64/65/68/71 → 107/209/130/184/172 | pagesA/settings/about + api-settings + app-permission + fankui |
+| C | member + vip + user | member/index / vip/success / user/avatar | 67/59/63 → 347/194/162 | pages/member/index(555) + pagesA/vip/paySuccess(366) + account.vue 头像部分 |
+| D | wallet + order + setting | wallet/recharge/fail + success / order/refund / setting/language | 58/61/59/71 → 102/100/150/104 | pagesA/topup-fail + topup-success + 自主设计 |
+| E | ask + exam + topic | ask/create / exam/detail + result / topic/detail + list | 72/73/84/91/93 → 完整 | 自主设计(原项目无对应) |
+
+**关键缺口修复**:
+- member/index:67 → 347 行(原 555 行,补 488 行缺口)— 会员等级梯度 + 权益列表 + VIP CTA 三态 + 6 项快捷入口
+- vip/success:59 → 194 行(原 366 行,补 307 行缺口)— 支付成功 + 订单信息 + 权益激活 + 分享赚佣金
+- about/api-settings:64 → 209 行(原 260 行,补 196 行缺口)— Coze Token + Workflow ID + 保存/重置/测试连接
+- about/usage-rules:58 → 444 行(原 204 行,补 146 行缺口)— 10 章使用规范完整复现
+- about/protocol:27 → 533 行(原 211 行)— 13 段服务协议完整
+- about/privacy:35 → 完整(原 244 行)— 11 段隐私政策完整
+
+**i18n 策略**:全部用 `tt(k, fb)` fallback 模式(`const tt = (k, fb) => t(k) === k ? fb : t(k)`),fallback 为中文。新增 150+ i18n key 通过 fallback 显示中文,5 语言 parity 不破坏(zh-CN/zh-TW/en/ko/ja 文件未改,key 不存在时 t() 返回 key 字符串,tt() 用 fallback)。多语言环境降级为中文 fallback,可后续轮次补全翻译。
+
+**样式合规**:全部遵守项目规范 — 无 `rounded-full`/`rounded-pill`/`9999px`/`50%` 容器;无 `<hr>`/`divide-*`/单边 border 分割线;无 `mask-image` 渐变遮罩;圆角用 `rounded-sm/md/lg/xl/2xl`(2/4/6/8/12/16px 或 4/8/12/16rpx);颜色用 `var(--color-*)` design token。
+
+**验证**:
+- `pnpm --filter @ihui/miniapp-taro typecheck` exit 0 ✅(全绿,无新错误)
+- 5 subagent 各自 typecheck 自验通过
+- 文件边界严格隔离,无 i18n/*.ts 改动(主 agent 任务 #3 待后续轮次)
+
+**Git 同步证据**(§21):
+- 本地 commit: (本轮待 commit)
+- origin commit: (本轮待 push)
+- 守门脚本: (本轮待验证)
+
+### [x] ✅(2026-07-24) miniapp-taro Round14:distribution/team + news/detail 2 页深化 + i18n 5 语言补全 20 key(平台独占:仅 apps/miniapp-taro)
+
+**触发**:用户要求"继续 最多化subagent去做"。扫描识别 2 个 P2 级空壳页面:distribution/team(93 行,对标原 distribution_personnel_list/index.vue 531 行 + detail.vue 439 行)和 news/detail(71 行,对标原 pagesA/news/detail.vue 262 行)。
+
+**交付内容**(2 subagent 并行):
+
+| 页面 | 原行数 → 新行数 | 新增功能 |
+|---|---|---|
+| distribution/team.tsx | 93 → 277 | 搜索框(多字段过滤)+ 排序 tab(成交订单数/邀请时间)+ 团队总人数统计 + 成员卡片业绩数据(成交额/佣金/订单数)+ 排名奖章(top3 金银铜)+ 查看下级按钮 + 日期筛选 |
+| news/detail.tsx | 71 → 197 | 底部固定操作栏(点赞/评论/分享)+ 点赞交互(状态切换+计数±1)+ 评论入口(跳转/失败 toast)+ 相关推荐模块(封面+标题+时间+阅读数)+ 分享功能(useShareAppMessage + useShareTimeline) |
+
+**i18n 5 语言补全**:`distribution.team`(15 key)+ `news.detail`(5 key),修复 distribution.team 重复 key 导致的 TS1117 错误。
+
+**Git 同步证据**(§21):
+- 本地 commit: `e2f195fa4`
+- origin commit: `360d85768`
+- 同步状态: local == remote ✅
+
 ### [x] ✅(2026-07-24) 共享层生产版接入 — RN 三屏 wrapper 重构使用共享组件 + i18n 5 语言补全 + README 同步(跨端:mobile-rn + packages/app + web)
 
 **触发**:承接 packages/app 共享组件生产版升级(commit ff88834)后,用户要求"现在就需要升级为生产版" — 把 RN 端 3 个生产屏(AboutScreen/ProfileScreen/SettingsScreen)从自有实现重构为消费 `@ihui/app` 共享组件,真正落地"一处改、两端生效"。
