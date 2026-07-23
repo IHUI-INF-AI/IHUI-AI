@@ -4,18 +4,26 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { setLanguage } from '@/api'
 import { useI18n, type Locale } from '@/i18n'
+import './language.css'
 
-const LANGS: Array<{ value: Locale; key: 'zhCN' | 'en' | 'ja' | 'ko' | 'zhTW' }> = [
-  { value: 'zh-CN', key: 'zhCN' },
-  { value: 'en', key: 'en' },
-  { value: 'ja', key: 'ja' },
-  { value: 'ko', key: 'ko' },
-  { value: 'zh-TW', key: 'zhTW' },
+const LANGS: Array<{ value: Locale; key: 'zhCN' | 'en' | 'ja' | 'ko' | 'zhTW'; native: string }> = [
+  { value: 'zh-CN', key: 'zhCN', native: '简体中文' },
+  { value: 'zh-TW', key: 'zhTW', native: '繁體中文' },
+  { value: 'en', key: 'en', native: 'English' },
+  { value: 'ko', key: 'ko', native: '한국어' },
+  { value: 'ja', key: 'ja', native: '日本語' },
 ]
 
 export default function LanguagePage() {
   const { t, locale, setLocale } = useI18n()
   const [current, setCurrent] = useState<Locale>(locale)
+  const tt = useCallback(
+    (k: string, fb: string) => {
+      const v = t(k)
+      return v === k ? fb : v
+    },
+    [t],
+  )
 
   useEffect(() => {
     Taro.setNavigationBarTitle({ title: t('setting.languageTitle') })
@@ -32,30 +40,37 @@ export default function LanguagePage() {
       setLocale(v)
       try {
         await setLanguage(v)
-        Taro.showToast({ title: t('setting.setSuccess'), icon: 'success' })
+        Taro.showToast({ title: tt('setting.setSuccess', '设置成功'), icon: 'success' })
       } catch (e) {
         logger.error('setting/language', 'set language', e)
-        Taro.showToast({ title: t('common.failed'), icon: 'none' })
+        Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
       }
     },
-    [current, setLocale, t],
+    [current, setLocale, tt],
   )
 
   return (
-    <View className="min-h-screen bg-background">
-      <View className="mx-[12px] my-[12px] bg-card rounded-[8px] overflow-hidden">
-        {LANGS.map((l, idx) => (
+    <View className="page">
+      <View className="group-title">
+        <Text>{tt('setting.language.chooseHint', '选择应用语言')}</Text>
+      </View>
+      <View className="list">
+        {LANGS.map((l) => (
           <View
             key={l.value}
-            className={`flex items-center justify-between px-[16px] py-[16px] ${
-              idx < LANGS.length - 1 ? 'border-b border-[#f0f0f0]' : ''
-            }`}
+            className={`item${current === l.value ? ' active' : ''}`}
             onClick={() => onSelect(l.value)}
           >
-            <Text className="text-[15px] text-foreground">{t(`setting.${l.key}`)}</Text>
-            {current === l.value && <Text className="text-[16px] text-primary">✓</Text>}
+            <View className="lang-info">
+              <Text className="lang-native">{tt(`setting.${l.key}`, l.native)}</Text>
+              <Text className="lang-value">{l.value}</Text>
+            </View>
+            {current === l.value && <Text className="check">✓</Text>}
           </View>
         ))}
+      </View>
+      <View className="tips">
+        <Text>{tt('setting.language.tip', '切换语言后将自动保存并生效')}</Text>
       </View>
     </View>
   )
