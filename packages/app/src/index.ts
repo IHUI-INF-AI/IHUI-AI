@@ -2,8 +2,8 @@ export { AboutScreen } from './features/about/AboutScreen'
 export { ProfileScreen } from './features/profile/ProfileScreen'
 export { SettingsScreen } from './features/settings/SettingsScreen'
 
-export { tokens } from './theme/tokens'
-export type { AppTokens } from './theme/tokens'
+export { tokens, lightTokens, darkTokens, getTokens } from './theme/tokens'
+export type { AppTokens, AppThemeMode, AppThemeTokens } from './theme/tokens'
 
 export type {
   TFunction,
