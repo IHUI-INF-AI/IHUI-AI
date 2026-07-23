@@ -180,6 +180,8 @@ export const chatStream = (
     removedCount: number
     usageRatio: number
   }) => void,
+  /** 流结束回调(对标原 ai_assistant.vue total_tokens 显示):ai-service event:done 下发 usage */
+  onDone?: (info: { totalTokens?: number; promptTokens?: number; completionTokens?: number; model?: string }) => void,
 ): Promise<void> => {
   let errored = false
   const resolvedModel = options.model ?? options.modelId
@@ -189,6 +191,14 @@ export const chatStream = (
     else if (evt.type === 'reasoning' && evt.content) onReasoning?.(evt.content)
     else if (evt.type === 'meta' && evt.sessionId) onMeta?.({ sessionId: evt.sessionId })
     else if (evt.type === 'compaction' && evt.compaction) onCompaction?.(evt.compaction)
+    else if (evt.type === 'done') {
+      onDone?.({
+        totalTokens: evt.usage?.totalTokens,
+        promptTokens: evt.usage?.promptTokens,
+        completionTokens: evt.usage?.completionTokens,
+        model: evt.model,
+      })
+    }
     else if (evt.type === 'error' && evt.content) {
       errored = true
       const err = new Error(evt.content) as Error & {
