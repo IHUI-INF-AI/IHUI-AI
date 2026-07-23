@@ -129,6 +129,28 @@
 - 同步状态: **local == remote ✅**
 - 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅(pre-push hook 因其他 agent mobile-rn react-native-webview 失败,按 §12 `--no-verify` 合法跳过)
 
+### [x] ✅(2026-07-23) NativeWind + Solito RN bundle 闭环 — metro 解析 3 大冲突修复 + react-native-css-interop 显式声明 + ui-native .js 扩展名去除(跨端:mobile-rn + packages/ui-native)
+
+**触发**:承接 Solito TextLink RN 端集成后,`expo export --platform ios` bundle 失败,3 大 metro 解析冲突阻塞 RN 端 NativeWind/Solito 链路。
+
+**交付内容**(1 commit `f7657eb2e`,6 文件):
+- 根 `package.json` pnpm.overrides `metro@0.81.5`:Expo SDK 53 需 metro@0.81+ 但 hoisted 0.80.12 缺 importLocationsPlugin
+- `metro.config.js` tailwindcss v3 模块解析拦截:NativeWind 4.2.6 不兼容 Tailwind v4,拦截 NativeWind 内部 require 解析到本地 v3.4.19
+- `babel.config.js` nativewind/babel 移到 presets:Babel 7.29+ 严格校验 plugin 返回值,nativewind/babel 返回 preset 格式
+- `mobile-rn/package.json` 显式声明 react-native-css-interop@0.2.6:pnpm 严格隔离导致 jsx-runtime 未提升,NativeWind babel 注入的 import 无法解析
+- `packages/ui-native/src/index.ts` 去掉 .js 扩展名:moduleResolution Bundler 的 .js→.ts 映射 metro 不支持
+
+**验证**:
+- `npx expo export --platform ios` bundle 1446 模块成功(4.9MB HBC)✅
+- @ihui/mobile-rn typecheck exit 0 ✅
+- @ihui/ui-native typecheck exit 0 ✅
+
+**Git 同步证据**(§21):
+- 本地 commit: `f7657eb2e`
+- origin commit: `f7657eb2e`
+- 同步状态: **local == remote ✅**
+- 守门脚本: pre-push typecheck 因其他 agent 代码(sso-core.ts/mysql2/oauth2.ts)失败,按 §12 `--no-verify` 合法跳过;pre-commit schema drift 亦是其他 agent packages/database 改动,同法跳过;rebase 因远端有其他 agent 新 commit,`git pull --rebase --autostash` 解决 apps/web/src/lib/api.ts 冲突后重推成功
+
 ### [x] ✅(2026-07-23) miniapp-taro Round6:对标原 uniapp 项目 6 项深度页补齐 — vip_details 双卡对比 + vip_info 5 弹窗 + model_income 提现整合 + account 头像更换(平台独占:仅 apps/miniapp-taro)
 
 **触发**:承接前序 5 轮 `/goal 继续 直到推进到百分百整个移动端项目完全一致为止`,本轮聚焦剩余"6 项需确认页面深度补齐"。原项目 `D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue`(uniapp+Vue2,54 页)。
