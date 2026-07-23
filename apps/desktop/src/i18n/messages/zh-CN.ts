@@ -256,6 +256,24 @@ export default {
     loadPreview: '加载预览',
     loadFailed: '加载预览失败',
     previewName: '预览名称',
+    componentTree: {
+      title: '组件树',
+      empty: '画布无元素',
+    },
+    comments: {
+      title: '评论',
+      empty: '请先保存预览以查看评论',
+      noComments: '暂无评论',
+      loadingFailed: '加载评论失败',
+      send: '发送评论',
+    },
+    aiGenerate: {
+      button: 'AI 生成',
+      placeholder: '描述你想生成的页面…',
+      generating: '生成中…',
+      success: '已生成并注入画布',
+      failed: 'AI 生成失败',
+    },
   },
   taskReceiver: {
     title: '任务接收',

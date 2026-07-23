@@ -51,3 +51,20 @@ export interface SkillRateRequest {
   score: number
   comment?: string
 }
+
+/**
+ * 发布 skill 到市场的请求体。
+ * content 为 skill 正文(供安装时复制到用户私有库),市场条目本身只存元数据。
+ */
+export interface SkillPublishRequest {
+  name: string
+  description: string
+  tags: string[]
+  author: string
+  version: string
+  license: string
+  content: string
+}
+
+/** 发布端点响应(返回新建的市场条目) */
+export interface SkillPublishResponse extends SkillMarketEntry {}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import type {
   TaskDevice,
@@ -28,6 +29,9 @@ import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TaskDispatch'>
+
+/** AsyncStorage 持久化键:最近一次见到任务的 updatedAt 时间戳(ms),用于 WS 重连后增量补拉 */
+const LAST_SEEN_TS_KEY = 'task-last-seen-ts'
 
 const STATUS_META: Record<TaskStatus, { badge: string }> = {
   pending: { badge: 'bg-gray-100 text-gray-600' },
@@ -70,6 +74,48 @@ async function apiData<T>(path: string, init?: RequestInit): Promise<T | null> {
   }
 }
 
+/** 读取持久化的 lastSeenTs,失败返回 0 */
+async function loadLastSeenTs(): Promise<number> {
+  try {
+    const raw = await AsyncStorage.getItem(LAST_SEEN_TS_KEY)
+    const n = raw ? Number.parseInt(raw, 10) : NaN
+    return Number.isFinite(n) && n >= 0 ? n : 0
+  } catch {
+    return 0
+  }
+}
+
+/** 持久化 lastSeenTs,失败静默 */
+async function saveLastSeenTs(ts: number): Promise<void> {
+  try {
+    await AsyncStorage.setItem(LAST_SEEN_TS_KEY, String(ts))
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 把增量补拉的任务 upsert 进本地数组(按 updatedAt 较新者覆盖,新任务前置) */
+function upsertIncremental(prev: TaskDispatch[], incoming: TaskDispatch[]): TaskDispatch[] {
+  const byId = new Map<string, TaskDispatch>()
+  for (const t of prev) byId.set(t.id, t)
+  let changed = false
+  for (const task of incoming) {
+    const existing = byId.get(task.id)
+    if (!existing) {
+      byId.set(task.id, task)
+      changed = true
+    } else if (Date.parse(task.updatedAt) > Date.parse(existing.updatedAt)) {
+      byId.set(task.id, task)
+      changed = true
+    }
+  }
+  if (!changed) return prev
+  const prevIds = new Set(prev.map((t) => t.id))
+  const fresh = [...byId.values()].filter((t) => !prevIds.has(t.id))
+  const updatedPrev = prev.map((t) => byId.get(t.id) ?? t)
+  return [...fresh, ...updatedPrev]
+}
+
 export function TaskDispatchPage(_: Props) {
   const { token } = useAuth()
   const { t } = useI18n()
@@ -81,6 +127,9 @@ export function TaskDispatchPage(_: Props) {
   const [refreshing, setRefreshing] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  const [cancellingId, setCancellingId] = useState<string>('')
+  const [reconnecting, setReconnecting] = useState(false)
+  const lastSeenTsRef = useRef<number>(0)
 
   const loadTasks = useCallback(async () => {
     setError('')
@@ -91,6 +140,12 @@ export function TaskDispatchPage(_: Props) {
     }
     const list = Array.isArray(data) ? data : data.list ?? []
     setTasks(list)
+    // 初始化 lastSeenTs 为全量任务中的最大 updatedAt
+    const maxTs = list.reduce((max, x) => Math.max(max, Date.parse(x.updatedAt) || 0), 0)
+    if (maxTs > lastSeenTsRef.current) {
+      lastSeenTsRef.current = maxTs
+      void saveLastSeenTs(maxTs)
+    }
   }, [t])
 
   const loadDevices = useCallback(async () => {
@@ -111,10 +166,15 @@ export function TaskDispatchPage(_: Props) {
   }, [t])
 
   useEffect(() => {
-    Promise.all([loadTasks(), loadDevices()]).finally(() => setLoading(false))
+    // 先恢复 lastSeenTs,再加载任务
+    void (async () => {
+      lastSeenTsRef.current = await loadLastSeenTs()
+      await Promise.all([loadTasks(), loadDevices()])
+      setLoading(false)
+    })()
   }, [loadTasks, loadDevices])
 
-  // WebSocket 实时监听 task-result / task-progress 频道
+  // WebSocket 实时监听 task-result / task-progress / task-cancelled 频道 + 重连增量补拉
   useEffect(() => {
     if (!token) return
     const wsUrl = `${API_BASE_URL.replace(/^http/, 'ws')}/ws/tasks?token=${encodeURIComponent(token)}`
@@ -124,6 +184,29 @@ export function TaskDispatchPage(_: Props) {
     } catch {
       return
     }
+
+    // 重连后(onopen)增量补拉断线期间错过的任务
+    ws.onopen = () => {
+      const since = lastSeenTsRef.current
+      if (since <= 0) return
+      setReconnecting(true)
+      void (async () => {
+        const data = await apiData<{ tasks: TaskDispatch[] } | TaskDispatch[]>(
+          `/api/tasks?since=${since}`,
+        )
+        setReconnecting(false)
+        if (!data) return
+        const list = Array.isArray(data) ? data : data.tasks ?? []
+        if (list.length === 0) return
+        setTasks((prev) => upsertIncremental(prev, list))
+        const maxTs = list.reduce((max, x) => Math.max(max, Date.parse(x.updatedAt) || 0), since)
+        if (maxTs > lastSeenTsRef.current) {
+          lastSeenTsRef.current = maxTs
+          void saveLastSeenTs(maxTs)
+        }
+      })()
+    }
+
     ws.onmessage = (ev: { data: unknown }) => {
       const raw = typeof ev.data === 'string' ? ev.data : ''
       if (!raw) return
@@ -134,6 +217,25 @@ export function TaskDispatchPage(_: Props) {
         return
       }
       if (!msg?.taskId) return
+
+      // task-cancelled:更新本地任务状态为 cancelled
+      if (msg.type === 'task-cancelled') {
+        setTasks((prev) =>
+          prev.map((task) => {
+            if (task.id !== msg.taskId) return task
+            const p = msg.payload as Partial<TaskDispatch>
+            const updatedAt = p.updatedAt || new Date().toISOString()
+            const ts = Date.parse(updatedAt)
+            if (Number.isFinite(ts) && ts > lastSeenTsRef.current) {
+              lastSeenTsRef.current = ts
+              void saveLastSeenTs(ts)
+            }
+            return { ...task, status: 'cancelled', updatedAt }
+          }),
+        )
+        return
+      }
+
       setTasks((prev) =>
         prev.map((task) => {
           if (task.id !== msg.taskId) return task
@@ -150,7 +252,13 @@ export function TaskDispatchPage(_: Props) {
                 finishedAt: p.finishedAt || new Date().toISOString(),
               }
             : task.result
-          return { ...task, status, result }
+          const updatedAt = p.updatedAt || task.updatedAt
+          const ts = Date.parse(updatedAt)
+          if (Number.isFinite(ts) && ts > lastSeenTsRef.current) {
+            lastSeenTsRef.current = ts
+            void saveLastSeenTs(ts)
+          }
+          return { ...task, status, result, updatedAt }
         }),
       )
     }
@@ -189,8 +297,35 @@ export function TaskDispatchPage(_: Props) {
       return
     }
     setTasks((prev) => [data.task, ...prev])
+    const ts = Date.parse(data.task.updatedAt)
+    if (Number.isFinite(ts) && ts > lastSeenTsRef.current) {
+      lastSeenTsRef.current = ts
+      void saveLastSeenTs(ts)
+    }
     setCommand('')
   }, [command, toDevice, sending, t])
+
+  // 取消任务:POST /tasks/:id/cancel(仅 pending/running 可取消)
+  const onCancel = useCallback(
+    async (taskId: string) => {
+      if (cancellingId) return
+      setCancellingId(taskId)
+      const data = await apiData<{ task: TaskDispatch }>(`/api/tasks/${taskId}/cancel`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      })
+      setCancellingId('')
+      if (!data?.task) {
+        setError(t('taskDispatch.cancel.cancelFailed'))
+        return
+      }
+      // 乐观更新由 WS task-cancelled 消息驱动,这里兜底立即更新本地状态
+      setTasks((prev) =>
+        prev.map((x) => (x.id === taskId ? { ...x, status: 'cancelled' as TaskStatus } : x)),
+      )
+    },
+    [cancellingId, t],
+  )
 
   const canSend = !sending && command.trim().length > 0
 
@@ -203,7 +338,15 @@ export function TaskDispatchPage(_: Props) {
     <View className="flex-1 bg-gray-50">
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1">
         <View className="bg-white px-4 py-3">
-          <Text className="mb-2 text-base font-semibold text-gray-900">{t('taskDispatch.title')}</Text>
+          <View className="flex-row items-center justify-between">
+            <Text className="mb-2 text-base font-semibold text-gray-900">{t('taskDispatch.title')}</Text>
+            {reconnecting ? (
+              <View className="mb-2 flex-row items-center gap-1.5">
+                <ActivityIndicator size="small" />
+                <Text className="text-xs text-gray-500">{t('taskDispatch.reconnect.reconnecting')}</Text>
+              </View>
+            ) : null}
+          </View>
           <TextInput
             value={command}
             onChangeText={setCommand}
@@ -265,6 +408,8 @@ export function TaskDispatchPage(_: Props) {
             }
             renderItem={({ item }) => {
               const meta = STATUS_META[item.status] || STATUS_META.pending
+              const canCancel = item.status === 'pending' || item.status === 'running'
+              const isCancelling = cancellingId === item.id
               return (
                 <View className="rounded-lg border border-gray-100 bg-white p-3">
                   <View className="flex-row items-center gap-2">
@@ -288,6 +433,26 @@ export function TaskDispatchPage(_: Props) {
                     <Text className="mt-1 text-xs text-red-600" numberOfLines={2}>
                       {item.result.error}
                     </Text>
+                  ) : null}
+                  {canCancel ? (
+                    <View className="mt-2 flex-row justify-end">
+                      <Pressable
+                        onPress={() => onCancel(item.id)}
+                        disabled={isCancelling}
+                        className="flex-row items-center gap-1.5 rounded-md px-3 py-1.5"
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: isCancelling }}
+                      >
+                        {isCancelling ? (
+                          <ActivityIndicator size="small" color="#dc2626" />
+                        ) : null}
+                        <Text className="text-xs font-semibold text-red-600">
+                          {isCancelling
+                            ? t('taskDispatch.cancel.cancelling')
+                            : t('taskDispatch.cancel.cancelButton')}
+                        </Text>
+                      </Pressable>
+                    </View>
                   ) : null}
                 </View>
               )
