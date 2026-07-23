@@ -8712,8 +8712,6 @@
       "clearAllData": "ClearhaveData",
       "deleteAccount": "NoteAccount",
       "about": "About",
-      "appPermission": "App Permission",
-      "businessLicense": "Business License",
       "chatHistory": "Chat History",
       "checkUpdate": "Check Update",
       "commissionPlan": "Commission Plan",
@@ -8729,7 +8727,6 @@
       "privacySettings": "Privacy Settings",
       "recruitment": "Recruitment",
       "statistics": "Statistics",
-      "usageRules": "Usage Rules",
       "viewMiniapp": "View Miniapp",
       "webVersion": "Web Version",
       "withdrawRecords": "Withdraw Records"
@@ -8757,8 +8754,6 @@
       "clearAllData": "Deletehaveday Record、Settingsand Personal Data",
       "deleteAccount": "Permanent Delete Accountandhave Off Data",
       "about": "About",
-      "appPermission": "App Permission",
-      "businessLicense": "Business License",
       "chatHistory": "Chat History",
       "checkUpdate": "Check Update",
       "commissionPlan": "Commission Plan",
@@ -8774,7 +8769,6 @@
       "privacySettings": "Privacy Settings",
       "recruitment": "Recruitment",
       "statistics": "Statistics",
-      "usageRules": "Usage Rules",
       "viewMiniapp": "View Miniapp",
       "webVersion": "Web Version",
       "withdrawRecords": "Withdraw Records"
