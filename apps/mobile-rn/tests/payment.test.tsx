@@ -141,7 +141,7 @@ describe('PaymentScreen 支付流程', () => {
     })
     apiMocks.syncPaymentStatus.mockResolvedValue({ success: true })
 
-    const { getByText, queryByText } = render(<PaymentScreen />)
+    const { getByText } = render(<PaymentScreen />)
     await waitFor(() => expect(getByText('测试订单')).toBeTruthy())
 
     fireEvent.click(getByText('payment.syncStatus'))
