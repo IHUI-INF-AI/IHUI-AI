@@ -1,25 +1,17 @@
 import { useState } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
-import { useNavigation } from '@react-navigation/native'
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { AboutScreen, ProfileScreen, SettingsScreen } from '@ihui/app'
-import type { RootStackParamList } from '../navigation/RootNavigator'
-
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 type Tab = 'about' | 'profile' | 'settings'
 
 /**
  * SharedDemoScreen — RN 端共享组件集成验证页。
  *
- * 引用 packages/app 的 3 个共享组件,用 navigation.goBack() 回调注入导航,
- * 验证纯 react-native primitives + 回调模式在 RN 端的兼容性。
+ * 引用 packages/app 的 3 个共享组件,导航统一走 Solito TextLink(href="/"),
+ * 与 web 端一致;本屏只负责 tab 切换 UI + 业务回调注入。
  */
 export function SharedDemoScreen() {
-  const navigation = useNavigation<NavigationProp>()
   const [tab, setTab] = useState<Tab>('about')
-
-  const handleBack = () => navigation.goBack()
 
   return (
     <View style={styles.container}>
@@ -43,13 +35,12 @@ export function SharedDemoScreen() {
           <Text style={styles.tabText}>设置</Text>
         </TouchableOpacity>
       </View>
-      {tab === 'about' && <AboutScreen onBack={handleBack} />}
+      {tab === 'about' && <AboutScreen />}
       {tab === 'profile' && (
         <ProfileScreen
           name="李思涵"
           email="lisihan@ihui.ai"
           phone="186****9808"
-          onBack={handleBack}
           onSave={(data) => console.log('ProfileScreen save:', data)}
         />
       )}
@@ -58,7 +49,6 @@ export function SharedDemoScreen() {
           notificationsEnabled
           darkModeEnabled={false}
           language="简体中文"
-          onBack={handleBack}
           onToggleNotifications={(enabled) => console.log('notifications:', enabled)}
           onToggleDarkMode={(enabled) => console.log('darkMode:', enabled)}
           onPressLanguage={() => console.log('language pressed')}
