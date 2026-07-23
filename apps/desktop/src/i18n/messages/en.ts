@@ -87,6 +87,11 @@ export default {
     searchPlaceholder: 'Search messages…',
     noSearchResults: 'No messages matching "{{query}}"',
     regenerate: 'Regenerate',
+    title: 'AI Chat',
+    emptyState: 'Type a message to start',
+    edit: 'Edit',
+    editHint: 'Edit and resend',
+    placeholderWithAttachments: 'Type message (attachment ready)…',
   },
   profile: {
     title: 'Profile',
