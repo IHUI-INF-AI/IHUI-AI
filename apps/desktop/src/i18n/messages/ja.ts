@@ -87,6 +87,11 @@ export default {
     searchPlaceholder: 'メッセージを検索…',
     noSearchResults: '"{{query}}" に一致するメッセージが見つかりません',
     regenerate: '再生成',
+    title: 'AIチャット',
+    emptyState: 'メッセージを入力して開始',
+    edit: '編集',
+    editHint: '編集して再送信',
+    placeholderWithAttachments: 'メッセージを入力(添付ファイル準備済み)…',
   },
   profile: {
     title: 'マイページ',
