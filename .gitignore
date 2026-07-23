@@ -229,16 +229,22 @@ unfound-zh-TW.txt
 scripts/backup-*.sql
 
 # ============================================================================
-# 微信支付 API 证书(敏感,禁止入库)
+# 支付证书(微信支付 + 支付宝,敏感,禁止入库)
 # ============================================================================
-# 证书文件位于项目内 cert/ 目录(本机路径 g:\IHUI-AI\cert\),整目录被 .gitignore 忽略
-# 路径由 .env 的 WX_PAY_PRIVATE_KEY_PATH 指定,换机器只需改 .env,无需改代码
+# 证书文件位于项目内 cert/ 或 certs/ 目录,整目录被 .gitignore 忽略
+# 路径由 .env 的 WX_PAY_PRIVATE_KEY_PATH / ALIPAY_APP_CERT_PATH 指定,换机器只需改 .env
 cert/
 **/cert/
+certs/
+**/certs/
 *.pem
 *.p12
 *.key
+*.crt
 apiclient_*
+appCertPublicKey_*
+alipayCertPublicKey_*
+alipayRootCert*
 
 # ============================================================================
 # 跨项目产物(2026-07-21 整理):公众号文章系统 + 口播稿系统 + workbuddy 工具
