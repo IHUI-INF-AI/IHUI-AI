@@ -73,7 +73,7 @@ describe('Extension i18n key parity', () => {
       count: collectLeafKeys(obj).length,
     }))
     const first = counts[0].count
-    for (const { lang, count } of counts) {
+    for (const { count } of counts) {
       expect.soft(count).toBe(first)
     }
     // 打印统计(调试用)
