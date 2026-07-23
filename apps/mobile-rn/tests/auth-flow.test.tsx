@@ -22,16 +22,16 @@ const { apiMocks, tokenMocks, ssoMocks } = vi.hoisted(() => ({
     initApi: vi.fn(async () => {}),
     setToken: vi.fn(async () => {}),
     setRefreshToken: vi.fn(async () => {}),
-    getToken: vi.fn(() => null),
-    getRefreshToken: vi.fn(() => null),
+    getToken: vi.fn(() => null as unknown),
+    getRefreshToken: vi.fn(() => null as unknown),
     clearToken: vi.fn(async () => {}),
   },
   ssoMocks: {
-    getInitialSsoCode: vi.fn(async () => null),
-    subscribeSsoDeepLink: vi.fn(() => () => {}),
-    exchangeSsoCode: vi.fn(async () => null),
-    openSsoLogin: vi.fn(async () => null),
-    extractSsoCode: vi.fn(() => null),
+    getInitialSsoCode: vi.fn(async () => null as unknown),
+    subscribeSsoDeepLink: vi.fn((_cb: (code: string) => void) => () => {}),
+    exchangeSsoCode: vi.fn(async () => null as unknown),
+    openSsoLogin: vi.fn(async () => null as unknown),
+    extractSsoCode: vi.fn(() => null as unknown),
   },
 }))
 
