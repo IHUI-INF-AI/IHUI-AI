@@ -16,7 +16,8 @@ describe('clawdbot PairingService 配对服务', () => {
   describe('createRequest 创建请求', () => {
     it('生成 6 位大写 code 与 expiresAt', () => {
       const r = svc.createRequest({ userId: 'u1', deviceId: 'd1', channelType: 'web' })
-      expect(r.id).toMatch(/^pr_\d+_/)
+      // 2026-07-21 安全加固:id 改用 CSPRNG hex 格式(pr_<hex>),不再用 timestamp
+      expect(r.id).toMatch(/^pr_[a-z0-9]+$/)
       expect(r.code).toMatch(/^[A-Z0-9]{6}$/)
       expect(r.status).toBe('pending')
       expect(r.expiresAt).toBeGreaterThan(Date.now())

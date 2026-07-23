@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import type { AddressInfo } from 'node:net'
+import { WebSocket as WsWebSocket } from 'ws'
+
+// Node 20 没有全局 WebSocket,用 ws 包 polyfill
+if (!globalThis.WebSocket) {
+  ;(globalThis as unknown as { WebSocket: unknown }).WebSocket = WsWebSocket
+}
 
 const { mockWsAuth } = vi.hoisted(() => ({
   mockWsAuth: vi.fn(),
