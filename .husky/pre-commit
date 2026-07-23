@@ -112,12 +112,12 @@ if (!run('📋 检查交付报告一致性...', 'node scripts/check-delivery-rep
   process.exit(1)
 }
 
-// 13b. PROJECT_PLAN.md 长度守门(2026-07-19 根因诊断落地)
-// 防止 PROJECT_PLAN.md 膨胀超过 50KB 导致 AI 上下文窗口撑爆,模型被迫停止响应
-// 阈值: 50KB(约 1250 行),超出则阻止 commit,强制归档历史条目至 .trae-cn/archive/
-if (!run('📐 检查 PROJECT_PLAN.md 体积...', 'node scripts/check-project-plan-size.mjs')) {
-  process.exit(1)
-}
+// 13b. PROJECT_PLAN.md 长度守门(warn-only,2026-07-23 用户规则解除阻塞)
+// 历史根因: PROJECT_PLAN.md 膨胀至 1.88MB 导致 AI 上下文窗口撑爆(2026-07-19)
+// 2026-07-23 调整: 用户反馈"50K 限制会导致计划缺失不详细",解除阻塞改为 warn-only
+// 现在: 始终 exit 0,仅打印体积信息供能见度参考;500KB 软参考阈值超时打印更醒目 warn
+// 不再阻止 commit,允许计划文档详细记录
+run('📐 检查 PROJECT_PLAN.md 体积(warn-only)...', 'node scripts/check-project-plan-size.mjs')
 
 // 13c. PROJECT_PLAN.md 已完成任务条目防误删守门(2026-07-20 立)
 // 防止归档精简操作误删已完成任务条目(CLI 配置导入任务条目历史上被两次误删)
