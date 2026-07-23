@@ -1,5 +1,5 @@
-export { Button, buttonVariants, type ButtonProps } from './button.js'
-export { Input, type InputProps } from './input.js'
+export { Button, buttonVariants, type ButtonProps } from './button'
+export { Input, type InputProps } from './input'
 export {
   Card,
   CardHeader,
@@ -8,9 +8,9 @@ export {
   CardFooter,
   type CardProps,
   type CardTitleProps,
-} from './card.js'
-export { Loading, Spinner, type LoadingProps } from './loading.js'
-export { VipBadge } from './vip-badge.js'
+} from './card'
+export { Loading, Spinner, type LoadingProps } from './loading'
+export { VipBadge } from './vip-badge'
 export {
   Dialog,
   DialogHeader,
@@ -20,8 +20,8 @@ export {
   type DialogProps,
   type DialogHeaderProps,
   type DialogTitleProps,
-} from './dialog.js'
-export { Avatar, type AvatarProps } from './avatar.js'
-export { Badge, badgeVariants, type BadgeProps } from './badge.js'
-export { Tabs, type TabsProps, type TabItem } from './tabs.js'
-export { Switch, type SwitchProps } from './switch.js'
+} from './dialog'
+export { Avatar, type AvatarProps } from './avatar'
+export { Badge, badgeVariants, type BadgeProps } from './badge'
+export { Tabs, type TabsProps, type TabItem } from './tabs'
+export { Switch, type SwitchProps } from './switch'
