@@ -1,5 +1,6 @@
 :root {
   color-scheme: light dark;
+  --font-scale: 1;
   --bg: #ffffff;
   --fg: #111111;
   --muted: #6b7280;
@@ -16,7 +17,7 @@
   --danger: #dc2626;
   --danger-bg: #fef2f2;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 14px;
+  font-size: calc(14px * var(--font-scale));
 }
 
 :root.dark {
@@ -1334,6 +1335,26 @@ textarea:focus {
   justify-content: space-between;
   gap: 12px;
   padding: 4px 0;
+}
+
+/* 字号控制(设置页) */
+.font-size-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.font-size-controls button {
+  min-width: 28px;
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
+.font-size-value {
+  min-width: 44px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .about p {

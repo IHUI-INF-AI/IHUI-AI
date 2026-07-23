@@ -295,6 +295,45 @@
 
 ---
 
+### [x] ✅(2026-07-23) 桌面端字号缩放 + 快捷键 + 持久化深度开发(平台独占:仅 desktop)
+
+**目标**:第十轮深度开发 — 字号缩放(Ctrl +/- / Ctrl 0 全局快捷键 + 设置页 +/- 按钮)+ localStorage 持久化 + CSS 变量 `--font-scale` 动态应用。
+
+**交付**(字号缩放 hook):
+- `apps/desktop/src/hooks/use-font-size.ts`(新建):
+  - `STORAGE_KEY = 'ihui-font-scale'` + `MIN_SCALE=0.8` / `MAX_SCALE=1.6` / `DEFAULT_SCALE=1` / `STEP=0.1`
+  - `parseScale(v)`:限制范围 + 四舍五入到 2 位小数
+  - `applyFontSize(scale)`:设置 `documentElement.style.setProperty('--font-scale', scale)`
+  - `initFontSize()`:在 React 渲染前调用,避免首屏布局跳动
+  - `useFontSize()` hook:返回 `{ scale, zoomIn, zoomOut, reset, setScale }`,自动 localStorage 持久化
+
+**交付**(集成):
+- `apps/desktop/src/main.tsx`(修改):加 `initFontSize()` 调用(与 initTheme 并列)
+- `apps/desktop/src/app.css`(修改):`:root` 加 `--font-scale: 1` CSS 变量 + `font-size: calc(14px * var(--font-scale))` 动态缩放
+- `apps/desktop/src/App.tsx`(修改):
+  - 加 `FontSizeShortcutHandler` 组件(全局 keydown 监听)
+  - Ctrl + = / + → zoomIn,Ctrl + - / _ → zoomOut,Ctrl + 0 → reset
+  - preventDefault 阻止浏览器默认缩放
+  - 放在 BrowserRouter 内,与 DeepLinkHandler 并列
+
+**交付**(设置页 UI):
+- `apps/desktop/src/pages/SettingsPage.tsx`(修改):
+  - 引入 useFontSize + MIN_SCALE / MAX_SCALE
+  - appearance Card 加字号控制行(− 按钮 + 百分比显示 + + 按钮 + 重置按钮)
+  - 按钮禁用边界:scale <= MIN_SCALE 禁用 −,scale >= MAX_SCALE 禁用 +,scale === 1 禁用重置
+
+**交付**(CSS):
+- `apps/desktop/src/app.css`(修改):新增 `.font-size-controls`(flex row gap)+ `.font-size-controls button`(min-width 28px)+ `.font-size-value`(min-width 44px, muted)样式
+
+**交付**(i18n 5 语言 parity):
+- `apps/desktop/src/i18n/messages/zh-CN.ts` / `en.ts` / `ja.ts` / `ko.ts` / `zh-TW.ts`:settings 命名空间新增 4 个 key(fontSize / fontZoomIn / fontZoomOut / fontReset)
+
+**§9 平台独占**:字号缩放为 desktop 单端 UI 能力,豁免全端同步。
+
+**验证**:desktop typecheck 零错误(退出码 0)、README 3 处同步更新(加"字号缩放")。
+
+---
+
 <!-- 已归档(2026-07-23):miniapp-taro SSE done 事件 tokenCount 打通(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ### [x] ✅(2026-07-23) 前端冗余页面整合 P0(平台独占:仅 web 端)
