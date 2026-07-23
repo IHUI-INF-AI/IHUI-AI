@@ -129,6 +129,24 @@
 
 ---
 
+### [x] ✅(2026-07-23) 桌面端窗口状态持久化深度开发(平台独占:仅 desktop)
+
+**触发**:用户 `/goal 继续啊 你就去做就好了 一直去做 深度开发`,要求持续深度开发桌面端独占能力。
+
+**交付**(窗口位置/尺寸/最大化状态自动保存与恢复):
+- `apps/desktop/src-tauri/src/lib.rs`:新增 3 个窗口状态命令(save_window_state / restore_window_state / reset_window_state),用 tauri-plugin-store 持久化到 window-state.json
+  - on_window_event 拦截 CloseRequested(隐藏到托盘)+ Resized + Moved 事件,自动触发 save_window_state
+  - setup 中调用 restore_window_state,应用启动时恢复上次窗口状态(优先恢复最大化,否则恢复 position/size)
+- `apps/desktop/src/lib/desktop.ts`:新增 saveWindowState / restoreWindowState / resetWindowState 3 个 TS 函数
+- `apps/desktop/src/pages/SettingsPage.tsx`:desktop Card 加"重置窗口布局"按钮(resetWindowState 调用 + 成功/失败提示)
+- `apps/desktop/src/i18n/messages/*.ts`:5 语言 desktop 命名空间新增 4 个 key(windowLayout / resetWindowLayout / windowResetDone / windowResetFailed)
+
+**§9 平台独占**:窗口状态持久化为 desktop 天生独占能力(只有桌面应用才需要保存窗口位置),豁免全端同步。
+
+**验证**:desktop typecheck 零错误(退出码 0)、README 3 处同步更新(加"窗口状态持久化")。
+
+---
+
 <!-- 已归档(2026-07-23):miniapp-taro SSE done 事件 tokenCount 打通(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ### [x] ✅(2026-07-23) 前端冗余页面整合 P0(平台独占:仅 web 端)
