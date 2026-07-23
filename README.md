@@ -888,6 +888,7 @@ IHUI-AI/
 | **知识图谱**      | 节点 + 关系图谱 / 跨文档实体链接(开源 AI 平台中少见的图谱能力)                                                                                                                                                            | schema `knowledge-graph.ts` + 迁移 `0125_knowledge_graph.sql`                                   |
 | **Persona**       | 角色定义注册表,自定义 Agent 人设                                                                                                                                                                                         | `routers/personas.py` + `services/persona_registry.py`                                         |
 | **Agent Runtime** | SSE 流式 + WebSocket,plan/execute/summarize + interrupt/continue/cancel                                                                                                                                                  | `routers/agent_runtime.py`                                                                     |
+| **跨支柱编排中枢** | 6 大超越支柱(Rules/Hook/Spec/Context/Subagent/Terminal)协同决策:事件总线(26 事件类型,Redis stream)+ 6 预置联动 playbook + LLM 预算治理(分级降级 80%→90%→100%)+ 统一遥测(37 Prometheus metrics + 分布式 trace) | `services/orchestration_hub.py` + `llm_budget_governor.py` + `telemetry_service.py` + `routers/orchestration.py` + web `orchestration-hub-panel.tsx` |
 
 #### A3. 多模态 AI 创作
 
