@@ -141,7 +141,10 @@ export function FileExplorer() {
               return (
                 <div
                   key={node.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => { selectFile(node.id); openFile(node) }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectFile(node.id); openFile(node) } }}
                   className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-xs hover:bg-muted/50"
                 >
                   <Icon className={cn('h-3.5 w-3.5 shrink-0', getFileColor(node.name))} />
