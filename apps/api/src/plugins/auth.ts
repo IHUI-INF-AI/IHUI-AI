@@ -97,6 +97,35 @@ export async function checkAuth(request: FastifyRequest, reply: FastifyReply): P
 }
 
 /**
+ * 混合鉴权:JWT 优先,失败降级为 internal service token(2026-07-24 立)。
+ *
+ * 用途:ai-service 等内部服务通过 HTTP 调用 API 端点(如 /api/memory)时,
+ * 无用户 JWT,改用 X-Internal-Service-Token + X-User-Id 头鉴权。
+ *
+ * 流程:
+ * 1. 检测是否携带 X-Internal-Service-Token header
+ * 2. 是 → 走 internal service token 鉴权(注入 userId)
+ * 3. 否 → 走标准 JWT 鉴权(checkAuth)
+ *
+ * 两者均失败返回 401。
+ */
+export async function checkAuthOrInternalService(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<boolean> {
+  // 延迟导入避免循环依赖
+  const { hasInternalServiceToken, checkInternalServiceToken } = await import(
+    './internal-service-token.js'
+  )
+
+  if (hasInternalServiceToken(request)) {
+    return checkInternalServiceToken(request, reply)
+  }
+
+  return checkAuth(request, reply)
+}
+
+/**
  * Opt-in 中间件：校验当前用户 status !== 3(已注销)。
  * 必须在 authenticate 之后运行(从 request.userId 取 userId)。
  * 适用场景：admin 路由等需要确保账号未注销的敏感端点。
