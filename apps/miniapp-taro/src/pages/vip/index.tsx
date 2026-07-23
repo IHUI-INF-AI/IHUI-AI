@@ -22,30 +22,6 @@ import {
 import { useI18n } from '@/i18n'
 import './index.css'
 
-function dispatchVipPay(payInfo: VipPayInfo, orderNo: string) {
-  if (
-    payInfo.method === 'jsapi' &&
-    payInfo.timeStamp &&
-    payInfo.nonceStr &&
-    payInfo.package &&
-    payInfo.signType &&
-    payInfo.paySign
-  ) {
-    requestWxPayment(payInfo as AnyPayParams)
-      .then(() => Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` }))
-      .catch(() => Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` }))
-    return
-  }
-  if (payInfo.method === 'h5' && payInfo.h5Url && process.env.TARO_ENV === 'h5') {
-    window.location.href = payInfo.h5Url
-    return
-  }
-  if (payInfo.mock && payInfo.error) {
-    Taro.showToast({ title: '支付配置未就绪,请联系管理员', icon: 'none' })
-  }
-  Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` })
-}
-
 const gradient = 'linear-gradient(135deg, #f8d486, var(--color-warning))'
 
 export default function VipIndexPage() {
@@ -59,8 +35,32 @@ export default function VipIndexPage() {
   const [payMethod, setPayMethod] = useState<'wechat' | 'alipay'>('wechat')
   const [autoRenew, setAutoRenew] = useState(false)
 
+  function dispatchVipPay(payInfo: VipPayInfo, orderNo: string) {
+    if (
+      payInfo.method === 'jsapi' &&
+      payInfo.timeStamp &&
+      payInfo.nonceStr &&
+      payInfo.package &&
+      payInfo.signType &&
+      payInfo.paySign
+    ) {
+      requestWxPayment(payInfo as AnyPayParams)
+        .then(() => Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` }))
+        .catch(() => Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` }))
+      return
+    }
+    if (payInfo.method === 'h5' && payInfo.h5Url && process.env.TARO_ENV === 'h5') {
+      window.location.href = payInfo.h5Url
+      return
+    }
+    if (payInfo.mock && payInfo.error) {
+      Taro.showToast({ title: t('vip.index.configNotReady'), icon: 'none' })
+    }
+    Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` })
+  }
+
   const load = useCallback(async () => {
-    Taro.showLoading({ title: '加载中', mask: true })
+    Taro.showLoading({ title: t('common.loading'), mask: true })
     try {
       const [i, p, lv] = await Promise.all([getVipInfo(), getVipPrivilege(), getVipLevels()])
       setInfo(i)
@@ -74,7 +74,7 @@ export default function VipIndexPage() {
         id: String(l.id),
         name: l.levelName,
         price: l.price / 100,
-        period: `${l.durationDays}天`,
+        period: `${l.durationDays}${t('page.vip.dayUnit')}`,
       })) as PriceOption[]
       setPriceOptions(opts)
       setSelectedPlan((prev) => prev ?? opts[0] ?? null)
@@ -165,13 +165,13 @@ export default function VipIndexPage() {
           >
             {autoRenew && <Text className="text-white text-[24rpx] leading-none">✓</Text>}
           </View>
-          <Text className="text-[24rpx] text-muted-foreground">开通自动续费(连续包月,可随时关闭)</Text>
+          <Text className="text-[24rpx] text-muted-foreground">{t('vip.index.autoRenew')}</Text>
         </View>
         <View
           className="mt-[12rpx] text-[22rpx] text-primary"
           onClick={() => Taro.navigateTo({ url: '/pages/subscription/contracts/index' })}
         >
-          <Text>管理自动续费</Text>
+          <Text>{t('vip.index.manageAutoRenew')}</Text>
         </View>
         <Button className="btn" onClick={onUpgradeClick}>
           {t('vip.subscribe')}
@@ -196,7 +196,7 @@ export default function VipIndexPage() {
 
       <VipPayConfirm
         visible={showPayConfirm}
-        planName={selectedPlan ? `${selectedPlan.name}VIP` : '会员'}
+        planName={selectedPlan ? `${selectedPlan.name}VIP` : t('vip.index.memberFallback')}
         price={selectedPlan?.price}
         originalPrice={selectedPlan?.originalPrice}
         paymentMethod={payMethod}
