@@ -1,12 +1,13 @@
 import { useOutletContext } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle, Switch } from '@ihui/ui'
 import { clearToken } from '../lib/token'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useI18n, type Locale } from '../i18n'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { readFile } from '@tauri-apps/plugin-fs'
 import { fetchApi } from '@ihui/api-client'
 import { UpdateChecker } from '../components/UpdateChecker'
+import { enableAutostart, disableAutostart, isAutostartEnabled } from '../lib/desktop'
 
 interface Ctx {
   onLogout: () => void
@@ -56,10 +57,27 @@ export default function SettingsPage() {
   const [importSource, setImportSource] = useState<string>('cc-switch')
   const [importBusy, setImportBusy] = useState(false)
   const [importMsg, setImportMsg] = useState<string>('')
+  const [autostart, setAutostart] = useState(false)
+
+  useEffect(() => {
+    isAutostartEnabled()
+      .then(setAutostart)
+      .catch(() => setAutostart(false))
+  }, [])
 
   const onToggleTheme = (v: boolean) => {
     setDark(v)
     document.documentElement.dataset.theme = v ? 'dark' : 'light'
+  }
+
+  const onToggleAutostart = async (v: boolean) => {
+    try {
+      if (v) await enableAutostart()
+      else await disableAutostart()
+      setAutostart(v)
+    } catch (err) {
+      alert(`${t('desktop.autostartToggleFailed')}: ${(err as Error).message}`)
+    }
   }
 
   const onClearCache = () => {
@@ -221,6 +239,21 @@ export default function SettingsPage() {
               >
                 {t('auth.logout')}
               </button>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('desktop.title')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="setting-row">
+              <span>{t('desktop.autostart')}</span>
+              <Switch checked={autostart} onCheckedChange={onToggleAutostart} />
+            </div>
+            <div className="setting-row">
+              <span>{t('desktop.shortcut')}</span>
+              <span className="muted">Ctrl+Shift+I</span>
             </div>
           </CardContent>
         </Card>
