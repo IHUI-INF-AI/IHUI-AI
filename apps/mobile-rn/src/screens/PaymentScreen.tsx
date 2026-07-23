@@ -12,11 +12,13 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Button, Card } from '@ihui/ui-native'
 import {
   cancelPaymentOrder,
+  createWechatAppPayment,
   getPaymentOrders,
   syncPaymentStatus,
   type PaymentOrder,
   type PaymentStatus,
 } from '@ihui/api-client'
+import { openWeChatPayment } from '../lib/wechat-pay'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -112,6 +114,35 @@ export function PaymentScreen() {
     }
   }
 
+  const handlePay = async (order: PaymentOrder) => {
+    setActioningId(order.orderNo)
+    setToast('')
+    try {
+      const res = await createWechatAppPayment({
+        amount: Math.round((order.amount ?? 0) * 100),
+        description: order.subject || t('payment.untitledOrder'),
+      })
+      if (!res.success || !res.data?.prepayData) {
+        setToast(res.error || t('payment.createFailed'))
+        setActioningId(null)
+        return
+      }
+      const paid = await openWeChatPayment(res.data.prepayData)
+      if (paid) {
+        setToast(t('payment.paySuccess'))
+        void load(true)
+      } else {
+        setToast(t('payment.payCancelled'))
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg === 'WECHAT_NOT_INSTALLED') setToast(t('payment.wechatNotInstalled'))
+      else if (msg === 'WECHAT_NATIVE_UNAVAILABLE') setToast(t('payment.nativeUnavailable'))
+      else setToast(`${t('payment.payFailed')}: ${msg}`)
+    }
+    setActioningId(null)
+  }
+
   return (
     <View className="flex-1 bg-white dark:bg-black">
       <View className="px-4 pt-12 pb-2">
@@ -200,27 +231,35 @@ export function PaymentScreen() {
                 </Text>
               ) : null}
               {isPending ? (
-                <View className="mt-3 flex-row gap-2">
-                  <View className="flex-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      loading={actioningId === item.orderNo}
-                      disabled={actioningId === item.orderNo}
-                      onPress={() => handleSync(item.orderNo)}
-                    >
-                      {t('payment.syncStatus')}
-                    </Button>
-                  </View>
-                  <View className="flex-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={actioningId === item.orderNo}
-                      onPress={() => handleCancel(item.orderNo)}
-                    >
-                      {t('payment.cancelOrder')}
-                    </Button>
+                <View className="mt-3 gap-2">
+                  <Button
+                    loading={actioningId === item.orderNo}
+                    disabled={actioningId === item.orderNo}
+                    onPress={() => handlePay(item)}
+                  >
+                    {t('payment.payNow')}
+                  </Button>
+                  <View className="flex-row gap-2">
+                    <View className="flex-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={actioningId === item.orderNo}
+                        onPress={() => handleSync(item.orderNo)}
+                      >
+                        {t('payment.syncStatus')}
+                      </Button>
+                    </View>
+                    <View className="flex-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={actioningId === item.orderNo}
+                        onPress={() => handleCancel(item.orderNo)}
+                      >
+                        {t('payment.cancelOrder')}
+                      </Button>
+                    </View>
                   </View>
                 </View>
               ) : null}
