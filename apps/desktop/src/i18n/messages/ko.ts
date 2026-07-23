@@ -87,6 +87,11 @@ export default {
     searchPlaceholder: '메시지 검색…',
     noSearchResults: '"{{query}}"와 일치하는 메시지가 없습니다',
     regenerate: '재생성',
+    title: 'AI 채팅',
+    emptyState: '메시지를 입력하여 시작',
+    edit: '편집',
+    editHint: '편집 후 재전송',
+    placeholderWithAttachments: '메시지 입력(첨부파일 준비됨)…',
   },
   profile: {
     title: '마이페이지',
