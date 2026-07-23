@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { CenteredText } from '@/components/common/CenteredText'
+import { formatRelativeTime } from '@/lib/date-utils'
 import type { AgentTaskStatus, KanbanTask } from '@ihui/types'
 
 // ---------------------------------------------------------------------------
@@ -43,26 +44,8 @@ export const LEGAL_TRANSITIONS: Record<AgentTaskStatus, AgentTaskStatus[]> = {
   done: [],
 }
 
-const RTF_CACHE = new Map<string, Intl.RelativeTimeFormat>()
-
-export function formatRelativeTime(iso: string, locale: string): string {
-  let rtf = RTF_CACHE.get(locale)
-  if (!rtf) {
-    rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })
-    RTF_CACHE.set(locale, rtf)
-  }
-  const then = new Date(iso).getTime()
-  const now = Date.now()
-  const diffSec = Math.round((then - now) / 1000)
-  const absDiff = Math.abs(diffSec)
-
-  if (absDiff < 60) return rtf.format(Math.round(diffSec), 'second')
-  if (absDiff < 3600) return rtf.format(Math.round(diffSec / 60), 'minute')
-  if (absDiff < 86400) return rtf.format(Math.round(diffSec / 3600), 'hour')
-  if (absDiff < 2592000) return rtf.format(Math.round(diffSec / 86400), 'day')
-  if (absDiff < 31536000) return rtf.format(Math.round(diffSec / 2592000), 'month')
-  return rtf.format(Math.round(diffSec / 31536000), 'year')
-}
+// re-export 自 date-utils,保持 TaskDetailDialog 等下游 import 兼容
+export { formatRelativeTime }
 
 export function formatDuration(startIso: string, endIso: string): string {
   const ms = new Date(endIso).getTime() - new Date(startIso).getTime()
