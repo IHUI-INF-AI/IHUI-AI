@@ -12,6 +12,8 @@
     "core:window:allow-set-focus",
     "deep-link:default",
     "dialog:default",
+    "autostart:default",
+    "global-shortcut:default",
     {
       "identifier": "fs:allow-read-text-file",
       "allow": [{ "path": "$APPDATA/com.ihui.ai/**" }]
