@@ -80,7 +80,7 @@ export default function SolitoDemoPage() {
       </div>
 
       <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-        {activeTab === 'about' ? <AboutScreen onBack={handleBack} /> : null}
+        {activeTab === 'about' ? <AboutScreen /> : null}
         {activeTab === 'profile' ? (
           <ProfileScreen
             name="李思涵"
