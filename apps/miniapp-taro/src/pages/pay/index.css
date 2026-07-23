@@ -1,0 +1,214 @@
+.py-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: 24rpx;
+  padding-bottom: 180rpx;
+}
+
+.py-countdown {
+  margin-bottom: 24rpx;
+  padding: 20rpx 32rpx;
+  background: var(--color-secondary);
+  border-radius: 12rpx;
+  border: 2rpx solid var(--color-border);
+  text-align: center;
+}
+.py-countdown--expired {
+  border-color: var(--color-destructive);
+  background: rgba(255, 59, 59, 0.08);
+}
+.py-countdown-text {
+  font-size: 26rpx;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.py-countdown--expired .py-countdown-text {
+  color: var(--color-destructive);
+}
+
+.py-amount-card {
+  padding: 40rpx 32rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  border: 2rpx solid var(--color-border);
+  text-align: center;
+}
+.py-amount-label {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+.py-amount-value {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 64rpx;
+  color: var(--color-destructive);
+  font-weight: 700;
+}
+.py-amount-discount {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: var(--color-success);
+}
+
+.py-order-card {
+  margin-top: 24rpx;
+  padding: 24rpx 32rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  border: 2rpx solid var(--color-border);
+}
+.py-order-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12rpx 0;
+}
+.py-order-label {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+.py-order-value {
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  max-width: 360rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.py-method-card {
+  margin-top: 24rpx;
+  padding: 24rpx 32rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  border: 2rpx solid var(--color-border);
+}
+.py-section-title {
+  display: block;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+.py-method {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 12rpx;
+  border-radius: 12rpx;
+  border: 2rpx solid transparent;
+}
+.py-method--active {
+  background: rgba(0, 242, 255, 0.08);
+  border-color: rgba(0, 242, 255, 0.3);
+}
+.py-method-icon {
+  width: 64rpx;
+  height: 64rpx;
+  line-height: 64rpx;
+  text-align: center;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  background: var(--color-muted);
+  font-weight: 700;
+}
+.py-method-icon--wx {
+  color: var(--color-success);
+}
+.py-method-icon--ali {
+  color: var(--color-primary);
+}
+.py-method-icon--balance {
+  color: var(--color-warning);
+}
+.py-method-body {
+  flex: 1;
+  margin-left: 24rpx;
+  display: flex;
+  flex-direction: column;
+}
+.py-method-name {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+.py-method-sub {
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.py-recharge-link {
+  padding: 8rpx 20rpx;
+  font-size: 24rpx;
+  color: var(--color-primary);
+  border: 2rpx solid var(--color-primary);
+  border-radius: 8rpx;
+}
+.py-radio {
+  width: 36rpx;
+  height: 36rpx;
+  border: 2rpx solid var(--color-border);
+  border-radius: 8rpx;
+  background: var(--color-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.py-radio--on {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+.py-radio-mark {
+  color: var(--color-primary-foreground);
+  font-size: 24rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.py-coupon-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 24rpx;
+  padding: 24rpx 32rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  border: 2rpx solid var(--color-border);
+}
+.py-coupon-label {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+.py-coupon-right {
+  display: flex;
+  align-items: center;
+}
+.py-coupon-value {
+  font-size: 28rpx;
+  color: var(--color-destructive);
+  font-weight: 600;
+}
+.py-coupon-placeholder {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+.py-coupon-arrow {
+  margin-left: 12rpx;
+  font-size: 32rpx;
+  color: var(--color-muted-foreground);
+}
+
+.py-submit {
+  position: fixed;
+  bottom: 32rpx;
+  left: 32rpx;
+  right: 32rpx;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border-radius: 12rpx;
+  font-size: 32rpx;
+  font-weight: 700;
+}
+.py-submit--disabled {
+  opacity: 0.5;
+}
