@@ -156,7 +156,7 @@ const papersQuerySchema = z.object({
           .map((s) => s.trim())
           .filter(Boolean)
       },
-      z.array(z.string().uuid('无效的分类 ID')).optional(),
+      z.array(z.string().uuid('无效的分类 ID')).max(100).optional(),
     )
     .optional(),
   paperType: paperTypeSchema.optional(),
@@ -200,7 +200,7 @@ const createPaperSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().optional(),
   categoryId: z.string().uuid().optional(),
-  cidList: z.array(z.string().uuid('无效的分类 ID')).optional(),
+  cidList: z.array(z.string().uuid('无效的分类 ID')).max(100).optional(),
   paperType: paperTypeSchema.optional(),
   totalScore: z.string().optional(),
   passScore: z.string().optional(),
@@ -217,7 +217,7 @@ const updatePaperSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().nullable().optional(),
   categoryId: z.string().uuid().nullable().optional(),
-  cidList: z.array(z.string().uuid('无效的分类 ID')).nullable().optional(),
+  cidList: z.array(z.string().uuid('无效的分类 ID')).max(100).nullable().optional(),
   paperType: paperTypeSchema.optional(),
   totalScore: z.string().optional(),
   passScore: z.string().optional(),
@@ -276,9 +276,9 @@ const submitExamSchema = z.object({
 
 const randomQuestionsSchema = z.object({
   examId: z.string().uuid().optional(),
-  questionTypes: z.array(z.enum(QUESTION_TYPES)).min(1, '至少选择一种题型'),
-  difficulties: z.array(z.number().int().min(1).max(5)).optional(),
-  knowledgePointIds: z.array(z.string().uuid()).optional(),
+  questionTypes: z.array(z.enum(QUESTION_TYPES)).min(1, '至少选择一种题型').max(20),
+  difficulties: z.array(z.number().int().min(1).max(5)).max(10).optional(),
+  knowledgePointIds: z.array(z.string().uuid()).max(100).optional(),
   count: z.number().int().min(1).max(500),
   seed: z.string().max(200).optional(),
 })
@@ -300,7 +300,8 @@ const submitAnswersSchema = z.object({
           userAnswer: a.userAnswer ?? a.answer,
         })),
     )
-    .min(1, '答案不能为空'),
+    .min(1, '答案不能为空')
+    .max(500),
 })
 
 const wrongQuestionsQuerySchema = z.object({
@@ -385,14 +386,14 @@ const updateChapterSchema = z.object({
 const createSectionSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().optional(),
-  questionIds: z.array(z.string().uuid()).optional(),
+  questionIds: z.array(z.string().uuid()).max(100).optional(),
   sort: z.number().int().min(0).optional(),
 })
 
 const updateSectionSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().nullable().optional(),
-  questionIds: z.array(z.string().uuid()).nullable().optional(),
+  questionIds: z.array(z.string().uuid()).max(100).nullable().optional(),
   sort: z.number().int().min(0).optional(),
 })
 
@@ -405,7 +406,8 @@ const sortOrderSchema = z.object({
         sort: z.number().int().min(0),
       }),
     )
-    .min(1, '排序项不能为空'),
+    .min(1, '排序项不能为空')
+    .max(100),
 })
 
 const signupsQuerySchema = z.object({

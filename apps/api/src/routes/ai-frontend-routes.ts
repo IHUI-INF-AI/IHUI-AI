@@ -138,7 +138,7 @@ const mcpServerBody = z.object({
 const idParam = z.object({ id: z.string().min(1) })
 const llmChatBody = z
   .object({
-    messages: z.array(z.unknown()),
+    messages: z.array(z.unknown()).max(100),
     model: z.string().optional(),
     metadata: z.record(z.unknown()).optional(),
   })

@@ -20,7 +20,7 @@ const feedbackSchema = z.object({
   type: z.string().min(1).max(64),
   content: z.string().min(1, '内容不能为空').max(5000, '内容过长'),
   contact: z.string().max(255).optional(),
-  images: z.array(z.string()).optional(),
+  images: z.array(z.string()).max(20).optional(),
 })
 
 const businessCardSchema = z.object({

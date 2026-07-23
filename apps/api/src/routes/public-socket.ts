@@ -88,7 +88,7 @@ const broadcastSchema = z.object({
   event: z.string().min(1).max(64),
   data: z.unknown().optional(),
   /** 按 userId 列表定向广播(留空 = 全部连接) */
-  userIds: z.array(z.string()).optional(),
+  userIds: z.array(z.string()).max(100).optional(),
 })
 
 const registerSchema = z.object({

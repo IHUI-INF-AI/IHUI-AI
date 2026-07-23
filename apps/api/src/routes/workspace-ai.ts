@@ -339,9 +339,9 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
           name: z.string().min(1),
           description: z.string().optional(),
           systemPrompt: z.string().optional(),
-          tools: z.array(z.string()).optional(),
+          tools: z.array(z.string()).max(100).optional(),
           model: z.string().optional(),
-          dependencies: z.array(z.string()).optional(),
+          dependencies: z.array(z.string()).max(100).optional(),
         }),
       )
       .min(1),
@@ -435,7 +435,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     sessionId: z.string().optional(),
     model: z.string().optional(),
     maxIterations: z.number().int().min(1).max(100).optional(),
-    tools: z.array(z.string()).optional(),
+    tools: z.array(z.string()).max(100).optional(),
     workspacePath: z.string().optional(),
   })
 
@@ -822,9 +822,9 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     category: z.string().min(1),
     description: z.string().min(1),
     systemPrompt: z.string().min(1),
-    tools: z.array(z.string()).optional(),
-    examples: z.array(z.string()).optional(),
-    tags: z.array(z.string()).optional(),
+    tools: z.array(z.string()).max(100).optional(),
+    examples: z.array(z.string()).max(100).optional(),
+    tags: z.array(z.string()).max(100).optional(),
   })
 
   server.post('/personas', async (request, reply) => {
@@ -1019,7 +1019,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const { number } = prNumberParam.parse(request.params)
     const body = z
-      .object({ owner: z.string(), repo: z.string(), reviewers: z.array(z.string()) })
+      .object({ owner: z.string(), repo: z.string(), reviewers: z.array(z.string()).max(100) })
       .parse(request.body)
     if (!body.owner || !body.repo || !body.reviewers)
       return reply.status(400).send(error(400, 'owner/repo/reviewers 不能为空'))

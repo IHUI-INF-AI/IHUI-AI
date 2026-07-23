@@ -275,7 +275,7 @@ export const zhsCourseRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
             creator: z.string().optional(),
             lecturer: z.string().optional(),
           }),
-        ),
+        ).max(100),
       })
       .parse(request.body)
     const created = await db.insert(zhsCourseVideo).values(body.videos).returning()

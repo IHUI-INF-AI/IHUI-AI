@@ -67,7 +67,7 @@ import { error } from '../utils/response.js'
 
 const embeddingsSchema = z.object({
   model: z.string().min(1),
-  input: z.union([z.string(), z.array(z.string())]),
+  input: z.union([z.string(), z.array(z.string()).max(100)]),
   dimensions: z.number().int().positive().optional(),
 })
 
@@ -93,7 +93,7 @@ const chatMoaSchema = z.object({
 
 const createMoaPresetSchema = z.object({
   name: z.string().min(1),
-  models: z.array(z.string()).min(1),
+  models: z.array(z.string()).min(1).max(100),
   strategy: z.string().min(1),
 })
 
@@ -127,10 +127,11 @@ const agentPipelineSchema = z.object({
       z.object({
         agentId: z.string().min(1),
         input: z.string().min(1),
-        dependsOn: z.array(z.number().int()).optional(),
+        dependsOn: z.array(z.number().int()).max(100).optional(),
       }),
     )
-    .min(1),
+    .min(1)
+    .max(100),
 })
 
 const agentParallelSchema = z.object({
@@ -141,7 +142,8 @@ const agentParallelSchema = z.object({
         input: z.string().min(1),
       }),
     )
-    .min(1),
+    .min(1)
+    .max(100),
 })
 
 // =============================================================================
