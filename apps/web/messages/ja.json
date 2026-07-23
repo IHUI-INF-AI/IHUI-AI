@@ -8687,8 +8687,6 @@
       "clearAllData": "クリアありData",
       "deleteAccount": "アカウント削除",
       "about": "概要",
-      "appPermission": "アプリ権限",
-      "businessLicense": "営業許可証",
       "chatHistory": "チャット履歴",
       "checkUpdate": "更新を確認",
       "commissionPlan": "コミッションプラン",
@@ -8704,7 +8702,6 @@
       "privacySettings": "プライバシー設定",
       "recruitment": "採用",
       "statistics": "統計",
-      "usageRules": "利用規約",
       "viewMiniapp": "ミニアプリを表示",
       "webVersion": "Web版",
       "withdrawRecords": "出金記録"
@@ -8732,8 +8729,6 @@
       "clearAllData": "あり、とData",
       "deleteAccount": "のとありData",
       "about": "概要",
-      "appPermission": "アプリ権限",
-      "businessLicense": "営業許可証",
       "chatHistory": "チャット履歴",
       "checkUpdate": "更新を確認",
       "commissionPlan": "コミッションプラン",
@@ -8749,7 +8744,6 @@
       "privacySettings": "プライバシー設定",
       "recruitment": "採用",
       "statistics": "統計",
-      "usageRules": "利用規約",
       "viewMiniapp": "ミニアプリを表示",
       "webVersion": "Web版",
       "withdrawRecords": "出金記録"
