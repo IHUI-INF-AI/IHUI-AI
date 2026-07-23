@@ -1769,6 +1769,10 @@ export default {
         exclusiveGroup: '专属社群',
         adExperience: '广告体验',
       },
+      monthlyPlan: '月度会员',
+      yearlyPlan: '年度会员',
+      monthlyAllBenefits: '月度会员所有权益',
+      highCommission: '高额返佣特权',
     },
     success: {
       desc: '恭喜您已成功开通 VIP 会员',

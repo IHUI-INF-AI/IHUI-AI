@@ -5,10 +5,21 @@ import { useState, useCallback } from 'react'
 import { updateUserNickname, getProfile } from '@/api'
 import { useI18n } from '@/i18n'
 
+const MAX_LENGTH = 8
+
 export default function Nickname() {
   const { t } = useI18n()
   const [nickname, setNickname] = useState('')
   const [original, setOriginal] = useState('')
+
+  // 本地 fallback:maxLength 提示 key 待主 agent 补,未命中时返回 fb
+  const tt = useCallback(
+    (k: string, fb: string) => {
+      const v = t(k)
+      return v === k ? fb : v
+    },
+    [t],
+  )
 
   const load = useCallback(async () => {
     try {
@@ -27,11 +38,16 @@ export default function Nickname() {
   })
 
   async function onSubmit() {
-    if (!nickname.trim()) {
+    const val = nickname.trim()
+    if (!val) {
       return Taro.showToast({ title: t('user.nickname.enterNickname'), icon: 'none' })
     }
+    // 对标原项目 account.vue:昵称不能超过 8 个字符
+    if (val.length > MAX_LENGTH) {
+      return Taro.showToast({ title: tt('user.nickname.maxLength', '昵称不能超过8个字符'), icon: 'none' })
+    }
     try {
-      await updateUserNickname(nickname.trim())
+      await updateUserNickname(val)
       Taro.showToast({ title: t('user.nickname.saveSuccess'), icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
@@ -54,6 +70,7 @@ export default function Nickname() {
           <Input
             className="flex-1 text-[14px]"
             type="text"
+            maxlength={MAX_LENGTH}
             placeholder={t('user.nickname.nicknamePlaceholder')}
             value={nickname}
             onInput={(e) => setNickname(e.detail.value)}
