@@ -247,5 +247,15 @@ export default {
       failed: '실패',
       cancelled: '취소됨',
     },
+    cancel: {
+      cancelButton: '작업 취소',
+      cancelling: '취소 중',
+      cancelSuccess: '작업이 취소되었습니다',
+      cancelFailed: '작업 취소에 실패했습니다',
+    },
+    reconnect: {
+      reconnecting: '작업 동기화 중',
+      reconnectSuccess: '작업이 동기화되었습니다',
+    },
   },
 }
