@@ -15,6 +15,10 @@
       "types": "./src/auth/*.ts",
       "import": "./dist/auth/*.js"
     },
+    "./notifications/*": {
+      "types": "./src/notifications/*.ts",
+      "import": "./dist/notifications/*.js"
+    },
     "./validation/*": {
       "types": "./src/validation/*.ts",
       "import": "./dist/validation/*.js"

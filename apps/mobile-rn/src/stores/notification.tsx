@@ -1,14 +1,9 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import type { WSNotification } from '@ihui/api-client'
+import { transformWsNotification } from '@ihui/shared/notifications/ws-notification-adapter'
+import type { BaseNotificationEntry, WsNotificationLike } from '@ihui/shared/notifications/ws-notification-adapter'
 
-interface NotificationEntry {
-  id: string
-  type: string
-  title: string
-  content: string
-  isRead: boolean
-  createdAt: string
-}
+type NotificationEntry = BaseNotificationEntry
 
 interface NotificationState {
   connected: boolean
@@ -32,19 +27,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const unreadCount = notifications.filter((n) => !n.isRead).length
 
   const addFromWs = (msg: WSNotification | null) => {
-    if (!msg || msg.type !== 'notification' || !msg.data) return
-    const d = msg.data
-    const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
-    const entry: NotificationEntry = {
-      id: str(d.id) ?? `${Date.now()}`,
-      type: d.type,
-      title: str(d.title) ?? (d.type === 'ai_response' ? 'AI 回复' : '新通知'),
-      content:
-        str(d.content) ?? str((d as { message?: { content?: string } }).message?.content) ?? '',
-      isRead: false,
-      createdAt: str(d.createdAt) ?? new Date().toISOString(),
+    const entry = transformWsNotification(msg as unknown as WsNotificationLike)
+    if (entry) {
+      setNotifications((prev) => [entry, ...prev].slice(0, 100))
     }
-    setNotifications((prev) => [entry, ...prev].slice(0, 100))
   }
 
   const markAllRead = () => setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
