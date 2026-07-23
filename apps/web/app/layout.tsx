@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { Suspense } from 'react'
 import Script from 'next/script'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getLocale } from 'next-intl/server'
@@ -95,7 +96,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     (marketing) 用 Header+Footer,(auth) 用居中表单等)。
                   */}
                   <GlobalShell>{children}</GlobalShell>
-                  <LoginRedirectListener />
+                  {/* output: 'export' 模式:useSearchParams() 必须包裹 Suspense */}
+                  <Suspense fallback={null}>
+                    <LoginRedirectListener />
+                  </Suspense>
                   <LoginDialog />
                 </GlobalHooksProvider>
               </TooltipProvider>
