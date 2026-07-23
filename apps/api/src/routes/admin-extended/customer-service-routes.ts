@@ -11,7 +11,7 @@ import { createComment, findTicketById } from '../../db/customer-service-queries
 const adminSendCommentSchema = z.object({
   ticketId: z.string().uuid(),
   content: z.string().min(1).max(5000),
-  attachments: z.array(z.unknown()).optional(),
+  attachments: z.array(z.unknown()).max(20).optional(),
 })
 
 export const customerServiceRoutes: FastifyPluginAsync = async (server) => {

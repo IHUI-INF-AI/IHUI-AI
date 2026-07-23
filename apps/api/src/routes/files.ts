@@ -18,6 +18,13 @@ import { findTagsByTarget, attachTag, detachTag } from '../db/social-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { buildSchema } from '../utils/swagger.js'
 import { convertToMarkdown } from '../services/markdown-converter-service.js'
+import {
+  validateUploadFile,
+  sanitizeFilename,
+  getCanonicalMime,
+  extractExt,
+  MAX_MULTIPART_UPLOAD_SIZE,
+} from '../utils/file-type-validator.js'
 
 const ADMIN_ROLE_ID = 1
 
@@ -160,7 +167,9 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         if (mime === 'image/webp') {
           finalBuffer = await sharp(buffer).png().toBuffer()
           finalMime = 'image/png'
-          finalFilename = filename.replace(/\.webp$/i, '.png')
+          // webp -> png: 确保文件名以 .png 结尾,丢弃 .webp 扩展名
+          const baseName = filename.replace(/\.webp$/i, '')
+          finalFilename = /\.png$/i.test(baseName) ? baseName : `${baseName}.png`
         } else {
           finalBuffer = buffer
           finalMime = mime
@@ -170,6 +179,14 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         request.log.error({ err: e }, 'base64 解码或图片转换失败')
         return reply.status(400).send(error(400, 'base64 解码或图片转换失败'))
       }
+
+      // CWE-434 防护:扩展名白名单 + MIME 一致性 + magic number + 大小限制
+      const validation = validateUploadFile(finalBuffer, finalFilename, finalMime)
+      if (!validation.ok) {
+        return reply.status(400).send(error(400, validation.reason))
+      }
+
+      const safeFilename = sanitizeFilename(finalFilename)
 
       try {
         if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
@@ -181,9 +198,9 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
           success({
             file: {
               id: fileId,
-              name: finalFilename,
+              name: safeFilename,
               size: finalBuffer.length,
-              mimeType: finalMime,
+              mimeType: validation.mimeType,
               path: filePath,
               uploadedBy: request.userId,
             },
@@ -601,6 +618,19 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
       const filename = data.filename || `upload-${Date.now()}`
       const mimeType = data.mimetype || 'application/octet-stream'
 
+      // CWE-434 防护:扩展名白名单 + MIME 一致性 + magic number + 大小限制(100MB,对齐 multipart 配置)
+      const validation = validateUploadFile(
+        buffer,
+        filename,
+        mimeType,
+        MAX_MULTIPART_UPLOAD_SIZE,
+      )
+      if (!validation.ok) {
+        return reply.status(400).send(error(400, validation.reason))
+      }
+
+      const safeFilename = sanitizeFilename(filename)
+
       try {
         if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
         const fileId = randomUUID()
@@ -611,9 +641,9 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
           success({
             file: {
               id: fileId,
-              name: filename,
+              name: safeFilename,
               size: buffer.length,
-              mimeType,
+              mimeType: validation.mimeType,
               path: filePath,
               uploadedBy: request.userId,
             },
@@ -628,7 +658,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
 
   /**
    * application/octet-stream 原始流上传。
-   * @header x-filename — 可选，指定保存文件名
+   * @header x-filename — 必填,指定保存文件名(含扩展名,用于类型校验)
    * @returns { file: { id, name, size, mimeType, path, uploadedBy } }
    */
   server.post(
@@ -650,8 +680,31 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
       }
 
       const rawFilename = request.headers['x-filename']
-      const filename =
-        (Array.isArray(rawFilename) ? rawFilename[0] : rawFilename) ?? `upload-${Date.now()}`
+      const rawFilenameStr = Array.isArray(rawFilename) ? rawFilename[0] : rawFilename
+      if (!rawFilenameStr) {
+        return reply.status(400).send(error(400, '缺少 x-filename 请求头,无法识别文件类型'))
+      }
+      const filename = String(rawFilenameStr)
+
+      // octet-stream 未声明 MIME,按文件名扩展名推导 canonical MIME 用于校验
+      const ext = extractExt(filename)
+      const canonicalMime = getCanonicalMime(ext)
+      if (!canonicalMime) {
+        return reply.status(400).send(error(400, `不支持的文件类型: .${ext || '未知'}`))
+      }
+
+      // CWE-434 防护:扩展名白名单 + magic number + 大小限制(100MB,对齐 multipart 配置)
+      const validation = validateUploadFile(
+        buffer,
+        filename,
+        canonicalMime,
+        MAX_MULTIPART_UPLOAD_SIZE,
+      )
+      if (!validation.ok) {
+        return reply.status(400).send(error(400, validation.reason))
+      }
+
+      const safeFilename = sanitizeFilename(filename)
 
       try {
         if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true })
@@ -663,9 +716,9 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
           success({
             file: {
               id: fileId,
-              name: filename,
+              name: safeFilename,
               size: buffer.length,
-              mimeType: 'application/octet-stream',
+              mimeType: validation.mimeType,
               path: filePath,
               uploadedBy: request.userId,
             },

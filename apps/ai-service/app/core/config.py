@@ -18,7 +18,9 @@ class Settings(BaseSettings):
     port: int = 8803
     host: str = "0.0.0.0"
     log_level: str = "info"
-    cors_origin: str = "http://localhost:8801"
+    # CORS 允许源(逗号分隔)。默认空字符串:生产环境启动时校验非空(强制配置),
+    # 任何环境禁止 "*" 通配符。本地开发请在 .env 中配置 CORS_ORIGIN=http://localhost:8801
+    cors_origin: str = ""
 
     # 数据存储
     database_url: str = "postgres://postgres:postgres@localhost:8810/ihui_ai"
@@ -83,6 +85,18 @@ class Settings(BaseSettings):
     agent_control_internal_secret: str = ""
 
     model_config = {"env_file": ".env", "extra": "ignore"}
+
+    def validate_cors_origin(self) -> None:
+        """启动时校验 CORS_ORIGIN:任何环境禁止 "*" 通配符,生产环境禁止空值。"""
+        origins = [o.strip() for o in self.cors_origin.split(",") if o.strip()]
+        if any(o == "*" for o in origins):
+            raise ValueError(
+                'CORS_ORIGIN 不允许使用 "*" 通配符,必须显式列出允许的源(逗号分隔)'
+            )
+        if self.node_env == "production" and not origins:
+            raise ValueError(
+                "生产环境 CORS_ORIGIN 必填(禁止空值),请配置允许的前端源(逗号分隔)"
+            )
 
 
 settings = Settings()
