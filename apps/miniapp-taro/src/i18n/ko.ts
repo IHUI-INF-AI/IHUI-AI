@@ -1768,6 +1768,10 @@ export default {
         exclusiveGroup: '전용 그룹',
         adExperience: '광고 경험',
       },
+      monthlyPlan: '월간 멤버십',
+      yearlyPlan: '연간 멤버십',
+      monthlyAllBenefits: '월간 멤버십 모든 혜택',
+      highCommission: '높은 수수료 특권',
     },
     success: {
       desc: '축하합니다! VIP 멤버십이 활성화되었습니다',
