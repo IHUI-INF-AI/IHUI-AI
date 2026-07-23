@@ -328,6 +328,12 @@ export default {
     common: {
       loading: 'Loading…',
     },
+    tishi: {
+      title: 'Agent guide',
+      view: 'View',
+      close: 'Close',
+      needInput: 'Please provide the following information for more precise assistance',
+    },
     chatMessageItem: {
       me: 'Me',
       ai: 'AI',
