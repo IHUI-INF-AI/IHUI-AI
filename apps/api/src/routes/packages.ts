@@ -29,7 +29,7 @@ const updatePackageSchema = z.object({
   description: z.string().max(2000).optional(),
   price: z.number().int().min(0).optional(),
   interval: z.enum(['month', 'year', 'quarter', 'lifetime']).optional(),
-  features: z.array(z.string()).optional(),
+  features: z.array(z.string()).max(100).optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().min(0).optional(),
 })

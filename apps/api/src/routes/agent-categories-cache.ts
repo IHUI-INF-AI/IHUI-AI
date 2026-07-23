@@ -65,7 +65,7 @@ const syncBodySchema = z.object({
       }),
     )
     .default([]),
-  deleteKeys: z.array(z.string().min(1).max(128)).default([]),
+  deleteKeys: z.array(z.string().min(1).max(128)).max(100).default([]),
 })
 
 function toPositiveInt(v: string | undefined, fallback: number): number {

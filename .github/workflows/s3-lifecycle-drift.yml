@@ -12,6 +12,10 @@ on:
         required: false
         default: ''
 
+# Security: least-privilege GITHUB_TOKEN (CWE-250). Third-party actions use @v tags — pin to commit SHA for stricter supply-chain security.
+permissions:
+  contents: read
+
 jobs:
   drift-check:
     runs-on: ubuntu-latest

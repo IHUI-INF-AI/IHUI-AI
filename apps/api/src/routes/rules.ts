@@ -113,7 +113,7 @@ export const rulesRoutes: FastifyPluginAsync = async (server) => {
             'semantic_duplicate',
             'priority_collision',
           ]),
-          ruleIds: z.array(z.string()),
+          ruleIds: z.array(z.string()).max(100),
           detail: z.string(),
         }),
       )

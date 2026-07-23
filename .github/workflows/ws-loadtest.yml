@@ -20,6 +20,10 @@ on:
   schedule:
     - cron: '0 4 * * 1' # 每周一 04:00 UTC 回归压测
 
+# Security: least-privilege GITHUB_TOKEN (CWE-250).
+permissions:
+  contents: read
+
 jobs:
   loadtest:
     runs-on: ubuntu-latest

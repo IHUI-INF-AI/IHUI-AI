@@ -17,7 +17,7 @@ import {
 } from './ai-vendors/_shared.js'
 
 const chatSchema = z.object({
-  messages: z.array(z.unknown()).min(1),
+  messages: z.array(z.unknown()).min(1).max(100),
   model: z.string().optional(),
   temperature: z.number().optional(),
   stream: z.boolean().optional(),

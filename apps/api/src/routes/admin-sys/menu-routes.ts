@@ -70,7 +70,7 @@ export const menuRoutes: FastifyPluginAsync = async (s) => {
     if (Number.isNaN(rid) || rid < 1) {
       return reply.status(400).send(error(400, 'roleId 无效'))
     }
-    const parsed = z.object({ menuIds: z.array(z.string().uuid()) }).safeParse(request.body)
+    const parsed = z.object({ menuIds: z.array(z.string().uuid()).max(500) }).safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }

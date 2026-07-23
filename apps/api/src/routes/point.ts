@@ -114,7 +114,7 @@ const relationsListQuery = z.object({
 
 const updateRelationsSchema = z.object({
   pointId: z.string().uuid('无效的积分规则 ID'),
-  channelIds: z.array(z.string().uuid()).default([]),
+  channelIds: z.array(z.string().uuid()).max(100).default([]),
 })
 
 const recordsListQuery = z.object({
