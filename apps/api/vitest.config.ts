@@ -4,8 +4,9 @@ export default defineConfig({
   test: {
     // 测试环境启动前加载 .env.test(指向 ihui_test 库)
     setupFiles: ['./tests/setup-env.ts'],
-    // 默认跑 mock 测试:tests/ 与 src/{routes,services,jobs}/__tests__/ 下的 *.test.ts
+    // 默认跑 mock 测试:test/(单数) + tests/(复数) + src/{routes,services,jobs}/__tests__/ 下的 *.test.ts
     include: [
+      'test/**/*.test.ts',
       'tests/**/*.test.ts',
       'src/routes/__tests__/**/*.test.ts',
       'src/services/__tests__/**/*.test.ts',
