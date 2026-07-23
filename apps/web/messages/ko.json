@@ -1,4 +1,31 @@
 {
+  "skills": {
+    "market": {
+      "title": "스킬 마켓",
+      "subtitle": "스킬 확장을 탐색, 설치 및 평가하세요",
+      "searchPlaceholder": "스킬 검색...",
+      "tagAll": "전체",
+      "install": "설치",
+      "installed": "설치됨",
+      "rating": "평점",
+      "rate": "평가",
+      "comment": "댓글",
+      "commentPlaceholder": "리뷰를 작성하세요...",
+      "submit": "제출",
+      "cancel": "취소",
+      "empty": "스킬이 없습니다",
+      "loading": "불러오는 중...",
+      "page": "{page}/{total} 페이지",
+      "prev": "이전",
+      "next": "다음",
+      "total": "총 {total}개",
+      "installs": "{count}회 설치",
+      "installSuccess": "설치 완료",
+      "installFailed": "설치 실패",
+      "rateSuccess": "평가 완료",
+      "rateFailed": "평가 실패"
+    }
+  },
   "common": {
     "login": "로그인",
     "register": "회원가입",

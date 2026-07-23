@@ -26,6 +26,8 @@ import CoursePage from './pages/CoursePage'
 import SettingsPage from './pages/SettingsPage'
 import OrderPage from './pages/OrderPage'
 import AgentPage from './pages/AgentPage'
+import DesignPage from './pages/DesignPage'
+import TaskReceiverPage from './pages/TaskReceiverPage'
 import './app.css'
 
 function AppInner() {
@@ -88,6 +90,8 @@ function AppInner() {
           <Route path="/agents" element={<AgentPage />} />
           <Route path="/agents/:id" element={<AgentPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/design" element={<DesignPage />} />
+          <Route path="/task-receiver" element={<TaskReceiverPage />} />
           <Route path="*" element={<Navigate to="/chat" replace />} />
         </Route>
         <Route
