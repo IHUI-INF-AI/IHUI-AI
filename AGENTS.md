@@ -24,6 +24,15 @@
 - **守门**:`scripts/check-project-plan-archive.mjs` + pre-commit 第 13c 项,检测到已完成任务条目被删除且无 `<!-- 已归档` 占位注释 → 阻塞 commit。
 - **历史教训**:`CLI 配置导入`任务条目被两次误删(commit 15a50b53 第一次补回 → 再次被删 → commit c0ac97c 第二次补回),本规则从机制上杜绝。
 
+### 自动归档机制(2026-07-23 立)
+
+- **脚本**:`scripts/archive-completed-tasks.mjs` — 扫描 PROJECT_PLAN.md,把完成 ≥7 天的已完成任务条目(`### [x] ✅(YYYY-MM-DD) ...`)自动移动到 `.trae-cn/archive/PROJECT_PLAN_YYYY-MM-DD_auto-archive.md`,原位置留归档占位注释。
+- **自动触发**:`.husky/post-commit` 钩子第 2 段,每次 `git commit` 后自动调用 `--auto-commit` 模式,有可归档条目则自动创建归档 commit(由 git-push-guard 自动 push)。
+- **防递归**:归档 commit 设 `IHUI_ARCHIVE_COMMIT=1`,post-commit 检测到则跳过归档脚本,避免无限递归。
+- **手动触发**:`pnpm archive`(默认 ≥7 天)/ `pnpm archive -- --all`(归档所有已完成)/ `pnpm archive -- --days 3`(自定义天数)/ `pnpm archive -- --dry-run`(预览)。
+- **跳过自动归档**:`HUSKY_SKIP_ARCHIVE=1 git commit`(紧急场景,不推荐)。
+- **与体积守门协同**:13b 项体积守门已改为 warn-only(2026-07-23),自动归档不再为"压体积"服务,而为"保持 PROJECT_PLAN.md 可读性 + 历史可追溯"。
+
 ### 唯一例外
 
 - `/goal` 模式运行时:`.trae-cn/goal-runtime/STATE.md` + `loop-run-log.md`(临时,目标结束后删除)。
