@@ -548,6 +548,58 @@ git branch -d hotfix/v1.2.4
 
 ---
 
+## desktop 自动更新启用指南
+
+桌面端基于 Tauri 2 `tauri-plugin-updater` 实现应用内自动更新。代码层已就位([updater.ts](../apps/desktop/src/lib/updater.ts) + [UpdateChecker.tsx](../apps/desktop/src/components/UpdateChecker.tsx) + [tauri.conf.json](../apps/desktop/src-tauri/tauri.conf.json) 的 `app.updater` 占位),启用需完成以下 3 步:
+
+### 1. 生成签名密钥对
+
+```bash
+pnpm --filter @ihui/desktop exec tauri signer generate -w ~/.tauri/ihui.key
+# 输出公钥 → 填入 tauri.conf.json 的 app.updater.pubkey
+# 私钥路径 ~/.tauri/ihui.key(保密,不入库)
+```
+
+### 2. 配置 tauri.conf.json
+
+```jsonc
+{
+  "app": {
+    "updater": {
+      "endpoints": ["https://releases.ihui.ai/desktop/latest.json"],
+      "pubkey": "<上一步输出的公钥>"
+    }
+  },
+  "bundle": {
+    "createUpdaterArtifacts": true
+  }
+}
+```
+
+### 3. 配置 GitHub Secrets
+
+| Secret | 用途 |
+| --- | --- |
+| `DESKTOP_TAURI_PRIVATE_KEY` | 签名私钥内容(`cat ~/.tauri/ihui.key`) |
+| `DESKTOP_TAURI_KEY_PASSWORD` | 私钥密码(无密码留空) |
+
+```bash
+gh secret set DESKTOP_TAURI_PRIVATE_KEY < ~/.tauri/ihui.key
+gh secret set DESKTOP_TAURI_KEY_PASSWORD
+```
+
+### 4. 发版触发自动构建
+
+```bash
+git tag desktop-v0.1.0
+git push origin desktop-v0.1.0
+# 触发 release-desktop.yml → tauri-action 构建 4 平台安装包 + 签名 + 上传 Release + 生成 latest.json
+```
+
+`tauri-action` 自动生成 `latest.json`(Tauri updater 协议)上传到 Release。应用启动时 `UpdateChecker` 调 `checkForUpdate()` → 拉 `latest.json` → 比对版本 → 下载签名包 → `downloadAndInstall()` 验签安装。
+
+---
+
 ## 最优下一步建议
 
 - 发布前务必跑 `node scripts/pre-deploy.mjs`,它是发布事故的第一道防线。
