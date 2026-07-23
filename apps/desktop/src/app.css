@@ -731,6 +731,72 @@ textarea:focus {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
+/* ============== 对话搜索栏 ============== */
+
+.chat-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--muted-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.chat-search-bar input {
+  flex: 1;
+  font-size: 13px;
+  padding: 4px 8px;
+}
+
+.chat-search-count {
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 50px;
+  text-align: right;
+}
+
+.chat-search-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 8px;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.chat-search-close:hover {
+  background: var(--border);
+  color: var(--fg);
+}
+
+/* 匹配的消息高亮 */
+.chat-bubble--match {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+/* 重新生成按钮 */
+.msg-regenerate-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 4px;
+  align-self: flex-start;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.msg-regenerate-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 /* ============== Markdown 渲染 ============== */
 
 .md-body {

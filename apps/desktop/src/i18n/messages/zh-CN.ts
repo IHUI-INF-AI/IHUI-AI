@@ -83,6 +83,10 @@ export default {
     exportAsTxt: '导出为纯文本',
     exportDone: '已导出',
     exportFailed: '导出失败',
+    search: '搜索',
+    searchPlaceholder: '搜索对话内容…',
+    noSearchResults: '未找到匹配 "{{query}}" 的消息',
+    regenerate: '重新生成',
   },
   profile: {
     title: '我的',
