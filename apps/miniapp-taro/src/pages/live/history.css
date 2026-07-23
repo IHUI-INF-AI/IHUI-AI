@@ -1,0 +1,109 @@
+.hist-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: 24rpx;
+  padding-bottom: 60rpx;
+  box-sizing: border-box;
+}
+
+/* ===== 筛选 tab ===== */
+.hist-tabs {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+.hist-tab {
+  flex: 1;
+  text-align: center;
+  height: 64rpx;
+  line-height: 64rpx;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 10rpx;
+}
+.hist-tab-active {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ===== 历史卡片 ===== */
+.hist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.hist-card {
+  display: flex;
+  padding: 20rpx;
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 12rpx;
+}
+.hist-card-cover {
+  width: 200rpx;
+  height: 130rpx;
+  flex-shrink: 0;
+  background: var(--color-muted);
+  border-radius: 8rpx;
+}
+.hist-card-body {
+  flex: 1;
+  min-width: 0;
+  margin-left: 20rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.hist-card-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.hist-card-meta {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.hist-progress {
+  height: 6rpx;
+  background: var(--color-muted);
+  border-radius: 3rpx;
+  margin-top: 8rpx;
+  overflow: hidden;
+}
+.hist-progress-bar {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 3rpx;
+}
+.hist-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8rpx;
+}
+.hist-progress-text {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+.hist-action-btn {
+  padding: 8rpx 20rpx;
+  font-size: 24rpx;
+  color: var(--color-primary);
+  background: rgba(0, 242, 255, 0.1);
+  border: 2rpx solid rgba(0, 242, 255, 0.3);
+  border-radius: 8rpx;
+}
+
+/* ===== 状态文案 ===== */
+.hist-empty,
+.hist-loading,
+.hist-no-more {
+  display: block;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  padding: 80rpx 0;
+}
