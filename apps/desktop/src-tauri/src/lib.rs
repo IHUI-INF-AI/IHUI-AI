@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
-#[cfg(debug_assertions)]
+use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use tauri::Manager;
+use tauri_plugin_global_shortcut::ShortcutState;
 use std::io::Cursor;
 use base64::Engine;
 use enigo::{Axis, Button, Coordinate, Direction, Enigo, Key, Keyboard, Mouse, Settings};
@@ -122,6 +123,72 @@ fn build_app_menu(app: tauri::AppHandle) -> Result<(), String> {
         .build()
         .map_err(|e| e.to_string())?;
     app.set_menu(menu).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// 构建系统托盘(显示主窗口 / 隐藏主窗口 / 退出)+ 双击托盘唤起。
+fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
+    let show_item = MenuItemBuilder::with_id("tray.show", "显示主窗口")
+        .build(app)
+        .map_err(|e| e.to_string())?;
+    let hide_item = MenuItemBuilder::with_id("tray.hide", "隐藏主窗口")
+        .build(app)
+        .map_err(|e| e.to_string())?;
+    let quit_item = MenuItemBuilder::with_id("tray.quit", "退出")
+        .build(app)
+        .map_err(|e| e.to_string())?;
+    let menu = MenuBuilder::new(app)
+        .item(&show_item)
+        .item(&hide_item)
+        .separator()
+        .item(&quit_item)
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let icon = app
+        .default_window_icon()
+        .cloned()
+        .ok_or_else(|| "no default window icon".to_string())?;
+    TrayIconBuilder::new()
+        .icon(icon)
+        .tooltip("IHUI AI")
+        .menu(&menu)
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "tray.show" => {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+            "tray.hide" => {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.hide();
+                }
+            }
+            "tray.quit" => {
+                app.exit(0);
+            }
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::DoubleClick {
+                button: MouseButton::Left,
+                ..
+            } = event
+            {
+                let app = tray.app_handle();
+                if let Some(window) = app.get_webview_window("main") {
+                    if window.is_visible().unwrap_or(false) {
+                        let _ = window.hide();
+                    } else {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                }
+            }
+        })
+        .build(app)
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -456,6 +523,13 @@ fn clipboard_set(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // single-instance 必须在 plugin chain 最前,防止多开 + 唤起已有窗口
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -465,6 +539,13 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_deep_link::init())
+        // 开机自启(macOS 用 LaunchAgent,其他平台原生,启动参数 --minimized)
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--minimized".to_string()]),
+        ))
+        // 全局快捷键 plugin(handler 在 setup 中通过 on_desktop 注册)
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             #[cfg(debug_assertions)]
             {
@@ -473,6 +554,20 @@ pub fn run() {
                 }
             }
             let _ = build_app_menu(app.handle().clone());
+            let _ = build_tray(app.handle());
+            // 注册全局快捷键 Ctrl+Shift+I 唤起/隐藏主窗口
+            let _ = app.global_shortcut().on_desktop("Ctrl+Shift+I", |app, _shortcut, event| {
+                if event.state == ShortcutState::Pressed {
+                    if let Some(window) = app.get_webview_window("main") {
+                        if window.is_visible().unwrap_or(false) {
+                            let _ = window.hide();
+                        } else {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                }
+            });
             let _ = app;
             Ok(())
         })
