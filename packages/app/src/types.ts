@@ -89,6 +89,8 @@ export interface ProfileScreenProps {
   onNavigate?: (key: string) => void
   onLogout?: () => void
   onBack?: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light'。web 端不传即保持浅色行为 */
+  colorScheme?: 'light' | 'dark'
 }
 
 /** Settings 屏 props */
@@ -112,4 +114,6 @@ export interface SettingsScreenProps {
   onMenuPress: (key: string) => void
   appVersion?: string
   onBack?: () => void
+  /** 已解析配色方案,驱动 tokens 明暗;默认 'light'。web 端不传即保持浅色行为 */
+  colorScheme?: 'light' | 'dark'
 }
