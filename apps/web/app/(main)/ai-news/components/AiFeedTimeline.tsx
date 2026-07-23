@@ -120,6 +120,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
   const [activeChannel, setActiveChannel] = React.useState<string>('')
   const [activeCategory, setActiveCategory] = React.useState<string>('')
   const [keyword, setKeyword] = React.useState<string>('')
+  const [debouncedKeyword, setDebouncedKeyword] = React.useState<string>('')
   const [trendItemId, setTrendItemId] = React.useState<string | null>(null)
   const [trendTitle, setTrendTitle] = React.useState<string>('')
   const [titleLang, setTitleLang] = React.useState<TitleLang>('zh')
@@ -137,6 +138,41 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
     for (const s of sources) m.set(s.sourceCode, s)
     return m
   }, [sources])
+
+  // 搜索防抖:300ms,避免每次按键触发过滤计算
+  React.useEffect(() => {
+    const timer = setTimeout(() => setDebouncedKeyword(keyword), 300)
+    return () => clearTimeout(timer)
+  }, [keyword])
+
+  // URL query 同步:初始化时从 URL 读取筛选状态(刷新/分享链接可恢复)
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const ch = params.get('channel')
+    const cat = params.get('category')
+    const kw = params.get('q')
+    const tr = params.get('trend')
+    const lng = params.get('lang')
+    if (ch) setActiveChannel(ch)
+    if (cat) setActiveCategory(cat)
+    if (kw) { setKeyword(kw); setDebouncedKeyword(kw) }
+    if (tr) setActiveTrend(tr)
+    if (lng === 'zh' || lng === 'en' || lng === 'ja' || lng === 'ko') setTitleLang(lng)
+  }, [])
+
+  // URL query 写回:state 变化时更新 URL(replaceState 不污染 history,用 debouncedKeyword 避免频繁更新)
+  React.useEffect(() => {
+    const params = new URLSearchParams()
+    if (activeChannel) params.set('channel', activeChannel)
+    if (activeCategory) params.set('category', activeCategory)
+    if (debouncedKeyword) params.set('q', debouncedKeyword)
+    if (activeTrend) params.set('trend', activeTrend)
+    if (titleLang !== 'zh') params.set('lang', titleLang)
+    const qs = params.toString()
+    const newUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname
+    window.history.replaceState(null, '', newUrl)
+  }, [activeChannel, activeCategory, debouncedKeyword, activeTrend, titleLang])
+
 
   const channelFiltered = React.useMemo(() => {
     if (!activeChannel) return items
@@ -168,8 +204,8 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
         return true
       })
     }
-    if (keyword.trim()) {
-      const kw = keyword.trim().toLowerCase()
+    if (debouncedKeyword.trim()) {
+      const kw = debouncedKeyword.trim().toLowerCase()
       result = result.filter(
         (it) =>
           pickTitle(it, titleLang).toLowerCase().includes(kw) ||
@@ -177,7 +213,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
       )
     }
     return result
-  }, [channelFiltered, activeCategory, activeTrend, keyword, titleLang])
+  }, [channelFiltered, activeCategory, activeTrend, debouncedKeyword, titleLang])
 
   const dayGroups = React.useMemo(() => groupByDay(filteredItems), [filteredItems])
 
