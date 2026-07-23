@@ -1,0 +1,136 @@
+.rs-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding-bottom: 80rpx;
+}
+
+.rs-head {
+  padding: 120rpx 60rpx 60rpx;
+  text-align: center;
+}
+.rs-icon {
+  width: 160rpx;
+  height: 160rpx;
+  margin: 0 auto;
+  border-radius: 16rpx;
+  background: rgba(34, 197, 94, 0.12);
+  border: 2rpx solid rgba(34, 197, 94, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rs-icon-mark {
+  font-size: 80rpx;
+  color: var(--color-success);
+  line-height: 1;
+}
+.rs-title {
+  display: block;
+  font-size: 36rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
+  margin-top: 32rpx;
+}
+.rs-desc {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 12rpx;
+}
+
+.rs-tips {
+  margin: 0 32rpx 24rpx;
+  padding: 24rpx 28rpx;
+  background: rgba(34, 197, 94, 0.08);
+  border-radius: 12rpx;
+}
+.rs-tips-title {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-success);
+  font-weight: 600;
+  margin-bottom: 12rpx;
+}
+.rs-tips-text {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.6;
+}
+.rs-amount-wrap {
+  margin-top: 32rpx;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+}
+.rs-amount-symbol {
+  font-size: 32rpx;
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.rs-amount {
+  font-size: 64rpx;
+  color: var(--color-primary);
+  font-weight: 700;
+  margin-left: 4rpx;
+}
+
+.rs-card {
+  margin: 24rpx 32rpx;
+  padding: 8rpx 32rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+}
+.rs-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 28rpx 0;
+  gap: 24rpx;
+}
+.rs-row + .rs-row {
+  margin-top: 8rpx;
+}
+.rs-row-label {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
+}
+.rs-row-value {
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  text-align: right;
+  word-break: break-all;
+}
+
+.rs-actions {
+  padding: 48rpx 60rpx 0;
+}
+.rs-btn {
+  margin-top: 24rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  text-align: center;
+  border: none;
+  padding: 0;
+}
+.rs-btn::after {
+  border: none;
+}
+.rs-btn--primary {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+.rs-btn--ghost {
+  background: var(--color-card);
+  color: var(--color-foreground);
+  border: 2rpx solid var(--color-border);
+}
+.rs-btn--share {
+  background: transparent;
+  color: var(--color-muted-foreground);
+  font-size: 26rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+}
