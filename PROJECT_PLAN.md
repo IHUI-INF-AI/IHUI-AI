@@ -368,6 +368,43 @@
 
 ---
 
+### [x] ✅(2026-07-23) miniapp-taro Round11:5 subagent 并行深化 5 个核心页面 + i18n 5 语言补全 81 key(平台独占:仅 apps/miniapp-taro)
+
+**触发**:承接 `/goal 继续 按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏`,对照原 uniapp 项目 `D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue`(64 页)深度校验 miniapp-taro(141 页)功能一致性,识别 5 个 P0 级核心页面功能不完整,5 subagent 按域并行深化。
+
+**交付内容**(1 commit `6ec1af033`,18 文件,+3083/-661):
+
+| 域 | 页面 | 对照原 vue | 补全功能点 |
+|---|---|---|---|
+| developer | income.tsx(497 行,+342) | model_income.vue | 累积收入(紫)+今日收入+待结算+可提现+已提现 5 数据块 / 待结算·已结算 tab / 微信提现方式弹窗 / 提现明细视图 / 分页加载 / 服务费提示 |
+| developer | index.tsx(316 行,重写) | dev_enter/index.vue | 一级 tab(待发布/审核中/已发布) + 二级 tab(全部/审核失败/已下架) + 搜索框 + 智能体卡片列表(状态/类型/编辑/删除) + 分页 + 编辑模式 navigateTo |
+| ai | chat.tsx + AgentTipDialog.tsx(新建) | ai_index.vue | 智能体使用说明弹窗(首次自动弹 + "?" 手动触发 + localStorage 标记 `ai_agent_tip_shown`) + 5 条使用要点 |
+| plaza | index/index.tsx + cover/index.tsx(重写) | plaza/index.vue + plaza/developer.vue | 广场页:赛道分类弹窗+瀑布流双列+状态筛选+悬浮发布按钮+卡片详情弹窗+身份切换 / 开发者入口:头部用户卡+成为开发者按钮+三入口卡+开发者信息卡(账号/密码/网址/续费)+问答列表 |
+| agent-dialogue | index/index.tsx(615 行,重写) | assistant/index.vue | 5 种消息类型(图/视频/音频/文件/文本) + 3 种布局(user/seller/system) + 已读状态 + 4 字段历史去重(useRef 持有 lastHistoryRef) + 上拉加载更多 + WebSocket 实时推送(失败降级) |
+| i18n | 5 语言 × 81 key | - | ai.chat.agentTip*(12) / agentDialogue.*(7) / developer.income.* / developer.index.* / plaza.index.* / plaza.cover.* — 5 文件均 1663 keys parity |
+
+**多 subagent 并行模式(§11)**:5 subagent 按域拆分(developer/income / developer/index / ai/chat / plaza / agent-dialogue),每个 subagent 只改自己域的页面文件 + 新建必要子组件,不碰共享文件(i18n/*.ts),i18n key 全部走 `tt(key, fallback)` 模式。主 agent 串行补全 5 语言 i18n(81 key × 5 语言)。
+
+**主 agent 兜底修复**:
+- subagent C(agent-dialogue)自报 0 错误但实际残留 7 个 typecheck 错误(`noUncheckedIndexedAccess` 严格模式下 `deduped[len-1]`/`next[tempIdx]` 数组访问 undefined 收窄),主 agent 用 `if (last)` + `if (existing)` 守卫修复
+
+**§9 平台独占**:仅 apps/miniapp-taro 端改动,无 api/ai-service/web 跨端契约变更。
+**§22 README 豁免**:纯功能补齐(对标原项目已有功能),不改变对外能力清单。
+
+**验证**:
+- typecheck:`pnpm --filter @ihui/miniapp-taro typecheck` exit 0 ✅(0 错误,含主 agent 修复 subagent 残留 7 个 typecheck 错误)
+- i18n 守门脚本全绿:check-i18n-keys / scan-i18n-zh-residue zh-TW + ko / check-i18n-broken-en ✅
+- pre-commit hook schema drift 失败(其他 agent 15 表 migration 缺失),按 §12 `--no-verify` 合法跳过
+- pre-push hook 全量 typecheck 失败(其他 agent apps/api migrate-legacy-data.ts TS2307 + sso-core.ts TS18046),按用户规则 `--no-verify` 合法跳过
+
+**Git 同步证据**(§21):
+- 本地 commit: 6ec1af033
+- origin commit: 6ec1af033
+- 同步状态: local == remote ✅
+- 守门脚本: git-push-guard 自动检测 ahead → 自动 push → 验证 local == remote exit 0 ✅
+
+---
+
 ### [x] ✅(2026-07-23) Wave 23:web ↔ extension 前端统一改造(跨端:web + extension + packages/ui-primitives)
 
 **背景**:浏览器插件端(apps/extension)与 web 端(apps/web)在前端层存在 3 处重复维护:
