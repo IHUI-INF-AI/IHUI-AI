@@ -41,210 +41,41 @@
 
 ---
 
-### [x] ✅(2026-07-23) 桌面端 Tauri 2 自动更新链路代码层(平台独占:仅 desktop)
-
-**触发**:用户启用 goal 命令"深度开发"桌面端自动更新链路。
-
-**交付**:
-- `apps/desktop/src/lib/updater.ts`:封装 @tauri-apps/plugin-updater check(),导出 checkForUpdate
-- `apps/desktop/src/components/UpdateChecker.tsx`:检查/下载/安装三态 UI
-- `apps/desktop/src/pages/SettingsPage.tsx`:集成 UpdateChecker
-- `.github/workflows/release-desktop.yml`:CI 工作流(tag desktop-v* 触发,matrix 构建 + latest.json)
-- `docs/RELEASE.md`:补"desktop 自动更新启用指南"小节
-
-**验证**:desktop typecheck 零错误、YAML 语法合法、commit beb2fdf5a 推送成功。
+<!-- 已归档(2026-07-23):桌面端 Tauri 2 自动更新链路代码层(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端 4 大核心能力深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端 3 项增强能力深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端本地文件访问 + 拖拽粘贴附件深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端窗口状态持久化深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端会话历史持久化深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端 Markdown 渲染 + 代码高亮 + 消息复制深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端对话导出 + 主题持久化深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
+<!-- 已归档(2026-07-23):桌面端对话搜索 + 消息重新生成深度开发(平台独占:仅 desktop),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v6.md -->
 
 ---
 
-### [x] ✅(2026-07-23) 桌面端 4 大核心能力深度开发(平台独占:仅 desktop)
-
-**触发**:用户 `/goal 继续啊 你就去做就好了 一直去做 深度开发`,要求不停顿深度开发桌面端核心能力。
-
-**交付**(系统托盘 + 单实例 + 自动启动 + 全局快捷键):
-- `apps/desktop/src-tauri/Cargo.toml`:加 3 个 plugin 依赖(autostart/global-shortcut/single-instance)
-- `apps/desktop/src-tauri/src/lib.rs`:注册 4 大能力(build_tray 函数 + 单实例 callback + autostart plugin + global-shortcut plugin + Ctrl+Shift+I 唤起/隐藏)
-- `apps/desktop/src-tauri/capabilities/default.json`:加 autostart:default + global-shortcut:default 权限
-- `apps/desktop/src/lib/desktop.ts`(新建):封装 autostart enable/disable/isEnabled + 窗口控制
-- `apps/desktop/src/pages/SettingsPage.tsx`:集成 desktop Card(autostart Switch + 全局快捷键展示)
-- `apps/desktop/src/i18n/messages/*.ts`:5 语言加 `desktop` 命名空间(4 key × 5)
-
-**§9 平台独占**:系统托盘/单实例/自动启动/全局快捷键均为 desktop 天生独占能力,豁免全端同步。
-
-**验证**:desktop typecheck 零错误(commit 待 push)。
-
----
-
-### [x] ✅(2026-07-23) 桌面端 3 项增强能力深度开发(平台独占:仅 desktop)
-
-**触发**:用户 `/goal 继续啊 你就去做就好了 一直去做 深度开发`,要求持续深度开发桌面端能力。
-
-**交付**(窗口最小化到托盘 + 原生通知 + 深度链接 handler):
-- `apps/desktop/src-tauri/src/lib.rs`:on_window_event 拦截 main 窗口 CloseRequested → prevent_close + hide(关闭=最小化到托盘)
-- `apps/desktop/src/lib/desktop.ts`:加 sendDesktopNotification(title, body)— invoke 封装 notification plugin(权限请求 + notify)
-- `apps/desktop/src/pages/ChatPage.tsx`:onDone 回调中检查 document.hidden,窗口隐藏时发送系统通知
-- `apps/desktop/src/App.tsx`:DeepLinkHandler 组件,监听 `tauri://deep-link` 事件,ihui://chat → /chat 路由跳转
-
-**§9 平台独占**:窗口管理/原生通知/深度链接均为 desktop 天生独占能力,豁免全端同步。
-
-**验证**:desktop typecheck 零错误、README + PROJECT_PLAN 同步。
-
----
-
-### [x] ✅(2026-07-23) 桌面端本地文件访问 + 拖拽粘贴附件深度开发(平台独占:仅 desktop)
-
-**触发**:用户 `/goal 继续啊 你就去做就好了 一直去做 深度开发`,要求持续深度开发桌面端独占能力。
-
-**交付**(本地文件访问 + 拖拽 + 粘贴 + 附件预览):
-- `apps/desktop/src-tauri/src/lib.rs`:新增 6 个文件命令(read_text_file / read_binary_file / write_text_file / list_dir / stat_file + mime_from_extension),Rust 端直接读文件不受 fs plugin scope 限制,保持安全边界
-- `apps/desktop/src-tauri/capabilities/default.json`:加 `dialog:allow-open` + `dialog:allow-save` 权限,前端能用 @tauri-apps/plugin-dialog 的 open()/save()
-- `apps/desktop/src/lib/desktop.ts`:新增 readTextFile / readBinaryFile / writeTextFile / listDir / statFile / pickFile / pickFiles / pickDirectory / pickSavePath / isTauri / formatFileSize / FILE_FILTERS(11 函数 + 常量)
-- `apps/desktop/src/lib/types.ts`:ChatMessage 加 attachments? 字段 + 新增 ChatAttachment 接口(name/mime/size/data/isImage)
-- `apps/desktop/src/pages/ChatPage.tsx`:拖拽区(drag-over 高亮)+ 粘贴图片(ClipboardEvent)+ 📎 按钮原生对话框 + 附件预览(图片缩略/文件名/大小/删除)+ 消息内附件渲染
-- `apps/desktop/src/app.css`:新增 9 个 CSS 类(attachment-preview/item/thumb/info/name/size/remove + attach-btn + msg-attachments/attachment)
-- `apps/desktop/src/i18n/messages/*.ts`:5 语言 desktop 命名空间新增 8 个 key(filePicker/fileTooLarge/fileReadFailed/unsupportedType/attachFile/removeAttachment/dragHint/attachmentReady)
-
-**§9 平台独占**:本地文件访问/拖拽/粘贴均为 desktop 天生独占能力(Tauri 才能拿文件路径,浏览器受安全限制),豁免全端同步。
-
-**验证**:desktop typecheck 零错误(退出码 0)、README 3 处同步更新(加"本地文件访问 + 文件拖拽 + 粘贴 + 附件预览")。
-
----
-
-### [x] ✅(2026-07-23) 桌面端窗口状态持久化深度开发(平台独占:仅 desktop)
-
-**触发**:用户 `/goal 继续啊 你就去做就好了 一直去做 深度开发`,要求持续深度开发桌面端独占能力。
-
-**交付**(窗口位置/尺寸/最大化状态自动保存与恢复):
-- `apps/desktop/src-tauri/src/lib.rs`:新增 3 个窗口状态命令(save_window_state / restore_window_state / reset_window_state),用 tauri-plugin-store 持久化到 window-state.json
-  - on_window_event 拦截 CloseRequested(隐藏到托盘)+ Resized + Moved 事件,自动触发 save_window_state
-  - setup 中调用 restore_window_state,应用启动时恢复上次窗口状态(优先恢复最大化,否则恢复 position/size)
-- `apps/desktop/src/lib/desktop.ts`:新增 saveWindowState / restoreWindowState / resetWindowState 3 个 TS 函数
-- `apps/desktop/src/pages/SettingsPage.tsx`:desktop Card 加"重置窗口布局"按钮(resetWindowState 调用 + 成功/失败提示)
-- `apps/desktop/src/i18n/messages/*.ts`:5 语言 desktop 命名空间新增 4 个 key(windowLayout / resetWindowLayout / windowResetDone / windowResetFailed)
-
-**§9 平台独占**:窗口状态持久化为 desktop 天生独占能力(只有桌面应用才需要保存窗口位置),豁免全端同步。
-
----
-
-### [x] ✅(2026-07-23) 桌面端会话历史持久化深度开发(平台独占:仅 desktop)
+### [x] ✅(2026-07-23) 桌面端消息时间戳 + 会话重命名 + 快捷键帮助面板深度开发(平台独占:仅 desktop)
 
 **触发**:用户 `/goal 继续啊 你怎么总停呢 你就去做就好了 一直去做 深度开发`,要求不停顿深度开发桌面端能力。
 
-**交付**(会话历史 CRUD + 侧边栏 UI + 自动保存/加载):
-- `apps/desktop/src-tauri/src/lib.rs`:新增 5 个会话历史命令(list_conversations / load_conversation / save_conversation / delete_conversation / set_active_conversation),用 tauri-plugin-store 持久化到 conversations.json
-  - 数据结构:StoredMessage{id,role,content} / Conversation{id,title,createdAt,updatedAt,messages} / ConversationSummary{id,title,createdAt,updatedAt,messageCount}
-  - save_conversation 限制最多 50 条(超限时按 updatedAt 截断最早的)
-  - 5 个命令加入 invoke_handler generate_handler!
-- `apps/desktop/src/lib/desktop.ts`:新增会话历史 API(5 函数 + 5 类型):listConversations / loadConversation / saveConversation / deleteConversation / setActiveConversation
-- `apps/desktop/src/hooks/use-conversations.ts`(新建):useConversations hook,封装列表加载 + 活跃 ID 同步 + 新建/切换/删除/持久化,仅 Tauri 环境启用(浏览器返回 noop)
-- `apps/desktop/src/components/ConversationSidebar.tsx`(新建):侧边栏 UI,显示会话列表 + 新建按钮 + 单项删除,相对时间格式化(刚刚/N 分钟前/N 小时前/月-日)
-- `apps/desktop/src/pages/ChatPage.tsx`:集成 useConversations + ConversationSidebar
-  - 布局改为 flex-row(sidebar 240px + chat-main flex 1),仅 Tauri 环境启用
-  - 启动时自动加载活跃会话历史消息
-  - onSend onDone 后自动持久化当前会话(messagesRef 拿最新值)
-  - onClear 改为新建会话(清空 activeId + messages)
-  - 切换会话时清空 messages + 加载新会话内容
-  - 删除会话时若删的是当前,清空 messages + activeId
-- `apps/desktop/src/app.css`:新增会话侧边栏样式(11 个类:conv-sidebar/header/title/new-btn/list/empty/item/item--active/item-title/item-meta/item-count/item-delete + dark mode 调整)
-- `apps/desktop/src/i18n/messages/*.ts`:5 语言 chat 命名空间新增 5 个 key(newChat / conversationHistory / noConversations / deleteConversation / deleteConfirm)
+**交付**(第十一轮):
+- `apps/desktop/src/lib/types.ts`:ChatMessage 加 `createdAt?: number` 字段(用户消息发送时设置,AI 消息 onDone 回填,`??` 避免覆盖)
+- `apps/desktop/src/pages/ChatPage.tsx`:
+  - 新增 `formatMsgTime(ts, locale)` 工具函数:Intl.DateTimeFormat + locale 感知(同一天 HH:MM,跨天 MM-DD HH:MM),zh-CN/zh-TW→zh-CN,en→en-US
+  - onSend/onRegenerate/onSubmitEdit 时设置 `createdAt: Date.now()`
+  - onDone 回填 AI 消息完成时间 `createdAt: last.createdAt ?? doneAt`
+  - 渲染时用 msg-header 包裹 role + msg-time,hover title 显示完整本地时间
+  - 集成 ConversationSidebar onRename prop
+- `apps/desktop/src/hooks/use-conversations.ts`:新增 `rename(id, newTitle)` 方法(loadConversation 拿原消息 → saveConversation 覆盖落地 + 更新 list title/updatedAt)
+- `apps/desktop/src/components/ConversationSidebar.tsx`:加 renamingId/renameValue state + renameInputRef,双击 conv-item-title 进入重命名模式(input autoFocus + select 全文),Enter 提交 / Esc 取消 / onBlur 提交(空值或未改动不提交)
+- `apps/desktop/src/components/ShortcutHelpDialog.tsx`(新建):快捷键帮助模态,3 分组 8 项(对话/视图/系统),Esc 关闭 + 点击 overlay 关闭 + stopPropagation,`<kbd>` 元素等宽字体
+- `apps/desktop/src/App.tsx`:加 ShortcutHelpTrigger 组件(全局 keydown 监听 Ctrl+/ 或 Ctrl+?,触发 ShortcutHelpDialog)
+- `apps/desktop/src/app.css`:新增 msg-header / role / msg-time / conv-rename-input / shortcut-overlay / shortcut-dialog / shortcut-header / shortcut-body / shortcut-group-title / shortcut-list / shortcut-item / shortcut-keys 样式 + dark mode
+- `apps/desktop/src/i18n/messages/*.ts`(5 语言):chat 命名空间 +2 key(renameConversation / renameHint)+ 新增 shortcuts 命名空间(13 key:groupChat/groupView/groupSystem + sendMessage/closeDialog/renameConversation + fontZoomIn/fontZoomOut/fontReset + showHelp/devTools + title)
+- `README.md`:3 处同步更新(8 端框架表 + 技术栈表 + 项目状态矩阵),桌面端能力追加"消息时间戳(locale 感知 Intl.DateTimeFormat)+ 会话重命名(双击 inline 编辑)+ 快捷键帮助面板(Ctrl+/ 模态)"
 
-**§9 平台独占**:会话历史持久化为 desktop 天生独占能力(浏览器受 IndexedDB 限制且需要 Rust 端 store 落地),豁免全端同步。
+**§9 平台独占**:消息时间戳 + 会话重命名 + 快捷键帮助面板均为 desktop 单端 UI 能力,豁免全端同步。
 
-**验证**:desktop typecheck 零错误(退出码 0)、eslint 0 error(2 warning 均为其他文件旧问题)、README 3 处同步更新(加"会话历史持久化")。
-
----
-
-### [x] ✅(2026-07-23) 桌面端 Markdown 渲染 + 代码高亮 + 消息复制深度开发(平台独占:仅 desktop)
-
-**触发**:用户 `/goal 继续啊 你怎么总停呢 你就去做就好了 一直去做 深度开发`,要求不停顿深度开发桌面端能力。AI 回复含 markdown/code block,纯文本显示体验差。
-
-**交付**(Markdown 渲染 + 代码高亮 + 复制按钮):
-- `apps/desktop/package.json`:新增 4 依赖(react-markdown / remark-gfm / rehype-highlight / highlight.js)
-- `apps/desktop/src/components/MarkdownRenderer.tsx`(新建):Markdown 渲染器
-  - GFM(表格/删除线/任务列表)+ 代码高亮(highlight.js)
-  - 代码块加复制按钮 + 语言标签(CodeBlock 子组件,copied 状态 1.5s 自动恢复)
-  - 链接 target=_blank + rel=noreferrer
-  - 表格横向滚动包裹层
-- `apps/desktop/src/pages/ChatPage.tsx`:集成 MarkdownRenderer
-  - AI 回复(role=assistant)用 MarkdownRenderer 渲染
-  - 用户消息(role=user)用 .md-plain 纯文本(不渲染 markdown,避免指令注入)
-  - 消息级复制按钮(hover 显示,copiedMsgId 状态 1.5s 自动恢复)
-- `apps/desktop/src/main.tsx`:导入 highlight.js/styles/github.css(代码主题)
-- `apps/desktop/src/app.css`:新增 Markdown 样式(40+ 类:md-body p/h1-6/ul/ol/li/a/blockquote/hr/code/md-code-block/md-code-header/md-code-lang/md-code-copy/pre/table/md-table-wrap/md-plain/msg-copy-btn + dark mode 调整)
-- `apps/desktop/src/i18n/messages/*.ts`:5 语言 chat 命名空间新增 6 个 key(roleUser / roleAI / copy / copied / copyMessage / copyCode)
-
-**§9 平台独占**:Markdown 渲染 + 代码高亮为 desktop 单端 UI 能力,豁免全端同步。
-
-**验证**:desktop typecheck 零错误(退出码 0)、README 3 处同步更新(加"Markdown 渲染")。
-
-### [x] ✅(2026-07-23) 桌面端对话导出 + 主题持久化深度开发(平台独占:仅 desktop)
-
-**目标**:第七轮深度开发 — 对话导出(3 格式原生保存对话框)+ 主题持久化(light/dark/system 三态 localStorage 持久化)。
-
-**交付**(对话导出):
-- `apps/desktop/src/lib/export-conversation.ts`(新建):
-  - `ExportFormat = 'markdown' | 'json' | 'txt'` 三种格式
-  - `serializeConversation(messages, format, title)` 序列化:
-    - markdown:带 emoji + 附件列表
-    - json:结构化对象(包含 id/role/content/attachments)
-    - txt:纯文本(用户/AI 标签 + 分隔线)
-  - `exportConversationToFile(opts)`:Tauri 环境走原生保存对话框(pickSavePath + writeTextFile),浏览器降级走 Blob 下载
-  - `formatTimestamp(ts)` 生成文件名友好时间戳(2026-07-23_15-30)
-  - 内部函数:`toMarkdown` / `toJSON` / `toPlainText` / `formatSize` / `downloadBlob`
-- `apps/desktop/src/pages/ChatPage.tsx`(修改):
-  - 加 `exportMenuOpen` state + 点击外部关闭 useEffect
-  - 加 `onExportConversation(format)` 函数:调 `exportConversationToFile`,成功 setNotice(路径),失败 setError
-  - header-actions 加 `.export-dropdown`(按钮 + absolute 定位菜单),三个格式按钮(markdown/json/txt)
-  - 把硬编码"清空"改为 i18n `t('chat.clear')`
-
-**交付**(主题持久化):
-- `apps/desktop/src/hooks/use-theme.ts`(新建):
-  - `Theme = 'light' | 'dark' | 'system'` 三态
-  - `STORAGE_KEY = 'ihui-theme'`(localStorage 持久化 key)
-  - `initTheme()`:在 React 渲染前调用避免 FOUC(无样式闪烁),读 localStorage 优先,system 跟随 mql
-  - `useTheme()` hook:返回 `{ theme, setTheme, toggle, isDark }`,内部 useEffect 监听系统 mql 变化
-  - `applyTheme(theme, isSystemDark)`:同时 toggle .dark class + 设置 data-theme(对齐 SettingsPage 既有 :root[data-theme] 选择器)
-- `apps/desktop/src/main.tsx`(修改):用 `initTheme()` 替代原 mql 跟随系统主题逻辑
-- `apps/desktop/src/pages/SettingsPage.tsx`(修改):
-  - 引入 useTheme + Theme 类型,加 `themeOptions` 常量
-  - 删除原 `dark` state + `onToggleTheme` 函数 + Switch 主题切换
-  - 改为 select 三态选择(themeLight/themeDark/themeSystem)
-- `apps/desktop/src/app.css`(修改):新增 `.export-dropdown` / `.export-menu` / `.export-menu button` / dark mode 调整(共 5 类)
-
-**交付**(i18n 5 语言 parity):
-- `apps/desktop/src/i18n/messages/zh-CN.ts` / `en.ts` / `ja.ts` / `ko.ts` / `zh-TW.ts`:chat 命名空间新增 7 个 key(clear / exportConversation / exportAsMarkdown / exportAsJson / exportAsTxt / exportDone / exportFailed);settings 命名空间补全 17 个 key(themeLight / themeDark / themeSystem / appearance / darkMode / data / clearCache / clearCacheConfirm / cacheCleared / clearCacheFailed / account / desktopApp / zhCN / zhTW / en / ja / ko)— 解决 SettingsPage 引用 key 但缺失翻译的历史问题
-
-**§9 平台独占**:对话导出(原生保存对话框)+ 主题持久化(localStorage)均为 desktop 单端能力,豁免全端同步。
-
-**验证**:desktop typecheck 零错误(退出码 0)、README 3 处同步更新(加"对话导出 + 主题持久化")。
-
-### [x] ✅(2026-07-23) 桌面端对话搜索 + 消息重新生成深度开发(平台独占:仅 desktop)
-
-**目标**:第八轮深度开发 — 对话搜索(实时过滤 + 高亮匹配 + 计数)+ 消息重新生成(删最后 AI + 重发最后 user)。
-
-**交付**(对话搜索):
-- `apps/desktop/src/pages/ChatPage.tsx`(修改):
-  - 加 `searchOpen` / `searchQuery` state
-  - 计算 `filteredMessages`(searchQuery 非空时按 content.toLowerCase().includes 过滤)
-  - header-actions 加"搜索"按钮(toggle searchOpen)
-  - header 下方加 `.chat-search-bar`(input + 计数 `${filteredMessages.length}/${messages.length}` + 关闭按钮)
-  - chat-list 渲染用 filteredMessages,空结果显示 `t('chat.noSearchResults', { query })`
-  - 匹配消息加 `.chat-bubble--match` 类(outline 高亮)
-- `apps/desktop/src/app.css`(修改):新增 `.chat-search-bar` / `.chat-search-bar input` / `.chat-search-count` / `.chat-search-close` / `.chat-bubble--match` / `.msg-regenerate-btn` 样式(共 6 类)
-
-**交付**(消息重新生成):
-- `apps/desktop/src/pages/ChatPage.tsx`(修改):
-  - 提取 `runStream(next: ChatMessage[])` 内部函数(共享给 onSend / onRegenerate),封装 streamChat 配置 + onDelta/onError/onDone/onCompaction 回调
-  - onSend 重构:构造 next 后调 `runStream(next)`
-  - 新增 `onRegenerate`:找最后一条 user 消息,删除其后所有消息(含 AI 回复),加空 AI 占位,调 `runStream(next)`
-  - 计算 `lastAssistantId`(倒序找最后一条 assistant 消息 id)
-  - 最后一条 AI 消息(且非空、非 streaming)显示"重新生成"按钮
-
-**交付**(i18n 5 语言 parity):
-- `apps/desktop/src/i18n/messages/*.ts`:chat 命名空间新增 4 个 key(search / searchPlaceholder / noSearchResults 用 `{{query}}` 插值 / regenerate)
-
-**§9 平台独占**:对话搜索 + 消息重新生成为 desktop 单端 UI 能力,豁免全端同步。
-
-**验证**:desktop typecheck 零错误(退出码 0)、README 3 处同步更新(加"对话搜索 + 消息重新生成")。
+**验证**:desktop typecheck 零错误(退出码 0);commit `f8849f115` 推送成功(local HEAD == remote HEAD);git-push-guard exit 0。
 
 ---
 
