@@ -8,6 +8,39 @@
 
 ## 当前活跃任务(2026-07-24)
 
+### [x] ✅(2026-07-24) Wave 24e 跨范围 UTF-8 编码修复 — api-client resource.ts/share.ts 15 处损坏还原 + next.config transpilePackages 加 @ihui/api-client(跨端:web + packages/api-client)
+
+**触发**:承接 Wave 24d 桌面架构 Option A(web output:export 静态导出供 Tauri WebView 加载),web build 卡在 `packages/api-client/src/endpoints/resource.ts` / `share.ts` "stream did not contain valid UTF-8"。根因:其他 agent 用 GBK 工具编辑 UTF-8 文件,UTF-8 三字节序列尾字节(0x80-0xBF)被替换为 '?'(0x3f)。用户授权"我跨范围修复编码"。
+
+**交付内容**(1 commit `6864b07b4`,3 文件,+73/-46):
+
+| 文件 | 修复 |
+|---|---|
+| `packages/api-client/src/endpoints/resource.ts` | 14 处 UTF-8 三字节序列尾字节还原:库×3(0xe5ba3f→0xe5ba93)/ 能×4(0xe8833f→0xe883bd)/ ）×1(0xefbc3f→0xefbc89)/ 表×2(0xe8a13f→0xe8a1a8)/ 情×2(0xe6833f→0xe68385)/ 目×3(0xe79b3f→0xe79bae) |
+| `packages/api-client/src/endpoints/share.ts` | 1 处还原:态(0xe6803f→0xe68081) |
+| `apps/web/next.config.ts` | transpilePackages 加 `@ihui/api-client` + webpack extensionAlias(.js→.ts/.tsx/.js)+ fullySpecified=false,根治 webpack 解析 api-client 源码 `../client.js` 失败 |
+
+**损坏模式分析**(Node.js 字节级分析):
+- HEAD 版本 resource.ts 9855 字节,28 个无效 UTF-8 位置(摘要误报 888,实测定位于 14 个 3 字节序列尾字节)
+- HEAD 版本 share.ts 1433 字节,2 个无效 UTF-8 位置(摘要误报 287,实测定位于 1 个 3 字节序列尾字节)
+- 全部损坏模式一致:UTF-8 三字节序列(0xE0-0xEF 开头)的第三个字节(0x80-0xBF 范围)被替换为 0x3f('?')
+- 还原策略:根据上下文推断原字符(知识库/技能/列表/详情/条目/状态等),用 Node.js TextDecoder fatal=true 验证
+
+**验证**:
+- 文件级:两个文件 TextDecoder fatal=true 解码成功 ✅(VALID UTF-8)
+- typecheck:`tsc --noEmit -p packages/api-client/tsconfig.json` exit 0 ✅
+- web build 全量成功 ✅:
+  - `✓ Compiled successfully in 9.8min`(越过原 OOM + 模块解析 + UTF-8 三重阻塞)
+  - 静态导出 591 页 HTML + 1466 `_next` 资源文件 + `index.html` 1.14MB
+  - `apps/web/out/` 目录 2950 文件,供 Tauri WebView 加载
+
+**Git 同步证据**(§21):
+- 本地 commit: `6864b07b4`
+- origin commit: `6864b07b4`
+- 同步状态: **local == remote ✅**(`6864b07b4aff641009dd708fb1739e8319e51497` 双向对齐)
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅(本地与 origin/main 已同步)
+- rebase 说明:远端有其他 agent 新 commit(`7724a72c4` mobile-rn Settings 修复),`git pull --rebase --autostash` 整合后重推成功;autostash pop 产生 2 处其他 agent WIP 冲突(solito-demo/page.tsx UD / packages/shared/package.json UU),按 §12 接受远端版本解决,完整 WIP 保留在 stash@{0}
+
 ### [x] ✅(2026-07-24) miniapp-taro Round16:深化 8 个 97-99 行边界页面(pay/ai-voice/ai-history/order-refund-list/developer-subscribe/circle-create-detail-index)(平台独占:仅 apps/miniapp-taro)
 
 **触发**:承接 Round15(P0 23 页 + P1 13 页共 36 页深化)后,PROJECT_PLAN.md Round15 总结指出"剩余 4 个 97-99 行边界页面(pay/index、ai/voice、order/refund-list、developer/subscribe、circle/create)"。本轮推进这批边界页面 + 顺带深化 ai/history、circle/detail、circle/index 共 8 页,完成 miniapp-taro 页面深化收尾。
