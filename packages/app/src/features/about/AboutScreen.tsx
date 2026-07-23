@@ -1,21 +1,20 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet } from 'react-native'
+import { TextLink } from 'solito/link'
 
 interface AboutScreenProps {
   /**
-   * 返回首页回调。
-   * web 端可传入 Next.js router.push('/'),
-   * RN 端可传入 navigation.goBack() / navigation.navigate('Home')。
-   * 不传则不显示返回按钮。
+   * 可选返回回调(覆盖默认的 solito TextLink 导航)。
+   * 不传则用 solito TextLink 实现跨平台导航(web→Next.js router, RN→React Navigation)。
    */
   onBack?: () => void
 }
 
 /**
- * AboutScreen — 首个跨端共享页面 PoC。
+ * AboutScreen — 跨端共享页面。
  *
- * 共享层(packages/app)中的组件用 react-native primitives(View/Text/StyleSheet),
+ * 用 react-native primitives(View/Text/StyleSheet)编写,
  * web 端通过 react-native-web 渲染,RN 端原生渲染。
- * 导航通过 onBack 回调注入,实现平台解耦。
+ * 导航用 solito TextLink 实现跨平台:web 端走 Next.js router,RN 端走 React Navigation。
  */
 export function AboutScreen({ onBack }: AboutScreenProps) {
   return (
@@ -25,13 +24,19 @@ export function AboutScreen({ onBack }: AboutScreenProps) {
         IHUI AI 是全栈 AI 平台,支持 web / api / ai-service / mobile-rn / desktop / extension / miniapp-taro / cli 八端。
       </Text>
       <Text style={styles.description}>
-        本页面由 packages/app 共享层渲染,验证 react-native-web + React 19 跨端架构。
+        本页面由 packages/app 共享层渲染,验证 Solito + react-native-web + React 19 跨端架构。
       </Text>
-      {onBack ? (
-        <TouchableOpacity style={styles.button} onPress={onBack}>
-          <Text style={styles.buttonText}>返回首页</Text>
-        </TouchableOpacity>
-      ) : null}
+      <View style={styles.linkRow}>
+        {onBack ? (
+          <Text style={styles.linkText} onPress={onBack}>
+            返回首页
+          </Text>
+        ) : (
+          <TextLink href="/" textProps={{ style: styles.linkText }}>
+            返回首页
+          </TextLink>
+        )}
+      </View>
     </View>
   )
 }
@@ -51,17 +56,12 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     opacity: 0.8,
   },
-  button: {
+  linkRow: {
     marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    backgroundColor: '#10B981',
-    borderRadius: 8,
-    alignSelf: 'flex-start',
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
+  linkText: {
+    fontSize: 16,
+    color: '#10B981',
     fontWeight: '600',
   },
 })
