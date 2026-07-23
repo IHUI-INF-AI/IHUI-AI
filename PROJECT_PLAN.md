@@ -217,6 +217,35 @@
 
 **验证**:desktop typecheck 零错误(退出码 0)、README 3 处同步更新(加"对话导出 + 主题持久化")。
 
+### [x] ✅(2026-07-23) 桌面端对话搜索 + 消息重新生成深度开发(平台独占:仅 desktop)
+
+**目标**:第八轮深度开发 — 对话搜索(实时过滤 + 高亮匹配 + 计数)+ 消息重新生成(删最后 AI + 重发最后 user)。
+
+**交付**(对话搜索):
+- `apps/desktop/src/pages/ChatPage.tsx`(修改):
+  - 加 `searchOpen` / `searchQuery` state
+  - 计算 `filteredMessages`(searchQuery 非空时按 content.toLowerCase().includes 过滤)
+  - header-actions 加"搜索"按钮(toggle searchOpen)
+  - header 下方加 `.chat-search-bar`(input + 计数 `${filteredMessages.length}/${messages.length}` + 关闭按钮)
+  - chat-list 渲染用 filteredMessages,空结果显示 `t('chat.noSearchResults', { query })`
+  - 匹配消息加 `.chat-bubble--match` 类(outline 高亮)
+- `apps/desktop/src/app.css`(修改):新增 `.chat-search-bar` / `.chat-search-bar input` / `.chat-search-count` / `.chat-search-close` / `.chat-bubble--match` / `.msg-regenerate-btn` 样式(共 6 类)
+
+**交付**(消息重新生成):
+- `apps/desktop/src/pages/ChatPage.tsx`(修改):
+  - 提取 `runStream(next: ChatMessage[])` 内部函数(共享给 onSend / onRegenerate),封装 streamChat 配置 + onDelta/onError/onDone/onCompaction 回调
+  - onSend 重构:构造 next 后调 `runStream(next)`
+  - 新增 `onRegenerate`:找最后一条 user 消息,删除其后所有消息(含 AI 回复),加空 AI 占位,调 `runStream(next)`
+  - 计算 `lastAssistantId`(倒序找最后一条 assistant 消息 id)
+  - 最后一条 AI 消息(且非空、非 streaming)显示"重新生成"按钮
+
+**交付**(i18n 5 语言 parity):
+- `apps/desktop/src/i18n/messages/*.ts`:chat 命名空间新增 4 个 key(search / searchPlaceholder / noSearchResults 用 `{{query}}` 插值 / regenerate)
+
+**§9 平台独占**:对话搜索 + 消息重新生成为 desktop 单端 UI 能力,豁免全端同步。
+
+**验证**:desktop typecheck 零错误(退出码 0)、README 3 处同步更新(加"对话搜索 + 消息重新生成")。
+
 ---
 
 <!-- 已归档(2026-07-23):miniapp-taro SSE done 事件 tokenCount 打通(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
@@ -304,21 +333,7 @@
 <!-- 已归档(2026-07-23):ai-news 组件深度优化七轮:TrendChartDialog 无障碍闭环 + EmptyState 统一组件(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ---
-### [x] ✅(2026-07-23) ai-news 组件深度优化八轮:AiFeedTimeline 搜索防抖 + URL query 同步(平台独占:仅 apps/web)
-
-**触发**:用户要求"继续"。承接七轮交付后的下一步建议。
-
-**交付内容**(1 commit,1 文件,平台独占:仅 apps/web):
-
-| 模块 | 文件 | 改动 |
-|---|---|---|
-| AiFeedTimeline | `apps/web/app/(main)/ai-news/components/AiFeedTimeline.tsx` | 搜索防抖(300ms debouncedKeyword)+ URL query 同步(初始化读取 channel/category/q/trend/lang + state 变化 replaceState 写回,不污染 history) |
-
-**自验**:typecheck exit 0 全绿 ✅ / §13 Grep 10 处关键点落地 ✅
-
-**Git 同步证据**(§21):本地 commit `ec01f66` == origin `ec01f66` ✅ / git-push-guard exit 0 ✅
-
----
+<!-- 已归档(2026-07-23):ai-news 组件深度优化八轮:AiFeedTimeline 搜索防抖 + URL query 同步(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v4.md -->
 ### [x] ✅(2026-07-23) ai-news 组件深度优化九轮:封面图占位 + TrendBanner closed 持久化 + formatRelativeTime 公共化(平台独占:仅 apps/web)
 
 **触发**:用户要求"继续"。承接八轮交付后的下一步建议(P1 NewsGrid/LiveChannelsBlock 封面图占位 + 相对时间 + P2 TrendNotificationBanner closed 持久化)。

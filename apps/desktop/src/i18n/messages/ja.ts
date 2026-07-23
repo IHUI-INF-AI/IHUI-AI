@@ -83,6 +83,10 @@ export default {
     exportAsTxt: 'プレーンテキストでエクスポート',
     exportDone: 'エクスポート済み',
     exportFailed: 'エクスポート失敗',
+    search: '検索',
+    searchPlaceholder: 'メッセージを検索…',
+    noSearchResults: '"{{query}}" に一致するメッセージが見つかりません',
+    regenerate: '再生成',
   },
   profile: {
     title: 'マイページ',
