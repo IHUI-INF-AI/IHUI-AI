@@ -1,25 +1,39 @@
 /**
- * 支付宝支付服务。
- * 密钥配置留空时降级为 mock 模式（DEV 环境）。
- * 生产环境填入 .env 真实密钥即激活真实网关调用。
+ * 支付宝支付服务(证书模式 + 公钥模式兼容)。
+ * 密钥配置留空时降级为 mock 模式(DEV 环境)。
  *
- * 密钥配置（.env）:
+ * 密钥配置(.env):
  * - ALIPAY_APP_ID: 应用 appid
- * - ALIPAY_GATEWAY: 网关（默认 https://openapi.alipay.com/gateway.do）
- * - ALIPAY_PRIVATE_KEY: 应用私钥 PEM（或 ALIPAY_PRIVATE_KEY_PATH）
- * - ALIPAY_PUBLIC_KEY: 支付宝公钥 PEM（或 ALIPAY_PUBLIC_KEY_PATH）
+ * - ALIPAY_GATEWAY: 网关(默认 https://openapi.alipay.com/gateway.do)
+ * - ALIPAY_PRIVATE_KEY: 应用私钥 PEM(或 ALIPAY_PRIVATE_KEY_PATH)
  * - ALIPAY_NOTIFY_URL: 异步回调
  * - ALIPAY_RETURN_URL: 同步返回
+ *
+ * 证书模式(推荐,支付宝 2024+ 新应用默认):
+ * - ALIPAY_CERT_MODE=true: 启用证书模式
+ * - ALIPAY_APP_CERT_PATH: 应用证书路径(默认 certs/appCertPublicKey_<appid>.crt)
+ * - ALIPAY_ALIPAY_CERT_PATH: 支付宝公钥证书路径(默认 certs/alipayCertPublicKey_RSA2.crt)
+ * - ALIPAY_ROOT_CERT_PATH: 支付宝根证书路径(默认 certs/alipayRootCert.crt)
+ *
+ * 公钥模式(旧应用):
+ * - ALIPAY_PUBLIC_KEY: 支付宝公钥 PEM(或 ALIPAY_PUBLIC_KEY_PATH)
  */
 
-import { createSign, createVerify, randomBytes } from 'node:crypto';
+import { createSign, createVerify, createHash, X509Certificate, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { env } from 'node:process';
+import { join } from 'node:path';
 
 const GATEWAY = env.ALIPAY_GATEWAY ?? 'https://openapi.alipay.com/gateway.do';
+const CERTS_DIR = env.ALIPAY_CERTS_DIR ?? join(process.cwd(), 'apps', 'api', 'certs');
 
 export function isAlipayConfigured(): boolean {
   return Boolean(env.ALIPAY_APP_ID && (env.ALIPAY_PRIVATE_KEY || env.ALIPAY_PRIVATE_KEY_PATH));
+}
+
+/** 证书模式判断 */
+function isCertMode(): boolean {
+  return env.ALIPAY_CERT_MODE === 'true' || Boolean(env.ALIPAY_APP_CERT_PATH);
 }
 
 /** 把支付宝密钥工具生成的裸 base64(PKCS8)自动包装成 PEM 格式(Node crypto 需要) */
@@ -36,20 +50,84 @@ function getPrivateKey(): string {
   return '';
 }
 
-function getPublicKey(): string {
-  if (env.ALIPAY_PUBLIC_KEY) return wrapPem(env.ALIPAY_PUBLIC_KEY, 'PUBLIC KEY');
-  if (env.ALIPAY_PUBLIC_KEY_PATH) return readFileSync(env.ALIPAY_PUBLIC_KEY_PATH, 'utf-8');
-  return '';
+/** 证书 issuer 格式化:按换行/逗号分割,反转顺序,用逗号连接 */
+function formatIssuer(issuer: string): string {
+  const parts = issuer.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+  return parts.reverse().join(',');
 }
 
-/** 参数排序 + URL 编码拼接（签名串） */
+/** 计算单个证书序列号:MD5(issuer_formatted + serialNumber) */
+function getCertSN(certPem: string): string {
+  const x509 = new X509Certificate(certPem);
+  const content = formatIssuer(x509.issuer) + x509.serialNumber;
+  return createHash('md5').update(content).digest('hex').toUpperCase();
+}
+
+/** 计算根证书序列号:只取 RSA 类型证书,多个用 _ 连接 */
+function getRootCertSNFromPem(rootCertPem: string): string {
+  const blocks = rootCertPem.match(/-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g) ?? [];
+  const sns: string[] = [];
+  for (const block of blocks) {
+    const cert = new X509Certificate(block);
+    if (cert.publicKey.asymmetricKeyType === 'rsa') {
+      const content = formatIssuer(cert.issuer) + cert.serialNumber;
+      sns.push(createHash('md5').update(content).digest('hex').toUpperCase());
+    }
+  }
+  return sns.join('_');
+}
+
+// 缓存证书序列号(避免每次请求重新读文件)
+let _appCertSN: string | null = null;
+let _rootCertSN: string | null = null;
+let _alipayPubKeyPem: string | null = null;
+
+function appCertSN(): string {
+  if (_appCertSN) return _appCertSN;
+  const certPath = env.ALIPAY_APP_CERT_PATH ?? join(CERTS_DIR, `appCertPublicKey_${env.ALIPAY_APP_ID}.crt`);
+  _appCertSN = getCertSN(readFileSync(certPath, 'utf-8'));
+  return _appCertSN;
+}
+
+function rootCertSN(): string {
+  if (_rootCertSN) return _rootCertSN;
+  const certPath = env.ALIPAY_ROOT_CERT_PATH ?? join(CERTS_DIR, 'alipayRootCert.crt');
+  _rootCertSN = getRootCertSNFromPem(readFileSync(certPath, 'utf-8'));
+  return _rootCertSN;
+}
+
+/** 证书模式下获取支付宝公钥(从支付宝公钥证书提取) */
+function getAlipayPublicKey(): string {
+  if (!isCertMode()) {
+    // 公钥模式:直接用 ALIPAY_PUBLIC_KEY
+    if (env.ALIPAY_PUBLIC_KEY) return wrapPem(env.ALIPAY_PUBLIC_KEY, 'PUBLIC KEY');
+    if (env.ALIPAY_PUBLIC_KEY_PATH) return readFileSync(env.ALIPAY_PUBLIC_KEY_PATH, 'utf-8');
+    return '';
+  }
+  // 证书模式:从支付宝公钥证书提取公钥
+  if (_alipayPubKeyPem) return _alipayPubKeyPem;
+  const certPath = env.ALIPAY_ALIPAY_CERT_PATH ?? join(CERTS_DIR, 'alipayCertPublicKey_RSA2.crt');
+  const cert = new X509Certificate(readFileSync(certPath, 'utf-8'));
+  const pem = String(cert.publicKey.export({ type: 'spki', format: 'pem' }));
+  _alipayPubKeyPem = pem;
+  return pem;
+}
+
+/** 证书模式下添加 app_cert_sn + alipay_root_cert_sn 到请求参数 */
+function addCertParams(params: Record<string, string>): void {
+  if (isCertMode()) {
+    params.app_cert_sn = appCertSN();
+    params.alipay_root_cert_sn = rootCertSN();
+  }
+}
+
+/** 参数排序拼接(签名串) */
 function buildSignContent(params: Record<string, string>): string {
-  const sorted = Object.keys(params)
+  return Object.keys(params)
     .filter((k) => params[k] !== '' && params[k] !== undefined)
     .sort()
     .map((k) => `${k}=${params[k]}`)
     .join('&');
-  return sorted;
 }
 
 /** RSA2 签名 */
@@ -60,17 +138,15 @@ function signParams(params: Record<string, string>): string {
   return sign.sign(getPrivateKey(), 'base64');
 }
 
-/** 验证支付宝回调签名 */
+/** 验证支付宝回调签名(证书模式从证书提取公钥,公钥模式用 ALIPAY_PUBLIC_KEY) */
 export function verifyNotify(params: Record<string, string>): boolean {
-  const pub = getPublicKey();
+  const pub = getAlipayPublicKey();
   if (!pub) {
-    // DEV 环境跳过验签（生产必须配置）
     return env.NODE_ENV !== 'production';
   }
   const sign = params.sign;
   const signType = params.sign_type;
   if (!sign || signType !== 'RSA2') return false;
-  // 移除 sign/sign_type，用剩余参数排序拼接验签
   const { sign: _s, sign_type: _st, ...rest } = params;
   const signContent = buildSignContent(rest);
   const verify = createVerify('RSA-SHA256');
@@ -78,7 +154,7 @@ export function verifyNotify(params: Record<string, string>): boolean {
   return verify.verify(pub, Buffer.from(sign, 'base64'));
 }
 
-/** 构造已签名 URL（PC/H5 网页支付） */
+/** 构造已签名 URL(PC/H5 网页支付) */
 export function buildSignedUrl(bizContent: Record<string, unknown>, method = 'alipay.trade.page.pay'): string {
   const params: Record<string, string> = {
     app_id: env.ALIPAY_APP_ID ?? '',
@@ -89,18 +165,18 @@ export function buildSignedUrl(bizContent: Record<string, unknown>, method = 'al
     version: '1.0',
     biz_content: JSON.stringify(bizContent),
   };
-  const sign = signParams(params);
-  params.sign = sign;
+  addCertParams(params);
+  params.sign = signParams(params);
   const query = Object.entries(params)
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
     .join('&');
   return `${GATEWAY}?${query}`;
 }
 
-/** APP 支付（返回 orderStr） */
+/** APP 支付(返回 orderStr) */
 export function appPayOrder(params: {
   outTradeNo: string;
-  amount: number; // 元
+  amount: number;
   subject: string;
 }): string {
   const bizContent = {
@@ -118,8 +194,8 @@ export function appPayOrder(params: {
     version: '1.0',
     biz_content: JSON.stringify(bizContent),
   };
-  const sign = signParams(paramsObj);
-  paramsObj.sign = sign;
+  addCertParams(paramsObj);
+  paramsObj.sign = signParams(paramsObj);
   return Object.entries(paramsObj)
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
     .join('&');
@@ -127,7 +203,6 @@ export function appPayOrder(params: {
 
 /** 查询订单 */
 export async function queryOrder(outTradeNo: string): Promise<Record<string, unknown>> {
-  const bizContent = { out_trade_no: outTradeNo };
   const params: Record<string, string> = {
     app_id: env.ALIPAY_APP_ID ?? '',
     method: 'alipay.trade.query',
@@ -135,8 +210,9 @@ export async function queryOrder(outTradeNo: string): Promise<Record<string, unk
     sign_type: 'RSA2',
     timestamp: formatTimestamp(new Date()),
     version: '1.0',
-    biz_content: JSON.stringify(bizContent),
+    biz_content: JSON.stringify({ out_trade_no: outTradeNo }),
   };
+  addCertParams(params);
   params.sign = signParams(params);
   const body = new URLSearchParams(params).toString();
   const resp = await fetch(GATEWAY, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
@@ -146,7 +222,7 @@ export async function queryOrder(outTradeNo: string): Promise<Record<string, unk
 /** 退款 */
 export async function refundOrder(params: {
   outTradeNo: string;
-  refundAmount: number; // 元
+  refundAmount: number;
   reason: string;
 }): Promise<{ success: boolean; response: Record<string, unknown> }> {
   const outRequestNo = `r${Date.now()}${randomBytes(3).toString('hex')}`;
@@ -165,6 +241,7 @@ export async function refundOrder(params: {
     version: '1.0',
     biz_content: JSON.stringify(bizContent),
   };
+  addCertParams(paramsObj);
   paramsObj.sign = signParams(paramsObj);
   const body = new URLSearchParams(paramsObj).toString();
   const resp = await fetch(GATEWAY, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
@@ -175,7 +252,6 @@ export async function refundOrder(params: {
 
 /** 关闭订单 */
 export async function closeOrder(outTradeNo: string): Promise<void> {
-  const bizContent = { out_trade_no: outTradeNo };
   const params: Record<string, string> = {
     app_id: env.ALIPAY_APP_ID ?? '',
     method: 'alipay.trade.close',
@@ -183,16 +259,16 @@ export async function closeOrder(outTradeNo: string): Promise<void> {
     sign_type: 'RSA2',
     timestamp: formatTimestamp(new Date()),
     version: '1.0',
-    biz_content: JSON.stringify(bizContent),
+    biz_content: JSON.stringify({ out_trade_no: outTradeNo }),
   };
+  addCertParams(params);
   params.sign = signParams(params);
   const body = new URLSearchParams(params).toString();
   await fetch(GATEWAY, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
 }
 
-/** 下载账单 URL（对账用） */
+/** 下载账单 URL(对账用) */
 export async function downloadBillUrl(billDate: string, billType: 'trade' | 'signcustomer' = 'trade'): Promise<string> {
-  const bizContent = { bill_date: billDate, bill_type: billType };
   const params: Record<string, string> = {
     app_id: env.ALIPAY_APP_ID ?? '',
     method: 'alipay.data.dataservice.bill.downloadurl.query',
@@ -200,8 +276,9 @@ export async function downloadBillUrl(billDate: string, billType: 'trade' | 'sig
     sign_type: 'RSA2',
     timestamp: formatTimestamp(new Date()),
     version: '1.0',
-    biz_content: JSON.stringify(bizContent),
+    biz_content: JSON.stringify({ bill_date: billDate, bill_type: billType }),
   };
+  addCertParams(params);
   params.sign = signParams(params);
   const body = new URLSearchParams(params).toString();
   const resp = await fetch(GATEWAY, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
