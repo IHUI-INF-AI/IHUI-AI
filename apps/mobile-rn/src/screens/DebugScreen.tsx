@@ -51,6 +51,10 @@ export function DebugScreen() {
     }
   }
 
+  const onOpenSharedDemo = () => {
+    navigation.navigate('SharedDemo')
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -80,6 +84,11 @@ export function DebugScreen() {
           </Button>
           <Button onPress={onCopyLogs} style={styles.btnPrimary}>
             {t('debug.copyLogs')}
+          </Button>
+        </Card>
+        <Card style={styles.card}>
+          <Button onPress={onOpenSharedDemo} variant="outline" style={styles.btn}>
+            共享组件 Demo (Solito + NativeWind)
           </Button>
         </Card>
       </View>
