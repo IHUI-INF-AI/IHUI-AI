@@ -167,7 +167,13 @@ export default {
       searchPlaceholder: 'コースを検索',
       search: '検索',
       empty: 'コースなし'
-    }
+    },
+    ratingTitle: 'コースを評価',
+    ratingLabels: ['', '非常に悪い', '悪い', '普通', '良い', '非常に良い'],
+    ratingPlaceholder: '評価してください',
+    ratingDescLabel: 'レビューを書く',
+    ratingInputPlaceholder: 'コースはどうでしたか?感想を共有してください...',
+    ratingSubmit: 'レビューを送信'
   },
   live: {
     title: 'ライブ',
@@ -226,7 +232,9 @@ export default {
       sessions: '回のライブ',
       liveList: 'ライブ予定',
       noLive: '当日のライブ予定はありません'
-    }
+    },
+    calendarBtn: '📅 カレンダー',
+    mySubscriptionBtn: '🔔 マイサブスクリプション'
   },
   profile: {
     title: 'マイページ',
@@ -1289,7 +1297,9 @@ export default {
     rank: {
       title: 'ディストリビューションランキング',
       empty: 'ランキングデータなし'
-    }
+    },
+    rankTitle: 'ディストリビューションランキング',
+    rankEmpty: 'ランキングデータがありません'
   },
   about: {
     version: 'バージョン {{version}}',
@@ -1786,7 +1796,18 @@ export default {
     title: 'モデル広場',
     unnamed: '無題モデル',
     noDesc: '説明なし',
-    empty: 'モデルなし'
+    empty: 'モデルなし',
+    tabAll: '全て',
+    tabText: 'テキスト',
+    tabImage: '画像',
+    tabAv: '音声/動画',
+    payMode: '従量課金',
+    modelCount: '{{n}}個のモデル',
+    synced: '{{n}}件同期済み',
+    perKTokens: '千トークン',
+    noMore: '— これ以上ありません —',
+    contextLength: 'コンテキスト',
+    providerModel: 'モデル'
   },
   news: {
     search: 'ニュース検索',
@@ -1985,7 +2006,10 @@ export default {
       followYou: 'があなたをフォローしました',
       targetReact: 'React 入門 第3回',
       targetAi: 'AI 大モデル実戦'
-    }
+    },
+    startConversation: '会話を始めましょう',
+    inputPlaceholder: 'メッセージを入力...',
+    sendBtn: '送信'
   },
   member: {
     index: {
@@ -2156,7 +2180,11 @@ export default {
       loadFailed: '読み込み失敗',
       progress: '進捗',
       lastTime: '前回学習'
-    }
+    },
+    noteTitle: '学習ノート',
+    noteClose: '閉じる',
+    notePlaceholder: '学習内容を記録してください...',
+    noteCountUnit: '文字'
   },
   subscriptions: {
     cancel: 'サブスク解除',
@@ -2670,5 +2698,37 @@ export default {
     content: '内容',
     contact: '連絡先',
     contactPlaceholder: '連絡先を入力してください(任意)'
+  },
+  comment: {
+    loading: '読み込み中...',
+    empty: 'コメントがありません、最初のコメントを残そう！',
+    reply: '返信',
+    placeholder: 'コメントを書く...',
+    send: '送信'
+  },
+  subscription: {
+    statusActive: '有効',
+    statusPending: '保留中',
+    statusCancelled: '解約済み',
+    statusExpired: '期限切れ',
+    chargeSuccess: '決済成功',
+    chargeFailed: '決済失敗',
+    chargePending: '決済中',
+    cancelTitle: '解約確認',
+    cancelContent: 'この自動継続契約を解除しますか？解除後は自動引き落としされません。',
+    cancelConfirmBtn: '解約確認',
+    cancelThinkBtn: 'もう一度考える',
+    processing: '処理中',
+    cancelSuccess: '解約済み',
+    cancelFailed: '解約失敗',
+    contractsTitle: '自動継続管理',
+    autoRenew: '自動継続',
+    planLabel: 'プラン',
+    nextCharge: '次回引き落とし',
+    lastCharge: '前回引き落とし',
+    signTime: '契約時間',
+    cancelBtn: '解約',
+    contractsEmpty: '自動継続契約がありません',
+    loadingText: '読み込み中...'
   }
 }
