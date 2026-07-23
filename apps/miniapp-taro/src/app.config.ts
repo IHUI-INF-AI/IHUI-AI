@@ -60,6 +60,7 @@ export default defineAppConfig({
     'pages/aigc/publish',
     'pages/model-plaza/index',
     'pages/ranking/index',
+    'pages/ranking/detail',
     'pages/token/balance',
     'pages/developer/index',
     'pages/developer/income',
