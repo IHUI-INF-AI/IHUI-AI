@@ -28433,6 +28433,8 @@
     "dragInsertAfter": "여기 뒤에 삽입"
   },
   "aiNews": {
+    "metaTitle": "AI 뉴스 · 전네트워크 실시간 통합 스트림",
+    "metaDescription": "국내외 41개 권위 있는 출처(웨이보/즈후/36Kr/HackerNews/TechCrunch/OpenAI Blog/Arxiv 등)를 통합, 6시간마다 자동 수집, 모델/제품/업계/논문 카테고리와 트렌드 신호를 실시간 업데이트.",
     "leaderboard": {
       "label": "모델 리더보드",
       "title": "모델 리더보드 · Arena 점수",
@@ -28565,7 +28567,19 @@
       "label": "대형 자금 조달·인수",
       "title": "대형 자금 조달·인수",
       "subtitle": "7월 AI 업계 자본 동향: SpaceX가 Cursor를 600억 달러에 인수, DeepSeek 500억 위안 조달",
-      "empty": "자금 조달 소식 없음"
+      "empty": "자금 조달 소식 없음",
+      "sortLabel": "정렬",
+      "sortByDate": "날짜순",
+      "sortByAmount": "금액순",
+      "searchPlaceholder": "제목 / 요약 / 출처 검색…",
+      "resultCount": "{count} / {total}건"
+    },
+    "capabilityRadar": {
+      "coding": "코딩",
+      "math": "수학",
+      "reasoning": "추론",
+      "creative": "창의력",
+      "chinese": "중국어"
     },
     "detailDialog": {
       "arenaScore": "Arena 점수",

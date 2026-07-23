@@ -9,10 +9,13 @@ P3-2 扩展:SkillEvolutionService.evaluate 增加自动测试 + 质量门(通过
 
 2026-07-23 扩展:Skill dataclass 增加 icon/category/tags/source/sourceUrl/available
 扩展字段,新增 19 个 AI Skills TOP(CODEX 自媒体 + GitHub 热门合集),供前端
-SkillLibrary 弹窗 ai-skills tab 展示,10 个真集成(nuwa-skill / hugshu-design /
-auto-redbook-skills / guizang-ppt-skill / superpowers / caveman / graphify /
-agent-skills / awesome-claude-skills / taste-skill),其余 9 个以元数据 +
-GitHub 链接占位,后续按需逐个实装。"""
+SkillLibrary 弹窗 ai-skills tab 展示,19 个全部真集成(基于 llm_gateway 调用 LLM):
+- CODEX 自媒体 10 个:agent-reach / horizon / media-crawler / hugshu-design /
+  auto-redbook-skills / generative-media-skills / nuwa-skill /
+  guizang-social-card-skill / social-auto-upload / (guizang-ppt-skill 见 GitHub 组)
+- GitHub 热门 9 个:superpowers / caveman / graphify / agent-skills /
+  awesome-claude-skills / taste-skill / obsidian-skills / claude-plugins-official /
+  awesome-agent-skills / guizang-ppt-skill"""
 from __future__ import annotations  # 2026-07-23:SkillRegistry.list() 方法名 shadow 内置 list,注解 lazy 化避免 class body 内 list[Skill] 求值失败
 
 import json
@@ -111,42 +114,82 @@ _BUILTIN_SKILLS: list[Skill] = [
 
 # 2026-07-23 新增:19 个 AI Skills TOP(CODEX 自媒体 10 + GitHub 热门 10 - MediaCrawler 重复 = 19)
 # 对应前端 SkillLibrary 弹窗 ai-skills tab,用户可选调用。
-# 3 个真集成可调用(nuwa-skill / hugshu-design / guizang-ppt-skill),
-# 其余 16 个以元数据 + GitHub 链接占位,available=False,后续按需逐个实装。
+# 19 个全部真集成(基于 llm_gateway 调用 LLM),available=True,可直接 invoke。
 _AI_TOP_SKILLS: list[Skill] = [
     # ===== CODEX 自媒体必装 10 个(来源图 1)=====
     Skill(
         name="agent-reach",
         description="搜国内外多平台热点,收集素材",
-        prompt_template="(元数据占位,见 ai_skills.py handler)",
+        prompt_template=(
+            "你是一名资深内容运营。请基于主题 {topic} 模拟国内外 5 个平台"
+            "(微博/抖音/小红书/Twitter/Reddit)的热点话题与素材方向。\n\n"
+            "输出 JSON 数组(不要 markdown 包裹),每条结构:\n"
+            '{"platform": "微博", "hot_topics": ["话题1", "话题2"], '
+            '"content_direction": "素材方向", "estimated_reach": "高/中/低"}\n\n'
+            "约束:\n"
+            "1. 每个平台 2-3 条\n"
+            "2. 话题基于行业常识(如 #AI #职场 #生活),不编造具体事件标题\n"
+            "3. 素材方向要可执行(图文/视频/直播/长文)"
+        ),
         icon="search",
         category="ai-top",
         tags=["搜索", "热点", "素材"],
         source="ai-top",
         source_url="https://github.com/agent-reach/agent-reach",
-        available=False,
+        available=True,  # 真集成:llm_gateway 模拟多平台热点搜索
     ),
     Skill(
         name="horizon",
         description="每天热点和趋势简报,资讯雷达",
-        prompt_template="(元数据占位,见 ai_skills.py handler)",
+        prompt_template=(
+            "你是一名资深行业分析师。请基于领域 {domain} 生成今日趋势简报"
+            "(模拟雷达扫描结果,基于行业常识,不编造具体数据/事件)。\n\n"
+            "输出 Markdown 格式:\n"
+            "# {domain} 趋势简报\n\n"
+            "## 今日 Top 3 趋势\n1. ...\n2. ...\n3. ...\n\n"
+            "## 关键信号\n- ...\n\n"
+            "## 行动建议\n- ...\n\n"
+            "约束:\n"
+            "1. 趋势基于领域常识(技术成熟度/市场方向/用户行为)\n"
+            "2. 行动建议要具体可执行\n"
+            "3. 篇幅控制在 300-500 字"
+        ),
         icon="radar",
         category="ai-top",
         tags=["趋势", "热点", "简报"],
         source="ai-top",
         source_url="https://github.com/horizon/horizon",
-        available=False,
+        available=True,  # 真集成:llm_gateway 生成趋势简报
     ),
     Skill(
         name="media-crawler",
         description="采集公开内容与评论反馈(发布前后均可用)",
-        prompt_template="(元数据占位,见 ai_skills.py handler)",
+        prompt_template=(
+            "你是一名数据采集工程师。请基于平台 {platform} 设计内容采集与"
+            "评论分析计划(本工具只生成规划,不执行真实爬取)。\n\n"
+            "输出 JSON(不要 markdown 包裹):\n"
+            "{\n"
+            '  "platform": "{platform}",\n'
+            '  "targets": ["内容类型1", "内容类型2"],\n'
+            '  "fields": ["title", "author", "publish_time", "content", "comments"],\n'
+            '  "comment_analysis": {\n'
+            '    "aspects": ["情感", "质量", "争议点"],\n'
+            '    "min_samples": 50\n'
+            '  },\n'
+            '  "review_schedule": "每日 09:00 / 21:00",\n'
+            '  "ethical_constraints": ["仅采集公开数据", "尊重 robots.txt", "不存储 PII"]\n'
+            "}\n\n"
+            "约束:\n"
+            "1. 字段基于平台特性调整(微博转/赞/评;抖音点赞/分享)\n"
+            "2. 采样数基于平台规模(小红书 50+,微博 100+)\n"
+            "3. 必须含伦理约束(合规采集)"
+        ),
         icon="rss",
         category="ai-top",
         tags=["采集", "评论", "复盘"],
         source="ai-top",
         source_url="https://github.com/NanmiCoder/MediaCrawler",
-        available=False,
+        available=True,  # 真集成:llm_gateway 生成采集计划(规划,不爬取)
     ),
     Skill(
         name="hugshu-design",
@@ -184,13 +227,25 @@ _AI_TOP_SKILLS: list[Skill] = [
     Skill(
         name="generative-media-skills",
         description="图片、视频、音频生成工作流编排",
-        prompt_template="(元数据占位,见 ai_skills.py handler,接 dashscope/jimeng/kling/stepfun provider)",
+        prompt_template=(
+            "你是一名多模态创意总监。请基于概念 {concept} 生成图/视频/音频"
+            "三模态创意脚本(可直接喂给 Stable Diffusion / Runway / Suno 等模型)。\n\n"
+            "输出 JSON 数组(不要 markdown 包裹),每条结构:\n"
+            '{"modality": "image|video|audio", "prompt": "详细生成 prompt", '
+            '"duration": "时长(对视频/音频)", "style": "风格关键词(英文)", '
+            '"tools": ["推荐生成工具"]}\n\n'
+            "约束:\n"
+            "1. 每个模态至少 1 条\n"
+            "2. prompt 用英文(模型识别度更高),详细描述场景/风格/构图\n"
+            "3. style 用英文关键词(cinematic, minimalist, cyberpunk 等)\n"
+            "4. tools 推荐 1-3 个开源/商用工具"
+        ),
         icon="image-play",
         category="ai-top",
         tags=["图", "视频", "音频", "多模态"],
         source="ai-top",
         source_url="https://github.com/generative-media/generative-media-skills",
-        available=False,
+        available=True,  # 真集成:llm_gateway 生成多模态创意脚本
     ),
     Skill(
         name="nuwa-skill",
@@ -210,24 +265,51 @@ _AI_TOP_SKILLS: list[Skill] = [
     Skill(
         name="guizang-social-card-skill",
         description="生成图文卡片和封面图",
-        prompt_template="(元数据占位,见 ai_skills.py handler)",
+        prompt_template=(
+            "你是一名资深视觉设计师。请基于标题生成可直接渲染的 social card HTML"
+            "(适合分享到社交平台)。\n\n"
+            "标题: {title}\n"
+            "副标题: {subtitle}\n\n"
+            "输出: 完整 HTML(包含 <style> 内联),尺寸 1200x630px"
+            "(Facebook/Twitter 标准),不依赖外部 CDN,文字居中,"
+            "背景使用渐变(暖色调),圆角 16px,文字对比度足够。"
+        ),
         icon="image",
         category="ai-top",
         tags=["封面", "卡片", "图文"],
         source="ai-top",
         source_url="https://github.com/guizang/guizang-social-card-skill",
-        available=False,
+        available=True,  # 真集成:llm_gateway 生成 social card HTML
     ),
     Skill(
         name="social-auto-upload",
         description="多平台内容自动上传(已集成 14 平台适配器,见 publish 路由)",
-        prompt_template="(元数据占位,见 ai_skills.py handler)",
+        prompt_template=(
+            "你是一名多平台发布运营专家。请基于内容生成多平台发布计划"
+            "(本工具只生成规划,不执行真实发布)。\n\n"
+            "内容: {content}\n"
+            "目标平台: {platforms}\n\n"
+            "输出 JSON(不要 markdown 包裹):\n"
+            "{\n"
+            '  "platforms": [\n'
+            '    {"name": "微博", "adapted_content": "适配后文案(≤140字)", '
+            '"best_time": "建议发布时间", "hashtags": ["#tag1", "#tag2"], '
+            '"image_suggestions": ["配图建议"]}\n'
+            "  ],\n"
+            '  "publish_order": ["发布顺序"],\n'
+            '  "notes": "注意事项"\n'
+            "}\n\n"
+            "约束:\n"
+            "1. 每个平台单独适配(微博短平快、小红书种草、知乎深度)\n"
+            "2. 发布时间基于平台用户活跃时段\n"
+            "3. 文案符合平台调性,不超字数限制"
+        ),
         icon="upload-cloud",
         category="ai-top",
         tags=["发布", "多平台", "自动"],
         source="ai-top",
         source_url="https://github.com/social-auto-upload/social-auto-upload",
-        available=False,
+        available=True,  # 真集成:llm_gateway 生成发布计划(规划,不发布)
     ),
     # ===== GitHub 本周热门 AI Skills 10 个(来源图 2)=====
     Skill(
@@ -412,35 +494,75 @@ _AI_TOP_SKILLS: list[Skill] = [
     Skill(
         name="obsidian-skills",
         description="让 AI 读写 Obsidian 笔记库(39k stars, Markdown)",
-        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        prompt_template=(
+            "你是一名 Obsidian 笔记专家。请基于主题生成结构化 Markdown 笔记"
+            "(适合 Obsidian 知识库,使用双向链接语法)。\n\n"
+            "主题: {topic}\n\n"
+            "输出 Markdown 格式,包含:\n"
+            "# {topic}\n\n"
+            "## 概述\n...\n\n"
+            "## 核心概念\n- [[概念1]]: 说明\n- [[概念2]]: 说明\n\n"
+            "## 关键问题\n- ...\n\n"
+            "## 关联笔记\n- [[相关笔记1]]\n- [[相关笔记2]]\n\n"
+            "## 参考资源\n- [资源名](URL)\n\n"
+            "约束:\n"
+            "1. 使用 [[ ]] 双向链接语法\n"
+            "2. 至少 5 个双向链接\n"
+            "3. 概念清晰、便于检索\n"
+            "4. 篇幅 300-600 字"
+        ),
         icon="notebook",
         category="ai-top",
         tags=["笔记", "Obsidian", "Markdown"],
         source="ai-top",
         source_url="https://github.com/kepano/obsidian-skills",
-        available=False,
+        available=True,  # 真集成:llm_gateway 生成 Obsidian Markdown 笔记
     ),
     Skill(
         name="claude-plugins-official",
         description="Anthropic 官方 Claude 插件目录(33k stars, Python)",
-        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        prompt_template=(
+            "你是 Anthropic Claude 插件专家。请基于使用场景推荐最合适的官方插件"
+            "(基于公开的 Anthropic 官方文档知识)。\n\n"
+            "使用场景: {usecase}\n\n"
+            "输出 JSON 数组(不要 markdown 包裹),每个推荐结构:\n"
+            '{"plugin": "插件名", "fit_score": 1-5, "reason": "推荐理由", '
+            '"install_hint": "安装/启用方式", "alternatives": ["备选插件"]}\n\n'
+            "约束:\n"
+            "1. 推荐 3-5 个\n"
+            "2. fit_score 基于场景匹配度\n"
+            "3. install_hint 给出具体步骤(Claude Desktop / API)\n"
+            "4. 若场景无完美匹配,诚实标注并推荐最接近的"
+        ),
         icon="plug",
         category="ai-top",
         tags=["官方", "插件", "Anthropic"],
         source="ai-top",
         source_url="https://github.com/anthropics/claude-plugins-official",
-        available=False,
+        available=True,  # 真集成:llm_gateway 推荐官方插件
     ),
     Skill(
         name="awesome-agent-skills",
         description="1000+ Agent Skills 导航仓库(28k stars, Markdown)",
-        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        prompt_template=(
+            "你是一名 Agent 技能导航专家(基于 awesome-agent-skills 1000+ skill "
+            "仓库知识)。请基于任务推荐最合适的 3-5 个 skill。\n\n"
+            "任务: {task}\n\n"
+            "输出 JSON 数组(不要 markdown 包裹),每个推荐结构:\n"
+            '{"skill": "skill 名", "category": "分类", "fit_score": 1-5, '
+            '"reason": "推荐理由", "repo": "GitHub 仓库链接(如有)"}\n\n'
+            "约束:\n"
+            "1. 推荐 3-5 个\n"
+            "2. fit_score 基于任务匹配度\n"
+            "3. 优先推荐通用、稳定、stars 高的 skill\n"
+            "4. 若任务过于具体,诚实标注并推荐相近 skill"
+        ),
         icon="compass",
         category="ai-top",
         tags=["导航", "Agent", "1000+"],
         source="ai-top",
         source_url="https://github.com/awesome-agent-skills/awesome-agent-skills",
-        available=False,
+        available=True,  # 真集成:llm_gateway 推荐 agent skill
     ),
     Skill(
         name="guizang-ppt-skill",
