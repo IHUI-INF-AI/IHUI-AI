@@ -2,32 +2,39 @@
   min-height: 100vh;
   background: var(--color-background);
 }
+.table-title {
+  padding: 32rpx 32rpx 0;
+}
+.table-title text {
+  font-size: 30rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
+}
 .card {
   margin: 24rpx;
   background: var(--color-card);
   border-radius: 16rpx;
   overflow: hidden;
 }
-.row {
+.table-row {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  padding: 32rpx;
+  padding: 28rpx 32rpx;
   border-bottom: 2rpx solid var(--color-border);
 }
-.row.last {
+.table-row.last {
   border-bottom: none;
 }
-.label {
-  font-size: 28rpx;
+.cell-label {
+  font-size: 26rpx;
   color: var(--color-muted-foreground);
   flex-shrink: 0;
+  width: 160rpx;
 }
-.value {
-  font-size: 28rpx;
+.cell-value {
+  flex: 1;
+  font-size: 26rpx;
   color: var(--color-foreground);
-  text-align: right;
-  margin-left: 24rpx;
   word-break: break-all;
 }
 .notice-card {
