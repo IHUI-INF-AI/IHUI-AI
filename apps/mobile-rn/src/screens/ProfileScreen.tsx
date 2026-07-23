@@ -9,7 +9,7 @@ import { useI18n } from '../i18n'
 import type { ProfileStackParamList } from '../navigation/RootNavigator'
 import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
 
-type NavigationProp = NativeStackNavigationProp<ProfileStackParamList>
+type ProfileStackNav = NativeStackNavigationProp<ProfileStackParamList>
 
 /**
  * RN 端 Profile 包装器 — 注入 t + 真实 API 数据(user/stats/orderCount)+ 导航回调,
@@ -17,7 +17,7 @@ type NavigationProp = NativeStackNavigationProp<ProfileStackParamList>
  */
 export function ProfileScreen() {
   const { t } = useI18n()
-  const navigation = useNavigation<NavigationProp>()
+  const navigation = useNavigation<ProfileStackNav>()
   const { user, logout, ready } = useAuth()
   const [stats, setStats] = useState<UserStatistics | null>(null)
   const [orderCount, setOrderCount] = useState(0)
@@ -49,9 +49,9 @@ export function ProfileScreen() {
 
   const onNavigate = (item: MenuItem) => {
     if (item.viaParent) {
-      navigation.getParent()?.navigate(item.key as never)
+      navigation.getParent()?.navigate(item.key as string)
     } else {
-      navigation.navigate(item.key as never)
+      navigation.navigate(item.key)
     }
   }
 
