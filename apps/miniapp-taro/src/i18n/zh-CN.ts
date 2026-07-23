@@ -167,7 +167,13 @@ export default {
       searchPlaceholder: '搜索课程',
       search: '搜索',
       empty: '暂无课程'
-    }
+    },
+    ratingTitle: '评价课程',
+    ratingLabels: ['', '很差', '较差', '一般', '不错', '很好'],
+    ratingPlaceholder: '请评分',
+    ratingDescLabel: '写下你的评价',
+    ratingInputPlaceholder: '课程怎么样?分享你的感受...',
+    ratingSubmit: '提交评价'
   },
   live: {
     title: '直播',
@@ -226,7 +232,9 @@ export default {
       sessions: '场直播',
       liveList: '直播安排',
       noLive: '当日暂无直播安排'
-    }
+    },
+    calendarBtn: '📅 日历',
+    mySubscriptionBtn: '🔔 我的订阅'
   },
   profile: {
     title: '我的',
@@ -1289,7 +1297,9 @@ export default {
     rank: {
       title: '分销排行榜',
       empty: '暂无排行数据'
-    }
+    },
+    rankTitle: '分销排行榜',
+    rankEmpty: '暂无排行数据'
   },
   about: {
     version: '版本 {{version}}',
@@ -1786,7 +1796,18 @@ export default {
     title: '模型广场',
     unnamed: '未命名模型',
     noDesc: '暂无描述',
-    empty: '暂无模型'
+    empty: '暂无模型',
+    tabAll: '全部',
+    tabText: '文本',
+    tabImage: '图像',
+    tabAv: '音视频',
+    payMode: '按量计费',
+    modelCount: '共 {{n}} 个模型',
+    synced: '已同步 {{n}} 条',
+    perKTokens: '千token',
+    noMore: '— 没有更多了 —',
+    contextLength: '上下文',
+    providerModel: '模型'
   },
   news: {
     search: '搜索资讯',
@@ -1985,7 +2006,10 @@ export default {
       followYou: '关注了你',
       targetReact: 'React 入门第 3 节',
       targetAi: 'AI 大模型实战'
-    }
+    },
+    startConversation: '开始你们的对话',
+    inputPlaceholder: '输入消息...',
+    sendBtn: '发送'
   },
   member: {
     index: {
@@ -2156,7 +2180,11 @@ export default {
       loadFailed: '加载失败',
       progress: '进度',
       lastTime: '上次学习'
-    }
+    },
+    noteTitle: '学习笔记',
+    noteClose: '关闭',
+    notePlaceholder: '记录你的学习心得...',
+    noteCountUnit: '字'
   },
   subscriptions: {
     cancel: '取消订阅',
@@ -2670,5 +2698,37 @@ export default {
     content: '内容',
     contact: '联系方式',
     contactPlaceholder: '请输入联系方式(选填)'
+  },
+  comment: {
+    loading: '加载中...',
+    empty: '暂无评论,快来抢沙发',
+    reply: '回复',
+    placeholder: '写评论...',
+    send: '发送'
+  },
+  subscription: {
+    statusActive: '生效中',
+    statusPending: '待生效',
+    statusCancelled: '已解约',
+    statusExpired: '已过期',
+    chargeSuccess: '扣款成功',
+    chargeFailed: '扣款失败',
+    chargePending: '扣款中',
+    cancelTitle: '解约确认',
+    cancelContent: '确认取消该自动续费签约?取消后不再自动扣款。',
+    cancelConfirmBtn: '确认解约',
+    cancelThinkBtn: '再想想',
+    processing: '处理中',
+    cancelSuccess: '已解约',
+    cancelFailed: '解约失败',
+    contractsTitle: '自动续费管理',
+    autoRenew: '自动续费',
+    planLabel: '套餐',
+    nextCharge: '下次扣款',
+    lastCharge: '上次扣款',
+    signTime: '签约时间',
+    cancelBtn: '解约',
+    contractsEmpty: '暂无自动续费签约',
+    loadingText: '加载中...'
   }
 }
