@@ -105,6 +105,18 @@ export default {
     theme: 'Theme',
     about: 'About IHUI AI',
   },
+  update: {
+    title: 'Software Update',
+    check: 'Check for Updates',
+    checking: 'Checking…',
+    available: 'New version {{version}} available',
+    download: 'Download and Install',
+    downloading: 'Downloading…',
+    done: 'Update installed, restart to apply',
+    latest: 'You are on the latest version',
+    error: 'Update failed',
+    idle: 'Click to check for updates',
+  },
   error: {
     network: 'Network error',
     server: 'Server error',
