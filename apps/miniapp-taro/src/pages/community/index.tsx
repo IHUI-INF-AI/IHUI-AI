@@ -1,5 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
-import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
+import Taro, { useDidShow, useShareAppMessage, useShareTimeline, usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
 import { getCircleList } from '@/api'
@@ -45,28 +45,48 @@ export default function Community() {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [list, setList] = useState<CircleItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
 
   function refreshUser() {
     setIsLogin(isLoggedIn())
     setUserInfo(getUserInfo())
   }
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (reset = false) => {
+    if (loading) return
+    let curPage = page
+    if (reset) {
+      curPage = 1
+      setHasMore(true)
+      setList([])
+      setPage(1)
+    }
+    if (!hasMore && !reset) return
     setLoading(true)
     try {
-      const res = (await getCircleList({ page: 1, pageSize: 10 })) as Record<string, unknown>
-      setList((res?.list as CircleItem[]) || [])
+      const res = (await getCircleList({ page: curPage, pageSize: 10 })) as Record<string, unknown>
+      const newList = (res?.list as CircleItem[]) || []
+      setList((prev) => (reset ? newList : [...prev, ...newList]))
+      setHasMore((reset ? newList.length : list.length + newList.length) < (res?.total as number))
+      setPage(curPage + 1)
     } catch {
       // 静默处理
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [loading, page, hasMore, list.length])
 
   useDidShow(() => {
     refreshUser()
-    loadData()
+    loadData(true)
   })
+
+  usePullDownRefresh(() => {
+    loadData(true).finally(() => Taro.stopPullDownRefresh())
+  })
+
+  useReachBottom(() => loadData())
 
   function goLogin() {
     Taro.navigateTo({ url: '/pages/login/login' })
@@ -205,6 +225,18 @@ export default function Community() {
             <Text className="text-[13px] text-muted-foreground">{t('common.empty')}</Text>
           </View>
         )}
+
+        {/* 分页加载状态 */}
+        {loading && list.length > 0 ? (
+          <View className="tech-card px-[16px] py-[12px] text-center">
+            <Text className="text-[12px] text-muted-foreground">{t('common.loading')}</Text>
+          </View>
+        ) : null}
+        {!loading && !hasMore && list.length > 0 ? (
+          <View className="tech-card px-[16px] py-[12px] text-center">
+            <Text className="text-[12px] text-muted-foreground">{t('common.noMore')}</Text>
+          </View>
+        ) : null}
       </View>
 
       {/* 发布动态入口 FAB(对标原社区发布按钮) */}

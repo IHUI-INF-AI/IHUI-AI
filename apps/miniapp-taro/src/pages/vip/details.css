@@ -8,6 +8,95 @@
 .banner-title { display: block; font-size: 44rpx; font-weight: 700; }
 .banner-desc { display: block; font-size: 26rpx; margin-top: 12rpx; opacity: .9; }
 
+/* 套餐选择 */
+.plans { margin: 24rpx; }
+.plans-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-bottom: 16rpx;
+}
+.plans-list {
+  display: flex;
+  gap: 20rpx;
+}
+.plan-card {
+  flex: 1;
+  position: relative;
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
+  border-radius: 16rpx;
+  padding: 28rpx 24rpx;
+}
+.plan-card.active {
+  border-color: var(--color-warning);
+  background: rgba(245, 158, 11, 0.06);
+}
+.plan-card.yearly.active {
+  background: rgba(245, 158, 11, 0.1);
+}
+.plan-tag {
+  position: absolute;
+  top: -2rpx;
+  right: -2rpx;
+  background: var(--color-warning);
+  color: var(--color-foreground);
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  border-top-right-radius: 14rpx;
+  border-bottom-left-radius: 12rpx;
+}
+.plan-head {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16rpx;
+}
+.plan-name {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--color-foreground);
+}
+.plan-days {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  margin-top: 6rpx;
+}
+.plan-price-wrap {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 20rpx;
+}
+.plan-price-symbol {
+  font-size: 26rpx;
+  color: var(--color-warning);
+  font-weight: 700;
+  line-height: 1;
+  margin-top: 8rpx;
+}
+.plan-price {
+  font-size: 52rpx;
+  color: var(--color-warning);
+  font-weight: 700;
+  line-height: 1;
+  margin-left: 4rpx;
+}
+.plan-benefits { display: flex; flex-direction: column; gap: 10rpx; }
+.plan-benefit { display: flex; align-items: flex-start; }
+.plan-benefit-icon {
+  font-size: 24rpx;
+  color: var(--color-warning);
+  margin-right: 12rpx;
+  line-height: 1.4;
+}
+.plan-benefit-text {
+  flex: 1;
+  font-size: 24rpx;
+  color: var(--color-foreground);
+  line-height: 1.4;
+}
+
+/* 权益对比表 */
 .compare {
   margin: 24rpx;
   background: var(--color-card);
