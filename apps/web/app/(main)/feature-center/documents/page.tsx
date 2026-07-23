@@ -2,7 +2,16 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, Search, FileText, Eye, FileType2, Clock } from 'lucide-react'
+import {
+  Loader2,
+  Search,
+  FileText,
+  Eye,
+  FileType2,
+  Clock,
+  Copy,
+  Check,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -92,6 +101,66 @@ function extractToc(content: string): TocItem[] {
   return items
 }
 
+// 把 ReactNode 拍平为纯文本(用于代码块复制按钮)
+function extractText(node: React.ReactNode): string {
+  if (node == null || node === false) return ''
+  if (typeof node === 'string') return node
+  if (typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(extractText).join('')
+  if (React.isValidElement(node)) {
+    return extractText((node.props as { children?: React.ReactNode }).children)
+  }
+  return ''
+}
+
+// 代码块:语言徽章 + 一键复制按钮(重写 pre 组件,inline code 不受影响)
+function CodeBlock({ children, ...props }: React.ComponentProps<'pre'>) {
+  const childArr = React.Children.toArray(children)
+  const codeEl = childArr.find(
+    (c): c is React.ReactElement<{ className?: string; children?: React.ReactNode }> =>
+      React.isValidElement(c) && c.type === 'code',
+  )
+  if (!codeEl) return <pre {...props}>{children}</pre>
+  const className = codeEl.props.className ?? ''
+  const match = /language-([\w-]+)/.exec(className)
+  const lang = match?.[1] ?? ''
+  const rawText = extractText(codeEl.props.children)
+  const [copied, setCopied] = React.useState(false)
+
+  function handleCopy() {
+    if (!rawText) return
+    navigator.clipboard
+      .writeText(rawText)
+      .then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      })
+      .catch(() => {
+        // 忽略复制失败(无 clipboard 权限或非 https)
+      })
+  }
+
+  return (
+    <div className="group relative my-3 overflow-hidden rounded-md bg-muted/60">
+      <div className="flex items-center justify-between bg-muted px-3 py-1">
+        <span className="font-mono text-xs text-muted-foreground">{lang || 'text'}</span>
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+          aria-label="复制代码"
+        >
+          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+          {copied ? '已复制' : '复制'}
+        </button>
+      </div>
+      <pre className="overflow-x-auto p-3 text-xs leading-relaxed" {...props}>
+        <code className={className}>{codeEl.props.children}</code>
+      </pre>
+    </div>
+  )
+}
+
 export default function DocumentsPage() {
   const t = useTranslations('featureCenter.documents')
   const { data, isLoading } = useQuery({
@@ -107,6 +176,8 @@ export default function DocumentsPage() {
   const contentRef = React.useRef<HTMLDivElement>(null)
   // 当前滚动高亮的 TOC 项 id
   const [activeHeadingId, setActiveHeadingId] = React.useState<string | null>(null)
+  // 阅读进度百分比(0-100)
+  const [progress, setProgress] = React.useState(0)
 
   // 动态生成分类按钮(从返回数据的 unique category 值)
   const categories = React.useMemo(() => {
@@ -186,12 +257,18 @@ export default function DocumentsPage() {
     el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  // 内容滚动时高亮当前可视标题(IntersectionObserver 替代方案:监听 scroll)
+  // 内容滚动时:1)更新阅读进度条;2)高亮当前可视 TOC 标题
   function handleContentScroll() {
     const container = contentRef.current
-    if (!container || tocItems.length === 0) return
+    if (!container) return
+    // 1. 进度条
+    const max = container.scrollHeight - container.clientHeight
+    const p = max > 0 ? (container.scrollTop / max) * 100 : 0
+    setProgress(Math.min(100, Math.max(0, p)))
+    // 2. TOC 高亮
+    if (tocItems.length === 0) return
     const scrollTop = container.scrollTop
-    // 找到第一个顶部位置 <= scrollTop+80 的标题(倒序遍历)
+    // 找到最后一个顶部位置 <= scrollTop+80 的标题
     let current: string | null = null
     for (const item of tocItems) {
       const el = container.querySelector(`#${CSS.escape(item.id)}`) as HTMLElement | null
@@ -203,6 +280,25 @@ export default function DocumentsPage() {
     }
     setActiveHeadingId(current)
   }
+
+  // 切换文档(navigatedSlug 或 previewSlug 变化)时重置进度与高亮
+  React.useEffect(() => {
+    setProgress(0)
+    setActiveHeadingId(null)
+  }, [displaySlug])
+
+  // ESC 关闭预览 modal
+  React.useEffect(() => {
+    if (!previewDoc) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        closePreview()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [previewDoc])
 
   // 把 markdown 中的相对 .md 链接改写为可点击的内部导航
   // ./xxx.md 或 ./dir/xxx.md → 基于 displaySlug 推导 dirBase,组合成绝对 slug
@@ -370,6 +466,13 @@ export default function DocumentsPage() {
                 {t('close')}
               </Button>
             </div>
+            {/* 阅读进度条:2px 高,随内容滚动百分比填充 */}
+            <div className="h-0.5 shrink-0 overflow-hidden rounded-sm bg-muted">
+              <div
+                className="h-full bg-primary transition-[width] duration-100 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
             {displayLoading ? (
               <div className="flex items-center justify-center py-8 text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -418,6 +521,7 @@ export default function DocumentsPage() {
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
+                      pre: CodeBlock,
                       h2: ({ children, ...props }) => {
                         const text = String(children ?? '')
                         return (
