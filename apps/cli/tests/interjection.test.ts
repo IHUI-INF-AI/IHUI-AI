@@ -2,7 +2,7 @@
  * InterjectionBuffer 单元测试 — 覆盖优先级排序、maxSize、maxAgeMs、consumed 标记等。
  */
 import { describe, expect, it, beforeEach, vi, afterEach } from 'vitest'
-import { InterjectionBuffer, type InterjectionPriority } from '../src/interjection.js'
+import { InterjectionBuffer } from '../src/interjection.js'
 
 describe('InterjectionBuffer', () => {
   let buffer: InterjectionBuffer
