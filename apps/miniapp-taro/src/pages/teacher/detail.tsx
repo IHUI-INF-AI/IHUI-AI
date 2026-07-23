@@ -27,7 +27,7 @@ export default function TeacherDetail() {
 
   const onViewCourses = useCallback(() => {
     if (!teacher) return
-    Taro.navigateTo({ url: `/pages/course/list?teacherId=${teacher.id}` })
+    Taro.navigateTo({ url: `/pages/course/list?keyword=${encodeURIComponent(teacher.name)}` })
   }, [teacher])
 
   return (
