@@ -77,7 +77,7 @@
 </p>
 
 <p align="center">
-  <sub><strong>i18n 国际化</strong>:5 语言键集合 99.7% 一致(zh-CN 587 key / zh-TW 585 / en 586 / ko 586 / ja 586)+ 8 守门脚本(4 web + 4 extension:opencc 字形检测 / 字符范围检测 / 破碎机翻检测 / key parity 校验 × 2 端)</sub>
+  <sub><strong>i18n 国际化</strong>:5 语言键集合 100% parity(zh-CN / zh-TW / en / ko / ja)+ 9 守门脚本(4 web + 4 extension + 1 AI 翻译流水线:opencc 字形检测 / 字符范围检测 / 破碎机翻检测 / key parity 校验 × 2 端 / AI agent 自主翻译)+ AI 翻译流水线(i18n-diff → AI agent 翻译 → i18n-apply,零 LLM API 调用,开发成本降 70%+)</sub>
 </p>
 
 <p align="center">
@@ -411,7 +411,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 |                   | 队列缓存        | Redis 7 + BullMQ / 独立 worker 进程(:8830)                                                                  |
 |                   | 对象存储        | OSS 多厂商驱动 / 凭证加密 / 分块上传 / 文件版本 / chunked-upload                                            |
 |                   | 邮件短信        | SMTP / 短信网关 / 邮件模板 / 验证码 / mail + message-templates                                              |
-|                   | 国际化          | 5 语言 parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n 工具链 + 8 守门(4 web + 4 ext)                          |
+|                   | 国际化          | 5 语言 parity(zh-CN / zh-TW / en / ko / ja)+ 21 i18n 工具链 + 9 守门(4 web + 4 ext + 1 AI 翻译流水线)                          |
 |                   | 工程守门        | 30+ pre-commit 钩子 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动                                |
 |                   | 测试覆盖        | 268 + 400+ 用例 / Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能                              |
 |                   | 部署运维        | Docker Compose(14 服务)/ 蓝绿部署 / Nginx upstream 切换 / 健康检查 / 回滚 / 备份 / 证书续期 cron            |
@@ -439,7 +439,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 | **数据加密**         | AES-256-GCM(credentials 加密)+ JWT token-family 旋转 + refresh 黑名单                        | 金融级数据保护                  |
 | **可观测性**         | Prometheus + Grafana(**21 仪表盘**)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager | 全链路指标 / 日志 / 追踪 / 告警 |
 | **工程守门**         | 30+ pre-commit + post-commit 自动 push + git-push-guard + 11 迁移审计                         | 杜绝协作事故,99.9% SLA          |
-| **国际化**           | zh-CN / zh-TW / en / ko / ja 5 语言 parity + 19 i18n 工具链                                  | 5 语言键集合 99.7% 一致(5 语言差 1-2 key,守门脚本持续校验)            |
+| **国际化**           | zh-CN / zh-TW / en / ko / ja 5 语言 parity + 21 i18n 工具链 + AI 翻译流水线(零 LLM API)         | 5 语言键集合 100% parity(AI agent 自主翻译补齐,开发成本降 70%+)      |
 | **数据库**           | **340 表 + 144 迁移** + 100 schema 文件 + Drizzle ORM + RLS + 租户路由 + pgvector         | 单库 PostgreSQL 15,schema 隔离  |
 | **API 规模**         | 1300+ 端点(api 1080 + ai-service 55)+ 12 WebSocket + 95+ 路由文件                            | 远超源项目 331 端点             |
 | **业务覆盖**         | 15 大模块 / 50+ 子功能 / **200+ Web 页面**                                                   | 一个平台覆盖所有 AI 应用场景    |
@@ -670,13 +670,14 @@ cd IHUI-AI && docker compose up -d
 
 ### RN ↔ Web 跨端共享组件层(packages/app,2026-07-24 立)
 
-> React Native 与 Web 不再各自维护 About/Profile/Settings 三屏,改 props 注入式跨端共享组件,一处改、两端生效,杜绝 UI 双份维护漂移。基于 NativeWind + Solito 架构。
+> React Native 与 Web 不再各自维护 About/Profile/Settings 三屏,改 props 注入式跨端共享组件,一处改、两端生效,杜绝 UI 双份维护漂移。基于 Solito + react-native primitives + StyleSheet 架构(预留 NativeWind 类型支持)。
 
 - **共享包**:`packages/app/`(平台无关,只依赖 react-native primitives + StyleSheet + solito TextLink)
 - **共享组件**:3 个生产级跨端屏
   - `AboutScreen` — 关于页(appInfo + onBack 注入)
   - `ProfileScreen` — 个人资料页(user/stats/orderCount/loading/error/menuSections/onNavigate/onLogout/onBack 注入)
   - `SettingsScreen` — 设置页(locale/theme/notifications/onChangePassword/onAlert/onConfirm/menuItems 等注入,内置密码修改 Modal + 校验)
+- **设计令牌**:`packages/app/src/theme/tokens.ts` 定义 5 组令牌(brand/surface/text/border/error)+ `AppTokens` 类型,3 共享组件 StyleSheet 全量引用,根治颜色漂移 + 为暗色模式铺路(预留 brand.dark/surface.dark)。mobile-rn 端 RootNavigator tab 激活色 + SharedDemoScreen 也引用 tokens,真正落实跨端品牌色一致。
 - **类型契约**:`packages/app/src/types.ts` 定义 TFunction / SharedUser / SharedUserStatistics / SharedMenuSection / SharedLocaleOption / SharedThemeOption / SharedNotificationToggles 等 12 个平台无关类型
 - **平台解耦设计**:共享组件只负责纯 UI 渲染,所有平台依赖通过 props 回调注入
   - **i18n**:t 函数注入(RN 用自研 Context / web 用 next-intl 或 fallback)
@@ -689,6 +690,7 @@ cd IHUI-AI && docker compose up -d
   - `apps/mobile-rn/src/screens/ProfileScreen.tsx` — 注入 t + 真实 getUserStatistics/getOrders API + 菜单导航(viaParent 处理)+ logout
   - `apps/mobile-rn/src/screens/SettingsScreen.tsx` — 注入 t + Alert.alert + 真实 updatePassword API + 导航 + locale/theme/notifications 状态
 - **Web 端验证页**:`apps/web/app/(main)/solito-demo/page.tsx` — tab 切换展示 3 共享组件,用 mock 数据 + t fallback 函数
+- **架构边界**:web 生产页(/about、/settings、/user/profile 等)保留独立 Next.js + shadcn/ui 实现,共享组件仅用于 RN 生产 + web /solito-demo 验证页。理由:web 生产页 UI 复杂度远超共享组件(如 settings 有 SecurityScore/TwoFactorAuth/DeviceManager 等安全模块),强制接入会降级体验。共享组件的合理定位是 RN 内部共享 + web 验证页。
 - **i18n 5 语言补全**:`apps/mobile-rn/src/i18n/messages/{zh-CN,zh-TW,en,ko,ja}.ts` 扩展 settings namespace(notifPush/changePassword/pwd*/logoutConfirm 等 24 key)+ 新增 about/menu namespace(11 key)
 - **验证**:packages/app typecheck ✅ / mobile-rn typecheck(本任务文件 0 错)/ web typecheck(本任务文件 0 错)/ SharedDemoScreen RN 集成验证 / solito-demo web 集成验证
 

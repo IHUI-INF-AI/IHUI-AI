@@ -115,7 +115,7 @@ export default function SettingsScreen() {
       onSelectTheme={onSelectTheme}
       notifications={notifications}
       onToggleNotification={onToggleNotification}
-      onEditProfile={() => navigation.navigate('ProfileEdit' as never)}
+      onEditProfile={() => navigation.navigate('ProfileEdit')}
       onChangePassword={onChangePassword}
       onAlert={onAlert}
       onConfirm={onConfirm}
@@ -123,6 +123,7 @@ export default function SettingsScreen() {
       menuItems={menuItems}
       onMenuPress={onMenuPress}
       appVersion={APP_VERSION}
+      onBack={() => navigation.goBack()}
     />
   )
 }
