@@ -760,6 +760,9 @@ importers:
       '@ihui/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@ihui/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@ihui/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -1162,6 +1165,31 @@ importers:
       typescript:
         specifier: ^5.7.2
         version: 5.9.3
+
+  packages/shared:
+    dependencies:
+      xstate:
+        specifier: ^5.19.0
+        version: 5.32.5
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
+    devDependencies:
+      '@ihui/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      eslint:
+        specifier: ^9.16.0
+        version: 9.39.4(jiti@2.7.0)
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.1.3
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   packages/tsconfig: {}
 
@@ -3307,7 +3335,7 @@ packages:
 
   '@expo/bunyan@4.0.1':
     resolution: {integrity: sha512-+Lla7nYSiHZirgK+U/uYzsLv/X+HaJienbD5AKX1UQZHYfWaP+9uuQluRB4GrEVWF0GZ7vEVp/jzaOT9k/SQlg==}
-    engines: {node: '>=0.10.0'}
+    engines: {'0': node >=0.10.0}
 
   '@expo/cli@0.18.31':
     resolution: {integrity: sha512-v9llw9fT3Uv+TCM6Xllo54t672CuYtinEQZ2LPJ2EJsCwuTc4Cd2gXQaouuIVD21VoeGQnr5JtJuWbF97sBKzQ==}
