@@ -8,6 +8,24 @@
 
 ## 当前活跃任务(2026-07-22)
 
+### [x] ✅(2026-07-23) miniapp-taro SSE done 事件 tokenCount 打通(平台独占:仅 miniapp-taro)
+
+**触发**:延续"功能一模一样"对标原 ai_assistant.vue,ChatMessageItem 的 tokenCount 字段已声明但无数据流入。深度排查发现:ai-service `/api/llm/complete/stream` **已在 `event:done` 中下发 `usage.total_tokens`**,但前端 `parseSSEChunk` 在 L47 直接丢弃 `event:` 行,导致 done 事件的 JSON 被当作无 type 字段处理 → return null → **usage 数据完全丢失**。
+
+**根因**:parseSSEChunk 是逐行解析的简化实现,不识别 SSE 标准的 `event:` + `data:` 配对;done 事件的 JSON `{"type":"done","usage":{...}}` 因 parseLine 无 done 分支被丢弃。
+
+**修复内容**(3 文件,纯前端,无需改后端 — api 已透传 + ai-service 已下发):
+
+| 文件 | 变更 |
+|---|---|
+| `apps/miniapp-taro/src/utils/sse-parse.ts` | SSEEvent 接口新增 `usage?` + `model?` 字段;parseLine 新增 `json.type === 'done'` 分支,从 `usage.prompt_tokens/completion_tokens/total_tokens` 映射到 `usage.promptTokens/completionTokens/totalTokens`(snake → camel) |
+| `apps/miniapp-taro/src/api/index.ts` | chatStream 第9参新增 `onDone?: (info: {totalTokens?, promptTokens?, completionTokens?, model?}) => void`;dispatch 处理 `evt.type === 'done'` 调用 onDone |
+| `apps/miniapp-taro/src/pages/ai/chat.tsx` | chatStream 调用末尾传入 onDone 回调,把 `doneInfo.totalTokens` 写入最后一条 assistant 消息的 `tokenCount` 字段(对标原 ai_assistant.vue `this.$set(agent_content_list[idx], 'total_tokens', obj.total_tokens)`) |
+
+**images/videos 字段说明**:ChatMessage 接口保留 images/videos 字段供未来扩展,但当前架构下图片/视频生成是独立 API(generateImageDashscope / generateVideoKling 等),不在 chat stream 中下发,无需 SSE 扩展。
+
+**验证**:miniapp-taro typecheck exit 0 ✅。
+
 ### [x] ✅(2026-07-23) 前端冗余页面整合 P0(平台独占:仅 web 端)
 
 **触发**:用户要求"本项目有没有重复冗余页面,可以整合的尽量整合"。深度分析 200+ 页面后发现 10 组严重重复,本次执行 P0 批次。
@@ -448,37 +466,9 @@
 
 <!-- 已归档(2026-07-23):miniapp-taro 页面功能对标原 uniapp 项目:tabBar 5 tab + 智汇社区页 + ranking/detail + setting/privacy + profile 身份标签(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
-## miniapp-taro ChatMessageItem 增强:对标原 ai_assistant.vue 渲染层核心功能(已完成 ✅ 2026-07-23,平台独占:仅 miniapp-taro)
+<!-- 已归档(2026-07-23):miniapp-taro ChatMessageItem 增强:对标原 ai_assistant.vue 渲染层核心功能(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
-> 用户需求:"我要的是跟原来项目页面 功能一模一样"。原项目 ai_assistant.vue(4528 行)的渲染层核心功能在当前 ChatMessageItem.tsx(原 29 行)严重缺失,本轮补齐渲染层 P0 功能。
-
-- [x] ✅(2026-07-23) ChatMessage 接口扩展(api/index.ts):新增 images?(imgUrlList)/ videos?(videoUrlList)/ tokenCount?(total_tokens)/ codeContent?(content_code)4 个可选字段,对标原 ai_assistant.vue 数据结构。
-- [x] ✅(2026-07-23) ChatMessageItem.tsx 渲染层增强(29 行 → 229 行):
-  - 内容段格式化(formatContentSegments):对标原 formatContentSegments,将纯文本拆分为 header(###)/ link(http)/ text 三类段,链接段青色可点击复制,标题段粗体块级。
-  - 移除特殊字符(removeSpecialChars):对标原 removeSpecialChars,剥离 # 前缀。
-  - 图片展示:Taro.previewImage 预览,对标原 imgUrlList + previewImage。
-  - 视频展示:Video 组件(controls/showPlayBtn/showCenterPlayBtn/enableProgressGesture/objectFit),对标原 videoUrlList。
-  - token 消耗 footer:formatTokenDisplay(>=1000 显示 K),对标原 total_tokens 显示。
-  - 复用按钮(用户消息):onReuse 回调填入输入框,对标原 copyToInput + fuyong_btn。
-  - 复制按钮(AI 消息):Taro.setClipboardData,对标原 copyHandle。
-  - 代码块(codeContent):青色可点击复制,对标原 content_code。
-- [x] ✅(2026-07-23) chat.tsx 增加 inputValue/inputKey state:handleReuse 回调设置 inputValue + setInputKey 强制 InputArea 重新挂载接收新 value + Taro.pageScrollTo 滚动到底部,对标原 copyToInput + uni.pageScrollTo。
-- [x] ✅(2026-07-23) 5 语言 i18n 同步(zh-CN/zh-TW/en/ko/ja):ai.chatMessageItem 命名空间新增 8 key(me/ai/thinkingProcess/noContent/aiGenerated/tokenCost/reuse/copy)。
-- [x] ✅(2026-07-23) 验证:pnpm --filter @ihui/miniapp-taro typecheck exit 0 / lint exit 0。
-
-## miniapp-taro 智能体引导说明:对标原 ai_assistant.vue tishi_block + tishi_box(已完成 ✅ 2026-07-23,平台独占:仅 miniapp-taro)
-
-> 用户需求:"我要的是跟原来项目页面 功能一模一样"。原项目 ai_assistant.vue 有智能体引导说明功能(tishi_block 点击切换 + tishi_box 显示 prologue 开场白),当前 chat.tsx 缺失,本轮补齐。
-
-- [x] ✅(2026-07-23) AgentRawRow 接口(api/index.ts)扩展 prologue 可选字段,对标原项目智能体开场白。后端 agents 表(zhs-full.ts L60)已有 prologue 列,前端接口未声明。
-- [x] ✅(2026-07-23) getAgentDetail 返回值映射 prologue(a.prologue ?? '')。
-- [x] ✅(2026-07-23) chat.tsx AgentInfo 接口扩展 prologue 可选字段。
-- [x] ✅(2026-07-23) 新增 tishiShow state(对标原 tishi_show)。
-- [x] ✅(2026-07-23) tishi-block UI:点击切换 tishiShow,显示"查看/关闭 智能体引导说明"(对标原 tishi_block + tishiHandle),仅选中智能体(agent)时显示。
-- [x] ✅(2026-07-23) tishi-box UI:显示 tishi_title(📋 + needInput 文案)+ tishi_content(prologue 内容,对标原 v-html tishi_content),prologue 中的 \n / <br> 替换为换行展示。
-- [x] ✅(2026-07-23) chat.css 追加 tishi 相关 8 个 class(tishi-block/icon/text + tishi-box/title/icon/text + tishi-content/line)。
-- [x] ✅(2026-07-23) 5 语言 i18n 同步(zh-CN/zh-TW/en/ko/ja):ai.tishi 命名空间新增 4 key(title/view/close/needInput)。
-- [x] ✅(2026-07-23) 验证:pnpm --filter @ihui/miniapp-taro typecheck exit 0 / lint exit 0。
+<!-- 已归档(2026-07-23):miniapp-taro 智能体引导说明:对标原 ai_assistant.vue tishi_block + tishi_box(平台独占:仅 miniapp-taro),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ## WorkerPool 资源隔离与超时处理 22 项缺陷修复(已完成 ✅ 2026-07-23,跨端:cli+ai-service)
 
