@@ -49,6 +49,8 @@ export function ProfileScreen() {
 
   const onNavigate = (item: MenuItem) => {
     if (item.viaParent) {
+      // as string: react-navigation 的 navigate 是 distributive conditional type,
+      // getParent() 返回的跨栈 navigator 无法接受 RootRoute 联合字面量,只能收窄为 string
       navigation.getParent()?.navigate(item.key as string)
     } else {
       navigation.navigate(item.key)
