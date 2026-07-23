@@ -427,6 +427,44 @@
 
 ---
 
+### [x] ✅(2026-07-23) miniapp-taro Round12:5 subagent 并行深化 P1 级 5 域页面 + i18n 5 语言补全 73 key(平台独占:仅 apps/miniapp-taro)
+
+**触发**:承接 `/goal 继续 按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏`,对照原 uniapp 项目深度校验 P1 级 5 个域(ranking/distribution/aigc/token/share)功能一致性,5 subagent 按域并行深化。
+
+**交付内容**(1 commit `f7657eb2e`,20 文件,+3145/-946):
+
+| 域 | 页面 | 对照原 vue | 补全功能点 |
+|---|---|---|---|
+| ranking | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/ranking/index.tsx) + [detail.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/ranking/detail.tsx) | ranking-detail.vue | 列表页(分类筛选tab+搜索+榜单卡片+分页) / 详情页(row-1 Logo+标题+简介 / row-2 四信息块横排(关注度/类别/价格/状态) / row-common(细分类别/产品形式/所属机构/官方网址点击复制) / 图片展示 / 详细介绍 / DrawerComponent 侧边栏) |
+| distribution | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/distribution/index.tsx) + [plan/index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/distribution/plan/index.tsx) | distribution/index.vue + earn_commission/index.vue | 我的公司(个人信息卡+收益统计日/月/总tab+功能块列+二维码弹窗(分享/保存到相册)+身份验证弹窗(身份证+姓名)) / 分佣计划(介绍区+累计收益/邀请人数统计+4条规则+开通VIP按钮) |
+| aigc | [list.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/aigc/list.tsx) | aigc/index.vue | 分类按钮栏 + 文本卡片(标题/时间/提示词/正文) + 音频唱片旋转动画(旋转层与中心点/播放按钮分层,圆角守门用 16rpx 非 rounded-full) + 视频Video全屏播放 + 图片预览 + 分页 |
+| token | [balance.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/token/balance.tsx) | token_value.vue | 智能体消耗/大模型消耗切换 + 7天/月/年/全部时间筛选 + 消耗列表(agentName+花费时间+token负数) + 分页 + 余额卡 |
+| share | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/share/index.tsx) | table/share/index.vue | 排行榜入口 + 自定义导航栏(菜单/分类按钮) + TitleSwitch tab(最新/热门/关注) + 搜索 + 分类弹层(遮罩+阻止滚动) + 侧边栏抽屉(历史对话/新建/模型列表) + 返回顶部 + 浮动入口 + 分页 + 分享 |
+| 路由 | app.config.ts | - | 补注册 `pages/ranking/detail`(原仅注册 ranking/index) |
+| i18n | 5 语言 × 73 key | - | ranking.*(8) / distribution.index.*(25) / distribution.plan.*(11) / aigc.list.*(10) / token.balance.*(5) / share.index.*(14) — 5 文件 parity,zh-CN/zh-TW(简转繁+台湾用语)/en/ko(敬语)/ja(丁宁语) |
+
+**多 subagent 并行模式(§11)**:5 subagent 按域拆分(ranking/distribution/aigc/token/share),每个 subagent 只改自己域的页面文件,不碰共享文件(i18n/*.ts/app.config.ts),i18n key 全部走 `tt(key, fallback)` 模式。主 agent 串行补全 5 语言 i18n(73 key × 5 语言 = 365 条翻译)+ 补注册 ranking/detail 路由。
+
+**rebase 冲突处理**:push 时本地 ahead 3(含其他 agent 2 commit)+ 落后 1(其他 agent Wave21),`git pull --rebase` 触发 apps/web/src/lib/api.ts 冲突(其他 agent 4cfd3f383 懒触发 vs 远端 896b56acc 公开路径白名单)。按 §12 规则,这是其他 agent 之间的冲突,主 agent 保留远端版本(896b56acc,更新且含白名单)`git checkout --ours` + `git add` + `git rebase --continue` 解决,未修改其他 agent 代码逻辑。
+
+**§9 平台独占**:仅 apps/miniapp-taro 端改动,无 api/ai-service/web 跨端契约变更。
+**§22 README 豁免**:纯功能补齐(对标原项目已有功能)。
+
+**验证**:
+- typecheck:`pnpm --filter @ihui/miniapp-taro typecheck` exit 0 ✅
+- i18n 守门脚本全绿:scan-i18n-zh-residue zh-TW + ko / check-i18n-broken-en ✅
+- rebase 后 commit hash 变化:f804ab022 → f7657eb2e(正常,rebase 改写历史)
+
+**Git 同步证据**(§21):
+- 本地 commit: f7657eb2e
+- origin commit: f7657eb2e
+- 同步状态: local == remote ✅
+- 守门脚本: git-push-guard rebase 后自动检测 ahead → 自动 push → 验证 local == remote exit 0 ✅
+
+**遗留**:rebase 过程产生 5 个临时 stash(rebase-temp-stash/wt-cleanup-for-rebase/3×autostash),working tree clean 说明内容已恢复,按 §12/§16 不擅自 drop,留给用户处理。
+
+---
+
 ### [x] ✅(2026-07-23) Wave 23:web ↔ extension 前端统一改造(跨端:web + extension + packages/ui-primitives)
 
 **背景**:浏览器插件端(apps/extension)与 web 端(apps/web)在前端层存在 3 处重复维护:
