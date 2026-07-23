@@ -23,7 +23,20 @@
       "installSuccess": "安裝成功",
       "installFailed": "安裝失敗",
       "rateSuccess": "評分成功",
-      "rateFailed": "評分失敗"
+      "rateFailed": "評分失敗",
+      "publishButton": "發布技能",
+      "publishTitle": "發布技能到市場",
+      "publishName": "技能名稱",
+      "publishDescription": "技能描述",
+      "publishTags": "標籤（逗號分隔）",
+      "publishAuthor": "作者",
+      "publishVersion": "版本",
+      "publishLicense": "授權條款",
+      "publishContent": "技能內容",
+      "publishContentPlaceholder": "寫下技能正文（Markdown/JSON）...",
+      "publishSubmit": "發布",
+      "publishSuccess": "發布成功",
+      "publishFailed": "發布失敗"
     }
   },
   "common": {
