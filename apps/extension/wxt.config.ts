@@ -11,7 +11,7 @@ export default defineConfig({
     description: 'IHUI AI 浏览器助手',
     version: '1.0.0',
     minimum_chrome_version: '114',
-    permissions: ['storage', 'activeTab', 'sidePanel', 'contextMenus', 'tabs', 'scripting', 'session'],
+    permissions: ['storage', 'activeTab', 'sidePanel', 'contextMenus', 'tabs', 'scripting', 'alarms'],
     host_permissions: ['http://localhost:8801/*', 'https://*.ihui.ai/*'],
     icons: {
       16: 'icon/16.png',
