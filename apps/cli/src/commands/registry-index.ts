@@ -1,0 +1,30 @@
+/**
+ * ihui registry — 资源上游同步中心,管理 MCP/Skill/Plugin 资源。
+ *
+ * 子命令:
+ *   ihui registry sync      触发上游同步(管理员)
+ *   ihui registry list      列出资源(支持排序/过滤/搜索)
+ *   ihui registry install   安装资源(按 name 查找)
+ *   ihui registry upgrade   升级已安装资源(含订阅自动 pull 逻辑)
+ *
+ * 命令注册入口:主 agent 在 apps/cli/src/index.ts 中调用
+ *   program.addCommand(registryCommand());
+ * 即可接入(不修改现有命令)。
+ */
+
+import { Command } from 'commander';
+import { syncCommand } from './registry-sync.js';
+import { listCommand } from './registry-list.js';
+import { installCommand } from './registry-install.js';
+import { upgradeCommand } from './registry-upgrade.js';
+
+export function registryCommand(): Command {
+  const cmd = new Command('registry').description(
+    '资源上游同步中心 - MCP/Skill/Plugin 资源管理',
+  );
+  cmd.addCommand(syncCommand());
+  cmd.addCommand(listCommand());
+  cmd.addCommand(installCommand());
+  cmd.addCommand(upgradeCommand());
+  return cmd;
+}

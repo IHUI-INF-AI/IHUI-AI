@@ -72,3 +72,6 @@ export * from './langgraph.js'
 
 // P3 深度层:AI 教育引擎跨端契约(2026-07-23 立,SM-2 间隔重复 + AI 助教 + AI 批改 + AI 出题)
 export * from './education.js'
+
+// 资源上游自动同步中心跨端契约(2026-07-24 立,MCP/Skill/Plugin 四源拉取 + 双路径触发 + 全量自动更新)
+export * from './registry.js'
