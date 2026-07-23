@@ -42,6 +42,46 @@
     "./design/*": {
       "types": "./dist/design/*.d.ts",
       "import": "./dist/design/*.js"
+    },
+    "./memory": {
+      "types": "./dist/memory/index.d.ts",
+      "import": "./dist/memory/index.js"
+    },
+    "./memory/*": {
+      "types": "./dist/memory/*.d.ts",
+      "import": "./dist/memory/*.js"
+    },
+    "./subagents": {
+      "types": "./dist/subagents/index.d.ts",
+      "import": "./dist/subagents/index.js"
+    },
+    "./subagents/*": {
+      "types": "./dist/subagents/*.d.ts",
+      "import": "./dist/subagents/*.js"
+    },
+    "./context": {
+      "types": "./dist/context/index.d.ts",
+      "import": "./dist/context/index.js"
+    },
+    "./context/*": {
+      "types": "./dist/context/*.d.ts",
+      "import": "./dist/context/*.js"
+    },
+    "./spec": {
+      "types": "./dist/spec/index.d.ts",
+      "import": "./dist/spec/index.js"
+    },
+    "./spec/*": {
+      "types": "./dist/spec/*.d.ts",
+      "import": "./dist/spec/*.js"
+    },
+    "./plan": {
+      "types": "./dist/plan/index.d.ts",
+      "import": "./dist/plan/index.js"
+    },
+    "./plan/*": {
+      "types": "./dist/plan/*.d.ts",
+      "import": "./dist/plan/*.js"
     }
   },
   "scripts": {
