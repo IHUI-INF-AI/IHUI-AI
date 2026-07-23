@@ -233,6 +233,255 @@ describe('Tasks Dispatch API', () => {
       expect(body.data.total).toBe(0)
       expect(body.data.tasks).toHaveLength(0)
     })
+
+    it('不传 since 时返回全量任务', async () => {
+      await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: { toDevice: 'd1', command: 'a' },
+      })
+      await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: { toDevice: 'd2', command: 'b' },
+      })
+      const res = await app.inject({ method: 'GET', url: '/api/tasks' })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.total).toBe(2)
+    })
+
+    it('传 since 返回 updatedAt > since 的增量任务(补拉断线期间错过的任务)', async () => {
+      // 任务 1:旧任务(createdAt 早于 since,应被过滤)
+      const oldRes = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: { toDevice: 'd1', command: 'old' },
+      })
+      const oldTask = oldRes.json().data.task
+      // 构造 since 为旧任务 updatedAt + 1ms(确保旧任务被过滤)
+      const sinceTs = Date.parse(oldTask.updatedAt) + 1
+
+      // 任务 2:新任务(createdAt 晚于 since,应被返回)
+      await new Promise((r) => setTimeout(r, 5))
+      const newRes = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: { toDevice: 'd2', command: 'new' },
+      })
+      const newTask = newRes.json().data.task
+
+      const res = await app.inject({ method: 'GET', url: `/api/tasks?since=${sinceTs}` })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data.total).toBe(1)
+      expect(body.data.tasks[0].id).toBe(newTask.id)
+      // 旧任务应被过滤
+      expect(body.data.tasks.find((t: { id: string }) => t.id === oldTask.id)).toBeUndefined()
+    })
+
+    it('since 过滤后无匹配任务返回空列表', async () => {
+      await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: { toDevice: 'd1', command: 'a' },
+      })
+      // since 设为未来时间戳,应无任务返回
+      const futureTs = Date.now() + 100_000
+      const res = await app.inject({ method: 'GET', url: `/api/tasks?since=${futureTs}` })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.total).toBe(0)
+    })
+
+    it('since 为负数返回 400', async () => {
+      const res = await app.inject({ method: 'GET', url: '/api/tasks?since=-1' })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().code).toBe(400)
+    })
+  })
+
+  // ===================== POST /tasks/:id/cancel =====================
+  describe('POST /api/tasks/:id/cancel', () => {
+    it('取消 pending 任务并返回 cancelled 状态 + WS 推送 task-cancelled', async () => {
+      const disp = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: { toDevice: 'd1', command: 'npm test' },
+      })
+      const taskId = disp.json().data.task.id
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/tasks/${taskId}/cancel`,
+        payload: {},
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data.task.id).toBe(taskId)
+      expect(body.data.task.status).toBe('cancelled')
+      expect(body.data.task.updatedAt).toBeTruthy()
+      // WS 推送 task-cancelled
+      expect(mockPushNotification).toHaveBeenCalledWith(
+        '1',
+        expect.objectContaining({
+          type: 'task-cancelled',
+          taskId,
+          deviceId: 'api',
+        }),
+      )
+    })
+
+    it('cancel body 为空也允许(可空 body)', async () => {
+      const disp = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: { toDevice: 'd1', command: 'ls' },
+      })
+      const taskId = disp.json().data.task.id
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/tasks/${taskId}/cancel`,
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.task.status).toBe('cancelled')
+    })
+
+    it('cancel 携带 reason 字段正常处理', async () => {
+      const disp = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: { toDevice: 'd1', command: 'ls' },
+      })
+      const taskId = disp.json().data.task.id
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/tasks/${taskId}/cancel`,
+        payload: { reason: '用户主动取消' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.task.status).toBe('cancelled')
+    })
+
+    it('取消 running 任务成功', async () => {
+      const disp = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: { toDevice: 'd1', command: 'ls' },
+      })
+      const taskId = disp.json().data.task.id
+      // 模拟 desktop 回传 running 状态
+      await app.inject({
+        method: 'POST',
+        url: '/api/tasks/result',
+        payload: { taskId, status: 'running' },
+      })
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/tasks/${taskId}/cancel`,
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.task.status).toBe('cancelled')
+    })
+
+    it('取消已 completed 任务返回 409', async () => {
+      const disp = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: { toDevice: 'd1', command: 'ls' },
+      })
+      const taskId = disp.json().data.task.id
+      await app.inject({
+        method: 'POST',
+        url: '/api/tasks/result',
+        payload: { taskId, status: 'completed', output: 'done' },
+      })
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/tasks/${taskId}/cancel`,
+      })
+      expect(res.statusCode).toBe(409)
+      expect(res.json().code).toBe(409)
+    })
+
+    it('取消已 cancelled 任务返回 409(幂等性拒绝)', async () => {
+      const disp = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: { toDevice: 'd1', command: 'ls' },
+      })
+      const taskId = disp.json().data.task.id
+      await app.inject({
+        method: 'POST',
+        url: `/api/tasks/${taskId}/cancel`,
+      })
+      // 再次取消应 409
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/tasks/${taskId}/cancel`,
+      })
+      expect(res.statusCode).toBe(409)
+      expect(res.json().code).toBe(409)
+    })
+
+    it('取消 failed 任务返回 409', async () => {
+      const disp = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: { toDevice: 'd1', command: 'ls' },
+      })
+      const taskId = disp.json().data.task.id
+      await app.inject({
+        method: 'POST',
+        url: '/api/tasks/result',
+        payload: { taskId, status: 'failed', error: 'boom' },
+      })
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/tasks/${taskId}/cancel`,
+      })
+      expect(res.statusCode).toBe(409)
+    })
+
+    it('任务不存在返回 404', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/no-such-task/cancel',
+      })
+      expect(res.statusCode).toBe(404)
+      expect(res.json().code).toBe(404)
+    })
+
+    it('reason 超长返回 400', async () => {
+      const disp = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: { toDevice: 'd1', command: 'ls' },
+      })
+      const taskId = disp.json().data.task.id
+      const res = await app.inject({
+        method: 'POST',
+        url: `/api/tasks/${taskId}/cancel`,
+        payload: { reason: 'x'.repeat(1_001) },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('cancel 后 GET /tasks 反映 cancelled 状态', async () => {
+      const disp = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/dispatch',
+        payload: { toDevice: 'd1', command: 'ls' },
+      })
+      const taskId = disp.json().data.task.id
+      await app.inject({
+        method: 'POST',
+        url: `/api/tasks/${taskId}/cancel`,
+      })
+      const list = await app.inject({ method: 'GET', url: '/api/tasks' })
+      const found = list.json().data.tasks.find((t: { id: string }) => t.id === taskId)
+      expect(found.status).toBe('cancelled')
+    })
   })
 
   // ===================== POST /tasks/register-device =====================

@@ -256,6 +256,24 @@ export default {
     loadPreview: '載入預覽',
     loadFailed: '載入預覽失敗',
     previewName: '預覽名稱',
+    componentTree: {
+      title: '組件樹',
+      empty: '畫布無元素',
+    },
+    comments: {
+      title: '評論',
+      empty: '請先儲存預覽以查看評論',
+      noComments: '暫無評論',
+      loadingFailed: '載入評論失敗',
+      send: '發送評論',
+    },
+    aiGenerate: {
+      button: 'AI 生成',
+      placeholder: '描述你想生成的頁面…',
+      generating: '生成中…',
+      success: '已生成並注入畫布',
+      failed: 'AI 生成失敗',
+    },
   },
   taskReceiver: {
     title: '任務接收',

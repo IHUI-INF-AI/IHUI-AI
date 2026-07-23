@@ -21,9 +21,11 @@ import type {
   SkillRating,
   SkillMarketListResponse,
   SkillInstallResponse,
+  SkillPublishRequest,
 } from '@ihui/shared'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
+import { config } from '../config/index.js'
 
 interface SkillRecord {
   name: string
@@ -196,6 +198,16 @@ const marketQuerySchema = z.object({
 const rateSchema = z.object({
   score: z.number().int().min(1).max(5),
   comment: z.string().max(2000).optional(),
+})
+
+const publishSchema = z.object({
+  name: z.string().min(1).max(64),
+  description: z.string().min(1).max(1024),
+  tags: z.array(z.string().max(32)).max(20).default([]),
+  author: z.string().min(1).max(64),
+  version: z.string().default('1.0.0'),
+  license: z.string().default('MIT'),
+  content: z.string().min(1).max(65536),
 })
 
 async function readMarket(
@@ -476,11 +488,12 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(response))
   })
 
-  // POST /skills/:name/install — 安装 skill(installCount++)
+  // POST /skills/:name/install — 安装 skill(installCount++ + 写入用户私有库 Hash)
   server.post<{ Params: { name: string } }>(
     '/skills/:name/install',
     async (request, reply) => {
       if (!(await checkAuth(request, reply))) return
+      const userId = request.userId!
 
       const parsed = nameParamSchema.safeParse(request.params)
       if (!parsed.success) {
@@ -497,6 +510,15 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       entry.updatedAt = new Date().toISOString()
       await writeMarket(server.redis, MARKET_KEY, entries)
 
+      // 写入用户私有库 Hash skills:<userId>,field=name,value=市场条目 JSON
+      // 让安装的 skill 真正落入用户库(刷新不丢 + 可被 Agent 调用)
+      // 失败不阻塞 install 响应(installCount++ 已生效),仅 warn
+      try {
+        await server.redis.hset(`skills:${userId}`, entry.name, JSON.stringify(entry))
+      } catch (e) {
+        request.log.warn({ err: e, userId, name: entry.name }, 'install: 写入用户私有库失败')
+      }
+
       const resp: SkillInstallResponse = {
         name: parsed.data.name,
         installed: true,
@@ -505,6 +527,46 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success(resp))
     },
   )
+
+  // POST /skills/market — 发布 skill 到市场(用户上架自己的 skill)
+  server.post('/skills/market', async (request: FastifyRequest, reply: FastifyReply) => {
+    // 内部服务调用(self-evolution 自进化同步)可通过 X-Internal-Secret 绕过 JWT
+    const internalSecret = request.headers['x-internal-secret']
+    const isInternal = !!config.AI_CALLBACK_SECRET && internalSecret === config.AI_CALLBACK_SECRET
+    if (!isInternal) {
+      if (!(await checkAuth(request, reply))) return
+    }
+
+    const parsed = publishSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const body = parsed.data as SkillPublishRequest
+
+    const entries = await readMarket(server.redis, MARKET_KEY)
+    if (entries.some((e) => e.name === body.name)) {
+      return reply.status(409).send(error(409, '同名 Skill 已存在于市场'))
+    }
+
+    const now = new Date().toISOString()
+    const entry: SkillMarketEntry = {
+      name: body.name,
+      description: body.description,
+      tags: body.tags,
+      author: body.author,
+      version: body.version,
+      license: body.license,
+      installCount: 0,
+      rating: 0,
+      ratingCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    }
+    entries.push(entry)
+    await writeMarket(server.redis, MARKET_KEY, entries)
+
+    return reply.status(201).send(success(entry))
+  })
 
   // POST /skills/:name/rate — 评分(score 1-5)
   server.post<{ Params: { name: string } }>(
