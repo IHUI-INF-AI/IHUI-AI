@@ -12,4 +12,19 @@ export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
+  /** 用户消息可携带附件(图片 base64 / 文本内容),AI 回复无附件。 */
+  attachments?: ChatAttachment[]
+}
+
+export interface ChatAttachment {
+  /** 文件名(显示用)。 */
+  name: string
+  /** MIME 类型(image/png / text/plain 等)。 */
+  mime: string
+  /** 文件大小(字节)。 */
+  size: number
+  /** 文件内容:图片用 base64 data URL,文本用纯文本内容,其他二进制用 base64。 */
+  data: string
+  /** 是否为图片(用于 UI 渲染判断)。 */
+  isImage: boolean
 }
