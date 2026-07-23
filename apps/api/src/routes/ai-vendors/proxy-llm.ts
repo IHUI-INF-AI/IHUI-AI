@@ -27,7 +27,7 @@ const dashscopeImageEditBody = z.object({
 
 const dashscopeAgentBody = z.object({
   agentId: z.string().optional(),
-  messages: z.array(z.unknown()).optional(),
+  messages: z.array(z.unknown()).max(100).optional(),
 })
 
 const doubaoImageEditBody = z.object({

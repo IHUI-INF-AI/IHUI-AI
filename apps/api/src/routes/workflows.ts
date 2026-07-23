@@ -58,7 +58,7 @@ const createWorkflowSchema = z.object({
   description: z.string().max(2000).optional(),
   triggerType: z.enum(TRIGGER_TYPES).default('manual'),
   triggerConfig: z.any().optional(),
-  steps: z.array(z.any()).min(1, '至少需要一个步骤'),
+  steps: z.array(z.any()).min(1, '至少需要一个步骤').max(100),
 });
 
 const updateWorkflowSchema = z.object({
@@ -66,7 +66,7 @@ const updateWorkflowSchema = z.object({
   description: z.string().max(2000).optional(),
   triggerType: z.enum(TRIGGER_TYPES).optional(),
   triggerConfig: z.any().optional(),
-  steps: z.array(z.any()).optional(),
+  steps: z.array(z.any()).max(100).optional(),
   isActive: z.boolean().optional(),
 });
 
