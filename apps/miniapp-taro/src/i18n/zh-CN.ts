@@ -1072,9 +1072,22 @@ export default {
       confirm: '确认',
     },
     team: {
-      joinTime: '加入时间:{{time}}',
+      title: '我的团队',
+      member: '成员',
+      searchPlaceholder: '搜索我的团友',
+      totalMembers: '团队总人数',
+      sortByOrderNum: '成交订单数',
+      sortByDate: '邀请时间',
+      transactionVolume: '成交额',
+      commission: '获取佣金',
+      orderNum: '成交订单数',
+      joinTime: '邀请时间',
+      viewSubordinates: '查看下级',
       empty: '暂无团队成员',
       loading: '加载中…',
+      noMore: '没有更多了',
+      error: '加载失败',
+      retry: '点击重试',
     },
     commission: {
       total: '累计佣金',
@@ -1493,6 +1506,13 @@ export default {
     empty: '暂无资讯',
     loading: '加载中…',
     readCount: '{{n}}阅读',
+    detail: {
+      like: '点赞',
+      comment: '评论',
+      share: '分享',
+      related: '相关推荐',
+      commentSoon: '评论功能即将开放',
+    },
   },
   plaza: {
     setNeed: {
