@@ -146,6 +146,11 @@ export default function ChatPage({ onLogout }: Props) {
   // messages ref:onDone 闭包需要拿最新值持久化(streaming 累积的内容不在闭包内 messages 里)
   const messagesRef = useRef<ChatMessage[]>([])
   messagesRef.current = messages
+  // AbortController ref:onStop 真正 abort 流式请求(不是只 setStreaming(false))
+  const abortRef = useRef<AbortController | null>(null)
+  // 消息编辑(inline edit + resend)
+  const [editingMsgId, setEditingMsgId] = useState<string | null>(null)
+  const [editContent, setEditContent] = useState('')
 
   // 对话导出菜单
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
@@ -486,12 +491,13 @@ export default function ChatPage({ onLogout }: Props) {
     setAttachments((cur) => cur.filter((_, i) => i !== idx))
   }
 
-  /** 启动流式聊天(共享给 onSend / onRegenerate)。 */
+  /** 启动流式聊天(共享给 onSend / onRegenerate / onSubmitEdit)。 */
   const runStream = async (next: ChatMessage[]) => {
     setStreaming(true)
     setError('')
     setNotice('')
     const controller = new AbortController()
+    abortRef.current = controller
     const timeoutId = window.setTimeout(() => controller.abort(), 15_000)
     const opts: StreamChatOptions = {
       model,
@@ -552,6 +558,8 @@ export default function ChatPage({ onLogout }: Props) {
       const formatted = formatSSEError(err)
       setError(formatted.message)
       setStreaming(false)
+    } finally {
+      abortRef.current = null
     }
   }
 
@@ -610,7 +618,44 @@ export default function ChatPage({ onLogout }: Props) {
     await runStream(next)
   }
 
-  const onStop = () => setStreaming(false)
+  const onStop = () => {
+    abortRef.current?.abort()
+    setStreaming(false)
+  }
+
+  /** 开始编辑用户消息:inline 编辑,重发后删除其后所有消息(含 AI 回复)。 */
+  const onStartEdit = (m: ChatMessage) => {
+    if (streaming) return
+    setEditingMsgId(m.id)
+    setEditContent(m.content)
+  }
+
+  const onCancelEdit = () => {
+    setEditingMsgId(null)
+    setEditContent('')
+  }
+
+  /** 提交编辑:用编辑后内容替换原消息,删除其后所有消息,加空 AI 占位,重发。 */
+  const onSubmitEdit = async () => {
+    if (!editingMsgId || streaming) return
+    const text = editContent.trim()
+    if (!text) return
+    const editIdx = messages.findIndex((m) => m.id === editingMsgId)
+    if (editIdx === -1) {
+      setEditingMsgId(null)
+      return
+    }
+    const retained = messages.slice(0, editIdx)
+    const next: ChatMessage[] = [
+      ...retained,
+      { id: `u-${Date.now()}`, role: 'user', content: text },
+      { id: `a-${Date.now()}`, role: 'assistant', content: '' },
+    ]
+    setMessages(next)
+    setEditingMsgId(null)
+    setEditContent('')
+    await runStream(next)
+  }
 
   const onClear = () => {
     if (streaming) return
@@ -630,7 +675,7 @@ export default function ChatPage({ onLogout }: Props) {
       ) : null}
       <div className="chat-main">
         <header className="page-header">
-          <h2>AI 对话</h2>
+          <h2>{t('chat.title')}</h2>
           <div className="header-actions">
             <select
               className="model-select"
@@ -694,7 +739,7 @@ export default function ChatPage({ onLogout }: Props) {
               {t('chat.clear')}
             </button>
             <button type="button" onClick={onLogout}>
-              退出登录
+              {t('auth.logout')}
             </button>
           </div>
         </header>
@@ -744,10 +789,10 @@ export default function ChatPage({ onLogout }: Props) {
       >
         {messages.length === 0 ? (
           <div className="empty-state">
-            输入消息开始对话
+            {t('chat.emptyState')}
             <br />
             <span className="empty-state-hint">
-              支持拖拽文件 / 粘贴图片 / 点击 📎 按钮选择文件
+              {t('desktop.dragHint')}
             </span>
           </div>
         ) : filteredMessages.length === 0 && searchQuery ? (
@@ -761,7 +806,30 @@ export default function ChatPage({ onLogout }: Props) {
                 {m.role === 'user' ? t('chat.roleUser') : t('chat.roleAI')}
               </span>
               <div className="content">
-                {m.role === 'assistant' ? (
+                {editingMsgId === m.id ? (
+                  <div className="msg-edit-form">
+                    <textarea
+                      className="msg-edit-textarea"
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      autoFocus
+                      rows={3}
+                      aria-label={t('chat.edit')}
+                    />
+                    <div className="msg-edit-actions">
+                      <button
+                        type="button"
+                        onClick={() => void onSubmitEdit()}
+                        disabled={!editContent.trim() || streaming}
+                      >
+                        {t('common.save')}
+                      </button>
+                      <button type="button" onClick={onCancelEdit}>
+                        {t('common.cancel')}
+                      </button>
+                    </div>
+                  </div>
+                ) : m.role === 'assistant' ? (
                   m.content ? (
                     <MarkdownRenderer content={m.content} />
                   ) : (
@@ -792,7 +860,7 @@ export default function ChatPage({ onLogout }: Props) {
                   </div>
                 ) : null}
               </div>
-              {m.content ? (
+              {m.content && editingMsgId !== m.id ? (
                 <button
                   type="button"
                   className="msg-copy-btn"
@@ -801,6 +869,17 @@ export default function ChatPage({ onLogout }: Props) {
                   title={t('chat.copyMessage')}
                 >
                   {copiedMsgId === m.id ? t('chat.copied') : t('chat.copy')}
+                </button>
+              ) : null}
+              {m.role === 'user' && m.content && editingMsgId !== m.id && !streaming ? (
+                <button
+                  type="button"
+                  className="msg-edit-btn"
+                  onClick={() => onStartEdit(m)}
+                  aria-label={t('chat.edit')}
+                  title={t('chat.editHint')}
+                >
+                  {t('chat.edit')}
                 </button>
               ) : null}
               {m.role === 'assistant' && m.content && m.id === lastAssistantId && !streaming ? (
@@ -841,7 +920,7 @@ export default function ChatPage({ onLogout }: Props) {
                 type="button"
                 className="attachment-remove"
                 onClick={() => onRemoveAttachment(idx)}
-                aria-label="移除附件"
+                aria-label={t('desktop.removeAttachment')}
                 disabled={streaming}
               >
                 ×
@@ -863,8 +942,8 @@ export default function ChatPage({ onLogout }: Props) {
           className="attach-btn"
           onClick={() => void onPickFile()}
           disabled={busyFile || streaming}
-          aria-label="添加附件"
-          title="选择本地文件(图片/文本/PDF)"
+          aria-label={t('desktop.attachFile')}
+          title={t('desktop.attachFile')}
         >
           {busyFile ? '⏳' : '📎'}
         </button>
@@ -876,17 +955,17 @@ export default function ChatPage({ onLogout }: Props) {
           onPaste={(e) => {
             void onPaste(e)
           }}
-          placeholder={attachments.length > 0 ? '输入消息内容(附件已就绪)...' : '说点什么...'}
+          placeholder={attachments.length > 0 ? t('chat.placeholderWithAttachments') : t('chat.placeholder')}
           disabled={streaming}
           autoFocus
         />
         {streaming ? (
           <button type="button" onClick={onStop}>
-            停止
+            {t('chat.stop')}
           </button>
         ) : (
           <button type="submit" disabled={!input.trim() && attachments.length === 0}>
-            发送
+            {t('chat.send')}
           </button>
         )}
       </form>
