@@ -9,6 +9,7 @@ import { fetchApi } from '@ihui/api-client'
 import { UpdateChecker } from '../components/UpdateChecker'
 import { enableAutostart, disableAutostart, isAutostartEnabled, resetWindowState } from '../lib/desktop'
 import { useTheme, type Theme } from '../hooks/use-theme'
+import { useFontSize, MIN_SCALE, MAX_SCALE } from '../hooks/use-font-size'
 
 interface Ctx {
   onLogout: () => void
@@ -59,6 +60,7 @@ export default function SettingsPage() {
   const { onLogout } = useOutletContext<Ctx>()
   const { locale, setLocale, t } = useI18n()
   const { theme, setTheme } = useTheme()
+  const { scale, zoomIn, zoomOut, reset: resetFontSize } = useFontSize()
   const [importSource, setImportSource] = useState<string>('cc-switch')
   const [importBusy, setImportBusy] = useState(false)
   const [importMsg, setImportMsg] = useState<string>('')
@@ -203,6 +205,21 @@ export default function SettingsPage() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="setting-row">
+              <span>{t('setting.fontSize')}</span>
+              <div className="font-size-controls">
+                <button type="button" onClick={zoomOut} disabled={scale <= MIN_SCALE} aria-label={t('setting.fontZoomOut')}>
+                  −
+                </button>
+                <span className="font-size-value">{Math.round(scale * 100)}%</span>
+                <button type="button" onClick={zoomIn} disabled={scale >= MAX_SCALE} aria-label={t('setting.fontZoomIn')}>
+                  +
+                </button>
+                <button type="button" onClick={resetFontSize} disabled={scale === 1} className="btn-secondary" aria-label={t('setting.fontReset')}>
+                  {t('setting.fontReset')}
+                </button>
+              </div>
             </div>
           </CardContent>
         </Card>

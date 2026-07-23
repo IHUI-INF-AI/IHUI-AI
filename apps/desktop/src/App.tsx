@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-route
 import { listen } from '@tauri-apps/api/event'
 import { getProfile, type AuthUser } from '@ihui/api-client'
 import { initApi, getToken } from './lib/token'
+import { useFontSize } from './hooks/use-font-size'
 import { useAgentControlBridge } from './hooks/use-agent-control-bridge'
 import { NotificationProvider, useNotificationStore } from './stores/notification'
 import { I18nProvider, useI18n } from './i18n'
@@ -105,6 +106,7 @@ function AppInner() {
         </Route>
       </Routes>
       <DeepLinkHandler />
+      <FontSizeShortcutHandler />
       <NotificationPanel />
       <DesktopWorkPanel />
     </BrowserRouter>
@@ -148,5 +150,28 @@ function DeepLinkHandler() {
       unlisten?.()
     }
   }, [navigate])
+  return null
+}
+
+/** 全局字号快捷键:Ctrl + / Ctrl - / Ctrl 0(放大/缩小/重置)。 */
+function FontSizeShortcutHandler() {
+  const { zoomIn, zoomOut, reset } = useFontSize()
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault()
+        zoomIn()
+      } else if (e.key === '-' || e.key === '_') {
+        e.preventDefault()
+        zoomOut()
+      } else if (e.key === '0') {
+        e.preventDefault()
+        reset()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [zoomIn, zoomOut, reset])
   return null
 }
