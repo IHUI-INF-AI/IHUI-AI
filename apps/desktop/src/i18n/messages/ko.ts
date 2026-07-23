@@ -105,6 +105,18 @@ export default {
     theme: '테마',
     about: 'IHUI AI 정보',
   },
+  update: {
+    title: '소프트웨어 업데이트',
+    check: '업데이트 확인',
+    checking: '확인 중…',
+    available: '새 버전 {{version}} 사용 가능',
+    download: '다운로드 및 설치',
+    downloading: '다운로드 중…',
+    done: '업데이트 설치 완료, 재시작 필요',
+    latest: '최신 버전입니다',
+    error: '업데이트 실패',
+    idle: '클릭하여 업데이트 확인',
+  },
   error: {
     network: '네트워크 오류',
     server: '서버 오류',
