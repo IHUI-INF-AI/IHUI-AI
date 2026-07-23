@@ -1,51 +1,188 @@
 .page {
-  min-height: 100vh;
-  background: var(--color-background);
   display: flex;
   flex-direction: column;
+  height: 100vh;
+  background: var(--color-background);
 }
-.chat-area {
-  flex: 1;
-  padding: 24rpx;
-  overflow-y: auto;
-}
-.msg {
+
+.header {
   display: flex;
-  margin-bottom: 24rpx;
-}
-.msg.user {
-  justify-content: flex-end;
-}
-.msg-text {
-  max-width: 70%;
-  padding: 20rpx 24rpx;
-  border-radius: 16rpx;
-  font-size: 28rpx;
-  line-height: 1.6;
-}
-.msg.assistant .msg-text {
+  align-items: center;
+  justify-content: space-between;
+  padding: 120rpx 32rpx 24rpx;
   background: var(--color-card);
+}
+.header-title {
+  font-size: 34rpx;
+  font-weight: 600;
   color: var(--color-foreground);
 }
-.msg.user .msg-text {
+.header-clear {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+
+.chat-area {
+  flex: 1;
+  padding: 24rpx 32rpx;
+}
+
+.msg {
+  display: flex;
+  margin-bottom: 32rpx;
+  align-items: flex-start;
+}
+.msg.user {
+  flex-direction: row-reverse;
+}
+.avatar {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22rpx;
+  color: var(--color-foreground);
+  flex-shrink: 0;
+}
+.msg.user .avatar {
+  background: var(--color-primary);
+}
+.msg.assistant .avatar {
+  background: #4cd964;
+}
+.bubble {
+  max-width: 70%;
+  margin: 0 20rpx;
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+}
+.msg.user .bubble {
+  background: var(--color-primary);
+}
+.msg.assistant .bubble {
+  background: var(--color-card);
+}
+.bubble-text {
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: var(--color-foreground);
+}
+
+.voice-bubble {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+.voice-icon {
+  font-size: 32rpx;
+  color: var(--color-foreground);
+}
+.voice-duration {
+  font-size: 24rpx;
+  color: var(--color-foreground);
+}
+
+.wave-anim {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+  height: 40rpx;
+}
+.wave-bar {
+  width: 6rpx;
+  height: 12rpx;
+  background: var(--color-foreground);
+  border-radius: 3rpx;
+  animation: wave-pulse 0.8s ease-in-out infinite;
+}
+.wave-bar-1 { animation-delay: 0s; }
+.wave-bar-2 { animation-delay: 0.1s; }
+.wave-bar-3 { animation-delay: 0.2s; }
+.wave-bar-4 { animation-delay: 0.3s; }
+.wave-bar-5 { animation-delay: 0.4s; }
+.wave-bar-6 { animation-delay: 0.15s; }
+.wave-bar-7 { animation-delay: 0.25s; }
+@keyframes wave-pulse {
+  0%, 100% { height: 12rpx; }
+  50% { height: 36rpx; }
+}
+
+.thinking {
+  display: flex;
+  gap: 8rpx;
+  align-items: center;
+}
+.thinking-dot {
+  font-size: 40rpx;
+  color: var(--color-muted-foreground);
+  animation: think-blink 1.4s ease-in-out infinite;
+}
+.thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes think-blink {
+  0%, 60%, 100% { opacity: 0.3; }
+  30% { opacity: 1; }
+}
+
+.settings {
+  padding: 16rpx 32rpx;
+  background: var(--color-card);
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+.setting-row:last-child {
+  margin-bottom: 0;
+}
+.setting-label {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  width: 64rpx;
+}
+.chip {
+  padding: 6rpx 20rpx;
+  background: var(--color-background);
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.chip.active {
   background: var(--color-primary);
   color: var(--color-foreground);
 }
+
 .input-bar {
   padding: 24rpx 32rpx;
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
-  border-top: 2rpx solid var(--color-border);
 }
 .voice-btn {
-  height: 100rpx;
-  line-height: 100rpx;
-  text-align: center;
+  height: 120rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16rpx;
   background: var(--color-background);
-  border-radius: 12rpx;
-  font-size: 28rpx;
-  color: var(--color-foreground);
+  border-radius: 16rpx;
 }
 .voice-btn.recording {
   background: var(--color-destructive);
+}
+.voice-btn-wave {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  height: 48rpx;
+}
+.voice-btn.recording .wave-bar {
+  background: var(--color-foreground);
+}
+.voice-btn-text {
+  font-size: 28rpx;
   color: var(--color-foreground);
 }
