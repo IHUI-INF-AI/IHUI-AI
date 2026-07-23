@@ -3,45 +3,45 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
     },
     "./auth/*": {
-      "types": "./dist/auth/*.d.ts",
-      "import": "./dist/auth/*.js"
+      "types": "./src/auth/*.ts",
+      "import": "./src/auth/*.ts"
     },
     "./notifications/*": {
-      "types": "./dist/notifications/*.d.ts",
-      "import": "./dist/notifications/*.js"
+      "types": "./src/notifications/*.ts",
+      "import": "./src/notifications/*.ts"
     },
     "./validation/*": {
-      "types": "./dist/validation/*.d.ts",
-      "import": "./dist/validation/*.js"
+      "types": "./src/validation/*.ts",
+      "import": "./src/validation/*.ts"
     },
     "./workflows/*": {
-      "types": "./dist/workflows/*.d.ts",
-      "import": "./dist/workflows/*.js"
+      "types": "./src/workflows/*.ts",
+      "import": "./src/workflows/*.ts"
     },
     "./utils/*": {
-      "types": "./dist/utils/*.d.ts",
-      "import": "./dist/utils/*.js"
+      "types": "./src/utils/*.ts",
+      "import": "./src/utils/*.ts"
     },
     "./skills/*": {
-      "types": "./dist/skills/*.d.ts",
-      "import": "./dist/skills/*.js"
+      "types": "./src/skills/*.ts",
+      "import": "./src/skills/*.ts"
     },
     "./tasks/*": {
-      "types": "./dist/tasks/*.d.ts",
-      "import": "./dist/tasks/*.js"
+      "types": "./src/tasks/*.ts",
+      "import": "./src/tasks/*.ts"
     },
     "./design/*": {
-      "types": "./dist/design/*.d.ts",
-      "import": "./dist/design/*.js"
+      "types": "./src/design/*.ts",
+      "import": "./src/design/*.ts"
     }
   },
   "scripts": {
