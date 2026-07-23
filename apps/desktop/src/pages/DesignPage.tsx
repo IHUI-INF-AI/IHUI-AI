@@ -24,6 +24,14 @@ import { createComment, exportCode, generateHtml, listComments } from '../lib/de
 import type { ExportFormat } from '../lib/code-exporter'
 import { applySnap, computeGuides } from '../lib/alignment-guides'
 import type { ElementRect } from '../lib/alignment-guides'
+import {
+  DEFAULT_CUSTOM_WIDTH,
+  DEFAULT_DEVICE_ID,
+  RESPONSIVE_DEVICES,
+  getDeviceRadius,
+} from '../lib/responsive-devices'
+import type { ResponsiveDeviceIcon } from '../lib/responsive-devices'
+import { DESIGN_TEMPLATES } from '../lib/design-templates'
 
 type CssGroupId = 'layout' | 'boxModel' | 'typography' | 'background' | 'effects' | 'responsive'
 type CssPropType = 'text' | 'number' | 'select' | 'color'
@@ -330,6 +338,41 @@ function TreeView({
   )
 }
 
+/** 设备图标:phone/tablet 横屏时旋转 90°,desktop/custom 不旋转。 */
+function DeviceIcon({ icon, rotate }: { icon: ResponsiveDeviceIcon; rotate: boolean }) {
+  const transform = rotate ? 'rotate(90deg)' : undefined
+  if (icon === 'phone') {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform }} aria-hidden="true">
+        <rect x="5" y="2" width="14" height="20" rx="2" />
+        <line x1="12" y1="18" x2="12" y2="18" />
+      </svg>
+    )
+  }
+  if (icon === 'tablet') {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform }} aria-hidden="true">
+        <rect x="4" y="2" width="16" height="20" rx="2" />
+        <line x1="12" y1="18" x2="12" y2="18" />
+      </svg>
+    )
+  }
+  if (icon === 'desktop') {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <line x1="8" y1="21" x2="16" y2="21" />
+        <line x1="12" y1="17" x2="12" y2="21" />
+      </svg>
+    )
+  }
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4" />
+    </svg>
+  )
+}
+
 /** 把 rgb()/rgba() 转 #hex,便于 <input type="color"> 回填;非颜色值原样返回。 */
 function normalizeColorHex(v: string): string {
   if (!v) return ''
@@ -520,8 +563,27 @@ export default function DesignPage({ onComment }: DesignPageProps) {
   const [exportMsg, setExportMsg] = useState('')
   const exportRef = useRef<HTMLDivElement>(null)
 
+  // 响应式预览相关(P2-b):设备切换 + 自定义宽度 + 设备外框开关
+  const [selectedDeviceId, setSelectedDeviceId] = useState(DEFAULT_DEVICE_ID)
+  const [customWidth, setCustomWidth] = useState(DEFAULT_CUSTOM_WIDTH)
+  const [customWidthInput, setCustomWidthInput] = useState(String(DEFAULT_CUSTOM_WIDTH))
+  const [customInputOpen, setCustomInputOpen] = useState(false)
+  const [showDeviceFrame, setShowDeviceFrame] = useState(true)
+  const customInputRef = useRef<HTMLDivElement>(null)
+
+  // 模板库相关(P2-a):8 个行业模板,点击应用 setHtml + pushHistory
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
+
   const srcDoc = useMemo(() => buildSrcDoc(renderedHtml, isDark), [renderedHtml, isDark])
   const tree = useMemo(() => parseHtmlToTree(renderedHtml), [renderedHtml])
+
+  const currentDevice = useMemo(
+    () => RESPONSIVE_DEVICES.find((d) => d.id === selectedDeviceId) ?? RESPONSIVE_DEVICES[4]!,
+    [selectedDeviceId],
+  )
+  const currentWidth = currentDevice.id === 'custom' ? customWidth : currentDevice.width
+  const deviceRadius = getDeviceRadius(currentDevice.category)
+  const showFrame = showDeviceFrame && currentDevice.category !== 'desktop'
 
   const historyRef = useRef(history)
   historyRef.current = history
@@ -822,6 +884,35 @@ export default function DesignPage({ onComment }: DesignPageProps) {
     return () => document.removeEventListener('mousedown', handler)
   }, [exportMenuOpen])
 
+  useEffect(() => {
+    if (!customInputOpen) return
+    const handler = (e: MouseEvent) => {
+      if (customInputRef.current && !customInputRef.current.contains(e.target as Node)) {
+        setCustomInputOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [customInputOpen])
+
+  const onApplyCustomWidth = () => {
+    const parsed = parseInt(customWidthInput, 10)
+    if (Number.isFinite(parsed) && parsed >= 200 && parsed <= 3840) {
+      setCustomWidth(parsed)
+      setCustomInputOpen(false)
+    }
+  }
+
+  const onSelectDevice = (deviceId: string) => {
+    setSelectedDeviceId(deviceId)
+    if (deviceId === 'custom') {
+      setCustomWidthInput(String(customWidth))
+      setCustomInputOpen(true)
+    } else {
+      setCustomInputOpen(false)
+    }
+  }
+
   /** 导出代码:把画布 HTML 转为 React/Vue/HTML 组件并触发下载。 */
   const onExport = async (format: ExportFormat) => {
     setExportMenuOpen(false)
@@ -835,6 +926,15 @@ export default function DesignPage({ onComment }: DesignPageProps) {
     }
   }
 
+  /** 应用模板:setHtml + setRenderedHtml + pushHistory + 清选中 + 关闭 Dialog。 */
+  const onApplyTemplate = useCallback((templateHtml: string) => {
+    setHtml(templateHtml)
+    setRenderedHtml(templateHtml)
+    pushHistory(templateHtml)
+    setSelected(null)
+    setTemplateDialogOpen(false)
+  }, [pushHistory])
+
   const canUndo = history.index > 0
   const canRedo = history.index < history.stack.length - 1
 
@@ -843,6 +943,31 @@ export default function DesignPage({ onComment }: DesignPageProps) {
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>{t('design.title')}</h2>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={() => setTemplateDialogOpen(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            aria-label={t('design.templates.title')}
+            title={t('design.templates.title')}
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="3" y="3" width="7" height="9" rx="1" />
+              <rect x="14" y="3" width="7" height="5" rx="1" />
+              <rect x="14" y="12" width="7" height="9" rx="1" />
+              <rect x="3" y="16" width="7" height="5" rx="1" />
+            </svg>
+            <span>{t('design.templates.title')}</span>
+          </button>
           <input
             value={aiPrompt}
             onChange={(e) => setAiPrompt(e.target.value)}
@@ -961,6 +1086,87 @@ export default function DesignPage({ onComment }: DesignPageProps) {
               </div>
             )}
           </div>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '0 6px' }}>
+            {RESPONSIVE_DEVICES.map((device) => {
+              const isLandscape = device.id === 'mobile-landscape' || device.id === 'tablet-landscape'
+              const isSelected = selectedDeviceId === device.id
+              const title = device.width > 0
+                ? `${t(device.nameKey)} (${device.width}×${device.height})`
+                : t(device.nameKey)
+              return (
+                <button
+                  key={device.id}
+                  type="button"
+                  onClick={() => onSelectDevice(device.id)}
+                  title={title}
+                  aria-label={title}
+                  aria-pressed={isSelected}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 32,
+                    height: 28,
+                    padding: 0,
+                    border: '1px solid var(--border)',
+                    borderRadius: 6,
+                    background: isSelected ? 'var(--accent-soft, rgba(0,0,0,0.06))' : 'transparent',
+                    cursor: 'pointer',
+                    color: 'var(--text, inherit)',
+                  }}
+                >
+                  <DeviceIcon icon={device.icon} rotate={isLandscape} />
+                </button>
+              )
+            })}
+            {customInputOpen && (
+              <div
+                ref={customInputRef}
+                style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              >
+                <input
+                  type="number"
+                  value={customWidthInput}
+                  onChange={(e) => setCustomWidthInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') onApplyCustomWidth() }}
+                  min={200}
+                  max={3840}
+                  placeholder={t('design.responsive.customWidth')}
+                  style={{ width: 80, fontSize: 12 }}
+                  aria-label={t('design.responsive.customWidth')}
+                />
+                <button
+                  type="button"
+                  onClick={onApplyCustomWidth}
+                  style={{ fontSize: 11, padding: '2px 8px', border: '1px solid var(--border)', borderRadius: 4, background: 'transparent', cursor: 'pointer', color: 'var(--text, inherit)' }}
+                >
+                  {t('design.responsive.apply')}
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowDeviceFrame((v) => !v)}
+              title={t('design.responsive.deviceFrame')}
+              aria-label={t('design.responsive.deviceFrame')}
+              aria-pressed={showDeviceFrame}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: 28,
+                padding: '0 8px',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                background: showDeviceFrame ? 'var(--accent-soft, rgba(0,0,0,0.06))' : 'transparent',
+                fontSize: 11,
+                cursor: 'pointer',
+                color: 'var(--text, inherit)',
+              }}
+            >
+              {t('design.responsive.deviceFrame')}
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => setGuidesEnabled((v) => !v)}
@@ -1072,14 +1278,32 @@ export default function DesignPage({ onComment }: DesignPageProps) {
           </div>
         </section>
 
-        {/* 中:iframe 画布 */}
-        <section style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <iframe
-            ref={iframeRef}
-            srcDoc={srcDoc}
-            title="design-preview"
-            style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--card)' }}
-          />
+        {/* 中:iframe 画布(响应式预览:wrapper 控制最大宽度 + 居中 + 可选设备外框) */}
+        <section style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', padding: 8 }}>
+          <div
+            style={{
+              width: '100%',
+              maxWidth: currentWidth,
+              margin: '0 auto',
+              flex: '1 1 auto',
+              minHeight: 0,
+              border: '1px solid var(--border)',
+              borderRadius: showFrame ? deviceRadius : 8,
+              overflow: 'hidden',
+              background: 'var(--card)',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: showFrame ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
+              transition: 'max-width 0.2s ease, border-radius 0.2s ease',
+            }}
+          >
+            <iframe
+              ref={iframeRef}
+              srcDoc={srcDoc}
+              title="design-preview"
+              style={{ flex: 1, border: 'none', background: 'var(--card)', width: '100%', height: '100%' }}
+            />
+          </div>
         </section>
 
         {/* 右:tab(CSS / 评论) */}
@@ -1221,6 +1445,91 @@ export default function DesignPage({ onComment }: DesignPageProps) {
           )}
         </section>
       </div>
+
+      {/* 模板库 Dialog(P2-a):网格展示 8 个模板卡片,点击应用 */}
+      {templateDialogOpen && (
+        <div
+          onClick={() => setTemplateDialogOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 50,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0,0,0,0.4)',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(720px, 90vw)',
+              maxHeight: '80vh',
+              overflow: 'auto',
+              background: 'var(--card)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: 16,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t('design.templates.title')}</h3>
+              <button
+                type="button"
+                onClick={() => setTemplateDialogOpen(false)}
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 18, color: 'var(--muted)', lineHeight: 1 }}
+                aria-label={t('common.close')}
+              >
+                ×
+              </button>
+            </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+                gap: 8,
+              }}
+            >
+              {DESIGN_TEMPLATES.map((tpl) => (
+                <button
+                  key={tpl.id}
+                  type="button"
+                  onClick={() => onApplyTemplate(tpl.html)}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 4,
+                    padding: 10,
+                    textAlign: 'left',
+                    border: '1px solid var(--border)',
+                    borderRadius: 6,
+                    background: 'var(--card)',
+                    cursor: 'pointer',
+                    color: 'var(--text, inherit)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--accent-soft, rgba(0,0,0,0.04))'
+                    e.currentTarget.style.borderColor = 'var(--accent, hsl(142 71% 45%))'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'var(--card)'
+                    e.currentTarget.style.borderColor = 'var(--border)'
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>{t(tpl.nameKey)}</span>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>{t(tpl.descriptionKey)}</span>
+                  <span style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>
+                    {t(`design.templates.categories.${tpl.category}`)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -5,6 +5,19 @@
 
 export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 
+/**
+ * 跨端文件传输载荷(2026-07-24 立,P2-c 跨端文件传输缺口)。
+ * mobile-rn 下发 → api 存储 + WS 推送 → desktop 接收 + 下载。
+ * content 为 base64 编码字符串,大小限制 1MB(解码后字节数)。
+ */
+export interface TaskFilePayload {
+  filename: string
+  size: number
+  mimeType: string
+  /** base64 编码的文件内容 */
+  content: string
+}
+
 export interface TaskDispatch {
   id: string
   userId: number
@@ -15,6 +28,8 @@ export interface TaskDispatch {
   createdAt: string
   updatedAt: string
   result?: TaskResult
+  /** 可选附件(2026-07-24 立,P2-c 跨端文件传输) */
+  filePayload?: TaskFilePayload
 }
 
 export interface TaskResult {
@@ -28,6 +43,8 @@ export interface TaskResult {
 export interface TaskDispatchRequest {
   toDevice: string
   command: string
+  /** 可选附件(2026-07-24 立,P2-c 跨端文件传输) */
+  filePayload?: TaskFilePayload
 }
 
 export interface TaskDispatchResponse {

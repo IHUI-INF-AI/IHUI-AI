@@ -33,13 +33,17 @@ import { skillsRoutes } from '../src/routes/skills.js'
 
 const MARKET_KEY = 'skills-market:global'
 
-/** 进程内 Redis mock:store(字符串 KV)+ hashes(Hash 结构,本文件未用但保持一致) */
+/** 进程内 Redis mock:store(KV)+ hashes(Hash)+ sets(Set)+ lists(List) */
 function createMockRedis() {
   const store = new Map<string, string>()
   const hashes = new Map<string, Map<string, string>>()
+  const sets = new Map<string, Set<string>>()
+  const lists = new Map<string, string[]>()
   return {
     store,
     hashes,
+    sets,
+    lists,
     get: vi.fn(async (k: string) => store.get(k) ?? null),
     set: vi.fn(async (k: string, v: string) => {
       store.set(k, v)
@@ -63,6 +67,47 @@ function createMockRedis() {
       let n = 0
       for (const f of fs) if (h.delete(f)) n++
       return n
+    }),
+    // Set 操作
+    sadd: vi.fn(async (k: string, ...members: string[]) => {
+      if (!sets.has(k)) sets.set(k, new Set())
+      const s = sets.get(k)!
+      for (const m of members) s.add(m)
+      return members.length
+    }),
+    srem: vi.fn(async (k: string, ...members: string[]) => {
+      const s = sets.get(k)
+      if (!s) return 0
+      let n = 0
+      for (const m of members) if (s.delete(m)) n++
+      return n
+    }),
+    sismember: vi.fn(async (k: string, m: string) => {
+      return sets.get(k)?.has(m) ? 1 : 0
+    }),
+    smembers: vi.fn(async (k: string) => {
+      return Array.from(sets.get(k) ?? [])
+    }),
+    // List 操作
+    lpush: vi.fn(async (k: string, v: string) => {
+      const arr = lists.get(k) ?? []
+      arr.unshift(v)
+      lists.set(k, arr)
+      return arr.length
+    }),
+    lrange: vi.fn(async (k: string, start: number, end: number) => {
+      const arr = lists.get(k) ?? []
+      const len = arr.length
+      const s = start < 0 ? Math.max(len + start, 0) : start
+      const e = end < 0 ? len + end + 1 : end + 1
+      return arr.slice(s, e)
+    }),
+    del: vi.fn(async (k: string) => {
+      const had = store.has(k) || lists.has(k) || sets.has(k)
+      store.delete(k)
+      lists.delete(k)
+      sets.delete(k)
+      return had ? 1 : 0
     }),
     expire: vi.fn(async () => 1),
     publish: vi.fn(async () => 1),
@@ -98,6 +143,8 @@ describe('Skills Market API', () => {
   beforeEach(() => {
     mockRedis.store.clear()
     mockRedis.hashes.clear()
+    mockRedis.sets.clear()
+    mockRedis.lists.clear()
     if (cleanMarketJson) mockRedis.store.set(MARKET_KEY, cleanMarketJson)
     mockCheckAuth.mockReset()
     mockCheckAuth.mockImplementation((req: { userId?: string }) => {
@@ -427,6 +474,253 @@ describe('Skills Market API', () => {
       const body = res.json()
       expect(body.data.total).toBe(0)
       expect(body.data.ratings).toHaveLength(0)
+    })
+  })
+
+  // ===================== POST /skills/:name/subscribe =====================
+  describe('POST /api/skills/:name/subscribe', () => {
+    it('订阅成功返回 subscribed=true + subscriberCount=1', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/skills/code-reviewer/subscribe',
+      })
+      expect(res.statusCode).toBe(201)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data).toEqual({ subscribed: true, subscriberCount: 1 })
+    })
+
+    it('双向索引写入(skill-subscribers + user-subscriptions)', async () => {
+      await app.inject({ method: 'POST', url: '/api/skills/code-reviewer/subscribe' })
+      const subs = mockRedis.sets.get('skill-subscribers:code-reviewer')
+      expect(subs).toBeTruthy()
+      expect(subs!.has('1')).toBe(true)
+      const userSubs = mockRedis.sets.get('user-subscriptions:1')
+      expect(userSubs).toBeTruthy()
+      expect(userSubs!.has('code-reviewer')).toBe(true)
+    })
+
+    it('重复订阅幂等(Set 不重复)', async () => {
+      await app.inject({ method: 'POST', url: '/api/skills/code-reviewer/subscribe' })
+      const res2 = await app.inject({ method: 'POST', url: '/api/skills/code-reviewer/subscribe' })
+      expect(res2.statusCode).toBe(201)
+      expect(res2.json().data.subscriberCount).toBe(1)
+    })
+
+    it('不存在的 skill 返回 404', async () => {
+      const res = await app.inject({ method: 'POST', url: '/api/skills/no-such-skill/subscribe' })
+      expect(res.statusCode).toBe(404)
+    })
+  })
+
+  // ===================== DELETE /skills/:name/subscribe =====================
+  describe('DELETE /api/skills/:name/subscribe', () => {
+    it('取消订阅返回 subscribed=false + subscriberCount=0', async () => {
+      await app.inject({ method: 'POST', url: '/api/skills/code-reviewer/subscribe' })
+      const res = await app.inject({ method: 'DELETE', url: '/api/skills/code-reviewer/subscribe' })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.data).toEqual({ subscribed: false, subscriberCount: 0 })
+    })
+
+    it('双向索引同步移除', async () => {
+      await app.inject({ method: 'POST', url: '/api/skills/code-reviewer/subscribe' })
+      await app.inject({ method: 'DELETE', url: '/api/skills/code-reviewer/subscribe' })
+      expect(mockRedis.sets.get('skill-subscribers:code-reviewer')?.has('1')).toBe(false)
+      expect(mockRedis.sets.get('user-subscriptions:1')?.has('code-reviewer')).toBe(false)
+    })
+
+    it('未订阅时取消幂等(不报错)', async () => {
+      const res = await app.inject({ method: 'DELETE', url: '/api/skills/code-reviewer/subscribe' })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.subscribed).toBe(false)
+    })
+  })
+
+  // ===================== GET /skills/:name/subscription =====================
+  describe('GET /api/skills/:name/subscription', () => {
+    it('未订阅返回 subscribed=false', async () => {
+      const res = await app.inject({ method: 'GET', url: '/api/skills/code-reviewer/subscription' })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data).toEqual({ subscribed: false, subscriberCount: 0 })
+    })
+
+    it('订阅后返回 subscribed=true + subscriberCount', async () => {
+      await app.inject({ method: 'POST', url: '/api/skills/code-reviewer/subscribe' })
+      const res = await app.inject({ method: 'GET', url: '/api/skills/code-reviewer/subscription' })
+      expect(res.json().data).toEqual({ subscribed: true, subscriberCount: 1 })
+    })
+  })
+
+  // ===================== 通知(订阅 → 版本更新 → 推送 → 读取 → 标记已读) =====================
+  describe('通知全链路:subscribe → publish update → notify → read → mark', () => {
+    it('订阅 skill 后,同作者 publish 更新版本会推送通知', async () => {
+      // 1. 订阅 code-reviewer(种子 author=OpenSource, version=2.0.0)
+      await app.inject({ method: 'POST', url: '/api/skills/code-reviewer/subscribe' })
+
+      // 2. 同作者 publish 更新版本
+      const updateRes = await app.inject({
+        method: 'POST',
+        url: '/api/skills/market',
+        payload: {
+          name: 'code-reviewer',
+          description: 'updated desc',
+          tags: ['code'],
+          author: 'OpenSource',
+          version: '2.1.0',
+          license: 'Apache-2.0',
+          content: 'updated body',
+        },
+      })
+      expect(updateRes.statusCode).toBe(200)
+      expect(updateRes.json().data.version).toBe('2.1.0')
+
+      // 3. 验证通知已写入用户通知 List
+      expect(mockRedis.lists.has('skill-notifications:1')).toBe(true)
+      const notifList = mockRedis.lists.get('skill-notifications:1')!
+      expect(notifList).toHaveLength(1)
+      const notif = JSON.parse(notifList[0]!)
+      expect(notif.skillName).toBe('code-reviewer')
+      expect(notif.version).toBe('2.1.0')
+      expect(notif.message).toContain('2.1.0')
+      expect(notif.id).toBeTruthy()
+    })
+
+    it('版本未变时不推送通知', async () => {
+      await app.inject({ method: 'POST', url: '/api/skills/code-reviewer/subscribe' })
+      await app.inject({
+        method: 'POST',
+        url: '/api/skills/market',
+        payload: {
+          name: 'code-reviewer',
+          description: 'desc unchanged version',
+          tags: ['code'],
+          author: 'OpenSource',
+          version: '2.0.0', // 与种子版本相同
+          license: 'Apache-2.0',
+          content: 'body',
+        },
+      })
+      expect(mockRedis.lists.has('skill-notifications:1')).toBe(false)
+    })
+
+    it('未订阅时不收到通知', async () => {
+      // 不订阅,直接 publish 更新
+      await app.inject({
+        method: 'POST',
+        url: '/api/skills/market',
+        payload: {
+          name: 'code-reviewer',
+          description: 'no subscribers',
+          tags: ['code'],
+          author: 'OpenSource',
+          version: '2.2.0',
+          license: 'Apache-2.0',
+          content: 'body',
+        },
+      })
+      expect(mockRedis.lists.has('skill-notifications:1')).toBe(false)
+    })
+
+    it('GET /skills/notifications 返回通知列表', async () => {
+      await app.inject({ method: 'POST', url: '/api/skills/code-reviewer/subscribe' })
+      await app.inject({
+        method: 'POST',
+        url: '/api/skills/market',
+        payload: {
+          name: 'code-reviewer',
+          description: 'notify test',
+          tags: ['code'],
+          author: 'OpenSource',
+          version: '3.0.0',
+          license: 'Apache-2.0',
+          content: 'body',
+        },
+      })
+
+      const res = await app.inject({ method: 'GET', url: '/api/skills/notifications' })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data).toHaveLength(1)
+      expect(body.data[0].skillName).toBe('code-reviewer')
+      expect(body.data[0].version).toBe('3.0.0')
+    })
+
+    it('无通知时返回空数组', async () => {
+      const res = await app.inject({ method: 'GET', url: '/api/skills/notifications' })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data).toHaveLength(0)
+    })
+
+    it('POST /skills/notifications/read 清空通知并返回 marked 条数', async () => {
+      await app.inject({ method: 'POST', url: '/api/skills/code-reviewer/subscribe' })
+      await app.inject({
+        method: 'POST',
+        url: '/api/skills/market',
+        payload: {
+          name: 'code-reviewer',
+          description: 'mark read test',
+          tags: ['code'],
+          author: 'OpenSource',
+          version: '4.0.0',
+          license: 'Apache-2.0',
+          content: 'body',
+        },
+      })
+      // 标记已读
+      const res = await app.inject({ method: 'POST', url: '/api/skills/notifications/read' })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.marked).toBe(1)
+      // 再次读取应为空
+      const list = await app.inject({ method: 'GET', url: '/api/skills/notifications' })
+      expect(list.json().data).toHaveLength(0)
+    })
+
+    it('无通知时标记已读返回 marked=0', async () => {
+      const res = await app.inject({ method: 'POST', url: '/api/skills/notifications/read' })
+      expect(res.json().data.marked).toBe(0)
+    })
+  })
+
+  // ===================== publish 更新模式(同作者 vs 不同作者) =====================
+  describe('POST /api/skills/market 更新模式', () => {
+    it('同作者 publish 同名 skill 更新版本返回 200(非 201)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/skills/market',
+        payload: {
+          name: 'code-reviewer',
+          description: 'updated',
+          tags: ['code'],
+          author: 'OpenSource',
+          version: '2.5.0',
+          license: 'Apache-2.0',
+          content: 'body',
+        },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data.version).toBe('2.5.0')
+      expect(res.json().data.description).toBe('updated')
+      // installCount/rating 保留
+      expect(res.json().data.installCount).toBeGreaterThan(0)
+    })
+
+    it('不同作者 publish 同名 skill 仍返回 409', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/skills/market',
+        payload: {
+          name: 'code-reviewer',
+          description: 'hijack',
+          tags: [],
+          author: 'attacker',
+          version: '9.9.9',
+          license: 'MIT',
+          content: 'x',
+        },
+      })
+      expect(res.statusCode).toBe(409)
     })
   })
 })
