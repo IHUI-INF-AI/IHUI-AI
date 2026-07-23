@@ -87,6 +87,11 @@ export default {
     searchPlaceholder: '搜尋對話內容…',
     noSearchResults: '未找到符合「{{query}}」的訊息',
     regenerate: '重新生成',
+    title: 'AI 對話',
+    emptyState: '輸入訊息開始對話',
+    edit: '編輯',
+    editHint: '編輯並重新傳送',
+    placeholderWithAttachments: '輸入訊息內容(附件已就緒)…',
   },
   profile: {
     title: '我的',
