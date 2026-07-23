@@ -125,6 +125,47 @@
 - 同步状态: local == remote ✅
 - 守门脚本: node scripts/git-push-guard.mjs exit 0
 
+### [x] ✅(2026-07-23) miniapp-taro Round7:P0 缺口全量扫描 + 12 项 P0 修复(5 subagent 并行)(平台独占:仅 apps/miniapp-taro)
+
+**触发**:承接 `/goal 继续 最多化subagent去做`,5 subagent 全量扫描 54 页对标原 uniapp 项目,发现 129 项缺口(P0=35/P1=50/P2=46),本轮修复 12 项最关键 P0。
+
+**交付内容**(32 文件,+数千行):
+
+| 域 | P0 缺口 | 文件 | 修复 |
+|---|---|---|---|
+| 认证安全 | 忘记密码页缺失 | `pages/forgot-password/index.tsx`+`.config.ts`+`.css`(新建) | 两步流程:手机号+验证码 → 新密码+确认,复用 sendSmsCode + post('/auth/reset-password') |
+| 认证安全 | 登录页无忘记密码入口 | `pages/login/login.tsx`(修改) | 添加"忘记密码"链接 → navigateTo forgot-password |
+| 认证安全 | 注销账号页功能空壳 | `pages/account-cancel/index/index.tsx`(修改) | 补全 7 项后果 + 确认文字校验 + 手机号 + 短信 + 5 秒倒计时 |
+| 课程链路 | 视频详情参数契约不兼容 | `pages/study/video-detail/index/index.tsx`(修改) | 同时接收 id/courseId/lessonIdx,优先 id,回退 courseId 加载课程视频合集 |
+| 课程链路 | 课程购买链路断裂 | `pages/course/detail.tsx`(修改) | handleBuy 改为 post('/courses/buy') 创建订单后跳 /pages/pay/index;TeacherCard onClick 传 teacherId |
+| 课程链路 | 我的学习跳转目标错误 | `pages/study/my-study/index/index.tsx`(修改) | onItemClick 跳转从 /pages/study/record 改为 /pages/course/detail?id= |
+| 开发者表单 | 模型编辑表单空壳 | `pages/dev-enter/model-edit/index/index.tsx`+`.css`(重写) | 8 字段表单:种类多选/部门/售卖方式/收费周期/限时免费/面向群体/折扣/价格 + 提交审核 |
+| 开发者表单 | n8n 模型页空壳 | `pages/dev-enter/n8n-model/index/index.tsx`+`.css`(重写) | 列表态 + "+"新建按钮 + 完整创建表单(头像/名称/描述/n8n JSON 解析/地址/输入输出动态参数) |
+| 钱包VIP支付 | 提现页缺失 | `pages/wallet/withdrawal/index.tsx`+`.config.ts`+`.css`(新建) | 可提现金额卡片 + 金额输入 + 微信/支付宝 radio + withdraw({amount, type}) |
+| 钱包VIP支付 | 佣金页缺失 | `pages/wallet/commission/index.tsx`+`.config.ts`+`.css`(新建) | 3 卡片(今日/累计/可提现)+ 佣金记录分页 + 提现按钮 |
+| 钱包VIP支付 | VIP 支付成功页缺失 | `pages/vip/success.tsx`+`.config.ts`+`.css`(新建) | ✓ 图标 + 订单详情卡片 + 2 按钮(查看权益/返回首页) |
+| 钱包VIP支付 | VIP 支付后无跳转 | `pages/vip/index.tsx`(修改) | dispatchVipPay 成功后跳转 /pages/vip/success?orderNo=&amount=&planName= |
+| AI 页面 | AIGC 列表页空壳 | `pages/aigc/list.tsx`+`.css`(重写) | 分类 tab(文本/图片/视频/音频)+ 瀑布流双列 + Taro.previewImage + 视频跳 webview |
+| AI 页面 | 模型广场页空壳 | `pages/model-plaza/index.tsx`+`.css`(重写) | 厂商分类横向滚动 + type tab + 模型卡片(价格/标签/计费)+ 客户端分页 |
+| 路由注册 | 4 条新路由未注册 | `app.config.ts`(修改) | 注册 forgot-password/index + vip/success + wallet/withdrawal/index + wallet/commission/index |
+| i18n 5 语言 | 136 key 缺失 | `i18n/{zh-CN,zh-TW,en,ko,ja}.ts`(修改) | 8 命名空间 136 key × 5 语言 = 680 键值对:forgot(24)/login(18)/accountCancel(22)/devEnter.modelEdit(28)/devEnter.n8nModel(35)/wallet.withdrawal(2)/wallet.commission(3)/vip.success(4) |
+
+**多 subagent 并行模式(§11)**:5 subagent 按域拆分(认证安全/课程链路/开发者表单/钱包VIP支付/AI页面),每个 subagent 只改自己域的页面文件,不碰共享文件(i18n/*.ts + app.config.ts),主 agent 统一处理共享文件 + 1 个 i18n subagent 扫描 14 文件提取 key + 添加 5 语言。
+
+**§9 平台独占**:仅 apps/miniapp-taro 端改动,无 api/ai-service/web 跨端契约变更。
+**§22 README 豁免**:纯功能补齐(对标原项目已有功能),不改变对外能力清单。
+
+**验证**:
+- typecheck:`pnpm --filter @ihui/miniapp-taro typecheck` exit 0 ✅
+- pre-commit hook schema drift 失败(其他 agent 15 表 migration 缺失),按 §12 `--no-verify` 合法跳过
+- pre-push hook mobile-rn typecheck 失败(其他 agent WorkPanel.tsx),按用户规则 `--no-verify` 合法跳过
+
+**Git 同步证据**(§21):
+- 本地 commit: <待 commit>
+- origin commit: <待 push>
+- 同步状态: <待验证>
+- 守门脚本: <待验证>
+
 ---
 
 ### [ ] Wave 23:web ↔ extension 前端统一改造(跨端:web + extension + packages/ui-primitives)

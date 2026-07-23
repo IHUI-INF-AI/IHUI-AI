@@ -179,6 +179,15 @@ export default function Login() {
         </View>
       ) : null}
 
+      {loginType === 'password' ? (
+        <View
+          className="mb-[12px] text-right text-[13px] text-primary"
+          onClick={() => Taro.navigateTo({ url: '/pages/forgot-password/index' })}
+        >
+          <Text>{t('login.forgotPassword')}</Text>
+        </View>
+      ) : null}
+
       <View
         className={`h-[48px] mt-[12px] rounded-[24px] flex items-center justify-center text-white text-[16px] bg-primary ${
           isLogging ? 'opacity-60' : ''
