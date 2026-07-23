@@ -38,7 +38,7 @@ const timeFmt = new Intl.DateTimeFormat('zh-CN', {
 export default function TaskReceiverPage() {
   const { t } = useI18n()
   const token = getToken()
-  const { tasks, isConnected } = useTaskReceiver(token || null)
+  const { tasks, isConnected, deviceId } = useTaskReceiver(token || null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [msg, setMsg] = useState('')
 
@@ -64,13 +64,40 @@ export default function TaskReceiverPage() {
     }
   }
 
+  const onCopyDeviceId = async () => {
+    try {
+      await navigator.clipboard?.writeText(deviceId)
+      setMsg(`设备 ID 已复制:${deviceId}`)
+    } catch {
+      setMsg(`设备 ID:${deviceId}`)
+    }
+  }
+
   return (
     <div className="page" style={{ maxWidth: 1100 }}>
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 12 }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>{t('nav.agents')} · 任务接收</h2>
-        <span style={{ fontSize: 12, color: isConnected ? 'var(--accent)' : 'var(--muted)' }}>
-          {isConnected ? 'WS 已连接' : 'WS 断开'}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            type="button"
+            onClick={onCopyDeviceId}
+            style={{
+              fontSize: 12,
+              color: 'var(--muted)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              background: 'var(--card)',
+              padding: '4px 8px',
+              cursor: 'pointer',
+              fontFamily: 'monospace',
+            }}
+          >
+            设备 {deviceId.slice(0, 8)}…
+          </button>
+          <span style={{ fontSize: 12, color: isConnected ? 'var(--accent)' : 'var(--muted)' }}>
+            {isConnected ? 'WS 已连接' : 'WS 断开'}
+          </span>
+        </div>
       </header>
 
       {msg && <p style={{ margin: '0 0 8px', fontSize: 12, color: 'var(--muted)' }}>{msg}</p>}
