@@ -8687,8 +8687,6 @@
       "clearAllData": "지우기Data",
       "deleteAccount": "참고계정관리",
       "about": "정보",
-      "appPermission": "앱 권한",
-      "businessLicense": "사업자등록증",
       "chatHistory": "채팅 기록",
       "checkUpdate": "업데이트 확인",
       "commissionPlan": "커미션 플랜",
@@ -8704,7 +8702,6 @@
       "privacySettings": "개인정보 설정",
       "recruitment": "채용",
       "statistics": "통계",
-      "usageRules": "사용 규칙",
       "viewMiniapp": "미니앱 보기",
       "webVersion": "웹 버전",
       "withdrawRecords": "출금 기록"
@@ -8732,8 +8729,6 @@
       "clearAllData": "삭제일、설정및개인Data",
       "deleteAccount": "영구삭제 계정관리및꺼짐Data",
       "about": "정보",
-      "appPermission": "앱 권한",
-      "businessLicense": "사업자등록증",
       "chatHistory": "채팅 기록",
       "checkUpdate": "업데이트 확인",
       "commissionPlan": "커미션 플랜",
@@ -8749,7 +8744,6 @@
       "privacySettings": "개인정보 설정",
       "recruitment": "채용",
       "statistics": "통계",
-      "usageRules": "사용 규칙",
       "viewMiniapp": "미니앱 보기",
       "webVersion": "웹 버전",
       "withdrawRecords": "출금 기록"
