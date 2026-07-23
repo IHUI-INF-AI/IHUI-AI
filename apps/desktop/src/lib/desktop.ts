@@ -244,3 +244,71 @@ export async function resetWindowState(): Promise<void> {
     // 非 Tauri 环境静默忽略
   }
 }
+
+// ================== 会话历史持久化 ==================
+
+/** 持久化的消息记录(与 Rust StoredMessage 对齐)。 */
+export interface StoredMessage {
+  id: string
+  role: string
+  content: string
+}
+
+/** 会话摘要(列表项,不含消息内容)。 */
+export interface ConversationSummary {
+  id: string
+  title: string
+  createdAt: number
+  updatedAt: number
+  messageCount: number
+}
+
+/** 完整会话(含消息列表)。 */
+export interface Conversation {
+  id: string
+  title: string
+  createdAt: number
+  updatedAt: number
+  messages: StoredMessage[]
+}
+
+export interface ConversationListResult {
+  conversations: ConversationSummary[]
+  activeId: string | null
+}
+
+export interface ConversationLoadResult {
+  conversation: Conversation | null
+}
+
+/** 列出所有会话摘要 + 当前活跃会话 ID(按 updatedAt 倒序)。 */
+export async function listConversations(): Promise<ConversationListResult> {
+  return await invoke<ConversationListResult>('list_conversations')
+}
+
+/** 加载指定会话完整消息列表(不存在返回 conversation=null)。 */
+export async function loadConversation(id: string): Promise<ConversationLoadResult> {
+  return await invoke<ConversationLoadResult>('load_conversation', { id })
+}
+
+/**
+ * 保存/更新会话(id 已存在则覆盖,否则新增)。
+ * 自动设为活跃会话。最多保留 50 条(超限时按 updatedAt 截断最早的)。
+ */
+export async function saveConversation(
+  id: string,
+  title: string,
+  messages: StoredMessage[],
+): Promise<void> {
+  await invoke('save_conversation', { id, title, messages })
+}
+
+/** 删除指定会话。若被删的是活跃会话,activeId 也一并清除。 */
+export async function deleteConversation(id: string): Promise<void> {
+  await invoke('delete_conversation', { id })
+}
+
+/** 设置当前活跃会话 ID(null 表示清除活跃会话)。 */
+export async function setActiveConversation(id: string | null): Promise<void> {
+  await invoke('set_active_conversation', { id })
+}
