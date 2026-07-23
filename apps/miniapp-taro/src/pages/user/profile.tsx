@@ -2,12 +2,13 @@ import { logger } from '@/utils/logger'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { getProfile, type UserInfo } from '@/api'
+import { getProfile, updateUserAvatar, type UserInfo } from '@/api'
 import { useI18n } from '@/i18n'
 
 export default function Profile() {
   const { t } = useI18n()
   const [form, setForm] = useState<Partial<UserInfo>>({})
+  const [uploading, setUploading] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -21,6 +22,34 @@ export default function Profile() {
   function navigate(url: string) {
     Taro.navigateTo({ url })
   }
+
+  // 头像更换:点击头像 → 选图 → 上传 → 更新显示(对标原 account.vue onEditAvatar)
+  const chooseAvatar = useCallback(() => {
+    if (uploading) return
+    Taro.chooseImage({
+      count: 1,
+      sizeType: ['compressed'],
+      success: async (res) => {
+        const path = res.tempFilePaths[0]!
+        const prevAvatar = form.avatar
+        try {
+          setUploading(true)
+          Taro.showLoading({ title: t('user.profile.avatarUploading') })
+          setForm((prev) => ({ ...prev, avatar: path }))
+          await updateUserAvatar(path)
+          Taro.hideLoading()
+          Taro.showToast({ title: t('user.avatar.updateSuccess'), icon: 'success' })
+        } catch (e) {
+          logger.error('user/profile', '更新头像', e)
+          setForm((prev) => ({ ...prev, avatar: prevAvatar }))
+          Taro.hideLoading()
+          Taro.showToast({ title: t('user.profile.avatarUpdateFailed'), icon: 'none' })
+        } finally {
+          setUploading(false)
+        }
+      },
+    })
+  }, [uploading, form.avatar, t])
 
   useDidShow(() => {
     load()
@@ -90,16 +119,21 @@ export default function Profile() {
             className={`flex justify-between items-center px-[16px] py-[16px] ${
               idx < rows.length - 1 ? 'border-b-[1px] border-solid border-border' : ''
             }`}
-            onClick={() => navigate(row.path)}
+            onClick={() => (row.isAvatar ? chooseAvatar() : navigate(row.path))}
           >
             <Text className="text-[14px] text-foreground">{row.label}</Text>
             <View className="flex items-center text-[13px] text-muted-foreground">
               {row.isAvatar ? (
-                <Image
-                  className="w-[40px] h-[40px] rounded-md bg-muted"
-                  src={form.avatar || '/static/default-avatar.png'}
-                  mode="aspectFill"
-                />
+                <View className="relative">
+                  <Image
+                    className="w-[40px] h-[40px] rounded-md bg-muted"
+                    src={form.avatar || '/static/default-avatar.png'}
+                    mode="aspectFill"
+                  />
+                  <View className="absolute -bottom-[2px] -right-[2px] w-[14px] h-[14px] bg-primary rounded-sm flex items-center justify-center">
+                    <Text className="text-[9px] text-white leading-none">📷</Text>
+                  </View>
+                </View>
               ) : (
                 <Text>{row.value}</Text>
               )}
