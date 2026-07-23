@@ -39,6 +39,7 @@
     "cert:watchdog": "node scripts/cert-renew-watchdog.mjs",
     "cert:status": "node scripts/cert-expiry-check.mjs --json",
     "clean": "turbo run clean && rimraf node_modules",
+    "archive": "node scripts/archive-completed-tasks.mjs",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "turbo run build && changeset publish"
