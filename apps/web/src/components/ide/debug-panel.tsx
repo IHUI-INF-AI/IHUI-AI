@@ -93,7 +93,7 @@ export function DebugPanel() {
   }, [])
 
   React.useEffect(() => {
-    if (!sessionId || currentFrameId == null) { setVariables([]); return }
+    if (!sessionId || currentFrameId === null || currentFrameId === undefined) { setVariables([]); return }
     let cancelled = false
     getVariables(sessionId, currentFrameId)
       .then((res) => { if (!cancelled) setVariables(res.variables.map(adaptVar)) })

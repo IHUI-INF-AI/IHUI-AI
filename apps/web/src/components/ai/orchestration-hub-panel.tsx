@@ -411,7 +411,7 @@ function EventFeedTab() {
                   <span className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground">
                     {relativeTime(e.ts)}
                   </span>
-                  {e.payload != null && (
+                  {e.payload !== null && e.payload !== undefined && (
                     <button
                       type="button"
                       onClick={() => setExpanded((p) => ({ ...p, [id]: !p[id] }))}
@@ -426,7 +426,7 @@ function EventFeedTab() {
                     </button>
                   )}
                 </div>
-                {isOpen && e.payload != null && (
+                {isOpen && e.payload !== null && e.payload !== undefined && (
                   <pre className="mt-1.5 overflow-x-auto rounded bg-muted/50 p-2 text-[10px] leading-relaxed text-muted-foreground">
                     {JSON.stringify(e.payload, null, 2)}
                   </pre>
@@ -547,7 +547,7 @@ function DecisionsTab() {
                             <XCircle className="h-2.5 w-2.5" />
                           )}
                           {a.name ?? `action-${ai}`}
-                          {a.duration_ms != null && (
+                          {a.duration_ms !== null && a.duration_ms !== undefined && (
                             <span className="tabular-nums opacity-70">{a.duration_ms}ms</span>
                           )}
                         </span>
@@ -942,7 +942,7 @@ function TelemetryTab() {
                   {tr.pillar ?? '-'}
                 </span>
                 <span className="ml-auto shrink-0 text-[10px] tabular-nums text-muted-foreground">
-                  {tr.duration_ms != null ? `${formatNumber(tr.duration_ms)}ms` : ''}
+                  {tr.duration_ms !== null && tr.duration_ms !== undefined ? `${formatNumber(tr.duration_ms)}ms` : ''}
                 </span>
                 <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
                   {relativeTime(tr.ts)}
