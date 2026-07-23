@@ -522,11 +522,14 @@ export function useChat(): UseChatReturn {
   const router = useRouter()
   const queryClient = useQueryClient()
   const abortRef = React.useRef<AbortController | null>(null)
+  // P1 错误重试(2026-07-23):保存最后发送内容,toast 加 retry 按钮
+  const lastSentContentRef = React.useRef('')
 
   const sendMessage = React.useCallback(
     async (content: string) => {
       const text = content.trim()
       if (!text) return
+      lastSentContentRef.current = text
 
       const store = useChatStore.getState()
       if (store.isStreaming) return
@@ -667,7 +670,11 @@ export function useChat(): UseChatReturn {
               // 内容被 AI 厂商安全策略拦截,用 warning 级别提示用户调整提问方式
               toast.warning(formatted.title, { description: formatted.message })
             } else {
-              toast.error(formatted.title, { description: toastDesc })
+              // P1 错误重试(2026-07-23):toast 加 retry 按钮,一键重发
+              toast.error(formatted.title, {
+                description: toastDesc,
+                action: { label: '重试', onClick: () => sendMessage(lastSentContentRef.current) },
+              })
             }
           },
         })
@@ -691,9 +698,16 @@ export function useChat(): UseChatReturn {
           if (formatted.severity === 'ratelimit' || formatted.severity === 'safety') {
             toast.warning(formatted.title, { description: `${prefix}${formatted.message}` })
           } else if (formatted.severity === 'network') {
-            toast.error(formatted.title, { description: `${prefix}${formatted.message}` })
+            // P1 错误重试(2026-07-23):网络错误 toast 加 retry 按钮
+            toast.error(formatted.title, {
+              description: `${prefix}${formatted.message}`,
+              action: { label: '重试', onClick: () => sendMessage(lastSentContentRef.current) },
+            })
           } else {
-            toast.error(formatted.title, { description: `${prefix}${formatted.rawMessage}` })
+            toast.error(formatted.title, {
+              description: `${prefix}${formatted.rawMessage}`,
+              action: { label: '重试', onClick: () => sendMessage(lastSentContentRef.current) },
+            })
           }
         }
       } finally {

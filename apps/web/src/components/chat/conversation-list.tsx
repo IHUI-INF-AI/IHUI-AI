@@ -101,15 +101,45 @@ export function ConversationList({ items }: { items: Conversation[] }) {
     },
   })
 
+  // P1 乐观更新(2026-07-23):收藏/归档即时反馈,不等 API 返回
   const favMutation = useMutation({
     mutationFn: (id: string) =>
       fetchApi(`/api/chat/conversations/${encodeURIComponent(id)}/favorite`, { method: 'POST' }),
-    onSuccess: () => invalidateAll(),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['chat', 'conversations'] })
+      await queryClient.cancelQueries({ queryKey: ['chat', 'favorites'] })
+      const prevConv = queryClient.getQueryData<Conversation[]>(['chat', 'conversations'])
+      const prevFav = queryClient.getQueryData<Conversation[]>(['chat', 'favorites'])
+      const toggle = (list: Conversation[] | undefined) =>
+        list?.map((c) => (c.id === id ? { ...c, favorite: !c.favorite } : c))
+      queryClient.setQueryData(['chat', 'conversations'], toggle)
+      queryClient.setQueryData(['chat', 'favorites'], toggle)
+      return { prevConv, prevFav }
+    },
+    onError: (_e, _id, ctx) => {
+      if (ctx?.prevConv) queryClient.setQueryData(['chat', 'conversations'], ctx.prevConv)
+      if (ctx?.prevFav) queryClient.setQueryData(['chat', 'favorites'], ctx.prevFav)
+    },
+    onSettled: () => invalidateAll(),
   })
 
   const archiveMutation = useMutation({
     mutationFn: (id: string) => archiveConversation(id),
-    onSuccess: () => invalidateAll(),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['chat', 'conversations'] })
+      await queryClient.cancelQueries({ queryKey: ['chat', 'favorites'] })
+      const prevConv = queryClient.getQueryData<Conversation[]>(['chat', 'conversations'])
+      const prevFav = queryClient.getQueryData<Conversation[]>(['chat', 'favorites'])
+      const remove = (list: Conversation[] | undefined) => list?.filter((c) => c.id !== id)
+      queryClient.setQueryData(['chat', 'conversations'], remove)
+      queryClient.setQueryData(['chat', 'favorites'], remove)
+      return { prevConv, prevFav }
+    },
+    onError: (_e, _id, ctx) => {
+      if (ctx?.prevConv) queryClient.setQueryData(['chat', 'conversations'], ctx.prevConv)
+      if (ctx?.prevFav) queryClient.setQueryData(['chat', 'favorites'], ctx.prevFav)
+    },
+    onSettled: () => invalidateAll(),
   })
 
   const unarchiveMutation = useMutation({
