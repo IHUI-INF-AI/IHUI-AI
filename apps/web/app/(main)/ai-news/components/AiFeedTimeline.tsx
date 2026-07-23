@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Flame, TrendingUp, TrendingDown, ExternalLink, Rss, Search, LineChart, Loader2 } from 'lucide-react'
+import { Flame, TrendingUp, TrendingDown, ExternalLink, Rss, Search, LineChart } from 'lucide-react'
 import type { AiFeedTimelineItem } from '@/lib/ai-news-api'
 import { TrendChartDialog } from './TrendChartDialog'
 import { TrendNotificationBanner } from './TrendNotificationBanner'
@@ -38,6 +38,13 @@ const CATEGORY_LIST = [
   { key: 'tip', labelKey: 'feed.categoryTip' },
 ] as const
 
+const TREND_LIST = [
+  { key: '', labelKey: 'feed.trendAll' },
+  { key: 'rising', labelKey: 'feed.trendRising' },
+  { key: 'cooling', labelKey: 'feed.trendCooling' },
+  { key: 'new', labelKey: 'feed.trendNew' },
+] as const
+
 type TitleLang = 'zh' | 'en' | 'ja' | 'ko'
 
 const LANG_LIST: Array<{ key: TitleLang; label: string }> = [
@@ -65,20 +72,19 @@ function startOfDay(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
 }
 
-function formatDayLabel(date: Date, t: (k: string) => string): string {
+function formatDayLabel(date: Date, t: (k: string) => string, locale: string): string {
   const today = startOfDay(new Date())
   const yesterday = today - 86400_000
   const target = startOfDay(date)
   if (target === today) return t('feed.today')
   if (target === yesterday) return t('feed.yesterday')
-  return new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric' }).format(date)
+  return new Intl.DateTimeFormat(locale, { month: 'long', day: 'numeric' }).format(date)
 }
 
-function formatHot(n: number | null): string {
+function formatHot(n: number | null, locale: string): string {
   if (n === null || n === 0) return ''
-  if (n >= 100_000_000) return `${(n / 100_000_000).toFixed(1)}亿`
-  if (n >= 10_000) return `${(n / 10_000).toFixed(1)}万`
-  return String(n)
+  // 用 Intl.NumberFormat compact 表示法,自动适配 locale(zh:亿/万, en:B/M, ja:億/万, ko:억/만)
+  return new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 }).format(n)
 }
 
 function sourceInitial(name: string): string {
@@ -117,6 +123,14 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
   const [trendItemId, setTrendItemId] = React.useState<string | null>(null)
   const [trendTitle, setTrendTitle] = React.useState<string>('')
   const [titleLang, setTitleLang] = React.useState<TitleLang>('zh')
+  const [activeTrend, setActiveTrend] = React.useState<string>('')
+
+  // locale + 时间格式化器提取到循环外(性能优化:50 条数据从 50 次实例化降为 1 次)
+  const locale = typeof document !== 'undefined' ? document.documentElement.lang || 'zh-CN' : 'zh-CN'
+  const timeFormatter = React.useMemo(
+    () => new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }),
+    [locale],
+  )
 
   const sourceMap = React.useMemo(() => {
     const m = new Map<string, SourceMeta>()
@@ -145,6 +159,15 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
     if (activeCategory) {
       result = result.filter((it) => it.llmCategory === activeCategory)
     }
+    // trend 筛选:rising/cooling 按 trendTag 匹配,new = 无 trendTag
+    if (activeTrend) {
+      result = result.filter((it) => {
+        if (activeTrend === 'rising') return it.trendTag === 'rising'
+        if (activeTrend === 'cooling') return it.trendTag === 'cooling'
+        if (activeTrend === 'new') return it.trendTag === null || it.trendTag === 'new'
+        return true
+      })
+    }
     if (keyword.trim()) {
       const kw = keyword.trim().toLowerCase()
       result = result.filter(
@@ -154,7 +177,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
       )
     }
     return result
-  }, [channelFiltered, activeCategory, keyword, titleLang])
+  }, [channelFiltered, activeCategory, activeTrend, keyword, titleLang])
 
   const dayGroups = React.useMemo(() => groupByDay(filteredItems), [filteredItems])
 
@@ -261,6 +284,27 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
             )
           })}
         </div>
+
+        {/* Trend 筛选 Tab(全部/上升/下降/新晋) */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          {TREND_LIST.map((tr) => {
+            const isActive = activeTrend === tr.key
+            return (
+              <button
+                key={tr.key || 'trend-all'}
+                type="button"
+                onClick={() => setActiveTrend(tr.key)}
+                className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                  isActive
+                    ? 'bg-foreground/10 text-foreground font-semibold'
+                    : 'text-muted-foreground/60 hover:bg-accent/50 hover:text-foreground'
+                }`}
+              >
+                {t(tr.labelKey)}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* 趋势爆发通知 Banner(独立轮询,有通知时展示) */}
@@ -279,7 +323,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
               <div key={group.day} className="space-y-2">
                 <div className="flex items-center gap-2 pt-2">
                   <span className="text-xs font-semibold text-muted-foreground">
-                    {formatDayLabel(firstDate, t)}
+                    {formatDayLabel(firstDate, t, locale)}
                   </span>
                   <span className="text-[10px] text-muted-foreground/60">
                     · {group.items.length} {t('feed.itemsUnit')}
@@ -288,11 +332,8 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
 
                 {group.items.map((it) => {
                   const source = sourceMap.get(it.sourceCode)
-                  const time = new Intl.DateTimeFormat('zh-CN', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  }).format(new Date(it.lastSeenAt))
-                  const hot = formatHot(it.currentHot)
+                  const time = timeFormatter.format(new Date(it.lastSeenAt))
+                  const hot = formatHot(it.currentHot, locale)
                   const isRising = it.trendTag === 'rising'
                   const isCooling = it.trendTag === 'cooling'
                   const srcColor = source?.color ?? '#888'
@@ -397,10 +438,9 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
             )
           })}
 
-          {/* 加载更多提示 */}
+          {/* 加载更多提示(静态,无永转 spinner) */}
           {filteredItems.length < total && !keyword ? (
             <div className="flex items-center justify-center gap-2 pt-2 text-xs text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" />
               {t('feed.moreHint', { shown: filteredItems.length, total })}
             </div>
           ) : null}
