@@ -1773,6 +1773,8 @@
     "durationDays": "{days} days",
     "featuresTitle": "VIP Privilege",
     "buyButton": "Subscribe Now",
+    "limitedOffer": "Limited Offer",
+    "buyPrompt": "Subscribe VIP now to unlock all exclusive benefits",
     "purchaseTitle": "ConfirmBuy",
     "purchaseDesc": "Confirm VIP Member Buy Info",
     "confirmPayment": "ConfirmPay",
