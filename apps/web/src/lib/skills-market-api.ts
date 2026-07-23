@@ -7,6 +7,8 @@ import type {
   SkillRateRequest,
   SkillPublishRequest,
   SkillMarketEntry,
+  SkillSubscriptionResponse,
+  SkillNotification,
 } from '@ihui/shared/skills/market'
 
 export const SKILL_MARKET_PAGE_SIZE = 20
@@ -48,5 +50,31 @@ export function publishSkill(body: SkillPublishRequest): Promise<SkillMarketEntr
   return api<SkillMarketEntry>(`/api/skills/market`, {
     method: 'POST',
     body: JSON.stringify(body),
+  })
+}
+
+export function subscribeSkill(name: string): Promise<SkillSubscriptionResponse> {
+  return api<SkillSubscriptionResponse>(`/api/skills/${encodeURIComponent(name)}/subscribe`, {
+    method: 'POST',
+  })
+}
+
+export function unsubscribeSkill(name: string): Promise<SkillSubscriptionResponse> {
+  return api<SkillSubscriptionResponse>(`/api/skills/${encodeURIComponent(name)}/subscribe`, {
+    method: 'DELETE',
+  })
+}
+
+export function fetchSkillSubscription(name: string): Promise<SkillSubscriptionResponse> {
+  return api<SkillSubscriptionResponse>(`/api/skills/${encodeURIComponent(name)}/subscription`)
+}
+
+export function fetchSkillNotifications(): Promise<SkillNotification[]> {
+  return api<SkillNotification[]>(`/api/skills/notifications`)
+}
+
+export function markSkillNotificationsRead(): Promise<{ marked: number }> {
+  return api<{ marked: number }>(`/api/skills/notifications/read`, {
+    method: 'POST',
   })
 }

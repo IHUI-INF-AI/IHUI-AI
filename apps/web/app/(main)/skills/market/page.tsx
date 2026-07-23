@@ -4,11 +4,23 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
-import { Search, Star, Loader2, ChevronLeft, ChevronRight, Download, Check, Upload } from 'lucide-react'
+import { Search, Star, Loader2, ChevronLeft, ChevronRight, Download, Check, Upload, Bell, BellRing } from 'lucide-react'
 import { Card, CardContent, Button, Input, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
 import { cn } from '@/lib/utils'
-import type { SkillMarketEntry } from '@ihui/shared/skills/market'
-import { fetchSkillsMarket, fetchSkillRatings, installSkill, rateSkill, publishSkill, SKILL_MARKET_PAGE_SIZE } from '@/lib/skills-market-api'
+import type { SkillMarketEntry, SkillNotification } from '@ihui/shared/skills/market'
+import {
+  fetchSkillsMarket,
+  fetchSkillRatings,
+  installSkill,
+  rateSkill,
+  publishSkill,
+  subscribeSkill,
+  unsubscribeSkill,
+  fetchSkillSubscription,
+  fetchSkillNotifications,
+  markSkillNotificationsRead,
+  SKILL_MARKET_PAGE_SIZE,
+} from '@/lib/skills-market-api'
 
 const TAGS = ['code', 'content', 'devops', 'design', 'media', 'video', 'ai', 'docs']
 
@@ -22,6 +34,7 @@ export default function SkillsMarketPage() {
   const [installed, setInstalled] = React.useState<Set<string>>(new Set())
   const [ratingFor, setRatingFor] = React.useState<SkillMarketEntry | null>(null)
   const [publishOpen, setPublishOpen] = React.useState(false)
+  const [notifOpen, setNotifOpen] = React.useState(false)
 
   React.useEffect(() => {
     const tm = setTimeout(() => { setDebounced(q); setPage(1) }, 300)
@@ -31,6 +44,12 @@ export default function SkillsMarketPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['skills', 'market', debounced, tag, page],
     queryFn: () => fetchSkillsMarket({ q: debounced, tag, page }),
+  })
+
+  const { data: notifications } = useQuery({
+    queryKey: ['skills', 'notifications'],
+    queryFn: fetchSkillNotifications,
+    staleTime: 10_000,
   })
 
   const installMut = useMutation({
@@ -46,6 +65,7 @@ export default function SkillsMarketPage() {
   const items = data?.items ?? []
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / (data?.pageSize ?? SKILL_MARKET_PAGE_SIZE)))
+  const unreadCount = notifications?.length ?? 0
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-5">
@@ -55,9 +75,18 @@ export default function SkillsMarketPage() {
             <h1 className="text-xl font-semibold">{t('title')}</h1>
             <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
           </div>
-          <Button onClick={() => setPublishOpen(true)}>
-            <Upload className="h-4 w-4" /><span>{t('publishButton')}</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setNotifOpen(true)} className="relative">
+              <Bell className="h-4 w-4" />
+              <span>{t('notifications')}</span>
+              {unreadCount > 0 && (
+                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-destructive" />
+              )}
+            </Button>
+            <Button onClick={() => setPublishOpen(true)}>
+              <Upload className="h-4 w-4" /><span>{t('publishButton')}</span>
+            </Button>
+          </div>
         </div>
       </div>
       <div className="space-y-3">
@@ -116,6 +145,7 @@ export default function SkillsMarketPage() {
 
       <RatingDialog skill={ratingFor} onClose={() => setRatingFor(null)} />
       <PublishDialog open={publishOpen} onClose={() => setPublishOpen(false)} />
+      <NotificationsDialog open={notifOpen} onClose={() => setNotifOpen(false)} />
     </div>
   )
 }
@@ -153,6 +183,25 @@ function SkillCard({ skill, installed, installing, onInstall, onRate }: {
   onRate: () => void
 }) {
   const t = useTranslations('skills.market')
+  const qc = useQueryClient()
+
+  const { data: sub } = useQuery({
+    queryKey: ['skills', 'subscription', skill.name],
+    queryFn: () => fetchSkillSubscription(skill.name),
+    staleTime: 30_000,
+  })
+  const isSubscribed = sub?.subscribed ?? false
+  const subscriberCount = sub?.subscriberCount ?? 0
+
+  const subscribeMut = useMutation({
+    mutationFn: async (on: boolean) => (on ? subscribeSkill(skill.name) : unsubscribeSkill(skill.name)),
+    onSuccess: (_r, on) => {
+      toast.success(on ? t('subscribeSuccess') : t('unsubscribeSuccess'))
+      qc.invalidateQueries({ queryKey: ['skills', 'subscription', skill.name] })
+    },
+    onError: () => toast.error(t('subscribeFailed')),
+  })
+
   return (
     <Card className="flex h-full flex-col transition-colors hover:bg-accent">
       <CardContent className="flex flex-1 flex-col gap-2.5 p-4">
@@ -168,7 +217,7 @@ function SkillCard({ skill, installed, installing, onInstall, onRate }: {
         )}
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>{skill.author}</span>
-          <span>{t('installs', { count: skill.installCount })}</span>
+          <span>{t('subscribers', { count: subscriberCount })}</span>
         </div>
         <div className="flex items-center gap-1">
           <Stars value={skill.rating} />
@@ -181,6 +230,22 @@ function SkillCard({ skill, installed, installing, onInstall, onRate }: {
           </Button>
           <Button variant="outline" size="sm" onClick={onRate}>
             <Star className="h-4 w-4" /><span>{t('rate')}</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={subscribeMut.isPending}
+            onClick={() => subscribeMut.mutate(!isSubscribed)}
+            className={cn(isSubscribed && 'bg-muted text-foreground')}
+            title={isSubscribed ? t('unsubscribe') : t('subscribe')}
+          >
+            {subscribeMut.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : isSubscribed ? (
+              <BellRing className="h-4 w-4" />
+            ) : (
+              <Bell className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </CardContent>
@@ -343,6 +408,63 @@ function PublishDialog({ open, onClose }: { open: boolean; onClose: () => void }
           <Button disabled={!canSubmit} onClick={() => publishMut.mutate()}>
             {publishMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             <span>{t('publishSubmit')}</span>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function NotificationsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const t = useTranslations('skills.market')
+  const qc = useQueryClient()
+  const { data: items, isLoading } = useQuery({
+    queryKey: ['skills', 'notifications'],
+    queryFn: fetchSkillNotifications,
+    enabled: open,
+  })
+
+  const markReadMut = useMutation({
+    mutationFn: markSkillNotificationsRead,
+    onSuccess: () => {
+      toast.success(t('markedRead'))
+      qc.invalidateQueries({ queryKey: ['skills', 'notifications'] })
+      onClose()
+    },
+    onError: () => toast.error(t('subscribeFailed')),
+  })
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t('notifications')}</DialogTitle>
+        </DialogHeader>
+        <div className="max-h-80 space-y-2 overflow-y-auto">
+          {isLoading ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">{t('loading')}</div>
+          ) : !items || items.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">{t('noNotifications')}</div>
+          ) : (
+            items.map((n: SkillNotification) => (
+              <div key={n.id} className="rounded-md bg-muted/60 p-2.5 text-sm">
+                <div className="flex items-center gap-2">
+                  <BellRing className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="font-medium">{n.skillName}</span>
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(n.timestamp))}
+                  </span>
+                </div>
+                <p className="mt-1 text-muted-foreground">{n.message}</p>
+              </div>
+            ))
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}><span>{t('cancel')}</span></Button>
+          <Button disabled={!items?.length || markReadMut.isPending} onClick={() => markReadMut.mutate()}>
+            {markReadMut.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            <span>{t('markRead')}</span>
           </Button>
         </DialogFooter>
       </DialogContent>

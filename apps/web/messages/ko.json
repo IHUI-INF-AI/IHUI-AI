@@ -36,7 +36,19 @@
       "publishContentPlaceholder": "스킬 본문을 작성하세요 (Markdown/JSON)...",
       "publishSubmit": "게시",
       "publishSuccess": "게시 완료",
-      "publishFailed": "게시 실패"
+      "publishFailed": "게시 실패",
+      "subscribe": "구독",
+      "subscribed": "구독 중",
+      "unsubscribe": "구독 취소",
+      "subscribers": "{count} 구독자",
+      "notifications": "알림",
+      "noNotifications": "알림이 없습니다",
+      "markRead": "읽음으로 표시",
+      "markedRead": "읽음으로 표시했습니다",
+      "skillUpdated": "{name}이(가) {version}(으)로 업데이트되었습니다",
+      "subscribeSuccess": "구독했습니다",
+      "unsubscribeSuccess": "구독을 취소했습니다",
+      "subscribeFailed": "작업에 실패했습니다"
     }
   },
   "common": {

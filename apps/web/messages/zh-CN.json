@@ -36,7 +36,19 @@
       "publishContentPlaceholder": "写下技能正文（Markdown/JSON）...",
       "publishSubmit": "发布",
       "publishSuccess": "发布成功",
-      "publishFailed": "发布失败"
+      "publishFailed": "发布失败",
+      "subscribe": "订阅",
+      "subscribed": "已订阅",
+      "unsubscribe": "取消订阅",
+      "subscribers": "{count} 订阅",
+      "notifications": "通知",
+      "noNotifications": "暂无通知",
+      "markRead": "标记已读",
+      "markedRead": "已标记为已读",
+      "skillUpdated": "{name} 更新到 {version}",
+      "subscribeSuccess": "订阅成功",
+      "unsubscribeSuccess": "已取消订阅",
+      "subscribeFailed": "操作失败"
     }
   },
   "common": {
