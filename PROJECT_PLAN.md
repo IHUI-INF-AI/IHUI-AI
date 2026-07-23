@@ -40,9 +40,51 @@
 - 文件边界严格隔离,无 i18n/*.ts 改动(主 agent 任务 #3 待后续轮次)
 
 **Git 同步证据**(§21):
-- 本地 commit: (本轮待 commit)
-- origin commit: (本轮待 push)
-- 守门脚本: (本轮待验证)
+- 本地 commit: `7403faa32`(P0 批次 23 页)+ `be7a253b3`(P1 批次 13 页)
+- origin commit: 同上
+- 同步状态: local == remote ✅
+- 守门脚本: git-push-guard 自动 push 成功
+
+### [x] ✅(2026-07-24) miniapp-taro Round15 P1 批次:5 subagent 并行深化 13 个中等空壳页面(80-100 行)(平台独占:仅 apps/miniapp-taro)
+
+**触发**:P0 批次(23 页 <80 行)深化完成后,继续扫描 80-100 行中等空壳页面,识别 13 个需深化页面。
+
+**交付内容**(5 subagent 并行,13 页深化):
+
+| Subagent | 域 | 页面 | 原行数 → 新行数 |
+|---|---|---|---|
+| A | study + teacher | study/record + teacher/detail | 81/81 → 246/334 |
+| B | user + setting | user/nickname + user/realname + setting/theme | 83/91/85 → 135/264/146 |
+| C | live 系列 | live/calendar + live/subscribe + live/history | 89/90/92 → 237/163/194 |
+| D | vip-trader + following + favorites | vip-trader/index + following/index + favorites/index | 90/90/93 → 304/209/329 |
+| E | ai/special + news/list | ai/special + news/list | 90/93 → 315/279 |
+
+**关键深化**:
+- study/record:学习统计卡(4 项)+ 状态筛选 tab + 学习记录列表 + 下拉刷新/上拉加载
+- teacher/detail:教师头部 + 数据统计 + 主讲课程 + 学员评价 + 联系讲师
+- user/realname:认证说明 + 身份证正反面上传 + 四状态机(未认证/审核中/已认证/已拒绝)
+- live/calendar:月份切换 + 7 列日历网格 + 选中日期直播列表 + 三态操作按钮
+- favorites/index:6 分类 Tab + 批量多选/全选/批量取消 + 卡片列表
+- ai/special:Banner + 精选推荐横滚 + 7 分类 Tab + 应用卡片列表
+
+**i18n 策略**:全部用 `tt(k, fb)` fallback 模式,新增 100+ key 通过 fallback 显示中文,5 语言 parity 不破坏。
+
+**验证**:`pnpm --filter @ihui/miniapp-taro typecheck` exit 0 全绿 ✅
+
+**Git 同步证据**(§21):
+- 本地 commit: `be7a253b3`
+- origin commit: `be7a253b3`
+- 同步状态: local == remote ✅
+
+### Round15 总结(P0 + P1 批次)
+
+**总深化页面**:36 个(P0: 23 页 + P1: 13 页)
+**总新增 i18n key**:250+(全部 tt fallback 模式)
+**总 commit**:2 个(7403faa + be7a253)
+**typecheck**:全绿
+**剩余 <100 行页面**:13 个(其中 9 个是合理小页面:redirect stub/组件/webview/已深化,4 个 97-99 行边界页面功能已完整)
+
+**miniapp-taro 页面深化工作基本完成**,后续可按需深化剩余 4 个 97-99 行边界页面(pay/index、ai/voice、order/refund-list、developer/subscribe、circle/create)。
 
 ### [x] ✅(2026-07-24) miniapp-taro Round14:distribution/team + news/detail 2 页深化 + i18n 5 语言补全 20 key(平台独占:仅 apps/miniapp-taro)
 
