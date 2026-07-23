@@ -30,6 +30,8 @@ export interface UseConversationsResult {
   remove: (id: string) => Promise<void>
   /** 持久化当前会话(id 已存在则覆盖,否则新增)。自动设为活跃。 */
   persist: (id: string, title: string, messages: StoredMessage[]) => Promise<void>
+  /** 重命名会话标题(保留原消息,仅更新 title)。 */
+  rename: (id: string, newTitle: string) => Promise<void>
 }
 
 /**
@@ -108,5 +110,21 @@ export function useConversations(): UseConversationsResult {
     [enabled],
   )
 
-  return { ready, enabled, list, activeId, refresh, startNew, select, remove, persist }
+  const rename = useCallback(
+    async (id: string, newTitle: string) => {
+      if (!enabled) return
+      const title = newTitle.trim()
+      if (!title) return
+      // 先加载原消息(保留内容),再用新标题保存
+      const loaded = await loadConversation(id)
+      if (!loaded.conversation) return
+      await saveConversation(id, title, loaded.conversation.messages)
+      setList((cur) =>
+        cur.map((c) => (c.id === id ? { ...c, title, updatedAt: Math.floor(Date.now() / 1000) } : c)),
+      )
+    },
+    [enabled],
+  )
+
+  return { ready, enabled, list, activeId, refresh, startNew, select, remove, persist, rename }
 }
