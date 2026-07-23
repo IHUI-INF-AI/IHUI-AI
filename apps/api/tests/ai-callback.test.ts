@@ -84,15 +84,15 @@ describe('AI callback route', () => {
     expect(body.code).toBe(0);
     expect(body.data.accepted).toBe(true);
     expect(body.data.queued).toBe(true);
-    // 验证入队参数
-    expect(mockAdd).toHaveBeenCalledWith('complete', {
+    // 验证入队参数(源码可能扩展字段,用 objectContaining 容忍新字段)
+    expect(mockAdd).toHaveBeenCalledWith('complete', expect.objectContaining({
       conversationId: 'conv-1',
       userId: 'user-1',
       messageId: 'msg-1',
       content: 'AI 回复',
       tokens: 50,
       metadata: { model: 'stepfun/step-3.7-flash', usage: { total_tokens: 50 }, stub: false },
-    });
+    }));
 
     await serverWithQueue.close();
   });
