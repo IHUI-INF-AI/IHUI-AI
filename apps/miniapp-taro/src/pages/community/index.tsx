@@ -206,6 +206,14 @@ export default function Community() {
           </View>
         )}
       </View>
+
+      {/* 发布动态入口 FAB(对标原社区发布按钮) */}
+      <View
+        className="fixed right-[32rpx] bottom-[120rpx] w-[96rpx] h-[96rpx] flex items-center justify-center bg-[var(--color-primary)] rounded-[24rpx] z-[10]"
+        onClick={() => Taro.navigateTo({ url: '/pages/circle/create' })}
+      >
+        <Text className="text-[48rpx] text-white leading-none">+</Text>
+      </View>
     </View>
   )
 }
