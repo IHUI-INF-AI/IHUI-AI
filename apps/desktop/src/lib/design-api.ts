@@ -10,6 +10,9 @@
  */
 import { fetchApi } from '@ihui/api-client'
 import type { DesignComment, DesignPreview, DesignPreviewResponse } from '@ihui/shared'
+import { deriveComponentName, exportCode as convertCode } from './code-exporter'
+
+export type { ExportFormat } from './code-exporter'
 
 /** GET /design/comments/:previewId 返回结构。 */
 interface DesignCommentsResponse {
@@ -106,4 +109,40 @@ function stripCodeFence(text: string): string {
     s = s.slice(0, -3)
   }
   return s.trim()
+}
+
+/**
+ * 导出代码:把画布 HTML 转为 React/Vue/HTML 组件代码并触发浏览器下载。
+ *
+ * 纯前端转换,无需后端 API。组件名从 previewName 派生(PascalCase),
+ * 非 ASCII 回退到 DesignComponent。
+ *
+ * @param format 导出格式 'react' | 'vue' | 'html'
+ * @param html 画布 HTML 字符串(iframe srcDoc 的用户 HTML 部分)
+ * @param previewName 预览名(派生组件名用)
+ * @returns 下载文件名
+ */
+export async function exportCode(
+  format: 'react' | 'vue' | 'html',
+  html: string,
+  previewName: string,
+): Promise<{ filename: string }> {
+  const componentName = deriveComponentName(previewName)
+  const result = convertCode({ format, componentName, html })
+  triggerDownload(result.filename, result.content)
+  return { filename: result.filename }
+}
+
+/** 浏览器下载:Blob + URL.createObjectURL + a.click()。 */
+function triggerDownload(filename: string, content: string): void {
+  if (typeof document === 'undefined') return
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
