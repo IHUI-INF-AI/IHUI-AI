@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Flame, ExternalLink } from 'lucide-react'
+import { EmptyState } from './EmptyState'
 
 interface Props {
   items: Array<{ id: string; title: string; sourceCode: string; currentHot: number | null; currentRank: number | null; url: string | null; llmCategory: string | null }>
@@ -38,7 +39,13 @@ export function HotRanking({ items, sources }: Props) {
     return null
   }
 
-  if (items.length === 0) return null
+  if (items.length === 0) {
+    return (
+      <section aria-label={t('hotRanking.label')}>
+        <EmptyState icon={<Flame className="h-6 w-6" />} message={t('hotRanking.empty')} />
+      </section>
+    )
+  }
 
   return (
     <section
