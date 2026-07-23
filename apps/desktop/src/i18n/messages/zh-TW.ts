@@ -105,6 +105,18 @@ export default {
     theme: '主題',
     about: '關於智匯 AI',
   },
+  update: {
+    title: '軟體更新',
+    check: '檢查更新',
+    checking: '檢查中…',
+    available: '發現新版本 {{version}}',
+    download: '下載並安裝',
+    downloading: '下載中…',
+    done: '更新已安裝,重啟後生效',
+    latest: '已是最新版本',
+    error: '更新失敗',
+    idle: '點擊檢查是否有新版本',
+  },
   error: {
     network: '網路錯誤',
     server: '伺服器錯誤',
