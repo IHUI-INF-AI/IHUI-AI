@@ -3,106 +3,237 @@
   background: var(--color-background);
 }
 .page-header {
-  padding: 20rpx 30rpx;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24rpx 30rpx;
   background: var(--color-card);
+}
+.page-back {
+  position: absolute;
+  left: 20rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 44rpx;
+  color: var(--color-foreground);
+  padding: 0 12rpx;
+  line-height: 1;
 }
 .page-title {
-  font-size: 36rpx;
-  font-weight: bold;
+  font-size: 34rpx;
+  font-weight: 600;
   color: var(--color-foreground);
 }
-.summary-card {
-  display: flex;
+
+.income-overview {
   margin: 20rpx;
+  padding: 30rpx;
   background: var(--color-card);
   border-radius: 24rpx;
-  padding: 30rpx 0;
 }
-.summary-item {
+.income-overview-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 30rpx;
+}
+.income-overview-top-left {
+  display: flex;
+  flex-direction: column;
+}
+.income-overview-label {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  margin-bottom: 12rpx;
+}
+.income-overview-value {
+  font-size: 52rpx;
+  font-weight: bold;
+  color: #7b61ff;
+  line-height: 1.1;
+}
+.income-overview-btn {
+  padding: 14rpx 36rpx;
+  background: var(--color-accent);
+  border-radius: 12rpx;
+}
+.income-overview-btn.disabled {
+  opacity: 0.4;
+}
+.income-overview-btn-text {
+  color: var(--color-accent-foreground);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+.income-overview-row {
+  display: flex;
+  margin-bottom: 30rpx;
+}
+.income-overview-bottom {
+  display: flex;
+}
+.income-overview-block {
   flex: 1;
   text-align: center;
 }
-.summary-label {
+.income-overview-block-label {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  display: block;
+  margin-bottom: 10rpx;
+}
+.income-overview-block-value {
+  font-size: 32rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
+}
+.income-overview-block-value.link {
+  color: var(--color-accent);
+  font-size: 40rpx;
+}
+
+.income-fee-tip {
+  display: flex;
+  align-items: center;
+  padding: 0 20rpx;
+  margin-bottom: 20rpx;
+}
+.income-fee-tip-icon {
+  width: 32rpx;
+  height: 32rpx;
+  line-height: 32rpx;
+  text-align: center;
+  background: var(--color-accent);
+  color: var(--color-accent-foreground);
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  margin-right: 12rpx;
+}
+.income-fee-tip-text {
   font-size: 24rpx;
   color: var(--color-muted-foreground);
-  display: block;
-  margin-bottom: 12rpx;
 }
-.summary-value {
-  font-size: 36rpx;
-  color: var(--color-foreground);
-  font-weight: bold;
-}
-.action-bar {
+
+.income-tabs {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20rpx;
-  margin-bottom: 12rpx;
-}
-.withdraw-btn {
-  padding: 18rpx 48rpx;
-  background: var(--color-accent);
+  margin: 0 20rpx 20rpx;
+  padding: 6rpx;
+  background: var(--color-background);
   border-radius: 16rpx;
 }
-.withdraw-btn.disabled {
-  opacity: 0.4;
-}
-.withdraw-btn-text {
-  color: var(--color-accent-foreground);
-  font-size: 28rpx;
-  font-weight: 600;
-}
-.record-entry {
-  display: flex;
-  align-items: center;
-}
-.record-entry-text {
+.income-tab {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  border-radius: 12rpx;
+  color: var(--color-muted-foreground);
   font-size: 26rpx;
-  color: var(--color-muted-foreground);
 }
-.record-entry-arrow {
-  font-size: 30rpx;
-  color: var(--color-muted-foreground);
-  margin-left: 6rpx;
-}
-.record-section {
-  padding: 0 20rpx 20rpx;
-}
-.section-title {
-  font-size: 30rpx;
-  font-weight: 600;
+.income-tab.active {
+  background: var(--color-card);
   color: var(--color-foreground);
-  display: block;
-  padding: 20rpx 0;
+  font-weight: 600;
 }
-.record-item {
+
+.income-list {
+  padding: 0 20rpx 40rpx;
+}
+.income-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: 20rpx;
   padding: 24rpx;
-  margin-bottom: 12rpx;
+  margin-bottom: 16rpx;
 }
-.record-info {
+.income-card-info {
   flex: 1;
 }
-.record-title {
+.income-card-title {
   font-size: 28rpx;
   color: var(--color-foreground);
   display: block;
   margin-bottom: 8rpx;
 }
-.record-time {
+.income-card-time {
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
-.record-amount {
+.income-card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.income-card-amount {
   font-size: 30rpx;
   color: #34c759;
   font-weight: 600;
+  margin-bottom: 8rpx;
 }
+.income-card-badge {
+  font-size: 22rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+  background: var(--color-background);
+  color: var(--color-muted-foreground);
+}
+.income-card-badge.pending {
+  background: #fff4e6;
+  color: #ff9500;
+}
+.income-card-badge.settled {
+  background: #e9f7ef;
+  color: #34c759;
+}
+
+.income-empty {
+  display: block;
+  text-align: center;
+  color: var(--color-muted-foreground);
+  padding: 80rpx 0;
+  font-size: 26rpx;
+}
+.income-list-end {
+  display: block;
+  text-align: center;
+  color: var(--color-muted-foreground);
+  padding: 20rpx 0;
+  font-size: 24rpx;
+}
+
+.income-cash {
+  padding: 20rpx;
+}
+.income-cash-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--color-card);
+  border-radius: 20rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+}
+.income-cash-info {
+  display: flex;
+  flex-direction: column;
+}
+.income-cash-amount {
+  font-size: 30rpx;
+  color: var(--color-foreground);
+  font-weight: 600;
+  margin-bottom: 8rpx;
+}
+.income-cash-time {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.income-cash-status {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+
 .popup-mask {
   position: fixed;
   left: 0;
@@ -189,4 +320,76 @@
   font-size: 28rpx;
   color: var(--color-accent-foreground);
   font-weight: 600;
+}
+
+.income-method-card {
+  align-items: stretch;
+}
+.income-method-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+.income-method-wallet {
+  width: 44rpx;
+  height: 44rpx;
+  line-height: 44rpx;
+  text-align: center;
+  background: #7b61ff;
+  color: #ffffff;
+  border-radius: 10rpx;
+  font-size: 24rpx;
+  margin-right: 16rpx;
+}
+.income-method-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+.income-method-sub {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  margin-bottom: 28rpx;
+}
+.income-method-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 20rpx;
+  background: var(--color-background);
+  border-radius: 12rpx;
+  margin-bottom: 28rpx;
+  box-sizing: border-box;
+}
+.income-method-item.selected {
+  background: #f3eeff;
+}
+.income-method-wx-icon {
+  width: 48rpx;
+  height: 48rpx;
+  line-height: 48rpx;
+  text-align: center;
+  background: #07c160;
+  color: #ffffff;
+  border-radius: 10rpx;
+  font-size: 24rpx;
+  margin-right: 16rpx;
+}
+.income-method-wx-text {
+  color: #ffffff;
+}
+.income-method-item-text {
+  flex: 1;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+.income-method-check {
+  width: 36rpx;
+  text-align: center;
+  color: var(--color-muted-foreground);
+  font-size: 28rpx;
+}
+.income-method-check.on {
+  color: #07c160;
+  font-size: 32rpx;
 }

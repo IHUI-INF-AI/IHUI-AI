@@ -6,14 +6,47 @@
 }
 
 .pza-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 24rpx 32rpx 16rpx;
   background: var(--color-card);
+  gap: 16rpx;
 }
 
 .pza-page-title {
   font-size: 36rpx;
   font-weight: 600;
   color: var(--color-foreground);
+  flex: 1;
+}
+
+.pza-nav-btns {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.pza-nav-btn {
+  padding: 10rpx 20rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  background: var(--color-background);
+  border-radius: 8rpx;
+}
+
+.pza-search {
+  padding: 16rpx 24rpx;
+  background: var(--color-card);
+}
+
+.pza-search-input {
+  height: 64rpx;
+  padding: 0 24rpx;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  background: var(--color-background);
+  border-radius: 8rpx;
 }
 
 .pza-tabs {
@@ -42,7 +75,7 @@
 }
 
 .pza-tab.active text {
-  color: var(--color-foreground);
+  color: var(--color-primary-foreground);
 }
 
 .pza-scroll {
@@ -83,7 +116,20 @@
   font-weight: 500;
   color: var(--color-foreground);
   line-height: 1.4;
+  margin-bottom: 8rpx;
+}
+
+.pza-desc {
+  display: block;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.4;
   margin-bottom: 12rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .pza-meta {
@@ -100,12 +146,25 @@
 
 .pza-status {
   font-size: 22rpx;
+  color: var(--color-primary);
+}
+
+.pza-tags {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 8rpx;
+}
+
+.pza-track {
+  font-size: 22rpx;
   color: var(--color-muted-foreground);
+  background: var(--color-background);
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
 }
 
 .pza-attention {
-  display: block;
-  margin-top: 8rpx;
   font-size: 22rpx;
   color: var(--color-primary);
 }
@@ -157,6 +216,174 @@
 
 .pza-fab-icon {
   font-size: 48rpx;
-  color: var(--color-foreground);
+  color: var(--color-primary-foreground);
   line-height: 1;
+}
+
+/* 遮罩 */
+.pza-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 赛道分类弹窗 */
+.pza-drawer {
+  width: 86%;
+  max-width: 640rpx;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  overflow: hidden;
+}
+
+.pza-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 28rpx;
+}
+
+.pza-drawer-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.pza-drawer-close {
+  font-size: 40rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1;
+}
+
+.pza-track-scroll {
+  white-space: nowrap;
+  padding: 8rpx 28rpx 28rpx;
+}
+
+.pza-track {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14rpx 28rpx;
+  margin-right: 16rpx;
+  background: var(--color-background);
+  border-radius: 8rpx;
+}
+
+.pza-track text {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
+
+.pza-track.active {
+  background: var(--color-primary);
+}
+
+.pza-track.active text {
+  color: var(--color-primary-foreground);
+}
+
+/* 卡片详情居中弹窗 */
+.pza-center {
+  width: 86%;
+  max-width: 640rpx;
+  max-height: 76vh;
+  background: var(--color-card);
+  border-radius: 16rpx;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.pza-center-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 28rpx;
+  gap: 16rpx;
+}
+
+.pza-center-title {
+  flex: 1;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.pza-center-close {
+  font-size: 40rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1;
+}
+
+.pza-center-body {
+  padding: 0 28rpx 28rpx;
+}
+
+.pza-center-cover {
+  display: block;
+  width: 100%;
+  border-radius: 12rpx;
+  margin-bottom: 20rpx;
+}
+
+.pza-center-desc {
+  display: block;
+  font-size: 26rpx;
+  color: var(--color-foreground);
+  line-height: 1.6;
+  margin-bottom: 20rpx;
+}
+
+.pza-center-meta {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  margin-bottom: 12rpx;
+}
+
+.pza-center-label {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+
+/* 身份切换底部弹窗 */
+.pza-bottom-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-card);
+  border-radius: 16rpx 16rpx 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.pza-sheet-head {
+  padding: 28rpx 28rpx 16rpx;
+}
+
+.pza-sheet-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.pza-sheet-item {
+  padding: 28rpx;
+}
+
+.pza-sheet-item text {
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+
+.pza-sheet-item.active text {
+  color: var(--color-primary);
 }
