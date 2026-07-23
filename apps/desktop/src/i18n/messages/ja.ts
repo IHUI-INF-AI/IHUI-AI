@@ -117,6 +117,12 @@ export default {
     error: 'アップデート失敗',
     idle: 'クリックしてアップデートを確認',
   },
+  desktop: {
+    title: 'デスクトップ機能',
+    autostart: '自動起動',
+    shortcut: 'グローバルショートカット',
+    autostartToggleFailed: '自動起動の設定に失敗',
+  },
   error: {
     network: 'ネットワークエラー',
     server: 'サーバーエラー',
