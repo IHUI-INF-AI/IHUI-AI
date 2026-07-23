@@ -27,6 +27,13 @@ import {
 } from '@ihui/api-client/endpoints/ai-skills'
 import { Badge } from '@/components/data'
 import { cn } from '@/lib/utils'
+import {
+  getLabelKey,
+  getPlaceholderKey,
+  getMaxLen,
+  isLongText,
+  parseVariables,
+} from '@/lib/ai-skill-variables'
 
 /**
  * AI Skill 详情页 — 2026-07-23 新增
@@ -50,69 +57,9 @@ const CATEGORY_ICON: Record<AiSkillMeta['category'], React.ComponentType<{ class
   'ai-top': Sparkles,
 }
 
-/** 把变量名映射到 i18n key(13 个已知变量,覆盖全部 19 个真集成 skill) */
-const VARIABLE_LABEL_KEY: Record<string, string> = {
-  content: 'inputContent',
-  style: 'inputStyle',
-  requirements: 'inputRequirements',
-  topic: 'inputTopic',
-  domain: 'inputDomain',
-  platform: 'inputPlatform',
-  concept: 'inputConcept',
-  title: 'inputTitle',
-  subtitle: 'inputSubtitle',
-  platforms: 'inputPlatforms',
-  usecase: 'inputUsecase',
-  task: 'inputTask',
-}
-
-const VARIABLE_PLACEHOLDER_KEY: Record<string, string> = {
-  content: 'placeholderContent',
-  style: 'placeholderStyle',
-  requirements: 'placeholderRequirements',
-  topic: 'placeholderTopic',
-  domain: 'placeholderDomain',
-  platform: 'placeholderPlatform',
-  concept: 'placeholderConcept',
-  title: 'placeholderTitle',
-  subtitle: 'placeholderSubtitle',
-  platforms: 'placeholderPlatforms',
-  usecase: 'placeholderUsecase',
-  task: 'placeholderTask',
-}
-
-/** 已知变量的多行大小限制(防止超长输入) */
-const VARIABLE_MAX_LEN: Record<string, number> = {
-  content: 4000,
-  style: 200,
-  requirements: 1000,
-  topic: 500,
-  domain: 200,
-  platform: 100,
-  concept: 500,
-  title: 200,
-  subtitle: 200,
-  platforms: 500,
-  usecase: 500,
-  task: 500,
-}
-
-/** 解析 promptTemplate 中的 {key} 变量,去重保序 */
-function parseVariables(template: string): string[] {
-  if (!template) return []
-  const re = /\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g
-  const seen = new Set<string>()
-  const out: string[] = []
-  let m: RegExpExecArray | null
-  while ((m = re.exec(template)) !== null) {
-    const k = m[1] ?? ''
-    if (k && !seen.has(k)) {
-      seen.add(k)
-      out.push(k)
-    }
-  }
-  return out
-}
+/** 把变量名映射到 i18n key(15 个已知变量,覆盖全部 19 个真集成 skill) */
+// VARIABLE_LABEL_KEY / VARIABLE_PLACEHOLDER_KEY / VARIABLE_MAX_LEN / parseVariables
+// 已抽到 @/lib/ai-skill-variables,详情页与 SkillLibrary 弹窗共用。
 
 async function fetchSkill(id: string): Promise<AiSkillMeta> {
   const r = await getAiSkill(id)
@@ -271,10 +218,10 @@ export default function AiSkillDetailPage() {
 
           <div className="space-y-2.5">
             {renderVars.map((key) => {
-              const isLong = key === 'content' || key === 'requirements' || key === 'topic' || key === 'platforms'
-              const maxLen = VARIABLE_MAX_LEN[key] ?? 1000
-              const labelKey = (VARIABLE_LABEL_KEY[key] ?? `input${key.charAt(0).toUpperCase()}${key.slice(1)}`) as 'inputContent'
-              const placeholderKey = (VARIABLE_PLACEHOLDER_KEY[key] ?? `placeholder${key.charAt(0).toUpperCase()}${key.slice(1)}`) as 'placeholderContent'
+              const long = isLongText(key)
+              const maxLen = getMaxLen(key)
+              const labelKey = getLabelKey(key) as 'inputContent'
+              const placeholderKey = getPlaceholderKey(key) as 'placeholderContent'
               const val = variables[key] ?? ''
               return (
                 <div key={key} className="space-y-1">
@@ -284,7 +231,7 @@ export default function AiSkillDetailPage() {
                   >
                     {t(labelKey)}
                   </label>
-                  {isLong ? (
+                  {long ? (
                     <textarea
                       id={`var-${key}`}
                       value={val}

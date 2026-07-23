@@ -22,6 +22,13 @@ import {
 
 import { cn } from '@/lib/utils'
 import {
+  getLabelKey,
+  getPlaceholderKey,
+  getMaxLen,
+  isLongText,
+  parseVariables,
+} from '@/lib/ai-skill-variables'
+import {
   type ChatSkill,
   type ChatSkillCategory,
   type ChatSkillInput,
@@ -852,7 +859,7 @@ interface AiSkillInvokeDialogProps {
 }
 
 /** AI Skill 输入参数对话框。
- *  - 真集成 skill: 根据 skill.promptTemplate 解析 {key} 变量,动态渲染对应输入框
+ *  - 真集成 skill: 根据 skill.promptTemplate 解析 {key} 变量,动态渲染对应输入框(支持全部 19 个 skill 的 15 个变量)
  *  - 占位 skill: 显示 skill 介绍 + GitHub 链接 + 关闭按钮
  */
 function AiSkillInvokeDialog({
@@ -863,11 +870,15 @@ function AiSkillInvokeDialog({
   onError,
 }: AiSkillInvokeDialogProps) {
   const t = useTranslations('chat.skillLibrary')
+  const td = useTranslations('aiSkillDetail')
   const [running, setRunning] = React.useState(false)
-  const [topic, setTopic] = React.useState('')
-  const [content, setContent] = React.useState('')
-  const [style, setStyle] = React.useState('')
-  const [requirements, setRequirements] = React.useState('')
+  // 动态变量态(键为变量名,值为用户输入)
+  const [variables, setVariables] = React.useState<Record<string, string>>({})
+
+  // 切换 skill 时重置变量态
+  React.useEffect(() => {
+    setVariables({})
+  }, [skill.id])
 
   // 占位 skill:显示引导 + GitHub 链接
   if (!skill.available) {
@@ -908,38 +919,21 @@ function AiSkillInvokeDialog({
     )
   }
 
+  // 解析 promptTemplate 得到需要渲染的变量列表
+  const renderVars = parseVariables(skill.promptTemplate)
+  const fallbackVars = renderVars.length > 0 ? renderVars : ['content']
+
   // 真集成 skill:动态渲染参数输入
   const handleSubmit = async () => {
     if (running) return
+    // 校验必填(所有渲染变量都需要值)
+    const missing = fallbackVars.find((k) => !variables[k]?.trim())
+    if (missing) {
+      onError(t('invokeMissingVariable'))
+      return
+    }
     setRunning(true)
     try {
-      // 根据 skill id 收集对应变量
-      let variables: Record<string, unknown> = {}
-      if (skill.id === 'nuwa-skill') {
-        if (!content.trim() || !style.trim()) {
-          onError(t('invokeMissingVariable'))
-          setRunning(false)
-          return
-        }
-        variables = { style, content }
-      } else if (skill.id === 'hugshu-design') {
-        if (!requirements.trim()) {
-          onError(t('invokeMissingVariable'))
-          setRunning(false)
-          return
-        }
-        variables = { requirements }
-      } else if (
-        skill.id === 'guizang-ppt-skill' ||
-        skill.id === 'auto-redbook-skills'
-      ) {
-        if (!topic.trim()) {
-          onError(t('invokeMissingVariable'))
-          setRunning(false)
-          return
-        }
-        variables = { topic }
-      }
       const res = await invokeAiSkill(skill.id, { variables })
       if (res.success && res.data) {
         if (res.data.ok) {
@@ -976,53 +970,56 @@ function AiSkillInvokeDialog({
         </button>
       </div>
       <div className="text-[11px] text-muted-foreground">{skill.description}</div>
-      {/* 按 skill id 渲染对应输入字段 */}
-      {skill.id === 'nuwa-skill' && (
-        <>
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value.slice(0, 4000))}
-            placeholder={t('invokePlaceholderContent')}
-            aria-label={t('invokeInputContent')}
-            maxLength={4000}
-            rows={3}
-            className="thin-scroll w-full resize-none rounded-md border border-border bg-background px-2 py-1 text-xs leading-snug outline-none focus:border-foreground/20"
-          />
-          <input
-            type="text"
-            value={style}
-            onChange={(e) => setStyle(e.target.value)}
-            placeholder={t('invokePlaceholderStyle')}
-            aria-label={t('invokeInputStyle')}
-            className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-foreground/20"
-          />
-          <div className="text-[10px] text-muted-foreground/70">
-            {t('invokeInputStyle')}: {t('invokeStyleDefault')}
+      {/* 动态渲染变量输入字段(基于 promptTemplate 解析的 {key}) */}
+      {fallbackVars.map((key) => {
+        const long = isLongText(key)
+        const maxLen = getMaxLen(key)
+        const labelKey = getLabelKey(key) as 'inputContent'
+        const placeholderKey = getPlaceholderKey(key) as 'placeholderContent'
+        const val = variables[key] ?? ''
+        return (
+          <div key={key} className="space-y-1">
+            <label
+              htmlFor={`inv-var-${key}`}
+              className="text-[10px] font-medium text-foreground"
+            >
+              {td(labelKey)}
+            </label>
+            {long ? (
+              <textarea
+                id={`inv-var-${key}`}
+                value={val}
+                onChange={(e) =>
+                  setVariables((prev) => ({
+                    ...prev,
+                    [key]: e.target.value.slice(0, maxLen),
+                  }))
+                }
+                placeholder={td(placeholderKey)}
+                aria-label={td(labelKey)}
+                maxLength={maxLen}
+                rows={key === 'content' || key === 'text' ? 3 : 2}
+                className="thin-scroll w-full resize-none rounded-md border border-border bg-background px-2 py-1 text-xs leading-snug outline-none focus:border-foreground/20"
+              />
+            ) : (
+              <input
+                id={`inv-var-${key}`}
+                type="text"
+                value={val}
+                onChange={(e) =>
+                  setVariables((prev) => ({
+                    ...prev,
+                    [key]: e.target.value,
+                  }))
+                }
+                placeholder={td(placeholderKey)}
+                aria-label={td(labelKey)}
+                className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-foreground/20"
+              />
+            )}
           </div>
-        </>
-      )}
-      {skill.id === 'hugshu-design' && (
-        <textarea
-          value={requirements}
-          onChange={(e) => setRequirements(e.target.value.slice(0, 1000))}
-          placeholder={t('invokePlaceholderRequirements')}
-          aria-label={t('invokeInputRequirements')}
-          maxLength={1000}
-          rows={3}
-          className="thin-scroll w-full resize-none rounded-md border border-border bg-background px-2 py-1 text-xs leading-snug outline-none focus:border-foreground/20"
-        />
-      )}
-      {(skill.id === 'guizang-ppt-skill' || skill.id === 'auto-redbook-skills') && (
-        <textarea
-          value={topic}
-          onChange={(e) => setTopic(e.target.value.slice(0, 500))}
-          placeholder={t('invokePlaceholderTopic')}
-          aria-label={t('invokeInputTopic')}
-          maxLength={500}
-          rows={2}
-          className="thin-scroll w-full resize-none rounded-md border border-border bg-background px-2 py-1 text-xs leading-snug outline-none focus:border-foreground/20"
-        />
-      )}
+        )
+      })}
       {error && (
         <div className="rounded-md bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
           {error}
