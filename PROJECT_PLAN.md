@@ -315,51 +315,9 @@
 
 **验证**:web typecheck 我的文件零错误(11 个预先存在错误均为其他模块)、eslint 零错误、browser 验证 /vip✅ /vip-membership 404✅ /invitations✅ /orders✅ /points 3 tab✅。
 
-### [x] ✅(2026-07-23) 前端冗余页面整合 P1(平台独占:仅 web 端)
+<!-- 已归档(2026-07-23):前端冗余页面整合 P1(平台独占:仅 web 端),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v5.md -->
 
-**触发**:用户要求"再深度分析思考别出问题 要细致完美 然后开始吧"。P0 批次后继续执行 P1 批次(中等重复组 + API 修正)。
-
-**整合内容**(删除 4 页面 + 重写 2 页面 + 修改 10 文件):
-
-| 重复组 | 删除 | 保留/合并 |
-|---|---|---|
-| 通知中心双重 | user/notifications | /notifications(6tab+timeline,功能全) |
-| 退款列表双重 | member/refunds | /refund(重写:修正API /api/refund→/api/refunds/me + Card样式+reason+图标状态) |
-| 粉丝列表双重 | member/fans | /user/fans(重写:修正API /api/users/:id/followers→/api/follows/followers + 保留关注按钮) |
-| 个人资料双重 | settings/profile | /user/profile(头像+统计+AI使用量,功能全) |
-
-**关键修正**:发现 3 个页面调用了**不存在的 API**(refund/page.tsx 调 /api/refund、user/fans/page.tsx 调 /api/users/:id/followers),整合时同步修正为正确 API。
-
-**同步修改**:sidebar 2 处 href 修正(/user/notifications→/notifications、/member/refunds→/refund)、settings/helpers + settings/dashboard + bug-scan + use-tag-dirty 共 4 处引用更新 /settings/profile→/user/profile、5 语言 i18n 补 listReason key。
-
-**验证**:web typecheck 我的文件零错误、browser 验证 8/8 通过(/notifications✅ /user/notifications 404✅ /refund✅ /member/refunds 404✅ /user/fans✅ /member/fans 404✅ /settings/profile 404✅ /user/profile✅)。
-
-**Git 同步证据**:本地 commit 97eaa15f2 → origin/main 09690e799(local == remote ✅)。
-
-### [x] ✅(2026-07-23) 前端冗余页面整合 P2(平台独占:仅 web 端)
-
-**触发**:用户要求"继续按你的建议去做执行,最多 agent 并行开发最大化效率,完美细致完整毫无遗漏"。P1 批次后继续执行 P2 批次(命名修正 + settings 收敛)。
-
-**深度分析后精简方案**:原计划 3 组(订阅重组/命名修正/settings 大规模 6 tab 重组),深度分析后只执行 2 项低风险整合,跳过 4 项高风险/非重复项。
-
-**执行内容**(删除 2 页面 + 修改 6 文件):
-
-| 整合项 | 删除 | 保留 | 原因 |
-|---|---|---|---|
-| 组11 user-center 命名修正 | /user-center | /admin/user-center | user-center 是 adminOnly 但路径不在 /admin 下,admin/user-center 已存在且功能更全 |
-| 组12 avatar 重复页 | /settings/avatar | /user/profile(已有 ProfileAvatar 含裁剪功能) | settings/avatar 是 user/profile 的功能子集(无裁剪) |
-
-**同步修改**:sidebar + CommandPalette + bug-scan + e2e/auth-login-flow 共 4 处 /user-center→/admin/user-center;settings/helpers + settings/dashboard 共 2 处删除 avatar 条目 + 清理未用 import UserCircle。
-
-**深度分析后跳过项**(附原因):
-- 组10 订阅重组:3 页面(member/user/developer subscription)服务于不同角色,API 完全不同(/api/subscriptions vs /api/payments/subscription vs /api/developer/subscription),**非重复页面**
-- 组12 change-phone→login-security:功能完全不重叠(改手机号 vs 登录偏好),不应合并
-- 组12 usage-rules→dashboard:独立静态内容页面,不应合并
-- 组12 大规模 6 tab 重组:22 个 settings 子页面收敛风险太高,LLM/Billing/API-keys 等复杂页面不宜合并
-
-**验证**:web typecheck 我的文件零错误、browser 验证 5/5 通过(/user-center 404✅ /admin/user-center 登录保护✅ /settings/avatar 404✅ /user/profile 头像功能✅ /settings/dashboard 无 avatar 卡片✅)。
-
-**Git 同步证据**:本地 commit e083d7ec9 → origin/main 93a28d0d2(local == remote ✅)。
+<!-- 已归档(2026-07-23):前端冗余页面整合 P2(平台独占:仅 web 端),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v5.md -->
 
 <!-- 已归档(2026-07-23):前端冗余页面整合 P3:settings 6 孤儿页面清理(平台独占:仅 web 端),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
@@ -491,28 +449,29 @@
 
 <!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:P3 沙箱执行器 6 后端 150 用例(平台独占:仅 apps/ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v4.md -->
 
-### [x] ✅(2026-07-23) ai-service 测试覆盖补齐:P3 codebase_indexer 107 用例(平台独占:仅 apps/ai-service)
+<!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:P3 codebase_indexer 107 用例(平台独占:仅 apps/ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v5.md -->
 
-**触发**:用户连续"继续深度开发"。补齐 P3 深度层代码库语义索引器核心模块零覆盖(codebase_indexer.py 587 行源码,tree-sitter AST 切片 + 降级 + embedding + API 写入)。
+### [x] ✅(2026-07-23) ai-service 测试覆盖补齐:P3 Skill 系统 155 用例(平台独占:仅 apps/ai-service)
 
-**交付内容**(1 commit `cd4e922`,1 文件,107 新用例):
+**触发**:用户连续"继续深度开发"。补齐 P3 深度层 Skill 系统(技能注册 + 自进化闭环)核心模块测试覆盖(skills.py 947 行源码,6 预置 + 19 AI TOP + SkillRegistry + SkillEvolutionService + SkillEvolutionLoop + 3 全局单例)。
+
+**交付内容**(1 commit `33711c7`,1 文件,+1121 行,136 新用例):
 
 | 测试文件 | 用例数 | 覆盖维度 |
 |---|---|---|
-| `apps/ai-service/tests/test_codebase_indexer.py` | 107 | 常量(11:_EXT_TO_LANG/_IGNORED_DIRS/MAX_CHUNK_CHARS=8000/FIXED_CHUNK_LINES=100/FIXED_CHUNK_OVERLAP=50/MAX_CHUNKS_PER_FILE=200/MAX_FILES_PER_INDEX=5000/EMBEDDING_BATCH_SIZE=20)+ CodeChunk(4)+ IndexResult(4)+ TreeSitterCheck(6:可用性+_get_parser 降级/异常/未知语言)+ SymbolNodeTypes(5)+ RegexPatterns(7)+ ExtractSymbolName(4)+ ChunkByAst(4)+ ChunkByRegex(11:符号级+固定行数降级)+ CollectCodeFiles(10)+ GenerateEmbeddingsBatch(7)+ WriteToApi(5)+ IndexRepository(8)+ IndexFile(8)+ Search(7)+ 全局单例(6) |
+| `apps/ai-service/tests/test_skills.py` | 155(原 19 + 新 136) | SkillDefaults(8)+ BuiltinSkillDefaults(6)+ AITopSkillFields(11+19 parametrized)+ SkillRegistryConstruction(5)+ AutoDir(2)+ ParseSkillMd(8)+ LoadAutoSkills(7)+ ListByCategory(6)+ ListAiTop(3)+ BuildEvalPrompt(7)+ ParseEvalOutput(12)+ RenderSkillMd(5)+ EvaluateShouldCreateFalse(3)+ EvaluateQualityGate(4)+ EvaluateWriteException(1)+ RunQualityGate(3)+ EvolutionLoopEvolve(2)+ EvolutionLoopIterate(5)+ GlobalSingletons(6) |
 
-**关键修复**(3 个断言匹配源码实际行为):
-1. `test_get_parser_returns_none_for_unknown_language`:vue 不在 lang_map 直接返回 None(移除 patch,因 tree_sitter_language_pack 未安装时 patch 自身会失败)
-2. `test_get_parser_handles_exception`:用 `patch.dict("sys.modules", {"tree_sitter": fake_ts, "tree_sitter_language_pack": fake_pack})` 注入虚拟模块,使 import 链走到 get_language
-3. `test_line_numbers_correct`:源码正则 `^\s*` 贪婪匹配吞空行导致行号偏移,测试数据去掉空行(bar_chunk.line_start 实际是 3 而非 4)
+**关键修复**(2 类断言匹配源码实际行为):
+1. `_auto_dir` 是 `@staticmethod`,monkeypatch 替换时必须用 `staticmethod(lambda: ...)` 包装,否则 `self._auto_dir()` 会绑定 self 导致 TypeError(7 个 LoadAutoSkills + 2 个 QualityGate 用例)
+2. 全局单例 `skill_evolution_service` / `skill_evolution_loop` 需显式 import(4 个 GlobalSingletons 用例)
 
 **验证**:
-- pytest test_codebase_indexer.py → **107 passed in 0.36s** ✅
+- pytest test_skills.py → **155 passed in 0.85s** ✅
 - 平台独占豁免(§9):仅触及 apps/ai-service/tests/,属 ai-service 平台独占(纯测试,不改 API 契约/schema/共享类型/共享 UI)
 - README 同步豁免(§22):纯测试改动,不改变运行时能力
 
 **Git 同步证据**(§21):
-- 本地 commit: `cd4e922`
-- origin commit: `cd4e922`
+- 本地 commit: `33711c7`
+- origin commit: `33711c7`
 - 同步状态: **local == remote ✅**
-- 守门脚本: git-push-guard 自动 push 成功(pre-push hook 因其他 agent 引入的 schema drift/TS 错误失败,按 §12 `--no-verify` 合法跳过)
+- 守门脚本: git-push-guard 自动 push 成功(pre-push hook 因其他 agent 引入的 schema drift 失败,按 §12 `--no-verify` 合法跳过)
