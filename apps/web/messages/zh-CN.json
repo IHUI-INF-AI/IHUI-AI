@@ -27841,6 +27841,56 @@
     "stop": "停止",
     "execute": "执行"
   },
+  "orchestration": {
+    "title": "编排中枢",
+    "tabs": {
+      "events": "事件流",
+      "decisions": "联合决策",
+      "budget": "预算治理",
+      "telemetry": "遥测"
+    },
+    "status": {
+      "running": "运行中",
+      "stopped": "已停止",
+      "unavailable": "不可用"
+    },
+    "events": {
+      "filterAll": "全部",
+      "noEvents": "暂无事件",
+      "refresh": "刷新",
+      "events24h": "24h 事件",
+      "payload": "载荷详情"
+    },
+    "decisions": {
+      "noDecisions": "暂无决策",
+      "playbooks": "联动策略",
+      "trigger": "触发条件",
+      "actions": "动作",
+      "duration": "耗时"
+    },
+    "budget": {
+      "todayUsage": "今日用量",
+      "tokens": "Token",
+      "cost": "成本",
+      "trend": "7天趋势",
+      "pillarBudget": "支柱预算",
+      "costBreakdown": "成本分解",
+      "byPillar": "按支柱",
+      "byModel": "按模型",
+      "byAction": "按动作"
+    },
+    "telemetry": {
+      "pillarHealth": "支柱健康",
+      "recentTraces": "最近 Trace",
+      "healthy": "健康",
+      "degraded": "降级",
+      "unhealthy": "不健康",
+      "unknown": "未知",
+      "metrics": "指标摘要"
+    },
+    "unavailable": "编排中枢不可用",
+    "loading": "加载中..."
+  },
   "musicGenerator": {
     "title": "音乐生成",
     "generate": "生成音乐",
