@@ -27,7 +27,7 @@ export default function SettingsScreen() {
   const { t, locale, setLocale } = useI18n()
   const { user, logout } = useAuth()
   const navigation = useNavigation<NavigationProp>()
-  const { themeMode, setThemeMode } = useTheme()
+  const { themeMode, setThemeMode, resolvedTheme } = useTheme()
   const [notifications, setNotifications] = useState<SharedNotificationToggles>({
     push: true,
     message: true,
@@ -112,6 +112,7 @@ export default function SettingsScreen() {
       theme={themeMode}
       themeOptions={themeOptions}
       onSelectTheme={onSelectTheme}
+      colorScheme={resolvedTheme}
       notifications={notifications}
       onToggleNotification={onToggleNotification}
       onEditProfile={() => navigation.navigate('ProfileEdit')}
