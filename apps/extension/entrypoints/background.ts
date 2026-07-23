@@ -326,9 +326,10 @@ function registerInstallHook(): void {
     } catch (err) {
       console.error('[IHUI AI] onInstalled init failed:', err)
     }
-    // 默认启用 sidePanel 行为(action + toolbar icon)
+    // 2026-07-23 修复:openPanelOnActionClick: true 与 default_popup 冲突 → 点击图标无 popup
+    // 改为 false:点击图标走 default_popup(popup.html),sidePanel 由 popup 按钮触发
     try {
-      await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
+      await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false })
     } catch (err) {
       console.warn('[IHUI AI] setPanelBehavior failed:', err)
     }
