@@ -22,6 +22,7 @@ const { mockVerifyAccessToken, mockUser, mockPermissions, mockTokenPair } = vi.h
   },
 }))
 
+vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('@ihui/auth', () => ({
   verifyAccessToken: mockVerifyAccessToken,
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token-real'),
