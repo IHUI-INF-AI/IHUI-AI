@@ -11,15 +11,30 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "ai.ihui.mobile"
+      "bundleIdentifier": "ai.ihui.mobile",
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": ["weixin", "weixinULAPI"],
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false
+        }
+      },
+      "associatedDomains": ["applinks:file.aizhs.top"],
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
-      "package": "ai.ihui.mobile"
+      "package": "ai.ihui.mobile",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "extra": {
       "eas": {
         "projectId": ""
-      }
+      },
+      "WX_APP_APPID": "wx85fa429a9331b5c8",
+      "WX_UNIVERSAL_LINK": "https://file.aizhs.top/"
     }
   }
 }
