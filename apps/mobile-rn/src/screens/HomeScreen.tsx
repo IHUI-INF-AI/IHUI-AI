@@ -163,7 +163,7 @@ export function HomeScreen() {
             <Button
               className="mt-3"
               variant="outline"
-              onPress={() => navigation.getParent()?.navigate('CourseTab' as never)}
+              onPress={() => navigation.getParent()?.navigate('CourseTab')}
             >
               {t('nav.courses')}
             </Button>
@@ -176,7 +176,7 @@ export function HomeScreen() {
           <Text className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
             {t('home.livePreview')}
           </Text>
-          <TouchableOpacity onPress={() => navigation.getParent()?.navigate('LiveTab' as never)}>
+          <TouchableOpacity onPress={() => navigation.getParent()?.navigate('LiveTab')}>
             <Text className="text-xs text-emerald-600">{t('home.livePreviewMore')}</Text>
           </TouchableOpacity>
         </View>
@@ -227,7 +227,7 @@ export function HomeScreen() {
           <Text className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
             {t('home.recommend')}
           </Text>
-          <TouchableOpacity onPress={() => navigation.getParent()?.navigate('CourseTab' as never)}>
+          <TouchableOpacity onPress={() => navigation.getParent()?.navigate('CourseTab')}>
             <Text className="text-xs text-emerald-600">{t('home.livePreviewMore')}</Text>
           </TouchableOpacity>
         </View>
@@ -282,7 +282,7 @@ export function HomeScreen() {
           ].map((m) => (
             <TouchableOpacity
               key={m.key}
-              onPress={() => navigation.getParent()?.navigate(m.key as never)}
+              onPress={() => navigation.getParent()?.navigate(m.key)}
               activeOpacity={0.7}
               className="p-3"
             >
