@@ -159,7 +159,6 @@ export async function createLegacyFetcherFromEnv(): Promise<LegacyFetcher> {
   }
   let mysql: MysqlModule
   try {
-    // @ts-expect-error mysql2 为可选依赖,未安装时模块类型不存在
     mysql = await import('mysql2/promise.js')
   } catch {
     throw new Error(
