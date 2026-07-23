@@ -2,7 +2,7 @@ import { View, Text, Image, Swiper, SwiperItem, ScrollView } from '@tarojs/compo
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
-import { getHomePage, getCourseList, getLiveList, getStudyInfo, getBannerList, getCircleList, type Banner, type Course, type Live } from '@/api'
+import { getHomePage, getCourseList, getLiveList, getStudyInfo, getBannerList, getCircleList, getKnowledgePlanetInfo, type Banner, type Course, type Live } from '@/api'
 import { useI18n } from '@/i18n'
 
 const defaultAvatar =
@@ -43,6 +43,7 @@ export default function Index() {
   const [livePreview, setLivePreview] = useState<Live[]>([])
   const [study, setStudy] = useState<StudyStats | null>(null)
   const [circlePreview, setCirclePreview] = useState<Record<string, unknown>[]>([])
+  const [planetInfo, setPlanetInfo] = useState<Record<string, unknown> | null>(null)
 
   function refreshUser() {
     setIsLogin(isLoggedIn())
@@ -71,7 +72,7 @@ export default function Index() {
 
   const loadData = useCallback(async () => {
     try {
-      const [banners, courses, lives, studyRes, home, circles] = await Promise.all([
+      const [banners, courses, lives, studyRes, home, circles, planet] = await Promise.all([
         // 运营 banner 独立接口优先(支持精细化运营配置)
         getBannerList({ position: 'home', status: 1 })
           .then((res) => res.list || [])
@@ -89,6 +90,8 @@ export default function Index() {
         getCircleList({ page: 1, pageSize: 3 })
           .then((res) => (res?.list as unknown as Record<string, unknown>[]) || [])
           .catch(() => [] as Record<string, unknown>[]),
+        // 知识星球信息预览
+        getKnowledgePlanetInfo().catch(() => null),
       ])
       const list =
         banners ?? (home?.banner as Banner[] | undefined) ?? []
@@ -97,6 +100,7 @@ export default function Index() {
       setLivePreview(lives.list || [])
       setStudy(studyRes as StudyStats)
       setCirclePreview(circles)
+      setPlanetInfo(planet as Record<string, unknown> | null)
     } catch {
       // 静默处理,首页可离线展示
     }
@@ -135,9 +139,16 @@ export default function Index() {
           mode="aspectFill"
         />
         <View className="ml-[10px] flex flex-col">
-          <Text className="text-white text-[15px] font-semibold">
-            {userInfo?.userName || userInfo?.nickname || (isLogin ? t('common.user') : t('home.tapLogin'))}
-          </Text>
+          <View className="flex items-center">
+            <Text className="text-white text-[15px] font-semibold">
+              {userInfo?.userName || userInfo?.nickname || (isLogin ? t('common.user') : t('home.tapLogin'))}
+            </Text>
+            {userInfo?.isVip ? (
+              <Text className="ml-[6px] px-[6px] py-[1px] bg-[#f59e0b] text-white text-[10px] rounded-[3px] font-semibold">
+                VIP
+              </Text>
+            ) : null}
+          </View>
           {isLogin ? (
             <Text className="text-white text-[11px] opacity-90">
               {study
@@ -285,6 +296,31 @@ export default function Index() {
               </Text>
             </View>
           ))}
+        </View>
+      ) : null}
+
+      {/* 知识星球预览(对标原项目 KnowledgePlanet) */}
+      {planetInfo ? (
+        <View className="mx-[16px] my-[12px] tech-card px-[12px] py-[12px]">
+          <View className="flex justify-between items-center">
+            <Text className="text-[15px] text-neon font-semibold">
+              {t('home.knowledgePlanet')}
+            </Text>
+            <Text
+              className="text-[12px] text-muted-foreground"
+              onClick={() => Taro.navigateTo({ url: '/pages/circle/index' })}
+            >
+              {t('home.more')} {'>'}
+            </Text>
+          </View>
+          <View className="flex items-center mt-[8px]">
+            <Text className="flex-1 text-[12px] text-muted-foreground truncate">
+              {(planetInfo.desc as string) || (planetInfo.name as string) || t('home.knowledgePlanetDesc')}
+            </Text>
+            <Text className="ml-[8px] text-[12px] text-neon font-semibold">
+              {(planetInfo.members as number) || 0} {t('home.planetMembers')}
+            </Text>
+          </View>
         </View>
       ) : null}
 

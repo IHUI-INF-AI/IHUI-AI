@@ -1,6 +1,8 @@
 .developer-page {
   min-height: 100vh;
   background: var(--color-background);
+  display: flex;
+  flex-direction: column;
 }
 .page-header {
   padding: 20rpx 30rpx;
@@ -39,8 +41,64 @@
   color: var(--color-foreground);
   opacity: 0.8;
 }
-.agent-list {
-  padding: 20rpx;
+
+/* 状态 tab */
+.status-tabs {
+  display: flex;
+  margin: 0 20rpx;
+  padding: 8rpx;
+  background: var(--color-muted);
+  border-radius: 12rpx;
+}
+.status-tab {
+  flex: 1;
+  height: 56rpx;
+  line-height: 56rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+  border-radius: 8rpx;
+  transition: background 0.15s;
+}
+.status-tab.active {
+  background: var(--color-card);
+  font-weight: 600;
+}
+
+/* 搜索框 */
+.search-bar {
+  margin: 20rpx;
+  padding: 0 24rpx;
+  background: var(--color-card);
+  border-radius: 12rpx;
+}
+.search-input {
+  height: 72rpx;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+
+/* 子 tab */
+.sub-tabs {
+  display: flex;
+  margin: 0 20rpx 12rpx;
+  gap: 36rpx;
+}
+.sub-tab {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+  padding: 8rpx 0;
+}
+.sub-tab.active {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* 智能体滚动列表 */
+.agent-scroll {
+  flex: 1;
+  height: 0;
+  padding: 0 20rpx 20rpx;
 }
 .agent-item {
   display: flex;
@@ -53,12 +111,14 @@
 .agent-avatar {
   width: 80rpx;
   height: 80rpx;
-  border-radius: 8px;
+  border-radius: 8rpx;
   background: var(--color-background);
+  flex-shrink: 0;
 }
 .agent-body {
   flex: 1;
   margin-left: 20rpx;
+  min-width: 0;
 }
 .agent-name {
   font-size: 30rpx;
@@ -66,10 +126,21 @@
   font-weight: 500;
   display: block;
   margin-bottom: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .agent-stat {
   font-size: 24rpx;
   color: var(--color-muted-foreground);
+}
+.agent-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12rpx;
+  flex-shrink: 0;
+  margin-left: 16rpx;
 }
 .agent-status {
   font-size: 24rpx;
@@ -78,6 +149,23 @@
   padding: 4rpx 16rpx;
   border-radius: 6rpx;
 }
+.agent-actions {
+  display: flex;
+  gap: 16rpx;
+}
+.agent-action {
+  font-size: 24rpx;
+  padding: 6rpx 20rpx;
+  border-radius: 6rpx;
+}
+.agent-action.edit {
+  color: var(--color-primary);
+  background: rgba(78, 140, 255, 0.1);
+}
+.agent-action.delete {
+  color: #dd524d;
+  background: rgba(221, 82, 77, 0.1);
+}
 .loading-text,
 .empty-text {
   text-align: center;
@@ -85,4 +173,11 @@
   font-size: 28rpx;
   display: block;
   padding: 60rpx 0;
+}
+.list-end {
+  text-align: center;
+  color: var(--color-muted-foreground);
+  font-size: 24rpx;
+  display: block;
+  padding: 24rpx 0;
 }
