@@ -87,6 +87,11 @@ export default {
     searchPlaceholder: '搜索对话内容…',
     noSearchResults: '未找到匹配 "{{query}}" 的消息',
     regenerate: '重新生成',
+    title: 'AI 对话',
+    emptyState: '输入消息开始对话',
+    edit: '编辑',
+    editHint: '编辑并重新发送',
+    placeholderWithAttachments: '输入消息内容(附件已就绪)…',
   },
   profile: {
     title: '我的',
