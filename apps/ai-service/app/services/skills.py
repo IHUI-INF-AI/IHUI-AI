@@ -6,12 +6,18 @@ refactor-helper / api-designer。每个 skill 包含 name/description/prompt_tem
 P3-2 扩展:SkillEvolutionService.evaluate 增加自动测试 + 质量门(通过率 < 0.6 拒绝落盘)+
 落盘后初始化反馈追踪;新增 SkillEvolutionLoop 整合完整闭环
 (生成→测试→落盘→反馈追踪→迭代优化)。
+
+2026-07-23 扩展:Skill dataclass 增加 icon/category/tags/source/sourceUrl/available
+扩展字段,新增 19 个 AI Skills TOP(CODEX 自媒体 + GitHub 热门合集),供前端
+SkillLibrary 弹窗 ai-skills tab 展示,3 个真集成(nuwa-skill / hugshu-design /
+guizang-ppt-skill),其余 16 个以元数据 + GitHub 链接占位,后续按需逐个实装。
 """
+from __future__ import annotations  # 2026-07-23:SkillRegistry.list() 方法名 shadow 内置 list,注解 lazy 化避免 class body 内 list[Skill] 求值失败
 
 import json
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
@@ -23,6 +29,13 @@ class Skill:
     name: str
     description: str
     prompt_template: str
+    # 2026-07-23 扩展:UI 展示 + 路由分发元数据(全部可选,默认兼容老 6 个预置 skill)
+    icon: str = "sparkles"  # lucide-react 图标名(对齐 web 端)
+    category: str = "code"  # code / media / ai-top
+    tags: list[str] = field(default_factory=list)
+    source: str = "builtin"  # builtin / auto / ai-top
+    source_url: str = ""  # GitHub 链接(ai-top 类别)
+    available: bool = True  # True=真集成可调用,False=元数据占位
 
     def render(self, variables: dict[str, Any] | None = None) -> str:
         """使用 variables 渲染 prompt_template(简单 {key} 替换)。"""
@@ -95,11 +108,253 @@ _BUILTIN_SKILLS: list[Skill] = [
 ]
 
 
+# 2026-07-23 新增:19 个 AI Skills TOP(CODEX 自媒体 10 + GitHub 热门 10 - MediaCrawler 重复 = 19)
+# 对应前端 SkillLibrary 弹窗 ai-skills tab,用户可选调用。
+# 3 个真集成可调用(nuwa-skill / hugshu-design / guizang-ppt-skill),
+# 其余 16 个以元数据 + GitHub 链接占位,available=False,后续按需逐个实装。
+_AI_TOP_SKILLS: list[Skill] = [
+    # ===== CODEX 自媒体必装 10 个(来源图 1)=====
+    Skill(
+        name="agent-reach",
+        description="搜国内外多平台热点,收集素材",
+        prompt_template="(元数据占位,见 ai_skills.py handler)",
+        icon="search",
+        category="ai-top",
+        tags=["搜索", "热点", "素材"],
+        source="ai-top",
+        source_url="https://github.com/agent-reach/agent-reach",
+        available=False,
+    ),
+    Skill(
+        name="horizon",
+        description="每天热点和趋势简报,资讯雷达",
+        prompt_template="(元数据占位,见 ai_skills.py handler)",
+        icon="radar",
+        category="ai-top",
+        tags=["趋势", "热点", "简报"],
+        source="ai-top",
+        source_url="https://github.com/horizon/horizon",
+        available=False,
+    ),
+    Skill(
+        name="media-crawler",
+        description="采集公开内容与评论反馈(发布前后均可用)",
+        prompt_template="(元数据占位,见 ai_skills.py handler)",
+        icon="rss",
+        category="ai-top",
+        tags=["采集", "评论", "复盘"],
+        source="ai-top",
+        source_url="https://github.com/NanmiCoder/MediaCrawler",
+        available=False,
+    ),
+    Skill(
+        name="hugshu-design",
+        description="生成 HTML、原型、可编辑 PPT、动画设计稿",
+        prompt_template=(
+            "你是一名资深前端设计师。请根据以下需求生成可直接渲染的 HTML 原型:\n\n"
+            "需求: {requirements}\n\n"
+            "输出: 完整 HTML(包含 <style> 内联),不依赖外部 CDN,移动端友好。"
+        ),
+        icon="layout-template",
+        category="ai-top",
+        tags=["设计", "HTML", "原型", "PPT"],
+        source="ai-top",
+        source_url="https://github.com/hugshu/hugshu-design",
+        available=True,  # 真集成:llm_gateway 生成 HTML + screenshot 预览
+    ),
+    Skill(
+        name="auto-redbook-skills",
+        description="自动写小红书风格文案,长文集生成",
+        prompt_template=(
+            "你是一名资深小红书博主,文风活泼、emoji 适度、首句抓人。请按以下主题写一篇小红书笔记:\n\n"
+            "主题: {topic}\n\n"
+            "要求:\n1. 标题 ≤ 20 字,带 1-2 个 emoji\n"
+            "2. 正文 200-400 字,分 3-5 段,每段 ≤3 行\n"
+            "3. 结尾 3-5 个相关 hashtag\n"
+            "4. 禁止 AI 味词汇(在这个时代 / 让我们一起 / 总而言之等)"
+        ),
+        icon="book-heart",
+        category="ai-top",
+        tags=["小红书", "文案", "创作"],
+        source="ai-top",
+        source_url="https://github.com/auto-redbook/auto-redbook-skills",
+        available=True,  # 真集成:llm_gateway 风格 prompt
+    ),
+    Skill(
+        name="generative-media-skills",
+        description="图片、视频、音频生成工作流编排",
+        prompt_template="(元数据占位,见 ai_skills.py handler,接 dashscope/jimeng/kling/stepfun provider)",
+        icon="image-play",
+        category="ai-top",
+        tags=["图", "视频", "音频", "多模态"],
+        source="ai-top",
+        source_url="https://github.com/generative-media/generative-media-skills",
+        available=False,
+    ),
+    Skill(
+        name="nuwa-skill",
+        description="图文改写,统一账号表达风格",
+        prompt_template=(
+            "你是一名资深内容编辑。请将以下原文改写为「{style}」风格,保持核心信息不变:\n\n"
+            "原文:\n{content}\n\n"
+            "要求:\n1. 保持原文字数 ±20%\n2. 使用目标风格的词汇 + 句式\n3. 禁止 AI 味词汇,文风自然有人味\n4. 输出一段式改写结果"
+        ),
+        icon="feather",
+        category="ai-top",
+        tags=["改写", "风格", "图文"],
+        source="ai-top",
+        source_url="https://github.com/nuwa/nuwa-skill",
+        available=True,  # 真集成:llm_gateway 风格改写
+    ),
+    Skill(
+        name="guizang-social-card-skill",
+        description="生成图文卡片和封面图",
+        prompt_template="(元数据占位,见 ai_skills.py handler)",
+        icon="image",
+        category="ai-top",
+        tags=["封面", "卡片", "图文"],
+        source="ai-top",
+        source_url="https://github.com/guizang/guizang-social-card-skill",
+        available=False,
+    ),
+    Skill(
+        name="social-auto-upload",
+        description="多平台内容自动上传(已集成 14 平台适配器,见 publish 路由)",
+        prompt_template="(元数据占位,见 ai_skills.py handler)",
+        icon="upload-cloud",
+        category="ai-top",
+        tags=["发布", "多平台", "自动"],
+        source="ai-top",
+        source_url="https://github.com/social-auto-upload/social-auto-upload",
+        available=False,
+    ),
+    # ===== GitHub 本周热门 AI Skills 10 个(来源图 2)=====
+    Skill(
+        name="superpowers",
+        description="AI 从聊天框变成可复用工作流(248k stars, Shell)",
+        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        icon="zap",
+        category="ai-top",
+        tags=["工作流", "Shell", "开源"],
+        source="ai-top",
+        source_url="https://github.com/obra/superpowers",
+        available=False,
+    ),
+    Skill(
+        name="caveman",
+        description="让 Claude Code 用更少 token 做事(81k stars, JavaScript)",
+        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        icon="cpu",
+        category="ai-top",
+        tags=["节省 token", "JavaScript", "Claude"],
+        source="ai-top",
+        source_url="https://github.com/NkxxkN/caveman",
+        available=False,
+    ),
+    Skill(
+        name="graphify",
+        description="把代码、文档变成 AI 可查知识图谱(75k stars, Python)",
+        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        icon="git-branch",
+        category="ai-top",
+        tags=["知识图谱", "Python", "AI 可查"],
+        source="ai-top",
+        source_url="https://github.com/bartolli/graphify",
+        available=False,
+    ),
+    Skill(
+        name="agent-skills",
+        description="给 AI 编程助手装上工程能力(70k stars, Shell)",
+        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        icon="wrench",
+        category="ai-top",
+        tags=["工程", "Shell", "AI 编程"],
+        source="ai-top",
+        source_url="https://github.com/VoltAgent/agent-skills",
+        available=False,
+    ),
+    Skill(
+        name="awesome-claude-skills",
+        description="Claude Skills 入口目录,一次收藏(68k stars, Python)",
+        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        icon="book-marked",
+        category="ai-top",
+        tags=["合集", "Claude", "目录"],
+        source="ai-top",
+        source_url="https://github.com/ComposioHQ/awesome-claude-skills",
+        available=False,
+    ),
+    Skill(
+        name="taste-skill",
+        description="让 AI 少些模板味,多一点审美(52k stars, JavaScript)",
+        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        icon="palette",
+        category="ai-top",
+        tags=["审美", "JavaScript", "去模板"],
+        source="ai-top",
+        source_url="https://github.com/rohitg00/taste-skill",
+        available=False,
+    ),
+    Skill(
+        name="obsidian-skills",
+        description="让 AI 读写 Obsidian 笔记库(39k stars, Markdown)",
+        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        icon="notebook",
+        category="ai-top",
+        tags=["笔记", "Obsidian", "Markdown"],
+        source="ai-top",
+        source_url="https://github.com/kepano/obsidian-skills",
+        available=False,
+    ),
+    Skill(
+        name="claude-plugins-official",
+        description="Anthropic 官方 Claude 插件目录(33k stars, Python)",
+        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        icon="plug",
+        category="ai-top",
+        tags=["官方", "插件", "Anthropic"],
+        source="ai-top",
+        source_url="https://github.com/anthropics/claude-plugins-official",
+        available=False,
+    ),
+    Skill(
+        name="awesome-agent-skills",
+        description="1000+ Agent Skills 导航仓库(28k stars, Markdown)",
+        prompt_template="(GitHub 外部项目,见 ai_skills.py handler)",
+        icon="compass",
+        category="ai-top",
+        tags=["导航", "Agent", "1000+"],
+        source="ai-top",
+        source_url="https://github.com/awesome-agent-skills/awesome-agent-skills",
+        available=False,
+    ),
+    Skill(
+        name="guizang-ppt-skill",
+        description="用 AI 生成更像作品集的 PPT(21k stars, HTML)",
+        prompt_template=(
+            "你是一名资深 PPT 设计师。请根据以下主题生成 PPT 大纲(8-12 页):\n\n"
+            "主题: {topic}\n\n"
+            "输出格式(每页 1 个 object):\n"
+            "[\n  {\"slide\": 1, \"title\": \"...\", \"bullets\": [\"...\", \"...\"], \"layout\": \"title-only|bullet|image-left|image-right|two-column\"},\n  ...\n]"
+        ),
+        icon="presentation",
+        category="ai-top",
+        tags=["PPT", "作品集", "HTML"],
+        source="ai-top",
+        source_url="https://github.com/guizang/guizang-ppt-skill",
+        available=True,  # 真集成:llm_gateway 生成大纲 + screenshot 渲染
+    ),
+]
+
+
 class SkillRegistry:
-    """Skill 注册表,管理预置 skill + auto 目录自进化 skill 的查询。"""
+    """Skill 注册表,管理预置 skill + auto 目录自进化 skill + AI Skills TOP 的查询。"""
 
     def __init__(self) -> None:
         self._skills: dict[str, Skill] = {s.name: s for s in _BUILTIN_SKILLS}
+        # 2026-07-23:合并 19 个 AI Skills TOP(覆盖同名时 builtin 优先,保持向后兼容)
+        for s in _AI_TOP_SKILLS:
+            self._skills.setdefault(s.name, s)
         self._load_auto_skills()
 
     @staticmethod
@@ -149,7 +404,23 @@ class SkillRegistry:
 
     def list(self) -> list[Skill]:
         """列出全部 skill。"""
-        return list(self._skills.values())
+        import builtins
+        return builtins.list(self._skills.values())
+
+    def list_by_category(self, category: str) -> list[Skill]:
+        """按 category 过滤 skill(2026-07-23 新增,供 ai_skills 路由分类查询)。
+
+        Args:
+            category: 'code' | 'media' | 'ai-top' | 'all'
+        """
+        import builtins
+        if category == "all" or not category:
+            return self.list()
+        return [s for s in self._skills.values() if s.category == category]
+
+    def list_ai_top(self) -> list[Skill]:
+        """列出 19 个 AI Skills TOP(2026-07-23 新增,前端 ai-skills tab 用)。"""
+        return self.list_by_category("ai-top")
 
     def get(self, name: str) -> Skill | None:
         """按名称获取 skill,不存在返回 None。"""
