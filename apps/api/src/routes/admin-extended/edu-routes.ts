@@ -19,7 +19,7 @@ import { idParamSchema } from './_shared.js'
 
 /** P0-3 修复:edu_announcements 批量更新 schema。 */
 const updateAnnouncementsSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1),
+  ids: z.array(z.string().uuid()).min(1).max(500),
   patch: z
     .object({
       isPublished: z.boolean().optional(),
@@ -32,7 +32,7 @@ const updateAnnouncementsSchema = z.object({
 
 /** P0-3 修复:certificate_templates 批量更新 schema。 */
 const updateCertificateTemplatesSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1),
+  ids: z.array(z.string().uuid()).min(1).max(500),
   patch: z
     .object({
       status: z.number().int().min(0).max(1).optional(),

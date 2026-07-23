@@ -9,6 +9,10 @@ on:
       - 'apps/web/lighthouserc.json'
   workflow_dispatch:
 
+# Security: least-privilege GITHUB_TOKEN (CWE-250). Third-party actions use @v tags — pin to commit SHA for stricter supply-chain security.
+permissions:
+  contents: read
+
 jobs:
   lighthouse:
     runs-on: ubuntu-latest

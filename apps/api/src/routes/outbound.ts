@@ -38,7 +38,7 @@ function genId(prefix: string): string {
 const createSchema = z.object({
   name: z.string().min(1).max(100),
   script: z.string().min(1),
-  phoneList: z.array(z.string().min(1)).min(1),
+  phoneList: z.array(z.string().min(1)).min(1).max(100),
 })
 
 const listQuery = z.object({

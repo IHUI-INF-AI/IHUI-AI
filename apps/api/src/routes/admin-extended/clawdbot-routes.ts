@@ -25,14 +25,14 @@ const createClawdbotBotSchema = z.object({
 const updateClawdbotBotSchema = createClawdbotBotSchema.partial()
 
 const bulkUpdateClawdbotBotsSchema = z.object({
-  bots: z.array(updateClawdbotBotSchema.extend({ id: z.string().uuid() })),
+  bots: z.array(updateClawdbotBotSchema.extend({ id: z.string().uuid() })).max(500),
 })
 
 const createClawdbotPermissionSchema = z.object({
   botId: z.string().uuid(),
   userId: z.string().uuid().optional(),
   role: z.string().max(50).optional(),
-  permissions: z.array(z.string()).optional(),
+  permissions: z.array(z.string()).max(100).optional(),
 })
 
 const clawdbotPaginationSchema = z.object({
