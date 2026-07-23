@@ -5,14 +5,30 @@ import { getDeveloperIncome } from '@/api'
 import { useI18n } from '@/i18n'
 import './income.css'
 
+// 开发者收入明细项
+interface IncomeRecordItem {
+  id: string
+  title?: string
+  time?: string
+  amount: number
+}
+
+// 开发者收入信息(getDeveloperIncome 后端未类型化,按页面使用字段定义)
+interface DeveloperIncomeInfo {
+  total?: number
+  available?: number
+  withdrawn?: number
+  list?: IncomeRecordItem[]
+}
+
 export default function DeveloperIncome() {
   const { t } = useI18n()
-  const [info, setInfo] = useState<Record<string, unknown> | null>(null)
+  const [info, setInfo] = useState<DeveloperIncomeInfo | null>(null)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     try {
-      const res = (await getDeveloperIncome()) as Record<string, unknown>
+      const res = (await getDeveloperIncome()) as DeveloperIncomeInfo
       setInfo(res)
     } catch {
       // ignore
@@ -23,7 +39,7 @@ export default function DeveloperIncome() {
 
   useDidShow(load)
 
-  const list = (info?.list as Record<string, unknown>[]) || []
+  const list = info?.list || []
 
   return (
     <View className="income-page">
@@ -33,18 +49,18 @@ export default function DeveloperIncome() {
       <View className="summary-card">
         <View className="summary-item">
           <Text className="summary-label">{t('developer.income.total')}</Text>
-          <Text className="summary-value">¥{loading ? '--' : ((info?.total as number) ?? 0)}</Text>
+          <Text className="summary-value">¥{loading ? '--' : (info?.total ?? 0)}</Text>
         </View>
         <View className="summary-item">
           <Text className="summary-label">{t('developer.income.available')}</Text>
           <Text className="summary-value">
-            ¥{loading ? '--' : ((info?.available as number) ?? 0)}
+            ¥{loading ? '--' : (info?.available ?? 0)}
           </Text>
         </View>
         <View className="summary-item">
           <Text className="summary-label">{t('developer.income.withdrawn')}</Text>
           <Text className="summary-value">
-            ¥{loading ? '--' : ((info?.withdrawn as number) ?? 0)}
+            ¥{loading ? '--' : (info?.withdrawn ?? 0)}
           </Text>
         </View>
       </View>
@@ -52,14 +68,14 @@ export default function DeveloperIncome() {
         <View className="record-section">
           <Text className="section-title">{t('developer.income.details')}</Text>
           {list.map((r) => (
-            <View key={r.id as string} className="record-item">
+            <View key={r.id} className="record-item">
               <View className="record-info">
                 <Text className="record-title">
-                  {(r.title as string) || t('developer.income.income')}
+                  {r.title || t('developer.income.income')}
                 </Text>
-                <Text className="record-time">{(r.time as string) || ''}</Text>
+                <Text className="record-time">{r.time || ''}</Text>
               </View>
-              <Text className="record-amount">+¥{r.amount as number}</Text>
+              <Text className="record-amount">+¥{r.amount}</Text>
             </View>
           ))}
         </View>
