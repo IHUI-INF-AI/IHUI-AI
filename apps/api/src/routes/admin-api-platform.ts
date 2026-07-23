@@ -35,7 +35,7 @@ const createPackageSchema = z.object({
   description: z.string().max(500).optional(),
   price: z.number().int().min(0),
   interval: z.enum(['month', 'year']),
-  features: z.array(z.string()).default([]),
+  features: z.array(z.string()).max(100).default([]),
   sortOrder: z.number().int().default(0),
 })
 
@@ -44,7 +44,7 @@ const updatePackageSchema = z.object({
   description: z.string().max(500).optional(),
   price: z.number().int().min(0).optional(),
   interval: z.enum(['month', 'year']).optional(),
-  features: z.array(z.string()).optional(),
+  features: z.array(z.string()).max(100).optional(),
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().optional(),
 })

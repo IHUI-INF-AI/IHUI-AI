@@ -1199,7 +1199,7 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
     const b = z
       .object({
         workspace_id: z.string().min(1),
-        member_ids: z.array(z.string().min(1)).min(1),
+        member_ids: z.array(z.string().min(1)).min(1).max(100),
       })
       .safeParse(request.body)
     if (!b.success)
