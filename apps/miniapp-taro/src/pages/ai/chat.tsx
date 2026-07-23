@@ -22,8 +22,12 @@ import {
 import { useI18n } from '@/i18n'
 import { useUserStore } from '@/stores/user'
 import ChatMessageItem from './ChatMessageItem'
-import { ModelDrawer, AgentDrawer } from './ChatDrawers'
+import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
 import './chat.css'
+
+const HISTORY_STORAGE_KEY = 'ai_chat_history'
+const FAVORITE_STORAGE_KEY = 'ai_favorite_messages'
+const MAX_HISTORY_COUNT = 50
 
 interface MaterialItem {
   id: string
@@ -81,6 +85,11 @@ export default function ChatPage() {
   // 复用问题到输入框(对标原 ai_assistant.vue copyToInput)
   const [inputValue, setInputValue] = useState('')
   const [inputKey, setInputKey] = useState(0)
+  // 收藏消息(对标原 ai_assistant.vue 收藏 AI 回复,用消息 timestamp 作为 id)
+  const [favoritedMsgs, setFavoritedMsgs] = useState<Set<string>>(new Set())
+  // 历史对话(对标原 ai_assistant.vue 历史抽屉)
+  const [chatHistories, setChatHistories] = useState<ChatHistoryEntry[]>([])
+  const [historyDrawerVisible, setHistoryDrawerVisible] = useState(false)
 
   const activeAgentId = currentAgentId || routeAgentId
 
@@ -180,6 +189,20 @@ export default function ChatPage() {
   useDidShow(() => {
     if (routeAgentId) loadAgent()
     Taro.showShareMenu({ withShareTicket: true })
+    // 加载历史对话(对标原 ai_assistant.vue 加载历史)
+    try {
+      const savedHistory = Taro.getStorageSync(HISTORY_STORAGE_KEY)
+      if (Array.isArray(savedHistory)) setChatHistories(savedHistory)
+    } catch {
+      // 存储读取失败忽略
+    }
+    // 加载收藏消息(对标原 ai_assistant.vue 收藏列表)
+    try {
+      const savedFav = Taro.getStorageSync(FAVORITE_STORAGE_KEY)
+      if (Array.isArray(savedFav)) setFavoritedMsgs(new Set(savedFav))
+    } catch {
+      // 存储读取失败忽略
+    }
   })
 
   useShareAppMessage(() => ({
@@ -348,12 +371,35 @@ export default function ChatPage() {
       content: t('ai.clearConfirm'),
       success: (res) => {
         if (res.confirm) {
+          // 清空前把当前对话存入历史(对标原 ai_assistant.vue 存历史)
+          if (messages.length > 0) {
+            const firstUserMsg = messages.find((m) => m.role === 'user')
+            const lastMsg = messages[messages.length - 1]
+            const title = (firstUserMsg?.content || '').slice(0, 20) || t('ai.history.title')
+            const preview = (lastMsg?.content || '').slice(0, 30)
+            const entry: ChatHistoryEntry = {
+              id: `hist_${Date.now()}`,
+              title,
+              preview,
+              timestamp: Date.now(),
+              messages: [...messages],
+            }
+            setChatHistories((prev) => {
+              const next = [entry, ...prev].slice(0, MAX_HISTORY_COUNT)
+              try {
+                Taro.setStorageSync(HISTORY_STORAGE_KEY, next)
+              } catch {
+                // 存储写入失败忽略
+              }
+              return next
+            })
+          }
           setMessages([])
           setSessionId('')
         }
       },
     })
-  }, [t])
+  }, [t, messages])
 
   const selectModel = useCallback((m: ModelItem) => {
     setCurrentModel(m.id)
@@ -480,6 +526,51 @@ export default function ChatPage() {
     Taro.pageScrollTo({ scrollTop: 100000, duration: 300 })
   }, [])
 
+  /** 恢复选中的历史对话(对标原 ai_assistant.vue 恢复历史) */
+  const handleSelectHistory = useCallback(
+    (h: ChatHistoryEntry) => {
+      setMessages(h.messages || [])
+      setSessionId('')
+      setHistoryDrawerVisible(false)
+      scrollToBottom()
+    },
+    [scrollToBottom],
+  )
+
+  /** 清空所有历史对话(对标原 ai_assistant.vue clearHistory) */
+  const handleClearHistory = useCallback(() => {
+    setChatHistories([])
+    try {
+      Taro.removeStorageSync(HISTORY_STORAGE_KEY)
+    } catch {
+      // 存储删除失败忽略
+    }
+  }, [])
+
+  /** 切换收藏状态(对标原 ai_assistant.vue toggleFavorite,持久化到本地) */
+  const toggleFavorite = useCallback(
+    (msg: ChatMessage) => {
+      if (!msg.timestamp) return
+      const id = String(msg.timestamp)
+      setFavoritedMsgs((prev) => {
+        const next = new Set(prev)
+        if (next.has(id)) {
+          next.delete(id)
+        } else {
+          next.add(id)
+          Taro.showToast({ title: t('ai.chatMessageItem.favorited'), icon: 'none' })
+        }
+        try {
+          Taro.setStorageSync(FAVORITE_STORAGE_KEY, Array.from(next))
+        } catch {
+          // 存储写入失败忽略
+        }
+        return next
+      })
+    },
+    [t],
+  )
+
   const openModelDrawer = useCallback(() => {
     setModelDrawerVisible(true)
     if (!models.length) loadModels()
@@ -503,6 +594,9 @@ export default function ChatPage() {
               {agent.name}
             </Text>
           ) : null}
+          <Text className="nav-history" onClick={() => setHistoryDrawerVisible(true)}>
+            📜
+          </Text>
           {messages.length ? (
             <Text className="nav-clear" onClick={clearChat}>
               {t('ai.clear')}
@@ -572,6 +666,8 @@ export default function ChatPage() {
             onRegenerate={msg.role === 'assistant' ? handleRegenerate : undefined}
             onLongPress={() => handleLongPress(msg, idx)}
             onEdit={msg.role === 'user' ? () => handleEdit(msg, idx) : undefined}
+            isFavorited={msg.role === 'assistant' && msg.timestamp ? favoritedMsgs.has(String(msg.timestamp)) : undefined}
+            onToggleFavorite={msg.role === 'assistant' && msg.timestamp ? () => toggleFavorite(msg) : undefined}
           />
         ))}
 
@@ -697,6 +793,13 @@ export default function ChatPage() {
         visible={agentDrawerVisible}
         onClose={() => setAgentDrawerVisible(false)}
         agent={agent}
+      />
+      <HistoryDrawer
+        visible={historyDrawerVisible}
+        onClose={() => setHistoryDrawerVisible(false)}
+        histories={chatHistories}
+        onSelect={handleSelectHistory}
+        onClear={handleClearHistory}
       />
     </View>
   )

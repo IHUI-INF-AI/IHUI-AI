@@ -24,6 +24,19 @@ interface RankingDetail {
   content?: string
 }
 
+// 排行榜原始列表项(后端字段命名不统一,pick 函数兼容多命名)
+interface RankingRawItem {
+  id?: string | number
+  [key: string]: unknown
+}
+
+// 排行榜列表响应(对标后端 GET /ranking 返回结构)
+interface RankingListResponse {
+  list: RankingRawItem[]
+  total?: number
+  myRank?: number
+}
+
 // 取字段值,兼容后端返回的多种命名
 const pick = (obj: Record<string, unknown>, keys: string[]): string => {
   for (const k of keys) {
@@ -46,10 +59,10 @@ export default function RankingDetailPage() {
       return
     }
     try {
-      const res = (await getRankingList()) as Record<string, unknown>
-      const list = (res?.list as Record<string, unknown>[]) || []
-      const item = list.find((it) => String(it.id) === String(id)) || ({} as Record<string, unknown>)
-      const raw = item as Record<string, unknown>
+      const res = (await getRankingList()) as RankingListResponse
+      const list = res?.list || []
+      const item = list.find((it) => String(it.id) === String(id)) || ({} as RankingRawItem)
+      const raw: Record<string, unknown> = item
       setData({
         id: raw.id as string | number,
         logo: pick(raw, ['logo', 'icon', 'avatar']),
