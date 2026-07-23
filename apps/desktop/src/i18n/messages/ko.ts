@@ -148,6 +148,10 @@ export default {
     ja: '일본어',
     ko: '한국어',
     about: 'IHUI AI 정보',
+    fontSize: '글꼴 크기',
+    fontZoomIn: '확대',
+    fontZoomOut: '축소',
+    fontReset: '재설정',
   },
   update: {
     title: '소프트웨어 업데이트',
