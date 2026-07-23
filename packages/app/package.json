@@ -23,7 +23,6 @@
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
     "@types/react": "^19.0.0",
-    "nativewind": "^4.2.6",
     "react": "^19.0.0",
     "react-native": "^0.79.0",
     "solito": "4.3.0",

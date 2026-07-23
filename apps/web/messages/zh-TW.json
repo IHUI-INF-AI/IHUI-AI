@@ -517,7 +517,6 @@
     "publishPlatform": "發布平臺",
     "selfMediaKoubo": "口播稿",
     "selfMediaAutomation": "自動化",
-    "pluginMarket": "外掛市場",
     "downloadIOS": "iOS",
     "downloadAndroidApk": "Android APK",
     "downloadWechatMiniApp": "微信小程式",
@@ -536,6 +535,7 @@
     "downloadCliDesc": "npm i -g @ihui/cli",
     "downloadMiniDesc": "微信掃碼即開",
     "mainNav": "主導航",
+    "pluginMarket": "外掛市場",
     "knowledgeBase": "知識庫",
     "knowledgeRag": "RAG 知識庫",
     "knowledgeGraph": "知識圖譜",
@@ -2163,6 +2163,7 @@
       "pluginsStats": "外掛監測",
       "examMarking": "考試批閱",
       "saasTenants": "租戶管理",
+      "saasCertificates": "憑證狀態",
       "group": {
         "operation": "運營管理",
         "moderation": "內容審核",
@@ -2177,7 +2178,6 @@
         "developer": "開發者中心",
         "saas": "SaaS 部署"
       },
-      "saasCertificates": "憑證狀態",
       "saasMetrics": "資源監控",
       "aiCost": "AI 成本總覽"
     },
@@ -8016,6 +8016,22 @@
       }
     }
   },
+  "knowledgeGraph": {
+    "title": "知識圖譜",
+    "buildSection": "從文字建構圖譜",
+    "placeholder": "貼上一段文字,系統會自動抽取其中的實體與關係...",
+    "buildButton": "抽取並建構",
+    "clearButton": "清空圖譜",
+    "graphSection": "圖譜視覺化",
+    "emptyState": "暫無資料,請在上方輸入文字後點擊「抽取並建構」",
+    "stats": "共 {entities} 個實體 / {relations} 條關係",
+    "legendHint": "提示:滑鼠懸停節點可高亮相關邊,節點大小代表出現次數,邊粗細代表關係權重",
+    "graphAriaLabel": "知識圖譜視覺化",
+    "frequencyLabel": "出現 {count} 次",
+    "charCount": "{count} 字元",
+    "feedbackBuildSuccess": "抽取完成,新增 {entities} 個實體,{relations} 條關係",
+    "feedbackClearSuccess": "圖譜已清空"
+  },
   "user": {
     "guest": "遊客",
     "nav": {
@@ -10301,6 +10317,8 @@
         "providerAggregator": "聚合平臺",
         "providerLocal": "本地部署"
       },
+      "scrollLeft": "向左捲動",
+      "scrollRight": "向右捲動",
       "overview": "概覽",
       "market": "模型市場",
       "channels": "渠道管理",
@@ -10316,9 +10334,7 @@
       "openclaw": "OpenClaw 部署",
       "apiDocs": "API 文件",
       "skills": "Skills 市場",
-      "contact": "聯絡我們",
-      "scrollLeft": "向左捲動",
-      "scrollRight": "向右捲動"
+      "contact": "聯絡我們"
     },
     "market": {
       "searchPlaceholder": "模糊搜尋模型名稱",
@@ -20543,8 +20559,8 @@
   },
   "msg": {
     "xuqiu_detail": {
-      "fetchDetailFailed": "獲取需求詳情失敗",
-      "加载失败": "加載失敗"
+      "加载失败": "加載失敗",
+      "fetchDetailFailed": "獲取需求詳情失敗"
     },
     "header_navigation": {
       "跳转失败请重试": "跳轉失敗，請重試"
@@ -20611,8 +20627,8 @@
   },
   "content": {
     "prompt_templates": {
-      "你是一位精通中英11": "你是一位精通中英文的翻譯專家。請將以下內容翻譯成自然、流暢且符合語境的中文，注意保留原有的技術術語和語感。",
       "请将以下内容进行10": "請將以下內容進行核心摘要，保留關鍵信息，以簡潔的列表形式呈現，確保易於快速閱讀。",
+      "你是一位精通中英11": "你是一位精通中英文的翻譯專家。請將以下內容翻譯成自然、流暢且符合語境的中文，注意保留原有的技術術語和語感。",
       "请详细分析以下代12": "請詳細分析以下程式碼的邏輯，找出潛在的 Bug、記憶體洩漏或安全隱患，並給出性能優化和可讀性改進的建議。",
       "请根据我提供的本13": "請根據我提供的本週工作事項，整理成一份邏輯清晰、重點突出的職場週報，包含：本週進展、遇到的問題、下週計劃。",
       "请根据以下主题和14": "請根據以下主題和關鍵詞，撰寫一篇結構完整、邏輯清晰的文章。要求：開篇有吸引力，論述有深度，結尾有昇華。主題：[請填寫主題]，關鍵詞：[請填寫關鍵詞]，風格：[專業/輕鬆/創意]",
@@ -20639,8 +20655,18 @@
     },
     "agents": {
       "操作成功": "操作成功",
+      "调用成功1": "調用成功",
+      "调用成功2": "調用成功",
+      "获取成功3": "獲取成功",
+      "获取成功4": "獲取成功",
+      "获取成功5": "獲取成功",
+      "获取成功6": "獲取成功",
+      "获取成功7": "獲取成功",
+      "智能体不存在8": "智能體不存在",
       "收藏成功11": "收藏成功",
       "取消收藏成功12": "取消收藏成功",
+      "获取成功13": "獲取成功",
+      "获取成功14": "獲取成功",
       "同步成功15": "同步成功",
       "同步成功16": "同步成功",
       "同步成功17": "同步成功",
@@ -20653,16 +20679,6 @@
       "操作成功24": "操作成功",
       "操作成功25": "操作成功",
       "操作成功26": "操作成功",
-      "调用成功1": "調用成功",
-      "调用成功2": "調用成功",
-      "获取成功3": "獲取成功",
-      "获取成功4": "獲取成功",
-      "获取成功5": "獲取成功",
-      "获取成功6": "獲取成功",
-      "获取成功7": "獲取成功",
-      "智能体不存在8": "智能體不存在",
-      "获取成功13": "獲取成功",
-      "获取成功14": "獲取成功",
       "获取成功27": "獲取成功",
       "获取成功28": "獲取成功",
       "搜索失败": "搜尋失敗",
@@ -20670,12 +20686,12 @@
       "调用失败": "調用失敗"
     },
     "api_service": {
-      "更新成功3": "更新成功",
-      "重新生成成功5": "重新生成成功",
       "获取成功": "獲取成功",
       "获取成功1": "獲取成功",
       "创建成功2": "創建成功",
+      "更新成功3": "更新成功",
       "删除成功4": "刪除成功",
+      "重新生成成功5": "重新生成成功",
       "获取成功6": "獲取成功",
       "获取成功7": "獲取成功",
       "获取成功8": "獲取成功",
@@ -20713,27 +20729,27 @@
       "获取模型列表失败": "獲取模型列表失敗"
     },
     "apis": {
-      "更新成功3": "更新成功",
-      "生成成功7": "生成成功",
-      "保存成功13": "儲存成功",
       "获取成功": "獲取成功",
       "获取成功1": "獲取成功",
       "创建成功2": "創建成功",
+      "更新成功3": "更新成功",
       "删除成功4": "刪除成功",
       "测试成功5": "測試成功",
       "获取成功6": "獲取成功",
+      "生成成功7": "生成成功",
       "导出成功8": "匯出成功",
       "获取成功9": "獲取成功",
       "创建成功10": "創建成功",
       "切换成功11": "切換成功",
       "获取成功12": "獲取成功",
+      "保存成功13": "儲存成功",
       "删除成功14": "刪除成功",
       "获取成功15": "獲取成功"
     },
     "batch_operations": {
-      "批量更新成功2": "批量更新成功",
       "批量创建成功": "批量創建成功",
-      "批量删除成功1": "批量刪除成功"
+      "批量删除成功1": "批量刪除成功",
+      "批量更新成功2": "批量更新成功"
     },
     "business_card": {
       "登录已过期请重新": "登入已過期，請重新登入"
@@ -20743,8 +20759,6 @@
       "请求超时1": "請求超時"
     },
     "community": {
-      "收藏成功7": "收藏成功",
-      "取消收藏成功8": "取消收藏成功",
       "演示数据": "演示資料",
       "获取成功1": "獲取成功",
       "发布成功2": "發佈成功",
@@ -20752,6 +20766,8 @@
       "获取成功4": "獲取成功",
       "点赞成功5": "點贊成功",
       "取消点赞成功6": "取消點贊成功",
+      "收藏成功7": "收藏成功",
+      "取消收藏成功8": "取消收藏成功",
       "获取成功9": "獲取成功",
       "评论成功10": "評論成功",
       "演示数据11": "演示資料",
@@ -20767,8 +20783,6 @@
       "获取成功4": "獲取成功"
     },
     "courses": {
-      "完成成功8": "完成成功",
-      "更新成功10": "更新成功",
       "演示数据": "演示資料",
       "获取成功1": "獲取成功",
       "获取成功2": "獲取成功",
@@ -20777,7 +20791,9 @@
       "获取成功5": "獲取成功",
       "报名成功6": "報名成功",
       "获取成功7": "獲取成功",
+      "完成成功8": "完成成功",
       "获取成功9": "獲取成功",
+      "更新成功10": "更新成功",
       "导出成功11": "匯出成功",
       "删除成功12": "刪除成功"
     },
@@ -20788,13 +20804,13 @@
       "任务创建成功": "任務創建成功"
     },
     "gateway": {
-      "更新成功2": "更新成功",
-      "更新成功6": "更新成功",
       "获取成功": "獲取成功",
       "创建成功1": "創建成功",
+      "更新成功2": "更新成功",
       "删除成功3": "刪除成功",
       "获取成功4": "獲取成功",
       "创建成功5": "創建成功",
+      "更新成功6": "更新成功",
       "删除成功7": "刪除成功",
       "获取成功8": "獲取成功",
       "测试成功9": "測試成功"
@@ -20806,11 +20822,11 @@
       "教育平台资源模块3": "教育平臺資源模塊暫不支持刪除文檔"
     },
     "mcp": {
-      "更新成功4": "更新成功",
       "演示数据": "演示資料",
       "获取成功1": "獲取成功",
       "获取成功2": "獲取成功",
       "创建成功3": "創建成功",
+      "更新成功4": "更新成功",
       "删除成功5": "刪除成功",
       "测试成功6": "測試成功",
       "未知错误7": "未知錯誤",
@@ -20820,12 +20836,12 @@
       "调用成功11": "調用成功"
     },
     "models": {
-      "更新成功5": "更新成功",
       "演示数据": "演示資料",
       "获取成功1": "獲取成功",
       "暂无可用模型2": "暫無可用模型",
       "获取成功3": "獲取成功",
       "创建成功4": "創建成功",
+      "更新成功5": "更新成功",
       "删除成功6": "刪除成功",
       "模型切换成功7": "模型切換成功",
       "测试成功8": "測試成功",
@@ -20861,42 +20877,42 @@
       "通知显示成功8": "通知顯示成功"
     },
     "platforms": {
-      "更新成功3": "更新成功",
-      "同步成功8": "同步成功",
       "获取成功": "獲取成功",
       "获取成功1": "獲取成功",
       "创建成功2": "創建成功",
+      "更新成功3": "更新成功",
       "删除成功4": "刪除成功",
       "测试成功5": "測試成功",
       "未知错误6": "未知錯誤",
-      "获取成功7": "獲取成功"
+      "获取成功7": "獲取成功",
+      "同步成功8": "同步成功"
     },
     "plugins": {
-      "更新成功3": "更新成功",
       "获取成功": "獲取成功",
       "获取成功1": "獲取成功",
       "创建成功2": "創建成功",
+      "更新成功3": "更新成功",
       "删除成功4": "刪除成功",
       "发布成功5": "發佈成功",
       "测试成功6": "測試成功"
     },
     "pricing": {
-      "更新成功1": "更新成功",
-      "更新成功4": "更新成功",
       "获取成功": "獲取成功",
+      "更新成功1": "更新成功",
       "计算成功2": "計算成功",
       "获取成功3": "獲取成功",
+      "更新成功4": "更新成功",
       "测试成功5": "測試成功",
       "未知错误6": "未知錯誤",
       "获取成功7": "獲取成功"
     },
     "sdks": {
-      "更新成功3": "更新成功",
-      "生成成功5": "生成成功",
       "获取成功": "獲取成功",
       "获取成功1": "獲取成功",
       "创建成功2": "創建成功",
-      "删除成功4": "刪除成功"
+      "更新成功3": "更新成功",
+      "删除成功4": "刪除成功",
+      "生成成功5": "生成成功"
     },
     "service_appointment": {
       "预约提交成功模拟": "預約提交成功（模擬）",
@@ -20919,8 +20935,6 @@
       "获取订单统计失败": "獲取訂單統計失敗"
     },
     "tools": {
-      "收藏成功8": "收藏成功",
-      "取消收藏成功9": "取消收藏成功",
       "获取成功": "獲取成功",
       "获取成功1": "獲取成功",
       "使用记录成功2": "使用記錄成功",
@@ -20928,7 +20942,9 @@
       "获取成功4": "獲取成功",
       "获取成功5": "獲取成功",
       "获取成功6": "獲取成功",
-      "获取成功7": "獲取成功"
+      "获取成功7": "獲取成功",
+      "收藏成功8": "收藏成功",
+      "取消收藏成功9": "取消收藏成功"
     },
     "unified_ai": {
       "调用成功": "調用成功",
@@ -20949,40 +20965,40 @@
       "注册接口不存在请1": "註冊接口不存在，請檢查後端服務配置。錯誤信息："
     },
     "unified_wechat": {
-      "loginId不1": "loginId不能為空",
-      "后端服务未响应使": "後端服務未響應，使用模擬資料"
+      "后端服务未响应使": "後端服務未響應，使用模擬資料",
+      "loginId不1": "loginId不能為空"
     },
     "user": {
       "上传成功": "上傳成功",
       "上传成功1": "上傳成功"
     },
     "workflows": {
-      "更新成功3": "更新成功",
-      "取消成功9": "取消成功",
       "获取成功": "獲取成功",
       "获取成功1": "獲取成功",
       "创建成功2": "創建成功",
+      "更新成功3": "更新成功",
       "删除成功4": "刪除成功",
       "发布成功5": "發佈成功",
       "执行成功6": "執行成功",
       "获取成功7": "獲取成功",
-      "获取成功8": "獲取成功"
+      "获取成功8": "獲取成功",
+      "取消成功9": "取消成功"
     },
     "xuqiu": {
-      "更新成功4": "更新成功",
-      "收藏成功7": "收藏成功",
-      "取消收藏成功8": "取消收藏成功",
-      "分享成功13": "分享成功",
       "获取成功": "獲取成功",
       "发布成功1": "發佈成功",
       "批量发布成功2": "批量發佈成功",
       "获取成功3": "獲取成功",
+      "更新成功4": "更新成功",
       "点赞成功5": "點贊成功",
       "取消点赞成功6": "取消點贊成功",
+      "收藏成功7": "收藏成功",
+      "取消收藏成功8": "取消收藏成功",
       "关注成功9": "關注成功",
       "取消关注成功10": "取消關注成功",
       "获取成功11": "獲取成功",
       "评论成功12": "評論成功",
+      "分享成功13": "分享成功",
       "点赞成功14": "點贊成功",
       "取消点赞成功15": "取消點贊成功"
     },
@@ -21054,20 +21070,20 @@
       "网络错误1": "網路錯誤"
     },
     "model_validation": {
-      "模型ID未配置4": "模型ID未配置",
-      "模型配置有效可以5": "模型配置有效，可以連接",
       "模型未启用请先启": "模型未啟用，請先啟用模型",
       "模型类型未配置1": "模型類型未配置",
       "无效的模型提供商2": "無效的模型提供商",
-      "基础URL格式不3": "基礎URL格式不正確"
+      "基础URL格式不3": "基礎URL格式不正確",
+      "模型ID未配置4": "模型ID未配置",
+      "模型配置有效可以5": "模型配置有效，可以連接"
     },
     "common": {
       "requestFailed": "請求失敗"
     },
     "chat_history_service": {
-      "更新成功2": "更新成功",
       "创建成功": "創建成功",
       "删除成功3": "刪除成功",
+      "更新成功2": "更新成功",
       "查询成功1": "查詢成功",
       "获取成功4": "獲取成功",
       "获取成功5": "獲取成功"
@@ -21101,11 +21117,11 @@
   "error": {
     "news_crawler": {
       "rss2jsonPa": "rss2json解析失敗: ",
-      "rss2json2": "rss2json2",
-      "所有代理都不可用1": "所有代理都不可用1",
       "JSON解析失败6": "JSON解析失敗6",
       "XML解析失败3": "XML解析失敗3",
       "XML解析失败7": "XML解析失敗7",
+      "rss2json2": "rss2json2",
+      "所有代理都不可用1": "所有代理都不可用1",
       "无效的JSON响5": "無效的JSON響5",
       "未找到任何新闻项4": "未找到任何新聞項4",
       "未找到新闻项8": "未找到新聞項8"
@@ -21129,6 +21145,7 @@
       "audioSta20": "audioSta20",
       "callAgen4": "callAgen4",
       "callMCPT6": "callMCPT6",
+      "chat未导出8": "chat未匯出8",
       "createDa18": "createDa18",
       "createDe11": "createDe11",
       "createDo12": "createDo12",
@@ -21152,7 +21169,6 @@
       "submitHu19": "submitHu19",
       "unifiedC28": "unifiedC28",
       "unifiedG29": "unifiedG29",
-      "chat未导出8": "chat未匯出8",
       "不是函数26": "不是函數26",
       "服务未导出": "服務未匯出",
       "服务未导出13": "服務未匯出13",
@@ -21186,7 +21202,6 @@
       "无法打开登录窗口1": "無法打開登入窗口1"
     },
     "index": {
-      "缺少Webhoo4": "缺少Webhoo4",
       "无效的Git集成7": "無效的Git集成7",
       "无效的Git集成8": "無效的Git集成8",
       "无效的Git集成9": "無效的Git集成9",
@@ -21201,6 +21216,7 @@
       "没有找到要分组的": "沒有找到要分組的",
       "浏览器不支持语音": "瀏覽器不支持語音",
       "缺少URL或访问2": "缺少URL或造訪2",
+      "缺少Webhoo4": "缺少Webhoo4",
       "缺少必要参数": "缺少必要參數",
       "缺少必要参数1": "缺少必要參數1",
       "缺少必要参数2": "缺少必要參數2",
@@ -21257,10 +21273,10 @@
     "extended_channels": {
       "缺少Webhoo": "缺少Webhoo",
       "缺少signal2": "缺少signal",
-      "缺少必要的配置1": "缺少必要的配置",
       "缺少必要参数3": "缺少必要參數",
       "缺少必要参数4": "缺少必要參數",
-      "缺少必要参数5": "缺少必要參數"
+      "缺少必要参数5": "缺少必要參數",
+      "缺少必要的配置1": "缺少必要的配置"
     },
     "file_service": {
       "下载失败": "下載失敗"
@@ -22396,6 +22412,13 @@
     "downloadFailed": "下載失敗",
     "downloadComplete": "下載完成",
     "downloadFailed2": "下載失敗"
+  },
+  "Payment": {
+    "alreadyVip": "您已是VIP會員",
+    "notLogged": "用戶未登入",
+    "incompleteProduct": "商品資訊不完整",
+    "selectPayMethod": "請選擇支付方式",
+    "notLoggedOrNoOpenId": "用戶未登入或openid不存在"
   },
   "cmpindex": {
     "timeExpr": "時間表達式",
@@ -24166,14 +24189,10 @@
     "userName": "使用者名稱",
     "userUnit": "使用者單位",
     "watchNow": "立即觀看",
-    "AI大模型": "AI大模型",
-    "安全保障": "安全保障",
-    "方案": "方案",
-    "深度整合主流AI大模": "深度整合主流AI大模",
-    "用": "用",
     "22个微服务全景生态": "22個微服務全景生態",
     "AI全行业": "AI全行業",
     "AI全行业赋能": "AI全行業賦能",
+    "AI大模型": "AI大模型",
     "AI平台规模": "AI平臺規模",
     "AI技术架构": "AI技術架構",
     "AI核心能力矩阵": "AI核心能力矩陣",
@@ -24194,6 +24213,7 @@
     "听听他们怎么说": "聽聽他們怎麼說",
     "四大AI场景覆盖学习": "四大AI場景覆蓋學習",
     "大模型微服务构建企业": "大模型微服務構建企業",
+    "安全保障": "安全保障",
     "客户口碑": "客戶口碑",
     "客户成功案例": "客戶成功案例",
     "已帮助500企业实现": "已幫助500企業實現",
@@ -24202,10 +24222,13 @@
     "我们提供一站式AI赋": "我們提供一站式AI賦",
     "持续3年AI能力沉淀": "持續3年AI能力沉澱",
     "教育机构企业培训知识": "教育機構企業培訓知識",
+    "方案": "方案",
     "服务承诺": "服務承諾",
     "权威认证品质保障": "權威認證品質保障",
     "标准版": "標準版",
     "核心能力对比矩阵": "核心能力對比矩陣",
+    "深度整合主流AI大模": "深度整合主流AI大模",
+    "用": "用",
     "用AI重新定义每一个": "用AI重新定義每一個",
     "申请商业授权": "申請商業授權",
     "电话": "電話",
@@ -25976,6 +25999,235 @@
       }
     }
   },
+  "aiNews": {
+    "metaTitle": "AI 資訊 · 全網即時聚合流",
+    "metaDescription": "聚合國內外 41 個權威信源(微博/知乎/36氪/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等),每 6 小時自動採集,模型/產品/行業/論文分類與趨勢信號即時更新。",
+    "leaderboard": {
+      "label": "大模型排行榜",
+      "title": "大模型排行榜 · Arena 評分",
+      "subtitle": "參考 arena.ai · Elo + Bootstrap CI",
+      "empty": "暫無排行資料",
+      "sortHint": "點擊表頭排序",
+      "searchPlaceholder": "搜尋模型/廠商…",
+      "allVendors": "全部廠商",
+      "noMatch": "未找到匹配的模型",
+      "clearFilter": "清空篩選",
+      "categoryOverall": "總榜",
+      "categoryLlm": "大語言模型",
+      "categoryImage": "生圖模型",
+      "categoryVideo": "視頻模型",
+      "categoryMultimodal": "多模態",
+      "categoryAgent": "Agent",
+      "categoryAudio": "語音模型",
+      "categoryEmbedding": "嵌入模型",
+      "subcatGeneral": "通用對話",
+      "subcatCoding": "代碼編程",
+      "subcatReasoning": "推理思考",
+      "llmSubcatLabel": "LLM 細分:",
+      "colModel": "模型",
+      "colVendor": "廠商",
+      "colChange": "變化",
+      "colArenaScore": "Arena 評分",
+      "colWinRate": "勝率",
+      "colVoteCount": "投票",
+      "colContextWindow": "上下文",
+      "colMaxOutput": "最大輸出",
+      "colInputPrice": "輸入價",
+      "colOutputPrice": "輸出價",
+      "colReleaseDate": "發佈",
+      "footerDataRef": "📊 數據參考 arena.ai/leaderboard · Elo 評分 + Bootstrap 置信區間",
+      "footerClickHint": "點擊行查看模型詳情 + 能力雷達圖",
+      "favAll": "全部",
+      "favOnly": "收藏",
+      "favToggle": "收藏/取消收藏",
+      "colVisibility": "列顯隱",
+      "colVisibilityHint": "勾選顯示列"
+    },
+    "hero": {
+      "label": "AI 資訊 Hero",
+      "badge": "2026-07 真實資訊流",
+      "title": "AI 資訊",
+      "subtitle": "聚合 2026 年 7 月最熱 AI 產業動態:GPT-5.6 / Claude Sonnet 5 / Gemini 3.5 Pro / Kimi K3 / DeepSeek V4 橫向比較,WAIC 2026 直播入口,重磅融資與收購。",
+      "updateFreq": "每日更新",
+      "ctaPrimary": "進入資訊廣場",
+      "ctaSecondary": "查看直播"
+    },
+    "comparison": {
+      "label": "橫向比較表",
+      "title": "7 月旗艦大模型橫向比較",
+      "subtitle": "5 大廠商 7 月發布的核心參數、定價、亮點與能力",
+      "verified": "2026-07 真實資料",
+      "colModel": "比較維度",
+      "highlight": "核心亮點",
+      "footnote": "價格依官方 API 公開報價,可能因匯率波動",
+      "footnote2": "資料綜合官方技術報告 + 主流評測榜單"
+    },
+    "live": {
+      "label": "WAIC 2026 直播入口",
+      "title": "WAIC 2026 直播入口",
+      "subtitle": "理查德·薩頓主題演講、凱文·凱利具身智慧、3 大論壇同步直播",
+      "viewMore": "查看全部",
+      "liveBadge": "直播中",
+      "empty": "暫無直播,稍後回來"
+    },
+    "articles": {
+      "label": "最新資訊卡片流",
+      "title": "最新 AI 資訊",
+      "subtitle": "涵蓋模型發布、產業動態、學術前沿、安全治理",
+      "viewMore": "查看更多",
+      "pinned": "置頂",
+      "empty": "暫無最新資訊,請先執行 ai-fresh-2026 seed"
+    },
+    "feed": {
+      "label": "AI 資訊時間線",
+      "title": "全網 AI 資訊即時流",
+      "subtitle": "聚合 41 個權威來源,每 6 小時自動採集更新",
+      "totalPrefix": "共",
+      "totalSuffix": "條",
+      "today": "今天",
+      "yesterday": "昨天",
+      "itemsUnit": "條",
+      "empty": "暫無採集資料,等待首次 ai-feed-collect cron 觸發",
+      "channelAll": "全部",
+      "channelFirstParty": "一手廠商",
+      "channelNews": "資訊媒體",
+      "channelPaper": "論文",
+      "channelHotlist": "熱榜",
+      "categoryAll": "全部",
+      "categoryModel": "AI 模型",
+      "categoryProduct": "AI 產品",
+      "categoryIndustry": "產業",
+      "categoryPaper": "論文",
+      "categoryTip": "技巧",
+      "searchPlaceholder": "搜尋資訊標題或摘要…",
+      "searchEmpty": "未找到符合的資訊,換個關鍵字試試",
+      "trendBtn": "趨勢",
+      "trendAll": "全部趨勢",
+      "trendRising": "上升",
+      "trendCooling": "下降",
+      "trendNew": "新晉",
+      "moreHint": "已展示 {shown}/{total} 條,更多資訊請調整篩選條件",
+      "trendNotifyTitle": "{count} 資訊熱度爆發",
+      "trendNotifyExpand": "展開全部",
+      "trendNotifyCollapse": "收起",
+      "trendNotifyClose": "關閉",
+      "langSwitch": "切換標題語言為{lang}"
+    },
+    "hotRanking": {
+      "label": "熱度排行榜",
+      "title": "AI 資訊熱度榜 Top 10",
+      "subtitle": "依即時熱度排序",
+      "empty": "暫無熱門資訊"
+    },
+    "trendChart": {
+      "subtitle": "7/14 天熱度趨勢曲線",
+      "days": "天",
+      "loading": "載入趨勢資料…",
+      "noData": "資料累積中",
+      "noDataHint": "需 ≥2 天快照才能繪製趨勢,明天 cron 後自動有",
+      "stable": "平穩",
+      "rankDelta": "排名變化",
+      "hotValue": "熱度值",
+      "close": "關閉"
+    },
+    "funding": {
+      "label": "重磅融資與收購",
+      "title": "重磅融資與收購",
+      "subtitle": "7 月 AI 產業資本動作:SpaceX 600 億美元收購 Cursor、DeepSeek 500 億元融資",
+      "empty": "暫無融資動態",
+      "sortLabel": "排序",
+      "sortByDate": "按日期",
+      "sortByAmount": "按金額",
+      "searchPlaceholder": "搜尋標題 / 摘要 / 來源…",
+      "resultCount": "共 {count} / {total} 條"
+    },
+    "capabilityRadar": {
+      "coding": "程式碼",
+      "math": "數學",
+      "reasoning": "推理",
+      "creative": "創意",
+      "chinese": "中文"
+    },
+    "detailDialog": {
+      "arenaScore": "Arena 評分",
+      "rank": "排名",
+      "rankDelta": "排名變化",
+      "stable": "持平",
+      "winRate": "勝率",
+      "voteCount": "投票數",
+      "contextWindow": "上下文視窗",
+      "maxOutput": "最大輸出",
+      "inputPrice": "輸入價格",
+      "outputPrice": "輸出價格",
+      "releaseDate": "發布時間",
+      "license": "License",
+      "coreParams": "核心參數",
+      "highlight": "核心亮點",
+      "capabilityRadar": "能力雷達",
+      "noCapabilityData": "暫無能力評分資料",
+      "officialResources": "官方資源",
+      "getApiKey": "取得 API Key",
+      "officialDocs": "官方文件",
+      "quickImport": "一鍵匯入",
+      "noQuickImport": "暫不支援一鍵匯入",
+      "copyBaseUrl": "複製 Base URL",
+      "baseUrlCopied": "Base URL 已複製到剪貼簿",
+      "copyFailed": "複製失敗,請手動複製",
+      "copyAndImport": "複製並匯入",
+      "tagLongContext": "長上下文",
+      "tagLargeOutput": "大輸出",
+      "tagLowCost": "低成本",
+      "tagHighWinRate": "高勝率",
+      "tagTopTier": "頂級模型",
+      "tagMultimodal": "多模態"
+    },
+    "compare": {
+      "label": "模型對比",
+      "selected": "已選 {count} 個",
+      "clear": "清空",
+      "startCompare": "開始對比",
+      "maxToast": "最多對比 5 個模型,請先移除其他模型",
+      "colModel": "對比維度",
+      "cheapest": "最低",
+      "priceChartTitle": "價格可視化",
+      "priceChartHint": "輸入價 / 輸出價(每 1M tokens)",
+      "capabilityOverlay": "能力雷達疊加",
+      "noPriceData": "所選模型均無價格資料"
+    },
+    "apiRelays": {
+      "title": "API 中轉站",
+      "subtitle": "主流 API 聚合平臺 + 個人中轉站風險提示,支援一鍵匯入到 Provider 設定",
+      "companyType": "公司平臺性質",
+      "personalType": "個人運行性質",
+      "import": "匯入",
+      "riskTitle": "風險提示",
+      "tipsTitle": "使用建議",
+      "searchPlaceholder": "搜尋平臺名稱 / 廠商 / 特點 / 計費方式...",
+      "allVendors": "全部",
+      "resultCount": "共 {count} / {total} 個平臺",
+      "emptyResult": "沒有符合的平臺,請嘗試調整搜尋關鍵字或廠商篩選",
+      "billingLabel": "計費",
+      "allBilling": "全部",
+      "billingToken": "按 Token",
+      "billingFree": "免費額度",
+      "billingGpu": "GPU 時長",
+      "billingSubscription": "套餐",
+      "sortLabel": "排序",
+      "sortByName": "按名稱",
+      "sortByBilling": "按計費",
+      "speedTest": "測速",
+      "speedTesting": "測速中...",
+      "sortBySpeed": "按延遲",
+      "speedError": "逾時"
+    },
+    "cta": {
+      "label": "底部 CTA",
+      "title": "不錯過下一個 AI 里程碑",
+      "subtitle": "訂閱每日 AI 資訊簡報,加入智匯 AI 社群與決策者一起掌握 AI 時代脈動。",
+      "subscribe": "訂閱每日簡報",
+      "community": "加入智匯 AI 社群"
+    }
+  },
   "workflow": {
     "approval": {
       "states": {
@@ -27652,6 +27904,56 @@
     "stop": "停止",
     "execute": "執行"
   },
+  "orchestration": {
+    "title": "編排中樞",
+    "tabs": {
+      "events": "事件流",
+      "decisions": "聯合決策",
+      "budget": "預算治理",
+      "telemetry": "遙測"
+    },
+    "status": {
+      "running": "執行中",
+      "stopped": "已停止",
+      "unavailable": "不可用"
+    },
+    "events": {
+      "filterAll": "全部",
+      "noEvents": "暫無事件",
+      "refresh": "重新整理",
+      "events24h": "24小時事件",
+      "payload": "載荷詳情"
+    },
+    "decisions": {
+      "noDecisions": "暫無決策",
+      "playbooks": "聯動策略",
+      "trigger": "觸發條件",
+      "actions": "動作",
+      "duration": "耗時"
+    },
+    "budget": {
+      "todayUsage": "今日用量",
+      "tokens": "Token",
+      "cost": "成本",
+      "trend": "7天趨勢",
+      "pillarBudget": "支柱預算",
+      "costBreakdown": "成本分解",
+      "byPillar": "按支柱",
+      "byModel": "按模型",
+      "byAction": "按動作"
+    },
+    "telemetry": {
+      "pillarHealth": "支柱健康",
+      "recentTraces": "最近 Trace",
+      "healthy": "健康",
+      "degraded": "降級",
+      "unhealthy": "不健康",
+      "unknown": "未知",
+      "metrics": "指標摘要"
+    },
+    "unavailable": "編排中樞不可用",
+    "loading": "載入中..."
+  },
   "musicGenerator": {
     "title": "音樂生成",
     "generate": "生成音樂",
@@ -28262,22 +28564,6 @@
       "success": "入庫成功,生成 {count} 個切片"
     }
   },
-  "knowledgeGraph": {
-    "title": "知識圖譜",
-    "buildSection": "從文字建構圖譜",
-    "placeholder": "貼上一段文字,系統會自動抽取其中的實體與關係...",
-    "buildButton": "抽取並建構",
-    "clearButton": "清空圖譜",
-    "graphSection": "圖譜視覺化",
-    "emptyState": "暫無資料,請在上方輸入文字後點擊「抽取並建構」",
-    "stats": "共 {entities} 個實體 / {relations} 條關係",
-    "legendHint": "提示:滑鼠懸停節點可高亮相關邊,節點大小代表出現次數,邊粗細代表關係權重",
-    "graphAriaLabel": "知識圖譜視覺化",
-    "frequencyLabel": "出現 {count} 次",
-    "charCount": "{count} 字元",
-    "feedbackBuildSuccess": "抽取完成,新增 {entities} 個實體,{relations} 條關係",
-    "feedbackClearSuccess": "圖譜已清空"
-  },
   "ide": {
     "activityBar": {
       "files": "檔案",
@@ -28478,239 +28764,6 @@
     "clearHistory": "清除歷史",
     "dragInsertBefore": "在此處之前插入",
     "dragInsertAfter": "在此處之後插入"
-  },
-  "aiNews": {
-    "metaTitle": "AI 資訊 · 全網即時聚合流",
-    "metaDescription": "聚合國內外 41 個權威信源(微博/知乎/36氪/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等),每 6 小時自動採集,模型/產品/行業/論文分類與趨勢信號即時更新。",
-    "compare": {
-      "label": "加入對比",
-      "maxToast": "最多選擇 5 個模型進行對比"
-    },
-    "leaderboard": {
-      "label": "大模型排行榜",
-      "title": "大模型排行榜 · Arena 評分",
-      "subtitle": "參考 arena.ai · Elo + Bootstrap CI",
-      "empty": "暫無排行資料",
-      "sortHint": "點擊表頭排序",
-      "searchPlaceholder": "搜尋模型/廠商…",
-      "allVendors": "全部廠商",
-      "noMatch": "未找到匹配的模型",
-      "clearFilter": "清空篩選",
-      "categoryOverall": "總榜",
-      "categoryLlm": "大語言模型",
-      "categoryImage": "生圖模型",
-      "categoryVideo": "視頻模型",
-      "categoryMultimodal": "多模態",
-      "categoryAgent": "Agent",
-      "categoryAudio": "語音模型",
-      "categoryEmbedding": "嵌入模型",
-      "subcatGeneral": "通用對話",
-      "subcatCoding": "代碼編程",
-      "subcatReasoning": "推理思考",
-      "llmSubcatLabel": "LLM 細分:",
-      "colModel": "模型",
-      "colVendor": "廠商",
-      "colChange": "變化",
-      "colArenaScore": "Arena 評分",
-      "colWinRate": "勝率",
-      "colVoteCount": "投票",
-      "colContextWindow": "上下文",
-      "colMaxOutput": "最大輸出",
-      "colInputPrice": "輸入價",
-      "colOutputPrice": "輸出價",
-      "colReleaseDate": "發佈",
-      "footerDataRef": "📊 數據參考 arena.ai/leaderboard · Elo 評分 + Bootstrap 置信區間",
-      "footerClickHint": "點擊行查看模型詳情 + 能力雷達圖",
-      "favAll": "全部",
-      "favOnly": "收藏",
-      "favToggle": "收藏/取消收藏",
-      "colVisibility": "列顯隱",
-      "colVisibilityHint": "勾選顯示列"
-    },
-    "hero": {
-      "label": "AI 資訊 Hero",
-      "badge": "2026-07 真實資訊流",
-      "title": "AI 資訊",
-      "subtitle": "聚合 2026 年 7 月最熱 AI 產業動態:GPT-5.6 / Claude Sonnet 5 / Gemini 3.5 Pro / Kimi K3 / DeepSeek V4 橫向比較,WAIC 2026 直播入口,重磅融資與收購。",
-      "updateFreq": "每日更新",
-      "ctaPrimary": "進入資訊廣場",
-      "ctaSecondary": "查看直播"
-    },
-    "comparison": {
-      "label": "橫向比較表",
-      "title": "7 月旗艦大模型橫向比較",
-      "subtitle": "5 大廠商 7 月發布的核心參數、定價、亮點與能力",
-      "verified": "2026-07 真實資料",
-      "colModel": "比較維度",
-      "highlight": "核心亮點",
-      "footnote": "價格依官方 API 公開報價,可能因匯率波動",
-      "footnote2": "資料綜合官方技術報告 + 主流評測榜單"
-    },
-    "live": {
-      "label": "WAIC 2026 直播入口",
-      "title": "WAIC 2026 直播入口",
-      "subtitle": "理查德·薩頓主題演講、凱文·凱利具身智慧、3 大論壇同步直播",
-      "viewMore": "查看全部",
-      "liveBadge": "直播中",
-      "empty": "暫無直播,稍後回來"
-    },
-    "articles": {
-      "label": "最新資訊卡片流",
-      "title": "最新 AI 資訊",
-      "subtitle": "涵蓋模型發布、產業動態、學術前沿、安全治理",
-      "viewMore": "查看更多",
-      "pinned": "置頂",
-      "empty": "暫無最新資訊,請先執行 ai-fresh-2026 seed"
-    },
-    "feed": {
-      "label": "AI 資訊時間線",
-      "title": "全網 AI 資訊即時流",
-      "subtitle": "聚合 41 個權威來源,每 6 小時自動採集更新",
-      "totalPrefix": "共",
-      "totalSuffix": "條",
-      "today": "今天",
-      "yesterday": "昨天",
-      "itemsUnit": "條",
-      "empty": "暫無採集資料,等待首次 ai-feed-collect cron 觸發",
-      "channelAll": "全部",
-      "channelFirstParty": "一手廠商",
-      "channelNews": "資訊媒體",
-      "channelPaper": "論文",
-      "channelHotlist": "熱榜",
-      "categoryAll": "全部",
-      "categoryModel": "AI 模型",
-      "categoryProduct": "AI 產品",
-      "categoryIndustry": "產業",
-      "categoryPaper": "論文",
-      "categoryTip": "技巧",
-      "searchPlaceholder": "搜尋資訊標題或摘要…",
-      "searchEmpty": "未找到符合的資訊,換個關鍵字試試",
-      "trendBtn": "趨勢",
-      "trendAll": "全部趨勢",
-      "trendRising": "上升",
-      "trendCooling": "下降",
-      "trendNew": "新晉",
-      "moreHint": "已展示 {shown}/{total} 條,更多資訊請調整篩選條件",
-      "trendNotifyTitle": "{count} 資訊熱度爆發",
-      "trendNotifyExpand": "展開全部",
-      "trendNotifyCollapse": "收起",
-      "trendNotifyClose": "關閉",
-      "langSwitch": "切換標題語言為{lang}"
-    },
-    "hotRanking": {
-      "label": "熱度排行榜",
-      "title": "AI 資訊熱度榜 Top 10",
-      "subtitle": "依即時熱度排序",
-      "empty": "暫無熱門資訊"
-    },
-    "trendChart": {
-      "subtitle": "7/14 天熱度趨勢曲線",
-      "days": "天",
-      "loading": "載入趨勢資料…",
-      "noData": "資料累積中",
-      "noDataHint": "需 ≥2 天快照才能繪製趨勢,明天 cron 後自動有",
-      "stable": "平穩",
-      "rankDelta": "排名變化",
-      "hotValue": "熱度值",
-      "close": "關閉"
-    },
-    "funding": {
-      "label": "重磅融資與收購",
-      "title": "重磅融資與收購",
-      "subtitle": "7 月 AI 產業資本動作:SpaceX 600 億美元收購 Cursor、DeepSeek 500 億元融資",
-      "empty": "暫無融資動態",
-      "sortLabel": "排序",
-      "sortByDate": "按日期",
-      "sortByAmount": "按金額",
-      "searchPlaceholder": "搜尋標題 / 摘要 / 來源…",
-      "resultCount": "共 {count} / {total} 條"
-    },
-    "capabilityRadar": {
-      "coding": "程式碼",
-      "math": "數學",
-      "reasoning": "推理",
-      "creative": "創意",
-      "chinese": "中文"
-    },
-    "detailDialog": {
-      "arenaScore": "Arena 評分",
-      "rank": "排名",
-      "rankDelta": "排名變化",
-      "stable": "持平",
-      "winRate": "勝率",
-      "voteCount": "投票數",
-      "contextWindow": "上下文視窗",
-      "maxOutput": "最大輸出",
-      "inputPrice": "輸入價格",
-      "outputPrice": "輸出價格",
-      "releaseDate": "發布時間",
-      "license": "License",
-      "coreParams": "核心參數",
-      "highlight": "核心亮點",
-      "capabilityRadar": "能力雷達",
-      "noCapabilityData": "暫無能力評分資料",
-      "officialResources": "官方資源",
-      "getApiKey": "取得 API Key",
-      "officialDocs": "官方文件",
-      "quickImport": "一鍵匯入",
-      "noQuickImport": "暫不支援一鍵匯入",
-      "copyBaseUrl": "複製 Base URL",
-      "baseUrlCopied": "Base URL 已複製到剪貼簿",
-      "copyFailed": "複製失敗,請手動複製",
-      "copyAndImport": "複製並匯入",
-      "tagLongContext": "長上下文",
-      "tagLargeOutput": "大輸出",
-      "tagLowCost": "低成本",
-      "tagHighWinRate": "高勝率",
-      "tagTopTier": "頂級模型",
-      "tagMultimodal": "多模態"
-    },
-    "compare": {
-      "label": "模型對比",
-      "selected": "已選 {count} 個",
-      "clear": "清空",
-      "startCompare": "開始對比",
-      "maxToast": "最多對比 5 個模型,請先移除其他模型",
-      "colModel": "對比維度",
-      "cheapest": "最低",
-      "priceChartTitle": "價格可視化",
-      "priceChartHint": "輸入價 / 輸出價(每 1M tokens)",
-      "capabilityOverlay": "能力雷達疊加",
-      "noPriceData": "所選模型均無價格資料"
-    },
-    "apiRelays": {
-      "title": "API 中轉站",
-      "subtitle": "主流 API 聚合平臺 + 個人中轉站風險提示,支援一鍵匯入到 Provider 設定",
-      "companyType": "公司平臺性質",
-      "personalType": "個人運行性質",
-      "import": "匯入",
-      "riskTitle": "風險提示",
-      "tipsTitle": "使用建議",
-      "searchPlaceholder": "搜尋平臺名稱 / 廠商 / 特點 / 計費方式...",
-      "allVendors": "全部",
-      "resultCount": "共 {count} / {total} 個平臺",
-      "emptyResult": "沒有符合的平臺,請嘗試調整搜尋關鍵字或廠商篩選",
-      "billingLabel": "計費",
-      "allBilling": "全部",
-      "billingToken": "按 Token",
-      "billingFree": "免費額度",
-      "billingGpu": "GPU 時長",
-      "billingSubscription": "套餐",
-      "sortLabel": "排序",
-      "sortByName": "按名稱",
-      "sortByBilling": "按計費",
-      "speedTest": "測速",
-      "speedTesting": "測速中...",
-      "sortBySpeed": "按延遲",
-      "speedError": "逾時"
-    },
-    "cta": {
-      "label": "底部 CTA",
-      "title": "不錯過下一個 AI 里程碑",
-      "subtitle": "訂閱每日 AI 資訊簡報,加入智匯 AI 社群與決策者一起掌握 AI 時代脈動。",
-      "subscribe": "訂閱每日簡報",
-      "community": "加入智匯 AI 社群"
-    }
   },
   "agentWorkbench": {
     "title": "Agent 工作臺",
