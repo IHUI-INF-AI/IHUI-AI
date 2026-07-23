@@ -25951,6 +25951,8 @@
     }
   },
   "aiNews": {
+    "metaTitle": "AI 资讯 · 全网实时聚合流",
+    "metaDescription": "聚合国内外 41 个权威信源(微博/知乎/36氪/HackerNews/TechCrunch/OpenAI Blog/Arxiv 等),每 6 小时自动采集,模型/产品/行业/论文分类与趋势信号实时更新。",
     "leaderboard": {
       "label": "大模型排行榜",
       "title": "大模型排行榜 · Arena 评分",
@@ -26083,7 +26085,19 @@
       "label": "重磅融资与收购",
       "title": "重磅融资与收购",
       "subtitle": "7 月 AI 行业资本动作:SpaceX 600 亿美元收购 Cursor、DeepSeek 500 亿元融资",
-      "empty": "暂无融资动态"
+      "empty": "暂无融资动态",
+      "sortLabel": "排序",
+      "sortByDate": "按日期",
+      "sortByAmount": "按金额",
+      "searchPlaceholder": "搜索标题 / 摘要 / 来源…",
+      "resultCount": "共 {count} / {total} 条"
+    },
+    "capabilityRadar": {
+      "coding": "代码",
+      "math": "数学",
+      "reasoning": "推理",
+      "creative": "创意",
+      "chinese": "中文"
     },
     "detailDialog": {
       "arenaScore": "Arena 评分",
