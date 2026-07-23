@@ -8,6 +8,42 @@
 
 ## 当前活跃任务(2026-07-23)
 
+### [x] ✅(2026-07-23) /goal 对标 TRAE Work 三大工作台体验缺口补齐:Skills 技能市场 + 三端联动调度 + Design 模式 MVP(跨端:web + api + desktop + mobile-rn + packages/shared)
+
+**触发**:深度调研 TRAE Work(Web/Desktop/Mobile 三端 AI 工作台 + Work/Code 双模式 + Skills 市场 + 跨端任务编排)后,用户要求 `/goal 都需要 继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏`,识别 IHUI-AI 工作台体验层 3 项 P0/P1 缺口,本轮 /goal 模式多 Subagent 并行补齐。
+
+**交付内容**(1 commit,跨端 4 端 + 1 共享包):
+
+| 缺口 | 端 | 文件 | 功能 |
+|---|---|---|---|
+| Skills 市场 P0 | shared | `packages/shared/src/skills/market.ts` | SkillMarketEntry/SkillRating/SkillMarketListResponse/SkillInstallResponse 跨端契约 |
+| | api | `apps/api/src/routes/skills.ts`(扩展) | 4 端点:GET /skills/market(搜索/标签/分页)+ POST /skills/:name/install(计数自增)+ POST /skills/:name/rate(评分)+ GET /skills/:name/ratings + 7 种子 skill |
+| | web | `apps/web/app/(main)/skills/market/page.tsx` + `src/lib/skills-market-api.ts` | 响应式市场页(搜索框+标签筛选+技能卡片网格+分页+安装/评分弹窗)+ API 客户端 |
+| 三端联动 P1 | shared | `packages/shared/src/tasks/dispatch.ts` | TaskDispatch/TaskResult/TaskWsMessage/TaskDispatchResponse 跨端契约 |
+| | api | `apps/api/src/routes/tasks.ts`(新建) | 4 端点:POST /tasks/dispatch(下发+WS 推送)+ POST /tasks/result(回传+WS 推送)+ GET /tasks + GET /tasks/devices + Redis 持久化+进程内降级 |
+| | mobile-rn | `apps/mobile-rn/src/pages/TaskDispatchPage.tsx` | 移动端下发页(设备选择+指令输入+任务列表) |
+| | desktop | `apps/desktop/src/pages/TaskReceiverPage.tsx` + `src/hooks/use-task-receiver.ts` | 桌面端接收页 + WS 守护 hook(监听 task-dispatch+执行+回传 result) |
+| Design 模式 P1 | shared | `packages/shared/src/design/element.ts` | DesignPreview/DesignElement/DesignPreviewResponse 跨端契约 |
+| | api | `apps/api/src/routes/design.ts`(新建) | 2 端点:POST /design/preview(保存 HTML)+ GET /design/previews(列表) |
+| | desktop | `apps/desktop/src/pages/DesignPage.tsx` | 三栏画布(代码输入+iframe 预览+CSS 面板)+ postMessage 元素选择器+CSS 编辑+评论到对话 |
+| 跨端契约 | shared | `package.json`(exports)+ `src/index.ts`(re-export) | 3 新模块映射 ./skills/* ./tasks/* ./design/* |
+| 路由注册 | api | `apps/api/src/routes/index.ts` | 注册 designRoutes + tasksRoutes |
+| | desktop | `apps/desktop/src/App.tsx` | 注册 /design + /task-receiver 路由 |
+| | mobile-rn | `apps/mobile-rn/src/navigation/RootNavigator.tsx` | 注册 TaskDispatch 页 |
+| i18n 5 语言 | web | `messages/{zh-CN,zh-TW,en,ko,ja}.json` | skills.market 相关 key parity(每语言 4 键) |
+| 依赖 | api/desktop | `package.json` | 加 @ihui/shared workspace:* 依赖 |
+
+**验证**:
+- typecheck 本任务文件全绿 ✅:shared ✅ / desktop ✅ / mobile-rn ✅ / api 本任务文件 0 错(其余报错 migrate-legacy-data.ts mysql2 + sso-core.ts data unknown 均为其他 agent 文件,按 §12 不阻塞)/ web 本任务文件 0 错(其余报错 oauth2.ts unref 均为其他 agent 文件)
+- curl 实测 6 端点全通 ✅:auth/login → skills/market(返回 7 skill,total=7,分页正常)→ tasks/dispatch(创建 pending,返回 id)→ tasks/result(更新 completed,返回 result)→ design/preview(保存,返回 id)→ skills/code-reviewer/install(installed=true,installCount 3120→3121)→ skills/code-reviewer/rate(评分入库)
+- browser DOM 验证 web /skills/market ✅:搜索框 input className `flex w-full rounded-md border...`(无 rounded-full 违规)、标签按钮 rounded-md(合规)、技能卡片 rounded-lg(合规)、无 <hr>/divide-* 分割线、hover:bg-accent(subtle 无蓝光边框)、max-w-6xl 适配内容无大面积空白
+
+**Git 同步证据**(§21):
+- 本地 commit: <待 commit 后填入>
+- origin commit: <待 push 后填入>
+- 同步状态: <待验证>
+- 守门脚本: <待验证>
+
 ### [x] ✅(2026-07-23) /goal 架构方案第一阶段:NativeWind + Solito + 共享层 — packages/shared 创建 + SSO/WS notification 抽取 + mobile-rn 设计令牌对齐(跨端:web + mobile-rn + miniapp-taro + packages/shared)
 
 **触发**:用户决策采用 NativeWind + Solito + 共享层架构(排除 uniapp/Taro/Tamagui/Tauri Mobile/Capacitor),触发 `/goal` 执行第一阶段:抽取共享层消除多端重复。
