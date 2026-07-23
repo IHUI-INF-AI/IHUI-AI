@@ -28,7 +28,7 @@ const chatStreamSchema = z.object({
   /** Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):
    *  传入工具名列表后,ai-service 走 tool loop(complete→tool_calls→execute→astream)。
    *  如 ["browser_screenshot", "computer_mouse_click"] */
-  agentTools: z.array(z.string()).optional(),
+  agentTools: z.array(z.string()).max(100).optional(),
   metadata: z
     .object({
       conversationId: z.string().optional(),
@@ -387,7 +387,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     conversationId: z.string().min(1),
     questionId: z.string().min(1),
     prompt: z.string().min(1),
-    options: z.array(z.object({ id: z.string(), label: z.string() })).default([]),
+    options: z.array(z.object({ id: z.string(), label: z.string() })).max(100).default([]),
     allowCustom: z.boolean().default(false),
     allowMultiple: z.boolean().default(false),
   })

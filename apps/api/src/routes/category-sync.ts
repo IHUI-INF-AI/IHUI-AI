@@ -71,7 +71,7 @@ const pullBodySchema = z.object({
 
 const pushBodySchema = z.object({
   remoteUrl: z.string().url().optional(),
-  keys: z.array(z.string().min(1).max(128)).optional(),
+  keys: z.array(z.string().min(1).max(128)).max(100).optional(),
 })
 
 const resolveBodySchema = z.object({
@@ -82,7 +82,8 @@ const resolveBodySchema = z.object({
         resolution: z.enum(['local', 'remote', 'manual']),
       }),
     )
-    .min(1),
+    .min(1)
+    .max(100),
 })
 
 const historyQuerySchema = z.object({

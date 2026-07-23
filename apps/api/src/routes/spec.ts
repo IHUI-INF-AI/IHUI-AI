@@ -241,7 +241,7 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
   const specPatchSchema = z.object({
     workspacePath: z.string().min(1),
     patch: z.string().min(1),
-    affectedFiles: z.array(z.string()).default([]),
+    affectedFiles: z.array(z.string()).max(100).default([]),
   })
 
   server.post('/spec/apply/preview', async (request, reply) => {
