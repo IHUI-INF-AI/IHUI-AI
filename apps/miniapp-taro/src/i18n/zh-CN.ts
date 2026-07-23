@@ -18,7 +18,7 @@ export default {
     failed: '操作失败',
     user: '用户',
     uploading: '上传中',
-    noMore: '没有更多了',
+    noMore: '没有更多了'
   },
   nav: {
     home: '首页',
@@ -30,7 +30,7 @@ export default {
     orders: '订单',
     wallet: '钱包',
     settings: '设置',
-    community: '社区',
+    community: '社区'
   },
   auth: {
     login: '登录',
@@ -43,7 +43,7 @@ export default {
     getCode: '获取验证码',
     wechatLogin: '微信登录',
     appleLogin: 'Apple 登录',
-    phoneLogin: '手机号登录',
+    phoneLogin: '手机号登录'
   },
   login: {
     loginSuccess: '登录成功',
@@ -65,7 +65,7 @@ export default {
     wechatOnly: '仅支持微信登录',
     ssoLogin: 'SSO 登录',
     ssoLoginHint: '企业账号一键登录',
-    agreement: '我已阅读并同意《用户协议》和《隐私政策》',
+    agreement: '我已阅读并同意《用户协议》和《隐私政策》'
   },
   forgot: {
     title: '找回密码',
@@ -91,7 +91,7 @@ export default {
     passwordMismatch: '两次输入的密码不一致',
     resetting: '重置中…',
     submit: '确认重置',
-    resetSuccess: '密码重置成功',
+    resetSuccess: '密码重置成功'
   },
   home: {
     welcome: '欢迎使用智汇 AI',
@@ -106,7 +106,7 @@ export default {
       live: '直播',
       ai: 'AI 助手',
       order: '订单',
-      setting: '设置',
+      setting: '设置'
     },
     todayMinutes: '今日 {{n}} 分钟',
     continuousDays: '连续 {{n}} 天',
@@ -123,11 +123,11 @@ export default {
       aiVoice: 'AI语音',
       aiVideo: 'AI视频',
       agent: '智能体',
-      modelPlaza: '模型广场',
+      modelPlaza: '模型广场'
     },
     knowledgePlanet: '知识星球',
     knowledgePlanetDesc: '加入知识星球,与创作者一起成长',
-    planetMembers: '人',
+    planetMembers: '人'
   },
   course: {
     title: '课程',
@@ -146,9 +146,9 @@ export default {
     goldTeacher: '金牌讲师',
     followed: '已关注',
     noIntro: '暂无简介',
-    objectives: ['掌握核心知识', '提升实战能力', '完成项目实践'],
-    suitableFor: ['零基础学员', '进阶学习者', '职场人士'],
-    highlights: ['名师讲解', '案例驱动', '社群答疑'],
+    objectives: null,
+    suitableFor: null,
+    highlights: null,
     nextLesson: '下一课:{{title}}',
     startLearning: '开始学习',
     buyNow: '立即购买',
@@ -162,12 +162,12 @@ export default {
     noteTitle: '{{title}} - 笔记',
     scanCourse: '扫码看课程',
     loadFailed: '课程加载失败',
-    weekDays: ['一', '二', '三', '四', '五', '六', '日'],
+    weekDays: null,
     list: {
       searchPlaceholder: '搜索课程',
       search: '搜索',
-      empty: '暂无课程',
-    },
+      empty: '暂无课程'
+    }
   },
   live: {
     title: '直播',
@@ -186,7 +186,7 @@ export default {
       ended: '直播已结束',
       connecting: '正在连接直播间…',
       enter: '进入直播间',
-      anchor: '主播:{{name}}',
+      anchor: '主播:{{name}}'
     },
     subscribe: {
       subscribe: '订阅提醒',
@@ -195,19 +195,38 @@ export default {
       loadFailed: '订阅操作失败',
       empty: '暂无订阅',
       entry: '我的订阅',
+      unsubscribed: '已取消订阅',
+      reminderSaved: '设置已保存',
+      reminder: '开播前提醒',
+      reminderDesc: '订阅直播开播前 10 分钟通知',
+      unsubscribe: '取消订阅',
+      discover: '去发现直播'
     },
     history: {
       anchor: '主播:{{name}}',
       replay: '观看回放',
       empty: '暂无历史直播',
       loading: '加载中…',
+      hour: '时',
+      anchorLabel: '主播',
+      watchDuration: '观看',
+      rewatch: '重新观看',
+      continue: '继续观看'
     },
     calendar: {
       title: '{{n}} 月直播日历',
       loadFailed: '日历加载失败',
       empty: '本月暂无直播安排',
       entry: '日历',
-    },
+      prevMonth: '‹',
+      year: '年',
+      month: '月',
+      nextMonth: '›',
+      monthStat: '本月',
+      sessions: '场直播',
+      liveList: '直播安排',
+      noLive: '当日暂无直播安排'
+    }
   },
   profile: {
     title: '我的',
@@ -222,7 +241,7 @@ export default {
     privacy: '隐私协议',
     terms: '用户条款',
     logout: '退出登录',
-    nickname: '昵称',
+    nickname: '昵称'
   },
   order: {
     title: '订单',
@@ -233,7 +252,7 @@ export default {
       refunding: '退款中',
       refunded: '已退款',
       completed: '已完成',
-      failed: '失败',
+      failed: '失败'
     },
     create: '创建订单',
     cancel: '取消订单',
@@ -256,19 +275,41 @@ export default {
       reasonPlaceholder: '请输入退款原因',
       submit: '提交申请',
       submitted: '退款申请已提交',
+      selectReasonFirst: '请选择退款原因',
+      productLabel: '商品名称',
+      orderTimeLabel: '下单时间',
+      refundAmount: '退款金额',
+      amountReadOnly: '不可修改',
+      contactLabel: '联系方式',
+      contactPlaceholder: '请输入手机号或邮箱'
     },
     refundList: {
       orderNo: '订单号:{{no}}',
       empty: '暂无退款记录',
+      tabRefunding: '退款中',
+      tabRefunded: '已退款',
+      tabRejected: '已拒绝',
+      statusRefunding: '退款中',
+      statusRejected: '已拒绝',
+      stepApply: '申请退款',
+      stepReview: '审核中',
+      estimateTip: '预计到账时间',
+      collapse: '收起进度',
+      viewProgress: '查看进度',
+      viewOrder: '订单详情'
     },
     tabs: {
-      cancelled: '已取消',
+      cancelled: '已取消'
     },
     searchPlaceholder: '搜索订单',
     notFound: '未找到相关订单',
     cancelConfirm: '确定要取消该订单吗?',
     cancelSuccess: '订单已取消',
     cancelFailed: '取消订单失败',
+    list: {
+      orderTime: '下单时间',
+      refundTime: '退款时间'
+    }
   },
   wallet: {
     title: '钱包',
@@ -291,6 +332,8 @@ export default {
         amount: '充值金额',
         backHome: '返回首页',
         backWallet: '返回钱包',
+        tipsTitle: '温馨提示',
+        arriveTime: '到账时间'
       },
       fail: {
         title: '充值失败',
@@ -298,7 +341,14 @@ export default {
         retry: '重新充值',
         backWallet: '返回钱包',
         orderNoLabel: '订单号',
+        hintTitle: '温馨提示',
+        contactService: '联系客服',
+        faqQ: '充值失败会扣款吗?'
       },
+      tokenRate: '1元 = {{n}} 智汇值',
+      activityTitle: '限时活动',
+      activityPlaceholder: '请输入活动充值金额',
+      activitySubmit: '限时 优惠充值'
     },
     topUp: {
       balanceLabel: '账户余额',
@@ -312,17 +362,17 @@ export default {
       methodAlipay: '支付宝',
       submit: '充值',
       submitting: '充值中…',
-      invalidAmount: '请输入有效金额',
+      invalidAmount: '请输入有效金额'
     },
     withdrawal: {
       amountLabel: '提现金额',
-      records: '提现记录',
+      records: '提现记录'
     },
     commission: {
       today: '今日佣金',
       available: '可提现佣金',
-      records: '佣金记录',
-    },
+      records: '佣金记录'
+    }
   },
   community: {
     title: '社区',
@@ -340,26 +390,26 @@ export default {
       agent: '智能体',
       digitalHuman: '数字人',
       modelPlaza: '模型广场',
-      moreTools: '更多工具',
+      moreTools: '更多工具'
     },
     quickEntries: {
       myCreation: '我的创作',
       aigcWorks: 'AIGC作品',
       ranking: '排行榜',
-      aiTeam: 'AI团队',
-    },
+      aiTeam: 'AI团队'
+    }
   },
   agent: {
     title: '智能体',
     create: '创建智能体',
-    runtime: '运行状态',
+    runtime: '运行状态'
   },
   chat: {
     placeholder: '输入消息…',
     send: '发送',
     newConversation: '新建对话',
     history: '历史对话',
-    stop: '停止',
+    stop: '停止'
   },
   settings: {
     title: '设置',
@@ -369,7 +419,7 @@ export default {
     language: '语言',
     theme: '主题',
     about: '关于智汇 AI',
-    version: '版本',
+    version: '版本'
   },
   setting: {
     hint: '提示',
@@ -397,18 +447,18 @@ export default {
       tip1: '清除缓存不会影响您的账户数据',
       tip2: '建议在 Wi-Fi 环境下操作',
       alreadyClean: '已是最新状态',
-      clearing: '清理中',
+      clearing: '清理中'
     },
     language: {
       chooseHint: '选择应用语言',
-      tip: '切换语言后将自动保存并生效',
+      tip: '切换语言后将自动保存并生效'
     },
     notification: {
       categoryTitle: '通知分类',
       empty: '暂无通知设置项',
       moreTitle: '更多',
       detail: '通知详情',
-      detailDesc: '查看历史通知消息',
+      detailDesc: '查看历史通知消息'
     },
     accountBinding: '账号与安全',
     changePhone: '更换手机号',
@@ -429,6 +479,15 @@ export default {
     messageNotificationOff: '已关闭,可能错过重要消息',
     openSettingHint: '请在系统设置中开启通知权限',
     cacheCleared: '缓存已清除',
+    theme: {
+      hintTitle: '主题说明',
+      switchHint: '切换主题后将立即保存并应用到全局界面',
+      autoHint: '「跟随系统」将随设备深浅色设置自动变化'
+    },
+    notifOpenHint: '要接收消息通知,请在系统设置中开启通知权限',
+    notifOn: '已开启消息通知',
+    notifOff: '已关闭消息通知',
+    accountSecurity: '账号与安全'
   },
   error: {
     network: '网络错误',
@@ -436,20 +495,20 @@ export default {
     unauthorized: '请先登录',
     forbidden: '无权限',
     notFound: '资源不存在',
-    unknown: '未知错误',
+    unknown: '未知错误'
   },
   success: {
     saved: '保存成功',
     deleted: '删除成功',
     submitted: '提交成功',
-    copied: '已复制',
+    copied: '已复制'
   },
   ai: {
     title: 'AI 助手',
     welcomeTitle: '你好,我是智汇 AI 助手',
     welcomeDesc: '有什么可以帮你的吗?',
     inputPlaceholder: '输入你的问题…',
-    suggestions: ['帮我写一首诗', '解释一下量子计算', '推荐一本好书', '今天天气怎么样'],
+    suggestions: null,
     thinking: '思考中…',
     stop: '停止',
     clear: '清空',
@@ -459,13 +518,13 @@ export default {
     materialLoadFailed: '素材加载失败',
     agentLoadFailed: '智能体加载失败',
     common: {
-      loading: '加载中…',
+      loading: '加载中…'
     },
     tishi: {
       title: '智能体引导说明',
       view: '查看',
       close: '关闭',
-      needInput: '小方需要您输入以下相关内容,以便于更精准的解决您的需求',
+      needInput: '小方需要您输入以下相关内容,以便于更精准的解决您的需求'
     },
     chatMessageItem: {
       me: '我',
@@ -484,23 +543,23 @@ export default {
       share: '分享',
       viewDigitalHuman: '查看数字人',
       voiceMessage: '语音消息',
-      playVoice: '播放',
+      playVoice: '播放'
     },
     favorite: {
       title: '收藏',
-      empty: '暂无收藏',
+      empty: '暂无收藏'
     },
     history: {
       title: '历史对话',
       empty: '暂无历史',
       clearConfirm: '确定清空所有历史对话?',
-      cleared: '历史已清空',
+      cleared: '历史已清空'
     },
     inputArea: {
       placeholder: '输入你的问题…',
       releaseToSend: '松开发送',
       holdToSpeak: '按住说话',
-      send: '发送',
+      send: '发送'
     },
     materialPopup: {
       title: '选择素材',
@@ -511,14 +570,14 @@ export default {
       tabText: '文本',
       tabImage: '图片',
       tabVideo: '视频',
-      tabAudio: '音频',
+      tabAudio: '音频'
     },
     skillsPopup: {
       title: '选择技能',
       searchPlaceholder: '搜索技能',
       uses: '{{n}} 次使用',
       notFound: '未找到相关技能',
-      empty: '暂无可用技能',
+      empty: '暂无可用技能'
     },
     voice: {
       welcome: '你好,长按下方按钮开始语音对话',
@@ -529,9 +588,12 @@ export default {
       releaseToSend: '松开发送',
       holdToSpeak: '按住说话',
       recordFailed: '录音失败,请重试',
+      clearChat: '清空对话',
+      speed: '语速',
+      timbre: '音色'
     },
     image: {
-      examples: ['一只可爱的猫咪', '日落山水画', '未来城市夜景', '抽象艺术图案'],
+      examples: null,
       emptyHint: '输入描述生成图片',
       tryThese: '试试这些',
       placeholder: '描述你想生成的图片',
@@ -547,13 +609,13 @@ export default {
       empty: '暂无生成记录',
       size: '尺寸',
       style: '风格',
-      styles: ['默认', '卡通', '写实', '油画', '水彩'],
+      styles: null,
       generateFailed: '生成失败,请重试',
       promptRequired: '请输入描述',
       downloadSuccess: '已保存到相册',
       downloadFailed: '下载失败,请重试',
       favoriteAdded: '已加入收藏',
-      favoriteRemoved: '已取消收藏',
+      favoriteRemoved: '已取消收藏'
     },
     video: {
       title: '视频生成',
@@ -587,15 +649,15 @@ export default {
         doubao: '豆包',
         doubaoDesc: '字节豆包视频',
         dashscope: 'Dashscope',
-        dashscopeDesc: '阿里通义万相',
-      },
+        dashscopeDesc: '阿里通义万相'
+      }
     },
     agent: {
       searchPlaceholder: '搜索智能体',
       count: '{{n}} 个',
       notFound: '未找到相关智能体',
       empty: '暂无智能体',
-      inputPlaceholder: '输入你的问题…',
+      inputPlaceholder: '输入你的问题…'
     },
     agentDetail: {
       runtimeTitle: '运行状态',
@@ -634,7 +696,7 @@ export default {
       exampleDialog: '示例对话',
       reviews: '评价',
       reviewCount: '{{n}}条评价',
-      ratingDistribution: '评分分布',
+      ratingDistribution: '评分分布'
     },
     agentList: {
       categories: {
@@ -643,7 +705,7 @@ export default {
         writing: '写作',
         coding: '编程',
         education: '教育',
-        life: '生活',
+        life: '生活'
       },
       useCount: '{{n}}人使用',
       noResult: '未找到相关智能体',
@@ -658,7 +720,7 @@ export default {
       hotRecommend: '热门推荐',
       createAgent: '创建智能体',
       emptyFavorites: '暂无收藏智能体',
-      emptyRecent: '暂无最近使用智能体',
+      emptyRecent: '暂无最近使用智能体'
     },
     historyPage: {
       title: '历史对话',
@@ -667,6 +729,9 @@ export default {
       clearAll: '清空全部',
       clearConfirm: '确定要清空全部对话历史吗?',
       cleared: '已清空',
+      refreshSuccess: '刷新成功',
+      startNew: '开始新对话',
+      msgCount: '{{n}} 条消息'
     },
     special: {
       hint: '以下为特殊 AI 模型入口,点击进入对应功能页',
@@ -675,27 +740,36 @@ export default {
       nanobanana: {
         name: 'NanoBanana',
         desc: 'Google 图片编辑模型,支持自然语言指令编辑图片',
-        capabilities: ['图片编辑', '自然语言指令', '局部重绘'],
-        apiStatus: '点击进入 AI 绘图',
+        capabilities: null,
+        apiStatus: '点击进入 AI 绘图'
       },
       veo3: {
         name: 'Veo3',
         desc: 'Google 视频生成模型,支持高质量文生视频',
-        capabilities: ['文生视频', '高清输出', '长视频'],
-        apiStatus: '点击进入 AI 视频生成',
+        capabilities: null,
+        apiStatus: '点击进入 AI 视频生成'
       },
       httpmodel: {
         name: 'HttpModel',
         desc: '通用 HTTP 模型代理,支持自定义模型接入',
-        capabilities: ['自定义模型', 'HTTP 代理', '通用接口'],
-        apiStatus: '点击进入 AI 对话',
+        capabilities: null,
+        apiStatus: '点击进入 AI 对话'
       },
       geminiFlash: {
         name: 'Gemini-2.5-flash',
         desc: 'Google Gemini 2.5 Flash 文本模型,快速响应',
-        capabilities: ['文本对话', '多模态输入', '快速响应'],
-        apiStatus: '可通过 AI 对话使用',
+        capabilities: null,
+        apiStatus: '可通过 AI 对话使用'
       },
+      cat: {
+        image: 'AI 绘图',
+        video: 'AI 视频',
+        voice: 'AI 语音',
+        plaza: '模型广场'
+      },
+      historySoon: '历史记录即将开放',
+      featured: '精选推荐',
+      useBtn: '立即使用'
     },
     chat: {
       agentTipTitle: '智能体使用说明',
@@ -709,8 +783,8 @@ export default {
       agentTipInput: '输入问题',
       agentTipInputDesc: '在底部输入框输入你的问题,按发送',
       agentTipHistory: '历史记录',
-      agentTipHistoryDesc: '可查看历史对话',
-    },
+      agentTipHistoryDesc: '可查看历史对话'
+    }
   },
   share: {
     appTitle: '智汇 AI - 让学习更高效',
@@ -743,7 +817,7 @@ export default {
       goHome: '返回首页',
       history: '历史对话',
       emptyHistory: '暂无历史对话',
-      models: '模型列表',
+      models: '模型列表'
     },
     creation: {
       title: 'AI 创作分享',
@@ -758,8 +832,8 @@ export default {
       regenerate: '再生成一个',
       shareFriend: '分享给好友',
       voiceAnswer: '🔊 语音回答',
-      modelDefault: 'AI 模型',
-    },
+      modelDefault: 'AI 模型'
+    }
   },
   aiGroup: {
     title: '智能体广场',
@@ -772,7 +846,7 @@ export default {
     tabEducation: '教育',
     tabLife: '生活',
     loadFailed: '加载失败',
-    useCount: '{n}人使用',
+    useCount: '{n}人使用'
   },
   aiCircle: {
     title: 'AI 圈子',
@@ -780,14 +854,14 @@ export default {
     empty: '暂无内容',
     loadFailed: '加载失败',
     anonymous: '匿名',
-    noMore: '没有更多了',
+    noMore: '没有更多了'
   },
   aiCareer: {
     title: 'AI 职涯',
     guide: '指南',
     empty: '暂无内容',
     loadFailed: '加载失败',
-    useCount: '{n}人使用',
+    useCount: '{n}人使用'
   },
   aiChatDetail: {
     title: '对话记录',
@@ -797,7 +871,7 @@ export default {
     sendFailed: '发送失败,请重试',
     loadFailed: '加载失败',
     thinking: '思考中…',
-    inputPlaceholder: '输入消息…',
+    inputPlaceholder: '输入消息…'
   },
   aiAssistantN8n: {
     title: 'AI 助手',
@@ -809,7 +883,7 @@ export default {
     statusUnknown: '未知',
     noUrl: '暂无访问地址',
     loadFailed: '加载失败',
-    openWorkflow: '打开工作流',
+    openWorkflow: '打开工作流'
   },
   agentDialogue: {
     title: '智能体对话',
@@ -828,7 +902,7 @@ export default {
     clickPlay: '点击播放',
     fileMessage: '文件消息',
     clickView: '点击查看',
-    read: '已读',
+    read: '已读'
   },
   accountCancel: {
     title: '注销账号',
@@ -858,14 +932,14 @@ export default {
     codePlaceholder: '请输入验证码',
     getCode: '获取验证码',
     confirmLabel: '确认文字',
-    confirmPlaceholder: '请输入上方文字',
+    confirmPlaceholder: '请输入上方文字'
   },
   ask: {
     search: '搜索问题',
     tabs: {
       new: '最新',
       hot: '热门',
-      unanswered: '待回答',
+      unanswered: '待回答'
     },
     answers: '{{n}} 回答',
     empty: '暂无问题',
@@ -875,7 +949,7 @@ export default {
       answered: '回答成功',
       answerCount: '{{n}} 个回答',
       placeholder: '输入你的回答…',
-      answer: '回答',
+      answer: '回答'
     },
     create: {
       published: '问题已发布',
@@ -886,7 +960,16 @@ export default {
       detailPlaceholder: '详细描述你的问题,越详细越容易得到回答',
       rewardLabel: '悬赏积分',
       submit: '发布问题',
-    },
+      draftRestored: '草稿已恢复',
+      maxImages: '最多 3 张',
+      contentRequired: '请输入问题描述',
+      contentTooShort: '描述至少 5 个字',
+      pageTitle: '提问',
+      categoryPlaceholder: '选择分类',
+      imageLabel: '配图',
+      anonymousLabel: '匿名发布',
+      anonymousDesc: '不显示你的昵称'
+    }
   },
   aigc: {
     publish: {
@@ -908,7 +991,7 @@ export default {
       uploadOk: '上传成功',
       uploadFail: '上传失败',
       needFile: '请至少上传一个文件',
-      publishFail: '发布失败',
+      publishFail: '发布失败'
     },
     list: {
       title: '作品广场',
@@ -924,8 +1007,8 @@ export default {
       invalidAudio: '音频地址无效',
       audioFail: '音频播放失败',
       untitled: '文本内容',
-      promptLabel: '提示词',
-    },
+      promptLabel: '提示词'
+    }
   },
   coursePlanet: {
     title: '课程星球',
@@ -935,7 +1018,7 @@ export default {
     teacher: '讲师',
     free: '免费',
     studentsUnit: '人学习',
-    loadingMore: '加载中…',
+    loadingMore: '加载中…'
   },
   following: {
     cancel: '取消关注',
@@ -944,10 +1027,16 @@ export default {
     delete: '删除',
     loadMore: '加载更多',
     noMore: '没有更多了',
+    people: '人',
+    sortByFollowed: '关注时间',
+    sortByRecent: '最近活跃',
+    followedAt: '关注于',
+    searchEmpty: '未找到匹配用户',
+    goDiscover: '去发现更多'
   },
   webview: {
     title: '网页',
-    missingUrl: '链接缺失,无法打开网页',
+    missingUrl: '链接缺失,无法打开网页'
   },
   carte: {
     shareHint: '请先保存图片再分享',
@@ -959,7 +1048,7 @@ export default {
     email: '邮箱',
     scanHint: '扫一扫,查看名片',
     shareCard: '分享名片',
-    saveQrcode: '保存二维码',
+    saveQrcode: '保存二维码'
   },
   exam: {
     questions: '{{n}} 题',
@@ -983,6 +1072,16 @@ export default {
       rankValue: '第 {{n}} 名 / 共 {{total}} 人',
       goList: '查看考试列表',
       goStudy: '继续学习',
+      correct: '答对',
+      wrong: '答错',
+      pageTitle: '考试结果',
+      reviewTitle: '题目回顾',
+      reviewCorrect: '正确',
+      reviewWrong: '错误',
+      myAnswer: '我的答案',
+      correctAnswer: '正确答案',
+      analysis: '解析',
+      noReview: '暂无题目回顾'
     },
     detail: {
       loadFailed: '考试加载失败',
@@ -998,15 +1097,25 @@ export default {
       notice3: '考试过程中请勿退出应用,否则可能影响成绩',
       notice4: '考试结束后将自动计算成绩',
       start: '开始考试',
+      startFailed: '开始考试失败',
+      rule3: '禁止切屏,切屏超过 5 次将自动交卷',
+      pageTitle: '考试详情',
+      participants: '参与人数',
+      passedCount: '已通过',
+      historyTitle: '历史成绩',
+      historyPassed: '通过',
+      historyNotPassed: '未通过',
+      historyEmpty: '暂无历史成绩',
+      starting: '正在进入考试…'
     },
     answer: {
-      judgmentOptions: ['正确', '错误'],
+      judgmentOptions: null,
       loadFailed: '试卷加载失败',
       answerPlaceholder: '输入你的答案',
       prev: '上一题',
       next: '下一题',
-      submit: '交卷',
-    },
+      submit: '交卷'
+    }
   },
   favorites: {
     cancel: '取消收藏',
@@ -1015,6 +1124,16 @@ export default {
     delete: '删除',
     loadMore: '加载更多',
     noMore: '没有更多了',
+    batchCancel: '批量取消收藏',
+    items: '项',
+    unsupported: '暂未支持跳转',
+    itemsUnit: '项',
+    done: '完成',
+    manage: '管理',
+    selectAll: '全选',
+    collectedAt: '收藏于',
+    searchEmpty: '未找到匹配内容',
+    goDiscover: '去发现'
   },
   distribution: {
     withdraw: {
@@ -1028,7 +1147,7 @@ export default {
       amountPlaceholder: '请输入提现金额',
       all: '全部提现',
       method: '提现方式',
-      submit: '提交申请',
+      submit: '提交申请'
     },
     index: {
       menuTeam: '我的团队',
@@ -1069,7 +1188,7 @@ export default {
       verifyTitle: '身份信息验证',
       idPlaceholder: '请输入身份证号码',
       namePlaceholder: '请输入姓名',
-      confirm: '确认',
+      confirm: '确认'
     },
     team: {
       title: '我的团队',
@@ -1087,12 +1206,12 @@ export default {
       loading: '加载中…',
       noMore: '没有更多了',
       error: '加载失败',
-      retry: '点击重试',
+      retry: '点击重试'
     },
     commission: {
       total: '累计佣金',
       empty: '暂无佣金记录',
-      loading: '加载中…',
+      loading: '加载中…'
     },
     plan: {
       title: '分销计划',
@@ -1125,7 +1244,7 @@ export default {
       totalEarnings: '累计收益',
       inviteCount: '邀请人数',
       rulesTitle: '分佣规则',
-      openVipBtn: '开通VIP会员 参与分佣计划',
+      openVipBtn: '开通VIP会员 参与分佣计划'
     },
     memberDetail: {
       title: '成员详情',
@@ -1140,7 +1259,7 @@ export default {
       contribution: '贡献',
       error: '加载失败',
       retry: '点击重试',
-      noMore: '没有更多了',
+      noMore: '没有更多了'
     },
     orderList: {
       title: '分销订单',
@@ -1152,7 +1271,7 @@ export default {
       commission: '佣金',
       error: '加载失败',
       retry: '点击重试',
-      noMore: '没有更多了',
+      noMore: '没有更多了'
     },
     company: {
       title: '我的公司',
@@ -1165,21 +1284,114 @@ export default {
       joinTime: '加入:{{time}}',
       menuTeam: '团队管理',
       menuCommission: '佣金记录',
-      menuWithdraw: '申请提现',
+      menuWithdraw: '申请提现'
     },
     rank: {
       title: '分销排行榜',
-      empty: '暂无排行数据',
-    },
+      empty: '暂无排行数据'
+    }
   },
   about: {
     version: '版本 {{version}}',
-    protocol: '用户协议',
-    privacy: '隐私政策',
+    protocol: {
+      s2: {
+        t1: '2.1用户资格与使用限制',
+        t2: '2.2 服务更新与变动',
+        t3: '2.3服务中止与限制',
+        t4: '2.4 授权与访问限制',
+        t5: '2.5 终端设备与联网要求',
+        t6: '2.6 使用权利与保留权利',
+        t7: '2.7 内容质量与反馈机制'
+      },
+      s3: {
+        t1: '3.1账号注册与使用',
+        t2: '3.2 账号注销',
+        t3: '3.3 账号规范',
+        t4: '3.4 账号归属与使用',
+        t5: '3.5 账号安全',
+        t6: '3.6 密码找回',
+        t7: '3.7 真实身份信息',
+        t8: '3.8 账号信息管理',
+        t9: '3.9 账号回收'
+      },
+      s5: {
+        t1: '5.1用户行为准则',
+        t2: '5.2 信息内容准则',
+        t3: '5.3 投诉与举报'
+      },
+      mainTitle: '服务协议',
+      title: '用户协议'
+    },
+    privacy: {
+      overviewTitle: '智汇社隐私政策概述',
+      coreTitle: '隐私政策核心要点:',
+      s1: {
+        t1: '1.1注册与登录',
+        t2: '1.2智能对话服务',
+        t3: '1.3智能搜索服务',
+        t4: '1.4 用户反馈与服务改进',
+        t5: '1.5 消息通知服务',
+        t6: '1.6运营与安全保障',
+        t7: '1.7 收集、使用个人信息目的变更',
+        t8: '1.8 征得授权同意的例外'
+      },
+      s2: {
+        t1: '2.1 保障产品与服务的安全及高效运行',
+        t2: '2.2 提升您的访问便捷性',
+        t3: '2.3关于Cookie的清除'
+      },
+      s3: {
+        t1: '3.1数据共享与合作方',
+        t2: '3.2 数据转移',
+        t3: '3.3 数据公开',
+        t4: '3.4 豁免情形'
+      },
+      s4: {
+        t1: '4.1存储地点与跨境传输',
+        t2: '4.2 存储期限与删除'
+      },
+      s5: {
+        t1: '5.1安全保障承诺',
+        t2: '5.2 加密与匿名技术',
+        t3: '5.3 安全管理体系',
+        t4: '5.4安全风险提示',
+        t5: '5.5 应急处理机制',
+        t6: '5.6 服务外信息安全'
+      },
+      s9: {
+        t1: '9.1 360加固',
+        t2: '9.2 ZIP4J包',
+        t3: '9.3 Chromium',
+        t4: '9.4 AndroidGifDrawable',
+        t5: '9.5 iik视频播放器',
+        t6: '9.6 bolts',
+        t7: '9.7 Glide',
+        t8: '9.8 Fresco',
+        t9: '9.9 华为推送',
+        t10: '9.10 UniversalImageLoader',
+        t11: '9.11 SamsungLook',
+        t12: '9.12 淘宝Weex',
+        t13: '9.13 Okhttp3',
+        t14: '9.14 Okio',
+        t15: '9.15 DCloud SDK',
+        t16: '9.16 MAC地址收集'
+      },
+      mainTitle: '隐私政策',
+      updateDate: '更新日期: 2025年06月21日',
+      effectiveDate: '生效日期: 2025年06月21日'
+    },
     help: {
       title: '帮助中心',
       search: '搜索帮助',
       empty: '暂无帮助内容',
+      phoneRequired: '请输入联系方式',
+      contextRequired: '请输入反馈详情',
+      feedbackTitle: '意见反馈',
+      username: '姓名',
+      usernamePlaceholder: '请输入姓名',
+      context: '问题描述',
+      contextPlaceholder: '请输入反馈详情',
+      submitFailed: '反馈提交失败,请稍后重试'
     },
     contact: {
       title: '联系我们',
@@ -1188,14 +1400,23 @@ export default {
       qq: 'QQ',
       address: '地址',
       workTime: '工作时间:周一至周五 9:00-18:00',
+      addressCopied: '地址已复制',
+      headerSub: '我们随时为您提供帮助',
+      callBtn: '拨打',
+      copyBtn: '复制',
+      workTimeLabel: '工作时间',
+      responseLabel: '响应时间',
+      responseTime: '工作日内 24 小时内回复',
+      callNow: '立即拨打客服'
     },
     businessLicense: {
-      labels: ['统一社会信用代码', '名称', '类型', '法定代表人', '注册资本', '成立日期', '营业期限', '经营范围'],
+      labels: null,
       scopeTitle: '经营范围',
       footer: '以上信息仅供参考,以工商登记为准',
+      tapToView: '点击查看营业执照'
     },
     icpRecord: {
-      labels: ['备案编号', '备案主体', '审核时间', '备案性质'],
+      labels: null,
       footer: '以上信息来自工信部备案查询系统',
       icpNo: 'ICP 备案号',
       policeNo: '公安备案号',
@@ -1204,29 +1425,33 @@ export default {
       domain: '域名',
       recordDate: '备案日期',
       query: '前往工信部查询',
+      icpLabel: 'ICP备案/许可证号'
     },
     usageRules: {
-      titles: ['一、账号使用规则', '二、内容发布规则', '三、平台使用规则', '四、免责声明'],
-      account: ['账号需实名注册', '禁止转让或出售账号', '妥善保管账号密码'],
-      content: ['禁止发布违法内容', '禁止发布广告信息', '尊重他人知识产权'],
-      usage: ['禁止恶意刷单', '禁止刷量行为', '禁止攻击平台系统'],
-      disclaimer: ['平台不对内容准确性负责', '用户行为责任自负', '平台保留最终解释权'],
+      titles: null,
+      account: null,
+      content: null,
+      usage: null,
+      disclaimer: null,
       footer: '本规则自发布之日起生效',
       titleAccount: '一、账号使用',
       titleContent: '二、内容规范',
       titleForbid: '三、禁止行为',
       titleIP: '四、知识产权',
       titleDisclaimer: '五、免责声明',
+      s2: {
+        sub1: '（一）允许的行为',
+        sub2: '（二）禁止的行为（红线条款）'
+      },
+      s6: {
+        sub1: '（一）平台方的权利与义务',
+        sub2: '（二）用户的权利与义务',
+        sub3: '（三）免责条款'
+      }
     },
     appPermission: {
-      names: ['存储权限', '相机权限', '麦克风权限', '位置权限', '通知权限'],
-      descs: [
-        '用于保存学习资料到本地',
-        '用于扫码登录和上传头像',
-        '用于语音对话和直播',
-        '用于推荐附近的学习资源',
-        '用于接收学习和活动通知',
-      ],
+      names: null,
+      descs: null,
       intro: '智汇 AI 需要以下权限以提供完整功能',
       required: '必须',
       optional: '可选',
@@ -1234,9 +1459,10 @@ export default {
       albumName: '相册权限',
       albumDesc: '用于保存和上传图片到相册',
       goSetting: '去设置',
+      openAllSetting: '打开系统设置'
     },
     modelRecord: {
-      labels: ['模型名称', '版本', '提供方', '更新时间', '能力描述'],
+      labels: null,
       noticeTitle: '模型信息公示',
       noticeText: '本应用使用人工智能技术,以下为所用模型信息',
       footer: '模型信息仅供参考',
@@ -1246,6 +1472,7 @@ export default {
       algoType: '算法类型',
       recordDate: '备案日期',
       tableTitle: '大模型备案信息',
+      imageUnavailable: '备案图片暂未上传'
     },
     apiSettings: {
       apiUrl: 'API 地址',
@@ -1255,10 +1482,25 @@ export default {
       diagnose: '网络诊断',
       test: '测试连接',
       footer: '以上为当前 API 配置信息',
+      requiredTip: '请填写完整的 API 配置',
+      savedTip: '保存成功',
+      resetTip: '已重置为默认值',
+      testSuccess: '连接成功',
+      testFailed: '连接失败',
+      cozeTitle: 'Coze API 配置',
+      apiToken: 'API 令牌(Token)',
+      tokenPlaceholder: '请输入您的 Coze API 令牌',
+      workflowId: '工作流 ID(Workflow ID)',
+      workflowPlaceholder: '请输入工作流 ID',
+      saveBtn: '保存设置',
+      resetBtn: '重置默认',
+      diagnoseTitle: '网络诊断'
     },
+    introFallback: '智汇 AI 致力于打造一站式 AI 服务平台',
+    copyright: '© 2026 智汇 AI. 保留所有权利'
   },
   aboutProtocol: {
-    loadFailed: '协议加载失败',
+    loadFailed: '协议加载失败'
   },
   businessCard: {
     saved: '名片已保存',
@@ -1271,6 +1513,16 @@ export default {
     save: '保存',
     edit: '编辑',
     loading: '加载中…',
+    uploaded: '名片已上传',
+    savedToAlbum: '已保存到相册',
+    saveFailed: '保存失败',
+    shareTitle: '我的社区名片',
+    customEntry: '社区名片定制入口',
+    reupload: '重新上传',
+    saveToAlbum: '保存到相册',
+    shareWx: '分享给好友',
+    sharePyq: '分享到朋友圈',
+    uploadPlaceholder: '上传名片'
   },
   cart: {
     title: '购物车',
@@ -1282,7 +1534,7 @@ export default {
     deleteConfirm: '确定要删除该商品吗?',
     selectFirst: '请选择商品',
     loadFailed: '加载失败',
-    total: '合计',
+    total: '合计'
   },
   categoryDetail: {
     categoryId: '分类 {{id}}',
@@ -1291,13 +1543,13 @@ export default {
     new: '最新',
     empty: '暂无内容',
     noDesc: '暂无描述',
-    useCount: '{{n}} 次使用',
+    useCount: '{{n}} 次使用'
   },
   circle: {
     tabs: {
       recommend: '推荐',
       follow: '关注',
-      hot: '热门',
+      hot: '热门'
     },
     empty: '暂无内容',
     createForm: {
@@ -1306,14 +1558,33 @@ export default {
       contentPlaceholder: '分享你的想法…',
       topicLabel: '话题',
       selectTopic: '选择话题',
-      publish: '发布',
+      publish: '发布'
     },
     detail: {
       followed: '已关注',
       shareHint: '复制链接去分享',
       follow: '关注',
       share: '分享',
+      unfollowed: '已取消关注',
+      commentSent: '评论成功',
+      aigcTag: 'AI 作品',
+      commentsTitle: '评论',
+      viewMore: '查看更多',
+      noComments: '暂无评论,快来抢沙发',
+      commentPlaceholder: '说点什么…'
     },
+    create: {
+      contentRequired: '请输入动态内容',
+      imagesLabel: '图片',
+      moreTopics: '更多',
+      aigcLabel: '关联 AI 作品',
+      selectAigc: '选择 AI 作品(可选)',
+      noAigc: '暂无可关联的 AI 作品',
+      allowComments: '允许评论'
+    },
+    index: {
+      goPublish: '去发布'
+    }
   },
   devEnter: {
     cover: {
@@ -1336,7 +1607,7 @@ export default {
       devNotice: '开发者须知',
       faqTitle: '相关开发者的一系列问题解答？',
       copy: '复制',
-      copySuccess: '已复制',
+      copySuccess: '已复制'
     },
     n8nModel: {
       title: 'N8N 模型',
@@ -1376,7 +1647,7 @@ export default {
       createSuccess: '智能体创建成功',
       mockSuccess: '接口暂未开放,已模拟创建',
       submitting: '创建中…',
-      submit: '创建智能体',
+      submit: '创建智能体'
     },
     modelEdit: {
       saved: '已保存',
@@ -1410,14 +1681,14 @@ export default {
       submitting: '提交中…',
       submit: '提交审核',
       submitSuccess: '提交成功',
-      mockSuccess: '接口暂未开放,已模拟提交',
-    },
+      mockSuccess: '接口暂未开放,已模拟提交'
+    }
   },
   developer: {
     withdrawal: {
       title: '提现记录',
       processing: '处理中',
-      empty: '暂无提现记录',
+      empty: '暂无提现记录'
     },
     subscribe: {
       monthly: '月',
@@ -1428,6 +1699,23 @@ export default {
       empty: '暂无订阅方案',
       submitting: '提交中…',
       priceLabel: '¥{{price}}/{{period}}',
+      devName: '开发者',
+      unfollowed: '已取消关注',
+      noContact: '暂无联系方式',
+      bioDefault: '暂无简介',
+      subscribedBtn: '已关注',
+      subscribeBtn: '+ 关注',
+      statSubscribers: '订阅人数',
+      statModels: '模型数',
+      statUses: '总使用次数',
+      modelsTitle: '开发者模型',
+      noModels: '暂无模型',
+      notifyTitle: '通知设置',
+      notifyNew: '新模型发布提醒',
+      notifyUpdate: '模型更新提醒',
+      postsTitle: '开发者动态',
+      noPosts: '暂无动态',
+      contact: '联系开发者'
     },
     income: {
       title: '收入概览',
@@ -1470,7 +1758,7 @@ export default {
       noMore: '没有更多了',
       cashEmpty: '暂无提现明细',
       moreMethod: '更多提现方式可使用官方APP',
-      wechat: '微信',
+      wechat: '微信'
     },
     index: {
       title: '开发者中心',
@@ -1491,14 +1779,14 @@ export default {
       typeLabel: '类型',
       editBtn2: '修改',
       editBtn: '设置',
-      noMore: '没有更多了',
-    },
+      noMore: '没有更多了'
+    }
   },
   modelPlaza: {
     title: '模型广场',
     unnamed: '未命名模型',
     noDesc: '暂无描述',
-    empty: '暂无模型',
+    empty: '暂无模型'
   },
   news: {
     search: '搜索资讯',
@@ -1511,21 +1799,27 @@ export default {
       comment: '评论',
       share: '分享',
       related: '相关推荐',
-      commentSoon: '评论功能即将开放',
+      commentSoon: '评论功能即将开放'
     },
+    cat: {
+      announce: '公告',
+      activity: '活动',
+      info: '资讯',
+      tutorial: '教程'
+    }
   },
   plaza: {
     setNeed: {
-      categories: ['技能学习', '职场提升', '兴趣培养', '考证备考', '其他'],
-      levels: ['入门', '进阶', '高级', '专家'],
-      budgets: ['0-100 元', '100-500 元', '500-1000 元', '1000 元以上'],
+      categories: null,
+      levels: null,
+      budgets: null,
       selectAtLeast: '请至少选择一项',
       saved: '保存成功',
       directionTitle: '学习方向',
       directionDesc: '选择你感兴趣的方向',
       levelTitle: '当前水平',
       budgetTitle: '预算范围',
-      save: '保存',
+      save: '保存'
     },
     index: {
       title: '模型广场',
@@ -1551,7 +1845,7 @@ export default {
       detailTrack: '赛道',
       detailStatus: '状态',
       detailAuthor: '发布人',
-      identityTitle: '切换身份',
+      identityTitle: '切换身份'
     },
     cover: {
       title: '封面选择',
@@ -1573,8 +1867,8 @@ export default {
       expire: '到期',
       renew: '续费',
       continueOrder: '继续接单',
-      qaTitle: '常见问题',
-    },
+      qaTitle: '常见问题'
+    }
   },
   ranking: {
     title: '排行榜',
@@ -1606,8 +1900,8 @@ export default {
       url: '官方网址',
       copyHint: '点击复制',
       contentTitle: '详细介绍',
-      loadFailed: '获取详情',
-    },
+      loadFailed: '获取详情'
+    }
   },
   recruitment: {
     applied: '申请已提交',
@@ -1620,7 +1914,7 @@ export default {
     monthlyIncome: '月收入',
     yearlyIncome: '年收入',
     submitting: '提交中…',
-    apply: '立即申请',
+    apply: '立即申请'
   },
   register: {
     enterPhone: '请输入手机号',
@@ -1648,26 +1942,26 @@ export default {
     userAgreement: '《用户协议》',
     privacyPolicy: '《隐私协议》',
     hasAccount: '已有账号?',
-    toLogin: '去登录',
+    toLogin: '去登录'
   },
   message: {
     tabs: {
       all: '全部',
       system: '系统',
       interaction: '互动',
-      private: '私信',
+      private: '私信'
     },
     notifLabels: {
       system: '系统通知',
       interaction: '互动消息',
       private: '私信',
-      marketing: '营销消息',
+      marketing: '营销消息'
     },
     notifDescs: {
       system: '账户、订单、安全等系统通知',
       interaction: '点赞、评论、关注等互动消息',
       private: '其他用户发给你的私信',
-      marketing: '优惠活动、新品推荐等',
+      marketing: '优惠活动、新品推荐等'
     },
     hello: '你好,我是 {{name}}',
     justNow: '刚刚',
@@ -1690,8 +1984,8 @@ export default {
       replyComment: '回复了你的评论:讲得真清楚!',
       followYou: '关注了你',
       targetReact: 'React 入门第 3 节',
-      targetAi: 'AI 大模型实战',
-    },
+      targetAi: 'AI 大模型实战'
+    }
   },
   member: {
     index: {
@@ -1705,19 +1999,29 @@ export default {
       myCoupons: '我的优惠券',
       couponCenter: '领券中心',
       vip: 'VIP 会员',
+      permanentVip: '永久有效',
+      usageStats: '使用统计',
+      openVipDesc: '享受更多特权,提升 AI 体验',
+      permanentActive: '您已是永久 VIP 会员',
+      allPrivileges: '已享有全部特权',
+      upgradePermanent: '升级永久 VIP 会员',
+      upgradeHint: '您已是 VIP 会员,可升级为永久 VIP',
+      upgradeNow: '升级永久 VIP',
+      contactTitle: '遇到问题?',
+      contactText: '联系客服微信:AIXHS_Service'
     },
     integral: {
       current: '当前积分',
       empty: '暂无积分记录',
       loading: '加载中…',
       loadFailed: '加载失败',
-      noMore: '没有更多了',
+      noMore: '没有更多了'
     },
     benefits: {
       empty: '暂无权益',
       myBenefits: '我的专属权益',
       loadFailed: '加载失败',
-      tierCatalog: '等级权益',
+      tierCatalog: '等级权益'
     },
     coupon: {
       unused: '未使用',
@@ -1732,7 +2036,7 @@ export default {
       thresholdText: '满{threshold}可用',
       expireText: '有效期至 {time}',
       use: '立即使用',
-      loadMore: '上拉加载更多',
+      loadMore: '上拉加载更多'
     },
     couponList: {
       received: '领取成功',
@@ -1744,14 +2048,14 @@ export default {
       empty: '暂无可领取优惠券',
       loadFailed: '加载失败',
       thresholdText: '满{threshold}元可用',
-      expireText: '有效期至 {time}',
-    },
+      expireText: '有效期至 {time}'
+    }
   },
   pay: {
     result: {
       paid: '支付成功',
       pending: '支付处理中',
-      failed: '支付失败',
+      failed: '支付失败'
     },
     backHome: '返回首页',
     viewOrders: '查看订单',
@@ -1764,6 +2068,18 @@ export default {
     missingParams: '支付参数缺失',
     useWechatScan: '请使用微信扫码支付',
     configNotReady: '支付配置未就绪,请联系管理员',
+    balanceInsufficient: '余额不足,请充值',
+    noCoupon: '暂无可用优惠券',
+    couponNone: '不使用优惠券',
+    orderExpired: '订单已超时,请重新下单',
+    alipayNotReady: '支付宝支付暂未开通',
+    countdownTip: '支付剩余时间 {{time}}',
+    couponSaved: '已优惠 ¥{{n}}',
+    goodsName: '商品名称',
+    vipSubscription: '会员订阅',
+    balanceAmount: '余额 ¥{{n}}',
+    recharge: '充值',
+    couponAvailable: '{{n}} 张可用'
   },
   study: {
     todayMinutes: '今日 {{n}} 分钟',
@@ -1783,29 +2099,43 @@ export default {
       statusDone: '已完成',
       statusInProgress: '进行中',
       empty: '暂无学习计划',
-      add: '添加计划',
+      add: '添加计划'
     },
     rankPage: {
       title: '学习排行榜',
       subtitle: '看看谁最努力',
       minutes: '{{n}} 分钟',
-      empty: '暂无排名数据',
+      empty: '暂无排名数据'
     },
     recordPage: {
       duration: '学习 {{n}} 分钟',
       progress: '进度 {{n}}%',
       empty: '暂无学习记录',
+      statusLearning: '学习中',
+      statusAbandon: '已放弃',
+      statTotal: '累计学习',
+      unitMin: '分钟',
+      statDays: '连续打卡',
+      unitDay: '天',
+      statCourses: '完成课程',
+      unitCourse: '门',
+      statPoints: '获得积分',
+      unitPoint: '分',
+      tabCompleted: '已完成',
+      tabAbandoned: '已放弃',
+      coverFallback: '课程',
+      continue: '继续学习'
     },
     videoDetail: {
       me: '我',
       justNow: '刚刚',
       tabsCatalog: '目录',
       tabsIntro: '简介',
-      tabsComment: '评论',
+      tabsComment: '评论'
     },
     publish: {
-      categories: ['学习心得', '经验分享', '问题求助', '资料推荐'],
-      visibilityOptions: ['公开', '仅好友可见', '私密'],
+      categories: null,
+      visibilityOptions: null,
       enterTitle: '请输入标题',
       enterContent: '请输入内容',
       published: '发布成功',
@@ -1814,7 +2144,7 @@ export default {
       category: '分类',
       visibility: '可见范围',
       tagsPlaceholder: '添加标签',
-      submit: '发布',
+      submit: '发布'
     },
     myStudy: {
       title: '我的学习',
@@ -1825,8 +2155,8 @@ export default {
       favoritedEmpty: '暂无收藏课程',
       loadFailed: '加载失败',
       progress: '进度',
-      lastTime: '上次学习',
-    },
+      lastTime: '上次学习'
+    }
   },
   subscriptions: {
     cancel: '取消订阅',
@@ -1834,25 +2164,49 @@ export default {
     empty: '暂无订阅',
     delete: '删除',
     loadMore: '加载更多',
-    noMore: '没有更多了',
+    noMore: '没有更多了'
   },
   teacher: {
     list: {
       searchPlaceholder: '搜索讲师',
       courseCount: '{{n}} 门课程',
       studentCount: '{{n}} 位学员',
-      empty: '暂无讲师',
+      empty: '暂无讲师'
     },
     detail: {
       courses: '课程',
       students: '学员',
       intro: '简介',
       viewCourses: '查看课程',
-    },
+      unfollowed: '已取消',
+      contactMessage: '发消息',
+      contactPhone: '电话联系',
+      phoneHint: '已复制联系方式',
+      fans: '粉丝',
+      goldBadge: '金牌讲师',
+      collapse: '收起',
+      expand: '展开',
+      courseSection: '主讲课程',
+      learnUnit: '人学习',
+      noCourses: '暂无课程',
+      reviewSection: '学员评价',
+      noReviews: '暂无评价',
+      contact: '联系讲师'
+    }
   },
   topic: {
     count: '{{n}} 篇内容',
     empty: '暂无话题',
+    detail: {
+      unfollowed: '已取消关注',
+      followSuccess: '关注成功',
+      followFailed: '操作失败',
+      pageTitle: '话题详情',
+      publishPlaceholder: '分享你对这个话题的看法…'
+    },
+    list: {
+      pageTitle: '话题'
+    }
   },
   token: {
     balance: {
@@ -1864,8 +2218,8 @@ export default {
       agentConsume: '智能体消耗',
       ordersConsume: '大模型消耗',
       costTime: '花费时间:',
-      noMore: '没有更多了',
-    },
+      noMore: '没有更多了'
+    }
   },
   user: {
     loggedOut: '已退出登录',
@@ -1883,7 +2237,7 @@ export default {
       subscriptions: '我的订阅',
       courses: '全部课程',
       ai: 'AI 助手',
-      settings: '设置',
+      settings: '设置'
     },
     identity: '身份',
     avatar: {
@@ -1891,6 +2245,12 @@ export default {
       choose: '选择头像',
       formatHint: '支持 JPG、PNG 格式',
       sizeHint: '建议尺寸 200×200',
+      updateFailed: '更新头像失败',
+      chooseFailed: '选图失败',
+      tapPreview: '点击查看大图',
+      fromAlbum: '从相册选择',
+      takePhoto: '拍照',
+      previewHint: '点击头像可查看大图'
     },
     email: {
       emailInvalid: '邮箱格式不正确',
@@ -1910,7 +2270,7 @@ export default {
       codeSendFailed: '验证码发送失败',
       codeLength: '请输入 6 位验证码',
       binding: '绑定中…',
-      unbound: '未绑定',
+      unbound: '未绑定'
     },
     nickname: {
       enterNickname: '请输入昵称',
@@ -1919,6 +2279,11 @@ export default {
       newNickname: '新昵称',
       nicknamePlaceholder: '请输入新昵称',
       save: '保存',
+      invalidChar: '昵称仅支持中英文、数字和下划线',
+      randomNickname: '🎲 随机推荐昵称',
+      ruleChar: '支持中英文、数字',
+      ruleSymbol: '禁止特殊符号',
+      saving: '保存中…'
     },
     orders: {
       statusPending: '待支付',
@@ -1931,7 +2296,7 @@ export default {
       tabsPaid: '已支付',
       tabsCancelled: '已取消',
       orderNo: '订单号',
-      empty: '暂无订单',
+      empty: '暂无订单'
     },
     password: {
       enterOld: '请输入原密码',
@@ -1950,7 +2315,7 @@ export default {
       confirmError: '两次密码不一致',
       sameAsOld: '新密码不能与原密码相同',
       submitting: '修改中…',
-      modifySuccess: '密码修改成功',
+      modifySuccess: '密码修改成功'
     },
     phone: {
       phoneInvalid: '手机号格式不正确',
@@ -1977,6 +2342,11 @@ export default {
       unbound: '未绑定',
       noticeTitle: '更换手机号后影响',
       noticeDesc: '原手机号将无法用于登录和找回密码,请确保新手机号可正常使用',
+      noCurrent: '当前未绑定手机号',
+      alreadyRegistered: '该手机号已注册,请换用其他手机号',
+      step1Title: '验证当前手机号',
+      step2Title: '绑定新手机号',
+      verifiedTip: '当前手机号已通过验证'
     },
     profile: {
       avatar: '头像',
@@ -1991,7 +2361,7 @@ export default {
       unverified: '未认证',
       feedback: '意见反馈',
       avatarUploading: '上传中...',
-      avatarUpdateFailed: '更换头像失败',
+      avatarUpdateFailed: '更换头像失败'
     },
     realname: {
       enterRealName: '请输入真实姓名',
@@ -2003,7 +2373,17 @@ export default {
       idCard: '身份证号',
       idCardPlaceholder: '请输入身份证号',
       submit: '提交认证',
-    },
+      uploadFailed: '上传失败',
+      uploadRequired: '请上传身份证正反面照片',
+      verifiedNote: '实名信息已认证,不可修改',
+      privacyPromise: '您的身份信息仅用于实名核验,平台将严格保密,不会用于其他用途',
+      reviewing: '审核中,请耐心等待',
+      rejected: '认证未通过',
+      idCardPhotos: '身份证照片',
+      frontPhoto: '人像面',
+      backPhoto: '国徽面',
+      uploadHint: '请确保照片清晰、完整、无遮挡'
+    }
   },
   vipTrader: {
     enterName: '请输入姓名',
@@ -2026,6 +2406,21 @@ export default {
     reasonLabel: '申请理由',
     reasonPlaceholder: '为什么想成为代理商?',
     submit: '提交申请',
+    openTitle: '开通会员',
+    openTrader: '开通操盘手会员',
+    consultHint: '已为您接通顾问',
+    subscribeConfirm: '确认订阅',
+    oncePay: '一次性支付,',
+    lifetimeUse: '终身使用',
+    introSection: '操盘手简介',
+    collapse: '收起',
+    expand: '展开全部',
+    capabilitySection: '核心能力',
+    performanceSection: '历史业绩',
+    featureSection: '操盘手权益',
+    serviceSection: '服务包',
+    reviewsSection: '用户评价',
+    consult: '立即咨询'
   },
   vip: {
     selectPlanFirst: '请先选择套餐',
@@ -2079,18 +2474,18 @@ export default {
       privateBenefit2: '闭门沙龙参与权',
       privateBenefit3: '行业大咖私密交流',
       privateBenefit4: '高端资源对接',
-      privateBenefit5: '定制化解决方案',
+      privateBenefit5: '定制化解决方案'
     },
     upgrade: {
       bannerTitle: '升级VIP会员',
       bannerDesc: '解锁更多专属特权',
       rightsTitle: '会员权益',
-      rights: ['全部课程免费学', 'AI对话不限次', '专属客服服务', '会员专属折扣', '高清视频下载'],
+      rights: null,
       loadFailed: '加载失败',
       operationFailed: '操作失败',
       originalPrice: '原价¥{{n}}',
       upgrade: '立即升级',
-      configNotReady: '支付配置未就绪,请联系管理员',
+      configNotReady: '支付配置未就绪,请联系管理员'
     },
     index: {
       autoRenew: '开通自动续费(连续包月,可随时关闭)',
@@ -2121,6 +2516,7 @@ export default {
       successTitle: '开通成功',
       successDesc: '恭喜您已成功开通 VIP 会员',
       viewBenefits: '查看权益',
+      brandTitle: 'AI智汇社 会员'
     },
     details: {
       title: 'VIP 权益对比',
@@ -2135,19 +2531,38 @@ export default {
         modelAccess: '模型访问',
         prioritySupport: '优先客服',
         exclusiveGroup: '专属社群',
-        adExperience: '广告体验',
+        adExperience: '广告体验'
       },
       monthlyPlan: '月度会员',
       yearlyPlan: '年度会员',
       monthlyAllBenefits: '月度会员所有权益',
       highCommission: '高额返佣特权',
+      benefit: {
+        chatDesc: '畅享顶级模型,不限次数',
+        draw: 'AI 绘图',
+        drawDesc: '100次/天,高清无水印',
+        video: '视频生成',
+        videoDesc: '60分钟视频生成时长',
+        modelDesc: '解锁所有付费模型',
+        support: '优先客服',
+        supportDesc: '7×24 小时专属服务',
+        group: '专属社群',
+        groupDesc: 'VIP 会员专属交流群'
+      },
+      benefitsTitle: '权益详情'
     },
     success: {
       desc: '恭喜您已成功开通 VIP 会员',
       planName: '套餐名称',
       amount: '支付金额',
       payTime: '支付时间',
-    },
+      payAlipay: '支付宝',
+      payWechat: '微信支付',
+      quarterlyPlan: '季度会员',
+      activationNotice: '会员权益已激活,立即可享受全部特权',
+      shareTitle: '分享好友赚佣金',
+      shareDesc: '邀请好友开通会员,享 20% 现金佣金'
+    }
   },
   learnDevelop: {
     title: '学习发展',
@@ -2160,7 +2575,7 @@ export default {
     loadFailed: '加载失败',
     teacher: '讲师',
     free: '免费',
-    rankEntry: '学习排行榜',
+    rankEntry: '学习排行榜'
   },
   settingPrivacy: {
     permissions: {
@@ -2168,12 +2583,12 @@ export default {
       camera: '相机',
       album: '相册',
       location: '位置',
-      notification: '通知',
+      notification: '通知'
     },
     status: {
       granted: '已开启',
       denied: '已拒绝',
-      unknown: '未开启',
+      unknown: '未开启'
     },
     systemPermissions: '系统权限',
     privacySettings: '隐私设置',
@@ -2184,18 +2599,76 @@ export default {
     recommendDesc: '开启后将为您推荐优质内容',
     personalize: '个性化推荐',
     personalizeDesc: '基于兴趣为您提供个性化内容',
-    privacyPolicy: '隐私政策',
+    privacyPolicy: '隐私政策'
   },
   page: {
-    index: { title: '首页', welcome: '欢迎来到IHUI AI' },
-    community: { title: '社区', post: '发帖', comment: '评论' },
-    message: { title: '消息', system: '系统通知', interaction: '互动消息', private: '私信' },
-    ranking: { title: '排行榜', weekly: '周榜', monthly: '月榜', total: '总榜' },
-    share: { title: '分享', shareToFriend: '分享给朋友', poster: '生成海报' },
-    pay: { title: '支付', orderDetail: '订单详情', payMethod: '支付方式', confirm: '确认支付' },
-    member: { title: '会员中心', benefits: '会员权益', points: '积分', coupons: '优惠券' },
-    setting: { title: '设置', general: '通用设置', clearCache: '清除缓存', about: '关于我们' },
-    vip: { title: 'VIP会员', openVip: '开通会员', privileges: '会员特权', openNow: '立即开通', dayUnit: '天' },
-    about: { title: '关于我们', userAgreement: '用户协议', privacy: '隐私政策' },
+    index: {
+      title: '首页',
+      welcome: '欢迎来到IHUI AI'
+    },
+    community: {
+      title: '社区',
+      post: '发帖',
+      comment: '评论'
+    },
+    message: {
+      title: '消息',
+      system: '系统通知',
+      interaction: '互动消息',
+      private: '私信'
+    },
+    ranking: {
+      title: '排行榜',
+      weekly: '周榜',
+      monthly: '月榜',
+      total: '总榜'
+    },
+    share: {
+      title: '分享',
+      shareToFriend: '分享给朋友',
+      poster: '生成海报'
+    },
+    pay: {
+      title: '支付',
+      orderDetail: '订单详情',
+      payMethod: '支付方式',
+      confirm: '确认支付'
+    },
+    member: {
+      title: '会员中心',
+      benefits: '会员权益',
+      points: '积分',
+      coupons: '优惠券'
+    },
+    setting: {
+      title: '设置',
+      general: '通用设置',
+      clearCache: '清除缓存',
+      about: '关于我们'
+    },
+    vip: {
+      title: 'VIP会员',
+      openVip: '开通会员',
+      privileges: '会员特权',
+      openNow: '立即开通',
+      dayUnit: '天'
+    },
+    about: {
+      title: '关于我们',
+      userAgreement: '用户协议',
+      privacy: '隐私政策'
+    }
   },
+  feedback: {
+    types: {
+      complaint: '投诉',
+      suggestion: '建议',
+      bug: 'Bug'
+    },
+    uploadFailed: '上传失败',
+    type: '类型',
+    content: '内容',
+    contact: '联系方式',
+    contactPlaceholder: '请输入联系方式(选填)'
+  }
 }

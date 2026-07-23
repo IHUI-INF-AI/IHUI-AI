@@ -18,7 +18,7 @@ export default {
     failed: '操作失敗',
     user: '使用者',
     uploading: '上傳中',
-    noMore: '沒有更多了',
+    noMore: '沒有更多了'
   },
   nav: {
     home: '首頁',
@@ -30,7 +30,7 @@ export default {
     orders: '訂單',
     wallet: '錢包',
     settings: '設定',
-    community: '社群',
+    community: '社群'
   },
   auth: {
     login: '登入',
@@ -43,7 +43,7 @@ export default {
     getCode: '取得驗證碼',
     wechatLogin: '微信登入',
     appleLogin: 'Apple 登入',
-    phoneLogin: '手機登入',
+    phoneLogin: '手機登入'
   },
   login: {
     loginSuccess: '登入成功',
@@ -65,7 +65,7 @@ export default {
     wechatOnly: '僅支援微信登入',
     ssoLogin: 'SSO 登入',
     ssoLoginHint: '企業帳號一鍵登入',
-    agreement: '我已閱讀並同意《使用者協議》和《隱私政策》',
+    agreement: '我已閱讀並同意《使用者協議》和《隱私政策》'
   },
   forgot: {
     title: '找回密碼',
@@ -91,7 +91,7 @@ export default {
     passwordMismatch: '兩次輸入的密碼不一致',
     resetting: '重置中…',
     submit: '確認重置',
-    resetSuccess: '密碼重置成功',
+    resetSuccess: '密碼重置成功'
   },
   home: {
     welcome: '歡迎使用智匯 AI',
@@ -106,7 +106,7 @@ export default {
       live: '直播',
       ai: 'AI 助手',
       order: '訂單',
-      setting: '設定',
+      setting: '設定'
     },
     todayMinutes: '今日 {{n}} 分鐘',
     continuousDays: '連續 {{n}} 天',
@@ -123,11 +123,11 @@ export default {
       aiVoice: 'AI語音',
       aiVideo: 'AI影片',
       agent: '智慧體',
-      modelPlaza: '模型廣場',
+      modelPlaza: '模型廣場'
     },
     knowledgePlanet: '知識星球',
     knowledgePlanetDesc: '加入知識星球,與創作者一起成長',
-    planetMembers: '人',
+    planetMembers: '人'
   },
   course: {
     title: '課程',
@@ -146,9 +146,9 @@ export default {
     goldTeacher: '金牌講師',
     followed: '已關注',
     noIntro: '暫無簡介',
-    objectives: ['掌握核心知識', '提升實戰能力', '完成專案實踐'],
-    suitableFor: ['零基礎學員', '進階學習者', '職場人士'],
-    highlights: ['名師講解', '案例驅動', '社群答疑'],
+    objectives: null,
+    suitableFor: null,
+    highlights: null,
     nextLesson: '下一課:{{title}}',
     startLearning: '開始學習',
     buyNow: '立即購買',
@@ -162,12 +162,12 @@ export default {
     noteTitle: '{{title}} - 筆記',
     scanCourse: '掃碼看課程',
     loadFailed: '課程載入失敗',
-    weekDays: ['一', '二', '三', '四', '五', '六', '日'],
+    weekDays: null,
     list: {
       searchPlaceholder: '搜尋課程',
       search: '搜尋',
-      empty: '暫無課程',
-    },
+      empty: '暫無課程'
+    }
   },
   live: {
     title: '直播',
@@ -186,7 +186,7 @@ export default {
       ended: '直播已結束',
       connecting: '正在連線直播間…',
       enter: '進入直播間',
-      anchor: '主播:{{name}}',
+      anchor: '主播:{{name}}'
     },
     subscribe: {
       subscribe: '訂閱提醒',
@@ -195,19 +195,38 @@ export default {
       loadFailed: '訂閱操作失敗',
       empty: '暫無訂閱',
       entry: '我的訂閱',
+      unsubscribed: '已取消訂閱',
+      reminderSaved: '設定已儲存',
+      reminder: '開播前提醒',
+      reminderDesc: '訂閱直播開播前 10 分鐘通知',
+      unsubscribe: '取消訂閱',
+      discover: '去發現直播'
     },
     history: {
       anchor: '主播:{{name}}',
       replay: '觀看回放',
       empty: '暫無歷史直播',
       loading: '載入中…',
+      hour: '時',
+      anchorLabel: '主播',
+      watchDuration: '觀看',
+      rewatch: '重新觀看',
+      continue: '繼續觀看'
     },
     calendar: {
       title: '{{n}} 月直播日曆',
       loadFailed: '日曆載入失敗',
       empty: '本月暫無直播安排',
       entry: '日曆',
-    },
+      prevMonth: '‹',
+      year: '年',
+      month: '月',
+      nextMonth: '›',
+      monthStat: '本月',
+      sessions: '場直播',
+      liveList: '直播安排',
+      noLive: '當日暫無直播安排'
+    }
   },
   profile: {
     title: '我的',
@@ -222,7 +241,7 @@ export default {
     privacy: '隱私協議',
     terms: '使用者條款',
     logout: '登出',
-    nickname: '暱稱',
+    nickname: '暱稱'
   },
   order: {
     title: '訂單',
@@ -233,7 +252,7 @@ export default {
       refunding: '退款中',
       refunded: '已退款',
       completed: '已完成',
-      failed: '失敗',
+      failed: '失敗'
     },
     create: '建立訂單',
     cancel: '取消訂單',
@@ -256,19 +275,41 @@ export default {
       reasonPlaceholder: '請輸入退款原因',
       submit: '提交申請',
       submitted: '退款申請已提交',
+      selectReasonFirst: '請選擇退款原因',
+      productLabel: '商品名稱',
+      orderTimeLabel: '下單時間',
+      refundAmount: '退款金額',
+      amountReadOnly: '不可修改',
+      contactLabel: '聯絡方式',
+      contactPlaceholder: '請輸入手機號或郵箱'
     },
     refundList: {
       orderNo: '訂單編號:{{no}}',
       empty: '暫無退款記錄',
+      tabRefunding: '退款中',
+      tabRefunded: '已退款',
+      tabRejected: '已拒絕',
+      statusRefunding: '退款中',
+      statusRejected: '已拒絕',
+      stepApply: '申請退款',
+      stepReview: '稽核中',
+      estimateTip: '預計到賬時間',
+      collapse: '收起進度',
+      viewProgress: '檢視進度',
+      viewOrder: '訂單詳情'
     },
     tabs: {
-      cancelled: '已取消',
+      cancelled: '已取消'
     },
     searchPlaceholder: '搜尋訂單',
     notFound: '未找到相關訂單',
     cancelConfirm: '確定要取消該訂單嗎?',
     cancelSuccess: '訂單已取消',
     cancelFailed: '取消訂單失敗',
+    list: {
+      orderTime: '下單時間',
+      refundTime: '退款時間'
+    }
   },
   wallet: {
     title: '錢包',
@@ -291,6 +332,8 @@ export default {
         amount: '儲值金額',
         backHome: '返回首頁',
         backWallet: '返回錢包',
+        tipsTitle: '溫馨提示',
+        arriveTime: '到賬時間'
       },
       fail: {
         title: '儲值失敗',
@@ -298,7 +341,14 @@ export default {
         retry: '重新儲值',
         backWallet: '返回錢包',
         orderNoLabel: '訂單編號',
+        hintTitle: '溫馨提示',
+        contactService: '聯絡客服',
+        faqQ: '充值失敗會扣款嗎?'
       },
+      tokenRate: '1元 = {{n}} 智匯值',
+      activityTitle: '限時活動',
+      activityPlaceholder: '請輸入活動充值金額',
+      activitySubmit: '限時 優惠充值'
     },
     topUp: {
       balanceLabel: '帳戶餘額',
@@ -312,17 +362,17 @@ export default {
       methodAlipay: '支付寶',
       submit: '儲值',
       submitting: '儲值中…',
-      invalidAmount: '請輸入有效金額',
+      invalidAmount: '請輸入有效金額'
     },
     withdrawal: {
       amountLabel: '提現金額',
-      records: '提現記錄',
+      records: '提現記錄'
     },
     commission: {
       today: '今日佣金',
       available: '可提現佣金',
-      records: '佣金記錄',
-    },
+      records: '佣金記錄'
+    }
   },
   community: {
     title: '社群',
@@ -340,26 +390,26 @@ export default {
       agent: '智慧體',
       digitalHuman: '數字人',
       modelPlaza: '模型廣場',
-      moreTools: '更多工具',
+      moreTools: '更多工具'
     },
     quickEntries: {
       myCreation: '我的創作',
       aigcWorks: 'AIGC作品',
       ranking: '排行榜',
-      aiTeam: 'AI團隊',
-    },
+      aiTeam: 'AI團隊'
+    }
   },
   agent: {
     title: '智慧體',
     create: '建立智慧體',
-    runtime: '執行狀態',
+    runtime: '執行狀態'
   },
   chat: {
     placeholder: '輸入訊息…',
     send: '傳送',
     newConversation: '新建對話',
     history: '歷史對話',
-    stop: '停止',
+    stop: '停止'
   },
   settings: {
     title: '設定',
@@ -369,7 +419,7 @@ export default {
     language: '語言',
     theme: '主題',
     about: '關於智匯 AI',
-    version: '版本',
+    version: '版本'
   },
   setting: {
     hint: '提示',
@@ -397,18 +447,18 @@ export default {
       tip1: '清除快取不會影響您的帳戶資料',
       tip2: '建議在 Wi-Fi 環境下操作',
       alreadyClean: '已是最新狀態',
-      clearing: '清理中',
+      clearing: '清理中'
     },
     language: {
       chooseHint: '選擇應用語言',
-      tip: '切換語言後將自動儲存並生效',
+      tip: '切換語言後將自動儲存並生效'
     },
     notification: {
       categoryTitle: '通知分類',
       empty: '暫無通知設定項',
       moreTitle: '更多',
       detail: '通知詳情',
-      detailDesc: '查看歷史通知訊息',
+      detailDesc: '查看歷史通知訊息'
     },
     accountBinding: '帳號與安全',
     changePhone: '更換手機號',
@@ -429,6 +479,15 @@ export default {
     messageNotificationOff: '已關閉,可能錯過重要訊息',
     openSettingHint: '請在系統設定中開啟通知權限',
     cacheCleared: '快取已清除',
+    theme: {
+      hintTitle: '主題說明',
+      switchHint: '切換主題後將立即儲存並應用到全域性介面',
+      autoHint: '「跟隨系統」將隨裝置深淺色設定自動變化'
+    },
+    notifOpenHint: '要接收訊息通知,請在系統設定中開啟通知許可權',
+    notifOn: '已開啟訊息通知',
+    notifOff: '已關閉訊息通知',
+    accountSecurity: '賬號與安全'
   },
   error: {
     network: '網路錯誤',
@@ -436,20 +495,20 @@ export default {
     unauthorized: '請先登入',
     forbidden: '無權限',
     notFound: '資源不存在',
-    unknown: '未知錯誤',
+    unknown: '未知錯誤'
   },
   success: {
     saved: '儲存成功',
     deleted: '刪除成功',
     submitted: '提交成功',
-    copied: '已複製',
+    copied: '已複製'
   },
   ai: {
     title: 'AI 助手',
     welcomeTitle: '你好,我是智匯 AI 助手',
     welcomeDesc: '有什麼可以幫你的嗎?',
     inputPlaceholder: '輸入你的問題…',
-    suggestions: ['幫我寫一首詩', '解釋一下量子運算', '推薦一本好書', '今天天氣怎麼樣'],
+    suggestions: null,
     thinking: '思考中…',
     stop: '停止',
     clear: '清空',
@@ -459,13 +518,13 @@ export default {
     materialLoadFailed: '素材載入失敗',
     agentLoadFailed: '智慧體載入失敗',
     common: {
-      loading: '載入中…',
+      loading: '載入中…'
     },
     tishi: {
       title: '智能體引導說明',
       view: '查看',
       close: '關閉',
-      needInput: '小方需要您輸入以下相關內容,以便於更精準的解決您的需求',
+      needInput: '小方需要您輸入以下相關內容,以便於更精準的解決您的需求'
     },
     chatMessageItem: {
       me: '我',
@@ -484,23 +543,23 @@ export default {
       share: '分享',
       viewDigitalHuman: '查看數字人',
       voiceMessage: '語音消息',
-      playVoice: '播放',
+      playVoice: '播放'
     },
     favorite: {
       title: '收藏',
-      empty: '暫無收藏',
+      empty: '暫無收藏'
     },
     history: {
       title: '歷史對話',
       empty: '暫無歷史',
       clearConfirm: '確定清空所有歷史對話?',
-      cleared: '歷史已清空',
+      cleared: '歷史已清空'
     },
     inputArea: {
       placeholder: '輸入你的問題…',
       releaseToSend: '鬆開傳送',
       holdToSpeak: '按住說話',
-      send: '傳送',
+      send: '傳送'
     },
     materialPopup: {
       title: '選擇素材',
@@ -511,14 +570,14 @@ export default {
       tabText: '文字',
       tabImage: '圖片',
       tabVideo: '影片',
-      tabAudio: '音訊',
+      tabAudio: '音訊'
     },
     skillsPopup: {
       title: '選擇技能',
       searchPlaceholder: '搜尋技能',
       uses: '{{n}} 次使用',
       notFound: '未找到相關技能',
-      empty: '暫無可用技能',
+      empty: '暫無可用技能'
     },
     voice: {
       welcome: '你好,長按下方按鈕開始語音對話',
@@ -529,9 +588,12 @@ export default {
       releaseToSend: '鬆開傳送',
       holdToSpeak: '按住說話',
       recordFailed: '錄音失敗,請重試',
+      clearChat: '清空對話',
+      speed: '語速',
+      timbre: '音色'
     },
     image: {
-      examples: ['一隻可愛的貓咪', '日落山水畫', '未來城市夜景', '抽象藝術圖案'],
+      examples: null,
       emptyHint: '輸入描述生成圖片',
       tryThese: '試試這些',
       placeholder: '描述你想生成的圖片',
@@ -547,13 +609,13 @@ export default {
       empty: '暫無生成記錄',
       size: '尺寸',
       style: '風格',
-      styles: ['預設', '卡通', '寫實', '油畫', '水彩'],
+      styles: null,
       generateFailed: '生成失敗,請重試',
       promptRequired: '請輸入描述',
       downloadSuccess: '已儲存到相簿',
       downloadFailed: '下載失敗,請重試',
       favoriteAdded: '已加入收藏',
-      favoriteRemoved: '已取消收藏',
+      favoriteRemoved: '已取消收藏'
     },
     video: {
       title: '影片生成',
@@ -587,15 +649,15 @@ export default {
         doubao: '豆包',
         doubaoDesc: '字節豆包影片',
         dashscope: 'Dashscope',
-        dashscopeDesc: '阿里通義萬相',
-      },
+        dashscopeDesc: '阿里通義萬相'
+      }
     },
     agent: {
       searchPlaceholder: '搜尋智慧體',
       count: '{{n}} 個',
       notFound: '未找到相關智慧體',
       empty: '暫無智慧體',
-      inputPlaceholder: '輸入你的問題…',
+      inputPlaceholder: '輸入你的問題…'
     },
     agentDetail: {
       runtimeTitle: '執行狀態',
@@ -634,7 +696,7 @@ export default {
       exampleDialog: '示例對話',
       reviews: '評價',
       reviewCount: '{{n}}條評價',
-      ratingDistribution: '評分分佈',
+      ratingDistribution: '評分分佈'
     },
     agentList: {
       categories: {
@@ -643,7 +705,7 @@ export default {
         writing: '寫作',
         coding: '編程',
         education: '教育',
-        life: '生活',
+        life: '生活'
       },
       useCount: '{{n}}人使用',
       noResult: '未找到相關智慧體',
@@ -658,7 +720,7 @@ export default {
       hotRecommend: '熱門推薦',
       createAgent: '創建智慧體',
       emptyFavorites: '暫無收藏智慧體',
-      emptyRecent: '暫無最近使用智慧體',
+      emptyRecent: '暫無最近使用智慧體'
     },
     historyPage: {
       title: '歷史對話',
@@ -667,6 +729,9 @@ export default {
       clearAll: '清空全部',
       clearConfirm: '確定要清空全部對話歷史嗎?',
       cleared: '已清空',
+      refreshSuccess: '重新整理成功',
+      startNew: '開始新對話',
+      msgCount: '{{n}} 條訊息'
     },
     special: {
       hint: '以下為特殊 AI 模型入口,點擊進入對應功能頁',
@@ -675,27 +740,36 @@ export default {
       nanobanana: {
         name: 'NanoBanana',
         desc: 'Google 圖片編輯模型,支援自然語言指令編輯圖片',
-        capabilities: ['圖片編輯', '自然語言指令', '局部重繪'],
-        apiStatus: '點擊進入 AI 繪圖',
+        capabilities: null,
+        apiStatus: '點擊進入 AI 繪圖'
       },
       veo3: {
         name: 'Veo3',
         desc: 'Google 視訊生成模型,支援高品質文生視訊',
-        capabilities: ['文生視訊', '高畫質輸出', '長視訊'],
-        apiStatus: '點擊進入 AI 視訊生成',
+        capabilities: null,
+        apiStatus: '點擊進入 AI 視訊生成'
       },
       httpmodel: {
         name: 'HttpModel',
         desc: '通用 HTTP 模型代理,支援自訂模型接入',
-        capabilities: ['自訂模型', 'HTTP 代理', '通用介面'],
-        apiStatus: '點擊進入 AI 對話',
+        capabilities: null,
+        apiStatus: '點擊進入 AI 對話'
       },
       geminiFlash: {
         name: 'Gemini-2.5-flash',
         desc: 'Google Gemini 2.5 Flash 文字模型,快速回應',
-        capabilities: ['文字對話', '多模態輸入', '快速回應'],
-        apiStatus: '可透過 AI 對話使用',
+        capabilities: null,
+        apiStatus: '可透過 AI 對話使用'
       },
+      cat: {
+        image: 'AI 繪圖',
+        video: 'AI 影片',
+        voice: 'AI 語音',
+        plaza: '模型廣場'
+      },
+      historySoon: '歷史記錄即將開放',
+      featured: '精選推薦',
+      useBtn: '立即使用'
     },
     chat: {
       agentTipTitle: '智慧體使用說明',
@@ -709,8 +783,8 @@ export default {
       agentTipInput: '輸入問題',
       agentTipInputDesc: '在底部輸入框輸入你的問題,按傳送',
       agentTipHistory: '歷史記錄',
-      agentTipHistoryDesc: '可查看歷史對話',
-    },
+      agentTipHistoryDesc: '可查看歷史對話'
+    }
   },
   share: {
     appTitle: '智匯 AI - 讓學習更高效',
@@ -743,7 +817,7 @@ export default {
       goHome: '返回首頁',
       history: '歷史對話',
       emptyHistory: '暫無歷史對話',
-      models: '模型列表',
+      models: '模型列表'
     },
     creation: {
       title: 'AI 創作分享',
@@ -758,8 +832,8 @@ export default {
       regenerate: '再生成一個',
       shareFriend: '分享給好友',
       voiceAnswer: '🔊 語音回答',
-      modelDefault: 'AI 模型',
-    },
+      modelDefault: 'AI 模型'
+    }
   },
   aiGroup: {
     title: '智慧體廣場',
@@ -772,7 +846,7 @@ export default {
     tabEducation: '教育',
     tabLife: '生活',
     loadFailed: '載入失敗',
-    useCount: '{n}人使用',
+    useCount: '{n}人使用'
   },
   aiCircle: {
     title: 'AI 圈子',
@@ -780,14 +854,14 @@ export default {
     empty: '暫無內容',
     loadFailed: '載入失敗',
     anonymous: '匿名',
-    noMore: '沒有更多了',
+    noMore: '沒有更多了'
   },
   aiCareer: {
     title: 'AI 職涯',
     guide: '指南',
     empty: '暫無內容',
     loadFailed: '載入失敗',
-    useCount: '{n}人使用',
+    useCount: '{n}人使用'
   },
   aiChatDetail: {
     title: '對話記錄',
@@ -797,7 +871,7 @@ export default {
     sendFailed: '傳送失敗,請重試',
     loadFailed: '載入失敗',
     thinking: '思考中…',
-    inputPlaceholder: '輸入訊息…',
+    inputPlaceholder: '輸入訊息…'
   },
   aiAssistantN8n: {
     title: 'AI 助手',
@@ -809,7 +883,7 @@ export default {
     statusUnknown: '未知',
     noUrl: '暫無存取位址',
     loadFailed: '載入失敗',
-    openWorkflow: '開啟工作流',
+    openWorkflow: '開啟工作流'
   },
   agentDialogue: {
     title: '智慧體對話',
@@ -828,7 +902,7 @@ export default {
     clickPlay: '點擊播放',
     fileMessage: '檔案訊息',
     clickView: '點擊查看',
-    read: '已讀',
+    read: '已讀'
   },
   accountCancel: {
     title: '註銷帳號',
@@ -858,14 +932,14 @@ export default {
     codePlaceholder: '請輸入驗證碼',
     getCode: '取得驗證碼',
     confirmLabel: '確認文字',
-    confirmPlaceholder: '請輸入上方文字',
+    confirmPlaceholder: '請輸入上方文字'
   },
   ask: {
     search: '搜尋問題',
     tabs: {
       new: '最新',
       hot: '熱門',
-      unanswered: '待回答',
+      unanswered: '待回答'
     },
     answers: '{{n}} 回答',
     empty: '暫無問題',
@@ -875,7 +949,7 @@ export default {
       answered: '回答成功',
       answerCount: '{{n}} 個回答',
       placeholder: '輸入你的回答…',
-      answer: '回答',
+      answer: '回答'
     },
     create: {
       published: '問題已發布',
@@ -886,7 +960,16 @@ export default {
       detailPlaceholder: '詳細描述你的問題,越詳細越容易得到回答',
       rewardLabel: '懸賞積分',
       submit: '發布問題',
-    },
+      draftRestored: '草稿已恢復',
+      maxImages: '最多 3 張',
+      contentRequired: '請輸入問題描述',
+      contentTooShort: '描述至少 5 個字',
+      pageTitle: '提問',
+      categoryPlaceholder: '選擇分類',
+      imageLabel: '配圖',
+      anonymousLabel: '匿名釋出',
+      anonymousDesc: '不顯示你的暱稱'
+    }
   },
   aigc: {
     publish: {
@@ -908,7 +991,7 @@ export default {
       uploadOk: '上傳成功',
       uploadFail: '上傳失敗',
       needFile: '請至少上傳一個檔案',
-      publishFail: '發布失敗',
+      publishFail: '發布失敗'
     },
     list: {
       title: '作品廣場',
@@ -924,8 +1007,8 @@ export default {
       invalidAudio: '音訊位址無效',
       audioFail: '音訊播放失敗',
       untitled: '文本內容',
-      promptLabel: '提示詞',
-    },
+      promptLabel: '提示詞'
+    }
   },
   coursePlanet: {
     title: '課程星球',
@@ -935,7 +1018,7 @@ export default {
     teacher: '講師',
     free: '免費',
     studentsUnit: '人學習',
-    loadingMore: '載入中…',
+    loadingMore: '載入中…'
   },
   following: {
     cancel: '取消關注',
@@ -944,10 +1027,16 @@ export default {
     delete: '刪除',
     loadMore: '載入更多',
     noMore: '沒有更多了',
+    people: '人',
+    sortByFollowed: '關注時間',
+    sortByRecent: '最近活躍',
+    followedAt: '關注於',
+    searchEmpty: '未找到匹配使用者',
+    goDiscover: '去發現更多'
   },
   webview: {
     title: '網頁',
-    missingUrl: '連結缺失,無法開啟網頁',
+    missingUrl: '連結缺失,無法開啟網頁'
   },
   carte: {
     shareHint: '請先儲存圖片再分享',
@@ -959,7 +1048,7 @@ export default {
     email: '郵箱',
     scanHint: '掃一掃,查看名片',
     shareCard: '分享名片',
-    saveQrcode: '儲存 QR code',
+    saveQrcode: '儲存 QR code'
   },
   exam: {
     questions: '{{n}} 題',
@@ -983,6 +1072,16 @@ export default {
       rankValue: '第 {{n}} 名 / 共 {{total}} 人',
       goList: '查看考試列表',
       goStudy: '繼續學習',
+      correct: '答對',
+      wrong: '答錯',
+      pageTitle: '考試結果',
+      reviewTitle: '題目回顧',
+      reviewCorrect: '正確',
+      reviewWrong: '錯誤',
+      myAnswer: '我的答案',
+      correctAnswer: '正確答案',
+      analysis: '解析',
+      noReview: '暫無題目回顧'
     },
     detail: {
       loadFailed: '考試載入失敗',
@@ -998,15 +1097,25 @@ export default {
       notice3: '考試過程中請勿退出應用,否則可能影響成績',
       notice4: '考試結束後將自動計算成績',
       start: '開始考試',
+      startFailed: '開始考試失敗',
+      rule3: '禁止切屏,切屏超過 5 次將自動交卷',
+      pageTitle: '考試詳情',
+      participants: '參與人數',
+      passedCount: '已通過',
+      historyTitle: '歷史成績',
+      historyPassed: '通過',
+      historyNotPassed: '未通過',
+      historyEmpty: '暫無歷史成績',
+      starting: '正在進入考試…'
     },
     answer: {
-      judgmentOptions: ['正確', '錯誤'],
+      judgmentOptions: null,
       loadFailed: '試卷載入失敗',
       answerPlaceholder: '輸入你的答案',
       prev: '上一題',
       next: '下一題',
-      submit: '交卷',
-    },
+      submit: '交卷'
+    }
   },
   favorites: {
     cancel: '取消收藏',
@@ -1015,6 +1124,16 @@ export default {
     delete: '刪除',
     loadMore: '載入更多',
     noMore: '沒有更多了',
+    batchCancel: '批次取消收藏',
+    items: '項',
+    unsupported: '暫未支援跳轉',
+    itemsUnit: '項',
+    done: '完成',
+    manage: '管理',
+    selectAll: '全選',
+    collectedAt: '收藏於',
+    searchEmpty: '未找到匹配內容',
+    goDiscover: '去發現'
   },
   distribution: {
     withdraw: {
@@ -1028,7 +1147,7 @@ export default {
       amountPlaceholder: '請輸入提現金額',
       all: '全部提現',
       method: '提現方式',
-      submit: '提交申請',
+      submit: '提交申請'
     },
     index: {
       menuTeam: '我的團隊',
@@ -1069,7 +1188,7 @@ export default {
       verifyTitle: '身分資訊驗證',
       idPlaceholder: '請輸入身分證號碼',
       namePlaceholder: '請輸入姓名',
-      confirm: '確認',
+      confirm: '確認'
     },
     team: {
       title: '我的團隊',
@@ -1087,12 +1206,12 @@ export default {
       loading: '載入中…',
       noMore: '沒有更多了',
       error: '載入失敗',
-      retry: '點擊重試',
+      retry: '點擊重試'
     },
     commission: {
       total: '累計佣金',
       empty: '暫無佣金記錄',
-      loading: '載入中…',
+      loading: '載入中…'
     },
     plan: {
       title: '分銷計畫',
@@ -1125,7 +1244,7 @@ export default {
       totalEarnings: '累計收益',
       inviteCount: '邀請人數',
       rulesTitle: '分傭規則',
-      openVipBtn: '開通VIP會員 參與分傭計畫',
+      openVipBtn: '開通VIP會員 參與分傭計畫'
     },
     memberDetail: {
       title: '成員詳情',
@@ -1140,7 +1259,7 @@ export default {
       contribution: '貢獻',
       error: '載入失敗',
       retry: '點擊重試',
-      noMore: '沒有更多了',
+      noMore: '沒有更多了'
     },
     orderList: {
       title: '分銷訂單',
@@ -1152,7 +1271,7 @@ export default {
       commission: '佣金',
       error: '載入失敗',
       retry: '點擊重試',
-      noMore: '沒有更多了',
+      noMore: '沒有更多了'
     },
     company: {
       title: '我的公司',
@@ -1165,21 +1284,114 @@ export default {
       joinTime: '加入:{{time}}',
       menuTeam: '團隊管理',
       menuCommission: '佣金記錄',
-      menuWithdraw: '申請提現',
+      menuWithdraw: '申請提現'
     },
     rank: {
       title: '分銷排行榜',
-      empty: '暫無排行資料',
-    },
+      empty: '暫無排行資料'
+    }
   },
   about: {
     version: '版本 {{version}}',
-    protocol: '使用者協議',
-    privacy: '隱私政策',
+    protocol: {
+      s2: {
+        t1: '2.1使用者資格與使用限制',
+        t2: '2.2 服務更新與變動',
+        t3: '2.3服務中止與限制',
+        t4: '2.4 授權與訪問限制',
+        t5: '2.5 終端裝置與聯網要求',
+        t6: '2.6 使用權利與保留權利',
+        t7: '2.7 內容質量與反饋機制'
+      },
+      s3: {
+        t1: '3.1賬號註冊與使用',
+        t2: '3.2 賬號登出',
+        t3: '3.3 賬號規範',
+        t4: '3.4 賬號歸屬與使用',
+        t5: '3.5 賬號安全',
+        t6: '3.6 密碼找回',
+        t7: '3.7 真實身份資訊',
+        t8: '3.8 賬號資訊管理',
+        t9: '3.9 賬號回收'
+      },
+      s5: {
+        t1: '5.1使用者行為準則',
+        t2: '5.2 資訊內容準則',
+        t3: '5.3 投訴與舉報'
+      },
+      mainTitle: '服務協議',
+      title: '用戶協議'
+    },
+    privacy: {
+      overviewTitle: '智匯社隱私政策概述',
+      coreTitle: '隱私政策核心要點:',
+      s1: {
+        t1: '1.1註冊與登入',
+        t2: '1.2智慧對話服務',
+        t3: '1.3智慧搜尋服務',
+        t4: '1.4 使用者反饋與服務改進',
+        t5: '1.5 訊息通知服務',
+        t6: '1.6運營與安全保障',
+        t7: '1.7 收集、使用個人資訊目的變更',
+        t8: '1.8 徵得授權同意的例外'
+      },
+      s2: {
+        t1: '2.1 保障產品與服務的安全及高效執行',
+        t2: '2.2 提升您的訪問便捷性',
+        t3: '2.3關於Cookie的清除'
+      },
+      s3: {
+        t1: '3.1資料共享與合作方',
+        t2: '3.2 資料轉移',
+        t3: '3.3 資料公開',
+        t4: '3.4 豁免情形'
+      },
+      s4: {
+        t1: '4.1儲存地點與跨境傳輸',
+        t2: '4.2 儲存期限與刪除'
+      },
+      s5: {
+        t1: '5.1安全保障承諾',
+        t2: '5.2 加密與匿名技術',
+        t3: '5.3 安全管理體系',
+        t4: '5.4安全風險提示',
+        t5: '5.5 應急處理機制',
+        t6: '5.6 服務外資訊安全'
+      },
+      s9: {
+        t1: '9.1 360加固',
+        t2: '9.2 ZIP4J包',
+        t3: '9.3 Chromium',
+        t4: '9.4 AndroidGifDrawable',
+        t5: '9.5 iik影片播放器',
+        t6: '9.6 bolts',
+        t7: '9.7 Glide',
+        t8: '9.8 Fresco',
+        t9: '9.9 華為推送',
+        t10: '9.10 UniversalImageLoader',
+        t11: '9.11 SamsungLook',
+        t12: '9.12 淘寶Weex',
+        t13: '9.13 Okhttp3',
+        t14: '9.14 Okio',
+        t15: '9.15 DCloud SDK',
+        t16: '9.16 MAC地址收集'
+      },
+      mainTitle: '隱私政策',
+      updateDate: '更新日期: 2025年06月21日',
+      effectiveDate: '生效日期: 2025年06月21日'
+    },
     help: {
       title: '幫助中心',
       search: '搜尋幫助',
       empty: '暫無幫助內容',
+      phoneRequired: '請輸入聯絡方式',
+      contextRequired: '請輸入反饋詳情',
+      feedbackTitle: '意見反饋',
+      username: '姓名',
+      usernamePlaceholder: '請輸入姓名',
+      context: '問題描述',
+      contextPlaceholder: '請輸入反饋詳情',
+      submitFailed: '反饋提交失敗,請稍後重試'
     },
     contact: {
       title: '聯絡我們',
@@ -1188,14 +1400,23 @@ export default {
       qq: 'QQ',
       address: '地址',
       workTime: '工作時間:週一至週五 9:00-18:00',
+      addressCopied: '地址已複製',
+      headerSub: '我們隨時為您提供幫助',
+      callBtn: '撥打',
+      copyBtn: '複製',
+      workTimeLabel: '工作時間',
+      responseLabel: '響應時間',
+      responseTime: '工作日內 24 小時內回覆',
+      callNow: '立即撥打客服'
     },
     businessLicense: {
-      labels: ['統一社會信用代碼', '名稱', '類型', '法定代表人', '註冊資本', '成立日期', '營業期限', '經營範圍'],
+      labels: null,
       scopeTitle: '經營範圍',
       footer: '以上資訊僅供參考,以工商登記為準',
+      tapToView: '點選檢視營業執照'
     },
     icpRecord: {
-      labels: ['備案編號', '備案主體', '審核時間', '備案性質'],
+      labels: null,
       footer: '以上資訊來自工信部備案查詢系統',
       icpNo: 'ICP 備案號',
       policeNo: '公安備案號',
@@ -1204,29 +1425,33 @@ export default {
       domain: '網域',
       recordDate: '備案日期',
       query: '前往工信部查詢',
+      icpLabel: 'ICP備案/許可證號'
     },
     usageRules: {
-      titles: ['一、帳號使用規則', '二、內容發布規則', '三、平台使用規則', '四、免責聲明'],
-      account: ['帳號需實名註冊', '禁止轉讓或出售帳號', '妥善保管帳號密碼'],
-      content: ['禁止發布違法內容', '禁止發布廣告資訊', '尊重他人智慧財產權'],
-      usage: ['禁止惡意刷單', '禁止刷量行為', '禁止攻擊平台系統'],
-      disclaimer: ['平台不對內容準確性負責', '使用者行為責任自負', '平台保留最終解釋權'],
+      titles: null,
+      account: null,
+      content: null,
+      usage: null,
+      disclaimer: null,
       footer: '本規則自發布之日起生效',
       titleAccount: '一、帳號使用',
       titleContent: '二、內容規範',
       titleForbid: '三、禁止行為',
       titleIP: '四、智慧財產權',
       titleDisclaimer: '五、免責聲明',
+      s2: {
+        sub1: '（一）允許的行為',
+        sub2: '（二）禁止的行為（紅線條款）'
+      },
+      s6: {
+        sub1: '（一）平臺方的權利與義務',
+        sub2: '（二）使用者的權利與義務',
+        sub3: '（三）免責條款'
+      }
     },
     appPermission: {
-      names: ['儲存權限', '相機權限', '麥克風權限', '位置權限', '通知權限'],
-      descs: [
-        '用於儲存學習資料到本機',
-        '用於掃碼登入和上傳頭像',
-        '用於語音對話和直播',
-        '用於推薦附近的學習資源',
-        '用於接收學習和活動通知',
-      ],
+      names: null,
+      descs: null,
       intro: '智匯 AI 需要以下權限以提供完整功能',
       required: '必須',
       optional: '可選',
@@ -1234,9 +1459,10 @@ export default {
       albumName: '相簿權限',
       albumDesc: '用於儲存和上傳圖片到相簿',
       goSetting: '去設定',
+      openAllSetting: '開啟系統設定'
     },
     modelRecord: {
-      labels: ['模型名稱', '版本', '提供方', '更新時間', '能力描述'],
+      labels: null,
       noticeTitle: '模型資訊公示',
       noticeText: '本應用使用人工智慧技術,以下為所用模型資訊',
       footer: '模型資訊僅供參考',
@@ -1246,6 +1472,7 @@ export default {
       algoType: '演算法類型',
       recordDate: '備案日期',
       tableTitle: '大模型備案資訊',
+      imageUnavailable: '備案圖片暫未上傳'
     },
     apiSettings: {
       apiUrl: 'API 位址',
@@ -1255,10 +1482,25 @@ export default {
       diagnose: '網路診斷',
       test: '測試連線',
       footer: '以上為目前 API 設定資訊',
+      requiredTip: '請填寫完整的 API 配置',
+      savedTip: '儲存成功',
+      resetTip: '已重置為預設值',
+      testSuccess: '連線成功',
+      testFailed: '連線失敗',
+      cozeTitle: 'Coze API 配置',
+      apiToken: 'API 令牌(Token)',
+      tokenPlaceholder: '請輸入您的 Coze API 令牌',
+      workflowId: '工作流 ID(Workflow ID)',
+      workflowPlaceholder: '請輸入工作流 ID',
+      saveBtn: '儲存設定',
+      resetBtn: '重置預設',
+      diagnoseTitle: '網路診斷'
     },
+    introFallback: '智匯 AI 致力於打造一站式 AI 服務平臺',
+    copyright: '© 2026 智匯 AI. 保留所有權利'
   },
   aboutProtocol: {
-    loadFailed: '協議載入失敗',
+    loadFailed: '協議載入失敗'
   },
   businessCard: {
     saved: '名片已儲存',
@@ -1271,6 +1513,16 @@ export default {
     save: '儲存',
     edit: '編輯',
     loading: '載入中…',
+    uploaded: '名片已上傳',
+    savedToAlbum: '已儲存到相簿',
+    saveFailed: '儲存失敗',
+    shareTitle: '我的社群名片',
+    customEntry: '社群名片定製入口',
+    reupload: '重新上傳',
+    saveToAlbum: '儲存到相簿',
+    shareWx: '分享給好友',
+    sharePyq: '分享到朋友圈',
+    uploadPlaceholder: '上傳名片'
   },
   cart: {
     title: '購物車',
@@ -1282,7 +1534,7 @@ export default {
     deleteConfirm: '確定要刪除該商品嗎?',
     selectFirst: '請選擇商品',
     loadFailed: '載入失敗',
-    total: '合計',
+    total: '合計'
   },
   categoryDetail: {
     categoryId: '分類 {{id}}',
@@ -1291,13 +1543,13 @@ export default {
     new: '最新',
     empty: '暫無內容',
     noDesc: '暫無描述',
-    useCount: '{{n}} 次使用',
+    useCount: '{{n}} 次使用'
   },
   circle: {
     tabs: {
       recommend: '推薦',
       follow: '關注',
-      hot: '熱門',
+      hot: '熱門'
     },
     empty: '暫無內容',
     createForm: {
@@ -1306,14 +1558,33 @@ export default {
       contentPlaceholder: '分享你的想法…',
       topicLabel: '話題',
       selectTopic: '選擇話題',
-      publish: '發布',
+      publish: '發布'
     },
     detail: {
       followed: '已關注',
       shareHint: '複製連結去分享',
       follow: '關注',
       share: '分享',
+      unfollowed: '已取消關注',
+      commentSent: '評論成功',
+      aigcTag: 'AI 作品',
+      commentsTitle: '評論',
+      viewMore: '檢視更多',
+      noComments: '暫無評論,快來搶沙發',
+      commentPlaceholder: '說點什麼…'
     },
+    create: {
+      contentRequired: '請輸入動態內容',
+      imagesLabel: '圖片',
+      moreTopics: '更多',
+      aigcLabel: '關聯 AI 作品',
+      selectAigc: '選擇 AI 作品(可選)',
+      noAigc: '暫無可關聯的 AI 作品',
+      allowComments: '允許評論'
+    },
+    index: {
+      goPublish: '去釋出'
+    }
   },
   devEnter: {
     cover: {
@@ -1336,7 +1607,7 @@ export default {
       devNotice: '開發者須知',
       faqTitle: '相關開發者的一系列問題解答？',
       copy: '複製',
-      copySuccess: '已複製',
+      copySuccess: '已複製'
     },
     n8nModel: {
       title: 'N8N 模型',
@@ -1376,7 +1647,7 @@ export default {
       createSuccess: '智慧體建立成功',
       mockSuccess: '介面暫未開放,已模擬建立',
       submitting: '建立中…',
-      submit: '建立智慧體',
+      submit: '建立智慧體'
     },
     modelEdit: {
       saved: '已儲存',
@@ -1410,14 +1681,14 @@ export default {
       submitting: '提交中…',
       submit: '提交審核',
       submitSuccess: '提交成功',
-      mockSuccess: '介面暫未開放,已模擬提交',
-    },
+      mockSuccess: '介面暫未開放,已模擬提交'
+    }
   },
   developer: {
     withdrawal: {
       title: '提現記錄',
       processing: '處理中',
-      empty: '暫無提現記錄',
+      empty: '暫無提現記錄'
     },
     subscribe: {
       monthly: '月',
@@ -1428,6 +1699,23 @@ export default {
       empty: '暫無訂閱方案',
       submitting: '提交中…',
       priceLabel: '¥{{price}}/{{period}}',
+      devName: '開發者',
+      unfollowed: '已取消關注',
+      noContact: '暫無聯絡方式',
+      bioDefault: '暫無簡介',
+      subscribedBtn: '已關注',
+      subscribeBtn: '+ 關注',
+      statSubscribers: '訂閱人數',
+      statModels: '模型數',
+      statUses: '總使用次數',
+      modelsTitle: '開發者模型',
+      noModels: '暫無模型',
+      notifyTitle: '通知設定',
+      notifyNew: '新模型釋出提醒',
+      notifyUpdate: '模型更新提醒',
+      postsTitle: '開發者動態',
+      noPosts: '暫無動態',
+      contact: '聯絡開發者'
     },
     income: {
       title: '收入概覽',
@@ -1470,7 +1758,7 @@ export default {
       noMore: '沒有更多了',
       cashEmpty: '暫無提現明細',
       moreMethod: '更多提現方式可使用官方APP',
-      wechat: '微信',
+      wechat: '微信'
     },
     index: {
       title: '開發者中心',
@@ -1491,14 +1779,14 @@ export default {
       typeLabel: '類型',
       editBtn2: '修改',
       editBtn: '設定',
-      noMore: '沒有更多了',
-    },
+      noMore: '沒有更多了'
+    }
   },
   modelPlaza: {
     title: '模型廣場',
     unnamed: '未命名模型',
     noDesc: '暫無描述',
-    empty: '暫無模型',
+    empty: '暫無模型'
   },
   news: {
     search: '搜尋資訊',
@@ -1511,21 +1799,27 @@ export default {
       comment: '評論',
       share: '分享',
       related: '相關推薦',
-      commentSoon: '評論功能即將開放',
+      commentSoon: '評論功能即將開放'
     },
+    cat: {
+      announce: '公告',
+      activity: '活動',
+      info: '資訊',
+      tutorial: '教程'
+    }
   },
   plaza: {
     setNeed: {
-      categories: ['技能學習', '職場提升', '興趣培養', '證照備考', '其他'],
-      levels: ['入門', '進階', '高級', '專家'],
-      budgets: ['0-100 元', '100-500 元', '500-1000 元', '1000 元以上'],
+      categories: null,
+      levels: null,
+      budgets: null,
       selectAtLeast: '請至少選擇一項',
       saved: '儲存成功',
       directionTitle: '學習方向',
       directionDesc: '選擇你感興趣的方向',
       levelTitle: '目前水平',
       budgetTitle: '預算範圍',
-      save: '儲存',
+      save: '儲存'
     },
     index: {
       title: '模型廣場',
@@ -1551,7 +1845,7 @@ export default {
       detailTrack: '賽道',
       detailStatus: '狀態',
       detailAuthor: '發布人',
-      identityTitle: '切換身份',
+      identityTitle: '切換身份'
     },
     cover: {
       title: '封面選擇',
@@ -1573,8 +1867,8 @@ export default {
       expire: '到期',
       renew: '續費',
       continueOrder: '繼續接單',
-      qaTitle: '常見問題',
-    },
+      qaTitle: '常見問題'
+    }
   },
   ranking: {
     title: '排行榜',
@@ -1606,8 +1900,8 @@ export default {
       url: '官方網址',
       copyHint: '點擊複製',
       contentTitle: '詳細介紹',
-      loadFailed: '取得詳情',
-    },
+      loadFailed: '取得詳情'
+    }
   },
   recruitment: {
     applied: '申請已提交',
@@ -1620,7 +1914,7 @@ export default {
     monthlyIncome: '月收入',
     yearlyIncome: '年收入',
     submitting: '提交中…',
-    apply: '立即申請',
+    apply: '立即申請'
   },
   register: {
     enterPhone: '請輸入手機號碼',
@@ -1648,26 +1942,26 @@ export default {
     userAgreement: '《使用者協議》',
     privacyPolicy: '《隱私協議》',
     hasAccount: '已有帳號?',
-    toLogin: '去登入',
+    toLogin: '去登入'
   },
   message: {
     tabs: {
       all: '全部',
       system: '系統',
       interaction: '互動',
-      private: '私信',
+      private: '私信'
     },
     notifLabels: {
       system: '系統通知',
       interaction: '互動訊息',
       private: '私信',
-      marketing: '行銷訊息',
+      marketing: '行銷訊息'
     },
     notifDescs: {
       system: '帳戶、訂單、安全等系統通知',
       interaction: '按讚、留言、關注等互動訊息',
       private: '其他使用者發給你的私信',
-      marketing: '優惠活動、新品推薦等',
+      marketing: '優惠活動、新品推薦等'
     },
     hello: '你好,我是 {{name}}',
     justNow: '剛剛',
@@ -1690,8 +1984,8 @@ export default {
       replyComment: '回覆了你的評論:講得真清楚!',
       followYou: '關注了你',
       targetReact: 'React 入門第 3 節',
-      targetAi: 'AI 大模型實戰',
-    },
+      targetAi: 'AI 大模型實戰'
+    }
   },
   member: {
     index: {
@@ -1705,19 +1999,29 @@ export default {
       myCoupons: '我的優惠券',
       couponCenter: '領券中心',
       vip: 'VIP 會員',
+      permanentVip: '永久有效',
+      usageStats: '使用統計',
+      openVipDesc: '享受更多特權,提升 AI 體驗',
+      permanentActive: '您已是永久 VIP 會員',
+      allPrivileges: '已享有全部特權',
+      upgradePermanent: '升級永久 VIP 會員',
+      upgradeHint: '您已是 VIP 會員,可升級為永久 VIP',
+      upgradeNow: '升級永久 VIP',
+      contactTitle: '遇到問題?',
+      contactText: '聯絡客服微信:AIXHS_Service'
     },
     integral: {
       current: '目前積分',
       empty: '暫無積分記錄',
       loading: '載入中…',
       loadFailed: '載入失敗',
-      noMore: '沒有更多了',
+      noMore: '沒有更多了'
     },
     benefits: {
       empty: '暫無權益',
       myBenefits: '我的專屬權益',
       loadFailed: '載入失敗',
-      tierCatalog: '等級權益',
+      tierCatalog: '等級權益'
     },
     coupon: {
       unused: '未使用',
@@ -1732,7 +2036,7 @@ export default {
       thresholdText: '滿{threshold}可用',
       expireText: '有效期至 {time}',
       use: '立即使用',
-      loadMore: '上拉載入更多',
+      loadMore: '上拉載入更多'
     },
     couponList: {
       received: '領取成功',
@@ -1744,14 +2048,14 @@ export default {
       empty: '暫無可領取優惠券',
       loadFailed: '載入失敗',
       thresholdText: '滿{threshold}元可用',
-      expireText: '有效期至 {time}',
-    },
+      expireText: '有效期至 {time}'
+    }
   },
   pay: {
     result: {
       paid: '支付成功',
       pending: '支付處理中',
-      failed: '支付失敗',
+      failed: '支付失敗'
     },
     backHome: '返回首頁',
     viewOrders: '查看訂單',
@@ -1764,6 +2068,18 @@ export default {
     missingParams: '支付參數缺失',
     useWechatScan: '請使用微信掃碼支付',
     configNotReady: '支付設定未就緒,請聯繫管理員',
+    balanceInsufficient: '餘額不足,請充值',
+    noCoupon: '暫無可用優惠券',
+    couponNone: '不使用優惠券',
+    orderExpired: '訂單已超時,請重新下單',
+    alipayNotReady: '支付寶支付暫未開通',
+    countdownTip: '支付剩餘時間 {{time}}',
+    couponSaved: '已優惠 ¥{{n}}',
+    goodsName: '商品名稱',
+    vipSubscription: '會員訂閱',
+    balanceAmount: '餘額 ¥{{n}}',
+    recharge: '充值',
+    couponAvailable: '{{n}} 張可用'
   },
   study: {
     todayMinutes: '今日 {{n}} 分鐘',
@@ -1783,29 +2099,43 @@ export default {
       statusDone: '已完成',
       statusInProgress: '進行中',
       empty: '暫無學習計畫',
-      add: '新增計畫',
+      add: '新增計畫'
     },
     rankPage: {
       title: '學習排行榜',
       subtitle: '看看誰最努力',
       minutes: '{{n}} 分鐘',
-      empty: '暫無排名資料',
+      empty: '暫無排名資料'
     },
     recordPage: {
       duration: '學習 {{n}} 分鐘',
       progress: '進度 {{n}}%',
       empty: '暫無學習記錄',
+      statusLearning: '學習中',
+      statusAbandon: '已放棄',
+      statTotal: '累計學習',
+      unitMin: '分鐘',
+      statDays: '連續打卡',
+      unitDay: '天',
+      statCourses: '完成課程',
+      unitCourse: '門',
+      statPoints: '獲得積分',
+      unitPoint: '分',
+      tabCompleted: '已完成',
+      tabAbandoned: '已放棄',
+      coverFallback: '課程',
+      continue: '繼續學習'
     },
     videoDetail: {
       me: '我',
       justNow: '剛剛',
       tabsCatalog: '目錄',
       tabsIntro: '簡介',
-      tabsComment: '留言',
+      tabsComment: '留言'
     },
     publish: {
-      categories: ['學習心得', '經驗分享', '問題求助', '資料推薦'],
-      visibilityOptions: ['公開', '僅好友可見', '私密'],
+      categories: null,
+      visibilityOptions: null,
       enterTitle: '請輸入標題',
       enterContent: '請輸入內容',
       published: '發布成功',
@@ -1814,7 +2144,7 @@ export default {
       category: '分類',
       visibility: '可見範圍',
       tagsPlaceholder: '新增標籤',
-      submit: '發布',
+      submit: '發布'
     },
     myStudy: {
       title: '我的學習',
@@ -1825,8 +2155,8 @@ export default {
       favoritedEmpty: '暫無收藏課程',
       loadFailed: '載入失敗',
       progress: '進度',
-      lastTime: '上次學習',
-    },
+      lastTime: '上次學習'
+    }
   },
   subscriptions: {
     cancel: '取消訂閱',
@@ -1834,25 +2164,49 @@ export default {
     empty: '暫無訂閱',
     delete: '刪除',
     loadMore: '載入更多',
-    noMore: '沒有更多了',
+    noMore: '沒有更多了'
   },
   teacher: {
     list: {
       searchPlaceholder: '搜尋講師',
       courseCount: '{{n}} 門課程',
       studentCount: '{{n}} 位學員',
-      empty: '暫無講師',
+      empty: '暫無講師'
     },
     detail: {
       courses: '課程',
       students: '學員',
       intro: '簡介',
       viewCourses: '查看課程',
-    },
+      unfollowed: '已取消',
+      contactMessage: '發訊息',
+      contactPhone: '電話聯絡',
+      phoneHint: '已複製聯絡方式',
+      fans: '粉絲',
+      goldBadge: '金牌講師',
+      collapse: '收起',
+      expand: '展開',
+      courseSection: '主講課程',
+      learnUnit: '人學習',
+      noCourses: '暫無課程',
+      reviewSection: '學員評價',
+      noReviews: '暫無評價',
+      contact: '聯絡講師'
+    }
   },
   topic: {
     count: '{{n}} 篇內容',
     empty: '暫無話題',
+    detail: {
+      unfollowed: '已取消關注',
+      followSuccess: '關注成功',
+      followFailed: '操作失敗',
+      pageTitle: '話題詳情',
+      publishPlaceholder: '分享你對這個話題的看法…'
+    },
+    list: {
+      pageTitle: '話題'
+    }
   },
   token: {
     balance: {
@@ -1864,8 +2218,8 @@ export default {
       agentConsume: '智能體消耗',
       ordersConsume: '大模型消耗',
       costTime: '花費時間:',
-      noMore: '沒有更多了',
-    },
+      noMore: '沒有更多了'
+    }
   },
   user: {
     loggedOut: '已登出',
@@ -1883,7 +2237,7 @@ export default {
       subscriptions: '我的訂閱',
       courses: '全部課程',
       ai: 'AI 助手',
-      settings: '設定',
+      settings: '設定'
     },
     identity: '身份',
     avatar: {
@@ -1891,6 +2245,12 @@ export default {
       choose: '選擇頭像',
       formatHint: '支援 JPG、PNG 格式',
       sizeHint: '建議尺寸 200×200',
+      updateFailed: '更新頭像失敗',
+      chooseFailed: '選圖失敗',
+      tapPreview: '點選檢視大圖',
+      fromAlbum: '從相簿選擇',
+      takePhoto: '拍照',
+      previewHint: '點選頭像可檢視大圖'
     },
     email: {
       emailInvalid: '郵箱格式不正確',
@@ -1910,7 +2270,7 @@ export default {
       codeSendFailed: '驗證碼發送失敗',
       codeLength: '請輸入 6 位驗證碼',
       binding: '綁定中…',
-      unbound: '未綁定',
+      unbound: '未綁定'
     },
     nickname: {
       enterNickname: '請輸入暱稱',
@@ -1919,6 +2279,11 @@ export default {
       newNickname: '新暱稱',
       nicknamePlaceholder: '請輸入新暱稱',
       save: '儲存',
+      invalidChar: '暱稱僅支援中英文、數字和下劃線',
+      randomNickname: '🎲 隨機推薦暱稱',
+      ruleChar: '支援中英文、數字',
+      ruleSymbol: '禁止特殊符號',
+      saving: '儲存中…'
     },
     orders: {
       statusPending: '待付款',
@@ -1931,7 +2296,7 @@ export default {
       tabsPaid: '已付款',
       tabsCancelled: '已取消',
       orderNo: '訂單編號',
-      empty: '暫無訂單',
+      empty: '暫無訂單'
     },
     password: {
       enterOld: '請輸入原密碼',
@@ -1950,7 +2315,7 @@ export default {
       confirmError: '兩次密碼不一致',
       sameAsOld: '新密碼不能與原密碼相同',
       submitting: '修改中…',
-      modifySuccess: '密碼修改成功',
+      modifySuccess: '密碼修改成功'
     },
     phone: {
       phoneInvalid: '手機號碼格式不正確',
@@ -1977,6 +2342,11 @@ export default {
       unbound: '未綁定',
       noticeTitle: '更換手機號後影響',
       noticeDesc: '原手機號將無法用於登入和找回密碼,請確保新手機號可正常使用',
+      noCurrent: '當前未繫結手機號',
+      alreadyRegistered: '該手機號已註冊,請換用其他手機號',
+      step1Title: '驗證當前手機號',
+      step2Title: '繫結新手機號',
+      verifiedTip: '當前手機號已通過驗證'
     },
     profile: {
       avatar: '頭像',
@@ -1991,7 +2361,7 @@ export default {
       unverified: '未認證',
       feedback: '意見回饋',
       avatarUploading: '上傳中...',
-      avatarUpdateFailed: '更換頭像失敗',
+      avatarUpdateFailed: '更換頭像失敗'
     },
     realname: {
       enterRealName: '請輸入真實姓名',
@@ -2003,7 +2373,17 @@ export default {
       idCard: '身分證號',
       idCardPlaceholder: '請輸入身分證號',
       submit: '提交認證',
-    },
+      uploadFailed: '上傳失敗',
+      uploadRequired: '請上傳身份證正反面照片',
+      verifiedNote: '實名資訊已認證,不可修改',
+      privacyPromise: '您的身份資訊僅用於實名核驗,平臺將嚴格保密,不會用於其他用途',
+      reviewing: '稽核中,請耐心等待',
+      rejected: '認證未通過',
+      idCardPhotos: '身份證照片',
+      frontPhoto: '人像面',
+      backPhoto: '國徽面',
+      uploadHint: '請確保照片清晰、完整、無遮擋'
+    }
   },
   vipTrader: {
     enterName: '請輸入姓名',
@@ -2026,6 +2406,21 @@ export default {
     reasonLabel: '申請理由',
     reasonPlaceholder: '為什麼想成為代理商?',
     submit: '提交申請',
+    openTitle: '開通會員',
+    openTrader: '開通操盤手會員',
+    consultHint: '已為您接通顧問',
+    subscribeConfirm: '確認訂閱',
+    oncePay: '一次性支付,',
+    lifetimeUse: '終身使用',
+    introSection: '操盤手簡介',
+    collapse: '收起',
+    expand: '展開全部',
+    capabilitySection: '核心能力',
+    performanceSection: '歷史業績',
+    featureSection: '操盤手權益',
+    serviceSection: '服務包',
+    reviewsSection: '使用者評價',
+    consult: '立即諮詢'
   },
   vip: {
     selectPlanFirst: '請先選擇方案',
@@ -2079,18 +2474,18 @@ export default {
       privateBenefit2: '閉門沙龍參與權',
       privateBenefit3: '行業大咖私密交流',
       privateBenefit4: '高端資源對接',
-      privateBenefit5: '定制化解決方案',
+      privateBenefit5: '定制化解決方案'
     },
     upgrade: {
       bannerTitle: '升級VIP會員',
       bannerDesc: '解鎖更多專屬特權',
       rightsTitle: '會員權益',
-      rights: ['全部課程免費學', 'AI對話不限次', '專屬客服服務', '會員專屬折扣', '高畫質影片下載'],
+      rights: null,
       loadFailed: '載入失敗',
       operationFailed: '操作失敗',
       originalPrice: '原價¥{{n}}',
       upgrade: '立即升級',
-      configNotReady: '支付設定未就緒,請聯繫管理員',
+      configNotReady: '支付設定未就緒,請聯繫管理員'
     },
     index: {
       autoRenew: '開通自動續費(連續包月,可隨時關閉)',
@@ -2121,6 +2516,7 @@ export default {
       successTitle: '開通成功',
       successDesc: '恭喜您已成功開通 VIP 會員',
       viewBenefits: '查看權益',
+      brandTitle: 'AI智匯社 會員'
     },
     details: {
       title: 'VIP 權益對比',
@@ -2135,19 +2531,38 @@ export default {
         modelAccess: '模型存取',
         prioritySupport: '優先客服',
         exclusiveGroup: '專屬社群',
-        adExperience: '廣告體驗',
+        adExperience: '廣告體驗'
       },
       monthlyPlan: '月度會員',
       yearlyPlan: '年度會員',
       monthlyAllBenefits: '月度會員所有權益',
       highCommission: '高額返佣特權',
+      benefit: {
+        chatDesc: '暢享頂級模型,不限次數',
+        draw: 'AI 繪圖',
+        drawDesc: '100次/天,高畫質無水印',
+        video: '影片生成',
+        videoDesc: '60分鐘影片生成時長',
+        modelDesc: '解鎖所有付費模型',
+        support: '優先客服',
+        supportDesc: '7×24 小時專屬服務',
+        group: '專屬社群',
+        groupDesc: 'VIP 會員專屬交流群'
+      },
+      benefitsTitle: '權益詳情'
     },
     success: {
       desc: '恭喜您已成功開通 VIP 會員',
       planName: '套餐名稱',
       amount: '支付金額',
       payTime: '支付時間',
-    },
+      payAlipay: '支付寶',
+      payWechat: '微信支付',
+      quarterlyPlan: '季度會員',
+      activationNotice: '會員權益已啟用,立即可享受全部特權',
+      shareTitle: '分享好友賺佣金',
+      shareDesc: '邀請好友開通會員,享 20% 現金佣金'
+    }
   },
   learnDevelop: {
     title: '學習發展',
@@ -2160,7 +2575,7 @@ export default {
     loadFailed: '載入失敗',
     teacher: '講師',
     free: '免費',
-    rankEntry: '學習排行榜',
+    rankEntry: '學習排行榜'
   },
   settingPrivacy: {
     permissions: {
@@ -2168,12 +2583,12 @@ export default {
       camera: '相機',
       album: '相簿',
       location: '位置',
-      notification: '通知',
+      notification: '通知'
     },
     status: {
       granted: '已開啟',
       denied: '已拒絕',
-      unknown: '未開啟',
+      unknown: '未開啟'
     },
     systemPermissions: '系統權限',
     privacySettings: '隱私設定',
@@ -2184,18 +2599,76 @@ export default {
     recommendDesc: '開啟後將為您推薦優質內容',
     personalize: '個性化推薦',
     personalizeDesc: '基於興趣為您提供個性化內容',
-    privacyPolicy: '隱私政策',
+    privacyPolicy: '隱私政策'
   },
   page: {
-    index: { title: '首頁', welcome: '歡迎來到IHUI AI' },
-    community: { title: '社群', post: '發帖', comment: '評論' },
-    message: { title: '訊息', system: '系統通知', interaction: '互動訊息', private: '私信' },
-    ranking: { title: '排行榜', weekly: '週榜', monthly: '月榜', total: '總榜' },
-    share: { title: '分享', shareToFriend: '分享給朋友', poster: '生成海報' },
-    pay: { title: '支付', orderDetail: '訂單詳情', payMethod: '支付方式', confirm: '確認支付' },
-    member: { title: '會員中心', benefits: '會員權益', points: '積分', coupons: '優惠券' },
-    setting: { title: '設定', general: '通用設定', clearCache: '清除快取', about: '關於我們' },
-    vip: { title: 'VIP會員', openVip: '開通會員', privileges: '會員特權', openNow: '立即開通', dayUnit: '天' },
-    about: { title: '關於我們', userAgreement: '使用者協議', privacy: '隱私政策' },
+    index: {
+      title: '首頁',
+      welcome: '歡迎來到IHUI AI'
+    },
+    community: {
+      title: '社群',
+      post: '發帖',
+      comment: '評論'
+    },
+    message: {
+      title: '訊息',
+      system: '系統通知',
+      interaction: '互動訊息',
+      private: '私信'
+    },
+    ranking: {
+      title: '排行榜',
+      weekly: '週榜',
+      monthly: '月榜',
+      total: '總榜'
+    },
+    share: {
+      title: '分享',
+      shareToFriend: '分享給朋友',
+      poster: '生成海報'
+    },
+    pay: {
+      title: '支付',
+      orderDetail: '訂單詳情',
+      payMethod: '支付方式',
+      confirm: '確認支付'
+    },
+    member: {
+      title: '會員中心',
+      benefits: '會員權益',
+      points: '積分',
+      coupons: '優惠券'
+    },
+    setting: {
+      title: '設定',
+      general: '通用設定',
+      clearCache: '清除快取',
+      about: '關於我們'
+    },
+    vip: {
+      title: 'VIP會員',
+      openVip: '開通會員',
+      privileges: '會員特權',
+      openNow: '立即開通',
+      dayUnit: '天'
+    },
+    about: {
+      title: '關於我們',
+      userAgreement: '使用者協議',
+      privacy: '隱私政策'
+    }
   },
+  feedback: {
+    types: {
+      complaint: '投訴',
+      suggestion: '建議',
+      bug: 'Bug'
+    },
+    uploadFailed: '上傳失敗',
+    type: '型別',
+    content: '內容',
+    contact: '聯絡方式',
+    contactPlaceholder: '請輸入聯絡方式(選填)'
+  }
 }
