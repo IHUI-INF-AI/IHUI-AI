@@ -40,3 +40,24 @@ export async function toggleMainWindow(): Promise<boolean> {
   }
   return !visible
 }
+
+// ================== 原生通知 ==================
+
+/**
+ * 发送系统原生通知(标题 + 正文)。
+ * 自动处理权限请求(首次调用时请求,已授权则直接发送)。
+ */
+export async function sendDesktopNotification(title: string, body: string): Promise<void> {
+  try {
+    let granted = await invoke<boolean>('plugin:notification|is_permission_granted')
+    if (!granted) {
+      const permission = await invoke<string>('plugin:notification|request_permission')
+      granted = permission === 'granted'
+    }
+    if (granted) {
+      await invoke('plugin:notification|notify', { options: { title, body } })
+    }
+  } catch {
+    // 非 Tauri 环境或权限被拒,静默忽略
+  }
+}
