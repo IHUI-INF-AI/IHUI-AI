@@ -459,6 +459,144 @@ fn active_window() -> Result<ActiveWindowResult, String> {
     })
 }
 
+// ================== 本地文件访问 ==================
+
+#[derive(Serialize)]
+struct FileInfo {
+    path: String,
+    name: String,
+    size: u64,
+    is_dir: bool,
+    extension: String,
+}
+
+#[derive(Serialize)]
+struct ReadTextResult {
+    content: String,
+    size: u64,
+}
+
+#[derive(Serialize)]
+struct ReadBinaryResult {
+    base64: String,
+    size: u64,
+    mime: String,
+}
+
+#[derive(Serialize)]
+struct DirListResult {
+    entries: Vec<FileInfo>,
+}
+
+/// 读取文本文件(UTF-8)。
+#[tauri::command]
+fn read_text_file(path: String) -> Result<ReadTextResult, String> {
+    let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
+    let size = metadata.len();
+    let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    Ok(ReadTextResult { content, size })
+}
+
+/// 读取二进制文件,返回 base64 + MIME(用于图片/附件预览)。
+#[tauri::command]
+fn read_binary_file(path: String) -> Result<ReadBinaryResult, String> {
+    let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
+    let size = metadata.len();
+    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+    let base64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    let mime = mime_from_extension(&path);
+    Ok(ReadBinaryResult { base64, size, mime })
+}
+
+/// 写入文本文件(覆盖)。父目录不存在时自动创建。
+#[tauri::command]
+fn write_text_file(path: String, content: String) -> Result<OkResult, String> {
+    if let Some(parent) = std::path::Path::new(&path).parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    std::fs::write(&path, content).map_err(|e| e.to_string())?;
+    Ok(OkResult { ok: true })
+}
+
+/// 列出目录下的文件/子目录(非递归)。
+#[tauri::command]
+fn list_dir(path: String) -> Result<DirListResult, String> {
+    let mut entries = Vec::new();
+    let dir = std::fs::read_dir(&path).map_err(|e| e.to_string())?;
+    for entry in dir {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let metadata = entry.metadata().map_err(|e| e.to_string())?;
+        let path_str = entry.path().to_string_lossy().to_string();
+        let name = entry.file_name().to_string_lossy().to_string();
+        let extension = entry
+            .path()
+            .extension()
+            .map(|e| e.to_string_lossy().to_string())
+            .unwrap_or_default();
+        entries.push(FileInfo {
+            path: path_str,
+            name,
+            size: metadata.len(),
+            is_dir: metadata.is_dir(),
+            extension,
+        });
+    }
+    // 文件在前,目录在后,各自按名称排序
+    entries.sort_by(|a, b| {
+        b.is_dir
+            .cmp(&a.is_dir)
+            .reverse()
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    });
+    Ok(DirListResult { entries })
+}
+
+/// 获取单个文件/目录的元信息。
+#[tauri::command]
+fn stat_file(path: String) -> Result<FileInfo, String> {
+    let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
+    let path_obj = std::path::Path::new(&path);
+    let name = path_obj
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let extension = path_obj
+        .extension()
+        .map(|e| e.to_string_lossy().to_string())
+        .unwrap_or_default();
+    Ok(FileInfo {
+        path,
+        name,
+        size: metadata.len(),
+        is_dir: metadata.is_dir(),
+        extension,
+    })
+}
+
+/// 从文件扩展名推断 MIME 类型(常用类型)。
+fn mime_from_extension(path: &str) -> String {
+    let ext = std::path::Path::new(path)
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .unwrap_or_default();
+    match ext.as_str() {
+        "png" => "image/png".to_string(),
+        "jpg" | "jpeg" => "image/jpeg".to_string(),
+        "gif" => "image/gif".to_string(),
+        "webp" => "image/webp".to_string(),
+        "svg" => "image/svg+xml".to_string(),
+        "bmp" => "image/bmp".to_string(),
+        "pdf" => "application/pdf".to_string(),
+        "txt" | "md" | "log" | "csv" | "json" | "xml" | "yml" | "yaml" | "toml" => {
+            "text/plain".to_string()
+        }
+        "mp3" | "wav" | "ogg" | "m4a" => "audio/mpeg".to_string(),
+        "mp4" | "webm" | "mov" | "avi" | "mkv" => "video/mp4".to_string(),
+        "zip" | "gz" | "tar" | "rar" | "7z" => "application/zip".to_string(),
+        _ => "application/octet-stream".to_string(),
+    }
+}
+
 #[tauri::command]
 fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String> {
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
@@ -593,7 +731,12 @@ pub fn run() {
             keyboard_hotkey,
             active_window,
             clipboard_get,
-            clipboard_set
+            clipboard_set,
+            read_text_file,
+            read_binary_file,
+            write_text_file,
+            list_dir,
+            stat_file
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {
