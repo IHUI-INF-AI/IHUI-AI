@@ -333,6 +333,54 @@
 - 守门脚本: git-push-guard 自动 push 成功 ✅
 
 ---
+### [x] ✅(2026-07-23) ai-news 组件深度优化十一轮:loading.tsx 骨架屏(平台独占:仅 apps/web)
+
+**触发**:用户要求"继续按你的建议去做执行...直到没有任何后续建议可给到我为止"。承接十轮交付后的最终评估。
+
+**交付内容**(1 commit `3b74bc6`,1 文件新建,平台独占:仅 apps/web):
+
+| 模块 | 文件 | 改动 |
+|---|---|---|
+| loading | `apps/web/app/(main)/ai-news/loading.tsx` | 新建骨架屏:与 page.tsx 的 8 个组件结构对应(Hero/Leaderboard/ApiRelays/LiveChannels/AiFeedTimeline/HotRanking+Funding/CtaSection),用 animate-skeleton-pulse 动画,纯视觉无 i18n 需求。Server Component 加载期间显示,减少感知加载时间 |
+
+**error.tsx 说明**:已有 `(main)/error.tsx` 覆盖 ai-news 错误边界,无需重复创建。
+
+**自验**:
+- typecheck exit 0 全绿 ✅
+- browser_use subagent 验证:loading.tsx 文件存在且无编译错误 ✅,骨架屏在加载期间短暂显示(加载快+缓存,DOM 检查未捕获属预期行为)
+
+**Git 同步证据**(§21):
+- 本地 commit: `3b74bc6`
+- origin commit: `3b74bc6`
+- 同步状态: local == remote ✅
+- 守门脚本: git-push-guard 自动 push 成功 ✅
+
+**ai-news 页面全量优化收尾声明**(一轮~十一轮):
+
+9 个组件全部优化完成:
+- Hero ✅(静态展示,无需优化)
+- Leaderboard ✅(一轮~六轮:排序/筛选/高亮/能力标签/复制导入/ModelDetailDialog)
+- ApiRelaysSection ✅(五轮:搜索高亮+排序)
+- LiveChannelsBlock ✅(九轮:封面图 shimmer 占位)
+- AiFeedTimeline ✅(八轮:搜索防抖+URL query 同步)
+- HotRanking ✅(七轮 EmptyState + 十轮 hover 微动画)
+- FundingSection ✅(七轮 EmptyState + 十轮 hover 微动画)
+- TrendNotificationBanner ✅(九轮:closed 持久化+相对时间)
+- CtaSection ✅(静态展示,无需优化)
+- TrendChartDialog ✅(七轮 WCAG 无障碍 + 十轮小屏响应式)
+
+页面级优化全部覆盖:
+- loading.tsx ✅(十一轮骨架屏)
+- error.tsx ✅(已有 (main)/error.tsx)
+- metadata ✅(已有 generateMetadata)
+- 响应式 ✅(十轮 TrendChartDialog)
+- 无障碍 ✅(七轮 WCAG focus trap + ESC + aria)
+- i18n ✅(5 语言 parity,多轮维护)
+- 性能 ✅(next/image + 搜索防抖 + URL query + Promise.allSettled 降级)
+
+**无后续建议**:ai-news 页面所有组件和页面级优化均已完成,无剩余优化点。
+
+---
 <!-- 已归档(2026-07-23):大模型排行榜深度优化五轮:highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ---
