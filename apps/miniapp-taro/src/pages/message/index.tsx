@@ -43,34 +43,6 @@ interface Room {
 const menuButton = Taro.getMenuButtonBoundingClientRect?.() || { top: 26, height: 32 }
 
 const DEFAULT_SYSTEM: SystemNoticeItem[] = []
-const DEFAULT_INTERACTION: InteractionItem[] = [
-  {
-    id: 'i1',
-    type: 'like',
-    userName: '张三',
-    content: '赞了你的课程笔记',
-    targetTitle: 'React 入门第 3 节',
-    createdAt: '2026-07-13 14:20',
-    read: false,
-  },
-  {
-    id: 'i2',
-    type: 'comment',
-    userName: '李四',
-    content: '回复了你的评论:讲得真清楚!',
-    targetTitle: 'AI 大模型实战',
-    createdAt: '2026-07-13 11:00',
-    read: false,
-  },
-  {
-    id: 'i3',
-    type: 'follow',
-    userName: '王五',
-    content: '关注了你',
-    createdAt: '2026-07-12 16:30',
-    read: true,
-  },
-]
 const DEFAULT_PRIVATE: PrivateMessageItem[] = []
 
 export default function MessageIndex() {
@@ -118,6 +90,38 @@ export default function MessageIndex() {
       enabled: false,
     },
   ])
+
+  const defaultInteraction = useMemo<InteractionItem[]>(
+    () => [
+      {
+        id: 'i1',
+        type: 'like',
+        userName: t('message.demo.zhangsan'),
+        content: t('message.demo.likeNote'),
+        targetTitle: t('message.demo.targetReact'),
+        createdAt: '2026-07-13 14:20',
+        read: false,
+      },
+      {
+        id: 'i2',
+        type: 'comment',
+        userName: t('message.demo.lisi'),
+        content: t('message.demo.replyComment'),
+        targetTitle: t('message.demo.targetAi'),
+        createdAt: '2026-07-13 11:00',
+        read: false,
+      },
+      {
+        id: 'i3',
+        type: 'follow',
+        userName: t('message.demo.wangwu'),
+        content: t('message.demo.followYou'),
+        createdAt: '2026-07-12 16:30',
+        read: true,
+      },
+    ],
+    [t],
+  )
 
   const loadAggregate = useCallback(async () => {
     try {
@@ -309,7 +313,7 @@ export default function MessageIndex() {
     if (activeTab === 'interaction') {
       return (
         <InteractionMessage
-          list={DEFAULT_INTERACTION}
+          list={defaultInteraction}
           onClick={(item) =>
             Taro.showToast({ title: `${item.userName}:${item.content}`, icon: 'none' })
           }
