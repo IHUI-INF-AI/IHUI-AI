@@ -1,30 +1,15 @@
 .page {
   min-height: 100vh;
   background: var(--color-background);
-  padding-bottom: 140rpx;
-}
-
-.tabs {
-  display: flex;
-  background: var(--color-card);
-}
-.tab {
-  flex: 1;
-  text-align: center;
-  font-size: 26rpx;
-  color: var(--color-muted-foreground);
-  padding: 24rpx 0;
-}
-.tab.active {
-  color: var(--color-primary);
-  font-weight: 600;
+  padding: 24rpx;
+  padding-bottom: 48rpx;
 }
 
 .status {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 80rpx 0;
+  padding: 120rpx 0;
   color: var(--color-muted-foreground);
   font-size: 26rpx;
 }
@@ -36,7 +21,9 @@
 }
 
 .list {
-  padding: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
 }
 
 .coupon {
@@ -44,15 +31,11 @@
   background: var(--color-card);
   border-radius: 16rpx;
   overflow: hidden;
-  margin-bottom: 24rpx;
-}
-.coupon.disabled {
-  opacity: 0.5;
 }
 .coupon-left {
   width: 200rpx;
-  background: var(--color-primary);
-  color: var(--color-primary-foreground);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  color: #ffffff;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -64,22 +47,17 @@
   align-items: baseline;
 }
 .c-amt {
-  font-size: 56rpx;
+  font-size: 60rpx;
   font-weight: 700;
 }
 .c-unit {
-  font-size: 24rpx;
-  margin-left: 8rpx;
+  font-size: 26rpx;
+  margin-left: 4rpx;
 }
-.c-thres {
-  display: block;
+.c-type {
   margin-top: 8rpx;
-  font-size: 20rpx;
+  font-size: 22rpx;
   opacity: 0.9;
-}
-.coupon.disabled .coupon-left {
-  background: var(--color-muted);
-  color: var(--color-muted-foreground);
 }
 .coupon-right {
   flex: 1;
@@ -90,13 +68,19 @@
 }
 .c-title {
   display: block;
-  font-size: 28rpx;
+  font-size: 30rpx;
   color: var(--color-foreground);
   font-weight: 600;
 }
-.c-time {
+.c-thres {
   display: block;
   margin-top: 12rpx;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.c-time {
+  display: block;
+  margin-top: 8rpx;
   font-size: 22rpx;
   color: var(--color-muted-foreground);
 }
@@ -104,24 +88,11 @@
   align-self: flex-end;
   margin-top: 16rpx;
   font-size: 24rpx;
-  color: var(--color-primary-foreground);
+  color: #ffffff;
   background: var(--color-primary);
   border-radius: 28rpx;
   padding: 0 28rpx;
   line-height: 56rpx;
-}
-.c-status {
-  align-self: flex-end;
-  margin-top: 16rpx;
-  font-size: 22rpx;
-  color: var(--color-muted-foreground);
-}
-
-.load-more {
-  text-align: center;
-  padding: 24rpx 0;
-  font-size: 22rpx;
-  color: var(--color-muted-foreground);
 }
 
 .empty {
@@ -129,15 +100,4 @@
   padding: 120rpx 0;
   color: var(--color-muted-foreground);
   font-size: 26rpx;
-}
-
-.btn {
-  position: fixed;
-  bottom: 32rpx;
-  left: 32rpx;
-  right: 32rpx;
-  background: var(--color-primary);
-  color: var(--color-primary-foreground);
-  border-radius: 40rpx;
-  font-size: 28rpx;
 }

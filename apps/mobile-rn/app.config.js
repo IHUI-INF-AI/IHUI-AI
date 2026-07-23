@@ -23,6 +23,7 @@ module.exports = ({ config }) => {
     ...config,
     version: pkg.version,
     plugins: [
+      'expo-secure-store',
       ...(config.plugins || []),
       ['./plugins/withWechat', { appId, universalLink, androidPackage }],
     ],
