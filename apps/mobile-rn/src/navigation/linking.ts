@@ -12,8 +12,8 @@ export const linking: LinkingOptions<RootStackParamList> = {
     screens: {
       // 首页:空路径匹配根路径 /
       Tabs: '',
-      // 共享组件 Demo
-      SharedDemo: 'shared-demo',
+      // 共享组件 Demo(对齐 web 端 /solito-demo 路由,跨端 deep link 一致)
+      SharedDemo: 'solito-demo',
       // 登录/注册
       Login: 'login',
       Register: 'register',
