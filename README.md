@@ -787,6 +787,7 @@ IHUI-AI 应用功能全景
 | **A AI 能力** | A1 模型接入 | 100+ 模型统一调用 | `apps/ai-service/app/providers/` |
 | | A2 三栈协同 | LangGraph + MCP + A2A | `services/langgraph_service.py` |
 | | A3 多模态创作 | 文生图/语音/视频/数字人 | `apps/api/src/routes/ai-*` |
+| | **A4 AI Skills TOP** | **19 个 skill 元数据(CODEX 自媒体 10 + GitHub 热门 9)+ 4 个真集成可调(nuwa-skill 风格改写 / hugshu-design HTML 渲染 / auto-redbook-skills 小红书文案 / guizang-ppt-skill PPT 大纲)+ 15 个元数据占位带 GitHub 引导** | **`apps/ai-service/app/routers/ai_skills.py` + `apps/web/src/components/chat/skill-library.tsx`** |
 | **B 工作流** | B1 自研 CLI | 17 命令 + 13 工具 + ACP | `apps/cli/src/` |
 | | B2 工作空间权限 | 3 模式 + 7 端点拦截 | `apps/api/src/routes/workspace-ai*` |
 | | B3 智能体市场 | 购买/审核/结算/Coze/Crew | `apps/api/src/routes/agent-*` |
