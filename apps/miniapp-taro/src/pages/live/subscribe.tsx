@@ -42,6 +42,10 @@ export default function LiveSubscribe() {
     [t],
   )
 
+  const goDetail = useCallback((id: string | number) => {
+    Taro.navigateTo({ url: `/pages/live/detail?id=${id}` })
+  }, [])
+
   return (
     <View className="min-h-screen bg-background">
       {list.length > 0 ? (
@@ -53,22 +57,24 @@ export default function LiveSubscribe() {
                 key={l.id}
                 className="flex items-center bg-card rounded-[8px] p-[12px] mb-[12px]"
               >
-                <Image
-                  className="w-[80px] h-[60px] rounded-[8px] bg-muted"
-                  src={l.coverUrl}
-                  mode="aspectFill"
-                />
-                <View className="flex-1 ml-[12px]">
-                  <Text className="text-[15px] text-foreground font-semibold">{l.title}</Text>
-                  {l.startTime && (
-                    <Text className="block text-[12px] text-muted-foreground mt-[4px]">{l.startTime}</Text>
-                  )}
-                  {l.anchor && (
-                    <Text className="block text-[12px] text-muted-foreground mt-[2px]">{l.anchor}</Text>
-                  )}
+                <View className="flex items-center flex-1 min-w-0" onClick={() => goDetail(l.id)}>
+                  <Image
+                    className="w-[80px] h-[60px] rounded-[8px] bg-muted flex-shrink-0"
+                    src={l.coverUrl}
+                    mode="aspectFill"
+                  />
+                  <View className="flex-1 ml-[12px] min-w-0">
+                    <Text className="text-[15px] text-foreground font-semibold">{l.title}</Text>
+                    {l.startTime && (
+                      <Text className="block text-[12px] text-muted-foreground mt-[4px]">{l.startTime}</Text>
+                    )}
+                    {l.anchor && (
+                      <Text className="block text-[12px] text-muted-foreground mt-[2px]">{l.anchor}</Text>
+                    )}
+                  </View>
                 </View>
                 <Button
-                  className={`ml-[8px] text-[12px] rounded-[4px] h-[30px] leading-[30px] px-[12px] ${
+                  className={`ml-[8px] text-[12px] rounded-[4px] h-[30px] leading-[30px] px-[12px] flex-shrink-0 ${
                     isSubscribed ? 'bg-muted text-muted-foreground' : 'bg-primary text-white'
                   }`}
                   disabled={isSubscribed}
