@@ -636,8 +636,8 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       }),
     },
     async (request, reply) => {
-      const params = request.body as Record<string, string>
-      if (!verifyNotify(params)) return reply.type('text/plain').send('fail')
+      const params = (request.body ?? {}) as Record<string, string>
+      if (!params.sign || !verifyNotify(params)) return reply.type('text/plain').send('fail')
       const tradeStatus = params.trade_status ?? ''
       const outTradeNo = params.out_trade_no ?? ''
       if (['TRADE_SUCCESS', 'TRADE_FINISHED'].includes(tradeStatus)) {
