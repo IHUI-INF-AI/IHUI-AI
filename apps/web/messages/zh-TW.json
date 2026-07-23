@@ -1,4 +1,4 @@
-{
+﻿{
   "common": {
     "login": "登入",
     "register": "註冊",
@@ -28734,6 +28734,22 @@
     "placeholderStyle": "例如:幽默、專業、文藝",
     "placeholderRequirements": "例如:登入頁 HTML,極簡風格",
     "placeholderTopic": "例如:小紅書 5 個拍照姿勢",
+    "inputDomain": "領域",
+    "placeholderDomain": "例如:人工智慧、新能源、電商",
+    "inputPlatform": "平臺",
+    "placeholderPlatform": "例如:微博、小紅書、抖音",
+    "inputConcept": "創意概念",
+    "placeholderConcept": "例如:賽博龐克城市夜景",
+    "inputTitle": "標題",
+    "placeholderTitle": "例如:AI 工具盤點",
+    "inputSubtitle": "副標題",
+    "placeholderSubtitle": "例如:2026 年最值得用的 5 款",
+    "inputPlatforms": "目標平臺",
+    "placeholderPlatforms": "例如:微博,小紅書,知乎(逗號分隔)",
+    "inputUsecase": "使用場景",
+    "placeholderUsecase": "例如:自動化程式碼審查",
+    "inputTask": "任務描述",
+    "placeholderTask": "例如:寫一個使用者登入系統",
     "result": "呼叫結果",
     "resultEmpty": "（無回傳內容）",
     "fillToChat": "填入對話",
