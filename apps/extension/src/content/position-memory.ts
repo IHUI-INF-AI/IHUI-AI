@@ -79,8 +79,6 @@ export function computePositionWithMemory(
     return { top: 0, left: 0, placement: 'top', visible: false, visibilityRatio: 0 }
   }
 
-  const scrollX = viewport.scrollX ?? 0
-  const scrollY = viewport.scrollY ?? 0
   // 视口左/上/右/下边界(rect 与 toolbar 都在 viewport 坐标系内,0,0 是 viewport 左上角)
   const viewportTop = 0
   const viewportBottom = viewport.height
