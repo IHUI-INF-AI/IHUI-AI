@@ -1,0 +1,199 @@
+.following-page {
+  min-height: 100vh;
+  background: var(--color-background);
+  padding: 24rpx;
+  padding-bottom: 60rpx;
+  box-sizing: border-box;
+}
+
+/* ===== 顶部:统计 + 搜索 ===== */
+.following-top {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.following-stats {
+  display: flex;
+  align-items: baseline;
+}
+.following-stats-label {
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+}
+.following-stats-num {
+  margin: 0 8rpx;
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+.following-stats-suffix {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
+.following-search {
+  display: flex;
+  align-items: center;
+  height: 72rpx;
+  padding: 0 20rpx;
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.15);
+  border-radius: 12rpx;
+}
+.following-search-icon {
+  margin-right: 12rpx;
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
+}
+.following-search-input {
+  flex: 1;
+  font-size: 28rpx;
+  color: var(--color-foreground);
+}
+
+/* ===== 排序 tab ===== */
+.following-sort {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 20rpx;
+}
+.following-sort-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64rpx;
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 10rpx;
+}
+.following-sort-btn-active {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ===== 关注列表 ===== */
+.following-list {
+  margin-top: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+.following-card {
+  display: flex;
+  padding: 24rpx;
+  background: var(--color-card);
+  border: 2rpx solid rgba(0, 242, 255, 0.1);
+  border-radius: 12rpx;
+}
+.following-avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 10rpx;
+  background: var(--color-muted);
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+.following-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.following-avatar-text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+.following-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+.following-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.following-nickname {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.following-status {
+  padding: 4rpx 12rpx;
+  background: rgba(0, 242, 255, 0.08);
+  border: 2rpx solid rgba(0, 242, 255, 0.2);
+  border-radius: 6rpx;
+}
+.following-status-text {
+  font-size: 20rpx;
+  color: var(--color-primary);
+}
+.following-bio {
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.following-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.following-time {
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+}
+.following-unfollow-btn {
+  padding: 8rpx 20rpx;
+  font-size: 24rpx;
+  color: var(--color-destructive);
+  background: rgba(220, 38, 38, 0.08);
+  border: 2rpx solid rgba(220, 38, 38, 0.2);
+  border-radius: 8rpx;
+}
+
+/* ===== 空状态 ===== */
+.following-empty {
+  margin-top: 120rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.following-empty-icon {
+  font-size: 80rpx;
+}
+.following-empty-text {
+  margin-top: 20rpx;
+  font-size: 28rpx;
+  color: var(--color-muted-foreground);
+}
+.following-empty-btn {
+  margin-top: 24rpx;
+  padding: 16rpx 40rpx;
+  background: var(--color-primary);
+  border-radius: 10rpx;
+}
+.following-empty-btn-text {
+  color: var(--color-foreground);
+  font-size: 26rpx;
+}
+
+/* ===== 加载状态 ===== */
+.following-loading,
+.following-loading-more,
+.following-no-more {
+  text-align: center;
+  padding: 40rpx 0;
+  font-size: 24rpx;
+  color: var(--color-muted-foreground);
+}
