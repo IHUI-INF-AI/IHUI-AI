@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 /**
- * PROJECT_PLAN.md 长度守门脚本。
+ * PROJECT_PLAN.md 长度守门脚本(warn-only,2026-07-23 用户规则解除阻塞)。
  *
  * 背景: PROJECT_PLAN.md 是项目唯一任务计划文档(AGENTS.md 第 1 节强制规则)。
  * 历史上曾膨胀至 1.88MB(18056 行,200+ 历史条目),导致 AI 单次 Read 即吃满
- * 上下文窗口,模型被迫停止响应(2026-07-19 根因诊断)。
+ * 上下文窗口,模型被迫停止响应(2026-07-19 根因诊断),当时设立 50KB 阻塞阈值。
  *
- * 守门策略: 限制 PROJECT_PLAN.md 文件大小不超过 50KB(约 1250 行)。
- *           超过阈值则阻止 commit,强制开发者归档历史条目至 .trae-cn/archive/。
+ * 调整: 2026-07-23 用户反馈"50K 限制会导致计划缺失不详细",解除阻塞,
+ *       改为 warn-only 模式 —— 始终 exit 0,仅打印体积信息供能见度参考。
+ *       保留 500KB 极端阈值作软参考(不阻塞),超过时打印更醒目的 warn。
  *
  * 用法: node scripts/check-project-plan-size.mjs
- *   exit 0 = 文件大小合规
- *   exit 1 = 文件超过 50KB,阻止 commit
+ *   exit 0 = 始终通过(warn-only,不阻塞 commit)
  */
 import { statSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ROOT = process.cwd()
 const FILE = join(ROOT, 'PROJECT_PLAN.md')
-const MAX_BYTES = 50 * 1024 // 50KB 阈值
+const WARN_BYTES = 500 * 1024 // 500KB 软参考阈值(仅 warn,不阻塞)
 
 const C = {
   red: '\x1b[31m',
@@ -36,22 +36,15 @@ if (!existsSync(FILE)) {
 
 const stats = statSync(FILE)
 const sizeKB = (stats.size / 1024).toFixed(2)
-const maxKB = (MAX_BYTES / 1024).toFixed(0)
+const warnKB = (WARN_BYTES / 1024).toFixed(0)
 
-if (stats.size > MAX_BYTES) {
-  console.error(`${C.red}❌ PROJECT_PLAN.md 体积超限${C.reset}`)
-  console.error(`   当前: ${C.yellow}${sizeKB} KB${C.reset}`)
-  console.error(`   阈值: ${C.cyan}${maxKB} KB${C.reset}`)
-  console.error('')
-  console.error(`${C.yellow}处理方法:${C.reset}`)
-  console.error(`  1. 把已完成(✅)的历史条目移动到 ${C.cyan}.trae-cn/archive/${C.reset} 目录`)
-  console.error(`  2. 仅保留"当前活跃任务"+"待办"+"项目守门规则速查"`)
-  console.error(`  3. 历史归档示例: ${C.dim}mv PROJECT_PLAN.md .trae-cn/archive/PROJECT_PLAN_$(date +%Y%m%d).md${C.reset}`)
-  console.error(`     然后新建精简版 PROJECT_PLAN.md`)
-  console.error('')
-  console.error(`${C.red}背景:${C.reset} PROJECT_PLAN.md 膨胀会导致 AI 上下文窗口撑爆,模型被迫停止响应`)
-  process.exit(1)
+if (stats.size > WARN_BYTES) {
+  console.warn(`${C.yellow}⚠️  PROJECT_PLAN.md 体积偏大(warn-only,不阻塞)${C.reset}`)
+  console.warn(`   当前: ${C.yellow}${sizeKB} KB${C.reset}`)
+  console.warn(`   软参考: ${C.cyan}${warnKB} KB${C.reset}`)
+  console.warn(`   建议: 把已完成(✅)历史条目归档到 ${C.cyan}.trae-cn/archive/${C.reset} 以保持 AI 可读性`)
+  process.exit(0)
 }
 
-console.log(`${C.green}✅ PROJECT_PLAN.md 体积合规${C.reset} ${C.dim}(${sizeKB} KB / ${maxKB} KB)${C.reset}`)
+console.log(`${C.green}✅ PROJECT_PLAN.md 体积信息${C.reset} ${C.dim}(${sizeKB} KB / 软参考 ${warnKB} KB, warn-only)${C.reset}`)
 process.exit(0)
