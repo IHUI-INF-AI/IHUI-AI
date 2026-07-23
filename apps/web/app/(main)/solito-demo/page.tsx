@@ -1,14 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { AboutScreen, ProfileScreen, SettingsScreen } from '@ihui/app'
 
 /**
  * 共享层 PoC 页面。
  * 引用 packages/app 的三个共享组件(AboutScreen / ProfileScreen / SettingsScreen),
  * 均用 react-native primitives 编写,web 端通过 react-native-web 渲染。
- * 用 tab 分段切换展示,验证纯 RN primitives + 回调模式在复杂页面下的扩展性。
+ * 用 tab 分段切换展示,验证 RN primitives + Solito TextLink 跨端导航在复杂页面下的扩展性。
  */
 
 type Tab = 'about' | 'profile' | 'settings'
@@ -32,10 +31,8 @@ const tabButtonStyle = (active: boolean): React.CSSProperties => ({
 })
 
 export default function SolitoDemoPage() {
-  const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('about')
 
-  const handleBack = () => router.push('/')
   const handleSave = (data: { name: string; email: string }) => {
     // eslint-disable-next-line no-console
     console.log('[ProfileScreen] save:', data)
@@ -86,7 +83,6 @@ export default function SolitoDemoPage() {
             name="李思涵"
             email="lisihan@example.com"
             phone="+86 138 0000 0000"
-            onBack={handleBack}
             onSave={handleSave}
           />
         ) : null}
@@ -95,7 +91,6 @@ export default function SolitoDemoPage() {
             notificationsEnabled={true}
             darkModeEnabled={false}
             language="简体中文"
-            onBack={handleBack}
             onToggleNotifications={handleToggleNotifications}
             onToggleDarkMode={handleToggleDarkMode}
             onPressLanguage={handlePressLanguage}
