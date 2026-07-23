@@ -59,6 +59,13 @@
 .arrow {
   color: var(--color-muted-foreground);
 }
+.menu-item-disabled {
+  opacity: 0.85;
+}
+.version-value {
+  font-size: 26rpx;
+  color: var(--color-muted-foreground);
+}
 .logout {
   margin: 60rpx 32rpx;
   background: var(--color-card);
