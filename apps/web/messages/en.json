@@ -36,7 +36,19 @@
       "publishContentPlaceholder": "Write the skill body (Markdown/JSON)...",
       "publishSubmit": "Publish",
       "publishSuccess": "Published successfully",
-      "publishFailed": "Publish failed"
+      "publishFailed": "Publish failed",
+      "subscribe": "Subscribe",
+      "subscribed": "Subscribed",
+      "unsubscribe": "Unsubscribe",
+      "subscribers": "{count} subscribers",
+      "notifications": "Notifications",
+      "noNotifications": "No notifications",
+      "markRead": "Mark as read",
+      "markedRead": "Marked as read",
+      "skillUpdated": "{name} updated to {version}",
+      "subscribeSuccess": "Subscribed successfully",
+      "unsubscribeSuccess": "Unsubscribed successfully",
+      "subscribeFailed": "Operation failed"
     }
   },
   "common": {
