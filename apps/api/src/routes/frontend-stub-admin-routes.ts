@@ -26,6 +26,8 @@ import {
   eduOrders,
   eduAnnouncements,
   certificateTemplates,
+  certificates,
+  examRecords,
   eduClassesMembers,
   monitorAlerts,
   sysJobs,
@@ -706,6 +708,41 @@ export const frontendStubAdminRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ id, deleted: true }))
     },
   )
+  server.get('/admin/users/:id', { preHandler: requireAdmin }, async (request, reply) => {
+    const { id } = parseOrThrow(idParamSchema, request.params)
+    const [row] = await db
+      .select({
+        id: users.id,
+        nickname: users.nickname,
+        phone: users.phone,
+        email: users.email,
+        level: users.level,
+        status: users.status,
+        createdAt: users.createdAt,
+      })
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1)
+    if (!row) return reply.status(404).send(error(404, '用户不存在'))
+    // 聚合查询：证书数(有效) + 考试数
+    const [certRow] = await db
+      .select({ cnt: count() })
+      .from(certificates)
+      .where(and(eq(certificates.userId, id), eq(certificates.status, 1)))
+    const [examRow] = await db
+      .select({ cnt: count() })
+      .from(examRecords)
+      .where(eq(examRecords.userId, id))
+    return reply.send(
+      success({
+        user: {
+          ...row,
+          certCount: certRow?.cnt ?? 0,
+          examCount: examRow?.cnt ?? 0,
+        },
+      }),
+    )
+  })
   server.put('/admin/users/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const { id } = parseOrThrow(idParamSchema, request.params)
     const body = parseOrThrow(updateUserSchema, request.body)
