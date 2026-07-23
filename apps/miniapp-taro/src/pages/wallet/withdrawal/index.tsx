@@ -5,8 +5,11 @@ import { getDistributionInfo, withdraw } from '@/api'
 import { useI18n } from '@/i18n'
 import './index.css'
 
+const priceFmt = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
 export default function WithdrawalPage() {
   const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   const [available, setAvailable] = useState(0)
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState('wechat')
@@ -14,8 +17,8 @@ export default function WithdrawalPage() {
   const availableRef = useRef(0)
 
   const methods = [
-    { value: 'wechat', label: t('distribution.withdraw.methodWechat') },
-    { value: 'alipay', label: t('distribution.withdraw.methodAlipay') },
+    { value: 'wechat', label: tt('distribution.withdraw.methodWechat', '微信'), icon: '微' },
+    { value: 'alipay', label: tt('distribution.withdraw.methodAlipay', '支付宝'), icon: '支' },
   ]
 
   const load = async () => {
@@ -29,23 +32,23 @@ export default function WithdrawalPage() {
   }
 
   const fillAll = () => {
-    setAmount(String(availableRef.current))
+    setAmount(priceFmt.format(availableRef.current))
   }
 
   const onSubmit = async () => {
     const amt = Number(amount)
     if (!amt || amt <= 0) {
-      Taro.showToast({ title: t('distribution.withdraw.invalidAmount'), icon: 'none' })
+      Taro.showToast({ title: tt('distribution.withdraw.invalidAmount', '请输入有效金额'), icon: 'none' })
       return
     }
     if (amt > availableRef.current) {
-      Taro.showToast({ title: t('distribution.withdraw.insufficient'), icon: 'none' })
+      Taro.showToast({ title: tt('distribution.withdraw.insufficient', '可提现余额不足'), icon: 'none' })
       return
     }
     setSubmitting(true)
     try {
       await withdraw({ amount: amt, type: method })
-      Taro.showToast({ title: t('distribution.withdraw.submitted'), icon: 'success' })
+      Taro.showToast({ title: tt('distribution.withdraw.submitted', '提现申请已提交'), icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 800)
     } catch {
       // ignore
@@ -65,12 +68,12 @@ export default function WithdrawalPage() {
   return (
     <View className="wd-page">
       <View className="wd-balance-card">
-        <Text className="wd-balance-label">{t('distribution.withdraw.available')}</Text>
-        <Text className="wd-balance-amount">¥{available}</Text>
+        <Text className="wd-balance-label">{tt('wallet.withdrawal.availableYuan', '可提现金额(元)')}</Text>
+        <Text className="wd-balance-amount">{priceFmt.format(available)}</Text>
       </View>
 
       <View className="wd-form-card">
-        <Text className="wd-section-label">{t('wallet.withdrawal.amountLabel')}</Text>
+        <Text className="wd-section-label">{tt('wallet.withdrawal.amountLabel', '提现金额')}</Text>
         <View className="wd-amount-row">
           <Text className="wd-currency">¥</Text>
           <Input
@@ -78,14 +81,14 @@ export default function WithdrawalPage() {
             type="digit"
             value={amount}
             onInput={(e) => setAmount(e.detail.value)}
-            placeholder={t('distribution.withdraw.amountPlaceholder')}
+            placeholder={tt('distribution.withdraw.amountPlaceholder', '请输入提现金额')}
           />
           <Text className="wd-all-btn" onClick={fillAll}>
-            {t('distribution.withdraw.all')}
+            {tt('distribution.withdraw.all', '全部提现')}
           </Text>
         </View>
 
-        <Text className="wd-section-label wd-mt">{t('distribution.withdraw.method')}</Text>
+        <Text className="wd-section-label wd-mt">{tt('distribution.withdraw.method', '提现方式')}</Text>
         <View className="wd-method-list">
           {methods.map((m) => (
             <View
@@ -94,7 +97,7 @@ export default function WithdrawalPage() {
               onClick={() => setMethod(m.value)}
             >
               <View className={`wd-method-icon ${m.value}`}>
-                {m.value === 'wechat' ? '微' : '付'}
+                {m.icon}
               </View>
               <Text className="wd-method-name">{m.label}</Text>
               <View className={`wd-radio ${method === m.value ? 'checked' : ''}`}>
@@ -111,11 +114,11 @@ export default function WithdrawalPage() {
         disabled={submitting}
         onClick={onSubmit}
       >
-        {t('distribution.withdraw.submit')}
+        {tt('distribution.withdraw.submit', '提交申请')}
       </Button>
 
       <View className="wd-records-entry" onClick={goRecords}>
-        <Text>{t('wallet.withdrawal.records')}</Text>
+        <Text>{tt('wallet.withdrawal.records', '提现记录')}</Text>
       </View>
     </View>
   )
