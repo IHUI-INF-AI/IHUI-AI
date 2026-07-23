@@ -34,9 +34,9 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
     const state = generateState()
     saveOAuthState('wechat', state)
 
-    // redirect_uri 必须与当前访问域名+端口一致,否则微信开放平台校验失败报"redirect_uri 参数错误"
-    // 不读 env 死值(env 配的端口可能与实际 dev server 端口不符,如 3000 vs 3001)
-    const redirectUri = `${window.location.origin}/callback?platform=wechat`
+    // redirect_uri 优先读 env(生产配 bsm.aizhs.top 分域 SSO),env 留空时 fallback 到当前 origin(localhost dev)
+    // 微信开放平台"授权回调域"只接受一个域名,必须与 redirect_uri 域名完全一致
+    const redirectUri = config.redirectUri
 
     loadWechatQrSdk()
       .then(() => {
