@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import {
-  ActivityIndicator,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
@@ -15,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Loading } from '@ihui/ui-native'
 type Route = RouteProp<RootStackParamList, 'LecturerDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -104,7 +97,7 @@ export function LecturerDetailScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <Loading />
         <Text style={styles.emptyText}>{t('common.loading')}</Text>
       </View>
     )
