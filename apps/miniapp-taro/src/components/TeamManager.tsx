@@ -1,4 +1,5 @@
 import { View, Text, ScrollView } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 import EmptyState from './EmptyState'
 import Avatar from './Avatar'
 
@@ -25,17 +26,19 @@ export default function TeamManager({
   totalCount,
   onViewDetail,
 }: TeamManagerProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   return (
     <View className="bg-card mx-3 my-3 rounded-xl overflow-hidden">
       <View className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <Text className="text-sm font-medium text-foreground">我的团队</Text>
+        <Text className="text-sm font-medium text-foreground">{tt('distribution.myTeam', '我的团队')}</Text>
         <Text className="text-xs text-muted-foreground">{totalCount ?? members.length} 人</Text>
       </View>
 
       <ScrollView scrollY style={{ maxHeight: '40vh' }}>
         {loading ? (
           <View className="py-8 text-center">
-            <Text className="text-sm text-muted-foreground">加载中...</Text>
+            <Text className="text-sm text-muted-foreground">{tt('common.loadingShort', '加载中...')}</Text>
           </View>
         ) : members.length === 0 ? (
           <EmptyState text="暂无团队成员" />
