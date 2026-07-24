@@ -539,6 +539,7 @@
     "knowledgeBase": "지식 베이스",
     "knowledgeRag": "RAG 지식 베이스",
     "knowledgeGraph": "지식 그래프",
+    "registry": "자료 갱신 센터",
     "announcements": "공지사항",
     "overview": "개요",
     "enterprise": "기업 서비스",
@@ -28861,5 +28862,72 @@
     "openGitHub": "GitHub 열기",
     "statusAvailable": "출시됨",
     "statusComingSoon": "곧 출시"
+  },
+  "registry": {
+    "title": "자료 갱신 센터",
+    "loading": "불러오는 중…",
+    "banner": {
+      "upgradeAvailable": "새 버전 {{count}}개 사용 가능",
+      "upgradeAll": "전체 업그레이드",
+      "upgrading": "업그레이드 중…"
+    },
+    "tabs": {
+      "latest": "최신",
+      "hot": "인기",
+      "best": "최고"
+    },
+    "filter": {
+      "all": "전체",
+      "mcp": "MCP",
+      "skill": "Skill",
+      "plugin": "Plugin"
+    },
+    "card": {
+      "source": {
+        "github": "GitHub",
+        "npm": "npm",
+        "marketplace": "Marketplace",
+        "custom": "자체 제작"
+      },
+      "download": "다운로드",
+      "heat": "인기도",
+      "quality": "품질",
+      "install": "설치",
+      "installing": "설치 중…",
+      "upgrade": "업그레이드",
+      "upgrading": "업그레이드 중…",
+      "alreadyLatest": "최신 버전입니다"
+    },
+    "status": {
+      "notInstalled": "미설치",
+      "installed": "설치됨",
+      "upgradable": "업그레이드 가능",
+      "failed": "실패"
+    },
+    "action": {
+      "syncNow": "수동 동기화",
+      "syncing": "동기화 중…",
+      "configDrift": "설정 드리프트 검사",
+      "detecting": "검사 중…"
+    },
+    "admin": {
+      "title": "관리 작업",
+      "syncResult": "동기화 완료:신규 {{synced}} · 실패 {{failed}} · 건너뜀 {{skipped}}",
+      "driftDetected": "{{count}}개 파일에서 설정 드리프트 감지",
+      "noDrift": "설정 드리프트가 감지되지 않았습니다"
+    },
+    "log": {
+      "viewLogs": "동기화 로그 보기",
+      "collapseLogs": "로그 접기",
+      "title": "동기화 로그",
+      "success": "성공",
+      "failed": "실패",
+      "skipped": "건너뛰기",
+      "running": "실행 중",
+      "empty": "동기화 기록 없음"
+    },
+    "empty": {
+      "items": "자료 없음"
+    }
   }
 }
