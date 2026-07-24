@@ -1,4 +1,5 @@
 import { View, Text } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface LessonListItemData {
   id: string
@@ -17,19 +18,20 @@ export interface LessonListItemProps {
   onClick?: () => void
 }
 
-const TYPE_ICONS: Record<string, string> = {
-  video: '▶',
-  audio: '♫',
-  article: '文',
-  live: '🔴',
-}
-
 export default function LessonListItem({
   data,
   index = 0,
   active = false,
   onClick,
 }: LessonListItemProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const TYPE_ICONS: Record<string, string> = {
+    video: '▶',
+    audio: '♫',
+    article: tt('lesson.articleType', '文'),
+    live: '🔴',
+  }
   return (
     <View
       className={`flex items-center px-4 py-3 border-b border-border ${
@@ -61,7 +63,7 @@ export default function LessonListItem({
 
       {data.isFree && (
         <Text className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary mr-2">
-          试看
+          {tt('lesson.preview', '试看')}
         </Text>
       )}
       {data.watched && <Text className="text-xs text-primary mr-2">✓</Text>}

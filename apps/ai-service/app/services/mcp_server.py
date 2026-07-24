@@ -1369,7 +1369,12 @@ async def _tool_db_query(arguments: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 # api 层 agent-control 端点(转发到 extension/desktop 端执行)
-_AGENT_CONTROL_API_URL = "http://127.0.0.1:8801/api/agent-control/execute"
+# 2026-07-24 修复:原硬编码 http://127.0.0.1:8801(端口 8801 是 web,agent-control 路由在 api 8802)
+# 改为从 settings.api_service_url 动态构建,与 .env API_SERVICE_URL 配置一致
+def _get_agent_control_api_url() -> str:
+    """动态构建 agent-control API URL(确保 settings 已加载 .env)。"""
+    from ..core.config import settings
+    return f"{settings.api_service_url}/api/agent-control/execute"
 
 
 async def _tool_agent_control(
@@ -1409,7 +1414,7 @@ async def _tool_agent_control(
     try:
         async with httpx.AsyncClient(timeout=timeout_ms / 1000 + 10) as client:
             response = await client.post(
-                _AGENT_CONTROL_API_URL,
+                _get_agent_control_api_url(),
                 json=request,
                 headers={"Authorization": f"Bearer {_get_agent_control_secret()}"},
             )
@@ -1456,7 +1461,11 @@ def _make_agent_control_handler(category: str, action: str):
 # 调用 api 层 /api/self-media/automation/tasks/:taskId/config
 # ---------------------------------------------------------------------------
 
-_AUTOMATION_API_BASE = "http://127.0.0.1:8801/api/self-media/automation/tasks"
+# 2026-07-24 修复:原硬编码 8801(web),self-media/automation 路由在 api 8802
+def _get_automation_api_base() -> str:
+    """动态构建 self-media automation API base URL(确保 settings 已加载 .env)。"""
+    from ..core.config import settings
+    return f"{settings.api_service_url}/api/self-media/automation/tasks"
 
 
 # ---------------------------------------------------------------------------
@@ -1540,7 +1549,7 @@ async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str
     if title_template:
         config_body["title_template"] = str(title_template)
 
-    url = f"{_AUTOMATION_API_BASE}/{task_id}/config"
+    url = f"{_get_automation_api_base()}/{task_id}/config"
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(url, json=config_body)
