@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
-import zhCN from './messages/zh-CN.json'
-import en from './messages/en.json'
-import ja from './messages/ja.json'
-import ko from './messages/ko.json'
-import zhTW from './messages/zh-TW.json'
+// 2026-07-25 i18n 单一来源:翻译文件迁移到 @ihui/i18n/messages/extension/
+import zhCN from '@ihui/i18n/messages/extension/zh-CN.json'
+import en from '@ihui/i18n/messages/extension/en.json'
+import ja from '@ihui/i18n/messages/extension/ja.json'
+import ko from '@ihui/i18n/messages/extension/ko.json'
+import zhTW from '@ihui/i18n/messages/extension/zh-TW.json'
 
 export type Locale = 'zh-CN' | 'en' | 'ja' | 'ko' | 'zh-TW'
 
