@@ -25,6 +25,9 @@ export interface ToolCall {
   applyStatus?: DiffApplyStatus
   /** Apply 失败时的错误信息(applyStatus === 'error' 时填充) */
   applyError?: string
+  /** 后端重复调用检测命中时标记(同 tool_name + 同 args 已执行过,跳过实际调用)
+   * 来自 SSE tool-result 事件的 repeated 字段。true 时前端渲染"已跳过"灰色徽章 */
+  repeated?: boolean
 }
 
 /** AI 主动提问的选项 */
