@@ -2,41 +2,12 @@
  * NotificationBell — 通知铃铛按钮 + 未读数 badge。
  * 通过 chrome.runtime.sendMessage 主动拉取未读数,WS 推送通过 onWsMessage 回调。
  */
-import { type CSSProperties, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { sendMessage } from '../../lib/message-router'
 
 export interface NotificationBellProps {
   initialCount?: number
   onOpen?: () => void
-}
-
-const btnStyle: CSSProperties = {
-  position: 'relative',
-  background: 'none',
-  border: 'none',
-  cursor: 'pointer',
-  padding: 2,
-  fontSize: 16,
-  lineHeight: 1,
-  color: 'inherit',
-}
-
-const badgeStyle: CSSProperties = {
-  position: 'absolute',
-  top: -2,
-  right: -4,
-  minWidth: 16,
-  height: 16,
-  padding: '0 4px',
-  background: '#ef4444',
-  color: '#fff',
-  fontSize: 10,
-  fontWeight: 600,
-  borderRadius: 8,
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  lineHeight: 1,
 }
 
 export function NotificationBell({ initialCount = 0, onOpen }: NotificationBellProps) {
@@ -65,17 +36,30 @@ export function NotificationBell({ initialCount = 0, onOpen }: NotificationBellP
         setCount((c) => c + 1)
       }
     }
-    chrome.runtime.onMessage.addListener(listener as Parameters<typeof chrome.runtime.onMessage.addListener>[0])
+    chrome.runtime.onMessage.addListener(
+      listener as Parameters<typeof chrome.runtime.onMessage.addListener>[0],
+    )
     return () => {
       cancelled = true
-      chrome.runtime.onMessage.removeListener(listener as Parameters<typeof chrome.runtime.onMessage.removeListener>[0])
+      chrome.runtime.onMessage.removeListener(
+        listener as Parameters<typeof chrome.runtime.onMessage.removeListener>[0],
+      )
     }
   }, [])
 
   return (
-    <button type="button" style={btnStyle} onClick={onOpen} aria-label="通知">
+    <button
+      type="button"
+      className="relative bg-transparent border-none cursor-pointer p-0.5 text-base leading-none text-inherit"
+      onClick={onOpen}
+      aria-label="通知"
+    >
       <span aria-hidden>🔔</span>
-      {count > 0 ? <span style={badgeStyle}>{count > 99 ? '99+' : count}</span> : null}
+      {count > 0 ? (
+        <span className="absolute -top-0.5 -right-1 min-w-4 h-4 px-1 bg-destructive text-white text-xs font-semibold rounded-lg inline-flex items-center justify-center leading-none">
+          {count > 99 ? '99+' : count}
+        </span>
+      ) : null}
     </button>
   )
 }
