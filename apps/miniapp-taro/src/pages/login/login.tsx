@@ -114,22 +114,22 @@ export default function Login() {
         <Text className="block mt-[8px] text-[13px] text-muted-foreground">{t('login.slogan')}</Text>
       </View>
 
-      <View className="flex mb-[24px]">
+      <View className="flex mb-[24px] bg-muted rounded-md">
         <View
-          className={`flex-1 text-center py-[10px] text-[15px] border-b-[2px] border-solid ${
+          className={`flex-1 text-center py-[10px] text-[15px] rounded-md ${
             loginType === 'phone'
-              ? 'text-primary font-semibold border-primary'
-              : 'text-muted-foreground border-transparent'
+              ? 'text-primary font-semibold bg-card'
+              : 'text-muted-foreground'
           }`}
           onClick={() => setLoginType('phone')}
         >
           <Text>{t('login.phoneLogin')}</Text>
         </View>
         <View
-          className={`flex-1 text-center py-[10px] text-[15px] border-b-[2px] border-solid ${
+          className={`flex-1 text-center py-[10px] text-[15px] rounded-md ${
             loginType === 'password'
-              ? 'text-primary font-semibold border-primary'
-              : 'text-muted-foreground border-transparent'
+              ? 'text-primary font-semibold bg-card'
+              : 'text-muted-foreground'
           }`}
           onClick={() => setLoginType('password')}
         >
@@ -137,7 +137,7 @@ export default function Login() {
         </View>
       </View>
 
-      <View className="flex items-center h-[48px] mb-[16px] border-b-[1px] border-solid border-[var(--color-border)]">
+      <View className="flex items-center h-[48px] mb-[16px] border border-solid border-[var(--color-border)] rounded-md px-[12px]">
         <Input
           className="flex-1 h-[48px] text-[15px]"
           type="number"
@@ -149,7 +149,7 @@ export default function Login() {
       </View>
 
       {loginType === 'phone' ? (
-        <View className="flex items-center h-[48px] mb-[16px] border-b-[1px] border-solid border-[var(--color-border)]">
+        <View className="flex items-center h-[48px] mb-[16px] border border-solid border-[var(--color-border)] rounded-md px-[12px]">
           <Input
             className="flex-1 h-[48px] text-[15px]"
             type="number"
@@ -168,7 +168,7 @@ export default function Login() {
       ) : null}
 
       {loginType === 'password' ? (
-        <View className="flex items-center h-[48px] mb-[16px] border-b-[1px] border-solid border-[var(--color-border)]">
+        <View className="flex items-center h-[48px] mb-[16px] border border-solid border-[var(--color-border)] rounded-md px-[12px]">
           <Input
             className="flex-1 h-[48px] text-[15px]"
             password
@@ -205,7 +205,7 @@ export default function Login() {
       </View>
 
       <View
-        className="mt-[16px] text-center text-[13px] text-muted-foreground border-t border-[var(--color-border)] pt-[16px]"
+        className="mt-[24px] text-center text-[13px] text-muted-foreground pt-[16px]"
         onClick={handleSsoLogin}
       >
         <Text>{t('login.ssoLogin')}</Text>

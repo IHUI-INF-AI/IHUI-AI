@@ -52,9 +52,8 @@
 .meta {
   display: flex;
   align-items: center;
-  margin-top: 16rpx;
+  margin-top: 24rpx;
   padding-top: 16rpx;
-  border-top: 2rpx solid var(--color-border);
 }
 .avatar {
   width: 40rpx;

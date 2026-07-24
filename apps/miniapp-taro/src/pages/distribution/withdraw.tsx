@@ -64,7 +64,7 @@ export default function DistributionWithdraw() {
       <View className="mx-[12px] mt-[12px] bg-card rounded-[8px] p-[16px]">
         <Text className="text-[12px] text-muted-foreground">{t('distribution.withdraw.available')}</Text>
         <Text className="block text-[40px] text-foreground font-bold mt-[4px]">¥{available}</Text>
-        <View className="flex items-center py-[12px] mt-[8px] border-t-[1px] border-border">
+        <View className="flex items-center py-[12px] mt-[16px]">
           <Text className="text-[24px] text-foreground font-semibold">¥</Text>
           <Input
             className="flex-1 ml-[8px] text-[24px]"

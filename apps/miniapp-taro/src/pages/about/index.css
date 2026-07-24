@@ -47,10 +47,9 @@
   justify-content: space-between;
   align-items: center;
   padding: 32rpx;
-  border-bottom: 2rpx solid var(--color-border);
 }
-.menu-item:last-child {
-  border-bottom: none;
+.menu-item + .menu-item {
+  margin-top: 16rpx;
 }
 .menu-item:active {
   background: var(--color-background);
