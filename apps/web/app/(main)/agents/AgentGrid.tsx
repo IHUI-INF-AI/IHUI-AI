@@ -17,7 +17,7 @@ interface Props {
 }
 
 export function AgentGrid({ agents, isLoading, error }: Props) {
-  const t = useTranslations('agents')
+  const t = useTranslations('agent')
   const locale = useLocale()
   const priceFmt = new Intl.NumberFormat(locale, { style: 'currency', currency: 'CNY' })
 

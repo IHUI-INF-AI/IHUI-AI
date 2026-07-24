@@ -13,7 +13,7 @@ import { MyAgentsTab } from './MyAgentsTab'
 import { PAGE_SIZE, fetchAgents, fetchCategories } from './helpers'
 
 export default function AgentsMarketPage() {
-  const t = useTranslations('agents')
+  const t = useTranslations('agent')
 
   const [keyword, setKeyword] = React.useState('')
   const [debounced, setDebounced] = React.useState('')

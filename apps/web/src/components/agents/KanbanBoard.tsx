@@ -34,7 +34,7 @@ const PRIORITY_OPTIONS = [
 ] as const
 
 export function KanbanBoard() {
-  const t = useTranslations('agents')
+  const t = useTranslations('agent')
   const tc = useTranslations('common')
   const queryClient = useQueryClient()
   const { success } = useToast()
