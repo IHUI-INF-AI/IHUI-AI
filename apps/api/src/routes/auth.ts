@@ -614,10 +614,19 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       // 2026-07-24 国安级升级:透明升级老 bcrypt 哈希到 argon2id(抗 GPU/ASIC)
       // 登录成功后自动迁移,用户无感知,无需强制重置密码
+      // 2026-07-24 修复:system admin 等不可变用户(immutability trigger)updateUser 会抛
+      // PostgresError 导致 login 500。改为 try/catch 容错,升级失败仅 log 不阻断登录流程。
       const upgradedHash = await upgradeHashIfNeeded(password, user.passwordHash)
       if (upgradedHash) {
-        await updateUser(user.id, { passwordHash: upgradedHash })
-        request.log.info({ userId: user.id }, '密码哈希已透明升级 bcrypt→argon2id')
+        try {
+          await updateUser(user.id, { passwordHash: upgradedHash })
+          request.log.info({ userId: user.id }, '密码哈希已透明升级 bcrypt→argon2id')
+        } catch (hashErr) {
+          request.log.warn(
+            { err: String(hashErr), userId: user.id },
+            '密码哈希透明升级失败(可能是 system admin 不可变用户触发 trigger),跳过升级,登录流程继续',
+          )
+        }
       }
 
       // 风控评估：异常 IP / 异地登录检测
