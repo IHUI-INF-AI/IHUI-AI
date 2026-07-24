@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  ActivityIndicator,
   FlatList,
   Image,
   RefreshControl,
@@ -11,6 +10,7 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { Loading } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
@@ -54,26 +54,31 @@ export function RankingScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
 
-  const load = useCallback(async (refresh = false) => {
-    if (refresh) setRefreshing(true)
-    else setLoading(true)
-    setError('')
-    const resp = await fetch(`${API_BASE_URL}/api/ranking?range=${range}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-    if (!resp.ok) {
-      setError(t('ranking.loadFailed'))
+  const load = useCallback(
+    async (refresh = false) => {
+      if (refresh) setRefreshing(true)
+      else setLoading(true)
+      setError('')
+      const resp = await fetch(`${API_BASE_URL}/api/ranking?range=${range}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      if (!resp.ok) {
+        setError(t('ranking.loadFailed'))
+        setLoading(false)
+        setRefreshing(false)
+        return
+      }
+      const data = (await resp.json()) as { data?: RankItem[] }
+      setList(data.data ?? [])
       setLoading(false)
       setRefreshing(false)
-      return
-    }
-    const data = (await resp.json()) as { data?: RankItem[] }
-    setList(data.data ?? [])
-    setLoading(false)
-    setRefreshing(false)
-  }, [token, range, t])
+    },
+    [token, range, t],
+  )
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   const onRangeChange = (next: RangeKey) => {
     if (next === range) return
@@ -86,7 +91,7 @@ export function RankingScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <Loading />
         <Text style={styles.emptyText}>{t('common.loading')}</Text>
       </View>
     )
@@ -136,7 +141,9 @@ export function RankingScreen() {
                   <Text style={styles.avatarInitial}>{initials(item.nickname)}</Text>
                 )}
               </View>
-              <Text style={styles.podiumName} numberOfLines={1}>{item.nickname || t('ranking.anonymous')}</Text>
+              <Text style={styles.podiumName} numberOfLines={1}>
+                {item.nickname || t('ranking.anonymous')}
+              </Text>
               <Text style={styles.podiumPoints}>{item.points}</Text>
               <View style={[styles.rankBadge, { backgroundColor: rankColor(item.rank) }]}>
                 <Text style={styles.rankBadgeText}>#{item.rank}</Text>
@@ -201,22 +208,58 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: PRIMARY },
   tabText: { fontSize: 12, color: '#6B7280' },
   tabTextActive: { color: '#FFFFFF' },
-  errorBar: { paddingHorizontal: 16, paddingVertical: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  errorBar: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   retryText: { fontSize: 12, color: PRIMARY },
   podiumRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  podiumItem: { flex: 1, alignItems: 'center', padding: 12, borderRadius: 8, backgroundColor: '#F9FAFB' },
+  podiumItem: {
+    flex: 1,
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#F9FAFB',
+  },
   podiumFirst: { backgroundColor: '#FEF3C7' },
-  podiumAvatar: { width: 56, height: 56, borderRadius: 8, borderWidth: 2, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  podiumAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
   avatarImg: { width: '100%', height: '100%', borderRadius: 8 },
   avatarInitial: { fontSize: 22, fontWeight: '600', color: '#6B7280' },
   podiumName: { marginTop: 6, fontSize: 13, fontWeight: '600', color: '#111827' },
   podiumPoints: { marginTop: 2, fontSize: 12, color: PRIMARY },
   rankBadge: { marginTop: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
   rankBadgeText: { fontSize: 11, color: '#FFFFFF' },
-  card: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
   cardMe: { borderColor: PRIMARY, backgroundColor: '#ECFDF5' },
   rankText: { width: 36, fontSize: 14, fontWeight: '700' },
-  listAvatar: { width: 36, height: 36, borderRadius: 8, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB' },
+  listAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F9FAFB',
+  },
   listInfo: { flex: 1, marginLeft: 10, marginRight: 8 },
   listName: { fontSize: 14, fontWeight: '600', color: '#111827' },
   listMeta: { marginTop: 2, fontSize: 11, color: '#9CA3AF' },
