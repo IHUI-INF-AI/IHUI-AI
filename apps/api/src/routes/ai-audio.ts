@@ -645,6 +645,19 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
       return
     }
     const buf = await file.toBuffer()
+    // 2026-07-24 安全加固:音频文件类型校验 + 大小限制(防 CWE-434)
+    const AUDIO_MAX_SIZE = 25 * 1024 * 1024 // 25MB(DashScope ASR 限制)
+    const AUDIO_ALLOWED_EXTS = ['.wav', '.mp3', '.m4a', '.aac', '.ogg', '.flac']
+    const filename = file.filename ?? 'audio.wav'
+    const ext = filename.toLowerCase().slice(filename.lastIndexOf('.'))
+    if (!AUDIO_ALLOWED_EXTS.includes(ext)) {
+      reply.status(400).send(error(400, `仅支持音频格式: ${AUDIO_ALLOWED_EXTS.join(', ')}`))
+      return
+    }
+    if (buf.length > AUDIO_MAX_SIZE) {
+      reply.status(400).send(error(400, '音频文件不能超过 25MB'))
+      return
+    }
     const audioBase64 = buf.toString('base64')
     const { model: qsModel, language } = modelLanguageQuery.parse(request.query)
     const model = qsModel ?? 'paraformer-v2'
