@@ -1,5 +1,5 @@
 {
-  "miniprogramRoot": "dist/",
+  "miniprogramRoot": "dist-alipay/",
   "projectname": "ihui-miniapp",
   "appid": "2021005181634508",
   "compileType": "mini",
