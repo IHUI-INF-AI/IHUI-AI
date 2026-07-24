@@ -29,6 +29,12 @@ vi.mock('@ihui/auth', () => ({
   createFamilyId: vi.fn().mockReturnValue('00000000-0000-0000-0000-000000000002'),
 }))
 
+// 修复(2026-07-24):authenticate 内部调用 jose.decodeJwt(token) 检查 challenge token,
+// 'mock-admin-token' 非有效 JWT 会抛异常 → 401。mock decodeJwt 返回非 challenge payload 绕过。
+vi.mock('jose', () => ({
+  decodeJwt: vi.fn(() => ({ type: 'access' })),
+}))
+
 vi.mock('../../db/index.js', () => {
   function createChainableMock() {
     const thenFn = (resolve: (v: unknown) => void) => mockSelectResult().then(resolve)
