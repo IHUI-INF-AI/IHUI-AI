@@ -36,7 +36,7 @@ type Provider = {
  * - 支持回调处理：当 URL 含 code/state 时自动触发对应平台的回调流程。
  * - 演示模式 / 后端失败时自动回退为本地数据，保证登录链路可用。
  */
-export function ThirdPartyLoginButtons() {
+function ThirdPartyLoginButtonsInner() {
   const t = useTranslations('auth')
   const searchParams = useSearchParams()
   const { startLogin, handleCallback, isPlatformEnabled, isLoading, currentPlatform } =
@@ -196,5 +196,17 @@ export function ThirdPartyLoginButtons() {
         })}
       </div>
     </>
+  )
+}
+
+/**
+ * Suspense 包裹的第三方登录按钮群(2026-07-24 A 套壳适配)
+ * output:'export' 模式要求 useSearchParams() 被 <Suspense> 边界包裹
+ */
+export function ThirdPartyLoginButtons() {
+  return (
+    <React.Suspense fallback={null}>
+      <ThirdPartyLoginButtonsInner />
+    </React.Suspense>
   )
 }
