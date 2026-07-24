@@ -1,7 +1,7 @@
-﻿import type { ComponentProps, ReactNode } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 import { ActivityIndicator, Pressable, Text } from 'react-native'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { cn } from '@ihui/design-tokens'
+import { cn, type ButtonBaseProps } from '@ihui/design-tokens'
 
 export const buttonVariants = cva('flex flex-row items-center justify-center rounded-md', {
   variants: {
@@ -21,7 +21,10 @@ export const buttonVariants = cva('flex flex-row items-center justify-center rou
 })
 
 export interface ButtonProps
-  extends ComponentProps<typeof Pressable>, VariantProps<typeof buttonVariants> {
+  extends
+    ComponentProps<typeof Pressable>,
+    ButtonBaseProps,
+    Omit<VariantProps<typeof buttonVariants>, 'variant' | 'size'> {
   loading?: boolean
   children?: ReactNode
 }
