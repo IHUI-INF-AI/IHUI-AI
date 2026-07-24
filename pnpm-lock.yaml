@@ -397,6 +397,9 @@ importers:
       '@ihui/design-tokens':
         specifier: workspace:*
         version: link:../../packages/design-tokens
+      '@ihui/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@ihui/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -458,6 +461,9 @@ importers:
       '@ihui/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@ihui/design-tokens':
+        specifier: workspace:*
+        version: link:../../packages/design-tokens
       '@ihui/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -1171,6 +1177,12 @@ importers:
 
   packages/shared:
     dependencies:
+      '@ihui/api-client':
+        specifier: workspace:*
+        version: link:../api-client
+      react:
+        specifier: '>=18.0.0'
+        version: 19.0.0
       xstate:
         specifier: ^5.19.0
         version: 5.32.5
@@ -1181,6 +1193,9 @@ importers:
       '@ihui/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
+      '@types/react':
+        specifier: 19.2.17
+        version: 19.2.17
       eslint:
         specifier: ^9.16.0
         version: 9.39.4(jiti@2.7.0)
