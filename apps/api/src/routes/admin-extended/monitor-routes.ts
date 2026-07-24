@@ -50,4 +50,25 @@ export const monitorRoutes: FastifyPluginAsync = async (server) => {
       .limit(100)
     return reply.send(success({ list, total: list.length }))
   })
+  server.get('/admin/monitor/redis', { preHandler: requireAdmin }, async (_request, reply) => {
+    return reply.send(
+      success({
+        overview: {
+          totalKeys: 0,
+          usedMemory: 0,
+          maxMemory: 0,
+          hitRate: 0,
+          missRate: 0,
+          hits: 0,
+          misses: 0,
+          evictions: 0,
+          connectedClients: 0,
+          uptime: 0,
+          opsPerSec: 0,
+        },
+        topKeys: [],
+        byPrefix: [],
+      }),
+    )
+  })
 }

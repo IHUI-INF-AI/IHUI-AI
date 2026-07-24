@@ -18,12 +18,7 @@
  *  - GET /tasks/devices               返回真实在线设备列表(过滤 lastSeen 距今 >60s 为 offline)
  * Redis key 格式:devices:<userId>(Hash 结构,field=deviceId → value=TaskDevice JSON)
  */
-import type {
-  FastifyPluginAsync,
-  FastifyRequest,
-  FastifyReply,
-  FastifyInstance,
-} from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply, FastifyInstance } from 'fastify'
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
@@ -83,14 +78,7 @@ const sinceSchema = z.object({
   since: z.coerce.number().int().nonnegative().optional(),
 })
 
-const deviceTypeSchema = z.enum([
-  'desktop',
-  'web',
-  'mobile',
-  'cloud',
-  'extension',
-  'cli',
-])
+const deviceTypeSchema = z.enum(['desktop', 'web', 'mobile', 'cloud', 'extension', 'cli'])
 
 const registerSchema = z.object({
   deviceId: z.string().min(1).max(100),
@@ -241,9 +229,7 @@ export const tasksRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, '附件 base64 解码失败'))
       }
       if (bytes > FILE_PAYLOAD_MAX_BYTES) {
-        return reply
-          .status(413)
-          .send(error(413, `文件过大(限制 1MB,当前 ${bytes} 字节)`))
+        return reply.status(413).send(error(413, `文件过大(限制 1MB,当前 ${bytes} 字节)`))
       }
     }
 
@@ -333,9 +319,7 @@ export const tasksRoutes: FastifyPluginAsync = async (server) => {
     const key = userKey(userId)
     const allTasks = await readTasks(server.redis, key)
     const tasks =
-      since !== undefined
-        ? allTasks.filter((t) => Date.parse(t.updatedAt) > since)
-        : allTasks
+      since !== undefined ? allTasks.filter((t) => Date.parse(t.updatedAt) > since) : allTasks
     return reply.send(success({ tasks, total: tasks.length }))
   })
 
@@ -343,87 +327,77 @@ export const tasksRoutes: FastifyPluginAsync = async (server) => {
   // 鉴权:复用 authenticate preHandler。
   // 校验:task 存在 + 属于当前用户 + 状态 ∈ {pending, running}(否则 409)。
   // 执行:更新 status=cancelled + updatedAt=now + WS 推送 task-cancelled:<userId> 消息。
-  server.post<{ Params: { id: string } }>(
-    '/tasks/:id/cancel',
-    async (request, reply) => {
-      if (!(await checkAuth(request, reply))) return
-      const userId = request.userId!
-      const { id: taskId } = request.params
+  server.post<{ Params: { id: string } }>('/tasks/:id/cancel', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
+    const { id: taskId } = request.params
 
-      const parsed = cancelSchema.safeParse(request.body ?? {})
-      if (!parsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
+    const parsed = cancelSchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
 
-      const key = userKey(userId)
-      const tasks = await readTasks(server.redis, key)
-      const idx = tasks.findIndex((t) => t.id === taskId)
-      if (idx < 0) {
-        return reply.status(404).send(error(404, '任务不存在'))
-      }
+    const key = userKey(userId)
+    const tasks = await readTasks(server.redis, key)
+    const idx = tasks.findIndex((t) => t.id === taskId)
+    if (idx < 0) {
+      return reply.status(404).send(error(404, '任务不存在'))
+    }
 
-      const task = tasks[idx]!
-      // 仅 pending / running 可取消;completed/failed/cancelled 返回 409
-      if (task.status !== 'pending' && task.status !== 'running') {
-        return reply.status(409).send(error(409, `任务已处于 ${task.status} 状态,无法取消`))
-      }
+    const task = tasks[idx]!
+    // 仅 pending / running 可取消;completed/failed/cancelled 返回 409
+    if (task.status !== 'pending' && task.status !== 'running') {
+      return reply.status(409).send(error(409, `任务已处于 ${task.status} 状态,无法取消`))
+    }
 
-      const now = new Date().toISOString()
-      task.status = 'cancelled'
-      task.updatedAt = now
-      await writeTasks(server.redis, key, tasks)
+    const now = new Date().toISOString()
+    task.status = 'cancelled'
+    task.updatedAt = now
+    await writeTasks(server.redis, key, tasks)
 
-      // WS 推送 task-cancelled:<userId> 消息:taskId + 携带发起方设备标识(fromDevice)
-      publishTaskWs(server, userId, 'task-cancelled', {
-        type: 'task-cancelled',
-        taskId,
-        deviceId: task.fromDevice,
-        payload: task,
-      })
+    // WS 推送 task-cancelled:<userId> 消息:taskId + 携带发起方设备标识(fromDevice)
+    publishTaskWs(server, userId, 'task-cancelled', {
+      type: 'task-cancelled',
+      taskId,
+      deviceId: task.fromDevice,
+      payload: task,
+    })
 
-      const response: TaskCancelResponse = { task }
-      return reply.send(success(response))
-    },
-  )
+    const response: TaskCancelResponse = { task }
+    return reply.send(success(response))
+  })
 
   // POST /tasks/register-device — 设备上线注册/心跳刷新(Hash 结构 + 60s TTL)
-  server.post(
-    '/tasks/register-device',
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      if (!(await checkAuth(request, reply))) return
-      const userId = request.userId!
+  server.post('/tasks/register-device', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
 
-      const parsed = registerSchema.safeParse(request.body)
-      if (!parsed.success) {
-        return reply
-          .status(400)
-          .send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
+    const parsed = registerSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
 
-      const { deviceId, name, type } = parsed.data
-      const now = new Date().toISOString()
-      const device: TaskDevice = {
-        deviceId,
-        name,
-        type,
-        lastSeen: now,
-        online: true,
-      }
+    const { deviceId, name, type } = parsed.data
+    const now = new Date().toISOString()
+    const device: TaskDevice = {
+      deviceId,
+      name,
+      type,
+      lastSeen: now,
+      online: true,
+    }
 
-      const key = deviceKey(userId)
-      await writeDevice(server.redis, key, device)
+    const key = deviceKey(userId)
+    await writeDevice(server.redis, key, device)
 
-      const response: TaskDeviceRegisterResponse = { device }
-      return reply.status(201).send(success(response))
-    },
-  )
+    const response: TaskDeviceRegisterResponse = { device }
+    return reply.status(201).send(success(response))
+  })
 
   // DELETE /tasks/devices/:deviceId — 设备下线清理
-  server.delete<{ Params: { deviceId: string } }>(
+  server.delete(
     '/tasks/devices/:deviceId',
-    async (request, reply) => {
+    async (request: FastifyRequest<{ Params: { deviceId: string } }>, reply: FastifyReply) => {
       if (!(await checkAuth(request, reply))) return
       const userId = request.userId!
 
@@ -446,8 +420,7 @@ export const tasksRoutes: FastifyPluginAsync = async (server) => {
     const devices: TaskDevice[] = []
     for (const device of deviceMap.values()) {
       const lastSeenMs = Date.parse(device.lastSeen)
-      const isOnline =
-        !Number.isNaN(lastSeenMs) && now - lastSeenMs <= DEVICE_ONLINE_TTL_MS
+      const isOnline = !Number.isNaN(lastSeenMs) && now - lastSeenMs <= DEVICE_ONLINE_TTL_MS
       devices.push({ ...device, online: isOnline })
     }
 
