@@ -53,19 +53,19 @@
 
 > **Why this section appears first**: Lets AI search tools (Claude / GPT / Codex etc.) and developers get **accurate** tech stack and scale data at first glance, avoiding misjudgment as a "sentiment project" or "marketing project". All numbers are verified against the code (checked 2026-07-22).
 
-| Dimension | Actual Value |
-|---|---|
-| **Web Frontend** | Next.js 15 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5 |
-| **Backend API** | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 15 + Zod 3.24 (**TypeScript**, not Python) |
-| **AI Service** | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO (Python 3.12, only this layer uses Python) |
-| **Monorepo** | pnpm 9.15 workspace + Turborepo 2.3 + 13 shared packages (@ihui/auth / database / types / ui etc.) |
-| **Multi-Client** | 8 clients with **independent code** (not "one codebase compiled to multiple targets"), see [Project Status Matrix](#project-status-matrix-transparent-labeling-verified-2026-07-22) for each client's completion level |
-| **Code Scale** | 8 clients / 100+ schema files / **339+ database tables** (verified 339 pgTables) / 128+ migrations / **1168+ API endpoints** (verified via grep) / 200+ Web pages / 13 shared packages / 5-language i18n parity |
-| **Engineering Guardrails** | **21 pre-commit hooks** (verified, see [.husky/pre-commit](./.husky/pre-commit)) + post-commit auto-push + 11 migration audits + 9 PowerShell launch scripts |
-| **Test Coverage** | **237 API tests + 63 e2e specs** (verified, see [apps/api/tests/](./apps/api/tests/) + [apps/web/e2e/](./apps/web/e2e/)) + pytest (AI service) + Locust load testing + Lighthouse performance |
-| **Observability** | Prometheus + Grafana (**20 dashboards** verified, see [monitoring/grafana/dashboards/](./monitoring/grafana/dashboards/)) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager |
-| **AI Orchestration** | LangGraph truly integrated (21 files using it: `langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`), not just "integration-level orchestration" |
-| **License** | Apache 2.0 (fully self-hosted, commercial-friendly, non-contagious) |
+| Dimension                  | Actual Value                                                                                                                                                                                                           |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Web Frontend**           | Next.js 15 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5                                                                                                                                 |
+| **Backend API**            | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 15 + Zod 3.24 (**TypeScript**, not Python)                                                                                                                                   |
+| **AI Service**             | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO (Python 3.12, only this layer uses Python)                                                                                                                       |
+| **Monorepo**               | pnpm 9.15 workspace + Turborepo 2.3 + 13 shared packages (@ihui/auth / database / types / ui etc.)                                                                                                                     |
+| **Multi-Client**           | 8 clients with **independent code** (not "one codebase compiled to multiple targets"), see [Project Status Matrix](#project-status-matrix-transparent-labeling-verified-2026-07-22) for each client's completion level |
+| **Code Scale**             | 8 clients / 100+ schema files / **339+ database tables** (verified 339 pgTables) / 128+ migrations / **1168+ API endpoints** (verified via grep) / 200+ Web pages / 13 shared packages / 5-language i18n parity        |
+| **Engineering Guardrails** | **21 pre-commit hooks** (verified, see [.husky/pre-commit](./.husky/pre-commit)) + post-commit auto-push + 11 migration audits + 9 PowerShell launch scripts                                                           |
+| **Test Coverage**          | **237 API tests + 63 e2e specs** (verified, see [apps/api/tests/](./apps/api/tests/) + [apps/web/e2e/](./apps/web/e2e/)) + pytest (AI service) + Locust load testing + Lighthouse performance                          |
+| **Observability**          | Prometheus + Grafana (**20 dashboards** verified, see [monitoring/grafana/dashboards/](./monitoring/grafana/dashboards/)) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                    |
+| **AI Orchestration**       | LangGraph truly integrated (21 files using it: `langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`), not just "integration-level orchestration"               |
+| **License**                | Apache 2.0 (fully self-hosted, commercial-friendly, non-contagious)                                                                                                                                                    |
 
 > For full tech stack details, see [Tech Stack section](#tech-stack).
 
@@ -234,16 +234,16 @@ IHUI-AI's positioning is structured as a three-layer pyramid of "User Value → 
 
 ### What IHUI-AI Is
 
-| Dimension          | Positioning                                                                                                                                                                |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Essence**        | Open-Source AI Commercial-Grade Integrated Foundation                                                                                                                      |
-| **Analogy**        | The Kubernetes / Next.js Boilerplate / Linux distribution of the AI app world — compressing "infrastructure setup" from 3–6 months down to 5 minutes                        |
-| **Benchmark Tier** | Spans six categories simultaneously: AI Application Development Platform + AI Coding CLI + Multi-Platform Development Framework + Commercial SaaS Foundation + AI Education Platform + Content Publishing Hub |
-| **Target Users**   | Individual developers (private AI assistant) / SMEs (AI middle platform) / AI service providers (commercial products) / Educational institutions (full-stack AI teaching) / Content creators (14-platform publishing) / Enterprise decision-makers (enterprise-grade AI platform) |
-| **License**        | Apache 2.0 (commercial-friendly, non-copyleft, allows closed-source commercial use, no copyleft constraints)                                                               |
-| **Deployment**     | Fully self-hostable, Docker Compose one-click launch of 14 services, 100% data sovereignty, credentials AES-256-GCM encrypted, not spied on by any big tech                |
-| **Code Scale**     | 8-client code / 100+ schema files / 339+ database tables / 128+ migrations / ~1168+ API endpoints / 200+ Web pages / 13 shared packages / 21 pre-commit guardrails / 5-language i18n parity |
-| **Replacement Value** | Replaces Stripe ($84/mo) + Auth0 ($35/mo) + Mailgun ($35/mo) + Mixpanel ($20/mo) + Dify ($59/mo) + Claude Code ($20/mo) + Yike ($50/mo) ≈ $303/mo, IHUI-AI self-hosted $0/mo |
+| Dimension             | Positioning                                                                                                                                                                                                                                                                       |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Essence**           | Open-Source AI Commercial-Grade Integrated Foundation                                                                                                                                                                                                                             |
+| **Analogy**           | The Kubernetes / Next.js Boilerplate / Linux distribution of the AI app world — compressing "infrastructure setup" from 3–6 months down to 5 minutes                                                                                                                              |
+| **Benchmark Tier**    | Spans six categories simultaneously: AI Application Development Platform + AI Coding CLI + Multi-Platform Development Framework + Commercial SaaS Foundation + AI Education Platform + Content Publishing Hub                                                                     |
+| **Target Users**      | Individual developers (private AI assistant) / SMEs (AI middle platform) / AI service providers (commercial products) / Educational institutions (full-stack AI teaching) / Content creators (14-platform publishing) / Enterprise decision-makers (enterprise-grade AI platform) |
+| **License**           | Apache 2.0 (commercial-friendly, non-copyleft, allows closed-source commercial use, no copyleft constraints)                                                                                                                                                                      |
+| **Deployment**        | Fully self-hostable, Docker Compose one-click launch of 14 services, 100% data sovereignty, credentials AES-256-GCM encrypted, not spied on by any big tech                                                                                                                       |
+| **Code Scale**        | 8-client code / 100+ schema files / 339+ database tables / 128+ migrations / ~1168+ API endpoints / 200+ Web pages / 13 shared packages / 21 pre-commit guardrails / 5-language i18n parity                                                                                       |
+| **Replacement Value** | Replaces Stripe ($84/mo) + Auth0 ($35/mo) + Mailgun ($35/mo) + Mixpanel ($20/mo) + Dify ($59/mo) + Claude Code ($20/mo) + Yike ($50/mo) ≈ $303/mo, IHUI-AI self-hosted $0/mo                                                                                                      |
 
 ### What IHUI-AI Is Not
 
@@ -258,19 +258,19 @@ IHUI-AI's positioning is structured as a three-layer pyramid of "User Value → 
 
 > Cost comparisons below are based on public pricing from each SaaS vendor's official website as of July 2026 (monthly subscriptions, small team of 5 + 10k monthly active users), for decision-making reference only.
 
-| Capability              | Equivalent SaaS Stack                                          | Monthly Cost   | IHUI-AI Self-Hosted     |
-| ----------------------- | -------------------------------------------------------------- | -------------- | ----------------------- |
-| **AI Chat & Models**    | OpenAI ChatGPT Team ($25/user) + Dify ($59)                    | $184/mo        | **$0** (model fees only)|
-| **AI Coding CLI**       | Claude Code ($20) + GitHub Copilot ($19) + Cursor ($20)        | $59/mo         | **$0** (model fees only)|
-| **Payments/Subscriptions/Billing** | Stripe ($84) + Lemon Squeezy ($5)                  | $89/mo         | **$0**                  |
-| **Auth/SSO/RBAC**       | Auth0 ($35) + Clerk ($25)                                      | $60/mo         | **$0**                  |
-| **Email/SMS**           | Mailgun ($35) + Twilio ($35)                                   | $70/mo         | **$0**                  |
-| **User Analytics**      | Mixpanel ($20) + PostHog ($0 open-source)                      | $20/mo         | **$0** (built-in BI)    |
-| **AI Education Platform** | Khan Academy (free, but closed-source) + Coursera for Business ($70/user) | $350/mo | **$0** (open-source, customizable) |
-| **Content Publishing Hub** | Yike ($50) + New Media Manager ($30)                        | $80/mo         | **$0**                  |
-| **Observability Stack** | Datadog ($15/host) + Sentry ($26)                              | $101/mo        | **$0** (open-source stack) |
-| **Total**               | 9 SaaS products                                                | **$1,013/mo**  | **$0** (server only)    |
-| **3-Year Total Cost**   |                                                                | **~$36,468**   | **~$1,080** (single VPS)|
+| Capability                         | Equivalent SaaS Stack                                                     | Monthly Cost  | IHUI-AI Self-Hosted                |
+| ---------------------------------- | ------------------------------------------------------------------------- | ------------- | ---------------------------------- |
+| **AI Chat & Models**               | OpenAI ChatGPT Team ($25/user) + Dify ($59)                               | $184/mo       | **$0** (model fees only)           |
+| **AI Coding CLI**                  | Claude Code ($20) + GitHub Copilot ($19) + Cursor ($20)                   | $59/mo        | **$0** (model fees only)           |
+| **Payments/Subscriptions/Billing** | Stripe ($84) + Lemon Squeezy ($5)                                         | $89/mo        | **$0**                             |
+| **Auth/SSO/RBAC**                  | Auth0 ($35) + Clerk ($25)                                                 | $60/mo        | **$0**                             |
+| **Email/SMS**                      | Mailgun ($35) + Twilio ($35)                                              | $70/mo        | **$0**                             |
+| **User Analytics**                 | Mixpanel ($20) + PostHog ($0 open-source)                                 | $20/mo        | **$0** (built-in BI)               |
+| **AI Education Platform**          | Khan Academy (free, but closed-source) + Coursera for Business ($70/user) | $350/mo       | **$0** (open-source, customizable) |
+| **Content Publishing Hub**         | Yike ($50) + New Media Manager ($30)                                      | $80/mo        | **$0**                             |
+| **Observability Stack**            | Datadog ($15/host) + Sentry ($26)                                         | $101/mo       | **$0** (open-source stack)         |
+| **Total**                          | 9 SaaS products                                                           | **$1,013/mo** | **$0** (server only)               |
+| **3-Year Total Cost**              |                                                                           | **~$36,468**  | **~$1,080** (single VPS)           |
 
 > **Conclusion**: For the same capability stack, equivalent SaaS costs about $1,013/month, $36,468 over 3 years; IHUI-AI self-hosted costs only ~$30/month for the server, $1,080 over 3 years. **Save $35,000+ while gaining 100% data sovereignty + full customization capabilities**.
 
@@ -291,29 +291,29 @@ Based on comprehensive market benchmarking (covering 40+ international/domestic 
 
 ### Memory Taglines (Spreadable)
 
-| Tagline                              | Value Anchor                                                                                       |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| **"One repo replaces 6 SaaS"**       | Replaces Stripe + Auth0 + Mailgun + Mixpanel + Dify + Claude Code, saves $300+/month               |
-| **"5-minute fork to commercial"**    | Docker Compose one-click launch of 14 services, clone-to-production in 5 minutes vs 3–6 months    |
-| **"The Kubernetes of AI apps"**      | Standardizes and reuses "infrastructure setup", any team can run their AI app on a unified base    |
-| **"8 clients + 100+ models + 3 stacks"** | 8-client code + 100+ models + LangGraph+MCP+A2A triple stack, the most complete in open-source AI |
+| Tagline                                  | Value Anchor                                                                                                         |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **"One repo replaces 6 SaaS"**           | Replaces Stripe + Auth0 + Mailgun + Mixpanel + Dify + Claude Code, saves $300+/month                                 |
+| **"5-minute fork to commercial"**        | Docker Compose one-click launch of 14 services, clone-to-production in 5 minutes vs 3–6 months                       |
+| **"The Kubernetes of AI apps"**          | Standardizes and reuses "infrastructure setup", any team can run their AI app on a unified base                      |
+| **"8 clients + 100+ models + 3 stacks"** | 8-client code + 100+ models + LangGraph+MCP+A2A triple stack, the most complete in open-source AI                    |
 | **"Apache 2.0, zero commercial limits"** | Commercial-friendly license, no copyleft constraints, allows closed-source use, enterprises can fork with confidence |
-| **"100% data sovereignty"**          | Fully self-hosted, credentials AES-256-GCM encrypted, no external callback, GDPR / MLPS compliant  |
+| **"100% data sovereignty"**              | Fully self-hosted, credentials AES-256-GCM encrypted, no external callback, GDPR / MLPS compliant                    |
 
 ### Relationship with 6 Comparison Categories
 
 IHUI-AI is not trying to replace any single project—it integrates the capabilities of the following six categories **into one open-source Foundation**:
 
-| Benchmark Category                 | Representative Products                                                                                                                                                 | IHUI-AI Counterpart                                                                                                    |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **AI Application Development Platform** | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze                                                                                                                    | 100+ model LiteLLM gateway + LangGraph workflow + Knowledge Base RAG + pgvector vector DB + Knowledge Graph + Agent Runtime + Persona |
-| **AI Coding CLI / IDE**            | Claude Code / Cursor / Windsurf / Trae SOLO / GitHub Copilot / Copilot Workspace / Amazon Q Developer / Cody Sourcegraph / Cline / Aider / Devin / Tabnine / GitLab Duo / Gemini CLI / OpenCode / CodeGeeX / Continue / Roo Code / Codeium / JetBrains AI Assistant | Self-developed CLI 17 commands + 13 built-in tools + ACP Server (Zed/VSCode/Cursor embedding) + 6-source config import + Skills + CodeGraph + Worktree |
-| **Enterprise AI Agent Platform**   | Google Gemini Enterprise Agent Platform / OpenAI Agents SDK / Microsoft Copilot Studio / IBM watsonx.ai / Salesforce Agentforce / ServiceNow Now Assist / AWS Bedrock Agents / Crew | LangGraph + MCP + A2A three-stack + Agent marketplace + developer center + Coze SDK proxy + OpenClaw + Crew integration + N8N proxy |
-| **AI Agent Framework (Open-Source)** | LangChain / LangGraph / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT / smol agents / Semantic Kernel / Spring AI / Hugging Face Transformers Agents              | Three-stack synergy + complete Agent Runtime + Persona registry + Agent marketplace — not just a framework, a productized solution |
-| **Multi-Platform Development Framework** | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                              | 8-client unified architecture + 13 shared packages + cross-platform type safety + shared UI (`@ihui/ui-react` / `@ihui/ui-native` / `@ihui/design-tokens`) |
-| **AI Education / Content Platform** | Khan Academy / Coursera / edX / Google Education AI / Zhipu AI Education / TAL AI / Jasper / Copy.ai / Rytr / WriteSonic / Notion AI / Yike / New Media Manager        | Full-stack AI education (courses/question bank/exams/SRS/live/certificates) + 14-platform one-click publishing + self-media workbench + AI news + AI career + short drama + business cards |
-| **LLM API Platform**               | International: OpenAI Platform / Anthropic API / Google Vertex AI / AWS Bedrock / Azure AI Foundry / Mistral La Plateforme / Cohere / Together AI / Fireworks AI / Replicate<br>Domestic: Baidu Qianfan / Alibaba Bailian / Tencent Hunyuan / ByteDance Doubao (Volcano Ark) / Zhipu AI Platform / iFlytek Spark / Moonshot Kimi / DeepSeek / SenseTime SenseNova | LiteLLM unified gateway + 100+ model integration + smart routing + 60% cache hit + multi-provider adaptation |
-| **Commercial SaaS Foundation**     | Stripe / PayPal / Lemon Squeezy / Paddle / Auth0 / Clerk / Firebase Auth / Supabase Auth / Mailgun / SendGrid / Postmark / Resend / Mixpanel / Amplitude / PostHog / Heap | VIP/subscription/wallet/points/refund/invoice/8 payment gateways + JWT/SSO/RBAC + SMTP SMS + BI dashboard + canary release — a one-stop replacement for 4-6 SaaS |
+| Benchmark Category                       | Representative Products                                                                                                                                                                                                                                                                                                                                           | IHUI-AI Counterpart                                                                                                                                                                        |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **AI Application Development Platform**  | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze                                                                                                                                                                                                                                                                                                              | 100+ model LiteLLM gateway + LangGraph workflow + Knowledge Base RAG + pgvector vector DB + Knowledge Graph + Agent Runtime + Persona                                                      |
+| **AI Coding CLI / IDE**                  | Claude Code / Cursor / Windsurf / Trae SOLO / GitHub Copilot / Copilot Workspace / Amazon Q Developer / Cody Sourcegraph / Cline / Aider / Devin / Tabnine / GitLab Duo / Gemini CLI / OpenCode / CodeGeeX / Continue / Roo Code / Codeium / JetBrains AI Assistant                                                                                               | Self-developed CLI 17 commands + 13 built-in tools + ACP Server (Zed/VSCode/Cursor embedding) + 6-source config import + Skills + CodeGraph + Worktree                                     |
+| **Enterprise AI Agent Platform**         | Google Gemini Enterprise Agent Platform / OpenAI Agents SDK / Microsoft Copilot Studio / IBM watsonx.ai / Salesforce Agentforce / ServiceNow Now Assist / AWS Bedrock Agents / Crew                                                                                                                                                                               | LangGraph + MCP + A2A three-stack + Agent marketplace + developer center + Coze SDK proxy + OpenClaw + Crew integration + N8N proxy                                                        |
+| **AI Agent Framework (Open-Source)**     | LangChain / LangGraph / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT / smol agents / Semantic Kernel / Spring AI / Hugging Face Transformers Agents                                                                                                                                                                                                          | Three-stack synergy + complete Agent Runtime + Persona registry + Agent marketplace — not just a framework, a productized solution                                                         |
+| **Multi-Platform Development Framework** | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                                                                                                                                                                                                                          | 8-client unified architecture + 13 shared packages + cross-platform type safety + shared UI (`@ihui/ui-react` / `@ihui/ui-native` / `@ihui/design-tokens`)                                 |
+| **AI Education / Content Platform**      | Khan Academy / Coursera / edX / Google Education AI / Zhipu AI Education / TAL AI / Jasper / Copy.ai / Rytr / WriteSonic / Notion AI / Yike / New Media Manager                                                                                                                                                                                                   | Full-stack AI education (courses/question bank/exams/SRS/live/certificates) + 14-platform one-click publishing + self-media workbench + AI news + AI career + short drama + business cards |
+| **LLM API Platform**                     | International: OpenAI Platform / Anthropic API / Google Vertex AI / AWS Bedrock / Azure AI Foundry / Mistral La Plateforme / Cohere / Together AI / Fireworks AI / Replicate<br>Domestic: Baidu Qianfan / Alibaba Bailian / Tencent Hunyuan / ByteDance Doubao (Volcano Ark) / Zhipu AI Platform / iFlytek Spark / Moonshot Kimi / DeepSeek / SenseTime SenseNova | LiteLLM unified gateway + 100+ model integration + smart routing + 60% cache hit + multi-provider adaptation                                                                               |
+| **Commercial SaaS Foundation**           | Stripe / PayPal / Lemon Squeezy / Paddle / Auth0 / Clerk / Firebase Auth / Supabase Auth / Mailgun / SendGrid / Postmark / Resend / Mixpanel / Amplitude / PostHog / Heap                                                                                                                                                                                         | VIP/subscription/wallet/points/refund/invoice/8 payment gateways + JWT/SSO/RBAC + SMTP SMS + BI dashboard + canary release — a one-stop replacement for 4-6 SaaS                           |
 
 > **Core Insight**: In the open-source AI ecosystem, you can find projects **more specialized** than IHUI-AI (e.g., RAGFlow goes deeper on RAG, Claude Code is more mature on CLI, LangChain is more flexible at the framework layer), but you won't find an open-source Foundation **more comprehensive** than IHUI-AI — integrating six major categories of capabilities in a single Apache 2.0 repository is IHUI-AI's core differentiation.
 >
@@ -323,106 +323,106 @@ IHUI-AI is not trying to replace any single project—it integrates the capabili
 
 ## Feature Overview (All Capabilities in 30 Seconds)
 
-| Category                       | Module                      | Key Capabilities                                                                                                                        |
-| ------------------------------ | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **AI Chat & Models**           | Multi-Model Chat            | 100+ models / smart routing / 60% cache hit / streaming SSE + WebSocket / chat favorites / history / sharing / templates                |
-|                                | AI Image Generation         | Text-to-image / image editing / multi-resolution / multi-model (Stable Diffusion / DALL-E / Tongyi Wanxiang)                            |
-|                                | AI Audio                    | TTS streaming synthesis / ASR speech recognition / voice cloning / bidirectional real-time voice (WebRTC PCM16 16kHz)                   |
-|                                | AI Video Synthesis          | Text-to-video / video editing / multi-model composition / transcoding / video task management                                           |
-|                                | AI Digital Human            | Tencent Hunyuan 3D / AI World / digital human interaction                                                                               |
-|                                | AI World                    | ai-world-items + AI rankings + trending sync + AI modularization (ai-modules) + AI vendor config center (ai-vendor-configs)             |
-|                                | AI Career                   | AI job search assistant / resume optimization / mock interviews                                                                         |
-|                                | AI News                     | AI news aggregation / smart summarization / ai-feed                                                                                     |
-|                                | User-Level AI Config        | User-level model chat preferences (ai-user-model-chat) / User long-term memory (user-memory) / User preferences (user-preferences)       |
-| **AI Workflows**               | LangGraph                   | StateGraph workflow (plan → execute → summarize) + stub mode                                                                            |
-|                                | MCP Tool Protocol           | 11 built-in tools + 3 resources + 3 prompts / custom tools / project-level MCP / mcp-extended                                           |
-|                                | A2A Protocol                | Agent-to-Agent interop / Redis persistence + in-memory fallback                                                                         |
-|                                | Knowledge Base RAG          | Document vectorization / semantic search / citation tracing / knowledge-base + knowledge-rag                                            |
-|                                | Knowledge Graph             | knowledge-graph schema + node-relation graph / cross-document entity linking (rare in open-source AI platforms)                          |
-|                                | pgvector Vector DB          | 0123_pgvector_embedding migration / native PostgreSQL vector indexing / no standalone vector DB needed                                  |
-|                                | Workflow Orchestration      | Visual workflows / CrewAI integration / N8N proxy / workflows                                                                           |
-|                                | Vector Memory               | Cosine similarity semantic search / cross-session long-term memory / vector-memory                                                      |
-| **Multi-Agent Ecosystem**      | Agent Marketplace           | Purchase / review / settlement / withdrawal / categorization / recommendation / ranking / featured                                      |
-|                                | Developer Center            | API Keys / call logs / team management / revenue analytics / 13 sub-pages                                                               |
-|                                | Coze SDK Proxy              | Bot / chat / workflow / dataset / template / variable / workspace / OAuth                                                               |
-|                                | OpenClaw                    | Open-source Agent framework integration / clawdbot / openclaw-routes                                                                    |
-|                                | Skills System               | content_engine (build_gpt56_sol / export_csdn_md / full_audit / publish_pipeline) + koubo_workflow (10+ tools)                          |
-| **8-Platform Framework**       | Web                         | Next.js 15 / 200+ pages / PWA / SEO / dark mode / 5 languages                                                                           |
-|                                | API                         | Fastify 5 / ~1080 endpoints / 12 WebSocket endpoints / 95+ route files / OpenAPI                                                        |
-|                                | AI Service                  | FastAPI + LangGraph + LiteLLM + MCP + A2A / 55+ endpoints / 5 provider adapters                                                         |
-|                                | CLI                         | Node.js / 17 commands / 13 built-in tools / 6-source config import / ACP Server                                                         |
-|                                | Desktop                     | Tauri 2 + Rust / system tray / local file access                                                                                        |
-|                                | Browser Extension           | WXT / context menu / sidebar / Chrome + Edge + Firefox                                                                                  |
-|                                | Mobile RN                   | React Native + Expo EAS / iOS + Android / SSO                                                                                           |
-|                                | Mini Program                | Taro 4 / WeChat Pay native integration / 3 languages (i18n)                                                                             |
-| **Enterprise Capabilities**    | Workspace Permissions       | 3 modes + 7-endpoint runtime interception + 60s audit timeout + workspace-ai-tasks                                                      |
-|                                | RBAC + Multi-Tenant         | Roles / departments / organizations / tenant isolation / menu permissions / data-scope 5 levels                                         |
-|                                | SSO Single Sign-On          | OAuth 2.0 / Apple / Google / SSO relay login / PKCE                                                                                     |
-|                                | Billing & Subscription      | VIP tiers / recurring subscription / wallet / points / refund audit / invoices / exchange rates / 8 payment gateways                    |
-|                                | Canary Release              | Canary / rollout rules / A/B testing / canary + ab-tests                                                                                |
-|                                | Data Compliance             | GDPR / sensitive word filtering / content moderation / audit logs / data export                                                         |
-| **Content Creation**           | Self-Media Workbench        | WeChat Official Account articles + voiceover script dual pipeline / slash commands / self-media-automation                              |
-|                                | 14-Platform Auto Publishing | 9 article + 2 image + 5 video platforms / AES-256-GCM credential encryption / 14 adapters                                               |
-|                                | News & Articles             | Articles / news / topics / tags / comments / likes / favorites / news-crawler                                                           |
-|                                | Short Drama                 | Drama creation & management / drama                                                                                                     |
-|                                | Business Cards              | Card creation / editing / favoriting / sharing / business-cards                                                                         |
-| **AI Education Full Stack**    | Course Learning             | Courses / chapters / learning paths / learning maps / progress tracking / notes / zhs-course                                            |
-|                                | Question Bank & Exams       | Multiple question types / auto-grading / chapter practice / mistake book / exam paper upload / exam-marking                             |
-|                                | SRS Spaced Repetition       | Ebbinghaus forgetting curve / smart review scheduling                                                                                   |
-|                                | Live Teaching               | Check-in / interaction / playback / AI assistance / live-chat                                                                           |
-|                                | Learning Reports            | Behavior analysis / personalized recommendations / certificate issuance                                                                 |
-|                                | Instructor Management       | Instructor homepage / course association / education-platform                                                                           |
-|                                | Student Portal              | 12 sub-pages (Q&A / articles / circles / comments / courses / resources / notes / offline / exam papers / mistake book / certificates)  |
-| **Community Interaction**      | Circle Plaza                | Circles / plaza / Q&A / posts / topics / tags                                                                                           |
-|                                | Private Messaging           | 1-on-1 private messages / system notifications / multi-platform sync / private-letters                                                  |
-|                                | Follow & Fans               | Follow / fans / user homepage / business cards                                                                                          |
-|                                | Sharing & Invitation        | Invitation codes / share codes / H5 sharing / referral commission / visit-tracking                                                      |
-| **Growth Operations**          | Points & Check-in           | Daily check-in / task points / points mall / redemption / point-redeem-items                                                            |
-|                                | Leaderboards                | Multi-dimensional ranking / weekly & monthly boards / user ranking / ranking                                                            |
-|                                | Lottery Activities          | Lottery / red packets / rewarded video ads / rewarded-video-ad                                                                          |
-|                                | Distribution & Commission   | Distribution system / commission plans / withdrawals / 8 sub-pages / commission                                                         |
-|                                | Activities & Announcements  | Activity management / announcement push / Banner carousel / carousels                                                                   |
-| **Customer Support**           | Ticket System               | Ticket submission / processing / rating / FAQ / admin-asks + admin-faq                                                                  |
-|                                | Online Customer Service     | WebSocket real-time customer service / 1-on-1 sessions / customer-service                                                               |
-|                                | Feedback Center             | User feedback / processing status / tracking                                                                                            |
-| **Ops & Monitoring**           | BI Dashboard                | Business metrics visualization / data analytics / bi-dashboard                                                                          |
-|                                | Error Dashboard             | Error aggregation / alerting / tracing / security-audit                                                                                 |
-|                                | Operation Logs              | Login logs / operation logs / callback logs / audit + security-logs                                                                     |
-|                                | Monitoring & Alerting       | Prometheus + Grafana (20 dashboards) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                          |
-| **Engineering Infrastructure** | Database                    | PostgreSQL 15 / **339+ tables** / 100 schema files / **128+ migrations** / Drizzle ORM + RLS + tenant routing + pgvector                |
-|                                | Queue & Cache               | Redis 7 + BullMQ / independent worker process (:8081)                                                                                   |
-|                                | Object Storage              | OSS multi-vendor drivers / credential encryption / chunked upload / file versioning / chunked-upload                                    |
-|                                | Email & SMS                 | SMTP / SMS gateway / email templates / verification codes / mail + message-templates                                                    |
-|                                | Internationalization        | 5-language parity (zh-CN / zh-TW / en / ko / ja) + 19 i18n toolchain + 4 guardrail scripts                                              |
-|                                | Engineering Guardrails      | 21 pre-commit hooks + post-commit auto-push + 11 migration audits + 9 PowerShell launchers                                              |
-|                                | Test Coverage               | 268 + 400+ test cases / Vitest + Playwright + pytest + Locust load testing + Lighthouse performance                                     |
-|                                | Deployment & Ops            | Docker Compose (14 services) / blue-green deployment / Nginx upstream switching / health checks / rollback / backup / cert renewal cron |
-|                                | Performance CI              | Knip unused code detection + Lighthouse CI performance budget + GitHub Act local CI                                                     |
-|                                | Microservice Engineering Patterns | Outbox transactional outbox + Refund DLQ dead-letter queue + Circuit Breaker + IDOR protection + WS Dedup message dedup + Hot Config |
+| Category                       | Module                            | Key Capabilities                                                                                                                        |
+| ------------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **AI Chat & Models**           | Multi-Model Chat                  | 100+ models / smart routing / 60% cache hit / streaming SSE + WebSocket / chat favorites / history / sharing / templates                |
+|                                | AI Image Generation               | Text-to-image / image editing / multi-resolution / multi-model (Stable Diffusion / DALL-E / Tongyi Wanxiang)                            |
+|                                | AI Audio                          | TTS streaming synthesis / ASR speech recognition / voice cloning / bidirectional real-time voice (WebRTC PCM16 16kHz)                   |
+|                                | AI Video Synthesis                | Text-to-video / video editing / multi-model composition / transcoding / video task management                                           |
+|                                | AI Digital Human                  | Tencent Hunyuan 3D / AI World / digital human interaction                                                                               |
+|                                | AI World                          | ai-world-items + AI rankings + trending sync + AI modularization (ai-modules) + AI vendor config center (ai-vendor-configs)             |
+|                                | AI Career                         | AI job search assistant / resume optimization / mock interviews                                                                         |
+|                                | AI News                           | AI news aggregation / smart summarization / ai-feed                                                                                     |
+|                                | User-Level AI Config              | User-level model chat preferences (ai-user-model-chat) / User long-term memory (user-memory) / User preferences (user-preferences)      |
+| **AI Workflows**               | LangGraph                         | StateGraph workflow (plan → execute → summarize) + stub mode                                                                            |
+|                                | MCP Tool Protocol                 | 11 built-in tools + 3 resources + 3 prompts / custom tools / project-level MCP / mcp-extended                                           |
+|                                | A2A Protocol                      | Agent-to-Agent interop / Redis persistence + in-memory fallback                                                                         |
+|                                | Knowledge Base RAG                | Document vectorization / semantic search / citation tracing / knowledge-base + knowledge-rag                                            |
+|                                | Knowledge Graph                   | knowledge-graph schema + node-relation graph / cross-document entity linking (rare in open-source AI platforms)                         |
+|                                | pgvector Vector DB                | 0123_pgvector_embedding migration / native PostgreSQL vector indexing / no standalone vector DB needed                                  |
+|                                | Workflow Orchestration            | Visual workflows / CrewAI integration / N8N proxy / workflows                                                                           |
+|                                | Vector Memory                     | Cosine similarity semantic search / cross-session long-term memory / vector-memory                                                      |
+| **Multi-Agent Ecosystem**      | Agent Marketplace                 | Purchase / review / settlement / withdrawal / categorization / recommendation / ranking / featured                                      |
+|                                | Developer Center                  | API Keys / call logs / team management / revenue analytics / 13 sub-pages                                                               |
+|                                | Coze SDK Proxy                    | Bot / chat / workflow / dataset / template / variable / workspace / OAuth                                                               |
+|                                | OpenClaw                          | Open-source Agent framework integration / clawdbot / openclaw-routes                                                                    |
+|                                | Skills System                     | content_engine (build_gpt56_sol / export_csdn_md / full_audit / publish_pipeline) + koubo_workflow (10+ tools)                          |
+| **8-Platform Framework**       | Web                               | Next.js 15 / 200+ pages / PWA / SEO / dark mode / 5 languages                                                                           |
+|                                | API                               | Fastify 5 / ~1080 endpoints / 12 WebSocket endpoints / 95+ route files / OpenAPI                                                        |
+|                                | AI Service                        | FastAPI + LangGraph + LiteLLM + MCP + A2A / 55+ endpoints / 5 provider adapters                                                         |
+|                                | CLI                               | Node.js / 17 commands / 13 built-in tools / 6-source config import / ACP Server                                                         |
+|                                | Desktop                           | Tauri 2 + Rust / system tray / local file access                                                                                        |
+|                                | Browser Extension                 | WXT / context menu / sidebar / Chrome + Edge + Firefox                                                                                  |
+|                                | Mobile RN                         | React Native + Expo EAS / iOS + Android / SSO                                                                                           |
+|                                | Mini Program                      | Taro 4 / WeChat Pay native integration / 3 languages (i18n)                                                                             |
+| **Enterprise Capabilities**    | Workspace Permissions             | 3 modes + 7-endpoint runtime interception + 60s audit timeout + workspace-ai-tasks                                                      |
+|                                | RBAC + Multi-Tenant               | Roles / departments / organizations / tenant isolation / menu permissions / data-scope 5 levels                                         |
+|                                | SSO Single Sign-On                | OAuth 2.0 / Apple / Google / SSO relay login / PKCE                                                                                     |
+|                                | Billing & Subscription            | VIP tiers / recurring subscription / wallet / points / refund audit / invoices / exchange rates / 8 payment gateways                    |
+|                                | Canary Release                    | Canary / rollout rules / A/B testing / canary + ab-tests                                                                                |
+|                                | Data Compliance                   | GDPR / sensitive word filtering / content moderation / audit logs / data export                                                         |
+| **Content Creation**           | Self-Media Workbench              | WeChat Official Account articles + voiceover script dual pipeline / slash commands / self-media-automation                              |
+|                                | 14-Platform Auto Publishing       | 9 article + 2 image + 5 video platforms / AES-256-GCM credential encryption / 14 adapters                                               |
+|                                | News & Articles                   | Articles / news / topics / tags / comments / likes / favorites / news-crawler                                                           |
+|                                | Short Drama                       | Drama creation & management / drama                                                                                                     |
+|                                | Business Cards                    | Card creation / editing / favoriting / sharing / business-cards                                                                         |
+| **AI Education Full Stack**    | Course Learning                   | Courses / chapters / learning paths / learning maps / progress tracking / notes / zhs-course                                            |
+|                                | Question Bank & Exams             | Multiple question types / auto-grading / chapter practice / mistake book / exam paper upload / exam-marking                             |
+|                                | SRS Spaced Repetition             | Ebbinghaus forgetting curve / smart review scheduling                                                                                   |
+|                                | Live Teaching                     | Check-in / interaction / playback / AI assistance / live-chat                                                                           |
+|                                | Learning Reports                  | Behavior analysis / personalized recommendations / certificate issuance                                                                 |
+|                                | Instructor Management             | Instructor homepage / course association / education-platform                                                                           |
+|                                | Student Portal                    | 12 sub-pages (Q&A / articles / circles / comments / courses / resources / notes / offline / exam papers / mistake book / certificates)  |
+| **Community Interaction**      | Circle Plaza                      | Circles / plaza / Q&A / posts / topics / tags                                                                                           |
+|                                | Private Messaging                 | 1-on-1 private messages / system notifications / multi-platform sync / private-letters                                                  |
+|                                | Follow & Fans                     | Follow / fans / user homepage / business cards                                                                                          |
+|                                | Sharing & Invitation              | Invitation codes / share codes / H5 sharing / referral commission / visit-tracking                                                      |
+| **Growth Operations**          | Points & Check-in                 | Daily check-in / task points / points mall / redemption / point-redeem-items                                                            |
+|                                | Leaderboards                      | Multi-dimensional ranking / weekly & monthly boards / user ranking / ranking                                                            |
+|                                | Lottery Activities                | Lottery / red packets / rewarded video ads / rewarded-video-ad                                                                          |
+|                                | Distribution & Commission         | Distribution system / commission plans / withdrawals / 8 sub-pages / commission                                                         |
+|                                | Activities & Announcements        | Activity management / announcement push / Banner carousel / carousels                                                                   |
+| **Customer Support**           | Ticket System                     | Ticket submission / processing / rating / FAQ / admin-asks + admin-faq                                                                  |
+|                                | Online Customer Service           | WebSocket real-time customer service / 1-on-1 sessions / customer-service                                                               |
+|                                | Feedback Center                   | User feedback / processing status / tracking                                                                                            |
+| **Ops & Monitoring**           | BI Dashboard                      | Business metrics visualization / data analytics / bi-dashboard                                                                          |
+|                                | Error Dashboard                   | Error aggregation / alerting / tracing / security-audit                                                                                 |
+|                                | Operation Logs                    | Login logs / operation logs / callback logs / audit + security-logs                                                                     |
+|                                | Monitoring & Alerting             | Prometheus + Grafana (20 dashboards) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                          |
+| **Engineering Infrastructure** | Database                          | PostgreSQL 15 / **339+ tables** / 100 schema files / **128+ migrations** / Drizzle ORM + RLS + tenant routing + pgvector                |
+|                                | Queue & Cache                     | Redis 7 + BullMQ / independent worker process (:8081)                                                                                   |
+|                                | Object Storage                    | OSS multi-vendor drivers / credential encryption / chunked upload / file versioning / chunked-upload                                    |
+|                                | Email & SMS                       | SMTP / SMS gateway / email templates / verification codes / mail + message-templates                                                    |
+|                                | Internationalization              | 5-language parity (zh-CN / zh-TW / en / ko / ja) + 19 i18n toolchain + 4 guardrail scripts                                              |
+|                                | Engineering Guardrails            | 21 pre-commit hooks + post-commit auto-push + 11 migration audits + 9 PowerShell launchers                                              |
+|                                | Test Coverage                     | 268 + 400+ test cases / Vitest + Playwright + pytest + Locust load testing + Lighthouse performance                                     |
+|                                | Deployment & Ops                  | Docker Compose (14 services) / blue-green deployment / Nginx upstream switching / health checks / rollback / backup / cert renewal cron |
+|                                | Performance CI                    | Knip unused code detection + Lighthouse CI performance budget + GitHub Act local CI                                                     |
+|                                | Microservice Engineering Patterns | Outbox transactional outbox + Refund DLQ dead-letter queue + Circuit Breaker + IDOR protection + WS Dedup message dedup + Hot Config    |
 
 ---
 
 ## Why Choose IHUI-AI
 
-| Dimension                        | Capability                                                                                         | Industry Position                                                |
-| -------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| **Platform Coverage**            | Web / API / AI Service / CLI / Desktop / Extension / Mobile RN / Mini Program Taro                 | Industry's first 8-platform full-coverage AI full-stack platform |
-| **Model Integration**            | LiteLLM gateway unifying 100+ models (30+ international / 15+ domestic / 10+ cloud vendors)        | One-stop integration, smart routing + 60% cache                  |
-| **AI Orchestration Three-Stack** | LangGraph (workflow) + MCP (tool protocol) + A2A (Agent interop)                                   | Unified workflow, tool, and agent collaboration                  |
-| **Self-Developed CLI**           | 17 commands + 13 built-in tools + ACP Server, benchmarked against Claude Code                      | Command-line native AI coding experience                         |
-| **Seamless CLI Config Import**   | cc-switch / codex++ / Claude / Codex / Gemini / Hermes 6-source one-click import                   | Zero migration cost across CLI tools                             |
-| **Enterprise-Grade Security**    | RBAC + workspace 3-mode permissions + 7-endpoint runtime interception + 60s audit timeout          | Decision-maker level risk control                                |
-| **Data Encryption**              | AES-256-GCM (credential encryption) + JWT token-family rotation + refresh blacklist                | Financial-grade data protection                                  |
-| **Observability**                | Prometheus + Grafana (**20 dashboards**) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager | End-to-end metrics / logs / traces / alerts                      |
-| **Engineering Guardrails**       | 21 pre-commit + post-commit auto-push + git-push-guard + 11 migration audits                       | Eliminates collaboration incidents, 99.9% SLA                    |
-| **Internationalization**         | zh-CN / zh-TW / en / ko / ja 5-language parity + 19 i18n toolchain                                 | 5-language key set strong consistency                            |
-| **Database**                     | **339+ tables + 128+ migrations** + 100 schema files + Drizzle ORM + RLS + tenant routing + pgvector | Single PostgreSQL 15 database, schema isolation                  |
-| **API Scale**                    | ~1168+ endpoints (api 1080 + ai-service 55) + 12 WebSocket + 95+ route files                        | Far exceeds source project's 331 endpoints                       |
-| **Business Coverage**            | 15 major modules / 50+ sub-features / **200+ Web pages**                                           | One platform covers all AI application scenarios                 |
-| **Shared Packages**              | 13 packages (auth/database/types/ui/sdk/api-client/context-compaction etc.)                        | Cross-platform type safety + reuse                               |
+| Dimension                             | Capability                                                                                                             | Industry Position                                                |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| **Platform Coverage**                 | Web / API / AI Service / CLI / Desktop / Extension / Mobile RN / Mini Program Taro                                     | Industry's first 8-platform full-coverage AI full-stack platform |
+| **Model Integration**                 | LiteLLM gateway unifying 100+ models (30+ international / 15+ domestic / 10+ cloud vendors)                            | One-stop integration, smart routing + 60% cache                  |
+| **AI Orchestration Three-Stack**      | LangGraph (workflow) + MCP (tool protocol) + A2A (Agent interop)                                                       | Unified workflow, tool, and agent collaboration                  |
+| **Self-Developed CLI**                | 17 commands + 13 built-in tools + ACP Server, benchmarked against Claude Code                                          | Command-line native AI coding experience                         |
+| **Seamless CLI Config Import**        | cc-switch / codex++ / Claude / Codex / Gemini / Hermes 6-source one-click import                                       | Zero migration cost across CLI tools                             |
+| **Enterprise-Grade Security**         | RBAC + workspace 3-mode permissions + 7-endpoint runtime interception + 60s audit timeout                              | Decision-maker level risk control                                |
+| **Data Encryption**                   | AES-256-GCM (credential encryption) + JWT token-family rotation + refresh blacklist                                    | Financial-grade data protection                                  |
+| **Observability**                     | Prometheus + Grafana (**20 dashboards**) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                     | End-to-end metrics / logs / traces / alerts                      |
+| **Engineering Guardrails**            | 21 pre-commit + post-commit auto-push + git-push-guard + 11 migration audits                                           | Eliminates collaboration incidents, 99.9% SLA                    |
+| **Internationalization**              | zh-CN / zh-TW / en / ko / ja 5-language parity + 19 i18n toolchain                                                     | 5-language key set strong consistency                            |
+| **Database**                          | **339+ tables + 128+ migrations** + 100 schema files + Drizzle ORM + RLS + tenant routing + pgvector                   | Single PostgreSQL 15 database, schema isolation                  |
+| **API Scale**                         | ~1168+ endpoints (api 1080 + ai-service 55) + 12 WebSocket + 95+ route files                                           | Far exceeds source project's 331 endpoints                       |
+| **Business Coverage**                 | 15 major modules / 50+ sub-features / **200+ Web pages**                                                               | One platform covers all AI application scenarios                 |
+| **Shared Packages**                   | 13 packages (auth/database/types/ui/sdk/api-client/context-compaction etc.)                                            | Cross-platform type safety + reuse                               |
 | **Microservice Engineering Patterns** | Outbox transactional outbox + Refund DLQ dead-letter queue + Circuit Breaker + IDOR protection + WS Dedup + Hot Config | Production-grade microservice patterns                           |
-| **Performance Assurance**        | Knip unused code + Lighthouse CI + Locust load testing                                             | Performance budget + capacity planning                           |
-| **Deployment Maturity**          | Docker Compose (14 services) + blue-green + Nginx upstream + cert renewal cron                     | Production-grade ops                                             |
+| **Performance Assurance**             | Knip unused code + Lighthouse CI + Locust load testing                                                                 | Performance budget + capacity planning                           |
+| **Deployment Maturity**               | Docker Compose (14 services) + blue-green + Nginx upstream + cert renewal cron                                         | Production-grade ops                                             |
 
 ---
 
@@ -432,25 +432,25 @@ IHUI-AI is not trying to replace any single project—it integrates the capabili
 
 > Due to the large number of columns, horizontal scrolling on desktop is recommended. On mobile, you can focus on the "IHUI-AI" column and the "Key Conclusions" section.
 
-| Dimension                  | IHUI-AI                                                              | OpenAI ChatGPT | Dify             | LangChain        | RAGFlow        | Coze           | Claude Code   | Cursor        | GitHub Copilot | Khan Academy  | Stripe+Auth0  |
-| -------------------------- | -------------------------------------------------------------------- | -------------- | ---------------- | ---------------- | -------------- | ------------- | ------------- | ------------- | -------------- | ------------- | ------------- |
-| **Benchmark Category**     | 6-category integration (App+CLI+Multi-platform+Commercial+Edu+Content) | General AI chat | AI app dev       | AI Agent framework | RAG knowledge base | AI Agent SaaS | AI coding CLI | AI coding IDE | AI coding assistant | AI education platform | Payments+Auth foundation |
-| **License**                | **Apache 2.0**                                                       | **Closed-source** | Apache 2.0       | MIT              | Apache 2.0     | **Closed-source** | **Closed-source** | **Closed-source** | **Closed-source** | **Closed-source** (free) | **Closed-source SaaS** |
-| **Self-Hosting**           | **Fully self-hosted**                                                | Not supported  | Docker           | Library          | Docker         | Not supported  | N/A           | N/A           | N/A            | Not supported | N/A           |
-| **Platform Coverage**      | **8 clients**                                                        | 2 clients (Web/App) | 2 clients       | 0 clients (library) | 2 clients      | 2 clients      | 1 client (CLI) | 1 client (IDE) | 1 client (IDE) | 2 clients     | 0 clients (library) |
-| **Model Integration**      | **100+ models** + LiteLLM                                            | OpenAI family  | 50+ models       | LangChain adapters | 30+ models     | ByteDance family | Anthropic     | Multi-model   | OpenAI         | None          | N/A           |
-| **Workflow Engine**        | **LangGraph + MCP + A2A triple-stack**                               | None           | Self-developed workflow | LangGraph        | None           | Self-developed workflow | None          | None          | None           | None          | N/A           |
-| **Self-Developed CLI**     | **17 commands + 13 tools + ACP Server**                              | None           | None             | None             | None           | None           | Native CLI    | None          | None           | None          | N/A           |
-| **Multi-Tenant + RBAC**    | **Complete** (5 levels + RLS)                                        | Single user    | Basic            | None             | Basic          | Within SaaS    | None          | None          | None           | School accounts | Basic       |
-| **Billing & Subscription** | **Complete** (VIP/wallet/points/refund/8 payment gateways)           | Subscription ($20-200) | None        | None             | None           | Within SaaS    | None          | Subscription ($20) | Subscription ($10-39) | Free    | Core (payments) |
-| **AI Education**           | **Full stack** (courses/question bank/exam/SRS/live/45 tables)       | None           | None             | None             | None           | None           | None          | None          | None           | Core (education) | None     |
-| **Content Publishing**     | **14 platforms + 14 adapters**                                       | None           | None             | None             | None           | None           | None          | None          | None           | None          | None          |
-| **Observability**          | **Three pillars + 20 dashboards**                                    | -              | Basic            | None             | Basic          | -             | None          | None          | None           | -            | -             |
-| **Engineering Guardrails** | **17 hooks + 11 migration audits + auto-push**                       | -              | Basic            | Basic            | Basic          | -             | None          | None          | None           | -            | -             |
-| **i18n**                   | **5-language parity + 4 guardrails**                                 | Multilingual   | Chinese & English | English          | Chinese & English | Multilingual | English       | Multilingual  | Multilingual   | Multilingual  | N/A           |
-| **Database**               | **339+ tables + 128+ migrations + RLS + pgvector**                   | Within SaaS    | Basic            | None             | pgvector       | Within SaaS    | None          | None          | None           | Within SaaS   | Within SaaS   |
-| **Shared Packages**        | **13 packages**                                                      | None           | None             | 1 library        | None           | -             | None          | None          | None           | None          | 1 SDK         |
-| **Monthly Cost (5 users)** | **$0** (self-hosted, server only)                                    | $125+          | $59+             | $0 (self-integrated) | $0 (self-integrated) | Within SaaS | $100          | $100          | $95            | Free (education) | $149+     |
+| Dimension                  | IHUI-AI                                                                | OpenAI ChatGPT         | Dify                    | LangChain            | RAGFlow              | Coze                    | Claude Code       | Cursor             | GitHub Copilot        | Khan Academy             | Stripe+Auth0             |
+| -------------------------- | ---------------------------------------------------------------------- | ---------------------- | ----------------------- | -------------------- | -------------------- | ----------------------- | ----------------- | ------------------ | --------------------- | ------------------------ | ------------------------ |
+| **Benchmark Category**     | 6-category integration (App+CLI+Multi-platform+Commercial+Edu+Content) | General AI chat        | AI app dev              | AI Agent framework   | RAG knowledge base   | AI Agent SaaS           | AI coding CLI     | AI coding IDE      | AI coding assistant   | AI education platform    | Payments+Auth foundation |
+| **License**                | **Apache 2.0**                                                         | **Closed-source**      | Apache 2.0              | MIT                  | Apache 2.0           | **Closed-source**       | **Closed-source** | **Closed-source**  | **Closed-source**     | **Closed-source** (free) | **Closed-source SaaS**   |
+| **Self-Hosting**           | **Fully self-hosted**                                                  | Not supported          | Docker                  | Library              | Docker               | Not supported           | N/A               | N/A                | N/A                   | Not supported            | N/A                      |
+| **Platform Coverage**      | **8 clients**                                                          | 2 clients (Web/App)    | 2 clients               | 0 clients (library)  | 2 clients            | 2 clients               | 1 client (CLI)    | 1 client (IDE)     | 1 client (IDE)        | 2 clients                | 0 clients (library)      |
+| **Model Integration**      | **100+ models** + LiteLLM                                              | OpenAI family          | 50+ models              | LangChain adapters   | 30+ models           | ByteDance family        | Anthropic         | Multi-model        | OpenAI                | None                     | N/A                      |
+| **Workflow Engine**        | **LangGraph + MCP + A2A triple-stack**                                 | None                   | Self-developed workflow | LangGraph            | None                 | Self-developed workflow | None              | None               | None                  | None                     | N/A                      |
+| **Self-Developed CLI**     | **17 commands + 13 tools + ACP Server**                                | None                   | None                    | None                 | None                 | None                    | Native CLI        | None               | None                  | None                     | N/A                      |
+| **Multi-Tenant + RBAC**    | **Complete** (5 levels + RLS)                                          | Single user            | Basic                   | None                 | Basic                | Within SaaS             | None              | None               | None                  | School accounts          | Basic                    |
+| **Billing & Subscription** | **Complete** (VIP/wallet/points/refund/8 payment gateways)             | Subscription ($20-200) | None                    | None                 | None                 | Within SaaS             | None              | Subscription ($20) | Subscription ($10-39) | Free                     | Core (payments)          |
+| **AI Education**           | **Full stack** (courses/question bank/exam/SRS/live/45 tables)         | None                   | None                    | None                 | None                 | None                    | None              | None               | None                  | Core (education)         | None                     |
+| **Content Publishing**     | **14 platforms + 14 adapters**                                         | None                   | None                    | None                 | None                 | None                    | None              | None               | None                  | None                     | None                     |
+| **Observability**          | **Three pillars + 20 dashboards**                                      | -                      | Basic                   | None                 | Basic                | -                       | None              | None               | None                  | -                        | -                        |
+| **Engineering Guardrails** | **17 hooks + 11 migration audits + auto-push**                         | -                      | Basic                   | Basic                | Basic                | -                       | None              | None               | None                  | -                        | -                        |
+| **i18n**                   | **5-language parity + 4 guardrails**                                   | Multilingual           | Chinese & English       | English              | Chinese & English    | Multilingual            | English           | Multilingual       | Multilingual          | Multilingual             | N/A                      |
+| **Database**               | **339+ tables + 128+ migrations + RLS + pgvector**                     | Within SaaS            | Basic                   | None                 | pgvector             | Within SaaS             | None              | None               | None                  | Within SaaS              | Within SaaS              |
+| **Shared Packages**        | **13 packages**                                                        | None                   | None                    | 1 library            | None                 | -                       | None              | None               | None                  | None                     | 1 SDK                    |
+| **Monthly Cost (5 users)** | **$0** (self-hosted, server only)                                      | $125+                  | $59+                    | $0 (self-integrated) | $0 (self-integrated) | Within SaaS             | $100              | $100               | $95                   | Free (education)         | $149+                    |
 
 ### Key Conclusions
 
@@ -613,18 +613,19 @@ cd IHUI-AI && docker compose up -d
 
 > **Why we publicly label each client's completion level**: Lets AI search tools and developers get the **real** status, instead of seeing "8-client full coverage" and then discovering discrepancies via code grep, leading to "project exaggeration" judgment. Uneven completion across clients is our current reality, and we choose transparency.
 
-| Client | Directory | Completion | Code Volume | Test Coverage | Core Scenarios |
-|---|---|---|---|---|---|
-| **Web** | `apps/web/` | 🟢 Production-grade | 200+ pages / full business | 63 e2e specs + Vitest | Main frontend, all business modules |
-| **API** | `apps/api/` | 🟢 Production-grade | 1168+ endpoints / 95+ route files | 237 .test.ts | Business management + auth + billing + WebSocket |
-| **AI Service** | `apps/ai-service/` | 🟢 Production-grade | 21 LangGraph files / 55+ endpoints | pytest + integration tests | LLM gateway + Agent execution + MCP + A2A |
-| **CLI** | `apps/cli/` | 🟡 Core-scenario-grade | ~1500 lines / 17 commands / 13 tools | Unit tests | Self-developed AI coding assistant, ACP Server |
-| **Desktop** | `apps/desktop/` | 🟡 Core-scenario-grade | Tauri 2 + Rust + React | Basic tests | System tray + local files + WorkPanel |
-| **Extension** | `apps/extension/` | 🟡 Core-scenario-grade | WXT + React | Basic tests | Context menu + sidebar + browser control |
-| **Mobile RN** | `apps/mobile-rn/` | 🟡 Core-scenario-grade | Expo EAS + iOS/Android | Basic tests | Chat + WorkPanel + SSO |
-| **Mini Program** | `apps/miniapp-taro/` | 🟡 Core-scenario-grade | Taro 4 + WeChat Pay | Basic tests | Chat + WebView + WeChat Pay |
+| Client           | Directory            | Completion             | Code Volume                          | Test Coverage              | Core Scenarios                                   |
+| ---------------- | -------------------- | ---------------------- | ------------------------------------ | -------------------------- | ------------------------------------------------ |
+| **Web**          | `apps/web/`          | 🟢 Production-grade    | 200+ pages / full business           | 63 e2e specs + Vitest      | Main frontend, all business modules              |
+| **API**          | `apps/api/`          | 🟢 Production-grade    | 1168+ endpoints / 95+ route files    | 237 .test.ts               | Business management + auth + billing + WebSocket |
+| **AI Service**   | `apps/ai-service/`   | 🟢 Production-grade    | 21 LangGraph files / 55+ endpoints   | pytest + integration tests | LLM gateway + Agent execution + MCP + A2A        |
+| **CLI**          | `apps/cli/`          | 🟡 Core-scenario-grade | ~1500 lines / 17 commands / 13 tools | Unit tests                 | Self-developed AI coding assistant, ACP Server   |
+| **Desktop**      | `apps/desktop/`      | 🟡 Core-scenario-grade | Tauri 2 + Rust + React               | Basic tests                | System tray + local files + WorkPanel            |
+| **Extension**    | `apps/extension/`    | 🟡 Core-scenario-grade | WXT + React                          | Basic tests                | Context menu + sidebar + browser control         |
+| **Mobile RN**    | `apps/mobile-rn/`    | 🟡 Core-scenario-grade | Expo EAS + iOS/Android               | Basic tests                | Chat + WorkPanel + SSO                           |
+| **Mini Program** | `apps/miniapp-taro/` | 🟡 Core-scenario-grade | Taro 4 + WeChat Pay                  | Basic tests                | Chat + WebView + WeChat Pay                      |
 
 **Completion Level Definitions**:
+
 - 🟢 **Production-grade**: Complete business pages + complete test coverage + already used in commercial main platform
 - 🟡 **Core-scenario-grade**: Core Chat / WorkPanel / SSO and other key paths are connected, but business page coverage is lower than Web, suitable for secondary development to complete
 
@@ -974,22 +975,22 @@ The project eliminates collaboration incidents through 21 pre-commit hooks + pos
 | 18      | check-native-title-tooltip.mjs        | Native title tooltip violation (enforce project Tooltip)   |
 | 17-post | git-push-guard.mjs (post-commit)      | Auto-push + verify local == remote (prevent omission)      |
 
-**11 Migration Audit Scripts**: `audit-migration-api-routes-v2.mjs` / `audit-migration-api-routes.mjs` / `audit-migration-db-fields.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-migration-frontend-routes.mjs` / `audit-migration-i18n.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs`
+**9 Migration Audit Scripts**: `audit-migration.mjs` (4-in-1, `--target=i18n|frontend-routes|db-fields|api-routes`, merged 2026-07-25) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs` (unreferenced key audit, added 2026-07-25)
 
 **9 PowerShell Launch Scripts**: `dev-all.ps1` / `dev-up.ps1` / `dev-web.mjs` / `kill-dev-servers.ps1` / `restart-dev-server.ps1` / `fix-trae-workspace.ps1` / `test-admin-e2e.ps1` / `setup-token-refresh-task.ps1` / `cleanup-external-junk.ps1` / `cleanup-memory-topics.ps1`
 
 #### E5. Testing & Performance
 
-| Type               | Framework     | Scale                      | Command                          |
-| ------------------ | ------------- | -------------------------- | -------------------------------- |
-| Backend Unit       | Vitest        | 38 files, 268 cases        | `pnpm --filter @ihui/api test`   |
-| Frontend E2E       | Playwright    | 17 spec files              | `pnpm test:e2e`                  |
-| AI Service         | pytest        | 13 files, 400+ cases       | `cd apps/ai-service && pytest`   |
-| CLI Unit           | Vitest        | 13 files                   | `pnpm --filter @ihui/cli test`   |
-| Load Testing       | Locust        | `scripts/locustfile.py`    | `locust -f scripts/locustfile.py` |
-| Performance Budget | Lighthouse CI | `apps/web/lighthouserc.json` | CI auto-run                      |
-| Unused Code        | Knip          | `knip.jsonc` + CI workflow | `pnpm knip`                      |
-| Full Validation    | turbo         | 22 tasks                   | `pnpm turbo typecheck lint test` |
+| Type               | Framework     | Scale                        | Command                           |
+| ------------------ | ------------- | ---------------------------- | --------------------------------- |
+| Backend Unit       | Vitest        | 38 files, 268 cases          | `pnpm --filter @ihui/api test`    |
+| Frontend E2E       | Playwright    | 17 spec files                | `pnpm test:e2e`                   |
+| AI Service         | pytest        | 13 files, 400+ cases         | `cd apps/ai-service && pytest`    |
+| CLI Unit           | Vitest        | 13 files                     | `pnpm --filter @ihui/cli test`    |
+| Load Testing       | Locust        | `scripts/locustfile.py`      | `locust -f scripts/locustfile.py` |
+| Performance Budget | Lighthouse CI | `apps/web/lighthouserc.json` | CI auto-run                       |
+| Unused Code        | Knip          | `knip.jsonc` + CI workflow   | `pnpm knip`                       |
+| Full Validation    | turbo         | 22 tasks                     | `pnpm turbo typecheck lint test`  |
 
 **Testing Strategy**: Fastify inject mode (no port listening) + Mock database layer + coverage of auth / billing / content / success-paths / business-logic / edge-cases.
 
@@ -1033,7 +1034,7 @@ docker compose up -d
 | AI Service   | http://localhost:8803/health     | FastAPI AI service health check                                          |
 | Grafana      | http://localhost:8816            | Default account admin / change password (20 dashboards auto-provisioned) |
 | Prometheus   | http://localhost:9091            | Metrics collection                                                       |
-| Jaeger UI    | http://localhost:8814           | Distributed tracing                                                      |
+| Jaeger UI    | http://localhost:8814            | Distributed tracing                                                      |
 | Loki         | http://localhost:8818            | Log aggregation                                                          |
 | Alertmanager | http://localhost:9093            | Alert routing                                                            |
 
@@ -1254,32 +1255,32 @@ For the detailed list, see [Core Capabilities Section E4](#e4-engineering-guardr
 
 ### Issue ① High Code Redundancy → Reality: Knip + dedupe + 21 hooks guard
 
-| Mechanism | File | Purpose |
-|---|---|---|
-| **Knip unused code detection** | [knip.jsonc](./knip.jsonc) + [.github/workflows/knip.yml](./.github/workflows/knip.yml) | CI guard, any export not referenced → CI fail |
-| **Dependency fragmentation detection** | [scripts/check-dedupe.mjs](./scripts/check-dedupe.mjs) (pre-commit #7) | Detects duplicate dependency versions, aligns them |
-| **Tailwind class conflict detection** | [scripts/check-tailwind-class-conflict.mjs](./scripts/check-tailwind-class-conflict.mjs) (pre-commit #20) | Detects template literal BASE/BRANCH size conflicts |
-| **Staged pollution warning** | [scripts/check-staged-pollution.mjs](./scripts/check-staged-pollution.mjs) (pre-commit #19) | Detects staged changes across ≥4 directories |
+| Mechanism                              | File                                                                                                      | Purpose                                             |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| **Knip unused code detection**         | [knip.jsonc](./knip.jsonc) + [.github/workflows/knip.yml](./.github/workflows/knip.yml)                   | CI guard, any export not referenced → CI fail       |
+| **Dependency fragmentation detection** | [scripts/check-dedupe.mjs](./scripts/check-dedupe.mjs) (pre-commit #7)                                    | Detects duplicate dependency versions, aligns them  |
+| **Tailwind class conflict detection**  | [scripts/check-tailwind-class-conflict.mjs](./scripts/check-tailwind-class-conflict.mjs) (pre-commit #20) | Detects template literal BASE/BRANCH size conflicts |
+| **Staged pollution warning**           | [scripts/check-staged-pollution.mjs](./scripts/check-staged-pollution.mjs) (pre-commit #19)               | Detects staged changes across ≥4 directories        |
 
 ### Issue ② Insufficient Boundary Conditions → Reality: 237 API tests + 63 e2e + microservice patterns
 
-| Mechanism | Evidence |
-|---|---|
-| **API unit tests** | 237 `.test.ts` files ([apps/api/tests/](./apps/api/tests/)), covering auth/billing/order/vip/wallet/alipay/crypto/csrf/outbox and other core paths |
-| **E2E tests** | 63 `.spec.ts` files ([apps/web/e2e/](./apps/web/e2e/)), covering admin/ai-chat/auth-2fa/community/education/orders/payment/plaza/pwa/security/seo/workspace and 17 business domains |
-| **AI service tests** | pytest test suite ([apps/ai-service/tests/](./apps/ai-service/tests/)), including `test_business_flow_integration.py` business flow integration tests + `test_langgraph_service.py` orchestration logic tests |
-| **Microservice fault tolerance** | Outbox transactional outbox + Refund DLQ refund dead letter queue + Circuit Breaker + IDOR protection + WS Dedup message deduplication |
-| **Payment loop tests** | `apps/api/tests/alipay.test.ts` + `billing.test.ts` + `order.test.ts` + `wallet.test.ts` covering payment/refund/reconciliation/wallet transactions |
+| Mechanism                        | Evidence                                                                                                                                                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **API unit tests**               | 237 `.test.ts` files ([apps/api/tests/](./apps/api/tests/)), covering auth/billing/order/vip/wallet/alipay/crypto/csrf/outbox and other core paths                                                            |
+| **E2E tests**                    | 63 `.spec.ts` files ([apps/web/e2e/](./apps/web/e2e/)), covering admin/ai-chat/auth-2fa/community/education/orders/payment/plaza/pwa/security/seo/workspace and 17 business domains                           |
+| **AI service tests**             | pytest test suite ([apps/ai-service/tests/](./apps/ai-service/tests/)), including `test_business_flow_integration.py` business flow integration tests + `test_langgraph_service.py` orchestration logic tests |
+| **Microservice fault tolerance** | Outbox transactional outbox + Refund DLQ refund dead letter queue + Circuit Breaker + IDOR protection + WS Dedup message deduplication                                                                        |
+| **Payment loop tests**           | `apps/api/tests/alipay.test.ts` + `billing.test.ts` + `order.test.ts` + `wallet.test.ts` covering payment/refund/reconciliation/wallet transactions                                                           |
 
 ### Issue ③ Weak Deep Business Logic Coherence → Reality: Complex business flows have complete chains
 
-| Business Flow | Key Code | Tests |
-|---|---|---|
-| **Payment loop** | `createOrder` → `completeOrderWithSaga` → payment callback → VIP activation → wallet credit → points issuance → refund DLQ | [apps/api/tests/order.test.ts](./apps/api/tests/order.test.ts) + [billing.test.ts](./apps/api/tests/billing.test.ts) |
-| **AI education full stack** | Course enrollment → chapter tracking → homework grading (`gradeSubjectiveAnswers` subjective manual grading + objective auto-scoring) → wrong question book → SRS spaced repetition → certificate issuance | [apps/api/tests/exam.test.ts](./apps/api/tests/exam.test.ts) + [learn.test.ts](./apps/api/tests/learn.test.ts) |
-| **LangGraph workflow** | `langgraph_service.py` StateGraph (plan → execute → summarize) + `koubo_workflow.py` 10+ tools + `agent_orchestrator.py` multi-Agent collaboration | [apps/ai-service/tests/test_langgraph_service.py](./apps/ai-service/tests/test_langgraph_service.py) |
-| **Multi-tenant permissions** | RBAC 5 levels + data-scope 5 levels + RLS row-level security + workspace 3 modes + 7 endpoint runtime interception + 60s audit timeout | [apps/api/tests/rbac.test.ts](./apps/api/tests/rbac.test.ts) |
-| **AI streaming output** | SSE (Agent streaming) + WebSocket (chat room / multi-model streaming) + REST three-protocol layering + WS Dedup message deduplication | [apps/api/tests/chat.test.ts](./apps/api/tests/chat.test.ts) |
+| Business Flow                | Key Code                                                                                                                                                                                                   | Tests                                                                                                                |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Payment loop**             | `createOrder` → `completeOrderWithSaga` → payment callback → VIP activation → wallet credit → points issuance → refund DLQ                                                                                 | [apps/api/tests/order.test.ts](./apps/api/tests/order.test.ts) + [billing.test.ts](./apps/api/tests/billing.test.ts) |
+| **AI education full stack**  | Course enrollment → chapter tracking → homework grading (`gradeSubjectiveAnswers` subjective manual grading + objective auto-scoring) → wrong question book → SRS spaced repetition → certificate issuance | [apps/api/tests/exam.test.ts](./apps/api/tests/exam.test.ts) + [learn.test.ts](./apps/api/tests/learn.test.ts)       |
+| **LangGraph workflow**       | `langgraph_service.py` StateGraph (plan → execute → summarize) + `koubo_workflow.py` 10+ tools + `agent_orchestrator.py` multi-Agent collaboration                                                         | [apps/ai-service/tests/test_langgraph_service.py](./apps/ai-service/tests/test_langgraph_service.py)                 |
+| **Multi-tenant permissions** | RBAC 5 levels + data-scope 5 levels + RLS row-level security + workspace 3 modes + 7 endpoint runtime interception + 60s audit timeout                                                                     | [apps/api/tests/rbac.test.ts](./apps/api/tests/rbac.test.ts)                                                         |
+| **AI streaming output**      | SSE (Agent streaming) + WebSocket (chat room / multi-model streaming) + REST three-protocol layering + WS Dedup message deduplication                                                                      | [apps/api/tests/chat.test.ts](./apps/api/tests/chat.test.ts)                                                         |
 
 ---
 
@@ -1295,15 +1296,15 @@ For the detailed list, see [Core Capabilities Section E4](#e4-engineering-guardr
 
 ### Targeted Countermeasures Against AI Code Issues
 
-| AI Code Issue | This Project's Countermeasure |
-|---|---|
-| Code redundancy | Knip CI guard + check-dedupe + check-tailwind-class-conflict |
-| Missing boundary conditions | 237 API tests + 63 e2e + pytest integration tests + microservice fault tolerance patterns |
+| AI Code Issue                | This Project's Countermeasure                                                                                                  |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Code redundancy              | Knip CI guard + check-dedupe + check-tailwind-class-conflict                                                                   |
+| Missing boundary conditions  | 237 API tests + 63 e2e + pytest integration tests + microservice fault tolerance patterns                                      |
 | Business logic fragmentation | Business flow integration tests (`test_business_flow_integration.py`) + saga transaction pattern + outbox transactional outbox |
-| Type safety holes | TypeScript strict + Zod end-to-end validation + @ihui/types cross-client contracts |
-| Doc-code drift | §13 file modification persistence mandatory Read verification + check-project-plan-archive guard |
-| Style inconsistency | ESLint + Prettier + 21 pre-commit hooks + check-rounded-full / check-i18n-keys / check-api-routes etc. |
-| Collaboration incidents | §12 multi-session parallel rules + §16 push-stage cross-Agent protection + git-push-guard + post-commit auto-push |
+| Type safety holes            | TypeScript strict + Zod end-to-end validation + @ihui/types cross-client contracts                                             |
+| Doc-code drift               | §13 file modification persistence mandatory Read verification + check-project-plan-archive guard                               |
+| Style inconsistency          | ESLint + Prettier + 21 pre-commit hooks + check-rounded-full / check-i18n-keys / check-api-routes etc.                         |
+| Collaboration incidents      | §12 multi-session parallel rules + §16 push-stage cross-Agent protection + git-push-guard + post-commit auto-push              |
 
 ### Honestly Acknowledged Shortcomings
 
@@ -1336,33 +1337,33 @@ docker compose up -d
 
 **Service List (14 services):**
 
-| Type       | Service        | Port  | Purpose                                          |
-| ---------- | -------------- | ----- | ------------------------------------------------ |
-| Business   | api            | 8802  | Fastify backend                                  |
-| Business   | worker         | 8830  | BullMQ independent worker process                |
-| Business   | web            | 8801  | Next.js frontend (standalone)                    |
-| Business   | ai-service     | 8803  | FastAPI AI service                               |
-| Business   | db             | 8810  | PostgreSQL 15                                    |
-| Business   | redis          | 8811  | Redis 7                                          |
-| Business   | migrate        | -     | One-shot migration service (exits on completion) |
-| Monitoring | jaeger         | 8814  | Distributed tracing UI                           |
-| Monitoring | otel-collector | 8813  | OpenTelemetry Collector                          |
-| Monitoring | prometheus     | 9091  | Metrics collection                               |
-| Monitoring | grafana        | 8816  | Visualization (20 dashboards)                    |
-| Monitoring | node-exporter  | 8817  | Host metrics                                     |
-| Monitoring | loki           | 8818  | Log aggregation                                  |
-| Monitoring | promtail       | -     | Log collection                                   |
+| Type       | Service        | Port | Purpose                                          |
+| ---------- | -------------- | ---- | ------------------------------------------------ |
+| Business   | api            | 8802 | Fastify backend                                  |
+| Business   | worker         | 8830 | BullMQ independent worker process                |
+| Business   | web            | 8801 | Next.js frontend (standalone)                    |
+| Business   | ai-service     | 8803 | FastAPI AI service                               |
+| Business   | db             | 8810 | PostgreSQL 15                                    |
+| Business   | redis          | 8811 | Redis 7                                          |
+| Business   | migrate        | -    | One-shot migration service (exits on completion) |
+| Monitoring | jaeger         | 8814 | Distributed tracing UI                           |
+| Monitoring | otel-collector | 8813 | OpenTelemetry Collector                          |
+| Monitoring | prometheus     | 9091 | Metrics collection                               |
+| Monitoring | grafana        | 8816 | Visualization (20 dashboards)                    |
+| Monitoring | node-exporter  | 8817 | Host metrics                                     |
+| Monitoring | loki           | 8818 | Log aggregation                                  |
+| Monitoring | promtail       | -    | Log collection                                   |
 
 ### Port Management Rules
 
 All services in this project use the `88xx` port range to avoid conflicts with system services:
 
-| Port Range | Purpose           | Description                                          |
-| ---------- | ------------------ | ---------------------------------------------------- |
-| 8801-8809  | App Services       | Web / API / AI Service / Taro H5 / Metro / Desktop etc. |
-| 8810-8819  | Infrastructure     | PostgreSQL (8810) / Redis (8811) / OTel (8812-8813) / Jaeger (8814) / Prometheus (8815) / Grafana (8816) / Node Exporter (8817) / Loki (8818) |
-| 8820-8829  | Auxiliary Tools    | Storybook (8820) and other dev tools                 |
-| 8830-8839  | SaaS Deployment    | Admin API (8830) and other SaaS deployment services  |
+| Port Range | Purpose         | Description                                                                                                                                   |
+| ---------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 8801-8809  | App Services    | Web / API / AI Service / Taro H5 / Metro / Desktop etc.                                                                                       |
+| 8810-8819  | Infrastructure  | PostgreSQL (8810) / Redis (8811) / OTel (8812-8813) / Jaeger (8814) / Prometheus (8815) / Grafana (8816) / Node Exporter (8817) / Loki (8818) |
+| 8820-8829  | Auxiliary Tools | Storybook (8820) and other dev tools                                                                                                          |
+| 8830-8839  | SaaS Deployment | Admin API (8830) and other SaaS deployment services                                                                                           |
 
 ### Production Deployment
 
@@ -1422,15 +1423,15 @@ Yes. The project uses Apache License 2.0, which allows free use, modification, d
 
 IHUI-AI is not a single AI tool, but an **Open-Source AI Commercial-Grade Integrated Foundation** that integrates the capabilities of the following 6 product categories **into a single Apache 2.0 repository**:
 
-| Benchmark Category           | Representative Products                                                                        | IHUI-AI Difference                                                                                    |
-| ---------------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| General AI Chat              | OpenAI ChatGPT / Anthropic Claude.ai / Google Gemini / Microsoft Copilot                       | IHUI-AI is self-hosted + 100+ models (not limited to OpenAI) + includes billing/education/publishing |
-| AI Application Development Platform | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze                                       | IHUI-AI adds 6 more clients, self-developed CLI, complete commercial closed loop, AI education, 14-platform publishing |
-| AI Agent Framework           | LangChain / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT                                  | Those are development frameworks ("car parts"); IHUI-AI is a productized Foundation ("finished car") that non-technical teams can use |
-| AI Coding CLI / IDE          | Claude Code / Cursor / GitHub Copilot / Windsurf / Amazon Q / Cline / Aider                    | IHUI-AI's CLI doesn't just code—it integrates the AI application platform (chat/RAG/Agent/billing), and is Apache 2.0 open source, while others are all closed-source |
-| AI Education Platform        | Khan Academy / Coursera / edX / Google Education AI                                            | IHUI-AI's AI education is an open-source full stack (courses/question bank/exam/SRS/live/certificates), customizable; the others are closed-source SaaS |
-| Commercial SaaS Foundation   | Stripe / Auth0 / Clerk / Mailgun / SendGrid / Mixpanel / Amplitude / PostHog                   | IHUI-AI pre-builds payments/auth/email/analytics all in one, replacing 4-6 SaaS products, saving $300+/month |
-| Multi-Platform Framework     | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js                                  | IHUI-AI pre-builds 8 clients + 13 shared packages + shared UI in one go, instead of making developers assemble them |
+| Benchmark Category                  | Representative Products                                                      | IHUI-AI Difference                                                                                                                                                    |
+| ----------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| General AI Chat                     | OpenAI ChatGPT / Anthropic Claude.ai / Google Gemini / Microsoft Copilot     | IHUI-AI is self-hosted + 100+ models (not limited to OpenAI) + includes billing/education/publishing                                                                  |
+| AI Application Development Platform | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze                         | IHUI-AI adds 6 more clients, self-developed CLI, complete commercial closed loop, AI education, 14-platform publishing                                                |
+| AI Agent Framework                  | LangChain / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT                | Those are development frameworks ("car parts"); IHUI-AI is a productized Foundation ("finished car") that non-technical teams can use                                 |
+| AI Coding CLI / IDE                 | Claude Code / Cursor / GitHub Copilot / Windsurf / Amazon Q / Cline / Aider  | IHUI-AI's CLI doesn't just code—it integrates the AI application platform (chat/RAG/Agent/billing), and is Apache 2.0 open source, while others are all closed-source |
+| AI Education Platform               | Khan Academy / Coursera / edX / Google Education AI                          | IHUI-AI's AI education is an open-source full stack (courses/question bank/exam/SRS/live/certificates), customizable; the others are closed-source SaaS               |
+| Commercial SaaS Foundation          | Stripe / Auth0 / Clerk / Mailgun / SendGrid / Mixpanel / Amplitude / PostHog | IHUI-AI pre-builds payments/auth/email/analytics all in one, replacing 4-6 SaaS products, saving $300+/month                                                          |
+| Multi-Platform Framework            | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js                | IHUI-AI pre-builds 8 clients + 13 shared packages + shared UI in one go, instead of making developers assemble them                                                   |
 
 **10 Unique Capabilities (Only in Open-Source Ecosystem)**:
 
@@ -1554,84 +1555,84 @@ We especially welcome contributions in these directions:
 
 ### Project & Architecture
 
-| Document                                                     | Description                                                                                            |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| [docs/architecture.md](docs/architecture.md)                 | **System architecture overview** (tech stack / database / API routes / startup flow / legacy deprecation) |
-| [docs/MULTI_END.md](docs/MULTI_END.md)                       | Multi-end architecture (8-end matrix + cross-end links + sync dev + 14-platform release matrix)        |
-| [docs/PACKAGES.md](docs/PACKAGES.md)                         | Shared packages guide (13 @ihui/* packages + dependencies + new package flow)                          |
-| [docs/port-management.md](docs/port-management.md)           | Port management rules (8801-8899 port registry)                                                        |
-| [docs/INFRASTRUCTURE_DECISION.md](docs/INFRASTRUCTURE_DECISION.md) | Infrastructure decision (Docker Compose vs K8s)                                                   |
-| [docs/PRODUCTION_INFRASTRUCTURE.md](docs/PRODUCTION_INFRASTRUCTURE.md) | Production infrastructure spec                                                                 |
+| Document                                                               | Description                                                                                               |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| [docs/architecture.md](docs/architecture.md)                           | **System architecture overview** (tech stack / database / API routes / startup flow / legacy deprecation) |
+| [docs/MULTI_END.md](docs/MULTI_END.md)                                 | Multi-end architecture (8-end matrix + cross-end links + sync dev + 14-platform release matrix)           |
+| [docs/PACKAGES.md](docs/PACKAGES.md)                                   | Shared packages guide (13 @ihui/* packages + dependencies + new package flow)                             |
+| [docs/port-management.md](docs/port-management.md)                     | Port management rules (8801-8899 port registry)                                                           |
+| [docs/INFRASTRUCTURE_DECISION.md](docs/INFRASTRUCTURE_DECISION.md)     | Infrastructure decision (Docker Compose vs K8s)                                                           |
+| [docs/PRODUCTION_INFRASTRUCTURE.md](docs/PRODUCTION_INFRASTRUCTURE.md) | Production infrastructure spec                                                                            |
 
 ### Development & Testing
 
-| Document                                                     | Description                                                                                            |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                   | **Local dev guide** (env vars / startup / debug / script cheatsheet / Windows notes)                   |
-| [docs/TESTING.md](docs/TESTING.md)                           | Test strategy (8-layer pyramid + Vitest + pytest + Playwright + Locust + CI)                           |
-| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)                 | Contribution guide (env setup / code conventions / commit conventions / PR process)                    |
-| [docs/UI_GUIDELINES.md](docs/UI_GUIDELINES.md)               | UI design guidelines (border radius / font alignment / login popup / component library)                |
-| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)                   | Performance baseline & optimization (SLA / load test / database / frontend / AI service)               |
+| Document                                       | Description                                                                              |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)     | **Local dev guide** (env vars / startup / debug / script cheatsheet / Windows notes)     |
+| [docs/TESTING.md](docs/TESTING.md)             | Test strategy (8-layer pyramid + Vitest + pytest + Playwright + Locust + CI)             |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)   | Contribution guide (env setup / code conventions / commit conventions / PR process)      |
+| [docs/UI_GUIDELINES.md](docs/UI_GUIDELINES.md) | UI design guidelines (border radius / font alignment / login popup / component library)  |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)     | Performance baseline & optimization (SLA / load test / database / frontend / AI service) |
 
 ### API & Data Layer
 
-| Document                                                     | Description                                                                                            |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| [docs/API_REFERENCE.md](docs/API_REFERENCE.md)               | **Complete API reference** (60+ routes + 12 WebSocket + SSE + error codes + client examples)           |
-| [docs/DATABASE.md](docs/DATABASE.md)                         | Database design (Drizzle / 339 tables / migrations / RLS / seed / backup)                              |
-| [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)             | Auth & authorization (JWT / token-family / OAuth2 / 2FA / RBAC / multi-tenant / WS auth)              |
+| Document                                         | Description                                                                                  |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| [docs/API_REFERENCE.md](docs/API_REFERENCE.md)   | **Complete API reference** (60+ routes + 12 WebSocket + SSE + error codes + client examples) |
+| [docs/DATABASE.md](docs/DATABASE.md)             | Database design (Drizzle / 339 tables / migrations / RLS / seed / backup)                    |
+| [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) | Auth & authorization (JWT / token-family / OAuth2 / 2FA / RBAC / multi-tenant / WS auth)     |
 
 ### AI Service
 
-| Document                                                     | Description                                                                                            |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| [docs/AI_SERVICE.md](docs/AI_SERVICE.md)                     | **AI service deep-dive** (6 routers + LangGraph + LiteLLM + MCP + A2A + vector memory)                 |
-| [docs/LLM_SETUP.md](docs/LLM_SETUP.md)                       | LLM model config (OpenAI / Anthropic / Google / domestic vendors)                                      |
-| [docs/AI_LEADERBOARD.md](docs/AI_LEADERBOARD.md)             | AI model leaderboard data                                                                              |
+| Document                                         | Description                                                                            |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| [docs/AI_SERVICE.md](docs/AI_SERVICE.md)         | **AI service deep-dive** (6 routers + LangGraph + LiteLLM + MCP + A2A + vector memory) |
+| [docs/LLM_SETUP.md](docs/LLM_SETUP.md)           | LLM model config (OpenAI / Anthropic / Google / domestic vendors)                      |
+| [docs/AI_LEADERBOARD.md](docs/AI_LEADERBOARD.md) | AI model leaderboard data                                                              |
 
 ### Deployment & Ops
 
-| Document                                                     | Description                                                                                            |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)     | **Deployment ops runbook** (blue-green deployment / rollback / cert renewal)                           |
-| [docs/RELEASE.md](docs/RELEASE.md)                           | Release process (14 platforms + SemVer + Git tag + Docker images + hotfix)                             |
-| [docs/MONITORING.md](docs/MONITORING.md)                     | Observability (Prometheus + Grafana + Loki + Jaeger + Alertmanager)                                    |
-| [docs/INCIDENTS.md](docs/INCIDENTS.md)                       | Historical incident retrospectives                                                                      |
-| [docs/SECURITY.md](docs/SECURITY.md)                         | Security policy (vulnerability disclosure / encryption design / permission model)                      |
-| [docs/CREDENTIAL_ROTATION_RUNBOOK.md](docs/CREDENTIAL_ROTATION_RUNBOOK.md) | Credential rotation ops runbook                                                                  |
-| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)                   | Email service config (SMTP / templates / DKIM)                                                         |
-| [docs/WECHAT_PAY_ACTIVATION_REPORT.md](docs/WECHAT_PAY_ACTIVATION_REPORT.md) | WeChat Pay V3 activation report                                                                 |
-| [server-docs/MULTI_TENANT.md](server-docs/MULTI_TENANT.md)   | Multi-tenant design doc (RLS + tenant routing)                                                         |
+| Document                                                                     | Description                                                                       |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)                     | **Deployment ops runbook** (blue-green deployment / rollback / cert renewal)      |
+| [docs/RELEASE.md](docs/RELEASE.md)                                           | Release process (14 platforms + SemVer + Git tag + Docker images + hotfix)        |
+| [docs/MONITORING.md](docs/MONITORING.md)                                     | Observability (Prometheus + Grafana + Loki + Jaeger + Alertmanager)               |
+| [docs/INCIDENTS.md](docs/INCIDENTS.md)                                       | Historical incident retrospectives                                                |
+| [docs/SECURITY.md](docs/SECURITY.md)                                         | Security policy (vulnerability disclosure / encryption design / permission model) |
+| [docs/CREDENTIAL_ROTATION_RUNBOOK.md](docs/CREDENTIAL_ROTATION_RUNBOOK.md)   | Credential rotation ops runbook                                                   |
+| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)                                   | Email service config (SMTP / templates / DKIM)                                    |
+| [docs/WECHAT_PAY_ACTIVATION_REPORT.md](docs/WECHAT_PAY_ACTIVATION_REPORT.md) | WeChat Pay V3 activation report                                                   |
+| [server-docs/MULTI_TENANT.md](server-docs/MULTI_TENANT.md)                   | Multi-tenant design doc (RLS + tenant routing)                                    |
 
 ### Quality & Gatekeepers
 
-| Document                                                     | Description                                                                                            |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| [docs/GATEKEEPERS.md](docs/GATEKEEPERS.md)                   | **Gatekeeper rules deep-dive** (23 pre-commit + post-commit + pre-push, per-script)                    |
-| [docs/I18N.md](docs/I18N.md)                                 | Internationalization (5 languages + 68 namespaces + 12 gatekeeper scripts + translation strategy)      |
-| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | i18n completion plan (historical planning)                                                              |
+| Document                                                     | Description                                                                                       |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| [docs/GATEKEEPERS.md](docs/GATEKEEPERS.md)                   | **Gatekeeper rules deep-dive** (23 pre-commit + post-commit + pre-push, per-script)               |
+| [docs/I18N.md](docs/I18N.md)                                 | Internationalization (5 languages + 68 namespaces + 12 gatekeeper scripts + translation strategy) |
+| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | i18n completion plan (historical planning)                                                        |
 
 ### SDK & CLI
 
-| Document                                                     | Description                                                                                            |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| [docs/SDK.md](docs/SDK.md)                                   | 5-language SDK guide (TS / Python / Go / Java / .NET code examples)                                    |
-| [docs/CLI.md](docs/CLI.md)                                   | CLI tool guide (24-source import + subagent parallel + skills + plugins)                               |
+| Document                   | Description                                                              |
+| -------------------------- | ------------------------------------------------------------------------ |
+| [docs/SDK.md](docs/SDK.md) | 5-language SDK guide (TS / Python / Go / Java / .NET code examples)      |
+| [docs/CLI.md](docs/CLI.md) | CLI tool guide (24-source import + subagent parallel + skills + plugins) |
 
 ### Troubleshooting & FAQ
 
-| Document                                                     | Description                                                                                            |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)           | **Troubleshooting guide** (10 categories, 35+ issues, unified template)                                |
-| [docs/FAQ.md](docs/FAQ.md)                                   | FAQ (14 categories, 86 questions)                                                                      |
+| Document                                           | Description                                                             |
+| -------------------------------------------------- | ----------------------------------------------------------------------- |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | **Troubleshooting guide** (10 categories, 35+ issues, unified template) |
+| [docs/FAQ.md](docs/FAQ.md)                         | FAQ (14 categories, 86 questions)                                       |
 
 ### Project Management
 
-| Document                                                     | Description                                                                                            |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| [docs/CHANGELOG.md](docs/CHANGELOG.md)                       | Changelog                                                                                              |
-| [AGENTS.md](AGENTS.md)                                       | AI Agent collaboration spec (23 sections of mandatory rules; shows how this project collaborates with AI for development) |
-| [PROJECT_PLAN.md](PROJECT_PLAN.md)                           | Project task plan & historical archive (internal dev record, shows evolution trajectory)               |
+| Document                               | Description                                                                                                               |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md) | Changelog                                                                                                                 |
+| [AGENTS.md](AGENTS.md)                 | AI Agent collaboration spec (23 sections of mandatory rules; shows how this project collaborates with AI for development) |
+| [PROJECT_PLAN.md](PROJECT_PLAN.md)     | Project task plan & historical archive (internal dev record, shows evolution trajectory)                                  |
 
 ---
 
@@ -1854,7 +1855,7 @@ With AI coding agents, without a large team, he single-handedly delivered:
 | **100+ LLMs**         | LiteLLM unified gateway + 5 provider adapters                                                                                    | Usually a model team of 3-5             |
 | **AI Orchestration**  | LangGraph + MCP + A2A synergy + Persona + Agent Runtime + Vector Memory                                                          | Usually an AI platform team of 5-10     |
 | **Database**          | 339+ tables + 100 schema files + 128+ migrations + RLS + multi-tenant routing                                                    | Usually 1 DBA + 2-3 backend engineers   |
-| **API Scale**         | ~1168+ endpoints + 12 WebSocket + 95+ route files                                                                                 | Usually 5-8 backend engineers           |
+| **API Scale**         | ~1168+ endpoints + 12 WebSocket + 95+ route files                                                                                | Usually 5-8 backend engineers           |
 | **Frontend Scale**    | 200+ pages + 5-language i18n parity + dark mode + PWA + SEO                                                                      | Usually 4-6 frontend engineers          |
 | **Engineering Gates** | 21 pre-commit + post-commit auto-push + 11 migration audits + 9 PowerShell startup scripts                                       | Usually 1-2 DevOps engineers            |
 | **Observability**     | Prometheus + Grafana (20 dashboards) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                   | Usually 1-2 SRE engineers               |
