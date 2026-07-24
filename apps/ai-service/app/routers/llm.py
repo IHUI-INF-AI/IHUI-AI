@@ -340,6 +340,13 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     # 直到 LLM 不再决策 tool_calls 或达到 max_iterations → 归一化 → astream 生成最终回复
                     # 2026-07-24 修复:从 settings.max_agent_iterations 读取(原硬编码 3,无法覆盖多步操作)
                     max_iterations = settings.max_agent_iterations
+                    # 重复调用检测集合(2026-07-24 立,修复 stepfun/step-router-v1 在 tool loop 中重复调用
+                    # search_codebase(query="config") 8 次耗尽 max_iterations 的问题):
+                    # - executed_tool_keys:本轮 tool loop 内已执行过的 (tool_name, args_hash) 集合,命中则跳过执行
+                    # - injected_warning_keys:已注入过 system 提示的 key 集合(每个 key 只注入一次,避免每轮重复注入)
+                    # 每次 /llm/complete/stream 请求独立(集合在 tool loop 进入时初始化为空)
+                    executed_tool_keys: set[str] = set()
+                    injected_warning_keys: set[str] = set()
                     for _tool_iter in range(max_iterations):
                         complete_result = await llm_gateway.complete(
                             messages, model=req.model, owner_uuid=owner_uuid,
@@ -425,6 +432,61 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 "iteration": _tool_iter + 1,
                             }
                             yield f"event: tool-call-start\ndata: {json.dumps(tc_start, ensure_ascii=False)}\n\n"
+
+                            # 重复调用检测(2026-07-24 立,修复 stepfun/step-router-v1 在 tool loop 中重复调用
+                            # search_codebase(query="config") 8 次耗尽 max_iterations 的问题):
+                            # 命中已执行集合则跳过 _mcp.call_tool,构造简短 result,推送带 repeated: True 标记的
+                            # tool-result 事件,并注入一次 system 提示消息引导 LLM 基于已有结果回答或换参数
+                            args_hash = json.dumps(args, sort_keys=True, ensure_ascii=False)
+                            dedup_key = f"{tool_name}::{args_hash}"
+
+                            if dedup_key in executed_tool_keys:
+                                # 重复调用:跳过执行,构造简短 result(标注 previous_result_available)
+                                exec_result = {
+                                    "tool": tool_name,
+                                    "ok": True,
+                                    "skipped": True,
+                                    "message": "已跳过重复调用,结果见之前 tool-result",
+                                    "previous_result_available": True,
+                                }
+                                ok = True
+                                tool_exec_tracker.append(ok)
+                                # 推送 tool-result 事件(带 repeated: True 标记,让前端可见 LLM 决策了但被去重)
+                                tc_result_evt = {
+                                    "type": "tool-result",
+                                    "toolCallId": tc.get("id", ""),
+                                    "toolName": tool_name,
+                                    "args": args,
+                                    "result": exec_result,
+                                    "isError": False,
+                                    "iteration": _tool_iter + 1,
+                                    "repeated": True,
+                                }
+                                yield f"event: tool-result\ndata: {json.dumps(tc_result_evt, ensure_ascii=False)}\n\n"
+                                # 回灌工具结果(简短提示,让 LLM 知道工具被跳过,完整结果见之前 tool 消息)
+                                result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
+                                messages.append({
+                                    "role": "tool",
+                                    "tool_call_id": tc.get("id", ""),
+                                    "name": tool_name,
+                                    "content": result_json,
+                                })
+                                # system 提示消息只注入一次(同一 (tool_name, args_hash) 第二次重复时才注入,
+                                # 避免每轮都重复注入同一提示)
+                                if dedup_key not in injected_warning_keys:
+                                    injected_warning_keys.add(dedup_key)
+                                    messages.append({
+                                        "role": "system",
+                                        "content": (
+                                            f"工具 '{tool_name}' (args={args_hash}) 已在之前轮次成功执行,"
+                                            f"结果已记录在上方 tool 角色消息中。请基于已有结果直接回答用户问题,"
+                                            f"或调用不同参数的工具,不要重复调用相同参数的同一工具。"
+                                        ),
+                                    })
+                                continue
+
+                            # 首次调用:记录到集合(不管成功失败都记录,防止 LLM 重复调用同一参数的同一工具)
+                            executed_tool_keys.add(dedup_key)
 
                             # 执行工具(异常保护:网络/超时/JSON 错误不应崩溃 SSE 流)
                             try:
