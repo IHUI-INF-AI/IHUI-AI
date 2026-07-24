@@ -112,7 +112,10 @@ export function VideoPlayer({
 
   const handleVideoError = useCallback(
     (e: unknown) => {
-      const msg = typeof e === 'object' && e && 'error' in e ? String((e as { error: unknown }).error) : t('course.playError')
+      const msg =
+        typeof e === 'object' && e && 'error' in e
+          ? String((e as { error: unknown }).error)
+          : t('course.playError')
       setError(msg)
       setLoading(false)
       onError?.(msg)
@@ -186,13 +189,13 @@ export function VideoPlayer({
       />
 
       {loading ? (
-        <View style={[StyleSheet.absoluteFill, styles.center]}>
+        <View style={StyleSheet.absoluteFill} className="items-center justify-center">
           <ActivityIndicator color="#fff" />
         </View>
       ) : null}
 
       {error ? (
-        <View style={[StyleSheet.absoluteFill, styles.center]}>
+        <View style={StyleSheet.absoluteFill} className="items-center justify-center">
           <Text className="px-4 text-center text-sm text-red-400">{error}</Text>
         </View>
       ) : null}
@@ -208,7 +211,9 @@ export function VideoPlayer({
           className="rounded-md bg-white/10 px-2 py-1"
           testID="video-fullscreen"
         >
-          <Text className="text-[10px] text-white">{fullscreen ? t('player.exitFullscreen') : t('player.fullscreen')}</Text>
+          <Text className="text-[10px] text-white">
+            {fullscreen ? t('player.exitFullscreen') : t('player.fullscreen')}
+          </Text>
         </Pressable>
       </View>
 
@@ -221,7 +226,9 @@ export function VideoPlayer({
             className="rounded-md bg-white/15 px-3 py-1"
             testID="video-play-pause"
           >
-            <Text className="text-xs text-white">{paused ? t('player.play') : t('player.pause')}</Text>
+            <Text className="text-xs text-white">
+              {paused ? t('player.play') : t('player.pause')}
+            </Text>
           </Pressable>
           <Pressable
             onPress={cycleRate}
@@ -255,12 +262,5 @@ export function VideoPlayer({
 
 // 保留 ViewType 引用避免 lint 抱怨(用于未来挂载外层容器 ref)
 export type VideoPlayerHandle = ViewType
-
-const styles = StyleSheet.create({
-  center: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-})
 
 export default VideoPlayer

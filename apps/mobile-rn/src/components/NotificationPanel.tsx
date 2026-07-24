@@ -1,4 +1,4 @@
-import { Modal, View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native'
+import { Modal, View, Text, TouchableOpacity, FlatList } from 'react-native'
 import { useNotificationStore } from '../stores/notification'
 
 function formatTime(iso: string): string {
@@ -24,23 +24,33 @@ export default function NotificationPanel() {
       animationType="slide"
       onRequestClose={() => setVisible(false)}
     >
-      <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setVisible(false)}>
+      <TouchableOpacity
+        className="flex-1 bg-black/20 justify-end"
+        activeOpacity={1}
+        onPress={() => setVisible(false)}
+      >
         <TouchableOpacity
-          style={styles.panel}
+          className="bg-white rounded-tl-2xl rounded-tr-2xl max-h-[70%] min-h-[40%]"
           activeOpacity={1}
           onPress={(e) => e.stopPropagation()}
         >
-          <View style={styles.header}>
-            <Text style={styles.title}>通知</Text>
-            <View style={styles.actions}>
-              <TouchableOpacity style={styles.btn} onPress={markAllRead}>
-                <Text style={styles.btnText}>全部已读</Text>
+          <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-200">
+            <Text className="text-[15px] font-semibold text-gray-900">通知</Text>
+            <View className="flex-row items-center gap-2">
+              <TouchableOpacity
+                className="px-2.5 py-1 rounded-md border border-gray-200"
+                onPress={markAllRead}
+              >
+                <Text className="text-xs text-gray-700">全部已读</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.btn} onPress={clearAll}>
-                <Text style={styles.btnText}>清空</Text>
+              <TouchableOpacity
+                className="px-2.5 py-1 rounded-md border border-gray-200"
+                onPress={clearAll}
+              >
+                <Text className="text-xs text-gray-700">清空</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.closeBtn} onPress={() => setVisible(false)}>
-                <Text style={styles.closeText}>×</Text>
+              <TouchableOpacity className="px-2 py-0.5" onPress={() => setVisible(false)}>
+                <Text className="text-[20px] text-gray-500 leading-[22px]">×</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -48,104 +58,21 @@ export default function NotificationPanel() {
             data={notifications}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
-              <View style={[styles.item, !item.isRead && styles.itemUnread]}>
-                <Text style={styles.itemTitle}>{item.title}</Text>
-                {item.content ? <Text style={styles.itemContent}>{item.content}</Text> : null}
-                <Text style={styles.itemTime}>{formatTime(item.createdAt)}</Text>
+              <View className={`px-3 py-2.5 rounded-lg mb-1 ${!item.isRead ? 'bg-gray-100' : ''}`}>
+                <Text className="text-[13px] font-medium text-gray-900 mb-0.5">{item.title}</Text>
+                {item.content ? (
+                  <Text className="text-xs text-gray-500 mb-1">{item.content}</Text>
+                ) : null}
+                <Text className="text-[11px] text-gray-400">{formatTime(item.createdAt)}</Text>
               </View>
             )}
-            ListEmptyComponent={<Text style={styles.empty}>暂无通知</Text>}
-            contentContainerStyle={styles.list}
+            ListEmptyComponent={
+              <Text className="py-10 text-center text-gray-400 text-[13px]">暂无通知</Text>
+            }
+            contentContainerStyle={{ padding: 8 }}
           />
         </TouchableOpacity>
       </TouchableOpacity>
     </Modal>
   )
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    justifyContent: 'flex-end',
-  },
-  panel: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    maxHeight: '70%',
-    minHeight: '40%',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  title: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  btn: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  btnText: {
-    fontSize: 12,
-    color: '#374151',
-  },
-  closeBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  closeText: {
-    fontSize: 20,
-    color: '#6b7280',
-    lineHeight: 22,
-  },
-  list: {
-    padding: 8,
-  },
-  empty: {
-    paddingVertical: 40,
-    textAlign: 'center',
-    color: '#9ca3af',
-    fontSize: 13,
-  },
-  item: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginBottom: 4,
-  },
-  itemUnread: {
-    backgroundColor: '#f3f4f6',
-  },
-  itemTitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#111827',
-    marginBottom: 2,
-  },
-  itemContent: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginBottom: 4,
-  },
-  itemTime: {
-    fontSize: 11,
-    color: '#9ca3af',
-  },
-})
