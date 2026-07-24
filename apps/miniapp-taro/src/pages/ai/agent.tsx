@@ -415,7 +415,7 @@ export default function AgentPage() {
         <Text className="text-[24rpx]">+ {t('ai.agentList.createAgent')}</Text>
       </View>
 
-      <View className="fixed bottom-0 left-0 right-0 bg-card border-t border-border">
+      <View className="fixed bottom-0 left-0 right-0 bg-card shadow-[0_-1px_2px_rgba(0,0,0,0.04)]">
         <BottomActionBar
           value={keyword}
           onInput={setKeyword}

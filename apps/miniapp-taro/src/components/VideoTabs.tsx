@@ -26,7 +26,7 @@ export default function VideoTabs({
   onChange,
 }: VideoTabsProps) {
   return (
-    <View className="flex bg-card border-b border-border">
+    <View className="flex bg-card mb-2">
       {tabs.map((tab) => {
         const isActive = tab.key === active
         return (

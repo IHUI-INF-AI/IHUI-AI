@@ -27,10 +27,9 @@
   justify-content: space-between;
   align-items: center;
   padding: 28rpx 0;
-  border-bottom: 2rpx solid var(--color-border);
 }
-.perm-item:last-child {
-  border-bottom: none;
+.perm-item + .perm-item {
+  margin-top: 16rpx;
 }
 .perm-info {
   display: flex;
@@ -78,10 +77,9 @@
   justify-content: space-between;
   align-items: center;
   padding: 28rpx 0;
-  border-bottom: 2rpx solid var(--color-border);
 }
-.switch-item:last-child {
-  border-bottom: none;
+.switch-item + .switch-item {
+  margin-top: 16rpx;
 }
 .switch-info {
   flex: 1;

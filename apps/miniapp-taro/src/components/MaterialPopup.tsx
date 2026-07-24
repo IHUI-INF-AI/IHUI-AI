@@ -74,7 +74,7 @@ export default function MaterialPopup({
 
   return (
     <DrawerComponent visible={visible} onClose={onClose} height="75vh">
-      <View className="flex items-center justify-between px-4 py-3 border-b border-border">
+      <View className="flex items-center justify-between px-4 py-3 mb-2">
         <Text className="text-base font-semibold text-foreground dark:text-muted-foreground">
           {t('ai.materialPopup.title')}
         </Text>
@@ -88,7 +88,7 @@ export default function MaterialPopup({
 
       <ScrollView
         scrollX
-        className="whitespace-nowrap px-3 py-2 border-b border-border"
+        className="whitespace-nowrap px-3 py-2 mb-2"
       >
         {TABS.map((tabItem) => (
           <View
