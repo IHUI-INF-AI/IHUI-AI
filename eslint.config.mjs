@@ -31,6 +31,17 @@ export default [
       'react-hooks/exhaustive-deps': 'warn',
     },
   },
+  // lint-staged 兜底:注册 extension 包使用的 react-hooks 插件,使规则生效
+  {
+    files: ['apps/extension/**/*.{ts,tsx}'],
+    plugins: {
+      'react-hooks': reactHooks,
+    },
+    rules: {
+      'react-hooks/exhaustive-deps': 'warn',
+      'react-hooks/rules-of-hooks': 'error',
+    },
+  },
   {
     files: ['apps/web/**/*.{tsx,jsx}'],
     plugins: { 'jsx-a11y': jsxA11y },
