@@ -377,7 +377,7 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
   - **清理脚本(根治工具)**:`scripts/cleanup-external-junk.ps1` 已扩展为 16 目录 + 31 文件清单,支持 `-Force` 跳过确认(agent 自动执行)。
     - 交互模式:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-junk.ps1`(需输入 YES 确认)
     - 自动模式:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-junk.ps1 -Force`(agent 用)
-    - 安全保证:只删清单内 16 目录 + 31 文件,不用通配符,不触碰其他应用目录(Trae CN / QoderCN / Zcode / freellmapi / grok-build / 微信web开发者工具 / 支付宝小程序开发工具 / Yingyongbao 等)
+    - 安全保证:只删清单内 16 目录 + 31 文件,不用通配符,不触碰其他应用目录(Trae CN / QoderCN / Zcode / grok-build / 微信web开发者工具 / 支付宝小程序开发工具 / Yingyongbao 等)
   - **脚本是纯 ASCII**:PowerShell 5 默认用 GBK 读 .ps1,中文会破坏引号配对。脚本注释/输出全部用英文,只有清单中的中文文件名(`微信支付商户API证书工具 V1.4.exe`)保留中文(GBK 兼容)。
 - **agent 行为约束**(机制可阻止):
   - agent 启动外部 Qt 类工具时,**禁止**把工作目录设为 `G:\` 根,必须用 `Set-Location` 切到项目内或专门工具目录。
@@ -402,11 +402,11 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
 - **解决方案**:FileSystemWatcher 实时监控 G:\ 根目录,垃圾创建后**约 110-222ms 内自动删除** + 写审计日志。注册为 Windows 计划任务(用户登录时自启,失败自动重启)。
 - **组件**:
   - `scripts/g-root-guardian.ps1` v2.0 — 实时监控脚本(allowlist-first + 黑名单 + 启发式 + .NET Directory.Delete 兜底)
-  - `scripts/g-root-blacklist.json` v2.0 — 配置(allowlist 15 目录 + blacklist 17 目录/23 文件/10 通配符 + heuristic 7 目录签名/14 文件签名 + systemProtected 8 系统目录)
+  - `scripts/g-root-blacklist.json` v2.0 — 配置(allowlist 14 目录 + blacklist 17 目录/23 文件/10 通配符 + heuristic 7 目录签名/14 文件签名 + systemProtected 8 系统目录)
   - `scripts/install-g-root-guardian.ps1` — 安装脚本(注册计划任务 IHUI-AI-G-Root-Guardian,用户登录时自启,-WindowStyle Hidden,RestartCount 999)
   - `scripts/uninstall-g-root-guardian.ps1` — 卸载脚本(停止进程 + 删除计划任务)
   - `scripts/g-root-guardian-status.ps1` — 状态检查脚本(查询运行状态 + 显示最近日志 + 统计 BLOCKED/ALLOWED/ERROR)
-- **白名单(allowlist)**:`$RECYCLE.BIN` / `System Volume Information` / `IHUI-AI` / `freellmapi` / `MuMuPlayer` / `QoderCN` / `Qoderwork` / `Trae CN` / `TRAE SOLO CN` / `WeGameApps` / `WeixinGameData` / `Yingyongbao` / `Zcode` / `微信web开发者工具` / `支付宝小程序开发工具`(15 目录)+ `tools` 通配符 + `desktop.ini`/`Thumbs.db`/`*.lnk`/`*.url` 文件通配符。
+- **白名单(allowlist)**:`$RECYCLE.BIN` / `System Volume Information` / `IHUI-AI` / `MuMuPlayer` / `QoderCN` / `Qoderwork` / `Trae CN` / `TRAE SOLO CN` / `WeGameApps` / `WeixinGameData` / `Yingyongbao` / `Zcode` / `微信web开发者工具` / `支付宝小程序开发工具`(14 目录)+ `tools` 通配符 + `desktop.ini`/`Thumbs.db`/`*.lnk`/`*.url` 文件通配符。
 - **关键性能优化**:用 `Wait-Event -Timeout 1` 替代 `Start-Sleep 60`,避免阻塞 PowerShell 事件队列,实测删除延迟 110-222ms。
 - **日志**:`.trae-cn/tmp/g-root-guardian.log`(格式:`yyyy-MM-dd HH:mm:ss [BLOCKED|ALLOWED|ERROR|STARTED|STOPPED] <path> (reason)`,1MB 自动轮转为 .bak)。
 - **安装/卸载/状态**:
