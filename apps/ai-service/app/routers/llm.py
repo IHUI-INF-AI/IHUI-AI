@@ -231,6 +231,10 @@ class LLMCompleteRequest(BaseModel):
     agent_tools: list[str] | None = Field(
         None, description="Agent 工具名列表(如 browser_screenshot/computer_mouse_click),传入后走 tool loop"
     )
+    # Plan/Act 模式(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
+    # plan_mode='plan' 时前置注入 Plan Mode system prompt,LLM 只制定计划不调用工具;
+    # 'act' 或 None = 正常 tool loop 执行(默认)
+    plan_mode: str | None = Field(None, description="Plan/Act 模式:'plan'=只制定计划,'act'=正常执行(默认)")
 
 
 @router.post("/llm/complete")
@@ -361,7 +365,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     # stub 模式下无需 api_key(返回模拟响应),跳过 pre-flight。
     if not llm_gateway._is_stub_mode():
         try:
-            _api_key, _, _ = await llm_gateway._resolve(req.model, owner_uuid)
+            _api_key, _, _ = await llm_gateway._resolve(req.model or settings.litellm_model, owner_uuid)
         except Exception as e:
             logger.warning("stream pre-flight _resolve failed: %s", e)
             _api_key = None
