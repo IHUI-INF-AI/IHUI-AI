@@ -2214,6 +2214,14 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
   - TTL 清理函数:cleanupOldWebhookTriggers(daysToKeep=30) + cleanupOldSyncLogs(daysToKeep=90)
   - Worker 优雅关闭 + 指标统计:RegistryWorkerStats 接口 + completed/failed 计数 + SIGTERM/SIGINT 优雅关闭
   - 验证:API typecheck 本任务文件 0 错 + Web typecheck 本任务文件 0 错 + database build 全绿
+- **跨端连通补全(2026-07-24,3 建议 + 5 遗漏,5 subagent 并行)**:
+  - GET /api/registry/worker-stats 端点暴露(requireAdmin + 零值兜底)
+  - 每日 TTL 清理 cron job(`0 3 * * *`)+ 内联 Worker(30天 webhook + 90天 sync_logs)+ onReady hook 接入
+  - calculateHeatScore 消费 npm downloads(downloads/100 上限 500)
+  - 跨端类型契约:packages/types 加 RegistryWorkerStats
+  - 前端全链路:api-registry getWorkerStats() + useRegistryWorkerStats hook(useEffect 自动加载) + page.tsx Worker 运行状态展示
+  - CLI 命令:ihui registry worker-stats(成功率彩色展示)
+  - 验证:CLI typecheck 全绿 + API/Web 本任务文件 0 错
 
 ### 进行中
 

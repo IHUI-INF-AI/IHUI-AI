@@ -8,6 +8,7 @@
  *   ihui registry upgrade   升级已安装资源(含订阅自动 pull 逻辑)
  *   ihui registry logs      查看同步日志(管理员)
  *   ihui registry webhook   管理 webhook 触发记录(管理员)
+ *   ihui registry worker-stats  查看 Worker 运行时指标(管理员)
  *
  * 命令注册入口:主 agent 在 apps/cli/src/index.ts 中调用
  *   program.addCommand(registryCommand());
@@ -21,6 +22,7 @@ import { installCommand } from './registry-install.js';
 import { upgradeCommand } from './registry-upgrade.js';
 import { logsCommand } from './registry-logs.js';
 import { webhookCommand } from './registry-webhook.js';
+import { workerStatsCommand } from './registry-worker-stats.js';
 
 export function registryCommand(): Command {
   const cmd = new Command('registry').description(
@@ -32,5 +34,6 @@ export function registryCommand(): Command {
   cmd.addCommand(upgradeCommand());
   cmd.addCommand(logsCommand());
   cmd.addCommand(webhookCommand());
+  cmd.addCommand(workerStatsCommand());
   return cmd;
 }
