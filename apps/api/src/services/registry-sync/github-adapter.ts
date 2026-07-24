@@ -140,6 +140,29 @@ async function fetchReadme(
   }
 }
 
+/**
+ * 分批并发拉取多个子目录的 README,避免一次 Promise.all 触发 GitHub rate limit。
+ * 每批 batchSize 个并发,批与批之间串行。
+ */
+async function fetchReadmeBatched(
+  dirs: GitHubContentItem[],
+  owner: string,
+  repo: string,
+  token: string | undefined,
+  timeoutMs: number,
+  batchSize = 10,
+): Promise<(string | null)[]> {
+  const results: (string | null)[] = []
+  for (let i = 0; i < dirs.length; i += batchSize) {
+    const batch = dirs.slice(i, i + batchSize)
+    const batchResults = await Promise.all(
+      batch.map(d => fetchReadme(owner, repo, d.name, token, timeoutMs)),
+    )
+    results.push(...batchResults)
+  }
+  return results
+}
+
 /** MCP / Skill:拉取仓库根目录子目录列表 + 每个子目录 README + 仓库级元数据 */
 async function fetchFromContentsRepo(
   sourceType: 'mcp' | 'skill',
@@ -171,7 +194,7 @@ async function fetchFromContentsRepo(
 
   const [repoInfo, readmes] = await Promise.all([
     fetchRepoInfo(owner, repo, token, timeoutMs),
-    Promise.all(dirs.map(d => fetchReadme(owner, repo, d.name, token, timeoutMs))),
+    fetchReadmeBatched(dirs, owner, repo, token, timeoutMs),
   ])
 
   const results: RawRegistryItem[] = []
@@ -205,51 +228,76 @@ async function fetchFromContentsRepo(
   return results
 }
 
-/** Plugin:搜索 topic:ihui-plugin,搜索结果已含 stars/forks/pushed_at */
+/** 将 GitHub search API 单条结果映射为 RawRegistryItem */
+function mapSearchItem(item: GitHubSearchItem): RawRegistryItem {
+  return {
+    sourceType: 'plugin',
+    source: 'github',
+    sourceId: item.full_name,
+    name: item.name,
+    description: item.description,
+    version: null,
+    author: item.owner.login,
+    homepage: item.homepage ?? item.html_url,
+    repoUrl: item.html_url,
+    downloadUrl: item.html_url,
+    categories: [],
+    tags: item.topics ?? [],
+    payload: item as unknown as Record<string, unknown>,
+    meta: {
+      stars: item.stargazers_count,
+      forks: item.forks_count,
+      lastCommitAt: item.pushed_at,
+      hasDocumentation: item.description !== null,
+    },
+  }
+}
+
+/**
+ * Plugin:搜索 topic:ihui-plugin,分页拉取最多 3 页(每页 100 条,共 300 条)。
+ * GitHub search API 单页最大 100 条,只返回第一页会漏掉大量资源。
+ * 拉取策略:
+ * - 403 → rate limit,抛错
+ * - !res.ok → 非首页时 break(已拉到部分数据),首页时抛错
+ * - items.length < 100 → 最后一页,提前结束
+ * - items.length === 0 → 无数据,提前结束
+ */
 async function fetchPlugins(options?: SyncOptions): Promise<RawRegistryItem[]> {
   const token = options?.githubToken
   const timeoutMs = options?.timeoutMs ?? 30000
-  const res = await fetchWithTimeout(
-    `${GITHUB_API}/search/repositories?q=topic:ihui-plugin&per_page=50`,
-    { headers: authHeaders(token) },
-    timeoutMs,
-  )
-  if (res.status === 403) {
-    throw new RegistryAdapterError(
-      'GitHub API rate limit exceeded, set githubToken to increase limit',
-      'github',
+  const MAX_PAGES = 3
+  const PER_PAGE = 100
+  const allItems: RawRegistryItem[] = []
+
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const res = await fetchWithTimeout(
+      `${GITHUB_API}/search/repositories?q=topic:ihui-plugin&per_page=${PER_PAGE}&page=${page}`,
+      { headers: authHeaders(token) },
+      timeoutMs,
     )
+    if (res.status === 403) {
+      throw new RegistryAdapterError(
+        'GitHub API rate limit exceeded, set githubToken to increase limit',
+        'github',
+      )
+    }
+    if (!res.ok) {
+      // 首页就失败 → 抛错;非首页失败(可能 rate limit secondary)→ 返回已拉到的数据
+      if (page === 1) {
+        throw new RegistryAdapterError(
+          `GitHub search API returned ${res.status}`,
+          'github',
+        )
+      }
+      break
+    }
+    const data = (await res.json()) as { items: GitHubSearchItem[] }
+    if (data.items.length === 0) break
+    allItems.push(...data.items.map(mapSearchItem))
+    if (data.items.length < PER_PAGE) break // 不足一页说明是最后一页
   }
-  if (!res.ok) {
-    throw new RegistryAdapterError(
-      `GitHub search API returned ${res.status}`,
-      'github',
-    )
-  }
-  const data = (await res.json()) as { items: GitHubSearchItem[] }
-  return data.items.map(
-    (item): RawRegistryItem => ({
-      sourceType: 'plugin',
-      source: 'github',
-      sourceId: item.full_name,
-      name: item.name,
-      description: item.description,
-      version: null,
-      author: item.owner.login,
-      homepage: item.homepage ?? item.html_url,
-      repoUrl: item.html_url,
-      downloadUrl: item.html_url,
-      categories: [],
-      tags: item.topics ?? [],
-      payload: item as unknown as Record<string, unknown>,
-      meta: {
-        stars: item.stargazers_count,
-        forks: item.forks_count,
-        lastCommitAt: item.pushed_at,
-        hasDocumentation: item.description !== null,
-      },
-    }),
-  )
+
+  return allItems
 }
 
 export const githubAdapter: RegistryAdapter = {
