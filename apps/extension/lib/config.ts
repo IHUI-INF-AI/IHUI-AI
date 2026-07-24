@@ -1,5 +1,5 @@
 /** 默认 API 地址(开发环境)。生产环境通过 chrome.storage.local 的 ihui_api_base_url 覆盖。 */
-const DEFAULT_API_BASE_URL = 'http://localhost:8801'
+const DEFAULT_API_BASE_URL = 'http://localhost:8802'
 
 /** 当前运行时 API base URL(由 initApiBaseUrl() 初始化)。 */
 let _apiBaseUrl = DEFAULT_API_BASE_URL
@@ -16,7 +16,7 @@ export function getBridgeBaseUrl(): string {
 
 /**
  * 从 chrome.storage.local 读取用户自定义 API 地址,初始化运行时配置。
- * 开发环境默认 localhost:8801;生产环境可在设置页配置。
+ * 开发环境默认 localhost:8802(API server);生产环境可在设置页配置。
  * 必须在应用启动时(popup/sidepanel/background)调用。
  */
 export async function initApiBaseUrl(): Promise<void> {
@@ -31,9 +31,9 @@ export async function initApiBaseUrl(): Promise<void> {
   }
 }
 
-// 向后兼容:保留 API_BASE_URL 和 BRIDGE_BASE_URL 常量(读取 _apiBaseUrl 的初始值)
-// 注意:这两个常量不会在 initApiBaseUrl() 后更新,新代码应使用 getApiBaseUrl()/getBridgeBaseUrl()
+/** @deprecated 使用 getApiBaseUrl() 替代。此常量不会在 initApiBaseUrl() 后更新。 */
 export const API_BASE_URL = DEFAULT_API_BASE_URL
+/** @deprecated 使用 getBridgeBaseUrl() 替代。此常量不会在 initApiBaseUrl() 后更新。 */
 export const BRIDGE_BASE_URL = `${DEFAULT_API_BASE_URL}/api/agent-control`
 export const TOKEN_STORAGE_KEY = 'ihui_token'
 export const REFRESH_TOKEN_STORAGE_KEY = 'ihui_refresh_token'
