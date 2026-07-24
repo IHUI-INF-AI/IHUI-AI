@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext'
 import { usePaginatedList } from '../hooks/use-paginated-list'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Card } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -169,7 +170,7 @@ export function CourseFilterScreen() {
             </View>
           }
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <Card className="p-3">
               <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
               <Text style={styles.cardMeta}>{t('courseFilter.instructor')}: {item.instructor}</Text>
               <View style={styles.cardMetaRow}>
@@ -180,7 +181,7 @@ export function CourseFilterScreen() {
                   {item.price === 0 ? t('courseFilter.free') : `¥${item.price}`}
                 </Text>
               </View>
-            </View>
+            </Card>
           )}
         />
       )}

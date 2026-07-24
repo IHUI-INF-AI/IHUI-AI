@@ -6,7 +6,7 @@ import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-import { Loading } from '@ihui/ui-native'
+import { Card, Loading } from '@ihui/ui-native'
 interface HistoryItem { id: string; targetId: string; targetType: 'course' | 'article' | 'post' | 'note' | 'live'; title: string; visitedAt: string }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -59,12 +59,14 @@ export function HistoryScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
         ListEmptyComponent={<View style={styles.empty}><Text style={styles.muted}>{t('history.empty')}</Text></View>}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card} onPress={() => onPress(item)}>
-            <View style={styles.cardHead}>
-              <Text style={styles.type}>{t(`history.type.${item.targetType}`)}</Text>
-              <Text style={styles.meta}>{item.visitedAt}</Text>
-            </View>
-            <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+          <TouchableOpacity onPress={() => onPress(item)}>
+            <Card className="p-3 mb-2">
+              <View style={styles.cardHead}>
+                <Text style={styles.type}>{t(`history.type.${item.targetType}`)}</Text>
+                <Text style={styles.meta}>{item.visitedAt}</Text>
+              </View>
+              <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+            </Card>
           </TouchableOpacity>
         )}
       />

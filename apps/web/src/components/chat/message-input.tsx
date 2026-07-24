@@ -5,6 +5,7 @@ import { Send, Square, SquareSlash, FileText, Plus, FilePlus, AtSign, Sparkles }
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
+import { formatFileSize } from '@ihui/shared/utils/format'
 import { SlashCommandPalette } from '@/components/ai/slash-command-palette'
 import { ContextReferencePanel } from '@/components/ai/context-reference-panel'
 import { VoiceInput } from '@/components/ai/voice-input'
@@ -53,16 +54,6 @@ const SLASH_COMMAND_IDS = [
 const PROMPT_TEMPLATE_IDS = ['summary', 'translate', 'explain', 'code', 'polish'] as const
 
 /**
- * 把字节数格式化为人类可读字符串(B/KB/MB)。
- * 用于在 @ 提及面板的次要文本中展示文件大小。
- */
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
-}
-
-/**
  * 把后端返回的 mimeType 转换为短标签(image/png → PNG,application/pdf → PDF)。
  * 没有 mimeType 时回退为 "FILE"。
  */
@@ -74,7 +65,8 @@ function mimeToLabel(mimeType: string): string {
 }
 
 interface MessageInputProps {
-  onSend: (content: string) => void
+  /** onSend 返回 true=已提交可清空输入框,false=未发送需保留输入内容(如未登录/创建会话失败) */
+  onSend: (content: string) => Promise<boolean> | boolean
   onStop: () => void
   isStreaming: boolean
   placeholder: string
@@ -346,7 +338,7 @@ export function MessageInput({
     })
   }
 
-  const submit = () => {
+  const submit = async () => {
     const text = value.trim()
     if (!text || isStreaming) return
     // 附件作为引用文本随消息发送:图片用 markdown image 语法,视频/其他文件用引用块
@@ -362,7 +354,9 @@ export function MessageInput({
       })
       .join('\n')
     const finalContent = attachmentMarkdown ? `${text}\n\n${attachmentMarkdown}` : text
-    onSend(finalContent)
+    // onSend 返回 false 表示未发送(如未登录/创建会话失败),保留输入内容不清空
+    const ok = await onSend(finalContent)
+    if (!ok) return
     // 释放所有 objectURL
     references.forEach((r) => {
       if (r.thumbnail) URL.revokeObjectURL(r.thumbnail)

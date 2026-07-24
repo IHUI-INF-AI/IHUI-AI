@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Card } from '@ihui/ui-native'
 
 interface Comment { id: string; user: string; content: string; rating: number; createdAt: string }
 
@@ -52,14 +53,14 @@ export function CourseCommentScreen() {
         keyExtractor={(item) => item.id}
         ListEmptyComponent={<View style={styles.empty}><Text style={styles.muted}>{t('courseComment.empty')}</Text></View>}
         renderItem={({ item }) => (
-          <View style={styles.card}>
+          <Card className="p-3 mb-2">
             <View style={styles.row}>
               <Text style={styles.user}>{item.user}</Text>
               <Text style={styles.rating}>★ {item.rating.toFixed(1)}</Text>
             </View>
             <Text style={styles.content}>{item.content}</Text>
             <Text style={styles.meta}>{item.createdAt}</Text>
-          </View>
+          </Card>
         )}
       />
     </View>
