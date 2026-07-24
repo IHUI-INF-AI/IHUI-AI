@@ -12,27 +12,37 @@
 import { initApi, getRefreshToken, getToken, clearAllTokens } from '../lib/token'
 import { doRefresh, startAutoRefresh, scheduleRefreshAlarm } from '../lib/token-utils'
 import type { ExtMessage, ExtResponse, ApiProxyPayload } from '../lib/message-router'
-import { REFRESH_ALARM_NAME, API_BASE_URL } from '../lib/config'
+import { REFRESH_ALARM_NAME, getApiBaseUrl } from '../lib/config'
 import { executeAgentActionRequest } from '../lib/agent-control'
 import { initAgentControlBridge } from '../lib/agent-control-bridge'
 
 // API 代理:background context 通过 fetch 直连 API(走 @ihui/api-client 的 fetchApi)。
 // 用 chrome.runtime.sendMessage 接 fetchApi 不便(扩展中 fetch 走 service worker
 // 无 CORS 限制,直接调用更稳)。
-async function callApi<T = unknown>(path: string, init: {
-  method: string
-  headers?: Record<string, string>
-  body?: string
-}): Promise<{ ok: boolean; status: number; data: T | null; text: string }> {
-  const url = new URL(path.replace(/^\//, ''), API_BASE_URL).toString()
+async function callApi<T = unknown>(
+  path: string,
+  init: {
+    method: string
+    headers?: Record<string, string>
+    body?: string
+  },
+): Promise<{ ok: boolean; status: number; data: T | null; text: string }> {
+  const url = new URL(path.replace(/^\//, ''), getApiBaseUrl()).toString()
   const token = getToken()
-  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(init.headers || {}) }
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(init.headers || {}),
+  }
   if (token) headers['Authorization'] = `Bearer ${token}`
   const res = await fetch(url, { method: init.method, headers, body: init.body })
   const text = await res.text()
   let data: T | null = null
   if (text) {
-    try { data = JSON.parse(text) as T } catch { data = null }
+    try {
+      data = JSON.parse(text) as T
+    } catch {
+      data = null
+    }
   }
   return { ok: res.ok, status: res.status, data, text }
 }
@@ -61,7 +71,9 @@ async function handleApiProxy(payload: ApiProxyPayload): Promise<unknown> {
     body: payload.body !== undefined ? JSON.stringify(payload.body) : undefined,
   })
   if (!res.ok) {
-    throw new Error(`proxy ${payload.method} ${payload.path} failed: ${res.status} ${res.text.slice(0, 200)}`)
+    throw new Error(
+      `proxy ${payload.method} ${payload.path} failed: ${res.status} ${res.text.slice(0, 200)}`,
+    )
   }
   // 尝试解包 { code, message, data } 格式
   if (res.data && typeof res.data === 'object' && 'data' in (res.data as Record<string, unknown>)) {
@@ -74,9 +86,10 @@ async function handleApiProxy(payload: ApiProxyPayload): Promise<unknown> {
   return res.data
 }
 
-async function handleVocabLookup(
-  payload: { word: string; source?: string },
-): Promise<{ word: string; translation: string; phonetic?: string; definitions?: string[] }> {
+async function handleVocabLookup(payload: {
+  word: string
+  source?: string
+}): Promise<{ word: string; translation: string; phonetic?: string; definitions?: string[] }> {
   // 简化:调用通用 chat proxy 做翻译(用系统 prompt 引导输出)
   // 真实部署可对接独立 /vocab 端点
   const word = payload.word.trim()
@@ -101,7 +114,12 @@ async function handleVocabLookup(
     if (res.ok && res.data) {
       const content = res.data.choices?.[0]?.message?.content || ''
       const parsed = parseVocabContent(content)
-      return { word, translation: parsed.translation || content, phonetic: parsed.phonetic, definitions: parsed.definitions }
+      return {
+        word,
+        translation: parsed.translation || content,
+        phonetic: parsed.phonetic,
+        definitions: parsed.definitions,
+      }
     }
   } catch {
     // ignore — fallback below
@@ -134,9 +152,11 @@ function parseVocabContent(content: string): {
   return { translation: trimmed }
 }
 
-async function handleHighlightToggle(
-  payload: { word: string; enabled: boolean; scope: 'page' | 'selection' },
-): Promise<{ word: string; matches: number }> {
+async function handleHighlightToggle(payload: {
+  word: string
+  enabled: boolean
+  scope: 'page' | 'selection'
+}): Promise<{ word: string; matches: number }> {
   // 高亮由 content script 本地执行,这里只更新配置 + 广播到所有 tab
   if (payload.enabled) {
     await chrome.storage.local.set({ ihui_highlight_word: payload.word })
@@ -218,10 +238,12 @@ async function routeMessage(msg: ExtMessage): Promise<ExtResponse> {
       }
       case 'notification.broadcast': {
         // 广播给所有 frame(content script + sidepanel)
-        await chrome.runtime.sendMessage({
-          type: 'ws.notification',
-          payload: msg.payload,
-        }).catch(() => {})
+        await chrome.runtime
+          .sendMessage({
+            type: 'ws.notification',
+            payload: msg.payload,
+          })
+          .catch(() => {})
         return reply(msg.requestId, { broadcast: true })
       }
       case 'agent.action': {
@@ -232,7 +254,10 @@ async function routeMessage(msg: ExtMessage): Promise<ExtResponse> {
       }
       default: {
         const type = (msg as { type?: string }).type || 'unknown'
-        return replyError((msg as { requestId?: string }).requestId || 'unknown', `unknown message type: ${type}`)
+        return replyError(
+          (msg as { requestId?: string }).requestId || 'unknown',
+          `unknown message type: ${type}`,
+        )
       }
     }
   } catch (err) {
@@ -267,10 +292,12 @@ function registerContextMenu(): void {
       try {
         const res = await handleVocabLookup({ word: text, source: 'context-menu' })
         if (typeof tab?.id === 'number') {
-          await chrome.tabs.sendMessage(tab.id, {
-            type: 'vocab.result',
-            payload: res,
-          }).catch(() => {})
+          await chrome.tabs
+            .sendMessage(tab.id, {
+              type: 'vocab.result',
+              payload: res,
+            })
+            .catch(() => {})
         }
       } catch (err) {
         console.warn('[IHUI AI] context menu vocab failed:', err)
@@ -375,28 +402,32 @@ export default defineBackground(() => {
   self.addEventListener('unhandledrejection', (event) => {
     const reason = event.reason
     console.error('[IHUI AI] SW unhandledrejection:', reason)
-    void chrome.storage.local.set({
-      [`ihui_sw_error_${Date.now()}`]: {
-        type: 'unhandledrejection',
-        reason: String(reason?.message || reason),
-        stack: reason?.stack,
-        ts: Date.now(),
-      },
-    }).catch(() => {})
+    void chrome.storage.local
+      .set({
+        [`ihui_sw_error_${Date.now()}`]: {
+          type: 'unhandledrejection',
+          reason: String(reason?.message || reason),
+          stack: reason?.stack,
+          ts: Date.now(),
+        },
+      })
+      .catch(() => {})
     event.preventDefault()
   })
 
   self.addEventListener('error', (event) => {
     console.error('[IHUI AI] SW error:', event.message, event.filename, event.lineno)
-    void chrome.storage.local.set({
-      [`ihui_sw_error_${Date.now()}`]: {
-        type: 'error',
-        message: event.message,
-        filename: event.filename,
-        lineno: event.lineno,
-        ts: Date.now(),
-      },
-    }).catch(() => {})
+    void chrome.storage.local
+      .set({
+        [`ihui_sw_error_${Date.now()}`]: {
+          type: 'error',
+          message: event.message,
+          filename: event.filename,
+          lineno: event.lineno,
+          ts: Date.now(),
+        },
+      })
+      .catch(() => {})
   })
 
   startAutoRefresh()
@@ -416,19 +447,25 @@ export default defineBackground(() => {
       const v = changes['ihui_pending_prompt'].newValue
       if (typeof v === 'string') {
         // 转发给 sidepanel(可能尚未打开,会被忽略)
-        chrome.runtime.sendMessage({ type: 'ws.pending_prompt', payload: { text: v } }).catch(() => {})
+        chrome.runtime
+          .sendMessage({ type: 'ws.pending_prompt', payload: { text: v } })
+          .catch(() => {})
       }
     }
     if (area === 'session' && changes['ihui_pending_vocab']) {
       const v = changes['ihui_pending_vocab'].newValue
       if (typeof v === 'string') {
-        chrome.runtime.sendMessage({ type: 'ws.pending_vocab', payload: { text: v } }).catch(() => {})
+        chrome.runtime
+          .sendMessage({ type: 'ws.pending_vocab', payload: { text: v } })
+          .catch(() => {})
       }
     }
     if (area === 'session' && changes['ihui_pending_route']) {
       const v = changes['ihui_pending_route'].newValue
       if (typeof v === 'string') {
-        chrome.runtime.sendMessage({ type: 'ws.pending_route', payload: { route: v } }).catch(() => {})
+        chrome.runtime
+          .sendMessage({ type: 'ws.pending_route', payload: { route: v } })
+          .catch(() => {})
       }
     }
   })

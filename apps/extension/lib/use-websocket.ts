@@ -17,7 +17,7 @@ import {
   type WSNotification,
 } from '@ihui/api-client'
 import { getToken } from './token'
-import { API_BASE_URL } from './config'
+import { getApiBaseUrl } from './config'
 
 export interface UseWebSocketReturn {
   /** 当前连接状态 */
@@ -36,7 +36,7 @@ export function useNotificationWebSocket(token: string | null): UseWebSocketRetu
 
     const client = createNotificationClient(
       {
-        baseUrl: API_BASE_URL,
+        baseUrl: getApiBaseUrl(),
         tokenProvider: () => getToken(),
       },
       {
