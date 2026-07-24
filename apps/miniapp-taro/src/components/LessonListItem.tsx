@@ -34,7 +34,7 @@ export default function LessonListItem({
   }
   return (
     <View
-      className={`flex items-center px-4 py-3 border-b border-border ${
+      className={`flex items-center px-4 py-3 mb-2 ${
         active ? 'bg-primary/10' : ''
       }`}
       onClick={onClick}

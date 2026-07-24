@@ -83,7 +83,7 @@ export default function CartePage() {
 
       <View className="mx-3 mt-4 bg-card rounded-xl p-4">
         {info.intro && (
-          <View className="mb-4 pb-3 border-b border-border">
+          <View className="mb-4">
             <Text className="block text-xs text-muted-foreground mb-1">{t('carte.introLabel')}</Text>
             <Text className="block text-sm text-foreground leading-relaxed">{info.intro}</Text>
           </View>
@@ -91,7 +91,7 @@ export default function CartePage() {
 
         {info.phone && (
           <View
-            className="flex items-center justify-between py-2.5 border-b border-border"
+            className="flex items-center justify-between py-2.5 mb-2"
             onClick={handleCopyPhone}
           >
             <Text className="text-sm text-muted-foreground">{t('carte.phone')}</Text>
@@ -99,7 +99,7 @@ export default function CartePage() {
           </View>
         )}
         {info.email && (
-          <View className="flex items-center justify-between py-2.5 border-b border-border">
+          <View className="flex items-center justify-between py-2.5 mb-2">
             <Text className="text-sm text-muted-foreground">{t('carte.email')}</Text>
             <Text className="text-sm text-foreground">{info.email}</Text>
           </View>
