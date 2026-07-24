@@ -2147,7 +2147,7 @@ export default {
     paymentMethod: 'Payment Method',
     confirmPay: 'Confirm Pay ¥{price}',
     alipay: 'Alipay',
-    balance: 'Bal'
+    balance: 'Balance'
   },
   study: {
     todayMinutes: '{{n}} min today',
@@ -2804,7 +2804,8 @@ export default {
   },
   streak: {
     title: 'Study Streak',
-    totalDays: '{n} days total'
+    totalDays: '{n} days total',
+    continuousDays: 'Continuous {{n}} days'
   },
   withdrawal: {
     records: 'Withdrawal Records'
