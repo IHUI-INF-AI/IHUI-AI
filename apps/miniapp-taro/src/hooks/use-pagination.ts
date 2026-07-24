@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
+import { usePagination as useSharedPagination } from '@ihui/shared/hooks/use-pagination'
 
 interface PaginationOptions {
   initialPage?: number
@@ -21,35 +22,55 @@ interface PaginationResult<T> {
   prev: () => void
 }
 
+/**
+ * 分页 Hook(miniapp-taro 端:扩展 shared 纯状态 + 列表管理)
+ *
+ * 基于 @ihui/shared/hooks/use-pagination,加入 list/loading/appendList 等列表管理逻辑。
+ * - setPage 自动 clamp 到 [1, totalPages](行为升级,原版无 clamp)
+ * - setList(list, total) 同时更新列表和总数
+ */
 export function usePagination<T = unknown>(opts: PaginationOptions = {}): PaginationResult<T> {
   const { initialPage = 1, initialPageSize = 10 } = opts
-  const [page, setPage] = useState(initialPage)
-  const [pageSize, setPageSize] = useState(initialPageSize)
-  const [total, setTotal] = useState(0)
+  const base = useSharedPagination({
+    total: 0,
+    pageSize: initialPageSize,
+    initialPage,
+  })
   const [list, setList] = useState<T[]>([])
   const [loading, setLoading] = useState(false)
-  const hasNext = page * pageSize < total
+
+  const setListAndTotal = useCallback(
+    (newList: T[], newTotal: number) => {
+      setList(newList)
+      base.setTotal(newTotal)
+    },
+    [base],
+  )
+
+  const appendList = useCallback((more: T[]) => {
+    setList((prev) => [...prev, ...more])
+  }, [])
+
+  const resetAll = useCallback(() => {
+    base.reset()
+    setList([])
+    base.setTotal(0)
+  }, [base])
+
   return {
-    page,
-    pageSize,
-    total,
+    page: base.page,
+    pageSize: base.pageSize,
+    total: base.total,
     list,
     loading,
-    hasNext,
-    setPage,
-    setPageSize,
-    setList: (newList, newTotal) => {
-      setList(newList)
-      setTotal(newTotal)
-    },
-    appendList: (more) => setList((prev) => [...prev, ...more]),
+    hasNext: base.hasNext,
+    setPage: base.setPage,
+    setPageSize: base.setPageSize,
+    setList: setListAndTotal,
+    appendList,
     setLoading,
-    reset: () => {
-      setPage(1)
-      setList([])
-      setTotal(0)
-    },
-    next: () => hasNext && setPage((p) => p + 1),
-    prev: () => page > 1 && setPage((p) => p - 1),
+    reset: resetAll,
+    next: base.next,
+    prev: base.prev,
   }
 }
