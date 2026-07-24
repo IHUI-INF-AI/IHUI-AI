@@ -419,7 +419,7 @@
 
 ---
 
-### [ ] AI 对话框体验对标 Trae Work + Codex 第二轮 — 9 大缺口并行补齐(跨端:ai-service + web)
+### [x] ✅(2026-07-24) AI 对话框体验对标 Trae Work + Codex 第二轮 — 9 大缺口并行补齐(跨端:ai-service + web)
 
 **触发**:用户"继续推进 AI 对话框体验完善 全面对标traework codex的全部"+"最多agent并行开发最大化效率 要求完美细致完整毫无遗漏"。
 
@@ -476,6 +476,13 @@
 
 - GITHUB_TOKEN 未配置(用户未提供),review_pr 已验证可用(匿名模式),配置 token 可提升限额至 5000/h
 - PlanActToggle 截图因 browser tab not visible 工具故障未产出,改用 DOM 数值(aria-checked + className + backgroundColor)替代验证,满足 §19 "必须读 DOM 数值验证样式生效" 要求
+
+**Git 同步证据**(§21):
+
+- 本地 commit: `8e4e96040`(feat(ai+web): PlanActToggle + happy-dom + mcp_server test fixes)
+- origin commit: `8e4e96040`(已 push,local == remote ✅)
+- 守门:post-commit `git-push-guard.mjs` 自动 push 成功
+- pytest 258/258 通过,vitest 5/5 通过
 
 ---
 
