@@ -230,10 +230,7 @@
    实测 12px 字号下自然偏差 ≈ -0.79px,0.3px 仅收敛到 -0.49px;
    用 0.7px 可让 delta 收敛到 -0.09px (肉眼无感)。
    通过 button 上的 text-xs 类触发(span 继承 12px 但自身无 text-xs 类)。 */
-button.text-xs:has(> svg):has(> span) > span,
-a.text-xs:has(> svg):has(> span) > span,
-[role='button'].text-xs:has(> svg):has(> span) > span,
-[role='menuitem'].text-xs:has(> svg):has(> span) > span {
+:where(button, a, [role='button'], [role='menuitem']).text-xs:has(> svg):has(> span) > span {
   transform: translateY(0.7px);
 }
 
