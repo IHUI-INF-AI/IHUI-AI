@@ -28,10 +28,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 28rpx 32rpx;
-  border-bottom: 2rpx solid var(--color-border);
 }
-.row.last {
-  border-bottom: none;
+.row + .row {
+  margin-top: 16rpx;
 }
 .row-info {
   flex: 1;

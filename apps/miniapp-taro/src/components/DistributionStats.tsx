@@ -44,7 +44,7 @@ export default function DistributionStats({
         <ProgressBar percent={monthlyPercent} color="#00f2ff" height={6} />
       </View>
 
-      <View className="grid grid-cols-3 gap-2 pt-3 border-t border-border">
+      <View className="grid grid-cols-3 gap-2 pt-3">
         <View>
           <Text className="block text-xs text-muted-foreground">{tt('distribution.withdrawable', '可提现')}</Text>
           <Text className="text-sm font-medium text-primary">

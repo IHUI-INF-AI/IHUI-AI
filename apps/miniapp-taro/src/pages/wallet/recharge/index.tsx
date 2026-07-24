@@ -1,7 +1,7 @@
 import { View, Text, Button, Input, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
-import { createRecharge, getActivity, getProfile, type UserInfo } from '@/api'
+import { createRecharge, createAlipayMiniappPayment, getActivity, getProfile, type UserInfo } from '@/api'
 import { useI18n } from '@/i18n'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import './index.css'
@@ -61,15 +61,29 @@ export default function RechargePage() {
   const onSelectMethod = (m: PayMethod) => setPayMethod(m)
 
   const payOrder = async (amount: number, method: PayMethod) => {
+    if (method === 'alipay') {
+      const res = await createAlipayMiniappPayment({ amount, subject: tt('wallet.recharge.submit', '充值') })
+      const orderNo = res.outTradeNo || ''
+      if (!res.tradeNo) {
+        Taro.showToast({ title: tt('pay.configNotReady', '支付宝支付配置未就绪'), icon: 'none' })
+        Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` })
+        return
+      }
+      try {
+        await requestAliPayment({ orderInfo: res.tradeNo } as AnyPayParams)
+        Taro.redirectTo({
+          url: `/pages/wallet/recharge/success?orderNo=${orderNo}&amount=${amount}`,
+        })
+      } catch {
+        Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` })
+      }
+      return
+    }
     const res = await createRecharge(amount, method)
     const orderNo = res.outTradeNo || ''
     if (res.payParams) {
       try {
-        if (method === 'alipay') {
-          await requestAliPayment(res.payParams as AnyPayParams)
-        } else {
-          await requestWxPayment(res.payParams as AnyPayParams)
-        }
+        await requestWxPayment(res.payParams as AnyPayParams)
         Taro.redirectTo({
           url: `/pages/wallet/recharge/success?orderNo=${orderNo}&amount=${amount}`,
         })
