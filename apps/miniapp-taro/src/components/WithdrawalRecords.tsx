@@ -1,4 +1,5 @@
 import { View, Text, ScrollView } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 import EmptyState from './EmptyState'
 
 export interface WithdrawalRecord {
@@ -31,10 +32,12 @@ export default function WithdrawalRecords({
   onViewDetail,
   onReachBottom,
 }: WithdrawalRecordsProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   return (
     <View className="bg-card mx-3 my-3 rounded-xl overflow-hidden">
       <View className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <Text className="text-sm font-medium text-foreground">提现记录</Text>
+        <Text className="text-sm font-medium text-foreground">{tt('withdrawal.records', '提现记录')}</Text>
       </View>
 
       <ScrollView
@@ -45,7 +48,7 @@ export default function WithdrawalRecords({
       >
         {loading ? (
           <View className="py-8 text-center">
-            <Text className="text-sm text-muted-foreground">加载中...</Text>
+            <Text className="text-sm text-muted-foreground">{tt('common.loadingShort', '加载中...')}</Text>
           </View>
         ) : records.length === 0 ? (
           <EmptyState text="暂无提现记录" />

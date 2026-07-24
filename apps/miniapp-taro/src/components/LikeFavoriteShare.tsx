@@ -1,4 +1,5 @@
 import { View, Text } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface LikeFavoriteShareProps {
   likeCount?: number
@@ -21,6 +22,8 @@ export default function LikeFavoriteShare({
   onFavorite,
   onShare,
 }: LikeFavoriteShareProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   return (
     <View className="flex items-center justify-around py-3 bg-card border-t border-border">
       <View className="flex flex-col items-center" onClick={onLike}>
@@ -28,7 +31,7 @@ export default function LikeFavoriteShare({
           {liked ? '♥' : '♡'}
         </Text>
         <Text className={`text-xs mt-0.5 ${liked ? 'text-destructive' : 'text-muted-foreground'}`}>
-          {likeCount > 0 ? likeCount : '点赞'}
+          {likeCount > 0 ? likeCount : tt('action.like', '点赞')}
         </Text>
       </View>
       <View className="flex flex-col items-center" onClick={onFavorite}>
@@ -36,12 +39,12 @@ export default function LikeFavoriteShare({
           {favorited ? '★' : '☆'}
         </Text>
         <Text className={`text-xs mt-0.5 ${favorited ? 'text-[#f59e0b]' : 'text-muted-foreground'}`}>
-          {favoriteCount > 0 ? favoriteCount : '收藏'}
+          {favoriteCount > 0 ? favoriteCount : tt('action.favorite', '收藏')}
         </Text>
       </View>
       <View className="flex flex-col items-center" onClick={onShare}>
         <Text className="text-lg text-muted-foreground">↗</Text>
-        <Text className="text-xs mt-0.5 text-muted-foreground">{shareCount > 0 ? shareCount : '分享'}</Text>
+        <Text className="text-xs mt-0.5 text-muted-foreground">{shareCount > 0 ? shareCount : tt('action.share', '分享')}</Text>
       </View>
     </View>
   )
