@@ -41,7 +41,7 @@ winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "winbase
 
 [profile.release]
 panic = "abort"
-codegen-units = 1
-lto = "thin"
+# 2026-07-25: Windows rustc panic in ar_archive_writer with codegen-units=1 + lto
+# Relax to defaults to avoid compiler ICE (internal compiler error)
 opt-level = "s"
 strip = true
