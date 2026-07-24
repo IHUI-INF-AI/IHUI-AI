@@ -4,20 +4,21 @@ import prodConfig from './prod'
 import path from 'path'
 
 export default defineConfig(async (merge) => {
+  const outputRoot = process.env.TARO_ENV === 'alipay' ? 'dist-alipay' : 'dist'
   const base = {
     projectName: 'ihui-miniapp',
     date: '2026-7-10',
     designWidth: 750,
     deviceRatio: { 640: 2.34 / 2, 750: 1, 828: 1.81 / 2 },
     sourceRoot: 'src',
-    outputRoot: 'dist',
+    outputRoot,
     plugins: [],
     defineConstants: {},
     copy: {
       patterns: [
-        { from: 'src/static/', to: 'dist/static/' },
-        { from: 'src/assets/tabbar/', to: 'dist/assets/tabbar/' },
-        { from: 'src/mini.project.json', to: 'dist/mini.project.json' },
+        { from: 'src/static/', to: `${outputRoot}/static/` },
+        { from: 'src/assets/tabbar/', to: `${outputRoot}/assets/tabbar/` },
+        { from: 'src/mini.project.json', to: `${outputRoot}/mini.project.json` },
       ],
       options: {},
     },

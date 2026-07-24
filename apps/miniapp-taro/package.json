@@ -19,7 +19,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "clean": "rimraf dist .swc .turbo node_modules"
+    "clean": "rimraf dist dist-alipay .swc .turbo node_modules"
   },
   "dependencies": {
     "@babel/runtime": "^7.21.5",
