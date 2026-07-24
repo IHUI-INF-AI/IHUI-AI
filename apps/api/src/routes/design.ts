@@ -17,7 +17,7 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
-import type { DesignPreview, DesignPreviewResponse, DesignComment } from '@ihui/shared'
+import type { DesignPreview, DesignPreviewResponse, DesignComment } from '@ihui/shared/design/element'
 
 const previewSchema = z.object({
   name: z.string().min(1).max(200),
