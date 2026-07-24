@@ -2146,8 +2146,8 @@ export default {
     originalPrice: '원가',
     paymentMethod: '결제 방식',
     confirmPay: '결제 확인 ¥{price}',
-    alipay: '알리',
-    balance: '잔'
+    alipay: '알리페이',
+    balance: '잔액'
   },
   study: {
     todayMinutes: '오늘 {{n}}분',
@@ -2804,7 +2804,8 @@ export default {
   },
   streak: {
     title: '연속 학습',
-    totalDays: '누적 {n}일'
+    totalDays: '누적 {n}일',
+    continuousDays: '연속 {{n}}일'
   },
   withdrawal: {
     records: '출금 기록'
