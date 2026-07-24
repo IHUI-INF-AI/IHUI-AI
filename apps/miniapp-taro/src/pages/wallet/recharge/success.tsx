@@ -2,7 +2,6 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { useI18n } from '@/i18n'
-import './success.css'
 
 const timeFmt = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
@@ -39,24 +38,32 @@ export default function RechargeSuccess() {
   }
 
   return (
-    <View className="rs-page">
-      <View className="rs-head">
-        <View className="rs-icon">
-          <Text className="rs-icon-mark">✓</Text>
+    <View className="min-h-screen bg-background pb-[80rpx]">
+      <View className="pt-[120rpx] px-[60rpx] pb-[60rpx] text-center">
+        <View className="w-[160rpx] h-[160rpx] mx-auto rounded-[16rpx] bg-[rgba(34,197,94,0.12)] border-[2rpx] border-[rgba(34,197,94,0.4)] flex items-center justify-center">
+          <Text className="text-[80rpx] text-success leading-none">✓</Text>
         </View>
-        <Text className="rs-title">{tt('wallet.recharge.success.title', '充值成功')}</Text>
-        <Text className="rs-desc">{tt('wallet.recharge.success.desc', '充值已到账')}</Text>
+        <Text className="block text-[36rpx] text-foreground font-semibold mt-[32rpx]">
+          {tt('wallet.recharge.success.title', '充值成功')}
+        </Text>
+        <Text className="block text-[26rpx] text-muted-foreground mt-[12rpx]">
+          {tt('wallet.recharge.success.desc', '充值已到账')}
+        </Text>
         {amount > 0 && (
-          <View className="rs-amount-wrap">
-            <Text className="rs-amount-symbol">¥</Text>
-            <Text className="rs-amount">{amount.toFixed(2)}</Text>
+          <View className="mt-[32rpx] flex items-baseline justify-center">
+            <Text className="text-[32rpx] text-primary font-semibold">¥</Text>
+            <Text className="text-[64rpx] text-primary font-bold ml-[4rpx]">
+              {amount.toFixed(2)}
+            </Text>
           </View>
         )}
       </View>
 
-      <View className="rs-tips">
-        <Text className="rs-tips-title">{tt('wallet.recharge.success.tipsTitle', '温馨提示')}</Text>
-        <Text className="rs-tips-text">
+      <View className="mx-[32rpx] mb-[24rpx] py-[24rpx] px-[28rpx] bg-[rgba(34,197,94,0.08)] rounded-[12rpx]">
+        <Text className="block text-[26rpx] text-success font-semibold mb-[12rpx]">
+          {tt('wallet.recharge.success.tipsTitle', '温馨提示')}
+        </Text>
+        <Text className="text-[24rpx] text-muted-foreground leading-[1.6]">
           {tt(
             'wallet.recharge.success.tipsText',
             '充值金额已到账,可在钱包明细中查看变动记录。如有疑问请联系客服。',
@@ -65,33 +72,53 @@ export default function RechargeSuccess() {
       </View>
 
       {(orderNo || arriveTime) && (
-        <View className="rs-card">
+        <View className="mx-[24rpx] my-[24rpx] py-[8rpx] px-[32rpx] bg-card rounded-[16rpx]">
           {orderNo ? (
-            <View className="rs-row">
-              <Text className="rs-row-label">{tt('wallet.recharge.success.orderNoLabel', '订单号')}</Text>
-              <Text className="rs-row-value">{orderNo}</Text>
+            <View className="flex items-start justify-between py-[28rpx] gap-[24rpx]">
+              <Text className="text-[26rpx] text-muted-foreground shrink-0">
+                {tt('wallet.recharge.success.orderNoLabel', '订单号')}
+              </Text>
+              <Text className="text-[26rpx] text-foreground text-right break-all">{orderNo}</Text>
             </View>
           ) : null}
           {arriveTime ? (
-            <View className="rs-row">
-              <Text className="rs-row-label">{tt('wallet.recharge.success.arriveTime', '到账时间')}</Text>
-              <Text className="rs-row-value">{arriveTime}</Text>
+            <View
+              className={`flex items-start justify-between py-[28rpx] gap-[24rpx] ${orderNo ? 'mt-[8rpx]' : ''}`}
+            >
+              <Text className="text-[26rpx] text-muted-foreground shrink-0">
+                {tt('wallet.recharge.success.arriveTime', '到账时间')}
+              </Text>
+              <Text className="text-[26rpx] text-foreground text-right break-all">
+                {arriveTime}
+              </Text>
             </View>
           ) : null}
         </View>
       )}
 
-      <View className="rs-actions">
-        <Button className="rs-btn rs-btn--primary" onClick={goBack}>
+      <View className="pt-[48rpx] px-[60rpx]">
+        <Button
+          className="mt-[24rpx] h-[88rpx] leading-[88rpx] rounded-[16rpx] text-[30rpx] text-center p-0 after:content-[''] after:border-none bg-primary text-primary-foreground"
+          onClick={goBack}
+        >
           {tt('wallet.recharge.success.backWallet', '返回钱包')}
         </Button>
-        <Button className="rs-btn rs-btn--ghost" onClick={viewDetail}>
+        <Button
+          className="mt-[24rpx] h-[88rpx] leading-[88rpx] rounded-[16rpx] text-[30rpx] text-center p-0 after:content-[''] after:border-none border-[2rpx] border-solid border-border bg-card text-foreground"
+          onClick={viewDetail}
+        >
           {tt('wallet.recharge.success.viewDetail', '查看明细')}
         </Button>
-        <Button className="rs-btn rs-btn--ghost" onClick={goHome}>
+        <Button
+          className="mt-[24rpx] h-[88rpx] leading-[88rpx] rounded-[16rpx] text-[30rpx] text-center p-0 after:content-[''] after:border-none border-[2rpx] border-solid border-border bg-card text-foreground"
+          onClick={goHome}
+        >
           {tt('wallet.recharge.success.backHome', '返回首页')}
         </Button>
-        <Button className="rs-btn rs-btn--share" openType="share">
+        <Button
+          className="mt-[24rpx] h-[72rpx] leading-[72rpx] rounded-[16rpx] text-[26rpx] text-center p-0 after:content-[''] after:border-none bg-transparent text-muted-foreground"
+          openType="share"
+        >
           {tt('wallet.recharge.success.shareFriend', '分享给好友')}
         </Button>
       </View>
