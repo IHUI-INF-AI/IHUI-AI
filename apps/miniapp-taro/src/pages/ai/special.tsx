@@ -4,7 +4,6 @@ import { useState, useCallback, useRef } from 'react'
 import { logger } from '@/utils/logger'
 import { getAgentList } from '@/api'
 import { useI18n } from '@/i18n'
-import './special.css'
 
 type CategoryKey = 'chat' | 'image' | 'video' | 'voice' | 'agent' | 'plaza'
 
@@ -193,24 +192,30 @@ export default function SpecialModelsPage() {
   }, [tt])
 
   return (
-    <View className="special-page">
+    <View className="min-h-screen bg-background pb-[60rpx] box-border">
       {/* Banner */}
-      <View className="special-banner">
-        <View className="special-banner-bg" />
-        <View className="special-banner-content">
-          <Text className="special-banner-title">
+      <View className="relative m-[24rpx] p-[32rpx] rounded-[16rpx] overflow-hidden bg-card">
+        <View
+          className="absolute top-0 left-0 right-0 bottom-0 z-0"
+          style={{ background: 'linear-gradient(135deg, rgba(0, 242, 255, 0.18), rgba(99, 102, 241, 0.12))' }}
+        />
+        <View className="relative z-10">
+          <Text className="block text-[38rpx] font-bold text-foreground leading-[1.4]">
             {tt('ai.special.bannerTitle', 'AI 专题聚合')}
           </Text>
-          <Text className="special-banner-desc">
+          <Text className="block mt-[12rpx] text-[24rpx] text-muted-foreground leading-[1.5]">
             {tt(
               'ai.special.bannerDesc',
               '一站式聚合 AI 对话/绘图/视频/语音/智能体/模型广场,精选推荐能力即时使用',
             )}
           </Text>
         </View>
-        <View className="special-banner-history" onClick={goHistory}>
-          <Text className="special-banner-history-icon">🕘</Text>
-          <Text className="special-banner-history-text">
+        <View
+          className="relative z-10 inline-flex items-center gap-[8rpx] mt-[24rpx] py-[12rpx] px-[20rpx] bg-[rgba(0,242,255,0.12)] border-[2rpx] border-[rgba(0,242,255,0.35)] rounded-[10rpx]"
+          onClick={goHistory}
+        >
+          <Text className="text-[26rpx]">🕘</Text>
+          <Text className="text-[24rpx] text-primary">
             {tt('ai.special.history', '我的使用记录')}
           </Text>
         </View>
@@ -218,22 +223,24 @@ export default function SpecialModelsPage() {
 
       {/* 精选推荐 */}
       {featured.length > 0 ? (
-        <View className="special-featured">
-          <Text className="special-section-title">
+        <View className="mx-[24rpx] mb-[24rpx]">
+          <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">
             {tt('ai.special.featured', '精选推荐')}
           </Text>
-          <ScrollView scrollX className="special-featured-scroll" enhanced showScrollbar={false}>
+          <ScrollView scrollX className="whitespace-nowrap w-full" enhanced showScrollbar={false}>
             {featured.map((m) => (
               <View
                 key={`f-${m.key}`}
-                className="special-featured-card"
+                className="inline-flex flex-col items-center w-[200rpx] mr-[16rpx] py-[24rpx] px-[16rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.12)] rounded-[12rpx] align-top"
                 onClick={() => onEnter(m)}
               >
-                <View className="special-featured-icon">
+                <View className="w-[80rpx] h-[80rpx] flex items-center justify-center bg-background rounded-[12rpx] text-[40rpx]">
                   <Text>{m.icon}</Text>
                 </View>
-                <Text className="special-featured-name">{m.name}</Text>
-                <Text className="special-featured-uses">
+                <Text className="block mt-[12rpx] text-[26rpx] text-foreground font-medium max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
+                  {m.name}
+                </Text>
+                <Text className="block mt-[4rpx] text-[22rpx] text-muted-foreground">
                   {tt('ai.special.useCount', '{n} 次使用', { n: m.uses })}
                 </Text>
               </View>
@@ -243,37 +250,56 @@ export default function SpecialModelsPage() {
       ) : null}
 
       {/* 分类 Tab */}
-      <ScrollView scrollX className="special-tabs" enhanced showScrollbar={false}>
-        {categories.map((c) => (
-          <View
-            key={c.key}
-            className={`special-tab${activeCategory === c.key ? ' special-tab-active' : ''}`}
-            onClick={() => setActiveCategory(c.key)}
-          >
-            <Text className="special-tab-icon">{c.icon}</Text>
-            <Text className="special-tab-label">{c.label}</Text>
-          </View>
-        ))}
+      <ScrollView scrollX className="whitespace-nowrap px-[24rpx] mb-[16rpx]" enhanced showScrollbar={false}>
+        {categories.map((c) => {
+          const active = activeCategory === c.key
+          return (
+            <View
+              key={c.key}
+              className={`inline-flex items-center gap-[6rpx] h-[64rpx] px-[24rpx] mr-[12rpx] bg-card border-[2rpx] rounded-[10rpx] align-middle ${active ? 'bg-[rgba(0,242,255,0.12)] border-primary' : 'border-[rgba(0,242,255,0.1)]'}`}
+              onClick={() => setActiveCategory(c.key)}
+            >
+              <Text className="text-[26rpx]">{c.icon}</Text>
+              <Text
+                className={`text-[26rpx] ${active ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
+              >
+                {c.label}
+              </Text>
+            </View>
+          )
+        })}
       </ScrollView>
 
       {/* 应用列表 */}
       {filtered.length > 0 ? (
-        <View className="special-list">
+        <View className="px-[24rpx] flex flex-col gap-[16rpx]">
           {filtered.map((m) => (
-            <View key={m.key} className="special-card">
-              <View className="special-card-icon">
+            <View
+              key={m.key}
+              className="flex p-[24rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx]"
+            >
+              <View className="w-[96rpx] h-[96rpx] flex items-center justify-center bg-background rounded-[12rpx] text-[44rpx] flex-shrink-0">
                 <Text>{m.icon}</Text>
               </View>
-              <View className="special-card-body">
-                <View className="special-card-header">
-                  <Text className="special-card-name">{m.name}</Text>
-                  <Text className="special-card-uses">
+              <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col">
+                <View className="flex items-center justify-between gap-[12rpx]">
+                  <Text className="text-[30rpx] font-semibold text-foreground flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                    {m.name}
+                  </Text>
+                  <Text className="text-[22rpx] text-primary flex-shrink-0">
                     {tt('ai.special.useCount', '{n} 次使用', { n: m.uses })}
                   </Text>
                 </View>
-                <Text className="special-card-desc">{m.desc}</Text>
-                <View className="special-card-btn" onClick={() => onEnter(m)}>
-                  <Text>{tt('ai.special.useBtn', '立即使用')}</Text>
+                <Text className="block mt-[8rpx] text-[24rpx] text-muted-foreground leading-[1.4]">
+                  {m.desc}
+                </Text>
+                <View
+                  className="self-start mt-[16rpx] py-[10rpx] px-[28rpx] bg-[rgba(0,242,255,0.14)] border-[2rpx] border-[rgba(0,242,255,0.4)] rounded-[8rpx]"
+                  onClick={() => onEnter(m)}
+                >
+                  <Text className="text-[24rpx] text-primary font-semibold">
+                    {tt('ai.special.useBtn', '立即使用')}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -283,30 +309,37 @@ export default function SpecialModelsPage() {
 
       {/* 状态 */}
       {!loading && filtered.length === 0 && !error ? (
-        <View className="special-empty">
-          <Text className="special-empty-icon">📭</Text>
-          <Text className="special-empty-text">
+        <View className="flex flex-col items-center py-[80rpx] text-[26rpx] text-muted-foreground">
+          <Text className="text-[56rpx] mb-[16rpx]">📭</Text>
+          <Text className="text-[26rpx] text-muted-foreground">
             {tt('ai.special.empty', '暂无内容')}
           </Text>
         </View>
       ) : null}
 
       {error && !loading ? (
-        <View className="special-empty" onClick={() => void load(true)}>
-          <Text className="special-empty-icon">⚠️</Text>
-          <Text className="special-empty-text">{tt('ai.special.error', '加载失败')}</Text>
-          <Text className="special-retry">{tt('common.retry', '重试')}</Text>
+        <View
+          className="flex flex-col items-center py-[80rpx] text-[26rpx] text-muted-foreground"
+          onClick={() => void load(true)}
+        >
+          <Text className="text-[56rpx] mb-[16rpx]">⚠️</Text>
+          <Text className="text-[26rpx] text-muted-foreground">
+            {tt('ai.special.error', '加载失败')}
+          </Text>
+          <Text className="mt-[12rpx] text-[26rpx] text-primary">
+            {tt('common.retry', '重试')}
+          </Text>
         </View>
       ) : null}
 
       {loading ? (
-        <View className="special-loading">
+        <View className="flex flex-col items-center py-[80rpx] text-[26rpx] text-muted-foreground">
           <Text>{tt('common.loading', '加载中…')}</Text>
         </View>
       ) : null}
 
       {!loading && !hasMore && filtered.length > 0 ? (
-        <View className="special-no-more">
+        <View className="flex flex-col items-center py-[80rpx] text-[26rpx] text-muted-foreground">
           <Text>{tt('common.noMore', '没有更多了')}</Text>
         </View>
       ) : null}

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Card, Loading } from '@ihui/ui-native'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 interface Item { id: string; agentName: string; author: string; rating: number; content: string; createdAt: string }
@@ -32,50 +33,34 @@ export function AgentReviewListScreen() {
   useEffect(() => { void load() }, [load])
 
   return (
-    <View style={s.container}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={s.back}>{t('common.back')}</Text></TouchableOpacity>
-        <Text style={s.title}>{t('agentReviewList.title')}</Text>
+    <View className="flex-1 bg-card">
+      <View className="flex-row items-center gap-3 px-4 py-3">
+        <TouchableOpacity onPress={() => navigation.goBack()}><Text className="text-sm text-foreground">{t('common.back')}</Text></TouchableOpacity>
+        <Text className="text-lg font-semibold text-foreground">{t('agentReviewList.title')}</Text>
       </View>
-      {error ? <Text style={s.error}>{error}</Text> : null}
+      {error ? <Text className="px-4 text-xs text-destructive">{error}</Text> : null}
       {loading && items.length === 0 ? (
-        <View style={s.center}><ActivityIndicator /><Text style={s.muted}>{t('common.loading')}</Text></View>
+        <View className="flex-1 items-center justify-center"><Loading /><Text className="mt-2 text-xs text-muted-foreground">{t('common.loading')}</Text></View>
       ) : (
         <FlatList
           data={items}
           keyExtractor={(i) => i.id}
           contentContainerStyle={{ padding: 16 }}
-          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+          ItemSeparatorComponent={() => <View className="h-2" />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} />}
-          ListEmptyComponent={<View style={s.center}><Text style={s.muted}>{t('agentReviewList.empty')}</Text></View>}
+          ListEmptyComponent={<View className="items-center py-12"><Text className="text-xs text-muted-foreground">{t('agentReviewList.empty')}</Text></View>}
           renderItem={({ item }) => (
-            <View style={s.card}>
-              <View style={s.titleRow}>
-                <Text style={s.cardTitle} numberOfLines={1}>{item.agentName}</Text>
-                <Text style={s.rating}>{'★'.repeat(Math.max(1, Math.min(5, item.rating || 0)))}</Text>
+            <Card className="p-3">
+              <View className="flex-row items-center justify-between">
+                <Text className="mr-2 flex-1 text-sm font-semibold text-foreground" numberOfLines={1}>{item.agentName}</Text>
+                <Text className="text-xs text-amber-500">{'★'.repeat(Math.max(1, Math.min(5, item.rating || 0)))}</Text>
               </View>
-              <Text style={s.cardSub} numberOfLines={2}>{item.content}</Text>
-              <Text style={s.cardTime}>{t('agentReviewList.author')}: {item.author} · {item.createdAt}</Text>
-            </View>
+              <Text className="mt-1 text-xs text-muted-foreground" numberOfLines={2}>{item.content}</Text>
+              <Text className="mt-1.5 text-[11px] text-muted-foreground">{t('agentReviewList.author')}: {item.author} · {item.createdAt}</Text>
+            </Card>
           )}
         />
       )}
     </View>
   )
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  error: { paddingHorizontal: 16, fontSize: 12, color: '#DC2626' },
-  center: { alignItems: 'center', paddingVertical: 48 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB' },
-  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitle: { flex: 1, fontSize: 14, fontWeight: '600', color: '#111827', marginRight: 8 },
-  rating: { fontSize: 12, color: '#F59E0B' },
-  cardSub: { marginTop: 4, fontSize: 12, color: '#6B7280' },
-  cardTime: { marginTop: 6, fontSize: 11, color: '#9CA3AF' },
-})

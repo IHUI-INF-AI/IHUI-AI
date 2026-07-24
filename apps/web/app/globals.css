@@ -60,60 +60,26 @@
 
 /* @theme + vcenter 全局规则 + .dark 深色覆盖 已移至 packages/design-tokens/src/styles/tokens.css — 共享单一来源(2026-07-23 立) */
 
-/* 登录栏 hover 高亮(2026-07-20 立,2026-07-20 M-70 增强版)
- * 浅色模式:登录栏(.login-scope)内所有 hover:bg-accent / hover:bg-muted 按钮,
- *   hover 背景色强制为纯白(与 sidebar-item-hover-bg 同逻辑:高亮凸出);
- *   + --color-accent-foreground 改为与 --color-foreground 一致,让 hover:text-accent-foreground
- *     不改变文字颜色 → 与第三方按钮 icon(始终保持品牌色)视觉一致。
- * 暗色模式:.dark .login-scope 显式恢复默认 --color-accent / --color-muted,
- *   但 --color-accent 从默认 17% 提到 22%(14% bg-background → 22% hover,8% L 跳跃更明显);
- *   + muted 同理提到 22%,保持与 accent 同步。
- *   accent-foreground 暗色下默认 #fafafa 与 foreground 同色,无需调整。
+/* 登录栏 hover 高亮(2026-07-20 立,2026-07-24 反相重构)
+ * 反相设计后:亮色=黑底,暗色=白底。.login-scope 不再覆盖 accent/muted,
+ * 让 tokens.css 默认值生效(亮色 accent=14% / 暗色=88%),与主站一致。
+ * 保留 .border-input:hover 边框反馈(反相:亮色用白透明凸出,暗色用黑透明凸出)。
  * 作用域:AuthShell 弹窗外壳(主站 LoginDialog + /sso/login + /sso/register)+ LoginPopup。
- * 不影响主"登录"按钮(bg-primary / hover:bg-primary/90,因为它们不读 accent/muted)。
- *
- * outline 按钮 hover 边框(.login-scope .border-input:hover):
- *   默认 border-input 在浅色 = 89.8% L 极浅灰、暗色 = 22% L 深灰,hover 时视觉无变化。
- *   改为 foreground/20:浅色下 = #0a0a0a / 0.2 微微变深,暗色下 = #fafafa / 0.2 微微变浅,
- *   与 bg-accent hover 行为同步,提供边框级 hover 反馈。 */
-.login-scope {
-  --color-accent: hsl(0 0% 100%);
-  --color-accent-foreground: hsl(0 0% 3.9%);
-  --color-muted: hsl(0 0% 100%);
-}
-.dark .login-scope {
-  --color-accent: hsl(0 0% 22%);
-  --color-muted: hsl(0 0% 22%);
-}
+ * 不影响主"登录"按钮(bg-primary / hover:bg-primary/90,因为它们不读 accent/muted)。 */
 .login-scope .border-input:hover {
-  border-color: hsl(0 0% 3.9% / 0.2);
+  border-color: hsl(0 0% 100% / 0.2);
 }
 :where(.dark) .login-scope .border-input:hover {
-  border-color: hsl(0 0% 98% / 0.2);
+  border-color: hsl(0 0% 0% / 0.2);
 }
 
-/* 登录弹窗内 TabsList 容器专属背景 (2026-07-22 ihui-m3-fix-tabs-bg 立)
-   根因:.login-scope 把 --color-muted 强制为 100% 白(为 hover 凸出语义),
-   TabsList 容器用 `bg-muted` 被连带变成纯白,跟 bg-card 完全相同,
-   导致亮色下 tab 容器与卡片无可见边界,看不出"凹槽"结构。
-   修复:.login-scope [role="tablist"] 用显式 hsl(0 0% 92%)(#EBEBEB)
-   而非 var(--color-muted) — 后者会被 .login-scope 覆写为白,前者绕开继承。
-   暗色下用专属 18% 跟 bg-card 10% 保持 ~8% L 差距(与亮色 92% vs 100% 8% 差距对称)。 */
-.login-scope [role='tablist'] {
-  background-color: hsl(0 0% 92%);
-}
-:where(.dark) .login-scope [role='tablist'] {
-  background-color: hsl(0 0% 18%);
-}
-
-/* 登录弹窗内密码强度条轨道 (2026-07-22 ihui-m3-fix-tabs-bg 立)
-   同根因:.login-scope --color-muted 被覆写为白,bg-muted 轨道在亮色下与卡片同色不可见。
-   用显式 hsl 绕开,亮 92% / 暗 18%,与 TabsList 容器同色阶。 */
+/* 登录弹窗内 TabsList 容器和密码强度条轨道 (2026-07-22 立,2026-07-24 反相重构)
+ * 反相后 .login-scope 不再覆盖 muted,直接用 var(--color-muted) 自动跟随主题。
+ * 亮色(黑底):muted=12% vs card=5%,7% 差距可见"凹槽"。
+ * 暗色(白底):muted=90% vs card=95%,5% 差距可见"凹槽"。 */
+.login-scope [role='tablist'],
 .login-scope [data-slot='strength-track'] {
-  background-color: hsl(0 0% 92%);
-}
-:where(.dark) .login-scope [data-slot='strength-track'] {
-  background-color: hsl(0 0% 18%);
+  background-color: var(--color-muted);
 }
 
 * {
@@ -378,27 +344,30 @@ body {
 }
 
 @media (prefers-contrast: high) {
+  /* 高对比模式反相(2026-07-24):亮色=纯黑底+纯白字,暗色=纯白底+纯黑字 */
   :root {
-    --color-border: hsl(0 0% 0%);
-    --color-foreground: hsl(0 0% 0%);
-    --color-background: hsl(0 0% 100%);
-  }
-  .dark {
     --color-border: hsl(0 0% 100%);
     --color-foreground: hsl(0 0% 100%);
     --color-background: hsl(0 0% 0%);
   }
+  .dark {
+    --color-border: hsl(0 0% 0%);
+    --color-foreground: hsl(0 0% 0%);
+    --color-background: hsl(0 0% 100%);
+  }
 }
 
 .high-contrast {
-  --color-border: hsl(0 0% 0%);
-  --color-foreground: hsl(0 0% 0%);
-  --color-background: hsl(0 0% 100%);
-}
-:where(.dark.high-contrast) {
+  /* 高对比类反相(2026-07-24):亮色=纯黑底+纯白字 */
   --color-border: hsl(0 0% 100%);
   --color-foreground: hsl(0 0% 100%);
   --color-background: hsl(0 0% 0%);
+}
+:where(.dark.high-contrast) {
+  /* 暗色高对比:纯白底+纯黑字 */
+  --color-border: hsl(0 0% 0%);
+  --color-foreground: hsl(0 0% 0%);
+  --color-background: hsl(0 0% 100%);
 }
 
 h1,
@@ -634,6 +603,11 @@ h6 {
   }
   .z-max {
     z-index: var(--z-max);
+  }
+  /* sonner Toaster 固定用 z-notification(=3000,高于 z-modal=2000),
+     确保 toast 在 Dialog 之上显示(2026-07-24 立,修复未登录点发送 toast 被弹窗遮挡) */
+  [data-sonner-toaster] {
+    z-index: var(--z-notification);
   }
 }
 

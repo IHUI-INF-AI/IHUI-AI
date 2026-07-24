@@ -18,8 +18,9 @@
  * 实测 11 个侧边栏 nav 一致 delta=0.000(完美居中)。
  *
  * 配套 globals.css 已建立 `--text-vcenter-offset: 0.3px` 全局 CSS 变量,
- * 并通过 `:where(button, a, [role=button], [role=menuitem]):has(>svg):has(>span) > span`
- * 全局选择器自动应用,无需手动加类;纯文字按钮(no svg)自动排除。
+ * 并通过 `:where(button, a, [role=button], [role=menuitem]):has(> span) > span`
+ * 全局选择器自动应用,无需手动加类;覆盖 icon+文字 和 纯文字 两种场景
+ * (2026-07-24 从 :has(>svg):has(>span) 放宽到 :has(>span),根治纯文字按钮偏下)。
  *
  * 调优日志(浏览器 getBoundingClientRect + Range 实测,跨 11 个侧边栏 nav 验证):
  *   - 0.5px → delta = +0.4px(过冲,文字略低于图标,可见偏差)
