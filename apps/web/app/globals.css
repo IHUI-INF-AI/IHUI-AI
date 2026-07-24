@@ -643,28 +643,43 @@ h6 {
 }
 
 /* ============================================================
- * AI 输入框底部工具栏 container query (2026-07-20 立)
+ * AI 输入框底部工具栏 container query (2026-07-20 立,2026-07-25 修正阈值)
  * ============================================================
- * 背景:AI 面板宽度 320-720px(默认 400px),内容宽 288-688px。
- * ModelSelector button 内 span max-w-[6rem]=96px + BrandIcon 16 + 徽章 14 + chevron 14
- * + padding/gap 56 = 总 178px;加上左侧 3 按钮(104px)+ VoiceInput(32)+ Send(32)+ gap(16)
- * = 总 362px。面板 < 392px(内容 < 360px)时溢出。
+ * 背景:AI 面板宽度 320-720px(默认 400px),aside 宽 = 面板宽。
+ * MessageInput 外层 mx-auto max-w-3xl px-4(32px)→ 内容宽 = 面板 - 32。
+ * .ai-input-toolbar 自身 px-2(16px)→ container 内容盒宽 = 面板 - 48。
  *
- * 阈值 359px 选择依据:
- *   - 内容 <= 359px(面板 <= 391px):隐藏 span + 徽章,只需 252px(104+56+32+32+16),留 107px 余量
- *   - 内容 >= 360px(面板 >= 392px):显示 span + 徽章,需要 362px,留 -2px... 实际 truncate 生效后 span 收缩到 < 96px,不溢出
+ * 右侧集群 icon-only 基线宽:
+ *   ContextRing(32) + ModelSelector icon-only(56) + VoiceInput(32) + Send(32) + 集群 gap-1(12) = 164px
+ * 左侧 3 按钮 + gap:104px;固定占位合计 272px(等于 320px 面板时 container 宽,正好填满)。
+ *
+ * slack(container 宽 - 272)用于 text + badge:
+ *   - 320px 面板(container 272):slack 0,只能 icon-only
+ *   - 360px 面板(container 312):slack 40,text 可用 40px(约 6 字符 + 省略号)
+ *   - 400px 面板(container 352):slack 80,text 可用 80px(约 12 字符)
+ *
+ * 双阈值分层(2026-07-25 修正原 359px 单阈值 bug):
+ *   原阈值 359px 把"工具栏内容盒宽"误当作"面板内容宽",导致默认 400px 面板(container 352 < 359)
+ *   时也被隐藏,即使有 80px slack。现拆为:
+ *   - text 阈值 299px:container <= 299(面板 <= 347)时隐藏。slack < 28px 时 text 仅 1-3 字符无意义。
+ *   - badge 阈值 359px:container <= 359(面板 <= 407)时隐藏。badge 占 20px,仅在宽面板显示,
+ *     避免挤占 text 空间。默认 400px 面板优先显示 text,badge 留到 408px+ 面板。
  *
  * 用原生 CSS 而非 Tailwind v4 container variant:
  * 实测 Tailwind v4 仅编译 .@container 类(container-type: inline-size),
  * 但 @sm:/@md: 等 container variant 不会生成对应 @container (min-width: ...) 规则,
  * 导致 className 中写 @sm:inline 在浏览器中无效。原生 CSS 100% 可靠。
  *
- * 选定 359px 而非 360px 是为了避免临界点抖动(用户拖拽到 360px 时反复触发显隐)。 */
+ * 选定 N-1 而非 N 是为了避免临界点抖动(用户拖拽到阈值时反复触发显隐)。 */
 .ai-input-toolbar {
   container-type: inline-size;
 }
+@container (max-width: 299px) {
+  .ai-input-toolbar .model-selector-text {
+    display: none;
+  }
+}
 @container (max-width: 359px) {
-  .ai-input-toolbar .model-selector-text,
   .ai-input-toolbar .model-selector-badge {
     display: none;
   }
