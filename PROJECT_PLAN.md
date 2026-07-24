@@ -8,6 +8,41 @@
 
 ## 当前活跃任务(2026-07-24)
 
+### [x] ✅(2026-07-24) /goal D 盘旧项目迁移完整性补齐 — 11 项 P0+P1 任务 + 4 模块决策(跨端:api + mobile-rn + miniapp-taro)
+
+**触发**:用户需求"深度比对我电脑d盘里小程序 app端页面所有样式 交互 逻辑 接口 服务 前后端深度分析比对还有哪些没有迁移整合到我们最新的项目里的 必须完全一致 除非我们新项目新增的"。/goal 模式 2 轮并行执行。
+
+**旧项目路径**:D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue(uni-app + uniCloud-aliyun)
+
+**Round 1**(commit 95a0aa807,P0-2/P0-4/P0-5):
+- P0-4: apps/api/src/routes/agent-creation.ts(6 端点:我的创作查询/收费配置 CRUD/agent 配置查询/工作流搜索)
+- P0-2: miniapp-taro + mobile-rn ModelConfigDialog 补齐媒体参数(图片:比例/分辨率,视频:帧数,音频:音色)
+- P0-5: miniapp-taro + mobile-rn VoiceInput 组件封装(长按录音+语音转文字)
+
+**Round 2**(P0-1/P0-3/P1-6/P1-7/P1-8/P1-9/P1-10,7 subagent 并行):
+- P0-1: mobile-rn Coze 集成 — api/coze.ts(243行,Chat v3/Conversations/Workflows/Bots/Datasets)+ ApiSettingsScreen.tsx(179行)
+- P0-3: mobile-rn dev_enter 6 页 — Developer/DevEnter/ModelEdit/ModelIncome/N8nModel/Assistant Screen
+- P1-6: mobile-rn 名片/招聘/创客 3 页 — BusinessCard/Carte/Recruitment Screen
+- P1-7: mobile-rn AIGC 3 页 — AigcList/AigcPublish/AigcCover Screen
+- P1-8: mobile-rn AI 对话增强 5 页 — AiAssistant/AiGroup/AiCareer/ModelPlaza/TokenValue Screen
+- P1-9: mobile-rn VIP 操盘手 — VipTraderScreen(176行)
+- P1-10: 后端接口 11 个 — resource-context.ts(7端点)+ trader-stats.ts(4端点,基于 commissionFlows+traders 表)
+
+**P1-11 决策标注**(4 个两端都未迁移的模块评估):
+| 模块 | 旧项目路径 | 决策 | 理由 |
+|---|---|---|---|
+| vip_info | pagesA/vip_info(5文件:等级/私董会/私密顾问) | **不迁移** | 新项目已有 VipScreen/VipLevelScreen/VipCompareScreen + miniapp-taro pages/vip/privilege.tsx 已迁移 vip_info 5 弹窗,功能已覆盖 |
+| studyindex | pagesA/studyindex(5文件:学习首页/模型列表/学习列表) | **不迁移** | 新项目已有 CourseScreen/StudyPlanScreen/StudyRecordScreen + ModelPlazaScreen,学习首页+模型列表功能已覆盖 |
+| live-streaming | pagesA/live-streaming(1文件:主播端) | **暂不迁移,标记 P2 后续任务** | 直播主播端是独立功能域(推流管理/商品管理/数据统计),需配套 SRS 后端(已有 apps/api/src/routes/srs.ts),前端主播端页面缺失,建议作为独立 P2 任务后续开发 |
+| earn_commission | pagesA/earn_commission(1文件:赚佣金) | **不迁移** | 新项目已有 DistributionScreen(分销)+ PromoteScreen(推广)+ financeRoutes(佣金/提现),赚佣金功能已覆盖 |
+
+**§9 跨端**:api + mobile-rn + miniapp-taro 三端同步迁移,所有新页面遵循 AGENTS.md §4 UI 约束(圆角守门/禁分割线/禁渐变遮罩/compact 紧凑)。
+**§22 README 豁免**:纯迁移补齐(对标旧项目功能),不改变对外能力清单。
+
+**Git 同步证据**(§21):待 commit + push 后补充
+
+---
+
 ### [x] ✅(2026-07-24) miniapp-taro API 契约对齐 Round 2 — 补建 24 个 P0 缺失端点(跨端:api → miniapp-taro 兼容)
 
 **触发**:承接其他 agent Round 1(commit `13301bf8b`,49 个空桩端点)被中断的接口契约核查工作。继续扫描 miniapp-taro 前端 269 个 API 调用,交叉核对后端路由,发现 24 个 P0 级缺失端点(会返回 404)。
