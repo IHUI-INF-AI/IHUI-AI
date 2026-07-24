@@ -898,3 +898,453 @@ def test_repair_messages_empty_input():
     repaired, removed, reasons = repair_messages([])
     assert repaired == []
     assert removed == 0
+
+
+# =============================================================================
+# FallbackRouter — Provider 故障转移路由器单元测试
+# =============================================================================
+
+from unittest.mock import AsyncMock, patch
+from app.core.llm_gateway import FallbackRouter, fallback_router
+
+
+@pytest.fixture(autouse=False)
+def clean_fallback_router():
+    """每个 integration 测试前后清理全局 fallback_router 配置,避免测试间污染。"""
+    saved = dict(fallback_router._configs)
+    fallback_router._configs.clear()
+    yield fallback_router
+    fallback_router._configs.clear()
+    fallback_router._configs.update(saved)
+
+
+# --- FallbackRouter 独立单元测试(mock llm_gateway.complete) ---
+
+
+def test_fallback_router_configure_and_get_config():
+    """configure() 存储 config,get_config() 取回。"""
+    router = FallbackRouter()
+    router.configure("stepfun/step-3.7-flash", {
+        "fallbacks": ["agnes/gpt-4o"],
+        "triggerOnError": ["timeout", "overloaded"],
+    })
+    config = router.get_config("stepfun/step-3.7-flash")
+    assert config["fallbacks"] == ["agnes/gpt-4o"]
+    assert "timeout" in config["triggerOnError"]
+
+
+def test_fallback_router_get_config_unknown_returns_empty():
+    """未配置的 provider 返回空 dict。"""
+    router = FallbackRouter()
+    assert router.get_config("unknown/model") == {}
+
+
+async def test_complete_with_fallback_first_succeeds():
+    """第一个 fallback 成功 → 返回结果 + _skip_fallback=True 防递归。"""
+    router = FallbackRouter()
+    router.configure("stepfun/step-3.7-flash", {"fallbacks": ["agnes/gpt-4o"]})
+
+    mock_result = {"content": "fallback ok", "model": "agnes/gpt-4o", "usage": {}, "stub": False}
+    with patch("app.core.llm_gateway.llm_gateway.complete", new_callable=AsyncMock, return_value=mock_result) as mock_complete:
+        result = await router.complete_with_fallback(
+            [{"role": "user", "content": "hi"}], "stepfun/step-3.7-flash"
+        )
+
+    assert result["content"] == "fallback ok"
+    assert not result.get("error")
+    mock_complete.assert_called_once()
+    # 防递归:_skip_fallback=True 必须传入
+    assert mock_complete.call_args.kwargs["_skip_fallback"] is True
+    assert mock_complete.call_args.kwargs["model"] == "agnes/gpt-4o"
+
+
+async def test_complete_with_fallback_second_succeeds():
+    """第一个 fallback 失败(error=True),第二个成功。"""
+    router = FallbackRouter()
+    router.configure("stepfun/step-3.7-flash", {
+        "fallbacks": ["agnes/gpt-4o", "openai/gpt-4o-mini"],
+    })
+
+    fail_result = {"content": "", "error": True, "error_message": "agnes down"}
+    ok_result = {"content": "openai ok", "model": "gpt-4o-mini", "usage": {}, "stub": False}
+
+    with patch("app.core.llm_gateway.llm_gateway.complete", new_callable=AsyncMock, side_effect=[fail_result, ok_result]) as mock_complete:
+        result = await router.complete_with_fallback(
+            [{"role": "user", "content": "hi"}], "stepfun/step-3.7-flash"
+        )
+
+    assert result["content"] == "openai ok"
+    assert mock_complete.call_count == 2
+
+
+async def test_complete_with_fallback_all_fail():
+    """所有 fallback 都失败 → 返回 'all fallbacks failed' 错误。"""
+    router = FallbackRouter()
+    router.configure("stepfun/step-3.7-flash", {"fallbacks": ["agnes/gpt-4o"]})
+
+    fail_result = {"content": "", "error": True, "error_message": "agnes down"}
+    with patch("app.core.llm_gateway.llm_gateway.complete", new_callable=AsyncMock, return_value=fail_result):
+        result = await router.complete_with_fallback(
+            [{"role": "user", "content": "hi"}], "stepfun/step-3.7-flash"
+        )
+
+    assert result["error"]
+    assert "all fallbacks failed" in result["error"]
+
+
+async def test_complete_with_fallback_no_config():
+    """primary 无 fallback 配置 → 返回错误(fallbacks 为空)。"""
+    router = FallbackRouter()
+    result = await router.complete_with_fallback(
+        [{"role": "user", "content": "hi"}], "unknown/model"
+    )
+    assert result["error"]
+    assert "all fallbacks failed" in result["error"]
+
+
+async def test_complete_with_fallback_exception_continues():
+    """fallback provider 抛异常时继续尝试下一个(不中断)。"""
+    router = FallbackRouter()
+    router.configure("stepfun/step-3.7-flash", {
+        "fallbacks": ["agnes/gpt-4o", "openai/gpt-4o-mini"],
+    })
+
+    ok_result = {"content": "ok", "model": "gpt-4o-mini", "usage": {}, "stub": False}
+    with patch("app.core.llm_gateway.llm_gateway.complete", new_callable=AsyncMock, side_effect=[RuntimeError("conn error"), ok_result]):
+        result = await router.complete_with_fallback(
+            [{"role": "user", "content": "hi"}], "stepfun/step-3.7-flash"
+        )
+
+    assert result["content"] == "ok"
+
+
+# --- complete() + FallbackRouter 集成测试 ---
+
+
+async def test_complete_fallback_triggered_on_llm_error(clean_fallback_router, monkeypatch):
+    """complete() 主 provider LLM_ERROR → FallbackRouter 接入 → fallback 成功。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
+    monkeypatch.setattr(settings, "stepfun_api_base", "https://api.stepfun.com/step_plan/v1")
+    monkeypatch.setattr(settings, "agnes_api_key", "sk-test-agnes")
+    monkeypatch.setattr(settings, "agnes_api_base", "https://apihub.agnes-ai.com/v1")
+
+    clean_fallback_router.configure("stepfun/step-3.7-flash", {"fallbacks": ["agnes/gpt-4o"]})
+
+    gw = LLMGateway()
+
+    import sys
+    from types import ModuleType
+    fake_litellm = ModuleType("litellm")
+
+    call_count = 0
+
+    async def fake_acompletion(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            # primary 失败
+            raise RuntimeError("timeout")
+
+        # fallback 成功
+        class FakeUsage:
+            def model_dump(self):
+                return {"prompt_tokens": 5, "completion_tokens": 3, "total_tokens": 8}
+
+        class FakeMessage:
+            content = "fallback response"
+
+        class FakeChoice:
+            message = FakeMessage()
+
+        class FakeResponse:
+            usage = FakeUsage()
+            choices = [FakeChoice()]
+            model = "gpt-4o"
+
+        return FakeResponse()
+
+    fake_litellm.acompletion = fake_acompletion
+    fake_litellm.token_counter = lambda **kw: 10
+    monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
+
+    result = await gw.complete(
+        [{"role": "user", "content": "test"}],
+        model="stepfun/step-3.7-flash",
+    )
+
+    assert result["content"] == "fallback response"
+    assert result.get("fallback_used") is True
+    assert result["fallback_primary"] == "stepfun/step-3.7-flash"
+    assert call_count == 2  # primary 失败 + fallback 成功
+
+
+async def test_complete_skip_fallback_prevents_recursion(clean_fallback_router, monkeypatch):
+    """_skip_fallback=True 时即使 LLM_ERROR 也不触发 FallbackRouter(防递归)。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
+    monkeypatch.setattr(settings, "stepfun_api_base", "https://api.stepfun.com/step_plan/v1")
+
+    # 即使配了 fallback,_skip_fallback=True 也不应触发
+    clean_fallback_router.configure("stepfun/step-3.7-flash", {"fallbacks": ["agnes/gpt-4o"]})
+
+    gw = LLMGateway()
+
+    import sys
+    from types import ModuleType
+    fake_litellm = ModuleType("litellm")
+
+    async def fake_acompletion(**kwargs):
+        raise RuntimeError("should not retry")
+
+    fake_litellm.acompletion = fake_acompletion
+    monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
+
+    result = await gw.complete(
+        [{"role": "user", "content": "test"}],
+        model="stepfun/step-3.7-flash",
+        _skip_fallback=True,
+    )
+
+    # 应返回错误,不触发 fallback
+    assert result["error"] is True
+    assert result["content"] == ""
+    assert "should not retry" in result["error_message"]
+
+
+async def test_complete_no_fallback_when_configs_empty(monkeypatch):
+    """fallback_router._configs 为空时不触发 fallback(无配置)。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
+    monkeypatch.setattr(settings, "stepfun_api_base", "https://api.stepfun.com/step_plan/v1")
+
+    # 确保全局 fallback_router 无配置
+    saved = dict(fallback_router._configs)
+    fallback_router._configs.clear()
+    try:
+        gw = LLMGateway()
+
+        import sys
+        from types import ModuleType
+        fake_litellm = ModuleType("litellm")
+
+        async def fake_acompletion(**kwargs):
+            raise RuntimeError("primary down")
+
+        fake_litellm.acompletion = fake_acompletion
+        monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
+
+        result = await gw.complete(
+            [{"role": "user", "content": "test"}],
+            model="stepfun/step-3.7-flash",
+        )
+
+        # 无 fallback 配置 → 直接返回错误
+        assert result["error"] is True
+        assert "primary down" in result["error_message"]
+    finally:
+        fallback_router._configs.clear()
+        fallback_router._configs.update(saved)
+
+
+async def test_complete_fallback_all_providers_fail(clean_fallback_router, monkeypatch):
+    """primary + 所有 fallback 都失败 → 返回错误(不无限递归)。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
+    monkeypatch.setattr(settings, "stepfun_api_base", "https://api.stepfun.com/step_plan/v1")
+    monkeypatch.setattr(settings, "agnes_api_key", "sk-test-agnes")
+    monkeypatch.setattr(settings, "agnes_api_base", "https://apihub.agnes-ai.com/v1")
+
+    clean_fallback_router.configure("stepfun/step-3.7-flash", {"fallbacks": ["agnes/gpt-4o"]})
+
+    gw = LLMGateway()
+
+    import sys
+    from types import ModuleType
+    fake_litellm = ModuleType("litellm")
+
+    async def fake_acompletion(**kwargs):
+        raise RuntimeError("all down")
+
+    fake_litellm.acompletion = fake_acompletion
+    fake_litellm.token_counter = lambda **kw: 10
+    monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
+
+    result = await gw.complete(
+        [{"role": "user", "content": "test"}],
+        model="stepfun/step-3.7-flash",
+    )
+
+    # primary 失败 → fallback 也失败 → 返回错误(不递归)
+    assert result["error"] is True
+    assert result["content"] == ""
+
+
+# --- astream() + FallbackRouter 集成测试 ---
+
+
+async def test_astream_fallback_when_no_chunks_sent(clean_fallback_router, monkeypatch):
+    """astream 流式调用在发送任何 chunk 前失败 → fallback 触发 → 拆成 chunk 产出。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
+    monkeypatch.setattr(settings, "stepfun_api_base", "https://api.stepfun.com/step_plan/v1")
+    monkeypatch.setattr(settings, "agnes_api_key", "sk-test-agnes")
+    monkeypatch.setattr(settings, "agnes_api_base", "https://apihub.agnes-ai.com/v1")
+
+    clean_fallback_router.configure("stepfun/step-3.7-flash", {"fallbacks": ["agnes/gpt-4o"]})
+
+    gw = LLMGateway()
+
+    import sys
+    from types import ModuleType
+    fake_litellm = ModuleType("litellm")
+
+    async def fake_acompletion(**kwargs):
+        if kwargs.get("stream"):
+            # astream 主调用立即失败(无 chunk 产出)
+            raise RuntimeError("stream timeout")
+        # fallback complete 调用成功
+        class FakeUsage:
+            def model_dump(self):
+                return {"prompt_tokens": 5, "completion_tokens": 5, "total_tokens": 10}
+
+        class FakeMessage:
+            content = "fallback stream content"
+
+        class FakeChoice:
+            message = FakeMessage()
+
+        class FakeResponse:
+            usage = FakeUsage()
+            choices = [FakeChoice()]
+            model = "gpt-4o"
+
+        return FakeResponse()
+
+    fake_litellm.acompletion = fake_acompletion
+    fake_litellm.token_counter = lambda **kw: 10
+    monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
+
+    events = [e async for e in gw.astream(
+        [{"role": "user", "content": "hi"}],
+        model="stepfun/step-3.7-flash",
+    )]
+
+    # 应有 chunk 事件 + done 事件(来自 fallback)
+    chunk_events = [e for e in events if e["type"] == "chunk"]
+    done_events = [e for e in events if e["type"] == "done"]
+    assert len(chunk_events) > 0
+    assert len(done_events) == 1
+    # chunk 拼接应为 fallback content
+    full_content = "".join(e["content"] for e in chunk_events)
+    assert full_content == "fallback stream content"
+    # done 事件标记 fallback_used
+    assert done_events[0].get("fallback_used") is True
+    assert done_events[0].get("fallback_primary") == "stepfun/step-3.7-flash"
+
+
+async def test_astream_no_fallback_when_chunks_already_sent(clean_fallback_router, monkeypatch):
+    """astream 已发送 chunk 后失败 → 不触发 fallback(已发送 chunk 不可撤回)。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
+    monkeypatch.setattr(settings, "stepfun_api_base", "https://api.stepfun.com/step_plan/v1")
+    monkeypatch.setattr(settings, "agnes_api_key", "sk-test-agnes")
+    monkeypatch.setattr(settings, "agnes_api_base", "https://apihub.agnes-ai.com/v1")
+
+    clean_fallback_router.configure("stepfun/step-3.7-flash", {"fallbacks": ["agnes/gpt-4o"]})
+
+    gw = LLMGateway()
+
+    import sys
+    from types import ModuleType
+    fake_litellm = ModuleType("litellm")
+
+    # 构造一个先 yield 一个 chunk 再抛异常的 async generator
+    class FakeDelta:
+        def __init__(self, content):
+            self.content = content
+            self.reasoning_content = None
+
+    class FakeChunk:
+        def __init__(self, content):
+            self.choices = [type("obj", (object,), {"delta": FakeDelta(content)})()]
+            self.usage = None
+            self.model = "step-3.7-flash"
+
+    class FakeStreamThatFails:
+        """先 yield 一个 chunk,再抛异常(模拟中途断流)。"""
+        def __aiter__(self):
+            return self._gen()
+
+        async def _gen(self):
+            yield FakeChunk("partial response")
+            raise RuntimeError("mid-stream disconnect")
+
+    async def fake_acompletion(**kwargs):
+        if kwargs.get("stream"):
+            return FakeStreamThatFails()
+        # fallback complete(不应被调用)
+        class FakeResponse:
+            class _U:
+                @staticmethod
+                def model_dump():
+                    return {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
+            usage = _U()
+            choices = [type("obj", (object,), {"message": type("obj", (object,), {"content": "SHOULD NOT BE USED"})()})()]
+            model = "gpt-4o"
+        return FakeResponse()
+
+    fake_litellm.acompletion = fake_acompletion
+    fake_litellm.token_counter = lambda **kw: 10
+    monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
+
+    events = [e async for e in gw.astream(
+        [{"role": "user", "content": "hi"}],
+        model="stepfun/step-3.7-flash",
+    )]
+
+    # 应有 1 个 chunk(已发送的 partial)+ 1 个 error(不触发 fallback)
+    chunk_events = [e for e in events if e["type"] == "chunk"]
+    error_events = [e for e in events if e["type"] == "error"]
+    assert len(chunk_events) == 1
+    assert chunk_events[0]["content"] == "partial response"
+    assert len(error_events) == 1
+    assert "mid-stream disconnect" in error_events[0]["message"]
+    # 不应有 fallback_used 标记的 done 事件
+    done_events = [e for e in events if e["type"] == "done"]
+    assert len(done_events) == 0
+
+
+async def test_astream_no_fallback_when_configs_empty(monkeypatch):
+    """astream 失败但无 fallback 配置 → 直接 yield error(不尝试 fallback)。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "stepfun_api_key", "sk-test")
+    monkeypatch.setattr(settings, "stepfun_api_base", "https://api.stepfun.com/step_plan/v1")
+
+    saved = dict(fallback_router._configs)
+    fallback_router._configs.clear()
+    try:
+        gw = LLMGateway()
+
+        import sys
+        from types import ModuleType
+        fake_litellm = ModuleType("litellm")
+
+        async def fake_acompletion(**kwargs):
+            raise RuntimeError("stream failed")
+
+        fake_litellm.acompletion = fake_acompletion
+        monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
+
+        events = [e async for e in gw.astream(
+            [{"role": "user", "content": "hi"}],
+            model="stepfun/step-3.7-flash",
+        )]
+
+        # 只应有 error 事件
+        assert len(events) == 1
+        assert events[0]["type"] == "error"
+        assert "stream failed" in events[0]["message"]
+    finally:
+        fallback_router._configs.clear()
+        fallback_router._configs.update(saved)
