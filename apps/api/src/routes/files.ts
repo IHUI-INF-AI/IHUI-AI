@@ -573,6 +573,31 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
   // 扩展上传端点（multipart / octet-stream）
   // =============================================================================
 
+  // GET /files/upload/form - 获取上传表单信息(本地存储模式返回上传端点元数据)
+  server.get(
+    '/files/upload/form',
+    {
+      schema: buildSchema({
+        summary: '获取上传表单信息',
+        description: '返回文件上传端点与策略(本地存储模式,前端用 POST multipart 上传)',
+        tags: ['File'],
+      }),
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      return reply.send(
+        success({
+          uploadUrl: '/api/files/upload/form',
+          method: 'POST',
+          encoding: 'multipart/form-data',
+          field: 'file',
+          maxSize: MAX_MULTIPART_UPLOAD_SIZE,
+        }),
+      )
+    },
+  )
+
   // 为 application/octet-stream 注册 content-type parser（原始二进制流）
   server.addContentTypeParser(
     'application/octet-stream',
@@ -619,12 +644,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
       const mimeType = data.mimetype || 'application/octet-stream'
 
       // CWE-434 防护:扩展名白名单 + MIME 一致性 + magic number + 大小限制(100MB,对齐 multipart 配置)
-      const validation = validateUploadFile(
-        buffer,
-        filename,
-        mimeType,
-        MAX_MULTIPART_UPLOAD_SIZE,
-      )
+      const validation = validateUploadFile(buffer, filename, mimeType, MAX_MULTIPART_UPLOAD_SIZE)
       if (!validation.ok) {
         return reply.status(400).send(error(400, validation.reason))
       }
