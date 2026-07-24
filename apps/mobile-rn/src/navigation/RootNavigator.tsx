@@ -1,6 +1,9 @@
 import { useEffect } from 'react'
 import { View, Text } from 'react-native'
-import { createNativeStackNavigator, type NativeStackNavigationProp } from '@react-navigation/native-stack'
+import {
+  createNativeStackNavigator,
+  type NativeStackNavigationProp,
+} from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { useNavigation } from '@react-navigation/native'
 import { useAuth } from '../context/AuthContext'
@@ -105,6 +108,7 @@ import { CourseChapterScreen } from '../screens/CourseChapterScreen'
 import { CourseCommentScreen } from '../screens/CourseCommentScreen'
 import { CourseCatalogScreen } from '../screens/CourseCatalogScreen'
 import { LiveChatScreen } from '../screens/LiveChatScreen'
+import { LiveHostScreen } from '../screens/LiveHostScreen'
 import { AgentDetailScreen } from '../screens/AgentDetailScreen'
 import { AgentChatScreen } from '../screens/AgentChatScreen'
 import { AgentMarketScreen } from '../screens/AgentMarketScreen'
@@ -240,6 +244,7 @@ export type RootStackParamList = {
   CourseComment: { courseId: string }
   CourseCatalog: { courseId: string }
   LiveChat: { liveId: string }
+  LiveHost: undefined
   AgentDetail: { id: string }
   AgentChat: { agentId: string; name: string }
   AgentMarket: undefined
@@ -377,7 +382,9 @@ function MainTabs() {
         headerShown: false,
         tabBarActiveTintColor: tokens.brand.DEFAULT,
         tabBarInactiveTintColor: resolvedTheme === 'dark' ? tokens.text.tertiary : '#737373',
-        tabBarStyle: { backgroundColor: resolvedTheme === 'dark' ? tokens.surface.dark : tokens.surface.light },
+        tabBarStyle: {
+          backgroundColor: resolvedTheme === 'dark' ? tokens.surface.dark : tokens.surface.light,
+        },
         tabBarLabelStyle: { fontSize: 11 },
       }}
     >
@@ -430,7 +437,9 @@ function RootNavigatorInner() {
 
   if (!ready) {
     return (
-      <View className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}>
+      <View
+        className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}
+      >
         <Text className="text-gray-500">加载中...</Text>
       </View>
     )
@@ -519,6 +528,11 @@ function RootNavigatorInner() {
             <RootStack.Screen name="CourseComment" component={CourseCommentScreen} />
             <RootStack.Screen name="CourseCatalog" component={CourseCatalogScreen} />
             <RootStack.Screen name="LiveChat" component={LiveChatScreen} />
+            <RootStack.Screen
+              name="LiveHost"
+              component={LiveHostScreen}
+              options={{ title: '主播端' }}
+            />
             <RootStack.Screen name="AgentDetail" component={AgentDetailScreen} />
             <RootStack.Screen name="AgentChat" component={AgentChatScreen} />
             <RootStack.Screen name="AgentMarket" component={AgentMarketScreen} />
