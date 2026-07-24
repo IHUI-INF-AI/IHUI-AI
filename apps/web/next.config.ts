@@ -19,6 +19,7 @@ const nextConfig: NextConfig = {
     '@ihui/app',
     '@ihui/shared',
     '@ihui/api-client',
+    '@ihui/i18n',
     '@tauri-apps/api',
     '@tauri-apps/plugin-dialog',
     'react-native-web',
@@ -66,7 +67,9 @@ const nextConfig: NextConfig = {
       // 最小化内联类型,避免依赖 @types/webpack(Next.js 内置 webpack 但未导出类型声明)
       apply(compiler: { hooks: { afterEmit: { tap: (name: string, fn: () => void) => void } } }) {
         compiler.hooks.afterEmit.tap('EnsurePagesManifest', () => {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports
           const fs = require('fs') as typeof import('fs')
+          // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports
           const path = require('path') as typeof import('path')
           const manifestPath = path.join(__dirname, '.next', 'server', 'pages-manifest.json')
           if (!fs.existsSync(manifestPath)) {

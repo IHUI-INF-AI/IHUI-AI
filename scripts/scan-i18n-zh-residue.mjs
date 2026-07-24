@@ -245,8 +245,9 @@ function main() {
     relPath = `packages/i18n/messages/extension/${locale}.json`
     fileLabel = `extension/${locale}.json`
   } else {
-    relPath = `apps/web/messages/${locale}.json`
-    fileLabel = `${locale}.json`
+    // 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
+    relPath = `packages/i18n/messages/web/${locale}.json`
+    fileLabel = `web/${locale}.json`
   }
   const file = path.resolve(relPath)
 
