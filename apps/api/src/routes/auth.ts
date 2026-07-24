@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import bcrypt from 'bcryptjs'
+// 2026-07-24 国安级升级:argon2id 密码哈希(抗 GPU/ASIC),兼容老 bcrypt 透明升级
+import { hashPassword, verifyPassword, upgradeHashIfNeeded } from '../utils/password-crypto.js'
 import { verifyRefreshToken, createFamilyId, type JWTPayload } from '@ihui/auth'
 import { authenticate } from '../plugins/auth.js'
 import { issueTokenPair } from '../services/token-service.js'
@@ -360,7 +361,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
 
       // 更新密码
-      const passwordHash = await bcrypt.hash(newPassword, 12)
+      const passwordHash = await hashPassword(newPassword)
       await updateUser(user.id, { passwordHash })
 
       // 2026-07-24 安全加固:密码重置后吊销所有 refresh token(防旧 token 继续使用)
@@ -429,7 +430,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(409).send(error(409, '该手机号已注册'))
       }
       request.skipResponseSanitization = true
-      const passwordHash = await bcrypt.hash(password, 12)
+      const passwordHash = await hashPassword(password)
       const familyId = createFamilyId()
       const nickname = `用户${phone.slice(-4)}`
       const user = await createUser({
@@ -582,7 +583,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(401).send(error(401, '用户不存在或密码错误'))
       }
 
-      const ok = await bcrypt.compare(password, user.passwordHash)
+      // 2026-07-24 国安级升级:argon2id 替代 bcrypt(抗 GPU/ASIC),兼容老 bcrypt 透明升级
+      const ok = await verifyPassword(password, user.passwordHash)
       if (!ok) {
         const remaining = await recordLoginFailure(account, ip)
         if (remaining === 0) {
@@ -609,6 +611,14 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       // 登录成功 → 清空失败计数
       await clearLoginFailures(account, ip)
+
+      // 2026-07-24 国安级升级:透明升级老 bcrypt 哈希到 argon2id(抗 GPU/ASIC)
+      // 登录成功后自动迁移,用户无感知,无需强制重置密码
+      const upgradedHash = await upgradeHashIfNeeded(password, user.passwordHash)
+      if (upgradedHash) {
+        await updateUser(user.id, { passwordHash: upgradedHash })
+        request.log.info({ userId: user.id }, '密码哈希已透明升级 bcrypt→argon2id')
+      }
 
       // 风控评估：异常 IP / 异地登录检测
       const risk = server.riskEngine.evaluateRisk({
@@ -709,7 +719,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(401).send(error(401, '用户不存在或密码错误'))
       }
 
-      const ok = await bcrypt.compare(password, user.passwordHash)
+      // 2026-07-24 国安级升级:argon2id 替代 bcrypt(抗 GPU/ASIC),兼容老 bcrypt
+      const ok = await verifyPassword(password, user.passwordHash)
       if (!ok) {
         const remaining = await recordLoginFailure(phone, ip)
         if (remaining === 0) {
@@ -1128,10 +1139,10 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     }
     if (newPassword.length < 6) return reply.status(400).send(error(400, '新密码至少 6 位'))
     const user = await findUserById(request.userId!)
-    if (!user?.passwordHash || !(await bcrypt.compare(oldPassword, user.passwordHash))) {
+    if (!user?.passwordHash || !(await verifyPassword(oldPassword, user.passwordHash))) {
       return reply.status(400).send(error(400, '原密码错误'))
     }
-    await updateUser(request.userId!, { passwordHash: await bcrypt.hash(newPassword, 12) })
+    await updateUser(request.userId!, { passwordHash: await hashPassword(newPassword) })
     // 2026-07-24 安全加固:密码修改后吊销所有 refresh token(与重置密码对齐)
     await revokeAllUserRefreshTokens(request.userId!)
     return reply.send(success({ updated: true }))
