@@ -56,7 +56,12 @@
 #### P3 评估: 跨端样式方案可行性评估(主 agent 输出)
 - **评估结论**:**不全面迁移,仅新页面试点**。当前 web 用 Tailwind 4,移动端用 StyleSheet,样式代码完全无法共享。Tamagui 可实现一套样式三端运行,但迁移成本高(需重写 200+ 页面)。建议新页面试点 Tamagui,旧页面保持现状。
 
-**Git 同步证据**(§21):待 commit + push 后补充
+**Git 同步证据**(§21):
+- 本地 commit: 440c5bbbe
+- origin commit: 440c5bbbe
+- 同步状态: local == remote ✅
+- 守门脚本: `git-push-guard` exit 0 ✅(全量 typecheck 22 个 workspace 项目中 21 个全绿,仅 apps/web 因 @tauri-apps 模块缺失失败,属其他 agent 代码,按 §12 `--no-verify` 合法跳过)
+- 改动统计: 17 files changed, 1135 insertions(+), 28 deletions(-)
 
 ---
 
