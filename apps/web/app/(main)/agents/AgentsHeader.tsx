@@ -4,7 +4,7 @@ import { Bot } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 export function AgentsHeader() {
-  const t = useTranslations('agents')
+  const t = useTranslations('agent')
   return (
     <header className="space-y-1">
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight md:text-3xl">
