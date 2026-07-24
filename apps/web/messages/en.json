@@ -539,6 +539,7 @@
     "knowledgeBase": "Knowledge Base",
     "knowledgeRag": "Knowledge RAG",
     "knowledgeGraph": "Knowledge Graph",
+    "registry": "Resource Update Center",
     "announcements": "Announcements",
     "overview": "Overview",
     "enterprise": "Enterprise Services",
@@ -28865,5 +28866,72 @@
     "openGitHub": "Open GitHub",
     "statusAvailable": "Available",
     "statusComingSoon": "Coming soon"
+  },
+  "registry": {
+    "title": "Resource Update Center",
+    "loading": "Loading…",
+    "banner": {
+      "upgradeAvailable": "{{count}} new versions available",
+      "upgradeAll": "Upgrade All",
+      "upgrading": "Upgrading…"
+    },
+    "tabs": {
+      "latest": "Latest",
+      "hot": "Hot",
+      "best": "Best"
+    },
+    "filter": {
+      "all": "All",
+      "mcp": "MCP",
+      "skill": "Skill",
+      "plugin": "Plugin"
+    },
+    "card": {
+      "source": {
+        "github": "GitHub",
+        "npm": "npm",
+        "marketplace": "Marketplace",
+        "custom": "Custom"
+      },
+      "download": "Downloads",
+      "heat": "Heat",
+      "quality": "Quality",
+      "install": "Install",
+      "installing": "Installing…",
+      "upgrade": "Upgrade",
+      "upgrading": "Upgrading…",
+      "alreadyLatest": "Already up to date"
+    },
+    "status": {
+      "notInstalled": "Not Installed",
+      "installed": "Installed",
+      "upgradable": "Upgradable",
+      "failed": "Failed"
+    },
+    "action": {
+      "syncNow": "Sync Now",
+      "syncing": "Syncing…",
+      "configDrift": "Config Drift Detection",
+      "detecting": "Detecting…"
+    },
+    "admin": {
+      "title": "Admin Actions",
+      "syncResult": "Sync complete: {{synced}} added · {{failed}} failed · {{skipped}} skipped",
+      "driftDetected": "Detected config drift in {{count}} files",
+      "noDrift": "No config drift detected"
+    },
+    "log": {
+      "viewLogs": "View Sync Logs",
+      "collapseLogs": "Collapse Logs",
+      "title": "Sync Logs",
+      "success": "Success",
+      "failed": "Failed",
+      "skipped": "Skipped",
+      "running": "Running",
+      "empty": "No sync records"
+    },
+    "empty": {
+      "items": "No resources"
+    }
   }
 }
