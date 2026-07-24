@@ -20,6 +20,19 @@ import AIAppsPage from './pages/AIAppsPage'
 import ContentAppsPage from './pages/ContentAppsPage'
 import MeAppsPage from './pages/MeAppsPage'
 import { ComingSoonPage } from './pages/ComingSoonPage'
+// 阶段 1-3 实现的核心页面(2026-07-25)
+import DashboardPage from './pages/DashboardPage'
+import NotificationsPage from './pages/NotificationsPage'
+import FavoritesPage from './pages/FavoritesPage'
+import PointsPage from './pages/PointsPage'
+import VipPage from './pages/VipPage'
+import ArticlesPage from './pages/ArticlesPage'
+import NewsPage from './pages/NewsPage'
+import AnnouncementsPage from './pages/AnnouncementsPage'
+import SearchPage from './pages/SearchPage'
+import AiSkillsPage from './pages/AiSkillsPage'
+import ImageGenPage from './pages/ImageGenPage'
+import MemoryPage from './pages/MemoryPage'
 
 const WEB_BASE = 'https://ihui.ai'
 
@@ -247,26 +260,26 @@ export default function SidepanelApp() {
           <Route path="/ai" element={<AIAppsPage />} />
           <Route path="/ai/agents" element={<AgentPage />} />
           <Route path="/ai/agents/:id" element={<AgentPage />} />
-          <Route path="/ai/skills" element={<ComingSoonPage titleKey="apps.aiSkills" webUrl={`${WEB_BASE}/ai-skills`} />} />
-          <Route path="/ai/image-gen" element={<ComingSoonPage titleKey="apps.imageGen" webUrl={`${WEB_BASE}/image-gen`} />} />
-          <Route path="/ai/memory" element={<ComingSoonPage titleKey="apps.memory" webUrl={`${WEB_BASE}/memory`} />} />
+          <Route path="/ai/skills" element={<AiSkillsPage />} />
+          <Route path="/ai/image-gen" element={<ImageGenPage />} />
+          <Route path="/ai/memory" element={<MemoryPage />} />
           <Route path="/ai/news" element={<ComingSoonPage titleKey="apps.aiNews" webUrl={`${WEB_BASE}/ai-news`} />} />
           <Route path="/ai/models" element={<ComingSoonPage titleKey="apps.models" webUrl={`${WEB_BASE}/models`} />} />
           {/* 内容中心 */}
           <Route path="/content" element={<ContentAppsPage />} />
-          <Route path="/content/articles" element={<ComingSoonPage titleKey="apps.articles" webUrl={`${WEB_BASE}/articles`} />} />
-          <Route path="/content/news" element={<ComingSoonPage titleKey="apps.news" webUrl={`${WEB_BASE}/news`} />} />
-          <Route path="/content/announcements" element={<ComingSoonPage titleKey="apps.announcements" webUrl={`${WEB_BASE}/announcements`} />} />
-          <Route path="/content/search" element={<ComingSoonPage titleKey="apps.search" webUrl={`${WEB_BASE}/search`} />} />
+          <Route path="/content/articles" element={<ArticlesPage />} />
+          <Route path="/content/news" element={<NewsPage />} />
+          <Route path="/content/announcements" element={<AnnouncementsPage />} />
+          <Route path="/content/search" element={<SearchPage />} />
           {/* 个人中心 */}
           <Route path="/me" element={<MeAppsPage />} />
-          <Route path="/me/dashboard" element={<ComingSoonPage titleKey="apps.dashboard" webUrl={`${WEB_BASE}/dashboard`} />} />
-          <Route path="/me/notifications" element={<ComingSoonPage titleKey="apps.notifications" webUrl={`${WEB_BASE}/notifications`} />} />
+          <Route path="/me/dashboard" element={<DashboardPage />} />
+          <Route path="/me/notifications" element={<NotificationsPage />} />
           <Route path="/me/messages" element={<ComingSoonPage titleKey="apps.messages" webUrl={`${WEB_BASE}/messages`} />} />
-          <Route path="/me/favorites" element={<ComingSoonPage titleKey="apps.favorites" webUrl={`${WEB_BASE}/favorites`} />} />
+          <Route path="/me/favorites" element={<FavoritesPage />} />
           <Route path="/me/following" element={<ComingSoonPage titleKey="apps.following" webUrl={`${WEB_BASE}/following`} />} />
-          <Route path="/me/points" element={<ComingSoonPage titleKey="apps.points" webUrl={`${WEB_BASE}/points`} />} />
-          <Route path="/me/vip" element={<ComingSoonPage titleKey="apps.vip" webUrl={`${WEB_BASE}/vip`} />} />
+          <Route path="/me/points" element={<PointsPage />} />
+          <Route path="/me/vip" element={<VipPage />} />
           <Route path="/me/profile" element={<ProfilePage />} />
           <Route path="/me/wallet" element={<WalletPage />} />
           <Route path="/me/orders" element={<OrderPage />} />
