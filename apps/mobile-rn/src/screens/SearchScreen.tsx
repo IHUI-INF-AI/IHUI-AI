@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Input, Loading } from '@ihui/ui-native'
 interface SearchResult { id: string; title: string; summary: string; type: 'course' | 'article' | 'post' | 'note' | 'agent'; cover?: string }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -45,10 +46,10 @@ export function SearchScreen() {
         <Text style={styles.title}>{t('search.title')}</Text>
       </View>
       <View style={styles.searchRow}>
-        <TextInput style={styles.input} value={keyword} onChangeText={setKeyword} placeholder={t('search.placeholder')} placeholderTextColor="#9ca3af" returnKeyType="search" onSubmitEditing={onSearch} autoFocus />
+        <Input style={styles.input} value={keyword} onChangeText={setKeyword} placeholder={t('search.placeholder')} placeholderTextColor="#9ca3af" returnKeyType="search" onSubmitEditing={onSearch} autoFocus />
         <TouchableOpacity style={styles.searchBtn} onPress={onSearch}><Text style={styles.searchText}>{t('common.search')}</Text></TouchableOpacity>
       </View>
-      {loading ? <ActivityIndicator style={{ marginTop: 24 }} /> : null}
+      {loading ? <Loading style={{ marginTop: 24 }} /> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {!loading && searched && results.length === 0 ? (
         <View style={styles.empty}><Text style={styles.muted}>{t('search.empty')}</Text></View>
