@@ -4,7 +4,7 @@
  * 守门脚本批量执行器。
  *
  * 接收配置数组,单进程顺序执行所有检查,输出汇总。
- * 将 pre-commit 中 37 个独立 `node scripts/xxx.mjs` 调用合并为单进程批量执行,
+ * 将 pre-commit 中 38 个独立 `node scripts/xxx.mjs` 调用合并为单进程批量执行,
  * 降低 commit 耗时,提供统一汇总输出。
  *
  * CLI 用法:
@@ -32,7 +32,7 @@ const C = {
   reset: '\x1b[0m',
 }
 
-// === 检查配置(37 项,顺序与原 pre-commit 一致) ===
+// === 检查配置(38 项,顺序与原 pre-commit 一致) ===
 
 const checks = [
   // --- blocking (24 项) ---
@@ -224,8 +224,15 @@ const checks = [
     args: [],
     mode: 'blocking',
   },
+  {
+    id: '27',
+    label: '🛡️  z-index 层叠防护(防 TRAE 注入 + 遮罩 fade-in 回归)',
+    script: 'check-z-index-guard.mjs',
+    args: [],
+    mode: 'blocking',
+  },
 
-  // --- warn (11 项) ---
+  // --- warn (12 项) ---
   {
     id: '2d',
     label: '🔍 ja.json 中文残留(warn-only)',
