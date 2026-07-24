@@ -1,3 +1,5 @@
+import type { PageData as _PageData } from '@ihui/api-client'
+
 export interface AdminProject {
   id: string
   userId: string
@@ -12,12 +14,7 @@ export interface AdminProject {
   ownerEmail: string | null
 }
 
-export interface PageData {
-  list: AdminProject[]
-  total: number
-  page: number
-  pageSize: number
-}
+export type PageData = _PageData<AdminProject>
 
 export interface ProjectForm {
   userId: string
