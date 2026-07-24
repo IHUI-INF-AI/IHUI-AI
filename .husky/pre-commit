@@ -19,11 +19,11 @@ if (!run('🎨 运行 lint-staged...', 'npx lint-staged')) {
   process.exit(1)
 }
 
-// 1-4c, 6-26: 批量执行所有守门脚本(guardian-runner 单进程顺序执行 37 项检查)
-// blocking 24 项: 1,2,2b,2c,2e,2f-web,2f-miniapp-taro,3,4,4b,4c,6,7,8,11,12,13c,15,17,18,20,24a,25,26
+// 1-4c, 6-27: 批量执行所有守门脚本(guardian-runner 单进程顺序执行 38 项检查)
+// blocking 25 项: 1,2,2b,2c,2e,2f-web,2f-miniapp-taro,3,4,4b,4c,6,7,8,11,12,13c,15,17,18,20,24a,25,26,27
 // warn     11 项: 2d,2f-ext,2g-ext,2h-ext,2i-ext,9,13b,19,21,22,24b
 // info      2 项: 10,23
-if (!run('🛡️ 运行守门脚本批量检查(37 项)...', 'node scripts/guardian-runner.mjs --staged')) {
+if (!run('🛡️ 运行守门脚本批量检查(38 项)...', 'node scripts/guardian-runner.mjs --staged')) {
   process.exit(1)
 }
 
