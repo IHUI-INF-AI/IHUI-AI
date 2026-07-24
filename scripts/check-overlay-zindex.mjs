@@ -1,101 +1,94 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
 /**
- * 全屏遮罩 z-index 层级守门(2026-07-24 立,根治 SSO 弹窗遮罩复发)
+ * check-overlay-zindex.mjs — 全屏遮罩 z-index 层级守门
  *
- * 防止 `fixed inset-0` 类全屏遮罩/弹层组件使用 Tailwind 数字 z 类
- * (z-50/z-40/z-30/z-20/z-10/z-0,值 < 100),被全局 fixed 常驻面板
- * (如 AISidePanel 的 z-sticky=990)压在下面,导致"AI 对话框跟着登录窗
- * 一起变"的视觉回归。
+ * 背景(2026-07-24 立):
+ *   SSO 登录页遮罩(AuthShell.tsx)使用 z-50(=50),低于 AISidePanel 的 z-sticky(=990),
+ *   导致遮罩被 AI 面板覆盖,用户看到"AI 对话框露在登录遮罩之上"。
+ *   根因:fixed inset-0 全屏遮罩误用低数字 Tailwind z 类(z-50/z-40/z-30 等),
+ *   低于全局常驻面板的 z-sticky=990。
  *
- * 规则:
- *   允许(引用 CSS 变量):z-sticky / z-modal / z-popover / z-notification / z-max
- *   禁止(Tailwind 内置数字类,值 < 100):z-0 / z-10 / z-20 / z-30 / z-40 / z-50
- *   (z-* 数字类最高也只到 z-50=50,远低于 z-sticky=990)
+ * 守门规则:
+ *   检测 fixed inset-0 + 视觉遮罩背景(bg-black/\d 等) + 禁止 z 类(z-0/10/20/30/40/50)
+ *   三者同时满足 → 违规,阻塞 commit
+ *   透明点击捕获层(无 bg-black)不在守门范围(允许低 z-index)
  *
- * 注:z-\[9999\] 等任意值方括号语法也允许(用户显式指定高数值);
- *     仅"低数字 Tailwind 类"被禁。
- *
- * 历史教训(2026-07-24):
- *   AuthShellPage(SSO /sso/login /sso/register /sso/auth 三处复用)用 z-50,
- *   低于 AISidePanel 的 z-sticky=990,AI 面板露在遮罩之上"发亮"。
- *   修复:z-50 → z-modal(=2000,引用 --z-modal CSS 变量)。
- *   本守门从机制上杜绝此类复发:任何新增 fixed inset-0 弹窗用 z-50 → 阻塞 commit。
+ * 修复:
+ *   把 z-50 改为 z-modal(=2000, 引用 --z-modal CSS 变量)
  *
  * 用法:
- *   node scripts/check-overlay-zindex.mjs          (全量检查, exit 0/1)
- *   node scripts/check-overlay-zindex.mjs --staged  (仅 staged 涉及时检查)
+ *   node scripts/check-overlay-zindex.mjs [--staged]
  */
-import { readFileSync } from 'node:fs'
-import { execSync } from 'node:child_process'
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { join, relative } from 'node:path'
-
-const ROOT = process.cwd()
-const isStaged = process.argv.includes('--staged')
 
 const C = {
   red: '\x1b[31m',
   green: '\x1b[32m',
   yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
   dim: '\x1b[2m',
+  bold: '\x1b[1m',
   reset: '\x1b[0m',
 }
 
-// 扫描范围:web 前端 + 共享 UI 包
+// ─── 配置 ───────────────────────────────────────────────────
+
 const SCAN_DIRS = ['apps/web', 'packages/ui-react/src']
+const SCAN_EXTS = ['.tsx', '.jsx', '.ts', '.js']
 
-// 禁止的 Tailwind 数字 z 类(值 < 100,都低于 z-sticky=990)
-// 匹配:`z-50` / `z-40` / `z-30` / `z-20` / `z-10` / `z-0`
-const FORBIDDEN_Z_CLASSES = ['z-50', 'z-40', 'z-30', 'z-20', 'z-10', 'z-0']
+// 禁止的 z 类(值 < 100,低于 z-sticky=990)
+const FORBIDDEN_Z_CLASSES = ['z-0', 'z-10', 'z-20', 'z-30', 'z-40', 'z-50']
 
-// 允许的引用 CSS 变量的 z 类
-const ALLOWED_Z_CLASSES = [
-  'z-sticky',
-  'z-modal',
-  'z-popover',
-  'z-notification',
-  'z-max',
-  'z-base',
+// 视觉遮罩特征:含半透明背景(区分于透明点击捕获层)
+const OVERLAY_BG_PATTERNS = [
+  /bg-black\/\d/,
+  /bg-background\/[89]/,
+  /bg-black\b(?!\/0)/,
+  /bg-slate-\d+\/[2-9]/,
+  /bg-zinc-\d+\/[2-9]/,
+  /bg-neutral-\d+\/[2-9]/,
 ]
 
-// 视觉遮罩特征:含 bg-black/(半透明黑色背景)或 bg-background/80 等遮罩色
-// 用于区分"视觉遮罩弹窗"(应改 z-modal)与"透明点击捕获层"(非本守门范围)
-// 透明点击捕获层(无 bg-black,如 Leaderboard 的 z-10 outside-click catcher)
-// 不在本次守门范围,留待后续单独优化(useEffect + contains 重构)
-const OVERLAY_BG_PATTERNS = [/bg-black\/\d/, /bg-background\/[89]/, /bg-black\b(?!\/0)/]
+// ─── 文件遍历 ───────────────────────────────────────────────
 
-/**
- * 检测一行是否含"视觉遮罩"特征(半透明黑色背景)
- */
+function walkDir(dir, results = []) {
+  if (!existsSync(dir)) return results
+  const entries = readdirSync(dir)
+  for (const entry of entries) {
+    const fullPath = join(dir, entry)
+    // 跳过 node_modules / .next / dist / .git 等
+    if (entry === 'node_modules' || entry === '.next' || entry === 'dist' || entry === '.git' || entry.startsWith('.')) {
+      continue
+    }
+    const stat = statSync(fullPath)
+    if (stat.isDirectory()) {
+      walkDir(fullPath, results)
+    } else if (SCAN_EXTS.some((ext) => entry.endsWith(ext))) {
+      results.push(fullPath)
+    }
+  }
+  return results
+}
+
+// ─── 违规检测 ───────────────────────────────────────────────
+
 function isVisualOverlay(line) {
   return OVERLAY_BG_PATTERNS.some((p) => p.test(line))
 }
 
-/**
- * 从文件内容提取所有 className="..." 字符串,返回违规列表
- *
- * 违规判定(同时满足):
- *   1. 同一行含 `fixed` + `inset-0`(全屏覆盖)
- *   2. 同一行含禁止的 z-N 类(z-50/z-40/z-30/z-20/z-10/z-0)
- *   3. 同一行含视觉遮罩特征(bg-black/N 等半透明背景)
- *
- * 透明点击捕获层(无 bg-black)不报违规,留作 outside-click 重构。
- */
 function findViolations(content, filePath) {
   const violations = []
   const lines = content.split('\n')
-
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-
-    // 快速过滤:不含 fixed/inset-0 的行跳过
+    // 必须同时含 fixed 和 inset-0
     if (!line.includes('fixed')) continue
     if (!line.includes('inset-0')) continue
-
-    // 检测是否含禁止的 z-N 类
+    // 检测禁止 z 类
     let forbiddenZ = null
     for (const z of FORBIDDEN_Z_CLASSES) {
-      // 用单词边界避免匹配 z-500 等
       const re = new RegExp(`\\b${z.replace('-', '\\-')}\\b`)
       if (re.test(line)) {
         forbiddenZ = z
@@ -103,135 +96,59 @@ function findViolations(content, filePath) {
       }
     }
     if (!forbiddenZ) continue
-
-    // 检测是否含视觉遮罩特征(半透明背景)
-    // 若无遮罩背景,可能是透明点击捕获层,跳过(留待后续优化)
+    // 检测视觉遮罩背景(透明点击捕获层不在守门范围)
     if (!isVisualOverlay(line)) continue
-
-    // 提取上下文
-    const idx = line.indexOf(forbiddenZ)
-    const start = Math.max(0, idx - 40)
-    const end = Math.min(line.length, idx + forbiddenZ.length + 40)
-    const context = line.substring(start, end).trim()
     violations.push({
       file: filePath,
       line: i + 1,
-      col: idx + 1,
-      forbidden: forbiddenZ,
-      context,
+      content: line.trim(),
+      zClass: forbiddenZ,
     })
   }
-
   return violations
 }
 
-/**
- * 收集要扫描的 .tsx 文件列表
- * --staged 模式:只扫 staged 的 .tsx 文件
- * 非 staged 模式:扫 SCAN_DIRS 下所有 .tsx 文件
- */
-function collectFiles() {
-  if (isStaged) {
-    try {
-      const staged = execSync('git diff --cached --name-only --diff-filter=ACMR', {
-        encoding: 'utf8',
-        cwd: ROOT,
-      })
-      return staged
-        .split('\n')
-        .filter(Boolean)
-        .filter((f) => f.endsWith('.tsx'))
-        .filter((f) => SCAN_DIRS.some((d) => f.startsWith(d) || f.startsWith(d.replace(/\//g, '\\'))))
-        .map((f) => join(ROOT, f.replace(/\//g, '\\')))
-    } catch {
-      // 非 git 环境,跑全量
-    }
-  }
+// ─── 主流程 ─────────────────────────────────────────────────
 
-  // 非 staged 模式:用 git ls-files 列出已跟踪的 .tsx 文件(比 glob 快且不含 node_modules)
-  try {
-    const tracked = execSync('git ls-files "**/*.tsx"', {
-      encoding: 'utf8',
-      cwd: ROOT,
-    })
-    return tracked
-      .split('\n')
-      .filter(Boolean)
-      .filter((f) => SCAN_DIRS.some((d) => f.startsWith(d) || f.startsWith(d.replace(/\//g, '\\'))))
-      .map((f) => join(ROOT, f.replace(/\//g, '\\')))
-  } catch {
-    return []
-  }
-}
-
-console.log('🛡️  全屏遮罩 z-index 层级守门(防 fixed inset-0 + z-N 数字类复发)...')
-if (isStaged) {
-  console.log(`${C.dim}   模式: --staged(仅扫描 staged .tsx 文件)${C.reset}`)
-} else {
-  console.log(`${C.dim}   模式: 全量扫描(${SCAN_DIRS.join(', ')})${C.reset}`)
-}
-
-const files = collectFiles()
-if (files.length === 0) {
-  console.log(`${C.dim}⏭  无可扫描的 .tsx 文件,跳过${C.reset}`)
-  process.exit(0)
-}
-
-console.log(`${C.dim}   扫描 ${files.length} 个 .tsx 文件...${C.reset}\n`)
-
-let totalViolations = 0
+const repoRoot = process.cwd()
 const allViolations = []
+let scannedFiles = 0
 
-for (const filePath of files) {
-  let content
-  try {
-    content = readFileSync(filePath, 'utf8')
-  } catch {
-    continue
-  }
-
-  const violations = findViolations(content, relative(ROOT, filePath).replace(/\\/g, '/'))
-  if (violations.length > 0) {
+for (const scanDir of SCAN_DIRS) {
+  const fullDir = join(repoRoot, scanDir)
+  const files = walkDir(fullDir)
+  for (const file of files) {
+    scannedFiles++
+    const content = readFileSync(file, 'utf8')
+    const violations = findViolations(content, file)
     allViolations.push(...violations)
-    totalViolations += violations.length
   }
 }
 
-// ============================================================
-// 汇总
-// ============================================================
-if (totalViolations === 0) {
-  console.log(`${C.green}✅ 全屏遮罩 z-index 层级守门通过${C.reset}`)
-  console.log(`${C.dim}   扫描 ${files.length} 个 .tsx 文件,0 处违规${C.reset}`)
+if (allViolations.length === 0) {
+  console.log(`${C.green}✅ 全屏遮罩 z-index 检查通过${C.reset} ${C.dim}(扫描 ${scannedFiles} 文件,无 fixed inset-0 + 低 z 类 + 视觉遮罩背景的违规)${C.reset}`)
   process.exit(0)
 }
 
-console.log(`${C.red}❌ 全屏遮罩 z-index 层级守门失败${C.reset}`)
-console.log(`${C.dim}   发现 ${totalViolations} 处违规:${C.reset}\n`)
+console.error('')
+console.error(`${C.red}❌ 全屏遮罩 z-index 检查失败:发现 ${C.bold}${allViolations.length}${C.reset}${C.red} 处违规${C.reset}`)
+console.error('')
+console.error(`${C.dim}违规规则:fixed inset-0 + 视觉遮罩背景(bg-black/\d 等) + 禁止 z 类(z-0/10/20/30/40/50)${C.reset}`)
+console.error(`${C.dim}禁止 z 类值 < 100,低于 AISidePanel 的 z-sticky=990,会导致遮罩被 AI 面板覆盖${C.reset}`)
+console.error('')
 
 for (const v of allViolations) {
-  console.log(`${C.red}  ${v.file}:${v.line}:${v.col}${C.reset}`)
-  console.log(`${C.dim}    禁止: ${v.forbidden}${C.reset}`)
-  console.log(`${C.dim}    上下文: ...${v.context}...${C.reset}`)
-  console.log()
+  const relPath = relative(repoRoot, v.file)
+  console.error(`  ${C.red}${relPath}:${v.line}${C.reset}`)
+  console.error(`  ${C.yellow}  z 类: ${v.zClass}${C.reset}`)
+  console.error(`  ${C.dim}  ${v.content}${C.reset}`)
+  console.error('')
 }
 
-console.log(`${C.yellow}修复建议:${C.reset}`)
-console.log(`${C.dim}  这些 \`fixed inset-0\` 全屏遮罩使用了 Tailwind 内置数字 z 类(z-50 等),${C.reset}`)
-console.log(`${C.dim}  值低于全局 fixed 常驻面板(如 AISidePanel 的 z-sticky=990),${C.reset}`)
-console.log(`${C.dim}  会被压在下面,导致 AI 面板"露在遮罩之上"的视觉回归。${C.reset}`)
-console.log()
-console.log(`${C.dim}  替换为引用 CSS 变量的 z 类:${C.reset}`)
-console.log(`${C.dim}    z-50 → z-modal     (=2000, 弹层 Modal/Drawer/Dialog/登录框)${C.reset}`)
-console.log(`${C.dim}    z-50 → z-popover   (=2001, 高于 modal,用于 Tooltip/Popover)${C.reset}`)
-console.log(`${C.dim}    z-50 → z-max       (=10003, 最大层级, 全屏覆盖)${C.reset}`)
-console.log()
-console.log(`${C.dim}  允许的 z 类(引用 globals.css CSS 变量):${C.reset}`)
-console.log(`${C.dim}    ${ALLOWED_Z_CLASSES.join(' / ')}${C.reset}`)
-console.log()
-console.log(`${C.dim}  历史教训(2026-07-24):${C.reset}`)
-console.log(`${C.dim}    AuthShellPage 用 z-50,SSO 登录遮罩被 AISidePanel 压住,${C.reset}`)
-console.log(`${C.dim}    AI 面板以全亮度暴露 = 用户反馈"AI 对话框跟着登录窗一起变"。${C.reset}`)
-console.log(`${C.dim}    修复:z-50 → z-modal,本守门从机制上杜绝复发。${C.reset}`)
-
+console.error(`${C.bold}修复方法:${C.reset}`)
+console.error(`  把 ${C.red}z-50${C.reset} 改为 ${C.green}z-modal${C.reset}(=2000, 引用 --z-modal CSS 变量)`)
+console.error(`  ${C.dim}z-modal 在 apps/web/app/globals.css 中定义为 var(--z-modal) = 2000${C.reset}`)
+console.error('')
+console.error(`${C.dim}透明点击捕获层(无 bg-black 背景)不在本守门范围,允许低 z-index${C.reset}`)
+console.error('')
 process.exit(1)
