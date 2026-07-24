@@ -1,8 +1,8 @@
-"""mcp_server.py 单元测试:11 个工具 + 3 个资源 + 3 个提示词 + MCPServer。
+"""mcp_server.py 单元测试:工具 + 3 个资源 + 3 个提示词 + MCPServer。
 
 测试覆盖:
 - 数据模型: MCPTool/MCPResource/MCPPrompt 字段
-- 11 个工具实现(桩): 成功路径 + 边界 + 错误参数
+- 工具实现(桩): 成功路径 + 边界 + 错误参数
 - MCPServer: list_tools/call_tool(已知/未知/异常)/list_resources/read_resource(3 个已知 + 未知)/list_prompts/invoke_prompt
 - _parse_ddg_lite_html: HTML 解析(含 uddg redirect/相对 URL/空结果)
 - _render_prompt: 3 个提示词模板渲染
@@ -71,10 +71,10 @@ def test_mcp_prompt_dataclass_fields():
 # 工具注册表
 # =============================================================================
 
-def test_tools_count_is_11():
-    """预置 11 个工具。"""
-    assert len(_TOOLS) == 11
-    assert len(_TOOL_HANDLERS) == 11
+def test_tools_count_matches_registry():
+    """_TOOLS 与 _TOOL_HANDLERS 数量一致(不锁定具体数字,避免新增工具后 fail)。"""
+    assert len(_TOOLS) == len(_TOOL_HANDLERS)
+    assert len(_TOOLS) >= 11  # 至少保留原始 11 个工具
 
 
 @pytest.mark.parametrize(
@@ -959,16 +959,17 @@ def test_prompt_present(name):
 # MCPServer: list_tools / call_tool
 # =============================================================================
 
-def test_server_list_tools_returns_11():
+def test_server_list_tools_matches_registry():
+    """list_tools 返回数量与 _TOOLS 一致(不锁定具体数字)。"""
     tools = mcp_server.list_tools()
-    assert len(tools) == 11
+    assert len(tools) == len(_TOOLS)
     assert all(isinstance(t, MCPTool) for t in tools)
 
 
 def test_server_list_tools_returns_copy():
     lst = mcp_server.list_tools()
     lst.clear()
-    assert len(mcp_server.list_tools()) == 11
+    assert len(mcp_server.list_tools()) == len(_TOOLS)
 
 
 async def test_server_call_tool_known():
@@ -1084,6 +1085,6 @@ def test_server_invoke_prompt_none_arguments():
 
 def test_server_independent_instance():
     s = MCPServer()
-    assert len(s.list_tools()) == 11
+    assert len(s.list_tools()) == len(_TOOLS)
     assert len(s.list_resources()) == 3
     assert len(s.list_prompts()) == 3

@@ -135,6 +135,7 @@ const MessageItem = React.memo(function MessageItem({
                     diffInfo={tc.diffInfo}
                     applyStatus={tc.applyStatus}
                     applyError={tc.applyError}
+                    repeated={tc.repeated}
                     onApply={
                       hasDiff && onApplyDiff
                         ? () => onApplyDiff(m.id, tc.id, effectiveDiffInfo!)
