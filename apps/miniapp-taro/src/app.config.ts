@@ -77,6 +77,7 @@ export default defineAppConfig({
     'pages/dev-enter/n8n-model/index',
     'pages/ai-group/index',
     'pages/ai-assistant-n8n/index',
+    'pages/ai-assistant/index',
     'pages/ai-career/index',
     'pages/ai-circle/index',
     'pages/ai-chat-detail/index',
