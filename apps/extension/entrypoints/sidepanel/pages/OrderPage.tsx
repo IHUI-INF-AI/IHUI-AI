@@ -42,16 +42,30 @@ export default function OrderPage() {
     }
   }, [t])
 
-  if (loading) return <div className="empty-state">{t('common.loading')}</div>
-  if (error) return <div className="error-banner">{error}</div>
+  if (loading) {
+    return (
+      <div className="text-center text-muted-foreground py-8 px-4 text-sm">
+        {t('common.loading')}
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div className="bg-destructive/10 text-destructive px-2.5 py-2 rounded-md border border-destructive m-2 text-xs">
+        {error}
+      </div>
+    )
+  }
 
   return (
-    <div className="sp-page">
-      <div className="sp-page-header">
-        <h3>{t('order.title')}</h3>
+    <div className="p-3 flex flex-col gap-2.5">
+      <div className="flex items-center justify-between pb-2 border-b border-border">
+        <h3 className="m-0 text-sm font-semibold">{t('order.title')}</h3>
       </div>
       {orders.length === 0 ? (
-        <div className="empty-state">{t('order.empty')}</div>
+        <div className="text-center text-muted-foreground py-8 px-4 text-sm">
+          {t('order.empty')}
+        </div>
       ) : (
         orders.map((o) => (
           <Card key={o.id}>
@@ -59,9 +73,9 @@ export default function OrderPage() {
               <CardTitle>{o.targetTitle}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="sp-order-meta">
-                <span className="sp-status">{getStatusLabel(o.status)}</span>
-                <span className="sp-time">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{getStatusLabel(o.status)}</span>
+                <span>
                   {new Intl.DateTimeFormat('zh-CN', {
                     month: '2-digit',
                     day: '2-digit',
@@ -70,7 +84,7 @@ export default function OrderPage() {
                   }).format(new Date(o.createdAt))}
                 </span>
               </div>
-              <div className="sp-amount">¥ {fmt(o.payAmount)}</div>
+              <div className="text-sm font-semibold tabular-nums mt-1">¥ {fmt(o.payAmount)}</div>
             </CardContent>
           </Card>
         ))
