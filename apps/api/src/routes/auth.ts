@@ -48,7 +48,7 @@ import {
 
 const registerSchema = z.object({
   phone: z.string().length(11, '手机号必须为 11 位'),
-  password: z.string().min(6, '密码至少 6 位').max(72, '密码最多 72 位'),
+  password: z.string().min(8, '密码至少 8 位').max(72, '密码最多 72 位'),
   code: z.string().optional(),
   invitationCode: z.string().optional(),
 })
@@ -358,7 +358,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       }
 
       // 更新密码
-      const passwordHash = await bcrypt.hash(newPassword, 10)
+      const passwordHash = await bcrypt.hash(newPassword, 12)
       await updateUser(user.id, { passwordHash })
 
       // 2026-07-24 安全加固:密码重置后吊销所有 refresh token(防旧 token 继续使用)
@@ -427,7 +427,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(409).send(error(409, '该手机号已注册'))
       }
       request.skipResponseSanitization = true
-      const passwordHash = await bcrypt.hash(password, 10)
+      const passwordHash = await bcrypt.hash(password, 12)
       const familyId = createFamilyId()
       const nickname = `用户${phone.slice(-4)}`
       const user = await createUser({
@@ -1127,7 +1127,9 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     if (!user?.passwordHash || !(await bcrypt.compare(oldPassword, user.passwordHash))) {
       return reply.status(400).send(error(400, '原密码错误'))
     }
-    await updateUser(request.userId!, { passwordHash: await bcrypt.hash(newPassword, 10) })
+    await updateUser(request.userId!, { passwordHash: await bcrypt.hash(newPassword, 12) })
+    // 2026-07-24 安全加固:密码修改后吊销所有 refresh token(与重置密码对齐)
+    await revokeAllUserRefreshTokens(request.userId!)
     return reply.send(success({ updated: true }))
   })
 
