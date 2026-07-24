@@ -12,7 +12,7 @@ declare module 'fastify' {
 /**
  * 敏感字段脱敏规则（响应脱敏与日志脱敏共用）。
  * - 字段名匹配大小写不敏感，子串包含即命中（如 passwordHash / refreshToken 均命中）。
- * - 默认覆盖：password / phone / idCard / bankCard / email / token / secret
+ * - 默认覆盖：password / phone / idCard / bankCard / email / token / secret / apiKey
  */
 export const DEFAULT_SENSITIVE_KEYS = [
   'password',
@@ -22,6 +22,7 @@ export const DEFAULT_SENSITIVE_KEYS = [
   'email',
   'token',
   'secret',
+  'apikey', // 2026-07-24 安全加固:补 apiKey/api_key 脱敏,防 LLM provider key 泄露
 ] as const
 
 const MASK = '***'
