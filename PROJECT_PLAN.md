@@ -72,7 +72,16 @@
   - `ihui registry list --sort=latest|hot|best` — 列表
   - `ihui registry install <name>` — 安装
   - `ihui registry upgrade [--all]` — 升级
+  - `ihui registry logs [--type] [--status] [--page] [--size]` — 同步日志查看(2026-07-24 补全,`apps/cli/src/commands/registry-logs.ts`)
+  - `ihui registry webhook list/trigger` — webhook 触发记录管理(2026-07-24 补全,`apps/cli/src/commands/registry-webhook.ts`)
   - 订阅自动 pull(已有订阅通知机制,补"上游有新版本自动拉取"逻辑)
+
+**2026-07-24 完善修订(死代码根治 + 链路连通)**:
+- ✅ Worker 注册缺失修复:`apps/api/src/workers/index.ts` 漏注册 `startRegistrySyncWorker` → 补齐第 5 个 Worker,日志从 "4 queues" 改为 "5 queues"
+- ✅ CLI 子命令注册缺失修复:`apps/cli/src/commands/registry-index.ts` 漏注册 logs/webhook → 补齐 `addCommand(logsCommand())` + `addCommand(webhookCommand())`
+- ✅ Webhook trigger 状态回写重复修复:`apps/api/src/routes/registry-sync.ts` 入队成功后立即标记 'processed' 与 worker 回写冲突 → 改为保持 'pending',仅入队失败标记 'failed',由 worker 处理完成后回写最终状态
+- ✅ `apps/web/next.config.ts` webpack 类型引用修复:`import('webpack').Compiler` 依赖未安装的 @types/webpack → 改用最小化内联类型 `{ hooks: { afterEmit: { tap } } }`
+- ✅ Worker 消费者完整实现:`apps/api/src/workers/registry-sync-worker.ts` 消费 `registry-sync-queue`,5 大问题修复(fetchAllRawItems 失败兜底 sync_log / newVersion 聚合 / force 透传 / 三态判定 success/fail/skipped / webhook trigger 状态回写)
 
 **跨端约束**:
 - 共享类型 `packages/types/src/registry.ts`(RegistryItem / RegistrySyncLog / WebhookTrigger / ProviderModelInfo / ConfigDriftReport)
