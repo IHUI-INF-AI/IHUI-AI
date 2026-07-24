@@ -114,6 +114,10 @@
     "./design/*": {
       "types": "./src/design/*.ts",
       "import": "./src/design/*.ts"
+    },
+    "./constants": {
+      "types": "./src/constants.ts",
+      "import": "./src/constants.ts"
     }
   },
   "scripts": {

@@ -712,6 +712,9 @@ importers:
       '@ihui/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@ihui/design-tokens':
+        specifier: workspace:^
+        version: link:../../packages/design-tokens
       '@ihui/shared':
         specifier: workspace:*
         version: link:../../packages/shared
