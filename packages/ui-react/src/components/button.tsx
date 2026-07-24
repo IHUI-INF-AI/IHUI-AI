@@ -1,11 +1,10 @@
 import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { type ButtonBaseProps } from '@ihui/design-tokens'
 import { cn } from '../lib/utils'
 
 // 共享 variant/size 子集见 @ihui/design-tokens ButtonBaseVariant/ButtonBaseSize(default/destructive/outline/ghost + sm/lg)
-// ui-react 额外扩展 secondary/link/hero-cta/login 等 11 个 variant + default/icon size
+// ui-react 额外扩展 secondary/link/hero-cta/login 等 11 个 variant + default/icon size,故不继承 ButtonBaseProps(限制为共同子集会丢失类型支持)
 
 const buttonVariants = cva(
   'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0',
@@ -49,10 +48,7 @@ const buttonVariants = cva(
 )
 
 export interface ButtonProps
-  extends
-    React.ButtonHTMLAttributes<HTMLButtonElement>,
-    ButtonBaseProps,
-    Omit<VariantProps<typeof buttonVariants>, 'variant' | 'size'> {
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   asChild?: boolean
 }
 
