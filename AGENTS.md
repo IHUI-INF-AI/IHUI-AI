@@ -363,6 +363,51 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
   2. 项目祖父目录(桌面)根级文件(不递归,避免误伤其他项目)
   3. 用户主目录根级文件(不递归,捕获 agent 误写到 `~/` 的调试日志)
 
+### G:\ 根目录外部工具污染防护(2026-07-24 立,机制根治)
+
+- **问题背景**:2026-07-24 用户发现 `G:\` 根目录散落 16 个垃圾目录(`platforms/` / `iconengines/` / `imageformats/` / `styles/` / `bearer/` / `translations/` / `CA/` / `cert/` / `WXCertUtil/` / `rail_user_data/` / `.pnpm-store/` / `tmp/` / `ai_zhs/` / `.appdata/` / `c/` / `nonexistent-root/`),全部是项目外垃圾。
+- **三类根因**:
+  1. **用户行为 — 外部 Qt 工具污染**:`微信支付商户API证书工具 V1.4.exe`(Qt 应用)在 `G:\` 根目录双击运行时,Qt 框架自动释放插件目录(`platforms/iconengines/imageformats/styles/bearer/translations`) + Qt5*.dll + 依赖 DLL + `CA/cert/WXCertUtil` 证书工作目录到**当前工作目录**(即 G:\)。
+  2. **其他 IDE 配置异常 — QoderCN venv 路径错误**:QoderCN IDE 一次 venv 创建命令把 `C:\` 错写成 `g:\c\`,Python 在 G:\ 下创建了完整路径链 `c\Users\Administrator\.workbuddy\binaries\python\envs\default\`(证据:`pyvenv.cfg` 第 5 行 `command` 字段)。同时 QoderCN 路径解析失败时创建兜底目录 `nonexistent-root\no-perm\`,JDK 探测缓存写到 `G:\.appdata\jdk.md`。
+  3. **早期 agent 临时文件违规**:2026-07-23 v2 守门立规前,agent 把 hover 截图 / sidebar .vue / .diff / .log 等临时文件随手写到 `G:\tmp\` 而非 `.trae-cn\tmp\`。
+- **强制规则**:
+  - **禁止**在 `G:\` 根目录运行任何 Qt 类外部工具(微信支付证书工具 / 任意 .exe 安装包 / 任意解压即用工具)。必须放到专门工具目录(如 `G:\tools\` 或项目内 `g:\IHUI-AI\cert\`)运行,避免 Qt 框架把插件目录释放到 G:\ 根。
+  - **禁止**在 `G:\` 根目录执行 `pnpm install` / `pnpm dev` 等 pnpm 命令(会创建 `.pnpm-store` v11,与项目内 v3 冲突)。pnpm 命令必须在项目内执行。
+  - **使用 QoderCN 等 IDE 时**:若发现 `G:\c\Users\Administrator\.workbuddy\` 被创建,需检查 IDE 的 Python venv 路径配置(可能把 `C:\` 错写成 `g:\c\`),并立即运行清理脚本。
+  - **清理脚本(根治工具)**:`scripts/cleanup-external-junk.ps1` 已扩展为 16 目录 + 31 文件清单,支持 `-Force` 跳过确认(agent 自动执行)。
+    - 交互模式:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-junk.ps1`(需输入 YES 确认)
+    - 自动模式:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-junk.ps1 -Force`(agent 用)
+    - 安全保证:只删清单内 16 目录 + 31 文件,不用通配符,不触碰其他应用目录(Trae CN / QoderCN / Zcode / freellmapi / grok-build / 微信web开发者工具 / 支付宝小程序开发工具 / Yingyongbao 等)
+  - **脚本是纯 ASCII**:PowerShell 5 默认用 GBK 读 .ps1,中文会破坏引号配对。脚本注释/输出全部用英文,只有清单中的中文文件名(`微信支付商户API证书工具 V1.4.exe`)保留中文(GBK 兼容)。
+- **agent 行为约束**(机制可阻止):
+  - agent 启动外部 Qt 类工具时,**禁止**把工作目录设为 `G:\` 根,必须用 `Set-Location` 切到项目内或专门工具目录。
+  - agent 执行 pnpm 命令时,**禁止**在 `G:\` 根目录执行,必须 `cd g:\IHUI-AI` 后再执行。
+  - agent 创建临时文件时,**必须**用 `.trae-cn\tmp\`(由 v2 守门 blocking 强制)。
+- **用户行为约束**(机制无法阻止,靠规则提示):
+  - 双击 .exe 前先确认当前工作目录不是 `G:\` 根(Windows 默认双击工作目录是 .exe 所在目录)。
+  - 把 Qt 类工具放到 `G:\tools\` 或项目子目录再运行。
+- **守门局限性**:v2/v3 守门只检测项目内代码写项目外路径,无法检测用户双击 .exe 或其他 IDE 配置异常。本节规则是补充提示,真正根治靠下方"实时守门服务"。
+
+### G:\ 根目录实时守门服务(2026-07-24 立,机制根治)
+
+- **问题背景**:§15 v2/v3 守门只检测项目内代码,无法阻止用户双击 .exe 或其他 IDE 配置异常产生的垃圾。用户质问"从根上解决了吗 不允许往这放垃圾文件夹",要求主动实时阻止。
+- **解决方案**:FileSystemWatcher 实时监控 G:\ 根目录,黑名单内的垃圾目录/文件创建后**约 250ms 内自动删除** + 写审计日志。注册为 Windows 计划任务(用户登录时自启,失败自动重启)。
+- **组件**:
+  - `scripts/g-root-guardian.ps1` — 实时监控脚本(FileSystemWatcher + 黑名单匹配 + 自动删除 + 审计日志 + 1MB 日志轮转)
+  - `scripts/g-root-blacklist.json` — 黑名单配置(16 目录 + 23 文件 + 10 通配符模式)
+  - `scripts/install-g-root-guardian.ps1` — 安装脚本(注册计划任务 IHUI-AI-G-Root-Guardian,用户登录时自启,-WindowStyle Hidden,RestartCount 999)
+  - `scripts/uninstall-g-root-guardian.ps1` — 卸载脚本(停止进程 + 删除计划任务)
+  - `scripts/g-root-guardian-status.ps1` — 状态检查脚本(查询运行状态 + 显示最近日志 + 统计 BLOCKED/ALLOWED/ERROR)
+- **黑名单模式**:只删除已知垃圾模式(16 目录 + 23 文件 + 10 通配符),不删除未知目录/文件(避免误删用户新项目)。
+- **关键性能优化**:用 `Wait-Event -Timeout 1` 替代 `Start-Sleep 60`,避免阻塞 PowerShell 事件队列,实测删除延迟从 32000ms 降到 252ms。
+- **日志**:`.trae-cn/tmp/g-root-guardian.log`(格式:`yyyy-MM-dd HH:mm:ss [BLOCKED|ALLOWED|ERROR|STARTED|STOPPED] <path>`,1MB 自动轮转为 .bak)。
+- **安装/卸载/状态**:
+  - 安装:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\install-g-root-guardian.ps1`
+  - 卸载:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-guardian.ps1`
+  - 状态:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\g-root-guardian-status.ps1`
+- **守门协同**:v3.1 守门脚本 FILE_WHITELIST 已豁免 5 个 guardian 脚本(引用垃圾路径作为黑名单是合法的)。
+- **真正根治**:从被动清理(清理脚本)→ 主动实时阻止(FileSystemWatcher + 计划任务自启),用户无需干预,垃圾创建的瞬间就被删除,等同于"不允许往这放垃圾文件夹"。
+
 ---
 
 ## 16. Push 阶段跨 Agent 改动保护规则(强制)
