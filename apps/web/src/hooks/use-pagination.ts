@@ -1,54 +1,22 @@
 'use client'
 
-import * as React from 'react'
+import { usePagination as useSharedPagination } from '@ihui/shared/hooks/use-pagination'
+import type { UsePaginationReturn as SharedUsePaginationReturn } from '@ihui/shared/hooks/use-pagination'
+
+export type UsePaginationReturn = SharedUsePaginationReturn
 
 export interface UsePaginationOptions {
+  /** 总数(web 端作为受控输入,必填) */
   total: number
   pageSize?: number
   initialPage?: number
 }
 
-export interface UsePaginationReturn {
-  page: number
-  pageSize: number
-  total: number
-  totalPages: number
-  hasNext: boolean
-  hasPrev: boolean
-  setPage: (page: number) => void
-  setPageSize: (size: number) => void
-}
-
-export function usePagination({
-  total,
-  pageSize = 10,
-  initialPage = 1,
-}: UsePaginationOptions): UsePaginationReturn {
-  const [page, setPage] = React.useState(initialPage)
-  const [size, setSize] = React.useState(pageSize)
-
-  const totalPages = Math.max(1, Math.ceil(total / size))
-
-  const setPageSafe = React.useCallback(
-    (p: number) => {
-      setPage(Math.min(Math.max(1, p), totalPages))
-    },
-    [totalPages],
-  )
-
-  const setPageSize = React.useCallback((s: number) => {
-    setSize(s)
-    setPage(1)
-  }, [])
-
-  return {
-    page,
-    pageSize: size,
-    total,
-    totalPages,
-    hasNext: page < totalPages,
-    hasPrev: page > 1,
-    setPage: setPageSafe,
-    setPageSize,
-  }
+/**
+ * 分页 Hook(web 端:total 作为受控输入)
+ *
+ * 基于 @ihui/shared/hooks/use-pagination,保留 web 端 total 必填的严格接口。
+ */
+export function usePagination(options: UsePaginationOptions): UsePaginationReturn {
+  return useSharedPagination(options)
 }
