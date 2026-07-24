@@ -1,10 +1,15 @@
 import { View, Text, Image } from '@tarojs/components'
-import Taro, { useDidShow, useShareAppMessage, useShareTimeline, usePullDownRefresh, useReachBottom } from '@tarojs/taro'
+import Taro, {
+  useDidShow,
+  useShareAppMessage,
+  useShareTimeline,
+  usePullDownRefresh,
+  useReachBottom,
+} from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
 import { getCircleList } from '@/api'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 const defaultAvatar =
   'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
@@ -53,29 +58,35 @@ export default function Community() {
     setUserInfo(getUserInfo())
   }
 
-  const loadData = useCallback(async (reset = false) => {
-    if (loading) return
-    let curPage = page
-    if (reset) {
-      curPage = 1
-      setHasMore(true)
-      setList([])
-      setPage(1)
-    }
-    if (!hasMore && !reset) return
-    setLoading(true)
-    try {
-      const res = (await getCircleList({ page: curPage, pageSize: 10 })) as Record<string, unknown>
-      const newList = (res?.list as CircleItem[]) || []
-      setList((prev) => (reset ? newList : [...prev, ...newList]))
-      setHasMore((reset ? newList.length : list.length + newList.length) < (res?.total as number))
-      setPage(curPage + 1)
-    } catch {
-      // 静默处理
-    } finally {
-      setLoading(false)
-    }
-  }, [loading, page, hasMore, list.length])
+  const loadData = useCallback(
+    async (reset = false) => {
+      if (loading) return
+      let curPage = page
+      if (reset) {
+        curPage = 1
+        setHasMore(true)
+        setList([])
+        setPage(1)
+      }
+      if (!hasMore && !reset) return
+      setLoading(true)
+      try {
+        const res = (await getCircleList({ page: curPage, pageSize: 10 })) as Record<
+          string,
+          unknown
+        >
+        const newList = (res?.list as CircleItem[]) || []
+        setList((prev) => (reset ? newList : [...prev, ...newList]))
+        setHasMore((reset ? newList.length : list.length + newList.length) < (res?.total as number))
+        setPage(curPage + 1)
+      } catch {
+        // 静默处理
+      } finally {
+        setLoading(false)
+      }
+    },
+    [loading, page, hasMore, list.length],
+  )
 
   useDidShow(() => {
     refreshUser()
@@ -125,9 +136,14 @@ export default function Community() {
         />
         <View className="ml-[10px] flex flex-col">
           <Text className="text-white text-[15px] font-semibold">
-            {userInfo?.userName || userInfo?.nickname || (isLogin ? t('common.user') : t('home.tapLogin'))}
+            {userInfo?.userName ||
+              userInfo?.nickname ||
+              (isLogin ? t('common.user') : t('home.tapLogin'))}
           </Text>
-          <Text className="text-white text-[11px] opacity-90" onClick={!isLogin ? goLogin : undefined}>
+          <Text
+            className="text-white text-[11px] opacity-90"
+            onClick={!isLogin ? goLogin : undefined}
+          >
             {t('community.title')} · {t('community.posts')}
           </Text>
         </View>
@@ -137,7 +153,10 @@ export default function Community() {
       <View className="mx-[16px] my-[12px] tech-card p-[12px]">
         <View className="flex justify-between items-center mb-[10px]">
           <Text className="text-[15px] font-semibold text-neon">{t('agent.title')}</Text>
-          <Text className="text-[12px] text-muted-foreground" onClick={() => goPage('/pages/ai/agent')}>
+          <Text
+            className="text-[12px] text-muted-foreground"
+            onClick={() => goPage('/pages/ai/agent')}
+          >
             {t('home.more')} {'>'}
           </Text>
         </View>
