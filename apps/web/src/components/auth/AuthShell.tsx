@@ -129,11 +129,17 @@ export function AuthShell({
  * 遮罩 bg-black/40 backdrop-blur-[2px](比主站 Dialog 的 bg-black/80 浅,
  * 因 SSO 整页 body 已有 bg-muted/30 背景,过深遮罩会显得突兀)。
  *
+ * z-index:z-modal(=2000,引用 --z-modal CSS 变量)。
+ *   - 必须高于 AISidePanel 的 z-sticky(=990),否则 SSO 登录遮罩被 AI 面板压在下面,
+ *     AI 面板露在遮罩之上 = "AI 对话框跟着登录窗一起变"(2026-07-24 用户反馈回归)。
+ *   - 与 globals.css 第 597 行注释"z-modal 用于登录框"规范一致。
+ *   - 禁用 z-50(Tailwind 内置=50,低于 z-sticky=990,会复现本 bug)。
+ *
  * 用法:<AuthShellPage><AuthShell onClose={...}>...</AuthShell></AuthShellPage>
  */
 export function AuthShellPage({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-[2px]">
+    <div className="fixed inset-0 z-modal flex items-center justify-center bg-black/40 px-4 backdrop-blur-[2px]">
       {children}
     </div>
   )
