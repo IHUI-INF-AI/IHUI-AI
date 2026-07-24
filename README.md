@@ -2253,6 +2253,11 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
   - TTL 清理函数:cleanupOldWebhookTriggers(daysToKeep=30) + cleanupOldSyncLogs(daysToKeep=90)
   - Worker 优雅关闭 + 指标统计:RegistryWorkerStats 接口 + completed/failed 计数 + SIGTERM/SIGINT 优雅关闭
   - 验证:API typecheck 本任务文件 0 错 + Web typecheck 本任务文件 0 错 + database build 全绿
+- **P0+P1 完美收尾(2026-07-24,深度审计 4 subagent 并行,12 缺口全修)**:
+  - P0 测试覆盖:3 测试文件 51 用例全绿(路由 25 + Worker 12 + DB 8 + sanity 6),覆盖 webhook 签名正负向 + 12 端点权限 + 批量 upsert 幂等 + sync_log 聚合 + DB 查询分支
+  - P1 安全:webhook 防重放(X-Webhook-Timestamp 5 分钟窗口)+ 速率限制(100 req/min 内存滑动窗口)+ payload<1MB 校验 + SSRF 防护(协议白名单+内网黑名单)+ config-migrator changedKeys 高危检测 + sync-logs 权限收紧(requireAuth→requireAdmin)
+  - P1 性能:批量 upsert batchUpsertRegistryItems(2 次 DB 往返替代 2N 次,400 条从 800 次降为 2 次)+ Worker hash 复用 + installedIds IN 查询优化(全表扫→20 keys)
+  - 验证:API typecheck registry 0 错 + 51/51 测试全绿
 
 ### 进行中
 

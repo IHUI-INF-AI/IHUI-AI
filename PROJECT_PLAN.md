@@ -147,6 +147,18 @@
 - ✅ 前端页面:registry/page.tsx 管理员 Card 内展示 Worker 运行状态(已处理/失败/最近处理时间)+ 刷新按钮
 - ✅ CLI 命令:ihui registry worker-stats(成功率彩色展示 ≥95%绿/≥80%黄/<80%红)
 
+**2026-07-24 P0+P1 完美收尾(深度审计 4 subagent 并行,12 缺口全修)**:
+- ✅ P0 测试覆盖:3 测试文件 51 用例全绿(registry-sync.test.ts 25 + registry-sync-worker.test.ts 12 + registry-queries.test.ts 8 + registry-sanity 6)
+- ✅ P1 webhook 防重放:X-Webhook-Timestamp 头 5 分钟窗口校验(无头兼容跳过)
+- ✅ P1 webhook 速率限制:内存滑动窗口 100 req/min(source+IP,Map+setInterval 清理)
+- ✅ P1 payload 大小校验:webhook payload < 1MB(413 拒绝)
+- ✅ P1 SSRF 防护:custom-registry-adapter URL 校验(协议白名单 http/https + 内网段黑名单 127/10/172.16-31/192.168/169.254/IPv6)
+- ✅ P1 config-migrator changedKeys 高危检测:risky 过滤增加 changedKeys.filter(isHighRiskKey)
+- ✅ P2 sync-logs 权限收紧:requireAuth → requireAdmin
+- ✅ P1 批量 upsert:batchUpsertRegistryItems(2 次 DB 往返替代 2N 次,400 条从 800 次降为 2 次)
+- ✅ P1 Worker hash 复用:批量预计算 heat/quality/hash,复用避免重复 SHA-256
+- ✅ P2 installedIds 优化:WHERE key IN (当前页 20 keys)替代全表扫
+
 **跨端约束**:
 
 - 共享类型 `packages/types/src/registry.ts`(RegistryItem / RegistrySyncLog / WebhookTrigger / ProviderModelInfo / ConfigDriftReport)
