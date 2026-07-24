@@ -88,7 +88,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
 
   return (
     <View className="flex flex-col bg-card rounded-lg">
-      <View className="flex items-center px-3 py-2 border-b border-border">
+      <View className="flex items-center px-3 py-2 mb-2">
         <Text className="text-sm font-semibold text-foreground">
           {t('ai.agentDetail.runtimeTitle')}
         </Text>
@@ -161,7 +161,7 @@ export default function AgentRuntimePanel({ sessionId: initialSessionId }: Agent
         )}
       </ScrollView>
 
-      <View className="p-3 border-t border-border">
+      <View className="p-3 mt-2">
         <View className="flex items-end">
           <Textarea
             value={input}

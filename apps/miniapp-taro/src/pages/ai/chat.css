@@ -107,7 +107,6 @@
   align-items: center;
   padding: 16rpx 32rpx;
   background: var(--color-card);
-  border-top: 1rpx solid var(--color-border);
 }
 .input {
   flex: 1;
@@ -169,7 +168,6 @@
   align-items: center;
   padding: 12rpx 32rpx;
   background: #f0f7ff;
-  border-top: 1rpx solid #e6f7ee;
 }
 .material-tag-text {
   flex: 1;
@@ -187,7 +185,7 @@
 
 .drawer-header {
   padding: 24rpx 32rpx;
-  border-bottom: 1rpx solid #f0f0f0;
+  margin-bottom: 16rpx;
 }
 .drawer-title {
   font-size: 30rpx;
