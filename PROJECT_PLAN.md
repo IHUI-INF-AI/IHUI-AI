@@ -39,7 +39,13 @@
 **§9 跨端**:api + mobile-rn + miniapp-taro 三端同步迁移,所有新页面遵循 AGENTS.md §4 UI 约束(圆角守门/禁分割线/禁渐变遮罩/compact 紧凑)。
 **§22 README 豁免**:纯迁移补齐(对标旧项目功能),不改变对外能力清单。
 
-**Git 同步证据**(§21):待 commit + push 后补充
+**Git 同步证据**(§21):
+- Round 1 commit: 95a0aa807(local == remote ✅)
+- Round 2 commit: 0f5b1de7c(rebase 后 → 435ea3f9c)
+- 最终 local HEAD: 435ea3f9c4f6b91ca2759d16000df112731d3092
+- 最终 origin/main: 435ea3f9c4f6b91ca2759d16000df112731d3092
+- 同步状态: local == remote ✅
+- typecheck: api ✅ + mobile-rn ✅
 
 ---
 
