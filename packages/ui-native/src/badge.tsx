@@ -1,7 +1,7 @@
-﻿import type { ComponentProps } from 'react'
+import type { ComponentProps } from 'react'
 import { Text, View } from 'react-native'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { cn } from '@ihui/design-tokens'
+import { cn, type BadgeBaseProps } from '@ihui/design-tokens'
 
 export const badgeVariants = cva('flex-row items-center px-2.5 py-0.5', {
   variants: {
@@ -22,7 +22,11 @@ const badgeTextVariants: Record<string, string> = {
   outline: 'text-foreground',
 }
 
-export interface BadgeProps extends ComponentProps<typeof View>, VariantProps<typeof badgeVariants> {
+export interface BadgeProps
+  extends
+    ComponentProps<typeof View>,
+    BadgeBaseProps,
+    Omit<VariantProps<typeof badgeVariants>, 'variant'> {
   label?: string
 }
 
