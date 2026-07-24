@@ -8,6 +8,7 @@ import {
   type StreamChatOptions,
   type LlmModel,
 } from '@ihui/api-client'
+import { Button, Input } from '@ihui/ui-react'
 import { useOutletContext } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
 import type { ChatMessage } from './types'
@@ -225,11 +226,11 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="sp-chat">
-      <div className="sp-page-header">
-        <h3>{t('chat.title')}</h3>
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between pb-2 border-b border-border">
+        <h3 className="m-0 text-sm font-semibold">{t('chat.title')}</h3>
         <select
-          className="sp-model-select"
+          className="text-xs text-foreground px-2 py-1 border border-border rounded-md bg-card cursor-pointer transition-colors hover:border-muted-foreground focus:outline-none focus:border-muted-foreground"
           value={model}
           onChange={(e) => setModel(e.target.value)}
           disabled={streaming}
@@ -241,42 +242,67 @@ export default function ChatPage() {
             </option>
           ))}
         </select>
-        <button type="button" onClick={onLogout} className="link-btn">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onLogout}
+          className="bg-transparent border-none text-primary cursor-pointer text-xs px-1.5 py-0.5"
+        >
           {t('chat.exit')}
-        </button>
+        </Button>
       </div>
-      <div className="sp-chat-list" ref={scrollRef} data-testid="chat-list">
+      <div
+        className="flex-1 overflow-auto p-3 flex flex-col gap-2"
+        ref={scrollRef}
+        data-testid="chat-list"
+      >
         {messages.length === 0 ? (
-          <div className="empty-state">{t('chat.emptyHint')}</div>
+          <div className="text-center text-muted-foreground py-8 px-4 text-sm">
+            {t('chat.emptyHint')}
+          </div>
         ) : (
           messages.map((m) => (
-            <div key={m.id} className={`sp-bubble ${m.role}`}>
-              <div className="sp-bubble-content">
+            <div
+              key={m.id}
+              className={`flex flex-col max-w-[85%] ${m.role === 'user' ? 'self-end' : ''}`}
+            >
+              <div
+                className={`px-2.5 py-2 rounded-lg text-sm whitespace-pre-wrap break-words leading-relaxed ${m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}
+              >
                 {m.content || (m.role === 'assistant' ? '...' : '')}
               </div>
             </div>
           ))
         )}
       </div>
-      {notice ? <div className="notice-banner">{notice}</div> : null}
-      {error ? <div className="error-banner">{error}</div> : null}
+      {notice ? (
+        <div className="bg-primary/10 text-primary px-2.5 py-2 rounded-md border border-primary my-2 text-xs">
+          {notice}
+        </div>
+      ) : null}
+      {error ? (
+        <div className="bg-destructive/10 text-destructive px-2.5 py-2 rounded-md border border-destructive my-2 text-xs">
+          {error}
+        </div>
+      ) : null}
       <form
-        className="sp-chat-input"
+        className="flex gap-1.5 px-2.5 py-2 border-t border-border bg-card"
         onSubmit={(e) => {
           e.preventDefault()
           void onSend()
         }}
       >
-        <input
+        <Input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={t('chat.inputPlaceholder')}
           disabled={streaming}
         />
-        <button type="submit" disabled={!input.trim() || streaming}>
+        <Button type="submit" variant="send" size="sm" disabled={!input.trim() || streaming}>
           {t('chat.send')}
-        </button>
+        </Button>
       </form>
     </div>
   )
