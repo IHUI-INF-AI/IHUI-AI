@@ -1,5 +1,6 @@
 import { View, Text, Image, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import { useI18n } from '@/i18n'
 
 export interface QrCodeShareProps {
   title?: string
@@ -20,15 +21,17 @@ export default function QrCodeShare({
   onSave,
   onShare,
 }: QrCodeShareProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   const handleSave = () => {
     if (!qrUrl) {
-      Taro.showToast({ title: '二维码生成中', icon: 'loading' })
+      Taro.showToast({ title: tt('qrcode.generating', '二维码生成中'), icon: 'loading' })
       return
     }
     Taro.saveImageToPhotosAlbum({
       filePath: qrUrl,
-      success: () => Taro.showToast({ title: '已保存到相册', icon: 'success' }),
-      fail: () => Taro.showToast({ title: '保存失败', icon: 'none' }),
+      success: () => Taro.showToast({ title: tt('qrcode.savedAlbum', '已保存到相册'), icon: 'success' }),
+      fail: () => Taro.showToast({ title: tt('qrcode.saveFailed', '保存失败'), icon: 'none' }),
     })
     onSave?.()
   }
@@ -47,7 +50,7 @@ export default function QrCodeShare({
           <Image src={qrUrl} className="w-48 h-48" mode="aspectFit" />
         ) : (
           <View className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center">
-            <Text className="text-xs text-muted-foreground">二维码加载中</Text>
+            <Text className="text-xs text-muted-foreground">{tt('qrcode.loading', '二维码加载中')}</Text>
           </View>
         )}
         {logoUrl && (
@@ -59,7 +62,7 @@ export default function QrCodeShare({
         )}
       </View>
 
-      {userName && <Text className="mt-4 text-sm text-foreground">来自:{userName}</Text>}
+      {userName && <Text className="mt-4 text-sm text-foreground">{t('qrcode.from', { name: userName })}</Text>}
 
       <View className="flex gap-3 mt-6 w-full">
         <Button
@@ -72,7 +75,7 @@ export default function QrCodeShare({
           className="flex-1 !bg-primary !text-white text-sm rounded-md"
           onClick={handleSave}
         >
-          保存图片
+          {tt('invite.saveImage', '保存图片')}
         </Button>
       </View>
     </View>

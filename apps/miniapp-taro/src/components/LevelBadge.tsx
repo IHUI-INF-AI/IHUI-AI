@@ -1,4 +1,5 @@
 import { View, Text } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface LevelBadgeProps {
   level?: number
@@ -6,16 +7,6 @@ export interface LevelBadgeProps {
   progress?: number
   nextLevelTitle?: string
   size?: 'sm' | 'md' | 'lg'
-}
-
-const LEVEL_TITLES: Record<number, string> = {
-  0: '新手',
-  1: '青铜',
-  2: '白银',
-  3: '黄金',
-  4: '铂金',
-  5: '钻石',
-  6: '王者',
 }
 
 const LEVEL_COLORS: Record<number, string> = {
@@ -35,6 +26,17 @@ export default function LevelBadge({
   nextLevelTitle,
   size = 'md',
 }: LevelBadgeProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const LEVEL_TITLES: Record<number, string> = {
+    0: tt('level.0', '新手'),
+    1: tt('level.1', '青铜'),
+    2: tt('level.2', '白银'),
+    3: tt('level.3', '黄金'),
+    4: tt('level.4', '铂金'),
+    5: tt('level.5', '钻石'),
+    6: tt('level.6', '王者'),
+  }
   const displayTitle = title || LEVEL_TITLES[level] || `L${level}`
   const colorClass = LEVEL_COLORS[level] || LEVEL_COLORS[0]
   const sizeClass =
@@ -51,7 +53,7 @@ export default function LevelBadge({
       </View>
       {nextLevelTitle && progress > 0 && progress < 100 && (
         <Text className="ml-2 text-[10px] text-muted-foreground">
-          距 {nextLevelTitle} {Math.floor(progress)}%
+          {tt('level.distance', '距')} {nextLevelTitle} {Math.floor(progress)}%
         </Text>
       )}
     </View>
