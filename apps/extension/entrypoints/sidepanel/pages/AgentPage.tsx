@@ -72,7 +72,7 @@ function AgentList() {
     )
 
   return (
-    <div className="p-3 flex flex-col gap-2.5">
+    <div className="p-3 md:p-4 flex flex-col gap-2.5">
       <div className="flex items-center justify-between pb-2 border-b border-border">
         <h3 className="m-0 text-sm font-semibold">{t('nav.agents')}</h3>
       </div>
@@ -81,7 +81,7 @@ function AgentList() {
           {t('common.empty')}
         </div>
       ) : (
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2.5 md:grid md:grid-cols-2 md:gap-2.5">
           {agents.map((a) => (
             <Card
               key={a.id}
@@ -174,7 +174,7 @@ function AgentDetail({ id }: { id: string }) {
         : permission?.reason || '—'
 
   return (
-    <div className="p-3 flex flex-col gap-2.5">
+    <div className="p-3 md:p-4 flex flex-col gap-2.5">
       <div className="flex items-center justify-between pb-2 border-b border-border">
         <Button
           type="button"
