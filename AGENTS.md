@@ -644,6 +644,7 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 | 26              | check-parent-pollution.mjs            | **项目父目录污染巡查(blocking:agent 在项目外直接创建文件)**                                              |
 | 27              | check-z-index-guard.mjs               | **z-index 层叠防护(blocking:禁 !important + inline script 覆盖 + 遮罩 fade-in 回归)**                    |
 | 28              | check-overlay-zindex.mjs              | **全屏遮罩 z-index 层级(blocking:防 `fixed inset-0` + `z-50` 复发,根除 SSO 登录遮罩盖不住 AI 面板问题)** |
+| 29              | check-push-sync.mjs                   | **Push 同步兜底(blocking:commit 前检测本地是否有未 push 的 commit,根除"commit 后忘记 push"复发,§21 第三道防线)** |
 | 16              | 条件 typecheck                        | apps/web staged 时跑 typecheck                                                                           |
 | 16b             | 条件 database build                   | packages/database/src staged 时跑 build                                                                  |
 
@@ -665,18 +666,25 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 4. ✅ **HEAD 对齐**:`git rev-parse HEAD` === `git rev-parse origin/<branch>`
 5. ✅ **守门脚本通过**:`node scripts/git-push-guard.mjs` exit 0
 
-### 3 道自动防线
+### 4 道自动防线
 
-1. **post-commit 钩子自动 push**(主防线):`.husky/post-commit` 在 LFS 钩子之后立即调用 `node scripts/git-push-guard.mjs`。
+1. **pre-commit 守门阻塞**(第一道,2026-07-24 立,根治"commit 后忘记 push"复发):`scripts/check-push-sync.mjs` 集成到 guardian-runner.mjs 第 29 项 blocking 检查。
+   - **commit 前**检测本地是否有未 push 的 commit(`git rev-list --count origin/<branch>..HEAD`)
+   - 如果 > 0 → **阻塞本次 commit**,要求先 push
+   - 即使 post-commit 钩子失败(网络/hook 跳过/工具失联),下次 commit 时也会被阻塞,强制 push
+   - 跳过:`HUSKY_SKIP_PUSH_SYNC=1 git commit ...`(紧急场景,不推荐)
+   - 豁免:`IHUI_ARCHIVE_COMMIT=1`(归档 commit 由 post-commit 自动 push)
+
+2. **post-commit 钩子自动 push**(主防线):`.husky/post-commit` 在 LFS 钩子之后立即调用 `node scripts/git-push-guard.mjs`。
    - 任何 `git commit` 完成后**自动检测**本地 ahead,有则自动 push 并验证 local == remote
    - 失败时**阻断**并提示手动 `git push origin main`,不静默
    - 跳过:`HUSKY_SKIP_PUSH=1 git commit ...`(紧急本地暂存场景,不推荐)
 
-2. **pre-push 钩子 typecheck 闸门**(第二道,沿用):`.husky/pre-push` 跑 `pnpm typecheck:full`
+3. **pre-push 钩子 typecheck 闸门**(第三道,沿用):`.husky/pre-push` 跑 `pnpm typecheck:full`
    - 失败 → 阻止 push(commit 仍本地保留,可修复后重新 push)
    - 跳过:`HUSKY_SKIP_TYPECHECK=1 git push`(不推荐)
 
-3. **手动 `git-push-guard` 验证**(兜底,任何时候可手跑):`node scripts/git-push-guard.mjs`
+4. **手动 `git-push-guard` 验证**(兜底,任何时候可手跑):`node scripts/git-push-guard.mjs`
    - 打印 local HEAD vs remote HEAD
    - 本地 ahead → 自动 push
    - 完全对齐 → exit 0
