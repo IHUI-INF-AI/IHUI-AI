@@ -308,7 +308,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.8
-        version: 2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
+        version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
       ws:
         specifier: ^8.18.0
         version: 8.21.0
@@ -378,7 +378,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.8
-        version: 2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
+        version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   apps/desktop:
     devDependencies:
@@ -445,7 +445,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.8
-        version: 2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
+        version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
       wxt:
         specifier: ^0.19.0
         version: 0.19.29(@types/node@22.20.0)(less@4.7.0)(lightningcss@1.32.0)(rollup@4.62.2)(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
@@ -554,7 +554,7 @@ importers:
         version: 4.5.14(@types/node@22.20.0)(less@4.7.0)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
       vitest:
         specifier: ^2.1.8
-        version: 2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
+        version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   apps/mobile-rn:
     dependencies:
@@ -681,7 +681,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.8
-        version: 2.1.9(@types/node@22.20.0)(jsdom@25.0.1)(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
+        version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@25.0.1)(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   apps/web:
     dependencies:
@@ -935,6 +935,9 @@ importers:
       eslint-plugin-jsx-a11y:
         specifier: ^6.10.0
         version: 6.10.2(eslint@9.39.4(jiti@2.7.0))
+      happy-dom:
+        specifier: ^15.11.7
+        version: 15.11.7
       jsdom:
         specifier: ^29.1.1
         version: 29.1.1(@noble/hashes@1.8.0)
@@ -958,7 +961,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.8
-        version: 2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
+        version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   packages/api-client:
     dependencies:
@@ -977,7 +980,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.8
-        version: 2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
+        version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   packages/app:
     dependencies:
@@ -1042,7 +1045,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.8
-        version: 2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
+        version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   packages/config:
     dependencies:
@@ -1080,7 +1083,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.8
-        version: 2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
+        version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   packages/database:
     dependencies:
@@ -1111,7 +1114,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.8
-        version: 2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
+        version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   packages/design-tokens:
     dependencies:
@@ -1189,7 +1192,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.8
-        version: 2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
+        version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   packages/tsconfig: {}
 
@@ -1209,7 +1212,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^2.1.8
-        version: 2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
+        version: 2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
 
   packages/ui-native:
     dependencies:
@@ -11967,6 +11970,10 @@ packages:
   handle-thing@2.0.1:
     resolution: {integrity: sha512-9Qn4yBxelxoh2Ow62nP+Ka/kMnOXRi8BXnRaUwezLNhqelnN49xKz4F/dPP8OYLxLxq6JDtZb2i9XznUQbNPTg==}
 
+  happy-dom@15.11.7:
+    resolution: {integrity: sha512-KyrFvnl+J9US63TEzwoiJOQzZBJY7KgBushJA8X61DMbNsH+2ONkDuLDnCnwUiPTF42tLoEmrPyoqbenVA5zrg==}
+    engines: {node: '>=18.0.0'}
+
   harmony-reflect@1.6.2:
     resolution: {integrity: sha512-HIp/n38R9kQjDEziXyDTuW3vvoxxyxjxFzXLrBr18uB47GnSt+G9D29fqrpM5ZkspMcPICud3XsBJQ4Y2URg8g==}
 
@@ -18313,6 +18320,10 @@ packages:
 
   whatwg-fetch@3.6.20:
     resolution: {integrity: sha512-EqhiFU6daOA8kpjOWTL0olhVOF3i7OrFzSYiGsEMB8GcXS+RrzauAERX65xMeNWVqxA6HXH2m69Z9LaKKdisfg==}
+
+  whatwg-mimetype@3.0.0:
+    resolution: {integrity: sha512-nt+N2dzIutVRxARx1nghPKGv1xHikU7HKdfafKkLNLindmPU/ch3U31NOCGGA/dmPcmb1VlofO0vnKAcsm0o/Q==}
+    engines: {node: '>=12'}
 
   whatwg-mimetype@4.0.0:
     resolution: {integrity: sha512-QaKxh0eNIi2mE9p2vEdzfagOKHCcj1pJ56EEHGQOVxp8r9/iszLUUV7v89x9O1p/T+NlTM5W7jW6+cz4Fq1YVg==}
@@ -31662,6 +31673,12 @@ snapshots:
   handle-thing@2.0.1:
     optional: true
 
+  happy-dom@15.11.7:
+    dependencies:
+      entities: 4.5.0
+      webidl-conversions: 7.0.0
+      whatwg-mimetype: 3.0.0
+
   harmony-reflect@1.6.2: {}
 
   has-bigints@1.1.0: {}
@@ -39410,7 +39427,7 @@ snapshots:
       stylus: 0.64.0
       terser: 5.49.0
 
-  vitest@2.1.9(@types/node@22.20.0)(jsdom@25.0.1)(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0):
+  vitest@2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@25.0.1)(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0):
     dependencies:
       '@vitest/expect': 2.1.9
       '@vitest/mocker': 2.1.9(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(vite@5.4.21(@types/node@22.20.0)(less@4.7.0)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0))
@@ -39434,6 +39451,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 22.20.0
+      happy-dom: 15.11.7
       jsdom: 25.0.1
     transitivePeerDependencies:
       - less
@@ -39446,7 +39464,7 @@ snapshots:
       - supports-color
       - terser
 
-  vitest@2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0):
+  vitest@2.1.9(@types/node@22.20.0)(happy-dom@15.11.7)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0):
     dependencies:
       '@vitest/expect': 2.1.9
       '@vitest/mocker': 2.1.9(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(vite@5.4.21(@types/node@22.20.0)(less@4.7.0)(lightningcss@1.32.0)(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0))
@@ -39470,6 +39488,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 22.20.0
+      happy-dom: 15.11.7
       jsdom: 29.1.1(@noble/hashes@1.8.0)
     transitivePeerDependencies:
       - less
@@ -39825,6 +39844,8 @@ snapshots:
       iconv-lite: 0.6.3
 
   whatwg-fetch@3.6.20: {}
+
+  whatwg-mimetype@3.0.0: {}
 
   whatwg-mimetype@4.0.0: {}
 
