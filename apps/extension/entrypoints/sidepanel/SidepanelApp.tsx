@@ -33,6 +33,22 @@ import SearchPage from './pages/SearchPage'
 import AiSkillsPage from './pages/AiSkillsPage'
 import ImageGenPage from './pages/ImageGenPage'
 import MemoryPage from './pages/MemoryPage'
+// 阶段 4-5 实现的页面(2026-07-25)
+import MessagesPage from './pages/MessagesPage'
+import FollowingPage from './pages/FollowingPage'
+import AiNewsPage from './pages/AiNewsPage'
+import ModelsPage from './pages/ModelsPage'
+import ChatHistoryPage from './pages/ChatHistoryPage'
+import ChatFavoritesPage from './pages/ChatFavoritesPage'
+import ChatTemplatesPage from './pages/ChatTemplatesPage'
+import PlazaPage from './pages/PlazaPage'
+import CirclesPage from './pages/CirclesPage'
+import TopicsPage from './pages/TopicsPage'
+import AsksPage from './pages/AsksPage'
+import FansPage from './pages/FansPage'
+import MemberPage from './pages/MemberPage'
+import DistributionPage from './pages/DistributionPage'
+import InvitationsPage from './pages/InvitationsPage'
 
 const WEB_BASE = 'https://ihui.ai'
 
@@ -249,9 +265,9 @@ export default function SidepanelApp() {
           <Route path="/" element={<Navigate to="/chat" replace />} />
           {/* 对话 */}
           <Route path="/chat" element={<ChatPage />} />
-          <Route path="/chat/history" element={<ComingSoonPage titleKey="chat.history" webUrl={`${WEB_BASE}/chat/history`} />} />
-          <Route path="/chat/favorites" element={<ComingSoonPage titleKey="chat.history" webUrl={`${WEB_BASE}/chat/favorites`} />} />
-          <Route path="/chat/templates" element={<ComingSoonPage titleKey="chat.history" webUrl={`${WEB_BASE}/chat/templates`} />} />
+          <Route path="/chat/history" element={<ChatHistoryPage />} />
+          <Route path="/chat/favorites" element={<ChatFavoritesPage />} />
+          <Route path="/chat/templates" element={<ChatTemplatesPage />} />
           {/* 词汇(独立功能,保留) */}
           <Route path="/vocabulary" element={<VocabularyPage />} />
           {/* 课程(独立功能,保留) */}
@@ -263,23 +279,31 @@ export default function SidepanelApp() {
           <Route path="/ai/skills" element={<AiSkillsPage />} />
           <Route path="/ai/image-gen" element={<ImageGenPage />} />
           <Route path="/ai/memory" element={<MemoryPage />} />
-          <Route path="/ai/news" element={<ComingSoonPage titleKey="apps.aiNews" webUrl={`${WEB_BASE}/ai-news`} />} />
-          <Route path="/ai/models" element={<ComingSoonPage titleKey="apps.models" webUrl={`${WEB_BASE}/models`} />} />
+          <Route path="/ai/news" element={<AiNewsPage />} />
+          <Route path="/ai/models" element={<ModelsPage />} />
           {/* 内容中心 */}
           <Route path="/content" element={<ContentAppsPage />} />
           <Route path="/content/articles" element={<ArticlesPage />} />
           <Route path="/content/news" element={<NewsPage />} />
           <Route path="/content/announcements" element={<AnnouncementsPage />} />
           <Route path="/content/search" element={<SearchPage />} />
+          <Route path="/content/plaza" element={<PlazaPage />} />
+          <Route path="/content/circles" element={<CirclesPage />} />
+          <Route path="/content/topics" element={<TopicsPage />} />
+          <Route path="/content/asks" element={<AsksPage />} />
           {/* 个人中心 */}
           <Route path="/me" element={<MeAppsPage />} />
           <Route path="/me/dashboard" element={<DashboardPage />} />
           <Route path="/me/notifications" element={<NotificationsPage />} />
-          <Route path="/me/messages" element={<ComingSoonPage titleKey="apps.messages" webUrl={`${WEB_BASE}/messages`} />} />
+          <Route path="/me/messages" element={<MessagesPage />} />
           <Route path="/me/favorites" element={<FavoritesPage />} />
-          <Route path="/me/following" element={<ComingSoonPage titleKey="apps.following" webUrl={`${WEB_BASE}/following`} />} />
+          <Route path="/me/following" element={<FollowingPage />} />
+          <Route path="/me/fans" element={<FansPage />} />
           <Route path="/me/points" element={<PointsPage />} />
           <Route path="/me/vip" element={<VipPage />} />
+          <Route path="/me/member" element={<MemberPage />} />
+          <Route path="/me/distribution" element={<DistributionPage />} />
+          <Route path="/me/invitations" element={<InvitationsPage />} />
           <Route path="/me/profile" element={<ProfilePage />} />
           <Route path="/me/wallet" element={<WalletPage />} />
           <Route path="/me/orders" element={<OrderPage />} />
