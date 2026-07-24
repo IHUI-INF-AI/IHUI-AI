@@ -6,9 +6,9 @@
  *  2. AI 生成 HTML:POST /ai/llm/chat(代理到 ai-service /api/llm/complete)
  *  3. 预览保存/列表:POST /design/preview + GET /design/previews(已有,封装为函数)
  *
- * 复用 @ihui/api-client 的 fetchApi(自动注入 token + base url + 重试 + 熔断)。
+ * 复用 @/lib/api 的 fetchApi(自动注入 token + base url + 重试 + 熔断)。
  */
-import { fetchApi } from '@ihui/api-client'
+import { fetchApi } from '@/lib/api'
 import type { DesignComment, DesignPreview, DesignPreviewResponse } from '@ihui/shared'
 import { deriveComponentName, exportCode as convertCode } from './code-exporter'
 
