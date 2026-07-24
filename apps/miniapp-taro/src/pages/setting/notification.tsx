@@ -4,7 +4,6 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getNotificationSettings, updateNotificationSettings } from '@/api'
 import { useI18n } from '@/i18n'
-import './notification.css'
 
 interface NotificationSettingItem {
   key: string
@@ -57,27 +56,27 @@ export default function NotificationPage() {
   }, [])
 
   return (
-    <View className="page">
-      <View className="group-title">
-        <Text>{tt('setting.notification.categoryTitle', '通知分类')}</Text>
+    <View className="min-h-screen bg-background">
+      <View className="px-[32rpx] pt-[32rpx] pb-[16rpx]">
+        <Text className="text-[24rpx] text-muted-foreground">{tt('setting.notification.categoryTitle', '通知分类')}</Text>
       </View>
-      <View className="card">
+      <View className="mx-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
         {loading ? (
-          <View className="empty">
-            <Text>{tt('common.loading', '加载中…')}</Text>
+          <View className="px-[32rpx] py-[60rpx] text-center">
+            <Text className="text-[26rpx] text-muted-foreground">{tt('common.loading', '加载中…')}</Text>
           </View>
         ) : list.length === 0 ? (
-          <View className="empty">
-            <Text>{tt('setting.notification.empty', '暂无通知设置项')}</Text>
+          <View className="px-[32rpx] py-[60rpx] text-center">
+            <Text className="text-[26rpx] text-muted-foreground">{tt('setting.notification.empty', '暂无通知设置项')}</Text>
           </View>
         ) : (
           list.map((item, idx) => (
             <View
               key={item.key}
-              className={`row${idx === list.length - 1 ? ' last' : ''}`}
+              className={`flex items-center justify-between px-[32rpx] py-[28rpx]${idx > 0 ? ' mt-[16rpx]' : ''}`}
             >
-              <View className="row-info">
-                <Text className="row-title">{item.title}</Text>
+              <View className="flex-1 mr-[16rpx]">
+                <Text className="text-[28rpx] text-foreground">{item.title}</Text>
               </View>
               <Switch
                 checked={item.enabled}
@@ -89,20 +88,20 @@ export default function NotificationPage() {
         )}
       </View>
 
-      <View className="group-title">
-        <Text>{tt('setting.notification.moreTitle', '更多')}</Text>
+      <View className="px-[32rpx] pt-[32rpx] pb-[16rpx]">
+        <Text className="text-[24rpx] text-muted-foreground">{tt('setting.notification.moreTitle', '更多')}</Text>
       </View>
-      <View className="card">
-        <View className="row last" onClick={onDetail}>
-          <View className="row-info">
-            <Text className="row-title">
+      <View className="mx-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+        <View className="flex items-center justify-between px-[32rpx] py-[28rpx]" onClick={onDetail}>
+          <View className="flex-1 mr-[16rpx]">
+            <Text className="text-[28rpx] text-foreground">
               {tt('setting.notification.detail', '通知详情')}
             </Text>
-            <Text className="row-desc">
+            <Text className="block text-[22rpx] text-muted-foreground mt-[6rpx] leading-[1.5]">
               {tt('setting.notification.detailDesc', '查看历史通知消息')}
             </Text>
           </View>
-          <Text className="arrow">›</Text>
+          <Text className="text-[32rpx] text-muted-foreground">›</Text>
         </View>
       </View>
     </View>
