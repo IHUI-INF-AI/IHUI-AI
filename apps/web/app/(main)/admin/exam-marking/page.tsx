@@ -22,6 +22,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@ihui/ui-react'
+import { type PageData } from '@ihui/api-client'
 
 interface MarkRecord {
   id: string
@@ -35,10 +36,6 @@ interface MarkRecord {
   status: string
   answers: Array<{ questionId: string; answer: unknown; isCorrect?: boolean }> | null
   submittedAt: string | null
-}
-interface PageData<T> {
-  list: T[]
-  total: number
 }
 
 const PAGE_SIZE = 15
