@@ -7,7 +7,7 @@
  * - 生词本:IndexedDB(ihui-vocab / words store),支持 1000+ 词,word 唯一索引
  * - 搜索:word / translation 子串匹配,前端游标扫描(1000 词 < 5ms)
  */
-import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { sendMessage } from '../../../lib/message-router'
 import { useI18n } from '../../../src/i18n'
 import {
@@ -28,87 +28,6 @@ interface VocabResult {
 
 const PENDING_KEY = 'ihui_pending_vocab'
 
-const pageStyle: CSSProperties = {
-  padding: 12,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 10,
-}
-
-const formStyle: CSSProperties = {
-  display: 'flex',
-  gap: 6,
-}
-
-const inputStyle: CSSProperties = {
-  flex: 1,
-  fontSize: 13,
-}
-
-const resultStyle: CSSProperties = {
-  padding: '10px 12px',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  background: 'var(--card)',
-  fontSize: 13,
-  lineHeight: 1.5,
-}
-
-const wordStyle: CSSProperties = {
-  fontSize: 18,
-  fontWeight: 600,
-  marginRight: 8,
-}
-
-const phoneticStyle: CSSProperties = {
-  fontSize: 12,
-  color: 'var(--muted)',
-  fontFamily: 'monospace',
-}
-
-const defListStyle: CSSProperties = {
-  margin: '6px 0 0 0',
-  paddingLeft: 18,
-  fontSize: 12,
-  color: 'var(--fg)',
-}
-
-const wordbookStyle: CSSProperties = {
-  marginTop: 4,
-  padding: '8px 10px',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  background: 'var(--muted-bg)',
-  fontSize: 12,
-}
-
-const wordbookItemStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: '4px 0',
-}
-
-const headerRowStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  marginBottom: 6,
-  gap: 6,
-}
-
-const searchInputStyle: CSSProperties = {
-  flex: 1,
-  fontSize: 12,
-  padding: '4px 6px',
-}
-
-const countBadgeStyle: CSSProperties = {
-  fontSize: 11,
-  color: 'var(--muted)',
-  whiteSpace: 'nowrap',
-}
-
 export default function VocabularyPage() {
   const { t } = useI18n()
   const [input, setInput] = useState('')
@@ -121,7 +40,9 @@ export default function VocabularyPage() {
 
   const refreshWordbook = async (query: string) => {
     try {
-      const list = query.trim() ? await searchWords(query, { limit: 500 }) : await getAllWords({ limit: 500 })
+      const list = query.trim()
+        ? await searchWords(query, { limit: 500 })
+        : await getAllWords({ limit: 500 })
       setWordbook(list)
     } catch (err) {
       console.warn('[IHUI] refresh wordbook failed:', err)
@@ -142,7 +63,6 @@ export default function VocabularyPage() {
       void refreshWordbook(search)
     }, 120)
     return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search])
 
   // 监听 content script 写入的 pending vocab
@@ -154,7 +74,9 @@ export default function VocabularyPage() {
         void doLookup(text)
       }
     }
-    chrome.runtime.onMessage.addListener(listener as Parameters<typeof chrome.runtime.onMessage.addListener>[0])
+    chrome.runtime.onMessage.addListener(
+      listener as Parameters<typeof chrome.runtime.onMessage.addListener>[0],
+    )
     void chrome.storage.session
       ?.get(PENDING_KEY)
       .then((res) => {
@@ -167,9 +89,10 @@ export default function VocabularyPage() {
       })
       .catch(() => {})
     return () => {
-      chrome.runtime.onMessage.removeListener(listener as Parameters<typeof chrome.runtime.onMessage.removeListener>[0])
+      chrome.runtime.onMessage.removeListener(
+        listener as Parameters<typeof chrome.runtime.onMessage.removeListener>[0],
+      )
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const doLookup = async (word: string) => {
@@ -226,17 +149,17 @@ export default function VocabularyPage() {
   }
 
   return (
-    <div style={pageStyle} data-testid="vocab-page">
+    <div className="p-3 flex flex-col gap-2.5" data-testid="vocab-page">
       <div className="sp-page-header">
         <h3>{t('vocab.title')}</h3>
       </div>
-      <form onSubmit={onSubmit} style={formStyle}>
+      <form onSubmit={onSubmit} className="flex gap-1.5">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={t('vocab.inputPlaceholder')}
-          style={inputStyle}
+          className="flex-1 text-sm"
           disabled={loading}
         />
         <button type="submit" disabled={loading || !input.trim()}>
@@ -245,32 +168,35 @@ export default function VocabularyPage() {
       </form>
       {error ? <div className="error-banner">{error}</div> : null}
       {result ? (
-        <div style={resultStyle}>
+        <div className="px-3 py-2.5 border border-border rounded-md bg-card text-sm leading-normal">
           <div>
-            <span style={wordStyle}>{result.word}</span>
-            {result.phonetic ? <span style={phoneticStyle}>/{result.phonetic}/</span> : null}
+            <span className="text-lg font-semibold mr-2">{result.word}</span>
+            {result.phonetic ? (
+              <span className="text-xs text-muted-foreground font-mono">/{result.phonetic}/</span>
+            ) : null}
           </div>
-          <div style={{ marginTop: 6, color: 'var(--accent)', fontWeight: 500 }}>
-            {result.translation}
-          </div>
+          <div className="mt-1.5 text-primary font-medium">{result.translation}</div>
           {result.definitions && result.definitions.length > 0 ? (
-            <ul style={defListStyle}>
+            <ul className="mt-1.5 pl-[18px] text-xs text-foreground">
               {result.definitions.map((d, i) => (
                 <li key={i}>{d}</li>
               ))}
             </ul>
           ) : null}
-          <div style={{ marginTop: 8 }}>
+          <div className="mt-2">
             <button type="button" onClick={onSave} className="link-btn">
               {t('vocab.saved')}
             </button>
           </div>
         </div>
       ) : null}
-      <div style={wordbookStyle}>
-        <div style={headerRowStyle}>
-          <span style={{ fontSize: 11, color: 'var(--muted)' }}>{t('wordbook.title')}</span>
-          <span style={countBadgeStyle} data-testid="vocab-count">
+      <div className="mt-1 px-2.5 py-2 border border-border rounded-md bg-muted text-xs">
+        <div className="flex items-center justify-between mb-1.5 gap-1.5">
+          <span className="text-xs text-muted-foreground">{t('wordbook.title')}</span>
+          <span
+            className="text-xs text-muted-foreground whitespace-nowrap"
+            data-testid="vocab-count"
+          >
             {t('wordbook.countLabel', { count: total })}
           </span>
         </div>
@@ -279,16 +205,16 @@ export default function VocabularyPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={t('wordbook.searchPlaceholder')}
-          style={searchInputStyle}
+          className="flex-1 text-xs px-1.5 py-1"
         />
         {wordbook.length === 0 ? (
-          <div style={{ ...countBadgeStyle, padding: '8px 0' }}>
+          <div className="text-xs text-muted-foreground whitespace-nowrap py-2">
             {search.trim() ? t('wordbook.noMatchHint') : t('wordbook.emptyHint')}
           </div>
         ) : (
-          <div style={{ marginTop: 4 }}>
+          <div className="mt-1">
             {wordbook.map((e) => (
-              <div key={e.word} style={wordbookItemStyle}>
+              <div key={e.word} className="flex justify-between items-center py-1">
                 <span>
                   <strong>{e.word}</strong> — {e.translation}
                 </span>
