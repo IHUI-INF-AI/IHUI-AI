@@ -25,7 +25,7 @@ const IMG_DOMAINS = ['volces.com', 'fyshark.com', 's.coze.cn', 'coze.cn']
 
 function isValidImageUrl(url: string): boolean {
   if (!url || !/^https?:\/\//.test(url)) return false
-  if (IMG_EXT.test(url.split('?')[0])) return true
+  if (IMG_EXT.test(url.split('?')[0] ?? '')) return true
   return IMG_DOMAINS.some((d) => url.includes(d))
 }
 function extractImageUrls(content: string): string[] {
