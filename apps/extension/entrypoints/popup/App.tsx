@@ -130,20 +130,24 @@ export default function App() {
   }
 
   if (!ready) {
-    return <div className="popup-loading">{t('common.loading')}</div>
+    return (
+      <div className="flex items-center justify-center min-h-[200px] text-muted-foreground text-sm p-4">
+        {t('common.loading')}
+      </div>
+    )
   }
 
   if (!user) {
     return (
-      <div className="popup-container">
-        <h1 className="popup-title">IHUI AI</h1>
-        <form onSubmit={onLogin} className="login-form">
+      <div className="flex flex-col gap-3 p-4 min-w-[280px]">
+        <h1 className="m-0 text-base font-semibold text-foreground">IHUI AI</h1>
+        <form onSubmit={onLogin} className="flex flex-col gap-2.5">
           <input
             type="text"
             value={account}
             onChange={(e) => setAccount(e.target.value)}
             placeholder={t('auth.phoneOrEmail')}
-            className="input"
+            className="w-full bg-background text-foreground border border-border rounded-md px-2.5 py-1.5 text-[13px] focus:outline-none focus:border-muted-foreground"
             disabled={loading}
           />
           <input
@@ -151,11 +155,19 @@ export default function App() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder={t('auth.password')}
-            className="input"
+            className="w-full bg-background text-foreground border border-border rounded-md px-2.5 py-1.5 text-[13px] focus:outline-none focus:border-muted-foreground"
             disabled={loading}
           />
-          {error ? <div className="error">{error}</div> : null}
-          <button type="submit" className="btn" disabled={loading}>
+          {error ? (
+            <div className="text-destructive bg-destructive/10 px-2.5 py-1.5 rounded-md text-xs border border-destructive">
+              {error}
+            </div>
+          ) : null}
+          <button
+            type="submit"
+            className="bg-primary text-primary-foreground border-none rounded-md px-3.5 py-2 text-[13px] cursor-pointer font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loading}
+          >
             {loading ? t('common.loading') : t('auth.login')}
           </button>
         </form>
@@ -170,22 +182,28 @@ export default function App() {
   }
 
   return (
-    <div className="popup-container">
-      <div className="popup-header">
-        <div className="user-info">
-          <div className="avatar">{user.nickname?.[0] || user.phone?.[0] || '?'}</div>
-          <div className="user-detail">
-            <div className="nickname">{user.nickname || user.phone}</div>
-            <div className="role">
+    <div className="flex flex-col gap-3 p-4 min-w-[280px]">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 py-2 border-b border-border flex-1 min-w-0">
+          <div className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center text-base font-semibold shrink-0">
+            {user.nickname?.[0] || user.phone?.[0] || '?'}
+          </div>
+          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+            <div className="text-sm font-medium text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+              {user.nickname || user.phone}
+            </div>
+            <div className="text-[11px] text-muted-foreground">
               {(user.roleId ?? 0) >= 1 ? t('auth.roleAdmin') : t('auth.roleUser')}
             </div>
           </div>
         </div>
         <NotificationBell />
       </div>
-      <div className="popup-section">
-        <div className="popup-section-title">{t('popup.quickActions')}</div>
-        <div className="popup-actions">
+      <div className="flex flex-col gap-1.5">
+        <div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+          {t('popup.quickActions')}
+        </div>
+        <div className="flex flex-col gap-1">
           <QuickActionButton
             label={t('popup.openChat')}
             icon="💬"
@@ -226,7 +244,11 @@ export default function App() {
           />
         </div>
       </div>
-      <button type="button" className="btn btn-logout" onClick={onLogout}>
+      <button
+        type="button"
+        className="bg-card text-destructive border border-destructive rounded-md px-3.5 py-2 text-[13px] cursor-pointer hover:bg-destructive/10"
+        onClick={onLogout}
+      >
         {t('auth.logout')}
       </button>
     </div>
