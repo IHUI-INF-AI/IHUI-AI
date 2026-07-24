@@ -30,7 +30,7 @@ function buildApiPath(provider: OAuthCallbackHandlerProps['provider'], platformP
   return `/api/auth/${platformParam}/callback`
 }
 
-export function OAuthCallbackHandler({ provider }: OAuthCallbackHandlerProps) {
+function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
   const router = useRouter()
   const params = useSearchParams()
   const t = useTranslations('oAuthCallbackPage')
@@ -172,6 +172,18 @@ export function OAuthCallbackHandler({ provider }: OAuthCallbackHandlerProps) {
         {t('backToLogin')}
       </Link>
     </div>
+  )
+}
+
+/**
+ * Suspense 包裹的 OAuth 回调处理器(2026-07-24 A 套壳适配)
+ * output:'export' 模式要求 useSearchParams() 被 <Suspense> 边界包裹
+ */
+export function OAuthCallbackHandler({ provider }: OAuthCallbackHandlerProps) {
+  return (
+    <React.Suspense fallback={null}>
+      <OAuthCallbackHandlerInner provider={provider} />
+    </React.Suspense>
   )
 }
 
