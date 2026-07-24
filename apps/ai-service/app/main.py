@@ -92,6 +92,25 @@ async def lifespan(app: FastAPI):
     from app.services.self_media_scheduler import self_media_scheduler
     self_media_scheduler.start()
 
+    # 配置 FallbackRouter 故障转移(2026-07-24 立)
+    # StepFun 故障(timeout/overloaded/rate_limited)时自动切 agnes/gpt-4o 兜底
+    from app.core.llm_gateway import fallback_router
+    fallback_router.configure(
+        "stepfun/step-3.7-flash",
+        {
+            "fallbacks": ["agnes/gpt-4o"],
+            "triggerOnError": ["timeout", "overloaded", "rate_limited"],
+        },
+    )
+    fallback_router.configure(
+        "stepfun/step-router-v1",
+        {
+            "fallbacks": ["agnes/gpt-4o"],
+            "triggerOnError": ["timeout", "overloaded", "rate_limited"],
+        },
+    )
+    logger.info("[fallback_router] configured: stepfun -> agnes/gpt-4o")
+
     # 启动时从 Redis 加载历史向量记忆(进程重启不丢)
     # 失败/无 Redis 时静默降级为内存模式,不阻塞启动
     from app.services.vector_memory import vector_memory
