@@ -1019,7 +1019,7 @@ export function useChat(): UseChatReturn {
       useChatStore.getState().setStreaming(false)
       useChatStore.getState().markAllAgentStreamsDone()
     }
-    return true
+    return
   }, [])
 
   // 跳过当前挂起的提问:不续流 LLM,允许用户继续发新消息
