@@ -21,7 +21,7 @@
  * 收到 task-cancelled 消息时把对应任务状态置为 cancelled。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { TaskDispatch, TaskResult, TaskWsMessage } from '@ihui/shared'
+import type { TaskDispatch, TaskResult, TaskWsMessage } from '@ihui/shared/tasks/dispatch'
 import { useWebSocket } from '@/hooks/use-websocket'
 import { fetchApi } from '@/lib/api'
 
