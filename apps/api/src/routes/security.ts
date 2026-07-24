@@ -214,6 +214,13 @@ export const securityRoutes: FastifyPluginAsync = async (server) => {
     })
     return success({ received: true })
   })
+
+  /* ---------------------- 7. 威胁监控仪表盘(仅 admin) ---------------------- */
+  server.get('/threat-dashboard', async (request, reply) => {
+    if (!(await requireAdmin(request, reply))) return
+    const stats = request.server.threatDetector?.getStats()
+    return success(stats ?? { totalChecks: 0, totalAutoBlocks: 0, totalWarnings: 0, watchedIps: [], recentBlocks: [] })
+  })
 }
 
 /* -------------------------------------------------------------------------- */
