@@ -603,6 +603,9 @@ importers:
       expo:
         specifier: ~53.0.27
         version: 53.0.27(@babel/core@7.29.7)(graphql@16.14.2)(react-native-webview@13.13.5(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0))(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0)
+      expo-av:
+        specifier: ~13.0.0
+        version: 13.0.3(expo@53.0.27(@babel/core@7.29.7)(graphql@16.14.2)(react-native-webview@13.13.5(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0))(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0))
       expo-device:
         specifier: ^7.1.4
         version: 7.1.4(expo@53.0.27(@babel/core@7.29.7)(graphql@16.14.2)(react-native-webview@13.13.5(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0))(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0))
@@ -713,7 +716,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/auth
       '@ihui/design-tokens':
-        specifier: workspace:^
+        specifier: workspace:*
         version: link:../../packages/design-tokens
       '@ihui/shared':
         specifier: workspace:*
@@ -11154,6 +11157,11 @@ packages:
       expo: '*'
       react: '*'
       react-native: '*'
+
+  expo-av@13.0.3:
+    resolution: {integrity: sha512-9SpXOjY2MUK+jCIL68EUro/aHBlbZ3B4cY1nRr2aTPfv/dLD3bXRZNTTtSwOgsHbuKO6XwjHgCoYbd9T0GcE4A==}
+    peerDependencies:
+      expo: '*'
 
   expo-av@13.10.6:
     resolution: {integrity: sha512-h3c1fg5yhWnP0RIGO+fhgPx6cmh4B4lnKdXR2i69aC3vs5D5Cu+JlzBon1gLIu6eUo2IVfC0RjSLpfQbcJ4doQ==}
@@ -30607,6 +30615,10 @@ snapshots:
       react-native: 0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0)
     transitivePeerDependencies:
       - supports-color
+
+  expo-av@13.0.3(expo@53.0.27(@babel/core@7.29.7)(graphql@16.14.2)(react-native-webview@13.13.5(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0))(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0)):
+    dependencies:
+      expo: 53.0.27(@babel/core@7.29.7)(graphql@16.14.2)(react-native-webview@13.13.5(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0))(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@19.0.0))(react@19.0.0)
 
   expo-av@13.10.6(expo@53.0.27(@babel/core@7.29.7)(graphql@16.14.2)(react-native-webview@13.13.5(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@18.3.1))(react@18.3.1))(react-native@0.79.6(@babel/core@7.29.7)(@react-native-community/cli@13.6.9)(@types/react@19.2.17)(react@18.3.1))(react@18.3.1)):
     dependencies:
