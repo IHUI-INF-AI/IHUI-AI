@@ -150,7 +150,7 @@ export default function SsoRegisterPage() {
   // 已登录分支:授权跳转卡片
   if (token && user) {
     return (
-      <AuthShellPage>
+      <AuthShellPage onClose={handleClose}>
         <AuthShell
           title={registerSuccess ? t('registerSuccess') : t('alreadyLoggedIn')}
           subtitle={t('authorizing', { clientId })}
@@ -174,7 +174,7 @@ export default function SsoRegisterPage() {
   }
 
   return (
-    <AuthShellPage>
+    <AuthShellPage onClose={handleClose}>
       <AuthShell
         title={t('registerTitle')}
         subtitle={t('subtitle', { clientId })}
@@ -241,9 +241,7 @@ export default function SsoRegisterPage() {
             }}
             error={showAgreeErr && !agreed}
           />
-          {showAgreeErr && !agreed && (
-            <p className="text-xs text-destructive">{t('mustAgree')}</p>
-          )}
+          {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('mustAgree')}</p>}
           <Button type="submit" className="h-10 w-full" disabled={loading || exchanging}>
             {loading || exchanging ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
