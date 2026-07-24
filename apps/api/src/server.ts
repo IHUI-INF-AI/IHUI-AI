@@ -72,6 +72,7 @@ import mtlsPlugin from './plugins/mtls.js'
 import networkSegmentPlugin from './plugins/network-segment.js'
 import auditLoggerPlugin from './plugins/audit-logger.js'
 import antiAutomationPlugin from './plugins/anti-automation.js'
+import threatDetectorPlugin from './plugins/threat-detector.js'
 
 // Fastify 5 的 logger 选项只接受配置对象(不接受 pino 实例)
 const loggerConfig = {
@@ -412,6 +413,9 @@ async function registerPlugins(server: FastifyInstance) {
   // - HMAC 链审计日志:onResponse 记录所有写请求,链式哈希防篡改
   // 注意:顺序敏感,反自动化必须最先(onRequest 拦截),审计日志最后(覆盖全请求)
   await server.register(antiAutomationPlugin)
+  // 国安级威胁检测:基于 IP 信誉评分主动封禁(与 anti-automation 互补:
+  // anti-automation 基于 specific events,threat-detector 基于 reputation score)
+  await server.register(threatDetectorPlugin)
   await server.register(networkSegmentPlugin)
   await server.register(mtlsPlugin)
   await server.register(auditLoggerPlugin)
