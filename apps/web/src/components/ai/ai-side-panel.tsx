@@ -413,9 +413,9 @@ export function AISidePanel() {
               className="text-foreground/80"
             />
           </div>
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <span className="flex min-w-0 items-center gap-1">
-              <span className="break-words text-sm font-semibold">{displayTitle}</span>
+              <span className="whitespace-nowrap text-sm font-semibold">{displayTitle}</span>
               {/* 工作区选择器(参考 Trae/Codex 顶部 project selector):
                   空工作区时显示 FolderPlus 入口,已绑定时显示 Folder 入口可切换/清除 */}
               <WorkspaceSelector />
@@ -426,7 +426,7 @@ export function AISidePanel() {
                 size={12}
                 className="text-muted-foreground"
               />
-              <span className="break-words">{currentModel}</span>
+              <span className="whitespace-nowrap">{currentModel}</span>
               {isStreaming && (
                 <span className="ml-1 inline-flex items-center gap-1 text-primary">
                   <span className="h-1.5 w-1.5 animate-pulse rounded-sm bg-primary" />
@@ -451,11 +451,11 @@ export function AISidePanel() {
           </Tooltip>
           {/* 派发 Subagent 按钮(2026-07-22 立,对标 Trae Subagent 派单)
               点击打开 DispatchSubagentDialog,落地 AGENTS.md §11 派单格式 */}
-          <Tooltip content="派发 Subagent">
+          <Tooltip content={tc('dispatchSubagent')}>
             <button
               type="button"
               onClick={() => setDispatchOpen(true)}
-              aria-label="派发 Subagent"
+              aria-label={tc('dispatchSubagent')}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
             >
               <Bot className="h-4 w-4" />
