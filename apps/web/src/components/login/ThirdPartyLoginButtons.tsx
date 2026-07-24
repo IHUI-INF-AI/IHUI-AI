@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 
 import { useThirdPartyAuth, fetchGoogleOAuthConfig } from '@/hooks/use-third-party-auth'
+import { getPlatformConfig } from '@/lib/third-party-config'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import type { ThirdPartyPlatform } from '@/types/third-party'
@@ -48,13 +49,21 @@ function ThirdPartyLoginButtonsInner() {
   const [handlingCallback, setHandlingCallback] = React.useState(false)
 
   // 探测 Google 后端配置
+  // 容错:fetch 失败(网络/404/超时)时 fallback 到前端 NEXT_PUBLIC_GOOGLE_CLIENT_ID 判断,
+  // 避免后端探测接口不可达就永久禁用按钮(2026-07-24 修:Google 按钮无故变暗反复出现)
   React.useEffect(() => {
     let active = true
+    const fallbackToClientConfig = () => Boolean(getPlatformConfig('google').clientId)
     void fetchGoogleOAuthConfig()
       .then((cfg) => {
-        if (active) setGoogleConfigured(cfg ? cfg.configured : false)
+        if (!active) return
+        if (cfg) {
+          setGoogleConfigured(cfg.configured)
+        } else {
+          setGoogleConfigured(fallbackToClientConfig())
+        }
       })
-      .catch(() => active && setGoogleConfigured(false))
+      .catch(() => active && setGoogleConfigured(fallbackToClientConfig()))
     return () => {
       active = false
     }
