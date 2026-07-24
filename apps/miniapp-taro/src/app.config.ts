@@ -168,9 +168,9 @@ export default defineAppConfig({
     backgroundColor: '#121217',
   },
   tabBar: {
-    // 微信端使用自定义 TabBar(custom-tab-bar/index.tsx)以支持 i18n + 赛博朋克动效
-    // 支付宝端不支持自定义 TabBar,降级为原生 TabBar + 图标(Taro 编译时按平台输出)
-    custom: process.env.TARO_ENV === 'weapp',
+    // Taro 4 Vite 编译不输出 custom-tab-bar(GitHub #17978/#18415),暂用原生 tabBar
+    // 后续改 webpack5 编译器后可恢复 custom: true
+    custom: false,
     color: 'rgba(255,255,255,0.5)',
     selectedColor: '#00f2ff',
     borderStyle: 'white',
