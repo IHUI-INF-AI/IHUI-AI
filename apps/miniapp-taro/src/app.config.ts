@@ -48,6 +48,7 @@ export default defineAppConfig({
     'pages/live/history',
     'pages/live/calendar',
     'pages/live/subscribe',
+    'pages/live/host',
     'pages/teacher/list',
     'pages/teacher/detail',
     'pages/about/index',
