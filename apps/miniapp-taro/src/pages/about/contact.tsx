@@ -4,7 +4,6 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { getContact } from '@/api'
 import { useI18n } from '@/i18n'
-import './contact.css'
 
 interface ContactInfo {
   phone: string
@@ -110,30 +109,30 @@ export default function ContactPage() {
   useDidShow(() => load())
 
   return (
-    <View className="page">
-      <View className="header">
-        <Text className="header-title">{tt('about.contact.title', '联系我们')}</Text>
-        <Text className="header-sub">{tt('about.contact.headerSub', '我们随时为您提供帮助')}</Text>
+    <View className="min-h-screen bg-background pb-[60rpx]">
+      <View className="pt-[60rpx] px-[32rpx] pb-[40rpx] text-center bg-card">
+        <Text className="block text-[36rpx] font-semibold text-foreground">{tt('about.contact.title', '联系我们')}</Text>
+        <Text className="block text-[24rpx] text-muted-foreground mt-[12rpx]">{tt('about.contact.headerSub', '我们随时为您提供帮助')}</Text>
       </View>
 
       {contactItems.length > 0 ? (
-        <View className="card">
+        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
           {contactItems.map((item, idx) => (
             <View
               key={item.key}
-              className={`row${idx === contactItems.length - 1 ? ' last' : ''}`}
+              className={`flex items-center p-[32rpx] active:bg-background${idx > 0 ? ' mt-[16rpx]' : ''}`}
               onClick={() =>
                 item.actionType === 'call'
                   ? call(item.value)
                   : copy(item.value, item.label)
               }
             >
-              <Text className="icon">{item.icon}</Text>
-              <View className="body">
-                <Text className="label">{item.label}</Text>
-                <Text className="value">{item.value}</Text>
+              <Text className="text-[40rpx] flex-shrink-0">{item.icon}</Text>
+              <View className="flex-1 ml-[24rpx] mr-[16rpx]">
+                <Text className="block text-[22rpx] text-muted-foreground">{item.label}</Text>
+                <Text className="block text-[28rpx] text-foreground mt-[4rpx] break-all">{item.value}</Text>
               </View>
-              <Text className="action-text">
+              <Text className="text-[24rpx] text-primary flex-shrink-0">
                 {item.actionType === 'call'
                   ? tt('about.contact.callBtn', '拨打')
                   : tt('about.contact.copyBtn', '复制')}
@@ -144,43 +143,43 @@ export default function ContactPage() {
       ) : null}
 
       {info.address ? (
-        <View className="card">
-          <View className="row last" onClick={() => openLocation(info.address)}>
-            <Text className="icon">📍</Text>
-            <View className="body">
-              <Text className="label">{tt('about.contact.address', '地址')}</Text>
-              <Text className="value">{info.address}</Text>
+        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+          <View className="flex items-center p-[32rpx] active:bg-background" onClick={() => openLocation(info.address)}>
+            <Text className="text-[40rpx] flex-shrink-0">📍</Text>
+            <View className="flex-1 ml-[24rpx] mr-[16rpx]">
+              <Text className="block text-[22rpx] text-muted-foreground">{tt('about.contact.address', '地址')}</Text>
+              <Text className="block text-[28rpx] text-foreground mt-[4rpx] break-all">{info.address}</Text>
             </View>
-            <Text className="action-text">{tt('about.contact.copyBtn', '复制')}</Text>
+            <Text className="text-[24rpx] text-primary flex-shrink-0">{tt('about.contact.copyBtn', '复制')}</Text>
           </View>
         </View>
       ) : null}
 
-      <View className="card">
-        <View className="work-row">
-          <Text className="work-label">{tt('about.contact.workTimeLabel', '工作时间')}</Text>
-          <Text className="work-value">
+      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+        <View className="flex justify-between items-center py-[28rpx] px-[32rpx]">
+          <Text className="text-[28rpx] text-foreground">{tt('about.contact.workTimeLabel', '工作时间')}</Text>
+          <Text className="text-[26rpx] text-muted-foreground text-right">
             {tt('about.contact.workTime', '周一至周五 9:00-18:00')}
           </Text>
         </View>
-        <View className="work-row last">
-          <Text className="work-label">{tt('about.contact.responseLabel', '响应时间')}</Text>
-          <Text className="work-value">
+        <View className="flex justify-between items-center py-[28rpx] px-[32rpx] mt-[16rpx]">
+          <Text className="text-[28rpx] text-foreground">{tt('about.contact.responseLabel', '响应时间')}</Text>
+          <Text className="text-[26rpx] text-muted-foreground text-right">
             {tt('about.contact.responseTime', '工作日内 24 小时内回复')}
           </Text>
         </View>
       </View>
 
       {info.phone ? (
-        <View className="footer">
-          <Button className="call-btn" onClick={() => call(info.phone)}>
+        <View className="pt-[32rpx] px-[24rpx] pb-[16rpx]">
+          <Button className="w-full h-[88rpx] leading-[88rpx] bg-primary text-white text-[30rpx] rounded-[12rpx] m-0 after:border-0" onClick={() => call(info.phone)}>
             {tt('about.contact.callNow', '立即拨打客服')}
           </Button>
         </View>
       ) : null}
 
-      <View className="tips">
-        <Text>{tt('about.contact.footer', '感谢您选择智汇 AI')}</Text>
+      <View className="text-center p-[32rpx]">
+        <Text className="text-[22rpx] text-muted-foreground">{tt('about.contact.footer', '感谢您选择智汇 AI')}</Text>
       </View>
     </View>
   )

@@ -8,6 +8,33 @@
 
 ## 当前活跃任务(2026-07-24)
 
+### [x] ✅(2026-07-24) 登录弹窗自动弹出回归深度根治 — 共享决策中心 + 统一去重 guard(跨端:web)
+
+**触发**:用户反馈"登录弹窗设置了刷新页面不弹出,修了好几遍还是回归"。a0bc9e5c5 修复 cookie 分支后,reauth 分支遗漏导致刷新带 `?reauth=1&next=/` 的公开路径 URL 仍弹窗。
+
+**根因**:
+- `LoginRedirectListener` 的 reauth 分支缺少 `isPublicPath` 检查
+- `isPublicPath` 白名单和 `openGuard` 在 `LoginRedirectListener` / `api.ts` 各维护一份,新增公开页面易漏改
+- 并发触发(reauth + cookie + 401)会弹两次,`api.ts` 401 拦截根本没检查公开路径
+
+**根治方案**(commit `70ccb8a4c`):
+- 新增 `apps/web/src/lib/login-dialog-trigger.ts` 共享决策中心:
+  - `PUBLIC_PATHS` 白名单(单点维护,新增公开页面只改这里)
+  - `isPublicPath()` 路径检查(取 path 部分,忽略 query/hash)
+  - `openLoginDialogOnce()` 模块级 `openGuard` 跨所有触发点共享(防 StrictMode 双调用 + 并发弹窗)
+- `LoginRedirectListener` reauth/cookie 分支统一调用 `openLoginDialogOnce`,公开路径仅清理 URL/cookie 不弹窗;URL 参数始终清理(无论是否弹窗)避免刷新重复触发
+- `api.ts` 401 拦截移除本地 guard,改用 `openLoginDialogOnce`,与 Listener 共享全局 guard
+
+**测试**:
+- 新增 `login-dialog-trigger.test.ts` 18 个用例(白名单/路径检查/去重 guard/SSR 安全)
+- 更新 `LoginRedirectListener.test.tsx` 使用真实共享模块 + mock 底层 store
+
+**防回归机制**:
+1. 新增公开页面只需在 `PUBLIC_PATHS` 一处添加,所有触发点自动生效
+2. `openGuard` 模块级单例,跨触发点共享,并发触发只弹一次
+3. URL 参数始终清理(无论是否弹窗),避免刷新重复触发
+4. 18 个单元测试覆盖关键逻辑
+
 ### [x] ✅(2026-07-24) /goal D 盘旧项目迁移完整性补齐 — 11 项 P0+P1 任务 + 4 模块决策(跨端:api + mobile-rn + miniapp-taro)
 
 **触发**:用户需求"深度比对我电脑d盘里小程序 app端页面所有样式 交互 逻辑 接口 服务 前后端深度分析比对还有哪些没有迁移整合到我们最新的项目里的 必须完全一致 除非我们新项目新增的"。/goal 模式 2 轮并行执行。
