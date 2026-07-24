@@ -4,7 +4,6 @@ import { useState, useCallback, useRef } from 'react'
 import { getCouponList } from '@/api'
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import './coupon.css'
 
 interface Coupon {
   id: string
@@ -98,12 +97,12 @@ export default function CouponPage() {
   usePullDownRefresh(() => load().finally(() => Taro.stopPullDownRefresh()))
 
   return (
-    <View className="page">
-      <View className="tabs">
+    <View className="min-h-screen bg-background pb-[140rpx]">
+      <View className="flex bg-card">
         {TABS.map((tb) => (
           <Text
             key={tb.key}
-            className={`tab${status === tb.key ? ' active' : ''}`}
+            className={`flex-1 text-center text-[26rpx] py-[24rpx] ${status === tb.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
             onClick={() => switchTab(tb.key)}
           >
             {tt(tb.i18nKey, tb.fallback)}
@@ -111,61 +110,74 @@ export default function CouponPage() {
         ))}
       </View>
       {loading ? (
-        <View className="status">
+        <View className="flex flex-col items-center py-[80rpx] text-muted-foreground text-[26rpx]">
           <Text>{t('common.loading')}</Text>
         </View>
       ) : error ? (
-        <View className="status">
+        <View className="flex flex-col items-center py-[80rpx] text-muted-foreground text-[26rpx]">
           <Text>{tt('member.coupon.loadFailed', '加载失败')}</Text>
-          <Text className="retry" onClick={() => load()}>
+          <Text
+            className="mt-[16rpx] px-[32rpx] py-[8rpx] text-[24rpx] text-primary"
+            onClick={() => load()}
+          >
             {t('common.retry')}
           </Text>
         </View>
       ) : shown.length ? (
-        <View className="list">
+        <View className="p-[24rpx]">
           {shown.map((c) => (
-            <View key={c.id} className={`coupon${c.status !== 'unused' ? ' disabled' : ''}`}>
-              <View className="coupon-left">
-                <View className="c-amt-row">
-                  <Text className="c-amt">{c.amount}</Text>
-                  <Text className="c-unit">{tt('member.coupon.unit', '元')}</Text>
+            <View
+              key={c.id}
+              className={`flex bg-card rounded-[16rpx] overflow-hidden mb-[24rpx] ${c.status !== 'unused' ? 'opacity-50' : ''}`}
+            >
+              <View
+                className={`w-[200rpx] flex flex-col items-center justify-center py-[24rpx] ${c.status !== 'unused' ? 'bg-muted text-muted-foreground' : 'bg-primary text-primary-foreground'}`}
+              >
+                <View className="flex items-baseline">
+                  <Text className="text-[56rpx] font-bold">{c.amount}</Text>
+                  <Text className="text-[24rpx] ml-[8rpx]">{tt('member.coupon.unit', '元')}</Text>
                 </View>
-                <Text className="c-thres">
-                  {tt('member.coupon.thresholdText', '满{threshold}可用', { threshold: c.threshold })}
+                <Text className="block mt-[8rpx] text-[20rpx] opacity-90">
+                  {tt('member.coupon.thresholdText', '满{threshold}可用', {
+                    threshold: c.threshold,
+                  })}
                 </Text>
               </View>
-              <View className="coupon-right">
-                <Text className="c-title">{c.title}</Text>
-                <Text className="c-time">
+              <View className="flex-1 p-[24rpx] flex flex-col justify-between">
+                <Text className="block text-[28rpx] text-foreground font-semibold">{c.title}</Text>
+                <Text className="block mt-[12rpx] text-[22rpx] text-muted-foreground">
                   {tt('member.coupon.expireText', '有效期至 {time}', { time: c.expireTime })}
                 </Text>
                 {c.status === 'unused' ? (
-                  <Button className="c-btn" onClick={useCoupon}>
+                  <Button
+                    className="self-end mt-[16rpx] text-[24rpx] text-primary-foreground bg-primary rounded-[28rpx] px-[28rpx] leading-[56rpx]"
+                    onClick={useCoupon}
+                  >
                     {tt('member.coupon.use', '立即使用')}
                   </Button>
                 ) : (
-                  <Text className="c-status">
-                    {tt(
-                      `member.coupon.${c.status}`,
-                      c.status === 'used' ? '已使用' : '已过期',
-                    )}
+                  <Text className="self-end mt-[16rpx] text-[22rpx] text-muted-foreground">
+                    {tt(`member.coupon.${c.status}`, c.status === 'used' ? '已使用' : '已过期')}
                   </Text>
                 )}
               </View>
             </View>
           ))}
           {hasMoreRef.current ? (
-            <View className="load-more">
+            <View className="text-center py-[24rpx] text-[22rpx] text-muted-foreground">
               <Text>{tt('member.coupon.loadMore', '上拉加载更多')}</Text>
             </View>
           ) : null}
         </View>
       ) : (
-        <View className="empty">
+        <View className="text-center py-[120rpx] text-muted-foreground text-[26rpx]">
           <Text>{tt('member.coupon.empty', '暂无优惠券')}</Text>
         </View>
       )}
-      <Button className="btn" onClick={goList}>
+      <Button
+        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-primary text-primary-foreground rounded-[40rpx] text-[28rpx]"
+        onClick={goList}
+      >
         {tt('member.coupon.couponCenter', '领券中心')}
       </Button>
     </View>
