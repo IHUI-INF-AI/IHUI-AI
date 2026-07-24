@@ -4,7 +4,6 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { getAbout } from '@/api'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 interface AboutInfo {
   name: string
@@ -86,30 +85,30 @@ export default function AboutIndexPage() {
   useDidShow(() => load())
 
   return (
-    <View className="page">
+    <View className="min-h-screen bg-background pb-[60rpx]">
       {info.name ? (
-        <View className="logo-box">
-          <Image className="logo" src={info.logo || '/static/logo.png'} mode="aspectFit" />
-          <Text className="name">{info.name}</Text>
-          <Text className="version">{t('about.version', { version: info.version })}</Text>
+        <View className="pt-[80rpx] pb-[60rpx] text-center bg-card">
+          <Image className="w-[160rpx] h-[160rpx]" src={info.logo || '/static/logo.png'} mode="aspectFit" />
+          <Text className="block text-[32rpx] text-foreground font-semibold mt-[24rpx]">{info.name}</Text>
+          <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx]">{t('about.version', { version: info.version })}</Text>
         </View>
       ) : null}
 
-      <View className="card">
-        <Text className="intro">{info.intro || tt('about.introFallback', '智汇 AI 致力于打造一站式 AI 服务平台')}</Text>
+      <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
+        <Text className="text-[26rpx] text-muted-foreground leading-[1.8]">{info.intro || tt('about.introFallback', '智汇 AI 致力于打造一站式 AI 服务平台')}</Text>
       </View>
 
-      <View className="menu">
-        {menus.map((m) => (
-          <View key={m.key} className="menu-item" onClick={() => navigate(m.url)}>
-            <Text className="menu-label">{m.label}</Text>
-            <Text className="arrow">›</Text>
+      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+        {menus.map((m, idx) => (
+          <View key={m.key} className={`flex justify-between items-center p-[32rpx]${idx > 0 ? ' mt-[16rpx]' : ''}`} onClick={() => navigate(m.url)}>
+            <Text className="text-[28rpx] text-foreground">{m.label}</Text>
+            <Text className="text-[32rpx] text-muted-foreground">›</Text>
           </View>
         ))}
       </View>
 
-      <View className="footer">
-        <Text className="footer-text">
+      <View className="text-center pt-[40rpx] px-[24rpx] pb-[20rpx]">
+        <Text className="text-[22rpx] text-muted-foreground">
           {tt('about.copyright', '© 2026 智汇 AI. 保留所有权利')}
         </Text>
       </View>

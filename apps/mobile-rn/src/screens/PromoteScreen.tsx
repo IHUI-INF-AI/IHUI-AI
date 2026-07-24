@@ -1,14 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  ActivityIndicator,
-  Alert,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
@@ -16,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Loading } from '@ihui/ui-native'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface PromoteInfo {
@@ -100,7 +92,7 @@ export function PromoteScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <Loading />
         <Text style={styles.emptyText}>{t('common.loading')}</Text>
       </View>
     )
