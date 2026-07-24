@@ -2203,6 +2203,17 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **跨端类型契约(packages/types)**:`packages/types/src/registry.ts` 28 类型(RegistryItem / RegistrySyncLog / RegistryWebhookTriggerRecord / InstallRegistryItemResponse / UpgradeAllResponse / ConfigDriftDetectResponse 等)
 - **环境变量**:`GITHUB_TOKEN`(GitHub API 提速,避免 60 req/h 速率限制)+ `IHUI_CUSTOM_REGISTRY_URL`(自建 registry URL),均配置在 `.env` 不泄露
 - **验证**:CLI typecheck 全绿 + API 本任务文件 0 错(其余 mysql2/argon2/sso-core 报错均为其他 agent 文件按 §12 不阻塞)+ Web 本任务文件 0 错(其余 tool-call-card/tauri-bridge 报错均为其他 agent 文件)+ Worker 注册到 workers/index.ts 第 5 个 + CLI 子命令注册到 registry-index.ts
+- **深度完善(2026-07-24,10 缺口根治,3 subagent 并行)**:
+  - Worker 幂等 + 重试去重:lockDuration=60s + maxStalledCount=1 + payload_hash 变更检测(非 force 时 oldVersion===raw.version 计 skipped)
+  - sync_log oldVersion 聚合:upsertRegistryItem 返回 oldVersion,worker 收集版本变化写入 sync_log
+  - GitHub 适配器分页:fetchPlugins 分 3 页拉取(共 300 条)+ README 分批并发(每批 10 个,避免 rate limit)
+  - npm 适配器 installCount:fetchWeeklyDownloads + fetchDownloadsBatched(每批 5 个),填入 meta.downloads
+  - MCP marketplace 适配器错误区分:fetchFromMarket 返回 {items, error},全源失败抛错/部分失败 console.warn
+  - 前端 installedIds 链路:listRegistryItems(query, userId?) + 路由层透传 request.userId + 前端已正确消费
+  - registry_items payload_hash 列:schema 加 varchar(64) 列 + 索引 + migration SQL(`20260724180000_registry_items_payload_hash.sql`)+ upsert 时写入
+  - TTL 清理函数:cleanupOldWebhookTriggers(daysToKeep=30) + cleanupOldSyncLogs(daysToKeep=90)
+  - Worker 优雅关闭 + 指标统计:RegistryWorkerStats 接口 + completed/failed 计数 + SIGTERM/SIGINT 优雅关闭
+  - 验证:API typecheck 本任务文件 0 错 + Web typecheck 本任务文件 0 错 + database build 全绿
 
 ### 进行中
 
