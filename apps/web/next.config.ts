@@ -138,14 +138,25 @@ const nextConfig: NextConfig = {
         key: 'Content-Security-Policy',
         value: [
           "default-src 'self'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+          // 2026-07-25 修复扫码登录 SDK 加载失败:补全 4 家厂商 CDN 域名白名单
+          // - res.wx.qq.com:微信 WxLogin.js
+          // - wwcdn.weixin.qq.com:企业微信 wwLogin-1.2.7.js
+          // - g.alicdn.com:钉钉 h5-dingtalk-login 0.21.0
+          // - lf-package-cn.feishucdn.com:飞书 LarkSSOSDKWebQRCode-1.0.3.js
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://res.wx.qq.com https://wwcdn.weixin.qq.com https://g.alicdn.com https://lf-package-cn.feishucdn.com",
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: blob: https:",
           "font-src 'self' data:",
           "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:*",
           "media-src 'self' blob:",
           "object-src 'none'",
-          "frame-src 'none'",
+          // 2026-07-25 修复扫码登录 iframe 拦截:SDK 内部创建 iframe 渲染二维码
+          // - open.weixin.qq.com:微信扫码确认 iframe
+          // - open.work.weixin.qq.com:企业微信 qrConnect iframe
+          // - login.dingtalk.com:钉钉 OAuth iframe
+          // - passport.feishu.cn:飞书 QR iframe
+          // - self:Next.js dev HMR / React DevTools 需要
+          "frame-src 'self' https://open.weixin.qq.com https://open.work.weixin.qq.com https://login.dingtalk.com https://passport.feishu.cn",
           "base-uri 'self'",
           "form-action 'self'",
         ].join('; '),
