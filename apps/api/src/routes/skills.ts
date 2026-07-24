@@ -24,7 +24,7 @@ import type {
   SkillPublishRequest,
   SkillSubscriptionResponse,
   SkillNotification,
-} from '@ihui/shared'
+} from '@ihui/shared/skills/market'
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
