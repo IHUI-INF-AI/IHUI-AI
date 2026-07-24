@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { cn } from '../lib/utils.js'
+import { cn } from '../lib/utils'
 
 /**
  * 可拖拽调整大小的手柄(通用组件)。
