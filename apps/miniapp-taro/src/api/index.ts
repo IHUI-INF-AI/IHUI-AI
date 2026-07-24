@@ -11,8 +11,15 @@ import type {
   WalletBalance,
   VipLevel,
   SignContractResponse,
-  SubscriptionStatus,
 } from '@ihui/api-client'
+import {
+  signRecurringContract as _signRecurringContract,
+  listRecurringContracts as _listRecurringContracts,
+  getRecurringContract as _getRecurringContract,
+  cancelRecurringContract as _cancelRecurringContract,
+  getSubscriptionStatus as _getSubscriptionStatus,
+} from '@ihui/api-client'
+import { unwrapApi } from '../utils/api-bridge'
 export type { UserInfo }
 export { get, post } from '../utils/request'
 // 类型单一来源:LlmModel / FetchModelsResult / AgentPermission / AgentPermissionType / WalletBalance / VipLevel / SignContractResponse 复用 @ihui/api-client,本地 re-export 保持外部引用不变
@@ -25,6 +32,7 @@ export type {
   VipLevel,
   SignContractResponse,
   SubscriptionStatus,
+  WechatPayContract,
 } from '@ihui/api-client'
 // 向后兼容别名:SignContractResult → SignContractResponse(api-client canonical 名)
 export type SignContractResult = SignContractResponse
@@ -1324,40 +1332,20 @@ export const getGroupList = (params: ApiParams) => get('/rankings/group-list', p
 /** 更新标记 */
 export const updateMark = (data: unknown) => put('/user/update-mark', data)
 
-/* ============ 连续包月/自动续费 ============= */
-export interface WechatPayContract {
-  id: string
-  contractId: string
-  planId?: string
-  productId?: string
-  status: 'pending' | 'active' | 'cancelled' | 'expired'
-  wechatPlanId?: string
-  nextChargeTime?: string
-  lastChargeTime?: string
-  lastChargeStatus?: 'success' | 'failed' | 'pending'
-  signedAt?: string
-  cancelledAt?: string
-  trialEndAt?: string
-  createdAt: string
-  updatedAt: string
-}
+/* ============ 连续包月/自动续费(已迁移到 @ihui/api-client 共享端点) ============= */
+// WechatPayContract 类型已 re-export 自 @ihui/api-client(见文件顶部)
 
 export const signRecurringContract = (params: {
   planId: string
   productId?: string
   openid?: string
-}) => post<SignContractResult>('/payments/recurring/sign', params)
+}) => unwrapApi(_signRecurringContract(params))
 
-export const listRecurringContracts = () =>
-  get<{ list: WechatPayContract[] }>('/payments/recurring/contracts')
+export const listRecurringContracts = () => unwrapApi(_listRecurringContracts())
 
-export const getRecurringContract = (id: string) =>
-  get<{ contract: WechatPayContract }>(`/payments/recurring/contracts/${encodeURIComponent(id)}`)
+export const getRecurringContract = (id: string | number) => unwrapApi(_getRecurringContract(id))
 
-export const cancelRecurringContract = (id: string, reason?: string) =>
-  post<{ cancelled: boolean }>(
-    `/payments/recurring/contracts/${encodeURIComponent(id)}/cancel`,
-    reason ? { reason } : {},
-  )
+export const cancelRecurringContract = (id: string | number, reason?: string) =>
+  unwrapApi(_cancelRecurringContract(id, reason))
 
-export const getSubscriptionStatus = () => get<SubscriptionStatus>('/payments/subscription/status')
+export const getSubscriptionStatus = () => unwrapApi(_getSubscriptionStatus())
