@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { ChevronRight, Loader2, Check, AlertCircle, ExternalLink } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { InlineDiffCard } from './inline-diff-card'
@@ -143,6 +143,7 @@ export function ToolCallCard({
   diffInfo: diffInfoProp,
   applyStatus,
   applyError,
+  repeated,
   onApply,
   onReject,
 }: ToolCallCardProps) {
@@ -192,6 +193,14 @@ export function ToolCallCard({
           {iteration !== undefined && iteration > 1 && (
             <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
               第{iteration}轮
+            </span>
+          )}
+          {repeated && (
+            <span
+              aria-label="LLM 试图重复调用同参数工具,被去重机制跳过"
+              className="shrink-0 rounded-sm border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+            >
+              已跳过
             </span>
           )}
           {duration !== undefined && (
