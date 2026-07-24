@@ -121,13 +121,12 @@ export const menuRoutes: FastifyPluginAsync = async (s) => {
     return reply.send(success({ menu }))
   })
 
-  // PUT /sys/menu/:menuId/audit - 菜单审核(更新 status 字段)
-  // 注:路径用 /sys/menu(非 /sys-menu)匹配前端 menu-permission 页面调用
+  // PUT /sys-menu/:menuId/audit - 菜单审核(更新 status 字段)
   const menuAuditSchema = z.object({
     status: z.string().min(1),
     reason: z.string().optional(),
   })
-  s.put('/sys/menu/:menuId/audit', async (request, reply) => {
+  s.put('/:menuId/audit', async (request, reply) => {
     const { menuId } = z.object({ menuId: z.string().uuid() }).parse(request.params)
     const parsed = menuAuditSchema.safeParse(request.body)
     if (!parsed.success) {
