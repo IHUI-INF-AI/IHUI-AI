@@ -31,22 +31,6 @@
       "types": "./src/context/*.ts",
       "import": "./src/context/*.ts"
     },
-    "./memory": {
-      "types": "./src/memory/index.ts",
-      "import": "./src/memory/index.ts"
-    },
-    "./memory/*": {
-      "types": "./src/memory/*.ts",
-      "import": "./src/memory/*.ts"
-    },
-    "./notifications": {
-      "types": "./src/notifications/index.ts",
-      "import": "./src/notifications/index.ts"
-    },
-    "./notifications/*": {
-      "types": "./src/notifications/*.ts",
-      "import": "./src/notifications/*.ts"
-    },
     "./plan": {
       "types": "./src/plan/index.ts",
       "import": "./src/plan/index.ts"
@@ -58,6 +42,14 @@
     "./plan/*": {
       "types": "./src/plan/*.ts",
       "import": "./src/plan/*.ts"
+    },
+    "./notifications": {
+      "types": "./src/notifications/index.ts",
+      "import": "./src/notifications/index.ts"
+    },
+    "./notifications/*": {
+      "types": "./src/notifications/*.ts",
+      "import": "./src/notifications/*.ts"
     },
     "./spec": {
       "types": "./src/spec/index.ts",
