@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { HelpCircle, Loader2, MessageSquare, Eye, CheckCircle2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { AskItem } from './types'
 

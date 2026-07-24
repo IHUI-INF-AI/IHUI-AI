@@ -7,7 +7,7 @@ import { Loader2, ArrowLeft, Images } from 'lucide-react'
 import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 
 interface GalleryItem {
   id: string

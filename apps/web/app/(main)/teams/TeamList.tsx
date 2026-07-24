@@ -11,7 +11,7 @@ import {
   CardDescription,
   CardContent,
   CardFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import { formatDate } from '@/lib/date-utils'
 import type { TeamItem } from './types'

@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { Button, Input, Label, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui'
+import { Button, Input, Label, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { PasswordInput, PasswordStrengthIndicator } from '@/components/login'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 

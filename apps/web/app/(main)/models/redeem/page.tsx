@@ -1,7 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import { CheckCircle2, Gift, Ticket } from 'lucide-react'
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
 
 export default async function RedeemPage() {
   const t = await getTranslations('models')

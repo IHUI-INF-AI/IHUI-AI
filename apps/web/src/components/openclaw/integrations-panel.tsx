@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import {
   listChannels,
   listSupportedChannels,

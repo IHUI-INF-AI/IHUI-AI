@@ -17,7 +17,7 @@ import {
   SelectItem,
   SelectValue,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import type { Paper, PaperForm } from './types'
 import { ExamDialogFields } from './ExamDialogFields'

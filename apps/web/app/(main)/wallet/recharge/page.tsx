@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import { Button, Input, Label, Card, CardContent, CardHeader, CardTitle, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 
 const rechargeSchema = z.object({
   amount: z.coerce.number().int().min(1, 'wallet.rechargeAmount'),

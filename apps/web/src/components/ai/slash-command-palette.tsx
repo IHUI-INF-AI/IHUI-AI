@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Dialog, DialogContent, Input } from '@ihui/ui'
+import { Dialog, DialogContent, Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface Command {

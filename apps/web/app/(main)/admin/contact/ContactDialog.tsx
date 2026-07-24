@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { RichTextEditor } from '@/components/editor/RichTextEditor'
 import { FIELDS } from './helpers'
 import type { ContactItem } from './types'

@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Menu as MenuIcon, Plus } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { MenuFilter } from './MenuFilter'
 import { MenuTable } from './MenuTable'

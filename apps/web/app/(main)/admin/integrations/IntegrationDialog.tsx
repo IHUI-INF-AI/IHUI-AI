@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { PROVIDERS, selectClass, textareaClass } from './helpers'
 import type { Integration, IntegrationForm, Provider } from './types'
 

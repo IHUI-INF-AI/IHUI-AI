@@ -3,7 +3,7 @@ import { getTranslations } from 'next-intl/server'
 import { ShieldAlert } from 'lucide-react'
 
 import { NotFound } from '@/components/common/NotFound'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 export default async function ForbiddenPage() {
   const t = await getTranslations('forbidden')

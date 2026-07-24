@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Cpu, Database, HardDrive, Zap, Trash2, Server, Target, Loader2 } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { StatCard } from '@/components/data'
 import { cn } from '@/lib/utils'

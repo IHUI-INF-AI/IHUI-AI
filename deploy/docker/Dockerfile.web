@@ -36,7 +36,7 @@ ENV NODE_OPTIONS=--max-old-space-size=8192
 # 清理可能残留的 .tsbuildinfo(2026-07-20 修复:避免 tsc 增量编译跳过文件,
 # 导致 @ihui/api-client/dist/endpoints 等产物缺失,引发 next build 模块解析失败)
 RUN find packages apps -name "*.tsbuildinfo" -type f -delete 2>/dev/null || true
-# --filter @ihui/web... :先 build @ihui/web 的所有 workspace 依赖(@ihui/ui / @ihui/ui-primitives / @ihui/api-client 等),再 build web
+# --filter @ihui/web... :先 build @ihui/web 的所有 workspace 依赖(@ihui/ui-react / @ihui/design-tokens / @ihui/api-client 等),再 build web
 RUN pnpm --filter @ihui/web... run build
 
 # A 套壳架构(2026-07-24):output:'export' 静态导出,nginx 提供静态文件 + API 反向代理

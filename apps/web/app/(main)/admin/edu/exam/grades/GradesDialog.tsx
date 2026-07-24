@@ -11,7 +11,7 @@ import {
   Button,
   Input,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { selectClass } from '@/lib/edu'
 import { cn } from '@/lib/utils'
 import type { Question } from './types'

@@ -1,6 +1,6 @@
-import type { ComponentProps, ReactNode } from 'react'
+﻿import type { ComponentProps, ReactNode } from 'react'
 import { Modal, Pressable, Text, View } from 'react-native'
-import { cn } from '@ihui/ui-primitives'
+import { cn } from '@ihui/design-tokens'
 
 export interface DialogProps {
   visible: boolean

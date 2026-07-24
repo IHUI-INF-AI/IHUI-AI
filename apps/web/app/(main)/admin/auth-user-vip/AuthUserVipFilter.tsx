@@ -2,7 +2,7 @@
 
 import { Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Input, Label } from '@ihui/ui'
+import { Button, Input, Label } from '@ihui/ui-react'
 import type { AuthUserVipSearch } from './types'
 
 interface Props {

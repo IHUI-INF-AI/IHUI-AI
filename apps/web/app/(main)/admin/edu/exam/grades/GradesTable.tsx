@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Loader2, ClipboardList, CheckCircle2 } from 'lucide-react'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import type { MarkRecord } from './types'
 

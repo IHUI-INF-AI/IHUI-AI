@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'
 

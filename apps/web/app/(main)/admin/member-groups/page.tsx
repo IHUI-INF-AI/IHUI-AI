@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { PAGE_SIZE, selectClass, EMPTY_FORM, api, fetchGroups, groupToForm } from './helpers'
 import { MemberGroupDialog } from './MemberGroupDialog'
 import { MemberGroupsTable } from './MemberGroupsTable'

@@ -14,7 +14,7 @@ import {
   Button,
   Input,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import { useZodForm } from '@/hooks/use-zod-form'
 import { tagSchema, type TagFormValues } from '@/lib/form-schemas/tag'

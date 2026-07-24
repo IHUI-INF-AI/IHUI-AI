@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Terminal, Loader2 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { ResponseState } from './types'
 

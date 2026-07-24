@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Loader2, ChevronRight } from 'lucide-react'
-import { Badge, cn } from '@ihui/ui'
+import { Badge, cn } from '@ihui/ui-react'
 import type { AgentSession } from '@/hooks/use-agent-runtime'
 
 interface Props {

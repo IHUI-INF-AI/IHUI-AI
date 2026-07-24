@@ -8,7 +8,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
   LogViewer,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 export interface CollapsibleOutputProps {

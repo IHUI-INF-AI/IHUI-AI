@@ -7,7 +7,7 @@ import { Info, Plus, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { AboutUsFilter } from './AboutUsFilter'
 import { AboutUsTable } from './AboutUsTable'

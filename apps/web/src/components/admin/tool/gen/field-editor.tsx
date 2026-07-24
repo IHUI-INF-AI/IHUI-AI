@@ -13,7 +13,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { Plus, Trash2 } from 'lucide-react'
 import type { GenField, GenType, GenTypeMeta } from '@ihui/api-client'
 

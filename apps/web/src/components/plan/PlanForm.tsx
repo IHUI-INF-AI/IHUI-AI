@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react'
-import { Button, Input, Label } from '@ihui/ui'
+import { Button, Input, Label } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { PlanStepStatus, PlanPriority } from '@ihui/shared/plan/index'
 import { PLAN_STEP_STATUS_OPTIONS, PLAN_PRIORITY_OPTIONS } from '@ihui/shared/plan/index'

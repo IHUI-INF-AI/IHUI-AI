@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { AlertTriangle, Send, Loader2, CheckCircle2 } from 'lucide-react'
 
-import { Card, CardHeader, CardTitle, CardContent, Button, Switch } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, Button, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { Input } from '@/components/form'
 import { Container } from '@/components/layout'

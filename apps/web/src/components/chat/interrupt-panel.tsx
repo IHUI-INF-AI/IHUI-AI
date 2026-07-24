@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useCallback, useState } from 'react'
 import { PauseCircle, Play, RotateCcw, X, History as HistoryIcon } from 'lucide-react'
-import { Button, Card, Input } from '@ihui/ui'
+import { Button, Card, Input } from '@ihui/ui-react'
 import type { SSEEvent, HistoryEntry, InterruptEvent } from '@ihui/types'
 import { resumeExecution, getThreadHistory } from '@/api/langgraph-api'
 

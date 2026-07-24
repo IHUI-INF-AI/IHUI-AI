@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Plus, Tag } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { CategoryFilter } from './CategoryFilter'
 import { CategoryTable } from './CategoryTable'
 import { CategoryDialog } from './CategoryDialog'

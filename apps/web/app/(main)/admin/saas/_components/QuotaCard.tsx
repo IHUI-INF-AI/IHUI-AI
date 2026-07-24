@@ -7,7 +7,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Activity, Database as DatabaseIcon, Gauge, Info } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 import { Skeleton } from '@/components/common'
 import { useCustomerQuotaQuery } from '@/hooks/use-saas-tenants'

@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Mail, MessageSquare, Bell, Volume2, Loader2 } from 'lucide-react'
 
-import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
 import { fetchApi } from '@/lib/api'
 import { useNotification } from '@/hooks/use-notification'

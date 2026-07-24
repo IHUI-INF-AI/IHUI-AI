@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Activity, CheckCircle2, XCircle, Layers } from 'lucide-react'
-import { Card } from '@ihui/ui'
+import { Card } from '@ihui/ui-react'
 import type { SubagentGlobalStats } from '@ihui/shared/subagents/index'
 
 interface StatsCardsProps {

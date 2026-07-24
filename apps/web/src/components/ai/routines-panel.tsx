@@ -2,7 +2,7 @@
 
 import { Clock, Play, Calendar } from 'lucide-react'
 
-import { Button, Switch } from '@ihui/ui'
+import { Button, Switch } from '@ihui/ui-react'
 
 interface RoutineItem {
   id: string

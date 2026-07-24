@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { BarChart3, Loader2, Clock, BookOpen, Award, TrendingUp } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert, Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 

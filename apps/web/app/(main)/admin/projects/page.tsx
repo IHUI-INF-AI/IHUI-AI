@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import { ProjectTable } from './ProjectTable'
 import { ProjectDialog } from './ProjectDialog'

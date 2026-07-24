@@ -2,7 +2,7 @@
 
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Edit, Trash2 } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { TYPE_DOT, LEVEL_BADGE } from './helpers'
 import type { SystemEvent } from './types'

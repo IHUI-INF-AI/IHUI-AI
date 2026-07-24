@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { CertTemplateFilter } from './CertTemplateFilter'
 import { CertTemplateTable } from './CertTemplateTable'

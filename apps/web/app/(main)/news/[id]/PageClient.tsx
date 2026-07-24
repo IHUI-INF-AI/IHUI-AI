@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl'
 import { ArrowLeft, ChevronRight, Loader2, Eye, Bookmark, Heart, MessageSquare } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { Badge } from '@/components/data'
 import { SafeHtml } from '@/components/common'
 import { Breadcrumb } from '@/components/layout'

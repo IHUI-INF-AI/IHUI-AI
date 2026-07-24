@@ -10,7 +10,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { inputCls } from './helpers'
 import type { SearchState } from './types'
 

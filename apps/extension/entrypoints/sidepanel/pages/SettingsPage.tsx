@@ -1,5 +1,5 @@
 import { useOutletContext } from 'react-router-dom'
-import { Card, CardContent, CardHeader, CardTitle, Switch } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle, Switch } from '@ihui/ui-react'
 import { useState } from 'react'
 import { useI18n, type Locale } from '../../../src/i18n'
 

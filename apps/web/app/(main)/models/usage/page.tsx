@@ -1,7 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import { BarChart3, Clock, DollarSign, Zap } from 'lucide-react'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 export default async function UsagePage() {
   const t = await getTranslations('models')

@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState, type CSSProperties } from 'react'
 import { executeAgentRuntimeStream } from '@ihui/api-client'
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 
 type AgentStatus = 'idle' | 'running' | 'completed' | 'failed'

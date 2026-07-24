@@ -1,7 +1,7 @@
-import type { ComponentProps, ReactNode } from 'react'
+﻿import type { ComponentProps, ReactNode } from 'react'
 import { ActivityIndicator, Pressable, Text } from 'react-native'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { cn } from '@ihui/ui-primitives'
+import { cn } from '@ihui/design-tokens'
 
 export const buttonVariants = cva('flex flex-row items-center justify-center rounded-md', {
   variants: {

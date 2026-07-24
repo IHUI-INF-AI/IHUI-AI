@@ -21,7 +21,7 @@ import {
   DialogTitle,
   DialogFooter,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { cn } from '@/lib/utils'
 import { api, STATUS_CLASS } from '../helpers'

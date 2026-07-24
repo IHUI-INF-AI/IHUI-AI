@@ -5,7 +5,7 @@ import { RotateCcw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
-import { Button, Input, Label } from '@ihui/ui'
+import { Button, Input, Label } from '@ihui/ui-react'
 import { TYPE_TABS, STATUS_TABS, inputSm } from './helpers'
 import type { SearchState } from './types'
 

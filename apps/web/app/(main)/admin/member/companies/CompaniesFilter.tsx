@@ -11,7 +11,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 interface CompaniesFilterProps {
   search: string

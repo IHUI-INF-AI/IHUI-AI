@@ -14,7 +14,7 @@ import {
   Input,
   Label,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { CategoryForm } from './types'
 
 interface CategoryDialogProps {

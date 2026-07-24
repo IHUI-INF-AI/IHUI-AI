@@ -1,7 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { Input, Button } from '@ihui/ui'
+import { Input, Button } from '@ihui/ui-react'
 import type { Search } from './types'
 
 interface Props {

@@ -6,7 +6,7 @@ import { Loader2, Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, Input } from '@ihui/ui'
+import { Card, CardContent, Input } from '@ihui/ui-react'
 import {
   FeatureCenterHeader,
   FeatureCenterNav,

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Search } from 'lucide-react'
-import { Button, Input, Label } from '@ihui/ui'
+import { Button, Input, Label } from '@ihui/ui-react'
 import { SEARCH_FIELDS } from './helpers'
 import type { FormState } from './types'
 

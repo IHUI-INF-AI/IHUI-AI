@@ -7,7 +7,7 @@ import { AlertCircle, ArrowLeft, Loader2, ChevronDown, ChevronRight } from 'luci
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 
 interface MissingKey {
   key: string

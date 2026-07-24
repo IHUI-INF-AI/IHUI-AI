@@ -7,7 +7,7 @@ import {
   type Agent,
   type AgentPermission,
 } from '@ihui/api-client'
-import { Card, CardContent, CardHeader, CardTitle, VipBadge } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle, VipBadge } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import AgentRuntimePanel from '../components/AgentRuntimePanel'
 

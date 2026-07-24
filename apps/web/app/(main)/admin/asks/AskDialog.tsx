@@ -18,7 +18,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { selectClass, textareaClass } from './helpers'
 import { useZodForm } from '@/hooks/use-zod-form'
 import { askSchema, type AskFormValues } from '@/lib/form-schemas/ask'

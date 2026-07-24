@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { PERM_LABELS } from './PermissionSelector'
 import { IDLE_CONFIRM, type ApiKeyInfo, type ConfirmState } from './types'

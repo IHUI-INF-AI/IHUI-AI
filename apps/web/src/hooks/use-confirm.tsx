@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui'
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui-react'
 
 interface ConfirmState {
   open: boolean

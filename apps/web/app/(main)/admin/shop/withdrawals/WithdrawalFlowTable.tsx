@@ -22,7 +22,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 import { selectClass, inputSm, FLOW_STATUS, FLOW_STATUS_STYLE, FLOW_EXPORT } from './types'

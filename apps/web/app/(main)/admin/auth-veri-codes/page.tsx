@@ -8,7 +8,7 @@ import { Plus, Download, KeyRound } from 'lucide-react'
 
 import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { AuthVeriCodeFilter } from './AuthVeriCodeFilter'
 import { AuthVeriCodeTable } from './AuthVeriCodeTable'

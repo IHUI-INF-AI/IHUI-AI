@@ -18,7 +18,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { TYPES } from './helpers'
 import type { QForm, QType, Question } from './types'
 

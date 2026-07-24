@@ -7,7 +7,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import ReactMarkdown from 'react-markdown'
 import { Loader2, ArrowLeft, ArrowRight, Megaphone, CheckCheck } from 'lucide-react'
 
-import { Card, CardContent, Button } from '@ihui/ui'
+import { Card, CardContent, Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import {
 
