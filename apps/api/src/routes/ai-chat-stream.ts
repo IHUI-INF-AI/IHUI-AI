@@ -29,6 +29,10 @@ const chatStreamSchema = z.object({
    *  传入工具名列表后,ai-service 走 tool loop(complete→tool_calls→execute→astream)。
    *  如 ["browser_screenshot", "computer_mouse_click"] */
   agentTools: z.array(z.string()).max(100).optional(),
+  /** Plan/Act 模式(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
+   * plan=只制定计划不执行工具(后端注入 Plan Mode system prompt),act=正常执行(默认)
+   * 前端 extraBody 传 plan_mode(snake_case),透传到 ai-service /api/llm/complete/stream */
+  plan_mode: z.string().optional(),
   metadata: z
     .object({
       conversationId: z.string().optional(),
@@ -63,6 +67,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       workspacePath?: string
       contextLimit?: number
       agentTools?: string[]
+      planMode?: string
       metadata?: { conversationId?: string; userId?: string; messageId?: string }
     },
     extraFirstEvents: Array<{ key: string; payload: unknown }> = [],
@@ -110,6 +115,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           workspacePath: opts.workspacePath,
           contextLimit: opts.contextLimit ?? 0,
           agentTools: opts.agentTools,
+          plan_mode: opts.planMode,
           metadata: mergedMetadata,
         }),
         signal: controller.signal,
@@ -139,11 +145,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         while ((nl = streamBuffer.indexOf('\n')) !== -1) {
           const line = streamBuffer.slice(0, nl).replace(/\r$/, '')
           streamBuffer = streamBuffer.slice(nl + 1)
-          if (
-            opts.agentId &&
-            line.startsWith('data:') &&
-            !line.startsWith('data: [DONE]')
-          ) {
+          if (opts.agentId && line.startsWith('data:') && !line.startsWith('data: [DONE]')) {
             const data = line.slice(5).replace(/^\s/, '')
             // 仅对 JSON 对象注入;Vercel AI SDK `0:"..."` / 纯文本透传
             if (data && data !== '[DONE]' && data.startsWith('{')) {
@@ -189,6 +191,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       workspacePath,
       contextLimit,
       agentTools,
+      plan_mode: planMode,
       metadata,
     } = parsed.data
     const resolvedModel = model ?? modelId
@@ -234,6 +237,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         workspacePath,
         contextLimit,
         agentTools,
+        planMode,
         metadata,
       },
       extraFirstEvents,
@@ -263,6 +267,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       workspacePath,
       contextLimit,
       agentTools,
+      plan_mode: planMode,
       metadata,
       questionId,
       answer,
@@ -366,6 +371,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         workspacePath,
         contextLimit,
         agentTools,
+        planMode,
         metadata,
       },
       extraFirstEvents,
@@ -387,7 +393,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     conversationId: z.string().min(1),
     questionId: z.string().min(1),
     prompt: z.string().min(1),
-    options: z.array(z.object({ id: z.string(), label: z.string() })).max(100).default([]),
+    options: z
+      .array(z.object({ id: z.string(), label: z.string() }))
+      .max(100)
+      .default([]),
     allowCustom: z.boolean().default(false),
     allowMultiple: z.boolean().default(false),
   })

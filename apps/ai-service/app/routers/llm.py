@@ -86,6 +86,37 @@ def _inject_workspace_memory(
     return new_messages
 
 
+# Plan/Act 模式引导 prompt(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
+# plan 模式:LLM 只制定计划不调用工具;act 模式:正常 tool loop 执行
+_PLAN_MODE_PROMPT = (
+    "## Plan Mode Active\n"
+    "You are in PLAN mode. DO NOT call any tools. Only output a detailed plan with steps.\n"
+    "The user will review and switch to ACT mode to execute."
+)
+
+
+def _inject_plan_mode_prompt(
+    messages: list[dict[str, Any]], plan_mode: str | None
+) -> list[dict[str, Any]]:
+    """plan_mode='plan' 时在 system prompt 前置注入 Plan Mode 引导。
+
+    - plan_mode 为 None 或非 'plan' → 原样返回(act 模式正常 tool loop)
+    - plan_mode='plan' → 在 system message 内容前前置注入 _PLAN_MODE_PROMPT;
+      无 system message 时在开头插入新 system message
+    注入在 _inject_workspace_memory 之前调用,确保 Plan Mode 引导位于 system prompt 最顶部。
+    """
+    if not plan_mode or str(plan_mode).lower() != "plan":
+        return messages
+    new_messages = list(messages)
+    if new_messages and new_messages[0].get("role") == "system":
+        existing = new_messages[0].get("content", "")
+        merged = f"{_PLAN_MODE_PROMPT}\n\n{existing}" if existing else _PLAN_MODE_PROMPT
+        new_messages[0] = {**new_messages[0], "content": merged}
+    else:
+        new_messages.insert(0, {"role": "system", "content": _PLAN_MODE_PROMPT})
+    return new_messages
+
+
 # ===== 多 agent 编排引导 prompt(2026-07-24 立,2026-07-24 升级 5→10 agent + invoke_parallel)=====
 # 仅当请求 agent_tools 含 dispatch_subagent 时,在 tool loop 入口注入此 system message,
 # 引导 LLM 在复杂任务时主动派发子智能体而非单打独斗。
@@ -315,8 +346,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
 
     accumulated: dict[str, Any] = {"content": "", "reasoning": "", "model": req.model, "usage": None, "stub": False}
     owner_uuid = (req.metadata or {}).get("userId")
+    # Plan/Act 模式注入:plan 模式前置注入 Plan Mode system prompt(在 workspace memory 之前,
+    # 确保 Plan Mode 引导位于 system prompt 最顶部);act 模式原样返回
+    messages = _inject_plan_mode_prompt(req.messages, req.plan_mode)
     # 工作区上下文注入:若 workspace_path 提供且存在 CLAUDE.md/AGENTS.md,合并到 system message
-    messages = _inject_workspace_memory(req.messages, req.workspace_path)
+    messages = _inject_workspace_memory(messages, req.workspace_path)
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     compaction_info: dict[str, Any] | None = None
     if req.context_limit and req.context_limit > 0:
