@@ -26,7 +26,7 @@ export default function ProfilePage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [t])
 
   if (loading) return <div className="empty-state">{t('common.loading')}</div>
   if (error) return <div className="error-banner">{error}</div>
