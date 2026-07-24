@@ -65,7 +65,7 @@ export default function MessageDetail({
         ))}
       </View>
 
-      <View className="flex items-center px-3 py-2 bg-card border-t border-border">
+      <View className="flex items-center px-3 py-2 bg-card mt-2">
         <Textarea
           value={inputValue}
           onInput={(e) => onInput(e.detail.value)}
