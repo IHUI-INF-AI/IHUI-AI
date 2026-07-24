@@ -2,6 +2,7 @@ import { View, Text, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { sendSmsCode, loginBySms, register, bindPhone, type UserInfo } from '@/api'
+import { useI18n } from '@/i18n'
 
 export type VerifyCodeType = 'register' | 'login' | 'changePhone'
 
@@ -28,6 +29,8 @@ export default function VerifyCodeModal({
   const [countdown, setCountdown] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -66,21 +69,21 @@ export default function VerifyCodeModal({
   const onSendCode = useCallback(async () => {
     if (countdown > 0) return
     if (!phone) {
-      Taro.showToast({ title: '手机号为空', icon: 'none' })
+      Taro.showToast({ title: tt('verify.phoneEmpty', '手机号为空'), icon: 'none' })
       return
     }
     if (phone.length !== 11) {
-      Taro.showToast({ title: '请输入正确手机号', icon: 'none' })
+      Taro.showToast({ title: tt('verify.phoneInvalid', '请输入正确手机号'), icon: 'none' })
       return
     }
     try {
       await sendSmsCode(phone)
-      Taro.showToast({ title: '验证码已发送', icon: 'success' })
+      Taro.showToast({ title: tt('verify.codeSent', '验证码已发送'), icon: 'success' })
       startCountdown()
     } catch {
       // ignore
     }
-  }, [phone, countdown, startCountdown])
+  }, [phone, countdown, startCountdown, tt])
 
   const handleInput = useCallback(
     (index: number, value: string) => {
@@ -99,7 +102,7 @@ export default function VerifyCodeModal({
 
   const verifyCode = useCallback(async () => {
     if (fullCode.length !== CODE_LENGTH) {
-      Taro.showToast({ title: '请输入完整验证码', icon: 'none' })
+      Taro.showToast({ title: tt('verify.codeIncomplete', '请输入完整验证码'), icon: 'none' })
       return
     }
     setSubmitting(true)
@@ -112,7 +115,7 @@ export default function VerifyCodeModal({
       } else {
         result = await loginBySms(phone, fullCode)
       }
-      Taro.showToast({ title: '验证成功', icon: 'success' })
+      Taro.showToast({ title: tt('verify.verifySuccess', '验证成功'), icon: 'success' })
       onSuccess?.(result)
       onClose?.()
     } catch {
@@ -120,7 +123,7 @@ export default function VerifyCodeModal({
     } finally {
       setSubmitting(false)
     }
-  }, [fullCode, type, phone, onSuccess, onClose])
+  }, [fullCode, type, phone, onSuccess, onClose, tt])
 
   if (!visible) return null
 
@@ -134,7 +137,7 @@ export default function VerifyCodeModal({
         onClick={(e) => e.stopPropagation()}
       >
         <View className="flex items-center justify-between mb-3">
-          <Text className="text-base font-medium text-foreground">获取验证码</Text>
+          <Text className="text-base font-medium text-foreground">{tt('verify.getCode', '获取验证码')}</Text>
           <Text className="text-sm text-muted-foreground" onClick={onClose}>
             关闭
           </Text>
@@ -163,7 +166,7 @@ export default function VerifyCodeModal({
         </View>
         <View className="flex space-x-3">
           <View className="flex-1 py-2.5 rounded-md bg-muted text-center" onClick={onClose}>
-            <Text className="text-sm text-foreground">取消</Text>
+            <Text className="text-sm text-foreground">{tt('common.cancel', '取消')}</Text>
           </View>
           <View
             className={`flex-1 py-2.5 rounded-md text-center ${

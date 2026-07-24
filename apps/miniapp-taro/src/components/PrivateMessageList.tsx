@@ -1,4 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface PrivateMessageItem {
   id: string
@@ -17,10 +18,12 @@ export interface PrivateMessageListProps {
 }
 
 export default function PrivateMessageList({ list, onClick }: PrivateMessageListProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   if (!list.length) {
     return (
       <View className="flex items-center justify-center py-16">
-        <Text className="text-sm text-muted-foreground">暂无私信</Text>
+        <Text className="text-sm text-muted-foreground">{tt('message.noPrivate', '暂无私信')}</Text>
       </View>
     )
   }
@@ -59,7 +62,7 @@ export default function PrivateMessageList({ list, onClick }: PrivateMessageList
             <View className="flex items-center mt-0.5">
               <Text className="text-xs text-muted-foreground truncate flex-1">{item.lastMessage}</Text>
               {item.unread > 0 && (
-                <View className="ml-2 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive flex items-center justify-center">
+                <View className="ml-2 min-w-[18px] h-[18px] px-1 rounded-md bg-destructive flex items-center justify-center">
                   <Text className="text-[10px] text-white">
                     {item.unread > 99 ? '99+' : item.unread}
                   </Text>
