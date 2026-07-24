@@ -35,6 +35,9 @@ function collectFiles(dir, exts, result = []) {
     if (st.isDirectory()) {
       collectFiles(full, exts, result)
     } else if (exts.some((e) => entry.endsWith(e))) {
+      // 跳过单元测试 mock 文件(*.test.ts/tsx/js),fetch mock 非真实 API 调用
+      // 保留 e2e 测试(*.spec.ts/tsx),其 API 调用是真实端到端检查
+      if (/\.test\.(ts|tsx|js)$/.test(entry)) continue
       result.push(full)
     }
   }
@@ -141,6 +144,15 @@ function extractFrontendCalls(src, file) {
             if (keyMatch) method = keyMatch[1].toUpperCase()
           }
         }
+      }
+      // 最高优先级:显式注释标注 `// method: POST`(同行或前一行),覆盖上述全部推断
+      // 场景:跨文件 wrapper(useProcessApi)、多行函数签名(const run = async (\n...) =>)、
+      //       同文件 wrapper 链(srsPost → explainConcept)等自动推断失效时
+      const annotRe = /\/\/\s*method\s*:\s*(get|post|put|patch|delete)\b/i
+      const annotMatch =
+        (lines[idx] || '').match(annotRe) || (lines[idx - 1] || '').match(annotRe)
+      if (annotMatch) {
+        method = annotMatch[1].toUpperCase()
       }
       // 模板字符串变量：查询字符串构建器直接去掉，其余替换为 :param
       const normalized = rawPath
@@ -254,13 +266,25 @@ function normalizePath(prefix, localPath) {
   return `${prefix}${localPath.startsWith('/') ? localPath : sep + localPath}`
 }
 
-/** 比对两个路径是否匹配（支持 :param 通配） */
+/** 比对两个路径是否匹配（支持 :param 通配 + Fastify * catch-all） */
 function pathMatches(frontendPath, backendPath) {
   // 都去掉尾部斜杠
   const f = frontendPath.replace(/\/$/, '')
   const b = backendPath.replace(/\/$/, '')
   const fParts = f.split('/')
   const bParts = b.split('/')
+  // Fastify 通配符 * 匹配 1+ 剩余段（catch-all,如 /documents/* 匹配 /documents/a/b/c）
+  const starIdx = bParts.indexOf('*')
+  if (starIdx !== -1) {
+    // * 之前的部分必须逐段匹配（:param 通配任意值）
+    if (fParts.length < starIdx + 1) return false
+    for (let i = 0; i < starIdx; i++) {
+      if (bParts[i].startsWith(':')) continue
+      if (fParts[i] !== bParts[i]) return false
+    }
+    return true
+  }
+  // 标准匹配：段数一致 + :param 通配任意值
   if (fParts.length !== bParts.length) return false
   for (let i = 0; i < fParts.length; i++) {
     if (bParts[i].startsWith(':')) continue // 后端 :param 匹配任意

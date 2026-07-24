@@ -100,4 +100,7 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
 
   const { default: toolGenPostRoutes } = await import('./admin/tool/gen-post.js')
   await server.register(toolGenPostRoutes)
+
+  const { default: adminSupportTicketsRoutes } = await import('./admin-support-tickets.js')
+  await server.register(adminSupportTicketsRoutes)
 }
