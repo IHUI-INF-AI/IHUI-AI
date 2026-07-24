@@ -1,14 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import {
-  ActivityIndicator,
-  FlatList,
-  Modal,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getLiveList, type Live } from '@ihui/api-client'
@@ -16,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Loading } from '@ihui/ui-native'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 function formatDateTime(iso: string | null): string {
@@ -92,7 +84,7 @@ export function LivePlaybackScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <Loading />
         <Text style={styles.loadingText}>{t('common.loading')}</Text>
       </View>
     )

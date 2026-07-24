@@ -1,19 +1,12 @@
 import { useState } from 'react'
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Input, Loading } from '@ihui/ui-native'
 type Route = RouteProp<RootStackParamList, 'PostCreate'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 const PRIMARY = '#10B981'
@@ -56,7 +49,7 @@ export function PostCreateScreen() {
   if (saving)
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <Loading />
         <Text style={styles.muted}>{t('common.loading')}</Text>
       </View>
     )
@@ -68,7 +61,7 @@ export function PostCreateScreen() {
       <Text style={styles.title}>{t('postCreate.title')}</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Text style={styles.label}>{t('postCreate.titleLabel')}</Text>
-      <TextInput
+      <Input
         style={styles.input}
         value={title}
         onChangeText={setTitle}
@@ -76,7 +69,7 @@ export function PostCreateScreen() {
         placeholderTextColor="#9ca3af"
       />
       <Text style={styles.label}>{t('postCreate.contentLabel')}</Text>
-      <TextInput
+      <Input className="h-auto min-h-[120px]"
         style={[styles.input, styles.textarea]}
         value={content}
         onChangeText={setContent}
@@ -86,7 +79,7 @@ export function PostCreateScreen() {
         textAlignVertical="top"
       />
       <Text style={styles.label}>{t('postCreate.tagsLabel')}</Text>
-      <TextInput
+      <Input
         style={styles.input}
         value={tags}
         onChangeText={setTags}

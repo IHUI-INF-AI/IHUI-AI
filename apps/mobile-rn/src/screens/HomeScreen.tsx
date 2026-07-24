@@ -1,15 +1,8 @@
 import { useEffect, useState } from 'react'
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Button, Card } from '@ihui/ui-native'
+import { Button, Card, Loading } from '@ihui/ui-native'
 import {
   getAllStudyProgress,
   getCourses,
@@ -85,7 +78,7 @@ export function HomeScreen() {
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator />
+        <Loading />
       </View>
     )
   }
