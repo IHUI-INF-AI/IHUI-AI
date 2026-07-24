@@ -18,12 +18,8 @@ import { execSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { readFile, readdir } from 'node:fs/promises'
 import { join, resolve, basename, relative, isAbsolute } from 'node:path'
-import type {
-  SpecGenerateInput,
-  SpecGenerateOutput,
-  SpecScope,
-  SpecTemplate,
-} from '@ihui/types'
+import type { SpecGenerateOutput } from '@ihui/types'
+import type { SpecGenerateInput, SpecScope, SpecTemplate } from '@ihui/shared'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { logger } from '../utils/logger.js'
 
@@ -261,7 +257,10 @@ function summarizeSpec(content: string): string {
  * 与 Python difflib.unified_diff 输出格式兼容。
  * 大输入降级:乘积 > 4M 时直接全量增删,避免 OOM。
  */
-function computeUnifiedDiff(oldText: string, newText: string): {
+function computeUnifiedDiff(
+  oldText: string,
+  newText: string,
+): {
   diff: string
   addedLines: number
   removedLines: number
@@ -336,10 +335,7 @@ class SpecService {
    * @param input   生成参数(scope + workspacePath + 可选 includeDependencies / languages)
    * @returns SpecGenerateOutput(spec markdown + sections + stats + durationMs),失败抛 Error
    */
-  async generate(
-    request: FastifyRequest,
-    input: SpecGenerateInput,
-  ): Promise<SpecGenerateOutput> {
+  async generate(request: FastifyRequest, input: SpecGenerateInput): Promise<SpecGenerateOutput> {
     try {
       const resp = await aiServiceFetch(request, SPEC_GENERATE_PATH, {
         method: 'POST',
@@ -355,9 +351,7 @@ class SpecService {
 
       if (!resp.ok) {
         const errText = await resp.text().catch(() => '')
-        throw new Error(
-          `ai-service spec/generate HTTP ${resp.status}: ${errText.slice(0, 200)}`,
-        )
+        throw new Error(`ai-service spec/generate HTTP ${resp.status}: ${errText.slice(0, 200)}`)
       }
 
       const json = (await resp.json()) as AiServiceResponse<SpecGenerateOutput>
@@ -386,9 +380,7 @@ class SpecService {
 
       if (!resp.ok) {
         const errText = await resp.text().catch(() => '')
-        throw new Error(
-          `ai-service spec/templates HTTP ${resp.status}: ${errText.slice(0, 200)}`,
-        )
+        throw new Error(`ai-service spec/templates HTTP ${resp.status}: ${errText.slice(0, 200)}`)
       }
 
       const json = (await resp.json()) as AiServiceResponse<{
@@ -665,10 +657,7 @@ class SpecService {
   }
 
   /** POST /spec/watch/stop — 停止文件监听 */
-  async stopWatch(
-    request: FastifyRequest,
-    watchId: string,
-  ): Promise<SpecWatchStopResult> {
+  async stopWatch(request: FastifyRequest, watchId: string): Promise<SpecWatchStopResult> {
     const resp = await aiServiceFetch(request, '/api/spec/watch/stop', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
