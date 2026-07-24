@@ -12,9 +12,9 @@ import {
   type SortingState,
 } from '@tanstack/react-table'
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronsUpDown, ChevronUp, Search } from 'lucide-react'
-import { cn } from '../lib/utils.js'
-import { Input } from './input.js'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './table.js'
+import { cn } from '../lib/utils'
+import { Input } from './input'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './table'
 
 export type DataTableColumn<TData> = ColumnDef<TData>
 
