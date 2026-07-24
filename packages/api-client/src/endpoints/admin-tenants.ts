@@ -6,7 +6,7 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
+import { fetchApi } from '../client'
 
 import type {
   BackupDeleteResult,
@@ -21,7 +21,7 @@ import type {
   TenantForm,
   TenantListResult,
   TenantRestoreBody,
-} from './admin-tenants.types.js'
+} from './admin-tenants.types'
 
 export type {
   Tenant,
@@ -44,11 +44,11 @@ export type {
   CustomerMetrics,
   TenantMetricsSummary,
   MetricsSummary,
-} from './admin-tenants.types.js'
+} from './admin-tenants.types'
 
 // 注意:Certificate 类型与 resource.ts 冲突(均为证书领域类型,字段含义不同),
 // 不在此处 export,使用方请按需从子路径导入或重命名:
-import type { Certificate as TenantCertificate } from './admin-tenants.types.js'
+import type { Certificate as TenantCertificate } from './admin-tenants.types'
 export type { TenantCertificate }
 
 /** 列出所有租户 */
@@ -62,9 +62,7 @@ export async function adminGetTenant(slug: string): Promise<ApiResult<TenantDeta
 }
 
 /** 创建租户 */
-export async function adminCreateTenant(
-  body: TenantForm,
-): Promise<ApiResult<TenantCreateResult>> {
+export async function adminCreateTenant(body: TenantForm): Promise<ApiResult<TenantCreateResult>> {
   return fetchApi<TenantCreateResult>('/api/admin-saas/customers', {
     method: 'POST',
     body: JSON.stringify(body),
@@ -111,17 +109,14 @@ export async function adminRestoreTenant(
 
 /** 销毁租户 */
 export async function adminDeleteTenant(slug: string): Promise<ApiResult<TenantActionResult>> {
-  return fetchApi<TenantActionResult>(
-    `/api/admin-saas/customers/${encodeURIComponent(slug)}`,
-    { method: 'DELETE' },
-  )
+  return fetchApi<TenantActionResult>(`/api/admin-saas/customers/${encodeURIComponent(slug)}`, {
+    method: 'DELETE',
+  })
 }
 
 /** 列出租户备份 */
 export async function adminListBackups(slug: string): Promise<ApiResult<BackupListResult>> {
-  return fetchApi<BackupListResult>(
-    `/api/admin-saas/customers/${encodeURIComponent(slug)}/backups`,
-  )
+  return fetchApi<BackupListResult>(`/api/admin-saas/customers/${encodeURIComponent(slug)}/backups`)
 }
 
 /** P1-2.2b: 删除指定备份 */
@@ -144,20 +139,14 @@ export async function adminListCertificates(): Promise<ApiResult<CertificateList
 
 /** 获取租户配额(P1-2.2c 占位,等待 P1-2.3 Prometheus 接入) */
 export async function adminGetCustomerQuota(slug: string): Promise<ApiResult<CustomerQuota>> {
-  return fetchApi<CustomerQuota>(
-    `/api/admin-saas/customers/${encodeURIComponent(slug)}/quota`,
-  )
+  return fetchApi<CustomerQuota>(`/api/admin-saas/customers/${encodeURIComponent(slug)}/quota`)
 }
 
 /* ==================== P1-2.3: Prometheus 实时指标 ==================== */
 
 /** per-tenant 详细指标(数据源:Prometheus via admin-api) */
-export async function adminGetCustomerMetrics(
-  slug: string,
-): Promise<ApiResult<CustomerMetrics>> {
-  return fetchApi<CustomerMetrics>(
-    `/api/admin-saas/customers/${encodeURIComponent(slug)}/metrics`,
-  )
+export async function adminGetCustomerMetrics(slug: string): Promise<ApiResult<CustomerMetrics>> {
+  return fetchApi<CustomerMetrics>(`/api/admin-saas/customers/${encodeURIComponent(slug)}/metrics`)
 }
 
 /** 多租户横向对比(CPU/内存聚合) */

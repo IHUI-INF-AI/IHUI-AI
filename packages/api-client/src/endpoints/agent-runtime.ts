@@ -1,4 +1,4 @@
-import { fetchApi } from '../client.js'
+import { fetchApi } from '../client'
 import type {
   PermissionMode,
   PermissionDecision,
@@ -262,10 +262,9 @@ export async function getAgentStatus(taskId: string) {
 }
 
 export async function cancelAgent(taskId: string) {
-  return fetchApi<AgentCancelResult>(
-    `/agents/${encodeURIComponent(taskId)}/cancel`,
-    { method: 'POST' },
-  )
+  return fetchApi<AgentCancelResult>(`/agents/${encodeURIComponent(taskId)}/cancel`, {
+    method: 'POST',
+  })
 }
 
 export async function listAgentSessions() {
@@ -273,16 +272,13 @@ export async function listAgentSessions() {
 }
 
 export async function getAgentSession(sessionId: string) {
-  return fetchApi<AgentSession>(
-    `/agents/sessions/${encodeURIComponent(sessionId)}/messages`,
-  )
+  return fetchApi<AgentSession>(`/agents/sessions/${encodeURIComponent(sessionId)}/messages`)
 }
 
 export async function resumeAgentSession(sessionId: string) {
-  return fetchApi<AgentResumeResult>(
-    `/agents/sessions/${encodeURIComponent(sessionId)}/resume`,
-    { method: 'POST' },
-  )
+  return fetchApi<AgentResumeResult>(`/agents/sessions/${encodeURIComponent(sessionId)}/resume`, {
+    method: 'POST',
+  })
 }
 
 // ============================================================================
@@ -297,15 +293,11 @@ export async function sendA2ATask(params: A2ASendTaskRequest) {
 }
 
 export async function getA2ATaskStatus(taskId: string) {
-  return fetchApi<A2ATaskStatus>(
-    `/a2a/tasks/${encodeURIComponent(taskId)}/status`,
-  )
+  return fetchApi<A2ATaskStatus>(`/a2a/tasks/${encodeURIComponent(taskId)}/status`)
 }
 
 export async function getA2ATaskResult(taskId: string) {
-  return fetchApi<A2ATaskResult>(
-    `/a2a/tasks/${encodeURIComponent(taskId)}/result`,
-  )
+  return fetchApi<A2ATaskResult>(`/a2a/tasks/${encodeURIComponent(taskId)}/result`)
 }
 
 export async function listA2AAgents() {
@@ -362,13 +354,10 @@ export async function getSkill(name: string) {
 }
 
 export async function executeSkill(name: string, params: Record<string, unknown> = {}) {
-  return fetchApi<SkillExecuteResult>(
-    `/mcp/skills/${encodeURIComponent(name)}/execute`,
-    {
-      method: 'POST',
-      body: JSON.stringify(params),
-    },
-  )
+  return fetchApi<SkillExecuteResult>(`/mcp/skills/${encodeURIComponent(name)}/execute`, {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
 }
 
 // ============================================================================
@@ -558,10 +547,7 @@ export interface AgentRuntimeStreamOptions {
   headers?: Record<string, string>
 }
 
-function parseAgentRuntimeSSEBlock(
-  block: string,
-  callbacks: AgentRuntimeStreamCallbacks,
-): void {
+function parseAgentRuntimeSSEBlock(block: string, callbacks: AgentRuntimeStreamCallbacks): void {
   let eventName: string | undefined
   let dataStr = ''
   for (const rawLine of block.split('\n')) {
@@ -662,9 +648,10 @@ export async function executeAgentRuntimeStream(
   }
 }
 
-export async function listAgentRuntimeSessions(
-  params?: { limit?: number; offset?: number },
-): Promise<{ sessions: SessionState[]; total: number }> {
+export async function listAgentRuntimeSessions(params?: {
+  limit?: number
+  offset?: number
+}): Promise<{ sessions: SessionState[]; total: number }> {
   const qs = new URLSearchParams()
   if (params?.limit !== undefined) qs.set('limit', String(params.limit))
   if (params?.offset !== undefined) qs.set('offset', String(params.offset))
@@ -694,9 +681,7 @@ export async function resumeAgentRuntimeSession(
   return res.data
 }
 
-export async function getAgentRuntimeStatus(
-  sessionId: string,
-): Promise<{
+export async function getAgentRuntimeStatus(sessionId: string): Promise<{
   sessionId: string
   status: SessionStatus | string
   messageCount: number

@@ -6,8 +6,8 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
-import { buildQs, type PageData } from '../utils.js'
+import { fetchApi } from '../client'
+import { buildQs, type PageData } from '../utils'
 
 // ===================== 类型定义 =====================
 

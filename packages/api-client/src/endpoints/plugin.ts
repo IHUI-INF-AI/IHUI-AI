@@ -29,7 +29,7 @@ import type {
   PluginUninstallResponse,
 } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
+import { fetchApi } from '../client'
 
 /** 查询当前登录用户所有已安装插件的安装态(未登录返回 authenticated=false + 空 states) */
 export function getInstalledPlugins(): Promise<PluginInstalledResponse> {
@@ -49,10 +49,13 @@ export async function installPlugin(
   pluginId: string,
   body?: PluginInstallBody,
 ): Promise<PluginMutationResponse> {
-  const res = await fetchApi<PluginMutationResponse>(`/plugins/${encodeURIComponent(pluginId)}/install`, {
-    method: 'POST',
-    body: JSON.stringify(body ?? {}),
-  })
+  const res = await fetchApi<PluginMutationResponse>(
+    `/plugins/${encodeURIComponent(pluginId)}/install`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body ?? {}),
+    },
+  )
   if (!res.success) throw new Error(res.error)
   return res.data
 }
@@ -82,9 +85,12 @@ export async function updatePluginPreferences(
 
 /** 埋点:用户点击市场卡片外链(游客也可触发,后端会尝试识别登录用户) */
 export async function recordPluginClick(pluginId: string): Promise<PluginClickResponse> {
-  const res = await fetchApi<PluginClickResponse>(`/plugins/${encodeURIComponent(pluginId)}/click`, {
-    method: 'POST',
-  })
+  const res = await fetchApi<PluginClickResponse>(
+    `/plugins/${encodeURIComponent(pluginId)}/click`,
+    {
+      method: 'POST',
+    },
+  )
   if (!res.success) throw new Error(res.error)
   return res.data
 }
@@ -94,9 +100,7 @@ export async function recordPluginClick(pluginId: string): Promise<PluginClickRe
 // ============================================================================
 
 /** 管理端:总览指标(总安装/总点击/今日/活跃) */
-export async function getPluginStatsSummary(
-  query?: PluginStatsQuery,
-): Promise<PluginStatsSummary> {
+export async function getPluginStatsSummary(query?: PluginStatsQuery): Promise<PluginStatsSummary> {
   const qs = query?.days ? `?days=${query.days}` : ''
   const res = await fetchApi<PluginStatsSummary>(`/admin/plugins/stats/summary${qs}`)
   if (!res.success) throw new Error(res.error)
@@ -104,9 +108,7 @@ export async function getPluginStatsSummary(
 }
 
 /** 管理端:热度榜 Top N(按 heat 排序) */
-export async function getPluginStatsTop(
-  query?: PluginStatsQuery,
-): Promise<PluginStatsRow[]> {
+export async function getPluginStatsTop(query?: PluginStatsQuery): Promise<PluginStatsRow[]> {
   const params = new URLSearchParams()
   if (query?.days) params.set('days', String(query.days))
   if (query?.limit) params.set('limit', String(query.limit))
@@ -117,9 +119,7 @@ export async function getPluginStatsTop(
 }
 
 /** 管理端:按天趋势(installs/clicks/uninstalls) */
-export async function getPluginStatsTrend(
-  query?: PluginStatsQuery,
-): Promise<PluginTrendRow[]> {
+export async function getPluginStatsTrend(query?: PluginStatsQuery): Promise<PluginTrendRow[]> {
   const qs = query?.days ? `?days=${query.days}` : ''
   const res = await fetchApi<PluginTrendRow[]>(`/admin/plugins/stats/trend${qs}`)
   if (!res.success) throw new Error(res.error)
