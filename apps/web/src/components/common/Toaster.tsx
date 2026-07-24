@@ -19,7 +19,16 @@ import type { ComponentProps, ReactNode } from 'react'
 
 const TOAST_EVENT = '__ihui_toast__'
 
-type ToastMethod = 'message' | 'success' | 'error' | 'warning' | 'info' | 'loading' | 'dismiss' | 'promise' | 'custom'
+type ToastMethod =
+  | 'message'
+  | 'success'
+  | 'error'
+  | 'warning'
+  | 'info'
+  | 'loading'
+  | 'dismiss'
+  | 'promise'
+  | 'custom'
 
 function dispatchToast(method: ToastMethod, args: unknown[]) {
   if (typeof window !== 'undefined') {
@@ -41,7 +50,7 @@ const toastProxy = Object.assign(
       dispatchToast('promise', [promise, data]),
     custom: (jsx: ReactNode, data?: unknown) => dispatchToast('custom', [jsx, data]),
   },
-) as typeof sonnerToast
+) as unknown as typeof sonnerToast
 
 export { toastProxy as toast }
 export type ToasterProps = ComponentProps<typeof SonnerToaster>
@@ -50,7 +59,7 @@ export function Toaster(props: ToasterProps) {
   useEffect(() => {
     const handler = (e: Event) => {
       const { method, args } = (e as CustomEvent).detail as { method: ToastMethod; args: unknown[] }
-      const fn = (sonnerToast as Record<string, (...a: unknown[]) => unknown>)[method]
+      const fn = (sonnerToast as unknown as Record<string, (...a: unknown[]) => unknown>)[method]
       if (typeof fn === 'function') {
         fn.apply(sonnerToast, args)
       }
