@@ -7,6 +7,7 @@ import { requireAuth, requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { generateOrderNumber } from '../utils/crypto-random.js'
 import { logAction } from '../services/audit-service.js'
+import { encryptJSON, decryptJSON } from '../utils/crypto.js'
 
 /**
  * 钱包路由 — /api/wallet/*
@@ -31,6 +32,23 @@ const recordsQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   status: z.string().optional(),
 })
+
+/**
+ * 解密提现 remark(P0-5 安全加固)。
+ * - 以 'withdrawal:' 开头:加密数据,用 decryptJSON 解密后重建展示文案
+ * - 其他:明文老数据,原样返回(向后兼容)
+ * - 解密失败(数据损坏/密钥变更):返回原值,不阻断展示
+ */
+function decryptWithdrawalRemark(remark: string | null | undefined): string | null {
+  if (!remark || !remark.startsWith('withdrawal:')) return remark ?? null
+  try {
+    const payload = JSON.parse(remark.slice('withdrawal:'.length))
+    const data = decryptJSON(payload) as { accountType?: string; account?: string }
+    return `提现到 ${data.accountType ?? ''}(${data.account ?? ''})`
+  } catch {
+    return remark
+  }
+}
 
 const walletRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAuth)
@@ -117,7 +135,7 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
           opType: 1,
           quantity: -amount,
           balanceAfter: balance - amount,
-          remark: `提现到 ${accountType}(${account})`,
+          remark: 'withdrawal:' + JSON.stringify(encryptJSON({ accountType, account })),
         })
         return { success: true }
       })
@@ -160,7 +178,7 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
           type: 'withdraw' as const,
           status: 'pending',
           payMethod: null,
-          remark: f.remark,
+          remark: decryptWithdrawalRemark(f.remark),
           createdAt: f.createdAt.toISOString(),
         })),
         total: countResult?.count ?? 0,
@@ -362,7 +380,7 @@ export const adminWalletRoutes: FastifyPluginAsync = async (server) => {
 
     return reply.send(
       success({
-        list: list.map((f) => ({ ...f, createdAt: f.createdAt.toISOString() })),
+        list: list.map((f) => ({ ...f, remark: decryptWithdrawalRemark(f.remark), createdAt: f.createdAt.toISOString() })),
         total: totalRows[0]?.count ?? 0,
         page,
         pageSize,

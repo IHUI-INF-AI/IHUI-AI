@@ -1,5 +1,8 @@
 # IHUI-AI Docker Compose 编排(新架构: Fastify + Next.js + FastAPI AI 服务)
 # 旧架构(Python FastAPI server/ + Vue client/)已弃用,不再编排
+#
+# 供应链安全(D29-H2):监控服务镜像版本固定,禁止使用 :latest tag,防供应链投毒
+# 本地构建镜像(ihui-api/ihui-web/ihui-migrate/ihui-ai-service)的 :latest 是本地 tag,非外部拉取
 services:
   # 新后端 API(Fastify 5 + Drizzle ORM)
   api:
@@ -288,7 +291,7 @@ services:
 
   # OpenTelemetry Collector(接收 OTLP 追踪/指标，导出到 Jaeger + Prometheus exporter)
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    image: otel/opentelemetry-collector-contrib:0.110.0
     container_name: ihui-otel-collector
     restart: unless-stopped
     volumes:
@@ -317,7 +320,7 @@ services:
 
   # Prometheus 监控(抓取 api + ai-service 的 /metrics)
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.55.0
     container_name: ihui-prometheus
     restart: unless-stopped
     volumes:
@@ -342,7 +345,7 @@ services:
 
   # Grafana 仪表盘(可视化监控数据)
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.3.0
     container_name: ihui-grafana
     restart: unless-stopped
     depends_on:
@@ -371,7 +374,7 @@ services:
 
   # Node Exporter(主机指标:CPU/内存/磁盘/网络)
   node-exporter:
-    image: prom/node-exporter:latest
+    image: prom/node-exporter:v1.8.2
     container_name: ihui-node-exporter
     restart: unless-stopped
     command:
