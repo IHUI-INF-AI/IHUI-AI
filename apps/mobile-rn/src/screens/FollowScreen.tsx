@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react'
 import {
   Alert,
   FlatList,
-  Image,
   RefreshControl,
   StyleSheet,
   Text,
@@ -11,7 +10,7 @@ import {
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Button, Card } from '@ihui/ui-native'
+import { Avatar, Button, Card } from '@ihui/ui-native'
 import { getFollowing, getFans, type FollowUser } from '@ihui/api-client'
 import { unfollowUser } from '../api/social'
 import { usePaginatedList } from '../hooks/use-paginated-list'
@@ -31,18 +30,6 @@ function formatDate(value: string): string {
     month: '2-digit',
     day: '2-digit',
   }).format(new Date(value))
-}
-
-function Avatar({ url, nickname }: { url: string | null; nickname: string }) {
-  if (url) {
-    return <Image source={{ uri: url }} style={styles.avatar} />
-  }
-  const initial = (nickname || '?').slice(0, 1).toUpperCase()
-  return (
-    <View style={styles.avatarFallback}>
-      <Text style={styles.avatarText}>{initial}</Text>
-    </View>
-  )
 }
 
 export function FollowScreen() {
@@ -152,7 +139,12 @@ export function FollowScreen() {
           return (
             <Card className="p-3">
               <View style={styles.itemRow}>
-                <Avatar url={item.avatar} nickname={item.nickname || item.username} />
+                <Avatar
+                  source={item.avatar ? { uri: item.avatar } : undefined}
+                  name={item.nickname || item.username}
+                  size="lg"
+                  shape="rounded"
+                />
                 <View style={styles.itemBody}>
                   <Text style={styles.itemName} numberOfLines={1}>
                     {item.nickname || item.username}
@@ -165,11 +157,7 @@ export function FollowScreen() {
                   <Text style={styles.itemDate}>{formatDate(item.followedAt)}</Text>
                 </View>
                 {tab === 'following' && !isSelf ? (
-                  <Button
-                    onPress={() => onUnfollow(item)}
-                    variant="outline"
-                    size="sm"
-                  >
+                  <Button onPress={() => onUnfollow(item)} variant="outline" size="sm">
                     {t('follow.unfollow')}
                   </Button>
                 ) : null}
@@ -210,16 +198,6 @@ const styles = StyleSheet.create({
   footerWrap: { alignItems: 'center', paddingVertical: 16 },
   emptyText: { fontSize: 12, color: '#6B7280' },
   itemRow: { flexDirection: 'row', alignItems: 'center' },
-  avatar: { width: 48, height: 48, borderRadius: 8, backgroundColor: '#F3F4F6' },
-  avatarFallback: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { fontSize: 16, fontWeight: '600', color: '#4B5563' },
   itemBody: { flex: 1, marginLeft: 12 },
   itemName: { fontSize: 15, fontWeight: '600', color: '#111827' },
   itemBio: { fontSize: 12, color: '#6B7280', marginTop: 2 },
