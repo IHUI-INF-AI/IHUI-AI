@@ -329,6 +329,9 @@ import { securityRoutes } from './security.js'
 
 // P0-4 补建:智能体创作核心接口(迁移自旧项目 aiModels.js,4 类端点:我的创作/收费配置 CRUD/agent 配置查询/工作流搜索)
 import agentCreationRoutes from './agent-creation.js'
+// 资源上下文管理(7 端点:列表/创建/详情/更新/删除/绑定/按会话查询)+ 交易员流水统计(4 端点:流水/汇总/按日/排行)
+import resourceContextRoutes from './resource-context.js'
+import traderStatsRoutes from './trader-stats.js'
 
 export function registerRoutes(server: FastifyInstance) {
   server.register(healthRoutes, { prefix: '/api' })
@@ -903,4 +906,8 @@ export function registerRoutes(server: FastifyInstance) {
 
   // P0-4 补建:智能体创作核心接口(绝对路径字面量注册,无 prefix,与旧前端 apiClient 路径直接对齐)
   server.register(agentCreationRoutes)
+  // 资源上下文管理(7 端点,绝对路径字面量注册)
+  server.register(resourceContextRoutes)
+  // 交易员流水统计(4 端点,绝对路径字面量注册)
+  server.register(traderStatsRoutes)
 }
