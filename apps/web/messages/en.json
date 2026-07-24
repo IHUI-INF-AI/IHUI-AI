@@ -12072,6 +12072,10 @@
     "permissionReasonPurchased": "You have purchased this agent",
     "permissionReasonVipOnly": "VIP-only, please subscribe to VIP",
     "title": "Agent Workspace",
+    "statusPending": "Pending",
+    "statusPublished": "Published",
+    "statusRejected": "Rejected",
+    "statusOffline": "Offline",
     "kanban": {
       "triage": "Triage",
       "todo": "To Do",
@@ -12172,7 +12176,14 @@
     "colActualAmount": "Actual amount",
     "colFee": "Fee",
     "colMethod": "Method",
-    "colProcessedAt": "Processed at"
+    "colProcessedAt": "Processed at",
+    "orderStatusPending": "Pending",
+    "orderStatusPaid": "Paid",
+    "orderStatusCancelled": "Cancelled",
+    "orderStatusRefunded": "Refunded",
+    "flowRecharge": "Traffic Recharge",
+    "flowDeduct": "Traffic Deduct",
+    "flowExpire": "Traffic Expire"
   },
   "tokenValue": {
     "title": "I Value",
@@ -12201,7 +12212,16 @@
     "noRecords": "None Value Record",
     "currentBalance": "Current Balance",
     "totalEarned": "Total Earned",
-    "totalUsed": "Total Used"
+    "totalUsed": "Total Used",
+    "rangeToday": "Today",
+    "range7d": "Last 7 days",
+    "range30d": "Last 30 days",
+    "rangeCustom": "Custom",
+    "colTime": "Time",
+    "colAgent": "Agent",
+    "colModel": "Model",
+    "colToken": "Token",
+    "colAmount": "Amount"
   },
   "distributionCompany": {
     "title": "I Company",
@@ -12228,7 +12248,10 @@
     "teamSize": "Team Size",
     "activeMembers": "Active Members",
     "myRank": "My Rank",
-    "teamOverview": "Team Overview"
+    "teamOverview": "Team Overview",
+    "levelLabel": "Level Label",
+    "withdraw": "Withdraw",
+    "viewDetail": "View Detail"
   },
   "commissionPlan": {
     "title": "MinPlan",
@@ -12269,7 +12292,10 @@
     "levelsTitle": "Commission Rates by Level",
     "commissionRate": "Commission Rate",
     "copied": "Copied",
-    "copy": "Copy"
+    "copy": "Copy",
+    "level1": "Level 1",
+    "level2": "Level 2",
+    "level3": "Level 3"
   },
   "oauthPlatform": {
     "featureApiTitle": "Open API",
