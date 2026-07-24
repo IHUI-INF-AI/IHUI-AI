@@ -225,7 +225,7 @@
   color: hsl(0 0% 95%);
 }
 
-.dark .premium-dark-mode .premium-dark-mode-surface {
+:where(.dark .premium-dark-mode) .premium-dark-mode-surface {
   background: hsl(0 0% 12%);
   border-color: hsl(0 0% 20%);
 }
