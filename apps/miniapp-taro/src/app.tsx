@@ -5,7 +5,7 @@ import { exchangeSsoCode } from './utils/sso'
 import { showShareMenu } from './utils/share'
 import { initPrivacyGuard } from './utils/privacy'
 import { initPushSubscription } from './utils/push-init'
-import { isWechatMiniProgram } from './utils/wechat-login'
+import { isMiniAppEnvironment } from './utils/miniapp-login'
 import { useUserStore } from './stores/user'
 import { createNotificationClient } from '@ihui/api-client'
 import { taroWebSocketFactory } from './utils/taro-websocket-adapter'
@@ -109,17 +109,17 @@ function SsoLaunchHandler() {
 
     // 启动时主流程:
     // 1) 优先消费外部 SSO code(已登录 web 扫码进入)
-    // 2) 否则在微信小程序环境,未登录则尝试静默微信登录(wx.login 拿 code → 后端换 token)
+    // 2) 否则在小程序环境(微信/支付宝),未登录则尝试静默登录(自动适配平台)
     // 3) 登录态就绪后建立 WebSocket 通知连接
     const launchQuery = (options?.query ?? {}) as Record<string, unknown>
     void (async () => {
       await consumeSsoCodeFromLaunch(launchQuery, () => t('login.loginSuccess'))
-      // 未登录且是微信环境 → 静默微信登录
-      if (!getToken() && isWechatMiniProgram()) {
+      // 未登录且是小程序环境(微信或支付宝)→ 静默跨端登录
+      if (!getToken() && isMiniAppEnvironment()) {
         try {
-          await useUserStore.getState().trySilentWechatLogin()
+          await useUserStore.getState().trySilentMiniAppLogin()
         } catch {
-          // 静默失败给轻量提示(非 weapp 环境或用户拒绝授权时常见)
+          // 静默失败给轻量提示(非小程序环境或用户拒绝授权时常见)
           Taro.showToast({ title: t('login.wechatFailed'), icon: 'none' })
         }
       }
