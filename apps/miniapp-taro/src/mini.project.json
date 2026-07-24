@@ -1,0 +1,12 @@
+{
+  "format": 2,
+  "compileOptions": {
+    "es6": false,
+    "enhance": false,
+    "postcss": false,
+    "minified": false,
+    "autoprefixer": false
+  },
+  "uploadExclude": ["node_modules/**/*"],
+  "assetsInclude": ["./**/*.png", "./**/*.jpg", "./**/*.jpeg", "./**/*.svg", "./**/*.gif"]
+}
