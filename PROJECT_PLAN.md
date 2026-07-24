@@ -130,6 +130,16 @@
 - ✅ d9 TTL 清理函数:cleanupOldWebhookTriggers(daysToKeep=30) + cleanupOldSyncLogs(daysToKeep=90)
 - ✅ d10 Worker 优雅关闭 + 指标统计:RegistryWorkerStats 接口 + completed/failed 计数 + SIGTERM/SIGINT 优雅关闭(process.once 避免重复注册)
 
+**2026-07-24 跨端连通补全(3 建议 + 5 遗漏,5 subagent 并行)**:
+- ✅ s1 GET /api/registry/worker-stats 端点暴露(requireAdmin + server.registryWorkerStats + 零值兜底)
+- ✅ s2 每日 TTL 清理 cron job(`0 3 * * *`)+ 内联 Worker(cleanupOldWebhookTriggers 30天 + cleanupOldSyncLogs 90天)+ onReady hook 接入
+- ✅ s3 calculateHeatScore 消费 meta.downloads(downloads/100 上限 500,每 100 周下载量=1 分)
+- ✅ 跨端类型契约:packages/types 加 RegistryWorkerStats interface
+- ✅ 前端 API 客户端:api-registry.ts 加 getWorkerStats()
+- ✅ 前端 Hook:useRegistryWorkerStats(useEffect 自动加载 + refresh 手动刷新)
+- ✅ 前端页面:registry/page.tsx 管理员 Card 内展示 Worker 运行状态(已处理/失败/最近处理时间)+ 刷新按钮
+- ✅ CLI 命令:ihui registry worker-stats(成功率彩色展示 ≥95%绿/≥80%黄/<80%红)
+
 **跨端约束**:
 - 共享类型 `packages/types/src/registry.ts`(RegistryItem / RegistrySyncLog / WebhookTrigger / ProviderModelInfo / ConfigDriftReport)
 - 共享 UI 组件复用 `packages/ui` Card/Button/Input
@@ -1654,7 +1664,8 @@
 <!-- 已归档(2026-07-22):[x] ✅(2026-07-22) IDE 工作区复刻:编辑器分类页面 + 代码比对 + 多视图面板(平台独占:仅 web,2026-07-22 立)...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_continued-i18n-archive-v2.md -->
 <!-- 已归档(2026-07-23):赶超 OpenClaw + OpenCode 深度开发计划(2026-07-22 立),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-23):miniapp-taro 深色赛博朋克风样式迁移恢复(已完成 ✅ 2026-07-22,平台独占:仅 miniapp-t...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
-<!-- 已归档(2026-07-23):miniapp-taro 全端页面深度样式迁移(已完成 ✅ 2026-07-22,平台独占:仅 miniapp-taro...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-23):miniapp-taro 全端页面深度样式迁移(已完成 ✅ 2026-07-22,平台独占:仅 miniapp-t...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
+<!-- 已归档(2026-07-24):audit-chain.ts 死代码清理(auditChainEntries 表 + audit-chain.ts 文件,已被 audit-log-service.ts 替代),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-24_audit-chain-cleanup.md -->
 ## i18n 深化:Payment 重复键修复 + aiNews 缺失键补齐 + 守门脚本白名单(已完成 ✅ 2026-07-23,跨端:web+scripts)
 
 - [x] ✅(2026-07-23) P0 删除 5 语言文件大写 Payment 死代码块(无前端引用,与小写 payment 大小写冲突导致 JSON.parse 行为不一致)。
