@@ -123,6 +123,15 @@ async def lifespan(app: FastAPI):
     from app.services.publish.scheduler import publish_scheduler
     publish_scheduler.start()
 
+    # 启动后台任务调度器(APScheduler AsyncIOScheduler + Redis 持久化,对标 Codex Automations)
+    # schedule_enabled=False 时跳过;失败不阻塞主服务(stub/内存降级由 scheduler_service 内部处理)
+    if getattr(settings, "schedule_enabled", True):
+        try:
+            from app.services.scheduler_service import task_scheduler
+            await task_scheduler.start()
+        except Exception as e:
+            logger.warning("[scheduler_service] 启动失败(忽略): %s", e)
+
     # 截图服务(Playwright)按需启动,不在 lifespan 启动时初始化(避免 Chromium 占用)
     # 首次截图请求时懒加载,退出时 shutdown() 清理
 
@@ -131,6 +140,12 @@ async def lifespan(app: FastAPI):
 
     await publish_scheduler.stop()
     await self_media_scheduler.stop()
+    # 关闭后台任务调度器(等待运行中任务完成)
+    try:
+        from app.services.scheduler_service import task_scheduler
+        await task_scheduler.shutdown()
+    except Exception as e:
+        logger.warning("[scheduler_service] 关闭失败(忽略): %s", e)
     # 关闭 Playwright 单例(避免 Chromium 进程泄漏)
     from app.services.screenshot_service import shutdown as screenshot_shutdown
     await screenshot_shutdown()
@@ -138,6 +153,10 @@ async def lifespan(app: FastAPI):
     # 关闭全局共享 httpx.AsyncClient(连接池复用,provider 共享)
     from app.core.llm_gateway import close_http_client, _pool
     await close_http_client()
+
+    # 关闭 api-service → api 调用的共享 httpx.AsyncClient(mTLS 客户端)
+    from app.services.api_client import close_api_client
+    await close_api_client()
 
     # 关闭 asyncpg 连接池(llm_gateway DB 配置查询用)
     if _pool:
@@ -158,6 +177,8 @@ def create_app() -> FastAPI:
 
     # CORS — 启动时校验(生产环境必填,任何环境禁止 "*" 通配符)
     settings.validate_cors_origin()
+    # mTLS — 启动时 fail-fast 校验(MTLS_ENABLED=true 但证书缺失/不存在 → 抛异常阻止启动)
+    settings.validate_mtls_config()
     _cors_origins = [o.strip() for o in settings.cors_origin.split(",") if o.strip()]
     app.add_middleware(
         CORSMiddleware,
