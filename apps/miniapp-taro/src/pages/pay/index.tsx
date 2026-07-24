@@ -216,7 +216,7 @@ export default function PayIndex() {
           className={`py-method ${payMethod === 'wechat' ? 'py-method--active' : ''}`}
           onClick={() => onSelectMethod('wechat')}
         >
-          <View className="py-method-icon py-method-icon--wx">微</View>
+          <View className="py-method-icon py-method-icon--wx">{tt('pay.wechat', '微')}</View>
           <View className="py-method-body">
             <Text className="py-method-name">{t('pay.wechat')}</Text>
           </View>
@@ -229,7 +229,7 @@ export default function PayIndex() {
           className={`py-method ${payMethod === 'alipay' ? 'py-method--active' : ''}`}
           onClick={() => onSelectMethod('alipay')}
         >
-          <View className="py-method-icon py-method-icon--ali">支</View>
+          <View className="py-method-icon py-method-icon--ali">{tt('pay.alipay', '支')}</View>
           <View className="py-method-body">
             <Text className="py-method-name">{tt('pay.alipay', '支付宝')}</Text>
           </View>
@@ -242,7 +242,7 @@ export default function PayIndex() {
           className={`py-method ${payMethod === 'balance' ? 'py-method--active' : ''}`}
           onClick={() => onSelectMethod('balance')}
         >
-          <View className="py-method-icon py-method-icon--balance">余</View>
+          <View className="py-method-icon py-method-icon--balance">{tt('pay.balance', '余')}</View>
           <View className="py-method-body">
             <Text className="py-method-name">{tt('pay.balance', '余额支付')}</Text>
             <Text className="py-method-sub">

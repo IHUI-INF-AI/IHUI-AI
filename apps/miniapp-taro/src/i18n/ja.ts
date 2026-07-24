@@ -18,7 +18,10 @@ export default {
     failed: '操作に失敗しました',
     user: 'ユーザー',
     uploading: 'アップロード中',
-    noMore: 'これ以上なし'
+    noMore: 'これ以上なし',
+    consult: '相談',
+    loadingShort: '読み込み中...',
+    free: '無料'
   },
   nav: {
     home: 'ホーム',
@@ -146,9 +149,9 @@ export default {
     goldTeacher: 'ゴールド講師',
     followed: 'フォロー中',
     noIntro: '紹介なし',
-    objectives: null,
-    suitableFor: null,
-    highlights: null,
+    objectives: '学習目標',
+    suitableFor: '対象者',
+    highlights: 'コースハイライト',
     nextLesson: '次: {{title}}',
     startLearning: '学習開始',
     buyNow: '今すぐ購入',
@@ -162,7 +165,7 @@ export default {
     noteTitle: '{{title}} - ノート',
     scanCourse: 'スキャンしてコースを見る',
     loadFailed: 'コースの読み込みに失敗',
-    weekDays: null,
+    weekDays: ['日', '月', '火', '水', '木', '金', '土'],
     list: {
       searchPlaceholder: 'コースを検索',
       search: '検索',
@@ -173,7 +176,9 @@ export default {
     ratingPlaceholder: '評価してください',
     ratingDescLabel: 'レビューを書く',
     ratingInputPlaceholder: 'コースはどうでしたか?感想を共有してください...',
-    ratingSubmit: 'レビューを送信'
+    ratingSubmit: 'レビューを送信',
+    intro: 'コース紹介',
+    audience: '対象者'
   },
   live: {
     title: 'ライブ',
@@ -407,6 +412,21 @@ export default {
       aiTeam: 'AIチーム'
     }
   },
+  action: {
+    like: 'いいね',
+    favorite: 'お気に入り',
+    share: '共有'
+  },
+  modelType: {
+    skills: 'スキル',
+    talk: 'チャット',
+    image: '画像',
+    video: '動画',
+    audio: '音声',
+    videoa: 'デジタルヒューマン',
+    other: 'すべて',
+    sck: '素材'
+  },
   agent: {
     title: 'エージェント',
     create: '新規エージェント',
@@ -516,7 +536,7 @@ export default {
     welcomeTitle: 'こんにちは、IHUI AIアシスタントです',
     welcomeDesc: '何かお手伝いしましょうか?',
     inputPlaceholder: '質問を入力…',
-    suggestions: null,
+    suggestions: ['詩を書いてください', '量子力学を説明して', 'コードを書いて', 'この文章を翻訳して'],
     thinking: '考え中…',
     stop: '停止',
     clear: 'クリア',
@@ -601,7 +621,7 @@ export default {
       timbre: '音色'
     },
     image: {
-      examples: null,
+      examples: ['可愛い猫', '夕日の山風景', '未来都市', '抽象芸術'],
       emptyHint: '画像生成の説明を入力',
       tryThese: 'これらを試す',
       placeholder: '生成したい画像を説明',
@@ -617,7 +637,7 @@ export default {
       empty: '生成記録なし',
       size: 'サイズ',
       style: 'スタイル',
-      styles: null,
+      styles: ['リアル', 'アニメ', '油絵', '水彩', '3D', 'ピクセル'],
       generateFailed: '生成失敗、再試行してください',
       promptRequired: '説明を入力してください',
       downloadSuccess: 'アルバムに保存しました',
@@ -748,25 +768,25 @@ export default {
       nanobanana: {
         name: 'NanoBanana',
         desc: 'Google 画像編集モデル,自然言語指示で画像編集をサポート',
-        capabilities: null,
+        capabilities: ['画像編集', '自然言語コマンド', '高品質出力'],
         apiStatus: 'AI画像ページへ移動'
       },
       veo3: {
         name: 'Veo3',
         desc: 'Google 動画生成モデル,高品質なテキストto動画をサポート',
-        capabilities: null,
+        capabilities: ['動画生成', 'テキスト to 動画', '高品質'],
         apiStatus: 'AI動画生成ページへ移動'
       },
       httpmodel: {
         name: 'HttpModel',
         desc: '汎用 HTTP モデルプロキシ,カスタムモデル連携をサポート',
-        capabilities: null,
+        capabilities: ['カスタムモデル', 'HTTP プロキシ', '柔軟な連携'],
         apiStatus: 'AIチャットページへ移動'
       },
       geminiFlash: {
         name: 'Gemini-2.5-flash',
         desc: 'Google Gemini 2.5 Flash テキストモデル,高速応答',
-        capabilities: null,
+        capabilities: ['テキスト対話', '高速応答', '多言語'],
         apiStatus: 'AIチャットで利用可能'
       },
       cat: {
@@ -1117,7 +1137,7 @@ export default {
       starting: '試験にアクセスしています…'
     },
     answer: {
-      judgmentOptions: null,
+      judgmentOptions: ['正しい', '間違い'],
       loadFailed: '問題の読み込み失敗',
       answerPlaceholder: '答えを入力',
       prev: '前の問題',
@@ -1299,7 +1319,16 @@ export default {
       empty: 'ランキングデータなし'
     },
     rankTitle: 'ディストリビューションランキング',
-    rankEmpty: 'ランキングデータがありません'
+    rankEmpty: 'ランキングデータがありません',
+    statsTitle: '収益概要',
+    thisMonth: '今月',
+    totalRevenue: '累計収益',
+    monthRevenue: '今月の収益',
+    monthlyTarget: '目標',
+    withdrawable: '引出可能',
+    pendingSettle: '決済待ち',
+    withdrawn: '引出済み',
+    myTeam: 'マイチーム'
   },
   about: {
     version: 'バージョン {{version}}',
@@ -1420,13 +1449,13 @@ export default {
       callNow: '今すぐカスタマーサービスに電話'
     },
     businessLicense: {
-      labels: null,
+      labels: ['統一社会信用コード', '名称', '類型', '法定代表者', '登録資本金', '設立日', '営業期間', '営業範囲'],
       scopeTitle: '事業範囲',
       footer: '参考用、登記が優先',
       tapToView: 'タップして営業許可証を表示'
     },
     icpRecord: {
-      labels: null,
+      labels: ['ICP 備案番号', '備案主体', '備案性質', '審査通過日', '備案類型'],
       footer: 'MIIT登録システムより',
       icpNo: 'ICP 届出番号',
       policeNo: '公安届出番号',
@@ -1438,11 +1467,11 @@ export default {
       icpLabel: 'ICP登録/ライセンス番号'
     },
     usageRules: {
-      titles: null,
-      account: null,
-      content: null,
-      usage: null,
-      disclaimer: null,
+      titles: ['1. アカウント使用ルール', '2. コンテンツ公開ルール', '3. 支払いと権利ルール', '4. 違反処理ルール', '5. 免責事項'],
+      account: ['ユーザーは公式チャネルでアカウント登録が必要', 'アカウント所有権はプラットフォームに帰属', 'ログイン資格情報を安全に保管', '悪意あるアカウント登録は禁止'],
+      content: ['公開コンテンツは法律を遵守', '違法有害情報の公開を禁止', '他人の知的財産権侵害を禁止', 'プラットフォームは違反コンテンツを審査・削除する権利を有します'],
+      usage: ['ユーザーはプラットフォーム運営を妨害してはならない', '自動化ツールによる不正トラフィックを禁止', '脆弱性悪用による利益取得を禁止', 'ユーザー行動は誠実信用の原則に従う'],
+      disclaimer: ['プラットフォームはサービス中断の責任を負わない', 'ユーザーは使用リスクを自己負担', 'プラットフォームは第三者コンテンツに責任を負わない', '不可抗力による損失はプラットフォームの責任外'],
       footer: '公開日より効力発生',
       titleAccount: '1. アカウント利用',
       titleContent: '2. コンテンツ規範',
@@ -1460,8 +1489,8 @@ export default {
       }
     },
     appPermission: {
-      names: null,
-      descs: null,
+      names: ['アルバム権限', 'カメラ権限', 'マイク権限', '位置権限', '通知権限'],
+      descs: ['画像をアルバムに保存・アップロード', '写真撮影・動画録画', '音声入力・録音機能', '地理位置情報の取得', 'メッセージプッシュ通知の受信'],
       intro: 'IHUI AIは完全機能のために以下の権限が必要',
       required: '必須',
       optional: '任意',
@@ -1472,7 +1501,7 @@ export default {
       openAllSetting: 'システム設定を開く'
     },
     modelRecord: {
-      labels: null,
+      labels: ['モデル名', 'モデルタイプ', '備案番号', '備案主体', '審査日', 'サービス範囲'],
       noticeTitle: 'モデル情報',
       noticeText: '本アプリはAI技術を使用',
       footer: '参考用',
@@ -1831,9 +1860,9 @@ export default {
   },
   plaza: {
     setNeed: {
-      categories: null,
-      levels: null,
-      budgets: null,
+      categories: ['学習洞察', '技術共有', '講義ノート', 'プロジェクト実戦', '質問求助', '経験まとめ'],
+      levels: ['初級', '中級', '上級', 'エキスパート'],
+      budgets: ['1000元以下', '1000-5000元', '5000-10000元', '10000元以上'],
       selectAtLeast: '1つ以上選択',
       saved: '保存しました',
       directionTitle: '学習方向',
@@ -1922,7 +1951,8 @@ export default {
       copyHint: 'タップしてコピー',
       contentTitle: '詳細紹介',
       loadFailed: '詳細の取得失敗'
-    }
+    },
+    noData: 'ランキングデータなし'
   },
   recruitment: {
     applied: '応募送信済み',
@@ -2009,7 +2039,12 @@ export default {
     },
     startConversation: '会話を始めましょう',
     inputPlaceholder: 'メッセージを入力...',
-    sendBtn: '送信'
+    sendBtn: '送信',
+    noInteraction: 'メッセージなし',
+    noPrivate: 'DMなし',
+    noSystem: '通知なし',
+    markRead: '既読にする',
+    deleteConv: '会話削除'
   },
   member: {
     index: {
@@ -2103,7 +2138,16 @@ export default {
     vipSubscription: '会員サブスクリプション',
     balanceAmount: '残高 ¥{{n}}',
     recharge: 'チャージ',
-    couponAvailable: '{{n}}枚利用可能'
+    couponAvailable: '{{n}}枚利用可能',
+    limitedFree: '期間限定無料',
+    memberFree: '会員無料',
+    buyNow: '今すぐ購入',
+    confirmOrder: '注文確認',
+    originalPrice: '定価',
+    paymentMethod: '支払い方法',
+    confirmPay: '支払い確認 ¥{price}',
+    alipay: '支',
+    balance: '残'
   },
   study: {
     todayMinutes: '今日 {{n}} 分',
@@ -2158,8 +2202,8 @@ export default {
       tabsComment: 'コメント'
     },
     publish: {
-      categories: null,
-      visibilityOptions: null,
+      categories: ['学習洞察', '技術共有', '講義ノート', 'プロジェクト実戦', '質問求助', '経験まとめ'],
+      visibilityOptions: ['公開', 'フレンドのみ', 'プライベート'],
       enterTitle: 'タイトルを入力',
       enterContent: '内容を入力',
       published: '公開しました',
@@ -2184,7 +2228,12 @@ export default {
     noteTitle: '学習ノート',
     noteClose: '閉じる',
     notePlaceholder: '学習内容を記録してください...',
-    noteCountUnit: '文字'
+    noteCountUnit: '文字',
+    statsTitle: '学習データ',
+    weeklyStudy: '今週の学習',
+    completedLessons: '完了レッスン',
+    totalDuration: '累計時間',
+    streakDays: '連続日数'
   },
   subscriptions: {
     cancel: 'サブスク解除',
@@ -2508,7 +2557,7 @@ export default {
       bannerTitle: 'VIP会員へアップグレード',
       bannerDesc: 'さらに専用特権を解放',
       rightsTitle: '会員特典',
-      rights: null,
+      rights: ['専用サポート', '優先体験', '高级機能', '広告除去', '専用バッジ', '割引特典'],
       loadFailed: '読み込み失敗',
       operationFailed: '操作失敗',
       originalPrice: '通常¥{{n}}',
@@ -2590,7 +2639,10 @@ export default {
       activationNotice: '会員特典が有効化され、すぐにすべての特典を利用できます',
       shareTitle: '友達に共有して報酬を獲得',
       shareDesc: '友達を招待して会員になると、20%のキャッシュバック'
-    }
+    },
+    benefitsTitle: '会員特典',
+    upgradeNow: '今すぐアップグレード',
+    hot: '人気'
   },
   learnDevelop: {
     title: '学習・開発',
@@ -2730,5 +2782,68 @@ export default {
     cancelBtn: '解約',
     contractsEmpty: '自動継続契約がありません',
     loadingText: '読み込み中...'
+  },
+  catalog: {
+    noCover: '表紙なし',
+    watched: '視聴済み',
+    playing: '再生中',
+    courseCatalog: 'コース目次'
+  },
+  video: {
+    noVideo: '動画なし',
+    teacher: '講師',
+    duration: '再生時間',
+    chapterCount: '全{n}章'
+  },
+  lesson: {
+    complete: '学習完了!',
+    studyDuration: '学習時間',
+    points: 'ポイント',
+    next: '次のレッスン: {title}',
+    share: '共有'
+  },
+  streak: {
+    title: '連続学習',
+    totalDays: '累計 {n}日'
+  },
+  withdrawal: {
+    records: '引出記録'
+  },
+  intro: {
+    empty: '紹介なし',
+    relatedAI: '関連AIアプリ'
+  },
+  invite: {
+    title: '友達招待',
+    qrcode: 'QRコード',
+    code: '招待コード:',
+    saveImage: '画像保存',
+    shareNow: '今すぐ共有'
+  },
+  qrcode: {
+    loading: 'QRコード読込中',
+    from: '送信元:{name}',
+    generating: 'QRコード生成中',
+    savedAlbum: 'アルバムに保存済み',
+    saveFailed: '保存失敗'
+  },
+  model: {
+    configTitle: 'モデル設定',
+    temperature: '温度 (0-2)',
+    maxToken: '最大トークン',
+    systemPrompt: 'システムプロンプト',
+    streaming: 'ストリーミング出力',
+    empty: 'モデルなし'
+  },
+  verify: {
+    getCode: '認証コード取得',
+    phoneEmpty: '電話番号が空です',
+    phoneInvalid: '正しい電話番号を入力',
+    codeSent: '認証コード送信済み',
+    codeIncomplete: '完全なコードを入力',
+    verifySuccess: '認証成功'
+  },
+  notification: {
+    settings: '通知設定'
   }
 }

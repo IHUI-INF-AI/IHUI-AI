@@ -326,7 +326,7 @@ export default function VipIndexPage() {
                 className={`pp-pay-item ${payMethod === 'wechat' ? 'active' : ''}`}
                 onClick={() => setPayMethod('wechat')}
               >
-                <View className="pp-pay-icon wechat">微</View>
+                <View className="pp-pay-icon wechat">{tt('pay.wechat', '微')}</View>
                 <Text className="pp-pay-name">{t('vip.index.wechatPay')}</Text>
                 <Text className="pp-pay-check">{payMethod === 'wechat' ? '✓' : ''}</Text>
               </View>
@@ -334,7 +334,7 @@ export default function VipIndexPage() {
                 className={`pp-pay-item ${payMethod === 'alipay' ? 'active' : ''}`}
                 onClick={() => setPayMethod('alipay')}
               >
-                <View className="pp-pay-icon alipay">付</View>
+                <View className="pp-pay-icon alipay">{tt('pay.alipay', '付')}</View>
                 <Text className="pp-pay-name">{t('vip.index.alipay')}</Text>
                 <Text className="pp-pay-check">{payMethod === 'alipay' ? '✓' : ''}</Text>
               </View>
