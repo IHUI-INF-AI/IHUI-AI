@@ -1,4 +1,5 @@
 import { View, ScrollView } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 import ModelTypeButton, { type ModelType } from './ModelTypeButton'
 import skillsIcon from '../assets/images/add/skills.svg'
 import talkIcon from '../assets/images/add/talk.svg'
@@ -37,6 +38,8 @@ export default function ModelTypeButtonGroup({
   onSelect,
   types = MODEL_TYPES,
 }: ModelTypeButtonGroupProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   return (
     <ScrollView scrollX className="w-full whitespace-nowrap" enhanced showScrollbar={false}>
       <View className="inline-flex flex-row items-center px-3 py-2">
@@ -44,7 +47,7 @@ export default function ModelTypeButtonGroup({
           <ModelTypeButton
             key={cfg.type}
             type={cfg.type}
-            label={cfg.label}
+            label={tt(`modelType.${cfg.type}`, cfg.label)}
             icon={cfg.icon}
             active={activeType === cfg.type}
             onClick={onSelect}
