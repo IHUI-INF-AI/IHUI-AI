@@ -15,11 +15,7 @@
 
 import { create } from 'zustand'
 import { fetchApi } from '@/lib/api'
-import type {
-  SubagentDispatch,
-  DispatchInput,
-  SwarmTopology,
-} from '@ihui/types/subagent-dispatch'
+import type { SubagentDispatch, DispatchInput, SwarmTopologyV2 } from '@ihui/shared/subagents'
 
 interface SubagentDispatchState {
   /** 全部已派发列表(按 createdAt 倒序,最新在前) */
@@ -27,7 +23,7 @@ interface SubagentDispatchState {
   /** 当前选中的 dispatch ID(用于详情查看 / 取消) */
   activeDispatchId: string | null
   /** Swarm 拓扑(节点 + 边) */
-  topology: SwarmTopology
+  topology: SwarmTopologyV2
   /** 派单提交中(防重复点击) */
   isCreating: boolean
   /** 拓扑刷新中 */
@@ -42,7 +38,7 @@ interface SubagentDispatchState {
   reset: () => void
 }
 
-const EMPTY_TOPOLOGY: SwarmTopology = { nodes: [], edges: [] }
+const EMPTY_TOPOLOGY: SwarmTopologyV2 = { nodes: [], edges: [] }
 
 export const useSubagentDispatchStore = create<SubagentDispatchState>((set, get) => ({
   dispatches: [],
@@ -55,14 +51,11 @@ export const useSubagentDispatchStore = create<SubagentDispatchState>((set, get)
     if (get().isCreating) return { ok: false, error: '派单提交中,请稍候' }
     set({ isCreating: true })
     try {
-      const r = await fetchApi<{ dispatch: SubagentDispatch }>(
-        '/api/subagents/dispatch',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(input),
-        },
-      )
+      const r = await fetchApi<{ dispatch: SubagentDispatch }>('/api/subagents/dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      })
       if (!r.success || !r.data?.dispatch) {
         return { ok: false, error: r.error || '派单失败' }
       }
@@ -100,9 +93,7 @@ export const useSubagentDispatchStore = create<SubagentDispatchState>((set, get)
   },
 
   refreshActive: async () => {
-    const r = await fetchApi<{ dispatches: SubagentDispatch[] }>(
-      '/api/subagents/active',
-    )
+    const r = await fetchApi<{ dispatches: SubagentDispatch[] }>('/api/subagents/active')
     if (r.success && r.data?.dispatches) {
       set({ dispatches: r.data.dispatches })
     }
@@ -112,9 +103,7 @@ export const useSubagentDispatchStore = create<SubagentDispatchState>((set, get)
     if (get().isRefreshingTopology) return
     set({ isRefreshingTopology: true })
     try {
-      const r = await fetchApi<{ topology: SwarmTopology }>(
-        '/api/subagents/topology',
-      )
+      const r = await fetchApi<{ topology: SwarmTopologyV2 }>('/api/subagents/topology')
       if (r.success && r.data?.topology) {
         set({ topology: r.data.topology })
       }
