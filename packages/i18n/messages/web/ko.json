@@ -12091,7 +12091,7 @@
     "send": "전송",
     "response": "응답"
   },
-  "agents": {
+  "agent": {
     "marketTitle": "에이전트 마켓",
     "marketSubtitle": "우수한 에이전트를 발견하고 사용",
     "searchPlaceholder": "검색에이전트...",
