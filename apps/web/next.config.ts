@@ -62,7 +62,8 @@ const nextConfig: NextConfig = {
     // 但 "Collecting page data" 阶段尝试读取它 → ENOENT。用 afterEmit 钩子创建空文件兜底。
     config.plugins = config.plugins || []
     config.plugins.push({
-      apply(compiler: import('webpack').Compiler) {
+      // 最小化内联类型,避免依赖 @types/webpack(Next.js 内置 webpack 但未导出类型声明)
+      apply(compiler: { hooks: { afterEmit: { tap: (name: string, fn: () => void) => void } } }) {
         compiler.hooks.afterEmit.tap('EnsurePagesManifest', () => {
           const fs = require('fs') as typeof import('fs')
           const path = require('path') as typeof import('path')
