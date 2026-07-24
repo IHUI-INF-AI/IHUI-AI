@@ -32,6 +32,14 @@
   --color-warning-foreground: #121217;
   --color-info: #3b82f6;
   --color-info-foreground: #ffffff;
+
+  /* 结构 token(来自 @ihui/design-tokens,与 web 端统一) */
+  --radius-sm: 2px;
+  --radius: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
 }
 
 .dark {
@@ -280,8 +288,12 @@ page {
   border-radius: 16px;
   border: 1px solid transparent;
   background: linear-gradient(90deg, #00f2ff, #8b5cf6) border-box;
-  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) padding-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) padding-box,
+    linear-gradient(#fff 0 0);
   -webkit-mask-composite: destination-out;
   mask-composite: exclude;
 }
