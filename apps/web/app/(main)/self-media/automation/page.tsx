@@ -21,7 +21,7 @@ import {
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label, Switch } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label, Switch } from '@ihui/ui-react'
 import { useToast } from '@/hooks/use-toast'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChat } from '@/hooks/use-chat'

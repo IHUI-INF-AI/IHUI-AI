@@ -12,7 +12,7 @@ import {
   TableRow,
   TableCell,
   Checkbox,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
 import { PERM, badgeCls } from './helpers'

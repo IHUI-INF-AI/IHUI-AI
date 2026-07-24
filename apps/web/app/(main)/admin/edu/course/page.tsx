@@ -8,7 +8,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { exportFromApi } from '@/lib/export-utils'
 import { useBatchMutation } from '@/hooks/use-batch-mutation'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { EMPTY, PAGE_SIZE, API, EXPORT_COLS } from './helpers'
 import type { Course, CForm } from './types'

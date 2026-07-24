@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, History, ListChecks } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { ChannelFilter } from './ChannelFilter'
 import { ChannelTable } from './ChannelTable'

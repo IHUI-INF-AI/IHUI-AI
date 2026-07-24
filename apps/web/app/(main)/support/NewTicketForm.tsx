@@ -16,7 +16,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { api, PRIORITIES, textareaClass } from './helpers'
 import type { Ticket, TicketPriority, Category } from './types'
 

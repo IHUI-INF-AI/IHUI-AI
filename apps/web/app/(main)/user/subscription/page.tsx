@@ -25,7 +25,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 type RenewValues = {
   planId: string

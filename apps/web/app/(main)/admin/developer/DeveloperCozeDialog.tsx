@@ -18,7 +18,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { CozeAccount, CozeForm } from './types'
 
 interface DeveloperCozeDialogProps {

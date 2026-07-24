@@ -6,7 +6,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Bell, BellOff, User, Folder, Tag, FolderTree, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 

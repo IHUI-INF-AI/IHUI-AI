@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { ShieldCheck, Loader2 } from 'lucide-react'
 
-import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 
 interface ScoreItem {

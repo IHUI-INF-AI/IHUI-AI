@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Globe, AlertCircle, Clock, Loader2, ArrowRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { RingChart } from './RingChart'
 import { MOCK, LOCALE_COLORS, fmtTime } from './helpers'
 import type { I18nOverview } from './types'

@@ -2,7 +2,7 @@
 
 import { Loader2, Edit, Trash2, CalendarClock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
+import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import type { Arrangement, Paper } from './types'
 
