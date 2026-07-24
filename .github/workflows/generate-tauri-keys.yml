@@ -1,0 +1,82 @@
+name: Generate Tauri Signing Keys (one-time)
+
+# 一次性 workflow:在 GitHub Actions 云端生成 Tauri 自动更新签名密钥对。
+# 私钥从不落地本地,公钥输出到 step summary,私钥+密码上传为 artifact(1 天 retention,用完即删)。
+#
+# 使用方式:GitHub Actions → Run workflow → 等 1 分钟 → 抓公钥 + 下载 artifact + 添加 Secrets + 删除 artifact
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    name: Generate signing key pair
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Generate Tauri signing key pair
+        run: |
+          # 生成随机密码(32 字符,无特殊字符避免 shell 转义问题)
+          PASSWORD=$(openssl rand -base64 32 | tr -d '/+=' | head -c 32)
+
+          # 生成密钥对
+          npx -y @tauri-apps/cli@latest signer generate \
+            --ci \
+            -w ./ihui.key \
+            -p "$PASSWORD"
+
+          # 读取公钥 + base64 编码私钥
+          PUBKEY=$(cat ./ihui.key.pub)
+          PRIVKEY_B64=$(base64 -w 0 ./ihui.key)
+
+          # Mask 敏感值(防止误输出到 log)
+          echo "::add-mask::$PRIVKEY_B64"
+          echo "::add-mask::$PASSWORD"
+
+          # 公钥写入 step summary(我从此处抓)
+          {
+            echo "## Tauri 签名密钥对生成完成"
+            echo ""
+            echo "### 公钥(填入 tauri.conf.json updater.pubkey)"
+            echo '```'
+            echo "$PUBKEY"
+            echo '```'
+            echo ""
+            echo "### 后续步骤(由 agent 自动完成)"
+            echo "1. 下载 artifact \`tauri-secrets\` 获取私钥 + 密码"
+            echo "2. 在 GitHub Settings → Secrets → Actions 添加 2 个 secrets:"
+            echo "   - \`DESKTOP_TAURI_PRIVATE_KEY\`(base64 私钥)"
+            echo "   - \`DESKTOP_TAURI_KEY_PASSWORD\`(密码)"
+            echo "3. 把公钥填入 apps/desktop/src-tauri/tauri.conf.json 的 updater.pubkey"
+            echo "4. 立即删除 artifact(避免私钥泄露)"
+          } >> $GITHUB_STEP_SUMMARY
+
+          # 私钥 + 密码写入 artifact(不输出到 log/summary)
+          {
+            echo "DESKTOP_TAURI_PRIVATE_KEY=$PRIVKEY_B64"
+            echo "DESKTOP_TAURI_KEY_PASSWORD=$PASSWORD"
+            echo "DESKTOP_TAURI_PUBKEY=$PUBKEY"
+          } > tauri-secrets.txt
+
+          # 清理本地 key 文件(artifact 已包含)
+          rm -f ./ihui.key ./ihui.key.pub
+
+      - name: Upload secrets as artifact (1 day retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-secrets
+          path: tauri-secrets.txt
+          retention-days: 1
+          overwrite: true
+
+      - name: Cleanup workspace
+        run: rm -f tauri-secrets.txt
