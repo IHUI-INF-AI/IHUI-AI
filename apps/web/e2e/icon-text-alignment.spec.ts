@@ -219,4 +219,75 @@ test.describe('icon + 文字垂直对齐守门', () => {
     })
     expect(transformApplied, 'button > span 已应用 translateY(0.3px)').toBe(true)
   })
+
+  test('plan-act-toggle 纯文字按钮:文字垂直居中(无 icon 场景,12px text-xs)', async ({ page }) => {
+    // ★ 2026-07-24 立:根治"新组件总有对齐问题"
+    // 根因:plan-act-toggle 按钮内容是纯文字 {label}(无 svg),原全局规则
+    //   :has(>svg):has(>span) 不命中,导致 12px 中文文字在 h-6 items-center
+    //   容器里偏下(自然偏差 ≈ -0.79px)。
+    // 修复:(1) {label} → <span>{label}</span> (2) 全局规则放宽到 :has(>span)
+    // 本测试守护纯文字按钮场景,防止回归。
+
+    // 触发 AI 面板打开
+    const aiButton = page.locator('aside button[aria-pressed]').first()
+    await aiButton.click()
+    await page.waitForTimeout(500) // 面板滑入动画
+
+    // 测量 plan-act-toggle 两个按钮(规划/执行)
+    const results = await page.evaluate(() => {
+      // 通过 title 定位 plan-act-toggle 按钮(Plan/Act tooltip)
+      const buttons = document.querySelectorAll(
+        'button[role="radio"][title*="Plan"], button[role="radio"][title*="Act"]',
+      )
+      const out: Array<{
+        text: string
+        hasSvg: boolean
+        hasSpan: boolean
+        btnMidY: number
+        textMidY: number
+        delta: number
+        transform: string
+        fontSize: string
+      }> = []
+      buttons.forEach((btn) => {
+        const el = btn as HTMLElement
+        const btnRect = el.getBoundingClientRect()
+        const btnMidY = btnRect.top + btnRect.height / 2
+        const span = el.querySelector('span') as HTMLElement | null
+        let textMidY = 0
+        if (span) {
+          const range = document.createRange()
+          range.selectNodeContents(span)
+          const r = range.getBoundingClientRect()
+          textMidY = r.top + r.height / 2
+        }
+        out.push({
+          text: el.textContent || '',
+          hasSvg: !!el.querySelector('svg'),
+          hasSpan: !!span,
+          btnMidY,
+          textMidY,
+          delta: textMidY - btnMidY,
+          transform: span ? getComputedStyle(span).transform : 'no-span',
+          fontSize: getComputedStyle(el).fontSize,
+        })
+      })
+      return out
+    })
+
+    expect(results.length, '应找到 plan-act-toggle 的两个按钮(规划/执行)').toBeGreaterThanOrEqual(2)
+
+    for (const r of results) {
+      expect(r.hasSpan, `${r.text}: 应有 <span> 包裹(让全局规则 :has(>span) 命中)`).toBe(true)
+      // text-xs (12px) 用 0.7px 偏移,matrix(1, 0, 0, 1, 0, 0.7)
+      expect(
+        /matrix\(1,\s*0,\s*0,\s*1,\s*0,\s*0\.7/.test(r.transform),
+        `${r.text}: span transform 应为 translateY(0.7px)(text-xs 12px 专用),实际=${r.transform}`,
+      ).toBe(true)
+      expect(
+        Math.abs(r.delta),
+        `${r.text}: |delta| ${r.delta.toFixed(3)}px 应 ≤ ${DELTA_THRESHOLD_PX}px (btnMidY=${r.btnMidY.toFixed(1)}, textMidY=${r.textMidY.toFixed(1)})`,
+      ).toBeLessThanOrEqual(DELTA_THRESHOLD_PX)
+    }
+  })
 })

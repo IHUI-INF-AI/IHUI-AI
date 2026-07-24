@@ -3,7 +3,6 @@ import { useState, useCallback, useMemo } from 'react'
 import { useDidShow } from '@tarojs/taro'
 import { getDeveloperWithdrawalList } from '@/api'
 import { useI18n } from '@/i18n'
-import './withdrawal.css'
 
 // 开发者提现记录项(getDeveloperWithdrawalList 后端未类型化,按页面使用字段定义)
 interface WithdrawalItem {
@@ -82,7 +81,14 @@ export default function DeveloperWithdrawal() {
 
   const statusClass = useCallback((item: WithdrawalItem) => {
     const norm = normalizeStatus(item.status)
-    return `status-${norm}`
+    const base = 'text-[24rpx] px-[16rpx] py-[6rpx] rounded-[6rpx]'
+    const styles: Record<string, string> = {
+      pending: 'text-[#ff9500] bg-[rgba(255,149,0,0.1)]',
+      processing: 'text-[#007aff] bg-[rgba(0,122,255,0.1)]',
+      success: 'text-[#34c759] bg-[rgba(52,199,89,0.1)]',
+      failed: 'text-[#ff3b30] bg-[rgba(255,59,48,0.1)]',
+    }
+    return `${base} ${styles[norm] ?? styles.pending}`
   }, [])
 
   const displayTime = useCallback((item: WithdrawalItem) => {
@@ -102,40 +108,40 @@ export default function DeveloperWithdrawal() {
   )
 
   return (
-    <View className="withdrawal-page">
-      <View className="page-header">
-        <Text className="page-title">{t('developer.withdrawal.title')}</Text>
+    <View className="min-h-screen bg-background">
+      <View className="px-[30rpx] py-[20rpx] bg-card">
+        <Text className="text-[36rpx] font-bold text-foreground">{t('developer.withdrawal.title')}</Text>
       </View>
-      <View className="summary-card">
-        <View className="summary-item">
-          <Text className="summary-label">{t('developer.income.withdrawnYuan')}</Text>
-          <Text className="summary-value">{loading ? '--' : totalAmount}</Text>
+      <View className="flex mx-[20rpx] my-[20rpx] bg-card rounded-[12rpx] py-[24rpx]">
+        <View className="flex-1 flex flex-col items-center">
+          <Text className="text-[22rpx] text-muted-foreground">{t('developer.income.withdrawnYuan')}</Text>
+          <Text className="text-[34rpx] font-semibold text-foreground mt-[8rpx]">{loading ? '--' : totalAmount}</Text>
         </View>
-        <View className="summary-item">
-          <Text className="summary-label">{t('developer.income.withdrawn')}</Text>
-          <Text className="summary-value">{loading ? '--' : totalSuccess}</Text>
+        <View className="flex-1 flex flex-col items-center">
+          <Text className="text-[22rpx] text-muted-foreground">{t('developer.income.withdrawn')}</Text>
+          <Text className="text-[34rpx] font-semibold text-foreground mt-[8rpx]">{loading ? '--' : totalSuccess}</Text>
         </View>
       </View>
-      <View className="withdrawal-list">
+      <View className="p-[20rpx]">
         {loading ? (
-          <Text className="loading-text">{t('common.loading')}</Text>
+          <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">{t('common.loading')}</Text>
         ) : list.length ? (
           list.map((item) => (
-            <View key={item.id} className="withdrawal-item">
-              <View className="withdrawal-info">
-                <Text className="withdrawal-amount">¥{item.amount}</Text>
-                <Text className="withdrawal-time">{displayTime(item)}</Text>
+            <View key={item.id} className="flex items-center justify-between bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]">
+              <View className="flex-1">
+                <Text className="block text-[32rpx] text-foreground font-semibold mb-[8rpx]">¥{item.amount}</Text>
+                <Text className="block text-[24rpx] text-muted-foreground">{displayTime(item)}</Text>
                 {displayReason(item) ? (
-                  <Text className="withdrawal-reason">{displayReason(item)}</Text>
+                  <Text className="block text-[22rpx] text-[#ff3b30] mt-[6rpx]">{displayReason(item)}</Text>
                 ) : null}
               </View>
-              <Text className={`withdrawal-status ${statusClass(item)}`}>
+              <Text className={statusClass(item)}>
                 {item.statusText || statusText(item)}
               </Text>
             </View>
           ))
         ) : (
-          <Text className="empty-text">{t('developer.withdrawal.empty')}</Text>
+          <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">{t('developer.withdrawal.empty')}</Text>
         )}
       </View>
     </View>

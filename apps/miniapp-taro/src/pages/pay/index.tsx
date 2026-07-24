@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react'
 import { getVipOrderPayInfo, createAlipayMiniappPayment, type VipPayInfo, getProfile, get, post } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 type PayMethod = 'wechat' | 'alipay' | 'balance'
 
@@ -22,6 +21,12 @@ interface OrderDetailInfo {
 
 const COUNTDOWN_TOTAL = 15 * 60
 const priceFmt = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+const METHOD_ICON_COLOR: Record<PayMethod, string> = {
+  wechat: 'text-success',
+  alipay: 'text-primary',
+  balance: 'text-warning',
+}
 
 function formatTime(sec: number): string {
   const m = String(Math.max(0, Math.floor(sec / 60))).padStart(2, '0')
@@ -185,87 +190,92 @@ export default function PayIndex() {
 
   const payDisabled = submitting || expired || (payMethod === 'balance' && balanceInsufficient)
 
+  const methodBase = 'flex items-center px-[12rpx] py-[20rpx] rounded-xl border-[2rpx] border-transparent'
+  const methodActive = 'bg-[rgba(0,242,255,0.08)] border-[rgba(0,242,255,0.3)]'
+  const radioBase = 'w-[36rpx] h-[36rpx] border-[2rpx] border-border rounded-lg bg-secondary flex items-center justify-center'
+  const radioOn = 'border-primary bg-primary'
+
   return (
-    <View className="py-page">
-      <View className={`py-countdown ${expired ? 'py-countdown--expired' : ''}`}>
-        <Text className="py-countdown-text">
+    <View className="min-h-[100vh] bg-background p-[24rpx] pb-[180rpx]">
+      <View className={`mb-[24rpx] px-[32rpx] py-[20rpx] bg-secondary rounded-xl border-[2rpx] border-border text-center${expired ? ' border-destructive bg-[rgba(255,59,59,0.08)]' : ''}`}>
+        <Text className={`text-[26rpx] font-semibold${expired ? ' text-destructive' : ' text-primary'}`}>
           {expired
             ? tt('pay.orderExpired', '订单已超时')
             : tt('pay.countdownTip', '支付剩余时间 {{time}}').replace('{{time}}', formatTime(remaining))}
         </Text>
       </View>
 
-      <View className="py-amount-card">
-        <Text className="py-amount-label">{t('pay.orderAmount')}</Text>
-        <Text className="py-amount-value">¥{priceFmt.format(finalAmount)}</Text>
+      <View className="px-[32rpx] py-[40rpx] bg-card rounded-2xl border-[2rpx] border-border text-center">
+        <Text className="block text-[26rpx] text-muted-foreground">{t('pay.orderAmount')}</Text>
+        <Text className="block mt-[16rpx] text-[64rpx] text-destructive font-bold">¥{priceFmt.format(finalAmount)}</Text>
         {couponDiscount > 0 && (
-          <Text className="py-amount-discount">
+          <Text className="block mt-[12rpx] text-[24rpx] text-success">
             {tt('pay.couponSaved', '已优惠 ¥{{n}}').replace('{{n}}', priceFmt.format(couponDiscount))}
           </Text>
         )}
       </View>
 
-      <View className="py-order-card">
-        <View className="py-order-row">
-          <Text className="py-order-label">{tt('pay.orderNo', '订单号')}</Text>
-          <Text className="py-order-value">{orderNo || '—'}</Text>
+      <View className="mt-[24rpx] px-[32rpx] py-[24rpx] bg-card rounded-2xl border-[2rpx] border-border">
+        <View className="flex items-center justify-between py-[12rpx]">
+          <Text className="text-[26rpx] text-muted-foreground">{tt('pay.orderNo', '订单号')}</Text>
+          <Text className="text-[26rpx] text-foreground max-w-[360rpx] overflow-hidden text-ellipsis whitespace-nowrap">{orderNo || '—'}</Text>
         </View>
-        <View className="py-order-row">
-          <Text className="py-order-label">{tt('pay.goodsName', '商品名称')}</Text>
-          <Text className="py-order-value">
+        <View className="flex items-center justify-between py-[12rpx]">
+          <Text className="text-[26rpx] text-muted-foreground">{tt('pay.goodsName', '商品名称')}</Text>
+          <Text className="text-[26rpx] text-foreground max-w-[360rpx] overflow-hidden text-ellipsis whitespace-nowrap">
             {orderDetail.goodsName || tt('pay.vipSubscription', '会员订阅')}
           </Text>
         </View>
-        <View className="py-order-row">
-          <Text className="py-order-label">{tt('pay.createTime', '下单时间')}</Text>
-          <Text className="py-order-value">{orderDetail.createTime || '—'}</Text>
+        <View className="flex items-center justify-between py-[12rpx]">
+          <Text className="text-[26rpx] text-muted-foreground">{tt('pay.createTime', '下单时间')}</Text>
+          <Text className="text-[26rpx] text-foreground max-w-[360rpx] overflow-hidden text-ellipsis whitespace-nowrap">{orderDetail.createTime || '—'}</Text>
         </View>
       </View>
 
-      <View className="py-method-card">
-        <Text className="py-section-title">{t('pay.selectMethod')}</Text>
+      <View className="mt-[24rpx] px-[32rpx] py-[24rpx] bg-card rounded-2xl border-[2rpx] border-border">
+        <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">{t('pay.selectMethod')}</Text>
 
         <View
-          className={`py-method ${payMethod === 'wechat' ? 'py-method--active' : ''}`}
+          className={`${methodBase}${payMethod === 'wechat' ? ` ${methodActive}` : ''}`}
           onClick={() => onSelectMethod('wechat')}
         >
-          <View className="py-method-icon py-method-icon--wx">{tt('pay.wechat', '微')}</View>
-          <View className="py-method-body">
-            <Text className="py-method-name">{t('pay.wechat')}</Text>
+          <View className={`w-[64rpx] h-[64rpx] leading-[64rpx] text-center rounded-xl text-[28rpx] bg-muted font-bold ${METHOD_ICON_COLOR.wechat}`}>{tt('pay.wechat', '微')}</View>
+          <View className="flex-1 ml-[24rpx] flex flex-col">
+            <Text className="text-[28rpx] text-foreground">{t('pay.wechat')}</Text>
           </View>
-          <View className={`py-radio ${payMethod === 'wechat' ? 'py-radio--on' : ''}`}>
-            {payMethod === 'wechat' && <Text className="py-radio-mark">✓</Text>}
+          <View className={`${radioBase}${payMethod === 'wechat' ? ` ${radioOn}` : ''}`}>
+            {payMethod === 'wechat' && <Text className="text-primary-foreground text-[24rpx] font-bold leading-none">✓</Text>}
           </View>
         </View>
 
         <View
-          className={`py-method ${payMethod === 'alipay' ? 'py-method--active' : ''}`}
+          className={`${methodBase}${payMethod === 'alipay' ? ` ${methodActive}` : ''}`}
           onClick={() => onSelectMethod('alipay')}
         >
-          <View className="py-method-icon py-method-icon--ali">{tt('pay.alipay', '支')}</View>
-          <View className="py-method-body">
-            <Text className="py-method-name">{tt('pay.alipay', '支付宝')}</Text>
+          <View className={`w-[64rpx] h-[64rpx] leading-[64rpx] text-center rounded-xl text-[28rpx] bg-muted font-bold ${METHOD_ICON_COLOR.alipay}`}>{tt('pay.alipay', '支')}</View>
+          <View className="flex-1 ml-[24rpx] flex flex-col">
+            <Text className="text-[28rpx] text-foreground">{tt('pay.alipay', '支付宝')}</Text>
           </View>
-          <View className={`py-radio ${payMethod === 'alipay' ? 'py-radio--on' : ''}`}>
-            {payMethod === 'alipay' && <Text className="py-radio-mark">✓</Text>}
+          <View className={`${radioBase}${payMethod === 'alipay' ? ` ${radioOn}` : ''}`}>
+            {payMethod === 'alipay' && <Text className="text-primary-foreground text-[24rpx] font-bold leading-none">✓</Text>}
           </View>
         </View>
 
         <View
-          className={`py-method ${payMethod === 'balance' ? 'py-method--active' : ''}`}
+          className={`${methodBase}${payMethod === 'balance' ? ` ${methodActive}` : ''}`}
           onClick={() => onSelectMethod('balance')}
         >
-          <View className="py-method-icon py-method-icon--balance">{tt('pay.balance', '余')}</View>
-          <View className="py-method-body">
-            <Text className="py-method-name">{tt('pay.balance', '余额支付')}</Text>
-            <Text className="py-method-sub">
+          <View className={`w-[64rpx] h-[64rpx] leading-[64rpx] text-center rounded-xl text-[28rpx] bg-muted font-bold ${METHOD_ICON_COLOR.balance}`}>{tt('pay.balance', '余')}</View>
+          <View className="flex-1 ml-[24rpx] flex flex-col">
+            <Text className="text-[28rpx] text-foreground">{tt('pay.balance', '余额支付')}</Text>
+            <Text className="mt-[6rpx] text-[24rpx] text-muted-foreground">
               {tt('pay.balanceAmount', '余额 ¥{{n}}').replace('{{n}}', priceFmt.format(balance))}
               {balanceInsufficient ? ` · ${tt('pay.balanceInsufficient', '余额不足,请充值')}` : ''}
             </Text>
           </View>
           {balanceInsufficient ? (
             <Text
-              className="py-recharge-link"
+              className="px-[20rpx] py-[8rpx] text-[24rpx] text-primary border-[2rpx] border-primary rounded-lg"
               onClick={(e) => {
                 e.stopPropagation()
                 goRecharge()
@@ -274,31 +284,31 @@ export default function PayIndex() {
               {tt('pay.recharge', '充值')}
             </Text>
           ) : (
-            <View className={`py-radio ${payMethod === 'balance' ? 'py-radio--on' : ''}`}>
-              {payMethod === 'balance' && <Text className="py-radio-mark">✓</Text>}
+            <View className={`${radioBase}${payMethod === 'balance' ? ` ${radioOn}` : ''}`}>
+              {payMethod === 'balance' && <Text className="text-primary-foreground text-[24rpx] font-bold leading-none">✓</Text>}
             </View>
           )}
         </View>
       </View>
 
-      <View className="py-coupon-card" onClick={onSelectCoupon}>
-        <Text className="py-coupon-label">{tt('pay.coupon', '优惠券')}</Text>
-        <View className="py-coupon-right">
+      <View className="flex items-center justify-between mt-[24rpx] px-[32rpx] py-[24rpx] bg-card rounded-2xl border-[2rpx] border-border" onClick={onSelectCoupon}>
+        <Text className="text-[28rpx] text-foreground">{tt('pay.coupon', '优惠券')}</Text>
+        <View className="flex items-center">
           {selectedCoupon ? (
-            <Text className="py-coupon-value">-¥{priceFmt.format(selectedCoupon.amount)}</Text>
+            <Text className="text-[28rpx] text-destructive font-semibold">-¥{priceFmt.format(selectedCoupon.amount)}</Text>
           ) : (
-            <Text className="py-coupon-placeholder">
+            <Text className="text-[26rpx] text-muted-foreground">
               {coupons.length > 0
                 ? tt('pay.couponAvailable', '{{n}} 张可用').replace('{{n}}', String(coupons.length))
                 : tt('pay.noCoupon', '暂无可用优惠券')}
             </Text>
           )}
-          <Text className="py-coupon-arrow">›</Text>
+          <Text className="ml-[12rpx] text-[32rpx] text-muted-foreground">›</Text>
         </View>
       </View>
 
       <Button
-        className={`py-submit ${payDisabled ? 'py-submit--disabled' : ''}`}
+        className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-primary text-primary-foreground rounded-xl text-[32rpx] font-bold${payDisabled ? ' opacity-50' : ''}`}
         loading={submitting}
         disabled={payDisabled}
         onClick={onPay}

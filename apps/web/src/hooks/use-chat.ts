@@ -596,7 +596,8 @@ export interface UseChatReturn {
   error: string | null
   /** 当前挂起的 AI 提问;非 null 时弹窗阻塞输入 */
   pendingQuestion: ReturnType<typeof useChatStore.getState>['pendingQuestion']
-  sendMessage: (content: string) => Promise<void>
+  /** 发送消息(2026-07-24 立,返回 Promise<boolean>,true=已提交可清空输入框,false=未发送需保留输入内容) */
+  sendMessage: (content: string) => Promise<boolean>
   /** 用户回答 AI 主动提问,触发 /chat/answer 续流 */
   sendAnswer: (answer: string) => Promise<void>
   /** 跳过当前挂起的提问(不续流,允许用户继续发新消息) */
@@ -661,13 +662,25 @@ export function useChat(): UseChatReturn {
   const lastSentContentRef = React.useRef('')
 
   const sendMessage = React.useCallback(
-    async (content: string) => {
+    async (content: string): Promise<boolean> => {
       const text = content.trim()
-      if (!text) return
+      if (!text) return false
       lastSentContentRef.current = text
 
       const store = useChatStore.getState()
-      if (store.isStreaming) return
+      if (store.isStreaming) return false
+
+      // 未登录拦截(2026-07-24 立,修复"未登录点发送无反应"问题):
+      // - 不调 createConversation(避免 401 无可见反馈)
+      // - toast 提示 + 弹出登录弹窗(用户偏好:登录/注册用弹窗)
+      // - return false 让 MessageInput 保留输入内容,登录后可直接重发
+      if (!useAuthStore.getState().isAuthenticated) {
+        toast.warning('请先登录', {
+          description: '登录后即可与 AI 对话',
+        })
+        useLoginDialogStore.getState().open('login')
+        return false
+      }
 
       // 拦截自媒体斜杠命令(/wechat-article / /koubo-script),直接调 skill API,
       // 不走 LLM chat 流。结果作为 assistant 消息追加到对话。
@@ -676,7 +689,7 @@ export function useChat(): UseChatReturn {
         store.addMessage({ role: 'user', content: text, model: m })
         store.addMessage({ role: 'assistant', content: assistantContent, model: m })
       })
-      if (slashHit) return
+      if (slashHit) return true
 
       const model = store.currentModel
 
@@ -686,7 +699,7 @@ export function useChat(): UseChatReturn {
         const createRes = await createConversation({ model })
         if (!createRes.success) {
           store.setError(createRes.error)
-          return
+          return false
         }
         conversationId = createRes.data.conversation.id
         store.setConversationId(conversationId)
@@ -855,6 +868,8 @@ export function useChat(): UseChatReturn {
         useChatStore.getState().setStreaming(false)
         useChatStore.getState().markAllAgentStreamsDone()
       }
+      // 消息已提交到 store(即使流式出错也有 error 标记 + retry 按钮),可清空输入框
+      return true
     },
     [router, queryClient],
   )

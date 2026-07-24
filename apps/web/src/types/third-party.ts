@@ -226,14 +226,6 @@ export interface ThirdPartyLoginResponse {
   }
 }
 
-/** Google OAuth 配置（由后端 /api/auth/google/config 返回） */
-export interface GoogleOAuthConfig {
-  clientId: string
-  redirectUri: string
-  scope: string
-  configured: boolean
-}
-
 /** Google 用户信息 */
 export interface GoogleUserInfo {
   id: string
