@@ -38,16 +38,31 @@
   display: none !important;
 }
 
+/* 2026-07-25 v3:修复二维码上下偏上问题
+ * 根因:iframe 内部 html/body 默认 height:auto,导致容器 height:100% 不生效,
+ * 二维码仍按 SDK 默认顶对齐。必须先让 html/body 撑满 iframe 视口,再让容器 flex 居中。
+ */
+html,
+body {
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+}
+
 /* 容器 flex 居中 - 覆盖所有可能的容器 class */
 .login_box,
 .qrcode_login_box,
 .ww_login_box,
 #js_single_page_container {
   padding: 0 !important;
-  margin: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  min-height: 280px !important;
+  margin: 0 auto !important;
+  width: auto !important;
+  height: auto !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;

@@ -30,3 +30,13 @@ export {
   type RnThemeMode,
   type RnThemeTokens,
 } from './rn-tokens'
+
+// 跨端组件 props 接口统一层(ui-react + ui-native 共享)
+export {
+  type VipBadgeBaseProps,
+  type BadgeVariant,
+  type BadgeBaseProps,
+  type ButtonBaseVariant,
+  type ButtonBaseSize,
+  type ButtonBaseProps,
+} from './component-props'
