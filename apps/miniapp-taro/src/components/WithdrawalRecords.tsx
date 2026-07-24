@@ -36,7 +36,7 @@ export default function WithdrawalRecords({
   const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   return (
     <View className="bg-card mx-3 my-3 rounded-xl overflow-hidden">
-      <View className="flex items-center justify-between px-4 py-3 border-b border-border">
+      <View className="flex items-center justify-between px-4 py-3 mb-2">
         <Text className="text-sm font-medium text-foreground">{tt('withdrawal.records', '提现记录')}</Text>
       </View>
 
@@ -58,7 +58,7 @@ export default function WithdrawalRecords({
             return (
               <View
                 key={record.id}
-                className="flex items-center px-4 py-3 border-b border-border"
+                className="flex items-center px-4 py-3 mb-1.5"
                 onClick={() => onViewDetail?.(record)}
               >
                 <View className="flex-1">

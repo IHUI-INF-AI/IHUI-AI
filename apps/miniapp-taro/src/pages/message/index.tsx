@@ -438,7 +438,7 @@ export default function MessageIndex() {
             className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <View className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <View className="flex items-center justify-between px-4 py-3 mb-2">
               <Text className="text-sm font-medium text-foreground">
                 {t('message.notificationSettings')}
               </Text>
