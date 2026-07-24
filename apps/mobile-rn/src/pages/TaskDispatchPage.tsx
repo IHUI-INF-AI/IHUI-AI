@@ -22,7 +22,7 @@ import type {
   TaskResult,
   TaskStatus,
   TaskWsMessage,
-} from '@ihui/shared'
+} from '@ihui/shared/tasks/dispatch'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import { getToken } from '../lib/token'
