@@ -168,7 +168,9 @@ export default defineAppConfig({
     backgroundColor: '#121217',
   },
   tabBar: {
-    custom: true,
+    // 微信端使用自定义 TabBar(custom-tab-bar/index.tsx)以支持 i18n + 赛博朋克动效
+    // 支付宝端不支持自定义 TabBar,降级为原生 TabBar + 图标(Taro 编译时按平台输出)
+    custom: process.env.TARO_ENV === 'weapp',
     color: 'rgba(255,255,255,0.5)',
     selectedColor: '#00f2ff',
     borderStyle: 'white',
@@ -177,18 +179,32 @@ export default defineAppConfig({
       {
         pagePath: 'pages/index/index',
         text: '首页',
+        iconPath: 'assets/tabbar/home.png',
+        selectedIconPath: 'assets/tabbar/home-active.png',
+      },
+      {
+        pagePath: 'pages/community/index',
+        text: '智汇社区',
+        iconPath: 'assets/tabbar/community.png',
+        selectedIconPath: 'assets/tabbar/community-active.png',
       },
       {
         pagePath: 'pages/course/list',
         text: '课程',
+        iconPath: 'assets/tabbar/course.png',
+        selectedIconPath: 'assets/tabbar/course-active.png',
       },
       {
         pagePath: 'pages/live/list',
         text: '直播',
+        iconPath: 'assets/tabbar/live.png',
+        selectedIconPath: 'assets/tabbar/live-active.png',
       },
       {
         pagePath: 'pages/user/index',
         text: '我的',
+        iconPath: 'assets/tabbar/user.png',
+        selectedIconPath: 'assets/tabbar/user-active.png',
       },
     ],
   },
