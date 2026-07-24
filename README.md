@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <strong>340 张表 · 144 迁移 · 1300+ API 端点 · 21 Grafana 仪表盘 · 30+ pre-commit 守门 · 278 API 测试 · 63 e2e spec</strong><br/>
+  <strong>340 张表 · 144 迁移 · 1300+ API 端点 · 21 Grafana 仪表盘 · 30+ pre-commit 守门 · 5346 API 测试 · 63 e2e spec</strong><br/>
   <sub>不是 PPT,不是画饼,不是占位 —— 每一个数字都能在代码里 grep 到</sub>
 </p>
 
@@ -581,7 +581,7 @@ cd IHUI-AI && docker compose up -d
 | 日志           | Pino 9.5(后端)+ Python logging(AI 服务)+ Loki + Promtail                       | 结构化 + 聚合                       |
 | 追踪           | OpenTelemetry + Jaeger                                                         | 分布式全链路                        |
 | 监控           | Prometheus + Grafana(21 仪表盘)+ Node Exporter + Alertmanager                  | 主机 + 应用 + 告警                  |
-| 测试           | Vitest(后端)+ Playwright(E2E)+ pytest(AI 服务)+ Locust(压测)+ Lighthouse(性能) | 268 + 400+ 用例                     |
+| 测试           | Vitest(后端)+ Playwright(E2E)+ pytest(AI 服务)+ Locust(压测)+ Lighthouse(性能) | 5346 + 400+ 用例                    |
 | 未使用代码检测 | Knip                                                                           | CI 守门                             |
 | Node           | >=20.10.0                                                                      | -                                   |
 | Python         | 3.12+(仅 AI 服务)                                                              | -                                   |
@@ -896,7 +896,7 @@ IHUI-AI 应用功能全景
     │   📁 scripts/check-*.mjs · .husky/
     │
     └── E5. 测试与性能
-        • Vitest(后端 268 用例)· Playwright(E2E 17 spec)· pytest(AI 400+ 用例)· Locust 压测
+        • Vitest(后端 5346 用例)· Playwright(E2E 17 spec)· pytest(AI 400+ 用例)· Locust 压测
         • Lighthouse CI 性能预算 · Knip 未使用代码检测 · turbo 22 tasks 全量验证
         📁 apps/api/tests/ · apps/web/e2e/ · apps/ai-service/tests/
 ```
@@ -1292,7 +1292,7 @@ IHUI-AI/
 
 | 类型       | 框架          | 规模                         | 命令                              |
 | ---------- | ------------- | ---------------------------- | --------------------------------- |
-| 后端单元   | Vitest        | 38 文件,268 用例             | `pnpm --filter @ihui/api test`    |
+| 后端单元   | Vitest        | 322 文件,5346 用例           | `pnpm --filter @ihui/api test`    |
 | 前端 E2E   | Playwright    | 17 spec 文件                 | `pnpm test:e2e`                   |
 | AI 服务    | pytest        | 13 文件,400+ 用例            | `cd apps/ai-service && pytest`    |
 | CLI 单元   | Vitest        | 13 文件                      | `pnpm --filter @ihui/cli test`    |
