@@ -36,14 +36,14 @@ export default function AdminMenuPermissionPage() {
     queryFn: async () => {
       const qs = new URLSearchParams({ page: String(page), pageSize: '10' })
       if (search.trim()) qs.set('name', search.trim())
-      const r = await fetchApi<MenuPermissionListData>(`/api/v1/admin/sys/menu?${qs}`)
+      const r = await fetchApi<MenuPermissionListData>(`/api/admin/sys-menu/list?${qs}`)
       if (!r.success) throw new Error(r.error)
       return r.data
     },
   })
   const audit = useMutation({
     mutationFn: ({ id, status }: { id: string; status: MenuPermissionStatus }) =>
-      fetchApi(`/api/v1/admin/sys/menu/${id}/audit`, { method: 'PUT', body: JSON.stringify({ status }) }),
+      fetchApi(`/api/admin/sys-menu/${id}/audit`, { method: 'PUT', body: JSON.stringify({ status }) }),
     onSuccess: (_d, v) => { toast.success(v.status === 'published' ? '已通过' : '已拒绝'); qc.invalidateQueries({ queryKey: ['admin', 'menu-permission'] }) },
     onError: (e: Error) => toast.error(e.message),
   })
