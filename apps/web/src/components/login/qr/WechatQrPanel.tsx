@@ -51,6 +51,9 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
             redirect_uri: redirectUri,
             state,
             style: 'black',
+            // 2026-07-25 隐藏 SDK 默认顶部"微信登录"标题 + 底部提示,二维码居中
+            // SDK 会把 href 指向的 CSS 通过 <link> 注入到跨域 iframe 内部
+            href: `${window.location.origin}/qr-styles/wechat-qr.css`,
           })
           if (!cancelled) setStatus('ready')
         } catch (e) {
