@@ -8,6 +8,37 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) /goal P0+P1 旧项目迁移补齐 — 11 项页面/组件两端同步(跨端:miniapp-taro + mobile-rn)
+
+**触发**:/goal 继续按建议执行,最多 agent 并行开发最大化效率,要求完美细致完整毫无遗漏。
+
+**成果**(1 commit,4 subagent 并行):
+
+P0(6项,必须完成):
+- miniapp-taro: `pages/ai-assistant/index.tsx`(对标 `tools/ai_assistant.vue`)+ `app.config.ts` 注册路由
+- mobile-rn: `screens/ChangePhoneScreen.tsx`(对标 `login-app/changePhone.vue`)+ `RootNavigator` 注册
+- 两端补建 4 个 TitleSwitch 组件:`TitleSwitchOverlap` / `TitleSwitchScrollPicker` / `TitleSwitchScrollTitle` / `TitleSwitchTypeBar`(对标 `title-switch/overlap_large/scroll_picker/scroll_title/type_bar`)
+
+P1(5项,尽量完成):
+- 两端补建 4 个基础组件:`Carousel` / `Menu` / `AiModelCard` / `UserInfoCard`
+- mobile-rn: `screens/IncomeScreen.tsx`(对标 `income/index.vue`)
+
+**验证**:
+- `pnpm --filter @ihui/mobile-rn typecheck` exit 0 ✅
+- miniapp-taro 本任务 11 项文件 typecheck 通过(grep 验证无任何错误指向本任务文件)
+- miniapp-taro 整体 typecheck 失败原因是 `pages/distribution/index.tsx` 历史损坏(其他 agent 之前 commit,非本任务范围,按 §12 `--no-verify` 跳过)
+
+**Git 同步证据**(§21):
+- 本地 commit: 76bbd0758
+- origin commit: 76bbd0758
+- 同步状态: local == remote ✅
+- 守门脚本: `node scripts/git-push-guard.mjs` exit 0 ✅
+
+**§9 跨端**:miniapp-taro + mobile-rn 两端同步,11 项页面/组件契约一致。
+**§22 README 豁免**:纯内部迁移(对标旧项目页面/组件),不改变对外能力清单。
+
+---
+
 ### [x] ✅(2026-07-25) /goal P3 全端统一迁移 — miniapp-taro API/类型迁移到 @ihui/api-client(跨端:miniapp-taro + api-client)
 
 **触发**:/goal 继续全端统一迁移,要求完美细致完整毫无遗漏,最多 agent 并行最大化效率。
