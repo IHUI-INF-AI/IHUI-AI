@@ -4,7 +4,6 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { clearCache } from '@/api'
 import { useI18n } from '@/i18n'
-import './cache.css'
 
 const KEEP_KEYS = ['ihui_token', 'ihui_refresh_token', 'ihui_user_info', 'lang', 'theme']
 const IMAGE_KEYS = ['ihui_image_history', 'ihui_image_favorites']
@@ -126,38 +125,38 @@ export default function CachePage() {
   useDidShow(() => loadSize())
 
   return (
-    <View className="page">
-      <View className="card">
-        <View className="row last">
-          <Text className="label">{t('setting.cache.current')}</Text>
-          <Text className="value">{size}</Text>
+    <View className="min-h-screen bg-background">
+      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+        <View className="flex justify-between items-center p-[32rpx]">
+          <Text className="text-[28rpx] text-foreground">{t('setting.cache.current')}</Text>
+          <Text className="text-[28rpx] text-primary">{size}</Text>
         </View>
       </View>
 
       {clearing ? (
-        <View className="progress-card">
-          <View className="progress-bar">
-            <View className="progress-fill" style={{ width: `${progress}%` }} />
+        <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
+          <View className="w-full h-[12rpx] bg-border rounded-[6rpx] overflow-hidden">
+            <View className="h-full bg-primary transition-[width] duration-100" style={{ width: `${progress}%` }} />
           </View>
-          <Text className="progress-text">
+          <Text className="block text-[24rpx] text-muted-foreground mt-[16rpx] text-center">
             {tt('setting.cache.clearing', '清理中')} {progress}%
           </Text>
         </View>
       ) : null}
 
-      <View className="card">
-        <View className="row" onClick={onClearImage}>
-          <Text className="label">{t('setting.cache.clearImage')}</Text>
-          <Text className="arrow">›</Text>
+      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+        <View className="flex justify-between items-center p-[32rpx]" onClick={onClearImage}>
+          <Text className="text-[28rpx] text-foreground">{t('setting.cache.clearImage')}</Text>
+          <Text className="text-muted-foreground">›</Text>
         </View>
-        <View className="row" onClick={onClearFile}>
-          <Text className="label">{t('setting.cache.clearFile')}</Text>
-          <Text className="arrow">›</Text>
+        <View className="flex justify-between items-center p-[32rpx] mt-[16rpx]" onClick={onClearFile}>
+          <Text className="text-[28rpx] text-foreground">{t('setting.cache.clearFile')}</Text>
+          <Text className="text-muted-foreground">›</Text>
         </View>
       </View>
 
       <Button
-        className="btn"
+        className="mx-[32rpx] my-[60rpx] bg-primary text-foreground rounded-[40rpx] text-[32rpx] disabled:opacity-60"
         onClick={onClearAll}
         disabled={clearing}
         loading={clearing}
@@ -165,9 +164,9 @@ export default function CachePage() {
         {t('setting.cache.clearAll')}
       </Button>
 
-      <View className="tips">
-        <Text>{t('setting.cache.tip1')}</Text>
-        <Text>{t('setting.cache.tip2')}</Text>
+      <View className="px-[32rpx]">
+        <Text className="block text-[22rpx] text-muted-foreground leading-[1.8]">{t('setting.cache.tip1')}</Text>
+        <Text className="block text-[22rpx] text-muted-foreground leading-[1.8]">{t('setting.cache.tip2')}</Text>
       </View>
     </View>
   )
