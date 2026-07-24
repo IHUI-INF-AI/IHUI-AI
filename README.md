@@ -1551,6 +1551,41 @@ E1-E5 五层防御体系,从密码学到运行时全链路防护:
 
 ---
 
+## G:\ 根目录实时守门服务(2026-07-24 立)
+
+`FileSystemWatcher` 实时监控 G:\ 根目录,黑名单内的垃圾目录/文件创建后**约 250ms 内自动删除**,从被动清理升级为主动实时阻止。
+
+**组件**:
+- [scripts/g-root-guardian.ps1](./scripts/g-root-guardian.ps1) — 实时监控脚本(FileSystemWatcher + 黑名单匹配 + 自动删除 + 审计日志 + 1MB 日志轮转)
+- [scripts/g-root-blacklist.json](./scripts/g-root-blacklist.json) — 黑名单配置(16 目录 + 23 文件 + 10 通配符模式)
+- [scripts/install-g-root-guardian.ps1](./scripts/install-g-root-guardian.ps1) — 安装脚本(注册 Windows 计划任务,用户登录时自启,失败自动重启)
+- [scripts/uninstall-g-root-guardian.ps1](./scripts/uninstall-g-root-guardian.ps1) — 卸载脚本(停止进程 + 删除计划任务)
+- [scripts/g-root-guardian-status.ps1](./scripts/g-root-guardian-status.ps1) — 状态检查脚本(查询运行状态 + 显示最近日志)
+
+**安装(开机自启)**:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\install-g-root-guardian.ps1
+```
+
+**状态查询**:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\g-root-guardian-status.ps1
+```
+
+**卸载**:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-guardian.ps1
+```
+
+**黑名单模式**:只删除已知垃圾模式(16 目录 + 23 文件 + 10 通配符),不删除未知目录/文件(避免误删用户新项目)。日志:`.trae-cn/tmp/g-root-guardian.log`(1MB 自动轮转)。
+
+**根治意义**:从被动清理(cleanup-external-junk.ps1)→ 主动实时阻止(FileSystemWatcher + 计划任务自启),用户无需干预,垃圾创建的瞬间就被删除,等同于"不允许往这放垃圾文件夹"。
+
+---
+
 ## 工程守门(23 个 pre-commit 钩子)
 
 项目通过 23 个 pre-commit 钩子 + post-commit 自动 push + 11 迁移审计 + 9 PowerShell 启动脚本杜绝协作事故:
