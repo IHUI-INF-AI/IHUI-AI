@@ -1234,11 +1234,11 @@
 **耦合关系**:架构路线(套壳 vs 双份)决定打包内容与签名对象;签名/分发无论哪条路都要做,可先行不阻塞架构决策。套壳路线下 desktop 8 个 UI 页面会删除,R3-R12 部分 UI 工作迁移/废弃;Tauri 原生能力(托盘/快捷键/deep-link/自动更新/文件拖拽)两条路线都保留。
 
 **阶段 1(不阻塞,先行)— 安装更新链路闭环**:
-- [ ] 生成 Tauri 签名密钥对(`tauri signer generate -w ~/.tauri/ihui.key`),pubkey 填入 tauri.conf.json,私钥存 GitHub Secrets(不入库)
-- [ ] release-desktop.yml 启用 `createUpdaterArtifacts: true` + 签名 + 上传 GitHub Release + 生成 latest.json
-- [ ] updater endpoints 指向真实 CDN(替换占位 `https://releases.ihui.ai/desktop/latest.json`)
-- [ ] 代码签名(Windows Authenticode / macOS Developer ID)方案确定 + 证书接入
-- [ ] 分发渠道:winget/scoop/homebrew 的 desktop manifest(现有 4 个是 CLI 的)
+- [x] ✅(2026-07-24) 生成 Tauri 签名密钥对:本地 `pnpm dlx @tauri-apps/cli signer generate` 生成(commit 2481beb26),pubkey 填入 [tauri.conf.json](file:///d:/桌面/项目/IHUI-AI/apps/desktop/src-tauri/tauri.conf.json) `plugins.updater.pubkey`,私钥存 GitHub Secrets `DESKTOP_TAURI_PRIVATE_KEY`(base64),密码存 `DESKTOP_TAURI_KEY_PASSWORD`。本地密钥文件已删除。
+- [x] ✅(2026-07-24) release-desktop.yml 启用自动更新 artifacts:`updaterJsonPreferNsis: true`(Windows NSIS 安装器)+ `TAURI_SIGNING_PRIVATE_KEY` + `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` 环境变量已配置。tauri-action 自动生成 `latest.json` 并上传到 Release assets(commit 2481beb26)。
+- [x] ✅(2026-07-24) updater endpoints 指向 GitHub Releases 免费方案:`https://github.com/IHUI-INF-AI/IHUI-AI/releases/latest/download/latest.json`(替代占位 `https://releases.ihui.ai/desktop/latest.json`)。无需 CDN,GitHub Releases 原生支持。
+- [ ] ⏸️ 暂不做(需付费):代码签名(Windows Authenticode $200/年 / macOS Developer ID $99/年)。Windows SmartScreen 会警告"未知发布者",用户点"仍要运行"可正常安装。Tauri 签名保证自动更新完整性,代码签名只影响首次安装警告。后续可补。
+- [ ] ⏸️ 暂不做(可选):分发渠道 winget/scoop/homebrew 的 desktop manifest(现有 4 个是 CLI 的)。GitHub Releases 已提供直接下载,winget/scoop 等是补充渠道。
 
 **阶段 2(架构决策)— web/desktop 页面收敛**:
 - [x] ✅(2026-07-23) SSR 用量盘点完成:web 端对 Server Components / Server Actions / API routes / next/* 依赖全量统计(详见下表)
