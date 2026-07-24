@@ -243,6 +243,98 @@ export async function createWechatAppPayment(params: {
   )
 }
 
+// ===================== alipay-app（支付宝 APP 支付，mobile-rn 端） =====================
+
+/** 支付宝 APP 支付下单响应 */
+export interface AlipayAppPayResponse {
+  outTradeNo: string
+  /** 未配置支付宝时为 true（DEV 环境 mock） */
+  mock?: boolean
+  /** APP 支付订单字符串（传给支付宝 SDK 调起支付） */
+  orderStr?: string
+}
+
+/**
+ * 创建支付宝 APP 支付订单（mobile-rn 端调用）。
+ * amount 单位：元（浮点）。返回 orderStr 传给支付宝原生 SDK 调起支付。
+ */
+export async function createAlipayAppPayment(params: {
+  amount: number
+  orderType?: number
+  subject?: string
+}): Promise<ApiResult<AlipayAppPayResponse>> {
+  return fetchApi<AlipayAppPayResponse>(
+    `/api/payments/alipay/app/create${buildQs({
+      amount: params.amount,
+      orderType: params.orderType,
+      subject: params.subject,
+    })}`,
+    { method: 'POST' },
+  )
+}
+
+/** 支付宝网页支付下单响应（PC/H5，mobile-rn 端用 expo-web-browser 打开 payUrl） */
+export interface AlipayPagePayResponse {
+  outTradeNo: string
+  /** 未配置支付宝时为 true（DEV 环境 mock） */
+  mock?: boolean
+  /** 支付宝收银台 URL（用 expo-web-browser 打开） */
+  payUrl?: string
+}
+
+/**
+ * 创建支付宝网页支付订单（mobile-rn 端 H5 方案调用）。
+ * amount 单位：元（浮点）。返回 payUrl 用 expo-web-browser 打开调起支付宝。
+ */
+export async function createAlipayPagePayment(params: {
+  amount: number
+  orderType?: number
+  subject?: string
+  productId?: string
+}): Promise<ApiResult<AlipayPagePayResponse>> {
+  return fetchApi<AlipayPagePayResponse>(
+    `/api/payments/alipay/create${buildQs({
+      amount: params.amount,
+      orderType: params.orderType,
+      subject: params.subject,
+      productId: params.productId,
+    })}`,
+    { method: 'POST' },
+  )
+}
+
+// ===================== alipay-miniapp（支付宝小程序支付，miniapp-taro 端） =====================
+
+/** 支付宝小程序支付下单响应 */
+export interface AlipayMiniappPayResponse {
+  outTradeNo: string
+  /** 未配置支付宝时为 true（DEV 环境 mock） */
+  mock?: boolean
+  /** 支付宝交易号（传给 Taro.requestPayment 的 orderInfo 调起支付） */
+  tradeNo?: string
+}
+
+/**
+ * 创建支付宝小程序支付订单（miniapp-taro 端调用）。
+ * amount 单位：元（浮点）。返回 tradeNo 传给 Taro.requestPayment({ provider: 'alipay', orderInfo: tradeNo })。
+ */
+export async function createAlipayMiniappPayment(params: {
+  amount: number
+  orderType?: number
+  subject?: string
+  productId?: string
+}): Promise<ApiResult<AlipayMiniappPayResponse>> {
+  return fetchApi<AlipayMiniappPayResponse>(
+    `/api/payments/alipay/miniapp/create${buildQs({
+      amount: params.amount,
+      orderType: params.orderType,
+      subject: params.subject,
+      productId: params.productId,
+    })}`,
+    { method: 'POST' },
+  )
+}
+
 // ===================== ali-pay（支付宝=====================
 
 /** 创建支付宝支*/
