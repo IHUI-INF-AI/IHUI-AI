@@ -5,7 +5,7 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
+import { fetchApi } from '../client'
 
 // ===================== 类型定义 =====================
 

@@ -1,4 +1,4 @@
-import { fetchApi } from '../client.js'
+import { fetchApi } from '../client'
 
 /** 分享内容中的混合内容条目 */
 export interface ShareListItem {

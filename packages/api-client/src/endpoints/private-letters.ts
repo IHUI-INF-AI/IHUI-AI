@@ -5,8 +5,8 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
-import { buildQs } from '../utils.js'
+import { fetchApi } from '../client'
+import { buildQs } from '../utils'
 
 // ===================== 类型定义 =====================
 
@@ -89,14 +89,12 @@ export async function getPrivateLetterLatest(
 }
 
 /** 获取与某会员的私信内容列表(支持 id 游标分页) — GET /api/private-letters/list */
-export async function getPrivateLetterList(
-  query: {
-    page?: number
-    pageSize?: number
-    senderId: string
-    id?: number
-  },
-): Promise<ApiResult<PrivateLetterListPage>> {
+export async function getPrivateLetterList(query: {
+  page?: number
+  pageSize?: number
+  senderId: string
+  id?: number
+}): Promise<ApiResult<PrivateLetterListPage>> {
   return fetchApi<PrivateLetterListPage>(`/api/private-letters/list${buildQs(query)}`)
 }
 
