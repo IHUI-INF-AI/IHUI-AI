@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import * as SwitchPrimitives from '@radix-ui/react-switch'
-import { cn } from '../lib/utils.js'
+import { cn } from '../lib/utils'
 
 /**
  * Switch 组件 (2026-07-22 重设 + 二次重设 3D 感 + 三次重设完整优化)

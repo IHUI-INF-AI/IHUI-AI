@@ -1,4 +1,4 @@
-export { cn } from './cn.js'
+export { cn } from './cn'
 export {
   colors,
   darkColors,
@@ -18,7 +18,7 @@ export {
   type Shadows,
   type ZIndex,
   type Breakpoints,
-} from './tokens.js'
+} from './tokens'
 
 // RN 专用 tokens(mobile-rn / packages/app 共享,HEX 表达,与 web HSL 并存)
 export {
@@ -29,4 +29,4 @@ export {
   type RnTokens,
   type RnThemeMode,
   type RnThemeTokens,
-} from './rn-tokens.js'
+} from './rn-tokens'
