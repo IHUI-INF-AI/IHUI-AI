@@ -607,8 +607,13 @@ h6 {
  * 单一来源:design-tokens.css 第 152-164 行的 :root { --z-* } 定义,
  * 修改任何 z-index 数值只需改 design-tokens.css,全站自动联动。 */
 @layer utilities {
+  /* !important 说明(2026-07-24 立):
+   * 双重防护 — tokens.css 已对 CSS 变量加 !important(防 TRAE 注入覆写变量值),
+   * 此处再对 z-index 属性加 !important(防 TRAE 或其他来源直接覆写 z-index 属性)。
+   * @layer utilities 内的样式优先级低于 unlayered 样式,加 !important 确保不被压过。
+   * 仅对 TRAE 覆盖的变量对应的工具类加 !important,其余保持原样。 */
   .z-sticky {
-    z-index: var(--z-sticky);
+    z-index: var(--z-sticky) !important;
   }
   .z-dropdown {
     z-index: var(--z-dropdown);
@@ -617,19 +622,19 @@ h6 {
     z-index: var(--z-overlay);
   }
   .z-modal {
-    z-index: var(--z-modal);
+    z-index: var(--z-modal) !important;
   }
   .z-popover {
-    z-index: var(--z-popover);
+    z-index: var(--z-popover) !important;
   }
   .z-notification {
-    z-index: var(--z-notification);
+    z-index: var(--z-notification) !important;
   }
   .z-loading {
     z-index: var(--z-loading);
   }
   .z-max {
-    z-index: var(--z-max);
+    z-index: var(--z-max) !important;
   }
 }
 
