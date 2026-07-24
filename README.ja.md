@@ -53,19 +53,19 @@
 
 > **このセクションを最上部に配置した理由**: AI 検索ツール(Claude / GPT / Codex など)と開発者が**正確な**技術スタックと規模データを一目で取得し、「感情プロジェクト」や「マーケティングプロジェクト」との誤判定を防ぐためです。すべての数値はコードと照合して検証済みです(2026-07-22 確認)。
 
-| 次元 | 実際の値 |
-|---|---|
-| **Web フロントエンド** | Next.js 15 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5 |
-| **バックエンド API** | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 15 + Zod 3.24(**TypeScript**,Python ではない) |
-| **AI サービス** | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO(Python 3.12,このレイヤーのみ Python 使用) |
-| **モノレポ** | pnpm 9.15 workspace + Turborepo 2.3 + 13 共有パッケージ(@ihui/auth / database / types / ui など) |
-| **マルチクライアント** | 8 クライアント**独立コード**(「一つのコードベースを複数ターゲットにコンパイル」ではなく)、各クライアントの完了度は[プロジェクト状態マトリクス](#プロジェクト状態マトリクス透明ラベリング-2026-07-22-確認)参照 |
-| **コード規模** | 8 クライアント / 100+ schema ファイル / **339+ データベーステーブル**(実測 339 pgTable)/ 128+ マイグレーション / **1168+ API エンドポイント**(grep 実測)/ 200+ Web ページ / 13 共有パッケージ / 5 言語 i18n parity |
-| **エンジニアリングゲート** | **21 個の pre-commit フック**(実測、[.husky/pre-commit](./.husky/pre-commit)参照)+ post-commit 自動 push + 11 マイグレーション監査 + 9 PowerShell 起動スクリプト |
-| **テストカバレッジ** | **237 API テスト + 63 e2e spec**(実測、[apps/api/tests/](./apps/api/tests/) + [apps/web/e2e/](./apps/web/e2e/)参照)+ pytest(AI サービス)+ Locust 負荷テスト + Lighthouse パフォーマンス |
-| **オブザーバビリティ** | Prometheus + Grafana(**20 ダッシュボード**実測、[monitoring/grafana/dashboards/](./monitoring/grafana/dashboards/)参照)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager |
-| **AI オーケストレーション** | LangGraph 真の統合(21 ファイル使用: `langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`)、単なる「統合レベルオーケストレーション」ではない |
-| **ライセンス** | Apache 2.0(完全セルフホスト、商用フレンドリー、非伝染性) |
+| 次元                        | 実際の値                                                                                                                                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Web フロントエンド**      | Next.js 15 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5                                                                                                                             |
+| **バックエンド API**        | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 15 + Zod 3.24(**TypeScript**,Python ではない)                                                                                                                            |
+| **AI サービス**             | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO(Python 3.12,このレイヤーのみ Python 使用)                                                                                                                    |
+| **モノレポ**                | pnpm 9.15 workspace + Turborepo 2.3 + 13 共有パッケージ(@ihui/auth / database / types / ui など)                                                                                                                   |
+| **マルチクライアント**      | 8 クライアント**独立コード**(「一つのコードベースを複数ターゲットにコンパイル」ではなく)、各クライアントの完了度は[プロジェクト状態マトリクス](#プロジェクト状態マトリクス透明ラベリング-2026-07-22-確認)参照      |
+| **コード規模**              | 8 クライアント / 100+ schema ファイル / **339+ データベーステーブル**(実測 339 pgTable)/ 128+ マイグレーション / **1168+ API エンドポイント**(grep 実測)/ 200+ Web ページ / 13 共有パッケージ / 5 言語 i18n parity |
+| **エンジニアリングゲート**  | **21 個の pre-commit フック**(実測、[.husky/pre-commit](./.husky/pre-commit)参照)+ post-commit 自動 push + 11 マイグレーション監査 + 9 PowerShell 起動スクリプト                                                   |
+| **テストカバレッジ**        | **237 API テスト + 63 e2e spec**(実測、[apps/api/tests/](./apps/api/tests/) + [apps/web/e2e/](./apps/web/e2e/)参照)+ pytest(AI サービス)+ Locust 負荷テスト + Lighthouse パフォーマンス                            |
+| **オブザーバビリティ**      | Prometheus + Grafana(**20 ダッシュボード**実測、[monitoring/grafana/dashboards/](./monitoring/grafana/dashboards/)参照)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                   |
+| **AI オーケストレーション** | LangGraph 真の統合(21 ファイル使用: `langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`)、単なる「統合レベルオーケストレーション」ではない                |
+| **ライセンス**              | Apache 2.0(完全セルフホスト、商用フレンドリー、非伝染性)                                                                                                                                                           |
 
 > 完全な技術スタック詳細は[技術スタックセクション](#技術スタック)参照。
 
@@ -233,16 +233,16 @@ IHUI-AI のポジショニングは「ユーザー価値 → 製品形態 → �
 
 ### IHUI-AI とは何か
 
-| 次元          | ポジショニング                                                                                                                                                       |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **本質**      | オープンソース AI 商用グレード統合ファウンデーション(Open-Source AI Commercial-Grade Integrated Foundation)                                                       |
-| **類比**      | AI アプリ界の Kubernetes / Next.js Boilerplate / Linux ディストリビューション — 「インフラ構築」を 3-6 ヶ月から 5 分へ圧縮                                          |
-| **対抗レベル** | 「AI アプリケーション開発プラットフォーム + AI プログラミング CLI + マルチクライアントフレームワーク + 商業 SaaS ファウンデーション + AI 教育プラットフォーム + コンテンツ配信中台」の 6 大カテゴリを同時に横断 |
-| **対象ユーザー**| 個人開発者(プライベート AI アシスタント)/ 中小企業(AI 中台)/ AI サービスプロバイダ(商用製品)/ 教育機関(AI 教育フルスタック)/ コンテンツクリエイター(14 プラットフォーム配信)/ 企業意思決定者(エンタープライズ級 AI プラットフォーム) |
-| **License**   | Apache 2.0(商用フレンドリー、伝染性なし、クローズドソース商用利用許可、copyleft 制約なし)                                                                          |
-| **デプロイモード**| 完全セルフホスト、Docker Compose で 14 サービスをワンクリック起動、データ 100% 主権、認証情報は AES-256-GCM で暗号化、いかなる大手テック企業にも覗かれない                  |
-| **コード規模** | 8 クライアントコード / 100+ schema ファイル / 339+ データベーステーブル / 128+ マイグレーション / ~1168+ API エンドポイント / 200+ Web ページ / 13 共有パッケージ / 21 pre-commit 品質ゲート / 5 言語 i18n parity |
-| **代替価値**   | Stripe($84/月)+ Auth0($35/月)+ Mailgun($35/月)+ Mixpanel($20/月)+ Dify($59/月)+ Claude Code($20/月)+ 蟻客($50/月)≈ $303/月 を代替、IHUI-AI セルフホスト $0/月              |
+| 次元               | ポジショニング                                                                                                                                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **本質**           | オープンソース AI 商用グレード統合ファウンデーション(Open-Source AI Commercial-Grade Integrated Foundation)                                                                                                                          |
+| **類比**           | AI アプリ界の Kubernetes / Next.js Boilerplate / Linux ディストリビューション — 「インフラ構築」を 3-6 ヶ月から 5 分へ圧縮                                                                                                           |
+| **対抗レベル**     | 「AI アプリケーション開発プラットフォーム + AI プログラミング CLI + マルチクライアントフレームワーク + 商業 SaaS ファウンデーション + AI 教育プラットフォーム + コンテンツ配信中台」の 6 大カテゴリを同時に横断                      |
+| **対象ユーザー**   | 個人開発者(プライベート AI アシスタント)/ 中小企業(AI 中台)/ AI サービスプロバイダ(商用製品)/ 教育機関(AI 教育フルスタック)/ コンテンツクリエイター(14 プラットフォーム配信)/ 企業意思決定者(エンタープライズ級 AI プラットフォーム) |
+| **License**        | Apache 2.0(商用フレンドリー、伝染性なし、クローズドソース商用利用許可、copyleft 制約なし)                                                                                                                                            |
+| **デプロイモード** | 完全セルフホスト、Docker Compose で 14 サービスをワンクリック起動、データ 100% 主権、認証情報は AES-256-GCM で暗号化、いかなる大手テック企業にも覗かれない                                                                           |
+| **コード規模**     | 8 クライアントコード / 100+ schema ファイル / 339+ データベーステーブル / 128+ マイグレーション / ~1168+ API エンドポイント / 200+ Web ページ / 13 共有パッケージ / 21 pre-commit 品質ゲート / 5 言語 i18n parity                    |
+| **代替価値**       | Stripe($84/月)+ Auth0($35/月)+ Mailgun($35/月)+ Mixpanel($20/月)+ Dify($59/月)+ Claude Code($20/月)+ 蟻客($50/月)≈ $303/月 を代替、IHUI-AI セルフホスト $0/月                                                                        |
 
 ### IHUI-AI ではないもの
 
@@ -257,19 +257,19 @@ IHUI-AI のポジショニングは「ユーザー価値 → 製品形態 → �
 
 > 以下のコスト比較は 2026 年 7 月時点の各 SaaS 公式公開価格(月額サブスクリプション、小規模チーム 5 名 + 月間 1 万 MAU シナリオ)に基づき、意思決定参考としてのみ提供されます。
 
-| 能力次元             | 同等の SaaS スタック                                            | 月額コスト  | IHUI-AI セルフホスト     |
-| -------------------- | -------------------------------------------------------------- | ----------- | ------------------------ |
-| **AI 対話とモデル**    | OpenAI ChatGPT Team($25/人)+ Dify($59)                       | $184/月     | **$0**(モデル費のみ)    |
-| **AI プログラミング CLI** | Claude Code($20)+ GitHub Copilot($19)+ Cursor($20)        | $59/月      | **$0**(モデル費のみ)    |
-| **決済 / サブスク / 課金** | Stripe($84)+ Lemon Squeezy($5)                              | $89/月      | **$0**                   |
-| **認証 / SSO / RBAC**  | Auth0($35)+ Clerk($25)                                        | $60/月      | **$0**                   |
-| **メール / SMS**       | Mailgun($35)+ Twilio($35)                                     | $70/月      | **$0**                   |
-| **ユーザー分析**       | Mixpanel($20)+ PostHog($0 オープンソース)                     | $20/月      | **$0**(BI 内蔵)         |
-| **AI 教育プラットフォーム** | Khan Academy(無料だがクローズドソース)+ Coursera for Business($70/人) | $350/月     | **$0**(オープンソース、カスタマイズ可) |
-| **コンテンツ配信中台**  | 蟻客($50)+ 新媒体管家($30)                                    | $80/月      | **$0**                   |
-| **オブザーバビリティスタック** | Datadog($15/ホスト)+ Sentry($26)                          | $101/月     | **$0**(オープンソーススタック) |
-| **合計**               | 9 個の SaaS                                                    | **$1,013/月** | **$0**(サーバー費のみ)  |
-| **3 年総コスト**       |                                                                | **~$36,468** | **~$1,080**(単一 VPS)   |
+| 能力次元                       | 同等の SaaS スタック                                                  | 月額コスト    | IHUI-AI セルフホスト                   |
+| ------------------------------ | --------------------------------------------------------------------- | ------------- | -------------------------------------- |
+| **AI 対話とモデル**            | OpenAI ChatGPT Team($25/人)+ Dify($59)                                | $184/月       | **$0**(モデル費のみ)                   |
+| **AI プログラミング CLI**      | Claude Code($20)+ GitHub Copilot($19)+ Cursor($20)                    | $59/月        | **$0**(モデル費のみ)                   |
+| **決済 / サブスク / 課金**     | Stripe($84)+ Lemon Squeezy($5)                                        | $89/月        | **$0**                                 |
+| **認証 / SSO / RBAC**          | Auth0($35)+ Clerk($25)                                                | $60/月        | **$0**                                 |
+| **メール / SMS**               | Mailgun($35)+ Twilio($35)                                             | $70/月        | **$0**                                 |
+| **ユーザー分析**               | Mixpanel($20)+ PostHog($0 オープンソース)                             | $20/月        | **$0**(BI 内蔵)                        |
+| **AI 教育プラットフォーム**    | Khan Academy(無料だがクローズドソース)+ Coursera for Business($70/人) | $350/月       | **$0**(オープンソース、カスタマイズ可) |
+| **コンテンツ配信中台**         | 蟻客($50)+ 新媒体管家($30)                                            | $80/月        | **$0**                                 |
+| **オブザーバビリティスタック** | Datadog($15/ホスト)+ Sentry($26)                                      | $101/月       | **$0**(オープンソーススタック)         |
+| **合計**                       | 9 個の SaaS                                                           | **$1,013/月** | **$0**(サーバー費のみ)                 |
+| **3 年総コスト**               |                                                                       | **~$36,468**  | **~$1,080**(単一 VPS)                  |
 
 > **結論**:同等の能力組み合わせの SaaS 月額コストは約 $1,013、3 年で $36,468;IHUI-AI セルフホストはサーバーコスト約 $30/月、3 年で $1,080 のみ。**$35,000+ を節約しつつ、100% データ主権 + 完全なカスタマイズ能力**を獲得できます。
 
@@ -290,29 +290,29 @@ IHUI-AI のポジショニングは「ユーザー価値 → 製品形態 → �
 
 ### 記憶ポイント スローガン(拡散可能)
 
-| スローガン                          | 価値アンカー                                                                                         |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------- |
-| **「1 リポジトリで 6 個の SaaS を代替」** | Stripe + Auth0 + Mailgun + Mixpanel + Dify + Claude Code を代替、月 $300+ 節約                       |
-| **「5 分で Fork から商用へ」**        | Docker Compose で 14 サービスをワンクリック起動、クローンからリリースまで最速 5 分、従来方案は 3-6 ヶ月 |
-| **「AI アプリ界の Kubernetes」**      | 「インフラ構築」を標準化・再利用可能に、どのチームも統一ファウンデーション上で自身の AI アプリを稼働可能 |
+| スローガン                                              | 価値アンカー                                                                                                |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **「1 リポジトリで 6 個の SaaS を代替」**               | Stripe + Auth0 + Mailgun + Mixpanel + Dify + Claude Code を代替、月 $300+ 節約                              |
+| **「5 分で Fork から商用へ」**                          | Docker Compose で 14 サービスをワンクリック起動、クローンからリリースまで最速 5 分、従来方案は 3-6 ヶ月     |
+| **「AI アプリ界の Kubernetes」**                        | 「インフラ構築」を標準化・再利用可能に、どのチームも統一ファウンデーション上で自身の AI アプリを稼働可能    |
 | **「8 クライアント + 100+ モデル + トリプルスタック」** | 8 クライアントコード + 100+ モデル + LangGraph+MCP+A2A トリプルスタック、オープンソース AI 生態系で最も完全 |
-| **「Apache 2.0、商用制限ゼロ」**     | License は商用フレンドリー、copyleft 制約なし、クローズドソース商用利用許可、企業は安心して Fork 可能 |
-| **「データ 100% 主権」**             | 完全セルフホスト、認証情報は AES-256-GCM で暗号化、いかなる外部送信もなく、GDPR / 等保要件に適合       |
+| **「Apache 2.0、商用制限ゼロ」**                        | License は商用フレンドリー、copyleft 制約なし、クローズドソース商用利用許可、企業は安心して Fork 可能       |
+| **「データ 100% 主権」**                                | 完全セルフホスト、認証情報は AES-256-GCM で暗号化、いかなる外部送信もなく、GDPR / 等保要件に適合            |
 
 ### 6 大対抗カテゴリとの関係
 
 IHUI-AI はいかなる単一プロジェクトを置き換えることが目的ではなく、以下の 6 種類のプロジェクトの能力を**1 つのオープンソース ファウンデーションに統合**するものです:
 
-| 対抗カテゴリ                    | 代表製品                                                                                                                                                 | IHUI-AI の対抗能力                                                                                                    |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **AI アプリケーション開発プラットフォーム** | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(扣子)                                                                                              | 100+ モデル LiteLLM ゲートウェイ + LangGraph ワークフロー + ナレッジベース RAG + pgvector ベクトル DB + ナレッジグラフ + Agent Runtime + Persona        |
-| **AI プログラミング CLI / IDE**   | Claude Code / Cursor / Windsurf / Trae SOLO / GitHub Copilot / Copilot Workspace / Amazon Q Developer / Cody Sourcegraph / Cline / Aider / Devin / Tabnine / GitLab Duo / Gemini CLI / OpenCode / CodeGeeX / Continue / Roo Code / Codeium / JetBrains AI Assistant | 自社製 CLI 17 コマンド + 13 内蔵ツール + ACP Server(Zed/VSCode/Cursor 埋め込み)+ 6 ソース設定インポート + Skills + CodeGraph + Worktree   |
-| **エンタープライズ AI Agent プラットフォーム** | Google Gemini Enterprise Agent Platform / OpenAI Agents SDK / Microsoft Copilot Studio / IBM watsonx.ai / Salesforce Agentforce / ServiceNow Now Assist / AWS Bedrock Agents / Crew | LangGraph + MCP + A2A トリプルスタック + Agent マーケット + デベロッパーセンター + Coze SDK プロキシ + OpenClaw + Crew 統合 + N8N プロキシ               |
-| **AI Agent フレームワーク(オープンソース)**| LangChain / LangGraph / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT / smol agents / Semantic Kernel / Spring AI / Hugging Face Transformers Agents | トリプルスタック連携 + 完全な Agent Runtime + Persona レジストリ + Agent マーケット — 単なるフレームワークではなく、製品化された落地方案                          |
-| **マルチクライアントフレームワーク**        | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                 | 8 クライアント統一アーキテクチャ + 13 共有パッケージ + クロスクライアント型安全 + 共有 UI(`@ihui/ui-react` / `@ihui/ui-native` / `@ihui/design-tokens`)            |
-| **AI 教育 / コンテンツプラットフォーム**  | Khan Academy / Coursera / edX / Google 教育 AI / 智譜清言教育 / 学而思 AI / Jasper / Copy.ai / Rytr / WriteSonic / Notion AI / 蟻客 / 新媒体管家          | AI 教育フルスタック(コース / 問題集 / 試験 / SRS / ライブ / 証明書)+ 14 プラットフォームワンクリック配信 + セルフメディアワークベンチ + AI ニュース + AI 求職 + ショートドラマ + ビジネス名刺     |
-| **大モデル API プラットフォーム**     | 海外:OpenAI Platform / Anthropic API / Google Vertex AI / AWS Bedrock / Azure AI Foundry / Mistral La Plateforme / Cohere / Together AI / Fireworks AI / Replicate<br>国内:百度千帆 / 阿里百煉 / 騰訊混元 / 字節豆包(火山方舟)/ 智譜開放プラットフォーム / 訊飛星火 / 月之暗面 Kimi / DeepSeek / 商湯日日新 | LiteLLM 統一ゲートウェイ + 100+ モデル接続 + インテリジェントルーティング + 60% キャッシュヒット + マルチ provider アダプタ                                          |
-| **商業 SaaS ファウンデーション**      | Stripe / PayPal / Lemon Squeezy / Paddle / Auth0 / Clerk / Firebase Auth / Supabase Auth / Mailgun / SendGrid / Postmark / Resend / Mixpanel / Amplitude / PostHog / Heap | VIP / サブスクリプション / ウォレット / ポイント / 返金 / インボイス / 8 決済ゲートウェイ + JWT / SSO / RBAC + SMTP SMS + BI ダッシュボード + カナリアリリース — 4-6 個の SaaS をワンストップで代替    |
+| 対抗カテゴリ                                   | 代表製品                                                                                                                                                                                                                                                                                                    | IHUI-AI の対抗能力                                                                                                                                                                                  |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AI アプリケーション開発プラットフォーム**    | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(扣子)                                                                                                                                                                                                                                                  | 100+ モデル LiteLLM ゲートウェイ + LangGraph ワークフロー + ナレッジベース RAG + pgvector ベクトル DB + ナレッジグラフ + Agent Runtime + Persona                                                    |
+| **AI プログラミング CLI / IDE**                | Claude Code / Cursor / Windsurf / Trae SOLO / GitHub Copilot / Copilot Workspace / Amazon Q Developer / Cody Sourcegraph / Cline / Aider / Devin / Tabnine / GitLab Duo / Gemini CLI / OpenCode / CodeGeeX / Continue / Roo Code / Codeium / JetBrains AI Assistant                                         | 自社製 CLI 17 コマンド + 13 内蔵ツール + ACP Server(Zed/VSCode/Cursor 埋め込み)+ 6 ソース設定インポート + Skills + CodeGraph + Worktree                                                             |
+| **エンタープライズ AI Agent プラットフォーム** | Google Gemini Enterprise Agent Platform / OpenAI Agents SDK / Microsoft Copilot Studio / IBM watsonx.ai / Salesforce Agentforce / ServiceNow Now Assist / AWS Bedrock Agents / Crew                                                                                                                         | LangGraph + MCP + A2A トリプルスタック + Agent マーケット + デベロッパーセンター + Coze SDK プロキシ + OpenClaw + Crew 統合 + N8N プロキシ                                                          |
+| **AI Agent フレームワーク(オープンソース)**    | LangChain / LangGraph / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT / smol agents / Semantic Kernel / Spring AI / Hugging Face Transformers Agents                                                                                                                                                    | トリプルスタック連携 + 完全な Agent Runtime + Persona レジストリ + Agent マーケット — 単なるフレームワークではなく、製品化された落地方案                                                            |
+| **マルチクライアントフレームワーク**           | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                                                                                                                                                                    | 8 クライアント統一アーキテクチャ + 13 共有パッケージ + クロスクライアント型安全 + 共有 UI(`@ihui/ui-react` / `@ihui/ui-native` / `@ihui/design-tokens`)                                             |
+| **AI 教育 / コンテンツプラットフォーム**       | Khan Academy / Coursera / edX / Google 教育 AI / 智譜清言教育 / 学而思 AI / Jasper / Copy.ai / Rytr / WriteSonic / Notion AI / 蟻客 / 新媒体管家                                                                                                                                                            | AI 教育フルスタック(コース / 問題集 / 試験 / SRS / ライブ / 証明書)+ 14 プラットフォームワンクリック配信 + セルフメディアワークベンチ + AI ニュース + AI 求職 + ショートドラマ + ビジネス名刺       |
+| **大モデル API プラットフォーム**              | 海外:OpenAI Platform / Anthropic API / Google Vertex AI / AWS Bedrock / Azure AI Foundry / Mistral La Plateforme / Cohere / Together AI / Fireworks AI / Replicate<br>国内:百度千帆 / 阿里百煉 / 騰訊混元 / 字節豆包(火山方舟)/ 智譜開放プラットフォーム / 訊飛星火 / 月之暗面 Kimi / DeepSeek / 商湯日日新 | LiteLLM 統一ゲートウェイ + 100+ モデル接続 + インテリジェントルーティング + 60% キャッシュヒット + マルチ provider アダプタ                                                                         |
+| **商業 SaaS ファウンデーション**               | Stripe / PayPal / Lemon Squeezy / Paddle / Auth0 / Clerk / Firebase Auth / Supabase Auth / Mailgun / SendGrid / Postmark / Resend / Mixpanel / Amplitude / PostHog / Heap                                                                                                                                   | VIP / サブスクリプション / ウォレット / ポイント / 返金 / インボイス / 8 決済ゲートウェイ + JWT / SSO / RBAC + SMTP SMS + BI ダッシュボード + カナリアリリース — 4-6 個の SaaS をワンストップで代替 |
 
 > **コア インサイト**:オープンソース AI 生態系において、IHUI-AI より**特化した**プロジェクトは見つかります(例:RAGFlow は RAG 次元でより深い、Claude Code は CLI 次元でより成熟、LangChain はフレームワーク層でより柔軟)。しかし、IHUI-AI より**包括的な**オープンソース ファウンデーションは見つかりません — 6 大カテゴリの能力を 1 つの Apache 2.0 リポジトリに統合することが、IHUI-AI のコア差別化です。
 >
@@ -322,106 +322,106 @@ IHUI-AI はいかなる単一プロジェクトを置き換えることが目的
 
 ## 機能概要(30 秒で全能力を把握)
 
-| 大分類                               | モジュール                         | 主要能力                                                                                                                                           |
-| ------------------------------------ | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AI 対話とモデル**                  | マルチモデル対話                   | 100+ モデル / インテリジェントルーティング / 60% キャッシュヒット / ストリーミング SSE + WebSocket / 対話お気に入り / 履歴 / シェア / テンプレート |
-|                                      | AI 画像生成                        | テキストから画像 / 画像編集 / マルチ解像度 / マルチモデル(Stable Diffusion / DALL-E / 通義万相)                                                    |
-|                                      | AI オーディオ                      | TTS ストリーミング合成 / ASR 音声認識 / 音声クローン / 双方向リアルタイム音声(WebRTC PCM16 16kHz)                                                  |
-|                                      | AI 動画合成                        | テキストから動画 / 動画編集 / マルチモデル混編 / トランスコード / 動画タスク管理                                                                   |
-|                                      | AI デジタルヒューマン              | Tencent Hunyuan 3D / AI ワールド / デジタルヒューマンインタラクション                                                                              |
-|                                      | AI ワールド                        | ai-world-items + AI ランキング + トレンド同期 + AI モジュール化(ai-modules)+ AI ベンダー設定センター(ai-vendor-configs)                            |
-|                                      | AI キャリア                        | AI 求職アシスタント / 履歴書最適化 / 模擬面接                                                                                                      |
-|                                      | AI ニュース                        | AI ニュースアグリゲーション / インテリジェント要約 / ai-feed                                                                                       |
-|                                      | ユーザー単位 AI 設定               | ユーザー単位モデル対話設定(ai-user-model-chat)/ ユーザー長期記憶(user-memory)/ ユーザー設定(user-preferences)                                     |
-| **AI ワークフロー**                  | LangGraph                          | StateGraph ワークフロー(plan → execute → summarize)+ stub モード                                                                                   |
-|                                      | MCP ツールプロトコル               | 11 内蔵ツール + 3 リソース + 3 プロンプト / カスタムツール / プロジェクト級 MCP / mcp-extended                                                     |
-|                                      | A2A プロトコル                     | Agent-to-Agent 相互通信 / Redis 永続化 + メモリフォールバック                                                                                      |
-|                                      | ナレッジベース RAG                 | ドキュメントベクトル化 / セマンティック検索 / 引用トレース / knowledge-base + knowledge-rag                                                        |
-|                                      | ナレッジグラフ                     | knowledge-graph schema + ノード-関係グラフ / ドキュメント間エンティティリンク(オープンソース AI プラットフォームで稀少)                             |
-|                                      | pgvector ベクトル DB               | 0123_pgvector_embedding マイグレーション / ネイティブ PostgreSQL ベクトルインデックス / 独立ベクトル DB 不要                                        |
-|                                      | ワークフローオーケストレーション   | ビジュアルワークフロー / CrewAI 統合 / N8N プロキシ / workflows                                                                                    |
-|                                      | ベクトルメモリ                     | コサイン類似度セマンティック検索 / セッションを跨ぐ長期記憶 / vector-memory                                                                        |
-| **マルチエージェントエコシステム**   | エージェントマーケット             | 購入 / 審査 / 決済 / 出金 / 分類 / 推薦 / ランキング / ピックアップ                                                                                |
-|                                      | デベロッパーセンター               | API Keys / 呼出ログ / チーム管理 / 収益分析 / 13 サブページ                                                                                        |
-|                                      | Coze SDK プロキシ                  | Bot / 対話 / ワークフロー / データセット / テンプレート / 変数 / ワークスペース / OAuth                                                            |
-|                                      | OpenClaw                           | オープンソース Agent フレームワーク接続 / clawdbot / openclaw-routes                                                                               |
-|                                      | Skills システム                    | content_engine(build_gpt56_sol / export_csdn_md / full_audit / publish_pipeline)+ koubo_workflow(10+ ツール)                                       |
-| **8 プラットフォームフレームワーク** | Web                                | Next.js 15 / 200+ ページ / PWA / SEO / ダークモード / 5 言語                                                                                       |
-|                                      | API                                | Fastify 5 / ~1080 エンドポイント / 12 WebSocket エンドポイント / 95+ ルートファイル / OpenAPI                                                      |
-|                                      | AI サービス                        | FastAPI + LangGraph + LiteLLM + MCP + A2A / 55+ エンドポイント / 5 provider アダプタ                                                               |
-|                                      | CLI                                | Node.js / 17 コマンド / 13 内蔵ツール / 6 ソース設定インポート / ACP Server                                                                        |
-|                                      | デスクトップ                       | Tauri 2 + Rust / システムトレイ / ローカルファイルアクセス                                                                                         |
-|                                      | ブラウザ拡張                       | WXT / コンテキストメニュー / サイドバー / Chrome + Edge + Firefox                                                                                  |
-|                                      | モバイル RN                        | React Native + Expo EAS / iOS + Android / SSO                                                                                                      |
-|                                      | ミニプログラム                     | Taro 4 / WeChat Pay ネイティブ統合 / 3 言語(i18n)                                                                                                  |
-| **エンタープライズ級能力**           | ワークスペース権限                 | 3 モード + 7 エンドポイントランタイム傍受 + 60s 監査タイムアウト + workspace-ai-tasks                                                              |
-|                                      | RBAC + マルチテナント              | ロール / 部門 / 組織 / テナント分離 / メニュー権限 / data-scope 5 級                                                                               |
-|                                      | SSO シングルサインオン             | OAuth 2.0 / Apple / Google / SSO 中継ログイン / PKCE                                                                                               |
-|                                      | 課金とサブスクリプション           | VIP 等級 / サブスクリプション recurring / ウォレット / ポイント / 返金監査 / インボイス / 為替レート / 8 決済ゲートウェイ                          |
-|                                      | カナリアリリース                   | Canary / グレールール / A/B テスト / canary + ab-tests                                                                                             |
-|                                      | データコンプライアンス             | GDPR / 機密語フィルタ / コンテンツ審査 / 監査ログ / データエクスポート                                                                             |
-| **コンテンツ創作**                   | セルフメディアワークベンチ         | 公衆号記事 + 口播稿デュアルパイプライン / スラッシュコマンド / self-media-automation                                                               |
-|                                      | 14 プラットフォーム自動配信        | 記事 9 + 画像 2 + 動画 5 プラットフォーム / 認証情報 AES-256-GCM 暗号化 / 14 adapter                                                               |
-|                                      | ニュース                           | 記事 / ニュース / 特集 / タグ / コメント / いいね / お気に入り / news-crawler                                                                      |
-|                                      | ショートドラマ                     | ショートドラマ創作と管理 / drama                                                                                                                   |
-|                                      | ビジネス名刺                       | 名刺作成 / 編集 / お気に入り / シェア / business-cards                                                                                             |
-| **AI 教育フルスタック**              | コース学習                         | コース / 章 / 学習パス / 学習マップ / 進捗トラッキング / ノート / zhs-course                                                                       |
-|                                      | 問題集と試験                       | 多問題タイプ / 自動採点 / 章別練習 / 間違いノート / 試験アップロード / exam-marking                                                                |
-|                                      | SRS 間隔反復                       | エビングハウス忘却曲線 / インテリジェント復習スケジュール                                                                                          |
-|                                      | ライブ授業                         | チェックイン / インタラクション / 再生 / AI 補助 / live-chat                                                                                       |
-|                                      | 学習レポート                       | 行動分析 / 個別最適化提案 / 証明書発行                                                                                                             |
-|                                      | 講師管理                           | 講師トップページ / コース連携 / education-platform                                                                                                 |
-|                                      | 学生側                             | 12 サブページ(Q&A / 記事 / サークル / コメント / コース / リソース / ノート / オフライン / 試験 / 間違いノート / 証明書)                           |
-| **コミュニティインタラクション**     | サークル広場                       | サークル / 広場 / Q&A / 投稿 / トピック / タグ                                                                                                     |
-|                                      | DM メッセージ                      | 1 対 1 DM / システム通知 / マルチプラットフォーム同期 / private-letters                                                                            |
-|                                      | フォロー/フォロワー                | フォロー / フォロワー / ユーザートップページ / 名刺                                                                                                |
-|                                      | シェア招待                         | 招待コード / シェアコード / H5 シェア / リファラル報酬 / visit-tracking                                                                            |
-| **運営グロース**                     | ポイントチェックイン               | デイリーチェックイン / タスクポイント / ポイントモール / 交換 / point-redeem-items                                                                 |
-|                                      | ランキング                         | 多次元ランキング / 週月ランキング / ユーザー順位 / ranking                                                                                         |
-|                                      | くじイベント                       | くじ / 紅包 / リワード動画広告 / rewarded-video-ad                                                                                                 |
-|                                      | ディストリビューションコミッション | ディストリビューション体系 / コミッションプラン / 出金 / 8 サブページ / commission                                                                 |
-|                                      | イベント告知                       | イベント管理 / お知らせプッシュ / Banner カルーセル / carousels                                                                                    |
-| **カスタマーサポート**               | チケットシステム                   | チケット提出 / 処理 / 評価 / FAQ / admin-asks + admin-faq                                                                                          |
-|                                      | オンラインカスタマーサポート       | WebSocket リアルタイムサポート / 1 対 1 セッション / customer-service                                                                              |
-|                                      | フィードバックセンター             | ユーザーフィードバック / 処理ステータス / トレース                                                                                                 |
-| **運用監視**                         | BI ダッシュボード                  | 業務指標可視化 / データ分析 / bi-dashboard                                                                                                         |
-|                                      | エラーダッシュボード               | エラー集計 / アラート / トレース / security-audit                                                                                                  |
-|                                      | 操作ログ                           | ログインログ / 操作ログ / コールバックログ / audit + security-logs                                                                                 |
-|                                      | 監視アラート                       | Prometheus + Grafana(20 ダッシュボード)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                                   |
-| **エンジニアリング基盤**             | データベース                       | PostgreSQL 15 / **339+ テーブル** / 100 schema ファイル / **128+ マイグレーション** / Drizzle ORM + RLS + テナントルーティング + **pgvector**      |
-|                                      | キューキャッシュ                   | Redis 7 + BullMQ / 独立 worker プロセス(:8081)                                                                                                     |
-|                                      | オブジェクトストレージ             | OSS マルチベンダードライバ / 認証情報暗号化 / チャンクアップロード / ファイルバージョン / chunked-upload                                           |
-|                                      | メール SMS                         | SMTP / SMS ゲートウェイ / メールテンプレート / 認証コード / mail + message-templates                                                               |
-|                                      | 国際化                             | 5 言語 parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n ツールチェーン + 4 ゲートスクリプト                                                           |
-|                                      | エンジニアリング品質ゲート         | 21 pre-commit フック + post-commit 自動 push + 11 マイグレーション監査 + 9 PowerShell 起動                                                         |
-|                                      | テストカバレッジ                   | 268 + 400+ ケース / Vitest + Playwright + pytest + Locust 負荷テスト + Lighthouse 性能                                                             |
-|                                      | デプロイ運用                       | Docker Compose(14 サービス)/ ブルーグリーンデプロイ / Nginx upstream 切替 / ヘルスチェック / ロールバック / バックアップ / 証明書更新 cron         |
-|                                      | 性能 CI                            | Knip 未使用コード検出 + Lighthouse CI 性能予算 + GitHub Act ローカル CI                                                                            |
+| 大分類                               | モジュール                                 | 主要能力                                                                                                                                                                         |
+| ------------------------------------ | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AI 対話とモデル**                  | マルチモデル対話                           | 100+ モデル / インテリジェントルーティング / 60% キャッシュヒット / ストリーミング SSE + WebSocket / 対話お気に入り / 履歴 / シェア / テンプレート                               |
+|                                      | AI 画像生成                                | テキストから画像 / 画像編集 / マルチ解像度 / マルチモデル(Stable Diffusion / DALL-E / 通義万相)                                                                                  |
+|                                      | AI オーディオ                              | TTS ストリーミング合成 / ASR 音声認識 / 音声クローン / 双方向リアルタイム音声(WebRTC PCM16 16kHz)                                                                                |
+|                                      | AI 動画合成                                | テキストから動画 / 動画編集 / マルチモデル混編 / トランスコード / 動画タスク管理                                                                                                 |
+|                                      | AI デジタルヒューマン                      | Tencent Hunyuan 3D / AI ワールド / デジタルヒューマンインタラクション                                                                                                            |
+|                                      | AI ワールド                                | ai-world-items + AI ランキング + トレンド同期 + AI モジュール化(ai-modules)+ AI ベンダー設定センター(ai-vendor-configs)                                                          |
+|                                      | AI キャリア                                | AI 求職アシスタント / 履歴書最適化 / 模擬面接                                                                                                                                    |
+|                                      | AI ニュース                                | AI ニュースアグリゲーション / インテリジェント要約 / ai-feed                                                                                                                     |
+|                                      | ユーザー単位 AI 設定                       | ユーザー単位モデル対話設定(ai-user-model-chat)/ ユーザー長期記憶(user-memory)/ ユーザー設定(user-preferences)                                                                    |
+| **AI ワークフロー**                  | LangGraph                                  | StateGraph ワークフロー(plan → execute → summarize)+ stub モード                                                                                                                 |
+|                                      | MCP ツールプロトコル                       | 11 内蔵ツール + 3 リソース + 3 プロンプト / カスタムツール / プロジェクト級 MCP / mcp-extended                                                                                   |
+|                                      | A2A プロトコル                             | Agent-to-Agent 相互通信 / Redis 永続化 + メモリフォールバック                                                                                                                    |
+|                                      | ナレッジベース RAG                         | ドキュメントベクトル化 / セマンティック検索 / 引用トレース / knowledge-base + knowledge-rag                                                                                      |
+|                                      | ナレッジグラフ                             | knowledge-graph schema + ノード-関係グラフ / ドキュメント間エンティティリンク(オープンソース AI プラットフォームで稀少)                                                          |
+|                                      | pgvector ベクトル DB                       | 0123_pgvector_embedding マイグレーション / ネイティブ PostgreSQL ベクトルインデックス / 独立ベクトル DB 不要                                                                     |
+|                                      | ワークフローオーケストレーション           | ビジュアルワークフロー / CrewAI 統合 / N8N プロキシ / workflows                                                                                                                  |
+|                                      | ベクトルメモリ                             | コサイン類似度セマンティック検索 / セッションを跨ぐ長期記憶 / vector-memory                                                                                                      |
+| **マルチエージェントエコシステム**   | エージェントマーケット                     | 購入 / 審査 / 決済 / 出金 / 分類 / 推薦 / ランキング / ピックアップ                                                                                                              |
+|                                      | デベロッパーセンター                       | API Keys / 呼出ログ / チーム管理 / 収益分析 / 13 サブページ                                                                                                                      |
+|                                      | Coze SDK プロキシ                          | Bot / 対話 / ワークフロー / データセット / テンプレート / 変数 / ワークスペース / OAuth                                                                                          |
+|                                      | OpenClaw                                   | オープンソース Agent フレームワーク接続 / clawdbot / openclaw-routes                                                                                                             |
+|                                      | Skills システム                            | content_engine(build_gpt56_sol / export_csdn_md / full_audit / publish_pipeline)+ koubo_workflow(10+ ツール)                                                                     |
+| **8 プラットフォームフレームワーク** | Web                                        | Next.js 15 / 200+ ページ / PWA / SEO / ダークモード / 5 言語                                                                                                                     |
+|                                      | API                                        | Fastify 5 / ~1080 エンドポイント / 12 WebSocket エンドポイント / 95+ ルートファイル / OpenAPI                                                                                    |
+|                                      | AI サービス                                | FastAPI + LangGraph + LiteLLM + MCP + A2A / 55+ エンドポイント / 5 provider アダプタ                                                                                             |
+|                                      | CLI                                        | Node.js / 17 コマンド / 13 内蔵ツール / 6 ソース設定インポート / ACP Server                                                                                                      |
+|                                      | デスクトップ                               | Tauri 2 + Rust / システムトレイ / ローカルファイルアクセス                                                                                                                       |
+|                                      | ブラウザ拡張                               | WXT / コンテキストメニュー / サイドバー / Chrome + Edge + Firefox                                                                                                                |
+|                                      | モバイル RN                                | React Native + Expo EAS / iOS + Android / SSO                                                                                                                                    |
+|                                      | ミニプログラム                             | Taro 4 / WeChat Pay ネイティブ統合 / 3 言語(i18n)                                                                                                                                |
+| **エンタープライズ級能力**           | ワークスペース権限                         | 3 モード + 7 エンドポイントランタイム傍受 + 60s 監査タイムアウト + workspace-ai-tasks                                                                                            |
+|                                      | RBAC + マルチテナント                      | ロール / 部門 / 組織 / テナント分離 / メニュー権限 / data-scope 5 級                                                                                                             |
+|                                      | SSO シングルサインオン                     | OAuth 2.0 / Apple / Google / SSO 中継ログイン / PKCE                                                                                                                             |
+|                                      | 課金とサブスクリプション                   | VIP 等級 / サブスクリプション recurring / ウォレット / ポイント / 返金監査 / インボイス / 為替レート / 8 決済ゲートウェイ                                                        |
+|                                      | カナリアリリース                           | Canary / グレールール / A/B テスト / canary + ab-tests                                                                                                                           |
+|                                      | データコンプライアンス                     | GDPR / 機密語フィルタ / コンテンツ審査 / 監査ログ / データエクスポート                                                                                                           |
+| **コンテンツ創作**                   | セルフメディアワークベンチ                 | 公衆号記事 + 口播稿デュアルパイプライン / スラッシュコマンド / self-media-automation                                                                                             |
+|                                      | 14 プラットフォーム自動配信                | 記事 9 + 画像 2 + 動画 5 プラットフォーム / 認証情報 AES-256-GCM 暗号化 / 14 adapter                                                                                             |
+|                                      | ニュース                                   | 記事 / ニュース / 特集 / タグ / コメント / いいね / お気に入り / news-crawler                                                                                                    |
+|                                      | ショートドラマ                             | ショートドラマ創作と管理 / drama                                                                                                                                                 |
+|                                      | ビジネス名刺                               | 名刺作成 / 編集 / お気に入り / シェア / business-cards                                                                                                                           |
+| **AI 教育フルスタック**              | コース学習                                 | コース / 章 / 学習パス / 学習マップ / 進捗トラッキング / ノート / zhs-course                                                                                                     |
+|                                      | 問題集と試験                               | 多問題タイプ / 自動採点 / 章別練習 / 間違いノート / 試験アップロード / exam-marking                                                                                              |
+|                                      | SRS 間隔反復                               | エビングハウス忘却曲線 / インテリジェント復習スケジュール                                                                                                                        |
+|                                      | ライブ授業                                 | チェックイン / インタラクション / 再生 / AI 補助 / live-chat                                                                                                                     |
+|                                      | 学習レポート                               | 行動分析 / 個別最適化提案 / 証明書発行                                                                                                                                           |
+|                                      | 講師管理                                   | 講師トップページ / コース連携 / education-platform                                                                                                                               |
+|                                      | 学生側                                     | 12 サブページ(Q&A / 記事 / サークル / コメント / コース / リソース / ノート / オフライン / 試験 / 間違いノート / 証明書)                                                         |
+| **コミュニティインタラクション**     | サークル広場                               | サークル / 広場 / Q&A / 投稿 / トピック / タグ                                                                                                                                   |
+|                                      | DM メッセージ                              | 1 対 1 DM / システム通知 / マルチプラットフォーム同期 / private-letters                                                                                                          |
+|                                      | フォロー/フォロワー                        | フォロー / フォロワー / ユーザートップページ / 名刺                                                                                                                              |
+|                                      | シェア招待                                 | 招待コード / シェアコード / H5 シェア / リファラル報酬 / visit-tracking                                                                                                          |
+| **運営グロース**                     | ポイントチェックイン                       | デイリーチェックイン / タスクポイント / ポイントモール / 交換 / point-redeem-items                                                                                               |
+|                                      | ランキング                                 | 多次元ランキング / 週月ランキング / ユーザー順位 / ranking                                                                                                                       |
+|                                      | くじイベント                               | くじ / 紅包 / リワード動画広告 / rewarded-video-ad                                                                                                                               |
+|                                      | ディストリビューションコミッション         | ディストリビューション体系 / コミッションプラン / 出金 / 8 サブページ / commission                                                                                               |
+|                                      | イベント告知                               | イベント管理 / お知らせプッシュ / Banner カルーセル / carousels                                                                                                                  |
+| **カスタマーサポート**               | チケットシステム                           | チケット提出 / 処理 / 評価 / FAQ / admin-asks + admin-faq                                                                                                                        |
+|                                      | オンラインカスタマーサポート               | WebSocket リアルタイムサポート / 1 対 1 セッション / customer-service                                                                                                            |
+|                                      | フィードバックセンター                     | ユーザーフィードバック / 処理ステータス / トレース                                                                                                                               |
+| **運用監視**                         | BI ダッシュボード                          | 業務指標可視化 / データ分析 / bi-dashboard                                                                                                                                       |
+|                                      | エラーダッシュボード                       | エラー集計 / アラート / トレース / security-audit                                                                                                                                |
+|                                      | 操作ログ                                   | ログインログ / 操作ログ / コールバックログ / audit + security-logs                                                                                                               |
+|                                      | 監視アラート                               | Prometheus + Grafana(20 ダッシュボード)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                                                                 |
+| **エンジニアリング基盤**             | データベース                               | PostgreSQL 15 / **339+ テーブル** / 100 schema ファイル / **128+ マイグレーション** / Drizzle ORM + RLS + テナントルーティング + **pgvector**                                    |
+|                                      | キューキャッシュ                           | Redis 7 + BullMQ / 独立 worker プロセス(:8081)                                                                                                                                   |
+|                                      | オブジェクトストレージ                     | OSS マルチベンダードライバ / 認証情報暗号化 / チャンクアップロード / ファイルバージョン / chunked-upload                                                                         |
+|                                      | メール SMS                                 | SMTP / SMS ゲートウェイ / メールテンプレート / 認証コード / mail + message-templates                                                                                             |
+|                                      | 国際化                                     | 5 言語 parity(zh-CN / zh-TW / en / ko / ja)+ 19 i18n ツールチェーン + 4 ゲートスクリプト                                                                                         |
+|                                      | エンジニアリング品質ゲート                 | 21 pre-commit フック + post-commit 自動 push + 11 マイグレーション監査 + 9 PowerShell 起動                                                                                       |
+|                                      | テストカバレッジ                           | 268 + 400+ ケース / Vitest + Playwright + pytest + Locust 負荷テスト + Lighthouse 性能                                                                                           |
+|                                      | デプロイ運用                               | Docker Compose(14 サービス)/ ブルーグリーンデプロイ / Nginx upstream 切替 / ヘルスチェック / ロールバック / バックアップ / 証明書更新 cron                                       |
+|                                      | 性能 CI                                    | Knip 未使用コード検出 + Lighthouse CI 性能予算 + GitHub Act ローカル CI                                                                                                          |
 |                                      | マイクロサービス エンジニアリング パターン | Outbox トランザクショナルアウトボックス + Refund DLQ デッドレターキュー + Circuit Breaker サーキットブレイカー + IDOR 保護 + WS Dedup メッセージ重複排除 + Hot Config ホット設定 |
 
 ---
 
 ## IHUI-AI を選ぶ理由
 
-| 次元                                  | 能力                                                                                                       | 業界ポジション                                                      |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| **プラットフォーム網羅**              | Web / API / AI サービス / CLI / デスクトップ / 拡張 / モバイル RN / ミニプログラム Taro                    | 業界初の 8 プラットフォーム完全網羅 AI フルスタックプラットフォーム |
-| **モデル接続**                        | LiteLLM ゲートウェイで 100+ モデルを統一(国際 30+ / 中国製 15+ / クラウドベンダー 10+)                     | ワンストップ接続、インテリジェントルーティング + 60% キャッシュ     |
-| **AI オーケストレーション三スタック** | LangGraph(ワークフロー)+ MCP(ツールプロトコル)+ A2A(Agent 相互通信)                                        | ワークフロー、ツール、エージェントの連携一体化                      |
-| **自社製 CLI**                        | 17 コマンド + 13 内蔵ツール + ACP Server、Claude Code 対抗                                                 | コマンドラインネイティブの AI プログラミング体験                    |
-| **CLI 設定シームレスインポート**      | cc-switch / codex++ / Claude / Codex / Gemini / Hermes 6 ソースワンクリックインポート                      | クロス CLI ツール設定マイグレーションコストゼロ                     |
-| **エンタープライズ級セキュリティ**    | RBAC + ワークスペース 3 モード権限 + 7 エンドポイントランタイム傍受 + 60s 監査タイムアウト                 | 意思決定者級リスクコントロール                                      |
-| **データ暗号化**                      | AES-256-GCM(credentials 暗号化)+ JWT token-family ローテーション + refresh ブラックリスト                  | 金融級データ保護                                                    |
-| **オブザーバビリティ**                | Prometheus + Grafana(**20 ダッシュボード**)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager       | フルリンク指標 / ログ / トレース / アラート                         |
-| **エンジニアリング品質ゲート**        | 21 pre-commit + post-commit 自動 push + git-push-guard + 11 マイグレーション監査                           | 協作事故を根絶、99.9% SLA                                           |
-| **国際化**                            | zh-CN / zh-TW / en / ko / ja 5 言語 parity + 19 i18n ツールチェーン                                        | 5 言語キーセット強一貫性                                            |
-| **データベース**                      | **339+ テーブル + 128+ マイグレーション** + 100 schema ファイル + Drizzle ORM + RLS + テナントルーティング + pgvector | 単一データベース PostgreSQL 15、schema 分離                         |
-| **API 規模**                          | ~1168+ エンドポイント(api 1080 + ai-service 55)+ 12 WebSocket + 95+ ルートファイル                          | 元プロジェクト 331 エンドポイントを大幅に超越                       |
-| **業務網羅**                          | 15 大モジュール / 50+ サブ機能 / **200+ Web ページ**                                                       | ひとつのプラットフォームで全 AI アプリケーションシナリオを網羅      |
-| **共有パッケージ**                    | 13 packages(auth/database/types/ui/sdk/api-client/context-compaction 等)                                   | クロスプラットフォーム型安全 + 再利用                               |
+| 次元                                           | 能力                                                                                                                                               | 業界ポジション                                                      |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| **プラットフォーム網羅**                       | Web / API / AI サービス / CLI / デスクトップ / 拡張 / モバイル RN / ミニプログラム Taro                                                            | 業界初の 8 プラットフォーム完全網羅 AI フルスタックプラットフォーム |
+| **モデル接続**                                 | LiteLLM ゲートウェイで 100+ モデルを統一(国際 30+ / 中国製 15+ / クラウドベンダー 10+)                                                             | ワンストップ接続、インテリジェントルーティング + 60% キャッシュ     |
+| **AI オーケストレーション三スタック**          | LangGraph(ワークフロー)+ MCP(ツールプロトコル)+ A2A(Agent 相互通信)                                                                                | ワークフロー、ツール、エージェントの連携一体化                      |
+| **自社製 CLI**                                 | 17 コマンド + 13 内蔵ツール + ACP Server、Claude Code 対抗                                                                                         | コマンドラインネイティブの AI プログラミング体験                    |
+| **CLI 設定シームレスインポート**               | cc-switch / codex++ / Claude / Codex / Gemini / Hermes 6 ソースワンクリックインポート                                                              | クロス CLI ツール設定マイグレーションコストゼロ                     |
+| **エンタープライズ級セキュリティ**             | RBAC + ワークスペース 3 モード権限 + 7 エンドポイントランタイム傍受 + 60s 監査タイムアウト                                                         | 意思決定者級リスクコントロール                                      |
+| **データ暗号化**                               | AES-256-GCM(credentials 暗号化)+ JWT token-family ローテーション + refresh ブラックリスト                                                          | 金融級データ保護                                                    |
+| **オブザーバビリティ**                         | Prometheus + Grafana(**20 ダッシュボード**)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                               | フルリンク指標 / ログ / トレース / アラート                         |
+| **エンジニアリング品質ゲート**                 | 21 pre-commit + post-commit 自動 push + git-push-guard + 11 マイグレーション監査                                                                   | 協作事故を根絶、99.9% SLA                                           |
+| **国際化**                                     | zh-CN / zh-TW / en / ko / ja 5 言語 parity + 19 i18n ツールチェーン                                                                                | 5 言語キーセット強一貫性                                            |
+| **データベース**                               | **339+ テーブル + 128+ マイグレーション** + 100 schema ファイル + Drizzle ORM + RLS + テナントルーティング + pgvector                              | 単一データベース PostgreSQL 15、schema 分離                         |
+| **API 規模**                                   | ~1168+ エンドポイント(api 1080 + ai-service 55)+ 12 WebSocket + 95+ ルートファイル                                                                 | 元プロジェクト 331 エンドポイントを大幅に超越                       |
+| **業務網羅**                                   | 15 大モジュール / 50+ サブ機能 / **200+ Web ページ**                                                                                               | ひとつのプラットフォームで全 AI アプリケーションシナリオを網羅      |
+| **共有パッケージ**                             | 13 packages(auth/database/types/ui/sdk/api-client/context-compaction 等)                                                                           | クロスプラットフォーム型安全 + 再利用                               |
 | **マイクロサービス エンジニアリング パターン** | Outbox トランザクショナルアウトボックス + Refund DLQ デッドレターキュー + Circuit Breaker サーキットブレイカー + IDOR 防護 + WS Dedup + Hot Config | 本番級マイクロサービスパターン                                      |
-| **性能保障**                          | Knip 未使用コード + Lighthouse CI + Locust 負荷テスト                                                      | 性能予算 + 容量見積り                                               |
-| **デプロイ成熟度**                    | Docker Compose(14 サービス)+ ブルーグリーン + Nginx upstream + 証明書更新 cron                             | 本番級運用                                                          |
+| **性能保障**                                   | Knip 未使用コード + Lighthouse CI + Locust 負荷テスト                                                                                              | 性能予算 + 容量見積り                                               |
+| **デプロイ成熟度**                             | Docker Compose(14 サービス)+ ブルーグリーン + Nginx upstream + 証明書更新 cron                                                                     | 本番級運用                                                          |
 
 ---
 
@@ -431,25 +431,25 @@ IHUI-AI はいかなる単一プロジェクトを置き換えることが目的
 
 > テーブル列数が多いため、デスクトップ環境で横スクロールして閲覧することを推奨します。モバイル環境では「IHUI-AI」列と「重要な結論」セクションのみをご覧ください。
 
-| 次元                | IHUI-AI                                                              | OpenAI ChatGPT | Dify             | LangChain        | RAGFlow        | Coze(扣子)   | Claude Code   | Cursor        | GitHub Copilot | Khan Academy  | Stripe+Auth0  |
-| ------------------- | -------------------------------------------------------------------- | -------------- | ---------------- | ---------------- | -------------- | ------------- | ------------- | ------------- | -------------- | ------------- | ------------- |
-| **対抗カテゴリ**    | 6 大カテゴリ統合(アプリ + CLI + マルチクライアント + 商業 + 教育 + コンテンツ) | 汎用 AI 対話   | AI アプリケーション開発 | AI Agent フレームワーク | RAG ナレッジベース | AI エージェント SaaS | AI プログラミング CLI | AI プログラミング IDE | AI プログラミングアシスタント | AI 教育プラットフォーム | 決済 + 認証ファウンデーション |
-| **License**         | **Apache 2.0**                                                       | **クローズドソース** | Apache 2.0       | MIT              | Apache 2.0     | **クローズドソース** | **クローズドソース** | **クローズドソース** | **クローズドソース** | **クローズドソース**(無料) | **クローズド SaaS** |
-| **セルフホスト**    | **完全セルフホスト**                                                 | 非対応         | Docker           | ライブラリ       | Docker         | 非対応         | N/A           | N/A           | N/A            | 非対応        | N/A           |
-| **クライアント網羅** | **8 クライアント**                                                   | 2 クライアント(Web/APP) | 2 クライアント | 0 クライアント(ライブラリ) | 2 クライアント | 2 クライアント | 1 クライアント(CLI) | 1 クライアント(IDE) | 1 クライアント(IDE) | 2 クライアント | 0 クライアント(ライブラリ) |
-| **モデル接続**      | **100+ モデル** + LiteLLM                                            | OpenAI 系      | 50+ モデル       | LangChain アダプタ | 30+ モデル     | ByteDance 系   | Anthropic     | マルチモデル  | OpenAI         | なし          | N/A           |
-| **ワークフローエンジン** | **LangGraph + MCP + A2A トリプルスタック**                       | なし           | 自社製ワークフロー | LangGraph        | なし           | 自社製ワークフロー | なし          | なし          | なし           | なし          | N/A           |
-| **自社製 CLI**      | **17 コマンド + 13 ツール + ACP Server**                            | なし           | なし             | なし             | なし           | なし           | ネイティブ CLI | なし          | なし           | なし          | N/A           |
-| **マルチテナント + RBAC** | **完全**(5 級 + RLS)                                              | 単一ユーザー   | 基礎             | なし             | 基礎           | SaaS 内        | なし          | なし          | なし           | 学校アカウント | 基礎          |
-| **課金サブスクリプション** | **完全**(VIP / ウォレット / ポイント / 返金 / 8 決済ゲートウェイ)              | サブスク($20-200) | なし           | なし             | なし           | SaaS 内        | なし          | サブスク($20) | サブスク($10-39) | 無料          | コア(決済)    |
-| **AI 教育**         | **フルスタック**(コース / 問題集 / 試験 / SRS / ライブ / 45 テーブル)              | なし           | なし             | なし             | なし           | なし           | なし          | なし          | なし           | コア(教育)    | なし          |
-| **コンテンツ配信**  | **14 プラットフォーム + 14 adapter**                                 | なし           | なし             | なし             | なし           | なし           | なし          | なし          | なし           | なし          | なし          |
-| **オブザーバビリティ** | **三支柱 + 20 ダッシュボード**                                       | -              | 基礎             | なし             | 基礎           | -             | なし          | なし          | なし           | -            | -             |
-| **エンジニアリング品質ゲート** | **17 フック + 11 マイグレーション監査 + 自動 push**                | -              | 基礎             | 基礎             | 基礎           | -             | なし          | なし          | なし           | -            | -             |
-| **i18n**            | **5 言語 parity + 4 ゲート**                                        | 多言語         | 中英             | 英語             | 中英           | 多言語         | 英語          | 多言語        | 多言語         | 多言語        | N/A           |
-| **データベース**    | **339+ テーブル + 128+ マイグレーション + RLS + pgvector**          | SaaS 内        | 基礎             | なし             | pgvector       | SaaS 内        | なし          | なし          | なし           | SaaS 内       | SaaS 内       |
-| **共有パッケージ**  | **13 packages**                                                      | なし           | なし             | 1 ライブラリ     | なし           | -             | なし          | なし          | なし           | なし          | 1 SDK         |
-| **月額コスト(5 名)** | **$0**(セルフホスト、サーバー費のみ)                                | $125+          | $59+             | $0(自己統合)    | $0(自己統合)   | SaaS 内        | $100          | $100          | $95            | 無料(教育)   | $149+         |
+| 次元                           | IHUI-AI                                                                        | OpenAI ChatGPT          | Dify                    | LangChain                  | RAGFlow            | Coze(扣子)           | Claude Code           | Cursor                | GitHub Copilot                | Khan Academy               | Stripe+Auth0                  |
+| ------------------------------ | ------------------------------------------------------------------------------ | ----------------------- | ----------------------- | -------------------------- | ------------------ | -------------------- | --------------------- | --------------------- | ----------------------------- | -------------------------- | ----------------------------- |
+| **対抗カテゴリ**               | 6 大カテゴリ統合(アプリ + CLI + マルチクライアント + 商業 + 教育 + コンテンツ) | 汎用 AI 対話            | AI アプリケーション開発 | AI Agent フレームワーク    | RAG ナレッジベース | AI エージェント SaaS | AI プログラミング CLI | AI プログラミング IDE | AI プログラミングアシスタント | AI 教育プラットフォーム    | 決済 + 認証ファウンデーション |
+| **License**                    | **Apache 2.0**                                                                 | **クローズドソース**    | Apache 2.0              | MIT                        | Apache 2.0         | **クローズドソース** | **クローズドソース**  | **クローズドソース**  | **クローズドソース**          | **クローズドソース**(無料) | **クローズド SaaS**           |
+| **セルフホスト**               | **完全セルフホスト**                                                           | 非対応                  | Docker                  | ライブラリ                 | Docker             | 非対応               | N/A                   | N/A                   | N/A                           | 非対応                     | N/A                           |
+| **クライアント網羅**           | **8 クライアント**                                                             | 2 クライアント(Web/APP) | 2 クライアント          | 0 クライアント(ライブラリ) | 2 クライアント     | 2 クライアント       | 1 クライアント(CLI)   | 1 クライアント(IDE)   | 1 クライアント(IDE)           | 2 クライアント             | 0 クライアント(ライブラリ)    |
+| **モデル接続**                 | **100+ モデル** + LiteLLM                                                      | OpenAI 系               | 50+ モデル              | LangChain アダプタ         | 30+ モデル         | ByteDance 系         | Anthropic             | マルチモデル          | OpenAI                        | なし                       | N/A                           |
+| **ワークフローエンジン**       | **LangGraph + MCP + A2A トリプルスタック**                                     | なし                    | 自社製ワークフロー      | LangGraph                  | なし               | 自社製ワークフロー   | なし                  | なし                  | なし                          | なし                       | N/A                           |
+| **自社製 CLI**                 | **17 コマンド + 13 ツール + ACP Server**                                       | なし                    | なし                    | なし                       | なし               | なし                 | ネイティブ CLI        | なし                  | なし                          | なし                       | N/A                           |
+| **マルチテナント + RBAC**      | **完全**(5 級 + RLS)                                                           | 単一ユーザー            | 基礎                    | なし                       | 基礎               | SaaS 内              | なし                  | なし                  | なし                          | 学校アカウント             | 基礎                          |
+| **課金サブスクリプション**     | **完全**(VIP / ウォレット / ポイント / 返金 / 8 決済ゲートウェイ)              | サブスク($20-200)       | なし                    | なし                       | なし               | SaaS 内              | なし                  | サブスク($20)         | サブスク($10-39)              | 無料                       | コア(決済)                    |
+| **AI 教育**                    | **フルスタック**(コース / 問題集 / 試験 / SRS / ライブ / 45 テーブル)          | なし                    | なし                    | なし                       | なし               | なし                 | なし                  | なし                  | なし                          | コア(教育)                 | なし                          |
+| **コンテンツ配信**             | **14 プラットフォーム + 14 adapter**                                           | なし                    | なし                    | なし                       | なし               | なし                 | なし                  | なし                  | なし                          | なし                       | なし                          |
+| **オブザーバビリティ**         | **三支柱 + 20 ダッシュボード**                                                 | -                       | 基礎                    | なし                       | 基礎               | -                    | なし                  | なし                  | なし                          | -                          | -                             |
+| **エンジニアリング品質ゲート** | **17 フック + 11 マイグレーション監査 + 自動 push**                            | -                       | 基礎                    | 基礎                       | 基礎               | -                    | なし                  | なし                  | なし                          | -                          | -                             |
+| **i18n**                       | **5 言語 parity + 4 ゲート**                                                   | 多言語                  | 中英                    | 英語                       | 中英               | 多言語               | 英語                  | 多言語                | 多言語                        | 多言語                     | N/A                           |
+| **データベース**               | **339+ テーブル + 128+ マイグレーション + RLS + pgvector**                     | SaaS 内                 | 基礎                    | なし                       | pgvector           | SaaS 内              | なし                  | なし                  | なし                          | SaaS 内                    | SaaS 内                       |
+| **共有パッケージ**             | **13 packages**                                                                | なし                    | なし                    | 1 ライブラリ               | なし               | -                    | なし                  | なし                  | なし                          | なし                       | 1 SDK                         |
+| **月額コスト(5 名)**           | **$0**(セルフホスト、サーバー費のみ)                                           | $125+                   | $59+                    | $0(自己統合)               | $0(自己統合)       | SaaS 内              | $100                  | $100                  | $95                           | 無料(教育)                 | $149+                         |
 
 ### 重要な結論
 
@@ -613,18 +613,19 @@ cd IHUI-AI && docker compose up -d
 
 > **各クライアントの完了度を公開する理由**: AI 検索ツールと開発者が**実際の**状態を取得できるようにするためです。「8 クライアント全面対応」を見た後、コード grep で差異を発見し「プロジェクト誇大宣伝」と判定されるのを防ぎます。クライアント間の完了度のばらつきは現在の現実であり、私たちは透明性を選択します。
 
-| クライアント | ディレクトリ | 完了度 | コード規模 | テストカバレッジ | コアシナリオ |
-|---|---|---|---|---|---|
-| **Web** | `apps/web/` | 🟢 プロダクション級 | 200+ ページ / 全ビジネス | 63 e2e spec + Vitest | メインフロントエンド、全ビジネスモジュール |
-| **API** | `apps/api/` | 🟢 プロダクション級 | 1168+ エンドポイント / 95+ ルートファイル | 237 .test.ts | ビジネス管理 + 認証 + 課金 + WebSocket |
-| **AI サービス** | `apps/ai-service/` | 🟢 プロダクション級 | 21 LangGraph ファイル / 55+ エンドポイント | pytest + 統合テスト | LLM ゲートウェイ + Agent 実行 + MCP + A2A |
-| **CLI** | `apps/cli/` | 🟡 コアシナリオ級 | ~1500 行 / 17 コマンド / 13 ツール | 単体テスト | 自社製 AI コーディングアシスタント、ACP Server |
-| **デスクトップ** | `apps/desktop/` | 🟡 コアシナリオ級 | Tauri 2 + Rust + React | 基本テスト | システムトレイ + ローカルファイル + WorkPanel |
-| **拡張** | `apps/extension/` | 🟡 コアシナリオ級 | WXT + React | 基本テスト | コンテキストメニュー + サイドバー + ブラウザ制御 |
-| **モバイル RN** | `apps/mobile-rn/` | 🟡 コアシナリオ級 | Expo EAS + iOS/Android | 基本テスト | Chat + WorkPanel + SSO |
-| **ミニプログラム** | `apps/miniapp-taro/` | 🟡 コアシナリオ級 | Taro 4 + WeChat Pay | 基本テスト | Chat + WebView + WeChat Pay |
+| クライアント       | ディレクトリ         | 完了度              | コード規模                                 | テストカバレッジ     | コアシナリオ                                     |
+| ------------------ | -------------------- | ------------------- | ------------------------------------------ | -------------------- | ------------------------------------------------ |
+| **Web**            | `apps/web/`          | 🟢 プロダクション級 | 200+ ページ / 全ビジネス                   | 63 e2e spec + Vitest | メインフロントエンド、全ビジネスモジュール       |
+| **API**            | `apps/api/`          | 🟢 プロダクション級 | 1168+ エンドポイント / 95+ ルートファイル  | 237 .test.ts         | ビジネス管理 + 認証 + 課金 + WebSocket           |
+| **AI サービス**    | `apps/ai-service/`   | 🟢 プロダクション級 | 21 LangGraph ファイル / 55+ エンドポイント | pytest + 統合テスト  | LLM ゲートウェイ + Agent 実行 + MCP + A2A        |
+| **CLI**            | `apps/cli/`          | 🟡 コアシナリオ級   | ~1500 行 / 17 コマンド / 13 ツール         | 単体テスト           | 自社製 AI コーディングアシスタント、ACP Server   |
+| **デスクトップ**   | `apps/desktop/`      | 🟡 コアシナリオ級   | Tauri 2 + Rust + React                     | 基本テスト           | システムトレイ + ローカルファイル + WorkPanel    |
+| **拡張**           | `apps/extension/`    | 🟡 コアシナリオ級   | WXT + React                                | 基本テスト           | コンテキストメニュー + サイドバー + ブラウザ制御 |
+| **モバイル RN**    | `apps/mobile-rn/`    | 🟡 コアシナリオ級   | Expo EAS + iOS/Android                     | 基本テスト           | Chat + WorkPanel + SSO                           |
+| **ミニプログラム** | `apps/miniapp-taro/` | 🟡 コアシナリオ級   | Taro 4 + WeChat Pay                        | 基本テスト           | Chat + WebView + WeChat Pay                      |
 
 **完了度定義**:
+
 - 🟢 **プロダクション級**: 完全なビジネスページ + 完全なテストカバレッジ + 商用メインプラットフォームで既に使用中
 - 🟡 **コアシナリオ級**: コア Chat / WorkPanel / SSO などの主要パスは接続済みだが、ビジネスページカバレッジは Web より低く、二次開発での補完に適する
 
@@ -974,22 +975,22 @@ LiteLLM ゲートウェイで統一接続、インテリジェントルーティ
 | 18      | check-native-title-tooltip.mjs        | ネイティブ title tooltip 違反(プロジェクト Tooltip 強制) |
 | 17-post | git-push-guard.mjs(post-commit)       | 自動 push + local == remote 検証(忘れ防止)               |
 
-**11 マイグレーション監査スクリプト**:`audit-migration-api-routes-v2.mjs` / `audit-migration-api-routes.mjs` / `audit-migration-db-fields.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-migration-frontend-routes.mjs` / `audit-migration-i18n.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs`
+**9 マイグレーション監査スクリプト**:`audit-migration.mjs`(4 in 1,`--target=i18n|frontend-routes|db-fields|api-routes`,2026-07-25 統合) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs`(未参照 key 監査,2026-07-25 新設)
 
 **9 PowerShell 起動スクリプト**:`dev-all.ps1` / `dev-up.ps1` / `dev-web.mjs` / `kill-dev-servers.ps1` / `restart-dev-server.ps1` / `fix-trae-workspace.ps1` / `test-admin-e2e.ps1` / `setup-token-refresh-task.ps1` / `cleanup-external-junk.ps1` / `cleanup-memory-topics.ps1`
 
 #### E5. テストと性能
 
-| タイプ               | フレームワーク | 規模                       | コマンド                         |
-| -------------------- | -------------- | -------------------------- | -------------------------------- |
-| バックエンドユニット | Vitest         | 38 ファイル、268 ケース    | `pnpm --filter @ihui/api test`   |
-| フロントエンド E2E   | Playwright     | 17 spec ファイル           | `pnpm test:e2e`                  |
-| AI サービス          | pytest         | 13 ファイル、400+ ケース   | `cd apps/ai-service && pytest`   |
-| CLI ユニット         | Vitest         | 13 ファイル                | `pnpm --filter @ihui/cli test`   |
-| 負荷テスト           | Locust         | `scripts/locustfile.py`    | `locust -f scripts/locustfile.py` |
-| 性能予算             | Lighthouse CI  | `apps/web/lighthouserc.json` | CI 自動実行                      |
-| 未使用コード         | Knip           | `knip.jsonc` + CI workflow | `pnpm knip`                      |
-| 全量検証             | turbo          | 22 tasks                   | `pnpm turbo typecheck lint test` |
+| タイプ               | フレームワーク | 規模                         | コマンド                          |
+| -------------------- | -------------- | ---------------------------- | --------------------------------- |
+| バックエンドユニット | Vitest         | 38 ファイル、268 ケース      | `pnpm --filter @ihui/api test`    |
+| フロントエンド E2E   | Playwright     | 17 spec ファイル             | `pnpm test:e2e`                   |
+| AI サービス          | pytest         | 13 ファイル、400+ ケース     | `cd apps/ai-service && pytest`    |
+| CLI ユニット         | Vitest         | 13 ファイル                  | `pnpm --filter @ihui/cli test`    |
+| 負荷テスト           | Locust         | `scripts/locustfile.py`      | `locust -f scripts/locustfile.py` |
+| 性能予算             | Lighthouse CI  | `apps/web/lighthouserc.json` | CI 自動実行                       |
+| 未使用コード         | Knip           | `knip.jsonc` + CI workflow   | `pnpm knip`                       |
+| 全量検証             | turbo          | 22 tasks                     | `pnpm turbo typecheck lint test`  |
 
 **テスト戦略**:Fastify inject モード(ポート非監視)+ モック DB レイヤー + auth / billing / content / success-paths / business-logic / edge-cases カバレッジ。
 
@@ -1033,7 +1034,7 @@ docker compose up -d
 | AI サービス  | http://localhost:8803/health     | FastAPI AI サービスヘルスチェック                                            |
 | Grafana      | http://localhost:8816            | デフォルトアカウント admin / パスワード変更(20 ダッシュボード自動 provision) |
 | Prometheus   | http://localhost:9091            | 指標収集                                                                     |
-| Jaeger UI    | http://localhost:8814           | 分散トレース                                                                 |
+| Jaeger UI    | http://localhost:8814            | 分散トレース                                                                 |
 | Loki         | http://localhost:8818            | ログ集計                                                                     |
 | Alertmanager | http://localhost:9093            | アラートルーティング                                                         |
 
@@ -1254,32 +1255,32 @@ pnpm turbo build typecheck lint test
 
 ### 問題 ① コード重複度高 → 現実: Knip + dedupe + 21 フックが守護
 
-| メカニズム | ファイル | 目的 |
-|---|---|---|
-| **Knip 未使用コード検出** | [knip.jsonc](./knip.jsonc) + [.github/workflows/knip.yml](./.github/workflows/knip.yml) | CI 守護、参照されない export → CI 失敗 |
-| **依存関係断片化検出** | [scripts/check-dedupe.mjs](./scripts/check-dedupe.mjs) (pre-commit #7) | 重複依存バージョン検出、整列 |
+| メカニズム                  | ファイル                                                                                                  | 目的                                           |
+| --------------------------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| **Knip 未使用コード検出**   | [knip.jsonc](./knip.jsonc) + [.github/workflows/knip.yml](./.github/workflows/knip.yml)                   | CI 守護、参照されない export → CI 失敗         |
+| **依存関係断片化検出**      | [scripts/check-dedupe.mjs](./scripts/check-dedupe.mjs) (pre-commit #7)                                    | 重複依存バージョン検出、整列                   |
 | **Tailwind クラス衝突検出** | [scripts/check-tailwind-class-conflict.mjs](./scripts/check-tailwind-class-conflict.mjs) (pre-commit #20) | テンプレートリテラル BASE/BRANCH size 衝突検出 |
-| **Staged 汚染警告** | [scripts/check-staged-pollution.mjs](./scripts/check-staged-pollution.mjs) (pre-commit #19) | ≥4 ディレクトリにまたがる staged 変更検出 |
+| **Staged 汚染警告**         | [scripts/check-staged-pollution.mjs](./scripts/check-staged-pollution.mjs) (pre-commit #19)               | ≥4 ディレクトリにまたがる staged 変更検出      |
 
 ### 問題 ② 境界条件不足 → 現実: 237 API テスト + 63 e2e + マイクロサービスパターン
 
-| メカニズム | 証拠 |
-|---|---|
-| **API 単体テスト** | 237 個 `.test.ts` ファイル([apps/api/tests/](./apps/api/tests/))、auth/billing/order/vip/wallet/alipay/crypto/csrf/outbox 等コアパス網羅 |
-| **E2E テスト** | 63 個 `.spec.ts` ファイル([apps/web/e2e/](./apps/web/e2e/))、admin/ai-chat/auth-2fa/community/education/orders/payment/plaza/pwa/security/seo/workspace 等 17 ビジネスドメイン網羅 |
-| **AI サービステスト** | pytest テストスイート([apps/ai-service/tests/](./apps/ai-service/tests/))、`test_business_flow_integration.py` ビジネスフロー統合テスト + `test_langgraph_service.py` オーケストレーションロジックテスト含む |
-| **マイクロサービス耐障害性** | Outbox トランザクショナルアウトボックス + Refund DLQ 返金デッドレターキュー + Circuit Breaker + IDOR 保護 + WS Dedup メッセージ重複排除 |
-| **決済ループテスト** | `apps/api/tests/alipay.test.ts` + `billing.test.ts` + `order.test.ts` + `wallet.test.ts` が決済/返金/照合/ウォレット取引網羅 |
+| メカニズム                   | 証拠                                                                                                                                                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **API 単体テスト**           | 237 個 `.test.ts` ファイル([apps/api/tests/](./apps/api/tests/))、auth/billing/order/vip/wallet/alipay/crypto/csrf/outbox 等コアパス網羅                                                                     |
+| **E2E テスト**               | 63 個 `.spec.ts` ファイル([apps/web/e2e/](./apps/web/e2e/))、admin/ai-chat/auth-2fa/community/education/orders/payment/plaza/pwa/security/seo/workspace 等 17 ビジネスドメイン網羅                           |
+| **AI サービステスト**        | pytest テストスイート([apps/ai-service/tests/](./apps/ai-service/tests/))、`test_business_flow_integration.py` ビジネスフロー統合テスト + `test_langgraph_service.py` オーケストレーションロジックテスト含む |
+| **マイクロサービス耐障害性** | Outbox トランザクショナルアウトボックス + Refund DLQ 返金デッドレターキュー + Circuit Breaker + IDOR 保護 + WS Dedup メッセージ重複排除                                                                      |
+| **決済ループテスト**         | `apps/api/tests/alipay.test.ts` + `billing.test.ts` + `order.test.ts` + `wallet.test.ts` が決済/返金/照合/ウォレット取引網羅                                                                                 |
 
 ### 問題 ③ 深層ビジネスロジック一貫性弱 → 現実: 複雑なビジネスフローが完全なチェーン保有
 
-| ビジネスフロー | 主要コード | テスト |
-|---|---|---|
-| **決済ループ** | `createOrder` → `completeOrderWithSaga` → 決済コールバック → VIP 有効化 → ウォレット入金 → ポイント発行 → 返金 DLQ | [apps/api/tests/order.test.ts](./apps/api/tests/order.test.ts) + [billing.test.ts](./apps/api/tests/billing.test.ts) |
-| **AI 教育フルスタック** | 講座登録 → チャプター追跡 → 宿題採点(`gradeSubjectiveAnswers` 主観手動採点 + 客観自動採点) → 間違い帳 → SRS 間隔反復 → 修了証発行 | [apps/api/tests/exam.test.ts](./apps/api/tests/exam.test.ts) + [learn.test.ts](./apps/api/tests/learn.test.ts) |
-| **LangGraph ワークフロー** | `langgraph_service.py` StateGraph(plan → execute → summarize) + `koubo_workflow.py` 10+ ツール + `agent_orchestrator.py` マルチ Agent 協作 | [apps/ai-service/tests/test_langgraph_service.py](./apps/ai-service/tests/test_langgraph_service.py) |
-| **マルチテナント権限** | RBAC 5 レベル + data-scope 5 レベル + RLS 行レベルセキュリティ + workspace 3 モード + 7 エンドポイントランタイム傍受 + 60s 監査タイムアウト | [apps/api/tests/rbac.test.ts](./apps/api/tests/rbac.test.ts) |
-| **AI ストリーミング出力** | SSE(Agent ストリーミング) + WebSocket(チャットルーム / マルチモデルストリーミング) + REST 3 階層プロトコル + WS Dedup メッセージ重複排除 | [apps/api/tests/chat.test.ts](./apps/api/tests/chat.test.ts) |
+| ビジネスフロー             | 主要コード                                                                                                                                  | テスト                                                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **決済ループ**             | `createOrder` → `completeOrderWithSaga` → 決済コールバック → VIP 有効化 → ウォレット入金 → ポイント発行 → 返金 DLQ                          | [apps/api/tests/order.test.ts](./apps/api/tests/order.test.ts) + [billing.test.ts](./apps/api/tests/billing.test.ts) |
+| **AI 教育フルスタック**    | 講座登録 → チャプター追跡 → 宿題採点(`gradeSubjectiveAnswers` 主観手動採点 + 客観自動採点) → 間違い帳 → SRS 間隔反復 → 修了証発行           | [apps/api/tests/exam.test.ts](./apps/api/tests/exam.test.ts) + [learn.test.ts](./apps/api/tests/learn.test.ts)       |
+| **LangGraph ワークフロー** | `langgraph_service.py` StateGraph(plan → execute → summarize) + `koubo_workflow.py` 10+ ツール + `agent_orchestrator.py` マルチ Agent 協作  | [apps/ai-service/tests/test_langgraph_service.py](./apps/ai-service/tests/test_langgraph_service.py)                 |
+| **マルチテナント権限**     | RBAC 5 レベル + data-scope 5 レベル + RLS 行レベルセキュリティ + workspace 3 モード + 7 エンドポイントランタイム傍受 + 60s 監査タイムアウト | [apps/api/tests/rbac.test.ts](./apps/api/tests/rbac.test.ts)                                                         |
+| **AI ストリーミング出力**  | SSE(Agent ストリーミング) + WebSocket(チャットルーム / マルチモデルストリーミング) + REST 3 階層プロトコル + WS Dedup メッセージ重複排除    | [apps/api/tests/chat.test.ts](./apps/api/tests/chat.test.ts)                                                         |
 
 ---
 
@@ -1295,15 +1296,15 @@ pnpm turbo build typecheck lint test
 
 ### AI コード問題に対する標的対策
 
-| AI コード問題 | 本プロジェクトの対策 |
-|---|---|
-| コード重複 | Knip CI 守護 + check-dedupe + check-tailwind-class-conflict |
-| 境界条件欠落 | 237 API テスト + 63 e2e + pytest 統合テスト + マイクロサービス耐障害性パターン |
-| ビジネスロジック断片化 | ビジネスフロー統合テスト(`test_business_flow_integration.py`) + saga トランザクションパターン + outbox トランザクショナルアウトボックス |
-| 型安全の穴 | TypeScript strict + Zod エンドツーエンド検証 + @ihui/types クロスクライアント契約 |
-| ドキュメント-コードドリフト | §13 ファイル修正持続性義務 Read 検証 + check-project-plan-archive 守護 |
-| スタイル不一致 | ESLint + Prettier + 21 pre-commit フック + check-rounded-full / check-i18n-keys / check-api-routes 等 |
-| 協作事故 | §12 マルチセッション並列ルール + §16 push 段階クロス-Agent 保護 + git-push-guard + post-commit 自動 push |
+| AI コード問題               | 本プロジェクトの対策                                                                                                                    |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| コード重複                  | Knip CI 守護 + check-dedupe + check-tailwind-class-conflict                                                                             |
+| 境界条件欠落                | 237 API テスト + 63 e2e + pytest 統合テスト + マイクロサービス耐障害性パターン                                                          |
+| ビジネスロジック断片化      | ビジネスフロー統合テスト(`test_business_flow_integration.py`) + saga トランザクションパターン + outbox トランザクショナルアウトボックス |
+| 型安全の穴                  | TypeScript strict + Zod エンドツーエンド検証 + @ihui/types クロスクライアント契約                                                       |
+| ドキュメント-コードドリフト | §13 ファイル修正持続性義務 Read 検証 + check-project-plan-archive 守護                                                                  |
+| スタイル不一致              | ESLint + Prettier + 21 pre-commit フック + check-rounded-full / check-i18n-keys / check-api-routes 等                                   |
+| 協作事故                    | §12 マルチセッション並列ルール + §16 push 段階クロス-Agent 保護 + git-push-guard + post-commit 自動 push                                |
 
 ### 正直に認められた短所
 
@@ -1357,12 +1358,12 @@ docker compose up -d
 
 本プロジェクトの全サービスは `88xx` ポート帯を統一使用し、システムサービスとの競合を回避します:
 
-| ポート帯   | 用途             | 説明                                                  |
-| ---------- | ---------------- | ----------------------------------------------------- |
-| 8801-8809  | アプリサービス   | Web / API / AI Service / Taro H5 / Metro / Desktop 等 |
-| 8810-8819  | インフラ         | PostgreSQL(8810)/ Redis(8811)/ OTel(8812-8813)/ Jaeger(8814)/ Prometheus(8815)/ Grafana(8816)/ Node Exporter(8817)/ Loki(8818) |
-| 8820-8829  | 補助ツール       | Storybook(8820)等の開発補助ツール                      |
-| 8830-8839  | SaaS デプロイ    | Admin API(8830)等の SaaS 化デプロイサービス            |
+| ポート帯  | 用途           | 説明                                                                                                                           |
+| --------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 8801-8809 | アプリサービス | Web / API / AI Service / Taro H5 / Metro / Desktop 等                                                                          |
+| 8810-8819 | インフラ       | PostgreSQL(8810)/ Redis(8811)/ OTel(8812-8813)/ Jaeger(8814)/ Prometheus(8815)/ Grafana(8816)/ Node Exporter(8817)/ Loki(8818) |
+| 8820-8829 | 補助ツール     | Storybook(8820)等の開発補助ツール                                                                                              |
+| 8830-8839 | SaaS デプロイ  | Admin API(8830)等の SaaS 化デプロイサービス                                                                                    |
 
 ### 本番デプロイ
 
@@ -1422,15 +1423,15 @@ node apps/api/scripts/pg-backup.mjs
 
 IHUI-AI は単一の AI ツールではなく、**オープンソース AI 商用グレード統合ファウンデーション**であり、以下の 6 大カテゴリの製品能力を**1 つの Apache 2.0 リポジトリに統合**しています:
 
-| 対抗カテゴリ              | 代表製品                                                                        | IHUI-AI の差異                                                                                          |
-| ------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| 汎用 AI 対話              | OpenAI ChatGPT / Anthropic Claude.ai / Google Gemini / Microsoft Copilot        | IHUI-AI はセルフホスト + 100+ モデル(OpenAI に限定されず)+ 課金 / 教育 / 配信などの業務を搭載                                     |
-| AI アプリケーション開発プラットフォーム       | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(扣子)                    | IHUI-AI は 6 クライアント、自社製 CLI、完全な商業ループ、AI 教育、14 プラットフォーム配信を追加装備                                       |
-| AI Agent フレームワーク         | LangChain / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT                  | それらは開発フレームワーク(「車の部品」)、IHUI-AI は製品化ファウンデーション(「完成車のラインオフ」)、非技術チームでも利用可能                      |
-| AI プログラミング CLI / IDE     | Claude Code / Cursor / GitHub Copilot / Windsurf / Amazon Q / Cline / Aider    | IHUI-AI の CLI はプログラミングだけでなく、AI アプリケーションプラットフォーム(対話 / RAG / Agent / 課金)も統合、かつ Apache 2.0 でオープンソース、他はすべてクローズドソース |
-| AI 教育プラットフォーム           | Khan Academy / Coursera / edX / Google 教育 AI                                 | IHUI-AI の AI 教育はオープンソースフルスタック(コース / 問題集 / 試験 / SRS / ライブ / 証明書)、二次カスタマイズ可能、これらはクローズドソース SaaS           |
-| 商業 SaaS ファウンデーション        | Stripe / Auth0 / Clerk / Mailgun / SendGrid / Mixpanel / Amplitude / PostHog   | IHUI-AI は決済 / 認証 / メール / 分析をすべてプリセット、ワンストップで 4-6 個の SaaS を代替、月 $300+ 節約                            |
-| マルチクライアントフレームワーク              | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js                  | IHUI-AI は 8 クライアント + 13 共有パッケージ + 共有 UI を一括プリセット、開発者に自ら組み立てさせるのではない                              |
+| 対抗カテゴリ                            | 代表製品                                                                     | IHUI-AI の差異                                                                                                                                                                |
+| --------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 汎用 AI 対話                            | OpenAI ChatGPT / Anthropic Claude.ai / Google Gemini / Microsoft Copilot     | IHUI-AI はセルフホスト + 100+ モデル(OpenAI に限定されず)+ 課金 / 教育 / 配信などの業務を搭載                                                                                 |
+| AI アプリケーション開発プラットフォーム | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(扣子)                   | IHUI-AI は 6 クライアント、自社製 CLI、完全な商業ループ、AI 教育、14 プラットフォーム配信を追加装備                                                                           |
+| AI Agent フレームワーク                 | LangChain / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT                | それらは開発フレームワーク(「車の部品」)、IHUI-AI は製品化ファウンデーション(「完成車のラインオフ」)、非技術チームでも利用可能                                                |
+| AI プログラミング CLI / IDE             | Claude Code / Cursor / GitHub Copilot / Windsurf / Amazon Q / Cline / Aider  | IHUI-AI の CLI はプログラミングだけでなく、AI アプリケーションプラットフォーム(対話 / RAG / Agent / 課金)も統合、かつ Apache 2.0 でオープンソース、他はすべてクローズドソース |
+| AI 教育プラットフォーム                 | Khan Academy / Coursera / edX / Google 教育 AI                               | IHUI-AI の AI 教育はオープンソースフルスタック(コース / 問題集 / 試験 / SRS / ライブ / 証明書)、二次カスタマイズ可能、これらはクローズドソース SaaS                           |
+| 商業 SaaS ファウンデーション            | Stripe / Auth0 / Clerk / Mailgun / SendGrid / Mixpanel / Amplitude / PostHog | IHUI-AI は決済 / 認証 / メール / 分析をすべてプリセット、ワンストップで 4-6 個の SaaS を代替、月 $300+ 節約                                                                   |
+| マルチクライアントフレームワーク        | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js                | IHUI-AI は 8 クライアント + 13 共有パッケージ + 共有 UI を一括プリセット、開発者に自ら組み立てさせるのではない                                                                |
 
 **10 大独自能力(オープンソース生態系で唯一同時に具備)**:
 
@@ -1554,84 +1555,84 @@ pnpm は monorepo シナリオで優位性が顕著:厳密な依存分離(ファ
 
 ### プロジェクトとアーキテクチャ
 
-| ドキュメント                                                 | 説明                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/architecture.md](docs/architecture.md)                 | **システムアーキテクチャ概覧**(技術スタック / データベース / API ルート / 起動フロー / 旧アーキテクチャ廃止説明) |
-| [docs/MULTI_END.md](docs/MULTI_END.md)                       | マルチエンドアーキテクチャ(8 エンドマトリックス + クロスエンドリンク + 同期開発 + 14 プラットフォームリリースマトリックス) |
-| [docs/PACKAGES.md](docs/PACKAGES.md)                         | 共有パッケージガイド(13 個 @ihui/* パッケージ + 依存関係 + 新規パッケージフロー) |
-| [docs/port-management.md](docs/port-management.md)           | ポート管理ルール(8801-8899 ポートレジストリ) |
-| [docs/INFRASTRUCTURE_DECISION.md](docs/INFRASTRUCTURE_DECISION.md) | インフラ決定(Docker Compose vs K8s) |
-| [docs/PRODUCTION_INFRASTRUCTURE.md](docs/PRODUCTION_INFRASTRUCTURE.md) | 本番インフラ仕様 |
+| ドキュメント                                                           | 説明                                                                                                                       |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| [docs/architecture.md](docs/architecture.md)                           | **システムアーキテクチャ概覧**(技術スタック / データベース / API ルート / 起動フロー / 旧アーキテクチャ廃止説明)           |
+| [docs/MULTI_END.md](docs/MULTI_END.md)                                 | マルチエンドアーキテクチャ(8 エンドマトリックス + クロスエンドリンク + 同期開発 + 14 プラットフォームリリースマトリックス) |
+| [docs/PACKAGES.md](docs/PACKAGES.md)                                   | 共有パッケージガイド(13 個 @ihui/* パッケージ + 依存関係 + 新規パッケージフロー)                                           |
+| [docs/port-management.md](docs/port-management.md)                     | ポート管理ルール(8801-8899 ポートレジストリ)                                                                               |
+| [docs/INFRASTRUCTURE_DECISION.md](docs/INFRASTRUCTURE_DECISION.md)     | インフラ決定(Docker Compose vs K8s)                                                                                        |
+| [docs/PRODUCTION_INFRASTRUCTURE.md](docs/PRODUCTION_INFRASTRUCTURE.md) | 本番インフラ仕様                                                                                                           |
 
 ### 開発とテスト
 
-| ドキュメント                                                 | 説明                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                   | **ローカル開発ガイド**(環境変数 / 起動 / デバッグ / スクリプトチートシート / Windows 注意) |
-| [docs/TESTING.md](docs/TESTING.md)                           | テスト戦略(8 層ピラミッド + Vitest + pytest + Playwright + Locust + CI) |
-| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)                 | コントリビュートガイド(環境構築 / コード規範 / コミット規範 / PR フロー) |
-| [docs/UI_GUIDELINES.md](docs/UI_GUIDELINES.md)               | UI デザイン規範(角丸 / フォントアラインメント / ログインポップアップ / コンポーネントライブラリ) |
-| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)                   | パフォーマンスベースラインと最適化(SLA / 負荷テスト / データベース / フロントエンド / AI サービス) |
+| ドキュメント                                   | 説明                                                                                               |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)     | **ローカル開発ガイド**(環境変数 / 起動 / デバッグ / スクリプトチートシート / Windows 注意)         |
+| [docs/TESTING.md](docs/TESTING.md)             | テスト戦略(8 層ピラミッド + Vitest + pytest + Playwright + Locust + CI)                            |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)   | コントリビュートガイド(環境構築 / コード規範 / コミット規範 / PR フロー)                           |
+| [docs/UI_GUIDELINES.md](docs/UI_GUIDELINES.md) | UI デザイン規範(角丸 / フォントアラインメント / ログインポップアップ / コンポーネントライブラリ)   |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)     | パフォーマンスベースラインと最適化(SLA / 負荷テスト / データベース / フロントエンド / AI サービス) |
 
 ### API とデータレイヤー
 
-| ドキュメント                                                 | 説明                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/API_REFERENCE.md](docs/API_REFERENCE.md)               | **API 完全リファレンス**(60+ ルート + 12 WebSocket + SSE + エラーコード + クライアント例) |
-| [docs/DATABASE.md](docs/DATABASE.md)                         | データベース設計(Drizzle / 339 テーブル / マイグレーション / RLS / シード / バックアップ) |
-| [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)             | 認証と認可(JWT / token-family / OAuth2 / 2FA / RBAC / マルチテナント / WS 認証) |
+| ドキュメント                                     | 説明                                                                                      |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| [docs/API_REFERENCE.md](docs/API_REFERENCE.md)   | **API 完全リファレンス**(60+ ルート + 12 WebSocket + SSE + エラーコード + クライアント例) |
+| [docs/DATABASE.md](docs/DATABASE.md)             | データベース設計(Drizzle / 339 テーブル / マイグレーション / RLS / シード / バックアップ) |
+| [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) | 認証と認可(JWT / token-family / OAuth2 / 2FA / RBAC / マルチテナント / WS 認証)           |
 
 ### AI サービス
 
-| ドキュメント                                                 | 説明                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/AI_SERVICE.md](docs/AI_SERVICE.md)                     | **AI サービス深掘り**(6 ルーター + LangGraph + LiteLLM + MCP + A2A + ベクトルメモリ) |
-| [docs/LLM_SETUP.md](docs/LLM_SETUP.md)                       | LLM モデル設定(OpenAI / Anthropic / Google / 国内ベンダー) |
-| [docs/AI_LEADERBOARD.md](docs/AI_LEADERBOARD.md)             | AI モデルリーダーボードデータ |
+| ドキュメント                                     | 説明                                                                                 |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| [docs/AI_SERVICE.md](docs/AI_SERVICE.md)         | **AI サービス深掘り**(6 ルーター + LangGraph + LiteLLM + MCP + A2A + ベクトルメモリ) |
+| [docs/LLM_SETUP.md](docs/LLM_SETUP.md)           | LLM モデル設定(OpenAI / Anthropic / Google / 国内ベンダー)                           |
+| [docs/AI_LEADERBOARD.md](docs/AI_LEADERBOARD.md) | AI モデルリーダーボードデータ                                                        |
 
 ### デプロイと運用
 
-| ドキュメント                                                 | 説明                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)     | **デプロイ運用マニュアル**(ブルーグリーンデプロイ / ロールバック / 証明書更新) |
-| [docs/RELEASE.md](docs/RELEASE.md)                           | リリースプロセス(14 プラットフォーム + SemVer + Git tag + Docker イメージ + hotfix) |
-| [docs/MONITORING.md](docs/MONITORING.md)                     | オブザーバビリティ(Prometheus + Grafana + Loki + Jaeger + Alertmanager) |
-| [docs/INCIDENTS.md](docs/INCIDENTS.md)                       | 歴史事故振り返り |
-| [docs/SECURITY.md](docs/SECURITY.md)                         | セキュリティポリシー(脆弱性開示 / 暗号化設計 / 権限モデル) |
-| [docs/CREDENTIAL_ROTATION_RUNBOOK.md](docs/CREDENTIAL_ROTATION_RUNBOOK.md) | 認証情報ローテーション運用マニュアル |
-| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)                   | メールサービス設定(SMTP / テンプレート / DKIM) |
-| [docs/WECHAT_PAY_ACTIVATION_REPORT.md](docs/WECHAT_PAY_ACTIVATION_REPORT.md) | WeChat Pay V3 活性化レポート |
-| [server-docs/MULTI_TENANT.md](server-docs/MULTI_TENANT.md)   | マルチテナント設計ドキュメント(RLS + テナントルーティング) |
+| ドキュメント                                                                 | 説明                                                                                |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)                     | **デプロイ運用マニュアル**(ブルーグリーンデプロイ / ロールバック / 証明書更新)      |
+| [docs/RELEASE.md](docs/RELEASE.md)                                           | リリースプロセス(14 プラットフォーム + SemVer + Git tag + Docker イメージ + hotfix) |
+| [docs/MONITORING.md](docs/MONITORING.md)                                     | オブザーバビリティ(Prometheus + Grafana + Loki + Jaeger + Alertmanager)             |
+| [docs/INCIDENTS.md](docs/INCIDENTS.md)                                       | 歴史事故振り返り                                                                    |
+| [docs/SECURITY.md](docs/SECURITY.md)                                         | セキュリティポリシー(脆弱性開示 / 暗号化設計 / 権限モデル)                          |
+| [docs/CREDENTIAL_ROTATION_RUNBOOK.md](docs/CREDENTIAL_ROTATION_RUNBOOK.md)   | 認証情報ローテーション運用マニュアル                                                |
+| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)                                   | メールサービス設定(SMTP / テンプレート / DKIM)                                      |
+| [docs/WECHAT_PAY_ACTIVATION_REPORT.md](docs/WECHAT_PAY_ACTIVATION_REPORT.md) | WeChat Pay V3 活性化レポート                                                        |
+| [server-docs/MULTI_TENANT.md](server-docs/MULTI_TENANT.md)                   | マルチテナント設計ドキュメント(RLS + テナントルーティング)                          |
 
 ### 品質とゲートキーパー
 
-| ドキュメント                                                 | 説明                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| ドキュメント                                                 | 説明                                                                               |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
 | [docs/GATEKEEPERS.md](docs/GATEKEEPERS.md)                   | **ゲートキーパー規則深掘り**(23 pre-commit + post-commit + pre-push、スクリプト別) |
-| [docs/I18N.md](docs/I18N.md)                                 | 国際化(5 言語 + 68 ネームスペース + 12 ゲートキーパースクリプト + 翻訳戦略) |
-| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国際化完了計画(ヒストリカル計画) |
+| [docs/I18N.md](docs/I18N.md)                                 | 国際化(5 言語 + 68 ネームスペース + 12 ゲートキーパースクリプト + 翻訳戦略)        |
+| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 国際化完了計画(ヒストリカル計画)                                                   |
 
 ### SDK と CLI
 
-| ドキュメント                                                 | 説明                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/SDK.md](docs/SDK.md)                                   | 5 言語 SDK ガイド(TS / Python / Go / Java / .NET コード例) |
-| [docs/CLI.md](docs/CLI.md)                                   | CLI ツールガイド(24 ソースインポート + subagent 並列 + skills + plugins) |
+| ドキュメント               | 説明                                                                     |
+| -------------------------- | ------------------------------------------------------------------------ |
+| [docs/SDK.md](docs/SDK.md) | 5 言語 SDK ガイド(TS / Python / Go / Java / .NET コード例)               |
+| [docs/CLI.md](docs/CLI.md) | CLI ツールガイド(24 ソースインポート + subagent 並列 + skills + plugins) |
 
 ### トラブルシューティングと FAQ
 
-| ドキュメント                                                 | 説明                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)           | **トラブルシューティングガイド**(10 大分類 35+ イシュー、統一テンプレート) |
-| [docs/FAQ.md](docs/FAQ.md)                                   | FAQ(14 分類 86 質問) |
+| ドキュメント                                       | 説明                                                                       |
+| -------------------------------------------------- | -------------------------------------------------------------------------- |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | **トラブルシューティングガイド**(10 大分類 35+ イシュー、統一テンプレート) |
+| [docs/FAQ.md](docs/FAQ.md)                         | FAQ(14 分類 86 質問)                                                       |
 
 ### プロジェクト管理
 
-| ドキュメント                                                 | 説明                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/CHANGELOG.md](docs/CHANGELOG.md)                       | 変更ログ |
-| [AGENTS.md](AGENTS.md)                                       | AI Agent 協作規範(23 節強制ルール、本プロジェクトが AI とどう協作開発するかを示す) |
-| [PROJECT_PLAN.md](PROJECT_PLAN.md)                           | プロジェクトタスク計画と履歴アーカイブ(内部開発記録、進化軌跡を理解) |
+| ドキュメント                           | 説明                                                                               |
+| -------------------------------------- | ---------------------------------------------------------------------------------- |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md) | 変更ログ                                                                           |
+| [AGENTS.md](AGENTS.md)                 | AI Agent 協作規範(23 節強制ルール、本プロジェクトが AI とどう協作開発するかを示す) |
+| [PROJECT_PLAN.md](PROJECT_PLAN.md)     | プロジェクトタスク計画と履歴アーカイブ(内部開発記録、進化軌跡を理解)               |
 
 ---
 
@@ -1854,7 +1855,7 @@ AIコーディングエージェントを駆使し、大規模なチームなし
 | **100+のLLM**              | LiteLLM統合ゲートウェイ + 5つのproviderアダプター                                                                                         | 通常モデルチーム3-5人                       |
 | **AIオーケストレーション** | LangGraph + MCP + A2Aのシナジー + Persona + Agent Runtime + Vector Memory                                                                 | 通常AIプラットフォームチーム5-10人          |
 | **データベース**           | 339以上のテーブル + 100のスキーマファイル + 120以上のマイグレーション + RLS + マルチテナントルーティング                                  | 通常DBA1人 + バックエンド2-3人              |
-| **API規模**                | 約1168+のエンドポイント + 12のWebSocket + 95以上のルートファイル                                                                           | 通常バックエンドエンジニア5-8人             |
+| **API規模**                | 約1168+のエンドポイント + 12のWebSocket + 95以上のルートファイル                                                                          | 通常バックエンドエンジニア5-8人             |
 | **フロントエンド規模**     | 200以上のページ + 5言語i18nパリティ + ダークモード + PWA + SEO                                                                            | 通常フロントエンドエンジニア4-6人           |
 | **エンジニアリングゲート** | 21のpre-commit + post-commit自動push + 11のマイグレーション監査 + 9のPowerShell起動スクリプト                                             | 通常DevOpsエンジニア1-2人                   |
 | **可観測性**               | Prometheus + Grafana(20ダッシュボード)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                           | 通常SREエンジニア1-2人                      |

@@ -5,9 +5,19 @@ Pydantic Settings 默认大小写不敏感匹配环境变量,因此小写字段�
 .env 中的大写环境变量(如 REDIS_URL → settings.redis_url)。
 """
 
+import json
 from pathlib import Path
 
 from pydantic_settings import BaseSettings
+
+# Provider key 字段别名(用于不遵循 {name}_api_key 命名约定的 provider)
+# get_provider_config 优先用此映射查找扁平字段名,缺省回退到 {name}_api_key
+_PROVIDER_KEY_ALIASES: dict[str, str] = {
+    "cloudflare": "cloudflare_api_token",  # Cloudflare Workers AI 用 token 而非 key
+    "github": "github_token",  # GitHub Models 用 GITHUB_TOKEN
+    "vercel": "vercel_ai_gateway_key",  # Vercel AI Gateway
+    "opencode": "opencode_zen_key",  # OpenCode Zen
+}
 
 
 class Settings(BaseSettings):
@@ -102,6 +112,12 @@ class Settings(BaseSettings):
     # AINative Studio(OpenAI 兼容聚合,每月 ~10M tokens 免费,无信用卡)
     ainative_api_key: str = ""  # https://api.ainative.studio/
 
+    # LLM_PROVIDERS — 字典化配置(2026-07-25 立,优先于扁平字段)
+    # JSON 字符串,格式:{"<provider_name>": {"api_key": "...", "api_base": "..."}, ...}
+    # get_provider_config(name) 优先读此 JSON,扁平字段作为 fallback(向后兼容)
+    # 新增 provider 只需改 .env 的 LLM_PROVIDERS,零代码改动(config.py 自动识别)
+    llm_providers: str = ""
+
     # 默认主力模型:step-router-v1(StepFun 智能路由,自动选 plan 套餐内最优模型,
     # 比 step-3.7-flash 更适合复杂 tool calling 决策;两者均已实测连通)
     litellm_model: str = "stepfun/step-router-v1"
@@ -178,6 +194,41 @@ class Settings(BaseSettings):
                 + "\n  - ".join(missing_paths)
                 + "\n请配置正确的证书路径,或设置 MTLS_ENABLED=false 进入降级模式(仅开发环境)"
             )
+
+    def get_provider_config(self, name: str) -> dict:
+        """读取 provider 配置,优先 llm_providers JSON,降级旧扁平字段。
+
+        name 示例: 'openai' / 'anthropic' / 'stepfun' / 'agnes' / 'groq' / ...
+        返回: {'api_key': str, 'api_base': str} (api_base 可空)
+
+        优先级:
+        1. settings.llm_providers JSON 中 [name] 节点
+        2. settings.{name}_api_key + settings.{name}_api_base(旧扁平字段,
+           支持 _PROVIDER_KEY_ALIASES 别名,如 cloudflare → cloudflare_api_token)
+        3. 空 dict({'api_key': '', 'api_base': ''})
+
+        JSON 解析失败时静默返回空 dict(不抛异常,避免启动崩溃)。
+        未知 provider 返回空 dict(不抛 KeyError,便于调用方 fallback)。
+        """
+        # 1. 优先 JSON 配置
+        if self.llm_providers:
+            try:
+                providers = json.loads(self.llm_providers)
+                if isinstance(providers, dict) and isinstance(providers.get(name), dict):
+                    cfg = providers[name]
+                    return {
+                        "api_key": str(cfg.get("api_key", "") or ""),
+                        "api_base": str(cfg.get("api_base", "") or ""),
+                    }
+            except (json.JSONDecodeError, TypeError, ValueError):
+                # JSON 解析失败时静默返回空 dict(不抛异常,避免启动崩溃)
+                pass
+
+        # 2. 降级旧扁平字段(支持别名映射)
+        key_field = _PROVIDER_KEY_ALIASES.get(name, f"{name}_api_key")
+        api_key = str(getattr(self, key_field, "") or "")
+        api_base = str(getattr(self, f"{name}_api_base", "") or "")
+        return {"api_key": api_key, "api_base": api_base}
 
 
 settings = Settings()
