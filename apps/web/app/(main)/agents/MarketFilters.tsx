@@ -21,7 +21,7 @@ export function MarketFilters({
   setCategoryId,
   categories,
 }: Props) {
-  const t = useTranslations('agents')
+  const t = useTranslations('agent')
   const tc = useTranslations('common')
   return (
     <div className="flex flex-wrap items-center gap-2">

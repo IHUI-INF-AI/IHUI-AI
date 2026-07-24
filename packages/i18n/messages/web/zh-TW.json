@@ -12073,7 +12073,7 @@
     "send": "發送",
     "response": "響應"
   },
-  "agents": {
+  "agent": {
     "marketTitle": "智能體市場",
     "marketSubtitle": "發現和使用優秀的智能體",
     "searchPlaceholder": "搜尋智能體...",
