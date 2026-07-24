@@ -15,9 +15,9 @@ import {
   Trash2,
   Clock,
 } from 'lucide-react'
-import { cn } from '../lib/utils.js'
-import { Input } from './input.js'
-import { ResizableHandle } from './resizable.js'
+import { cn } from '../lib/utils'
+import { Input } from './input'
+import { ResizableHandle } from './resizable'
 
 /**
  * 工作展示区容器(通用,跨端共享)。
