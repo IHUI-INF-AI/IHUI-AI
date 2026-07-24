@@ -18,7 +18,10 @@ export default {
     failed: '작업 실패',
     user: '사용자',
     uploading: '업로드 중',
-    noMore: '더 이상 없음'
+    noMore: '더 이상 없음',
+    consult: '상담',
+    loadingShort: '로딩중...',
+    free: '무료'
   },
   nav: {
     home: '홈',
@@ -146,9 +149,9 @@ export default {
     goldTeacher: '우수 강사',
     followed: '팔로잉',
     noIntro: '소개 없음',
-    objectives: null,
-    suitableFor: null,
-    highlights: null,
+    objectives: '학습 목표',
+    suitableFor: '적합 대상',
+    highlights: '강의 하이라이트',
     nextLesson: '다음: {{title}}',
     startLearning: '학습 시작',
     buyNow: '지금 구매',
@@ -162,7 +165,7 @@ export default {
     noteTitle: '{{title}} - 노트',
     scanCourse: '스캔하여 강의 보기',
     loadFailed: '강의 로딩 실패',
-    weekDays: null,
+    weekDays: ['일', '월', '화', '수', '목', '금', '토'],
     list: {
       searchPlaceholder: '강의 검색',
       search: '검색',
@@ -173,7 +176,9 @@ export default {
     ratingPlaceholder: '평가해주세요',
     ratingDescLabel: '리뷰를 작성하세요',
     ratingInputPlaceholder: '코스는 어땠나요? 생각을 공유하세요...',
-    ratingSubmit: '리뷰 제출'
+    ratingSubmit: '리뷰 제출',
+    intro: '강의 소개',
+    audience: '수강 대상'
   },
   live: {
     title: '라이브',
@@ -407,6 +412,21 @@ export default {
       aiTeam: 'AI 팀'
     }
   },
+  action: {
+    like: '좋아요',
+    favorite: '즐겨찾기',
+    share: '공유'
+  },
+  modelType: {
+    skills: '스킬',
+    talk: '대화',
+    image: '이미지',
+    video: '비디오',
+    audio: '오디오',
+    videoa: '디지털 휴먼',
+    other: '전체',
+    sck: '소재'
+  },
   agent: {
     title: '에이전트',
     create: '새 에이전트',
@@ -516,7 +536,7 @@ export default {
     welcomeTitle: '안녕하세요, IHUI AI 어시스턴트입니다',
     welcomeDesc: '무엇을 도와드릴까요?',
     inputPlaceholder: '질문 입력…',
-    suggestions: null,
+    suggestions: ['시를 써주세요', '양자역학을 설명해주세요', '코드를 작성해주세요', '이 문장을 번역해주세요'],
     thinking: '생각 중…',
     stop: '중지',
     clear: '삭제',
@@ -601,7 +621,7 @@ export default {
       timbre: '음색'
     },
     image: {
-      examples: null,
+      examples: ['귀여운 고양이', '일몰 산 풍경', '미래 도시', '추상 예술'],
       emptyHint: '이미지 생성 설명 입력',
       tryThese: '이것들 시도',
       placeholder: '생성할 이미지 설명',
@@ -617,7 +637,7 @@ export default {
       empty: '생성 기록 없음',
       size: '크기',
       style: '스타일',
-      styles: null,
+      styles: ['실사', '애니메이션', '유화', '수채화', '3D', '픽셀'],
       generateFailed: '생성 실패, 재시도',
       promptRequired: '설명 입력',
       downloadSuccess: '앨범에 저장됨',
@@ -748,25 +768,25 @@ export default {
       nanobanana: {
         name: 'NanoBanana',
         desc: 'Google 이미지 편집 모델, 자연어 명령 이미지 편집 지원',
-        capabilities: null,
+        capabilities: ['이미지 편집', '자연어 명령', '고품질 출력'],
         apiStatus: 'AI 이미지 페이지로 이동'
       },
       veo3: {
         name: 'Veo3',
         desc: 'Google 동영상 생성 모델, 고품질 텍스트-투-비디오 지원',
-        capabilities: null,
+        capabilities: ['영상 생성', '텍스트 to 영상', '고품질'],
         apiStatus: 'AI 동영상 생성 페이지로 이동'
       },
       httpmodel: {
         name: 'HttpModel',
         desc: '범용 HTTP 모델 프록시, 커스텀 모델 연동 지원',
-        capabilities: null,
+        capabilities: ['커스텀 모델', 'HTTP 프록시', '유연한 연동'],
         apiStatus: 'AI 채팅 페이지로 이동'
       },
       geminiFlash: {
         name: 'Gemini-2.5-flash',
         desc: 'Google Gemini 2.5 Flash 텍스트 모델, 빠른 응답',
-        capabilities: null,
+        capabilities: ['텍스트 대화', '빠른 응답', '다국어'],
         apiStatus: 'AI 채팅에서 사용 가능'
       },
       cat: {
@@ -1117,7 +1137,7 @@ export default {
       starting: '시험 입장 중…'
     },
     answer: {
-      judgmentOptions: null,
+      judgmentOptions: ['맞음', '틀림'],
       loadFailed: '문제 로딩 실패',
       answerPlaceholder: '답 입력',
       prev: '이전 문제',
@@ -1299,7 +1319,16 @@ export default {
       empty: '랭킹 데이터 없음'
     },
     rankTitle: '배포 랭킹',
-    rankEmpty: '랭킹 데이터 없음'
+    rankEmpty: '랭킹 데이터 없음',
+    statsTitle: '수익 개요',
+    thisMonth: '이번 달',
+    totalRevenue: '누적 수익',
+    monthRevenue: '이번 달 수익',
+    monthlyTarget: '목표',
+    withdrawable: '출금 가능',
+    pendingSettle: '정산 대기',
+    withdrawn: '출금 완료',
+    myTeam: '내 팀'
   },
   about: {
     version: '버전 {{version}}',
@@ -1420,13 +1449,13 @@ export default {
       callNow: '지금 고객센터에 전화 걸기'
     },
     businessLicense: {
-      labels: null,
+      labels: ['통일사회신용코드', '명칭', '유형', '법정대표인', '등록자본금', '설립일', '영업기간', '영업범위'],
       scopeTitle: '사업범위',
       footer: '참고용, 등록 기준',
       tapToView: '탭하여 사업자등록증 보기'
     },
     icpRecord: {
-      labels: null,
+      labels: ['ICP 등록번호', '등록 주체', '등록 성격', '승인 통과일', '등록 유형'],
       footer: 'MIIT 신고 시스템 출처',
       icpNo: 'ICP 신고번호',
       policeNo: '공안 신고번호',
@@ -1438,11 +1467,11 @@ export default {
       icpLabel: 'ICP 신고/허가증 번호'
     },
     usageRules: {
-      titles: null,
-      account: null,
-      content: null,
-      usage: null,
-      disclaimer: null,
+      titles: ['1. 계정 사용 규칙', '2. 콘텐츠 게시 규칙', '3. 결제 및 권리 규칙', '4. 위반 처리 규칙', '5. 면책 조항'],
+      account: ['사용자는 공식 채널을 통해 계정을 등록해야 합니다', '계정 소유권은 플랫폼에 있습니다', '사용자는 로그인 자격 증명을 안전하게 보관해야 합니다', '악의적인 계정 등록은 금지됩니다'],
+      content: ['게시된 콘텐츠는 법률을 준수해야 합니다', '불법 유해 정보 게시를 금지합니다', '타인의 지적재산권 침해를 금지합니다', '플랫폼은 위반 콘텐츠를 검토 및 삭제할 권리가 있습니다'],
+      usage: ['사용자는 플랫폼 운영을 방해해서는 안 됩니다', '자동화 도구로 가짜 트래픽을 생성하는 것을 금지합니다', '취약점을 악용하여 이익을 취하는 것을 금지합니다', '사용자 행동은 성실신뢰 원칙을 따라야 합니다'],
+      disclaimer: ['플랫폼은 서비스 중단에 대해 책임지지 않습니다', '사용자는 사용 위험을 부담합니다', '플랫폼은 제3자 콘텐츠에 대해 책임지지 않습니다', '불가항력으로 인한 손실에 대해 플랫폼은 책임지지 않습니다'],
       footer: '공개일부터 효력 발생',
       titleAccount: '1. 계정 사용',
       titleContent: '2. 콘텐츠 규칙',
@@ -1460,8 +1489,8 @@ export default {
       }
     },
     appPermission: {
-      names: null,
-      descs: null,
+      names: ['앨범 권한', '카메라 권한', '마이크 권한', '위치 권한', '알림 권한'],
+      descs: ['이미지를 앨범에 저장하고 업로드', '사진 촬영 및 동영상 녹화', '음성 입력 및 녹음 기능', '지리적 위치 정보 획득', '메시지 푸시 알림 수신'],
       intro: 'IHUI AI는 전체 기능을 위해 다음 권한이 필요',
       required: '필수',
       optional: '선택',
@@ -1472,7 +1501,7 @@ export default {
       openAllSetting: '시스템 설정 열기'
     },
     modelRecord: {
-      labels: null,
+      labels: ['모델 명칭', '모델 유형', '등록 번호', '등록 주체', '심사일', '서비스 범위'],
       noticeTitle: '모델 정보',
       noticeText: '이 앱은 AI 기술을 사용',
       footer: '참고용',
@@ -1831,9 +1860,9 @@ export default {
   },
   plaza: {
     setNeed: {
-      categories: null,
-      levels: null,
-      budgets: null,
+      categories: ['학습 통찰', '기술 공유', '강의 노트', '프로젝트 실전', '도움 요청', '경험 요약'],
+      levels: ['초급', '중급', '고급', '전문가'],
+      budgets: ['1000위안 이하', '1000-5000위안', '5000-10000위안', '10000위안 이상'],
       selectAtLeast: '최소 1개 선택',
       saved: '저장됨',
       directionTitle: '학습 방향',
@@ -1922,7 +1951,8 @@ export default {
       copyHint: '탭하여 복사',
       contentTitle: '상세 소개',
       loadFailed: '상세 가져오기'
-    }
+    },
+    noData: '랭킹 데이터 없음'
   },
   recruitment: {
     applied: '지원 제출됨',
@@ -2009,7 +2039,12 @@ export default {
     },
     startConversation: '대화를 시작하세요',
     inputPlaceholder: '메시지를 입력하세요...',
-    sendBtn: '전송'
+    sendBtn: '전송',
+    noInteraction: '알림 없음',
+    noPrivate: '쪽지 없음',
+    noSystem: '시스템 알림 없음',
+    markRead: '읽음 표시',
+    deleteConv: '대화 삭제'
   },
   member: {
     index: {
@@ -2103,7 +2138,16 @@ export default {
     vipSubscription: '회원 구독',
     balanceAmount: '잔액 ¥{{n}}',
     recharge: '충전',
-    couponAvailable: '{{n}}장 사용 가능'
+    couponAvailable: '{{n}}장 사용 가능',
+    limitedFree: '한정 무료',
+    memberFree: '멤버 무료',
+    buyNow: '지금 구매',
+    confirmOrder: '주문 확인',
+    originalPrice: '원가',
+    paymentMethod: '결제 방식',
+    confirmPay: '결제 확인 ¥{price}',
+    alipay: '알리',
+    balance: '잔'
   },
   study: {
     todayMinutes: '오늘 {{n}}분',
@@ -2158,8 +2202,8 @@ export default {
       tabsComment: '댓글'
     },
     publish: {
-      categories: null,
-      visibilityOptions: null,
+      categories: ['학습 통찰', '기술 공유', '강의 노트', '프로젝트 실전', '도움 요청', '경험 요약'],
+      visibilityOptions: ['공개', '친구만', '비공개'],
       enterTitle: '제목 입력',
       enterContent: '내용 입력',
       published: '게시됨',
@@ -2184,7 +2228,12 @@ export default {
     noteTitle: '학습 노트',
     noteClose: '닫기',
     notePlaceholder: '학습 내용을 기록하세요...',
-    noteCountUnit: '자'
+    noteCountUnit: '자',
+    statsTitle: '학습 데이터',
+    weeklyStudy: '이번 주 학습',
+    completedLessons: '완료 강의',
+    totalDuration: '누적 시간',
+    streakDays: '연속 일수'
   },
   subscriptions: {
     cancel: '구독 취소',
@@ -2508,7 +2557,7 @@ export default {
       bannerTitle: 'VIP로 업그레이드',
       bannerDesc: '더 많은 전용 특권 잠금 해제',
       rightsTitle: '회원 혜택',
-      rights: null,
+      rights: ['전용 고객지원', '우선 체험', '고급 기능', '광고 제거', '전용 배지', '할인 혜택'],
       loadFailed: '로딩 실패',
       operationFailed: '작업 실패',
       originalPrice: '원가 ¥{{n}}',
@@ -2590,7 +2639,10 @@ export default {
       activationNotice: '회원 혜택이 활성화되어 모든 혜택을 즉시 이용할 수 있습니다',
       shareTitle: '친구 공유로 수수료 받기',
       shareDesc: '친구를 초대해 회원 가입 시 20% 현금 수수료를 받으세요'
-    }
+    },
+    benefitsTitle: '멤버 혜택',
+    upgradeNow: '지금 업그레이드',
+    hot: '인기'
   },
   learnDevelop: {
     title: '학습 및 개발',
@@ -2730,5 +2782,68 @@ export default {
     cancelBtn: '해지',
     contractsEmpty: '자동 갱신 계약 없음',
     loadingText: '로딩 중...'
+  },
+  catalog: {
+    noCover: '표지 없음',
+    watched: '시청함',
+    playing: '재생중',
+    courseCatalog: '강의 목차'
+  },
+  video: {
+    noVideo: '영상 없음',
+    teacher: '강사',
+    duration: '재생 시간',
+    chapterCount: '{n}강'
+  },
+  lesson: {
+    complete: '학습 완료!',
+    studyDuration: '학습 시간',
+    points: '포인트',
+    next: '다음: {title}',
+    share: '공유'
+  },
+  streak: {
+    title: '연속 학습',
+    totalDays: '누적 {n}일'
+  },
+  withdrawal: {
+    records: '출금 기록'
+  },
+  intro: {
+    empty: '소개 없음',
+    relatedAI: '관련 AI 앱'
+  },
+  invite: {
+    title: '친구 초대',
+    qrcode: 'QR 코드',
+    code: '초대 코드:',
+    saveImage: '이미지 저장',
+    shareNow: '지금 공유'
+  },
+  qrcode: {
+    loading: 'QR 코드 로딩중',
+    from: '출처: {name}',
+    generating: 'QR 코드 생성중',
+    savedAlbum: '앨범에 저장됨',
+    saveFailed: '저장 실패'
+  },
+  model: {
+    configTitle: '모델 설정',
+    temperature: '온도 (0-2)',
+    maxToken: '최대 토큰',
+    systemPrompt: '시스템 프롬프트',
+    streaming: '스트리밍 출력',
+    empty: '모델 없음'
+  },
+  verify: {
+    getCode: '인증코드 받기',
+    phoneEmpty: '전화번호 없음',
+    phoneInvalid: '올바른 전화번호 입력',
+    codeSent: '인증코드 전송됨',
+    codeIncomplete: '완전한 코드 입력',
+    verifySuccess: '인증 성공'
+  },
+  notification: {
+    settings: '알림 설정'
   }
 }

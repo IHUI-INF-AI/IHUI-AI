@@ -1,4 +1,5 @@
 import { View, Text, Video } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface VideoPlayerProps {
   src?: string
@@ -25,13 +26,15 @@ export default function VideoPlayer({
   onEnded,
   onError,
 }: VideoPlayerProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   if (loading) {
     return (
       <View
         className="flex items-center justify-center w-full bg-black"
         style={{ height: '210px' }}
       >
-        <Text className="text-sm text-muted-foreground">加载中...</Text>
+        <Text className="text-sm text-muted-foreground">{tt('common.loadingShort', '加载中...')}</Text>
       </View>
     )
   }
@@ -42,7 +45,7 @@ export default function VideoPlayer({
         className="flex items-center justify-center w-full bg-black"
         style={{ height: '210px' }}
       >
-        <Text className="text-sm text-muted-foreground">暂无视频</Text>
+        <Text className="text-sm text-muted-foreground">{tt('video.noVideo', '暂无视频')}</Text>
       </View>
     )
   }
