@@ -198,6 +198,37 @@ function deriveEventName(
 }
 
 // =============================================================================
+// Webhook 速率限制(内存滑动窗口,基于 source + IP,100 req/min)
+// 不用 Redis 避免依赖,用 Map + 定时清理
+// =============================================================================
+const webhookRateLimitMap = new Map<string, { count: number; resetAt: number }>()
+const WEBHOOK_RATE_LIMIT_MAX = 100
+const WEBHOOK_RATE_LIMIT_WINDOW_MS = 60 * 1000
+
+function checkWebhookRateLimit(source: RegistryUpstreamSource, ip: string): boolean {
+  const key = `${source}:${ip}`
+  const now = Date.now()
+  const entry = webhookRateLimitMap.get(key)
+  if (!entry || now > entry.resetAt) {
+    webhookRateLimitMap.set(key, { count: 1, resetAt: now + WEBHOOK_RATE_LIMIT_WINDOW_MS })
+    return true
+  }
+  entry.count++
+  return entry.count <= WEBHOOK_RATE_LIMIT_MAX
+}
+
+// 定时清理过期条目(每 5 分钟)
+setInterval(
+  () => {
+    const now = Date.now()
+    for (const [key, entry] of webhookRateLimitMap) {
+      if (now > entry.resetAt) webhookRateLimitMap.delete(key)
+    }
+  },
+  5 * 60 * 1000,
+).unref()
+
+// =============================================================================
 // 路由插件
 // =============================================================================
 
@@ -258,8 +289,8 @@ export const registrySyncRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // 3. GET /registry/sync-logs — 同步日志列表
-  server.get('/registry/sync-logs', { preHandler: requireAuth }, async (request, reply) => {
+  // 3. GET /registry/sync-logs — 同步日志列表(管理员,errorMessage 可能含敏感信息)
+  server.get('/registry/sync-logs', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = listLogsQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -324,6 +355,12 @@ export const registrySyncRoutes: FastifyPluginAsync = async (server) => {
       }
       const source = paramParsed.data.source
 
+      // 速率限制(基于 source + IP,100 req/min,防 DoS)
+      const clientIp = request.ip
+      if (!checkWebhookRateLimit(source, clientIp)) {
+        return reply.status(429).send(error(429, 'webhook rate limit exceeded'))
+      }
+
       // 原始 payload(签名基于原始字节,不能先 JSON.parse)
       const rawPayload =
         typeof request.body === 'string' ? request.body : JSON.stringify(request.body ?? {})
@@ -364,6 +401,35 @@ export const registrySyncRoutes: FastifyPluginAsync = async (server) => {
       // 签名失败 → 401(但记录已落库 status='ignored')
       if (!signatureValid) {
         return reply.status(401).send(error(401, '签名验证失败'))
+      }
+
+      // 防重放:时间戳校验(5 分钟窗口,有 X-Webhook-Timestamp 头才校验,兼容 GitHub/npm)
+      const timestampHeader = request.headers['x-webhook-timestamp'] as string | undefined
+      if (timestampHeader) {
+        const timestamp = parseInt(timestampHeader, 10)
+        if (Number.isFinite(timestamp)) {
+          const now = Date.now()
+          const drift = Math.abs(now - timestamp)
+          if (drift > 5 * 60 * 1000) {
+            await markWebhookTriggerProcessed(
+              triggerId,
+              'ignored',
+              `timestamp out of range (drift=${drift}ms)`,
+            )
+            return reply.status(401).send(error(401, 'webhook timestamp out of range'))
+          }
+        }
+      }
+
+      // payload 大小校验(单条 webhook payload < 1MB,防超大 payload 注入)
+      const payloadStr = JSON.stringify(parsedPayload)
+      if (payloadStr.length > 1024 * 1024) {
+        await markWebhookTriggerProcessed(
+          triggerId,
+          'ignored',
+          `payload too large (${payloadStr.length} bytes)`,
+        )
+        return reply.status(413).send(error(413, 'webhook payload too large'))
       }
 
       // 签名成功 → 入队同步任务 → 立即返回 202
