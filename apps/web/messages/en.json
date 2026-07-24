@@ -2060,6 +2060,13 @@
       "wechatScanDesc": "Please use WeChat to scan the QR code below. You will be redirected automatically after payment.",
       "wechatQrAlt": "WeChat Pay QR code",
       "loading": "Loading..."
+    },
+    "paymentErrors": {
+      "alreadyVip": "Already a VIP Member",
+      "notLogged": "UsernotLogin",
+      "incompleteProduct": "ProductInfonot",
+      "selectPayMethod": "Please selectPayment Method",
+      "notLoggedOrNoOpenId": "UsernotLoginoropenidnoting"
     }
   },
   "admin": {
@@ -22446,13 +22453,6 @@
     "downloadFailed": "Download failed",
     "downloadComplete": "DownloadDone",
     "downloadFailed2": "Download failed"
-  },
-  "Payment": {
-    "alreadyVip": "Already a VIP Member",
-    "notLogged": "UsernotLogin",
-    "incompleteProduct": "ProductInfonot",
-    "selectPayMethod": "Please selectPayment Method",
-    "notLoggedOrNoOpenId": "UsernotLoginoropenidnoting"
   },
   "cmpindex": {
     "timeExpr": "TimeWatcharrive",
