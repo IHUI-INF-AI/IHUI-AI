@@ -25,3 +25,10 @@ export function formatMoney(amount: number): string {
     .toFixed(2)
     .replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
+
+/**
+ * 手机号脱敏:13812345678 → 138****4567
+ */
+export function formatPhone(phone: string): string {
+  return String(phone || '').replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
+}
