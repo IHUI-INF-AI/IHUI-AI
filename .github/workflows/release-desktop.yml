@@ -56,6 +56,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
+      - name: Configure npm registry (avoid npmjs.org 503)
+        run: pnpm config set registry https://registry.npmmirror.com
+
       - name: Install pnpm deps
         run: pnpm install --no-frozen-lockfile
 
