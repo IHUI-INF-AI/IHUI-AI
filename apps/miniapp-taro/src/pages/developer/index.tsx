@@ -23,6 +23,8 @@ interface CategoryInfo {
 }
 
 // 智能体审核记录项(对标原 getZntList 返回)
+// Note: 此类型来自管理端 API (getZntList),使用蛇形命名(agent_id/agent_name 等),
+// 与 @ihui/api-client 的 Agent 类型(驼峰命名)字段结构完全不同,无法用 Pick 派生。
 interface AgentItem {
   id?: string | number
   agent_id: string | number
@@ -66,37 +68,34 @@ export default function DeveloperIndex() {
   const [total, setTotal] = useState(0)
   const [modelTypes, setModelTypes] = useState<ModelType[]>([])
 
-  const fetchList = useCallback(
-    async (opts: { page: number; status: number; search: string }) => {
-      setLoading(true)
-      try {
-        const res = (await api.getZntList({
-          page: opts.page,
-          page_size: PAGE_SIZE,
-          status: opts.status,
-          agent_name: opts.search,
-        })) as unknown
-        let items: AgentItem[] = []
-        let cnt = 0
-        if (Array.isArray(res)) {
-          items = res as AgentItem[]
-          cnt = items.length
-        } else if (res && typeof res === 'object') {
-          const r = res as Record<string, unknown>
-          items = (r.list || r.data || []) as AgentItem[]
-          cnt = typeof r.total === 'number' ? r.total : items.length
-        }
-        setList((prev) => (opts.page === 1 ? items : [...prev, ...items]))
-        setTotal(cnt)
-        setPage(opts.page)
-      } catch {
-        // ignore
-      } finally {
-        setLoading(false)
+  const fetchList = useCallback(async (opts: { page: number; status: number; search: string }) => {
+    setLoading(true)
+    try {
+      const res = (await api.getZntList({
+        page: opts.page,
+        page_size: PAGE_SIZE,
+        status: opts.status,
+        agent_name: opts.search,
+      })) as unknown
+      let items: AgentItem[] = []
+      let cnt = 0
+      if (Array.isArray(res)) {
+        items = res as AgentItem[]
+        cnt = items.length
+      } else if (res && typeof res === 'object') {
+        const r = res as Record<string, unknown>
+        items = (r.list || r.data || []) as AgentItem[]
+        cnt = typeof r.total === 'number' ? r.total : items.length
       }
-    },
-    [],
-  )
+      setList((prev) => (opts.page === 1 ? items : [...prev, ...items]))
+      setTotal(cnt)
+      setPage(opts.page)
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   const fetchModelTypes = useCallback(async () => {
     try {
@@ -193,14 +192,16 @@ export default function DeveloperIndex() {
   const getTypeText = (agent: AgentItem): string => {
     const info = agent.category_info
     if (!info || !info.agent_category) return tt('developer.index.noType', '—')
-    return info.agent_category
-      .split(',')
-      .map((code) => {
-        const found = modelTypes.find((m) => String(m.code) === String(code))
-        return found ? found.showName : ''
-      })
-      .filter(Boolean)
-      .join(',') || tt('developer.index.noType', '—')
+    return (
+      info.agent_category
+        .split(',')
+        .map((code) => {
+          const found = modelTypes.find((m) => String(m.code) === String(code))
+          return found ? found.showName : ''
+        })
+        .filter(Boolean)
+        .join(',') || tt('developer.index.noType', '—')
+    )
   }
 
   const showSubTabs = status === 0 || status === 4 || status === 5
