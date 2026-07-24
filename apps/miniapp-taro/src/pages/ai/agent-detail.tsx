@@ -1,25 +1,19 @@
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
+import type { Agent } from '@ihui/api-client'
 import { useState, useCallback, useMemo } from 'react'
-import {
-  getAgentDetail,
-  getAgentPermission,
-  getAgentList,
-  type AgentPermission,
-} from '@/api'
+import { getAgentDetail, getAgentPermission, getAgentList, type AgentPermission } from '@/api'
 import { useI18n } from '@/i18n'
 import AgentRuntimePanel from '@/components/AgentRuntimePanel'
 
-interface AgentDetail {
-  id: string
-  name: string
-  desc: string
+type AgentDetail = Pick<
+  Agent,
+  'id' | 'name' | 'description' | 'systemPrompt' | 'isVipExclusive'
+> & {
   avatar?: string
-  prompt: string
   prologue?: string
   config?: Record<string, unknown>
-  isVipExclusive?: boolean
 }
 
 const PERMISSION_REASON_KEY: Record<string, string> = {
@@ -39,7 +33,19 @@ type DetailTab = 'info' | 'runtime'
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   office: ['办公', '会议', '邮件', 'excel', 'word', 'ppt', '文档', '表格', 'office'],
   writing: ['写', '文案', '文章', '创作', '小说', '内容', '写作', '文字'],
-  coding: ['代码', '编程', '程序', '开发', 'bug', '函数', '前端', '后端', 'python', 'javascript', 'code'],
+  coding: [
+    '代码',
+    '编程',
+    '程序',
+    '开发',
+    'bug',
+    '函数',
+    '前端',
+    '后端',
+    'python',
+    'javascript',
+    'code',
+  ],
   education: ['学', '教', '课', '知识', '考试', '题', '教育', '讲解', '题解'],
   life: ['生活', '健康', '美食', '旅游', '运动', '购物', '日常', 'life'],
 }
@@ -63,7 +69,9 @@ function estimateRating(uses: number | undefined): number {
 }
 
 /** 根据 uses 推算评分分布(5/4/3/2/1 星占比) */
-function estimateRatingDistribution(uses: number | undefined): Array<{ star: number; count: number }> {
+function estimateRatingDistribution(
+  uses: number | undefined,
+): Array<{ star: number; count: number }> {
   const total = Math.max(uses ?? 0, 1)
   // 模拟分布:5 星占 60%,4 星 25%,3 星 10%,2 星 3%,1 星 2%
   return [
@@ -97,22 +105,22 @@ function extractExampleDialogs(prologue: string | undefined): Array<{ q: string;
   const segments = prologue.split(/\n{2,}/).filter((s) => s.trim().length > 0)
   if (segments.length === 0) return []
   // 第一段作为开场白,其余每段作为一个示例对话
-  return segments.slice(1, 4).map((seg) => {
-    const lines = seg.split('\n').filter((l) => l.trim())
-    if (lines.length >= 2) {
-      const q = lines[0] ?? ''
-      return { q: q.trim(), a: lines.slice(1).join('\n').trim() }
-    }
-    return { q: '', a: seg.trim() }
-  }).filter((d) => d.q || d.a)
+  return segments
+    .slice(1, 4)
+    .map((seg) => {
+      const lines = seg.split('\n').filter((l) => l.trim())
+      if (lines.length >= 2) {
+        const q = lines[0] ?? ''
+        return { q: q.trim(), a: lines.slice(1).join('\n').trim() }
+      }
+      return { q: '', a: seg.trim() }
+    })
+    .filter((d) => d.q || d.a)
 }
 
-interface RelatedAgent {
-  id: string
-  name: string
+type RelatedAgent = Pick<Agent, 'id' | 'name' | 'category'> & {
   avatar?: string
-  desc?: string
-  category: string
+  description?: string
 }
 
 /** 记录最近使用的智能体(写入本地存储,用于 agent.tsx 最近使用 Tab) */
@@ -151,9 +159,9 @@ export default function AgentDetailPage() {
       setAgent({
         id: a.id,
         name: a.name,
-        desc: a.desc,
+        description: a.desc,
         avatar: a.avatar,
-        prompt: a.prompt,
+        systemPrompt: a.prompt,
         prologue: a.prologue,
         isVipExclusive: a.isVipExclusive,
       })
@@ -175,7 +183,7 @@ export default function AgentDetailPage() {
             id: String(x.id),
             name: x.name,
             avatar: x.avatar,
-            desc: x.desc,
+            description: x.desc,
             category: detectCategory(x.name || '', x.desc || ''),
           }))
         const rel = cat !== 'other' ? others.filter((x) => x.category === cat) : others
@@ -256,7 +264,7 @@ export default function AgentDetailPage() {
   // 派生数据:标签 / 示例对话 / 评分 / 评分分布
   const tags = useMemo(() => {
     if (!agent) return []
-    return extractTags(agent.name, agent.desc)
+    return extractTags(agent.name, agent.description)
   }, [agent])
 
   const exampleDialogs = useMemo(() => {
@@ -311,7 +319,9 @@ export default function AgentDetailPage() {
                       </Text>
                     )}
                   </View>
-                  <Text className="block text-[14px] text-muted-foreground mt-[4px]">{agent.desc}</Text>
+                  <Text className="block text-[14px] text-muted-foreground mt-[4px]">
+                    {agent.description}
+                  </Text>
                   <View className="flex items-center mt-[6px]">
                     {categoryLabel && (
                       <Text className="text-[11px] px-[6px] py-[2px] mr-[8px] rounded bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
@@ -375,7 +385,9 @@ export default function AgentDetailPage() {
               <Text className="text-[14px] text-foreground font-semibold mb-[8px] block">
                 {t('ai.agentDetail.prologue')}
               </Text>
-              <Text className="text-[14px] text-muted-foreground leading-[22px]">{agent.prologue}</Text>
+              <Text className="text-[14px] text-muted-foreground leading-[22px]">
+                {agent.prologue}
+              </Text>
             </View>
           )}
           {/* 使用教程 / 示例对话(对标原项目 exampleDialog) */}
@@ -408,12 +420,14 @@ export default function AgentDetailPage() {
               ))}
             </View>
           )}
-          {agent?.prompt && (
+          {agent?.systemPrompt && (
             <View className="mx-[12px] mb-[12px] bg-muted rounded-[8px] p-[16px]">
               <Text className="text-[14px] text-foreground font-semibold mb-[8px] block">
                 {t('ai.agentDetail.promptLabel')}
               </Text>
-              <Text className="text-[14px] text-muted-foreground leading-[22px]">{agent.prompt}</Text>
+              <Text className="text-[14px] text-muted-foreground leading-[22px]">
+                {agent.systemPrompt}
+              </Text>
             </View>
           )}
           {/* 评价区(对标原项目 RateController 评分系统) */}
@@ -443,7 +457,9 @@ export default function AgentDetailPage() {
                 const percent = Math.round((item.count / total) * 100)
                 return (
                   <View key={item.star} className="flex items-center mb-[4px]">
-                    <Text className="text-[11px] text-muted-foreground w-[40rpx]">{item.star}★</Text>
+                    <Text className="text-[11px] text-muted-foreground w-[40rpx]">
+                      {item.star}★
+                    </Text>
                     <View className="flex-1 h-[8px] bg-muted rounded mx-[8px] overflow-hidden">
                       <View
                         className="h-full bg-amber-400 rounded"
@@ -479,7 +495,12 @@ export default function AgentDetailPage() {
               <Text className="block text-[15px] text-foreground font-semibold mx-[12px] mb-[12px]">
                 {t('ai.agentDetail.relatedAgents')}
               </Text>
-              <ScrollView scrollX enhanced showScrollbar={false} className="whitespace-nowrap px-[12px]">
+              <ScrollView
+                scrollX
+                enhanced
+                showScrollbar={false}
+                className="whitespace-nowrap px-[12px]"
+              >
                 {related.map((r) => (
                   <View
                     key={r.id}
@@ -494,9 +515,9 @@ export default function AgentDetailPage() {
                     <Text className="block text-[26rpx] text-foreground font-medium mt-[8rpx] truncate">
                       {r.name}
                     </Text>
-                    {r.desc && (
+                    {r.description && (
                       <Text className="block text-[22rpx] text-muted-foreground mt-[4rpx] truncate">
-                        {r.desc}
+                        {r.description}
                       </Text>
                     )}
                   </View>
