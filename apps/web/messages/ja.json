@@ -455,6 +455,29 @@
     "showPassword": "パスワードを表示",
     "hidePassword": "パスワードを隠す"
   },
+  "taskReceiver": {
+    "title": "タスク受信",
+    "wsConnected": "WS 接続済み",
+    "wsDisconnected": "WS 切断",
+    "deviceLabel": "デバイス",
+    "deviceIdCopied": "デバイス ID をコピーしました:{id}",
+    "deviceIdShow": "デバイス ID:{id}",
+    "emptyWaiting": "モバイルからのタスクを待機中",
+    "source": "送信元",
+    "target": "宛先",
+    "execute": "実行",
+    "loading": "読み込み中…",
+    "executed": "タスク {id} の実行が完了し、結果を送信しました",
+    "callbackFailed": "コールバック失敗: {error}",
+    "errorPrefix": "エラー",
+    "status": {
+      "pending": "待機中",
+      "running": "実行中",
+      "completed": "完了",
+      "failed": "失敗",
+      "cancelled": "キャンセル"
+    }
+  },
   "nav": {
     "title": "メインナビゲーション",
     "home": "ホーム",
@@ -28955,6 +28978,145 @@
     },
     "empty": {
       "items": "リソースなし"
+    }
+  },
+  "design": {
+    "title": "デザインモード",
+    "htmlLabel": "HTML",
+    "render": "プレビューをレンダリング",
+    "cssPanel": "CSSパネル",
+    "commentToChat": "チャットにコメント",
+    "savePreview": "プレビュー保存",
+    "previewNamePlaceholder": "無題のプレビュー",
+    "clickElementHint": "要素をクリックしてスタイル表示",
+    "layout": {
+      "dragHint": "要素をドラッグして移動",
+      "alignTo": "ガイドにスナップ",
+      "showGuides": "ガイドを表示",
+      "hideGuides": "ガイドを非表示"
+    },
+    "commentPlaceholder": "この要素へのコメント…",
+    "saved": "保存済み: {name}",
+    "saveFailed": "保存失敗: {error}",
+    "errorPrefix": "エラー",
+    "commented": "コメント済み {tagName}#{elementId}: {comment}",
+    "undo": "元に戻す",
+    "redo": "やり直し",
+    "previewList": "プレビューリスト",
+    "noPreviews": "保存済みプレビューなし",
+    "loadPreview": "プレビュー読み込み",
+    "loadFailed": "読み込み失敗",
+    "previewName": "プレビュー名",
+    "componentTree": {
+      "title": "コンポーネントツリー",
+      "empty": "キャンバスに要素なし"
+    },
+    "comments": {
+      "title": "コメント",
+      "empty": "コメントを表示するにはプレビューを保存してください",
+      "noComments": "コメントなし",
+      "loadingFailed": "コメントの読み込みに失敗",
+      "send": "コメントを送信"
+    },
+    "aiGenerate": {
+      "button": "AI生成",
+      "placeholder": "生成したいページを記述…",
+      "generating": "生成中…",
+      "success": "生成してキャンバスに注入しました",
+      "failed": "AI生成に失敗"
+    },
+    "cssGroup": {
+      "layout": "レイアウト",
+      "boxModel": "ボックスモデル",
+      "typography": "タイポグラフィ",
+      "background": "背景",
+      "effects": "エフェクト",
+      "responsive": "レスポンシブ"
+    },
+    "css": {
+      "display": "表示",
+      "flexDirection": "フレックス方向",
+      "justifyContent": "主軸整列",
+      "alignItems": "クロス軸整列",
+      "gap": "間隔",
+      "flexWrap": "折り返し",
+      "position": "位置",
+      "top": "上",
+      "right": "右",
+      "bottom": "下",
+      "left": "左",
+      "zIndex": "重なり順",
+      "width": "幅",
+      "height": "高さ",
+      "padding": "パディング",
+      "margin": "マージン",
+      "border": "ボーダー",
+      "borderRadius": "角丸",
+      "boxSizing": "ボックスサイズ",
+      "color": "色",
+      "fontSize": "フォントサイズ",
+      "fontWeight": "フォントの太さ",
+      "lineHeight": "行の高さ",
+      "textAlign": "テキスト整列",
+      "letterSpacing": "文字間隔",
+      "background": "背景",
+      "backgroundColor": "背景色",
+      "backgroundImage": "背景画像",
+      "opacity": "不透明度",
+      "boxShadow": "ボックスシャドウ",
+      "transform": "変形",
+      "transition": "トランジション",
+      "cursor": "カーソル",
+      "overflow": "オーバーフロー",
+      "minWidth": "最小幅",
+      "maxWidth": "最大幅",
+      "placeholder": "CSS値を入力…",
+      "reset": "スタイルをリセット"
+    },
+    "export": {
+      "exportButton": "コードをエクスポート",
+      "exportReact": "Reactコンポーネント",
+      "exportVue": "Vueコンポーネント",
+      "exportHtml": "プレーンHTML",
+      "exportSuccess": "{filename}をエクスポートしました"
+    },
+    "responsive": {
+      "deviceMobilePortrait": "モバイル縦",
+      "deviceMobileLandscape": "モバイル横",
+      "deviceTabletPortrait": "タブレット縦",
+      "deviceTabletLandscape": "タブレット横",
+      "deviceDesktop": "デスクトップ",
+      "deviceCustom": "カスタム",
+      "customWidth": "カスタム幅",
+      "apply": "適用",
+      "deviceFrame": "デバイスフレーム"
+    },
+    "templates": {
+      "title": "テンプレート",
+      "apply": "テンプレートを適用",
+      "blank": "ブランク",
+      "landing": "ランディングページ",
+      "dashboard": "ダッシュボード",
+      "login": "ログインページ",
+      "blog": "ブログ",
+      "product": "商品ページ",
+      "pricing": "料金表",
+      "profile": "プロフィールカード",
+      "blankDesc": "最小スケルトン、ゼロから",
+      "landingDesc": "Hero + 機能 + CTA",
+      "dashboardDesc": "サイドバー + トップバー + カード",
+      "loginDesc": "中央カード + フォーム",
+      "blogDesc": "タイトル + 本文 + サイドバー",
+      "productDesc": "画像 + 詳細 + 購入",
+      "pricingDesc": "3列比較",
+      "profileDesc": "アバター + 情報 + ソーシャル",
+      "categories": {
+        "blank": "ブランク",
+        "marketing": "マーケティング",
+        "app": "アプリ",
+        "content": "コンテンツ",
+        "commerce": "コマース"
+      }
     }
   }
 }

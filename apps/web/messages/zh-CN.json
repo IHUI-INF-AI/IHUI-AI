@@ -455,6 +455,29 @@
     "showPassword": "显示密码",
     "hidePassword": "隐藏密码"
   },
+  "taskReceiver": {
+    "title": "任务接收",
+    "wsConnected": "WS 已连接",
+    "wsDisconnected": "WS 断开",
+    "deviceLabel": "设备",
+    "deviceIdCopied": "设备 ID 已复制:{id}",
+    "deviceIdShow": "设备 ID:{id}",
+    "emptyWaiting": "等待移动端下发任务",
+    "source": "来源",
+    "target": "下发至",
+    "execute": "执行",
+    "loading": "加载中…",
+    "executed": "任务 {id} 执行完成,结果已回传",
+    "callbackFailed": "回传失败: {error}",
+    "errorPrefix": "异常",
+    "status": {
+      "pending": "待执行",
+      "running": "执行中",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消"
+    }
+  },
   "nav": {
     "title": "主导航",
     "home": "首页",
@@ -28959,6 +28982,145 @@
     },
     "empty": {
       "items": "暂无资源"
+    }
+  },
+  "design": {
+    "title": "设计模式",
+    "htmlLabel": "HTML",
+    "render": "渲染预览",
+    "cssPanel": "CSS 面板",
+    "commentToChat": "评论到对话",
+    "savePreview": "保存预览",
+    "previewNamePlaceholder": "未命名预览",
+    "clickElementHint": "点击画布元素查看样式",
+    "layout": {
+      "dragHint": "拖拽元素调整位置",
+      "alignTo": "吸附到对齐线",
+      "showGuides": "显示参考线",
+      "hideGuides": "隐藏参考线"
+    },
+    "commentPlaceholder": "对该元素的评论…",
+    "saved": "已保存: {name}",
+    "saveFailed": "保存失败: {error}",
+    "errorPrefix": "异常",
+    "commented": "已评论 {tagName}#{elementId}: {comment}",
+    "undo": "撤销",
+    "redo": "重做",
+    "previewList": "预览列表",
+    "noPreviews": "暂无已保存预览",
+    "loadPreview": "加载预览",
+    "loadFailed": "加载预览失败",
+    "previewName": "预览名称",
+    "componentTree": {
+      "title": "组件树",
+      "empty": "画布无元素"
+    },
+    "comments": {
+      "title": "评论",
+      "empty": "请先保存预览以查看评论",
+      "noComments": "暂无评论",
+      "loadingFailed": "加载评论失败",
+      "send": "发送评论"
+    },
+    "aiGenerate": {
+      "button": "AI 生成",
+      "placeholder": "描述你想生成的页面…",
+      "generating": "生成中…",
+      "success": "已生成并注入画布",
+      "failed": "AI 生成失败"
+    },
+    "cssGroup": {
+      "layout": "布局",
+      "boxModel": "盒模型",
+      "typography": "排版",
+      "background": "背景",
+      "effects": "效果",
+      "responsive": "响应式"
+    },
+    "css": {
+      "display": "显示",
+      "flexDirection": "弹性方向",
+      "justifyContent": "主轴对齐",
+      "alignItems": "交叉轴对齐",
+      "gap": "间距",
+      "flexWrap": "换行",
+      "position": "定位",
+      "top": "上",
+      "right": "右",
+      "bottom": "下",
+      "left": "左",
+      "zIndex": "层级",
+      "width": "宽度",
+      "height": "高度",
+      "padding": "内边距",
+      "margin": "外边距",
+      "border": "边框",
+      "borderRadius": "圆角",
+      "boxSizing": "盒模型",
+      "color": "颜色",
+      "fontSize": "字号",
+      "fontWeight": "字重",
+      "lineHeight": "行高",
+      "textAlign": "对齐",
+      "letterSpacing": "字距",
+      "background": "背景",
+      "backgroundColor": "背景色",
+      "backgroundImage": "背景图",
+      "opacity": "透明度",
+      "boxShadow": "阴影",
+      "transform": "变换",
+      "transition": "过渡",
+      "cursor": "光标",
+      "overflow": "溢出",
+      "minWidth": "最小宽度",
+      "maxWidth": "最大宽度",
+      "placeholder": "输入 CSS 值…",
+      "reset": "重置样式"
+    },
+    "export": {
+      "exportButton": "导出代码",
+      "exportReact": "React 组件",
+      "exportVue": "Vue 组件",
+      "exportHtml": "纯 HTML",
+      "exportSuccess": "已导出 {filename}"
+    },
+    "responsive": {
+      "deviceMobilePortrait": "手机竖屏",
+      "deviceMobileLandscape": "手机横屏",
+      "deviceTabletPortrait": "平板竖屏",
+      "deviceTabletLandscape": "平板横屏",
+      "deviceDesktop": "桌面",
+      "deviceCustom": "自定义",
+      "customWidth": "自定义宽度",
+      "apply": "应用",
+      "deviceFrame": "设备外框"
+    },
+    "templates": {
+      "title": "模板",
+      "apply": "应用模板",
+      "blank": "空白",
+      "landing": "落地页",
+      "dashboard": "仪表盘",
+      "login": "登录页",
+      "blog": "博客",
+      "product": "电商产品",
+      "pricing": "定价表",
+      "profile": "个人名片",
+      "blankDesc": "最小骨架,从零开始",
+      "landingDesc": "Hero + 功能 + CTA",
+      "dashboardDesc": "侧边栏 + 顶栏 + 卡片",
+      "loginDesc": "居中卡片 + 表单",
+      "blogDesc": "标题 + 正文 + 侧边栏",
+      "productDesc": "图片 + 详情 + 购买",
+      "pricingDesc": "三列对比",
+      "profileDesc": "头像 + 信息 + 社交",
+      "categories": {
+        "blank": "空白",
+        "marketing": "营销",
+        "app": "应用",
+        "content": "内容",
+        "commerce": "电商"
+      }
     }
   }
 }
