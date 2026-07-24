@@ -1,7 +1,7 @@
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
-import { buildQs, type PageData } from '../utils.js'
+import { fetchApi } from '../client'
+import { buildQs, type PageData } from '../utils'
 
 export interface Exam {
   id: string
@@ -88,13 +88,10 @@ export async function submitAnswer(input: {
   examId: string
   answers: { questionId: string; answer: string | string[] }[]
 }): Promise<ApiResult<ExamResult>> {
-  return fetchApi<ExamResult>(
-    `/exam/papers/${encodeURIComponent(input.examId)}/submit-answers`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ answers: input.answers }),
-    },
-  )
+  return fetchApi<ExamResult>(`/exam/papers/${encodeURIComponent(input.examId)}/submit-answers`, {
+    method: 'POST',
+    body: JSON.stringify({ answers: input.answers }),
+  })
 }
 
 export async function getResult(id: string): Promise<ApiResult<ExamResult>> {
