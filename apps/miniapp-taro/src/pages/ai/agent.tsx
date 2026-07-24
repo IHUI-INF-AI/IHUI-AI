@@ -13,7 +13,6 @@ import {
   type ModelType,
 } from '@/components'
 import { useI18n } from '@/i18n'
-import './agent.css'
 
 type CategoryKey = 'recommend' | 'office' | 'writing' | 'coding' | 'education' | 'life'
 type SortKey = 'hot' | 'newest' | 'uses'
@@ -215,7 +214,7 @@ export default function AgentPage() {
   const hasFilter = !!(keyword || activeType || activeCategory !== 'recommend' || quickTab !== 'all')
 
   return (
-    <View className="page">
+    <View className="min-h-screen bg-background">
       <View className="bg-card pb-2 sticky top-0 z-10">
         <SearchBar
           value={keyword}

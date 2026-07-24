@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Switch, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { Input, Loading } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
@@ -47,47 +48,30 @@ export function AgentSettingScreen() {
   }
 
   if (loading || !setting) {
-    return <View style={s.center}><ActivityIndicator /><Text style={s.muted}>{t('common.loading')}</Text></View>
+    return <View className="flex-1 items-center justify-center p-4"><Loading /><Text className="mt-2 text-xs text-muted-foreground">{t('common.loading')}</Text></View>
   }
 
   return (
-    <View style={s.container}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={s.back}>{t('common.back')}</Text></TouchableOpacity>
-        <Text style={s.title}>{t('agentSetting.title')}</Text>
+    <View className="flex-1 bg-card">
+      <View className="flex-row items-center gap-3 px-4 py-3">
+        <TouchableOpacity onPress={() => navigation.goBack()}><Text className="text-sm text-foreground">{t('common.back')}</Text></TouchableOpacity>
+        <Text className="text-lg font-semibold text-foreground">{t('agentSetting.title')}</Text>
       </View>
-      <View style={s.body}>
-        <Text style={s.label}>{t('agentSetting.name')}</Text>
-        <TextInput style={s.input} value={setting.name} onChangeText={(v) => setSetting({ ...setting, name: v })} />
-        <Text style={s.label}>{t('agentSetting.model')}</Text>
-        <TextInput style={s.input} value={setting.model} onChangeText={(v) => setSetting({ ...setting, model: v })} />
-        <Text style={s.label}>{t('agentSetting.temperature')}: {setting.temperature.toFixed(2)}</Text>
-        <TextInput style={s.input} keyboardType="numeric" value={String(setting.temperature)} onChangeText={(v) => setSetting({ ...setting, temperature: Number(v) || 0 })} />
-        <View style={s.row}>
-          <Text style={s.label}>{t('agentSetting.enabled')}</Text>
+      <View className="p-4">
+        <Text className="mt-2 text-xs text-muted-foreground">{t('agentSetting.name')}</Text>
+        <Input className="mt-1" value={setting.name} onChangeText={(v) => setSetting({ ...setting, name: v })} />
+        <Text className="mt-2 text-xs text-muted-foreground">{t('agentSetting.model')}</Text>
+        <Input className="mt-1" value={setting.model} onChangeText={(v) => setSetting({ ...setting, model: v })} />
+        <Text className="mt-2 text-xs text-muted-foreground">{t('agentSetting.temperature')}: {setting.temperature.toFixed(2)}</Text>
+        <Input className="mt-1" keyboardType="numeric" value={String(setting.temperature)} onChangeText={(v) => setSetting({ ...setting, temperature: Number(v) || 0 })} />
+        <View className="mt-3 flex-row items-center justify-between">
+          <Text className="text-xs text-muted-foreground">{t('agentSetting.enabled')}</Text>
           <Switch value={setting.enabled} onValueChange={(v) => setSetting({ ...setting, enabled: v })} thumbColor="#10B981" />
         </View>
-        {error ? <Text style={s.error}>{error}</Text> : null}
-        {toast ? <Text style={s.toast}>{toast}</Text> : null}
-        <TouchableOpacity style={s.btn} onPress={save} disabled={saving}><Text style={s.btnText}>{saving ? t('common.loading') : t('agentSetting.save')}</Text></TouchableOpacity>
+        {error ? <Text className="mt-2 text-xs text-destructive">{error}</Text> : null}
+        {toast ? <Text className="mt-2 text-xs text-primary">{toast}</Text> : null}
+        <TouchableOpacity className={`mt-4 items-center rounded-lg bg-primary py-2.5 ${saving ? 'opacity-50' : ''}`} onPress={save} disabled={saving}><Text className="text-sm font-semibold text-primary-foreground">{saving ? t('common.loading') : t('agentSetting.save')}</Text></TouchableOpacity>
       </View>
     </View>
   )
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  body: { padding: 16 },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  label: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  input: { marginTop: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', fontSize: 13, color: '#111827' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
-  error: { fontSize: 12, color: '#DC2626', marginTop: 8 },
-  toast: { fontSize: 12, color: '#10B981', marginTop: 8 },
-  btn: { marginTop: 16, backgroundColor: '#10B981', paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  btnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-})

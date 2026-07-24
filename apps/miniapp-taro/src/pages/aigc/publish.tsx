@@ -3,7 +3,6 @@ import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { publishAigc, uploadByBase64 } from '@/api'
 import { useI18n } from '@/i18n'
-import './publish.css'
 
 interface UpFile {
   url: string
@@ -133,38 +132,38 @@ export default function AigcPublish() {
   }, [validate, params.contextId, title, desc, coverUrl, fileList, prompt, t])
 
   return (
-    <View className="pub-page">
-      <View className="pub-header">
-        <Text className="pub-title">{t('aigc.publish.title')}</Text>
+    <View className="min-h-screen bg-background flex flex-col">
+      <View className="py-[24rpx] px-[30rpx] bg-card">
+        <Text className="text-[36rpx] font-bold text-foreground">{t('aigc.publish.title')}</Text>
       </View>
 
-      <ScrollView scrollY className="pub-body">
+      <ScrollView scrollY className="flex-1 p-[20rpx] box-border">
         {/* 上传作品 */}
-        <View className="pub-section">
-          <Text className="pub-label">{t('aigc.publish.workLabel')}</Text>
-          <View className="pub-file-list">
+        <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
+          <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">{t('aigc.publish.workLabel')}</Text>
+          <View className="flex flex-wrap gap-[16rpx]">
             {fileList.map((f, i) => (
-              <View key={i} className="pub-file-item">
-                <Image className="pub-file-img" src={f.url} mode="aspectFill" />
-                <View className="pub-file-del" onClick={() => removeFile(i)}>
-                  <Text>×</Text>
+              <View key={i} className="relative w-[160rpx] h-[160rpx] rounded-[12rpx] overflow-hidden">
+                <Image className="w-full h-full" src={f.url} mode="aspectFill" />
+                <View className="absolute top-[4rpx] right-[4rpx] w-[36rpx] h-[36rpx] bg-[rgba(0,0,0,0.6)] rounded-[6rpx] flex items-center justify-center" onClick={() => removeFile(i)}>
+                  <Text className="text-white text-[24rpx] leading-none">×</Text>
                 </View>
               </View>
             ))}
             {fileList.length < MAX_FILES ? (
-              <View className="pub-file-add" onClick={chooseImage}>
-                <Text className="pub-file-add-icon">+</Text>
-                <Text className="pub-file-add-text">{t('aigc.publish.addImage')}</Text>
+              <View className="w-[160rpx] h-[160rpx] bg-background border-[2rpx] border-dashed border-muted-foreground rounded-[12rpx] flex flex-col items-center justify-center" onClick={chooseImage}>
+                <Text className="text-[48rpx] text-muted-foreground leading-none">+</Text>
+                <Text className="text-[22rpx] text-muted-foreground mt-[8rpx]">{t('aigc.publish.addImage')}</Text>
               </View>
             ) : null}
           </View>
         </View>
 
         {/* 标题 */}
-        <View className="pub-section">
-          <Text className="pub-label">{t('aigc.publish.titleLabel')}</Text>
+        <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
+          <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">{t('aigc.publish.titleLabel')}</Text>
           <Input
-            className="pub-input"
+            className="w-full h-[72rpx] bg-background rounded-[8rpx] px-[20rpx] text-[28rpx] box-border"
             maxlength={50}
             placeholder={t('aigc.publish.titlePlaceholder')}
             value={title}
@@ -173,10 +172,10 @@ export default function AigcPublish() {
         </View>
 
         {/* 简介 */}
-        <View className="pub-section">
-          <Text className="pub-label">{t('aigc.publish.descLabel')}</Text>
+        <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
+          <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">{t('aigc.publish.descLabel')}</Text>
           <Textarea
-            className="pub-textarea"
+            className="w-full min-h-[160rpx] bg-background rounded-[8rpx] p-[20rpx] text-[28rpx] box-border"
             placeholder={t('aigc.publish.descPlaceholder')}
             value={desc}
             onInput={(e) => setDesc(e.detail.value)}
@@ -184,10 +183,10 @@ export default function AigcPublish() {
         </View>
 
         {/* 提示词 */}
-        <View className="pub-section">
-          <Text className="pub-label">{t('aigc.publish.promptLabel')}</Text>
+        <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[20rpx]">
+          <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">{t('aigc.publish.promptLabel')}</Text>
           <Textarea
-            className="pub-textarea"
+            className="w-full min-h-[160rpx] bg-background rounded-[8rpx] p-[20rpx] text-[28rpx] box-border"
             placeholder={t('aigc.publish.promptPlaceholder')}
             value={prompt}
             onInput={(e) => setPrompt(e.detail.value)}
@@ -195,14 +194,14 @@ export default function AigcPublish() {
         </View>
 
         <Button
-          className="pub-submit"
+          className="w-full bg-primary text-foreground text-[30rpx] rounded-[12rpx] mt-[20rpx]"
           loading={submitting || uploading}
           disabled={submitting || uploading}
           onClick={onSubmit}
         >
           {t('aigc.publish.publish')}
         </Button>
-        <View className="pub-bottom-space" />
+        <View className="h-[60rpx]" />
       </ScrollView>
     </View>
   )

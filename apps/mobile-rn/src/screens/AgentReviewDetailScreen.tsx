@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { Loading } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
@@ -34,50 +35,32 @@ export function AgentReviewDetailScreen() {
   useEffect(() => { void load() }, [load])
 
   if (loading) {
-    return <View style={s.center}><ActivityIndicator /><Text style={s.muted}>{t('common.loading')}</Text></View>
+    return <View className="flex-1 items-center justify-center p-4"><Loading /><Text className="mt-2 text-xs text-muted-foreground">{t('common.loading')}</Text></View>
   }
   if (error || !item) {
     return (
-      <View style={s.center}>
-        <Text style={s.error}>{error || t('agentReviewDetail.empty')}</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}><Text style={s.back}>{t('common.back')}</Text></TouchableOpacity>
+      <View className="flex-1 items-center justify-center p-4">
+        <Text className="text-center text-[13px] text-destructive">{error || t('agentReviewDetail.empty')}</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} className="mt-3"><Text className="text-sm text-foreground">{t('common.back')}</Text></TouchableOpacity>
       </View>
     )
   }
 
   return (
-    <ScrollView style={s.container}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={s.back}>{t('common.back')}</Text></TouchableOpacity>
-        <Text style={s.title}>{t('agentReviewDetail.title')}</Text>
+    <ScrollView className="flex-1 bg-card">
+      <View className="flex-row items-center gap-3 px-4 py-3">
+        <TouchableOpacity onPress={() => navigation.goBack()}><Text className="text-sm text-foreground">{t('common.back')}</Text></TouchableOpacity>
+        <Text className="text-lg font-semibold text-foreground">{t('agentReviewDetail.title')}</Text>
       </View>
-      <View style={s.body}>
-        <Text style={s.agent}>{item.agentName}</Text>
-        <View style={s.metaRow}>
-          <Text style={s.author}>{t('agentReviewDetail.author')}: {item.author}</Text>
-          <Text style={s.rating}>{'★'.repeat(Math.max(1, Math.min(5, item.rating || 0)))}</Text>
+      <View className="p-4">
+        <Text className="text-base font-semibold text-primary">{item.agentName}</Text>
+        <View className="mt-2 flex-row justify-between">
+          <Text className="text-xs text-muted-foreground">{t('agentReviewDetail.author')}: {item.author}</Text>
+          <Text className="text-xs text-amber-500">{'★'.repeat(Math.max(1, Math.min(5, item.rating || 0)))}</Text>
         </View>
-        <Text style={s.content}>{item.content}</Text>
-        <Text style={s.time}>{item.createdAt}</Text>
+        <Text className="mt-3 text-sm leading-[22px] text-foreground">{item.content}</Text>
+        <Text className="mt-3 text-[11px] text-muted-foreground">{item.createdAt}</Text>
       </View>
     </ScrollView>
   )
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  body: { padding: 16 },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  agent: { fontSize: 16, fontWeight: '600', color: '#10B981' },
-  metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  author: { fontSize: 12, color: '#6B7280' },
-  rating: { fontSize: 12, color: '#F59E0B' },
-  content: { marginTop: 12, fontSize: 14, color: '#374151', lineHeight: 22 },
-  time: { marginTop: 12, fontSize: 11, color: '#9CA3AF' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  error: { fontSize: 13, color: '#DC2626', textAlign: 'center' },
-  backBtn: { marginTop: 12 },
-})

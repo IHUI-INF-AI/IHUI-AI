@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Card } from '@ihui/ui-native'
 
 interface Article { id: string; title: string; author: string; cover?: string; views: number; publishedAt: string }
 
@@ -47,12 +48,14 @@ export function ArticleListScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
         ListEmptyComponent={<View style={styles.empty}><Text style={styles.muted}>{t('articleList.empty')}</Text></View>}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('ArticleDetail', { id: item.id })}>
-            <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-            <View style={styles.row}>
-              <Text style={styles.author}>{item.author}</Text>
-              <Text style={styles.meta}>{t('articleList.views', { count: item.views })} · {item.publishedAt}</Text>
-            </View>
+          <TouchableOpacity onPress={() => navigation.navigate('ArticleDetail', { id: item.id })}>
+            <Card className="p-3 mb-2">
+              <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+              <View style={styles.row}>
+                <Text style={styles.author}>{item.author}</Text>
+                <Text style={styles.meta}>{t('articleList.views', { count: item.views })} · {item.publishedAt}</Text>
+              </View>
+            </Card>
           </TouchableOpacity>
         )}
       />
