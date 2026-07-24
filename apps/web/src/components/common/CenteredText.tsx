@@ -20,9 +20,10 @@ import { cn } from '@/lib/utils'
  *  - 父级无 h-* 固定高度(没有视觉中心)
  *  - 纯文字 + 纯文字(偏差相互抵消)
  *
- * 实际上 globals.css 第 170 行已建立
- * `:where(button, a, [role=button], [role=menuitem]):has(>svg):has(>span) > span`
- * 全局规则,所有 button/a/[role=button]/[role=menuitem] 子 span 自动应用 translateY。
+ * 实际上 tokens.css 已建立
+ * `:where(button, a, [role=button], [role=menuitem']):has(> span) > span`
+ * 全局规则,所有 button/a/[role=button]/[role=menuitem] 直接子 span 自动应用 translateY
+ * (2026-07-24 从 :has(>svg):has(>span) 放宽到 :has(>span),覆盖纯文字按钮)。
  * 此组件作为: (a) 非语义元素(如 div、li)场景使用 (b) explicit opt-in 文档化
  *
  * @example

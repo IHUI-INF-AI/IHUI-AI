@@ -8,7 +8,7 @@ import { usePaginatedList } from '../hooks/use-paginated-list'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-import { Loading } from '@ihui/ui-native'
+import { Card, Loading } from '@ihui/ui-native'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface LiveItem {
@@ -132,7 +132,7 @@ export function LiveListScreen() {
             </View>
           }
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <Card className="p-3">
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle} numberOfLines={1}>
                   {item.title}
@@ -152,7 +152,7 @@ export function LiveListScreen() {
                   {t('liveList.viewerCount', { count: item.viewerCount })}
                 </Text>
               </View>
-            </View>
+            </Card>
           )}
         />
       )}
