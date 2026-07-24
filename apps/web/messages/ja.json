@@ -2060,6 +2060,13 @@
       "wechatScanDesc": "下記の QR コードを WeChat でスキャンしてください。支払い完了後に自動的にリダイレクトします。",
       "wechatQrAlt": "WeChat Pay QR コード",
       "loading": "読み込み中..."
+    },
+    "paymentErrors": {
+      "alreadyVip": "ですVIPアドレス",
+      "notLogged": "ユーザーログイン",
+      "incompleteProduct": "プロジェクトInfo",
+      "selectPayMethod": "してくださいいメソッド",
+      "notLoggedOrNoOpenId": "ユーザーログインまたはopenid"
     }
   },
   "admin": {
@@ -22430,13 +22437,6 @@
     "downloadFailed": "ダウンロード",
     "downloadComplete": "ダウンロード",
     "downloadFailed2": "ダウンロード"
-  },
-  "Payment": {
-    "alreadyVip": "ですVIPアドレス",
-    "notLogged": "ユーザーログイン",
-    "incompleteProduct": "プロジェクトInfo",
-    "selectPayMethod": "してくださいいメソッド",
-    "notLoggedOrNoOpenId": "ユーザーログインまたはopenid"
   },
   "cmpindex": {
     "timeExpr": "時間表現",
