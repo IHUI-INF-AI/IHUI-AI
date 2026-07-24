@@ -78,11 +78,34 @@ export default function UpgradePage() {
     if (!plan) return
     if (payMethod === 'alipay') {
       try {
+        // 2026-07-24 小程序支付链路修复:先 my.getAuthCode 拿 authCode,后端兑换 buyer_id
+        // 解决 40006 Insufficient Permissions(product_code=JSAPI_PAY 必传 buyer_id)
+        let buyerId: string | undefined
+        try {
+          // @ts-ignore my.getAuthCode 是支付宝小程序全局 API,Taro 类型未含
+          const authRes = await my.getAuthCode({ scopes: 'auth_user' })
+          if (authRes?.authCode) {
+            const exRes = await Taro.request({
+              url: '/api/payments/alipay/miniapp/exchange-buyer-id',
+              method: 'POST',
+              data: { authCode: authRes.authCode },
+            })
+            const exData = (exRes.data as { code?: number; data?: { userId?: string; openId?: string } }) ?? {}
+            buyerId = exData.data?.userId ?? exData.data?.openId
+          }
+        } catch (authErr) {
+          logger.warn('vip/upgrade', 'my.getAuthCode 失败,降级 mock 模式', authErr)
+        }
         const res = await createAlipayMiniappPayment({
           amount: plan.price,
           subject: `${t('vip.upgrade.upgrade')} - ${plan.name}`,
           productId: plan.id,
+          buyerId,
         })
+        if (res.mock) {
+          Taro.showToast({ title: t('vip.upgrade.configNotReady'), icon: 'none' })
+          return
+        }
         if (!res.tradeNo) {
           Taro.showToast({ title: t('vip.upgrade.configNotReady'), icon: 'none' })
           return
