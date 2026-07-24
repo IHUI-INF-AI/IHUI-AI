@@ -15,26 +15,11 @@ const items: AppItem[] = [
     descKey: 'apps.announcementsDesc',
   },
   { to: '/content/search', icon: '🔎', titleKey: 'apps.search', descKey: 'apps.searchDesc' },
-  {
-    externalUrl: `${WEB_BASE}/plaza`,
-    icon: '🏙️',
-    titleKey: 'apps.plaza',
-    descKey: 'apps.plazaDesc',
-  },
-  {
-    externalUrl: `${WEB_BASE}/circles`,
-    icon: '⭕',
-    titleKey: 'apps.circles',
-    descKey: 'apps.circlesDesc',
-  },
-  {
-    externalUrl: `${WEB_BASE}/topics`,
-    icon: '#️⃣',
-    titleKey: 'apps.topics',
-    descKey: 'apps.topicsDesc',
-  },
+  { to: '/content/plaza', icon: '🏙️', titleKey: 'apps.plaza', descKey: 'apps.plazaDesc' },
+  { to: '/content/circles', icon: '⭕', titleKey: 'apps.circles', descKey: 'apps.circlesDesc' },
+  { to: '/content/topics', icon: '#️⃣', titleKey: 'apps.topics', descKey: 'apps.topicsDesc' },
+  { to: '/content/asks', icon: '❓', titleKey: 'apps.asks', descKey: 'apps.asksDesc' },
   { externalUrl: `${WEB_BASE}/tags`, icon: '🏷️', titleKey: 'apps.tags', descKey: 'apps.tagsDesc' },
-  { externalUrl: `${WEB_BASE}/asks`, icon: '❓', titleKey: 'apps.asks', descKey: 'apps.asksDesc' },
 ]
 
 export default function ContentAppsPage() {
