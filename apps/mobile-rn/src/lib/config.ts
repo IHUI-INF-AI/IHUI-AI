@@ -1,6 +1,5 @@
 export const API_BASE_URL = 'http://localhost:8801'
-export const TOKEN_STORAGE_KEY = 'ihui_token'
-export const REFRESH_TOKEN_STORAGE_KEY = 'ihui_refresh_token'
+export { TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY } from '@ihui/shared/constants'
 
 /**
  * SSO 配置(移动端作为 SSO client 接入 web 登录中心)

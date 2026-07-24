@@ -12,6 +12,8 @@ import type { ApiResult } from '@ihui/types'
 import { fetchApi } from '@/lib/api'
 import { buildQs } from '@/lib/edu'
 
+export { formatFileSize } from '@ihui/shared/utils/format'
+
 /* ------------------------------------------------------------------ */
 /* 文件类型（fileTypes）                                               */
 /* ------------------------------------------------------------------ */
@@ -137,13 +139,6 @@ export function validateFile(
     }
   }
   return { ok: errors.length === 0, errors }
-}
-
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(2)} MB`
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
 }
 
 /* ------------------------------------------------------------------ */
