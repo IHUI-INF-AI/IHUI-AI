@@ -1630,6 +1630,80 @@ async def _tool_vision_analyze(arguments: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+# ---------------------------------------------------------------------------
+# 子智能体派发工具(2026-07-24 新增)
+# 让 LLM 在 tool loop 中能自主派发子智能体执行任务
+# ---------------------------------------------------------------------------
+
+# 模块级单例 + lazy init(避免循环依赖:agent_orchestrator.py 在模块加载时
+# `from .mcp_server import mcp_server`,若本模块顶部反向 import 会触发循环导入)
+_orchestrator: "AgentOrchestrator | None" = None
+
+
+def _get_orchestrator() -> "AgentOrchestrator":
+    """Lazy 获取 AgentOrchestrator 单例(避免模块加载时循环导入)。
+
+    agent_orchestrator.py 模块加载时执行 `from .mcp_server import mcp_server`,
+    若本模块在顶部反向 import agent_orchestrator 会触发循环导入 → 用 lazy init。
+    复用 agent_orchestrator.py 模块级单例(已注册 5 个默认 agent)。
+    """
+    global _orchestrator
+    if _orchestrator is None:
+        from .agent_orchestrator import agent_orchestrator as _inst
+        _orchestrator = _inst
+    return _orchestrator  # type: ignore[return-value]
+
+
+async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
+    """dispatch_subagent: 派发子智能体执行独立任务。
+
+    让 LLM 在 tool loop 中能自主调用 AgentOrchestrator.invoke,派发独立子智能体
+    执行任务(子任务分解 / 多视角审查 / 并行执行)。子智能体拥有独立的
+    system_prompt + tools + 上下文,执行完成后返回结果,不污染主对话上下文。
+
+    参数:
+    - name: 要派发的子智能体名称(必填,如 code-reviewer / bug-fixer / feature-planner)
+    - task: 交给子智能体执行的任务描述(必填)
+    - session_id: 会话 ID(可选,用于上下文复用)
+    """
+    name = arguments.get("name", "")
+    task = arguments.get("task", "")
+    session_id = arguments.get("session_id")
+
+    if not name or not task:
+        return {
+            "tool": "dispatch_subagent",
+            "ok": False,
+            "error": "name and task are required",
+            "errorCode": "MISSING_PARAMS",
+        }
+
+    try:
+        orchestrator = _get_orchestrator()
+        result = await orchestrator.invoke(
+            agent_name=name,
+            user_input=task,
+            session_id=session_id,
+        )
+        return {
+            "tool": "dispatch_subagent",
+            "agent": name,
+            "task": task,
+            "status": result.status,
+            "output": result.output,
+            "duration_ms": result.duration_ms,
+            "iterations": result.iterations,
+            "error": result.error,
+            "ok": result.status == "completed",
+        }
+    except Exception as e:
+        return {
+            "ok": False,
+            "error": str(e),
+            "errorCode": "SUBAGENT_FAILED",
+        }
+
+
 # 工具注册表
 _TOOLS: list[MCPTool] = [
     MCPTool(
@@ -2153,6 +2227,34 @@ _TOOLS: list[MCPTool] = [
             "required": ["image", "task"],
         },
     ),
+    # ===== 子智能体派发工具(2026-07-24 新增)=====
+    MCPTool(
+        name="dispatch_subagent",
+        description=(
+            "派发子智能体执行独立任务(子任务分解 / 多视角审查 / 并行执行)。"
+            "可用 agent 名称:code-reviewer(代码审查)、bug-fixer(Bug 修复)、"
+            "feature-planner(功能规划)、test-writer(测试编写)、refactorer(重构建议)。"
+            "调用后子智能体独立执行并返回结果,不污染主对话上下文。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "要派发的子智能体名称(如 code-reviewer / bug-fixer / feature-planner)",
+                },
+                "task": {
+                    "type": "string",
+                    "description": "交给子智能体执行的任务描述",
+                },
+                "session_id": {
+                    "type": "string",
+                    "description": "会话 ID(可选,用于上下文复用)",
+                },
+            },
+            "required": ["name", "task"],
+        },
+    ),
 ]
 
 _TOOL_HANDLERS: dict[str, Any] = {
@@ -2197,6 +2299,8 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "screenshot_url": _tool_screenshot_url,
     # ===== 图像分析(P2-3,对标 Hermes 多模态输入)=====
     "vision_analyze": _tool_vision_analyze,
+    # ===== 子智能体派发(2026-07-24 新增)=====
+    "dispatch_subagent": _tool_dispatch_subagent,
 }
 
 

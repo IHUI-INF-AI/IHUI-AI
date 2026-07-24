@@ -77,7 +77,7 @@
   padding: 20rpx 0;
 }
 .vs-info-row + .vs-info-row {
-  border-top: 2rpx solid var(--color-border);
+  margin-top: 16rpx;
 }
 .vs-info-label {
   font-size: 28rpx;

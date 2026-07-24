@@ -25,7 +25,7 @@ export default function NotificationSettings({ items = [], onToggle }: Notificat
         <View
           key={item.key}
           className={`flex items-center px-4 py-3 ${
-            idx !== items.length - 1 ? 'border-b border-border' : ''
+            idx !== items.length - 1 ? 'mb-1.5' : ''
           }`}
         >
           <View className="flex-1 min-w-0">
