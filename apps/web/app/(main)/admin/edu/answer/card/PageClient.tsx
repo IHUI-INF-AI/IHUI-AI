@@ -17,6 +17,7 @@ import {
   Button,
   Input,
 } from '@ihui/ui-react'
+import { type PageData } from '@ihui/api-client'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 interface AnswerRecord {
@@ -28,10 +29,6 @@ interface AnswerRecord {
   startedAt: string
   submittedAt: string | null
   duration: number
-}
-interface PageData<T> {
-  list: T[]
-  total: number
 }
 
 const STATUS_MAP: Record<string, { label: string; cls: string }> = {
