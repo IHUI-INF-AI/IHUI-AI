@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Input, Loading } from '@ihui/ui-native'
 interface ChatMsg { id: string; senderId: string; content: string; createdAt: string; isMine: boolean }
 
 type Route = RouteProp<RootStackParamList, 'MessageChat'>
@@ -50,7 +51,7 @@ export function MessageChatScreen() {
     } else if (!res.success) setError(res.error || t('messageChat.sendFailed'))
   }
 
-  if (loading) return <View style={styles.center}><ActivityIndicator /><Text style={styles.muted}>{t('common.loading')}</Text></View>
+  if (loading) return <View style={styles.center}><Loading /><Text style={styles.muted}>{t('common.loading')}</Text></View>
   if (error && messages.length === 0) return (
     <View style={styles.center}>
       <Text style={styles.error}>{error}</Text>
@@ -77,7 +78,7 @@ export function MessageChatScreen() {
         )}
       />
       <View style={styles.inputRow}>
-        <TextInput style={styles.input} value={input} onChangeText={setInput} placeholder={t('messageChat.placeholder')} placeholderTextColor="#9ca3af" />
+        <Input style={styles.input} value={input} onChangeText={setInput} placeholder={t('messageChat.placeholder')} placeholderTextColor="#9ca3af" />
         <TouchableOpacity style={[styles.sendBtn, (!input.trim() || sending) && styles.sendDisabled]} onPress={onSend} disabled={!input.trim() || sending}>
           <Text style={styles.sendText}>{t('messageChat.send')}</Text>
         </TouchableOpacity>
