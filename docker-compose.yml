@@ -3,6 +3,14 @@
 #
 # 供应链安全(D29-H2):监控服务镜像版本固定,禁止使用 :latest tag,防供应链投毒
 # 本地构建镜像(ihui-api/ihui-web/ihui-migrate/ihui-ai-service)的 :latest 是本地 tag,非外部拉取
+# ============================================================================
+# 可观测性服务 Profile(2026-07-25 立)
+# ============================================================================
+# 默认 `docker compose up -d` 仅启动业务服务(api/worker/web/ai-service/db/redis/migrate)
+# 监控服务(jaeger/otel-collector/prometheus/grafana/node-exporter/loki/promtail)
+# 需显式启用:`docker compose --profile observability up -d`
+# 单独启动监控:`docker compose --profile observability up -d jaeger prometheus grafana`
+# 关闭监控:`docker compose --profile observability down`
 services:
   # 新后端 API(Fastify 5 + Drizzle ORM)
   api:
@@ -274,6 +282,7 @@ services:
 
   # Jaeger(分布式追踪 UI + OTLP 收集器，接收 otel-collector 导出的追踪)
   jaeger:
+    profiles: [observability]
     image: jaegertracing/all-in-one:1.62
     container_name: ihui-jaeger
     restart: unless-stopped
@@ -291,6 +300,7 @@ services:
 
   # OpenTelemetry Collector(接收 OTLP 追踪/指标，导出到 Jaeger + Prometheus exporter)
   otel-collector:
+    profiles: [observability]
     image: otel/opentelemetry-collector-contrib:0.110.0
     container_name: ihui-otel-collector
     restart: unless-stopped
@@ -320,6 +330,7 @@ services:
 
   # Prometheus 监控(抓取 api + ai-service 的 /metrics)
   prometheus:
+    profiles: [observability]
     image: prom/prometheus:v2.55.0
     container_name: ihui-prometheus
     restart: unless-stopped
@@ -345,6 +356,7 @@ services:
 
   # Grafana 仪表盘(可视化监控数据)
   grafana:
+    profiles: [observability]
     image: grafana/grafana:11.3.0
     container_name: ihui-grafana
     restart: unless-stopped
@@ -374,6 +386,7 @@ services:
 
   # Node Exporter(主机指标:CPU/内存/磁盘/网络)
   node-exporter:
+    profiles: [observability]
     image: prom/node-exporter:v1.8.2
     container_name: ihui-node-exporter
     restart: unless-stopped
@@ -391,6 +404,7 @@ services:
   # Loki(日志聚合后端,接收 Promtail 推送的日志)
   # 配置文件挂载到 /etc/loki/local-config.yaml(沿用镜像默认命令路径)
   loki:
+    profiles: [observability]
     image: grafana/loki:2.9.0
     container_name: ihui-loki
     restart: unless-stopped
@@ -420,6 +434,7 @@ services:
   # Promtail(日志采集器,抓取 Docker 容器 + Nginx + API 应用日志,推送到 Loki)
   # 通过 docker_sd_configs 自动发现带 logging=promtail 标签的容器
   promtail:
+    profiles: [observability]
     image: grafana/promtail:2.9.0
     container_name: ihui-promtail
     restart: unless-stopped
