@@ -48,9 +48,9 @@ export async function exchangeSsoCode(
       body: JSON.stringify({ code, clientId }),
     })
     if (!resp.ok) return null
-    const data = await resp.json()
+    const data = (await resp.json()) as { code: number; data: SsoTokenData }
     if (data.code !== 200 || !data.data) return null
-    return data.data as SsoTokenData
+    return data.data
   } catch {
     return null
   }
@@ -66,9 +66,9 @@ export async function validateToken(
       headers: { Authorization: `Bearer ${token}` },
     })
     if (!resp.ok) return null
-    const data = await resp.json()
+    const data = (await resp.json()) as { code: number; data: SsoValidateResponse }
     if (data.code !== 200 || !data.data) return null
-    return data.data as SsoValidateResponse
+    return data.data
   } catch {
     return null
   }
@@ -98,11 +98,7 @@ export function extractSsoCode(url: string): string | null {
 }
 
 /** 构建 SSO 登录中心 URL(RN/taro 共用) */
-export function buildSsoLoginUrl(
-  webBase: string,
-  redirectUri: string,
-  clientId: string,
-): string {
+export function buildSsoLoginUrl(webBase: string, redirectUri: string, clientId: string): string {
   const params = new URLSearchParams({
     redirect: redirectUri,
     client_id: clientId,
