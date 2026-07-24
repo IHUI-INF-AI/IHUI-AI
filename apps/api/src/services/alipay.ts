@@ -233,6 +233,40 @@ export function appPayOrder(params: {
     .join('&');
 }
 
+/** 小程序支付下单(alipay.trade.create,返回 tradeNO 给前端调起支付) */
+export async function tradeCreate(params: {
+  outTradeNo: string;
+  amount: number;
+  subject: string;
+  buyerId?: string;
+}): Promise<{ tradeNo: string; outTradeNo: string }> {
+  const bizContent: Record<string, unknown> = {
+    out_trade_no: params.outTradeNo,
+    total_amount: params.amount.toFixed(2),
+    subject: params.subject,
+  };
+  if (params.buyerId) bizContent.buyer_id = params.buyerId;
+  const paramsObj: Record<string, string> = {
+    app_id: env.ALIPAY_APP_ID ?? '',
+    method: 'alipay.trade.create',
+    charset: 'utf-8',
+    sign_type: 'RSA2',
+    timestamp: formatTimestamp(new Date()),
+    version: '1.0',
+    biz_content: JSON.stringify(bizContent),
+  };
+  addCertParams(paramsObj);
+  paramsObj.sign = signParams(paramsObj);
+  const body = new URLSearchParams(paramsObj).toString();
+  const resp = await fetch(GATEWAY, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
+  const data = (await resp.json()) as { alipay_trade_create_response: { trade_no: string; out_trade_no: string; code: string; msg: string } };
+  const createResp = data.alipay_trade_create_response;
+  if (createResp.code !== '10000') {
+    throw new Error(`alipay.trade.create failed: ${createResp.code} ${createResp.msg}`);
+  }
+  return { tradeNo: createResp.trade_no, outTradeNo: createResp.out_trade_no };
+}
+
 /** 查询订单 */
 export async function queryOrder(outTradeNo: string): Promise<Record<string, unknown>> {
   const params: Record<string, string> = {
