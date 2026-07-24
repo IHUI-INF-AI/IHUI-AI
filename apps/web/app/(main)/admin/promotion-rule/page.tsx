@@ -2,7 +2,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Percent, ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button, Input } from '@ihui/ui'
+import { Button, Input } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import type { PromotionRule, PromotionRuleListData, PromotionStatus, PromotionType } from './types'
 

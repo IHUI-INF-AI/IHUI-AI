@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl'
 import { Users, Loader2, Trash2, ChevronLeft, ChevronRight, Eye } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 
 interface MyCircle {
   id: string

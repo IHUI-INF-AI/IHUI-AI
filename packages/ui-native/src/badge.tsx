@@ -1,7 +1,7 @@
-import type { ComponentProps } from 'react'
+﻿import type { ComponentProps } from 'react'
 import { Text, View } from 'react-native'
 import { cva, type VariantProps } from 'class-variance-authority'
-import { cn } from '@ihui/ui-primitives'
+import { cn } from '@ihui/design-tokens'
 
 export const badgeVariants = cva('flex-row items-center px-2.5 py-0.5', {
   variants: {

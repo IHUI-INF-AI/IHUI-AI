@@ -18,7 +18,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { inputClass, selectClass, SCOPES } from './helpers'
 import type { Role, RoleForm } from './types'
 

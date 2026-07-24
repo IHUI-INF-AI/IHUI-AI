@@ -6,7 +6,7 @@ import { Loader2, Users, ShoppingCart, DollarSign, Activity } from 'lucide-react
 import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { BarChart } from '@/components/charts/BarChart'
 import { formatNumber } from '@/lib/date-utils'
 

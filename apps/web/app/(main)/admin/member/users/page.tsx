@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Users, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { UserFilter } from './UserFilter'
 import { UserTable } from './UserTable'

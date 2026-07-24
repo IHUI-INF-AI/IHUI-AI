@@ -2,7 +2,7 @@
 
 import { Loader2, Edit, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { PERM, th, stripHtml } from './helpers'
 import type { ContactItem } from './types'

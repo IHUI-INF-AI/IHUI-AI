@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { ChevronDown, X } from 'lucide-react'
 
-import { Input } from '@ihui/ui'
+import { Input } from '@ihui/ui-react'
 import {
   loadLoginHistory,
   removeFromLoginHistory,

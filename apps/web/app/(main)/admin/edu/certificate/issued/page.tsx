@@ -23,7 +23,7 @@ import {
   SelectValue,
   Card,
   CardContent,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 interface IssuedCert {
   id: string

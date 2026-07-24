@@ -1,7 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import { CheckCircle2, FileText, XCircle } from 'lucide-react'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 export default async function LogsPage() {
   const t = await getTranslations('models')

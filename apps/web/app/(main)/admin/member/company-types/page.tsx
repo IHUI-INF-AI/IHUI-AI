@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { CompanyTypeFilter } from './CompanyTypeFilter'
 import { CompanyTypeTable } from './CompanyTypeTable'

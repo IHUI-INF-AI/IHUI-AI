@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { Brain, Package, Clock, Radio, Cpu, Mic, PenTool, Globe } from 'lucide-react'
 
 import {

@@ -1,7 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import { Search, Sparkles } from 'lucide-react'
 
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 
 export default async function SkillsPage() {
   const t = await getTranslations('models')

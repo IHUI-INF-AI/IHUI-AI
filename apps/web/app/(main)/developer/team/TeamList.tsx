@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, Trash2, Pencil } from 'lucide-react'
-import { Card, CardContent, Button } from '@ihui/ui'
+import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Avatar } from '@/components/data/Avatar'
 import { cn } from '@/lib/utils'
 import { ROLE_CONFIG } from './types'

@@ -12,7 +12,7 @@ import {
   TableCell,
   Button,
   Checkbox,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { TruncatedText } from '@/components/common'
 import { useTranslations } from 'next-intl'

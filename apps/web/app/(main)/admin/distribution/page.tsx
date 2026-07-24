@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 
 interface Overview {

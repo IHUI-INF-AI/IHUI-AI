@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { Select } from '@/components/form'
 import type { MenuItem, MenuForm } from './types'
 

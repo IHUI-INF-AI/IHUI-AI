@@ -16,7 +16,7 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 
 import { ToolCallTree } from './components/ToolCallTree'

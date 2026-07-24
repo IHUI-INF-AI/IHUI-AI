@@ -18,7 +18,7 @@ import {
   SelectItem,
   SelectValue,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { selectClass, textareaClass } from '@/lib/edu'
 import { ImageUpload } from '@/components/form/ImageUpload'
 import type { TForm, Topic } from './types'

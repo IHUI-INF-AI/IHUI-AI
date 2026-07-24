@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { LogIn, Trash2, Eraser, Download, ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { exportFromApi } from '@/lib/export-utils'
 import { useBatchMutation } from '@/hooks/use-batch-mutation'

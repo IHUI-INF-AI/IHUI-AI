@@ -7,7 +7,7 @@ import { Loader2, Calendar, Gift, Clock, ArrowRight, UserPlus } from 'lucide-rea
 import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 type Status = 'upcoming' | 'active' | 'ended'

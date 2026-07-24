@@ -2,7 +2,7 @@
 
 import { GraduationCap, FileText, BookOpen } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import type { LearnStatistics, ExamStatistics, ContentStatistics } from './types'
 
 interface Props {

@@ -6,7 +6,7 @@ import { Phone, Plus, Download } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { exportFromApi, type ExportColumn } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { toast } from 'sonner'
 
 import { ContactFilter } from './ContactFilter'

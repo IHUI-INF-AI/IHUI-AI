@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, ShieldCheck, Edit, Trash2, MessageCircle } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
 import { STATUS_STYLE } from './helpers'

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Input, Label } from '@ihui/ui'
+import { Button, Input, Label } from '@ihui/ui-react'
 import { SEARCH_KEYS, FIELDS } from './helpers'
 
 interface Props {

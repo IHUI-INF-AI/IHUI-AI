@@ -9,7 +9,7 @@ import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui'
+import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { Avatar, VipBadge } from '@/components/data'
 import { DescriptionList } from '@/components/data/DescriptionList'
 import { AgentProgressPanel } from '@/components/ai/agent-progress-panel'

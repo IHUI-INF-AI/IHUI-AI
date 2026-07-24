@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { PlanForm, type PlanFormValues } from '@/components/plan/PlanForm'
 import { usePlanStore } from '@/lib/plan-store'
 

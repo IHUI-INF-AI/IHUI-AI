@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { WorkPanel, WebViewFrame } from '@ihui/ui'
-import type { WorkPanelTabItem } from '@ihui/ui'
+import { WorkPanel, WebViewFrame } from '@ihui/ui-react'
+import type { WorkPanelTabItem } from '@ihui/ui-react'
 import {
   useWorkPanelStore,
   WORK_PANEL_DEFAULT_WIDTH,
@@ -11,7 +11,7 @@ import { useMounted } from '@/hooks/use-mounted'
 
 /**
  * Web 端工作展示区(右侧固定面板)。
- * - 渲染 @ihui/ui 的 WorkPanel 容器 + WebViewFrame(iframe + 降级)
+ * - 渲染 @ihui/ui-react 的 WorkPanel 容器 + WebViewFrame(iframe + 降级)
  * - P0:iframe 失败降级到 external(显示"在外部打开"按钮)
  * - P1:接入后端 Playwright 截图 API,screenshot 模式
  * - P3:多 Tab + 收藏夹 + 历史记录

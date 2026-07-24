@@ -8,7 +8,7 @@ import { LayoutGrid, Hourglass, CheckCircle2, XCircle, ClipboardList } from 'luc
 
 import { exportToExcel } from '@/lib/export-utils'
 import { cn } from '@/lib/utils'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { DemandSquareFilter } from './DemandSquareFilter'
 import { DemandSquareTable } from './DemandSquareTable'

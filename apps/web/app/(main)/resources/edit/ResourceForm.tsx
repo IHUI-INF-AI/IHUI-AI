@@ -16,7 +16,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import { TiptapRichText } from '@/components/form/TiptapRichText'
 import { ImageUpload } from '@/components/form/ImageUpload'

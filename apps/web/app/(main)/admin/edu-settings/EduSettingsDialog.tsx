@@ -18,7 +18,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { selectClass, textareaClass, TYPES } from './helpers'
 import type { EduSetting, EduSettingForm, CfgType } from './types'
 

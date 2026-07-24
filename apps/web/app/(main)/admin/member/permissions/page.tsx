@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Loader2, Key, Lock, Search, Copy, Check } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Input, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import { Input, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 
 interface MemberPermission {
   id: string

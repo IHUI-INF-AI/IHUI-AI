@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { Button, Input, Label, Switch } from '@ihui/ui'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
+import { Button, Input, Label, Switch } from '@ihui/ui-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui-react'
 import { API_FORMATS } from './helpers'
 import type { FormState } from './types'
 
