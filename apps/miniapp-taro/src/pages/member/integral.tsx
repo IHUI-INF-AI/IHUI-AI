@@ -4,7 +4,6 @@ import { useState, useRef, useCallback } from 'react'
 import { getIntegral, getMemberInfo } from '@/api'
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import './integral.css'
 
 interface IntegralItem {
   id: string
@@ -86,49 +85,49 @@ export default function IntegralPage() {
   )
 
   return (
-    <View className="page">
-      <View className="balance">
-        <Text className="balance-num">{total}</Text>
-        <Text className="balance-label">{tt('member.integral.current', '当前积分')}</Text>
+    <View className="min-h-screen bg-background">
+      <View className="py-[60rpx] px-[40rpx] bg-[linear-gradient(135deg,#2c2c2c,#1a1a1a)] text-center">
+        <Text className="block text-[60rpx] font-bold text-white">{total}</Text>
+        <Text className="block mt-[12rpx] text-[26rpx] text-[#d4af6a]">{tt('member.integral.current', '当前积分')}</Text>
       </View>
-      <View className="list">
+      <View className="p-[24rpx]">
         {list.map((it) => (
-          <View key={it.id} className="item">
-            <View className="item-left">
-              <Text className="item-type">{it.type}</Text>
-              <Text className="item-time">{it.time}</Text>
+          <View key={it.id} className="flex justify-between items-center bg-card rounded-[16rpx] py-[28rpx] px-[24rpx] mb-[16rpx]">
+            <View className="flex flex-col">
+              <Text className="text-[28rpx] text-foreground">{it.type}</Text>
+              <Text className="mt-[10rpx] text-[22rpx] text-muted-foreground">{it.time}</Text>
             </View>
-            <Text className={`item-amt${it.amount > 0 ? ' income' : ' expense'}`}>
+            <Text className={`text-[34rpx] font-semibold ${it.amount > 0 ? 'text-success' : 'text-destructive'}`}>
               {it.amount > 0 ? '+' : ''}
               {it.amount}
             </Text>
           </View>
         ))}
         {loading && !list.length ? (
-          <View className="status">
+          <View className="flex flex-col items-center py-[80rpx] text-muted-foreground text-[26rpx]">
             <Text>{t('common.loading')}</Text>
           </View>
         ) : null}
         {error && !list.length ? (
-          <View className="status">
+          <View className="flex flex-col items-center py-[80rpx] text-muted-foreground text-[26rpx]">
             <Text>{tt('member.integral.loadFailed', '加载失败')}</Text>
-            <Text className="retry" onClick={() => load(true)}>
+            <Text className="mt-[16rpx] py-[8rpx] px-[32rpx] text-[24rpx] text-primary" onClick={() => load(true)}>
               {t('common.retry')}
             </Text>
           </View>
         ) : null}
         {!loading && !list.length && !error ? (
-          <View className="empty">
+          <View className="text-center py-[120rpx] text-muted-foreground text-[26rpx]">
             <Text>{tt('member.integral.empty', '暂无积分记录')}</Text>
           </View>
         ) : null}
         {loading && list.length ? (
-          <View className="load-more">
+          <View className="text-center py-[24rpx] text-[22rpx] text-muted-foreground">
             <Text>{tt('member.integral.loading', '加载中…')}</Text>
           </View>
         ) : null}
         {!loading && list.length && !hasMoreRef.current ? (
-          <View className="load-more">
+          <View className="text-center py-[24rpx] text-[22rpx] text-muted-foreground">
             <Text>{tt('member.integral.noMore', '没有更多了')}</Text>
           </View>
         ) : null}

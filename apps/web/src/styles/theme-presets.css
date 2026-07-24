@@ -1,30 +1,15 @@
 /* theme-presets.css — 主题预设系统(3 种品牌色) */
 /* 历史源: _theme-presets.scss(data-theme="blue/green/purple") */
 /* hex 色值 → HSL 转换,适配 Tailwind/shadcn CSS 变量规范 */
+/*
+ * 2026-07-24 重构(消除重复定义):
+ *   - 删除 :root, [data-theme="green"] 块(默认 green 主题由 tokens.css 唯一定义)
+ *   - 删除 .dark, .dark[data-theme="green"] 块(暗色 green 由 tokens.css .dark 唯一定义)
+ *   - 保留 [data-theme="blue"] / [data-theme="purple"] 非默认主题块(显式切换时生效)
+ *   - primary / primary-foreground / primary-hover / brand 色板 全部以 tokens.css 为单一来源
+ */
 
-/* ============ 默认主题:绿色(与当前 --color-primary 一致) ============ */
-:root,
-[data-theme="green"] {
-  --color-primary: hsl(142 71% 45%);
-  --color-primary-hover: hsl(142 71% 40%);
-  --color-primary-foreground: hsl(0 0% 100%);
-
-  --color-brand-50: hsl(138 76% 97%);
-  --color-brand-100: hsl(141 84% 93%);
-  --color-brand-200: hsl(141 83% 86%);
-  --color-brand-300: hsl(142 76% 77%);
-  --color-brand-400: hsl(142 71% 60%);
-  --color-brand-500: hsl(142 71% 45%);
-  --color-brand-600: hsl(142 71% 40%);
-  --color-brand-700: hsl(142 72% 35%);
-  --color-brand-800: hsl(143 70% 30%);
-  --color-brand-900: hsl(144 65% 25%);
-  --color-brand-950: hsl(145 70% 15%);
-
-  --color-ring: hsl(142 71% 45%);
-}
-
-/* ============ 蓝色主题 ============ */
+/* ============ 蓝色主题(显式 [data-theme="blue"] 切换生效) ============ */
 [data-theme="blue"] {
   --color-primary: hsl(217 91% 60%);
   --color-primary-hover: hsl(217 91% 55%);
@@ -45,7 +30,7 @@
   --color-ring: hsl(217 91% 60%);
 }
 
-/* ============ 紫色主题 ============ */
+/* ============ 紫色主题(显式 [data-theme="purple"] 切换生效) ============ */
 [data-theme="purple"] {
   --color-primary: hsl(265 89% 60%);
   --color-primary-hover: hsl(265 89% 55%);
@@ -66,33 +51,12 @@
   --color-ring: hsl(265 89% 60%);
 }
 
-/* ============ 暗色模式覆盖 ============ */
-/* 暗色模式下主色调亮,前景色变深,保持对比度 */
-.dark,
-.dark[data-theme="green"] {
-  --color-primary: hsl(142 71% 50%);
-  --color-primary-hover: hsl(142 71% 55%);
-  --color-primary-foreground: hsl(0 0% 8%);
-
-  --color-brand-50: hsl(145 70% 15%);
-  --color-brand-100: hsl(144 65% 25%);
-  --color-brand-200: hsl(143 70% 30%);
-  --color-brand-300: hsl(142 72% 35%);
-  --color-brand-400: hsl(142 71% 40%);
-  --color-brand-500: hsl(142 71% 50%);
-  --color-brand-600: hsl(142 71% 55%);
-  --color-brand-700: hsl(142 76% 60%);
-  --color-brand-800: hsl(141 83% 70%);
-  --color-brand-900: hsl(141 84% 80%);
-  --color-brand-950: hsl(138 76% 90%);
-
-  --color-ring: hsl(142 71% 50%);
-}
-
+/* ============ 暗色模式非默认主题覆盖 ============ */
+/* 暗色(白底)下:主色调亮,前景色用纯黑(与 tokens.css .dark primary-foreground 一致) */
 .dark[data-theme="blue"] {
   --color-primary: hsl(217 91% 65%);
   --color-primary-hover: hsl(217 91% 70%);
-  --color-primary-foreground: hsl(0 0% 8%);
+  --color-primary-foreground: hsl(0 0% 0%);
 
   --color-brand-50: hsl(229 84% 26%);
   --color-brand-100: hsl(226 71% 40%);
@@ -112,7 +76,7 @@
 .dark[data-theme="purple"] {
   --color-primary: hsl(265 89% 65%);
   --color-primary-hover: hsl(265 89% 70%);
-  --color-primary-foreground: hsl(0 0% 8%);
+  --color-primary-foreground: hsl(0 0% 0%);
 
   --color-brand-50: hsl(267 70% 25%);
   --color-brand-100: hsl(265 65% 35%);

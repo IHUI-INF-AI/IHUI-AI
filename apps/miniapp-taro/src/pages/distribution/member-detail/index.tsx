@@ -4,7 +4,6 @@ import { useState, useRef } from 'react'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import './index.css'
 
 interface MemberItem {
   id: string
@@ -111,54 +110,54 @@ export default function MemberDetail() {
   })
 
   return (
-    <View className="md-page">
-      <View className="md-stats">
-        <View className="md-stat-item">
-          <Text className="md-stat-value">{stats.teamCount}</Text>
-          <Text className="md-stat-label">
+    <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx]">
+      <View className="flex gap-[16rpx]">
+        <View className="flex-1 py-[28rpx] px-[12rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.15)] rounded-[12rpx] text-center">
+          <Text className="block text-[34rpx] font-bold text-[#00f2ff]">{stats.teamCount}</Text>
+          <Text className="block text-[22rpx] text-muted-foreground mt-[8rpx]">
             {tt('distribution.memberDetail.teamCount', '团队人数')}
           </Text>
         </View>
-        <View className="md-stat-item">
-          <Text className="md-stat-value">{stats.monthNew}</Text>
-          <Text className="md-stat-label">
+        <View className="flex-1 py-[28rpx] px-[12rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.15)] rounded-[12rpx] text-center">
+          <Text className="block text-[34rpx] font-bold text-[#00f2ff]">{stats.monthNew}</Text>
+          <Text className="block text-[22rpx] text-muted-foreground mt-[8rpx]">
             {tt('distribution.memberDetail.monthNew', '本月新增')}
           </Text>
         </View>
-        <View className="md-stat-item">
-          <Text className="md-stat-value">¥{stats.totalCommission}</Text>
-          <Text className="md-stat-label">
+        <View className="flex-1 py-[28rpx] px-[12rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.15)] rounded-[12rpx] text-center">
+          <Text className="block text-[34rpx] font-bold text-[#00f2ff]">¥{stats.totalCommission}</Text>
+          <Text className="block text-[22rpx] text-muted-foreground mt-[8rpx]">
             {tt('distribution.memberDetail.totalCommission', '总佣金')}
           </Text>
         </View>
       </View>
 
-      <View className="md-list-section">
-        <Text className="md-list-title">
+      <View className="mt-[28rpx]">
+        <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">
           {tt('distribution.memberDetail.memberList', '成员列表')}
         </Text>
 
         {list.length > 0 && (
-          <View className="md-list">
+          <View className="flex flex-col gap-[16rpx]">
             {list.map((m) => (
-              <View key={m.id} className="md-member-card">
+              <View key={m.id} className="flex items-center p-[24rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx]">
                 {m.avatar ? (
-                  <Image className="md-avatar" src={m.avatar} mode="aspectFill" />
+                  <Image className="w-[80rpx] h-[80rpx] rounded-[8rpx] bg-muted flex-shrink-0" src={m.avatar} mode="aspectFill" />
                 ) : (
-                  <View className="md-avatar md-avatar-fallback">
-                    <Text className="md-avatar-text">{m.nickname.charAt(0) || '?'}</Text>
+                  <View className="w-[80rpx] h-[80rpx] rounded-[8rpx] bg-muted flex-shrink-0 flex items-center justify-center">
+                    <Text className="text-[28rpx] font-semibold text-primary">{m.nickname.charAt(0) || '?'}</Text>
                   </View>
                 )}
-                <View className="md-member-info">
-                  <View className="md-member-top">
-                    <Text className="md-member-name">{m.nickname}</Text>
-                    <Text className="md-member-level">V{m.level}</Text>
+                <View className="flex-1 ml-[20rpx] min-w-0">
+                  <View className="flex items-center justify-between">
+                    <Text className="text-[28rpx] font-medium text-foreground truncate flex-1 min-w-0">{m.nickname}</Text>
+                    <Text className="text-[24rpx] font-semibold text-[#8b5cf6] ml-[16rpx] flex-shrink-0">V{m.level}</Text>
                   </View>
-                  <View className="md-member-bottom">
-                    <Text className="md-member-time">
+                  <View className="flex items-center justify-between mt-[10rpx]">
+                    <Text className="text-[22rpx] text-muted-foreground truncate flex-1 min-w-0">
                       {tt('distribution.memberDetail.joinTime', '加入')}:{m.joinTime || '-'}
                     </Text>
-                    <Text className="md-member-contribution">
+                    <Text className="text-[24rpx] font-semibold text-[#22c55e] ml-[16rpx] flex-shrink-0">
                       {tt('distribution.memberDetail.contribution', '贡献')} ¥{m.contribution}
                     </Text>
                   </View>
@@ -169,26 +168,26 @@ export default function MemberDetail() {
         )}
 
         {list.length === 0 && !loading && !error && (
-          <Text className="md-empty">{t('distribution.memberDetail.empty')}</Text>
+          <Text className="block text-center text-[26rpx] text-muted-foreground py-[80rpx]">{t('distribution.memberDetail.empty')}</Text>
         )}
 
         {error && !loading && (
-          <View className="md-error" onClick={() => load(true)}>
-            <Text className="md-error-text">
+          <View className="flex flex-col items-center py-[60rpx]" onClick={() => load(true)}>
+            <Text className="text-[26rpx] text-destructive">
               {tt('distribution.memberDetail.error', '加载失败')}
             </Text>
-            <Text className="md-error-retry">
+            <Text className="text-[26rpx] text-[#00f2ff] mt-[12rpx]">
               {tt('distribution.memberDetail.retry', '点击重试')}
             </Text>
           </View>
         )}
 
         {loading && (
-          <Text className="md-loading">{t('distribution.memberDetail.loading')}</Text>
+          <Text className="block text-center text-[26rpx] text-muted-foreground py-[80rpx]">{t('distribution.memberDetail.loading')}</Text>
         )}
 
         {!loading && !hasMore && list.length > 0 && (
-          <Text className="md-no-more">
+          <Text className="block text-center text-[26rpx] text-muted-foreground py-[80rpx]">
             {tt('distribution.memberDetail.noMore', '没有更多了')}
           </Text>
         )}

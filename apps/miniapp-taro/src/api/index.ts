@@ -11,6 +11,7 @@ import type {
   WalletBalance,
   VipLevel,
   SignContractResponse,
+  SubscriptionStatus,
 } from '@ihui/api-client'
 export type { UserInfo }
 export { get, post } from '../utils/request'
@@ -23,6 +24,7 @@ export type {
   WalletBalance,
   VipLevel,
   SignContractResponse,
+  SubscriptionStatus,
 } from '@ihui/api-client'
 // 向后兼容别名:SignContractResult → SignContractResponse(api-client canonical 名)
 export type SignContractResult = SignContractResponse
@@ -1338,15 +1340,6 @@ export interface WechatPayContract {
   trialEndAt?: string
   createdAt: string
   updatedAt: string
-}
-
-export interface SubscriptionStatus {
-  isVip: boolean
-  vipLevel?: number
-  endTime?: string
-  autoRenew: boolean
-  planName?: string
-  contract?: WechatPayContract
 }
 
 export const signRecurringContract = (params: {
