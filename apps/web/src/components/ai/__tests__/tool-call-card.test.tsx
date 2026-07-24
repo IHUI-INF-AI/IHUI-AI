@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
 import React from 'react'
-import { render, cleanup, screen } from '@testing-library/react'
+import { render, cleanup, screen, fireEvent } from '@testing-library/react'
 
 import { ToolCallCard } from '../tool-call-card'
 
@@ -88,5 +88,153 @@ describe('ToolCallCard repeated 徽章渲染', () => {
     // iteration 徽章(第3轮)+ repeated 徽章(已跳过)都应渲染
     expect(screen.getByText('第3轮')).toBeTruthy()
     expect(screen.getByText('已跳过')).toBeTruthy()
+  })
+})
+
+/**
+ * ToolCallCard image / summary 类型渲染守门测试。
+ *
+ * 验证 image_generation(summarize_artifacts)工具命中专用渲染分支,
+ * 无匹配数据时回退到 JSON args/result 渲染。展开状态由 header button 控制,
+ * 默认 collapsed,需 fireEvent.click 触发展开后才校验内容。
+ */
+describe('ToolCallCard image rendering', () => {
+  afterEach(() => cleanup())
+
+  it('image_generation 工具 + imageUrl 时渲染 <img>', () => {
+    render(
+      <ToolCallCard
+        toolName="image_generation"
+        args={{ prompt: '一只猫' }}
+        imageUrl="data:image/png;base64,xxx"
+        status="success"
+      />,
+    )
+    // 展开卡片
+    fireEvent.click(screen.getByText('image_generation').closest('button')!)
+    // img 存在 + alt="一只猫"(jsdom 不触发 onLoad,img 仍在 DOM,只是 opacity-0)
+    const img = screen.getByAltText('一只猫')
+    expect(img).toBeTruthy()
+    expect(img.getAttribute('src')).toBe('data:image/png;base64,xxx')
+  })
+
+  it('image_generation 工具无 imageUrl 时回退到 JSON 渲染', () => {
+    render(
+      <ToolCallCard
+        toolName="image_generation"
+        args={{ prompt: '一只猫' }}
+        status="success"
+      />,
+    )
+    fireEvent.click(screen.getByText('image_generation').closest('button')!)
+    // 无 img
+    expect(screen.queryByRole('img')).toBeNull()
+    // 回退到 JSON args 渲染(参数 label 存在)
+    expect(screen.getByText('参数')).toBeTruthy()
+  })
+
+  it('非 image_generation 工具 + imageUrl 时不渲染 img', () => {
+    render(
+      <ToolCallCard
+        toolName="read_file"
+        args={{}}
+        imageUrl="data:image/png;base64,xxx"
+        status="success"
+      />,
+    )
+    fireEvent.click(screen.getByText('read_file').closest('button')!)
+    // imageUrl 仅对 image_generation 生效,read_file 不渲染 img
+    expect(screen.queryByRole('img')).toBeNull()
+  })
+})
+
+describe('ToolCallCard summary rendering', () => {
+  afterEach(() => cleanup())
+
+  it('summarize_artifacts + summaryData 时渲染聚合视图', () => {
+    render(
+      <ToolCallCard
+        toolName="summarize_artifacts"
+        args={{}}
+        summaryData={{
+          plans: [{ id: 'p1', title: 'Plan A', status: 'completed' }],
+          sources: [{ type: 'file', ref: 'src/foo.ts' }],
+          tool_calls_summary: { total: 5, by_tool: { read_file: 3, write_file: 2 } },
+        }}
+        status="success"
+      />,
+    )
+    fireEvent.click(screen.getByText('summarize_artifacts').closest('button')!)
+    expect(screen.getByText('计划 (1)')).toBeTruthy()
+    expect(screen.getByText('引用 (1)')).toBeTruthy()
+    expect(screen.getByText('工具调用 (5 次)')).toBeTruthy()
+    // by_tool 徽章
+    expect(screen.getByText('read_file × 3')).toBeTruthy()
+    expect(screen.getByText('write_file × 2')).toBeTruthy()
+  })
+
+  it('summarize_artifacts 无 summaryData 时回退到 JSON', () => {
+    render(
+      <ToolCallCard
+        toolName="summarize_artifacts"
+        args={{}}
+        status="success"
+      />,
+    )
+    fireEvent.click(screen.getByText('summarize_artifacts').closest('button')!)
+    // 无聚合视图标题
+    expect(screen.queryByText(/^计划/)).toBeNull()
+    // 回退到 JSON(参数 label)
+    expect(screen.getByText('参数')).toBeTruthy()
+  })
+
+  it('summary sources 超过 5 个时显示 "还有 N 个"', () => {
+    const sources = Array.from({ length: 7 }, (_, i) => ({ type: 'file', ref: `file${i}.ts` }))
+    render(
+      <ToolCallCard
+        toolName="summarize_artifacts"
+        args={{}}
+        summaryData={{ sources }}
+        status="success"
+      />,
+    )
+    fireEvent.click(screen.getByText('summarize_artifacts').closest('button')!)
+    // 前 5 个 ref 渲染 + "... 还有 2 个" 提示
+    expect(screen.getByText('file0.ts')).toBeTruthy()
+    expect(screen.getByText('file4.ts')).toBeTruthy()
+    expect(screen.getByText('... 还有 2 个')).toBeTruthy()
+  })
+
+  it('summary plans 状态为 completed 渲染绿色徽章', () => {
+    render(
+      <ToolCallCard
+        toolName="summarize_artifacts"
+        args={{}}
+        summaryData={{
+          plans: [{ id: 'p1', title: 'Plan A', status: 'completed' }],
+        }}
+        status="success"
+      />,
+    )
+    fireEvent.click(screen.getByText('summarize_artifacts').closest('button')!)
+    const badge = screen.getByText('completed')
+    expect(badge).toBeTruthy()
+    // 绿色徽章类含 green-600
+    expect(badge.getAttribute('class')).toContain('green-600')
+  })
+
+  it('image 和 summary 都不存在时仍渲染 JSON', () => {
+    render(
+      <ToolCallCard
+        toolName="read_file"
+        args={{ path: '/tmp/test.txt' }}
+        result={{ content: 'hello' }}
+        status="success"
+      />,
+    )
+    fireEvent.click(screen.getByText('read_file').closest('button')!)
+    // args/result JSON 渲染(参数 + 结果 label)
+    expect(screen.getByText('参数')).toBeTruthy()
+    expect(screen.getByText('结果')).toBeTruthy()
   })
 })
