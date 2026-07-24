@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 /**
  * (main) 路由组错误边界。

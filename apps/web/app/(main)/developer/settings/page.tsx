@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Settings, Loader2, Save, AlertTriangle, Trash2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, Button, Input, Label, Switch } from '@ihui/ui'
+import { Card, CardContent, Button, Input, Label, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 
 interface DevInfo {

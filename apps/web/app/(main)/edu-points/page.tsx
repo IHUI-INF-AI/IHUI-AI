@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Award, Loader2, Star, TrendingUp, Coins } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 interface Channel {
   id: string

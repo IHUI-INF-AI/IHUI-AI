@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { ChevronLeft, Plus } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { selectClass } from '@/lib/edu'
-import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { TYPES } from './helpers'
 import type { Paper } from './types'
 

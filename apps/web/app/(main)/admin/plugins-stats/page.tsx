@@ -10,7 +10,7 @@ import {
   RefreshCw,
   TrendingUp,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle, Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import type { PluginStatsRow, PluginStatsSummary, PluginTrendRow } from '@ihui/types'
 import { MARKET_PLUGINS, PROJECT_PLUGINS } from '../../plugins/plugins-data'

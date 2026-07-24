@@ -9,7 +9,7 @@ import { Loader2, Plus, Pencil, Trash2, Eye, Heart } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import type { ArticleItem, MyArticlesData } from '../../articles/types'
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {

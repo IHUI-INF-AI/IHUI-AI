@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { Calendar, ChevronRight, Newspaper, Sparkles, TrendingUp } from 'lucide-react'
 
-import { Button, Card } from '@ihui/ui'
+import { Button, Card } from '@ihui/ui-react'
 import { getAiNewsFeed, type AiNewsItem } from '@/lib/models-api'
 import { LIVE_2026_MODELS } from './helpers'
 

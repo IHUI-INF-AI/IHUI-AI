@@ -7,7 +7,7 @@ import { Loader2, Package, Bot, FileText, Cpu, Code2, ArrowRight } from 'lucide-
 import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui-react'
 import { FeatureCenterHeader, FeatureCenterNav } from '@/components/feature-center'
 
 interface FeatureStats {

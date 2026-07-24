@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Loader2 } from 'lucide-react'
-import { Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, Checkbox, Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '@ihui/ui'
+import { Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, Checkbox, Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 
 const ROLE_OPTIONS = [

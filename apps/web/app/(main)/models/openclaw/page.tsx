@@ -1,7 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import { Check, Rocket, Terminal } from 'lucide-react'
 
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 export default async function OpenClawPage() {
   const t = await getTranslations('models')

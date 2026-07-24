@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { selectClass, api } from './helpers'
 import type { MemberGroup } from './types'
 

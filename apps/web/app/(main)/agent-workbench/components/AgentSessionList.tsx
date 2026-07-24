@@ -9,7 +9,7 @@ import {
   DialogTitle,
   DialogDescription,
   cn,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 
 interface Session {

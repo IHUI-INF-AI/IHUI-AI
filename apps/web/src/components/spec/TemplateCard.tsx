@@ -8,7 +8,7 @@ import {
   CardContent,
   CardFooter,
   Button,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { SpecTemplate } from '@ihui/shared/spec/index'
 
 interface TemplateCardProps {

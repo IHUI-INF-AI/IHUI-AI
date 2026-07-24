@@ -18,7 +18,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { api, RESOURCE, IDENTITY_OPTIONS, selectClass } from './helpers'
 import type { UserCenter } from './types'
 

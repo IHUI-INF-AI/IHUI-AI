@@ -12,7 +12,7 @@ import {
   type CommissionOverview,
   type InviteInfo,
 } from '@/lib/distribution-api'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { StatCard } from '@/components/data'
 import { cn } from '@/lib/utils'
 

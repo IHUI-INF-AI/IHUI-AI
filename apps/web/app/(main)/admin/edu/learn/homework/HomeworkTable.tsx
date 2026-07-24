@@ -1,7 +1,7 @@
 'use client'
 import { Edit, Trash2, Loader2, ClipboardList } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { isNotFound } from '@/lib/api-error'
 import { Tooltip } from '@/components/feedback'

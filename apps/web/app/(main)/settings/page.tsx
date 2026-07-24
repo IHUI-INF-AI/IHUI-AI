@@ -6,7 +6,7 @@ import { useTheme } from 'next-themes'
 import Link from 'next/link'
 import { KeyRound } from 'lucide-react'
 
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
 import { Alert } from '@/components/feedback'
 import {

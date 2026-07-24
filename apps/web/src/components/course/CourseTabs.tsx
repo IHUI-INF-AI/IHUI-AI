@@ -11,7 +11,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { Check, Star, Award, FileText, Clock, Loader2 } from 'lucide-react'
 import { CommentItem } from '@/components/business'
 import { Empty } from '@/components/common'

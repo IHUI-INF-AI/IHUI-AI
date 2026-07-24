@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, Users, Pencil, Trash2, UserPlus } from 'lucide-react'
-import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
+import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { formatTime } from './helpers'

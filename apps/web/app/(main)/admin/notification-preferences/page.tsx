@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Bell } from 'lucide-react'
-import { Button, Input, Label, Switch, Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
+import { Button, Input, Label, Switch, Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 
 interface FormState {

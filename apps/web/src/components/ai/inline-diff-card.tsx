@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Check, X, Loader2, AlertCircle, FileText } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { InlineDiffInfo } from './types'
 import type { DiffApplyStatus } from '@/stores/chat'

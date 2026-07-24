@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { ArrowLeftRight, Plus } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { ExchangeRateTable } from './ExchangeRateTable'
 import { ExchangeRateDialog } from './ExchangeRateDialog'

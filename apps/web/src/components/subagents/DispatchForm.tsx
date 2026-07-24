@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Loader2, Plus, Trash2, ChevronDown } from 'lucide-react'
-import { Button, Input, Card, CardContent } from '@ihui/ui'
+import { Button, Input, Card, CardContent } from '@ihui/ui-react'
 import type {
   SubagentDispatchInput,
   AgentRole,

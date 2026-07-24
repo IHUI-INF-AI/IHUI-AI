@@ -20,7 +20,7 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
 } from '@/lib/notification-api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { NotificationItem } from '@/components/business'
 import { Timeline } from '@/components/data/Timeline'
