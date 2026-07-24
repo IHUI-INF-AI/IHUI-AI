@@ -7,6 +7,15 @@ vi.hoisted(() => {
   process.env.REDIS_URL ??= 'redis://localhost:6379/0'
 })
 
+// Mock alipay verifyNotify:测试 alipay/notify 公开回调时跳过真实验签。
+vi.mock('../../services/alipay.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../services/alipay.js')>()
+  return {
+    ...actual,
+    verifyNotify: vi.fn(() => true),
+  }
+})
+
 import { paymentGatewayRoutes, adminPaymentGatewayRoutes } from '../payment-gateway.js'
 
 describe('Payment Gateway API', () => {
@@ -87,7 +96,7 @@ describe('Payment Gateway API', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/payments/alipay/notify',
-        payload: {},
+        payload: { sign: 'test-sign' },
       })
       expect(res.statusCode).toBe(200)
       expect(res.headers['content-type']).toContain('text/plain')
