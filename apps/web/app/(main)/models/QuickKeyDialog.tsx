@@ -44,7 +44,7 @@ import {
   DialogTitle,
   Input,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import { BrandIcon } from '@/components/ai/brand-icon'
 import { Tooltip } from '@/components/feedback'

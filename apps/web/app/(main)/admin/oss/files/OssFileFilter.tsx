@@ -1,7 +1,7 @@
 'use client'
 
 import { Search } from 'lucide-react'
-import { Input } from '@ihui/ui'
+import { Input } from '@ihui/ui-react'
 
 interface Props {
   fileName: string

@@ -1,7 +1,7 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import type { ComponentProps } from 'react'
 import { TextInput } from 'react-native'
-import { cn } from '@ihui/ui-primitives'
+import { cn } from '@ihui/design-tokens'
 
 export type InputProps = ComponentProps<typeof TextInput>
 

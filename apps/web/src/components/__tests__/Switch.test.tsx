@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import React from 'react'
 import { render, fireEvent, cleanup, screen } from '@testing-library/react'
 
-import { Switch } from '@ihui/ui'
+import { Switch } from '@ihui/ui-react'
 
 /**
  * Switch 视觉与行为守门测试 (2026-07-22 立)

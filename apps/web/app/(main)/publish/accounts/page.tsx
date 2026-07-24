@@ -22,7 +22,7 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 interface Account {
   id: string

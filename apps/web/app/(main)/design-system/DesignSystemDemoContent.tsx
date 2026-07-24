@@ -18,7 +18,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { Avatar, Badge } from '@/components/data'
 import { Textarea } from '@/components/form'
 import { Container } from '@/components/layout'

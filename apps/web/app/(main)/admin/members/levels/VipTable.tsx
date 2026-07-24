@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, Plus, Download, Search } from 'lucide-react'
 
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button, Input, Label } from '@ihui/ui'
+import { Button, Input, Label } from '@ihui/ui-react'
 import { th } from './helpers'
 import type { Item, FormState } from './types'
 

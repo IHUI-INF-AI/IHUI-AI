@@ -14,7 +14,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { SOURCE_MAP } from './helpers'
 import { Tooltip } from '@/components/feedback'

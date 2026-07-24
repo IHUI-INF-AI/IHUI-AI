@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, ArrowUpRight, ArrowDownRight } from 'lucide-react'
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { TYPE_LABEL } from './helpers'
 import type { FundFlow } from './types'

@@ -11,7 +11,7 @@ import {
   DialogFooter,
   Button,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import { textareaClass, CHANNEL_LABEL } from './types'
 import type { useWithdrawalDetail } from './useWithdrawalDetail'

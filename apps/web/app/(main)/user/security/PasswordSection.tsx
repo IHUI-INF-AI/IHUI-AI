@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Lock, Loader2 } from 'lucide-react'
-import { Button, Input, Label } from '@ihui/ui'
+import { Button, Input, Label } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { FormMsg } from './types'
 

@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, HelpCircle, Search, BookOpen, Mail } from 'lucide-react'
 
-import { Card, CardContent, Button, Input } from '@ihui/ui'
+import { Card, CardContent, Button, Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { api, excerptFromContent, type HelpCategory, type HelpArticleSummary } from '@/lib/content'
 

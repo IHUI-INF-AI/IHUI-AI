@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Database, Table2, Clock, Lightbulb, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/date-utils'
 

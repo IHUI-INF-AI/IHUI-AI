@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { TrendingUp, ShoppingCart } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { RadarChart } from '@/components/charts/RadarChart'
 import { LineChart } from '@/components/charts/LineChart'
 import { PieChart } from '@/components/charts/PieChart'

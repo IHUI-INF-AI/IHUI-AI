@@ -7,7 +7,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { FileText, Loader2, Calendar, Tag } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { SafeHtml } from '@/components/common'
 import { cn } from '@/lib/utils'
 

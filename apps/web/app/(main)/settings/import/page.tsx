@@ -14,7 +14,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
 import { Alert } from '@/components/feedback'
 import {

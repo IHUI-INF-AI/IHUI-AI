@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { Plus, Edit, Trash2, Loader2 } from 'lucide-react'
 
-import { Button, Card, CardContent, Switch } from '@ihui/ui'
+import { Button, Card, CardContent, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback/Alert'
 import { fetchApi } from '@/lib/api'
 

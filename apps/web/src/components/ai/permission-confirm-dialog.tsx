@@ -3,8 +3,8 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Edit, Monitor, FileText, AlertTriangle, X, Check } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@ihui/ui'
-import { Button, Checkbox } from '@ihui/ui'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@ihui/ui-react'
+import { Button, Checkbox } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
 import type { PendingToolCall } from './types'

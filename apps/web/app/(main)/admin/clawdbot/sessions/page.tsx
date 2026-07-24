@@ -5,7 +5,7 @@ import { useLocale } from 'next-intl'
 import { MessageSquare, Loader2, Eye, X } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 
 interface SessionItem {
