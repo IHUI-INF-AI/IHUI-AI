@@ -1,17 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  ActivityIndicator,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { FlatList, KeyboardAvoidingView, Platform, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Button, Card } from '@ihui/ui-native'
+import { Button, Card, Input, Loading } from '@ihui/ui-native'
 import { getLiveById, subscribeLive, type Live } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { LiveStackParamList } from '../navigation/RootNavigator'
@@ -168,7 +159,7 @@ export function LiveDetailScreen() {
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator />
+        <Loading />
       </View>
     )
   }
@@ -295,7 +286,7 @@ export function LiveDetailScreen() {
       </View>
 
       <View className="flex-row items-center gap-2 px-4 py-2">
-        <TextInput
+        <Input
           value={input}
           onChangeText={setInput}
           placeholder={t('live.chatPlaceholder')}

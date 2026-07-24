@@ -2,7 +2,6 @@ import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useCallback } from 'react'
 import { useI18n } from '@/i18n'
-import './protocol.css'
 
 interface ProtocolSection {
   subtitle: string
@@ -513,16 +512,16 @@ export default function ProtocolPage() {
   ]
 
   return (
-    <ScrollView className="protocol-page" scrollY>
-      <View className="protocol-content">
-        <Text className="protocol-main-title">{tt('about.protocol.mainTitle', '服务协议')}</Text>
+    <ScrollView className="h-screen bg-card" scrollY>
+      <View className="px-[32rpx] pt-[32rpx] pb-[60rpx]">
+        <Text className="block text-[40rpx] font-bold text-foreground text-center mb-[32rpx]">{tt('about.protocol.mainTitle', '服务协议')}</Text>
         {sections.map((section, sIdx) => (
-          <View key={sIdx} className="protocol-section">
-            <Text className="protocol-subtitle">{section.subtitle}</Text>
+          <View key={sIdx} className="mb-[40rpx]">
+            <Text className="block text-[32rpx] font-bold text-foreground mb-[20rpx]">{section.subtitle}</Text>
             {section.paragraphs.map((p, pIdx) => (
-              <View key={pIdx} className="protocol-paragraph-wrap">
-                {p.title ? <Text className="protocol-paragraph-title">{p.title}</Text> : null}
-                <Text className="protocol-paragraph">{p.text}</Text>
+              <View key={pIdx} className="mb-[20rpx]">
+                {p.title ? <Text className="block text-[30rpx] font-semibold text-foreground mb-[16rpx]">{p.title}</Text> : null}
+                <Text className="block text-[28rpx] text-foreground leading-[1.8] text-justify">{p.text}</Text>
               </View>
             ))}
           </View>
