@@ -8,6 +8,49 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) 维护成本优化第二轮 — reports 清理 + 守门脚本索引 + docs 一致性修复 + i18n/冗余依赖分析报告(平台独占:scripts + docs + reports + .gitignore)
+
+**触发**:用户要求"继续按建议执行,最多 agent 并行开发最大化效率"。基于第一轮维护成本分析审计结果(web i18n 14749 无引用 61% + 260 动态拼接;93 守门脚本;各端依赖冗余),派发 5 个并行 subagent 执行第二轮优化。
+
+**执行方式**:5 个 subagent 并行(reports 清理 / 守门脚本索引 / docs 一致性 / i18n 治理方案 / 冗余依赖分析)。
+
+**成果清单**:
+
+#### Subagent 1: reports/ 临时文件清理 + .gitignore
+- 删除 42 个 reports/*.csv 临时审计文件(26 tracked + 16 untracked)
+- .gitignore 追加 `reports/*.csv` 规则(第 270-276 行)
+- 保留 12 个 reports/*.json 审计摘要
+
+#### Subagent 2: 守门脚本分类索引(scripts/README.md)
+- 新建 scripts/README.md(150 行)
+- 分类 93 个 .mjs 脚本:i18n 守门 25 + 迁移审计 7 + 守门检查 36 + 构建/部署 2 + 工具脚本 23
+- 每类一个表格,字段:脚本名 / 用途 / pre-commit 项 / 备注
+
+#### Subagent 3: docs/ 文档一致性修复(7 处)
+- CREDENTIAL_ROTATION_RUNBOOK.md 3 处:引用不存在的 rollback-credential.ps1 → 改为手动回滚流程
+- TESTING.md 4 处:测试端口 5432→8810(DATABASE_URL)、6379→8811(REDIS_URL)与实际代码一致
+
+#### Subagent 4: i18n 治理方案分析报告(.trae-cn/tmp/i18n-cleanup-plan.md,285 行,不入库)
+- web:24162 key,14749 无引用(61%),260 动态拼接,40+ 命名空间
+- miniapp-taro:2404 key,521 无引用(21.7%),13 动态拼接(全部可改静态映射)
+- 推荐方案 A(动态拼接改静态映射)+ C(现状兜底),6 阶段 6-8 天
+
+#### Subagent 5: 冗余依赖分析报告(.trae-cn/tmp/deps-audit-report.md,176 行,不入库)
+- P0 可疑冗余:playwright-core(api)、source-map-js(web)— 代码零引用
+- P1 功能重复:argon2/bcryptjs、jsonwebtoken/jose、happy-dom/jsdom
+- P2 版本分裂:tailwindcss v3/v4、react 18/19、zod 3.25/3.24
+- P3 重型低密度:three(1.5MB)、@tiptap(800KB)、hls.js(400KB)、pdfjs-dist(2MB)
+- 预估 P0+P1 清理可减少 ~60MB+ 安装体积
+
+**验证**:
+
+- .gitignore + scripts/README.md + docs/* 修改已 Read 验证落地 ✅
+- reports/*.csv 已删除(Get-ChildItem 返回空)✅
+- 分析报告(.trae-cn/tmp/)行数达标 ✅
+- git local == remote(4e430e861)✅
+
+---
+
 ### [x] ✅(2026-07-25) i18n 命名空间统一执行 + mobile-rn 卡片接入评估 — web agents→agent + miniapp-taro/mobile-rn 现状确认 + 卡片接入可行性评估(跨端:web + miniapp-taro + mobile-rn + packages/i18n)
 
 **触发**:用户要求"继续"。承接架构优化 4 项中 i18n 命名空间调研报告(方案 C 渐进式统一)的执行 + @ihui/app 卡片组件应用到 mobile-rn。
