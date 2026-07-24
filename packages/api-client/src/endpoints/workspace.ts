@@ -1,7 +1,7 @@
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
-import { buildQs, type PageData } from '../utils.js'
+import { fetchApi } from '../client'
+import { buildQs, type PageData } from '../utils'
 
 export interface Workspace {
   id: string
@@ -212,7 +212,9 @@ export interface OpenWorkspaceResult {
 }
 
 /** 浏览服务器本地目录(根路径返回盘符列表) */
-export async function browseDirectory(path?: string): Promise<ApiResult<{ entries: BrowseEntry[] }>> {
+export async function browseDirectory(
+  path?: string,
+): Promise<ApiResult<{ entries: BrowseEntry[] }>> {
   return fetchApi<{ entries: BrowseEntry[] }>('/api/workspace/fs/browse', {
     method: 'POST',
     body: JSON.stringify({ path: path ?? '' }),
@@ -546,9 +548,7 @@ export async function updatePermissionRule(
 }
 
 /** 删除规则 */
-export async function deletePermissionRule(
-  id: string,
-): Promise<ApiResult<{ deleted: boolean }>> {
+export async function deletePermissionRule(id: string): Promise<ApiResult<{ deleted: boolean }>> {
   return fetchApi<{ deleted: boolean }>(
     `/api/workspace/permissions/rules/${encodeURIComponent(id)}`,
     { method: 'DELETE' },
@@ -559,10 +559,10 @@ export async function deletePermissionRule(
 export async function resetPermissionRules(
   workspacePath: string,
 ): Promise<ApiResult<{ rules: WorkspacePermissionRule[] }>> {
-  return fetchApi<{ rules: WorkspacePermissionRule[] }>(
-    '/api/workspace/permissions/rules/reset',
-    { method: 'POST', body: JSON.stringify({ workspacePath }) },
-  )
+  return fetchApi<{ rules: WorkspacePermissionRule[] }>('/api/workspace/permissions/rules/reset', {
+    method: 'POST',
+    body: JSON.stringify({ workspacePath }),
+  })
 }
 
 /** 审计日志 */
