@@ -1,10 +1,8 @@
 import { View, Text } from '@tarojs/components'
+import type { Agent } from '@ihui/api-client'
 import { useI18n } from '@/i18n'
 
-export interface AgentRef {
-  id: string
-  name: string
-}
+export type AgentRef = Pick<Agent, 'id' | 'name'>
 
 export interface IntroductionProps {
   content?: string
@@ -28,7 +26,9 @@ export default function Introduction({
       )}
       {agents.length > 0 && (
         <View className="mt-3 pt-3">
-          <Text className="block text-xs text-muted-foreground mb-2">{tt('intro.relatedAI', '关联 AI 应用')}</Text>
+          <Text className="block text-xs text-muted-foreground mb-2">
+            {tt('intro.relatedAI', '关联 AI 应用')}
+          </Text>
           <View className="flex flex-wrap">
             {agents.map((agent) => (
               <View
