@@ -18,7 +18,10 @@ export default {
     failed: 'Operation failed',
     user: 'User',
     uploading: 'Uploading',
-    noMore: 'No more'
+    noMore: 'No more',
+    consult: 'Consult',
+    loadingShort: 'Loading...',
+    free: 'Free'
   },
   nav: {
     home: 'Home',
@@ -146,9 +149,9 @@ export default {
     goldTeacher: 'Top instructor',
     followed: 'Following',
     noIntro: 'No introduction',
-    objectives: null,
-    suitableFor: null,
-    highlights: null,
+    objectives: 'Learning Objectives',
+    suitableFor: 'Suitable For',
+    highlights: 'Course Highlights',
     nextLesson: 'Next: {{title}}',
     startLearning: 'Start learning',
     buyNow: 'Buy now',
@@ -162,7 +165,7 @@ export default {
     noteTitle: '{{title}} — Notes',
     scanCourse: 'Scan to view course',
     loadFailed: 'Course load failed',
-    weekDays: null,
+    weekDays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
     list: {
       searchPlaceholder: 'Search courses',
       search: 'Search',
@@ -173,7 +176,9 @@ export default {
     ratingPlaceholder: 'Please rate',
     ratingDescLabel: 'Write your review',
     ratingInputPlaceholder: 'How was the course? Share your thoughts...',
-    ratingSubmit: 'Submit Review'
+    ratingSubmit: 'Submit Review',
+    intro: 'Course Intro',
+    audience: 'Target Audience'
   },
   live: {
     title: 'Live',
@@ -407,6 +412,21 @@ export default {
       aiTeam: 'AI Team'
     }
   },
+  action: {
+    like: 'Like',
+    favorite: 'Favorite',
+    share: 'Share'
+  },
+  modelType: {
+    skills: 'Skills',
+    talk: 'Chat',
+    image: 'Image',
+    video: 'Video',
+    audio: 'Audio',
+    videoa: 'Digital Human',
+    other: 'All',
+    sck: 'Material'
+  },
   agent: {
     title: 'Agents',
     create: 'New agent',
@@ -516,7 +536,7 @@ export default {
     welcomeTitle: 'Hi, I\'m your IHUI AI assistant',
     welcomeDesc: 'How can I help you?',
     inputPlaceholder: 'Ask a question…',
-    suggestions: null,
+    suggestions: ['Write me a poem', 'Explain quantum mechanics', 'Write some code', 'Translate this text'],
     thinking: 'Thinking…',
     stop: 'Stop',
     clear: 'Clear',
@@ -601,7 +621,7 @@ export default {
       timbre: 'Timbre'
     },
     image: {
-      examples: null,
+      examples: ['A cute cat', 'Sunset mountain landscape', 'Futuristic city', 'Abstract art'],
       emptyHint: 'Describe an image to generate',
       tryThese: 'Try these',
       placeholder: 'Describe the image you want',
@@ -617,7 +637,7 @@ export default {
       empty: 'No generations yet',
       size: 'Size',
       style: 'Style',
-      styles: null,
+      styles: ['Realistic', 'Anime', 'Oil Painting', 'Watercolor', '3D', 'Pixel'],
       generateFailed: 'Generation failed, please retry',
       promptRequired: 'Please enter a description',
       downloadSuccess: 'Saved to album',
@@ -748,25 +768,25 @@ export default {
       nanobanana: {
         name: 'NanoBanana',
         desc: 'Google image editing model, supports natural-language image editing',
-        capabilities: null,
+        capabilities: ['Image Editing', 'Natural Language Commands', 'High-Quality Output'],
         apiStatus: 'Tap to open AI Image'
       },
       veo3: {
         name: 'Veo3',
         desc: 'Google video generation model, supports high-quality text-to-video',
-        capabilities: null,
+        capabilities: ['Video Generation', 'Text to Video', 'High Quality'],
         apiStatus: 'Tap to open AI Video'
       },
       httpmodel: {
         name: 'HttpModel',
         desc: 'Generic HTTP model proxy, supports custom model integration',
-        capabilities: null,
+        capabilities: ['Custom Model', 'HTTP Proxy', 'Flexible Integration'],
         apiStatus: 'Tap to open AI Chat'
       },
       geminiFlash: {
         name: 'Gemini-2.5-flash',
         desc: 'Google Gemini 2.5 Flash text model, fast response',
-        capabilities: null,
+        capabilities: ['Text Chat', 'Fast Response', 'Multilingual'],
         apiStatus: 'Available via AI Chat'
       },
       cat: {
@@ -1117,7 +1137,7 @@ export default {
       starting: 'Entering exam…'
     },
     answer: {
-      judgmentOptions: null,
+      judgmentOptions: ['True', 'False'],
       loadFailed: 'Paper load failed',
       answerPlaceholder: 'Type your answer',
       prev: 'Previous',
@@ -1299,7 +1319,16 @@ export default {
       empty: 'No ranking data'
     },
     rankTitle: 'Distribution Ranking',
-    rankEmpty: 'No ranking data'
+    rankEmpty: 'No ranking data',
+    statsTitle: 'Revenue Overview',
+    thisMonth: 'This Month',
+    totalRevenue: 'Total Revenue',
+    monthRevenue: 'Monthly Revenue',
+    monthlyTarget: 'Target',
+    withdrawable: 'Withdrawable',
+    pendingSettle: 'Pending Settlement',
+    withdrawn: 'Withdrawn',
+    myTeam: 'My Team'
   },
   about: {
     version: 'Version {{version}}',
@@ -1420,13 +1449,13 @@ export default {
       callNow: 'Call customer service now'
     },
     businessLicense: {
-      labels: null,
+      labels: ['Unified Social Credit Code', 'Name', 'Type', 'Legal Representative', 'Registered Capital', 'Establishment Date', 'Business Period', 'Business Scope'],
       scopeTitle: 'Business scope',
       footer: 'For reference only, subject to business registration',
       tapToView: 'Tap to view business license'
     },
     icpRecord: {
-      labels: null,
+      labels: ['ICP Record Number', 'Record Entity', 'Record Nature', 'Approval Date', 'Record Type'],
       footer: 'Sourced from MIIT filing system',
       icpNo: 'ICP filing No.',
       policeNo: 'Public security filing No.',
@@ -1438,11 +1467,11 @@ export default {
       icpLabel: 'ICP filing/license number'
     },
     usageRules: {
-      titles: null,
-      account: null,
-      content: null,
-      usage: null,
-      disclaimer: null,
+      titles: ['1. Account Usage Rules', '2. Content Publishing Rules', '3. Payment and Rights Rules', '4. Violation Handling Rules', '5. Disclaimer'],
+      account: ['Users must register through official channels', 'Account ownership belongs to the platform', 'Users must keep login credentials safe', 'Malicious account registration is prohibited'],
+      content: ['Published content must comply with laws', 'Illegal harmful information is prohibited', 'Infringement of intellectual property is prohibited', 'Platform reserves the right to review and delete violations'],
+      usage: ['Users must not interfere with platform operations', 'Using automation tools for fake traffic is prohibited', 'Exploiting vulnerabilities for profit is prohibited', 'User behavior must follow principles of good faith'],
+      disclaimer: ['Platform is not liable for service interruptions', 'Users bear the risk of use', 'Platform is not responsible for third-party content', 'Platform is not liable for losses due to force majeure'],
       footer: 'Effective from the date of publication',
       titleAccount: '1. Account usage',
       titleContent: '2. Content rules',
@@ -1460,8 +1489,8 @@ export default {
       }
     },
     appPermission: {
-      names: null,
-      descs: null,
+      names: ['Album Permission', 'Camera Permission', 'Microphone Permission', 'Location Permission', 'Notification Permission'],
+      descs: ['For saving and uploading images to album', 'For taking photos and recording videos', 'For voice input and recording', 'For obtaining your geographic location', 'For receiving push notifications'],
       intro: 'IHUI AI needs the following permissions to provide full functionality',
       required: 'Required',
       optional: 'Optional',
@@ -1472,7 +1501,7 @@ export default {
       openAllSetting: 'Open system settings'
     },
     modelRecord: {
-      labels: null,
+      labels: ['Model Name', 'Model Type', 'Record Number', 'Record Entity', 'Review Date', 'Service Scope'],
       noticeTitle: 'Model information',
       noticeText: 'This app uses AI technology. Below is the model information.',
       footer: 'For reference only',
@@ -1831,9 +1860,9 @@ export default {
   },
   plaza: {
     setNeed: {
-      categories: null,
-      levels: null,
-      budgets: null,
+      categories: ['Learning Insights', 'Tech Sharing', 'Course Notes', 'Project Practice', 'Help Request', 'Experience Summary'],
+      levels: ['Beginner', 'Intermediate', 'Advanced', 'Expert'],
+      budgets: ['Under 1000 CNY', '1000-5000 CNY', '5000-10000 CNY', 'Over 10000 CNY'],
       selectAtLeast: 'Please select at least one',
       saved: 'Saved',
       directionTitle: 'Learning direction',
@@ -1922,7 +1951,8 @@ export default {
       copyHint: 'Tap to copy',
       contentTitle: 'Details',
       loadFailed: 'Get detail'
-    }
+    },
+    noData: 'No Ranking Data'
   },
   recruitment: {
     applied: 'Application submitted',
@@ -2009,7 +2039,12 @@ export default {
     },
     startConversation: 'Start your conversation',
     inputPlaceholder: 'Type a message...',
-    sendBtn: 'Send'
+    sendBtn: 'Send',
+    noInteraction: 'No Messages',
+    noPrivate: 'No Private Messages',
+    noSystem: 'No System Notices',
+    markRead: 'Mark Read',
+    deleteConv: 'Delete Conversation'
   },
   member: {
     index: {
@@ -2103,7 +2138,16 @@ export default {
     vipSubscription: 'VIP subscription',
     balanceAmount: 'Balance ¥{{n}}',
     recharge: 'Recharge',
-    couponAvailable: '{{n}} available'
+    couponAvailable: '{{n}} available',
+    limitedFree: 'Limited Free',
+    memberFree: 'VIP Free',
+    buyNow: 'Buy Now',
+    confirmOrder: 'Confirm Order',
+    originalPrice: 'Original Price',
+    paymentMethod: 'Payment Method',
+    confirmPay: 'Confirm Pay ¥{price}',
+    alipay: 'Alipay',
+    balance: 'Bal'
   },
   study: {
     todayMinutes: '{{n}} min today',
@@ -2158,8 +2202,8 @@ export default {
       tabsComment: 'Comments'
     },
     publish: {
-      categories: null,
-      visibilityOptions: null,
+      categories: ['Learning Insights', 'Tech Sharing', 'Course Notes', 'Project Practice', 'Help Request', 'Experience Summary'],
+      visibilityOptions: ['Public', 'Friends Only', 'Private'],
       enterTitle: 'Please enter a title',
       enterContent: 'Please enter content',
       published: 'Published',
@@ -2184,7 +2228,12 @@ export default {
     noteTitle: 'Study Notes',
     noteClose: 'Close',
     notePlaceholder: 'Record your study notes...',
-    noteCountUnit: 'chars'
+    noteCountUnit: 'chars',
+    statsTitle: 'Study Stats',
+    weeklyStudy: 'This Week',
+    completedLessons: 'Completed Lessons',
+    totalDuration: 'Total Duration',
+    streakDays: 'Streak Days'
   },
   subscriptions: {
     cancel: 'Cancel subscription',
@@ -2508,7 +2557,7 @@ export default {
       bannerTitle: 'Upgrade to VIP',
       bannerDesc: 'Unlock more exclusive privileges',
       rightsTitle: 'Member benefits',
-      rights: null,
+      rights: ['Dedicated Support', 'Priority Access', 'Premium Features', 'Ad-Free', 'Exclusive Badge', 'Discount'],
       loadFailed: 'Load failed',
       operationFailed: 'Operation failed',
       originalPrice: 'Original ¥{{n}}',
@@ -2590,7 +2639,10 @@ export default {
       activationNotice: 'Membership activated, enjoy all privileges now',
       shareTitle: 'Share with friends to earn commission',
       shareDesc: 'Invite friends to join membership and earn 20% cash commission'
-    }
+    },
+    benefitsTitle: 'VIP Benefits',
+    upgradeNow: 'Upgrade Now',
+    hot: 'Hot'
   },
   learnDevelop: {
     title: 'Learning & development',
@@ -2730,5 +2782,68 @@ export default {
     cancelBtn: 'Cancel',
     contractsEmpty: 'No auto-renewal contracts',
     loadingText: 'Loading...'
+  },
+  catalog: {
+    noCover: 'No Cover',
+    watched: 'Watched',
+    playing: 'Playing',
+    courseCatalog: 'Course Catalog'
+  },
+  video: {
+    noVideo: 'No Video',
+    teacher: 'Teacher',
+    duration: 'Duration',
+    chapterCount: '{n} Chapters'
+  },
+  lesson: {
+    complete: 'Study Complete!',
+    studyDuration: 'Study Duration',
+    points: 'Points',
+    next: 'Next: {title}',
+    share: 'Share'
+  },
+  streak: {
+    title: 'Study Streak',
+    totalDays: '{n} days total'
+  },
+  withdrawal: {
+    records: 'Withdrawal Records'
+  },
+  intro: {
+    empty: 'No Introduction',
+    relatedAI: 'Related AI Apps'
+  },
+  invite: {
+    title: 'Invite Friends',
+    qrcode: 'QR Code',
+    code: 'Invite Code:',
+    saveImage: 'Save Image',
+    shareNow: 'Share Now'
+  },
+  qrcode: {
+    loading: 'QR Code Loading',
+    from: 'From: {name}',
+    generating: 'QR Code Generating',
+    savedAlbum: 'Saved to Album',
+    saveFailed: 'Save Failed'
+  },
+  model: {
+    configTitle: 'Model Config',
+    temperature: 'Temperature (0-2)',
+    maxToken: 'Max Token',
+    systemPrompt: 'System Prompt',
+    streaming: 'Streaming Output',
+    empty: 'No Models'
+  },
+  verify: {
+    getCode: 'Get Code',
+    phoneEmpty: 'Phone is empty',
+    phoneInvalid: 'Please enter valid phone',
+    codeSent: 'Code sent',
+    codeIncomplete: 'Please enter complete code',
+    verifySuccess: 'Verified'
+  },
+  notification: {
+    settings: 'Notification Settings'
   }
 }

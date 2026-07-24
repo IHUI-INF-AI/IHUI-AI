@@ -88,12 +88,12 @@
   font-size: 28rpx;
 }
 
-/* 复选框 */
+/* 复选框(AGENTS.md §4 圆角守门:容器禁止 50%,改用 8rpx 方形圆角) */
 .checkbox {
   width: 40rpx;
   height: 40rpx;
   border: 2rpx solid var(--color-muted-foreground);
-  border-radius: 50%;
+  border-radius: 8rpx;
   display: flex;
   align-items: center;
   justify-content: center;

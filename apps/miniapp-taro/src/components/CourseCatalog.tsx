@@ -1,6 +1,7 @@
 import { View, Text, ScrollView } from '@tarojs/components'
 import EmptyState from './EmptyState'
 import LessonListItem, { type LessonListItemData } from './LessonListItem'
+import { useI18n } from '@/i18n'
 
 export interface CourseCatalogProps {
   lessons?: LessonListItemData[]
@@ -17,10 +18,12 @@ export default function CourseCatalog({
   onLessonClick,
   onReachBottom,
 }: CourseCatalogProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   return (
     <View className="bg-card">
       <View className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <Text className="text-sm font-medium text-foreground">课程目录</Text>
+        <Text className="text-sm font-medium text-foreground">{tt('catalog.courseCatalog', '课程目录')}</Text>
         <Text className="text-xs text-muted-foreground">{lessons.length} 节</Text>
       </View>
 
@@ -32,10 +35,10 @@ export default function CourseCatalog({
       >
         {loading ? (
           <View className="py-8 text-center">
-            <Text className="text-sm text-muted-foreground">加载中...</Text>
+            <Text className="text-sm text-muted-foreground">{tt('common.loadingShort', '加载中...')}</Text>
           </View>
         ) : lessons.length === 0 ? (
-          <EmptyState text="暂无课程内容" />
+          <EmptyState text={tt('catalog.empty', '暂无课程内容')} />
         ) : (
           lessons.map((lesson, idx) => (
             <LessonListItem

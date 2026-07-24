@@ -1,4 +1,5 @@
 import { View, Text } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface VideoInfoData {
   title?: string
@@ -15,14 +16,16 @@ export interface VideoInfoProps {
 }
 
 export default function VideoInfo({ info = {} }: VideoInfoProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   return (
     <View className="bg-card px-4 py-3">
       <Text className="block text-base font-medium text-foreground">{info.title || '视频详情'}</Text>
       <View className="flex items-center mt-2">
-        {info.teacher && <Text className="text-xs text-muted-foreground mr-3">讲师: {info.teacher}</Text>}
-        {info.duration && <Text className="text-xs text-muted-foreground">时长: {info.duration}</Text>}
+        {info.teacher && <Text className="text-xs text-muted-foreground mr-3">{tt('video.teacher', '讲师')}: {info.teacher}</Text>}
+        {info.duration && <Text className="text-xs text-muted-foreground">{tt('video.duration', '时长')}: {info.duration}</Text>}
         {info.chapterCount !== undefined && info.chapterCount > 0 && (
-          <Text className="text-xs text-muted-foreground ml-3">共 {info.chapterCount} 节</Text>
+          <Text className="text-xs text-muted-foreground ml-3">{t('video.chapterCount', { n: info.chapterCount })}</Text>
         )}
       </View>
       {info.description && (
