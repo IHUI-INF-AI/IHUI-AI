@@ -33,7 +33,7 @@ export default function PrivateMessageList({ list, onClick }: PrivateMessageList
       {list.map((item) => (
         <View
           key={item.id}
-          className="flex items-center px-3 py-3 border-b border-border"
+          className="flex items-center px-3 py-3 mb-1.5"
           onClick={() => onClick?.(item)}
         >
           <View className="relative mr-3">

@@ -2,10 +2,12 @@ import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { getVipLevels, upgradeVip, type VipPayInfo } from '@/api'
-import { requestWxPayment, type AnyPayParams } from '@/utils/pay'
+import { getVipLevels, upgradeVip, createAlipayMiniappPayment, type VipPayInfo } from '@/api'
+import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import { useI18n } from '@/i18n'
 import './upgrade.css'
+
+type PayMethod = 'wechat' | 'alipay'
 
 interface Plan {
   id: string
@@ -19,6 +21,7 @@ export default function UpgradePage() {
   const { t, tList } = useI18n()
   const [plans, setPlans] = useState<Plan[]>([])
   const [selected, setSelected] = useState(0)
+  const [payMethod, setPayMethod] = useState<PayMethod>('wechat')
 
   const rights = tList('vip.upgrade.rights')
 
@@ -73,6 +76,26 @@ export default function UpgradePage() {
   const onUpgrade = useCallback(async () => {
     const plan = plans[selected]
     if (!plan) return
+    if (payMethod === 'alipay') {
+      try {
+        const res = await createAlipayMiniappPayment({
+          amount: plan.price,
+          subject: `${t('vip.upgrade.upgrade')} - ${plan.name}`,
+          productId: plan.id,
+        })
+        if (!res.tradeNo) {
+          Taro.showToast({ title: t('vip.upgrade.configNotReady'), icon: 'none' })
+          return
+        }
+        requestAliPayment({ orderInfo: res.tradeNo } as AnyPayParams)
+          .then(() => Taro.redirectTo({ url: `/pages/pay/result?orderNo=${res.outTradeNo}` }))
+          .catch(() => Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${res.outTradeNo}` }))
+      } catch (e) {
+        logger.error('vip/upgrade', '支付宝升级VIP', e)
+        Taro.showToast({ title: t('vip.upgrade.operationFailed'), icon: 'none' })
+      }
+      return
+    }
     try {
       const res = await upgradeVip(plan.id)
       dispatchVipPay(res.payInfo, res.orderNo)
@@ -80,7 +103,7 @@ export default function UpgradePage() {
       logger.error('vip/upgrade', '升级VIP', e)
       Taro.showToast({ title: t('vip.upgrade.operationFailed'), icon: 'none' })
     }
-  }, [plans, selected, dispatchVipPay, t])
+  }, [plans, selected, payMethod, dispatchVipPay, t])
 
   useDidShow(load)
 
@@ -113,6 +136,37 @@ export default function UpgradePage() {
             · {r}
           </View>
         ))}
+      </View>
+      <View className="rights" style={{ marginTop: '24rpx' }}>
+        <View className="rights-title">{t('pay.selectMethod')}</View>
+        <View style={{ display: 'flex', gap: '16rpx', marginTop: '16rpx' }}>
+          <View
+            style={{
+              flex: 1,
+              padding: '20rpx 0',
+              textAlign: 'center',
+              borderRadius: '12rpx',
+              border: `2rpx solid ${payMethod === 'wechat' ? 'var(--color-warning)' : 'var(--color-border)'}`,
+              background: payMethod === 'wechat' ? 'rgba(245, 158, 11, 0.1)' : 'var(--color-card)',
+            }}
+            onClick={() => setPayMethod('wechat')}
+          >
+            <Text style={{ fontSize: '28rpx' }}>{t('wallet.recharge.methodWechat')}</Text>
+          </View>
+          <View
+            style={{
+              flex: 1,
+              padding: '20rpx 0',
+              textAlign: 'center',
+              borderRadius: '12rpx',
+              border: `2rpx solid ${payMethod === 'alipay' ? 'var(--color-warning)' : 'var(--color-border)'}`,
+              background: payMethod === 'alipay' ? 'rgba(245, 158, 11, 0.1)' : 'var(--color-card)',
+            }}
+            onClick={() => setPayMethod('alipay')}
+          >
+            <Text style={{ fontSize: '28rpx' }}>{t('wallet.recharge.methodAlipay')}</Text>
+          </View>
+        </View>
       </View>
       <Button className="btn" onClick={onUpgrade}>
         {t('vip.upgrade.upgrade')} {plans[selected] ? `¥${plans[selected].price}` : ''}
