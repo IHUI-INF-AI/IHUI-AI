@@ -350,7 +350,9 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       // 查找用户
       const user = await findUserByPhone(phone)
       if (!user) {
-        return reply.status(404).send(error(404, '用户不存在'))
+        // 2026-07-24 安全加固:用户不存在时返回与验证码错误相同的消息
+        // 防用户枚举攻击(CWE-204):攻击者无法通过响应区分"用户不存在"和"验证码错误"
+        return reply.status(400).send(error(400, '验证码错误或已过期'))
       }
 
       if (await isSystemAdminUser(user.id)) {
@@ -813,7 +815,9 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       const user = await findUserByPhone(phone)
       if (!user) {
-        return reply.status(401).send(error(401, '用户不存在,请先注册'))
+        // 2026-07-24 安全加固:统一返回"验证码错误"防用户枚举(CWE-204)
+        // 攻击者无法通过响应区分"用户未注册"和"验证码错误"
+        return reply.status(401).send(error(401, '验证码错误或已过期'))
       }
       if (user.status !== 1) {
         return reply.status(403).send(error(403, '账号已被禁用'))
