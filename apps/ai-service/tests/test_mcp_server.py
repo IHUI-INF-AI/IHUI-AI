@@ -1093,3 +1093,331 @@ def test_server_independent_instance():
     assert len(s.list_tools()) == len(_TOOLS)
     assert len(s.list_resources()) == 3
     assert len(s.list_prompts()) == 3
+
+
+# =============================================================================
+# 扩展工具(2026-07-24 新增,对标 Trae Work + Codex)
+# fetch_url / image_generation / review_pr /
+# summarize_artifacts / schedule_task / proactive_suggestion
+# =============================================================================
+
+import httpx  # noqa: E402
+
+from app.services.mcp_server import (  # noqa: E402
+    _tool_fetch_url,
+    _tool_image_generation,
+    _tool_review_pr,
+    _tool_summarize_artifacts,
+    _tool_schedule_task,
+    _tool_proactive_suggestion,
+    _ARTIFACTS_CACHE,
+    _SCHEDULED_TASKS,
+)
+
+
+class _FakeHttpxResponse:
+    """httpx.Response 桩:支持 status_code/text/headers/json/raise_for_status。"""
+
+    def __init__(self, status_code=200, text="", json_data=None, headers=None, url="https://example.com/page"):
+        self.status_code = status_code
+        self.text = text
+        self._json_data = json_data
+        self.headers = headers if headers is not None else {"content-type": "text/html"}
+        self.url = httpx.URL(url)
+
+    def json(self):
+        if self._json_data is not None:
+            return self._json_data
+        import json as _json
+        return _json.loads(self.text) if self.text else {}
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise httpx.HTTPStatusError(f"{self.status_code}", request=None, response=self)
+
+
+def _make_fake_httpx_client(handler):
+    """构造 fake httpx.AsyncClient 类,handler(method, url) -> _FakeHttpxResponse。
+
+    __init__ 吸收 timeout/follow_redirects 等 kwargs(真实 handler 会传)。
+    """
+
+    class _FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def get(self, url, **kwargs):
+            return handler("GET", url)
+
+        async def post(self, url, **kwargs):
+            return handler("POST", url)
+
+    return _FakeAsyncClient
+
+
+# -----------------------------------------------------------------------------
+# fetch_url
+# -----------------------------------------------------------------------------
+
+async def test_fetch_url_success(monkeypatch):
+    """mock httpx 返回 200 + HTML,验证 title/content 提取。"""
+    # 绕过 SSRF(真实校验会做 DNS 解析,测试环境不稳定)
+    import app.services.screenshot_service as _ss
+    monkeypatch.setattr(_ss, "_validate_url_ssrf", lambda url: (True, ""))
+
+    html = (
+        "<html><head><title>Test Page</title>"
+        '<meta name="description" content="desc"></head>'
+        "<body><p>Hello World</p></body></html>"
+    )
+
+    def handler(method, url):
+        return _FakeHttpxResponse(
+            status_code=200, text=html,
+            headers={"content-type": "text/html"},
+            url="https://example.com/page",
+        )
+
+    monkeypatch.setattr("httpx.AsyncClient", _make_fake_httpx_client(handler))
+    out = await _tool_fetch_url({"url": "https://example.com/page"})
+    assert out["tool"] == "fetch_url"
+    assert out["ok"] is True
+    assert out["title"] == "Test Page"
+    assert "Hello World" in out["content"]
+    assert out["status_code"] == 200
+    assert out["truncated"] is False
+
+
+async def test_fetch_url_ssrf_blocked():
+    """localhost URL 应被拒绝(ok=False + errorCode 含 SSRF)。"""
+    out = await _tool_fetch_url({"url": "http://127.0.0.1/secret"})
+    assert out["tool"] == "fetch_url"
+    assert out["ok"] is False
+    assert "SSRF" in out["errorCode"]
+
+
+async def test_fetch_url_missing_params():
+    """缺 url 参数 → ok=False。"""
+    out = await _tool_fetch_url({})
+    assert out["tool"] == "fetch_url"
+    assert out["ok"] is False
+    assert out["errorCode"] == "MISSING_PARAMS"
+
+
+# -----------------------------------------------------------------------------
+# image_generation
+# -----------------------------------------------------------------------------
+
+async def test_image_generation_success(monkeypatch):
+    """mock httpx 返回 data[0].url,验证 image_url。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "stepfun_api_key", "fake-key")
+    monkeypatch.setattr(settings, "stepfun_api_base", "https://fake.stepfun.com/v1")
+
+    def handler(method, url):
+        return _FakeHttpxResponse(
+            status_code=200,
+            json_data={"data": [{"url": "https://cdn.example.com/img.png"}]},
+        )
+
+    monkeypatch.setattr("httpx.AsyncClient", _make_fake_httpx_client(handler))
+    out = await _tool_image_generation({"prompt": "a cat"})
+    assert out["tool"] == "image_generation"
+    assert out["ok"] is True
+    assert out["image_url"] == "https://cdn.example.com/img.png"
+    assert out["provider"] == "stepfun"
+    assert out["model"] == "step-1v-8k"
+
+
+async def test_image_generation_no_provider(monkeypatch):
+    """两 provider 都无 api_key → ok=False + errorCode=PROVIDER_NOT_CONFIGURED。"""
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "stepfun_api_key", "")
+    monkeypatch.setattr(settings, "agnes_api_key", "")
+    out = await _tool_image_generation({"prompt": "a cat"})
+    assert out["tool"] == "image_generation"
+    assert out["ok"] is False
+    assert out["errorCode"] == "PROVIDER_NOT_CONFIGURED"
+
+
+async def test_image_generation_missing_prompt():
+    """缺 prompt → ok=False。"""
+    out = await _tool_image_generation({})
+    assert out["tool"] == "image_generation"
+    assert out["ok"] is False
+    assert out["errorCode"] == "MISSING_PARAMS"
+
+
+# -----------------------------------------------------------------------------
+# review_pr
+# -----------------------------------------------------------------------------
+
+async def test_review_pr_success(monkeypatch):
+    """mock GitHub API 返回 PR info + files,验证 findings。"""
+    def handler(method, url):
+        if "/files" in url:
+            return _FakeHttpxResponse(
+                status_code=200,
+                json_data=[
+                    {
+                        "filename": "app.py",
+                        "patch": "@@ -1,2 +1,3 @@\n+import os\n+os.system('rm -rf /')\n+eval('x')\n",
+                    },
+                ],
+            )
+        return _FakeHttpxResponse(
+            status_code=200,
+            json_data={
+                "title": "Fix bug",
+                "user": {"login": "alice"},
+                "additions": 10,
+                "deletions": 2,
+                "changed_files": 1,
+            },
+        )
+
+    monkeypatch.setattr("httpx.AsyncClient", _make_fake_httpx_client(handler))
+    out = await _tool_review_pr({"repo": "owner/repo", "pr_number": 1})
+    assert out["tool"] == "review_pr"
+    assert out["ok"] is True
+    assert out["title"] == "Fix bug"
+    assert out["author"] == "alice"
+    assert out["additions"] == 10
+    assert len(out["findings"]) >= 1
+    cats = {f["category"] for f in out["findings"]}
+    assert "security" in cats
+
+
+async def test_review_pr_missing_params():
+    """缺 repo/pr_number → ok=False。"""
+    out = await _tool_review_pr({})
+    assert out["tool"] == "review_pr"
+    assert out["ok"] is False
+    assert out["errorCode"] == "MISSING_PARAMS"
+
+
+async def test_review_pr_not_found(monkeypatch):
+    """mock 404,验证 ok=False。"""
+    def handler(method, url):
+        return _FakeHttpxResponse(status_code=404, text="not found")
+
+    monkeypatch.setattr("httpx.AsyncClient", _make_fake_httpx_client(handler))
+    out = await _tool_review_pr({"repo": "owner/repo", "pr_number": 999})
+    assert out["tool"] == "review_pr"
+    assert out["ok"] is False
+    assert out["errorCode"] == "NOT_FOUND"
+
+
+# -----------------------------------------------------------------------------
+# summarize_artifacts
+# -----------------------------------------------------------------------------
+
+async def test_summarize_artifacts_empty_cache():
+    """conversation_id 不在缓存 → ok=True + 空数组。"""
+    _ARTIFACTS_CACHE.clear()
+    out = await _tool_summarize_artifacts({"conversation_id": "nonexistent-xyz"})
+    assert out["tool"] == "summarize_artifacts"
+    assert out["ok"] is True
+    assert out["plans"] == []
+    assert out["sources"] == []
+    assert out["artifacts"] == []
+    assert out["tool_calls_summary"]["total"] == 0
+
+
+async def test_summarize_artifacts_with_cache():
+    """预填充缓存 → 验证返回数据。"""
+    _ARTIFACTS_CACHE.clear()
+    _ARTIFACTS_CACHE["conv1"] = {
+        "plans": [{"id": "p1"}],
+        "sources": [{"url": "https://x.com"}],
+        "artifacts": [{"name": "a.py"}],
+        "tool_calls": [
+            {"tool": "read_file"},
+            {"tool": "read_file"},
+            {"tool": "write_file"},
+        ],
+    }
+    try:
+        out = await _tool_summarize_artifacts({"conversation_id": "conv1"})
+        assert out["ok"] is True
+        assert len(out["plans"]) == 1
+        assert len(out["sources"]) == 1
+        assert len(out["artifacts"]) == 1
+        assert out["tool_calls_summary"]["total"] == 3
+        assert out["tool_calls_summary"]["by_tool"]["read_file"] == 2
+        assert out["tool_calls_summary"]["by_tool"]["write_file"] == 1
+    finally:
+        _ARTIFACTS_CACHE.clear()
+
+
+# -----------------------------------------------------------------------------
+# schedule_task
+# -----------------------------------------------------------------------------
+
+async def test_schedule_task_once():
+    """once + run_at → ok=True + task_id 非空 + next_run_at=run_at。"""
+    _SCHEDULED_TASKS.clear()
+    try:
+        out = await _tool_schedule_task({
+            "name": "test",
+            "prompt": "do something",
+            "schedule": "once",
+            "run_at": "2026-08-01T09:00:00Z",
+        })
+        assert out["tool"] == "schedule_task"
+        assert out["ok"] is True
+        assert out["task_id"]
+        assert out["next_run_at"] == "2026-08-01T09:00:00Z"
+        assert out["status"] == "scheduled"
+        assert len(_SCHEDULED_TASKS) == 1
+    finally:
+        _SCHEDULED_TASKS.clear()
+
+
+async def test_schedule_task_missing_prompt():
+    """缺 prompt → ok=False。"""
+    out = await _tool_schedule_task({"name": "test"})
+    assert out["tool"] == "schedule_task"
+    assert out["ok"] is False
+    assert out["errorCode"] == "MISSING_PARAMS"
+
+
+# -----------------------------------------------------------------------------
+# proactive_suggestion
+# -----------------------------------------------------------------------------
+
+async def test_proactive_suggestion_with_write_file():
+    """recent_tool_calls 含 write_file → suggestions 包含 'follow_up' 类型。"""
+    out = await _tool_proactive_suggestion({
+        "recent_tool_calls": ["write_file"],
+        "recent_files": ["app.py"],
+    })
+    assert out["tool"] == "proactive_suggestion"
+    assert out["ok"] is True
+    types = {s["type"] for s in out["suggestions"]}
+    assert "follow_up" in types
+
+
+async def test_proactive_suggestion_empty_context():
+    """全空 → suggestions 空数组 + ok=True。"""
+    out = await _tool_proactive_suggestion({})
+    assert out["tool"] == "proactive_suggestion"
+    assert out["ok"] is True
+    assert out["suggestions"] == []
+
+
+async def test_proactive_suggestion_with_bug_context():
+    """conversation_context 含 'fix bug' → suggestions 包含 'test' 类型。"""
+    out = await _tool_proactive_suggestion({
+        "conversation_context": "fix bug in login",
+    })
+    assert out["tool"] == "proactive_suggestion"
+    assert out["ok"] is True
+    types = {s["type"] for s in out["suggestions"]}
+    assert "test" in types
