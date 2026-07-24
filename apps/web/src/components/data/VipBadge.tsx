@@ -10,7 +10,7 @@ interface VipBadgeProps {
 }
 
 export function VipBadge({ className, size = 'sm' }: VipBadgeProps) {
-  const t = useTranslations('agents')
+  const t = useTranslations('agent')
   const sizing = size === 'md' ? 'px-2.5 py-1 text-xs gap-1' : 'px-2 py-0.5 text-xs gap-0.5'
   return (
     <span
