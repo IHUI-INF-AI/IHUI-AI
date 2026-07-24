@@ -1,26 +1,6 @@
 import { pgTable, uuid, varchar, integer, timestamp, jsonb, index, text } from 'drizzle-orm/pg-core'
 
 /**
- * 审计 hash 链条目表（防篡改）。
- * 每条记录包含 previousHash + data → hash，形成 append-only 链。
- * 任何中间记录被篡改都会导致后续 hash 校验失败。
- */
-export const auditChainEntries = pgTable(
-  'audit_chain_entries',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    previousHash: varchar('previous_hash', { length: 64 }).notNull(),
-    hash: varchar('hash', { length: 64 }).notNull().unique(),
-    data: jsonb('data').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    hashIdx: index('audit_chain_entries_hash_idx').on(t.hash),
-    createdIdx: index('audit_chain_entries_created_idx').on(t.createdAt),
-  }),
-)
-
-/**
  * API Key 调用配额表。
  * - hourlyUsed / dailyUsed：当前小时/当天已用调用次数。
  * - resetAt：下次重置时间（按小时滚动）。
@@ -68,8 +48,6 @@ export const outboxEvents = pgTable(
   }),
 )
 
-export type AuditChainEntry = typeof auditChainEntries.$inferSelect
-export type NewAuditChainEntry = typeof auditChainEntries.$inferInsert
 export type ApiKeyQuota = typeof apiKeyQuotas.$inferSelect
 export type NewApiKeyQuota = typeof apiKeyQuotas.$inferInsert
 export type OutboxEvent = typeof outboxEvents.$inferSelect
