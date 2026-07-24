@@ -2146,8 +2146,8 @@ export default {
     originalPrice: '原價',
     paymentMethod: '支付方式',
     confirmPay: '確認支付 ¥{price}',
-    alipay: '支',
-    balance: '餘'
+    alipay: '支付寶',
+    balance: '餘額'
   },
   study: {
     todayMinutes: '今日 {{n}} 分鐘',
@@ -2804,7 +2804,8 @@ export default {
   },
   streak: {
     title: '學習連簽',
-    totalDays: '累計 {n} 天'
+    totalDays: '累計 {n} 天',
+    continuousDays: '連續 {{n}} 天'
   },
   withdrawal: {
     records: '提現記錄'
