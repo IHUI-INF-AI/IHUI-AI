@@ -61,7 +61,7 @@ export default function VipPayConfirm({
             }`}
             onClick={() => onMethodChange?.('wechat')}
           >
-            <Text className="text-sm text-foreground">💚 微信支付</Text>
+            <Text className="text-sm text-foreground">💚 {tt('pay.wechat', '微信支付')}</Text>
           </View>
           <View
             className={`flex-1 flex items-center justify-center py-3 rounded-lg border-2 ${
@@ -69,7 +69,7 @@ export default function VipPayConfirm({
             }`}
             onClick={() => onMethodChange?.('alipay')}
           >
-            <Text className="text-sm text-foreground">💙 支付宝</Text>
+            <Text className="text-sm text-foreground">💙 {tt('pay.alipay', '支付宝')}</Text>
           </View>
         </View>
 
