@@ -4,7 +4,6 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 /** 从智能体描述中提取前 2 个关键词作为标签 */
 function extractTags(name: string, desc: string): string[] {
@@ -68,24 +67,24 @@ export default function AiCareer() {
   }, [])
 
   return (
-    <View className="page-container">
-      <View className="page-header">
-        <Text className="page-title">{t('aiCareer.title')}</Text>
+    <View className="min-h-screen bg-background">
+      <View className="p-[24rpx] bg-card">
+        <Text className="text-[36rpx] font-semibold text-foreground">{t('aiCareer.title')}</Text>
       </View>
-      <View className="page-content">
+      <View className="p-[24rpx]">
         {loading ? (
-          <View className="state-box">
-            <Text className="state-text">{t('common.loading')}</Text>
+          <View className="flex flex-col items-center py-[80rpx]">
+            <Text className="text-center text-muted-foreground text-[26rpx]">{t('common.loading')}</Text>
           </View>
         ) : error ? (
-          <View className="state-box">
-            <Text className="state-text">{tt('aiCareer.loadFailed', '加载失败')}</Text>
-            <View className="retry-btn" onClick={loadData}>
+          <View className="flex flex-col items-center py-[80rpx]">
+            <Text className="text-center text-muted-foreground text-[26rpx]">{tt('aiCareer.loadFailed', '加载失败')}</Text>
+            <View className="mt-[24rpx] py-[16rpx] px-[48rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[26rpx]" onClick={loadData}>
               <Text>{t('common.retry')}</Text>
             </View>
           </View>
         ) : list.length ? (
-          <View className="card-list">
+          <View className="flex flex-col gap-[16rpx]">
             {list.map((item) => {
               const id = String(item.id || '')
               const name = String(item.name || '')
@@ -94,23 +93,23 @@ export default function AiCareer() {
               const tags = extractTags(name, desc)
               const uses = Number(item.uses || 0)
               return (
-                <View key={id} className="career-card" onClick={() => onItemClick(id)}>
-                  <View className="card-top">
-                    <Image className="avatar" src={avatar} mode="aspectFill" />
-                    <View className="info">
-                      <Text className="name">{name || t('aiCareer.guide')}</Text>
-                      {desc ? <Text className="desc">{desc}</Text> : null}
+                <View key={id} className="p-[24rpx] bg-card rounded-[12rpx]" onClick={() => onItemClick(id)}>
+                  <View className="flex items-start">
+                    <Image className="w-[96rpx] h-[96rpx] rounded-[12rpx] bg-background flex-shrink-0" src={avatar} mode="aspectFill" />
+                    <View className="flex-1 min-w-0 ml-[24rpx]">
+                      <Text className="text-[30rpx] font-semibold text-foreground">{name || t('aiCareer.guide')}</Text>
+                      {desc ? <Text className="mt-[8rpx] text-[24rpx] text-muted-foreground line-clamp-2">{desc}</Text> : null}
                     </View>
                   </View>
                   {(tags.length > 0 || uses > 0) && (
-                    <View className="card-bottom">
+                    <View className="flex items-center flex-wrap gap-[12rpx] mt-[16rpx]">
                       {tags.map((tag, idx) => (
-                        <Text key={idx} className="tag">
+                        <Text key={idx} className="py-[4rpx] px-[16rpx] rounded-[6rpx] text-[22rpx] text-primary bg-[rgba(0,122,255,0.08)]">
                           {tag}
                         </Text>
                       ))}
                       {uses > 0 ? (
-                        <Text className="uses">
+                        <Text className="text-[22rpx] text-muted-foreground ml-auto">
                           {tt('aiCareer.useCount', '{n}人使用', { n: uses })}
                         </Text>
                       ) : null}
@@ -121,8 +120,8 @@ export default function AiCareer() {
             })}
           </View>
         ) : (
-          <View className="state-box">
-            <Text className="state-text">{t('aiCareer.empty')}</Text>
+          <View className="flex flex-col items-center py-[80rpx]">
+            <Text className="text-center text-muted-foreground text-[26rpx]">{t('aiCareer.empty')}</Text>
           </View>
         )}
       </View>

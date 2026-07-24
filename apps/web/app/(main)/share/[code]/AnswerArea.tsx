@@ -151,7 +151,7 @@ function ImagePreview({
     <div
       role="button"
       tabIndex={0}
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90"
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-white/90 dark:bg-black/90"
       onClick={onClose}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
