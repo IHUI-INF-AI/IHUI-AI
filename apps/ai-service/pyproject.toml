@@ -11,6 +11,9 @@ dependencies = [
     "asyncpg>=0.30.0",
     "cryptography>=43.0.0",
     "redis[hiredis]>=5.2.0",
+    # 任务调度(2026-07-24 立):APScheduler + croniter
+    "apscheduler>=3.10.0",
+    "croniter>=1.4.0",
     "langgraph>=0.2.0",
     "langchain>=0.3.0",
     "langchain-core>=0.3.0",
@@ -55,6 +58,8 @@ dev = [
     "httpx>=0.28.0",
     "ruff>=0.8.0",
     "mypy>=1.13.0",
+    # 2026-07-24 立:Redis 持久化测试用 fakeredis 隔离(不依赖真实 Redis)
+    "fakeredis>=2.20.0",
 ]
 
 [tool.ruff]
