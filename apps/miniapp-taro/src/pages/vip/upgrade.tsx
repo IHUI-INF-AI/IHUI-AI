@@ -115,7 +115,7 @@ export default function UpgradePage() {
           Taro.showToast({ title: t('vip.upgrade.configNotReady'), icon: 'none' })
           return
         }
-        requestAliPayment({ orderInfo: res.tradeNo } as AnyPayParams)
+        requestAliPayment({ tradeNO: res.tradeNo } as AnyPayParams)
           .then(() => Taro.redirectTo({ url: `/pages/pay/result?orderNo=${res.outTradeNo}` }))
           .catch(() =>
             Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${res.outTradeNo}` }),
