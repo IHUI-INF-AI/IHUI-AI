@@ -90,10 +90,10 @@
 ### 共享包(`packages/`)
 | 包名 | 用途 |
 |------|------|
-| `@ihui/database` | Drizzle schema(96 表)+ 32 迁移 + client.ts |
+| `@ihui/database` | Drizzle schema(340 表)+ 144 迁移 + client.ts |
 | `@ihui/auth` | JWT + token-family + blacklist + data-scope + OAuth2 + ws-auth |
 | `@ihui/types` | user/api/ai 类型定义 |
-| `@ihui/ui` | Button/Input/Label/Card/Dialog 基础组件 |
+| `@ihui/ui-react` | Button/Input/Label/Card/Dialog 基础组件 |
 | `@ihui/config` | constants + env 配置 |
 | `@ihui/eslint-config` | base/next/react ESLint 配置 |
 | `@ihui/tsconfig` | base/nextjs/node/react-library TSConfig |
@@ -105,7 +105,7 @@
 ### 单库设计
 - **数据库**: PostgreSQL 15,单库 `ihui`,通过 schema 隔离业务域(public)
 - **连接**: `DATABASE_URL` 环境变量,postgres-js 驱动
-- **ORM**: Drizzle ORM,schema 定义在 `packages/database/src/schema/`(34 文件,96 表)
+- **ORM**: Drizzle ORM,schema 定义在 `packages/database/src/schema/`(100+ 文件,340 表)
 
 ### Schema 模块覆盖(34 文件)
 users, projects, files, files-extra, notifications, billing, audit, chat, teams, rbac, workflow, comments, promotions, gamification, content, system, social, community, learn, exam, order, live, member, resource, point, usercenter, schedule, statistics, message, topic, behavior, visit-tracking, oss, setting
@@ -120,7 +120,7 @@ users, projects, files, files-extra, notifications, billing, audit, chat, teams,
 
 ## 3. API 路由架构
 
-### 路由组织(`apps/api/src/routes/`,37 文件,447 端点)
+### 路由组织(`apps/api/src/routes/`,200+ 文件,1300+ 端点)
 
 所有路由在 `server.ts` 的 `registerRoutes()` 中注册,分两类:
 
@@ -183,7 +183,7 @@ REST 路由之外的实时双向通信,按 plugin 分组:
 ### API 调用
 - 统一封装 `src/lib/api.ts`(`fetchApi<T>`),自动携带 JWT,解析 `{ code, message, data }`
 - React Query 管理服务端状态,全局 `mutations.onError` 自动 toast.error
-- API 调用 100% 有后端支持(架构迁移覆盖率审计:447 端点对齐)
+- API 调用 100% 有后端支持(架构迁移覆盖率审计:1300+ 端点对齐)
 
 ### i18n
 - next-intl,zh-CN + en 双语
@@ -267,14 +267,14 @@ docker compose up -d
 
 ### 验证
 ```bash
-pnpm turbo typecheck lint test  # 22/22 tasks, 268/268 tests, 0 errors + 0 warnings
+pnpm turbo typecheck lint test  # 5346/5346 tests passed, 0 errors + 0 warnings
 ```
 
 ---
 
 ## 7. 测试架构
 
-### 后端测试(apps/api/tests/,38 文件,268 用例)
+### 后端测试(apps/api/tests/,322 文件,5346 用例)
 - Vitest,Fastify inject 模式(不监听端口)
 - Mock 数据库层(queries/billing-queries/content-queries 等)
 - 覆盖:auth/billing/content/success-paths/business-logic/edge-cases/topic/resource/live 等
