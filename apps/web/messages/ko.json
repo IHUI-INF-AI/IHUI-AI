@@ -12072,6 +12072,10 @@
     "permissionReasonPurchased": "이 에이전트를 구매했습니다",
     "permissionReasonVipOnly": "VIP 전용, VIP를 구독하세요",
     "title": "에이전트 워크스페이스",
+    "statusPending": "대기 중",
+    "statusPublished": "게시됨",
+    "statusRejected": "거절됨",
+    "statusOffline": "오프라인",
     "kanban": {
       "triage": "분류 대기",
       "todo": "할 일",
@@ -12172,7 +12176,14 @@
     "colActualAmount": "실제 금액",
     "colFee": "수수료",
     "colMethod": "메서드",
-    "colProcessedAt": "처리시간"
+    "colProcessedAt": "처리시간",
+    "orderStatusPending": "대기 중",
+    "orderStatusPaid": "결제 완료",
+    "orderStatusCancelled": "취소됨",
+    "orderStatusRefunded": "환불됨",
+    "flowRecharge": "트래픽 충전",
+    "flowDeduct": "트래픽 차감",
+    "flowExpire": "트래픽 만료"
   },
   "tokenValue": {
     "title": "나 값",
@@ -12201,7 +12212,16 @@
     "noRecords": "없음값",
     "currentBalance": "현재 잔액",
     "totalEarned": "총 획득",
-    "totalUsed": "총 사용"
+    "totalUsed": "총 사용",
+    "rangeToday": "오늘",
+    "range7d": "최근 7일",
+    "range30d": "최근 30일",
+    "rangeCustom": "사용자 지정",
+    "colTime": "시간",
+    "colAgent": "에이전트",
+    "colModel": "모델",
+    "colToken": "토큰",
+    "colAmount": "수량"
   },
   "distributionCompany": {
     "title": "나 회사",
@@ -12228,7 +12248,10 @@
     "teamSize": "팀 인원",
     "activeMembers": "활성 멤버",
     "myRank": "내 순위",
-    "teamOverview": "팀 개요"
+    "teamOverview": "팀 개요",
+    "levelLabel": "레벨 라벨",
+    "withdraw": "출금",
+    "viewDetail": "상세 보기"
   },
   "commissionPlan": {
     "title": "분계획",
@@ -12269,7 +12292,10 @@
     "levelsTitle": "레벨별 수수료율",
     "commissionRate": "수수료율",
     "copied": "복사됨",
-    "copy": "복사"
+    "copy": "복사",
+    "level1": "레벨 1",
+    "level2": "레벨 2",
+    "level3": "레벨 3"
   },
   "oauthPlatform": {
     "featureApiTitle": "오픈 API",

@@ -8,6 +8,7 @@ vi.hoisted(() => {
 })
 
 import { missingUserRoutes } from '../missing-user-routes.js'
+import { skillsRoutes } from '../skills.js'
 
 describe('Skills Routes API (技能模块真实化端点)', () => {
   let app: FastifyInstance
@@ -15,6 +16,8 @@ describe('Skills Routes API (技能模块真实化端点)', () => {
   beforeAll(async () => {
     app = Fastify({ logger: false })
     await app.register(missingUserRoutes, { prefix: '/api' })
+    // routes/skills.ts 注册 GET/POST/DELETE /skills(user/skills-routes.ts 只有 PUT/push/pull/db-sync)
+    await app.register(skillsRoutes, { prefix: '/api' })
     await app.ready()
   })
 

@@ -7,6 +7,15 @@ vi.hoisted(() => {
   process.env.REDIS_URL ??= 'redis://localhost:6379/0'
 })
 
+// Mock 知识库 DB 查询:GET /knowledge 列表/详情需要 DB,未 mock 时返回 500。
+vi.mock('../../db/knowledge-queries.js', () => ({
+  findPublishedKnowledge: vi.fn().mockResolvedValue({ list: [], total: 0, page: 1, pageSize: 20 }),
+  findKnowledgeById: vi.fn().mockResolvedValue(undefined),
+  createKnowledge: vi.fn(),
+  updateKnowledge: vi.fn(),
+  deleteKnowledge: vi.fn(),
+}))
+
 import { missingUserRoutes } from '../missing-user-routes.js'
 
 describe('Knowledge Routes API (知识库模块真实化端点)', () => {
