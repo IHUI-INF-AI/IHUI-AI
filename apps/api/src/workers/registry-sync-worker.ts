@@ -10,6 +10,7 @@
  * - d1:幂等 + 重试去重(lockDuration=60s + maxStalledCount=1 + payload_hash 跳过未变更条目)
  * - d3:sync_log oldVersion 聚合(取第一个版本有变化的 oldVersion,不再恒为 null)
  * - d10:优雅关闭(SIGTERM/SIGINT,process.once 避免重复注册)+ 指标统计(挂到 server.registryWorkerStats)
+ * - 性能优化:批量 upsert(2 次 DB 往返替代 2N 次)+ payload hash 复用(避免重复 SHA-256 计算)
  */
 import type { FastifyInstance } from 'fastify'
 import { Worker } from 'bullmq'
@@ -21,7 +22,7 @@ import {
   computePayloadHash,
 } from '../services/registry-sync/index.js'
 import {
-  upsertRegistryItem,
+  batchUpsertRegistryItems,
   insertSyncLog,
   markWebhookTriggerProcessed,
 } from '../db/registry-queries.js'
@@ -98,38 +99,52 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
       // d2:聚合 newVersion(取第一个非空) + oldVersion(取第一个版本有变化的)
       let newVersion: string | null = null
       let oldVersion: string | null = null
+      let hashList: string[] = []
 
-      for (const raw of items) {
-        try {
-          const heat = calculateHeatScore(raw)
-          const quality = calculateQualityScore(raw)
-          const result = await upsertRegistryItem(raw, heat, quality)
-          // d1:幂等检查 — 非 force 且未变更(inserted=false 且 oldVersion === raw.version)记为 skipped
-          if (!force && !result.inserted && result.oldVersion === raw.version) {
-            skipped++
-          } else {
-            synced++
+      // 缺口 2:批量 upsert + hash 复用(2 次 DB 往返替代 2N 次)
+      // 先并行计算每条的 heat/quality/hash,再一次调用 batchUpsertRegistryItems
+      const batchItems = await Promise.all(
+        items.map(async (raw) => ({
+          raw,
+          heat: calculateHeatScore(raw),
+          quality: calculateQualityScore(raw),
+          hash: await computePayloadHash(raw.payload),
+        })),
+      )
+
+      try {
+        const result = await batchUpsertRegistryItems(batchItems, { force })
+        synced = result.inserted + result.updated
+        skipped = result.skipped
+        failed = result.failed
+        hashList = result.hashList
+
+        // d2:聚合 oldVersion(取第一个版本有变化的) + newVersion(取第一个非空)
+        for (const ov of result.oldVersions) {
+          if (ov.oldVersion && ov.newVersion && ov.oldVersion !== ov.newVersion && !oldVersion) {
+            oldVersion = ov.oldVersion
           }
-          if (raw.version && !newVersion) newVersion = raw.version
-          // d2:收集 oldVersion(取第一个版本有变化的,即 oldVersion !== raw.version)
-          if (result.oldVersion && result.oldVersion !== raw.version && !oldVersion) {
-            oldVersion = result.oldVersion
+          if (ov.newVersion && !newVersion) {
+            newVersion = ov.newVersion
           }
-        } catch (err) {
-          failed++
-          server.log.warn(
-            { sourceId: raw.sourceId, err: err instanceof Error ? err.message : String(err) },
-            'registry-sync: upsert 失败',
-          )
         }
+      } catch (err) {
+        // 批量失败兜底:全部计为 failed
+        failed = items.length
+        synced = 0
+        server.log.warn(
+          { err: err instanceof Error ? err.message : String(err) },
+          'registry-sync: 批量 upsert 失败',
+        )
       }
 
       // 三态判定 — skipped(空结果)/ fail(全部失败)/ success(有成功)
       const status: 'success' | 'fail' | 'skipped' =
         failed > 0 ? (synced > 0 ? 'success' : 'fail') : (items.length === 0 ? 'skipped' : 'success')
 
-      const payloadHash = items.length > 0
-        ? await computePayloadHash({ items: items.map((i) => i.payload) })
+      // hash 复用:用已计算的 per-item hash 聚合 sync_log payloadHash,避免重复 JSON.stringify + SHA-256
+      const payloadHash = hashList.length > 0
+        ? await computePayloadHash({ items: hashList })
         : null
 
       await insertSyncLog({
