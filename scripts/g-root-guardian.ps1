@@ -1,26 +1,31 @@
 # ============================================================================
-# G:\ root real-time guardian - FileSystemWatcher blacklist monitor
+# G:\ root real-time guardian v2.0 - allowlist-first FileSystemWatcher
 # ============================================================================
 # Purpose:
-#   Monitor G:\ root directory in real-time. Any blacklisted junk dir/file
-#   created in G:\ root is immediately deleted + logged. This is the active
-#   defense layer (cleanup-external-junk.ps1 is passive/reactive cleanup).
+#   Monitor G:\ root in real-time. Any dir/file NOT in allowlist AND NOT
+#   system-protected is immediately deleted + logged. This eliminates the
+#   v1.0 blind spot where unknown junk (e.g. guardian-test-allowed) was kept
+#   because it was not in the blacklist.
 #
-# Blacklist source: g:\IHUI-AI\scripts\g-root-blacklist.json (UTF-8)
-# Log output:      g:\IHUI-AI\.trae-cn\tmp\g-root-guardian.log (UTF-8)
+# Mode: allowlist-first
+#   1. systemProtected -> ALLOWED (defensive, never delete system dirs)
+#   2. allowlist       -> ALLOWED (user's legit projects/tools)
+#   3. blacklist       -> BLOCKED (known junk, delete)
+#   4. heuristic       -> BLOCKED (garbage signatures, delete)
+#   5. otherwise       -> BLOCKED (unknown, delete + log [UNKNOWN])
+#
+# Config: g:\IHUI-AI\scripts\g-root-blacklist.json (v2.0 schema, UTF-8)
+# Log:    g:\IHUI-AI\.trae-cn\tmp\g-root-guardian.log (UTF-8, 1MB rotation)
 #
 # Usage:
 #   Foreground (debug):
 #     powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\g-root-guardian.ps1
-#   Background (hidden window, for install/scheduled task):
-#     Start-Process powershell -ArgumentList '-WindowStyle Hidden -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\g-root-guardian.ps1' -WindowStyle Hidden
+#   Background (scheduled task, -WindowStyle Hidden):
+#     install via scripts/install-g-root-guardian.ps1
 #
-# Design constraints:
-#   - Pure ASCII comments/output (PS5 default GBK decode breaks Chinese in .ps1)
-#   - Blacklist mode (NOT whitelist): only deletes known junk patterns,
-#     never deletes unknown user dirs/files (safe for new legit projects)
+# Design:
+#   - Pure ASCII comments/output (PS5 GBK breaks Chinese in .ps1)
 #   - No external modules, only built-in cmdlets
-#   - Log rotation at 1MB -> .bak
 #   - try-catch in event handler, never crash main loop
 # ============================================================================
 
@@ -29,23 +34,91 @@
 $ErrorActionPreference = 'Continue'
 
 # ---- Configuration (script-scoped) ----
-$script:BlacklistPath = 'g:\IHUI-AI\scripts\g-root-blacklist.json'
-$script:LogPath       = 'g:\IHUI-AI\.trae-cn\tmp\g-root-guardian.log'
-$script:WatchPath     = 'G:\'
+$script:ConfigPath = 'g:\IHUI-AI\scripts\g-root-blacklist.json'
+$script:LogPath    = 'g:\IHUI-AI\.trae-cn\tmp\g-root-guardian.log'
+$script:WatchPath  = 'G:\'
 
-# ---- Load blacklist (UTF-8) ----
-function Load-Blacklist {
+# ---- Load config v2.0 (allowlist + blacklist + heuristic + systemProtected) ----
+function Load-Config {
     param([string]$Path)
     if (-not (Test-Path $Path)) {
-        throw "Blacklist file not found: $Path"
+        throw "Config file not found: $Path"
     }
     $raw = Get-Content -Path $Path -Raw -Encoding UTF8
-    $bl = $raw | ConvertFrom-Json
+    $cfg = $raw | ConvertFrom-Json
+
     # Normalize null arrays to empty arrays (defensive)
-    if ($null -eq $bl.dirs)      { $bl | Add-Member -NotePropertyName dirs -NotePropertyValue @() -Force }
-    if ($null -eq $bl.files)     { $bl | Add-Member -NotePropertyName files -NotePropertyValue @() -Force }
-    if ($null -eq $bl.patterns)  { $bl | Add-Member -NotePropertyName patterns -NotePropertyValue @() -Force }
-    return $bl
+    function NormArr($obj, $prop) {
+        if ($null -eq $obj.$prop) {
+            $obj | Add-Member -NotePropertyName $prop -NotePropertyValue @() -Force
+        }
+    }
+    if ($null -eq $cfg.allowlist)         { $cfg | Add-Member -NotePropertyName allowlist -NotePropertyValue ([PSCustomObject]@{dirs=@(); dirPatterns=@(); files=@(); filePatterns=@()}) -Force }
+    if ($null -eq $cfg.blacklist)         { $cfg | Add-Member -NotePropertyName blacklist -NotePropertyValue ([PSCustomObject]@{dirs=@(); files=@(); patterns=@()}) -Force }
+    if ($null -eq $cfg.heuristic)         { $cfg | Add-Member -NotePropertyName heuristic -NotePropertyValue ([PSCustomObject]@{dirSignatures=@(); fileSignatures=@()}) -Force }
+    if ($null -eq $cfg.systemProtected)   { $cfg | Add-Member -NotePropertyName systemProtected -NotePropertyValue ([PSCustomObject]@{dirs=@()}) -Force }
+
+    NormArr $cfg.allowlist       'dirs'
+    NormArr $cfg.allowlist       'dirPatterns'
+    NormArr $cfg.allowlist       'files'
+    NormArr $cfg.allowlist       'filePatterns'
+    NormArr $cfg.blacklist       'dirs'
+    NormArr $cfg.blacklist       'files'
+    NormArr $cfg.blacklist       'patterns'
+    NormArr $cfg.heuristic       'dirSignatures'
+    NormArr $cfg.heuristic       'fileSignatures'
+    NormArr $cfg.systemProtected 'dirs'
+
+    return $cfg
+}
+
+# ---- Match helper: name against pattern list (wildcard) ----
+function Test-WildcardMatch {
+    param([string]$Name, [array]$Patterns)
+    if ($null -eq $Patterns -or $Patterns.Count -eq 0) { return $false }
+    foreach ($p in $Patterns) {
+        if ($Name -like $p) { return $true }
+    }
+    return $false
+}
+
+# ---- Decide action: 'ALLOW' or 'BLOCK:<reason>' ----
+function Decide-Action {
+    param(
+        [string]$Name,
+        [bool]$IsDirectory,
+        $Config
+    )
+    # 1. System-protected (defensive, never delete)
+    if ($Config.systemProtected.dirs -contains $Name) { return 'ALLOW:system' }
+
+    # 2. Allowlist (exact match first, then wildcard)
+    if ($IsDirectory) {
+        if ($Config.allowlist.dirs -contains $Name) { return 'ALLOW:allowlist' }
+        if (Test-WildcardMatch -Name $Name -Patterns $Config.allowlist.dirPatterns) { return 'ALLOW:allowlist-pattern' }
+    } else {
+        if ($Config.allowlist.files -contains $Name) { return 'ALLOW:allowlist' }
+        if (Test-WildcardMatch -Name $Name -Patterns $Config.allowlist.filePatterns) { return 'ALLOW:allowlist-pattern' }
+    }
+
+    # 3. Blacklist (exact match first, then wildcard)
+    if ($IsDirectory) {
+        if ($Config.blacklist.dirs -contains $Name) { return 'BLOCK:blacklist' }
+    } else {
+        if ($Config.blacklist.files -contains $Name) { return 'BLOCK:blacklist' }
+    }
+    if (Test-WildcardMatch -Name $Name -Patterns $Config.blacklist.patterns) { return 'BLOCK:blacklist-pattern' }
+
+    # 4. Heuristic (garbage signatures)
+    if ($IsDirectory) {
+        if (Test-WildcardMatch -Name $Name -Patterns $Config.heuristic.dirSignatures) { return 'BLOCK:heuristic' }
+    } else {
+        if (Test-WildcardMatch -Name $Name -Patterns $Config.heuristic.fileSignatures) { return 'BLOCK:heuristic' }
+    }
+
+    # 5. Unknown - not in allowlist, not system, not in blacklist, not heuristic
+    # allowlist-first mode: delete unknown to eliminate blind spots
+    return 'BLOCK:unknown'
 }
 
 # ---- Log writer (used by main script for startup/stop messages) ----
@@ -69,13 +142,22 @@ function Write-GuardianLog {
 
 # ---- Main init ----
 try {
-    $script:blacklist = Load-Blacklist -Path $script:BlacklistPath
-    $dirCount     = @($script:blacklist.dirs).Count
-    $fileCount    = @($script:blacklist.files).Count
-    $patternCount = @($script:blacklist.patterns).Count
-    Write-GuardianLog -Message "[STARTED] G:\ root guardian started (blacklist: $dirCount dirs, $fileCount files, $patternCount patterns)"
-    Write-Host "G:\ root guardian started"
-    Write-Host "  Blacklist: $dirCount dirs, $fileCount files, $patternCount patterns"
+    $script:config = Load-Config -Path $script:ConfigPath
+    $allowDirs     = @($script:config.allowlist.dirs).Count
+    $allowDirPats  = @($script:config.allowlist.dirPatterns).Count
+    $blackDirs     = @($script:config.blacklist.dirs).Count
+    $blackFiles    = @($script:config.blacklist.files).Count
+    $blackPats     = @($script:config.blacklist.patterns).Count
+    $heurDirs      = @($script:config.heuristic.dirSignatures).Count
+    $heurFiles     = @($script:config.heuristic.fileSignatures).Count
+    $sysDirs       = @($script:config.systemProtected.dirs).Count
+    $mode          = if ($script:config.mode) { $script:config.mode } else { 'allowlist-first' }
+    Write-GuardianLog -Message "[STARTED] G:\ root guardian v2.0 started (mode=$mode; allowlist: $allowDirs dirs+$allowDirPats patterns; blacklist: $blackDirs+$blackFiles+$blackPats; heuristic: $heurDirs+$heurFiles; system: $sysDirs)"
+    Write-Host "G:\ root guardian v2.0 started (mode=$mode)"
+    Write-Host "  Allowlist: $allowDirs dirs + $allowDirPats patterns"
+    Write-Host "  Blacklist: $blackDirs dirs + $blackFiles files + $blackPats patterns"
+    Write-Host "  Heuristic: $heurDirs dir sigs + $heurFiles file sigs"
+    Write-Host "  System:    $sysDirs protected dirs"
     Write-Host "  Log: $($script:LogPath)"
 } catch {
     Write-Host "[FATAL] Failed to init: $($_.Exception.Message)"
@@ -89,28 +171,64 @@ $watcher.IncludeSubdirectories = $false
 $watcher.EnableRaisingEvents = $true
 $watcher.NotifyFilter = [System.IO.NotifyFilters]::FileName -bor [System.IO.NotifyFilters]::DirectoryName
 
-# ---- Event handler (inlined matching + logging for scope safety) ----
-# The blacklist is passed via -MessageData (accessible as $Event.MessageData),
-# which is the most reliable cross-scope data path for Register-ObjectEvent.
-# Logging logic is inlined (not via helper function) to avoid any scope issue.
+# ---- Event handler (inlined for scope safety) ----
+# Config is passed via -MessageData (accessible as $Event.MessageData).
+# Logging is inlined to avoid helper-function scope issues in action block.
 $action = {
     try {
-        $bl = $Event.MessageData
+        $cfg = $Event.MessageData
         $name = $Event.SourceEventArgs.Name
         $fullPath = $Event.SourceEventArgs.FullPath
         if ([string]::IsNullOrEmpty($name)) { return }
 
-        # Match against blacklist (dirs exact / files exact / patterns wildcard)
-        $isBlocked = $false
-        if ($bl.dirs -contains $name)      { $isBlocked = $true }
-        elseif ($bl.files -contains $name) { $isBlocked = $true }
-        else {
-            foreach ($p in $bl.patterns) {
-                if ($name -like $p) { $isBlocked = $true; break }
+        # Determine if directory or file (Test-Path with -PathType)
+        $isDir = Test-Path -Path $fullPath -PathType Container
+        $isFile = Test-Path -Path $fullPath -PathType Leaf
+
+        # Inline Decide-Action logic (cannot call script-scope function from action block)
+        $reason = 'BLOCK:unknown'
+        # 1. System-protected
+        if ($cfg.systemProtected.dirs -contains $name) { $reason = 'ALLOW:system' }
+        # 2. Allowlist
+        elseif ($isDir -and ($cfg.allowlist.dirs -contains $name -or ($name -in $cfg.allowlist.dirPatterns -or ($cfg.allowlist.dirPatterns | ForEach-Object { if ($name -like $_) { return $true } })))) {
+            $reason = 'ALLOW:allowlist'
+        }
+        elseif ($isFile -and ($cfg.allowlist.files -contains $name)) {
+            $reason = 'ALLOW:allowlist'
+        }
+        elseif ($isFile) {
+            $matched = $false
+            foreach ($p in $cfg.allowlist.filePatterns) { if ($name -like $p) { $matched = $true; break } }
+            if ($matched) { $reason = 'ALLOW:allowlist-pattern' }
+        }
+        elseif ($isDir) {
+            $matched = $false
+            foreach ($p in $cfg.allowlist.dirPatterns) { if ($name -like $p) { $matched = $true; break } }
+            if ($matched) { $reason = 'ALLOW:allowlist-pattern' }
+        }
+
+        # 3. Blacklist (only if not already allowed)
+        if ($reason -like 'BLOCK:*') {
+            if ($isDir -and ($cfg.blacklist.dirs -contains $name)) { $reason = 'BLOCK:blacklist' }
+            elseif ($isFile -and ($cfg.allowlist.files -notcontains $name) -and ($cfg.blacklist.files -contains $name)) { $reason = 'BLOCK:blacklist' }
+            else {
+                $matched = $false
+                foreach ($p in $cfg.blacklist.patterns) { if ($name -like $p) { $matched = $true; break } }
+                if ($matched) { $reason = 'BLOCK:blacklist-pattern' }
             }
         }
 
-        # Inline log writer (avoid helper-function scope issues in action block)
+        # 4. Heuristic
+        if ($reason -eq 'BLOCK:unknown') {
+            $sigs = if ($isDir) { $cfg.heuristic.dirSignatures } else { $cfg.heuristic.fileSignatures }
+            if ($sigs) {
+                foreach ($s in $sigs) { if ($name -like $s) { $reason = 'BLOCK:heuristic'; break } }
+            }
+        }
+
+        # 5. Unknown remains BLOCK:unknown (allowlist-first mode)
+
+        # Inline log writer (avoid helper-function scope issues)
         $logPath = 'g:\IHUI-AI\.trae-cn\tmp\g-root-guardian.log'
         $logDir = Split-Path $logPath -Parent
         if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
@@ -124,13 +242,29 @@ $action = {
         }
         $ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
 
-        if ($isBlocked) {
-            if (Test-Path $fullPath) {
-                Remove-Item -Path $fullPath -Recurse -Force -ErrorAction SilentlyContinue
-            }
-            Add-Content -Path $logPath -Value "$ts [BLOCKED] $fullPath" -Encoding UTF8
+        if ($reason -like 'ALLOW:*') {
+            Add-Content -Path $logPath -Value "$ts [ALLOWED] $fullPath ($reason)" -Encoding UTF8
         } else {
-            Add-Content -Path $logPath -Value "$ts [ALLOWED] $fullPath" -Encoding UTF8
+            # BLOCK: delete + log
+            if (Test-Path $fullPath) {
+                try {
+                    Remove-Item -Path $fullPath -Recurse -Force -ErrorAction Stop
+                } catch {
+                    # Fallback: .NET Directory.Delete for locked dirs
+                    try {
+                        if ($isDir) {
+                            [System.IO.Directory]::Delete($fullPath, $true)
+                        } else {
+                            [System.IO.File]::Delete($fullPath)
+                        }
+                    } catch {
+                        # Last resort: log failure
+                        Add-Content -Path $logPath -Value "$ts [ERROR] Failed to delete $fullPath : $($_.Exception.Message)" -Encoding UTF8
+                        return
+                    }
+                }
+            }
+            Add-Content -Path $logPath -Value "$ts [BLOCKED] $fullPath ($reason)" -Encoding UTF8
         }
     } catch {
         # Never crash the event pipeline; log the error and continue
@@ -140,8 +274,8 @@ $action = {
     }
 }
 
-# Register Created event; pass blacklist via -MessageData for scope-safe access
-Register-ObjectEvent -InputObject $watcher -EventName Created -Action $action -MessageData $script:blacklist -SourceIdentifier 'GRootGuardianCreated' | Out-Null
+# Register Created event; pass config via -MessageData for scope-safe access
+Register-ObjectEvent -InputObject $watcher -EventName Created -Action $action -MessageData $script:config -SourceIdentifier 'GRootGuardianCreated' | Out-Null
 
 # ---- Main loop (keep process alive so events keep firing) ----
 # IMPORTANT: use Wait-Event -Timeout 1, NOT Start-Sleep -Seconds 60.
@@ -149,13 +283,13 @@ Register-ObjectEvent -InputObject $watcher -EventName Created -Action $action -M
 # delaying event delivery (and thus deletion) by up to 60s. Wait-Event pumps
 # the event queue and invokes -Action scriptblocks with ~1s latency while
 # keeping the process alive with near-zero CPU.
-Write-Host "Guardian running. Press Ctrl+C to stop."
+Write-Host "Guardian running (allowlist-first mode). Press Ctrl+C to stop."
 try {
     while ($true) { Wait-Event -Timeout 1 | Out-Null }
 } finally {
     try { Unregister-Event -SourceIdentifier 'GRootGuardianCreated' -ErrorAction SilentlyContinue } catch { }
     $watcher.EnableRaisingEvents = $false
     $watcher.Dispose()
-    Write-GuardianLog -Message "[STOPPED] G:\ root guardian stopped"
+    Write-GuardianLog -Message "[STOPPED] G:\ root guardian v2.0 stopped"
     Write-Host "Guardian stopped."
 }
