@@ -806,12 +806,14 @@ class LLMGateway:
             if api_base:
                 call_kwargs["api_base"] = api_base
             call_kwargs.update(kwargs)
+            # 累积 content/reasoning,用于 provider 不返回 stream_usage 时估算 token
+            # 必须在 litellm.acompletion 之前初始化:若 acompletion 抛异常,
+            # except 块需引用 accumulated_content 判断是否已发送 chunk(决定是否 fallback)
+            accumulated_content = ""
+            accumulated_reasoning = ""
             response = await litellm.acompletion(**call_kwargs)
             final_model = used_model
             final_usage: dict[str, Any] = {}
-            # 累积 content/reasoning,用于 provider 不返回 stream_usage 时估算 token
-            accumulated_content = ""
-            accumulated_reasoning = ""
             async for chunk in response:
                 if hasattr(chunk, "choices") and chunk.choices:
                     delta = chunk.choices[0].delta
