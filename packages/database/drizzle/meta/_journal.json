@@ -1023,6 +1023,41 @@
       "when": 1784876400000,
       "tag": "20260724140000_missing_15_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 146,
+      "version": "7",
+      "when": 1784630000000,
+      "tag": "0123_pgvector_embedding",
+      "breakpoints": true
+    },
+    {
+      "idx": 147,
+      "version": "7",
+      "when": 1784839200000,
+      "tag": "20260723120000_p3_deep_layer",
+      "breakpoints": true
+    },
+    {
+      "idx": 148,
+      "version": "7",
+      "when": 1784842800000,
+      "tag": "20260723130000_add_user_learning_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1784869200000,
+      "tag": "20260724120000_registry_sync_center",
+      "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1784890800000,
+      "tag": "20260724180000_registry_items_payload_hash",
+      "breakpoints": true
     }
   ]
 }

@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { useTaskReceiver } from '@/hooks/use-task-receiver'
-import type { TaskDispatch, TaskResult, TaskStatus } from '@ihui/shared'
+import type { TaskDispatch, TaskResult, TaskStatus } from '@ihui/shared/tasks/dispatch'
 
 const STATUS_STYLE: Record<TaskStatus, { className: string; dot?: boolean }> = {
   pending: { className: 'text-muted-foreground' },
