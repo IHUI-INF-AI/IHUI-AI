@@ -12096,7 +12096,7 @@
     "send": "Send",
     "response": "Response"
   },
-  "agents": {
+  "agent": {
     "marketTitle": "Agent Market",
     "marketSubtitle": "Discover and use excellent agents",
     "searchPlaceholder": "Search agents...",
