@@ -431,6 +431,25 @@ export interface RechargeCreateResult {
 export const createRecharge = (amount: number, payMethod: 'wechat' | 'alipay' = 'wechat') =>
   post<RechargeCreateResult>(`/payments/${payMethod}/create?amount=${amount}`, {})
 
+/** 创建支付宝小程序支付订单（对接 /payments/alipay/miniapp/create，金额单位：元） */
+export interface AlipayMiniappPayResult {
+  outTradeNo: string
+  mock?: boolean
+  tradeNo?: string
+}
+export const createAlipayMiniappPayment = (params: {
+  amount: number
+  orderType?: number
+  subject?: string
+  productId?: string
+}) => {
+  const parts = [`amount=${encodeURIComponent(params.amount)}`]
+  if (params.orderType !== undefined) parts.push(`orderType=${params.orderType}`)
+  if (params.subject) parts.push(`subject=${encodeURIComponent(params.subject)}`)
+  if (params.productId) parts.push(`productId=${encodeURIComponent(params.productId)}`)
+  return post<AlipayMiniappPayResult>(`/payments/alipay/miniapp/create?${parts.join('&')}`, {})
+}
+
 /** 钱包余额（对接 /wallet/balance） */
 export interface WalletBalance {
   balance: number
