@@ -354,6 +354,7 @@ export const registrySyncRoutes: FastifyPluginAsync = async (server) => {
       }
 
       // 签名成功 → 入队同步任务 → 立即返回 202
+      // trigger 状态保持 'pending',由 registry-sync-worker 处理完成后回写 'processed'/'failed'
       let syncTriggered = false
       try {
         const jobId = await enqueueWebhookSync(server.redisForQueue, {
@@ -363,11 +364,7 @@ export const registrySyncRoutes: FastifyPluginAsync = async (server) => {
           triggerId,
         })
         syncTriggered = !!jobId
-        await markWebhookTriggerProcessed(
-          triggerId,
-          'processed',
-          `sync job ${jobId ?? 'enqueued'}`,
-        )
+        // 仅在入队失败时回写 'failed';成功时保持 'pending' 等 Worker 回写
       } catch (e) {
         request.log.error(e)
         await markWebhookTriggerProcessed(triggerId, 'failed', '入队同步任务失败')
