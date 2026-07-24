@@ -220,7 +220,9 @@ export const registrySyncRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const data = await listRegistryItems(parsed.data)
+      // d7:透传 userId(requireAuth 已设置),listRegistryItems 据此返回该用户的 installedIds
+      const userId = request.userId
+      const data = await listRegistryItems(parsed.data, userId)
       return reply.send(success(data))
     } catch (e) {
       request.log.error(e)
