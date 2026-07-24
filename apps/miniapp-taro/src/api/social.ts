@@ -1,8 +1,13 @@
 import { get, del } from '../utils/request'
+import type { PageData, PageQuery } from '@ihui/api-client'
 
-export interface PaginationQuery {
-  page?: number
-  pageSize?: number
+// 向后兼容别名:PaginationQuery → PageQuery(api-client canonical 名)
+export type PaginationQuery = PageQuery
+
+// PaginatedList 扩展 PageData,但 page/pageSize 必填(消费端依赖必填字段)
+export interface PaginatedList<T> extends PageData<T> {
+  page: number
+  pageSize: number
 }
 
 export interface FavoriteItem {
@@ -28,13 +33,6 @@ export interface SubscriptionItem {
   targetType: string
   targetId: string
   createdAt: string
-}
-
-export interface PaginatedList<T> {
-  list: T[]
-  total: number
-  page: number
-  pageSize: number
 }
 
 export const getFavorites = (query?: PaginationQuery & { resourceType?: string }) =>
