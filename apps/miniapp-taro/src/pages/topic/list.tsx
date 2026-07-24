@@ -6,7 +6,6 @@ import { getTopicList } from '@/api'
 import { TOPIC_EVENT } from '@/constants/events'
 import { NavBar } from '@/components'
 import { useI18n } from '@/i18n'
-import './list.css'
 
 interface TopicItem {
   id: string
@@ -128,14 +127,14 @@ export default function TopicListPage() {
   ]
 
   return (
-    <View className="topic-list-page">
+    <View className="min-h-screen bg-background flex flex-col">
       <NavBar title={tt('topic.list.pageTitle', '话题')} showBack />
-      <ScrollView scrollY className="topic-list-body">
+      <ScrollView scrollY className="flex-1 p-[24rpx] pb-[60rpx] box-border">
         {/* 搜索栏 */}
-        <View className="topic-list-search">
-          <Text className="topic-list-search-icon">🔍</Text>
+        <View className="flex items-center h-[72rpx] px-[20rpx] bg-card rounded-[12rpx] mb-[20rpx]">
+          <Text className="mr-[12rpx] text-[28rpx] text-muted-foreground shrink-0">🔍</Text>
           <Input
-            className="topic-list-search-input"
+            className="flex-1 text-[28rpx] text-foreground"
             value={searchText}
             placeholder={tt('topic.list.searchPlaceholder', '搜索话题')}
             onInput={(e) => setSearchText(e.detail.value)}
@@ -145,11 +144,11 @@ export default function TopicListPage() {
         </View>
 
         {/* 分类 tab */}
-        <View className="topic-list-tabs">
+        <View className="flex gap-[16rpx] mb-[20rpx]">
           {tabs.map((tab) => (
             <View
               key={tab.key}
-              className={`topic-list-tab${activeTab === tab.key ? ' active' : ''}`}
+              className={`flex-1 flex items-center justify-center h-[64rpx] text-[26rpx] rounded-[10rpx] ${activeTab === tab.key ? 'text-primary bg-[rgba(0,242,255,0.12)] font-semibold' : 'text-muted-foreground bg-card'}`}
               onClick={() => switchTab(tab.key)}
             >
               <Text>{tt(tab.label, tab.fb)}</Text>
@@ -159,37 +158,45 @@ export default function TopicListPage() {
 
         {/* 话题列表 */}
         {list.length > 0 ? (
-          <View className="topic-list-list">
+          <View className="flex flex-col gap-[16rpx]">
             {list.map((item) => (
               <View
                 key={item.id}
-                className="topic-list-item"
+                className="flex items-center bg-card rounded-[16rpx] p-[24rpx]"
                 onClick={() => goDetail(item.id)}
               >
                 {item.coverUrl ? (
-                  <Image className="topic-list-cover" src={item.coverUrl} mode="aspectFill" />
+                  <Image
+                    className="w-[100rpx] h-[100rpx] rounded-[12rpx] bg-muted shrink-0"
+                    src={item.coverUrl}
+                    mode="aspectFill"
+                  />
                 ) : (
-                  <View className="topic-list-cover topic-list-cover-fallback">
-                    <Text className="topic-list-cover-text">#</Text>
+                  <View className="w-[100rpx] h-[100rpx] rounded-[12rpx] bg-muted shrink-0 flex items-center justify-center">
+                    <Text className="text-[40rpx] font-bold text-primary">#</Text>
                   </View>
                 )}
-                <View className="topic-list-item-body">
-                  <Text className="topic-list-name">#{item.name}</Text>
+                <View className="flex-1 ml-[24rpx] min-w-0">
+                  <Text className="block text-[30rpx] text-primary font-semibold">
+                    #{item.name}
+                  </Text>
                   {item.description ? (
-                    <Text className="topic-list-desc">{item.description}</Text>
+                    <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx] overflow-hidden text-ellipsis whitespace-nowrap">
+                      {item.description}
+                    </Text>
                   ) : null}
-                  <View className="topic-list-meta">
-                    <Text className="topic-list-meta-item">
+                  <View className="flex gap-[16rpx] mt-[8rpx]">
+                    <Text className="text-[22rpx] text-muted-foreground">
                       {tt('topic.list.participants', '{n} 人参与', {
                         n: item.participantCount || 0,
                       })}
                     </Text>
-                    <Text className="topic-list-meta-item">
+                    <Text className="text-[22rpx] text-muted-foreground">
                       {tt('topic.list.posts', '{n} 篇内容', { n: item.count || 0 })}
                     </Text>
                   </View>
                 </View>
-                <Text className="topic-list-arrow">›</Text>
+                <Text className="text-[32rpx] text-muted-foreground ml-[16rpx] shrink-0">›</Text>
               </View>
             ))}
           </View>
@@ -197,36 +204,39 @@ export default function TopicListPage() {
 
         {/* 状态提示 */}
         {list.length === 0 && !loading && !error ? (
-          <View className="topic-list-state">
+          <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
             <Text>{tt('topic.list.empty', '暂无话题')}</Text>
           </View>
         ) : null}
 
         {error && !loading ? (
-          <View className="topic-list-state" onClick={() => load(true)}>
-            <Text className="topic-list-error-text">
+          <View
+            className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]"
+            onClick={() => load(true)}
+          >
+            <Text className="text-[26rpx] text-destructive">
               {tt('topic.list.loadFailed', '加载失败')}
             </Text>
-            <Text className="topic-list-error-retry">
+            <Text className="text-[26rpx] text-primary mt-[12rpx]">
               {tt('topic.list.retry', '点击重试')}
             </Text>
           </View>
         ) : null}
 
         {loading ? (
-          <View className="topic-list-state">
+          <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
             <Text>{tt('topic.list.loading', '加载中…')}</Text>
           </View>
         ) : null}
 
         {loadingMore ? (
-          <View className="topic-list-state">
+          <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
             <Text>{tt('topic.list.loadingMore', '加载中…')}</Text>
           </View>
         ) : null}
 
         {!loading && !loadingMore && !hasMore && list.length > 0 ? (
-          <View className="topic-list-state">
+          <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
             <Text>{tt('topic.list.noMore', '没有更多了')}</Text>
           </View>
         ) : null}
