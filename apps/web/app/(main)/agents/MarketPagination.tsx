@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function MarketPagination({ total, page, totalPages, onPrev, onNext }: Props) {
-  const t = useTranslations('agents')
+  const t = useTranslations('agent')
   return (
     <div className="flex items-center justify-between">
       <span className="text-sm text-muted-foreground">{t('total', { total })}</span>
