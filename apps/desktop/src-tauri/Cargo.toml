@@ -42,6 +42,6 @@ winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "winbase
 [profile.release]
 panic = "abort"
 codegen-units = 1
-lto = true
+lto = "thin"
 opt-level = "s"
 strip = true
