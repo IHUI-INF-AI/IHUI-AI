@@ -12072,6 +12072,10 @@
     "permissionReasonPurchased": "このエージェントを購入しました",
     "permissionReasonVipOnly": "VIP専用、VIPに登録してください",
     "title": "エージェントワークスペース",
+    "statusPending": "保留中",
+    "statusPublished": "公開済み",
+    "statusRejected": "却下",
+    "statusOffline": "オフライン",
     "kanban": {
       "triage": "トリアージ",
       "todo": "ToDo",
@@ -12172,7 +12176,14 @@
     "colActualAmount": "の",
     "colFee": "手数料",
     "colMethod": "メソッド",
-    "colProcessedAt": "Process"
+    "colProcessedAt": "Process",
+    "orderStatusPending": "保留中",
+    "orderStatusPaid": "支払済み",
+    "orderStatusCancelled": "キャンセル済み",
+    "orderStatusRefunded": "返金済み",
+    "flowRecharge": "トラフィックチャージ",
+    "flowDeduct": "トラフィック控除",
+    "flowExpire": "トラフィック期限切れ"
   },
   "tokenValue": {
     "title": "の",
@@ -12201,7 +12212,16 @@
     "noRecords": "なし",
     "currentBalance": "現在の残高",
     "totalEarned": "累計獲得",
-    "totalUsed": "累計使用"
+    "totalUsed": "累計使用",
+    "rangeToday": "今日",
+    "range7d": "過去7日",
+    "range30d": "過去30日",
+    "rangeCustom": "カスタム",
+    "colTime": "時間",
+    "colAgent": "エージェント",
+    "colModel": "モデル",
+    "colToken": "トークン",
+    "colAmount": "数量"
   },
   "distributionCompany": {
     "title": "の",
@@ -12228,7 +12248,10 @@
     "teamSize": "チーム人数",
     "activeMembers": "アクティブメンバー",
     "myRank": "私のランク",
-    "teamOverview": "チーム概要"
+    "teamOverview": "チーム概要",
+    "levelLabel": "レベルラベル",
+    "withdraw": "出金",
+    "viewDetail": "詳細を見る"
   },
   "commissionPlan": {
     "title": "コミッションプラン",
@@ -12269,7 +12292,10 @@
     "levelsTitle": "レベル別コミッション率",
     "commissionRate": "コミッション率",
     "copied": "コピー済み",
-    "copy": "コピー"
+    "copy": "コピー",
+    "level1": "レベル1",
+    "level2": "レベル2",
+    "level3": "レベル3"
   },
   "oauthPlatform": {
     "featureApiTitle": "API",
