@@ -31,7 +31,7 @@ export default function AgentListPanel({
 
   return (
     <View className="bg-card rounded-t-2xl shadow-lg" style={{ maxHeight: '50vh' }}>
-      <View className="flex items-center justify-between px-4 py-3 border-b border-border">
+      <View className="flex items-center justify-between px-4 py-3 mb-2">
         <Text className="text-sm font-medium text-foreground">{tt('agent.title', '智能体')}</Text>
       </View>
       <ScrollView scrollY className="px-3 py-2" style={{ maxHeight: '40vh' }}>
