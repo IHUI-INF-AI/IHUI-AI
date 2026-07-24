@@ -22,6 +22,7 @@ const {
   mockFindRefreshToken,
   mockRevokeRefreshToken,
   mockRevokeRefreshTokenFamily,
+  mockRevokeAllUserRefreshTokens,
   mockIsSystemAdminUser,
   mockGetUserPermissions,
   mockGetLockRemainingMs,
@@ -40,6 +41,7 @@ const {
   mockFindRefreshToken: vi.fn(),
   mockRevokeRefreshToken: vi.fn(),
   mockRevokeRefreshTokenFamily: vi.fn(),
+  mockRevokeAllUserRefreshTokens: vi.fn(),
   mockIsSystemAdminUser: vi.fn(),
   mockGetUserPermissions: vi.fn(),
   mockGetLockRemainingMs: vi.fn(),
@@ -73,6 +75,7 @@ vi.mock('../src/db/queries.js', () => ({
   findRefreshToken: mockFindRefreshToken,
   revokeRefreshToken: mockRevokeRefreshToken,
   revokeRefreshTokenFamily: mockRevokeRefreshTokenFamily,
+  revokeAllUserRefreshTokens: mockRevokeAllUserRefreshTokens,
   isSystemAdminUser: mockIsSystemAdminUser,
 }))
 
@@ -263,7 +266,9 @@ describe('auth routes', () => {
       expect(res.json().message).toContain('验证码错误')
     })
 
-    it('用户不存在返回 404', async () => {
+    // CWE-204 防用户枚举攻击:用户不存在时统一返回"验证码错误或已过期",
+    // 攻击者无法通过响应区分"用户不存在"和"验证码错误"(2026-07-24 安全加固)
+    it('用户不存在时统一返回验证码错误(防枚举)返回 400', async () => {
       codeStore.set('13800000001', {
         code: '123456',
         expiresAt: Date.now() + 60000,
@@ -275,7 +280,8 @@ describe('auth routes', () => {
         url: '/api/auth/reset-password',
         payload: { phone: '13800000001', code: '123456', newPassword: 'newpass12' },
       })
-      expect(res.statusCode).toBe(404)
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('验证码错误或已过期')
     })
 
     it('系统管理员密码不可重置返回 403', async () => {
@@ -508,11 +514,13 @@ describe('auth routes', () => {
     })
 
     it('用户不存在返回 404', async () => {
-      mockAuthenticate.mockImplementationOnce((request: { userId?: string; jwtPayload?: unknown }) => {
-        request.userId = 'user-001'
-        request.jwtPayload = { userId: 'user-001', roleId: 0 } as never
-        return Promise.resolve(request.jwtPayload)
-      })
+      mockAuthenticate.mockImplementationOnce(
+        (request: { userId?: string; jwtPayload?: unknown }) => {
+          request.userId = 'user-001'
+          request.jwtPayload = { userId: 'user-001', roleId: 0 } as never
+          return Promise.resolve(request.jwtPayload)
+        },
+      )
       mockFindUserById.mockResolvedValueOnce(null)
       const res = await app.inject({
         method: 'GET',
@@ -523,11 +531,13 @@ describe('auth routes', () => {
     })
 
     it('登录用户返回 200 与 user 信息', async () => {
-      mockAuthenticate.mockImplementationOnce((request: { userId?: string; jwtPayload?: unknown }) => {
-        request.userId = 'user-001'
-        request.jwtPayload = { userId: 'user-001', roleId: 0 } as never
-        return Promise.resolve(request.jwtPayload)
-      })
+      mockAuthenticate.mockImplementationOnce(
+        (request: { userId?: string; jwtPayload?: unknown }) => {
+          request.userId = 'user-001'
+          request.jwtPayload = { userId: 'user-001', roleId: 0 } as never
+          return Promise.resolve(request.jwtPayload)
+        },
+      )
       mockFindUserById.mockResolvedValueOnce(makeUser())
       const res = await app.inject({
         method: 'GET',
