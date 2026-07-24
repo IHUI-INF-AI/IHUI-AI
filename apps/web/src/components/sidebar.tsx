@@ -74,6 +74,7 @@ import {
   NotebookPen,
   Ticket,
   RotateCcw,
+  RefreshCw,
   Clock,
   MapPin,
   Heart,
@@ -352,6 +353,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { href: '/knowledge-base', labelKey: 'knowledgeBase', icon: BookOpen },
       { href: '/knowledge-rag', labelKey: 'knowledgeRag', icon: Database },
       { href: '/knowledge-graph', labelKey: 'knowledgeGraph', icon: Network },
+      { href: '/registry', labelKey: 'registry', icon: RefreshCw },
       // 自动化任务调度器已于 2026-07-22 移至侧边栏快捷区(插件市场按钮下方),不再占用 AI 分组位置。
     ],
   },
