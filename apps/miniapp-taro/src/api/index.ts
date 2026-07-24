@@ -1348,3 +1348,29 @@ export const cancelRecurringContract = (id: string | number, reason?: string) =>
   unwrapApi(_cancelRecurringContract(id, reason))
 
 export const getSubscriptionStatus = () => unwrapApi(_getSubscriptionStatus())
+
+/* ============ SRS 主播端 ============ */
+
+export interface SrsStream {
+  id: string
+  streamKey: string
+  title: string
+  pushUrl: string | null
+  recvBytes: number | null
+  sendBytes: number | null
+  status: 'active' | 'inactive' | 'banned'
+}
+
+/** 创建直播流(生成推流密钥+URL)— POST /srs/streams */
+export const createSrsStream = (data: { title: string; channelId?: string }) =>
+  post<SrsStream>('/srs/streams', data)
+
+/** 更新直播流(结束直播传 status='inactive')— PUT /srs/streams/:id */
+export const updateSrsStream = (
+  id: string,
+  data: { title?: string; status?: 'active' | 'inactive' | 'banned'; channelId?: string },
+) => put<SrsStream>(`/srs/streams/${id}`, data)
+
+/** 查询 SRS 实时流状态 — GET /srs/streams/:key/status */
+export const getSrsStreamStatus = (key: string) =>
+  get<{ streamKey: string; srsStatus: unknown }>(`/srs/streams/${key}/status`)
