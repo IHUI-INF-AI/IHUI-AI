@@ -336,8 +336,8 @@ describe('response-sanitizer — DataMaskingPipeline', () => {
     expect(pipeline.stats().totalSkipped).toBe(1)
   })
 
-  it('DEFAULT_SENSITIVE_KEYS 包含 7 个默认键', () => {
-    expect(DEFAULT_SENSITIVE_KEYS).toHaveLength(7)
+  it('DEFAULT_SENSITIVE_KEYS 包含 8 个默认键', () => {
+    expect(DEFAULT_SENSITIVE_KEYS).toHaveLength(8)
     expect(DEFAULT_SENSITIVE_KEYS).toContain('password')
     expect(DEFAULT_SENSITIVE_KEYS).toContain('phone')
     expect(DEFAULT_SENSITIVE_KEYS).toContain('idcard')
@@ -345,5 +345,6 @@ describe('response-sanitizer — DataMaskingPipeline', () => {
     expect(DEFAULT_SENSITIVE_KEYS).toContain('email')
     expect(DEFAULT_SENSITIVE_KEYS).toContain('token')
     expect(DEFAULT_SENSITIVE_KEYS).toContain('secret')
+    expect(DEFAULT_SENSITIVE_KEYS).toContain('apikey')
   })
 })
