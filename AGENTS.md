@@ -388,25 +388,34 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
   - 把 Qt 类工具放到 `G:\tools\` 或项目子目录再运行。
 - **守门局限性**:v2/v3 守门只检测项目内代码写项目外路径,无法检测用户双击 .exe 或其他 IDE 配置异常。本节规则是补充提示,真正根治靠下方"实时守门服务"。
 
-### G:\ 根目录实时守门服务(2026-07-24 立,机制根治)
+### G:\ 根目录实时守门服务(2026-07-24 立,机制根治;v2.0 白名单优先 2026-07-24 升级)
 
 - **问题背景**:§15 v2/v3 守门只检测项目内代码,无法阻止用户双击 .exe 或其他 IDE 配置异常产生的垃圾。用户质问"从根上解决了吗 不允许往这放垃圾文件夹",要求主动实时阻止。
-- **解决方案**:FileSystemWatcher 实时监控 G:\ 根目录,黑名单内的垃圾目录/文件创建后**约 250ms 内自动删除** + 写审计日志。注册为 Windows 计划任务(用户登录时自启,失败自动重启)。
+- **v1.0 盲区**:v1.0 只用黑名单模式,只删除已知垃圾。`guardian-test-allowed`(测试残留)不在黑名单,被保留 → 用户再次质问"没彻底解决好啊"。
+- **v2.0 升级(白名单优先模式)**:任何**不在白名单**且**不是系统目录**的目录/文件创建后立即删除。彻底消除 v1.0 盲区。
+- **5 层判定逻辑**(顺序执行):
+  1. `systemProtected` → ALLOWED(系统目录,永不删除)
+  2. `allowlist` → ALLOWED(用户合法项目/工具)
+  3. `blacklist` → BLOCKED(已知垃圾,删除)
+  4. `heuristic` → BLOCKED(垃圾特征匹配,删除)
+  5. 否则 → BLOCKED:unknown(未知项,删除)— **v2.0 核心改动**
+- **解决方案**:FileSystemWatcher 实时监控 G:\ 根目录,垃圾创建后**约 110-222ms 内自动删除** + 写审计日志。注册为 Windows 计划任务(用户登录时自启,失败自动重启)。
 - **组件**:
-  - `scripts/g-root-guardian.ps1` — 实时监控脚本(FileSystemWatcher + 黑名单匹配 + 自动删除 + 审计日志 + 1MB 日志轮转)
-  - `scripts/g-root-blacklist.json` — 黑名单配置(16 目录 + 23 文件 + 10 通配符模式)
+  - `scripts/g-root-guardian.ps1` v2.0 — 实时监控脚本(allowlist-first + 黑名单 + 启发式 + .NET Directory.Delete 兜底)
+  - `scripts/g-root-blacklist.json` v2.0 — 配置(allowlist 15 目录 + blacklist 17 目录/23 文件/10 通配符 + heuristic 7 目录签名/14 文件签名 + systemProtected 8 系统目录)
   - `scripts/install-g-root-guardian.ps1` — 安装脚本(注册计划任务 IHUI-AI-G-Root-Guardian,用户登录时自启,-WindowStyle Hidden,RestartCount 999)
   - `scripts/uninstall-g-root-guardian.ps1` — 卸载脚本(停止进程 + 删除计划任务)
   - `scripts/g-root-guardian-status.ps1` — 状态检查脚本(查询运行状态 + 显示最近日志 + 统计 BLOCKED/ALLOWED/ERROR)
-- **黑名单模式**:只删除已知垃圾模式(16 目录 + 23 文件 + 10 通配符),不删除未知目录/文件(避免误删用户新项目)。
-- **关键性能优化**:用 `Wait-Event -Timeout 1` 替代 `Start-Sleep 60`,避免阻塞 PowerShell 事件队列,实测删除延迟从 32000ms 降到 252ms。
-- **日志**:`.trae-cn/tmp/g-root-guardian.log`(格式:`yyyy-MM-dd HH:mm:ss [BLOCKED|ALLOWED|ERROR|STARTED|STOPPED] <path>`,1MB 自动轮转为 .bak)。
+- **白名单(allowlist)**:`$RECYCLE.BIN` / `System Volume Information` / `IHUI-AI` / `freellmapi` / `MuMuPlayer` / `QoderCN` / `Qoderwork` / `Trae CN` / `TRAE SOLO CN` / `WeGameApps` / `WeixinGameData` / `Yingyongbao` / `Zcode` / `微信web开发者工具` / `支付宝小程序开发工具`(15 目录)+ `tools` 通配符 + `desktop.ini`/`Thumbs.db`/`*.lnk`/`*.url` 文件通配符。
+- **关键性能优化**:用 `Wait-Event -Timeout 1` 替代 `Start-Sleep 60`,避免阻塞 PowerShell 事件队列,实测删除延迟 110-222ms。
+- **日志**:`.trae-cn/tmp/g-root-guardian.log`(格式:`yyyy-MM-dd HH:mm:ss [BLOCKED|ALLOWED|ERROR|STARTED|STOPPED] <path> (reason)`,1MB 自动轮转为 .bak)。
 - **安装/卸载/状态**:
   - 安装:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\install-g-root-guardian.ps1`
   - 卸载:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-guardian.ps1`
   - 状态:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\g-root-guardian-status.ps1`
 - **守门协同**:v3.1 守门脚本 FILE_WHITELIST 已豁免 5 个 guardian 脚本(引用垃圾路径作为黑名单是合法的)。
-- **真正根治**:从被动清理(清理脚本)→ 主动实时阻止(FileSystemWatcher + 计划任务自启),用户无需干预,垃圾创建的瞬间就被删除,等同于"不允许往这放垃圾文件夹"。
+- **实测验证(v2.0)**:guardian-test-allowed 114ms 删除 / platforms 110ms 删除 / unknown-random-dir-xyz 222ms 删除 / Qt5Core.dll 106ms 删除 / IHUI-AI 保留。
+- **真正根治**:从被动清理(清理脚本)→ 主动实时阻止(FileSystemWatcher + 计划任务自启 + 白名单优先),用户无需干预,任何垃圾(已知或未知)创建的瞬间就被删除,等同于"不允许往这放垃圾文件夹"。
 
 ---
 
@@ -565,6 +574,7 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 **触发条件**:zh-CN.json 新增/修改 key 后,AI agent 必须执行翻译流水线补齐其他 4 语言。
 
 **执行步骤(强制)**:
+
 1. `node scripts/i18n-diff.mjs` — 检测差异,生成 `.trae-cn/tmp/i18n-pending.json`
 2. AI agent 读取 `.trae-cn/tmp/i18n-pending.json`(含 glossary + workflow 说明)
 3. AI agent 自己翻译(结合 `scripts/brand-glossary.json` 保证品牌名一致)
@@ -574,6 +584,7 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 7. `node scripts/scan-i18n-zh-residue.mjs ko` / `zh-TW` — 验证无中文/简体字残留
 
 **翻译规则**:
+
 - 品牌名优先用 `brand-glossary.json` 的 canonical 英文名(如 智谱清言→Zhipu AI)。
 - 字体名优先用英文系统名(如 宋体→SimSun)。
 - 技术术语优先用英文国际通用词(如 物联网→IoT)。
@@ -584,6 +595,7 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 - en 禁止中文残留,禁止破碎机翻英文(如 AgentDevPlatform)。
 
 **守门集成**:
+
 - **web 端**(pre-commit 第 2f-web 项,blocking):仅当 staged 涉及 `apps/web/messages/zh-CN.json` 时检测,有 pending 则阻塞 commit 直到翻译完成。
 - **miniapp-taro 端**(pre-commit 第 2f-miniapp-taro 项,blocking):仅当 staged 涉及 `apps/miniapp-taro/src/i18n/zh-CN.ts` 时检测,有 pending 则阻塞 commit。用 `--target=miniapp-taro` 切换扫描路径,typescript AST 解析 `.ts` 文件。
 - 多 agent 并行时其他 agent 改 target locale 文件不会触发阻塞(避免误伤)。
@@ -594,44 +606,44 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 
 ## 守门脚本速查(pre-commit 第 1-23 项)
 
-| #   | 脚本                                         | 用途                                                 |
-| --- | -------------------------------------------- | ---------------------------------------------------- |
-| 1   | check-api-key-leak.mjs                       | API key 泄露                                         |
-| 2   | check-i18n-keys.mjs                          | i18n 键完整性 + 翻译白名单(15 条豁免)                |
-| 2b  | scan-i18n-zh-residue.mjs zh-TW               | zh-TW 简体字残留 (opencc 字形转换)                   |
-| 2c  | scan-i18n-zh-residue.mjs ko                  | ko.json 中文残留 (字符范围检测)                      |
-| 2d  | scan-i18n-zh-residue.mjs ja                  | ja.json 中文残留 (warn-only,不阻塞)                  |
-| 2e  | check-i18n-broken-en.mjs                     | en.json 破碎机翻英文                                 |
-| 2f-web | i18n-diff.mjs                             | **i18n AI 翻译流水线守门(blocking,仅 zh-CN staged 时检测)** |
-| 2f-miniapp-taro | i18n-diff.mjs --target=miniapp-taro | **miniapp-taro i18n 翻译流水线守门(blocking,仅 zh-CN.ts staged 时检测)** |
-| 3   | check-db-schema-drift.mjs                    | schema drift                                         |
-| 4   | check-stale-dist.mjs                         | packages 陈旧 dist                                   |
-| 4b  | check-dist-encoding.mjs                      | packages/*/dist UTF-8 BOM 守门                       |
-| 4c  | check-api-client-utf8.mjs                    | api-client 源码字节级 UTF-8 完整性                   |
-| 5   | lint-staged                                  | eslint + prettier                                    |
-| 6   | check-sanitizer-bypass.mjs                   | skipResponseSanitization                             |
-| 7   | check-dedupe.mjs                             | 依赖碎片化                                           |
-| 8   | check-api-routes.mjs                         | 前后端路由一致性                                     |
-| 9   | check-safe-parse.mjs                         | safeParse 静默忽略(warn-only)                        |
-| 10  | openapi-check.mjs                            | OpenAPI spec 存在性(informational)                   |
-| 11  | check-rounded-full.mjs                       | 容器圆角违规                                         |
-| 12  | check-delivery-report-consistency.mjs        | 交付报告一致性                                       |
-| 13b | check-project-plan-size.mjs                  | **PROJECT_PLAN.md 体积(warn-only,500KB 软参考,不阻塞)** |
-| 13c | check-project-plan-archive.mjs               | **PROJECT_PLAN.md 已完成任务条目防误删**             |
-| 15  | check-api-migration-completeness.mjs         | 迁移完整性                                           |
-| 17  | check-input-border-var.mjs                   | CSS 颜色 token 嵌套(hsl(hsl(...)))                   |
-| 18  | check-native-title-tooltip.mjs               | 原生 title tooltip 违规                              |
-| 19  | check-staged-pollution.mjs                   | **staged 污染预警(warn-only,跨 ≥ 4 目录)**           |
-| 20  | check-tailwind-class-conflict.mjs            | **Tailwind class 冲突(模板字面量 BASE/BRANCH size)** |
-| 21  | check-multi-end-sync.mjs                     | **多端同步守门(warn-only,单端未标注平台独占)** |
-| 22  | check-readme-sync.mjs                        | **README 同步守门(warn-only,功能代码改动但 README 未更新)** |
-| 23  | check-staged-files.mjs                       | **staged 文件清单打印(info-only)**                  |
-| 24a | check-sidebar-width-consistency.mjs          | **侧边栏宽度一致性(design-tokens vs sidebar.tsx)**   |
-| 24b | check-port-registry.mjs                      | **端口注册表守门(warn-only,非 88xx)**                |
-| 25  | check-workspace-hygiene.mjs                  | **项目外路径违规(blocking:项目外路径写入;warn:硬编码中文路径)** |
-| 26  | check-parent-pollution.mjs                   | **项目父目录污染巡查(blocking:agent 在项目外直接创建文件)** |
-| 16  | 条件 typecheck                               | apps/web staged 时跑 typecheck             |
-| 16b | 条件 database build                          | packages/database/src staged 时跑 build              |
+| #               | 脚本                                  | 用途                                                                     |
+| --------------- | ------------------------------------- | ------------------------------------------------------------------------ |
+| 1               | check-api-key-leak.mjs                | API key 泄露                                                             |
+| 2               | check-i18n-keys.mjs                   | i18n 键完整性 + 翻译白名单(15 条豁免)                                    |
+| 2b              | scan-i18n-zh-residue.mjs zh-TW        | zh-TW 简体字残留 (opencc 字形转换)                                       |
+| 2c              | scan-i18n-zh-residue.mjs ko           | ko.json 中文残留 (字符范围检测)                                          |
+| 2d              | scan-i18n-zh-residue.mjs ja           | ja.json 中文残留 (warn-only,不阻塞)                                      |
+| 2e              | check-i18n-broken-en.mjs              | en.json 破碎机翻英文                                                     |
+| 2f-web          | i18n-diff.mjs                         | **i18n AI 翻译流水线守门(blocking,仅 zh-CN staged 时检测)**              |
+| 2f-miniapp-taro | i18n-diff.mjs --target=miniapp-taro   | **miniapp-taro i18n 翻译流水线守门(blocking,仅 zh-CN.ts staged 时检测)** |
+| 3               | check-db-schema-drift.mjs             | schema drift                                                             |
+| 4               | check-stale-dist.mjs                  | packages 陈旧 dist                                                       |
+| 4b              | check-dist-encoding.mjs               | packages/*/dist UTF-8 BOM 守门                                           |
+| 4c              | check-api-client-utf8.mjs             | api-client 源码字节级 UTF-8 完整性                                       |
+| 5               | lint-staged                           | eslint + prettier                                                        |
+| 6               | check-sanitizer-bypass.mjs            | skipResponseSanitization                                                 |
+| 7               | check-dedupe.mjs                      | 依赖碎片化                                                               |
+| 8               | check-api-routes.mjs                  | 前后端路由一致性                                                         |
+| 9               | check-safe-parse.mjs                  | safeParse 静默忽略(warn-only)                                            |
+| 10              | openapi-check.mjs                     | OpenAPI spec 存在性(informational)                                       |
+| 11              | check-rounded-full.mjs                | 容器圆角违规                                                             |
+| 12              | check-delivery-report-consistency.mjs | 交付报告一致性                                                           |
+| 13b             | check-project-plan-size.mjs           | **PROJECT_PLAN.md 体积(warn-only,500KB 软参考,不阻塞)**                  |
+| 13c             | check-project-plan-archive.mjs        | **PROJECT_PLAN.md 已完成任务条目防误删**                                 |
+| 15              | check-api-migration-completeness.mjs  | 迁移完整性                                                               |
+| 17              | check-input-border-var.mjs            | CSS 颜色 token 嵌套(hsl(hsl(...)))                                       |
+| 18              | check-native-title-tooltip.mjs        | 原生 title tooltip 违规                                                  |
+| 19              | check-staged-pollution.mjs            | **staged 污染预警(warn-only,跨 ≥ 4 目录)**                               |
+| 20              | check-tailwind-class-conflict.mjs     | **Tailwind class 冲突(模板字面量 BASE/BRANCH size)**                     |
+| 21              | check-multi-end-sync.mjs              | **多端同步守门(warn-only,单端未标注平台独占)**                           |
+| 22              | check-readme-sync.mjs                 | **README 同步守门(warn-only,功能代码改动但 README 未更新)**              |
+| 23              | check-staged-files.mjs                | **staged 文件清单打印(info-only)**                                       |
+| 24a             | check-sidebar-width-consistency.mjs   | **侧边栏宽度一致性(design-tokens vs sidebar.tsx)**                       |
+| 24b             | check-port-registry.mjs               | **端口注册表守门(warn-only,非 88xx)**                                    |
+| 25              | check-workspace-hygiene.mjs           | **项目外路径违规(blocking:项目外路径写入;warn:硬编码中文路径)**          |
+| 26              | check-parent-pollution.mjs            | **项目父目录污染巡查(blocking:agent 在项目外直接创建文件)**              |
+| 16              | 条件 typecheck                        | apps/web staged 时跑 typecheck                                           |
+| 16b             | 条件 database build                   | packages/database/src staged 时跑 build                                  |
 
 > **post-commit 钩子**(非 pre-commit):`git-push-guard.mjs` 自动检测本地 ahead → 自动 push + 验证 local == remote(详见 §21)。
 
@@ -694,6 +706,7 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 ### 触发条件
 
 任何任务完成后,如果该任务**新增 / 修改 / 删除**了以下任一类别的能力:
+
 - 新功能模块(如新增 P3 深度层、新增 IM 渠道、新增沙箱后端)
 - 现有功能重大调整(如 API 路由变更、架构重构、数据库 schema 迁移)
 - 守门规则 / 工程约束新增(如本节本身就是触发例)
