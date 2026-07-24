@@ -108,10 +108,8 @@ const emailLoginQuerySchema = z.object({
   email: z.string().email('邮箱格式不正确'),
 })
 
-const emailLoginSchema = z.object({
-  email: z.string().email('邮箱格式不正确'),
-  code: z.string().length(6, '验证码必须为 6 位'),
-})
+// 注:emailLoginSchema 已迁移至 auth-extended.ts:190(loginByEmailSchema)
+// 2026-07-24:删除 /login/email POST 重复路由时同步移除孤儿 schema 声明,避免 TS6133
 
 // =============================================================================
 // Token 签发辅助
@@ -1021,88 +1019,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // POST /api/auth/login/email — 邮箱 + 验证码登录(三步登录最终步)
-  server.post(
-    '/login/email',
-    {
-      schema: {
-        summary: '邮箱验证码登录',
-        description: '使用邮箱 + 验证码登录,验证码通过 GET /auth/login/email 获取',
-        tags: ['auth'],
-        body: {
-          type: 'object',
-          required: ['email', 'code'],
-          properties: {
-            email: { type: 'string', description: '邮箱地址' },
-            code: { type: 'string', description: '邮箱验证码(6 位)' },
-          },
-        },
-        response: {
-          200: {
-            type: 'object',
-            properties: {
-              code: { type: 'number' },
-              message: { type: 'string' },
-              data: { type: 'object', additionalProperties: true },
-            },
-          },
-          400: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          401: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-          403: {
-            type: 'object',
-            properties: { code: { type: 'number' }, message: { type: 'string' } },
-          },
-        },
-      },
-      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
-    },
-    async (request, reply) => {
-      const parsed = emailLoginSchema.safeParse(request.body)
-      if (!parsed.success) {
-        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-      }
-      const { email, code } = parsed.data
-
-      cleanupExpiredCodes()
-      const stored = codeStore.get(email)
-      if (!stored || stored.code !== code || Date.now() > stored.expiresAt) {
-        return reply.status(401).send(error(401, '验证码错误或已过期'))
-      }
-
-      const user = await findUserByEmail(email)
-      if (!user) {
-        // CWE-204:统一返回"验证码错误"防用户枚举
-        return reply.status(401).send(error(401, '验证码错误或已过期'))
-      }
-      if (user.status !== 1) {
-        return reply.status(403).send(error(403, '账号已被禁用'))
-      }
-
-      codeStore.delete(email)
-
-      request.skipResponseSanitization = true
-      const familyId = createFamilyId()
-      const tokens = await buildTokenPair({
-        id: user.id,
-        phone: user.phone,
-        roleId: user.roleId,
-        familyId,
-      })
-
-      const permissions = await resolveUserPermissions(user.id, user.roleId)
-      return reply.send(
-        success({
-          ...tokens,
-          user: publicUser(user, permissions),
-        }),
-      )
-    },
-  )
+  // 2026-07-24:实现已迁移到 auth-extended.ts:254,此处删除避免 FastifyError 路由重复
 
   // POST /api/auth/refresh
   server.post(
