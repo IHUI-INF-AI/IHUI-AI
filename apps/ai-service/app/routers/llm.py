@@ -86,6 +86,41 @@ def _inject_workspace_memory(
     return new_messages
 
 
+# ===== 多 agent 编排引导 prompt(2026-07-24 立)=====
+# 仅当请求 agent_tools 含 dispatch_subagent 时,在 tool loop 入口注入此 system message,
+# 引导 LLM 在复杂任务时主动派发子智能体而非单打独斗。
+# agent 清单对齐 AgentOrchestrator._register_defaults 的 5 个默认 agent
+# (注意:mcp_server.py 中 dispatch_subagent 工具 description 列的 code-reviewer/bug-fixer 等
+#  名称与实际注册的 researcher/coder/reviewer/architect/debugger 不一致,此处以实际注册为准)。
+_SUBAGENT_ORCHESTRATION_PROMPT = (
+    "你当前可以使用 dispatch_subagent 工具派发子智能体执行独立子任务,"
+    "子智能体独立执行后返回结果,不污染主对话上下文。\n\n"
+    "可用 agent:\n"
+    "- researcher:研究助手,调研任务、收集信息、生成摘要\n"
+    "- coder:代码助手,实现功能、修复 bug、写代码\n"
+    "- reviewer:代码审查助手,审查 diff、给出修改建议\n"
+    "- architect:架构师,设计方案、规划模块、API 契约\n"
+    "- debugger:调试助手,定位 bug、给出修复方案\n\n"
+    "使用时机:\n"
+    "- 任务涉及多个独立子步骤(如\"审查代码 + 写测试\")→ 拆分为多个 dispatch_subagent 调用,每个子任务一个 agent\n"
+    "- 任务需要多视角审查(如\"评估方案是否合理\")→ 用 reviewer\n"
+    "- 任务需要专业能力而你自身不擅长(如\"调研某新技术进展\")→ 用 researcher\n"
+    "- 简单任务(单一问题、直接回答)→ 不需要 dispatch_subagent,自己回答即可\n\n"
+    "禁止滥用:\n"
+    "- 不要为单一简单问题派发多个 subagent(浪费 token)\n"
+    "- 不要重复派发相同任务(去重机制会跳过)"
+)
+
+
+def _build_subagent_orchestration_prompt() -> str:
+    """构造多 agent 编排引导 system prompt。
+
+    仅当 agent_tools 含 dispatch_subagent 时由主流程注入一次(tool loop 入口),
+    不在每轮 iteration 重复注入。返回模块级常量,避免每次请求重新构造。
+    """
+    return _SUBAGENT_ORCHESTRATION_PROMPT
+
+
 def _load_default_models() -> list[dict[str, Any]]:
     """从 data/default_models.json 加载默认模型清单,按 id 去重。
 
@@ -335,6 +370,19 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         })
 
                 if openai_tools:
+                    # ===== 多 agent 编排引导注入(2026-07-24 立)=====
+                    # 当 dispatch_subagent 在 agent_tools 中时,在 tool loop 开始前注入引导 system message,
+                    # 引导 LLM 在复杂任务时主动派发子智能体。注入只发生一次,不随 iteration 重复。
+                    # 注入策略与 _inject_workspace_memory 一致:messages[0] 为 system 则追加,否则在开头插入。
+                    if "dispatch_subagent" in req.agent_tools:
+                        _subagent_prompt = _build_subagent_orchestration_prompt()
+                        if messages and messages[0].get("role") == "system":
+                            _existing = messages[0].get("content", "")
+                            _merged = f"{_existing}\n\n{_subagent_prompt}" if _existing else _subagent_prompt
+                            messages[0] = {**messages[0], "content": _merged}
+                        else:
+                            messages.insert(0, {"role": "system", "content": _subagent_prompt})
+
                     # ===== 多轮 tool loop(2026-07-22 升级,支持 AI 连续操作:截图→分析→点击→再截图)=====
                     # 每轮:complete(tools) → 执行 tool_calls → 回灌结果
                     # 直到 LLM 不再决策 tool_calls 或达到 max_iterations → 归一化 → astream 生成最终回复

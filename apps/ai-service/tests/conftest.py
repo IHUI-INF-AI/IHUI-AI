@@ -100,3 +100,83 @@ def _isolate_vector_memory(monkeypatch):
     _force_memory_mode()
     yield
     _force_memory_mode()
+
+
+# =============================================================================
+# tool loop 端到端测试 fixtures(2026-07-24 立,提取自 .trae-cn/tmp/mock_extension.py)
+# =============================================================================
+
+@pytest.fixture
+def mock_extension_capability():
+    """模拟 extension 端上报的 capability payload。
+
+    参考 mock_extension.py 第 28-32 行 BROWSER_ACTIONS + 第 51-58 行 report_capability。
+    用于测试 agent-control 路由的 capability 上报与 status 查询。
+    """
+    import uuid
+
+    return {
+        "endpoint": "extension",
+        "instanceId": f"mock-ext-{uuid.uuid4().hex[:8]}",
+        "browserActions": [
+            "screenshot", "click_element", "type_text", "scroll", "extract_dom",
+            "navigate", "wait_for_element", "get_attribute", "hover", "select_option",
+            "switch_tab", "close_tab",
+        ],
+        "computerActions": [],
+        "version": "mock-1.0.0",
+        "reportedAt": "2026-07-24T00:00:00Z",
+    }
+
+
+@pytest.fixture
+def mock_agent_action_handler():
+    """模拟 extension 端执行 agent action 的 async handler。
+
+    参考 mock_extension.py 第 99-131 行 handle_agent_action 逻辑:
+    不同 action 返回不同 fake data(screenshot → base64 PNG / extract_dom → DOM 树 / 其他 → 通用)。
+    """
+    async def handler(
+        request_id: str,
+        action: str,
+        category: str,
+        params: dict,
+    ) -> dict:
+        """模拟执行 agent action,返回 fake data。"""
+        if action == "screenshot":
+            return {
+                "screenshot": "mock-base64-png-data",
+                "area": "viewport",
+                "mock": True,
+            }
+        elif action == "extract_dom":
+            return {
+                "dom": [{"tag": "html", "text": "mock page"}],
+                "count": 1,
+                "totalMatched": 1,
+                "mock": True,
+            }
+        elif action == "navigate":
+            return {
+                "url": params.get("url", "about:blank"),
+                "title": "Mock Page",
+                "mock": True,
+            }
+        else:
+            return {
+                "mock": True,
+                "action": action,
+                "executedBy": "extension",
+            }
+
+    return handler
+
+
+@pytest.fixture
+def captured_tool_results():
+    """收集 tool-result 事件列表,用于 tool loop 测试中断言。
+
+    测试中解析 SSE 流时,把 tool-result 事件追加到此列表,
+    结束后检查 repeated / ok / errorCode 等字段。
+    """
+    return []
