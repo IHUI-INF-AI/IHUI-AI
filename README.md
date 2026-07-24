@@ -326,7 +326,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 | **AI 编程 CLI / IDE**   | Claude Code / Cursor / Windsurf / Trae SOLO / GitHub Copilot / Copilot Workspace / Amazon Q Developer / Cody Sourcegraph / Cline / Aider / Devin / Tabnine / GitLab Duo / Gemini CLI / OpenCode / CodeGeeX / Continue / Roo Code / Codeium / JetBrains AI Assistant | 自研 CLI 21 命令 + 36 内置工具 + ACP Server(Zed/VSCode/Cursor 嵌入)+ 24 源配置导入 + Skills + CodeGraph + Worktree   |
 | **企业 AI Agent 平台**  | Google Gemini Enterprise Agent Platform / OpenAI Agents SDK / Microsoft Copilot Studio / IBM watsonx.ai / Salesforce Agentforce / ServiceNow Now Assist / AWS Bedrock Agents / Crew | LangGraph + MCP + A2A 三栈 + Agent 市场 + 开发者中心 + Coze SDK 代理 + OpenClaw + Crew 集成 + N8N 代理               |
 | **AI Agent 框架(开源)**| LangChain / LangGraph / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT / smol agents / Semantic Kernel / Spring AI / Hugging Face Transformers Agents | 三栈协同 + 完整 Agent Runtime + Persona 注册表 + Agent 市场 — 不只是框架,是产品化落地方案                          |
-| **多端开发框架**        | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                 | 8 端统一架构 + 12 共享包 + 跨端类型安全 + 共享 UI(`@ihui/ui` / `@ihui/ui-native` / `@ihui/ui-primitives`)            |
+| **多端开发框架**        | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                 | 8 端统一架构 + 12 共享包 + 跨端类型安全 + 共享 UI(`@ihui/ui-react` / `@ihui/ui-native` / `@ihui/design-tokens`)            |
 | **AI 教育 / 内容平台**  | Khan Academy / Coursera / edX / Google 教育 AI / 智谱清言教育 / 学而思 AI / Jasper / Copy.ai / Rytr / WriteSonic / Notion AI / 蚁客 / 新媒体管家          | AI 教育全栈(课程/题库/考试/直播流媒体(SRS)/证书)+ 14 平台一键发布 + 自媒体工作台 + AI 资讯 + AI 求职 + 短剧 + 业务名片     |
 | **大模型 API 平台**     | 国外:OpenAI Platform / Anthropic API / Google Vertex AI / AWS Bedrock / Azure AI Foundry / Mistral La Plateforme / Cohere / Together AI / Fireworks AI / Replicate<br>国内:百度千帆 / 阿里百炼 / 腾讯混元 / 字节豆包(火山方舟)/ 智谱开放平台 / 讯飞星火 / 月之暗面 Kimi / DeepSeek / 商汤日日新 | LiteLLM 统一网关 + 176 模型接入 + 智能路由 + 60% 缓存命中 + 多 provider 适配                                          |
 | **商业 SaaS 基座**      | Stripe / PayPal / Lemon Squeezy / Paddle / Auth0 / Clerk / Firebase Auth / Supabase Auth / Mailgun / SendGrid / Postmark / Resend / Mixpanel / Amplitude / PostHog / Heap | VIP/订阅/钱包/积分/退款/发票/8 支付网关 + JWT/SSO/RBAC + SMTP 短信 + BI 仪表盘 + 灰度发布 — 一站式集成 4-6 类 SaaS 能力(实际覆盖度:支付 ~15% / 身份 ~40% / 产品分析 ~5% / 可观测 ~30%)    |
@@ -652,8 +652,8 @@ cd IHUI-AI && docker compose up -d
 
 > web 与 extension 不再各自维护 `@theme` 块,改 token 一处改、两端生效,杜绝手动同步漂移。
 
-- **单一来源**:`packages/ui-primitives/src/styles/tokens.css`
-- **消费方式**:各端 `globals.css` 顶部 `@import` 引用(web `../../../packages/ui-primitives/src/styles/tokens.css` / extension `../../../../packages/ui-primitives/src/styles/tokens.css`)
+- **单一来源**:`packages/design-tokens/src/styles/tokens.css`
+- **消费方式**:各端 `globals.css` 顶部 `@import` 引用(web `../../../packages/design-tokens/src/styles/tokens.css` / extension `../../../../packages/design-tokens/src/styles/tokens.css`)
 - **共享内容**:`@theme` 块(颜色 / 圆角 / 字体 / 动画 / 10 档断点)+ `.dark` 深色模式覆盖 + 中文字体垂直对齐全局规则(`--text-vcenter-offset: 0.3px`,AGENTS.md §4)
 - **效果**:改 token 一处,web(8801) + extension 同步生效;typecheck / build / browser 4 状态验证全部通过
 
@@ -661,9 +661,9 @@ cd IHUI-AI && docker compose up -d
 
 > web 与 extension 不再各自维护 i18n 消息源,extension 翻译 JSON 一处改、单一来源,杜绝 key 集合漂移。
 
-- **单一来源**:`packages/i18n/messages/extension/{zh-CN,en,ja,ko,zh-TW}.json`(5 语言 × 17 namespace / 202-203 行每语言)
-- **消费方式**:extension `src/i18n/index.tsx` 顶部 `import zhCN from '@ihui/i18n/messages/extension/zh-CN.json'`(其余 4 语言同),保留自研 Context runtime(useI18n / readLocale / writeLocale + browser.storage.local + localStorage 双回退),仅数据源切换、运行时逻辑不变
-- **守门扩展**:原 4 个 i18n 守门脚本(check-i18n-keys / scan-i18n-zh-residue × 2 语言 / check-i18n-broken-en)添加 `--target=web|extension` 参数,extension 模式扫 `packages/i18n/messages/extension/`;pre-commit 添加 4 个 extension warn-only 守门项(2f-2i);添加 LANGUAGE_AUTOGLOSSONYMS 白名单解决语言选择器 autoglossonym 误报(简体中文/繁體中文/日本語)
+- **单一来源**:`apps/extension/src/i18n/messages/{zh-CN,en,ja,ko,zh-TW}.json`(5 语言 × 17 namespace / 202-203 行每语言,2026-07-24 从 @ihui/i18n 包内联回 extension,消除只服务单端的冗余包)
+- **消费方式**:extension `src/i18n/index.tsx` 顶部 `import zhCN from './messages/zh-CN.json'`(其余 4 语言同),保留自研 Context runtime(useI18n / readLocale / writeLocale + browser.storage.local + localStorage 双回退),仅数据源内联、运行时逻辑不变
+- **守门扩展**:原 4 个 i18n 守门脚本(check-i18n-keys / scan-i18n-zh-residue × 2 语言 / check-i18n-broken-en)添加 `--target=web|extension` 参数,extension 模式扫 `apps/extension/src/i18n/messages/`;pre-commit 添加 4 个 extension warn-only 守门项(2f-2i);添加 LANGUAGE_AUTOGLOSSONYMS 白名单解决语言选择器 autoglossonym 误报(简体中文/繁體中文/日本語)
 - **效果**:extension i18n 消息源从 5 个本地 TS(203 行/语言)迁移到共享包 JSON;typecheck / build / 4 个 extension 守门脚本全绿;build 产物 grep 验证 i18n 翻译已正确打包(55 处 autoglossonym + 30 处 i18n key 命中)
 - **web 端保持原状**:web 用 next-intl(587 namespace / 28,800 行 JSON),体积量级与 extension 差异 200×,强行统一会引入 next-intl 运行时依赖到 extension(浏览器扩展 WXT 0.19 不友好),保留双 runtime 但共享包可在未来扩展到 desktop 等端
 - **阶段 3(经评估暂不抽取)**:全量扫描 9 个 sidepanel 页面 + popup + content-toolbar,**0 个页面可抽取共享业务组件**。根因是技术栈分裂根本性(web: Next.js App Router + next-intl + zustand + react-query + shadcn vs extension: WXT + react-router-dom + 自研 Context + useState + 内联 CSSProperties),路由/i18n/状态/UI 4 个维度全部分裂。阶段 1+2 已消除最高频的"改一处同步两端"痛点,阶段 3 边际收益不显著,强行抽取会引入 4 套适配层复杂度。后续前置条件:需先做技术栈收敛(类似 Wave 21 阶段 2 的路线比选)
@@ -939,19 +939,21 @@ IHUI-AI/
 │   ├── miniapp-taro/        # 微信小程序 (Taro 4 + React)
 │   ├── mobile-rn/           # 移动端 (React Native + Expo EAS)
 │   └── web/                 # 前端 (Next.js 15 + React 19, 200+ 页面)
-├── packages/                # 13 个共享包
-│   ├── api-client/          # @ihui/api-client (40+ endpoints 自动生成 SDK)
+├── packages/                # 14 个共享包(5 个架构图核心 + 9 个基础设施)
+│   ├── api-client/          # @ihui/api-client (40+ endpoints 自动生成 SDK,6 端共享)
+│   ├── app/                 # @ihui/app (RN 业务逻辑共享:AboutScreen/ProfileScreen/SettingsScreen + RN tokens re-export)
 │   ├── auth/                # @ihui/auth (JWT + token-family + OAuth2 + RBAC + data-scope)
 │   ├── config/              # @ihui/config
 │   ├── context-compaction/  # @ihui/context-compaction (上下文压缩)
 │   ├── database/            # @ihui/database (Drizzle, 340 表, 144 迁移, RLS, 租户路由, pgvector)
+│   ├── design-tokens/       # @ihui/design-tokens (8端共享设计令牌:cn() + HSL shadcn tokens + RN HEX tokens + CSS 变量)
 │   ├── eslint-config/       # @ihui/eslint-config
 │   ├── sdk/                 # @ihui/sdk (自动生成)
+│   ├── shared/              # @ihui/shared (8端共享业务逻辑:auth/sso + context + memory + notifications + plan + skills + spec + subagents + tasks + utils + validation + workflows)
 │   ├── tsconfig/            # @ihui/tsconfig
 │   ├── types/               # @ihui/types
-│   ├── ui/                  # @ihui/ui (Web shadcn/ui)
 │   ├── ui-native/           # @ihui/ui-native (React Native)
-│   └── ui-primitives/       # @ihui/ui-primitives (cn + 原语)
+│   └── ui-react/            # @ihui/ui-react (Web/桌面/扩展共享 React shadcn/ui 组件,24 组件)
 ├── deploy/
 │   ├── docker/              # Dockerfile.api / .web / .cli / .migrate(镜像构建,context 为仓库根)
 │   ├── nginx/               # Nginx 反向代理 + 蓝绿 upstream + SSL/security/rate-limit
@@ -2095,7 +2097,7 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - 15 个 TODO echo 桩端点接入真实 DB + message.ts 已读标记 + agents.ts 移除 WHERE 1=0
 - sse-parse reasoning 优先级 + extension version 1.0.0 + ai-capability-invoke LLM 真实化 + MCP 工具查询代理 ai-service
 - desktop WindowInfo 契约对齐 windowId + drama.ts async 调用补 await
-- 充实 ui-primitives design tokens + 扩充 ui-native 5 组件(dialog / avatar / badge / tabs / switch)
+- 充实 design-tokens design tokens + 扩充 ui-native 5 组件(dialog / avatar / badge / tabs / switch)
 - 知识库 / RAG 知识库 / 知识图谱从 AI 教育分组调整到 AI 分组
 - 插件市场和自动化按钮默认态去掉灰底背景
 
@@ -2359,7 +2361,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 - 一次次推翻重构,一次次为某个 schema 是否合理争论到凌晨
 - 越来越紧的预算,越来越沉的肩
 
-他们从最底层的架构开始打磨——monorepo 怎么组织、13 个共享包怎么划分、8 端类型怎么对齐、数据库 schema 怎么按 30+ 业务域隔离、API 响应怎么统一 `{ code, message, data }` 格式、i18n 怎么保证 5 语言 parity、CI 怎么在 23 个 pre-commit 守门下还能保持敏捷……每一个决定,都要在未来数千次迭代中被反复验证。
+他们从最底层的架构开始打磨——monorepo 怎么组织、14 个共享包怎么划分、8 端类型怎么对齐、数据库 schema 怎么按 30+ 业务域隔离、API 响应怎么统一 `{ code, message, data }` 格式、i18n 怎么保证 5 语言 parity、CI 怎么在 23 个 pre-commit 守门下还能保持敏捷……每一个决定,都要在未来数千次迭代中被反复验证。
 
 这一段路,走得非常慢,也非常孤独。
 
@@ -2560,7 +2562,7 @@ IHUI-AI 不属于任何风口标签:不是 Agent 框架,不是 RAG 中间件,不
 - **原子提交**:一个 feature 跨 8 端的改动可以一个 commit 搞定,polyrepo 要 8 个 PR
 - **依赖一致性**:pnpm workspace 强制版本一致,避免 polyrepo 的"依赖碎片化"
 - **CI 缓存**:Turborepo 的远程缓存让一个独立开发者也能享受大团队的 CI 速度
-- **共享 UI**:`@ihui/ui` + `@ihui/ui-primitives` 让 8 端 UI 一致,polyrepo 做不到
+- **共享 UI**:`@ihui/ui-react` + `@ihui/design-tokens` 让 8 端 UI 一致,polyrepo 做不到
 
 **代价**:monorepo 配置复杂,但配好之后一劳永逸。
 
