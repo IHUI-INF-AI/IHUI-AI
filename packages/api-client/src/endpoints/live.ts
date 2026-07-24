@@ -62,8 +62,25 @@ export type LiveListQuery = {
   keyword?: string
 }
 
+/** 直播回放列表项(GET /live/history 返回的简化字段) */
+export interface LiveHistoryItem {
+  id: string
+  title: string
+  status: string
+  anchor: string | null
+  playUrl: string | null
+  watchCount: number
+}
+
 export async function getLiveList(query: LiveListQuery = {}): Promise<ApiResult<PageData<Live>>> {
   return fetchApi<PageData<Live>>(`/api/live/channels${buildQs(query)}`)
+}
+
+/** 直播回放列表(isLive=false && isPublished=true)— GET /api/live/history */
+export async function getLiveHistory(
+  query: LiveListQuery = {},
+): Promise<ApiResult<PageData<LiveHistoryItem>>> {
+  return fetchApi<PageData<LiveHistoryItem>>(`/api/live/history${buildQs(query)}`)
 }
 
 export async function getLiveById(id: string): Promise<ApiResult<Live>> {
