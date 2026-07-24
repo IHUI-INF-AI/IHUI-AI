@@ -14,10 +14,9 @@
   justify-content: space-between;
   align-items: center;
   padding: 32rpx;
-  border-bottom: 2rpx solid var(--color-border);
 }
-.row.last {
-  border-bottom: none;
+.row + .row {
+  margin-top: 16rpx;
 }
 .label {
   font-size: 28rpx;

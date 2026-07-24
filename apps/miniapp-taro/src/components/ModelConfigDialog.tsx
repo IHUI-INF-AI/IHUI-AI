@@ -37,7 +37,7 @@ export default function ModelConfigDialog({
         className="relative bg-card rounded-xl mx-6 w-full max-w-sm"
         onClick={(e) => e.stopPropagation()}
       >
-        <View className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <View className="flex items-center justify-between px-4 py-3 mb-2">
           <Text className="text-sm font-medium text-foreground">{tt('model.configTitle', '模型配置')}</Text>
           <Text className="text-sm text-muted-foreground" onClick={onClose}>
             {tt('common.close', '关闭')}
