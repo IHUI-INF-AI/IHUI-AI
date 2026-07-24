@@ -274,6 +274,16 @@ export const cliImportRoutes: FastifyPluginAsync = async (server) => {
         if (!fileBuffer) {
           fileBuffer = await part.toBuffer()
           fileName = part.filename
+          // 2026-07-24 安全加固:配置文件大小限制 + 扩展名白名单(防 CWE-434)
+          const CONFIG_FILE_MAX_SIZE = 5 * 1024 * 1024 // 5MB
+          const CONFIG_ALLOWED_EXTS = ['.json', '.yaml', '.yml', '.toml', '.ini', '.conf']
+          if (fileBuffer.length > CONFIG_FILE_MAX_SIZE) {
+            return reply.status(400).send(error(400, '配置文件不能超过 5MB'))
+          }
+          const ext = (fileName ?? '').toLowerCase().slice((fileName ?? '').lastIndexOf('.'))
+          if (ext && !CONFIG_ALLOWED_EXTS.includes(ext)) {
+            return reply.status(400).send(error(400, `仅支持配置文件格式: ${CONFIG_ALLOWED_EXTS.join(', ')}`))
+          }
         }
       }
     }
