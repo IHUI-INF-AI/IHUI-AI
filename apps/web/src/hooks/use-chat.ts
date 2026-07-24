@@ -418,6 +418,7 @@ function createToolCallHandler(assistantMessageId: string) {
     result?: unknown
     isError?: boolean
     iteration?: number
+    repeated?: boolean
   }) => {
     if (event.type === 'tool-call-start') {
       useChatStore.getState().addToolCall(assistantMessageId, {
@@ -442,6 +443,8 @@ function createToolCallHandler(assistantMessageId: string) {
       }
       if (event.args) updates.args = event.args
       if (event.iteration !== undefined) updates.iteration = event.iteration
+      // 后端 repeated: true 标记(同 tool_name + 同 args 已执行过,跳过实际调用)
+      if (event.repeated === true) updates.repeated = true
       useChatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, updates)
 
       // tool-result 含 URL:延迟打开(仅当之前 args 没 url 时,result 含 url 的场景)
