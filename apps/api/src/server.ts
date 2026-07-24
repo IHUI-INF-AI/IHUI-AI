@@ -48,6 +48,7 @@ import { wsTasks } from './plugins/ws-tasks.js'
 import otelPlugin from './plugins/otel.js'
 import businessMetricsPlugin from './plugins/business-metrics.js'
 import xssProtectionPlugin from './plugins/xss-protection.js'
+import sqliGuardPlugin from './plugins/sqli-guard.js'
 import apiVersioningPlugin from './plugins/api-versioning.js'
 import compressionPlugin from './plugins/compression.js'
 import apiLoggerExtendedPlugin from './plugins/api-logger-extended.js'
@@ -133,24 +134,55 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   await registerPlugins(server)
 
-  // 2026-07-24 国安级零信任策略:对所有 /api/admin/* 路由自动注入网络分段 + mTLS 配置
+  // 2026-07-24 国安级零信任策略:对 /api/admin/* 及敏感业务路由自动注入网络分段配置
   // 设计原则:
-  // - DRY:不逐个 admin 路由文件修改,用 onRoute hook 统一注入
+  // - DRY:不逐个路由文件修改,用 onRoute hook 统一注入
   // - 不覆盖:保留路由已显式配置的 config(?? 合并)
+  // - 分层保护:
+  //   * admin 路由:强制内网(allowExternal:false)+ mTLS,公网不可达
+  //   * 敏感业务路由(auth/users/wallet/finance/order/payment 等):允许公网访问,
+  //     但启用网络分段策略,strict 模式下 unknown IP 会被拒绝
+  //   * 公开路由(health/landing/public/oss/metrics):不注入,保持可达
   // - 降级:MTLS_CLIENT_CERT_REQUIRED=true 时强制 mTLS,false 时仅可选验证
-  // - 网络分段:admin 路由默认禁止公网访问(allowExternal:false),仅内网可访问
-  //   生产环境若需公网访问 admin,需在路由级显式 config.network.allowExternal=true
   const mtlsRequired = process.env.MTLS_CLIENT_CERT_REQUIRED === 'true'
+
+  // 敏感业务路由前缀(需网络分段保护,但允许公网访问;strict 模式下 unknown IP 拒绝)
+  const SENSITIVE_BUSINESS_PREFIXES = [
+    '/api/auth/', '/api/users/', '/api/wallet/', '/api/finance/',
+    '/api/order/', '/api/payment/', '/api/fund/', '/api/billing/',
+    '/api/withdrawal/', '/api/settings/',
+  ]
+  // 公开路由前缀(不注入网络分段,保持公网可达)
+  const PUBLIC_PREFIXES = [
+    '/api/health', '/api/landing', '/api/public/', '/api/oss/public/',
+    '/api/metrics', '/business-metrics', '/api/csrf-token',
+  ]
+
   server.addHook('onRoute', (routeOptions) => {
     const url = routeOptions.url ?? ''
+    const existingConfig = (routeOptions.config ?? {}) as Record<string, unknown>
+
+    // admin 路由:强制内网 + mTLS(公网不可达)
     if (url.startsWith('/api/admin/') || url === '/api/admin') {
-      const existingConfig = (routeOptions.config ?? {}) as Record<string, unknown>
       routeOptions.config = {
         ...existingConfig,
         network: existingConfig.network ?? { allowExternal: false },
         mtls: existingConfig.mtls ?? { required: mtlsRequired },
       }
+      return
     }
+
+    // 公开路由:不注入网络分段(保持公网可达)
+    if (PUBLIC_PREFIXES.some((p) => url.startsWith(p))) return
+
+    // 敏感业务路由:允许公网但启用网络分段(strict 模式下 unknown IP 拒绝)
+    if (SENSITIVE_BUSINESS_PREFIXES.some((p) => url.startsWith(p))) {
+      routeOptions.config = {
+        ...existingConfig,
+        network: existingConfig.network ?? { allowExternal: true },
+      }
+    }
+    // 其他路由:不注入(保持现状,由全局策略兜底)
   })
 
   registerRoutes(server)
@@ -346,6 +378,8 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(responseSanitizerPlugin)
   // XSS 防护：onRequest 净化输入 + onSend 安全头
   await server.register(xssProtectionPlugin)
+  // SQL 注入运行时检测：preHandler 扫描 body/query/params 字符串值(P0-4 安全加固)
+  await server.register(sqliGuardPlugin)
   // API 版本控制：URL 路径 /api/v1/ + Header Accept-Version
   await server.register(apiVersioningPlugin)
   // AI 成本治理：token 预算控制 + prompt 缓存 + 成本记录 + 看板 API
