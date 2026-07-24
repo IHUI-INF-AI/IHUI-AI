@@ -49,8 +49,8 @@ export function AuthShell({
   return (
     <div
       className={cn(
-        'login-scope relative w-full max-w-[460px] rounded-xl border border-border bg-card p-6',
-        'shadow-[0_8px_32px_rgba(0,0,0,0.12),0_2px_8px_rgba(0,0,0,0.08)]',
+        'login-scope relative w-full max-w-[460px] rounded-xl border border-border bg-card p-7',
+        'shadow-[0_4px_24px_rgba(0,0,0,0.06),0_1px_4px_rgba(0,0,0,0.04)]',
         className,
       )}
     >
