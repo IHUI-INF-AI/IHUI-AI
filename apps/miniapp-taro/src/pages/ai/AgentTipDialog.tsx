@@ -1,6 +1,5 @@
 import { View, Text } from '@tarojs/components'
 import { useI18n } from '@/i18n'
-import './AgentTipDialog.css'
 
 export interface AgentTipDialogProps {
   visible: boolean
@@ -43,24 +42,24 @@ export default function AgentTipDialog({ visible, onClose }: AgentTipDialogProps
   ]
 
   return (
-    <View className="agent-tip-mask" onClick={onClose}>
-      <View className="agent-tip-card" onClick={(e) => e.stopPropagation()}>
-        <Text className="agent-tip-title">
+    <View className="fixed top-0 left-0 right-0 bottom-0 bg-black/45 flex items-center justify-center z-[100]" onClick={onClose}>
+      <View className="w-[600rpx] bg-card rounded-[16rpx] py-[40rpx] px-[32rpx] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <Text className="block text-[34rpx] font-semibold text-foreground text-center mb-[32rpx]">
           {tt('ai.chat.agentTipTitle', '智能体使用说明')}
         </Text>
-        <View className="agent-tip-list">
+        <View className="flex flex-col gap-[24rpx] mb-[40rpx]">
           {tips.map((tip, i) => (
-            <View key={i} className="agent-tip-item">
-              <Text className="agent-tip-item-icon">{tip.icon}</Text>
-              <View className="agent-tip-item-body">
-                <Text className="agent-tip-item-title">{tip.title}</Text>
-                <Text className="agent-tip-item-desc">{tip.desc}</Text>
+            <View key={i} className="flex items-start">
+              <Text className="text-[32rpx] mr-[16rpx] leading-[1.5]">{tip.icon}</Text>
+              <View className="flex-1">
+                <Text className="block text-[28rpx] font-medium text-foreground leading-[1.5]">{tip.title}</Text>
+                <Text className="block text-[24rpx] text-muted-foreground leading-[1.5] mt-[4rpx]">{tip.desc}</Text>
               </View>
             </View>
           ))}
         </View>
-        <View className="agent-tip-btn" onClick={onClose}>
-          <Text className="agent-tip-btn-text">
+        <View className="h-[80rpx] bg-primary rounded-[12rpx] flex items-center justify-center" onClick={onClose}>
+          <Text className="text-[28rpx] text-foreground">
             {tt('ai.chat.agentTipConfirm', '我知道了')}
           </Text>
         </View>

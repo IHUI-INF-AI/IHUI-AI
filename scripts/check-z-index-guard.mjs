@@ -1,21 +1,23 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
 /**
- * z-index 层叠防护守门 (2026-07-24 立)
+ * z-index 层叠防护守门 (2026-07-24 立,2026-07-24 修正)
  *
- * 防止 AI 面板登录弹窗遮罩层叠修复(2026-07-24)被回归:
+ * 防止 AI 面板登录弹窗遮罩层叠修复被回归:
  *
- * 1. tokens.css 中 6 个关键 z-index 变量必须有 !important
- *    (防 TRAE IDE 注入 solo-lite-theme-variables 覆盖变量值)
- * 2. globals.css 中 5 个对应工具类的 z-index 属性必须有 !important
- *    (双重防护,防属性级覆写)
- * 3. dialog.tsx 遮罩不得有 open 态 fade-in 动画
+ * 1. tokens.css 中 z-index 变量禁止 !important
+ *    (项目规则:project_memory.md 第 6 行,2026-07-06 立,禁止 !important)
+ *    TRAE 注入防护由 layout.tsx inline script 运行时 setProperty 实现,无需 !important
+ * 2. globals.css 中 z-index 工具类禁止 !important
+ *    (同上,变量值由 inline script 覆盖,var() 引用自动拿到正确值)
+ * 3. layout.tsx inline script 必须设置 6 个 z-index 变量
+ *    (运行时 inline style 优先级高于 stylesheet,覆盖 TRAE 注入)
+ * 4. dialog.tsx 遮罩不得有 open 态 fade-in 动画
  *    (fade-in 让遮罩从 opacity:0 渐显,期间 AI 面板全亮度暴露 = "发亮")
  *
  * 历史教训(2026-07-24):
- *   用户反馈"AI 对话框组件总是随着登录窗弹出跟着一起发亮",根因是 TRAE IDE
- *   注入的 CSS 变量覆盖了项目值 + 遮罩 fade-in 动画。修复后用户要求"防止回归,
- *   别过两天又变回去了"。本脚本从机制上杜绝此类回归。
+ *   v1 修复用 !important 违反项目禁令(project_memory.md 第 6 行),
+ *   v2 改用 layout.tsx inline script 运行时 setProperty,合规且更可靠。
  *
  * 用法:
  *   node scripts/check-z-index-guard.mjs          (全量检查, exit 0/1)
@@ -37,6 +39,7 @@ const C = {
 
 const TOKENS_PATH = join(ROOT, 'packages/design-tokens/src/styles/tokens.css')
 const GLOBALS_PATH = join(ROOT, 'apps/web/app/globals.css')
+const LAYOUT_PATH = join(ROOT, 'apps/web/app/layout.tsx')
 const DIALOG_PATH = join(ROOT, 'packages/ui-react/src/components/dialog.tsx')
 
 // --staged 模式:只在相关文件被 staged 时才检查
@@ -52,6 +55,7 @@ if (isStaged) {
       (f) =>
         f.includes('design-tokens/src/styles/tokens.css') ||
         f.includes('apps/web/app/globals.css') ||
+        f.includes('apps/web/app/layout.tsx') ||
         f.includes('ui-react/src/components/dialog.tsx'),
     )
     if (!relevant) {
@@ -64,12 +68,12 @@ if (isStaged) {
 }
 
 let hasError = false
-console.log('🛡️  z-index 层叠防护守门(防 TRAE 注入覆盖 + 遮罩 fade-in 回归)...')
+console.log('🛡️  z-index 层叠防护守门(禁 !important + inline script 覆盖 + 遮罩 fade-in 回归)...')
 
 // ============================================================
-// 检查 1: tokens.css 中 6 个关键 z-index 变量必须有 !important
+// 检查 1: tokens.css 中 z-index 变量禁止 !important
 // ============================================================
-const REQUIRED_VARS = [
+const CHECK_VARS = [
   { name: '--z-base', value: '1' },
   { name: '--z-sticky', value: '990' },
   { name: '--z-modal', value: '2000' },
@@ -78,18 +82,29 @@ const REQUIRED_VARS = [
   { name: '--z-max', value: '10003' },
 ]
 
-console.log('  [1/3] 检查 tokens.css z-index 变量 !important...')
+console.log('  [1/4] 检查 tokens.css z-index 变量无 !important...')
 if (existsSync(TOKENS_PATH)) {
   const css = readFileSync(TOKENS_PATH, 'utf8')
-  for (const { name, value } of REQUIRED_VARS) {
-    // 匹配 --z-xxx: <value> !important (允许中间有注释)
-    const pattern = new RegExp(`${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:\\s*${value}\\s*!important`)
-    if (!pattern.test(css)) {
-      console.log(`${C.red}    ❌ ${name}: ${value} 缺少 !important${C.reset}`)
-      console.log(`${C.dim}       TRAE IDE 会注入 solo-lite-theme-variables 覆盖此变量,不加 !important 会被压低${C.reset}`)
+  for (const { name, value } of CHECK_VARS) {
+    // 检查变量存在
+    const valuePattern = new RegExp(
+      `${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:\\s*${value}\\s*(?:;|$)`,
+    )
+    // 检查变量没有 !important
+    const importantPattern = new RegExp(
+      `${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:\\s*${value}\\s*!important`,
+    )
+
+    if (importantPattern.test(css)) {
+      console.log(`${C.red}    ❌ ${name}: ${value} 含有 !important(违反项目禁令)${C.reset}`)
+      console.log(`${C.dim}       项目规则(project_memory.md 第 6 行)禁止 !important${C.reset}`)
+      console.log(`${C.dim}       TRAE 注入防护由 layout.tsx inline script 运行时 setProperty 实现${C.reset}`)
+      hasError = true
+    } else if (!valuePattern.test(css)) {
+      console.log(`${C.red}    ❌ ${name}: ${value} 未找到(变量缺失)${C.reset}`)
       hasError = true
     } else {
-      console.log(`${C.green}    ✅ ${name}: ${value} !important${C.reset}`)
+      console.log(`${C.green}    ✅ ${name}: ${value} (无 !important)${C.reset}`)
     }
   }
 } else {
@@ -98,25 +113,25 @@ if (existsSync(TOKENS_PATH)) {
 }
 
 // ============================================================
-// 检查 2: globals.css 中 5 个关键工具类 z-index 属性必须有 !important
+// 检查 2: globals.css 中 z-index 工具类禁止 !important
 // ============================================================
-const REQUIRED_UTILITIES = ['.z-sticky', '.z-modal', '.z-popover', '.z-notification', '.z-max']
+const CHECK_UTILITIES = ['.z-sticky', '.z-modal', '.z-popover', '.z-notification', '.z-max']
 
-console.log('  [2/3] 检查 globals.css z-index 工具类 !important...')
+console.log('  [2/4] 检查 globals.css z-index 工具类无 !important...')
 if (existsSync(GLOBALS_PATH)) {
   const css = readFileSync(GLOBALS_PATH, 'utf8')
-  for (const cls of REQUIRED_UTILITIES) {
-    // 匹配 .z-xxx { ... z-index: var(--z-xxx) !important ... }
+  for (const cls of CHECK_UTILITIES) {
     const varName = cls.replace('.', '--')
-    const pattern = new RegExp(
+    const importantPattern = new RegExp(
       `${cls.replace('.', '\\.')}\\s*\\{[^}]*z-index\\s*:\\s*var\\(${varName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\)\\s*!important`,
     )
-    if (!pattern.test(css)) {
-      console.log(`${C.red}    ❌ ${cls} 的 z-index 属性缺少 !important${C.reset}`)
-      console.log(`${C.dim}       @layer utilities 内样式优先级低于 unlayered,不加 !important 会被 TRAE 注入压过${C.reset}`)
+
+    if (importantPattern.test(css)) {
+      console.log(`${C.red}    ❌ ${cls} 的 z-index 含有 !important(违反项目禁令)${C.reset}`)
+      console.log(`${C.dim}       变量值由 layout.tsx inline script 覆盖,var() 自动拿到正确值${C.reset}`)
       hasError = true
     } else {
-      console.log(`${C.green}    ✅ ${cls} z-index !important${C.reset}`)
+      console.log(`${C.green}    ✅ ${cls} (无 !important)${C.reset}`)
     }
   }
 } else {
@@ -125,9 +140,42 @@ if (existsSync(GLOBALS_PATH)) {
 }
 
 // ============================================================
-// 检查 3: dialog.tsx 遮罩不得有 open 态 fade-in 动画
+// 检查 3: layout.tsx inline script 必须设置 z-index 变量
 // ============================================================
-console.log('  [3/3] 检查 dialog.tsx 遮罩无 open 态 fade-in 动画...')
+console.log('  [3/4] 检查 layout.tsx inline script 设置 z-index 变量...')
+if (existsSync(LAYOUT_PATH)) {
+  const tsx = readFileSync(LAYOUT_PATH, 'utf8')
+
+  // 检查 inline script 中是否包含 setProperty 调用设置 z-index 变量
+  const requiredInScript = [
+    "setProperty('--z-base'",
+    "setProperty('--z-sticky'",
+    "setProperty('--z-modal'",
+    "setProperty('--z-popover'",
+    "setProperty('--z-notification'",
+    "setProperty('--z-max'",
+  ]
+
+  for (const snippet of requiredInScript) {
+    if (!tsx.includes(snippet)) {
+      console.log(`${C.red}    ❌ inline script 缺少 ${snippet}${C.reset}`)
+      console.log(`${C.dim}       需在 layout.tsx 的 <script dangerouslySetInnerHTML> 中设置此变量${C.reset}`)
+      hasError = true
+    }
+  }
+
+  if (!hasError) {
+    console.log(`${C.green}    ✅ inline script 包含 6 个 z-index 变量设置${C.reset}`)
+  }
+} else {
+  console.log(`${C.yellow}    ⚠️  layout.tsx 不存在: ${LAYOUT_PATH}${C.reset}`)
+  hasError = true
+}
+
+// ============================================================
+// 检查 4: dialog.tsx 遮罩不得有 open 态 fade-in 动画
+// ============================================================
+console.log('  [4/4] 检查 dialog.tsx 遮罩无 open 态 fade-in 动画...')
 if (existsSync(DIALOG_PATH)) {
   const tsx = readFileSync(DIALOG_PATH, 'utf8')
 
@@ -164,8 +212,9 @@ if (existsSync(DIALOG_PATH)) {
 if (hasError) {
   console.log('')
   console.log(`${C.red}❌ z-index 层叠防护守门失败${C.reset}`)
-  console.log(`${C.dim}   历史教训:2026-07-24 AI 面板"跟着登录窗发亮"问题,因 TRAE IDE 注入${C.reset}`)
-  console.log(`${C.dim}   CSS 变量覆盖 + 遮罩 fade-in 动画导致。修复后需 !important + 无 fade-in 防回归。${C.reset}`)
+  console.log(`${C.dim}   历史教训:2026-07-24 AI 面板"跟着登录窗发亮"问题${C.reset}`)
+  console.log(`${C.dim}   v1 用 !important 违反项目禁令,v2 改用 inline script 运行时覆盖${C.reset}`)
+  console.log(`${C.dim}   防护:layout.tsx setProperty + 无 fade-in + 禁止 !important${C.reset}`)
   process.exit(1)
 } else {
   console.log(`${C.green}✅ z-index 层叠防护守门通过${C.reset}`)
