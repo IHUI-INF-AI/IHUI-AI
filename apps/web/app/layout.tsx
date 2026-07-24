@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import Script from 'next/script'
 import { NextIntlClientProvider } from 'next-intl'
 import { getMessages, getLocale } from 'next-intl/server'
-import { Toaster } from 'sonner'
+import { Toaster } from '@/components/common'
 
 import './globals.css'
 import { ThemeProvider } from '@/providers/theme-provider'
@@ -109,7 +109,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 </GlobalHooksProvider>
               </TooltipProvider>
             </QueryProvider>
-            <Toaster position="top-center" richColors closeButton />
+            <Toaster position="top-center" richColors closeButton style={{ zIndex: 3000 }} />
           </NextIntlClientProvider>
         </ThemeProvider>
         <Script

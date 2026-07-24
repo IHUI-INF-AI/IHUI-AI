@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { toast } from '@/components/common'
 import { streamChat, formatSSEError } from '@ihui/api-client'
 
 import { useChatStore } from '@/stores/chat'
@@ -674,6 +674,9 @@ export function useChat(): UseChatReturn {
       // - 不调 createConversation(避免 401 无可见反馈)
       // - toast 提示 + 弹出登录弹窗(用户偏好:登录/注册用弹窗)
       // - return false 让 MessageInput 保留输入内容,登录后可直接重发
+      // - 注意:仅检查 isAuthenticated(UI 标志位)。token 刷新后为 null 但 cookie 仍有效,
+      //   不能用 !token 判断,否则会误拦刷新后已登录用户。stale 场景由 createConversation
+      //   401 失败兜底(下方 createRes.status === 401 分支处理)。
       if (!useAuthStore.getState().isAuthenticated) {
         toast.warning('请先登录', {
           description: '登录后即可与 AI 对话',
@@ -698,7 +701,18 @@ export function useChat(): UseChatReturn {
       if (!conversationId) {
         const createRes = await createConversation({ model })
         if (!createRes.success) {
-          store.setError(createRes.error)
+          // 401 兜底(2026-07-24 立):isAuthenticated 可能 stale(localStorage 持久化但 cookie 已失效),
+          // createConversation 返回 401 时需明确提示用户重新登录,而非静默 setError。
+          // fetchApi wrapper 已调 openLoginDialogOnce 打开弹窗,此处补 toast + 同步 auth 状态。
+          if (createRes.status === 401) {
+            toast.warning('登录已过期', {
+              description: '请重新登录后继续对话',
+            })
+            useAuthStore.setState({ isAuthenticated: false, user: null })
+            useLoginDialogStore.getState().open('login')
+          } else {
+            store.setError(createRes.error)
+          }
           return false
         }
         conversationId = createRes.data.conversation.id
@@ -1005,6 +1019,7 @@ export function useChat(): UseChatReturn {
       useChatStore.getState().setStreaming(false)
       useChatStore.getState().markAllAgentStreamsDone()
     }
+    return true
   }, [])
 
   // 跳过当前挂起的提问:不续流 LLM,允许用户继续发新消息
