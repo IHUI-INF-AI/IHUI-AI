@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { Loading } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
@@ -34,47 +35,30 @@ export function ActivityDetailScreen() {
   useEffect(() => { void load() }, [load])
 
   if (loading) {
-    return <View style={s.center}><ActivityIndicator /><Text style={s.muted}>{t('common.loading')}</Text></View>
+    return <View className="flex-1 items-center justify-center p-4"><Loading /><Text className="mt-2 text-xs text-muted-foreground">{t('common.loading')}</Text></View>
   }
   if (error || !item) {
     return (
-      <View style={s.center}>
-        <Text style={s.error}>{error || t('activityDetail.empty')}</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}><Text style={s.back}>{t('common.back')}</Text></TouchableOpacity>
+      <View className="flex-1 items-center justify-center p-4">
+        <Text className="text-center text-[13px] text-destructive">{error || t('activityDetail.empty')}</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} className="mt-3"><Text className="text-sm text-foreground">{t('common.back')}</Text></TouchableOpacity>
       </View>
     )
   }
 
   return (
-    <ScrollView style={s.container}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><Text style={s.back}>{t('common.back')}</Text></TouchableOpacity>
-        <Text style={s.title}>{t('activityDetail.title')}</Text>
+    <ScrollView className="flex-1 bg-card">
+      <View className="flex-row items-center gap-3 px-4 py-3">
+        <TouchableOpacity onPress={() => navigation.goBack()}><Text className="text-sm text-foreground">{t('common.back')}</Text></TouchableOpacity>
+        <Text className="text-lg font-semibold text-foreground">{t('activityDetail.title')}</Text>
       </View>
-      <View style={s.body}>
-        <Text style={s.detailTitle}>{item.title}</Text>
-        <View style={s.metaRow}><Text style={s.metaLabel}>{t('activityDetail.startAt')}</Text><Text style={s.metaValue}>{item.startAt}</Text></View>
-        <View style={s.metaRow}><Text style={s.metaLabel}>{t('activityDetail.endAt')}</Text><Text style={s.metaValue}>{item.endAt}</Text></View>
-        <View style={s.metaRow}><Text style={s.metaLabel}>{t('activityDetail.location')}</Text><Text style={s.metaValue}>{item.location}</Text></View>
-        <Text style={s.content}>{item.content}</Text>
+      <View className="p-4">
+        <Text className="text-lg font-bold text-foreground">{item.title}</Text>
+        <View className="flex-row justify-between py-2"><Text className="text-xs text-muted-foreground">{t('activityDetail.startAt')}</Text><Text className="text-xs font-medium text-foreground">{item.startAt}</Text></View>
+        <View className="flex-row justify-between py-2"><Text className="text-xs text-muted-foreground">{t('activityDetail.endAt')}</Text><Text className="text-xs font-medium text-foreground">{item.endAt}</Text></View>
+        <View className="flex-row justify-between py-2"><Text className="text-xs text-muted-foreground">{t('activityDetail.location')}</Text><Text className="text-xs font-medium text-foreground">{item.location}</Text></View>
+        <Text className="mt-3 text-sm leading-[22px] text-foreground">{item.content}</Text>
       </View>
     </ScrollView>
   )
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  body: { padding: 16 },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  detailTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
-  metaRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  metaLabel: { fontSize: 12, color: '#6B7280' },
-  metaValue: { fontSize: 12, color: '#111827', fontWeight: '500' },
-  content: { marginTop: 12, fontSize: 14, color: '#374151', lineHeight: 22 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  error: { fontSize: 13, color: '#DC2626', textAlign: 'center' },
-  backBtn: { marginTop: 12 },
-})

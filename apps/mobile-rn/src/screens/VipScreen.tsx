@@ -11,6 +11,7 @@ import {
   type VipLevel,
 } from '@ihui/api-client'
 import { useI18n } from '../i18n'
+import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -18,19 +19,6 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 function formatAmount(n: number | undefined | null): string {
   if (typeof n !== 'number') return '—'
   return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function formatDate(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return '—'
-  }
 }
 
 export function VipScreen() {
@@ -137,7 +125,7 @@ export function VipScreen() {
             </Text>
             <View className="mt-2 flex-row items-center justify-between">
               <Text className="text-xs text-emerald-700 dark:text-emerald-300">
-                {t('vip.expireAt')}:{formatDate(membership.expireTime)}
+                {t('vip.expireAt')}:{formatDateOnly(membership.expireTime)}
               </Text>
               <Text className="text-xs text-emerald-700 dark:text-emerald-300">
                 {t('vip.daysRemaining', { count: membership.daysRemaining })}

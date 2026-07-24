@@ -3,7 +3,6 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useCallback, useState } from 'react'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 const REQUIRED_FLAGS = [true, false, true, false, false, true]
 const ALBUM_NAME_FB = '相册权限'
@@ -94,50 +93,51 @@ export default function AppPermission() {
 
   const statusClass = useCallback((scope: string): string => {
     const s = statusMap[scope]
-    if (s === 'granted') return 'status status-granted'
-    if (s === 'denied') return 'status status-denied'
-    return 'status status-unknown'
+    const base = 'text-[22rpx] py-[2rpx] px-[12rpx] rounded-[6rpx] ml-auto'
+    if (s === 'granted') return `${base} text-success bg-[rgba(16,185,129,0.1)]`
+    if (s === 'denied') return `${base} text-destructive bg-[rgba(239,68,68,0.1)]`
+    return `${base} text-muted-foreground bg-background`
   }, [statusMap])
 
   useDidShow(() => load())
 
   return (
-    <View className="page">
-      <View className="intro">
-        <Text className="intro-text">{t('about.appPermission.intro')}</Text>
+    <View className="min-h-screen bg-background pb-[60rpx]">
+      <View className="m-[24rpx] p-[24rpx] bg-[rgba(245,158,11,0.1)] rounded-[12rpx]">
+        <Text className="text-[24rpx] text-[#996600] leading-[1.7]">{t('about.appPermission.intro')}</Text>
       </View>
 
-      <View className="card">
+      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
         {permissions.map((p, idx) => (
-          <View key={p.scope} className={`row${idx === permissions.length - 1 ? ' last' : ''}`}>
-            <View className="body">
-              <View className="head">
-                <Text className="name">{p.name}</Text>
+          <View key={p.scope} className={`flex items-center py-[28rpx] px-[32rpx] active:bg-background${idx > 0 ? ' mt-[16rpx]' : ''}`}>
+            <View className="flex-1 mr-[16rpx]">
+              <View className="flex items-center flex-wrap gap-[12rpx]">
+                <Text className="text-[28rpx] text-foreground font-medium">{p.name}</Text>
                 {p.required ? (
-                  <Text className="tag required">{t('about.appPermission.required')}</Text>
+                  <Text className="text-[20rpx] text-white bg-[#ff6b6b] py-[2rpx] px-[12rpx] rounded-[6rpx]">{t('about.appPermission.required')}</Text>
                 ) : (
-                  <Text className="tag opt">{t('about.appPermission.optional')}</Text>
+                  <Text className="text-[20rpx] text-white bg-[#ccc] py-[2rpx] px-[12rpx] rounded-[6rpx]">{t('about.appPermission.optional')}</Text>
                 )}
                 <Text className={statusClass(p.scope)}>{statusText(p.scope)}</Text>
               </View>
-              <Text className="desc">{p.desc}</Text>
+              <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx] leading-[1.6]">{p.desc}</Text>
             </View>
-            <Button className="setting-btn" size="mini" onClick={onOpenSetting}>
+            <Button className="flex-shrink-0 text-[24rpx] bg-primary text-white rounded-[8rpx] px-[20rpx] leading-[56rpx] m-0 after:border-0" size="mini" onClick={onOpenSetting}>
               {tt('about.appPermission.goSetting', '去设置')}
             </Button>
           </View>
         ))}
       </View>
 
-      <View className="card">
-        <View className="row last" onClick={onOpenSetting}>
-          <Text className="label">{tt('about.appPermission.openAllSetting', '打开系统设置')}</Text>
-          <Text className="arrow">›</Text>
+      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+        <View className="flex items-center py-[28rpx] px-[32rpx] active:bg-background" onClick={onOpenSetting}>
+          <Text className="text-[28rpx] text-foreground">{tt('about.appPermission.openAllSetting', '打开系统设置')}</Text>
+          <Text className="text-muted-foreground text-[32rpx] ml-auto">›</Text>
         </View>
       </View>
 
-      <View className="tips">
-        <Text>{t('about.appPermission.footer')}</Text>
+      <View className="text-center p-[32rpx]">
+        <Text className="text-[22rpx] text-muted-foreground">{t('about.appPermission.footer')}</Text>
       </View>
     </View>
   )

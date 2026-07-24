@@ -15,6 +15,7 @@ import { enrollCourse, getCourses, type Course } from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Card } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -136,7 +137,7 @@ export function CourseEnrollScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <View style={styles.card}>
+          <Card className="p-3 mb-2.5">
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle} numberOfLines={2}>
                 {item.title}
@@ -184,7 +185,7 @@ export function CourseEnrollScreen() {
                 )}
               </TouchableOpacity>
             </View>
-          </View>
+          </Card>
         )}
       />
     </View>

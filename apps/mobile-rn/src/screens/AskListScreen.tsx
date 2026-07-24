@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Card } from '@ihui/ui-native'
 
 interface Ask { id: string; title: string; author: string; answerCount: number; views: number; createdAt: string }
 
@@ -50,12 +51,14 @@ export function AskListScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
         ListEmptyComponent={<View style={styles.empty}><Text style={styles.muted}>{t('askList.empty')}</Text></View>}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('AskDetail', { id: item.id })}>
-            <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
-            <View style={styles.row}>
-              <Text style={styles.author}>{item.author}</Text>
-              <Text style={styles.meta}>{t('askList.answers', { count: item.answerCount })} · {t('askList.views', { count: item.views })}</Text>
-            </View>
+          <TouchableOpacity onPress={() => navigation.navigate('AskDetail', { id: item.id })}>
+            <Card className="p-3 mb-2">
+              <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+              <View style={styles.row}>
+                <Text style={styles.author}>{item.author}</Text>
+                <Text style={styles.meta}>{t('askList.answers', { count: item.answerCount })} · {t('askList.views', { count: item.views })}</Text>
+              </View>
+            </Card>
           </TouchableOpacity>
         )}
       />

@@ -6,6 +6,7 @@ import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Card } from '@ihui/ui-native'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 interface Item { id: string; name: string; size: number; type: string }
@@ -51,13 +52,13 @@ export function CourseResourceScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} />}
           ListEmptyComponent={<View style={s.center}><Text style={s.muted}>{t('courseResource.empty')}</Text></View>}
           renderItem={({ item }) => (
-            <View style={s.card}>
+            <Card className="p-3">
               <Text style={s.cardTitle} numberOfLines={1}>{item.name}</Text>
               <View style={s.metaRow}>
                 <Text style={s.cardMeta}>{t('courseResource.type')}: {item.type} · {t('courseResource.size')}: {fmtSize(item.size)}</Text>
                 <Text style={s.cardAction}>{t('courseResource.open')}</Text>
               </View>
-            </View>
+            </Card>
           )}
         />
       )}

@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  ActivityIndicator,
   Alert,
   RefreshControl,
   ScrollView,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -15,6 +13,7 @@ import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Loading } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -87,19 +86,22 @@ export function CheckInScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-        <Text style={styles.emptyText}>{t('common.loading')}</Text>
+      <View className="flex-1 items-center justify-center bg-card p-4">
+        <Loading />
+        <Text className="mt-2 text-xs text-muted-foreground">{t('common.loading')}</Text>
       </View>
     )
   }
 
   if (error && !info) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
-          <Text style={styles.retryBtnText}>{t('checkIn.retry')}</Text>
+      <View className="flex-1 items-center justify-center bg-card p-4">
+        <Text className="mt-1 text-center text-xs text-destructive">{error}</Text>
+        <TouchableOpacity
+          className="mt-3 rounded-md bg-primary px-4 py-2"
+          onPress={() => load()}
+        >
+          <Text className="text-[13px] text-primary-foreground">{t('checkIn.retry')}</Text>
         </TouchableOpacity>
       </View>
     )
@@ -107,40 +109,40 @@ export function CheckInScreen() {
 
   return (
     <ScrollView
-      style={styles.container}
+      className="flex-1 bg-card"
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
     >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
+      <View className="px-4 pb-2 pt-12">
+        <TouchableOpacity onPress={() => navigation.goBack()} className="mb-1">
+          <Text className="text-sm text-muted-foreground">{t('common.back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>{t('checkIn.title')}</Text>
-        <Text style={styles.subtitle}>{t('checkIn.subtitle')}</Text>
+        <Text className="text-[22px] font-semibold text-foreground">{t('checkIn.title')}</Text>
+        <Text className="mt-1 text-[13px] text-muted-foreground">{t('checkIn.subtitle')}</Text>
       </View>
 
       {info ? (
         <>
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryValue}>{info.streak}</Text>
-                <Text style={styles.summaryLabel}>{t('checkIn.streak')}</Text>
+          <View className="mx-4 rounded-md bg-primary/10 p-4">
+            <View className="flex-row justify-between">
+              <View className="flex-1 items-center">
+                <Text className="text-[22px] font-bold text-primary">{info.streak}</Text>
+                <Text className="mt-1 text-[11px] text-primary">{t('checkIn.streak')}</Text>
               </View>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryValue}>{info.monthlyDays}</Text>
-                <Text style={styles.summaryLabel}>{t('checkIn.monthlyDays')}</Text>
+              <View className="flex-1 items-center">
+                <Text className="text-[22px] font-bold text-primary">{info.monthlyDays}</Text>
+                <Text className="mt-1 text-[11px] text-primary">{t('checkIn.monthlyDays')}</Text>
               </View>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryValue}>{info.totalDays}</Text>
-                <Text style={styles.summaryLabel}>{t('checkIn.totalDays')}</Text>
+              <View className="flex-1 items-center">
+                <Text className="text-[22px] font-bold text-primary">{info.totalDays}</Text>
+                <Text className="mt-1 text-[11px] text-primary">{t('checkIn.totalDays')}</Text>
               </View>
             </View>
             <TouchableOpacity
-              style={[styles.signBtn, info.todaySigned && styles.signedBtn]}
+              className={`mt-3.5 items-center rounded-md py-3 ${info.todaySigned ? 'bg-muted' : 'bg-primary'}`}
               onPress={handleSign}
               disabled={info.todaySigned || signing}
             >
-              <Text style={[styles.signBtnText, info.todaySigned && styles.signedBtnText]}>
+              <Text className={`text-sm font-semibold ${info.todaySigned ? 'text-muted-foreground' : 'text-primary-foreground'}`}>
                 {signing
                   ? t('common.loading')
                   : info.todaySigned
@@ -150,96 +152,33 @@ export function CheckInScreen() {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.sectionTitle}>{t('checkIn.calendar')}</Text>
-          <View style={styles.calendarGrid}>
+          <Text className="px-4 pb-2 pt-4 text-[15px] font-semibold text-foreground">{t('checkIn.calendar')}</Text>
+          <View className="mx-4 flex-row flex-wrap gap-1.5">
             {info.calendar.map((day) => (
-              <View key={day.date} style={[styles.dayCell, day.signed && styles.dayCellSigned]}>
-                <Text style={[styles.dayText, day.signed && styles.dayTextSigned]}>
+              <View
+                key={day.date}
+                style={{ width: '13%', aspectRatio: 1 }}
+                className={`items-center justify-center rounded-md border ${day.signed ? 'border-primary bg-primary' : 'border-border bg-card'}`}
+              >
+                <Text className={`text-xs ${day.signed ? 'text-primary-foreground' : 'text-foreground/80'}`}>
                   {day.date.slice(-2)}
                 </Text>
                 {day.signed ? (
-                  <Text style={styles.dayCheck}>✓</Text>
+                  <Text className="mt-0.5 text-xs text-primary-foreground">✓</Text>
                 ) : (
-                  <Text style={styles.dayReward}>+{day.reward}</Text>
+                  <Text className="mt-0.5 text-[10px] text-muted-foreground">+{day.reward}</Text>
                 )}
               </View>
             ))}
           </View>
 
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {error ? <Text className="mt-2 text-center text-xs text-destructive">{error}</Text> : null}
         </>
       ) : (
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>{t('checkIn.empty')}</Text>
+        <View className="flex-1 items-center justify-center p-4">
+          <Text className="text-xs text-muted-foreground">{t('checkIn.empty')}</Text>
         </View>
       )}
     </ScrollView>
   )
 }
-
-const PRIMARY = '#10B981'
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-  },
-  emptyText: { fontSize: 12, color: '#9CA3AF', marginTop: 8 },
-  errorText: { fontSize: 12, color: '#DC2626', marginTop: 4, textAlign: 'center' },
-  header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
-  backBtn: { marginBottom: 4 },
-  backText: { fontSize: 14, color: '#6B7280' },
-  title: { fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#6B7280' },
-  summaryCard: { marginHorizontal: 16, padding: 16, borderRadius: 8, backgroundColor: '#ECFDF5' },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  summaryItem: { alignItems: 'center', flex: 1 },
-  summaryValue: { fontSize: 22, fontWeight: '700', color: PRIMARY },
-  summaryLabel: { marginTop: 4, fontSize: 11, color: '#065F46' },
-  signBtn: {
-    marginTop: 14,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: PRIMARY,
-    alignItems: 'center',
-  },
-  signedBtn: { backgroundColor: '#F3F4F6' },
-  signBtnText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
-  signedBtnText: { color: '#9CA3AF' },
-  sectionTitle: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  calendarGrid: { marginHorizontal: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  dayCell: {
-    width: '13%',
-    aspectRatio: 1,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  dayCellSigned: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  dayText: { fontSize: 12, color: '#374151' },
-  dayTextSigned: { color: '#FFFFFF' },
-  dayReward: { fontSize: 10, color: '#9CA3AF', marginTop: 2 },
-  dayCheck: { fontSize: 12, color: '#FFFFFF', marginTop: 2 },
-  retryBtn: {
-    marginTop: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: PRIMARY,
-  },
-  retryBtnText: { color: '#FFFFFF', fontSize: 13 },
-})
