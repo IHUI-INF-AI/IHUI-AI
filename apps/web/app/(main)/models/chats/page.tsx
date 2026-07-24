@@ -1,7 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import { MessagesSquare, Search } from 'lucide-react'
 
-import { Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
 
 export default async function ChatsPage() {
   const t = await getTranslations('models')

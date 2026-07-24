@@ -18,7 +18,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import { selectClass } from './types'
 import type { useNewsArticles } from './useNewsArticles'

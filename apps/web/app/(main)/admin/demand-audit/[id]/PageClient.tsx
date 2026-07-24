@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button, Card, CardContent, CardHeader, CardTitle, Label } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Label } from '@ihui/ui-react'
 import {
   Badge,
   DescriptionList,

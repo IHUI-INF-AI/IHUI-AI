@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, Check, X } from 'lucide-react'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { amountCls, badgeCls, fmtYuan, STATUS_LABEL } from './helpers'
 import type { Withdrawal } from './types'
 

@@ -29,7 +29,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { COZE_STATUS_CLASS } from './helpers'
 import type { CozeAccount } from './types'
 

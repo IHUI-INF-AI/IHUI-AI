@@ -10,7 +10,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { selectClass } from '@/lib/edu'
 import type { Category } from './types'
 

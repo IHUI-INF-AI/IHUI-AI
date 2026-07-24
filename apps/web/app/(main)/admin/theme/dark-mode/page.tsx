@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { Save, Loader2, Moon } from 'lucide-react'
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Switch } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback/Alert'
 import { fetchApi } from '@/lib/api'
 

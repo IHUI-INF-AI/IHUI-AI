@@ -1,6 +1,6 @@
 'use client'
 
-import { Card } from '@ihui/ui'
+import { Card } from '@ihui/ui-react'
 import { StatChart } from '@/components/bi/stat-chart'
 
 /**

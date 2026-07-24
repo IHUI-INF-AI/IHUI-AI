@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { Loader2, Clock } from 'lucide-react'
 
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 import { mmss } from './helpers'

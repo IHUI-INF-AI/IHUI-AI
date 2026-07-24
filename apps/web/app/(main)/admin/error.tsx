@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { RefreshCw, ShieldAlert } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 /**
  * admin 路由组错误边界。

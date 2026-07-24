@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations, useLocale } from 'next-intl'
 import { Search, User, FolderOpen, FileText, Loader2 } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@ihui/ui-react'
 import { escapeRegExp, formatSize } from './helpers'
 import type { UserResult, ProjectResult, FileResult, TabKey } from './types'
 

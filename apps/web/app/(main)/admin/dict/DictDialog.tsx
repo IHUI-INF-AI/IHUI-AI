@@ -19,7 +19,7 @@ import {
   SelectContent,
   SelectItem,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { textareaClass, LIST_CLASS_OPTIONS } from './helpers'
 import { useZodForm } from '@/hooks/use-zod-form'
 import {

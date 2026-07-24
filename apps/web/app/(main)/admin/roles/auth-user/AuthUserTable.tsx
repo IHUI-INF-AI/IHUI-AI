@@ -3,7 +3,7 @@
 import { Loader2, UserMinus } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { Button, Checkbox } from '@ihui/ui'
+import { Button, Checkbox } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { th } from './helpers'
 import type { AuthUser } from './types'

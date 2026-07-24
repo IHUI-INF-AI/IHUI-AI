@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, Ticket } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { api, STATUS_LABEL, STATUS_BADGE } from './helpers'
 import type { Ticket as TicketType } from './types'

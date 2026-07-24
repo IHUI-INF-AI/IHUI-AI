@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { FIELDS, TEXTAREA_CLASS } from './helpers'
 import type { AboutUsItem } from './types'
 

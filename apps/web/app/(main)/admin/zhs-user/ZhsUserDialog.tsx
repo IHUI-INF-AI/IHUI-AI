@@ -11,7 +11,7 @@ import {
   Button,
   Input,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { FIELDS } from './helpers'
 import type { ZhsUser } from './types'
 

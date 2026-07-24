@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { ListOrdered, Loader2 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import type { SubagentQueueEntry, DispatchPriority } from '@ihui/shared/subagents/index'
 
 const PRIORITY_BADGE: Record<DispatchPriority, string> = {

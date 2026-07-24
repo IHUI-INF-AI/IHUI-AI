@@ -19,7 +19,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { TRIGGER_OPTIONS, selectClass, textareaClass } from './helpers'
 import type { WorkflowForm, WorkflowItem, TriggerType } from './types'

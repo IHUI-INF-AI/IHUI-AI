@@ -4,7 +4,7 @@ import * as React from 'react'
 import Image from 'next/image'
 import { Upload, Trash2, Loader2, Image as ImageIcon } from 'lucide-react'
 
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback/Alert'
 import { fetchApi } from '@/lib/api'
 

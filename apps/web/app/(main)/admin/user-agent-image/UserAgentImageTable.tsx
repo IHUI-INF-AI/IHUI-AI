@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, Edit, Trash2, Image as ImageIcon } from 'lucide-react'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import type { UserAgentImage } from './types'
 

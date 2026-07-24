@@ -2,7 +2,7 @@
 
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, FolderCog, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button, Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
+import { Button, Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { STATUS_BADGE } from './helpers'
 import type { AdminProject } from './types'
