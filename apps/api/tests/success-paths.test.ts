@@ -521,6 +521,8 @@ describe('success paths', () => {
       expect(body.message).toContain('验证码错误')
     })
 
+    // CWE-204 防用户枚举攻击:用户不存在时统一返回"验证码错误或已过期",
+    // 攻击者无法通过响应区分"用户不存在"和"验证码错误"(2026-07-24 安全加固)
     it('POST /api/auth/login/sms 用户不存在返回 401', async () => {
       vi.mocked(findUserByPhone).mockResolvedValue(undefined)
       codeStore.set('13900000000', {
@@ -537,7 +539,7 @@ describe('success paths', () => {
       expect(res.statusCode).toBe(401)
       const body = res.json()
       expect(body.code).toBe(401)
-      expect(body.message).toContain('用户不存在')
+      expect(body.message).toContain('验证码错误或已过期')
     })
 
     it('POST /api/auth/login/sms 缺少字段返回 400', async () => {
