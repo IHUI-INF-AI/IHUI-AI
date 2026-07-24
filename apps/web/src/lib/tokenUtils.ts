@@ -11,6 +11,7 @@
  * 依赖:useAuthStore 持久化 token + refreshToken(accessToken 必须是 JWT 带 exp 字段)。
  */
 import { useAuthStore } from '@/stores/auth'
+import { readExp } from '@ihui/shared/utils/jwt-utils'
 
 const REFRESH_LEAD_MS = 5 * 60 * 1000 // 提前 5 分钟续期
 const REFRESH_ENDPOINT = '/api/auth/refresh'
@@ -21,36 +22,10 @@ let refreshTimer: ReturnType<typeof setTimeout> | null = null
 let inFlightRefresh: Promise<TokenPair | null> | null = null
 let stopped = false
 
-interface JWTPayload {
-  exp?: number
-  iat?: number
-}
-
 export interface TokenPair {
   accessToken: string
   refreshToken?: string
   expiresIn?: number
-}
-
-function base64UrlDecode(input: string): string {
-  const s = input.replace(/-/g, '+').replace(/_/g, '/')
-  const padded = s + '='.repeat((4 - (s.length % 4)) % 4)
-  const binary = atob(padded)
-  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0))
-  return new TextDecoder().decode(bytes)
-}
-
-function readExp(token: string): number | null {
-  const parts = token.split('.')
-  if (parts.length !== 3) return null
-  const payloadPart = parts[1]
-  if (!payloadPart) return null
-  try {
-    const decoded = JSON.parse(base64UrlDecode(payloadPart)) as JWTPayload
-    return typeof decoded.exp === 'number' ? decoded.exp : null
-  } catch {
-    return null
-  }
 }
 
 export function clearRefreshTimer(): void {
