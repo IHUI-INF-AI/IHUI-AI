@@ -12085,7 +12085,7 @@
     "send": "送信",
     "response": "レスポンス"
   },
-  "agents": {
+  "agent": {
     "marketTitle": "エージェントマーケット",
     "marketSubtitle": "なエージェントをつけて",
     "searchPlaceholder": "エージェント...",
