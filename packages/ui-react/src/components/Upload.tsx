@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { UploadCloud, X, Loader2, FileIcon, ImageIcon } from 'lucide-react'
-import { cn } from '../lib/utils.js'
+import { cn } from '../lib/utils'
 
 /**
  * Upload 组件 — 统一文件上传 UI(支持拖拽 + 点击 + 进度条 + 多文件)

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { cn } from '../lib/utils.js'
+import { cn } from '../lib/utils'
 
 const SidebarContext = React.createContext<boolean>(false)
 const useSidebarCollapsed = () => React.useContext(SidebarContext)
