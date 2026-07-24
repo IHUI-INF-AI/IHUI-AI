@@ -53,7 +53,9 @@
 }
 .answer {
   padding: 24rpx 0;
-  border-bottom: 2rpx solid var(--color-border);
+}
+.answer + .answer {
+  margin-top: 16rpx;
 }
 .a-head {
   display: flex;
@@ -84,7 +86,6 @@
   align-items: center;
   padding: 16rpx 24rpx;
   background: var(--color-card);
-  border-top: 2rpx solid var(--color-border);
 }
 .input {
   flex: 1;

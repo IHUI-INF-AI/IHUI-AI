@@ -67,7 +67,7 @@ export default function SkillsPopup({
 
   return (
     <DrawerComponent visible={visible} onClose={onClose} height="70vh">
-      <View className="px-4 py-3 border-b border-border">
+      <View className="px-4 py-3 mb-2">
         <Text className="text-base font-semibold text-foreground dark:text-muted-foreground">
           {t('ai.skillsPopup.title')}
         </Text>
@@ -86,7 +86,7 @@ export default function SkillsPopup({
 
       <ScrollView
         scrollX
-        className="whitespace-nowrap px-3 py-2 border-b border-border"
+        className="whitespace-nowrap px-3 py-2 mb-2"
       >
         {CATEGORIES.map((c) => (
           <View

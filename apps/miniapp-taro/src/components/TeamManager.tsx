@@ -30,7 +30,7 @@ export default function TeamManager({
   const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   return (
     <View className="bg-card mx-3 my-3 rounded-xl overflow-hidden">
-      <View className="flex items-center justify-between px-4 py-3 border-b border-border">
+      <View className="flex items-center justify-between px-4 py-3 mb-2">
         <Text className="text-sm font-medium text-foreground">{tt('distribution.myTeam', '我的团队')}</Text>
         <Text className="text-xs text-muted-foreground">{totalCount ?? members.length} 人</Text>
       </View>
@@ -46,7 +46,7 @@ export default function TeamManager({
           members.map((member) => (
             <View
               key={member.id}
-              className="flex items-center px-4 py-3 border-b border-border"
+              className="flex items-center px-4 py-3 mb-1.5"
               onClick={() => onViewDetail?.(member)}
             >
               <Avatar src={member.avatar} name={member.name} size="md" />

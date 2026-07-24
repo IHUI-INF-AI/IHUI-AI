@@ -44,7 +44,7 @@ export default function VipBenefitsPopup({
         </View>
         <ScrollView scrollY className="px-4 py-2" style={{ maxHeight: '50vh' }}>
           {benefits.map((b) => (
-            <View key={b.id} className="flex items-start py-3 border-b border-border">
+            <View key={b.id} className="flex items-start py-3 mb-2">
               <View className="flex items-center justify-center w-8 h-8 mr-3 rounded-lg bg-yellow-50">
                 <Text className="text-base">★</Text>
               </View>

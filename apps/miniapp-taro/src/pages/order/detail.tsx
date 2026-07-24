@@ -89,22 +89,22 @@ export default function OrderDetail() {
   return (
     <View className="min-h-screen bg-background pb-[120rpx]">
       <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
-        <View className="text-[32rpx] text-foreground font-semibold pb-[24rpx] border-b-[2rpx] border-border">
+        <View className="text-[32rpx] text-foreground font-semibold pb-[24rpx] mb-[8rpx]">
           {order.title}
         </View>
-        <View className="flex justify-between py-[24rpx] border-b-[2rpx] border-border">
+        <View className="flex justify-between py-[24rpx]">
           <Text className="text-[26rpx] text-muted-foreground">{t('order.orderNo')}</Text>
           <Text className="text-[26rpx] text-foreground">{order.orderNo}</Text>
         </View>
-        <View className="flex justify-between py-[24rpx] border-b-[2rpx] border-border">
+        <View className="flex justify-between py-[24rpx]">
           <Text className="text-[26rpx] text-muted-foreground">{t('order.createTime')}</Text>
           <Text className="text-[26rpx] text-foreground">{order.createTime}</Text>
         </View>
-        <View className="flex justify-between py-[24rpx] border-b-[2rpx] border-border">
+        <View className="flex justify-between py-[24rpx]">
           <Text className="text-[26rpx] text-muted-foreground">{t('order.orderType')}</Text>
           <Text className="text-[26rpx] text-foreground">{order.type}</Text>
         </View>
-        <View className="flex justify-between py-[24rpx] border-b-[2rpx] border-border">
+        <View className="flex justify-between py-[24rpx]">
           <Text className="text-[26rpx] text-muted-foreground">{t('order.orderStatus')}</Text>
           <Text className={`text-[26rpx] ${STATUS_COLOR[order.status] || 'text-foreground'}`}>
             {statusText}

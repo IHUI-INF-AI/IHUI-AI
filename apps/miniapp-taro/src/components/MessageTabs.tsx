@@ -16,7 +16,7 @@ export default function MessageTabs({ tabs, active, onChange }: MessageTabsProps
   return (
     <ScrollView
       scrollX
-      className="bg-card border-b border-border"
+      className="bg-card mb-2"
       enhanced
       showScrollbar={false}
     >

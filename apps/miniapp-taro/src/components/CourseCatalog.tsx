@@ -22,7 +22,7 @@ export default function CourseCatalog({
   const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   return (
     <View className="bg-card">
-      <View className="flex items-center justify-between px-4 py-3 border-b border-border">
+      <View className="flex items-center justify-between px-4 py-3 mb-2">
         <Text className="text-sm font-medium text-foreground">{tt('catalog.courseCatalog', '课程目录')}</Text>
         <Text className="text-xs text-muted-foreground">{lessons.length} 节</Text>
       </View>

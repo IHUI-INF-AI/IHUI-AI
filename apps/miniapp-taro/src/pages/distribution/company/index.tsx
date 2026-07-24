@@ -116,7 +116,7 @@ export default function CompanyPage() {
           members.map((m) => (
             <View
               key={m.id}
-              className="flex items-center py-2.5 border-b border-border last:border-0"
+              className="flex items-center py-2.5 mb-2 last:mb-0"
               onClick={() => navigateTo(`/pages/distribution/member-detail/index?id=${m.id}`)}
             >
               {m.avatar ? (
