@@ -1,0 +1,202 @@
+{
+  "common": {
+    "save": "저장",
+    "cancel": "취소",
+    "delete": "삭제",
+    "edit": "편집",
+    "back": "뒤로",
+    "confirm": "확인",
+    "loading": "로딩 중…",
+    "empty": "데이터 없음",
+    "retry": "재시도",
+    "submit": "제출",
+    "search": "검색",
+    "all": "전체",
+    "failed": "실패"
+  },
+  "nav": {
+    "home": "홈",
+    "chat": "AI 채팅",
+    "translate": "번역",
+    "vocab": "단어장",
+    "settings": "설정",
+    "about": "정보",
+    "agents": "AI 어시스턴트",
+    "vocabulary": "단어장",
+    "profile": "내 정보",
+    "wallet": "지갑",
+    "courses": "코스",
+    "notifications": "알림",
+    "tabRuntime": "런타임"
+  },
+  "auth": {
+    "login": "로그인",
+    "logout": "로그아웃",
+    "register": "회원가입",
+    "loginSuccess": "로그인 성공",
+    "loginRequired": "계정과 비밀번호를 입력하세요",
+    "phoneOrEmail": "전화번호 / 이메일",
+    "password": "비밀번호",
+    "roleAdmin": "관리자",
+    "roleUser": "일반 사용자"
+  },
+  "popup": {
+    "copyFailed": "복사 실패",
+    "copySuccess": "복사됨",
+    "openWeb": "웹사이트 열기",
+    "quickActions": "빠른 작업",
+    "openChat": "AI 채팅",
+    "openSidePanel": "사이드 패널 열기"
+  },
+  "translate": {
+    "title": "몰입형 번역",
+    "source": "원문",
+    "target": "번역 대상",
+    "auto": "자동 감지",
+    "translating": "번역 중…",
+    "result": "번역 결과",
+    "copy": "복사",
+    "swap": "교환"
+  },
+  "vocab": {
+    "title": "단어장",
+    "add": "단어 추가",
+    "word": "단어",
+    "meaning": "의미",
+    "example": "예문",
+    "empty": "단어 없음",
+    "review": "복습",
+    "mastered": "마스터됨",
+    "inputPlaceholder": "조회할 단어 입력...",
+    "lookup": "조회",
+    "saved": "단어장에 저장"
+  },
+  "wordbook": {
+    "title": "단어장",
+    "countLabel": "총 {{count}} 단어",
+    "searchPlaceholder": "단어 검색...",
+    "noMatchHint": "일치하는 단어가 없습니다",
+    "emptyHint": "단어장이 비어 있습니다, 단어를 조회하고 저장하세요"
+  },
+  "chat": {
+    "placeholder": "메시지 입력…",
+    "send": "전송",
+    "newConversation": "새 대화",
+    "history": "기록",
+    "stop": "중지",
+    "title": "AI 채팅",
+    "exit": "종료",
+    "selectModel": "모델 선택",
+    "emptyHint": "메시지를 입력하여 시작",
+    "inputPlaceholder": "무언가 입력하세요...",
+    "compactionNotice": "컨텍스트 자동 압축:{{before}} → {{after}}({{removed}}개 기록 제거)"
+  },
+  "settings": {
+    "title": "설정",
+    "language": "인터페이스 언어",
+    "targetLanguage": "번역 대상 언어",
+    "apiKey": "API 키",
+    "theme": "테마",
+    "about": "IHUI AI 정보",
+    "version": "버전",
+    "feedback": "피드백",
+    "appearance": "외관",
+    "darkMode": "다크 모드",
+    "account": "계정",
+    "zhCN": "简体中文",
+    "en": "English",
+    "ja": "日本語",
+    "ko": "한국어",
+    "zhTW": "繁體中文"
+  },
+  "notification": {
+    "title": "알림",
+    "connected": "연결됨",
+    "disconnected": "연결 끊김",
+    "markAllRead": "모두 읽음",
+    "clearAll": "모두 삭제",
+    "close": "닫기",
+    "empty": "알림 없음"
+  },
+  "agent": {
+    "useCount": "사용 횟수",
+    "rating": "평점",
+    "permission": "권한",
+    "statusIdle": "대기",
+    "statusRunning": "실행 중",
+    "statusCompleted": "완료",
+    "statusFailed": "실패",
+    "clear": "초기화",
+    "executePlan": "실행 계획",
+    "permissionDecision": "권한 결정",
+    "tool": "도구",
+    "level": "등급",
+    "mode": "모드",
+    "output": "출력",
+    "error": "오류",
+    "inputTaskHint": "태스크를 입력하여 Agent 실행 시작",
+    "inputTaskPlaceholder": "태스크 입력...",
+    "stop": "중지",
+    "execute": "실행",
+    "detailTab": "상세",
+    "usable": "사용 가능",
+    "needVip": "VIP 필요",
+    "needPurchase": "구매 필요",
+    "loadFailed": "로딩 실패"
+  },
+  "course": {
+    "title": "코스",
+    "empty": "코스 없음",
+    "free": "무료",
+    "loadFailed": "로딩 실패"
+  },
+  "order": {
+    "title": "내 주문",
+    "empty": "주문 없음",
+    "loadFailed": "로딩 실패",
+    "statusPending": "결제 대기",
+    "statusPaid": "결제 완료",
+    "statusCancelled": "취소됨",
+    "statusRefunding": "환불 중",
+    "statusRefunded": "환불 완료",
+    "statusCompleted": "완료",
+    "statusFailed": "실패"
+  },
+  "profile": {
+    "title": "내 정보",
+    "noNickname": "닉네임 미설정",
+    "idLabel": "ID",
+    "emailLabel": "이메일",
+    "phoneLabel": "전화번호",
+    "loadFailed": "로딩 실패"
+  },
+  "wallet": {
+    "title": "지갑",
+    "balance": "사용 가능 잔액",
+    "totalRecharge": "누적 충전",
+    "loadFailed": "로딩 실패"
+  },
+  "login": {
+    "title": "IHUI AI 로그인",
+    "account": "계정",
+    "password": "비밀번호",
+    "phoneOrEmailHint": "전화번호 / 이메일",
+    "loading": "로그인 중...",
+    "requireInput": "계정과 비밀번호를 입력하세요",
+    "button": "로그인",
+    "loadFailed": "로그인 실패"
+  },
+  "error": {
+    "network": "네트워크 오류",
+    "server": "서버 오류",
+    "unauthorized": "먼저 로그인하세요",
+    "forbidden": "권한 없음",
+    "notFound": "찾을 수 없음",
+    "unknown": "알 수 없는 오류"
+  },
+  "success": {
+    "saved": "저장됨",
+    "deleted": "삭제됨",
+    "copied": "복사됨"
+  }
+}
