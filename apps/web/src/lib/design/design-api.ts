@@ -9,7 +9,7 @@
  * 复用 @/lib/api 的 fetchApi(自动注入 token + base url + 重试 + 熔断)。
  */
 import { fetchApi } from '@/lib/api'
-import type { DesignComment, DesignPreview, DesignPreviewResponse } from '@ihui/shared'
+import type { DesignComment, DesignPreview, DesignPreviewResponse } from '@ihui/shared/design/element'
 import { deriveComponentName, exportCode as convertCode } from './code-exporter'
 
 export type { ExportFormat } from './code-exporter'
