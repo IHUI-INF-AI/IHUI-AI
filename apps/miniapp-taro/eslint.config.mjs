@@ -3,7 +3,7 @@ import reactConfig from '@ihui/eslint-config/react'
 export default [
   ...reactConfig,
   {
-    ignores: ['dist/**', '.swc/**', 'config/**', 'babel.config.js', 'scripts/**'],
+    ignores: ['dist/**', 'dist-alipay/**', '.swc/**', 'config/**', 'babel.config.js', 'scripts/**'],
   },
   {
     files: ['src/**/*.js'],
