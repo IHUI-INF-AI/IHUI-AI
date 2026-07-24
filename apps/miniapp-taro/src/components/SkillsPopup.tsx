@@ -1,4 +1,5 @@
 import { View, Text, Input, ScrollView, Image } from '@tarojs/components'
+import type { Agent } from '@ihui/api-client'
 import { useState, useMemo, useCallback } from 'react'
 import DrawerComponent from './DrawerComponent'
 import EmptyState from './EmptyState'
@@ -6,12 +7,10 @@ import { useI18n } from '@/i18n'
 
 export type SkillCategory = 'all' | 'text' | 'image' | 'video' | 'audio'
 
-export interface AgentItem {
-  id: string
-  name: string
-  desc?: string
+export type AgentItem = Pick<Agent, 'id' | 'name'> & {
+  description?: string
   avatar?: string
-  uses?: number
+  useCount?: number
   category?: SkillCategory
 }
 
@@ -49,7 +48,7 @@ export default function SkillsPopup({
     return agents.filter((a) => {
       const matchCat = category === 'all' || a.category === category
       const matchKw =
-        !kw || a.name.toLowerCase().includes(kw) || (a.desc || '').toLowerCase().includes(kw)
+        !kw || a.name.toLowerCase().includes(kw) || (a.description || '').toLowerCase().includes(kw)
       return matchCat && matchKw
     })
   }, [agents, keyword, category])
@@ -84,10 +83,7 @@ export default function SkillsPopup({
         />
       </View>
 
-      <ScrollView
-        scrollX
-        className="whitespace-nowrap px-3 py-2 mb-2"
-      >
+      <ScrollView scrollX className="whitespace-nowrap px-3 py-2 mb-2">
         {CATEGORIES.map((c) => (
           <View
             key={c.key}
@@ -132,15 +128,15 @@ export default function SkillsPopup({
                       <Text className="ml-2 text-xs text-primary">✓</Text>
                     ) : null}
                   </View>
-                  {agent.desc ? (
+                  {agent.description ? (
                     <Text className="block text-xs text-muted-foreground dark:text-muted-foreground mt-1 truncate">
-                      {agent.desc}
+                      {agent.description}
                     </Text>
                   ) : null}
                 </View>
-                {typeof agent.uses === 'number' ? (
+                {typeof agent.useCount === 'number' ? (
                   <View className="ml-2 text-xs text-muted-foreground">
-                    <Text>{t('ai.skillsPopup.uses', { n: agent.uses })}</Text>
+                    <Text>{t('ai.skillsPopup.uses', { n: agent.useCount })}</Text>
                   </View>
                 ) : null}
               </View>
