@@ -3,44 +3,44 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
       "types": "./src/index.ts",
-      "import": "./dist/index.js"
+      "import": "./src/index.ts"
     },
     "./user": {
       "types": "./src/user.ts",
-      "import": "./dist/user.js"
+      "import": "./src/user.ts"
     },
     "./api": {
       "types": "./src/api.ts",
-      "import": "./dist/api.js"
+      "import": "./src/api.ts"
     },
     "./ai": {
       "types": "./src/ai.ts",
-      "import": "./dist/ai.js"
+      "import": "./src/ai.ts"
     },
     "./message-repair": {
       "types": "./src/message-repair.ts",
-      "import": "./dist/message-repair.js"
+      "import": "./src/message-repair.ts"
     },
     "./workspace": {
       "types": "./src/workspace.ts",
-      "import": "./dist/workspace.js"
+      "import": "./src/workspace.ts"
     },
     "./api-contracts": {
       "types": "./src/api-contracts.ts",
-      "import": "./dist/api-contracts.js"
+      "import": "./src/api-contracts.ts"
     },
     "./subagent-dispatch": {
       "types": "./src/subagent-dispatch.ts",
-      "import": "./dist/subagent-dispatch.js"
+      "import": "./src/subagent-dispatch.ts"
     },
     "./orchestration": {
       "types": "./src/orchestration.ts",
-      "import": "./dist/orchestration.js"
+      "import": "./src/orchestration.ts"
     }
   },
   "scripts": {

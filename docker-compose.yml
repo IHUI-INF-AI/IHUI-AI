@@ -137,7 +137,7 @@ services:
       retries: 3
       start_period: 20s
 
-  # 新前端(Next.js 15 standalone)
+  # 新前端(Next.js 15 static export,A 套壳架构 — nginx 静态文件 + API 反向代理)
   web:
     build:
       context: .
