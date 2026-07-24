@@ -133,19 +133,19 @@ textarea:focus {
 }
 
 .sp-ws-dot.connected {
-  background: #16a34a;
+  background: var(--color-primary);
 }
 
 .sp-ws-dot.disconnected {
-  background: #9ca3af;
+  background: var(--color-muted-foreground);
 }
 
 .dark .sp-ws-dot.connected {
-  background: #22c55e;
+  background: var(--color-primary);
 }
 
 .dark .sp-ws-dot.disconnected {
-  background: #4b5563;
+  background: var(--color-muted-foreground);
 }
 
 .sp-user {
@@ -178,8 +178,8 @@ textarea:focus {
   height: 14px;
   padding: 0 3px;
   border-radius: 7px;
-  background: #ef4444;
-  color: #fff;
+  background: var(--color-destructive);
+  color: var(--color-primary-foreground);
   font-size: 9px;
   line-height: 14px;
   text-align: center;
