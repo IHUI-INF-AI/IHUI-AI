@@ -1,4 +1,5 @@
 import { View, Text } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface AgentRef {
   id: string
@@ -16,16 +17,18 @@ export default function Introduction({
   agents = [],
   onAgentClick,
 }: IntroductionProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   return (
     <View className="px-4 py-3">
       {content ? (
         <Text className="block text-sm text-foreground leading-relaxed">{content}</Text>
       ) : (
-        <Text className="block text-sm text-muted-foreground">暂无简介</Text>
+        <Text className="block text-sm text-muted-foreground">{tt('intro.empty', '暂无简介')}</Text>
       )}
       {agents.length > 0 && (
         <View className="mt-3 pt-3 border-t border-border">
-          <Text className="block text-xs text-muted-foreground mb-2">关联 AI 应用</Text>
+          <Text className="block text-xs text-muted-foreground mb-2">{tt('intro.relatedAI', '关联 AI 应用')}</Text>
           <View className="flex flex-wrap">
             {agents.map((agent) => (
               <View
