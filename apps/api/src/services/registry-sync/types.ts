@@ -23,6 +23,10 @@ export interface RawRegistryItem {
     recentReleases?: number
     hasDocumentation?: boolean
     lastCommitAt?: string
+    /** npm 周下载量(由 npm 适配器填充,供热度评分消费) */
+    downloads?: number
+    /** 上次同步时间(ISO 字符串,force 透传语义:worker 层据此跳过 payload_hash 变更检测) */
+    lastSyncedAt?: string
   }
 }
 
@@ -35,7 +39,12 @@ export interface RegistryAdapter {
 }
 
 export interface SyncOptions {
-  /** 强制全量同步 */
+  /**
+   * 强制全量同步(跳过 payload_hash 变更检测)。
+   * 适配器层总是全量拉取(无本地缓存),force 的真正消费方是 worker 层:
+   * worker 在 force=true 时不比较 payload_hash,直接 upsert 全部条目。
+   * 适配器层只通过日志标记透传 force,便于排查。
+   */
   force?: boolean
   /** GitHub token(避免 rate limit) */
   githubToken?: string
