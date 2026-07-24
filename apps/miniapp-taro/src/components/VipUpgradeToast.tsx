@@ -1,4 +1,5 @@
 import { View, Text } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface VipUpgradeToastProps {
   visible?: boolean
@@ -17,6 +18,8 @@ export default function VipUpgradeToast({
   onClose,
   duration = 5000,
 }: VipUpgradeToastProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   const [show, setShow] = useState(visible)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
@@ -49,7 +52,7 @@ export default function VipUpgradeToast({
           style={{ background: 'linear-gradient(90deg, #f59e0b, #d97706)' }}
           onClick={onUpgrade}
         >
-          <Text className="text-xs text-white font-medium">升级</Text>
+          <Text className="text-xs text-white font-medium">{tt('vip.upgradeNow', '升级')}</Text>
         </View>
         <Text
           className="text-xs text-[#f59e0b] ml-2"

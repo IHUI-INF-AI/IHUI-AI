@@ -25,7 +25,7 @@ export default function CourseRating({
   if (!visible) return null
 
   const ratingLabels = tList('course.ratingLabels')
-  const labels = ratingLabels.length > 0 ? ratingLabels : ['', '很差', '较差', '一般', '不错', '很好']
+  const labels = ratingLabels.length > 0 ? ratingLabels : ['', tt('course.rating1', '很差'), tt('course.rating2', '较差'), tt('course.rating3', '一般'), tt('course.rating4', '不错'), tt('course.rating5', '很好')]
 
   return (
     <View
