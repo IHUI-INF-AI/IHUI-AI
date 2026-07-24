@@ -209,6 +209,19 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     "nlpcloud/": "nlpcloud",
     "scaleway/": "scaleway",
     "alibaba-intl/": "alibaba_intl",
+    # 2026-07-24 接入:14 个免费 LLM provider 内化
+    # cerebras/ mistral/ mistral- codestral- pixtral- huggingface/ command- 已存在,不重复加
+    "cohere/": "cohere",  # 补充 cohere/ 前缀(现有只有 command- 前缀)
+    "zai/": "zai",
+    "kilo/": "kilo",
+    "pollinations/": "pollinations",
+    "llm7/": "llm7",
+    "ovh/": "ovh",
+    "aihorde/": "aihorde",
+    "reka/": "reka",
+    "routeway/": "routeway",
+    "bazaarlink/": "bazaarlink",
+    "ainative/": "ainative",
 }
 
 
@@ -460,6 +473,18 @@ class LLMGateway:
             "NLP_CLOUD_API_KEY",  # NLP Cloud
             "SCALEWAY_API_KEY",  # Scaleway
             "ALIBABA_INTL_API_KEY",  # Alibaba Cloud International Model Studio
+            # 2026-07-24 接入:14 个免费 LLM provider 内化
+            # CEREBRAS_API_KEY / MISTRAL_API_KEY / COHERE_API_KEY / HUGGINGFACE_API_KEY 已在上方存在,不重复加
+            "ZAI_API_KEY",  # Z.ai / 智谱 OpenAI 兼容
+            "KILO_API_BASE",  # Kilo Gateway(keyless,有 base 即激活)
+            "POLLINATIONS_API_BASE",  # Pollinations(keyless)
+            "LLM7_API_KEY",  # LLM7(可选 key)
+            "OVH_API_BASE",  # OVH AI Endpoints(keyless)
+            "AIHORDE_API_KEY",  # AI Horde(默认匿名 key)
+            "REKA_API_KEY",  # Reka(每月免费 credit)
+            "ROUTEWAY_API_KEY",  # Routeway(:free 后缀模型免费)
+            "BAZAARLINK_API_KEY",  # BazaarLink(auto:free 路由)
+            "AINATIVE_API_KEY",  # AINative Studio(每月 ~10M tokens 免费)
         ]
         return not any(os.environ.get(k) for k in vendor_env_keys)
 
@@ -539,6 +564,54 @@ class LLMGateway:
         if m.startswith("alibaba-intl/"):
             real_model = model.split("/", 1)[1]
             return settings.alibaba_intl_api_key or None, "https://bailian-intl.alibabacloud.com/compatible-mode/v1", f"openai/{real_model}"
+        # 2026-07-24 接入:10 个免费 LLM provider 内化(均为 OpenAI 兼容)
+        if m.startswith("cerebras/"):
+            real_model = model.split("/", 1)[1]
+            return settings.cerebras_api_key or None, "https://api.cerebras.ai/v1", f"openai/{real_model}"
+        if m.startswith("mistral/") or m.startswith("mistral-") or m.startswith("codestral-") or m.startswith("pixtral-"):
+            real_model = model.split("/", 1)[1] if "/" in model else model
+            return settings.mistral_api_key or None, "https://api.mistral.ai/v1", f"openai/{real_model}"
+        if m.startswith("cohere/"):
+            real_model = model.split("/", 1)[1]
+            return settings.cohere_api_key or None, "https://api.cohere.ai/v1", f"openai/{real_model}"
+        if m.startswith("huggingface/"):
+            real_model = model.split("/", 1)[1]
+            return settings.huggingface_api_key or None, "https://router.huggingface.co/v1", f"openai/{real_model}"
+        if m.startswith("zai/"):
+            real_model = model.split("/", 1)[1]
+            return settings.zai_api_key or None, "https://open.bigmodel.cn/api/paas/v4", f"openai/{real_model}"
+        # keyless provider:无需 key,有 base_url 即可用
+        if m.startswith("kilo/"):
+            real_model = model.split("/", 1)[1]
+            return None, settings.kilo_api_base, f"openai/{real_model}"
+        if m.startswith("pollinations/"):
+            real_model = model.split("/", 1)[1]
+            return None, settings.pollinations_api_base, f"openai/{real_model}"
+        if m.startswith("llm7/"):
+            real_model = model.split("/", 1)[1]
+            return settings.llm7_api_key or None, settings.llm7_api_base, f"openai/{real_model}"
+        if m.startswith("ovh/"):
+            real_model = model.split("/", 1)[1]
+            return None, settings.ovh_api_base, f"openai/{real_model}"
+        if m.startswith("aihorde/"):
+            real_model = model.split("/", 1)[1]
+            return settings.aihorde_api_key or "0000000000", settings.aihorde_api_base, f"openai/{real_model}"
+        # Reka(每月免费 credit,OpenAI 兼容;reka-flash-3 / reka-edge-2603)
+        if m.startswith("reka/"):
+            real_model = model.split("/", 1)[1]
+            return settings.reka_api_key or None, "https://api.reka.ai/v1", f"openai/{real_model}"
+        # Routeway(OpenAI 兼容聚合,:free 后缀模型 $0)
+        if m.startswith("routeway/"):
+            real_model = model.split("/", 1)[1]
+            return settings.routeway_api_key or None, "https://api.routeway.ai/v1", f"openai/{real_model}"
+        # BazaarLink(OpenAI 兼容聚合,auto:free 路由零成本)
+        if m.startswith("bazaarlink/"):
+            real_model = model.split("/", 1)[1]
+            return settings.bazaarlink_api_key or None, "https://bazaarlink.ai/api/v1", f"openai/{real_model}"
+        # AINative Studio(OpenAI 兼容聚合,每月 ~10M tokens 免费)
+        if m.startswith("ainative/"):
+            real_model = model.split("/", 1)[1]
+            return settings.ainative_api_key or None, "https://api.ainative.studio/api/v1", f"openai/{real_model}"
         return settings.openai_api_key or None, None, model
 
     async def _get_provider(
