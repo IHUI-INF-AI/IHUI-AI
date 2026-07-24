@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Subagent 派单服务(2026-07-22 立,2026-07-22 深化 v2)。
  *
  * 职责:
@@ -31,7 +31,7 @@ import type {
   OrchestrationMode,
   SubagentRole,
   DispatchStatus,
-} from '@ihui/types/subagent-dispatch'
+} from '@ihui/shared/subagents'
 
 /** ai-service 基础 URL(优先 env,回退 AGENTS.md §6 文档值 8000) */
 const AI_SERVICE_URL =
@@ -448,7 +448,12 @@ function buildDispatch(
 }
 
 /** 拼装派单 prompt(把 AGENTS.md §11 强制格式作为 user_input 传给 agent) */
-function buildAgentPrompt(input: DispatchInput): string {
+function buildAgentPrompt(
+  input: Pick<
+    SubagentDispatch,
+    'goal' | 'affectedFiles' | 'forbidden' | 'verifyCommands' | 'constraints' | 'deliverables'
+  >,
+): string {
   const forbidden: string[] =
     input.forbidden && input.forbidden.length > 0
       ? input.forbidden
@@ -464,13 +469,13 @@ function buildAgentPrompt(input: DispatchInput): string {
     ...forbidden.map((f: string) => `- ${f}`),
     '',
     '## 验证命令(子任务完成后必须自行运行)',
-    ...input.verifyCommands.map((c: string) => `- ${c}`),
+    ...(input.verifyCommands ?? []).map((c: string) => `- ${c}`),
     '',
     '## 约束边界',
-    input.constraints,
+    input.constraints ?? '',
     '',
     '## 交付物',
-    input.deliverables,
+    input.deliverables ?? '',
   ].join('\n')
 }
 
