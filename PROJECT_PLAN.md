@@ -8,6 +8,42 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) /goal 阶段 1 统一 i18n 单一来源 — 4 端翻译合并到 packages/i18n(跨端:web + extension + miniapp-taro + mobile-rn + packages/i18n)
+
+**触发**:用户提供深度架构分析报告(`E:\桌面\新建 文本文档.txt`),评估当前架构"共享程度 62/100,业务层仅 35 分",最大债务是 i18n 4 端独立维护(每改文案 20 处改动)。报告推荐 4 阶段路径,本任务执行阶段 1(P0 最痛、ROI 最高、风险最低、为后续阶段铺路)。
+
+**核心任务**:
+
+- 创建 `packages/i18n` 共享包(从零,目前不存在)
+- 合并 4 端(web/extension/miniapp-taro/mobile-rn)5 语言翻译(zh-CN/zh-TW/en/ko/ja)为单一来源
+- 各端改为引用 `@ihui/i18n` + 端特定 loader(web: next-intl / extension: react-i18next / miniapp-taro: Taro storage / mobile-rn: AsyncStorage)
+- 删除各端独立翻译文件(20 处 → 1 处)
+
+**基准**:web `apps/web/messages/zh-CN.json`(最新最全)
+
+**成果**:
+
+- 创建 `packages/i18n/` 共享包(src/index.ts + loader.ts + types.ts + messages/<platform>/<locale>.json × 4 端 × 5 语言 = 20 文件)
+- web 端:`apps/web/src/i18n/request.ts` 改为 import `@ihui/i18n/messages/web/*.json`,next.config.ts 加入 transpilePackages,删除 `apps/web/messages/*.json`(5 文件)
+- extension 端:`apps/extension/src/i18n/index.tsx` 改为 import 共享包,删除 `apps/extension/src/i18n/messages/*.json`(5 文件),更新 `tests/i18n-parity.test.ts` 引用
+- miniapp-taro 端:`apps/miniapp-taro/src/i18n/index.tsx` + `src/utils/wechat-login.ts` 改为 import 共享包,删除 `apps/miniapp-taro/src/i18n/*.ts`(5 文件)
+- mobile-rn 端:`apps/mobile-rn/src/i18n/index.tsx` 改为 import 共享包,删除 `apps/mobile-rn/src/i18n/messages/*.ts`(5 文件)
+- 更新 5 个 i18n 守门脚本路径(check-i18n-keys / scan-i18n-zh-residue / check-i18n-broken-en / i18n-diff / i18n-apply)指向 `packages/i18n/messages/<platform>/`
+
+**验证全绿**(H1-H18):
+
+- H1-H6: packages/i18n 创建 + 4 端接入 ✅
+- H7-H11: 5 端 typecheck exit 0(@ihui/i18n / web / extension / miniapp-taro / mobile-rn)✅
+- H12: check-i18n-keys.mjs exit 0(5 语言 parity OK,1062 文件 11010 键)✅
+- H13: scan-i18n-zh-residue.mjs ko exit 0(1 处 warn-only,不阻塞)✅
+- H14: scan-i18n-zh-residue.mjs zh-TW exit 0(无中文残留)✅
+- H15: check-i18n-broken-en.mjs exit 0(0 处破碎英文)✅
+- H16: i18n-diff.mjs exit 0(无 pending)✅
+- H17: browser_use 验证 localhost:8801 中文渲染正常(导航/按钮/输入框/弹窗/页脚均有中文,无空白/原始 key)✅
+- H18: git local == remote(见交付报告)✅
+
+---
+
 ### [x] ✅(2026-07-25) /goal P2 直播主播端迁移补齐 — miniapp-taro 补建主播端页面(跨端:miniapp-taro,对标 mobile-rn LiveHostScreen)
 
 **触发**:用户要求"继续 p2 任务啊 等啥啊"。承接 2026-07-24 D 盘迁移 P1-11 决策标注的"live-streaming 暂不迁移,标记 P2 后续任务"。
@@ -44,6 +80,7 @@
 - i18n parity:5 语言同 key 集合,zh-TW 全繁体、ko 全 Hangul、ja 用日文汉字词 ✅
 
 **Git 同步证据**(§21):
+
 - 本地 commit: f4fcea374
 - origin commit: f4fcea374
 - 同步状态: local == remote ✅
