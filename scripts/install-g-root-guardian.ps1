@@ -20,6 +20,7 @@ $TaskName = 'IHUI-AI-G-Root-Guardian'
 $ScriptsDir = $PSScriptRoot
 $GuardianScript = Join-Path $ScriptsDir 'g-root-guardian.ps1'
 $BlacklistFile = Join-Path $ScriptsDir 'g-root-blacklist.json'
+$VbsLauncher   = Join-Path $ScriptsDir 'g-root-guardian-hidden.vbs'
 
 Write-Host "[install-g-root-guardian] Installing G:\ root guardian service" -ForegroundColor Cyan
 
@@ -32,8 +33,13 @@ if (-not (Test-Path $BlacklistFile)) {
     Write-Error "[install-g-root-guardian] Blacklist config not found: $BlacklistFile"
     exit 1
 }
+if (-not (Test-Path $VbsLauncher)) {
+    Write-Error "[install-g-root-guardian] VBS launcher not found: $VbsLauncher"
+    exit 1
+}
 Write-Host "  GuardianScript: $GuardianScript"
 Write-Host "  BlacklistFile:  $BlacklistFile"
+Write-Host "  VbsLauncher:    $VbsLauncher"
 Write-Host "  TaskName:       $TaskName"
 Write-Host "  User:           $env:USERNAME"
 
@@ -45,10 +51,14 @@ if ($existing) {
 }
 
 # ---- 3. Build task components ----
-# Action: run guardian hidden with execution policy bypass
+# Action: launch via wscript.exe + VBS wrapper for ZERO window popup.
+# Previous "-WindowStyle Hidden" still flashed a console window when launched
+# by Task Scheduler. wscript.exe is a GUI-subsystem binary (no console at all),
+# and the VBS launches PowerShell with SW_HIDE (windowStyle=0), so no window
+# is ever created or shown.
 $action = New-ScheduledTaskAction `
-    -Execute 'powershell.exe' `
-    -Argument ('-WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $GuardianScript + '"')
+    -Execute 'wscript.exe' `
+    -Argument ('"' + $VbsLauncher + '"')
 
 # Trigger: on user logon (current user only)
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
