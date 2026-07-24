@@ -114,9 +114,13 @@ function SidepanelInner() {
         void chrome.storage.session?.remove('ihui_pending_route')
       }
     }
-    chrome.runtime.onMessage.addListener(listener as Parameters<typeof chrome.runtime.onMessage.addListener>[0])
+    chrome.runtime.onMessage.addListener(
+      listener as Parameters<typeof chrome.runtime.onMessage.addListener>[0],
+    )
     return () => {
-      chrome.runtime.onMessage.removeListener(listener as Parameters<typeof chrome.runtime.onMessage.removeListener>[0])
+      chrome.runtime.onMessage.removeListener(
+        listener as Parameters<typeof chrome.runtime.onMessage.removeListener>[0],
+      )
     }
   }, [ready, authed, navigate])
 
@@ -144,56 +148,73 @@ function SidepanelInner() {
   }
 
   if (!ready) {
-    return <div className="sp-loading">{t('common.loading')}</div>
+    return (
+      <div className="flex items-center justify-center h-screen text-muted-foreground text-sm">
+        {t('common.loading')}
+      </div>
+    )
   }
 
   if (!authed) {
     return (
-      <div className="sidepanel-layout">
+      <div className="flex flex-col h-screen w-full">
         <LoginPage onSuccess={onLoginSuccess} />
       </div>
     )
   }
 
   return (
-    <div className="sidepanel-layout">
-      <header className="sp-header">
-        <span className="sp-brand">IHUI AI</span>
+    <div className="flex flex-col h-screen w-full">
+      <header className="flex items-center gap-1.5 px-3 py-2.5 border-b border-border bg-card shrink-0">
+        <span className="font-semibold text-sm mr-auto">IHUI AI</span>
         <button
           type="button"
-          className="sp-notify-btn"
+          className="relative bg-transparent border-none cursor-pointer p-0.5 text-sm leading-none text-inherit shrink-0 hover:opacity-70"
           onClick={() => setVisible(true)}
           aria-label={t('nav.notifications')}
           title={t('nav.notifications')}
         >
-          🔔
-          {unreadCount > 0 ? <span className="sp-notify-badge">{unreadCount}</span> : null}
+          <span aria-hidden>🔔</span>
+          {unreadCount > 0 ? (
+            <span className="absolute -top-0.5 -right-1 min-w-3.5 h-3.5 px-1 rounded-md bg-destructive text-primary-foreground text-[9px] leading-3.5 text-center font-semibold">
+              {unreadCount}
+            </span>
+          ) : null}
         </button>
         <span
-          className={`sp-ws-dot ${wsConnected ? 'connected' : 'disconnected'}`}
+          className={`inline-block w-1.5 h-1.5 rounded-full shrink-0 ${wsConnected ? 'bg-primary' : 'bg-muted-foreground'}`}
           title={wsConnected ? t('notification.connected') : t('notification.disconnected')}
           aria-label={wsConnected ? t('notification.connected') : t('notification.disconnected')}
         />
-        <span className="sp-user">{user?.nickname || ''}</span>
+        <span className="text-xs text-muted-foreground truncate max-w-[80px] md:max-w-[120px]">
+          {user?.nickname || ''}
+        </span>
       </header>
-      <div className="sp-body">
-        <nav className="sp-tabs" aria-label="导航">
+      <div className="flex flex-1 min-h-0">
+        <nav
+          className="flex flex-col shrink-0 w-16 md:w-20 bg-card border-r border-border py-1"
+          aria-label="导航"
+        >
           {TABS.map((tab) => (
             <NavLink
               key={tab.to}
               to={tab.to}
               className={({ isActive }: { isActive: boolean }) =>
-                `sp-tab ${isActive ? 'active' : ''}`
+                `flex flex-col items-center gap-0.5 py-2.5 px-1 text-[11px] border-l-2 border-transparent no-underline ${
+                  isActive
+                    ? 'text-primary border-l-primary bg-muted'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`
               }
             >
-              <span className="sp-tab-icon" aria-hidden>
+              <span className="text-lg leading-none" aria-hidden>
                 {tab.icon}
               </span>
-              <span className="sp-tab-label">{t(tab.labelKey)}</span>
+              <span className="leading-tight">{t(tab.labelKey)}</span>
             </NavLink>
           ))}
         </nav>
-        <main className="sp-main">
+        <main className="flex-1 overflow-auto bg-background">
           <Outlet context={{ onLogout }} />
         </main>
       </div>
