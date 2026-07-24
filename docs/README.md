@@ -2,7 +2,7 @@
 
 > 本目录是 IHUI-AI 项目的完整文档中心,覆盖架构、开发、部署、API、数据库、认证、AI 服务、多端、监控、守门、i18n、性能、SDK、CLI、发布、故障排查与 FAQ。
 > 项目总览见根 [README.md](../README.md),Agent 规范见 [AGENTS.md](../AGENTS.md),任务计划见 [PROJECT_PLAN.md](../PROJECT_PLAN.md)。
-> IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端 + 13 共享包 + 5 语言 i18n + 23 道守门 + 14 平台发布。
+> IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端 + 14 共享包 + 5 语言 i18n + 23 道守门 + 14 平台发布。
 
 ---
 
@@ -29,7 +29,7 @@
 |---|---|
 | [architecture.md](./architecture.md) | **系统架构总览**:技术栈、Monorepo 两 app 职责边界、数据库、API 路由、WebSocket、前端架构、AI 服务、启动流程、测试、可观测性、安全、IaC 决策、多租户、性能基线、旧架构弃用 |
 | [MULTI_END.md](./MULTI_END.md) | **多端架构**:8 端矩阵(web/api/ai-service/cli/desktop/extension/mobile-rn/miniapp-taro)、跨端调用链路、同步开发规则、多 Subagent 并行派单、14 平台发布矩阵 |
-| [PACKAGES.md](./PACKAGES.md) | **共享包指南**:13 个 @ihui/* 包(auth/database/types/ui/ui-native/ui-primitives/api-client/sdk/config/eslint-config/tsconfig/context-compaction)、依赖关系图、引用方式、新增包流程 |
+| [PACKAGES.md](./PACKAGES.md) | **共享包指南**:14 个 @ihui/* 包(auth/database/types/ui-react/ui-native/design-tokens/api-client/sdk/config/eslint-config/tsconfig/context-compaction/shared/app)、依赖关系图、引用方式、新增包流程 |
 | [INFRASTRUCTURE_DECISION.md](./INFRASTRUCTURE_DECISION.md) | 基础设施即代码决策(Docker Compose + GitHub Actions vs K8s + Helm + ArgoCD 取舍) |
 | [PRODUCTION_INFRASTRUCTURE.md](./PRODUCTION_INFRASTRUCTURE.md) | 生产基础设施规格清单 |
 | [port-management.md](./port-management.md) | **端口管理规则**(强制):8801-8899 端口注册表,check-port-registry.mjs 守门 |

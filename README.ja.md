@@ -309,7 +309,7 @@ IHUI-AI はいかなる単一プロジェクトを置き換えることが目的
 | **AI プログラミング CLI / IDE**   | Claude Code / Cursor / Windsurf / Trae SOLO / GitHub Copilot / Copilot Workspace / Amazon Q Developer / Cody Sourcegraph / Cline / Aider / Devin / Tabnine / GitLab Duo / Gemini CLI / OpenCode / CodeGeeX / Continue / Roo Code / Codeium / JetBrains AI Assistant | 自社製 CLI 17 コマンド + 13 内蔵ツール + ACP Server(Zed/VSCode/Cursor 埋め込み)+ 6 ソース設定インポート + Skills + CodeGraph + Worktree   |
 | **エンタープライズ AI Agent プラットフォーム** | Google Gemini Enterprise Agent Platform / OpenAI Agents SDK / Microsoft Copilot Studio / IBM watsonx.ai / Salesforce Agentforce / ServiceNow Now Assist / AWS Bedrock Agents / Crew | LangGraph + MCP + A2A トリプルスタック + Agent マーケット + デベロッパーセンター + Coze SDK プロキシ + OpenClaw + Crew 統合 + N8N プロキシ               |
 | **AI Agent フレームワーク(オープンソース)**| LangChain / LangGraph / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT / smol agents / Semantic Kernel / Spring AI / Hugging Face Transformers Agents | トリプルスタック連携 + 完全な Agent Runtime + Persona レジストリ + Agent マーケット — 単なるフレームワークではなく、製品化された落地方案                          |
-| **マルチクライアントフレームワーク**        | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                 | 8 クライアント統一アーキテクチャ + 13 共有パッケージ + クロスクライアント型安全 + 共有 UI(`@ihui/ui` / `@ihui/ui-native` / `@ihui/ui-primitives`)            |
+| **マルチクライアントフレームワーク**        | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                 | 8 クライアント統一アーキテクチャ + 13 共有パッケージ + クロスクライアント型安全 + 共有 UI(`@ihui/ui-react` / `@ihui/ui-native` / `@ihui/design-tokens`)            |
 | **AI 教育 / コンテンツプラットフォーム**  | Khan Academy / Coursera / edX / Google 教育 AI / 智譜清言教育 / 学而思 AI / Jasper / Copy.ai / Rytr / WriteSonic / Notion AI / 蟻客 / 新媒体管家          | AI 教育フルスタック(コース / 問題集 / 試験 / SRS / ライブ / 証明書)+ 14 プラットフォームワンクリック配信 + セルフメディアワークベンチ + AI ニュース + AI 求職 + ショートドラマ + ビジネス名刺     |
 | **大モデル API プラットフォーム**     | 海外:OpenAI Platform / Anthropic API / Google Vertex AI / AWS Bedrock / Azure AI Foundry / Mistral La Plateforme / Cohere / Together AI / Fireworks AI / Replicate<br>国内:百度千帆 / 阿里百煉 / 騰訊混元 / 字節豆包(火山方舟)/ 智譜開放プラットフォーム / 訊飛星火 / 月之暗面 Kimi / DeepSeek / 商湯日日新 | LiteLLM 統一ゲートウェイ + 100+ モデル接続 + インテリジェントルーティング + 60% キャッシュヒット + マルチ provider アダプタ                                          |
 | **商業 SaaS ファウンデーション**      | Stripe / PayPal / Lemon Squeezy / Paddle / Auth0 / Clerk / Firebase Auth / Supabase Auth / Mailgun / SendGrid / Postmark / Resend / Mixpanel / Amplitude / PostHog / Heap | VIP / サブスクリプション / ウォレット / ポイント / 返金 / インボイス / 8 決済ゲートウェイ + JWT / SSO / RBAC + SMTP SMS + BI ダッシュボード + カナリアリリース — 4-6 個の SaaS をワンストップで代替    |
@@ -655,9 +655,8 @@ IHUI-AI/
 │   ├── sdk/                 # @ihui/sdk (自動生成)
 │   ├── tsconfig/            # @ihui/tsconfig
 │   ├── types/               # @ihui/types
-│   ├── ui/                  # @ihui/ui (Web shadcn/ui)
 │   ├── ui-native/           # @ihui/ui-native (React Native)
-│   └── ui-primitives/       # @ihui/ui-primitives (cn + プリミティブ)
+│   └── ui-react/            # @ihui/ui-react (Web/デスクトップ/拡張共有 React shadcn/ui コンポーネント)
 ├── deploy/
 │   ├── nginx/               # Nginx リバースプロキシ + ブルーグリーン upstream + SSL/security/rate-limit
 │   ├── scripts/             # deploy.sh / rollback.sh / health-check.sh / backup-db.sh / restore-db.sh / deploy_certs.sh
@@ -2010,7 +2009,7 @@ AIコーディングエージェントを駆使し、大規模なチームなし
 - **アトミックコミット**: クロスプラットフォームの機能変更を一つのコミットで処理できます; polyrepo は 8 つの PR が必要です
 - **依存性の一貫性**: pnpm workspace がバージョン一貫性を強制し、polyrepo の「依存性の断片化」を回避します
 - **CI キャッシュ**: Turborepo のリモートキャッシュにより、独立開発者でも大規模チームの CI 速度を享受できます
-- **共有 UI**: `@ihui/ui` + `@ihui/ui-primitives` が 8 プラットフォームの UI を一貫させ、polyrepo では不可能です
+- **共有 UI**: `@ihui/ui-react` + `@ihui/design-tokens` が 8 プラットフォームの UI を一貫させ、polyrepo では不可能です
 
 **代償**: monorepo 設定は複雑ですが、一度設定すれば永続的です。
 
