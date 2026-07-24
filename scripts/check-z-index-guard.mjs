@@ -10,7 +10,7 @@
  *    TRAE 注入防护由 layout.tsx inline script 运行时 setProperty 实现,无需 !important
  * 2. globals.css 中 z-index 工具类禁止 !important
  *    (同上,变量值由 inline script 覆盖,var() 引用自动拿到正确值)
- * 3. layout.tsx inline script 必须设置 6 个 z-index 变量
+ * 3. layout.tsx inline script 必须设置 11 个 z-index 变量
  *    (运行时 inline style 优先级高于 stylesheet,覆盖 TRAE 注入)
  * 4. dialog.tsx 遮罩不得有 open 态 fade-in 动画
  *    (fade-in 让遮罩从 opacity:0 渐显,期间 AI 面板全亮度暴露 = "发亮")
@@ -80,6 +80,11 @@ const CHECK_VARS = [
   { name: '--z-popover', value: '2001' },
   { name: '--z-notification', value: '9999' },
   { name: '--z-max', value: '10003' },
+  { name: '--z-0', value: '0' },
+  { name: '--z-header', value: '100' },
+  { name: '--z-dropdown', value: '1000' },
+  { name: '--z-overlay', value: '1000' },
+  { name: '--z-loading', value: '10000' },
 ]
 
 console.log('  [1/4] 检查 tokens.css z-index 变量无 !important...')
@@ -154,6 +159,11 @@ if (existsSync(LAYOUT_PATH)) {
     "setProperty('--z-popover'",
     "setProperty('--z-notification'",
     "setProperty('--z-max'",
+    "setProperty('--z-0'",
+    "setProperty('--z-header'",
+    "setProperty('--z-dropdown'",
+    "setProperty('--z-overlay'",
+    "setProperty('--z-loading'",
   ]
 
   for (const snippet of requiredInScript) {
@@ -165,7 +175,7 @@ if (existsSync(LAYOUT_PATH)) {
   }
 
   if (!hasError) {
-    console.log(`${C.green}    ✅ inline script 包含 6 个 z-index 变量设置${C.reset}`)
+    console.log(`${C.green}    ✅ inline script 包含 11 个 z-index 变量设置${C.reset}`)
   }
 } else {
   console.log(`${C.yellow}    ⚠️  layout.tsx 不存在: ${LAYOUT_PATH}${C.reset}`)
