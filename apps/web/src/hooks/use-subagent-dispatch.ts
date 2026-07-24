@@ -19,11 +19,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchApi } from '@/lib/api'
 import { useSubagentDispatchStore } from '@/stores/subagent-dispatch'
-import type {
-  SubagentDispatch,
-  DispatchInput,
-  SwarmTopology,
-} from '@ihui/types/subagent-dispatch'
+import type { SubagentDispatch, DispatchInput, SwarmTopologyV2 } from '@ihui/shared/subagents'
 
 const POLL_INTERVAL_MS = 5_000
 
@@ -34,18 +30,14 @@ export const swarmTopologyKey = ['subagent-dispatch', 'topology'] as const
 
 /** 拉取活跃派单列表 */
 async function fetchActiveDispatches(): Promise<SubagentDispatch[]> {
-  const r = await fetchApi<{ dispatches: SubagentDispatch[] }>(
-    '/api/subagents/active',
-  )
+  const r = await fetchApi<{ dispatches: SubagentDispatch[] }>('/api/subagents/active')
   if (!r.success) return []
   return r.data?.dispatches ?? []
 }
 
 /** 拉取 Swarm 拓扑 */
-async function fetchSwarmTopology(): Promise<SwarmTopology> {
-  const r = await fetchApi<{ topology: SwarmTopology }>(
-    '/api/subagents/topology',
-  )
+async function fetchSwarmTopology(): Promise<SwarmTopologyV2> {
+  const r = await fetchApi<{ topology: SwarmTopologyV2 }>('/api/subagents/topology')
   if (!r.success) return { nodes: [], edges: [] }
   return r.data?.topology ?? { nodes: [], edges: [] }
 }
