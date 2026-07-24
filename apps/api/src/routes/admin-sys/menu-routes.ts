@@ -70,7 +70,9 @@ export const menuRoutes: FastifyPluginAsync = async (s) => {
     if (Number.isNaN(rid) || rid < 1) {
       return reply.status(400).send(error(400, 'roleId 无效'))
     }
-    const parsed = z.object({ menuIds: z.array(z.string().uuid()).max(500) }).safeParse(request.body)
+    const parsed = z
+      .object({ menuIds: z.array(z.string().uuid()).max(500) })
+      .safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
@@ -113,6 +115,25 @@ export const menuRoutes: FastifyPluginAsync = async (s) => {
   s.delete('/:menuId', async (request, reply) => {
     const { menuId } = z.object({ menuId: z.string().uuid() }).parse(request.params)
     const menu = await deleteMenuWithCascade(menuId)
+    if (!menu) {
+      return reply.status(404).send(error(404, '菜单不存在'))
+    }
+    return reply.send(success({ menu }))
+  })
+
+  // PUT /sys/menu/:menuId/audit - 菜单审核(更新 status 字段)
+  // 注:路径用 /sys/menu(非 /sys-menu)匹配前端 menu-permission 页面调用
+  const menuAuditSchema = z.object({
+    status: z.string().min(1),
+    reason: z.string().optional(),
+  })
+  s.put('/sys/menu/:menuId/audit', async (request, reply) => {
+    const { menuId } = z.object({ menuId: z.string().uuid() }).parse(request.params)
+    const parsed = menuAuditSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const menu = await updateMenu(menuId, { status: parsed.data.status, updateBy: request.userId })
     if (!menu) {
       return reply.status(404).send(error(404, '菜单不存在'))
     }
