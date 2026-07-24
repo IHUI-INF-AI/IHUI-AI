@@ -228,6 +228,7 @@ import { adminInvoicesRoutes } from './admin-invoices.js'
 // 前端用户端缺失路由补建（54 个路由：空数据桩）
 import { missingUserRoutes } from './missing-user-routes.js'
 import { miniappPublicFallbackRoutes } from './miniapp-public-fallback-routes.js'
+import { miniappCompatRoutes } from './miniapp-compat-routes.js'
 import { publicSocketRoutes } from './public-socket.js'
 // OpenClaw 控制台 8 面板后端端点（memory/skills/automation/channels/tools/gateway/sessions/stats）
 import { openclawRoutes } from './openclaw-routes.js'
@@ -758,6 +759,9 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(missingUserRoutes, { prefix: '/api' })
   // 小程序端首页公开 fallback(未登录可访问,返回空数据,2026-07-22 立)
   server.register(miniappPublicFallbackRoutes, { prefix: '/api' })
+
+  // 小程序兼容路由(49 个空桩端点,补建小程序调用但后端缺失的路径,避免 404,2026-07-24 立)
+  server.register(miniappCompatRoutes, { prefix: '/api' })
 
   // public_socket 9 端点(迁移自 coze_zhs_py/api/public_socket.py:1-663,P0 补齐 2026-07-20)
   server.register(publicSocketRoutes, { prefix: '/api/admin' })
