@@ -1,0 +1,44 @@
+/* 微信扫码登录 iframe 自定义样式
+ * 用途:隐藏 SDK 默认顶部"微信登录"标题文字 + 底部提示,二维码居中
+ * 引用方式:WxLogin({ href: `${window.location.origin}/qr-styles/wechat-qr.css` })
+ * iframe 内部 DOM 结构(跨域,只能通过 SDK 的 href 参数注入 CSS):
+ *   <div class="impowerBox">
+ *     <div class="title">微信登录</div>           ← 隐藏
+ *     <div class="wrp_code"><img class="qrcode" /></div>
+ *     <div class="info"><span class="status">...</span></div>  ← 隐藏
+ *   </div>
+ */
+
+/* 隐藏顶部"微信登录"标题栏(含微信图标) */
+.impowerBox .title {
+  display: none !important;
+}
+
+/* 隐藏底部"请使用微信扫描二维码登录"提示 */
+.impowerBox .info {
+  display: none !important;
+}
+
+/* 二维码区域去掉默认 padding,居中 */
+.impowerBox .wrp_code {
+  margin: 0 auto !important;
+  padding: 0 !important;
+}
+
+/* 容器 flex 居中,让二维码垂直水平居中 */
+.impowerBox {
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 100% !important;
+  min-height: 280px !important;
+}
+
+/* 二维码图片本身去掉边框 */
+.impowerBox .qrcode.lightBorder {
+  border: none !important;
+  margin: 0 auto !important;
+}

@@ -1,0 +1,48 @@
+/* 企业微信扫码登录 iframe 自定义样式
+ * 用途:隐藏 SDK 默认顶部"企业微信登录"标题文字 + 底部提示,二维码居中
+ * 引用方式:WwLogin({ href: `${window.location.origin}/qr-styles/wecom-qr.css` })
+ * iframe 内部 DOM 结构(跨域,只能通过 SDK 的 href 参数注入 CSS):
+ *   <div class="login_box">
+ *     <div class="title">企业微信登录</div>      ← 隐藏
+ *     <div class="qrcode"><img /></div>
+ *     <div class="info">...</div>                 ← 隐藏
+ *   </div>
+ */
+
+/* 隐藏顶部标题栏(含企业微信图标) */
+.login_box .title,
+.qrcode_login_box .title {
+  display: none !important;
+}
+
+/* 隐藏底部提示文字 */
+.login_box .info,
+.qrcode_login_box .info {
+  display: none !important;
+}
+
+/* 二维码区域去掉默认 padding,居中 */
+.login_box .qrcode,
+.qrcode_login_box .qrcode {
+  margin: 0 auto !important;
+  padding: 0 !important;
+  text-align: center !important;
+}
+
+/* 容器 flex 居中 */
+.login_box,
+.qrcode_login_box {
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 100% !important;
+  min-height: 280px !important;
+}
+
+/* iframe 自身填满父容器 */
+iframe {
+  border: none !important;
+}
