@@ -11,6 +11,7 @@ import type {
   InstallRegistryItemResponse,
   UpgradeAllResponse,
   ConfigDriftDetectResponse,
+  RegistryWorkerStats,
 } from '@ihui/types'
 
 export function useRegistryItems(sort: RegistrySortKey, sourceType?: RegistrySourceType) {
@@ -161,4 +162,31 @@ export function useRegistryConfigDrift() {
   }, [])
 
   return { report, loading, error, detect }
+}
+
+export function useRegistryWorkerStats() {
+  const [stats, setStats] = useState<RegistryWorkerStats | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await registryApi.getWorkerStats()
+      setStats(res)
+      return res
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '加载失败')
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  return { stats, loading, error, refresh }
 }
