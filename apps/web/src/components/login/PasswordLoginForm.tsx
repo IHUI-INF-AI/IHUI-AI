@@ -9,6 +9,7 @@ import { Loader2, Check } from 'lucide-react'
 import { Button, Input, Label } from '@ihui/ui-react'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
+import { fetchApi } from '@/lib/api'
 import { CaptchaCanvas, PasswordInput } from '@/components/login'
 import { Alert } from '@/components/feedback'
 import { AgreementCheckbox } from '@/components/auth/AgreementCheckbox'
@@ -154,22 +155,16 @@ export function PasswordLoginForm({
     }
     setSubmitting(true)
     try {
-      const res = await fetch('/api/auth/login', {
+      const result = await fetchApi<{
+        accessToken: string
+        refreshToken: string
+        user?: { id: string; nickname: string; avatar?: string }
+      }>('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ account: values.account, password: values.password }),
       })
-      const json = (await res.json()) as {
-        code: number
-        message: string
-        data?: {
-          accessToken?: string
-          refreshToken?: string
-          user?: { id: string; nickname: string; avatar?: string }
-        }
-      }
-      if (!res.ok || json.code !== 0 || !json.data?.accessToken) {
-        setServerError(json.message || t('loginFailed'))
+      if (!result.success || !result.data?.accessToken) {
+        setServerError(result.error || t('loginFailed'))
         return
       }
       // 登录成功:保存/清除凭据 + 账号历史 + 自动登录标志
@@ -187,11 +182,11 @@ export function PasswordLoginForm({
       // 用 setTokenWithPrefs:autoLogin=true 时 refreshToken cookie max-age=30d,
       // 浏览器关闭再打开仍能保持登录(自动登录闭环)
       setTokenWithPrefs(
-        json.data.accessToken,
-        json.data.refreshToken ?? '',
+        result.data.accessToken,
+        result.data.refreshToken ?? '',
         autoLogin && rememberPassword,
       )
-      if (json.data.user) setUser(json.data.user)
+      if (result.data.user) setUser(result.data.user)
       onSuccess?.()
     } catch {
       setServerError(t('loginFailed'))
