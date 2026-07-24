@@ -12,6 +12,7 @@
  */
 import { useAuthStore } from '@/stores/auth'
 import { readExp } from '@ihui/shared/utils/jwt-utils'
+import { type TokenPair } from '@ihui/types'
 
 const REFRESH_LEAD_MS = 5 * 60 * 1000 // 提前 5 分钟续期
 const REFRESH_ENDPOINT = '/api/auth/refresh'
@@ -21,12 +22,6 @@ const MAX_DELAY_MS = 24 * 60 * 60 * 1000 // 上限 24h
 let refreshTimer: ReturnType<typeof setTimeout> | null = null
 let inFlightRefresh: Promise<TokenPair | null> | null = null
 let stopped = false
-
-export interface TokenPair {
-  accessToken: string
-  refreshToken?: string
-  expiresIn?: number
-}
 
 export function clearRefreshTimer(): void {
   if (refreshTimer) {

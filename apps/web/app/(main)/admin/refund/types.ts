@@ -1,3 +1,5 @@
+export { type PageData } from '@ihui/api-client'
+
 export type RefundStatus =
   'pending' | 'approved' | 'rejected' | 'processing' | 'completed' | 'failed'
 
@@ -18,13 +20,6 @@ export interface EduRefund {
   handleMessage?: string | null
   createdAt: string
   updatedAt: string
-}
-
-export interface PageData<T> {
-  list: T[]
-  total: number
-  page: number
-  pageSize: number
 }
 
 export interface RefundStats {
