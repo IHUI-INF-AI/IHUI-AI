@@ -27,6 +27,8 @@ export interface WxPayParams {
 export interface AliPayParams {
   orderInfo?: string
   orderStr?: string
+  /** 支付宝交易号(后端 alipay.trade.create 返回,my.tradePay 优先用此字段) */
+  tradeNO?: string
 }
 
 export type AnyPayParams = WxPayParams & AliPayParams
@@ -201,8 +203,52 @@ export function requestAliPayment(payParams: AnyPayParams): Promise<unknown> {
     return Promise.reject(new Error('mp-weixin unsupported alipay'))
   }
 
-  const orderInfo = payParams.orderInfo ?? payParams.orderStr ?? ''
-  if (!orderInfo) {
+  // 支付宝小程序支付:必须用 Taro.tradePay(对应 my.tradePay),而非 Taro.requestPayment
+  // tradeNO 优先(后端 alipay.trade.create 返回),否则用 orderStr(完整订单串)
+  const tradeNO = (payParams as { tradeNO?: string }).tradeNO
+  const orderStr = payParams.orderInfo ?? payParams.orderStr ?? ''
+
+  if (platform === 'mp-alipay') {
+    if (!tradeNO && !orderStr) {
+      Taro.hideLoading()
+      Taro.showToast({ title: '支付宝订单信息缺失', icon: 'none' })
+      return Promise.reject(new Error('missing alipay tradeNO/orderStr'))
+    }
+    const tradeOption: Record<string, unknown> = {}
+    if (tradeNO) tradeOption.tradeNO = tradeNO
+    else tradeOption.orderStr = orderStr
+
+    return new Promise((resolve, reject) => {
+      Taro.tradePay({
+        ...tradeOption,
+        success: (res: { resultCode?: number | string }) => {
+          Taro.hideLoading()
+          const code = String(res?.resultCode ?? '')
+          // 9000=成功 8000=待确认 4000=失败 6001=取消 6002=网络异常
+          if (code === '9000') {
+            resolve(res)
+          } else if (code === '6001') {
+            Taro.showToast({ title: '您已取消支付', icon: 'none' })
+            reject(new Error('cancel'))
+          } else if (code === '8000') {
+            Taro.showToast({ title: '支付结果待确认', icon: 'none', duration: 2000 })
+            reject(new Error(`alipay pending: ${code}`))
+          } else {
+            Taro.showToast({ title: '支付失败,请重试', icon: 'none', duration: 2000 })
+            reject(new Error(`alipay failed: ${code}`))
+          }
+        },
+        fail: (err: PayErrorLike) => {
+          Taro.hideLoading()
+          showAliPayError(err)
+          reject(err)
+        },
+      } as unknown as Parameters<typeof Taro.tradePay>[0])
+    })
+  }
+
+  // App 端支付宝支付(保留原 orderInfo 模式)
+  if (!orderStr) {
     Taro.hideLoading()
     Taro.showToast({ title: '支付宝订单信息缺失', icon: 'none' })
     return Promise.reject(new Error('missing alipay orderInfo'))
@@ -211,7 +257,7 @@ export function requestAliPayment(payParams: AnyPayParams): Promise<unknown> {
   return new Promise((resolve, reject) => {
     Taro.requestPayment({
       provider: 'alipay',
-      orderInfo,
+      orderInfo: orderStr,
       success: (res: unknown) => {
         Taro.hideLoading()
         resolve(res)

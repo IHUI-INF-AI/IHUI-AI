@@ -1,0 +1,14 @@
+{
+  "miniprogramRoot": "dist/",
+  "projectname": "ihui-miniapp",
+  "appid": "2021005181634508",
+  "compileType": "mini",
+  "compileOptions": {
+    "es6": false,
+    "enhance": false,
+    "postcss": false,
+    "minified": false,
+    "autoprefixer": false
+  },
+  "assetsInclude": ["./**/*.png", "./**/*.jpg", "./**/*.jpeg", "./**/*.svg"]
+}
