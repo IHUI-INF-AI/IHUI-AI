@@ -1077,6 +1077,25 @@ pnpm turbo build typecheck lint test
 .\scripts\cleanup-memory-topics.ps1     # Clean up memory topics
 ```
 
+### G:\ Root External Tool Contamination Protection (Established 2026-07-24)
+
+The `G:\` root directory accumulates out-of-project junk for three reasons:
+
+1. **External Qt tool contamination**: When Qt applications such as `WeChat Pay Merchant API Certificate Tool V1.4.exe` are double-clicked and run from the `G:\` root, the Qt framework automatically releases plugin directories (`platforms/` / `iconengines/` / `imageformats/` / `styles/` / `bearer/` / `translations/`) + `Qt5*.dll` + the `CA/cert/WXCertUtil` certificate working directory into the current working directory.
+2. **Other IDE configuration anomaly**: The venv command of IDEs such as QoderCN may mistype `C:\` as `g:\c\`, causing Python to create the full path chain `c\Users\Administrator\.workbuddy\...` under `G:\`; when path resolution fails it also creates the `nonexistent-root/` fallback directory, and JDK detection cache is written to `.appdata/`.
+3. **Early agent temp file violation**: Before the 2026-07-23 v2 hygiene guard was established, agents casually wrote temp files such as hover screenshots, sidebar `.vue`, `.diff`, and `.log` to `G:\tmp\`.
+
+**Root-cause fix**:
+
+- **Cleanup**: `powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-junk.ps1 -Force` (agent auto mode, 16 directories + 31 files list, no wildcards, does not touch other application directories)
+- **Prevention**:
+  - External Qt-class tools (WeChat Pay certificate tool / `.exe` installers / unzip-and-run tools) are forbidden from running in the `G:\` root; they must be placed in `G:\tools\` or a project subdirectory
+  - pnpm commands are forbidden from running in the `G:\` root (would create `.pnpm-store` v11 conflicting with the in-project v3)
+  - When using IDEs such as QoderCN, if `G:\c\Users\Administrator\.workbuddy\` is created, check the IDE Python venv path configuration
+  - Agents must use `.trae-cn/tmp/` for temp files (enforced by the `scripts/check-workspace-hygiene.mjs` v2 blocking guard, pre-commit item 25)
+
+See [AGENTS.md §15 G:\ Root External Tool Contamination Protection](AGENTS.md).
+
 ---
 
 ## API & Protocols
