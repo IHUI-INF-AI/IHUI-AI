@@ -1,3 +1,5 @@
+import type { PageData as _PageData } from '@ihui/api-client'
+
 export interface TaskDeveloper {
   id: string
   taskId: string
@@ -15,9 +17,6 @@ export interface TaskDeveloper {
   updatedAt: string
 }
 
-export interface PageData {
-  list: TaskDeveloper[]
-  total: number
-}
+export type PageData = _PageData<TaskDeveloper>
 
 export type TaskDeveloperForm = Record<string, string>

@@ -1,5 +1,7 @@
 export * from './user'
 export * from './api'
+// Token 对跨端共享类型(4 端统一引用,取代各端本地重复定义)
+export * from './token'
 export * from './ai'
 // CLI 配置导入(cc-switch / codex++ / 各 CLI 工具)共享类型
 export * from './cli-config'
