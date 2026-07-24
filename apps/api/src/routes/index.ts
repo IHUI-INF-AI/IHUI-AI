@@ -327,6 +327,9 @@ import mfaRoutes from './mfa.js'
 import { auditLogRoutes } from './audit-log.js'
 import { securityRoutes } from './security.js'
 
+// P0-4 补建:智能体创作核心接口(迁移自旧项目 aiModels.js,4 类端点:我的创作/收费配置 CRUD/agent 配置查询/工作流搜索)
+import agentCreationRoutes from './agent-creation.js'
+
 export function registerRoutes(server: FastifyInstance) {
   server.register(healthRoutes, { prefix: '/api' })
   server.register(authRoutes, { prefix: '/api/auth' })
@@ -897,4 +900,7 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(auditLogRoutes, { prefix: '/api/admin/audit-logs' })
   // 安全挑战路由(7 端点):challenge/verify-challenge/ip-reputation/block-ip/anomalies/report
   server.register(securityRoutes, { prefix: '/api/security' })
+
+  // P0-4 补建:智能体创作核心接口(绝对路径字面量注册,无 prefix,与旧前端 apiClient 路径直接对齐)
+  server.register(agentCreationRoutes)
 }
