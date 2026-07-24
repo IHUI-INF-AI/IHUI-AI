@@ -330,3 +330,12 @@ export interface ConfigMigrateResponse {
     message: string
   }>
 }
+
+// ================== Worker 运行时指标 ==================
+
+/** Worker 运行时指标(由 GET /api/registry/worker-stats 返回) */
+export interface RegistryWorkerStats {
+  processed: number
+  failed: number
+  lastProcessedAt: string | null
+}
