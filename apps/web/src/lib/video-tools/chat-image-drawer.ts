@@ -6,11 +6,8 @@
  */
 import sharp from 'sharp'
 import { readFile } from 'node:fs/promises'
-
-export interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-}
+import { type ChatMessage } from '@ihui/types'
+export type { ChatMessage }
 
 export interface DrawChatImageOptions {
   backgroundImage: string | Buffer
@@ -74,7 +71,7 @@ interface BubbleLayout {
   width: number
   height: number
   lines: string[]
-  role: 'user' | 'assistant'
+  role: ChatMessage['role']
 }
 
 function buildBubbleSvg(width: number, height: number, layouts: BubbleLayout[]): string {
