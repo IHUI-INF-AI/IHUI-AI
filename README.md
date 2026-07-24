@@ -1507,11 +1507,12 @@ pnpm turbo build typecheck lint test
 | **SSO**          | OAuth 2.0 + PKCE / Apple / Google / SSO 中转登录                                      |
 | **限流**         | 全局 100/min,auth login/register 10/min,分层 rate-limit                               |
 | **加密**         | AES-256-GCM 加密 credentials(OSS 驱动凭证 + 教育设置凭证 + 发布平台账号 + OAuth 私钥) |
-| **密码**         | bcryptjs 哈希(member 表 SHA256 兼容旧 Java 数据)                                      |
+| **密码**         | **argon2id 哈希(OWASP 2023 推荐,抗 GPU/ASIC)**+ bcrypt 透明升级 + 旧 SHA256 兼容      |
 | **数据脱敏**     | password / passwordHash 字段在 API 响应中解构剥离                                     |
 | **GDPR**         | 数据导出 / 删除 / 可携 / gdpr 路由                                                    |
 | **敏感词**       | 敏感词过滤 + 内容审核 + admin-sensitive-words                                         |
 | **审计日志**     | 登录日志 / 操作日志 / 系统操作日志 / 审计追溯                                         |
+| **HMAC 链审计**  | 防篡改链式哈希日志(currentHash = HMAC(prevHash + ...)) + SIEM 导出(CEF/LEEF/JSON)     |
 | **事务安全**     | DB 事务化:order 支付/退款 + social tag + gamification 积分 + chat 清空                |
 | **行锁**         | `.for('update')` 行锁防 TOCTOU 竞态                                                   |
 | **CSRF**         | `@fastify/csrf-protection` 双 token 模式                                              |
@@ -1521,8 +1522,28 @@ pnpm turbo build typecheck lint test
 | **工作空间权限** | 3 模式 + 7 端点运行时拦截 + 60s 审计超时                                              |
 | **多租户**       | 租户隔离 + 组织 + 部门 + 菜单权限 + tenant-router + RLS                               |
 | **OAuth 私钥**   | oauth-private-keys schema 加密存储                                                    |
-| **2FA**          | user-auth-info schema 支持                                                            |
-| **验证码**       | auth-codes + captcha schema                                                           |
+| **2FA/MFA**      | TOTP RFC 6238 + 备份恢复码 + 设备指纹 + 信任设备管理                                  |
+| **验证码**       | auth-codes + captcha schema + SVG 图形挑战 + 数学后备                                  |
+| **mTLS**         | 双向证书认证(高敏感路由要求客户端证书)+ 路由级 CN 白名单                            |
+| **零信任**       | 5 维度策略评估(身份/设备/网络/资源敏感度/时间窗)+ allow/deny/challenge 决策         |
+| **网络分段**     | IP 分类(内网/公网/黑名单)+ 路由级访问策略 + CIDR 匹配                                 |
+| **风控引擎**     | 5 维度风险评分(IP/设备/时间/频率/UA)+ 自动决策 allow/challenge/deny                  |
+| **异常检测**     | 6 维度行为分析(频率/时间分布/地理/设备突变/扫描模式/基线)+ Welford 在线基线           |
+| **反自动化**     | IP/用户双轨限流 + 扫描器模式即时封禁 + CAPTCHA 挑战 + 机器人 UA 检测                  |
+| **IP 信誉**      | 黑名单 + TOR/代理/数据中心段识别 + 历史异常计数 + 30 天 TTL                           |
+| **服务间认证**   | mTLS + 短期 JWT(5min)+ 服务白名单 + 常量时间比较防 timing attack                    |
+
+### 国安级安全矩阵(2026-07-24 立)
+
+E1-E5 五层防御体系,从密码学到运行时全链路防护:
+
+| 层级 | 模块 | 关键能力 | API 端点 |
+| ---- | ---- | -------- | -------- |
+| **E1 密码学** | argon2id + bcrypt 透明迁移 | OWASP 2023 推荐,抗 GPU/ASIC 爆破 | 内置(login/register/reset) |
+| **E2 MFA/设备** | TOTP + 设备指纹 + 风险评分 | RFC 6238 ±1 窗口 + 6 请求头指纹 + 5 维度评分 | `/api/mfa/*` |
+| **E3 审计链** | HMAC-SHA256 链 + CEF/LEEF | 防篡改链式哈希 + SIEM 三格式导出 | `/api/admin/audit-logs/*` |
+| **E4 零信任** | mTLS + 网络分段 + 服务间认证 | 双向证书 + 5 维度策略评估 + CIDR 黑名单 | 插件级 + 路由级配置 |
+| **E5 反自动化** | 异常检测 + CAPTCHA + IP 信誉 | 6 维度行为分析 + 扫描器即时封禁 | `/api/security/*` |
 
 ---
 
