@@ -16,14 +16,19 @@ import SettingsPage from './pages/SettingsPage'
 import AgentPage from './pages/AgentPage'
 import VocabularyPage from './pages/VocabularyPage'
 import NotificationPanel from './NotificationPanel'
+import AIAppsPage from './pages/AIAppsPage'
+import ContentAppsPage from './pages/ContentAppsPage'
+import MeAppsPage from './pages/MeAppsPage'
+import { ComingSoonPage } from './pages/ComingSoonPage'
 
+const WEB_BASE = 'https://ihui.ai'
+
+// 5 主 tab(2026-07-25 重构):对话 / AI / 内容 / 我的 / 设置
 const TABS = [
   { to: '/chat', labelKey: 'nav.chat', icon: '💬' },
-  { to: '/agents', labelKey: 'nav.agents', icon: '🤖' },
-  { to: '/vocabulary', labelKey: 'nav.vocabulary', icon: '📖' },
-  { to: '/profile', labelKey: 'nav.profile', icon: '👤' },
-  { to: '/wallet', labelKey: 'nav.wallet', icon: '💰' },
-  { to: '/courses', labelKey: 'nav.courses', icon: '📚' },
+  { to: '/ai', labelKey: 'nav.ai', icon: '🤖' },
+  { to: '/content', labelKey: 'nav.content', icon: '📚' },
+  { to: '/me', labelKey: 'nav.me', icon: '👤' },
   { to: '/settings', labelKey: 'nav.settings', icon: '⚙️' },
 ]
 
@@ -229,15 +234,55 @@ export default function SidepanelApp() {
       <Routes>
         <Route element={<SidepanelInner />}>
           <Route path="/" element={<Navigate to="/chat" replace />} />
+          {/* 对话 */}
           <Route path="/chat" element={<ChatPage />} />
-          <Route path="/agents" element={<AgentPage />} />
-          <Route path="/agents/:id" element={<AgentPage />} />
+          <Route path="/chat/history" element={<ComingSoonPage titleKey="chat.history" webUrl={`${WEB_BASE}/chat/history`} />} />
+          <Route path="/chat/favorites" element={<ComingSoonPage titleKey="chat.history" webUrl={`${WEB_BASE}/chat/favorites`} />} />
+          <Route path="/chat/templates" element={<ComingSoonPage titleKey="chat.history" webUrl={`${WEB_BASE}/chat/templates`} />} />
+          {/* 词汇(独立功能,保留) */}
           <Route path="/vocabulary" element={<VocabularyPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/wallet" element={<WalletPage />} />
+          {/* 课程(独立功能,保留) */}
           <Route path="/courses" element={<CoursePage />} />
-          <Route path="/orders" element={<OrderPage />} />
+          {/* AI 应用中心 */}
+          <Route path="/ai" element={<AIAppsPage />} />
+          <Route path="/ai/agents" element={<AgentPage />} />
+          <Route path="/ai/agents/:id" element={<AgentPage />} />
+          <Route path="/ai/skills" element={<ComingSoonPage titleKey="apps.aiSkills" webUrl={`${WEB_BASE}/ai-skills`} />} />
+          <Route path="/ai/image-gen" element={<ComingSoonPage titleKey="apps.imageGen" webUrl={`${WEB_BASE}/image-gen`} />} />
+          <Route path="/ai/memory" element={<ComingSoonPage titleKey="apps.memory" webUrl={`${WEB_BASE}/memory`} />} />
+          <Route path="/ai/news" element={<ComingSoonPage titleKey="apps.aiNews" webUrl={`${WEB_BASE}/ai-news`} />} />
+          <Route path="/ai/models" element={<ComingSoonPage titleKey="apps.models" webUrl={`${WEB_BASE}/models`} />} />
+          {/* 内容中心 */}
+          <Route path="/content" element={<ContentAppsPage />} />
+          <Route path="/content/articles" element={<ComingSoonPage titleKey="apps.articles" webUrl={`${WEB_BASE}/articles`} />} />
+          <Route path="/content/news" element={<ComingSoonPage titleKey="apps.news" webUrl={`${WEB_BASE}/news`} />} />
+          <Route path="/content/announcements" element={<ComingSoonPage titleKey="apps.announcements" webUrl={`${WEB_BASE}/announcements`} />} />
+          <Route path="/content/search" element={<ComingSoonPage titleKey="apps.search" webUrl={`${WEB_BASE}/search`} />} />
+          {/* 个人中心 */}
+          <Route path="/me" element={<MeAppsPage />} />
+          <Route path="/me/dashboard" element={<ComingSoonPage titleKey="apps.dashboard" webUrl={`${WEB_BASE}/dashboard`} />} />
+          <Route path="/me/notifications" element={<ComingSoonPage titleKey="apps.notifications" webUrl={`${WEB_BASE}/notifications`} />} />
+          <Route path="/me/messages" element={<ComingSoonPage titleKey="apps.messages" webUrl={`${WEB_BASE}/messages`} />} />
+          <Route path="/me/favorites" element={<ComingSoonPage titleKey="apps.favorites" webUrl={`${WEB_BASE}/favorites`} />} />
+          <Route path="/me/following" element={<ComingSoonPage titleKey="apps.following" webUrl={`${WEB_BASE}/following`} />} />
+          <Route path="/me/points" element={<ComingSoonPage titleKey="apps.points" webUrl={`${WEB_BASE}/points`} />} />
+          <Route path="/me/vip" element={<ComingSoonPage titleKey="apps.vip" webUrl={`${WEB_BASE}/vip`} />} />
+          <Route path="/me/profile" element={<ProfilePage />} />
+          <Route path="/me/wallet" element={<WalletPage />} />
+          <Route path="/me/orders" element={<OrderPage />} />
+          {/* 设置 */}
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings/about" element={<ComingSoonPage titleKey="apps.about" webUrl={`${WEB_BASE}/about`} />} />
+          <Route path="/settings/contact" element={<ComingSoonPage titleKey="apps.contact" webUrl={`${WEB_BASE}/contact`} />} />
+          <Route path="/settings/help" element={<ComingSoonPage titleKey="apps.help" webUrl={`${WEB_BASE}/help`} />} />
+          <Route path="/settings/agreement" element={<ComingSoonPage titleKey="apps.agreement" webUrl={`${WEB_BASE}/agreement`} />} />
+          <Route path="/settings/pricing" element={<ComingSoonPage titleKey="apps.pricing" webUrl={`${WEB_BASE}/pricing`} />} />
+          {/* 旧路由兼容重定向 */}
+          <Route path="/agents" element={<Navigate to="/ai/agents" replace />} />
+          <Route path="/agents/:id" element={<Navigate to="/ai/agents/:id" replace />} />
+          <Route path="/profile" element={<Navigate to="/me/profile" replace />} />
+          <Route path="/wallet" element={<Navigate to="/me/wallet" replace />} />
+          <Route path="/orders" element={<Navigate to="/me/orders" replace />} />
           <Route path="*" element={<Navigate to="/chat" replace />} />
         </Route>
       </Routes>
