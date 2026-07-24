@@ -666,6 +666,7 @@ async def _tool_web_search(arguments: dict[str, Any]) -> dict[str, Any]:
     if not query:
         return {
             "tool": "web_search",
+            "ok": True,
             "query": query,
             "results": [],
             "message": "搜索关键词为空",
@@ -680,6 +681,7 @@ async def _tool_web_search(arguments: dict[str, Any]) -> dict[str, Any]:
     # 转换字段名(tool → web_search,保留 results)
     return {
         "tool": "web_search",
+        "ok": True,
         "query": query,
         "max_results": max_results,
         "results": sub_result.get("results", []),
@@ -700,6 +702,7 @@ async def _tool_search_web(arguments: dict[str, Any]) -> dict[str, Any]:
     if not query:
         return {
             "tool": "search_web",
+            "ok": True,
             "query": query,
             "max_results": max_results,
             "results": [],
@@ -713,6 +716,7 @@ async def _tool_search_web(arguments: dict[str, Any]) -> dict[str, Any]:
         except ImportError:
             return {
                 "tool": "search_web",
+                "ok": True,
                 "query": query,
                 "max_results": max_results,
                 "results": [],
@@ -739,6 +743,7 @@ async def _tool_search_web(arguments: dict[str, Any]) -> dict[str, Any]:
 
         return {
             "tool": "search_web",
+            "ok": True,
             "query": query,
             "max_results": max_results,
             "results": results,
@@ -749,6 +754,7 @@ async def _tool_search_web(arguments: dict[str, Any]) -> dict[str, Any]:
     except Exception as e:
         return {
             "tool": "search_web",
+            "ok": False,
             "query": query,
             "max_results": max_results,
             "results": [],
@@ -816,6 +822,7 @@ async def _tool_analyze_code(arguments: dict[str, Any]) -> dict[str, Any]:
     lines = code.splitlines()
     return {
         "tool": "analyze_code",
+        "ok": True,
         "language": language,
         "metrics": {
             "lines": len(lines),
@@ -847,6 +854,7 @@ def test_placeholder():
 """
     return {
         "tool": "generate_test",
+        "ok": True,
         "language": language,
         "framework": framework,
         "test_code": template,
@@ -1532,7 +1540,7 @@ async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str
 
     task_id = arguments.get("task_id", "wechat_daily")
     if task_id not in ("koubo_daily", "wechat_daily"):
-        return {"success": False, "error": f"不支持的任务 ID: {task_id}(仅 koubo_daily / wechat_daily)"}
+        return {"ok": False, "success": False, "error": f"不支持的任务 ID: {task_id}(仅 koubo_daily / wechat_daily)"}
 
     hour = int(arguments.get("hour", 9))
     minute = int(arguments.get("minute", 0))
@@ -1555,6 +1563,7 @@ async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str
             resp = await client.post(url, json=config_body)
             if resp.status_code >= 400:
                 return {
+                    "ok": False,
                     "success": False,
                     "error": f"api 返回 {resp.status_code}: {resp.text[:200]}",
                 }
@@ -1562,6 +1571,7 @@ async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str
             # api 返回 {code, message, data} 格式,提取 data
             task_data = data.get("data", data) if isinstance(data, dict) else data
             return {
+                "ok": True,
                 "success": True,
                 "task_id": task_id,
                 "hour": hour,
@@ -1574,6 +1584,7 @@ async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str
     except Exception as e:
         err_type = type(e).__name__
         return {
+            "ok": False,
             "success": False,
             "message": f"配置失败: {err_type}",
             "error": str(e)[:200],
