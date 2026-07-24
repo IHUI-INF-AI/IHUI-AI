@@ -10,8 +10,10 @@ import {
 } from 'node:fs'
 import { join } from 'node:path'
 import { pipeline } from 'node:stream/promises'
+import { Readable } from 'node:stream'
 import { randomUUID } from 'node:crypto'
 import { authenticate } from '../plugins/auth.js'
+import { validateUploadFile } from '../utils/file-type-validator.js'
 import {
   listProjectsByUserWithFileCount,
   findProjectById,
@@ -354,19 +356,21 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
         const mimeType = data.mimetype ?? 'application/octet-stream'
         ensureUploadDir()
 
+        // 2026-07-24 安全加固:文件类型校验 + 大小限制(防 CWE-434 任意文件上传)
+        const PROJECT_FILE_MAX_SIZE = 20 * 1024 * 1024 // 20MB
+        const buffer = await data.toBuffer()
+        const valid = validateUploadFile(buffer, originalName, mimeType, PROJECT_FILE_MAX_SIZE)
+        if (!valid.ok) {
+          return reply.status(400).send(error(400, valid.reason))
+        }
+
         // 临时文件路径：uploads/<uuid>，写入完成后重命名为最终路径
         const fileId = randomUUID()
         const tmpPath = join(UPLOAD_DIR, `${fileId}.tmp`)
         const finalPath = join(UPLOAD_DIR, fileId)
 
-        let totalSize = 0
         try {
-          const writeStream = createWriteStream(tmpPath)
-          // 边写边统计大小
-          data.file.on('data', (chunk: Buffer) => {
-            totalSize += chunk.length
-          })
-          await pipeline(data.file, writeStream)
+          await pipeline(Readable.from(buffer), createWriteStream(tmpPath))
           renameSync(tmpPath, finalPath)
         } catch (err) {
           // 清理临时文件
@@ -383,7 +387,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
           projectId: id,
           name: originalName,
           path: finalPath,
-          size: totalSize,
+          size: buffer.length,
           mimeType,
           uploadedBy: userId,
         })
