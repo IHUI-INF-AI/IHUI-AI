@@ -28,6 +28,7 @@ import {
   type FamilyRevoker,
   noopFamilyRevoker,
 } from '@ihui/auth';
+import { type TokenPair } from '@ihui/types';
 import {
   saveRefreshToken,
   findRefreshToken,
@@ -40,11 +41,8 @@ const ACCESS_TTL_MS = ACCESS_TOKEN_TTL_SECONDS * 1000;
 /** refresh token TTL(毫秒),从 @ihui/auth 同步,默认 30d。 */
 const REFRESH_TTL_MS = REFRESH_TOKEN_TTL_SECONDS * 1000;
 
-export interface TokenPair {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number; // access token 有效期（秒）
-}
+/** api 端 token-service 始终签发完整 token 对(三字段必填),用 Required 收窄共享 TokenPair */
+type RequiredTokenPair = Required<TokenPair>;
 
 /**
  * 签发 token 对：access + refresh。
@@ -55,7 +53,7 @@ export interface TokenPair {
 export async function issueTokenPair(
   payload: JWTPayload,
   blacklist?: TokenBlacklist,
-): Promise<TokenPair> {
+): Promise<RequiredTokenPair> {
   const accessToken = await signAccessToken(payload);
   const refreshToken = await signRefreshToken(payload);
 
@@ -104,7 +102,7 @@ export async function refreshAccessToken(
   refreshTokenStr: string,
   blacklist?: TokenBlacklist,
   familyRevoker: FamilyRevoker = noopFamilyRevoker,
-): Promise<TokenPair> {
+): Promise<RequiredTokenPair> {
   const payload = await verifyRefreshToken(refreshTokenStr);
 
   const stored = await findRefreshToken(refreshTokenStr);

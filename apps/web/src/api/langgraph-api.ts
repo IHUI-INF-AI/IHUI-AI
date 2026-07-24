@@ -1,4 +1,5 @@
 import type {
+  ApiResponse,
   HistoryEntry,
   InterruptEvent,
   LangGraphCheckpoint,
@@ -17,12 +18,6 @@ import type {
  *
  * 所有响应统一 `{ code, message, data }` 格式,本文件仅返回 data 字段。
  */
-
-interface ApiResponse<T> {
-  code: number
-  message: string
-  data: T
-}
 
 async function callApi<T>(res: Response): Promise<T> {
   const json = (await res.json()) as ApiResponse<T>
