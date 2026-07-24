@@ -82,7 +82,7 @@ export default function UpgradePage() {
         // 解决 40006 Insufficient Permissions(product_code=JSAPI_PAY 必传 buyer_id)
         let buyerId: string | undefined
         try {
-          // @ts-ignore my.getAuthCode 是支付宝小程序全局 API,Taro 类型未含
+          // @ts-expect-error my.getAuthCode 是支付宝小程序全局 API,Taro 类型未含
           const authRes = await my.getAuthCode({ scopes: 'auth_user' })
           if (authRes?.authCode) {
             const exRes = await Taro.request({
@@ -90,11 +90,16 @@ export default function UpgradePage() {
               method: 'POST',
               data: { authCode: authRes.authCode },
             })
-            const exData = (exRes.data as { code?: number; data?: { userId?: string; openId?: string } }) ?? {}
+            const exData =
+              (exRes.data as { code?: number; data?: { userId?: string; openId?: string } }) ?? {}
             buyerId = exData.data?.userId ?? exData.data?.openId
           }
         } catch (authErr) {
-          logger.warn('vip/upgrade', 'my.getAuthCode 失败,降级 mock 模式', String(authErr))
+          logger.warn(
+            'vip/upgrade',
+            'my.getAuthCode 失败,降级 mock 模式',
+            authErr instanceof Error ? authErr.message : String(authErr),
+          )
         }
         const res = await createAlipayMiniappPayment({
           amount: plan.price,
@@ -112,7 +117,9 @@ export default function UpgradePage() {
         }
         requestAliPayment({ orderInfo: res.tradeNo } as AnyPayParams)
           .then(() => Taro.redirectTo({ url: `/pages/pay/result?orderNo=${res.outTradeNo}` }))
-          .catch(() => Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${res.outTradeNo}` }))
+          .catch(() =>
+            Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${res.outTradeNo}` }),
+          )
       } catch (e) {
         logger.error('vip/upgrade', '支付宝升级VIP', e)
         Taro.showToast({ title: t('vip.upgrade.operationFailed'), icon: 'none' })
