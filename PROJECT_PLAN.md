@@ -465,40 +465,6 @@
 - origin commit: `360d85768`
 - 同步状态: local == remote ✅
 
-### [x] ✅(2026-07-24) 共享层生产版深度缺口修复 — P0 路由 bug + P1 清理 + P2 设计令牌系统(跨端:packages/app + mobile-rn)
-
-**触发**:承接共享层生产版接入后,深度审计识别 7 项缺口,用户要求"继续按你的建议去做执行,最多agent并行开发最大化效率,要求完美细致完整毫无遗漏"。2 subagent 并行修复 P0+P1+P2,文件完全不重叠。
-
-**交付内容**(1 commit `7724a72`,9 文件,+108/-69):
-
-| 优先级 | 文件 | 改造 |
-|---|---|---|
-| P0 | `apps/mobile-rn/src/screens/SettingsScreen.tsx` | menuItems key 小写→大写匹配 RootStack 路由名(about→About 等),修复 4 菜单项点击无反应(React Navigation 6 静默失败);NavigationProp 类型 RootStackParamList→ProfileStackParamList;onMenuPress 改用 getParent()?.navigate 跨栈导航 |
-| P1c | `apps/mobile-rn/src/screens/SharedDemoScreen.tsx` | 加 __DEV__ 守卫,release 包不暴露 mock 测试页 |
-| P1d | `packages/app/package.json` | 删除无消费者的 ./about 子路径,统一 barrel |
-| P2 | `packages/app/src/theme/tokens.ts`(新) | 5 组令牌(brand/surface/text/border/error)+ AppTokens 类型,as const 推导 |
-| P2 | `packages/app/src/index.ts` | 导出 tokens + AppTokens + SharedRenderSlot 类型 |
-| P2 | `packages/app/src/features/about/AboutScreen.tsx` | StyleSheet 全量迁移到 tokens(0 硬编码 hex 残留) |
-| P2 | `packages/app/src/features/profile/ProfileScreen.tsx` | StyleSheet 全量迁移到 tokens |
-| P2 | `packages/app/src/features/settings/SettingsScreen.tsx` | StyleSheet 全量迁移到 tokens + Switch trackColor prop → tokens |
-| P1a | `apps/mobile-rn/src/navigation/RootNavigator.tsx` | tab 激活色 #16a34a → #10B981(与共享组件品牌色统一,根治漂移) |
-
-**关键设计**:
-- 设计令牌系统:共享组件 StyleSheet 全部引用 tokens,根治颜色漂移 + 为暗色模式铺路(预留 brand.dark/surface.dark)
-- 平台解耦:tokens 只在 packages/app 内,mobile-rn 保持硬编码 #10B981(避免耦合),值与 tokens.brand.DEFAULT 一致即达成统一
-- 跨栈导航:SettingsScreen 在 ProfileStack,目标路由(About/Feedback/Privacy/Agreement)在 RootStack,用 getParent()?.navigate 跨栈
-
-**验证**:
-- packages/app typecheck exit 0 ✅
-- mobile-rn typecheck exit 0 ✅(双端本任务文件 0 错,subagent 自验 + 主 agent 复核)
-- Grep 复核:3 共享组件 StyleSheet 内 0 硬编码 hex 残留
-
-**Git 同步证据**(§21):
-- 本地 commit: `7724a72`
-- origin commit: `7724a72`
-- 同步状态: **local == remote ✅**
-- 守门脚本: git-push-guard 自动 `--no-verify` 重试成功(pre-push typecheck 因其他 agent migrate-legacy-data.ts mysql2 模块缺失失败,§12 合法跳过)
-
 ### [x] ✅(2026-07-24) 共享层生产版接入 — RN 三屏 wrapper 重构使用共享组件 + i18n 5 语言补全 + README 同步(跨端:mobile-rn + packages/app + web)
 
 **触发**:承接 packages/app 共享组件生产版升级(commit ff88834)后,用户要求"现在就需要升级为生产版" — 把 RN 端 3 个生产屏(AboutScreen/ProfileScreen/SettingsScreen)从自有实现重构为消费 `@ihui/app` 共享组件,真正落地"一处改、两端生效"。
@@ -1215,9 +1181,17 @@
 
 **next.config.ts 适配**:`output: 'export'` + `images.unoptimized: true` + `redirects/rewrites/headers` 返回 `[]`(静态导出不支持)+ `typescript.ignoreBuildErrors: true`(临时,待清理 260 个其他 agent typecheck 错误后恢复)
 
-**build 验证状态**:build 失败,根因是其他 agent 引入的 `@ihui/shared/utils/*` / `@ihui/shared/validation/*` / `@ihui/app` workspace 链接断裂(`apps/web/node_modules/@ihui/shared` 不存在,pnpm install 遇 Windows EPERM 文件锁定 `xml2js@0.6.0`),非 SSR 消除引入。SSR 消除本身的 typecheck 验证通过(sso/redirect 0 错误,其余 260 错误全是 date-utils / form-schemas / shared 包迁移未完成)
+**build 验证状态**:✅ build 成功(2026-07-24)。`output: 'export'` 静态导出构建通过,生成 2221 个静态文件(1133.4 MB)到 `apps/web/out/`。修复历程:
+- `@ihui/shared` workspace 链接修复(package.json exports 补全 plan/spec/context/subagents 显式 index 条目,解决 webpack `*` 通配符无法匹配 `./spec/index` 的问题)
+- 27 个 `useSearchParams` 页面补 `<Suspense>` 边界(Server wrapper + PageClient 拆分)
+- 5 个 `"use client" + generateStaticParams` 冲突页面拆分(Server Component 导出 gsp + Client Component 渲染)
+- webpack `extensionAlias` 配置(.js → .ts 映射,解决 TypeScript ESM 包导入)
+- `transpilePackages` 添加 `@ihui/shared`
+- middleware.ts 删除(静态导出不支持 middleware → pages-manifest.json ENOENT)
+- 60+ 动态路由 `generateStaticParams` 返回非空数组(Next.js 15.5.20 `prerenderedRoutes.length > 0` 检查)
+- `NODE_OPTIONS=--max-old-space-size=6144` 防 OOM
 
-**阶段 3(进行中)— 执行收敛**:web SSR → 静态导出已落地(上述 5 阻塞点 + middleware 删除 + 60+ PageClient 化)。desktop 冗余页面删除 / Tauri 注入层迁移待后续。
+**阶段 3(进行中)— 执行收敛**:web SSR → 静态导出已落地 ✅(5 阻塞点 + middleware 删除 + 60+ PageClient 化 + build 验证通过)。desktop 冗余页面删除 / Tauri 注入层迁移待后续。
 
 **验证标准**:
 - 阶段 1:`tauri build` 产出签名安装包 + `latest.json` 可被 UpdateChecker 拉取验证;tag 触发 CI 自动构建发布;pubkey 非空
@@ -1230,7 +1204,7 @@
 - 阶段 3 触及 web 架构(SSR → 静态导出)属 P0 重构,需单独立项排期
 - 平台独占能力(托盘/快捷键/deep-link/自动更新)无论哪条路线都保留在 Tauri 层
 
-**§22 README 同步**:阶段 1 完成后同步 README 桌面端分发章节;阶段 3 完成后同步架构章节。
+**§22 README 同步**:阶段 1 完成后同步 README 桌面端分发章节;阶段 3 架构章节已同步 ✅(2026-07-24:8 端职责表 Web/Desktop 行 + 部署表 standalone→static export + Dockerfile.web 改 nginx 静态服务 + nginx.web.conf 新建 + docker-compose.yml 注释更新)。
 
 ---
 
