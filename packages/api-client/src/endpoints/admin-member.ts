@@ -4,8 +4,8 @@
  * 覆盖会员用户、会员权限、管理员用户/项目/统计、旧项目 ai/users 模块�? */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
-import { buildQs, type PageData, type PageQuery } from '../utils.js'
+import { fetchApi } from '../client'
+import { buildQs, type PageData, type PageQuery } from '../utils'
 
 // ===================== 类型定义 =====================
 
