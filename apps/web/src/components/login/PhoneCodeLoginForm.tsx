@@ -82,14 +82,12 @@ export function PhoneCodeLoginForm({
     }
     setSending(true)
     try {
-      const res = await fetch('/api/auth/sms/code', {
+      const result = await fetchApi<{ sent: boolean }>('/api/auth/sms/code', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone }),
       })
-      const json = (await res.json()) as { code: number; message: string }
-      if (!res.ok || json.code !== 0) {
-        setErr(json.message || t('loginFailed'))
+      if (!result.success) {
+        setErr(result.error || t('loginFailed'))
         return
       }
       startCountdown()
@@ -118,19 +116,17 @@ export function PhoneCodeLoginForm({
     }
     setSubmitting(true)
     try {
-      const res = await fetch('/api/auth/login/phone-code', {
+      const result = await fetchApi<TokenResult>('/api/auth/login/phone-code', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone, code }),
       })
-      const json = (await res.json()) as { code: number; message: string; data?: TokenResult }
-      if (!res.ok || json.code !== 0 || !json.data?.accessToken) {
-        setErr(json.message || t('loginFailed'))
+      if (!result.success || !result.data?.accessToken) {
+        setErr(result.error || t('loginFailed'))
         return
       }
-      setToken(json.data.accessToken, json.data.refreshToken)
-      if (json.data.userId) {
-        setUser({ id: json.data.userId, nickname: '' })
+      setToken(result.data.accessToken, result.data.refreshToken)
+      if (result.data.userId) {
+        setUser({ id: result.data.userId, nickname: '' })
         void fetchApi<{ user: AuthUser }>('/api/auth/me').then((r) => {
           if (r.success) setUser(r.data.user)
         })
