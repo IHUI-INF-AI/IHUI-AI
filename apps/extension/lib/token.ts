@@ -1,4 +1,5 @@
 import { setBaseUrl, setTokenProvider } from '@ihui/api-client'
+import { type TokenPair } from '@ihui/types'
 import {
   initApiBaseUrl,
   getApiBaseUrl,
@@ -62,15 +63,9 @@ export function clearToken(): void {
   cachedToken = null
 }
 
-export interface TokenPair {
-  accessToken: string
-  refreshToken: string
-  expiresIn?: number
-}
-
 export async function setTokenPair(pair: TokenPair): Promise<void> {
   cachedToken = pair.accessToken
-  cachedRefreshToken = pair.refreshToken
+  cachedRefreshToken = pair.refreshToken ?? null
   if (pair.expiresIn !== undefined) cachedExpiresIn = pair.expiresIn
   await chrome.storage.local.set({
     [TOKEN_STORAGE_KEY]: pair.accessToken,

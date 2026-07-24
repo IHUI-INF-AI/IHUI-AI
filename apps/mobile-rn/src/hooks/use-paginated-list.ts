@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-
-interface PageData<T> {
-  list: T[]
-  total: number
-}
+import { type PageData } from '@ihui/api-client'
 
 type Fetcher<T> = (query: {
   page: number
