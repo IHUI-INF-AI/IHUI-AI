@@ -1379,12 +1379,22 @@ class AgentOrchestrator:
                 result = await llm_gateway.complete(
                     messages, model=used_model, **kwargs
                 )
-                used_model = str(result.get("model", used_model) or used_model)
+                # 不覆盖 used_model:API 返回的 model 名无 provider 前缀
+                # (如 "step-router-v1" 而非 "stepfun/step-router-v1"),
+                # 覆盖后后续轮次 _resolve 无法识别 provider → MODEL_NOT_CONFIGURED → output 为空
                 stub = stub or bool(result.get("stub", False))
                 content = str(result.get("content", "") or "")
                 tc_raw = result.get("tool_calls") or []
                 if not tc_raw:
                     output = content
+                    # 防御:complete 返回错误(content 为空 + error=True)时,
+                    # 不把空 content 当正常输出;尝试不带 tools 再调一次让 LLM 基于已有上下文总结
+                    if not content and result.get("error"):
+                        try:
+                            retry = await llm_gateway.complete(messages, model=used_model)
+                            output = str(retry.get("content", "") or "")
+                        except Exception as retry_e:
+                            logger.warning("_run_agent 重试总结失败: %s", retry_e)
                     break
                 messages.append({
                     "role": "assistant",
