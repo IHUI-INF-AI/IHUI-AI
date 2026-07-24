@@ -56,7 +56,7 @@ export async function fetchAllRawItems(
         results.push(...items)
       } catch (err) {
         console.warn(
-          `[registry-sync] adapter ${s} fetch ${t} failed:`,
+          `[registry-sync] adapter ${s} fetch ${t} failed (force=${options?.force ?? false}):`,
           err instanceof Error ? err.message : String(err),
         )
       }
