@@ -97,7 +97,7 @@ async function handleVocabLookup(payload: {
   try {
     const res = await callApi<{
       choices?: Array<{ message?: { content?: string } }>
-    }>('/llm/chat', {
+    }>('/api/llm/chat', {
       method: 'POST',
       body: JSON.stringify({
         model: 'gpt-4o-mini',

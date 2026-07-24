@@ -1,14 +1,14 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 @plugin 'tailwindcss-animate';
-@source '../../../packages/ui/src';
+@source '../../../packages/ui-react/src';
 @import '../src/styles/design-tokens.css';
 @import '../src/styles/animations.css';
 @import '../src/styles/transitions.css';
 @import '../src/styles/theme-presets.css';
 @import '../src/styles/glass.css';
 @import '../src/styles/premium.css';
-@import '../../../packages/ui-primitives/src/styles/tokens.css';
+@import '../../../packages/design-tokens/src/styles/tokens.css';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -58,7 +58,7 @@
   unicode-range: U+0020-007F, U+00A0-00FF, U+0100-017F, U+0180-024F;
 }
 
-/* @theme + vcenter 全局规则 + .dark 深色覆盖 已移至 packages/ui-primitives/src/styles/tokens.css — 共享单一来源(2026-07-23 立) */
+/* @theme + vcenter 全局规则 + .dark 深色覆盖 已移至 packages/design-tokens/src/styles/tokens.css — 共享单一来源(2026-07-23 立) */
 
 /* 登录栏 hover 高亮(2026-07-20 立,2026-07-20 M-70 增强版)
  * 浅色模式:登录栏(.login-scope)内所有 hover:bg-accent / hover:bg-muted 按钮,
