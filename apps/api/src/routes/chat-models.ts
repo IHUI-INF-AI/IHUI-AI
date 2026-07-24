@@ -12,7 +12,7 @@
  *   DOUBAO_API_KEY(火山方舟豆包,用于 /ws/doubao)
  *   KLING_ACCESS_KEY + KLING_SECRET_KEY
  *   COZE_API_KEY(或 COZE_PRIVATE_KEY) / COZE_API_BASE
- *   OPENROUTER_API_KEY / FREELLMAPI_BASE_URL / FREELLMAPI_API_KEY 等(multi)
+ *   OPENROUTER_API_KEY 等(multi)
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
@@ -149,7 +149,7 @@ async function proxyJSON(
         .send(error(502, `upstream ${resp.status}: ${JSON.stringify(data).slice(0, 500)}`))
       return null
     }
-    // FreeLLMAPI 等 OpenAI 兼容代理在 200 + 内部 error 时返回 data.error
+    // OpenAI 兼容代理在 200 + 内部 error 时返回 data.error
     if (typeof data === 'object' && data !== null && 'error' in data) {
       const err = (data as Record<string, unknown>).error
       const msg =
@@ -295,15 +295,6 @@ const VENDOR_CONFIGS: Record<string, VendorCfg> = {
     keyEnv: 'OPENROUTER_API_KEY',
     serviceName: 'OpenRouter',
     authHeader: (key) => ({ Authorization: `Bearer ${key}` }),
-    buildPayload: (model, message) => ({ model, messages: [{ role: 'user', content: message }] }),
-    streamable: true,
-  },
-  freellmapi: {
-    base: process.env.FREELLMAPI_BASE_URL ?? '',
-    chatPath: '/chat/completions',
-    keyEnv: 'FREELLMAPI_API_KEY',
-    serviceName: 'FreeLLMAPI',
-    authHeader: (key) => (key ? { Authorization: `Bearer ${key}` } : {}) as Record<string, string>,
     buildPayload: (model, message) => ({ model, messages: [{ role: 'user', content: message }] }),
     streamable: true,
   },
@@ -737,7 +728,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
     if (!cfg) return reply.status(400).send(error(400, `不支持的厂商: ${vendor}`))
     if (!cfg.base) return reply.status(503).send(error(503, `${cfg.serviceName} 服务未配置`))
     const key = process.env[cfg.keyEnv] ?? ''
-    if (cfg.keyEnv !== 'FREELLMAPI_API_KEY' && cfg.keyEnv !== 'N8N_API_KEY' && !key) {
+    if (cfg.keyEnv !== 'N8N_API_KEY' && !key) {
       return reply.status(503).send(error(503, `${cfg.serviceName} 服务未配置`))
     }
     const { model = 'gpt-3.5-turbo', message } = parsed.data
@@ -760,7 +751,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
     if (!cfg.streamable) return reply.status(400).send(error(400, `${cfg.serviceName} 不支持流式`))
     if (!cfg.base) return reply.status(503).send(error(503, `${cfg.serviceName} 服务未配置`))
     const key = process.env[cfg.keyEnv] ?? ''
-    if (cfg.keyEnv !== 'FREELLMAPI_API_KEY' && !key) {
+    if (!key) {
       return reply.status(503).send(error(503, `${cfg.serviceName} 服务未配置`))
     }
     const { model = 'gpt-3.5-turbo', message } = parsed.data
@@ -791,7 +782,7 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
         continue
       }
       const key = process.env[cfg.keyEnv] ?? ''
-      if (cfg.keyEnv !== 'FREELLMAPI_API_KEY' && cfg.keyEnv !== 'N8N_API_KEY' && !key) {
+      if (cfg.keyEnv !== 'N8N_API_KEY' && !key) {
         results.push({ vendor: v, ok: false, error: 'not configured' })
         continue
       }
