@@ -2,7 +2,6 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useCallback } from 'react'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 const ICP_NO = '吉ICP备2025027274号-7A'
 
@@ -50,36 +49,36 @@ export default function IcpRecord() {
   }, [])
 
   return (
-    <View className="page">
-      <View className="icp-card">
-        <Text className="icp-label">
+    <View className="min-h-screen bg-background pb-[48rpx]">
+      <View className="m-[24rpx] py-[32rpx] px-[24rpx] bg-card rounded-[16rpx] flex flex-col items-center gap-[12rpx]">
+        <Text className="text-[26rpx] text-muted-foreground">
           {tt('about.icpRecord.icpLabel', 'ICP备案/许可证号')}
         </Text>
-        <Text className="icp-value" onClick={copyIcpNo}>
+        <Text className="text-[34rpx] text-foreground font-semibold" onClick={copyIcpNo}>
           {ICP_NO}
         </Text>
-        <Text className="icp-copy-hint">
+        <Text className="text-[22rpx] text-muted-foreground">
           {tt('about.icpRecord.copyHint', '点击编号可复制')}
         </Text>
       </View>
 
-      <View className="card">
-        {info.map((item, idx) => (
-          <View key={item.label} className={`row${idx === info.length - 1 ? ' last' : ''}`}>
-            <Text className="label">{item.label}</Text>
-            <Text className="value">{item.value}</Text>
+      <View className="m-[24rpx] px-[32rpx] bg-card rounded-[16rpx] flex flex-col gap-[8rpx]">
+        {info.map((item) => (
+          <View key={item.label} className="flex justify-between items-center py-[28rpx]">
+            <Text className="text-[28rpx] text-muted-foreground shrink-0">{item.label}</Text>
+            <Text className="text-[28rpx] text-foreground text-right ml-[24rpx] max-w-[60%] break-all">{item.value}</Text>
           </View>
         ))}
       </View>
 
-      <View className="query-wrap">
-        <Button className="query-btn" onClick={onQuery}>
+      <View className="pt-[24rpx] px-[32rpx]">
+        <Button className="w-full bg-primary text-white rounded-[12rpx] text-[30rpx] leading-[80rpx]" onClick={onQuery}>
           {tt('about.icpRecord.query', '前往工信部查询')}
         </Button>
       </View>
 
-      <View className="tips">
-        <Text>{tt('about.icpRecord.footer', '以上信息来自工信部备案查询系统')}</Text>
+      <View className="py-[24rpx] px-[32rpx]">
+        <Text className="text-[22rpx] text-muted-foreground leading-[1.7]">{tt('about.icpRecord.footer', '以上信息来自工信部备案查询系统')}</Text>
       </View>
     </View>
   )

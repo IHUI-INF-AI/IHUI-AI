@@ -4,7 +4,6 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect, type CSSProperties } from 'react'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 const CONSEQUENCE_KEYS = [
   'accountCancel.consequence1',
@@ -196,17 +195,17 @@ export default function AccountCancel() {
         : t('accountCancel.submit')
 
   return (
-    <View className="page-container">
-      <View className="page-header">
-        <Text className="page-title">{t('accountCancel.title')}</Text>
+    <View className="min-h-screen bg-background">
+      <View className="p-[24rpx] bg-card">
+        <Text className="text-[36rpx] font-semibold text-foreground">{t('accountCancel.title')}</Text>
       </View>
-      <View className="page-content">
+      <View className="p-[24rpx]">
         {loading ? (
-          <Text className="empty">{t('common.loading')}</Text>
+          <Text className="text-center text-muted-foreground py-[80rpx]">{t('common.loading')}</Text>
         ) : info ? (
           <View>
             <Text style={SECTION_TITLE_STYLE}>{t('accountCancel.consequenceTitle')}</Text>
-            <View className="list-item">
+            <View className="p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]">
               {CONSEQUENCE_KEYS.map((k) => (
                 <Text key={k} style={CONSEQUENCE_ITEM_STYLE}>
                   · {t(k)}
@@ -215,14 +214,14 @@ export default function AccountCancel() {
             </View>
 
             <Text style={SECTION_TITLE_STYLE}>{t('accountCancel.phoneLabel')}</Text>
-            <View className="list-item">
+            <View className="p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]">
               <Text style={PHONE_TEXT_STYLE}>
                 {phone ? maskedPhone : t('accountCancel.noPhone')}
               </Text>
             </View>
 
             <Text style={SECTION_TITLE_STYLE}>{t('accountCancel.codeLabel')}</Text>
-            <View className="list-item" style={CODE_BLOCK_STYLE}>
+            <View className="p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]" style={CODE_BLOCK_STYLE}>
               <Input
                 style={CODE_INPUT_STYLE}
                 type="number"
@@ -240,7 +239,7 @@ export default function AccountCancel() {
             </View>
 
             <Text style={SECTION_TITLE_STYLE}>{t('accountCancel.confirmLabel')}</Text>
-            <View className="list-item">
+            <View className="p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]">
               <Input
                 style={INPUT_STYLE}
                 placeholder={t('accountCancel.confirmPlaceholder')}
@@ -250,14 +249,14 @@ export default function AccountCancel() {
             </View>
 
             <View
-              className={`btn${canSubmit || confirmCountdown > 0 ? '' : ' disabled'}`}
+              className={`mt-[24rpx] p-[20rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[28rpx]${canSubmit || confirmCountdown > 0 ? '' : ' opacity-60'}`}
               onClick={onSubmit}
             >
               <Text>{submitText}</Text>
             </View>
           </View>
         ) : (
-          <Text className="empty">{t('accountCancel.noInfo')}</Text>
+          <Text className="text-center text-muted-foreground py-[80rpx]">{t('accountCancel.noInfo')}</Text>
         )}
       </View>
     </View>
