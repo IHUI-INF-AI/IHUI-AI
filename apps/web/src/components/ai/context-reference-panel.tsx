@@ -4,7 +4,7 @@ import * as React from 'react'
 import Image from 'next/image'
 import { FileText, Link as LinkIcon, Type, ImageIcon, Film, ChevronDown, X } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 type ReferenceType = 'file' | 'url' | 'text' | 'image' | 'video'

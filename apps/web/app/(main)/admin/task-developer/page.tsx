@@ -8,7 +8,7 @@ import { Plus, Download, Trash2, Terminal } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { exportFromApi } from '@/lib/export-utils'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { TaskDeveloperFilter } from './TaskDeveloperFilter'
 import { TaskDeveloperTable } from './TaskDeveloperTable'

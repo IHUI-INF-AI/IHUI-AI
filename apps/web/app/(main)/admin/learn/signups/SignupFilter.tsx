@@ -1,7 +1,7 @@
 'use client'
 
 import { Search } from 'lucide-react'
-import { Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import { Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { selectClass } from './helpers'
 import { STATUS_OPTIONS } from './types'
 

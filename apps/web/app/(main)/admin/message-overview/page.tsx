@@ -6,7 +6,7 @@ import { Bell, Megaphone, Mail, Sparkles, Loader2, TrendingUp } from 'lucide-rea
 import { eduApi } from '@/lib/edu'
 import { StatCard } from '@/components/data'
 import { LineChart } from '@/components/charts'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 interface NotifItem {
   id: string

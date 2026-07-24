@@ -16,7 +16,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { ChevronRight, FolderPlus, Layers, Loader2, Trash2 } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { createGroupV2 } from './helpers-v2'
 import type { ProviderGroup } from './types-v2'
 

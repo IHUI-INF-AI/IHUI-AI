@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Sparkles, Loader2 } from 'lucide-react'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
 

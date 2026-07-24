@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, Send, Power, Pencil, Trash2 } from 'lucide-react'
-import { Card, CardContent, Button } from '@ihui/ui'
+import { Card, CardContent, Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { WebhookItem } from './types'
 

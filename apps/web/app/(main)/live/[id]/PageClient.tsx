@@ -9,7 +9,7 @@ import { PlayCircle, Eye, Loader2, ArrowLeft, Radio, Calendar } from 'lucide-rea
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { LivePlayer } from '@/components/media'
 
 interface ChannelDetail {

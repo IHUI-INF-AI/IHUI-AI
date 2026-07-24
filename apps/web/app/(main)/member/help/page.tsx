@@ -7,7 +7,7 @@ import { useLocale } from 'next-intl'
 import { HelpCircle, Loader2, Search, Mail } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, Button, Input } from '@ihui/ui'
+import { Card, CardContent, Button, Input } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 
 interface HelpArticle {

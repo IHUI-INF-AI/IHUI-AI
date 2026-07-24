@@ -2,7 +2,7 @@
 
 import { Loader2 } from 'lucide-react'
 import { useLocale, useTranslations } from 'next-intl'
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { TYPE_LABEL_KEY, STATUS_LABEL_KEY, type BillingRecord } from './types'
 

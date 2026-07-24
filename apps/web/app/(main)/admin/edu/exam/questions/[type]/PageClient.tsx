@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Plus, ChevronLeft, Loader2 } from 'lucide-react'
 import { eduApi } from '@/lib/edu'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { QuestionFilter } from './QuestionFilter'
 import { QuestionTable } from './QuestionTable'

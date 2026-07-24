@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 const inputSm = 'h-8 text-xs'
 

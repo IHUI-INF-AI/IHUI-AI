@@ -2,7 +2,7 @@
 
 import { Loader2, Pencil, Trash2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { PERIOD_LABEL_KEY } from './helpers'
 import type { ApiPackage } from './types'
 import { formatNumber } from '@/lib/date-utils'

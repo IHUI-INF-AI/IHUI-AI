@@ -2,7 +2,7 @@
 
 import { Loader2, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Card, CardContent, Button, Input, Label } from '@ihui/ui'
+import { Card, CardContent, Button, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import type { AddressInput } from './types'
 

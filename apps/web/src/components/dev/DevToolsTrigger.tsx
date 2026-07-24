@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { Wrench, Info, RefreshCw, Trash2, Copy, Check, ChevronRight } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 /**
  * 判断当前访问是否处于"开发/内网"环境。

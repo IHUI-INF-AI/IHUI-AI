@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Plus, Download, CreditCard } from 'lucide-react'
 
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { AuthFindInfoFilter } from './AuthFindInfoFilter'
 import { AuthFindInfoTable } from './AuthFindInfoTable'
