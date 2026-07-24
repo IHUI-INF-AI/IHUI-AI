@@ -4,8 +4,8 @@
  * 覆盖 auth-accounts / auth-info / auth-role / auth-tokens / auth-user-vip / auth-vip-level / auth-sms-temp / user-roles / login-logs 九大模块 */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
-import { buildQs, type PageData, type PageQuery } from '../utils.js'
+import { fetchApi } from '../client'
+import { buildQs, type PageData, type PageQuery } from '../utils'
 
 // ===================== 类型定义 =====================
 

@@ -1,4 +1,4 @@
-import { fetchApi } from '../client.js'
+import { fetchApi } from '../client'
 
 /**
  * AI Skills TOP API(2026-07-23 新增,对应后端 /api/ai-skills)

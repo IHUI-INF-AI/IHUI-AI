@@ -1,4 +1,4 @@
-import { fetchApi, getToken, normalizeUrlPublic } from '../client.js'
+import { fetchApi, getToken, normalizeUrlPublic } from '../client'
 
 /** 智能体角色配置 */
 export interface CrewAgentRole {
