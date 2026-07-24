@@ -20,6 +20,8 @@ export type {
   ToolCallEvent,
 } from './client'
 export { ApiError, isNotFound, isErrorCode } from './api-error'
+export { setTransport, getTransport } from './transport'
+export type { Transport, TransportResponse, TransportInit } from './transport'
 
 // 模型上下文容量映射(跨端共享:web/desktop/extension/mobile-rn/miniapp-taro)
 export {
