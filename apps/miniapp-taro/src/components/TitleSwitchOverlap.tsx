@@ -88,7 +88,7 @@ export default function TitleSwitchOverlap({
         const rects = data as Array<{ top: number }>
         if (Array.isArray(rects)) {
           for (let i = 0; i < rects.length; i++) {
-            if (Math.abs(rects[i].top - 120.5) < 11.5) {
+            if (Math.abs(rects[i]!.top - 120.5) < 11.5) {
               setCurrent(i)
               break
             }
