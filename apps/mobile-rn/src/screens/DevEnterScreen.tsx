@@ -1,13 +1,6 @@
 import { useState } from 'react'
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  Alert,
-} from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native'
+import { Input } from '@ihui/ui-native'
 
 type DevType = 'personal' | 'enterprise'
 type Field = 'tech' | 'education' | 'finance' | 'content' | 'other'
@@ -45,14 +38,14 @@ export default function DevEnterScreen() {
   }
 
   return (
-    <View style={s.container}>
-      <View style={s.header}>
-        <Text style={s.headerTitle}>开发者入驻</Text>
-        <Text style={s.headerSub}>填写资料,申请成为开发者</Text>
+    <View className="flex-1 bg-card">
+      <View className="px-4 pt-3 pb-2">
+        <Text className="text-lg font-semibold text-foreground">开发者入驻</Text>
+        <Text className="mt-1 text-xs text-[#9CA3AF]">填写资料,申请成为开发者</Text>
       </View>
-      <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
-        <Text style={s.label}>开发者类型</Text>
-        <View style={s.typeRow}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+        <Text className="text-[13px] font-semibold text-[#374151] mt-4 mb-2">开发者类型</Text>
+        <View className="flex-row gap-3">
           {(
             [
               { id: 'personal', label: '个人开发者' },
@@ -63,155 +56,84 @@ export default function DevEnterScreen() {
             return (
               <TouchableOpacity
                 key={t.id}
-                style={[s.typeBtn, active && s.typeBtnActive]}
+                className={`flex-1 h-11 rounded-lg border items-center justify-center ${active ? 'border-[#7B61FF] bg-[#FAF9FF]' : 'border-border'}`}
                 onPress={() => setDevType(t.id)}
                 activeOpacity={0.8}
               >
-                <Text style={[s.typeText, active && s.typeTextActive]}>{t.label}</Text>
+                <Text className={`text-sm ${active ? 'text-[#7B61FF] font-semibold' : 'text-[#374151]'}`}>{t.label}</Text>
               </TouchableOpacity>
             )
           })}
         </View>
 
-        <Text style={s.label}>{devType === 'personal' ? '姓名' : '企业名称'}</Text>
-        <TextInput
-          style={s.input}
+        <Text className="text-[13px] font-semibold text-[#374151] mt-4 mb-2">{devType === 'personal' ? '姓名' : '企业名称'}</Text>
+        <Input
+          className="rounded-lg bg-card py-2.5"
           value={name}
           onChangeText={setName}
           placeholder={devType === 'personal' ? '请输入真实姓名' : '请输入企业全称'}
-          placeholderTextColor="#9CA3AF"
           maxLength={30}
         />
 
-        <Text style={s.label}>联系方式</Text>
-        <TextInput
-          style={s.input}
+        <Text className="text-[13px] font-semibold text-[#374151] mt-4 mb-2">联系方式</Text>
+        <Input
+          className="rounded-lg bg-card py-2.5"
           value={contact}
           onChangeText={setContact}
           placeholder="手机号或邮箱"
-          placeholderTextColor="#9CA3AF"
           maxLength={50}
           keyboardType="email-address"
         />
 
-        <Text style={s.label}>所属领域</Text>
-        <View style={s.fieldRow}>
+        <Text className="text-[13px] font-semibold text-[#374151] mt-4 mb-2">所属领域</Text>
+        <View className="flex-row flex-wrap gap-2.5">
           {FIELD_OPTIONS.map((f) => {
             const active = field === f.id
             return (
               <TouchableOpacity
                 key={f.id}
-                style={[s.fieldBtn, active && s.fieldBtnActive]}
+                className={`px-3.5 h-9 rounded-lg border items-center justify-center ${active ? 'border-[#7B61FF] bg-[#FAF9FF]' : 'border-border'}`}
                 onPress={() => setField(f.id)}
                 activeOpacity={0.8}
               >
-                <Text style={[s.fieldText, active && s.fieldTextActive]}>{f.label}</Text>
+                <Text className={`text-[13px] ${active ? 'text-[#7B61FF] font-semibold' : 'text-[#374151]'}`}>{f.label}</Text>
               </TouchableOpacity>
             )
           })}
         </View>
 
-        <Text style={s.label}>开发者简介</Text>
-        <TextInput
-          style={[s.input, s.textarea]}
+        <Text className="text-[13px] font-semibold text-[#374151] mt-4 mb-2">开发者简介</Text>
+        <Input
+          className="rounded-lg bg-card min-h-[90px] py-2.5"
           value={intro}
           onChangeText={setIntro}
           placeholder="介绍你的能力、作品或服务方向(至少 10 个字符)"
-          placeholderTextColor="#9CA3AF"
           maxLength={200}
           multiline
           textAlignVertical="top"
         />
-        <Text style={s.counter}>{intro.length}/200</Text>
+        <Text className="mt-1.5 text-right text-[11px] text-[#9CA3AF]">{intro.length}/200</Text>
 
         <TouchableOpacity
-          style={s.agreeRow}
+          className="flex-row items-center mt-5 gap-2"
           onPress={() => setAgreed((v) => !v)}
           activeOpacity={0.8}
         >
-          <View style={[s.checkbox, agreed && s.checkboxActive]} />
-          <Text style={s.agreeText}>
+          <View className={`w-4 h-4 rounded border ${agreed ? 'bg-[#7B61FF] border-[#7B61FF]' : 'border-[#D1D5DB] bg-card'}`} />
+          <Text className="flex-1 text-xs text-muted-foreground">
             我已阅读并同意《开发者服务协议》《隐私政策》
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[s.btn, submitting && s.btnDisabled]}
+          className={`mt-6 h-[46px] rounded-xl bg-[#7B61FF] items-center justify-center ${submitting ? 'opacity-60' : ''}`}
           onPress={handleSubmit}
           disabled={submitting}
           activeOpacity={0.8}
         >
-          <Text style={s.btnText}>{submitting ? '提交中...' : '提交申请'}</Text>
+          <Text className="text-[15px] font-semibold text-white">{submitting ? '提交中...' : '提交申请'}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
   )
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  headerSub: { marginTop: 4, fontSize: 12, color: '#9CA3AF' },
-  body: { padding: 16, paddingBottom: 32 },
-  label: { fontSize: 13, fontWeight: '600', color: '#374151', marginTop: 16, marginBottom: 8 },
-  typeRow: { flexDirection: 'row', gap: 12 },
-  typeBtn: {
-    flex: 1,
-    height: 44,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  typeBtnActive: { borderColor: '#7B61FF', backgroundColor: '#FAF9FF' },
-  typeText: { fontSize: 14, color: '#374151' },
-  typeTextActive: { color: '#7B61FF', fontWeight: '600' },
-  input: {
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#111827',
-    backgroundColor: '#FFFFFF',
-  },
-  textarea: { minHeight: 90, paddingTop: 10 },
-  counter: { marginTop: 6, textAlign: 'right', fontSize: 11, color: '#9CA3AF' },
-  fieldRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  fieldBtn: {
-    paddingHorizontal: 14,
-    height: 36,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fieldBtnActive: { borderColor: '#7B61FF', backgroundColor: '#FAF9FF' },
-  fieldText: { fontSize: 13, color: '#374151' },
-  fieldTextActive: { color: '#7B61FF', fontWeight: '600' },
-  agreeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 20, gap: 8 },
-  checkbox: {
-    width: 16,
-    height: 16,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#FFFFFF',
-  },
-  checkboxActive: { backgroundColor: '#7B61FF', borderColor: '#7B61FF' },
-  agreeText: { flex: 1, fontSize: 12, color: '#6B7280' },
-  btn: {
-    marginTop: 24,
-    height: 46,
-    borderRadius: 12,
-    backgroundColor: '#7B61FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
-})

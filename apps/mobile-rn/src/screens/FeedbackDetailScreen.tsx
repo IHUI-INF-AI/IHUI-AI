@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
@@ -51,82 +51,44 @@ export function FeedbackDetailScreen() {
 
   if (loading) {
     return (
-      <View style={s.center}>
+      <View className="flex-1 items-center justify-center p-4">
         <Loading />
-        <Text style={s.muted}>{t('common.loading')}</Text>
+        <Text className="mt-2 text-xs text-muted-foreground">{t('common.loading')}</Text>
       </View>
     )
   }
   if (error || !item) {
     return (
-      <View style={s.center}>
-        <Text style={s.error}>{error || t('feedbackDetail.empty')}</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
-          <Text style={s.back}>{t('common.back')}</Text>
+      <View className="flex-1 items-center justify-center p-4">
+        <Text className="text-[13px] text-[#DC2626] text-center">{error || t('feedbackDetail.empty')}</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} className="mt-3">
+          <Text className="text-sm text-[#374151]">{t('common.back')}</Text>
         </TouchableOpacity>
       </View>
     )
   }
 
   return (
-    <ScrollView style={s.container}>
-      <View style={s.header}>
+    <ScrollView className="flex-1 bg-card">
+      <View className="flex-row items-center px-4 py-3 gap-3">
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={s.back}>{t('common.back')}</Text>
+          <Text className="text-sm text-[#374151]">{t('common.back')}</Text>
         </TouchableOpacity>
-        <Text style={s.title}>{t('feedbackDetail.title')}</Text>
+        <Text className="text-lg font-semibold text-foreground">{t('feedbackDetail.title')}</Text>
       </View>
-      <View style={s.body}>
-        <View style={s.metaRow}>
-          <Text style={s.typeBadge}>{item.type}</Text>
-          <Text style={s.statusBadge}>{item.status}</Text>
+      <View className="p-4">
+        <View className="flex-row gap-2 mb-3">
+          <Text className="text-[11px] text-primary-foreground bg-primary px-2 py-0.5 rounded-lg">{item.type}</Text>
+          <Text className="text-[11px] text-muted-foreground bg-muted px-2 py-0.5 rounded-lg">{item.status}</Text>
         </View>
-        <Text style={s.sectionTitle}>{t('feedbackDetail.content')}</Text>
-        <Text style={s.content}>{item.content}</Text>
-        <Text style={s.time}>{item.createdAt}</Text>
-        <Text style={s.sectionTitle}>{t('feedbackDetail.reply')}</Text>
-        <Text style={[s.content, !item.reply && s.muted]}>{item.reply || t('common.empty')}</Text>
+        <Text className="mt-3 text-[13px] font-semibold text-muted-foreground">{t('feedbackDetail.content')}</Text>
+        <Text className="mt-1.5 text-sm text-[#374151] leading-[22px]">{item.content}</Text>
+        <Text className="mt-2 text-[11px] text-[#9CA3AF]">{item.createdAt}</Text>
+        <Text className="mt-3 text-[13px] font-semibold text-muted-foreground">{t('feedbackDetail.reply')}</Text>
+        <Text className={`mt-1.5 text-sm leading-[22px] ${item.reply ? 'text-[#374151]' : 'text-[#9CA3AF] italic'}`}>
+          {item.reply || t('common.empty')}
+        </Text>
       </View>
     </ScrollView>
   )
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  body: { padding: 16 },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  metaRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  typeBadge: {
-    fontSize: 11,
-    color: '#FFFFFF',
-    backgroundColor: '#10B981',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  statusBadge: {
-    fontSize: 11,
-    color: '#6B7280',
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  sectionTitle: { marginTop: 12, fontSize: 13, fontWeight: '600', color: '#6B7280' },
-  content: { marginTop: 6, fontSize: 14, color: '#374151', lineHeight: 22 },
-  time: { marginTop: 8, fontSize: 11, color: '#9CA3AF' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  muted: { color: '#9CA3AF', fontStyle: 'italic' },
-  error: { fontSize: 13, color: '#DC2626', textAlign: 'center' },
-  backBtn: { marginTop: 12 },
-})

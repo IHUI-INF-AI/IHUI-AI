@@ -6,7 +6,7 @@ import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-import { Input, Loading } from '@ihui/ui-native'
+import { Card, Input, Loading } from '@ihui/ui-native'
 interface SearchResult { id: string; title: string; summary: string; type: 'course' | 'article' | 'post' | 'note' | 'agent'; cover?: string }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -58,12 +58,14 @@ export function SearchScreen() {
         data={results}
         keyExtractor={(item) => `${item.type}_${item.id}`}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card} onPress={() => onPressResult(item)}>
-            <View style={styles.cardHead}>
-              <Text style={styles.type}>{t(`search.type.${item.type}`)}</Text>
-            </View>
-            <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-            <Text style={styles.cardSummary} numberOfLines={2}>{item.summary}</Text>
+          <TouchableOpacity onPress={() => onPressResult(item)}>
+            <Card className="p-3 mb-2">
+              <View style={styles.cardHead}>
+                <Text style={styles.type}>{t(`search.type.${item.type}`)}</Text>
+              </View>
+              <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+              <Text style={styles.cardSummary} numberOfLines={2}>{item.summary}</Text>
+            </Card>
           </TouchableOpacity>
         )}
       />

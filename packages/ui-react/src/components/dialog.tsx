@@ -18,7 +18,7 @@ const DialogContent = React.forwardRef<
         以全亮度暴露在遮罩之下,用户视觉感知为"AI 面板跟着登录窗一起发亮"。
         移除 open 态 animate-in + fade-in-0,遮罩瞬间出现,AI 面板从第一帧就被暗化。
         保留 closed 态 fade-out-0,关闭时仍有平滑淡出过渡。 */}
-    <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/80 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
+    <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/50 dark:bg-black/70 backdrop-blur-sm data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
