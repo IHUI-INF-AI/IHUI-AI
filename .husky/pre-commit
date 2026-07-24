@@ -288,6 +288,17 @@ run('🔌 检查端口注册表守门(warn-only)...', 'node scripts/check-port-r
 // 历史教训: 2026-07-23 agent 把 WXT 构建产物复制到 C:\temp\ihui-ext2, 用户质问"为什么不放项目内"
 run('🧹 检查项目外路径违规(blocking)...', 'node scripts/check-workspace-hygiene.mjs --staged')
 
+// 26. 项目父目录污染巡查(阻塞, 2026-07-24 立, AGENTS.md §15 运行时项目外文件创建禁令)
+// 与第 25 项互补: 25 扫项目内代码引用项目外路径, 26 反向巡查项目外是否被 agent 直接创建文件
+// 扫描项目父目录(D:\桌面\项目\)递归 2 层 + 桌面根级 .ps1/.txt/.log 等可疑文件
+// 命中条件: 文件名匹配 agent 临时产物模式(search_*.ps1 / *_result.txt / tmp_*.ps1 等)
+//         或 内容同时包含项目路径引用 + agent 操作痕迹(Get-ChildItem/Out-File 等)
+// 历史教训: 2026-07-19 agent 在 D:\桌面\项目\ 创建 search_uuyc.ps1 + uuyc_search_result.txt,
+//           原 check-workspace-hygiene.mjs 只扫项目内代码, 检测不到 agent 用 RunCommand 直接写项目外的产物
+if (!run('🛡️  检查项目父目录污染巡查(blocking)...', 'node scripts/check-parent-pollution.mjs')) {
+  process.exit(1)
+}
+
 // 16. 条件 typecheck 闸门(仅 staged 涉及 apps/web 时跑 web typecheck)
 // 防止"commit 通过但 push 失败"的循环(f21dc473 commit 漏掉 import 的教训)
 // 只在 staged 文件涉及 apps/web 时跑,避免影响其他包的 commit 速度
