@@ -8,6 +8,39 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) 维护成本优化 5 项 — 端口 docs 统一 + audit-migration 4 合 1 + LLM provider 字典化 + docker-compose profile 拆分 + i18n key 审计工具(平台独占:scripts + docs + ai-service + docker-compose)
+
+**触发**:用户要求"列出全部端口并深度分析代码实际维护成本及可优化点"。基于维护成本分析报告,执行 5 项高 ROI 优化,降低长期维护成本。
+
+**核心任务**:
+
+1. **端口 docs 统一**:修复 Storybook 端口不一致(承认 6006 豁免)、注册 CLI 8841 端口到 §2.6、新增预留空槽说明(19 空槽 42% 占用率)
+2. **audit-migration 脚本 4 合 1**:合并 audit-migration-{i18n,frontend-routes,db-fields,api-routes-v2}.mjs 为 `audit-migration.mjs`,支持 `--target` 子命令,原脚本行为 100% 保留,删除 4 个旧脚本
+3. **LLM provider 字典化**:`apps/ai-service/app/core/config.py` 新增 `llm_providers` JSON 字段 + `get_provider_config` 方法,向后兼容旧扁平字段;`llm_gateway.py` 改用新方法;`.env.example` 新增配置示例
+4. **docker-compose profile 拆分**:为 7 个监控服务(jaeger/otel-collector/prometheus/grafana/node-exporter/loki/promtail)添加 `profiles: [observability]`,默认 `docker compose up -d` 仅启动业务服务
+5. **i18n key 审计工具**:新增 `scripts/audit-i18n-unused-keys.mjs`,扫描 web + miniapp-taro 端无静态引用的 i18n key,输出 markdown 审计报告(只审计不删除)
+
+**成果**:
+
+- `docs/port-management.md`:§2.6 新增 CLI 8841 + Storybook 6006 豁免说明 + 19 空槽说明
+- `scripts/audit-migration.mjs`:新建(4 合 1),支持 `--target=i18n|frontend-routes|db-fields|api-routes`
+- `scripts/audit-i18n-unused-keys.mjs`:新建,支持 `--target=web|miniapp-taro` + `--dry-run` + `--output`
+- `apps/ai-service/app/core/config.py`:`llm_providers` JSON 字段 + `get_provider_config(name)` 方法(优先 JSON,降级扁平字段)
+- `apps/ai-service/app/core/llm_gateway.py`:改用 `get_provider_config` 获取 LLM 配置
+- `apps/ai-service/.env.example`:新增 `LLM_PROVIDERS` 配置示例
+- `docker-compose.yml`:7 个监控服务添加 `profiles: [observability]`,添加章节注释说明
+- `README.md` / `README.en.md` / `README.ja.md` / `README.ko.md`:同步更新审计脚本引用(11→9 迁移审计脚本)
+- 删除 4 个旧脚本:audit-migration-i18n.mjs / audit-migration-frontend-routes.mjs / audit-migration-db-fields.mjs / audit-migration-api-routes-v2.mjs
+
+**验证**:
+
+- audit-migration.mjs 4 个 target 行为保留 ✅
+- LLM provider 向后兼容(旧扁平字段降级)✅
+- docker-compose 默认只启动业务服务 ✅
+- i18n key 审计工具 dry-run 验证 ✅
+
+---
+
 ### [x] ✅(2026-07-25) /goal 阶段 1 统一 i18n 单一来源 — 4 端翻译合并到 packages/i18n(跨端:web + extension + miniapp-taro + mobile-rn + packages/i18n)
 
 **触发**:用户提供深度架构分析报告(`E:\桌面\新建 文本文档.txt`),评估当前架构"共享程度 62/100,业务层仅 35 分",最大债务是 i18n 4 端独立维护(每改文案 20 处改动)。报告推荐 4 阶段路径,本任务执行阶段 1(P0 最痛、ROI 最高、风险最低、为后续阶段铺路)。
