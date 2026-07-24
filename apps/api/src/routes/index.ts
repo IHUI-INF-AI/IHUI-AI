@@ -321,6 +321,11 @@ import { adminSaasProxyRoutes } from './admin-saas-proxy.js'
 // 资源上游自动同步中心(2026-07-24 立,CRUD + 同步触发 + webhook 接收 + BullMQ 每 6h 定时拉取)
 import { registrySyncRoutes } from './registry-sync.js'
 
+// 2026-07-24 国安级安全升级(E2-E5):MFA + 审计链 + 安全挑战
+import mfaRoutes from './mfa.js'
+import { auditLogRoutes } from './audit-log.js'
+import { securityRoutes } from './security.js'
+
 export function registerRoutes(server: FastifyInstance) {
   server.register(healthRoutes, { prefix: '/api' })
   server.register(authRoutes, { prefix: '/api/auth' })
@@ -880,4 +885,12 @@ export function registerRoutes(server: FastifyInstance) {
 
   // 资源上游自动同步中心(8 端点:items/sync-logs/sync/webhooks/webhook/install/upgrade-all + BullMQ 每 6h 定时拉取)
   server.register(registrySyncRoutes, { prefix: '/api' })
+
+  // ===== 2026-07-24 国安级安全升级(E2-E5)=====
+  // MFA/2FA 路由(7 端点):setup/enable/disable/verify/recovery-codes/recovery/status
+  server.register(mfaRoutes, { prefix: '/api/mfa' })
+  // 审计日志链(admin 4 端点):list/export/verify/stats,HMAC 链式防篡改
+  server.register(auditLogRoutes, { prefix: '/api/admin/audit-logs' })
+  // 安全挑战路由(7 端点):challenge/verify-challenge/ip-reputation/block-ip/anomalies/report
+  server.register(securityRoutes, { prefix: '/api/security' })
 }
