@@ -606,45 +606,46 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 
 ## 守门脚本速查(pre-commit 第 1-27 项)
 
-| #               | 脚本                                  | 用途                                                                     |
-| --------------- | ------------------------------------- | ------------------------------------------------------------------------ |
-| 1               | check-api-key-leak.mjs                | API key 泄露                                                             |
-| 2               | check-i18n-keys.mjs                   | i18n 键完整性 + 翻译白名单(15 条豁免)                                    |
-| 2b              | scan-i18n-zh-residue.mjs zh-TW        | zh-TW 简体字残留 (opencc 字形转换)                                       |
-| 2c              | scan-i18n-zh-residue.mjs ko           | ko.json 中文残留 (字符范围检测)                                          |
-| 2d              | scan-i18n-zh-residue.mjs ja           | ja.json 中文残留 (warn-only,不阻塞)                                      |
-| 2e              | check-i18n-broken-en.mjs              | en.json 破碎机翻英文                                                     |
-| 2f-web          | i18n-diff.mjs                         | **i18n AI 翻译流水线守门(blocking,仅 zh-CN staged 时检测)**              |
-| 2f-miniapp-taro | i18n-diff.mjs --target=miniapp-taro   | **miniapp-taro i18n 翻译流水线守门(blocking,仅 zh-CN.ts staged 时检测)** |
-| 3               | check-db-schema-drift.mjs             | schema drift                                                             |
-| 4               | check-stale-dist.mjs                  | packages 陈旧 dist                                                       |
-| 4b              | check-dist-encoding.mjs               | packages/*/dist UTF-8 BOM 守门                                           |
-| 4c              | check-api-client-utf8.mjs             | api-client 源码字节级 UTF-8 完整性                                       |
-| 5               | lint-staged                           | eslint + prettier                                                        |
-| 6               | check-sanitizer-bypass.mjs            | skipResponseSanitization                                                 |
-| 7               | check-dedupe.mjs                      | 依赖碎片化                                                               |
-| 8               | check-api-routes.mjs                  | 前后端路由一致性                                                         |
-| 9               | check-safe-parse.mjs                  | safeParse 静默忽略(warn-only)                                            |
-| 10              | openapi-check.mjs                     | OpenAPI spec 存在性(informational)                                       |
-| 11              | check-rounded-full.mjs                | 容器圆角违规                                                             |
-| 12              | check-delivery-report-consistency.mjs | 交付报告一致性                                                           |
-| 13b             | check-project-plan-size.mjs           | **PROJECT_PLAN.md 体积(warn-only,500KB 软参考,不阻塞)**                  |
-| 13c             | check-project-plan-archive.mjs        | **PROJECT_PLAN.md 已完成任务条目防误删**                                 |
-| 15              | check-api-migration-completeness.mjs  | 迁移完整性                                                               |
-| 17              | check-input-border-var.mjs            | CSS 颜色 token 嵌套(hsl(hsl(...)))                                       |
-| 18              | check-native-title-tooltip.mjs        | 原生 title tooltip 违规                                                  |
-| 19              | check-staged-pollution.mjs            | **staged 污染预警(warn-only,跨 ≥ 4 目录)**                               |
-| 20              | check-tailwind-class-conflict.mjs     | **Tailwind class 冲突(模板字面量 BASE/BRANCH size)**                     |
-| 21              | check-multi-end-sync.mjs              | **多端同步守门(warn-only,单端未标注平台独占)**                           |
-| 22              | check-readme-sync.mjs                 | **README 同步守门(warn-only,功能代码改动但 README 未更新)**              |
-| 23              | check-staged-files.mjs                | **staged 文件清单打印(info-only)**                                       |
-| 24a             | check-sidebar-width-consistency.mjs   | **侧边栏宽度一致性(design-tokens vs sidebar.tsx)**                       |
-| 24b             | check-port-registry.mjs               | **端口注册表守门(warn-only,非 88xx)**                                    |
-| 25              | check-workspace-hygiene.mjs           | **项目外路径违规(blocking:项目外路径写入;warn:硬编码中文路径)**          |
-| 26              | check-parent-pollution.mjs            | **项目父目录污染巡查(blocking:agent 在项目外直接创建文件)**              |
-| 27              | check-z-index-guard.mjs               | **z-index 层叠防护(blocking:禁 !important + inline script 覆盖 + 遮罩 fade-in 回归)**      |
-| 16              | 条件 typecheck                        | apps/web staged 时跑 typecheck                                           |
-| 16b             | 条件 database build                   | packages/database/src staged 时跑 build                                  |
+| #               | 脚本                                  | 用途                                                                                                     |
+| --------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 1               | check-api-key-leak.mjs                | API key 泄露                                                                                             |
+| 2               | check-i18n-keys.mjs                   | i18n 键完整性 + 翻译白名单(15 条豁免)                                                                    |
+| 2b              | scan-i18n-zh-residue.mjs zh-TW        | zh-TW 简体字残留 (opencc 字形转换)                                                                       |
+| 2c              | scan-i18n-zh-residue.mjs ko           | ko.json 中文残留 (字符范围检测)                                                                          |
+| 2d              | scan-i18n-zh-residue.mjs ja           | ja.json 中文残留 (warn-only,不阻塞)                                                                      |
+| 2e              | check-i18n-broken-en.mjs              | en.json 破碎机翻英文                                                                                     |
+| 2f-web          | i18n-diff.mjs                         | **i18n AI 翻译流水线守门(blocking,仅 zh-CN staged 时检测)**                                              |
+| 2f-miniapp-taro | i18n-diff.mjs --target=miniapp-taro   | **miniapp-taro i18n 翻译流水线守门(blocking,仅 zh-CN.ts staged 时检测)**                                 |
+| 3               | check-db-schema-drift.mjs             | schema drift                                                                                             |
+| 4               | check-stale-dist.mjs                  | packages 陈旧 dist                                                                                       |
+| 4b              | check-dist-encoding.mjs               | packages/*/dist UTF-8 BOM 守门                                                                           |
+| 4c              | check-api-client-utf8.mjs             | api-client 源码字节级 UTF-8 完整性                                                                       |
+| 5               | lint-staged                           | eslint + prettier                                                                                        |
+| 6               | check-sanitizer-bypass.mjs            | skipResponseSanitization                                                                                 |
+| 7               | check-dedupe.mjs                      | 依赖碎片化                                                                                               |
+| 8               | check-api-routes.mjs                  | 前后端路由一致性                                                                                         |
+| 9               | check-safe-parse.mjs                  | safeParse 静默忽略(warn-only)                                                                            |
+| 10              | openapi-check.mjs                     | OpenAPI spec 存在性(informational)                                                                       |
+| 11              | check-rounded-full.mjs                | 容器圆角违规                                                                                             |
+| 12              | check-delivery-report-consistency.mjs | 交付报告一致性                                                                                           |
+| 13b             | check-project-plan-size.mjs           | **PROJECT_PLAN.md 体积(warn-only,500KB 软参考,不阻塞)**                                                  |
+| 13c             | check-project-plan-archive.mjs        | **PROJECT_PLAN.md 已完成任务条目防误删**                                                                 |
+| 15              | check-api-migration-completeness.mjs  | 迁移完整性                                                                                               |
+| 17              | check-input-border-var.mjs            | CSS 颜色 token 嵌套(hsl(hsl(...)))                                                                       |
+| 18              | check-native-title-tooltip.mjs        | 原生 title tooltip 违规                                                                                  |
+| 19              | check-staged-pollution.mjs            | **staged 污染预警(warn-only,跨 ≥ 4 目录)**                                                               |
+| 20              | check-tailwind-class-conflict.mjs     | **Tailwind class 冲突(模板字面量 BASE/BRANCH size)**                                                     |
+| 21              | check-multi-end-sync.mjs              | **多端同步守门(warn-only,单端未标注平台独占)**                                                           |
+| 22              | check-readme-sync.mjs                 | **README 同步守门(warn-only,功能代码改动但 README 未更新)**                                              |
+| 23              | check-staged-files.mjs                | **staged 文件清单打印(info-only)**                                                                       |
+| 24a             | check-sidebar-width-consistency.mjs   | **侧边栏宽度一致性(design-tokens vs sidebar.tsx)**                                                       |
+| 24b             | check-port-registry.mjs               | **端口注册表守门(warn-only,非 88xx)**                                                                    |
+| 25              | check-workspace-hygiene.mjs           | **项目外路径违规(blocking:项目外路径写入;warn:硬编码中文路径)**                                          |
+| 26              | check-parent-pollution.mjs            | **项目父目录污染巡查(blocking:agent 在项目外直接创建文件)**                                              |
+| 27              | check-z-index-guard.mjs               | **z-index 层叠防护(blocking:禁 !important + inline script 覆盖 + 遮罩 fade-in 回归)**                    |
+| 28              | check-overlay-zindex.mjs              | **全屏遮罩 z-index 层级(blocking:防 `fixed inset-0` + `z-50` 复发,根除 SSO 登录遮罩盖不住 AI 面板问题)** |
+| 16              | 条件 typecheck                        | apps/web staged 时跑 typecheck                                                                           |
+| 16b             | 条件 database build                   | packages/database/src staged 时跑 build                                                                  |
 
 > **post-commit 钩子**(非 pre-commit):`git-push-guard.mjs` 自动检测本地 ahead → 自动 push + 验证 local == remote(详见 §21)。
 
