@@ -13,9 +13,28 @@ const { mockAuthenticate } = vi.hoisted(() => ({
   }),
 }))
 
-vi.mock('../../plugins/auth.js', () => ({
-  authenticate: mockAuthenticate,
-}))
+vi.mock('../../plugins/auth.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../plugins/auth.js')>()
+  return {
+    ...actual,
+    authenticate: mockAuthenticate,
+    // 必须显式 mock checkAuth:真实 checkAuth 闭包引用原始 authenticate,不会调用 mock。
+    checkAuth: async (
+      request: { userId?: string },
+      reply: { status: (c: number) => { send: (b: unknown) => void } },
+    ): Promise<boolean> => {
+      try {
+        await mockAuthenticate(request)
+        return true
+      } catch (e) {
+        const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+        const message = (e as Error).message || 'Authentication required'
+        reply.status(statusCode).send({ code: statusCode, message })
+        return false
+      }
+    },
+  }
+})
 
 import { cozeRoutes } from '../coze.js'
 

@@ -12072,6 +12072,10 @@
     "permissionReasonPurchased": "您已購買該智能體",
     "permissionReasonVipOnly": "僅 VIP 用戶可用,請開通 VIP",
     "title": "Agent 工作臺",
+    "statusPending": "待處理",
+    "statusPublished": "已發布",
+    "statusRejected": "已拒絕",
+    "statusOffline": "已下線",
     "kanban": {
       "triage": "待分類",
       "todo": "待辦",
@@ -12172,7 +12176,14 @@
     "colActualAmount": "實際金額",
     "colFee": "手續費",
     "colMethod": "方式",
-    "colProcessedAt": "處理時間"
+    "colProcessedAt": "處理時間",
+    "orderStatusPending": "待支付",
+    "orderStatusPaid": "已支付",
+    "orderStatusCancelled": "已取消",
+    "orderStatusRefunded": "已退款",
+    "flowRecharge": "流量充值",
+    "flowDeduct": "流量扣除",
+    "flowExpire": "流量過期"
   },
   "tokenValue": {
     "title": "我的智匯值",
@@ -12201,7 +12212,16 @@
     "noRecords": "暫無智匯值消耗記錄",
     "currentBalance": "當前餘額",
     "totalEarned": "累計獲得",
-    "totalUsed": "累計使用"
+    "totalUsed": "累計使用",
+    "rangeToday": "今天",
+    "range7d": "近7天",
+    "range30d": "近30天",
+    "rangeCustom": "自定義",
+    "colTime": "時間",
+    "colAgent": "智能體",
+    "colModel": "模型",
+    "colToken": "令牌",
+    "colAmount": "數量"
   },
   "distributionCompany": {
     "title": "我的公司",
@@ -12228,7 +12248,10 @@
     "teamSize": "團隊人數",
     "activeMembers": "活躍成員",
     "myRank": "我的排名",
-    "teamOverview": "團隊概覽"
+    "teamOverview": "團隊概覽",
+    "levelLabel": "等級標籤",
+    "withdraw": "提現",
+    "viewDetail": "查看詳情"
   },
   "commissionPlan": {
     "title": "分傭計劃",
@@ -12269,7 +12292,10 @@
     "levelsTitle": "各等級佣金比例",
     "commissionRate": "佣金比例",
     "copied": "已複製",
-    "copy": "複製"
+    "copy": "複製",
+    "level1": "一級",
+    "level2": "二級",
+    "level3": "三級"
   },
   "oauthPlatform": {
     "featureApiTitle": "開放 API",
