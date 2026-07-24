@@ -4,7 +4,6 @@ import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 const CATEGORIES = [
   '文案写作',
@@ -28,6 +27,11 @@ interface Opt {
   value: string
   label: string
 }
+
+const OPT_BASE = 'py-[14rpx] px-[28rpx] bg-card rounded-[12rpx] text-[26rpx] text-secondary-foreground border border-border'
+const OPT_ACTIVE = 'bg-[rgba(0,242,255,0.12)] text-primary border-primary'
+const TAG_BASE = 'py-[12rpx] px-[24rpx] bg-card rounded-[12rpx] text-[24rpx] text-secondary-foreground border border-border'
+const TAG_ACTIVE = 'bg-[rgba(0,242,255,0.12)] text-primary border-primary'
 
 export default function ModelEdit() {
   const { t } = useI18n()
@@ -147,11 +151,11 @@ export default function ModelEdit() {
     current: string,
     onSelect: (v: string) => void,
   ) => (
-    <View className="me-opt-group">
+    <View className="flex flex-wrap gap-[16rpx]">
       {opts.map((o) => (
         <View
           key={o.value}
-          className={`me-opt ${current === o.value ? 'me-opt-active' : ''}`}
+          className={`${OPT_BASE} ${current === o.value ? OPT_ACTIVE : ''}`}
           onClick={() => onSelect(o.value)}
         >
           <Text>{o.label}</Text>
@@ -194,47 +198,47 @@ export default function ModelEdit() {
   }
 
   return (
-    <View className="me-page">
-      <View className="me-header">
-        <Text className="me-back" onClick={() => Taro.navigateBack()}>
+    <View className="min-h-screen bg-background flex flex-col">
+      <View className="flex items-center p-[24rpx] bg-card gap-[24rpx]">
+        <Text className="text-[28rpx] text-primary" onClick={() => Taro.navigateBack()}>
           {t('common.back')}
         </Text>
-        <Text className="me-title">
+        <Text className="text-[34rpx] font-semibold text-foreground">
           {tt('devEnter.modelEdit.title', '编辑模型')}
         </Text>
       </View>
 
-      <ScrollView scrollY className="me-body">
+      <ScrollView scrollY className="flex-1 p-[24rpx] box-border">
         {/* 智能体信息 */}
-        <View className="me-agent">
+        <View className="flex items-center bg-card p-[24rpx] rounded-[16rpx] mb-[16rpx] gap-[20rpx] border border-border">
           {agentInfo.avatar ? (
-            <Image className="me-avatar" src={agentInfo.avatar} mode="aspectFill" />
+            <Image className="w-[88rpx] h-[88rpx] rounded-[16rpx] bg-secondary flex-shrink-0" src={agentInfo.avatar} mode="aspectFill" />
           ) : (
-            <View className="me-avatar me-avatar-ph">
+            <View className="w-[88rpx] h-[88rpx] rounded-[16rpx] bg-secondary flex-shrink-0 flex items-center justify-center text-primary text-[36rpx] font-semibold">
               <Text>{(agentInfo.name || '?').slice(0, 1)}</Text>
             </View>
           )}
-          <View className="me-agent-info">
-            <Text className="me-agent-name">
+          <View className="flex-1 overflow-hidden">
+            <Text className="block text-[30rpx] font-semibold text-foreground">
               {agentInfo.name || tt('devEnter.modelEdit.model', '模型')}
             </Text>
             {agentInfo.prologue ? (
-              <Text className="me-agent-desc">{agentInfo.prologue}</Text>
+              <Text className="text-[24rpx] text-muted-foreground mt-[8rpx] overflow-hidden line-clamp-2">{agentInfo.prologue}</Text>
             ) : null}
           </View>
         </View>
 
-        {loading ? <Text className="me-loading">{t('common.loading')}</Text> : null}
+        {loading ? <Text className="block text-[24rpx] text-muted-foreground text-center py-[16rpx]">{t('common.loading')}</Text> : null}
 
         {/* 1. 种类多选 */}
-        <Text className="me-label">
+        <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
           {tt('devEnter.modelEdit.categoryLabel', '种类（多选）')}
         </Text>
-        <View className="me-tag-bar">
+        <View className="flex flex-wrap gap-[16rpx]">
           {CATEGORIES.map((c) => (
             <View
               key={c}
-              className={`me-tag ${categories.includes(c) ? 'me-tag-active' : ''}`}
+              className={`${TAG_BASE} ${categories.includes(c) ? TAG_ACTIVE : ''}`}
               onClick={() => toggleCategory(c)}
             >
               <Text>{c}</Text>
@@ -243,43 +247,43 @@ export default function ModelEdit() {
         </View>
 
         {/* 2. 部门 */}
-        <Text className="me-label">{tt('devEnter.modelEdit.departmentLabel', '部门')}</Text>
+        <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">{tt('devEnter.modelEdit.departmentLabel', '部门')}</Text>
         <Picker
           mode="selector"
           range={DEPARTMENTS}
           value={deptIndex}
           onChange={(e) => setDeptIndex(Number(e.detail.value))}
         >
-          <View className="me-picker">
+          <View className="flex items-center justify-between py-[20rpx] px-[24rpx] bg-card rounded-[12rpx] text-[28rpx] text-foreground border border-border">
             <Text>{DEPARTMENTS[deptIndex]}</Text>
-            <Text className="me-picker-arrow">▾</Text>
+            <Text className="text-muted-foreground text-[24rpx]">▾</Text>
           </View>
         </Picker>
 
         {/* 3. 售卖方式 */}
-        <Text className="me-label">
+        <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
           {tt('devEnter.modelEdit.saleTypeLabel', '售卖方式')}
         </Text>
         {renderOpts(saleTypeOpts, saleType, (v) => setSaleType(v as SaleType))}
 
         {/* 4. 收费周期 + 价格 (付费/限时免费时显示) */}
         {saleType !== 'free' ? (
-          <View className="me-card">
-            <Text className="me-label">
+          <View className="bg-card rounded-[16rpx] pt-[8rpx] px-[24rpx] pb-[24rpx] mt-[8rpx] border border-border">
+            <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
               {tt('devEnter.modelEdit.chargePeriodLabel', '收费周期')}
             </Text>
             {renderOpts(periodOpts, chargePeriod, (v) =>
               setChargePeriod(v as ChargePeriod),
             )}
             {saleType === 'paid' ? (
-              <View className="me-price-row">
-                <Text className="me-label">
+              <View className="mt-[8rpx]">
+                <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
                   {tt('devEnter.modelEdit.priceLabel', '价格')}
                 </Text>
-                <View className="me-price-input">
-                  <Text className="me-yuan">¥</Text>
+                <View className="flex items-center bg-secondary rounded-[12rpx] px-[20rpx] mt-[12rpx] border border-border">
+                  <Text className="text-[32rpx] text-primary mr-[12rpx] font-semibold">¥</Text>
                   <Input
-                    className="me-input"
+                    className="flex-1 h-[72rpx] text-[28rpx] text-foreground"
                     type="digit"
                     value={price}
                     placeholder={tt('devEnter.modelEdit.pricePlaceholder', '请输入价格')}
@@ -294,7 +298,7 @@ export default function ModelEdit() {
         {/* 5. 限时免费时限 (限时免费时显示) */}
         {saleType === 'limited' ? (
           <View>
-            <Text className="me-label">
+            <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
               {tt('devEnter.modelEdit.limitedDurationLabel', '限时免费时限')}
             </Text>
             {renderOpts(durationOpts, limitedDuration, (v) =>
@@ -304,7 +308,7 @@ export default function ModelEdit() {
         ) : null}
 
         {/* 6. 面向群体 */}
-        <Text className="me-label">
+        <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
           {tt('devEnter.modelEdit.targetGroupLabel', '面向群体')}
         </Text>
         {renderOpts(groupOpts, targetGroup, (v) =>
@@ -314,7 +318,7 @@ export default function ModelEdit() {
         {/* 7. 折扣参与 (非免费时显示) */}
         {saleType !== 'free' ? (
           <View>
-            <Text className="me-label">
+            <Text className="block text-[26rpx] text-muted-foreground mt-[24rpx] mb-[16rpx]">
               {tt('devEnter.modelEdit.discountLabel', '折扣参与')}
             </Text>
             {renderOpts(discountOpts, discount, (v) => setDiscount(v as Discount))}
@@ -323,7 +327,7 @@ export default function ModelEdit() {
 
         {/* 提交审核 */}
         <View
-          className={`me-submit ${submitting ? 'me-submit-disabled' : ''}`}
+          className={`mt-[40rpx] p-[26rpx] bg-[linear-gradient(90deg,#00f2ff,#8b5cf6)] text-[#121217] text-center rounded-[16rpx] text-[30rpx] font-semibold ${submitting ? 'opacity-60' : ''}`}
           onClick={onSubmit}
         >
           <Text>
@@ -332,7 +336,7 @@ export default function ModelEdit() {
               : tt('devEnter.modelEdit.submit', '提交审核')}
           </Text>
         </View>
-        <View className="me-bottom-space" />
+        <View className="h-[60rpx]" />
       </ScrollView>
     </View>
   )

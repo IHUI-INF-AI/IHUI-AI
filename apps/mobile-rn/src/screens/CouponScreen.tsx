@@ -14,7 +14,9 @@ import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { usePaginatedList } from '../hooks/use-paginated-list'
 import { API_BASE_URL } from '../lib/config'
+import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Card } from '@ihui/ui-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -34,19 +36,6 @@ interface CouponPage {
 
 const PAGE_SIZE = 20
 const STATUS_TABS = ['available', 'used', 'expired'] as const
-
-function formatDate(iso: string): string {
-  if (!iso) return '—'
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
-}
 
 function statusColor(status: CouponItem['status']): string {
   if (status === 'available') return '#10B981'
@@ -134,7 +123,7 @@ export function CouponScreen() {
             </View>
           }
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <Card className="flex-row overflow-hidden p-0">
               <View style={styles.cardLeft}>
                 <Text style={styles.amountText}>¥{item.amount}</Text>
                 <Text style={styles.minText}>
@@ -144,13 +133,13 @@ export function CouponScreen() {
               <View style={styles.cardRight}>
                 <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
                 <Text style={styles.validText}>
-                  {t('coupon.validUntil')}: {formatDate(item.validUntil)}
+                  {t('coupon.validUntil')}: {formatDateOnly(item.validUntil)}
                 </Text>
                 <View style={[styles.statusBadge, { backgroundColor: statusColor(item.status) }]}>
                   <Text style={styles.statusText}>{t(`coupon.tab_${item.status}`)}</Text>
                 </View>
               </View>
-            </View>
+            </Card>
           )}
         />
       )}

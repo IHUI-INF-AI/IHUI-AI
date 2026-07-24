@@ -31,7 +31,6 @@ import {
   type NotificationSettingItem,
 } from '@/components'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 interface Room {
   id?: string
@@ -359,7 +358,7 @@ export default function MessageIndex() {
       return <PrivateMessageList list={privateList} onClick={onOpenPrivate} />
     }
     return (
-      <View className="message-list">
+      <View className="p-[20rpx]">
         <SearchBar
           value={keyword}
           placeholder={t('message.search')}
@@ -367,20 +366,20 @@ export default function MessageIndex() {
           onClear={() => setKeyword('')}
         />
         {loading ? (
-          <Text className="loading-text">{t('common.loading')}</Text>
+          <Text className="block text-center text-[28rpx] text-muted-foreground py-[60rpx]">{t('common.loading')}</Text>
         ) : filtered.length ? (
           filtered.map((room) => (
-            <View key={(room.id || room.name) as string} className="message-item">
+            <View key={(room.id || room.name) as string} className="bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]">
               <View className="flex-1 min-w-0">
                 <View className="flex items-center">
-                  <Text className="message-title">{room.name || t('message.unnamedRoom')}</Text>
+                  <Text className="block text-[30rpx] font-medium text-foreground mb-[8rpx]">{room.name || t('message.unnamedRoom')}</Text>
                   {(room.unreadCount ?? room.unread ?? 0) > 0 && (
                     <View className="ml-2">
                       <UnreadBadge count={room.unreadCount ?? room.unread ?? 0} />
                     </View>
                   )}
                 </View>
-                <Text className="message-preview">{room.lastMessage || t('message.empty')}</Text>
+                <Text className="text-[26rpx] text-muted-foreground">{room.lastMessage || t('message.empty')}</Text>
               </View>
               <MessageActions
                 onMarkRead={() =>
@@ -392,7 +391,7 @@ export default function MessageIndex() {
             </View>
           ))
         ) : (
-          <Text className="empty-text">{keyword ? t('message.notFound') : t('message.empty')}</Text>
+          <Text className="block text-center text-[28rpx] text-muted-foreground py-[60rpx]">{keyword ? t('message.notFound') : t('message.empty')}</Text>
         )}
       </View>
     )
@@ -400,7 +399,7 @@ export default function MessageIndex() {
 
   if (selectedPrivate) {
     return (
-      <View className="message-page">
+      <View className="min-h-screen bg-background">
         <NavBar title={selectedPrivate.userName} showBack onBack={() => setSelectedPrivate(null)} />
         <View style={{ height: `${menuButton.top + menuButton.height + 8}px` }} />
         <View style={{ height: 'calc(100vh - 60px)' }}>
@@ -418,7 +417,7 @@ export default function MessageIndex() {
   }
 
   return (
-    <View className="message-page">
+    <View className="min-h-screen bg-background">
       <NavBar
         title={t('message.center')}
         showBack={false}
