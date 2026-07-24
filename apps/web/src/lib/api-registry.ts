@@ -10,6 +10,7 @@ import type {
   ConfigMigrateResponse,
   RegistryItemListQuery,
   RegistrySourceType,
+  RegistryWorkerStats,
 } from '@ihui/types'
 
 const BASE = '/api/registry'
@@ -45,4 +46,5 @@ export const registryApi = {
   detectConfigDrift: () => api<ConfigDriftDetectResponse>(`/config-drift`),
   migrateConfig: (body: { fileType?: string; dryRun?: boolean; rollbackThreshold?: number }) =>
     api<ConfigMigrateResponse>(`/config-migrate`, { method: 'POST', body: JSON.stringify(body) }),
+  getWorkerStats: () => api<RegistryWorkerStats>(`/worker-stats`),
 }

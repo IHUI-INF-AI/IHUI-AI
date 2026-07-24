@@ -15,11 +15,14 @@ const ADAPTERS: Record<RegistryUpstreamSource, RegistryAdapter> = {
   custom: customRegistryAdapter,
 }
 
-/** 计算热度评分:install_count + stars + recent_releases * 10 */
+/** 计算热度评分:stars + recent_releases * 10 + downloads 归一化(上限 500) */
 export function calculateHeatScore(raw: RawRegistryItem): number {
   const stars = raw.meta?.stars ?? 0
   const recentReleases = raw.meta?.recentReleases ?? 0
-  return Math.round(stars + recentReleases * 10)
+  const downloads = raw.meta?.downloads ?? 0
+  // downloads 归一化:每 100 周下载量 = 1 分,上限 500 分(避免超大包垄断热度)
+  const downloadsScore = Math.min(downloads / 100, 500)
+  return Math.round(stars + recentReleases * 10 + downloadsScore)
 }
 
 /** 计算质量评分:文档完整度(50)+ 维护活跃度(30)+ 兼容性(20) */

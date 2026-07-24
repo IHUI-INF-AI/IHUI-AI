@@ -48,6 +48,8 @@ import {
   enqueueManualSync,
   enqueueWebhookSync,
   scheduleRegistrySync,
+  scheduleRegistryCleanup,
+  startRegistryCleanupWorker,
 } from '../plugins/registry-queue.js'
 import type {
   RegistryUpstreamSource,
@@ -70,6 +72,7 @@ import {
   listMigrationHistory,
   migrateConfig,
 } from '../services/registry-sync/config-migrator.js'
+import type { RegistryWorkerStats } from '../workers/registry-sync-worker.js'
 
 // =============================================================================
 // Zod schemas — P0-2
@@ -199,13 +202,21 @@ function deriveEventName(
 // =============================================================================
 
 export const registrySyncRoutes: FastifyPluginAsync = async (server) => {
-  // 启动时注册定时同步 job(每 6 小时一次)。index.ts 不可改,用 onReady hook 触发。
+  // 启动时注册定时同步 job(每 6 小时一次) + 每日清理 job(凌晨 3:00) + 清理 Worker。
+  // index.ts 不可改,用 onReady hook 触发。
   server.addHook('onReady', async () => {
     try {
       await scheduleRegistrySync(server.redisForQueue)
       server.log.info('registry sync scheduled (cron 0 */6 * * *)')
     } catch (err) {
       server.log.error({ err }, 'failed to schedule registry sync')
+    }
+    try {
+      await scheduleRegistryCleanup(server.redisForQueue)
+      startRegistryCleanupWorker(server.redisForQueue)
+      server.log.info('registry cleanup scheduled (cron 0 3 * * *) + worker started')
+    } catch (err) {
+      server.log.error({ err }, 'failed to schedule registry cleanup')
     }
   })
 
@@ -584,4 +595,20 @@ export const registrySyncRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ history, total: history.length }))
     },
   )
+
+  // ==========================================================================
+  // Worker 指标统计
+  // ==========================================================================
+
+  // GET /registry/worker-stats — Worker 运行时指标(管理员,供前端管理面板展示 worker 健康度)
+  server.get('/registry/worker-stats', { preHandler: requireAdmin }, async (_request, reply) => {
+    const stats = (server as any).registryWorkerStats as RegistryWorkerStats | undefined
+    return reply.send(
+      success({
+        processed: stats?.processed ?? 0,
+        failed: stats?.failed ?? 0,
+        lastProcessedAt: stats?.lastProcessedAt ?? null,
+      }),
+    )
+  })
 }
