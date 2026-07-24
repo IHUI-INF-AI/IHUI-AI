@@ -32,7 +32,8 @@
  * 退出码:0 = 无污染;1 = 发现项目外污染(阻塞 commit)
  */
 
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, unlinkSync } from 'node:fs';
+import * as os from 'node:os';
 import { join, resolve, relative, dirname, basename, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -213,6 +214,8 @@ function findPollution(dir, recursive = false, depth = 0) {
 function main() {
   const args = process.argv.slice(2);
   const isWarn = args.includes('--warn');
+  const isAutoClean = args.includes('--auto-clean');
+  const isQuiet = args.includes('--quiet');
 
   const allPollutions = [];
 
@@ -222,8 +225,55 @@ function main() {
   // 2. 扫描项目祖父目录(桌面)的根级文件(不递归,避免误伤其他项目)
   allPollutions.push(...findPollution(GRANDPARENT_DIR, false, 0));
 
+  // 3. 扫描用户主目录根级(只扫 agent 临时产物命名模式的文件,不递归)
+  //    覆盖 agent 误写到 ~/ 的情况(如 ~/*.ps1 / ~/*.txt 调试日志)
+  const homeDir = os.homedir();
+  allPollutions.push(...findPollution(homeDir, false, 0));
+
+  // --auto-clean: 自动清理强信号命中(文件名匹配 agent 临时产物模式)的污染
+  // 只清理文件名强信号命中,不清理内容双信号命中(避免误删用户合法脚本)
+  if (isAutoClean && allPollutions.length > 0) {
+    const cleaned = [];
+    const remaining = [];
+    for (const p of allPollutions) {
+      if (p.reason.includes('文件名匹配 agent 临时产物模式')) {
+        try {
+          unlinkSync(p.file);
+          cleaned.push(p);
+        } catch (e) {
+          remaining.push(p);
+        }
+      } else {
+        remaining.push(p);
+      }
+    }
+
+    if (cleaned.length > 0 && !isQuiet) {
+      console.log(`🧹 parent-pollution [auto-clean]: 已自动清理 ${cleaned.length} 个 agent 污染文件`);
+      for (const p of cleaned) {
+        console.log(`  ✓ 已删除 ${p.relPath}`);
+      }
+    }
+
+    if (remaining.length === 0) {
+      if (!isQuiet) console.log('✅ parent-pollution: 清理完成,无剩余污染');
+      process.exit(0);
+    }
+
+    // 剩余的是内容双信号命中,需要人工确认
+    if (!isQuiet) {
+      console.error(`⚠️  parent-pollution: ${remaining.length} 个文件需人工确认(内容双信号命中,不自动删除)`);
+      for (const p of remaining) {
+        console.error(`  ${p.relPath}`);
+        console.error(`    原因: ${p.reason}`);
+        console.error(`    手动删除: Remove-Item "${p.file}" -Force`);
+      }
+    }
+    process.exit(1);
+  }
+
   if (allPollutions.length === 0) {
-    console.log('✅ parent-pollution: 项目父目录及桌面根目录无 agent 污染');
+    if (!isQuiet) console.log('✅ parent-pollution: 项目父目录及桌面根目录无 agent 污染');
     process.exit(0);
   }
 
@@ -241,8 +291,8 @@ function main() {
   }
   console.error('');
   console.error('清理方法:');
-  console.error('  Remove-Item "<文件路径>" -Force');
-  console.error('  或在项目内执行: pnpm hygiene:parent');
+  console.error('  自动清理: pnpm hygiene:parent:clean  (只清文件名强信号命中)');
+  console.error('  手动清理: Remove-Item "<文件路径>" -Force');
   console.error('');
 
   if (isWarn) {
