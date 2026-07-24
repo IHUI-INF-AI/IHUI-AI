@@ -1,3 +1,7 @@
+// formatFileSize/formatPrice/formatMoney 复用 @ihui/shared/utils/format(单一来源)
+export { formatFileSize, formatPrice, formatMoney } from '@ihui/shared/utils/format'
+
+// formatDate/relativeTime 保留本地实现:miniapp-taro 使用 format 模板参数,与 shared 的 locale 参数签名不同
 export function formatDate(date: Date | number | string, format = 'YYYY-MM-DD HH:mm:ss'): string {
   const d = new Date(date)
   const year = d.getFullYear()
@@ -50,15 +54,6 @@ export function relativeTime(date: Date | number | string): string {
   return `${Math.floor(days / 365)}年前`
 }
 
-export function formatPrice(cents: number): string {
-  if (!cents || isNaN(cents)) return '0.00'
-  return (Number(cents) / 100).toFixed(2)
-}
-
-export function formatMoney(amount: number, decimals = 2): string {
-  return Number(amount || 0).toFixed(decimals)
-}
-
 export function formatTokenValue(value: number | string): string {
   if (!value) return '0'
   const num = parseInt(String(value), 10)
@@ -71,12 +66,4 @@ export function formatTokenValue(value: number | string): string {
 
 export function formatPhone(phone: string): string {
   return String(phone || '').replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
-}
-
-export function formatFileSize(bytes: number): string {
-  if (!bytes) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
 }

@@ -1,5 +1,12 @@
 'use client'
 
+// TODO: 后续迁移到 shared notification-store(@ihui/shared/notifications/notification-store)。
+// 当前跳过原因:web 端 use-notification 包含大量平台独占逻辑(桌面通知 Notification API、
+// 声音播放 AudioContext、按 ID markAsRead + API 调用 + 失败回滚、AudioContext 解锁),
+// 与共享 store 的 Context Provider 模式 + markAllRead(无 API 调用)架构差异过大,
+// 迁移会破坏 web 的复杂通知逻辑。需先在 shared store 中扩展 per-id markAsRead、
+// API 集成、桌面通知/声音钩子等能力后再迁移。
+
 import * as React from 'react'
 
 import { useWebSocket, type WSNotification } from '@/hooks/use-websocket'
