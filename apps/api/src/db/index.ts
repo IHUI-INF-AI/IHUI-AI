@@ -1,11 +1,22 @@
 import { createReadWriteDb, type Database } from '@ihui/database'
 import { config } from '../config/index.js'
+import { sqlEventBus } from './sql-event-bus.js'
 
 // 使用读写分离工厂创建主库(写)与读副本(读)
 // 无 DATABASE_READ_REPLICA_URL 时,dbReader 自动回退到主库
+// logger 回调把每次 SQL 查询事件发布到 sqlEventBus,
+// slow-sql-killer 与 n1-detector 订阅消费(自动注入 ALS 中的 requestId)
 const { dbWriter, dbReader, writerClient } = createReadWriteDb({
   url: config.DATABASE_URL,
   readReplicaUrl: config.DATABASE_READ_REPLICA_URL,
+  logger: (event) => {
+    sqlEventBus.emit({
+      query: event.query,
+      params: event.params,
+      durationMs: event.durationMs,
+      timestamp: event.timestamp,
+    })
+  },
 })
 
 // 主库(写) — insert/update/delete 必须使用此客户端
