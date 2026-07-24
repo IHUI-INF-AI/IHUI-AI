@@ -95,10 +95,16 @@ export default function BusinessCardScreen() {
       </Card>
 
       <View className="flex-row gap-2 px-4 py-4">
-        <TouchableOpacity className="flex-1 items-center rounded-md border border-border py-2.5">
+        <TouchableOpacity
+          onPress={onShare}
+          className="flex-1 items-center rounded-md border border-border py-2.5"
+        >
           <Text className="text-[13px] text-foreground/80">发送好友</Text>
         </TouchableOpacity>
-        <TouchableOpacity className="flex-1 items-center rounded-md border border-border py-2.5">
+        <TouchableOpacity
+          onPress={onSave}
+          className="flex-1 items-center rounded-md border border-border py-2.5"
+        >
           <Text className="text-[13px] text-foreground/80">{saved ? '已保存' : '保存相册'}</Text>
         </TouchableOpacity>
         <TouchableOpacity className="flex-1 items-center rounded-md bg-primary py-2.5">
