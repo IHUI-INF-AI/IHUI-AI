@@ -1200,7 +1200,20 @@
 - 60+ 动态路由 `generateStaticParams` 返回非空数组(Next.js 15.5.20 `prerenderedRoutes.length > 0` 检查)
 - `NODE_OPTIONS=--max-old-space-size=6144` 防 OOM
 
-**阶段 3(进行中)— 执行收敛**:web SSR → 静态导出已落地 ✅(5 阻塞点 + middleware 删除 + 60+ PageClient 化 + build 验证通过)。desktop 冗余页面删除 / Tauri 注入层迁移待后续。
+**阶段 3(已完成 ✅ 2026-07-24)— 执行收敛**:
+
+- ✅ web SSR → 静态导出已落地(5 阻塞点 + middleware 删除 + 60+ PageClient 化 + build 验证通过)
+- ✅ desktop 冗余页面删除:commit `afc7f54e6` 删除 desktop Vite + React 18 全部页面层(8 业务 + 5 admin = 13 页面)+ 14+ 死代码模块(hooks/components/lib/i18n),desktop 仅保留 Tauri 壳
+- ✅ desktop 残留测试文件清理:commit `eb15b8092` 删除 15 个对应已删源码的测试文件(9 admin tests + agent-runtime-panel/content-dialog/i18n/notification/token/use-admin-crud tests + setup.ts + vitest.config.ts)
+- ✅ desktop 独有页面迁移到 web:DesignPage(`apps/web/app/(main)/design/`)+ TaskReceiverPage(`apps/web/app/(main)/task-receiver/`),含 i18n key 迁移 + API 路径适配(/api/tasks/*)+ useTaskReceiver hook
+- ✅ desktop 最终结构:仅 `src-tauri/`(Rust + Tauri 配置)+ `scripts/`(regen-icons/with-rust)+ `package.json` + `eslint.config.js`。Tauri 配置 `frontendDist: "../web/out"` 直接加载 web 静态导出
+- ⏳ Tauri build 验证:依赖 Rust 工具链安装(cargo metadata 未安装,非阻塞,本任务已完成)
+
+**多端同步验证**:
+- web 端 typecheck EXIT 0(包含迁移的 design/task-receiver 页面)
+- desktop 无 TypeScript 源码(纯 Rust + Tauri 配置)
+- Tauri 配置 `beforeDevCommand: pnpm --filter @ihui/web dev` + `beforeBuildCommand: pnpm --filter @ihui/web build` 自动联动 web 构建
+- 前后端统一开发达成:web/desktop 共用同一套 Next.js 静态导出,Tauri 仅提供原生壳能力(托盘/快捷键/deep-link/自动更新/文件拖拽)
 
 **验证标准**:
 - 阶段 1:`tauri build` 产出签名安装包 + `latest.json` 可被 UpdateChecker 拉取验证;tag 触发 CI 自动构建发布;pubkey 非空
