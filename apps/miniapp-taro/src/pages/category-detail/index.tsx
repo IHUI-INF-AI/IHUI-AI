@@ -1,15 +1,14 @@
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
+import type { Agent } from '@ihui/api-client'
 import { getAgentList } from '@/api'
 import { useI18n } from '@/i18n'
 
-interface AgentItem {
-  id: string | number
-  name: string
-  desc?: string
+type AgentItem = Pick<Agent, 'id' | 'name'> & {
+  description?: string
   avatar?: string
-  uses?: number
+  useCount?: number
   tags?: string[]
 }
 
@@ -29,10 +28,16 @@ export default function CategoryDetailPage() {
     setCategoryId(id)
     setLoading(true)
     try {
-      const res = (await getAgentList()) as { list?: AgentItem[] }
-      let agents = res?.list || []
+      const res = await getAgentList()
+      let agents: AgentItem[] = (res.list || []).map((a) => ({
+        id: a.id,
+        name: a.name,
+        description: a.desc,
+        avatar: a.avatar,
+        useCount: a.uses,
+      }))
       if (sort === 'hot') {
-        agents = [...agents].sort((a, b) => (b.uses || 0) - (a.uses || 0))
+        agents = [...agents].sort((a, b) => (b.useCount || 0) - (a.useCount || 0))
       } else {
         agents = [...agents].reverse()
       }
@@ -111,7 +116,7 @@ export default function CategoryDetailPage() {
                   {agent.name}
                 </Text>
                 <Text className="block text-xs text-muted-foreground truncate mt-0.5">
-                  {agent.desc || t('categoryDetail.noDesc')}
+                  {agent.description || t('categoryDetail.noDesc')}
                 </Text>
                 {agent.tags && agent.tags.length > 0 && (
                   <View className="flex flex-wrap mt-1">
@@ -126,9 +131,9 @@ export default function CategoryDetailPage() {
                   </View>
                 )}
               </View>
-              {agent.uses !== undefined && (
+              {agent.useCount !== undefined && (
                 <Text className="text-xs text-muted-foreground ml-2">
-                  {t('categoryDetail.useCount', { n: agent.uses })}
+                  {t('categoryDetail.useCount', { n: agent.useCount })}
                 </Text>
               )}
             </View>
