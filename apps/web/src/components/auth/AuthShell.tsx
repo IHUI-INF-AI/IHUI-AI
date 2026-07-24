@@ -135,11 +135,25 @@ export function AuthShell({
  *   - 与 globals.css 第 597 行注释"z-modal 用于登录框"规范一致。
  *   - 禁用 z-50(Tailwind 内置=50,低于 z-sticky=990,会复现本 bug)。
  *
- * 用法:<AuthShellPage><AuthShell onClose={...}>...</AuthShell></AuthShellPage>
+ * 点击外部关闭(2026-07-25 立):传 onClose 时,点击遮罩空白处(e.target === e.currentTarget)
+ * 触发 onClose(通常是 router.push(redirectUrl) 跳回原页面)。点穿到 AuthShell 子元素不触发,
+ * 避免 input/button 误关。与主站 LoginDialog 的 Radix onInteractOutside 行为对齐。
+ *
+ * 用法:<AuthShellPage onClose={handleClose}><AuthShell onClose={...}>...</AuthShell></AuthShellPage>
  */
-export function AuthShellPage({ children }: { children: React.ReactNode }) {
+export function AuthShellPage({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode
+  onClose?: () => void
+}) {
   return (
-    <div className="fixed inset-0 z-modal flex items-center justify-center bg-black/40 px-4 backdrop-blur-[2px]">
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      className="fixed inset-0 z-modal flex items-center justify-center bg-black/40 px-4 backdrop-blur-[2px]"
+      onClick={onClose ? (e) => e.target === e.currentTarget && onClose() : undefined}
+    >
       {children}
     </div>
   )

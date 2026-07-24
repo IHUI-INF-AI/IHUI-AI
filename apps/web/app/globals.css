@@ -714,3 +714,58 @@ h6 {
     opacity: 1;
   }
 }
+
+/* ============================================================
+ * Sonner Toast 样式覆盖 (2026-07-25 立)
+ * ============================================================
+ * 问题:
+ *   1. Sonner 默认 close button 是圆形 (border-radius: 50%), 违反项目圆角守门
+ *      (AGENTS.md §4: 禁止纯圆形/胶囊形状容器; 唯一豁免: 头像/装饰点/红点/Switch 拇指)
+ *   2. close button 默认在 toast 左上角 + translate(-35%, -35%) 偏移到 toast 外部,
+ *      不符合用户习惯 (应在 toast 内部右上角)
+ *   3. 用户反馈"从屏幕上方滑下来的提示窗太难看了"
+ * 修复:
+ *   1. 覆盖 sonner CSS 变量: --toast-close-button-start: auto, --toast-close-button-end: 8px,
+ *      --toast-close-button-transform: none → 关闭按钮从左上角外部 → 右上角内部
+ *   2. border-radius: 50% → 6px (rounded-md), 符合圆角守门尺寸梯度
+ *   3. hover 用 subtle 透明度变化, 不加蓝色发光边框 (用户规则)
+ *   4. 保留 richColors 颜色逻辑 (success 浅绿 / error 浅红等), 仅改形状和位置
+ * 优先级说明 (不用 !important, 项目规则禁止):
+ *   - 变量覆盖: html[dir] [data-sonner-toaster] (特异性 0,2,1) > sonner 的 [data-sonner-toaster][dir='ltr'] (0,2,0)
+ *   - 属性覆盖: body [data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-close-button]
+ *     (特异性 0,4,1) > sonner 默认 (0,3,0) / richColors (0,4,0) / dark (0,4,0)
+ *   - 本块放在 globals.css 末尾 (在 @layer 外), 确保后于 sonner styles.css 注入 */
+/* 1. 覆盖 sonner 位置变量: 关闭按钮从左上外 → 右上内 */
+html[dir] [data-sonner-toaster] {
+  --toast-close-button-start: auto;
+  --toast-close-button-end: 8px;
+  --toast-close-button-transform: none;
+}
+/* 2. 关闭按钮: 圆形 → rounded-md (6px), 顶部下移 8px 到 toast 内部
+ *    直接覆盖 left/right/transform 属性 (不用变量), 双保险应对 sonner CSS-in-JS 注入顺序 */
+body [data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-close-button] {
+  border-radius: 6px;
+  left: auto;
+  right: 8px;
+  top: 8px;
+  transform: none;
+  width: 22px;
+  height: 22px;
+  opacity: 0.55;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+}
+body [data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-close-button]:hover {
+  opacity: 1;
+}
+body [data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-close-button] svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2;
+}
+/* 3. toast 内容右侧留出关闭按钮空间, 防止文字被遮挡 */
+body [data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-content] {
+  padding-right: 32px;
+}
