@@ -33,7 +33,7 @@ import type {
   TaskDeviceListResponse,
   TaskCancelResponse,
   TaskFilePayload,
-} from '@ihui/shared'
+} from '@ihui/shared/tasks/dispatch'
 
 const dispatchSchema = z.object({
   toDevice: z.string().min(1).max(100),
