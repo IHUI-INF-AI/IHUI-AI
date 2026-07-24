@@ -131,7 +131,7 @@ export default function PayIndex() {
           return
         }
         try {
-          await requestAliPayment({ orderInfo: res.tradeNo } as AnyPayParams)
+          await requestAliPayment({ tradeNO: res.tradeNo } as AnyPayParams)
           Taro.redirectTo({ url: `/pages/pay/result?orderNo=${res.outTradeNo}` })
         } catch {
           Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${res.outTradeNo}` })
