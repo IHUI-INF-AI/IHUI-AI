@@ -33,7 +33,23 @@ if ($task) {
     Write-Host ("  LastResult:     " + $taskInfo.LastTaskResult)
 } else {
     Write-Host "[Task] $TaskName - NOT INSTALLED" -ForegroundColor Yellow
-    Write-Host "  Install with: powershell -ExecutionPolicy Bypass -File `"$ScriptsDir\install-zombie-guardian.ps1`""
+    Write-Host "  Install v2.0 daemon: powershell -ExecutionPolicy Bypass -File `"$ScriptsDir\install-zombie-guardian-daemon.ps1`""
+}
+Write-Host ""
+
+# ---- 1b. Daemon process status (v2.0) ----
+$daemonProc = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -like '*zombie-guardian-daemon.ps1*' } | Select-Object -First 1
+if ($daemonProc) {
+    $dp = Get-Process -Id $daemonProc.ProcessId -ErrorAction SilentlyContinue
+    $ageMin = try { [math]::Round(((Get-Date) - $dp.StartTime).TotalMinutes, 1) } catch { 0 }
+    Write-Host "[Daemon v2.0] RUNNING" -ForegroundColor Green
+    Write-Host ("  PID:            " + $daemonProc.ProcessId)
+    Write-Host ("  Mem:            " + [math]::Round($dp.WorkingSet64/1MB,0) + " MB")
+    Write-Host ("  CPU:            " + [math]::Round($dp.CPU,1) + " s")
+    Write-Host ("  Uptime:         " + $ageMin + " min")
+} else {
+    Write-Host "[Daemon v2.0] NOT RUNNING (v1.0 periodic mode or not installed)" -ForegroundColor Yellow
 }
 Write-Host ""
 
