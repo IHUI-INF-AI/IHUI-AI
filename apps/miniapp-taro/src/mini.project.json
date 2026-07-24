@@ -7,6 +7,7 @@
     "minified": false,
     "autoprefixer": false
   },
+  "appid": "2021005181634508",
   "uploadExclude": ["node_modules/**/*"],
   "assetsInclude": ["./**/*.png", "./**/*.jpg", "./**/*.jpeg", "./**/*.svg", "./**/*.gif"]
 }
