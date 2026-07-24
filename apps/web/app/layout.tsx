@@ -80,7 +80,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var d=document.documentElement;d.style.setProperty('--z-base','1');d.style.setProperty('--z-sticky','990');d.style.setProperty('--z-modal','2000');d.style.setProperty('--z-popover','2001');d.style.setProperty('--z-notification','9999');d.style.setProperty('--z-max','10003');try{var raw=localStorage.getItem('ihui-ai-panel');if(raw){var p=JSON.parse(raw);var w=p&&p.state&&p.state.width;if(typeof w==='number'&&w>=320&&w<=720){d.style.setProperty('--ai-panel-occupy',(w+8)+'px');return;}}}catch(e){}d.style.setProperty('--ai-panel-occupy','408px');})();`,
+            __html: `(function(){var d=document.documentElement;d.style.setProperty('--z-base','1');d.style.setProperty('--z-sticky','990');d.style.setProperty('--z-modal','2000');d.style.setProperty('--z-popover','2001');d.style.setProperty('--z-notification','9999');d.style.setProperty('--z-max','10003');d.style.setProperty('--z-0','0');d.style.setProperty('--z-header','100');d.style.setProperty('--z-dropdown','1000');d.style.setProperty('--z-overlay','1000');d.style.setProperty('--z-loading','10000');try{var raw=localStorage.getItem('ihui-ai-panel');if(raw){var p=JSON.parse(raw);var w=p&&p.state&&p.state.width;if(typeof w==='number'&&w>=320&&w<=720){d.style.setProperty('--ai-panel-occupy',(w+8)+'px');return;}}}catch(e){}d.style.setProperty('--ai-panel-occupy','408px');})();`,
           }}
         />
         <ThemeProvider
