@@ -26,7 +26,7 @@
 | 8803 | AI Service(FastAPI) | apps/ai-service | `apps/ai-service/.env` `PORT=8803` | ✅ |
 | 8804 | 小程序 Taro H5 | apps/miniapp-taro | `apps/miniapp-taro/config/dev.ts` `port: 8804` | ✅ `strictPort:true` |
 | 8805 | Metro Bundler(RN/App) | apps/mobile-rn | `apps/mobile-rn/package.json` `--port 8805` | ✅ |
-| 8806 | Desktop(Vite+Tauri) | apps/desktop | `apps/desktop/vite.config.ts` `port: 8806` | ✅ `strictPort:true` |
+| 8806 | ~~Desktop(Vite+Tauri)~~ 已废弃(A 套壳:Desktop 通过 `tauri.conf.json` `devUrl:8801` 加载 web dev server,build 时加载 `web/out` 静态产物,不再需要独立 Vite 端口)| apps/desktop | `apps/desktop/src-tauri/tauri.conf.json` `devUrl: http://localhost:8801` | — |
 | 8807 | CLI(预留) | apps/cli | — | — |
 | 8808 | Extension(预留) | apps/extension | — | — |
 | 8809 | (预留扩展) | — | — | — |

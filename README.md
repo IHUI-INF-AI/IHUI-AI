@@ -571,7 +571,7 @@ cd IHUI-AI && docker compose up -d
 | 国际化         | next-intl                                                                      | zh-CN / zh-TW / en / ko / ja 5 语言 |
 | AI 服务        | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO                          | FastAPI 0.115 / LangGraph 0.2       |
 | AI 协议        | SSE(Agent 流式)+ WebSocket(聊天室 / 多模型流式)+ REST                          | 三协议分层                          |
-| 桌面端         | Tauri 2 + React 19 + Rust                                                      | 跨平台原生体验                      |
+| 桌面端         | Tauri 2 + Rust(WebView 加载 Web `output: 'export'` 静态导出)                  | A 套壳架构,跨平台原生体验           |
 | 浏览器扩展     | WXT + React                                                                    | Chrome / Edge / Firefox             |
 | 移动端         | React Native + Expo EAS                                                        | iOS / Android                       |
 | 小程序         | Taro 4 + React                                                                 | 微信小程序                          |
@@ -602,7 +602,7 @@ cd IHUI-AI && docker compose up -d
    ┌────▼─────┐  ┌──────────┐  ┌─▼────────┐  ┌──────────▼───┐  ┌──────────┐  ┌─▼────────┐
    │  Web     │  │ Desktop  │  │ Extension│  │  Mobile RN  │  │ Miniapp  │  │   CLI    │
    │ Next 15  │  │ Tauri 2  │  │  WXT     │  │  Expo EAS   │  │ Taro 4   │  │ Node.js  │
-   │ :8801    │  │ :8806    │  │          │  │  :8805      │  │ :8804    │  │ ACP+Skl │
+   │ :8801    │  │ web/out  │  │          │  │  :8805      │  │ :8804    │  │ ACP+Skl │
    │ strictPort│  │ + Rust   │  │          │  │ iOS/Android │  │ 微信小程序 │  │ 21 命令  │
    └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────┬─────┘  └────┬─────┘  └────┬─────┘
         │             │             │               │             │             │
@@ -642,7 +642,7 @@ cd IHUI-AI && docker compose up -d
 | **Web**     | `apps/web/`          | Next.js 15 + React 19           | 主前端,200+ 页面,5 语言 i18n,PWA,SEO,`output: 'export'` 静态导出供 Desktop WebView 加载(A 套壳架构) |
 | **API**     | `apps/api/`          | Fastify 5 + Drizzle             | 业务管理 + 多厂商代理 + 认证 + WebSocket,~1300 端点 / 95+ 路由文件     |
 | **AI 服务** | `apps/ai-service/`   | FastAPI + LangGraph + Socket.IO | LLM 网关 + Agent 执行 + MCP 工具 + A2A 协议 + 14 发布 adapter,~55 端点 |
-| **桌面**    | `apps/desktop/`      | Tauri 2 + Rust + React          | 跨平台桌面应用,**A 套壳架构:Tauri WebView 加载 Web 端 `output: 'export'` 静态导出产物,消除双端页面重复维护**,保留系统托盘(最小化到托盘)+ 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件访问(读文本/二进制/列目录/拖拽/粘贴)+ 窗口状态持久化 + 会话历史持久化 + Markdown 渲染 + 对话导出(MD/JSON/TXT) + 主题持久化(light/dark/system) + 对话搜索 + 消息重新生成 + 消息编辑重发 + 停止生成 + 字号缩放(Ctrl +/-/0) + 消息时间戳(locale 感知)+ 会话重命名(双击)+ 快捷键帮助(Ctrl+/)+ 模型持久化(provider 分组)+ 代码块主题跟随 + 快捷短语(8 预设) |
+| **桌面**    | `apps/desktop/`      | Tauri 2 + Rust                  | **A 套壳架构:Tauri WebView 加载 Web 端 `output: 'export'` 静态导出产物(`frontendDist: ../web/out`),消除双端页面重复维护**。Desktop 端仅为 Rust shell + 25+ `#[tauri::command]` 原生能力(系统托盘最小化 + 单实例 + 自动启动 + 全局快捷键 Ctrl+Shift+I + 深度链接 + 原生通知 + 本地文件访问 read_text/binary_file/write_text_file/list_dir/stat_file + 窗口状态持久化 + 会话历史持久化 store + 剪贴板 get/set + Computer Control screenshot/mouse/keyboard 10 命令 + 文件对话框 pickFile/Directory/Save)。Web 端通过 `@tauri-apps/api` bridge(`apps/web/src/lib/tauri-bridge.ts`)调用这些 Rust 命令,UI 功能(Markdown 渲染/对话导出/主题/搜索等)全部由 Web 静态产物提供 |
 | **CLI**     | `apps/cli/`          | Node.js + Commander             | 自研命令行 AI 编程助手,21 命令 + 36 工具 + ACP Server + 24 源配置导入   |
 | **扩展**    | `apps/extension/`    | WXT + React                     | 浏览器扩展,上下文菜单 + 侧边栏 + Chrome/Edge/Firefox                   |
 | **移动**    | `apps/mobile-rn/`    | React Native + Expo EAS         | iOS / Android 原生应用 + SSO                                           |
@@ -701,7 +701,7 @@ cd IHUI-AI && docker compose up -d
 | 端 | 目录 | 完成度 | 代码量 | 测试覆盖 | 核心场景 |
 |---|---|---|---|---|---|
 | **Web** | `apps/web/` | 🟢 生产级 | 200+ 页面 / 完整业务 | 63 e2e spec + Vitest | 主前端,所有业务模块 |
-| **桌面** | `apps/desktop/` | 🟡 核心场景级 | Tauri 2 + Rust + React | 基础测试 | 系统托盘 + 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件(读/写/列目录/拖拽/粘贴附件)+ 窗口状态持久化 + 会话历史持久化 + Markdown 渲染 + 对话导出(MD/JSON/TXT) + 主题持久化 + 对话搜索 + 消息重新生成 + 消息编辑重发 + 停止生成 + 字号缩放 + WorkPanel + 消息时间戳(locale 感知 Intl.DateTimeFormat)+ 会话重命名(双击 inline 编辑)+ 快捷键帮助面板(Ctrl+/ 模态)+ 模型选择持久化(localStorage + provider 分组)+ 代码块语法主题跟随(light/dark 自动切换 highlight.js CSS)+ 快捷短语模板(8 预设 prompt 一键插入) |
+| **桌面** | `apps/desktop/` | 🟡 核心场景级 | Tauri 2 + Rust | 基础测试 | **A 套壳架构:WebView 加载 Web `output: 'export'` 静态导出** + 系统托盘 + 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件(读/写/列目录)+ 窗口状态持久化 + 会话历史持久化 + 剪贴板 + Computer Control(screenshot/mouse/keyboard 10 命令)+ 文件对话框。UI 功能由 Web 静态产物提供,Desktop 仅 Rust shell |
 | **API** | `apps/api/` | 🟢 生产级 | 1300+ 端点 / 95+ 路由文件 | 237 .test.ts | 业务管理 + 认证 + 计费 + WebSocket |
 | **AI 服务** | `apps/ai-service/` | 🟢 生产级 | 21 LangGraph 文件 / 215+ 端点 | pytest + 集成测试 | LLM 网关 + Agent 执行 + MCP + A2A |
 | **CLI** | `apps/cli/` | 🟡 核心场景级 | ~1500 行 / 21 命令 / 36 工具 | 单元测试 | 自研 AI 编程助手,ACP Server |
@@ -934,7 +934,7 @@ IHUI-AI/
 │   ├── ai-service/          # AI 服务 (FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO)
 │   ├── api/                 # 后端 API (Fastify 5 + Drizzle, ~1300 端点, 95+ 路由文件)
 │   ├── cli/                 # 自研 CLI (21 命令 + 36 工具 + ACP Server, 对标 Claude Code)
-│   ├── desktop/             # 桌面端 (Tauri 2 + Rust + React)
+│   ├── desktop/             # 桌面端 (Tauri 2 + Rust,A 套壳:WebView 加载 Web 静态导出)
 │   ├── extension/           # 浏览器扩展 (WXT + React, Chrome/Edge/Firefox)
 │   ├── miniapp-taro/        # 微信小程序 (Taro 4 + React)
 │   ├── mobile-rn/           # 移动端 (React Native + Expo EAS)
