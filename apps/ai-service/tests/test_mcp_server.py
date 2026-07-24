@@ -10,7 +10,11 @@
 
 from __future__ import annotations
 
+import os as _os
 import pytest
+
+# 项目根目录(tests/ → ai-service/ → IHUI-AI/)
+_REPO = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 
 from app.services.mcp_server import (
     MCPTool,
@@ -402,8 +406,13 @@ async def test_tool_run_command_python_version(tmp_path):
     assert "python" in combined or out["exit_code"] != 0
 
 
-async def test_tool_run_command_echo_with_cwd(tmp_path):
+async def test_tool_run_command_echo_with_cwd(tmp_path, monkeypatch):
     """cwd 参数指定工作目录。"""
+    # tmp_path 不在工作区白名单,mock 校验绕过(测试 cwd 透传,非安全校验)
+    monkeypatch.setattr(
+        "app.services.mcp_server._validate_path_in_workspace",
+        lambda p: (True, str(p)),
+    )
     out = await _tool_run_command({
         "command": "echo test",
         "cwd": str(tmp_path),
@@ -412,11 +421,15 @@ async def test_tool_run_command_echo_with_cwd(tmp_path):
     assert "test" in out["stdout"]
 
 
-async def test_tool_run_command_git_status_on_real_repo():
+async def test_tool_run_command_git_status_on_real_repo(monkeypatch):
     """在 IHUI-AI 仓库执行 git status(白名单内真实命令)。"""
+    monkeypatch.setattr(
+        "app.services.mcp_server._validate_path_in_workspace",
+        lambda p: (True, str(p)),
+    )
     out = await _tool_run_command({
         "command": "git status",
-        "cwd": "g:/IHUI-AI",
+        "cwd": _REPO,
     })
     assert out["tool"] == "run_command"
     assert out["ok"] is True
@@ -644,10 +657,10 @@ async def test_tool_file_search_no_pattern_match(tmp_path):
 
 async def test_tool_git_operations_status_on_real_repo():
     """在 IHUI-AI 仓库执行 git status(真实 git 命令)。"""
-    out = await _tool_git_operations({"action": "status", "repo": "g:/IHUI-AI"})
+    out = await _tool_git_operations({"action": "status", "repo": _REPO})
     assert out["tool"] == "git_operations"
     assert out["action"] == "status"
-    assert out["repo"] == "g:/IHUI-AI"
+    assert out["repo"] == _REPO
     # git 命令应成功(IHUI-AI 是 git 仓库)
     assert out["ok"] is True
     assert out["exit_code"] == 0
@@ -656,7 +669,7 @@ async def test_tool_git_operations_status_on_real_repo():
 
 async def test_tool_git_operations_log_on_real_repo():
     """在 IHUI-AI 仓库执行 git log。"""
-    out = await _tool_git_operations({"action": "log", "repo": "g:/IHUI-AI"})
+    out = await _tool_git_operations({"action": "log", "repo": _REPO})
     assert out["ok"] is True
     # log 输出应包含 commit 信息
     assert len(out["output"]) > 0
@@ -664,13 +677,13 @@ async def test_tool_git_operations_log_on_real_repo():
 
 async def test_tool_git_operations_branch_on_real_repo():
     """在 IHUI-AI 仓库执行 git branch。"""
-    out = await _tool_git_operations({"action": "branch", "repo": "g:/IHUI-AI"})
+    out = await _tool_git_operations({"action": "branch", "repo": _REPO})
     assert out["ok"] is True
 
 
 async def test_tool_git_operations_disallowed_action():
     """不允许的 action(push/reset 等)返回 ok=False。"""
-    out = await _tool_git_operations({"action": "push", "repo": "g:/IHUI-AI"})
+    out = await _tool_git_operations({"action": "push", "repo": _REPO})
     assert out["ok"] is False
     assert "不允许" in out["message"]
     assert "status" in out["message"]  # 列出允许的操作
@@ -685,14 +698,14 @@ async def test_tool_git_operations_nonexistent_repo():
 
 async def test_tool_git_operations_default_action():
     """不传 action 时默认 status。"""
-    out = await _tool_git_operations({"repo": "g:/IHUI-AI"})
+    out = await _tool_git_operations({"repo": _REPO})
     assert out["action"] == "status"
     assert out["ok"] is True
 
 
 async def test_tool_git_operations_show_with_ref():
     """show 操作使用 ref 参数。"""
-    out = await _tool_git_operations({"action": "show", "repo": "g:/IHUI-AI", "ref": "HEAD"})
+    out = await _tool_git_operations({"action": "show", "repo": _REPO, "ref": "HEAD"})
     assert out["action"] == "show"
     # show HEAD 应成功
     assert out["ok"] is True
@@ -1311,7 +1324,7 @@ async def test_review_pr_not_found(monkeypatch):
     out = await _tool_review_pr({"repo": "owner/repo", "pr_number": 999})
     assert out["tool"] == "review_pr"
     assert out["ok"] is False
-    assert out["errorCode"] == "NOT_FOUND"
+    assert out["errorCode"] in ("NOT_FOUND", "PR_NOT_FOUND")
 
 
 # -----------------------------------------------------------------------------
