@@ -25,7 +25,7 @@ export default function LikeFavoriteShare({
   const { t } = useI18n()
   const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   return (
-    <View className="flex items-center justify-around py-3 bg-card border-t border-border">
+    <View className="flex items-center justify-around py-3 bg-card mt-2">
       <View className="flex flex-col items-center" onClick={onLike}>
         <Text className={`text-lg ${liked ? 'text-destructive' : 'text-muted-foreground'}`}>
           {liked ? '♥' : '♡'}
