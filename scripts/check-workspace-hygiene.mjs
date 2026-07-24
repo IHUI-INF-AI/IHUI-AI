@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * check-workspace-hygiene.mjs v3 — 彻底根治项目外路径违规
+ * check-workspace-hygiene.mjs v2 — 彻底根治项目外路径违规
  *
  * 7 大漏洞修复(2026-07-23 v2):
  *   1. 覆盖范围:从只扫 .trae-cn/tmp/ → 扫整个项目 working tree(排除 node_modules/.git/dist/.output/.next/turbo)
@@ -11,23 +11,15 @@
  *   6. 检测相对路径跳出项目:在文件写入上下文的 ..\..
  *   7. 扫描配置文件:.json/.yaml/.yml 可能含路径配置
  *
- * v3 (2026-07-24) — G:\ 根目录外部工具污染防护(新增 3 个 blocking 检测项):
- *   8. Qt 插件目录创建行为:Start-Process/Start-Job/Invoke-Item 启动 .exe 且工作目录为 G:\ 根
- *   9. QoderCN venv 异常路径引用:项目代码引用 g:\c\ 或 G:\c\(QoderCN venv 错误产物)
- *   10. G:\ 根目录临时文件写入:G:\tmp / G:\.appdata / G:\platforms 等 16 个已知垃圾路径
- *
  * 违规模式:
  *   a. 任何盘符 \temp\ 后跟非 .log/.txt 文件(项目数据写到系统 temp)
  *   b. \AppData\Local\Temp\ 后跟非 .log 文件
  *   c. $env:TEMP\ / $env:LOCALAPPDATA\ 后跟非 .log 文件
  *   d. 硬编码中文绝对路径(d:\桌面\ / d:\项目\ 等,GBK 会乱码)
  *   e. ihui-ext / ihui-prof 等项目数据目录名出现在项目外路径上下文
- *   f. Start-Process/Start-Job/Invoke-Item 启动 .exe 且工作目录为 G:\ 根(Qt 工具污染)
- *   g. 项目代码引用 g:\c\ 或 G:\c\(QoderCN venv 异常路径)
- *   h. G:\ 根目录下 16 个已知垃圾路径的临时文件写入(G:\tmp / G:\.appdata 等)
  *
  * 白名单:
- *   - 守门脚本自身 + cleanup-external-junk.ps1 清理脚本 + AGENTS.md + 规则文档
+ *   - 守门脚本自身 + AGENTS.md + 规则文档
  *   - 注释行(# 或 //)或包含"禁止/反面/deprecated/forbidden"的行
  *   - .log / .txt 文件路径
  *   - --redirect 参数(日志重定向)
@@ -63,7 +55,7 @@ const EXCLUDED_DIRS = new Set([
 // ===== 文件级白名单(这些文件可以引用项目外路径作为规则文档) =====
 const FILE_WHITELIST = [
   /scripts[\\/]check-workspace-hygiene\.mjs$/, // 守门脚本自身
-  /scripts[\\/]cleanup-external-junk\.ps1$/, // 清理脚本(引用垃圾路径是合法的)
+  /scripts[\\/]check-parent-pollution\.mjs$/,  // 项目父目录巡查守门(自身)
   /scripts[\\/]check-port-registry\.mjs$/,     // 端口守门(可能引用示例)
   /AGENTS\.md$/,                               // 项目规则
   /PROJECT_PLAN\.md$/,                         // 任务计划
@@ -71,13 +63,6 @@ const FILE_WHITELIST = [
   /docs[\\/]port-management\.md$/,            // 端口管理文档
   /README(\.[a-z-]+)?\.md$/,                  // README
 ];
-
-// ===== v3 预编译正则:G:\ 根目录 16 个已知垃圾路径 =====
-// 已知垃圾目录(2026-07-24 用户发现):platforms / iconengines / imageformats / styles /
-//   bearer / translations / CA / cert / WXCertUtil / rail_user_data / .pnpm-store /
-//   tmp / ai_zhs / .appdata / nonexistent-root
-// 注:c 单独由 QoderCN venv 检测项覆盖,这里只匹配其他 15 个
-const JUNK_G_ROOT_PATTERN = /[gG]:[\\/](?:platforms|iconengines|imageformats|styles|bearer|translations|CA|cert|WXCertUtil|rail_user_data|\.pnpm-store|tmp|ai_zhs|\.appdata|nonexistent-root)[\\/"'`\s]/;
 
 // ===== 违规检测器(分级:blocking 阻塞 / warning 提醒) =====
 const VIOLATION_CHECKS = [
@@ -116,50 +101,6 @@ const VIOLATION_CHECKS = [
       return /Out-File|Set-Content|Copy-Item|New-Item|Remove-Item|Move-Item|WriteAllBytes|WriteAllText|open\(|writeFile/i.test(line);
     },
     hint: '文件写入不能跳出项目根,用项目内相对路径',
-  },
-  // === BLOCKING (v3):G:\ 根目录外部工具污染防护(2026-07-24 立) ===
-  {
-    level: 'blocking',
-    name: 'Qt plugin dir creation in G:\\ root',
-    test: (line) => {
-      // 检测 Start-Process / Start-Job / Invoke-Item 启动 .exe
-      if (!/Start-Process|Start-Job|Invoke-Item/i.test(line)) return false;
-      if (!/\.exe/i.test(line)) return false;
-      // 必须同时有 G:\ 根目录作为工作目录(排除 G:\IHUI-AI\ 等合法子目录)
-      // 匹配:G:\ (单独根,后跟引号或空白) 或 -WorkingDirectory G:\ 或 Set-Location G:\
-      // 不匹配:G:\IHUI-AI\ G:\QoderCN\ G:\Trae CN\ 等合法子目录(后跟字母)
-      const isGRootOnly = /[gG]:[\\/](?![^'"`\s])/; // G:\ 后跟引号或空白(表示根目录)
-      const hasWorkingDirG = /-WorkingDirectory\s+['"]?[gG]:[\\/]['"]?/i.test(line)
-        || /Set-Location\s+['"]?[gG]:[\\/]['"]?/i.test(line)
-        || /cd\s+['"]?[gG]:[\\/]['"]?/i.test(line)
-        || isGRootOnly.test(line);
-      return hasWorkingDirG;
-    },
-    hint: '外部 Qt 工具禁止在 G:\\ 根目录运行,会释放插件目录污染根目录,请改用项目内路径或专门工具目录',
-  },
-  {
-    level: 'blocking',
-    name: 'QoderCN venv path anomaly (g:\\c\\)',
-    test: (line) => {
-      // 检测 g:\c\ 或 G:\c\(QoderCN venv 把 C:\ 错写成 g:\c\ 的异常路径)
-      // g:\c\Users\Administrator\.workbuddy\... 是特征路径
-      return /[gG]:[\\/]c[\\/]/.test(line);
-    },
-    hint: 'g:\\c\\ 是 QoderCN IDE venv 命令把 C:\\ 错写产生的异常路径,禁止在项目代码中引用',
-  },
-  {
-    level: 'blocking',
-    name: 'Temp file write to G:\\ root',
-    test: (line) => {
-      // 检测 G:\ 根目录下 16 个已知垃圾路径的引用(写入或工作目录上下文)
-      // 已知垃圾目录:tmp / .appdata / nonexistent-root / ai_zhs / .pnpm-store /
-      //   platforms / iconengines / imageformats / styles / bearer / translations /
-      //   CA / cert / WXCertUtil / rail_user_data / c
-      // 注:c 已在 QoderCN venv 检测项中覆盖,这里只匹配其他 15 个
-      // 用预编译正则提升性能,简化字符串转义
-      return JUNK_G_ROOT_PATTERN.test(line);
-    },
-    hint: '禁止在 G:\\ 根目录创建临时文件,用 .trae-cn/tmp/ 代替(AGENTS.md §15)',
   },
   // === WARNING:硬编码中文路径(项目内但会 GBK 乱码,提醒) ===
   {
