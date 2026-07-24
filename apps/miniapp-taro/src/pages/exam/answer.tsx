@@ -67,7 +67,7 @@ export default function ExamAnswer() {
     Promise.all([getExamPaper(id), getExamQuestions(id), startExamRecord(id)])
       .then(([{ paper }, { list }, { record }]) => {
         recordIdRef.current = record.id
-        setQuestions(list || [])
+        setQuestions((list || []) as unknown as Question[])
         setRemain((paper.duration || 0) * 60)
         timerRef.current = setInterval(() => {
           setRemain((prev) => {
