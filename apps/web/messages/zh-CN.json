@@ -2048,6 +2048,13 @@
       "wechatScanDesc": "请使用微信扫描下方二维码,支付完成后自动跳转",
       "wechatQrAlt": "微信支付二维码",
       "loading": "加载中..."
+    },
+    "paymentErrors": {
+      "alreadyVip": "您已是VIP会员",
+      "notLogged": "用户未登录",
+      "incompleteProduct": "商品信息不完整",
+      "selectPayMethod": "请选择支付方式",
+      "notLoggedOrNoOpenId": "用户未登录或openid不存在"
     }
   },
   "admin": {
@@ -22418,13 +22425,6 @@
     "downloadFailed": "下载失败",
     "downloadComplete": "下载完成",
     "downloadFailed2": "下载失败"
-  },
-  "Payment": {
-    "alreadyVip": "您已是VIP会员",
-    "notLogged": "用户未登录",
-    "incompleteProduct": "商品信息不完整",
-    "selectPayMethod": "请选择支付方式",
-    "notLoggedOrNoOpenId": "用户未登录或openid不存在"
   },
   "cmpindex": {
     "timeExpr": "时间表达式",
