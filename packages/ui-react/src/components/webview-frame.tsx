@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { ExternalLink, Loader2, AlertTriangle, ImageIcon } from 'lucide-react'
-import { cn } from '../lib/utils.js'
+import { cn } from '../lib/utils'
 
 /**
  * 通用 WebView 抽象组件。
