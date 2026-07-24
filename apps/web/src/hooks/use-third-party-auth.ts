@@ -24,7 +24,6 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import type {
   GoogleIdConfiguration,
-  GoogleOAuthConfig,
   PromptMomentNotification,
   ThirdPartyAccount,
   ThirdPartyLoginResponse,
@@ -298,7 +297,12 @@ export function useThirdPartyAuth(): UseThirdPartyAuthReturn {
         // ⚠️ 2026-07-22 临时禁用:bsm.aizhs.top cloudflared 隧道 502(路由指向 localhost:3000
         // 但 web 实际跑 8801),需 Cloudflare 控制台修复路由后再恢复
         // 禁用后 aizhs.top 主域直接处理 OAuth,redirect_uri = https://aizhs.top/callback?platform=xxx
-        if (false && typeof window !== 'undefined' && !isAuthSubdomainHost() && isMainDomainHost()) {
+        if (
+          false &&
+          typeof window !== 'undefined' &&
+          !isAuthSubdomainHost() &&
+          isMainDomainHost()
+        ) {
           const returnTo = `${window.location.origin}${window.location.pathname}${window.location.search}`
           const crossDomainUrl = buildAuthSubdomainStartUrl(platform, returnTo)
           window.location.href = crossDomainUrl
@@ -719,19 +723,5 @@ async function refreshBoundAccountsImpl(
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)
     toast.error('刷新绑定账号列表失败', msg)
-  }
-}
-
-/**
- * 获取 Google OAuth 配置（从后端拉取）。
- * 供组件判断 Google 是否已配置。
- */
-export async function fetchGoogleOAuthConfig(): Promise<GoogleOAuthConfig | null> {
-  try {
-    const res = await fetchApi<GoogleOAuthConfig>('/api/auth/google/config')
-    if (res.success) return res.data
-    return null
-  } catch {
-    return null
   }
 }

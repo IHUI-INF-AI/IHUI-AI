@@ -35,9 +35,11 @@ export async function initApiBaseUrl(): Promise<void> {
 export const API_BASE_URL = DEFAULT_API_BASE_URL
 /** @deprecated 使用 getBridgeBaseUrl() 替代。此常量不会在 initApiBaseUrl() 后更新。 */
 export const BRIDGE_BASE_URL = `${DEFAULT_API_BASE_URL}/api/agent-control`
-export const TOKEN_STORAGE_KEY = 'ihui_token'
-export const REFRESH_TOKEN_STORAGE_KEY = 'ihui_refresh_token'
+export {
+  TOKEN_STORAGE_KEY,
+  REFRESH_TOKEN_STORAGE_KEY,
+  REFRESH_LEAD_MS,
+} from '@ihui/shared/constants'
 export const EXPIRES_IN_STORAGE_KEY = 'ihui_token_expires_in'
-export const REFRESH_LEAD_MS = 5 * 60 * 1000
 export const TOKEN_EXPIRED_CODES = [401, 40101, 499]
 export const REFRESH_ALARM_NAME = 'ihui-refresh-token'

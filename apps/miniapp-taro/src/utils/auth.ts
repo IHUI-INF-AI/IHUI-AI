@@ -4,9 +4,11 @@
  */
 import { getStorageSync, setStorageSync, removeStorageSync, reLaunch } from '@tarojs/taro'
 import type { LoginResult as SharedLoginResult, AuthUser } from '@ihui/api-client'
+import {
+  TOKEN_STORAGE_KEY as TOKEN_KEY,
+  REFRESH_TOKEN_STORAGE_KEY as REFRESH_TOKEN_KEY,
+} from '@ihui/shared/constants'
 
-const TOKEN_KEY = 'ihui_token'
-const REFRESH_TOKEN_KEY = 'ihui_refresh_token'
 const USER_INFO_KEY = 'ihui_user_info'
 
 /**
