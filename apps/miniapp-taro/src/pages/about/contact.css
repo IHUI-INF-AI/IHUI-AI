@@ -30,10 +30,9 @@
   display: flex;
   align-items: center;
   padding: 32rpx;
-  border-bottom: 2rpx solid var(--color-border);
 }
-.row.last {
-  border-bottom: none;
+.row + .row {
+  margin-top: 16rpx;
 }
 .row:active {
   background: var(--color-background);
@@ -69,10 +68,9 @@
   justify-content: space-between;
   align-items: center;
   padding: 28rpx 32rpx;
-  border-bottom: 2rpx solid var(--color-border);
 }
-.work-row.last {
-  border-bottom: none;
+.work-row + .work-row {
+  margin-top: 16rpx;
 }
 .work-label {
   font-size: 28rpx;
