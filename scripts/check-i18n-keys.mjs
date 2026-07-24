@@ -28,13 +28,14 @@ const targetArg = process.argv.find((a) => a.startsWith('--target='))
 const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
 const isExtension = TARGET === 'extension'
 const WEB_DIR = join(ROOT, 'apps/web')
+// 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
 const MESSAGES_DIR = isExtension
   ? join(ROOT, 'packages/i18n/messages/extension')
-  : join(WEB_DIR, 'messages')
+  : join(ROOT, 'packages/i18n/messages/web')
 // extension 模式:暂存区路径前缀(同时识别 packages/i18n/messages/extension/ 与 apps/extension/)
 const STAGED_MESSAGES_PREFIX = isExtension
   ? 'packages/i18n/messages/extension/'
-  : 'apps/web/messages/'
+  : 'packages/i18n/messages/web/'
 const STAGED_SOURCE_PREFIX = isExtension ? 'apps/extension/' : 'apps/web/'
 const EXCLUDE_DIRS = new Set(['messages', '.next', 'node_modules', '.git'])
 const BASE_LANG = 'zh-CN'
@@ -399,7 +400,7 @@ if (untranslatedValueIssues.length > 0) {
 if (issueCount > 0) {
   const messagesRelPath = isExtension
     ? `packages/i18n/messages/extension/${BASE_LANG}.json`
-    : `apps/web/messages/${BASE_LANG}.json`
+    : `packages/i18n/messages/web/${BASE_LANG}.json`
   console.log(
     `${C.dim}[i18n 键检查] 统计: 检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 (${langNames.join(', ')})${C.reset}`,
   )
