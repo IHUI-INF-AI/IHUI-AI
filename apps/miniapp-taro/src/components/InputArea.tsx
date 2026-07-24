@@ -142,9 +142,9 @@ export default function InputArea({
   const canSend = text.trim().length > 0 && !disabled
 
   return (
-    <View className="bg-card border-t border-border safe-area-bottom">
+    <View className="bg-card safe-area-bottom mt-2">
       {showEmoji ? (
-        <ScrollView scrollY className="h-48 border-b border-border">
+        <ScrollView scrollY className="h-48 mb-2">
           <View className="flex flex-wrap p-2">
             {EMOJI_LIST.map((e, i) => (
               <View

@@ -190,7 +190,6 @@
   align-items: center;
   padding: 16rpx 24rpx;
   background: var(--color-card);
-  border-top: 2rpx solid var(--color-border);
   z-index: 100;
 }
 .select-all-label {

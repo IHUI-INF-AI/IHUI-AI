@@ -49,12 +49,11 @@
   justify-content: space-between;
   align-items: center;
   padding: 32rpx;
-  border-bottom: 2rpx solid var(--color-border);
   font-size: 28rpx;
   color: var(--color-foreground);
 }
-.menu-item:last-child {
-  border-bottom: none;
+.menu-item + .menu-item {
+  margin-top: 16rpx;
 }
 .arrow {
   color: var(--color-muted-foreground);

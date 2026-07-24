@@ -269,9 +269,9 @@ export default function AgentDetailPage() {
 
   return (
     <View className="min-h-screen bg-background">
-      <View className="flex bg-card border-b border-border">
+      <View className="flex bg-card">
         <View
-          className={`flex-1 py-3 text-center ${tab === 'info' ? 'border-b-2 border-[var(--color-primary)]' : ''}`}
+          className={`flex-1 py-3 text-center ${tab === 'info' ? 'bg-muted' : ''}`}
           onClick={() => setTab('info')}
         >
           <Text
@@ -281,7 +281,7 @@ export default function AgentDetailPage() {
           </Text>
         </View>
         <View
-          className={`flex-1 py-3 text-center ${tab === 'runtime' ? 'border-b-2 border-[var(--color-primary)]' : ''}`}
+          className={`flex-1 py-3 text-center ${tab === 'runtime' ? 'bg-muted' : ''}`}
           onClick={() => setTab('runtime')}
         >
           <Text

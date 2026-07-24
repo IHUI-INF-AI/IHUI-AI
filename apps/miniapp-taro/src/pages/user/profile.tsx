@@ -117,7 +117,7 @@ export default function Profile() {
           <View
             key={row.path}
             className={`flex justify-between items-center px-[16px] py-[16px] ${
-              idx < rows.length - 1 ? 'border-b-[1px] border-solid border-border' : ''
+              idx < rows.length - 1 ? 'mb-[4px]' : ''
             }`}
             onClick={() => (row.isAvatar ? chooseAvatar() : navigate(row.path))}
           >
