@@ -604,7 +604,7 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 
 ---
 
-## 守门脚本速查(pre-commit 第 1-23 项)
+## 守门脚本速查(pre-commit 第 1-27 项)
 
 | #               | 脚本                                  | 用途                                                                     |
 | --------------- | ------------------------------------- | ------------------------------------------------------------------------ |
@@ -642,6 +642,7 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 | 24b             | check-port-registry.mjs               | **端口注册表守门(warn-only,非 88xx)**                                    |
 | 25              | check-workspace-hygiene.mjs           | **项目外路径违规(blocking:项目外路径写入;warn:硬编码中文路径)**          |
 | 26              | check-parent-pollution.mjs            | **项目父目录污染巡查(blocking:agent 在项目外直接创建文件)**              |
+| 27              | check-z-index-guard.mjs               | **z-index 层叠防护(blocking:防 TRAE 注入覆盖 + 遮罩 fade-in 回归)**      |
 | 16              | 条件 typecheck                        | apps/web staged 时跑 typecheck                                           |
 | 16b             | 条件 database build                   | packages/database/src staged 时跑 build                                  |
 
