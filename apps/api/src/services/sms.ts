@@ -141,22 +141,28 @@ async function dispatchSms(phone: string, code: string): Promise<void> {
     return
   }
   // 策略 3：dev console（降级）
-  logger.warn('SMS 降级为 console 输出（未配置阿里云/代理）', { phone })
+  // 2026-07-24 安全加固:手机号脱敏(防 PII 泄露到日志),仅保留前 3 后 4
+  const maskedPhone = phone.length >= 7 ? `${phone.slice(0, 3)}****${phone.slice(-4)}` : '***'
+  logger.warn('SMS 降级为 console 输出（未配置阿里云/代理）', { phone: maskedPhone })
 }
 
 async function sendViaAliyun(phone: string, code: string): Promise<void> {
   const signName = env.ALI_SMS_SIGN_NAME
   const templateCode = env.ALI_SMS_TEMPLATE_CODE
   if (!signName || !templateCode) {
+    // 2026-07-24 安全加固:手机号脱敏(防 PII 泄露到日志)
+    const maskedPhone = phone.length >= 7 ? `${phone.slice(0, 3)}****${phone.slice(-4)}` : '***'
     logger.warn('阿里云短信缺少 ALI_SMS_SIGN_NAME 或 ALI_SMS_TEMPLATE_CODE,降级为 console', {
-      phone,
+      phone: maskedPhone,
     })
     return
   }
 
   const sdk = await loadAliyunSdk()
   if (!sdk) {
-    logger.warn('阿里云短信 SDK 不可用,降级为 console', { phone })
+    // 2026-07-24 安全加固:手机号脱敏(防 PII 泄露到日志)
+    const maskedPhone = phone.length >= 7 ? `${phone.slice(0, 3)}****${phone.slice(-4)}` : '***'
+    logger.warn('阿里云短信 SDK 不可用,降级为 console', { phone: maskedPhone })
     return
   }
 
