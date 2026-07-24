@@ -37,14 +37,14 @@ export default function LoginPage({ onSuccess }: Props) {
   }
 
   return (
-    <div className="sp-login">
-      <Card>
+    <div className="flex items-center justify-center min-h-screen p-5">
+      <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>{t('login.title')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={onLogin} className="sp-form">
-            <div className="field">
+          <form onSubmit={onLogin} className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
               <Label htmlFor="sp-account">{t('login.account')}</Label>
               <Input
                 id="sp-account"
@@ -55,7 +55,7 @@ export default function LoginPage({ onSuccess }: Props) {
                 disabled={loading}
               />
             </div>
-            <div className="field">
+            <div className="flex flex-col gap-1">
               <Label htmlFor="sp-password">{t('login.password')}</Label>
               <Input
                 id="sp-password"
@@ -65,7 +65,11 @@ export default function LoginPage({ onSuccess }: Props) {
                 disabled={loading}
               />
             </div>
-            {error ? <div className="error-banner">{error}</div> : null}
+            {error ? (
+              <div className="bg-destructive/10 text-destructive px-2.5 py-2 rounded-md border border-destructive text-xs">
+                {error}
+              </div>
+            ) : null}
             <Button type="submit" disabled={loading}>
               {loading ? t('login.loading') : t('login.button')}
             </Button>
