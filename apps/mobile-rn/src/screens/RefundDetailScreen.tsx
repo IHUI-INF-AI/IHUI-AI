@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Loading } from '@ihui/ui-native'
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type Route = RouteProp<RootStackParamList, 'RefundDetail'>
 interface Detail { id: string; orderNo: string; amount: number; status: string; reason: string; createdAt: string }
@@ -34,7 +35,7 @@ export function RefundDetailScreen() {
   useEffect(() => { void load() }, [load])
 
   if (loading) {
-    return <View style={s.center}><ActivityIndicator /><Text style={s.muted}>{t('common.loading')}</Text></View>
+    return <View style={s.center}><Loading /><Text style={s.muted}>{t('common.loading')}</Text></View>
   }
   if (error || !item) {
     return (

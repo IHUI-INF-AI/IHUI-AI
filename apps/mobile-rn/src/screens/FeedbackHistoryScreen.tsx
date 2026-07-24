@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import {
-  ActivityIndicator,
-  FlatList,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
@@ -15,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Loading } from '@ihui/ui-native'
 type Nav = NativeStackNavigationProp<RootStackParamList>
 interface Item {
   id: string
@@ -68,7 +61,7 @@ export function FeedbackHistoryScreen() {
       {error ? <Text style={s.error}>{error}</Text> : null}
       {loading && items.length === 0 ? (
         <View style={s.center}>
-          <ActivityIndicator />
+          <Loading />
           <Text style={s.muted}>{t('common.loading')}</Text>
         </View>
       ) : (
