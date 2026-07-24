@@ -1,4 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface RankingItem {
   id: string | number
@@ -29,6 +30,8 @@ function getName(item: RankingItem): string {
 }
 
 export default function Ranking({ list, title, unit = '', loading = false }: RankingProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   if (loading) {
     return (
       <View className="px-3 py-2">
@@ -48,7 +51,7 @@ export default function Ranking({ list, title, unit = '', loading = false }: Ran
       {title && <Text className="block text-base font-medium text-foreground mb-2">{title}</Text>}
       {list.length === 0 ? (
         <View className="flex items-center justify-center py-12">
-          <Text className="text-sm text-muted-foreground">暂无排行数据</Text>
+          <Text className="text-sm text-muted-foreground">{tt('ranking.noData', '暂无排行数据')}</Text>
         </View>
       ) : (
         list.map((item, idx) => (
