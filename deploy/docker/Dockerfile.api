@@ -1,3 +1,7 @@
+# 供应链安全:当前用 tag pinning(node:20-alpine),生产部署前应改为 digest pinning:
+#   docker pull node:20-alpine
+#   docker inspect --format='{{index .RepoDigests 0}}' node:20-alpine
+#   替换下面 FROM 行为:FROM node:20-alpine@sha256:<digest>
 FROM node:20-alpine AS base
 RUN npm install -g pnpm@9.15.0
 
@@ -20,6 +24,7 @@ COPY . .
 # 用 ... 递归构建 @ihui/api 及其 workspace 依赖(@ihui/database/@ihui/auth/@ihui/types 等)
 RUN pnpm --filter @ihui/api... run build
 
+# 供应链安全:同 base 阶段,生产部署前应改为 digest pinning(见顶部注释)
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production

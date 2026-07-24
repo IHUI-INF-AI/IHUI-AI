@@ -21,7 +21,7 @@ import fp from 'fastify-plugin'
 import { recordAuditLog } from '../services/audit-log-service.js'
 
 /** 需要脱敏的字段名(小写匹配,子串包含即脱敏)。 */
-const SENSITIVE_KEYS = ['password', 'token', 'secret', 'apikey', 'api_key', 'authorization']
+const SENSITIVE_KEYS = ['password', 'phone', 'idcard', 'bankcard', 'email', 'token', 'secret', 'apikey', 'api_key', 'authorization']
 
 const REDACTED = '***REDACTED***'
 
