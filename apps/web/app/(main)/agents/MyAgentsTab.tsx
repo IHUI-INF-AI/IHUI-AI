@@ -10,7 +10,7 @@ import { useAgent } from '@/hooks/use-agent'
 
 export function MyAgentsTab() {
   const router = useRouter()
-  const t = useTranslations('agents')
+  const t = useTranslations('agent')
   const { agents, loading, fetchAgents } = useAgent()
   const [selectedId, setSelectedId] = React.useState<string | undefined>()
 

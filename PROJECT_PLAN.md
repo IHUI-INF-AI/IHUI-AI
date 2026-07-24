@@ -8,6 +8,49 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) i18n 命名空间统一执行 + mobile-rn 卡片接入评估 — web agents→agent + miniapp-taro/mobile-rn 现状确认 + 卡片接入可行性评估(跨端:web + miniapp-taro + mobile-rn + packages/i18n)
+
+**触发**:用户要求"继续"。承接架构优化 4 项中 i18n 命名空间调研报告(方案 C 渐进式统一)的执行 + @ihui/app 卡片组件应用到 mobile-rn。
+
+**执行方式**:4 个 subagent 并行(web i18n + miniapp-taro i18n + mobile-rn i18n + mobile-rn 卡片接入)。
+
+**成果清单**:
+
+#### P1-2 执行: web 端 i18n `agents→agent` 命名空间统一(subagent 1)
+- **修改** 5 个 i18n JSON 文件(packages/i18n/messages/web/{zh-CN,zh-TW,en,ko,ja}.json)— 顶层 key `agents` → `agent`(68 keys 内容不变,5 语言 parity 一致)
+- **修改** 12 个 web 代码文件(`useTranslations('agents')` → `useTranslations('agent')`):
+  - apps/web/app/(main)/agents/{AgentsHeader,AgentGrid,MarketPagination,MarketFilters,MyAgentsTab,page}.tsx
+  - apps/web/app/(main)/agents/[id]/PageClient.tsx
+  - apps/web/app/(main)/agents/edit/[id]/PageClient.tsx
+  - apps/web/app/(main)/agents/create/{page,AgentCreateForm}.tsx
+  - apps/web/src/components/agents/KanbanBoard.tsx
+  - apps/web/src/components/data/VipBadge.tsx
+- **验证**:Grep 确认 `useTranslations('agents')` 返回 0 结果 ✅;typecheck 本任务文件零错误 ✅
+
+#### P1-2 执行: 5 个冲突命名空间决策(subagent 1 调研结论)
+- **courses/models/orders/errors/notifications** 5 个复数命名空间在 web 端**与对应单数命名空间语义不同**(如 courses=课程列表页 / course=课程详情页;errors=通用错误码 / error=功能专属错误),**不强制合并**(避免破坏 UI)
+- **决策**:保留双命名空间,仅统一"单数缺失"的 agents→agent 这一类
+- **引用规模**(供后续参考):courses 1 文件 3 处 / models 4 文件 11 处 / orders 5 文件 5 处 / errors 2 文件 3 处 / notifications 1 文件 1 处
+
+#### P1-2 执行: miniapp-taro + mobile-rn i18n 现状确认(subagent 2 + 3)
+- **miniapp-taro**:i18n 已全部是单数命名(agent/course/model/order/error/notification),无需改动 ✅
+- **mobile-rn**:i18n 已全部是单数命名(agent/course/order/error + 无 models/notifications),无需改动 ✅
+- **关键发现**:i18n 文件已迁移到 `packages/i18n/messages/{web,miniapp-taro,mobile-rn}/*.json`(2026-07-25 共享层单一来源策略)
+
+#### P2-2 应用评估: mobile-rn 接入 @ihui/app 卡片组件(subagent 4)
+- **结论**:0 个屏幕适合替换(所有现有实现都比 @ihui/app 卡片更复杂)
+- **逐屏评估**:
+  - VipScreen:现有含 levelName + daysRemaining + price,VipCard 不支持
+  - ProfileScreen/ProfileEditScreen:已用 SharedProfileScreen 委托 / 是编辑表单,语义不匹配
+  - BusinessCardScreen:现有含 8 字段 + QR + 3 动作按钮,BusinessCard 仅 6 字段 + 1 按钮
+  - AgentMarketScreen/AgentDetailScreen:现有含 rating + isFree,AgentCard 不支持
+  - CourseScreen/CourseDetailScreen:现有含 description + level + isFree,CourseCard 不支持
+- **建议**:若要让 @ihui/app 卡片能落地 mobile-rn,需先扩展卡片 Props(增加可选字段 + slot 支持),或简化 mobile-rn 屏幕
+
+**Git 同步证据**(§21):待 commit + push 后补充
+
+---
+
 ### [x] ✅(2026-07-25) 架构优化 4 项 + P3 评估 — api-client 共享层扩展 + ui-native 补齐 + @ihui/app 跨端组件库 + i18n 命名空间调研(跨端:packages/api-client + packages/ui-native + packages/app + apps/miniapp-taro)
 
 **触发**:用户要求"继续按你的建议去做执行,最多 agent 并行开发最大化效率,完美细致完整毫无遗漏"。承接 2026-07-25 早前 D 盘迁移整合后的架构深度分析报告中的 P1+P2+P3 建议。
@@ -130,7 +173,26 @@
 - H15: check-i18n-broken-en.mjs exit 0(0 处破碎英文)✅
 - H16: i18n-diff.mjs exit 0(无 pending)✅
 - H17: browser_use 验证 localhost:8801 中文渲染正常(导航/按钮/输入框/弹窗/页脚均有中文,无空白/原始 key)✅
-- H18: git local == remote(见交付报告)✅
+- H18: git local == remote(见下 Git 同步证据)✅
+
+**复验(2026-07-25 续接会话)**:
+
+- `node scripts/check-i18n-keys.mjs` exit 0(1062 文件 / 11010 键 / 5 语言 parity OK)✅
+- `node scripts/scan-i18n-zh-residue.mjs ko` exit 0(1 处 warn-only 半翻译,不阻塞)✅
+- `node scripts/scan-i18n-zh-residue.mjs zh-TW` exit 0(无中文残留)✅
+- `node scripts/check-i18n-broken-en.mjs` exit 0(0 处破碎英文)✅
+- `pnpm --filter @ihui/i18n typecheck` exit 0 ✅
+- `pnpm --filter @ihui/extension typecheck` exit 0 ✅
+- `pnpm --filter @ihui/miniapp-taro typecheck` exit 0 ✅
+- `pnpm --filter @ihui/mobile-rn typecheck` exit 0 ✅
+- `pnpm --filter @ihui/web typecheck` exit 1 — 错误为 `src/lib/tauri-bridge.ts` 缺 `@tauri-apps/api/core` 与 `@tauri-apps/plugin-dialog` 模块声明,与本任务 i18n 改动无关(属其他模块依赖问题)
+
+**Git 同步证据**(§21):
+
+- 本地 commit: 82cc4de26
+- origin commit: 82cc4de26
+- 同步状态: local == remote ✅
+- i18n 任务 commit: 4909b3152 `feat(i18n): 阶段 1 统一 i18n 单一来源 — 4 端翻译合并到 packages/i18n`
 
 ---
 
