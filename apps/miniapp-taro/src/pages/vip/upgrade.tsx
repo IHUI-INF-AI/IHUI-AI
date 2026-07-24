@@ -94,7 +94,7 @@ export default function UpgradePage() {
             buyerId = exData.data?.userId ?? exData.data?.openId
           }
         } catch (authErr) {
-          logger.warn('vip/upgrade', 'my.getAuthCode 失败,降级 mock 模式', authErr)
+          logger.warn('vip/upgrade', 'my.getAuthCode 失败,降级 mock 模式', String(authErr))
         }
         const res = await createAlipayMiniappPayment({
           amount: plan.price,
