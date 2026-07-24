@@ -4,7 +4,6 @@ import { useState, useMemo, useCallback } from 'react'
 import { getFavorites, deleteFavorite, type FavoriteItem } from '@/api/social'
 import { useSocialList } from '@/hooks/use-social-list'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 const PAGE_SIZE = 20
 
@@ -168,15 +167,15 @@ export default function FavoritesPage() {
     displayList.length > 0 && displayList.every((it) => selectedIds.has(it.id))
 
   return (
-    <View className="favorites-page">
+    <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
       {/* 顶部:统计 + 搜索 + 管理按钮 */}
-      <View className="favorites-top">
-        <View className="favorites-stats">
-          <Text className="favorites-stats-label">{tt('favorites.total', '已收藏')}</Text>
-          <Text className="favorites-stats-num">{totalCount}</Text>
-          <Text className="favorites-stats-suffix">{tt('favorites.itemsUnit', '项')}</Text>
+      <View className="flex flex-col gap-[16rpx]">
+        <View className="flex items-baseline">
+          <Text className="text-[28rpx] text-muted-foreground">{tt('favorites.total', '已收藏')}</Text>
+          <Text className="mx-[8rpx] text-[40rpx] font-bold text-primary">{totalCount}</Text>
+          <Text className="text-[24rpx] text-muted-foreground">{tt('favorites.itemsUnit', '项')}</Text>
           <Text
-            className="favorites-manage-btn"
+            className="ml-auto py-[8rpx] px-[20rpx] text-[24rpx] text-primary bg-[rgba(0,242,255,0.08)] border-[2rpx] border-[rgba(0,242,255,0.2)] rounded-[8rpx]"
             onClick={() => {
               setManageMode((v) => !v)
               setSelectedIds(new Set())
@@ -185,10 +184,10 @@ export default function FavoritesPage() {
             {manageMode ? tt('favorites.done', '完成') : tt('favorites.manage', '管理')}
           </Text>
         </View>
-        <View className="favorites-search">
-          <Text className="favorites-search-icon">🔍</Text>
+        <View className="flex items-center h-[72rpx] px-[20rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.15)] rounded-[12rpx]">
+          <Text className="mr-[12rpx] text-[28rpx] text-muted-foreground shrink-0">🔍</Text>
           <Input
-            className="favorites-search-input"
+            className="flex-1 text-[28rpx] text-foreground"
             value={searchText}
             onInput={(e) => setSearchText(e.detail.value)}
             placeholder={tt('favorites.searchPlaceholder', '搜索收藏的内容')}
@@ -197,11 +196,11 @@ export default function FavoritesPage() {
       </View>
 
       {/* 分类 Tab:横向滚动 */}
-      <ScrollView scrollX className="favorites-tabs">
+      <ScrollView scrollX className="mt-[20rpx] whitespace-nowrap w-full">
         {CATEGORY_TABS.map((tab) => (
           <View
             key={tab.key}
-            className={`favorites-tab ${activeTab === tab.key ? 'favorites-tab-active' : ''}`}
+            className={`inline-flex items-center justify-center h-[60rpx] px-[24rpx] mr-[12rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[10rpx] ${activeTab === tab.key ? 'text-primary border-primary font-semibold' : ''}`}
             onClick={() => setActiveTab(tab.key)}
           >
             <Text>{tt(tab.labelKey, tab.fallback)}</Text>
@@ -211,9 +210,9 @@ export default function FavoritesPage() {
 
       {/* 批量操作栏 */}
       {manageMode && displayList.length > 0 ? (
-        <View className="favorites-batch-bar">
+        <View className="mt-[16rpx] flex items-center justify-between py-[16rpx] px-[20rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[10rpx]">
           <View
-            className="favorites-batch-check"
+            className="flex items-center"
             onClick={() => {
               if (allChecked) {
                 setSelectedIds(new Set())
@@ -223,14 +222,14 @@ export default function FavoritesPage() {
             }}
           >
             <Text
-              className={`favorites-check-box ${allChecked ? 'favorites-check-box-checked' : ''}`}
+              className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[24rpx] text-transparent bg-background border-[2rpx] border-[rgba(0,242,255,0.3)] rounded-[6rpx] shrink-0 ${allChecked ? 'text-foreground bg-primary border-primary' : ''}`}
             >
               {allChecked ? '✓' : ''}
             </Text>
-            <Text className="favorites-batch-text">{tt('favorites.selectAll', '全选')}</Text>
+            <Text className="ml-[12rpx] text-[26rpx] text-foreground">{tt('favorites.selectAll', '全选')}</Text>
           </View>
           <Text
-            className={`favorites-batch-btn ${selectedIds.size === 0 ? 'favorites-batch-btn-disabled' : ''}`}
+            className={`py-[8rpx] px-[20rpx] text-[24rpx] text-foreground bg-destructive rounded-[8rpx] ${selectedIds.size === 0 ? 'text-muted-foreground bg-muted' : ''}`}
             onClick={handleBatchCancel}
           >
             {tt('favorites.batchCancel', '批量取消')} ({selectedIds.size})
@@ -240,39 +239,39 @@ export default function FavoritesPage() {
 
       {/* 收藏列表 */}
       {displayList.length > 0 ? (
-        <View className="favorites-list">
+        <View className="mt-[24rpx] flex flex-col gap-[16rpx]">
           {displayList.map((item) => {
             const checked = selectedIds.has(item.id)
             return (
               <View
                 key={item.id}
-                className="favorites-card"
+                className="flex items-center p-[24rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx]"
                 onClick={() => (manageMode ? toggleSelect(item.id) : viewDetail(item))}
               >
                 {manageMode ? (
                   <Text
-                    className={`favorites-check-box ${checked ? 'favorites-check-box-checked' : ''}`}
+                    className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[24rpx] text-transparent bg-background border-[2rpx] border-[rgba(0,242,255,0.3)] rounded-[6rpx] shrink-0 ${checked ? 'text-foreground bg-primary border-primary' : ''}`}
                   >
                     {checked ? '✓' : ''}
                   </Text>
                 ) : null}
                 {item.cover ? (
-                  <Image className="favorites-cover" src={item.cover} mode="aspectFill" />
+                  <Image className="w-[120rpx] h-[120rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0" src={item.cover} mode="aspectFill" />
                 ) : (
-                  <View className="favorites-cover favorites-cover-fallback">
-                    <Text className="favorites-cover-text">{item.targetType}</Text>
+                  <View className="w-[120rpx] h-[120rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0 flex items-center justify-center">
+                    <Text className="text-[20rpx] text-muted-foreground">{item.targetType}</Text>
                   </View>
                 )}
-                <View className="favorites-main">
-                  <Text className="favorites-title">{item.title}</Text>
-                  <Text className="favorites-source">{item.targetType}</Text>
-                  <View className="favorites-meta">
-                    <Text className="favorites-time">
+                <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
+                  <Text className="text-[30rpx] font-semibold text-foreground truncate">{item.title}</Text>
+                  <Text className="text-[22rpx] text-muted-foreground">{item.targetType}</Text>
+                  <View className="flex items-center justify-between">
+                    <Text className="text-[22rpx] text-muted-foreground">
                       {tt('favorites.collectedAt', '收藏于')} {formatDate(item.createdAt) || '-'}
                     </Text>
                     {!manageMode ? (
                       <Text
-                        className="favorites-cancel-btn"
+                        className="py-[8rpx] px-[20rpx] text-[24rpx] text-destructive bg-[rgba(220,38,38,0.08)] border-[2rpx] border-[rgba(220,38,38,0.2)] rounded-[8rpx]"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleCancel(item)
@@ -291,15 +290,15 @@ export default function FavoritesPage() {
 
       {/* 空状态:暂无收藏 + 去发现 */}
       {displayList.length === 0 && !loading ? (
-        <View className="favorites-empty">
-          <Text className="favorites-empty-icon">⭐</Text>
-          <Text className="favorites-empty-text">
+        <View className="mt-[120rpx] flex flex-col items-center">
+          <Text className="text-[80rpx]">⭐</Text>
+          <Text className="mt-[20rpx] text-[28rpx] text-muted-foreground">
             {searchText || activeTab !== 'all'
               ? tt('favorites.searchEmpty', '未找到匹配内容')
               : tt('favorites.empty', '暂无收藏')}
           </Text>
-          <View className="favorites-empty-btn" onClick={goDiscover}>
-            <Text className="favorites-empty-btn-text">
+          <View className="mt-[24rpx] py-[16rpx] px-[40rpx] bg-primary rounded-[10rpx]" onClick={goDiscover}>
+            <Text className="text-foreground text-[26rpx]">
               {tt('favorites.goDiscover', '去发现')}
             </Text>
           </View>
@@ -308,19 +307,19 @@ export default function FavoritesPage() {
 
       {/* 加载状态 */}
       {loading && displayList.length === 0 ? (
-        <View className="favorites-loading">
-          <Text className="favorites-loading-text">
+        <View className="text-center py-[40rpx] text-[24rpx] text-muted-foreground">
+          <Text>
             {tt('common.loading', '加载中…')}
           </Text>
         </View>
       ) : null}
       {loading && displayList.length > 0 ? (
-        <View className="favorites-loading-more">
+        <View className="text-center py-[40rpx] text-[24rpx] text-muted-foreground">
           <Text>{tt('favorites.loadMore', '加载更多')}</Text>
         </View>
       ) : null}
       {!loading && !hasMore && displayList.length > 0 ? (
-        <View className="favorites-no-more">
+        <View className="text-center py-[40rpx] text-[24rpx] text-muted-foreground">
           <Text>{tt('favorites.noMore', '没有更多了')}</Text>
         </View>
       ) : null}

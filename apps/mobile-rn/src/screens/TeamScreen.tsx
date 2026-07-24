@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useState } from 'react'
-import { FlatList, Image, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  FlatList,
+  Image,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
+import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 import { Loading } from '@ihui/ui-native'
@@ -38,19 +47,6 @@ function initials(name: string): string {
   return name.slice(0, 1).toUpperCase()
 }
 
-function formatDate(iso: string): string {
-  if (!iso) return '—'
-  try {
-    return new Intl.DateTimeFormat('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date(iso))
-  } catch {
-    return iso
-  }
-}
-
 export function TeamScreen() {
   const { t } = useI18n()
   const { token } = useAuth()
@@ -62,29 +58,38 @@ export function TeamScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
 
-  const load = useCallback(async (refresh = false) => {
-    if (refresh) setRefreshing(true)
-    else setLoading(true)
-    setError('')
-    const [statsRes, membersRes] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/team/stats`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-      fetch(`${API_BASE_URL}/api/team/members?page=1&pageSize=20`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
-    ])
-    if (!statsRes.ok || !membersRes.ok) {
-      setError(t('team.loadFailed'))
+  const load = useCallback(
+    async (refresh = false) => {
+      if (refresh) setRefreshing(true)
+      else setLoading(true)
+      setError('')
+      const [statsRes, membersRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/team/stats`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }),
+        fetch(`${API_BASE_URL}/api/team/members?page=1&pageSize=20`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }),
+      ])
+      if (!statsRes.ok || !membersRes.ok) {
+        setError(t('team.loadFailed'))
+        setLoading(false)
+        setRefreshing(false)
+        return
+      }
+      const statsData = (await statsRes.json()) as { data?: TeamStats }
+      const membersData = (await membersRes.json()) as { data?: { list: TeamMember[] } }
+      setStats(statsData.data ?? null)
+      setMembers(membersData.data?.list ?? [])
       setLoading(false)
       setRefreshing(false)
-      return
-    }
-    const statsData = (await statsRes.json()) as { data?: TeamStats }
-    const membersData = (await membersRes.json()) as { data?: { list: TeamMember[] } }
-    setStats(statsData.data ?? null)
-    setMembers(membersData.data?.list ?? [])
-    setLoading(false)
-    setRefreshing(false)
-  }, [token, t])
+    },
+    [token, t],
+  )
 
-  useEffect(() => { void load() }, [load])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   if (loading) {
     return (
@@ -106,9 +111,7 @@ export function TeamScreen() {
     )
   }
 
-  const filtered = activeTab === 'all'
-    ? members
-    : members.filter((m) => m.relation === activeTab)
+  const filtered = activeTab === 'all' ? members : members.filter((m) => m.relation === activeTab)
 
   return (
     <View style={styles.container}>
@@ -189,13 +192,20 @@ export function TeamScreen() {
             </View>
             <View style={styles.memberInfo}>
               <View style={styles.nameRow}>
-                <Text style={styles.memberName} numberOfLines={1}>{item.nickname}</Text>
-                <View style={[styles.relationBadge, item.relation === 'direct' && styles.relationDirect]}>
+                <Text style={styles.memberName} numberOfLines={1}>
+                  {item.nickname}
+                </Text>
+                <View
+                  style={[
+                    styles.relationBadge,
+                    item.relation === 'direct' && styles.relationDirect,
+                  ]}
+                >
                   <Text style={styles.relationText}>{t(`team.tab_${item.relation}`)}</Text>
                 </View>
               </View>
               <Text style={styles.memberMeta}>
-                {t('team.joinDate')}: {formatDate(item.joinDate)}
+                {t('team.joinDate')}: {formatDateOnly(item.joinDate)}
               </Text>
               <Text style={styles.memberMeta}>
                 {t('team.level')}: L{item.level}
@@ -203,7 +213,12 @@ export function TeamScreen() {
             </View>
             <View style={styles.memberRight}>
               <Text style={styles.contributionText}>+¥{item.contribution}</Text>
-              <View style={[styles.statusBadge, item.status === 'active' ? styles.statusActive : styles.statusInactive]}>
+              <View
+                style={[
+                  styles.statusBadge,
+                  item.status === 'active' ? styles.statusActive : styles.statusInactive,
+                ]}
+              >
                 <Text style={styles.statusText}>{t(`team.status_${item.status}`)}</Text>
               </View>
             </View>
@@ -231,7 +246,13 @@ const styles = StyleSheet.create({
   statItem: { alignItems: 'center', flex: 1 },
   statValue: { fontSize: 18, fontWeight: '700', color: PRIMARY },
   statLabel: { marginTop: 4, fontSize: 10, color: '#065F46', textAlign: 'center' },
-  contributionBox: { marginTop: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: '#FFFFFF', alignItems: 'center' },
+  contributionBox: {
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
   contributionLabel: { fontSize: 11, color: '#6B7280' },
   contributionValue: { marginTop: 4, fontSize: 18, fontWeight: '700', color: PRIMARY },
   tabs: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 6 },
@@ -240,14 +261,34 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 12, color: '#6B7280' },
   tabTextActive: { color: '#FFFFFF' },
   errorBar: { paddingHorizontal: 16, paddingVertical: 8 },
-  card: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
-  avatarBox: { width: 40, height: 40, borderRadius: 8, backgroundColor: '#F9FAFB', alignItems: 'center', justifyContent: 'center' },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
+  avatarBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#F9FAFB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   avatarImg: { width: '100%', height: '100%', borderRadius: 8 },
   avatarInitial: { fontSize: 16, fontWeight: '600', color: '#6B7280' },
   memberInfo: { flex: 1, marginLeft: 10, marginRight: 8 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   memberName: { fontSize: 14, fontWeight: '600', color: '#111827', flex: 1 },
-  relationBadge: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8, backgroundColor: '#F3F4F6' },
+  relationBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
   relationDirect: { backgroundColor: '#ECFDF5' },
   relationText: { fontSize: 10, color: '#6B7280' },
   memberMeta: { marginTop: 3, fontSize: 11, color: '#9CA3AF' },
@@ -257,6 +298,12 @@ const styles = StyleSheet.create({
   statusActive: { backgroundColor: '#ECFDF5' },
   statusInactive: { backgroundColor: '#F3F4F6' },
   statusText: { fontSize: 10, color: '#6B7280' },
-  retryBtn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
+  retryBtn: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+  },
   retryBtnText: { color: '#FFFFFF', fontSize: 13 },
 })

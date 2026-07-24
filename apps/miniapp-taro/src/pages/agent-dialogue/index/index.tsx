@@ -4,7 +4,6 @@ import Taro, { useReady } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 type MsgType = 'user' | 'seller' | 'system'
 type MediaType = 'image' | 'audio' | 'video' | 'file' | null
@@ -498,11 +497,12 @@ export default function AgentDialogue() {
   }, [])
 
   const renderBubble = (msg: DisplayMessage) => {
+    const mediaTextColor = msg.type === 'user' ? 'text-primary-foreground' : 'text-muted-foreground'
     if (msg.mediaType === 'image' || msg.messageType === 2) {
       const url = msg.mediaUrl || msg.content
       return (
         <Image
-          className="msg-image"
+          className="max-w-[480rpx] w-full min-w-[200rpx] min-h-[200rpx] rounded-[8rpx] block bg-muted"
           src={url}
           mode="aspectFit"
           onClick={() => previewImage(url)}
@@ -511,14 +511,14 @@ export default function AgentDialogue() {
     }
     if (msg.mediaType === 'video' || msg.messageType === 5) {
       const url = msg.mediaUrl || msg.content
-      return <Video className="msg-video" src={url} controls poster={msg.poster || ''} />
+      return <Video className="max-w-[480rpx] max-h-[600rpx] rounded-[8rpx] block" src={url} controls poster={msg.poster || ''} />
     }
     if (msg.mediaType === 'audio' || msg.messageType === 3) {
       const url = msg.mediaUrl || msg.content
       return (
-        <View className="msg-media">
-          <Text className="media-text">🎵 {tt('agentDialogue.audioMessage', '音频消息')}</Text>
-          <Text className="media-link" onClick={() => openAudio(url)}>
+        <View className="flex flex-col gap-[8rpx] p-[20rpx] px-[24rpx]">
+          <Text className={`text-[26rpx] ${mediaTextColor}`}>🎵 {tt('agentDialogue.audioMessage', '音频消息')}</Text>
+          <Text className="text-[24rpx] text-accent" onClick={() => openAudio(url)}>
             {tt('agentDialogue.clickPlay', '点击播放')}
           </Text>
         </View>
@@ -527,78 +527,78 @@ export default function AgentDialogue() {
     if (msg.mediaType === 'file' || msg.messageType === 4) {
       const url = msg.mediaUrl || msg.content
       return (
-        <View className="msg-media">
-          <Text className="media-text">📄 {tt('agentDialogue.fileMessage', '文件消息')}</Text>
-          <Text className="media-link" onClick={() => openFile(url)}>
+        <View className="flex flex-col gap-[8rpx] p-[20rpx] px-[24rpx]">
+          <Text className={`text-[26rpx] ${mediaTextColor}`}>📄 {tt('agentDialogue.fileMessage', '文件消息')}</Text>
+          <Text className="text-[24rpx] text-accent" onClick={() => openFile(url)}>
             {tt('agentDialogue.clickView', '点击查看')}
           </Text>
         </View>
       )
     }
-    return <Text className="bubble-text">{msg.content}</Text>
+    return <Text className="text-[28rpx] leading-[1.5] break-words whitespace-pre-wrap">{msg.content}</Text>
   }
 
   return (
-    <View className="agent-dialogue-page">
+    <View className="flex flex-col h-screen bg-background">
       <ScrollView
-        className="chat-container"
+        className="flex-1 min-h-0 pb-[180rpx]"
         scrollY
         scrollTop={scrollTop}
         scrollWithAnimation
         onScrollToUpper={loadMoreHistory}
         upperThreshold={50}
       >
-        <View className="chat-messages">
+        <View className="flex flex-col gap-[24rpx] p-[20rpx]">
           {chatList.length === 0 && !loading ? (
-            <View className="empty-state">
-              <Text className="empty-text">
+            <View className="flex justify-center py-[120rpx] px-[40rpx]">
+              <Text className="text-[28rpx] text-muted-foreground text-center">
                 {tt('agentDialogue.messageEmpty', '发送消息开始对话')}
               </Text>
             </View>
           ) : null}
           {chatList.map((msg) => (
-            <View key={String(msg.id)} className={`message-item ${msg.type}`}>
+            <View key={String(msg.id)} className={`flex items-start gap-[16rpx] ${msg.type === 'user' ? 'flex-row-reverse items-end' : msg.type === 'system' ? 'justify-center' : ''}`}>
               {msg.type === 'user' ? (
                 <>
-                  <View className={`message-bubble user-bubble ${isMedia(msg) ? 'media-message' : ''}`}>
+                  <View className={`max-w-[480rpx] p-[20rpx] px-[24rpx] rounded-[12rpx] relative bg-primary text-primary-foreground ${isMedia(msg) ? 'p-0 bg-transparent' : ''}`}>
                     {renderBubble(msg)}
                     {msg.read ? (
-                      <Text className="read-status">{tt('agentDialogue.read', '已读')}</Text>
+                      <Text className="block text-[20rpx] text-muted-foreground mt-[8rpx] text-right">{tt('agentDialogue.read', '已读')}</Text>
                     ) : null}
                   </View>
-                  <View className="avatar user-avatar">
+                  <View className="w-[72rpx] h-[72rpx] rounded-[12rpx] overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
                     {msg.avatar ? (
-                      <Image src={msg.avatar} mode="aspectFill" className="avatar-img" />
+                      <Image src={msg.avatar} mode="aspectFill" className="w-full h-full" />
                     ) : (
-                      <Text className="avatar-placeholder">👤</Text>
+                      <Text className="text-[32rpx]">👤</Text>
                     )}
                   </View>
                 </>
               ) : msg.type === 'seller' ? (
                 <>
-                  <View className="avatar seller-avatar">
+                  <View className="w-[72rpx] h-[72rpx] rounded-[12rpx] overflow-hidden flex-shrink-0 bg-muted flex items-center justify-center">
                     {msg.avatar ? (
-                      <Image src={msg.avatar} mode="aspectFill" className="avatar-img" />
+                      <Image src={msg.avatar} mode="aspectFill" className="w-full h-full" />
                     ) : (
-                      <Text className="avatar-placeholder">🤖</Text>
+                      <Text className="text-[32rpx]">🤖</Text>
                     )}
                   </View>
-                  <View className={`message-bubble seller-bubble ${isMedia(msg) ? 'media-message' : ''}`}>
+                  <View className={`max-w-[480rpx] p-[20rpx] px-[24rpx] rounded-[12rpx] relative bg-card text-foreground ${isMedia(msg) ? 'p-0 bg-transparent' : ''}`}>
                     {renderBubble(msg)}
                   </View>
                 </>
               ) : (
-                <View className="system-message">
-                  <Text className="system-text">{msg.content}</Text>
+                <View className="py-[12rpx]">
+                  <Text className="text-[24rpx] text-muted-foreground">{msg.content}</Text>
                 </View>
               )}
             </View>
           ))}
         </View>
       </ScrollView>
-      <View className="input-box">
+      <View className="fixed bottom-0 left-0 right-0 flex items-center gap-[16rpx] pt-[16rpx] px-[24rpx] pb-[calc(env(safe-area-inset-bottom)+16rpx)] bg-card z-[100]">
         <Input
-          className="chat-input"
+          className="flex-1 h-[72rpx] px-[24rpx] text-[28rpx] text-foreground bg-background rounded-[12rpx]"
           value={inputContent}
           placeholder={tt('agentDialogue.inputPlaceholder', '输入消息…')}
           onInput={onInputChange}
@@ -607,10 +607,10 @@ export default function AgentDialogue() {
           disabled={sending}
         />
         <View
-          className={`send-btn ${!inputContent.trim() || sending ? 'disabled' : ''}`}
+          className={`py-[16rpx] px-[32rpx] bg-primary rounded-[12rpx] flex-shrink-0 ${!inputContent.trim() || sending ? 'opacity-50' : ''}`}
           onClick={sendMessage}
         >
-          <Text className="send-text">{t('chat.send')}</Text>
+          <Text className="text-[28rpx] text-primary-foreground">{t('chat.send')}</Text>
         </View>
       </View>
     </View>

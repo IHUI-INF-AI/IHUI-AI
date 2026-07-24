@@ -3,7 +3,6 @@ import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getStudyRecords, getStudyInfo, type StudyRecord } from '@/api'
 import { useI18n } from '@/i18n'
-import './record.css'
 
 type FilterTab = 'all' | 'learning' | 'completed' | 'abandoned'
 
@@ -18,6 +17,11 @@ interface StudyInfo {
 }
 
 const PAGE_SIZE = 20
+
+const STATUS_BASE = 'text-[22rpx] py-[2rpx] px-[12rpx] rounded-[6rpx]'
+const TAB_BASE = 'flex-1 flex items-center justify-center h-[60rpx] text-[26rpx] text-muted-foreground rounded-[8rpx]'
+const TAB_ACTIVE = 'text-white bg-primary font-semibold'
+const STATE_TEXT = 'block text-center text-[26rpx] text-muted-foreground py-[80rpx]'
 
 /** 学习记录派生状态:基于 progress 推断 */
 const deriveStatus = (progress: number): FilterTab => {
@@ -120,9 +124,9 @@ export default function StudyRecord() {
   }
 
   const statusClass = (s: FilterTab): string => {
-    if (s === 'completed') return 'record-status record-status-done'
-    if (s === 'abandoned') return 'record-status record-status-abandon'
-    return 'record-status'
+    if (s === 'completed') return `${STATUS_BASE} bg-[rgba(76,175,80,0.12)] text-[#4caf50]`
+    if (s === 'abandoned') return `${STATUS_BASE} bg-[rgba(158,158,158,0.12)] text-[#9e9e9e]`
+    return `${STATUS_BASE} bg-[rgba(0,242,255,0.1)] text-primary`
   }
 
   const stats: Array<{ key: string; num: number; label: string; unit?: string }> = [
@@ -160,26 +164,26 @@ export default function StudyRecord() {
   ]
 
   return (
-    <View className="record-page">
+    <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
       {/* 学习统计卡 */}
-      <View className="record-stats">
+      <View className="flex bg-card border-[2rpx] border-[rgba(0,242,255,0.12)] rounded-[16rpx] py-[28rpx] px-[16rpx] gap-[12rpx]">
         {stats.map((s) => (
-          <View key={s.key} className="record-stat-item">
-            <View className="record-stat-num-wrap">
-              <Text className="record-stat-num">{s.num}</Text>
-              {s.unit && <Text className="record-stat-unit">{s.unit}</Text>}
+          <View key={s.key} className="flex-1 flex flex-col items-center">
+            <View className="flex items-baseline justify-center">
+              <Text className="text-[40rpx] font-bold text-primary leading-[1.2]">{s.num}</Text>
+              {s.unit && <Text className="text-[22rpx] text-muted-foreground ml-[4rpx] font-normal">{s.unit}</Text>}
             </View>
-            <Text className="record-stat-label">{s.label}</Text>
+            <Text className="mt-[8rpx] text-[22rpx] text-muted-foreground">{s.label}</Text>
           </View>
         ))}
       </View>
 
       {/* 状态筛选 tab */}
-      <View className="record-tabs">
+      <View className="flex mt-[24rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx] p-[6rpx]">
         {tabs.map((tb) => (
           <View
             key={tb.key}
-            className={`record-tab ${activeTab === tb.key ? 'record-tab-active' : ''}`}
+            className={`${TAB_BASE} ${activeTab === tb.key ? TAB_ACTIVE : ''}`}
             onClick={() => setActiveTab(tb.key)}
           >
             <Text>{tb.label}</Text>
@@ -189,35 +193,35 @@ export default function StudyRecord() {
 
       {/* 学习记录列表 */}
       {displayList.length > 0 && (
-        <View className="record-list">
+        <View className="mt-[24rpx] flex flex-col gap-[16rpx]">
           {displayList.map((r) => {
             const st = deriveStatus(r.progress)
             return (
-              <View key={r.id} className="record-card" onClick={() => goCourse(r.courseId)}>
+              <View key={r.id} className="flex bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx] p-[20rpx]" onClick={() => goCourse(r.courseId)}>
                 {r.coverUrl ? (
-                  <Image className="record-cover" src={r.coverUrl} mode="aspectFill" />
+                  <Image className="w-[160rpx] h-[120rpx] rounded-[10rpx] bg-muted flex-shrink-0" src={r.coverUrl} mode="aspectFill" />
                 ) : (
-                  <View className="record-cover record-cover-fallback">
+                  <View className="w-[160rpx] h-[120rpx] rounded-[10rpx] bg-muted flex-shrink-0 flex items-center justify-center text-[22rpx] text-muted-foreground">
                     <Text>{tt('study.recordPage.coverFallback', '课程')}</Text>
                   </View>
                 )}
-                <View className="record-body">
-                  <Text className="record-title">{r.courseTitle}</Text>
-                  <View className="record-progress-wrap">
-                    <View className="record-progress-track">
+                <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col">
+                  <Text className="text-[28rpx] font-semibold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">{r.courseTitle}</Text>
+                  <View className="mt-[12rpx]">
+                    <View className="h-[8rpx] bg-muted rounded-[4rpx] overflow-hidden">
                       <View
-                        className="record-progress-fill"
+                        className="h-full bg-primary rounded-[4rpx]"
                         style={{ width: `${Math.min(100, Math.max(0, r.progress))}%` }}
                       />
                     </View>
                   </View>
-                  <View className="record-meta">
-                    <Text className="record-time">
+                  <View className="mt-[10rpx] flex items-center justify-between">
+                    <Text className="text-[22rpx] text-muted-foreground">
                       {tt('study.recordPage.lastTime', '上次学习')}: {r.time}
                     </Text>
                     <Text className={statusClass(st)}>{statusLabel(st)}</Text>
                   </View>
-                  <Text className="record-continue">
+                  <Text className="mt-[12rpx] self-end py-[8rpx] px-[24rpx] text-[24rpx] text-primary bg-[rgba(0,242,255,0.1)] border-[2rpx] border-[rgba(0,242,255,0.3)] rounded-[8rpx] leading-[1.4]">
                     {tt('study.recordPage.continue', '继续学习')}
                   </Text>
                 </View>
@@ -229,17 +233,17 @@ export default function StudyRecord() {
 
       {/* 状态文案 */}
       {displayList.length === 0 && !loading && !error && (
-        <Text className="record-empty">{tt('study.recordPage.empty', '暂无学习记录')}</Text>
+        <Text className={STATE_TEXT}>{tt('study.recordPage.empty', '暂无学习记录')}</Text>
       )}
       {error && !loading && (
-        <View className="record-error" onClick={() => load(true)}>
-          <Text className="record-error-text">{tt('common.failed', '加载失败')}</Text>
-          <Text className="record-error-retry">{tt('common.retry', '点击重试')}</Text>
+        <View className="flex flex-col items-center py-[60rpx]" onClick={() => load(true)}>
+          <Text className="text-[26rpx] text-destructive">{tt('common.failed', '加载失败')}</Text>
+          <Text className="text-[26rpx] text-primary mt-[12rpx]">{tt('common.retry', '点击重试')}</Text>
         </View>
       )}
-      {loading && <Text className="record-loading">{tt('common.loading', '加载中...')}</Text>}
+      {loading && <Text className={STATE_TEXT}>{tt('common.loading', '加载中...')}</Text>}
       {!loading && !hasMore && displayList.length > 0 && (
-        <Text className="record-no-more">{tt('common.noMore', '没有更多了')}</Text>
+        <Text className={STATE_TEXT}>{tt('common.noMore', '没有更多了')}</Text>
       )}
     </View>
   )
