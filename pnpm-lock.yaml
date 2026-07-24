@@ -279,6 +279,9 @@ importers:
       '@types/sql.js':
         specifier: ^1.4.9
         version: 1.4.11
+      '@types/ws':
+        specifier: ^8.5.12
+        version: 8.18.1
       drizzle-kit:
         specifier: ^0.30.0
         version: 0.30.6
@@ -306,6 +309,9 @@ importers:
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.0)(jsdom@29.1.1(@noble/hashes@1.8.0))(less@4.7.0)(lightningcss@1.32.0)(msw@2.15.0(@types/node@22.20.0)(typescript@5.9.3))(sass@1.101.0)(stylus@0.64.0)(terser@5.49.0)
+      ws:
+        specifier: ^8.18.0
+        version: 8.21.0
 
   apps/cli:
     dependencies:
@@ -12156,10 +12162,6 @@ packages:
   html-encoding-sniffer@4.0.0:
     resolution: {integrity: sha512-Y22oTqIU4uuPgEemfz7NDJz6OeKf12Lsu+QC+s3BVpda64lTiMYCyGwg5ki4vFxkMwQdeZDl2adZoqUgdFuTgQ==}
     engines: {node: '>=18'}
-
-  html-encoding-sniffer@6.0.0:
-    resolution: {integrity: sha512-CV9TW3Y3f8/wT0BRFc1/KAVQ3TUHiXmaAb6VW9vtiMFf7SLoMd1PdAc4W3KFOFETBJUb90KatHqlsZMWV+R9Gg==}
-    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
 
   html-entities@2.3.3:
     resolution: {integrity: sha512-DV5Ln36z34NNTDgnz0EWGBLZENelNAtkiFA4kyNOG2tDI6Mz1uSWiq1wAKdyjnJwyDiDO7Fa2SO1CTxPXL8VxA==}
@@ -27616,16 +27618,10 @@ snapshots:
 
   arg@5.0.2: {}
 
-<<<<<<< Updated upstream
-  argon2@0.40.3:
-    dependencies:
-      '@phc/format': 1.0.0
-=======
   argon2@0.45.1:
     dependencies:
       '@phc/format': 1.0.0
       cross-env: 10.1.0
->>>>>>> Stashed changes
       node-addon-api: 8.9.0
       node-gyp-build: 4.8.4
 
@@ -31974,12 +31970,6 @@ snapshots:
     dependencies:
       whatwg-encoding: 3.1.1
 
-  html-encoding-sniffer@6.0.0(@noble/hashes@1.8.0):
-    dependencies:
-      '@exodus/bytes': 1.15.1(@noble/hashes@1.8.0)
-    transitivePeerDependencies:
-      - '@noble/hashes'
-
   html-entities@2.3.3: {}
 
   html-entities@2.6.0: {}
@@ -32910,7 +32900,7 @@ snapshots:
       css-tree: 3.2.1
       data-urls: 7.0.0(@noble/hashes@1.8.0)
       decimal.js: 10.6.0
-      html-encoding-sniffer: 6.0.0(@noble/hashes@1.8.0)
+      html-encoding-sniffer: 4.0.0
       is-potential-custom-element-name: 1.0.1
       lru-cache: 11.5.1
       parse5: 8.0.1
