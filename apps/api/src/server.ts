@@ -66,6 +66,11 @@ import { startAutoRollbackMonitor } from './services/auto-rollback.js'
 import searchAspectPlugin from './plugins/search-aspect.js'
 import watchAspectPlugin from './plugins/watch-aspect.js'
 import pointAspectPlugin from './plugins/point-aspect.js'
+// 2026-07-24 国安级安全升级(E2-E5):mTLS / 网络分段 / 审计链 / 反自动化
+import mtlsPlugin from './plugins/mtls.js'
+import networkSegmentPlugin from './plugins/network-segment.js'
+import auditLoggerPlugin from './plugins/audit-logger.js'
+import antiAutomationPlugin from './plugins/anti-automation.js'
 
 // Fastify 5 的 logger 选项只接受配置对象(不接受 pino 实例)
 const loggerConfig = {
@@ -344,4 +349,15 @@ async function registerPlugins(server: FastifyInstance) {
 
   // 金丝雀路由插件：CANARY_ENABLED=true 时按百分比路由流量到金丝雀版本（默认禁用）
   await server.register(canaryRouterPlugin)
+
+  // 2026-07-24 国安级安全升级(E2-E5):
+  // - 反自动化插件:onRequest 阶段 IP/UA/频率分析,扫描器即时封禁,>100/min 要求 CAPTCHA
+  // - 网络分段:IP 分类 + 黑名单 + 路由级访问策略(高敏感路由仅内网访问)
+  // - mTLS 客户端证书:高敏感路由要求双向证书认证(降级模式可关闭)
+  // - HMAC 链审计日志:onResponse 记录所有写请求,链式哈希防篡改
+  // 注意:顺序敏感,反自动化必须最先(onRequest 拦截),审计日志最后(覆盖全请求)
+  await server.register(antiAutomationPlugin)
+  await server.register(networkSegmentPlugin)
+  await server.register(mtlsPlugin)
+  await server.register(auditLoggerPlugin)
 }
