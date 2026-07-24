@@ -3,7 +3,6 @@ import Taro from '@tarojs/taro'
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { sendSmsCode, post } from '@/api'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 export default function ForgotPassword() {
   const { t } = useI18n()
@@ -100,20 +99,20 @@ export default function ForgotPassword() {
   }
 
   return (
-    <View className="forgot-page">
-      <View className="page-header">
-        <Text className="page-title">{t('forgot.title')}</Text>
-        <Text className="page-step">
+    <View className="min-h-screen bg-background">
+      <View className="py-[20rpx] px-[30rpx] bg-card">
+        <Text className="text-[36rpx] font-bold text-foreground">{t('forgot.title')}</Text>
+        <Text className="block mt-[8rpx] text-[26rpx] text-muted-foreground">
           {step === 1 ? t('forgot.step1') : t('forgot.step2')}
         </Text>
       </View>
 
       {step === 1 ? (
-        <View className="form">
-          <View className="form-item">
-            <Text className="form-label">{t('forgot.phone')}</Text>
+        <View className="p-[20rpx]">
+          <View className="bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]">
+            <Text className="block text-[28rpx] text-foreground font-medium mb-[16rpx]">{t('forgot.phone')}</Text>
             <Input
-              className="form-input"
+              className="h-[72rpx] bg-background rounded-[8rpx] px-[20rpx] text-[28rpx]"
               type="number"
               maxlength={11}
               placeholder={t('forgot.phonePlaceholder')}
@@ -121,10 +120,10 @@ export default function ForgotPassword() {
               onInput={(e) => setPhone(e.detail.value)}
             />
           </View>
-          <View className="form-item code-item">
-            <Text className="form-label">{t('forgot.code')}</Text>
+          <View className="bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx] relative">
+            <Text className="block text-[28rpx] text-foreground font-medium mb-[16rpx]">{t('forgot.code')}</Text>
             <Input
-              className="form-input code-input"
+              className="h-[72rpx] bg-background rounded-[8rpx] px-[20rpx] text-[28rpx] pr-[200rpx]"
               type="number"
               maxlength={6}
               placeholder={t('forgot.codePlaceholder')}
@@ -132,51 +131,51 @@ export default function ForgotPassword() {
               onInput={(e) => setCode(e.detail.value)}
             />
             <Text
-              className={`send-code ${codeBtnDisabled ? 'disabled' : ''}`}
+              className={`absolute right-[40rpx] bottom-[40rpx] text-[26rpx] text-primary ${codeBtnDisabled ? 'text-muted-foreground' : ''}`}
               onClick={sendCode}
             >
               {codeBtnText}
             </Text>
           </View>
           <View
-            className={`submit-btn ${submitting ? 'disabled' : ''}`}
+            className={`w-full bg-primary text-foreground text-[30rpx] rounded-[8rpx] mt-[20rpx] py-[24rpx] text-center ${submitting ? 'opacity-60' : ''}`}
             onClick={goStep2}
           >
             <Text>{t('forgot.next')}</Text>
           </View>
-          <View className="back-login" onClick={backToLogin}>
+          <View className="mt-[24rpx] text-center text-[26rpx] text-primary" onClick={backToLogin}>
             <Text>{t('forgot.backLogin')}</Text>
           </View>
         </View>
       ) : (
-        <View className="form">
-          <View className="form-item">
-            <Text className="form-label">{t('forgot.newPassword')}</Text>
-            <View className="pwd-wrap">
+        <View className="p-[20rpx]">
+          <View className="bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]">
+            <Text className="block text-[28rpx] text-foreground font-medium mb-[16rpx]">{t('forgot.newPassword')}</Text>
+            <View className="relative">
               <Input
-                className="form-input pwd-input"
+                className="h-[72rpx] bg-background rounded-[8rpx] px-[20rpx] text-[28rpx] pr-[160rpx]"
                 password={!showNew}
                 placeholder={t('forgot.newPasswordPlaceholder')}
                 value={newPassword}
                 onInput={(e) => setNewPassword(e.detail.value)}
               />
-              <Text className="pwd-toggle" onClick={() => setShowNew((v) => !v)}>
+              <Text className="absolute right-[20rpx] top-1/2 -translate-y-1/2 text-[24rpx] text-primary" onClick={() => setShowNew((v) => !v)}>
                 {showNew ? t('forgot.hidePassword') : t('forgot.showPassword')}
               </Text>
             </View>
           </View>
-          <View className="form-item">
-            <Text className="form-label">{t('forgot.confirmPassword')}</Text>
-            <View className="pwd-wrap">
+          <View className="bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]">
+            <Text className="block text-[28rpx] text-foreground font-medium mb-[16rpx]">{t('forgot.confirmPassword')}</Text>
+            <View className="relative">
               <Input
-                className="form-input pwd-input"
+                className="h-[72rpx] bg-background rounded-[8rpx] px-[20rpx] text-[28rpx] pr-[160rpx]"
                 password={!showConfirm}
                 placeholder={t('forgot.confirmPasswordPlaceholder')}
                 value={confirmPassword}
                 onInput={(e) => setConfirmPassword(e.detail.value)}
               />
               <Text
-                className="pwd-toggle"
+                className="absolute right-[20rpx] top-1/2 -translate-y-1/2 text-[24rpx] text-primary"
                 onClick={() => setShowConfirm((v) => !v)}
               >
                 {showConfirm ? t('forgot.hidePassword') : t('forgot.showPassword')}
@@ -184,13 +183,13 @@ export default function ForgotPassword() {
             </View>
           </View>
           <View
-            className={`submit-btn ${submitting ? 'disabled' : ''}`}
+            className={`w-full bg-primary text-foreground text-[30rpx] rounded-[8rpx] mt-[20rpx] py-[24rpx] text-center ${submitting ? 'opacity-60' : ''}`}
             onClick={submitReset}
           >
             <Text>{submitting ? t('forgot.resetting') : t('forgot.submit')}</Text>
           </View>
           <View
-            className="back-login"
+            className="mt-[24rpx] text-center text-[26rpx] text-primary"
             onClick={() => setStep(1)}
           >
             <Text>{t('forgot.back')}</Text>

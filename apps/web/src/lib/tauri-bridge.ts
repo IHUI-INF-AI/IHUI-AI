@@ -3,6 +3,8 @@ import { invoke } from '@tauri-apps/api/core'
 // @ts-expect-error 同上(@tauri-apps/plugin-dialog 仅 desktop 端可用)
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 
+export { formatFileSize } from '@ihui/shared/utils/format'
+
 /**
  * Web 端 Tauri Bridge:在 Tauri WebView 中调用 desktop 端 Rust 命令。
  * 非 Tauri 环境(普通浏览器)下,所有函数返回安全默认值或抛出明确错误,
@@ -243,14 +245,6 @@ export async function pickSavePath(
   } catch {
     return null
   }
-}
-
-/** 格式化文件大小(字节 → KB/MB/GB)。纯函数,不依赖 Tauri。 */
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
 }
 
 // ================== 窗口状态持久化 ==================
