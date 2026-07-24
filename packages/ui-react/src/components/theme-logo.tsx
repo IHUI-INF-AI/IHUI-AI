@@ -1,6 +1,6 @@
 'use client'
 
-import { cn } from '../lib/utils.js'
+import { cn } from '../lib/utils'
 
 interface ThemeLogoProps {
   /** 浅色主题下显示的 logo 路径(默认: /images/logo.svg) */

@@ -21,7 +21,7 @@
  *   // 通过后: socket.data.userId
  */
 import { SignJWT, jwtVerify } from 'jose';
-import { getJwtSecret } from './jwt.js';
+import { getJwtSecret } from './jwt';
 
 const ISSUER = 'ihui-ai';
 const ALG = 'HS256';
