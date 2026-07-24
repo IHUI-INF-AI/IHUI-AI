@@ -539,6 +539,7 @@
     "knowledgeBase": "知識庫",
     "knowledgeRag": "RAG 知識庫",
     "knowledgeGraph": "知識圖譜",
+    "registry": "資源更新中心",
     "announcements": "公告",
     "overview": "概覽",
     "enterprise": "企業服務",
@@ -28866,5 +28867,72 @@
     "openGitHub": "開啟 GitHub",
     "statusAvailable": "已上線",
     "statusComingSoon": "即將上線"
+  },
+  "registry": {
+    "title": "資源更新中心",
+    "loading": "載入中…",
+    "banner": {
+      "upgradeAvailable": "有 {{count}} 個新版本可用",
+      "upgradeAll": "一鍵全部升級",
+      "upgrading": "升級中…"
+    },
+    "tabs": {
+      "latest": "最新",
+      "hot": "最熱",
+      "best": "最優"
+    },
+    "filter": {
+      "all": "全部",
+      "mcp": "MCP",
+      "skill": "Skill",
+      "plugin": "Plugin"
+    },
+    "card": {
+      "source": {
+        "github": "GitHub",
+        "npm": "npm",
+        "marketplace": "Marketplace",
+        "custom": "自建"
+      },
+      "download": "下載",
+      "heat": "熱度",
+      "quality": "品質",
+      "install": "安裝",
+      "installing": "安裝中…",
+      "upgrade": "升級",
+      "upgrading": "升級中…",
+      "alreadyLatest": "已是最新版本"
+    },
+    "status": {
+      "notInstalled": "未安裝",
+      "installed": "已安裝",
+      "upgradable": "可升級",
+      "failed": "失敗"
+    },
+    "action": {
+      "syncNow": "手動觸發同步",
+      "syncing": "同步中…",
+      "configDrift": "設定漂移檢測",
+      "detecting": "檢測中…"
+    },
+    "admin": {
+      "title": "管理操作",
+      "syncResult": "同步完成:新增 {{synced}} · 失敗 {{failed}} · 跳過 {{skipped}}",
+      "driftDetected": "檢測到 {{count}} 個檔案存在設定漂移",
+      "noDrift": "未檢測到設定漂移"
+    },
+    "log": {
+      "viewLogs": "查看同步日誌",
+      "collapseLogs": "收起日誌",
+      "title": "同步日誌",
+      "success": "成功",
+      "failed": "失敗",
+      "skipped": "跳過",
+      "running": "執行中",
+      "empty": "暫無同步記錄"
+    },
+    "empty": {
+      "items": "暫無資源"
+    }
   }
 }
