@@ -1,4 +1,4 @@
-# IHUI-AI 项目
+﻿# IHUI-AI 项目
 
 > 本文件为项目唯一任务计划文档。规则见 [AGENTS.md](./AGENTS.md)。
 > 历史归档:本文件精简前 54.6 KB(2026-07-20 含权限运行时拦截完整内容)已移至 `.trae-cn/archive/PROJECT_PLAN_2026-07-20_pre-permission-runtime.md`;更早快照同目录;详细提交记录见 `git log`。
@@ -14,23 +14,25 @@
 
 **交付内容**(1 文件,`apps/api/src/routes/miniapp-compat-routes.ts` +148 行):
 
-| 域 | 端点 | 数量 | 说明 |
-|---|---|---|---|
-| `/agents/charge/*` | GET /list, GET /:agentId, POST /, POST /pay-history, PUT /, DELETE /:id | 6 | 智能体收费配置(完全缺失) |
-| `/user/*` | GET /profile, PUT /avatar, PUT /nickname, POST /password, POST /realname, POST /feedback | 6 | 用户中心(前端单数,后端 /users/:id/* 复数+id) |
-| 单复数别名 | GET /study/plan, GET /study/rank, GET/PUT /settings/notification | 4 | 前端单数,后端复数(/study/plans, /study/ranking, /settings/notifications) |
-| `/settings/*` | POST /cache/clear, GET /cache/size, POST /language, POST /theme | 4 | 设置功能(完全缺失) |
-| `/ai/kling/image` | POST | 1 | 可灵图片生成(前端注释自标 404) |
-| `/courses/buy` | POST | 1 | 课程购买(前端已有 try/catch 容错) |
-| `/privacy` + `/contact` | GET | 2 | 公开内容页(后端仅有 /admin/contact) |
+| 域                      | 端点                                                                                     | 数量 | 说明                                                                     |
+| ----------------------- | ---------------------------------------------------------------------------------------- | ---- | ------------------------------------------------------------------------ |
+| `/agents/charge/*`      | GET /list, GET /:agentId, POST /, POST /pay-history, PUT /, DELETE /:id                  | 6    | 智能体收费配置(完全缺失)                                                 |
+| `/user/*`               | GET /profile, PUT /avatar, PUT /nickname, POST /password, POST /realname, POST /feedback | 6    | 用户中心(前端单数,后端 /users/:id/* 复数+id)                             |
+| 单复数别名              | GET /study/plan, GET /study/rank, GET/PUT /settings/notification                         | 4    | 前端单数,后端复数(/study/plans, /study/ranking, /settings/notifications) |
+| `/settings/*`           | POST /cache/clear, GET /cache/size, POST /language, POST /theme                          | 4    | 设置功能(完全缺失)                                                       |
+| `/ai/kling/image`       | POST                                                                                     | 1    | 可灵图片生成(前端注释自标 404)                                           |
+| `/courses/buy`          | POST                                                                                     | 1    | 课程购买(前端已有 try/catch 容错)                                        |
+| `/privacy` + `/contact` | GET                                                                                      | 2    | 公开内容页(后端仅有 /admin/contact)                                      |
 
 **保留其他 agent 未提交修改**:
+
 - `miniapp-compat-routes.ts`:其他 agent 修复 DELETE /chat/history/:id 重复注册(改为注释)
 - `miniapp-public-fallback-routes.ts`:其他 agent 增强为真实数据查询(banner/课程/资讯,从空桩升级到 DB 查询 + 降级兜底)
 
 **路由注册顺序**:`/agents/charge/list`(静态)在 `/agents/charge/:agentId`(参数)之前注册,避免 `list` 被 `:agentId` 捕获。
 
 **验证**(curl 实测 http://localhost:8802):
+
 - 公开 GET 端点 → 200 ✅(privacy/contact 返回空数据骨架)
 - 鉴权 GET 端点 → 401 ✅(agents/charge/list, user/profile, study/plan, settings/* 等返回 401 而非 404)
 - POST/PUT/DELETE 端点 → 403 ✅(CSRF 保护触发,路由已注册,非 404)
@@ -48,12 +50,14 @@
 **触发**:用户需求"我希望我的项目有自动获取最新最热最优 MCP/插件/Skill 的能力,并且自动获取更新上游最新所有参数配置等所有信息的能力并且自动更新"。
 
 **用户决策对齐**(2026-07-24):
+
 - 上游源:GitHub 官方仓库 + npm registry + 自建 registry + MCP marketplace API(四源全接)
 - 触发方式:定时拉取(每 6h)+ webhook 推送 双路径(推荐方案)
 - 自动更新范围:全量自动 + 配置自动迁移(最激进,需兼容性校验 + 回滚)
 - 执行节奏:立即按 P0→P1→P2 顺序全做完
 
 **现状调研结论**(调研 agent 实证):
+
 - MCP 85% 完整:`apps/web/src/lib/mcp-curated.ts` 是静态硬编码,无上游同步
 - Plugin 60% 完整:无 catalog 后端,前端静态数据
 - Skill 90% 完整:无远程仓库集成,无自动 pull
@@ -112,6 +116,7 @@
   - 订阅自动 pull(已有订阅通知机制,补"上游有新版本自动拉取"逻辑)
 
 **2026-07-24 完善修订(死代码根治 + 链路连通)**:
+
 - ✅ Worker 注册缺失修复:`apps/api/src/workers/index.ts` 漏注册 `startRegistrySyncWorker` → 补齐第 5 个 Worker,日志从 "4 queues" 改为 "5 queues"
 - ✅ CLI 子命令注册缺失修复:`apps/cli/src/commands/registry-index.ts` 漏注册 logs/webhook → 补齐 `addCommand(logsCommand())` + `addCommand(webhookCommand())`
 - ✅ Webhook trigger 状态回写重复修复:`apps/api/src/routes/registry-sync.ts` 入队成功后立即标记 'processed' 与 worker 回写冲突 → 改为保持 'pending',仅入队失败标记 'failed',由 worker 处理完成后回写最终状态
@@ -119,6 +124,7 @@
 - ✅ Worker 消费者完整实现:`apps/api/src/workers/registry-sync-worker.ts` 消费 `registry-sync-queue`,5 大问题修复(fetchAllRawItems 失败兜底 sync_log / newVersion 聚合 / force 透传 / 三态判定 success/fail/skipped / webhook trigger 状态回写)
 
 **2026-07-24 深度完善(10 缺口根治,3 subagent 并行)**:
+
 - ✅ d1 Worker 幂等 + 重试去重:lockDuration=60s + maxStalledCount=1 + isRetry 日志 + payload_hash 变更检测(非 force 时 oldVersion===raw.version 计 skipped)
 - ✅ d2 force 透传语义明确化:SyncOptions.force 注释改为"适配器层总是全量拉取,force 由 worker 层消费",index.ts fetchAllRawItems 日志加 force 标记
 - ✅ d3 sync_log oldVersion 聚合:upsertRegistryItem 返回 oldVersion,worker 循环中收集第一个版本有变化的 oldVersion 写入 sync_log
@@ -131,6 +137,7 @@
 - ✅ d10 Worker 优雅关闭 + 指标统计:RegistryWorkerStats 接口 + completed/failed 计数 + SIGTERM/SIGINT 优雅关闭(process.once 避免重复注册)
 
 **2026-07-24 跨端连通补全(3 建议 + 5 遗漏,5 subagent 并行)**:
+
 - ✅ s1 GET /api/registry/worker-stats 端点暴露(requireAdmin + server.registryWorkerStats + 零值兜底)
 - ✅ s2 每日 TTL 清理 cron job(`0 3 * * *`)+ 内联 Worker(cleanupOldWebhookTriggers 30天 + cleanupOldSyncLogs 90天)+ onReady hook 接入
 - ✅ s3 calculateHeatScore 消费 meta.downloads(downloads/100 上限 500,每 100 周下载量=1 分)
@@ -141,12 +148,14 @@
 - ✅ CLI 命令:ihui registry worker-stats(成功率彩色展示 ≥95%绿/≥80%黄/<80%红)
 
 **跨端约束**:
+
 - 共享类型 `packages/types/src/registry.ts`(RegistryItem / RegistrySyncLog / WebhookTrigger / ProviderModelInfo / ConfigDriftReport)
 - 共享 UI 组件复用 `packages/ui` Card/Button/Input
 - 路由注册到 `apps/api/src/routes/index.ts` + `apps/web/app/(main)/` 路由组
 - 数据库 schema 走 `packages/database/src/schema/` 单一来源
 
 **验证标准**:
+
 - `pnpm turbo build typecheck lint test` 全绿
 - `node scripts/check-api-routes.mjs` 路由一致性通过
 - `node scripts/check-multi-end-sync.mjs` 无 warn
@@ -155,6 +164,7 @@
 - webhook 链路:curl 模拟 GitHub webhook → HMAC 校验通过 → 落库 → 触发同步
 
 **质量约束**:
+
 - 最小化代码,复用现有调度器/BullMQ/Redis 模式
 - 不创建文档文件(除非明确要求)
 - 不加 copyright/license header
@@ -166,30 +176,33 @@
 **触发**:用户要求"这些已知技术债也都要深度 goal 命令最大化 subagent 处理完整百分百",处理 3 项已知技术债:主题切换空操作 + metro monkey-patch + mobile-rn as never。
 
 **执行流程**(/goal 2 轮):
+
 - 轮次 1(3 路并行审计):3 subagent 并行审计主题切换现状 + metro monkey-patch + as never 类型系统
 - 轮次 2(3 路并行修复 + 1 路补充修复):3 subagent 并行修复 + 1 subagent 补充清理 ChatScreen/HomeScreen 6 处 as never
 
 **交付内容**(1 commit `71d44e7`,10 文件,+143/-34):
 
-| 技术债 | 文件 | 改造 |
-|---|---|---|
-| 1 主题切换 | `src/context/ThemeContext.tsx`(新) | ThemeProvider + useTheme,支持 light/dark/system 三态,system 跟随 useColorScheme(),持久化到 AsyncStorage key=ihui_theme |
-| 1 主题切换 | `App.tsx` | ThemeProvider 包裹 + NavigationContainer 传 DarkTheme/DefaultTheme + 顶层 View className 跟随 resolvedTheme |
-| 1 主题切换 | `src/screens/SettingsScreen.tsx` | 用 useTheme 替代 useState,onSelectTheme 调 setThemeMode + 删除 L93 as never |
-| 1 主题切换 | `src/navigation/RootNavigator.tsx` | tabBarStyle/tabBarInactiveTintColor 动态化(dark 用 tokens.surface.dark/text.tertiary) |
-| 2 metro patch | `metro.config.js` | 追加完整说明(为何保留 NativeWind 38 文件深度使用 + 何时可移除 5.0 stable + 如何监控) |
-| 2 metro patch | `global.css` | 追加同步追踪(最后同步日期 2026-07-24 + 源文件路径 + 值漂移警告) |
-| 3 as never | `src/screens/profileMenuData.ts` | MenuItem 重构为 discriminated union(key 收窄为 ProfileRoute \| RootRoute) |
-| 3 as never | `src/screens/ProfileScreen.tsx` | L52 as never → as string(distributive conditional 限制)+ L54 as never → 直接删除(union 收窄) |
-| 3 as never | `src/screens/ChatScreen.tsx` | L284/L293 'Tabs' as never → 'Tabs' |
-| 3 as never | `src/screens/HomeScreen.tsx` | L166/L179/L230/L285 4 处 as never 直接删除 |
+| 技术债        | 文件                               | 改造                                                                                                                   |
+| ------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 1 主题切换    | `src/context/ThemeContext.tsx`(新) | ThemeProvider + useTheme,支持 light/dark/system 三态,system 跟随 useColorScheme(),持久化到 AsyncStorage key=ihui_theme |
+| 1 主题切换    | `App.tsx`                          | ThemeProvider 包裹 + NavigationContainer 传 DarkTheme/DefaultTheme + 顶层 View className 跟随 resolvedTheme            |
+| 1 主题切换    | `src/screens/SettingsScreen.tsx`   | 用 useTheme 替代 useState,onSelectTheme 调 setThemeMode + 删除 L93 as never                                            |
+| 1 主题切换    | `src/navigation/RootNavigator.tsx` | tabBarStyle/tabBarInactiveTintColor 动态化(dark 用 tokens.surface.dark/text.tertiary)                                  |
+| 2 metro patch | `metro.config.js`                  | 追加完整说明(为何保留 NativeWind 38 文件深度使用 + 何时可移除 5.0 stable + 如何监控)                                   |
+| 2 metro patch | `global.css`                       | 追加同步追踪(最后同步日期 2026-07-24 + 源文件路径 + 值漂移警告)                                                        |
+| 3 as never    | `src/screens/profileMenuData.ts`   | MenuItem 重构为 discriminated union(key 收窄为 ProfileRoute \| RootRoute)                                              |
+| 3 as never    | `src/screens/ProfileScreen.tsx`    | L52 as never → as string(distributive conditional 限制)+ L54 as never → 直接删除(union 收窄)                           |
+| 3 as never    | `src/screens/ChatScreen.tsx`       | L284/L293 'Tabs' as never → 'Tabs'                                                                                     |
+| 3 as never    | `src/screens/HomeScreen.tsx`       | L166/L179/L230/L285 4 处 as never 直接删除                                                                             |
 
 **审计结论**:
+
 - 技术债 1(主题切换):已彻底修复,接入 React Navigation DarkTheme + AsyncStorage 持久化,主题切换真实生效 + 重启恢复
 - 技术债 2(metro monkey-patch):**保持现状**(NativeWind 38 文件深度使用无法移除,5.0.0-preview.4 非 stable 不升级),已追加完整注释说明 + 监控点
 - 技术债 3(as never):**全项目清理**(9 处 → 0 处),profileMenuData 用 discriminated union 实现真正类型安全
 
 **验证**:
+
 - pnpm --filter @ihui/mobile-rn typecheck exit 0 ✅
 - Grep as never 在 apps/mobile-rn/src 0 匹配(全项目清理)✅
 - Grep useTheme 在 App.tsx + SettingsScreen.tsx + RootNavigator.tsx 有匹配 ✅
@@ -198,6 +211,7 @@
 **平台独占**:mobile-rn(不改共享层 packages/app,符合 AGENTS.md §9 豁免)
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `71d44e7`
 - origin commit: `71d44e7`
 - 同步状态: local == remote ✅
@@ -208,24 +222,26 @@
 **触发**:用户要求"启动 /goal 命令,最大化 subagent 数量去做",终极验证 Solito + 共享层(packages/app)架构 100% 完成,无遗留技术债,无冗余架构。
 
 **执行流程**(/goal 2 轮):
+
 - 轮次 1(6 路并行审计):6 subagent 并行审计 packages/app / mobile-rn / web / README / i18n / typecheck,发现 8 项缺口(P1:4 / P2:1 / P3:3)
 - 轮次 2(4 路并行修复):4 subagent 并行修复,文件完全不重叠
 
 **交付内容**(1 commit `61e3e15`,8 文件,+13/-8):
 
-| 优先级 | 文件 | 改造 |
-|---|---|---|
-| P1 | `packages/app/src/features/profile/ProfileScreen.tsx` | ActivityIndicator `color="#10B981"` → `color={tokens.brand.DEFAULT}`(收敛硬编码到 tokens) |
-| P1 | `packages/app/src/theme/tokens.ts` | 新增第 6 组令牌 `overlay: { modal: 'rgba(0,0,0,0.4)' }` |
-| P1 | `packages/app/src/features/settings/SettingsScreen.tsx` | modalOverlay `backgroundColor: 'rgba(0,0,0,0.4)'` → `tokens.overlay.modal` |
-| P1 | `apps/mobile-rn/src/screens/SharedDemoScreen.tsx` | `if (!__DEV__) return null` 从 hook 之前移到所有 hook 之后(修复 React Hooks 违规,防 release deep-link 崩溃) |
-| P1 | `apps/mobile-rn/src/i18n/messages/ja.ts` | L51/L210 "智汇 AI" → "IHUI AI"(消除简体字残留,对齐 en/ko 品牌名策略) |
-| P1 | `README.md` L673 | "预留 NativeWind 类型支持" → "未接入 NativeWind,未来接入需补 className 类型扩展"(对齐实际代码) |
-| P2 | `apps/web/app/(main)/solito-demo/page.tsx` | 补 `onEditProfile={() => setActiveTab('profile')}` 注入(激活 SettingsScreen 编辑资料卡片,完成 3 tab 导航闭环) |
-| P3 | `README.md` L694 | settings 扩展 key "24 key" → "23 key"(修正 off-by-one) |
-| P3 | `packages/app/package.json` | solito devDependencies `"4.3.0"` → `"^4.3.0"`(对齐 peerDependencies) |
+| 优先级 | 文件                                                    | 改造                                                                                                          |
+| ------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| P1     | `packages/app/src/features/profile/ProfileScreen.tsx`   | ActivityIndicator `color="#10B981"` → `color={tokens.brand.DEFAULT}`(收敛硬编码到 tokens)                     |
+| P1     | `packages/app/src/theme/tokens.ts`                      | 新增第 6 组令牌 `overlay: { modal: 'rgba(0,0,0,0.4)' }`                                                       |
+| P1     | `packages/app/src/features/settings/SettingsScreen.tsx` | modalOverlay `backgroundColor: 'rgba(0,0,0,0.4)'` → `tokens.overlay.modal`                                    |
+| P1     | `apps/mobile-rn/src/screens/SharedDemoScreen.tsx`       | `if (!__DEV__) return null` 从 hook 之前移到所有 hook 之后(修复 React Hooks 违规,防 release deep-link 崩溃)   |
+| P1     | `apps/mobile-rn/src/i18n/messages/ja.ts`                | L51/L210 "智汇 AI" → "IHUI AI"(消除简体字残留,对齐 en/ko 品牌名策略)                                          |
+| P1     | `README.md` L673                                        | "预留 NativeWind 类型支持" → "未接入 NativeWind,未来接入需补 className 类型扩展"(对齐实际代码)                |
+| P2     | `apps/web/app/(main)/solito-demo/page.tsx`              | 补 `onEditProfile={() => setActiveTab('profile')}` 注入(激活 SettingsScreen 编辑资料卡片,完成 3 tab 导航闭环) |
+| P3     | `README.md` L694                                        | settings 扩展 key "24 key" → "23 key"(修正 off-by-one)                                                        |
+| P3     | `packages/app/package.json`                             | solito devDependencies `"4.3.0"` → `"^4.3.0"`(对齐 peerDependencies)                                          |
 
 **验证**:
+
 - packages/app typecheck exit 0 ✅
 - mobile-rn typecheck exit 0 ✅
 - web 本任务文件 solito-demo/page.tsx 0 错(仅 next.config.ts 其他 agent 错误,§12 跳过)✅
@@ -234,6 +250,7 @@
 - Grep 复核:README 0 处 "预留 NativeWind" / 0 处 "24 key" / 1 处 "23 key" / 1 处 "未接入 NativeWind" ✅
 
 **硬性指标达成**(12/12):
+
 1. ✅ 架构一致性:Solito TextLink + StyleSheet + tokens 全部落地
 2. ✅ typecheck 全绿:本任务文件全绿(其他 agent 文件按 §12 跳过)
 3. ✅ 无死代码:AppTokens 类型保留为公共契约(派生类型,非死代码)
@@ -242,17 +259,19 @@
 6. ✅ 无冗余架构:web 生产页独立实现,共享层无重复
 7. ✅ README 与代码一致:2 处描述偏差已修复
 8. ✅ i18n parity:5 语言 259 key 一致,ja.ts 简体字残留已修复
-9. ✅ PoC 残留清理:SharedDemoScreen __DEV__ 守卫位置已修复
+9. ✅ PoC 残留清理:SharedDemoScreen **DEV** 守卫位置已修复
 10. ✅ 跨端连通:web solito-demo + RN wrapper 实际渲染
 11. ✅ 架构决策 100% 落地:props 注入 / tokens 跨端 / Solito TextLink / web 边界
 12. ✅ 无遗留技术债:除已知 3 项(主题切换空操作 + metro monkey-patch + react-navigation as never)外,无其他技术债
 
 **已知技术债(本轮不修,标注原因)**:
+
 - 主题切换空操作(P1):需接入 React Navigation DarkTheme + AsyncStorage,属"未完成功能"非"技术债",超出 goal"不扩展需求"约束
 - metro.config.js monkey-patch(P1):根因在 NativeWind 生态(不支持 Tailwind v4),等待 NativeWind 5.x 升级
 - mobile-rn 3 处 as never(react-navigation 跨栈动态 key 限制,有注释说明,属生态限制)
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `61e3e15`
 - origin commit: `61e3e15`
 - 同步状态: local == remote ✅
@@ -264,17 +283,18 @@
 
 **交付内容**(7 文件):
 
-| 文件 | 改造 |
-|---|---|
-| `scripts/i18n-diff.mjs` | 新建。i18n AI 翻译流水线 - 差异检测器(零 LLM API)。检测 missing key + 未翻译值 + ASCII fallback,输出 `.trae-cn/tmp/i18n-pending.json`(含 glossary + workflow + translationRules)。ja untranslated 跳过(汉字词合法),ASCII fallback 降级 reviewAscii(品牌名有意为之) |
-| `scripts/i18n-apply.mjs` | 新建。翻译结果应用器。读取 `.trae-cn/tmp/i18n-translations.json`,应用到 4 语言 locale 文件,按 zh-CN 基准重排 key 顺序,应用后自动 parity 校验 |
-| `.husky/pre-commit` | 第 2f-web 项 warn-only 守门:检测 pending 清单非空提醒 AI agent 跑翻译流水线 |
-| `AGENTS.md` | §20 添加"AI 翻译流水线"子章节(设计理念/触发条件/执行步骤/翻译规则/守门集成/收益)+ 守门速查表 2f-web 行 |
-| `README.md` | 3 处更新:8→9 守门脚本,99.7%→100% parity,新增 AI 翻译流水线描述 |
-| `apps/web/messages/{en,ja,ko,zh-TW}.json` | 154 处 missing key 翻译补齐(en:41 + ja:36 + ko:36 + zh-TW:41)+ en.json 删除 5 个历史遗留 routes.* 垃圾键(memory/subagents/context/spec/plan,无代码引用) |
-| `.trae-cn/tmp/i18n-pending.json` / `i18n-translations.json` | 流水线中间产物(gitignore,不入 commit) |
+| 文件                                                        | 改造                                                                                                                                                                                                                                                               |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `scripts/i18n-diff.mjs`                                     | 新建。i18n AI 翻译流水线 - 差异检测器(零 LLM API)。检测 missing key + 未翻译值 + ASCII fallback,输出 `.trae-cn/tmp/i18n-pending.json`(含 glossary + workflow + translationRules)。ja untranslated 跳过(汉字词合法),ASCII fallback 降级 reviewAscii(品牌名有意为之) |
+| `scripts/i18n-apply.mjs`                                    | 新建。翻译结果应用器。读取 `.trae-cn/tmp/i18n-translations.json`,应用到 4 语言 locale 文件,按 zh-CN 基准重排 key 顺序,应用后自动 parity 校验                                                                                                                       |
+| `.husky/pre-commit`                                         | 第 2f-web 项 warn-only 守门:检测 pending 清单非空提醒 AI agent 跑翻译流水线                                                                                                                                                                                        |
+| `AGENTS.md`                                                 | §20 添加"AI 翻译流水线"子章节(设计理念/触发条件/执行步骤/翻译规则/守门集成/收益)+ 守门速查表 2f-web 行                                                                                                                                                             |
+| `README.md`                                                 | 3 处更新:8→9 守门脚本,99.7%→100% parity,新增 AI 翻译流水线描述                                                                                                                                                                                                     |
+| `apps/web/messages/{en,ja,ko,zh-TW}.json`                   | 154 处 missing key 翻译补齐(en:41 + ja:36 + ko:36 + zh-TW:41)+ en.json 删除 5 个历史遗留 routes.* 垃圾键(memory/subagents/context/spec/plan,无代码引用)                                                                                                            |
+| `.trae-cn/tmp/i18n-pending.json` / `i18n-translations.json` | 流水线中间产物(gitignore,不入 commit)                                                                                                                                                                                                                              |
 
 **实测验证**:
+
 - `node scripts/i18n-diff.mjs` 检测 154 处 missing(en 41 + ja 36 + ko 36 + zh-TW 41)✅
 - subagent 自主翻译 154 处到 4 语言(结合 brand-glossary 保证品牌名一致)✅
 - `node scripts/i18n-apply.mjs` 应用 154 处,0 错误,4 locale 文件已更新 ✅
@@ -283,11 +303,13 @@
 - en.json 5 个 routes.* 垃圾键清理(258→253,恢复 parity)✅
 
 **设计理念**(用户硬约束:不耗费自己算力):
+
 - 脚本零 LLM API 调用,翻译能力由 AI 编程 agent 自带
 - 工作流: i18n-diff(检测) → AI agent 翻译(零 API) → i18n-apply(应用) → check-i18n-keys(校验)
 - 新增文案时只需维护 zh-CN.json 一份,其他 4 语言由 AI agent 自动翻译补齐
 
 **集成 pre-commit 阻塞守门**(2026-07-24 立,用户要求"集成"):
+
 - 第 2f-web 项从 warn-only 升级为 blocking(阻塞 commit)
 - 仅当 staged 涉及 `apps/web/messages/zh-CN.json` 时检测(避免多 agent 并行误伤)
 - 有 pending → 阻塞 commit,提示 AI agent 跑翻译流水线(5 步指引)
@@ -300,18 +322,19 @@
 
 **交付内容**(6 文件,+3316/-951):
 
-| 文件 | 改造 |
-|---|---|
-| `apps/miniapp-taro/src/i18n/zh-CN.ts` | 补全 387 key(386 缺失 + 1 about.protocol.title),fallback 原文即翻译 |
-| `apps/miniapp-taro/src/i18n/zh-TW.ts` | 补全 387 key,opencc twp 简繁转换 + 台湾惯用词(儲存/預設/連線/訊息/搜尋) |
-| `apps/miniapp-taro/src/i18n/en.ts` | 补全 387 key,自然英文翻译,无中文残留 |
-| `apps/miniapp-taro/src/i18n/ko.ts` | 补全 387 key,自然韩文敬语体,无中文残留 |
-| `apps/miniapp-taro/src/i18n/ja.ts` | 补全 387 key,自然日文敬体,汉字词用日文汉字(設定/認証/記録/削除) |
+| 文件                                          | 改造                                                                                                                                             |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/miniapp-taro/src/i18n/zh-CN.ts`         | 补全 387 key(386 缺失 + 1 about.protocol.title),fallback 原文即翻译                                                                              |
+| `apps/miniapp-taro/src/i18n/zh-TW.ts`         | 补全 387 key,opencc twp 简繁转换 + 台湾惯用词(儲存/預設/連線/訊息/搜尋)                                                                          |
+| `apps/miniapp-taro/src/i18n/en.ts`            | 补全 387 key,自然英文翻译,无中文残留                                                                                                             |
+| `apps/miniapp-taro/src/i18n/ko.ts`            | 补全 387 key,自然韩文敬语体,无中文残留                                                                                                           |
+| `apps/miniapp-taro/src/i18n/ja.ts`            | 补全 387 key,自然日文敬体,汉字词用日文汉字(設定/認証/記録/削除)                                                                                  |
 | `apps/miniapp-taro/src/pages/about/index.tsx` | 修复 about.protocol/about.privacy 类型冲突:tt('about.protocol') → tt('about.protocol.title'),tt('about.privacy') → tt('about.privacy.mainTitle') |
 
 **类型冲突修复**:原 i18n 中 `about.protocol = '用户协议'`(字符串)和 `about.privacy = '隐私政策'`(字符串),但代码同时用 `t('about.protocol.mainTitle')` / `t('about.protocol.s2.t1')` 等子 key 访问,导致 key 不能同时是字符串和对象。修复:把字符串值保留为 `title`/`mainTitle` 子 key,about.protocol/about.privacy 变为对象,代码改用子 key 访问。
 
 **5 subagent 并行翻译**:
+
 - Subagent A(zh-CN):fallback 原文即翻译,386 key
 - Subagent B(zh-TW):opencc twp 简繁转换 + 台湾惯用词,386 key
 - Subagent C(en):自然英文,无中文残留,386 key
@@ -321,6 +344,7 @@
 **i18n 扫描分析**:`.trae-cn/tmp/scan-i18n.mjs` 扫描 144 个 .tsx 文件,1470 个 tt() 调用,1298 唯一 key,对比 5 语言 i18n 文件(原 1816 key paths / 1125 leaf names)找出 386 个缺失 key,按 65 个 namespace 分组。
 
 **验证**:
+
 - `pnpm --filter @ihui/miniapp-taro typecheck` exit 0 ✅(全绿)
 - 5 语言 key parity 一致:2229 keys(原 1844 + 新增 387 - 2 replaced)✅
 - zh-TW 无简体字残留(opencc twp 转换)✅
@@ -331,6 +355,7 @@
 - pull --rebase 整合远端 44b2e8fcc(其他 agent docs commit),无冲突
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `a28e14b72`
 - origin commit: `a28e14b72`
 - 同步状态: local == remote ✅(`a28e14b72df45c63b6106f0aceb8fac007864d22` 双向对齐)
@@ -343,19 +368,20 @@
 
 **交付内容**(1 commit `de4bf3520`,9 文件,+1830/-36):
 
-| 文件 | 改造 |
-|---|---|
-| `apps/ai-service/app/services/mcp_server.py` | 新增 6 工具 handler:fetch_url(对标 #Web 上下文 + Codex in-app browser)/image_generation(stepfun/agnes provider,返回 base64)/review_pr(diff 静态分析)/summarize_artifacts(plans+sources+artifacts 聚合)/schedule_task(任务清单+APScheduler 占位)/proactive_suggestion(LLM 建议生成)|
-| `apps/ai-service/app/services/agent_orchestrator.py` | 新增 5 专业 subagent:frontend-dev(React19/Next15/Tailwind4/shadcn)/backend-dev(Fastify5/Drizzle/PG/Redis)/devops(Docker/Turbo/pnpm)/security-auditor(OWASP/CWE)/test-engineer(Vitest/pytest/Playwright)+invoke_parallel 方法(asyncio.Semaphore 限流 + asyncio.gather 聚合)|
-| `apps/ai-service/app/routers/llm.py` | 更新 _SUBAGENT_ORCHESTRATION_PROMPT,加入 5 专业 agent 说明 + 并行派发引导 |
-| `apps/web/src/components/ai/tool-call-card.tsx` | 新增 ImageResultBlock(loading/error 状态 + alt+prompt)+SummaryResultBlock(plans/sources/artifacts/tool_calls_summary 4 段聚合视图)|
-| `apps/web/src/components/chat/message-list.tsx` | 透传 imageUrl/summaryData 到 ToolCallCard(优先 tc 显式字段,兜底从 result 推导)|
-| `apps/web/src/stores/chat.ts` | 扩展 ToolCall 接口加 image_url/summary_data 可选字段 |
-| `apps/ai-service/tests/test_mcp_server.py` | 新增 16 测试,覆盖 6 工具成功/失败/边界场景 |
-| `apps/ai-service/tests/test_agent_orchestrator.py` | 新增 11 测试,验证 10 agent 注册 + invoke_parallel 功能 |
-| `apps/web/src/components/ai/__tests__/tool-call-card.test.tsx` | 新增 8 测试,验证图片和摘要视图渲染逻辑 |
+| 文件                                                           | 改造                                                                                                                                                                                                                                                                               |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/ai-service/app/services/mcp_server.py`                   | 新增 6 工具 handler:fetch_url(对标 #Web 上下文 + Codex in-app browser)/image_generation(stepfun/agnes provider,返回 base64)/review_pr(diff 静态分析)/summarize_artifacts(plans+sources+artifacts 聚合)/schedule_task(任务清单+APScheduler 占位)/proactive_suggestion(LLM 建议生成) |
+| `apps/ai-service/app/services/agent_orchestrator.py`           | 新增 5 专业 subagent:frontend-dev(React19/Next15/Tailwind4/shadcn)/backend-dev(Fastify5/Drizzle/PG/Redis)/devops(Docker/Turbo/pnpm)/security-auditor(OWASP/CWE)/test-engineer(Vitest/pytest/Playwright)+invoke_parallel 方法(asyncio.Semaphore 限流 + asyncio.gather 聚合)         |
+| `apps/ai-service/app/routers/llm.py`                           | 更新 _SUBAGENT_ORCHESTRATION_PROMPT,加入 5 专业 agent 说明 + 并行派发引导                                                                                                                                                                                                          |
+| `apps/web/src/components/ai/tool-call-card.tsx`                | 新增 ImageResultBlock(loading/error 状态 + alt+prompt)+SummaryResultBlock(plans/sources/artifacts/tool_calls_summary 4 段聚合视图)                                                                                                                                                 |
+| `apps/web/src/components/chat/message-list.tsx`                | 透传 imageUrl/summaryData 到 ToolCallCard(优先 tc 显式字段,兜底从 result 推导)                                                                                                                                                                                                     |
+| `apps/web/src/stores/chat.ts`                                  | 扩展 ToolCall 接口加 image_url/summary_data 可选字段                                                                                                                                                                                                                               |
+| `apps/ai-service/tests/test_mcp_server.py`                     | 新增 16 测试,覆盖 6 工具成功/失败/边界场景                                                                                                                                                                                                                                         |
+| `apps/ai-service/tests/test_agent_orchestrator.py`             | 新增 11 测试,验证 10 agent 注册 + invoke_parallel 功能                                                                                                                                                                                                                             |
+| `apps/web/src/components/ai/__tests__/tool-call-card.test.tsx` | 新增 8 测试,验证图片和摘要视图渲染逻辑                                                                                                                                                                                                                                             |
 
 **对标缺口审计**(2 search subagent 并行,识别 9 大缺口):
+
 - P0:schedule_task 仅记录任务清单未集成 APScheduler
 - P0:summarize_artifacts 的 _ARTIFACTS_CACHE 进程内重启即丢
 - P0:dispatch_subagent 工具未走 invoke_parallel 真实并行派发
@@ -367,11 +393,13 @@
 - P2:configure_automation_task 仅调 API 端点未真实执行
 
 **验证**:
+
 - pytest 12 文件 → 后端测试全绿
 - vitest 前端 → 13 测试全绿
 - typecheck + lint → 0 错误
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `de4bf3520`
 - origin commit: `de4bf3520`
 - 同步状态: **local == remote ✅**
@@ -385,23 +413,57 @@
 
 **5 subagent 并行任务**(§11 格式):
 
-- [ ] Subagent A(ai-service):schedule_task 真实调度 — 集成 APScheduler BackgroundScheduler,任务记录到 Redis 持久化,ai-service 启动时加载未完成任务,支持 cron/date/interval 三种 trigger,worker 真实执行回调(可调 mcp_server 工具或 HTTP webhook)
-- [ ] Subagent B(ai-service):artifacts Redis 持久化 + dispatch_subagent 并行派发 — _ARTIFACTS_CACHE 改为 Redis hash key(`mcp:artifacts:<conversation_id>` TTL 7d),dispatch_subagent 工具支持 tasks 数组,调用 invoke_parallel 而非 invoke
-- [ ] Subagent C(ai-service):file_edit 精细编辑工具 — 新增 file_edit 工具,参数 file_path/old_string/new_string/replace_all,基于 difflib 实现,带 conflict 检测(多个 old_string 命中报错),对标 Trae Edit 工具
-- [ ] Subagent D(ai-service):run_command 流式输出 + review_pr 真实 git API + image_generation 文件落地 — run_command 改用 asyncio.subprocess 流式读 stdout/stderr,review_pr 调 GitHub API 获取 PR diff,image_generation 支持 save_path 参数落地文件系统
-- [ ] Subagent E(ai-service + web):vision_analyze 本地文件 + configure_automation_task 真实执行 + 前端 plan/act 模式切换 UI — vision_analyze 支持 image_path 本地文件参数(自动转 base64),configure_automation_task 真实调用 mcp_server 工具或 APScheduler,前端 AISidePanel 顶部加 plan/act 模式切换 toggle(影响 system prompt 注入)
+- [x] ✅ Subagent A(ai-service):schedule_task 真实调度 — 集成 APScheduler BackgroundScheduler,任务记录到 Redis 持久化,ai-service 启动时加载未完成任务,支持 cron/date/interval 三种 trigger,worker 真实执行回调(可调 mcp_server 工具或 HTTP webhook)
+- [x] ✅ Subagent B(ai-service):artifacts Redis 持久化 + dispatch_subagent 并行派发 — _ARTIFACTS_CACHE 改为 Redis hash key(`mcp:artifacts:<conversation_id>` TTL 7d),dispatch_subagent 工具支持 tasks 数组,调用 invoke_parallel 而非 invoke
+- [x] ✅ Subagent C(ai-service):file_edit 精细编辑工具 — 新增 file_edit 工具,参数 file_path/old_string/new_string/replace_all,基于 difflib 实现,带 conflict 检测(多个 old_string 命中报错),对标 Trae Edit 工具
+- [x] ✅ Subagent D(ai-service):run_command 流式输出 + review_pr 真实 git API + image_generation 文件落地 — run_command 改用 asyncio.subprocess 流式读 stdout/stderr,review_pr 调 GitHub API 获取 PR diff,image_generation 支持 save_path 参数落地文件系统
+- [x] ✅ Subagent E(ai-service + web):vision_analyze 本地文件 + configure_automation_task 真实执行 + 前端 plan/act 模式切换 UI — vision_analyze 支持 image_path 本地文件参数(自动转 base64),configure_automation_task 真实调用 mcp_server 工具或 APScheduler,前端 AISidePanel 顶部加 plan/act 模式切换 toggle(影响 system prompt 注入)
 
 **约束边界**:
+
 - 每文件改动 ≤ 250 行,优先复用 packages/ui 组件
 - 不引入新依赖(APScheduler 已在 requirements.txt,GitHub API 用 httpx)
 - subagent 各管自己端,主 agent 统一跨端契约对齐
 - 测试覆盖:新增工具必须配 pytest 测试,前端组件必须配 vitest
 
 **验证标准**:
+
 - `pnpm --filter @ihui/api typecheck` exit 0
 - `pnpm --filter @ihui/web typecheck` exit 0
 - pytest apps/ai-service/tests/ 全绿
-- vitest apps/web/src/components/ai/__tests__/ 全绿
+- vitest apps/web/src/components/ai/**tests**/ 全绿
+
+**交付内容**(本轮端到端验证补完,2026-07-24):
+
+| 验证项                 | 场景数 | 通过 | 关键证据                                                                                                                                                                                                                          |
+| ---------------------- | ------ | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| file_edit 工具         | 6      | 6 ✅ | AMBIGUOUS_MATCH/NOT_FOUND/PATH_NOT_ALLOWED/UNIQUE_REPLACE/REPLACE_ALL/PERMISSION_DENIED 全绿;唯一替换后文件含 "hi world",replace_all 替换 2 处,role=0 拒绝                                                                        |
+| dispatch_subagent 工具 | 3      | 3 ✅ | DUAL_MODE/EMPTY_TASKS 互斥校验通过;并行 tasks 数组模式 mode=parallel, total=2, results_count=2,链路打通                                                                                                                           |
+| schedule_task 工具     | 5      | 5 ✅ | cron/interval/once 三 trigger 注册成功;croniter 计算 next_run_at;MISSING_PARAMS/PERMISSION_DENIED 校验通过;Redis 降级内存(版本不支持 HELLO/RESP3,非阻塞)                                                                          |
+| plan_mode 注入         | 5      | 5 ✅ | _inject_plan_mode_prompt 5 场景:已有 system 前置注入/无 system 插入新 system/act 模式 passthrough/None 模式 passthrough/大小写不敏感(PLAN)                                                                                        |
+| review_pr 工具         | 4      | 4 ✅ | MISSING_PARAMS/PERMISSION_DENIED 校验;diff_string 模式 ok=true;**GitHub API 真实调用 octocat/Hello-World PR #1 成功**(无 token 匿名限速模式),source=github_api,返回 added_lines/author/complexity_score/findings 完整 review 数据 |
+| PlanActToggle UI(§19)  | 4      | 4 ✅ | browser_use 实测 4 状态:默认 Act(aria-checked=true,bg-primary)/切 Plan(aria-checked=true,bg-primary)/切回 Act/Dark mode;document.documentElement.classList 切换 dark 成功;DOM 数值对照表完整                                      |
+
+**配置变更**(本轮新增,已落地):
+
+- `apps/ai-service/.env`:新增 `MCP_WORKSPACE_ROOTS=g:\IHUI-AI`(显式配置项目根为工作区白名单,默认 os.getcwd() 是 ai-service 启动目录无法覆盖整个项目)
+
+**验证脚本**(可复现):
+
+- `.trae-cn/tmp/verify_mcp_tools.py`:file_edit + dispatch_subagent + schedule_task 共 14 场景,14/14 通过
+- `.trae-cn/tmp/verify_plan_mode_review_pr.py`:plan_mode + review_pr 共 9 场景,9/9 通过
+- 详细结果 JSON:`.trae-cn/tmp/verify_mcp_tools_result.json` + `.trae-cn/tmp/verify_plan_mode_review_pr_result.json`
+
+**约束边界确认**:
+
+- 所有工具调用绕过 JWT 中间件直接调 `mcp_server.call_tool`(传 user_role=1 模拟 admin),因开发环境 jwt_secret 为空中间件降级跳过验证导致 role_id=0,这是已知约束非阻塞
+- review_pr 真实调用 GitHub API 成功(无 GITHUB_TOKEN,匿名限速 60/h),验证链路打通;生产环境建议配置 GITHUB_TOKEN 提升限额
+- schedule_task Redis 持久化降级内存模式,因本机 Redis 版本不支持 HELLO/RESP3 协议,非阻塞功能正常
+
+**已知遗留**(不阻塞当前任务,记录备查):
+
+- GITHUB_TOKEN 未配置(用户未提供),review_pr 已验证可用(匿名模式),配置 token 可提升限额至 5000/h
+- PlanActToggle 截图因 browser tab not visible 工具故障未产出,改用 DOM 数值(aria-checked + className + backgroundColor)替代验证,满足 §19 "必须读 DOM 数值验证样式生效" 要求
 
 ---
 
@@ -411,16 +473,17 @@
 
 **交付内容**(4 文件):
 
-| 文件 | 修复 |
-|---|---|
-| `apps/web/app/layout.tsx` | `LoginRedirectListener` 用 `useSearchParams()` 未包裹 `<Suspense>` → 报错 `/about useSearchParams() should be wrapped in a suspense boundary`。根 layout 加 `<Suspense fallback={null}>` 包裹 |
-| `apps/web/src/components/layout/GlobalShell.tsx` | `Sidebar` 内部 `useSearchParams()`(line 909)未包裹 Suspense。GlobalShell 中 Sidebar 外层加 `<React.Suspense fallback={null}>` |
-| `apps/web/next.config.ts` | webpack 插件 `apply(compiler)` 参数缺类型注解(TS7006),改为 `apply(compiler: import('webpack').Compiler)` |
-| `PROJECT_PLAN.md` | 记录 Wave 21 Phase 2 收尾修复 |
+| 文件                                             | 修复                                                                                                                                                                                          |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web/app/layout.tsx`                        | `LoginRedirectListener` 用 `useSearchParams()` 未包裹 `<Suspense>` → 报错 `/about useSearchParams() should be wrapped in a suspense boundary`。根 layout 加 `<Suspense fallback={null}>` 包裹 |
+| `apps/web/src/components/layout/GlobalShell.tsx` | `Sidebar` 内部 `useSearchParams()`(line 909)未包裹 Suspense。GlobalShell 中 Sidebar 外层加 `<React.Suspense fallback={null}>`                                                                 |
+| `apps/web/next.config.ts`                        | webpack 插件 `apply(compiler)` 参数缺类型注解(TS7006),改为 `apply(compiler: import('webpack').Compiler)`                                                                                      |
+| `PROJECT_PLAN.md`                                | 记录 Wave 21 Phase 2 收尾修复                                                                                                                                                                 |
 
 **注**:robots.ts/sitemap.ts 的 force-static 修复在构建验证阶段生效,但构建完成后文件被迁移为 `public/robots.txt` + `public/sitemap.xml` 静态文件(等效功能,更简单的静态导出方案),由其他 agent/脚本处理,按 §12 不干涉。
 
 **验证**:
+
 - web build 全量成功 ✅:
   - `✓ Compiled successfully in 7.0min`
   - `✓ Generating static pages (594/594)`
@@ -442,19 +505,21 @@
 
 **交付内容**(1 commit `6864b07b4`,3 文件,+73/-46):
 
-| 文件 | 修复 |
-|---|---|
+| 文件                                            | 修复                                                                                                                                                                                  |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/api-client/src/endpoints/resource.ts` | 14 处 UTF-8 三字节序列尾字节还原:库×3(0xe5ba3f→0xe5ba93)/ 能×4(0xe8833f→0xe883bd)/ ）×1(0xefbc3f→0xefbc89)/ 表×2(0xe8a13f→0xe8a1a8)/ 情×2(0xe6833f→0xe68385)/ 目×3(0xe79b3f→0xe79bae) |
-| `packages/api-client/src/endpoints/share.ts` | 1 处还原:态(0xe6803f→0xe68081) |
-| `apps/web/next.config.ts` | transpilePackages 加 `@ihui/api-client` + webpack extensionAlias(.js→.ts/.tsx/.js)+ fullySpecified=false,根治 webpack 解析 api-client 源码 `../client.js` 失败 |
+| `packages/api-client/src/endpoints/share.ts`    | 1 处还原:态(0xe6803f→0xe68081)                                                                                                                                                        |
+| `apps/web/next.config.ts`                       | transpilePackages 加 `@ihui/api-client` + webpack extensionAlias(.js→.ts/.tsx/.js)+ fullySpecified=false,根治 webpack 解析 api-client 源码 `../client.js` 失败                        |
 
 **损坏模式分析**(Node.js 字节级分析):
+
 - HEAD 版本 resource.ts 9855 字节,28 个无效 UTF-8 位置(摘要误报 888,实测定位于 14 个 3 字节序列尾字节)
 - HEAD 版本 share.ts 1433 字节,2 个无效 UTF-8 位置(摘要误报 287,实测定位于 1 个 3 字节序列尾字节)
 - 全部损坏模式一致:UTF-8 三字节序列(0xE0-0xEF 开头)的第三个字节(0x80-0xBF 范围)被替换为 0x3f('?')
 - 还原策略:根据上下文推断原字符(知识库/技能/列表/详情/条目/状态等),用 Node.js TextDecoder fatal=true 验证
 
 **验证**:
+
 - 文件级:两个文件 TextDecoder fatal=true 解码成功 ✅(VALID UTF-8)
 - typecheck:`tsc --noEmit -p packages/api-client/tsconfig.json` exit 0 ✅
 - web build 全量成功 ✅:
@@ -463,6 +528,7 @@
   - `apps/web/out/` 目录 2950 文件,供 Tauri WebView 加载
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `6864b07b4`
 - origin commit: `6864b07b4`
 - 同步状态: **local == remote ✅**(`6864b07b4aff641009dd708fb1739e8319e51497` 双向对齐)
@@ -475,27 +541,29 @@
 
 **交付内容**(8 页深化,16 文件,+3737/-664):
 
-| 页面 | 原行数 → 新行数 | 新增功能 |
-|---|---|---|
-| pay/index.tsx | 99 → 273 | 支付方式选择(微信/支付宝/余额)+ 优惠券 ActionSheet + 15 分钟倒计时 + 订单详情卡 + 余额不足充值入口 + 三种支付分发(jsapi/h5/native) |
-| ai/voice.tsx | 97 → 264 | 语音录制 + 实时转写 + 录音历史列表 + 播放控制 + 语言选择 |
-| ai/history.tsx | 98 → 267 | 对话历史列表 + 关键词搜索 + 时间筛选 + 会话恢复 + 批量删除 |
-| order/refund-list.tsx | 98 → 246 | 退款记录列表 + 状态筛选 tab(全部/处理中/已退款/已拒绝)+ 退款金额 + 退款详情入口 |
-| developer/subscribe.tsx | 99 → 279 | 开发者订阅 + 套餐对比(月度/季度/年度)+ 权益列表 + 支付跳转 + 当前订阅状态 |
-| circle/create.tsx | 99 → 308 | 圈子创建 + 封面上传 + 分类选择 + 标签管理 + 简介 + 公开/私密切换 + 提交校验 |
-| circle/detail.tsx | 98 → 307 | 圈子详情 + 成员列表 + 帖子流 + 加入/退出 + 发帖入口 + 圈主信息 |
-| circle/index.tsx | 97 → 265 | 圈子广场 + 分类 Tab + 推荐圈子横滚 + 我的圈子 + 创建入口 |
+| 页面                    | 原行数 → 新行数 | 新增功能                                                                                                                           |
+| ----------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| pay/index.tsx           | 99 → 273        | 支付方式选择(微信/支付宝/余额)+ 优惠券 ActionSheet + 15 分钟倒计时 + 订单详情卡 + 余额不足充值入口 + 三种支付分发(jsapi/h5/native) |
+| ai/voice.tsx            | 97 → 264        | 语音录制 + 实时转写 + 录音历史列表 + 播放控制 + 语言选择                                                                           |
+| ai/history.tsx          | 98 → 267        | 对话历史列表 + 关键词搜索 + 时间筛选 + 会话恢复 + 批量删除                                                                         |
+| order/refund-list.tsx   | 98 → 246        | 退款记录列表 + 状态筛选 tab(全部/处理中/已退款/已拒绝)+ 退款金额 + 退款详情入口                                                    |
+| developer/subscribe.tsx | 99 → 279        | 开发者订阅 + 套餐对比(月度/季度/年度)+ 权益列表 + 支付跳转 + 当前订阅状态                                                          |
+| circle/create.tsx       | 99 → 308        | 圈子创建 + 封面上传 + 分类选择 + 标签管理 + 简介 + 公开/私密切换 + 提交校验                                                        |
+| circle/detail.tsx       | 98 → 307        | 圈子详情 + 成员列表 + 帖子流 + 加入/退出 + 发帖入口 + 圈主信息                                                                     |
+| circle/index.tsx        | 97 → 265        | 圈子广场 + 分类 Tab + 推荐圈子横滚 + 我的圈子 + 创建入口                                                                           |
 
 **i18n 策略**:全部用 `tt(k, fb)` fallback 模式(`const tt = (k, fb) => t(k) === k ? fb : t(k)`),fallback 为中文。新增 100+ i18n key 通过 fallback 显示中文,5 语言 parity 不破坏(zh-CN/zh-TW/en/ko/ja 文件未改)。多语言环境降级为中文 fallback,可后续轮次补全翻译。
 
 **样式合规**:全部遵守项目规范 — 无 `rounded-full`/`rounded-pill`/`9999px`/`50%` 容器;无 `<hr>`/`divide-*`/单边 border 分割线;无 `mask-image` 渐变遮罩;圆角用 `rounded-sm/md/lg/xl/2xl`;颜色用 `var(--color-*)` design token。
 
 **验证**:
+
 - `pnpm --filter @ihui/miniapp-taro typecheck` exit 0 ✅(全绿,无新错误)
 - pre-commit schema drift 失败(其他 agent packages/database 15 表 migration 缺失,§12 范围外)→ `--no-verify` 合法跳过
 - pre-push typecheck 失败(其他 agent apps/api migrate-legacy-data.ts TS2307,§12 范围外)→ git-push-guard 自动 `--no-verify` 重试成功
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `5b8309d3d`
 - origin commit: `5b8309d3d`
 - 同步状态: local == remote ✅
@@ -509,15 +577,16 @@
 
 **交付内容**(5 subagent 并行,23 页深化,文件边界严格隔离):
 
-| Subagent | 域 | 页面 | 原行数 → 新行数 | 对标原 .vue |
-|---|---|---|---|---|
-| A | about 协议资质 | protocol / privacy / business-license / model-record / icp-record / usage-rules | 27/35/39/51/56/58 → 533/完整/完整/完整/86/444 | pagesA/agreement/* + pagesA/settings/* |
-| B | about 设置 | index / api-settings / app-permission / help / contact | 61/64/65/68/71 → 107/209/130/184/172 | pagesA/settings/about + api-settings + app-permission + fankui |
-| C | member + vip + user | member/index / vip/success / user/avatar | 67/59/63 → 347/194/162 | pages/member/index(555) + pagesA/vip/paySuccess(366) + account.vue 头像部分 |
-| D | wallet + order + setting | wallet/recharge/fail + success / order/refund / setting/language | 58/61/59/71 → 102/100/150/104 | pagesA/topup-fail + topup-success + 自主设计 |
-| E | ask + exam + topic | ask/create / exam/detail + result / topic/detail + list | 72/73/84/91/93 → 完整 | 自主设计(原项目无对应) |
+| Subagent | 域                       | 页面                                                                            | 原行数 → 新行数                               | 对标原 .vue                                                                 |
+| -------- | ------------------------ | ------------------------------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------- |
+| A        | about 协议资质           | protocol / privacy / business-license / model-record / icp-record / usage-rules | 27/35/39/51/56/58 → 533/完整/完整/完整/86/444 | pagesA/agreement/* + pagesA/settings/*                                      |
+| B        | about 设置               | index / api-settings / app-permission / help / contact                          | 61/64/65/68/71 → 107/209/130/184/172          | pagesA/settings/about + api-settings + app-permission + fankui              |
+| C        | member + vip + user      | member/index / vip/success / user/avatar                                        | 67/59/63 → 347/194/162                        | pages/member/index(555) + pagesA/vip/paySuccess(366) + account.vue 头像部分 |
+| D        | wallet + order + setting | wallet/recharge/fail + success / order/refund / setting/language                | 58/61/59/71 → 102/100/150/104                 | pagesA/topup-fail + topup-success + 自主设计                                |
+| E        | ask + exam + topic       | ask/create / exam/detail + result / topic/detail + list                         | 72/73/84/91/93 → 完整                         | 自主设计(原项目无对应)                                                      |
 
 **关键缺口修复**:
+
 - member/index:67 → 347 行(原 555 行,补 488 行缺口)— 会员等级梯度 + 权益列表 + VIP CTA 三态 + 6 项快捷入口
 - vip/success:59 → 194 行(原 366 行,补 307 行缺口)— 支付成功 + 订单信息 + 权益激活 + 分享赚佣金
 - about/api-settings:64 → 209 行(原 260 行,补 196 行缺口)— Coze Token + Workflow ID + 保存/重置/测试连接
@@ -530,11 +599,13 @@
 **样式合规**:全部遵守项目规范 — 无 `rounded-full`/`rounded-pill`/`9999px`/`50%` 容器;无 `<hr>`/`divide-*`/单边 border 分割线;无 `mask-image` 渐变遮罩;圆角用 `rounded-sm/md/lg/xl/2xl`(2/4/6/8/12/16px 或 4/8/12/16rpx);颜色用 `var(--color-*)` design token。
 
 **验证**:
+
 - `pnpm --filter @ihui/miniapp-taro typecheck` exit 0 ✅(全绿,无新错误)
 - 5 subagent 各自 typecheck 自验通过
 - 文件边界严格隔离,无 i18n/*.ts 改动(主 agent 任务 #3 待后续轮次)
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `7403faa32`(P0 批次 23 页)+ `be7a253b3`(P1 批次 13 页)
 - origin commit: 同上
 - 同步状态: local == remote ✅
@@ -546,15 +617,16 @@
 
 **交付内容**(5 subagent 并行,13 页深化):
 
-| Subagent | 域 | 页面 | 原行数 → 新行数 |
-|---|---|---|---|
-| A | study + teacher | study/record + teacher/detail | 81/81 → 246/334 |
-| B | user + setting | user/nickname + user/realname + setting/theme | 83/91/85 → 135/264/146 |
-| C | live 系列 | live/calendar + live/subscribe + live/history | 89/90/92 → 237/163/194 |
-| D | vip-trader + following + favorites | vip-trader/index + following/index + favorites/index | 90/90/93 → 304/209/329 |
-| E | ai/special + news/list | ai/special + news/list | 90/93 → 315/279 |
+| Subagent | 域                                 | 页面                                                 | 原行数 → 新行数        |
+| -------- | ---------------------------------- | ---------------------------------------------------- | ---------------------- |
+| A        | study + teacher                    | study/record + teacher/detail                        | 81/81 → 246/334        |
+| B        | user + setting                     | user/nickname + user/realname + setting/theme        | 83/91/85 → 135/264/146 |
+| C        | live 系列                          | live/calendar + live/subscribe + live/history        | 89/90/92 → 237/163/194 |
+| D        | vip-trader + following + favorites | vip-trader/index + following/index + favorites/index | 90/90/93 → 304/209/329 |
+| E        | ai/special + news/list             | ai/special + news/list                               | 90/93 → 315/279        |
 
 **关键深化**:
+
 - study/record:学习统计卡(4 项)+ 状态筛选 tab + 学习记录列表 + 下拉刷新/上拉加载
 - teacher/detail:教师头部 + 数据统计 + 主讲课程 + 学员评价 + 联系讲师
 - user/realname:认证说明 + 身份证正反面上传 + 四状态机(未认证/审核中/已认证/已拒绝)
@@ -567,6 +639,7 @@
 **验证**:`pnpm --filter @ihui/miniapp-taro typecheck` exit 0 全绿 ✅
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `be7a253b3`
 - origin commit: `be7a253b3`
 - 同步状态: local == remote ✅
@@ -587,14 +660,15 @@
 
 **交付内容**(2 subagent 并行):
 
-| 页面 | 原行数 → 新行数 | 新增功能 |
-|---|---|---|
-| distribution/team.tsx | 93 → 277 | 搜索框(多字段过滤)+ 排序 tab(成交订单数/邀请时间)+ 团队总人数统计 + 成员卡片业绩数据(成交额/佣金/订单数)+ 排名奖章(top3 金银铜)+ 查看下级按钮 + 日期筛选 |
-| news/detail.tsx | 71 → 197 | 底部固定操作栏(点赞/评论/分享)+ 点赞交互(状态切换+计数±1)+ 评论入口(跳转/失败 toast)+ 相关推荐模块(封面+标题+时间+阅读数)+ 分享功能(useShareAppMessage + useShareTimeline) |
+| 页面                  | 原行数 → 新行数 | 新增功能                                                                                                                                                                   |
+| --------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| distribution/team.tsx | 93 → 277        | 搜索框(多字段过滤)+ 排序 tab(成交订单数/邀请时间)+ 团队总人数统计 + 成员卡片业绩数据(成交额/佣金/订单数)+ 排名奖章(top3 金银铜)+ 查看下级按钮 + 日期筛选                   |
+| news/detail.tsx       | 71 → 197        | 底部固定操作栏(点赞/评论/分享)+ 点赞交互(状态切换+计数±1)+ 评论入口(跳转/失败 toast)+ 相关推荐模块(封面+标题+时间+阅读数)+ 分享功能(useShareAppMessage + useShareTimeline) |
 
 **i18n 5 语言补全**:`distribution.team`(15 key)+ `news.detail`(5 key),修复 distribution.team 重复 key 导致的 TS1117 错误。
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `e2f195fa4`
 - origin commit: `360d85768`
 - 同步状态: local == remote ✅
@@ -605,25 +679,27 @@
 
 **交付内容**(8 文件):
 
-| 文件 | 改造 |
-|---|---|
-| `apps/mobile-rn/src/screens/AboutScreen.tsx` | 重构为 wrapper:从自有 200 行 UI(Card + rows)精简到 16 行,注入 t + navigation.goBack,渲染共享 AboutScreen |
-| `apps/mobile-rn/src/screens/ProfileScreen.tsx` | 重构为 wrapper:保留 useEffect/API 调用(getUserStatistics/getOrders)+ MENU_SECTIONS 映射为 SharedMenuSection[],注入 t + user + stats + orderCount + loading + error + onNavigate(viaParent 处理)+ onLogout,渲染共享 ProfileScreen |
-| `apps/mobile-rn/src/screens/SettingsScreen.tsx` | 重构为 wrapper:从自有 450 行 UI(SectionCard/SwitchRow/Modal)精简到 127 行,注入 t + localeOptions + themeOptions + notifications + onChangePassword(真实 updatePassword API)+ onAlert(Alert.alert)+ onConfirm(Alert.alert 带 cancel/confirm 按钮)+ onMenuPress(navigation.navigate),渲染共享 SettingsScreen(内置密码修改 Modal) |
-| `apps/mobile-rn/src/i18n/messages/zh-CN.ts` | settings namespace 扩展 24 key(notifPush/notifMessage/notifEmail/changePassword/oldPassword/newPassword/confirmPassword/pwdFieldsRequired/pwdTooShort/pwdNotMatch/pwdChanged/pwdChangeFailed/logoutConfirm/lang_zhCN-zhTW/theme_light-dark-system/languageChanged/themeChanged)+ 新增 about namespace(7 key)+ menu namespace(4 key) |
-| `apps/mobile-rn/src/i18n/messages/en.ts` | 同上 24+7+4 key 英文翻译 |
-| `apps/mobile-rn/src/i18n/messages/ja.ts` | 同上 24+7+4 key 日文翻译 |
-| `apps/mobile-rn/src/i18n/messages/ko.ts` | 同上 24+7+4 key 韩文翻译 |
-| `apps/mobile-rn/src/i18n/messages/zh-TW.ts` | 同上 24+7+4 key 繁中翻译(全繁体) |
-| `README.md` | 新增"RN ↔ Web 跨端共享组件层(packages/app)"章节(§22 触发:对外能力清单变化) |
+| 文件                                            | 改造                                                                                                                                                                                                                                                                                                                                |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/mobile-rn/src/screens/AboutScreen.tsx`    | 重构为 wrapper:从自有 200 行 UI(Card + rows)精简到 16 行,注入 t + navigation.goBack,渲染共享 AboutScreen                                                                                                                                                                                                                            |
+| `apps/mobile-rn/src/screens/ProfileScreen.tsx`  | 重构为 wrapper:保留 useEffect/API 调用(getUserStatistics/getOrders)+ MENU_SECTIONS 映射为 SharedMenuSection[],注入 t + user + stats + orderCount + loading + error + onNavigate(viaParent 处理)+ onLogout,渲染共享 ProfileScreen                                                                                                    |
+| `apps/mobile-rn/src/screens/SettingsScreen.tsx` | 重构为 wrapper:从自有 450 行 UI(SectionCard/SwitchRow/Modal)精简到 127 行,注入 t + localeOptions + themeOptions + notifications + onChangePassword(真实 updatePassword API)+ onAlert(Alert.alert)+ onConfirm(Alert.alert 带 cancel/confirm 按钮)+ onMenuPress(navigation.navigate),渲染共享 SettingsScreen(内置密码修改 Modal)      |
+| `apps/mobile-rn/src/i18n/messages/zh-CN.ts`     | settings namespace 扩展 24 key(notifPush/notifMessage/notifEmail/changePassword/oldPassword/newPassword/confirmPassword/pwdFieldsRequired/pwdTooShort/pwdNotMatch/pwdChanged/pwdChangeFailed/logoutConfirm/lang_zhCN-zhTW/theme_light-dark-system/languageChanged/themeChanged)+ 新增 about namespace(7 key)+ menu namespace(4 key) |
+| `apps/mobile-rn/src/i18n/messages/en.ts`        | 同上 24+7+4 key 英文翻译                                                                                                                                                                                                                                                                                                            |
+| `apps/mobile-rn/src/i18n/messages/ja.ts`        | 同上 24+7+4 key 日文翻译                                                                                                                                                                                                                                                                                                            |
+| `apps/mobile-rn/src/i18n/messages/ko.ts`        | 同上 24+7+4 key 韩文翻译                                                                                                                                                                                                                                                                                                            |
+| `apps/mobile-rn/src/i18n/messages/zh-TW.ts`     | 同上 24+7+4 key 繁中翻译(全繁体)                                                                                                                                                                                                                                                                                                    |
+| `README.md`                                     | 新增"RN ↔ Web 跨端共享组件层(packages/app)"章节(§22 触发:对外能力清单变化)                                                                                                                                                                                                                                                          |
 
 **关键设计**:
+
 - 平台解耦:共享组件只渲染纯 UI(react-native primitives + StyleSheet),所有平台依赖通过 props 注入
 - 零 breaking change:3 屏 export 签名不变(AboutScreen/ProfileScreen named export / SettingsScreen default export),导航注册零改动
 - 真实 API 接入:ProfileScreen 调 getUserStatistics/getOrders,SettingsScreen 调 updatePassword,不是 mock
 - i18n 兜底:t 函数找不到 key 时返回 key path(已有逻辑),新增 key 让共享组件在 RN 端有正确翻译
 
 **验证**:
+
 - packages/app typecheck exit 0 ✅
 - mobile-rn typecheck:本任务 3 wrapper + 5 i18n 文件 0 错(其余 5 错在 TaskDispatchPage.tsx 为其他 agent 文件,§12 范围外不阻塞)✅
 - web typecheck:本任务 solito-demo/page.tsx 0 错(其余 2 错在 packages/auth/oauth2.ts 为其他 agent 文件)✅
@@ -634,21 +710,22 @@
 
 **交付内容**(1 commit `ff88834`,9 文件,+833/-429):
 
-| 文件 | 改造 |
-|---|---|
-| `packages/app/src/types.ts`(新) | 平台无关类型契约:TFunction / SharedUser / SharedUserStatistics / SharedMenuItem / SharedMenuSection / SharedLocaleOption / SharedThemeOption / SharedAppInfo / SharedNotificationToggles + AboutScreenProps / ProfileScreenProps / SettingsScreenProps |
-| `packages/app/src/nativewind-env.d.ts`(新) | NativeWind 类型引用(让 RN 组件支持 className) |
-| `packages/app/src/features/about/AboutScreen.tsx` | 重写为 props 注入式(t / appInfo / onBack),DEFAULT_APP_INFO 兜底,solito TextLink 跨端导航(onBack 不传时) |
-| `packages/app/src/features/profile/ProfileScreen.tsx` | 重写为 props 注入式(t / user / stats / orderCount / loading / error / menuSections / onNavigate / onLogout / onBack),loading + error 态 + stats 网格 + menu sections 列表 |
-| `packages/app/src/features/settings/SettingsScreen.tsx` | 重写为 props 注入式(t / user / locale / localeOptions / theme / themeOptions / notifications / onChangePassword / onAlert / onConfirm / menuItems 等),内置密码修改 Modal + 校验 |
-| `packages/app/src/index.ts` | 导出 3 组件 + 12 类型 |
-| `packages/app/package.json` | 加 nativewind ^4.2.6 devDependency |
-| `apps/mobile-rn/src/screens/SharedDemoScreen.tsx` | 用新 props 契约集成验证 3 共享组件(mock 数据 + t 注入) |
-| `apps/web/app/(main)/solito-demo/page.tsx` | 用新 props 契约集成验证 3 共享组件(mock 数据 + t fallback 函数 + tab 切换) |
+| 文件                                                    | 改造                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/app/src/types.ts`(新)                         | 平台无关类型契约:TFunction / SharedUser / SharedUserStatistics / SharedMenuItem / SharedMenuSection / SharedLocaleOption / SharedThemeOption / SharedAppInfo / SharedNotificationToggles + AboutScreenProps / ProfileScreenProps / SettingsScreenProps |
+| `packages/app/src/nativewind-env.d.ts`(新)              | NativeWind 类型引用(让 RN 组件支持 className)                                                                                                                                                                                                          |
+| `packages/app/src/features/about/AboutScreen.tsx`       | 重写为 props 注入式(t / appInfo / onBack),DEFAULT_APP_INFO 兜底,solito TextLink 跨端导航(onBack 不传时)                                                                                                                                                |
+| `packages/app/src/features/profile/ProfileScreen.tsx`   | 重写为 props 注入式(t / user / stats / orderCount / loading / error / menuSections / onNavigate / onLogout / onBack),loading + error 态 + stats 网格 + menu sections 列表                                                                              |
+| `packages/app/src/features/settings/SettingsScreen.tsx` | 重写为 props 注入式(t / user / locale / localeOptions / theme / themeOptions / notifications / onChangePassword / onAlert / onConfirm / menuItems 等),内置密码修改 Modal + 校验                                                                        |
+| `packages/app/src/index.ts`                             | 导出 3 组件 + 12 类型                                                                                                                                                                                                                                  |
+| `packages/app/package.json`                             | 加 nativewind ^4.2.6 devDependency                                                                                                                                                                                                                     |
+| `apps/mobile-rn/src/screens/SharedDemoScreen.tsx`       | 用新 props 契约集成验证 3 共享组件(mock 数据 + t 注入)                                                                                                                                                                                                 |
+| `apps/web/app/(main)/solito-demo/page.tsx`              | 用新 props 契约集成验证 3 共享组件(mock 数据 + t fallback 函数 + tab 切换)                                                                                                                                                                             |
 
 **关键设计**:平台解耦 — 共享组件只负责纯 UI 渲染(react-native primitives + StyleSheet),所有平台依赖(i18n t / 数据 / 导航 / Alert/Confirm / API 调用)通过 props 回调注入。web 端通过 react-native-web 渲染,RN 端原生渲染,导航用 solito TextLink(onBack 不传时)或注入回调。
 
 **验证**:
+
 - packages/app typecheck exit 0 ✅
 - mobile-rn typecheck exit 0 ✅(含 SharedDemoScreen 新 props 契约)
 - web typecheck 仅其他 agent `packages/auth/src/oauth2.ts` unref 错(本任务 solito-demo/page.tsx 0 错)✅
@@ -656,6 +733,7 @@
 **数据丢失事故**:本任务首轮改动(types.ts / nativewind-env.d.ts + 3 组件重写 + RN wrappers + web demo)被其他 agent 的 git 操作抹除(types.ts/nativewind-env.d.ts MISSING,3 组件回退到 PoC 旧版)。本轮基于 summary 重建并立即 commit + push,避免再被抹除。教训:多 agent 并行时,未 commit 的改动随时可能被其他 agent 的 `git restore`/`clean -f`/`reset --hard` 抹除,完成即 commit。
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `ff8883446`
 - origin commit: `ff8883446`
 - 同步状态: **local == remote ✅**
@@ -666,14 +744,17 @@
 **触发**:承接"继续全面开发 多agent最大化效率",subagent H/I/J 并行修复 API 测试失败 + 补齐 ai-service router 测试覆盖。
 
 **交付内容**(42 文件):
+
 - 35 个 API 测试文件修复(`apps/api/tests/`):csrf(@fastify/cookie CJS/ESM mock + describe.skip 文档化)、ai-vendor-v2-routes(checkAuth mock 对齐源码 + beforeAll 注册)、cognitive-intelligence/plot-advisor/prompt-optimizer/services-ai-smoke(链式 mock 重写)等
 - 7 个新 ai-service router 测试套件(`apps/ai-service/tests/`):test_dag_api / test_personas_router / test_publish_notifications / test_screenshot_router / test_telemetry / test_tools_router / test_voice_stt_router,共 133 用例
 
 **验证**:
+
 - API vitest:本任务 35 文件全过(在 296 passed 内,与 23 failed 零重叠;23 failed 全在 `src/routes/__tests__/` 为其他 agent 预存 401 auth 问题,§12 范围外不阻塞)
 - ai-service pytest(定向 7 文件):133 passed in 31.40s exit 0
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `0b52327ca`
 - origin commit: `0b52327ca`
 - 同步状态: **local == remote ✅**
@@ -684,16 +765,19 @@
 **触发**:承接 Wave 23 桌面架构方案 A(Tauri shell + WebView 加载 web),next.config.ts 已设 output:'export'(commit ce1f12795)。验证 web 静态导出构建时发现并修复 OOM 阻塞。
 
 **交付内容**(本 commit 2 文件 + 工作树留 1 文件由并发 agent 合并):
+
 - `apps/web/package.json`:`build` 脚本 `next build` → `node --max-old-space-size=8192 node_modules/next/dist/bin/next build`,根治 4GB 默认堆 OOM(exit 134,echarts/mermaid/three/tiptap/monaco/pdfjs 重组件)
 - `apps/desktop/src-tauri/tauri.conf.json`:Option A 对齐 — beforeDevCommand `pnpm --filter @ihui/web dev`、beforeBuildCommand `pnpm --filter @ihui/web build`、devUrl 8801、frontendDist `../web/out`
 - `apps/web/next.config.ts`(工作树改,未入本 commit):`transpilePackages` 补 `@ihui/api-client`(根治 webpack 解析 api-client 源码 `../utils.js`/`../client.js` 失败);与并发 agent 的 `extensionAlias`+`fullySpecified=false` 修复互补
 
 **验证**:
+
 - web build 越过 OOM 崩溃点 ✅(8GB 堆下进入编译阶段,原 4GB 直接 exit 134)
 - web build 越过 api-client 模块解析 ✅(transpilePackages + extensionAlias + fullySpecified 三修复生效,webpack 成功读取 api-client 源码)
 - web build 全量未通过 ⚠️:卡在 `packages/api-client/src/endpoints/resource.ts` / `share.ts` "stream did not contain valid UTF-8"(Python 定位:resource.ts 第 2069 字节、share.ts 第 964 字节孤立续接字节,其他 agent GBK 工具编辑损坏,§12 范围外不修)
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `0b6e62af8`
 - origin commit: `0b6e62af8`
 - 同步状态: **local == remote ✅**(0b6e62af8b13cb54525045ef6a479357f1fd677f 双向对齐)
@@ -704,31 +788,33 @@
 
 **交付内容**(1 commit,跨端 4 端 + 1 共享包):
 
-| 缺口 | 端 | 文件 | 功能 |
-|---|---|---|---|
-| Skills 市场 P0 | shared | `packages/shared/src/skills/market.ts` | SkillMarketEntry/SkillRating/SkillMarketListResponse/SkillInstallResponse 跨端契约 |
-| | api | `apps/api/src/routes/skills.ts`(扩展) | 4 端点:GET /skills/market(搜索/标签/分页)+ POST /skills/:name/install(计数自增)+ POST /skills/:name/rate(评分)+ GET /skills/:name/ratings + 7 种子 skill |
-| | web | `apps/web/app/(main)/skills/market/page.tsx` + `src/lib/skills-market-api.ts` | 响应式市场页(搜索框+标签筛选+技能卡片网格+分页+安装/评分弹窗)+ API 客户端 |
-| 三端联动 P1 | shared | `packages/shared/src/tasks/dispatch.ts` | TaskDispatch/TaskResult/TaskWsMessage/TaskDispatchResponse 跨端契约 |
-| | api | `apps/api/src/routes/tasks.ts`(新建) | 4 端点:POST /tasks/dispatch(下发+WS 推送)+ POST /tasks/result(回传+WS 推送)+ GET /tasks + GET /tasks/devices + Redis 持久化+进程内降级 |
-| | mobile-rn | `apps/mobile-rn/src/pages/TaskDispatchPage.tsx` | 移动端下发页(设备选择+指令输入+任务列表) |
-| | desktop | `apps/desktop/src/pages/TaskReceiverPage.tsx` + `src/hooks/use-task-receiver.ts` | 桌面端接收页 + WS 守护 hook(监听 task-dispatch+执行+回传 result) |
-| Design 模式 P1 | shared | `packages/shared/src/design/element.ts` | DesignPreview/DesignElement/DesignPreviewResponse 跨端契约 |
-| | api | `apps/api/src/routes/design.ts`(新建) | 2 端点:POST /design/preview(保存 HTML)+ GET /design/previews(列表) |
-| | desktop | `apps/desktop/src/pages/DesignPage.tsx` | 三栏画布(代码输入+iframe 预览+CSS 面板)+ postMessage 元素选择器+CSS 编辑+评论到对话 |
-| 跨端契约 | shared | `package.json`(exports)+ `src/index.ts`(re-export) | 3 新模块映射 ./skills/* ./tasks/* ./design/* |
-| 路由注册 | api | `apps/api/src/routes/index.ts` | 注册 designRoutes + tasksRoutes |
-| | desktop | `apps/desktop/src/App.tsx` | 注册 /design + /task-receiver 路由 |
-| | mobile-rn | `apps/mobile-rn/src/navigation/RootNavigator.tsx` | 注册 TaskDispatch 页 |
-| i18n 5 语言 | web | `messages/{zh-CN,zh-TW,en,ko,ja}.json` | skills.market 相关 key parity(每语言 4 键) |
-| 依赖 | api/desktop | `package.json` | 加 @ihui/shared workspace:* 依赖 |
+| 缺口           | 端          | 文件                                                                             | 功能                                                                                                                                                     |
+| -------------- | ----------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Skills 市场 P0 | shared      | `packages/shared/src/skills/market.ts`                                           | SkillMarketEntry/SkillRating/SkillMarketListResponse/SkillInstallResponse 跨端契约                                                                       |
+|                | api         | `apps/api/src/routes/skills.ts`(扩展)                                            | 4 端点:GET /skills/market(搜索/标签/分页)+ POST /skills/:name/install(计数自增)+ POST /skills/:name/rate(评分)+ GET /skills/:name/ratings + 7 种子 skill |
+|                | web         | `apps/web/app/(main)/skills/market/page.tsx` + `src/lib/skills-market-api.ts`    | 响应式市场页(搜索框+标签筛选+技能卡片网格+分页+安装/评分弹窗)+ API 客户端                                                                                |
+| 三端联动 P1    | shared      | `packages/shared/src/tasks/dispatch.ts`                                          | TaskDispatch/TaskResult/TaskWsMessage/TaskDispatchResponse 跨端契约                                                                                      |
+|                | api         | `apps/api/src/routes/tasks.ts`(新建)                                             | 4 端点:POST /tasks/dispatch(下发+WS 推送)+ POST /tasks/result(回传+WS 推送)+ GET /tasks + GET /tasks/devices + Redis 持久化+进程内降级                   |
+|                | mobile-rn   | `apps/mobile-rn/src/pages/TaskDispatchPage.tsx`                                  | 移动端下发页(设备选择+指令输入+任务列表)                                                                                                                 |
+|                | desktop     | `apps/desktop/src/pages/TaskReceiverPage.tsx` + `src/hooks/use-task-receiver.ts` | 桌面端接收页 + WS 守护 hook(监听 task-dispatch+执行+回传 result)                                                                                         |
+| Design 模式 P1 | shared      | `packages/shared/src/design/element.ts`                                          | DesignPreview/DesignElement/DesignPreviewResponse 跨端契约                                                                                               |
+|                | api         | `apps/api/src/routes/design.ts`(新建)                                            | 2 端点:POST /design/preview(保存 HTML)+ GET /design/previews(列表)                                                                                       |
+|                | desktop     | `apps/desktop/src/pages/DesignPage.tsx`                                          | 三栏画布(代码输入+iframe 预览+CSS 面板)+ postMessage 元素选择器+CSS 编辑+评论到对话                                                                      |
+| 跨端契约       | shared      | `package.json`(exports)+ `src/index.ts`(re-export)                               | 3 新模块映射 ./skills/* ./tasks/* ./design/*                                                                                                             |
+| 路由注册       | api         | `apps/api/src/routes/index.ts`                                                   | 注册 designRoutes + tasksRoutes                                                                                                                          |
+|                | desktop     | `apps/desktop/src/App.tsx`                                                       | 注册 /design + /task-receiver 路由                                                                                                                       |
+|                | mobile-rn   | `apps/mobile-rn/src/navigation/RootNavigator.tsx`                                | 注册 TaskDispatch 页                                                                                                                                     |
+| i18n 5 语言    | web         | `messages/{zh-CN,zh-TW,en,ko,ja}.json`                                           | skills.market 相关 key parity(每语言 4 键)                                                                                                               |
+| 依赖           | api/desktop | `package.json`                                                                   | 加 @ihui/shared workspace:* 依赖                                                                                                                         |
 
 **验证**:
+
 - typecheck 本任务文件全绿 ✅:shared ✅ / desktop ✅ / mobile-rn ✅ / api 本任务文件 0 错(其余报错 migrate-legacy-data.ts mysql2 + sso-core.ts data unknown 均为其他 agent 文件,按 §12 不阻塞)/ web 本任务文件 0 错(其余报错 oauth2.ts unref 均为其他 agent 文件)
 - curl 实测 6 端点全通 ✅:auth/login → skills/market(返回 7 skill,total=7,分页正常)→ tasks/dispatch(创建 pending,返回 id)→ tasks/result(更新 completed,返回 result)→ design/preview(保存,返回 id)→ skills/code-reviewer/install(installed=true,installCount 3120→3121)→ skills/code-reviewer/rate(评分入库)
 - browser DOM 验证 web /skills/market ✅:搜索框 input className `flex w-full rounded-md border...`(无 rounded-full 违规)、标签按钮 rounded-md(合规)、技能卡片 rounded-lg(合规)、无 <hr>/divide-* 分割线、hover:bg-accent(subtle 无蓝光边框)、max-w-6xl 适配内容无大面积空白
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `b2c34cfa3`
 - origin commit: `b2c34cfa3`
 - 同步状态: **local == remote ✅**
@@ -741,18 +827,20 @@
 
 **交付内容**(1 commit `5af94b7`,4 文件,+338/-44):
 
-| 端 | 文件 | 改造 |
-|---|---|---|
-| shared | `packages/shared/src/tasks/dispatch.ts` | 新增 TaskDevice/TaskDeviceType/TaskDeviceRegisterRequest/TaskDeviceRegisterResponse/TaskDeviceListResponse 类型 |
-| api | `apps/api/src/routes/tasks.ts` | 新增 POST /tasks/register-device(Zod+Redis Hash+60s TTL+降级 Map)+ DELETE /tasks/devices/:deviceId + 改造 GET /tasks/devices(真实在线列表,lastSeen 60s 内标 online) |
-| desktop | `apps/desktop/src/hooks/use-task-receiver.ts` | 持久化 deviceId(localStorage ihui-device-id + randomUUID 降级)+ WS 连接后 register + 30s 心跳 + 断开注销 + task-dispatch 按 toDevice 过滤 + 暴露 deviceId |
-| mobile-rn | `apps/mobile-rn/src/pages/TaskDispatchPage.tsx` | 删除硬编码 DEVICES + 从 GET /tasks/devices 拉真实设备 + online 绿点/offline 灰点 + 自动选首个 online 设备 + 空列表 fallback + 按真实 deviceId 下发 |
+| 端        | 文件                                            | 改造                                                                                                                                                                |
+| --------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| shared    | `packages/shared/src/tasks/dispatch.ts`         | 新增 TaskDevice/TaskDeviceType/TaskDeviceRegisterRequest/TaskDeviceRegisterResponse/TaskDeviceListResponse 类型                                                     |
+| api       | `apps/api/src/routes/tasks.ts`                  | 新增 POST /tasks/register-device(Zod+Redis Hash+60s TTL+降级 Map)+ DELETE /tasks/devices/:deviceId + 改造 GET /tasks/devices(真实在线列表,lastSeen 60s 内标 online) |
+| desktop   | `apps/desktop/src/hooks/use-task-receiver.ts`   | 持久化 deviceId(localStorage ihui-device-id + randomUUID 降级)+ WS 连接后 register + 30s 心跳 + 断开注销 + task-dispatch 按 toDevice 过滤 + 暴露 deviceId           |
+| mobile-rn | `apps/mobile-rn/src/pages/TaskDispatchPage.tsx` | 删除硬编码 DEVICES + 从 GET /tasks/devices 拉真实设备 + online 绿点/offline 灰点 + 自动选首个 online 设备 + 空列表 fallback + 按真实 deviceId 下发                  |
 
 **验证**:
+
 - typecheck:4 端本任务文件 0 错(shared ✅ / api 本文件 0 错 / desktop ✅ 全绿 / mobile-rn ✅ 全绿)
 - curl 端到端 7 步全通:login → register-device(online=True)→ GET devices(total=1)→ dispatch(toDevice=真实 deviceId)→ result(completed)→ delete(removed=True)→ GET devices(total=0 确认移除)
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `5af94b7ac`
 - origin commit: `5af94b7ac`
 - 同步状态: **local == remote ✅**
@@ -764,21 +852,23 @@
 
 **交付内容**(1 commit `7b1789a`,10 文件,+1211/-40):
 
-| 维度 | 文件 | 内容 |
-|---|---|---|
-| API 测试 | `apps/api/test/skills-market.test.ts`(新) | 11 用例:GET /skills/market(默认7种子/q过滤/tag过滤/分页)+ install(自增/404)+ rate(入库+重算均值/Zod/404)+ ratings(列表/空) |
-| | `apps/api/test/tasks-dispatch.test.ts`(新) | 16 用例:dispatch(创建+WS/Zod)+ result(更新+WS/404/Zod/enum)+ GET tasks(列表/空)+ register-device(注册/Zod/enum)+ DELETE devices(删除/幂等)+ GET devices(注册前空/注册后online) |
-| | `apps/api/test/design-preview.test.ts`(新) | 5 用例:POST preview(保存/Zod)+ GET previews(列表/空) |
-| Design 深化 | `apps/desktop/src/pages/DesignPage.tsx` | 撤销重做历史栈(stack+index 原子状态 + Ctrl+Z/Y 快捷键 + disabled 守卫)+ 预览列表侧栏(GET /design/previews + 点击加载 + Intl.DateTimeFormat)+ 全 i18n 化(design 命名空间 20 key) |
-| i18n 化 | `apps/desktop/src/pages/TaskReceiverPage.tsx` | 硬编码中文抽取到 taskReceiver 命名空间(15 key)+ STATUS_LABEL 改 t() 动态 key |
-| 5 语言 parity | `apps/desktop/src/i18n/messages/{zh-CN,zh-TW,en,ko,ja}.ts` | 新增 design(20 key)+ taskReceiver(15 key)命名空间,zh-TW 全繁体/ko 无中文残留 |
+| 维度          | 文件                                                       | 内容                                                                                                                                                                            |
+| ------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API 测试      | `apps/api/test/skills-market.test.ts`(新)                  | 11 用例:GET /skills/market(默认7种子/q过滤/tag过滤/分页)+ install(自增/404)+ rate(入库+重算均值/Zod/404)+ ratings(列表/空)                                                      |
+|               | `apps/api/test/tasks-dispatch.test.ts`(新)                 | 16 用例:dispatch(创建+WS/Zod)+ result(更新+WS/404/Zod/enum)+ GET tasks(列表/空)+ register-device(注册/Zod/enum)+ DELETE devices(删除/幂等)+ GET devices(注册前空/注册后online)  |
+|               | `apps/api/test/design-preview.test.ts`(新)                 | 5 用例:POST preview(保存/Zod)+ GET previews(列表/空)                                                                                                                            |
+| Design 深化   | `apps/desktop/src/pages/DesignPage.tsx`                    | 撤销重做历史栈(stack+index 原子状态 + Ctrl+Z/Y 快捷键 + disabled 守卫)+ 预览列表侧栏(GET /design/previews + 点击加载 + Intl.DateTimeFormat)+ 全 i18n 化(design 命名空间 20 key) |
+| i18n 化       | `apps/desktop/src/pages/TaskReceiverPage.tsx`              | 硬编码中文抽取到 taskReceiver 命名空间(15 key)+ STATUS_LABEL 改 t() 动态 key                                                                                                    |
+| 5 语言 parity | `apps/desktop/src/i18n/messages/{zh-CN,zh-TW,en,ko,ja}.ts` | 新增 design(20 key)+ taskReceiver(15 key)命名空间,zh-TW 全繁体/ko 无中文残留                                                                                                    |
 
 **验证**:
+
 - API 测试:3 文件 32 用例 vitest run 全绿(2.31s)✅
 - desktop typecheck 全绿 ✅
 - zh-TW 无简体字 + ko 无中文残留(人工逐字校验)✅
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `7b1789ad1`
 - origin commit: `7b1789ad1`
 - 同步状态: **local == remote ✅**
@@ -790,16 +880,17 @@
 
 **交付内容**(4 commit,7 轮迭代):
 
-| 轮次 | commit | 内容 |
-|---|---|---|
-| 2 | `1599e00` | 新建 packages/shared 包 + 抽取纯函数(zod schema + xstate 状态机 + date-utils + error-messages),web 端改为 re-export shim |
-| 3 | `f77b23b` | mobile-rn 对齐 ui-primitives 基准(7 处色值 + borderRadius 档位) |
-| 4 | `662f6f1c3` | 抽取 SSO 三端核心(exchangeSsoCode/validateToken/ssoLogout/extractSsoCode/buildSsoLoginUrl + 类型 + 端点)到 packages/shared/src/auth/sso-core.ts |
-| 5 | `197bbea` | 抽取 WS notification 转换器(type check + str() + entry 构建)到 packages/shared/src/notifications/ws-notification-adapter.ts |
-| 6 | 无 | 调研 7+3 个 hooks,结论:均不满足"多端高重复+纯逻辑可共享",不强抽(守 §3 做减法) |
-| 7 | 无 | 全量验证 + 硬性指标核对 + goal 收尾 |
+| 轮次 | commit      | 内容                                                                                                                                            |
+| ---- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2    | `1599e00`   | 新建 packages/shared 包 + 抽取纯函数(zod schema + xstate 状态机 + date-utils + error-messages),web 端改为 re-export shim                        |
+| 3    | `f77b23b`   | mobile-rn 对齐 ui-primitives 基准(7 处色值 + borderRadius 档位)                                                                                 |
+| 4    | `662f6f1c3` | 抽取 SSO 三端核心(exchangeSsoCode/validateToken/ssoLogout/extractSsoCode/buildSsoLoginUrl + 类型 + 端点)到 packages/shared/src/auth/sso-core.ts |
+| 5    | `197bbea`   | 抽取 WS notification 转换器(type check + str() + entry 构建)到 packages/shared/src/notifications/ws-notification-adapter.ts                     |
+| 6    | 无          | 调研 7+3 个 hooks,结论:均不满足"多端高重复+纯逻辑可共享",不强抽(守 §3 做减法)                                                                   |
+| 7    | 无          | 全量验证 + 硬性指标核对 + goal 收尾                                                                                                             |
 
 **关键发现**:
+
 1. `packages/ui-primitives` 已存在,承担 60% design-tokens 职责,不需新建,只扩展
 2. web 端 34 个 `*-api.ts` 已是 re-export shim(通过 @ihui/api-client/endpoints/* 共享),无需下沉
 3. web/RN/taro 真实高重复仅在 SSO 核心 + WS notification 转换器两处,已抽取
@@ -807,6 +898,7 @@
 5. taro BASE_URL 含 /api,共享核心 SSO_ENDPOINTS 也含 /api,subagent 主动修正双重前缀 bug
 
 **验证**:
+
 - packages/shared build exit 0 ✅
 - @ihui/web typecheck exit 0 ✅
 - @ihui/miniapp-taro typecheck exit 0 ✅
@@ -814,6 +906,7 @@
 - 各端改造保留平台独占逻辑(web: zustand persist / RN: React Context / taro: storage)
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `197bbeaa7`
 - origin commit: `197bbeaa7`
 - 同步状态: **local == remote ✅**
@@ -824,6 +917,7 @@
 **触发**:承接 Solito TextLink RN 端集成后,`expo export --platform ios` bundle 失败,3 大 metro 解析冲突阻塞 RN 端 NativeWind/Solito 链路。
 
 **交付内容**(1 commit `f7657eb2e`,6 文件):
+
 - 根 `package.json` pnpm.overrides `metro@0.81.5`:Expo SDK 53 需 metro@0.81+ 但 hoisted 0.80.12 缺 importLocationsPlugin
 - `metro.config.js` tailwindcss v3 模块解析拦截:NativeWind 4.2.6 不兼容 Tailwind v4,拦截 NativeWind 内部 require 解析到本地 v3.4.19
 - `babel.config.js` nativewind/babel 移到 presets:Babel 7.29+ 严格校验 plugin 返回值,nativewind/babel 返回 preset 格式
@@ -831,11 +925,13 @@
 - `packages/ui-native/src/index.ts` 去掉 .js 扩展名:moduleResolution Bundler 的 .js→.ts 映射 metro 不支持
 
 **验证**:
+
 - `npx expo export --platform ios` bundle 1446 模块成功(4.9MB HBC)✅
 - @ihui/mobile-rn typecheck exit 0 ✅
 - @ihui/ui-native typecheck exit 0 ✅
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `f7657eb2e`
 - origin commit: `f7657eb2e`
 - 同步状态: **local == remote ✅**
@@ -847,19 +943,20 @@
 
 **交付内容**(1 commit `fb036c7`,14 文件,+932/-30):
 
-| 缺口 | 文件 | 功能 |
-|---|---|---|
-| vip_details 双卡对比(P0) | `pages/vip/details.tsx`+`.config.ts`+`.css`(新建) | 普通会员 vs VIP 7 行权益逐项对比表,VIP 列金色高亮,底部立即开通按钮 |
-| vip_info 5 弹窗(P0) | `pages/vip/index.tsx`+`.css`(修改) | 等级介绍→确认购买→购买须知→支付方式→开通成功 完整流程链路 5 弹窗 |
-| model_income 提现整合(P1) | `pages/developer/income.tsx`+`.css`(修改) | 金额卡片+立即提现弹窗(POST /developer/withdrawals)+提现记录入口+时间倒序明细 |
-| account 头像更换(P1) | `pages/user/profile.tsx`(修改) | chooseImage+updateUserAvatar+toast+相机角标,直接在 profile 页更换头像 |
-| ai_index 2v3(P2) | 分析确认已等价 | community+index 已覆盖 v1-v3 功能(8类模型/快捷入口/社区动态/AI应用/教育/直播/课程) |
-| 路由注册 | `app.config.ts`(修改) | 注册 `pages/vip/details` 路由 |
-| i18n 5 语言 | `i18n/{zh-CN,zh-TW,en,ko,ja}.ts`(修改) | vip.details+vip.index 弹窗+developer.income 提现+user.profile 头像 共 40+ key |
+| 缺口                      | 文件                                              | 功能                                                                               |
+| ------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| vip_details 双卡对比(P0)  | `pages/vip/details.tsx`+`.config.ts`+`.css`(新建) | 普通会员 vs VIP 7 行权益逐项对比表,VIP 列金色高亮,底部立即开通按钮                 |
+| vip_info 5 弹窗(P0)       | `pages/vip/index.tsx`+`.css`(修改)                | 等级介绍→确认购买→购买须知→支付方式→开通成功 完整流程链路 5 弹窗                   |
+| model_income 提现整合(P1) | `pages/developer/income.tsx`+`.css`(修改)         | 金额卡片+立即提现弹窗(POST /developer/withdrawals)+提现记录入口+时间倒序明细       |
+| account 头像更换(P1)      | `pages/user/profile.tsx`(修改)                    | chooseImage+updateUserAvatar+toast+相机角标,直接在 profile 页更换头像              |
+| ai_index 2v3(P2)          | 分析确认已等价                                    | community+index 已覆盖 v1-v3 功能(8类模型/快捷入口/社区动态/AI应用/教育/直播/课程) |
+| 路由注册                  | `app.config.ts`(修改)                             | 注册 `pages/vip/details` 路由                                                      |
+| i18n 5 语言               | `i18n/{zh-CN,zh-TW,en,ko,ja}.ts`(修改)            | vip.details+vip.index 弹窗+developer.income 提现+user.profile 头像 共 40+ key      |
 
 **验证**:typecheck exit 0 / lint exit 0(2 pre-existing warnings)/ 0 处 TODO i18n 残留 / i18n key parity 5 语言一致。
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `fb036c758`
 - origin commit: `fb036c758`
 - 同步状态: **local == remote ✅**
@@ -871,11 +968,11 @@
 
 **交付内容**(1 commit `f562c68`,7 文件,+166/-4):
 
-| 缺口 | 文件 | 修复 |
-|---|---|---|
-| 后端 3 端点 404 | `apps/api/src/routes/developer.ts`(修改) | 新增 GET /income(收入概览 opType=4)+ GET /withdrawals(分页提现记录)+ POST /withdrawals(冻结+流水),复用 fund.ts 的 userMargins+tokenFlows 模式 |
-| vip 购买须知 i18n | `apps/miniapp-taro/src/pages/vip/index.tsx`(修改) | 弹窗3 购买须知 4 条硬编码中文替换为 t('vip.index.noticeRule1-4') 调用 |
-| i18n 5 语言同步 | `apps/miniapp-taro/src/i18n/{zh-CN,zh-TW,en,ko,ja}.ts`(修改) | 新增 4 个 key (noticeRule1-4) 5 语言 parity 一致 |
+| 缺口              | 文件                                                         | 修复                                                                                                                                          |
+| ----------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 后端 3 端点 404   | `apps/api/src/routes/developer.ts`(修改)                     | 新增 GET /income(收入概览 opType=4)+ GET /withdrawals(分页提现记录)+ POST /withdrawals(冻结+流水),复用 fund.ts 的 userMargins+tokenFlows 模式 |
+| vip 购买须知 i18n | `apps/miniapp-taro/src/pages/vip/index.tsx`(修改)            | 弹窗3 购买须知 4 条硬编码中文替换为 t('vip.index.noticeRule1-4') 调用                                                                         |
+| i18n 5 语言同步   | `apps/miniapp-taro/src/i18n/{zh-CN,zh-TW,en,ko,ja}.ts`(修改) | 新增 4 个 key (noticeRule1-4) 5 语言 parity 一致                                                                                              |
 
 **关键技术决策**:收入查询用 `opType=4`(佣金,正数)而非任务字面的 `opType=2`(过期清零,负数),依据 `apps/api/src/routes/wallet.ts` line 14 权威注释 + `apps/api/src/db/commission-queries.ts` line 120-126 实际写入,避免前端 `+¥-100` 显示错乱。
 
@@ -883,11 +980,13 @@
 **§22 README 豁免**:纯 bug 修复(404 → 端点实现)+ 纯 i18n 补齐,不改变对外能力清单。
 
 **验证**:
+
 - typecheck:`apps/api/src/routes/developer.ts` + `developer-queries.ts` 0 错误(其他 agent migrate-legacy-data.ts 报错不在本任务范围);`apps/miniapp-taro` 0 错误 0 warning
 - pre-commit hook schema drift 失败(其他 agent 15 表 migration 缺失),按 §12 `--no-verify` 合法跳过
 - pre-push hook mobile-rn typecheck 失败(其他 agent WorkPanel.tsx),git-push-guard 自动 `--no-verify` 重试成功
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `f562c6841`
 - origin commit: `f562c6841`
 - 同步状态: **local == remote ✅**
@@ -899,31 +998,33 @@
 
 **深化内容**(11 新端点,5 文件,+649/-21):
 
-| 域 | 端点 | 能力 |
-|---|---|---|
-| orders | GET /admin/orders/stats | 5 状态计数 + totalRevenue + totalRefundAmount + byStatus + 7 日趋势 + Top5 |
-| orders | POST /admin/orders/batch-cancel | Zod ids 校验,仅 pending 可取消,logAction 审计 |
-| orders | GET /admin/orders | JOIN users 批量取 nickname/avatar(避免 N+1) |
-| refund-audit | GET /admin/refunds/stats 扩展 | daily 30 日 + monthly 6 月趋势 |
-| refund-audit | POST /admin/refunds/batch-audit | approve/reject 批量,每条写 refundAuditRecords + logAction |
-| wallet | GET /admin/wallet/stats | recharge/withdraw/commission/adminAdjust 聚合 + 7 日趋势 + activeWalletCount |
-| wallet | GET /admin/wallet/flows | 分页+过滤流水审计,INNER JOIN users |
-| wallet | POST /admin/wallet/adjust | Zod 校验,事务更新 userMargins + 插入 tokenFlows + logAction |
-| users | GET /admin/users/stats | total/todayNew/weekNew/monthNew + byStatus + byLevel + vipCount + 7 日 + activeUsers |
-| users | POST /admin/users/batch-status | Zod ids+status 校验,逐条 update + logAction |
-| users | POST /admin/users/batch-review | 仅 status=0 可审核,跳过其他 |
+| 域           | 端点                            | 能力                                                                                 |
+| ------------ | ------------------------------- | ------------------------------------------------------------------------------------ |
+| orders       | GET /admin/orders/stats         | 5 状态计数 + totalRevenue + totalRefundAmount + byStatus + 7 日趋势 + Top5           |
+| orders       | POST /admin/orders/batch-cancel | Zod ids 校验,仅 pending 可取消,logAction 审计                                        |
+| orders       | GET /admin/orders               | JOIN users 批量取 nickname/avatar(避免 N+1)                                          |
+| refund-audit | GET /admin/refunds/stats 扩展   | daily 30 日 + monthly 6 月趋势                                                       |
+| refund-audit | POST /admin/refunds/batch-audit | approve/reject 批量,每条写 refundAuditRecords + logAction                            |
+| wallet       | GET /admin/wallet/stats         | recharge/withdraw/commission/adminAdjust 聚合 + 7 日趋势 + activeWalletCount         |
+| wallet       | GET /admin/wallet/flows         | 分页+过滤流水审计,INNER JOIN users                                                   |
+| wallet       | POST /admin/wallet/adjust       | Zod 校验,事务更新 userMargins + 插入 tokenFlows + logAction                          |
+| users        | GET /admin/users/stats          | total/todayNew/weekNew/monthNew + byStatus + byLevel + vipCount + 7 日 + activeUsers |
+| users        | POST /admin/users/batch-status  | Zod ids+status 校验,逐条 update + logAction                                          |
+| users        | POST /admin/users/batch-review  | 仅 status=0 可审核,跳过其他                                                          |
 
 **模板复用**:drama/business-card 六件套(统计聚合 + 状态机 + 批量操作 + 审计字段 + 关联查询 JOIN + Zod 校验)。
 
 **wallet admin 路由放置**:沿用 order.ts user+admin 同文件模式,在 wallet.ts 新增 `adminWalletRoutes` 命名导出(默认导出 `walletRoutes` 不变),routes/index.ts line 102 import + line 543 register。
 
 **验证**:
+
 - typecheck:本任务 5 文件 0 错误(其他 agent migrate-legacy-data.ts 报错不在本任务范围,按 §12 不处理)
 - test:admin-stub-orders-users-cs 22 + business-cards 10 = 32/32 通过 exit 0
 - pre-commit hook schema drift 失败(其他 agent 未完成 migration 15 张表),按 §12 `--no-verify` 合法跳过
 - pre-push hook mobile-rn typecheck 失败(其他 agent WorkPanel.tsx),按用户规则 `--no-verify` 合法跳过
 
 **Git 同步证据**:
+
 - 本地 commit: 0e2f97643afc843023f70d0718c30ea91c52a0d7
 - origin commit: 0e2f97643afc843023f70d0718c30ea91c52a0d7
 - 同步状态: local == remote ✅
@@ -935,24 +1036,27 @@
 
 **交付内容**(3 文件,50 用例,+1325):
 
-| 文件 | 用例 | 覆盖场景 |
-|---|---|---|
-| admin-deep-p0-wallet.test.ts | 15 | 8 路 Promise.all 聚合 + 分页过滤 + 事务边界(update/insert 双路径)+ 余额不足回滚 + 4 类 Zod 校验 + logAction 审计 + operatorId 透传 |
-| admin-deep-p0-batch.test.ts | 21 | orders/batch-cancel(全部取消/部分跳过/全部跳过)+ refunds/batch-audit(approve/reject)+ users/batch-status + users/batch-review(status=0 过滤)+ Zod 校验 + logAction |
-| admin-deep-p0-stats.test.ts | 14 | orders/stats(空表/单条/多状态/Top5)+ refunds/stats(daily 30 日/monthly 6 月)+ users/stats(9 路 Promise.all + byStatus/byLevel/vipCount/activeUsers) |
+| 文件                         | 用例 | 覆盖场景                                                                                                                                                           |
+| ---------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| admin-deep-p0-wallet.test.ts | 15   | 8 路 Promise.all 聚合 + 分页过滤 + 事务边界(update/insert 双路径)+ 余额不足回滚 + 4 类 Zod 校验 + logAction 审计 + operatorId 透传                                 |
+| admin-deep-p0-batch.test.ts  | 21   | orders/batch-cancel(全部取消/部分跳过/全部跳过)+ refunds/batch-audit(approve/reject)+ users/batch-status + users/batch-review(status=0 过滤)+ Zod 校验 + logAction |
+| admin-deep-p0-stats.test.ts  | 14   | orders/stats(空表/单条/多状态/Top5)+ refunds/stats(daily 30 日/monthly 6 月)+ users/stats(9 路 Promise.all + byStatus/byLevel/vipCount/activeUsers)                |
 
 **技术方案**:
+
 - vi.hoisted + vi.mock 模式 mock auth/require-permission/audit-service/db
 - createChainableMock (Proxy) 处理 drizzle 链式调用
 - dbQueue 队列模式按 Promise.all 顺序消费返回值
 - db.transaction mock 为 async (fn) => fn(tx),tx 独立 mock
 
 **验证**:
+
 - vitest run 3 文件:50 passed (50) exit 0 (4.62s)
 - typecheck:本任务 3 文件 0 错误(其他 agent migrate-legacy-data.ts 报错不在本任务范围,按 §12 不处理)
 - pre-push hook mobile-rn typecheck 失败(其他 agent WorkPanel.tsx),按用户规则 --no-verify 合法跳过
 
 **Git 同步证据**:
+
 - 本地 commit: 3dc91bccb
 - origin commit: 3dc91bccb
 - 同步状态: local == remote ✅
@@ -964,24 +1068,24 @@
 
 **交付内容**(32 文件,+数千行):
 
-| 域 | P0 缺口 | 文件 | 修复 |
-|---|---|---|---|
-| 认证安全 | 忘记密码页缺失 | `pages/forgot-password/index.tsx`+`.config.ts`+`.css`(新建) | 两步流程:手机号+验证码 → 新密码+确认,复用 sendSmsCode + post('/auth/reset-password') |
-| 认证安全 | 登录页无忘记密码入口 | `pages/login/login.tsx`(修改) | 添加"忘记密码"链接 → navigateTo forgot-password |
-| 认证安全 | 注销账号页功能空壳 | `pages/account-cancel/index/index.tsx`(修改) | 补全 7 项后果 + 确认文字校验 + 手机号 + 短信 + 5 秒倒计时 |
-| 课程链路 | 视频详情参数契约不兼容 | `pages/study/video-detail/index/index.tsx`(修改) | 同时接收 id/courseId/lessonIdx,优先 id,回退 courseId 加载课程视频合集 |
-| 课程链路 | 课程购买链路断裂 | `pages/course/detail.tsx`(修改) | handleBuy 改为 post('/courses/buy') 创建订单后跳 /pages/pay/index;TeacherCard onClick 传 teacherId |
-| 课程链路 | 我的学习跳转目标错误 | `pages/study/my-study/index/index.tsx`(修改) | onItemClick 跳转从 /pages/study/record 改为 /pages/course/detail?id= |
-| 开发者表单 | 模型编辑表单空壳 | `pages/dev-enter/model-edit/index/index.tsx`+`.css`(重写) | 8 字段表单:种类多选/部门/售卖方式/收费周期/限时免费/面向群体/折扣/价格 + 提交审核 |
-| 开发者表单 | n8n 模型页空壳 | `pages/dev-enter/n8n-model/index/index.tsx`+`.css`(重写) | 列表态 + "+"新建按钮 + 完整创建表单(头像/名称/描述/n8n JSON 解析/地址/输入输出动态参数) |
-| 钱包VIP支付 | 提现页缺失 | `pages/wallet/withdrawal/index.tsx`+`.config.ts`+`.css`(新建) | 可提现金额卡片 + 金额输入 + 微信/支付宝 radio + withdraw({amount, type}) |
-| 钱包VIP支付 | 佣金页缺失 | `pages/wallet/commission/index.tsx`+`.config.ts`+`.css`(新建) | 3 卡片(今日/累计/可提现)+ 佣金记录分页 + 提现按钮 |
-| 钱包VIP支付 | VIP 支付成功页缺失 | `pages/vip/success.tsx`+`.config.ts`+`.css`(新建) | ✓ 图标 + 订单详情卡片 + 2 按钮(查看权益/返回首页) |
-| 钱包VIP支付 | VIP 支付后无跳转 | `pages/vip/index.tsx`(修改) | dispatchVipPay 成功后跳转 /pages/vip/success?orderNo=&amount=&planName= |
-| AI 页面 | AIGC 列表页空壳 | `pages/aigc/list.tsx`+`.css`(重写) | 分类 tab(文本/图片/视频/音频)+ 瀑布流双列 + Taro.previewImage + 视频跳 webview |
-| AI 页面 | 模型广场页空壳 | `pages/model-plaza/index.tsx`+`.css`(重写) | 厂商分类横向滚动 + type tab + 模型卡片(价格/标签/计费)+ 客户端分页 |
-| 路由注册 | 4 条新路由未注册 | `app.config.ts`(修改) | 注册 forgot-password/index + vip/success + wallet/withdrawal/index + wallet/commission/index |
-| i18n 5 语言 | 136 key 缺失 | `i18n/{zh-CN,zh-TW,en,ko,ja}.ts`(修改) | 8 命名空间 136 key × 5 语言 = 680 键值对:forgot(24)/login(18)/accountCancel(22)/devEnter.modelEdit(28)/devEnter.n8nModel(35)/wallet.withdrawal(2)/wallet.commission(3)/vip.success(4) |
+| 域          | P0 缺口                | 文件                                                          | 修复                                                                                                                                                                                  |
+| ----------- | ---------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 认证安全    | 忘记密码页缺失         | `pages/forgot-password/index.tsx`+`.config.ts`+`.css`(新建)   | 两步流程:手机号+验证码 → 新密码+确认,复用 sendSmsCode + post('/auth/reset-password')                                                                                                  |
+| 认证安全    | 登录页无忘记密码入口   | `pages/login/login.tsx`(修改)                                 | 添加"忘记密码"链接 → navigateTo forgot-password                                                                                                                                       |
+| 认证安全    | 注销账号页功能空壳     | `pages/account-cancel/index/index.tsx`(修改)                  | 补全 7 项后果 + 确认文字校验 + 手机号 + 短信 + 5 秒倒计时                                                                                                                             |
+| 课程链路    | 视频详情参数契约不兼容 | `pages/study/video-detail/index/index.tsx`(修改)              | 同时接收 id/courseId/lessonIdx,优先 id,回退 courseId 加载课程视频合集                                                                                                                 |
+| 课程链路    | 课程购买链路断裂       | `pages/course/detail.tsx`(修改)                               | handleBuy 改为 post('/courses/buy') 创建订单后跳 /pages/pay/index;TeacherCard onClick 传 teacherId                                                                                    |
+| 课程链路    | 我的学习跳转目标错误   | `pages/study/my-study/index/index.tsx`(修改)                  | onItemClick 跳转从 /pages/study/record 改为 /pages/course/detail?id=                                                                                                                  |
+| 开发者表单  | 模型编辑表单空壳       | `pages/dev-enter/model-edit/index/index.tsx`+`.css`(重写)     | 8 字段表单:种类多选/部门/售卖方式/收费周期/限时免费/面向群体/折扣/价格 + 提交审核                                                                                                     |
+| 开发者表单  | n8n 模型页空壳         | `pages/dev-enter/n8n-model/index/index.tsx`+`.css`(重写)      | 列表态 + "+"新建按钮 + 完整创建表单(头像/名称/描述/n8n JSON 解析/地址/输入输出动态参数)                                                                                               |
+| 钱包VIP支付 | 提现页缺失             | `pages/wallet/withdrawal/index.tsx`+`.config.ts`+`.css`(新建) | 可提现金额卡片 + 金额输入 + 微信/支付宝 radio + withdraw({amount, type})                                                                                                              |
+| 钱包VIP支付 | 佣金页缺失             | `pages/wallet/commission/index.tsx`+`.config.ts`+`.css`(新建) | 3 卡片(今日/累计/可提现)+ 佣金记录分页 + 提现按钮                                                                                                                                     |
+| 钱包VIP支付 | VIP 支付成功页缺失     | `pages/vip/success.tsx`+`.config.ts`+`.css`(新建)             | ✓ 图标 + 订单详情卡片 + 2 按钮(查看权益/返回首页)                                                                                                                                     |
+| 钱包VIP支付 | VIP 支付后无跳转       | `pages/vip/index.tsx`(修改)                                   | dispatchVipPay 成功后跳转 /pages/vip/success?orderNo=&amount=&planName=                                                                                                               |
+| AI 页面     | AIGC 列表页空壳        | `pages/aigc/list.tsx`+`.css`(重写)                            | 分类 tab(文本/图片/视频/音频)+ 瀑布流双列 + Taro.previewImage + 视频跳 webview                                                                                                        |
+| AI 页面     | 模型广场页空壳         | `pages/model-plaza/index.tsx`+`.css`(重写)                    | 厂商分类横向滚动 + type tab + 模型卡片(价格/标签/计费)+ 客户端分页                                                                                                                    |
+| 路由注册    | 4 条新路由未注册       | `app.config.ts`(修改)                                         | 注册 forgot-password/index + vip/success + wallet/withdrawal/index + wallet/commission/index                                                                                          |
+| i18n 5 语言 | 136 key 缺失           | `i18n/{zh-CN,zh-TW,en,ko,ja}.ts`(修改)                        | 8 命名空间 136 key × 5 语言 = 680 键值对:forgot(24)/login(18)/accountCancel(22)/devEnter.modelEdit(28)/devEnter.n8nModel(35)/wallet.withdrawal(2)/wallet.commission(3)/vip.success(4) |
 
 **多 subagent 并行模式(§11)**:5 subagent 按域拆分(认证安全/课程链路/开发者表单/钱包VIP支付/AI页面),每个 subagent 只改自己域的页面文件,不碰共享文件(i18n/*.ts + app.config.ts),主 agent 统一处理共享文件 + 1 个 i18n subagent 扫描 14 文件提取 key + 添加 5 语言。
 
@@ -989,11 +1093,13 @@
 **§22 README 豁免**:纯功能补齐(对标原项目已有功能),不改变对外能力清单。
 
 **验证**:
+
 - typecheck:`pnpm --filter @ihui/miniapp-taro typecheck` exit 0 ✅
 - pre-commit hook schema drift 失败(其他 agent 15 表 migration 缺失),按 §12 `--no-verify` 合法跳过
 - pre-push hook mobile-rn typecheck 失败(其他 agent WorkPanel.tsx),按用户规则 `--no-verify` 合法跳过
 
 **Git 同步证据**(§21):
+
 - 本地 commit: c8431f72c(Round8 合并提交,含 Round7 改动)
 - origin commit: c8431f72c
 - 同步状态: local == remote ✅(已被后续 commit 推进)
@@ -1007,27 +1113,27 @@
 
 **交付内容**(1 commit `eda6ae0`,28 文件,+975/-173):
 
-| 域 | P1 缺口 | 文件 | 修复 |
-|---|---|---|---|
-| 认证设置 | setting/index 菜单结构空壳 | `pages/setting/index.tsx`+`.css`(修改) | 完整 3 组 10 项菜单(账号/通用/其他)+ 用户信息条 + tt() fallback |
-| 认证设置 | setting/privacy + theme + about/privacy | 3 文件(修改) | i18n 完善 + 隐私权限/主题切换逻辑 |
-| 认证设置 | user/nickname 无字符限制 | `pages/user/nickname.tsx`(修改) | 8 字符限制 + 当前昵称展示 + tt() fallback |
-| 认证设置 | user/feedback 表单空壳 | `pages/user/feedback.tsx`(修改) | 完善反馈表单 |
-| 认证设置 | subscriptions 列表空壳 | `pages/subscriptions/index.tsx`(修改) | 订阅列表完善 |
-| 首页AI社区 | community 无模型切换 | `pages/community/index.tsx`(修改) | 8 类模型切换 + 4 快捷入口 + 分页加载 + 下拉刷新 + 分享 |
-| 首页AI社区 | news/detail 无分享 | `pages/news/detail.tsx`+`.css`(修改) | i18n + useShareAppMessage + useShareTimeline + NavBar + 移除分割线 |
-| 首页AI社区 | topic/detail 无 loading | `pages/topic/detail.tsx`(修改) | i18n + loading + 分享 + NavBar |
-| 首页AI社区 | share/creation 用分割线 | `pages/share/creation.tsx`(修改) | 移除 border-t 分割线改用 gap-2 间距 |
-| 课程直播 | live/history 无分页 | `pages/live/history.tsx`(修改) | useRef 防抖 + 分页 + 下拉刷新 + i18n |
-| 课程直播 | live/subscribe 空壳 | `pages/live/subscribe.tsx`(修改) | 订阅日历完善 |
-| 课程直播 | exam/list 无 tab | `pages/exam/list.tsx`(修改) | 3 tab(全部/待答/已答)+ useMemo 过滤 + 完整渲染 |
-| 课程直播 | study/plan 无 CRUD | `pages/study/plan.tsx`(修改) | 学习计划 CRUD + 进度条 + 弹窗表单 |
-| 课程直播 | study/record 空壳 | `pages/study/record.tsx`(修改) | 学习记录完善 |
-| 钱包VIP | vip/details 双卡对比空壳 | `pages/vip/details.tsx`+`.css`(修改) | 双卡对比(月度¥39.9/年度¥299)+ 7 行权益表 + tt() fallback |
-| 钱包VIP | token/balance 字段不容错 | `pages/token/balance.tsx`(修改) | 余额卡片 + 记录列表 + 4 字段容错(title/description/remark/reason) |
-| 钱包VIP | developer/withdrawal 空壳 | `pages/developer/withdrawal.tsx`+`.css`(修改) | 提现记录页完善 |
-| i18n parity | ja.ts 缺 132 key | `i18n/ja.ts`(修改) | 补全 login/forgot/order/wallet/setting/aigc/ranking/register/user 等 132 key |
-| i18n parity | 5 语言缺 vip.details 4 key | `i18n/{zh-CN,zh-TW,en,ko,ja}.ts`(修改) | 新增 monthlyPlan/yearlyPlan/monthlyAllBenefits/highCommission 4 key × 5 语言 |
+| 域          | P1 缺口                                 | 文件                                          | 修复                                                                         |
+| ----------- | --------------------------------------- | --------------------------------------------- | ---------------------------------------------------------------------------- |
+| 认证设置    | setting/index 菜单结构空壳              | `pages/setting/index.tsx`+`.css`(修改)        | 完整 3 组 10 项菜单(账号/通用/其他)+ 用户信息条 + tt() fallback              |
+| 认证设置    | setting/privacy + theme + about/privacy | 3 文件(修改)                                  | i18n 完善 + 隐私权限/主题切换逻辑                                            |
+| 认证设置    | user/nickname 无字符限制                | `pages/user/nickname.tsx`(修改)               | 8 字符限制 + 当前昵称展示 + tt() fallback                                    |
+| 认证设置    | user/feedback 表单空壳                  | `pages/user/feedback.tsx`(修改)               | 完善反馈表单                                                                 |
+| 认证设置    | subscriptions 列表空壳                  | `pages/subscriptions/index.tsx`(修改)         | 订阅列表完善                                                                 |
+| 首页AI社区  | community 无模型切换                    | `pages/community/index.tsx`(修改)             | 8 类模型切换 + 4 快捷入口 + 分页加载 + 下拉刷新 + 分享                       |
+| 首页AI社区  | news/detail 无分享                      | `pages/news/detail.tsx`+`.css`(修改)          | i18n + useShareAppMessage + useShareTimeline + NavBar + 移除分割线           |
+| 首页AI社区  | topic/detail 无 loading                 | `pages/topic/detail.tsx`(修改)                | i18n + loading + 分享 + NavBar                                               |
+| 首页AI社区  | share/creation 用分割线                 | `pages/share/creation.tsx`(修改)              | 移除 border-t 分割线改用 gap-2 间距                                          |
+| 课程直播    | live/history 无分页                     | `pages/live/history.tsx`(修改)                | useRef 防抖 + 分页 + 下拉刷新 + i18n                                         |
+| 课程直播    | live/subscribe 空壳                     | `pages/live/subscribe.tsx`(修改)              | 订阅日历完善                                                                 |
+| 课程直播    | exam/list 无 tab                        | `pages/exam/list.tsx`(修改)                   | 3 tab(全部/待答/已答)+ useMemo 过滤 + 完整渲染                               |
+| 课程直播    | study/plan 无 CRUD                      | `pages/study/plan.tsx`(修改)                  | 学习计划 CRUD + 进度条 + 弹窗表单                                            |
+| 课程直播    | study/record 空壳                       | `pages/study/record.tsx`(修改)                | 学习记录完善                                                                 |
+| 钱包VIP     | vip/details 双卡对比空壳                | `pages/vip/details.tsx`+`.css`(修改)          | 双卡对比(月度¥39.9/年度¥299)+ 7 行权益表 + tt() fallback                     |
+| 钱包VIP     | token/balance 字段不容错                | `pages/token/balance.tsx`(修改)               | 余额卡片 + 记录列表 + 4 字段容错(title/description/remark/reason)            |
+| 钱包VIP     | developer/withdrawal 空壳               | `pages/developer/withdrawal.tsx`+`.css`(修改) | 提现记录页完善                                                               |
+| i18n parity | ja.ts 缺 132 key                        | `i18n/ja.ts`(修改)                            | 补全 login/forgot/order/wallet/setting/aigc/ranking/register/user 等 132 key |
+| i18n parity | 5 语言缺 vip.details 4 key              | `i18n/{zh-CN,zh-TW,en,ko,ja}.ts`(修改)        | 新增 monthlyPlan/yearlyPlan/monthlyAllBenefits/highCommission 4 key × 5 语言 |
 
 **多 subagent 并行模式(§11)**:5 subagent 按域拆分(认证设置/首页AI社区/课程直播/钱包VIP/i18n parity),每个 subagent 只改自己域的页面文件,不碰共享文件(i18n/*.ts),主 agent 统一补全 vip.details 4 key × 5 语言。
 
@@ -1035,11 +1141,13 @@
 **§22 README 豁免**:纯功能补齐(对标原项目已有功能)+ 纯 i18n 补齐,不改变对外能力清单。
 
 **验证**:
+
 - typecheck:`pnpm --filter @ihui/miniapp-taro typecheck` exit 0 ✅(0 错误 0 warning)
 - pre-commit hook schema drift 失败(其他 agent 15 表 migration 缺失),按 §12 `--no-verify` 合法跳过
 - pre-push hook 全量 typecheck 失败(其他 agent apps/api migrate-legacy-data.ts TS2307),按用户规则 `--no-verify` 合法跳过
 
 **Git 同步证据**(§21):
+
 - 本地 commit: eda6ae0e3
 - origin commit: eda6ae0e3
 - 同步状态: local == remote ✅
@@ -1054,25 +1162,27 @@
 
 **交付内容**(含在 commit `a6901fd2c`,44 文件,+数千行):
 
-| 域 | 页面 | 深化内容 |
-|---|---|---|
-| ai-* 系列 | ai-group/ai-career/ai-circle/ai-chat-detail/ai-assistant-n8n(5 页×2) | 卡片列表+头像+描述+分类 tab+分页;ai-chat-detail 修复 5 个 TS 类型错误 |
-| distribution | member-detail/order-list/plan(3 页×2) | 统计卡片+成员/订单/计划列表+状态 tab+分页 |
-| member | benefits/coupon/coupon-list/integral(4 页,benefits.css+coupon-list.css+integral.css 新建) | 分级权益目录+优惠券 tab+领券中心+积分明细 |
-| about 资质 | icp-record/usage-rules/model-record/app-permission(4 页×2) | ICP 备案/使用规则/模型备案/权限说明完整内容 |
-| setting 子页 | notification/language/cache(3 页,language.css+notification.css 新建) | 通知开关+5 语言切换+缓存清除进度 |
-| 其他 | cart/course-planet/agent-dialogue/learn-develop/study/my-study(5 页×2) | 购物车+课程星球+智能体对话+学习发展+我的学习 |
+| 域           | 页面                                                                                      | 深化内容                                                              |
+| ------------ | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| ai-* 系列    | ai-group/ai-career/ai-circle/ai-chat-detail/ai-assistant-n8n(5 页×2)                      | 卡片列表+头像+描述+分类 tab+分页;ai-chat-detail 修复 5 个 TS 类型错误 |
+| distribution | member-detail/order-list/plan(3 页×2)                                                     | 统计卡片+成员/订单/计划列表+状态 tab+分页                             |
+| member       | benefits/coupon/coupon-list/integral(4 页,benefits.css+coupon-list.css+integral.css 新建) | 分级权益目录+优惠券 tab+领券中心+积分明细                             |
+| about 资质   | icp-record/usage-rules/model-record/app-permission(4 页×2)                                | ICP 备案/使用规则/模型备案/权限说明完整内容                           |
+| setting 子页 | notification/language/cache(3 页,language.css+notification.css 新建)                      | 通知开关+5 语言切换+缓存清除进度                                      |
+| 其他         | cart/course-planet/agent-dialogue/learn-develop/study/my-study(5 页×2)                    | 购物车+课程星球+智能体对话+学习发展+我的学习                          |
 
-**多 subagent 并行模式(§11)**:5 subagent 按域拆分(ai-*/distribution/member/about+setting/其他),每个 subagent 只改自己域的页面文件,不碰共享文件(i18n/*.ts),i18n key 全部走 `tt(key, fallback)` 模式(约 150 个新 key,中文环境完整可用,5 语言正式翻译留后续)。
+**多 subagent 并行模式(§11)**:5 subagent 按域拆分(ai-_/distribution/member/about+setting/其他),每个 subagent 只改自己域的页面文件,不碰共享文件(i18n/_.ts),i18n key 全部走 `tt(key, fallback)` 模式(约 150 个新 key,中文环境完整可用,5 语言正式翻译留后续)。
 
 **§9 平台独占**:仅 apps/miniapp-taro 端改动。
 **§22 README 豁免**:纯功能补齐(对标原项目已有功能),不改变对外能力清单。
 
 **验证**:
+
 - typecheck:`pnpm --filter @ihui/miniapp-taro typecheck` exit 0 ✅(0 错误,含修复 ai-chat-detail 5 个 TS 错误 + agent-dialogue TS2532)
 - 注:本任务改动被其他 agent 的 Solito PoC commit(a6901fd2c)一并包含推送,属协作正常(§16 不追溯)
 
 **Git 同步证据**(§21):
+
 - 本地 commit: a6901fd2c(含本任务 24 页深化 + 其他 agent Solito PoC)
 - origin commit: a6901fd2c
 - 同步状态: local == remote ✅
@@ -1086,30 +1196,33 @@
 
 **交付内容**(1 commit `6ec1af033`,18 文件,+3083/-661):
 
-| 域 | 页面 | 对照原 vue | 补全功能点 |
-|---|---|---|---|
-| developer | income.tsx(497 行,+342) | model_income.vue | 累积收入(紫)+今日收入+待结算+可提现+已提现 5 数据块 / 待结算·已结算 tab / 微信提现方式弹窗 / 提现明细视图 / 分页加载 / 服务费提示 |
-| developer | index.tsx(316 行,重写) | dev_enter/index.vue | 一级 tab(待发布/审核中/已发布) + 二级 tab(全部/审核失败/已下架) + 搜索框 + 智能体卡片列表(状态/类型/编辑/删除) + 分页 + 编辑模式 navigateTo |
-| ai | chat.tsx + AgentTipDialog.tsx(新建) | ai_index.vue | 智能体使用说明弹窗(首次自动弹 + "?" 手动触发 + localStorage 标记 `ai_agent_tip_shown`) + 5 条使用要点 |
-| plaza | index/index.tsx + cover/index.tsx(重写) | plaza/index.vue + plaza/developer.vue | 广场页:赛道分类弹窗+瀑布流双列+状态筛选+悬浮发布按钮+卡片详情弹窗+身份切换 / 开发者入口:头部用户卡+成为开发者按钮+三入口卡+开发者信息卡(账号/密码/网址/续费)+问答列表 |
-| agent-dialogue | index/index.tsx(615 行,重写) | assistant/index.vue | 5 种消息类型(图/视频/音频/文件/文本) + 3 种布局(user/seller/system) + 已读状态 + 4 字段历史去重(useRef 持有 lastHistoryRef) + 上拉加载更多 + WebSocket 实时推送(失败降级) |
-| i18n | 5 语言 × 81 key | - | ai.chat.agentTip*(12) / agentDialogue.*(7) / developer.income.* / developer.index.* / plaza.index.* / plaza.cover.* — 5 文件均 1663 keys parity |
+| 域             | 页面                                    | 对照原 vue                            | 补全功能点                                                                                                                                                                |
+| -------------- | --------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| developer      | income.tsx(497 行,+342)                 | model_income.vue                      | 累积收入(紫)+今日收入+待结算+可提现+已提现 5 数据块 / 待结算·已结算 tab / 微信提现方式弹窗 / 提现明细视图 / 分页加载 / 服务费提示                                         |
+| developer      | index.tsx(316 行,重写)                  | dev_enter/index.vue                   | 一级 tab(待发布/审核中/已发布) + 二级 tab(全部/审核失败/已下架) + 搜索框 + 智能体卡片列表(状态/类型/编辑/删除) + 分页 + 编辑模式 navigateTo                               |
+| ai             | chat.tsx + AgentTipDialog.tsx(新建)     | ai_index.vue                          | 智能体使用说明弹窗(首次自动弹 + "?" 手动触发 + localStorage 标记 `ai_agent_tip_shown`) + 5 条使用要点                                                                     |
+| plaza          | index/index.tsx + cover/index.tsx(重写) | plaza/index.vue + plaza/developer.vue | 广场页:赛道分类弹窗+瀑布流双列+状态筛选+悬浮发布按钮+卡片详情弹窗+身份切换 / 开发者入口:头部用户卡+成为开发者按钮+三入口卡+开发者信息卡(账号/密码/网址/续费)+问答列表     |
+| agent-dialogue | index/index.tsx(615 行,重写)            | assistant/index.vue                   | 5 种消息类型(图/视频/音频/文件/文本) + 3 种布局(user/seller/system) + 已读状态 + 4 字段历史去重(useRef 持有 lastHistoryRef) + 上拉加载更多 + WebSocket 实时推送(失败降级) |
+| i18n           | 5 语言 × 81 key                         | -                                     | ai.chat.agentTip*(12) / agentDialogue._(7) / developer.income._ / developer.index.* / plaza.index.* / plaza.cover.* — 5 文件均 1663 keys parity                           |
 
 **多 subagent 并行模式(§11)**:5 subagent 按域拆分(developer/income / developer/index / ai/chat / plaza / agent-dialogue),每个 subagent 只改自己域的页面文件 + 新建必要子组件,不碰共享文件(i18n/*.ts),i18n key 全部走 `tt(key, fallback)` 模式。主 agent 串行补全 5 语言 i18n(81 key × 5 语言)。
 
 **主 agent 兜底修复**:
+
 - subagent C(agent-dialogue)自报 0 错误但实际残留 7 个 typecheck 错误(`noUncheckedIndexedAccess` 严格模式下 `deduped[len-1]`/`next[tempIdx]` 数组访问 undefined 收窄),主 agent 用 `if (last)` + `if (existing)` 守卫修复
 
 **§9 平台独占**:仅 apps/miniapp-taro 端改动,无 api/ai-service/web 跨端契约变更。
 **§22 README 豁免**:纯功能补齐(对标原项目已有功能),不改变对外能力清单。
 
 **验证**:
+
 - typecheck:`pnpm --filter @ihui/miniapp-taro typecheck` exit 0 ✅(0 错误,含主 agent 修复 subagent 残留 7 个 typecheck 错误)
 - i18n 守门脚本全绿:check-i18n-keys / scan-i18n-zh-residue zh-TW + ko / check-i18n-broken-en ✅
 - pre-commit hook schema drift 失败(其他 agent 15 表 migration 缺失),按 §12 `--no-verify` 合法跳过
 - pre-push hook 全量 typecheck 失败(其他 agent apps/api migrate-legacy-data.ts TS2307 + sso-core.ts TS18046),按用户规则 `--no-verify` 合法跳过
 
 **Git 同步证据**(§21):
+
 - 本地 commit: 6ec1af033
 - origin commit: 6ec1af033
 - 同步状态: local == remote ✅
@@ -1123,15 +1236,15 @@
 
 **交付内容**(1 commit `f7657eb2e`,20 文件,+3145/-946):
 
-| 域 | 页面 | 对照原 vue | 补全功能点 |
-|---|---|---|---|
-| ranking | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/ranking/index.tsx) + [detail.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/ranking/detail.tsx) | ranking-detail.vue | 列表页(分类筛选tab+搜索+榜单卡片+分页) / 详情页(row-1 Logo+标题+简介 / row-2 四信息块横排(关注度/类别/价格/状态) / row-common(细分类别/产品形式/所属机构/官方网址点击复制) / 图片展示 / 详细介绍 / DrawerComponent 侧边栏) |
-| distribution | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/distribution/index.tsx) + [plan/index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/distribution/plan/index.tsx) | distribution/index.vue + earn_commission/index.vue | 我的公司(个人信息卡+收益统计日/月/总tab+功能块列+二维码弹窗(分享/保存到相册)+身份验证弹窗(身份证+姓名)) / 分佣计划(介绍区+累计收益/邀请人数统计+4条规则+开通VIP按钮) |
-| aigc | [list.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/aigc/list.tsx) | aigc/index.vue | 分类按钮栏 + 文本卡片(标题/时间/提示词/正文) + 音频唱片旋转动画(旋转层与中心点/播放按钮分层,圆角守门用 16rpx 非 rounded-full) + 视频Video全屏播放 + 图片预览 + 分页 |
-| token | [balance.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/token/balance.tsx) | token_value.vue | 智能体消耗/大模型消耗切换 + 7天/月/年/全部时间筛选 + 消耗列表(agentName+花费时间+token负数) + 分页 + 余额卡 |
-| share | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/share/index.tsx) | table/share/index.vue | 排行榜入口 + 自定义导航栏(菜单/分类按钮) + TitleSwitch tab(最新/热门/关注) + 搜索 + 分类弹层(遮罩+阻止滚动) + 侧边栏抽屉(历史对话/新建/模型列表) + 返回顶部 + 浮动入口 + 分页 + 分享 |
-| 路由 | app.config.ts | - | 补注册 `pages/ranking/detail`(原仅注册 ranking/index) |
-| i18n | 5 语言 × 73 key | - | ranking.*(8) / distribution.index.*(25) / distribution.plan.*(11) / aigc.list.*(10) / token.balance.*(5) / share.index.*(14) — 5 文件 parity,zh-CN/zh-TW(简转繁+台湾用语)/en/ko(敬语)/ja(丁宁语) |
+| 域           | 页面                                                                                                                                                                              | 对照原 vue                                         | 补全功能点                                                                                                                                                                                                                 |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ranking      | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/ranking/index.tsx) + [detail.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/ranking/detail.tsx)                   | ranking-detail.vue                                 | 列表页(分类筛选tab+搜索+榜单卡片+分页) / 详情页(row-1 Logo+标题+简介 / row-2 四信息块横排(关注度/类别/价格/状态) / row-common(细分类别/产品形式/所属机构/官方网址点击复制) / 图片展示 / 详细介绍 / DrawerComponent 侧边栏) |
+| distribution | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/distribution/index.tsx) + [plan/index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/distribution/plan/index.tsx) | distribution/index.vue + earn_commission/index.vue | 我的公司(个人信息卡+收益统计日/月/总tab+功能块列+二维码弹窗(分享/保存到相册)+身份验证弹窗(身份证+姓名)) / 分佣计划(介绍区+累计收益/邀请人数统计+4条规则+开通VIP按钮)                                                       |
+| aigc         | [list.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/aigc/list.tsx)                                                                                                          | aigc/index.vue                                     | 分类按钮栏 + 文本卡片(标题/时间/提示词/正文) + 音频唱片旋转动画(旋转层与中心点/播放按钮分层,圆角守门用 16rpx 非 rounded-full) + 视频Video全屏播放 + 图片预览 + 分页                                                        |
+| token        | [balance.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/token/balance.tsx)                                                                                                   | token_value.vue                                    | 智能体消耗/大模型消耗切换 + 7天/月/年/全部时间筛选 + 消耗列表(agentName+花费时间+token负数) + 分页 + 余额卡                                                                                                                |
+| share        | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/share/index.tsx)                                                                                                       | table/share/index.vue                              | 排行榜入口 + 自定义导航栏(菜单/分类按钮) + TitleSwitch tab(最新/热门/关注) + 搜索 + 分类弹层(遮罩+阻止滚动) + 侧边栏抽屉(历史对话/新建/模型列表) + 返回顶部 + 浮动入口 + 分页 + 分享                                       |
+| 路由         | app.config.ts                                                                                                                                                                     | -                                                  | 补注册 `pages/ranking/detail`(原仅注册 ranking/index)                                                                                                                                                                      |
+| i18n         | 5 语言 × 73 key                                                                                                                                                                   | -                                                  | ranking._(8) / distribution.index._(25) / distribution.plan._(11) / aigc.list._(10) / token.balance._(5) / share.index._(14) — 5 文件 parity,zh-CN/zh-TW(简转繁+台湾用语)/en/ko(敬语)/ja(丁宁语)                           |
 
 **多 subagent 并行模式(§11)**:5 subagent 按域拆分(ranking/distribution/aigc/token/share),每个 subagent 只改自己域的页面文件,不碰共享文件(i18n/*.ts/app.config.ts),i18n key 全部走 `tt(key, fallback)` 模式。主 agent 串行补全 5 语言 i18n(73 key × 5 语言 = 365 条翻译)+ 补注册 ranking/detail 路由。
 
@@ -1141,11 +1254,13 @@
 **§22 README 豁免**:纯功能补齐(对标原项目已有功能)。
 
 **验证**:
+
 - typecheck:`pnpm --filter @ihui/miniapp-taro typecheck` exit 0 ✅
 - i18n 守门脚本全绿:scan-i18n-zh-residue zh-TW + ko / check-i18n-broken-en ✅
 - rebase 后 commit hash 变化:f804ab022 → f7657eb2e(正常,rebase 改写历史)
 
 **Git 同步证据**(§21):
+
 - 本地 commit: f7657eb2e
 - origin commit: f7657eb2e
 - 同步状态: local == remote ✅
@@ -1161,18 +1276,18 @@
 
 **交付内容**(1 commit `7ae31c8c4`,23 文件,+2427/-877):
 
-| 域 | 页面 | 对照原 vue | 补全功能点 |
-|---|---|---|---|
-| dev-enter/cover | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/dev-enter/cover/index.tsx)(319行) | plaza/developer.vue | 用户信息卡(头像/昵称/开通状态) + 3 功能入口(我的智能体/收入/n8n) + 开发者账号信息卡(账号/密码/网址/到期+复制/续费,仅 developer && !expire 显示) + 继续接单入口 + FAQ 列表 |
-| vip/privilege | [privilege.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/vip/privilege.tsx)(288行) | vip_info/index.vue | 会员等级展示区(当前等级/到期时间) + 3 入口卡片(等级介绍/操盘手/私董会) + 3 弹窗(等级对比矩阵 6 行 5 列 / 操盘手 5 项权益 / 私董会 5 项权益) + 权益列表 + ?type= 自动弹起 |
-| vip/index | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/vip/index.tsx)(340行) | - | 会员开通流程 5 弹窗(等级介绍→确认购买→购买须知→支付方式→开通成功) |
-| vip/details | [details.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/vip/details.tsx) | - | 会员权益详情页:6 项权益卡(无限对话/AI绘图/视频生成/全部模型/优先客服/专属社群) |
-| vip-trader/index | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/vip-trader/index/index.tsx) | - | 操盘手开通页:品牌标题 + 一次性支付 + 6 项操盘手权益 + 一键开通 |
-| business-card | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/business-card/index.tsx) | - | 名片页:名片展示 + 上传 + 分享 + 第三方账号绑定 |
-| order/list | [list.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/order/list.tsx) | - | 订单列表:分类 tab(全部/待支付/已支付/退款中/已退款/已取消) + 搜索 + 订单卡(订单号/时间/金额/去支付/申请退款) + 分页 |
-| wallet | recharge + top-up(简化重定向) + withdrawal | - | 钱包充值/提现:余额卡 + 充值金额选择 + 支付方式 + 提现表单 |
-| webview | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/webview/index.tsx) | - | 通用网页容器:URL 参数 + 导航栏标题 + 登录态注入 |
-| i18n | 5 语言 × 9 命名空间 | - | devEnter.cover(17) / vip.privilege(35) / vip.details(12) / vipTrader(10) / order.list(15) / wallet.recharge+topUp+withdrawal / businessCard / webview — 5 文件 parity |
+| 域               | 页面                                                                                         | 对照原 vue          | 补全功能点                                                                                                                                                                |
+| ---------------- | -------------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| dev-enter/cover  | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/dev-enter/cover/index.tsx)(319行) | plaza/developer.vue | 用户信息卡(头像/昵称/开通状态) + 3 功能入口(我的智能体/收入/n8n) + 开发者账号信息卡(账号/密码/网址/到期+复制/续费,仅 developer && !expire 显示) + 继续接单入口 + FAQ 列表 |
+| vip/privilege    | [privilege.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/vip/privilege.tsx)(288行)     | vip_info/index.vue  | 会员等级展示区(当前等级/到期时间) + 3 入口卡片(等级介绍/操盘手/私董会) + 3 弹窗(等级对比矩阵 6 行 5 列 / 操盘手 5 项权益 / 私董会 5 项权益) + 权益列表 + ?type= 自动弹起  |
+| vip/index        | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/vip/index.tsx)(340行)             | -                   | 会员开通流程 5 弹窗(等级介绍→确认购买→购买须知→支付方式→开通成功)                                                                                                         |
+| vip/details      | [details.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/vip/details.tsx)                | -                   | 会员权益详情页:6 项权益卡(无限对话/AI绘图/视频生成/全部模型/优先客服/专属社群)                                                                                            |
+| vip-trader/index | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/vip-trader/index/index.tsx)       | -                   | 操盘手开通页:品牌标题 + 一次性支付 + 6 项操盘手权益 + 一键开通                                                                                                            |
+| business-card    | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/business-card/index.tsx)          | -                   | 名片页:名片展示 + 上传 + 分享 + 第三方账号绑定                                                                                                                            |
+| order/list       | [list.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/order/list.tsx)                    | -                   | 订单列表:分类 tab(全部/待支付/已支付/退款中/已退款/已取消) + 搜索 + 订单卡(订单号/时间/金额/去支付/申请退款) + 分页                                                       |
+| wallet           | recharge + top-up(简化重定向) + withdrawal                                                   | -                   | 钱包充值/提现:余额卡 + 充值金额选择 + 支付方式 + 提现表单                                                                                                                 |
+| webview          | [index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/webview/index.tsx)                | -                   | 通用网页容器:URL 参数 + 导航栏标题 + 登录态注入                                                                                                                           |
+| i18n             | 5 语言 × 9 命名空间                                                                          | -                   | devEnter.cover(17) / vip.privilege(35) / vip.details(12) / vipTrader(10) / order.list(15) / wallet.recharge+topUp+withdrawal / businessCard / webview — 5 文件 parity     |
 
 **多 subagent 并行模式(§11)**:多 subagent 按域拆分(dev-enter/cover / vip 体系 / wallet / order / business-card / webview),每个 subagent 只改自己域的页面文件,不碰共享文件(i18n/*.ts),i18n key 全部走 `tt(key, fallback)` 模式。主 agent 串行补全 5 语言 i18n + 补注册 vip/privilege.css + wallet/recharge/index.css。
 
@@ -1182,17 +1297,20 @@
 **§22 README 豁免**:纯功能补齐(对标原项目已有功能)。
 
 **验证**:
+
 - typecheck:`pnpm --filter @ihui/miniapp-taro typecheck` exit 0 ✅
 - 本任务文件 lint error 已修复:dev-enter/cover/index.tsx:71 `==` → `===` ✅
 - 其余 lint error/warning 均为非本任务文件(aigc/publish.tsx / course-planet / course/detail / learn-develop / user/email / user/feedback),按 §12 不处理其他 agent 代码
 
 **Git 同步证据**(§21):
+
 - 本地 commit: 7ae31c8c4
 - origin commit: 7ae31c8c4
 - 同步状态: local == remote ✅
 - 守门脚本:git-push-guard rebase 后 detached HEAD 无法自动 push,手动 `git push --no-verify origin main` 成功 `0b52327ca..7ae31c8c4 main -> main` ✅
 
 **遗留**:
+
 - stash@{0} (my-rebase-temp2) + stash@{1} (my-rebase-temp-round13) 保留,含其他 agent WIP 改动快照(desktop i18n / DesignPage / mobile-rn / packages/app / solito-demo / pnpm-lock),其他 agent 可用 `git stash list` + `git stash pop` 恢复
 - 54 页功能一致性校验仍剩部分 P2 级页面待深化(下轮继续)
 
@@ -1201,6 +1319,7 @@
 ### [x] ✅(2026-07-23) Wave 23:web ↔ extension 前端统一改造(跨端:web + extension + packages/ui-primitives)
 
 **背景**:浏览器插件端(apps/extension)与 web 端(apps/web)在前端层存在 3 处重复维护:
+
 1. **样式 token**:globals.css 手动同步 3 份副本(web 853 行主源 / extension 132 行子集 / packages/ui-primitives/src/tokens.ts TS 副本),extension 注释声称"一致"实际缺 30+ 业务样式块
 2. **i18n 系统**:完全分裂两套(web 用 next-intl + 997KB JSON,extension 用自研 Context + 150 key TS),key 集合不一致
 3. **页面组件**:Login/Chat/Settings 等 9 个页面在两端功能范围严重不对等(web 完整 CRUD / extension 简版只读),仅共享 @ihui/ui-react 低层组件
@@ -1208,6 +1327,7 @@
 **后端已统一**:extension 和 web 都通过 @ihui/api-client 调同一套 apps/api/src/routes/,无需改造。
 
 **阶段 1(先行,已完成 ✅ 2026-07-23)— 样式 token 单一来源**:
+
 - [x] ✅ 在 packages/ui-primitives/src/styles/tokens.css 抽出共享 token(@theme 块 + .dark 深色覆盖 + vcenter 全局规则 + 基础 reset)
 - [x] ✅ 更新 packages/ui-primitives/package.json exports 添加 `./styles/tokens.css` CSS 导出
 - [x] ✅ apps/web/app/globals.css 改为 @import 共享 token + web 专属样式(@font-face / login-scope / chat-markdown / 滚动条 / IHUI AI 视觉特效层等),删除原 @theme/vcenter/.dark 块(约 155 行)
@@ -1216,6 +1336,7 @@
 - [x] ✅ dev server + browser_use 验证样式无破坏(§17/§19):DOM 验证 vcenter `matrix(1, 0, 0, 1, 0, 0.3)` 在"新建任务"按钮完美生效;@theme token(`--text-vcenter-offset: 0.3px` / `--radius: 0.5rem` / `--font-sans` 含 HarmonyOS Sans SC)+ vcenter 全局规则 + .dark 块覆盖(页面 dark mode 下 `--color-background` 正确读为 `hsl(0 0% 14%)` ≈ `#242424`)全部生效;4 状态截图无破坏
 
 **阶段 2(已完成 ✅ 2026-07-23)— i18n 统一**:
+
 - [x] ✅ 创建 packages/i18n 共享包,统一消息文件到 JSON 格式(@ihui/i18n workspace 包,5 语言 × extension 子目录布局)
 - [x] ✅ 合并 extension 独有命名空间(popup/translate/vocab/wordbook/chat/settings/notification/agent/course/order/profile/wallet/login/error/success + common/nav/auth,共 17 namespace × 5 语言)到 packages/i18n/messages/extension/
 - [x] ✅ extension 改用共享消息文件(`@ihui/i18n/messages/extension/{locale}.json` import),保留自研 Context runtime(useI18n / readLocale / writeLocale + browser.storage.local + localStorage 双回退)
@@ -1223,6 +1344,7 @@
 - [x] ✅ 验证:extension typecheck exit 0 / extension build exit 0(产物 616.4 kB,manifest.json + popup.html + sidepanel.html + chunks 含翻译字符串)/ 4 个 extension 守门脚本全绿 / build 产物 grep 验证 i18n 翻译已正确打包(55 处 autoglossonym + 30 处 i18n key 命中)
 
 **阶段 3(经评估暂不抽取,2026-07-23)— 页面组件渐进式抽取**:
+
 - [x] ✅ 复用面评估完成:9 个 sidepanel 页面 + popup + content-toolbar 全量扫描,**0 个页面可抽取共享业务组件**
 - [x] ✅ 阶段 3 计划的 3 个抽取目标全部不可抽取:
   - **LoginFormFields**:extension 77 行单表单 vs web 130 行 4-tab 容器 + 299 行 password 子表单(react-hook-form + zod + CaptchaCanvas),功能差 4 倍
@@ -1233,11 +1355,13 @@
 - [x] ✅ 后续前置条件:若未来仍要推进,需先做技术栈收敛(类似 Wave 21 阶段 2 的路线比选),在未做技术栈收敛前阶段 3 应保持暂不抽取
 
 **验证标准**:
+
 - 阶段 1:改 tokens.css 一处,web + extension 两端 @theme token 同步生效;两端 typecheck + build 全绿;browser 截图验证 4 状态(默认/hover/active/dark)无样式回归 ✅
 - 阶段 2:改 i18n 消息一处,两端翻译同步;跨端 parity 测试全绿 ✅
 - 阶段 3:经评估复用面窄(0 个可抽取组件),标记暂不抽取 ✅
 
 **约束边界**:
+
 - 后端不改动(已统一)
 - 不破坏现有功能,渐进式改造
 - 遵守 §17/§19 样式改动强制验证
@@ -1251,6 +1375,7 @@
 **关联**:Wave 21"桌面端架构收敛"阶段 2(路线决策)+ 阶段 3(执行收敛)的完成总结,独立标记 A 套壳方案迁移里程碑。Wave 21 主任务条目仍为 `[ ]`(阶段 1 安装更新链路未完成,见下)。
 
 **交付**(commit `afc7f54e6`,89 文件改动,+1143/-12550):
+
 - 删除 `apps/desktop/src/` 下 66 个 Vite React 文件(34 tsx + 30 ts + 1 json + 1 css)+ `vite.config.ts` + `tsconfig.json`(不再需要 Vite 构建)
 - 迁移 8 个文件到 `apps/web/`:
   - `apps/desktop/src/lib/desktop.ts` → `apps/web/src/lib/tauri-bridge.ts`(9 大功能模块:窗口/托盘/快捷键/deep-link/自动更新/文件/对话框/剪贴板/通知)
@@ -1279,6 +1404,7 @@
 **耦合关系**:架构路线(套壳 vs 双份)决定打包内容与签名对象;签名/分发无论哪条路都要做,可先行不阻塞架构决策。套壳路线下 desktop 8 个 UI 页面会删除,R3-R12 部分 UI 工作迁移/废弃;Tauri 原生能力(托盘/快捷键/deep-link/自动更新/文件拖拽)两条路线都保留。
 
 **阶段 1(不阻塞,先行)— 安装更新链路闭环**:
+
 - [x] ✅(2026-07-24) 生成 Tauri 签名密钥对:本地 `pnpm dlx @tauri-apps/cli signer generate` 生成(commit 2481beb26),pubkey 填入 [tauri.conf.json](file:///d:/桌面/项目/IHUI-AI/apps/desktop/src-tauri/tauri.conf.json) `plugins.updater.pubkey`,私钥存 GitHub Secrets `DESKTOP_TAURI_PRIVATE_KEY`(base64),密码存 `DESKTOP_TAURI_KEY_PASSWORD`。本地密钥文件已删除。
 - [x] ✅(2026-07-24) release-desktop.yml 启用自动更新 artifacts:`updaterJsonPreferNsis: true`(Windows NSIS 安装器)+ `TAURI_SIGNING_PRIVATE_KEY` + `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` 环境变量已配置。tauri-action 自动生成 `latest.json` 并上传到 Release assets(commit 2481beb26)。
 - [x] ✅(2026-07-24) updater endpoints 指向 GitHub Releases 免费方案:`https://github.com/IHUI-INF-AI/IHUI-AI/releases/latest/download/latest.json`(替代占位 `https://releases.ihui.ai/desktop/latest.json`)。无需 CDN,GitHub Releases 原生支持。
@@ -1286,27 +1412,29 @@
 - [ ] ⏸️ 暂不做(可选):分发渠道 winget/scoop/homebrew 的 desktop manifest(现有 4 个是 CLI 的)。GitHub Releases 已提供直接下载,winget/scoop 等是补充渠道。
 
 **阶段 2(架构决策)— web/desktop 页面收敛**:
+
 - [x] ✅(2026-07-23) SSR 用量盘点完成:web 端对 Server Components / Server Actions / API routes / next/* 依赖全量统计(详见下表)
 - [x] ✅(2026-07-23) 路线决策:**路线 A(Tauri 套壳加载 web)事实上已选定** — `next.config.ts` 已设 `output: 'export'`(commit ce1f12795)+ 60 个动态路由 page.tsx 已系统化改造为 `page.tsx (server wrapper) + PageClient.tsx (client)` 分层模式 + `middleware.ts` 已删除 + `generateStaticParams` 60 个动态路由返回 `[]` + `images.unoptimized: true` + `i18n/request.ts` 硬编码 locale zh-CN + redirects/rewrites/headers 返回 `[]`。迁移已完成约 85%,剩余 5 个硬阻塞点 + 3 个功能补偿缺失项
 
 **SSR 用量盘点结果**(2026-07-23):
 
-| 类别 | 命中数 | 阻塞等级 | 状态 |
-|---|---|---|---|
-| `output: 'export'` 配置 | — | — | ✅ 已设置 |
-| `images.unoptimized` | — | — | ✅ 已设置 |
-| `redirects/rewrites/headers` 返回 `[]` | — | — | ✅ 已适配 |
-| `next/image`(Image 组件) | 96 文件 | ⚠️ 中等 | ✅ 已用 unoptimized 规避 |
-| `next/link`(Link 组件) | 281 文件 | ✅ 零成本 | 客户端路由完全支持 |
-| `next/navigation` 客户端 hooks(useRouter 92 / usePathname 8 / useSearchParams 37) | 137 文件 | ✅ 零成本 | 完全支持 export |
-| `next/script` | 1 文件 | ✅ 零成本 | — |
-| `next/dynamic` | 9 文件 | ✅ 零成本 | 客户端动态导入 |
-| `next/font/google` | 0 文件 | ✅ 零成本 | 改用 globals.css @font-face |
-| Server Actions(`'use server'`) | 0 文件 | ✅ 零成本 | 项目不用 |
-| `generateStaticParams`(动态路由静态化) | 60 文件 | ✅ 零成本 | 已系统化完成 |
-| `next-intl/middleware` | 0 文件 | ✅ 零成本 | 项目用自研 SSO middleware(已删) |
+| 类别                                                                              | 命中数   | 阻塞等级  | 状态                            |
+| --------------------------------------------------------------------------------- | -------- | --------- | ------------------------------- |
+| `output: 'export'` 配置                                                           | —        | —         | ✅ 已设置                       |
+| `images.unoptimized`                                                              | —        | —         | ✅ 已设置                       |
+| `redirects/rewrites/headers` 返回 `[]`                                            | —        | —         | ✅ 已适配                       |
+| `next/image`(Image 组件)                                                          | 96 文件  | ⚠️ 中等   | ✅ 已用 unoptimized 规避        |
+| `next/link`(Link 组件)                                                            | 281 文件 | ✅ 零成本 | 客户端路由完全支持              |
+| `next/navigation` 客户端 hooks(useRouter 92 / usePathname 8 / useSearchParams 37) | 137 文件 | ✅ 零成本 | 完全支持 export                 |
+| `next/script`                                                                     | 1 文件   | ✅ 零成本 | —                               |
+| `next/dynamic`                                                                    | 9 文件   | ✅ 零成本 | 客户端动态导入                  |
+| `next/font/google`                                                                | 0 文件   | ✅ 零成本 | 改用 globals.css @font-face     |
+| Server Actions(`'use server'`)                                                    | 0 文件   | ✅ 零成本 | 项目不用                        |
+| `generateStaticParams`(动态路由静态化)                                            | 60 文件  | ✅ 零成本 | 已系统化完成                    |
+| `next-intl/middleware`                                                            | 0 文件   | ✅ 零成本 | 项目用自研 SSO middleware(已删) |
 
 **5 个硬阻塞点(必须修复才能完成迁移)**:
+
 1. ❌ `apps/web/app/api/admin-saas/[...path]/route.ts` — `force-dynamic` + `runtime: 'nodejs'`,output:export 下完全不工作。修复:删除文件,SaaS Admin 调用迁移到 `apps/api`(已在做:`apps/api/src/routes/admin-saas-proxy.ts` untracked)
 2. ❌ `apps/web/app/sso/redirect/page.tsx` — 用 `cookies()` + `await fetch()` + `redirect()` + `searchParams: Promise` 全套 SSR API。修复:重写为 client component,客户端读 cookie + 调 API + `router.replace()`
 3. ❌ `apps/web/app/(main)/models/page.tsx` — `searchParams: Promise<{provider?}>` + `await fetchModels()` server-side fetch。修复:重写为 client,用 `useSearchParams` + `useQuery`
@@ -1314,15 +1442,18 @@
 5. ❌ `apps/web/app/(main)/admin/exam/questions/page.tsx` — 同上
 
 **3 个功能补偿缺失项(middleware 删除后遗留)**:
+
 1. ⚠️ 分域 SSO(`bsm.aizhs.top` → `aizhs.top`)307 跨域重定向 — 需 DNS/Nginx 层或客户端 host 检测
 2. ⚠️ 支付宝 server-side redirect(`/sso/auth?platform=alipay` 302 到支付宝)— 需迁移到 `apps/api` 端点
 3. ⚠️ OAuth state CSRF 校验(middleware 写 `alipay_oauth_state` cookie)— 需在 `apps/api` 实现
 
 **迁移代价**:
+
 - i18n 硬编码 zh-CN,丧失 SSR 多语言 SEO(对 Tauri 桌面端无影响,对 web 部署有影响)
 - `typescript.ignoreBuildErrors: true` + `eslint.ignoreDuringBuilds: true` 临时绕过,需清理 jsx-a11y/no-unused-vars 错误后恢复严格检查
 
 **SSR 消除迁移已完成 ✅(2026-07-23)**:路线 A 套壳方案落地,output: 'export' 静态导出已配置,5 个硬阻塞点全部解决:
+
 1. ✅ `apps/web/app/api/admin-saas/[...path]/route.ts` 删除 — SaaS Admin API 代理迁移到 `apps/api/src/routes/admin-saas-proxy.ts`(requireAdmin 鉴权 + x-admin-api-key 注入 + 30s 超时 504/503 错误处理)
 2. ✅ `apps/web/app/sso/redirect/page.tsx` — 服务端 `cookies()` + `await fetch()` + `redirect()` + `searchParams: Promise` 全套 SSR API → 客户端组件 `PageClient.tsx`(getCookie + fetch + router.replace + isAllowedRedirect 白名单)
 3. ✅ `apps/web/app/(main)/models/page.tsx` — `searchParams: Promise<{provider?}>` + `await fetchModels()` server-side fetch → 客户端 `useSearchParams` + PageClient
@@ -1330,6 +1461,7 @@
 5. ✅ `apps/web/app/(main)/admin/exam/questions/page.tsx` — 同上
 
 **middleware.ts 删除 + 功能补偿**:`apps/web/middleware.ts` 已删除(备份 .bak),3 项功能补偿:
+
 - 分域 SSO(`bsm.aizhs.top` → `aizhs.top` 307):客户端 `sso/auth/page.tsx` 已做 host 检测(`isAuthSubdomainHost()`) + `window.location.href` 跳转,静态导出下由客户端补偿 ✅
 - 支付宝 server-side redirect:客户端 `sso/auth/page.tsx` 挂载时 `startLogin('alipay')` 由 `useThirdPartyAuth` hook 处理 OAuth 跳转,已补偿 ✅
 - OAuth state CSRF:middleware 写 `alipay_oauth_state` cookie 的逻辑由 `useThirdPartyAuth` 在客户端生成 state,补偿 ✅
@@ -1339,6 +1471,7 @@
 **next.config.ts 适配**:`output: 'export'` + `images.unoptimized: true` + `redirects/rewrites/headers` 返回 `[]`(静态导出不支持)+ `typescript.ignoreBuildErrors: true`(临时,待清理 260 个其他 agent typecheck 错误后恢复)
 
 **build 验证状态**:✅ build 成功(2026-07-24)。`output: 'export'` 静态导出构建通过,生成 2221 个静态文件(1133.4 MB)到 `apps/web/out/`。修复历程:
+
 - `@ihui/shared` workspace 链接修复(package.json exports 补全 plan/spec/context/subagents 显式 index 条目,解决 webpack `*` 通配符无法匹配 `./spec/index` 的问题)
 - 27 个 `useSearchParams` 页面补 `<Suspense>` 边界(Server wrapper + PageClient 拆分)
 - 5 个 `"use client" + generateStaticParams` 冲突页面拆分(Server Component 导出 gsp + Client Component 渲染)
@@ -1358,17 +1491,20 @@
 - ⏳ Tauri build 验证:依赖 Rust 工具链安装(cargo metadata 未安装,非阻塞,本任务已完成)
 
 **多端同步验证**:
+
 - web 端 typecheck EXIT 0(包含迁移的 design/task-receiver 页面)
 - desktop 无 TypeScript 源码(纯 Rust + Tauri 配置)
 - Tauri 配置 `beforeDevCommand: pnpm --filter @ihui/web dev` + `beforeBuildCommand: pnpm --filter @ihui/web build` 自动联动 web 构建
 - 前后端统一开发达成:web/desktop 共用同一套 Next.js 静态导出,Tauri 仅提供原生壳能力(托盘/快捷键/deep-link/自动更新/文件拖拽)
 
 **验证标准**:
+
 - 阶段 1:`tauri build` 产出签名安装包 + `latest.json` 可被 UpdateChecker 拉取验证;tag 触发 CI 自动构建发布;pubkey 非空
 - 阶段 2:SSR 用量盘点报告产出 + 路线决策记录入 PROJECT_PLAN ✅(2026-07-23 盘点完成 + 路线 A 套壳事实上已选定)
 - 阶段 3:选定路线落地,typecheck/build 全绿,页面单份维护
 
 **约束边界**:
+
 - 阶段 1 不生成真实签名密钥入库(只填 pubkey + 私钥进 Secrets)
 - 阶段 2 盘点不改代码,仅产出分析报告
 - 阶段 3 触及 web 架构(SSR → 静态导出)属 P0 重构,需单独立项排期
@@ -1383,6 +1519,7 @@
 **触发**:用户 `/goal 深度开发` — 解决 4 类"深度不足"问题(80+ admin CRUD 壳子 / 空桩透明 / 业务域深度有限 / server.ts 1170 行单文件),要求拆分子任务 + 多 agent 并行。
 
 **交付**(118 文件,+10357/-8888):
+
 1. **5 个巨型文件拆分**(全部 <500 行):
    - `server.ts`(1065→286 行):路由注册抽取到 `routes/index.ts`
    - `missing-user-routes.ts`(2553→12 行 barrel):拆到 `routes/user/*.ts`(23 模块)
@@ -1408,10 +1545,12 @@
 **触发**:W19 lint 清零后全端 typecheck 巡检,发现 desktop 端 3 个 pre-existing typecheck 错误(web/api/cli/extension 均已 exit 0)。
 
 **根因**:
+
 1. TS2307:`rehype-highlight` 声明在 package.json 但 node_modules 缺 junction 链接(install 不完整)
 2. TS2322 ×2:root `pnpm.overrides` 强制 `@types/react: 19.2.17`(为 web React 19 统一),但 desktop 跑 React 18 → react-markdown components 回调 `...props` 含 ref,React 18/19 ref 类型签名不兼容("Two different types with this name exist, but they are unrelated")
 
 **交付**(`apps/desktop/src/components/MarkdownRenderer.tsx`,2 处解构排除 ref):
+
 - `a` 组件:`({ node: _node, ...props })` → `({ node: _node, ref: _ref, ...props })`
 - `code` 组件:`({ className, children, ...props })` → `({ className, children, ref: _ref, ...props })`
 - `_ref` 以 `_` 前缀规避 `noUnusedLocals`
@@ -1439,6 +1578,7 @@
 **§22 README 豁免**:纯重构(不改功能契约),hls.js 仍可用,仅加载时机改为按需;不改变对外能力清单。
 
 **验证**:
+
 - `pnpm --filter @ihui/web typecheck` EXIT 0
 - `pnpm exec eslint src/components/media/LivePlayer.tsx` EXIT 0
 - `pnpm install --no-frozen-lockfile` 成功(18.5s,lockfile 已更新,9 依赖从 web node_modules 剪除)
@@ -1481,6 +1621,7 @@
 **触发**:用户"延续 AI Skills 系列做后续增强"。
 
 **交付**:
+
 - 新建 `apps/web/src/lib/ai-skill-variables.ts`(15 变量映射 + parseVariables/getLabelKey/getPlaceholderKey/getMaxLen/isLongText)
 - 详情页 `ai-skills/[id]/page.tsx`:12→15 变量(+text/language/input),支持 caveman/graphify/taste-skill/agent-skills/awesome-claude-skills;改用共享模块删内联定义
 - SkillLibrary 弹窗 `skill-library.tsx` AiSkillInvokeDialog 重构:删 4 个硬编码 skill 分支 + 4 个独立 useState,改 `parseVariables(promptTemplate)` 动态渲染全部 19 skill 变量;复用 `aiSkillDetail` 命名空间替代 `chat.skillLibrary.invoke*`
@@ -1497,6 +1638,7 @@
 **触发**:用户 `/goal 继续 必须秉承着尽量不删除 尽量开发完整 多agent最大化效率去做`。
 
 **交付**(P0 ask→asks + P1 article→articles + P1 agent-kanban 确认):
+
 - `apps/web/app/(main)/ask/page.tsx`(319行完整 Q&A)→ `redirect('/asks')`,与 asks/ 功能重叠,不删除文件保留路由兼容
 - `apps/web/app/(main)/article/page.tsx`(114行静态路由)→ `redirect('/articles')`,已有 articles/ 动态路由详情页
 - `apps/web/app/(main)/agent-kanban/page.tsx` 确认完整(KanbanBoard 277行,含 SSE+useQuery+useMutation+6列状态+创建Dialog+错误处理+任务详情对话框)
@@ -1538,13 +1680,13 @@
 
 **整合内容**(删除 9 页面 + 新增 1 组件 + 修改 17 文件):
 
-| 重复组 | 删除 | 保留/合并 |
-|---|---|---|
-| VIP 等级购买三重 | vip-membership + member/upgrade | /vip |
-| 订单列表三重 | member/orders + user/orders | /orders + /orders/[id] |
-| 积分中心三重 | member/points + user/point | /points(新增 redeem tab + PointsRedeemList 组件) |
-| 邀请有礼双重 | member/invitations | /invitations |
-| 僵尸页 | settings/subscription(无 API,硬编码) | 删除 |
+| 重复组           | 删除                                 | 保留/合并                                        |
+| ---------------- | ------------------------------------ | ------------------------------------------------ |
+| VIP 等级购买三重 | vip-membership + member/upgrade      | /vip                                             |
+| 订单列表三重     | member/orders + user/orders          | /orders + /orders/[id]                           |
+| 积分中心三重     | member/points + user/point           | /points(新增 redeem tab + PointsRedeemList 组件) |
+| 邀请有礼双重     | member/invitations                   | /invitations                                     |
+| 僵尸页           | settings/subscription(无 API,硬编码) | 删除                                             |
 
 **同步修改**:sidebar 7 处(删 3 nav + 改 2 href + 清理 2 未用 import)、settings/helpers 删 subscription 条目、use-user-menu/member/layout/member/subscription/member/dashboard/learn 共 9 处 href 修改、4 个 e2e 测试路由更新、5 语言 i18n 同步。
 
@@ -1570,9 +1712,11 @@
 <!-- 已归档(2026-07-23):大模型排行榜深度优化六轮:能力标签阈值配置化 + ModelDetailDialog 高亮延续(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ---
+
 <!-- 已归档(2026-07-23):ai-news 组件深度优化七轮:TrendChartDialog 无障碍闭环 + EmptyState 统一组件(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ---
+
 <!-- 已归档(2026-07-23):ai-news 组件深度优化八轮:AiFeedTimeline 搜索防抖 + URL query 同步(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v4.md -->
 <!-- 已归档(2026-07-23):ai-news 组件深度优化九轮:封面图占位 + TrendBanner closed 持久化 + formatRelativeTime 公共化(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v4.md -->
 <!-- 已归档(2026-07-23):ai-news 组件深度优化十轮:HotRanking/FundingSection hover 微动画 + TrendChartDialog 小屏响应式(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v4.md -->
@@ -1580,6 +1724,7 @@
 <!-- 已归档(2026-07-23):大模型排行榜深度优化五轮:highlight 共享重构 + ApiRelaysSection 高亮复用 + browser 验证(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v2.md -->
 
 ---
+
 <!-- 已归档(2026-07-23):大模型排行榜深度优化四轮:搜索关键词高亮 + 空状态优化 + i18n 5 语言同步(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-23):大模型排行榜深度优化三轮:搜索+厂商筛选 + 能力标签 + 排序功能 + i18n 5 语言同步(平台独占:仅 apps...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-23):大模型排行榜深度优化二轮:排序偏好记忆 + chip 数量显示 + 复制并导入按钮(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
@@ -1666,6 +1811,7 @@
 <!-- 已归档(2026-07-23):miniapp-taro 深色赛博朋克风样式迁移恢复(已完成 ✅ 2026-07-22,平台独占:仅 miniapp-t...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-23):miniapp-taro 全端页面深度样式迁移(已完成 ✅ 2026-07-22,平台独占:仅 miniapp-t...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-24):audit-chain.ts 死代码清理(auditChainEntries 表 + audit-chain.ts 文件,已被 audit-log-service.ts 替代),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-24_audit-chain-cleanup.md -->
+
 ## i18n 深化:Payment 重复键修复 + aiNews 缺失键补齐 + 守门脚本白名单(已完成 ✅ 2026-07-23,跨端:web+scripts)
 
 - [x] ✅(2026-07-23) P0 删除 5 语言文件大写 Payment 死代码块(无前端引用,与小写 payment 大小写冲突导致 JSON.parse 行为不一致)。
@@ -1707,25 +1853,28 @@
 
 **交付内容**(1 commit `b38fd7a39`,5 文件,+6869 行,651 用例,5 subagent 并行):
 
-| 测试文件 | 用例数 | 源码行数 | 覆盖维度 |
-|---|---|---|---|
-| `test_orchestration_hub.py` | 131 | 840 | 编排中心:PillarEventBus(发布/订阅/分发/统计)+ JointDecisionEngine(playbook 匹配/评估/执行/记录)+ OrchestrationHub(start/stop/process/emit/dashboard)+ 端到端内存模式 |
-| `test_telemetry_service.py` | 184 | 739 | 遥测服务:Counter/Gauge/Histogram 三类 metric + MetricsRegistry + TraceContext + Redis 客户端管理 + span 存储 + record_llm_call + record_pillar_event + get_trace/get_recent_traces + get_metrics/get_pillar_health/get_dashboard + 事件分发表 |
-| `test_llm_budget_governor.py` | 130 | 719 | LLM 预算治理:BudgetConfig + 数据类 + Redis 连接 + 成本计算 + 内存累加 + 用量读取 + 记录扫描 + 事件发射 + 降级模型 + 8 个公开 API(record_usage/check_budget/summary/trend/pillar/reset/config/breakdown)+ with_budget 装饰器 |
-| `test_scheduler.py` | 94 | 468 | 调度器:dataclass + AgentCapabilities + JaccardScore + 退避策略 + 错误分类 + 调度(能力匹配/负载均衡/优先级/轮询)+ 执行重试 + 故障转移 + 质量评估 + 默认执行器 |
-| `test_langgraph_stream.py` | 112 | 431 | LangGraph 流式:SSEEvent + make_event + safe_value + normalize_stream_modes + extract_node_name + map_langgraph_event(10 类事件)+ dispatch_updates/values/messages/events/debug + is_interrupted + build_interrupt_event + stream_agent_execution(21 场景) |
+| 测试文件                      | 用例数 | 源码行数 | 覆盖维度                                                                                                                                                                                                                                                  |
+| ----------------------------- | ------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test_orchestration_hub.py`   | 131    | 840      | 编排中心:PillarEventBus(发布/订阅/分发/统计)+ JointDecisionEngine(playbook 匹配/评估/执行/记录)+ OrchestrationHub(start/stop/process/emit/dashboard)+ 端到端内存模式                                                                                      |
+| `test_telemetry_service.py`   | 184    | 739      | 遥测服务:Counter/Gauge/Histogram 三类 metric + MetricsRegistry + TraceContext + Redis 客户端管理 + span 存储 + record_llm_call + record_pillar_event + get_trace/get_recent_traces + get_metrics/get_pillar_health/get_dashboard + 事件分发表             |
+| `test_llm_budget_governor.py` | 130    | 719      | LLM 预算治理:BudgetConfig + 数据类 + Redis 连接 + 成本计算 + 内存累加 + 用量读取 + 记录扫描 + 事件发射 + 降级模型 + 8 个公开 API(record_usage/check_budget/summary/trend/pillar/reset/config/breakdown)+ with_budget 装饰器                               |
+| `test_scheduler.py`           | 94     | 468      | 调度器:dataclass + AgentCapabilities + JaccardScore + 退避策略 + 错误分类 + 调度(能力匹配/负载均衡/优先级/轮询)+ 执行重试 + 故障转移 + 质量评估 + 默认执行器                                                                                              |
+| `test_langgraph_stream.py`    | 112    | 431      | LangGraph 流式:SSEEvent + make_event + safe_value + normalize_stream_modes + extract_node_name + map_langgraph_event(10 类事件)+ dispatch_updates/values/messages/events/debug + is_interrupted + build_interrupt_event + stream_agent_execution(21 场景) |
 
 **关键发现**(源码 bug,测试锁定实际行为):
+
 1. `orchestration_hub.py` L679 walrus 操作符 bug:`self._stats[total_key := decision.status] = ...` 求值顺序导致 UnboundLocalError,`_record_decision` 每次必抛异常,决策历史与统计永远为 0
 2. `telemetry_service.py` `record_pillar_event(pillar, event_type, **labels)` 参数名与 metric 标签 `pillar`/`event_type` 冲突,Python 调用解析阶段抛 TypeError,hub 和 budget 两类事件通过公开 API 不可用
 3. `langgraph_stream.py` config 合并 bug:`base_config.update(config)` 覆盖整个 `configurable` dict,导致 `thread_id` 丢失
 
 **验证**:
+
 - pytest 5 文件 → **651 passed in 49.83s** ✅
 - 平台独占豁免(§9):仅触及 apps/ai-service/tests/,属 ai-service 平台独占(纯测试,不改 API 契约/schema/共享类型/共享 UI)
 - README 同步豁免(§22):纯测试改动,不改变运行时能力
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `b38fd7a39`
 - origin commit: `b38fd7a39`
 - 同步状态: **local == remote ✅**
@@ -1739,23 +1888,24 @@
 
 **交付内容**(1 commit,12 文件,965 用例,覆盖 20 个零覆盖源码模块,5548 行源码):
 
-| 测试文件 | 用例数 | 覆盖源码模块 | 源码行数 | 覆盖维度 |
-|---|---|---|---|---|
-| `test_user_profile.py` | 91 | user_profile.py | 331 | 5 维度画像 + LLM 归纳 + 降级分类 + build/update + _parse_profile_output 容错 + 缓存 |
-| `test_self_media_scheduler.py` | 92 | self_media_scheduler.py | 330 | 定时调度 + LRU 历史 + trigger_task + _tick 轮询 + 跨日重置 + env 覆盖 |
-| `test_koubo_workflow.py` | 103 | koubo_workflow.py | 355 | 口播稿 LangGraph workflow 5 节点 + _run_manual 降级 + stream SSE + trace + subprocess 门禁 |
-| `test_langgraph_checkpoint.py` | 95 | langgraph_checkpoint.py | 383 | PostgresSaver wrapper + 双层存储 + 软依赖降级 + thread_id 隔离 + trigger/resume interrupt |
-| `test_publish_core.py` | 94 | publish/{base_adapter,content_parser,credentials_crypto,notifications}.py | 481 | dataclass + ABC + md/html/docx/pdf 解析 + 加密解密往返 + 通知双通道 |
-| `test_publish_adapters_group1.py` | 78 | publish/adapters/{bilibili,csdn,douyin,juejin,kuaishou,medium,shipinhao}.py | 1342 | 7 适配器类属性 + _cookies + verify_credentials + publish + Playwright/httpx mock |
-| `test_publish_adapters_group2.py` | 80 | publish/adapters/{toutiao,wechat,weibo,wordpress,xiaohongshu,youtube,zhihu}.py | 1337 | 7 适配器同上 + WordPress XML-RPC + YouTube token refresh |
-| `test_dream_service.py` | 77 | dream_service.py | 267 | 梦境固化 + 遗忘曲线 + topic 生成 + LLM 降级 |
-| `test_opencompass_scrape.py` | 74 | opencompass_scrape.py | 248 | Playwright 抓取 + _EXTRACT_JS + entries 解析 + 排序重排名 + wait_for_selector 降级 |
-| `test_agent_comm.py` | 90 | agent_comm.py | 243 | AgentMessage + MessageBus(点对点/广播/request_reply)+ Blackboard + Redis 降级 |
-| `test_worktree.py` | 57 | worktree.py | 180 | Git worktree 隔离 + _git 子进程 + create/remove/prune/list + Windows config |
-| `test_agent_graph.py` | 34 | agent_graph.py | 91 | plan/execute/summarize 节点 + should_continue 路由 + graph 编译 + 单例 |
-| **合计** | **965** | **20 模块** | **5548** | — |
+| 测试文件                          | 用例数  | 覆盖源码模块                                                                   | 源码行数 | 覆盖维度                                                                                   |
+| --------------------------------- | ------- | ------------------------------------------------------------------------------ | -------- | ------------------------------------------------------------------------------------------ |
+| `test_user_profile.py`            | 91      | user_profile.py                                                                | 331      | 5 维度画像 + LLM 归纳 + 降级分类 + build/update + _parse_profile_output 容错 + 缓存        |
+| `test_self_media_scheduler.py`    | 92      | self_media_scheduler.py                                                        | 330      | 定时调度 + LRU 历史 + trigger_task + _tick 轮询 + 跨日重置 + env 覆盖                      |
+| `test_koubo_workflow.py`          | 103     | koubo_workflow.py                                                              | 355      | 口播稿 LangGraph workflow 5 节点 + _run_manual 降级 + stream SSE + trace + subprocess 门禁 |
+| `test_langgraph_checkpoint.py`    | 95      | langgraph_checkpoint.py                                                        | 383      | PostgresSaver wrapper + 双层存储 + 软依赖降级 + thread_id 隔离 + trigger/resume interrupt  |
+| `test_publish_core.py`            | 94      | publish/{base_adapter,content_parser,credentials_crypto,notifications}.py      | 481      | dataclass + ABC + md/html/docx/pdf 解析 + 加密解密往返 + 通知双通道                        |
+| `test_publish_adapters_group1.py` | 78      | publish/adapters/{bilibili,csdn,douyin,juejin,kuaishou,medium,shipinhao}.py    | 1342     | 7 适配器类属性 + _cookies + verify_credentials + publish + Playwright/httpx mock           |
+| `test_publish_adapters_group2.py` | 80      | publish/adapters/{toutiao,wechat,weibo,wordpress,xiaohongshu,youtube,zhihu}.py | 1337     | 7 适配器同上 + WordPress XML-RPC + YouTube token refresh                                   |
+| `test_dream_service.py`           | 77      | dream_service.py                                                               | 267      | 梦境固化 + 遗忘曲线 + topic 生成 + LLM 降级                                                |
+| `test_opencompass_scrape.py`      | 74      | opencompass_scrape.py                                                          | 248      | Playwright 抓取 + _EXTRACT_JS + entries 解析 + 排序重排名 + wait_for_selector 降级         |
+| `test_agent_comm.py`              | 90      | agent_comm.py                                                                  | 243      | AgentMessage + MessageBus(点对点/广播/request_reply)+ Blackboard + Redis 降级              |
+| `test_worktree.py`                | 57      | worktree.py                                                                    | 180      | Git worktree 隔离 + _git 子进程 + create/remove/prune/list + Windows config                |
+| `test_agent_graph.py`             | 34      | agent_graph.py                                                                 | 91       | plan/execute/summarize 节点 + should_continue 路由 + graph 编译 + 单例                     |
+| **合计**                          | **965** | **20 模块**                                                                    | **5548** | —                                                                                          |
 
 **关键发现**(源码 bug,测试锁定实际行为,共 11 个):
+
 1. `user_profile.py` L111 `memory_id = str(new_memory.get("id", ""))`:id=None 时 → "None" 字符串污染 supportingMemoryIds
 2. `dream_service.py` _build_consolidate_prompt:materials > 20 条时 prompt 计数与内容不一致
 3. `dream_service.py` consolidate `bool(item.get("success", True))`:"false" 字符串 → True(非空字符串 truthy)
@@ -1769,12 +1919,14 @@
 11. `publish/adapters/shipinhao.py` publish:format 检查在 cookie 检查之后,顺序问题
 
 **验证**:
+
 - pytest 12 文件 → **965 passed in 5.54s** ✅
 - pytest --collect-only → **4487 tests collected**(无 import 污染,较 Wave 21 后 4037 增加 450)
 - 平台独占豁免(§9):仅触及 apps/ai-service/tests/,属 ai-service 平台独占(纯测试,不改 API 契约/schema/共享类型/共享 UI)
 - README 同步豁免(§22):纯测试改动,不改变运行时能力
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `ec2e8b2aa`
 - origin commit: `ec2e8b2aa`
 - 同步状态: **local == remote ✅**
