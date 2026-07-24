@@ -1,7 +1,8 @@
 import { View, Text, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
-import { createSrsStream, updateSrsStream, type SrsStream } from '@/api'
+import { createSrsStream, updateSrsStream, type SrsStream } from '@ihui/api-client'
+import { unwrapApi } from '@/utils/api-bridge'
 import { useI18n } from '@/i18n'
 
 type StreamStatus = 'idle' | 'active' | 'inactive'
@@ -62,7 +63,7 @@ export default function LiveHost() {
     setLoading(true)
     setError('')
     try {
-      const data = await createSrsStream({ title })
+      const data = await unwrapApi(createSrsStream({ title }))
       setStream(data)
       setStatus('active')
       setDuration(0)
@@ -81,7 +82,7 @@ export default function LiveHost() {
     setLoading(true)
     setError('')
     try {
-      await updateSrsStream(stream.id, { status: 'inactive' })
+      await unwrapApi(updateSrsStream(stream.id, { status: 'inactive' }))
       setStatus('inactive')
       Taro.showModal({
         title: tt('liveHost.endLiveAlert', '直播已结束'),
