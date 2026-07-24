@@ -1,8 +1,8 @@
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useRef } from 'react'
-import { getVipOrderPayInfo, type VipPayInfo, getProfile, get, post } from '@/api'
-import { requestWxPayment, type AnyPayParams } from '@/utils/pay'
+import { getVipOrderPayInfo, createAlipayMiniappPayment, type VipPayInfo, getProfile, get, post } from '@/api'
+import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import { useI18n } from '@/i18n'
 import './index.css'
 
@@ -122,7 +122,20 @@ export default function PayIndex() {
         return
       }
       if (payMethod === 'alipay') {
-        Taro.showToast({ title: tt('pay.alipayNotReady', '支付宝支付暂未开通'), icon: 'none' })
+        const res = await createAlipayMiniappPayment({
+          amount: finalAmount,
+          subject: orderDetail.goodsName || tt('pay.vipSubscription', '会员订阅'),
+        })
+        if (!res.tradeNo) {
+          Taro.showToast({ title: tt('pay.configNotReady', '支付宝支付配置未就绪'), icon: 'none' })
+          return
+        }
+        try {
+          await requestAliPayment({ orderInfo: res.tradeNo } as AnyPayParams)
+          Taro.redirectTo({ url: `/pages/pay/result?orderNo=${res.outTradeNo}` })
+        } catch {
+          Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${res.outTradeNo}` })
+        }
         return
       }
       const res = await getVipOrderPayInfo(orderNo)
