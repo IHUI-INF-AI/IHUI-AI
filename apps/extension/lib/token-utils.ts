@@ -1,34 +1,13 @@
 import { refreshAccessToken } from '@ihui/api-client'
+import { readExp } from '@ihui/shared/utils/jwt-utils'
 import { REFRESH_LEAD_MS, REFRESH_ALARM_NAME } from './config'
 import { getRefreshToken, setTokenPair, clearAllTokens } from './token'
 
+// re-export 保持外部引用不变(如 tests/refresh-token.test.ts 直接从 token-utils 导入 readExp)
+export { readExp }
+
 let inFlightRefresh: Promise<boolean> | null = null
 let alarmListener: ((alarm: chrome.alarms.Alarm) => void) | null = null
-
-interface JWTPayload {
-  exp?: number
-}
-
-function base64UrlDecode(input: string): string {
-  const s = input.replace(/-/g, '+').replace(/_/g, '/')
-  const padded = s + '='.repeat((4 - (s.length % 4)) % 4)
-  const binary = atob(padded)
-  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0))
-  return new TextDecoder().decode(bytes)
-}
-
-export function readExp(token: string): number | null {
-  const parts = token.split('.')
-  if (parts.length !== 3) return null
-  const payloadPart = parts[1]
-  if (!payloadPart) return null
-  try {
-    const decoded = JSON.parse(base64UrlDecode(payloadPart)) as JWTPayload
-    return typeof decoded.exp === 'number' ? decoded.exp : null
-  } catch {
-    return null
-  }
-}
 
 export function scheduleRefreshAlarm(accessToken: string): void {
   const exp = readExp(accessToken)
