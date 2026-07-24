@@ -351,7 +351,7 @@ export interface VipLevel {
   sortOrder: number
 }
 
-export const getVipInfo = () => get<VipInfo>('/vip/info')
+export const getVipInfo = () => get<VipInfo>('/vip/my')
 export const getVipLevels = () => get<{ items: VipLevel[] }>('/vip/levels')
 export const getVipPrivilege = () =>
   get<{ list: Array<{ id: string; title: string; desc: string }> }>('/vip/privilege')
@@ -417,7 +417,7 @@ export const getPayResult = async (orderNo: string) => {
     raw === 'paid' ? 'paid' : raw === 'pending' ? 'pending' : 'failed'
   return { status, amount: res.order.amount }
 }
-export const getOrderDetail = (id: string | number) => get<Order>(`/order/${id}`)
+export const getOrderDetail = (id: string | number) => get<Order>(`/orders/${id}`)
 export const refund = (data: { orderNo: string; reason: string }) => post('/order/refund', data)
 export const getRefundList = (params?: { page?: number; pageSize?: number }) =>
   get<{ list: Order[]; total: number }>('/order/refund/list', params)
@@ -442,11 +442,13 @@ export const createAlipayMiniappPayment = (params: {
   orderType?: number
   subject?: string
   productId?: string
+  buyerId?: string
 }) => {
   const parts = [`amount=${encodeURIComponent(params.amount)}`]
   if (params.orderType !== undefined) parts.push(`orderType=${params.orderType}`)
   if (params.subject) parts.push(`subject=${encodeURIComponent(params.subject)}`)
   if (params.productId) parts.push(`productId=${encodeURIComponent(params.productId)}`)
+  if (params.buyerId) parts.push(`buyerId=${encodeURIComponent(params.buyerId)}`)
   return post<AlipayMiniappPayResult>(`/payments/alipay/miniapp/create?${parts.join('&')}`, {})
 }
 
@@ -545,8 +547,8 @@ export interface News {
   views?: number
 }
 export const getNewsList = (params?: { page?: number; pageSize?: number; keyword?: string }) =>
-  get<{ list: News[]; total: number }>('/content/news/list', params)
-export const getNewsDetail = (id: string | number) => get<News>(`/content/news/${id}`)
+  get<{ list: News[]; total: number }>('/news/articles', params)
+export const getNewsDetail = (id: string | number) => get<News>(`/news/articles/${id}`)
 
 export interface Circle {
   id: string | number
@@ -598,28 +600,28 @@ export const updateAskAnswer = (id: string, data: { content: string }) =>
   patch(`/asks/answers/${id}`, data)
 export const deleteAskAnswer = (id: string) => del(`/asks/answers/${id}`)
 export const getAskMemberQuestionCount = (userId: string) =>
-  get<{ count: number }>('/ask/member/question-count', { userId })
+  get<{ count: number }>('/asks/member/question-count', { userId })
 export const getAskMemberAnswerCount = (userId: string) =>
-  get<{ count: number }>('/ask/member/answer-count', { userId })
+  get<{ count: number }>('/asks/member/answer-count', { userId })
 export const getAskMemberQuestions = (params: {
   userId: string
   page?: number
   pageSize?: number
-}) => get<{ list: Ask[]; page: number; pageSize: number }>('/ask/member/questions', params)
+}) => get<{ list: Ask[]; page: number; pageSize: number }>('/asks/member/questions', params)
 export const getAskMemberAnswers = (params: { userId: string; page?: number; pageSize?: number }) =>
   get<{
     list: Array<{ id: string; content: string; askId: string; createdAt: string }>
     page: number
     pageSize: number
-  }>('/ask/member/answers', params)
+  }>('/asks/member/answers', params)
 
 export const getTopicList = (params?: { page?: number; pageSize?: number }) =>
   get<{
     list: Array<{ id: string; name: string; count: number; coverUrl?: string }>
     total: number
-  }>('/circles/topic/list', params)
+  }>('/topics', params)
 export const getTopicDetail = (id: string | number) =>
-  get<{ id: string; name: string; posts: Circle[] }>(`/circles/topic/${id}`)
+  get<{ id: string; name: string; posts: Circle[] }>(`/topics/${id}`)
 
 /* ============ 教育扩展 ============ */
 
@@ -1100,31 +1102,31 @@ export const removeModelChat = (id: string) => del(`/model/chat/${id}`)
 export const fetchAudioText = (audioUrl: string) =>
   post<{ text: string }>('/ai/audio/recognize', { audio_url: audioUrl })
 
-/* ============ AIGC 多媒体生成 ============ */
-/** 通义万相 - 图片生成 */
-export const generateImageDashscope = (data: unknown) => post('/dashscope/image/generate', data)
-/** 通义万相 - 图片编辑 */
-export const editImageDashscope = (data: unknown) => post('/dashscope/image/edit', data)
-/** 通义万相 - 视频生成 */
-export const generateVideoDashscope = (data: unknown) => post('/dashscope/video/generate', data)
-/** 腾讯混元3D - 提交生成 */
-export const generate3dTencent = (data: unknown) => post('/tencent/hunyuan3d/submit', data)
-/** 腾讯混元3D - 查询结果 */
-export const query3dTencent = (taskId: string) => get(`/tencent/hunyuan3d/query?taskId=${taskId}`)
-/** 豆包 - 图片生成 */
-export const generateImageDoubao = (data: unknown) => post('/doubao/image', data)
-/** 豆包 - 图片编辑 */
-export const editImageDoubao = (data: unknown) => post('/doubao/image/edit', data)
-/** 豆包 - 视频生成 */
-export const generateVideoDoubao = (data: unknown) => post('/doubao/video', data)
-/** 即梦 - 图片生成 */
-export const generateImageJimeng = (data: unknown) => post('/volcengine/jimeng/image', data)
-/** 火山引擎 - 图片生成 */
-export const generateImageVolcengine = (data: unknown) => post('/volcengine/visual/generate', data)
-/** 可灵 - 视频生成 */
-export const generateVideoKling = (data: unknown) => post('/kling/video/generate', data)
-/** 可灵 - 图片生成 */
-export const generateImageKling = (data: unknown) => post('/kling/image/generate', data)
+/* ============ AIGC 多媒体生成（后端 aiVendorRoutes 注册于 /api/ai 前缀） ============ */
+/** 通义万相 - 图片生成（POST /api/ai/dashscope/image） */
+export const generateImageDashscope = (data: unknown) => post('/ai/dashscope/image', data)
+/** 通义万相 - 图片编辑（POST /api/ai/dashscope/image-edit） */
+export const editImageDashscope = (data: unknown) => post('/ai/dashscope/image-edit', data)
+/** 通义万相 - 视频生成（POST /api/ai/dashscope/video） */
+export const generateVideoDashscope = (data: unknown) => post('/ai/dashscope/video', data)
+/** 腾讯混元3D - 提交生成（POST /api/ai/tencent/hunyuan3d/submit） */
+export const generate3dTencent = (data: unknown) => post('/ai/tencent/hunyuan3d/submit', data)
+/** 腾讯混元3D - 查询结果（GET /api/ai/tencent/hunyuan3d/query） */
+export const query3dTencent = (taskId: string) => get(`/ai/tencent/hunyuan3d/query`, { taskId })
+/** 豆包 - 图片生成（POST /api/ai/doubao/image） */
+export const generateImageDoubao = (data: unknown) => post('/ai/doubao/image', data)
+/** 豆包 - 图片编辑（POST /api/ai/doubao/image-edit） */
+export const editImageDoubao = (data: unknown) => post('/ai/doubao/image-edit', data)
+/** 豆包 - 视频生成（POST /api/ai/doubao/video） */
+export const generateVideoDoubao = (data: unknown) => post('/ai/doubao/video', data)
+/** 即梦 - 图片生成（POST /api/ai/volcengine/jimeng/image） */
+export const generateImageJimeng = (data: unknown) => post('/ai/volcengine/jimeng/image', data)
+/** 火山引擎 - 图片生成（POST /api/ai/volcengine/visual/generate，匹配 :reqKey 路由） */
+export const generateImageVolcengine = (data: unknown) => post('/ai/volcengine/visual/generate', data)
+/** 可灵 - 视频生成（POST /api/ai/kling/task/create，对口型 lip-sync 任务） */
+export const generateVideoKling = (data: unknown) => post('/ai/kling/task/create', data)
+/** 可灵 - 图片生成（POST /api/ai/kling/image，后端暂无此路由，调用将返回 404） */
+export const generateImageKling = (data: unknown) => post('/ai/kling/image', data)
 
 /* ============ 课程 / 视频内容管理 ============ */
 /** 课程分组详情 */
