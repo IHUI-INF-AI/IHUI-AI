@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Check, Copy } from 'lucide-react'
-import { cn } from '../lib/utils.js'
+import { cn } from '../lib/utils'
 
 /**
  * 轻量级代码块组件:纯文本 + 复制按钮 + 流式标记 + 错误降级。

@@ -2,8 +2,8 @@
 
 import * as React from 'react'
 import { CheckCircle2, ChevronDown, Loader2, AlertCircle, Terminal } from 'lucide-react'
-import { cn } from '../lib/utils.js'
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from './collapsible.js'
+import { cn } from '../lib/utils'
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from './collapsible'
 
 export interface LogViewerProps {
   lines: string[]
