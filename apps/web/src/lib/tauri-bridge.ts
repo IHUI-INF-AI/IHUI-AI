@@ -1,4 +1,6 @@
+// @ts-expect-error tauri 桥接依赖仅在 Tauri WebView(desktop 套壳)运行时可用,web 端 typecheck 未安装;运行时由 Tauri 注入,desktop 构建时 next.config.ts transpilePackages 解析真实包
 import { invoke } from '@tauri-apps/api/core'
+// @ts-expect-error 同上(@tauri-apps/plugin-dialog 仅 desktop 端可用)
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 
 /**
@@ -119,7 +121,10 @@ export interface DirListResult {
 /** 文件选择过滤器(常用类型,Web 端没有)。 */
 export const FILE_FILTERS = {
   images: { name: '图片', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'] },
-  text: { name: '文本', extensions: ['txt', 'md', 'log', 'csv', 'json', 'xml', 'yml', 'yaml', 'toml'] },
+  text: {
+    name: '文本',
+    extensions: ['txt', 'md', 'log', 'csv', 'json', 'xml', 'yml', 'yaml', 'toml'],
+  },
   pdf: { name: 'PDF', extensions: ['pdf'] },
   all: { name: '所有文件', extensions: ['*'] },
 } as const
@@ -352,4 +357,136 @@ export async function deleteConversation(id: string): Promise<void> {
 export async function setActiveConversation(id: string | null): Promise<void> {
   if (!isTauri()) return
   await invoke('set_active_conversation', { id })
+}
+
+// ================== Computer Control ==================
+
+/** 截图结果(base64 PNG)。 */
+export interface ScreenshotResult {
+  screenshot: string
+}
+
+/** 通用操作结果。 */
+export interface OkResult {
+  ok: boolean
+}
+
+/** 窗口信息(与 Rust WindowInfo 对齐,camelCase)。 */
+export interface WindowInfo {
+  title: string
+  appName: string
+  windowId: string
+}
+
+/** 活动窗口查询结果。 */
+export interface ActiveWindowResult {
+  window: WindowInfo
+}
+
+/** 截图区域参数 [x, y, width, height]。 */
+export type ScreenshotRegion = [number, number, number, number]
+
+/** 鼠标按钮类型。 */
+export type MouseButton = 'left' | 'right' | 'middle'
+
+/**
+ * 截取屏幕截图,返回 base64 编码的 PNG。
+ * @param displayIndex 显示器索引(默认 0 主屏幕)
+ * @param region 截取区域 [x, y, width, height],不传则截取全屏
+ * @returns base64 PNG 字符串,非 Tauri 环境抛错
+ */
+export async function screenshotScreen(
+  displayIndex?: number,
+  region?: ScreenshotRegion,
+): Promise<ScreenshotResult> {
+  requireTauri()
+  return await invoke<ScreenshotResult>('screenshot_screen', {
+    displayIndex: displayIndex ?? null,
+    region: region ?? null,
+  })
+}
+
+/**
+ * 移动鼠标到指定坐标。
+ * @param x X 坐标(屏幕像素)
+ * @param y Y 坐标(屏幕像素)
+ * @param absolute true=绝对定位(默认),false=相对移动
+ */
+export async function mouseMove(x: number, y: number, absolute?: boolean): Promise<OkResult> {
+  requireTauri()
+  return await invoke<OkResult>('mouse_move', { x, y, absolute: absolute ?? null })
+}
+
+/**
+ * 在指定坐标点击鼠标。
+ * @param x X 坐标
+ * @param y Y 坐标
+ * @param button 按钮类型(默认 left)
+ * @param count 点击次数(默认 1,上限 10)
+ */
+export async function mouseClick(
+  x: number,
+  y: number,
+  button?: MouseButton,
+  count?: number,
+): Promise<OkResult> {
+  requireTauri()
+  return await invoke<OkResult>('mouse_click', {
+    x,
+    y,
+    button: button ?? null,
+    count: count ?? null,
+  })
+}
+
+/**
+ * 滚动鼠标滚轮。
+ * @param deltaY 滚动量(正值向上,负值向下)
+ * @param x 可选,先移动到指定 X 坐标再滚动
+ * @param y 可选,先移动到指定 Y 坐标再滚动
+ */
+export async function mouseScroll(deltaY: number, x?: number, y?: number): Promise<OkResult> {
+  requireTauri()
+  return await invoke<OkResult>('mouse_scroll', {
+    deltaY,
+    x: x ?? null,
+    y: y ?? null,
+  })
+}
+
+/**
+ * 输入文本(逐字符输入,支持延迟)。
+ * @param text 要输入的文本(上限 10000 字符)
+ * @param delay 每个字符间的延迟(毫秒),不传则一次性输入
+ */
+export async function keyboardType(text: string, delay?: number): Promise<OkResult> {
+  requireTauri()
+  return await invoke<OkResult>('keyboard_type', { text, delay: delay ?? null })
+}
+
+/**
+ * 按下并释放单个按键。
+ * @param key 按键名(如 'Enter', 'Escape', 'a', 'F1')
+ */
+export async function keyboardPress(key: string): Promise<OkResult> {
+  requireTauri()
+  return await invoke<OkResult>('keyboard_press', { key })
+}
+
+/**
+ * 按下组合快捷键(如 Ctrl+C)。
+ * @param keys 按键列表(如 ['Control', 'c']),上限 10 个
+ */
+export async function keyboardHotkey(keys: string[]): Promise<OkResult> {
+  requireTauri()
+  return await invoke<OkResult>('keyboard_hotkey', { keys })
+}
+
+/**
+ * 获取当前活动窗口信息(标题 + 应用名 + 窗口 ID)。
+ * 仅 Windows 平台可用,其他平台抛错。
+ */
+export async function getActiveWindow(): Promise<ActiveWindowResult> {
+  requireTauri()
+  return await invoke<ActiveWindowResult>('active_window')
 }

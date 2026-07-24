@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { executeAgentRuntimeStream } from '@ihui/api-client'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
@@ -14,155 +14,6 @@ interface PermissionEvent {
 
 interface AgentRuntimePanelProps {
   agentId: string
-}
-
-const wrapperStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 8,
-}
-
-const headerStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 6,
-  padding: '6px 8px',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  background: 'var(--card)',
-  fontSize: 12,
-}
-
-const titleStyle: CSSProperties = {
-  fontWeight: 600,
-  fontSize: 12,
-}
-
-const sessionIdStyle: CSSProperties = {
-  color: 'var(--muted)',
-  fontSize: 11,
-  fontFamily: 'monospace',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  maxWidth: 80,
-}
-
-const statusRowStyle: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 4,
-  fontSize: 11,
-  color: 'var(--muted)',
-}
-
-const statusDotBase: CSSProperties = {
-  display: 'inline-block',
-  width: 7,
-  height: 7,
-  borderRadius: '50%',
-  flexShrink: 0,
-}
-
-const clearBtnStyle: CSSProperties = {
-  background: 'none',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  padding: '3px 8px',
-  fontSize: 11,
-  cursor: 'pointer',
-  color: 'var(--muted)',
-  flexShrink: 0,
-}
-
-const bodyStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 8,
-  minHeight: 100,
-}
-
-const emptyStyle: CSSProperties = {
-  textAlign: 'center',
-  color: 'var(--muted)',
-  fontSize: 12,
-  padding: '20px 8px',
-}
-
-const sectionBaseStyle: CSSProperties = {
-  padding: '8px 10px',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  fontSize: 12,
-}
-
-const planStyle: CSSProperties = {
-  ...sectionBaseStyle,
-  background: 'var(--muted-bg)',
-}
-
-const permissionStyle: CSSProperties = {
-  ...sectionBaseStyle,
-  borderColor: '#f59e0b',
-  background: 'rgba(245, 158, 11, 0.08)',
-}
-
-const errorSectionStyle: CSSProperties = {
-  ...sectionBaseStyle,
-  borderColor: 'var(--danger)',
-  background: 'var(--danger-bg)',
-  color: 'var(--danger)',
-}
-
-const sectionTitleStyle: CSSProperties = {
-  fontSize: 11,
-  color: 'var(--muted)',
-  marginBottom: 4,
-  fontWeight: 500,
-}
-
-const outputStyle: CSSProperties = {
-  padding: '8px 10px',
-  fontSize: 13,
-  lineHeight: 1.5,
-  whiteSpace: 'pre-wrap',
-  wordBreak: 'break-word',
-}
-
-const inputRowStyle: CSSProperties = {
-  display: 'flex',
-  gap: 6,
-  alignItems: 'stretch',
-}
-
-const textareaStyle: CSSProperties = {
-  flex: 1,
-  resize: 'none',
-  minHeight: 48,
-  fontFamily: 'inherit',
-  fontSize: 13,
-}
-
-const primaryBtnStyle: CSSProperties = {
-  background: 'var(--accent)',
-  color: '#fff',
-  border: 'none',
-  borderRadius: 6,
-  padding: '6px 14px',
-  fontSize: 12,
-  fontWeight: 500,
-  cursor: 'pointer',
-  flexShrink: 0,
-  alignSelf: 'stretch',
-}
-
-const dangerBtnStyle: CSSProperties = {
-  ...primaryBtnStyle,
-  background: 'var(--danger)',
-}
-
-const spacerStyle: CSSProperties = {
-  flex: 1,
 }
 
 export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
@@ -244,24 +95,27 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
     setPermission(null)
   }, [])
 
-  const statusDotStyle: CSSProperties =
+  const statusDotClass =
     status === 'running'
-      ? { ...statusDotBase, background: 'var(--accent)' }
+      ? 'bg-primary'
       : status === 'completed'
-        ? { ...statusDotBase, background: '#16a34a' }
+        ? 'bg-success'
         : status === 'failed'
-          ? { ...statusDotBase, background: 'var(--danger)' }
-          : { ...statusDotBase, background: 'var(--muted)' }
+          ? 'bg-destructive'
+          : 'bg-muted-foreground'
 
   return (
-    <div style={wrapperStyle} data-testid="agent-runtime-panel">
-      <div style={headerStyle}>
-        <span style={titleStyle}>{t('nav.tabRuntime')}</span>
+    <div className="flex flex-col gap-2" data-testid="agent-runtime-panel">
+      <div className="flex items-center gap-1.5 px-2 py-1.5 border border-border rounded-md bg-card text-xs">
+        <span className="font-semibold text-xs">{t('nav.tabRuntime')}</span>
         {sessionId && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span style={sessionIdStyle} data-testid="session-id">
+                <span
+                  className="text-muted-foreground text-xs font-mono overflow-hidden text-ellipsis whitespace-nowrap max-w-[80px]"
+                  data-testid="session-id"
+                >
                   #{sessionId.slice(0, 8)}
                 </span>
               </TooltipTrigger>
@@ -269,14 +123,17 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
             </Tooltip>
           </TooltipProvider>
         )}
-        <span style={statusRowStyle}>
-          <span style={statusDotStyle} aria-hidden />
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          <span
+            className={`inline-block w-2 h-2 rounded-full shrink-0 ${statusDotClass}`}
+            aria-hidden
+          />
           <span>{getStatusText(status)}</span>
         </span>
-        <span style={spacerStyle} />
+        <span className="flex-1" />
         <button
           type="button"
-          style={clearBtnStyle}
+          className="bg-transparent border border-border rounded-md px-2 py-1 text-xs cursor-pointer text-muted-foreground shrink-0"
           onClick={handleClear}
           disabled={status === 'running'}
         >
@@ -284,46 +141,57 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
         </button>
       </div>
 
-      <div style={bodyStyle}>
+      <div className="flex flex-col gap-2 min-h-[100px]">
         {plan && (
-          <section style={planStyle}>
-            <div style={sectionTitleStyle}>{t('agent.executePlan')}</div>
-            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: 12, lineHeight: 1.5 }}>
-              {plan}
-            </pre>
+          <section className="px-2.5 py-2 border border-border rounded-md text-xs bg-muted">
+            <div className="text-xs text-muted-foreground mb-1 font-medium">
+              {t('agent.executePlan')}
+            </div>
+            <pre className="m-0 whitespace-pre-wrap text-xs leading-normal">{plan}</pre>
           </section>
         )}
 
         {permission && (
-          <section style={permissionStyle}>
-            <div style={sectionTitleStyle}>{t('agent.permissionDecision') + ': '}{permission.decision}</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-              {t('agent.tool') + ': '}{permission.toolName ?? 'unknown'} · {t('agent.level') + ':'}
-              {permission.dangerLevel ?? 'read'} · {t('agent.mode') + ': '}{permission.mode}
+          <section className="px-2.5 py-2 border border-warning rounded-md text-xs bg-warning/10">
+            <div className="text-xs text-muted-foreground mb-1 font-medium">
+              {t('agent.permissionDecision') + ': '}
+              {permission.decision}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {t('agent.tool') + ': '}
+              {permission.toolName ?? 'unknown'} · {t('agent.level') + ':'}
+              {permission.dangerLevel ?? 'read'} · {t('agent.mode') + ': '}
+              {permission.mode}
             </div>
           </section>
         )}
 
         {output && (
           <section>
-            <div style={sectionTitleStyle}>{t('agent.output')}</div>
-            <div style={outputStyle}>{output}</div>
+            <div className="text-xs text-muted-foreground mb-1 font-medium">
+              {t('agent.output')}
+            </div>
+            <div className="px-2.5 py-2 text-sm leading-normal whitespace-pre-wrap break-words">
+              {output}
+            </div>
           </section>
         )}
 
         {error && (
-          <section style={errorSectionStyle}>
-            <div style={{ fontSize: 11, fontWeight: 500 }}>{t('agent.error')}</div>
-            <div style={{ marginTop: 4, fontSize: 11 }}>{error}</div>
+          <section className="px-2.5 py-2 border border-destructive rounded-md text-xs bg-destructive/10 text-destructive">
+            <div className="text-xs font-medium">{t('agent.error')}</div>
+            <div className="mt-1 text-xs">{error}</div>
           </section>
         )}
 
         {!plan && !output && !error && !permission && (
-          <div style={emptyStyle}>{t('agent.inputTaskHint')}</div>
+          <div className="text-center text-muted-foreground text-xs px-2 py-5">
+            {t('agent.inputTaskHint')}
+          </div>
         )}
       </div>
 
-      <div style={inputRowStyle}>
+      <div className="flex gap-1.5 items-stretch">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -336,13 +204,13 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
           placeholder={t('agent.inputTaskPlaceholder')}
           disabled={status === 'running'}
           rows={2}
-          style={textareaStyle}
+          className="flex-1 resize-none min-h-12 text-sm"
           data-testid="agent-runtime-input"
         />
         {status === 'running' ? (
           <button
             type="button"
-            style={dangerBtnStyle}
+            className="bg-destructive text-white border-none rounded-md px-3.5 py-1.5 text-xs font-medium cursor-pointer shrink-0 self-stretch"
             onClick={handleStop}
             data-testid="agent-runtime-stop"
           >
@@ -351,7 +219,7 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
         ) : (
           <button
             type="button"
-            style={primaryBtnStyle}
+            className="bg-primary text-primary-foreground border-none rounded-md px-3.5 py-1.5 text-xs font-medium cursor-pointer shrink-0 self-stretch"
             onClick={handleSend}
             disabled={!input.trim()}
             data-testid="agent-runtime-send"
