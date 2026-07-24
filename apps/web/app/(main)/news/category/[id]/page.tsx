@@ -5,7 +5,7 @@ import PageClient from './PageClient'
 // page.tsx 是 Server Component wrapper(不能 'use client'),实际页面逻辑在 PageClient.tsx。
 // PageClient 用了 useSearchParams(),需要 Suspense 边界(静态导出要求)。
 export function generateStaticParams() {
-  return []
+  return [{ id: '1' }]
 }
 
 export default function Page() {
