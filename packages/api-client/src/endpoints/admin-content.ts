@@ -10,8 +10,8 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
-import { buildQs, type PageData, type PageQuery } from '../utils.js'
+import { fetchApi } from '../client'
+import { buildQs, type PageData, type PageQuery } from '../utils'
 
 /** 通用行类型(后端各表结构差异较大,统一用宽松索引签名,与现有 admin-*.ts 一致) */
 export interface AdminRow {
