@@ -4,7 +4,7 @@ import { Loader2, Workflow, Zap, Edit, Trash2, Eye } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 
 import { cn } from '@/lib/utils'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { STATUS_BADGE, TRIGGER_BADGE } from './helpers'
 import type { WorkflowItem, WfStatus } from './types'
 

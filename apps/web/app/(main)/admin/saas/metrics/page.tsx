@@ -22,7 +22,7 @@ import {
   Layers,
   RefreshCw,
 } from 'lucide-react'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { CenteredText, Skeleton } from '@/components/common'
 
 import { useMetricsSummaryQuery } from '@/hooks/use-saas-tenants'

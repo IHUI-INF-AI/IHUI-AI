@@ -8,7 +8,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { ArrowLeft, Loader2, Radio, Send, Heart, Share2, Bell } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, Button, Input } from '@ihui/ui'
+import { Card, CardContent, Button, Input } from '@ihui/ui-react'
 import { LivePlayer } from '@/components/media'
 
 interface ChannelDetail {

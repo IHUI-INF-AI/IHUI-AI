@@ -11,7 +11,7 @@ import {
   SelectValue,
   Card,
   CardContent,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { LANGS } from './helpers'
 import type { Paper, Question } from './types'

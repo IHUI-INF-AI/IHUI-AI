@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
   // 关闭 Next.js 15 自带的左下角 N 圆圈 dev indicator (2026-07-21)
   devIndicators: false,
   transpilePackages: [
-    '@ihui/ui',
+    '@ihui/ui-react',
     '@ihui/types',
     '@ihui/config',
     '@ihui/auth',

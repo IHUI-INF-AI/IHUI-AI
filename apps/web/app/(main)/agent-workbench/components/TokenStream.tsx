@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Loader2, Radio } from 'lucide-react'
-import { cn } from '@ihui/ui'
+import { cn } from '@ihui/ui-react'
 import type { TokenEvent } from '@/hooks/use-agent-runtime'
 
 interface Props {

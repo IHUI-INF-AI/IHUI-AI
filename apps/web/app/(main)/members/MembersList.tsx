@@ -2,7 +2,7 @@
 
 import { Loader2, Users, ShieldCheck, ShieldAlert, Clock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import type { MemberItem } from './types'
 
 function StatusBadge({ status, t }: { status: number; t: (k: string) => string }) {

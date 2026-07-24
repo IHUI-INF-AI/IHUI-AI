@@ -5,7 +5,7 @@ import { Download, Trash2, FileText, Loader2, Eye } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { formatDate } from '@/lib/date-utils'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 
 export interface FileItem {

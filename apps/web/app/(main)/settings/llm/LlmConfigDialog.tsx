@@ -29,7 +29,7 @@ import {
   Input,
   Label,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import { previewTest, fetchUpstreamModels } from './helpers'
 import type { FormState, PlatformTemplate, UpstreamModel } from './types'

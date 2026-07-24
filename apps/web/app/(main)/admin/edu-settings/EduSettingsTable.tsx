@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Edit, Trash2, Loader2 } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'
 import { th } from './helpers'

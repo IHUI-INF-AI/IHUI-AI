@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { useLocale, useTranslations } from 'next-intl'
 import {

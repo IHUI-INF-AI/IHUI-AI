@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Card, CardContent, CardFooter, CardHeader, Button, Badge } from '@ihui/ui'
+import { Card, CardContent, CardFooter, CardHeader, Button, Badge } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type {
   RegistryItem,

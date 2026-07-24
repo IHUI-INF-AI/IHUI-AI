@@ -1,6 +1,6 @@
 'use client'
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui-react'
 import { FilePreview } from '@/components/media'
 import type { OssFile } from './types'
 

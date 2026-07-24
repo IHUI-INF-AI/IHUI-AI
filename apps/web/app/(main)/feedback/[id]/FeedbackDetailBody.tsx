@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { MarkdownViewer } from '@/components/media'
 import type { FeedbackItem } from './types'
 

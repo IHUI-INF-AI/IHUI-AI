@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { Smartphone } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 
 interface Props {
   t: (k: string) => string

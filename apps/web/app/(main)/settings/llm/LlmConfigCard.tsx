@@ -15,7 +15,7 @@ import {
   XCircle,
 } from 'lucide-react'
 
-import { Button, Card, CardContent, Switch } from '@ihui/ui'
+import { Button, Card, CardContent, Switch } from '@ihui/ui-react'
 import { Alert, Tooltip } from '@/components/feedback'
 import { TruncatedText } from '@/components/common'
 

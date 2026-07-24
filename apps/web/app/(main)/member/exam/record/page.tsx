@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 
 import { getMyRecords, getResult, type ExamResult, type ExamResultDetail } from '@/lib/exam-api'
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui'
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 

@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Shield, UserMinus, X, ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui'
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { AuthUserFilter } from './AuthUserFilter'
 import { AuthUserTable } from './AuthUserTable'

@@ -22,7 +22,7 @@ import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { getInitials } from '@/components/data/Avatar'
 
 interface BusinessCard {

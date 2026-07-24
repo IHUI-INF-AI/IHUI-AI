@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { FIELDS } from './helpers'
 import type { TaskDeveloperForm } from './types'
 
