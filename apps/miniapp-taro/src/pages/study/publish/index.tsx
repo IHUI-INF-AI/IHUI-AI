@@ -4,7 +4,6 @@ import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { post } from '@/api'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 export default function StudyPublish() {
   const { t, tList } = useI18n()
@@ -46,10 +45,10 @@ export default function StudyPublish() {
   }, [title, content, category, visibility, tags, categories, visibilityOptions, t])
 
   return (
-    <View className="page">
-      <View className="card">
+    <View className="min-h-screen bg-background pb-[140rpx]">
+      <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
         <Input
-          className="title-input"
+          className="text-[32rpx] text-foreground"
           placeholder={t('study.publish.titlePlaceholder')}
           maxlength={50}
           value={title}
@@ -57,55 +56,55 @@ export default function StudyPublish() {
         />
       </View>
 
-      <View className="card">
+      <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
         <Textarea
-          className="content-input"
+          className="w-full min-h-[300rpx] text-[28rpx] text-foreground leading-[1.7]"
           placeholder={t('study.publish.contentPlaceholder')}
           maxlength={2000}
           value={content}
           onInput={(e) => setContent(e.detail.value)}
         />
-        <View className="word-count">
-          <Text>{content.length}/2000</Text>
+        <View className="text-right mt-[12rpx]">
+          <Text className="text-[22rpx] text-muted-foreground">{content.length}/2000</Text>
         </View>
       </View>
 
-      <View className="card">
+      <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
         <Picker
           mode="selector"
           range={categories}
           value={category}
           onChange={(e) => setCategory(Number(e.detail.value))}
         >
-          <View className="picker-row">
-            <Text className="picker-label">{t('study.publish.category')}</Text>
-            <Text className="picker-value">{categories[category]}</Text>
-            <Text className="arrow">›</Text>
+          <View className="flex items-center h-[80rpx]">
+            <Text className="text-[28rpx] text-foreground w-[160rpx]">{t('study.publish.category')}</Text>
+            <Text className="flex-1 text-[28rpx] text-muted-foreground text-right">{categories[category]}</Text>
+            <Text className="text-[32rpx] text-muted-foreground ml-[16rpx]">›</Text>
           </View>
         </Picker>
-        <View className="divider" />
+        <View className="h-[2rpx] bg-background mx-[-32rpx]" />
         <Picker
           mode="selector"
           range={visibilityOptions}
           value={visibility}
           onChange={(e) => setVisibility(Number(e.detail.value))}
         >
-          <View className="picker-row">
-            <Text className="picker-label">{t('study.publish.visibility')}</Text>
-            <Text className="picker-value">{visibilityOptions[visibility]}</Text>
-            <Text className="arrow">›</Text>
+          <View className="flex items-center h-[80rpx]">
+            <Text className="text-[28rpx] text-foreground w-[160rpx]">{t('study.publish.visibility')}</Text>
+            <Text className="flex-1 text-[28rpx] text-muted-foreground text-right">{visibilityOptions[visibility]}</Text>
+            <Text className="text-[32rpx] text-muted-foreground ml-[16rpx]">›</Text>
           </View>
         </Picker>
-        <View className="divider" />
+        <View className="h-[2rpx] bg-background mx-[-32rpx]" />
         <Input
-          className="tags-input"
+          className="text-[28rpx] text-foreground pt-[24rpx]"
           placeholder={t('study.publish.tagsPlaceholder')}
           value={tags}
           onInput={(e) => setTags(e.detail.value)}
         />
       </View>
 
-      <Button className="submit-btn" loading={saving} onClick={submit} disabled={saving}>
+      <Button className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] h-[88rpx] leading-[88rpx] bg-primary text-foreground rounded-[44rpx] text-[30rpx]" loading={saving} onClick={submit} disabled={saving}>
         {t('study.publish.submit')}
       </Button>
     </View>

@@ -1,18 +1,8 @@
 import { useEffect, useState } from 'react'
-import {
-  Alert,
-  Image,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Button } from '@ihui/ui-native'
+import { Button, Input } from '@ihui/ui-native'
 import { getProfile, updateProfile, type AuthUser } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
@@ -147,7 +137,7 @@ export function ProfileEditScreen() {
 
       <View style={styles.fieldCard}>
         <Text style={styles.fieldLabel}>{t('profileEdit.nickname')}</Text>
-        <TextInput
+        <Input
           value={nickname}
           onChangeText={setNickname}
           style={styles.fieldInput}
@@ -177,7 +167,7 @@ export function ProfileEditScreen() {
 
       <View style={styles.fieldCard}>
         <Text style={styles.fieldLabel}>{t('profileEdit.bio')}</Text>
-        <TextInput
+        <Input className="h-auto min-h-[120px]"
           value={bio}
           onChangeText={setBio}
           style={[styles.fieldInput, styles.bioInput]}
@@ -209,7 +199,7 @@ export function ProfileEditScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t('profileEdit.avatarModalTitle')}</Text>
             <Text style={styles.modalLabel}>{t('profileEdit.avatarUrlLabel')}</Text>
-            <TextInput
+            <Input
               value={avatarInput}
               onChangeText={setAvatarInput}
               style={styles.modalInput}

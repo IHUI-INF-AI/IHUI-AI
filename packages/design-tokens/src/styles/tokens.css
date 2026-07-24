@@ -182,26 +182,29 @@
 }
 
 /* ============ z-index token(共享 — 2026-07-24 迁移) ============
- * !important 说明(2026-07-24 立):
+ * TRAE 注入防护说明(2026-07-24 立,2026-07-24 修正):
  * TRAE IDE 内置浏览器注入 <style id="solo-lite-theme-variables">,
  * 其中 :root 重新定义了 --z-sticky: 10 / --z-modal: 1100 等变量,
- * 覆盖本文件的正确值,导致 AI 面板(z-sticky)z-index 被压到 10,
- * 登录弹窗遮罩(z-modal)被压到 1100,引发层叠异常。
- * 用 !important 确保项目定义优先于 TRAE 注入的主题变量。
- * 仅对 TRAE 覆盖的变量加 !important,未覆盖的保持原样。
+ * 覆盖本文件的正确值。
+ *
+ * 防护方式:layout.tsx 的 inline script 在 React hydration 前用
+ * document.documentElement.style.setProperty() 设置这些变量,
+ * inline style 优先级高于任何 stylesheet 规则(含 TRAE 注入),无需 !important。
+ *
+ * 禁止 !important(项目规则:project_memory.md 第 6 行,2026-07-06 立)。
  */
 :root {
-  --z-base: 1 !important;
+  --z-base: 1;
   --z-0: 0;
   --z-header: 100;
-  --z-sticky: 990 !important;
+  --z-sticky: 990;
   --z-dropdown: 1000;
   --z-overlay: 1000;
-  --z-modal: 2000 !important;
-  --z-popover: 2001 !important;
-  --z-notification: 9999 !important;
+  --z-modal: 2000;
+  --z-popover: 2001;
+  --z-notification: 9999;
   --z-loading: 10000;
-  --z-max: 10003 !important;
+  --z-max: 10003;
 }
 
 /* ============ 全局投影 token(共享 — 2026-07-24 迁移) ============ */

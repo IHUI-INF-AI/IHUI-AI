@@ -1,15 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import {
-  ActivityIndicator,
-  FlatList,
-  Modal,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { FlatList, Modal, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
@@ -17,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Input, Loading } from '@ihui/ui-native'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface Note {
@@ -132,7 +123,7 @@ export function NoteScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator />
+        <Loading />
         <Text style={styles.loadingText}>{t('common.loading')}</Text>
       </View>
     )
@@ -213,14 +204,14 @@ export function NoteScreen() {
             <Text style={styles.modalTitle}>
               {editing ? t('note.edit') : t('note.add')}
             </Text>
-            <TextInput
+            <Input
               style={styles.titleInput}
               value={title}
               onChangeText={setTitle}
               placeholder={t('note.titlePlaceholder')}
               placeholderTextColor="#9ca3af"
             />
-            <TextInput
+            <Input className="h-auto min-h-[120px]"
               style={styles.contentInput}
               value={content}
               onChangeText={setContent}
@@ -243,7 +234,7 @@ export function NoteScreen() {
                 disabled={saving}
               >
                 {saving ? (
-                  <ActivityIndicator color="#fff" size="small" />
+                  <Loading color="#fff" size="sm" />
                 ) : (
                   <Text style={styles.saveBtnText}>{t('common.save')}</Text>
                 )}
