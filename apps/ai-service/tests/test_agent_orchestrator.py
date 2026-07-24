@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 import pytest
@@ -278,3 +279,176 @@ def test_agent_definition_to_dict():
     assert d["max_iterations"] == 3
     # system_prompt 截断到 200 字符
     assert len(d["system_prompt"]) <= 200
+
+
+# =============================================================================
+# 新增 5 个专业 subagent(2026-07-24)
+# =============================================================================
+
+
+class TestNewSubagents:
+    def test_register_defaults_now_has_10_agents(self):
+        """_register_defaults 后总共 10 个 agent(5 原有 + 5 新增)。"""
+        names = agent_orchestrator.registry.names()
+        expected = {
+            "researcher", "coder", "reviewer", "architect", "debugger",
+            "frontend-dev", "backend-dev", "devops",
+            "security-auditor", "test-engineer",
+        }
+        assert expected.issubset(set(names))
+        assert len(names) >= 10
+
+    def test_frontend_dev_registered(self):
+        agent = agent_orchestrator.registry.get("frontend-dev")
+        assert agent is not None
+        assert "read_file" in agent.tools
+        assert agent.metadata.get("category") == "frontend"
+
+    def test_backend_dev_registered(self):
+        agent = agent_orchestrator.registry.get("backend-dev")
+        assert agent is not None
+        assert "db_query" in agent.tools
+        assert agent.metadata.get("category") == "backend"
+
+    def test_devops_registered(self):
+        agent = agent_orchestrator.registry.get("devops")
+        assert agent is not None
+        assert agent.metadata.get("category") == "devops"
+
+    def test_security_auditor_registered(self):
+        agent = agent_orchestrator.registry.get("security-auditor")
+        assert agent is not None
+        assert agent.metadata.get("category") == "security"
+
+    def test_test_engineer_registered(self):
+        agent = agent_orchestrator.registry.get("test-engineer")
+        assert agent is not None
+        assert agent.metadata.get("category") == "test"
+
+
+# =============================================================================
+# invoke_parallel(并行派发多个 subagent)
+# =============================================================================
+
+
+class TestInvokeParallel:
+    @pytest.mark.asyncio
+    async def test_invoke_parallel_success(self, monkeypatch):
+        """3 个 task 全成功(用 mock invoke)。"""
+        async def mock_invoke(agent_name, user_input, session_id=None, model_override=None):
+            return AgentStepResult(
+                agent_name=agent_name,
+                input=user_input,
+                output=f"done-{agent_name}",
+                status="completed",
+                duration_ms=10.0,
+            )
+        monkeypatch.setattr(agent_orchestrator, "invoke", mock_invoke)
+
+        tasks = [
+            {"name": "coder", "task": "实现功能 A"},
+            {"name": "researcher", "task": "调研 B"},
+            {"name": "debugger", "task": "调试 C"},
+        ]
+        result = await agent_orchestrator.invoke_parallel(tasks)
+        assert result["ok"] is True
+        assert result["total"] == 3
+        assert result["succeeded"] == 3
+        assert result["failed"] == 0
+        assert len(result["results"]) == 3
+        for r in result["results"]:
+            assert r["status"] == "completed"
+            assert r["output"].startswith("done-")
+
+    @pytest.mark.asyncio
+    async def test_invoke_parallel_partial_failure(self, monkeypatch):
+        """1 个失败(mock invoke 抛异常),其他成功。"""
+        async def mock_invoke(agent_name, user_input, session_id=None, model_override=None):
+            if agent_name == "debugger":
+                raise RuntimeError("模拟调试失败")
+            return AgentStepResult(
+                agent_name=agent_name,
+                input=user_input,
+                output=f"ok-{agent_name}",
+                status="completed",
+                duration_ms=10.0,
+            )
+        monkeypatch.setattr(agent_orchestrator, "invoke", mock_invoke)
+
+        tasks = [
+            {"name": "coder", "task": "实现 A"},
+            {"name": "debugger", "task": "调试 B"},
+            {"name": "researcher", "task": "调研 C"},
+        ]
+        result = await agent_orchestrator.invoke_parallel(tasks)
+        assert result["ok"] is True
+        assert result["total"] == 3
+        assert result["succeeded"] == 2
+        assert result["failed"] == 1
+        failed = [r for r in result["results"] if r["status"] == "failed"]
+        assert len(failed) == 1
+        assert failed[0]["name"] == "debugger"
+        assert "模拟调试失败" in (failed[0]["error"] or "")
+
+    @pytest.mark.asyncio
+    async def test_invoke_parallel_empty_tasks(self):
+        """空 tasks 列表返回 ok:False + errorCode="EMPTY_TASKS"。"""
+        result = await agent_orchestrator.invoke_parallel([])
+        assert result["ok"] is False
+        assert result["errorCode"] == "EMPTY_TASKS"
+
+    @pytest.mark.asyncio
+    async def test_invoke_parallel_unknown_agent(self, monkeypatch):
+        """含未知 agent name,该 task 标记 failed,其他成功。"""
+        async def mock_invoke(agent_name, user_input, session_id=None, model_override=None):
+            return AgentStepResult(
+                agent_name=agent_name,
+                input=user_input,
+                output=f"ok-{agent_name}",
+                status="completed",
+                duration_ms=10.0,
+            )
+        monkeypatch.setattr(agent_orchestrator, "invoke", mock_invoke)
+
+        tasks = [
+            {"name": "coder", "task": "实现 A"},
+            {"name": "nonexistent_xyz", "task": "不该执行"},
+            {"name": "researcher", "task": "调研 B"},
+        ]
+        result = await agent_orchestrator.invoke_parallel(tasks)
+        assert result["ok"] is True
+        assert result["total"] == 3
+        assert result["succeeded"] == 2
+        assert result["failed"] == 1
+        unknown = [r for r in result["results"] if r["name"] == "nonexistent_xyz"][0]
+        assert unknown["status"] == "failed"
+        assert "不存在" in (unknown["error"] or "")
+        coder = [r for r in result["results"] if r["name"] == "coder"][0]
+        assert coder["status"] == "completed"
+
+    @pytest.mark.asyncio
+    async def test_invoke_parallel_max_concurrency(self, monkeypatch):
+        """验证 Semaphore 限流(mock invoke 计数并发数)。"""
+        current = 0
+        max_seen = 0
+
+        async def mock_invoke(agent_name, user_input, session_id=None, model_override=None):
+            nonlocal current, max_seen
+            current += 1
+            max_seen = max(max_seen, current)
+            await asyncio.sleep(0.02)  # 模拟工作,让并发可见
+            current -= 1
+            return AgentStepResult(
+                agent_name=agent_name,
+                input=user_input,
+                output="ok",
+                status="completed",
+                duration_ms=20.0,
+            )
+        monkeypatch.setattr(agent_orchestrator, "invoke", mock_invoke)
+
+        tasks = [{"name": "coder", "task": f"task-{i}"} for i in range(8)]
+        result = await agent_orchestrator.invoke_parallel(tasks, max_concurrency=3)
+        assert max_seen <= 3
+        assert result["ok"] is True
+        assert result["succeeded"] == 8

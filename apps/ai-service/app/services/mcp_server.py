@@ -42,6 +42,13 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     # 2026-07-24 安全加固:screenshot_url 是 SSRF 入口(Playwright 访问任意 URL),
     # 即使有 _validate_url_ssrf 校验,仍限定 admin 调用,defense-in-depth
     "screenshot_url",
+    # 2026-07-24 扩展工具(对标 Trae Work + Codex 核心能力):
+    # fetch_url:SSRF 入口 + 可探测内网;image_generation:外部 API 调用 + 计费;
+    # review_pr:GitHub API + 可能暴露源代码;schedule_task:调度后台任务
+    "fetch_url",
+    "image_generation",
+    "review_pr",
+    "schedule_task",
 }
 
 # agent_control 内部调用密钥(从 settings 读取,确保 .env 配置生效)
@@ -1715,6 +1722,620 @@ async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+# ---------------------------------------------------------------------------
+# 扩展工具(2026-07-24 新增,对标 Trae Work + Codex 核心能力缺口)
+# 6 个工具:fetch_url / image_generation / review_pr /
+#          summarize_artifacts / schedule_task / proactive_suggestion
+# ---------------------------------------------------------------------------
+
+# 进程内会话 artifacts 缓存(summarize_artifacts 用,进程重启即丢)
+_ARTIFACTS_CACHE: dict[str, dict] = {}
+
+# 进程内调度任务列表(schedule_task 用,仅记录;需后台 worker 启动才会执行)
+_SCHEDULED_TASKS: list[dict] = []
+
+
+async def _tool_fetch_url(arguments: dict[str, Any]) -> dict[str, Any]:
+    """fetch_url: 抓取 URL 内容,返回 markdown/text/html/metadata(对标 #Web + Codex in-app browser)。
+
+    SSRF 防护:复用 screenshot_service._validate_url_ssrf,禁止内网/保留/回环地址。
+    """
+    import html as _html
+    import json as _json
+    from datetime import datetime, timezone
+
+    url = arguments.get("url", "")
+    mode = arguments.get("mode", "text")
+    max_chars = int(arguments.get("max_chars", 8000))
+
+    if not url or not isinstance(url, str):
+        return {
+            "tool": "fetch_url", "ok": False,
+            "error": "缺少 url 参数", "errorCode": "MISSING_PARAMS",
+        }
+    if mode not in ("text", "html", "metadata"):
+        return {
+            "tool": "fetch_url", "ok": False, "url": url,
+            "error": f"无效 mode: {mode}(允许 text/html/metadata)",
+            "errorCode": "INVALID_PARAMS",
+        }
+
+    # SSRF 校验(复用 screenshot_service 实现,防 127.0.0.1/10.*/169.254.* 云元数据等)
+    from .screenshot_service import _validate_url_ssrf
+    ok_ssrf, reason = _validate_url_ssrf(url)
+    if not ok_ssrf:
+        return {
+            "tool": "fetch_url", "ok": False, "url": url,
+            "error": reason, "errorCode": "SSRF_BLOCKED",
+            "message": f"SSRF 校验失败: {reason}",
+        }
+
+    try:
+        import httpx
+    except ImportError:
+        return {
+            "tool": "fetch_url", "ok": False, "url": url,
+            "error": "httpx 未安装", "errorCode": "DEP_MISSING",
+        }
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            resp = await client.get(
+                url,
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/120.0.0.0 Safari/537.36"
+                    ),
+                },
+            )
+        content_type = resp.headers.get("content-type", "")
+        body = resp.text
+        title = ""
+        truncated = False
+
+        # title(所有模式都尝试提取)
+        _TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
+        m_title = _TITLE_RE.search(body)
+        if m_title:
+            title = _html.unescape(m_title.group(1).strip())
+
+        if mode == "html":
+            content = body
+        elif mode == "metadata":
+            _DESC_RE = re.compile(
+                r"""<meta\s+name=["']description["']\s+content=["']([^"']*)["']""",
+                re.IGNORECASE,
+            )
+            _OG_RE = re.compile(
+                r"""<meta\s+property=["']og:([^"']+)["']\s+content=["']([^"']*)["']""",
+                re.IGNORECASE,
+            )
+            desc = ""
+            dm = _DESC_RE.search(body)
+            if dm:
+                desc = _html.unescape(dm.group(1))
+            og = {prop: _html.unescape(val) for prop, val in _OG_RE.findall(body)}
+            content = _json.dumps(
+                {"title": title, "description": desc, "og": og},
+                ensure_ascii=False,
+            )
+        else:  # text 模式:简单 HTML→text
+            text = re.sub(
+                r"<script[^>]*>.*?</script>", "", body, flags=re.IGNORECASE | re.DOTALL
+            )
+            text = re.sub(
+                r"<style[^>]*>.*?</style>", "", text, flags=re.IGNORECASE | re.DOTALL
+            )
+            text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
+            text = re.sub(r"</p\s*>", "\n\n", text, flags=re.IGNORECASE)
+            text = re.sub(r"<[^>]+>", "", text)
+            content = _html.unescape(text)
+            content = re.sub(r"[ \t]+\n", "\n", content)
+            content = re.sub(r"\n{3,}", "\n\n", content)
+            content = content.strip()
+
+        if len(content) > max_chars:
+            content = content[:max_chars]
+            truncated = True
+
+        return {
+            "tool": "fetch_url",
+            "ok": True,
+            "url": str(resp.url),
+            "title": title,
+            "content": content,
+            "content_type": content_type,
+            "status_code": resp.status_code,
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+            "truncated": truncated,
+            "message": f"抓取成功(mode={mode}, {len(content)} 字符)",
+        }
+    except Exception as e:
+        return {
+            "tool": "fetch_url", "ok": False, "url": url,
+            "error": str(e)[:200], "errorCode": "FETCH_FAILED",
+            "message": f"抓取失败: {type(e).__name__}",
+        }
+
+
+async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
+    """image_generation: 生成图片(stepfun/agnes provider,对标 Codex gpt-image-1.5)。"""
+    from datetime import datetime, timezone
+
+    from ..core.config import settings
+
+    prompt = arguments.get("prompt", "")
+    size = arguments.get("size", "1024x1024")
+    quality = arguments.get("quality", "standard")
+    style = arguments.get("style", "natural")
+    provider = arguments.get("provider", "stepfun")
+
+    if not prompt or not isinstance(prompt, str):
+        return {
+            "tool": "image_generation", "ok": False,
+            "error": "缺少 prompt 参数", "errorCode": "MISSING_PARAMS",
+        }
+    if provider not in ("stepfun", "agnes"):
+        return {
+            "tool": "image_generation", "ok": False,
+            "error": f"未知 provider: {provider}(允许 stepfun/agnes)",
+            "errorCode": "INVALID_PROVIDER",
+        }
+
+    # 选 provider(优先用户指定;若未配置 api_key 则降级尝试另一个)
+    if provider == "stepfun":
+        api_key, api_base, model = settings.stepfun_api_key, settings.stepfun_api_base, "step-1v-8k"
+    else:
+        api_key, api_base, model = settings.agnes_api_key, settings.agnes_api_base, "agnes-image-v1"
+
+    if not api_key:
+        # 降级尝试另一 provider
+        if provider == "stepfun" and settings.agnes_api_key:
+            api_key, api_base, model = settings.agnes_api_key, settings.agnes_api_base, "agnes-image-v1"
+            provider = "agnes"
+        elif provider == "agnes" and settings.stepfun_api_key:
+            api_key, api_base, model = settings.stepfun_api_key, settings.stepfun_api_base, "step-1v-8k"
+            provider = "stepfun"
+        else:
+            return {
+                "tool": "image_generation", "ok": False,
+                "errorCode": "PROVIDER_NOT_CONFIGURED",
+                "message": "未配置图片生成 provider,请在 .env 设置 STEPFUN_API_KEY 或 AGNES_API_KEY",
+            }
+
+    try:
+        import httpx
+    except ImportError:
+        return {
+            "tool": "image_generation", "ok": False,
+            "error": "httpx 未安装", "errorCode": "DEP_MISSING",
+        }
+
+    endpoint = f"{api_base}/images/generations"
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(
+                endpoint,
+                json={"prompt": prompt, "model": model, "size": size, "n": 1},
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+        if resp.status_code >= 400:
+            return {
+                "tool": "image_generation", "ok": False, "prompt": prompt,
+                "provider": provider,
+                "error": f"provider 返回 {resp.status_code}: {resp.text[:200]}",
+                "errorCode": "PROVIDER_ERROR",
+            }
+        data = resp.json()
+        items = data.get("data") or []
+        if not items:
+            return {
+                "tool": "image_generation", "ok": False, "prompt": prompt,
+                "provider": provider,
+                "error": "provider 返回空 data", "errorCode": "EMPTY_RESULT",
+            }
+        item = items[0]
+        if item.get("b64_json"):
+            image_url = f"data:image/png;base64,{item['b64_json']}"
+        else:
+            image_url = item.get("url", "")
+        if not image_url:
+            return {
+                "tool": "image_generation", "ok": False, "prompt": prompt,
+                "provider": provider,
+                "error": "provider 响应缺少 url/b64_json", "errorCode": "EMPTY_RESULT",
+            }
+        return {
+            "tool": "image_generation", "ok": True, "prompt": prompt,
+            "image_url": image_url, "size": size, "quality": quality, "style": style,
+            "provider": provider, "model": model,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "message": f"图片已生成(provider={provider}, model={model})",
+        }
+    except Exception as e:
+        return {
+            "tool": "image_generation", "ok": False, "prompt": prompt,
+            "provider": provider,
+            "error": str(e)[:200], "errorCode": "GENERATION_FAILED",
+            "message": f"图片生成失败: {type(e).__name__}",
+        }
+
+
+def _scan_pr_files_for_findings(
+    files: list[dict], focus: str
+) -> list[dict[str, Any]]:
+    """扫描 PR 文件 diff,用正则模式匹配潜在问题(零 LLM)。"""
+    findings: list[dict[str, Any]] = []
+    # (regex, category, severity, comment)
+    _PATTERNS = [
+        (r"\beval\s*\(", "security", "high", "使用 eval() 有代码注入风险"),
+        (r"\bexec\s*\(", "security", "high", "使用 exec() 有代码注入风险"),
+        (r"new\s+Function\s*\(", "security", "high", "new Function() 有代码注入风险"),
+        (r"os\.system\s*\(", "security", "high", "os.system() 有命令注入风险"),
+        (
+            r"subprocess\.(?:run|call|Popen)\s*\([^)]*shell\s*=\s*True",
+            "security", "high", "subprocess shell=True 有命令注入风险",
+        ),
+        (
+            r"""(?:api[_-]?key|secret|token|password)\s*=\s*["'][^"']{8,}["']""",
+            "security", "high", "疑似硬编码凭证",
+        ),
+        (
+            r"for\s+[^:]+:\s*\n\s*for\s+[^:]+:",
+            "performance", "medium", "嵌套循环可能 O(n²)",
+        ),
+        (
+            r"for\s+\w+\s+in\s+.*:\s*\n\s*.*\.execute\s*\(",
+            "performance", "medium", "疑似 N+1 查询模式",
+        ),
+    ]
+    for f in files:
+        filename = f.get("filename", "")
+        patch = f.get("patch", "")
+        if not patch:
+            continue
+        for rgx, cat, sev, comment in _PATTERNS:
+            if focus not in ("all", cat):
+                continue
+            m = re.search(rgx, patch, re.IGNORECASE)
+            if m:
+                line_no = patch[: m.start()].count("\n") + 1
+                findings.append({
+                    "severity": sev, "file": filename,
+                    "line": line_no, "category": cat, "comment": comment,
+                })
+        # readability: 大函数检测(新增行 > 500)
+        added_count = sum(
+            1 for ln in patch.splitlines()
+            if ln.startswith("+") and not ln.startswith("+++")
+        )
+        if focus in ("readability", "all") and added_count > 500:
+            findings.append({
+                "severity": "low", "file": filename, "line": 1,
+                "category": "readability",
+                "comment": f"新增 {added_count} 行,可能函数过长",
+            })
+    return findings
+
+
+async def _tool_review_pr(arguments: dict[str, Any]) -> dict[str, Any]:
+    """review_pr: GitHub PR 审查(正则模式匹配,零 LLM,对标 Codex GitHub PR Reviews)。"""
+    repo = arguments.get("repo", "")
+    pr_number = arguments.get("pr_number")
+    focus = arguments.get("focus", "all")
+    max_files = int(arguments.get("max_files", 20))
+
+    if not repo or "/" not in repo:
+        return {
+            "tool": "review_pr", "ok": False,
+            "error": "缺少 repo 参数(owner/repo 格式)", "errorCode": "MISSING_PARAMS",
+        }
+    if pr_number is None:
+        return {
+            "tool": "review_pr", "ok": False,
+            "error": "缺少 pr_number 参数", "errorCode": "MISSING_PARAMS",
+        }
+    try:
+        pr_number = int(pr_number)
+    except (TypeError, ValueError):
+        return {
+            "tool": "review_pr", "ok": False,
+            "error": "pr_number 必须是正整数", "errorCode": "INVALID_PARAMS",
+        }
+    if pr_number <= 0:
+        return {
+            "tool": "review_pr", "ok": False,
+            "error": "pr_number 必须是正整数", "errorCode": "INVALID_PARAMS",
+        }
+    if focus not in ("security", "performance", "readability", "all"):
+        return {
+            "tool": "review_pr", "ok": False,
+            "error": f"无效 focus: {focus}", "errorCode": "INVALID_PARAMS",
+        }
+
+    try:
+        import httpx
+    except ImportError:
+        return {
+            "tool": "review_pr", "ok": False,
+            "error": "httpx 未安装", "errorCode": "DEP_MISSING",
+        }
+
+    headers = {"Accept": "application/vnd.github+json"}
+    gh_token = os.environ.get("GITHUB_TOKEN", "")
+    if gh_token:
+        headers["Authorization"] = f"token {gh_token}"
+
+    base = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
+    try:
+        async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+            pr_resp = await client.get(base, headers=headers)
+            if pr_resp.status_code == 404:
+                return {
+                    "tool": "review_pr", "ok": False, "repo": repo,
+                    "pr_number": pr_number,
+                    "error": "PR 不存在或无权限访问", "errorCode": "NOT_FOUND",
+                }
+            if pr_resp.status_code >= 400:
+                return {
+                    "tool": "review_pr", "ok": False, "repo": repo,
+                    "pr_number": pr_number,
+                    "error": f"GitHub API 返回 {pr_resp.status_code}",
+                    "errorCode": "API_ERROR",
+                }
+            pr_data = pr_resp.json()
+            files_resp = await client.get(f"{base}/files", headers=headers)
+            files_data = files_resp.json() if files_resp.status_code < 400 else []
+    except Exception as e:
+        return {
+            "tool": "review_pr", "ok": False, "repo": repo,
+            "pr_number": pr_number,
+            "error": str(e)[:200], "errorCode": "REQUEST_FAILED",
+            "message": f"PR 审查失败: {type(e).__name__}",
+        }
+
+    files_to_scan = files_data[:max_files] if isinstance(files_data, list) else []
+    findings = _scan_pr_files_for_findings(files_to_scan, focus)
+
+    high = sum(1 for f in findings if f["severity"] == "high")
+    med = sum(1 for f in findings if f["severity"] == "medium")
+    low = sum(1 for f in findings if f["severity"] == "low")
+
+    return {
+        "tool": "review_pr", "ok": True, "repo": repo,
+        "pr_number": pr_number,
+        "title": pr_data.get("title", ""),
+        "author": (pr_data.get("user") or {}).get("login", ""),
+        "files_reviewed": len(files_to_scan),
+        "additions": pr_data.get("additions", 0),
+        "deletions": pr_data.get("deletions", 0),
+        "findings": findings,
+        "summary": (
+            f"审查 {len(files_to_scan)} 个文件,发现 {high} 个 high / "
+            f"{med} 个 medium / {low} 个 low 问题"
+        ),
+        "message": f"PR 审查完成(focus={focus}, {len(findings)} 个 finding)",
+    }
+
+
+async def _tool_summarize_artifacts(arguments: dict[str, Any]) -> dict[str, Any]:
+    """summarize_artifacts: 聚合当前会话的 plans/sources/artifacts(对标 Codex Summary pane)。
+
+    纯本地缓存读取,不调外部 API(零算力)。进程重启即丢。
+    """
+    conversation_id = arguments.get("conversation_id", "")
+    include = arguments.get("include") or ["plans", "sources", "artifacts", "tool_calls"]
+    max_items = int(arguments.get("max_items", 20))
+
+    result: dict[str, Any] = {
+        "tool": "summarize_artifacts", "ok": True,
+        "conversation_id": conversation_id,
+        "plans": [], "sources": [], "artifacts": [],
+        "tool_calls_summary": {"total": 0, "by_tool": {}},
+        "message": "",
+    }
+
+    if not conversation_id:
+        result["message"] = "未提供 conversation_id,返回空 artifacts"
+        return result
+
+    cached = _ARTIFACTS_CACHE.get(conversation_id)
+    if not cached:
+        result["message"] = "无会话 artifacts 记录(可能为新会话或进程重启后丢失)"
+        return result
+
+    def _clip(items: Any) -> Any:
+        return items[:max_items] if isinstance(items, list) else items
+
+    if "plans" in include:
+        result["plans"] = _clip(cached.get("plans", []))
+    if "sources" in include:
+        result["sources"] = _clip(cached.get("sources", []))
+    if "artifacts" in include:
+        result["artifacts"] = _clip(cached.get("artifacts", []))
+    if "tool_calls" in include:
+        tc = cached.get("tool_calls", [])
+        by_tool: dict[str, int] = {}
+        for call in tc:
+            name = call.get("tool", "unknown") if isinstance(call, dict) else "unknown"
+            by_tool[name] = by_tool.get(name, 0) + 1
+        result["tool_calls_summary"] = {"total": len(tc), "by_tool": by_tool}
+    result["message"] = f"聚合 {conversation_id} 的 artifacts 完成"
+    return result
+
+
+def _parse_simple_cron(cron: str) -> str | None:
+    """降级解析简单 cron 表达式(croniter 未安装时,仅支持 'M H * * *' 形式)。"""
+    parts = cron.split()
+    if len(parts) != 5:
+        return None
+    minute, hour, *_rest = parts
+    try:
+        m = int(minute)
+        h = int(hour)
+    except ValueError:
+        return None
+    return f"{h:02d}:{m:02d} daily (cron: {cron})"
+
+
+async def _tool_schedule_task(arguments: dict[str, Any]) -> dict[str, Any]:
+    """schedule_task: 调度定时任务(对标 Codex Automations)。
+
+    仅记录到进程内 _SCHEDULED_TASKS,不启动后台 worker(超出范围)。
+    """
+    import uuid
+    from datetime import datetime, timezone
+
+    name = arguments.get("name", "")
+    prompt = arguments.get("prompt", "")
+    schedule = arguments.get("schedule", "once")
+    run_at = arguments.get("run_at", "")
+    cron = arguments.get("cron", "")
+    agent_tools = (
+        arguments.get("agent_tools")
+        or ["search_codebase", "read_file", "web_search"]
+    )
+
+    if not name:
+        return {
+            "tool": "schedule_task", "ok": False,
+            "error": "缺少 name 参数", "errorCode": "MISSING_PARAMS",
+        }
+    if not prompt:
+        return {
+            "tool": "schedule_task", "ok": False,
+            "error": "缺少 prompt 参数", "errorCode": "MISSING_PARAMS",
+        }
+    if schedule not in ("once", "recurring"):
+        return {
+            "tool": "schedule_task", "ok": False,
+            "error": f"无效 schedule: {schedule}", "errorCode": "INVALID_PARAMS",
+        }
+    if schedule == "once" and not run_at:
+        return {
+            "tool": "schedule_task", "ok": False,
+            "error": "schedule=once 时 run_at 必填", "errorCode": "MISSING_PARAMS",
+        }
+    if schedule == "recurring" and not cron:
+        return {
+            "tool": "schedule_task", "ok": False,
+            "error": "schedule=recurring 时 cron 必填", "errorCode": "MISSING_PARAMS",
+        }
+
+    next_run_at = ""
+    if schedule == "once":
+        next_run_at = run_at
+    else:
+        # recurring:优先用 croniter 计算 next_run
+        try:
+            from croniter import croniter  # type: ignore[import-not-found]
+
+            cron_iter = croniter(cron, datetime.now(timezone.utc))
+            next_run_at = cron_iter.get_next(datetime).isoformat()
+        except ImportError:
+            # 降级:简单解析 "0 9 * * 1-5" 形式
+            parsed = _parse_simple_cron(cron)
+            if parsed is None:
+                return {
+                    "tool": "schedule_task", "ok": False,
+                    "errorCode": "CRON_NOT_SUPPORTED",
+                    "message": "croniter 未安装,无法解析复杂 cron 表达式",
+                }
+            next_run_at = parsed
+
+    task_id = uuid.uuid4().hex
+    task = {
+        "task_id": task_id, "name": name, "prompt": prompt,
+        "schedule": schedule, "run_at": run_at, "cron": cron,
+        "agent_tools": agent_tools, "next_run_at": next_run_at,
+        "status": "scheduled",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _SCHEDULED_TASKS.append(task)
+    return {
+        "tool": "schedule_task", "ok": True, "task_id": task_id,
+        "name": name, "schedule": schedule, "next_run_at": next_run_at,
+        "status": "scheduled",
+        "message": "任务已调度,需 ai-service 后台 worker 启动才会自动执行",
+    }
+
+
+async def _tool_proactive_suggestion(arguments: dict[str, Any]) -> dict[str, Any]:
+    """proactive_suggestion: 基于当前会话上下文主动建议后续工作(对标 Codex Proactive work proposals)。
+
+    纯本地规则匹配(零算力,不调 LLM)。
+    """
+    ctx = arguments.get("conversation_context", "") or ""
+    recent_files = arguments.get("recent_files") or []
+    recent_tool_calls = arguments.get("recent_tool_calls") or []
+
+    suggestions: list[dict[str, Any]] = []
+    ctx_lower = ctx.lower()
+
+    if "write_file" in recent_tool_calls:
+        suggestions.append({
+            "type": "follow_up", "title": "为新代码添加单元测试",
+            "description": "检测到 write_file 调用,建议为新代码补充对应单元测试",
+            "priority": "high", "estimated_steps": 2,
+            "related_files": recent_files,
+        })
+    if "edit_file" in recent_tool_calls and "search_codebase" not in recent_tool_calls:
+        suggestions.append({
+            "type": "explore", "title": "先搜索是否有类似实现可复用",
+            "description": "检测到 edit_file 但未先 search_codebase,建议先搜索可复用代码",
+            "priority": "medium", "estimated_steps": 1,
+            "related_files": [],
+        })
+    _TEST_SUFFIXES = (".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx")
+    if any(
+        isinstance(f, str) and f.endswith(_TEST_SUFFIXES) for f in recent_files
+    ):
+        suggestions.append({
+            "type": "test", "title": "运行测试验证改动",
+            "description": "检测到测试文件改动,建议运行测试确保通过",
+            "priority": "high", "estimated_steps": 1,
+            "related_files": [
+                f for f in recent_files
+                if isinstance(f, str) and (".test." in f or ".spec." in f)
+            ],
+        })
+    if "fix" in ctx_lower or "bug" in ctx_lower:
+        suggestions.append({
+            "type": "test", "title": "添加回归测试覆盖 bug 场景",
+            "description": "检测到 bug 修复上下文,建议添加回归测试防止复发",
+            "priority": "high", "estimated_steps": 2,
+            "related_files": recent_files,
+        })
+    if "refactor" in ctx_lower:
+        suggestions.append({
+            "type": "improve", "title": "审查重构影响范围",
+            "description": "检测到重构上下文,建议审查影响范围与兼容性",
+            "priority": "medium", "estimated_steps": 2,
+            "related_files": recent_files,
+        })
+    if "new feature" in ctx_lower or "新增" in ctx:
+        suggestions.append({
+            "type": "follow_up", "title": "同步更新 README + 守门脚本",
+            "description": "检测到新功能上下文,建议同步更新 README 与守门脚本",
+            "priority": "medium", "estimated_steps": 2,
+            "related_files": [],
+        })
+
+    if not suggestions:
+        return {
+            "tool": "proactive_suggestion", "ok": True,
+            "suggestions": [],
+            "message": "上下文不足,无法生成建议",
+        }
+    return {
+        "tool": "proactive_suggestion", "ok": True,
+        "suggestions": suggestions,
+        "message": f"生成 {len(suggestions)} 条建议",
+    }
+
+
 # 工具注册表
 _TOOLS: list[MCPTool] = [
     MCPTool(
@@ -2266,6 +2887,170 @@ _TOOLS: list[MCPTool] = [
             "required": ["name", "task"],
         },
     ),
+    # ===== 扩展工具(2026-07-24 新增,对标 Trae Work + Codex)=====
+    MCPTool(
+        name="fetch_url",
+        description=(
+            "抓取 URL 内容,返回 markdown/text/html/metadata。"
+            "用于获取网页正文、提取页面元数据(title/description/og 标签)。"
+            "SSRF 防护:禁止内网/保留/回环地址。admin 专属工具。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "目标 URL(http/https,必填)"},
+                "mode": {
+                    "type": "string",
+                    "enum": ["text", "html", "metadata"],
+                    "description": "返回模式:text(默认,纯文本/markdown)/html(原始 HTML)/metadata(仅 title/description/og)",
+                    "default": "text",
+                },
+                "max_chars": {
+                    "type": "integer",
+                    "description": "最大返回字符数(默认 8000,避免上下文爆炸)",
+                    "default": 8000,
+                },
+            },
+            "required": ["url"],
+        },
+    ),
+    MCPTool(
+        name="image_generation",
+        description=(
+            "生成图片,返回图片 URL 或 base64 data URI。"
+            "支持 stepfun(默认)/agnes provider,需在 .env 配置对应 API key。"
+            "admin 专属工具(外部 API 调用 + 计费)。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string", "description": "图片描述(必填)"},
+                "size": {
+                    "type": "string",
+                    "description": "图片尺寸(默认 1024x1024)",
+                    "default": "1024x1024",
+                },
+                "quality": {
+                    "type": "string",
+                    "enum": ["standard", "hd"],
+                    "default": "standard",
+                },
+                "style": {
+                    "type": "string",
+                    "enum": ["natural", "vivid"],
+                    "default": "natural",
+                },
+                "provider": {
+                    "type": "string",
+                    "enum": ["stepfun", "agnes"],
+                    "default": "stepfun",
+                },
+            },
+            "required": ["prompt"],
+        },
+    ),
+    MCPTool(
+        name="review_pr",
+        description=(
+            "审查 GitHub PR,返回结构化审查报告。"
+            "用正则模式匹配(security/performance/readability),零 LLM 调用。"
+            "admin 专属工具(可能暴露源代码)。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "repo": {"type": "string", "description": "owner/repo 格式(必填)"},
+                "pr_number": {"type": "integer", "description": "PR 编号(正整数,必填)"},
+                "focus": {
+                    "type": "string",
+                    "enum": ["security", "performance", "readability", "all"],
+                    "default": "all",
+                },
+                "max_files": {
+                    "type": "integer",
+                    "description": "最多审查的文件数(默认 20)",
+                    "default": 20,
+                },
+            },
+            "required": ["repo", "pr_number"],
+        },
+    ),
+    MCPTool(
+        name="summarize_artifacts",
+        description=(
+            "聚合当前会话的 plans/sources/artifacts/tool_calls。"
+            "纯本地缓存读取(进程内,重启即丢),不调外部 API。所有用户可用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "conversation_id": {"type": "string", "description": "会话 ID(可选)"},
+                "include": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "包含的类别(默认全部)",
+                    "default": ["plans", "sources", "artifacts", "tool_calls"],
+                },
+                "max_items": {
+                    "type": "integer",
+                    "description": "每类最大返回数(默认 20)",
+                    "default": 20,
+                },
+            },
+        },
+    ),
+    MCPTool(
+        name="schedule_task",
+        description=(
+            "调度定时任务(once/recurring)。"
+            "仅记录到进程内任务列表,需 ai-service 后台 worker 启动才会自动执行。"
+            "admin 专属工具。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "任务名(必填)"},
+                "prompt": {"type": "string", "description": "任务提示词(必填)"},
+                "schedule": {
+                    "type": "string",
+                    "enum": ["once", "recurring"],
+                    "default": "once",
+                },
+                "run_at": {"type": "string", "description": "ISO 时间戳(schedule=once 时必填)"},
+                "cron": {"type": "string", "description": "cron 表达式(schedule=recurring 时必填)"},
+                "agent_tools": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "任务可用工具列表",
+                    "default": ["search_codebase", "read_file", "web_search"],
+                },
+            },
+            "required": ["name", "prompt"],
+        },
+    ),
+    MCPTool(
+        name="proactive_suggestion",
+        description=(
+            "基于当前会话上下文,主动建议后续工作(follow_up/refactor/test/improve/explore)。"
+            "纯本地规则匹配(零算力,不调 LLM)。所有用户可用。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "conversation_context": {"type": "string", "description": "当前对话最近消息摘要(可选)"},
+                "recent_files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "最近修改的文件列表(可选)",
+                },
+                "recent_tool_calls": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "最近工具调用列表(可选)",
+                },
+            },
+        },
+    ),
 ]
 
 _TOOL_HANDLERS: dict[str, Any] = {
@@ -2312,6 +3097,13 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "vision_analyze": _tool_vision_analyze,
     # ===== 子智能体派发(2026-07-24 新增)=====
     "dispatch_subagent": _tool_dispatch_subagent,
+    # ===== 扩展工具(2026-07-24 新增,对标 Trae Work + Codex)=====
+    "fetch_url": _tool_fetch_url,
+    "image_generation": _tool_image_generation,
+    "review_pr": _tool_review_pr,
+    "summarize_artifacts": _tool_summarize_artifacts,
+    "schedule_task": _tool_schedule_task,
+    "proactive_suggestion": _tool_proactive_suggestion,
 }
 
 
