@@ -155,9 +155,13 @@ export async function migrateFile(
     }
   }
 
-  // 高危变更检测:复用 detectDrift 的 added/removed keys(文件缺失时 detectDrift 已妥善处理)
+  // 高危变更检测:复用 detectDrift 的 added/removed/changed keys(文件缺失时 detectDrift 已妥善处理)
   const drift = await detectDrift(fileType)
-  const risky = [...drift.addedKeys, ...drift.removedKeys].filter(isHighRiskKey)
+  const risky = [
+    ...drift.addedKeys.filter(isHighRiskKey),
+    ...drift.removedKeys.filter(isHighRiskKey),
+    ...drift.changedKeys.filter(isHighRiskKey),
+  ]
   if (risky.length > 0) {
     return {
       status: 'skipped',
