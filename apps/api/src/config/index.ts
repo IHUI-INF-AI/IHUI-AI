@@ -127,6 +127,40 @@ const envSchema = z.object({
   API_LOG_ENABLED: z.coerce.boolean().default(true),
   API_LOG_BATCH_SIZE: z.coerce.number().int().min(1).default(100),
   API_LOG_FLUSH_INTERVAL_MS: z.coerce.number().int().min(100).default(5000),
+
+  // ===== 国安级安全(2026-07-24 立,E1-E5 五层防御)=====
+  // E3 审计日志 HMAC 链(未配置降级为空字符串,配置时必须 ≥32 字符)
+  AUDIT_LOG_HMAC_SECRET: z
+    .string()
+    .min(32)
+    .or(z.literal(''))
+    .optional()
+    .default(''),
+  // E4 mTLS 双向证书
+  MTLS_CA_CERT_PATH: z.string().optional().default(''),
+  MTLS_SERVER_CERT_PATH: z.string().optional().default(''),
+  MTLS_SERVER_KEY_PATH: z.string().optional().default(''),
+  MTLS_CLIENT_CERT_REQUIRED: z.string().optional().default('false'),
+  // E4 零信任
+  ZERO_TRUST_ENABLED: z.string().optional().default('false'),
+  ZERO_TRUST_POLICY_PATH: z.string().optional().default(''),
+  // E4 网络分段
+  NETWORK_SEGMENT_POLICY: z.string().optional().default('permissive'),
+  // E4 服务间认证(未配置降级为空字符串,配置时必须 ≥32 字符)
+  SERVICE_MESH_JWT_SECRET: z
+    .string()
+    .min(32)
+    .or(z.literal(''))
+    .optional()
+    .default(''),
+  ALLOWED_SERVICES: z.string().optional().default('ihui-web,ihui-ai-service'),
+  // E5 CAPTCHA
+  RECAPTCHA_SECRET: z.string().optional().default(''),
+  // E5 IP 信誉
+  SECURITY_TOR_EXIT_NODES: z.string().optional().default(''),
+  SECURITY_PROXY_CIDRS: z.string().optional().default(''),
+  SECURITY_DATACENTER_CIDRS: z.string().optional().default(''),
+  SECURITY_MALICIOUS_ASNS: z.string().optional().default(''),
 })
 
 const parsed = envSchema.safeParse(process.env)
