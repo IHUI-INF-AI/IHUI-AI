@@ -62,6 +62,19 @@ jobs:
       - name: Install pnpm deps
         run: pnpm install --no-frozen-lockfile
 
+      - name: Build web (static export to apps/web/out)
+        run: pnpm --filter @ihui/web build
+
+      - name: Verify web output exists
+        shell: bash
+        run: |
+          if [ ! -d "apps/web/out" ]; then
+            echo "ERROR: apps/web/out not found after web build"
+            exit 1
+          fi
+          echo "apps/web/out exists, file count:"
+          find apps/web/out -type f | wc -l
+
       - name: Build & Release
         uses: tauri-apps/tauri-action@v0
         env:
