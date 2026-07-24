@@ -143,28 +143,14 @@ export function setLegacyFetcher(fetcher: LegacyFetcher | null): void {
  * URL 格式:mysql://user:pass@host:port/dbname
  *
  * 注:mysql2 为可选依赖(仅生产迁移时按需 `pnpm add mysql2`),
- * typecheck 时不要求安装,故用宽松类型 + @ts-expect-error。
+ * 类型声明见 src/types/optional-deps.d.ts。
  */
-type MysqlPool = {
-  query: <T = Record<string, unknown>[]>(sql: string) => Promise<[T, unknown]>
-}
-type MysqlModule = {
-  createPool: (opts: { uri: string; connectionLimit: number }) => MysqlPool
-}
-
 export async function createLegacyFetcherFromEnv(): Promise<LegacyFetcher> {
   const url = process.env.LEGACY_DATABASE_URL
   if (!url) {
     throw new Error('LEGACY_DATABASE_URL 未配置,无法创建 legacy fetcher')
   }
-  let mysql: MysqlModule
-  try {
-    mysql = await import('mysql2/promise.js')
-  } catch {
-    throw new Error(
-      'mysql2 未安装,请运行 `pnpm --filter @ihui/api add mysql2` 后重试(仅在需要真实 legacy MySQL 导入时安装)',
-    )
-  }
+  const mysql = await import('mysql2/promise.js')
   const pool = mysql.createPool({ uri: url, connectionLimit: 5 })
   return async (sql: string) => {
     const [rows] = await pool.query<Record<string, unknown>[]>(sql)
