@@ -22,7 +22,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 
 interface AigcRecord {

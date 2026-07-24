@@ -15,7 +15,7 @@ import {
   BookOpen,
 } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { ConfirmDialog } from '@/components/feedback'
 import { CommentItem } from '@/components/business'
 import { useAuthStore } from '@/stores/auth'

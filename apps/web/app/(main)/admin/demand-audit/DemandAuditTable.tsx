@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Check, Edit, Trash2 } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { DataTable, type Column, Badge } from '@/components/data'
 import type { DemandRow } from './types'
 

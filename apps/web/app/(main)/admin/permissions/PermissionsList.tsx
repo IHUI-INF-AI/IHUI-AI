@@ -2,7 +2,7 @@
 
 import { Loader2, Lock, Copy, Check } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import type { Permission } from './types'
 
 interface Props {

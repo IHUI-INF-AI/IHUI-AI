@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type FormEvent } from 'react'
-import { Button, Input } from '@ihui/ui'
+import { Button, Input } from '@ihui/ui-react'
 import { Loader2 } from 'lucide-react'
 import { MEMORY_SCOPE_OPTIONS, MEMORY_TYPE_OPTIONS } from '@/lib/memory-api'
 import type { MemoryCreateInput } from '@/lib/memory-api'

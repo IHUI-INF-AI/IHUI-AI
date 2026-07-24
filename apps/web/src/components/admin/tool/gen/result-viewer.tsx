@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Check, Copy, Download } from 'lucide-react'
 import type { GenResult } from '@ihui/api-client'
 

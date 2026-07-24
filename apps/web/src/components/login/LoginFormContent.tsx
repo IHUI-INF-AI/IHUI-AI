@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
 
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { ThirdPartyLoginButtons } from './ThirdPartyLoginButtons'
 import { QrCodeLogin } from './QrCodeLogin'
 import { PasswordLoginForm } from './PasswordLoginForm'

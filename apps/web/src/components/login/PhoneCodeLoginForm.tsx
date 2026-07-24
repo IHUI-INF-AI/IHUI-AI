@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Loader2, Check } from 'lucide-react'
 
-import { Button, Label } from '@ihui/ui'
+import { Button, Label } from '@ihui/ui-react'
 import { useAuthStore, type AuthUser } from '@/stores/auth'
 import { fetchApi } from '@/lib/api'
 import { Alert } from '@/components/feedback'

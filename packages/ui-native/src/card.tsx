@@ -1,6 +1,6 @@
-import type { ComponentProps } from 'react'
+﻿import type { ComponentProps } from 'react'
 import { Text, View } from 'react-native'
-import { cn } from '@ihui/ui-primitives'
+import { cn } from '@ihui/design-tokens'
 
 export type CardProps = ComponentProps<typeof View>
 export type CardTitleProps = ComponentProps<typeof Text>

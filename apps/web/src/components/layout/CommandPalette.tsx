@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Search, MessageSquare, Sparkles, Globe, User, Settings } from 'lucide-react'
-import { Dialog, DialogContent } from '@ihui/ui'
+import { Dialog, DialogContent } from '@ihui/ui-react'
 
 interface CommandItem {
   id: string

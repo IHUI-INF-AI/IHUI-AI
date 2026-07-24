@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl'
 import { ArrowLeft, ChevronLeft, ChevronRight, Eye, Pin, FileText, Newspaper, FolderOpen, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 
 interface NewsCategory {
   id: string

@@ -4,7 +4,7 @@
  * 作用:
  * 1. 启用 Tailwind CSS 4(CSS-first 配置)
  * 2. @import 共享 token(@theme + .dark + vcenter),与 web 端单一来源
- * 3. 让 @ihui/ui 的 Card/Button/Switch/Input 等组件在 extension 中正确渲染
+ * 3. 让 @ihui/ui-react 的 Card/Button/Switch/Input 等组件在 extension 中正确渲染
  *
  * 深色模式:通过 .dark class 切换(与 web 端一致),不再用 prefers-color-scheme。
  */
@@ -12,7 +12,7 @@
 @import 'tailwindcss';
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* 让 Tailwind 扫描 @ihui/ui 共享包的 className */
+/* 让 Tailwind 扫描 @ihui/ui-react 共享包的 className */
 @source '../../../../packages/ui/src';
 
 /* 共享 design token(颜色/圆角/字体/vcenter/动画/断点)— 与 web 端单一来源 */

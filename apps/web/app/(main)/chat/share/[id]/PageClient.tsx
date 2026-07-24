@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import { Loader2, ArrowLeft, Share2, Copy, User, Bot } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface Message {

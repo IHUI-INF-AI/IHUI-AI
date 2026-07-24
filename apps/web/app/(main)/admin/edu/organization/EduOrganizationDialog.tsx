@@ -12,7 +12,7 @@ import {
   Button,
   Input,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { ImageUpload } from '@/components/form/ImageUpload'
 import { textareaCls } from './helpers'
 import type { Organization, OrganizationForm } from './types'

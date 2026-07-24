@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Check, ChevronRight, Code, FileText, Folder, Loader2, X } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { usePermissionRequest, type PermissionRequestPayload } from '@/hooks/use-permission-request'
 import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'

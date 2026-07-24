@@ -11,7 +11,7 @@ import {
   Pause,
   Play,
 } from 'lucide-react'
-import { Button, cn } from '@ihui/ui'
+import { Button, cn } from '@ihui/ui-react'
 import { useAuthStore } from '@/stores/auth'
 
 type LogType = 'token' | 'tool_call' | 'tool_result' | 'error'

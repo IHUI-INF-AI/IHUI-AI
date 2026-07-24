@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Wand2, Loader2 } from 'lucide-react'
 
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label } from '@ihui/ui'
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 import { getToolGenMeta, postToolGen, type GenField, type GenResult, type GenType, type GenTypeMeta } from '@/lib/api/admin-tool-gen'
 import { FieldEditor, TemplateSelector } from '@/components/admin/tool/gen/field-editor'
 import { GenResultViewer } from '@/components/admin/tool/gen/result-viewer'

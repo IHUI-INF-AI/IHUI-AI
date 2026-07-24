@@ -14,7 +14,7 @@ import {
   CardContent,
   CardFooter,
   Button,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 export interface ProjectCardData {
   id: string

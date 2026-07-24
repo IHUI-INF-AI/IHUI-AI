@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2 } from 'lucide-react'
-import { Checkbox } from '@ihui/ui'
+import { Checkbox } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 import { th } from './helpers'

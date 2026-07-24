@@ -13,7 +13,7 @@ import {
 import { RegistryTabs } from '@/components/registry/RegistryTabs'
 import { RegistryItemCard } from '@/components/registry/RegistryItemCard'
 import { SyncLogPanel } from '@/components/registry/SyncLogPanel'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type {
   RegistrySortKey,

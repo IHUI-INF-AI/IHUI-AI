@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2, BadgeCheck } from 'lucide-react'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'
 import type { ZhsIdentity } from './types'

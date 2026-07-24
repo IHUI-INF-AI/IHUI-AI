@@ -18,7 +18,7 @@ import {
   TableCell,
   Button,
   Input,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 interface SignupReport {
   id: string
