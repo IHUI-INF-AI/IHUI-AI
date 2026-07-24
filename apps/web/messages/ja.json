@@ -539,6 +539,7 @@
     "knowledgeBase": "ナレッジベース",
     "knowledgeRag": "ナレッジRAG",
     "knowledgeGraph": "ナレッジグラフ",
+    "registry": "リソース更新センター",
     "announcements": "お知らせ",
     "overview": "概覧",
     "enterprise": "企業サービス",
@@ -28862,5 +28863,72 @@
     "openGitHub": "GitHub を開く",
     "statusAvailable": "公開済み",
     "statusComingSoon": "近日公開"
+  },
+  "registry": {
+    "title": "リソース更新センター",
+    "loading": "読み込み中…",
+    "banner": {
+      "upgradeAvailable": "新バージョン {{count}} 件利用可能",
+      "upgradeAll": "一括アップグレード",
+      "upgrading": "アップグレード中…"
+    },
+    "tabs": {
+      "latest": "最新",
+      "hot": "人気",
+      "best": "最高"
+    },
+    "filter": {
+      "all": "すべて",
+      "mcp": "MCP",
+      "skill": "Skill",
+      "plugin": "Plugin"
+    },
+    "card": {
+      "source": {
+        "github": "GitHub",
+        "npm": "npm",
+        "marketplace": "Marketplace",
+        "custom": "自作"
+      },
+      "download": "ダウンロード",
+      "heat": "人気度",
+      "quality": "品質",
+      "install": "インストール",
+      "installing": "インストール中…",
+      "upgrade": "アップグレード",
+      "upgrading": "アップグレード中…",
+      "alreadyLatest": "最新バージョンです"
+    },
+    "status": {
+      "notInstalled": "未インストール",
+      "installed": "インストール済み",
+      "upgradable": "アップグレード可能",
+      "failed": "失敗"
+    },
+    "action": {
+      "syncNow": "手動同期",
+      "syncing": "同期中…",
+      "configDrift": "設定ドリフト検出",
+      "detecting": "検出中…"
+    },
+    "admin": {
+      "title": "管理操作",
+      "syncResult": "同期完了:新規 {{synced}} · 失敗 {{failed}} · スキップ {{skipped}}",
+      "driftDetected": "{{count}} 件のファイルで設定ドリフトを検出",
+      "noDrift": "設定ドリフトは検出されませんでした"
+    },
+    "log": {
+      "viewLogs": "同期ログを表示",
+      "collapseLogs": "ログを折りたたむ",
+      "title": "同期ログ",
+      "success": "成功",
+      "failed": "失敗",
+      "skipped": "スキップ",
+      "running": "実行中",
+      "empty": "同期記録なし"
+    },
+    "empty": {
+      "items": "リソースなし"
+    }
   }
 }
