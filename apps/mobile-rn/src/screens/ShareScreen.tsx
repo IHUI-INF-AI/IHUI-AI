@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { ActivityIndicator, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Input, Loading } from '@ihui/ui-native'
 interface ShareResp { shareUrl: string; shareCode: string; expireAt: string }
 
 type Route = RouteProp<RootStackParamList, 'Share'>
@@ -41,11 +42,11 @@ export function ShareScreen() {
       <Text style={styles.title}>{t('share.title')}</Text>
       <Text style={styles.targetTitle}>{title}</Text>
       <Text style={styles.label}>{t('share.remark')}</Text>
-      <TextInput style={styles.input} value={remark} onChangeText={setRemark} placeholder={t('share.remarkPlaceholder')} placeholderTextColor="#9ca3af" />
+      <Input style={styles.input} value={remark} onChangeText={setRemark} placeholder={t('share.remarkPlaceholder')} placeholderTextColor="#9ca3af" />
       <TouchableOpacity style={[styles.createBtn, loading && styles.btnDisabled]} onPress={onCreate} disabled={loading}>
         <Text style={styles.createText}>{loading ? t('common.loading') : t('share.create')}</Text>
       </TouchableOpacity>
-      {loading ? <ActivityIndicator style={{ marginTop: 16 }} /> : null}
+      {loading ? <Loading style={{ marginTop: 16 }} /> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {result ? (
         <View style={styles.card}>
