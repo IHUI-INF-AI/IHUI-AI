@@ -5,8 +5,10 @@
 """
 
 import asyncio
+import difflib
 import os
 import re
+import time
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import parse_qs, quote_plus, urlparse
@@ -34,6 +36,8 @@ _WORKSPACE_ROOTS: list[str] = [
 _ADMIN_ONLY_TOOLS: set[str] = {
     "write_file", "run_command", "db_query", "git_operations",
     "configure_automation_task",
+    # 2026-07-24 file_edit:写文件操作(精细编辑),必须 admin
+    "file_edit",
     # computer_* 系列:控制电脑是高危操作,需 admin
     "computer_screenshot_screen", "computer_mouse_move", "computer_mouse_click",
     "computer_keyboard_type", "computer_mouse_scroll", "computer_keyboard_press",
@@ -442,104 +446,192 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
         return {"tool": "write_file", "path": resolved_path, "ok": False, "error": str(e)}
 
 
+async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
+    """file_edit: 精细编辑文件,精确替换 old_string 为 new_string,带 conflict 检测。
+
+    对标 Trae Edit 工具:replace_all=false 时要求 old_string 唯一匹配,
+    多个匹配报 AMBIGUOUS_MATCH 错误,避免误改多处。
+    """
+    def _err(code: str, msg: str, **extra) -> dict[str, Any]:
+        return {"tool": "file_edit", "file_path": resolved_path, "ok": False,
+                "error": msg, "errorCode": code, **extra}
+
+    path = arguments.get("file_path", "")
+    old_string = arguments.get("old_string", "")
+    new_string = arguments.get("new_string", "")
+    replace_all = bool(arguments.get("replace_all", False))
+
+    if not old_string:
+        return {"tool": "file_edit", "file_path": path, "ok": False,
+                "error": "old_string 不能为空", "errorCode": "INVALID_ARGUMENT"}
+
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return {"tool": "file_edit", "file_path": path, "ok": False,
+                "error": info, "errorCode": "PATH_NOT_ALLOWED"}
+    resolved_path = info
+
+    try:
+        if not os.path.isfile(resolved_path):
+            return _err("FILE_NOT_FOUND", "文件不存在")
+        if os.path.getsize(resolved_path) > 10 * 1024 * 1024:
+            return _err("FILE_TOO_LARGE", "文件大于 10MB,拒绝编辑")
+        with open(resolved_path, "rb") as f:
+            raw = f.read()
+    except OSError as e:
+        return _err("IO_ERROR", str(e))
+
+    if b"\x00" in raw:
+        return _err("BINARY_FILE", "文件含 NUL 字节,判定为二进制文件")
+    try:
+        content = raw.decode("utf-8")
+    except UnicodeDecodeError as e:
+        return _err("BINARY_FILE", f"文件非 UTF-8: {e}")
+
+    count = content.count(old_string)
+    if count == 0:
+        return _err("NOT_FOUND", "未找到要替换的字符串", match_count=0)
+    if not replace_all and count >= 2:
+        return _err("AMBIGUOUS_MATCH", f"找到 {count} 处匹配,需指定 replace_all=true 或提供更长上下文", match_count=count)
+
+    if replace_all:
+        new_content = content.replace(old_string, new_string)
+        replaced_count = count
+    else:
+        new_content = content.replace(old_string, new_string, 1)
+        replaced_count = 1
+
+    backup_path = resolved_path + ".bak"
+    try:
+        with open(backup_path, "wb") as f:
+            f.write(raw)
+        with open(resolved_path, "wb") as f:
+            f.write(new_content.encode("utf-8"))
+    except OSError as e:
+        # 失败回滚:恢复原内容(raw),删除 .bak(不保留)
+        try:
+            with open(resolved_path, "wb") as f:
+                f.write(raw)
+        except OSError:
+            pass
+        try:
+            os.remove(backup_path)
+        except OSError:
+            pass
+        return _err("IO_ERROR", str(e))
+
+    diff = list(difflib.unified_diff(content.splitlines(keepends=True),
+                new_content.splitlines(keepends=True), fromfile="old", tofile="new", n=2))
+    return {"tool": "file_edit", "ok": True, "file_path": resolved_path,
+            "replaced_count": replaced_count, "backup_path": backup_path,
+            "diff_preview": "".join(diff[:20])}
+
+
+async def _drain_stream(stream, lines_list: list[str]) -> None:
+    """逐行读取 asyncio subprocess stream,累积到 lines_list(防长命令一次性读阻塞)。"""
+    while True:
+        line_bytes = await stream.readline()
+        if not line_bytes:
+            break
+        lines_list.append(line_bytes.decode("utf-8", errors="replace").rstrip("\r\n"))
+
+
+def _build_subprocess_env(user_env: dict | None) -> dict:
+    """构建 subprocess env:复制 os.environ,合并用户 env(禁止覆盖 PATH/HOME)。
+
+    2026-07-24 流式升级:支持 env 参数透传,但不允许覆盖 PATH/HOME(防劫持命令查找)。
+    """
+    env = dict(os.environ)
+    if isinstance(user_env, dict):
+        for k, v in user_env.items():
+            if not isinstance(k, str) or not isinstance(v, (str, int, float)):
+                continue
+            if k.upper() in ("PATH", "HOME", "USERPROFILE"):
+                continue  # 不允许覆盖 PATH/HOME
+            env[k] = str(v)
+    return env
+
+
 async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
-    """run_command: 运行 shell 命令(真实 subprocess 执行,白名单 + 超时)。
+    """run_command: 运行 shell 命令(asyncio.subprocess 流式读取 stdout/stderr,长命令不超时)。
 
     出于安全考虑,仅允许只读/查询类命令,禁止任何修改/删除/网络写入操作。
     - command: 命令字符串(如 "git status", "ls -la", "python --version")
-    - cwd: 工作目录(默认当前目录)
-    - timeout: 超时秒数(默认 10,上限 60)
+    - cwd: 工作目录(默认当前目录,需 _validate_path_in_workspace 校验)
+    - timeout: 超时秒数(默认 60)
+    - max_timeout: 超时上限(默认 600,timeout 不超过此值)
+    - env: 环境变量 dict(不允许覆盖 PATH/HOME)
     - sandbox_backend: 沙箱后端(默认 local,可选 docker/ssh/modal/daytona/singularity)
-    - docker_image: Docker 镜像(backend=docker 时,默认 python:3.12-slim)
-    - ssh_host: SSH 主机(backend=ssh 时必填)
-    - ssh_user: SSH 用户名(backend=ssh 时,默认 root)
-    - 白名单: 允许的命令前缀(git/ls/cat/echo/python/node/npm/pnpm/tsc/ruff/mypy/pytest/find/grep/wc/head/tail/date/whoami/pwd/which/where/env)
-    - 禁止: rm/mv/cp/mkdir/rmdir/curl/wget/scp/ssh/dd/mkfs/shutdown/reboot/>/>>/| 等危险操作
+    - 白名单: git/ls/cat/echo/python/node/npm/pnpm/tsc/ruff/mypy/pytest/find/grep/wc/head/tail 等
+    - 禁止: rm/mv/cp/mkdir/curl/wget/dd/mkfs/>/>>/|/`/$() 等危险操作
+    - 超时 → kill 进程 + 返回 partial_output + errorCode=TIMEOUT
     """
     command = arguments.get("command", "").strip()
     cwd = arguments.get("cwd", ".")
-    timeout = min(int(arguments.get("timeout", 10)), 60)
     sandbox_backend = arguments.get("sandbox_backend", "local")
     docker_image = arguments.get("docker_image", "python:3.12-slim")
     ssh_host = arguments.get("ssh_host")
     ssh_user = arguments.get("ssh_user", "root")
+    user_env = arguments.get("env")
+
+    max_timeout = max(1, int(arguments.get("max_timeout", 600)))
+    timeout = max(1, min(int(arguments.get("timeout", 60)), max_timeout))
 
     if not command:
         return {
-            "tool": "run_command",
-            "command": command,
-            "exit_code": -1,
-            "stdout": "",
-            "stderr": "",
-            "ok": False,
-            "message": "命令为空",
+            "tool": "run_command", "command": command,
+            "exit_code": -1, "stdout": "", "stderr": "",
+            "ok": False, "streamed": True, "message": "命令为空",
         }
 
-    # 非 local 后端:委托 sandbox_executor(Docker/SSH/预留后端,P2-1)
+    # cwd 校验(非默认 . 时需在工作区白名单内,防任意目录读写)
+    if cwd and cwd != ".":
+        ok_cwd, cwd_info = _validate_path_in_workspace(cwd)
+        if not ok_cwd:
+            return {
+                "tool": "run_command", "command": command,
+                "exit_code": -1, "stdout": "", "stderr": "",
+                "ok": False, "streamed": True,
+                "errorCode": "PATH_NOT_ALLOWED",
+                "message": f"cwd 不在工作区白名单: {cwd_info}",
+            }
+        cwd = cwd_info
+
+    # 非 local 后端:委托 sandbox_executor(Docker/SSH/预留后端)
     if sandbox_backend != "local":
         from .sandbox import sandbox_executor
         result = await sandbox_executor.execute(
-            command,
-            backend=sandbox_backend,
-            timeout=timeout,
-            workdir=cwd,
-            docker_image=docker_image,
-            ssh_host=ssh_host,
-            ssh_user=ssh_user,
+            command, backend=sandbox_backend, timeout=timeout, workdir=cwd,
+            docker_image=docker_image, ssh_host=ssh_host, ssh_user=ssh_user,
         )
         return {
-            "tool": "run_command",
-            "command": command,
+            "tool": "run_command", "command": command,
             "backend": sandbox_backend,
-            "exit_code": result.exit_code,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "duration_ms": result.duration_ms,
-            "timed_out": result.timed_out,
-            "ok": result.exit_code == 0,
+            "exit_code": result.exit_code, "stdout": result.stdout,
+            "stderr": result.stderr, "duration_ms": result.duration_ms,
+            "timed_out": result.timed_out, "ok": result.exit_code == 0,
+            "streamed": False,
             "message": f"backend={sandbox_backend} exit_code={result.exit_code}",
         }
 
     # 危险字符/操作黑名单(Shell 注入 + 破坏性操作)
     _DANGEROUS_PATTERNS = [
-        r";\s*\S",  # 命令分隔符后跟内容
-        r"&&\s*\S",
-        r"\|\|\s*\S",
-        r"\brm\b",
-        r"\brmdir\b",
-        r"\bmv\b",
-        r"\bcp\b",
-        r"\bmkdir\b",
-        r"\btouch\b",
-        r"\bchmod\b",
-        r"\bchown\b",
-        r"\bcurl\b",
-        r"\bwget\b",
-        r"\bscp\b",
-        r"\bssh\b",
-        r"\bdd\b",
-        r"\bmkfs\b",
-        r"\bshutdown\b",
-        r"\breboot\b",
-        r"\bkill\b",
-        r"\bkillall\b",
-        r">\s*",  # 输出重定向
-        r">>\s*",
-        r"<\s*",  # 输入重定向
-        r"\|\s*",  # 管道
-        r"`[^`]*`",  # 命令替换
-        r"\$\([^)]*\)",  # 命令替换
-        r"\$\{[^}]*\}",  # 变量扩展(可能含恶意)
+        r";\s*\S", r"&&\s*\S", r"\|\|\s*\S",
+        r"\brm\b", r"\brmdir\b", r"\bmv\b", r"\bcp\b", r"\bmkdir\b",
+        r"\btouch\b", r"\bchmod\b", r"\bchown\b",
+        r"\bcurl\b", r"\bwget\b", r"\bscp\b", r"\bssh\b",
+        r"\bdd\b", r"\bmkfs\b", r"\bshutdown\b", r"\breboot\b",
+        r"\bkill\b", r"\bkillall\b",
+        r">\s*", r">>\s*", r"<\s*", r"\|\s*",
+        r"`[^`]*`", r"\$\([^)]*\)", r"\$\{[^}]*\}",
     ]
     for pat in _DANGEROUS_PATTERNS:
         if re.search(pat, command):
             return {
-                "tool": "run_command",
-                "command": command,
-                "exit_code": -1,
-                "stdout": "",
-                "stderr": "",
-                "ok": False,
+                "tool": "run_command", "command": command,
+                "exit_code": -1, "stdout": "", "stderr": "",
+                "ok": False, "streamed": True,
+                "errorCode": "DANGEROUS_COMMAND",
                 "message": f"命令包含禁止的模式: {pat}(安全限制)",
             }
 
@@ -550,114 +642,109 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
         "head", "tail", "date", "whoami", "pwd", "which", "where", "env",
         "uname", "ver", "dir", "type", "getopt",
     }
-    # 取第一个 token 作为命令名
     first_token = command.split()[0] if command.split() else ""
-    # 处理 Windows 路径(如 /usr/bin/git)
     cmd_name = first_token.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower()
     if cmd_name not in _ALLOWED_PREFIXES:
         return {
-            "tool": "run_command",
-            "command": command,
-            "exit_code": -1,
-            "stdout": "",
-            "stderr": "",
-            "ok": False,
+            "tool": "run_command", "command": command,
+            "exit_code": -1, "stdout": "", "stderr": "",
+            "ok": False, "streamed": True,
             "message": f"命令 '{cmd_name}' 不在白名单中(允许: {', '.join(sorted(_ALLOWED_PREFIXES))})",
         }
 
     try:
-        import asyncio
         import shlex
         import sys
 
-        # Windows shell 内置命令集合(echo/type/ver/dir 等 cmd.exe 内置)
-        # 这些命令无独立可执行文件,必须走 cmd /c;其他命令优先用 exec 防 shell 注入
         _WIN_BUILTINS = {
             "echo", "type", "ver", "dir", "set", "cd", "cls", "color",
             "prompt", "title", "path", "assoc", "ftype",
         }
-
-        # 解析命令参数(统一用 shlex.split,Windows 下 shlex 用 POSIX 模式仍可正确切分)
-        # 已通过上方黑名单过滤掉 ;/&&/||/|/`/$() 等危险模式,shlex.split 不会再被注入
         args = shlex.split(command, posix=sys.platform != "win32")
+        env_for_proc = _build_subprocess_env(user_env) if user_env else None
 
         if sys.platform == "win32" and cmd_name in _WIN_BUILTINS:
-            # Windows shell 内置命令必须走 cmd /c(无独立 exe),用 list 形式传给
-            # create_subprocess_exec,参数由 shell 解析但仍走 exec 入口(不派生 sh.exe)
             proc = await asyncio.create_subprocess_exec(
                 "cmd", "/c", command,
-                cwd=cwd,
+                cwd=cwd, env=env_for_proc,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
         else:
-            # 优先 exec(避免 shell 注入),Unix 和 Windows 通用
-            # Windows 下若 first_token 不在 PATH 会抛 FileNotFoundError,已下方兜底
             proc = await asyncio.create_subprocess_exec(
                 *args,
-                cwd=cwd,
+                cwd=cwd, env=env_for_proc,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
 
+        # 流式逐行读取 stdout/stderr(并发 drain,防长输出阻塞)
+        stdout_lines: list[str] = []
+        stderr_lines: list[str] = []
+        drain = asyncio.gather(
+            _drain_stream(proc.stdout, stdout_lines),
+            _drain_stream(proc.stderr, stderr_lines),
+        )
         try:
-            stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                proc.communicate(),
-                timeout=timeout,
-            )
+            await asyncio.wait_for(drain, timeout=timeout)
+            await proc.wait()
+            timed_out = False
         except asyncio.TimeoutError:
+            timed_out = True
             try:
                 proc.kill()
             except ProcessLookupError:
                 pass
-            return {
-                "tool": "run_command",
-                "command": command,
-                "exit_code": -1,
-                "stdout": "",
-                "stderr": f"命令超时({timeout}s)",
-                "ok": False,
-                "message": f"命令执行超时({timeout} 秒)",
-            }
+            # 取消 drain task 并等其退出(readline 会被 CancelledError 中断)
+            drain.cancel()
+            try:
+                await drain
+            except (asyncio.CancelledError, Exception):
+                pass
+            try:
+                await proc.wait()
+            except Exception:
+                pass
 
-        stdout = stdout_bytes.decode("utf-8", errors="replace") if stdout_bytes else ""
-        stderr = stderr_bytes.decode("utf-8", errors="replace") if stderr_bytes else ""
-        # 截断过长输出
+        stdout = "\n".join(stdout_lines)
+        stderr = "\n".join(stderr_lines)
         max_output = 10000
         if len(stdout) > max_output:
             stdout = stdout[:max_output] + f"\n...(已截断,共 {len(stdout)} 字符)"
         if len(stderr) > max_output:
             stderr = stderr[:max_output] + f"\n...(已截断,共 {len(stderr)} 字符)"
 
+        if timed_out:
+            return {
+                "tool": "run_command", "command": command,
+                "exit_code": -1,
+                "stdout": stdout, "stderr": stderr,
+                "partial_output": stdout,
+                "ok": False, "streamed": True,
+                "errorCode": "TIMEOUT",
+                "message": f"命令执行超时({timeout} 秒,已 kill 进程)",
+            }
+
+        exit_code = proc.returncode if proc.returncode is not None else -1
         return {
-            "tool": "run_command",
-            "command": command,
-            "exit_code": proc.returncode,
-            "stdout": stdout,
-            "stderr": stderr,
-            "ok": proc.returncode == 0,
-            "message": f"命令退出码: {proc.returncode}",
+            "tool": "run_command", "command": command,
+            "exit_code": exit_code, "stdout": stdout, "stderr": stderr,
+            "ok": exit_code == 0, "streamed": True,
+            "message": f"命令退出码: {exit_code}",
         }
     except FileNotFoundError:
         return {
-            "tool": "run_command",
-            "command": command,
-            "exit_code": -1,
-            "stdout": "",
-            "stderr": f"命令未找到: {first_token}",
-            "ok": False,
+            "tool": "run_command", "command": command,
+            "exit_code": -1, "stdout": "", "stderr": f"命令未找到: {first_token}",
+            "ok": False, "streamed": True,
             "message": f"命令未找到: {first_token}",
         }
     except Exception as e:
         return {
-            "tool": "run_command",
-            "command": command,
-            "exit_code": -1,
-            "stdout": "",
-            "stderr": str(e),
-            "ok": False,
-            "message": f"命令执行失败: {e}",
-            "error": str(e),
+            "tool": "run_command", "command": command,
+            "exit_code": -1, "stdout": "", "stderr": str(e),
+            "ok": False, "streamed": True,
+            "message": f"命令执行失败: {e}", "error": str(e),
         }
 
 
@@ -1537,87 +1624,217 @@ async def _tool_screenshot_url(arguments: dict[str, Any]) -> dict[str, Any]:
         }
 
 
-async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str, Any]:
-    """配置自媒体自动化定时任务(转发到 api 层 config 端点)。
+# 自动化任务配置缓存(2026-07-24 立,configure_automation_task 配置记录 + 执行结果)
+# key=config_id(uuid hex),value={task_id, action, execute, arguments, config_response}
+_AUTOMATION_CONFIGS: dict[str, dict[str, Any]] = {}
 
-    支持 koubo_daily / wechat_daily 两个内置任务,
-    可修改执行时间、dry-run、enabled、title_template。
+
+async def _tool_configure_automation_task(arguments: dict[str, Any]) -> dict[str, Any]:
+    """配置自媒体自动化定时任务并可选立即执行(对标 Trae Work Automations + Codex)。
+
+    1. 配置阶段:转发到 api 层 config 端点(koubo_daily/wechat_daily),缓存到 _AUTOMATION_CONFIGS。
+    2. 执行阶段(execute=True,默认):按 action 真实执行一次:
+       - schedule → 调用 _tool_schedule_task 真实调度
+       - dispatch_subagent → 调用 _tool_dispatch_subagent 派发子智能体
+       - webhook → httpx POST 到 arguments.webhook_url
     """
     import httpx
+    import uuid
 
     task_id = arguments.get("task_id", "wechat_daily")
-    if task_id not in ("koubo_daily", "wechat_daily"):
-        return {"ok": False, "success": False, "error": f"不支持的任务 ID: {task_id}(仅 koubo_daily / wechat_daily)"}
+    execute = bool(arguments.get("execute", True))
+    action = arguments.get("action", "")
 
-    hour = int(arguments.get("hour", 9))
-    minute = int(arguments.get("minute", 0))
-    dry_run = bool(arguments.get("dry_run", True))
-    enabled = bool(arguments.get("enabled", True))
-    title_template = arguments.get("title_template")
-
-    config_body: dict[str, Any] = {
-        "hour": hour,
-        "minute": minute,
-        "dry_run": dry_run,
-        "enabled": enabled,
-    }
-    if title_template:
-        config_body["title_template"] = str(title_template)
-
-    url = f"{_get_automation_api_base()}/{task_id}/config"
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(url, json=config_body)
-            if resp.status_code >= 400:
-                return {
-                    "ok": False,
-                    "success": False,
-                    "error": f"api 返回 {resp.status_code}: {resp.text[:200]}",
-                }
-            data = resp.json()
-            # api 返回 {code, message, data} 格式,提取 data
-            task_data = data.get("data", data) if isinstance(data, dict) else data
-            return {
-                "ok": True,
-                "success": True,
-                "task_id": task_id,
-                "hour": hour,
-                "minute": minute,
-                "dry_run": dry_run,
-                "enabled": enabled,
-                "title_template": title_template,
-                "raw_response": task_data,
-            }
-    except Exception as e:
-        err_type = type(e).__name__
-        return {
-            "ok": False,
-            "success": False,
-            "message": f"配置失败: {err_type}",
-            "error": str(e)[:200],
+    # ===== 配置阶段(保留原有 koubo_daily/wechat_daily config 路径)=====
+    config_ok = False
+    config_resp: dict[str, Any] = {}
+    if task_id in ("koubo_daily", "wechat_daily"):
+        hour = int(arguments.get("hour", 9))
+        minute = int(arguments.get("minute", 0))
+        dry_run = bool(arguments.get("dry_run", True))
+        enabled = bool(arguments.get("enabled", True))
+        title_template = arguments.get("title_template")
+        config_body: dict[str, Any] = {
+            "hour": hour, "minute": minute,
+            "dry_run": dry_run, "enabled": enabled,
         }
+        if title_template:
+            config_body["title_template"] = str(title_template)
+        url = f"{_get_automation_api_base()}/{task_id}/config"
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(url, json=config_body)
+                if resp.status_code < 400:
+                    data = resp.json()
+                    config_resp = data.get("data", data) if isinstance(data, dict) else data
+                    config_ok = True
+                else:
+                    config_resp = {"error": f"api 返回 {resp.status_code}: {resp.text[:200]}"}
+        except Exception as e:
+            config_resp = {"error": f"配置失败: {type(e).__name__}: {str(e)[:200]}"}
+    # 非 koubo_daily/wechat_daily:跳过 api config(仅作为缓存,供 schedule/dispatch/webhook 执行)
+
+    config_id = uuid.uuid4().hex
+    _AUTOMATION_CONFIGS[config_id] = {
+        "task_id": task_id, "action": action, "execute": execute,
+        "arguments": arguments, "config_response": config_resp,
+    }
+
+    # ===== 执行阶段 =====
+    executed = False
+    execution_result: dict[str, Any] = {}
+    if execute and action:
+        try:
+            if action == "schedule":
+                execution_result = await _tool_schedule_task(arguments)
+                executed = bool(execution_result.get("ok"))
+            elif action == "dispatch_subagent":
+                execution_result = await _tool_dispatch_subagent(arguments)
+                executed = bool(execution_result.get("ok"))
+            elif action == "webhook":
+                webhook_url = arguments.get("webhook_url", "")
+                if not webhook_url:
+                    execution_result = {
+                        "ok": False, "errorCode": "MISSING_PARAMS",
+                        "error": "action=webhook 时 webhook_url 必填",
+                    }
+                else:
+                    webhook_payload = arguments.get("webhook_payload", arguments)
+                    async with httpx.AsyncClient(timeout=15.0) as client:
+                        wresp = await client.post(webhook_url, json=webhook_payload)
+                        execution_result = {
+                            "ok": wresp.status_code < 400,
+                            "status_code": wresp.status_code,
+                            "response": wresp.text[:500],
+                        }
+                        executed = wresp.status_code < 400
+            else:
+                execution_result = {
+                    "ok": False, "errorCode": "INVALID_PARAMS",
+                    "error": f"不支持的 action: {action}(schedule/dispatch_subagent/webhook)",
+                }
+        except Exception as e:
+            execution_result = {
+                "ok": False, "errorCode": "EXECUTION_EXCEPTION",
+                "error": f"执行失败: {type(e).__name__}: {str(e)[:200]}",
+            }
+
+    # ok:执行模式下看 executed;纯配置模式看 config_ok(非 koubo/wechat 视为配置通过)
+    if execute and action:
+        overall_ok = executed
+    else:
+        overall_ok = config_ok or (task_id not in ("koubo_daily", "wechat_daily"))
+
+    return {
+        "ok": overall_ok,
+        "configured": config_ok or (task_id not in ("koubo_daily", "wechat_daily")),
+        "executed": executed,
+        "execution_result": execution_result,
+        "config_id": config_id,
+        "task_id": task_id,
+        "action": action,
+    }
 
 
 async def _tool_vision_analyze(arguments: dict[str, Any]) -> dict[str, Any]:
-    """vision_analyze: 图像分析(支持 URL 和 base64,P2-3)。
+    """vision_analyze: 图像分析(支持本地文件路径、URL 和 base64)。
 
+    参数优先级: image_path > image_base64 > image_url > image(legacy 兼容)。
     参数:
-    - image: 图片 URL 或 base64 编码(必填)
-    - task: 分析任务描述(必填,如"描述这张图片的内容")
+    - image_path: 本地图片绝对路径(可选,自动转 base64,需在工作区白名单内)
+    - image_base64: base64 编码图片(可选)
+    - image_url: 图片 URL(可选)
+    - image: 图片 URL 或 base64(legacy 兼容,可选)
+    - task: 分析任务描述(必填)
     - model: 期望模型(可选,缺省用支持视觉的模型)
     """
+    import base64 as _b64
+    from pathlib import Path
+
     from ..core.llm_gateway import llm_gateway
 
-    image = arguments.get("image", "")
     task = arguments.get("task", "")
     model = arguments.get("model")
+    image_path = arguments.get("image_path", "")
+    image_base64 = arguments.get("image_base64", "")
+    image_url = arguments.get("image_url", "")
+    legacy_image = arguments.get("image", "")
 
-    if not image or not task:
-        return {
-            "tool": "vision_analyze",
-            "ok": False,
-            "error": "image and task are required",
+    # 解析图片来源,构造 OpenAI vision image_url url
+    source = ""
+    file_path = ""
+
+    if image_path:
+        # 本地文件路径:校验工作区白名单(防 symlink 穿越)
+        ok, info = _validate_path_in_workspace(str(image_path))
+        if not ok:
+            return {
+                "tool": "vision_analyze", "ok": False,
+                "error": info, "errorCode": "PATH_NOT_IN_WORKSPACE",
+            }
+        p = Path(info)
+        if not p.exists():
+            return {
+                "tool": "vision_analyze", "ok": False,
+                "error": f"文件不存在: {image_path}", "errorCode": "FILE_NOT_FOUND",
+            }
+        # 文件大小校验(>10MB 拒绝)
+        try:
+            file_size = p.stat().st_size
+        except OSError as e:
+            return {
+                "tool": "vision_analyze", "ok": False,
+                "error": f"读取文件大小失败: {e}", "errorCode": "FILE_NOT_FOUND",
+            }
+        if file_size > 10 * 1024 * 1024:
+            return {
+                "tool": "vision_analyze", "ok": False,
+                "error": f"图片过大({file_size} bytes > 10MB)", "errorCode": "IMAGE_TOO_LARGE",
+            }
+        # MIME 推断
+        ext = p.suffix.lower()
+        mime_map = {
+            ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+            ".webp": "image/webp", ".gif": "image/gif",
         }
+        mime = mime_map.get(ext)
+        if not mime:
+            return {
+                "tool": "vision_analyze", "ok": False,
+                "error": f"不支持的图片格式: {ext}(仅支持 png/jpg/jpeg/webp/gif)",
+                "errorCode": "UNSUPPORTED_IMAGE_FORMAT",
+            }
+        try:
+            raw_bytes = p.read_bytes()
+        except OSError as e:
+            return {
+                "tool": "vision_analyze", "ok": False,
+                "error": f"读取文件失败: {e}", "errorCode": "FILE_NOT_FOUND",
+            }
+        b64 = _b64.b64encode(raw_bytes).decode("ascii")
+        image_url_value = f"data:{mime};base64,{b64}"
+        source = "local_file"
+        file_path = str(image_path)
+    elif image_base64:
+        image_url_value = (
+            image_base64 if image_base64.startswith("data:")
+            else f"data:image/png;base64,{image_base64}"
+        )
+        source = "base64"
+    elif image_url:
+        image_url_value = image_url
+        source = "url"
+    elif legacy_image:
+        image_url_value = legacy_image
+        source = "legacy"
+    else:
+        return {
+            "tool": "vision_analyze", "ok": False,
+            "error": "image_path / image_base64 / image_url / image 至少需要一个",
+        }
+
+    if not task:
+        return {"tool": "vision_analyze", "ok": False, "error": "task is required"}
 
     # 构造 OpenAI vision 格式消息(text + image_url content block)
     messages = [
@@ -1625,20 +1842,24 @@ async def _tool_vision_analyze(arguments: dict[str, Any]) -> dict[str, Any]:
             "role": "user",
             "content": [
                 {"type": "text", "text": task},
-                {"type": "image_url", "image_url": {"url": image}},
+                {"type": "image_url", "image_url": {"url": image_url_value}},
             ],
         }
     ]
     try:
         result = await llm_gateway.complete(messages, model=model)
-        return {
+        ret: dict[str, Any] = {
             "tool": "vision_analyze",
             "ok": not result.get("error"),
             "analysis": result.get("content", ""),
             "model": result.get("model", model or ""),
             "stub": result.get("stub", False),
             "error": result.get("error_message"),
+            "source": source,
         }
+        if file_path:
+            ret["file_path"] = file_path
+        return ret
     except Exception as e:
         return {
             "tool": "vision_analyze",
@@ -1673,29 +1894,78 @@ def _get_orchestrator() -> "AgentOrchestrator":
 
 
 async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
-    """dispatch_subagent: 派发子智能体执行独立任务。
+    """dispatch_subagent: 派发子智能体执行独立任务(单 agent 或并行多 agent)。
 
-    让 LLM 在 tool loop 中能自主调用 AgentOrchestrator.invoke,派发独立子智能体
-    执行任务(子任务分解 / 多视角审查 / 并行执行)。子智能体拥有独立的
-    system_prompt + tools + 上下文,执行完成后返回结果,不污染主对话上下文。
+    双模式(对标 Trae Work subagent orchestration):
+    - 单 agent 模式(兼容):{name, task, session_id?} → orchestrator.invoke
+    - 并行模式:{tasks: [{name, task, context?}, ...], max_concurrency?} →
+      orchestrator.invoke_parallel,真实并行派发,互不污染上下文。
 
-    参数:
-    - name: 要派发的子智能体名称(必填,如 code-reviewer / bug-fixer / feature-planner)
-    - task: 交给子智能体执行的任务描述(必填)
-    - session_id: 会话 ID(可选,用于上下文复用)
+    互斥:同时传 name/task 与 tasks → 报错 DUAL_MODE。
     """
     name = arguments.get("name", "")
     task = arguments.get("task", "")
-    session_id = arguments.get("session_id")
+    tasks = arguments.get("tasks")
+    max_concurrency = arguments.get("max_concurrency", 5)
 
-    if not name or not task:
+    has_single = bool(name) or bool(task)
+    has_tasks = tasks is not None
+
+    # 双模式互斥校验
+    if has_single and has_tasks:
         return {
-            "tool": "dispatch_subagent",
-            "ok": False,
-            "error": "name and task are required",
-            "errorCode": "MISSING_PARAMS",
+            "tool": "dispatch_subagent", "ok": False,
+            "error": "不可同时传 name/task 与 tasks(单 agent 模式与并行模式互斥)",
+            "errorCode": "DUAL_MODE",
         }
 
+    # 并行模式:tasks 数组 → invoke_parallel
+    if has_tasks:
+        if not isinstance(tasks, list):
+            return {
+                "tool": "dispatch_subagent", "ok": False,
+                "error": "tasks 必须为数组", "errorCode": "INVALID_PARAMS",
+            }
+        if not tasks:
+            return {
+                "tool": "dispatch_subagent", "ok": False,
+                "error": "tasks 列表为空", "errorCode": "EMPTY_TASKS",
+            }
+        for i, t in enumerate(tasks):
+            if not isinstance(t, dict) or not t.get("name") or not t.get("task"):
+                return {
+                    "tool": "dispatch_subagent", "ok": False,
+                    "error": f"tasks[{i}] 缺少 name 或 task 字段",
+                    "errorCode": "INVALID_PARAMS",
+                }
+        try:
+            orchestrator = _get_orchestrator()
+            result = await orchestrator.invoke_parallel(
+                tasks=tasks, max_concurrency=max_concurrency
+            )
+            return {
+                "tool": "dispatch_subagent", "mode": "parallel",
+                "ok": result.get("ok", False),
+                "total": result.get("total", 0),
+                "succeeded": result.get("succeeded", 0),
+                "failed": result.get("failed", 0),
+                "results": result.get("results", []),
+                "message": result.get("message", ""),
+            }
+        except Exception as e:
+            return {
+                "tool": "dispatch_subagent", "ok": False, "mode": "parallel",
+                "error": str(e), "errorCode": "SUBAGENT_FAILED",
+            }
+
+    # 单 agent 模式(兼容)
+    session_id = arguments.get("session_id")
+    if not name or not task:
+        return {
+            "tool": "dispatch_subagent", "ok": False,
+            "error": "name and task are required(或传 tasks 数组启用并行模式)",
+            "errorCode": "MISSING_PARAMS",
+        }
     try:
         orchestrator = _get_orchestrator()
         result = await orchestrator.invoke(
@@ -1704,7 +1974,7 @@ async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
             session_id=session_id,
         )
         return {
-            "tool": "dispatch_subagent",
+            "tool": "dispatch_subagent", "mode": "single",
             "agent": name,
             "task": task,
             "status": result.status,
@@ -1716,9 +1986,8 @@ async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
         }
     except Exception as e:
         return {
-            "ok": False,
-            "error": str(e),
-            "errorCode": "SUBAGENT_FAILED",
+            "tool": "dispatch_subagent", "ok": False, "mode": "single",
+            "error": str(e), "errorCode": "SUBAGENT_FAILED",
         }
 
 
@@ -1728,11 +1997,146 @@ async def _tool_dispatch_subagent(arguments: dict[str, Any]) -> dict[str, Any]:
 #          summarize_artifacts / schedule_task / proactive_suggestion
 # ---------------------------------------------------------------------------
 
-# 进程内会话 artifacts 缓存(summarize_artifacts 用,进程重启即丢)
-_ARTIFACTS_CACHE: dict[str, dict] = {}
+# 会话 artifacts 持久化(Redis hash TTL 7d,进程重启不丢;Redis 不可用降级进程内)。
+# _ARTIFACTS_CACHE 保留为 artifacts_store._fallback_cache 的别名引用,向后兼容现有测试
+# (test_mcp_server.py 直接读写 _ARTIFACTS_CACHE);_tool_summarize_artifacts 改用 _load_artifacts。
+from .artifacts_store import (  # noqa: E402
+    _fallback_cache as _ARTIFACTS_CACHE,
+    delete_artifacts as _delete_artifacts,
+    load_artifacts as _load_artifacts,
+    save_artifacts as _save_artifacts,
+)
 
-# 进程内调度任务列表(schedule_task 用,仅记录;需后台 worker 启动才会执行)
+# 进程内调度任务列表(schedule_task 用,内存镜像;Redis 为持久化真相源)
 _SCHEDULED_TASKS: list[dict] = []
+
+# 调度任务 Redis 持久化层(2026-07-24 立,对标 Codex Automations)
+# key 规范:mcp:schedule:<task_id> hash,字段见 _SCHEDULE_REDIS_FIELDS
+import logging as _schedule_logging
+
+logger = _schedule_logging.getLogger(__name__)
+_SCHEDULE_REDIS_PREFIX = "mcp:schedule:"
+_SCHEDULE_REDIS_FIELDS = (
+    "task_id", "name", "prompt", "schedule", "run_at", "cron",
+    "interval_seconds", "agent_tools", "next_run_at", "status",
+    "created_at", "last_run_at", "last_result", "webhook_url",
+)
+# 进程内 Redis 客户端单例(同步,线程安全;None 表示 Redis 不可用,降级内存)
+_SCHEDULE_REDIS: Any = None
+_SCHEDULE_REDIS_CHECKED = False
+
+
+def _get_schedule_redis() -> Any:
+    """返回调度任务 Redis 同步客户端,不可用返回 None(降级内存模式)。"""
+    global _SCHEDULE_REDIS, _SCHEDULE_REDIS_CHECKED
+    if _SCHEDULE_REDIS_CHECKED:
+        return _SCHEDULE_REDIS
+    _SCHEDULE_REDIS_CHECKED = True
+    from app.core.config import settings
+
+    url = settings.schedule_redis_url or settings.redis_url
+    try:
+        import redis  # type: ignore[import-not-found]
+
+        client = redis.Redis.from_url(url, decode_responses=True)
+        client.ping()
+        _SCHEDULE_REDIS = client
+        logger.info("[schedule_task] Redis 连接成功: %s", url)
+    except Exception as e:
+        _SCHEDULE_REDIS = None
+        logger.warning("[schedule_task] Redis 不可用,降级内存模式: %s", e)
+    return _SCHEDULE_REDIS
+
+
+def _serialize_task_field(key: str, value: Any) -> str:
+    """序列化任务字段为 Redis hash 字符串(list/dict/数字 → JSON,字符串原样)。"""
+    if key in ("agent_tools", "interval_seconds"):
+        import json as _json
+
+        return _json.dumps(value)
+    return str(value) if value is not None else ""
+
+
+def _deserialize_task(data: dict[str, str]) -> dict[str, Any]:
+    """反序列化 Redis hash → task dict(agent_tools/interval_seconds 还原为原类型)。"""
+    import json as _json
+
+    task: dict[str, Any] = {}
+    for key, raw in data.items():
+        if key in ("agent_tools", "interval_seconds"):
+            try:
+                task[key] = _json.loads(raw)
+            except (TypeError, ValueError):
+                task[key] = raw
+        else:
+            task[key] = raw
+    return task
+
+
+def _persist_task_to_redis(task: dict[str, Any]) -> bool:
+    """持久化任务到 Redis hash,成功返回 True;Redis 不可用返回 False(调用方降级内存)。"""
+    client = _get_schedule_redis()
+    tid = task.get("task_id", "")
+    if not tid or client is None:
+        return False
+    mapping = {
+        k: _serialize_task_field(k, task.get(k, "" if k != "agent_tools" else []))
+        for k in _SCHEDULE_REDIS_FIELDS
+        if k in task or k in ("agent_tools",)
+    }
+    try:
+        client.hset(_SCHEDULE_REDIS_PREFIX + tid, mapping=mapping)
+        return True
+    except Exception as e:
+        logger.warning("[schedule_task] Redis 持久化失败: %s", e)
+        return False
+
+
+def _load_task_from_redis(task_id: str) -> dict[str, Any] | None:
+    """从 Redis 加载单个任务,不存在或 Redis 不可用返回 None。"""
+    client = _get_schedule_redis()
+    if client is None:
+        return None
+    try:
+        data = client.hgetall(_SCHEDULE_REDIS_PREFIX + task_id)
+    except Exception as e:
+        logger.warning("[schedule_task] Redis 读取失败: %s", e)
+        return None
+    return _deserialize_task(data) if data else None
+
+
+def _load_pending_tasks_from_redis() -> list[dict[str, Any]]:
+    """扫描所有 mcp:schedule:* 任务记录(供 ai-service 启动时重新注册)。"""
+    client = _get_schedule_redis()
+    if client is None:
+        return []
+    tasks: list[dict[str, Any]] = []
+    try:
+        for key in client.scan_iter(_SCHEDULE_REDIS_PREFIX + "*"):
+            data = client.hgetall(key)
+            if data:
+                tasks.append(_deserialize_task(data))
+    except Exception as e:
+        logger.warning("[schedule_task] Redis 扫描失败: %s", e)
+    return tasks
+
+
+def _update_schedule_task_status(
+    task_id: str, status: str, **fields: Any
+) -> bool:
+    """局部更新任务状态字段,成功返回 True;Redis 不可用返回 False(调用方降级内存)。"""
+    client = _get_schedule_redis()
+    if client is None:
+        return False
+    mapping = {"status": status}
+    for k, v in fields.items():
+        mapping[k] = _serialize_task_field(k, v) if k in ("agent_tools", "interval_seconds") else (str(v) if v is not None else "")
+    try:
+        client.hset(_SCHEDULE_REDIS_PREFIX + task_id, mapping=mapping)
+        return True
+    except Exception as e:
+        logger.warning("[schedule_task] Redis 状态更新失败: %s", e)
+        return False
 
 
 async def _tool_fetch_url(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -1860,8 +2264,55 @@ async def _tool_fetch_url(arguments: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+# 图片落地约束(2026-07-24 save_path 升级)
+_MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5MB
+_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
+
+
+def _validate_image_save_path(save_path: str) -> tuple[bool, str, str | None]:
+    """校验 save_path:工作区白名单 + 后缀(.png/.jpg/.jpeg/.webp)。
+
+    Returns:
+        (ok, resolved_path, error_code)
+    """
+    if not save_path or not isinstance(save_path, str):
+        return False, "", "MISSING_PARAMS"
+    ext = os.path.splitext(save_path)[1].lower()
+    if ext not in _IMAGE_EXTENSIONS:
+        return False, "", "INVALID_EXTENSION"
+    ok, info = _validate_path_in_workspace(save_path)
+    if not ok:
+        return False, info, "PATH_NOT_ALLOWED"
+    return True, info, None
+
+
+async def _persist_image_to_disk(
+    image_bytes: bytes, save_path: str
+) -> tuple[bool, str, int, str | None]:
+    """将图片字节写入磁盘 save_path(覆盖已存在文件,父目录自动 mkdir)。
+
+    Returns:
+        (ok, saved_path, file_size_bytes, error_code)
+    """
+    if len(image_bytes) > _MAX_IMAGE_BYTES:
+        return False, "", 0, "IMAGE_TOO_LARGE"
+    try:
+        from pathlib import Path
+
+        path_obj = Path(save_path)
+        path_obj.parent.mkdir(parents=True, exist_ok=True)
+        with open(path_obj, "wb") as f:
+            f.write(image_bytes)
+        return True, str(path_obj), len(image_bytes), None
+    except OSError:
+        return False, "", 0, "WRITE_FAILED"
+
+
 async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
-    """image_generation: 生成图片(stepfun/agnes provider,对标 Codex gpt-image-1.5)。"""
+    """image_generation: 生成图片(stepfun/agnes provider,对标 Codex gpt-image-1.5)。
+
+    2026-07-24 升级:支持 save_path 参数落地文件系统(b64_json decode 或 URL 下载)。
+    """
     from datetime import datetime, timezone
 
     from ..core.config import settings
@@ -1871,17 +2322,19 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
     quality = arguments.get("quality", "standard")
     style = arguments.get("style", "natural")
     provider = arguments.get("provider", "stepfun")
+    save_path = arguments.get("save_path")
 
     if not prompt or not isinstance(prompt, str):
         return {
             "tool": "image_generation", "ok": False,
             "error": "缺少 prompt 参数", "errorCode": "MISSING_PARAMS",
+            "saved_path": None,
         }
     if provider not in ("stepfun", "agnes"):
         return {
             "tool": "image_generation", "ok": False,
             "error": f"未知 provider: {provider}(允许 stepfun/agnes)",
-            "errorCode": "INVALID_PROVIDER",
+            "errorCode": "INVALID_PROVIDER", "saved_path": None,
         }
 
     # 选 provider(优先用户指定;若未配置 api_key 则降级尝试另一个)
@@ -1891,7 +2344,6 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         api_key, api_base, model = settings.agnes_api_key, settings.agnes_api_base, "agnes-image-v1"
 
     if not api_key:
-        # 降级尝试另一 provider
         if provider == "stepfun" and settings.agnes_api_key:
             api_key, api_base, model = settings.agnes_api_key, settings.agnes_api_base, "agnes-image-v1"
             provider = "agnes"
@@ -1901,7 +2353,7 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         else:
             return {
                 "tool": "image_generation", "ok": False,
-                "errorCode": "PROVIDER_NOT_CONFIGURED",
+                "errorCode": "PROVIDER_NOT_CONFIGURED", "saved_path": None,
                 "message": "未配置图片生成 provider,请在 .env 设置 STEPFUN_API_KEY 或 AGNES_API_KEY",
             }
 
@@ -1911,6 +2363,7 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         return {
             "tool": "image_generation", "ok": False,
             "error": "httpx 未安装", "errorCode": "DEP_MISSING",
+            "saved_path": None,
         }
 
     endpoint = f"{api_base}/images/generations"
@@ -1924,7 +2377,7 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         if resp.status_code >= 400:
             return {
                 "tool": "image_generation", "ok": False, "prompt": prompt,
-                "provider": provider,
+                "provider": provider, "saved_path": None,
                 "error": f"provider 返回 {resp.status_code}: {resp.text[:200]}",
                 "errorCode": "PROVIDER_ERROR",
             }
@@ -1933,7 +2386,7 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         if not items:
             return {
                 "tool": "image_generation", "ok": False, "prompt": prompt,
-                "provider": provider,
+                "provider": provider, "saved_path": None,
                 "error": "provider 返回空 data", "errorCode": "EMPTY_RESULT",
             }
         item = items[0]
@@ -1944,23 +2397,80 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         if not image_url:
             return {
                 "tool": "image_generation", "ok": False, "prompt": prompt,
-                "provider": provider,
+                "provider": provider, "saved_path": None,
                 "error": "provider 响应缺少 url/b64_json", "errorCode": "EMPTY_RESULT",
             }
+
+        # save_path 落地:校验 → 取字节 → 写入磁盘
+        saved_path: str | None = None
+        file_size_bytes: int = 0
+        if save_path:
+            ok_path, resolved, err_code = _validate_image_save_path(save_path)
+            if not ok_path:
+                return {
+                    "tool": "image_generation", "ok": False, "prompt": prompt,
+                    "provider": provider, "saved_path": None,
+                    "errorCode": err_code,
+                    "message": f"save_path 校验失败: {err_code}",
+                }
+            img_bytes = await _fetch_image_bytes(item, image_url, httpx)
+            if img_bytes is None:
+                return {
+                    "tool": "image_generation", "ok": False, "prompt": prompt,
+                    "provider": provider, "saved_path": None,
+                    "errorCode": "IMAGE_FETCH_FAILED",
+                    "message": "无法获取图片字节(b64 解码 / URL 下载均失败)",
+                }
+            ok_w, sp, sz, werr = await _persist_image_to_disk(img_bytes, resolved)
+            if not ok_w:
+                return {
+                    "tool": "image_generation", "ok": False, "prompt": prompt,
+                    "provider": provider, "saved_path": None,
+                    "errorCode": werr,
+                    "message": f"图片写入磁盘失败: {werr}",
+                }
+            saved_path = sp
+            file_size_bytes = sz
+
         return {
             "tool": "image_generation", "ok": True, "prompt": prompt,
             "image_url": image_url, "size": size, "quality": quality, "style": style,
             "provider": provider, "model": model,
+            "saved_path": saved_path, "file_size_bytes": file_size_bytes,
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "message": f"图片已生成(provider={provider}, model={model})",
+            "message": f"图片已生成(provider={provider}, model={model}"
+                       + (f", saved={saved_path}" if saved_path else "") + ")",
         }
     except Exception as e:
         return {
             "tool": "image_generation", "ok": False, "prompt": prompt,
-            "provider": provider,
+            "provider": provider, "saved_path": None,
             "error": str(e)[:200], "errorCode": "GENERATION_FAILED",
             "message": f"图片生成失败: {type(e).__name__}",
         }
+
+
+async def _fetch_image_bytes(
+    item: dict, image_url: str, httpx_mod
+) -> bytes | None:
+    """从 provider 响应提取图片字节:优先 b64_json,降级 URL 下载。"""
+    b64 = item.get("b64_json")
+    if b64:
+        try:
+            import base64
+
+            return base64.b64decode(b64)
+        except Exception:
+            return None
+    if image_url and not image_url.startswith("data:"):
+        try:
+            async with httpx_mod.AsyncClient(timeout=60.0) as dl:
+                dl_resp = await dl.get(image_url)
+            if dl_resp.status_code < 400:
+                return dl_resp.content
+        except Exception:
+            return None
+    return None
 
 
 def _scan_pr_files_for_findings(
@@ -1983,11 +2493,11 @@ def _scan_pr_files_for_findings(
             "security", "high", "疑似硬编码凭证",
         ),
         (
-            r"for\s+[^:]+:\s*\n\s*for\s+[^:]+:",
+            r"for\s+[^:]+:\s*\n[+\-\s]*for\s+[^:]+:",
             "performance", "medium", "嵌套循环可能 O(n²)",
         ),
         (
-            r"for\s+\w+\s+in\s+.*:\s*\n\s*.*\.execute\s*\(",
+            r"for\s+\w+\s+in\s+.*:\s*\n[+\-\s]*.*\.execute\s*\(",
             "performance", "medium", "疑似 N+1 查询模式",
         ),
     ]
@@ -2020,23 +2530,131 @@ def _scan_pr_files_for_findings(
     return findings
 
 
+# PR diff 缓存(进程内,TTL 1h,2026-07-24 review_pr 升级)
+_PR_DIFF_CACHE: dict[str, tuple[str, float]] = {}
+_PR_DIFF_CACHE_TTL = 3600.0  # 1 hour
+
+
+def _get_cached_pr_diff(key: str) -> str | None:
+    """读 PR diff 缓存:命中且未过期返回 diff 文本,否则 None。"""
+    if key not in _PR_DIFF_CACHE:
+        return None
+    diff_text, ts = _PR_DIFF_CACHE[key]
+    if time.time() - ts > _PR_DIFF_CACHE_TTL:
+        del _PR_DIFF_CACHE[key]
+        return None
+    return diff_text
+
+
+def _set_cached_pr_diff(key: str, diff_text: str) -> None:
+    """写 PR diff 缓存(TTL 在读时检查)。"""
+    _PR_DIFF_CACHE[key] = (diff_text, time.time())
+
+
+def _parse_unified_diff(diff_text: str) -> list[dict]:
+    """解析 unified diff 文本为文件列表。
+
+    每项: {filename, patch(原始 diff 行), additions, deletions}
+    以 '+++ b/<path>' 行作为文件边界。
+    """
+    files: list[dict] = []
+    current: dict | None = None
+    for line in diff_text.splitlines():
+        m = re.match(r"^\+\+\+ b/(.+?)(?:\s|$)", line)
+        if m:
+            if current:
+                files.append(current)
+            current = {
+                "filename": m.group(1).strip(),
+                "patch": "",
+                "additions": 0,
+                "deletions": 0,
+            }
+            current["patch"] += line + "\n"
+            continue
+        if current is None:
+            continue
+        current["patch"] += line + "\n"
+        if line.startswith("+") and not line.startswith("+++"):
+            current["additions"] += 1
+        elif line.startswith("-") and not line.startswith("---"):
+            current["deletions"] += 1
+    if current:
+        files.append(current)
+    return files
+
+
+def _compute_diff_stats(files: list[dict]) -> dict[str, Any]:
+    """从解析后的文件列表计算 files_changed/added_lines/removed_lines/complexity/risk。"""
+    files_changed = len(files)
+    added = sum(f.get("additions", 0) for f in files)
+    removed = sum(f.get("deletions", 0) for f in files)
+    complexity = added + 2 * removed + 10 * files_changed
+    if complexity < 50:
+        risk = "low"
+    elif complexity < 300:
+        risk = "medium"
+    else:
+        risk = "high"
+    return {
+        "files_changed": files_changed,
+        "added_lines": added,
+        "removed_lines": removed,
+        "complexity_score": complexity,
+        "risk_assessment": risk,
+    }
+
+
+def _gh_error_for_status(status: int) -> str:
+    """GitHub API 状态码 → errorCode 映射(2026-07-24 spec)。"""
+    if status in (401, 403):
+        return "GITHUB_AUTH_FAILED"
+    if status in (404, 422):
+        return "PR_NOT_FOUND"
+    return "GITHUB_API_ERROR"
+
+
 async def _tool_review_pr(arguments: dict[str, Any]) -> dict[str, Any]:
-    """review_pr: GitHub PR 审查(正则模式匹配,零 LLM,对标 Codex GitHub PR Reviews)。"""
+    """review_pr: GitHub PR 审查(正则模式匹配,零 LLM,对标 Codex GitHub PR Reviews)。
+
+    2026-07-24 升级:
+    - 新增 diff 参数(字符串),与 repo+pr_number 互斥(优先 repo+pr_number)
+    - repo+pr_number 时调 GitHub API 获取真实 diff(Accept: application/vnd.github.v3.diff)
+    - Authorization: Bearer(GITHUB_TOKEN 可空,空则匿名限速 60/h)
+    - 新增 source / pr_url / files_changed / added_lines / removed_lines / complexity_score / risk_assessment
+    - 进程内 cache 1h(key=github:pr:{repo}:{pr_number}:diff)
+    """
     repo = arguments.get("repo", "")
     pr_number = arguments.get("pr_number")
+    diff_arg = arguments.get("diff", "")
     focus = arguments.get("focus", "all")
     max_files = int(arguments.get("max_files", 20))
 
-    if not repo or "/" not in repo:
+    if focus not in ("security", "performance", "readability", "all"):
         return {
             "tool": "review_pr", "ok": False,
-            "error": "缺少 repo 参数(owner/repo 格式)", "errorCode": "MISSING_PARAMS",
+            "error": f"无效 focus: {focus}", "errorCode": "INVALID_PARAMS",
         }
-    if pr_number is None:
+
+    use_github = bool(repo and "/" in repo and pr_number is not None)
+    if not use_github and not diff_arg:
         return {
             "tool": "review_pr", "ok": False,
-            "error": "缺少 pr_number 参数", "errorCode": "MISSING_PARAMS",
+            "error": "缺少 repo+pr_number 或 diff 参数", "errorCode": "MISSING_PARAMS",
         }
+
+    # 分支 1:diff 字符串(无 GitHub API 调用)
+    if not use_github:
+        files = _parse_unified_diff(diff_arg)[:max_files]
+        findings = _scan_pr_files_for_findings(files, focus)
+        stats = _compute_diff_stats(files)
+        return _build_review_result(
+            repo="", pr_number=None, source="diff_string", pr_url=None,
+            title="", author="", additions=0, deletions=0,
+            files_reviewed=len(files), findings=findings, stats=stats, focus=focus,
+        )
+
+    # 分支 2:GitHub API(repo + pr_number)
     try:
         pr_number = int(pr_number)
     except (TypeError, ValueError):
@@ -2049,11 +2667,6 @@ async def _tool_review_pr(arguments: dict[str, Any]) -> dict[str, Any]:
             "tool": "review_pr", "ok": False,
             "error": "pr_number 必须是正整数", "errorCode": "INVALID_PARAMS",
         }
-    if focus not in ("security", "performance", "readability", "all"):
-        return {
-            "tool": "review_pr", "ok": False,
-            "error": f"无效 focus: {focus}", "errorCode": "INVALID_PARAMS",
-        }
 
     try:
         import httpx
@@ -2063,67 +2676,111 @@ async def _tool_review_pr(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": "httpx 未安装", "errorCode": "DEP_MISSING",
         }
 
-    headers = {"Accept": "application/vnd.github+json"}
     gh_token = os.environ.get("GITHUB_TOKEN", "")
-    if gh_token:
-        headers["Authorization"] = f"token {gh_token}"
+    auth_hdr = f"Bearer {gh_token}" if gh_token else None
+    headers_json = {"Accept": "application/vnd.github+json"}
+    headers_diff = {"Accept": "application/vnd.github.v3.diff"}
+    if auth_hdr:
+        headers_json["Authorization"] = auth_hdr
+        headers_diff["Authorization"] = auth_hdr
 
+    cache_key = f"github:pr:{repo}:{pr_number}:diff"
+    cached_diff = _get_cached_pr_diff(cache_key)
     base = f"https://api.github.com/repos/{repo}/pulls/{pr_number}"
+
     try:
         async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
-            pr_resp = await client.get(base, headers=headers)
-            if pr_resp.status_code == 404:
-                return {
-                    "tool": "review_pr", "ok": False, "repo": repo,
-                    "pr_number": pr_number,
-                    "error": "PR 不存在或无权限访问", "errorCode": "NOT_FOUND",
-                }
+            # 1) JSON metadata(title/author/additions/deletions,向后兼容)
+            pr_resp = await client.get(base, headers=headers_json)
             if pr_resp.status_code >= 400:
                 return {
                     "tool": "review_pr", "ok": False, "repo": repo,
                     "pr_number": pr_number,
                     "error": f"GitHub API 返回 {pr_resp.status_code}",
-                    "errorCode": "API_ERROR",
+                    "errorCode": _gh_error_for_status(pr_resp.status_code),
                 }
             pr_data = pr_resp.json()
-            files_resp = await client.get(f"{base}/files", headers=headers)
+
+            # 2) Raw diff via Accept: application/vnd.github.v3.diff(新)
+            if cached_diff is None:
+                diff_resp = await client.get(base, headers=headers_diff)
+                if diff_resp.status_code >= 400:
+                    return {
+                        "tool": "review_pr", "ok": False, "repo": repo,
+                        "pr_number": pr_number,
+                        "error": f"GitHub API (diff) 返回 {diff_resp.status_code}",
+                        "errorCode": _gh_error_for_status(diff_resp.status_code),
+                    }
+                cached_diff = diff_resp.text
+                _set_cached_pr_diff(cache_key, cached_diff)
+
+            # 3) /files endpoint(向后兼容:findings 走 file list + patch)
+            files_resp = await client.get(f"{base}/files", headers=headers_json)
             files_data = files_resp.json() if files_resp.status_code < 400 else []
     except Exception as e:
         return {
             "tool": "review_pr", "ok": False, "repo": repo,
             "pr_number": pr_number,
-            "error": str(e)[:200], "errorCode": "REQUEST_FAILED",
+            "error": str(e)[:200], "errorCode": "GITHUB_API_ERROR",
             "message": f"PR 审查失败: {type(e).__name__}",
         }
 
     files_to_scan = files_data[:max_files] if isinstance(files_data, list) else []
     findings = _scan_pr_files_for_findings(files_to_scan, focus)
+    parsed_files = _parse_unified_diff(cached_diff)
+    stats = _compute_diff_stats(parsed_files)
 
+    return _build_review_result(
+        repo=repo, pr_number=pr_number, source="github_api",
+        pr_url=f"https://github.com/{repo}/pull/{pr_number}",
+        title=pr_data.get("title", ""),
+        author=(pr_data.get("user") or {}).get("login", ""),
+        additions=pr_data.get("additions", 0),
+        deletions=pr_data.get("deletions", 0),
+        files_reviewed=len(files_to_scan),
+        findings=findings, stats=stats, focus=focus,
+    )
+
+
+def _build_review_result(
+    repo: str, pr_number: int | None, source: str, pr_url: str | None,
+    title: str, author: str, additions: int, deletions: int,
+    files_reviewed: int, findings: list, stats: dict, focus: str,
+) -> dict[str, Any]:
+    """组装 review_pr 返回结构(避免主函数超 80 行)。"""
     high = sum(1 for f in findings if f["severity"] == "high")
     med = sum(1 for f in findings if f["severity"] == "medium")
     low = sum(1 for f in findings if f["severity"] == "low")
-
-    return {
+    result: dict[str, Any] = {
         "tool": "review_pr", "ok": True, "repo": repo,
         "pr_number": pr_number,
-        "title": pr_data.get("title", ""),
-        "author": (pr_data.get("user") or {}).get("login", ""),
-        "files_reviewed": len(files_to_scan),
-        "additions": pr_data.get("additions", 0),
-        "deletions": pr_data.get("deletions", 0),
+        "source": source,
+        "pr_url": pr_url,
+        "title": title,
+        "author": author,
+        "files_reviewed": files_reviewed,
+        "additions": additions,
+        "deletions": deletions,
+        "files_changed": stats["files_changed"],
+        "added_lines": stats["added_lines"],
+        "removed_lines": stats["removed_lines"],
+        "complexity_score": stats["complexity_score"],
+        "risk_assessment": stats["risk_assessment"],
         "findings": findings,
         "summary": (
-            f"审查 {len(files_to_scan)} 个文件,发现 {high} 个 high / "
+            f"审查 {files_reviewed} 个文件,发现 {high} 个 high / "
             f"{med} 个 medium / {low} 个 low 问题"
         ),
-        "message": f"PR 审查完成(focus={focus}, {len(findings)} 个 finding)",
+        "message": f"PR 审查完成(focus={focus}, {len(findings)} 个 finding, source={source})",
     }
+    return result
 
 
 async def _tool_summarize_artifacts(arguments: dict[str, Any]) -> dict[str, Any]:
     """summarize_artifacts: 聚合当前会话的 plans/sources/artifacts(对标 Codex Summary pane)。
 
-    纯本地缓存读取,不调外部 API(零算力)。进程重启即丢。
+    通过 artifacts_store 读取(Redis hash 持久化,进程重启不丢;Redis 不可用降级进程内)。
+    纯本地读取,不调外部 API(零算力)。
     """
     conversation_id = arguments.get("conversation_id", "")
     include = arguments.get("include") or ["plans", "sources", "artifacts", "tool_calls"]
@@ -2141,9 +2798,9 @@ async def _tool_summarize_artifacts(arguments: dict[str, Any]) -> dict[str, Any]
         result["message"] = "未提供 conversation_id,返回空 artifacts"
         return result
 
-    cached = _ARTIFACTS_CACHE.get(conversation_id)
+    cached = _load_artifacts(conversation_id)
     if not cached:
-        result["message"] = "无会话 artifacts 记录(可能为新会话或进程重启后丢失)"
+        result["message"] = "无会话 artifacts 记录(可能为新会话或 Redis 未命中)"
         return result
 
     def _clip(items: Any) -> Any:
@@ -2180,19 +2837,67 @@ def _parse_simple_cron(cron: str) -> str | None:
     return f"{h:02d}:{m:02d} daily (cron: {cron})"
 
 
+def _build_scheduler_params(
+    task: dict[str, Any],
+) -> tuple[str, dict[str, Any], dict[str, Any]]:
+    """将 schedule_task 任务字典映射为 task_scheduler 的 (trigger_type, trigger_config, callback)。
+
+    - once → date trigger(run_date=run_at)
+    - recurring + cron → cron trigger(解析 crontab 5 字段 → APScheduler kwargs)
+    - recurring + interval_seconds → interval trigger
+    callback:webhook_url 存在 → http_webhook,否则 mcp_tool(dispatch_subagent)。
+    """
+    schedule = task.get("schedule", "once")
+    webhook_url = task.get("webhook_url", "")
+    prompt = task.get("prompt", "")
+    task_id = task.get("task_id", "")
+
+    if schedule == "once":
+        trigger_type = "date"
+        trigger_config = {"run_date": task.get("run_at", "")}
+    elif task.get("cron"):
+        trigger_type = "cron"
+        parts = str(task.get("cron", "")).split()
+        if len(parts) != 5:
+            raise ValueError(f"cron 表达式必须是 5 字段: {task.get('cron')}")
+        trigger_config = {
+            "minute": parts[0], "hour": parts[1], "day": parts[2],
+            "month": parts[3], "day_of_week": parts[4],
+        }
+    else:
+        trigger_type = "interval"
+        trigger_config = {"seconds": int(task.get("interval_seconds") or 0)}
+
+    if webhook_url:
+        callback = {
+            "type": "http_webhook", "url": webhook_url,
+            "payload": {"prompt": prompt, "task_id": task_id},
+        }
+    else:
+        callback = {
+            "type": "mcp_tool", "tool_name": "dispatch_subagent",
+            "args": {"name": "feature-planner", "task": prompt},
+        }
+    return trigger_type, trigger_config, callback
+
+
 async def _tool_schedule_task(arguments: dict[str, Any]) -> dict[str, Any]:
     """schedule_task: 调度定时任务(对标 Codex Automations)。
 
-    仅记录到进程内 _SCHEDULED_TASKS,不启动后台 worker(超出范围)。
+    支持 cron / date / interval 三种 trigger,任务记录持久化到 Redis
+    (key: mcp:schedule:<task_id> 详细记录 + task_scheduler 内部 mcp:scheduled_task: 调度态),
+    由 task_scheduler(AsyncIOScheduler)后台执行 worker(派发 dispatch_subagent 或 POST webhook_url)。
     """
     import uuid
-    from datetime import datetime, timezone
+    from datetime import datetime, timezone, timedelta
 
     name = arguments.get("name", "")
     prompt = arguments.get("prompt", "")
     schedule = arguments.get("schedule", "once")
     run_at = arguments.get("run_at", "")
     cron = arguments.get("cron", "")
+    interval_seconds = arguments.get("interval_seconds")
+    webhook_url = arguments.get("webhook_url", "")
     agent_tools = (
         arguments.get("agent_tools")
         or ["search_codebase", "read_file", "web_search"]
@@ -2218,24 +2923,24 @@ async def _tool_schedule_task(arguments: dict[str, Any]) -> dict[str, Any]:
             "tool": "schedule_task", "ok": False,
             "error": "schedule=once 时 run_at 必填", "errorCode": "MISSING_PARAMS",
         }
-    if schedule == "recurring" and not cron:
+    if schedule == "recurring" and not cron and not interval_seconds:
         return {
             "tool": "schedule_task", "ok": False,
-            "error": "schedule=recurring 时 cron 必填", "errorCode": "MISSING_PARAMS",
+            "error": "schedule=recurring 时 cron 或 interval_seconds 至少一个必填",
+            "errorCode": "MISSING_PARAMS",
         }
 
     next_run_at = ""
     if schedule == "once":
         next_run_at = run_at
-    else:
-        # recurring:优先用 croniter 计算 next_run
+    elif cron:
+        # recurring + cron:优先用 croniter 计算 next_run
         try:
             from croniter import croniter  # type: ignore[import-not-found]
 
             cron_iter = croniter(cron, datetime.now(timezone.utc))
             next_run_at = cron_iter.get_next(datetime).isoformat()
         except ImportError:
-            # 降级:简单解析 "0 9 * * 1-5" 形式
             parsed = _parse_simple_cron(cron)
             if parsed is None:
                 return {
@@ -2244,21 +2949,52 @@ async def _tool_schedule_task(arguments: dict[str, Any]) -> dict[str, Any]:
                     "message": "croniter 未安装,无法解析复杂 cron 表达式",
                 }
             next_run_at = parsed
+    else:
+        # recurring + interval_seconds
+        try:
+            int(interval_seconds)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return {
+                "tool": "schedule_task", "ok": False,
+                "error": "interval_seconds 必须为正整数",
+                "errorCode": "INVALID_PARAMS",
+            }
+        next_run_at = (
+            datetime.now(timezone.utc) + timedelta(seconds=int(interval_seconds))
+        ).isoformat()
 
     task_id = uuid.uuid4().hex
     task = {
         "task_id": task_id, "name": name, "prompt": prompt,
         "schedule": schedule, "run_at": run_at, "cron": cron,
-        "agent_tools": agent_tools, "next_run_at": next_run_at,
-        "status": "scheduled",
+        "interval_seconds": interval_seconds, "agent_tools": agent_tools,
+        "next_run_at": next_run_at, "status": "scheduled",
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "webhook_url": webhook_url,
     }
     _SCHEDULED_TASKS.append(task)
+    # 持久化到 Redis(失败降级内存,不阻塞调度)
+    _persist_task_to_redis(task)
+    # 注册到后台调度器(task_scheduler 单例:AsyncIOScheduler + cron/date/interval + worker 回调)
+    # scheduler 未启动或 stub 模式时 add_task 内部降级,不抛异常
+    try:
+        from app.services.scheduler_service import task_scheduler
+
+        trigger_type, trigger_config, callback = _build_scheduler_params(task)
+        sched_result = await task_scheduler.add_task(
+            task_id, trigger_type, trigger_config, callback,
+            conversation_id=name,
+        )
+        if sched_result.get("next_run_at"):
+            task["next_run_at"] = sched_result["next_run_at"]
+            _persist_task_to_redis(task)
+    except Exception as e:
+        logger.warning("[schedule_task] 注册到 task_scheduler 失败(仅持久化): %s", e)
     return {
         "tool": "schedule_task", "ok": True, "task_id": task_id,
         "name": name, "schedule": schedule, "next_run_at": next_run_at,
         "status": "scheduled",
-        "message": "任务已调度,需 ai-service 后台 worker 启动才会自动执行",
+        "message": "任务已调度,后台 worker 将按计划自动执行",
     }
 
 
@@ -2376,14 +3112,34 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="file_edit",
+        description="精细编辑文件:精确替换 old_string 为 new_string,带 conflict 检测",
+        input_schema={
+            "type": "object",
+            "required": ["file_path", "old_string", "new_string"],
+            "properties": {
+                "file_path": {"type": "string", "description": "文件绝对路径,必须在工作区白名单内"},
+                "old_string": {"type": "string", "minLength": 1, "description": "要替换的字符串(不能为空)"},
+                "new_string": {"type": "string", "description": "替换后的字符串(可为空=删除)"},
+                "replace_all": {"type": "boolean", "default": False, "description": "true 替换所有匹配;false 必须唯一匹配,多个报 AMBIGUOUS_MATCH"},
+            },
+        },
+    ),
+    MCPTool(
         name="run_command",
-        description="运行 shell 命令(真实 subprocess,白名单: git/ls/cat/echo/python/node/npm/pnpm/ruff/mypy/pytest 等,禁止 rm/mv/cp/curl/重定向/管道)。支持 sandbox_backend 参数切换 local/docker/ssh 后端",
+        description="运行 shell 命令(asyncio.subprocess 流式读取 stdout/stderr,白名单: git/ls/cat/echo/python/node/npm/pnpm/ruff/mypy/pytest 等,禁止 rm/mv/cp/curl/重定向/管道)。支持 sandbox_backend 切换 local/docker/ssh,支持 env 透传(禁止覆盖 PATH/HOME),cwd 校验工作区,超时 kill 进程并返回 partial_output",
         input_schema={
             "type": "object",
             "properties": {
                 "command": {"type": "string", "description": "命令字符串(如 git status, python --version)"},
-                "cwd": {"type": "string", "description": "工作目录(默认当前目录)", "default": "."},
-                "timeout": {"type": "integer", "description": "超时秒数(默认 10,上限 60)", "default": 10},
+                "cwd": {"type": "string", "description": "工作目录(默认当前目录,非 . 时需在工作区白名单内)", "default": "."},
+                "timeout": {"type": "integer", "description": "超时秒数(默认 60,不超过 max_timeout)", "default": 60},
+                "max_timeout": {"type": "integer", "description": "超时上限(默认 600,timeout 不超过此值)", "default": 600},
+                "env": {
+                    "type": "object",
+                    "description": "环境变量 dict(透传到 subprocess,不允许覆盖 PATH/HOME/USERPROFILE)",
+                    "additionalProperties": {"type": "string"},
+                },
                 "sandbox_backend": {
                     "type": "string",
                     "enum": ["local", "docker", "ssh", "modal", "daytona", "singularity"],
@@ -2873,18 +3629,38 @@ _TOOLS: list[MCPTool] = [
             "properties": {
                 "name": {
                     "type": "string",
-                    "description": "要派发的子智能体名称(如 code-reviewer / bug-fixer / feature-planner)",
+                    "description": "单 agent 模式:要派发的子智能体名称(如 code-reviewer / bug-fixer)",
                 },
                 "task": {
                     "type": "string",
-                    "description": "交给子智能体执行的任务描述",
+                    "description": "单 agent 模式:交给子智能体执行的任务描述",
                 },
                 "session_id": {
                     "type": "string",
-                    "description": "会话 ID(可选,用于上下文复用)",
+                    "description": "会话 ID(可选,单 agent 模式用于上下文复用)",
+                },
+                "tasks": {
+                    "type": "array",
+                    "description": (
+                        "并行模式:任务数组,每项 {name, task, context?}。"
+                        "传 tasks 时不可同时传 name/task(互斥,DUAL_MODE)。"
+                    ),
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "task": {"type": "string"},
+                            "context": {"type": "object"},
+                        },
+                        "required": ["name", "task"],
+                    },
+                },
+                "max_concurrency": {
+                    "type": "integer",
+                    "description": "并行模式最大并发数(默认 5)",
+                    "default": 5,
                 },
             },
-            "required": ["name", "task"],
         },
     ),
     # ===== 扩展工具(2026-07-24 新增,对标 Trae Work + Codex)=====
@@ -2919,6 +3695,8 @@ _TOOLS: list[MCPTool] = [
         description=(
             "生成图片,返回图片 URL 或 base64 data URI。"
             "支持 stepfun(默认)/agnes provider,需在 .env 配置对应 API key。"
+            "2026-07-24 升级:支持 save_path 落地文件系统(b64_json 解码或 URL 下载),"
+            "校验后缀(.png/.jpg/.jpeg/.webp)+ 工作区白名单,5MB 上限。"
             "admin 专属工具(外部 API 调用 + 计费)。"
         ),
         input_schema={
@@ -2945,6 +3723,10 @@ _TOOLS: list[MCPTool] = [
                     "enum": ["stepfun", "agnes"],
                     "default": "stepfun",
                 },
+                "save_path": {
+                    "type": "string",
+                    "description": "可选,绝对路径,落地图片到文件系统(需工作区白名单内,后缀 .png/.jpg/.jpeg/.webp,5MB 上限)",
+                },
             },
             "required": ["prompt"],
         },
@@ -2954,13 +3736,20 @@ _TOOLS: list[MCPTool] = [
         description=(
             "审查 GitHub PR,返回结构化审查报告。"
             "用正则模式匹配(security/performance/readability),零 LLM 调用。"
+            "2026-07-24 升级:支持 diff 字符串参数(与 repo+pr_number 互斥);"
+            "repo+pr_number 时调 GitHub API(Accept: application/vnd.github.v3.diff)获取真实 diff,"
+            "Bearer 鉴权(GITHUB_TOKEN 可空),进程内 cache 1h。"
             "admin 专属工具(可能暴露源代码)。"
         ),
         input_schema={
             "type": "object",
             "properties": {
-                "repo": {"type": "string", "description": "owner/repo 格式(必填)"},
-                "pr_number": {"type": "integer", "description": "PR 编号(正整数,必填)"},
+                "repo": {"type": "string", "description": "owner/repo 格式(与 diff 二选一,优先 repo+pr_number)"},
+                "pr_number": {"type": "integer", "description": "PR 编号(正整数,与 diff 二选一)"},
+                "diff": {
+                    "type": "string",
+                    "description": "可选,直接传入 unified diff 字符串(无 GitHub API 调用,source=diff_string)",
+                },
                 "focus": {
                     "type": "string",
                     "enum": ["security", "performance", "readability", "all"],
@@ -2972,7 +3761,7 @@ _TOOLS: list[MCPTool] = [
                     "default": 20,
                 },
             },
-            "required": ["repo", "pr_number"],
+            "required": [],
         },
     ),
     MCPTool(
@@ -3057,6 +3846,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "search_codebase": _tool_search_codebase,
     "read_file": _tool_read_file,
     "write_file": _tool_write_file,
+    "file_edit": _tool_file_edit,
     "run_command": _tool_run_command,
     "web_search": _tool_web_search,
     "search_web": _tool_search_web,
