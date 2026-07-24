@@ -36,7 +36,7 @@ export function AgentCreateForm({
   onSubmit,
   onCancel,
 }: Props) {
-  const t = useTranslations('agents')
+  const t = useTranslations('agent')
   const tc = useTranslations('common')
 
   return (
