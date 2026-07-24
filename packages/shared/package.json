@@ -87,6 +87,14 @@
       "types": "./src/utils/*.ts",
       "import": "./src/utils/*.ts"
     },
+    "./hooks": {
+      "types": "./src/hooks/index.ts",
+      "import": "./src/hooks/index.ts"
+    },
+    "./hooks/*": {
+      "types": "./src/hooks/*.ts",
+      "import": "./src/hooks/*.ts"
+    },
     "./validation": {
       "types": "./src/validation/index.ts",
       "import": "./src/validation/index.ts"
