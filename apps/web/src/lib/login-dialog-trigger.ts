@@ -47,7 +47,7 @@ export const PUBLIC_PATHS = new Set<string>([
 export function isPublicPath(path: string): boolean {
   if (!path) return true
   // 取 path 部分(去掉 query/hash),因为白名单只匹配 path
-  const pathOnly = path.split('?')[0].split('#')[0]
+  const pathOnly = path.split('?')[0]?.split('#')[0] ?? ''
   return PUBLIC_PATHS.has(pathOnly)
 }
 
