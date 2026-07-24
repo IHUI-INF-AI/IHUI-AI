@@ -31,6 +31,7 @@ import {
   isAlipayConfigured,
   buildSignedUrl,
   appPayOrder,
+  tradeCreate,
   verifyNotify,
   queryOrder as aliQueryOrder,
   refundOrder as aliRefundOrder,
@@ -668,6 +669,43 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         return reply.send(success({ outTradeNo: order.orderNo, mock: true }))
       const orderStr = appPayOrder({ outTradeNo: order.orderNo, amount: amountYuan, subject })
       return reply.send(success({ outTradeNo: order.orderNo, orderStr }))
+    },
+  )
+
+  server.post(
+    '/payments/alipay/miniapp/create',
+    {
+      schema: buildSchema({
+        summary: '支付宝小程序支付下单',
+        description: '创建支付宝小程序支付订单,返回 tradeNO 给前端调起支付(金额单位:元)',
+        tags: ['Payment'],
+      }),
+    },
+    async (request, reply) => {
+      await authenticate(request)
+      const { amount: amountYuan, orderType, subject, productId } = alipayCreateQuery.parse(request.query)
+      const userId = request.userId!
+      const amountCents = Math.round(amountYuan * 100)
+      if (!amountCents || amountCents <= 0)
+        return reply.status(400).send(error(400, '金额必须为正'))
+      if (amountCents > MAX_PAYMENT_AMOUNT_CENTS)
+        return reply.status(400).send(error(400, '金额超过上限'))
+      const order = await placeOrder({
+        userId,
+        amount: amountCents,
+        orderType,
+        payType: 'alipay_miniapp',
+        productId,
+      })
+      if (!isAlipayConfigured())
+        return reply.send(success({ outTradeNo: order.orderNo, mock: true }))
+      try {
+        const { tradeNo } = await tradeCreate({ outTradeNo: order.orderNo, amount: amountYuan, subject })
+        return reply.send(success({ outTradeNo: order.orderNo, tradeNo }))
+      } catch (err) {
+        request.log.error({ err, orderNo: order.orderNo }, 'alipay miniapp tradeCreate failed')
+        return reply.status(400).send(error(400, `支付宝小程序支付下单失败: ${(err as Error).message}`))
+      }
     },
   )
 
