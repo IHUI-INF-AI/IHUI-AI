@@ -4,7 +4,6 @@ import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { getLiveHistory, type Live } from '@/api'
 import { useI18n } from '@/i18n'
-import './history.css'
 
 interface HistoryItem extends Live {
   watchDuration?: number
@@ -112,12 +111,12 @@ export default function LiveHistory() {
   }
 
   return (
-    <View className="hist-page">
-      <View className="hist-tabs">
+    <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
+      <View className="flex gap-[16rpx] mb-[24rpx]">
         {FILTER_TABS.map((tab) => (
           <Text
             key={tab.key}
-            className={`hist-tab${filter === tab.key ? ' hist-tab-active' : ''}`}
+            className={`flex-1 text-center h-[64rpx] leading-[64rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[10rpx]${filter === tab.key ? ' text-primary border-primary font-semibold' : ''}`}
             onClick={() => setFilter(tab.key)}
           >
             {tt(tab.i18nKey, tab.fb)}
@@ -126,34 +125,34 @@ export default function LiveHistory() {
       </View>
 
       {displayList.length > 0 && (
-        <View className="hist-list">
+        <View className="flex flex-col gap-[16rpx]">
           {displayList.map((item) => {
             const progress = item.progress ?? 0
             const completed = progress >= 100
             return (
-              <View key={item.id} className="hist-card" onClick={() => goDetail(item.id)}>
-                <Image className="hist-card-cover" src={item.coverUrl} mode="aspectFill" />
-                <View className="hist-card-body">
-                  <Text className="hist-card-title">{item.title}</Text>
+              <View key={item.id} className="flex p-[20rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx]" onClick={() => goDetail(item.id)}>
+                <Image className="w-[200rpx] h-[130rpx] flex-shrink-0 bg-muted rounded-[8rpx]" src={item.coverUrl} mode="aspectFill" />
+                <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col justify-between">
+                  <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
                   {item.anchor && (
-                    <Text className="hist-card-meta">
+                    <Text className="text-[24rpx] text-muted-foreground">
                       {tt('live.history.anchorLabel', '主播')}: {item.anchor}
                     </Text>
                   )}
-                  <View className="hist-progress">
+                  <View className="h-[6rpx] bg-muted rounded-[3rpx] mt-[8rpx] overflow-hidden">
                     <View
-                      className="hist-progress-bar"
+                      className="h-full bg-primary rounded-[3rpx]"
                       style={`width: ${Math.min(progress, 100)}%`}
                     />
                   </View>
-                  <View className="hist-card-bottom">
-                    <Text className="hist-progress-text">
+                  <View className="flex items-center justify-between mt-[8rpx]">
+                    <Text className="text-[22rpx] text-muted-foreground">
                       {item.watchDuration
                         ? `${tt('live.history.watchDuration', '观看')} ${formatDuration(item.watchDuration)}`
                         : item.watchTime || item.startTime || ''}
                     </Text>
                     <Text
-                      className="hist-action-btn"
+                      className="py-[8rpx] px-[20rpx] text-[24rpx] text-primary bg-[rgba(0,242,255,0.1)] border-[2rpx] border-[rgba(0,242,255,0.3)] rounded-[8rpx]"
                       onClick={(e) => {
                         e.stopPropagation()
                         goDetail(item.id)
@@ -172,19 +171,19 @@ export default function LiveHistory() {
       )}
 
       {!loading && displayList.length === 0 && (
-        <View className="hist-empty">
+        <View className="block text-center text-[26rpx] text-muted-foreground py-[80rpx]">
           <Text>{tt('live.history.empty', '暂无历史直播')}</Text>
         </View>
       )}
 
       {loading && (
-        <View className="hist-loading">
+        <View className="block text-center text-[26rpx] text-muted-foreground py-[80rpx]">
           <Text>{tt('live.history.loading', '加载中…')}</Text>
         </View>
       )}
 
       {!loading && !hasMore && displayList.length > 0 && (
-        <View className="hist-no-more">
+        <View className="block text-center text-[26rpx] text-muted-foreground py-[80rpx]">
           <Text>{tt('common.noMore', '没有更多了')}</Text>
         </View>
       )}

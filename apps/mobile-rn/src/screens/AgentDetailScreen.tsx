@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { Card, Loading } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -21,8 +22,6 @@ interface AgentDetail {
 
 type Route = RouteProp<RootStackParamList, 'AgentDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-const PRIMARY = '#10B981'
 
 export function AgentDetailScreen() {
   const { t } = useI18n()
@@ -47,54 +46,35 @@ export function AgentDetailScreen() {
     return () => { cancelled = true }
   }, [id, t])
 
-  if (loading) return <View style={styles.center}><ActivityIndicator /><Text style={styles.muted}>{t('common.loading')}</Text></View>
+  if (loading) return <View className="flex-1 items-center justify-center bg-card p-4"><Loading /><Text className="mt-2 text-[13px] text-muted-foreground">{t('common.loading')}</Text></View>
   if (error || !agent) return (
-    <View style={styles.center}>
-      <Text style={styles.error}>{error || t('agentDetail.loadFailed')}</Text>
-      <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}><Text style={styles.btnText}>{t('common.back')}</Text></TouchableOpacity>
+    <View className="flex-1 items-center justify-center bg-card p-4">
+      <Text className="mb-2 text-center text-[13px] text-destructive">{error || t('agentDetail.loadFailed')}</Text>
+      <TouchableOpacity className="rounded-lg bg-primary px-4 py-2" onPress={() => navigation.goBack()}><Text className="text-sm text-primary-foreground">{t('common.back')}</Text></TouchableOpacity>
     </View>
   )
   return (
-    <ScrollView style={styles.container}>
-      <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.back}>{t('common.back')}</Text></TouchableOpacity>
-      <View style={styles.header}>
-        <Text style={styles.title}>{agent.name}</Text>
-        <Text style={styles.category}>{agent.category}</Text>
+    <ScrollView className="flex-1 bg-card px-4 pt-12">
+      <TouchableOpacity onPress={() => navigation.goBack()}><Text className="text-sm text-muted-foreground">{t('common.back')}</Text></TouchableOpacity>
+      <View className="mb-3 mt-2">
+        <Text className="text-[22px] font-semibold text-foreground">{agent.name}</Text>
+        <Text className="mt-1 text-xs text-primary">{agent.category}</Text>
       </View>
-      <View style={styles.card}>
-        <Text style={styles.label}>{t('agentDetail.description')}</Text>
-        <Text style={styles.value}>{agent.description || '—'}</Text>
-        <Text style={styles.label}>{t('agentDetail.creator')}</Text>
-        <Text style={styles.value}>{agent.creator}</Text>
-        <Text style={styles.label}>{t('agentDetail.uses')}</Text>
-        <Text style={styles.value}>{agent.uses}</Text>
-        <Text style={styles.label}>{t('agentDetail.rating')}</Text>
-        <Text style={styles.value}>★ {agent.rating.toFixed(1)}</Text>
-        <Text style={styles.label}>{t('agentDetail.price')}</Text>
-        <Text style={styles.price}>{agent.isFree ? t('agentDetail.free') : `¥${agent.price.toFixed(2)}`}</Text>
-      </View>
-      <TouchableOpacity style={styles.cta} onPress={() => navigation.navigate('AgentChat', { agentId: agent.id, name: agent.name })}>
-        <Text style={styles.ctaText}>{t('agentDetail.startChat')}</Text>
+      <Card>
+        <Text className="mt-2 text-[11px] text-muted-foreground">{t('agentDetail.description')}</Text>
+        <Text className="mt-0.5 text-sm text-foreground">{agent.description || '—'}</Text>
+        <Text className="mt-2 text-[11px] text-muted-foreground">{t('agentDetail.creator')}</Text>
+        <Text className="mt-0.5 text-sm text-foreground">{agent.creator}</Text>
+        <Text className="mt-2 text-[11px] text-muted-foreground">{t('agentDetail.uses')}</Text>
+        <Text className="mt-0.5 text-sm text-foreground">{agent.uses}</Text>
+        <Text className="mt-2 text-[11px] text-muted-foreground">{t('agentDetail.rating')}</Text>
+        <Text className="mt-0.5 text-sm text-foreground">★ {agent.rating.toFixed(1)}</Text>
+        <Text className="mt-2 text-[11px] text-muted-foreground">{t('agentDetail.price')}</Text>
+        <Text className="mt-0.5 text-lg font-semibold text-primary">{agent.isFree ? t('agentDetail.free') : `¥${agent.price.toFixed(2)}`}</Text>
+      </Card>
+      <TouchableOpacity className="mt-4 items-center rounded-lg bg-primary py-3" onPress={() => navigation.navigate('AgentChat', { agentId: agent.id, name: agent.name })}>
+        <Text className="text-[15px] font-semibold text-primary-foreground">{t('agentDetail.startChat')}</Text>
       </TouchableOpacity>
     </ScrollView>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 48 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', padding: 16 },
-  muted: { marginTop: 8, fontSize: 13, color: '#6b7280' },
-  error: { fontSize: 13, color: '#dc2626', marginBottom: 8, textAlign: 'center' },
-  back: { fontSize: 14, color: '#6b7280' },
-  header: { marginTop: 8, marginBottom: 12 },
-  title: { fontSize: 22, fontWeight: '600', color: '#111827' },
-  category: { marginTop: 4, fontSize: 12, color: PRIMARY },
-  card: { padding: 16, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb' },
-  label: { marginTop: 8, fontSize: 11, color: '#9ca3af' },
-  value: { marginTop: 2, fontSize: 14, color: '#111827' },
-  price: { marginTop: 2, fontSize: 18, fontWeight: '600', color: PRIMARY },
-  cta: { marginTop: 16, paddingVertical: 12, borderRadius: 8, backgroundColor: PRIMARY, alignItems: 'center' },
-  ctaText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  btn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  btnText: { color: '#fff', fontSize: 14 },
-})

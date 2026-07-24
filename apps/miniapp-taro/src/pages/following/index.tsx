@@ -4,7 +4,6 @@ import { useState, useMemo, useCallback } from 'react'
 import { getFollowing, unfollowUser, type FollowingItem } from '@/api/social'
 import { useSocialList } from '@/hooks/use-social-list'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 const PAGE_SIZE = 20
 const defaultAvatar = '/static/default-avatar.png'
@@ -87,18 +86,18 @@ export default function FollowingPage() {
   usePullDownRefresh(() => load(true).finally(() => Taro.stopPullDownRefresh()))
 
   return (
-    <View className="following-page">
+    <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
       {/* 顶部:关注统计 + 搜索 */}
-      <View className="following-top">
-        <View className="following-stats">
-          <Text className="following-stats-label">{tt('following.total', '已关注')}</Text>
-          <Text className="following-stats-num">{totalCount}</Text>
-          <Text className="following-stats-suffix">{tt('following.people', '人')}</Text>
+      <View className="flex flex-col gap-[16rpx]">
+        <View className="flex items-baseline">
+          <Text className="text-[28rpx] text-muted-foreground">{tt('following.total', '已关注')}</Text>
+          <Text className="mx-[8rpx] text-[40rpx] font-bold text-primary">{totalCount}</Text>
+          <Text className="text-[24rpx] text-muted-foreground">{tt('following.people', '人')}</Text>
         </View>
-        <View className="following-search">
-          <Text className="following-search-icon">🔍</Text>
+        <View className="flex items-center h-[72rpx] px-[20rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.15)] rounded-[12rpx]">
+          <Text className="mr-[12rpx] text-[28rpx] text-muted-foreground shrink-0">🔍</Text>
           <Input
-            className="following-search-input"
+            className="flex-1 text-[28rpx] text-foreground"
             value={searchText}
             onInput={(e) => setSearchText(e.detail.value)}
             placeholder={tt('following.searchPlaceholder', '搜索关注的用户')}
@@ -107,15 +106,15 @@ export default function FollowingPage() {
       </View>
 
       {/* 排序 tab:关注时间 / 最近活跃 */}
-      <View className="following-sort">
+      <View className="flex gap-[16rpx] mt-[20rpx]">
         <View
-          className={`following-sort-btn ${activeTab === 'followedAt' ? 'following-sort-btn-active' : ''}`}
+          className={`flex-1 flex items-center justify-center h-[64rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[10rpx] ${activeTab === 'followedAt' ? 'text-primary border-primary font-semibold' : ''}`}
           onClick={() => setActiveTab('followedAt')}
         >
           <Text>{tt('following.sortByFollowed', '关注时间')}</Text>
         </View>
         <View
-          className={`following-sort-btn ${activeTab === 'recent' ? 'following-sort-btn-active' : ''}`}
+          className={`flex-1 flex items-center justify-center h-[64rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[10rpx] ${activeTab === 'recent' ? 'text-primary border-primary font-semibold' : ''}`}
           onClick={() => setActiveTab('recent')}
         >
           <Text>{tt('following.sortByRecent', '最近活跃')}</Text>
@@ -124,39 +123,39 @@ export default function FollowingPage() {
 
       {/* 关注列表 */}
       {displayList.length > 0 ? (
-        <View className="following-list">
+        <View className="mt-[24rpx] flex flex-col gap-[16rpx]">
           {displayList.map((item) => {
             const name = item.nickname || item.username
             const initial = (name || '?').charAt(0)
             return (
-              <View key={item.id} className="following-card">
+              <View key={item.id} className="flex p-[24rpx] bg-card border-[2rpx] border-[rgba(0,242,255,0.1)] rounded-[12rpx]">
                 {item.avatar ? (
                   <Image
-                    className="following-avatar"
+                    className="w-[96rpx] h-[96rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0"
                     src={item.avatar || defaultAvatar}
                     mode="aspectFill"
                   />
                 ) : (
-                  <View className="following-avatar following-avatar-fallback">
-                    <Text className="following-avatar-text">{initial}</Text>
+                  <View className="w-[96rpx] h-[96rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0 flex items-center justify-center">
+                    <Text className="text-[32rpx] font-semibold text-primary">{initial}</Text>
                   </View>
                 )}
-                <View className="following-main">
-                  <View className="following-row">
-                    <Text className="following-nickname">{name}</Text>
-                    <View className="following-status">
-                      <Text className="following-status-text">
+                <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
+                  <View className="flex items-center justify-between">
+                    <Text className="text-[30rpx] font-semibold text-foreground truncate">{name}</Text>
+                    <View className="py-[4rpx] px-[12rpx] bg-[rgba(0,242,255,0.08)] border-[2rpx] border-[rgba(0,242,255,0.2)] rounded-[6rpx]">
+                      <Text className="text-[20rpx] text-primary">
                         {tt('following.following', '已关注')}
                       </Text>
                     </View>
                   </View>
-                  {item.bio ? <Text className="following-bio">{item.bio}</Text> : null}
-                  <View className="following-meta">
-                    <Text className="following-time">
+                  {item.bio ? <Text className="text-[24rpx] text-muted-foreground truncate">{item.bio}</Text> : null}
+                  <View className="flex items-center justify-between">
+                    <Text className="text-[22rpx] text-muted-foreground">
                       {tt('following.followedAt', '关注于')} {formatDate(item.followedAt) || '-'}
                     </Text>
                     <Text
-                      className="following-unfollow-btn"
+                      className="py-[8rpx] px-[20rpx] text-[24rpx] text-destructive bg-[rgba(220,38,38,0.08)] border-[2rpx] border-[rgba(220,38,38,0.2)] rounded-[8rpx]"
                       onClick={() => handleUnfollow(item)}
                     >
                       {tt('following.delete', '取消关注')}
@@ -171,15 +170,15 @@ export default function FollowingPage() {
 
       {/* 空状态:暂无关注 + 去发现更多 */}
       {displayList.length === 0 && !loading ? (
-        <View className="following-empty">
-          <Text className="following-empty-icon">💬</Text>
-          <Text className="following-empty-text">
+        <View className="mt-[120rpx] flex flex-col items-center">
+          <Text className="text-[80rpx]">💬</Text>
+          <Text className="mt-[20rpx] text-[28rpx] text-muted-foreground">
             {searchText
               ? tt('following.searchEmpty', '未找到匹配用户')
               : tt('following.empty', '暂无关注')}
           </Text>
-          <View className="following-empty-btn" onClick={goDiscover}>
-            <Text className="following-empty-btn-text">
+          <View className="mt-[24rpx] py-[16rpx] px-[40rpx] bg-primary rounded-[10rpx]" onClick={goDiscover}>
+            <Text className="text-foreground text-[26rpx]">
               {tt('following.goDiscover', '去发现更多')}
             </Text>
           </View>
@@ -188,19 +187,19 @@ export default function FollowingPage() {
 
       {/* 加载状态 */}
       {loading && displayList.length === 0 ? (
-        <View className="following-loading">
-          <Text className="following-loading-text">
+        <View className="text-center py-[40rpx] text-[24rpx] text-muted-foreground">
+          <Text>
             {tt('common.loading', '加载中…')}
           </Text>
         </View>
       ) : null}
       {loading && displayList.length > 0 ? (
-        <View className="following-loading-more">
+        <View className="text-center py-[40rpx] text-[24rpx] text-muted-foreground">
           <Text>{tt('following.loadMore', '加载更多')}</Text>
         </View>
       ) : null}
       {!loading && !hasMore && displayList.length > 0 ? (
-        <View className="following-no-more">
+        <View className="text-center py-[40rpx] text-[24rpx] text-muted-foreground">
           <Text>{tt('following.noMore', '没有更多了')}</Text>
         </View>
       ) : null}

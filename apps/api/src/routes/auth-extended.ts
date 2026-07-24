@@ -589,10 +589,6 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(info))
   })
 
-  server.get('/auth/google/config', async (_request, reply) => {
-    return reply.send(success({ configured: isGoogleConfigured() }))
-  })
-
   // 支付宝登录（auth_code → access_token + user_id）
   // 与 Google /auth/google/pc/wxCode 风格一致,前端 GET /auth/alipay/pc/wxCode?code=xxx
   server.get('/auth/alipay/pc/wxCode', async (request, reply) => {
