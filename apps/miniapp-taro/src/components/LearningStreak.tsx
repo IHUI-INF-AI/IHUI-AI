@@ -1,4 +1,5 @@
 import { View, Text } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface StreakDay {
   date: string
@@ -21,14 +22,16 @@ export default function LearningStreak({
   signedToday,
   onSign,
 }: LearningStreakProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   return (
     <View className="bg-card rounded-xl px-4 py-4">
       <View className="flex items-center justify-between mb-3">
         <View className="flex items-center">
-          <Text className="text-base font-semibold text-foreground">学习连签</Text>
+          <Text className="text-base font-semibold text-foreground">{tt('streak.title', '学习连签')}</Text>
           <Text className="ml-2 text-xs text-[#f59e0b]">🔥 连续 {streakDays} 天</Text>
         </View>
-        <Text className="text-xs text-muted-foreground">累计 {totalSigned} 天</Text>
+        <Text className="text-xs text-muted-foreground">{t('streak.totalDays', { n: totalSigned })}</Text>
       </View>
 
       <View className="flex justify-between mb-4">
@@ -61,7 +64,7 @@ export default function LearningStreak({
         }`}
         onClick={() => !signedToday && onSign?.()}
       >
-        {signedToday ? '今日已签到' : '立即签到 +5 积分'}
+        {signedToday ? tt('streak.signedToday', '今日已签到') : tt('streak.signNow', '立即签到 +5 积分')}
       </View>
     </View>
   )
