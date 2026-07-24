@@ -164,6 +164,14 @@ function main() {
   const ok = []
 
   for (const pkg of packages) {
+    const srcExports = extractSourceExports(pkg.srcIndex)
+
+    // 跳过 wildcard (export * from) - 无法静态校验,且可能无 dist(源码直接消费)
+    if (srcExports.has('__wildcard__')) {
+      ok.push(`${pkg.name} (skip: wildcard re-export)`)
+      continue
+    }
+
     // dist/index.js 不存在 = 完全陈旧
     if (!existsSync(pkg.distIndex)) {
       stale.push({
@@ -174,14 +182,7 @@ function main() {
       continue
     }
 
-    const srcExports = extractSourceExports(pkg.srcIndex)
     const distExports = extractDistExports(pkg.distIndex)
-
-    // 跳过 wildcard (export * from) - 无法静态校验
-    if (srcExports.has('__wildcard__')) {
-      ok.push(`${pkg.name} (skip: wildcard re-export)`)
-      continue
-    }
 
     // 找源码有但 dist 没有的 export
     const missing = [...srcExports].filter((n) => !distExports.has(n) && n !== '__wildcard__')
