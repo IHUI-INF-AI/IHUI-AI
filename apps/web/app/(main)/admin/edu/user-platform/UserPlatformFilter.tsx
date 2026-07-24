@@ -9,7 +9,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { selectClass } from '@/lib/edu'
 import { cn } from '@/lib/utils'
 import type { SearchQ } from './types'

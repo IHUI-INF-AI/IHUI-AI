@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/date-utils'

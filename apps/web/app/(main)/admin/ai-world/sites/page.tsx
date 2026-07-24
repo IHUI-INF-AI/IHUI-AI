@@ -7,7 +7,7 @@ import Link from 'next/link'
 import { Globe, Loader2, ExternalLink, Info } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 
 interface AiCategory {

@@ -7,7 +7,7 @@ import { useLocale } from 'next-intl'
 import { Loader2, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Button } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 

@@ -2,7 +2,7 @@
 
 import { Loader2, Crown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { th, PERM } from './helpers'
 import type { AuthUserVip } from './types'

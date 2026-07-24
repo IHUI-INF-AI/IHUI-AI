@@ -6,7 +6,7 @@ import { Camera, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Avatar } from '@/components/data/Avatar'
 import { Modal, Drawer, ConfirmDialog } from '@/components/feedback'
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { api } from './helpers'
 import type { AdminUser, DeptItem } from './types'
 

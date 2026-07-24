@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Brain } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { createMemory } from '@/lib/memory-api'
 import type { MemoryCreateInput } from '@/lib/memory-api'
 import { MemoryForm } from '@/components/memory/MemoryForm'

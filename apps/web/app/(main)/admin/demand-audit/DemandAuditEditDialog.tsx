@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { EDIT_FIELDS, textareaClass } from './helpers'
 
 interface DemandAuditEditDialogProps {

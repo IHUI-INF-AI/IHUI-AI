@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Search, Newspaper } from 'lucide-react'
-import { Input } from '@ihui/ui'
+import { Input } from '@ihui/ui-react'
 
 import { ArticlesList } from './ArticlesList'
 import { ArticlesSidebar } from './ArticlesSidebar'

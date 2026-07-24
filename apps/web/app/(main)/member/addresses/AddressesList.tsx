@@ -1,7 +1,7 @@
 'use client'
 
 import { MapPin, Pencil, Trash2, Check } from 'lucide-react'
-import { Card, CardContent, Button } from '@ihui/ui'
+import { Card, CardContent, Button } from '@ihui/ui-react'
 import type { Address } from './types'
 
 interface Props {

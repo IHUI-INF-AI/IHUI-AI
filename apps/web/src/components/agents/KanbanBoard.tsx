@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2, Plus, AlertCircle, RefreshCw, Wifi, WifiOff } from 'lucide-react'
-import { Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn } from '@ihui/ui'
+import { Button, Input, Label, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn } from '@ihui/ui-react'
 import {
   Dialog,
   DialogTrigger,
@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { CenteredText } from '@/components/common/CenteredText'
 import { useToast } from '@/hooks/use-toast'
 import { useAgentSSE } from '@/hooks/useAgentSSE'

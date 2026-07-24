@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Loader2, ChevronRight, ChevronDown, MessageSquare } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent, Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 
 export interface SessionMessage {

@@ -1,7 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import { Plus, UsersRound } from 'lucide-react'
 
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 interface GroupItem {
   id: number

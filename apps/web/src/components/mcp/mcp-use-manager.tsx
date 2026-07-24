@@ -19,7 +19,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { Bell, X, CheckCheck } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 export interface NoticeItem {
   id: string

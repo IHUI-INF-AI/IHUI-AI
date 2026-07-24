@@ -10,7 +10,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 
 interface Props {

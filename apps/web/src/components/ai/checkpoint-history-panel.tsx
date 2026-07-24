@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { History, ChevronDown, RotateCcw } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface Checkpoint {

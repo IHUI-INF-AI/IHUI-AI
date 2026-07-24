@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data/Avatar'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { STATUS_CLASS } from './helpers'
 import type { Agent, Category } from './types'

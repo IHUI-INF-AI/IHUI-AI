@@ -7,7 +7,7 @@ import { z } from 'zod'
 import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 
-import { Button, Input, Label } from '@ihui/ui'
+import { Button, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { PasswordInput, PasswordStrengthIndicator } from '@/components/login'
 import { emailSchema } from '@/components/login/login-schemas'

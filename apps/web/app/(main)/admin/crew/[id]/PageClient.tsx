@@ -14,7 +14,7 @@ import {
   StopCircle,
   Terminal,
 } from 'lucide-react'
-import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui'
+import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import {
   getCrewSession,

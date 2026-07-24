@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { Plus, Trash2, Download, ChevronLeft } from 'lucide-react'
-import { Button, Input } from '@ihui/ui'
+import { Button, Input } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { PERM } from './helpers'
 import { useTranslations } from 'next-intl'

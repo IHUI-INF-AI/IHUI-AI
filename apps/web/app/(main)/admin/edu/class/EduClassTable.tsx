@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Loader2, Users, Edit, Trash2 } from 'lucide-react'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { STATUS_CLASS } from './helpers'

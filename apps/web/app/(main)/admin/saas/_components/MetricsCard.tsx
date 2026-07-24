@@ -13,7 +13,7 @@ import {
   Info,
   Network,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 import { Skeleton } from '@/components/common'
 import { useCustomerMetricsQuery } from '@/hooks/use-saas-tenants'

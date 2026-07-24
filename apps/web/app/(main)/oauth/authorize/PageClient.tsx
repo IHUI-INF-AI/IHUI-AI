@@ -8,7 +8,7 @@ import { Loader2, ShieldCheck, ShieldAlert, Check } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
-import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui-react'
 
 interface ScopeInfo {
   scope: string

@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, ClipboardList } from 'lucide-react'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { statusBadgeClass, statusDotClass } from './helpers'
 import { STATUS_OPTIONS } from './types'

@@ -7,7 +7,7 @@ import { Loader2, ArrowLeft, Calendar, Users, Check, X, Sparkles } from 'lucide-
 import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 type Status = 'upcoming' | 'active' | 'ended'

@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { DatePicker } from '@/components/form/DatePicker'
 import type { AgentTask, AgentTaskForm } from './types'
 

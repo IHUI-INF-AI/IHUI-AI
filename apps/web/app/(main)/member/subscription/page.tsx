@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { CreditCard, Loader2, CheckCircle, XCircle } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, Button } from '@ihui/ui'
+import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 

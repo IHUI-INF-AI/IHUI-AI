@@ -2,7 +2,7 @@
 
 import { FileText, Trash2, Loader2, Upload } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 import { STATUS_STYLE, statusKey } from './helpers'

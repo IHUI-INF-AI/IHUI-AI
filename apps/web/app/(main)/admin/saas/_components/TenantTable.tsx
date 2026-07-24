@@ -11,7 +11,7 @@ import {
   Play,
   Trash2,
 } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 
 import { StateBadge } from './StateBadge'

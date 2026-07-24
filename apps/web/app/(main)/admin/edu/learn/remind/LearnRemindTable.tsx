@@ -3,7 +3,7 @@
 import { Loader2, Edit, Trash2, Bell } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
+import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import type { Remind } from './types'
 

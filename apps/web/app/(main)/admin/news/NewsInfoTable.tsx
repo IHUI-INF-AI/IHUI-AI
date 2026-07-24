@@ -23,7 +23,7 @@ import {
   TableCell,
   Button,
   Input,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'
 

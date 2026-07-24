@@ -8,7 +8,7 @@ import { Plus, Download, Shield } from 'lucide-react'
 
 import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { AuthRoleFilter } from './AuthRoleFilter'
 import { AuthRoleTable } from './AuthRoleTable'

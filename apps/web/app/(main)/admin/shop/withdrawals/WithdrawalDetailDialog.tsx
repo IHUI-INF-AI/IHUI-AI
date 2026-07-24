@@ -16,7 +16,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import { selectClass, inputSm, CHANNEL_LABEL, STATUS_LABEL, type WithdrawalItem } from './types'
 import type { useWithdrawalDetail } from './useWithdrawalDetail'

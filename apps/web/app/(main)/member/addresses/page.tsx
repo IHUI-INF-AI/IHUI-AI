@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { MapPin, Loader2, Plus } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { AddressForm } from './AddressForm'
 import { AddressesList } from './AddressesList'

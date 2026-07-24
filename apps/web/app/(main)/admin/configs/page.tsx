@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Settings, Plus } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { ConfigFilter } from './ConfigFilter'
 import { ConfigTable } from './ConfigTable'
 import { ConfigDialog } from './ConfigDialog'

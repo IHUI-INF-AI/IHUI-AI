@@ -1,6 +1,6 @@
 'use client'
 
-import { Checkbox } from '@ihui/ui'
+import { Checkbox } from '@ihui/ui-react'
 import { API_KEY_PERMISSIONS, type ApiKeyPermission } from '@ihui/types'
 import { cn } from '@/lib/utils'
 

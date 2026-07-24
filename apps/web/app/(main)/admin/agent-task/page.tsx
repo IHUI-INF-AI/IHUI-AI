@@ -8,7 +8,7 @@ import { Plus, Download, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { AgentTaskFilter } from './AgentTaskFilter'
 import { AgentTaskTable } from './AgentTaskTable'

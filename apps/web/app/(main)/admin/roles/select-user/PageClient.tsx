@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Loader2, UserPlus, X, ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 
 import { SelectUserFilter } from './SelectUserFilter'

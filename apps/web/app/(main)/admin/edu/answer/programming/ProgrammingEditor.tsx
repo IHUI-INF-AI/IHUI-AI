@@ -2,7 +2,7 @@
 import { Loader2, Play, Send, CheckCircle2, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { textareaClass } from '@/lib/edu'
-import { Button, Label, Card, CardContent } from '@ihui/ui'
+import { Button, Label, Card, CardContent } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import type { Question } from './types'
 

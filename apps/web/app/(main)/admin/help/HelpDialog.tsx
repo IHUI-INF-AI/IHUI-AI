@@ -18,7 +18,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { selectClass, HELP_CATEGORIES } from './helpers'
 import { slugify } from '@/lib/content'
 import { useZodForm } from '@/hooks/use-zod-form'

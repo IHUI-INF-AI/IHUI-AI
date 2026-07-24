@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Brain, Loader2, Trash2, AlertCircle, Save, Pencil, X } from 'lucide-react'
-import { Button, Input } from '@ihui/ui'
+import { Button, Input } from '@ihui/ui-react'
 import {
   fetchMemory,
   deleteMemory,

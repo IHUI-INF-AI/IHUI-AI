@@ -12,7 +12,7 @@ import {
   FileText,
   Activity,
 } from 'lucide-react'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { loadSpec, diffSpec } from '@/lib/spec-api'
 import type { SpecDiff } from '@ihui/shared/spec/index'
 import { SpecMarkdown } from '@/components/spec/SpecMarkdown'

@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { RotateApiKeyResponse } from '@ihui/types'
 import type { ApiKey, WebhookConfig, SdkItem } from './types'
 

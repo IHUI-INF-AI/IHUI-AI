@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { AttachmentsUpload } from '@/components/form/AttachmentsUpload'
 import type { Note, NoteForm } from './types'
 

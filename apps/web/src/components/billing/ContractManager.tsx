@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, Ban } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { Badge } from '@/components/data'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import {

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Play, Square, Pause, Copy, Trash2 } from 'lucide-react'
-import { Card, CardContent, cn } from '@ihui/ui'
+import { Card, CardContent, cn } from '@ihui/ui-react'
 
 export type AgentStatus = 'running' | 'paused' | 'stopped' | 'error'
 

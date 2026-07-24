@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { Loader2, Pencil, Trash2 } from 'lucide-react'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { Tooltip } from '@/components/feedback'

@@ -5,7 +5,7 @@ import { Loader2, ChevronRight, ChevronDown, Edit, Trash2, Plus } from 'lucide-r
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { th } from './helpers'
 import { DictTag } from '@/components/DictTag'

@@ -13,7 +13,7 @@ import {
   DialogDescription,
   DialogFooter,
   Button,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { STATUS_BADGE, stepName } from './helpers'
 import type { WorkflowItem } from './types'
 

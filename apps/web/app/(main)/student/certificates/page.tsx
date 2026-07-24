@@ -7,7 +7,7 @@ import { Award, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 
 interface Certificate {
   id: string

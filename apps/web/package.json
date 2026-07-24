@@ -34,7 +34,7 @@
     "@ihui/auth": "workspace:*",
     "@ihui/shared": "workspace:*",
     "@ihui/types": "workspace:*",
-    "@ihui/ui": "workspace:*",
+    "@ihui/ui-react": "workspace:*",
     "@lobehub/icons": "^5.14.0",
     "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-dialog": "^1.1.4",

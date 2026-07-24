@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { ImageUpload } from '@/components/form/ImageUpload'
 import { TEXT_FIELDS, textareaClass } from './helpers'
 import type { AiGcItem } from './types'

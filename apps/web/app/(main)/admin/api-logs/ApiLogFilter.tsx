@@ -2,7 +2,7 @@
 
 import { Filter } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Input, Label, Card, CardContent } from '@ihui/ui'
+import { Button, Input, Label, Card, CardContent } from '@ihui/ui-react'
 
 import { selectClass } from './helpers'
 

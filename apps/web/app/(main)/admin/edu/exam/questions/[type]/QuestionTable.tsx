@@ -2,7 +2,7 @@
 
 import { Loader2, Edit, Trash2, ListChecks } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import type { Question } from './types'
 
 interface Props {

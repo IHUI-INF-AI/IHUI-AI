@@ -11,7 +11,7 @@ import {
   Button,
   Input,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { ImageUpload } from '@/components/form/ImageUpload'
 import type { ZhsAgent, ZhsAgentForm } from './types'
 

@@ -26,7 +26,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 
-import { Input } from '@ihui/ui'
+import { Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 // 眼睛(显示密码):开放的眼睛轮廓

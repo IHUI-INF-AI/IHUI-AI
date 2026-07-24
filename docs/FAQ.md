@@ -178,7 +178,7 @@ pnpm dev   # 同时启动 web(3000)+ api(3001)+ ai-service(8000)
 
 1. `apps/<new-end>/` 创建应用
 2. `pnpm-workspace.yaml` 加路径
-3. 复用 `@ihui/api-client` / `@ihui/types` / `@ihui/ui`
+3. 复用 `@ihui/api-client` / `@ihui/types` / `@ihui/ui-react`
 4. 根 AGENTS.md §9 多端同步规则
 
 ### Q29:如何加新 SDK?

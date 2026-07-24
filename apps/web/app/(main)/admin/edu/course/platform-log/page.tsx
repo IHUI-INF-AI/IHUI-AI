@@ -8,7 +8,7 @@ import { Plus, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { exportFromApi } from '@/lib/export-utils'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { PlatformLogFilter } from './PlatformLogFilter'
 import { PlatformLogTable } from './PlatformLogTable'

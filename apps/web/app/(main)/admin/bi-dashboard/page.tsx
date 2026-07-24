@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { TrendingUp, ShoppingCart, Users, Activity } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import type { EChartsOption } from 'echarts'
 import { fetchApi } from '@/lib/api'
 import { EChart } from '@/components/charts/EChart'

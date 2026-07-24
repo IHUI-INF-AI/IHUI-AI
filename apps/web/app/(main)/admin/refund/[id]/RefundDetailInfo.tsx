@@ -3,7 +3,7 @@
 import { Check, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { REFUND_STATUS_CFG } from '../helpers'
 import type { EduRefund, EduOrder, AuditRecord } from '../types'

@@ -14,7 +14,7 @@ import {
   Input,
   Label,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { DatePicker } from '@/components/form/DatePicker'
 import type { ExamineForm } from './types'
 

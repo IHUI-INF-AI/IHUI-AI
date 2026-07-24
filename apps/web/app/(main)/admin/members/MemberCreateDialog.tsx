@@ -19,7 +19,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { type MemberForm, type MemberLevel, EMPTY_FORM, selectClass, api } from './types'
 
 export function MemberCreateDialog({

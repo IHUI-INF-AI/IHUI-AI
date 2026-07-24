@@ -15,7 +15,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { McpManager } from '@/components/mcp/mcp-manager'
 import { McpQuickCall } from '@/components/mcp/mcp-quick-call'

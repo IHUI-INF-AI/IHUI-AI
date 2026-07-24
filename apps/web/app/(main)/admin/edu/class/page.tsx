@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { isNotFound } from '@/lib/api-error'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 
 import { EduClassFilter } from './EduClassFilter'
 import { EduClassTable } from './EduClassTable'

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Gift, Loader2 } from 'lucide-react'
 
-import { Card, CardContent, Button } from '@ihui/ui'
+import { Card, CardContent, Button } from '@ihui/ui-react'
 
 import { api } from './helpers'
 

@@ -3,7 +3,7 @@ import { useTranslations } from 'next-intl'
 import { Check, Zap, Building2 } from 'lucide-react'
 import type { ComponentType } from 'react'
 
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface Plan {

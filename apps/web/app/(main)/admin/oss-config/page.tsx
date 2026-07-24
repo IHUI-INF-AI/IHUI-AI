@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Cloud, Plus, Edit, Trash2, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { fetchApi } from '@/lib/api'
-import { Button, Input, Card, CardContent } from '@ihui/ui'
+import { Button, Input, Card, CardContent } from '@ihui/ui-react'
 import type { OssConfig, OssConfigForm, OssConfigListData, OssConfigStatus } from './types'
 
 const EMPTY: OssConfigForm = { name: '', provider: 'aliyun', endpoint: '', bucket: '', region: '', accessKey: '', secretKey: '', isDefault: false, description: '' }

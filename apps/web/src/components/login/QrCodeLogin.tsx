@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { RefreshCw } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { WechatQrPanel } from './qr/WechatQrPanel'
 import { WecomQrPanel } from './qr/WecomQrPanel'
 import { DingtalkQrPanel } from './qr/DingtalkQrPanel'

@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2, ChevronDown, ChevronUp, Hash } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface DocSummary {

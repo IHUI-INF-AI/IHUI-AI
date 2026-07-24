@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Package, ChevronLeft, ChevronRight, Plus, Trash2, Save, X } from 'lucide-react'
-import { Button, Input } from '@ihui/ui'
+import { Button, Input } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import type { ResourceProduct, ResourceProductListData, ResourceProductForm } from './types'
 

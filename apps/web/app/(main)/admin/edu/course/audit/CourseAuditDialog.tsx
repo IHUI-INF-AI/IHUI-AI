@@ -11,7 +11,7 @@ import {
   DialogFooter,
   Button,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { COURSE_FIELDS, VIDEO_FIELDS } from './helpers'
 import type { CompareData } from './types'
 

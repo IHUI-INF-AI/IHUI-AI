@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Plus, Download } from 'lucide-react'
-import { Input, Button } from '@ihui/ui'
+import { Input, Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { PERM } from './helpers'
 import type { OrganizationSearch } from './types'

@@ -435,7 +435,7 @@ uvicorn app.main:app --reload --port 8000 --log-level debug
 | `@ihui/database` | `packages/database` | Drizzle schema + RLS + 迁移 |
 | `@ihui/auth` | `packages/auth` | JWT + OAuth2 + WS 认证 + 黑名单 |
 | `@ihui/types` | `packages/types` | 共享 TypeScript 类型 |
-| `@ihui/ui` | `packages/ui` | shadcn/ui 组件库 |
+| `@ihui/ui-react` | `packages/ui` | shadcn/ui 组件库 |
 | `@ihui/api-client` | `packages/sdk` | API SDK(多语言:TS/Go/Java/Python/.NET) |
 | `@ihui/config` | `packages/config` | 环境变量校验 |
 | `@ihui/eslint-config` | `packages/eslint-config` | 共享 ESLint 配置 |

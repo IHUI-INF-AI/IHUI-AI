@@ -12,7 +12,7 @@ import {
   SelectValue,
   Card,
   CardContent,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { selectClass } from '@/lib/edu'
 import type { Paper, Question } from './types'
 

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent, CardFooter, Button } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, CardFooter, Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/date-utils'
 import type { PlanDocument } from '@ihui/shared/plan/index'

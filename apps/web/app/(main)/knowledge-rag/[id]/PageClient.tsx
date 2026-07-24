@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2, ListTree, Search, Calendar, FileText, ChevronRight, Hash } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 interface DocDetail {
   id: number

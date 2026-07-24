@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import { PlayCircle, Eye, ArrowLeft, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Avatar } from '@/components/data/Avatar'
 
 interface Lecturer {

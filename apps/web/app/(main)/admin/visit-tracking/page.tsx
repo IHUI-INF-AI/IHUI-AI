@@ -19,7 +19,7 @@ import {
   TableRow,
   TableHead,
   TableCell,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { TruncatedText } from '@/components/common'
 
 interface VisitStats {

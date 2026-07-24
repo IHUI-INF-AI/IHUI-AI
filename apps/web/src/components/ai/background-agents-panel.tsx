@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Cpu, RefreshCw, X, Loader2, CheckCircle2, XCircle, MinusCircle } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
 import { formatTimeOnly } from '@/lib/date-utils'

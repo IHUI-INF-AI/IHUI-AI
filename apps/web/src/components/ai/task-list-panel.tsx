@@ -2,7 +2,7 @@
 
 import { User } from 'lucide-react'
 
-import { Checkbox } from '@ihui/ui'
+import { Checkbox } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface TaskItem {

@@ -14,7 +14,7 @@ import {
   Plug,
 } from 'lucide-react'
 
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 
 export default function OauthPlatformPage() {
   const t = useTranslations('oauthPlatform')

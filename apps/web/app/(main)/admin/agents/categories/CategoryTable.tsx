@@ -13,7 +13,7 @@ import {
   TableCell,
   Button,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import type { Category } from './types'
 

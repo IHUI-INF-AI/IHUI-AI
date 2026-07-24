@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { ArrowLeft, Loader2, Settings } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, Input, Label } from '@ihui/ui'
+import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 
 interface ChatSettings {

@@ -13,7 +13,7 @@ import {
   Input,
   Label,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { ImageUpload } from '@/components/form/ImageUpload'
 import type { Advertise, AdvertiseForm } from './types'
 

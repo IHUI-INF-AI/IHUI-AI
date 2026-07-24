@@ -1,7 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import { BookOpen, Code2, Key } from 'lucide-react'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 const CURL_EXAMPLE = `curl https://api.ihui.ai/v1/chat/completions \\
   -H "Content-Type: application/json" \\

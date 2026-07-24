@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 
-import { cn } from '@ihui/ui'
+import { cn } from '@ihui/ui-react'
 
 interface OtpInputProps {
   length?: number

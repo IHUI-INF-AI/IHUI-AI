@@ -7,7 +7,7 @@ import { Plus, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { UserAgentAudioFilter } from './UserAgentAudioFilter'
 import { UserAgentAudioTable } from './UserAgentAudioTable'

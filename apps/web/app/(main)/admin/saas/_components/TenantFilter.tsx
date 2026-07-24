@@ -4,7 +4,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Search } from 'lucide-react'
-import { Input } from '@ihui/ui'
+import { Input } from '@ihui/ui-react'
 
 import { selectClass } from '../helpers'
 

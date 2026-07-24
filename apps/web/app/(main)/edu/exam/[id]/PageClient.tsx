@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl'
 import { ArrowLeft, Clock, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 

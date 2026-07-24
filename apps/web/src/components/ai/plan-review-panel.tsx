@@ -2,7 +2,7 @@
 
 import { ClipboardList, Check, Pencil, X } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 interface PlanStep {
   id: string

@@ -415,7 +415,7 @@
 
 ---
 
-## §4 组件映射表(旧 Element UI/uni-app → @ihui/ui + shadcn)
+## §4 组件映射表(旧 Element UI/uni-app → @ihui/ui-react + shadcn)
 
 ### 4.1 Element UI → 新项目
 

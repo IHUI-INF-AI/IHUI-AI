@@ -21,7 +21,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, Input, Button } from '@ihui/ui'
+import { Card, CardContent, Input, Button } from '@ihui/ui-react'
 import { FeatureCenterHeader, FeatureCenterNav } from '@/components/feature-center'
 
 interface DocItem {

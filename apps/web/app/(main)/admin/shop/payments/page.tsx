@@ -19,7 +19,7 @@ import {
   TableHead,
   TableRow,
   TableCell,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/date-utils'
 

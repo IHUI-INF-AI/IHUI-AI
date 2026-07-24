@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Mail, MapPin, MessageCircle, Phone } from 'lucide-react'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@ihui/ui'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@ihui/ui-react'
 
 /**
  * ContactDialog — 联系我们弹窗

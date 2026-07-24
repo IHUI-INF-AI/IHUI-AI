@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Newspaper, Calendar, Sparkles, ArrowRight } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { getFormatters } from '@/lib/date-utils'
 
 export function Hero() {

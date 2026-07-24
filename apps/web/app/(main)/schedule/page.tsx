@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle, Input, Button } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle, Input, Button } from '@ihui/ui-react'
 import { formatDate } from '@/lib/date-utils'
 
 interface ScheduleTask {

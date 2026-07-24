@@ -1,6 +1,6 @@
 'use client'
 
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { selectClass, STATUS_LABEL } from './helpers'
 
 interface Props {

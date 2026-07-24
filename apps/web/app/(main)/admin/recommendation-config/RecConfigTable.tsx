@@ -2,7 +2,7 @@
 
 import { Loader2, Edit, Power } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { CONTENT_TYPE_LABEL, CONTENT_TYPE_STYLE, th } from './helpers'
 import type { RecommendSlot } from './types'

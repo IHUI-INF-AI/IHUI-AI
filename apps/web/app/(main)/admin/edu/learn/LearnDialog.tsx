@@ -18,7 +18,7 @@ import {
   SelectItem,
   SelectValue,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { selectClass } from '@/lib/edu'
 import { ImageUpload } from '@/components/form/ImageUpload'
 import dynamic from 'next/dynamic'

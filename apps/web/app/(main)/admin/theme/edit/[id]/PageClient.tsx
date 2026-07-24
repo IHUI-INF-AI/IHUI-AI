@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { Save, Trash2, Copy, Loader2 } from 'lucide-react'
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback/Alert'
 import { fetchApi } from '@/lib/api'
 

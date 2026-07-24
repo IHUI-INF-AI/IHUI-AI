@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Loader2, Search } from 'lucide-react'
-import { Input } from '@ihui/ui'
+import { Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { ContextType, Mention } from '@ihui/shared/context/index'
 

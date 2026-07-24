@@ -7,7 +7,7 @@ import { ArrowLeft, Loader2, GitCompare } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 interface CompareEntry {
   key: string

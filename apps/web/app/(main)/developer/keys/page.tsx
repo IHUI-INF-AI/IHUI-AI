@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Key, Plus } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { KeysList } from './KeysList'
 import { KeyDialog } from './KeyDialog'

@@ -16,7 +16,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { LEVEL_MAP } from './helpers'
 import type { Student, SForm } from './types'

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react'
-import { Input } from '@ihui/ui'
+import { Input } from '@ihui/ui-react'
 
 /**
  * Input 组件 stories — 等价自旧架构 client/src/stories/Input.stories.ts

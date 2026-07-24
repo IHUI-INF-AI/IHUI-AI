@@ -8,7 +8,7 @@ import { UserPlus, UserMinus, Loader2, AlertCircle, MessageCircle } from 'lucide
 
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { Avatar } from '@/components/data'
 
 interface PublicUser {

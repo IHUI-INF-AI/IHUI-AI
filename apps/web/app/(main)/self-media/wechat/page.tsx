@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, FileText, CheckCircle2, Send, History, Upload, Wand2, Copy, Check, Download } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '@ihui/ui-react'
 
 interface HistoryPayload {
   title?: string

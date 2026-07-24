@@ -11,7 +11,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { PERM } from './helpers'
 import { useTranslations } from 'next-intl'
 

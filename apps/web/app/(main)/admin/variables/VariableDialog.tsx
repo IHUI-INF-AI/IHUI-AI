@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogClose,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { inputCls, DATA_TYPES } from './helpers'
 import type { VariableForm } from './types'
 
