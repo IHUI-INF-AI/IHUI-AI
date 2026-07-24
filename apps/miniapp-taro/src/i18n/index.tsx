@@ -1,10 +1,11 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import Taro from '@tarojs/taro'
-import zhCN from './zh-CN'
-import en from './en'
-import ja from './ja'
-import ko from './ko'
-import zhTW from './zh-TW'
+// 2026-07-25 i18n 单一来源:翻译文件迁移到 @ihui/i18n/messages/miniapp-taro/
+import zhCN from '@ihui/i18n/messages/miniapp-taro/zh-CN.json'
+import en from '@ihui/i18n/messages/miniapp-taro/en.json'
+import ja from '@ihui/i18n/messages/miniapp-taro/ja.json'
+import ko from '@ihui/i18n/messages/miniapp-taro/ko.json'
+import zhTW from '@ihui/i18n/messages/miniapp-taro/zh-TW.json'
 
 export type Locale = 'zh-CN' | 'en' | 'ja' | 'ko' | 'zh-TW'
 
