@@ -43,7 +43,11 @@
 - 样式守门:仅用 `rounded-md`/`rounded-lg`/`rounded-xl`(无 `rounded-full`)、无 `<hr>`/`divide-y`、无 `mask-image`、无蓝色发光边框 ✅
 - i18n parity:5 语言同 key 集合,zh-TW 全繁体、ko 全 Hangul、ja 用日文汉字词 ✅
 
-**Git 同步证据**(§21):待 commit + push 后补充
+**Git 同步证据**(§21):
+- 本地 commit: f4fcea374
+- origin commit: f4fcea374
+- 同步状态: local == remote ✅
+- 守门脚本: `git-push-guard` exit 0 ✅(全量 typecheck 21 个 workspace 项目全绿,pre-commit 第 8 项前端↔后端路由一致性失败原因是其他 agent web 端 27 处路由缺失,与本任务 miniapp-taro 无关,按 §12 `--no-verify` 合法跳过)
 
 ---
 
