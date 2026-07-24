@@ -6,7 +6,14 @@ import { z } from 'zod'
 import { db } from '../../db/index.js'
 import { success, error } from '../../utils/response.js'
 import { encryptJSON, decryptJSON, isEncryptedPayload } from '../../utils/crypto.js'
-import { roles, withdrawalFlows, productIdentities, statisticsSnapshots, aiModelConfig, systemConfigs } from '@ihui/database'
+import {
+  roles,
+  withdrawalFlows,
+  productIdentities,
+  statisticsSnapshots,
+  aiModelConfig,
+  systemConfigs,
+} from '@ihui/database'
 import { eq, ilike, desc, sql } from 'drizzle-orm'
 import { paginationSchema, idParamSchema, registerCrud, fields } from './_shared.js'
 
@@ -14,7 +21,7 @@ import { requireAdmin } from '../../plugins/require-permission.js'
 import { aiServiceFetch } from '../../utils/ai-service-fetch.js'
 const statsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
-// ===========================================================================
+  // ===========================================================================
   // 7. 商城模块 — 路由已迁移至 admin-shop-routes.ts
   // ===========================================================================
   // /shop/funds/accounts, /shop/products, PATCH /shop/products/:id/status — 已迁移至 admin-shop-routes.ts
@@ -383,6 +390,60 @@ const statsRoutes: FastifyPluginAsync = async (server) => {
       request.log.error(e)
       return reply.status(500).send(error(500, '更新系统配置失败'))
     }
+  })
+
+  // ===========================================================================
+  // 10. 统计聚合端点 — dashboard / revenue / users(空数据桩,后续接真实聚合)
+  // ===========================================================================
+  server.get('/stats/dashboard', async (_request, reply) => {
+    return reply.send(
+      success({
+        overview: { pv: 0, uv: 0, orders: 0, revenue: 0 },
+        trend: [],
+        metrics: [],
+      }),
+    )
+  })
+
+  server.get('/stats/revenue', async (_request, reply) => {
+    return reply.send(
+      success({
+        overview: {
+          totalRevenue: 0,
+          monthRevenue: 0,
+          todayRevenue: 0,
+          totalOrders: 0,
+          paidOrders: 0,
+          refundAmount: 0,
+          refundCount: 0,
+          netRevenue: 0,
+          arpu: 0,
+        },
+        trend: [],
+        byChannel: [],
+        byProduct: [],
+      }),
+    )
+  })
+
+  server.get('/stats/users', async (_request, reply) => {
+    return reply.send(
+      success({
+        overview: {
+          totalUsers: 0,
+          todayNew: 0,
+          weekNew: 0,
+          monthNew: 0,
+          dau: 0,
+          mau: 0,
+          retention7d: 0,
+          retention30d: 0,
+        },
+        growth: [],
+        byRole: [],
+        byRegion: [],
+      }),
+    )
   })
 }
 
