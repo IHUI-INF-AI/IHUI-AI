@@ -7,7 +7,7 @@ import {
   type Agent,
   type AgentPermission,
 } from '@ihui/api-client'
-import { Card, CardContent, CardHeader, CardTitle, VipBadge } from '@ihui/ui-react'
+import { Button, Card, CardContent, CardHeader, CardTitle, VipBadge } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import AgentRuntimePanel from '../components/AgentRuntimePanel'
 
@@ -15,10 +15,6 @@ const AVATAR_CLASS =
   'inline-flex items-center justify-center w-7 h-7 rounded-md bg-muted text-card text-xs font-semibold shrink-0 overflow-hidden'
 const ROW_CLASS = 'flex items-center gap-2'
 const DESC_CLASS = 'm-0 text-xs text-muted leading-normal'
-const TAB_BTN_BASE =
-  'bg-transparent border-0 border-b-2 rounded-none px-3 py-1.5 text-xs cursor-pointer'
-const TAB_BTN_INACTIVE = `${TAB_BTN_BASE} border-transparent text-muted`
-const TAB_BTN_ACTIVE = `${TAB_BTN_BASE} border-accent text-accent font-semibold`
 
 function Avatar({ agent }: { agent: Agent }) {
   if (agent.avatar) {
@@ -62,18 +58,30 @@ function AgentList() {
     }
   }, [t])
 
-  if (loading) return <div className="empty-state">{t('common.loading')}</div>
-  if (error) return <div className="error-banner">{error}</div>
+  if (loading)
+    return (
+      <div className="text-center text-muted-foreground py-8 px-4 text-sm">
+        {t('common.loading')}
+      </div>
+    )
+  if (error)
+    return (
+      <div className="bg-destructive/10 text-destructive px-2.5 py-2 rounded-md border border-destructive my-2 text-xs">
+        {error}
+      </div>
+    )
 
   return (
-    <div className="sp-page">
-      <div className="sp-page-header">
-        <h3>{t('nav.agents')}</h3>
+    <div className="p-3 flex flex-col gap-2.5">
+      <div className="flex items-center justify-between pb-2 border-b border-border">
+        <h3 className="m-0 text-sm font-semibold">{t('nav.agents')}</h3>
       </div>
       {agents.length === 0 ? (
-        <div className="empty-state">{t('common.empty')}</div>
+        <div className="text-center text-muted-foreground py-8 px-4 text-sm">
+          {t('common.empty')}
+        </div>
       ) : (
-        <div className="sp-course-list">
+        <div className="flex flex-col gap-2.5">
           {agents.map((a) => (
             <Card
               key={a.id}
@@ -97,11 +105,11 @@ function AgentList() {
               </CardHeader>
               <CardContent>
                 <p className={DESC_CLASS}>{a.description || '—'}</p>
-                <div className="sp-course-meta">
+                <div className="flex justify-between text-xs text-muted-foreground">
                   <span>
                     {t('agent.useCount')} {a.useCount}
                   </span>
-                  <span className="sp-course-price">★ {a.rating.toFixed(1)}</span>
+                  <span className="text-primary font-semibold">★ {a.rating.toFixed(1)}</span>
                 </div>
               </CardContent>
             </Card>
@@ -143,8 +151,18 @@ function AgentDetail({ id }: { id: string }) {
     }
   }, [id, t])
 
-  if (loading) return <div className="empty-state">{t('common.loading')}</div>
-  if (error) return <div className="error-banner">{error}</div>
+  if (loading)
+    return (
+      <div className="text-center text-muted-foreground py-8 px-4 text-sm">
+        {t('common.loading')}
+      </div>
+    )
+  if (error)
+    return (
+      <div className="bg-destructive/10 text-destructive px-2.5 py-2 rounded-md border border-destructive my-2 text-xs">
+        {error}
+      </div>
+    )
   if (!agent) return null
 
   const permText = permission?.hasPermission
@@ -156,28 +174,46 @@ function AgentDetail({ id }: { id: string }) {
         : permission?.reason || '—'
 
   return (
-    <div className="sp-page">
-      <div className="sp-page-header">
-        <button type="button" className="link-btn" onClick={() => navigate('/agents')}>
+    <div className="p-3 flex flex-col gap-2.5">
+      <div className="flex items-center justify-between pb-2 border-b border-border">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-primary text-xs px-1.5 py-0.5"
+          onClick={() => navigate('/agents')}
+        >
           ← {t('common.back')}
-        </button>
-        <h3>{agent.name}</h3>
+        </Button>
+        <h3 className="m-0 text-sm font-semibold">{agent.name}</h3>
       </div>
       <div className="flex gap-1">
-        <button
+        <Button
           type="button"
-          className={activeTab === 'info' ? TAB_BTN_ACTIVE : TAB_BTN_INACTIVE}
+          variant="ghost"
+          size="sm"
+          className={
+            activeTab === 'info'
+              ? 'rounded-none border-0 border-b-2 border-accent text-accent font-semibold px-3 py-1.5 text-xs'
+              : 'rounded-none border-0 border-b-2 border-transparent text-muted px-3 py-1.5 text-xs'
+          }
           onClick={() => setActiveTab('info')}
         >
           {t('agent.detailTab')}
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className={activeTab === 'runtime' ? TAB_BTN_ACTIVE : TAB_BTN_INACTIVE}
+          variant="ghost"
+          size="sm"
+          className={
+            activeTab === 'runtime'
+              ? 'rounded-none border-0 border-b-2 border-accent text-accent font-semibold px-3 py-1.5 text-xs'
+              : 'rounded-none border-0 border-b-2 border-transparent text-muted px-3 py-1.5 text-xs'
+          }
           onClick={() => setActiveTab('runtime')}
         >
           {t('nav.tabRuntime')}
-        </button>
+        </Button>
       </div>
       {activeTab === 'info' ? (
         <Card>
@@ -190,18 +226,18 @@ function AgentDetail({ id }: { id: string }) {
           </CardHeader>
           <CardContent>
             <p className={DESC_CLASS}>{agent.description || '—'}</p>
-            <dl className="sp-info-list">
-              <div>
-                <dt>{t('agent.useCount')}</dt>
-                <dd>{agent.useCount}</dd>
+            <dl className="flex flex-col gap-2 m-0">
+              <div className="flex justify-between text-xs">
+                <dt className="text-muted-foreground m-0">{t('agent.useCount')}</dt>
+                <dd className="m-0">{agent.useCount}</dd>
               </div>
-              <div>
-                <dt>{t('agent.rating')}</dt>
-                <dd>★ {agent.rating.toFixed(1)}</dd>
+              <div className="flex justify-between text-xs">
+                <dt className="text-muted-foreground m-0">{t('agent.rating')}</dt>
+                <dd className="m-0">★ {agent.rating.toFixed(1)}</dd>
               </div>
-              <div>
-                <dt>{t('agent.permission')}</dt>
-                <dd>{permText}</dd>
+              <div className="flex justify-between text-xs">
+                <dt className="text-muted-foreground m-0">{t('agent.permission')}</dt>
+                <dd className="m-0">{permText}</dd>
               </div>
             </dl>
           </CardContent>
