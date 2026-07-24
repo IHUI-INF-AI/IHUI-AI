@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import zhCN from './messages/zh-CN'
-import en from './messages/en'
-import ja from './messages/ja'
-import ko from './messages/ko'
-import zhTW from './messages/zh-TW'
+// 2026-07-25 i18n 单一来源:翻译文件迁移到 @ihui/i18n/messages/mobile-rn/
+import zhCN from '@ihui/i18n/messages/mobile-rn/zh-CN.json'
+import en from '@ihui/i18n/messages/mobile-rn/en.json'
+import ja from '@ihui/i18n/messages/mobile-rn/ja.json'
+import ko from '@ihui/i18n/messages/mobile-rn/ko.json'
+import zhTW from '@ihui/i18n/messages/mobile-rn/zh-TW.json'
 
 export type Locale = 'zh-CN' | 'en' | 'ja' | 'ko' | 'zh-TW'
 
