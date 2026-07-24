@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { MessagesSquare, Loader2, ArrowRight } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import type { AgentMessage } from '@ihui/shared/subagents/index'
 
 const MESSAGE_TYPE_BADGE: Record<AgentMessage['messageType'], string> = {

@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Plus, ChevronLeft, ChevronRight, Bot } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { AgentsFilter } from './AgentsFilter'
 import { AgentsTable } from './AgentsTable'
 import { AgentEditDialog } from './AgentEditDialog'

@@ -12,7 +12,7 @@ import {
   Button,
   Input,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { OAuthApp, OAuthAppForm } from './types'
 
 interface CreateDialogProps {

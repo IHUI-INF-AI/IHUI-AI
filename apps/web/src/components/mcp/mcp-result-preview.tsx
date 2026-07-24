@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@ihui/ui'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@ihui/ui-react'
 
 import { McpDataStructure } from './mcp-data-structure'
 

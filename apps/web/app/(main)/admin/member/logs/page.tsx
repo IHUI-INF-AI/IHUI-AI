@@ -5,8 +5,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Loader2, ScrollText, Search } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import { Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/date-utils'
 

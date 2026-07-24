@@ -19,7 +19,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { ImageUpload } from '@/components/form/ImageUpload'
 import { STATUS_OPTIONS, PRIORITY_OPTIONS, selectClass, textareaClass, inputSm } from './helpers'
 import type { AdminFeedbackItem, EditForm, CreateForm } from './types'

@@ -24,7 +24,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 const realnameSchema = z.object({
   realName: z.string().min(2, '真实姓名至少2个字符').max(50, '真实姓名最多50个字符'),

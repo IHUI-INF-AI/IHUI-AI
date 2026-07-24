@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { PenTool, ExternalLink } from 'lucide-react'
 
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 export function CanvasPanel() {
   const t = useTranslations('floatingChat.openclaw')

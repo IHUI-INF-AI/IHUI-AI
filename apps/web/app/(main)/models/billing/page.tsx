@@ -1,7 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import { ArrowUpRight, Check, DollarSign, Wallet } from 'lucide-react'
 
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 export default async function BillingPage() {
   const t = await getTranslations('models')

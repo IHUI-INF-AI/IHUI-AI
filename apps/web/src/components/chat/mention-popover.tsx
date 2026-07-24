@@ -13,7 +13,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 
-import { Input } from '@ihui/ui'
+import { Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { useSearchMentions } from '@/hooks/use-context-mention'
 import { useContextMentionStore } from '@/stores/context-mention'

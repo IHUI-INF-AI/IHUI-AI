@@ -14,7 +14,7 @@ import {
   Input,
   Label,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { textareaClass } from './helpers'
 import type { Circle, CircleForm } from './types'
 

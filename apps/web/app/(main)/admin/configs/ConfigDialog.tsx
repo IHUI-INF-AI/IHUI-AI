@@ -19,7 +19,7 @@ import {
   SelectItem,
   SelectValue,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { Radio, Textarea } from '@/components/form'
 import { CATEGORIES, TYPES, selectClass } from './helpers'
 import type { Category, CfgType, Config, ConfigForm } from './types'

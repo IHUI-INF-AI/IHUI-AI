@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { Plus, FileText } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { usePlanStore } from '@/lib/plan-store'
 import { PlanCard } from '@/components/plan/PlanCard'

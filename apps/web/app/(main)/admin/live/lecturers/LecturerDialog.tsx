@@ -13,7 +13,7 @@ import {
   Input,
   Label,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { Lecturer, LecturerForm } from './types'
 
 interface Props {

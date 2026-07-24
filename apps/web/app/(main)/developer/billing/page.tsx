@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Receipt, Loader2, Download, CreditCard, Plus } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, Button } from '@ihui/ui'
+import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 

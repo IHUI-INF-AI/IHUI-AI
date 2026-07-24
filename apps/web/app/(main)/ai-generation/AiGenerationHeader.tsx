@@ -3,7 +3,7 @@
 import { Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { GenerationTypeSelector } from '@/components/ai-generation/generation-type-selector'
 import type { GenerationType } from '@/components/ai/types'

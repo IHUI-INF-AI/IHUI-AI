@@ -1,6 +1,6 @@
 'use client'
 
-import { Input } from '@ihui/ui'
+import { Input } from '@ihui/ui-react'
 import { FIELDS } from './helpers'
 
 interface Props {

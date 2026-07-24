@@ -17,9 +17,9 @@ import {
   Zap,
 } from 'lucide-react'
 
-import { Card } from '@ihui/ui'
+import { Card } from '@ihui/ui-react'
 import { BrandIcon } from '@/components/ai/brand-icon'
-import { Input } from '@ihui/ui'
+import { Input } from '@ihui/ui-react'
 import { usePlugins } from '@/hooks/use-plugins'
 import { useDebounce } from '@/hooks/use-debounce'
 import { useLocalStorage } from '@/hooks/use-local-storage'

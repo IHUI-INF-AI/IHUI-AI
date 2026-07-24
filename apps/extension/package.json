@@ -14,10 +14,9 @@
   },
   "dependencies": {
     "@ihui/api-client": "workspace:*",
-    "@ihui/i18n": "workspace:*",
     "@ihui/types": "workspace:*",
-    "@ihui/ui": "workspace:*",
-    "@ihui/ui-primitives": "workspace:*",
+    "@ihui/ui-react": "workspace:*",
+    "@ihui/design-tokens": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^6.28.0"

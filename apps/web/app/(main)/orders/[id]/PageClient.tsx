@@ -7,7 +7,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { ArrowLeft, Loader2, CheckCircle, XCircle, Clock, Wallet } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'

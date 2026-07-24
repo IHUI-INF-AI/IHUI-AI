@@ -308,7 +308,7 @@ gh workflow run ws-loadtest.yml -f users=500 -f run-time=120s
 | `output` | `'standalone'` | 生产构建独立运行,无需 `node_modules` | `apps/web/next.config.ts` |
 | 构建器(开发) | Turbopack | 快速 HMR | `apps/web/package.json` dev 脚本 |
 | 构建器(生产) | Webpack | 稳定 + 优化充分 | 默认 |
-| `transpilePackages` | `@ihui/ui` / `@ihui/types` / `@ihui/config` / `@ihui/auth` | 共享包转译 | `next.config.ts` |
+| `transpilePackages` | `@ihui/ui-react` / `@ihui/types` / `@ihui/config` / `@ihui/auth` | 共享包转译 | `next.config.ts` |
 | `optimizePackageImports` | lucide-react / @radix-ui/* / @tanstack/* 等 14 包 | 按需引入,减少 bundle | `next.config.ts` experimental |
 | `productionBrowserSourceMaps` | `false` | 不发布 source map(安全 + 体积) | `next.config.ts` |
 | `devIndicators` | `false` | 关闭左下角 dev 圆圈 | `next.config.ts` |

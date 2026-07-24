@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { loginByAccount, type LoginResult } from '@ihui/api-client'
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 
 interface Props {

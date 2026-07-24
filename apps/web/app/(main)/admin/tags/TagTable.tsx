@@ -3,7 +3,7 @@
 import { Loader2, Tag, Hash, Edit, Trash2 } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { Tag as TagChip } from '@/components/data/Tag'

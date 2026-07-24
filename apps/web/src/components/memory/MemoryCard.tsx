@@ -1,7 +1,7 @@
 'use client'
 
 import { Trash2, Pencil } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import {
   formatMemoryTime,

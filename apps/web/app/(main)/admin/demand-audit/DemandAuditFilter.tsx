@@ -1,6 +1,6 @@
 'use client'
 
-import { Input, Label } from '@ihui/ui'
+import { Input, Label } from '@ihui/ui-react'
 import { SEARCH_FIELDS } from './helpers'
 
 interface DemandAuditFilterProps {

@@ -13,7 +13,7 @@ import {
   DialogDescription,
   DialogFooter,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { ImageUpload } from '@/components/form/ImageUpload'
 import type { Product, ProductForm } from './types'
 

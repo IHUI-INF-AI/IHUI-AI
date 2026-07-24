@@ -12,7 +12,7 @@ import {
   Button,
   Input,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { Chapter, ChapterForm } from './types'
 
 interface Props {

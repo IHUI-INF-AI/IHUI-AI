@@ -45,7 +45,7 @@ import {
   DialogFooter,
   Input,
   Button,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 interface ConversationItem {
   id: string

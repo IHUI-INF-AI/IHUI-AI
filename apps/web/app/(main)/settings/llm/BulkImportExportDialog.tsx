@@ -27,7 +27,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import { createProviderV2, createModelV2 } from './helpers-v2'
 import type { UserLlmModel, UserLlmProvider } from './types-v2'

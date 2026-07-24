@@ -27,7 +27,7 @@
 | `@ihui/database` | `packages/database/` | Drizzle schema(100+ 表)+ 100+ 迁移 + client + rls + read-replica + tenant-router | `schema/*`/`client`/`rls`/`read-replica`/`tenant-router` | 2 测试文件 |
 | `@ihui/types` | `packages/types/` | 全栈类型定义(20 模块) | `user`/`api`/`ai`/`api-key`/`memory`/`plugin`/`agent-control`/`agent-runtime`/`api-contracts`/`cli-config`/`ide-workspace`/`leaderboard`/`legacy-migration`/`message-repair`/`notification-channels`/`notification`/`webhook-trigger`/`work-panel`/`workspace`/`v1-endpoints` | 2 测试文件 |
 | `@ihui/ui-react` | `packages/ui-react/` | shadcn/ui 基础组件(Web) | `button`/`input`/`label`/`card`/`dialog`/`select`/`tabs`/`tooltip`/`badge`/`checkbox`/`table`/`data-table`/`sidebar`/`sheet`/`switch`/`collapsible`/`code-block`/`log-viewer`/`resizable`/`tree-select`/`vip-badge`/`theme-logo`/`webview-frame`/`work-panel`/`Upload` | - |
-| `@ihui/ui-native` | `packages/ui-native/` | React Native 版组件(mobile-rn 用) | `avatar`/`badge`/`button`(3 组件,待扩展) | - |
+| `@ihui/ui-native` | `packages/ui-native/` | React Native 版组件(mobile-rn 用) | `avatar`/`badge`/`button`/`card`/`dialog`/`input`/`loading`/`switch`/`tabs`/`vip-badge`(10 组件) | - |
 | `@ihui/design-tokens` | `packages/design-tokens/` | 设计令牌(8端共享):`cn()` 类名合并 + HSL shadcn tokens + RN HEX tokens + CSS 变量 | `cn`/`tokens`/`rnTokens`/`rnLightTokens`/`rnDarkTokens`/`getRnTokens` | - |
 | `@ihui/config` | `packages/config/` | 常量与环境配置 | `constants`/`env` | - |
 | `@ihui/eslint-config` | `packages/eslint-config/` | ESLint 共享配置 | `base`/`next`/`react` | - |
@@ -152,10 +152,17 @@ packages/ui-react/src/components/
 packages/ui-native/src/
 ├── avatar.tsx    # 头像
 ├── badge.tsx     # 徽章
-└── button.tsx    # 按钮
+├── button.tsx    # 按钮
+├── card.tsx      # 卡片
+├── dialog.tsx    # 对话框
+├── input.tsx     # 输入框
+├── loading.tsx   # 加载
+├── switch.tsx    # 开关
+├── tabs.tsx      # 标签页
+└── vip-badge.tsx # VIP 徽章
 ```
 
-> 注:ui-native 当前仅 3 组件(2026-07-24 核实),待按需扩展。
+> 注:ui-native 当前 10 组件(2026-07-24 核实)。
 
 ### @ihui/api-client 端点文件清单(48 文件)
 

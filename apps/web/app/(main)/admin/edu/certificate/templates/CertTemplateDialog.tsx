@@ -20,7 +20,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { Template, TForm } from './types'
 
 interface Props {

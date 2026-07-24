@@ -2,7 +2,7 @@
 
 import { Award, Loader2, Download, Printer } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/date-utils'
 import { STATUS_STYLE } from './helpers'

@@ -31,7 +31,7 @@ import {
   TableHead,
   TableRow,
   TableCell,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { Badge } from '@/components/data/Badge'
 
 interface WrongQuestion {

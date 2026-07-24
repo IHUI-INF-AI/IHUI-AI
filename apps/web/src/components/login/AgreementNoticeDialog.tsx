@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Shield, FileText, Lock, ArrowUpRight, CornerDownLeft } from 'lucide-react'
 
-import { Dialog, DialogContent, DialogTitle, DialogDescription, Button } from '@ihui/ui'
+import { Dialog, DialogContent, DialogTitle, DialogDescription, Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface AgreementNoticeDialogProps {

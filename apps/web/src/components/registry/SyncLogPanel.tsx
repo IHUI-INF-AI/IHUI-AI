@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ihui/ui'
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { RegistrySyncLog, RegistrySyncStatus } from '@ihui/types'
 

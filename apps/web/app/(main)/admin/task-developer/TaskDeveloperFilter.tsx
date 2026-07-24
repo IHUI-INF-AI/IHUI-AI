@@ -1,7 +1,7 @@
 'use client'
 
 import { Search } from 'lucide-react'
-import { Button, Input } from '@ihui/ui'
+import { Button, Input } from '@ihui/ui-react'
 import { SEARCH_FIELDS } from './helpers'
 
 interface Props {

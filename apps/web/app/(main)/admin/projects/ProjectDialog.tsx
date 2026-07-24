@@ -18,7 +18,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { selectClass, textareaClass, STATUS_OPTS } from './helpers'
 import type { AdminProject, ProjectForm } from './types'
 

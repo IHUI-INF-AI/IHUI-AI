@@ -19,7 +19,7 @@ import {
   TableRow,
   TableHead,
   TableCell,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { type ImportResult, batchImportMembers } from './types'
 
 export function MemberImportDialog({

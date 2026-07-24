@@ -13,7 +13,7 @@ import {
   DialogDescription,
   DialogFooter,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { textareaClass } from '../helpers'
 import type { EduRefund } from '../types'
 

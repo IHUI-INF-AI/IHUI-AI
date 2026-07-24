@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, FileText, Loader2 } from 'lucide-react'
-import { Card } from '@ihui/ui'
+import { Card } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 
 interface NewsItem {

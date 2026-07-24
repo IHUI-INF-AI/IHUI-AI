@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, Pencil, Trash2 } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { thCls } from './helpers'
 import type { Variable } from './types'
 

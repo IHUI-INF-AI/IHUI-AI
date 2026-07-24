@@ -11,7 +11,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { PostFilter } from './types'
 
 interface Props {

@@ -8,7 +8,7 @@ import { ShieldCheck, Plus, Download } from 'lucide-react'
 
 import { exportToExcel } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { ExamineFilter } from './ExamineFilter'
 import { ExamineTable } from './ExamineTable'
 import { ExamineDialog } from './ExamineDialog'

@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { KeyRound, Loader2 } from 'lucide-react'
-import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { Modal } from '@/components/feedback'
 import { TruncatedText } from '@/components/common'
 import { api } from './helpers'

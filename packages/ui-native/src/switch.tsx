@@ -1,6 +1,6 @@
-import type { ComponentProps } from 'react'
+﻿import type { ComponentProps } from 'react'
 import { Switch as RNSwitch } from 'react-native'
-import { cn } from '@ihui/ui-primitives'
+import { cn } from '@ihui/design-tokens'
 
 export type SwitchProps = ComponentProps<typeof RNSwitch>
 
