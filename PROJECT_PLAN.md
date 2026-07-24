@@ -1121,6 +1121,29 @@
 
 ---
 
+### [x] ✅(2026-07-24) A 套壳方案迁移:Desktop 端 Vite React 页面全部删除,统一由 web 静态导出加载(跨端:web + desktop)
+
+**关联**:Wave 21"桌面端架构收敛"阶段 2(路线决策)+ 阶段 3(执行收敛)的完成总结,独立标记 A 套壳方案迁移里程碑。Wave 21 主任务条目仍为 `[ ]`(阶段 1 安装更新链路未完成,见下)。
+
+**交付**(commit `afc7f54e6`,89 文件改动,+1143/-12550):
+- 删除 `apps/desktop/src/` 下 66 个 Vite React 文件(34 tsx + 30 ts + 1 json + 1 css)+ `vite.config.ts` + `tsconfig.json`(不再需要 Vite 构建)
+- 迁移 8 个文件到 `apps/web/`:
+  - `apps/desktop/src/lib/desktop.ts` → `apps/web/src/lib/tauri-bridge.ts`(9 大功能模块:窗口/托盘/快捷键/deep-link/自动更新/文件/对话框/剪贴板/通知)
+  - `DesignPage` → `apps/web/app/(main)/design/PageClient.tsx` + 5 个 design lib 子模块(`alignment-guides` / `code-exporter` / `design-api` / `design-templates` / `responsive-devices`)
+  - `use-task-receiver` hook → `apps/web/src/hooks/use-task-receiver.ts`
+- 修复 `apps/desktop/src-tauri/tauri.conf.json`:`app.updater` → `plugins.updater`(Tauri 2 schema)+ `frontendDist` 指向 `../web/out`(直接加载 web 静态导出)
+- web build 成功(613 静态页面导出到 `apps/web/out/`),commit `afc7f54e6` 已 push(origin/main)
+
+**desktop 最终结构**:仅 `src-tauri/`(Rust + Tauri 配置)+ `scripts/`(regen-icons/with-rust)+ `package.json` + `eslint.config.js`。Tauri 仅提供原生壳能力(托盘/快捷键/deep-link/自动更新/文件拖拽),页面层完全复用 web 静态导出。
+
+**剩余项(非本任务范围,归 Wave 21 阶段 1)**:Tauri 签名密钥对(pubkey 空)+ `release-desktop.yml` CI 启用 `createUpdaterArtifacts` + 代码签名证书(Windows Authenticode / macOS Developer ID)+ 分发渠道 manifest(winget/scoop/homebrew)。
+
+**验证**:web typecheck EXIT 0(含迁移的 design/task-receiver 页面)+ build 成功(613 静态页面)+ `git rev-parse HEAD` === `git rev-parse origin/main`(afc7f54e6 已同步)+ git-push-guard exit 0。
+
+**§22 README 同步**:已在 commit `afc7f54e6` 同步更新(8 端职责表 Web/Desktop 行 + 部署表 standalone → static export + Dockerfile.web 改 nginx 静态服务 + `nginx.web.conf` 新建 + docker-compose.yml 注释更新)。
+
+---
+
 ### [ ] Wave 21:桌面端架构收敛 + 安装更新链路闭环(跨端:web + desktop)
 
 **背景**:桌面端已完成 12 轮深度开发(自动更新代码层 + 4 大核心能力 + 聊天全套 + 原生集成),但存在两个相互关联的未决问题,须一起决策避免返工:
