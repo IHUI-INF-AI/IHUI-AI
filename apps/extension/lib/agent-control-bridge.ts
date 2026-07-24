@@ -21,7 +21,7 @@ import type {
   BrowserControlActionType,
 } from '@ihui/types'
 import { getToken } from './token'
-import { BRIDGE_BASE_URL } from './config'
+import { getBridgeBaseUrl } from './config'
 import { executeAgentActionRequest } from './agent-control'
 
 // ===== Constants =====
@@ -58,7 +58,7 @@ async function postJson(path: string, body: unknown): Promise<boolean> {
   const token = getToken()
   if (!token) return false
   try {
-    const res = await fetch(`${BRIDGE_BASE_URL}${path}`, {
+    const res = await fetch(`${getBridgeBaseUrl()}${path}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
