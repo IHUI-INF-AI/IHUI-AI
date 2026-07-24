@@ -14,7 +14,7 @@ import {
   Input,
   Label,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { Company, CompanyForm } from './types'
 
 interface CompanyDialogProps {

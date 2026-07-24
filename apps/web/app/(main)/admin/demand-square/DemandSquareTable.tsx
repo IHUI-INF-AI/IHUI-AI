@@ -2,7 +2,7 @@
 
 import { Check, X, Loader2, LayoutGrid } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
-import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
+import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'

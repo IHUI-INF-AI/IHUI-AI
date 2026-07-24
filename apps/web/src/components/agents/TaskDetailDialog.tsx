@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, Trash2, ArrowRightCircle } from 'lucide-react'
-import { Button, Input, Label, cn } from '@ihui/ui'
+import { Button, Input, Label, cn } from '@ihui/ui-react'
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { useToast } from '@/hooks/use-toast'
 import { CenteredText } from '@/components/common/CenteredText'
 import { transitionKanbanTask, deleteKanbanTask } from '@/lib/agent-kanban-api'

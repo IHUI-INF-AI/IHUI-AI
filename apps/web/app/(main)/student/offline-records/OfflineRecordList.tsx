@@ -2,7 +2,7 @@
 
 import { Loader2, CalendarClock, Edit, Trash2, Clock } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { TYPE_COLORS } from './helpers'
 import type { OfflineRecord } from './types'

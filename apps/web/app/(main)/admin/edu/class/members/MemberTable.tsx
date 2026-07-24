@@ -2,7 +2,7 @@
 import { Trash2, Loader2, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { isNotFound } from '@/lib/api-error'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { Tooltip } from '@/components/feedback'
 import type { Member } from './types'

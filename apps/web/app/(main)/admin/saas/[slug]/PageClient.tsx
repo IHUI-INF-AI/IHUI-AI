@@ -19,7 +19,7 @@ import {
   Server,
   Trash2,
 } from 'lucide-react'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { CenteredText, Skeleton } from '@/components/common'
 
 import { StateBadge } from '../_components/StateBadge'

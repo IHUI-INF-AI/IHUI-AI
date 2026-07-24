@@ -7,7 +7,7 @@ import { useLocale } from 'next-intl'
 import { Gauge, Loader2, ArrowUp } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, Button } from '@ihui/ui'
+import { Card, CardContent, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 

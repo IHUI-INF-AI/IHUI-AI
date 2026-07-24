@@ -24,7 +24,7 @@ import {
   X,
 } from 'lucide-react'
 
-import { Badge, Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui'
+import { Badge, Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui-react'
 
 import type { UserLlmModel, UserLlmProvider } from './types-v2'
 

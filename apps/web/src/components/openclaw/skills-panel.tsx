@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { Download, Trash2, Loader2, Package, CheckCircle2 } from 'lucide-react'
 
-import { Button, Input, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Input, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import {
   listAvailableSkills,
   listInstalledSkills,

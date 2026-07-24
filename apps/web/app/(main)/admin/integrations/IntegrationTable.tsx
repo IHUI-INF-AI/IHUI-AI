@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Zap, Check, X, Edit, Trash2, Loader2 } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { PROVIDER_INITIAL } from './helpers'
 import type { Integration, TestResult } from './types'

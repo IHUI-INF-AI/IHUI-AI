@@ -7,7 +7,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { BookMarked, Search, FileText, Loader2, Settings, Upload } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardHeader, CardTitle, CardContent, CardFooter, Input, Button } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, CardFooter, Input, Button } from '@ihui/ui-react'
 import { UploadDialog } from './UploadDialog'
 
 interface DocSummary {

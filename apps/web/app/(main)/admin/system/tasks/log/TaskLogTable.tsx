@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, Eye } from 'lucide-react'
-import { Button, Checkbox } from '@ihui/ui'
+import { Button, Checkbox } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'
