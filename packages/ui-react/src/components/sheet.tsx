@@ -37,7 +37,7 @@ const SheetContent = React.forwardRef<
   SheetContentProps
 >(({ side = 'right', className, children, ...props }, ref) => (
   <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+    <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-white/80 dark:bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(sheetSideVariants({ side }), 'rounded-lg', className)}

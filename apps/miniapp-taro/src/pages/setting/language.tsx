@@ -4,7 +4,6 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { setLanguage } from '@/api'
 import { useI18n, type Locale } from '@/i18n'
-import './language.css'
 
 type LangItem = { value: Locale; key: 'zhCN' | 'en' | 'ja' | 'ko' | 'zhTW'; native: string; english: string }
 
@@ -56,46 +55,46 @@ export default function LanguagePage() {
   const currentLang = LANGS.find((l) => l.value === current) ?? DEFAULT_LANG
 
   return (
-    <View className="lang-page">
-      <View className="lang-current">
-        <View className="lang-current-icon">
-          <Text className="lang-current-globe">🌐</Text>
+    <View className="min-h-screen bg-background p-[24rpx] pb-[80rpx]">
+      <View className="flex items-center p-[32rpx] bg-card rounded-[16rpx] gap-[24rpx]">
+        <View className="w-[88rpx] h-[88rpx] rounded-[12rpx] bg-[rgba(0,242,255,0.1)] flex items-center justify-center flex-shrink-0">
+          <Text className="text-[44rpx] leading-none">🌐</Text>
         </View>
-        <View className="lang-current-info">
-          <Text className="lang-current-label">
+        <View className="flex-1">
+          <Text className="block text-[24rpx] text-muted-foreground">
             {tt('setting.language.currentLabel', '当前语言')}
           </Text>
-          <Text className="lang-current-name">{tt(`setting.${currentLang.key}`, currentLang.native)}</Text>
-          <Text className="lang-current-sub">{currentLang.english} · {currentLang.value}</Text>
+          <Text className="block text-[32rpx] font-semibold text-foreground mt-[8rpx]">{tt(`setting.${currentLang.key}`, currentLang.native)}</Text>
+          <Text className="block text-[22rpx] text-muted-foreground mt-[6rpx]">{currentLang.english} · {currentLang.value}</Text>
         </View>
       </View>
 
-      <View className="lang-group-title">
-        <Text>{tt('setting.language.chooseHint', '选择应用语言')}</Text>
+      <View className="pt-[32rpx] px-[8rpx] pb-[16rpx]">
+        <Text className="text-[24rpx] text-muted-foreground">{tt('setting.language.chooseHint', '选择应用语言')}</Text>
       </View>
 
-      <RadioGroup className="lang-list" onChange={(e) => onSelect(e.detail.value as Locale)}>
+      <RadioGroup className="flex flex-col gap-[16rpx]" onChange={(e) => onSelect(e.detail.value as Locale)}>
         {LANGS.map((l) => (
-          <View key={l.value} className={`lang-item${current === l.value ? ' lang-item--active' : ''}`}>
-            <View className="lang-item-info">
-              <Text className="lang-item-native">{tt(`setting.${l.key}`, l.native)}</Text>
-              <Text className="lang-item-en">{l.english}</Text>
+          <View key={l.value} className={`flex items-center justify-between py-[28rpx] px-[32rpx] bg-card rounded-[16rpx] gap-[24rpx]${current === l.value ? ' bg-[rgba(0,242,255,0.08)]' : ''}`}>
+            <View className="flex-1">
+              <Text className="text-[30rpx] text-foreground">{tt(`setting.${l.key}`, l.native)}</Text>
+              <Text className="block text-[22rpx] text-muted-foreground mt-[6rpx]">{l.english}</Text>
             </View>
             <Radio
               value={l.value}
               checked={current === l.value}
               color="var(--color-primary)"
-              className="lang-item-radio"
+              className="flex-shrink-0"
             />
           </View>
         ))}
       </RadioGroup>
 
-      <View className="lang-tips">
-        <Text className="lang-tips-text">
+      <View className="py-[32rpx] px-[8rpx]">
+        <Text className="block text-[22rpx] text-muted-foreground leading-[1.6]">
           {tt('setting.language.tip', '切换语言后将自动保存并生效')}
         </Text>
-        <Text className="lang-tips-note">
+        <Text className="block text-[22rpx] text-muted-foreground leading-[1.6] mt-[8rpx] opacity-80">
           {tt('setting.language.note', '部分内容可能仍以原文显示,我们正在持续完善多语言支持。')}
         </Text>
       </View>
