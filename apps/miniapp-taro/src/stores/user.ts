@@ -11,6 +11,7 @@ import {
 import type { UserInfo } from '../utils/auth'
 import * as api from '../api'
 import { wechatLogin, type WechatLoginResult } from '../utils/wechat-login'
+import { miniAppLogin, type MiniAppLoginResult } from '../utils/miniapp-login'
 
 interface UserState {
   token: string
@@ -23,6 +24,10 @@ interface UserState {
   loginByWechat: (options?: { withProfile?: boolean; inviteCode?: string }) => Promise<WechatLoginResult>
   /** 静默尝试微信登录(用于 App.onLaunch 启动时,如已有 token 则跳过) */
   trySilentWechatLogin: () => Promise<WechatLoginResult | null>
+  /** 跨端小程序登录(自动适配微信/支付宝,推荐使用) */
+  loginByMiniApp: (options?: { withProfile?: boolean; inviteCode?: string }) => Promise<MiniAppLoginResult>
+  /** 静默尝试跨端小程序登录(启动时自动适配微信/支付宝环境) */
+  trySilentMiniAppLogin: () => Promise<MiniAppLoginResult | null>
 }
 
 export const useUserStore = create<UserState>((set) => ({
@@ -58,6 +63,23 @@ export const useUserStore = create<UserState>((set) => ({
     if (getToken()) return null
     try {
       const result = await wechatLogin({ withProfile: false })
+      set({ token: getToken(), user: getUserInfo(), refreshToken: getRefreshToken() })
+      return result
+    } catch {
+      // 静默失败不抛错,用户后续可手动登录
+      return null
+    }
+  },
+  loginByMiniApp: async (options) => {
+    const result = await miniAppLogin(options ?? {})
+    set({ token: getToken(), user: getUserInfo(), refreshToken: getRefreshToken() })
+    return result
+  },
+  trySilentMiniAppLogin: async () => {
+    // 已登录则不重复登录(避免无谓的网络请求)
+    if (getToken()) return null
+    try {
+      const result = await miniAppLogin({ withProfile: false })
       set({ token: getToken(), user: getUserInfo(), refreshToken: getRefreshToken() })
       return result
     } catch {
