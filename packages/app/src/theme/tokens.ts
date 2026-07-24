@@ -1,83 +1,41 @@
 /**
- * packages/app 共享设计令牌。
+ * packages/app 共享设计令牌(RN 端)。
+ *
+ * 单一源头:所有 RN 风格 tokens 定义在 @ihui/design-tokens/src/rn-tokens.ts,
+ * 本文件仅 re-export 并保留历史命名,确保 mobile-rn / packages/app 内部代码向后兼容。
+ *
  * 跨端共享组件统一引用此文件,根治颜色漂移 + 为暗色模式铺路。
  * mobile-rn 端可 re-export 或同步引用,确保品牌色一致。
  */
-export const tokens = {
-  brand: {
-    DEFAULT: '#10B981',
-    dark: '#34D399',
-  },
-  surface: {
-    light: '#FFFFFF',
-    muted: '#F9FAFB',
-    card: '#F3F4F6',
-    dark: '#1F2937',
-  },
-  text: {
-    primary: '#111827',
-    secondary: '#6B7280',
-    tertiary: '#9CA3AF',
-    medium: '#374151',
-  },
-  border: {
-    light: '#E5E7EB',
-    medium: '#D1D5DB',
-  },
-  error: {
-    bg: '#FEE2E2',
-    text: '#B91C1C',
-  },
-  overlay: {
-    modal: 'rgba(0,0,0,0.4)',
-  },
-} as const
+import {
+  rnTokens,
+  rnLightTokens,
+  rnDarkTokens,
+  getRnTokens,
+  type RnTokens,
+  type RnThemeMode,
+  type RnThemeTokens,
+} from '@ihui/design-tokens'
 
-export type AppTokens = typeof tokens
+/** RN 端基础 tokens(向后兼容 RootNavigator Tab Bar) */
+export const tokens: RnTokens = rnTokens
 
 /** 已解析主题(无 'system') */
-export type AppThemeMode = 'light' | 'dark'
+export type AppThemeMode = RnThemeMode
 
 /** 动态主题 token 集。相比 base tokens 增加 surface.bg(主背景),其余字段对齐。 */
-export type AppThemeTokens = {
-  brand: { DEFAULT: string; dark: string }
-  surface: { bg: string; light: string; muted: string; card: string; dark: string }
-  text: { primary: string; secondary: string; tertiary: string; medium: string }
-  border: { light: string; medium: string }
-  error: { bg: string; text: string }
-  overlay: { modal: string }
-}
+export type AppThemeTokens = RnThemeTokens
 
-/**
- * 浅色 token 集。各字段值与 base tokens 等价,额外补 surface.bg = 主背景白。
- * web 端(solito-demo)不传 colorScheme → 默认 light → 渲染值与历史完全一致。
- */
-export const lightTokens: AppThemeTokens = {
-  brand: { DEFAULT: '#10B981', dark: '#34D399' },
-  surface: { bg: '#FFFFFF', light: '#FFFFFF', muted: '#F9FAFB', card: '#F3F4F6', dark: '#1F2937' },
-  text: { primary: '#111827', secondary: '#6B7280', tertiary: '#9CA3AF', medium: '#374151' },
-  border: { light: '#E5E7EB', medium: '#D1D5DB' },
-  error: { bg: '#FEE2E2', text: '#B91C1C' },
-  overlay: { modal: 'rgba(0,0,0,0.4)' },
-}
+/** 基础 tokens 类型(向后兼容) */
+export type AppTokens = RnTokens
 
-/**
- * 深色 token 集。
- * - surface.bg = #1F2937,与 RN RootNavigator Tab Bar 的 tokens.surface.dark 一致。
- * - surface.light 仍为 #FFFFFF:该字段在共享组件中用作「品牌色上的对比白字」
- *   (头像文字 / 主按钮文字),非主背景,故明暗模式均保持白色。
- * - surface.muted=#111827 / surface.card=#374151 形成卡片层级 elevation。
- */
-export const darkTokens: AppThemeTokens = {
-  brand: { DEFAULT: '#10B981', dark: '#34D399' },
-  surface: { bg: '#1F2937', light: '#FFFFFF', muted: '#111827', card: '#374151', dark: '#0F172A' },
-  text: { primary: '#F9FAFB', secondary: '#9CA3AF', tertiary: '#6B7280', medium: '#D1D5DB' },
-  border: { light: '#374151', medium: '#4B5563' },
-  error: { bg: '#7F1D1D', text: '#FCA5A5' },
-  overlay: { modal: 'rgba(0,0,0,0.6)' },
-}
+/** 浅色 token 集(re-export 自 @ihui/design-tokens) */
+export const lightTokens: AppThemeTokens = rnLightTokens
+
+/** 深色 token 集(re-export 自 @ihui/design-tokens) */
+export const darkTokens: AppThemeTokens = rnDarkTokens
 
 /** 按已解析主题返回对应 token 集 */
 export function getTokens(theme: AppThemeMode): AppThemeTokens {
-  return theme === 'dark' ? darkTokens : lightTokens
+  return getRnTokens(theme)
 }
