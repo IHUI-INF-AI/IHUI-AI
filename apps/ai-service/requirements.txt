@@ -18,6 +18,12 @@ asyncpg>=0.30.0
 cryptography>=43.0.0
 redis[hiredis]>=5.2.0
 
+# --- 任务调度(对标 Codex Automations,2026-07-24 立)---
+# APScheduler AsyncIOScheduler:cron/date/interval 三种 trigger + 后台 worker
+# croniter:schedule_task 工具计算 cron 表达式的 next_run_at
+apscheduler>=3.10.0
+croniter>=1.4.0
+
 # --- AI / LLM ---
 # P3 深度层升级(2026-07-23 立):PostgresSaver checkpointer + interrupt() HITL + 5 模式 streaming + Time Travel
 langgraph>=0.5.0
