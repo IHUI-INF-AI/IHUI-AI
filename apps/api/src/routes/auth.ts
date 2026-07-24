@@ -14,6 +14,7 @@ import {
   findRefreshToken,
   revokeRefreshToken,
   revokeRefreshTokenFamily,
+  revokeAllUserRefreshTokens,
   isSystemAdminUser,
 } from '../db/queries.js'
 import { getUserPermissions } from '../db/rbac-queries.js'
@@ -359,6 +360,11 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       // 更新密码
       const passwordHash = await bcrypt.hash(newPassword, 10)
       await updateUser(user.id, { passwordHash })
+
+      // 2026-07-24 安全加固:密码重置后吊销所有 refresh token(防旧 token 继续使用)
+      // 攻击场景:攻击者窃取了用户 refresh token,用户发现后重置密码,
+      // 但旧 token 仍有效 → 攻击者仍可登录。必须吊销所有 token 迫使重新认证。
+      await revokeAllUserRefreshTokens(user.id)
 
       // 删除已使用的验证码
       codeStore.delete(phone)
