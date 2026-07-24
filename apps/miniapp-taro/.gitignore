@@ -1,4 +1,5 @@
 dist/
+dist-alipay/
 .swc/
 .turbo/
 node_modules/
