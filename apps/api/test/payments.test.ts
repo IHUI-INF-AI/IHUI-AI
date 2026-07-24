@@ -369,6 +369,8 @@ describe('payment gateway routes', () => {
         trade_state: 'SUCCESS',
         transaction_id: 'TX001',
       })
+      // 2026-07-24 安全加固:源码 now calls getOrder() to verify callback amount vs order amount
+      mockGetOrder.mockResolvedValueOnce(makeOrder())
       ;(app.paymentIdempotency.acquire as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         status: 'completed',
       })
@@ -394,6 +396,8 @@ describe('payment gateway routes', () => {
         trade_state: 'SUCCESS',
         transaction_id: 'TX001',
       })
+      // 2026-07-24 安全加固:源码 now calls getOrder() to verify callback amount vs order amount
+      mockGetOrder.mockResolvedValueOnce(makeOrder())
       ;(app.paymentIdempotency.acquire as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         status: 'new',
       })
@@ -427,6 +431,8 @@ describe('payment gateway routes', () => {
         trade_state: 'SUCCESS',
         transaction_id: 'TX001',
       })
+      // 2026-07-24 安全加固:源码 now calls getOrder() to verify callback amount vs order amount
+      mockGetOrder.mockResolvedValueOnce(makeOrder())
       ;(app.paymentIdempotency.acquire as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         status: 'new',
       })
@@ -595,6 +601,8 @@ describe('payment gateway routes', () => {
 
     it('支付成功回调返回 success 文本', async () => {
       mockVerifyNotify.mockReturnValueOnce(true)
+      // 2026-07-24 安全加固:源码 now calls getOrder() to verify callback amount vs order amount
+      mockGetOrder.mockResolvedValueOnce(makeOrder())
       ;(app.paymentIdempotency.acquire as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
         status: 'new',
       })
@@ -612,6 +620,8 @@ describe('payment gateway routes', () => {
           trade_status: 'TRADE_SUCCESS',
           out_trade_no: 'EDU001',
           trade_no: 'ALI001',
+          // 2026-07-24 安全加固:total_amount 必须与订单金额一致(100.00 元 = 10000 分)
+          total_amount: '100.00',
         },
       })
       expect(res.statusCode).toBe(200)
