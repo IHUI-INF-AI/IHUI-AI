@@ -1,15 +1,15 @@
 # 多端架构与同步开发
 
-> IHUI-AI 8 端独立代码 + 12 共享包的架构总览、跨端调用链路、同步开发规则与多端发布矩阵。同步开发强制规则见 [AGENTS.md §9](../AGENTS.md),本文档聚焦架构与代码组织、链路打通与发布矩阵,不重复规则条款。
+> IHUI-AI 8 端独立代码 + 14 共享包的架构总览、跨端调用链路、同步开发规则与多端发布矩阵。同步开发强制规则见 [AGENTS.md §9](../AGENTS.md),本文档聚焦架构与代码组织、链路打通与发布矩阵,不重复规则条款。
 
 ---
 
 ## 1. 总览
 
-IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织 **8 个独立端** + **12 个共享包**,通过共享层实现跨端类型契约与组件复用。
+IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织 **8 个独立端** + **14 个共享包**,通过共享层实现跨端类型契约与组件复用。
 
 - **8 端**:`apps/web`、`apps/api`、`apps/ai-service`、`apps/cli`、`apps/desktop`、`apps/extension`、`apps/mobile-rn`、`apps/miniapp-taro`
-- **12 共享包**:`packages/` 下的 `auth`/`config`/`database`/`types`/`ui`/`ui-native`/`ui-primitives`/`api-client`/`context-compaction`/`eslint-config`/`tsconfig`/`sdk`(详见 [PACKAGES.md](./PACKAGES.md))
+- **14 共享包**:`packages/` 下的 `auth`/`config`/`database`/`types`/`ui-react`/`ui-native`/`design-tokens`/`api-client`/`context-compaction`/`eslint-config`/`tsconfig`/`sdk`/`shared`/`app`(详见 [PACKAGES.md](./PACKAGES.md))
 - **同步规则**:见 [AGENTS.md §9 多端同步开发强制规则](../AGENTS.md),默认每个任务全端连通
 
 ### 架构分层
@@ -20,10 +20,11 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 │  web │ api │ ai-service │ cli │ desktop │ extension │   │
 │  mobile-rn │ miniapp-taro                                │
 ├─────────────────────────────────────────────────────────┤
-│  共享层(13 包跨端复用,packages/*)                       │
+│  共享层(14 包跨端复用,packages/*)                       │
 │  @ihui/auth @ihui/api-client @ihui/types @ihui/database │
-│  @ihui/ui @ihui/ui-native @ihui/ui-primitives           │
+│  @ihui/ui-react @ihui/ui-native @ihui/design-tokens     │
 │  @ihui/config @ihui/context-compaction @ihui/sdk        │
+│  @ihui/shared @ihui/app                                  │
 │  @ihui/eslint-config @ihui/tsconfig                     │
 ├─────────────────────────────────────────────────────────┤
 │  基础设施层                                              │
@@ -51,7 +52,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 ### 2.1 apps/web(Next.js 15)
 
 - **框架**:Next.js 15.1 + React 19,Turbopack(开发)+ Webpack(生产 standalone 输出)
-- **样式**:Tailwind CSS 4 + shadcn/ui,复用 `@ihui/ui`
+- **样式**:Tailwind CSS 4 + shadcn/ui,复用 `@ihui/ui-react`
 - **状态**:`@tanstack/react-query` 5(服务端状态)+ Zustand(客户端状态)
 - **i18n**:next-intl,5 语言(详见 [I18N.md](./I18N.md))
 - **路由**:`app/` 目录,`(auth)/` 认证区 + `(main)/` 主区(81 页面)+ `admin/` 管理端
@@ -95,21 +96,21 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 - **框架**:Tauri 2.1(Rust 后端 `src-tauri/`)+ React 18 + Vite
 - **能力**:系统托盘 + 深链接(`@tauri-apps/plugin-deep-link`)+ 文件系统 + 自动更新(`@tauri-apps/plugin-updater`)+ 通知 + shell
 - **i18n**:`src/i18n/`
-- **复用**:`@ihui/api-client` + `@ihui/types` + `@ihui/ui`
+- **复用**:`@ihui/api-client` + `@ihui/types` + `@ihui/ui-react`
 
 ### 2.6 apps/extension(WXT 浏览器扩展)
 
 - **框架**:WXT 0.19 + React 19(`@wxt-dev/module-react`)
 - **能力**:浏览器上下文菜单 + token 注入(`lib/token.ts`)+ 页面增强
 - **配置**:`wxt.config.ts`
-- **复用**:`@ihui/api-client` + `@ihui/types` + `@ihui/ui` + `@ihui/ui-primitives`
+- **复用**:`@ihui/api-client` + `@ihui/types` + `@ihui/ui-react` + `@ihui/design-tokens`
 
 ### 2.7 apps/mobile-rn(React Native + Expo)
 
 - **框架**:React Native 0.74.5 + Expo 51 + NativeWind 4
 - **导航**:`@react-navigation/native`(bottom-tabs + native-stack)
 - **能力**:SSO(`src/lib/sso.ts`)+ 生物认证(`expo-local-authentication`)+ 推送(`expo-notifications`)+ 安全存储(`expo-secure-store`)+ 视频(`react-native-video`)
-- **复用**:`@ihui/api-client` + `@ihui/types` + `@ihui/ui-native` + `@ihui/ui-primitives`
+- **复用**:`@ihui/api-client` + `@ihui/types` + `@ihui/ui-native` + `@ihui/design-tokens`
 - **端口**:8805(`expo start --port 8805`)
 
 ### 2.8 apps/miniapp-taro(Taro 4 小程序)
@@ -124,7 +125,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 
 ## 3. 共享层(packages/)
 
-12 个共享包跨端复用,避免重复实现。详见 [PACKAGES.md](./PACKAGES.md)。
+14 个共享包跨端复用,避免重复实现。详见 [PACKAGES.md](./PACKAGES.md)。
 
 | 包 | 用途 | 主要消费端 |
 |----|------|------------|
@@ -132,12 +133,14 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 | `@ihui/api-client` | 统一 API 客户端(endpoints + circuit-breaker + ws-client) | web / cli / desktop / extension / mobile-rn / miniapp-taro |
 | `@ihui/types` | 跨端类型契约(user/api/ai/agent/workspace 等) | 全端 |
 | `@ihui/database` | Drizzle schema(160+ 表)+ 迁移 + client + RLS | api / ai-service(只读) |
-| `@ihui/ui` | Web 组件库(Button/Input/Card/Dialog/Tabs/Tooltip 等 25+) | web / desktop / extension |
-| `@ihui/ui-native` | React Native 组件库(avatar/badge/button/card/dialog 等) | mobile-rn |
-| `@ihui/ui-primitives` | 跨端基础原语(cn + tokens) | extension / mobile-rn |
+| `@ihui/ui-react` | Web 组件库(Button/Input/Card/Dialog/Tabs/Tooltip 等 25+) | web / desktop / extension |
+| `@ihui/ui-native` | React Native 组件库(avatar/badge/button,3 组件) | mobile-rn |
+| `@ihui/design-tokens` | 跨端基础原语(cn + HSL/HEX tokens + CSS 变量) | web / extension / mobile-rn / desktop |
 | `@ihui/config` | constants + env 配置 | 全端 |
-| `@ihui/context-compaction` | 上下文压缩 | cli |
+| `@ihui/context-compaction` | 上下文压缩(88% 阈值自动压缩) | cli / api / ai-service |
 | `@ihui/sdk` | 多语言 SDK(TS/Go/Python/Java/.NET) | 外部集成 |
+| `@ihui/shared` | 8端共享业务逻辑(auth/sso + memory + notifications + plan + workflows 等) | 全端 |
+| `@ihui/app` | RN app 共享逻辑(AboutScreen/ProfileScreen/SettingsScreen + tokens) | mobile-rn / web |
 | `@ihui/eslint-config` | base/next/react ESLint 配置 | 全端 |
 | `@ihui/tsconfig` | base/nextjs/node/react-library TSConfig | 全端 |
 
@@ -437,7 +440,7 @@ pnpm build:h5       # H5
 - [AGENTS.md §9 多端同步开发强制规则](../AGENTS.md) — 全端连通 / 平台独占豁免 / 多 Subagent 派单
 - [AGENTS.md §11 多 Subagent 并行开发强制规则](../AGENTS.md) — 派单格式 / 联动规则
 - [architecture.md](./architecture.md) — 系统架构 / 职责分工 / WebSocket 端点
-- [PACKAGES.md](./PACKAGES.md) — 12 共享包详解
+- [PACKAGES.md](./PACKAGES.md) — 15 共享包详解
 - [GATEKEEPERS.md 第 21 项](./GATEKEEPERS.md) — 多端同步守门
 - [DEPLOYMENT_RUNBOOK.md](./DEPLOYMENT_RUNBOOK.md) — 部署流程
 - [docs/port-management.md](./port-management.md) — 端口分配规则
