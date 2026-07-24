@@ -160,9 +160,9 @@ export interface Order {
   createTime: string
 }
 
-/** 我的订单列表 */
+/** 我的订单列表 — 对接后端 GET /orders/me(返回 { list, total, page, pageSize }) */
 export const getOrderList = (params?: { page?: number; pageSize?: number; status?: string }) =>
-  get<{ list: Order[]; total: number }>('/order/list', params)
+  get<{ list: Order[]; total: number; page?: number; pageSize?: number }>('/orders/me', params)
 
 /* ============ AI 对话 ============ */
 
@@ -454,10 +454,21 @@ export const getPayResult = async (orderNo: string) => {
     raw === 'paid' ? 'paid' : raw === 'pending' ? 'pending' : 'failed'
   return { status, amount: res.order.amount }
 }
-export const getOrderDetail = (id: string | number) => get<Order>(`/orders/${id}`)
-export const refund = (data: { orderNo: string; reason: string }) => post('/order/refund', data)
-export const getRefundList = (params?: { page?: number; pageSize?: number }) =>
-  get<{ list: Order[]; total: number }>('/order/refund/list', params)
+/**
+ * 订单详情 — 对接后端 GET /orders/:orderNo(支持 orderNo 或 UUID id 查询)。
+ * 后端响应 `{ order: EduOrder }`,此处解包返回 Order 本体,保持调用方签名不变。
+ */
+export const getOrderDetail = (id: string | number) =>
+  get<{ order: Order }>(`/orders/${id}`).then((r) => (r.order ?? (r as unknown as Order)) as Order)
+/**
+ * 申请退款 — 对接后端 POST /orders/:id/refund(参数 :id 必须是 UUID)。
+ * 后端响应 `{ refund: EduRefund }`,此处仅返回 void(调用方不读取返回值)。
+ */
+export const refund = (data: { orderId: string; reason: string }) =>
+  post(`/orders/${data.orderId}/refund`, { reason: data.reason })
+/** 我的退款记录列表 — 对接后端 GET /refunds/me(返回 { list, total, page, pageSize }) */
+export const getRefundList = (params?: { page?: number; pageSize?: number; status?: string }) =>
+  get<{ list: Order[]; total: number; page?: number; pageSize?: number }>('/refunds/me', params)
 
 /** 创建充值订单（对接 payments/wechat|alipay/create） */
 export interface RechargeCreateResult {
@@ -1180,10 +1191,10 @@ export const getPhoneNumber = (data: unknown) => post('/auth/phone-number', data
 export const pwdExist = (phone: string) => get(`/auth/pwd-exist?phone=${phone}`)
 /** 修改手机号 */
 export const editPhone = (data: unknown) => put('/auth/phone', data)
-/** 关闭订单 */
-export const closeOrder = (orderId: string) => post(`/order/${orderId}/close`)
-/** 批量关闭订单 */
-export const closeOrders = (orderIds: string[]) => post('/order/batch-close', { orderIds })
+/** 关闭订单 — 对接后端 POST /orders/:id/cancel(参数 :id 必须是 UUID) */
+export const closeOrder = (orderId: string) => post(`/orders/${orderId}/cancel`, {})
+/** 批量关闭订单 — 对接后端 POST /orders/batch-cancel(body: { ids: string[] },每个 id 必须是 UUID) */
+export const closeOrders = (orderIds: string[]) => post('/orders/batch-cancel', { ids: orderIds })
 /** 支付宝新支付 */
 export const zfbNewPay = (data: unknown) => post('/pay/zfb-new', data)
 /** Token 智汇值总数 */
