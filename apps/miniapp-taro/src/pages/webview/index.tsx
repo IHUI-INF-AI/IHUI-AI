@@ -2,7 +2,6 @@ import { View, Text, WebView } from '@tarojs/components'
 import { navigateTo, useRouter, setNavigationBarTitle, getStorageSync } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 /** 导航到 webview 页面并加载指定 URL */
 export function navigateToWebView(url: string): void {
@@ -76,17 +75,17 @@ export default function WebviewIndex() {
 
   if (!url) {
     return (
-      <View className="webview-page">
-        <View className="page-header">
-          <Text className="page-title">{t('webview.title')}</Text>
+      <View className="min-h-screen bg-card">
+        <View className="px-[30rpx] py-[20rpx] bg-card">
+          <Text className="text-[36rpx] font-bold text-foreground">{t('webview.title')}</Text>
         </View>
-        <Text className="empty-text">{t('webview.missingUrl')}</Text>
+        <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">{t('webview.missingUrl')}</Text>
       </View>
     )
   }
 
   return (
-    <View className="webview-page">
+    <View className="min-h-screen bg-card">
       <WebView src={url} onMessage={handleWebviewMessage} onLoad={onWebviewLoad} />
     </View>
   )

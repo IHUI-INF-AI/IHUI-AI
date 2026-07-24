@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native'
+import { Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Button } from '@ihui/ui-native'
+import { Button, Loading } from '@ihui/ui-native'
 import { completeLesson, getProgress, type CourseProgress } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { HomeStackParamList } from '../navigation/RootNavigator'
@@ -77,7 +77,7 @@ export function VideoPlayerScreen() {
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator />
+        <Loading />
       </View>
     )
   }

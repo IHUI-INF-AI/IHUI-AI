@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
@@ -14,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Loading } from '@ihui/ui-native'
 type Nav = NativeStackNavigationProp<RootStackParamList>
 type Route = RouteProp<RootStackParamList, 'LivePreview'>
 interface Detail {
@@ -76,7 +70,7 @@ export function LivePreviewScreen() {
   if (loading) {
     return (
       <View style={s.center}>
-        <ActivityIndicator />
+        <Loading />
         <Text style={s.muted}>{t('common.loading')}</Text>
       </View>
     )
