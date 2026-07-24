@@ -28,32 +28,44 @@ export default function ProfilePage() {
     }
   }, [t])
 
-  if (loading) return <div className="empty-state">{t('common.loading')}</div>
-  if (error) return <div className="error-banner">{error}</div>
+  if (loading) {
+    return (
+      <div className="text-center text-muted-foreground py-8 px-4 text-sm">
+        {t('common.loading')}
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div className="bg-destructive/10 text-destructive px-2.5 py-2 rounded-md border border-destructive m-2 text-xs">
+        {error}
+      </div>
+    )
+  }
   if (!profile) return null
 
   return (
-    <div className="sp-page">
-      <div className="sp-page-header">
-        <h3>{t('profile.title')}</h3>
+    <div className="p-3 flex flex-col gap-2.5">
+      <div className="flex items-center justify-between pb-2 border-b border-border">
+        <h3 className="m-0 text-sm font-semibold">{t('profile.title')}</h3>
       </div>
       <Card>
         <CardHeader>
           <CardTitle>{profile.nickname || t('profile.noNickname')}</CardTitle>
         </CardHeader>
         <CardContent>
-          <dl className="sp-info-list">
-            <div>
-              <dt>{t('profile.idLabel')}</dt>
-              <dd>{profile.id}</dd>
+          <dl className="flex flex-col gap-2 m-0">
+            <div className="flex justify-between text-xs">
+              <dt className="text-muted-foreground m-0">{t('profile.idLabel')}</dt>
+              <dd className="m-0">{profile.id}</dd>
             </div>
-            <div>
-              <dt>{t('profile.emailLabel')}</dt>
-              <dd>{profile.email || '—'}</dd>
+            <div className="flex justify-between text-xs">
+              <dt className="text-muted-foreground m-0">{t('profile.emailLabel')}</dt>
+              <dd className="m-0">{profile.email || '—'}</dd>
             </div>
-            <div>
-              <dt>{t('profile.phoneLabel')}</dt>
-              <dd>{profile.phone || '—'}</dd>
+            <div className="flex justify-between text-xs">
+              <dt className="text-muted-foreground m-0">{t('profile.phoneLabel')}</dt>
+              <dd className="m-0">{profile.phone || '—'}</dd>
             </div>
           </dl>
         </CardContent>
