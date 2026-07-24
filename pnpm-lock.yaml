@@ -12,6 +12,7 @@ overrides:
   drizzle-orm: 0.38.4
   fast-jwt: 6.2.4
   metro: 0.81.5
+  html-encoding-sniffer: 4.0.0
 
 patchedDependencies:
   solito@4.3.0:
