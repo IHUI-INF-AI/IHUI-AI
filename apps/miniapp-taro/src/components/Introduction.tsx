@@ -27,7 +27,7 @@ export default function Introduction({
         <Text className="block text-sm text-muted-foreground">{tt('intro.empty', '暂无简介')}</Text>
       )}
       {agents.length > 0 && (
-        <View className="mt-3 pt-3 border-t border-border">
+        <View className="mt-3 pt-3">
           <Text className="block text-xs text-muted-foreground mb-2">{tt('intro.relatedAI', '关联 AI 应用')}</Text>
           <View className="flex flex-wrap">
             {agents.map((agent) => (
