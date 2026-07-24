@@ -3,33 +3,34 @@
  * 基于 Taro.storage 的本地持久化
  */
 import { getStorageSync, setStorageSync, removeStorageSync, reLaunch } from '@tarojs/taro'
+import type { LoginResult as SharedLoginResult, AuthUser } from '@ihui/api-client'
 
 const TOKEN_KEY = 'ihui_token'
 const REFRESH_TOKEN_KEY = 'ihui_refresh_token'
 const USER_INFO_KEY = 'ihui_user_info'
 
-export interface UserInfo {
+/**
+ * 用户信息 — 字段复用 @ihui/api-client AuthUser(单一来源),
+ * 仅本地保留 miniapp-taro 语义差异字段:
+ *  - id: AuthUser 为必填 string,此处保留可选 string|number(兼容历史 storage 数据)
+ *  - isVip: AuthUser 为 number,此处保留 boolean(前端布尔语义)
+ *  - uuid/userName/realName: miniapp-taro 特有扩展
+ *  - [key: string]: unknown 索引签名(兼容后端任意附加字段)
+ */
+export interface UserInfo extends Omit<AuthUser, 'id' | 'isVip'> {
   id?: string | number
+  isVip?: boolean
   uuid?: string
   userName?: string
-  nickname?: string
-  avatar?: string
-  phone?: string
-  email?: string
   realName?: string
-  isVip?: boolean
-  roleId?: number
-  status?: number
-  permissions?: string[]
   [key: string]: unknown
 }
 
-/** 登录结果(与 @ihui/api-client LoginResult 形状对齐) */
-export interface LoginResult {
-  accessToken: string
-  refreshToken: string
-  expiresIn: number
-  refreshExpiresIn: number
+/**
+ * 登录结果 — token 四字段复用 @ihui/api-client LoginResult(单一来源),
+ * user 保留 miniapp-taro UserInfo(含 uuid/userName 等扩展,登录流程依赖)。
+ */
+export interface LoginResult extends Omit<SharedLoginResult, 'user'> {
   user: UserInfo
 }
 
