@@ -1,28 +1,30 @@
+'use client'
+
 /**
- * Task Receiver React hook(desktop 端,2026-07-23 立)。
+ * Task Receiver React hook(web 端,从 desktop 版迁移 2026-07-24)。
  *
  * 监听 WebSocket task-dispatch / task-result / task-progress / task-cancelled 消息,
  * 把移动端下发的任务累积到本地数组,供 TaskReceiverPage 渲染。
  *
- * 基于 use-agent-control-bridge 模式:复用 useNotificationWebSocket 建连,
- * 过滤 data.type 为 task-* 的消息,按 taskId upsert 状态。
+ * 与 desktop 版的差异:
+ * - 复用 web 端 `useWebSocket()`(自动从 useAuthStore 取 token,连接 /ws/notifications)
+ * - HTTP 调用改用 `fetchApi` from `@/lib/api`(自动注入 token + baseURL + 解包 { code, message, data })
+ * - 设备类型 `web`(desktop 版为 `desktop`)
  *
- * 设备寻址闭环(2026-07-23 升级,P1):
- * - 启动时生成持久化 deviceId(localStorage `ihui-device-id`)
- * - token 有效时调 POST /tasks/register-device 注册 + 30s 心跳保活
- * - hook unmount 或 token 失效时调 DELETE /tasks/devices/:deviceId 注销
- * - 收到 task-dispatch 后按 toDevice 过滤(只处理给自己的任务)
+ * 设备寻址闭环:启动时生成持久化 deviceId(localStorage `ihui-device-id`),
+ * token 有效时调 POST /api/tasks/register-device 注册 + 30s 心跳保活,
+ * hook unmount 或 token 失效时调 DELETE /api/tasks/devices/:deviceId 注销,
+ * 收到 task-dispatch 后按 toDevice 过滤(只处理给自己的任务)。
  *
- * 断网恢复闭环(2026-07-23 升级,P0):
- * - lastSeenTs 持久化到 localStorage(`task-last-seen-ts`),刷新不丢
- * - WS 重连(connected: false→true)时调 GET /tasks?since=<lastSeenTs> 补拉断线期间错过的任务
- * - 收到 task-cancelled 消息时把对应任务状态置为 cancelled(执行中任务据此中止)
+ * 断网恢复闭环:lastSeenTs 持久化到 localStorage(`task-last-seen-ts`),
+ * WS 重连(connected: false→true)时调 GET /api/tasks?since=<lastSeenTs> 补拉断线期间错过的任务,
+ * 收到 task-cancelled 消息时把对应任务状态置为 cancelled。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TaskDispatch, TaskResult, TaskWsMessage } from '@ihui/shared'
-import { useNotificationWebSocket } from './use-websocket'
+import { useWebSocket } from '@/hooks/use-websocket'
+import { fetchApi } from '@/lib/api'
 
-const API_BASE_URL = 'http://127.0.0.1:8802'
 const DEVICE_ID_STORAGE_KEY = 'ihui-device-id'
 /** 最近一次见到任务的 updatedAt 时间戳(ms),用于 WS 重连后增量补拉 */
 const LAST_SEEN_TS_KEY = 'task-last-seen-ts'
@@ -35,7 +37,7 @@ export interface UseTaskReceiverReturn {
   isConnected: boolean
   /** 当前设备持久化 ID(供 UI 显示 + 对外标识) */
   deviceId: string
-  /** 下载指定任务的附件(2026-07-24 P2-c 跨端文件传输)。返回下载结果文案供 UI 显示。 */
+  /** 下载指定任务的附件。返回下载结果文案供 UI 显示。 */
   downloadAttachment: (taskId: string) => { ok: boolean; message: string }
 }
 
@@ -81,18 +83,11 @@ function saveLastSeenTs(ts: number): void {
   }
 }
 
-/** 统一 { code, message, data } 响应,返回 data 字段 */
-async function apiData<T>(path: string, token: string): Promise<T | null> {
-  try {
-    const res = await fetch(`${API_BASE_URL}${path}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (!res.ok) return null
-    const json = (await res.json()) as { data?: T }
-    return json?.data ?? (json as unknown as T)
-  } catch {
-    return null
-  }
+/** 统一 { code, message, data } 响应,fetchApi 已解包,返回 data 字段 */
+async function apiData<T>(path: string): Promise<T | null> {
+  const r = await fetchApi<T>(path)
+  if (!r.success) return null
+  return r.data
 }
 
 /** 把增量补拉的任务 upsert 进本地数组(尊重 toDevice 过滤 + seenIds 去重) */
@@ -132,7 +127,7 @@ function upsertIncremental(
 }
 
 export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
-  const { connected, lastMessage } = useNotificationWebSocket(token)
+  const { connected, lastMessage } = useWebSocket()
   const [tasks, setTasks] = useState<TaskDispatch[]>([])
   const seenIds = useRef(new Set<string>())
   const [deviceId] = useState<string>(loadOrCreateDeviceId)
@@ -145,28 +140,22 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
   useEffect(() => {
     if (!token) return
 
-    const deviceName = `Desktop-${deviceId.slice(0, 8)}`
+    const deviceName = `Web-${deviceId.slice(0, 8)}`
 
     const register = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/tasks/register-device`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ deviceId, name: deviceName, type: 'desktop' }),
-        })
-        if (!res.ok) {
-          console.error('[use-task-receiver] register failed:', res.status, res.statusText)
-        }
-      } catch (err) {
-        console.error('[use-task-receiver] register error:', err)
+      const r = await fetchApi('/api/tasks/register-device', {
+        method: 'POST',
+        body: JSON.stringify({ deviceId, name: deviceName, type: 'web' }),
+      })
+      if (!r.success) {
+        console.error('[use-task-receiver] register failed:', r.error)
       }
     }
 
     void register()
-    heartbeatRef.current = setInterval(register, HEARTBEAT_INTERVAL_MS)
+    heartbeatRef.current = setInterval(() => {
+      void register()
+    }, HEARTBEAT_INTERVAL_MS)
 
     return () => {
       if (heartbeatRef.current) {
@@ -174,20 +163,13 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
         heartbeatRef.current = null
       }
       // 注销:异步调用,失败静默(WS 消息接收不受影响)
-      void (async () => {
-        try {
-          await fetch(`${API_BASE_URL}/api/tasks/devices/${deviceId}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` },
-          })
-        } catch (err) {
-          console.error('[use-task-receiver] unregister error:', err)
-        }
-      })()
+      void fetchApi(`/api/tasks/devices/${deviceId}`, { method: 'DELETE' }).catch((err) => {
+        console.error('[use-task-receiver] unregister error:', err)
+      })
     }
   }, [token, deviceId])
 
-  // WS 重连补拉:connected 从 false→true 时,GET /tasks?since=<lastSeenTs> 补拉断线期间错过的任务
+  // WS 重连补拉:connected 从 false→true 时,GET /api/tasks?since=<lastSeenTs> 补拉断线期间错过的任务
   useEffect(() => {
     if (!token) {
       prevConnectedRef.current = false
@@ -203,7 +185,6 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
       const since = lastSeenTsRef.current
       const data = await apiData<{ tasks: TaskDispatch[] } | TaskDispatch[]>(
         `/api/tasks?since=${since}`,
-        token,
       )
       if (!data) return
       const list = Array.isArray(data) ? data : data.tasks ?? []
@@ -287,7 +268,7 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
   }, [lastMessage, deviceId])
 
   /**
-   * 下载指定任务的附件(2026-07-24 P2-c 跨端文件传输)。
+   * 下载指定任务的附件。
    * 流程:从本地 tasks 数组查找 task.filePayload → atob 解码 base64 → Uint8Array →
    * Blob(URL.createObjectURL)→ 创建 <a> 元素 + click() 触发浏览器下载。
    * 失败返回 ok=false + 错误文案,供 UI 提示。
