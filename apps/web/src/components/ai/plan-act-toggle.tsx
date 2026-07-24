@@ -19,7 +19,9 @@ export type PlanActMode = 'plan' | 'act'
 function safeT(t: (key: string) => string, key: string, fallback: string): string {
   try {
     const v = t(key)
-    return v === key ? fallback : v
+    // next-intl 缺失 key 时返回带 namespace 前缀的完整路径(如 "chat.modePlan"),
+    // 因此除精确匹配外还需检查 namespace 后缀,确保 fallback 正确触发。
+    return v === key || v.endsWith(`.${key}`) ? fallback : v
   } catch {
     return fallback
   }
@@ -40,6 +42,8 @@ export function PlanActToggle({
   const t = useTranslations('chat')
   const planLabel = safeT(t, 'modePlan', '规划')
   const actLabel = safeT(t, 'modeAct', '执行')
+  const planTooltip = safeT(t, 'planTooltip', 'Plan: AI 只制定计划,不执行工具')
+  const actTooltip = safeT(t, 'actTooltip', 'Act: AI 正常执行工具')
 
   const select = (m: PlanActMode) => {
     if (onChange) onChange(m)
@@ -70,8 +74,8 @@ export function PlanActToggle({
       aria-label="Plan/Act mode"
       className={cn('inline-flex h-7 items-center gap-0.5 rounded-md bg-muted p-0.5', className)}
     >
-      {btn('plan', planLabel, 'Plan: AI 只制定计划,不执行工具')}
-      {btn('act', actLabel, 'Act: AI 正常执行工具')}
+      {btn('plan', planLabel, planTooltip)}
+      {btn('act', actLabel, actTooltip)}
     </div>
   )
 }
