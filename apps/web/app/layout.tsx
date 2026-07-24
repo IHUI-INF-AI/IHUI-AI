@@ -70,12 +70,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           - sidebar.tsx 的 useState(SIDEBAR_WIDTH)=130 + useEffect 同步 CSS 变量=130,三者一致无跳变。
           - 拖拽宽度仍存 localStorage,但刷新后不读取(首帧永远默认 130,无跳变)。
 
+          z-index 变量运行时覆盖(2026-07-24 立):
+          TRAE IDE 注入 <style id="solo-lite-theme-variables"> 覆盖 --z-sticky / --z-modal 等变量。
+          此处用 document.documentElement.style.setProperty() 设置 inline style,
+          优先级高于任何 stylesheet(含 TRAE 注入),无需 !important(项目规则禁止 !important)。
+
           与 next-themes 的 suppressHydrationWarning 同模式:只设 CSS 变量,
           React inline style 只声明 CSS 变量引用,不接管具体数值 → 无 hydration mismatch。
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var raw=localStorage.getItem('ihui-ai-panel');if(raw){var p=JSON.parse(raw);var w=p&&p.state&&p.state.width;if(typeof w==='number'&&w>=320&&w<=720){document.documentElement.style.setProperty('--ai-panel-occupy',(w+8)+'px');return;}}}catch(e){}document.documentElement.style.setProperty('--ai-panel-occupy','408px');})();`,
+            __html: `(function(){var d=document.documentElement;d.style.setProperty('--z-base','1');d.style.setProperty('--z-sticky','990');d.style.setProperty('--z-modal','2000');d.style.setProperty('--z-popover','2001');d.style.setProperty('--z-notification','9999');d.style.setProperty('--z-max','10003');try{var raw=localStorage.getItem('ihui-ai-panel');if(raw){var p=JSON.parse(raw);var w=p&&p.state&&p.state.width;if(typeof w==='number'&&w>=320&&w<=720){d.style.setProperty('--ai-panel-occupy',(w+8)+'px');return;}}}catch(e){}d.style.setProperty('--ai-panel-occupy','408px');})();`,
           }}
         />
         <ThemeProvider
