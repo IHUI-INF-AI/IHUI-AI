@@ -1,4 +1,4 @@
-import { fetchApi } from '../client.js'
+import { fetchApi } from '../client'
 
 /** 知识库文档摘要 */
 export interface KnowledgeDocSummary {

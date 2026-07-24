@@ -1,4 +1,4 @@
-import { fetchApi, fetchText } from '../client.js'
+import { fetchApi, fetchText } from '../client'
 
 export type ChatRole = 'user' | 'assistant' | 'system'
 
