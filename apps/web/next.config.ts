@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   transpilePackages: [
     '@ihui/ui-react',
+    '@ihui/design-tokens',
     '@ihui/types',
     '@ihui/config',
     '@ihui/auth',
