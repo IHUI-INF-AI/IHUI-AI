@@ -327,6 +327,31 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
   - 行级白名单:注释行 / "禁止/反面/deprecated" / `.log`/`.txt` 路径 / `--redirect` 参数
 - **历史教训**:2026-07-23 扩展验证时,agent 把构建产物复制到 `C:\temp\ihui-ext2`,用户质问"为什么不放项目内"。根因:§15 原版只说"临时文件放 `.trae-cn/tmp/`",没明确禁止项目数据写到项目外,导致 agent 习惯性沿用早期诊断脚本的 `C:\temp` 路径。v1 守门只扫 `.trae-cn/tmp/` 且 warn-only,仍有 7 大漏洞(覆盖窄/模式不全/不阻塞/没用 staged/不检测中文路径/不检测相对路径跳出/不扫配置文件)。v2 从机制上根治:阻塞模式 + 分级检测 + 全项目扫描 + `--staged` 模式。
 
+### G:\ 根目录外部工具污染防护(2026-07-24 立,机制根治)
+
+- **问题背景**:2026-07-24 用户发现 `G:\` 根目录散落 16 个垃圾目录(`platforms/` / `iconengines/` / `imageformats/` / `styles/` / `bearer/` / `translations/` / `CA/` / `cert/` / `WXCertUtil/` / `rail_user_data/` / `.pnpm-store/` / `tmp/` / `ai_zhs/` / `.appdata/` / `c/` / `nonexistent-root/`),全部是项目外垃圾。
+- **三类根因**:
+  1. **用户行为 — 外部 Qt 工具污染**:`微信支付商户API证书工具 V1.4.exe`(Qt 应用)在 `G:\` 根目录双击运行时,Qt 框架自动释放插件目录(`platforms/iconengines/imageformats/styles/bearer/translations`) + Qt5*.dll + 依赖 DLL + `CA/cert/WXCertUtil` 证书工作目录到**当前工作目录**(即 G:\)。
+  2. **其他 IDE 配置异常 — QoderCN venv 路径错误**:QoderCN IDE 一次 venv 创建命令把 `C:\` 错写成 `g:\c\`,Python 在 G:\ 下创建了完整路径链 `c\Users\Administrator\.workbuddy\binaries\python\envs\default\`(证据:`pyvenv.cfg` 第 5 行 `command` 字段)。同时 QoderCN 路径解析失败时创建兜底目录 `nonexistent-root\no-perm\`,JDK 探测缓存写到 `G:\.appdata\jdk.md`。
+  3. **早期 agent 临时文件违规**:2026-07-23 v2 守门立规前,agent 把 hover 截图 / sidebar .vue / .diff / .log 等临时文件随手写到 `G:\tmp\` 而非 `.trae-cn\tmp\`。
+- **强制规则**:
+  - **禁止**在 `G:\` 根目录运行任何 Qt 类外部工具(微信支付证书工具 / 任意 .exe 安装包 / 任意解压即用工具)。必须放到专门工具目录(如 `G:\tools\` 或项目内 `g:\IHUI-AI\cert\`)运行,避免 Qt 框架把插件目录释放到 G:\ 根。
+  - **禁止**在 `G:\` 根目录执行 `pnpm install` / `pnpm dev` 等 pnpm 命令(会创建 `.pnpm-store` v11,与项目内 v3 冲突)。pnpm 命令必须在项目内执行。
+  - **使用 QoderCN 等 IDE 时**:若发现 `G:\c\Users\Administrator\.workbuddy\` 被创建,需检查 IDE 的 Python venv 路径配置(可能把 `C:\` 错写成 `g:\c\`),并立即运行清理脚本。
+  - **清理脚本(根治工具)**:`scripts/cleanup-external-junk.ps1` 已扩展为 16 目录 + 31 文件清单,支持 `-Force` 跳过确认(agent 自动执行)。
+    - 交互模式:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-junk.ps1`(需输入 YES 确认)
+    - 自动模式:`powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-junk.ps1 -Force`(agent 用)
+    - 安全保证:只删清单内 16 目录 + 31 文件,不用通配符,不触碰其他应用目录(Trae CN / QoderCN / Zcode / freellmapi / grok-build / 微信web开发者工具 / 支付宝小程序开发工具 / Yingyongbao 等)
+  - **脚本是纯 ASCII**:PowerShell 5 默认用 GBK 读 .ps1,中文会破坏引号配对。脚本注释/输出全部用英文,只有清单中的中文文件名(`微信支付商户API证书工具 V1.4.exe`)保留中文(GBK 兼容)。
+- **agent 行为约束**(机制可阻止):
+  - agent 启动外部 Qt 类工具时,**禁止**把工作目录设为 `G:\` 根,必须用 `Set-Location` 切到项目内或专门工具目录。
+  - agent 执行 pnpm 命令时,**禁止**在 `G:\` 根目录执行,必须 `cd g:\IHUI-AI` 后再执行。
+  - agent 创建临时文件时,**必须**用 `.trae-cn\tmp\`(由 v2 守门 blocking 强制)。
+- **用户行为约束**(机制无法阻止,靠规则提示):
+  - 双击 .exe 前先确认当前工作目录不是 `G:\` 根(Windows 默认双击工作目录是 .exe 所在目录)。
+  - 把 Qt 类工具放到 `G:\tools\` 或项目子目录再运行。
+- **守门局限性**:v2 守门只检测项目内代码写项目外路径,无法检测用户双击 .exe 或其他 IDE 配置异常。本节规则是补充提示,真正根治靠用户遵守"不在 G:\ 根运行外部工具"的约定。
+
 ---
 
 ## 16. Push 阶段跨 Agent 改动保护规则(强制)
@@ -484,6 +509,7 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 **触发条件**:zh-CN.json 新增/修改 key 后,AI agent 必须执行翻译流水线补齐其他 4 语言。
 
 **执行步骤(强制)**:
+
 1. `node scripts/i18n-diff.mjs` — 检测差异,生成 `.trae-cn/tmp/i18n-pending.json`
 2. AI agent 读取 `.trae-cn/tmp/i18n-pending.json`(含 glossary + workflow 说明)
 3. AI agent 自己翻译(结合 `scripts/brand-glossary.json` 保证品牌名一致)
@@ -493,6 +519,7 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 7. `node scripts/scan-i18n-zh-residue.mjs ko` / `zh-TW` — 验证无中文/简体字残留
 
 **翻译规则**:
+
 - 品牌名优先用 `brand-glossary.json` 的 canonical 英文名(如 智谱清言→Zhipu AI)。
 - 字体名优先用英文系统名(如 宋体→SimSun)。
 - 技术术语优先用英文国际通用词(如 物联网→IoT)。
@@ -503,6 +530,7 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 - en 禁止中文残留,禁止破碎机翻英文(如 AgentDevPlatform)。
 
 **守门集成**:
+
 - **web 端**(pre-commit 第 2f-web 项,blocking):仅当 staged 涉及 `apps/web/messages/zh-CN.json` 时检测,有 pending 则阻塞 commit 直到翻译完成。
 - **miniapp-taro 端**(pre-commit 第 2f-miniapp-taro 项,blocking):仅当 staged 涉及 `apps/miniapp-taro/src/i18n/zh-CN.ts` 时检测,有 pending 则阻塞 commit。用 `--target=miniapp-taro` 切换扫描路径,typescript AST 解析 `.ts` 文件。
 - 多 agent 并行时其他 agent 改 target locale 文件不会触发阻塞(避免误伤)。
@@ -513,43 +541,43 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 
 ## 守门脚本速查(pre-commit 第 1-23 项)
 
-| #   | 脚本                                         | 用途                                                 |
-| --- | -------------------------------------------- | ---------------------------------------------------- |
-| 1   | check-api-key-leak.mjs                       | API key 泄露                                         |
-| 2   | check-i18n-keys.mjs                          | i18n 键完整性 + 翻译白名单(15 条豁免)                |
-| 2b  | scan-i18n-zh-residue.mjs zh-TW               | zh-TW 简体字残留 (opencc 字形转换)                   |
-| 2c  | scan-i18n-zh-residue.mjs ko                  | ko.json 中文残留 (字符范围检测)                      |
-| 2d  | scan-i18n-zh-residue.mjs ja                  | ja.json 中文残留 (warn-only,不阻塞)                  |
-| 2e  | check-i18n-broken-en.mjs                     | en.json 破碎机翻英文                                 |
-| 2f-web | i18n-diff.mjs                             | **i18n AI 翻译流水线守门(blocking,仅 zh-CN staged 时检测)** |
-| 2f-miniapp-taro | i18n-diff.mjs --target=miniapp-taro | **miniapp-taro i18n 翻译流水线守门(blocking,仅 zh-CN.ts staged 时检测)** |
-| 3   | check-db-schema-drift.mjs                    | schema drift                                         |
-| 4   | check-stale-dist.mjs                         | packages 陈旧 dist                                   |
-| 4b  | check-dist-encoding.mjs                      | packages/*/dist UTF-8 BOM 守门                       |
-| 4c  | check-api-client-utf8.mjs                    | api-client 源码字节级 UTF-8 完整性                   |
-| 5   | lint-staged                                  | eslint + prettier                                    |
-| 6   | check-sanitizer-bypass.mjs                   | skipResponseSanitization                             |
-| 7   | check-dedupe.mjs                             | 依赖碎片化                                           |
-| 8   | check-api-routes.mjs                         | 前后端路由一致性                                     |
-| 9   | check-safe-parse.mjs                         | safeParse 静默忽略(warn-only)                        |
-| 10  | openapi-check.mjs                            | OpenAPI spec 存在性(informational)                   |
-| 11  | check-rounded-full.mjs                       | 容器圆角违规                                         |
-| 12  | check-delivery-report-consistency.mjs        | 交付报告一致性                                       |
-| 13b | check-project-plan-size.mjs                  | **PROJECT_PLAN.md 体积(warn-only,500KB 软参考,不阻塞)** |
-| 13c | check-project-plan-archive.mjs               | **PROJECT_PLAN.md 已完成任务条目防误删**             |
-| 15  | check-api-migration-completeness.mjs         | 迁移完整性                                           |
-| 17  | check-input-border-var.mjs                   | CSS 颜色 token 嵌套(hsl(hsl(...)))                   |
-| 18  | check-native-title-tooltip.mjs               | 原生 title tooltip 违规                              |
-| 19  | check-staged-pollution.mjs                   | **staged 污染预警(warn-only,跨 ≥ 4 目录)**           |
-| 20  | check-tailwind-class-conflict.mjs            | **Tailwind class 冲突(模板字面量 BASE/BRANCH size)** |
-| 21  | check-multi-end-sync.mjs                     | **多端同步守门(warn-only,单端未标注平台独占)** |
-| 22  | check-readme-sync.mjs                        | **README 同步守门(warn-only,功能代码改动但 README 未更新)** |
-| 23  | check-staged-files.mjs                       | **staged 文件清单打印(info-only)**                  |
-| 24a | check-sidebar-width-consistency.mjs          | **侧边栏宽度一致性(design-tokens vs sidebar.tsx)**   |
-| 24b | check-port-registry.mjs                      | **端口注册表守门(warn-only,非 88xx)**                |
-| 25  | check-workspace-hygiene.mjs                  | **项目外路径违规(blocking:项目外路径写入;warn:硬编码中文路径)** |
-| 16  | 条件 typecheck                               | apps/web staged 时跑 typecheck             |
-| 16b | 条件 database build                          | packages/database/src staged 时跑 build              |
+| #               | 脚本                                  | 用途                                                                     |
+| --------------- | ------------------------------------- | ------------------------------------------------------------------------ |
+| 1               | check-api-key-leak.mjs                | API key 泄露                                                             |
+| 2               | check-i18n-keys.mjs                   | i18n 键完整性 + 翻译白名单(15 条豁免)                                    |
+| 2b              | scan-i18n-zh-residue.mjs zh-TW        | zh-TW 简体字残留 (opencc 字形转换)                                       |
+| 2c              | scan-i18n-zh-residue.mjs ko           | ko.json 中文残留 (字符范围检测)                                          |
+| 2d              | scan-i18n-zh-residue.mjs ja           | ja.json 中文残留 (warn-only,不阻塞)                                      |
+| 2e              | check-i18n-broken-en.mjs              | en.json 破碎机翻英文                                                     |
+| 2f-web          | i18n-diff.mjs                         | **i18n AI 翻译流水线守门(blocking,仅 zh-CN staged 时检测)**              |
+| 2f-miniapp-taro | i18n-diff.mjs --target=miniapp-taro   | **miniapp-taro i18n 翻译流水线守门(blocking,仅 zh-CN.ts staged 时检测)** |
+| 3               | check-db-schema-drift.mjs             | schema drift                                                             |
+| 4               | check-stale-dist.mjs                  | packages 陈旧 dist                                                       |
+| 4b              | check-dist-encoding.mjs               | packages/*/dist UTF-8 BOM 守门                                           |
+| 4c              | check-api-client-utf8.mjs             | api-client 源码字节级 UTF-8 完整性                                       |
+| 5               | lint-staged                           | eslint + prettier                                                        |
+| 6               | check-sanitizer-bypass.mjs            | skipResponseSanitization                                                 |
+| 7               | check-dedupe.mjs                      | 依赖碎片化                                                               |
+| 8               | check-api-routes.mjs                  | 前后端路由一致性                                                         |
+| 9               | check-safe-parse.mjs                  | safeParse 静默忽略(warn-only)                                            |
+| 10              | openapi-check.mjs                     | OpenAPI spec 存在性(informational)                                       |
+| 11              | check-rounded-full.mjs                | 容器圆角违规                                                             |
+| 12              | check-delivery-report-consistency.mjs | 交付报告一致性                                                           |
+| 13b             | check-project-plan-size.mjs           | **PROJECT_PLAN.md 体积(warn-only,500KB 软参考,不阻塞)**                  |
+| 13c             | check-project-plan-archive.mjs        | **PROJECT_PLAN.md 已完成任务条目防误删**                                 |
+| 15              | check-api-migration-completeness.mjs  | 迁移完整性                                                               |
+| 17              | check-input-border-var.mjs            | CSS 颜色 token 嵌套(hsl(hsl(...)))                                       |
+| 18              | check-native-title-tooltip.mjs        | 原生 title tooltip 违规                                                  |
+| 19              | check-staged-pollution.mjs            | **staged 污染预警(warn-only,跨 ≥ 4 目录)**                               |
+| 20              | check-tailwind-class-conflict.mjs     | **Tailwind class 冲突(模板字面量 BASE/BRANCH size)**                     |
+| 21              | check-multi-end-sync.mjs              | **多端同步守门(warn-only,单端未标注平台独占)**                           |
+| 22              | check-readme-sync.mjs                 | **README 同步守门(warn-only,功能代码改动但 README 未更新)**              |
+| 23              | check-staged-files.mjs                | **staged 文件清单打印(info-only)**                                       |
+| 24a             | check-sidebar-width-consistency.mjs   | **侧边栏宽度一致性(design-tokens vs sidebar.tsx)**                       |
+| 24b             | check-port-registry.mjs               | **端口注册表守门(warn-only,非 88xx)**                                    |
+| 25              | check-workspace-hygiene.mjs           | **项目外路径违规(blocking:项目外路径写入;warn:硬编码中文路径)**          |
+| 16              | 条件 typecheck                        | apps/web staged 时跑 typecheck                                           |
+| 16b             | 条件 database build                   | packages/database/src staged 时跑 build                                  |
 
 > **post-commit 钩子**(非 pre-commit):`git-push-guard.mjs` 自动检测本地 ahead → 自动 push + 验证 local == remote(详见 §21)。
 
@@ -612,6 +640,7 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 ### 触发条件
 
 任何任务完成后,如果该任务**新增 / 修改 / 删除**了以下任一类别的能力:
+
 - 新功能模块(如新增 P3 深度层、新增 IM 渠道、新增沙箱后端)
 - 现有功能重大调整(如 API 路由变更、架构重构、数据库 schema 迁移)
 - 守门规则 / 工程约束新增(如本节本身就是触发例)
