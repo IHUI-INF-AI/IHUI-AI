@@ -7,7 +7,8 @@ import {
   Workflow, AlertTriangle, GitBranch, Wand2, GitMerge, RotateCcw,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { SpecScopeType, SpecGenerateOutput } from '@ihui/types'
+import type { SpecGenerateOutput } from '@ihui/types'
+import type { SpecScopeType } from '@ihui/shared/spec'
 import { fetchApi } from '@/lib/api'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { cn } from '@/lib/utils'
