@@ -1591,7 +1591,7 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-gua
 **v2.0 白名单优先模式(5 层判定逻辑)**:
 
 1. `systemProtected` → ALLOWED(系统目录,永不删除:`$RECYCLE.BIN` / `System Volume Information` / `Users` / `Windows` 等 8 个)
-2. `allowlist` → ALLOWED(用户合法项目/工具:IHUI-AI / freellmapi / QoderCN / Trae CN / 微信web开发者工具 等 15 个 + `tools` 通配符)
+2. `allowlist` → ALLOWED(用户合法项目/工具:IHUI-AI / QoderCN / Trae CN / 微信web开发者工具 等 14 个 + `tools` 通配符)
 3. `blacklist` → BLOCKED(已知垃圾:platforms / iconengines / Qt5*.dll 等 17 目录/23 文件/10 通配符)
 4. `heuristic` → BLOCKED(垃圾特征签名:`guardian-test-*` / `test-*` / `tmp_*` / `search_*.ps1` 等 7 目录签名/14 文件签名)
 5. 否则 → BLOCKED:unknown(未知项,删除)— **v2.0 核心改动,彻底消除 v1.0 盲区**
