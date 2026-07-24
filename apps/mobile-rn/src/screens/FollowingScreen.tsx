@@ -1,8 +1,8 @@
 import { useCallback } from 'react'
-import { Alert, FlatList, Image, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Button, Card } from '@ihui/ui-native'
+import { Avatar, Button, Card } from '@ihui/ui-native'
 import { getFollowing, type FollowUser } from '@ihui/api-client'
 import { unfollowUser } from '../api/social'
 import { usePaginatedList } from '../hooks/use-paginated-list'
@@ -19,19 +19,6 @@ function formatDate(value: string): string {
     month: '2-digit',
     day: '2-digit',
   }).format(new Date(value))
-}
-
-function Avatar({ url, nickname }: { url: string | null; nickname: string }) {
-  if (url) {
-    return <Image source={{ uri: url }} className="h-12 w-12 rounded-full bg-neutral-100" />
-  }
-  return (
-    <View className="h-12 w-12 items-center justify-center rounded-xl bg-neutral-200">
-      <Text className="text-base font-semibold text-neutral-600">
-        {(nickname || '?').slice(0, 1).toUpperCase()}
-      </Text>
-    </View>
-  )
 }
 
 export function FollowingScreen() {
@@ -114,7 +101,12 @@ export function FollowingScreen() {
         }
         renderItem={({ item }) => (
           <Card className="flex-row items-center">
-            <Avatar url={item.avatar} nickname={item.nickname || item.username} />
+            <Avatar
+              source={item.avatar ? { uri: item.avatar } : undefined}
+              name={item.nickname || item.username}
+              size="lg"
+              shape="circle"
+            />
             <View className="ml-3 flex-1">
               <Text
                 className="text-base font-semibold text-neutral-900 dark:text-neutral-50"
