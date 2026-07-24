@@ -28,6 +28,17 @@ interface ToolCallCardProps {
   onApply?: () => void
   /** Reject 回调(由父组件绑定 messageId + toolCallId) */
   onReject?: () => void
+  /** 后端重复调用检测命中时标记(渲染"已跳过"徽章) */
+  repeated?: boolean
+  /** image_generation 工具返回的图片 URL(优先于 result 渲染) */
+  imageUrl?: string
+  /** summarize_artifacts 工具返回的摘要数据(优先于 result 渲染) */
+  summaryData?: {
+    plans?: Array<{ id: string; title: string; status: string; steps?: string[] }>
+    sources?: Array<{ type: string; ref: string; accessed_at?: string }>
+    artifacts?: Array<{ type: string; path: string; created_at?: string }>
+    tool_calls_summary?: { total: number; by_tool: Record<string, number> }
+  }
 }
 
 const STATUS_CONFIG = {
@@ -51,6 +62,12 @@ const BROWSER_TOOL_NAMES = new Set([
 /** edit_file / write_file 工具名命中即渲染 InlineDiffCard */
 const DIFF_TOOL_NAMES = new Set(['edit_file', 'write_file'])
 
+/** image_generation 工具名命中即渲染 <img> */
+const IMAGE_TOOL_NAMES = new Set(['image_generation'])
+
+/** summarize_artifacts 工具名命中即渲染聚合视图 */
+const SUMMARY_TOOL_NAMES = new Set(['summarize_artifacts'])
+
 /** 从 args 中提取字符串字段(兼容 camelCase / snake_case 多种命名) */
 function pickStr(args: Record<string, unknown>, keys: string[]): string {
   for (const k of keys) {
@@ -66,8 +83,7 @@ export function deriveDiffInfo(
   toolName: string,
   args: Record<string, unknown>,
 ): InlineDiffInfo | null {
-  const filePath =
-    pickStr(args, ['path', 'file_path', 'filePath', 'filename']) || '(未知文件)'
+  const filePath = pickStr(args, ['path', 'file_path', 'filePath', 'filename']) || '(未知文件)'
 
   if (toolName === 'edit_file') {
     const oldContent = pickStr(args, ['oldText', 'old_text', 'oldContent', 'old_content'])
@@ -112,8 +128,7 @@ function extractUrl(
     if (match) return match[0]
   } else if (result && typeof result === 'object') {
     const obj = result as Record<string, unknown>
-    const fromResult =
-      (obj.url as string) || (obj.href as string) || (obj.link as string)
+    const fromResult = (obj.url as string) || (obj.href as string) || (obj.link as string)
     if (typeof fromResult === 'string' && /^https?:\/\//i.test(fromResult)) return fromResult
   }
 
@@ -132,6 +147,119 @@ function extractUrl(
   return null
 }
 
+/** image_generation 工具结果渲染:图片预览 + 提示词 + 新窗口打开链接 */
+function ImageResultBlock({ imageUrl, prompt }: { imageUrl: string; prompt?: string }) {
+  const [loaded, setLoaded] = React.useState(false)
+  const [errored, setErrored] = React.useState(false)
+
+  return (
+    <div className="space-y-2">
+      {prompt && <p className="mb-1 font-medium text-muted-foreground">提示词</p>}
+      {prompt && <p className="text-xs italic text-muted-foreground">{prompt}</p>}
+      <div className="relative overflow-hidden rounded-md border border-border bg-muted/30">
+        {!loaded && !errored && (
+          <div className="flex h-48 items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        )}
+        {errored && (
+          <div className="flex h-48 items-center justify-center text-xs text-red-500">
+            图片加载失败
+          </div>
+        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imageUrl}
+          alt={prompt || 'AI 生成图片'}
+          className={cn(
+            'w-full object-contain transition-opacity',
+            loaded ? 'opacity-100' : 'opacity-0',
+            errored && 'hidden',
+          )}
+          onLoad={() => setLoaded(true)}
+          onError={() => setErrored(true)}
+        />
+      </div>
+      <a
+        href={imageUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+      >
+        <ExternalLink className="h-3.5 w-3.5" />
+        <span>在新窗口打开</span>
+      </a>
+    </div>
+  )
+}
+
+/** summarize_artifacts 工具结果渲染:计划/引用/工具调用统计聚合视图 */
+function SummaryResultBlock({ data }: { data: NonNullable<ToolCallCardProps['summaryData']> }) {
+  return (
+    <div className="space-y-3">
+      {data.plans && data.plans.length > 0 && (
+        <div>
+          <p className="mb-1 font-medium text-muted-foreground">计划 ({data.plans.length})</p>
+          <ul className="space-y-1 text-xs">
+            {data.plans.map((p, i) => (
+              <li key={p.id || i} className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    'shrink-0 rounded-sm px-1.5 py-0.5 text-[10px]',
+                    p.status === 'completed'
+                      ? 'bg-green-500/10 text-green-600'
+                      : p.status === 'in_progress'
+                        ? 'bg-blue-500/10 text-blue-600'
+                        : 'bg-muted text-muted-foreground',
+                  )}
+                >
+                  {p.status}
+                </span>
+                <span className="break-words">{p.title}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {data.sources && data.sources.length > 0 && (
+        <div>
+          <p className="mb-1 font-medium text-muted-foreground">引用 ({data.sources.length})</p>
+          <ul className="space-y-0.5 text-xs">
+            {data.sources.slice(0, 5).map((s, i) => (
+              <li key={i} className="truncate font-mono text-muted-foreground">
+                <span className="mr-1 rounded-sm bg-muted px-1 py-0.5 text-[10px]">{s.type}</span>
+                {s.ref}
+              </li>
+            ))}
+            {data.sources.length > 5 && (
+              <li className="text-[10px] text-muted-foreground">
+                ... 还有 {data.sources.length - 5} 个
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+      {data.tool_calls_summary && data.tool_calls_summary.total > 0 && (
+        <div>
+          <p className="mb-1 font-medium text-muted-foreground">
+            工具调用 ({data.tool_calls_summary.total} 次)
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {Object.entries(data.tool_calls_summary.by_tool).map(([tool, count]) => (
+              <span
+                key={tool}
+                className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] tabular-nums"
+              >
+                {tool} × {count}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function ToolCallCard({
   toolName,
   args,
@@ -144,6 +272,8 @@ export function ToolCallCard({
   applyStatus,
   applyError,
   repeated,
+  imageUrl,
+  summaryData,
   onApply,
   onReject,
 }: ToolCallCardProps) {
@@ -168,6 +298,12 @@ export function ToolCallCard({
 
   // edit_file/write_file 且有 diffInfo:展开时渲染 InlineDiffCard 替代 <pre>
   const showInlineDiff = !!diffInfo
+
+  // image_generation / summarize_artifacts:优先于 result 渲染专用视图
+  const isImageTool = IMAGE_TOOL_NAMES.has(toolName)
+  const isSummaryTool = SUMMARY_TOOL_NAMES.has(toolName)
+  const showImage = isImageTool && !!imageUrl
+  const showSummary = isSummaryTool && !!summaryData
 
   const handleOpenInWorkPanel = React.useCallback(() => {
     if (!extractedUrl) return
@@ -223,8 +359,17 @@ export function ToolCallCard({
               onReject={onReject}
             />
           )}
-          {/* 非 diff 工具或无 diffInfo 时显示原始 args/result */}
-          {!showInlineDiff && (
+          {/* image_generation:渲染生成的图片(优先于 result) */}
+          {showImage && imageUrl && (
+            <ImageResultBlock
+              imageUrl={imageUrl}
+              prompt={pickStr(args, ['prompt', 'description'])}
+            />
+          )}
+          {/* summarize_artifacts:渲染聚合视图(优先于 result) */}
+          {showSummary && summaryData && <SummaryResultBlock data={summaryData} />}
+          {/* 非 diff/image/summary 工具时显示原始 args/result */}
+          {!showInlineDiff && !showImage && !showSummary && (
             <>
               <div>
                 <p className="mb-1 font-medium text-muted-foreground">参数</p>
