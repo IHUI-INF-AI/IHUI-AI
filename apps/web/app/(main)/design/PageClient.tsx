@@ -1,37 +1,39 @@
+'use client'
+
 /**
- * DesignPage(桌面端 Design 模式,2026-07-23 立,对标 TRAE Work Design 模式)。
+ * DesignPage(Web 端,从 desktop DesignPage.tsx 迁移,2026-07-24)。
  *
  * 左 HTML 输入 → 中 iframe 渲染(srcDoc + 注入选中脚本)→ 右 CSS 面板,
  * 点击元素 postMessage 回父窗口,可编辑 style 后回推 iframe 实时更新;
  * 顶部"保存预览" POST /api/design/preview,底部"评论到对话"回调 onComment。
  *
- * 深化 1(2026-07-23):撤销/重做历史栈 + 预览列表侧栏(GET /design/previews)+ 全 i18n 化。
- * 深化 2(2026-07-23 P0 对标 TRAE Work):
- *   - 左侧组件树面板(DOMParser 解析 HTML 字符串生成,点击节点高亮 iframe 元素)
- *   - 协同评论持久化(POST /design/comments + GET /design/comments/:previewId,Redis List)
- *   - AI 生成 UI(输入 prompt → /ai/llm/chat 生成 HTML → 注入画布 + 加入撤销栈)
- *   - 导出代码(HTML→React/Vue/HTML 组件代码下载,纯前端转换)
+ * 适配点(相对 desktop):
+ *  - 'use client' 指令(Next.js App Router)
+ *  - useI18n() → useTranslations()(root,支持 design. / common. 跨命名空间)
+ *  - useTheme() → @/hooks/use-theme(基于 next-themes,用 resolvedTheme 派生 isDark)
+ *  - fetchApi from @/lib/api(已封装 token + baseURL)
+ *  - lib 路径 ../lib/* → @/lib/design/*
  *
- * 自研实现,不引入新依赖。遵循 AGENTS.md §4(禁圆角/禁分割线/禁渐变遮罩)。
+ * 零 Tauri 依赖,纯浏览器 API(iframe srcDoc + postMessage + DOMParser + fetch)。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { fetchApi } from '@ihui/api-client'
+import { useTranslations } from 'next-intl'
+import { fetchApi } from '@/lib/api'
 import type { DesignComment, DesignPreview, DesignPreviewResponse } from '@ihui/shared'
-import { useI18n } from '../i18n'
-import { useTheme } from '../hooks/use-theme'
-import { createComment, exportCode, generateHtml, listComments } from '../lib/design-api'
-import type { ExportFormat } from '../lib/code-exporter'
-import { applySnap, computeGuides } from '../lib/alignment-guides'
-import type { ElementRect } from '../lib/alignment-guides'
+import { useTheme } from '@/hooks/use-theme'
+import { createComment, exportCode, generateHtml, listComments } from '@/lib/design/design-api'
+import type { ExportFormat } from '@/lib/design/code-exporter'
+import { applySnap, computeGuides } from '@/lib/design/alignment-guides'
+import type { ElementRect } from '@/lib/design/alignment-guides'
 import {
   DEFAULT_CUSTOM_WIDTH,
   DEFAULT_DEVICE_ID,
   RESPONSIVE_DEVICES,
   getDeviceRadius,
-} from '../lib/responsive-devices'
-import type { ResponsiveDeviceIcon } from '../lib/responsive-devices'
-import { DESIGN_TEMPLATES } from '../lib/design-templates'
+} from '@/lib/design/responsive-devices'
+import type { ResponsiveDeviceIcon } from '@/lib/design/responsive-devices'
+import { DESIGN_TEMPLATES } from '@/lib/design/design-templates'
 
 type CssGroupId = 'layout' | 'boxModel' | 'typography' | 'background' | 'effects' | 'responsive'
 type CssPropType = 'text' | 'number' | 'select' | 'color'
@@ -161,6 +163,8 @@ interface TreeNode {
 }
 
 type RightPanelTab = 'css' | 'comments'
+
+type TranslationFn = (key: string, params?: Record<string, string | number>) => string
 
 /** 构造 iframe srcDoc:用户 HTML + 暗黑适配 + 选/改 style + 树节点定位 注入脚本。 */
 function buildSrcDoc(html: string, isDark: boolean): string {
@@ -405,7 +409,7 @@ function CssPropRow({
   prop: CssProperty
   value: string
   onChange: (v: string) => void
-  t: (key: string, params?: Record<string, string | number>) => string
+  t: TranslationFn
 }) {
   const labelEl = (
     <label style={{ flex: '0 0 92px', fontSize: 12, color: 'var(--muted)' }}>{t(prop.label)}</label>
@@ -480,7 +484,7 @@ function CssGroupSection({
   group: CssGroup
   values: Record<string, string>
   onChange: (key: string, value: string) => void
-  t: (key: string, params?: Record<string, string | number>) => string
+  t: TranslationFn
 }) {
   const [collapsed, setCollapsed] = useState(false)
   return (
@@ -525,8 +529,9 @@ function CssGroupSection({
 }
 
 export default function DesignPage({ onComment }: DesignPageProps) {
-  const { t } = useI18n()
-  const { isDark } = useTheme()
+  const t = useTranslations()
+  const { resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === 'dark'
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
   const [html, setHtml] = useState(DEFAULT_HTML)
@@ -938,6 +943,8 @@ export default function DesignPage({ onComment }: DesignPageProps) {
   const canUndo = history.index > 0
   const canRedo = history.index < history.stack.length - 1
 
+  const tf = t as TranslationFn
+
   return (
     <div className="page" style={{ maxWidth: 1280 }}>
       <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, gap: 8, flexWrap: 'wrap' }}>
@@ -980,7 +987,7 @@ export default function DesignPage({ onComment }: DesignPageProps) {
             aria-label={t('design.aiGenerate.button')}
           />
           <button type="button" onClick={onAiGenerate} disabled={aiGenerating || !aiPrompt.trim()}>
-            {aiGenerating ? t('design.aiGenerate.generating') : t('design.aiGenerate.button')}
+            {aiGenerating ? t('common.loading') : t('design.aiGenerate.button')}
           </button>
           <input
             value={previewName}
@@ -1368,7 +1375,7 @@ export default function DesignPage({ onComment }: DesignPageProps) {
                       group={group}
                       values={styleEdits}
                       onChange={onStyleChange}
-                      t={t}
+                      t={tf}
                     />
                   ))}
                   <button type="button" onClick={() => setCommentOpen((v) => !v)} style={{ marginTop: 8 }}>
