@@ -109,6 +109,8 @@ import { CourseCommentScreen } from '../screens/CourseCommentScreen'
 import { CourseCatalogScreen } from '../screens/CourseCatalogScreen'
 import { LiveChatScreen } from '../screens/LiveChatScreen'
 import { LiveHostScreen } from '../screens/LiveHostScreen'
+import ChangePhoneScreen from '../screens/ChangePhoneScreen'
+import IncomeScreen from '../screens/IncomeScreen'
 import { AgentDetailScreen } from '../screens/AgentDetailScreen'
 import { AgentChatScreen } from '../screens/AgentChatScreen'
 import { AgentMarketScreen } from '../screens/AgentMarketScreen'
@@ -245,6 +247,8 @@ export type RootStackParamList = {
   CourseCatalog: { courseId: string }
   LiveChat: { liveId: string }
   LiveHost: undefined
+  ChangePhone: { uuid: string }
+  Income: undefined
   AgentDetail: { id: string }
   AgentChat: { agentId: string; name: string }
   AgentMarket: undefined
@@ -532,6 +536,16 @@ function RootNavigatorInner() {
               name="LiveHost"
               component={LiveHostScreen}
               options={{ title: '主播端' }}
+            />
+            <RootStack.Screen
+              name="ChangePhone"
+              component={ChangePhoneScreen}
+              options={{ title: '修改手机号' }}
+            />
+            <RootStack.Screen
+              name="Income"
+              component={IncomeScreen}
+              options={{ title: '我的收益' }}
             />
             <RootStack.Screen name="AgentDetail" component={AgentDetailScreen} />
             <RootStack.Screen name="AgentChat" component={AgentChatScreen} />
