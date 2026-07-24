@@ -1,6 +1,6 @@
 'use client'
 
-import { StyleSheet, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 
 /**
  * 离线 Banner 组件(2026-07-22 P0 Round 5 鲁棒性加固)。
@@ -15,22 +15,8 @@ export interface OfflineBannerProps {
 export function OfflineBanner({ isOnline }: OfflineBannerProps) {
   if (isOnline) return null
   return (
-    <View style={styles.banner} accessibilityRole="alert">
-      <Text style={styles.text}>网络已断开,部分功能不可用</Text>
+    <View className="bg-red-500 py-1.5 px-3 items-center" accessibilityRole="alert">
+      <Text className="text-white text-[13px] font-medium">网络已断开,部分功能不可用</Text>
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  banner: {
-    backgroundColor: '#ef4444',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-  },
-  text: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-})
