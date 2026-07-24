@@ -253,7 +253,7 @@ export default function ChatPage() {
         </Button>
       </div>
       <div
-        className="flex-1 overflow-auto p-3 flex flex-col gap-2"
+        className="flex-1 overflow-auto p-3 md:p-4 flex flex-col gap-2"
         ref={scrollRef}
         data-testid="chat-list"
       >
@@ -265,7 +265,7 @@ export default function ChatPage() {
           messages.map((m) => (
             <div
               key={m.id}
-              className={`flex flex-col max-w-[85%] ${m.role === 'user' ? 'self-end' : ''}`}
+              className={`flex flex-col max-w-[85%] md:max-w-[75%] lg:max-w-[70%] ${m.role === 'user' ? 'self-end' : ''}`}
             >
               <div
                 className={`px-2.5 py-2 rounded-lg text-sm whitespace-pre-wrap break-words leading-relaxed ${m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'}`}
