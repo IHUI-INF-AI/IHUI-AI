@@ -36,23 +36,17 @@ import { useSwarmTopology } from '@/hooks/use-subagent-dispatch'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type {
-  SwarmTopology,
+  SwarmTopologyV2,
   TopologyNode,
   TopologyEdge,
   TopologyNodeStatus,
   TopologyEdgeType,
   OrchestrationMode,
-} from '@ihui/types/subagent-dispatch'
+} from '@ihui/shared/subagents'
 
 /** 扩展 dispatch 状态(增加 preempted / quota_exceeded) */
 type ExtendedDispatchStatus =
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-  | 'preempted'
-  | 'quota_exceeded'
+  'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'preempted' | 'quota_exceeded'
 
 /** 扩展拓扑节点(后端 RichTopologyNode 的前端镜像) */
 interface RichTopologyNode extends TopologyNode {
@@ -69,13 +63,38 @@ const DISPATCH_STATUS_STYLE: Record<
   ExtendedDispatchStatus,
   { fill: string; stroke: string; pulse: boolean; label: string }
 > = {
-  pending: { fill: 'fill-muted', stroke: 'stroke-muted-foreground/40', pulse: false, label: '等待中' },
+  pending: {
+    fill: 'fill-muted',
+    stroke: 'stroke-muted-foreground/40',
+    pulse: false,
+    label: '等待中',
+  },
   running: { fill: 'fill-blue-500/20', stroke: 'stroke-blue-500', pulse: true, label: '运行中' },
-  completed: { fill: 'fill-green-500/20', stroke: 'stroke-green-500', pulse: false, label: '已完成' },
+  completed: {
+    fill: 'fill-green-500/20',
+    stroke: 'stroke-green-500',
+    pulse: false,
+    label: '已完成',
+  },
   failed: { fill: 'fill-red-500/20', stroke: 'stroke-red-500', pulse: false, label: '失败' },
-  cancelled: { fill: 'fill-yellow-500/20', stroke: 'stroke-yellow-500', pulse: false, label: '已取消' },
-  preempted: { fill: 'fill-orange-500/20', stroke: 'stroke-orange-500', pulse: false, label: '已抢占' },
-  quota_exceeded: { fill: 'fill-purple-500/20', stroke: 'stroke-purple-500', pulse: false, label: '配额超限' },
+  cancelled: {
+    fill: 'fill-yellow-500/20',
+    stroke: 'stroke-yellow-500',
+    pulse: false,
+    label: '已取消',
+  },
+  preempted: {
+    fill: 'fill-orange-500/20',
+    stroke: 'stroke-orange-500',
+    pulse: false,
+    label: '已抢占',
+  },
+  quota_exceeded: {
+    fill: 'fill-purple-500/20',
+    stroke: 'stroke-purple-500',
+    pulse: false,
+    label: '配额超限',
+  },
 }
 
 /** 节点状态 → 颜色(回退,当无 dispatchStatus 时用) */
@@ -85,8 +104,18 @@ const NODE_STATUS_STYLE: Record<
 > = {
   idle: { fill: 'fill-muted', stroke: 'stroke-muted-foreground/40', pulse: false, label: '空闲' },
   running: { fill: 'fill-blue-500/20', stroke: 'stroke-blue-500', pulse: true, label: '运行中' },
-  waiting: { fill: 'fill-muted', stroke: 'stroke-muted-foreground/40', pulse: false, label: '等待中' },
-  completed: { fill: 'fill-green-500/20', stroke: 'stroke-green-500', pulse: false, label: '已完成' },
+  waiting: {
+    fill: 'fill-muted',
+    stroke: 'stroke-muted-foreground/40',
+    pulse: false,
+    label: '等待中',
+  },
+  completed: {
+    fill: 'fill-green-500/20',
+    stroke: 'stroke-green-500',
+    pulse: false,
+    label: '已完成',
+  },
   failed: { fill: 'fill-red-500/20', stroke: 'stroke-red-500', pulse: false, label: '失败' },
 }
 
@@ -134,9 +163,7 @@ function isDagNodeGroup(node: RichTopologyNode): boolean {
 }
 
 /** 环形布局:arbiter 居中,其他环绕;DAG 节点层级布局 */
-function layoutNodes(
-  nodes: RichTopologyNode[],
-): Map<string, { x: number; y: number }> {
+function layoutNodes(nodes: RichTopologyNode[]): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>()
   const n = nodes.length
   if (n === 0) return positions
@@ -196,7 +223,7 @@ function layoutNodes(
 }
 
 interface SwarmTopologyViewProps {
-  topology?: SwarmTopology
+  topology?: SwarmTopologyV2
   className?: string
 }
 
@@ -212,10 +239,7 @@ export function SwarmTopologyView({
   const [hoveredNodeId, setHoveredNodeId] = React.useState<string | null>(null)
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null)
 
-  const positions = React.useMemo(
-    () => layoutNodes(richNodes),
-    [richNodes],
-  )
+  const positions = React.useMemo(() => layoutNodes(richNodes), [richNodes])
 
   const highlightNodeId = selectedNodeId ?? hoveredNodeId
   const highlightedEdgeKeys = React.useMemo(() => {
@@ -229,9 +253,7 @@ export function SwarmTopologyView({
 
   const isEmpty = richNodes.length === 0
 
-  const selectedNode = selectedNodeId
-    ? richNodes.find((n) => n.id === selectedNodeId)
-    : null
+  const selectedNode = selectedNodeId ? richNodes.find((n) => n.id === selectedNodeId) : null
   const selectedPos = selectedNode ? positions.get(selectedNode.id) : null
 
   // 统计各状态节点数(图例用)
@@ -257,11 +279,7 @@ export function SwarmTopologyView({
         </div>
       ) : (
         <>
-          <svg
-            viewBox="0 0 400 260"
-            className="h-full w-full"
-            preserveAspectRatio="xMidYMid meet"
-          >
+          <svg viewBox="0 0 400 260" className="h-full w-full" preserveAspectRatio="xMidYMid meet">
             <defs>
               <marker
                 id="topo-arrow-default"
@@ -294,7 +312,11 @@ export function SwarmTopologyView({
               if (!from || !to) return null
               const key = `${edge.from}->${edge.to}`
               const isHighlighted = highlightedEdgeKeys.has(key)
-              const style = EDGE_TYPE_STYLE[edge.type] ?? { stroke: '#94a3b8', dash: 'none', animate: false }
+              const style = EDGE_TYPE_STYLE[edge.type] ?? {
+                stroke: '#94a3b8',
+                dash: 'none',
+                animate: false,
+              }
               const dx = to.x - from.x
               const dy = to.y - from.y
               const dist = Math.sqrt(dx * dx + dy * dy) || 1
@@ -356,9 +378,7 @@ export function SwarmTopologyView({
                   className="cursor-pointer"
                   onMouseEnter={() => setHoveredNodeId(node.id)}
                   onMouseLeave={() => setHoveredNodeId(null)}
-                  onClick={() =>
-                    setSelectedNodeId((cur) => (cur === node.id ? null : node.id))
-                  }
+                  onClick={() => setSelectedNodeId((cur) => (cur === node.id ? null : node.id))}
                 >
                   {style.pulse && (
                     <rect
@@ -385,20 +405,10 @@ export function SwarmTopologyView({
                     opacity={isDimmed ? 0.4 : 1}
                   />
                   {node.isArbiter && (
-                    <circle
-                      cx={halfSize}
-                      cy={halfSize - 8}
-                      r="2"
-                      className="fill-purple-500"
-                    />
+                    <circle cx={halfSize} cy={halfSize - 8} r="2" className="fill-purple-500" />
                   )}
                   {node.isDagNode && (
-                    <circle
-                      cx={halfSize}
-                      cy={halfSize - 8}
-                      r="2"
-                      className="fill-cyan-500"
-                    />
+                    <circle cx={halfSize} cy={halfSize - 8} r="2" className="fill-cyan-500" />
                   )}
                   <text
                     x={halfSize}
@@ -436,7 +446,9 @@ export function SwarmTopologyView({
                 return (
                   <div key={status} className="flex items-center gap-1">
                     <span className={cn('inline-block h-2 w-2 rounded-sm', s.fill, s.stroke)} />
-                    <span className="text-muted-foreground">{s.label}({count})</span>
+                    <span className="text-muted-foreground">
+                      {s.label}({count})
+                    </span>
                   </div>
                 )
               })}
@@ -450,9 +462,7 @@ export function SwarmTopologyView({
         !selectedNodeId &&
         richNodes.find((n: RichTopologyNode) => n.id === hoveredNodeId) &&
         (() => {
-          const node = richNodes.find(
-            (n: RichTopologyNode) => n.id === hoveredNodeId,
-          )!
+          const node = richNodes.find((n: RichTopologyNode) => n.id === hoveredNodeId)!
           const pos = positions.get(node.id)
           if (!pos) return null
           const leftPct = (pos.x / 400) * 100
@@ -468,12 +478,8 @@ export function SwarmTopologyView({
             >
               <div className="font-medium text-foreground">
                 {node.label}
-                {node.isArbiter && (
-                  <span className="ml-1 text-purple-500">仲裁</span>
-                )}
-                {node.isDagNode && (
-                  <span className="ml-1 text-cyan-500">DAG</span>
-                )}
+                {node.isArbiter && <span className="ml-1 text-purple-500">仲裁</span>}
+                {node.isDagNode && <span className="ml-1 text-cyan-500">DAG</span>}
               </div>
               <div className="text-muted-foreground">
                 角色:{node.role} · {style.label}
@@ -529,7 +535,8 @@ export function SwarmTopologyView({
               <div>
                 DAG 状态:
                 <span className="ml-1 text-cyan-600">
-                  {DISPATCH_STATUS_STYLE[selectedNode.dagNodeStatus]?.label ?? selectedNode.dagNodeStatus}
+                  {DISPATCH_STATUS_STYLE[selectedNode.dagNodeStatus]?.label ??
+                    selectedNode.dagNodeStatus}
                 </span>
               </div>
             )}
@@ -679,9 +686,7 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
     const load = async () => {
       setLoading(true)
       try {
-        const r = await fetchApi<CollaborationRecord>(
-          `/api/subagents/${dispatchId}/collaboration`,
-        )
+        const r = await fetchApi<CollaborationRecord>(`/api/subagents/${dispatchId}/collaboration`)
         if (!cancelled && r.success && r.data) setRecord(r.data)
         else if (!cancelled) setRecord(null)
       } catch {
@@ -691,12 +696,19 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
       }
     }
     void load()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [dispatchId])
 
   if (loading) {
     return (
-      <div className={cn('rounded-md border border-border bg-card p-3 text-xs text-muted-foreground', className)}>
+      <div
+        className={cn(
+          'rounded-md border border-border bg-card p-3 text-xs text-muted-foreground',
+          className,
+        )}
+      >
         加载协作记录中…
       </div>
     )
@@ -704,7 +716,12 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
 
   if (!record || record.messages.length === 0) {
     return (
-      <div className={cn('rounded-md border border-border bg-card p-3 text-xs text-muted-foreground', className)}>
+      <div
+        className={cn(
+          'rounded-md border border-border bg-card p-3 text-xs text-muted-foreground',
+          className,
+        )}
+      >
         暂无协作消息
       </div>
     )
@@ -713,14 +730,17 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
   return (
     <div className={cn('space-y-2 rounded-md border border-border bg-card p-2.5', className)}>
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium text-foreground">协作消息流({record.messages.length})</span>
+        <span className="text-[11px] font-medium text-foreground">
+          协作消息流({record.messages.length})
+        </span>
         <span className="text-[10px] text-muted-foreground">{record.relations.length} 条关系</span>
       </div>
       {/* 消息时间轴 */}
       <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
         {record.messages.map((msg, i) => {
-          const style: { color: string; bg: string; label: string } =
-            COLLAB_TYPE_STYLE[msg.collaborationType] ?? { color: 'text-emerald-600', bg: 'bg-emerald-500/15', label: '结果' }
+          const style: { color: string; bg: string; label: string } = COLLAB_TYPE_STYLE[
+            msg.collaborationType
+          ] ?? { color: 'text-emerald-600', bg: 'bg-emerald-500/15', label: '结果' }
           return (
             <div key={i} className="flex items-start gap-1.5">
               {/* 时间轴线 + 圆点 */}
@@ -733,10 +753,20 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
               {/* 消息内容 */}
               <div className="flex-1 pb-1.5">
                 <div className="flex items-center gap-1 text-[10px]">
-                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[9px]">{msg.from}</code>
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[9px]">
+                    {msg.from}
+                  </code>
                   <span className="text-muted-foreground">→</span>
-                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[9px]">{msg.to}</code>
-                  <span className={cn('rounded-sm px-1 py-0.5 text-[9px] font-medium', style.bg, style.color)}>
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[9px]">
+                    {msg.to}
+                  </code>
+                  <span
+                    className={cn(
+                      'rounded-sm px-1 py-0.5 text-[9px] font-medium',
+                      style.bg,
+                      style.color,
+                    )}
+                  >
                     {style.label}
                   </span>
                   <span className="text-muted-foreground/60">R{msg.round}</span>
@@ -761,8 +791,11 @@ export function CollaborationStream({ dispatchId, className }: CollaborationStre
               <span className="text-muted-foreground/60">({rel.count} 次)</span>
               <div className="flex gap-0.5">
                 {rel.types.map((t) => {
-                  const s: { color: string; bg: string; label: string } =
-                    COLLAB_TYPE_STYLE[t] ?? { color: 'text-emerald-600', bg: 'bg-emerald-500/15', label: '结果' }
+                  const s: { color: string; bg: string; label: string } = COLLAB_TYPE_STYLE[t] ?? {
+                    color: 'text-emerald-600',
+                    bg: 'bg-emerald-500/15',
+                    label: '结果',
+                  }
                   return (
                     <span key={t} className={cn('rounded-sm px-0.5 text-[8px]', s.bg, s.color)}>
                       {s.label}
@@ -799,8 +832,9 @@ const ORCH_MODE_STYLE: Record<string, { color: string; bg: string; label: string
 }
 
 export function TopologyRecommendation({ plan, className }: TopologyRecommendationProps) {
-  const modeStyle: { color: string; bg: string; label: string } =
-    ORCH_MODE_STYLE[plan.orchestration] ?? { color: 'text-slate-600', bg: 'bg-slate-500/15', label: '并行' }
+  const modeStyle: { color: string; bg: string; label: string } = ORCH_MODE_STYLE[
+    plan.orchestration
+  ] ?? { color: 'text-slate-600', bg: 'bg-slate-500/15', label: '并行' }
 
   // 推导 agent 依赖层级(简单拓扑排序)
   const layers = React.useMemo(() => {
@@ -818,10 +852,18 @@ export function TopologyRecommendation({ plan, className }: TopologyRecommendati
   }, [plan.agents])
 
   return (
-    <div className={cn('space-y-2 rounded-md border border-border bg-card p-2.5 text-xs', className)}>
+    <div
+      className={cn('space-y-2 rounded-md border border-border bg-card p-2.5 text-xs', className)}
+    >
       {/* 头部:编排模式 + 预估 */}
       <div className="flex items-center gap-2">
-        <span className={cn('rounded-sm px-1.5 py-0.5 text-[10px] font-medium', modeStyle.bg, modeStyle.color)}>
+        <span
+          className={cn(
+            'rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+            modeStyle.bg,
+            modeStyle.color,
+          )}
+        >
           {modeStyle.label}({plan.orchestration})
         </span>
         <span className="text-[10px] text-muted-foreground">
@@ -833,7 +875,9 @@ export function TopologyRecommendation({ plan, className }: TopologyRecommendati
       <div className="space-y-1.5">
         {layers.map((layer, layerIdx) => (
           <div key={layerIdx} className="flex items-center gap-2">
-            <span className="w-8 shrink-0 text-[9px] text-muted-foreground/60">L{layerIdx + 1}</span>
+            <span className="w-8 shrink-0 text-[9px] text-muted-foreground/60">
+              L{layerIdx + 1}
+            </span>
             <div className="flex flex-wrap gap-1.5">
               {layer.map((agent) => (
                 <div
@@ -854,23 +898,25 @@ export function TopologyRecommendation({ plan, className }: TopologyRecommendati
                 </div>
               ))}
             </div>
-            {layerIdx < layers.length - 1 && (
-              <span className="text-muted-foreground/40">↓</span>
-            )}
+            {layerIdx < layers.length - 1 && <span className="text-muted-foreground/40">↓</span>}
           </div>
         ))}
       </div>
 
       {/* 推理 */}
       <div className="rounded-sm border border-border bg-muted/30 px-2 py-1 text-[11px] text-muted-foreground">
-        <span className="font-medium text-foreground">推理:</span>{plan.reasoning}
+        <span className="font-medium text-foreground">推理:</span>
+        {plan.reasoning}
       </div>
 
       {/* 历史统计 */}
       {plan.topologyStats.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {plan.topologyStats.map((s, i) => (
-            <span key={i} className="rounded-sm bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground">
+            <span
+              key={i}
+              className="rounded-sm bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground"
+            >
               {s.orchestration}: {Math.round(s.successRate * 100)}%({s.sampleSize})
             </span>
           ))}
@@ -911,12 +957,19 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
       }
     }
     void load()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [role])
 
   if (loading) {
     return (
-      <div className={cn('rounded-md border border-border bg-card p-3 text-xs text-muted-foreground', className)}>
+      <div
+        className={cn(
+          'rounded-md border border-border bg-card p-3 text-xs text-muted-foreground',
+          className,
+        )}
+      >
         加载演化历史中…
       </div>
     )
@@ -924,14 +977,21 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
 
   if (!history || history.versions.length === 0) {
     return (
-      <div className={cn('rounded-md border border-border bg-card p-3 text-xs text-muted-foreground', className)}>
+      <div
+        className={cn(
+          'rounded-md border border-border bg-card p-3 text-xs text-muted-foreground',
+          className,
+        )}
+      >
         暂无演化版本(角色 {role} 未演过)
       </div>
     )
   }
 
   return (
-    <div className={cn('space-y-2 rounded-md border border-border bg-card p-2.5 text-xs', className)}>
+    <div
+      className={cn('space-y-2 rounded-md border border-border bg-card p-2.5 text-xs', className)}
+    >
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-medium text-foreground">
           {role} 演化时间轴({history.versions.length} 版)
@@ -948,15 +1008,15 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
             <div className="flex min-w-[100px] flex-col rounded-md border border-border bg-background px-1.5 py-1">
               <div className="flex items-center gap-1">
                 <span className="inline-block h-1.5 w-1.5 rounded-sm bg-violet-500" />
-                <code className="font-mono text-[10px] font-medium text-foreground">{v.version}</code>
+                <code className="font-mono text-[10px] font-medium text-foreground">
+                  {v.version}
+                </code>
               </div>
               <div className="mt-0.5 text-[9px] text-muted-foreground/60">
                 {new Date(v.createdAt).toLocaleDateString('zh-CN')}
               </div>
               <div className="mt-0.5 line-clamp-2 text-[9px] text-muted-foreground">
-                {v.changes.length > 0
-                  ? `${v.changes.length} 个补丁`
-                  : '初始版本'}
+                {v.changes.length > 0 ? `${v.changes.length} 个补丁` : '初始版本'}
               </div>
             </div>
             {i < history.versions.length - 1 && (
@@ -989,12 +1049,8 @@ export function EvolutionTimeline({ role, className }: EvolutionTimelineProps) {
                 {r.success ? '✓' : '✗'}
               </span>
               <span className="flex-1 truncate text-muted-foreground">{r.taskDescription}</span>
-              {r.retryCount > 0 && (
-                <span className="text-orange-500">重试{r.retryCount}</span>
-              )}
-              <span className="text-muted-foreground/60">
-                {Math.round(r.durationMs / 1000)}s
-              </span>
+              {r.retryCount > 0 && <span className="text-orange-500">重试{r.retryCount}</span>}
+              <span className="text-muted-foreground/60">{Math.round(r.durationMs / 1000)}s</span>
             </div>
           ))}
         </div>
