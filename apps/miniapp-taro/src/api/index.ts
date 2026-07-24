@@ -5,11 +5,16 @@ import Taro from '@tarojs/taro'
 import { get, post, put, patch, del, BASE_URL } from '../utils/request'
 import { getToken, type UserInfo, type LoginResult } from '../utils/auth'
 import { parseSSEChunk, type SSEEvent } from '../utils/sse-parse'
-import type { FetchModelsResult } from '@ihui/api-client'
+import type { FetchModelsResult, AgentPermission } from '@ihui/api-client'
 export type { UserInfo }
 export { get, post } from '../utils/request'
-// 类型单一来源:LlmModel / FetchModelsResult 复用 @ihui/api-client,本地 re-export 保持外部引用不变
-export type { LlmModel, FetchModelsResult } from '@ihui/api-client'
+// 类型单一来源:LlmModel / FetchModelsResult / AgentPermission / AgentPermissionType 复用 @ihui/api-client,本地 re-export 保持外部引用不变
+export type {
+  LlmModel,
+  FetchModelsResult,
+  AgentPermission,
+  AgentPermissionType,
+} from '@ihui/api-client'
 
 /* ============ 认证相关 ============ */
 
@@ -822,17 +827,10 @@ export const getAgentDetail = (id: string | number) =>
     isVipExclusive: a.isVipExclusive ?? false,
   }))
 
-/** Agent 权限类型 — 与后端 AgentPermission.type 对齐 */
-export type AgentPermissionType = 'free' | 'vip' | 'purchased' | 'vip_only'
-
-/** Agent 权限结果 — 与 @ihui/api-client AgentPermission 对齐 */
-export interface AgentPermission {
-  hasPermission: boolean
-  type: AgentPermissionType
-  reason?: string
-}
-
-/** 获取指定 Agent 的访问权限(对接后端 GET /api/agent-ext/:id/permission) */
+/**
+ * 获取指定 Agent 的访问权限(对接后端 GET /api/agent-ext/:id/permission)
+ * 类型复用 @ihui/api-client AgentPermission(单一来源)
+ */
 export const getAgentPermission = (id: string | number) =>
   get<AgentPermission>(`/agent-ext/${id}/permission`)
 
