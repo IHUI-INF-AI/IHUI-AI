@@ -231,6 +231,21 @@ const checks = [
     args: [],
     mode: 'blocking',
   },
+  {
+    id: '28',
+    label: '🛡️  全屏遮罩 z-index 层级(防 fixed inset-0 + z-50 复发)',
+    script: 'check-overlay-zindex.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 fixed inset-0 全屏遮罩用了 z-50/z-40/z-30 等低数字 Tailwind 类(值 < 100),',
+      '     低于 AISidePanel 的 z-sticky=990,会被压在下面 = AI 面板露在遮罩之上。',
+      '     修复:把 z-50 改为 z-modal(=2000, 引用 --z-modal CSS 变量)。',
+      '     透明点击捕获层(无 bg-black)不在本守门范围。',
+      '',
+    ].join('\n'),
+  },
 
   // --- warn (12 项) ---
   {
