@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server'
 import type { JWTPayload } from '@ihui/auth'
+import { base64UrlDecode } from '@ihui/shared/utils/jwt-utils'
 
 /**
  * JWT payload 中与前端鉴权相关的字段。
@@ -10,18 +11,6 @@ export interface AuthTokenUser extends Partial<JWTPayload> {
   exp?: number
   iat?: number
   type?: string
-}
-
-/**
- * base64url → UTF-8 字符串。
- * 仅使用 Web API（atob / TextDecoder），兼容 Edge 运行时，不依赖 Node Buffer。
- */
-function base64UrlDecode(input: string): string {
-  const s = input.replace(/-/g, '+').replace(/_/g, '/')
-  const padded = s + '='.repeat((4 - (s.length % 4)) % 4)
-  const binary = atob(padded)
-  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0))
-  return new TextDecoder().decode(bytes)
 }
 
 /**
