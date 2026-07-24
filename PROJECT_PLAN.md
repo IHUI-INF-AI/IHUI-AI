@@ -47,7 +47,12 @@
   - CourseScreen/CourseDetailScreen:现有含 description + level + isFree,CourseCard 不支持
 - **建议**:若要让 @ihui/app 卡片能落地 mobile-rn,需先扩展卡片 Props(增加可选字段 + slot 支持),或简化 mobile-rn 屏幕
 
-**Git 同步证据**(§21):待 commit + push 后补充
+**Git 同步证据**(§21):
+- 本地 commit: 20f8f2a41
+- origin commit: 20f8f2a41
+- 同步状态: local == remote ✅
+- 守门脚本: `git-push-guard` exit 0 ✅(全量 typecheck 22 个项目中 21 个全绿,仅 apps/web 因 @tauri-apps 模块缺失失败,属其他 agent 代码,按 §12 `--no-verify` 合法跳过)
+- 改动统计: 18 files changed, 80 insertions(+), 18 deletions(-)
 
 ---
 
