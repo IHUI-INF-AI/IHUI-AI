@@ -58,13 +58,13 @@ export function PlanActToggle({
       onClick={() => select(m)}
       title={title}
       className={cn(
-        'inline-flex h-6 items-center rounded-sm px-2 text-xs font-medium transition-all duration-150',
+        'inline-flex h-6 items-center rounded-sm px-2 text-xs font-medium leading-none transition-all duration-150',
         current === m
           ? 'bg-primary text-primary-foreground shadow-sm'
           : 'bg-muted text-muted-foreground hover:text-foreground',
       )}
     >
-      <span>{label}</span>
+      <span style={{ transform: 'translateY(0.7px)' }}>{label}</span>
     </button>
   )
 
