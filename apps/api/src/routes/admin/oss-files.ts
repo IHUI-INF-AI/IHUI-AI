@@ -157,6 +157,37 @@ const ossFilesRoutes: FastifyPluginAsync = async (server) => {
     }),
   })
   // /monitoring/perf, /monitoring/services, /performance-dashboard/*, /system/monitor/* — 已迁移至 admin-monitoring-routes.ts
+
+  // GET /oss/config - OSS 配置列表(systemConfigs 表 category='oss_config',空桩兜底)
+  server.get('/oss/config', async (request, reply) => {
+    const q = paginationSchema.safeParse(request.query)
+    if (!q.success) return reply.status(400).send(error(400, '参数错误'))
+    const { page, pageSize, search } = q.data
+    try {
+      const baseCond = eq(systemConfigs.category, 'oss_config')
+      const searchCond = search
+        ? or(ilike(systemConfigs.key, `%${search}%`), ilike(systemConfigs.value, `%${search}%`))
+        : undefined
+      const where = searchCond ? and(baseCond, searchCond) : baseCond
+      const [list, totalRows] = await Promise.all([
+        db
+          .select()
+          .from(systemConfigs)
+          .where(where)
+          .orderBy(desc(systemConfigs.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(systemConfigs)
+          .where(where),
+      ])
+      return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询 OSS 配置列表失败'))
+    }
+  })
 }
 
 export default ossFilesRoutes

@@ -15,7 +15,7 @@
  *  - POST   /:id/click          埋点:用户点击市场卡片外链(无需鉴权,游客可触发)
  */
 
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import type { PluginInstallState } from '@ihui/types'
 import { authenticate, checkAuth } from '../plugins/auth.js'
@@ -51,10 +51,7 @@ function parseInstallState(value: string | null): PluginInstallState | null {
   if (!value) return null
   try {
     const parsed = JSON.parse(value) as Partial<PluginInstallState>
-    if (
-      typeof parsed.installedAt === 'string' &&
-      typeof parsed.pinned === 'boolean'
-    ) {
+    if (typeof parsed.installedAt === 'string' && typeof parsed.pinned === 'boolean') {
       return { installedAt: parsed.installedAt, pinned: parsed.pinned }
     }
     return null
@@ -95,9 +92,12 @@ export const pluginsRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // POST /:id/install - 安装/启用插件(若已安装则更新 pinned)
   // -------------------------------------------------------------------------
-  server.post<{ Params: { id: string }; Body: unknown }>(
+  server.post(
     '/:id/install',
-    async (request, reply) => {
+    async (
+      request: FastifyRequest<{ Params: { id: string }; Body: unknown }>,
+      reply: FastifyReply,
+    ) => {
       if (!(await checkAuth(request, reply))) return
       const userId = request.userId!
 
@@ -138,24 +138,21 @@ export const pluginsRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
   // DELETE /:id/install - 卸载/禁用插件
   // -------------------------------------------------------------------------
-  server.delete<{ Params: { id: string } }>(
-    '/:id/install',
-    async (request, reply) => {
-      if (!(await checkAuth(request, reply))) return
-      const userId = request.userId!
+  server.delete<{ Params: { id: string } }>('/:id/install', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const userId = request.userId!
 
-      const paramsResult = pluginIdParam.safeParse(request.params)
-      if (!paramsResult.success) {
-        return reply.status(400).send(error(400, 'Invalid plugin id'))
-      }
-      const pluginId = paramsResult.data.id
+    const paramsResult = pluginIdParam.safeParse(request.params)
+    if (!paramsResult.success) {
+      return reply.status(400).send(error(400, 'Invalid plugin id'))
+    }
+    const pluginId = paramsResult.data.id
 
-      await deleteUserPreference(userId, PLUGIN_GROUP, pluginId)
-      // 埋点:卸载
-      void recordPluginEvent({ pluginId, eventType: 'uninstall', userId })
-      return reply.send(success({ pluginId, removed: true as const }))
-    },
-  )
+    await deleteUserPreference(userId, PLUGIN_GROUP, pluginId)
+    // 埋点:卸载
+    void recordPluginEvent({ pluginId, eventType: 'uninstall', userId })
+    return reply.send(success({ pluginId, removed: true as const }))
+  })
 
   // -------------------------------------------------------------------------
   // PATCH /:id/preferences - 更新插件偏好(目前仅支持 pinned)
@@ -206,33 +203,30 @@ export const pluginsRoutes: FastifyPluginAsync = async (server) => {
   // POST /:id/click - 埋点:用户点击市场卡片外链
   // 无需鉴权(游客点击也计数),但需校验 pluginId 格式
   // -------------------------------------------------------------------------
-  server.post<{ Params: { id: string } }>(
-    '/:id/click',
-    async (request, reply) => {
-      const paramsResult = pluginIdParam.safeParse(request.params)
-      if (!paramsResult.success) {
-        return reply.status(400).send(error(400, 'Invalid plugin id'))
-      }
-      const pluginId = paramsResult.data.id
+  server.post<{ Params: { id: string } }>('/:id/click', async (request, reply) => {
+    const paramsResult = pluginIdParam.safeParse(request.params)
+    if (!paramsResult.success) {
+      return reply.status(400).send(error(400, 'Invalid plugin id'))
+    }
+    const pluginId = paramsResult.data.id
 
-      // 尝试识别登录用户(失败不阻塞,游客也计数)
-      let userId: string | null = null
-      try {
-        await authenticate(request)
-        userId = request.userId ?? null
-      } catch {
-        // 游客
-      }
+    // 尝试识别登录用户(失败不阻塞,游客也计数)
+    let userId: string | null = null
+    try {
+      await authenticate(request)
+      userId = request.userId ?? null
+    } catch {
+      // 游客
+    }
 
-      // 提取 IP(用于反作弊分析,不做去重)
-      const xff = request.headers['x-forwarded-for']
-      const ip =
-        (typeof xff === 'string' ? xff.split(',')[0]?.trim() : undefined) ??
-        (request.ip as string | undefined) ??
-        null
+    // 提取 IP(用于反作弊分析,不做去重)
+    const xff = request.headers['x-forwarded-for']
+    const ip =
+      (typeof xff === 'string' ? xff.split(',')[0]?.trim() : undefined) ??
+      (request.ip as string | undefined) ??
+      null
 
-      void recordPluginEvent({ pluginId, eventType: 'click', userId, ip })
-      return reply.send(success({ pluginId, recorded: true as const }))
-    },
-  )
+    void recordPluginEvent({ pluginId, eventType: 'click', userId, ip })
+    return reply.send(success({ pluginId, recorded: true as const }))
+  })
 }
