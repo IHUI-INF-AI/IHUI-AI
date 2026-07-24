@@ -1,5 +1,5 @@
 /**
- * Extension 全局样式 — 共享 token 引用 packages/ui-primitives/src/styles/tokens.css(2026-07-23 升级)。
+ * Extension 全局样式 — 共享 token 引用 packages/design-tokens/src/styles/tokens.css(2026-07-24 修正路径)。
  *
  * 作用:
  * 1. 启用 Tailwind CSS 4(CSS-first 配置)
@@ -13,10 +13,10 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* 让 Tailwind 扫描 @ihui/ui-react 共享包的 className */
-@source '../../../../packages/ui/src';
+@source '../../../../packages/ui-react/src';
 
 /* 共享 design token(颜色/圆角/字体/vcenter/动画/断点)— 与 web 端单一来源 */
-@import '../../../../packages/ui-primitives/src/styles/tokens.css';
+@import '../../../../packages/design-tokens/src/styles/tokens.css';
 
 /* ===== 基础 reset ===== */
 
