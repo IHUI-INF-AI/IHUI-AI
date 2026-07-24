@@ -114,6 +114,21 @@ vi.mock('../../plugins/auth.js', () => ({
     request.userId = mockUserId
     return { userId: mockUserId, roleId: 0 }
   }),
+  // 必须显式 mock checkAuth:路由 POST/DELETE/PATCH 用 checkAuth 而非 authenticate。
+  // 真实 checkAuth 闭包引用原始 authenticate,不会调用 mock,故需独立 mock。
+  checkAuth: vi.fn(
+    async (
+      request: { userId?: string },
+      reply: { status: (c: number) => { send: (b: unknown) => void } },
+    ): Promise<boolean> => {
+      if (!getAuthState()) {
+        reply.status(401).send({ code: 401, message: 'Authentication required' })
+        return false
+      }
+      request.userId = mockUserId
+      return true
+    },
+  ),
 }))
 
 import { pluginsRoutes } from '../plugins.js'
