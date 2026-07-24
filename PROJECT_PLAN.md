@@ -8,6 +8,58 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) 架构优化 4 项 + P3 评估 — api-client 共享层扩展 + ui-native 补齐 + @ihui/app 跨端组件库 + i18n 命名空间调研(跨端:packages/api-client + packages/ui-native + packages/app + apps/miniapp-taro)
+
+**触发**:用户要求"继续按你的建议去做执行,最多 agent 并行开发最大化效率,完美细致完整毫无遗漏"。承接 2026-07-25 早前 D 盘迁移整合后的架构深度分析报告中的 P1+P2+P3 建议。
+
+**执行方式**:4 个 subagent 并行 + 1 个串行(依赖 subagent 1)+ 主 agent P3 评估。
+
+**成果清单**:
+
+#### P1-1: api-client 共享层扩展(subagent 1 + subagent 5 串行)
+- **新建** [packages/api-client/src/endpoints/srs.ts](file:///g:/IHUI-AI/packages/api-client/src/endpoints/srs.ts)(189 行)— SRS 主播端 12 端点全覆盖(流管理 7 + 服务器管理 4 + health-check 1),包含 SrsStream/SrsServer/SrsStreamList 等 5 接口 + 5 类型
+- **修改** [packages/api-client/src/endpoints/live.ts](file:///g:/IHUI-AI/packages/api-client/src/endpoints/live.ts) — 补齐 `getLiveHistory` 函数 + `LiveHistoryItem` 接口
+- **修改** [packages/api-client/src/index.ts](file:///g:/IHUI-AI/packages/api-client/src/index.ts) — 导出 srs endpoints
+- **修改** [apps/miniapp-taro/src/pages/live/host/index.tsx](file:///g:/IHUI-AI/apps/miniapp-taro/src/pages/live/host/index.tsx) — 从本地 `@/api` 迁移到 `@ihui/api-client`,调用处包 `unwrapApi()` 桥接
+- **修改** [apps/miniapp-taro/src/api/index.ts](file:///g:/IHUI-AI/apps/miniapp-taro/src/api/index.ts) — 删除 SRS 3 函数 + SrsStream 接口(已迁移到共享层,净 -25 行)
+- **验证**:api-client typecheck + build 全绿;miniapp-taro VS Code 诊断零错误
+- **覆盖度核对**:miniapp-taro/api/index.ts 中 Auth(6)/Wallet(2)/Subscription(5)/SRS(3)/Live(5) 已覆盖;Distribution(11) 命名不一致(/distribution/* vs /commission/*,需主 agent 评估;扩展函数 80+ 多为旧架构遗留)
+
+#### P2-1: ui-native 缺失组件补齐(subagent 2)
+- **新建** [packages/ui-native/src/tooltip.tsx](file:///g:/IHUI-AI/packages/ui-native/src/tooltip.tsx)(109 行)— RN Tooltip:长按触发 + Modal + Animated fadeIn + 4 向 side 定位
+- **新建** [packages/ui-native/src/sheet.tsx](file:///g:/IHUI-AI/packages/ui-native/src/sheet.tsx)(96 行)— RN Sheet:Modal + Animated slideUp + 遮罩 + PanResponder 下拉关闭 + 双层拖拽手柄
+- **新建** [packages/ui-native/src/collapsible.tsx](file:///g:/IHUI-AI/packages/ui-native/src/collapsible.tsx)(58 行)— RN Collapsible:Animated height 测量 + 箭头旋转
+- **修改** [packages/ui-native/src/index.ts](file:///g:/IHUI-AI/packages/ui-native/src/index.ts) — 导出 3 新组件
+- **验证**:typecheck 全绿(ui-native 是 source-only 包,无 build 脚本)
+- **接口对齐**:与 web 端 ui-react 的 tooltip/sheet/collapsible 接口对齐(RN 简化:tooltip 用长按替代 hover,sheet 仅 top/bottom,collapsible 单一组件)
+
+#### P2-2: @ihui/app 跨端业务组件库扩展(subagent 3)
+- **新建** [packages/app/src/features/cards/](file:///g:/IHUI-AI/packages/app/src/features/cards/) 目录:
+  - [VipCard.tsx](file:///g:/IHUI-AI/packages/app/src/features/cards/VipCard.tsx)(96 行)— VIP 会员卡(等级徽章 + 到期时间 + 权益标签)
+  - [UserInfoCard.tsx](file:///g:/IHUI-AI/packages/app/src/features/cards/UserInfoCard.tsx)(129 行)— 用户信息卡(圆形头像 + 昵称 + 关注/粉丝 + 关注按钮)
+  - [BusinessCard.tsx](file:///g:/IHUI-AI/packages/app/src/features/cards/BusinessCard.tsx)(127 行)— 商务名片卡(圆角头像 + 姓名 + 职位 + 公司 + 联系方式)
+  - [AgentCard.tsx](file:///g:/IHUI-AI/packages/app/src/features/cards/AgentCard.tsx)(119 行)— AI 智能体卡(emoji/URL 图标 + 名称 + 描述 + 标签 + 使用次数)
+  - [CourseCard.tsx](file:///g:/IHUI-AI/packages/app/src/features/cards/CourseCard.tsx)(96 行)— 课程卡(封面 + 标题 + 讲师 + 价格 + 报名人数)
+  - [index.ts](file:///g:/IHUI-AI/packages/app/src/features/cards/index.ts)(15 行)— 统一导出
+- **修改** [packages/app/src/index.ts](file:///g:/IHUI-AI/packages/app/src/index.ts) — 导出 cards 模块(+15 行)
+- **关键决策**:packages/app 未装 nativewind(若用 ui-native 作底层会触发 104 个 className 类型错误),改用 StyleSheet + getTokens(colorScheme) 模式(与现有 ProfileScreen/SettingsScreen/AboutScreen 一致)。每张卡支持 `colorScheme?: 'light' | 'dark'` 暗色模式。
+- **验证**:typecheck + lint 全绿
+
+#### P1-2: i18n 命名空间差异调研(subagent 4,纯调研)
+- **输出** [.trae-cn/tmp/i18n-namespace-audit.md](file:///g:/IHUI-AI/.trae-cn/tmp/i18n-namespace-audit.md)(449 行,纯文档不进 git)
+- **核心发现**:
+  - 三端 i18n 规模差异巨大:web 200+ 命名空间(19141 行 JSON)/ miniapp-taro 80(2935 行 TS)/ mobile-rn 19(269 行 TS)
+  - 6 类命名不一致:单复数(agents vs agent)/ 完全不同命名(user vs profile)/ 缺失命名空间 / 双命名空间混用 / 子结构差异 / 翻译函数模式不同(web next-intl vs 移动端 react-i18next)
+  - 5 个关键命名空间深度对比:user/vip/live/agent/course
+- **推荐方案 C(渐进式统一)**:以单数命名为基准,优先统一 6 个单复数不一致的命名空间(agents→agent / courses→course / models→model / orders→order / errors→error / notifications→notification),web 约 30 处引用 + miniapp-taro 约 50 处引用需改,分 6 批迁移,每批独立 commit 可回滚。翻译函数模式保持各端现状不强行统一。
+
+#### P3 评估: 跨端样式方案可行性评估(主 agent 输出)
+- **评估结论**:**不全面迁移,仅新页面试点**。当前 web 用 Tailwind 4,移动端用 StyleSheet,样式代码完全无法共享。Tamagui 可实现一套样式三端运行,但迁移成本高(需重写 200+ 页面)。建议新页面试点 Tamagui,旧页面保持现状。
+
+**Git 同步证据**(§21):待 commit + push 后补充
+
+---
+
 ### [x] ✅(2026-07-25) 维护成本优化 5 项 — 端口 docs 统一 + audit-migration 4 合 1 + LLM provider 字典化 + docker-compose profile 拆分 + i18n key 审计工具(平台独占:scripts + docs + ai-service + docker-compose)
 
 **触发**:用户要求"列出全部端口并深度分析代码实际维护成本及可优化点"。基于维护成本分析报告,执行 5 项高 ROI 优化,降低长期维护成本。
