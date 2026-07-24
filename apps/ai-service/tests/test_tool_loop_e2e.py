@@ -232,3 +232,40 @@ async def test_agent_tools_unknown_tool_skipped():
     assert "fake_tool_xyz" not in openai_tool_names
     assert "analyze_code" in openai_tool_names
     assert len(openai_tool_names) == 1
+
+
+# =============================================================================
+# 6. 工具结果无 ok 字段时默认成功(防止 tool loop 误判失败提前退出)
+# =============================================================================
+
+async def test_tool_result_without_ok_field_defaults_success():
+    """工具 handler 不返回 ok 字段时,tool loop 应默认视为成功(不误判失败)。
+
+    回归 _tool_analyze_code 不返回 ok 字段导致 tool loop 提前退出的 bug。
+    修复:llm.py `ok = bool(exec_result.get("ok", True))` 默认成功。
+
+    此前 `ok = bool(exec_result.get("ok"))`:
+    - exec_result 不含 ok → get 返回 None → bool(None) = False → 误判失败
+    修复后 `ok = bool(exec_result.get("ok", True))`:
+    - exec_result 不含 ok → get 返回 True(默认) → bool(True) = True → 成功
+    - exec_result.ok = False → 仍识别为失败(异常分支显式设置)
+    """
+    from app.services.mcp_server import _tool_analyze_code
+
+    # 真实 analyze_code handler 不返回 ok 字段
+    result = await _tool_analyze_code({"code": "print(1)", "language": "python"})
+    assert "ok" not in result, "analyze_code 不应返回 ok 字段(这是测试前提)"
+
+    # 模拟 llm.py 的判断逻辑(修复后):无 ok 字段 → 默认成功
+    ok = bool(result.get("ok", True))
+    assert ok is True, "无 ok 字段时应默认成功(修复后)"
+
+    # 验证异常分支(显式 ok: False)仍被识别为失败
+    failure_result = {"ok": False, "error": "test failure"}
+    ok_failure = bool(failure_result.get("ok", True))
+    assert ok_failure is False, "显式 ok: False 应识别为失败"
+
+    # 验证显式 ok: True 仍被识别为成功
+    success_result = {"ok": True, "output": "done"}
+    ok_success = bool(success_result.get("ok", True))
+    assert ok_success is True, "显式 ok: True 应识别为成功"

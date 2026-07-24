@@ -548,7 +548,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     "errorCode": "EXECUTION_EXCEPTION",
                                     "message": f"工具执行异常: {type(e).__name__}",
                                 }
-                            ok = bool(exec_result.get("ok"))
+                            # 默认成功:工具 handler 不返回 ok 字段时视为成功
+                            # (异常分支已显式设置 ok: False,此处只兜底无 ok 字段的正常结果)
+                            ok = bool(exec_result.get("ok", True))
                             tool_exec_tracker.append(ok)
 
                             # 推送 tool-result 事件
