@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomBytes } from 'node:crypto'
 import type { FastifyInstance, FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import fp from 'fastify-plugin'
+import { encryptJSON, decryptJSON, type EncryptedPayload } from '../utils/crypto.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -91,7 +92,7 @@ export enum MaskStrategy {
   HASH = 'hash',
   /** HMAC-SHA256(截断 16 位) */
   HMAC = 'hmac',
-  /** AES 加密(简化 XOR+base64, 非生产级) */
+  /** AES-256-GCM 加密(生产级,可逆) */
   AES = 'aes',
   /** 邮箱: a***@e.com */
   EMAIL = 'email',
@@ -177,14 +178,17 @@ function maskIdCard(s: string): string {
   return MASK
 }
 
-/** AES 风格加密(简化: XOR + base64, 非生产级 AES). */
-function aesLikeEncrypt(s: string, key: Buffer): string {
-  const raw = Buffer.from(s, 'utf8')
-  const xored = Buffer.allocUnsafe(raw.length)
-  for (let i = 0; i < raw.length; i++) {
-    xored[i] = raw[i]! ^ key[i % key.length]!
-  }
-  return `AES:${xored.toString('base64')}`
+/** AES-256-GCM 加密(P0-6 安全加固:委托 crypto.ts 的 encryptJSON,IV 12 字节 + AuthTag)。
+ * 返回 'AES:' + JSON({ iv, ciphertext, tag }),可用 aesDecrypt 还原。 */
+function aesEncrypt(s: string): string {
+  return 'AES:' + JSON.stringify(encryptJSON(s))
+}
+
+/** AES-256-GCM 解密(与 aesEncrypt 配对,用于需要还原脱敏数据的场景)。 */
+export function aesDecrypt(encrypted: string): string {
+  if (!encrypted.startsWith('AES:')) throw new Error('非 AES 加密格式')
+  const payload = JSON.parse(encrypted.slice(4)) as EncryptedPayload
+  return String(decryptJSON(payload))
 }
 
 /**
@@ -207,7 +211,7 @@ export function applyMaskStrategy(rule: FieldMaskRule, value: unknown, secretKey
     case MaskStrategy.HMAC:
       return createHmac('sha256', secretKey).update(s, 'utf8').digest('hex').slice(0, 16)
     case MaskStrategy.AES:
-      return aesLikeEncrypt(s, secretKey)
+      return aesEncrypt(s)
     case MaskStrategy.EMAIL:
       return maskEmail(s)
     case MaskStrategy.PHONE:
@@ -268,8 +272,15 @@ function findRule(field: string, rules: FieldMaskRule[]): FieldMaskRule | undefi
   return rules.find((r) => r.enabled && lower.includes(r.field.toLowerCase()))
 }
 
-/** 默认密钥(进程级随机, 未显式配置时使用). */
-const DEFAULT_SECRET_KEY = randomBytes(32)
+/** 默认密钥(P0-6:优先 RESPONSE_SANITIZER_KEY 环境变量,其次 CREDENTIALS_ENCRYPTION_KEY,最后随机)。
+ * HMAC 策略使用此密钥;AES 策略委托 crypto.ts 的 encryptJSON(使用 CREDENTIALS_ENCRYPTION_KEY)。 */
+const DEFAULT_SECRET_KEY: Buffer = (() => {
+  const envKey = process.env.RESPONSE_SANITIZER_KEY
+  if (envKey && envKey.length >= 32) return Buffer.from(envKey.slice(0, 32))
+  const credKey = process.env.CREDENTIALS_ENCRYPTION_KEY
+  if (credKey && credKey.length >= 32) return Buffer.from(credKey.slice(0, 32))
+  return randomBytes(32)
+})()
 
 /**
  * 数据脱敏管道 (Bug-125).

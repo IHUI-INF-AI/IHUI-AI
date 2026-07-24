@@ -144,8 +144,8 @@ const envSchema = z.object({
   // E4 零信任
   ZERO_TRUST_ENABLED: z.string().optional().default('false'),
   ZERO_TRUST_POLICY_PATH: z.string().optional().default(''),
-  // E4 网络分段
-  NETWORK_SEGMENT_POLICY: z.string().optional().default('permissive'),
+  // E5 网络分段(国安级默认 strict:unknown IP 拒绝;开发环境设 NETWORK_SEGMENT_POLICY=permissive 放行)
+  NETWORK_SEGMENT_POLICY: z.string().optional().default('strict'),
   // E4 服务间认证(未配置降级为空字符串,配置时必须 ≥32 字符)
   SERVICE_MESH_JWT_SECRET: z
     .string()
