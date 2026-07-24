@@ -2161,6 +2161,49 @@ pnpm 在 monorepo 场景下优势明显:严格的依赖隔离(防止幽灵依赖
 - **P1 设备寻址闭环(2026-07-23 追加)**:`packages/shared/src/tasks/dispatch.ts` 新增 TaskDevice 类型 + `apps/api/src/routes/tasks.ts` 新增 POST /tasks/register-device(Zod+Redis Hash+60s TTL+降级 Map)+ DELETE /tasks/devices/:deviceId + 改造 GET /tasks/devices(真实在线列表,lastSeen 60s 内标 online)+ `apps/desktop/src/hooks/use-task-receiver.ts` 持久化 deviceId(localStorage)+ 30s 心跳保活 + task-dispatch 按 toDevice 过滤 + `apps/mobile-rn/src/pages/TaskDispatchPage.tsx` 从 API 拉真实在线设备列表 + 按真实 deviceId 下发。补齐 mobile-rn 下发 → 真实 desktop 接收的设备寻址闭环,curl 端到端 7 步全通(login → register → GET devices → dispatch → result → delete → 确认移除)
 - **P2 UX 闭环 + 深度补齐(2026-07-23 追加)**:`apps/desktop/src/pages/TaskReceiverPage.tsx` header 显示本机 deviceId + 点击复制 + 三大缺口深度补齐:API 11 端点 32 单元测试(skills-market 11 + tasks-dispatch 16 + design-preview 5,vitest run 全绿)+ Design 模式撤销重做历史栈(stack+index+Ctrl+Z/Y 快捷键)+ 预览列表侧栏(GET /design/previews + 点击加载)+ desktop 2 页面 i18n 化(design 20 key + taskReceiver 15 key × 5 语言 parity,zh-TW 全繁体/ko 无中文残留)+ mobile-rn TaskDispatchPage i18n 收尾(taskDispatch 命名空间 16 key × 5 语言 parity,STATUS_META badge 保留 + label 改 t() 动态读取,三大缺口 desktop+mobile-rn 双端 i18n 完整闭环)
 
+#### 19. 资源上游自动同步中心 — MCP/Skill/Plugin/Provider 配置四源拉取 + 双路径触发 + 全量自动更新(跨端:api + web + cli + packages/database + packages/types,2026-07-24)
+
+> 触发:用户需求"我希望我的项目有自动获取最新最热最优 MCP/插件/Skill 的能力,并且自动获取更新上游最新所有参数配置等所有信息的能力并且自动更新"。实现资源上游自动同步中心,支持 MCP/Skill/Plugin 三类资源 + Provider 配置,从 GitHub/npm/MCP marketplace/自建 registry 四源拉取,定时 6 小时 + webhook 推送双路径触发,全量自动更新到本地数据库。
+
+- **四源拉取适配器(api)**:`apps/api/src/services/registry-sync/` 4 适配器 + 统一调度器
+  - `github-adapter.ts` — GitHub API(modelcontextprotocol/servers + anthropics/skills + awesome-* 仓库,readme 解析,带 GITHUB_TOKEN 提速)
+  - `npm-adapter.ts` — npm registry 搜索(@modelcontextprotocol/* / ihui-skill-* / ihui-plugin-* 包)
+  - `mcp-marketplace-adapter.ts` — mcp.so / smithery.ai / glama.ai API 聚合
+  - `custom-registry-adapter.ts` — 自建 registry 协议(可对接 api 自身或外部 URL,IHUI_CUSTOM_REGISTRY_URL)
+  - `index.ts` — 统一调度器 fetchAllRawItems + 热度评分 calculateHeatScore(install_count + github stars + recent_releases)+ 质量评分 calculateQualityScore + computePayloadHash
+- **双路径触发(api)**:
+  - 定时拉取:BullMQ repeat job `registry-sync-cron`(每 6 小时,`0 */6 * * *` pattern),`apps/api/src/plugins/registry-queue.ts` scheduleRegistrySync
+  - webhook 推送:`POST /api/registry/webhook/:source` HMAC-SHA256 签名校验 + 落库 `webhook_triggers` 表 + 入队 `registry-sync-webhook` job,`apps/api/src/routes/registry-sync.ts`
+  - 队列名 `registry-sync-queue`,与既有 4 队列独立避免相互影响
+- **BullMQ Worker 消费者(api)**:`apps/api/src/workers/registry-sync-worker.ts` 消费队列任务,5 大问题修复(fetchAllRawItems 失败兜底 sync_log / newVersion 聚合 / force 透传 / 三态判定 success/fail/skipped / webhook trigger 状态回写 processed/failed),注册到 `apps/api/src/workers/index.ts` 第 5 个 Worker
+- **数据库 schema(packages/database)**:`packages/database/src/schema/registry.ts` 3 表
+  - `registry_items` 表(id/source_type/source_id/name/desc/version/payload/jsonb/heat_score/quality_score/install_count/installed_at/subscription_id)
+  - `registry_sync_logs` 表(id/source_type/source_name/status[success|fail|skipped]/error_message/payload_hash/old_version/new_version/duration_ms/started_at/finished_at)
+  - `webhook_triggers` 表(id/name/event_type/source/signature/payload/jsonb/received_at/processed_at/status[pending|processed|failed|ignored])
+- **API 端点(api)**:`apps/api/src/routes/registry-sync.ts` 6 端点
+  - `GET /api/registry/items?source_type=&sort=latest|hot|best&page=` — 列表(最新/最热/最优三排序)
+  - `POST /api/registry/sync` — 手动触发同步(管理员)
+  - `GET /api/registry/sync-logs` — 同步日志
+  - `POST /api/registry/webhook/:source` — 接收上游 webhook(GitHub/npm/mcp_marketplace/custom HMAC 校验)
+  - `GET /api/registry/webhooks` — webhook 触发器列表(管理员)
+  - `POST /api/registry/install` + `POST /api/registry/upgrade-all` + `GET /api/registry/config-drift` — 安装/升级/配置漂移检测
+- **Web 前端(web)**:`apps/web/app/(main)/registry/page.tsx` 资源更新中心页
+  - 三 tab:最新(latest)/ 最热(hot)/ 最优(best),`apps/web/src/components/registry/RegistryTabs.tsx`
+  - 卡片列表 + 一键安装/升级按钮,`apps/web/src/components/registry/RegistryItemCard.tsx`
+  - 顶部 banner:"有 N 个新版本可用,一键全部升级"
+  - 同步日志查看 + 手动触发同步按钮(管理员),`apps/web/src/components/registry/SyncLogPanel.tsx`
+  - API 客户端 `apps/web/src/lib/api-registry.ts` + hooks `apps/web/src/hooks/use-registry.ts`(useRegistryItems/useRegistrySyncLogs/useRegistrySync/useRegistryInstall/useRegistryUpgradeAll/useRegistryConfigDrift)
+- **CLI 端(cli)**:`apps/cli/src/commands/registry-*.ts` 6 子命令
+  - `ihui registry sync` — 立即同步
+  - `ihui registry list --sort=latest|hot|best` — 列表
+  - `ihui registry install <name>` — 安装
+  - `ihui registry upgrade [--all]` — 升级
+  - `ihui registry logs [--type] [--status] [--page] [--size]` — 同步日志查看
+  - `ihui registry webhook list/trigger` — webhook 触发记录管理
+- **跨端类型契约(packages/types)**:`packages/types/src/registry.ts` 28 类型(RegistryItem / RegistrySyncLog / RegistryWebhookTriggerRecord / InstallRegistryItemResponse / UpgradeAllResponse / ConfigDriftDetectResponse 等)
+- **环境变量**:`GITHUB_TOKEN`(GitHub API 提速,避免 60 req/h 速率限制)+ `IHUI_CUSTOM_REGISTRY_URL`(自建 registry URL),均配置在 `.env` 不泄露
+- **验证**:CLI typecheck 全绿 + API 本任务文件 0 错(其余 mysql2/argon2/sso-core 报错均为其他 agent 文件按 §12 不阻塞)+ Web 本任务文件 0 错(其余 tool-call-card/tauri-bridge 报错均为其他 agent 文件)+ Worker 注册到 workers/index.ts 第 5 个 + CLI 子命令注册到 registry-index.ts
+
 ### 进行中
 
 - 内容发布平台 11 平台真实凭证调通(代码已就绪,需用户提供凭证)
