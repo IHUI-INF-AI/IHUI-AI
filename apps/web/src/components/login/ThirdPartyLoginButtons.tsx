@@ -7,8 +7,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 
-import { useThirdPartyAuth, fetchGoogleOAuthConfig } from '@/hooks/use-third-party-auth'
-import { getPlatformConfig } from '@/lib/third-party-config'
+import { useThirdPartyAuth } from '@/hooks/use-third-party-auth'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import type { ThirdPartyPlatform } from '@/types/third-party'
@@ -19,8 +18,6 @@ type Provider = {
   icon: string
   /** 单色图标：dark 模式下用 invert 翻色保证可见 */
   mono?: boolean
-  /** 未配置时禁用（仅 google 需要后端配置探测） */
-  needsBackendConfig?: boolean
   /** 强制禁用（始终不可用，如 Apple 登录尚未上线） */
   forceDisabled?: boolean
 }
@@ -43,31 +40,8 @@ function ThirdPartyLoginButtonsInner() {
   const { startLogin, handleCallback, isPlatformEnabled, isLoading, currentPlatform } =
     useThirdPartyAuth()
 
-  // Google 登录是否已在后端配置
-  const [googleConfigured, setGoogleConfigured] = React.useState<boolean | null>(null)
   // 回调处理中
   const [handlingCallback, setHandlingCallback] = React.useState(false)
-
-  // 探测 Google 后端配置
-  // 容错:fetch 失败(网络/404/超时)时 fallback 到前端 NEXT_PUBLIC_GOOGLE_CLIENT_ID 判断,
-  // 避免后端探测接口不可达就永久禁用按钮(2026-07-24 修:Google 按钮无故变暗反复出现)
-  React.useEffect(() => {
-    let active = true
-    const fallbackToClientConfig = () => Boolean(getPlatformConfig('google').clientId)
-    void fetchGoogleOAuthConfig()
-      .then((cfg) => {
-        if (!active) return
-        if (cfg) {
-          setGoogleConfigured(cfg.configured)
-        } else {
-          setGoogleConfigured(fallbackToClientConfig())
-        }
-      })
-      .catch(() => active && setGoogleConfigured(fallbackToClientConfig()))
-    return () => {
-      active = false
-    }
-  }, [])
 
   // 自动处理 OAuth 回调：URL 含 code + state 时触发
   // ⚠️ /callback 路径下跳过,避免与 OAuthCallbackHandler 双重处理导致 state 校验失败 (2026-07-21 修)
@@ -124,7 +98,6 @@ function ThirdPartyLoginButtonsInner() {
       key: 'google',
       label: t('googleLogin'),
       icon: '/images/oauth-providers/google.svg',
-      needsBackendConfig: true,
     },
     {
       key: 'github',
@@ -163,13 +136,12 @@ function ThirdPartyLoginButtonsInner() {
 
       <div className="grid grid-cols-3 gap-3">
         {providers.map((p) => {
-          const googleDisabled = p.needsBackendConfig && googleConfigured === false
           const platformDisabled = !isPlatformEnabled(p.key)
-          const disabled = p.forceDisabled || googleDisabled || platformDisabled || handlingCallback
+          const disabled = p.forceDisabled || platformDisabled || handlingCallback
           const isBusy = isLoading && currentPlatform === p.key
           const tooltipContent = p.forceDisabled
             ? t('appleComingSoon')
-            : googleDisabled || platformDisabled
+            : platformDisabled
               ? t('googleNotConfigured')
               : undefined
           const button = (
