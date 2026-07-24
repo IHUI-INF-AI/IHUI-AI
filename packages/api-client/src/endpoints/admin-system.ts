@@ -3,8 +3,8 @@
  * 对接后端 admin-sys.ts / rbac.ts / admin.ts,覆盖 user/role/menu/dept/config/post/notice/dict/logininfor/operlog 模块 */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
-import { buildQs, type PageData, type PageQuery } from '../utils.js'
+import { fetchApi } from '../client'
+import { buildQs, type PageData, type PageQuery } from '../utils'
 
 // ===================== 类型定义 =====================
 
