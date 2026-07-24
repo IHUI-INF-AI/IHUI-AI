@@ -1,5 +1,6 @@
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import { cn } from '@ihui/design-tokens'
 
 export interface NavBarNotification {
   text: string
@@ -44,7 +45,7 @@ export default function NavBar({
 
   return (
     <View
-      className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center"
+      className={cn('fixed top-0 left-0 right-0 z-50 flex items-center justify-center')}
       style={{
         backgroundColor: bgColor,
         paddingTop: `${statusBarHeight}px`,
@@ -53,7 +54,7 @@ export default function NavBar({
     >
       {showBack && (
         <View
-          className="absolute left-3 flex items-center justify-center w-8 h-8 rounded-lg"
+          className={cn('absolute left-3 flex items-center justify-center w-8 h-8 rounded-lg')}
           style={{ top: `${statusBarHeight + (navBarHeight - 32) / 2}px` }}
           onClick={handleBack}
         >
@@ -68,7 +69,7 @@ export default function NavBar({
       </Text>
       {rightText && (
         <View
-          className="absolute right-3 flex items-center justify-center h-8 px-2"
+          className={cn('absolute right-3 flex items-center justify-center h-8 px-2')}
           style={{ top: `${statusBarHeight + (navBarHeight - 32) / 2}px` }}
           onClick={onRightClick}
         >
