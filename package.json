@@ -41,6 +41,7 @@
     "clean": "turbo run clean && rimraf node_modules",
     "archive": "node scripts/archive-completed-tasks.mjs",
     "hygiene:parent": "node scripts/check-parent-pollution.mjs",
+    "hygiene:parent:clean": "node scripts/check-parent-pollution.mjs --auto-clean",
     "hygiene:workspace": "node scripts/check-workspace-hygiene.mjs",
     "changeset": "changeset",
     "version-packages": "changeset version",
