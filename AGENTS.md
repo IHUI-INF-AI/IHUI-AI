@@ -347,6 +347,22 @@ pnpm dev                                       # 启动所有服务(web 3000 + a
 - **历史教训**:2026-07-19 agent 在 `D:\桌面\项目\` 创建了 `search_uuyc.ps1`(13KB,扫描 UU 远程卸载残留的 PowerShell 脚本) + `uuyc_search_result.txt`(245B,搜索结果),2026-07-24 用户发现质问"为什么项目主目录外会出现乱七八糟的文件"。根因:`check-workspace-hygiene.mjs` 只能扫项目**内**代码引用项目外路径,无法检测 agent 用 RunCommand 在项目外**直接创建**的运行时产物,存在盲区。本规则从机制上根治:反向巡查项目父目录,捕获 agent 运行时污染。
 - **与 §15 项目外路径禁令互补**:§15 项目外路径禁令是"代码层守门"(扫项目内代码引用项目外路径),本规则是"运行时守门"(扫项目外是否被 agent 直接创建文件),两层防御覆盖 agent 写项目外的所有路径。
 
+### 自动巡查与自动清理(2026-07-24 立,彻底杜绝)
+
+- **post-commit 钩子自动巡查**:每次 `git commit` 后,post-commit 第 4 段自动调用 `node scripts/check-parent-pollution.mjs --auto-clean --quiet`,立即巡查 + 自动清理项目外污染。即使 agent 偷偷创建了文件不 commit,下一次任何 agent commit 时也会被自动清理。
+- **TRAE 定时任务**:每天 08:00 自动巡查 + 清理(详见 TRAE Schedule 工具,任务名 `项目外污染每日巡查`)。
+- **自动清理授权(用户授权,2026-07-24)**:`--auto-clean` 模式只自动清理**文件名强信号命中**(`search_*.ps1` / `*_result.txt` / `tmp_*.ps1` / `ihui-*.ps1` / `test_*.ps1` / `debug_*.txt` / `cleanup*.ps1` / `fix_*.ps1` / `migrate*.ps1` / `scan_*.ps1` / `*_output.txt` / `*_list.txt` 等),**不自动清理**内容双信号命中(避免误删用户合法脚本)。内容双信号命中的文件只 warn,需人工确认。
+- **手动触发**:
+  - `pnpm hygiene:parent`(阻塞模式,只检测不清理)
+  - `pnpm hygiene:parent:clean`(自动清理文件名强信号命中)
+  - `node scripts/check-parent-pollution.mjs --warn`(warn-only)
+  - `node scripts/check-parent-pollution.mjs --auto-clean --quiet`(静默自动清理,post-commit 用)
+- **跳过自动巡查**:`HUSKY_SKIP_HYGIENE=1 git commit`(紧急场景,不推荐)。
+- **扫描范围**(三层覆盖):
+  1. 项目父目录递归 2 层(捕获 `D:\桌面\项目\*.ps1` 和子目录中的污染)
+  2. 项目祖父目录(桌面)根级文件(不递归,避免误伤其他项目)
+  3. 用户主目录根级文件(不递归,捕获 agent 误写到 `~/` 的调试日志)
+
 ---
 
 ## 16. Push 阶段跨 Agent 改动保护规则(强制)
