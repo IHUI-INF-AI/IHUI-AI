@@ -15,8 +15,8 @@
  *   exit 0 = 所有 dist 与源码同步
  *   exit 1 = 发现陈旧 dist(需要重建对应包)
  */
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 
 const ROOT = process.cwd()
 const PACKAGES_DIR = join(ROOT, 'packages')
@@ -59,8 +59,12 @@ function extractSourceExports(srcPath) {
   }
 
   // export { a, b, c } [from '...']  — value re-export(排除 type-only)
+  // 注意:ES2024 inline type 修饰符 `export { type T, value }` 中 `type T` 是纯类型,
+  // 编译后被擦除,不应计入 value exports,否则 dist 永远 "缺失" 该 export(false positive)
   for (const m of src.matchAll(/export\s*\{([^}]+)\}\s*(?:from\s*['"][^'"]+['"])?/g)) {
     for (const name of m[1].split(',').map((s) => s.trim()).filter(Boolean)) {
+      // 跳过 inline type 修饰符: `type Foo` / `type { Foo }`
+      if (/^type\s+/.test(name)) continue
       const final = name.split(/\s+as\s+/).pop().trim()
       if (final && !final.startsWith('//') && !typeOnlyNames.has(final)) {
         names.add(final)
