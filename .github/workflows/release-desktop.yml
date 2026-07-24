@@ -72,6 +72,10 @@ jobs:
           releaseBody: '桌面端安装包(Tauri 2 + Rust + React)。详见 CHANGELOG。'
           releaseDraft: false
           prerelease: false
+          # 启用自动更新 artifacts:tauri-action 会自动生成 latest.json 并上传到 Release assets
+          # updater endpoint 配置在 tauri.conf.json 指向 GitHub Releases:
+          # https://github.com/IHUI-INF-AI/IHUI-AI/releases/latest/download/latest.json
+          updaterJsonPreferNsis: true
 
       - name: Summary
         run: |
