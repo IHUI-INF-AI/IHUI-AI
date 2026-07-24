@@ -4,7 +4,6 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { getHelp, submitFeedback } from '@/api'
 import { useI18n } from '@/i18n'
-import './help.css'
 
 interface HelpItem {
   id: string
@@ -92,30 +91,30 @@ export default function HelpPage() {
   useDidShow(() => load())
 
   return (
-    <View className="page">
-      <View className="search-bar">
+    <View className="min-h-screen bg-background pb-[60rpx]">
+      <View className="py-[24rpx] px-[32rpx]">
         <Input
-          className="search-input"
+          className="h-[72rpx] px-[24rpx] bg-card rounded-[36rpx] text-[26rpx] text-foreground"
           placeholder={tt('about.help.search', '搜索帮助')}
           value={keyword}
           onInput={(e) => setKeyword(e.detail.value)}
         />
       </View>
 
-      <View className="section-title">
+      <View className="block pt-[16rpx] px-[32rpx] pb-[8rpx] text-[28rpx] font-semibold text-foreground">
         {tt('about.help.faqTitle', '常见问题')}
       </View>
 
       {filtered.length ? (
-        <View className="list">
+        <View className="px-[24rpx]">
           {filtered.map((h) => (
-            <View key={h.id} className="item" onClick={() => toggle(h.id)}>
-              <View className="item-head">
-                <Text className="title">{h.title}</Text>
-                <Text className={`arrow${opened === h.id ? ' open' : ''}`}>›</Text>
+            <View key={h.id} className="bg-card rounded-[16rpx] mb-[16rpx] overflow-hidden" onClick={() => toggle(h.id)}>
+              <View className="flex justify-between items-center p-[32rpx]">
+                <Text className="text-[28rpx] text-foreground flex-1">{h.title}</Text>
+                <Text className={`text-muted-foreground text-[32rpx] ${opened === h.id ? '-rotate-90' : 'rotate-90'}`}>›</Text>
               </View>
               {opened === h.id ? (
-                <View className="content">
+                <View className="px-[32rpx] pb-[32rpx] text-[26rpx] text-muted-foreground leading-[1.6]">
                   <Text>{h.content}</Text>
                 </View>
               ) : null}
@@ -125,60 +124,60 @@ export default function HelpPage() {
       ) : null}
 
       {!loading && !filtered.length ? (
-        <View className="empty">
+        <View className="text-center py-[120rpx] text-muted-foreground text-[26rpx]">
           <Text>{tt('about.help.empty', '暂无帮助内容')}</Text>
         </View>
       ) : null}
 
-      <View className="section-title">
+      <View className="block pt-[16rpx] px-[32rpx] pb-[8rpx] text-[28rpx] font-semibold text-foreground">
         {tt('about.help.feedbackTitle', '意见反馈')}
       </View>
 
-      <View className="form">
-        <View className="form-group">
-          <Text className="form-label">
-            <Text className="required">*</Text>
+      <View className="mx-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
+        <View className="mb-[24rpx]">
+          <Text className="block text-[28rpx] text-foreground mb-[12rpx] font-medium">
+            <Text className="text-[#ef4444] mr-[4rpx]">*</Text>
             {tt('about.help.username', '姓名')}
           </Text>
           <Input
-            className="form-input"
+            className="w-full h-[80rpx] px-[20rpx] box-border bg-background border-[2rpx] border-border rounded-[8rpx] text-[26rpx] text-foreground"
             value={form.username}
             placeholder={tt('about.help.usernamePlaceholder', '请输入姓名')}
             onInput={(e) => updateField('username', e.detail.value)}
           />
         </View>
-        <View className="form-group">
-          <Text className="form-label">
-            <Text className="required">*</Text>
+        <View className="mb-[24rpx]">
+          <Text className="block text-[28rpx] text-foreground mb-[12rpx] font-medium">
+            <Text className="text-[#ef4444] mr-[4rpx]">*</Text>
             {tt('about.help.phone', '联系方式')}
           </Text>
           <Input
-            className="form-input"
+            className="w-full h-[80rpx] px-[20rpx] box-border bg-background border-[2rpx] border-border rounded-[8rpx] text-[26rpx] text-foreground"
             value={form.phone}
             placeholder={tt('about.help.phonePlaceholder', '请输入联系方式')}
             onInput={(e) => updateField('phone', e.detail.value)}
           />
         </View>
-        <View className="form-group">
-          <Text className="form-label">
-            <Text className="required">*</Text>
+        <View className="mb-[24rpx]">
+          <Text className="block text-[28rpx] text-foreground mb-[12rpx] font-medium">
+            <Text className="text-[#ef4444] mr-[4rpx]">*</Text>
             {tt('about.help.context', '问题描述')}
           </Text>
           <Textarea
-            className="form-textarea"
+            className="w-full min-h-[180rpx] px-[20rpx] py-[16rpx] box-border bg-background border-[2rpx] border-border rounded-[8rpx] text-[26rpx] text-foreground"
             value={form.context}
             placeholder={tt('about.help.contextPlaceholder', '请输入反馈详情')}
             onInput={(e) => updateField('context', e.detail.value)}
           />
         </View>
-        <Text className="form-tip">
+        <Text className="block text-[22rpx] text-muted-foreground leading-[1.6] mb-[24rpx]">
           {tt(
             'about.help.submitTip',
             '您的反馈将用于改进我们的产品与服务,发送后请耐心等待处理',
           )}
         </Text>
         <Button
-          className="submit-btn"
+          className="w-full h-[80rpx] leading-[80rpx] bg-primary text-white text-[28rpx] rounded-[8rpx] m-0 disabled:opacity-60"
           disabled={feedbackState === 'submitting'}
           onClick={submit}
         >
@@ -187,12 +186,12 @@ export default function HelpPage() {
             : tt('about.help.submit', '提交反馈')}
         </Button>
         {feedbackState === 'success' ? (
-          <Text className="feedback-status status-success">
+          <Text className="block text-center text-[24rpx] mt-[16rpx] text-[#10b981]">
             {tt('about.help.submitSuccess', '反馈提交成功')}
           </Text>
         ) : null}
         {feedbackState === 'failed' ? (
-          <Text className="feedback-status status-failed">
+          <Text className="block text-center text-[24rpx] mt-[16rpx] text-[#ef4444]">
             {tt('about.help.submitFailed', '反馈提交失败,请稍后重试')}
           </Text>
         ) : null}

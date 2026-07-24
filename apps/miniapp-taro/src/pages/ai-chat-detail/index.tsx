@@ -4,7 +4,6 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 interface DisplayMessage {
   id: string
@@ -123,28 +122,28 @@ export default function AiChatDetail() {
   }, [messages, scrollToBottom])
 
   return (
-    <View className="page-container">
-      <View className="page-header">
-        <Text className="page-title">{t('aiChatDetail.title')}</Text>
+    <View className="flex flex-col h-screen bg-background">
+      <View className="p-[24rpx] bg-card flex-shrink-0">
+        <Text className="text-[36rpx] font-semibold text-foreground">{t('aiChatDetail.title')}</Text>
       </View>
-      <ScrollView scrollY className="msg-list" scrollTop={scrollTop} scrollWithAnimation>
+      <ScrollView scrollY className="flex-1 min-h-0" scrollTop={scrollTop} scrollWithAnimation>
         {loading ? (
-          <View className="state-box">
-            <Text className="state-text">{t('common.loading')}</Text>
+          <View className="flex flex-col items-center py-[80rpx]">
+            <Text className="text-center text-muted-foreground text-[26rpx]">{t('common.loading')}</Text>
           </View>
         ) : error ? (
-          <View className="state-box">
-            <Text className="state-text">{tt('aiChatDetail.loadFailed', '加载失败')}</Text>
-            <View className="retry-btn" onClick={loadData}>
+          <View className="flex flex-col items-center py-[80rpx]">
+            <Text className="text-center text-muted-foreground text-[26rpx]">{tt('aiChatDetail.loadFailed', '加载失败')}</Text>
+            <View className="mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[26rpx]" onClick={loadData}>
               <Text>{t('common.retry')}</Text>
             </View>
           </View>
         ) : messages.length ? (
-          <View className="msg-list-inner">
+          <View className="p-[24rpx]">
             {messages.map((msg) => (
-              <View key={msg.id} className={`msg-item ${msg.role}`}>
-                <View className={`bubble ${msg.role}`}>
-                  <Text className="bubble-text">
+              <View key={msg.id} className={`flex mb-[24rpx] ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <View className={`max-w-[70%] py-[20rpx] px-[24rpx] rounded-[12rpx] ${msg.role === 'user' ? 'bg-primary' : 'bg-card'}`}>
+                  <Text className="text-[28rpx] leading-[1.5] break-words text-foreground">
                     {msg.content || (msg.role === 'assistant' && sending ? tt('aiChatDetail.thinking', '思考中…') : '')}
                   </Text>
                 </View>
@@ -152,14 +151,14 @@ export default function AiChatDetail() {
             ))}
           </View>
         ) : (
-          <View className="state-box">
-            <Text className="state-text">{t('aiChatDetail.empty')}</Text>
+          <View className="flex flex-col items-center py-[80rpx]">
+            <Text className="text-center text-muted-foreground text-[26rpx]">{t('aiChatDetail.empty')}</Text>
           </View>
         )}
       </ScrollView>
-      <View className="input-bar">
+      <View className="flex items-center px-[24rpx] py-[16rpx] bg-card flex-shrink-0 gap-[16rpx]">
         <Input
-          className="input"
+          className="flex-1 h-[72rpx] px-[24rpx] text-[28rpx] bg-background rounded-[12rpx]"
           type="text"
           value={inputValue}
           placeholder={tt('aiChatDetail.inputPlaceholder', '输入消息…')}
@@ -169,10 +168,10 @@ export default function AiChatDetail() {
           disabled={sending}
         />
         <View
-          className={`send-btn${!inputValue.trim() || sending ? ' disabled' : ''}`}
+          className={`px-[32rpx] py-[16rpx] bg-primary rounded-[12rpx] flex-shrink-0${!inputValue.trim() || sending ? ' opacity-50' : ''}`}
           onClick={sendMessage}
         >
-          <Text className="send-text">{t('chat.send')}</Text>
+          <Text className="text-[28rpx] text-foreground">{t('chat.send')}</Text>
         </View>
       </View>
     </View>

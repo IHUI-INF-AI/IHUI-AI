@@ -4,7 +4,6 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { getAskDetail, type Ask } from '@/api'
 import { useI18n } from '@/i18n'
-import './detail.css'
 
 interface AnswerItem {
   author: string
@@ -54,53 +53,53 @@ export default function AskDetailPage() {
   }, [answer, t])
 
   return (
-    <View className="page">
+    <View className="min-h-screen bg-background pb-[120rpx]">
       {data.title ? (
-        <View className="head">
-          <Text className="title">{data.title}</Text>
-          <View className="meta">
+        <View className="bg-card p-[32rpx] mb-[24rpx]">
+          <Text className="text-[36rpx] text-foreground font-bold leading-[1.4]">{data.title}</Text>
+          <View className="flex items-center mt-[24rpx]">
             <Image
-              className="avatar"
+              className="w-[50rpx] h-[50rpx] rounded-[8rpx] bg-background"
               src={data.avatar || '/static/default-avatar.png'}
               mode="aspectFill"
             />
-            <Text className="author">{data.author}</Text>
-            <Text className="time">{data.createTime}</Text>
+            <Text className="ml-[16rpx] text-[24rpx] text-muted-foreground">{data.author}</Text>
+            <Text className="ml-auto text-[22rpx] text-muted-foreground">{data.createTime}</Text>
           </View>
-          <View className="content">{data.content}</View>
+          <View className="mt-[24rpx] text-[28rpx] text-foreground leading-[1.8]">{data.content}</View>
         </View>
       ) : null}
 
       {answers.length ? (
-        <View className="answers">
-          <View className="answers-title">
+        <View className="bg-card p-[32rpx]">
+          <View className="text-[28rpx] text-foreground font-semibold mb-[24rpx]">
             {t('ask.detail.answerCount', { n: answers.length })}
           </View>
           {answers.map((a, i) => (
-            <View key={i} className="answer">
-              <View className="a-head">
+            <View key={i} className={`py-[24rpx]${i > 0 ? ' mt-[16rpx]' : ''}`}>
+              <View className="flex items-center">
                 <Image
-                  className="avatar"
+                  className="w-[50rpx] h-[50rpx] rounded-[8rpx] bg-background"
                   src={a.avatar || '/static/default-avatar.png'}
                   mode="aspectFill"
                 />
-                <Text className="a-author">{a.author}</Text>
-                <Text className="a-time">{a.time}</Text>
+                <Text className="ml-[16rpx] text-[24rpx] text-muted-foreground">{a.author}</Text>
+                <Text className="ml-auto text-[22rpx] text-muted-foreground">{a.time}</Text>
               </View>
-              <View className="a-content">{a.content}</View>
+              <View className="mt-[16rpx] text-[28rpx] text-foreground leading-[1.6]">{a.content}</View>
             </View>
           ))}
         </View>
       ) : null}
 
-      <View className="footer">
+      <View className="fixed bottom-0 left-0 right-0 flex items-center py-[16rpx] px-[24rpx] bg-card">
         <Input
-          className="input"
+          className="flex-1 h-[72rpx] px-[24rpx] bg-background rounded-[36rpx] text-[26rpx]"
           value={answer}
           placeholder={t('ask.detail.placeholder')}
           onInput={(e) => setAnswer(e.detail.value)}
         />
-        <Button className="btn" size="mini" onClick={onAnswer} disabled={!answer}>
+        <Button className="ml-[16rpx] bg-primary disabled:bg-[#ccc] text-foreground text-[24rpx]" size="mini" onClick={onAnswer} disabled={!answer}>
           {t('ask.detail.answer')}
         </Button>
       </View>

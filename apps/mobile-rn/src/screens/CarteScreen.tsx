@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { FlatList, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { Avatar, Badge, Card } from '@ihui/ui-native'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -42,12 +43,6 @@ const MOCK_WORKS: Work[] = [
   { id: '4', title: '小程序商城', category: '移动开发', desc: 'Taro 4 多端商城,统一代码覆盖微信 / 支付宝 / H5。', tags: ['Taro', 'TS'], likes: 64 },
 ]
 
-const PRIMARY = '#10B981'
-
-function initials(name: string): string {
-  return name ? name.slice(0, 1).toUpperCase() : '?'
-}
-
 /** 创客名片 / 作品集:展示创客资料、技能标签与代表案例。 */
 export default function CarteScreen() {
   const navigation = useNavigation<NavigationProp>()
@@ -62,104 +57,69 @@ export default function CarteScreen() {
 
   return (
     <FlatList
-      style={styles.container}
+      className="flex-1 bg-card"
       data={works}
       keyExtractor={(item) => item.id}
       contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
-      ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+      ItemSeparatorComponent={() => <View className="h-2" />}
       ListHeaderComponent={
         <View>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-              <Text style={styles.backText}>返回</Text>
+          <View className="flex-row items-center gap-3 pb-3 pt-12">
+            <TouchableOpacity onPress={() => navigation.goBack()} className="py-1">
+              <Text className="text-sm text-muted-foreground">返回</Text>
             </TouchableOpacity>
-            <Text style={styles.title}>创客名片</Text>
+            <Text className="text-lg font-semibold text-foreground">创客名片</Text>
           </View>
 
-          <View style={styles.profileCard}>
-            <View style={styles.avatarBox}>
-              <Text style={styles.avatarText}>{initials(creator.name)}</Text>
+          <Card className="flex-row items-center p-4">
+            <Avatar name={creator.name} size="lg" shape="rounded" className="bg-primary/10" />
+            <View className="ml-3 flex-1">
+              <Text className="text-[17px] font-semibold text-foreground">{creator.name}</Text>
+              <Text className="mt-0.5 text-xs text-primary">{creator.title}</Text>
             </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.name}>{creator.name}</Text>
-              <Text style={styles.creatorTitle}>{creator.title}</Text>
-            </View>
-          </View>
-          <Text style={styles.bio}>{creator.bio}</Text>
+          </Card>
+          <Text className="mt-3 text-[13px] leading-5 text-foreground/80">{creator.bio}</Text>
 
-          <View style={styles.statsRow}>
-            {stats.map((s) => (
-              <View key={s.label} style={styles.statItem}>
-                <Text style={styles.statValue}>{s.value}</Text>
-                <Text style={styles.statLabel}>{s.label}</Text>
+          <View className="mt-3 flex-row rounded-md bg-muted p-3">
+            {stats.map((st) => (
+              <View key={st.label} className="flex-1 items-center">
+                <Text className="text-lg font-bold text-foreground">{st.value}</Text>
+                <Text className="mt-1 text-[11px] text-muted-foreground">{st.label}</Text>
               </View>
             ))}
           </View>
 
-          <Text style={styles.sectionTitle}>技能标签</Text>
-          <View style={styles.tagCloud}>
-            {SKILLS.map((s) => (
-              <View key={s} style={styles.tag}>
-                <Text style={styles.tagText}>{s}</Text>
-              </View>
+          <Text className="mb-2 mt-4 text-sm font-semibold text-foreground">技能标签</Text>
+          <View className="flex-row flex-wrap gap-1.5">
+            {SKILLS.map((sk) => (
+              <Badge key={sk} variant="secondary" label={sk} className="bg-primary/10" />
             ))}
           </View>
 
-          <Text style={styles.sectionTitle}>作品案例</Text>
+          <Text className="mb-2 mt-4 text-sm font-semibold text-foreground">作品案例</Text>
         </View>
       }
       renderItem={({ item }) => (
-        <TouchableOpacity style={styles.workCard} activeOpacity={0.7}>
-          <View style={styles.workCover}>
-            <Text style={styles.workCoverText}>{item.category}</Text>
-          </View>
-          <View style={styles.workBody}>
-            <Text style={styles.workTitle} numberOfLines={1}>{item.title}</Text>
-            <Text style={styles.workDesc} numberOfLines={2}>{item.desc}</Text>
-            <View style={styles.workTags}>
-              {item.tags.map((tg) => (
-                <View key={tg} style={styles.miniTag}>
-                  <Text style={styles.miniTagText}>{tg}</Text>
-                </View>
-              ))}
-              <Text style={styles.likes}>♥ {item.likes}</Text>
+        <TouchableOpacity activeOpacity={0.7}>
+          <Card className="flex-row p-3">
+            <View className="h-16 w-16 items-center justify-center rounded-md bg-muted">
+              <Text className="text-[11px] text-muted-foreground">{item.category}</Text>
             </View>
-          </View>
+            <View className="ml-3 flex-1">
+              <Text className="text-[15px] font-semibold text-foreground" numberOfLines={1}>{item.title}</Text>
+              <Text className="mt-1 text-xs leading-[18px] text-muted-foreground" numberOfLines={2}>{item.desc}</Text>
+              <View className="mt-2 flex-row flex-wrap items-center gap-1.5">
+                {item.tags.map((tg) => (
+                  <View key={tg} className="rounded-md bg-muted px-1.5 py-0.5">
+                    <Text className="text-[10px] text-muted-foreground">{tg}</Text>
+                  </View>
+                ))}
+                <Text className="text-[11px] text-destructive">♥ {item.likes}</Text>
+              </View>
+            </View>
+          </Card>
         </TouchableOpacity>
       )}
     />
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingTop: 48, paddingBottom: 12, gap: 12 },
-  backBtn: { paddingVertical: 4 },
-  backText: { fontSize: 14, color: '#6B7280' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  profileCard: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB' },
-  avatarBox: { width: 52, height: 52, borderRadius: 8, backgroundColor: '#ECFDF5', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 22, fontWeight: '700', color: PRIMARY },
-  profileInfo: { flex: 1, marginLeft: 12 },
-  name: { fontSize: 17, fontWeight: '600', color: '#111827' },
-  creatorTitle: { marginTop: 2, fontSize: 12, color: PRIMARY },
-  bio: { marginTop: 12, fontSize: 13, color: '#374151', lineHeight: 20 },
-  statsRow: { marginTop: 12, flexDirection: 'row', padding: 12, borderRadius: 8, backgroundColor: '#F9FAFB' },
-  statItem: { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: 18, fontWeight: '700', color: '#111827' },
-  statLabel: { marginTop: 4, fontSize: 11, color: '#9CA3AF' },
-  sectionTitle: { marginTop: 16, marginBottom: 8, fontSize: 14, fontWeight: '600', color: '#111827' },
-  tagCloud: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: '#ECFDF5' },
-  tagText: { fontSize: 12, color: PRIMARY },
-  workCard: { flexDirection: 'row', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' },
-  workCover: { width: 64, height: 64, borderRadius: 8, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
-  workCoverText: { fontSize: 11, color: '#6B7280' },
-  workBody: { flex: 1, marginLeft: 12 },
-  workTitle: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  workDesc: { marginTop: 4, fontSize: 12, color: '#6B7280', lineHeight: 18 },
-  workTags: { marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  miniTag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: '#F3F4F6' },
-  miniTagText: { fontSize: 10, color: '#6B7280' },
-  likes: { fontSize: 11, color: '#EF4444' },
-})

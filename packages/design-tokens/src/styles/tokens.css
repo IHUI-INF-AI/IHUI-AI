@@ -217,20 +217,25 @@
   --shadow-premium-hover: 0 2px 8px var(--color-black-6);
 }
 
-/* 全局 utility:button/a 内 "icon + 文字" 同行布局自动加垂直对齐偏移。
-   适用场景:flex h-* items-center 行内布局,父级有 h-* 固定高度时。
+/* 全局 utility:button/a 内 "文字 span" 自动加垂直对齐偏移(根治中文字体偏下)。
+   根因:中文字体 ascent(≈11px) ≠ descent(≈3px) 不对称,ink 几何中心在
+   line-box 中心下方 0.4-0.5px(14px) / 0.79px(12px)。flex items-center
+   按 line-box 中心对齐,导致中文文字肉眼可见偏下。与有无 svg 图标无关。
    触发条件: (1) 父级是 button / a / role=button / role=menuitem 语义元素
-            (2) 同时含 svg 子节点(图标) + span 子节点(文字)
-   排除纯文字按钮(no svg 子节点)— 文字已视觉居中,加 translateY 反而会偏移。 */
-:where(button, a, [role='button'], [role='menuitem']):has(> svg):has(> span) > span {
+            (2) 含 span 直接子节点(文字)
+   覆盖:icon+文字 / 纯文字 两种场景(2026-07-24 从 :has(>svg):has(>span) 放宽到 :has(>span),
+        修复 plan-act-toggle 等纯文字按钮文字偏下问题,根治"新组件总有对齐问题")。
+   0.3px 对英文几乎无感(14px 字号肉眼阈值 1px 的 1/3),trade-off 可接受。 */
+:where(button, a, [role='button'], [role='menuitem']):has(> span) > span {
   transform: translateY(var(--text-vcenter-offset));
 }
 
 /* text-xs (12px) 字号专用偏移:glyph 中心偏移更大,需要更大幅度。
    实测 12px 字号下自然偏差 ≈ -0.79px,0.3px 仅收敛到 -0.49px;
    用 0.7px 可让 delta 收敛到 -0.09px (肉眼无感)。
-   通过 button 上的 text-xs 类触发(span 继承 12px 但自身无 text-xs 类)。 */
-:where(button, a, [role='button'], [role='menuitem']).text-xs:has(> svg):has(> span) > span {
+   通过 button 上的 text-xs 类触发(span 继承 12px 但自身无 text-xs 类)。
+   2026-07-24 同步放宽到 :has(>span),覆盖纯文字 12px 按钮。 */
+:where(button, a, [role='button'], [role='menuitem']).text-xs:has(> span) > span {
   transform: translateY(0.7px);
 }
 

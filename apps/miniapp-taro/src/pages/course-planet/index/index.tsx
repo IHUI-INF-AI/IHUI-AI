@@ -4,7 +4,6 @@ import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useMemo, useRef } from 'react'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 interface PlanetCourse {
   id: string
@@ -122,12 +121,12 @@ export default function CoursePlanet() {
 
   if (loading && allList.length === 0) {
     return (
-      <View className="page-container">
-        <View className="page-header">
-          <Text className="page-title">{t('coursePlanet.title')}</Text>
+      <View className="min-h-screen bg-background">
+        <View className="p-[24rpx] bg-card">
+          <Text className="text-[36rpx] font-semibold text-foreground">{t('coursePlanet.title')}</Text>
         </View>
-        <View className="page-content">
-          <Text className="loading-text">{t('common.loading')}</Text>
+        <View className="p-[24rpx]">
+          <Text className="block text-center text-muted-foreground py-[80rpx]">{t('common.loading')}</Text>
         </View>
       </View>
     )
@@ -135,13 +134,13 @@ export default function CoursePlanet() {
 
   if (error && allList.length === 0) {
     return (
-      <View className="page-container">
-        <View className="page-header">
-          <Text className="page-title">{t('coursePlanet.title')}</Text>
+      <View className="min-h-screen bg-background">
+        <View className="p-[24rpx] bg-card">
+          <Text className="text-[36rpx] font-semibold text-foreground">{t('coursePlanet.title')}</Text>
         </View>
-        <View className="page-content">
-          <Text className="empty-text">{tt('coursePlanet.loadFailed', '加载失败')}</Text>
-          <Text className="btn" onClick={loadData}>
+        <View className="p-[24rpx]">
+          <Text className="block text-center text-muted-foreground py-[40rpx]">{tt('coursePlanet.loadFailed', '加载失败')}</Text>
+          <Text className="inline-block mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[28rpx]" onClick={loadData}>
             {t('common.retry')}
           </Text>
         </View>
@@ -150,49 +149,49 @@ export default function CoursePlanet() {
   }
 
   return (
-    <View className="page-container">
-      <View className="page-header">
-        <Text className="page-title">{t('coursePlanet.title')}</Text>
+    <View className="min-h-screen bg-background">
+      <View className="p-[24rpx] bg-card">
+        <Text className="text-[36rpx] font-semibold text-foreground">{t('coursePlanet.title')}</Text>
       </View>
-      <ScrollView scrollX className="category-bar">
+      <ScrollView scrollX className="whitespace-nowrap py-[16rpx] px-[24rpx] bg-card">
         {CATEGORY_KEYS.map((cat) => (
           <Text
             key={cat.key}
-            className={`category-item ${activeCategory === cat.key ? 'active' : ''}`}
+            className={`inline-block py-[12rpx] px-[32rpx] mr-[16rpx] text-[26rpx] text-muted-foreground bg-background rounded-[8rpx] ${activeCategory === cat.key ? 'text-foreground bg-primary font-semibold' : ''}`}
             onClick={() => onCategoryChange(cat.key)}
           >
             {tt(cat.label, cat.key)}
           </Text>
         ))}
       </ScrollView>
-      <View className="page-content">
+      <View className="p-[24rpx]">
         {displayList.length ? (
           displayList.map((item) => (
-            <View key={item.id} className="course-card" onClick={() => onItemClick(item.id)}>
+            <View key={item.id} className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]" onClick={() => onItemClick(item.id)}>
               {item.coverUrl ? (
-                <Image className="course-cover" src={item.coverUrl} mode="aspectFill" />
+                <Image className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted" src={item.coverUrl} mode="aspectFill" />
               ) : (
-                <View className="course-cover placeholder">
-                  <Text className="placeholder-icon">📚</Text>
+                <View className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted flex items-center justify-center">
+                  <Text className="text-[48rpx]">📚</Text>
                 </View>
               )}
-              <View className="course-info">
-                <Text className="course-title">{item.title}</Text>
+              <View className="flex-1 ml-[16rpx] flex flex-col justify-between min-h-[130rpx]">
+                <Text className="text-[28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2">{item.title}</Text>
                 {item.teacher ? (
-                  <Text className="course-teacher">
+                  <Text className="text-[24rpx] text-muted-foreground mt-[8rpx]">
                     {tt('coursePlanet.teacher', '讲师')}: {item.teacher}
                   </Text>
                 ) : null}
-                <View className="course-meta">
+                <View className="flex items-center justify-between mt-[8rpx]">
                   {item.price != null ? (
-                    <Text className="course-price">
+                    <Text className="text-[32rpx] text-[#f44336] font-bold">
                       {item.price === 0
                         ? tt('coursePlanet.free', '免费')
                         : `¥${item.price.toFixed(2)}`}
                     </Text>
                   ) : null}
                   {item.students != null ? (
-                    <Text className="course-students">
+                    <Text className="text-[22rpx] text-muted-foreground">
                       {item.students} {tt('coursePlanet.studentsUnit', '人学习')}
                     </Text>
                   ) : null}
@@ -201,16 +200,16 @@ export default function CoursePlanet() {
             </View>
           ))
         ) : (
-          <View className="empty-wrapper">
-            <Text className="empty-icon">🪐</Text>
-            <Text className="empty-text">{t('coursePlanet.empty')}</Text>
+          <View className="flex flex-col items-center py-[120rpx]">
+            <Text className="text-[80rpx] mb-[16rpx]">🪐</Text>
+            <Text className="block text-center text-muted-foreground py-[40rpx]">{t('coursePlanet.empty')}</Text>
           </View>
         )}
         {hasMore && displayList.length > 0 ? (
-          <Text className="load-more-hint">{tt('coursePlanet.loadingMore', '加载中…')}</Text>
+          <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">{tt('coursePlanet.loadingMore', '加载中…')}</Text>
         ) : null}
         {!hasMore && displayList.length > 0 ? (
-          <Text className="no-more-hint">{t('common.noMore')}</Text>
+          <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">{t('common.noMore')}</Text>
         ) : null}
       </View>
     </View>

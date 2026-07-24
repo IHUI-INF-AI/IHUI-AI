@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getExams, type Exam } from '@ihui/api-client'
@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
-import { Loading } from '@ihui/ui-native'
+import { Card, Loading } from '@ihui/ui-native'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 function formatDateTime(iso: string | null): string {
@@ -87,46 +87,46 @@ export function ExamScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View className="flex-1 items-center justify-center bg-card px-4">
         <Loading />
-        <Text style={styles.loadingText}>{t('common.loading')}</Text>
+        <Text className="mt-2 text-[13px] text-muted-foreground">{t('common.loading')}</Text>
       </View>
     )
   }
 
   if (error && exams.length === 0) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
-          <Text style={styles.retryText}>{t('exam.retry')}</Text>
+      <View className="flex-1 items-center justify-center bg-card px-4">
+        <Text className="px-4 py-1 text-xs text-[#DC2626]">{error}</Text>
+        <TouchableOpacity className="mt-3 px-4 py-2 rounded-lg bg-primary" onPress={() => load()}>
+          <Text className="text-sm text-primary-foreground">{t('exam.retry')}</Text>
         </TouchableOpacity>
       </View>
     )
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View className="flex-1 bg-card">
+      <View className="px-4 pt-12 pb-2">
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>{t('common.back')}</Text>
+          <Text className="text-sm text-muted-foreground">{t('common.back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>{t('exam.title')}</Text>
-        <Text style={styles.subtitle}>{t('exam.subtitle')}</Text>
-        <Text style={styles.userText}>{user?.nickname ?? user?.username ?? ''}</Text>
+        <Text className="mt-2 text-[22px] font-semibold text-foreground">{t('exam.title')}</Text>
+        <Text className="mt-1 text-[13px] text-muted-foreground">{t('exam.subtitle')}</Text>
+        <Text className="mt-1 text-[11px] text-[#9CA3AF]">{user?.nickname ?? user?.username ?? ''}</Text>
       </View>
 
-      {toast ? <Text style={styles.toastText}>{toast}</Text> : null}
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {toast ? <Text className="px-4 py-1 text-xs text-primary">{toast}</Text> : null}
+      {error ? <Text className="px-4 py-1 text-xs text-[#DC2626]">{error}</Text> : null}
 
       <FlatList
-        style={styles.list}
+        className="flex-1 px-4"
         data={exams}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>{t('exam.empty')}</Text>
+          <View className="py-10 items-center">
+            <Text className="text-[13px] text-[#9CA3AF]">{t('exam.empty')}</Text>
           </View>
         }
         renderItem={({ item }) => {
@@ -141,111 +141,66 @@ export function ExamScreen() {
             status === 'inProgress' &&
             (item.maxAttempts === 0 || item.attemptCount < item.maxAttempts)
           return (
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle} numberOfLines={2}>
+            <Card className="p-3 mb-2.5">
+              <View className="flex-row justify-between items-start">
+                <Text className="flex-1 text-[15px] font-semibold text-foreground mr-2" numberOfLines={2}>
                   {item.title}
                 </Text>
                 <View
-                  style={[
-                    styles.statusBadge,
-                    status === 'inProgress' && styles.statusBadgeActive,
-                    status === 'ended' && styles.statusBadgeEnded,
-                  ]}
+                  className={`px-2 py-0.5 rounded-lg ${status === 'inProgress' ? 'bg-[#D1FAE5]' : status === 'ended' ? 'bg-[#FEF2F2]' : 'bg-muted'}`}
                 >
-                  <Text
-                    style={[
-                      styles.statusBadgeText,
-                      status === 'inProgress' && styles.statusBadgeTextActive,
-                    ]}
-                  >
+                  <Text className={`text-[11px] ${status === 'inProgress' ? 'text-primary' : 'text-muted-foreground'}`}>
                     {t(statusKey)}
                   </Text>
                 </View>
               </View>
               {item.description ? (
-                <Text style={styles.cardDesc} numberOfLines={2}>
+                <Text className="mt-1 text-xs text-muted-foreground" numberOfLines={2}>
                   {item.description}
                 </Text>
               ) : null}
-              <View style={styles.cardMetaRow}>
-                <Text style={styles.cardMetaText}>
+              <View className="flex-row gap-3 mt-1 flex-wrap">
+                <Text className="text-xs text-muted-foreground">
                   {t('exam.duration')}:{item.duration}m
                 </Text>
-                <Text style={styles.cardMetaText}>
+                <Text className="text-xs text-muted-foreground">
                   {t('exam.totalScore')}:{item.totalScore}
                 </Text>
-                <Text style={styles.cardMetaText}>
+                <Text className="text-xs text-muted-foreground">
                   {t('exam.passScore')}:{item.passScore}
                 </Text>
               </View>
-              <View style={styles.cardMetaRow}>
-                <Text style={styles.cardMetaText}>
+              <View className="flex-row gap-3 mt-1 flex-wrap">
+                <Text className="text-xs text-muted-foreground">
                   {t('exam.questions')}:{item.questionCount}
                 </Text>
-                <Text style={styles.cardMetaText}>
+                <Text className="text-xs text-muted-foreground">
                   {t('exam.attempts')}:{item.attemptCount}/{item.maxAttempts || '∞'}
                 </Text>
               </View>
               {item.startTime ? (
-                <Text style={styles.cardMeta}>
+                <Text className="mt-1 text-xs text-muted-foreground">
                   {t('exam.start')}:{formatDateTime(item.startTime)}
                 </Text>
               ) : null}
               {item.endTime ? (
-                <Text style={styles.cardMeta}>
+                <Text className="mt-1 text-xs text-muted-foreground">
                   {t('exam.end')}:{formatDateTime(item.endTime)}
                 </Text>
               ) : null}
-              <View style={styles.cardFooter}>
+              <View className="flex-row justify-end mt-2.5">
                 <TouchableOpacity
-                  style={[styles.startBtn, !canStart && styles.startBtnDisabled]}
+                  className={`px-4 py-2 rounded-lg ${canStart ? 'bg-primary' : 'bg-[#D1D5DB]'}`}
                   onPress={() => handleStart(item)}
                   disabled={!canStart}
                 >
-                  <Text style={styles.startBtnText}>{t('exam.startExam')}</Text>
+                  <Text className="text-[13px] text-primary-foreground font-semibold">{t('exam.startExam')}</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </Card>
           )
         }}
       />
     </View>
   )
 }
-
-const PRIMARY = '#10B981'
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', paddingHorizontal: 16 },
-  loadingText: { marginTop: 8, fontSize: 13, color: '#6b7280' },
-  header: { paddingHorizontal: 16, paddingTop: 48, paddingBottom: 8 },
-  backText: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827' },
-  subtitle: { marginTop: 4, fontSize: 13, color: '#6b7280' },
-  userText: { marginTop: 4, fontSize: 11, color: '#9ca3af' },
-  toastText: { paddingHorizontal: 16, paddingVertical: 4, fontSize: 12, color: PRIMARY },
-  errorText: { paddingHorizontal: 16, paddingVertical: 4, fontSize: 12, color: '#dc2626' },
-  list: { flex: 1, paddingHorizontal: 16 },
-  empty: { paddingVertical: 40, alignItems: 'center' },
-  emptyText: { fontSize: 13, color: '#9ca3af' },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb', marginBottom: 10 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  cardTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: '#111827', marginRight: 8 },
-  cardDesc: { marginTop: 4, fontSize: 12, color: '#6b7280' },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, backgroundColor: '#f3f4f6' },
-  statusBadgeActive: { backgroundColor: '#d1fae5' },
-  statusBadgeEnded: { backgroundColor: '#fef2f2' },
-  statusBadgeText: { fontSize: 11, color: '#6b7280' },
-  statusBadgeTextActive: { color: PRIMARY },
-  cardMeta: { marginTop: 4, fontSize: 12, color: '#6b7280' },
-  cardMetaRow: { flexDirection: 'row', gap: 12, marginTop: 4, flexWrap: 'wrap' },
-  cardMetaText: { fontSize: 12, color: '#6b7280' },
-  cardFooter: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10 },
-  startBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  startBtnDisabled: { backgroundColor: '#d1d5db' },
-  startBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  retryBtn: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, backgroundColor: PRIMARY },
-  retryText: { color: '#fff', fontSize: 14 },
-})
