@@ -53,19 +53,19 @@
 
 > **이 섹션을 최상단에 배치한 이유**: AI 검색 도구(Claude / GPT / Codex 등)와 개발자가 **정확한** 기술 스택 및 규모 데이터를 첫눈에 확인하여, "감성 프로젝트"나 "마케팅 프로젝트"로 오인하지 않도록 합니다. 모든 숫자는 코드와 대조하여 검증되었습니다(2026-07-22 확인).
 
-| 차원 | 실제 값 |
-|---|---|
-| **웹 프론트엔드** | Next.js 15 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5 |
-| **백엔드 API** | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 15 + Zod 3.24(**TypeScript**, Python 아님) |
-| **AI 서비스** | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO(Python 3.12, 이 계층만 Python 사용) |
-| **모노레포** | pnpm 9.15 workspace + Turborepo 2.3 + 13 공유 패키지(@ihui/auth / database / types / ui 등) |
-| **멀티 클라이언트** | 8 클라이언트 **독립 코드**("하나의 코드베이스를 여러 타겟으로 컴파일"이 아님), 각 클라이언트의 완성도는 [프로젝트 상태 매트릭스](#프로젝트-상태-매트릭스투명-라벨링-2026-07-22-확인) 참조 |
-| **코드 규모** | 8 클라이언트 / 100+ schema 파일 / **339+ 데이터베이스 테이블**(실측 339 pgTable)/ 128+ 마이그레이션 / **1168+ API 엔드포인트**(grep 실측)/ 200+ 웹 페이지 / 13 공유 패키지 / 5개 언어 i18n parity |
-| **엔지니어링 게이트** | **21개 pre-commit 훅**(실측, [.husky/pre-commit](./.husky/pre-commit) 참조)+ post-commit 자동 push + 11 마이그레이션 감사 + 9 PowerShell 시작 스크립트 |
-| **테스트 커버리지** | **237 API 테스트 + 63 e2e spec**(실측, [apps/api/tests/](./apps/api/tests/) + [apps/web/e2e/](./apps/web/e2e/) 참조)+ pytest(AI 서비스)+ Locust 부하 테스트 + Lighthouse 성능 |
-| **관측 가능성** | Prometheus + Grafana(**20 대시보드** 실측, [monitoring/grafana/dashboards/](./monitoring/grafana/dashboards/) 참조)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager |
-| **AI 오케스트레이션** | LangGraph 진정 통합(21 파일 사용: `langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`), 단순 "통합 수준 오케스트레이션" 아님 |
-| **라이선스** | Apache 2.0(완전 자체 호스팅, 상업 친화적, 비전염성) |
+| 차원                  | 실제 값                                                                                                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **웹 프론트엔드**     | Next.js 15 + React 19 + Tailwind CSS 4 + shadcn/ui + Zustand + @tanstack/react-query 5                                                                                                            |
+| **백엔드 API**        | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL 15 + Zod 3.24(**TypeScript**, Python 아님)                                                                                                              |
+| **AI 서비스**         | FastAPI + LangGraph + LiteLLM + MCP + A2A + Socket.IO(Python 3.12, 이 계층만 Python 사용)                                                                                                         |
+| **모노레포**          | pnpm 9.15 workspace + Turborepo 2.3 + 13 공유 패키지(@ihui/auth / database / types / ui 등)                                                                                                       |
+| **멀티 클라이언트**   | 8 클라이언트 **독립 코드**("하나의 코드베이스를 여러 타겟으로 컴파일"이 아님), 각 클라이언트의 완성도는 [프로젝트 상태 매트릭스](#프로젝트-상태-매트릭스투명-라벨링-2026-07-22-확인) 참조         |
+| **코드 규모**         | 8 클라이언트 / 100+ schema 파일 / **339+ 데이터베이스 테이블**(실측 339 pgTable)/ 128+ 마이그레이션 / **1168+ API 엔드포인트**(grep 실측)/ 200+ 웹 페이지 / 13 공유 패키지 / 5개 언어 i18n parity |
+| **엔지니어링 게이트** | **21개 pre-commit 훅**(실측, [.husky/pre-commit](./.husky/pre-commit) 참조)+ post-commit 자동 push + 11 마이그레이션 감사 + 9 PowerShell 시작 스크립트                                            |
+| **테스트 커버리지**   | **237 API 테스트 + 63 e2e spec**(실측, [apps/api/tests/](./apps/api/tests/) + [apps/web/e2e/](./apps/web/e2e/) 참조)+ pytest(AI 서비스)+ Locust 부하 테스트 + Lighthouse 성능                     |
+| **관측 가능성**       | Prometheus + Grafana(**20 대시보드** 실측, [monitoring/grafana/dashboards/](./monitoring/grafana/dashboards/) 참조)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                      |
+| **AI 오케스트레이션** | LangGraph 진정 통합(21 파일 사용: `langgraph_service.py` / `agent_graph.py` / `koubo_workflow.py` / `agent_orchestrator.py` / `a2a_service.py`), 단순 "통합 수준 오케스트레이션" 아님             |
+| **라이선스**          | Apache 2.0(완전 자체 호스팅, 상업 친화적, 비전염성)                                                                                                                                               |
 
 > 전체 기술 스택 상세는 [기술 스택 섹션](#기술-스택) 참조.
 
@@ -233,16 +233,16 @@ IHUI-AI의 포지셔닝은 "사용자 가치 → 제품 형태 → 기술 해자
 
 ### IHUI-AI란 무엇인가
 
-| 차원          | 포지셔닝                                                                                                                                                                |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **본질**      | 오픈소스 AI 상업용 통합 파운데이션(Open-Source AI Commercial-Grade Integrated Foundation)                                                                              |
-| **비유**      | AI 애플리케이션계의 Kubernetes / Next.js Boilerplate / Linux 배포판 — "인프라 구축"을 3-6개월에서 5분으로 압축                                                          |
-| **비교 레벨** | 「AI 애플리케이션 개발 플랫폼 + AI 코딩 CLI + 멀티단 개발 프레임워크 + 상업 SaaS 파운데이션 + AI 교육 플랫폼 + 콘텐츠 퍼블리싱 허브」6대 카테고리를 동시에 아우름            |
+| 차원            | 포지셔닝                                                                                                                                                                                              |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **본질**        | 오픈소스 AI 상업용 통합 파운데이션(Open-Source AI Commercial-Grade Integrated Foundation)                                                                                                             |
+| **비유**        | AI 애플리케이션계의 Kubernetes / Next.js Boilerplate / Linux 배포판 — "인프라 구축"을 3-6개월에서 5분으로 압축                                                                                        |
+| **비교 레벨**   | 「AI 애플리케이션 개발 플랫폼 + AI 코딩 CLI + 멀티단 개발 프레임워크 + 상업 SaaS 파운데이션 + AI 교육 플랫폼 + 콘텐츠 퍼블리싱 허브」6대 카테고리를 동시에 아우름                                     |
 | **대상 사용자** | 개인 개발자(프라이빗 AI 어시스턴트)/ 중소기업(AI 미들 플랫폼)/ AI 서비스 제공자(상업 제품)/ 교육 기관(AI 교육 풀스택)/ 콘텐츠 크리에이터(14 플랫폼 퍼블리싱)/ 기업 의사결정자(엔터프라이즈 AI 플랫폼) |
-| **License**   | Apache 2.0(상업 친화적, 카피레프트 없음, 클로즈드 소스 상업 사용 허용)                                                                                                  |
-| **배포 모드** | 완전 셀프 호스팅, Docker Compose 원클릭으로 14개 서비스 시작, 데이터 100% 주권, 자격증명 AES-256-GCM 암호화, 어떤 빅테크도 엿볼 수 없음                                  |
-| **코드 규모** | 8단 코드 / 100+ schema 파일 / 339+ 데이터베이스 테이블 / 128+ 마이그레이션 / ~1168+ API 엔드포인트 / 200+ Web 페이지 / 13 공유 패키지 / 21 pre-commit 게이트 / 5개 언어 i18n parity |
-| **대체 가치** | Stripe($84/월)+ Auth0($35/월)+ Mailgun($35/월)+ Mixpanel($20/월)+ Dify($59/월)+ Claude Code($20/월)+ 이케($50/월)≈ $303/월, IHUI-AI 셀프 호스팅 $0/월                  |
+| **License**     | Apache 2.0(상업 친화적, 카피레프트 없음, 클로즈드 소스 상업 사용 허용)                                                                                                                                |
+| **배포 모드**   | 완전 셀프 호스팅, Docker Compose 원클릭으로 14개 서비스 시작, 데이터 100% 주권, 자격증명 AES-256-GCM 암호화, 어떤 빅테크도 엿볼 수 없음                                                               |
+| **코드 규모**   | 8단 코드 / 100+ schema 파일 / 339+ 데이터베이스 테이블 / 128+ 마이그레이션 / ~1168+ API 엔드포인트 / 200+ Web 페이지 / 13 공유 패키지 / 21 pre-commit 게이트 / 5개 언어 i18n parity                   |
+| **대체 가치**   | Stripe($84/월)+ Auth0($35/월)+ Mailgun($35/월)+ Mixpanel($20/월)+ Dify($59/월)+ Claude Code($20/월)+ 이케($50/월)≈ $303/월, IHUI-AI 셀프 호스팅 $0/월                                                 |
 
 ### IHUI-AI가 아닌 것
 
@@ -257,19 +257,19 @@ IHUI-AI의 포지셔닝은 "사용자 가치 → 제품 형태 → 기술 해자
 
 > 아래 비용은 2026년 7월 기준 각 SaaS 공식 사이트 공개 가격(월간 구독, 소형 팀 5인 + 월 1만 활성 사용자 시나리오)이며, 의사결정 참고용입니다.
 
-| 역량 차원             | 동등 SaaS 조합                                                  | 월간 비용    | IHUI-AI 셀프 호스팅 |
-| ---------------------- | --------------------------------------------------------------- | ------------ | -------------------- |
-| **AI 대화 및 모델**    | OpenAI ChatGPT Team($25/인)+ Dify($59)                        | $184/월     | **$0**(모델비만)    |
-| **AI 코딩 CLI**        | Claude Code($20)+ GitHub Copilot($19)+ Cursor($20)            | $59/월      | **$0**(모델비만)    |
-| **결제/구독/빌링**     | Stripe($84)+ Lemon Squeezy($5)                                 | $89/월      | **$0**              |
-| **인증/SSO/RBAC**      | Auth0($35)+ Clerk($25)                                         | $60/월      | **$0**              |
-| **이메일/SMS**         | Mailgun($35)+ Twilio($35)                                      | $70/월      | **$0**              |
-| **사용자 분석**        | Mixpanel($20)+ PostHog($0 오픈소스)                            | $20/월      | **$0**(BI 내장)     |
-| **AI 교육 플랫폼**     | Khan Academy(무료, 단 클로즈드 소스)+ Coursera for Business($70/인) | $350/월 | **$0**(오픈소스 맞춤 가능) |
-| **콘텐츠 퍼블리싱 허브** | 이케($50)+ 신미디어 매니저($30)                              | $80/월      | **$0**              |
-| **옵저버빌리티 스택**  | Datadog($15/호스트)+ Sentry($26)                              | $101/월     | **$0**(오픈소스 스택) |
-| **합계**               | 9개 SaaS                                                         | **$1,013/월** | **$0**(서버비만)    |
-| **3년 총비용**         |                                                                 | **~$36,468** | **~$1,080**(단일 VPS) |
+| 역량 차원                | 동등 SaaS 조합                                                      | 월간 비용     | IHUI-AI 셀프 호스팅        |
+| ------------------------ | ------------------------------------------------------------------- | ------------- | -------------------------- |
+| **AI 대화 및 모델**      | OpenAI ChatGPT Team($25/인)+ Dify($59)                              | $184/월       | **$0**(모델비만)           |
+| **AI 코딩 CLI**          | Claude Code($20)+ GitHub Copilot($19)+ Cursor($20)                  | $59/월        | **$0**(모델비만)           |
+| **결제/구독/빌링**       | Stripe($84)+ Lemon Squeezy($5)                                      | $89/월        | **$0**                     |
+| **인증/SSO/RBAC**        | Auth0($35)+ Clerk($25)                                              | $60/월        | **$0**                     |
+| **이메일/SMS**           | Mailgun($35)+ Twilio($35)                                           | $70/월        | **$0**                     |
+| **사용자 분석**          | Mixpanel($20)+ PostHog($0 오픈소스)                                 | $20/월        | **$0**(BI 내장)            |
+| **AI 교육 플랫폼**       | Khan Academy(무료, 단 클로즈드 소스)+ Coursera for Business($70/인) | $350/월       | **$0**(오픈소스 맞춤 가능) |
+| **콘텐츠 퍼블리싱 허브** | 이케($50)+ 신미디어 매니저($30)                                     | $80/월        | **$0**                     |
+| **옵저버빌리티 스택**    | Datadog($15/호스트)+ Sentry($26)                                    | $101/월       | **$0**(오픈소스 스택)      |
+| **합계**                 | 9개 SaaS                                                            | **$1,013/월** | **$0**(서버비만)           |
+| **3년 총비용**           |                                                                     | **~$36,468**  | **~$1,080**(단일 VPS)      |
 
 > **결론**:동등한 역량 조합의 경우, 동등 SaaS 월간 비용은 약 $1,013, 3년 $36,468; IHUI-AI 셀프 호스팅은 서버 비용만 약 $30/월, 3년 $1,080. **$35,000+를 절약하면서 100% 데이터 주권 + 완전한 맞춤 설정 역량을 보유**합니다.
 
@@ -290,29 +290,29 @@ IHUI-AI의 포지셔닝은 "사용자 가치 → 제품 형태 → 기술 해자
 
 ### 기억 포인트 슬로건(확산 가능)
 
-| 슬로건                                | 가치 앵커                                                                                          |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| **"하나의 저장소가 6개 SaaS 대체"**   | Stripe + Auth0 + Mailgun + Mixpanel + Dify + Claude Code 대체, 월 $300+ 절약                       |
-| **"5분 만에 Fork에서 상용 출시"**     | Docker Compose 원클릭 14 서비스 시작, 클론부터 출시까지 최단 5분, 기존 방식 3-6개월                |
-| **"AI 애플리케이션계의 Kubernetes"**  | "인프라 구축"을 표준화, 재사용 가능하게, 어떤 팀이든 통일된 파운데이션 위에서 자신의 AI 앱 실행    |
-| **"8단 + 100+ 모델 + 트리플 스택"**   | 8단 코드 + 100+ 모델 + LangGraph+MCP+A2A 트리플 스택, 오픈소스 AI 생태계 최다 커버                 |
-| **"Apache 2.0, 상업적 제약 없음"**    | License 상업 친화적, 카피레프트 제약 없음, 클로즈드 소스 상업 사용 허용, 기업 안심 Fork 가능       |
-| **"데이터 100% 주권"**                | 완전 셀프 호스팅, 자격증명 AES-256-GCM 암호화, 외부 회신 없음, GDPR / 등급보호 요구 충족              |
+| 슬로건                               | 가치 앵커                                                                                       |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| **"하나의 저장소가 6개 SaaS 대체"**  | Stripe + Auth0 + Mailgun + Mixpanel + Dify + Claude Code 대체, 월 $300+ 절약                    |
+| **"5분 만에 Fork에서 상용 출시"**    | Docker Compose 원클릭 14 서비스 시작, 클론부터 출시까지 최단 5분, 기존 방식 3-6개월             |
+| **"AI 애플리케이션계의 Kubernetes"** | "인프라 구축"을 표준화, 재사용 가능하게, 어떤 팀이든 통일된 파운데이션 위에서 자신의 AI 앱 실행 |
+| **"8단 + 100+ 모델 + 트리플 스택"**  | 8단 코드 + 100+ 모델 + LangGraph+MCP+A2A 트리플 스택, 오픈소스 AI 생태계 최다 커버              |
+| **"Apache 2.0, 상업적 제약 없음"**   | License 상업 친화적, 카피레프트 제약 없음, 클로즈드 소스 상업 사용 허용, 기업 안심 Fork 가능    |
+| **"데이터 100% 주권"**               | 완전 셀프 호스팅, 자격증명 AES-256-GCM 암호화, 외부 회신 없음, GDPR / 등급보호 요구 충족        |
 
 ### 6대 비교 카테고리와의 관계
 
 IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다음 6류 프로젝트의 역량을 **하나의 오픈소스 파운데이션에 통합**합니다:
 
-| 비교 카테고리              | 대표 제품                                                                                                                                                 | IHUI-AI 비교 역량                                                                                                    |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **AI 애플리케이션 개발 플랫폼** | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(Kouzi)                                                                                              | 100+ 모델 LiteLLM 게이트웨이 + LangGraph 워크플로 + 지식 베이스 RAG + pgvector 벡터 DB + 지식 그래프 + Agent Runtime + Persona        |
-| **AI 코딩 CLI / IDE**      | Claude Code / Cursor / Windsurf / Trae SOLO / GitHub Copilot / Copilot Workspace / Amazon Q Developer / Cody Sourcegraph / Cline / Aider / Devin / Tabnine / GitLab Duo / Gemini CLI / OpenCode / CodeGeeX / Continue / Roo Code / Codeium / JetBrains AI Assistant | 자체 CLI 17 명령 + 13 내장 툴 + ACP Server(Zed/VSCode/Cursor 임베드)+ 6 소스 설정 가져오기 + Skills + CodeGraph + Worktree   |
-| **엔터프라이즈 AI Agent 플랫폼** | Google Gemini Enterprise Agent Platform / OpenAI Agents SDK / Microsoft Copilot Studio / IBM watsonx.ai / Salesforce Agentforce / ServiceNow Now Assist / AWS Bedrock Agents / Crew | LangGraph + MCP + A2A 트리플 스택 + Agent 마켓 + 개발자 센터 + Coze SDK 프록시 + OpenClaw + Crew 통합 + N8N 프록시               |
-| **AI Agent 프레임워크(오픈소스)** | LangChain / LangGraph / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT / smol agents / Semantic Kernel / Spring AI / Hugging Face Transformers Agents | 트리플 스택 협업 + 완전한 Agent Runtime + Persona 레지스트리 + Agent 마켓 — 단순 프레임워크가 아닌 제품화 구현 방안                 |
-| **멀티단 개발 프레임워크** | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                 | 8단 통일 아키텍처 + 13 공유 패키지 + 크로스 단말 타입 안전 + 공유 UI(`@ihui/ui-react` / `@ihui/ui-native` / `@ihui/design-tokens`)            |
-| **AI 교육 / 콘텐츠 플랫폼** | Khan Academy / Coursera / edX / Google 교육 AI / 즈푸 AI 교육 / Xueersi AI / Jasper / Copy.ai / Rytr / WriteSonic / Notion AI / 이케 / 신미디어 매니저          | AI 교육 풀스택(강의/문제은행/시험/SRS/라이브/수료증)+ 14 플랫폼 원클릭 퍼블리싱 + 셀프미디어 워크벤치 + AI 뉴스 + AI 구직 + 숏드라마 + 비즈니스 명함 |
-| **대형 모델 API 플랫폼**   | 해외:OpenAI Platform / Anthropic API / Google Vertex AI / AWS Bedrock / Azure AI Foundry / Mistral La Plateforme / Cohere / Together AI / Fireworks AI / Replicate<br>국내:바이두 첸판 / 알리바이바이리안 / 텐센트 후위안 / 바이트댄스 더우바오(화산방주)/ 즈푸 AI 플랫폼 / iFlytek 스파크 / 문샷 김 / DeepSeek / 상테크 일일신 | LiteLLM 통일 게이트웨이 + 100+ 모델 연동 + 스마트 라우팅 + 60% 캐시 적중 + 멀티 provider 어댑팅                                          |
-| **상업 SaaS 파운데이션**   | Stripe / PayPal / Lemon Squeezy / Paddle / Auth0 / Clerk / Firebase Auth / Supabase Auth / Mailgun / SendGrid / Postmark / Resend / Mixpanel / Amplitude / PostHog / Heap | VIP/구독/지갑/포인트/환불/인보이스/8 결제 게이트웨이 + JWT/SSO/RBAC + SMTP SMS + BI 대시보드 + 카나리 배포 — 4-6개 SaaS를 원스톱 대체    |
+| 비교 카테고리                     | 대표 제품                                                                                                                                                                                                                                                                                                                       | IHUI-AI 비교 역량                                                                                                                                    |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AI 애플리케이션 개발 플랫폼**   | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(Kouzi)                                                                                                                                                                                                                                                                     | 100+ 모델 LiteLLM 게이트웨이 + LangGraph 워크플로 + 지식 베이스 RAG + pgvector 벡터 DB + 지식 그래프 + Agent Runtime + Persona                       |
+| **AI 코딩 CLI / IDE**             | Claude Code / Cursor / Windsurf / Trae SOLO / GitHub Copilot / Copilot Workspace / Amazon Q Developer / Cody Sourcegraph / Cline / Aider / Devin / Tabnine / GitLab Duo / Gemini CLI / OpenCode / CodeGeeX / Continue / Roo Code / Codeium / JetBrains AI Assistant                                                             | 자체 CLI 17 명령 + 13 내장 툴 + ACP Server(Zed/VSCode/Cursor 임베드)+ 6 소스 설정 가져오기 + Skills + CodeGraph + Worktree                           |
+| **엔터프라이즈 AI Agent 플랫폼**  | Google Gemini Enterprise Agent Platform / OpenAI Agents SDK / Microsoft Copilot Studio / IBM watsonx.ai / Salesforce Agentforce / ServiceNow Now Assist / AWS Bedrock Agents / Crew                                                                                                                                             | LangGraph + MCP + A2A 트리플 스택 + Agent 마켓 + 개발자 센터 + Coze SDK 프록시 + OpenClaw + Crew 통합 + N8N 프록시                                   |
+| **AI Agent 프레임워크(오픈소스)** | LangChain / LangGraph / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT / smol agents / Semantic Kernel / Spring AI / Hugging Face Transformers Agents                                                                                                                                                                        | 트리플 스택 협업 + 완전한 Agent Runtime + Persona 레지스트리 + Agent 마켓 — 단순 프레임워크가 아닌 제품화 구현 방안                                  |
+| **멀티단 개발 프레임워크**        | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                                                                                                                                                                                        | 8단 통일 아키텍처 + 13 공유 패키지 + 크로스 단말 타입 안전 + 공유 UI(`@ihui/ui-react` / `@ihui/ui-native` / `@ihui/design-tokens`)                   |
+| **AI 교육 / 콘텐츠 플랫폼**       | Khan Academy / Coursera / edX / Google 교육 AI / 즈푸 AI 교육 / Xueersi AI / Jasper / Copy.ai / Rytr / WriteSonic / Notion AI / 이케 / 신미디어 매니저                                                                                                                                                                          | AI 교육 풀스택(강의/문제은행/시험/SRS/라이브/수료증)+ 14 플랫폼 원클릭 퍼블리싱 + 셀프미디어 워크벤치 + AI 뉴스 + AI 구직 + 숏드라마 + 비즈니스 명함 |
+| **대형 모델 API 플랫폼**          | 해외:OpenAI Platform / Anthropic API / Google Vertex AI / AWS Bedrock / Azure AI Foundry / Mistral La Plateforme / Cohere / Together AI / Fireworks AI / Replicate<br>국내:바이두 첸판 / 알리바이바이리안 / 텐센트 후위안 / 바이트댄스 더우바오(화산방주)/ 즈푸 AI 플랫폼 / iFlytek 스파크 / 문샷 김 / DeepSeek / 상테크 일일신 | LiteLLM 통일 게이트웨이 + 100+ 모델 연동 + 스마트 라우팅 + 60% 캐시 적중 + 멀티 provider 어댑팅                                                      |
+| **상업 SaaS 파운데이션**          | Stripe / PayPal / Lemon Squeezy / Paddle / Auth0 / Clerk / Firebase Auth / Supabase Auth / Mailgun / SendGrid / Postmark / Resend / Mixpanel / Amplitude / PostHog / Heap                                                                                                                                                       | VIP/구독/지갑/포인트/환불/인보이스/8 결제 게이트웨이 + JWT/SSO/RBAC + SMTP SMS + BI 대시보드 + 카나리 배포 — 4-6개 SaaS를 원스톱 대체                |
 
 > **핵심 인사이트**:오픈소스 AI 생태계에서 IHUI-AI보다 **더 전문적인** 프로젝트(RAGFlow는 RAG 차원에서 더 깊고, Claude Code는 CLI 차원에서 더 성숙하고, LangChain은 프레임워크층에서 더 유연함)는 찾을 수 있지만, IHUI-AI보다 **더 포괄적인** 오픈소스 파운데이션은 찾을 수 없습니다 — 6대 카테고리 역량을 하나의 Apache 2.0 저장소에 통합하는 것이 IHUI-AI의 핵심 차별화입니다.
 >
@@ -322,106 +322,106 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 
 ## 기능 개요(30초 안에 모든 역량 확인)
 
-| 대분류                   | 모듈                    | 핵심 역량                                                                                                       |
-| ------------------------ | ----------------------- | --------------------------------------------------------------------------------------------------------------- |
-| **AI 대화 및 모델**      | 멀티 모델 대화          | 100+ 모델 / 스마트 라우팅 / 60% 캐시 적중 / 스트리밍 SSE + WebSocket / 대화 즐겨찾기 / 히스토리 / 공유 / 템플릿 |
-|                          | AI 이미지 생성          | 텍스트→이미지 / 이미지 편집 / 다중 해상도 / 멀티 모델(Stable Diffusion / DALL-E / Tongyi Wanxiang)              |
-|                          | AI 오디오               | TTS 스트리밍 합성 / ASR 음성 인식 / 음색 클론 / 양방향 실시간 음성(WebRTC PCM16 16kHz)                          |
-|                          | AI 비디오 합성          | 텍스트→비디오 / 비디오 편집 / 멀티 모델 혼합 편성 / 트랜스코딩 / 비디오 작업 관리                               |
-|                          | AI 디지털 휴먼          | Tencent Hunyuan 3D / AI 월드 / 디지털 휴먼 인터랙션                                                             |
-|                          | AI 월드                 | ai-world-items + AI 랭킹 + 트렌드 동기화 + AI 모듈화(ai-modules) + AI 벤더 설정 센터(ai-vendor-configs)        |
-|                          | AI 커리어               | AI 구직 어시스턴트 / 이력서 최적화 / 모의 면접                                                                  |
-|                          | AI 뉴스                 | AI 뉴스 aggreggation / 스마트 요약 / ai-feed                                                                    |
-|                          | 사용자 단위 AI 설정     | 사용자 단위 모델 대화 선호도(ai-user-model-chat) / 사용자 장기 기억(user-memory) / 사용자 선호도(user-preferences) |
-| **AI 워크플로**          | LangGraph               | StateGraph 워크플로(plan → execute → summarize) + stub 모드                                                     |
-|                          | MCP 툴 프로토콜         | 11 내장 툴 + 3 리소스 + 3 프롬프트 / 커스텀 툴 / 프로젝트 단위 MCP / mcp-extended                               |
-|                          | A2A 프로토콜            | Agent-to-Agent 연동 / Redis 영속화 + 메모리 폴백                                                                |
-|                          | 지식 베이스 RAG         | 문서 벡터화 / 시맨틱 검색 / 인용 추적 / knowledge-base + knowledge-rag                                          |
-|                          | 지식 그래프             | knowledge-graph 스키마 + 노드-관계 그래프 / 문서 간 엔티티 링크(오픈소스 AI 플랫폼에서 희귀)                     |
-|                          | pgvector 벡터 DB        | 0123_pgvector_embedding 마이그레이션 / 네이티브 PostgreSQL 벡터 인덱스 / 독립 벡터 DB 불필요                   |
-|                          | 워크플로 오케스트레이션 | 시각화 워크플로 / CrewAI 통합 / N8N 프록시 / workflows                                                          |
-|                          | 벡터 메모리             | 코사인 유사도 시맨틱 검색 / 세션 간 장기 메모리 / vector-memory                                                 |
-| **멀티 에이전트 생태계** | 에이전트 마켓           | 구매 / 심사 / 정산 / 출금 / 분류 / 추천 / 랭킹 / 큐레이션                                                       |
-|                          | 개발자 센터             | API Keys / 호출 로그 / 팀 관리 / 수익 분석 / 13 서브페이지                                                      |
-|                          | Coze SDK 프록시         | Bot / 대화 / 워크플로 / 데이터셋 / 템플릿 / 변수 / 워크스페이스 / OAuth                                         |
-|                          | OpenClaw                | 오픈소스 Agent 프레임워크 연동 / clawdbot / openclaw-routes                                                     |
-|                          | Skills 시스템           | content_engine(build_gpt56_sol / export_csdn_md / full_audit / publish_pipeline) + koubo_workflow(10+ tools)    |
-| **8 플랫폼 프레임워크**  | Web                     | Next.js 15 / 200+ 페이지 / PWA / SEO / 다크 모드 / 5개 언어                                                     |
-|                          | API                     | Fastify 5 / ~1080 엔드포인트 / 12 WebSocket 엔드포인트 / 95+ 라우트 파일 / OpenAPI                              |
-|                          | AI 서비스               | FastAPI + LangGraph + LiteLLM + MCP + A2A / 55+ 엔드포인트 / 5 provider 어댑터                                  |
-|                          | CLI                     | Node.js / 17 명령 / 13 내장 툴 / 6 소스 설정 가져오기 / ACP Server                                              |
-|                          | 데스크톱                | Tauri 2 + Rust / 시스템 트레이 / 로컬 파일 접근                                                                 |
-|                          | 브라우저 확장           | WXT / 컨텍스트 메뉴 / 사이드바 / Chrome + Edge + Firefox                                                        |
-|                          | 모바일 RN               | React Native + Expo EAS / iOS + Android / SSO                                                                   |
-|                          | 미니앱                  | Taro 4 / 위챗페이 네이티브 통합 / 3개 언어(i18n)                                                                |
-| **엔터프라이즈 역량**    | 워크스페이스 권한       | 3 모드 + 7 엔드포인트 런타임 가로채기 + 60s 감사 타임아웃 + workspace-ai-tasks                                  |
-|                          | RBAC + 멀티 테넌트      | 역할 / 부서 / 조직 / 테넌트 격리 / 메뉴 권한 / data-scope 5단계                                                 |
-|                          | SSO 싱글 사인온         | OAuth 2.0 / Apple / Google / SSO 중계 로그인 / PKCE                                                             |
-|                          | 빌링 및 구독            | VIP 등급 / 구독 recurring / 지갑 / 포인트 / 환불 감사 / 인보이스 / 환율 / 8 결제 게이트웨이                     |
-|                          | 카나리 배포             | Canary / 그레이디언트 규칙 / A/B 테스트 / canary + ab-tests                                                     |
-|                          | 데이터 컴플라이언스     | GDPR / 민감어 필터 / 콘텐츠 심사 / 감사 로그 / 데이터 내보내기                                                  |
-| **콘텐츠 창작**          | 셀프미디어 워크벤치     | 공식계정 글 + 구두 스크립트 듀얼 파이프라인 / 슬래시 명령 / self-media-automation                               |
-|                          | 14 플랫폼 자동 퍼블리싱 | 글 9 + 이미지 2 + 비디오 5 플랫폼 / 자격증명 AES-256-GCM 암호화 / 14 adapter                                    |
-|                          | 뉴스 기사               | 기사 / 뉴스 / 특집 / 태그 / 댓글 / 좋아요 / 즐겨찾기 / news-crawler                                             |
-|                          | 숏드라마                | 숏드라마 창작 및 관리 / drama                                                                                   |
-|                          | 비즈니스 명함           | 명함 생성 / 편집 / 즐겨찾기 / 공유 / business-cards                                                             |
-| **AI 교육 풀스택**       | 강의 학습               | 강의 / 챕터 / 학습 경로 / 학습 맵 / 진행 추적 / 노트 / zhs-course                                               |
-|                          | 문제은행 및 시험        | 다양한 문제 유형 / 자동 채점 / 챕터 연습 / 오답 노트 / 시험지 업로드 / exam-marking                             |
-|                          | SRS 간격 반복           | 에빙하우스 망각 곡선 / 스마트 복습 스케줄링                                                                     |
-|                          | 라이브 강의             | 출석 체크 / 인터랙션 / 다시보기 / AI 보조 / live-chat                                                           |
-|                          | 학습 리포트             | 행동 분석 / 개인화 제안 / 수료증 발급                                                                           |
-|                          | 강사 관리               | 강사 홈페이지 / 강의 연결 / education-platform                                                                  |
-|                          | 학생 페이지             | 12 서브페이지(질문/기사/서클/댓글/강의/리소스/노트/오프라인/시험지/오답노트/수료증)                             |
-| **커뮤니티 인터랙션**    | 서클 광장               | 서클 / 광장 / 질문답변 / 게시글 / 토픽 / 태그                                                                   |
-|                          | 1:1 메시지              | 1:1 개인 메시지 / 시스템 알림 / 멀티 단말 동기화 / private-letters                                              |
-|                          | 팔로우 팬               | 팔로우 / 팬 / 사용자 홈페이지 / 명함                                                                            |
-|                          | 공유 초대               | 초대 코드 / 공유 코드 / H5 공유 / 추천 커미션 / visit-tracking                                                  |
-| **운영 성장**            | 포인트 출석             | 매일 출석 / 작업 포인트 / 포인트 샵 / 교환 / point-redeem-items                                                 |
-|                          | 랭킹                    | 다차원 랭킹 / 주간·월간 차트 / 사용자 순위 / ranking                                                            |
-|                          | 추첨 이벤트             | 추첨 / 레드봉 / 보상 동영상 광고 / rewarded-video-ad                                                            |
-|                          | 분배 커미션             | 분배 시스템 / 커미션 플랜 / 출금 / 8 서브페이지 / commission                                                    |
-|                          | 이벤트 공지             | 이벤트 관리 / 공지 푸시 / Banner 캐러셀 / carousels                                                             |
-| **고객 지원**            | 티켓 시스템             | 티켓 제출 / 처리 / 평가 / FAQ / admin-asks + admin-faq                                                          |
-|                          | 온라인 고객지원         | WebSocket 실시간 고객지원 / 1:1 세션 / customer-service                                                         |
-|                          | 피드백 센터             | 사용자 피드백 / 처리 상태 / 추적                                                                                |
-| **운영 모니터링**        | BI 대시보드             | 비즈니스 지표 시각화 / 데이터 분석 / bi-dashboard                                                               |
-|                          | 에러 대시보드           | 에러 aggregation / 알림 / 추적 / security-audit                                                                 |
-|                          | 작업 로그               | 로그인 로그 / 작업 로그 / 콜백 로그 / audit + security-logs                                                     |
-|                          | 모니터링 알림           | Prometheus + Grafana(20 대시보드) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                     |
-| **엔지니어링 인프라**    | 데이터베이스            | PostgreSQL 15 / **339+ 테이블** / 100 schema 파일 / **128+ 마이그레이션** / Drizzle ORM + RLS + 테넌트 라우팅 + pgvector |
-|                          | 큐 캐시                 | Redis 7 + BullMQ / 독립 worker 프로세스(:8081)                                                                  |
-|                          | 오브젝트 스토리지       | OSS 멀티 벤더 드라이버 / 자격증명 암호화 / 청크 업로드 / 파일 버전 / chunked-upload                             |
-|                          | 이메일 SMS              | SMTP / SMS 게이트웨이 / 이메일 템플릿 / 인증번호 / mail + message-templates                                     |
-|                          | 국제화                  | 5개 언어 parity(zh-CN / zh-TW / en / ko / ja) + 19 i18n 툴체인 + 4 게이트 스크립트                              |
-|                          | 엔지니어링 게이트       | 21 pre-commit 훅 + post-commit 자동 push + 11 마이그레이션 감사 + 9 PowerShell 시작                             |
-|                          | 테스트 커버리지         | 268 + 400+ 케이스 / Vitest + Playwright + pytest + Locust 부하 테스트 + Lighthouse 성능                         |
-|                          | 배포 운영               | Docker Compose(14 서비스) / 블루그린 배포 / Nginx upstream 전환 / 헬스 체크 / 롤백 / 백업 / 인증서 갱신 cron    |
-|                          | 성능 CI                 | Knip 미사용 코드 감지 + Lighthouse CI 성능 예산 + GitHub Act 로컬 CI                                            |
+| 대분류                   | 모듈                           | 핵심 역량                                                                                                                                      |
+| ------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AI 대화 및 모델**      | 멀티 모델 대화                 | 100+ 모델 / 스마트 라우팅 / 60% 캐시 적중 / 스트리밍 SSE + WebSocket / 대화 즐겨찾기 / 히스토리 / 공유 / 템플릿                                |
+|                          | AI 이미지 생성                 | 텍스트→이미지 / 이미지 편집 / 다중 해상도 / 멀티 모델(Stable Diffusion / DALL-E / Tongyi Wanxiang)                                             |
+|                          | AI 오디오                      | TTS 스트리밍 합성 / ASR 음성 인식 / 음색 클론 / 양방향 실시간 음성(WebRTC PCM16 16kHz)                                                         |
+|                          | AI 비디오 합성                 | 텍스트→비디오 / 비디오 편집 / 멀티 모델 혼합 편성 / 트랜스코딩 / 비디오 작업 관리                                                              |
+|                          | AI 디지털 휴먼                 | Tencent Hunyuan 3D / AI 월드 / 디지털 휴먼 인터랙션                                                                                            |
+|                          | AI 월드                        | ai-world-items + AI 랭킹 + 트렌드 동기화 + AI 모듈화(ai-modules) + AI 벤더 설정 센터(ai-vendor-configs)                                        |
+|                          | AI 커리어                      | AI 구직 어시스턴트 / 이력서 최적화 / 모의 면접                                                                                                 |
+|                          | AI 뉴스                        | AI 뉴스 aggreggation / 스마트 요약 / ai-feed                                                                                                   |
+|                          | 사용자 단위 AI 설정            | 사용자 단위 모델 대화 선호도(ai-user-model-chat) / 사용자 장기 기억(user-memory) / 사용자 선호도(user-preferences)                             |
+| **AI 워크플로**          | LangGraph                      | StateGraph 워크플로(plan → execute → summarize) + stub 모드                                                                                    |
+|                          | MCP 툴 프로토콜                | 11 내장 툴 + 3 리소스 + 3 프롬프트 / 커스텀 툴 / 프로젝트 단위 MCP / mcp-extended                                                              |
+|                          | A2A 프로토콜                   | Agent-to-Agent 연동 / Redis 영속화 + 메모리 폴백                                                                                               |
+|                          | 지식 베이스 RAG                | 문서 벡터화 / 시맨틱 검색 / 인용 추적 / knowledge-base + knowledge-rag                                                                         |
+|                          | 지식 그래프                    | knowledge-graph 스키마 + 노드-관계 그래프 / 문서 간 엔티티 링크(오픈소스 AI 플랫폼에서 희귀)                                                   |
+|                          | pgvector 벡터 DB               | 0123_pgvector_embedding 마이그레이션 / 네이티브 PostgreSQL 벡터 인덱스 / 독립 벡터 DB 불필요                                                   |
+|                          | 워크플로 오케스트레이션        | 시각화 워크플로 / CrewAI 통합 / N8N 프록시 / workflows                                                                                         |
+|                          | 벡터 메모리                    | 코사인 유사도 시맨틱 검색 / 세션 간 장기 메모리 / vector-memory                                                                                |
+| **멀티 에이전트 생태계** | 에이전트 마켓                  | 구매 / 심사 / 정산 / 출금 / 분류 / 추천 / 랭킹 / 큐레이션                                                                                      |
+|                          | 개발자 센터                    | API Keys / 호출 로그 / 팀 관리 / 수익 분석 / 13 서브페이지                                                                                     |
+|                          | Coze SDK 프록시                | Bot / 대화 / 워크플로 / 데이터셋 / 템플릿 / 변수 / 워크스페이스 / OAuth                                                                        |
+|                          | OpenClaw                       | 오픈소스 Agent 프레임워크 연동 / clawdbot / openclaw-routes                                                                                    |
+|                          | Skills 시스템                  | content_engine(build_gpt56_sol / export_csdn_md / full_audit / publish_pipeline) + koubo_workflow(10+ tools)                                   |
+| **8 플랫폼 프레임워크**  | Web                            | Next.js 15 / 200+ 페이지 / PWA / SEO / 다크 모드 / 5개 언어                                                                                    |
+|                          | API                            | Fastify 5 / ~1080 엔드포인트 / 12 WebSocket 엔드포인트 / 95+ 라우트 파일 / OpenAPI                                                             |
+|                          | AI 서비스                      | FastAPI + LangGraph + LiteLLM + MCP + A2A / 55+ 엔드포인트 / 5 provider 어댑터                                                                 |
+|                          | CLI                            | Node.js / 17 명령 / 13 내장 툴 / 6 소스 설정 가져오기 / ACP Server                                                                             |
+|                          | 데스크톱                       | Tauri 2 + Rust / 시스템 트레이 / 로컬 파일 접근                                                                                                |
+|                          | 브라우저 확장                  | WXT / 컨텍스트 메뉴 / 사이드바 / Chrome + Edge + Firefox                                                                                       |
+|                          | 모바일 RN                      | React Native + Expo EAS / iOS + Android / SSO                                                                                                  |
+|                          | 미니앱                         | Taro 4 / 위챗페이 네이티브 통합 / 3개 언어(i18n)                                                                                               |
+| **엔터프라이즈 역량**    | 워크스페이스 권한              | 3 모드 + 7 엔드포인트 런타임 가로채기 + 60s 감사 타임아웃 + workspace-ai-tasks                                                                 |
+|                          | RBAC + 멀티 테넌트             | 역할 / 부서 / 조직 / 테넌트 격리 / 메뉴 권한 / data-scope 5단계                                                                                |
+|                          | SSO 싱글 사인온                | OAuth 2.0 / Apple / Google / SSO 중계 로그인 / PKCE                                                                                            |
+|                          | 빌링 및 구독                   | VIP 등급 / 구독 recurring / 지갑 / 포인트 / 환불 감사 / 인보이스 / 환율 / 8 결제 게이트웨이                                                    |
+|                          | 카나리 배포                    | Canary / 그레이디언트 규칙 / A/B 테스트 / canary + ab-tests                                                                                    |
+|                          | 데이터 컴플라이언스            | GDPR / 민감어 필터 / 콘텐츠 심사 / 감사 로그 / 데이터 내보내기                                                                                 |
+| **콘텐츠 창작**          | 셀프미디어 워크벤치            | 공식계정 글 + 구두 스크립트 듀얼 파이프라인 / 슬래시 명령 / self-media-automation                                                              |
+|                          | 14 플랫폼 자동 퍼블리싱        | 글 9 + 이미지 2 + 비디오 5 플랫폼 / 자격증명 AES-256-GCM 암호화 / 14 adapter                                                                   |
+|                          | 뉴스 기사                      | 기사 / 뉴스 / 특집 / 태그 / 댓글 / 좋아요 / 즐겨찾기 / news-crawler                                                                            |
+|                          | 숏드라마                       | 숏드라마 창작 및 관리 / drama                                                                                                                  |
+|                          | 비즈니스 명함                  | 명함 생성 / 편집 / 즐겨찾기 / 공유 / business-cards                                                                                            |
+| **AI 교육 풀스택**       | 강의 학습                      | 강의 / 챕터 / 학습 경로 / 학습 맵 / 진행 추적 / 노트 / zhs-course                                                                              |
+|                          | 문제은행 및 시험               | 다양한 문제 유형 / 자동 채점 / 챕터 연습 / 오답 노트 / 시험지 업로드 / exam-marking                                                            |
+|                          | SRS 간격 반복                  | 에빙하우스 망각 곡선 / 스마트 복습 스케줄링                                                                                                    |
+|                          | 라이브 강의                    | 출석 체크 / 인터랙션 / 다시보기 / AI 보조 / live-chat                                                                                          |
+|                          | 학습 리포트                    | 행동 분석 / 개인화 제안 / 수료증 발급                                                                                                          |
+|                          | 강사 관리                      | 강사 홈페이지 / 강의 연결 / education-platform                                                                                                 |
+|                          | 학생 페이지                    | 12 서브페이지(질문/기사/서클/댓글/강의/리소스/노트/오프라인/시험지/오답노트/수료증)                                                            |
+| **커뮤니티 인터랙션**    | 서클 광장                      | 서클 / 광장 / 질문답변 / 게시글 / 토픽 / 태그                                                                                                  |
+|                          | 1:1 메시지                     | 1:1 개인 메시지 / 시스템 알림 / 멀티 단말 동기화 / private-letters                                                                             |
+|                          | 팔로우 팬                      | 팔로우 / 팬 / 사용자 홈페이지 / 명함                                                                                                           |
+|                          | 공유 초대                      | 초대 코드 / 공유 코드 / H5 공유 / 추천 커미션 / visit-tracking                                                                                 |
+| **운영 성장**            | 포인트 출석                    | 매일 출석 / 작업 포인트 / 포인트 샵 / 교환 / point-redeem-items                                                                                |
+|                          | 랭킹                           | 다차원 랭킹 / 주간·월간 차트 / 사용자 순위 / ranking                                                                                           |
+|                          | 추첨 이벤트                    | 추첨 / 레드봉 / 보상 동영상 광고 / rewarded-video-ad                                                                                           |
+|                          | 분배 커미션                    | 분배 시스템 / 커미션 플랜 / 출금 / 8 서브페이지 / commission                                                                                   |
+|                          | 이벤트 공지                    | 이벤트 관리 / 공지 푸시 / Banner 캐러셀 / carousels                                                                                            |
+| **고객 지원**            | 티켓 시스템                    | 티켓 제출 / 처리 / 평가 / FAQ / admin-asks + admin-faq                                                                                         |
+|                          | 온라인 고객지원                | WebSocket 실시간 고객지원 / 1:1 세션 / customer-service                                                                                        |
+|                          | 피드백 센터                    | 사용자 피드백 / 처리 상태 / 추적                                                                                                               |
+| **운영 모니터링**        | BI 대시보드                    | 비즈니스 지표 시각화 / 데이터 분석 / bi-dashboard                                                                                              |
+|                          | 에러 대시보드                  | 에러 aggregation / 알림 / 추적 / security-audit                                                                                                |
+|                          | 작업 로그                      | 로그인 로그 / 작업 로그 / 콜백 로그 / audit + security-logs                                                                                    |
+|                          | 모니터링 알림                  | Prometheus + Grafana(20 대시보드) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                                                    |
+| **엔지니어링 인프라**    | 데이터베이스                   | PostgreSQL 15 / **339+ 테이블** / 100 schema 파일 / **128+ 마이그레이션** / Drizzle ORM + RLS + 테넌트 라우팅 + pgvector                       |
+|                          | 큐 캐시                        | Redis 7 + BullMQ / 독립 worker 프로세스(:8081)                                                                                                 |
+|                          | 오브젝트 스토리지              | OSS 멀티 벤더 드라이버 / 자격증명 암호화 / 청크 업로드 / 파일 버전 / chunked-upload                                                            |
+|                          | 이메일 SMS                     | SMTP / SMS 게이트웨이 / 이메일 템플릿 / 인증번호 / mail + message-templates                                                                    |
+|                          | 국제화                         | 5개 언어 parity(zh-CN / zh-TW / en / ko / ja) + 19 i18n 툴체인 + 4 게이트 스크립트                                                             |
+|                          | 엔지니어링 게이트              | 21 pre-commit 훅 + post-commit 자동 push + 11 마이그레이션 감사 + 9 PowerShell 시작                                                            |
+|                          | 테스트 커버리지                | 268 + 400+ 케이스 / Vitest + Playwright + pytest + Locust 부하 테스트 + Lighthouse 성능                                                        |
+|                          | 배포 운영                      | Docker Compose(14 서비스) / 블루그린 배포 / Nginx upstream 전환 / 헬스 체크 / 롤백 / 백업 / 인증서 갱신 cron                                   |
+|                          | 성능 CI                        | Knip 미사용 코드 감지 + Lighthouse CI 성능 예산 + GitHub Act 로컬 CI                                                                           |
 |                          | 마이크로서비스 엔지니어링 패턴 | Outbox 트랜잭션 아웃박스 + Refund DLQ 데드레터 큐 + Circuit Breaker 서킷 브레이커 + IDOR 보호 + WS Dedup 메시지 중복 제거 + Hot Config 핫 설정 |
 
 ---
 
 ## IHUI-AI를 선택하는 이유
 
-| 차원                        | 역량                                                                                            | 산업 포지셔닝                                      |
-| --------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| **플랫폼 커버리지**         | Web / API / AI 서비스 / CLI / 데스크톱 / 확장 / 모바일 RN / 미니앱 Taro                         | 업계 최초 8 플랫폼 풀커버리지 AI 풀스택 플랫폼     |
-| **모델 연동**               | LiteLLM 게이트웨이로 100+ 모델 통합(글로벌 30+ / 중국 15+ / 클라우드 벤더 10+)                  | 원스톱 연동, 스마트 라우팅 + 60% 캐시              |
-| **AI 오케스트레이션 3스택** | LangGraph(워크플로) + MCP(툴 프로토콜) + A2A(Agent 연동)                                        | 워크플로, 툴, 에이전트 협업 일체화                 |
-| **자체 CLI**                | 17 명령 + 13 내장 툴 + ACP Server, Claude Code 대항                                             | 커맨드라인 네이티브 AI 코딩 경험                   |
-| **CLI 설정 완벽 가져오기**  | cc-switch / codex++ / Claude / Codex / Gemini / Hermes 6 소스 원클릭 가져오기                   | CLI 툴 간 설정 마이그레이션 비용 제로              |
-| **엔터프라이즈 보안**       | RBAC + 워크스페이스 3 모드 권한 + 7 엔드포인트 런타임 가로채기 + 60s 감사 타임아웃              | 의사결정자급 리스크 컨트롤                         |
-| **데이터 암호화**           | AES-256-GCM(credentials 암호화) + JWT token-family 로테이션 + refresh 블랙리스트                | 금융급 데이터 보호                                 |
-| **옵저버빌리티**            | Prometheus + Grafana(**20 대시보드**) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager | 풀링크 지표 / 로그 / 추적 / 알림                   |
-| **엔지니어링 게이트**       | 21 pre-commit + post-commit 자동 push + git-push-guard + 11 마이그레이션 감사                   | 협업 사고 방지, 99.9% SLA                          |
-| **국제화**                  | zh-CN / zh-TW / en / ko / ja 5개 언어 parity + 19 i18n 툴체인                                   | 5개 언어 키 셋 강건 일관성                         |
-| **데이터베이스**            | **339+ 테이블 + 128+ 마이그레이션** + 100 schema 파일 + Drizzle ORM + RLS + 테넌트 라우팅 + pgvector | 단일 DB PostgreSQL 15, schema 격리           |
-| **API 규모**                | ~1168+ 엔드포인트(api 1080 + ai-service 55) + 12 WebSocket + 95+ 라우트 파일                     | 원본 프로젝트 331 엔드포인트 대비 대폭 확장        |
-| **비즈니스 커버리지**       | 15대 모듈 / 50+ 서브 기능 / **200+ Web 페이지**                                                 | 하나의 플랫폼이 모든 AI 애플리케이션 시나리오 커버 |
-| **공유 패키지**             | 13 packages(auth/database/types/ui/sdk/api-client/context-compaction 등)                        | 크로스 플랫폼 타입 안전 + 재사용                   |
-| **성능 보장**               | Knip 미사용 코드 + Lighthouse CI + Locust 부하 테스트                                           | 성능 예산 + 용량 추정                              |
-| **배포 성숙도**             | Docker Compose(14 서비스) + 블루그린 + Nginx upstream + 인증서 갱신 cron                        | 프로덕션급 운영                                    |
-| **마이크로서비스 엔지니어링 패턴** | Outbox 트랜잭션 아웃박스 + Refund DLQ 데드레터 큐 + Circuit Breaker 서킷 브레이커 + IDOR 보호 + WS Dedup + Hot Config | 프로덕션급 마이크로서비스 패턴            |
+| 차원                               | 역량                                                                                                                  | 산업 포지셔닝                                      |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| **플랫폼 커버리지**                | Web / API / AI 서비스 / CLI / 데스크톱 / 확장 / 모바일 RN / 미니앱 Taro                                               | 업계 최초 8 플랫폼 풀커버리지 AI 풀스택 플랫폼     |
+| **모델 연동**                      | LiteLLM 게이트웨이로 100+ 모델 통합(글로벌 30+ / 중국 15+ / 클라우드 벤더 10+)                                        | 원스톱 연동, 스마트 라우팅 + 60% 캐시              |
+| **AI 오케스트레이션 3스택**        | LangGraph(워크플로) + MCP(툴 프로토콜) + A2A(Agent 연동)                                                              | 워크플로, 툴, 에이전트 협업 일체화                 |
+| **자체 CLI**                       | 17 명령 + 13 내장 툴 + ACP Server, Claude Code 대항                                                                   | 커맨드라인 네이티브 AI 코딩 경험                   |
+| **CLI 설정 완벽 가져오기**         | cc-switch / codex++ / Claude / Codex / Gemini / Hermes 6 소스 원클릭 가져오기                                         | CLI 툴 간 설정 마이그레이션 비용 제로              |
+| **엔터프라이즈 보안**              | RBAC + 워크스페이스 3 모드 권한 + 7 엔드포인트 런타임 가로채기 + 60s 감사 타임아웃                                    | 의사결정자급 리스크 컨트롤                         |
+| **데이터 암호화**                  | AES-256-GCM(credentials 암호화) + JWT token-family 로테이션 + refresh 블랙리스트                                      | 금융급 데이터 보호                                 |
+| **옵저버빌리티**                   | Prometheus + Grafana(**20 대시보드**) + Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                       | 풀링크 지표 / 로그 / 추적 / 알림                   |
+| **엔지니어링 게이트**              | 21 pre-commit + post-commit 자동 push + git-push-guard + 11 마이그레이션 감사                                         | 협업 사고 방지, 99.9% SLA                          |
+| **국제화**                         | zh-CN / zh-TW / en / ko / ja 5개 언어 parity + 19 i18n 툴체인                                                         | 5개 언어 키 셋 강건 일관성                         |
+| **데이터베이스**                   | **339+ 테이블 + 128+ 마이그레이션** + 100 schema 파일 + Drizzle ORM + RLS + 테넌트 라우팅 + pgvector                  | 단일 DB PostgreSQL 15, schema 격리                 |
+| **API 규모**                       | ~1168+ 엔드포인트(api 1080 + ai-service 55) + 12 WebSocket + 95+ 라우트 파일                                          | 원본 프로젝트 331 엔드포인트 대비 대폭 확장        |
+| **비즈니스 커버리지**              | 15대 모듈 / 50+ 서브 기능 / **200+ Web 페이지**                                                                       | 하나의 플랫폼이 모든 AI 애플리케이션 시나리오 커버 |
+| **공유 패키지**                    | 13 packages(auth/database/types/ui/sdk/api-client/context-compaction 등)                                              | 크로스 플랫폼 타입 안전 + 재사용                   |
+| **성능 보장**                      | Knip 미사용 코드 + Lighthouse CI + Locust 부하 테스트                                                                 | 성능 예산 + 용량 추정                              |
+| **배포 성숙도**                    | Docker Compose(14 서비스) + 블루그린 + Nginx upstream + 인증서 갱신 cron                                              | 프로덕션급 운영                                    |
+| **마이크로서비스 엔지니어링 패턴** | Outbox 트랜잭션 아웃박스 + Refund DLQ 데드레터 큐 + Circuit Breaker 서킷 브레이커 + IDOR 보호 + WS Dedup + Hot Config | 프로덕션급 마이크로서비스 패턴                     |
 
 ---
 
@@ -431,25 +431,25 @@ IHUI-AI는 어떤 단일 프로젝트를 대체하려는 것이 아니라, 다�
 
 > 테이블 열이 많으므로, 데스크톱에서 횡단 스크롤하여 확인하는 것을 권장합니다. 모바일에서는 "IHUI-AI" 열과 "핵심 결론" 섹션만 보셔도 됩니다.
 
-| 차원                | IHUI-AI                                                              | OpenAI ChatGPT | Dify             | LangChain        | RAGFlow        | Coze(Kouzi)   | Claude Code   | Cursor        | GitHub Copilot | Khan Academy  | Stripe+Auth0  |
-| ------------------- | -------------------------------------------------------------------- | -------------- | ---------------- | ---------------- | -------------- | ------------- | ------------- | ------------- | -------------- | ------------- | ------------- |
-| **비교 카테고리**   | 6대 카테고리 통합(애플리케이션+CLI+멀티단+상업+교육+콘텐츠)          | 범용 AI 대화   | AI 애플리케이션 개발 | AI Agent 프레임워크 | RAG 지식 베이스 | AI 에이전트 SaaS | AI 코딩 CLI   | AI 코딩 IDE   | AI 코딩 어시스턴트 | AI 교육 플랫폼 | 결제+인증 파운데이션 |
-| **License**         | **Apache 2.0**                                                       | **클로즈드 소스** | Apache 2.0       | MIT              | Apache 2.0     | **클로즈드 소스** | **클로즈드 소스** | **클로즈드 소스** | **클로즈드 소스** | **클로즈드 소스**(무료) | **클로즈드 SaaS** |
-| **셀프 호스팅**     | **완전 셀프 호스팅**                                                 | 미지원         | Docker           | 라이브러리       | Docker         | 미지원         | N/A           | N/A           | N/A            | 미지원        | N/A           |
-| **단말 커버리지**   | **8단**                                                              | 2단(Web/APP)  | 2단             | 0단(라이브러리) | 2단           | 2단           | 1단(CLI)     | 1단(IDE)     | 1단(IDE)      | 2단          | 0단(라이브러리) |
-| **모델 연동**       | **100+ 모델** + LiteLLM                                              | OpenAI 계열    | 50+ 모델         | LangChain 어댑터 | 30+ 모델       | 바이트계       | Anthropic     | 멀티 모델     | OpenAI         | 없음          | N/A           |
-| **워크플로 엔진**   | **LangGraph + MCP + A2A 트리플 스택**                               | 없음           | 자체 워크플로    | LangGraph        | 없음           | 자체 워크플로   | 없음          | 없음          | 없음           | 없음          | N/A           |
-| **자체 CLI**        | **17 명령 + 13 툴 + ACP Server**                                    | 없음           | 없음             | 없음             | 없음           | 없음           | 네이티브 CLI  | 없음          | 없음           | 없음          | N/A           |
-| **멀티 테넌트 + RBAC** | **완전**(5단계 + RLS)                                                | 단일 사용자    | 기본             | 없음             | 기본           | SaaS 내        | 없음          | 없음          | 없음           | 학교 계정     | 기본          |
-| **빌링 구독**       | **완전**(VIP/지갑/포인트/환불/8 결제 게이트웨이)                    | 구독($20-200) | 없음             | 없음             | 없음           | SaaS 내        | 없음          | 구독($20)    | 구독($10-39) | 무료          | 핵심(결제)    |
-| **AI 교육**         | **풀스택**(강의/문제은행/시험/SRS/라이브/45 테이블)                  | 없음           | 없음             | 없음             | 없음           | 없음           | 없음          | 없음          | 없음           | 핵심(교육)    | 없음          |
-| **콘텐츠 퍼블리싱** | **14 플랫폼 + 14 adapter**                                           | 없음           | 없음             | 없음             | 없음           | 없음           | 없음          | 없음          | 없음           | 없음          | 없음          |
-| **옵저버빌리티**    | **3대 지주 + 20 대시보드**                                           | -              | 기본             | 없음             | 기본           | -             | 없음          | 없음          | 없음           | -            | -             |
-| **엔지니어링 게이트** | **17 훅 + 11 마이그레이션 감사 + 자동 push**                         | -              | 기본             | 기본             | 기본           | -             | 없음          | 없음          | 없음           | -            | -             |
-| **i18n**            | **5개 언어 parity + 4 게이트**                                      | 다국어         | 중영문           | 영문             | 중영문         | 다국어         | 영문          | 다국어        | 다국어         | 다국어        | N/A           |
-| **데이터베이스**    | **339+ 테이블 + 128+ 마이그레이션 + RLS + pgvector**                 | SaaS 내        | 기본             | 없음             | pgvector       | SaaS 내        | 없음          | 없음          | 없음           | SaaS 내       | SaaS 내       |
-| **공유 패키지**     | **13 packages**                                                      | 없음           | 없음             | 1 라이브러리     | 없음           | -             | 없음          | 없음          | 없음           | 없음          | 1 SDK         |
-| **월간 비용(5인)** | **$0**(셀프 호스팅, 서버비만)                                       | $125+          | $59+             | $0(직접 통합)   | $0(직접 통합) | SaaS 내        | $100          | $100          | $95            | 무료(교육)   | $149+         |
+| 차원                   | IHUI-AI                                                     | OpenAI ChatGPT    | Dify                 | LangChain           | RAGFlow         | Coze(Kouzi)       | Claude Code       | Cursor            | GitHub Copilot     | Khan Academy            | Stripe+Auth0         |
+| ---------------------- | ----------------------------------------------------------- | ----------------- | -------------------- | ------------------- | --------------- | ----------------- | ----------------- | ----------------- | ------------------ | ----------------------- | -------------------- |
+| **비교 카테고리**      | 6대 카테고리 통합(애플리케이션+CLI+멀티단+상업+교육+콘텐츠) | 범용 AI 대화      | AI 애플리케이션 개발 | AI Agent 프레임워크 | RAG 지식 베이스 | AI 에이전트 SaaS  | AI 코딩 CLI       | AI 코딩 IDE       | AI 코딩 어시스턴트 | AI 교육 플랫폼          | 결제+인증 파운데이션 |
+| **License**            | **Apache 2.0**                                              | **클로즈드 소스** | Apache 2.0           | MIT                 | Apache 2.0      | **클로즈드 소스** | **클로즈드 소스** | **클로즈드 소스** | **클로즈드 소스**  | **클로즈드 소스**(무료) | **클로즈드 SaaS**    |
+| **셀프 호스팅**        | **완전 셀프 호스팅**                                        | 미지원            | Docker               | 라이브러리          | Docker          | 미지원            | N/A               | N/A               | N/A                | 미지원                  | N/A                  |
+| **단말 커버리지**      | **8단**                                                     | 2단(Web/APP)      | 2단                  | 0단(라이브러리)     | 2단             | 2단               | 1단(CLI)          | 1단(IDE)          | 1단(IDE)           | 2단                     | 0단(라이브러리)      |
+| **모델 연동**          | **100+ 모델** + LiteLLM                                     | OpenAI 계열       | 50+ 모델             | LangChain 어댑터    | 30+ 모델        | 바이트계          | Anthropic         | 멀티 모델         | OpenAI             | 없음                    | N/A                  |
+| **워크플로 엔진**      | **LangGraph + MCP + A2A 트리플 스택**                       | 없음              | 자체 워크플로        | LangGraph           | 없음            | 자체 워크플로     | 없음              | 없음              | 없음               | 없음                    | N/A                  |
+| **자체 CLI**           | **17 명령 + 13 툴 + ACP Server**                            | 없음              | 없음                 | 없음                | 없음            | 없음              | 네이티브 CLI      | 없음              | 없음               | 없음                    | N/A                  |
+| **멀티 테넌트 + RBAC** | **완전**(5단계 + RLS)                                       | 단일 사용자       | 기본                 | 없음                | 기본            | SaaS 내           | 없음              | 없음              | 없음               | 학교 계정               | 기본                 |
+| **빌링 구독**          | **완전**(VIP/지갑/포인트/환불/8 결제 게이트웨이)            | 구독($20-200)     | 없음                 | 없음                | 없음            | SaaS 내           | 없음              | 구독($20)         | 구독($10-39)       | 무료                    | 핵심(결제)           |
+| **AI 교육**            | **풀스택**(강의/문제은행/시험/SRS/라이브/45 테이블)         | 없음              | 없음                 | 없음                | 없음            | 없음              | 없음              | 없음              | 없음               | 핵심(교육)              | 없음                 |
+| **콘텐츠 퍼블리싱**    | **14 플랫폼 + 14 adapter**                                  | 없음              | 없음                 | 없음                | 없음            | 없음              | 없음              | 없음              | 없음               | 없음                    | 없음                 |
+| **옵저버빌리티**       | **3대 지주 + 20 대시보드**                                  | -                 | 기본                 | 없음                | 기본            | -                 | 없음              | 없음              | 없음               | -                       | -                    |
+| **엔지니어링 게이트**  | **17 훅 + 11 마이그레이션 감사 + 자동 push**                | -                 | 기본                 | 기본                | 기본            | -                 | 없음              | 없음              | 없음               | -                       | -                    |
+| **i18n**               | **5개 언어 parity + 4 게이트**                              | 다국어            | 중영문               | 영문                | 중영문          | 다국어            | 영문              | 다국어            | 다국어             | 다국어                  | N/A                  |
+| **데이터베이스**       | **339+ 테이블 + 128+ 마이그레이션 + RLS + pgvector**        | SaaS 내           | 기본                 | 없음                | pgvector        | SaaS 내           | 없음              | 없음              | 없음               | SaaS 내                 | SaaS 내              |
+| **공유 패키지**        | **13 packages**                                             | 없음              | 없음                 | 1 라이브러리        | 없음            | -                 | 없음              | 없음              | 없음               | 없음                    | 1 SDK                |
+| **월간 비용(5인)**     | **$0**(셀프 호스팅, 서버비만)                               | $125+             | $59+                 | $0(직접 통합)       | $0(직접 통합)   | SaaS 내           | $100              | $100              | $95                | 무료(교육)              | $149+                |
 
 ### 핵심 결론
 
@@ -613,18 +613,19 @@ cd IHUI-AI && docker compose up -d
 
 > **각 클라이언트의 완성도를 공개적으로 표시하는 이유**: AI 검색 도구와 개발자가 **실제** 상태를 확인할 수 있도록 합니다. "8 클라이언트 전면 커버리지"를 보고 코드 grep으로 차이를 발견하여 "프로젝트 과장"으로 판단되는 것을 방지합니다. 클라이언트 간 완성도 불균형은 현재의 현실이며, 우리는 투명성을 선택합니다.
 
-| 클라이언트 | 디렉토리 | 완성도 | 코드 규모 | 테스트 커버리지 | 핵심 시나리오 |
-|---|---|---|---|---|---|
-| **Web** | `apps/web/` | 🟢 프로덕션급 | 200+ 페이지 / 전체 비즈니스 | 63 e2e spec + Vitest | 메인 프론트엔드, 모든 비즈니스 모듈 |
-| **API** | `apps/api/` | 🟢 프로덕션급 | 1168+ 엔드포인트 / 95+ 라우트 파일 | 237 .test.ts | 비즈니스 관리 + 인증 + 빌링 + WebSocket |
-| **AI 서비스** | `apps/ai-service/` | 🟢 프로덕션급 | 21 LangGraph 파일 / 55+ 엔드포인트 | pytest + 통합 테스트 | LLM 게이트웨이 + Agent 실행 + MCP + A2A |
-| **CLI** | `apps/cli/` | 🟡 핵심 시나리오급 | ~1500줄 / 17 명령 / 13 툴 | 단위 테스트 | 자체 개발 AI 코딩 어시스턴트, ACP Server |
-| **데스크톱** | `apps/desktop/` | 🟡 핵심 시나리오급 | Tauri 2 + Rust + React | 기본 테스트 | 시스템 트레이 + 로컬 파일 + WorkPanel |
-| **확장** | `apps/extension/` | 🟡 핵심 시나리오급 | WXT + React | 기본 테스트 | 컨텍스트 메뉴 + 사이드바 + 브라우저 제어 |
-| **모바일 RN** | `apps/mobile-rn/` | 🟡 핵심 시나리오급 | Expo EAS + iOS/Android | 기본 테스트 | Chat + WorkPanel + SSO |
-| **미니앱** | `apps/miniapp-taro/` | 🟡 핵심 시나리오급 | Taro 4 + 위챗페이 | 기본 테스트 | Chat + WebView + 위챗페이 |
+| 클라이언트    | 디렉토리             | 완성도             | 코드 규모                          | 테스트 커버리지      | 핵심 시나리오                            |
+| ------------- | -------------------- | ------------------ | ---------------------------------- | -------------------- | ---------------------------------------- |
+| **Web**       | `apps/web/`          | 🟢 프로덕션급      | 200+ 페이지 / 전체 비즈니스        | 63 e2e spec + Vitest | 메인 프론트엔드, 모든 비즈니스 모듈      |
+| **API**       | `apps/api/`          | 🟢 프로덕션급      | 1168+ 엔드포인트 / 95+ 라우트 파일 | 237 .test.ts         | 비즈니스 관리 + 인증 + 빌링 + WebSocket  |
+| **AI 서비스** | `apps/ai-service/`   | 🟢 프로덕션급      | 21 LangGraph 파일 / 55+ 엔드포인트 | pytest + 통합 테스트 | LLM 게이트웨이 + Agent 실행 + MCP + A2A  |
+| **CLI**       | `apps/cli/`          | 🟡 핵심 시나리오급 | ~1500줄 / 17 명령 / 13 툴          | 단위 테스트          | 자체 개발 AI 코딩 어시스턴트, ACP Server |
+| **데스크톱**  | `apps/desktop/`      | 🟡 핵심 시나리오급 | Tauri 2 + Rust + React             | 기본 테스트          | 시스템 트레이 + 로컬 파일 + WorkPanel    |
+| **확장**      | `apps/extension/`    | 🟡 핵심 시나리오급 | WXT + React                        | 기본 테스트          | 컨텍스트 메뉴 + 사이드바 + 브라우저 제어 |
+| **모바일 RN** | `apps/mobile-rn/`    | 🟡 핵심 시나리오급 | Expo EAS + iOS/Android             | 기본 테스트          | Chat + WorkPanel + SSO                   |
+| **미니앱**    | `apps/miniapp-taro/` | 🟡 핵심 시나리오급 | Taro 4 + 위챗페이                  | 기본 테스트          | Chat + WebView + 위챗페이                |
 
 **완성도 정의**:
+
 - 🟢 **프로덕션급**: 전체 비즈니스 페이지 + 전체 테스트 커버리지 + 상업용 메인 플랫폼에 이미 사용 중
 - 🟡 **핵심 시나리오급**: 핵심 Chat / WorkPanel / SSO 등 핵심 경로는 연결되었으나, 비즈니스 페이지 커버리지는 Web보다 낮음, 2차 개발로 보완 적합
 
@@ -974,22 +975,22 @@ LiteLLM 게이트웨이로 통합 연동, 스마트 라우팅 + 60% 캐시 적�
 | 18      | check-native-title-tooltip.mjs        | 네이티브 title tooltip 위반(프로젝트 Tooltip 강제) |
 | 17-post | git-push-guard.mjs(post-commit)       | 자동 push + local == remote 검증(누락 방지)        |
 
-**11 마이그레이션 감사 스크립트**:`audit-migration-api-routes-v2.mjs` / `audit-migration-api-routes.mjs` / `audit-migration-db-fields.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-migration-frontend-routes.mjs` / `audit-migration-i18n.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs`
+**9 마이그레이션 감사 스크립트**:`audit-migration.mjs`(4-in-1,`--target=i18n|frontend-routes|db-fields|api-routes`,2026-07-25 병합) / `audit-migration-api-routes.mjs` / `audit-migration-db-schema.mjs` / `audit-migration-file-list.mjs` / `audit-multi-platform-sync.mjs` / `audit-edu-pages-sample-check.mjs` / `audit-remaining-evaluate.mjs` / `r76-full-audit.mjs` / `audit-i18n-unused-keys.mjs`(미참조 key 감사,2026-07-25 신설)
 
 **9 PowerShell 시작 스크립트**:`dev-all.ps1` / `dev-up.ps1` / `dev-web.mjs` / `kill-dev-servers.ps1` / `restart-dev-server.ps1` / `fix-trae-workspace.ps1` / `test-admin-e2e.ps1` / `setup-token-refresh-task.ps1` / `cleanup-external-junk.ps1` / `cleanup-memory-topics.ps1`
 
 #### E5. 테스트 및 성능
 
-| 타입           | 프레임워크    | 규모                       | 명령                             |
-| -------------- | ------------- | -------------------------- | -------------------------------- |
-| 백엔드 유닛    | Vitest        | 38 파일, 268 케이스        | `pnpm --filter @ihui/api test`   |
-| 프론트엔드 E2E | Playwright    | 17 spec 파일               | `pnpm test:e2e`                  |
-| AI 서비스      | pytest        | 13 파일, 400+ 케이스       | `cd apps/ai-service && pytest`   |
-| CLI 유닛       | Vitest        | 13 파일                    | `pnpm --filter @ihui/cli test`   |
-| 부하 테스트    | Locust        | `scripts/locustfile.py`    | `locust -f scripts/locustfile.py` |
-| 성능 예산      | Lighthouse CI | `apps/web/lighthouserc.json` | CI 자동 실행                     |
-| 미사용 코드    | Knip          | `knip.jsonc` + CI 워크플로 | `pnpm knip`                      |
-| 전체 검증      | turbo         | 22 tasks                   | `pnpm turbo typecheck lint test` |
+| 타입           | 프레임워크    | 규모                         | 명령                              |
+| -------------- | ------------- | ---------------------------- | --------------------------------- |
+| 백엔드 유닛    | Vitest        | 38 파일, 268 케이스          | `pnpm --filter @ihui/api test`    |
+| 프론트엔드 E2E | Playwright    | 17 spec 파일                 | `pnpm test:e2e`                   |
+| AI 서비스      | pytest        | 13 파일, 400+ 케이스         | `cd apps/ai-service && pytest`    |
+| CLI 유닛       | Vitest        | 13 파일                      | `pnpm --filter @ihui/cli test`    |
+| 부하 테스트    | Locust        | `scripts/locustfile.py`      | `locust -f scripts/locustfile.py` |
+| 성능 예산      | Lighthouse CI | `apps/web/lighthouserc.json` | CI 자동 실행                      |
+| 미사용 코드    | Knip          | `knip.jsonc` + CI 워크플로   | `pnpm knip`                       |
+| 전체 검증      | turbo         | 22 tasks                     | `pnpm turbo typecheck lint test`  |
 
 **테스트 전략**:Fastify inject 모드(포트 리스닝 안 함) + Mock 데이터베이스 레이어 + auth / billing / content / success-paths / business-logic / edge-cases 커버.
 
@@ -1033,7 +1034,7 @@ docker compose up -d
 | AI 서비스    | http://localhost:8803/health     | FastAPI AI 서비스 헬스 체크                                 |
 | Grafana      | http://localhost:8816            | 기본 계정 admin / 비밀번호 변경(20 대시보드 자동 provision) |
 | Prometheus   | http://localhost:9091            | 지표 수집                                                   |
-| Jaeger UI    | http://localhost:8814           | 분산 추적                                                   |
+| Jaeger UI    | http://localhost:8814            | 분산 추적                                                   |
 | Loki         | http://localhost:8818            | 로그 aggregation                                            |
 | Alertmanager | http://localhost:9093            | 알림 라우팅                                                 |
 
@@ -1254,32 +1255,32 @@ pnpm turbo build typecheck lint test
 
 ### 문제 ① 코드 중복도 높음 → 현실: Knip + dedupe + 21 훅이 수호
 
-| 메커니즘 | 파일 | 목적 |
-|---|---|---|
-| **Knip 미사용 코드 감지** | [knip.jsonc](./knip.jsonc) + [.github/workflows/knip.yml](./.github/workflows/knip.yml) | CI 수호, 참조되지 않은 export → CI 실패 |
-| **종속성 파편화 감지** | [scripts/check-dedupe.mjs](./scripts/check-dedupe.mjs) (pre-commit #7) | 중복 종속성 버전 감지, 정렬 |
+| 메커니즘                      | 파일                                                                                                      | 목적                                     |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| **Knip 미사용 코드 감지**     | [knip.jsonc](./knip.jsonc) + [.github/workflows/knip.yml](./.github/workflows/knip.yml)                   | CI 수호, 참조되지 않은 export → CI 실패  |
+| **종속성 파편화 감지**        | [scripts/check-dedupe.mjs](./scripts/check-dedupe.mjs) (pre-commit #7)                                    | 중복 종속성 버전 감지, 정렬              |
 | **Tailwind 클래스 충돌 감지** | [scripts/check-tailwind-class-conflict.mjs](./scripts/check-tailwind-class-conflict.mjs) (pre-commit #20) | 템플릿 리터럴 BASE/BRANCH size 충돌 감지 |
-| **Staged 오염 경고** | [scripts/check-staged-pollution.mjs](./scripts/check-staged-pollution.mjs) (pre-commit #19) | ≥4 디렉토리에 걸친 staged 변경 감지 |
+| **Staged 오염 경고**          | [scripts/check-staged-pollution.mjs](./scripts/check-staged-pollution.mjs) (pre-commit #19)               | ≥4 디렉토리에 걸친 staged 변경 감지      |
 
 ### 문제 ② 경계 조건 부족 → 현실: 237 API 테스트 + 63 e2e + 마이크로서비스 패턴
 
-| 메커니즘 | 증거 |
-|---|---|
-| **API 단위 테스트** | 237개 `.test.ts` 파일([apps/api/tests/](./apps/api/tests/)), auth/billing/order/vip/wallet/alipay/crypto/csrf/outbox 등 핵심 경로 커버 |
-| **E2E 테스트** | 63개 `.spec.ts` 파일([apps/web/e2e/](./apps/web/e2e/)), admin/ai-chat/auth-2fa/community/education/orders/payment/plaza/pwa/security/seo/workspace 등 17 비즈니스 도메인 커버 |
-| **AI 서비스 테스트** | pytest 테스트 스위트([apps/ai-service/tests/](./apps/ai-service/tests/)), `test_business_flow_integration.py` 비즈니스 흐름 통합 테스트 + `test_langgraph_service.py` 오케스트레이션 로직 테스트 포함 |
-| **마이크로서비스 내결함성** | Outbox 트랜잭셔널 아웃박스 + Refund DLQ 환불 데드레터 큐 + Circuit Breaker + IDOR 보호 + WS Dedup 메시지 중복 제거 |
-| **결제 루프 테스트** | `apps/api/tests/alipay.test.ts` + `billing.test.ts` + `order.test.ts` + `wallet.test.ts`가 결제/환불/정산/지갑 거래 커버 |
+| 메커니즘                    | 증거                                                                                                                                                                                                  |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **API 단위 테스트**         | 237개 `.test.ts` 파일([apps/api/tests/](./apps/api/tests/)), auth/billing/order/vip/wallet/alipay/crypto/csrf/outbox 등 핵심 경로 커버                                                                |
+| **E2E 테스트**              | 63개 `.spec.ts` 파일([apps/web/e2e/](./apps/web/e2e/)), admin/ai-chat/auth-2fa/community/education/orders/payment/plaza/pwa/security/seo/workspace 등 17 비즈니스 도메인 커버                         |
+| **AI 서비스 테스트**        | pytest 테스트 스위트([apps/ai-service/tests/](./apps/ai-service/tests/)), `test_business_flow_integration.py` 비즈니스 흐름 통합 테스트 + `test_langgraph_service.py` 오케스트레이션 로직 테스트 포함 |
+| **마이크로서비스 내결함성** | Outbox 트랜잭셔널 아웃박스 + Refund DLQ 환불 데드레터 큐 + Circuit Breaker + IDOR 보호 + WS Dedup 메시지 중복 제거                                                                                    |
+| **결제 루프 테스트**        | `apps/api/tests/alipay.test.ts` + `billing.test.ts` + `order.test.ts` + `wallet.test.ts`가 결제/환불/정산/지갑 거래 커버                                                                              |
 
 ### 문제 ③ 심층 비즈니스 로직 일관성 약함 → 현실: 복잡한 비즈니스 흐름이 완전한 체인 보유
 
-| 비즈니스 흐름 | 핵심 코드 | 테스트 |
-|---|---|---|
-| **결제 루프** | `createOrder` → `completeOrderWithSaga` → 결제 콜백 → VIP 활성화 → 지갑 입금 → 포인트 발행 → 환불 DLQ | [apps/api/tests/order.test.ts](./apps/api/tests/order.test.ts) + [billing.test.ts](./apps/api/tests/billing.test.ts) |
-| **AI 교육 풀스택** | 강의 등록 → 챕터 추적 → 과제 채점(`gradeSubjectiveAnswers` 주관식 수동 채점 + 객관식 자동 채점) → 오답 노트 → SRS 간격 반복 → 수료증 발행 | [apps/api/tests/exam.test.ts](./apps/api/tests/exam.test.ts) + [learn.test.ts](./apps/api/tests/learn.test.ts) |
-| **LangGraph 워크플로** | `langgraph_service.py` StateGraph(plan → execute → summarize) + `koubo_workflow.py` 10+ 도구 + `agent_orchestrator.py` 멀티 Agent 협업 | [apps/ai-service/tests/test_langgraph_service.py](./apps/ai-service/tests/test_langgraph_service.py) |
-| **멀티 테넌트 권한** | RBAC 5 레벨 + data-scope 5 레벨 + RLS 행 수준 보안 + workspace 3 모드 + 7 엔드포인트 런타임 가로채기 + 60s 감사 타임아웃 | [apps/api/tests/rbac.test.ts](./apps/api/tests/rbac.test.ts) |
-| **AI 스트리밍 출력** | SSE(Agent 스트리밍) + WebSocket(채팅방 / 멀티 모델 스트리밍) + REST 3계층 프로토콜 + WS Dedup 메시지 중복 제거 | [apps/api/tests/chat.test.ts](./apps/api/tests/chat.test.ts) |
+| 비즈니스 흐름          | 핵심 코드                                                                                                                                 | 테스트                                                                                                               |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **결제 루프**          | `createOrder` → `completeOrderWithSaga` → 결제 콜백 → VIP 활성화 → 지갑 입금 → 포인트 발행 → 환불 DLQ                                     | [apps/api/tests/order.test.ts](./apps/api/tests/order.test.ts) + [billing.test.ts](./apps/api/tests/billing.test.ts) |
+| **AI 교육 풀스택**     | 강의 등록 → 챕터 추적 → 과제 채점(`gradeSubjectiveAnswers` 주관식 수동 채점 + 객관식 자동 채점) → 오답 노트 → SRS 간격 반복 → 수료증 발행 | [apps/api/tests/exam.test.ts](./apps/api/tests/exam.test.ts) + [learn.test.ts](./apps/api/tests/learn.test.ts)       |
+| **LangGraph 워크플로** | `langgraph_service.py` StateGraph(plan → execute → summarize) + `koubo_workflow.py` 10+ 도구 + `agent_orchestrator.py` 멀티 Agent 협업    | [apps/ai-service/tests/test_langgraph_service.py](./apps/ai-service/tests/test_langgraph_service.py)                 |
+| **멀티 테넌트 권한**   | RBAC 5 레벨 + data-scope 5 레벨 + RLS 행 수준 보안 + workspace 3 모드 + 7 엔드포인트 런타임 가로채기 + 60s 감사 타임아웃                  | [apps/api/tests/rbac.test.ts](./apps/api/tests/rbac.test.ts)                                                         |
+| **AI 스트리밍 출력**   | SSE(Agent 스트리밍) + WebSocket(채팅방 / 멀티 모델 스트리밍) + REST 3계층 프로토콜 + WS Dedup 메시지 중복 제거                            | [apps/api/tests/chat.test.ts](./apps/api/tests/chat.test.ts)                                                         |
 
 ---
 
@@ -1295,15 +1296,15 @@ pnpm turbo build typecheck lint test
 
 ### AI 코드 문제에 대한 표적 대책
 
-| AI 코드 문제 | 이 프로젝트의 대책 |
-|---|---|
-| 코드 중복 | Knip CI 수호 + check-dedupe + check-tailwind-class-conflict |
-| 경계 조건 누락 | 237 API 테스트 + 63 e2e + pytest 통합 테스트 + 마이크로서비스 내결함성 패턴 |
+| AI 코드 문제         | 이 프로젝트의 대책                                                                                               |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 코드 중복            | Knip CI 수호 + check-dedupe + check-tailwind-class-conflict                                                      |
+| 경계 조건 누락       | 237 API 테스트 + 63 e2e + pytest 통합 테스트 + 마이크로서비스 내결함성 패턴                                      |
 | 비즈니스 로직 파편화 | 비즈니스 흐름 통합 테스트(`test_business_flow_integration.py`) + saga 트랜잭션 패턴 + outbox 트랜잭셔널 아웃박스 |
-| 타입 안전 구멍 | TypeScript strict + Zod 엔드투엔드 검증 + @ihui/types 크로스 클라이언트 계약 |
-| 문서-코드 드리프트 | §13 파일 수정 지속성 의무 Read 검증 + check-project-plan-archive 수호 |
-| 스타일 불일치 | ESLint + Prettier + 21 pre-commit 훅 + check-rounded-full / check-i18n-keys / check-api-routes 등 |
-| 협업 사고 | §12 멀티 세션 병렬 규칙 + §16 push 단계 크로스-Agent 보호 + git-push-guard + post-commit 자동 push |
+| 타입 안전 구멍       | TypeScript strict + Zod 엔드투엔드 검증 + @ihui/types 크로스 클라이언트 계약                                     |
+| 문서-코드 드리프트   | §13 파일 수정 지속성 의무 Read 검증 + check-project-plan-archive 수호                                            |
+| 스타일 불일치        | ESLint + Prettier + 21 pre-commit 훅 + check-rounded-full / check-i18n-keys / check-api-routes 등                |
+| 협업 사고            | §12 멀티 세션 병렬 규칙 + §16 push 단계 크로스-Agent 보호 + git-push-guard + post-commit 자동 push               |
 
 ### 정직하게 인정된 단점
 
@@ -1336,33 +1337,33 @@ docker compose up -d
 
 **서비스 목록(14 서비스):**
 
-| 타입     | 서비스         | 포트  | 용도                                     |
-| -------- | -------------- | ----- | ---------------------------------------- |
-| 비즈니스 | api            | 8802  | Fastify 백엔드                           |
-| 비즈니스 | worker         | 8830  | BullMQ 독립 worker 프로세스              |
-| 비즈니스 | web            | 8801  | Next.js 프론트엔드(standalone)           |
-| 비즈니스 | ai-service     | 8803  | FastAPI AI 서비스                        |
-| 비즈니스 | db             | 8810  | PostgreSQL 15                            |
-| 비즈니스 | redis          | 8811  | Redis 7                                  |
-| 비즈니스 | migrate        | -     | 일회성 마이그레이션 서비스(완료 후 종료) |
-| 모니터링 | jaeger         | 8814  | 분산 추적 UI                             |
-| 모니터링 | otel-collector | 8813  | OpenTelemetry Collector                  |
-| 모니터링 | prometheus     | 9091  | 지표 수집                                |
-| 모니터링 | grafana        | 8816  | 시각화(20 대시보드)                      |
-| 모니터링 | node-exporter  | 8817  | 호스트 지표                              |
-| 모니터링 | loki           | 8818  | 로그 aggregation                         |
-| 모니터링 | promtail       | -     | 로그 수집                                |
+| 타입     | 서비스         | 포트 | 용도                                     |
+| -------- | -------------- | ---- | ---------------------------------------- |
+| 비즈니스 | api            | 8802 | Fastify 백엔드                           |
+| 비즈니스 | worker         | 8830 | BullMQ 독립 worker 프로세스              |
+| 비즈니스 | web            | 8801 | Next.js 프론트엔드(standalone)           |
+| 비즈니스 | ai-service     | 8803 | FastAPI AI 서비스                        |
+| 비즈니스 | db             | 8810 | PostgreSQL 15                            |
+| 비즈니스 | redis          | 8811 | Redis 7                                  |
+| 비즈니스 | migrate        | -    | 일회성 마이그레이션 서비스(완료 후 종료) |
+| 모니터링 | jaeger         | 8814 | 분산 추적 UI                             |
+| 모니터링 | otel-collector | 8813 | OpenTelemetry Collector                  |
+| 모니터링 | prometheus     | 9091 | 지표 수집                                |
+| 모니터링 | grafana        | 8816 | 시각화(20 대시보드)                      |
+| 모니터링 | node-exporter  | 8817 | 호스트 지표                              |
+| 모니터링 | loki           | 8818 | 로그 aggregation                         |
+| 모니터링 | promtail       | -    | 로그 수집                                |
 
 ### 포트 관리 규칙
 
 본 프로젝트의 모든 서비스는 `88xx` 포트 대역을 통일 사용하여 시스템 서비스와의 충돌을 회피합니다:
 
-| 포트 대역  | 용도             | 설명                                                   |
-| ---------- | ---------------- | ------------------------------------------------------ |
-| 8801-8809  | 앱 서비스        | Web / API / AI Service / Taro H5 / Metro / Desktop 등  |
-| 8810-8819  | 인프라           | PostgreSQL(8810)/ Redis(8811)/ OTel(8812-8813)/ Jaeger(8814)/ Prometheus(8815)/ Grafana(8816)/ Node Exporter(8817)/ Loki(8818) |
-| 8820-8829  | 보조 도구        | Storybook(8820) 등 개발 보조 도구                       |
-| 8830-8839  | SaaS 배포        | Admin API(8830) 등 SaaS화 배포 서비스                   |
+| 포트 대역 | 용도      | 설명                                                                                                                           |
+| --------- | --------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 8801-8809 | 앱 서비스 | Web / API / AI Service / Taro H5 / Metro / Desktop 등                                                                          |
+| 8810-8819 | 인프라    | PostgreSQL(8810)/ Redis(8811)/ OTel(8812-8813)/ Jaeger(8814)/ Prometheus(8815)/ Grafana(8816)/ Node Exporter(8817)/ Loki(8818) |
+| 8820-8829 | 보조 도구 | Storybook(8820) 등 개발 보조 도구                                                                                              |
+| 8830-8839 | SaaS 배포 | Admin API(8830) 등 SaaS화 배포 서비스                                                                                          |
 
 ### 프로덕션 배포
 
@@ -1422,15 +1423,15 @@ node apps/api/scripts/pg-backup.mjs
 
 IHUI-AI는 단일 AI 툴이 아니라 **오픈소스 AI 상업용 통합 파운데이션**으로, 다음 6대 카테고리 제품의 역량을 **하나의 Apache 2.0 저장소에 통합**합니다:
 
-| 비교 카테고리              | 대표 제품                                                                        | IHUI-AI 차이                                                                                          |
-| ------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| 범용 AI 대화              | OpenAI ChatGPT / Anthropic Claude.ai / Google Gemini / Microsoft Copilot        | IHUI-AI 셀프 호스팅 + 100+ 모델(OpenAI 한정 아님)+ 빌링/교육/퍼블리싱 등 비즈니스 내장                                     |
-| AI 애플리케이션 개발 플랫폼       | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(Kouzi)                    | IHUI-AI는 6단, 자체 CLI, 완전한 상업적 루프, AI 교육, 14 플랫폼 퍼블리싱이 추가                                       |
-| AI Agent 프레임워크         | LangChain / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT                  | 그것들은 개발 프레임워크("자동차 부품")이고, IHUI-AI는 제품화 파운데이션("완성차 출고")으로 비기술 팀도 사용 가능                      |
-| AI 코딩 CLI / IDE     | Claude Code / Cursor / GitHub Copilot / Windsurf / Amazon Q / Cline / Aider    | IHUI-AI의 CLI는 코딩뿐 아니라 AI 애플리케이션 플랫폼(대화/RAG/Agent/빌링)을 통합했으며, Apache 2.0 오픈소스, 타 제품은 모두 클로즈드 소스 |
-| AI 교육 플랫폼           | Khan Academy / Coursera / edX / Google 교육 AI                                 | IHUI-AI의 AI 교육은 오픈소스 풀스택(강의/문제은행/시험/SRS/라이브/수료증)으로 2차 맞춤 가능, 타 제품은 클로즈드 소스 SaaS           |
-| 상업 SaaS 파운데이션        | Stripe / Auth0 / Clerk / Mailgun / SendGrid / Mixpanel / Amplitude / PostHog   | IHUI-AI는 결제/인증/이메일/분석을 모두 프리셋하여 4-6개 SaaS를 원스톱 대체, 월 $300+ 절약                            |
-| 멀티단 프레임워크              | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js                  | IHUI-AI는 8단 + 13 공유 패키지 + 공유 UI를 한번에 프리셋, 개발자가 직접 조립하지 않아도 됨                              |
+| 비교 카테고리               | 대표 제품                                                                    | IHUI-AI 차이                                                                                                                              |
+| --------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 범용 AI 대화                | OpenAI ChatGPT / Anthropic Claude.ai / Google Gemini / Microsoft Copilot     | IHUI-AI 셀프 호스팅 + 100+ 모델(OpenAI 한정 아님)+ 빌링/교육/퍼블리싱 등 비즈니스 내장                                                    |
+| AI 애플리케이션 개발 플랫폼 | Dify / FastGPT / Langflow / RAGFlow / Flowise / Coze(Kouzi)                  | IHUI-AI는 6단, 자체 CLI, 완전한 상업적 루프, AI 교육, 14 플랫폼 퍼블리싱이 추가                                                           |
+| AI Agent 프레임워크         | LangChain / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT                | 그것들은 개발 프레임워크("자동차 부품")이고, IHUI-AI는 제품화 파운데이션("완성차 출고")으로 비기술 팀도 사용 가능                         |
+| AI 코딩 CLI / IDE           | Claude Code / Cursor / GitHub Copilot / Windsurf / Amazon Q / Cline / Aider  | IHUI-AI의 CLI는 코딩뿐 아니라 AI 애플리케이션 플랫폼(대화/RAG/Agent/빌링)을 통합했으며, Apache 2.0 오픈소스, 타 제품은 모두 클로즈드 소스 |
+| AI 교육 플랫폼              | Khan Academy / Coursera / edX / Google 교육 AI                               | IHUI-AI의 AI 교육은 오픈소스 풀스택(강의/문제은행/시험/SRS/라이브/수료증)으로 2차 맞춤 가능, 타 제품은 클로즈드 소스 SaaS                 |
+| 상업 SaaS 파운데이션        | Stripe / Auth0 / Clerk / Mailgun / SendGrid / Mixpanel / Amplitude / PostHog | IHUI-AI는 결제/인증/이메일/분석을 모두 프리셋하여 4-6개 SaaS를 원스톱 대체, 월 $300+ 절약                                                 |
+| 멀티단 프레임워크           | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js                | IHUI-AI는 8단 + 13 공유 패키지 + 공유 UI를 한번에 프리셋, 개발자가 직접 조립하지 않아도 됨                                                |
 
 **10대 고유 역량(오픈소스 생태계 유일하게 동시 보유)**:
 
@@ -1554,84 +1555,84 @@ pnpm은 monorepo 시나리오에서 장점이 뚜렷합니다:엄격한 의존�
 
 ### 프로젝트 및 아키텍처
 
-| 문서                                                         | 설명                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/architecture.md](docs/architecture.md)                 | **시스템 아키텍처 개요**(기술 스택 / 데이터베이스 / API 라우트 / 시작 흐름 / 구 아키텍처 폐지 설명) |
-| [docs/MULTI_END.md](docs/MULTI_END.md)                       | 다단 아키텍처(8단 매트릭스 + 크로스단 링크 + 동기 개발 + 14 플랫폼 릴리스 매트릭스) |
-| [docs/PACKAGES.md](docs/PACKAGES.md)                         | 공유 패키지 가이드(13개 @ihui/* 패키지 + 의존관계 + 신규 패키지 흐름) |
-| [docs/port-management.md](docs/port-management.md)           | 포트 관리 규칙(8801-8899 포트 레지스트리) |
-| [docs/INFRASTRUCTURE_DECISION.md](docs/INFRASTRUCTURE_DECISION.md) | 인프라 결정(Docker Compose vs K8s) |
-| [docs/PRODUCTION_INFRASTRUCTURE.md](docs/PRODUCTION_INFRASTRUCTURE.md) | 프로덕션 인프라 사양 |
+| 문서                                                                   | 설명                                                                                                |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| [docs/architecture.md](docs/architecture.md)                           | **시스템 아키텍처 개요**(기술 스택 / 데이터베이스 / API 라우트 / 시작 흐름 / 구 아키텍처 폐지 설명) |
+| [docs/MULTI_END.md](docs/MULTI_END.md)                                 | 다단 아키텍처(8단 매트릭스 + 크로스단 링크 + 동기 개발 + 14 플랫폼 릴리스 매트릭스)                 |
+| [docs/PACKAGES.md](docs/PACKAGES.md)                                   | 공유 패키지 가이드(13개 @ihui/* 패키지 + 의존관계 + 신규 패키지 흐름)                               |
+| [docs/port-management.md](docs/port-management.md)                     | 포트 관리 규칙(8801-8899 포트 레지스트리)                                                           |
+| [docs/INFRASTRUCTURE_DECISION.md](docs/INFRASTRUCTURE_DECISION.md)     | 인프라 결정(Docker Compose vs K8s)                                                                  |
+| [docs/PRODUCTION_INFRASTRUCTURE.md](docs/PRODUCTION_INFRASTRUCTURE.md) | 프로덕션 인프라 사양                                                                                |
 
 ### 개발 및 테스트
 
-| 문서                                                         | 설명                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)                   | **로컬 개발 가이드**(환경 변수 / 시작 / 디버그 / 스크립트 치트시트 / Windows 주의) |
-| [docs/TESTING.md](docs/TESTING.md)                           | 테스트 전략(8층 피라미드 + Vitest + pytest + Playwright + Locust + CI) |
-| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)                 | 기여 가이드(환경 구축 / 코드 규범 / 커밋 규범 / PR 흐름) |
-| [docs/UI_GUIDELINES.md](docs/UI_GUIDELINES.md)               | UI 디자인 규범(라운드 코너 / 폰트 정렬 / 로그인 팝업 / 컴포넌트 라이브러리) |
-| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)                   | 성능 기준선 및 최적화(SLA / 부하 테스트 / 데이터베이스 / 프론트엔드 / AI 서비스) |
+| 문서                                           | 설명                                                                               |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)     | **로컬 개발 가이드**(환경 변수 / 시작 / 디버그 / 스크립트 치트시트 / Windows 주의) |
+| [docs/TESTING.md](docs/TESTING.md)             | 테스트 전략(8층 피라미드 + Vitest + pytest + Playwright + Locust + CI)             |
+| [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)   | 기여 가이드(환경 구축 / 코드 규범 / 커밋 규범 / PR 흐름)                           |
+| [docs/UI_GUIDELINES.md](docs/UI_GUIDELINES.md) | UI 디자인 규범(라운드 코너 / 폰트 정렬 / 로그인 팝업 / 컴포넌트 라이브러리)        |
+| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)     | 성능 기준선 및 최적화(SLA / 부하 테스트 / 데이터베이스 / 프론트엔드 / AI 서비스)   |
 
 ### API 및 데이터 레이어
 
-| 문서                                                         | 설명                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/API_REFERENCE.md](docs/API_REFERENCE.md)               | **API 완전 참조**(60+ 라우트 + 12 WebSocket + SSE + 에러 코드 + 클라이언트 예제) |
-| [docs/DATABASE.md](docs/DATABASE.md)                         | 데이터베이스 설계(Drizzle / 339 테이블 / 마이그레이션 / RLS / 시드 / 백업) |
-| [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md)             | 인증 및 권한 부여(JWT / token-family / OAuth2 / 2FA / RBAC / 멀티테넌트 / WS 인증) |
+| 문서                                             | 설명                                                                               |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| [docs/API_REFERENCE.md](docs/API_REFERENCE.md)   | **API 완전 참조**(60+ 라우트 + 12 WebSocket + SSE + 에러 코드 + 클라이언트 예제)   |
+| [docs/DATABASE.md](docs/DATABASE.md)             | 데이터베이스 설계(Drizzle / 339 테이블 / 마이그레이션 / RLS / 시드 / 백업)         |
+| [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) | 인증 및 권한 부여(JWT / token-family / OAuth2 / 2FA / RBAC / 멀티테넌트 / WS 인증) |
 
 ### AI 서비스
 
-| 문서                                                         | 설명                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/AI_SERVICE.md](docs/AI_SERVICE.md)                     | **AI 서비스 심층**(6 라우터 + LangGraph + LiteLLM + MCP + A2A + 벡터 메모리) |
-| [docs/LLM_SETUP.md](docs/LLM_SETUP.md)                       | LLM 모델 구성(OpenAI / Anthropic / Google / 국내 벤더) |
-| [docs/AI_LEADERBOARD.md](docs/AI_LEADERBOARD.md)             | AI 모델 리더보드 데이터 |
+| 문서                                             | 설명                                                                         |
+| ------------------------------------------------ | ---------------------------------------------------------------------------- |
+| [docs/AI_SERVICE.md](docs/AI_SERVICE.md)         | **AI 서비스 심층**(6 라우터 + LangGraph + LiteLLM + MCP + A2A + 벡터 메모리) |
+| [docs/LLM_SETUP.md](docs/LLM_SETUP.md)           | LLM 모델 구성(OpenAI / Anthropic / Google / 국내 벤더)                       |
+| [docs/AI_LEADERBOARD.md](docs/AI_LEADERBOARD.md) | AI 모델 리더보드 데이터                                                      |
 
 ### 배포 및 운영
 
-| 문서                                                         | 설명                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)     | **배포 운영 매뉴얼**(블루그린 배포 / 롤백 / 인증서 갱신) |
-| [docs/RELEASE.md](docs/RELEASE.md)                           | 릴리스 프로세스(14 플랫폼 + SemVer + Git tag + Docker 이미지 + hotfix) |
-| [docs/MONITORING.md](docs/MONITORING.md)                     | 관측 가능성(Prometheus + Grafana + Loki + Jaeger + Alertmanager) |
-| [docs/INCIDENTS.md](docs/INCIDENTS.md)                       | 과거 사고 회고 |
-| [docs/SECURITY.md](docs/SECURITY.md)                         | 보안 정책(취약점 공개 / 암호화 설계 / 권한 모델) |
-| [docs/CREDENTIAL_ROTATION_RUNBOOK.md](docs/CREDENTIAL_ROTATION_RUNBOOK.md) | 자격증명 교체 운영 매뉴얼 |
-| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)                   | 이메일 서비스 설정(SMTP / 템플릿 / DKIM) |
-| [docs/WECHAT_PAY_ACTIVATION_REPORT.md](docs/WECHAT_PAY_ACTIVATION_REPORT.md) | WeChat Pay V3 활성화 보고서 |
-| [server-docs/MULTI_TENANT.md](server-docs/MULTI_TENANT.md)   | 멀티 테넌트 설계 문서(RLS + 테넌트 라우팅) |
+| 문서                                                                         | 설명                                                                   |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md)                     | **배포 운영 매뉴얼**(블루그린 배포 / 롤백 / 인증서 갱신)               |
+| [docs/RELEASE.md](docs/RELEASE.md)                                           | 릴리스 프로세스(14 플랫폼 + SemVer + Git tag + Docker 이미지 + hotfix) |
+| [docs/MONITORING.md](docs/MONITORING.md)                                     | 관측 가능성(Prometheus + Grafana + Loki + Jaeger + Alertmanager)       |
+| [docs/INCIDENTS.md](docs/INCIDENTS.md)                                       | 과거 사고 회고                                                         |
+| [docs/SECURITY.md](docs/SECURITY.md)                                         | 보안 정책(취약점 공개 / 암호화 설계 / 권한 모델)                       |
+| [docs/CREDENTIAL_ROTATION_RUNBOOK.md](docs/CREDENTIAL_ROTATION_RUNBOOK.md)   | 자격증명 교체 운영 매뉴얼                                              |
+| [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md)                                   | 이메일 서비스 설정(SMTP / 템플릿 / DKIM)                               |
+| [docs/WECHAT_PAY_ACTIVATION_REPORT.md](docs/WECHAT_PAY_ACTIVATION_REPORT.md) | WeChat Pay V3 활성화 보고서                                            |
+| [server-docs/MULTI_TENANT.md](server-docs/MULTI_TENANT.md)                   | 멀티 테넌트 설계 문서(RLS + 테넌트 라우팅)                             |
 
 ### 품질 및 게이트키핑
 
-| 문서                                                         | 설명                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| 문서                                                         | 설명                                                                         |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
 | [docs/GATEKEEPERS.md](docs/GATEKEEPERS.md)                   | **게이트키핑 규칙 심층**(23 pre-commit + post-commit + pre-push, 스크립트별) |
-| [docs/I18N.md](docs/I18N.md)                                 | 국제화(5 언어 + 68 네임스페이스 + 12 게이트키핑 스크립트 + 번역 전략) |
-| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 국제화 완료 계획(히스토리컬 계획) |
+| [docs/I18N.md](docs/I18N.md)                                 | 국제화(5 언어 + 68 네임스페이스 + 12 게이트키핑 스크립트 + 번역 전략)        |
+| [docs/I18N-COMPLETION-PLAN.md](docs/I18N-COMPLETION-PLAN.md) | 국제화 완료 계획(히스토리컬 계획)                                            |
 
 ### SDK 및 CLI
 
-| 문서                                                         | 설명                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/SDK.md](docs/SDK.md)                                   | 5 언어 SDK 가이드(TS / Python / Go / Java / .NET 코드 예제) |
-| [docs/CLI.md](docs/CLI.md)                                   | CLI 도구 가이드(24 소스 임포트 + subagent 병렬 + skills + plugins) |
+| 문서                       | 설명                                                               |
+| -------------------------- | ------------------------------------------------------------------ |
+| [docs/SDK.md](docs/SDK.md) | 5 언어 SDK 가이드(TS / Python / Go / Java / .NET 코드 예제)        |
+| [docs/CLI.md](docs/CLI.md) | CLI 도구 가이드(24 소스 임포트 + subagent 병렬 + skills + plugins) |
 
 ### 트러블슈팅 및 FAQ
 
-| 문서                                                         | 설명                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)           | **트러블슈팅 가이드**(10대 분류 35+ 이슈, 통일 템플릿) |
-| [docs/FAQ.md](docs/FAQ.md)                                   | FAQ(14 분류 86 질문) |
+| 문서                                               | 설명                                                   |
+| -------------------------------------------------- | ------------------------------------------------------ |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | **트러블슈팅 가이드**(10대 분류 35+ 이슈, 통일 템플릿) |
+| [docs/FAQ.md](docs/FAQ.md)                         | FAQ(14 분류 86 질문)                                   |
 
 ### 프로젝트 관리
 
-| 문서                                                         | 설명                                                                   |
-| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [docs/CHANGELOG.md](docs/CHANGELOG.md)                       | 변경 로그 |
-| [AGENTS.md](AGENTS.md)                                       | AI Agent 협업 규범(23절 강제 규칙, 본 프로젝트가 AI와 어떻게 협업 개발하는지 시연) |
-| [PROJECT_PLAN.md](PROJECT_PLAN.md)                           | 프로젝트 작업 계획 및 히스토리 아카이브(내부 개발 기록, 진화 궤적 이해) |
+| 문서                                   | 설명                                                                               |
+| -------------------------------------- | ---------------------------------------------------------------------------------- |
+| [docs/CHANGELOG.md](docs/CHANGELOG.md) | 변경 로그                                                                          |
+| [AGENTS.md](AGENTS.md)                 | AI Agent 협업 규범(23절 강제 규칙, 본 프로젝트가 AI와 어떻게 협업 개발하는지 시연) |
+| [PROJECT_PLAN.md](PROJECT_PLAN.md)     | 프로젝트 작업 계획 및 히스토리 아카이브(내부 개발 기록, 진화 궤적 이해)            |
 
 ---
 
@@ -1854,7 +1855,7 @@ AI 코딩 에이전트로, 대규모 팀 없이, 그는 홀로 이 모든 것을
 | **100+개 LLM**        | LiteLLM 통합 게이트웨이 + 5개 provider 어댑터                                                                  | 보통 모델 팀 3-5명              |
 | **AI 오케스트레이션** | LangGraph + MCP + A2A 시너지 + Persona + Agent Runtime + Vector Memory                                         | 보통 AI 플랫폼 팀 5-10명        |
 | **데이터베이스**      | 339+개 테이블 + 100개 스키마 파일 + 120+개 마이그레이션 + RLS + 멀티테넌트 라우팅                              | 보통 DBA 1명 + 백엔드 2-3명     |
-| **API 규모**          | 약 1168+개 엔드포인트 + 12개 WebSocket + 95+개 라우트 파일                                                      | 보통 백엔드 엔지니어 5-8명      |
+| **API 규모**          | 약 1168+개 엔드포인트 + 12개 WebSocket + 95+개 라우트 파일                                                     | 보통 백엔드 엔지니어 5-8명      |
 | **프론트엔드 규모**   | 200+개 페이지 + 5개 언어 i18n 패리티 + 다크모드 + PWA + SEO                                                    | 보통 프론트엔드 엔지니어 4-6명  |
 | **엔지니어링 게이트** | 21개 pre-commit + post-commit 자동 push + 11개 마이그레이션 감사 + 9개 PowerShell 시작 스크립트                | 보통 DevOps 엔지니어 1-2명      |
 | **옵저버빌리티**      | Prometheus + Grafana(20개 대시보드)+ Loki + Promtail + Jaeger + OpenTelemetry + Alertmanager                   | 보통 SRE 엔지니어 1-2명         |
