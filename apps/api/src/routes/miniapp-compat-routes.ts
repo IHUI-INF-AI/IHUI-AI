@@ -228,11 +228,14 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ id: Date.now().toString() }))
   })
 
-  server.delete('/chat/history/:id', async (request, reply) => {
-    if (!(await checkAuth(request, reply))) return
-    const { id } = request.params as { id: string }
-    return reply.send(success({ id }))
-  })
+  // 注释:DELETE /chat/history/:chatId 已由 chat-models.ts(line 1220)注册,
+  // 注册前缀 /api/chat → /api/chat/history/:chatId,此处重复注册会触发 FST_ERR_DUPLICATED_ROUTE。
+  // 保留空桩逻辑供后续如需覆盖时取消注释。
+  // server.delete('/chat/history/:chatId', async (request, reply) => {
+  //   if (!(await checkAuth(request, reply))) return
+  //   const { chatId } = request.params as { chatId: string }
+  //   return reply.send(success({ id: chatId }))
+  // })
 
   // ==========================================================================
   // /model/* (2 个)
@@ -292,5 +295,151 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     if (!(await checkAuth(request, reply))) return
     const { roomId } = request.params as { roomId: string }
     return reply.send(success({ roomId, read: true }))
+  })
+
+  // ==========================================================================
+  // /agents/charge/* (6 个,智能体收费配置,需鉴权)
+  // 注意:静态路径 /list 必须在参数路径 /:agentId 之前注册,否则会被 :agentId 捕获
+  // ==========================================================================
+  server.get('/agents/charge/list', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({ list: [], total: 0 }))
+  })
+
+  server.get('/agents/charge/:agentId', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const { agentId } = request.params as { agentId: string }
+    return reply.send(success({ agentId, chargeType: 'free', amount: 0 }))
+  })
+
+  server.post('/agents/charge', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({ id: Date.now().toString() }))
+  })
+
+  server.post('/agents/charge/pay-history', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({ id: Date.now().toString() }))
+  })
+
+  server.put('/agents/charge', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({}))
+  })
+
+  server.delete('/agents/charge/:id', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const { id } = request.params as { id: string }
+    return reply.send(success({ id }))
+  })
+
+  // ==========================================================================
+  // /user/* (6 个,用户中心,需鉴权)
+  // 前端用 /user/avatar 等(单数),后端有 /users/:id/avatar(复数+id)
+  // ==========================================================================
+  server.get('/user/profile', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({}))
+  })
+
+  server.put('/user/avatar', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({}))
+  })
+
+  server.put('/user/nickname', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({}))
+  })
+
+  server.post('/user/password', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({}))
+  })
+
+  server.post('/user/realname', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({}))
+  })
+
+  server.post('/user/feedback', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({ id: Date.now().toString() }))
+  })
+
+  // ==========================================================================
+  // 单复数别名(2 组,前端用单数,后端用复数)
+  // /study/plan → 后端有 /study/plans;/study/rank → 后端有 /study/ranking
+  // ==========================================================================
+  server.get('/study/plan', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({ list: [] }))
+  })
+
+  server.get('/study/rank', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({ list: [] }))
+  })
+
+  // ==========================================================================
+  // /settings/* (6 个,设置,需鉴权)
+  // /settings/notification 单数别名(后端有 /settings/notifications 复数)
+  // /settings/cache/* /language /theme 后端完全缺失
+  // ==========================================================================
+  server.get('/settings/notification', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({ list: [] }))
+  })
+
+  server.put('/settings/notification', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({}))
+  })
+
+  server.post('/settings/cache/clear', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({}))
+  })
+
+  server.get('/settings/cache/size', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({ size: '0 B' }))
+  })
+
+  server.post('/settings/language', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({}))
+  })
+
+  server.post('/settings/theme', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({}))
+  })
+
+  // ==========================================================================
+  // /ai/kling/image (1 个,可灵图片生成,后端暂无此路由,需鉴权)
+  // ==========================================================================
+  server.post('/ai/kling/image', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({ id: Date.now().toString(), status: 'pending' }))
+  })
+
+  // ==========================================================================
+  // /courses/buy (1 个,课程购买,前端已有 try/catch 容错,需鉴权)
+  // ==========================================================================
+  server.post('/courses/buy', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return reply.send(success({ orderId: '', orderNo: '', amount: 0 }))
+  })
+
+  // ==========================================================================
+  // /privacy + /contact (2 个,公开内容页,无需鉴权)
+  // ==========================================================================
+  server.get('/privacy', async (_request, reply) => {
+    return reply.send(success({ content: '' }))
+  })
+
+  server.get('/contact', async (_request, reply) => {
+    return reply.send(success({ phone: '', email: '', address: '' }))
   })
 }
