@@ -10,6 +10,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { sendMessage } from '../../../lib/message-router'
 import { useI18n } from '../../../src/i18n'
+import { Button, Card, CardContent, Input } from '@ihui/ui-react'
 import {
   addWord,
   getAllWords,
@@ -154,7 +155,7 @@ export default function VocabularyPage() {
         <h3 className="m-0 text-sm font-semibold">{t('vocab.title')}</h3>
       </div>
       <form onSubmit={onSubmit} className="flex gap-1.5">
-        <input
+        <Input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -162,9 +163,9 @@ export default function VocabularyPage() {
           className="flex-1 text-sm"
           disabled={loading}
         />
-        <button type="submit" disabled={loading || !input.trim()}>
+        <Button type="submit" variant="default" size="sm" disabled={loading || !input.trim()}>
           {t('vocab.lookup')}
-        </button>
+        </Button>
       </form>
       {error ? (
         <div className="bg-destructive/10 text-destructive px-2.5 py-2 rounded-md border border-destructive my-2 text-xs">
@@ -172,72 +173,80 @@ export default function VocabularyPage() {
         </div>
       ) : null}
       {result ? (
-        <div className="px-3 py-2.5 border border-border rounded-md bg-card text-sm leading-normal">
-          <div>
-            <span className="text-lg font-semibold mr-2">{result.word}</span>
-            {result.phonetic ? (
-              <span className="text-xs text-muted-foreground font-mono">/{result.phonetic}/</span>
+        <Card className="rounded-md border-border shadow-none text-sm leading-normal">
+          <CardContent className="px-3 py-2.5">
+            <div>
+              <span className="text-lg font-semibold mr-2">{result.word}</span>
+              {result.phonetic ? (
+                <span className="text-xs text-muted-foreground font-mono">/{result.phonetic}/</span>
+              ) : null}
+            </div>
+            <div className="mt-1.5 text-primary font-medium">{result.translation}</div>
+            {result.definitions && result.definitions.length > 0 ? (
+              <ul className="mt-1.5 pl-[18px] text-xs text-foreground">
+                {result.definitions.map((d, i) => (
+                  <li key={i}>{d}</li>
+                ))}
+              </ul>
             ) : null}
-          </div>
-          <div className="mt-1.5 text-primary font-medium">{result.translation}</div>
-          {result.definitions && result.definitions.length > 0 ? (
-            <ul className="mt-1.5 pl-[18px] text-xs text-foreground">
-              {result.definitions.map((d, i) => (
-                <li key={i}>{d}</li>
-              ))}
-            </ul>
-          ) : null}
-          <div className="mt-2">
-            <button
-              type="button"
-              onClick={onSave}
-              className="bg-transparent border-none text-primary cursor-pointer text-xs px-1.5 py-0.5"
-            >
-              {t('vocab.saved')}
-            </button>
-          </div>
-        </div>
+            <div className="mt-2">
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                onClick={onSave}
+                className="bg-transparent border-none text-primary cursor-pointer text-xs px-1.5 py-0.5"
+              >
+                {t('vocab.saved')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ) : null}
-      <div className="mt-1 px-2.5 py-2 border border-border rounded-md bg-muted text-xs">
-        <div className="flex items-center justify-between mb-1.5 gap-1.5">
-          <span className="text-xs text-muted-foreground">{t('wordbook.title')}</span>
-          <span
-            className="text-xs text-muted-foreground whitespace-nowrap"
-            data-testid="vocab-count"
-          >
-            {t('wordbook.countLabel', { count: total })}
-          </span>
-        </div>
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t('wordbook.searchPlaceholder')}
-          className="flex-1 text-xs px-1.5 py-1"
-        />
-        {wordbook.length === 0 ? (
-          <div className="text-xs text-muted-foreground whitespace-nowrap py-2">
-            {search.trim() ? t('wordbook.noMatchHint') : t('wordbook.emptyHint')}
+      <Card className="mt-1 rounded-md border-border bg-muted shadow-none text-xs">
+        <CardContent className="px-2.5 py-2">
+          <div className="flex items-center justify-between mb-1.5 gap-1.5">
+            <span className="text-xs text-muted-foreground">{t('wordbook.title')}</span>
+            <span
+              className="text-xs text-muted-foreground whitespace-nowrap"
+              data-testid="vocab-count"
+            >
+              {t('wordbook.countLabel', { count: total })}
+            </span>
           </div>
-        ) : (
-          <div className="mt-1">
-            {wordbook.map((e) => (
-              <div key={e.word} className="flex justify-between items-center py-1">
-                <span>
-                  <strong>{e.word}</strong> — {e.translation}
-                </span>
-                <button
-                  type="button"
-                  className="bg-transparent border-none text-primary cursor-pointer text-xs px-1.5 py-0.5"
-                  onClick={() => onRemove(e.word)}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+          <Input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('wordbook.searchPlaceholder')}
+            className="flex-1 text-xs px-1.5 py-1"
+          />
+          {wordbook.length === 0 ? (
+            <div className="text-xs text-muted-foreground whitespace-nowrap py-2">
+              {search.trim() ? t('wordbook.noMatchHint') : t('wordbook.emptyHint')}
+            </div>
+          ) : (
+            <div className="mt-1">
+              {wordbook.map((e) => (
+                <div key={e.word} className="flex justify-between items-center py-1">
+                  <span>
+                    <strong>{e.word}</strong> — {e.translation}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="bg-transparent border-none text-primary cursor-pointer text-xs px-1.5 py-0.5"
+                    onClick={() => onRemove(e.word)}
+                  >
+                    ×
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
