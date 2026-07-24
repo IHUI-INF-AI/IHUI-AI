@@ -5,7 +5,6 @@ import { useState, useCallback } from 'react'
 import { generateImage } from '@/api'
 import { useI18n } from '@/i18n'
 import EmptyState from '@/components/EmptyState'
-import './image.css'
 
 interface HistoryItem {
   id: string
@@ -154,15 +153,17 @@ export default function ImagePage() {
   const isFavorited = !!result && favorites.has(result)
 
   return (
-    <View className="page">
+    <View className="min-h-screen bg-background flex flex-col">
       {result ? (
-        <View className="canvas">
-          <Image className="result-img" src={result} mode="aspectFit" />
+        <View className="flex-1 flex items-center justify-center p-[32rpx]">
+          <Image className="max-w-full max-h-[600rpx] rounded-[16rpx]" src={result} mode="aspectFit" />
         </View>
       ) : (
-        <View className="empty">
-          <Text className="empty-icon">🎨</Text>
-          <Text className="empty-text">{t('ai.image.emptyHint')}</Text>
+        <View className="flex-1 flex flex-col items-center justify-center">
+          <Text className="text-[120rpx]">🎨</Text>
+          <Text className="text-[26rpx] text-muted-foreground mt-[24rpx]">
+            {t('ai.image.emptyHint')}
+          </Text>
         </View>
       )}
       {result ? (
@@ -187,31 +188,39 @@ export default function ImagePage() {
         </View>
       ) : null}
       {!result ? (
-        <View className="examples">
-          <Text className="ex-title">{t('ai.image.tryThese')}</Text>
-          <View className="ex-list">
+        <View className="px-[32rpx] pb-[24rpx]">
+          <Text className="text-[24rpx] text-muted-foreground">{t('ai.image.tryThese')}</Text>
+          <View className="flex flex-wrap gap-[16rpx] mt-[16rpx]">
             {examples.map((ex) => (
-              <Text key={ex} className="ex-item" onClick={() => setPrompt(ex)}>
+              <Text
+                key={ex}
+                className="py-[12rpx] px-[24rpx] bg-card rounded-[24rpx] text-[24rpx] text-muted-foreground"
+                onClick={() => setPrompt(ex)}
+              >
                 {ex}
               </Text>
             ))}
           </View>
         </View>
       ) : null}
-      <View className="form">
+      <View className="py-[24rpx] px-[32rpx] bg-card">
         <Textarea
-          className="input"
+          className="w-full min-h-[120rpx] p-[20rpx] bg-background rounded-[12rpx] text-[28rpx] box-border"
           value={prompt}
           placeholder={t('ai.image.placeholder')}
           maxlength={500}
           onInput={(e) => setPrompt(e.detail.value)}
         />
-        <View className="form-row">
-          <View className="size-selector">
+        <View className="flex items-center mt-[16rpx] gap-[16rpx]">
+          <View className="flex gap-[12rpx] flex-1">
             {sizes.map((s) => (
               <Text
                 key={s.value}
-                className={`size${size === s.value ? ' active' : ''}`}
+                className={`py-[8rpx] px-[16rpx] border-[2rpx] rounded-[8rpx] text-[24rpx] ${
+                  size === s.value
+                    ? 'border-primary text-primary'
+                    : 'border-border text-muted-foreground'
+                }`}
                 onClick={() => setSize(s.value)}
               >
                 {s.label}
@@ -234,7 +243,11 @@ export default function ImagePage() {
             ))}
           </View>
         ) : null}
-        <Button className="btn mt-3 w-full" onClick={onGenerate} disabled={!prompt || loading}>
+        <Button
+          className="bg-primary text-foreground rounded-[40rpx] text-[28rpx] px-[32rpx] mt-3 w-full disabled:bg-[#ccc]"
+          onClick={onGenerate}
+          disabled={!prompt || loading}
+        >
           {loading ? t('ai.image.generating') : t('ai.image.generate')}
         </Button>
       </View>

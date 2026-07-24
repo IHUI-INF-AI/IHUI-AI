@@ -4,7 +4,6 @@ import { useState, useCallback } from 'react'
 import { getCouponList } from '@/api'
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
-import './coupon-list.css'
 
 interface Coupon {
   id: string
@@ -59,40 +58,40 @@ export default function CouponListPage() {
   )
 
   return (
-    <View className="page">
+    <View className="min-h-screen bg-background p-[24rpx] pb-[48rpx]">
       {loading ? (
-        <View className="status">
+        <View className="flex flex-col items-center py-[120rpx] text-muted-foreground text-[26rpx]">
           <Text>{t('common.loading')}</Text>
         </View>
       ) : error ? (
-        <View className="status">
+        <View className="flex flex-col items-center py-[120rpx] text-muted-foreground text-[26rpx]">
           <Text>{tt('member.couponList.loadFailed', '加载失败')}</Text>
-          <Text className="retry" onClick={load}>
+          <Text className="mt-[16rpx] py-[8rpx] px-[32rpx] text-[24rpx] text-primary" onClick={load}>
             {t('common.retry')}
           </Text>
         </View>
       ) : list.length ? (
-        <View className="list">
+        <View className="flex flex-col gap-[24rpx]">
           {list.map((c) => (
-            <View key={c.id} className="coupon">
-              <View className="coupon-left">
-                <View className="c-amt-row">
-                  <Text className="c-amt">{c.amount}</Text>
-                  <Text className="c-unit">{tt('member.couponList.unit', '元')}</Text>
+            <View key={c.id} className="flex bg-card rounded-[16rpx] overflow-hidden">
+              <View className="w-[200rpx] bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] text-white flex flex-col items-center justify-center py-[24rpx]">
+                <View className="flex items-baseline">
+                  <Text className="text-[60rpx] font-bold">{c.amount}</Text>
+                  <Text className="text-[26rpx] ml-[4rpx]">{tt('member.couponList.unit', '元')}</Text>
                 </View>
-                <Text className="c-type">{tt('member.couponList.coupon', '优惠券')}</Text>
+                <Text className="mt-[8rpx] text-[22rpx] opacity-90">{tt('member.couponList.coupon', '优惠券')}</Text>
               </View>
-              <View className="coupon-right">
-                <Text className="c-title">{c.title}</Text>
-                <Text className="c-thres">
+              <View className="flex-1 p-[24rpx] flex flex-col justify-between">
+                <Text className="block text-[30rpx] text-foreground font-semibold">{c.title}</Text>
+                <Text className="block mt-[12rpx] text-[24rpx] text-muted-foreground">
                   {tt('member.couponList.thresholdText', '满{threshold}元可用', {
                     threshold: c.threshold,
                   })}
                 </Text>
-                <Text className="c-time">
+                <Text className="block mt-[8rpx] text-[22rpx] text-muted-foreground">
                   {tt('member.couponList.expireText', '有效期至 {time}', { time: c.expireTime })}
                 </Text>
-                <Button className="c-btn" onClick={() => onReceive(c.id)}>
+                <Button className="self-end mt-[16rpx] text-[24rpx] text-white bg-primary rounded-[28rpx] px-[28rpx] leading-[56rpx]" onClick={() => onReceive(c.id)}>
                   {tt('member.couponList.receive', '立即领取')}
                 </Button>
               </View>
@@ -100,7 +99,7 @@ export default function CouponListPage() {
           ))}
         </View>
       ) : (
-        <View className="empty">
+        <View className="text-center py-[120rpx] text-muted-foreground text-[26rpx]">
           <Text>{tt('member.couponList.empty', '暂无可领取优惠券')}</Text>
         </View>
       )}

@@ -6,6 +6,7 @@ import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Card } from '@ihui/ui-native'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 interface Item { id: string; question: string; asker: string; answerCount: number; createdAt: string }
@@ -50,11 +51,11 @@ export function CourseQAListScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} />}
           ListEmptyComponent={<View style={s.center}><Text style={s.muted}>{t('courseQAList.empty')}</Text></View>}
           renderItem={({ item }) => (
-            <View style={s.card}>
+            <Card className="p-3">
               <Text style={s.cardTitle} numberOfLines={2}>{item.question}</Text>
               <Text style={s.cardMeta}>{t('courseQAList.asker')}: {item.asker} · {t('courseQAList.answers')}: {item.answerCount}</Text>
               <Text style={s.cardTime}>{item.createdAt}</Text>
-            </View>
+            </Card>
           )}
         />
       )}

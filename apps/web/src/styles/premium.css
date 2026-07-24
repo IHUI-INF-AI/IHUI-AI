@@ -1,13 +1,21 @@
 /* premium.css — Premium 设计系统(从 SCSS mixin 迁移) */
 /* 历史源: _design-tokens.scss(8 个 Premium mixin) */
 /* SCSS @mixin premium-* → CSS 工具类,使用 var(--ease-premium) 等令牌 */
+/*
+ * 2026-07-24 重构(消除硬编码 fallback + 颜色反转适配):
+ *   - 删除所有 var(--xxx, hsl(...)) 中的硬编码 fallback,改为纯 var()
+ *   - 删除 .dark 块中的硬编码颜色覆盖(让 var() 自动跟随 tokens.css 的 .dark 反相)
+ *   - premium-fixed-nav 背景改为 color-mix(var(--color-background) 80%, transparent),
+ *     自动跟随主题反相(亮色=黑半透明,暗色=白半透明)
+ *   - premium-page-header 文字色保留 white(绿色渐变背景上白字,反相不影响)
+ */
 
 /* ============ premium-card ============ */
 .premium-card {
-  background: var(--color-card, hsl(0 0% 100%));
-  border: 1px solid var(--color-border, hsl(0 0% 90%));
-  border-radius: var(--smart-radius-large, 12px);
-  box-shadow: var(--shadow-premium-sm, 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 4px rgba(0, 0, 0, 0.04));
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--smart-radius-large);
+  box-shadow: var(--shadow-premium-sm);
   transition: box-shadow 0.3s var(--ease-premium, ease),
     transform 0.3s var(--ease-premium, ease),
     border-color 0.3s var(--ease-premium, ease);
@@ -15,17 +23,8 @@
 
 .premium-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-premium-hover, 0 8px 24px rgba(0, 0, 0, 0.12));
-  border-color: var(--color-primary, hsl(142 71% 45%));
-}
-
-.dark .premium-card {
-  background: hsl(0 0% 10%);
-  border-color: hsl(0 0% 20%);
-}
-
-.dark .premium-card:hover {
-  border-color: var(--color-primary, hsl(142 71% 50%));
+  box-shadow: var(--shadow-premium-hover);
+  border-color: var(--color-primary);
 }
 
 /* ============ premium-button ============ */
@@ -34,20 +33,20 @@
   align-items: center;
   justify-content: center;
   padding: 0.5rem 1.5rem;
-  border-radius: var(--smart-radius-medium, 8px);
+  border-radius: var(--smart-radius-medium);
   font-weight: 500;
   transition: all 0.2s var(--ease-premium, ease);
   cursor: pointer;
   border: none;
   outline: none;
-  background: var(--color-primary, hsl(142 71% 45%));
-  color: var(--color-primary-foreground, hsl(0 0% 100%));
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
 }
 
 .premium-button:hover {
   transform: translateY(-1px);
-  box-shadow: var(--shadow-premium-sm, 0 2px 8px rgba(0, 0, 0, 0.08));
-  background: var(--color-primary-hover, hsl(142 71% 40%));
+  box-shadow: var(--shadow-premium-sm);
+  background: var(--color-primary-hover);
 }
 
 .premium-button:active {
@@ -64,27 +63,27 @@
 /* 次要按钮变体 */
 .premium-button-secondary {
   background: transparent;
-  color: var(--color-foreground, hsl(0 0% 4%));
-  border: 1px solid var(--color-border, hsl(0 0% 90%));
+  color: var(--color-foreground);
+  border: 1px solid var(--color-border);
   padding: calc(0.5rem - 1px) calc(1.5rem - 1px);
 }
 
 .premium-button-secondary:hover {
   background: transparent;
-  border-color: var(--color-primary, hsl(142 71% 45%));
-  color: var(--color-primary, hsl(142 71% 45%));
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 /* 幽灵按钮变体 */
 .premium-button-ghost {
   background: transparent;
-  color: var(--color-muted-foreground, hsl(0 0% 45%));
+  color: var(--color-muted-foreground);
   box-shadow: none;
 }
 
 .premium-button-ghost:hover {
   background: transparent;
-  color: var(--color-foreground, hsl(0 0% 4%));
+  color: var(--color-foreground);
   box-shadow: none;
 }
 
@@ -93,8 +92,8 @@
   padding: 2rem 0;
   margin-bottom: 2rem;
   background: linear-gradient(135deg,
-    var(--color-primary, hsl(142 71% 45%)) 0%,
-    var(--color-primary-hover, hsl(142 71% 40%)) 100%);
+    var(--color-primary) 0%,
+    var(--color-primary-hover) 100%);
   color: white;
   border-radius: 0 0 var(--smart-radius-xl, 16px) var(--smart-radius-xl, 16px);
 }
@@ -112,12 +111,6 @@
   font-size: clamp(16px, 2vw, 20px);
   color: rgba(255, 255, 255, 0.85);
   line-height: 1.6;
-}
-
-.dark .premium-page-header {
-  background: linear-gradient(135deg,
-    var(--color-primary, hsl(142 71% 50%)) 0%,
-    var(--color-primary-hover, hsl(142 71% 45%)) 100%);
 }
 
 /* ============ premium-grid ============ */
@@ -145,7 +138,7 @@
 
 .premium-hover-lift:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-premium-lg, 0 12px 32px rgba(0, 0, 0, 0.16));
+  box-shadow: var(--shadow-premium-lg);
 }
 
 .premium-hover-lift:active {
@@ -158,7 +151,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--color-primary, hsl(142 71% 45%));
+  background: var(--color-primary);
   display: inline-block;
 }
 
@@ -167,7 +160,7 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: var(--color-primary, hsl(142 71% 45%));
+  background: var(--color-primary);
   animation: pulse-glow 2s ease-out infinite;
 }
 
@@ -199,41 +192,25 @@
   z-index: var(--z-header, 100);
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.8);
+  background: color-mix(in srgb, var(--color-background) 80%, transparent);
   backdrop-filter: blur(12px) saturate(180%);
   -webkit-backdrop-filter: blur(12px) saturate(180%);
-  border-bottom: 1px solid var(--color-border, hsl(0 0% 90%));
+  border-bottom: 1px solid var(--color-border);
   transition: all 0.3s var(--ease-premium, ease);
-}
-
-.dark .premium-fixed-nav {
-  background: rgba(0, 0, 0, 0.8);
-  border-bottom: 1px solid hsl(0 0% 20%);
 }
 
 /* ============ premium-dark-mode ============ */
 .premium-dark-mode {
-  /* 暗色模式增强容器,默认亮色无特殊样式 */
-  background: var(--color-card, hsl(0 0% 100%));
-  color: var(--color-foreground, hsl(0 0% 4%));
+  background: var(--color-card);
+  color: var(--color-foreground);
   transition: background 0.3s var(--ease-premium, ease),
     color 0.3s var(--ease-premium, ease);
 }
 
-.dark .premium-dark-mode {
-  background: hsl(0 0% 8%);
-  color: hsl(0 0% 95%);
-}
-
-:where(.dark .premium-dark-mode) .premium-dark-mode-surface {
-  background: hsl(0 0% 12%);
-  border-color: hsl(0 0% 20%);
-}
-
 .premium-dark-mode-surface {
-  background: var(--color-muted, hsl(0 0% 96%));
-  border: 1px solid var(--color-border, hsl(0 0% 90%));
-  border-radius: var(--smart-radius-medium, 8px);
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--smart-radius-medium);
   transition: background 0.3s var(--ease-premium, ease),
     border-color 0.3s var(--ease-premium, ease);
 }

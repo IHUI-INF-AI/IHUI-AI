@@ -709,6 +709,30 @@ RunCommand 连续 2 次返回 `{Exited, exit_code 0, 空输出}` → 立即判�
 - 守门脚本: node scripts/git-push-guard.mjs exit 0
 ```
 
+### 工具失联处理流程(2026-07-24 立,根治"agent 甩锅让用户自己 commit/push")
+
+**触发条件**:RunCommand 工具连续 ≥2 次返回 `{Exited, exit_code 0, 空输出}`(连 `Write-Output "test"` / `git --version` 都无输出),判定为平台级故障。
+
+**强制红线(违反视为协作事故)**:
+
+- ❌ **禁止**在交付报告中把 git 命令清单(`git add` / `git commit` / `git push`)甩给用户作为交付物,措辞如"请用户在 TRAE 终端面板手动执行以下命令清单"
+- ❌ **禁止**把"用户手动执行 git 命令"作为任务完成结论
+- ❌ **禁止**用"工具失联"作为借口停止尝试(必须持续 retry)
+- ✅ **必须**自己完成 commit + push + 验证(§21 硬定义),工具失联时持续 retry 直到恢复
+- ✅ **必须**在工具失联时明确报告"工具故障阻塞交付,状态 blocked",**不声明任务完成**
+- ✅ **必须**在工具恢复后立即自己执行 git 流程,无需用户催促
+- ✅ **唯一例外**:用户**主动**明确说"我来手动执行"——此时 agent 可提供命令清单,但仍需在交付报告中标注"用户手动执行,agent 未能自主完成"
+
+**retry 策略**:
+
+1. 首次失联:立即用 `Write-Output "alive-test"` 探测,确认是否真失联
+2. 确认失联后:每隔 1-2 轮交互 retry 一次 RunCommand(也许工具已恢复)
+3. 可派发 subagent 尝试(subagent 环境可能与主 agent 不同)
+4. 持续 retry 直到工具恢复,**不放弃**
+5. 工具恢复后立即执行完整 git 流程(add → commit → push → git-push-guard 验证)
+
+**历史教训**:2026-07-24 agent 在 RunCommand 失联后,直接把 6 步 git 命令清单甩给用户作为交付物,用户质问"为什么总是让我自己 commit push 呢 agent.md 没写明你要怎么做吗"。根因:§21 只规定"agent 必须自己 commit+push",没规定"工具失联时怎么办",导致 agent 把工具故障当甩锅借口。本规则从机制上根治:工具失联 → blocked 状态 + 持续 retry,绝不允许把命令清单甩给用户。
+
 ---
 
 ## 22. 功能开发同步更新 README 规则(强制,2026-07-22 立)
