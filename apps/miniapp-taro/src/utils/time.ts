@@ -1,5 +1,5 @@
-// formatFileSize/formatPrice/formatMoney 复用 @ihui/shared/utils/format(单一来源)
-export { formatFileSize, formatPrice, formatMoney } from '@ihui/shared/utils/format'
+// formatFileSize/formatPrice/formatMoney/formatPhone 复用 @ihui/shared/utils/format(单一来源)
+export { formatFileSize, formatPrice, formatMoney, formatPhone } from '@ihui/shared/utils/format'
 
 // formatDate/relativeTime 保留本地实现:miniapp-taro 使用 format 模板参数,与 shared 的 locale 参数签名不同
 export function formatDate(date: Date | number | string, format = 'YYYY-MM-DD HH:mm:ss'): string {
@@ -62,8 +62,4 @@ export function formatTokenValue(value: number | string): string {
     return `${truncated}万`
   }
   return num.toString()
-}
-
-export function formatPhone(phone: string): string {
-  return String(phone || '').replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
 }
