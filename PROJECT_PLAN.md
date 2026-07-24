@@ -8,6 +8,45 @@
 
 ## 当前活跃任务(2026-07-25)
 
+### [x] ✅(2026-07-25) /goal P2 直播主播端迁移补齐 — miniapp-taro 补建主播端页面(跨端:miniapp-taro,对标 mobile-rn LiveHostScreen)
+
+**触发**:用户要求"继续 p2 任务啊 等啥啊"。承接 2026-07-24 D 盘迁移 P1-11 决策标注的"live-streaming 暂不迁移,标记 P2 后续任务"。
+
+**调研结论**:
+
+- 旧项目 `D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pagesA\live-streaming\index.vue` 实际是 AI 文案生成器(调用 Coze workflow 生成直播文案),**非真正主播端**,已由新项目 AI 对话功能覆盖。
+- 真正的"主播端推流管理"功能:mobile-rn 已有 `LiveHostScreen.tsx`(249 行,完整)+ 后端 `apps/api/src/routes/srs.ts`(11 端点,完整)。
+- **唯一缺口**:miniapp-taro 仅有 5 个观众端 live 页面(list/detail/history/calendar/subscribe),缺主播端页面。
+
+**成果**(1 subagent,9 文件):
+
+新建:
+
+- `apps/miniapp-taro/src/pages/live/host/index.tsx`(233 行)— 主播端页面,对标 mobile-rn LiveHostScreen 全功能:状态徽章(未开始/直播中/已结束)+ 摄像头预览占位 + 直播标题输入 + 推流地址/流密钥点击复制 + 开始/结束直播 + 直播数据 2×2 网格(时长/观众数/收发字节)+ 商品管理(MOCK_PRODUCTS 占位,与 mobile-rn 一致)
+- `apps/miniapp-taro/src/pages/live/host/index.config.ts`(3 行)— Taro 页面配置
+
+修改:
+
+- `apps/miniapp-taro/src/app.config.ts` — 注册 `pages/live/host` 路由(在 subscribe 之后)
+- `apps/miniapp-taro/src/api/index.ts` — 补建 `SrsStream` 接口 + `createSrsStream` / `updateSrsStream` / `getSrsStreamStatus` 3 函数(复用已导入的 `post`/`put`/`get`)
+- `apps/miniapp-taro/src/pages/live/list.tsx` — 顶部新增"📺 我要开播"主色按钮(跳转 `/pages/live/host`)
+- `apps/miniapp-taro/src/i18n/{zh-CN,zh-TW,en,ko,ja}.ts` — 补 `liveHost` 命名空间 29 key + `live.startLiveBtn` 5 语言 parity 一致
+
+**API 链路**:客户端 `/srs/streams`(POST 创建/PUT 更新/GET 状态)→ 后端 `srsRoutes`(注册于 `/api/srs` 前缀)→ `srs-streams` 表 + `srs-service.ts`。链路连通,无 404。
+
+**§9 跨端**:miniapp-taro 单端补建(mobile-rn + api 已就绪),不涉及共享层变化。商品管理两端一致使用 MOCK_PRODUCTS 占位(旧项目无此功能,属未来增强而非迁移范畴)。
+**§22 README 豁免**:纯迁移补齐(对标 mobile-rn 已有功能),不改变对外能力清单。
+
+**验证**:
+
+- `pnpm --filter @ihui/miniapp-taro typecheck` EXITCODE=0 ✅(全量 typecheck 全绿,本任务文件零错误)
+- 样式守门:仅用 `rounded-md`/`rounded-lg`/`rounded-xl`(无 `rounded-full`)、无 `<hr>`/`divide-y`、无 `mask-image`、无蓝色发光边框 ✅
+- i18n parity:5 语言同 key 集合,zh-TW 全繁体、ko 全 Hangul、ja 用日文汉字词 ✅
+
+**Git 同步证据**(§21):待 commit + push 后补充
+
+---
+
 ### [x] ✅(2026-07-25) /goal P0+P1 旧项目迁移补齐 — 11 项页面/组件两端同步(跨端:miniapp-taro + mobile-rn)
 
 **触发**:/goal 继续按建议执行,最多 agent 并行开发最大化效率,要求完美细致完整毫无遗漏。
@@ -15,20 +54,24 @@
 **成果**(1 commit,4 subagent 并行):
 
 P0(6项,必须完成):
+
 - miniapp-taro: `pages/ai-assistant/index.tsx`(对标 `tools/ai_assistant.vue`)+ `app.config.ts` 注册路由
 - mobile-rn: `screens/ChangePhoneScreen.tsx`(对标 `login-app/changePhone.vue`)+ `RootNavigator` 注册
 - 两端补建 4 个 TitleSwitch 组件:`TitleSwitchOverlap` / `TitleSwitchScrollPicker` / `TitleSwitchScrollTitle` / `TitleSwitchTypeBar`(对标 `title-switch/overlap_large/scroll_picker/scroll_title/type_bar`)
 
 P1(5项,尽量完成):
+
 - 两端补建 4 个基础组件:`Carousel` / `Menu` / `AiModelCard` / `UserInfoCard`
 - mobile-rn: `screens/IncomeScreen.tsx`(对标 `income/index.vue`)
 
 **验证**:
+
 - `pnpm --filter @ihui/mobile-rn typecheck` exit 0 ✅
 - miniapp-taro 本任务 11 项文件 typecheck 通过(grep 验证无任何错误指向本任务文件)
 - miniapp-taro 整体 typecheck 失败原因是 `pages/distribution/index.tsx` 历史损坏(其他 agent 之前 commit,非本任务范围,按 §12 `--no-verify` 跳过)
 
 **Git 同步证据**(§21):
+
 - 本地 commit: 76bbd0758
 - origin commit: 76bbd0758
 - 同步状态: local == remote ✅
