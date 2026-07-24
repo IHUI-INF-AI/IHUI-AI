@@ -88,7 +88,7 @@
 .login-scope .border-input:hover {
   border-color: hsl(0 0% 3.9% / 0.2);
 }
-.dark .login-scope .border-input:hover {
+:where(.dark) .login-scope .border-input:hover {
   border-color: hsl(0 0% 98% / 0.2);
 }
 
@@ -102,7 +102,7 @@
 .login-scope [role='tablist'] {
   background-color: hsl(0 0% 92%);
 }
-.dark .login-scope [role='tablist'] {
+:where(.dark) .login-scope [role='tablist'] {
   background-color: hsl(0 0% 18%);
 }
 
@@ -112,7 +112,7 @@
 .login-scope [data-slot='strength-track'] {
   background-color: hsl(0 0% 92%);
 }
-.dark .login-scope [data-slot='strength-track'] {
+:where(.dark) .login-scope [data-slot='strength-track'] {
   background-color: hsl(0 0% 18%);
 }
 
@@ -395,7 +395,7 @@ body {
   --color-foreground: hsl(0 0% 0%);
   --color-background: hsl(0 0% 100%);
 }
-.dark.high-contrast {
+:where(.dark.high-contrast) {
   --color-border: hsl(0 0% 100%);
   --color-foreground: hsl(0 0% 100%);
   --color-background: hsl(0 0% 0%);
@@ -454,7 +454,7 @@ h6 {
 /* hover 命中区 / 键盘聚焦 / 拖拽中:线条完全显现并带蓝色光晕(明暗统一) */
 .group:hover .resize-handle-line,
 .group:focus-within .resize-handle-line,
-.resize-handle-line.is-resizing {
+:where(.resize-handle-line.is-resizing) {
   opacity: 1;
   filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.55));
 }
