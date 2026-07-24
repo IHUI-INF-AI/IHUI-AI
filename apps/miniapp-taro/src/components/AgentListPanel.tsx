@@ -1,13 +1,16 @@
 import { View, Text, ScrollView, Image } from '@tarojs/components'
+import type { Agent } from '@ihui/api-client'
 import EmptyState from './EmptyState'
 import { useI18n } from '@/i18n'
 
-export interface AgentInfo {
-  id: string
-  name: string
+export type AgentInfo = Pick<Agent, 'id' | 'name'> & {
+  description?: string
+  /** @deprecated 使用 description 替代,兼容 agent.tsx 旧字段名 */
   desc?: string
   avatar?: string
   category?: string
+  useCount?: number
+  /** @deprecated 使用 useCount 替代,兼容 agent.tsx 旧字段名 */
   uses?: number
   isVipExclusive?: boolean
 }
@@ -37,7 +40,9 @@ export default function AgentListPanel({
       <ScrollView scrollY className="px-3 py-2" style={{ maxHeight: '40vh' }}>
         {loading ? (
           <View className="py-8 text-center">
-            <Text className="text-sm text-muted-foreground">{tt('common.loadingShort', '加载中...')}</Text>
+            <Text className="text-sm text-muted-foreground">
+              {tt('common.loadingShort', '加载中...')}
+            </Text>
           </View>
         ) : agents.length === 0 ? (
           <EmptyState text={tt('agent.empty', '暂无智能体')} />
@@ -67,12 +72,17 @@ export default function AgentListPanel({
                     </Text>
                   )}
                 </View>
-                {agent.desc && (
-                  <Text className="block text-xs text-muted-foreground truncate">{agent.desc}</Text>
+                {agent.description && (
+                  <Text className="block text-xs text-muted-foreground truncate">
+                    {agent.description}
+                  </Text>
                 )}
               </View>
-              {agent.uses !== undefined && (
-                <Text className="text-xs text-muted-foreground ml-2">{agent.uses}{tt('agent.uses', '次')}</Text>
+              {agent.useCount !== undefined && (
+                <Text className="text-xs text-muted-foreground ml-2">
+                  {agent.useCount}
+                  {tt('agent.uses', '次')}
+                </Text>
               )}
             </View>
           ))
