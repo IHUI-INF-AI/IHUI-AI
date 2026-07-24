@@ -1,8 +1,9 @@
 import { useState, useCallback, useRef } from 'react'
-import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator } from 'react-native'
+import { View, Text, Pressable, ScrollView } from 'react-native'
 import { executeAgentRuntimeStream } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 
+import { Input, Loading } from '@ihui/ui-native'
 type AgentStatus = 'idle' | 'running' | 'completed' | 'failed'
 
 interface PermissionEvent {
@@ -95,7 +96,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
             #{sessionId.slice(0, 8)}
           </Text>
         ) : null}
-        {status === 'running' ? <ActivityIndicator size="small" className="ml-2" /> : null}
+        {status === 'running' ? <Loading size="sm" className="ml-2" /> : null}
         {status === 'completed' ? <Text className="ml-2 text-xs text-emerald-600">✓</Text> : null}
         {status === 'failed' ? <Text className="ml-2 text-xs text-red-500">✗</Text> : null}
         <View className="flex-1" />
@@ -156,13 +157,13 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
 
       <View className="border-t border-gray-100 p-3">
         <View className="flex-row items-end">
-          <TextInput
+          <Input
             value={input}
             onChangeText={setInput}
             placeholder={t('agent.runtimeInputPlaceholder')}
             editable={status !== 'running'}
             multiline
-            className="min-h-[60px] flex-1 rounded-md border border-gray-200 bg-white p-2 text-sm text-gray-900"
+            className="h-auto min-h-[120px] min-h-[60px] flex-1 rounded-md border border-gray-200 bg-white p-2 text-sm text-gray-900"
           />
           {status === 'running' ? (
             <Pressable

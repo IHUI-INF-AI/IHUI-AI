@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Input, Loading } from '@ihui/ui-native'
 type Nav = NativeStackNavigationProp<RootStackParamList>
 interface Account { name: string; email: string; phone: string }
 
@@ -47,7 +48,7 @@ export function SettingsAccountScreen() {
   }
 
   if (loading || !account) {
-    return <View style={s.center}><ActivityIndicator /><Text style={s.muted}>{t('common.loading')}</Text></View>
+    return <View style={s.center}><Loading /><Text style={s.muted}>{t('common.loading')}</Text></View>
   }
 
   return (
@@ -58,15 +59,15 @@ export function SettingsAccountScreen() {
       </View>
       <View style={s.body}>
         <Text style={s.label}>{t('settingsAccount.name')}</Text>
-        <TextInput style={s.input} value={account.name} onChangeText={(v) => setAccount({ ...account, name: v })} />
+        <Input style={s.input} value={account.name} onChangeText={(v) => setAccount({ ...account, name: v })} />
         <Text style={s.label}>{t('settingsAccount.email')}</Text>
-        <TextInput style={s.input} value={account.email} onChangeText={(v) => setAccount({ ...account, email: v })} keyboardType="email-address" autoCapitalize="none" />
+        <Input style={s.input} value={account.email} onChangeText={(v) => setAccount({ ...account, email: v })} keyboardType="email-address" autoCapitalize="none" />
         <Text style={s.label}>{t('settingsAccount.phone')}</Text>
-        <TextInput style={s.input} value={account.phone} onChangeText={(v) => setAccount({ ...account, phone: v })} keyboardType="phone-pad" />
+        <Input style={s.input} value={account.phone} onChangeText={(v) => setAccount({ ...account, phone: v })} keyboardType="phone-pad" />
         {error ? <Text style={s.error}>{error}</Text> : null}
         {toast ? <Text style={s.toast}>{toast}</Text> : null}
         <TouchableOpacity style={[s.btn, saving && s.btnDisabled]} onPress={save} disabled={saving}>
-          {saving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={s.btnText}>{t('settingsAccount.save')}</Text>}
+          {saving ? <Loading color="#FFFFFF" /> : <Text style={s.btnText}>{t('settingsAccount.save')}</Text>}
         </TouchableOpacity>
       </View>
     </View>

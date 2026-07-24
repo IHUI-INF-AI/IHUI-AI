@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Loading } from '@ihui/ui-native'
 interface HistoryItem { id: string; targetId: string; targetType: 'course' | 'article' | 'post' | 'note' | 'live'; title: string; visitedAt: string }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -38,7 +39,7 @@ export function HistoryScreen() {
     else if (item.targetType === 'live') navigation.navigate('LiveDetail', { id: item.targetId })
   }
 
-  if (loading) return <View style={styles.center}><ActivityIndicator /><Text style={styles.muted}>{t('common.loading')}</Text></View>
+  if (loading) return <View style={styles.center}><Loading /><Text style={styles.muted}>{t('common.loading')}</Text></View>
   if (error && items.length === 0) return (
     <View style={styles.center}>
       <Text style={styles.error}>{error}</Text>

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Loading } from '@ihui/ui-native'
 interface PlanItem { id: string; title: string; courseName: string; targetMinutes: number; completedMinutes: number; dueDate: string; status: 'pending' | 'inProgress' | 'completed' }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -31,7 +32,7 @@ export function StudyPlanScreen() {
     return () => { cancelled = true }
   }, [])
 
-  if (loading) return <View style={styles.center}><ActivityIndicator /><Text style={styles.muted}>{t('common.loading')}</Text></View>
+  if (loading) return <View style={styles.center}><Loading /><Text style={styles.muted}>{t('common.loading')}</Text></View>
   if (error) return (
     <View style={styles.center}>
       <Text style={styles.error}>{error}</Text>
