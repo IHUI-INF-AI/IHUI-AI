@@ -47,6 +47,10 @@ export default function OrderRefund() {
       })
       return
     }
+    if (!order?.id) {
+      Taro.showToast({ title: tt('order.loadFailed', '订单信息加载失败'), icon: 'none' })
+      return
+    }
     const found = REASONS.find((r) => r.key === reason)
     const reasonLabel = found ? tt(found.key, found.fb) : reason
     const composed = [reasonLabel, desc && `说明:${desc}`, contact && `联系:${contact}`]
@@ -54,7 +58,7 @@ export default function OrderRefund() {
       .join(' | ')
     setSubmitting(true)
     try {
-      await refund({ orderNo, reason: composed })
+      await refund({ orderId: String(order.id), reason: composed })
       Taro.showToast({ title: tt('order.refund.submitted', '退款申请已提交'), icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1500)
     } catch {
@@ -64,7 +68,7 @@ export default function OrderRefund() {
     }
   }
 
-  const disabled = !reason || submitting || !orderNo
+  const disabled = !reason || submitting || !order?.id
 
   return (
     <View className="min-h-screen bg-background pt-[24rpx] pr-[24rpx] pb-[160rpx] pl-[24rpx]">
