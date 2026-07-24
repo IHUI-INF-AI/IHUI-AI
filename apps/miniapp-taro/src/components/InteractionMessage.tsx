@@ -1,4 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface InteractionItem {
   id: string
@@ -30,18 +31,19 @@ const TYPE_COLOR: Record<InteractionItem['type'], string> = {
   collect: 'text-[#f59e0b]',
 }
 
-const TYPE_LABEL: Record<InteractionItem['type'], string> = {
-  like: '赞了我',
-  comment: '评论了我',
-  follow: '关注了我',
-  collect: '收藏了我',
-}
-
 export default function InteractionMessage({ list, onClick }: InteractionMessageProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
+  const TYPE_LABEL: Record<InteractionItem['type'], string> = {
+    like: tt('interaction.like', '赞了我'),
+    comment: tt('interaction.comment', '评论了我'),
+    follow: tt('interaction.follow', '关注了我'),
+    collect: tt('interaction.collect', '收藏了我'),
+  }
   if (!list.length) {
     return (
       <View className="flex items-center justify-center py-16">
-        <Text className="text-sm text-muted-foreground">暂无互动消息</Text>
+        <Text className="text-sm text-muted-foreground">{tt('message.noInteraction', '暂无互动消息')}</Text>
       </View>
     )
   }

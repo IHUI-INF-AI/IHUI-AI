@@ -214,7 +214,7 @@ export default function RechargePage() {
           className={`rc-method ${payMethod === 'wechat' ? 'rc-method--active' : ''}`}
           onClick={() => onSelectMethod('wechat')}
         >
-          <View className="rc-method-icon rc-method-icon--wx">微</View>
+          <View className="rc-method-icon rc-method-icon--wx">{tt('pay.wechat', '微')}</View>
           <Text className="rc-method-name">{tt('wallet.recharge.methodWechat', '微信支付')}</Text>
           <View className={`rc-radio ${payMethod === 'wechat' ? 'rc-radio--on' : ''}`}>
             {payMethod === 'wechat' && <Text className="rc-radio-mark">✓</Text>}
@@ -224,7 +224,7 @@ export default function RechargePage() {
           className={`rc-method ${payMethod === 'alipay' ? 'rc-method--active' : ''}`}
           onClick={() => onSelectMethod('alipay')}
         >
-          <View className="rc-method-icon rc-method-icon--ali">支</View>
+          <View className="rc-method-icon rc-method-icon--ali">{tt('pay.alipay', '支')}</View>
           <Text className="rc-method-name">{tt('wallet.recharge.methodAlipay', '支付宝')}</Text>
           <View className={`rc-radio ${payMethod === 'alipay' ? 'rc-radio--on' : ''}`}>
             {payMethod === 'alipay' && <Text className="rc-radio-mark">✓</Text>}
