@@ -2,7 +2,7 @@ import { View, Text, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { useUserStore } from '@/stores/user'
-import { sendSmsCode, loginBySms, loginByPassword, loginByWechat } from '@/api'
+import { sendSmsCode, loginBySms, loginByPassword } from '@/api'
 import { getSsoLoginUrl } from '@/utils/sso'
 import { useI18n } from '@/i18n'
 
@@ -72,18 +72,18 @@ export default function Login() {
   }
 
   function handleWechatLogin() {
-    if (process.env.TARO_ENV === 'weapp') {
-      Taro.login({
-        success: async (res) => {
-          try {
-            const data = await loginByWechat(res.code)
-            setAuth(data.accessToken, data.user, data.refreshToken)
-            Taro.reLaunch({ url: '/pages/index/index' })
-          } catch {
-            Taro.showToast({ title: t('login.wechatFailed'), icon: 'none' })
-          }
-        },
-      })
+    // 跨端小程序登录:微信用 Taro.login,支付宝用 Taro.getAuthCode(由 miniAppLogin 自动适配)
+    if (process.env.TARO_ENV === 'weapp' || process.env.TARO_ENV === 'alipay') {
+      setIsLogging(true)
+      useUserStore.getState().loginByMiniApp({ withProfile: false })
+        .then(() => {
+          Taro.showToast({ title: t('login.loginSuccess'), icon: 'success' })
+          setTimeout(() => Taro.reLaunch({ url: '/pages/index/index' }), 600)
+        })
+        .catch(() => {
+          Taro.showToast({ title: t('login.wechatFailed'), icon: 'none' })
+        })
+        .finally(() => setIsLogging(false))
     } else {
       Taro.showToast({ title: t('login.wechatOnly'), icon: 'none' })
     }
