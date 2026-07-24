@@ -1,5 +1,6 @@
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
+import type { Agent } from '@ihui/api-client'
 import { DrawerComponent, ModelList, type ModelItem } from '@/components'
 import { useI18n } from '@/i18n'
 import type { ChatMessage } from '@/api'
@@ -10,12 +11,8 @@ interface MaterialItem {
   coverUrl?: string
   content?: string
 }
-interface AgentInfo {
-  id: string
-  name: string
-  desc: string
+type AgentInfo = Pick<Agent, 'id' | 'name' | 'description' | 'systemPrompt'> & {
   avatar?: string
-  prompt: string
 }
 
 /** 历史对话条目(对标原 ai_assistant.vue 历史抽屉) */
@@ -134,13 +131,13 @@ export function AgentDrawer({
             )}
             <View className="agent-meta">
               <Text className="agent-name">{agent.name}</Text>
-              <Text className="agent-desc">{agent.desc}</Text>
+              <Text className="agent-desc">{agent.description}</Text>
             </View>
           </View>
-          {agent.prompt ? (
+          {agent.systemPrompt ? (
             <View className="agent-prompt-wrap">
               <Text className="agent-prompt-title">{t('ai.chatDrawers.promptLabel')}</Text>
-              <Text className="agent-prompt">{agent.prompt}</Text>
+              <Text className="agent-prompt">{agent.systemPrompt}</Text>
             </View>
           ) : null}
         </View>
