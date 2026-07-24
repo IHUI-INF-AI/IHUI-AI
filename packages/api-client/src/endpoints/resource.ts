@@ -17,8 +17,8 @@
  */
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
-import { buildQs, type PageData, type PageQuery } from '../utils.js'
+import { fetchApi } from '../client'
+import { buildQs, type PageData, type PageQuery } from '../utils'
 
 // ===================== 类型定义 =====================
 
@@ -128,7 +128,9 @@ export async function getResourceDetail(id: string): Promise<ApiResult<{ resourc
 }
 
 /** 创建资源 (admin 端点) */
-export async function createResource(input: Partial<Resource>): Promise<ApiResult<{ resource: Resource }>> {
+export async function createResource(
+  input: Partial<Resource>,
+): Promise<ApiResult<{ resource: Resource }>> {
   return fetchApi<{ resource: Resource }>('/api/admin/resources', {
     method: 'POST',
     body: JSON.stringify(input),
