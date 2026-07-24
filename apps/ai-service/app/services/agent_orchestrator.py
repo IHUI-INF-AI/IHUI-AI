@@ -95,7 +95,7 @@ class AgentRegistry:
         self._register_defaults()
 
     def _register_defaults(self) -> None:
-        """注册 5 个默认 agent(对齐 persona_registry)。"""
+        """注册 10 个默认 agent(5 通用 + 5 专业 subagent,对齐 Trae 自定义智能体)。"""
         defaults = [
             AgentDefinition(
                 name="researcher",
@@ -152,6 +152,81 @@ class AgentRegistry:
                     "file_search", "git_operations",
                 ],
                 metadata={"category": "code"},
+            ),
+            # ---- 5 个专业 subagent(对齐 Trae 自定义智能体)----
+            AgentDefinition(
+                name="frontend-dev",
+                description="前端开发专家:React/Next.js/Tailwind/shadcn 组件开发,熟悉 SSR/SSG/ISR",
+                system_prompt=(
+                    "你是前端开发专家。精通 React 19 / Next.js 15 / Tailwind 4 / shadcn/ui。"
+                    "遵循项目 AGENTS.md 的 UI 约束:compact/elegant、禁止蓝色发光边框、"
+                    "禁止 rounded-full 容器、禁止分割线。"
+                    "用 packages/ui 的 Card/Button/Input/Dialog,每个页面 < 250 行。"
+                    "时间用 Intl.DateTimeFormat,头像用 initials。"
+                ),
+                tools=[
+                    "read_file", "write_file", "search_codebase", "file_search",
+                    "analyze_code", "run_command",
+                ],
+                metadata={"category": "frontend"},
+            ),
+            AgentDefinition(
+                name="backend-dev",
+                description="后端开发专家:Fastify/Drizzle ORM/PostgreSQL/Redis,熟悉 REST API 设计",
+                system_prompt=(
+                    "你是后端开发专家。精通 Fastify 5 + Drizzle ORM 0.38 + PostgreSQL + Redis。"
+                    "遵循项目 AGENTS.md 的后端约束:Zod 校验、复用 packages/auth、"
+                    "admin 路由用 preHandler、onConflictDoNothing 幂等、"
+                    "API 响应统一 {code, message, data} 格式。"
+                ),
+                tools=[
+                    "read_file", "write_file", "search_codebase", "file_search",
+                    "analyze_code", "run_command", "db_query",
+                ],
+                metadata={"category": "backend"},
+            ),
+            AgentDefinition(
+                name="devops",
+                description="DevOps 工程师:Docker/Turborepo/pnpm workspace/CI/CD,熟悉 monorepo 构建",
+                system_prompt=(
+                    "你是 DevOps 工程师。精通 Docker / Turborepo / pnpm workspace / GitHub Actions。"
+                    "能优化构建速度、设计 CI/CD 流水线、排查部署问题。"
+                    "遵循项目 AGENTS.md 的验证命令规范:pnpm turbo build typecheck lint test。"
+                ),
+                tools=[
+                    "read_file", "search_codebase", "file_search",
+                    "run_command", "git_operations",
+                ],
+                metadata={"category": "devops"},
+            ),
+            AgentDefinition(
+                name="security-auditor",
+                description="安全审计专家:OWASP Top 10/CWE 检测,熟悉 RCE/SSRF/SQL注入/XSS 等漏洞模式",
+                system_prompt=(
+                    "你是安全审计专家。精通 OWASP Top 10 / CWE 检测。"
+                    "重点检查:RCE(new Function/eval)、SSRF(localhost/内网 IP)、"
+                    "SQL 注入、XSS、硬编码密钥、路径穿越、不安全的反序列化。"
+                    "输出按严重程度分级(critical/high/medium/low)+ 具体修复建议。"
+                ),
+                tools=[
+                    "read_file", "search_codebase", "file_search",
+                    "analyze_code", "git_operations",
+                ],
+                metadata={"category": "security"},
+            ),
+            AgentDefinition(
+                name="test-engineer",
+                description="测试工程师:Vitest/pytest/Playwright,熟悉单元/集成/E2E 测试设计",
+                system_prompt=(
+                    "你是测试工程师。精通 Vitest / pytest / Playwright。"
+                    "遵循项目 AGENTS.md 的测试规范:覆盖默认态/hover 态/active 态/dark mode 态 4 状态。"
+                    "优先 TDD,测试名用中文描述清晰场景。"
+                ),
+                tools=[
+                    "read_file", "write_file", "search_codebase", "file_search",
+                    "analyze_code", "run_command", "generate_test",
+                ],
+                metadata={"category": "test"},
             ),
         ]
         for a in defaults:
@@ -1162,6 +1237,95 @@ class AgentOrchestrator:
             total_duration_ms=round((time.monotonic() - start) * 1000, 2),
             trace=trace,
         )
+
+    # =========================================================================
+    # Parallel dispatch(并行派发多个 subagent,带并发限制)
+    # =========================================================================
+
+    async def invoke_parallel(
+        self,
+        tasks: list[dict[str, Any]],
+        max_concurrency: int = 5,
+    ) -> dict[str, Any]:
+        """并行派发多个 subagent,每个 task 独立执行,互不污染上下文。
+
+        Args:
+            tasks: [{"name": "agent-name", "task": "任务描述", "context": {...可选}}, ...]
+            max_concurrency: 最大并发数(默认 5,防止资源耗尽)。
+
+        Returns:
+            成功时:
+                {
+                    "ok": True, "total": 3, "succeeded": 2, "failed": 1,
+                    "results": [{"name","task","status","output","error","duration_ms"}, ...],
+                    "message": "并行派发完成:2/3 成功",
+                }
+            tasks 为空时:
+                {"ok": False, "errorCode": "EMPTY_TASKS", "message": "tasks 列表为空"}
+        """
+        if not tasks:
+            return {
+                "ok": False,
+                "errorCode": "EMPTY_TASKS",
+                "message": "tasks 列表为空",
+            }
+
+        semaphore = asyncio.Semaphore(max(1, max_concurrency))
+
+        async def _run_one(task_spec: dict[str, Any]) -> dict[str, Any]:
+            name = str(task_spec.get("name", ""))
+            task_desc = str(task_spec.get("task", ""))
+            context = task_spec.get("context") or {}
+            t0 = time.monotonic()
+
+            # 先检查 agent 是否存在(不占用 semaphore,失败不影响其他 task)
+            if not self._registry.get(name):
+                return {
+                    "name": name,
+                    "task": task_desc,
+                    "status": "failed",
+                    "output": "",
+                    "error": f"Agent 不存在: {name}",
+                    "duration_ms": round((time.monotonic() - t0) * 1000, 2),
+                }
+
+            async with semaphore:
+                try:
+                    session_id: str | None = None
+                    if isinstance(context, dict):
+                        sid = context.get("session_id")
+                        if isinstance(sid, str):
+                            session_id = sid
+                    result = await self.invoke(name, task_desc, session_id=session_id)
+                    return {
+                        "name": name,
+                        "task": task_desc,
+                        "status": result.status,
+                        "output": result.output,
+                        "error": result.error,
+                        "duration_ms": round((time.monotonic() - t0) * 1000, 2),
+                    }
+                except Exception as e:
+                    return {
+                        "name": name,
+                        "task": task_desc,
+                        "status": "failed",
+                        "output": "",
+                        "error": str(e),
+                        "duration_ms": round((time.monotonic() - t0) * 1000, 2),
+                    }
+
+        results = await asyncio.gather(*[_run_one(t) for t in tasks])
+        succeeded = sum(1 for r in results if r["status"] == "completed")
+        failed = len(results) - succeeded
+        return {
+            "ok": True,
+            "total": len(results),
+            "succeeded": succeeded,
+            "failed": failed,
+            "results": list(results),
+            "message": f"并行派发完成:{succeeded}/{len(results)} 成功",
+        }
 
     def _make_executor(self, session_id: str) -> Any:
         """创建执行器闭包(注入 _run_agent 到 TaskScheduler)。"""
