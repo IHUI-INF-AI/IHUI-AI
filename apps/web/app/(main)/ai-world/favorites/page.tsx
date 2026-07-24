@@ -7,7 +7,7 @@ import { useLocale } from 'next-intl'
 import { Loader2, Star, ArrowLeft, Eye } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 
 interface AiWorldItem {
   id: string

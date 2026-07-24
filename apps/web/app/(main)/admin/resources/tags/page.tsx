@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Plus, ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { ResourceTagFilter } from './ResourceTagFilter'
 import { ResourceTagTable } from './ResourceTagTable'

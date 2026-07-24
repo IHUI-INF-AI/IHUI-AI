@@ -2,7 +2,7 @@
 import { Edit, Trash2, Loader2, ListChecks } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { TYPE_BADGE } from './helpers'
 import { Tooltip } from '@/components/feedback'
 import type { Question } from './types'

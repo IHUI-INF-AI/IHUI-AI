@@ -11,7 +11,7 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { DatePicker } from '@/components/form/DatePicker'
 import type { JobLogSearch } from './types'
 

@@ -3,7 +3,7 @@
 import { Loader2, Pencil, Trash2 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { Button, Checkbox } from '@ihui/ui'
+import { Button, Checkbox } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { TruncatedText } from '@/components/common'
 import { th } from './helpers'

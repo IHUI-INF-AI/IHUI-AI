@@ -7,7 +7,7 @@ import { useLocale } from 'next-intl'
 import { Star, Loader2, ArrowLeft, Trash2, Share2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { getInitials } from '@/components/data/Avatar'
 

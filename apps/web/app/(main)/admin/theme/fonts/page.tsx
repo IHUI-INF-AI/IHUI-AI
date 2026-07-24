@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { Upload, Trash2, Loader2, Type } from 'lucide-react'
 
-import { Button, Card, CardContent, Switch } from '@ihui/ui'
+import { Button, Card, CardContent, Switch } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback/Alert'
 import { fetchApi } from '@/lib/api'
 

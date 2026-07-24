@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { inputCls, textareaCls } from './helpers'
 import type { PostForm } from './types'
 

@@ -26,7 +26,7 @@ import {
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardHeader, CardTitle, CardContent, CardFooter } from '@ihui/ui'
+import { Button, Card, CardHeader, CardTitle, CardContent, CardFooter } from '@ihui/ui-react'
 import { Textarea } from '@/components/form'
 import { cn } from '@/lib/utils'
 

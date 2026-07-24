@@ -6,7 +6,7 @@ import { Loader2, MessageSquare, Edit, Trash2 } from 'lucide-react'
 import { useTranslations, useLocale } from 'next-intl'
 
 import { cn } from '@/lib/utils'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { TYPE_ICON, TYPE_BADGE, STATUS_BADGE, PRIORITY_BADGE } from '@/lib/feedback'
 import type { AdminFeedbackItem } from './types'

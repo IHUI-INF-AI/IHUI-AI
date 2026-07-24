@@ -3,7 +3,7 @@
 import { Loader2, Edit, Trash2, MapIcon } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import Image from 'next/image'
-import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
+import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { STATUS_MAP } from './helpers'

@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { DatePicker } from '@/components/form/DatePicker'
 import type { AuthAccount, AuthAccountForm } from './types'
 

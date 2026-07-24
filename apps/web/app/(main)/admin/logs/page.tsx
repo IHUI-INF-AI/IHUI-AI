@@ -22,7 +22,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 import { LogFilter } from './LogFilter'

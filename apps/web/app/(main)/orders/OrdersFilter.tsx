@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { LayoutGrid, Table } from 'lucide-react'
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { STATUS_TABS, TYPE_TABS, selectClass } from './helpers'
 

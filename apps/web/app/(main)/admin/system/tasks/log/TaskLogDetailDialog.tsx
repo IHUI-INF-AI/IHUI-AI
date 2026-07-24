@@ -1,6 +1,6 @@
 'use client'
 
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui-react'
 import { STATUS_LABEL } from './helpers'
 import type { JobLog } from './types'
 import { formatDate } from '@/lib/date-utils'
