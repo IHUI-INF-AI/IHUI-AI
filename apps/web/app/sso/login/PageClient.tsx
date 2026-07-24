@@ -89,7 +89,7 @@ export default function SsoLoginPage() {
   // 已登录分支:授权跳转卡片
   if (token && user) {
     return (
-      <AuthShellPage>
+      <AuthShellPage onClose={handleClose}>
         <AuthShell
           title={tSso('alreadyLoggedIn')}
           subtitle={tSso('authorizing', { clientId })}
@@ -123,7 +123,7 @@ export default function SsoLoginPage() {
   const footer = mode === 'login' ? tSso('footerHint') : undefined
 
   return (
-    <AuthShellPage>
+    <AuthShellPage onClose={handleClose}>
       <AuthShell title={title} subtitle={subtitle} onClose={handleClose} footer={footer}>
         {mode === 'login' ? (
           <LoginFormContent onSuccess={handleLoginSuccess} />

@@ -23,12 +23,7 @@ import {
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { useRules } from '@/hooks/use-rules'
-import {
-  matchTypeLabel,
-  priorityVariant,
-  scopeLabel,
-  useRulesStore,
-} from '@/stores/rules'
+import { matchTypeLabel, priorityVariant, scopeLabel, useRulesStore } from '@/stores/rules'
 import type { Rule, RuleInput, RuleMatchType, RuleScope } from '@ihui/types'
 import { Badge, Button, Input } from '@ihui/ui-react'
 
@@ -192,8 +187,7 @@ function conflictBadgeClass(type: RuleConflict['type']): string {
 }
 
 export function RulesManager() {
-  const { rules, loading, error, refresh, deleteRule, toggleEnabled } =
-    useRules()
+  const { rules, loading, error, refresh, deleteRule, toggleEnabled } = useRules()
   const { startCreate, startEdit } = useRulesStore()
   const [showConflicts, setShowConflicts] = React.useState(false)
   const [showTemplates, setShowTemplates] = React.useState(false)
@@ -206,55 +200,29 @@ export function RulesManager() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          共 {rules.length} 条规则,按优先级降序排列
-        </p>
+        <p className="text-sm text-muted-foreground">共 {rules.length} 条规则,按优先级降序排列</p>
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowAutoGenerate(true)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setShowAutoGenerate(true)}>
             <Sparkles className="mr-1 h-3.5 w-3.5" />
             <span>自动生成</span>
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowConflicts(true)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setShowConflicts(true)}>
             <AlertTriangle className="mr-1 h-3.5 w-3.5" />
             <span>检测冲突</span>
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowKnowledgeGraph(true)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setShowKnowledgeGraph(true)}>
             <TrendingUp className="mr-1 h-3.5 w-3.5" />
             <span>知识图谱</span>
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowAbTest(true)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setShowAbTest(true)}>
             <FlaskConical className="mr-1 h-3.5 w-3.5" />
             <span>A/B 测试</span>
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowGlobalStats(true)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setShowGlobalStats(true)}>
             <BarChart3 className="mr-1 h-3.5 w-3.5" />
             <span>全局统计</span>
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowTemplates(true)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setShowTemplates(true)}>
             <LayoutTemplate className="mr-1 h-3.5 w-3.5" />
             <span>模板库</span>
           </Button>
@@ -280,9 +248,7 @@ export function RulesManager() {
       ) : rules.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
           <ScrollText className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            暂无规则,点击「新建规则」创建
-          </p>
+          <p className="text-sm text-muted-foreground">暂无规则,点击「新建规则」创建</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -293,9 +259,7 @@ export function RulesManager() {
               index={idx + 1}
               onEdit={() => startEdit(rule)}
               onDelete={() => deleteRule(rule.id)}
-              onToggle={(enabled) =>
-                toggleEnabled({ id: rule.id, enabled })
-              }
+              onToggle={(enabled) => toggleEnabled({ id: rule.id, enabled })}
               onShowDetail={() => setDetailRule(rule)}
             />
           ))}
@@ -305,20 +269,11 @@ export function RulesManager() {
       <RuleEditDialog />
       <RuleTestDialog />
       {showConflicts && (
-        <RuleConflictDialog
-          rules={rules}
-          onClose={() => setShowConflicts(false)}
-        />
+        <RuleConflictDialog rules={rules} onClose={() => setShowConflicts(false)} />
       )}
-      {showTemplates && (
-        <RuleTemplateDialog onClose={() => setShowTemplates(false)} />
-      )}
-      {showAbTest && (
-        <RuleAbTestDialog rules={rules} onClose={() => setShowAbTest(false)} />
-      )}
-      {showGlobalStats && (
-        <RuleGlobalStatsDialog onClose={() => setShowGlobalStats(false)} />
-      )}
+      {showTemplates && <RuleTemplateDialog onClose={() => setShowTemplates(false)} />}
+      {showAbTest && <RuleAbTestDialog rules={rules} onClose={() => setShowAbTest(false)} />}
+      {showGlobalStats && <RuleGlobalStatsDialog onClose={() => setShowGlobalStats(false)} />}
       {showAutoGenerate && (
         <RuleAutoGenerateDialog
           onClose={() => setShowAutoGenerate(false)}
@@ -329,17 +284,9 @@ export function RulesManager() {
         />
       )}
       {showKnowledgeGraph && (
-        <RuleKnowledgeGraphDialog
-          rules={rules}
-          onClose={() => setShowKnowledgeGraph(false)}
-        />
+        <RuleKnowledgeGraphDialog rules={rules} onClose={() => setShowKnowledgeGraph(false)} />
       )}
-      {detailRule && (
-        <RuleDetailDialog
-          rule={detailRule}
-          onClose={() => setDetailRule(null)}
-        />
-      )}
+      {detailRule && <RuleDetailDialog rule={detailRule} onClose={() => setDetailRule(null)} />}
     </div>
   )
 }
@@ -353,14 +300,7 @@ interface RuleItemProps {
   onShowDetail: () => void
 }
 
-function RuleItem({
-  rule,
-  index,
-  onEdit,
-  onDelete,
-  onToggle,
-  onShowDetail,
-}: RuleItemProps) {
+function RuleItem({ rule, index, onEdit, onDelete, onToggle, onShowDetail }: RuleItemProps) {
   const [confirmDel, setConfirmDel] = React.useState(false)
   const { testDialogRule, openTestDialog } = useRulesStore()
   const isActive = testDialogRule?.id === rule.id
@@ -374,16 +314,12 @@ function RuleItem({
         isActive && 'ring-1 ring-foreground/10',
       )}
     >
-      <span className="w-6 shrink-0 text-right text-xs text-muted-foreground">
-        {index}
-      </span>
+      <span className="w-6 shrink-0 text-right text-xs text-muted-foreground">{index}</span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{rule.name}</span>
           {!rule.enabled && (
-            <span className="rounded-sm bg-muted px-1 text-[10px] text-muted-foreground">
-              禁用
-            </span>
+            <span className="rounded-sm bg-muted px-1 text-[10px] text-muted-foreground">禁用</span>
           )}
           {matchCount > 0 && (
             <span className="shrink-0 rounded-sm bg-blue-500/10 px-1 text-[10px] text-blue-600">
@@ -392,22 +328,18 @@ function RuleItem({
           )}
         </div>
         {rule.description && (
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
-            {rule.description}
-          </p>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">{rule.description}</p>
         )}
       </div>
       <Badge
         variant={priorityVariant(rule.priority)}
         className={cn(
           'shrink-0 px-1.5 py-0 text-[10px]',
-          rule.priority >= 70 &&
-            'border-transparent bg-green-500/10 text-green-600',
+          rule.priority >= 70 && 'border-transparent bg-green-500/10 text-green-600',
           rule.priority >= 30 &&
             rule.priority < 70 &&
             'border-transparent bg-yellow-500/10 text-yellow-600',
-          rule.priority < 30 &&
-            'border-transparent bg-muted text-muted-foreground',
+          rule.priority < 30 && 'border-transparent bg-muted text-muted-foreground',
         )}
       >
         P{rule.priority}
@@ -548,12 +480,14 @@ function RuleEditDialog() {
   }
 
   return (
-    <div className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40">
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40"
+      onClick={(e) => e.target === e.currentTarget && closeEditor()}
+    >
       <div className="w-full max-w-lg space-y-3 rounded-lg border border-border bg-card p-4 shadow-lg">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">
-            {editingRule ? '编辑规则' : '新建规则'}
-          </span>
+          <span className="text-sm font-semibold">{editingRule ? '编辑规则' : '新建规则'}</span>
           <button
             type="button"
             onClick={closeEditor}
@@ -564,7 +498,9 @@ function RuleEditDialog() {
           </button>
         </div>
         <div className="space-y-2">
-          <label htmlFor="rule-name" className="text-xs text-muted-foreground">名称</label>
+          <label htmlFor="rule-name" className="text-xs text-muted-foreground">
+            名称
+          </label>
           <Input
             id="rule-name"
             value={name}
@@ -572,7 +508,9 @@ function RuleEditDialog() {
             placeholder="规则名称"
             className="h-8 text-sm"
           />
-          <label htmlFor="rule-desc" className="text-xs text-muted-foreground">描述(可选)</label>
+          <label htmlFor="rule-desc" className="text-xs text-muted-foreground">
+            描述(可选)
+          </label>
           <Input
             id="rule-desc"
             value={description}
@@ -582,7 +520,9 @@ function RuleEditDialog() {
           />
           <div className="flex gap-2">
             <div className="flex-1">
-              <label htmlFor="rule-scope" className="text-xs text-muted-foreground">作用域</label>
+              <label htmlFor="rule-scope" className="text-xs text-muted-foreground">
+                作用域
+              </label>
               <select
                 id="rule-scope"
                 value={scope}
@@ -595,7 +535,9 @@ function RuleEditDialog() {
               </select>
             </div>
             <div className="w-24">
-              <label htmlFor="rule-priority" className="text-xs text-muted-foreground">优先级</label>
+              <label htmlFor="rule-priority" className="text-xs text-muted-foreground">
+                优先级
+              </label>
               <Input
                 id="rule-priority"
                 type="number"
@@ -603,9 +545,7 @@ function RuleEditDialog() {
                 max={100}
                 value={priority}
                 onChange={(e) =>
-                  setPriority(
-                    Math.max(0, Math.min(100, Number(e.target.value) || 0)),
-                  )
+                  setPriority(Math.max(0, Math.min(100, Number(e.target.value) || 0)))
                 }
                 className="mt-0.5 h-8 text-sm"
               />
@@ -613,7 +553,9 @@ function RuleEditDialog() {
           </div>
           <div className="flex gap-2">
             <div className="flex-1">
-              <label htmlFor="rule-match-type" className="text-xs text-muted-foreground">匹配类型</label>
+              <label htmlFor="rule-match-type" className="text-xs text-muted-foreground">
+                匹配类型
+              </label>
               <select
                 id="rule-match-type"
                 value={matchType}
@@ -647,7 +589,9 @@ function RuleEditDialog() {
               </div>
             )}
           </div>
-          <label htmlFor="rule-content" className="text-xs text-muted-foreground">规则正文</label>
+          <label htmlFor="rule-content" className="text-xs text-muted-foreground">
+            规则正文
+          </label>
           <textarea
             id="rule-content"
             value={content}
@@ -664,12 +608,7 @@ function RuleEditDialog() {
           <Button
             size="sm"
             onClick={handleSave}
-            disabled={
-              isPending.create ||
-              isPending.update ||
-              !name.trim() ||
-              !content.trim()
-            }
+            disabled={isPending.create || isPending.update || !name.trim() || !content.trim()}
           >
             {isPending.create || isPending.update ? '保存中...' : '保存'}
           </Button>
@@ -703,12 +642,14 @@ function RuleTestDialog() {
   }
 
   return (
-    <div className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40">
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40"
+      onClick={(e) => e.target === e.currentTarget && closeTestDialog()}
+    >
       <div className="w-full max-w-md space-y-3 rounded-lg border border-border bg-card p-4 shadow-lg">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-semibold">
-            测试规则:{testDialogRule.name}
-          </span>
+          <span className="text-sm font-semibold">测试规则:{testDialogRule.name}</span>
           <button
             type="button"
             onClick={closeTestDialog}
@@ -719,7 +660,9 @@ function RuleTestDialog() {
           </button>
         </div>
         <div className="space-y-1.5">
-          <label htmlFor="rule-test-msg" className="text-xs text-muted-foreground">输入消息</label>
+          <label htmlFor="rule-test-msg" className="text-xs text-muted-foreground">
+            输入消息
+          </label>
           <textarea
             id="rule-test-msg"
             value={testMessage}
@@ -733,11 +676,7 @@ function RuleTestDialog() {
           <Button variant="outline" size="sm" onClick={closeTestDialog}>
             关闭
           </Button>
-          <Button
-            size="sm"
-            onClick={handleTest}
-            disabled={isPending.test || !testMessage.trim()}
-          >
+          <Button size="sm" onClick={handleTest} disabled={isPending.test || !testMessage.trim()}>
             {isPending.test ? '测试中...' : '测试'}
           </Button>
         </div>
@@ -798,25 +737,19 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
   }, [])
 
   // 规则 ID → 名称映射(用于在冲突详情中显示可读名称)
-  const ruleNameMap = React.useMemo(
-    () => new Map(rules.map((r) => [r.id, r.name])),
-    [rules],
-  )
+  const ruleNameMap = React.useMemo(() => new Map(rules.map((r) => [r.id, r.name])), [rules])
 
   const handleArbitrate = async (idx: number, ruleIds: string[]) => {
     if (!arbitrationContext.trim() || ruleIds.length < 2) return
     setArbitrating(idx)
     try {
-      const res = await rulesApi<RuleResolveConflictsResult>(
-        '/api/rules/resolve-conflicts',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            context: arbitrationContext,
-            conflictingRules: ruleIds,
-          }),
-        },
-      )
+      const res = await rulesApi<RuleResolveConflictsResult>('/api/rules/resolve-conflicts', {
+        method: 'POST',
+        body: JSON.stringify({
+          context: arbitrationContext,
+          conflictingRules: ruleIds,
+        }),
+      })
       setArbitrationResults((prev) => ({ ...prev, [idx]: res }))
     } catch (e) {
       setArbitrationResults((prev) => ({
@@ -834,7 +767,11 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40">
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40"
+      onClick={(e) => e.target === e.currentTarget && onClose?.()}
+    >
       <div className="flex max-h-[85vh] w-full max-w-lg flex-col space-y-3 rounded-lg border border-border bg-card p-4 shadow-lg">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">规则冲突检测</span>
@@ -862,9 +799,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
             <div className="flex h-8 w-8 items-center justify-center rounded-md bg-green-500/10 text-green-600">
               <AlertTriangle className="h-4 w-4" />
             </div>
-            <p className="text-sm text-muted-foreground">
-              未检测到冲突,规则集状态良好
-            </p>
+            <p className="text-sm text-muted-foreground">未检测到冲突,规则集状态良好</p>
           </div>
         ) : (
           <div className="thin-scroll space-y-2 overflow-y-auto">
@@ -898,19 +833,12 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
                   >
                     {conflictTypeLabel(conflict.type)}
                   </span>
-                  <span className="flex-1 text-xs text-muted-foreground">
-                    {conflict.detail}
-                  </span>
+                  <span className="flex-1 text-xs text-muted-foreground">{conflict.detail}</span>
                   {conflict.ruleIds.length >= 2 && (
                     <button
                       type="button"
-                      onClick={() =>
-                        handleArbitrate(idx, conflict.ruleIds)
-                      }
-                      disabled={
-                        arbitrating !== null ||
-                        !arbitrationContext.trim()
-                      }
+                      onClick={() => handleArbitrate(idx, conflict.ruleIds)}
+                      disabled={arbitrating !== null || !arbitrationContext.trim()}
                       className="shrink-0 rounded-sm border border-border px-1.5 py-0 text-[10px] text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
                     >
                       {arbitrating === idx ? '协商中...' : 'LLM 协商'}
@@ -943,9 +871,7 @@ function RuleConflictDialog({ rules, onClose }: RuleConflictDialogProps) {
                         </span>
                       )}
                     </div>
-                    <p className="text-muted-foreground">
-                      {arbitrationResults[idx].reason}
-                    </p>
+                    <p className="text-muted-foreground">{arbitrationResults[idx].reason}</p>
                     {arbitrationResults[idx].alternative && (
                       <p className="text-muted-foreground">
                         合并建议:{arbitrationResults[idx].alternative}
@@ -1025,7 +951,11 @@ function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40">
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40"
+      onClick={(e) => e.target === e.currentTarget && onClose?.()}
+    >
       <div className="flex max-h-[80vh] w-full max-w-lg flex-col space-y-3 rounded-lg border border-border bg-card p-4 shadow-lg">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">规则模板库</span>
@@ -1059,9 +989,7 @@ function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
                 className="space-y-1.5 rounded-md border border-border bg-background px-3 py-2"
               >
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium">
-                    {template.name}
-                  </span>
+                  <span className="truncate text-sm font-medium">{template.name}</span>
                   <span className="shrink-0 rounded-sm bg-muted px-1.5 py-0 text-[10px] text-muted-foreground">
                     {matchTypeLabel(template.matchType)}
                   </span>
@@ -1074,16 +1002,13 @@ function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
                       template.priority >= 30 &&
                         template.priority < 70 &&
                         'border-transparent bg-yellow-500/10 text-yellow-600',
-                      template.priority < 30 &&
-                        'border-transparent bg-muted text-muted-foreground',
+                      template.priority < 30 && 'border-transparent bg-muted text-muted-foreground',
                     )}
                   >
                     P{template.priority}
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {template.description}
-                </p>
+                <p className="text-xs text-muted-foreground">{template.description}</p>
                 <div className="flex items-center justify-between gap-2">
                   <code className="truncate rounded-sm bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                     {template.pattern}
@@ -1095,9 +1020,7 @@ function RuleTemplateDialog({ onClose }: RuleTemplateDialogProps) {
                     disabled={creatingName !== null}
                     onClick={() => handleUseTemplate(template)}
                   >
-                    {creatingName === template.name
-                      ? '创建中...'
-                      : '使用'}
+                    {creatingName === template.name ? '创建中...' : '使用'}
                   </Button>
                 </div>
               </div>
@@ -1123,9 +1046,7 @@ interface RuleDetailDialogProps {
 }
 
 function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
-  const [tab, setTab] = React.useState<'stats' | 'history' | 'predict'>(
-    'stats',
-  )
+  const [tab, setTab] = React.useState<'stats' | 'history' | 'predict'>('stats')
   const [stats, setStats] = React.useState<RuleStats | null>(null)
   const [history, setHistory] = React.useState<RuleHistoryEntry[]>([])
   const [loading, setLoading] = React.useState(true)
@@ -1135,8 +1056,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
   const [feedbackMsg, setFeedbackMsg] = React.useState<string>('')
   // ── 效果预测 state(超越创新)──
   const [predictPrompt, setPredictPrompt] = React.useState('')
-  const [predictResult, setPredictResult] =
-    React.useState<RulePredictEffectResult | null>(null)
+  const [predictResult, setPredictResult] = React.useState<RulePredictEffectResult | null>(null)
   const [predictLoading, setPredictLoading] = React.useState(false)
   const [learnFeedbackMsg, setLearnFeedbackMsg] = React.useState('')
 
@@ -1145,9 +1065,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
     setLoading(true)
     Promise.all([
       rulesApi<RuleStats>(`/api/rules/${encodeURIComponent(rule.id)}/stats`),
-      rulesApi<RuleHistoryResponse>(
-        `/api/rules/${encodeURIComponent(rule.id)}/history`,
-      ),
+      rulesApi<RuleHistoryResponse>(`/api/rules/${encodeURIComponent(rule.id)}/history`),
     ])
       .then(([s, h]) => {
         if (!cancelled) {
@@ -1194,13 +1112,10 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
 
   const handleFeedback = async (feedback: 'thumbs_up' | 'thumbs_down') => {
     try {
-      await rulesApi<{ success: boolean }>(
-        `/api/rules/${encodeURIComponent(rule.id)}/feedback`,
-        {
-          method: 'POST',
-          body: JSON.stringify({ feedback }),
-        },
-      )
+      await rulesApi<{ success: boolean }>(`/api/rules/${encodeURIComponent(rule.id)}/feedback`, {
+        method: 'POST',
+        body: JSON.stringify({ feedback }),
+      })
       setFeedbackMsg('反馈已记录')
     } catch (e) {
       setFeedbackMsg(`反馈失败:${(e as Error).message}`)
@@ -1236,9 +1151,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
     }
   }
 
-  const handleLearnFeedback = async (
-    feedback: 'helpful' | 'unhelpful' | 'harmful',
-  ) => {
+  const handleLearnFeedback = async (feedback: 'helpful' | 'unhelpful' | 'harmful') => {
     try {
       await rulesApi<{ success: boolean }>(
         `/api/rules/${encodeURIComponent(rule.id)}/learn-feedback`,
@@ -1254,7 +1167,11 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40">
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40"
+      onClick={(e) => e.target === e.currentTarget && onClose?.()}
+    >
       <div className="flex max-h-[85vh] w-full max-w-2xl flex-col space-y-3 rounded-lg border border-border bg-card p-4 shadow-lg">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">规则详情:{rule.name}</span>
@@ -1322,10 +1239,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                 <StatCard label="命中次数" value={String(stats.matchCount)} />
                 <StatCard label="7天命中" value={String(stats.hits7d)} />
                 <StatCard label="30天命中" value={String(stats.hits30d)} />
-                <StatCard
-                  label="平均 token"
-                  value={stats.avgTokenDelta.toFixed(1)}
-                />
+                <StatCard label="平均 token" value={stats.avgTokenDelta.toFixed(1)} />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1337,17 +1251,12 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                   <p className="text-[10px] text-muted-foreground">
                     满意度({stats.satisfactionRate.toFixed(0)}%)
                   </p>
-                  <SatisfactionPie
-                    positive={stats.positiveFeedback}
-                    total={stats.totalFeedback}
-                  />
+                  <SatisfactionPie positive={stats.positiveFeedback} total={stats.totalFeedback} />
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-muted-foreground">
-                  反馈:
-                </span>
+                <span className="text-[10px] text-muted-foreground">反馈:</span>
                 <button
                   type="button"
                   onClick={() => handleFeedback('thumbs_up')}
@@ -1365,9 +1274,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                   无用
                 </button>
                 {feedbackMsg && (
-                  <span className="text-[10px] text-muted-foreground">
-                    {feedbackMsg}
-                  </span>
+                  <span className="text-[10px] text-muted-foreground">{feedbackMsg}</span>
                 )}
               </div>
             </div>
@@ -1375,9 +1282,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
         ) : tab === 'history' ? (
           <div className="thin-scroll space-y-2 overflow-y-auto">
             {history.length === 0 ? (
-              <p className="py-4 text-center text-xs text-muted-foreground">
-                暂无版本历史
-              </p>
+              <p className="py-4 text-center text-xs text-muted-foreground">暂无版本历史</p>
             ) : (
               history.map((entry, idx) => (
                 <div
@@ -1389,20 +1294,13 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                       <span className="rounded-sm bg-muted px-1 py-0 text-[10px] text-muted-foreground">
                         {entry.action}
                       </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {entry.timestamp}
-                      </span>
+                      <span className="text-[10px] text-muted-foreground">{entry.timestamp}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       {idx > 0 && history[idx - 1] && (
                         <button
                           type="button"
-                          onClick={() =>
-                            handleDiff(
-                              history[idx - 1]!.timestamp,
-                              entry.timestamp,
-                            )
-                          }
+                          onClick={() => handleDiff(history[idx - 1]!.timestamp, entry.timestamp)}
                           className="rounded-sm border border-border px-1.5 py-0 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
                         >
                           对比上一版
@@ -1414,26 +1312,20 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                         disabled={rollingBack !== null}
                         className="rounded-sm border border-border px-1.5 py-0 text-[10px] text-muted-foreground transition-colors hover:bg-accent"
                       >
-                        {rollingBack === entry.timestamp
-                          ? '回滚中...'
-                          : '回滚'}
+                        {rollingBack === entry.timestamp ? '回滚中...' : '回滚'}
                       </button>
                     </div>
                   </div>
-                  {diffPair &&
-                    diffPair[1] === entry.timestamp &&
-                    diff !== null && (
-                      <pre className="thin-scroll max-h-32 overflow-auto rounded-sm bg-muted/50 p-1.5 text-[10px] leading-relaxed text-muted-foreground">
-                        {diff}
-                      </pre>
-                    )}
+                  {diffPair && diffPair[1] === entry.timestamp && diff !== null && (
+                    <pre className="thin-scroll max-h-32 overflow-auto rounded-sm bg-muted/50 p-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                      {diff}
+                    </pre>
+                  )}
                 </div>
               ))
             )}
             {feedbackMsg && tab === 'history' && (
-              <p className="text-[10px] text-muted-foreground">
-                {feedbackMsg}
-              </p>
+              <p className="text-[10px] text-muted-foreground">{feedbackMsg}</p>
             )}
           </div>
         ) : (
@@ -1460,9 +1352,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
             {predictResult && (
               <div className="space-y-2">
                 {predictResult.message && (
-                  <p className="text-[10px] text-muted-foreground">
-                    {predictResult.message}
-                  </p>
+                  <p className="text-[10px] text-muted-foreground">{predictResult.message}</p>
                 )}
                 <div className="grid grid-cols-3 gap-2">
                   <StatCard
@@ -1473,19 +1363,11 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                         : String(predictResult.tokenDelta)
                     }
                   />
-                  <StatCard
-                    label="输出差异度"
-                    value={predictResult.similarityDelta.toFixed(3)}
-                  />
-                  <StatCard
-                    label="质量评分"
-                    value={predictResult.qualityScore.toFixed(3)}
-                  />
+                  <StatCard label="输出差异度" value={predictResult.similarityDelta.toFixed(3)} />
+                  <StatCard label="质量评分" value={predictResult.qualityScore.toFixed(3)} />
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground">
-                    建议:
-                  </span>
+                  <span className="text-[10px] text-muted-foreground">建议:</span>
                   <span
                     className={cn(
                       'rounded-sm px-1.5 py-0 text-[10px]',
@@ -1507,17 +1389,13 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                 {predictResult.withRule && (
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1 rounded-md border border-border bg-background p-2">
-                      <p className="text-[10px] text-muted-foreground">
-                        不应用规则
-                      </p>
+                      <p className="text-[10px] text-muted-foreground">不应用规则</p>
                       <pre className="thin-scroll max-h-32 overflow-auto rounded-sm bg-muted/50 p-1.5 text-[10px] leading-relaxed text-muted-foreground">
                         {predictResult.withoutRule}
                       </pre>
                     </div>
                     <div className="space-y-1 rounded-md border border-border bg-background p-2">
-                      <p className="text-[10px] text-muted-foreground">
-                        应用规则
-                      </p>
+                      <p className="text-[10px] text-muted-foreground">应用规则</p>
                       <pre className="thin-scroll max-h-32 overflow-auto rounded-sm bg-muted/50 p-1.5 text-[10px] leading-relaxed text-muted-foreground">
                         {predictResult.withRule}
                       </pre>
@@ -1525,9 +1403,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                   </div>
                 )}
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground">
-                    学习反馈:
-                  </span>
+                  <span className="text-[10px] text-muted-foreground">学习反馈:</span>
                   <button
                     type="button"
                     onClick={() => handleLearnFeedback('helpful')}
@@ -1552,9 +1428,7 @@ function RuleDetailDialog({ rule, onClose }: RuleDetailDialogProps) {
                     有害
                   </button>
                   {learnFeedbackMsg && (
-                    <span className="text-[10px] text-muted-foreground">
-                      {learnFeedbackMsg}
-                    </span>
+                    <span className="text-[10px] text-muted-foreground">{learnFeedbackMsg}</span>
                   )}
                 </div>
               </div>
@@ -1582,29 +1456,47 @@ function StatCard({ label, value }: { label: string; value: string }) {
 }
 
 /** 命中率柱状图(纯 SVG) */
-function HitsBarChart({
-  hits7d,
-  hits30d,
-}: {
-  hits7d: number
-  hits30d: number
-}) {
+function HitsBarChart({ hits7d, hits30d }: { hits7d: number; hits30d: number }) {
   const maxVal = Math.max(hits7d, hits30d, 1)
   const barH = (v: number) => (v / maxVal) * 50
   return (
     <svg viewBox="0 0 120 64" className="h-16 w-full">
-      <rect x="10" y={60 - barH(hits30d)} width="30" height={barH(hits30d)} rx="2" className="fill-foreground/20" />
-      <rect x="60" y={60 - barH(hits7d)} width="30" height={barH(hits7d)} rx="2" className="fill-green-500/40" />
+      <rect
+        x="10"
+        y={60 - barH(hits30d)}
+        width="30"
+        height={barH(hits30d)}
+        rx="2"
+        className="fill-foreground/20"
+      />
+      <rect
+        x="60"
+        y={60 - barH(hits7d)}
+        width="30"
+        height={barH(hits7d)}
+        rx="2"
+        className="fill-green-500/40"
+      />
       <text x="25" y="62" textAnchor="middle" className="fill-muted-foreground text-[8px]">
         30天
       </text>
       <text x="75" y="62" textAnchor="middle" className="fill-muted-foreground text-[8px]">
         7天
       </text>
-      <text x="25" y={56 - barH(hits30d)} textAnchor="middle" className="fill-muted-foreground text-[8px]">
+      <text
+        x="25"
+        y={56 - barH(hits30d)}
+        textAnchor="middle"
+        className="fill-muted-foreground text-[8px]"
+      >
         {hits30d}
       </text>
-      <text x="75" y={56 - barH(hits7d)} textAnchor="middle" className="fill-muted-foreground text-[8px]">
+      <text
+        x="75"
+        y={56 - barH(hits7d)}
+        textAnchor="middle"
+        className="fill-muted-foreground text-[8px]"
+      >
         {hits7d}
       </text>
     </svg>
@@ -1612,13 +1504,7 @@ function HitsBarChart({
 }
 
 /** 满意度饼图(纯 SVG) */
-function SatisfactionPie({
-  positive,
-  total,
-}: {
-  positive: number
-  total: number
-}) {
+function SatisfactionPie({ positive, total }: { positive: number; total: number }) {
   const negative = total - positive
   const radius = 20
   const circumference = 2 * Math.PI * radius
@@ -1628,7 +1514,13 @@ function SatisfactionPie({
   return (
     <div className="flex items-center gap-2">
       <svg viewBox="0 0 48 48" className="h-12 w-12">
-        <circle cx="24" cy="24" r={radius} className="fill-none stroke-red-500/30" strokeWidth="6" />
+        <circle
+          cx="24"
+          cy="24"
+          r={radius}
+          className="fill-none stroke-red-500/30"
+          strokeWidth="6"
+        />
         <circle
           cx="24"
           cy="24"
@@ -1688,7 +1580,11 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40">
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40"
+      onClick={(e) => e.target === e.currentTarget && onClose?.()}
+    >
       <div className="flex max-h-[85vh] w-full max-w-2xl flex-col space-y-3 rounded-lg border border-border bg-card p-4 shadow-lg">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">
@@ -1707,7 +1603,9 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
 
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <label htmlFor="rule-cmp-a" className="text-[10px] text-muted-foreground">规则 A</label>
+            <label htmlFor="rule-cmp-a" className="text-[10px] text-muted-foreground">
+              规则 A
+            </label>
             <select
               id="rule-cmp-a"
               value={ruleIdA}
@@ -1723,7 +1621,9 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
             </select>
           </div>
           <div className="space-y-1">
-            <label htmlFor="rule-cmp-b" className="text-[10px] text-muted-foreground">规则 B</label>
+            <label htmlFor="rule-cmp-b" className="text-[10px] text-muted-foreground">
+              规则 B
+            </label>
             <select
               id="rule-cmp-b"
               value={ruleIdB}
@@ -1741,7 +1641,9 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="rule-cmp-msg" className="text-[10px] text-muted-foreground">测试消息</label>
+          <label htmlFor="rule-cmp-msg" className="text-[10px] text-muted-foreground">
+            测试消息
+          </label>
           <textarea
             id="rule-cmp-msg"
             value={message}
@@ -1773,14 +1675,8 @@ function RuleAbTestDialog({ rules, onClose }: RuleAbTestDialogProps) {
 
         {result && (
           <div className="grid grid-cols-2 gap-2">
-            <AbTestSide
-              label="规则 A"
-              data={result.ruleA}
-            />
-            <AbTestSide
-              label="规则 B"
-              data={result.ruleB}
-            />
+            <AbTestSide label="规则 A" data={result.ruleA} />
+            <AbTestSide label="规则 B" data={result.ruleB} />
           </div>
         )}
       </div>
@@ -1803,9 +1699,7 @@ function AbTestSide({
         <span
           className={cn(
             'shrink-0 rounded-sm px-1 py-0 text-[10px]',
-            data.matched
-              ? 'bg-green-500/10 text-green-600'
-              : 'bg-muted text-muted-foreground',
+            data.matched ? 'bg-green-500/10 text-green-600' : 'bg-muted text-muted-foreground',
           )}
         >
           {data.matched ? '命中' : '未命中'}
@@ -1855,7 +1749,11 @@ function RuleGlobalStatsDialog({ onClose }: RuleGlobalStatsDialogProps) {
   }, [])
 
   return (
-    <div className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40">
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40"
+      onClick={(e) => e.target === e.currentTarget && onClose?.()}
+    >
       <div className="flex max-h-[80vh] w-full max-w-lg flex-col space-y-3 rounded-lg border border-border bg-card p-4 shadow-lg">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">
@@ -1885,10 +1783,7 @@ function RuleGlobalStatsDialog({ onClose }: RuleGlobalStatsDialogProps) {
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
               <StatCard label="总规则数" value={String(stats.totalRules)} />
-              <StatCard
-                label="7天活跃规则"
-                value={String(stats.activeRules7d)}
-              />
+              <StatCard label="7天活跃规则" value={String(stats.activeRules7d)} />
             </div>
 
             <div className="space-y-1.5">
@@ -1902,9 +1797,7 @@ function RuleGlobalStatsDialog({ onClose }: RuleGlobalStatsDialogProps) {
               <p className="text-[10px] text-muted-foreground">规则列表</p>
               <div className="thin-scroll max-h-48 space-y-1 overflow-y-auto">
                 {stats.topRules.length === 0 ? (
-                  <p className="py-2 text-center text-[10px] text-muted-foreground">
-                    暂无命中记录
-                  </p>
+                  <p className="py-2 text-center text-[10px] text-muted-foreground">暂无命中记录</p>
                 ) : (
                   stats.topRules.map((r, idx) => (
                     <div
@@ -1914,9 +1807,7 @@ function RuleGlobalStatsDialog({ onClose }: RuleGlobalStatsDialogProps) {
                       <span className="w-4 text-right text-[10px] text-muted-foreground">
                         {idx + 1}
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-xs">
-                        {r.name}
-                      </span>
+                      <span className="min-w-0 flex-1 truncate text-xs">{r.name}</span>
                       <span className="shrink-0 rounded-sm bg-blue-500/10 px-1 text-[10px] text-blue-600">
                         {r.matchCount} 次
                       </span>
@@ -1974,13 +1865,8 @@ interface RuleAutoGenerateDialogProps {
   onCreated: () => void
 }
 
-function RuleAutoGenerateDialog({
-  onClose,
-  onCreated,
-}: RuleAutoGenerateDialogProps) {
-  const [result, setResult] = React.useState<RuleAutoGenerateResult | null>(
-    null,
-  )
+function RuleAutoGenerateDialog({ onClose, onCreated }: RuleAutoGenerateDialogProps) {
+  const [result, setResult] = React.useState<RuleAutoGenerateResult | null>(null)
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [selected, setSelected] = React.useState<Set<number>>(new Set())
@@ -1993,13 +1879,10 @@ function RuleAutoGenerateDialog({
     setResult(null)
     setSelected(new Set())
     try {
-      const res = await rulesApi<RuleAutoGenerateResult>(
-        '/api/rules/auto-generate',
-        {
-          method: 'POST',
-          body: JSON.stringify({}),
-        },
-      )
+      const res = await rulesApi<RuleAutoGenerateResult>('/api/rules/auto-generate', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      })
       setResult(res)
       // 默认全选 confidence >= 0.6 的候选
       setSelected(
@@ -2050,7 +1933,11 @@ function RuleAutoGenerateDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40">
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40"
+      onClick={(e) => e.target === e.currentTarget && onClose?.()}
+    >
       <div className="flex max-h-[85vh] w-full max-w-lg flex-col space-y-3 rounded-lg border border-border bg-card p-4 shadow-lg">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">
@@ -2101,8 +1988,7 @@ function RuleAutoGenerateDialog({
               </div>
             )}
             <p className="text-[10px] text-muted-foreground">
-              分析了 {result.behaviorCount} 条行为记录,生成{' '}
-              {result.candidates.length} 条候选规则
+              分析了 {result.behaviorCount} 条行为记录,生成 {result.candidates.length} 条候选规则
             </p>
             {result.candidates.length === 0 ? (
               <p className="py-4 text-center text-xs text-muted-foreground">
@@ -2114,9 +2000,7 @@ function RuleAutoGenerateDialog({
                   key={idx}
                   className={cn(
                     'space-y-1.5 rounded-md border bg-background px-3 py-2',
-                    selected.has(idx)
-                      ? 'border-foreground/20'
-                      : 'border-border',
+                    selected.has(idx) ? 'border-foreground/20' : 'border-border',
                   )}
                 >
                   <div className="flex items-center gap-2">
@@ -2126,9 +2010,7 @@ function RuleAutoGenerateDialog({
                       onChange={() => toggleSelect(idx)}
                       className="h-3 w-3 shrink-0"
                     />
-                    <span className="flex-1 truncate text-sm font-medium">
-                      {candidate.name}
-                    </span>
+                    <span className="flex-1 truncate text-sm font-medium">{candidate.name}</span>
                     <span
                       className={cn(
                         'shrink-0 rounded-sm px-1.5 py-0 text-[10px]',
@@ -2143,9 +2025,7 @@ function RuleAutoGenerateDialog({
                     </span>
                   </div>
                   {candidate.description && (
-                    <p className="text-[10px] text-muted-foreground">
-                      {candidate.description}
-                    </p>
+                    <p className="text-[10px] text-muted-foreground">{candidate.description}</p>
                   )}
                   <div className="flex items-center gap-1">
                     <span className="rounded-sm bg-muted px-1 py-0 text-[10px] text-muted-foreground">
@@ -2195,10 +2075,7 @@ interface RuleKnowledgeGraphDialogProps {
   onClose: () => void
 }
 
-function RuleKnowledgeGraphDialog({
-  rules,
-  onClose,
-}: RuleKnowledgeGraphDialogProps) {
+function RuleKnowledgeGraphDialog({ rules, onClose }: RuleKnowledgeGraphDialogProps) {
   const [graph, setGraph] = React.useState<RuleKnowledgeGraph | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -2225,13 +2102,14 @@ function RuleKnowledgeGraphDialog({
     }
   }, [])
 
-  const ruleNameMap = React.useMemo(
-    () => new Map(rules.map((r) => [r.id, r.name])),
-    [rules],
-  )
+  const ruleNameMap = React.useMemo(() => new Map(rules.map((r) => [r.id, r.name])), [rules])
 
   return (
-    <div className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40">
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+    <div
+      className="fixed inset-0 z-modal flex items-center justify-center bg-white/40 p-4 dark:bg-black/40"
+      onClick={(e) => e.target === e.currentTarget && onClose?.()}
+    >
       <div className="flex max-h-[85vh] w-full max-w-2xl flex-col space-y-3 rounded-lg border border-border bg-card p-4 shadow-lg">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">
@@ -2281,10 +2159,7 @@ function RuleKnowledgeGraphDialog({
                 暂无规则,无法构建图谱
               </p>
             ) : (
-              <KnowledgeGraphSvg
-                graph={graph}
-                ruleNameMap={ruleNameMap}
-              />
+              <KnowledgeGraphSvg graph={graph} ruleNameMap={ruleNameMap} />
             )}
             {graph.edges.length > 0 && (
               <div className="thin-scroll max-h-32 space-y-1 overflow-y-auto">
@@ -2294,9 +2169,7 @@ function RuleKnowledgeGraphDialog({
                     key={idx}
                     className="flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-[10px]"
                   >
-                    <span className="truncate">
-                      {ruleNameMap.get(edge.source) ?? edge.source}
-                    </span>
+                    <span className="truncate">{ruleNameMap.get(edge.source) ?? edge.source}</span>
                     <span
                       className={cn(
                         'shrink-0 rounded-sm px-1 py-0',
@@ -2313,9 +2186,7 @@ function RuleKnowledgeGraphDialog({
                           ? '互补'
                           : '冲突'}
                     </span>
-                    <span className="truncate">
-                      {ruleNameMap.get(edge.target) ?? edge.target}
-                    </span>
+                    <span className="truncate">{ruleNameMap.get(edge.target) ?? edge.target}</span>
                     <span className="ml-auto shrink-0 text-muted-foreground">
                       {edge.similarity.toFixed(3)}
                     </span>
@@ -2352,10 +2223,7 @@ function KnowledgeGraphSvg({
 
   const nodeCount = graph.nodes.length
   // 圆形布局:每个节点均匀分布在圆周上
-  const nodePositions = new Map<
-    string,
-    { x: number; y: number }
-  >()
+  const nodePositions = new Map<string, { x: number; y: number }>()
   graph.nodes.forEach((node, idx) => {
     const angle = (idx / Math.max(nodeCount, 1)) * 2 * Math.PI - Math.PI / 2
     nodePositions.set(node.ruleId, {
@@ -2399,16 +2267,10 @@ function KnowledgeGraphSvg({
       {graph.nodes.map((node) => {
         const pos = nodePositions.get(node.ruleId)
         if (!pos) return null
-        const label =
-          ruleNameMap.get(node.ruleId) ?? node.name
+        const label = ruleNameMap.get(node.ruleId) ?? node.name
         return (
           <g key={`node-${node.ruleId}`}>
-            <circle
-              cx={pos.x}
-              cy={pos.y}
-              r="8"
-              className={nodeColor(node.scope)}
-            />
+            <circle cx={pos.x} cy={pos.y} r="8" className={nodeColor(node.scope)} />
             <text
               x={pos.x}
               y={pos.y - 12}
