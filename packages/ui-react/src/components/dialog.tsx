@@ -13,7 +13,12 @@ const DialogContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
 >(({ className, children, ...props }, ref) => (
   <DialogPrimitive.Portal>
-    <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+    {/* Overlay 无 fade-in 动画(2026-07-24 立):
+        原 fade-in-0 让遮罩从 opacity:0 渐显,在 150ms 动画期间 AI 面板(z-sticky=990)
+        以全亮度暴露在遮罩之下,用户视觉感知为"AI 面板跟着登录窗一起发亮"。
+        移除 open 态 animate-in + fade-in-0,遮罩瞬间出现,AI 面板从第一帧就被暗化。
+        保留 closed 态 fade-out-0,关闭时仍有平滑淡出过渡。 */}
+    <DialogPrimitive.Overlay className="fixed inset-0 z-modal bg-black/80 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
