@@ -255,7 +255,7 @@ redis-cli -a <new-password> PING  # 应返回 PONG
 - [ ] 已通知相关人员 (客服 / 运维)
 - [ ] 已确认维护窗口(避免业务高峰)
 - [ ] 已备份旧值(本地 1Password,严禁 Git)
-- [ ] 已准备好回滚脚本 (`scripts/rollback-credential.ps1`)
+- [ ] 已确认手动回滚流程(见第五节紧急回滚)
 - [ ] 已通知监控系统 (避免误报)
 - [ ] 轮换完成后 24h 内观察业务指标
 - [ ] 24h 后删除旧值
@@ -269,8 +269,14 @@ redis-cli -a <new-password> PING  # 应返回 PONG
 
 1. **5 分钟内**: 旧值覆盖新值,重启服务
    ```bash
-   # 假设旧值在 1Password Vault "IHUI-AI/WeChatPay-V3Key-OLD"
-   ./scripts/rollback-credential.ps1 -Service wechat-pay -ToVault IHUI-AI/WeChatPay-V3Key-OLD
+   # 手动回滚步骤(假设旧值已备份在 1Password Vault "IHUI-AI/WeChatPay-V3Key-OLD"):
+   # 1. 从 1Password 取回旧值
+   op item get "WeChatPay-V3Key-OLD" --vault "IHUI-AI" --reveal
+   # 2. 用旧值覆盖 .env.production 对应行(如 WX_PAY_V3_KEY)
+   # 3. 重启 API 服务
+   pnpm --filter @ihui/api start
+   # 4. 验证健康检查
+   curl http://localhost:8802/api/health/ready
    ```
 2. **5-60 分钟内**: 微信支付 / 厂商有缓存,需等缓存失效
 3. **60 分钟+**: 走故障流程,通知客服/管理层
@@ -301,7 +307,8 @@ redis-cli -a <new-password> PING  # 应返回 PONG
 - `scripts/cert-expiry-check.mjs` - 检查所有证书有效期(提前 30 天告警)
 - `scripts/cert-renew-watchdog.mjs` - 平台证书定期拉取(建议每月 1 次)
 - `scripts/check-api-key-leak.mjs` - Git 历史泄露扫描
-- `scripts/rollback-credential.ps1` - 一键回滚(需安装 1Password CLI)
+
+> 注:回滚操作目前为手动流程(见第五节紧急回滚),`scripts/rollback-credential.ps1` 一键回滚脚本尚未实现,规划中。
 
 ---
 
