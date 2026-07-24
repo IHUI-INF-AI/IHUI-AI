@@ -113,10 +113,15 @@ function parsePaging(q: { page?: number; pageSize?: number }): { page: number; p
 
 /**
  * 列表查询,支持 sort=latest/hot/best + 模糊搜索 + 分类过滤 + 分页。
- * installedIds 暂返回空数组(安装表后续接入),前端按 detail 接口的 installStatus 标记。
+ * installedIds 行为:
+ *   - 不传 userId(公开列表):返回空数组,保持公开列表行为。
+ *   - 传 userId(已登录用户):查 user_preferences 表 group='registry_installs',
+ *     返回当前 page 中该用户已安装的条目 id 列表(key 格式 `${sourceType}:${sourceId}`)。
+ *     仅查当前 page 的 items 对应记录,避免全表扫。
  */
 export async function listRegistryItems(
   query: RegistryItemListQuery,
+  userId?: string,
 ): Promise<RegistryItemListResponse> {
   const { page, pageSize } = parsePaging(query)
   const offset = (page - 1) * pageSize
@@ -165,12 +170,30 @@ export async function listRegistryItems(
     .where(where)
   const total = Number(totalRows[0]?.c ?? 0)
 
+  // 已登录用户:查该用户在当前 page 中的安装记录,匹配 sourceType:sourceId 复合键
+  let installedIds: string[] = []
+  if (userId && rows.length > 0) {
+    const userInstalls = await dbRead.execute(
+      sql`SELECT key FROM "user_preferences" WHERE "user_id" = ${userId} AND "group" = 'registry_installs'`,
+    )
+    // drizzle postgres-js execute 返回 RowList 或 { rows },兼容两种形态
+    const installRows = (
+      Array.isArray(userInstalls)
+        ? userInstalls
+        : (userInstalls as { rows?: unknown[] }).rows ?? []
+    ) as Array<{ key: string }>
+    const installedKeys = new Set(installRows.map((r) => r.key))
+    installedIds = rows
+      .filter((r) => installedKeys.has(`${r.sourceType}:${r.sourceId}`))
+      .map((r) => r.id)
+  }
+
   return {
     items: rows.map(toRegistryItem),
     total,
     page,
     pageSize,
-    installedIds: [],
+    installedIds,
   }
 }
 
@@ -198,19 +221,22 @@ export async function getRegistryItem(
 
 /**
  * upsert:按 (source_type, source, source_id) 复合键。
- * 返回 { inserted: true 表示新插入, false 表示更新;hash: payload 的 SHA-256 }。
+ * 返回:
+ *   - inserted: true 表示新插入, false 表示更新
+ *   - hash: payload 的 SHA-256
+ *   - oldVersion: 更新前的版本号(新插入时为 null),供 sync_log.old_version 字段使用
  */
 export async function upsertRegistryItem(
   raw: RawRegistryItem,
   heat: number,
   quality: number,
-): Promise<{ inserted: boolean; hash: string }> {
+): Promise<{ inserted: boolean; hash: string; oldVersion: string | null }> {
   const hash = await computePayloadHash(raw.payload)
   const now = new Date()
 
-  // 先查是否已存在,用于判断 inserted(新插入 vs 更新)
+  // 先查是否已存在,同时取出版本号(用于 sync_log.old_version)
   const existing = await dbRead
-    .select({ id: registryItems.id })
+    .select({ id: registryItems.id, version: registryItems.version })
     .from(registryItems)
     .where(
       and(
@@ -221,6 +247,7 @@ export async function upsertRegistryItem(
     )
     .limit(1)
   const inserted = existing.length === 0
+  const oldVersion = existing[0]?.version ?? null
 
   await db
     .insert(registryItems)
@@ -238,6 +265,7 @@ export async function upsertRegistryItem(
       categories: raw.categories,
       tags: raw.tags,
       payload: raw.payload,
+      payloadHash: hash,
       heatScore: heat,
       qualityScore: quality,
       latestSyncedAt: now,
@@ -260,6 +288,7 @@ export async function upsertRegistryItem(
         categories: raw.categories,
         tags: raw.tags,
         payload: raw.payload,
+        payloadHash: hash,
         heatScore: heat,
         qualityScore: quality,
         latestSyncedAt: now,
@@ -267,7 +296,7 @@ export async function upsertRegistryItem(
       },
     })
 
-  return { inserted, hash }
+  return { inserted, hash, oldVersion }
 }
 
 // =============================================================================
@@ -367,4 +396,57 @@ export async function markWebhookTriggerProcessed(
     .update(registryWebhookTriggers)
     .set({ status, resultMessage, processedAt: new Date() })
     .where(eq(registryWebhookTriggers.id, id))
+}
+
+// =============================================================================
+// TTL 清理 + 版本查询辅助
+// =============================================================================
+
+/**
+ * 清理过期的 webhook 触发记录(保留最近 N 天)。
+ * 由定时任务或管理员手动触发。
+ * 注:drizzle postgres-js 的 delete 不返回 rowCount,用 returning().length 取删除行数。
+ */
+export async function cleanupOldWebhookTriggers(daysToKeep: number = 30): Promise<number> {
+  const cutoff = new Date(Date.now() - daysToKeep * 86400_000)
+  const deleted = await db
+    .delete(registryWebhookTriggers)
+    .where(sql`${registryWebhookTriggers.receivedAt} < ${cutoff}`)
+    .returning({ id: registryWebhookTriggers.id })
+  return deleted.length
+}
+
+/**
+ * 清理过期的同步日志(保留最近 N 天)。
+ */
+export async function cleanupOldSyncLogs(daysToKeep: number = 90): Promise<number> {
+  const cutoff = new Date(Date.now() - daysToKeep * 86400_000)
+  const deleted = await db
+    .delete(registrySyncLogs)
+    .where(sql`${registrySyncLogs.startedAt} < ${cutoff}`)
+    .returning({ id: registrySyncLogs.id })
+  return deleted.length
+}
+
+/**
+ * 查询单个条目的当前版本(供 worker 对比 oldVersion 用)。
+ * 按 (sourceType, source, sourceId) 复合键查询。
+ */
+export async function getRegistryItemVersion(
+  sourceType: string,
+  source: string,
+  sourceId: string,
+): Promise<string | null> {
+  const rows = await dbRead
+    .select({ version: registryItems.version })
+    .from(registryItems)
+    .where(
+      and(
+        eq(registryItems.sourceType, sourceType),
+        eq(registryItems.source, source),
+        eq(registryItems.sourceId, sourceId),
+      ),
+    )
+    .limit(1)
+  return rows[0]?.version ?? null
 }
