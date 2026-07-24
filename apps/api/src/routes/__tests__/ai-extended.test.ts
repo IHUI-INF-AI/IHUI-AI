@@ -43,6 +43,19 @@ vi.mock('../../db/index.js', () => {
   }
 })
 
+// Mock aiServiceFetch 使其直接读取 process.env.AI_SERVICE_URL（动态反映测试中的 env 变更），
+// 绕过 config 模块（模块加载时固化 AI_SERVICE_URL 默认值）与 traceparent 注入。
+vi.mock('../../utils/ai-service-fetch.js', () => ({
+  aiServiceFetch: (_request: unknown, path: string, init: RequestInit = {}) => {
+    const url = `${process.env.AI_SERVICE_URL}${path}`
+    return fetch(url, init)
+  },
+  aiServiceFetchStream: (_request: unknown, path: string, init: RequestInit = {}) => {
+    const url = `${process.env.AI_SERVICE_URL}${path}`
+    return fetch(url, init)
+  },
+}))
+
 import aiExtendedRoutes from '../ai-extended.js'
 
 const originalFetch = global.fetch
