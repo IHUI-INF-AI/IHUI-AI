@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Check, ChevronDown, ChevronRight, Search } from 'lucide-react'
-import { cn } from '../lib/utils.js'
+import { cn } from '../lib/utils'
 
 export interface TreeNode {
   id: string
