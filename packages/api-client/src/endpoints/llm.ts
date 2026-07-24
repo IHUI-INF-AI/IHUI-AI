@@ -1,4 +1,4 @@
-import { fetchApi } from '../client.js'
+import { fetchApi } from '../client'
 
 export interface LlmModel {
   id: string
