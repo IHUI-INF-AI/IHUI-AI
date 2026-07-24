@@ -71,7 +71,7 @@ const PERMISSION_REASON_KEY: Record<string, string> = {
 }
 
 export default function AgentDetailPage() {
-  const t = useTranslations('agents')
+  const t = useTranslations('agent')
   const tc = useTranslations('common')
   const locale = useLocale()
   const router = useRouter()
