@@ -35,20 +35,8 @@ export default function BusinessLicense() {
     Taro.setNavigationBarTitle({ title: tt('about.businessLicense.title', '营业执照') })
   })
 
-  const labels = tList('about.businessLicense.labels')
-  const fallbackLabels = [
-    '统一社会信用代码',
-    '名称',
-    '类型',
-    '法定代表人',
-    '注册资本',
-    '成立日期',
-    '营业期限',
-    '经营范围',
-  ]
-  const finalLabels =
-    labels.length >= VALUES.length ? labels.slice(0, VALUES.length) : fallbackLabels
-  const info = finalLabels.map((label, i) => ({ label, value: VALUES[i] || '' }))
+  const labels = tList('about.businessLicense.labels').slice(0, VALUES.length)
+  const info = labels.map((label, i) => ({ label, value: VALUES[i] || '' }))
 
   const previewLicense = useCallback(() => {
     if (imgError) return
