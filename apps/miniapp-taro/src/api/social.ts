@@ -1,5 +1,5 @@
 import { get, del } from '../utils/request'
-import type { PageData, PageQuery } from '@ihui/api-client'
+import type { PageData, PageQuery, FavoriteItem, SubscriptionItem } from '@ihui/api-client'
 
 // 向后兼容别名:PaginationQuery → PageQuery(api-client canonical 名)
 export type PaginationQuery = PageQuery
@@ -10,15 +10,11 @@ export interface PaginatedList<T> extends PageData<T> {
   pageSize: number
 }
 
-export interface FavoriteItem {
-  id: string
-  targetId: string
-  targetType: string
-  title: string
-  cover?: string | null
-  createdAt: string
-}
+// FavoriteItem / SubscriptionItem 复用 @ihui/api-client(单一来源),本地 re-export 保持外部引用不变
+export type { FavoriteItem, SubscriptionItem }
 
+// FollowingItem 保留本地实现:与 @ihui/api-client FollowUser 字段不一致
+// (nickname/avatar/bio 在本地为可选,api-client 为必填),不可直接替换
 export interface FollowingItem {
   id: string
   username: string
@@ -26,13 +22,6 @@ export interface FollowingItem {
   avatar?: string | null
   bio?: string | null
   followedAt: string
-}
-
-export interface SubscriptionItem {
-  id: string
-  targetType: string
-  targetId: string
-  createdAt: string
 }
 
 export const getFavorites = (query?: PaginationQuery & { resourceType?: string }) =>
