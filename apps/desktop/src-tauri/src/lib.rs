@@ -956,7 +956,7 @@ pub fn run() {
             // 应用启动时恢复上次窗口状态(位置/尺寸/最大化)
             let _ = restore_window_state(app.handle().clone());
             // 注册全局快捷键 Ctrl+Shift+I 唤起/隐藏主窗口
-            let _ = app.global_shortcut().on_desktop("Ctrl+Shift+I", |app, _shortcut, event| {
+            let _ = app.global_shortcut().on_shortcut("Ctrl+Shift+I", |app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
                     if let Some(window) = app.get_webview_window("main") {
                         if window.is_visible().unwrap_or(false) {
