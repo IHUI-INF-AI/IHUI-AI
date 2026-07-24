@@ -18,7 +18,7 @@ import {
   listSubordinates,
   teamCenter,
 } from '../db/commission-queries.js'
-import { orders } from '@ihui/database'
+import { orders, withdrawalFlows } from '@ihui/database'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 
@@ -258,12 +258,15 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
       if (amountCents > available) {
         throw Object.assign(new Error('可提现余额不足'), { statusCode: 400 })
       }
-      return applyWithdrawal({
-        userId,
-        amount: amountCents,
-        method: 'wechat',
-        accountInfo: {},
-      }, request.userId ?? null)
+      return applyWithdrawal(
+        {
+          userId,
+          amount: amountCents,
+          method: 'wechat',
+          accountInfo: {},
+        },
+        request.userId ?? null,
+      )
     }
 
     // 分布式锁防并发重复提现；锁不可用时降级直接执行
@@ -302,5 +305,47 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
     const userId = request.userId!
     const available = await availableWithdrawal(userId)
     return reply.send(success({ available }))
+  })
+
+  // PUT /admin/finance/withdrawal/:id/audit — 管理员审核提现申请
+  // 路径含 /admin 前缀(finance.ts 挂载于 /api),实际路径 /api/admin/finance/withdrawal/:id/audit
+  // body: { status: 'approved' | 'rejected', remark?: string }
+  // DB withdrawal_flows.status:0=pending 1=processing 2=completed 3=failed
+  server.put('/admin/finance/withdrawal/:id/audit', async (request, reply) => {
+    await authenticate(request)
+    const roleId = request.jwtPayload?.roleId ?? 0
+    if (roleId < 1) {
+      return reply.status(403).send(error(403, '需要管理员权限'))
+    }
+    const parsedParams = z.object({ id: z.string().uuid('无效的 ID') }).safeParse(request.params)
+    if (!parsedParams.success) {
+      return reply.status(400).send(error(400, parsedParams.error.issues[0]?.message ?? '参数错误'))
+    }
+    const parsed = z
+      .object({
+        status: z.enum(['approved', 'rejected']),
+        remark: z.string().max(500).optional(),
+      })
+      .safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    // approved→1(processing,进入付款流程),rejected→3(failed)
+    const dbStatus = parsed.data.status === 'approved' ? 1 : 3
+    const set: Partial<typeof withdrawalFlows.$inferInsert> = {
+      status: dbStatus,
+      processedAt: new Date(),
+      updatedAt: new Date(),
+    }
+    if (parsed.data.status === 'rejected' && parsed.data.remark) {
+      set.rejectReason = parsed.data.remark
+    }
+    const [updated] = await db
+      .update(withdrawalFlows)
+      .set(set)
+      .where(eq(withdrawalFlows.id, parsedParams.data.id))
+      .returning()
+    if (!updated) return reply.status(404).send(error(404, '提现记录不存在'))
+    return reply.send(success({}))
   })
 }

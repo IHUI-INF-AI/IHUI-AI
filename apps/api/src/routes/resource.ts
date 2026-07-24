@@ -729,4 +729,31 @@ export const adminResourceRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ ok: true }))
     },
   )
+
+  // 单数路径别名(兼容前端 /api/admin/resource/products 与 /api/admin/resource/tags 调用)
+  server.get(
+    '/resource/products',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = productsListQuery.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const result = await findProducts(parsed.data)
+      return reply.send(success(result))
+    },
+  )
+
+  server.get(
+    '/resource/tags',
+    { schema: { response: { ...responseSchema } } },
+    async (request, reply) => {
+      const parsed = tagsListQuery.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const result = await findTags(parsed.data)
+      return reply.send(success(result))
+    },
+  )
 }
