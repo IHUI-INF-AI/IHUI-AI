@@ -9,6 +9,7 @@ import {
   useRegistryInstall,
   useRegistryUpgradeAll,
   useRegistryConfigDrift,
+  useRegistryWorkerStats,
 } from '@/hooks/use-registry'
 import { RegistryTabs } from '@/components/registry/RegistryTabs'
 import { RegistryItemCard } from '@/components/registry/RegistryItemCard'
@@ -43,6 +44,7 @@ export default function RegistryPage() {
   const sync = useRegistrySync()
   const syncLogs = useRegistrySyncLogs()
   const drift = useRegistryConfigDrift()
+  const workerStats = useRegistryWorkerStats()
 
   const upgradableCount = installedIds.length
 
@@ -134,6 +136,9 @@ export default function RegistryPage() {
               <Button size="sm" variant="outline" disabled={drift.loading} onClick={() => drift.detect()}>
                 {drift.loading ? '检测中…' : '配置漂移检测'}
               </Button>
+              <Button size="sm" variant="outline" disabled={workerStats.loading} onClick={() => workerStats.refresh()}>
+                {workerStats.loading ? '加载中…' : '刷新 Worker 指标'}
+              </Button>
             </div>
             {sync.result && (
               <p className="text-xs text-muted-foreground">
@@ -145,6 +150,13 @@ export default function RegistryPage() {
                 {drift.report.hasDrift
                   ? `检测到 ${drift.report.reports.filter((r) => r.drifted).length} 个文件存在配置漂移`
                   : '未检测到配置漂移'}
+              </div>
+            )}
+            {workerStats.stats && (
+              <div className="rounded-md bg-muted p-3 text-xs space-y-1">
+                <p className="font-medium">Worker 运行状态</p>
+                <p>已处理: {workerStats.stats.processed} 次 | 失败: {workerStats.stats.failed} 次</p>
+                <p>最近处理: {workerStats.stats.lastProcessedAt ? new Date(workerStats.stats.lastProcessedAt).toLocaleString() : '从未'}</p>
               </div>
             )}
             <SyncLogPanel logs={syncLogs.logs} loading={syncLogs.loading} />
