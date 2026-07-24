@@ -1558,17 +1558,17 @@ E1-E5 五层防御体系,从密码学到运行时全链路防护:
 
 ---
 
-## G:\ 根目录实时守门服务(2026-07-24 立)
+## G:\ 根目录实时守门服务(2026-07-24 立;v2.0 白名单优先 2026-07-24 升级)
 
-`FileSystemWatcher` 实时监控 G:\ 根目录,黑名单内的垃圾目录/文件创建后**约 250ms 内自动删除**,从被动清理升级为主动实时阻止。
+`FileSystemWatcher` 实时监控 G:\ 根目录,**v2.0 白名单优先模式** — 任何不在白名单且非系统目录的目录/文件创建后**约 110-222ms 内自动删除**,从被动清理升级为主动实时阻止,彻底消除 v1.0 黑名单模式的盲区(如 `guardian-test-allowed` 不在黑名单被保留)。
 
 **组件**:
 
-- [scripts/g-root-guardian.ps1](./scripts/g-root-guardian.ps1) — 实时监控脚本(FileSystemWatcher + 黑名单匹配 + 自动删除 + 审计日志 + 1MB 日志轮转)
-- [scripts/g-root-blacklist.json](./scripts/g-root-blacklist.json) — 黑名单配置(16 目录 + 23 文件 + 10 通配符模式)
-- [scripts/install-g-root-guardian.ps1](./scripts/install-g-root-guardian.ps1) — 安装脚本(注册 Windows 计划任务,用户登录时自启,失败自动重启)
+- [scripts/g-root-guardian.ps1](./scripts/g-root-guardian.ps1) — v2.0 实时监控脚本(allowlist-first + 黑名单 + 启发式 + .NET Directory.Delete 兜底 + 审计日志 + 1MB 日志轮转)
+- [scripts/g-root-blacklist.json](./scripts/g-root-blacklist.json) — v2.0 配置(allowlist 15 目录 + blacklist 17 目录/23 文件/10 通配符 + heuristic 7 目录签名/14 文件签名 + systemProtected 8 系统目录)
+- [scripts/install-g-root-guardian.ps1](./scripts/install-g-root-guardian.ps1) — 安装脚本(注册 Windows 计划任务,用户登录时自启,失败自动重启 999 次)
 - [scripts/uninstall-g-root-guardian.ps1](./scripts/uninstall-g-root-guardian.ps1) — 卸载脚本(停止进程 + 删除计划任务)
-- [scripts/g-root-guardian-status.ps1](./scripts/g-root-guardian-status.ps1) — 状态检查脚本(查询运行状态 + 显示最近日志)
+- [scripts/g-root-guardian-status.ps1](./scripts/g-root-guardian-status.ps1) — 状态检查脚本(查询运行状态 + 显示最近日志 + 统计 BLOCKED/ALLOWED/ERROR)
 
 **安装(开机自启)**:
 
@@ -1588,9 +1588,19 @@ powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\g-root-guardian-stat
 powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\uninstall-g-root-guardian.ps1
 ```
 
-**黑名单模式**:只删除已知垃圾模式(16 目录 + 23 文件 + 10 通配符),不删除未知目录/文件(避免误删用户新项目)。日志:`.trae-cn/tmp/g-root-guardian.log`(1MB 自动轮转)。
+**v2.0 白名单优先模式(5 层判定逻辑)**:
 
-**根治意义**:从被动清理(cleanup-external-junk.ps1)→ 主动实时阻止(FileSystemWatcher + 计划任务自启),用户无需干预,垃圾创建的瞬间就被删除,等同于"不允许往这放垃圾文件夹"。
+1. `systemProtected` → ALLOWED(系统目录,永不删除:`$RECYCLE.BIN` / `System Volume Information` / `Users` / `Windows` 等 8 个)
+2. `allowlist` → ALLOWED(用户合法项目/工具:IHUI-AI / freellmapi / QoderCN / Trae CN / 微信web开发者工具 等 15 个 + `tools` 通配符)
+3. `blacklist` → BLOCKED(已知垃圾:platforms / iconengines / Qt5*.dll 等 17 目录/23 文件/10 通配符)
+4. `heuristic` → BLOCKED(垃圾特征签名:`guardian-test-*` / `test-*` / `tmp_*` / `search_*.ps1` 等 7 目录签名/14 文件签名)
+5. 否则 → BLOCKED:unknown(未知项,删除)— **v2.0 核心改动,彻底消除 v1.0 盲区**
+
+**实测验证(v2.0)**:guardian-test-allowed 114ms 删除 / platforms 110ms 删除 / unknown-random-dir-xyz 222ms 删除 / Qt5Core.dll 106ms 删除 / IHUI-AI 保留。
+
+**日志**:`.trae-cn/tmp/g-root-guardian.log`(1MB 自动轮转为 `.bak`,格式 `yyyy-MM-dd HH:mm:ss [BLOCKED|ALLOWED|ERROR|STARTED|STOPPED] <path> (<reason>)`)。
+
+**根治意义**:从被动清理(`cleanup-external-junk.ps1`)→ v1.0 主动实时阻止(黑名单模式,有盲区)→ **v2.0 白名单优先**(allowlist-first,未知项也删除),用户无需干预,任何垃圾(已知或未知)创建的瞬间就被删除,等同于"不允许往这放垃圾文件夹"。
 
 ---
 
