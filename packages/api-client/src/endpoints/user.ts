@@ -1,8 +1,8 @@
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
-import { buildQs, type PageData, type PageQuery } from '../utils.js'
-import type { AuthUser } from './auth.js'
+import { fetchApi } from '../client'
+import { buildQs, type PageData, type PageQuery } from '../utils'
+import type { AuthUser } from './auth'
 
 export interface UserProfile {
   id: string
