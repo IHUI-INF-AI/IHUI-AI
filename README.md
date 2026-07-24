@@ -639,10 +639,10 @@ cd IHUI-AI && docker compose up -d
 
 | 端          | 目录                 | 技术栈                          | 职责                                                                   |
 | ----------- | -------------------- | ------------------------------- | ---------------------------------------------------------------------- |
-| **Web**     | `apps/web/`          | Next.js 15 + React 19           | 主前端,200+ 页面,5 语言 i18n,PWA,SEO                                   |
+| **Web**     | `apps/web/`          | Next.js 15 + React 19           | 主前端,200+ 页面,5 语言 i18n,PWA,SEO,`output: 'export'` 静态导出供 Desktop WebView 加载(A 套壳架构) |
 | **API**     | `apps/api/`          | Fastify 5 + Drizzle             | 业务管理 + 多厂商代理 + 认证 + WebSocket,~1300 端点 / 95+ 路由文件     |
 | **AI 服务** | `apps/ai-service/`   | FastAPI + LangGraph + Socket.IO | LLM 网关 + Agent 执行 + MCP 工具 + A2A 协议 + 14 发布 adapter,~55 端点 |
-| **桌面**    | `apps/desktop/`      | Tauri 2 + Rust + React          | 跨平台桌面应用,系统托盘(最小化到托盘)+ 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件访问(读文本/二进制/列目录/拖拽/粘贴)+ 窗口状态持久化 + 会话历史持久化 + Markdown 渲染 + 对话导出(MD/JSON/TXT) + 主题持久化(light/dark/system) + 对话搜索 + 消息重新生成 + 消息编辑重发 + 停止生成 + 字号缩放(Ctrl +/-/0) + 消息时间戳(locale 感知)+ 会话重命名(双击)+ 快捷键帮助(Ctrl+/)+ 模型持久化(provider 分组)+ 代码块主题跟随 + 快捷短语(8 预设) |
+| **桌面**    | `apps/desktop/`      | Tauri 2 + Rust + React          | 跨平台桌面应用,**A 套壳架构:Tauri WebView 加载 Web 端 `output: 'export'` 静态导出产物,消除双端页面重复维护**,保留系统托盘(最小化到托盘)+ 单实例 + 自动启动 + 全局快捷键 + 深度链接 + 原生通知 + 本地文件访问(读文本/二进制/列目录/拖拽/粘贴)+ 窗口状态持久化 + 会话历史持久化 + Markdown 渲染 + 对话导出(MD/JSON/TXT) + 主题持久化(light/dark/system) + 对话搜索 + 消息重新生成 + 消息编辑重发 + 停止生成 + 字号缩放(Ctrl +/-/0) + 消息时间戳(locale 感知)+ 会话重命名(双击)+ 快捷键帮助(Ctrl+/)+ 模型持久化(provider 分组)+ 代码块主题跟随 + 快捷短语(8 预设) |
 | **CLI**     | `apps/cli/`          | Node.js + Commander             | 自研命令行 AI 编程助手,21 命令 + 36 工具 + ACP Server + 24 源配置导入   |
 | **扩展**    | `apps/extension/`    | WXT + React                     | 浏览器扩展,上下文菜单 + 侧边栏 + Chrome/Edge/Firefox                   |
 | **移动**    | `apps/mobile-rn/`    | React Native + Expo EAS         | iOS / Android 原生应用 + SSO                                           |
@@ -1623,7 +1623,7 @@ docker compose up -d
 | ---- | -------------- | ----- | -------------------------- |
 | 业务 | api            | 8802  | Fastify 后端               |
 | 业务 | worker         | 8830  | BullMQ 独立 worker 进程    |
-| 业务 | web            | 8801  | Next.js 前端(standalone)   |
+| 业务 | web            | 8801  | Next.js 前端(static export,A 套壳架构) |
 | 业务 | ai-service     | 8803  | FastAPI AI 服务            |
 | 业务 | db             | 8810  | PostgreSQL 15              |
 | 业务 | redis          | 8811  | Redis 7                    |
