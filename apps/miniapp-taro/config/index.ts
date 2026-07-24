@@ -13,7 +13,14 @@ export default defineConfig(async (merge) => {
     outputRoot: 'dist',
     plugins: [],
     defineConstants: {},
-    copy: { patterns: [{ from: 'src/static/', to: 'dist/static/' }], options: {} },
+    copy: {
+      patterns: [
+        { from: 'src/static/', to: 'dist/static/' },
+        { from: 'src/assets/tabbar/', to: 'dist/assets/tabbar/' },
+        { from: 'src/mini.project.json', to: 'dist/mini.project.json' },
+      ],
+      options: {},
+    },
     framework: 'react',
     compiler: 'vite',
     cache: { enable: true },
@@ -21,6 +28,7 @@ export default defineConfig(async (merge) => {
       '@': path.resolve(__dirname, '..', 'src'),
     },
     mini: {
+      es5: true,
       postcss: {
         pxtransform: { enable: true, config: {} },
         tailwindcss: { enable: true, config: {} },
