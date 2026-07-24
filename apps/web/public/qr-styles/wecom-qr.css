@@ -1,48 +1,85 @@
 /* 企业微信扫码登录 iframe 自定义样式
  * 用途:隐藏 SDK 默认顶部"企业微信登录"标题文字 + 底部提示,二维码居中
  * 引用方式:WwLogin({ href: `${window.location.origin}/qr-styles/wecom-qr.css` })
- * iframe 内部 DOM 结构(跨域,只能通过 SDK 的 href 参数注入 CSS):
- *   <div class="login_box">
- *     <div class="title">企业微信登录</div>      ← 隐藏
- *     <div class="qrcode"><img /></div>
- *     <div class="info">...</div>                 ← 隐藏
- *   </div>
+ *
+ * 2026-07-25 v2:企业微信 iframe 内部是 Vue 渲染,DOM 结构无法预知,
+ * 用宽泛选择器覆盖所有可能的标题/提示/容器 class 名。
+ * 已知 Vue 挂载点:#js_single_page_container
  */
 
-/* 隐藏顶部标题栏(含企业微信图标) */
+/* 隐藏所有可能的顶部标题栏(含企业微信图标)
+ * 覆盖 .login_box / .qrcode_login_box / .ww_login_box 等容器内的 .title / .header / .login_title
+ */
 .login_box .title,
-.qrcode_login_box .title {
+.qrcode_login_box .title,
+.ww_login_box .title,
+.login_box .header,
+.qrcode_login_box .header,
+.ww_login_box .header,
+.login_box .login_title,
+.qrcode_login_box .login_title,
+.ww_login_box .login_title,
+.login_box .page_title,
+.qrcode_login_box .page_title,
+.ww_login_box .page_title {
   display: none !important;
 }
 
-/* 隐藏底部提示文字 */
+/* 隐藏所有可能的底部提示文字 */
 .login_box .info,
-.qrcode_login_box .info {
+.qrcode_login_box .info,
+.ww_login_box .info,
+.login_box .desc,
+.qrcode_login_box .desc,
+.ww_login_box .desc,
+.login_box .tip,
+.qrcode_login_box .tip,
+.ww_login_box .tip {
   display: none !important;
 }
 
-/* 二维码区域去掉默认 padding,居中 */
-.login_box .qrcode,
-.qrcode_login_box .qrcode {
-  margin: 0 auto !important;
-  padding: 0 !important;
-  text-align: center !important;
-}
-
-/* 容器 flex 居中 */
+/* 容器 flex 居中 - 覆盖所有可能的容器 class */
 .login_box,
-.qrcode_login_box {
+.qrcode_login_box,
+.ww_login_box,
+#js_single_page_container {
   padding: 0 !important;
   margin: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 280px !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
   justify-content: center !important;
-  height: 100% !important;
-  min-height: 280px !important;
+  box-sizing: border-box !important;
 }
 
-/* iframe 自身填满父容器 */
-iframe {
-  border: none !important;
+/* 二维码区域居中 - 覆盖所有可能的 qrcode wrapper class */
+.login_box .qrcode,
+.qrcode_login_box .qrcode,
+.ww_login_box .qrcode,
+.login_box .qrcode_wrapper,
+.qrcode_login_box .qrcode_wrapper,
+.ww_login_box .qrcode_wrapper,
+.login_box .qrcode_area,
+.qrcode_login_box .qrcode_area,
+.ww_login_box .qrcode_area,
+.login_box .qr_code,
+.qrcode_login_box .qr_code,
+.ww_login_box .qr_code {
+  margin: 0 auto !important;
+  padding: 0 !important;
+  text-align: center !important;
+  display: block !important;
+  float: none !important;
+}
+
+/* 二维码图片本身居中 */
+.login_box img,
+.qrcode_login_box img,
+.ww_login_box img {
+  margin: 0 auto !important;
+  display: block !important;
+  float: none !important;
 }
