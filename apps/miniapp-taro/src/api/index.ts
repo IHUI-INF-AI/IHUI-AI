@@ -11,6 +11,7 @@ import type {
   VipLevel,
   SignContractResponse,
   AlipayMiniappPayResponse,
+  ExamQuestion,
 } from '@ihui/api-client'
 import {
   signRecurringContract as _signRecurringContract,
@@ -28,7 +29,7 @@ import {
 import { unwrapApi } from '../utils/api-bridge'
 export type { UserInfo }
 export { get, post } from '../utils/request'
-// 类型单一来源:LlmModel / FetchModelsResult / AgentPermission / AgentPermissionType / WalletBalance / VipLevel / SignContractResponse 复用 @ihui/api-client,本地 re-export 保持外部引用不变
+// 类型单一来源:LlmModel / FetchModelsResult / AgentPermission / AgentPermissionType / WalletBalance / VipLevel / SignContractResponse / ExamQuestion 复用 @ihui/api-client,本地 re-export 保持外部引用不变
 export type {
   LlmModel,
   FetchModelsResult,
@@ -43,6 +44,7 @@ export type {
   PaymentStatus,
   PaymentMethod,
   AlipayMiniappPayResponse,
+  ExamQuestion,
 } from '@ihui/api-client'
 // 向后兼容别名:SignContractResult → SignContractResponse(api-client canonical 名)
 export type SignContractResult = SignContractResponse
@@ -702,15 +704,11 @@ export interface ExamPaper {
   isRandom?: boolean
   status?: number
 }
-export interface ExamQuestion {
-  id: string
-  paperId: string
-  type: QuestionType
-  title: string
-  options?: string[]
-  score?: string
-  sortOrder?: number
-}
+// ExamQuestion 已 re-export 自 @ihui/api-client(见文件顶部)
+// 字段差异记录:miniapp-taro 原本地定义为 { paperId, type: QuestionType, options: string[], score: string, sortOrder }
+// api-client ExamQuestion 为 { examId, type: 'single'|'multiple'|'judge'|'fill'|'essay', options: {key,value}[]|null, score: number, analysis: string|null }
+// 后端 /exam/papers/:id/questions 实际返回与 api-client 一致(经 toApiQuestionType + normalizeOptionsForApi + Number 转换)
+// QuestionType 保留本地定义:answer.tsx 使用旧枚举值 'multi_choice'/'fill_blank'/'subjective',迁移需联动修改 answer.tsx(超出 P2-1 范围)
 export const getExamPaper = (id: string) => get<{ paper: ExamPaper }>(`/exam/papers/${id}`)
 export const getExamQuestions = (id: string) =>
   get<{ list: ExamQuestion[] }>(`/exam/papers/${id}/questions`)
