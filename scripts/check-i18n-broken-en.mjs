@@ -193,7 +193,8 @@ function main() {
   } else if (isExtension) {
     relPath = 'packages/i18n/messages/extension/en.json'
   } else {
-    relPath = 'apps/web/messages/en.json'
+    // 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
+    relPath = 'packages/i18n/messages/web/en.json'
   }
   const targetFile = path.resolve(relPath)
 

@@ -33,6 +33,7 @@
     "@ihui/app": "workspace:*",
     "@ihui/auth": "workspace:*",
     "@ihui/design-tokens": "workspace:*",
+    "@ihui/i18n": "workspace:*",
     "@ihui/shared": "workspace:*",
     "@ihui/types": "workspace:*",
     "@ihui/ui-react": "workspace:*",
