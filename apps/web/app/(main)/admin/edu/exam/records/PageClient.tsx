@@ -25,6 +25,7 @@ import {
   Button,
   Input,
 } from '@ihui/ui-react'
+import { type PageData } from '@ihui/api-client'
 
 interface ExamRecord {
   id: string
@@ -34,10 +35,6 @@ interface ExamRecord {
   isPassed: boolean
   status: string
   submittedAt: string | null
-}
-interface PageData<T> {
-  list: T[]
-  total: number
 }
 interface Paper {
   id: string

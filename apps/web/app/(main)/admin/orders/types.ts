@@ -1,4 +1,5 @@
 import { fetchApi } from '@/lib/api'
+export { type PageData } from '@ihui/api-client'
 
 export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
 export type RefundStatus =
@@ -58,13 +59,6 @@ export interface EduInvoiceApplication {
   remark?: string | null
   createdAt: string
   updatedAt: string
-}
-
-export interface PageData<T> {
-  list: T[]
-  total: number
-  page: number
-  pageSize: number
 }
 
 export const PAGE_SIZE = 10
