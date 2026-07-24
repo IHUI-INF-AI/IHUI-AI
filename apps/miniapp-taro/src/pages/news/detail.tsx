@@ -6,7 +6,6 @@ import * as api from '@/api'
 import { getNewsDetail, type News } from '@/api'
 import { NavBar } from '@/components'
 import { useI18n } from '@/i18n'
-import './detail.css'
 
 // 防御式扩展:likeNews / getRelatedNews 当前 @/api 未导出,运行时若存在则调用,否则静默 fallback
 type NewsApiExt = {
@@ -115,46 +114,58 @@ export default function NewsDetailPage() {
   }))
 
   return (
-    <View className="page">
+    <View className="min-h-screen bg-background pb-[140rpx]">
       <NavBar showBack />
       {loading ? (
-        <View className="loading">
+        <View className="text-center py-[120rpx] text-muted-foreground">
           <Text>{tt('common.loading', '加载中…')}</Text>
         </View>
       ) : null}
 
       {!loading && news.title ? (
-        <View className="head">
-          <Text className="title">{news.title}</Text>
-          <View className="meta">
-            <Text className="time">{news.createTime}</Text>
-            <Text className="views">
-              {tt('news.readCount', '{n}阅读', { n: news.views || 0 })}
-            </Text>
+        <View className="bg-card p-[32rpx] mb-[24rpx]">
+          <Text className="block text-[40rpx] text-foreground font-bold leading-[1.4]">
+            {news.title}
+          </Text>
+          <View className="flex gap-[24rpx] mt-[24rpx] text-[22rpx] text-muted-foreground">
+            <Text>{news.createTime}</Text>
+            <Text>{tt('news.readCount', '{n}阅读', { n: news.views || 0 })}</Text>
           </View>
         </View>
       ) : null}
 
       {!loading && news.content ? (
-        <View className="content">
+        <View className="bg-card p-[32rpx] text-[30rpx] text-foreground leading-[1.8] mb-[24rpx]">
           <RichText nodes={news.content} />
         </View>
       ) : null}
 
       {!loading && related.length ? (
-        <View className="related">
-          <Text className="related-title">{tt('news.detail.related', '相关推荐')}</Text>
-          <View className="related-list">
+        <View className="bg-card p-[32rpx]">
+          <Text className="block text-[30rpx] text-foreground font-semibold mb-[24rpx]">
+            {tt('news.detail.related', '相关推荐')}
+          </Text>
+          <View className="flex flex-col gap-[24rpx]">
             {related.map((r) => (
-              <View key={r.id} className="related-item" onClick={() => goRelated(r.id)}>
+              <View
+                key={r.id}
+                className="flex gap-[24rpx] p-[16rpx] bg-background rounded-[12rpx]"
+                onClick={() => goRelated(r.id)}
+              >
                 {r.coverUrl ? (
-                  <Image className="related-cover" src={r.coverUrl} mode="aspectFill" />
+                  <Image
+                    className="w-[200rpx] h-[140rpx] rounded-[8rpx] shrink-0 bg-secondary"
+                    src={r.coverUrl}
+                    mode="aspectFill"
+                  />
                 ) : null}
-                <View className="related-info">
-                  <Text className="related-name">{r.title}</Text>
-                  <View className="related-meta">
-                    <Text className="r-time">{r.createTime}</Text>
-                    <Text className="r-views">
+                <View className="flex-1 flex flex-col justify-between py-[4rpx] min-w-0">
+                  <Text className="text-[26rpx] text-foreground font-medium leading-[1.4] line-clamp-2">
+                    {r.title}
+                  </Text>
+                  <View className="flex gap-[16rpx] mt-[12rpx]">
+                    <Text className="text-[22rpx] text-muted-foreground">{r.createTime}</Text>
+                    <Text className="text-[22rpx] text-muted-foreground">
                       {tt('news.readCount', '{n}阅读', { n: r.views || 0 })}
                     </Text>
                   </View>
@@ -166,28 +177,37 @@ export default function NewsDetailPage() {
       ) : null}
 
       {!loading && !news.title ? (
-        <View className="loading">
+        <View className="text-center py-[120rpx] text-muted-foreground">
           <Text>{tt('common.empty', '暂无数据')}</Text>
         </View>
       ) : null}
 
       {!loading && news.title ? (
-        <View className="bottom-bar">
-          <View className={`action${liked ? ' liked' : ''}`} onClick={onLike}>
-            <Text className="icon">{liked ? '♥' : '♡'}</Text>
-            <Text className="count">
+        <View className="fixed bottom-0 left-0 right-0 flex items-center bg-card px-[24rpx] pt-[16rpx] pb-[calc(16rpx+env(safe-area-inset-bottom,0))] shadow-[0_-2rpx_12rpx_rgba(0,0,0,0.25)]">
+          <View
+            className={`flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] bg-transparent ${liked ? 'text-destructive' : 'text-muted-foreground'}`}
+            onClick={onLike}
+          >
+            <Text className="text-[32rpx] leading-none">{liked ? '♥' : '♡'}</Text>
+            <Text className="text-[24rpx] leading-none">
               {likes > 0 ? likes : tt('news.detail.like', '点赞')}
             </Text>
           </View>
-          <View className="action" onClick={onComment}>
-            <Text className="icon">💬</Text>
-            <Text className="count">
+          <View
+            className="flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] text-muted-foreground bg-transparent"
+            onClick={onComment}
+          >
+            <Text className="text-[32rpx] leading-none">💬</Text>
+            <Text className="text-[24rpx] leading-none">
               {comments > 0 ? comments : tt('news.detail.comment', '评论')}
             </Text>
           </View>
-          <View className="action" onClick={onShare}>
-            <Text className="icon">↗</Text>
-            <Text className="count">{tt('news.detail.share', '分享')}</Text>
+          <View
+            className="flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] text-muted-foreground bg-transparent"
+            onClick={onShare}
+          >
+            <Text className="text-[32rpx] leading-none">↗</Text>
+            <Text className="text-[24rpx] leading-none">{tt('news.detail.share', '分享')}</Text>
           </View>
         </View>
       ) : null}
