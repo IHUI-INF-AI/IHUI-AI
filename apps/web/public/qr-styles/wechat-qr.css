@@ -7,6 +7,8 @@
  *     <div class="wrp_code"><img class="qrcode" /></div>
  *     <div class="info"><span class="status">...</span></div>  ← 隐藏
  *   </div>
+ *
+ * 2026-07-25 v2:修复二维码偏右问题,用 flex + align-items 强制居中
  */
 
 /* 隐藏顶部"微信登录"标题栏(含微信图标) */
@@ -19,26 +21,32 @@
   display: none !important;
 }
 
-/* 二维码区域去掉默认 padding,居中 */
-.impowerBox .wrp_code {
-  margin: 0 auto !important;
-  padding: 0 !important;
-}
-
 /* 容器 flex 居中,让二维码垂直水平居中 */
 .impowerBox {
   padding: 0 !important;
   margin: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 280px !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
   justify-content: center !important;
-  height: 100% !important;
-  min-height: 280px !important;
+  box-sizing: border-box !important;
 }
 
-/* 二维码图片本身去掉边框 */
-.impowerBox .qrcode.lightBorder {
+/* 二维码区域去掉默认 padding,居中 */
+.impowerBox .wrp_code {
+  margin: 0 auto !important;
+  padding: 0 !important;
+  text-align: center !important;
+}
+
+/* 二维码图片本身去掉边框,block 居中 */
+.impowerBox .qrcode.lightBorder,
+.impowerBox .qrcode {
   border: none !important;
   margin: 0 auto !important;
+  display: block !important;
+  float: none !important;
 }

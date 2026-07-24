@@ -90,7 +90,7 @@ export function WechatQrPanel({ refreshKey }: WechatQrPanelProps) {
   // 修复:SDK 挂载点(sdkContainerRef)与 React 子节点(Loader2)分层渲染,互不干扰
   return (
     <div className="relative mx-auto flex h-[280px] w-full max-w-[280px] items-center justify-center overflow-hidden rounded-md border bg-card">
-      <div ref={containerRef} id={containerId} className="absolute inset-0" />
+      <div ref={containerRef} id={containerId} className="absolute inset-0 flex items-center justify-center [&_iframe]:block [&_iframe]:mx-auto [&_iframe]:static [&_iframe]:max-w-full" />
       {status === 'loading' && (
         <Loader2 className="relative h-6 w-6 animate-spin text-muted-foreground" />
       )}
