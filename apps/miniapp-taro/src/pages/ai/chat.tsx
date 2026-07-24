@@ -10,6 +10,7 @@ import {
   getAgentList,
 } from '@/api'
 import { formatSSEError, getModelContextCapacity, formatTokenCount } from '@ihui/api-client'
+import type { Agent } from '@ihui/api-client'
 import {
   type ModelItem,
   InputArea,
@@ -37,12 +38,8 @@ interface MaterialItem {
   content?: string
   createdAt?: string
 }
-interface AgentInfo {
-  id: string
-  name: string
-  desc: string
+type AgentInfo = Pick<Agent, 'id' | 'name' | 'description' | 'systemPrompt'> & {
   avatar?: string
-  prompt: string
   /** 智能体开场白(对标原 ai_assistant.vue prologue,引导说明内容) */
   prologue?: string
 }
@@ -183,8 +180,16 @@ export default function ChatPage() {
   const loadAgents = useCallback(async () => {
     setAgentsLoading(true)
     try {
-      const res = (await getAgentList()) as { list?: AgentItem[] }
-      setAgents(res?.list || [])
+      const res = await getAgentList()
+      setAgents(
+        (res.list || []).map((a) => ({
+          id: a.id,
+          name: a.name,
+          description: a.desc,
+          avatar: a.avatar,
+          useCount: a.uses,
+        })),
+      )
     } catch {
       Taro.showToast({ title: t('ai.agentLoadFailed'), icon: 'none' })
     } finally {
@@ -195,7 +200,15 @@ export default function ChatPage() {
   const loadAgent = useCallback(async () => {
     if (!activeAgentId) return
     try {
-      setAgent(await getAgentDetail(activeAgentId))
+      const a = await getAgentDetail(activeAgentId)
+      setAgent({
+        id: a.id,
+        name: a.name,
+        description: a.desc,
+        avatar: a.avatar,
+        systemPrompt: a.prompt,
+        prologue: a.prologue,
+      })
     } catch {
       Taro.showToast({ title: t('ai.agentLoadFailed'), icon: 'none' })
     }
@@ -222,7 +235,9 @@ export default function ChatPage() {
 
   useShareAppMessage(() => ({
     // 若有待分享消息(长按消息→分享),用消息内容前 50 字符作为 title(对标原 ai_assistant.vue 分享)
-    title: shareMsgRef.current ? (shareMsgRef.current.content || '').slice(0, 50) || t('ai.share.title') : t('ai.share.title'),
+    title: shareMsgRef.current
+      ? (shareMsgRef.current.content || '').slice(0, 50) || t('ai.share.title')
+      : t('ai.share.title'),
     path: '/pages/ai/chat',
   }))
 
@@ -443,9 +458,9 @@ export default function ChatPage() {
             setAgent({
               id: a.id,
               name: a.name,
-              desc: a.desc || '',
+              description: a.description || '',
               avatar: a.avatar,
-              prompt: '',
+              systemPrompt: '',
             })
             loadAgent()
           },
@@ -457,9 +472,9 @@ export default function ChatPage() {
       setAgent({
         id: a.id,
         name: a.name,
-        desc: a.desc || '',
+        description: a.description || '',
         avatar: a.avatar,
-        prompt: '',
+        systemPrompt: '',
       })
       loadAgent()
     },
@@ -711,8 +726,14 @@ export default function ChatPage() {
             onRegenerate={msg.role === 'assistant' ? handleRegenerate : undefined}
             onLongPress={() => handleLongPress(msg, idx)}
             onEdit={msg.role === 'user' ? () => handleEdit(msg, idx) : undefined}
-            isFavorited={msg.role === 'assistant' && msg.timestamp ? favoritedMsgs.has(String(msg.timestamp)) : undefined}
-            onToggleFavorite={msg.role === 'assistant' && msg.timestamp ? () => toggleFavorite(msg) : undefined}
+            isFavorited={
+              msg.role === 'assistant' && msg.timestamp
+                ? favoritedMsgs.has(String(msg.timestamp))
+                : undefined
+            }
+            onToggleFavorite={
+              msg.role === 'assistant' && msg.timestamp ? () => toggleFavorite(msg) : undefined
+            }
             onSpeak={msg.role === 'assistant' ? handleSpeak : undefined}
           />
         ))}
