@@ -4,14 +4,25 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 type CategoryKey = 'all' | 'office' | 'writing' | 'coding' | 'education' | 'life'
 
 const CATEGORY_KEYWORDS: Record<Exclude<CategoryKey, 'all'>, string[]> = {
   office: ['办公', '会议', '邮件', 'excel', 'word', 'ppt', '文档', '表格', 'office'],
   writing: ['写', '文案', '文章', '创作', '小说', '内容', '写作', '文字'],
-  coding: ['代码', '编程', '程序', '开发', 'bug', '函数', '前端', '后端', 'python', 'javascript', 'code'],
+  coding: [
+    '代码',
+    '编程',
+    '程序',
+    '开发',
+    'bug',
+    '函数',
+    '前端',
+    '后端',
+    'python',
+    'javascript',
+    'code',
+  ],
   education: ['学', '教', '课', '知识', '考试', '题', '教育', '讲解', '题解'],
   life: ['生活', '健康', '美食', '旅游', '运动', '购物', '日常', 'life'],
 }
@@ -80,35 +91,47 @@ export default function AiGroup() {
   ]
 
   return (
-    <View className="page-container">
-      <View className="page-header">
-        <Text className="page-title">{t('aiGroup.title')}</Text>
+    <View className="min-h-screen bg-background">
+      <View className="p-[24rpx] bg-card">
+        <Text className="text-[36rpx] font-semibold text-foreground">{t('aiGroup.title')}</Text>
       </View>
-      <ScrollView scrollX enhanced showScrollbar={false} className="tabs">
+      <ScrollView
+        scrollX
+        enhanced
+        showScrollbar={false}
+        className="whitespace-nowrap py-[16rpx] px-[24rpx] bg-card"
+      >
         {categories.map((cat) => (
           <View
             key={cat.key}
-            className={`tab${activeCategory === cat.key ? ' active' : ''}`}
+            className={`inline-block py-[12rpx] px-[28rpx] mr-[16rpx] rounded-[8rpx] text-[26rpx] ${activeCategory === cat.key ? 'text-primary font-semibold' : 'text-muted-foreground bg-background'}`}
             onClick={() => setActiveCategory(cat.key)}
           >
             <Text>{cat.label}</Text>
           </View>
         ))}
       </ScrollView>
-      <View className="page-content">
+      <View className="p-[24rpx]">
         {loading ? (
-          <View className="state-box">
-            <Text className="state-text">{t('common.loading')}</Text>
+          <View className="flex flex-col items-center py-[80rpx]">
+            <Text className="text-center text-muted-foreground text-[26rpx]">
+              {t('common.loading')}
+            </Text>
           </View>
         ) : error ? (
-          <View className="state-box">
-            <Text className="state-text">{tt('aiGroup.loadFailed', '加载失败')}</Text>
-            <View className="retry-btn" onClick={loadData}>
+          <View className="flex flex-col items-center py-[80rpx]">
+            <Text className="text-center text-muted-foreground text-[26rpx]">
+              {tt('aiGroup.loadFailed', '加载失败')}
+            </Text>
+            <View
+              className="mt-[24rpx] py-[16rpx] px-[48rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[26rpx]"
+              onClick={loadData}
+            >
               <Text>{t('common.retry')}</Text>
             </View>
           </View>
         ) : filtered.length ? (
-          <View className="card-list">
+          <View className="flex flex-col gap-[16rpx]">
             {filtered.map((item) => {
               const id = String(item.id || '')
               const name = String(item.name || '')
@@ -117,30 +140,50 @@ export default function AiGroup() {
               const uses = Number(item.uses || 0)
               const isVip = Boolean(item.isVipExclusive)
               return (
-                <View key={id} className="agent-card" onClick={() => onItemClick(id)}>
-                  <Image className="avatar" src={avatar} mode="aspectFill" />
-                  <View className="info">
-                    <View className="title-row">
-                      <Text className="name">{name || t('aiGroup.agent')}</Text>
-                      {isVip ? <Text className="vip-tag">VIP</Text> : null}
+                <View
+                  key={id}
+                  className="flex items-center p-[24rpx] bg-card rounded-[12rpx]"
+                  onClick={() => onItemClick(id)}
+                >
+                  <Image
+                    className="w-[96rpx] h-[96rpx] rounded-[12rpx] bg-background shrink-0"
+                    src={avatar}
+                    mode="aspectFill"
+                  />
+                  <View className="flex-1 min-w-0 ml-[24rpx]">
+                    <View className="flex items-center">
+                      <Text className="text-[30rpx] font-semibold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                        {name || t('aiGroup.agent')}
+                      </Text>
+                      {isVip ? (
+                        <Text className="ml-[12rpx] py-[2rpx] px-[12rpx] rounded-[6rpx] text-[20rpx] text-[#d97706] bg-[rgba(217,119,6,0.1)] shrink-0">
+                          VIP
+                        </Text>
+                      ) : null}
                     </View>
-                    {desc ? <Text className="desc">{desc}</Text> : null}
-                    <View className="meta-row">
+                    {desc ? (
+                      <Text className="block mt-[8rpx] text-[24rpx] text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                        {desc}
+                      </Text>
+                    ) : null}
+                    <View className="flex items-center mt-[8rpx]">
                       {uses > 0 ? (
-                        <Text className="uses">
+                        <Text className="text-[22rpx] text-primary">
                           {tt('aiGroup.useCount', '{n}人使用', { n: uses })}
                         </Text>
                       ) : null}
                     </View>
                   </View>
-                  <Text className="arrow">›</Text>
+                  <Text className="ml-[16rpx] text-[32rpx] text-muted-foreground shrink-0">›</Text>
                 </View>
               )
             })}
           </View>
         ) : (
-          <View className="state-box">
-            <Text className="state-text">{t('aiGroup.empty')}</Text>
+          <View className="flex flex-col items-center py-[80rpx]">
+            <Text className="text-center text-muted-foreground text-[26rpx]">
+              {t('aiGroup.empty')}
+            </Text>
           </View>
         )}
       </View>
