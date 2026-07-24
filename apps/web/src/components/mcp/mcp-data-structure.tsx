@@ -4,7 +4,7 @@ import * as React from 'react'
 import { Check, ChevronDown, ChevronRight, Copy } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 

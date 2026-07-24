@@ -4,7 +4,7 @@ import * as React from 'react'
 import { GraduationCap, Loader2, Sparkles } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
-import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
 import { Textarea } from '@/components/form'
 import { getCareerAdvice } from '@/lib/ai-api'

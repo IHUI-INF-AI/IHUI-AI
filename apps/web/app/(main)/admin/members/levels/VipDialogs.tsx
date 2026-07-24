@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { FieldConfig } from './helpers'
 import type { Item, FormState } from './types'
 

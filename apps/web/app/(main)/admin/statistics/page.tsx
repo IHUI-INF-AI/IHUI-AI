@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Save, Loader2 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui-react'
 import type { EChartsOption } from 'echarts'
 import { fetchApi } from '@/lib/api'
 import { EChart } from '@/components/charts/EChart'

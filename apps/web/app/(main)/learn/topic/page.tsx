@@ -16,7 +16,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 type TopicType = 'lesson' | 'premium'
 

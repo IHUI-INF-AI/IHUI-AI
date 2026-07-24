@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Mic, Square, Play, Pause, Trash2, Download } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'

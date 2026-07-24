@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { FlaskConical, Send, Loader2, Plus, X } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, Button, Input, Label } from '@ihui/ui'
+import { Card, CardContent, Button, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 

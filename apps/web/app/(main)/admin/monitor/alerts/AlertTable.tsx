@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, CheckCircle2, Check, X } from 'lucide-react'
-import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import { Button, Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { LEVEL_STYLE, STATUS_LABEL, STATUS_STYLE } from './helpers'
 import type { Alert } from './types'

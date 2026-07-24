@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { useTranslations } from 'next-intl'
 import { StatusBadge } from './StatusBadge'

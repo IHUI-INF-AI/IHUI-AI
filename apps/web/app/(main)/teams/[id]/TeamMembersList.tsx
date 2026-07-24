@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl'
 import { Loader2, Trash2 } from 'lucide-react'
 import Image from 'next/image'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { fmt } from './helpers'

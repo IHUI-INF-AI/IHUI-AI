@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Input, Button } from '@ihui/ui'
+import { Input, Button } from '@ihui/ui-react'
 import { Modal } from '@/components/feedback'
 import type { AdminUser } from './types'
 

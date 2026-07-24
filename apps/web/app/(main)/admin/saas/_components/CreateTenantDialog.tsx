@@ -12,7 +12,7 @@ import {
   Input,
   Label,
   Button,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import { selectClass } from '../helpers'
 import type { TenantForm } from '../types'

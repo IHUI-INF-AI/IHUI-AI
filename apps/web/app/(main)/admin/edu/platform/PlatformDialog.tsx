@@ -13,7 +13,7 @@ import {
   Input,
   Label,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { textareaCls } from './helpers'
 import type { EduPlatform, CForm } from './types'
 

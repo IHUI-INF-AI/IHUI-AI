@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Plus, ChevronLeft } from 'lucide-react'
 import { eduApi, buildQs, selectClass } from '@/lib/edu'
-import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 
 import { EMPTY_CH } from './helpers'
 import type { Lesson, Chapter, ChForm } from './types'

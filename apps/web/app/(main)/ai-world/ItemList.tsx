@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, Search } from 'lucide-react'
 
-import { Button, Input } from '@ihui/ui'
+import { Button, Input } from '@ihui/ui-react'
 import { fetchAiWorldItems } from './helpers'
 import type { ItemKind } from './types'
 import { ItemCard } from './ItemCard'

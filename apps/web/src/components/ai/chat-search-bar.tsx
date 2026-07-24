@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { Search } from 'lucide-react'
-import { Input } from '@ihui/ui'
+import { Input } from '@ihui/ui-react'
 import type { SearchResult } from '@/hooks/use-chat-search'
 
 interface ChatSearchBarProps {

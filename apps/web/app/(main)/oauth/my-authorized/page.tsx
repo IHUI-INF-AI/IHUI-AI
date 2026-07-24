@@ -5,7 +5,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, KeyRound, Trash2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui-react'
 
 interface AuthorizedItem {
   id: string

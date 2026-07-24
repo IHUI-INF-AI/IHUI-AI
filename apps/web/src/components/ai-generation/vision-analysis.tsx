@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { extractText } from '@/lib/ai-media'
 import { isMermaidLanguage } from '@/lib/markdown-mermaid-code'

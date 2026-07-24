@@ -4,7 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Check, Sparkles } from 'lucide-react'
-import { Button, Card } from '@ihui/ui'
+import { Button, Card } from '@ihui/ui-react'
 import { RevealOnView } from '@/components/common'
 
 interface PricingPlan {

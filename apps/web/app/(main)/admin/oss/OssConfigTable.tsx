@@ -2,7 +2,7 @@
 
 import { Loader2, Edit, Trash2, Star } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { th } from './helpers'
 import type { OssDriver } from './types'

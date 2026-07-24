@@ -1,6 +1,6 @@
 'use client'
 import { Loader2 } from 'lucide-react'
-import { Card, CardContent, Button } from '@ihui/ui'
+import { Card, CardContent, Button } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import type { Question } from './types'
 
