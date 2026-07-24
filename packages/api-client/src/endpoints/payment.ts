@@ -315,14 +315,38 @@ export interface AlipayMiniappPayResponse {
 }
 
 /**
+ * 小程序授权码兑换买家 user_id(从 my.getAuthCode 拿 authCode 调后端换 user_id)。
+ * 返回 2088 开头的 user_id 或 open_id,用于 alipay.trade.create 的 buyer_id 必传参数。
+ */
+export interface AlipayExchangeResponse {
+  userId?: string
+  openId?: string
+  accessToken?: string
+}
+
+export async function exchangeAlipayMiniappBuyerId(
+  authCode: string,
+): Promise<ApiResult<AlipayExchangeResponse>> {
+  return fetchApi<AlipayExchangeResponse>('/api/payments/alipay/miniapp/exchange-buyer-id', {
+    method: 'POST',
+    body: JSON.stringify({ authCode }),
+  })
+}
+
+/**
  * 创建支付宝小程序支付订单（miniapp-taro 端调用）。
  * amount 单位：元（浮点）。返回 tradeNo 传给 Taro.requestPayment({ provider: 'alipay', orderInfo: tradeNo })。
+ *
+ * 必传 buyerId：从小程序端 my.getAuthCode + alipay.system.oauth.token 兑换的 2088 开头的 user_id。
+ * 缺失 buyerId 时后端降级返回 mock=true（不调支付宝,仅落订单）。
  */
 export async function createAlipayMiniappPayment(params: {
   amount: number
   orderType?: number
   subject?: string
   productId?: string
+  /** 小程序支付必传:买家支付宝 user_id(2088开头16位纯数字)或 buyer_open_id */
+  buyerId?: string
 }): Promise<ApiResult<AlipayMiniappPayResponse>> {
   return fetchApi<AlipayMiniappPayResponse>(
     `/api/payments/alipay/miniapp/create${buildQs({
@@ -330,6 +354,7 @@ export async function createAlipayMiniappPayment(params: {
       orderType: params.orderType,
       subject: params.subject,
       productId: params.productId,
+      buyerId: params.buyerId,
     })}`,
     { method: 'POST' },
   )
