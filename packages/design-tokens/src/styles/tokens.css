@@ -30,26 +30,26 @@
   --font-sans-sc:
     'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', 'Source Han Sans SC',
     'Hiragino Sans GB', system-ui, -apple-system, sans-serif;
-  /* 亮色模式反相:纯黑底 + 纯白字 (2026-07-24) */
-  --color-background: hsl(0 0% 0%);
-  --color-foreground: hsl(0 0% 100%);
-  --color-card: hsl(0 0% 5%);
-  --color-card-foreground: hsl(0 0% 100%);
-  --color-popover: hsl(0 0% 5%);
-  --color-popover-foreground: hsl(0 0% 100%);
-  --color-primary: hsl(142 71% 45%);
+  --color-background: hsl(0 0% 96.1%);
+  --color-foreground: hsl(0 0% 3.9%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(0 0% 3.9%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(0 0% 3.9%);
+  /* 按钮:亮色纯黑底 + 白字 (2026-07-24,用户要求消除绿色) */
+  --color-primary: hsl(0 0% 0%);
   --color-primary-foreground: hsl(0 0% 100%);
-  --color-secondary: hsl(0 0% 14.9%);
-  --color-secondary-foreground: hsl(0 0% 98%);
-  --color-muted: hsl(0 0% 15%);
-  --color-muted-foreground: hsl(0 0% 63.9%);
-  --color-accent: hsl(0 0% 17%);
-  --color-accent-foreground: hsl(0 0% 98%);
+  --color-secondary: hsl(0 0% 96.1%);
+  --color-secondary-foreground: hsl(0 0% 9%);
+  --color-muted: hsl(0 0% 92%);
+  --color-muted-foreground: hsl(0 0% 40%);
+  --color-accent: hsl(0 0% 88%);
+  --color-accent-foreground: hsl(0 0% 9%);
   --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
-  --color-border: hsl(0 0% 18%);
-  --color-input: hsl(0 0% 18%);
-  --color-ring: hsl(0 0% 35%);
+  --color-border: hsl(0 0% 89.8%);
+  --color-input: hsl(0 0% 89.8%);
+  --color-ring: hsl(0 0% 70%);
   --color-success: hsl(142 71% 45%);
   --color-success-foreground: hsl(0 0% 98%);
   --color-warning: hsl(38 92% 50%);
@@ -68,14 +68,14 @@
   --color-brand-900: hsl(240 7% 11%);
   --radius: 0.5rem;
 
-  --color-sidebar: hsl(0 0% 5%);
-  --color-sidebar-foreground: hsl(0 0% 98%);
-  --color-sidebar-hover: hsl(0 0% 14%);
-  --color-sidebar-active: hsl(0 0% 17%);
-  --color-sidebar-active-hover: hsl(0 0% 22%);
-  /* 侧边栏导航项 hover 背景容器色:亮色纯黑,与 sidebar 的 5% L 深灰底形成区分 */
-  --color-sidebar-item-hover-bg: hsl(0 0% 0%);
-  --color-shell-panel: hsl(0 0% 10%);
+  --color-sidebar: hsl(0 0% 96.1%);
+  --color-sidebar-foreground: hsl(0 0% 9%);
+  --color-sidebar-hover: hsl(218 14% 92%);
+  --color-sidebar-active: hsl(222 13% 86%);
+  --color-sidebar-active-hover: hsl(217 11% 80%);
+  /* 侧边栏导航项 hover 背景容器色:亮色纯白,与 sidebar 的 96.1% L 浅灰底形成区分 */
+  --color-sidebar-item-hover-bg: hsl(0 0% 100%);
+  --color-shell-panel: hsl(0 0% 100%);
 
   --animate-ripple: ripple 0.6s ease-out;
   --animate-success-bounce: success-bounce 0.4s ease;
@@ -241,26 +241,26 @@
 }
 
 .dark {
-  /* 暗色模式反相:纯白底 + 纯黑字 (2026-07-24) */
-  --color-background: hsl(0 0% 100%);
-  --color-foreground: hsl(0 0% 0%);
-  --color-card: hsl(0 0% 95%);
-  --color-card-foreground: hsl(0 0% 0%);
-  --color-popover: hsl(0 0% 95%);
-  --color-popover-foreground: hsl(0 0% 0%);
-  --color-primary: hsl(142 65% 50%);
+  --color-background: hsl(0 0% 14%);
+  --color-foreground: hsl(0 0% 98%);
+  --color-card: hsl(0 0% 10%);
+  --color-card-foreground: hsl(0 0% 98%);
+  --color-popover: hsl(0 0% 11%);
+  --color-popover-foreground: hsl(0 0% 98%);
+  /* 按钮:暗色纯白底 + 黑字 (2026-07-24,用户要求消除绿色) */
+  --color-primary: hsl(0 0% 100%);
   --color-primary-foreground: hsl(0 0% 0%);
-  --color-secondary: hsl(0 0% 92%);
-  --color-secondary-foreground: hsl(0 0% 9%);
-  --color-muted: hsl(0 0% 92%);
-  --color-muted-foreground: hsl(0 0% 40%);
-  --color-accent: hsl(0 0% 88%);
-  --color-accent-foreground: hsl(0 0% 9%);
+  --color-secondary: hsl(0 0% 14.9%);
+  --color-secondary-foreground: hsl(0 0% 98%);
+  --color-muted: hsl(0 0% 14.9%);
+  --color-muted-foreground: hsl(0 0% 63.9%);
+  --color-accent: hsl(0 0% 17%);
+  --color-accent-foreground: hsl(0 0% 98%);
   --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
-  --color-border: hsl(0 0% 89.8%);
-  --color-input: hsl(0 0% 89.8%);
-  --color-ring: hsl(0 0% 70%);
+  --color-border: hsl(0 0% 22%);
+  --color-input: hsl(0 0% 22%);
+  --color-ring: hsl(0 0% 35%);
   --color-success: hsl(142 65% 50%);
   --color-success-foreground: hsl(0 0% 98%);
   --color-warning: hsl(38 85% 55%);
@@ -268,13 +268,13 @@
   --color-info: hsl(199 80% 55%);
   --color-info-foreground: hsl(0 0% 98%);
 
-  --color-sidebar: hsl(0 0% 95%);
-  --color-sidebar-foreground: hsl(0 0% 9%);
-  --color-sidebar-hover: hsl(0 0% 92%);
-  --color-sidebar-active: hsl(0 0% 88%);
-  --color-sidebar-active-hover: hsl(0 0% 80%);
-  /* 暗色模式:纯白,与 sidebar 的 95% L 偏灰底形成区分 */
-  --color-sidebar-item-hover-bg: hsl(0 0% 100%);
-  /* 暗色模式:近白,与 100% L 纯白页面底形成反向对比 */
-  --color-shell-panel: hsl(0 0% 98%);
+  --color-sidebar: hsl(226 13% 19%);
+  --color-sidebar-foreground: hsl(0 0% 98%);
+  --color-sidebar-hover: hsl(222 14% 14%);
+  --color-sidebar-active: hsl(228 21% 8%);
+  --color-sidebar-active-hover: hsl(0 0% 0%);
+  /* 暗色模式:纯黑,与 sidebar 的 14% L 偏白底形成区分 */
+  --color-sidebar-item-hover-bg: hsl(0 0% 0%);
+  /* 暗色模式:深灰色,与 14% L 偏白页面底形成反向对比 */
+  --color-shell-panel: hsl(220 12% 5%);
 }
