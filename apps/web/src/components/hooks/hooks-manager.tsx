@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { Loader2, Pencil, Play, Plus, ScrollText, Trash2 } from 'lucide-react'
 
-import { Button, Card, Input, Switch } from '@ihui/ui'
+import { Button, Card, Input, Switch } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Empty } from '@/components/common/Empty'
 import { useHooks, useHookLogs } from '@/hooks/use-hooks'

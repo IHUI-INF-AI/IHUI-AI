@@ -10,7 +10,7 @@ import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { extractToc } from '@/lib/content'
 import { MarkdownViewer } from '@/components/media'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 
 interface KBArticle {
   id: string

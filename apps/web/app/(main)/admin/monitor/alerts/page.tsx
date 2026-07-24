@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 
 import { AlertFilter } from './AlertFilter'
 import { AlertTable } from './AlertTable'

@@ -22,7 +22,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { CenteredText, Skeleton } from '@/components/common'
 import { Tooltip } from '@/components/feedback'
 

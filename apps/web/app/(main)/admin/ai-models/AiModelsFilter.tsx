@@ -1,6 +1,6 @@
 'use client'
 import { Plus } from 'lucide-react'
-import { Button, Input } from '@ihui/ui'
+import { Button, Input } from '@ihui/ui-react'
 
 interface Props {
   search: string

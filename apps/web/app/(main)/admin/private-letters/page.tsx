@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 interface PrivateLetter {
   id: number

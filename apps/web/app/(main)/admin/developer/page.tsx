@@ -8,7 +8,7 @@ import { Code2, Download } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { DeveloperCards } from './DeveloperCards'
 import { DeveloperCozeTable } from './DeveloperCozeTable'
 import { DeveloperCozeDialog } from './DeveloperCozeDialog'

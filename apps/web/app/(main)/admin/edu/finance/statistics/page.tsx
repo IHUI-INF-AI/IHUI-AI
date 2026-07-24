@@ -23,7 +23,7 @@ import {
   TableRow,
   TableHead,
   TableCell,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 interface Stats {
   totalRevenue: number

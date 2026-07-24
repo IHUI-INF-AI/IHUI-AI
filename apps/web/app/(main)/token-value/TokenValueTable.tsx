@@ -9,7 +9,7 @@ import {
   TableHead,
   TableRow,
   TableCell,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { TokenFlowItem } from '@/lib/token-api'
 
 interface Props {

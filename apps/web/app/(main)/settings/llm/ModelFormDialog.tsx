@@ -40,7 +40,7 @@ import {
   Input,
   Label,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import {
   createModelV2,

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { GripVertical, Trash2, Loader2 } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import {
   ToolHeader,
   UploadArea,

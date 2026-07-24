@@ -2,7 +2,7 @@
 import { Edit, Trash2, Loader2, Globe } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { PERM, fmt } from './helpers'
 import type { EduPlatform } from './types'

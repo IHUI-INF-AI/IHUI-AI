@@ -14,7 +14,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 
 import { McpResultPreview } from './mcp-result-preview'

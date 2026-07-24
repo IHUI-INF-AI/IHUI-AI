@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, Upload, FileText, AlertCircle } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription, Input } from '@ihui/ui'
+import { Button, Dialog, DialogContent, DialogHeader, DialogFooter, DialogTitle, DialogDescription, Input } from '@ihui/ui-react'
 import { Textarea } from '@/components/form'
 import { cn } from '@/lib/utils'
 

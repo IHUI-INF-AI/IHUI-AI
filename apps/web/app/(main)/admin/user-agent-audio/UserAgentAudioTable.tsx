@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, Edit, Trash2, AudioLines } from 'lucide-react'
-import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui'
+import { Button, Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import type { UserAgentAudio } from './types'
 
