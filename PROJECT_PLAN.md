@@ -8,7 +8,7 @@
 
 ## 当前活跃任务(2026-07-24)
 
-### [ ] /goal 资源上游自动同步中心 — MCP/Skill/Plugin/Provider 配置四源拉取 + 双路径触发 + 全量自动更新(跨端:api + ai-service + web + cli + packages/database + packages/types)
+### [x] ✅(2026-07-24) /goal 资源上游自动同步中心 — MCP/Skill/Plugin/Provider 配置四源拉取 + 双路径触发 + 全量自动更新(跨端:api + web + cli + packages/database + packages/types)
 
 **触发**:用户需求"我希望我的项目有自动获取最新最热最优 MCP/插件/Skill 的能力,并且自动获取更新上游最新所有参数配置等所有信息的能力并且自动更新"。
 
@@ -27,47 +27,47 @@
 
 **P0 基础设施(必做)**:
 
-- [ ] P0-1 数据库 schema(`packages/database/src/schema/registry.ts` 新建):
+- [x] ✅ P0-1 数据库 schema(`packages/database/src/schema/registry.ts` 新建):
   - `registry_items` 表(id/source_type[mcp|skill|plugin]/source_id/name/description/version/author/homepage/repo_url/download_url/categories/jsonb/tags/jsonb/install_count/heat_score/quality_score/latest_synced_at/payload/jsonb/created_at/updated_at)
   - `registry_sync_logs` 表(id/source_type/source_name/status[success|fail|skipped]/error_message/payload_hash/old_version/new_version/duration_ms/started_at/finished_at)
   - `webhook_triggers` 表(id/name/event_type/source_signature_hmac/event_payload/jsonb/condition_logic/jsonb/received_at/processed_at/status) — 持久化 `webhooks-trigger.ts` 内存 Map
   - 迁移文件 `apps/api/src/db/migrations/XXXX_add_registry_sync.sql`
-- [ ] P0-2 API 后端 `apps/api/src/routes/registry-sync.ts`:
+- [x] ✅ P0-2 API 后端 `apps/api/src/routes/registry-sync.ts`:
   - GET /api/registry/items?source_type=&sort=latest|hot|best&page= — 列表(最新/最热/最优三排序)
   - POST /api/registry/sync — 手动触发同步(管理员)
   - GET /api/registry/sync-logs — 同步日志
   - POST /api/registry/webhook/:source — 接收上游 webhook(GitHub/npm/mcp_marketplace/custom HMAC 校验)
   - GET /api/registry/webhooks — webhook 触发器列表(管理员)
-- [ ] P0-3 上游拉取适配器 `apps/api/src/services/registry-sync/`:
+- [x] ✅ P0-3 上游拉取适配器 `apps/api/src/services/registry-sync/`:
   - `github-adapter.ts` — GitHub API(modelcontextprotocol/servers + anthropics/skills + awesome-* 仓库,readme 解析)
   - `npm-adapter.ts` — npm registry 搜索(@modelcontextprotocol/* / ihui-skill-* / ihui-plugin-* 包)
   - `mcp-marketplace-adapter.ts` — mcp.so / smithery.ai / glama.ai API 聚合
   - `custom-registry-adapter.ts` — 自建 registry 协议(可对接 api 自身或外部 URL)
   - `index.ts` — 统一调度器 + 热度/质量评分计算(install_count + github stars + recent_releases)
-- [ ] P0-4 触发机制:
+- [x] ✅ P0-4 触发机制:
   - 定时任务:复用 `apps/ai-service/app/services/scheduler.py` 模式,API 后端 BullMQ 6h 重复 job(`registry-sync-queue`)
   - webhook 入口:`POST /api/registry/webhook/:source` HMAC-SHA256 签名校验 + 落库 `webhook_triggers`
   - 双路径合并去重(payload_hash 对比)
 
 **P1 上游配置同步**:
 
-- [ ] P1-1 Provider 模型列表动态拉取:
+- [x] ✅ P1-1 Provider 模型列表动态拉取:
   - `apps/api/src/routes/user-llm-configs-v2.ts` 补 `/v1/models` 调用骨架(已有,补全 stepfun/agnes/groq/gemini/openrouter 实现)
   - Redis 缓存 24h TTL(key=`provider:models:<provider>:<userId>`)
   - 失败降级到 FALLBACK_MODELS
-- [ ] P1-2 配置变更检测 + 自动迁移:
+- [x] ✅ P1-2 配置变更检测 + 自动迁移:
   - `apps/api/src/services/registry-sync/config-drift-detector.ts` — hash 对比 .env.example / config.py 上游版本
   - `apps/api/src/services/registry-sync/config-migrator.ts` — 自动迁移(含 schema 兼容性校验 + 失败回滚 + 备份)
   - 管理员审批队列(高危变更需人工确认)
 
 **P2 用户侧能力**:
 
-- [ ] P2-1 Web 端"更新中心"页面 `apps/web/app/(main)/registry/page.tsx`:
+- [x] ✅ P2-1 Web 端"更新中心"页面 `apps/web/app/(main)/registry/page.tsx`:
   - 三 tab:最新(latest)/ 最热(hot)/ 最优(best)
   - 卡片列表 + 一键安装/升级按钮
   - 顶部 banner:"有 N 个新版本可用,一键全部升级"
   - 同步日志查看 + 手动触发同步按钮(管理员)
-- [ ] P2-2 CLI 端 `ihui registry sync` 命令(`apps/cli/src/commands/registry-sync.ts`):
+- [x] ✅ P2-2 CLI 端 `ihui registry sync` 命令(`apps/cli/src/commands/registry-sync.ts`):
   - `ihui registry sync` — 立即同步
   - `ihui registry list --sort=latest|hot|best` — 列表
   - `ihui registry install <name>` — 安装
@@ -1069,7 +1069,7 @@
 **背景**:浏览器插件端(apps/extension)与 web 端(apps/web)在前端层存在 3 处重复维护:
 1. **样式 token**:globals.css 手动同步 3 份副本(web 853 行主源 / extension 132 行子集 / packages/ui-primitives/src/tokens.ts TS 副本),extension 注释声称"一致"实际缺 30+ 业务样式块
 2. **i18n 系统**:完全分裂两套(web 用 next-intl + 997KB JSON,extension 用自研 Context + 150 key TS),key 集合不一致
-3. **页面组件**:Login/Chat/Settings 等 9 个页面在两端功能范围严重不对等(web 完整 CRUD / extension 简版只读),仅共享 @ihui/ui 低层组件
+3. **页面组件**:Login/Chat/Settings 等 9 个页面在两端功能范围严重不对等(web 完整 CRUD / extension 简版只读),仅共享 @ihui/ui-react 低层组件
 
 **后端已统一**:extension 和 web 都通过 @ihui/api-client 调同一套 apps/api/src/routes/,无需改造。
 
@@ -1262,7 +1262,7 @@
 
 2. **移除 9 个冗余依赖**(depcheck 脚本 + 全仓 grep 验证):
    - 5 个确认未使用(全仓 NOT FOUND):`fuse.js` / `spark-md5` / `@ai-sdk/anthropic` / `@ai-sdk/openai` / `ai`
-   - 3 个与 packages/ui 重复(web 未直接 import,仅通过 @ihui/ui 间接引用):`@radix-ui/react-label` / `@radix-ui/react-slot` / `class-variance-authority`
+   - 3 个与 packages/ui 重复(web 未直接 import,仅通过 @ihui/ui-react 间接引用):`@radix-ui/react-label` / `@radix-ui/react-slot` / `class-variance-authority`
    - 1 个冗余类型包(dompurify 自带 `types=./dist/purify.cjs.d.ts`):`@types/dompurify`
 
 **§9 平台独占**:仅 web 包体积优化,不改跨端契约,豁免全端同步。
@@ -1416,7 +1416,7 @@
 <!-- 已归档(2026-07-23):大模型排行榜深度优化:列排序 + Copy Base URL + 中转站计费筛选 + i18n 5 语言同步(平台独占:...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-23):ai-news 入口梳理 + ai-world ?tab= query param 支持(平台独占:仅 apps/web...,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-22):email_logs schema drift 修复 + clawdbot 4 service 持久化,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
-<!-- 已归档(2026-07-22):@ihui/ui TabsTrigger 选中态描边框消除,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
+<!-- 已归档(2026-07-22):@ihui/ui-react TabsTrigger 选中态描边框消除,完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-22_archive.md -->
 <!-- 已归档(2026-07-23):ai-world "AI 对话" tab 重复入口统一化(平台独占:仅 apps/web),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive.md -->
 <!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:10 免费 provider + 5 middleware 安全模块共 160 用例(平台独占:仅 apps/ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v3.md -->
 <!-- 已归档(2026-07-23):ai-service 测试覆盖补齐:P3 记忆系统三件套 136 用例(衰减+提取+四层服务)(平台独占:仅 apps/ai-service),完整内容在 .trae-cn/archive/PROJECT_PLAN_2026-07-23_archive_v3.md -->
