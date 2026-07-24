@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   getAgents,
@@ -11,73 +11,26 @@ import { Card, CardContent, CardHeader, CardTitle, VipBadge } from '@ihui/ui-rea
 import { useI18n } from '../../../src/i18n'
 import AgentRuntimePanel from '../components/AgentRuntimePanel'
 
-const avatarStyle: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 28,
-  height: 28,
-  borderRadius: 6,
-  background: 'var(--muted)',
-  color: 'var(--card)',
-  fontSize: 12,
-  fontWeight: 600,
-  flexShrink: 0,
-  overflow: 'hidden',
-}
-
-const rowStyle: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-}
-
-const descStyle: CSSProperties = {
-  margin: 0,
-  fontSize: 12,
-  color: 'var(--muted)',
-  lineHeight: 1.5,
-}
-
-const tabBarStyle: CSSProperties = {
-  display: 'flex',
-  gap: 4,
-  borderBottom: '1px solid var(--border)',
-}
-
-const tabBtnStyle: CSSProperties = {
-  background: 'none',
-  border: 'none',
-  borderBottom: '2px solid transparent',
-  borderRadius: 0,
-  padding: '6px 12px',
-  fontSize: 12,
-  color: 'var(--muted)',
-  cursor: 'pointer',
-}
-
-const activeTabBtnStyle: CSSProperties = {
-  ...tabBtnStyle,
-  color: 'var(--accent)',
-  borderBottomColor: 'var(--accent)',
-  fontWeight: 600,
-}
+const AVATAR_CLASS =
+  'inline-flex items-center justify-center w-7 h-7 rounded-md bg-muted text-card text-xs font-semibold shrink-0 overflow-hidden'
+const ROW_CLASS = 'flex items-center gap-2'
+const DESC_CLASS = 'm-0 text-xs text-muted leading-normal'
+const TAB_BTN_BASE =
+  'bg-transparent border-0 border-b-2 rounded-none px-3 py-1.5 text-xs cursor-pointer'
+const TAB_BTN_INACTIVE = `${TAB_BTN_BASE} border-transparent text-muted`
+const TAB_BTN_ACTIVE = `${TAB_BTN_BASE} border-accent text-accent font-semibold`
 
 function Avatar({ agent }: { agent: Agent }) {
   if (agent.avatar) {
     return (
-      <span style={avatarStyle} aria-hidden>
-        <img
-          src={agent.avatar}
-          alt={agent.name}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
+      <span className={AVATAR_CLASS} aria-hidden>
+        <img src={agent.avatar} alt={agent.name} className="w-full h-full object-cover" />
       </span>
     )
   }
   const initial = (agent.name?.trim()?.[0] || 'A').toUpperCase()
   return (
-    <span style={avatarStyle} aria-hidden>
+    <span className={AVATAR_CLASS} aria-hidden>
       {initial}
     </span>
   )
@@ -107,7 +60,7 @@ function AgentList() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [t])
 
   if (loading) return <div className="empty-state">{t('common.loading')}</div>
   if (error) return <div className="error-banner">{error}</div>
@@ -126,6 +79,7 @@ function AgentList() {
               key={a.id}
               role="button"
               tabIndex={0}
+              className="cursor-pointer"
               onClick={() => navigate(`/agents/${a.id}`)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -133,19 +87,20 @@ function AgentList() {
                   navigate(`/agents/${a.id}`)
                 }
               }}
-              style={{ cursor: 'pointer' }}
             >
               <CardHeader>
-                <div style={rowStyle}>
+                <div className={ROW_CLASS}>
                   <Avatar agent={a} />
                   <CardTitle>{a.name}</CardTitle>
                   {a.isVipExclusive ? <VipBadge /> : null}
                 </div>
               </CardHeader>
               <CardContent>
-                <p style={descStyle}>{a.description || '—'}</p>
+                <p className={DESC_CLASS}>{a.description || '—'}</p>
                 <div className="sp-course-meta">
-                  <span>{t('agent.useCount')} {a.useCount}</span>
+                  <span>
+                    {t('agent.useCount')} {a.useCount}
+                  </span>
                   <span className="sp-course-price">★ {a.rating.toFixed(1)}</span>
                 </div>
               </CardContent>
@@ -186,7 +141,7 @@ function AgentDetail({ id }: { id: string }) {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, t])
 
   if (loading) return <div className="empty-state">{t('common.loading')}</div>
   if (error) return <div className="error-banner">{error}</div>
@@ -208,17 +163,17 @@ function AgentDetail({ id }: { id: string }) {
         </button>
         <h3>{agent.name}</h3>
       </div>
-      <div style={tabBarStyle}>
+      <div className="flex gap-1">
         <button
           type="button"
-          style={activeTab === 'info' ? activeTabBtnStyle : tabBtnStyle}
+          className={activeTab === 'info' ? TAB_BTN_ACTIVE : TAB_BTN_INACTIVE}
           onClick={() => setActiveTab('info')}
         >
           {t('agent.detailTab')}
         </button>
         <button
           type="button"
-          style={activeTab === 'runtime' ? activeTabBtnStyle : tabBtnStyle}
+          className={activeTab === 'runtime' ? TAB_BTN_ACTIVE : TAB_BTN_INACTIVE}
           onClick={() => setActiveTab('runtime')}
         >
           {t('nav.tabRuntime')}
@@ -227,14 +182,14 @@ function AgentDetail({ id }: { id: string }) {
       {activeTab === 'info' ? (
         <Card>
           <CardHeader>
-            <div style={rowStyle}>
+            <div className={ROW_CLASS}>
               <Avatar agent={agent} />
               <CardTitle>{agent.name}</CardTitle>
               {agent.isVipExclusive ? <VipBadge size="md" /> : null}
             </div>
           </CardHeader>
           <CardContent>
-            <p style={descStyle}>{agent.description || '—'}</p>
+            <p className={DESC_CLASS}>{agent.description || '—'}</p>
             <dl className="sp-info-list">
               <div>
                 <dt>{t('agent.useCount')}</dt>
