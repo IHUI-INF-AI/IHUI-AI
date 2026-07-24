@@ -3,85 +3,121 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./auth": {
+      "types": "./src/auth/index.ts",
+      "import": "./src/auth/index.ts"
     },
     "./auth/*": {
-      "types": "./dist/auth/*.d.ts",
-      "import": "./dist/auth/*.js"
-    },
-    "./notifications/*": {
-      "types": "./dist/notifications/*.d.ts",
-      "import": "./dist/notifications/*.js"
-    },
-    "./validation/*": {
-      "types": "./dist/validation/*.d.ts",
-      "import": "./dist/validation/*.js"
-    },
-    "./workflows/*": {
-      "types": "./dist/workflows/*.d.ts",
-      "import": "./dist/workflows/*.js"
-    },
-    "./utils/*": {
-      "types": "./dist/utils/*.d.ts",
-      "import": "./dist/utils/*.js"
-    },
-    "./skills/*": {
-      "types": "./dist/skills/*.d.ts",
-      "import": "./dist/skills/*.js"
-    },
-    "./tasks/*": {
-      "types": "./dist/tasks/*.d.ts",
-      "import": "./dist/tasks/*.js"
-    },
-    "./design/*": {
-      "types": "./dist/design/*.d.ts",
-      "import": "./dist/design/*.js"
-    },
-    "./memory": {
-      "types": "./dist/memory/index.d.ts",
-      "import": "./dist/memory/index.js"
-    },
-    "./memory/*": {
-      "types": "./dist/memory/*.d.ts",
-      "import": "./dist/memory/*.js"
-    },
-    "./subagents": {
-      "types": "./dist/subagents/index.d.ts",
-      "import": "./dist/subagents/index.js"
-    },
-    "./subagents/*": {
-      "types": "./dist/subagents/*.d.ts",
-      "import": "./dist/subagents/*.js"
+      "types": "./src/auth/*.ts",
+      "import": "./src/auth/*.ts"
     },
     "./context": {
-      "types": "./dist/context/index.d.ts",
-      "import": "./dist/context/index.js"
+      "types": "./src/context/index.ts",
+      "import": "./src/context/index.ts"
+    },
+    "./context/index": {
+      "types": "./src/context/index.ts",
+      "import": "./src/context/index.ts"
     },
     "./context/*": {
-      "types": "./dist/context/*.d.ts",
-      "import": "./dist/context/*.js"
+      "types": "./src/context/*.ts",
+      "import": "./src/context/*.ts"
     },
-    "./spec": {
-      "types": "./dist/spec/index.d.ts",
-      "import": "./dist/spec/index.js"
+    "./memory": {
+      "types": "./src/memory/index.ts",
+      "import": "./src/memory/index.ts"
     },
-    "./spec/*": {
-      "types": "./dist/spec/*.d.ts",
-      "import": "./dist/spec/*.js"
+    "./memory/*": {
+      "types": "./src/memory/*.ts",
+      "import": "./src/memory/*.ts"
+    },
+    "./notifications": {
+      "types": "./src/notifications/index.ts",
+      "import": "./src/notifications/index.ts"
+    },
+    "./notifications/*": {
+      "types": "./src/notifications/*.ts",
+      "import": "./src/notifications/*.ts"
     },
     "./plan": {
-      "types": "./dist/plan/index.d.ts",
-      "import": "./dist/plan/index.js"
+      "types": "./src/plan/index.ts",
+      "import": "./src/plan/index.ts"
+    },
+    "./plan/index": {
+      "types": "./src/plan/index.ts",
+      "import": "./src/plan/index.ts"
     },
     "./plan/*": {
-      "types": "./dist/plan/*.d.ts",
-      "import": "./dist/plan/*.js"
+      "types": "./src/plan/*.ts",
+      "import": "./src/plan/*.ts"
+    },
+    "./spec": {
+      "types": "./src/spec/index.ts",
+      "import": "./src/spec/index.ts"
+    },
+    "./spec/index": {
+      "types": "./src/spec/index.ts",
+      "import": "./src/spec/index.ts"
+    },
+    "./spec/*": {
+      "types": "./src/spec/*.ts",
+      "import": "./src/spec/*.ts"
+    },
+    "./subagents": {
+      "types": "./src/subagents/index.ts",
+      "import": "./src/subagents/index.ts"
+    },
+    "./subagents/index": {
+      "types": "./src/subagents/index.ts",
+      "import": "./src/subagents/index.ts"
+    },
+    "./subagents/*": {
+      "types": "./src/subagents/*.ts",
+      "import": "./src/subagents/*.ts"
+    },
+    "./utils": {
+      "types": "./src/utils/index.ts",
+      "import": "./src/utils/index.ts"
+    },
+    "./utils/*": {
+      "types": "./src/utils/*.ts",
+      "import": "./src/utils/*.ts"
+    },
+    "./validation": {
+      "types": "./src/validation/index.ts",
+      "import": "./src/validation/index.ts"
+    },
+    "./validation/*": {
+      "types": "./src/validation/*.ts",
+      "import": "./src/validation/*.ts"
+    },
+    "./workflows": {
+      "types": "./src/workflows/index.ts",
+      "import": "./src/workflows/index.ts"
+    },
+    "./workflows/*": {
+      "types": "./src/workflows/*.ts",
+      "import": "./src/workflows/*.ts"
+    },
+    "./skills/*": {
+      "types": "./src/skills/*.ts",
+      "import": "./src/skills/*.ts"
+    },
+    "./tasks/*": {
+      "types": "./src/tasks/*.ts",
+      "import": "./src/tasks/*.ts"
+    },
+    "./design/*": {
+      "types": "./src/design/*.ts",
+      "import": "./src/design/*.ts"
     }
   },
   "scripts": {
