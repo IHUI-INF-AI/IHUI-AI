@@ -1,5 +1,6 @@
 import type { ApiResult, ApiResponse } from '@ihui/types'
 import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker'
+import { getTransport } from './transport'
 
 export interface TokenProvider {
   getToken(): string | null
@@ -93,7 +94,12 @@ async function fetchOnce<T>(
   options: RequestInit,
   headers: Record<string, string>,
 ): Promise<ApiResult<T>> {
-  const response = await fetch(normalizedUrl, { ...options, headers, signal: options.signal })
+  const response = await getTransport()(normalizedUrl, {
+    method: options.method,
+    headers,
+    body: typeof options.body === 'string' ? options.body : undefined,
+    signal: options.signal ?? undefined,
+  })
 
   if (!response.ok) {
     const text = await response.text().catch(() => '')
@@ -209,7 +215,7 @@ export async function fetchApi<T>(
   const timeoutId = setTimeout(() => timeoutController.abort(), DEFAULT_TIMEOUT_MS)
   const userSignal = restOptions.signal
   const mergedSignal = userSignal
-    ? AbortSignal.any([userSignal, timeoutController.signal])
+    ? mergeAbortSignals([userSignal, timeoutController.signal])
     : timeoutController.signal
   const optionsWithTimeout = { ...restOptions, signal: mergedSignal }
 
@@ -272,7 +278,12 @@ export async function fetchText(url: string, options: RequestInit = {}): Promise
     ...(options.headers as Record<string, string> | undefined),
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
-  const response = await fetch(normalizedUrl, { ...options, headers, signal: options.signal })
+  const response = await getTransport()(normalizedUrl, {
+    method: options.method,
+    headers,
+    body: typeof options.body === 'string' ? options.body : undefined,
+    signal: options.signal ?? undefined,
+  })
   if (!response.ok) {
     const text = await response.text().catch(() => '')
     throw new Error(`${response.status}: ${text}`)
