@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl'
 import { Clock, Loader2, Plus, Search, Star } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Input } from '@ihui/ui'
+import { Button, Input } from '@ihui/ui-react'
 import { ConversationList, type Conversation } from '@/components/chat/conversation-list'
 
 async function fetchConversations(): Promise<Conversation[]> {

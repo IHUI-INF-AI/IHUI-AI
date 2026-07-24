@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { FileText, GitMerge, Scissors, Stamp, FileOutput, ChevronRight } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardDescription } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardDescription } from '@ihui/ui-react'
 
 interface PdfTool {
   href: string

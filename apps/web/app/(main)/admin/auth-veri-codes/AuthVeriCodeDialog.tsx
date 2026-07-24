@@ -13,7 +13,7 @@ import {
   Button,
   Input,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { DatePicker } from '@/components/form/DatePicker'
 import type { AuthVeriCode, AuthVeriCodeForm } from './types'
 

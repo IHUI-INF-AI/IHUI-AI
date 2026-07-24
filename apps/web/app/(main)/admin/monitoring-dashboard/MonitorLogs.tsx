@@ -1,7 +1,7 @@
 'use client'
 
 import { ScrollText } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { LogSummary } from './types'
 import { formatNumber } from '@/lib/date-utils'

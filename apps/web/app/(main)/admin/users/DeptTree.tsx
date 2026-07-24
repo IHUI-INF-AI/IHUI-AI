@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, ChevronDown, Building2, Users, Loader2, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Input } from '@ihui/ui'
+import { Input } from '@ihui/ui-react'
 import { fetchDeptList } from './helpers'
 import type { DeptItem } from './types'
 

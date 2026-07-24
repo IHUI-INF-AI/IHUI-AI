@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { exportFromApi } from '@/lib/export-utils'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { EduOrganizationFilter } from './EduOrganizationFilter'
 import { EduOrganizationTable } from './EduOrganizationTable'

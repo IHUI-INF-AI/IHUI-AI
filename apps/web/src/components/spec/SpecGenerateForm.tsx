@@ -12,7 +12,7 @@ import {
   Label,
   Switch,
   Checkbox,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import {
   SPEC_BUILTIN_TEMPLATES,
   type SpecGenerateInput,

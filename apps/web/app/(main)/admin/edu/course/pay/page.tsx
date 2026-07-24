@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { exportFromApi } from '@/lib/export-utils'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { CoursePayFilter } from './CoursePayFilter'
 import { CoursePayTable } from './CoursePayTable'

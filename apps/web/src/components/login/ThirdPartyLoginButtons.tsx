@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { useThirdPartyAuth, fetchGoogleOAuthConfig } from '@/hooks/use-third-party-auth'
 import { Tooltip } from '@/components/feedback'

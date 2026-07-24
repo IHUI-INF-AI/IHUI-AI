@@ -19,7 +19,7 @@ import {
   TabsList,
   TabsTrigger,
   TabsContent,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 interface RankItem {
   id: string

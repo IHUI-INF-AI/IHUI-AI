@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl'
 import { Crown, Check, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface VipLevel {

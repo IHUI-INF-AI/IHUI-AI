@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Loader2, Users, Search, ChevronLeft, ChevronRight, UserCheck, UserX } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Input, Button } from '@ihui/ui'
+import { Input, Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface MemberUser {

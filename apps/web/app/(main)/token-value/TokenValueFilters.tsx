@@ -1,6 +1,6 @@
 'use client'
 
-import { Input } from '@ihui/ui'
+import { Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { RANGES, type Range } from './helpers'
 

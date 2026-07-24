@@ -104,7 +104,7 @@ import {
   NAV_CHILD_CLASS,
   BTN_NEW_CONVERSATION_CLASS,
 } from '@/lib/nav-styles'
-import { Button, ThemeLogo } from '@ihui/ui'
+import { Button, ThemeLogo } from '@ihui/ui-react'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useLanguageStore, type Language } from '@/stores/language'

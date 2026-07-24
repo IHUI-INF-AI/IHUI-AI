@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { api, STATUS_BADGE, textareaClass } from './helpers'
 import type { Ticket, Comment, Rating } from './types'

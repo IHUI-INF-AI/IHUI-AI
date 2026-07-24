@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Edit, Trash2, Loader2, Shield } from 'lucide-react'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { badgeCls, dotCls } from './helpers'
 import type { AgentRule } from './types'

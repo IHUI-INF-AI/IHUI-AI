@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Clock } from 'lucide-react'
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, Label } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { getNextRuns, describeCron } from './cron-parser'

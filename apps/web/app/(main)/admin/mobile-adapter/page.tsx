@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Smartphone, Loader2, Check } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface DeviceConfig {

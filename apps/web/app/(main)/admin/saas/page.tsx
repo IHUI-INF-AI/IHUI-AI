@@ -6,7 +6,7 @@
 import * as React from 'react'
 import { useLocale, useTranslations } from 'next-intl'
 import { Plus, Server } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { Skeleton, CenteredText } from '@/components/common'
 
 import { TenantFilter } from './_components/TenantFilter'

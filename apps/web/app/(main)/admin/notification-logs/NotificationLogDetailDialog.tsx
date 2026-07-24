@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useLocale, useTranslations } from 'next-intl'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@ihui/ui'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@ihui/ui-react'
 import { maskUserId, STATUS_BADGE } from './helpers'
 import type { NotificationLog } from './types'
 

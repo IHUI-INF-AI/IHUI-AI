@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "@ihui/ui-native",
   "version": "0.0.0",
   "private": true,
@@ -16,7 +16,7 @@
     "lint": "eslint src/"
   },
   "dependencies": {
-    "@ihui/ui-primitives": "workspace:*",
+    "@ihui/design-tokens": "workspace:*",
     "class-variance-authority": "^0.7.1"
   },
   "peerDependencies": {

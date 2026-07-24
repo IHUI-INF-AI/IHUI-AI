@@ -2,7 +2,7 @@
 
 import { ScrollText, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { LEVEL_COLOR, LEVELS } from './helpers'
 import type { Log, LogLevel } from './types'

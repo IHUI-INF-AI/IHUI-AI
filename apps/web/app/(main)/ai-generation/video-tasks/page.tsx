@@ -18,7 +18,7 @@ import {
   TableHead,
   TableRow,
   TableCell,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import { VideoTaskStatusBadge } from './status-badge'
 import {

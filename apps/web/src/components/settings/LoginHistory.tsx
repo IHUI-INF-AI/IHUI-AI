@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { History, Loader2, ChevronRight } from 'lucide-react'
 
-import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { buildQs, type PageData } from '@/lib/edu'
 

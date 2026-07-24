@@ -8,7 +8,7 @@ import { Briefcase, Plus, Trash2, Download, ChevronLeft, ChevronRight } from 'lu
 import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { useBatchMutation } from '@/hooks/use-batch-mutation'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { PostFilter } from './PostFilter'
 import { PostTable } from './PostTable'
 import { PostDialog } from './PostDialog'

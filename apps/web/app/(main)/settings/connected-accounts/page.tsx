@@ -6,7 +6,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { toast } from 'sonner'
 import { Loader2, Link2, Unlink } from 'lucide-react'
 
-import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardContent, Button } from '@ihui/ui-react'
 import { Container } from '@/components/layout'
 import { ConfirmDialog } from '@/components/feedback'
 import { fetchApi } from '@/lib/api'

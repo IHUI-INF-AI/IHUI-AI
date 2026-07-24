@@ -2,7 +2,7 @@
 
 import { useTranslations } from 'next-intl'
 import { Monitor, Loader2, Check } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import type { Device } from './types'
 
 interface Props {

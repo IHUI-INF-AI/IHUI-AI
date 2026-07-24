@@ -6,7 +6,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, UserPlus, Copy, Gift, Clock, Check, Users } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Avatar } from '@/components/data/Avatar'
 

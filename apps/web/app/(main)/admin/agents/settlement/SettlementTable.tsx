@@ -3,7 +3,7 @@
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, Wallet } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, Button } from '@ihui/ui-react'
 import { STATUS_CLASS, createMoneyFmt } from './helpers'
 import type { Settlement } from './types'
 

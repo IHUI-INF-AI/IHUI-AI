@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Button } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell, Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { PAGE_SIZE, STATUS_CLS, STATUS_LABEL, fmtYuan } from './types'
 import type { Order } from './types'

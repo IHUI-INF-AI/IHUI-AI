@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2, ClipboardList, Clock, Upload } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 
 interface HomeworkItem {
   id: string

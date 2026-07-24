@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { ChannelsTable } from './ChannelsTable'
 import { ChannelDialog } from './ChannelDialog'
 import {

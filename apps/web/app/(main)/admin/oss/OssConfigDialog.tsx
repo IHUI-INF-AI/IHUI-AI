@@ -18,7 +18,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { selectClass, textareaClass, DRIVERS } from './helpers'
 import type { Driver, OssDriver, OssForm } from './types'
 

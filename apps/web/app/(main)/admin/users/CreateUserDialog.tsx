@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 export interface CreateUserForm {
   nickname: string

@@ -37,7 +37,7 @@ import {
   TabsTrigger,
   TabsContent,
   Input,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import { fetchApi } from '@/lib/api'
 import { activeDispatchesKey, swarmTopologyKey } from '@/hooks/use-subagent-dispatch'

@@ -15,7 +15,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { ArticleForm, ArticleCategoryOption } from './types'
 
 const selectClass =

@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Plus, Download, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { api as fbApi } from '@/lib/feedback'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { exportToExcel } from '@/lib/export-utils'

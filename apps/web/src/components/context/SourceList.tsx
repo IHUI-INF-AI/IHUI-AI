@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Database, File, Folder, Globe, Code2 } from 'lucide-react'
-import { Switch } from '@ihui/ui'
+import { Switch } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { ContextSource, ContextType } from '@ihui/shared/context/index'
 

@@ -8,7 +8,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, ArrowLeft, Sparkles, Plus } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface Agent {

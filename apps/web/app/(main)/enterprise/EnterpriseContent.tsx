@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { Target, Users, Globe, Bot, ArrowRight, ArrowLeft, Check, Sparkles } from 'lucide-react'
 
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { AnimatedNumber } from '@/components/common'
 import { HeroCarousel } from '@/components/marketing/HeroCarousel'
 import { Marquee } from '@/components/marketing/Marquee'

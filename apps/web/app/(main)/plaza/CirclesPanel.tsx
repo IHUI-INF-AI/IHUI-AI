@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Users, MessageSquare, Circle, Loader2, ArrowRight } from 'lucide-react'
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui-react'
 import type { CircleItem } from './types'
 
 interface Props {

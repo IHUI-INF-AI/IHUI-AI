@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { AlertTriangle, Check, Copy } from 'lucide-react'
 import { toast } from 'sonner'
-import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui-react'
 
 interface Props {
   open: boolean

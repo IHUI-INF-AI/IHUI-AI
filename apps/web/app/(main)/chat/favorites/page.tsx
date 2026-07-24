@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, Star } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { ConversationList, type Conversation } from '@/components/chat/conversation-list'
 
 async function fetchFavorites(): Promise<Conversation[]> {

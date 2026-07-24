@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, Trash2 } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { MemberUser } from './types'
 

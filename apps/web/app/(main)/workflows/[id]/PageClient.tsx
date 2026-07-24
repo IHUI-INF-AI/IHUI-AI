@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Play, Square, RotateCcw, Workflow, Zap } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 type TriggerType = 'manual' | 'schedule' | 'event' | 'webhook'

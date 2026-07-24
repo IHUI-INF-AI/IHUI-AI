@@ -8,7 +8,7 @@ import { Crown, Check, Loader2, Sparkles } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { useAnalytics } from '@/hooks/use-analytics'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Badge } from '@/components/data'
 import { cn } from '@/lib/utils'
 

@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Loader2, Plus, RefreshCw, Search, Sparkles, AlertCircle, GitBranch, Activity } from 'lucide-react'
-import { Button, Card, CardContent, Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn } from '@ihui/ui'
+import { Button, Card, CardContent, Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue, cn } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 import { AgentCard, AgentDetailCard, normalizeAgent, type Agent, type RawAgent } from './components/AgentCard'
 import { AgentCreator } from './components/AgentCreator'

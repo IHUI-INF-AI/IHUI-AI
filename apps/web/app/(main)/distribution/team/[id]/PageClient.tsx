@@ -9,7 +9,7 @@ import { Loader2, ArrowLeft, Users, Crown, Calendar, ChevronRight } from 'lucide
 import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 interface TeamMember {

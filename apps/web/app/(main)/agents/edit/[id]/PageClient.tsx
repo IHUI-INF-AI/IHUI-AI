@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { AgentCreateForm } from '../../create/AgentCreateForm'
 import { api } from '../../create/helpers'
 import type { AgentForm, CategoriesData } from '../../create/types'

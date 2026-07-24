@@ -1,7 +1,7 @@
 import { getTranslations } from 'next-intl/server'
 import { Copy, Gift, Share2, Users } from 'lucide-react'
 
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 export default async function ReferralPage() {
   const t = await getTranslations('modelsReferralPage')

@@ -21,7 +21,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { type Resource, type Category, fetchResources, api, selectClass, PAGE_SIZE } from './types'
 import { StatCard } from './StatCard'
 import { ResourcesTable } from './ResourcesTable'

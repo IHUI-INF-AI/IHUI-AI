@@ -4,7 +4,7 @@ import * as React from 'react'
 import { type UseFormReturn } from 'react-hook-form'
 import { Loader2, Check } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Input, Label } from '@ihui/ui'
+import { Button, Input, Label } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import type { ProfileForm } from './types'
 

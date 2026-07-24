@@ -16,7 +16,7 @@
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { AlertTriangle, ExternalLink, Maximize2 } from 'lucide-react'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 interface GrafanaFrameProps {
   /** 当前租户标识(注入到 Grafana 模板变量 $tenant) */

@@ -12,7 +12,7 @@ import {
   Input,
   Label,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { CompanyType, CompanyTypeForm } from './types'
 
 interface Props {

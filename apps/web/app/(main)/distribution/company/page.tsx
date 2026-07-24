@@ -24,7 +24,7 @@ import {
   type InviteInfo,
   type DayMonthSummary,
 } from '@/lib/distribution-api'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { Avatar } from '@/components/data'
 import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'

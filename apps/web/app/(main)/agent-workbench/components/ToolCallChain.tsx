@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { Wrench, CheckCircle2, XCircle, Loader2, ChevronRight } from 'lucide-react'
-import { cn } from '@ihui/ui'
+import { cn } from '@ihui/ui-react'
 import type { ToolCallEvent } from '@/hooks/use-agent-runtime'
 
 interface Props {

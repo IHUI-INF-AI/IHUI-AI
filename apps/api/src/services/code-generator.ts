@@ -119,7 +119,7 @@ function genList(input: GenInput, opts: Required<NonNullable<GenInput['options']
     ? `      <Pagination current={page} total={total} pageSize={pageSize} onChange={setPage} />`
     : ''
   return `import * as React from 'react'
-import { Card, CardContent, CardHeader, CardTitle, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Pagination } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Pagination } from '@ihui/ui-react'
 
 interface ${pascal} {
 ${fields.map((f) => `  ${f.name}: ${tsType(f.type)}`).join('\n')}
@@ -176,7 +176,7 @@ function genPage(input: GenInput, opts: Required<NonNullable<GenInput['options']
     ? `            <Button variant="outline" size="sm" onClick={() => onEdit(item)}>编辑</Button>\n            <Button variant="destructive" size="sm" onClick={() => onDelete(item)}>删除</Button>`
     : ''
   return `import * as React from 'react'
-import { Button, Card, CardContent, CardHeader, CardTitle, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, Label, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, Label, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@ihui/ui-react'
 
 interface ${pascal} {
 ${fields.map((f) => `  ${f.name}: ${tsType(f.type)}`).join('\n')}
@@ -248,7 +248,7 @@ function genDetail(input: GenInput): string {
   const pascal = toPascal(name)
   const detailRows = renderDetailRows(fields)
   return `import * as React from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 
 interface ${pascal} {
 ${fields.map((f) => `  ${f.name}: ${tsType(f.type)}`).join('\n')}
@@ -277,7 +277,7 @@ function genDialog(input: GenInput): string {
   const pascal = toPascal(name)
   const formFields = renderFormFields(fields)
   return `import * as React from 'react'
-import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, Label } from '@ihui/ui'
+import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, Input, Label } from '@ihui/ui-react'
 
 interface ${pascal} {
 ${fields.map((f) => `  ${f.name}: ${tsType(f.type)}`).join('\n')}

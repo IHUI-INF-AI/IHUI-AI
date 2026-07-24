@@ -18,7 +18,7 @@ import {
   SelectContent,
   SelectItem,
   SelectValue,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { selectClass } from './helpers'
 import type { Channel, Rule, RuleForm } from './types'
 

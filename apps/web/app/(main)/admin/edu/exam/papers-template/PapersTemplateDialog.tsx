@@ -12,7 +12,7 @@ import {
   Button,
   Input,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { textareaClass } from '@/lib/edu'
 import type { Template, TForm } from './types'

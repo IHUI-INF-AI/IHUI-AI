@@ -9,7 +9,7 @@ import { ArrowLeft, CreditCard, Loader2, Save, User } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 
 interface BusinessCard {
   id: string

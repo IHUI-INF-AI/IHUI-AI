@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2 } from 'lucide-react'
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui'
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@ihui/ui-react'
 import type { FundAccount } from './types'
 import { formatDate } from '@/lib/date-utils'
 
