@@ -1,9 +1,4 @@
-export type PermissionMode =
-  | 'default'
-  | 'acceptEdits'
-  | 'bypassPermissions'
-  | 'plan'
-  | 'manual'
+export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'manual'
 
 export type PermissionDecision = 'allow' | 'deny' | 'ask'
 
@@ -21,19 +16,9 @@ export interface PermissionCheckResult {
   reason?: string
 }
 
-export type PlanState =
-  | 'initialized'
-  | 'gathering'
-  | 'executing'
-  | 'done'
-  | 'cancelled'
+export type PlanState = 'initialized' | 'gathering' | 'executing' | 'done' | 'cancelled'
 
-export type PlanEvent =
-  | 'start'
-  | 'gather_complete'
-  | 'execute_complete'
-  | 'cancel'
-  | 'reset'
+export type PlanEvent = 'start' | 'gather_complete' | 'execute_complete' | 'cancel' | 'reset'
 
 export interface PlanContext {
   currentState?: PlanState
@@ -109,13 +94,7 @@ export interface HookResult {
 }
 
 export type JSONSchemaType =
-  | 'object'
-  | 'string'
-  | 'number'
-  | 'integer'
-  | 'boolean'
-  | 'array'
-  | 'null'
+  'object' | 'string' | 'number' | 'integer' | 'boolean' | 'array' | 'null'
 
 export interface JSONSchema {
   type?: JSONSchemaType | JSONSchemaType[]
@@ -308,66 +287,6 @@ export interface MemorySyncRequest {
 export interface MemorySyncResponse {
   entries: MemoryEntry[]
   total: number
-}
-
-// ============================================================================
-// 多 Agent 协商/辩论契约(P1-2)
-// ============================================================================
-
-/** 多 Agent 协作模式 */
-export type AgentCollaborationMode =
-  | 'pipeline' // 串行(现有)
-  | 'parallel' // 并行(现有)
-  | 'debate' // 辩论:多轮交替发言
-  | 'vote' // 投票:多 Agent 各出方案后投票
-  | 'critique' // 批判:一个出方案,其余挑刺,迭代收敛
-
-/** 协商辩论请求 */
-export interface AgentDebateRequest {
-  /** 协作模式 */
-  mode: AgentCollaborationMode
-  /** 参与 Agent 名列表(≥2) */
-  agents: string[]
-  /** 辩论主题/任务 */
-  topic: string
-  /** 最大辩论轮数(默认 3) */
-  maxRounds?: number
-  /** 会话 ID */
-  sessionId?: string
-  /** 模型覆盖 */
-  modelOverride?: string
-}
-
-/** 单轮辩论发言 */
-export interface DebateTurn {
-  /** 轮次(从 1 起) */
-  round: number
-  /** 发言 Agent 名 */
-  agent: string
-  /** 发言内容 */
-  content: string
-  /** 该轮立场(agree/disagree/neutral,仅 debate 模式) */
-  stance?: 'agree' | 'disagree' | 'neutral'
-}
-
-/** 协商辩论结果 */
-export interface AgentDebateResult {
-  /** 编排 ID */
-  orchestrationId: string
-  /** 协作模式 */
-  mode: AgentCollaborationMode
-  /** 所有发言记录 */
-  turns: DebateTurn[]
-  /** 最终结论(投票/收敛后的结果) */
-  finalOutput: string
-  /** 投票统计(vote 模式有值) */
-  votes?: Record<string, number>
-  /** 状态(completed/failed) */
-  status: 'completed' | 'failed'
-  /** 总耗时(ms) */
-  totalDurationMs: number
-  /** trace */
-  trace: Array<{ round: number; agent: string; durationMs: number; status: string }>
 }
 
 // ============================================================================
@@ -630,7 +549,9 @@ export interface ProviderFallbackConfig {
   /** 备用 provider 列表(按优先级) */
   fallbacks: string[]
   /** 触发转移的错误类型 */
-  triggerOnError: Array<'rate_limited' | 'auth_error' | 'overloaded' | 'timeout' | 'context_too_long' | 'unknown'>
+  triggerOnError: Array<
+    'rate_limited' | 'auth_error' | 'overloaded' | 'timeout' | 'context_too_long' | 'unknown'
+  >
   /** 重试次数(默认 1) */
   maxRetries?: number
 }
@@ -687,7 +608,11 @@ export interface VisionAnalyzeResponse {
   /** 实际使用模型 */
   model: string
   /** 检测到的对象列表(可选) */
-  detectedObjects?: Array<{ label: string; confidence: number; bbox?: [number, number, number, number] }>
+  detectedObjects?: Array<{
+    label: string
+    confidence: number
+    bbox?: [number, number, number, number]
+  }>
   /** token 使用量 */
   usage?: { promptTokens: number; completionTokens: number; totalTokens: number }
 }
@@ -1034,9 +959,10 @@ export interface SubTaskDependency {
   /** 依赖的子任务 ID */
   dependsOn: string
   /** 依赖类型 */
-  type: 'output' // 需要前置任务的输出
-  | 'completion' // 仅需前置任务完成
-  | 'resource' // 共享资源锁
+  type:
+    | 'output' // 需要前置任务的输出
+    | 'completion' // 仅需前置任务完成
+    | 'resource' // 共享资源锁
 }
 
 /** 分解出的子任务 */
@@ -1085,34 +1011,6 @@ export interface TaskDecompositionResult {
   strategy: TaskDecompositionStrategy
   /** 总预估耗时(秒) */
   totalEstimatedDurationSeconds?: number
-}
-
-/** Agent 通信消息类型 */
-export type AgentMessageType =
-  | 'request' // 请求(向其他 agent 请求数据/操作)
-  | 'response' // 响应
-  | 'notification' // 通知(广播)
-  | 'broadcast' // 广播(所有 agent)
-  | 'handoff' // 任务移交
-
-/** Agent 间通信消息 */
-export interface AgentMessage {
-  /** 消息 ID */
-  id: string
-  /** 来源 agent 名 */
-  fromAgent: string
-  /** 目标 agent 名(broadcast 时为 '*') */
-  toAgent: string
-  /** 消息类型 */
-  type: AgentMessageType
-  /** 消息内容 */
-  content: string
-  /** 关联的子任务 ID */
-  subTaskId?: string
-  /** 时间戳(ISO) */
-  timestamp: string
-  /** 是否需要回复(request 类型) */
-  requireReply?: boolean
 }
 
 /** 共享黑板条目(agent 间共享上下文) */
@@ -1217,17 +1115,40 @@ export type ImPlatform =
 
 /** Git 操作枚举(只读 + 写入,对标 OpenClaw/OpenCode 完整 Git 工作流) */
 export type GitOperation =
-  | 'status' | 'diff' | 'log' | 'show' | 'branch_list'
-  | 'branch_create' | 'branch_switch' | 'branch_delete'
-  | 'merge' | 'rebase' | 'stash_push' | 'stash_pop' | 'stash_list'
-  | 'tag_create' | 'tag_list' | 'remote_add' | 'remote_list'
-  | 'conflict_status' | 'conflict_resolve'
+  | 'status'
+  | 'diff'
+  | 'log'
+  | 'show'
+  | 'branch_list'
+  | 'branch_create'
+  | 'branch_switch'
+  | 'branch_delete'
+  | 'merge'
+  | 'rebase'
+  | 'stash_push'
+  | 'stash_pop'
+  | 'stash_list'
+  | 'tag_create'
+  | 'tag_list'
+  | 'remote_add'
+  | 'remote_list'
+  | 'conflict_status'
+  | 'conflict_resolve'
 
 /** GitHub PR/Issue/Release 操作枚举(via gh CLI 或 REST API) */
 export type GitHubOperation =
-  | 'pr_create' | 'pr_list' | 'pr_view' | 'pr_review' | 'pr_merge'
-  | 'pr_comment' | 'pr_close' | 'pr_reopen' | 'pr_checkout'
-  | 'issue_create' | 'issue_list' | 'release_create'
+  | 'pr_create'
+  | 'pr_list'
+  | 'pr_view'
+  | 'pr_review'
+  | 'pr_merge'
+  | 'pr_comment'
+  | 'pr_close'
+  | 'pr_reopen'
+  | 'pr_checkout'
+  | 'issue_create'
+  | 'issue_list'
+  | 'release_create'
 
 // ============================================================================
 // 多 Agent 并行执行契约(2026-07-22 立,对标 Hermes Kanban + Claude Agent Teams)
@@ -1249,13 +1170,7 @@ export type GitHubOperation =
  * - blocked: 阻塞中(依赖未满足 / 工具失败 / 等待人工)
  * - done: 已完成(成功 or 失败,终态)
  */
-export type AgentTaskStatus =
-  | 'triage'
-  | 'todo'
-  | 'ready'
-  | 'in_progress'
-  | 'blocked'
-  | 'done'
+export type AgentTaskStatus = 'triage' | 'todo' | 'ready' | 'in_progress' | 'blocked' | 'done'
 
 /** Kanban 列定义(Web 工作台渲染用) */
 export interface KanbanColumn {
@@ -1590,7 +1505,10 @@ export interface SymbolRenameResult {
   changes: Array<{
     filePath: string
     edits: Array<{
-      range: { start: { line: number; character: number }; end: { line: number; character: number } }
+      range: {
+        start: { line: number; character: number }
+        end: { line: number; character: number }
+      }
       newText: string
     }>
   }>
