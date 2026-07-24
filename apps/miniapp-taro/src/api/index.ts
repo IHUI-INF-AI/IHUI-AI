@@ -8,9 +8,9 @@ import { parseSSEChunk, type SSEEvent } from '../utils/sse-parse'
 import type {
   FetchModelsResult,
   AgentPermission,
-  WalletBalance,
   VipLevel,
   SignContractResponse,
+  AlipayMiniappPayResponse,
 } from '@ihui/api-client'
 import {
   signRecurringContract as _signRecurringContract,
@@ -18,6 +18,12 @@ import {
   getRecurringContract as _getRecurringContract,
   cancelRecurringContract as _cancelRecurringContract,
   getSubscriptionStatus as _getSubscriptionStatus,
+  loginBySms as _loginBySms,
+  loginByWechat as _loginByWechat,
+  loginByPhone as _loginByPhone,
+  sendSmsCode as _sendSmsCode,
+  getBalance as _getBalance,
+  createAlipayMiniappPayment as _createAlipayMiniappPayment,
 } from '@ihui/api-client'
 import { unwrapApi } from '../utils/api-bridge'
 export type { UserInfo }
@@ -33,30 +39,37 @@ export type {
   SignContractResponse,
   SubscriptionStatus,
   WechatPayContract,
+  AuthUser,
+  PaymentStatus,
+  PaymentMethod,
+  AlipayMiniappPayResponse,
 } from '@ihui/api-client'
 // 向后兼容别名:SignContractResult → SignContractResponse(api-client canonical 名)
 export type SignContractResult = SignContractResponse
+// 向后兼容别名:AlipayMiniappPayResult → AlipayMiniappPayResponse(api-client canonical 名)
+export type AlipayMiniappPayResult = AlipayMiniappPayResponse
 
-/* ============ 认证相关 ============ */
+/* ============ 认证相关(已迁移到 @ihui/api-client 共享端点) ============ */
 
-/** 发送短信验证码 */
-export const sendSmsCode = (phone: string) => post('/auth/sms/send', { phone, scene: 'login' })
+/** 发送短信验证码 — POST /auth/sms/send (scene='login' 硬编码,与原行为一致) */
+export const sendSmsCode = (phone: string) => unwrapApi(_sendSmsCode(phone, 'login'))
 
-/** 手机号验证码登录 — 返回与 @ihui/api-client LoginResult 对齐 */
+/** 手机号验证码登录 — POST /auth/login/sms (返回 LoginResult,user 为 UserInfo 扩展) */
 export const loginBySms = (phone: string, code: string) =>
-  post<LoginResult>('/auth/login/sms', { phone, code })
+  unwrapApi(_loginBySms(phone, code)) as Promise<LoginResult>
 
-/** 手机号密码登录 — 返回与 @ihui/api-client LoginResult 对齐 */
+/** 手机号密码登录 — POST /auth/login/password (api-client 别名 loginByPhone) */
 export const loginByPassword = (phone: string, password: string) =>
-  post<LoginResult>('/auth/login/password', { phone, password })
+  unwrapApi(_loginByPhone(phone, password)) as Promise<LoginResult>
 
-/** 微信登录 — 返回与 @ihui/api-client LoginResult 对齐 */
-export const loginByWechat = (code: string) => post<LoginResult>('/auth/login/wechat', { code })
+/** 微信登录 — POST /auth/login/wechat */
+export const loginByWechat = (code: string) =>
+  unwrapApi(_loginByWechat(code)) as Promise<LoginResult>
 
-/** 退出登录 */
+/** 退出登录 — POST /auth/logout (本地实现,api-client 需传 refreshToken,签名不兼容) */
 export const logout = () => post('/auth/logout')
 
-/** 获取当前用户信息 */
+/** 获取当前用户信息 — GET /user/profile (本地实现,api-client 用 /auth/me 端点不兼容) */
 export const getProfile = () => get<UserInfo>('/user/profile')
 
 /* ============ 首页 ============ */
@@ -453,29 +466,17 @@ export interface RechargeCreateResult {
 export const createRecharge = (amount: number, payMethod: 'wechat' | 'alipay' = 'wechat') =>
   post<RechargeCreateResult>(`/payments/${payMethod}/create?amount=${amount}`, {})
 
-/** 创建支付宝小程序支付订单（对接 /payments/alipay/miniapp/create，金额单位：元） */
-export interface AlipayMiniappPayResult {
-  outTradeNo: string
-  mock?: boolean
-  tradeNo?: string
-}
+/** 创建支付宝小程序支付订单 — POST /payments/alipay/miniapp/create (已迁移到 @ihui/api-client 共享端点) */
 export const createAlipayMiniappPayment = (params: {
   amount: number
   orderType?: number
   subject?: string
   productId?: string
   buyerId?: string
-}) => {
-  const parts = [`amount=${encodeURIComponent(params.amount)}`]
-  if (params.orderType !== undefined) parts.push(`orderType=${params.orderType}`)
-  if (params.subject) parts.push(`subject=${encodeURIComponent(params.subject)}`)
-  if (params.productId) parts.push(`productId=${encodeURIComponent(params.productId)}`)
-  if (params.buyerId) parts.push(`buyerId=${encodeURIComponent(params.buyerId)}`)
-  return post<AlipayMiniappPayResult>(`/payments/alipay/miniapp/create?${parts.join('&')}`, {})
-}
+}) => unwrapApi(_createAlipayMiniappPayment(params))
 
-/** 钱包余额（对接 /wallet/balance） */
-export const getWalletBalance = () => get<WalletBalance>('/wallet/balance')
+/** 钱包余额 — GET /wallet/balance (已迁移到 @ihui/api-client getBalance 共享端点) */
+export const getWalletBalance = () => unwrapApi(_getBalance())
 
 /* ============ 分销 ============ */
 
