@@ -15,7 +15,7 @@ import type {
   DagDefinition,
   QuotaUsage,
   AgentMessage,
-} from '@ihui/shared/subagents/index'
+} from '@ihui/shared/subagents'
 
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
   const r = await fetchApi<T>(url, options)
