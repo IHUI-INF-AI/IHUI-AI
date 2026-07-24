@@ -455,6 +455,29 @@
     "showPassword": "Show password",
     "hidePassword": "Hide password"
   },
+  "taskReceiver": {
+    "title": "Task Receiver",
+    "wsConnected": "WS Connected",
+    "wsDisconnected": "WS Disconnected",
+    "deviceLabel": "Device",
+    "deviceIdCopied": "Device ID copied: {id}",
+    "deviceIdShow": "Device ID: {id}",
+    "emptyWaiting": "Waiting for tasks from mobile",
+    "source": "Source",
+    "target": "Target",
+    "execute": "Execute",
+    "loading": "Loading…",
+    "executed": "Task {id} executed, result sent back",
+    "callbackFailed": "Callback failed: {error}",
+    "errorPrefix": "Error",
+    "status": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    }
+  },
   "nav": {
     "title": "Main Navigation",
     "home": "Home",
@@ -28958,6 +28981,145 @@
     },
     "empty": {
       "items": "No resources"
+    }
+  },
+  "design": {
+    "title": "Design Mode",
+    "htmlLabel": "HTML",
+    "render": "Render Preview",
+    "cssPanel": "CSS Panel",
+    "commentToChat": "Comment to Chat",
+    "savePreview": "Save Preview",
+    "previewNamePlaceholder": "Untitled Preview",
+    "clickElementHint": "Click element to inspect",
+    "layout": {
+      "dragHint": "Drag element to reposition",
+      "alignTo": "Snap to guide",
+      "showGuides": "Show guides",
+      "hideGuides": "Hide guides"
+    },
+    "commentPlaceholder": "Comment on this element…",
+    "saved": "Saved: {name}",
+    "saveFailed": "Save failed: {error}",
+    "errorPrefix": "Error",
+    "commented": "Commented {tagName}#{elementId}: {comment}",
+    "undo": "Undo",
+    "redo": "Redo",
+    "previewList": "Preview List",
+    "noPreviews": "No saved previews",
+    "loadPreview": "Load Preview",
+    "loadFailed": "Failed to load previews",
+    "previewName": "Preview Name",
+    "componentTree": {
+      "title": "Component Tree",
+      "empty": "No elements on canvas"
+    },
+    "comments": {
+      "title": "Comments",
+      "empty": "Save preview first to view comments",
+      "noComments": "No comments yet",
+      "loadingFailed": "Failed to load comments",
+      "send": "Send Comment"
+    },
+    "aiGenerate": {
+      "button": "AI Generate",
+      "placeholder": "Describe the page you want to generate…",
+      "generating": "Generating…",
+      "success": "Generated and injected to canvas",
+      "failed": "AI generation failed"
+    },
+    "cssGroup": {
+      "layout": "Layout",
+      "boxModel": "Box Model",
+      "typography": "Typography",
+      "background": "Background",
+      "effects": "Effects",
+      "responsive": "Responsive"
+    },
+    "css": {
+      "display": "Display",
+      "flexDirection": "Flex Direction",
+      "justifyContent": "Justify Content",
+      "alignItems": "Align Items",
+      "gap": "Gap",
+      "flexWrap": "Flex Wrap",
+      "position": "Position",
+      "top": "Top",
+      "right": "Right",
+      "bottom": "Bottom",
+      "left": "Left",
+      "zIndex": "Z-Index",
+      "width": "Width",
+      "height": "Height",
+      "padding": "Padding",
+      "margin": "Margin",
+      "border": "Border",
+      "borderRadius": "Border Radius",
+      "boxSizing": "Box Sizing",
+      "color": "Color",
+      "fontSize": "Font Size",
+      "fontWeight": "Font Weight",
+      "lineHeight": "Line Height",
+      "textAlign": "Text Align",
+      "letterSpacing": "Letter Spacing",
+      "background": "Background",
+      "backgroundColor": "Background Color",
+      "backgroundImage": "Background Image",
+      "opacity": "Opacity",
+      "boxShadow": "Box Shadow",
+      "transform": "Transform",
+      "transition": "Transition",
+      "cursor": "Cursor",
+      "overflow": "Overflow",
+      "minWidth": "Min Width",
+      "maxWidth": "Max Width",
+      "placeholder": "Enter CSS value…",
+      "reset": "Reset Styles"
+    },
+    "export": {
+      "exportButton": "Export Code",
+      "exportReact": "React Component",
+      "exportVue": "Vue Component",
+      "exportHtml": "Plain HTML",
+      "exportSuccess": "Exported {filename}"
+    },
+    "responsive": {
+      "deviceMobilePortrait": "Mobile Portrait",
+      "deviceMobileLandscape": "Mobile Landscape",
+      "deviceTabletPortrait": "Tablet Portrait",
+      "deviceTabletLandscape": "Tablet Landscape",
+      "deviceDesktop": "Desktop",
+      "deviceCustom": "Custom",
+      "customWidth": "Custom Width",
+      "apply": "Apply",
+      "deviceFrame": "Device Frame"
+    },
+    "templates": {
+      "title": "Templates",
+      "apply": "Apply Template",
+      "blank": "Blank",
+      "landing": "Landing Page",
+      "dashboard": "Dashboard",
+      "login": "Login Page",
+      "blog": "Blog",
+      "product": "Product Page",
+      "pricing": "Pricing Table",
+      "profile": "Profile Card",
+      "blankDesc": "Minimal skeleton, start from scratch",
+      "landingDesc": "Hero + features + CTA",
+      "dashboardDesc": "Sidebar + topbar + cards",
+      "loginDesc": "Centered card + form",
+      "blogDesc": "Title + body + sidebar",
+      "productDesc": "Image + details + buy",
+      "pricingDesc": "Three-column comparison",
+      "profileDesc": "Avatar + info + social",
+      "categories": {
+        "blank": "Blank",
+        "marketing": "Marketing",
+        "app": "App",
+        "content": "Content",
+        "commerce": "Commerce"
+      }
     }
   }
 }

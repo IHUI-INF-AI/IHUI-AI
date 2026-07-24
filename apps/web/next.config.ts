@@ -18,6 +18,8 @@ const nextConfig: NextConfig = {
     '@ihui/app',
     '@ihui/shared',
     '@ihui/api-client',
+    '@tauri-apps/api',
+    '@tauri-apps/plugin-dialog',
     'react-native-web',
   ],
   turbopack: {
