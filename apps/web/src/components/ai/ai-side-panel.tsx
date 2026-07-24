@@ -22,6 +22,7 @@ import { MessageInput } from '@/components/chat/message-input'
 import { QuestionDialog } from '@/components/chat/question-dialog'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
+import { PlanActToggle } from '@/components/ai/plan-act-toggle'
 import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
 import { DispatchSubagentDialog } from '@/components/ai/dispatch-subagent-dialog'
 import { Tooltip } from '@/components/feedback'
@@ -434,6 +435,9 @@ export function AISidePanel() {
               )}
             </span>
           </div>
+          {/* Plan/Act 模式切换(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
+              Plan=只制定计划不执行工具,Act=正常 tool loop 执行(默认) */}
+          <PlanActToggle />
           <Tooltip content={tc('newConversation')}>
             <button
               type="button"
