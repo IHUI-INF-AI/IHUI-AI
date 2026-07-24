@@ -1,18 +1,37 @@
 import { type PropsWithChildren } from 'react'
 import Taro, { useLaunch } from '@tarojs/taro'
-import { checkLoginStatus, getToken, getUserInfo, setToken, setRefreshToken, setUserInfo } from './utils/auth'
+import {
+  checkLoginStatus,
+  getToken,
+  getUserInfo,
+  setToken,
+  setRefreshToken,
+  setUserInfo,
+} from './utils/auth'
 import { exchangeSsoCode } from './utils/sso'
 import { showShareMenu } from './utils/share'
 import { initPrivacyGuard } from './utils/privacy'
 import { initPushSubscription } from './utils/push-init'
 import { isMiniAppEnvironment } from './utils/miniapp-login'
 import { useUserStore } from './stores/user'
-import { createNotificationClient } from '@ihui/api-client'
+import {
+  createNotificationClient,
+  setTokenProvider,
+  setBaseUrl,
+  setTransport,
+} from '@ihui/api-client'
+import { createTaroTransport } from './utils/api-client-transport'
 import { taroWebSocketFactory } from './utils/taro-websocket-adapter'
 import { BASE_URL } from './utils/request'
 import { I18nProvider, useI18n } from './i18n'
 import CustomerServiceFloat from './components/CustomerServiceFloat'
 import './app.css'
+
+// 初始化 api-client:注入 Taro transport + token provider + baseUrl
+// 使 @ihui/api-client 共享端点可在小程序运行时使用(替代 native fetch)
+setTokenProvider({ getToken: () => getToken() })
+setBaseUrl(BASE_URL.replace(/\/api$/, ''))
+setTransport(createTaroTransport())
 
 // 2026-07-22 P0 Round 5 鲁棒性加固:防 NetworkStatusListener 在组件卸载后仍触发 toast
 let networkListenerRegistered = false
