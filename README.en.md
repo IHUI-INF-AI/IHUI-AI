@@ -310,7 +310,7 @@ IHUI-AI is not trying to replace any single project—it integrates the capabili
 | **AI Coding CLI / IDE**            | Claude Code / Cursor / Windsurf / Trae SOLO / GitHub Copilot / Copilot Workspace / Amazon Q Developer / Cody Sourcegraph / Cline / Aider / Devin / Tabnine / GitLab Duo / Gemini CLI / OpenCode / CodeGeeX / Continue / Roo Code / Codeium / JetBrains AI Assistant | Self-developed CLI 17 commands + 13 built-in tools + ACP Server (Zed/VSCode/Cursor embedding) + 6-source config import + Skills + CodeGraph + Worktree |
 | **Enterprise AI Agent Platform**   | Google Gemini Enterprise Agent Platform / OpenAI Agents SDK / Microsoft Copilot Studio / IBM watsonx.ai / Salesforce Agentforce / ServiceNow Now Assist / AWS Bedrock Agents / Crew | LangGraph + MCP + A2A three-stack + Agent marketplace + developer center + Coze SDK proxy + OpenClaw + Crew integration + N8N proxy |
 | **AI Agent Framework (Open-Source)** | LangChain / LangGraph / LlamaIndex / AutoGen / CrewAI / AutoGPT / MetaGPT / smol agents / Semantic Kernel / Spring AI / Hugging Face Transformers Agents              | Three-stack synergy + complete Agent Runtime + Persona registry + Agent marketplace — not just a framework, a productized solution |
-| **Multi-Platform Development Framework** | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                              | 8-client unified architecture + 13 shared packages + cross-platform type safety + shared UI (`@ihui/ui` / `@ihui/ui-native` / `@ihui/ui-primitives`) |
+| **Multi-Platform Development Framework** | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                              | 8-client unified architecture + 13 shared packages + cross-platform type safety + shared UI (`@ihui/ui-react` / `@ihui/ui-native` / `@ihui/design-tokens`) |
 | **AI Education / Content Platform** | Khan Academy / Coursera / edX / Google Education AI / Zhipu AI Education / TAL AI / Jasper / Copy.ai / Rytr / WriteSonic / Notion AI / Yike / New Media Manager        | Full-stack AI education (courses/question bank/exams/SRS/live/certificates) + 14-platform one-click publishing + self-media workbench + AI news + AI career + short drama + business cards |
 | **LLM API Platform**               | International: OpenAI Platform / Anthropic API / Google Vertex AI / AWS Bedrock / Azure AI Foundry / Mistral La Plateforme / Cohere / Together AI / Fireworks AI / Replicate<br>Domestic: Baidu Qianfan / Alibaba Bailian / Tencent Hunyuan / ByteDance Doubao (Volcano Ark) / Zhipu AI Platform / iFlytek Spark / Moonshot Kimi / DeepSeek / SenseTime SenseNova | LiteLLM unified gateway + 100+ model integration + smart routing + 60% cache hit + multi-provider adaptation |
 | **Commercial SaaS Foundation**     | Stripe / PayPal / Lemon Squeezy / Paddle / Auth0 / Clerk / Firebase Auth / Supabase Auth / Mailgun / SendGrid / Postmark / Resend / Mixpanel / Amplitude / PostHog / Heap | VIP/subscription/wallet/points/refund/invoice/8 payment gateways + JWT/SSO/RBAC + SMTP SMS + BI dashboard + canary release — a one-stop replacement for 4-6 SaaS |
@@ -655,9 +655,8 @@ IHUI-AI/
 │   ├── sdk/                 # @ihui/sdk (auto-generated)
 │   ├── tsconfig/            # @ihui/tsconfig
 │   ├── types/               # @ihui/types
-│   ├── ui/                  # @ihui/ui (Web shadcn/ui)
 │   ├── ui-native/           # @ihui/ui-native (React Native)
-│   └── ui-primitives/       # @ihui/ui-primitives (cn + primitives)
+│   └── ui-react/            # @ihui/ui-react (Web/Desktop/Extension shared React shadcn/ui components)
 ├── deploy/
 │   ├── nginx/               # Nginx reverse proxy + blue-green upstream + SSL/security/rate-limit
 │   ├── scripts/             # deploy.sh / rollback.sh / health-check.sh / backup-db.sh / restore-db.sh / deploy_certs.sh
@@ -2010,7 +2009,7 @@ Here are 5 technical decisions that get asked again and again.
 - **Atomic commits**: A cross-platform feature change can be done in one commit; polyrepo needs 8 PRs
 - **Dependency consistency**: pnpm workspace forces version consistency, avoiding "dependency fragmentation" of polyrepo
 - **CI caching**: Turborepo's remote cache lets a single developer enjoy the CI speed of a large team
-- **Shared UI**: `@ihui/ui` + `@ihui/ui-primitives` make 8-platform UI consistent, which polyrepo can't do
+- **Shared UI**: `@ihui/ui-react` + `@ihui/design-tokens` make 8-platform UI consistent, which polyrepo can't do
 
 **Cost**: Monorepo configuration is complex, but once set up, it's once and for all.
 
