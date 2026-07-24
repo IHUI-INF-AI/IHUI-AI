@@ -1,0 +1,33 @@
+{
+  "name": "@ihui/design-tokens",
+  "version": "0.0.0",
+  "private": true,
+  "description": "IHUI-AI 设计令牌(8端共享):cn() 类名合并工具 + design tokens 色板/间距/字号/圆角/阴影/z-index,导出 JS 对象 + CSS 变量双形式",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles/tokens.css": "./src/styles/tokens.css"
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist .turbo node_modules"
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^2.5.5"
+  },
+  "devDependencies": {
+    "@ihui/eslint-config": "workspace:*",
+    "typescript": "^5.7.2",
+    "rimraf": "^6.0.1"
+  }
+}

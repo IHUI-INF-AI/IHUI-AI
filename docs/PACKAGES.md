@@ -1,6 +1,6 @@
 # 共享包指南(packages/)
 
-> IHUI-AI Monorepo 的 `packages/` 目录包含 12 个 TS 共享包,通过 pnpm workspace 协议(`workspace:*`)被各 app 引用。本文档聚焦包内部结构与引用方式,Monorepo 技术栈与包管理总览见 [architecture.md](./architecture.md) §1,SDK 多语言用法见 [SDK.md](./SDK.md)(若存在)。
+> IHUI-AI Monorepo 的 `packages/` 目录包含 14 个 TS 共享包,通过 pnpm workspace 协议(`workspace:*`)被各 app 引用。本文档聚焦包内部结构与引用方式,Monorepo 技术栈与包管理总览见 [architecture.md](./architecture.md) §1,SDK 多语言用法见 [SDK.md](./SDK.md)(若存在)。
 
 ---
 
@@ -26,15 +26,17 @@
 | `@ihui/auth` | `packages/auth/` | 认证:JWT + token-family + blacklist + OAuth2 + ws-auth + data-scope + key-rotation | `jwt`/`token-family`/`blacklist`/`oauth2`/`ws-auth`/`data-scope`/`key-rotation` | 5 测试文件 |
 | `@ihui/database` | `packages/database/` | Drizzle schema(100+ 表)+ 100+ 迁移 + client + rls + read-replica + tenant-router | `schema/*`/`client`/`rls`/`read-replica`/`tenant-router` | 2 测试文件 |
 | `@ihui/types` | `packages/types/` | 全栈类型定义(20 模块) | `user`/`api`/`ai`/`api-key`/`memory`/`plugin`/`agent-control`/`agent-runtime`/`api-contracts`/`cli-config`/`ide-workspace`/`leaderboard`/`legacy-migration`/`message-repair`/`notification-channels`/`notification`/`webhook-trigger`/`work-panel`/`workspace`/`v1-endpoints` | 2 测试文件 |
-| `@ihui/ui` | `packages/ui/` | shadcn/ui 基础组件(Web) | `button`/`input`/`label`/`card`/`dialog`/`select`/`tabs`/`tooltip`/`badge`/`checkbox`/`table`/`data-table`/`sidebar`/`sheet`/`switch`/`collapsible`/`code-block`/`log-viewer`/`resizable`/`tree-select`/`vip-badge`/`theme-logo`/`webview-frame`/`work-panel`/`Upload` | - |
-| `@ihui/ui-native` | `packages/ui-native/` | React Native 版组件(mobile-rn 用) | `avatar`/`badge`/`button`/`card`/`dialog`/`input`/`loading`/`switch`/`tabs`/`vip-badge` | - |
-| `@ihui/ui-primitives` | `packages/ui-primitives/` | UI 原语:`cn()` 类名合并 + design tokens | `cn`/`tokens`(色板/间距/字号/圆角/阴影/z-index) | - |
+| `@ihui/ui-react` | `packages/ui-react/` | shadcn/ui 基础组件(Web) | `button`/`input`/`label`/`card`/`dialog`/`select`/`tabs`/`tooltip`/`badge`/`checkbox`/`table`/`data-table`/`sidebar`/`sheet`/`switch`/`collapsible`/`code-block`/`log-viewer`/`resizable`/`tree-select`/`vip-badge`/`theme-logo`/`webview-frame`/`work-panel`/`Upload` | - |
+| `@ihui/ui-native` | `packages/ui-native/` | React Native 版组件(mobile-rn 用) | `avatar`/`badge`/`button`(3 组件,待扩展) | - |
+| `@ihui/design-tokens` | `packages/design-tokens/` | 设计令牌(8端共享):`cn()` 类名合并 + HSL shadcn tokens + RN HEX tokens + CSS 变量 | `cn`/`tokens`/`rnTokens`/`rnLightTokens`/`rnDarkTokens`/`getRnTokens` | - |
 | `@ihui/config` | `packages/config/` | 常量与环境配置 | `constants`/`env` | - |
 | `@ihui/eslint-config` | `packages/eslint-config/` | ESLint 共享配置 | `base`/`next`/`react` | - |
 | `@ihui/tsconfig` | `packages/tsconfig/` | TSConfig 共享配置 | `base`/`nextjs`/`node`/`react-library` | - |
 | `@ihui/api-client` | `packages/api-client/` | API 客户端:48 endpoint 文件 + client + circuit-breaker + ws-client | `client`/`api-error`/`utils`/`endpoints/*`(48 文件)/`circuit-breaker`/`ws-client`/`model-context-capacity` | 3 测试文件 |
 | `@ihui/context-compaction` | `packages/context-compaction/` | 上下文压缩(对话历史 token 优化) | `index` | - |
 | `@ihui/sdk` | `packages/sdk/` | TS SDK + 4 语言 SDK(Python/Go/Java/.NET) | TS:`agents`/`ai`/`audio`/`files`/`generation`/`images`/`knowledge`/`memory`/`messages`/`streaming`/`threed`/`tools`/`user`/`videos` | - |
+| `@ihui/shared` | `packages/shared/` | 8端共享业务逻辑:auth/sso + context + memory + notifications + plan + skills + spec + subagents + tasks + utils + validation + workflows | `auth`/`context`/`memory`/`notifications`/`plan`/`skills`/`spec`/`subagents`/`tasks`/`utils`/`validation`/`workflows`/`design` | - |
+| `@ihui/app` | `packages/app/` | RN app 共享逻辑(AboutScreen/ProfileScreen/SettingsScreen + theme/tokens re-export) | `index`/`theme/tokens`/`types`/`features/*` | - |
 
 ### @ihui/auth 源码结构
 
@@ -113,10 +115,10 @@ packages/types/src/
 └── v1-endpoints.ts       # v1 端点类型
 ```
 
-### @ihui/ui 组件清单
+### @ihui/ui-react 组件清单
 
 ```
-packages/ui/src/components/
+packages/ui-react/src/components/
 ├── button.tsx          # 按钮(cva 变体:default/destructive/outline/secondary/ghost/link)
 ├── input.tsx            # 输入框
 ├── label.tsx            # 标签
@@ -150,15 +152,10 @@ packages/ui/src/components/
 packages/ui-native/src/
 ├── avatar.tsx    # 头像
 ├── badge.tsx     # 徽章
-├── button.tsx    # 按钮
-├── card.tsx      # 卡片
-├── dialog.tsx    # 对话框
-├── input.tsx     # 输入框
-├── loading.tsx  # 加载
-├── switch.tsx    # 开关
-├── tabs.tsx      # 标签页
-└── vip-badge.tsx # VIP 徽章
+└── button.tsx    # 按钮
 ```
+
+> 注:ui-native 当前仅 3 组件(2026-07-24 核实),待按需扩展。
 
 ### @ihui/api-client 端点文件清单(48 文件)
 
@@ -216,13 +213,13 @@ packages/api-client/src/endpoints/
              apps/web              apps/api    外部用户
 
   ┌─────────────────┐
-  │ @ihui/ui-primitives │ (cn + tokens,无依赖)
+  │ @ihui/design-tokens │ (cn + tokens,无依赖)
   └────────┬────────┘
            │
     ┌──────┴──────┐
     │             │
     ▼             ▼
-@ihui/ui    @ihui/ui-native
+@ihui/ui-react    @ihui/ui-native
     │             │
     ▼             ▼
  apps/web    apps/mobile-rn
@@ -256,9 +253,9 @@ packages/api-client/src/endpoints/
 | `@ihui/types` | (无) | auth, database, api-client, sdk, apps/* |
 | `@ihui/auth` | types | apps/api, apps/web |
 | `@ihui/database` | (无,直接依赖 drizzle-orm + postgres) | apps/api |
-| `@ihui/ui-primitives` | (无,依赖 cva + clsx + tailwind-merge) | ui, ui-native |
-| `@ihui/ui` | ui-primitives | apps/web |
-| `@ihui/ui-native` | ui-primitives | apps/mobile-rn |
+| `@ihui/design-tokens` | (无,依赖 cva + clsx + tailwind-merge) | ui-react, ui-native, app |
+| `@ihui/ui-react` | design-tokens | apps/web |
+| `@ihui/ui-native` | design-tokens | apps/mobile-rn |
 | `@ihui/config` | (无) | apps/* |
 | `@ihui/eslint-config` | (无) | packages/* + apps/* |
 | `@ihui/tsconfig` | (无) | packages/* + apps/* |
@@ -274,8 +271,8 @@ packages/api-client/src/endpoints/
 
 ```typescript
 // apps/web/src/components/user-card.tsx
-import { Card, CardHeader, CardTitle, CardContent, Badge } from '@ihui/ui'
-import { cn } from '@ihui/ui-primitives'
+import { Card, CardHeader, CardTitle, CardContent, Badge } from '@ihui/ui-react'
+import { cn } from '@ihui/design-tokens'
 import type { User } from '@ihui/types/user'
 
 export function UserCard({ user }: { user: User }) {
@@ -549,8 +546,8 @@ pnpm --filter @ihui/new-package build
 | `@ihui/auth` | `tsc` | `packages/auth/dist/` |
 | `@ihui/database` | `tsc --build --force` | `packages/database/dist/` |
 | `@ihui/types` | `tsc` | `packages/types/dist/` |
-| `@ihui/ui` | `tsc` | `packages/ui/dist/` |
-| `@ihui/ui-primitives` | `tsc` | `packages/ui-primitives/dist/` |
+| `@ihui/ui-react` | `tsc` | `packages/ui-react/dist/` |
+| `@ihui/design-tokens` | `tsc` | `packages/design-tokens/dist/` |
 | `@ihui/api-client` | `tsc` | `packages/api-client/dist/` |
 | `@ihui/sdk` | `tsc -p tsconfig.json` | `packages/sdk/dist/` |
 | `@ihui/config` | `tsc` | `packages/config/dist/` |
@@ -614,8 +611,8 @@ pnpm changeset publish
 
 - `@ihui/types`:API 类型定义
 - `@ihui/auth`:认证工具(可配置 JWT_SECRET)
-- `@ihui/ui`:shadcn/ui 组件(可复用)
-- `@ihui/ui-primitives`:cn + tokens(通用)
+- `@ihui/ui-react`:shadcn/ui 组件(可复用)
+- `@ihui/design-tokens`:cn + tokens(通用)
 - `@ihui/api-client`:API 客户端(可配置 baseURL)
 - `@ihui/sdk`:多语言 SDK(面向外部用户)
 - `@ihui/context-compaction`:上下文压缩(通用)
