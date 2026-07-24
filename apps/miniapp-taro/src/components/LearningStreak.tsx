@@ -29,7 +29,7 @@ export default function LearningStreak({
       <View className="flex items-center justify-between mb-3">
         <View className="flex items-center">
           <Text className="text-base font-semibold text-foreground">{tt('streak.title', '学习连签')}</Text>
-          <Text className="ml-2 text-xs text-[#f59e0b]">🔥 连续 {streakDays} 天</Text>
+          <Text className="ml-2 text-xs text-[#f59e0b]">🔥 {tt('streak.continuousDays', '连续 {{n}} 天').replace('{{n}}', String(streakDays))}</Text>
         </View>
         <Text className="text-xs text-muted-foreground">{t('streak.totalDays', { n: totalSigned })}</Text>
       </View>
