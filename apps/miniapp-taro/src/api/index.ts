@@ -5,16 +5,27 @@ import Taro from '@tarojs/taro'
 import { get, post, put, patch, del, BASE_URL } from '../utils/request'
 import { getToken, type UserInfo, type LoginResult } from '../utils/auth'
 import { parseSSEChunk, type SSEEvent } from '../utils/sse-parse'
-import type { FetchModelsResult, AgentPermission } from '@ihui/api-client'
+import type {
+  FetchModelsResult,
+  AgentPermission,
+  WalletBalance,
+  VipLevel,
+  SignContractResponse,
+} from '@ihui/api-client'
 export type { UserInfo }
 export { get, post } from '../utils/request'
-// 类型单一来源:LlmModel / FetchModelsResult / AgentPermission / AgentPermissionType 复用 @ihui/api-client,本地 re-export 保持外部引用不变
+// 类型单一来源:LlmModel / FetchModelsResult / AgentPermission / AgentPermissionType / WalletBalance / VipLevel / SignContractResponse 复用 @ihui/api-client,本地 re-export 保持外部引用不变
 export type {
   LlmModel,
   FetchModelsResult,
   AgentPermission,
   AgentPermissionType,
+  WalletBalance,
+  VipLevel,
+  SignContractResponse,
 } from '@ihui/api-client'
+// 向后兼容别名:SignContractResult → SignContractResponse(api-client canonical 名)
+export type SignContractResult = SignContractResponse
 
 /* ============ 认证相关 ============ */
 
@@ -352,17 +363,6 @@ export interface VipInfo {
   originalPrice?: number
 }
 
-export interface VipLevel {
-  id: string
-  levelName: string
-  levelValue: number
-  price: number
-  durationDays: number
-  benefits?: Record<string, unknown> | null
-  status: number
-  sortOrder: number
-}
-
 export const getVipInfo = () => get<VipInfo>('/vip/my')
 export const getVipLevels = () => get<{ items: VipLevel[] }>('/vip/levels')
 export const getVipPrivilege = () =>
@@ -465,12 +465,6 @@ export const createAlipayMiniappPayment = (params: {
 }
 
 /** 钱包余额（对接 /wallet/balance） */
-export interface WalletBalance {
-  balance: number
-  frozenBalance: number
-  totalRecharge: number
-  totalWithdraw: number
-}
 export const getWalletBalance = () => get<WalletBalance>('/wallet/balance')
 
 /* ============ 分销 ============ */
@@ -1344,11 +1338,6 @@ export interface WechatPayContract {
   trialEndAt?: string
   createdAt: string
   updatedAt: string
-}
-
-export interface SignContractResult {
-  signUrl: string
-  contractId: string
 }
 
 export interface SubscriptionStatus {
