@@ -40,6 +40,8 @@
     "cert:status": "node scripts/cert-expiry-check.mjs --json",
     "clean": "turbo run clean && rimraf node_modules",
     "archive": "node scripts/archive-completed-tasks.mjs",
+    "hygiene:parent": "node scripts/check-parent-pollution.mjs",
+    "hygiene:workspace": "node scripts/check-workspace-hygiene.mjs",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "turbo run build && changeset publish",
@@ -68,7 +70,8 @@
       "@types/react-dom": "19.2.3",
       "drizzle-orm": "0.38.4",
       "fast-jwt": "6.2.4",
-      "metro": "0.81.5"
+      "metro": "0.81.5",
+      "html-encoding-sniffer": "4.0.0"
     },
     "peerDependencyRules": {
       "ignoreMissing": [
