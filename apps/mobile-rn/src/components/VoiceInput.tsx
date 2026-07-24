@@ -1,12 +1,7 @@
 /** 语音输入组件(mobile-rn)— expo-audio 真实录音,长按录制 m4a/aac,松开返回 URI */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native'
-import {
-  AudioModule,
-  RecordingPresets,
-  setAudioModeAsync,
-  useAudioRecorder,
-} from 'expo-audio'
+import { AudioModule, RecordingPresets, setAudioModeAsync, useAudioRecorder } from 'expo-audio'
 import { useI18n } from '../i18n'
 
 export interface VoiceInputProps {
@@ -39,7 +34,7 @@ export function VoiceInput({
   const waveAnim = useRef(new Animated.Value(0)).current
   const recordingRef = useRef(false)
   const permissionRef = useRef(false)
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY)
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY!)
 
   // 请求麦克风权限 + 配置音频模式
   useEffect(() => {
@@ -125,7 +120,11 @@ export function VoiceInput({
         await recorder.prepareToRecordAsync()
         if (!recordingRef.current) {
           // 用户在 prepare 期间松开 → 直接停止
-          try { await recorder.stop() } catch { /* ignore */ }
+          try {
+            await recorder.stop()
+          } catch {
+            /* ignore */
+          }
           return
         }
         recorder.record()
@@ -166,9 +165,7 @@ export function VoiceInput({
             <Animated.View style={[styles.bar, { height: barHeight }]} className="w-1 bg-red-500" />
             <Animated.View style={[styles.bar, { height: barHeight }]} className="w-1 bg-red-400" />
             <Animated.View style={[styles.bar, { height: barHeight }]} className="w-1 bg-red-500" />
-            <Text className="ml-1 text-xs text-red-600">
-              {formatDuration(duration)} 松开结束
-            </Text>
+            <Text className="ml-1 text-xs text-red-600">{formatDuration(duration)} 松开结束</Text>
           </View>
         ) : (
           <Text className="text-xs text-gray-600">{placeholder ?? '按住说话'}</Text>
