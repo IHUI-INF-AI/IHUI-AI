@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /user/
+
+Sitemap: https://ihui.ai/sitemap.xml
