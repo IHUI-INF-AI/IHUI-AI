@@ -10,6 +10,12 @@ vi.mock('@ihui/auth', () => ({
   verifyAccessToken: vi.fn(),
 }))
 
+// 修复(2026-07-24):authenticate 内部调用 jose.decodeJwt(token) 检查 challenge token,
+// 'mock-admin-token' 非有效 JWT 会抛异常 → 401。mock decodeJwt 返回非 challenge payload 绕过。
+vi.mock('jose', () => ({
+  decodeJwt: vi.fn(() => ({ type: 'access' })),
+}))
+
 const TEMPLATE_ID = '11111111-1111-1111-1111-111111111111'
 
 vi.mock('../../db/certificate-queries.js', () => {
