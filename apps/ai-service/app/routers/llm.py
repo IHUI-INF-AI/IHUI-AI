@@ -86,25 +86,37 @@ def _inject_workspace_memory(
     return new_messages
 
 
-# ===== 多 agent 编排引导 prompt(2026-07-24 立)=====
+# ===== 多 agent 编排引导 prompt(2026-07-24 立,2026-07-24 升级 5→10 agent + invoke_parallel)=====
 # 仅当请求 agent_tools 含 dispatch_subagent 时,在 tool loop 入口注入此 system message,
 # 引导 LLM 在复杂任务时主动派发子智能体而非单打独斗。
-# agent 清单对齐 AgentOrchestrator._register_defaults 的 5 个默认 agent
-# (注意:mcp_server.py 中 dispatch_subagent 工具 description 列的 code-reviewer/bug-fixer 等
-#  名称与实际注册的 researcher/coder/reviewer/architect/debugger 不一致,此处以实际注册为准)。
+# agent 清单对齐 AgentOrchestrator._register_defaults 的 10 个默认 agent(5 通用 + 5 专业,2026-07-24 新增)
 _SUBAGENT_ORCHESTRATION_PROMPT = (
     "你当前可以使用 dispatch_subagent 工具派发子智能体执行独立子任务,"
     "子智能体独立执行后返回结果,不污染主对话上下文。\n\n"
-    "可用 agent:\n"
+    "通用 agent(5 个):\n"
     "- researcher:研究助手,调研任务、收集信息、生成摘要\n"
     "- coder:代码助手,实现功能、修复 bug、写代码\n"
     "- reviewer:代码审查助手,审查 diff、给出修改建议\n"
     "- architect:架构师,设计方案、规划模块、API 契约\n"
     "- debugger:调试助手,定位 bug、给出修复方案\n\n"
+    "专业 agent(5 个,2026-07-24 新增,对标 Trae 自定义智能体):\n"
+    "- frontend-dev:前端开发专家,React 19/Next.js 15/Tailwind 4/shadcn/ui,遵循项目 UI 约束\n"
+    "- backend-dev:后端开发专家,Fastify 5/Drizzle ORM/PostgreSQL/Redis,遵循项目 API 约束\n"
+    "- devops:DevOps 工程师,Docker/Turborepo/pnpm workspace/CI/CD,monorepo 构建\n"
+    "- security-auditor:安全审计专家,OWASP Top 10/CWE 检测,RCE/SSRF/SQL注入/XSS 漏洞模式\n"
+    "- test-engineer:测试工程师,Vitest/pytest/Playwright,单元/集成/E2E 测试设计\n\n"
+    "并行派发(2026-07-24 新增,对标 Codex 并行 Agent):\n"
+    "- 当任务涉及多个独立子任务时,可在单次 dispatch_subagent 调用中传入 tasks 数组批量派发\n"
+    "- invoke_parallel 自动用 asyncio.Semaphore 限流(默认并发 5),单个失败不影响其他\n"
+    "- 返回结构化聚合结果:total/succeeded/failed/results[]\n\n"
     "使用时机:\n"
     "- 任务涉及多个独立子步骤(如\"审查代码 + 写测试\")→ 拆分为多个 dispatch_subagent 调用,每个子任务一个 agent\n"
     "- 任务需要多视角审查(如\"评估方案是否合理\")→ 用 reviewer\n"
     "- 任务需要专业能力而你自身不擅长(如\"调研某新技术进展\")→ 用 researcher\n"
+    "- 前端 UI 改动 → 用 frontend-dev(熟悉项目 UI 约束,产出更合规)\n"
+    "- 后端 API 改动 → 用 backend-dev(熟悉项目 API 约束,产出更规范)\n"
+    "- 安全审查 → 用 security-auditor(产出按 severity 分级 + 修复建议)\n"
+    "- 测试设计 → 用 test-engineer(覆盖 4 状态:默认/hover/active/dark mode)\n"
     "- 简单任务(单一问题、直接回答)→ 不需要 dispatch_subagent,自己回答即可\n\n"
     "禁止滥用:\n"
     "- 不要为单一简单问题派发多个 subagent(浪费 token)\n"
