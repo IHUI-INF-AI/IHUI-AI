@@ -26,3 +26,12 @@ else
     exit 1
   }
 fi
+
+# ─── 4. 项目外污染巡查 + 自动清理(2026-07-24 立, AGENTS.md §15 运行时禁令) ──
+# 每次 commit 后立即巡查项目父目录 / 桌面 / 用户主目录是否有 agent 创建的污染文件
+# 自动清理文件名强信号命中(search_*.ps1 / *_result.txt 等),内容双信号命中只 warn
+# 跳过: HUSKY_SKIP_HYGIENE=1(紧急场景)
+# 非阻塞: 巡查失败不影响 commit(已落地)和 push(已由第 3 段处理)
+if [ "${HUSKY_SKIP_HYGIENE:-0}" != "1" ]; then
+  node scripts/check-parent-pollution.mjs --auto-clean --quiet 2>/dev/null || true
+fi
