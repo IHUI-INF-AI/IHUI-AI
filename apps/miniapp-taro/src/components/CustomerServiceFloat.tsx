@@ -1,6 +1,7 @@
 import { View, Button, Text } from '@tarojs/components'
 import { useState, useEffect } from 'react'
 import Taro from '@tarojs/taro'
+import { useI18n } from '@/i18n'
 
 export interface CustomerServiceFloatProps {
   visible?: boolean
@@ -8,6 +9,8 @@ export interface CustomerServiceFloatProps {
 
 export default function CustomerServiceFloat({ visible = true }: CustomerServiceFloatProps) {
   const [show, setShow] = useState(false)
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
 
   useEffect(() => {
     if (!visible) {
@@ -35,11 +38,11 @@ export default function CustomerServiceFloat({ visible = true }: CustomerService
         openType="contact"
         sessionFrom="global_float"
         showMessageCard
-        sendMessageTitle="客服咨询"
+        sendMessageTitle={tt('common.customerService', '客服咨询')}
         sendMessagePath="/pages/index/index"
       >
         <Text className="cs-float-icon">💬</Text>
-        <Text className="cs-float-label">咨询</Text>
+        <Text className="cs-float-label">{tt('common.consult', '咨询')}</Text>
       </Button>
     </View>
   )

@@ -86,7 +86,7 @@ export default function AgentDialogue() {
   const { t } = useI18n()
   const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
 
-  const [chatTitle, setChatTitle] = useState('AI助手')
+  const [chatTitle, setChatTitle] = useState(tt('agentDialogue.defaultTitle', 'AI助手'))
   const [chatList, setChatList] = useState<DisplayMessage[]>([])
   const [inputContent, setInputContent] = useState('')
   const [scrollTop, setScrollTop] = useState(0)

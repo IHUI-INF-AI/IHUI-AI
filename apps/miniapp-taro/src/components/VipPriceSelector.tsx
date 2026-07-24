@@ -1,4 +1,5 @@
 import { View, Text } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 
 export interface PriceOption {
   id: string
@@ -35,6 +36,8 @@ export default function VipPriceSelector({
   selectedId = '2',
   onSelect,
 }: VipPriceSelectorProps) {
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   return (
     <View className="flex space-x-2 px-4 py-3">
       {options.map((opt) => {
@@ -52,7 +55,7 @@ export default function VipPriceSelector({
                 className="absolute -top-2 left-1/2 px-2 py-0.5 rounded-md bg-destructive"
                 style={{ transform: 'translateX(-50%)' }}
               >
-                <Text className="text-[10px] text-white">热门</Text>
+                <Text className="text-[10px] text-white">{tt('vip.hot', '热门')}</Text>
               </View>
             )}
             <Text

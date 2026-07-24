@@ -1,5 +1,6 @@
 import { View, Text } from '@tarojs/components'
 import { useState } from 'react'
+import { useI18n } from '@/i18n'
 
 export interface FilterDropdownProps {
   label?: string
@@ -15,6 +16,8 @@ export default function FilterDropdown({
   onChange,
 }: FilterDropdownProps) {
   const [open, setOpen] = useState(false)
+  const { t } = useI18n()
+  const tt = (k: string, fb: string) => (t(k) === k ? fb : t(k))
   const selected = options.find((o) => o.value === value)
 
   return (
@@ -25,7 +28,7 @@ export default function FilterDropdown({
       >
         <Text className="text-xs text-muted-foreground mr-1">{label}:</Text>
         <Text className={`text-xs ${selected ? 'text-primary' : 'text-muted-foreground'}`}>
-          {selected?.label || '全部'}
+          {selected?.label || tt('common.all', '全部')}
         </Text>
         <Text className="text-xs text-muted-foreground ml-1">{open ? '▲' : '▼'}</Text>
       </View>
@@ -38,7 +41,7 @@ export default function FilterDropdown({
               setOpen(false)
             }}
           >
-            <Text className="text-xs text-muted-foreground">全部</Text>
+            <Text className="text-xs text-muted-foreground">{tt('common.all', '全部')}</Text>
           </View>
           {options.map((opt) => (
             <View
