@@ -47,6 +47,10 @@
       "types": "./src/notifications/index.ts",
       "import": "./src/notifications/index.ts"
     },
+    "./notifications/notification-store": {
+      "types": "./src/notifications/notification-store.tsx",
+      "import": "./src/notifications/notification-store.tsx"
+    },
     "./notifications/*": {
       "types": "./src/notifications/*.ts",
       "import": "./src/notifications/*.ts"
@@ -120,11 +124,16 @@
     "clean": "rimraf dist .turbo node_modules"
   },
   "dependencies": {
+    "@ihui/api-client": "workspace:*",
     "xstate": "^5.19.0",
     "zod": "^3.25.76"
   },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
+    "@types/react": "^19.0.0",
     "eslint": "^9.16.0",
     "rimraf": "^6.0.1",
     "typescript": "^5.7.2",
