@@ -1,3 +1,7 @@
+# 供应链安全:当前用 tag pinning(node:20-alpine),生产部署前应改为 digest pinning:
+#   docker pull node:20-alpine
+#   docker inspect --format='{{index .RepoDigests 0}}' node:20-alpine
+#   替换下面 FROM 行为:FROM node:20-alpine@sha256:<digest>
 FROM node:20-alpine AS base
 RUN apk add --no-cache libc6-compat
 RUN npm install -g pnpm@9.15.0
@@ -41,6 +45,10 @@ RUN pnpm --filter @ihui/web... run build
 
 # A 套壳架构(2026-07-24):output:'export' 静态导出,nginx 提供静态文件 + API 反向代理
 # 替代原 standalone + node server.js 方案,因为 output:'export' 不生成 server.js
+# 供应链安全:当前用 tag pinning(nginx:1.27-alpine),生产部署前应改为 digest pinning:
+#   docker pull nginx:1.27-alpine
+#   docker inspect --format='{{index .RepoDigests 0}}' nginx:1.27-alpine
+#   替换下面 FROM 行为:FROM nginx:1.27-alpine@sha256:<digest>
 FROM nginx:1.27-alpine AS runner
 WORKDIR /usr/share/nginx/html
 # 复制静态导出产物(out/ 已包含 public/ 内容,Next.js export 时自动合并)
