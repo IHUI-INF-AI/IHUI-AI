@@ -239,33 +239,35 @@ async def test_agent_tools_unknown_tool_skipped():
 # =============================================================================
 
 async def test_tool_result_without_ok_field_defaults_success():
-    """工具 handler 不返回 ok 字段时,tool loop 应默认视为成功(不误判失败)。
+    """tool loop 对 ok 字段的判断逻辑回归测试。
 
-    回归 _tool_analyze_code 不返回 ok 字段导致 tool loop 提前退出的 bug。
-    修复:llm.py `ok = bool(exec_result.get("ok", True))` 默认成功。
+    历史背景:
+    - 旧版 llm.py `ok = bool(exec_result.get("ok"))`:无 ok 字段 → None → False → 误判失败
+    - 修复版 llm.py `ok = bool(exec_result.get("ok", True))`:无 ok 字段 → 默认 True → 成功
+    - 规范版(当前):所有 handler 显式返回 ok 字段(mcp_server.py 统一规范)
 
-    此前 `ok = bool(exec_result.get("ok"))`:
-    - exec_result 不含 ok → get 返回 None → bool(None) = False → 误判失败
-    修复后 `ok = bool(exec_result.get("ok", True))`:
-    - exec_result 不含 ok → get 返回 True(默认) → bool(True) = True → 成功
-    - exec_result.ok = False → 仍识别为失败(异常分支显式设置)
+    本测试验证 llm.py 的判断逻辑在 3 种场景下的行为:
+    1. 合成 dict 不含 ok → 兜底默认成功(模拟旧 handler 无 ok 字段的场景)
+    2. 显式 ok: False → 识别为失败(异常分支)
+    3. 显式 ok: True → 识别为成功(正常分支)
     """
     from app.services.mcp_server import _tool_analyze_code
 
-    # 真实 analyze_code handler 不返回 ok 字段
+    # 验证新规范:analyze_code 现在显式返回 ok: True
     result = await _tool_analyze_code({"code": "print(1)", "language": "python"})
-    assert "ok" not in result, "analyze_code 不应返回 ok 字段(这是测试前提)"
+    assert result.get("ok") is True, "analyze_code 应显式返回 ok: True(新规范)"
 
-    # 模拟 llm.py 的判断逻辑(修复后):无 ok 字段 → 默认成功
-    ok = bool(result.get("ok", True))
-    assert ok is True, "无 ok 字段时应默认成功(修复后)"
+    # 场景 1:合成 dict 不含 ok 字段 → 兜底默认成功(模拟旧 handler)
+    legacy_result = {"tool": "fake_tool", "output": "done"}  # 无 ok 字段
+    ok_legacy = bool(legacy_result.get("ok", True))
+    assert ok_legacy is True, "无 ok 字段时应默认成功(兜底逻辑)"
 
-    # 验证异常分支(显式 ok: False)仍被识别为失败
+    # 场景 2:显式 ok: False → 识别为失败(异常分支)
     failure_result = {"ok": False, "error": "test failure"}
     ok_failure = bool(failure_result.get("ok", True))
     assert ok_failure is False, "显式 ok: False 应识别为失败"
 
-    # 验证显式 ok: True 仍被识别为成功
+    # 场景 3:显式 ok: True → 识别为成功
     success_result = {"ok": True, "output": "done"}
     ok_success = bool(success_result.get("ok", True))
     assert ok_success is True, "显式 ok: True 应识别为成功"
