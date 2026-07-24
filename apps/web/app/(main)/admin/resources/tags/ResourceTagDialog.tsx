@@ -14,8 +14,8 @@ import {
   Label,
   Switch,
   TreeSelect,
-} from '@ihui/ui'
-import type { TreeNode } from '@ihui/ui'
+} from '@ihui/ui-react'
+import type { TreeNode } from '@ihui/ui-react'
 import type { TagItem, TagForm } from './types'
 
 interface Props {

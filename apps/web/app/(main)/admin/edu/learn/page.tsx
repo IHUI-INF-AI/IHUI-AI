@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, BookOpen, FolderTree, GraduationCap } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 
 import { LearnFilter } from './LearnFilter'
 import { LearnTable } from './LearnTable'

@@ -1,7 +1,7 @@
 'use client'
 
 import { ShieldX, ArrowLeft, Home } from 'lucide-react'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 export default function UnauthorizedPage() {
   return (

@@ -32,7 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import {
   DropdownMenu,
   DropdownMenuContent,

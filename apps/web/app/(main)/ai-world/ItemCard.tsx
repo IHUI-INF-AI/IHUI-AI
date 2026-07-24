@@ -17,7 +17,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 
-import { Card, CardContent } from '@ihui/ui'
+import { Card, CardContent } from '@ihui/ui-react'
 import type { AiWorldItem, ItemKind } from './types'
 import { TrendingBadge } from './TrendingBadge'
 

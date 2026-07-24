@@ -11,7 +11,7 @@ import {
   DialogDescription,
   Button,
   Input,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import type { PendingQuestion } from '@/stores/chat'
 import { cn } from '@/lib/utils'
 

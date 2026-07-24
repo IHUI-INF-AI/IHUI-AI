@@ -17,7 +17,7 @@ import {
   Button,
   Input,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { Alert, Drawer } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 

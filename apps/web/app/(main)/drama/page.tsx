@@ -5,7 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, Sparkles, PenLine } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 
 interface EnhanceResult {

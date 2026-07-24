@@ -20,8 +20,8 @@ import {
 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
-import { Button } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { Button } from '@ihui/ui-react'
 import {
   DropdownMenu,
   DropdownMenuTrigger,

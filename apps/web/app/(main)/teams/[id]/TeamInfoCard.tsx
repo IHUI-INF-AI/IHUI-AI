@@ -2,7 +2,7 @@
 
 import { Crown } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Card, CardHeader, CardTitle, CardDescription } from '@ihui/ui'
+import { Card, CardHeader, CardTitle, CardDescription } from '@ihui/ui-react'
 import { fmt } from './helpers'
 import type { TeamDetail } from './types'
 

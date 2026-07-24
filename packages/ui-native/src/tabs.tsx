@@ -1,6 +1,6 @@
-import type { ComponentProps } from 'react'
+﻿import type { ComponentProps } from 'react'
 import { Pressable, Text, View } from 'react-native'
-import { cn } from '@ihui/ui-primitives'
+import { cn } from '@ihui/design-tokens'
 
 export interface TabItem {
   value: string

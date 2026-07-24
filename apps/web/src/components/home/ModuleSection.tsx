@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, ChevronRight, FileText, type LucideIcon } from 'lucide-react'
-import { Card } from '@ihui/ui'
+import { Card } from '@ihui/ui-react'
 
 export interface HomeItem {
   id: string

@@ -19,7 +19,7 @@ import {
   SelectItem,
   SelectValue,
   Switch,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { TYPE_MAP } from './helpers'
 import type { Remind, RForm } from './types'
 

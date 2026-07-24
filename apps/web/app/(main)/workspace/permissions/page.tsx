@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { ChevronLeft, Loader2, Shield, ShieldAlert, ShieldCheck, Trash2, type LucideIcon } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { useAllWorkspacePermissions, useDeleteWorkspacePermission } from '@/hooks/use-workspace-permissions'
 import { WorkspacePermissionDialog } from '@/components/workspace/workspace-permission-dialog'
 import type { WorkspacePermission, WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'

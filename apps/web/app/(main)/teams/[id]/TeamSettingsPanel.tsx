@@ -12,7 +12,7 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 interface Props {
   editName: string

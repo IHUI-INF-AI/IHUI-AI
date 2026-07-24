@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 import { JobLogsFilter } from './JobLogsFilter'
 import { JobLogsTable } from './JobLogsTable'

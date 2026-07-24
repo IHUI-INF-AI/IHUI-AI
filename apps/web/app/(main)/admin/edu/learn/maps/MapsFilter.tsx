@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { Plus, ChevronLeft } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 interface Props {
   onCreate: () => void

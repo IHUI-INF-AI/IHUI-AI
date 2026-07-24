@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@ihui/ui'
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { AuthShell } from '@/components/auth/AuthShell'

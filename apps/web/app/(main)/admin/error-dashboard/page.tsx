@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Bug, AlertTriangle, AlertOctagon, CheckCircle2, Loader2, Filter } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 import { TruncatedText } from '@/components/common'
 import { cn } from '@/lib/utils'
 

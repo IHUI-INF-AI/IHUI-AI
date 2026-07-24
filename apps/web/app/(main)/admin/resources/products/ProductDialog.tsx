@@ -18,7 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { selectClass } from './helpers'
 import type { Product, ProductForm, Resource } from './types'
 

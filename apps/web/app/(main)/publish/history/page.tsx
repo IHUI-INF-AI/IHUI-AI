@@ -14,7 +14,7 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 const STATUS_LABEL: Record<string, string> = {
   success: '成功',

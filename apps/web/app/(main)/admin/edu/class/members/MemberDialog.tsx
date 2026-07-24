@@ -10,7 +10,7 @@ import {
   Button,
   Input,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { useTranslations } from 'next-intl'
 import type { MForm } from './types'
 
