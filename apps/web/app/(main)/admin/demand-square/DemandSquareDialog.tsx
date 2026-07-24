@@ -11,7 +11,7 @@ import {
   DialogFooter,
   Button,
   Label,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 
 interface Props {
   open: boolean

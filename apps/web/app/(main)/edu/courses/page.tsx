@@ -8,7 +8,7 @@ import { useTranslations } from 'next-intl'
 import { BookOpen, Search, Loader2, ChevronLeft, ChevronRight, PlayCircle } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent, Input } from '@ihui/ui'
+import { Button, Card, CardContent, Input } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 

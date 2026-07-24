@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui-react'
 
 export interface FeatureCardProps {
   title: string

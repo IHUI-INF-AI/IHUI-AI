@@ -17,14 +17,14 @@ import {
   X,
 } from 'lucide-react'
 
-import { Button, Input, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ihui/ui'
+import { Button, Input, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ihui/ui-react'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import {
   browseDirectory,
   openWorkspace,

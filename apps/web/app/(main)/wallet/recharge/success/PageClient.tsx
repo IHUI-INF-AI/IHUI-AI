@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { CheckCircle2, Loader2 } from 'lucide-react'
 
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 
 function SuccessContent() {
   const t = useTranslations('wallet')

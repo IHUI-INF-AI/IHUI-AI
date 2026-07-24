@@ -10,7 +10,7 @@ import { Loader2, ArrowLeft, Share2, Copy, Eye, Calendar, Sparkles } from 'lucid
 import Image from 'next/image'
 
 import { fetchApi } from '@/lib/api'
-import { Button, Card, CardContent } from '@ihui/ui'
+import { Button, Card, CardContent } from '@ihui/ui-react'
 
 interface AiWorldItem {
   id: string

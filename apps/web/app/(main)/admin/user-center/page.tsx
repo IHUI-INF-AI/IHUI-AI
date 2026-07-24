@@ -7,7 +7,7 @@ import { Plus, Download, Users } from 'lucide-react'
 
 import { exportFromApi } from '@/lib/export-utils'
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { api, RESOURCE, PERM, EMPTY, EXPORT_COLS } from './helpers'
 import type { UserCenter } from './types'

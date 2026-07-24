@@ -2,7 +2,7 @@
 
 import { Download } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui'
+import { Button, Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { HasPermi } from '@/components/auth/HasPermi'
 import { STATUS_OPTIONS, selectClass } from './helpers'
 

@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Plus, ChevronLeft } from 'lucide-react'
 import { eduApi, buildQs } from '@/lib/edu'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { PapersTemplateTable } from './PapersTemplateTable'
 import { PapersTemplateDialog } from './PapersTemplateDialog'

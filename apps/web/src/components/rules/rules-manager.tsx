@@ -30,7 +30,7 @@ import {
   useRulesStore,
 } from '@/stores/rules'
 import type { Rule, RuleInput, RuleMatchType, RuleScope } from '@ihui/types'
-import { Badge, Button, Input } from '@ihui/ui'
+import { Badge, Button, Input } from '@ihui/ui-react'
 
 /**
  * Rules 管理器 — 规则列表 + 编辑器 + 启用/禁用 + 优先级 + 测试 + 冲突检测 + 模板库。

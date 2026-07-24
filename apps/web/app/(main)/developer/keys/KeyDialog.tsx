@@ -1,8 +1,8 @@
 'use client'
 
 import { Loader2 } from 'lucide-react'
-import { Button, Input, Label } from '@ihui/ui'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui'
+import { Button, Input, Label } from '@ihui/ui-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 const ALL_SCOPES = ['read', 'write', 'admin', 'billing', 'webhook']

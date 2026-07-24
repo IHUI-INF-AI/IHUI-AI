@@ -1,7 +1,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@ihui/ui-react'
 import { DiffPreview } from '@/components/ai/diff-preview'
 import { InlineDiffViewer } from '@/components/ai/inline-diff-viewer'
 import { TaskListPanel } from '@/components/ai/task-list-panel'

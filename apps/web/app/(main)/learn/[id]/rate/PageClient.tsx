@@ -9,7 +9,7 @@ import { ArrowLeft, Star, Loader2, MessageSquare } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { formatDate } from '@/lib/date-utils'
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Avatar } from '@/components/data/Avatar'
 
 interface RateItem {

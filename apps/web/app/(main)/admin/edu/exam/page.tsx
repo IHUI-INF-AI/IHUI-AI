@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl'
 import { ChevronLeft, ChevronRight, FileText, ListChecks, Settings2 } from 'lucide-react'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
 import { cn } from '@/lib/utils'
-import { Card, CardContent, Button } from '@ihui/ui'
+import { Card, CardContent, Button } from '@ihui/ui-react'
 
 import { EMPTY, PAGE_SIZE, API } from './helpers'
 import type { Paper, PaperForm } from './types'

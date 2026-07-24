@@ -5,7 +5,7 @@ import { useLocale } from 'next-intl'
 import { History, Loader2, Trash2, FileText, Folder } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 
 type ResourceType = 'project' | 'file' | 'doc' | 'post'

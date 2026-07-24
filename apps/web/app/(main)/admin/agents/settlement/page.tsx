@@ -6,7 +6,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { toast } from 'sonner'
 import { Wallet, CircleDollarSign, CheckCircle2, Hourglass } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { SettlementFilter } from './SettlementFilter'
 import { SettlementTable } from './SettlementTable'

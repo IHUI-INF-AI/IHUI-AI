@@ -30,7 +30,7 @@ import {
   Zap,
 } from 'lucide-react'
 
-import { Badge, Button, Card, CardContent, Switch } from '@ihui/ui'
+import { Badge, Button, Card, CardContent, Switch } from '@ihui/ui-react'
 import { Alert, Tooltip } from '@/components/feedback'
 import { TruncatedText } from '@/components/common'
 import { formatDate } from '@/lib/date-utils'

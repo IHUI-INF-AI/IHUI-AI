@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { Bot, Plus, CheckCircle2, Loader2, AlertCircle, Circle } from 'lucide-react'
 
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
 export interface AgentItem {

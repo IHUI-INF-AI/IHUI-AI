@@ -16,7 +16,7 @@ import {
   DialogFooter,
   DialogTitle,
   DialogDescription,
-} from '@ihui/ui'
+} from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { ManageRow } from './ManageRow'
 

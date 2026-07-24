@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { eduApi, buildQs, type PageData } from '@/lib/edu'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { EMPTY, PAGE_SIZE } from './helpers'
 import type { Member, MForm } from './types'

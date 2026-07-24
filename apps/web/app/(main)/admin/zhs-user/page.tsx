@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { Plus, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 
 import { HasPermi } from '@/components/auth/HasPermi'
-import { Button } from '@ihui/ui'
+import { Button } from '@ihui/ui-react'
 
 import { ZhsUserFilter } from './ZhsUserFilter'
 import { ZhsUserTable } from './ZhsUserTable'
