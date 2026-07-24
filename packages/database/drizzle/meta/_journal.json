@@ -1,4 +1,4 @@
-﻿{
+{
   "version": "7",
   "dialect": "postgresql",
   "entries": [
@@ -1008,6 +1008,20 @@
       "version": "7",
       "when": 1784756400000,
       "tag": "0143_drop_legacy_learn_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 144,
+      "version": "7",
+      "when": 1784872800000,
+      "tag": "20260724130000_audit_logs_chain",
+      "breakpoints": true
+    },
+    {
+      "idx": 145,
+      "version": "7",
+      "when": 1784876400000,
+      "tag": "20260724140000_missing_15_tables",
       "breakpoints": true
     }
   ]

@@ -132,6 +132,27 @@ export async function buildServer(): Promise<FastifyInstance> {
   server.setErrorHandler(errorHandler)
 
   await registerPlugins(server)
+
+  // 2026-07-24 国安级零信任策略:对所有 /api/admin/* 路由自动注入网络分段 + mTLS 配置
+  // 设计原则:
+  // - DRY:不逐个 admin 路由文件修改,用 onRoute hook 统一注入
+  // - 不覆盖:保留路由已显式配置的 config(?? 合并)
+  // - 降级:MTLS_CLIENT_CERT_REQUIRED=true 时强制 mTLS,false 时仅可选验证
+  // - 网络分段:admin 路由默认禁止公网访问(allowExternal:false),仅内网可访问
+  //   生产环境若需公网访问 admin,需在路由级显式 config.network.allowExternal=true
+  const mtlsRequired = process.env.MTLS_CLIENT_CERT_REQUIRED === 'true'
+  server.addHook('onRoute', (routeOptions) => {
+    const url = routeOptions.url ?? ''
+    if (url.startsWith('/api/admin/') || url === '/api/admin') {
+      const existingConfig = (routeOptions.config ?? {}) as Record<string, unknown>
+      routeOptions.config = {
+        ...existingConfig,
+        network: existingConfig.network ?? { allowExternal: false },
+        mtls: existingConfig.mtls ?? { required: mtlsRequired },
+      }
+    }
+  })
+
   registerRoutes(server)
 
   // 注入到统一 logger，使 service/util 层可通过 fastify pino 输出日志
