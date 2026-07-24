@@ -53,6 +53,9 @@ export function WecomQrPanel({ refreshKey }: WecomQrPanelProps) {
             redirect_uri: redirectUri,
             state,
             lang: 'zh',
+            // 2026-07-25 隐藏 SDK 默认顶部"企业微信登录"标题 + 底部提示,二维码居中
+            // SDK 会把 href 指向的 CSS 通过 <link> 注入到跨域 iframe 内部
+            href: `${window.location.origin}/qr-styles/wecom-qr.css`,
           })
           if (!cancelled) setStatus('ready')
         } catch (e) {
