@@ -592,6 +592,7 @@ class LLMGateway:
         model: str | None = None,
         *,
         owner_uuid: Optional[str] = None,
+        _skip_fallback: bool = False,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """调用 LLM 完成对话。
@@ -600,6 +601,7 @@ class LLMGateway:
             messages: OpenAI 格式的消息列表。
             model: 模型名称,为空则使用默认模型。
             owner_uuid: 用户 UUID,用于匹配 ai_model_config 表中的用户私有配置。
+            _skip_fallback: 内部参数,True 时跳过 FallbackRouter(防递归)。
             **kwargs: 透传给 litellm 的额外参数。
 
         Returns:
@@ -710,9 +712,13 @@ class LLMGateway:
                     if key_field in safe_msg.lower():
                         safe_msg = f"LLM 调用失败(含敏感信息已脱敏): {type(e).__name__}"
                         break
-            # FallbackRouter 接入:LLM_ERROR 且错误类型在 triggerOnError 中时,
+            # FallbackRouter 接入:LLM_ERROR 且未跳过 fallback 时,
             # 自动尝试 fallbacks 配置中的备用 provider(如 stepfun 故障 → agnes 兜底)
-            if err_code == "LLM_ERROR" and fallback_router._configs:
+            if (
+                err_code == "LLM_ERROR"
+                and not _skip_fallback
+                and fallback_router._configs
+            ):
                 fb_result = await fallback_router.complete_with_fallback(
                     trimmed_messages, used_model
                 )
@@ -866,6 +872,35 @@ class LLMGateway:
                     if key_field in safe_msg.lower():
                         safe_msg = f"LLM 流式调用失败(含敏感信息已脱敏): {type(e).__name__}"
                         break
+            # 流式 fallback:仅在未发送任何 chunk 时尝试 fallback provider
+            # (已发送 chunk 不可撤回,无法中途切换 provider)
+            if (
+                err_code == "LLM_ERROR"
+                and not accumulated_content
+                and not accumulated_reasoning
+                and fallback_router._configs
+            ):
+                try:
+                    fb_result = await fallback_router.complete_with_fallback(
+                        trimmed_messages, used_model
+                    )
+                    if not fb_result.get("error"):
+                        # fallback 返回的是完整结果(非流式),拆成 chunk 产出
+                        fb_content = fb_result.get("content", "") or ""
+                        chunk_size = 10
+                        for i in range(0, len(fb_content), chunk_size):
+                            yield {"type": "chunk", "content": fb_content[i : i + chunk_size]}
+                        yield {
+                            "type": "done",
+                            "model": fb_result.get("model", used_model),
+                            "usage": fb_result.get("usage", {}),
+                            "stub": False,
+                            "fallback_used": True,
+                            "fallback_primary": used_model,
+                        }
+                        return
+                except Exception as fb_err:
+                    logger.warning("astream fallback 失败: %s", fb_err)
             yield {"type": "error", "message": safe_msg, "errorCode": err_code}
 
     async def embed(
@@ -1000,28 +1035,28 @@ class FallbackRouter:
     ) -> dict:
         """带故障转移的推理。
 
-        1. 先调 primary provider
-        2. 如果失败且错误类型在 triggerOnError 中,依次尝试 fallbacks
-        3. 全部失败返回错误
+        primary 已在 llm_gateway.complete() 的 except 块中失败,此处只尝试 fallbacks。
+        传 _skip_fallback=True 防止 fallback provider 失败时再次触发 fallback_router(防递归)。
+
+        1. 依次尝试 fallbacks 列表中的 provider
+        2. 全部失败返回错误
         """
         config = self._configs.get(primary, {})
         fallbacks = config.get("fallbacks", [])
-        trigger_on = config.get(
-            "triggerOnError", ["rate_limited", "timeout", "overloaded"]
-        )
 
-        providers_to_try = [primary] + fallbacks
         last_error: str | None = None
-        for provider in providers_to_try:
+        for provider in fallbacks:
             try:
-                result = await llm_gateway.complete(messages, model=provider)
+                result = await llm_gateway.complete(
+                    messages, model=provider, _skip_fallback=True
+                )
                 if not result.get("error"):
                     return result
                 last_error = result.get("error_message") or result.get("error")
             except Exception as e:
                 last_error = str(e)
                 continue
-        return {"content": "", "error": f"all providers failed: {last_error}"}
+        return {"content": "", "error": f"all fallbacks failed: {last_error}"}
 
 
 class CredentialPool:
