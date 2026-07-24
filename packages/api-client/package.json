@@ -8,23 +8,23 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
     "./client": {
-      "types": "./src/client.ts",
+      "types": "./dist/client.d.ts",
       "import": "./dist/client.js"
     },
     "./api-error": {
-      "types": "./src/api-error.ts",
+      "types": "./dist/api-error.d.ts",
       "import": "./dist/api-error.js"
     },
     "./utils": {
-      "types": "./src/utils.ts",
+      "types": "./dist/utils.d.ts",
       "import": "./dist/utils.js"
     },
     "./endpoints/*": {
-      "types": "./src/endpoints/*.ts",
+      "types": "./dist/endpoints/*.d.ts",
       "import": "./dist/endpoints/*.js"
     }
   },

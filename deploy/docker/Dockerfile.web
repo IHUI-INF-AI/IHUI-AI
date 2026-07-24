@@ -39,17 +39,13 @@ RUN find packages apps -name "*.tsbuildinfo" -type f -delete 2>/dev/null || true
 # --filter @ihui/web... :先 build @ihui/web 的所有 workspace 依赖(@ihui/ui / @ihui/ui-primitives / @ihui/api-client 等),再 build web
 RUN pnpm --filter @ihui/web... run build
 
-FROM node:20-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
-# public 目录可能为空,条件复制避免构建失败
-COPY --from=builder /app/apps/web/public* ./apps/web/public/
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
-USER nextjs
+# A 套壳架构(2026-07-24):output:'export' 静态导出,nginx 提供静态文件 + API 反向代理
+# 替代原 standalone + node server.js 方案,因为 output:'export' 不生成 server.js
+FROM nginx:1.27-alpine AS runner
+WORKDIR /usr/share/nginx/html
+# 复制静态导出产物(out/ 已包含 public/ 内容,Next.js export 时自动合并)
+COPY --from=builder /app/apps/web/out/ ./
+# nginx 配置:静态文件 + API/AI-service 反向代理(替代 next rewrites,output:export 不支持 rewrites)
+COPY deploy/docker/nginx.web.conf /etc/nginx/conf.d/default.conf
 EXPOSE 3000
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-CMD ["node", "apps/web/server.js"]
+CMD ["nginx", "-g", "daemon off;"]
