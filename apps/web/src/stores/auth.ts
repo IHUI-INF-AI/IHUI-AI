@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { logout as apiLogout, type AuthUser as ApiAuthUser } from '@ihui/api-client'
+import { type TokenPair } from '@ihui/types'
 import {
   setAuthCookie,
   setRefreshTokenCookie,
@@ -12,12 +13,6 @@ import { createPersistConfig } from './persist-helpers'
 
 /** 与共享层 @ihui/api-client AuthUser 完全一致,确保 5 端用户类型统一 */
 export type AuthUser = ApiAuthUser
-
-export interface TokenPair {
-  accessToken: string
-  refreshToken?: string
-  expiresIn?: number
-}
 
 interface AuthState {
   token: string | null
