@@ -13,7 +13,7 @@ import { EMPTY_FORM, api } from './helpers'
 import type { AgentForm, CategoriesData } from './types'
 
 export default function CreateAgentPage() {
-  const t = useTranslations('agents')
+  const t = useTranslations('agent')
   const tc = useTranslations('common')
   const router = useRouter()
 
