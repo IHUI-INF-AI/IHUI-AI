@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Card } from '@ihui/ui-native'
 
 interface Chapter { id: string; title: string; duration: number; lessonCount: number }
 
@@ -52,12 +53,14 @@ export function CourseChapterScreen() {
         keyExtractor={(item) => item.id}
         ListEmptyComponent={<View style={styles.empty}><Text style={styles.muted}>{t('common.empty')}</Text></View>}
         renderItem={({ item, index }) => (
-          <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('CourseDetail', { id: item.id })}>
-            <Text style={styles.idx}>{index + 1}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-              <Text style={styles.meta}>{t('courseChapter.lessons', { count: item.lessonCount })} · {item.duration}min</Text>
-            </View>
+          <TouchableOpacity onPress={() => navigation.navigate('CourseDetail', { id: item.id })}>
+            <Card className="flex-row items-center p-3 mb-2">
+              <Text style={styles.idx}>{index + 1}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+                <Text style={styles.meta}>{t('courseChapter.lessons', { count: item.lessonCount })} · {item.duration}min</Text>
+              </View>
+            </Card>
           </TouchableOpacity>
         )}
       />

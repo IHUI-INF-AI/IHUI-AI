@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  ActivityIndicator,
   FlatList,
   RefreshControl,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -14,6 +12,7 @@ import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Card, Loading } from '@ihui/ui-native'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 interface Item {
@@ -55,25 +54,25 @@ export function CertListScreen() {
   }, [load])
 
   return (
-    <View style={s.container}>
-      <View style={s.header}>
+    <View className="flex-1 bg-card">
+      <View className="flex-row items-center gap-3 px-4 py-3">
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={s.back}>{t('common.back')}</Text>
+          <Text className="text-sm text-foreground">{t('common.back')}</Text>
         </TouchableOpacity>
-        <Text style={s.title}>{t('certList.title')}</Text>
+        <Text className="text-lg font-semibold text-foreground">{t('certList.title')}</Text>
       </View>
-      {error ? <Text style={s.error}>{error}</Text> : null}
+      {error ? <Text className="px-4 text-xs text-destructive">{error}</Text> : null}
       {loading && items.length === 0 ? (
-        <View style={s.center}>
-          <ActivityIndicator />
-          <Text style={s.muted}>{t('common.loading')}</Text>
+        <View className="items-center py-12">
+          <Loading />
+          <Text className="mt-2 text-xs text-muted-foreground">{t('common.loading')}</Text>
         </View>
       ) : (
         <FlatList
           data={items}
           keyExtractor={(i) => i.id}
           contentContainerStyle={{ padding: 16 }}
-          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+          ItemSeparatorComponent={() => <View className="h-2" />}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -84,54 +83,28 @@ export function CertListScreen() {
             />
           }
           ListEmptyComponent={
-            <View style={s.center}>
-              <Text style={s.muted}>{t('certList.empty')}</Text>
+            <View className="items-center py-12">
+              <Text className="text-xs text-muted-foreground">{t('certList.empty')}</Text>
             </View>
           }
           renderItem={({ item }) => (
-            <View style={s.card}>
-              <Text style={s.cardTitle} numberOfLines={1}>
+            <Card className="p-3">
+              <Text className="text-sm font-semibold text-foreground" numberOfLines={1}>
                 {item.name}
               </Text>
-              <Text style={s.cardMeta}>
+              <Text className="mt-1 text-[11px] text-muted-foreground">
                 {t('certList.issuer')}: {item.issuer}
               </Text>
-              <View style={s.metaRow}>
-                <Text style={s.cardMeta}>
+              <View className="mt-1 flex-row items-center justify-between">
+                <Text className="text-[11px] text-muted-foreground">
                   {t('certList.issuedAt')}: {item.issuedAt}
                 </Text>
-                <Text style={s.cardScore}>{item.score}</Text>
+                <Text className="text-sm font-semibold text-primary">{item.score}</Text>
               </View>
-            </View>
+            </Card>
           )}
         />
       )}
     </View>
   )
 }
-
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
-  back: { fontSize: 14, color: '#374151' },
-  title: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  error: { paddingHorizontal: 16, fontSize: 12, color: '#DC2626' },
-  center: { alignItems: 'center', paddingVertical: 48 },
-  muted: { fontSize: 12, color: '#6B7280', marginTop: 8 },
-  card: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB' },
-  cardTitle: { fontSize: 14, fontWeight: '600', color: '#111827' },
-  cardMeta: { marginTop: 4, fontSize: 11, color: '#9CA3AF' },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  cardScore: { fontSize: 14, fontWeight: '600', color: '#10B981' },
-})

@@ -52,13 +52,12 @@ function MarqueeRow({
   const loop = [...brands, ...brands]
   const box =
     shape === 'wide'
-      ? // wide (横长方形): h-16 w-44 (64×176) + dark:bg-white
-        // 2026-07-21 v4:加 dark:bg-white + mx-3 (与主行间距统一)
-        'mx-3 inline-flex h-16 w-44 shrink-0 items-center justify-center rounded-md border bg-card dark:bg-white transition-colors hover:border-primary/40'
-      : // square (方形): h-14 w-14 (56×56) + dark:bg-white
-        // 2026-07-21 v4:容器 h-12→h-14(48→56),图片保留 h-9 w-9 (36×36),
+      ? // wide (横长方形): h-16 w-44 (64×176)
+        // 2026-07-24:移除 dark:bg-white,让 bg-card 自动跟随 tokens.css 反相
+        'mx-3 inline-flex h-16 w-44 shrink-0 items-center justify-center rounded-md border bg-card transition-colors hover:border-primary/40'
+      : // square (方形): h-14 w-14 (56×56)
         //   上下左右各 10px 内边距,给 logo 明显呼吸感
-        'mx-3 inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-md border bg-card dark:bg-white transition-colors hover:border-primary/40'
+        'mx-3 inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-md border bg-card transition-colors hover:border-primary/40'
   const img = shape === 'wide' ? 'h-10 w-36 object-contain' : 'h-9 w-9 object-contain'
   return (
     <div className="relative overflow-hidden rounded-lg border bg-card px-3 py-3">

@@ -1,15 +1,9 @@
 import { useEffect, useState } from 'react'
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { Card, Loading } from '@ihui/ui-native'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -27,7 +21,6 @@ interface Cert {
 
 type Route = RouteProp<RootStackParamList, 'CertDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-const PRIMARY = '#10B981'
 
 export function CertDetailScreen() {
   const { t } = useI18n()
@@ -56,103 +49,56 @@ export function CertDetailScreen() {
 
   if (loading)
     return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-        <Text style={styles.muted}>{t('common.loading')}</Text>
+      <View className="flex-1 items-center justify-center bg-card p-4">
+        <Loading />
+        <Text className="mt-2 text-[13px] text-muted-foreground">{t('common.loading')}</Text>
       </View>
     )
   if (error || !cert)
     return (
-      <View style={styles.center}>
-        <Text style={styles.error}>{error || t('certDetail.loadFailed')}</Text>
-        <TouchableOpacity style={styles.btn} onPress={() => navigation.goBack()}>
-          <Text style={styles.btnText}>{t('common.back')}</Text>
+      <View className="flex-1 items-center justify-center bg-card p-4">
+        <Text className="mb-2 text-center text-[13px] text-destructive">{error || t('certDetail.loadFailed')}</Text>
+        <TouchableOpacity
+          className="mt-3 rounded-md bg-primary px-4 py-2"
+          onPress={() => navigation.goBack()}
+        >
+          <Text className="text-sm text-primary-foreground">{t('common.back')}</Text>
         </TouchableOpacity>
       </View>
     )
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView className="flex-1 bg-card px-4 pb-8 pt-12">
       <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.back}>{t('common.back')}</Text>
+        <Text className="text-sm text-muted-foreground">{t('common.back')}</Text>
       </TouchableOpacity>
-      <Text style={styles.title}>{t('certDetail.title')}</Text>
-      <View style={styles.certCard}>
-        <Text style={styles.certTitle}>{cert.title}</Text>
-        <Text style={styles.certNo}>
+      <Text className="mb-3 mt-2 text-[22px] font-semibold text-foreground">{t('certDetail.title')}</Text>
+      <Card className="border-2 border-primary bg-primary/10 p-4">
+        <Text className="text-lg font-semibold text-foreground">{cert.title}</Text>
+        <Text className="mt-1 text-xs text-muted-foreground">
           {t('certDetail.certNo')}:{cert.certNo}
         </Text>
-        <View style={styles.divider} />
-        <Text style={styles.label}>{t('certDetail.holder')}</Text>
-        <Text style={styles.value}>{cert.holder}</Text>
-        <Text style={styles.label}>{t('certDetail.issuer')}</Text>
-        <Text style={styles.value}>{cert.issuer}</Text>
-        <Text style={styles.label}>{t('certDetail.score')}</Text>
-        <Text style={styles.value}>{cert.score}</Text>
-        <Text style={styles.label}>{t('certDetail.issuedAt')}</Text>
-        <Text style={styles.value}>{cert.issuedAt}</Text>
+        <View className="my-3 h-px bg-primary" />
+        <Text className="mt-1.5 text-[11px] text-muted-foreground">{t('certDetail.holder')}</Text>
+        <Text className="mt-0.5 text-sm text-foreground">{cert.holder}</Text>
+        <Text className="mt-1.5 text-[11px] text-muted-foreground">{t('certDetail.issuer')}</Text>
+        <Text className="mt-0.5 text-sm text-foreground">{cert.issuer}</Text>
+        <Text className="mt-1.5 text-[11px] text-muted-foreground">{t('certDetail.score')}</Text>
+        <Text className="mt-0.5 text-sm text-foreground">{cert.score}</Text>
+        <Text className="mt-1.5 text-[11px] text-muted-foreground">{t('certDetail.issuedAt')}</Text>
+        <Text className="mt-0.5 text-sm text-foreground">{cert.issuedAt}</Text>
         {cert.expiredAt ? (
           <>
-            <Text style={styles.label}>{t('certDetail.expiredAt')}</Text>
-            <Text style={styles.value}>{cert.expiredAt}</Text>
+            <Text className="mt-1.5 text-[11px] text-muted-foreground">{t('certDetail.expiredAt')}</Text>
+            <Text className="mt-0.5 text-sm text-foreground">{cert.expiredAt}</Text>
           </>
         ) : null}
-      </View>
+      </Card>
       <TouchableOpacity
-        style={styles.verifyBtn}
+        className="mt-4 items-center rounded-md border border-primary py-3"
         onPress={() => navigation.navigate('CertVerify', { certNo: cert.certNo })}
       >
-        <Text style={styles.verifyText}>{t('certDetail.verify')}</Text>
+        <Text className="text-sm font-semibold text-primary">{t('certDetail.verify')}</Text>
       </TouchableOpacity>
     </ScrollView>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingTop: 48,
-    paddingBottom: 32,
-  },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
-  },
-  muted: { marginTop: 8, fontSize: 13, color: '#6b7280' },
-  error: { fontSize: 13, color: '#dc2626', marginBottom: 8, textAlign: 'center' },
-  back: { fontSize: 14, color: '#6b7280' },
-  title: { marginTop: 8, fontSize: 22, fontWeight: '600', color: '#111827', marginBottom: 12 },
-  certCard: {
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: PRIMARY,
-    backgroundColor: '#ecfdf5',
-  },
-  certTitle: { fontSize: 18, fontWeight: '600', color: '#111827' },
-  certNo: { marginTop: 4, fontSize: 12, color: '#6b7280' },
-  divider: { height: 1, backgroundColor: PRIMARY, marginVertical: 12 },
-  label: { marginTop: 6, fontSize: 11, color: '#6b7280' },
-  value: { marginTop: 2, fontSize: 14, color: '#111827' },
-  verifyBtn: {
-    marginTop: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: PRIMARY,
-    alignItems: 'center',
-  },
-  verifyText: { color: PRIMARY, fontSize: 14, fontWeight: '600' },
-  btn: {
-    marginTop: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: PRIMARY,
-  },
-  btnText: { color: '#fff', fontSize: 14 },
-})

@@ -2,7 +2,6 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { useI18n } from '@/i18n'
-import './index.css'
 
 const IMAGE_LIST = [
   '/static/images/modelRecord1.png',
@@ -63,26 +62,33 @@ export default function ModelRecord() {
   }, [])
 
   return (
-    <View className="page">
-      <View className="table-title">
-        <Text>{tt('about.modelRecord.tableTitle', '大模型备案信息')}</Text>
+    <View className="min-h-screen bg-background pb-[48rpx]">
+      <View className="pt-[32rpx] px-[32rpx]">
+        <Text className="text-[30rpx] text-foreground font-semibold">
+          {tt('about.modelRecord.tableTitle', '大模型备案信息')}
+        </Text>
       </View>
 
-      <View className="card table">
+      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
         {info.map((item, idx) => (
-          <View key={item.label} className={`table-row${idx === info.length - 1 ? ' last' : ''}`}>
-            <Text className="cell-label">{item.label}</Text>
-            <Text className="cell-value">{item.value}</Text>
+          <View
+            key={item.label}
+            className={`flex items-start py-[28rpx] px-[32rpx]${idx === 0 ? '' : ' mt-[16rpx]'}`}
+          >
+            <Text className="text-[26rpx] text-muted-foreground flex-shrink-0 w-[160rpx]">
+              {item.label}
+            </Text>
+            <Text className="flex-1 text-[26rpx] text-foreground break-all">{item.value}</Text>
           </View>
         ))}
       </View>
 
-      <View className="card-wrap">
+      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden p-[24rpx] box-border">
         {IMAGE_LIST.map((img, index) =>
           errorSet.has(index) ? null : (
             <Image
               key={index}
-              className="record-image"
+              className="w-full block rounded-[8rpx] mb-[24rpx]"
               src={img}
               mode="widthFix"
               onClick={() => previewImages(index)}
@@ -91,19 +97,19 @@ export default function ModelRecord() {
           ),
         )}
         {validImages.length === 0 ? (
-          <View className="image-fallback">
-            <Text className="image-fallback-text">
+          <View className="flex items-center justify-center h-[300rpx]">
+            <Text className="text-[26rpx] text-muted-foreground">
               {tt('about.modelRecord.imageUnavailable', '备案图片暂未上传')}
             </Text>
           </View>
         ) : null}
       </View>
 
-      <View className="card notice-card">
-        <Text className="notice-title">
+      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden p-[32rpx]">
+        <Text className="block text-[28rpx] text-foreground font-medium mb-[16rpx]">
           {tt('about.modelRecord.noticeTitle', '模型信息公示')}
         </Text>
-        <Text className="notice-text">
+        <Text className="text-[26rpx] text-muted-foreground leading-[1.8]">
           {tt(
             'about.modelRecord.noticeText',
             '本应用使用人工智能技术,以下为所用模型信息',
@@ -111,8 +117,10 @@ export default function ModelRecord() {
         </Text>
       </View>
 
-      <View className="tips">
-        <Text>{tt('about.modelRecord.footer', '模型信息仅供参考')}</Text>
+      <View className="text-center p-[32rpx]">
+        <Text className="text-[22rpx] text-muted-foreground">
+          {tt('about.modelRecord.footer', '模型信息仅供参考')}
+        </Text>
       </View>
     </View>
   )

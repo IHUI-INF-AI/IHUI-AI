@@ -64,7 +64,7 @@ export function PlanActToggle({
           : 'bg-muted text-muted-foreground hover:text-foreground',
       )}
     >
-      {label}
+      <span>{label}</span>
     </button>
   )
 
