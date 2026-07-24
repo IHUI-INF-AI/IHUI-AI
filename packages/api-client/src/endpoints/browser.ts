@@ -8,7 +8,7 @@
 
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
+import { fetchApi } from '../client'
 
 /** 截图请求(契约与 @ihui/types ScreenshotRequest 一致) */
 export interface ScreenshotRequest {

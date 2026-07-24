@@ -1,4 +1,4 @@
-import { fetchApi } from '../client.js'
+import { fetchApi } from '../client'
 
 /**
  * 用户自定义 AI 对话框技能 API(对应后端 /api/chat/skills)

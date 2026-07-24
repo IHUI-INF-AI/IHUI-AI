@@ -14,8 +14,8 @@ import type {
   UnreadCount,
 } from '@ihui/types'
 
-import { fetchApi } from '../client.js'
-import { buildQs, type PageData, type PageQuery } from '../utils.js'
+import { fetchApi } from '../client'
+import { buildQs, type PageData, type PageQuery } from '../utils'
 
 // ===================== 类型 re-export(向后兼容) =====================
 
