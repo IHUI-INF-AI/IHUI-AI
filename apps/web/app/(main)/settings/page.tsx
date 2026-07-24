@@ -23,6 +23,7 @@ import { ThemeCard } from './ThemeCard'
 import { LanguageCard } from './LanguageCard'
 import { SidebarCard } from './SidebarCard'
 import { MiniappQrCard } from './MiniappQrCard'
+import { DesktopSettingsCard } from './DesktopSettingsCard'
 import { SIDEBAR_KEY, SUB_PAGES } from './helpers'
 
 export default function SettingsPage() {
@@ -59,6 +60,7 @@ export default function SettingsPage() {
       <LanguageCard t={t} locale={locale} onSelect={switchLocale} />
       <SidebarCard t={t} collapsed={collapsed} onToggle={toggleCollapsed} />
       <MiniappQrCard t={t} />
+      <DesktopSettingsCard />
 
       <ThemeBackupSync />
 
