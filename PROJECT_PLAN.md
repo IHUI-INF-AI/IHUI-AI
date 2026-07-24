@@ -8,6 +8,41 @@
 
 ## 当前活跃任务(2026-07-24)
 
+### [x] ✅(2026-07-24) miniapp-taro API 契约对齐 Round 2 — 补建 24 个 P0 缺失端点(跨端:api → miniapp-taro 兼容)
+
+**触发**:承接其他 agent Round 1(commit `13301bf8b`,49 个空桩端点)被中断的接口契约核查工作。继续扫描 miniapp-taro 前端 269 个 API 调用,交叉核对后端路由,发现 24 个 P0 级缺失端点(会返回 404)。
+
+**交付内容**(1 文件,`apps/api/src/routes/miniapp-compat-routes.ts` +148 行):
+
+| 域 | 端点 | 数量 | 说明 |
+|---|---|---|---|
+| `/agents/charge/*` | GET /list, GET /:agentId, POST /, POST /pay-history, PUT /, DELETE /:id | 6 | 智能体收费配置(完全缺失) |
+| `/user/*` | GET /profile, PUT /avatar, PUT /nickname, POST /password, POST /realname, POST /feedback | 6 | 用户中心(前端单数,后端 /users/:id/* 复数+id) |
+| 单复数别名 | GET /study/plan, GET /study/rank, GET/PUT /settings/notification | 4 | 前端单数,后端复数(/study/plans, /study/ranking, /settings/notifications) |
+| `/settings/*` | POST /cache/clear, GET /cache/size, POST /language, POST /theme | 4 | 设置功能(完全缺失) |
+| `/ai/kling/image` | POST | 1 | 可灵图片生成(前端注释自标 404) |
+| `/courses/buy` | POST | 1 | 课程购买(前端已有 try/catch 容错) |
+| `/privacy` + `/contact` | GET | 2 | 公开内容页(后端仅有 /admin/contact) |
+
+**保留其他 agent 未提交修改**:
+- `miniapp-compat-routes.ts`:其他 agent 修复 DELETE /chat/history/:id 重复注册(改为注释)
+- `miniapp-public-fallback-routes.ts`:其他 agent 增强为真实数据查询(banner/课程/资讯,从空桩升级到 DB 查询 + 降级兜底)
+
+**路由注册顺序**:`/agents/charge/list`(静态)在 `/agents/charge/:agentId`(参数)之前注册,避免 `list` 被 `:agentId` 捕获。
+
+**验证**(curl 实测 http://localhost:8802):
+- 公开 GET 端点 → 200 ✅(privacy/contact 返回空数据骨架)
+- 鉴权 GET 端点 → 401 ✅(agents/charge/list, user/profile, study/plan, settings/* 等返回 401 而非 404)
+- POST/PUT/DELETE 端点 → 403 ✅(CSRF 保护触发,路由已注册,非 404)
+- **所有 24 个端点不再返回 404** ✅
+
+**§9 跨端**:api → miniapp-taro 兼容(后端补建前端调用的缺失端点),无 web/ai-service 跨端契约变更。
+**§22 README 豁免**:纯 API 兼容补建(空桩),不改变对外能力清单。
+
+**Git 同步证据**(§21):待 commit + push 后补充
+
+---
+
 ### [x] ✅(2026-07-24) /goal 资源上游自动同步中心 — MCP/Skill/Plugin/Provider 配置四源拉取 + 双路径触发 + 全量自动更新(跨端:api + web + cli + packages/database + packages/types)
 
 **触发**:用户需求"我希望我的项目有自动获取最新最热最优 MCP/插件/Skill 的能力,并且自动获取更新上游最新所有参数配置等所有信息的能力并且自动更新"。
