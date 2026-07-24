@@ -70,6 +70,38 @@ class Settings(BaseSettings):
     # Alibaba Cloud International Model Studio(1M tokens/模型免费)
     alibaba_intl_api_key: str = ""  # https://bailian.console.alibabacloud.com/
 
+    # 2026-07-24 接入:14 个免费 LLM provider 内化(OpenAI 兼容,非外部代理)
+    # Cerebras(Qwen3 235B 免费,OpenAI 兼容)
+    cerebras_api_key: str = ""  # https://cloud.cerebras.ai/
+    # Mistral(Large 3 / Codestral / Devstral,OpenAI 兼容)
+    mistral_api_key: str = ""  # https://console.mistral.ai/api-keys/
+    # Cohere(Command R+ / Command-A,OpenAI 兼容端点)
+    cohere_api_key: str = ""  # https://dashboard.cohere.com/api-keys
+    # HuggingFace Inference Router(DeepSeek/Kimi/Qwen3,OpenAI 兼容)
+    huggingface_api_key: str = ""  # https://huggingface.co/settings/tokens
+    # Z.ai / 智谱 OpenAI 兼容端点(GLM-4.5 / GLM-4.7 Flash,区别于 glm- 前缀的智谱国内原生)
+    zai_api_key: str = ""  # https://z.ai/ 或 https://open.bigmodel.cn/
+    # Kilo Gateway(匿名 keyless,:free 路由)
+    kilo_api_base: str = "https://api.kilo.ai/api/gateway/v1"
+    # Pollinations(匿名 keyless,GPT-OSS 20B)
+    pollinations_api_base: str = "https://text.pollinations.ai/openai/v1"
+    # LLM7.io(匿名可用,也可配 key 提升 100 req/hr)
+    llm7_api_key: str = ""  # 可选,https://llm7.io/
+    llm7_api_base: str = "https://api.llm7.io/v1"
+    # OVH AI Endpoints(匿名 keyless,2 req/min)
+    ovh_api_base: str = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
+    # AI Horde(社区,匿名 key 0000000000,注册 key 提升优先级)
+    aihorde_api_key: str = "0000000000"  # 默认匿名 key
+    aihorde_api_base: str = "https://aihorde.net/v1"
+    # Reka(每月免费 credit 赠送,无信用卡,OpenAI 兼容;reka-flash-3 / reka-edge-2603)
+    reka_api_key: str = ""  # https://platform.reka.ai/
+    # Routeway(OpenAI 兼容聚合,:free 后缀模型 $0,~5 rpm)
+    routeway_api_key: str = ""  # https://routeway.ai/
+    # BazaarLink(OpenAI 兼容聚合,auto:free 路由零成本)
+    bazaarlink_api_key: str = ""  # https://bazaarlink.ai/
+    # AINative Studio(OpenAI 兼容聚合,每月 ~10M tokens 免费,无信用卡)
+    ainative_api_key: str = ""  # https://api.ainative.studio/
+
     # 默认主力模型:step-router-v1(StepFun 智能路由,自动选 plan 套餐内最优模型,
     # 比 step-3.7-flash 更适合复杂 tool calling 决策;两者均已实测连通)
     litellm_model: str = "stepfun/step-router-v1"
