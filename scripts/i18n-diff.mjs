@@ -33,7 +33,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { execSync } from 'node:child_process'
-import ts from 'typescript'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
@@ -44,13 +43,13 @@ const targetArg = process.argv.find((a) => a.startsWith('--target='))
 const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
 
 // target → 目录 + 文件扩展名 + staged 前缀
+// 2026-07-25 i18n 单一来源:web/miniapp-taro 翻译迁移到 packages/i18n/messages/<platform>/
 const TARGET_CONFIG = {
-  web: { dir: 'apps/web/messages', ext: '.json', stagedPrefix: 'apps/web/messages/' },
+  web: { dir: 'packages/i18n/messages/web', ext: '.json', stagedPrefix: 'packages/i18n/messages/web/' },
   extension: { dir: 'packages/i18n/messages/extension', ext: '.json', stagedPrefix: 'packages/i18n/messages/extension/' },
-  'miniapp-taro': { dir: 'apps/miniapp-taro/src/i18n', ext: '.ts', stagedPrefix: 'apps/miniapp-taro/src/i18n/' },
+  'miniapp-taro': { dir: 'packages/i18n/messages/miniapp-taro', ext: '.json', stagedPrefix: 'packages/i18n/messages/miniapp-taro/' },
 }
 const TARGET_CFG = TARGET_CONFIG[TARGET] || TARGET_CONFIG.web
-const isMiniappTaro = TARGET === 'miniapp-taro'
 
 const MESSAGES_DIR = path.join(ROOT, TARGET_CFG.dir)
 const TMP_DIR = path.join(ROOT, '.trae-cn/tmp')
@@ -87,47 +86,7 @@ function loadGlossary() {
   }
 }
 
-// 解析 .ts 文件中的 `export default { ... }` 对象字面量为普通 JS 对象
-// 用 typescript 包走 AST(禁止 eval/new Function),支持嵌套对象/字符串/数字/布尔/null
-function parseTsObject(filePath) {
-  const content = fs.readFileSync(filePath, 'utf8')
-  const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true)
-  let exportAssignment = null
-  for (const stmt of sourceFile.statements) {
-    if (ts.isExportAssignment(stmt)) {
-      exportAssignment = stmt
-      break
-    }
-  }
-  if (!exportAssignment) return null
-  const expr = exportAssignment.expression
-  if (!ts.isObjectLiteralExpression(expr)) return null
-  return extractTsObject(expr)
-}
-
-function extractTsObject(node) {
-  const obj = {}
-  for (const prop of node.properties) {
-    if (!ts.isPropertyAssignment(prop)) continue
-    const name = prop.name
-    const key = ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)
-      ? name.text
-      : String(name.text || '')
-    obj[key] = extractTsValue(prop.initializer)
-  }
-  return obj
-}
-
-function extractTsValue(node) {
-  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text
-  if (ts.isNumericLiteral(node)) return Number(node.text)
-  if (node.kind === ts.SyntaxKind.TrueKeyword) return true
-  if (node.kind === ts.SyntaxKind.FalseKeyword) return false
-  if (node.kind === ts.SyntaxKind.NullKeyword) return null
-  if (ts.isObjectLiteralExpression(node)) return extractTsObject(node)
-  if (ts.isArrayLiteralExpression(node)) return node.elements.map(extractTsValue)
-  return null
-}
+// 2026-07-25 miniapp-taro 迁移到 .json 后,TS 解析辅助函数已移除
 
 function loadMessages() {
   const langs = {}
@@ -136,9 +95,8 @@ function loadMessages() {
     if (!entry.endsWith(MESSAGE_EXT)) continue
     try {
       const filePath = path.join(MESSAGES_DIR, entry)
-      langs[entry.replace(MESSAGE_EXT, '')] = isMiniappTaro
-        ? parseTsObject(filePath)
-        : JSON.parse(fs.readFileSync(filePath, 'utf8'))
+      // 2026-07-25 miniapp-taro 迁移到 .json,所有 target 统一 JSON 解析
+      langs[entry.replace(MESSAGE_EXT, '')] = JSON.parse(fs.readFileSync(filePath, 'utf8'))
     } catch {
       // 解析失败跳过
     }
@@ -216,7 +174,6 @@ function detectPending(messages, glossaryValues) {
   if (!base) return { pending: {}, review: {}, stats: { total: 0 } }
 
   const baseEntries = collectLeafEntries(base)
-  const baseMap = new Map(baseEntries.map((e) => [e.key, e.value]))
   const enMap = messages.en
     ? new Map(collectLeafEntries(messages.en).map((e) => [e.key, e.value]))
     : new Map()
