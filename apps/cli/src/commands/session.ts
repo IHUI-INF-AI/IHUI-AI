@@ -9,12 +9,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { repairMessages, type RepairableMessage } from '@ihui/types';
-
-export interface ChatMessage {
-  role: string;
-  content: string;
-}
+import { repairMessages, type RepairableMessage, type ChatMessage } from '@ihui/types';
+export type { ChatMessage };
 
 export interface Session {
   id: string;
