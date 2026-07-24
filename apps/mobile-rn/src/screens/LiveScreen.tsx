@@ -1,15 +1,8 @@
 import { useEffect, useState } from 'react'
-import {
-  ActivityIndicator,
-  FlatList,
-  RefreshControl,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Card } from '@ihui/ui-native'
+import { Card, Loading } from '@ihui/ui-native'
 import { getLiveList, type Live } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { LiveStackParamList } from '../navigation/RootNavigator'
@@ -90,7 +83,7 @@ export function LiveScreen() {
         ListEmptyComponent={
           loading ? (
             <View className="items-center py-12">
-              <ActivityIndicator />
+              <Loading />
               <Text className="mt-2 text-sm text-neutral-500">{t('common.loading')}</Text>
             </View>
           ) : (

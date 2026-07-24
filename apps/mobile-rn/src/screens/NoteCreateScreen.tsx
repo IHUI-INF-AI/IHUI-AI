@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Input, Loading } from '@ihui/ui-native'
 type Route = RouteProp<RootStackParamList, 'NoteCreate'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 const PRIMARY = '#10B981'
@@ -34,18 +35,18 @@ export function NoteCreateScreen() {
     else if (!res.success) setError(res.error || t('noteCreate.saveFailed'))
   }
 
-  if (saving) return <View style={styles.center}><ActivityIndicator /><Text style={styles.muted}>{t('common.loading')}</Text></View>
+  if (saving) return <View style={styles.center}><Loading /><Text style={styles.muted}>{t('common.loading')}</Text></View>
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.back}>{t('common.back')}</Text></TouchableOpacity>
       <Text style={styles.title}>{t('noteCreate.title')}</Text>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Text style={styles.label}>{t('noteCreate.titleLabel')}</Text>
-      <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder={t('noteCreate.titlePlaceholder')} placeholderTextColor="#9ca3af" />
+      <Input style={styles.input} value={title} onChangeText={setTitle} placeholder={t('noteCreate.titlePlaceholder')} placeholderTextColor="#9ca3af" />
       <Text style={styles.label}>{t('noteCreate.contentLabel')}</Text>
-      <TextInput style={[styles.input, styles.textarea]} value={content} onChangeText={setContent} placeholder={t('noteCreate.contentPlaceholder')} placeholderTextColor="#9ca3af" multiline textAlignVertical="top" />
+      <Input className="h-auto min-h-[120px]" style={[styles.input, styles.textarea]} value={content} onChangeText={setContent} placeholder={t('noteCreate.contentPlaceholder')} placeholderTextColor="#9ca3af" multiline textAlignVertical="top" />
       <Text style={styles.label}>{t('noteCreate.tagsLabel')}</Text>
-      <TextInput style={styles.input} value={tags} onChangeText={setTags} placeholder={t('noteCreate.tagsPlaceholder')} placeholderTextColor="#9ca3af" />
+      <Input style={styles.input} value={tags} onChangeText={setTags} placeholder={t('noteCreate.tagsPlaceholder')} placeholderTextColor="#9ca3af" />
       <TouchableOpacity style={styles.visibilityRow} onPress={() => setIsPublic(!isPublic)}>
         <Text style={styles.visibilityLabel}>{t('noteCreate.isPublic')}</Text>
         <Text style={styles.visibilityValue}>{isPublic ? t('noteCreate.public') : t('noteCreate.private')}</Text>

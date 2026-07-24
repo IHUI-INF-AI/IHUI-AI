@@ -1,15 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  FlatList,
-  ActivityIndicator,
-  RefreshControl,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native'
+import { View, Text, Pressable, FlatList, RefreshControl, KeyboardAvoidingView, Platform } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { NativeStackScreenProps } from '@react-navigation/native-stack'
 import type {
@@ -29,6 +19,7 @@ import { getToken } from '../lib/token'
 import { API_BASE_URL } from '../lib/config'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Input, Loading } from '@ihui/ui-native'
 type Props = NativeStackScreenProps<RootStackParamList, 'TaskDispatch'>
 
 /** AsyncStorage 持久化键:最近一次见到任务的 updatedAt 时间戳(ms),用于 WS 重连后增量补拉 */
@@ -414,18 +405,18 @@ export function TaskDispatchPage(_: Props) {
             <Text className="mb-2 text-base font-semibold text-gray-900">{t('taskDispatch.title')}</Text>
             {reconnecting ? (
               <View className="mb-2 flex-row items-center gap-1.5">
-                <ActivityIndicator size="small" />
+                <Loading size="sm" />
                 <Text className="text-xs text-gray-500">{t('taskDispatch.reconnect.reconnecting')}</Text>
               </View>
             ) : null}
           </View>
-          <TextInput
+          <Input
             value={command}
             onChangeText={setCommand}
             placeholder={t('taskDispatch.inputPlaceholder')}
             placeholderTextColor="#9ca3af"
             multiline
-            className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900"
+            className="h-auto min-h-[120px] rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900"
             style={{ minHeight: 72, textAlignVertical: 'top' }}
           />
           <View className="mt-3 flex-row flex-wrap items-center gap-2">
@@ -471,7 +462,7 @@ export function TaskDispatchPage(_: Props) {
           </View>
           {attachOpen ? (
             <View className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3">
-              <TextInput
+              <Input
                 value={fileFilename}
                 onChangeText={setFileFilename}
                 placeholder={t('taskDispatch.file.filenamePlaceholder')}
@@ -479,7 +470,7 @@ export function TaskDispatchPage(_: Props) {
                 className="rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900"
               />
               <View className="mt-2 flex-row gap-2">
-                <TextInput
+                <Input
                   value={fileMime}
                   onChangeText={setFileMime}
                   placeholder={t('taskDispatch.file.mimePlaceholder')}
@@ -492,13 +483,13 @@ export function TaskDispatchPage(_: Props) {
                   </Text>
                 ) : null}
               </View>
-              <TextInput
+              <Input
                 value={fileContent}
                 onChangeText={setFileContent}
                 placeholder={t('taskDispatch.file.contentPlaceholder')}
                 placeholderTextColor="#9ca3af"
                 multiline
-                className="mt-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900"
+                className="h-auto min-h-[120px] mt-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900"
                 style={{ minHeight: 60, textAlignVertical: 'top' }}
               />
               {pendingFilePayload ? (
@@ -519,7 +510,7 @@ export function TaskDispatchPage(_: Props) {
 
         {loading ? (
           <View className="flex-1 items-center justify-center">
-            <ActivityIndicator />
+            <Loading />
           </View>
         ) : (
           <FlatList
@@ -581,7 +572,7 @@ export function TaskDispatchPage(_: Props) {
                         accessibilityState={{ disabled: isCancelling }}
                       >
                         {isCancelling ? (
-                          <ActivityIndicator size="small" color="#dc2626" />
+                          <Loading size="sm" color="#dc2626" />
                         ) : null}
                         <Text className="text-xs font-semibold text-red-600">
                           {isCancelling

@@ -1,15 +1,8 @@
 import { useEffect, useState } from 'react'
-import {
-  ActivityIndicator,
-  FlatList,
-  RefreshControl,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Button, Card } from '@ihui/ui-native'
+import { Button, Card, Loading } from '@ihui/ui-native'
 import {
   cancelPaymentOrder,
   createWechatAppPayment,
@@ -181,7 +174,7 @@ export function PaymentScreen() {
         ListEmptyComponent={
           loading ? (
             <View className="items-center py-12">
-              <ActivityIndicator />
+              <Loading />
               <Text className="mt-2 text-sm text-neutral-500">{t('common.loading')}</Text>
             </View>
           ) : (
