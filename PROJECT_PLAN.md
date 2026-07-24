@@ -6,18 +6,49 @@
 
 ---
 
-## 当前活跃任务(2026-07-24)
+## 当前活跃任务(2026-07-25)
+
+### [x] ✅(2026-07-25) /goal P3 全端统一迁移 — miniapp-taro API/类型迁移到 @ihui/api-client(跨端:miniapp-taro + api-client)
+
+**触发**:/goal 继续全端统一迁移,要求完美细致完整毫无遗漏,最多 agent 并行最大化效率。
+
+**成果**(4 轮,3 commits):
+
+- Round 1: 创建可插拔传输层 `packages/api-client/src/transport.ts`(Transport 接口 + setTransport/getTransport 注入机制)+ Taro transport adapter `apps/miniapp-taro/src/utils/api-client-transport.ts`(Taro.request 适配 + AbortSignal 支持)+ api-bridge `apps/miniapp-taro/src/utils/api-bridge.ts`(unwrapApi 解包 ApiResult + 401 错误处理)+ `app.tsx` 初始化 api-client(setTransport + setTokenProvider + setBaseUrl)。解决核心阻塞:api-client 原生 fetch 在微信小程序运行时不可用。
+- Round 2: Subscription 模块 5 函数迁移(signRecurringContract/listRecurringContracts/getRecurringContract/cancelRecurringContract/getSubscriptionStatus)→ commit 9efeeee94
+- Round 3: Auth/Wallet/Payment 6 函数迁移(loginBySms/loginByWechat/loginByPassword/sendSmsCode/getWalletBalance/createAlipayMiniappPayment)+ 13 类型 re-export(LlmModel/FetchModelsResult/AgentPermission/WalletBalance/VipLevel/SignContractResponse/AlipayMiniappPayResponse/SubscriptionStatus/WechatPayContract/AuthUser/PaymentStatus/PaymentMethod)+ 向后兼容别名(SignContractResult→SignContractResponse / AlipayMiniappPayResult→AlipayMiniappPayResponse)→ commit 5ad9e0f0b
+- Round 4: 最终评估,对比 Course/Live/Order/Exam/ChatMessage 等类型字段差异,记录不兼容清单
+
+**不兼容类型(字段名/结构严重不一致,按异常处理规则"字段名不一致导致无法迁移的,记录差异后跳过")**:
+
+- Course/Live/Order/Exam/ExamQuestion — 字段名全异(coverUrl vs cover / teacher vs instructor / createTime vs createdAt / totalScore:string vs number)+ 端点路径不同(/content/course vs /api/course / /live vs /api/live/channels / /order vs /api/orders/me)
+- ChatMessage — 用途不同(miniapp SSE 流式载体含 images/videos/tokenCount/codeContent vs api-client ConversationMessage 持久化消息含 id/conversationId/metadata),分层设计不可行,保留本地实现
+- News/Circle/Ask/Banner/VipInfo/VipPayInfo/MemberInfo/DistributionInfo/Teacher/StudyRecord/AggregateMessages/NotificationPreferences/DeveloperPricing/DeveloperSubscription — api-client 无对应端点或结构差异大,属小程序独有业务类型
+
+**Git 同步证据**(§21):
+
+- Round 1-2 commit: 9efeeee94(local == remote ✅)
+- Round 3 commit: 5ad9e0f0b(local == remote ✅)
+- 最终 local HEAD: 5ad9e0f0b078d4dff1edcc894376607242736038
+- 最终 origin/main: 5ad9e0f0b078d4dff1edcc894376607242736038
+- 同步状态: local == remote ✅
+- typecheck: api-client ✅ exit 0 + miniapp-taro 本任务零错误(distribution/index.tsx 错误属其他 agent,按 §12 跳过)
+
+**§9 跨端**:miniapp-taro + api-client 两端同步,共享端点 + 共享类型,零行为变化(纯类型/API 契约统一)。
+**§22 README 豁免**:纯内部重构(类型/API 契约统一),不改变对外能力清单。
 
 ### [x] ✅(2026-07-24) 登录弹窗自动弹出回归深度根治 — 共享决策中心 + 统一去重 guard(跨端:web)
 
 **触发**:用户反馈"登录弹窗设置了刷新页面不弹出,修了好几遍还是回归"。a0bc9e5c5 修复 cookie 分支后,reauth 分支遗漏导致刷新带 `?reauth=1&next=/` 的公开路径 URL 仍弹窗。
 
 **根因**:
+
 - `LoginRedirectListener` 的 reauth 分支缺少 `isPublicPath` 检查
 - `isPublicPath` 白名单和 `openGuard` 在 `LoginRedirectListener` / `api.ts` 各维护一份,新增公开页面易漏改
 - 并发触发(reauth + cookie + 401)会弹两次,`api.ts` 401 拦截根本没检查公开路径
 
 **根治方案**(commit `70ccb8a4c`):
+
 - 新增 `apps/web/src/lib/login-dialog-trigger.ts` 共享决策中心:
   - `PUBLIC_PATHS` 白名单(单点维护,新增公开页面只改这里)
   - `isPublicPath()` 路径检查(取 path 部分,忽略 query/hash)
@@ -26,10 +57,12 @@
 - `api.ts` 401 拦截移除本地 guard,改用 `openLoginDialogOnce`,与 Listener 共享全局 guard
 
 **测试**:
+
 - 新增 `login-dialog-trigger.test.ts` 18 个用例(白名单/路径检查/去重 guard/SSR 安全)
 - 更新 `LoginRedirectListener.test.tsx` 使用真实共享模块 + mock 底层 store
 
 **防回归机制**:
+
 1. 新增公开页面只需在 `PUBLIC_PATHS` 一处添加,所有触发点自动生效
 2. `openGuard` 模块级单例,跨触发点共享,并发触发只弹一次
 3. URL 参数始终清理(无论是否弹窗),避免刷新重复触发
@@ -42,11 +75,13 @@
 **旧项目路径**:D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue(uni-app + uniCloud-aliyun)
 
 **Round 1**(commit 95a0aa807,P0-2/P0-4/P0-5):
+
 - P0-4: apps/api/src/routes/agent-creation.ts(6 端点:我的创作查询/收费配置 CRUD/agent 配置查询/工作流搜索)
 - P0-2: miniapp-taro + mobile-rn ModelConfigDialog 补齐媒体参数(图片:比例/分辨率,视频:帧数,音频:音色)
 - P0-5: miniapp-taro + mobile-rn VoiceInput 组件封装(长按录音+语音转文字)
 
 **Round 2**(P0-1/P0-3/P1-6/P1-7/P1-8/P1-9/P1-10,7 subagent 并行):
+
 - P0-1: mobile-rn Coze 集成 — api/coze.ts(243行,Chat v3/Conversations/Workflows/Bots/Datasets)+ ApiSettingsScreen.tsx(179行)
 - P0-3: mobile-rn dev_enter 6 页 — Developer/DevEnter/ModelEdit/ModelIncome/N8nModel/Assistant Screen
 - P1-6: mobile-rn 名片/招聘/创客 3 页 — BusinessCard/Carte/Recruitment Screen
@@ -56,17 +91,19 @@
 - P1-10: 后端接口 11 个 — resource-context.ts(7端点)+ trader-stats.ts(4端点,基于 commissionFlows+traders 表)
 
 **P1-11 决策标注**(4 个两端都未迁移的模块评估):
-| 模块 | 旧项目路径 | 决策 | 理由 |
-|---|---|---|---|
-| vip_info | pagesA/vip_info(5文件:等级/私董会/私密顾问) | **不迁移** | 新项目已有 VipScreen/VipLevelScreen/VipCompareScreen + miniapp-taro pages/vip/privilege.tsx 已迁移 vip_info 5 弹窗,功能已覆盖 |
-| studyindex | pagesA/studyindex(5文件:学习首页/模型列表/学习列表) | **不迁移** | 新项目已有 CourseScreen/StudyPlanScreen/StudyRecordScreen + ModelPlazaScreen,学习首页+模型列表功能已覆盖 |
-| live-streaming | pagesA/live-streaming(1文件:主播端) | **暂不迁移,标记 P2 后续任务** | 直播主播端是独立功能域(推流管理/商品管理/数据统计),需配套 SRS 后端(已有 apps/api/src/routes/srs.ts),前端主播端页面缺失,建议作为独立 P2 任务后续开发 |
-| earn_commission | pagesA/earn_commission(1文件:赚佣金) | **不迁移** | 新项目已有 DistributionScreen(分销)+ PromoteScreen(推广)+ financeRoutes(佣金/提现),赚佣金功能已覆盖 |
+
+| 模块            | 旧项目路径                                          | 决策                          | 理由                                                                                                                                                |
+| --------------- | --------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| vip_info        | pagesA/vip_info(5文件:等级/私董会/私密顾问)         | **不迁移**                    | 新项目已有 VipScreen/VipLevelScreen/VipCompareScreen + miniapp-taro pages/vip/privilege.tsx 已迁移 vip_info 5 弹窗,功能已覆盖                       |
+| studyindex      | pagesA/studyindex(5文件:学习首页/模型列表/学习列表) | **不迁移**                    | 新项目已有 CourseScreen/StudyPlanScreen/StudyRecordScreen + ModelPlazaScreen,学习首页+模型列表功能已覆盖                                            |
+| live-streaming  | pagesA/live-streaming(1文件:主播端)                 | **暂不迁移,标记 P2 后续任务** | 直播主播端是独立功能域(推流管理/商品管理/数据统计),需配套 SRS 后端(已有 apps/api/src/routes/srs.ts),前端主播端页面缺失,建议作为独立 P2 任务后续开发 |
+| earn_commission | pagesA/earn_commission(1文件:赚佣金)                | **不迁移**                    | 新项目已有 DistributionScreen(分销)+ PromoteScreen(推广)+ financeRoutes(佣金/提现),赚佣金功能已覆盖                                                 |
 
 **§9 跨端**:api + mobile-rn + miniapp-taro 三端同步迁移,所有新页面遵循 AGENTS.md §4 UI 约束(圆角守门/禁分割线/禁渐变遮罩/compact 紧凑)。
 **§22 README 豁免**:纯迁移补齐(对标旧项目功能),不改变对外能力清单。
 
 **Git 同步证据**(§21):
+
 - Round 1 commit: 95a0aa807(local == remote ✅)
 - Round 2 commit: 0f5b1de7c(rebase 后 → 435ea3f9c)
 - 最终 local HEAD: 435ea3f9c4f6b91ca2759d16000df112731d3092
@@ -216,6 +253,7 @@
 - ✅ CLI 命令:ihui registry worker-stats(成功率彩色展示 ≥95%绿/≥80%黄/<80%红)
 
 **2026-07-24 P0+P1 完美收尾(深度审计 4 subagent 并行,12 缺口全修)**:
+
 - ✅ P0 测试覆盖:3 测试文件 51 用例全绿(registry-sync.test.ts 25 + registry-sync-worker.test.ts 12 + registry-queries.test.ts 8 + registry-sanity 6)
 - ✅ P1 webhook 防重放:X-Webhook-Timestamp 头 5 分钟窗口校验(无头兼容跳过)
 - ✅ P1 webhook 速率限制:内存滑动窗口 100 req/min(source+IP,Map+setInterval 清理)
@@ -1487,34 +1525,37 @@
 
 **内化的 14 个 provider**(均为 OpenAI 兼容,走 LiteLLM `openai/{model}` 路由):
 
-| provider | 前缀 | base_url | 认证 | keyless? |
-|---|---|---|---|---|
-| Cerebras | `cerebras/` | api.cerebras.ai/v1 | CEREBRAS_API_KEY | 否 |
-| Mistral | `mistral/` `mistral-` `codestral-` `pixtral-` | api.mistral.ai/v1 | MISTRAL_API_KEY | 否 |
-| Cohere | `cohere/` | api.cohere.ai/v1 | COHERE_API_KEY | 否 |
-| HuggingFace | `huggingface/` | router.huggingface.co/v1 | HUGGINGFACE_API_KEY | 否 |
-| Z.ai/智谱 | `zai/` | open.bigmodel.cn/api/paas/v4 | ZAI_API_KEY | 否 |
-| Kilo Gateway | `kilo/` | api.kilo.ai/api/gateway/v1 | 无 | 是(匿名) |
-| Pollinations | `pollinations/` | text.pollinations.ai/openai/v1 | 无 | 是(匿名) |
-| LLM7 | `llm7/` | api.llm7.io/v1 | LLM7_API_KEY(可选) | 是(匿名可用) |
-| OVH AI Endpoints | `ovh/` | oai.endpoints.kepler.ai.cloud.ovh.net/v1 | 无 | 是(匿名) |
-| AI Horde | `aihorde/` | aihorde.net/v1 | AIHORDE_API_KEY(默认 0000000000) | 是(匿名) |
-| Reka | `reka/` | api.reka.ai/v1 | REKA_API_KEY | 否(每月免费 credit) |
-| Routeway | `routeway/` | api.routeway.ai/v1 | ROUTEWAY_API_KEY | 否(:free 后缀模型 $0) |
-| BazaarLink | `bazaarlink/` | bazaarlink.ai/api/v1 | BAZAARLINK_API_KEY | 否(auto:free 路由) |
-| AINative Studio | `ainative/` | api.ainative.studio/api/v1 | AINATIVE_API_KEY | 否(每月 ~10M tokens 免费) |
+| provider         | 前缀                                          | base_url                                 | 认证                             | keyless?                  |
+| ---------------- | --------------------------------------------- | ---------------------------------------- | -------------------------------- | ------------------------- |
+| Cerebras         | `cerebras/`                                   | api.cerebras.ai/v1                       | CEREBRAS_API_KEY                 | 否                        |
+| Mistral          | `mistral/` `mistral-` `codestral-` `pixtral-` | api.mistral.ai/v1                        | MISTRAL_API_KEY                  | 否                        |
+| Cohere           | `cohere/`                                     | api.cohere.ai/v1                         | COHERE_API_KEY                   | 否                        |
+| HuggingFace      | `huggingface/`                                | router.huggingface.co/v1                 | HUGGINGFACE_API_KEY              | 否                        |
+| Z.ai/智谱        | `zai/`                                        | open.bigmodel.cn/api/paas/v4             | ZAI_API_KEY                      | 否                        |
+| Kilo Gateway     | `kilo/`                                       | api.kilo.ai/api/gateway/v1               | 无                               | 是(匿名)                  |
+| Pollinations     | `pollinations/`                               | text.pollinations.ai/openai/v1           | 无                               | 是(匿名)                  |
+| LLM7             | `llm7/`                                       | api.llm7.io/v1                           | LLM7_API_KEY(可选)               | 是(匿名可用)              |
+| OVH AI Endpoints | `ovh/`                                        | oai.endpoints.kepler.ai.cloud.ovh.net/v1 | 无                               | 是(匿名)                  |
+| AI Horde         | `aihorde/`                                    | aihorde.net/v1                           | AIHORDE_API_KEY(默认 0000000000) | 是(匿名)                  |
+| Reka             | `reka/`                                       | api.reka.ai/v1                           | REKA_API_KEY                     | 否(每月免费 credit)       |
+| Routeway         | `routeway/`                                   | api.routeway.ai/v1                       | ROUTEWAY_API_KEY                 | 否(:free 后缀模型 $0)     |
+| BazaarLink       | `bazaarlink/`                                 | bazaarlink.ai/api/v1                     | BAZAARLINK_API_KEY               | 否(auto:free 路由)        |
+| AINative Studio  | `ainative/`                                   | api.ainative.studio/api/v1               | AINATIVE_API_KEY                 | 否(每月 ~10M tokens 免费) |
 
 **改动文件**(4 文件):
+
 - `apps/ai-service/app/core/config.py`:新增 14 个 settings 字段(8 个需 key + 6 个 keyless/keyless-optional)
 - `apps/ai-service/app/core/llm_gateway.py`:`_PREFIX_TO_PROVIDER_CODE` 新增 11 个映射 + `_is_stub_mode` 新增 10 个 env key + `_resolve_provider` 新增 14 个 if 分支
 - `apps/ai-service/tests/test_free_providers.py`:6 个测试类扩展,新增 70 个测试用例(原 64 → 134 passed)
 - `apps/ai-service/.env.example`:新增 14 个 provider 配置项(含申请 URL 注释)
 
 **配套清理**(切割外部项目影子):
+
 - `apps/api/src/routes/chat-models.ts`:删除外部代理 VENDOR_CONFIGS 配置块(9 行)+ 3 处特殊 key 判断 + 2 处注释引用,typecheck 全绿
 - ai-service 代码中所有外部项目名注释引用已清理为中性描述("14 个免费 LLM provider 内化")
 
 **验证**:
+
 - `pytest tests/test_free_providers.py -v`:134 passed in 0.37s ✅
 - `pnpm --filter @ihui/api typecheck`:exit 0 ✅
 - `py_compile config.py llm_gateway.py`:exit 0 ✅
@@ -1523,6 +1564,7 @@
 **整合完成度**:外部聚合项目 22 个 provider 中,IHUI-AI 现已内化 22 个(原 8 个重叠 + 新 14 个),外部项目对 IHUI-AI 已无价值,可安全删除。
 
 **收尾(2026-07-24)**:
+
 - 核对外部项目非 provider 资产:catalog 模型清单全是 openrouter `:free` 模型(IHUI-AI `openrouter/` 路由已覆盖)、.env.example 无遗漏配置、migrations 是自有 schema、provider quirks 由 LiteLLM 处理 → 无有价值资产需内化。
 - 清理 IHUI-AI 中外部项目名引用 4 处:`AGENTS.md` line 380(描述)/405(allowlist 15→14 目录)/409(白名单) + `scripts/g-root-blacklist.json` line 10(白名单条目)。
 - 外部项目目录删除:TRAE 安全沙箱不允许删除项目外目录,需用户手动执行 `Remove-Item -Path "G:\freellmapi" -Recurse -Force`。
@@ -1954,11 +1996,11 @@
 
 **交付内容**(3 文件):
 
-| 文件                              | 改造                                                                                                                                                                                                                          |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scripts/g-root-blacklist.json`   | v1.0→v2.0 升级。从纯黑名单模式升级为 allowlist + blacklist + heuristic + systemProtected 四层配置。allowlist 14 目录(IHUI-AI/QoderCN 等)+ 2 通配符(tools);blacklist 17 目录/23 文件/10 通配符;heuristic 7 目录签名/14 文件签名;systemProtected 8 系统目录 |
-| `scripts/g-root-guardian.ps1`     | v1.0→v2.0 升级。实现 5 层判定逻辑(systemProtected→allowlist→blacklist→heuristic→unknown),未知项也删除。.NET Directory.Delete 兜底解决 Remove-Item 删除锁定目录失败问题。日志记录删除原因(BLOCK:blacklist/heuristic/unknown)         |
-| `AGENTS.md` + `README.md`         | §15 G:\ 根目录实时守门服务章节 + README 同步章节,从 v1.0 黑名单模式说明升级为 v2.0 白名单优先模式说明,记录 5 层判定逻辑 + 实测验证结果 + v1.0 盲区描述                                                                              |
+| 文件                            | 改造                                                                                                                                                                                                                                                      |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/g-root-blacklist.json` | v1.0→v2.0 升级。从纯黑名单模式升级为 allowlist + blacklist + heuristic + systemProtected 四层配置。allowlist 14 目录(IHUI-AI/QoderCN 等)+ 2 通配符(tools);blacklist 17 目录/23 文件/10 通配符;heuristic 7 目录签名/14 文件签名;systemProtected 8 系统目录 |
+| `scripts/g-root-guardian.ps1`   | v1.0→v2.0 升级。实现 5 层判定逻辑(systemProtected→allowlist→blacklist→heuristic→unknown),未知项也删除。.NET Directory.Delete 兜底解决 Remove-Item 删除锁定目录失败问题。日志记录删除原因(BLOCK:blacklist/heuristic/unknown)                               |
+| `AGENTS.md` + `README.md`       | §15 G:\ 根目录实时守门服务章节 + README 同步章节,从 v1.0 黑名单模式说明升级为 v2.0 白名单优先模式说明,记录 5 层判定逻辑 + 实测验证结果 + v1.0 盲区描述                                                                                                    |
 
 **5 层判定逻辑(v2.0 核心)**:
 
@@ -2113,6 +2155,7 @@
 ### [x] ✅(2026-07-24) 进程僵尸守护者 v1.0:根治开发期内存占用 96%(僵尸 pip + dev server + trae-sandbox 膨胀 + Trae IDE 僵尸进程累积)(平台独占:仅 scripts + PROJECT_PLAN.md)
 
 **问题背景**:用户反馈"内存占用怎么这么高,用的 trae 和 traework 程序,内存占用一直接近百分百"。诊断发现:
+
 - 总内存 15.7GB,已用 14.8GB(**94.3%**),空闲仅 0.9GB
 - 僵尸 `python -m pip install ruff` 进程 PID 20216,跑 **10.6 小时纯 CPU**(38353 秒),内存仅 2MB(busy-loop 卡死)
 - Next.js dev server :8801 挂着占 818MB(非开发时段未关)
@@ -2121,15 +2164,16 @@
 
 **根治方案**(5 个脚本 + Windows 计划任务):
 
-| 脚本 | 作用 |
-| --- | --- |
-| `scripts/cleanup-zombie-processes.ps1` | 主清理脚本,5 规则:① 失控 install 进程(pip/npm/pnpm install > 30min)② 高 CPU 低内存僵尸(CPU>1h AND mem<10MB,只针对 python/node/pip 等开发工具,不碰 IDE/用户应用)③ 孤儿 dev server 告警(node next/vite/tsx dev > 4h,WARN only)④ Trae 进程数告警(CN>25 / SOLO>30,WARN only)⑤ 工作集 trim(EmptyWorkingSet 回收 > 150MB 进程物理内存) |
-| `scripts/zombie-guardian-hidden.vbs` | VBS launcher,wscript.exe GUI 子系统零弹窗启动 PowerShell |
-| `scripts/install-zombie-guardian.ps1` | 注册 Windows 计划任务 `IHUI-AI-Zombie-Guardian`,双触发器(AtLogOn 登录自启 + Once-Repeat 每 30 分钟,持续 365 天),Limited 用户权限 |
-| `scripts/uninstall-zombie-guardian.ps1` | 卸载计划任务(保留脚本) |
-| `scripts/zombie-guardian-status.ps1` | 状态查询(任务状态 + 内存快照 + Trae 进程数 + Top10 内存 + 最近日志) |
+| 脚本                                    | 作用                                                                                                                                                                                                                                                                                                                             |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/cleanup-zombie-processes.ps1`  | 主清理脚本,5 规则:① 失控 install 进程(pip/npm/pnpm install > 30min)② 高 CPU 低内存僵尸(CPU>1h AND mem<10MB,只针对 python/node/pip 等开发工具,不碰 IDE/用户应用)③ 孤儿 dev server 告警(node next/vite/tsx dev > 4h,WARN only)④ Trae 进程数告警(CN>25 / SOLO>30,WARN only)⑤ 工作集 trim(EmptyWorkingSet 回收 > 150MB 进程物理内存) |
+| `scripts/zombie-guardian-hidden.vbs`    | VBS launcher,wscript.exe GUI 子系统零弹窗启动 PowerShell                                                                                                                                                                                                                                                                         |
+| `scripts/install-zombie-guardian.ps1`   | 注册 Windows 计划任务 `IHUI-AI-Zombie-Guardian`,双触发器(AtLogOn 登录自启 + Once-Repeat 每 30 分钟,持续 365 天),Limited 用户权限                                                                                                                                                                                                 |
+| `scripts/uninstall-zombie-guardian.ps1` | 卸载计划任务(保留脚本)                                                                                                                                                                                                                                                                                                           |
+| `scripts/zombie-guardian-status.ps1`    | 状态查询(任务状态 + 内存快照 + Trae 进程数 + Top10 内存 + 最近日志)                                                                                                                                                                                                                                                              |
 
 **安全设计**:
+
 - 只杀**开发工具进程**(python/node/pip/npm/pnpm/yarn/cargo/go/uv/rustc/tsc/tsx),**永不杀** IDE(Trae CN/TRAE SOLO CN/trae-sandbox)、用户应用(Feishu/GameViewer/Edge/explorer)
 - Rule 3(孤儿 dev server)和 Rule 4(Trae 进程数)**只告警不自动杀**(可能用户在用)
 - 纯 ASCII(PowerShell 5 默认 GBK 读 .ps1,中文会破坏引号配对,§15 教训)
@@ -2138,16 +2182,17 @@
 
 **验证结果**:
 
-| 指标 | 治理前 | 治理后 | 变化 |
-| --- | --- | --- | --- |
-| 内存占用 | 96.2% | **62.4%** | ↓33.8 个百分点 |
-| 空闲内存 | 0.6 GB | **5.9 GB** | +5.3 GB |
-| 工作集回收(单次) | — | 8068 MB(trae-sandbox 6724MB) | — |
-| 计划任务 NextRun | — | 每 30 分钟自动运行 | ✅ |
-| 登录自启 | — | AtLogOn 触发器 | ✅ |
-| 误杀 IDE/用户应用 | — | 0(只杀开发工具) | ✅ |
+| 指标              | 治理前 | 治理后                       | 变化           |
+| ----------------- | ------ | ---------------------------- | -------------- |
+| 内存占用          | 96.2%  | **62.4%**                    | ↓33.8 个百分点 |
+| 空闲内存          | 0.6 GB | **5.9 GB**                   | +5.3 GB        |
+| 工作集回收(单次)  | —      | 8068 MB(trae-sandbox 6724MB) | —              |
+| 计划任务 NextRun  | —      | 每 30 分钟自动运行           | ✅             |
+| 登录自启          | —      | AtLogOn 触发器               | ✅             |
+| 误杀 IDE/用户应用 | —      | 0(只杀开发工具)              | ✅             |
 
 **计划任务状态**:
+
 - TaskName: `IHUI-AI-Zombie-Guardian`
 - State: Ready / NextRun: 每 30 分钟
 - 触发器: AtLogOn(登录自启)+ Once-Repeat-30min-365days(周期清理)
@@ -2158,6 +2203,7 @@
 **README 同步豁免(§22)**:纯系统守门脚本,不改变项目对外运行时能力清单(守门脚本速查表可选补充,非强制)。
 
 **后续建议**(非本任务范围,需用户决策):
+
 1. **重启 TRAE SOLO CN IDE 清理僵尸进程**:当前 48 个进程(阈值 30),guardian 只告警不自动杀(避免中断用户会话)。重启后可降到 10-15 个正常水平。
 2. **考虑加物理内存**:机器仅 15.7GB,开发 IHUI-AI 8 端 Monorepo(同时跑 web/api/ai-service + TypeScript LSP + 浏览器)建议 32GB+。
 3. **不开发时关 dev server**:`pnpm --filter @ihui/web dev` 等会持续占 800MB+,guardian Rule 3 会告警但不自动杀。
@@ -2171,41 +2217,44 @@
 
 **v2.0 架构**:常驻后台 daemon(替代定时任务),每 60 秒检查内存,阈值梯子响应:
 
-| 内存阈值 | 响应动作 |
-| --- | --- |
-| > 80% | TRIM 所有 > 100MB 工作集的进程 |
-| > 88% | AGGRESSIVE:TRIM > 50MB + 杀失控 install 进程 |
-| > 92% | EMERGENCY:杀高 CPU 低内存僵尸 + TRIM 全部 > 50MB |
+| 内存阈值    | 响应动作                                                    |
+| ----------- | ----------------------------------------------------------- |
+| > 80%       | TRIM 所有 > 100MB 工作集的进程                              |
+| > 88%       | AGGRESSIVE:TRIM > 50MB + 杀失控 install 进程                |
+| > 92%       | EMERGENCY:杀高 CPU 低内存僵尸 + TRIM 全部 > 50MB            |
 | 每 ~30 分钟 | 完整清理 pass(调用 cleanup-zombie-processes.ps1 -AutoClean) |
 
 **新增脚本**:
 
-| 脚本 | 作用 |
-| --- | --- |
-| `scripts/zombie-guardian-daemon.ps1` | 常驻 daemon 主脚本,while($true) 循环 + try/catch 包裹(永不崩溃退出) |
-| `scripts/zombie-guardian-daemon-hidden.vbs` | VBS launcher,wscript.exe 零弹窗启动 daemon |
+| 脚本                                         | 作用                                                                                      |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `scripts/zombie-guardian-daemon.ps1`         | 常驻 daemon 主脚本,while($true) 循环 + try/catch 包裹(永不崩溃退出)                       |
+| `scripts/zombie-guardian-daemon-hidden.vbs`  | VBS launcher,wscript.exe 零弹窗启动 daemon                                                |
 | `scripts/install-zombie-guardian-daemon.ps1` | 升级安装脚本(卸载 v1.0 定时任务 + 注册 v2.0 daemon,AtLogOn + RestartCount 999 崩溃自重启) |
 
 **更新脚本**:
+
 - `scripts/uninstall-zombie-guardian.ps1`:增加杀 daemon 常驻进程逻辑(v2.0 daemon 是 detached powershell.exe,Stop-ScheduledTask 杀不掉,需按命令行匹配 force-kill)
 - `scripts/zombie-guardian-status.ps1`:增加 daemon 进程实时状态(PID/内存/CPU/运行时长)
 
 **深度清理记录**(v2.0 升级同时执行):
+
 - Trae CN 僵尸进程:5 个(CPU<10s AND Mem<15MB AND Age>616min)已杀,进程数 21 → 18
 - TRAE SOLO CN 僵尸进程:2 个(CPU<10s AND Mem<15MB AND Age>60min)已杀,进程数 48 → 46
 - Windows 内存组成诊断:PoolNonpaged 1010MB(异常高,正常 200-400MB,内核级驱动内存,无法外部清理,记录存档)
 
 **验证结果**:
 
-| 指标 | v1.0 定时 | v2.0 daemon | 提升 |
-| --- | --- | --- | --- |
-| 响应延迟 | 最长 30 分钟 | 60 秒 | 30x |
-| 内存峰值控制 | 96% → 73%(30 分钟窗口期可能冲高) | 80.9% 触发即 trim → 73% | 实时 |
-| daemon 开销 | — | 100MB 内存 / 1.4s CPU(极轻) | 可忽略 |
-| 崩溃恢复 | RestartCount 999 | RestartCount 999(1 分钟自动重启) | ✅ |
-| 首次循环验证 | — | 80.9% 时 trim 2931MB(10 进程)→ 73% | ✅ |
+| 指标         | v1.0 定时                        | v2.0 daemon                        | 提升   |
+| ------------ | -------------------------------- | ---------------------------------- | ------ |
+| 响应延迟     | 最长 30 分钟                     | 60 秒                              | 30x    |
+| 内存峰值控制 | 96% → 73%(30 分钟窗口期可能冲高) | 80.9% 触发即 trim → 73%            | 实时   |
+| daemon 开销  | —                                | 100MB 内存 / 1.4s CPU(极轻)        | 可忽略 |
+| 崩溃恢复     | RestartCount 999                 | RestartCount 999(1 分钟自动重启)   | ✅     |
+| 首次循环验证 | —                                | 80.9% 时 trim 2931MB(10 进程)→ 73% | ✅     |
 
 **Git 同步证据**(§21):
+
 - 本地 commit: `4c9f62d2d`
 - origin commit: `4c9f62d2d`
 - 同步状态: local == remote ✅
