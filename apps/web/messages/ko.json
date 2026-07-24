@@ -2060,6 +2060,13 @@
       "wechatScanDesc": "아래의 QR 코드를 WeChat으로 스캔해 주세요. 결제 완료 후 자동으로 이동합니다.",
       "wechatQrAlt": "WeChat Pay QR 코드",
       "loading": "로딩 중..."
+    },
+    "paymentErrors": {
+      "alreadyVip": "이미VIP 주의소회원",
+      "notLogged": "사용자미로그인",
+      "incompleteProduct": "프로젝트Info아님",
+      "selectPayMethod": "선택해 주세요결제파티방법",
+      "notLoggedOrNoOpenId": "사용자미로그인또는openid아님중"
     }
   },
   "admin": {
@@ -22436,13 +22443,6 @@
     "downloadFailed": "다운로드 실패",
     "downloadComplete": "다운로드완료",
     "downloadFailed2": "다운로드 실패"
-  },
-  "Payment": {
-    "alreadyVip": "이미VIP 주의소회원",
-    "notLogged": "사용자미로그인",
-    "incompleteProduct": "프로젝트Info아님",
-    "selectPayMethod": "선택해 주세요결제파티방법",
-    "notLoggedOrNoOpenId": "사용자미로그인또는openid아님중"
   },
   "cmpindex": {
     "timeExpr": "시간도달",
