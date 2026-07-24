@@ -246,6 +246,27 @@ const checks = [
       '',
     ].join('\n'),
   },
+  {
+    id: '29',
+    label: '🚀 Push 同步兜底(防"commit 后忘记 push"复发,AGENTS.md §21 第三道防线)',
+    script: 'check-push-sync.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 本地有未 push 的 commit,本次 commit 已阻止。',
+      '     post-commit 钩子(git-push-guard.mjs)本应自动 push,但可能因以下原因失败:',
+      '       - HUSKY_SKIP_PUSH=1 跳过 / push 网络失败 / 凭据失效',
+      '       - agent 用 --no-verify 跳过所有钩子',
+      '       - pre-push typecheck 阻塞 / RunCommand 工具失联',
+      '',
+      '  修复方法(任选其一):',
+      '     ① 自动 push: node scripts/git-push-guard.mjs',
+      '     ② 手动 push: git push origin main',
+      '     ③ 紧急跳过(不推荐): HUSKY_SKIP_PUSH_SYNC=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
 
   // --- warn (12 项) ---
   {
