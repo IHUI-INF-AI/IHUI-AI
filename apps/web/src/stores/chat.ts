@@ -28,6 +28,15 @@ export interface ToolCall {
   /** 后端重复调用检测命中时标记(同 tool_name + 同 args 已执行过,跳过实际调用)
    * 来自 SSE tool-result 事件的 repeated 字段。true 时前端渲染"已跳过"灰色徽章 */
   repeated?: boolean
+  /** image_generation 工具返回的图片 URL(data URI 或 https URL) */
+  image_url?: string
+  /** summarize_artifacts 工具返回的结构化摘要数据 */
+  summary_data?: {
+    plans?: Array<{ id: string; title: string; status: string; steps?: string[] }>
+    sources?: Array<{ type: string; ref: string; accessed_at?: string }>
+    artifacts?: Array<{ type: string; path: string; created_at?: string }>
+    tool_calls_summary?: { total: number; by_tool: Record<string, number> }
+  }
 }
 
 /** AI 主动提问的选项 */
@@ -120,7 +129,10 @@ interface ChatState {
   resetSubAgentActivities: () => void
   /** 添加工具调用到指定消息(SSE tool-call-start 事件触发)
    * 2026-07-22 立,P2 联动 WorkPanel */
-  addToolCall: (messageId: string, toolCall: Omit<ToolCall, 'status'> & { status?: ToolCall['status'] }) => void
+  addToolCall: (
+    messageId: string,
+    toolCall: Omit<ToolCall, 'status'> & { status?: ToolCall['status'] },
+  ) => void
   /** 更新工具调用结果(SSE tool-result 事件触发)
    * 同步联动 WorkPanel:toolName=browser_navigate 或 args/result 含 url → openPanel */
   updateToolCall: (messageId: string, toolCallId: string, updates: Partial<ToolCall>) => void
@@ -272,8 +284,7 @@ export const useChatStore = create<ChatState>()(
             ...a,
             streamingDone: true,
             status: a.status === 'running' || a.status === 'thinking' ? 'completed' : a.status,
-            currentStep:
-              a.status === 'running' || a.status === 'thinking' ? '' : a.currentStep,
+            currentStep: a.status === 'running' || a.status === 'thinking' ? '' : a.currentStep,
           })),
         })),
 
@@ -290,9 +301,7 @@ export const useChatStore = create<ChatState>()(
             const exists = m.toolCalls?.some((tc) => tc.id === fullCall.id)
             return {
               ...m,
-              toolCalls: exists
-                ? m.toolCalls
-                : [...(m.toolCalls ?? []), fullCall],
+              toolCalls: exists ? m.toolCalls : [...(m.toolCalls ?? []), fullCall],
             }
           }),
         })),
