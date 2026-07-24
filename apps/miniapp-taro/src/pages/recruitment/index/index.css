@@ -134,10 +134,9 @@
 }
 .income-item {
   padding: 20rpx 0;
-  border-bottom: 1rpx solid #f0f0f0;
 }
-.income-item:last-child {
-  border-bottom: none;
+.income-item + .income-item {
+  margin-top: 16rpx;
 }
 .income-level {
   font-size: 28rpx;

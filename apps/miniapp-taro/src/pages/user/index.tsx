@@ -146,7 +146,7 @@ export default function UserIndex() {
           <View
             key={item.path}
             className={`flex items-center px-[16px] py-[16px] ${
-              idx < menus.length - 1 ? 'border-b-[1px] border-solid border-[var(--color-border)]' : ''
+              idx < menus.length - 1 ? 'mb-[4px]' : ''
             }`}
             onClick={() => goPage(item.path)}
           >
