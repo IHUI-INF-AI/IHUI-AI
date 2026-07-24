@@ -1,7 +1,7 @@
 import { setTokenProvider, setBaseUrl, fetchApi as fetchApiShared } from '@ihui/api-client'
 import type { ApiResult } from '@ihui/types'
 import { useAuthStore } from '@/stores/auth'
-import { useLoginDialogStore } from '@/stores/login-dialog'
+import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
 
 setTokenProvider({ getToken: () => useAuthStore.getState().token })
 
@@ -24,22 +24,6 @@ if (typeof window !== 'undefined') {
   setBaseUrl(detectApiBaseUrl())
 }
 
-/** 防止 401 风暴:同一时刻只允许一个全局登录弹窗 */
-let loginDialogOpenGuard = false
-function openLoginDialogFor401(): void {
-  if (typeof window === 'undefined') return
-  if (loginDialogOpenGuard) return
-  loginDialogOpenGuard = true
-  const currentPath = window.location.pathname + window.location.search
-  useLoginDialogStore.getState().open('login', currentPath)
-  const unsub = useLoginDialogStore.subscribe((s) => {
-    if (!s.isOpen) {
-      loginDialogOpenGuard = false
-      unsub()
-    }
-  })
-}
-
 /**
  * Web 端 fetchApi 包装:401 未授权时自动打开登录弹窗。
  *
@@ -47,6 +31,7 @@ function openLoginDialogFor401(): void {
  * - GET 请求(页面初始加载 / 查询)的 401 不弹窗,避免一进页面就被弹窗打断
  * - 非 GET 请求(POST/PUT/DELETE/PATCH,即用户主动操作如安装/评分/发消息)的 401 才弹窗
  * - 业务调用方无需关心 401 → 弹窗的串联
+ * - 统一走 openLoginDialogOnce(2026-07-24 深度根治):自带全局去重 guard + 公开路径白名单
  */
 export async function fetchApi<T>(url: string, options: RequestInit = {}): Promise<ApiResult<T>> {
   const result = await fetchApiShared<T>(url, options)
@@ -54,7 +39,8 @@ export async function fetchApi<T>(url: string, options: RequestInit = {}): Promi
     const method = (options.method ?? 'GET').toUpperCase()
     // 仅用户主动操作(非 GET)的 401 才弹窗
     if (method !== 'GET') {
-      openLoginDialogFor401()
+      const currentPath = window.location.pathname + window.location.search
+      openLoginDialogOnce(currentPath)
     }
   }
   return result
