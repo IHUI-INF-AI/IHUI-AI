@@ -183,3 +183,5 @@ export * from './codebase-index.js'
 export * from './model-leaderboard.js'
 // 资源上游自动同步中心 schema(2026-07-24 立,3 表)
 export * from './registry.js'
+// 资源上下文管理(2026-07-24 新增,用户上传文件/知识库/URL 绑定到会话供 AI 引用)
+export * from './resource-context.js'
