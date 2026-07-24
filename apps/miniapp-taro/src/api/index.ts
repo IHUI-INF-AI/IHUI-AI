@@ -5,8 +5,11 @@ import Taro from '@tarojs/taro'
 import { get, post, put, patch, del, BASE_URL } from '../utils/request'
 import { getToken, type UserInfo, type LoginResult } from '../utils/auth'
 import { parseSSEChunk, type SSEEvent } from '../utils/sse-parse'
+import type { FetchModelsResult } from '@ihui/api-client'
 export type { UserInfo }
 export { get, post } from '../utils/request'
+// 类型单一来源:LlmModel / FetchModelsResult 复用 @ihui/api-client,本地 re-export 保持外部引用不变
+export type { LlmModel, FetchModelsResult } from '@ihui/api-client'
 
 /* ============ 认证相关 ============ */
 
@@ -181,7 +184,12 @@ export const chatStream = (
     usageRatio: number
   }) => void,
   /** 流结束回调(对标原 ai_assistant.vue total_tokens 显示):ai-service event:done 下发 usage */
-  onDone?: (info: { totalTokens?: number; promptTokens?: number; completionTokens?: number; model?: string }) => void,
+  onDone?: (info: {
+    totalTokens?: number
+    promptTokens?: number
+    completionTokens?: number
+    model?: string
+  }) => void,
 ): Promise<void> => {
   let errored = false
   const resolvedModel = options.model ?? options.modelId
@@ -198,8 +206,7 @@ export const chatStream = (
         completionTokens: evt.usage?.completionTokens,
         model: evt.model,
       })
-    }
-    else if (evt.type === 'error' && evt.content) {
+    } else if (evt.type === 'error' && evt.content) {
       errored = true
       const err = new Error(evt.content) as Error & {
         code?: number
@@ -966,25 +973,9 @@ export const publishAigc = (data: unknown) => post('/aigc/publish', data)
 /* ============ 模型广场 ============ */
 export const getModelPlazaList = () => get('/models/plaza')
 
-/** LLM 模型信息(与 Web 端 @ihui/api-client LlmModel 对齐) */
-export interface LlmModel {
-  id: string
-  name: string
-  provider: string
-  context_length: number
-  input_price: number
-}
-
-/** fetchModels 返回结构(与 Web 端 @ihui/api-client FetchModelsResult 对齐) */
-export interface FetchModelsResult {
-  models: LlmModel[]
-  default: string
-  stub_mode: boolean
-}
-
 /**
  * 获取可用模型列表 — GET /llm/models (代理到 AI-service)
- * 与 Web 端 @ihui/api-client fetchModels 对齐
+ * 类型复用 @ihui/api-client FetchModelsResult(单一来源)
  */
 export const fetchModels = () => get<FetchModelsResult>('/llm/models')
 
@@ -1122,7 +1113,8 @@ export const generateVideoDoubao = (data: unknown) => post('/ai/doubao/video', d
 /** 即梦 - 图片生成（POST /api/ai/volcengine/jimeng/image） */
 export const generateImageJimeng = (data: unknown) => post('/ai/volcengine/jimeng/image', data)
 /** 火山引擎 - 图片生成（POST /api/ai/volcengine/visual/generate，匹配 :reqKey 路由） */
-export const generateImageVolcengine = (data: unknown) => post('/ai/volcengine/visual/generate', data)
+export const generateImageVolcengine = (data: unknown) =>
+  post('/ai/volcengine/visual/generate', data)
 /** 可灵 - 视频生成（POST /api/ai/kling/task/create，对口型 lip-sync 任务） */
 export const generateVideoKling = (data: unknown) => post('/ai/kling/task/create', data)
 /** 可灵 - 图片生成（POST /api/ai/kling/image，后端暂无此路由，调用将返回 404） */
