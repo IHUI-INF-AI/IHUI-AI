@@ -171,10 +171,12 @@ export async function listRegistryItems(
   const total = Number(totalRows[0]?.c ?? 0)
 
   // 已登录用户:查该用户在当前 page 中的安装记录,匹配 sourceType:sourceId 复合键
+  // 缺口 3 优化:仅查当前 page 的 keys(WHERE key IN (...)),避免全表扫用户安装记录
   let installedIds: string[] = []
   if (userId && rows.length > 0) {
+    const currentPageKeys = rows.map((r) => `${r.sourceType}:${r.sourceId}`)
     const userInstalls = await dbRead.execute(
-      sql`SELECT key FROM "user_preferences" WHERE "user_id" = ${userId} AND "group" = 'registry_installs'`,
+      sql`SELECT key FROM "user_preferences" WHERE "user_id" = ${userId} AND "group" = 'registry_installs' AND key IN (${sql.join(currentPageKeys.map((k) => sql`${k}`), sql`, `)})`,
     )
     // drizzle postgres-js execute 返回 RowList 或 { rows },兼容两种形态
     const installRows = (
@@ -297,6 +299,155 @@ export async function upsertRegistryItem(
     })
 
   return { inserted, hash, oldVersion }
+}
+
+/**
+ * 批量 upsert 结果。
+ * - inserted/updated/skipped:本次批量的三态计数
+ * - oldVersions:每条条目的 oldVersion(更新前)+ newVersion,供 sync_log 聚合
+ * - hashList:每条条目的 payload SHA-256,供 sync_log payloadHash 聚合计算
+ */
+export interface BatchUpsertResult {
+  inserted: number
+  updated: number
+  skipped: number
+  failed: number
+  oldVersions: Array<{
+    sourceType: string
+    source: string
+    sourceId: string
+    oldVersion: string | null
+    newVersion: string | null
+  }>
+  hashList: string[]
+}
+
+/**
+ * 批量 upsert 资源条目(2 次 DB 往返替代 2N 次)。
+ * 1. 批量 SELECT existing(含 version)——用 OR 拼接 (source_type, source, source_id) 复合键
+ * 2. 批量 INSERT ... ON CONFLICT DO UPDATE —— 一次写入所有需要 upsert 的条目
+ *
+ * 幂等检查:非 force 且 existing.version === raw.version → skipped,不加入 upsert 批次
+ * (跳过时不更新 latestSyncedAt,避免无变更条目产生虚假同步时间)
+ *
+ * 返回每条的 oldVersion 供 sync_log 聚合。
+ */
+export async function batchUpsertRegistryItems(
+  items: Array<{ raw: RawRegistryItem; heat: number; quality: number; hash: string }>,
+  options?: { force?: boolean },
+): Promise<BatchUpsertResult> {
+  if (items.length === 0) {
+    return { inserted: 0, updated: 0, skipped: 0, failed: 0, oldVersions: [], hashList: [] }
+  }
+
+  // 1. 批量查 existing(inArray 不支持多列,用 OR 拼接复合键条件)
+  const conditions = items.map((item) =>
+    and(
+      eq(registryItems.sourceType, item.raw.sourceType),
+      eq(registryItems.source, item.raw.source),
+      eq(registryItems.sourceId, item.raw.sourceId),
+    ),
+  )
+  const existingRows = await dbRead
+    .select({
+      id: registryItems.id,
+      version: registryItems.version,
+      sourceType: registryItems.sourceType,
+      source: registryItems.source,
+      sourceId: registryItems.sourceId,
+    })
+    .from(registryItems)
+    .where(or(...conditions))
+
+  const existingMap = new Map<string, { id: string; version: string | null }>()
+  for (const row of existingRows) {
+    existingMap.set(`${row.sourceType}:${row.source}:${row.sourceId}`, {
+      id: row.id,
+      version: row.version,
+    })
+  }
+
+  // 2. 计算每条的状态 + 准备批量 upsert
+  const oldVersions: BatchUpsertResult['oldVersions'] = []
+  const hashList: string[] = []
+  const valuesToUpsert: Array<typeof registryItems.$inferInsert> = []
+  let inserted = 0
+  let updated = 0
+  let skipped = 0
+  const now = new Date()
+
+  for (const item of items) {
+    const key = `${item.raw.sourceType}:${item.raw.source}:${item.raw.sourceId}`
+    const existing = existingMap.get(key)
+    const oldVersion = existing?.version ?? null
+
+    oldVersions.push({
+      sourceType: item.raw.sourceType,
+      source: item.raw.source,
+      sourceId: item.raw.sourceId,
+      oldVersion,
+      newVersion: item.raw.version ?? null,
+    })
+    hashList.push(item.hash)
+
+    // 幂等检查:非 force 且版本未变 → skipped,不加入 upsert 批次
+    if (!options?.force && existing && oldVersion === item.raw.version) {
+      skipped++
+      continue
+    }
+
+    valuesToUpsert.push({
+      sourceType: item.raw.sourceType,
+      source: item.raw.source,
+      sourceId: item.raw.sourceId,
+      name: item.raw.name,
+      description: item.raw.description,
+      version: item.raw.version,
+      author: item.raw.author,
+      homepage: item.raw.homepage,
+      repoUrl: item.raw.repoUrl,
+      downloadUrl: item.raw.downloadUrl,
+      categories: item.raw.categories,
+      tags: item.raw.tags,
+      payload: item.raw.payload,
+      payloadHash: item.hash,
+      heatScore: item.heat,
+      qualityScore: item.quality,
+      latestSyncedAt: now,
+      updatedAt: now,
+    })
+    if (existing) updated++
+    else inserted++
+  }
+
+  // 3. 批量 upsert(一次 DB 往返)
+  if (valuesToUpsert.length > 0) {
+    await db
+      .insert(registryItems)
+      .values(valuesToUpsert)
+      .onConflictDoUpdate({
+        target: [registryItems.sourceType, registryItems.source, registryItems.sourceId],
+        set: {
+          name: sql`EXCLUDED.name`,
+          description: sql`EXCLUDED.description`,
+          version: sql`EXCLUDED.version`,
+          author: sql`EXCLUDED.author`,
+          homepage: sql`EXCLUDED.homepage`,
+          repoUrl: sql`EXCLUDED.repo_url`,
+          downloadUrl: sql`EXCLUDED.download_url`,
+          categories: sql`EXCLUDED.categories`,
+          tags: sql`EXCLUDED.tags`,
+          payload: sql`EXCLUDED.payload`,
+          payloadHash: sql`EXCLUDED.payload_hash`,
+          heatScore: sql`EXCLUDED.heat_score`,
+          qualityScore: sql`EXCLUDED.quality_score`,
+          latestSyncedAt: sql`EXCLUDED.latest_synced_at`,
+          updatedAt: sql`EXCLUDED.updated_at`,
+        },
+      })
+  }
+
+  return { inserted, updated, skipped, failed: 0, oldVersions, hashList }
 }
 
 // =============================================================================
