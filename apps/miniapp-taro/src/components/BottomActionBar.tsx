@@ -22,7 +22,7 @@ export default function BottomActionBar({
   onAttach,
 }: BottomActionBarProps) {
   return (
-    <View className="flex items-center px-3 py-2 bg-card border-t border-border">
+    <View className="flex items-center px-3 py-2 bg-card mt-2">
       {showAttach && (
         <View
           className="flex items-center justify-center w-8 h-8 mr-2 rounded-lg bg-muted"

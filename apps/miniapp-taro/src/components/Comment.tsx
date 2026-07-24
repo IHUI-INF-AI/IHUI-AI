@@ -50,7 +50,7 @@ export default function Comment({
           <EmptyState text={tt('comment.empty', '暂无评论,快来抢沙发')} />
         ) : (
           comments.map((item) => (
-            <View key={item.id} className="py-3 border-b border-border">
+            <View key={item.id} className="py-3 mb-2">
               <View className="flex items-start">
                 <Image
                   className="w-8 h-8 mr-2.5 rounded-lg bg-muted"
@@ -73,7 +73,7 @@ export default function Comment({
                     </Text>
                   </View>
                   {item.replies && item.replies.length > 0 && (
-                    <View className="mt-2 ml-2 pl-3 border-l-2 border-border">
+                    <View className="mt-2 ml-2 pl-3 py-1.5 pr-2 bg-muted rounded-md">
                       {item.replies.map((reply) => (
                         <View key={reply.id} className="py-1.5">
                           <Text className="text-xs text-primary">
@@ -91,7 +91,7 @@ export default function Comment({
         )}
       </ScrollView>
       {inputVisible && (
-        <View className="flex items-center px-3 py-2 bg-card border-t border-border">
+        <View className="flex items-center px-3 py-2 bg-card mt-2">
           <Input
             className="flex-1 px-3 py-2 text-sm bg-muted rounded-md"
             placeholder={tt('comment.placeholder', '写评论...')}

@@ -108,9 +108,9 @@ export default function DistributionRank() {
         </View>
       )}
       {rest.length > 0 && (
-        <View className="m-[12px] bg-card rounded-[8px] overflow-hidden">
+        <View className="m-[12px] bg-card rounded-[8px] overflow-hidden flex flex-col">
           {rest.map((u, i) => (
-            <View key={u.id} className="flex items-center p-[12px] border-b-[1px] border-border">
+            <View key={u.id} className="flex items-center p-[12px] mb-2 last:mb-0">
               <Text className="w-[30px] text-[14px] text-muted-foreground">{i + 4}</Text>
               <Image
                 className="w-[32px] h-[32px] rounded-md bg-muted"

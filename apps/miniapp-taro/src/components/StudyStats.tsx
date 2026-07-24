@@ -45,7 +45,7 @@ export default function StudyStats({ data = {} }: StudyStatsProps) {
         </View>
       </View>
 
-      <View className="grid grid-cols-3 gap-2 pt-3 border-t border-border">
+      <View className="grid grid-cols-3 gap-2 pt-3">
         <View className="text-center">
           <Text className="block text-base font-medium text-primary">{totalLessons}</Text>
           <Text className="block text-xs text-muted-foreground">{tt('study.completedLessons', '完成课时')}</Text>
