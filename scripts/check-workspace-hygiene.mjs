@@ -62,6 +62,11 @@ const FILE_WHITELIST = [
   /\.trae-cn[\\/]archive[\\/]/,               // 归档文档
   /docs[\\/]port-management\.md$/,            // 端口管理文档
   /README(\.[a-z-]+)?\.md$/,                  // README
+  /scripts[\\/]g-root-guardian\.ps1$/,         // v3.1: G:\ root 守门脚本(引用黑名单路径合法)
+  /scripts[\\/]g-root-blacklist\.json$/,       // v3.1: G:\ root 黑名单配置
+  /scripts[\\/]install-g-root-guardian\.ps1$/, // v3.1: 安装脚本(引用 g-root-guardian 路径)
+  /scripts[\\/]uninstall-g-root-guardian\.ps1$/, // v3.1: 卸载脚本
+  /scripts[\\/]g-root-guardian-status\.ps1$/,  // v3.1: 状态查询脚本
 ];
 
 // ===== 违规检测器(分级:blocking 阻塞 / warning 提醒) =====
