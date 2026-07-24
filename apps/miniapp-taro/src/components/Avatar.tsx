@@ -1,4 +1,5 @@
 import { View, Text, Image } from '@tarojs/components'
+import { cn } from '@ihui/design-tokens'
 
 export interface AvatarProps {
   src?: string
@@ -28,7 +29,7 @@ export default function Avatar({
   if (src) {
     return (
       <Image
-        className={`${sizeClass} ${shapeClass} bg-muted`}
+        className={cn(sizeClass, shapeClass, 'bg-muted')}
         src={src}
         mode="aspectFill"
         onClick={onClick}
@@ -38,7 +39,7 @@ export default function Avatar({
 
   return (
     <View
-      className={`flex items-center justify-center ${sizeClass} ${shapeClass} bg-primary/10`}
+      className={cn('flex items-center justify-center', sizeClass, shapeClass, 'bg-primary/10')}
       onClick={onClick}
     >
       <Text className="text-primary font-medium">{name.charAt(0) || '?'}</Text>
