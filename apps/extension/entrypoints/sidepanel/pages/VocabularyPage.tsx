@@ -150,8 +150,8 @@ export default function VocabularyPage() {
 
   return (
     <div className="p-3 flex flex-col gap-2.5" data-testid="vocab-page">
-      <div className="sp-page-header">
-        <h3>{t('vocab.title')}</h3>
+      <div className="flex items-center justify-between pb-2 border-b border-border">
+        <h3 className="m-0 text-sm font-semibold">{t('vocab.title')}</h3>
       </div>
       <form onSubmit={onSubmit} className="flex gap-1.5">
         <input
@@ -166,7 +166,11 @@ export default function VocabularyPage() {
           {t('vocab.lookup')}
         </button>
       </form>
-      {error ? <div className="error-banner">{error}</div> : null}
+      {error ? (
+        <div className="bg-destructive/10 text-destructive px-2.5 py-2 rounded-md border border-destructive my-2 text-xs">
+          {error}
+        </div>
+      ) : null}
       {result ? (
         <div className="px-3 py-2.5 border border-border rounded-md bg-card text-sm leading-normal">
           <div>
@@ -184,7 +188,11 @@ export default function VocabularyPage() {
             </ul>
           ) : null}
           <div className="mt-2">
-            <button type="button" onClick={onSave} className="link-btn">
+            <button
+              type="button"
+              onClick={onSave}
+              className="bg-transparent border-none text-primary cursor-pointer text-xs px-1.5 py-0.5"
+            >
               {t('vocab.saved')}
             </button>
           </div>
@@ -218,7 +226,11 @@ export default function VocabularyPage() {
                 <span>
                   <strong>{e.word}</strong> — {e.translation}
                 </span>
-                <button type="button" className="link-btn" onClick={() => onRemove(e.word)}>
+                <button
+                  type="button"
+                  className="bg-transparent border-none text-primary cursor-pointer text-xs px-1.5 py-0.5"
+                  onClick={() => onRemove(e.word)}
+                >
                   ×
                 </button>
               </div>
