@@ -2146,8 +2146,8 @@ export default {
     originalPrice: '定価',
     paymentMethod: '支払い方法',
     confirmPay: '支払い確認 ¥{price}',
-    alipay: '支',
-    balance: '残'
+    alipay: 'Alipay',
+    balance: '残高'
   },
   study: {
     todayMinutes: '今日 {{n}} 分',
@@ -2804,7 +2804,8 @@ export default {
   },
   streak: {
     title: '連続学習',
-    totalDays: '累計 {n}日'
+    totalDays: '累計 {n}日',
+    continuousDays: '連続 {{n}} 日'
   },
   withdrawal: {
     records: '引出記録'
