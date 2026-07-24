@@ -70,10 +70,10 @@
 1. 加载 `.env.test`(指向 `ihui_test` 库,与开发/生产 `.env` 隔离)。
 2. 兜底注入测试专用环境变量:
    ```typescript
-   process.env.DATABASE_URL ??= 'postgresql://postgres:postgres@localhost:5432/ihui_test'
+   process.env.DATABASE_URL ??= 'postgresql://postgres:postgres@localhost:8810/ihui_test'
    process.env.JWT_SECRET ??= 'test-jwt-secret-at-least-32-characters-long!!'
    process.env.CREDENTIALS_ENCRYPTION_KEY ??= 'a'.repeat(32)  // 测试允许弱密钥
-   process.env.REDIS_URL ??= 'redis://localhost:6379/1'        // 用 DB 1 隔离
+   process.env.REDIS_URL ??= 'redis://localhost:8811/1'        // 用 DB 1 隔离
    process.env.NODE_ENV = 'test'
    ```
 3. 兼容两种 cwd(`cd apps/api` 或仓库根目录)。
@@ -184,7 +184,7 @@ describe('health route', () => {
 | 运行命令 | `pnpm --filter @ihui/web e2e` |
 | UI 模式 | `pnpm --filter @ihui/web e2e:ui` |
 | 浏览器 | chromium(`playwright install chromium`) |
-| baseURL | `http://localhost:3001`(可被 `PLAYWRIGHT_BASE_URL` 覆盖) |
+| baseURL | `http://localhost:8801`(可被 `PLAYWRIGHT_BASE_URL` 覆盖) |
 
 ### 4.2 playwright.config.ts 关键配置
 
@@ -198,7 +198,7 @@ describe('health route', () => {
   workers: process.env.CI ? 1 : undefined, // CI 单 worker,本地默认
   reporter: 'html',
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3001',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:8801',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -208,7 +208,7 @@ describe('health route', () => {
   ],
   webServer: {
     command: process.env.CI ? 'pnpm build && pnpm start' : 'pnpm dev',
-    url: 'http://localhost:3001',
+    url: 'http://localhost:8801',
     reuseExistingServer: !process.env.CI,  // 本地复用已运行的 dev server
     timeout: process.env.CI ? 240000 : 120000,
   },
@@ -357,11 +357,11 @@ await expect(page).toHaveScreenshot('login.png')
 ```bash
 # 本地压测
 locust -f scripts/locustfile.py --headless \
-    --host http://localhost:3000 \
+    --host http://localhost:8801 \
     --users 100 --spawn-rate 10 --run-time 60s
 
 # CI 注入(环境变量)
-LOCUST_HOST=http://localhost:3000 \
+LOCUST_HOST=http://localhost:8801 \
 LOCUST_TOKEN=<jwt-token> \
 LOCUST_USERS=100 \
 LOCUST_SPAWN_RATE=10 \
@@ -384,7 +384,7 @@ locust -f scripts/locustfile.py --headless
 | 项 | 值 |
 |---|---|
 | 配置 | `apps/web/lighthouserc.json` |
-| 目标 URL | `http://localhost:3000`、`/login`、`/dashboard`、`/admin` |
+| 目标 URL | `http://localhost:8801`、`/login`、`/dashboard`、`/admin` |
 | 运行次数 | 每页 3 次(`numberOfRuns: 3`) |
 | preset | `desktop` |
 
@@ -558,8 +558,8 @@ vi.mock('../src/db/index.js', () => ({
 // 2. Mock config(避免 env 验证失败)
 vi.mock('../src/config/index.js', () => ({
   config: {
-    DATABASE_URL: 'postgres://mock:mock@localhost:5432/mock',
-    REDIS_URL: 'redis://localhost:6379/0',
+    DATABASE_URL: 'postgres://mock:mock@localhost:8810/mock',
+    REDIS_URL: 'redis://localhost:8811/0',
     JWT_SECRET: 'test-secret-at-least-32-characters-long!!',
   },
 }))
