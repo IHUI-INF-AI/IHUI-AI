@@ -41,12 +41,19 @@ export function LoginRedirectListener() {
     if (typeof document === 'undefined') return
 
     // 1. 优先处理 URL 查询参数 (来自 SSR 重定向,如 sso/redirect)
+    // 懒触发策略(2026-07-24 补全,对标 cookie 分支):
+    // - next 为公开路径(/ /login /register /sso/login 等)→ 不弹窗,仅清理 URL
+    // - next 为受保护路径 → 弹窗 + 清理 URL
+    // - 无论是否弹窗,URL 上的 reauth/next 必须清理,避免刷新重复触发(回归根因)
     const reauth = searchParams.get('reauth')
     const nextParam = searchParams.get('next')
     if (reauth === '1' && nextParam) {
       const cleaned = nextParam
-      open('login', cleaned)
-      // 清理 URL 上的 reauth 参数
+      const shouldOpen = !isPublicPath(cleaned)
+      if (shouldOpen) {
+        open('login', cleaned)
+      }
+      // 始终清理 URL 上的 reauth/next 参数,避免刷新重复触发弹窗
       const url = new URL(window.location.href)
       url.searchParams.delete('reauth')
       url.searchParams.delete('next')
