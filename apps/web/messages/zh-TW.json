@@ -455,6 +455,29 @@
     "showPassword": "顯示密碼",
     "hidePassword": "隱藏密碼"
   },
+  "taskReceiver": {
+    "title": "任務接收",
+    "wsConnected": "WS 已連線",
+    "wsDisconnected": "WS 斷線",
+    "deviceLabel": "裝置",
+    "deviceIdCopied": "裝置 ID 已複製:{id}",
+    "deviceIdShow": "裝置 ID:{id}",
+    "emptyWaiting": "等待行動端下發任務",
+    "source": "來源",
+    "target": "下發至",
+    "execute": "執行",
+    "loading": "載入中…",
+    "executed": "任務 {id} 執行完成,結果已回傳",
+    "callbackFailed": "回傳失敗: {error}",
+    "errorPrefix": "異常",
+    "status": {
+      "pending": "待執行",
+      "running": "執行中",
+      "completed": "已完成",
+      "failed": "失敗",
+      "cancelled": "已取消"
+    }
+  },
   "nav": {
     "title": "主導航",
     "home": "首頁",
@@ -28959,6 +28982,145 @@
     },
     "empty": {
       "items": "暫無資源"
+    }
+  },
+  "design": {
+    "title": "設計模式",
+    "htmlLabel": "HTML",
+    "render": "渲染預覽",
+    "cssPanel": "CSS 面板",
+    "commentToChat": "評論到對話",
+    "savePreview": "儲存預覽",
+    "previewNamePlaceholder": "未命名預覽",
+    "clickElementHint": "點擊畫布元素查看樣式",
+    "layout": {
+      "dragHint": "拖曳元素調整位置",
+      "alignTo": "吸附到對齊線",
+      "showGuides": "顯示參考線",
+      "hideGuides": "隱藏參考線"
+    },
+    "commentPlaceholder": "對該元素的評論…",
+    "saved": "已儲存: {name}",
+    "saveFailed": "儲存失敗: {error}",
+    "errorPrefix": "異常",
+    "commented": "已評論 {tagName}#{elementId}: {comment}",
+    "undo": "復原",
+    "redo": "重做",
+    "previewList": "預覽列表",
+    "noPreviews": "暫無已儲存預覽",
+    "loadPreview": "載入預覽",
+    "loadFailed": "載入預覽失敗",
+    "previewName": "預覽名稱",
+    "componentTree": {
+      "title": "組件樹",
+      "empty": "畫布無元素"
+    },
+    "comments": {
+      "title": "評論",
+      "empty": "請先儲存預覽以查看評論",
+      "noComments": "暫無評論",
+      "loadingFailed": "載入評論失敗",
+      "send": "發送評論"
+    },
+    "aiGenerate": {
+      "button": "AI 生成",
+      "placeholder": "描述你想生成的頁面…",
+      "generating": "生成中…",
+      "success": "已生成並注入畫布",
+      "failed": "AI 生成失敗"
+    },
+    "cssGroup": {
+      "layout": "佈局",
+      "boxModel": "盒模型",
+      "typography": "排版",
+      "background": "背景",
+      "effects": "效果",
+      "responsive": "響應式"
+    },
+    "css": {
+      "display": "顯示",
+      "flexDirection": "彈性方向",
+      "justifyContent": "主軸對齊",
+      "alignItems": "交叉軸對齊",
+      "gap": "間距",
+      "flexWrap": "換行",
+      "position": "定位",
+      "top": "上",
+      "right": "右",
+      "bottom": "下",
+      "left": "左",
+      "zIndex": "層級",
+      "width": "寬度",
+      "height": "高度",
+      "padding": "內邊距",
+      "margin": "外邊距",
+      "border": "邊框",
+      "borderRadius": "圓角",
+      "boxSizing": "盒模型",
+      "color": "顏色",
+      "fontSize": "字號",
+      "fontWeight": "字重",
+      "lineHeight": "行高",
+      "textAlign": "對齊",
+      "letterSpacing": "字距",
+      "background": "背景",
+      "backgroundColor": "背景色",
+      "backgroundImage": "背景圖",
+      "opacity": "透明度",
+      "boxShadow": "陰影",
+      "transform": "變換",
+      "transition": "過渡",
+      "cursor": "遊標",
+      "overflow": "溢出",
+      "minWidth": "最小寬度",
+      "maxWidth": "最大寬度",
+      "placeholder": "輸入 CSS 值…",
+      "reset": "重置樣式"
+    },
+    "export": {
+      "exportButton": "匯出程式碼",
+      "exportReact": "React 元件",
+      "exportVue": "Vue 元件",
+      "exportHtml": "純 HTML",
+      "exportSuccess": "已匯出 {filename}"
+    },
+    "responsive": {
+      "deviceMobilePortrait": "手機直向",
+      "deviceMobileLandscape": "手機橫向",
+      "deviceTabletPortrait": "平板直向",
+      "deviceTabletLandscape": "平板橫向",
+      "deviceDesktop": "桌面",
+      "deviceCustom": "自訂",
+      "customWidth": "自訂寬度",
+      "apply": "套用",
+      "deviceFrame": "裝置外框"
+    },
+    "templates": {
+      "title": "範本",
+      "apply": "套用範本",
+      "blank": "空白",
+      "landing": "落地頁",
+      "dashboard": "儀表盤",
+      "login": "登入頁",
+      "blog": "部落格",
+      "product": "電商產品",
+      "pricing": "定價表",
+      "profile": "個人名片",
+      "blankDesc": "最小骨架,從零開始",
+      "landingDesc": "Hero + 功能 + CTA",
+      "dashboardDesc": "側邊欄 + 頂欄 + 卡片",
+      "loginDesc": "居中卡片 + 表單",
+      "blogDesc": "標題 + 正文 + 側邊欄",
+      "productDesc": "圖片 + 詳情 + 購買",
+      "pricingDesc": "三列對比",
+      "profileDesc": "頭像 + 資訊 + 社交",
+      "categories": {
+        "blank": "空白",
+        "marketing": "行銷",
+        "app": "應用",
+        "content": "內容",
+        "commerce": "電商"
+      }
     }
   }
 }
