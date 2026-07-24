@@ -59,19 +59,30 @@ function mapMarketplaceItem(item: unknown, market: string): RawRegistryItem | nu
   }
 }
 
+/**
+ * 从单个 marketplace 源拉取条目,返回 { items, error }。
+ * error 非 null 表示源故障(HTTP 错误或异常),null 表示成功(含"源正常但无数据")。
+ * 这样调用方可区分"源无数据"(items=[], error=null)与"源故障"(items=[], error=非空)。
+ */
 async function fetchFromMarket(
   source: { name: string; url: string },
   timeoutMs: number,
-): Promise<RawRegistryItem[]> {
+): Promise<{ items: RawRegistryItem[]; error: string | null }> {
   try {
     const res = await fetchWithTimeout(source.url, {}, timeoutMs)
-    if (!res.ok) return []
+    if (!res.ok) {
+      return { items: [], error: `${source.name} returned ${res.status}` }
+    }
     const data = await res.json()
-    return extractArray(data)
+    const items = extractArray(data)
       .map(item => mapMarketplaceItem(item, source.name))
       .filter((item): item is RawRegistryItem => item !== null)
-  } catch {
-    return []
+    return { items, error: null }
+  } catch (e) {
+    return {
+      items: [],
+      error: e instanceof Error ? e.message : String(e),
+    }
   }
 }
 
@@ -84,6 +95,24 @@ export const mcpMarketplaceAdapter: RegistryAdapter = {
     const results = await Promise.all(
       MARKETPLACE_SOURCES.map(s => fetchFromMarket(s, timeoutMs)),
     )
-    return results.flat()
+    const errors = results
+      .map((r, i) =>
+        r.error ? `${MARKETPLACE_SOURCES[i]?.name ?? 'unknown'}: ${r.error}` : null,
+      )
+      .filter((e): e is string => e !== null)
+
+    // 全部源都失败 → 抛错(让上层调度器感知并记录)
+    if (errors.length > 0 && results.every(r => r.items.length === 0)) {
+      throw new Error(
+        `All marketplace sources failed: ${errors.join('; ')}`,
+      )
+    }
+    // 部分失败 → 仅 warn(仍有部分源返回数据,不阻塞同步)
+    if (errors.length > 0) {
+      console.warn(
+        `[registry-sync] mcp_marketplace partial failures: ${errors.join('; ')}`,
+      )
+    }
+    return results.flatMap(r => r.items)
   },
 }

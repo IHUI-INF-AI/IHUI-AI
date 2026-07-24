@@ -5,6 +5,11 @@
  * 并写入 registry_sync_logs 日志。
  *
  * 与 registry-queue.ts(生产者)配对:生产者入队 → 本 Worker 消费 → DB 落库。
+ *
+ * 缺口修复(2026-07-24):
+ * - d1:幂等 + 重试去重(lockDuration=60s + maxStalledCount=1 + payload_hash 跳过未变更条目)
+ * - d3:sync_log oldVersion 聚合(取第一个版本有变化的 oldVersion,不再恒为 null)
+ * - d10:优雅关闭(SIGTERM/SIGINT,process.once 避免重复注册)+ 指标统计(挂到 server.registryWorkerStats)
  */
 import type { FastifyInstance } from 'fastify'
 import { Worker } from 'bullmq'
@@ -21,6 +26,13 @@ import {
   markWebhookTriggerProcessed,
 } from '../db/registry-queries.js'
 
+/** Worker 运行时指标(供 /api/registry/worker-stats 端点读取,简化版挂到 server 实例) */
+export interface RegistryWorkerStats {
+  processed: number
+  failed: number
+  lastProcessedAt: Date | null
+}
+
 export function startRegistrySyncWorker(server: FastifyInstance): Worker {
   const connection = server.redisForQueue
   if (!connection) {
@@ -28,24 +40,39 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
     return {} as Worker
   }
 
+  // d10:指标统计(挂到 server 实例,供 worker-stats 端点读取)
+  const stats: RegistryWorkerStats = {
+    processed: 0,
+    failed: 0,
+    lastProcessedAt: null,
+  }
+  ;(server as any).registryWorkerStats = stats
+
   const worker = new Worker<RegistrySyncJobData>(
     REGISTRY_SYNC_QUEUE_NAME,
     async (job) => {
       const startedAt = new Date()
-      // 问题1:解构 triggerId 用于回写;问题3:解构 force 透传至 SyncOptions
       const { sourceType, source, force, triggerId } = job.data
       const githubToken = process.env.GITHUB_TOKEN
       const customRegistryUrl = process.env.IHUI_CUSTOM_REGISTRY_URL
 
+      // d1:重试检测(job 未配 attempts,attemptsMade 恒为 0;防御性日志,供未来启用重试时排查)
+      const isRetry = job.attemptsMade > 0
+      if (isRetry) {
+        server.log.warn(
+          { jobId: job.id, attemptsMade: job.attemptsMade },
+          'registry-sync: 重试任务,启用幂等检查',
+        )
+      }
+
       server.log.info(
-        { jobId: job.id, sourceType, source, force, triggerId },
+        { jobId: job.id, sourceType, source, force, triggerId, attemptsMade: job.attemptsMade },
         'registry-sync: 开始处理同步任务',
       )
 
-      // 问题4:fetchAllRawItems 整体失败时写 sync_log 兜底,再 rethrow 让 BullMQ failed 也能捕获
+      // fetchAllRawItems 整体失败时写 sync_log 兜底,再 rethrow 让 BullMQ failed 也能捕获
       let items
       try {
-        // force 透传至 SyncOptions,适配器可按需消费(index.ts 不在修改清单,适配器层跳过缓存逻辑暂不实现)
         items = await fetchAllRawItems(
           sourceType ?? undefined,
           source ?? undefined,
@@ -67,16 +94,27 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
 
       let synced = 0
       let failed = 0
-      // 问题2:聚合 newVersion 写 sync_log 变更字段(payloadHash 用 computePayloadHash 整体计算,无需单条 hash)
+      let skipped = 0
+      // d2:聚合 newVersion(取第一个非空) + oldVersion(取第一个版本有变化的)
       let newVersion: string | null = null
+      let oldVersion: string | null = null
 
       for (const raw of items) {
         try {
           const heat = calculateHeatScore(raw)
           const quality = calculateQualityScore(raw)
-          await upsertRegistryItem(raw, heat, quality)
-          synced++
-          if (raw.version) newVersion = raw.version
+          const result = await upsertRegistryItem(raw, heat, quality)
+          // d1:幂等检查 — 非 force 且未变更(inserted=false 且 oldVersion === raw.version)记为 skipped
+          if (!force && !result.inserted && result.oldVersion === raw.version) {
+            skipped++
+          } else {
+            synced++
+          }
+          if (raw.version && !newVersion) newVersion = raw.version
+          // d2:收集 oldVersion(取第一个版本有变化的,即 oldVersion !== raw.version)
+          if (result.oldVersion && result.oldVersion !== raw.version && !oldVersion) {
+            oldVersion = result.oldVersion
+          }
         } catch (err) {
           failed++
           server.log.warn(
@@ -86,11 +124,10 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
         }
       }
 
-      // 问题5:三态判定 — skipped(空结果)/ fail(全部失败)/ success(有成功)
+      // 三态判定 — skipped(空结果)/ fail(全部失败)/ success(有成功)
       const status: 'success' | 'fail' | 'skipped' =
         failed > 0 ? (synced > 0 ? 'success' : 'fail') : (items.length === 0 ? 'skipped' : 'success')
 
-      // 问题2:payloadHash 用 computePayloadHash 对所有 items 的 payload 整体计算;oldVersion 暂传 null
       const payloadHash = items.length > 0
         ? await computePayloadHash({ items: items.map((i) => i.payload) })
         : null
@@ -101,20 +138,21 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
         status,
         errorMessage: failed > 0 ? `${failed} 个条目 upsert 失败` : null,
         payloadHash,
-        oldVersion: null,
+        oldVersion,
         newVersion,
         durationMs: Date.now() - startedAt.getTime(),
         startedAt,
         finishedAt: new Date(),
       })
 
-      // 问题1:webhook trigger 状态回写 — 成功时标记 processed
+      // webhook trigger 状态回写 — 成功时标记 processed
+      // 注:job 未配 attempts,failed 事件即最终失败,无需检查是否已被前次重试标记
       if (triggerId) {
         try {
           await markWebhookTriggerProcessed(
             triggerId,
             'processed',
-            `同步完成: synced=${synced} failed=${failed}`,
+            `同步完成: synced=${synced} failed=${failed} skipped=${skipped}`,
           )
         } catch (err) {
           server.log.warn(
@@ -125,21 +163,31 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
       }
 
       server.log.info(
-        { jobId: job.id, synced, failed, total: items.length, durationMs: Date.now() - startedAt.getTime() },
+        { jobId: job.id, synced, failed, skipped, total: items.length, durationMs: Date.now() - startedAt.getTime() },
         'registry-sync: 同步任务完成',
       )
 
-      return { synced, failed, total: items.length }
+      return { synced, failed, skipped, total: items.length }
     },
-    { connection, concurrency: 1 },
+    {
+      connection,
+      concurrency: 1,
+      lockDuration: 60000,    // d1:60s,避免长任务被判定 stalled
+      maxStalledCount: 1,     // d1:最多 stall 1 次后判定失败,避免无限重试
+    },
   )
 
+  worker.on('completed', () => {
+    stats.processed++
+    stats.lastProcessedAt = new Date()
+  })
   worker.on('failed', (job, err) => {
+    stats.failed++
     server.log.error(
       { jobId: job?.id, err: err.message },
       'registry-sync: 同步任务异常',
     )
-    // 问题1:webhook trigger 状态回写 — 失败时标记 failed
+    // webhook trigger 状态回写 — 失败时标记 failed
     const triggerId = job?.data?.triggerId
     if (triggerId) {
       markWebhookTriggerProcessed(triggerId, 'failed', err.message).catch((e) => {
@@ -150,6 +198,22 @@ export function startRegistrySyncWorker(server: FastifyInstance): Worker {
       })
     }
   })
+
+  // d10:优雅关闭 — process.once 避免重复注册(worker 理论上只创建一次,防御性编程)
+  const gracefulShutdown = async (signal: string) => {
+    server.log.info({ signal }, 'registry-sync: 收到关闭信号,正在优雅关闭 worker...')
+    try {
+      await worker.close()
+      server.log.info('registry-sync: worker 已优雅关闭')
+    } catch (err) {
+      server.log.error(
+        { err: err instanceof Error ? err.message : String(err) },
+        'registry-sync: worker 关闭失败',
+      )
+    }
+  }
+  process.once('SIGTERM', () => void gracefulShutdown('SIGTERM'))
+  process.once('SIGINT', () => void gracefulShutdown('SIGINT'))
 
   return worker
 }

@@ -41,6 +41,7 @@ export const registryItems = pgTable(
     qualityScore: integer('quality_score').default(0).notNull(),
     latestSyncedAt: timestamp('latest_synced_at', { withTimezone: true }),
     payload: jsonb('payload').notNull().default({}),
+    payloadHash: varchar('payload_hash', { length: 64 }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -55,6 +56,7 @@ export const registryItems = pgTable(
     heatScoreIdx: index('registry_items_heat_score_idx').on(t.heatScore),
     qualityScoreIdx: index('registry_items_quality_score_idx').on(t.qualityScore),
     latestSyncedAtIdx: index('registry_items_latest_synced_at_idx').on(t.latestSyncedAt),
+    payloadHashIdx: index('registry_items_payload_hash_idx').on(t.payloadHash),
   }),
 )
 
