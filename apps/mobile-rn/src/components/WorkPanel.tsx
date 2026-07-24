@@ -4,11 +4,12 @@
  * 依赖:react-native-webview(需安装:pnpm --filter @ihui/mobile-rn add react-native-webview)
  */
 import { useCallback, useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import WebView from 'react-native-webview'
 
+import { Loading } from '@ihui/ui-native'
 // ── 模块级导航回调(由 RootNavigator 中的 NavBridge 注册) ──
 let _navigateFn: ((url: string) => void) | null = null
 
@@ -79,7 +80,7 @@ export function WorkPanelScreen({ route }: { route: WorkPanelRoute }) {
         />
         {loading ? (
           <View style={[StyleSheet.absoluteFill, styles.center]}>
-            <ActivityIndicator color="#16a34a" />
+            <Loading color="#16a34a" />
           </View>
         ) : null}
         {error ? (

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
+import { Loading } from '@ihui/ui-native'
 interface Note { id: string; title: string; content: string; tags: string[]; views: number; likes: number; author: string; createdAt: string }
 
 type Route = RouteProp<RootStackParamList, 'NoteDetail'>
@@ -34,7 +35,7 @@ export function NoteDetailScreen() {
     return () => { cancelled = true }
   }, [id, t])
 
-  if (loading) return <View style={styles.center}><ActivityIndicator /><Text style={styles.muted}>{t('common.loading')}</Text></View>
+  if (loading) return <View style={styles.center}><Loading /><Text style={styles.muted}>{t('common.loading')}</Text></View>
   if (error || !note) return (
     <View style={styles.center}>
       <Text style={styles.error}>{error || t('noteDetail.loadFailed')}</Text>

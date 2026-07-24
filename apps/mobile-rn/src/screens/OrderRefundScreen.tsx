@@ -1,15 +1,8 @@
 import { useEffect, useState } from 'react'
-import {
-  ActivityIndicator,
-  FlatList,
-  RefreshControl,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native'
+import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { Button, Card, Input } from '@ihui/ui-native'
+import { Button, Card, Input, Loading } from '@ihui/ui-native'
 import { getOrders, refundOrder, type Order } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -125,7 +118,7 @@ export function OrderRefundScreen() {
         ListEmptyComponent={
           loading ? (
             <View className="items-center py-12">
-              <ActivityIndicator />
+              <Loading />
               <Text className="mt-2 text-sm text-neutral-500">{t('common.loading')}</Text>
             </View>
           ) : (
