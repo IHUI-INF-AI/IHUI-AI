@@ -163,11 +163,14 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
           {loading ? (
             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
           ) : (
-            /* 2026-07-20 修复底部工具栏溢出(双策略):
+            /* 2026-07-20 修复底部工具栏溢出(双策略),2026-07-25 修正阈值:
                1. span max-w 从 12rem(192px) 收缩到 6rem(96px),常规宽度下不挤占其他按钮
                2. 原生 CSS container query(在 globals.css .ai-input-toolbar 规则中):
-                  工具栏容器 <= 359px(对应面板 <= 391px)时 .model-selector-text 隐藏,
+                  工具栏 container 内容盒 <= 299px(面板 <= 347px)时 .model-selector-text 隐藏,
                   只显示 BrandIcon + chevron,保证最窄 320px 面板也能完整显示所有按钮。
+                  原阈值 359px 误把"container 内容盒宽"当"面板内容宽",导致默认 400px 面板
+                  (container 352 < 359)时 text 被隐藏,即使有 80px slack 可用。
+                  badge 阈值保留 359px(面板 <= 407px 时隐藏),优先让 text 在更多面板宽度下可见。
                不用 Tailwind hidden sm:inline 模式:
                实测 Tailwind v4 把 sm:inline 编译为裸类(无 @media 包裹)且顺序在 .hidden 之后,
                导致 specificity 相同时由顺序决定胜负,400px 默认宽度下 span 仍隐藏。
@@ -178,7 +181,8 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
           )}
           {/* 配置感知徽章:已配置 → 绿色 ✓,未配置 → 琥珀 ⚠
               引导用户到模型广场页 /settings/llm 或模型详情对话框里配置
-              2026-07-20 原生 CSS container query:窄面板(<= 391px)时与 span 同步隐藏 */}
+              2026-07-25 原生 CSS container query:container <= 359px(面板 <= 407px)时隐藏,
+              badge 占 20px,仅在宽面板显示以避免挤占 text 空间(详见 globals.css 注释) */}
           {showConfigBadge && !loading && (
             currentConfigured ? (
               <CheckCircle2
