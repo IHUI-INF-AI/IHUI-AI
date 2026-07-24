@@ -1,6 +1,6 @@
-// @ts-expect-error tauri 桥接依赖仅在 Tauri WebView(desktop 套壳)运行时可用,web 端 typecheck 未安装;运行时由 Tauri 注入,desktop 构建时 next.config.ts transpilePackages 解析真实包
+// tauri 桥接依赖:运行时由 Tauri WebView 注入,构建时 next.config.ts transpilePackages 解析。
+// pnpm workspace 已将 @tauri-apps/api 与 @tauri-apps/plugin-dialog 链接到 web node_modules。
 import { invoke } from '@tauri-apps/api/core'
-// @ts-expect-error 同上(@tauri-apps/plugin-dialog 仅 desktop 端可用)
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 
 export { formatFileSize } from '@ihui/shared/utils/format'
@@ -70,6 +70,67 @@ export async function toggleMainWindow(): Promise<boolean> {
     await invoke('plugin:window|set_focus', { label: 'main' })
   }
   return !visible
+}
+
+/** 最小化主窗口。非 Tauri 环境静默忽略。 */
+export async function minimizeWindow(): Promise<void> {
+  if (!isTauri()) return
+  await invoke('plugin:window|minimize', { label: 'main' })
+}
+
+/** 最大化主窗口(已最大化则无变化)。非 Tauri 环境静默忽略。 */
+export async function maximizeWindow(): Promise<void> {
+  if (!isTauri()) return
+  await invoke('plugin:window|maximize', { label: 'main' })
+}
+
+/** 还原最大化窗口。非 Tauri 环境静默忽略。 */
+export async function unmaximizeWindow(): Promise<void> {
+  if (!isTauri()) return
+  await invoke('plugin:window|unmaximize', { label: 'main' })
+}
+
+/** 切换最大化/还原(双击标题栏等场景)。非 Tauri 环境静默忽略。 */
+export async function toggleMaximizeWindow(): Promise<boolean> {
+  if (!isTauri()) return false
+  await invoke('plugin:window|toggle_maximize', { label: 'main' })
+  return await invoke<boolean>('plugin:window|is_maximized', { label: 'main' })
+}
+
+/** 查询主窗口是否已最大化。非 Tauri 环境返回 false。 */
+export async function isWindowMaximized(): Promise<boolean> {
+  if (!isTauri()) return false
+  return await invoke<boolean>('plugin:window|is_maximized', { label: 'main' })
+}
+
+/** 关闭主窗口(实际行为由 Rust 端 on_window_event 决定:最小化到托盘而非退出)。 */
+export async function closeWindow(): Promise<void> {
+  if (!isTauri()) return
+  await invoke('plugin:window|close', { label: 'main' })
+}
+
+/** 启动窗口拖拽(自定义标题栏用,鼠标按下时调用,系统接管移动)。 */
+export async function startWindowDrag(): Promise<void> {
+  if (!isTauri()) return
+  await invoke('plugin:window|start_dragging', { label: 'main' })
+}
+
+// ================== 应用信息 ==================
+
+export interface DesktopAppInfo {
+  name: string
+  version: string
+  platform: string
+}
+
+/** 获取桌面端应用信息(名称/版本/平台)。非 Tauri 环境返回 null。 */
+export async function getDesktopAppInfo(): Promise<DesktopAppInfo | null> {
+  if (!isTauri()) return null
+  try {
+    return await invoke<DesktopAppInfo>('get_app_info')
+  } catch {
+    return null
+  }
 }
 
 // ================== 原生通知 ==================
