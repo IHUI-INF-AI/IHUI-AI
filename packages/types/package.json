@@ -34,10 +34,6 @@
       "types": "./src/api-contracts.ts",
       "import": "./src/api-contracts.ts"
     },
-    "./subagent-dispatch": {
-      "types": "./src/subagent-dispatch.ts",
-      "import": "./src/subagent-dispatch.ts"
-    },
     "./orchestration": {
       "types": "./src/orchestration.ts",
       "import": "./src/orchestration.ts"
