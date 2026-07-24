@@ -42,7 +42,7 @@ function agentToForm(a: Agent): AgentForm {
 }
 
 export default function EditAgentPage() {
-  const t = useTranslations('agents')
+  const t = useTranslations('agent')
   const tc = useTranslations('common')
   const router = useRouter()
   const params = useParams<{ id: string }>()
