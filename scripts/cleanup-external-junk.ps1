@@ -1,29 +1,40 @@
 # ============================================================================
-# 清理 G:\ 根目录的项目外垃圾文件和目录
+# Cleanup G:\ root external junk files and directories
 # ============================================================================
-# 成因:
-#   1. 微信支付商户 API 证书工具 V1.4.exe(Qt 应用)在 G:\ 根目录运行时
-#      释放 Qt 插件目录(platforms/iconengines/imageformats/styles/bearer/
-#      translations)+ Qt5*.dll + 依赖 DLL + CA/cert/WXCertUtil 证书工作目录
-#   2. pnpm 在 G:\ 根目录运行时创建 .pnpm-store(版本 v11,与项目内 v3 冲突)
-#   3. 旧版证书放在 G:\ai_zhs\(已迁移到项目内 g:\IHUI-AI\cert\)
-#   4. 临时文件散落在 G:\ 根目录(tmp/ tmp-test.log tmp_head.ts tmp_config_*.py
-#      _tmp_* .tmp-edit-zhtw.mjs)
+# Causes:
+#   1. WeChat Pay Merchant API Cert Tool V1.4.exe (Qt app) run in G:\ root
+#      deploys Qt plugin dirs (platforms/iconengines/imageformats/styles/
+#      bearer/translations) + Qt5*.dll + dependency DLLs + CA/cert/WXCertUtil
+#   2. pnpm run in G:\ root created .pnpm-store (v11, conflicts with project v3)
+#   3. Old certs in G:\ai_zhs\ (migrated to g:\IHUI-AI\cert\)
+#   4. Temp files scattered in G:\ root (tmp/ tmp-test.log tmp_head.ts ...)
+#   5. QoderCN IDE venv command wrote C:\ as g:\c\, Python created full path
+#      chain c\Users\Administrator\.workbuddy\binaries\python\envs\default\
+#      (evidence: pyvenv.cfg line 5 command field)
+#   6. QoderCN path resolution fallback dir nonexistent-root\no-perm\
+#   7. QoderCN JDK probe cache in G:\.appdata\jdk.md (32-bit hash)
 #
-# 用法:
+# Usage:
 #   powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-junk.ps1
+#   powershell -ExecutionPolicy Bypass -File g:\IHUI-AI\scripts\cleanup-external-junk.ps1 -Force
 #
-# 安全保证:
-#   - 只删除下方明确列出的 13 个目录 + 31 个文件,不用通配符
-#   - 不触碰其他应用目录(Trae CN / MuMuPlayer / QoderCN / WeGameApps 等)
-#   - 删除前显示清单并要求确认
+# Safety:
+#   - Only deletes 16 dirs + 31 files explicitly listed below, no wildcards
+#   - Does NOT touch other app dirs (Trae CN / MuMuPlayer / QoderCN / WeGameApps)
+#   - Default asks for confirmation; -Force skips (for agent auto-run)
 # ============================================================================
 
 #Requires -Version 5.0
 
 $ErrorActionPreference = 'Stop'
 
-# ---- 待清理目录(13 个)----
+# ---- Parse -Force flag ----
+$Force = $false
+foreach ($a in $args) {
+    if ($a -eq '-Force' -or $a -eq '--force' -or $a -eq '-y') { $Force = $true }
+}
+
+# ---- Junk dirs to clean (16) ----
 $junkDirs = @(
     'G:\platforms',
     'G:\iconengines',
@@ -37,10 +48,13 @@ $junkDirs = @(
     'G:\rail_user_data',
     'G:\.pnpm-store',
     'G:\tmp',
-    'G:\ai_zhs'
+    'G:\ai_zhs',
+    'G:\.appdata',
+    'G:\c',
+    'G:\nonexistent-root'
 )
 
-# ---- 待清理文件(31 个)----
+# ---- Junk files to clean (31) ----
 $junkFiles = @(
     'G:\微信支付商户API证书工具 V1.4.exe',
     'G:\Qt5Core.dll',
@@ -75,33 +89,37 @@ $junkFiles = @(
     'G:\_tmp_37636_ebf2f152cb4ebf387c892fa70e2bbd78'
 )
 
-# ---- 统计存在的待删项 ----
+# ---- Count existing items ----
 $existingDirs = $junkDirs | Where-Object { Test-Path $_ }
 $existingFiles = $junkFiles | Where-Object { Test-Path $_ }
 
 Write-Host ''
-Write-Host '======== G:\ 根目录垃圾清理 ========' -ForegroundColor Cyan
+Write-Host '======== G:\ root junk cleanup ========' -ForegroundColor Cyan
 Write-Host ''
-Write-Host "待删除目录($($existingDirs.Count)/$($junkDirs.Count) 个存在):" -ForegroundColor Yellow
+Write-Host "Dirs to delete ($($existingDirs.Count)/$($junkDirs.Count) exist):" -ForegroundColor Yellow
 foreach ($d in $existingDirs) { Write-Host "  [DIR]  $d" }
 Write-Host ''
-Write-Host "待删除文件($($existingFiles.Count)/$($junkFiles.Count) 个存在):" -ForegroundColor Yellow
+Write-Host "Files to delete ($($existingFiles.Count)/$($junkFiles.Count) exist):" -ForegroundColor Yellow
 foreach ($f in $existingFiles) { Write-Host "  [FILE] $f" }
 Write-Host ''
 
 if ($existingDirs.Count -eq 0 -and $existingFiles.Count -eq 0) {
-    Write-Host '没有需要清理的垃圾文件,G:\ 根目录已干净。' -ForegroundColor Green
+    Write-Host 'Nothing to clean. G:\ root is already clean.' -ForegroundColor Green
     exit 0
 }
 
-# ---- 确认 ----
-$confirm = Read-Host "确认删除以上 $($existingDirs.Count) 个目录 + $($existingFiles.Count) 个文件?(输入 YES 继续)"
-if ($confirm -ne 'YES') {
-    Write-Host '已取消,未删除任何内容。' -ForegroundColor Red
-    exit 1
+# ---- Confirm (skip with -Force) ----
+if (-not $Force) {
+    $confirm = Read-Host "Confirm delete $($existingDirs.Count) dirs + $($existingFiles.Count) files? (type YES to proceed)"
+    if ($confirm -ne 'YES') {
+        Write-Host 'Cancelled. Nothing deleted.' -ForegroundColor Red
+        exit 1
+    }
+} else {
+    Write-Host '-Force enabled, skipping confirmation...' -ForegroundColor Cyan
 }
 
-# ---- 执行删除 ----
+# ---- Execute deletion ----
 $deletedDirs = 0
 $deletedFiles = 0
 $failed = @()
@@ -109,10 +127,10 @@ $failed = @()
 foreach ($d in $existingDirs) {
     try {
         Remove-Item -Path $d -Recurse -Force -ErrorAction Stop
-        Write-Host "  [OK] 删除目录: $d" -ForegroundColor Green
+        Write-Host "  [OK] dir: $d" -ForegroundColor Green
         $deletedDirs++
     } catch {
-        Write-Host "  [FAIL] 目录: $d — $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "  [FAIL] dir: $d - $($_.Exception.Message)" -ForegroundColor Red
         $failed += $d
     }
 }
@@ -120,27 +138,27 @@ foreach ($d in $existingDirs) {
 foreach ($f in $existingFiles) {
     try {
         Remove-Item -Path $f -Force -ErrorAction Stop
-        Write-Host "  [OK] 删除文件: $f" -ForegroundColor Green
+        Write-Host "  [OK] file: $f" -ForegroundColor Green
         $deletedFiles++
     } catch {
-        Write-Host "  [FAIL] 文件: $f — $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "  [FAIL] file: $f - $($_.Exception.Message)" -ForegroundColor Red
         $failed += $f
     }
 }
 
-# ---- 汇总 ----
+# ---- Summary ----
 Write-Host ''
-Write-Host '======== 清理完成 ========' -ForegroundColor Cyan
-Write-Host "成功删除: $deletedDirs 个目录 + $deletedFiles 个文件" -ForegroundColor Green
+Write-Host '======== Cleanup complete ========' -ForegroundColor Cyan
+Write-Host "Deleted: $deletedDirs dirs + $deletedFiles files" -ForegroundColor Green
 if ($failed.Count -gt 0) {
-    Write-Host "失败: $($failed.Count) 项:" -ForegroundColor Red
+    Write-Host "Failed: $($failed.Count) items:" -ForegroundColor Red
     foreach ($item in $failed) { Write-Host "  $item" -ForegroundColor Red }
     Write-Host ''
-    Write-Host '提示:失败的项可能是被占用或有只读属性,请关闭相关程序后重试。' -ForegroundColor Yellow
+    Write-Host 'Hint: failed items may be locked or read-only. Close relevant apps and retry.' -ForegroundColor Yellow
     exit 1
 } else {
-    Write-Host '全部删除成功,G:\ 根目录垃圾已清理干净。' -ForegroundColor Green
+    Write-Host 'All deleted successfully. G:\ root junk cleaned.' -ForegroundColor Green
     Write-Host ''
-    Write-Host '验证:执行 G:\ 根目录已不再包含 Qt 插件目录 / Qt DLL / 证书工具残留。' -ForegroundColor Cyan
+    Write-Host 'Verify: G:\ root no longer contains Qt plugin dirs / Qt DLLs / cert tool residue.' -ForegroundColor Cyan
     exit 0
 }
