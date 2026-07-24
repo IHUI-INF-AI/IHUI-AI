@@ -88,15 +88,8 @@ const MessageItem = React.memo(function MessageItem({
           <Sparkles className="h-4 w-4" />
         )}
       </div>
-      <div
-        className={cn(
-          'flex max-w-[85%] flex-col gap-1',
-          isUser ? 'items-end' : 'items-start',
-        )}
-      >
-        {!isUser && (
-          <span className="px-1 text-xs text-muted-foreground">{assistantLabel}</span>
-        )}
+      <div className={cn('flex max-w-[85%] flex-col gap-1', isUser ? 'items-end' : 'items-start')}>
+        {!isUser && <span className="px-1 text-xs text-muted-foreground">{assistantLabel}</span>}
         <div
           className={cn(
             'rounded-2xl px-4 py-2.5',
@@ -110,9 +103,7 @@ const MessageItem = React.memo(function MessageItem({
           {showTyping ? (
             <TypingIndicator />
           ) : isUser ? (
-            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">
-              {m.content}
-            </p>
+            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{m.content}</p>
           ) : (
             <div className="space-y-2">
               {m.reasoning && <ReasoningBlock reasoning={m.reasoning} />}
@@ -122,6 +113,39 @@ const MessageItem = React.memo(function MessageItem({
                 const effectiveDiffInfo =
                   tc.diffInfo ?? deriveDiffInfo(tc.toolName, tc.args) ?? undefined
                 const hasDiff = !!effectiveDiffInfo
+
+                // image_generation/summarize_artifacts:从 tc 显式字段或 result 推导 imageUrl/summaryData
+                // 优先用 tc.image_url / tc.summary_data(SSE 推送已填充时),
+                // 否则从 tc.result 兜底推导(适配旧后端不显式推 image_url 字段的场景)
+                const tcResult =
+                  tc.result && typeof tc.result === 'object'
+                    ? (tc.result as Record<string, unknown>)
+                    : null
+                const effectiveImageUrl: string | undefined =
+                  tc.image_url ||
+                  (typeof tcResult?.image_url === 'string' ? tcResult.image_url : undefined) ||
+                  (typeof tcResult?.imageUrl === 'string' ? tcResult.imageUrl : undefined)
+                const effectiveSummaryData =
+                  tc.summary_data ??
+                  (tcResult &&
+                  (tcResult.plans ||
+                    tcResult.sources ||
+                    tcResult.artifacts ||
+                    tcResult.tool_calls_summary)
+                    ? ({
+                        plans: Array.isArray(tcResult.plans) ? tcResult.plans : undefined,
+                        sources: Array.isArray(tcResult.sources) ? tcResult.sources : undefined,
+                        artifacts: Array.isArray(tcResult.artifacts)
+                          ? tcResult.artifacts
+                          : undefined,
+                        tool_calls_summary:
+                          tcResult.tool_calls_summary &&
+                          typeof tcResult.tool_calls_summary === 'object'
+                            ? tcResult.tool_calls_summary
+                            : undefined,
+                      } as unknown as React.ComponentProps<typeof ToolCallCard>['summaryData'])
+                    : undefined)
+
                 return (
                   <ToolCallCard
                     key={tc.id}
@@ -136,16 +160,14 @@ const MessageItem = React.memo(function MessageItem({
                     applyStatus={tc.applyStatus}
                     applyError={tc.applyError}
                     repeated={tc.repeated}
+                    imageUrl={effectiveImageUrl}
+                    summaryData={effectiveSummaryData}
                     onApply={
                       hasDiff && onApplyDiff
                         ? () => onApplyDiff(m.id, tc.id, effectiveDiffInfo!)
                         : undefined
                     }
-                    onReject={
-                      hasDiff && onRejectDiff
-                        ? () => onRejectDiff(m.id, tc.id)
-                        : undefined
-                    }
+                    onReject={hasDiff && onRejectDiff ? () => onRejectDiff(m.id, tc.id) : undefined}
                   />
                 )
               })}
