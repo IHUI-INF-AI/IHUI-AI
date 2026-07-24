@@ -1,10 +1,9 @@
 import { Crown } from 'lucide-react'
+import { type VipBadgeBaseProps } from '@ihui/design-tokens'
 import { cn } from '../lib/utils'
 
-interface VipBadgeProps {
+interface VipBadgeProps extends VipBadgeBaseProps {
   className?: string
-  size?: 'sm' | 'md'
-  label?: string
 }
 
 export function VipBadge({ className, size = 'sm', label = 'VIP' }: VipBadgeProps) {
