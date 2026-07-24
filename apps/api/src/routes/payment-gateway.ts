@@ -32,6 +32,7 @@ import {
   buildSignedUrl,
   appPayOrder,
   tradeCreate,
+  exchangeAuthCode,
   verifyNotify,
   queryOrder as aliQueryOrder,
   refundOrder as aliRefundOrder,
@@ -101,6 +102,17 @@ const alipayCreateQuery = z.object({
   orderType: z.coerce.number().optional().default(0),
   subject: z.string().optional().default('订单支付'),
   productId: z.string().optional(),
+  /**
+   * 小程序支付必传:买家支付宝 user_id(2088开头16位纯数字)或 buyer_open_id。
+   * 小程序端通过 my.getAuthCode + alipay.system.oauth.token 兑换后传入。
+   * 缺失时后端降级返回 mock=true(不调支付宝,仅落订单)。
+   */
+  buyerId: z.string().optional(),
+})
+
+const alipayExchangeQuery = z.object({
+  /** 小程序 my.getAuthCode({ scopes: 'auth_user' }) 返回的 authCode */
+  authCode: z.string().min(1),
 })
 
 const alipayRefundQuery = z.object({
@@ -673,17 +685,42 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
   )
 
   server.post(
+    '/payments/alipay/miniapp/exchange-buyer-id',
+    {
+      schema: buildSchema({
+        summary: '小程序授权码兑换买家 user_id',
+        description: '小程序端 my.getAuthCode({scopes:"auth_user"}) 拿到 authCode 后,POST 此端点兑换买家 user_id(2088开头)或 open_id。',
+        tags: ['Payment'],
+        auth: false,
+      }),
+    },
+    async (request, reply) => {
+      const { authCode } = alipayExchangeQuery.parse(request.body ?? request.query)
+      if (!isAlipayConfigured()) {
+        return reply.status(503).send(error(503, '支付宝未配置,无法兑换 buyer_id'))
+      }
+      try {
+        const result = await exchangeAuthCode(authCode)
+        return reply.send(success(result))
+      } catch (err) {
+        request.log.error({ err, authCodePrefix: authCode.slice(0, 8) }, 'alipay exchange auth code failed')
+        return reply.status(400).send(error(400, `授权码兑换失败: ${(err as Error).message}`))
+      }
+    },
+  )
+
+  server.post(
     '/payments/alipay/miniapp/create',
     {
       schema: buildSchema({
         summary: '支付宝小程序支付下单',
-        description: '创建支付宝小程序支付订单,返回 tradeNO 给前端调起支付(金额单位:元)',
+        description: '创建支付宝小程序支付订单(JSAPI_PAY),返回 tradeNO 给前端 my.tradePay 调起支付(金额单位:元)。buyerId 必传(从 alipay.system.oauth.token 兑换)或降级 mock。',
         tags: ['Payment'],
       }),
     },
     async (request, reply) => {
       await authenticate(request)
-      const { amount: amountYuan, orderType, subject, productId } = alipayCreateQuery.parse(request.query)
+      const { amount: amountYuan, orderType, subject, productId, buyerId } = alipayCreateQuery.parse(request.query)
       const userId = request.userId!
       const amountCents = Math.round(amountYuan * 100)
       if (!amountCents || amountCents <= 0)
@@ -699,8 +736,17 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       })
       if (!isAlipayConfigured())
         return reply.send(success({ outTradeNo: order.orderNo, mock: true }))
+      // 小程序支付必须传 buyer_id,缺失降级 mock(避免 40006 错误)
+      if (!buyerId) {
+        request.log.warn({ orderNo: order.orderNo, userId }, 'miniapp pay missing buyerId, falling back to mock')
+        return reply.send(success({ outTradeNo: order.orderNo, mock: true, reason: 'missing_buyer_id' }))
+      }
+      if (!env.ALIPAY_MINIAPP_APP_ID) {
+        request.log.warn({ orderNo: order.orderNo }, 'miniapp pay missing ALIPAY_MINIAPP_APP_ID, falling back to mock')
+        return reply.send(success({ outTradeNo: order.orderNo, mock: true, reason: 'missing_op_app_id' }))
+      }
       try {
-        const { tradeNo } = await tradeCreate({ outTradeNo: order.orderNo, amount: amountYuan, subject })
+        const { tradeNo } = await tradeCreate({ outTradeNo: order.orderNo, amount: amountYuan, subject, buyerId })
         return reply.send(success({ outTradeNo: order.orderNo, tradeNo }))
       } catch (err) {
         request.log.error({ err, orderNo: order.orderNo }, 'alipay miniapp tradeCreate failed')
